@@ -67,6 +67,7 @@ DAML SDK documentation
 
    concepts/glossary
    concepts/ledger-model/index
+   concepts/identity-and-package-management
 
 .. toctree::
    :titlesonly:
@@ -75,6 +76,7 @@ DAML SDK documentation
    :caption: Deploying
 
    deploy/index
+   deploy/ledger-topologies
 
 .. toctree::
    :titlesonly:
@@ -92,6 +94,7 @@ DAML SDK documentation
 
    experimental/warning
    daml-integration-kit/index
+   migrate/index
 
 .. toctree::
    :titlesonly:

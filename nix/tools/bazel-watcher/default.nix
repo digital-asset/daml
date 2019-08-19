@@ -50,7 +50,12 @@ buildBazelPackage rec {
       sed -e '/^FILE:@bazel_gazelle_go_repository_tools.*/d' -i $bazelOut/external/\@*.marker
     '';
 
-    sha256 = "1b2apdfcpx7v0rjcl9frx02cac1gic0acx7p526q5all6xic6r6k";
+    sha256 =
+      if stdenv.isDarwin then
+        "0nz0z9d8y7kckgzshlsbjxrkqdaxrjdyinjs4ffkbvr3iikf958g"
+      else
+        "08yr8419yl065sf129xy1dzadsxgq0vwsl59x7wq6f0ax08si1di"
+    ;
   };
 
   buildAttrs = {

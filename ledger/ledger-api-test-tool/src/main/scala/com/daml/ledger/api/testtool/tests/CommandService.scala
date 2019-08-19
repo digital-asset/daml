@@ -11,11 +11,12 @@ import scalaz.syntax.tag._
 final class CommandService(session: LedgerSession) extends LedgerTestSuite(session) {
   private val submitAndWaitTest =
     LedgerTest("CSsubmitAndWait", "SubmitAndWait creates a contract of the expected template") {
-      implicit context =>
+      ledger =>
         for {
-          alice <- allocateParty()
-          _ <- submitAndWait(alice, Dummy(alice).create.command)
-          active <- activeContracts(alice)
+          alice <- ledger.allocateParty()
+          request <- ledger.submitAndWaitRequest(alice, Dummy(alice).create.command)
+          _ <- ledger.submitAndWait(request)
+          active <- ledger.activeContracts(alice)
         } yield {
           assert(active.size == 1)
           val dummyTemplateId = active.flatMap(_.templateId.toList).head
@@ -25,12 +26,13 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
 
   private val submitAndWaitForTransactionIdTest = LedgerTest(
     "CSsubmitAndWaitForTransactionId",
-    "SubmitAndWaitForTransactionId returns a valid transaction identifier") { implicit context =>
+    "SubmitAndWaitForTransactionId returns a valid transaction identifier") { ledger =>
     for {
-      alice <- allocateParty()
-      transactionId <- submitAndWaitForTransactionId(alice, Dummy(alice).create.command)
-      retrievedTransaction <- transactionTreeById(transactionId, alice)
-      transactions <- flatTransactions(alice)
+      alice <- ledger.allocateParty()
+      request <- ledger.submitAndWaitRequest(alice, Dummy(alice).create.command)
+      transactionId <- ledger.submitAndWaitForTransactionId(request)
+      retrievedTransaction <- ledger.transactionTreeById(transactionId, alice)
+      transactions <- ledger.flatTransactions(alice)
     } yield {
 
       assert(transactionId.nonEmpty, "The transaction identifier was empty but shouldn't.")
@@ -57,7 +59,7 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
 
       assert(
         retrievedEvent.kind.isCreated,
-        s"The only event seen should be a created but instead it's ${retrievedEvent}")
+        s"The only event seen should be a created but instead it's $retrievedEvent")
       assert(
         retrievedEvent.getCreated == created,
         s"The retrieved created event does not match the one in the flat transactions: event=$created retrieved=$retrievedEvent"
@@ -68,10 +70,11 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
 
   private val submitAndWaitForTransactionTest = LedgerTest(
     "CSsubmitAndWaitForTransaction",
-    "SubmitAndWaitForTransaction returns a transaction") { implicit context =>
+    "SubmitAndWaitForTransaction returns a transaction") { ledger =>
     for {
-      alice <- allocateParty()
-      transaction <- submitAndWaitForTransaction(alice, Dummy(alice).create.command)
+      alice <- ledger.allocateParty()
+      request <- ledger.submitAndWaitRequest(alice, Dummy(alice).create.command)
+      transaction <- ledger.submitAndWaitForTransaction(request)
     } yield {
       assert(
         transaction.transactionId.nonEmpty,
@@ -93,10 +96,11 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
 
   private val submitAndWaitForTransactionTreeTest = LedgerTest(
     "CSsubmitAndWaitForTransactionTree",
-    "SubmitAndWaitForTransactionTree returns a transaction tree") { implicit context =>
+    "SubmitAndWaitForTransactionTree returns a transaction tree") { ledger =>
     for {
-      alice <- allocateParty()
-      transactionTree <- submitAndWaitForTransactionTree(alice, Dummy(alice).create.command)
+      alice <- ledger.allocateParty()
+      request <- ledger.submitAndWaitRequest(alice, Dummy(alice).create.command)
+      transactionTree <- ledger.submitAndWaitForTransactionTree(request)
     } yield {
       assert(
         transactionTree.transactionId.nonEmpty,
@@ -117,43 +121,30 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
 
   private val resendingSubmitAndWait = LedgerTest(
     "CSduplicateSubmitAndWait",
-    "SubmitAndWait should be idempotent when reusing the same command identifier") {
-    implicit context =>
-      val duplicateCommandId = "CSduplicateSubmitAndWait"
-      for {
-        alice <- allocateParty()
-        _ <- submitAndWait(
-          alice,
-          Dummy(alice).create.command,
-          _.commands.commandId := duplicateCommandId)
-        _ <- submitAndWait(
-          alice,
-          Dummy(alice).create.command,
-          _.commands.commandId := duplicateCommandId)
-        transactions <- flatTransactions(alice)
-      } yield {
-        assert(
-          transactions.size == 1,
-          s"Expected only 1 transaction, but received ${transactions.size}")
+    "SubmitAndWait should be idempotent when reusing the same command identifier") { ledger =>
+    for {
+      alice <- ledger.allocateParty()
+      request <- ledger.submitAndWaitRequest(alice, Dummy(alice).create.command)
+      _ <- ledger.submitAndWait(request)
+      _ <- ledger.submitAndWait(request)
+      transactions <- ledger.flatTransactions(alice)
+    } yield {
+      assert(
+        transactions.size == 1,
+        s"Expected only 1 transaction, but received ${transactions.size}")
 
-      }
+    }
   }
 
   private val resendingSubmitAndWaitForTransactionId = LedgerTest(
     "CSduplicateSubmitAndWaitForTransactionId",
     "SubmitAndWaitForTransactionId should be idempotent when reusing the same command identifier") {
-    implicit context =>
-      val duplicateCommandId = "CSduplicateSubmitAndWaitForTransactionId"
+    ledger =>
       for {
-        alice <- allocateParty()
-        transactionId1 <- submitAndWaitForTransactionId(
-          alice,
-          Dummy(alice).create.command,
-          _.commands.commandId := duplicateCommandId)
-        transactionId2 <- submitAndWaitForTransactionId(
-          alice,
-          Dummy(alice).create.command,
-          _.commands.commandId := duplicateCommandId)
+        alice <- ledger.allocateParty()
+        request <- ledger.submitAndWaitRequest(alice, Dummy(alice).create.command)
+        transactionId1 <- ledger.submitAndWaitForTransactionId(request)
+        transactionId2 <- ledger.submitAndWaitForTransactionId(request)
       } yield {
         assert(
           transactionId1 == transactionId2,
@@ -164,18 +155,12 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
   private val resendingSubmitAndWaitForTransaction = LedgerTest(
     "CSduplicateSubmitAndWaitForTransaction",
     "SubmitAndWaitForTransaction should be idempotent when reusing the same command identifier") {
-    implicit context =>
-      val duplicateCommandId = "CSduplicateSubmitAndWaitForTransaction"
+    ledger =>
       for {
-        alice <- allocateParty()
-        transaction1 <- submitAndWaitForTransaction(
-          alice,
-          Dummy(alice).create.command,
-          _.commands.commandId := duplicateCommandId)
-        transaction2 <- submitAndWaitForTransaction(
-          alice,
-          Dummy(alice).create.command,
-          _.commands.commandId := duplicateCommandId)
+        alice <- ledger.allocateParty()
+        request <- ledger.submitAndWaitRequest(alice, Dummy(alice).create.command)
+        transaction1 <- ledger.submitAndWaitForTransaction(request)
+        transaction2 <- ledger.submitAndWaitForTransaction(request)
       } yield {
         assert(
           transaction1 == transaction2,
@@ -186,18 +171,12 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
   private val resendingSubmitAndWaitForTransactionTree = LedgerTest(
     "CSduplicateSubmitAndWaitForTransactionTree",
     "SubmitAndWaitForTransactionTree should be idempotent when reusing the same command identifier") {
-    implicit context =>
-      val duplicateCommandId = "CSduplicateSubmitAndWaitForTransactionTree"
+    ledger =>
       for {
-        alice <- allocateParty()
-        transactionTree1 <- submitAndWaitForTransactionTree(
-          alice,
-          Dummy(alice).create.command,
-          _.commands.commandId := duplicateCommandId)
-        transactionTree2 <- submitAndWaitForTransactionTree(
-          alice,
-          Dummy(alice).create.command,
-          _.commands.commandId := duplicateCommandId)
+        alice <- ledger.allocateParty()
+        request <- ledger.submitAndWaitRequest(alice, Dummy(alice).create.command)
+        transactionTree1 <- ledger.submitAndWaitForTransactionTree(request)
+        transactionTree2 <- ledger.submitAndWaitForTransactionTree(request)
       } yield {
         assert(
           transactionTree1 == transactionTree2,
@@ -207,56 +186,52 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
 
   private val submitAndWaitWithInvalidLedgerIdTest = LedgerTest(
     "CSsubmitAndWaitInvalidLedgerId",
-    "SubmitAndWait should fail for invalid ledger ids") { implicit context =>
+    "SubmitAndWait should fail for invalid ledger ids") { ledger =>
     val invalidLedgerId = "CSsubmitAndWaitInvalidLedgerId"
     for {
-      alice <- allocateParty()
-      failure <- submitAndWait(
-        alice,
-        Dummy(alice).create.command,
-        _.commands.ledgerId := invalidLedgerId).failed
+      alice <- ledger.allocateParty()
+      request <- ledger.submitAndWaitRequest(alice, Dummy(alice).create.command)
+      badLedgerId = request.update(_.commands.ledgerId := invalidLedgerId)
+      failure <- ledger.submitAndWait(badLedgerId).failed
     } yield
       assertGrpcError(failure, Status.Code.NOT_FOUND, s"Ledger ID '$invalidLedgerId' not found.")
   }
 
   private val submitAndWaitForTransactionIdWithInvalidLedgerIdTest = LedgerTest(
     "CSsubmitAndWaitForTransactionIdInvalidLedgerId",
-    "SubmitAndWaitForTransactionId should fail for invalid ledger ids") { implicit context =>
+    "SubmitAndWaitForTransactionId should fail for invalid ledger ids") { ledger =>
     val invalidLedgerId = "CSsubmitAndWaitForTransactionIdInvalidLedgerId"
     for {
-      alice <- allocateParty()
-      failure <- submitAndWaitForTransactionId(
-        alice,
-        Dummy(alice).create.command,
-        _.commands.ledgerId := invalidLedgerId).failed
+      alice <- ledger.allocateParty()
+      request <- ledger.submitAndWaitRequest(alice, Dummy(alice).create.command)
+      badLedgerId = request.update(_.commands.ledgerId := invalidLedgerId)
+      failure <- ledger.submitAndWaitForTransactionId(badLedgerId).failed
     } yield
       assertGrpcError(failure, Status.Code.NOT_FOUND, s"Ledger ID '$invalidLedgerId' not found.")
   }
 
   private val submitAndWaitForTransactionWithInvalidLedgerIdTest = LedgerTest(
     "CSsubmitAndWaitForTransactionInvalidLedgerId",
-    "SubmitAndWaitForTransaction should fail for invalid ledger ids") { implicit context =>
+    "SubmitAndWaitForTransaction should fail for invalid ledger ids") { ledger =>
     val invalidLedgerId = "CSsubmitAndWaitForTransactionInvalidLedgerId"
     for {
-      alice <- allocateParty()
-      failure <- submitAndWaitForTransaction(
-        alice,
-        Dummy(alice).create.command,
-        _.commands.ledgerId := invalidLedgerId).failed
+      alice <- ledger.allocateParty()
+      request <- ledger.submitAndWaitRequest(alice, Dummy(alice).create.command)
+      badLedgerId = request.update(_.commands.ledgerId := invalidLedgerId)
+      failure <- ledger.submitAndWaitForTransaction(badLedgerId).failed
     } yield
       assertGrpcError(failure, Status.Code.NOT_FOUND, s"Ledger ID '$invalidLedgerId' not found.")
   }
 
   private val submitAndWaitForTransactionTreeWithInvalidLedgerIdTest = LedgerTest(
     "CSsubmitAndWaitForTransactionTreeInvalidLedgerId",
-    "SubmitAndWaitForTransactionTree should fail for invalid ledger ids") { implicit context =>
+    "SubmitAndWaitForTransactionTree should fail for invalid ledger ids") { ledger =>
     val invalidLedgerId = "CSsubmitAndWaitForTransactionTreeInvalidLedgerId"
     for {
-      alice <- allocateParty()
-      failure <- submitAndWaitForTransactionTree(
-        alice,
-        Dummy(alice).create.command,
-        _.commands.ledgerId := invalidLedgerId).failed
+      alice <- ledger.allocateParty()
+      request <- ledger.submitAndWaitRequest(alice, Dummy(alice).create.command)
+      badLedgerId = request.update(_.commands.ledgerId := invalidLedgerId)
+      failure <- ledger.submitAndWaitForTransactionTree(badLedgerId).failed
     } yield
       assertGrpcError(failure, Status.Code.NOT_FOUND, s"Ledger ID '$invalidLedgerId' not found.")
   }

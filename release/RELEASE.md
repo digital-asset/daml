@@ -31,7 +31,7 @@
       start` using `Ctrl-C`.
    1. Run `daml build`.
    1. In 3 separate terminals (since each command will block) run
-      1. `daml sandbox --port 6865 --scenario Main:setup .daml/dist/quickstart.dar`.
+      1. `daml sandbox --port 6865 --scenario Main:setup .daml/dist/quickstart-0.0.1.dar`.
       1. `daml navigator server localhost 6865 --port 7500`
       1. `mvn compile exec:java@run-quickstart`
    1. Point your browser to `http://localhost:7500`, 

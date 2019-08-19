@@ -23,8 +23,7 @@ scala_import(
     name = "akka_http",
     exports = [
         "//3rdparty/jvm/org/scala_lang:scala_library",
-        ":akka_http_core",
-        ":akka_stream"
+        ":akka_http_core"
     ],
     jars = [
         "//external:jar/com/typesafe/akka/akka_http_2_12"
@@ -40,8 +39,7 @@ scala_import(
     name = "akka_http_core",
     exports = [
         "//3rdparty/jvm/org/scala_lang:scala_library",
-        ":akka_parsing",
-        ":akka_stream"
+        ":akka_parsing"
     ],
     jars = [
         "//external:jar/com/typesafe/akka/akka_http_core_2_12"
@@ -58,8 +56,7 @@ scala_import(
     exports = [
         "//3rdparty/jvm/io/spray:spray_json",
         "//3rdparty/jvm/org/scala_lang:scala_library",
-        ":akka_http",
-        ":akka_stream"
+        ":akka_http"
     ],
     jars = [
         "//external:jar/com/typesafe/akka/akka_http_spray_json_2_12"
@@ -75,8 +72,7 @@ scala_import(
     name = "akka_http_testkit",
     exports = [
         "//3rdparty/jvm/org/scala_lang:scala_library",
-        ":akka_http",
-        ":akka_stream_testkit"
+        ":akka_http"
     ],
     jars = [
         "//external:jar/com/typesafe/akka/akka_http_testkit_2_12"
@@ -91,8 +87,7 @@ scala_import(
 scala_import(
     name = "akka_parsing",
     exports = [
-        "//3rdparty/jvm/org/scala_lang:scala_library",
-        ":akka_actor"
+        "//3rdparty/jvm/org/scala_lang:scala_library"
     ],
     jars = [
         "//external:jar/com/typesafe/akka/akka_parsing_2_12"

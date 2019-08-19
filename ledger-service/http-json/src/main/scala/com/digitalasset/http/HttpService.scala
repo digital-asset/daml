@@ -39,6 +39,8 @@ import scala.{util => u}
 
 object HttpService extends StrictLogging {
 
+  private type ET[A] = EitherT[Future, Error, A]
+
   final case class Error(message: String)
 
   def start(
@@ -60,9 +62,13 @@ object HttpService extends StrictLogging {
       sslContext = None
     )
 
-    val bindingS: EitherT[Future, Error, ServerBinding] = for {
-      client <- liftET[Error](
-        LedgerClient.singleHost(ledgerHost, ledgerPort, clientConfig)(ec, aesf))
+    val bindingEt: EitherT[Future, Error, ServerBinding] = for {
+      clientChannel <- FutureUtil
+        .either(LedgerClientJwt.singleHostChannel(ledgerHost, ledgerPort, clientConfig)(ec, aesf))
+        .leftMap(e => Error(e.getMessage)): ET[io.grpc.Channel]
+
+      client <- FutureUtil
+        .rightT(LedgerClient.forChannel(clientConfig, clientChannel)): ET[LedgerClient]
 
       ledgerId = apiLedgerId(client.ledgerId): lar.LedgerId
 
@@ -76,12 +82,12 @@ object HttpService extends StrictLogging {
 
       commandService = new CommandService(
         PackageService.resolveTemplateId(templateIdMap),
-        client.commandServiceClient.submitAndWaitForTransaction,
+        LedgerClientJwt.submitAndWaitForTransaction(clientConfig, clientChannel),
         TimeProvider.UTC)
 
       contractsService = new ContractsService(
         PackageService.resolveTemplateIds(templateIdMap),
-        client.activeContractSetClient)
+        LedgerClientJwt.getActiveContracts(clientConfig, clientChannel))
 
       (encoder, decoder) = buildJsonCodecs(ledgerId, packageStore, templateIdMap)
 
@@ -98,7 +104,7 @@ object HttpService extends StrictLogging {
 
     } yield binding
 
-    val bindingF: Future[Error \/ ServerBinding] = bindingS.run
+    val bindingF: Future[Error \/ ServerBinding] = bindingEt.run
 
     bindingF.onComplete {
       case u.Failure(e) => logger.error("Cannot start server", e)
@@ -111,7 +117,7 @@ object HttpService extends StrictLogging {
 
   def stop(f: Future[Error \/ ServerBinding])(implicit ec: ExecutionContext): Future[Unit] = {
     logger.info("Stopping server...")
-    f.collect { case \/-(a) => a.unbind() }.join
+    f.collect { case \/-(a) => a.unbind().void }.join
   }
 
   // Decode JWT without any validation

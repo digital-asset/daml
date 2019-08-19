@@ -30,8 +30,8 @@ load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive", "http_file"
 load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
 
 rules_scala_version = "8092d5f6165a8d9c4797d5f089c1ba4eee3326b1"
-rules_haskell_version = "732001fd971b689499532d11283e09ef91345ca6"
-rules_haskell_sha256 = "d30695ebe7f46aa38386fb4fd83882bb2e4b638c46c12dd990812b6ce088cc0c"
+rules_haskell_version = "5a1822334d1f5d8d86d16a2e653c42d2756a7c33"
+rules_haskell_sha256 = "1bcae679c60985ed29ca58f77a2d1e2345fce89ae588c556d7586cf556ae18d5"
 rules_nixpkgs_version = "5ffb8a4ee9a52bc6bc12f95cd64ecbd82a79bc82"
 
 def daml_deps():
@@ -48,6 +48,7 @@ def daml_deps():
                 "@com_github_digital_asset_daml//bazel_tools:haskell_public_ghci_repl_wrapper.patch",
                 "@com_github_digital_asset_daml//bazel_tools:haskell-windows-library-dirs.patch",
                 "@com_github_digital_asset_daml//bazel_tools:haskell-no-isystem.patch",
+                "@com_github_digital_asset_daml//bazel_tools:haskell-opt.patch",
             ],
             patch_args = ["-p1"],
             sha256 = rules_haskell_sha256,
@@ -76,6 +77,15 @@ def daml_deps():
             strip_prefix = "zlib-cacf7f1d4e3d44d871b605da3b647f07d718623f",
             urls = ["https://github.com/madler/zlib/archive/cacf7f1d4e3d44d871b605da3b647f07d718623f.tar.gz"],
             sha256 = "6d4d6640ca3121620995ee255945161821218752b551a1a180f4215f7d124d45",
+        )
+
+    if "bzip2" not in native.existing_rules():
+        http_archive(
+            name = "bzip2",
+            build_file = "@com_github_digital_asset_daml//3rdparty/c:bzip2.BUILD",
+            strip_prefix = "bzip2-1.0.8",
+            urls = ["https://sourceware.org/pub/bzip2/bzip2-1.0.8.tar.gz"],
+            sha256 = "ab5a03176ee106d3f0fa90e381da478ddae405918153cca248e682cd0c4a2269",
         )
 
     if "io_bazel_rules_go" not in native.existing_rules():
@@ -207,25 +217,6 @@ java_import(
             sha256 = "86592d703ecbe0c5cbb5139333a63268cf58d7efd2c459c8be8e69e77d135e29",
             strip_prefix = "buildtools-0.26.0",
             url = "https://github.com/bazelbuild/buildtools/archive/0.26.0.tar.gz",
-        )
-
-    c2hs_version = "0.28.3"
-    c2hs_hash = "80cc6db945ee7c0328043b4e69213b2a1cb0806fb35c8362f9dea4a2c312f1cc"
-    c2hs_package_id = "c2hs-{0}".format(c2hs_version)
-    c2hs_url = "https://hackage.haskell.org/package/{0}/{1}.tar.gz".format(
-        c2hs_package_id,
-        c2hs_package_id,
-    )
-    c2hs_build_file = "//3rdparty/haskell:BUILD.c2hs"
-    if "haskell_c2hs" not in native.existing_rules():
-        http_archive(
-            name = "haskell_c2hs",
-            build_file = c2hs_build_file,
-            patch_args = ["-p1"],
-            patches = ["@com_github_digital_asset_daml//bazel_tools:haskell-c2hs.patch"],
-            sha256 = c2hs_hash,
-            strip_prefix = c2hs_package_id,
-            urls = [c2hs_url],
         )
 
     native.bind(

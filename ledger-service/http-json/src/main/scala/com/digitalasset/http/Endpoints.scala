@@ -9,6 +9,7 @@ import akka.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
 import akka.stream.Materializer
 import akka.util.ByteString
 import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
+import com.digitalasset.http.domain.JwtPayload
 import com.digitalasset.http.json.ResponseFormats._
 import com.digitalasset.http.json.{DomainJsonDecoder, DomainJsonEncoder, SprayJson}
 import com.digitalasset.http.util.FutureUtil
@@ -51,9 +52,9 @@ class Endpoints(
   lazy val command: PartialFunction[HttpRequest, Future[HttpResponse]] = {
     case req @ HttpRequest(POST, Uri.Path("/command/create"), _, _, _) =>
       val et: ET[JsValue] = for {
-        input <- FutureUtil.eitherT(input(req)): ET[(domain.JwtPayload, String)]
+        t3 <- FutureUtil.eitherT(input(req)): ET[(Jwt, JwtPayload, String)]
 
-        (jwtPayload, reqBody) = input
+        (jwt, jwtPayload, reqBody) = t3
 
         cmd <- either(
           decoder
@@ -62,7 +63,7 @@ class Endpoints(
         ): ET[domain.CreateCommand[lav1.value.Record]]
 
         ac <- eitherT(
-          handleFutureFailure(commandService.create(jwtPayload, cmd))
+          handleFutureFailure(commandService.create(jwt, jwtPayload, cmd))
         ): ET[domain.ActiveContract[lav1.value.Value]]
 
         jsVal <- either(encoder.encodeV(ac).leftMap(e => ServerError(e.shows))): ET[JsValue]
@@ -73,9 +74,9 @@ class Endpoints(
 
     case req @ HttpRequest(POST, Uri.Path("/command/exercise"), _, _, _) =>
       val et: ET[JsValue] = for {
-        input <- eitherT(input(req)): ET[(domain.JwtPayload, String)]
+        t3 <- eitherT(input(req)): ET[(Jwt, JwtPayload, String)]
 
-        (jwtPayload, reqBody) = input
+        (jwt, jwtPayload, reqBody) = t3
 
         cmd <- either(
           decoder
@@ -84,7 +85,7 @@ class Endpoints(
         ): ET[domain.ExerciseCommand[lav1.value.Record]]
 
         as <- eitherT(
-          handleFutureFailure(commandService.exercise(jwtPayload, cmd))
+          handleFutureFailure(commandService.exercise(jwt, jwtPayload, cmd))
         ): ET[ImmArraySeq[domain.ActiveContract[lav1.value.Value]]]
 
         jsVal <- either(
@@ -119,9 +120,9 @@ class Endpoints(
   lazy val contracts: PartialFunction[HttpRequest, Future[HttpResponse]] = {
     case req @ HttpRequest(GET, Uri.Path("/contracts/lookup"), _, _, _) =>
       val et: ET[JsValue] = for {
-        input <- FutureUtil.eitherT(input(req)): ET[(domain.JwtPayload, String)]
+        input <- FutureUtil.eitherT(input(req)): ET[(Jwt, JwtPayload, String)]
 
-        (jwtPayload, reqBody) = input
+        (jwt, jwtPayload, reqBody) = input
 
         cmd <- either(
           decoder
@@ -130,7 +131,7 @@ class Endpoints(
         ): ET[domain.ContractLookupRequest[lav1.value.Value]]
 
         ac <- eitherT(
-          handleFutureFailure(contractsService.lookup(jwtPayload, cmd))
+          handleFutureFailure(contractsService.lookup(jwt, jwtPayload, cmd))
         ): ET[Option[domain.ActiveContract[lav1.value.Value]]]
 
         jsVal <- either(
@@ -146,13 +147,14 @@ class Endpoints(
 
     case req @ HttpRequest(GET, Uri.Path("/contracts/search"), _, _, _) =>
       val et: ET[JsValue] = for {
-        input <- FutureUtil.eitherT(input(req)): ET[(domain.JwtPayload, String)]
+        input <- FutureUtil.eitherT(input(req)): ET[(Jwt, JwtPayload, String)]
 
-        (jwtPayload, _) = input
+        (jwt, jwtPayload, _) = input
 
         as <- eitherT(
-          handleFutureFailure(contractsService.search(jwtPayload, emptyGetActiveContractsRequest))
-        ): ET[Seq[domain.GetActiveContractsResponse[lav1.value.Value]]]
+          handleFutureFailure(
+            contractsService.search(jwt, jwtPayload, emptyGetActiveContractsRequest))): ET[
+          Seq[domain.GetActiveContractsResponse[lav1.value.Value]]]
 
         jsVal <- either(
           as.toList
@@ -167,9 +169,9 @@ class Endpoints(
 
     case req @ HttpRequest(POST, Uri.Path("/contracts/search"), _, _, _) =>
       val et: ET[JsValue] = for {
-        input <- FutureUtil.eitherT(input(req)): ET[(domain.JwtPayload, String)]
+        input <- FutureUtil.eitherT(input(req)): ET[(Jwt, JwtPayload, String)]
 
-        (jwtPayload, reqBody) = input
+        (jwt, jwtPayload, reqBody) = input
 
         cmd <- either(
           SprayJson
@@ -178,7 +180,7 @@ class Endpoints(
         ): ET[domain.GetActiveContractsRequest]
 
         as <- eitherT(
-          handleFutureFailure(contractsService.search(jwtPayload, cmd))
+          handleFutureFailure(contractsService.search(jwt, jwtPayload, cmd))
         ): ET[Seq[domain.GetActiveContractsResponse[lav1.value.Value]]]
 
         jsVal <- either(
@@ -231,15 +233,15 @@ class Endpoints(
 
   private def format(a: JsValue): ByteString = ByteString(a.compactPrint)
 
-  private[http] def input(req: HttpRequest): Future[Unauthorized \/ (domain.JwtPayload, String)] = {
+  private[http] def input(req: HttpRequest): Future[Unauthorized \/ (Jwt, JwtPayload, String)] = {
     findJwt(req).flatMap(decodeAndParsePayload) match {
       case e @ -\/(_) =>
         req.entity.discardBytes(mat)
         Future.successful(e)
-      case \/-(p) =>
+      case \/-((j, p)) =>
         req.entity
           .toStrict(maxTimeToCollectRequest)
-          .map(b => \/-(p -> b.data.utf8String))
+          .map(b => \/-((j, p, b.data.utf8String)))
     }
   }
 
@@ -250,14 +252,14 @@ class Endpoints(
       }
       .toRightDisjunction(Unauthorized("missing Authorization header with OAuth 2.0 Bearer Token"))
 
-  private def decodeAndParsePayload(jwt: Jwt): Unauthorized \/ domain.JwtPayload =
+  private def decodeAndParsePayload(jwt: Jwt): Unauthorized \/ (Jwt, JwtPayload) =
     for {
       a <- decodeJwt(jwt): Unauthorized \/ DecodedJwt[String]
-      b <- parsePayload(a)
-    } yield b
+      p <- parsePayload(a)
+    } yield (jwt, p)
 
-  private def parsePayload(jwt: DecodedJwt[String]): Unauthorized \/ domain.JwtPayload =
-    SprayJson.decode[domain.JwtPayload](jwt.payload).leftMap(e => Unauthorized(e.shows))
+  private def parsePayload(jwt: DecodedJwt[String]): Unauthorized \/ JwtPayload =
+    SprayJson.decode[JwtPayload](jwt.payload).leftMap(e => Unauthorized(e.shows))
 }
 
 object Endpoints {

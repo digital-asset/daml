@@ -3,8 +3,10 @@
 
 package com.digitalasset.daml.lf.testing.parser
 
+import java.math.BigDecimal
+
 import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.data.{Decimal, ImmArray, Time}
+import com.digitalasset.daml.lf.data.{ImmArray, Numeric, Time}
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.testing.parser.Implicits._
 import org.scalatest.prop.TableDrivenPropertyChecks
@@ -117,9 +119,9 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
         "string to parse" -> "expected literal",
         "1" -> PLInt64(1),
         "-2" -> PLInt64(-2),
-        "1.0" -> PLDecimal(Decimal.assertFromBigDecimal(1)),
-        "1.0" -> PLDecimal(Decimal.assertFromBigDecimal(1)),
-        "-1.0" -> PLDecimal(Decimal.assertFromBigDecimal(-1)),
+        "1.0000000000" -> PLDecimal(Numeric.assertFromBigDecimal(10, BigDecimal.ONE)),
+        "1.0" -> PLDecimal(Numeric.assertFromBigDecimal(1, BigDecimal.ONE)),
+        "-10.00" -> PLDecimal(Numeric.assertFromBigDecimal(2, BigDecimal.TEN.negate)),
         """"some text"""" -> PLText("some text"),
         """ " \n\r\"\\ " """ -> PLText(" \n\r\"\\ "),
         """ "français" """ -> PLText("français"),
@@ -139,8 +141,8 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
         "string to parsed",
         "9223372036854775808",
         "-9223372036854775809",
-        "10000000000000000000000000000.",
-        "-10000000000000000000000000000.",
+        "10000000000000000000000000000.0000000000",
+        "-100000000000000000000000000000000000000.",
         "0000-01-01",
         "2100-02-29",
         "2019-13-28",
