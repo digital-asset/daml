@@ -250,7 +250,7 @@ object Speedy {
       val compiler = Compiler(compiledPackages.packages)
       Right({ (checkSubmitterInMaintainers: Boolean, expr: Expr) =>
         initial(checkSubmitterInMaintainers, compiledPackages).copy(
-          ctrl = CtrlExpr(compiler.compile(expr)(SEValue(SToken))))
+          ctrl = CtrlExpr(SEApp(compiler.compile(expr), Array(SEValue(SToken)))))
       })
     }
 
@@ -260,7 +260,7 @@ object Speedy {
         compiledPackages: CompiledPackages): Machine =
       initial(checkSubmitterInMaintainers, compiledPackages).copy(
         // apply token
-        ctrl = CtrlExpr(sexpr(SEValue(SToken))),
+        ctrl = CtrlExpr(SEApp(sexpr, Array(SEValue(SToken)))),
       )
 
     // Used from repl.
@@ -272,7 +272,7 @@ object Speedy {
       val compiler = Compiler(compiledPackages.packages)
       val sexpr =
         if (scenario)
-          compiler.compile(expr)(SEValue(SToken))
+          SEApp(compiler.compile(expr), Array(SEValue(SToken)))
         else
           compiler.compile(expr)
 

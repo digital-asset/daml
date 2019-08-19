@@ -24,9 +24,6 @@ import java.util.ArrayList
   * - all update and scenario operations converted to builtin functions.
   */
 sealed abstract class SExpr extends Product with Serializable {
-  def apply(args: SExpr*): SExpr =
-    SExpr.SEApp(this, args.toArray)
-
   def execute(machine: Machine): Ctrl
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
@@ -291,13 +288,18 @@ object SExpr {
           SCaseAlt(
             SCPCons,
             // foldl f (f z y) ys
-            FoldL(
-              SEVar(5), /* f */
-              SEVar(5)(
-                SEVar(4) /* z */,
-                SEVar(2) /* y */
-              ),
-              SEVar(1)) /* ys */
+            SEApp(
+              FoldL,
+              Array(
+                SEVar(5), /* f */
+                SEApp(
+                  SEVar(5),
+                  Array(
+                    SEVar(4) /* z */,
+                    SEVar(2) /* y */
+                  )),
+                SEVar(1) /* ys */
+              ))
           )
         )
       )
@@ -308,24 +310,27 @@ object SExpr {
         Array(),
         3,
         // case xs of
-        SECase(SEVar(1)) of (
-          // nil -> z
-          SCaseAlt(SCPNil, SEVar(2)),
-          // cons y ys ->
-          SCaseAlt(
-            SCPCons,
-            // f y (foldr f z ys)
-            SEVar(5)(
+        SECase(SEVar(1)) of (// nil -> z
+        SCaseAlt(SCPNil, SEVar(2)),
+        // cons y ys ->
+        SCaseAlt(
+          SCPCons,
+          // f y (foldr f z ys)
+          SEApp(
+            SEVar(5),
+            Array(
               /* f */
               SEVar(2), /* y */
-              FoldR(
-                /* foldr f z ys */
-                SEVar(5), /* f */
-                SEVar(4), /* z */
-                SEVar(1) /* ys */
-              ))
-          )
-        )
+              SEApp(
+                FoldR,
+                Array(
+                  /* foldr f z ys */
+                  SEVar(5), /* f */
+                  SEVar(4), /* z */
+                  SEVar(1) /* ys */
+                ))
+            ))
+        ))
       )
 
     private val equalListBody: SExpr =
@@ -356,8 +361,10 @@ object SExpr {
               SCaseAlt(
                 SCPCons,
                 // case f x y of
-                SECase(SEVar(7)(SEVar(4), SEVar(2))) of (
-                  SCaseAlt(SCPPrimCon(PCTrue), EqualList(SEVar(7), SEVar(1), SEVar(3))),
+                SECase(SEApp(SEVar(7), Array(SEVar(4), SEVar(2)))) of (
+                  SCaseAlt(
+                    SCPPrimCon(PCTrue),
+                    SEApp(EqualList, Array(SEVar(7), SEVar(1), SEVar(3)))),
                   SCaseAlt(SCPPrimCon(PCFalse), SEValue.False)
                 )
               )
