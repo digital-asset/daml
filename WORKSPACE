@@ -253,6 +253,8 @@ exports_files(glob(["lib/**/*"]))
 ) if not is_windows else None
 
 common_ghc_flags = [
+    # We default to -c opt but we also want -O1 in -c dbg builds
+    # since we use them for profiling.
     "-O1",
     "-hide-package=ghc-boot-th",
     "-hide-package=ghc-boot",
