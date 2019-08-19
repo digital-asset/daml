@@ -110,7 +110,7 @@ private[engine] class CommandPreprocessor(compiledPackages: ConcurrentCompiledPa
             ResultDone(SDate(t))
           case (TBuiltin(BTText), ValueText(t)) =>
             ResultDone(SText(t))
-          case (TBuiltin(BTDecimal), ValueDecimal(d)) =>
+          case (TBuiltin(BTDecimal), ValueNumeric(d)) =>
             Numeric.fromBigDecimal(Decimal.scale, d).fold(fail, d => ResultDone(SNumeric(d)))
           case (TBuiltin(BTParty), ValueParty(p)) =>
             ResultDone(SParty(p))

@@ -191,7 +191,7 @@ class SubmitRequestValidatorTest
           forEvery(absoluteValues) { absoluteValue =>
             val s = sign + absoluteValue
             val input = Value(Sum.Decimal(s))
-            val expected = Lf.ValueDecimal(Decimal.fromString(s).getOrElse(unexpectedError))
+            val expected = Lf.ValueNumeric(Decimal.fromString(s).getOrElse(unexpectedError))
             validateValue(input) shouldEqual Right(expected)
           }
         }

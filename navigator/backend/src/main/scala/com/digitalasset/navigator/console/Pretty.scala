@@ -234,7 +234,7 @@ object Pretty {
       )
     case V.ValueText(value) => PrettyPrimitive(value)
     case V.ValueInt64(value) => PrettyPrimitive(value.toString)
-    case V.ValueDecimal(value) => PrettyPrimitive(value.decimalToString)
+    case V.ValueNumeric(value) => PrettyPrimitive(value.toUnscaledString)
     case V.ValueBool(value) => PrettyPrimitive(value.toString)
     case V.ValueContractId(value) => PrettyPrimitive(value.toString)
     case V.ValueTimestamp(value) => PrettyPrimitive(value.toString)

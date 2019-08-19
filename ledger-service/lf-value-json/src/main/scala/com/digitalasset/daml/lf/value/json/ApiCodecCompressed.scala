@@ -3,7 +3,14 @@
 
 package com.digitalasset.daml.lf.value.json
 
-import com.digitalasset.daml.lf.data.{Decimal => LfDecimal, FrontStack, Ref, SortedLookupList, Time}
+import com.digitalasset.daml.lf.data.{
+  Decimal => LfDecimal,
+  Numeric => LfNumeric,
+  FrontStack,
+  Ref,
+  SortedLookupList,
+  Time
+}
 import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
 import com.digitalasset.daml.lf.data.ScalazEqual._
 import com.digitalasset.daml.lf.iface
@@ -46,8 +53,8 @@ abstract class ApiCodecCompressed[Cid](
     case v: V.ValueList[Cid] => apiListToJsValue(v)
     case V.ValueText(v) => JsString(v)
     case V.ValueInt64(v) => if (encodeInt64AsString) JsString((v: Long).toString) else JsNumber(v)
-    case V.ValueDecimal(v) =>
-      if (encodeDecimalAsString) JsString(v.decimalToString) else JsNumber(v)
+    case V.ValueNumeric(v) =>
+      if (encodeDecimalAsString) JsString(LfNumeric.toUnscaledString(v)) else JsNumber(v)
     case V.ValueBool(v) => JsBoolean(v)
     case V.ValueContractId(v) => apiContractIdToJsValue(v)
     case t: V.ValueTimestamp => JsString(t.toIso8601)
@@ -109,11 +116,12 @@ abstract class ApiCodecCompressed[Cid](
 
   // FixMe: checkWithinBoundsAndRound checks fist the bound then round (using bankers'
   //  rounding). Should we not do the contrary, first round then check for bounds ?
-  private def checkWithinBoundsAndRound(x: BigDecimal): Either[String, LfDecimal] = {
+  private def checkWithinBoundsAndRound(x: BigDecimal): Either[String, LfNumeric] = {
     if (!(min <= x && x <= max))
       Left(s"out-of-bounds Decimal $x")
     else
-      LfDecimal.fromBigDecimal(
+      LfNumeric.fromBigDecimal(
+        LfDecimal.scale,
         x.bigDecimal.setScale(LfDecimal.scale, BigDecimal.RoundingMode.HALF_EVEN))
   }
 
@@ -124,11 +132,11 @@ abstract class ApiCodecCompressed[Cid](
     (prim.typ, value).match2 {
       case Model.DamlLfPrimType.Decimal => {
         case JsString(v) =>
-          V.ValueDecimal(
+          V.ValueNumeric(
             assertDE(checkWithinBoundsAndRound(
               BigDecimal.decimal(new java.math.BigDecimal(v), MathContext.UNLIMITED))))
         case JsNumber(v) =>
-          V.ValueDecimal(assertDE(checkWithinBoundsAndRound(v)))
+          V.ValueNumeric(assertDE(checkWithinBoundsAndRound(v)))
       }
       case Model.DamlLfPrimType.Int64 => {
         case JsString(v) => V.ValueInt64(assertDE(v.parseLong.leftMap(_.getMessage).toEither))

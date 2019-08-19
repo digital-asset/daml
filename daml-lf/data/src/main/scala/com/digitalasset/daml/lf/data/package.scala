@@ -11,15 +11,8 @@ package object data {
   val Numeric: NumericModule = new NumericModule {
     override type Numeric = java.math.BigDecimal
     @inline
-    override private[data] def cast(x: java.math.BigDecimal): java.math.BigDecimal = x
+    override private[data] def cast(x: java.math.BigDecimal): Numeric = x
   }
   type Numeric = Numeric.Numeric
-
-  val Decimal: DecimalModule = new DecimalModule {
-    type Decimal = Numeric
-    @inline
-    protected def cast(x: Numeric): Decimal = x
-  }
-  type Decimal = Decimal.Decimal
 
 }

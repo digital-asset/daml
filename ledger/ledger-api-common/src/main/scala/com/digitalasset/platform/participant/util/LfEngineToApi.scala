@@ -6,7 +6,7 @@ package com.digitalasset.platform.participant.util
 import java.time.Instant
 
 import com.digitalasset.daml.lf.data.Ref.Identifier
-import com.digitalasset.daml.lf.data.Decimal
+import com.digitalasset.daml.lf.data.Numeric
 import com.digitalasset.daml.lf.data.LawlessTraversals._
 import com.digitalasset.daml.lf.command._
 import com.digitalasset.daml.lf.transaction.Node.KeyWithMaintainers
@@ -90,8 +90,8 @@ object LfEngineToApi {
       value0: LfValue[Lf.AbsoluteContractId]): Either[String, ApiValue] =
     value0 match {
       case Lf.ValueUnit => Right(ApiValue(ApiValue.Sum.Unit(Empty())))
-      case Lf.ValueDecimal(d) =>
-        Right(ApiValue(ApiValue.Sum.Decimal(Decimal.toString(d))))
+      case Lf.ValueNumeric(d) =>
+        Right(ApiValue(ApiValue.Sum.Decimal(Numeric.toUnscaledString(d))))
       case Lf.ValueContractId(c) => Right(ApiValue(ApiValue.Sum.ContractId(c.coid)))
       case Lf.ValueBool(b) => Right(ApiValue(ApiValue.Sum.Bool(b)))
       case Lf.ValueDate(d) => Right(ApiValue(ApiValue.Sum.Date(d.days)))

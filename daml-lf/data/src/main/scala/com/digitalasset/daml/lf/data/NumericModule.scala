@@ -169,33 +169,34 @@ abstract class NumericModule {
   final def assertFromBigDecimal(scale: Int, x: BigDec): Numeric =
     assertRight(fromBigDecimal(scale, x))
 
-  private val validFormat = """-?([1-9]\d*|0).(\d*)""".r
-
-  /*
-   * Returns a canonical decimal string representation of `x`. The output string consists of (in
-   * left-to-right order):
-   * - An optional negative sign ("-") to indicate if `x` is strictly negative.
-   * - The integral part of `x` without leading '0' if the integral part of `x` is not equal to 0, "0" otherwise.
-   * - the decimal point (".") to separate the integral part from the decimal part,
-   * - the decimal part of `x` with '0' padded to match the scale. The number of decimal digits must be the same as the scale.
-   */
+  /**
+    * Returns a canonical decimal string representation of `x`. The output string consists of (in
+    * left-to-right order):
+    * - An optional negative sign ("-") to indicate if `x` is strictly negative.
+    * - The integral part of `x` without leading '0' if the integral part of `x` is not equal to 0, "0" otherwise.
+    * - the decimal point (".") to separate the integral part from the decimal part,
+    * - the decimal part of `x` with '0' padded to match the scale. The number of decimal digits must be the same as the scale.
+    */
   final def toString(x: Numeric): String = {
     val s = x.toPlainString
     if (x.scale == 0) s + "." else s
   }
 
-  /*
-   * Given a string representation of a decimal returns the corresponding Numeric, where the number of
-   * digits to the right of the decimal point indicates the scale.
-   * If the input does not match
-   *   `-?([1-9]\d*|0).(\d*)`
-   * or if the result of the conversion cannot be mapped into a numeric without loss of precision
-   * returns an error message instead.
-   */
+  private val validScaledFormat =
+    """-?([1-9]\d*|0).(\d*)""".r
+
+  /**
+    * Given a string representation of a decimal returns the corresponding Numeric, where the number of
+    * digits to the right of the decimal point indicates the scale.
+    * If the input does not match
+    *   `-?([1-9]\d*|0).(\d*)`
+    * or if the result of the conversion cannot be mapped into a numeric without loss of precision
+    * returns an error message instead.
+    */
   def fromString(s: String): Either[String, Numeric] = {
     def errMsg = s"""Could not read Numeric string "$s""""
     s match {
-      case validFormat(intPart, decPart) =>
+      case validScaledFormat(intPart, decPart) =>
         val scale = decPart.length
         val precision = if (intPart == "0") scale else intPart.length + scale
         Either.cond(precision <= maxPrecision, cast(new BigDecimal(s).setScale(scale)), errMsg)
@@ -204,11 +205,82 @@ abstract class NumericModule {
     }
   }
 
-  /*
-   * Like `fromString`, but throws an exception instead of an error message.
-   */
+  /**
+    * Like `fromString`, but throws an exception instead of returning a message in case of error.
+    */
   @throws[IllegalArgumentException]
   def assertFromString(s: String): Numeric =
     assertRight(fromString(s))
+
+  /**
+    * Convert a BigDecimal to the Numeric with the smallest possible scale able to represent the
+    * former without loss of precision. Returns an error if such Numeric does not exists.
+    *
+    * With use this function to convert BigDecimal with unknown scale.
+    */
+  final def fromUnscaledBigDecimal(x: BigDecimal): Either[String, Numeric] = {
+    val y = x.stripTrailingZeros()
+    fromBigDecimal(y.scale max 0, y)
+  }
+
+  /**
+    * Like the previous function but with scala BigDecimal
+    */
+  final def fromUnscaledBigDecimal(x: BigDec): Either[String, Numeric] =
+    fromUnscaledBigDecimal(x.bigDecimal)
+
+  /**
+    * Like fromUnscaledBigDecimal, but throws an exception instead of returning a message in case of error.
+    */
+  @throws[IllegalArgumentException]
+  final def assertFromUnscaledBigDecimal(x: BigDec): Numeric =
+    assertRight(fromUnscaledBigDecimal(x))
+
+  private val validUnscaledFormat =
+    """[+-]?\d+(\.\d+)?""".r.pattern
+
+  /**
+    * Given a string representation of a numeric returns the Numeric with the smallest possible
+    * scale.
+    * If the input does not match
+    *   `[+-]?\d+(\.\d+)?`
+    * or if the result of the conversion cannot be mapped into a numeric without loss of precision
+    * returns an error message instead.
+    */
+  final def fromUnscaledString(s: String): Either[String, Numeric] = {
+    if (validUnscaledFormat.matcher(s).matches())
+      fromUnscaledBigDecimal(new BigDecimal(s))
+    else
+      Left(s"""Could not read unscaled Numeric string "$s"""")
+  }
+
+  /**
+    * Like fromUnscaledBigDecimal, but throws an exception instead of returning a message in case of error.
+    */
+  @throws[IllegalArgumentException]
+  final def assertFromUnscaledString(s: String): Numeric =
+    assertRight(fromUnscaledString(s))
+
+  final def toUnscaledString(x: Numeric): String = {
+    // Strip the trailing zeros (which BigDecimal keeps if the string
+    // it was created from had them), and use the plain notation rather
+    // than scientific notation.
+    //
+    // Moreover, add a single trailing zero if we have no decimal part.
+    // this mimicks the behavior of `formatScientific Fixed Nothing` which
+    // we've been using in Haskell to render Decimals
+    // http://hackage.haskell.org/package/scientific-0.3.6.2/docs/Data-Scientific.html#v:formatScientific
+    val s = x.stripTrailingZeros.toPlainString
+    if (s.contains(".")) s else s + ".0"
+  }
+
+}
+
+object NumericModule {
+
+  implicit final class `Numeric methods`(private val self: Numeric) extends AnyVal {
+    def toUnscaledString: String = Numeric toUnscaledString self
+    def toScaledString: String = Numeric toString self
+  }
 
 }

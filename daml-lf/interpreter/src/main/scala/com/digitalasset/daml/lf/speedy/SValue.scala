@@ -30,7 +30,7 @@ sealed trait SValue {
   def toValue: V[V.ContractId] =
     this match {
       case SInt64(x) => V.ValueInt64(x)
-      case SNumeric(x) => V.ValueDecimal(Decimal.assertFromBigDecimal(x))
+      case SNumeric(x) => V.ValueNumeric(x)
       case SText(x) => V.ValueText(x)
       case STimestamp(x) => V.ValueTimestamp(x)
       case SParty(x) => V.ValueParty(x)
@@ -42,11 +42,9 @@ sealed trait SValue {
           ImmArray(
             fields.toSeq
               .zip(svalues.asScala)
-              .map {
-                case (fld, sv) =>
-                  (fld, sv.toValue)
-              }))
-
+              .map { case (fld, sv) => (fld, sv.toValue) }
+          )
+        )
       case SRecord(id, fields, svalues) =>
         V.ValueRecord(
           Some(id),
@@ -56,7 +54,6 @@ sealed trait SValue {
               .map({ case (fld, sv) => (Some(fld), sv.toValue) })
           )
         )
-
       case SVariant(id, variant, sv) =>
         V.ValueVariant(Some(id), variant, sv.toValue)
       case SEnum(id, constructor) =>
@@ -69,10 +66,8 @@ sealed trait SValue {
         V.ValueMap(SortedLookupList(mVal).mapValue(_.toValue))
       case SContractId(coid) =>
         V.ValueContractId(coid)
-
       case _: SPAP =>
         throw SErrorCrash("SValue.toValue: unexpected SPAP")
-
       case SToken =>
         throw SErrorCrash("SValue.toValue: unexpected SToken")
     }
@@ -125,13 +120,11 @@ sealed trait SValue {
           values.iterator.asScala.zip(values2.iterator.asScala).forall {
             case (x, y) => x.equalTo(y)
           }
-
       case (STuple(fields, values), STuple(fields2, values2)) =>
         ComparableArray(fields) == ComparableArray(fields2) &&
           values.iterator.asScala.zip(values2.iterator.asScala).forall {
             case (x, y) => x.equalTo(y)
           }
-
       case (SVariant(tycon1, con1, value), SVariant(tycon2, con2, value2)) =>
         tycon1 == tycon2 && con1 == con2 && value.equalTo(value2)
       case (SContractId(coid), SContractId(coid2)) =>
@@ -205,13 +198,11 @@ object SValue {
         SList(vs.map[SValue](fromValue))
       case V.ValueContractId(coid) => SContractId(coid)
       case V.ValueInt64(x) => SInt64(x)
-      case V.ValueDecimal(x) =>
-        Numeric
-          .fromBigDecimal(Decimal.scale, x)
-          .fold(
-            e => throw SErrorCrash("SValue.fromValue: " + e),
-            SNumeric
-          )
+      case V.ValueNumeric(x) =>
+        // FixMe: https://github.com/digital-asset/daml/issues/2289
+        //   drop this double check
+        assert(x.scale == Decimal.scale)
+        SNumeric(x)
       case V.ValueText(t) => SText(t)
       case V.ValueTimestamp(t) => STimestamp(t)
       case V.ValueParty(p) => SParty(p)
