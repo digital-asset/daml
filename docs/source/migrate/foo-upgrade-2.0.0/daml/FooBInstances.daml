@@ -1,0 +1,19 @@
+-- Copyright (c) 2019 The DAML Authors. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+{-# LANGUAGE EmptyCase #-}
+{-# LANGUAGE NoDamlSyntax #-}
+module FooBInstances where
+import FooB
+import DA.Generics
+instance {-# NO_OVERLAP #-} Generic Bar (DA.Generics.D1 ('DA.Generics.MetaData ('DA.Generics.MetaData0 "Bar" "Foo" "foo-2.0.0" 'Prelude.False)) (DA.Generics.C1 ('DA.Generics.MetaCons ('DA.Generics.MetaCons0 "Bar" 'DA.Generics.PrefixI 'Prelude.True)) ((DA.Generics.:*:) (DA.Generics.S1 ('DA.Generics.MetaSel ('DA.Generics.MetaSel0 ('Prelude.Some "t") 'DA.Generics.NoSourceUnpackedness 'DA.Generics.NoSourceStrictness)) (DA.Generics.Rec0 Text)) (DA.Generics.S1 ('DA.Generics.MetaSel ('DA.Generics.MetaSel0 ('Prelude.Some "p") 'DA.Generics.NoSourceUnpackedness 'DA.Generics.NoSourceStrictness)) (DA.Generics.Rec0 Party))))) where
+  from x
+    = M1 (case x of { Bar g1 g2 -> M1 (P1 (M1 (K1 g1)) (M1 (K1 g2))) })
+  to (M1 x)
+    = case x of { (M1 (P1 (M1 (K1 g1)) (M1 (K1 g2)))) -> Bar g1 g2 }
+instance {-# NO_OVERLAP #-} Generic Foo (DA.Generics.D1 ('DA.Generics.MetaData ('DA.Generics.MetaData0 "Foo" "Foo" "foo-2.0.0" 'Prelude.False)) (DA.Generics.C1 ('DA.Generics.MetaCons ('DA.Generics.MetaCons0 "Foo" 'DA.Generics.PrefixI 'Prelude.True)) ((DA.Generics.:*:) (DA.Generics.S1 ('DA.Generics.MetaSel ('DA.Generics.MetaSel0 ('Prelude.Some "a") 'DA.Generics.NoSourceUnpackedness 'DA.Generics.NoSourceStrictness)) (DA.Generics.Rec0 Int)) (DA.Generics.S1 ('DA.Generics.MetaSel ('DA.Generics.MetaSel0 ('Prelude.Some "p") 'DA.Generics.NoSourceUnpackedness 'DA.Generics.NoSourceStrictness)) (DA.Generics.Rec0 Party))))) where
+  from x
+    = M1 (case x of { Foo g1 g2 -> M1 (P1 (M1 (K1 g1)) (M1 (K1 g2))) })
+  to (M1 x)
+    = case x of { (M1 (P1 (M1 (K1 g1)) (M1 (K1 g2)))) -> Foo g1 g2 }
+

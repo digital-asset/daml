@@ -93,6 +93,7 @@ DAML SDK documentation
 
    experimental/warning
    daml-integration-kit/index
+   migrate/index
 
 .. toctree::
    :titlesonly:
