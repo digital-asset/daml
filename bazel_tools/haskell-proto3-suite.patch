@@ -11,6 +11,22 @@ index 8ef63e9..08d40ca 100644
                         system-filepath,
                         text >= 0.2 && <1.3,
                         transformers >=0.4 && <0.6,
+diff --git a/src/Proto3/Suite/DotProto/Generate.hs b/src/Proto3/Suite/DotProto/Generate.hs
+index 2cf78cd..03faf3b 100644
+--- a/src/Proto3/Suite/DotProto/Generate.hs
++++ b/src/Proto3/Suite/DotProto/Generate.hs
+@@ -1023,7 +1023,11 @@ toSchemaInstanceDeclaration messageName maybeConstructors fieldNames = do
+         where
+           _paramSchemaType = jsonpbName "_paramSchemaType"
+ 
++#if MIN_VERSION_swagger2(2,4,0)
++          _paramSchemaTypeExpression = HsApp justC (HsVar (jsonpbName "SwaggerObject"))
++#else
+           _paramSchemaTypeExpression = HsVar (jsonpbName "SwaggerObject")
++#endif
+ 
+   let _schemaParamSchemaExpression = HsRecUpdate memptyE paramSchemaUpdates
+ 
 diff --git a/src/Proto3/Suite/DotProto/Generate/Swagger.hs b/src/Proto3/Suite/DotProto/Generate/Swagger.hs
 index 6c6962a..17adf90 100644
 --- a/src/Proto3/Suite/DotProto/Generate/Swagger.hs
