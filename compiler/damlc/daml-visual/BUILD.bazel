@@ -26,6 +26,6 @@ da_haskell_library(
         "//compiler/daml-lf-proto",
         "//compiler/daml-lf-reader",
         "//compiler/daml-lf-tools",
-        "//libs-haskell/da-hs-base"
+        "//libs-haskell/da-hs-base",
     ],
 )
