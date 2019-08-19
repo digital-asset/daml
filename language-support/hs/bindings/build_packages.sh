@@ -49,7 +49,7 @@ popd
 bazel build //daml-lf/archive:daml_lf_haskell_proto
 DIR=$(mktemp -d)
 mkdir -p "$DIR/src"
-cp -rL "$BAZEL_BIN/daml-lf/archive/Da" "$DIR/src/Da"
+cp -RL "$BAZEL_BIN/daml-lf/archive/Da" "$DIR/src/Da"
 cat <<EOF > "$DIR/daml-lf-proto-types.cabal"
 cabal-version: 2.4
 name: daml-lf-proto-types
@@ -82,8 +82,8 @@ rm -rf "$DIR"
 bazel build //ledger-api/grpc-definitions:ledger-api-haskellpb
 DIR=$(mktemp -d)
 mkdir -p "$DIR/src"
-cp -rL "$BAZEL_BIN/ledger-api/grpc-definitions/Google" "$DIR/src/Google"
-cp -rL "$BAZEL_BIN/ledger-api/grpc-definitions/Com" "$DIR/src/Com"
+cp -RL "$BAZEL_BIN/ledger-api/grpc-definitions/Google" "$DIR/src/Google"
+cp -RL "$BAZEL_BIN/ledger-api/grpc-definitions/Com" "$DIR/src/Com"
 cat <<EOF > "$DIR/ledger-api-haskellpb.cabal"
 cabal-version: 2.4
 name: ledger-api-haskellpb
