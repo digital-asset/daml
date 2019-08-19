@@ -77,13 +77,12 @@ setIgnoreOptionalHandlers = PartialHandlers $ \WithMessage{..} x -> return x
     -- $/setTraceNotification which we want to ignore.
     where optionalPrefix = "$/"
 
-tt :: Aeson.Value -> [T.Text]
-tt (Aeson.String x ) = [x]
-tt (Aeson.Array arr) =  concatMap tt arr
-tt _ex = error ("this has to be reported in ide" ++ show _ex )
-
 filesFromExecParams :: List Aeson.Value -> [NormalizedFilePath]
-filesFromExecParams (List files) = map (toNormalizedFilePath . T.unpack) (concatMap tt files)
+filesFromExecParams (List files) = map (toNormalizedFilePath . T.unpack) (concatMap fileStringToPath files)
+            where fileStringToPath :: Aeson.Value -> [T.Text]
+                  fileStringToPath (Aeson.String x) = [x]
+                  fileStringToPath (Aeson.Array arr) = concatMap fileStringToPath arr
+                  fileStringToPath _ex = error ("Failed to get daml files from workspace" ++ show _ex )
 
 onCommand
     :: IdeState
