@@ -427,6 +427,14 @@ When you're developing, you'll use `Sandbox <#sandbox>`__ as your ledger.
 
 If you want to run DAML on a storage mechanism of your choice, you can use the :doc:`/daml-integration-kit/index` to help you do that.
 
+.. _trust-domain:
+
+Trust domain
+============
+
+A **trust domain** encompasses a part of the system (in particular, a DAML ledger) operated by a single real-world entity. This subsystem may consist of one or more physical nodes. A single physical machine is always assumed to be controlled by exactly one real-world entity.
+
+
 .. Transaction
 .. ===========
 

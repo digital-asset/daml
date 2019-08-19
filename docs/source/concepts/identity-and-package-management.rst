@@ -1,33 +1,39 @@
 .. Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
+.. _identity-package-management:
+
 Identity and Package Management
 ###############################
 
-Since DAML Ledgers enable parties to automate the management of their rights and obligations through smart contract code, they also have to provide party and code management functions.
+Since DAML ledgers enable parties to automate the management of their rights and obligations through smart contract code, they also have to provide party and code management functions.
 Hence, this document addresses:
 
-1. Management of parties' digital identifiers in a DAML Ledger.
+1. Management of parties' digital identifiers in a DAML ledger.
 
-2. Distribution of smart contract code between the parties connected to the same DAML Ledger.
+2. Distribution of smart contract code between the parties connected to the same DAML ledger.
 
-The Ledger API provides both a :ref:`party management service <com.digitalasset.ledger.api.v1.PartyService>` and a :ref:`package service <com.digitalasset.ledger.api.v1.PackageService>`.
-The access to these services is usually more restricted compared to the other Ledger API services, as they are part of the administrative API.
-Any implementation of the services is guaranteed to accept inputs and provide outputs of the format specified by these services.
+The access to this functionality is usually more restricted compared to the other Ledger API services, as they are part of the administrative API.
+This document is intended for the users and implementers of this API.
+
+The administrative part of the Ledger API provides both a :ref:`party management service <com.digitalasset.ledger.api.v1.PartyService>` and a :ref:`package service <com.digitalasset.ledger.api.v1.PackageService>`.
+Any implementation of the party and package services is guaranteed to accept inputs and provide outputs of the format specified by these services.
 However, the services' *behavior* -- the relationship between the inputs and outputs that the various parties observe -- is largely implementation dependent.
-The remainder of the document will presents both:
+The remainder of the document will present:
 
-#. the minimal behavioral guarantees for identity and package services across all ledger implementations, and
+#. The minimal behavioral guarantees for identity and package services across all ledger implementations. The service users can rely on these guarantees, and the implementers must ensure that they hold.
 
-#. guidelines to understand how the :ref:`ledger's topology <daml-ledger-topologies>` influences the unspecified part of the behavior.
+#. Guidelines for service users, explaining understand how the :ref:`ledger's topology <daml-ledger-topologies>` influences the unspecified part of the behavior.
+
+.. _identity-management:
 
 Identity Management
 *******************
 
-A DAML Ledger may freely define its own format of party and :ref:`participant node <participant-node-def>` identifiers, with some minor constraints on the identifiers' serialized form.
+A DAML ledger may freely define its own format of party and :ref:`participant node <participant-node-def>` identifiers, with some minor constraints on the identifiers' serialized form.
 For example, a ledger may use human-readable strings as identifiers, such as "Alice" or "Alice's Bank".
 A different ledger might use public keys as identifiers, or the keys' fingerprints.
-The applications should thus not rely on the format of the identifier -- even a software upgrade of a DAML Ledger may introduce a new format.
+The applications should thus not rely on the format of the identifier -- even a software upgrade of a DAML ledger may introduce a new format.
 
 By definition, identifiers identify parties, and are thus unique for a ledger.
 They do not, however, have to be unique across different ledgers.
@@ -47,14 +53,15 @@ For example, a party might change its display name from "Bruce" to "Caitlyn" -- 
 Provisioning Identifiers
 ========================
 
-The set of parties of any DAML Ledger is dynamic: new parties may always be added to the system.
+The set of parties of any DAML ledger is dynamic: new parties may always be added to the system.
 The first step in adding a new party to the ledger is to provision a new identifier for the party.
 The Ledger API provides an ``AllocateParty`` method for this purpose.
 The method, if successful, returns an new party identifier.
 The ``AllocateParty`` call can take the desired identifier and display name as optional parameters, but these are merely hints and the ledger implementation may completely ignore them.
 
 If the call returns a new identifier, the :ref:`participant node <participant-node-def>` serving this call is ready to host the party with this identifier.
-The returned identifier is guaranteed to be **unique** in the ledger; namely, no other call of the ``AllocateParty`` method at this or any other ledger participant may return the same identifier.
+In global state topologies, the returned identifier is guaranteed to be **unique** in the ledger; namely, no other call of the ``AllocateParty`` method at this or any other ledger participant may return the same identifier.
+In partitioned state topologies, the identifier is also unique as long as the participant node is configured correctly (in particular, it does not share its private key with other participant nodes).
 If the ledger has a :ref:`global state topology <global-state-topologies>`, the new identifier will generally be allocated and vetted by the operator of the writer node(s).
 For example, in the `replicated committer topology <replicated-committer-topology>`__, the committers can jointly decide on whether to approve the provisioning, and which identifier to return.
 If they refuse to provision the identifier, the method call fails.
@@ -98,14 +105,19 @@ For example, if the operator is a stock exchange, it might guarantee that a real
 Alternatively, it might use a random identifier, but guarantee that the display name is "Bank Inc.".
 Ledgers with :ref:`partitioned topologies <partitioned-topologies>` in general might not have such a single store of identities.
 The solutions for linking the identifiers to real-world identities could rely on certificate chains, `verifiable credentials <https://www.w3.org/TR/vc-data-model/>`__, or other mechanisms.
+The mechanisms can be implemented off-ledger, using DAML workflows (for instance, a "know your customer" workflow), or a combination of these.
+
+.. _package-management:
 
 Package Management
 ******************
 
-All DAML Ledgers implement endpoints that allow for provisioning new DAML code to the ledger.
+All DAML ledgers implement endpoints that allow for provisioning new DAML code to the ledger.
 The vetting process for this code, however, depends on the particular ledger implementation and its configuration.
 The remainder of this section describes the endpoints and general principles behind the vetting process.
 The details of the process are ledger-dependent.
+
+.. _package-formats-and-identifiers:
 
 Package Formats and Identifiers
 ===============================
@@ -117,6 +129,9 @@ Templates in a ``.dalf`` file can references templates from other ``.dalf`` file
 A :ref:`.dar <dar-file-dalf-file>` file is a simple archive containing multiple ``.dalf`` files, and has no identifier of its own.
 The archive provides a convenient way to package ``.dalf`` files together with their dependencies.
 The Ledger API supports only ``.dar`` file uploads.
+Internally, the ledger implementation need not (and often will not) store the uploaded ``.dar`` files, but only the contained ``.dalf`` files.
+
+.. _package-management-api:
 
 Package Management API
 ======================
@@ -132,6 +147,7 @@ The package management API supports two methods:
 - ``ListKnownPackages`` that lists the ``.dalf`` package vetted for usage at the participant node.
   Like with the previous method, the usability of the listed templates depends on the ledger's vetting process.
 
+.. _package-management-vetting:
 
 Package Vetting
 ===============
@@ -141,8 +157,8 @@ The DAML interpreter ensures that the DAML code cannot interact with the environ
 However, the operators of the ledger infrastructure nodes may still wish to review and vet any DAML code before allowing it to execute.
 One reason for this is that the DAML interpreter currently lacks a notion of reproducible resource limits, and executing a DAML contract might result in high memory or CPU usage.
 
-Thus, DAML Ledgers generally allow some form of vetting a package before running its code on a node.
-Not all nodes in a DAML Ledger must vet all packages, as it is possible that some of them will not execute the code.
+Thus, DAML ledgers generally allow some form of vetting a package before running its code on a node.
+Not all nodes in a DAML ledger must vet all packages, as it is possible that some of them will not execute the code.
 For example, in :ref:`global state topologies <global-state-topologies>`, every :ref:`trust domain <trust-domain>` that controls how commits are appended to the shared ledger must execute DAML code.
 Thus, the operators of these trust domains will in general be allowed to vet the code before they execute it.
 The exact vetting mechanism is ledger-dependent.
@@ -160,6 +176,8 @@ As only participants execute contract code, only they need to vet it.
 The vetting results may also differ at different participants.
 For example, participants ``P1`` and ``P2`` might vet a package containing a ``NewTemplate`` template, whereas ``P3`` might reject it.
 In that case, if Alice is hosted at ``P1``, she can create ``NewTemplate`` instances with stakeholder Bob who is hosted at ``P2``, but not with stakeholder Charlie if he's hosted at ``P3``.
+
+.. _package-upgrades:
 
 Package Upgrades
 ================
