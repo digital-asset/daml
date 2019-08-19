@@ -92,15 +92,20 @@ onCommand ide ExecuteCommandParams{..} = do
     case _arguments of
         Nothing -> return $ Aeson.String "No .daml files where found in the IDE workspace"
         Just path -> do
-            logInfo (ideLogger ide) "Geerating visualization for current daml project"
-            mbmodules <- mapM (\f -> runAction ide (useWithStale GenerateDalf f)) (filesFromExecParams path)
-            Just (WhnfPackage package, _) <- runAction ide (useWithStale GeneratePackage (head (filesFromExecParams path)))
-            pkgMap <- runAction ide  (useNoFile_ GeneratePackageMap)
-            let extpkgs = map dalfPackagePkg $ Map.elems pkgMap
-            let wrld = LF.initWorldSelf extpkgs package
-            let modules = map (fst . fromJust ) mbmodules
-            let dots = T.pack $ Visual.dotFileGen modules wrld
-            return $ Aeson.String dots
+            let paths = filesFromExecParams path
+            case paths of
+                x : _xs -> do
+                        logInfo (ideLogger ide) "Geerating visualization for current daml project"
+                        mbmodules <- mapM (\f -> runAction ide (useWithStale GenerateDalf f)) paths
+                        Just (WhnfPackage package, _) <- runAction ide (useWithStale GeneratePackage x)
+                        pkgMap <- runAction ide  (useNoFile_ GeneratePackageMap)
+                        let extpkgs = map dalfPackagePkg $ Map.elems pkgMap
+                        let wrld = LF.initWorldSelf extpkgs package
+                        let modules = map (fst . fromJust ) mbmodules
+                        let dots = T.pack $ Visual.dotFileGen modules wrld
+                        return $ Aeson.String dots
+                _ -> return $ Aeson.String "Could not consutruct world and the module list."
+
 
 setCommandHandler ::PartialHandlers
 setCommandHandler = PartialHandlers $ \WithMessage{..} x -> return x {
