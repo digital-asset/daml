@@ -529,7 +529,14 @@ hazel_repositories(
             hazel_ghclibs(GHC_LIB_VERSION, "ce14e19bbe2a52289c5fb436941f948678a86bd821c17710082131bbe87d997f", "02482f4fd7691c2e442f9dd4c8d6816325d0bd164f6e03cec6a2db1ef9e65d43") +
             hazel_github_external("digital-asset", "hlint", "c57edffa2bd54605637671f7821a2519d34c37bf", "9c81a0822af933dc13240d74218534308c7e5a2db80bad4a33c72890397275fd") +
             hazel_github_external("awakesecurity", "proto3-wire", "43d8220dbc64ef7cc7681887741833a47b61070f", "1c3a7fbf4ab3308776675c6202583f9750de496757f3ad4815e81edd122d75e1") +
-            hazel_github_external("awakesecurity", "proto3-suite", "dd01df7a3f6d0f1ea36125a67ac3c16936b53da0", "59ea7b876b14991347918eefefe24e7f0e064b5c2cc14574ac4ab5d6af6413ca") +
+            hazel_github_external(
+                "awakesecurity",
+                "proto3-suite",
+                "dd01df7a3f6d0f1ea36125a67ac3c16936b53da0",
+                "59ea7b876b14991347918eefefe24e7f0e064b5c2cc14574ac4ab5d6af6413ca",
+                patch_args = ["-p1"],
+                patches = ["@com_github_digital_asset_daml//bazel_tools:haskell-proto3-suite.patch"],
+            ) +
 
             # Not in stackage
             hazel_hackage("bytestring-nums", "0.3.6", "bdca97600d91f00bb3c0f654784e3fbd2d62fcf4671820578105487cdf39e7cd") +
