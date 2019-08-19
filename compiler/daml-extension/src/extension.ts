@@ -55,7 +55,7 @@ export async function activate(context: vscode.ExtensionContext) {
     );
 
     let d2 = vscode.commands.registerCommand('daml.openDamlDocs', openDamlDocs);
-    let d5 = vscode.commands.registerCommand('daml.visualize', visualizeLsp);
+    let d5 = vscode.commands.registerCommand('daml.visualize', visualize);
 
     let highlight = vscode.window.createTextEditorDecorationType({ backgroundColor: 'rgba(200,200,200,.35)' });
 
@@ -99,41 +99,11 @@ function getViewColumnForShowResource(): ViewColumn {
     }
 }
 
-async function visualize() {
-    const util = require('util');
-    const exec = util.promisify(require('child_process').exec);
-    tmp.file(((err, path) => {
-        if (err) throw err;
-        let buildCmd = "daml build -o " + path
-        let visualizeCmd = "daml damlc visual " + path
-        let workspaceRoot = vscode.workspace.rootPath;
-        let execOpts = { cwd: workspaceRoot }
-        exec(buildCmd, execOpts, ((error: Error, stdout: string, stderr: string) => {
-            if (error) {
-                vscode.window.showErrorMessage("daml build failed with" + error)
-            }
-            else {
-                exec(visualizeCmd, execOpts, ((error: Error, stdout: string, stderr: string) => {
-                    if (error) {
-                        vscode.window.showErrorMessage("damlc visual command failed with " + error)
-                    }
-                    else {
-                        vscode.workspace.openTextDocument({ content: stdout, language: "dot" })
-                            .then(doc => vscode.window.showTextDocument(doc, vscode.ViewColumn.One, true)
-                                .then(_ => loadPreviewIfAvailable()))
-                    }
-                }))
-            }
-        }))
-
-    }))
-}
-
-function visualizeLsp() {
+function visualize() {
     if (vscode.window.activeTextEditor) {
         const workspace = vscode.workspace.workspaceFolders![0];
         if (workspace) {
-            vscode.workspace.findFiles(new vscode.RelativePattern(workspace, "**/*.daml"), "**/node_modules/**").then(r => {
+            vscode.workspace.findFiles(new vscode.RelativePattern(workspace, "**/*.daml"), "").then(r => {
                 let files = r.map(f => f.path)
                 damlLanguageClient.sendRequest(ExecuteCommandRequest.type,
                     { command: "daml/damlVisualize", arguments: [files] }).then(r => {

@@ -91,7 +91,7 @@ onCommand
     -> IO Aeson.Value
 onCommand ide ExecuteCommandParams{..} = do
     case _arguments of
-        Nothing -> return $ Aeson.String "Generate Dalf then call visualize file path not set"
+        Nothing -> return $ Aeson.String "No .daml files where found in the IDE workspace"
         Just path -> do
             logInfo (ideLogger ide) "Geerating visualization for current daml project"
             mbmodules <- mapM (\f -> runAction ide (useWithStale GenerateDalf f)) (filesFromExecParams path)
