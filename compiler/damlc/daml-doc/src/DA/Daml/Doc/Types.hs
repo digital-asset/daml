@@ -29,8 +29,12 @@ newtype Typename = Typename { unTypename :: Text }
 newtype Modulename = Modulename { unModulename :: Text }
     deriving newtype (Eq, Ord, Show, ToJSON, FromJSON, IsString)
 
+-- | Name of daml package, e.g. "daml-prim", "daml-stdlib"
+newtype Packagename = Packagename { unPackagename :: Text }
+    deriving newtype (Eq, Ord, Show, ToJSON, FromJSON, IsString)
+
 -- | Type expression, possibly a (nested) type application
-data Type = TypeApp !(Maybe Anchor) !Typename [Type] -- ^ Type application
+data Type = TypeApp !(Maybe Reference) !Typename [Type] -- ^ Type application
           | TypeFun [Type] -- ^ Function type
           | TypeList Type   -- ^ List syntax
           | TypeTuple [Type] -- ^ Tuple syntax
@@ -40,7 +44,13 @@ data Type = TypeApp !(Maybe Anchor) !Typename [Type] -- ^ Type application
 instance Hashable Type where
   hashWithSalt salt = hashWithSalt salt . show
 
--- | Anchors are URL-safe ids into the docs.
+-- | A docs reference, possibly external (i.e. in another package).
+data Reference = Reference
+    { referencePackage :: Maybe Packagename
+    , referenceAnchor :: Anchor
+    } deriving (Eq, Ord, Show, Generic)
+
+-- | Anchors are URL-safe (and RST-safe!) ids into the docs.
 newtype Anchor = Anchor { unAnchor :: Text }
     deriving newtype (Eq, Ord, Show, ToJSON, FromJSON, IsString)
 
@@ -170,6 +180,12 @@ data InstanceDoc = InstanceDoc
 
 -----------------------------------------------------
 -- generate JSON instances
+
+instance ToJSON Reference where
+    toJSON = genericToJSON aesonOptions
+
+instance FromJSON Reference where
+    parseJSON = genericParseJSON aesonOptions
 
 instance ToJSON Type where
     toJSON = genericToJSON aesonOptions

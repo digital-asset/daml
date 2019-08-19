@@ -34,7 +34,7 @@ data RenderText
     = RenderConcat [RenderText]
     | RenderPlain T.Text
     | RenderStrong T.Text
-    | RenderLink Anchor T.Text
+    | RenderLink Reference T.Text
     | RenderDocsInline DocText
 
 chunks :: RenderOut -> [RenderOut]
@@ -67,7 +67,7 @@ renderUnwords = renderIntercalate " "
 
 -- | Environment in which to generate final documentation.
 data RenderEnv = RenderEnv
-    { lookupAnchor :: Anchor -> Maybe AnchorLocation
+    { lookupReference :: Reference -> Maybe AnchorLocation
         -- ^ get location of anchor relative to render output, if available
     }
 
@@ -118,6 +118,8 @@ renderPage formatter output =
         | Set.member anchor localAnchors = Just SameFile
         | otherwise = Nothing
 
+    lookupReference = lookupAnchor . referenceAnchor
+
     renderEnv = RenderEnv {..}
 
 -- | Render a folder of modules.
@@ -139,6 +141,7 @@ renderFolder formatter fileMap =
                 [ SameFile <$ guard (Set.member anchor localAnchors)
                 , SameFolder <$> Map.lookup anchor globalAnchors
                 ]
+            lookupReference = lookupAnchor . referenceAnchor
             renderEnv = RenderEnv {..}
         in T.unlines (formatter renderEnv output)
 

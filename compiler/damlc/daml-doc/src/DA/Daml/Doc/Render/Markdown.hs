@@ -47,14 +47,14 @@ renderMdText env = \case
     RenderConcat ts -> mconcatMap (renderMdText env) ts
     RenderPlain text -> escapeMd text
     RenderStrong text -> T.concat ["**", escapeMd text, "**"]
-    RenderLink anchor text ->
-        case lookupAnchor env anchor of
+    RenderLink ref text ->
+        case lookupReference env ref of
             Nothing -> escapeMd text
             Just anchorLoc -> T.concat
                 ["["
                 , escapeMd text
                 , "]("
-                , anchorHyperlink anchorLoc anchor
+                , anchorHyperlink anchorLoc (referenceAnchor ref)
                 , ")"]
     RenderDocsInline docText ->
         T.unwords . T.lines . unDocText $ docText
