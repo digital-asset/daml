@@ -299,7 +299,7 @@ execIde telemetry (Debug debug) enableScenarioService mbProfileDir = NS.withSock
                 f loggerH
             Undecided -> f loggerH
     -- TODO we should allow different LF versions in the IDE.
-    initPackageDb LF.versionDefault (InitPkgDb True)
+    initPackageDb LF.versionDefault (InitPkgDb True) (AllowDifferentSdkVersions False)
     dlintDataDir <-locateRunfiles $ mainWorkspace </> "compiler/damlc/daml-ide-core"
     opts <- defaultOptionsIO Nothing
     opts <- pure $ opts
@@ -387,10 +387,14 @@ withPackageConfig f = do
 -- database. Otherwise do nothing.
 execInit :: LF.Version -> ProjectOpts -> IO ()
 execInit lfVersion projectOpts =
-    withProjectRoot' projectOpts $ \_relativize -> initPackageDb lfVersion (InitPkgDb True)
+    withProjectRoot' projectOpts $ \_relativize ->
+        initPackageDb
+            lfVersion
+            (InitPkgDb True)
+            (AllowDifferentSdkVersions False)
 
-initPackageDb :: LF.Version -> InitPkgDb -> IO ()
-initPackageDb lfVersion (InitPkgDb shouldInit) =
+initPackageDb :: LF.Version -> InitPkgDb -> AllowDifferentSdkVersions -> IO ()
+initPackageDb lfVersion (InitPkgDb shouldInit) allowDiffSdkVersions =
     when shouldInit $ do
         isProject <- doesFileExist projectConfigName
         when isProject $ do
@@ -398,44 +402,58 @@ initPackageDb lfVersion (InitPkgDb shouldInit) =
           case parseProjectConfig project of
               Left err -> throwIO err
               Right PackageConfigFields {..} -> do
-                  createProjectPackageDb lfVersion pDependencies
+                  createProjectPackageDb allowDiffSdkVersions lfVersion pDependencies
+
+newtype AllowDifferentSdkVersions = AllowDifferentSdkVersions Bool
 
 -- | Create the project package database containing the given dar packages.
-createProjectPackageDb :: LF.Version -> [FilePath] -> IO ()
-createProjectPackageDb lfVersion fps = do
+createProjectPackageDb ::
+       AllowDifferentSdkVersions -> LF.Version -> [FilePath] -> IO ()
+createProjectPackageDb (AllowDifferentSdkVersions allowDiffSdkVersions) lfVersion fps = do
     let dbPath = projectPackageDatabase </> lfVersionString lfVersion
     createDirectoryIfMissing True $ dbPath </> "package.conf.d"
     let fps0 = filter (`notElem` basePackages) fps
-    forM_ fps0 $ \fp -> do
-        bs <- BSL.readFile fp
-        let archive = toArchive bs
-        let confFiles =
-                [ e
-                | e <- zEntries archive
-                , ".conf" `isExtensionOf` eRelativePath e
-                ]
-        let dalfs =
-                [ e
-                | e <- zEntries archive
-                , ".dalf" `isExtensionOf` eRelativePath e
-                ]
-        let srcs =
-                [ e
-                | e <- zEntries archive
-                , takeExtension (eRelativePath e) `elem`
-                      [".daml", ".hie", ".hi"]
-                ]
-        forM_ dalfs $ \dalf -> do
-            let path = dbPath </> eRelativePath dalf
-            createDirectoryIfMissing True (takeDirectory path)
-            BSL.writeFile path (fromEntry dalf)
-        forM_ confFiles $ \conf ->
-            BSL.writeFile
-                (dbPath </> "package.conf.d" </> (takeFileName $ eRelativePath conf))
-                (fromEntry conf)
-        forM_ srcs $ \src -> do
-            let path = dbPath </> eRelativePath src
-            write path (fromEntry src)
+    sdkVersions <-
+        forM fps0 $ \fp -> do
+            bs <- BSL.readFile fp
+            let archive = toArchive bs
+            manifest <- getEntry "META-INF/MANIFEST.MF" archive
+            sdkVersion <- trim <$> getManifestField manifest "Sdk-Version"
+            let confFiles =
+                    [ e
+                    | e <- zEntries archive
+                    , ".conf" `isExtensionOf` eRelativePath e
+                    ]
+            let dalfs =
+                    [ e
+                    | e <- zEntries archive
+                    , ".dalf" `isExtensionOf` eRelativePath e
+                    ]
+            let srcs =
+                    [ e
+                    | e <- zEntries archive
+                    , takeExtension (eRelativePath e) `elem`
+                          [".daml", ".hie", ".hi"]
+                    ]
+            forM_ dalfs $ \dalf -> do
+                let path = dbPath </> eRelativePath dalf
+                createDirectoryIfMissing True (takeDirectory path)
+                BSL.writeFile path (fromEntry dalf)
+            forM_ confFiles $ \conf ->
+                BSL.writeFile
+                    (dbPath </> "package.conf.d" </>
+                     (takeFileName $ eRelativePath conf))
+                    (fromEntry conf)
+            forM_ srcs $ \src -> do
+                let path = dbPath </> eRelativePath src
+                write path (fromEntry src)
+            pure sdkVersion
+    let uniqSdkVersions = nubSort sdkVersions
+    -- if there are no package dependencies, sdkVersions will be empty
+    unless (length uniqSdkVersions <= 1 || allowDiffSdkVersions) $
+        fail $
+        "Package dependencies from different SDK versions: " ++
+        intercalate ", " uniqSdkVersions
     ghcPkgPath <-
         locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "ghc-pkg")
     callProcess
@@ -456,7 +474,7 @@ mbErr err = maybe (hPutStrLn stderr err >> exitFailure) pure
 
 execBuild :: ProjectOpts -> Options -> Maybe FilePath -> InitPkgDb -> IO ()
 execBuild projectOpts options mbOutFile initPkgDb = withProjectRoot' projectOpts $ \_relativize -> do
-    initPackageDb (optDamlLfVersion options) initPkgDb
+    initPackageDb (optDamlLfVersion options) initPkgDb (AllowDifferentSdkVersions False)
     withPackageConfig $ \pkgConfig@PackageConfigFields{..} -> do
         putStrLn $ "Compiling " <> pName <> " to a DAR."
         opts <- mkOptions options
@@ -611,7 +629,7 @@ execMigrate projectOpts opts0 inFile1_ inFile2_ mbDir = do
     withProjectRoot' projectOpts $ \_relativize
      -> do
         -- initialise the package database
-        initPackageDb (optDamlLfVersion opts) (InitPkgDb True)
+        initPackageDb (optDamlLfVersion opts) (InitPkgDb True) (AllowDifferentSdkVersions True)
         -- for all contained dalfs, generate source, typecheck and generate interface files and
         -- overwrite the existing ones.
         dbPath <- makeAbsolute $
@@ -680,15 +698,7 @@ execMigrate projectOpts opts0 inFile1_ inFile2_ mbDir = do
                 let dar = toArchive $ BSL.fromStrict bytes
                 -- get the main pkg
                 manifest <- getEntry "META-INF/MANIFEST.MF" dar
-                let mainDalfPath =
-                        headNote
-                            "Missing Main-Dalf entry in META-INF/MANIFEST.MF"
-                            [ main
-                            | l <-
-                                  lines $
-                                  replace "\n " "" $ BSC.unpack $ BSL.toStrict $ fromEntry manifest
-                            , Just main <- [stripPrefix "Main-Dalf: " l]
-                            ]
+                mainDalfPath <- getManifestField manifest "Main-Dalf"
                 mainDalfEntry <- getEntry mainDalfPath dar
                 (mainPkgId, mainLfPkg) <- decode $ BSL.toStrict $ fromEntry mainDalfEntry
                 pure (pkgName, mainPkgId, mainLfPkg)
@@ -746,6 +756,18 @@ getEntry :: FilePath -> Archive -> IO Entry
 getEntry fp dar =
     maybe (fail $ "Package does not contain " <> fp) pure $
     findEntryByPath fp dar
+
+-- | Parse a manifest field.
+getManifestField :: Entry -> String -> IO String
+getManifestField manifest field =
+    mbErr ("Missing field in META-INF/MANIFEST.MD: " ++ field) $
+    headMay
+        [ value
+        | l <-
+              lines $
+              replace "\n " "" $ BSC.unpack $ BSL.toStrict $ fromEntry manifest
+        , Just value <- [stripPrefix (field ++ ": ") l]
+        ]
 
 -- | Merge two dars. The idea is that the second dar is a delta. Hence, we take the main in the
 -- manifest from the first.
