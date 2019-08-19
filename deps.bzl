@@ -30,8 +30,8 @@ load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive", "http_file"
 load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
 
 rules_scala_version = "8092d5f6165a8d9c4797d5f089c1ba4eee3326b1"
-rules_haskell_version = "732001fd971b689499532d11283e09ef91345ca6"
-rules_haskell_sha256 = "d30695ebe7f46aa38386fb4fd83882bb2e4b638c46c12dd990812b6ce088cc0c"
+rules_haskell_version = "5a1822334d1f5d8d86d16a2e653c42d2756a7c33"
+rules_haskell_sha256 = "1bcae679c60985ed29ca58f77a2d1e2345fce89ae588c556d7586cf556ae18d5"
 rules_nixpkgs_version = "5ffb8a4ee9a52bc6bc12f95cd64ecbd82a79bc82"
 
 def daml_deps():
@@ -41,7 +41,6 @@ def daml_deps():
             strip_prefix = "rules_haskell-%s" % rules_haskell_version,
             urls = ["https://github.com/tweag/rules_haskell/archive/%s.tar.gz" % rules_haskell_version],
             patches = [
-                "@com_github_digital_asset_daml//bazel_tools:haskell-c2hs-windows.patch",
                 "@com_github_digital_asset_daml//bazel_tools:haskell-drop-fake-static.patch",
                 "@com_github_digital_asset_daml//bazel_tools:haskell-windows-extra-libraries.patch",
                 "@com_github_digital_asset_daml//bazel_tools:haskell-darwin-symlink-dylib.patch",

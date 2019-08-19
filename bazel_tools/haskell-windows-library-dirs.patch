@@ -4,11 +4,11 @@ include up-level references (..) without normalizing the resulting paths. This
 patch adds a gcc wrapper that normalizes library search paths before passing
 them on.
 diff --git a/haskell/BUILD.bazel b/haskell/BUILD.bazel
-index df38616..7a921d3 100644
+index 266a023d..6cc7a15a 100644
 --- a/haskell/BUILD.bazel
 +++ b/haskell/BUILD.bazel
 @@ -2,6 +2,10 @@ load(
-     "@rules_haskell//haskell:defs.bzl",
+     "@rules_haskell//haskell:private/haskell_impl.bzl",
      "haskell_toolchain_libraries",
  )
 +load(
@@ -39,7 +39,7 @@ index df38616..7a921d3 100644
      name = "pkgdb_to_bzl",
      srcs = ["private/pkgdb_to_bzl.py"],
 diff --git a/haskell/cc.bzl b/haskell/cc.bzl
-index cd42613..c768067 100644
+index cd426135..c7680672 100644
 --- a/haskell/cc.bzl
 +++ b/haskell/cc.bzl
 @@ -113,8 +113,8 @@ def cc_interop_info(ctx):
@@ -55,7 +55,7 @@ index cd42613..c768067 100644
      linker_flags = [flag for flag in linker_flags if flag not in ["-shared"]]
 diff --git a/haskell/private/cc_wrapper.bzl b/haskell/private/cc_wrapper.bzl
 new file mode 100644
-index 0000000..ba9bef8
+index 00000000..ba9bef8d
 --- /dev/null
 +++ b/haskell/private/cc_wrapper.bzl
 @@ -0,0 +1,52 @@
@@ -113,7 +113,7 @@ index 0000000..ba9bef8
 +    )
 diff --git a/haskell/private/cc_wrapper.py.tpl b/haskell/private/cc_wrapper.py.tpl
 new file mode 100644
-index 0000000..f0ecd07
+index 00000000..f0ecd075
 --- /dev/null
 +++ b/haskell/private/cc_wrapper.py.tpl
 @@ -0,0 +1,111 @@
@@ -229,10 +229,10 @@ index 0000000..f0ecd07
 +if __name__ == "__main__":
 +    main()
 diff --git a/haskell/toolchain.bzl b/haskell/toolchain.bzl
-index 795b7d6..1cee14b 100644
+index 2ad0e1cf..3590b4e4 100644
 --- a/haskell/toolchain.bzl
 +++ b/haskell/toolchain.bzl
-@@ -24,29 +24,27 @@ def _run_ghc(hs, cc, inputs, outputs, mnemonic, arguments, params_file = None, e
+@@ -25,29 +25,27 @@ def _run_ghc(hs, cc, inputs, outputs, mnemonic, arguments, params_file = None, e
      args = hs.actions.args()
      args.add(hs.tools.ghc)
  
@@ -281,17 +281,18 @@ index 795b7d6..1cee14b 100644
  
      compile_flags_file = hs.actions.declare_file("compile_flags_%s_%s" % (hs.name, mnemonic))
      extra_args_file = hs.actions.declare_file("extra_args_%s_%s" % (hs.name, mnemonic))
-@@ -62,6 +60,9 @@ def _run_ghc(hs, cc, inputs, outputs, mnemonic, arguments, params_file = None, e
-         extra_args_file,
+@@ -64,6 +62,10 @@ def _run_ghc(hs, cc, inputs, outputs, mnemonic, arguments, params_file = None, e
      ] + cc.files
  
+     flagsfile = extra_args_file
++
 +    if hs.toolchain.locale_archive != None:
 +        extra_inputs.append(hs.toolchain.locale_archive)
 +
      if params_file:
-         params_file_src = params_file.path
-         extra_inputs.append(params_file)
-@@ -150,6 +151,8 @@ def _haskell_toolchain_impl(ctx):
+         flagsfile = merge_parameter_files(hs, extra_args_file, params_file)
+         extra_inputs.append(flagsfile)
+@@ -138,6 +140,8 @@ def _haskell_toolchain_impl(ctx):
          for lib in ctx.attr.libraries
      }
  
@@ -300,7 +301,7 @@ index 795b7d6..1cee14b 100644
      return [
          platform_common.ToolchainInfo(
              name = ctx.label.name,
-@@ -159,6 +162,11 @@ def _haskell_toolchain_impl(ctx):
+@@ -147,6 +151,11 @@ def _haskell_toolchain_impl(ctx):
              haddock_flags = ctx.attr.haddock_flags,
              locale = ctx.attr.locale,
              locale_archive = locale_archive,
@@ -312,7 +313,7 @@ index 795b7d6..1cee14b 100644
              osx_cc_wrapper_tpl = ctx.file._osx_cc_wrapper_tpl,
              mode = ctx.var["COMPILATION_MODE"],
              actions = struct(
-@@ -224,6 +232,11 @@ _haskell_toolchain = rule(
+@@ -213,6 +222,11 @@ _haskell_toolchain = rule(
  Label pointing to the locale archive file to use. Mostly useful on NixOS.
  """,
          ),
