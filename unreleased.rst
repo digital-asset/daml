@@ -14,3 +14,5 @@ HEAD — ongoing
 + [DAML Compiler] The DAML compiler was accidentally compiled without
   optimizations on Windows. This has been fixed which should improve
   the performance of ``damlc`` and ``daml studio`` on Windows.
++ [DAML Compiler] ``damlc build`` should no longer leak file handles so
+  ``ulimit`` workarounds should no longer be necessary.

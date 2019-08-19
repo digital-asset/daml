@@ -8,7 +8,7 @@ module DA.Daml.Compiler.Dar
     , pkgNameVersion
     ) where
 
-import qualified Codec.Archive.Zip as Zip
+import qualified "zip" Codec.Archive.Zip as Zip
 import Control.Monad.Extra
 import Control.Monad.IO.Class
 import Control.Monad.Trans.Maybe
@@ -18,6 +18,7 @@ import DA.Daml.Options.Types
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.Lazy.Char8 as BSC
+import Data.Conduit.Combinators (sourceFile, sourceLazy)
 import Data.List.Extra
 import qualified Data.Map.Strict as Map
 import Data.Maybe
@@ -78,16 +79,15 @@ buildDar ::
     -> PackageConfigFields
     -> NormalizedFilePath
     -> FromDalf
-    -> IO (Maybe BSL.ByteString)
+    -> IO (Maybe (Zip.ZipArchive ()))
 buildDar service pkgConf@PackageConfigFields {..} ifDir dalfInput = do
     liftIO $
         IdeLogger.logDebug (ideLogger service) $
         "Creating dar: " <> T.pack pMain
     if unFromDalf dalfInput
-        then liftIO $
-             Just <$> do
-                 bytes <- BSL.readFile pMain
-                 createArchive pkgConf "" bytes [] (toNormalizedFilePath ".") [] [] []
+        then do
+            bytes <- BSL.readFile pMain
+            pure $ Just $ createArchive pkgConf "" bytes [] (toNormalizedFilePath ".") [] [] []
         else runAction service $
              runMaybeT $ do
                  WhnfPackage pkg <- useE GeneratePackage file
@@ -118,7 +118,7 @@ buildDar service pkgConf@PackageConfigFields {..} ifDir dalfInput = do
                  fileDependencies <- MaybeT $ getDependencies file
                  let dataFiles =
                          [mkConfFile pkgConf pkgModuleNames (T.unpack pkgId)]
-                 liftIO $
+                 pure $
                      createArchive
                          pkgConf
                          (T.unpack pkgId)
@@ -176,29 +176,21 @@ createArchive ::
     -> [NormalizedFilePath] -- ^ Module dependencies
     -> [(String, BS.ByteString)] -- ^ Data files
     -> [NormalizedFilePath] -- ^ Interface files
-    -> IO BSL.ByteString
+    -> Zip.ZipArchive ()
 createArchive PackageConfigFields {..} pkgId dalf dalfDependencies srcRoot fileDependencies dataFiles ifaces
  = do
     -- Reads all module source files, and pairs paths (with changed prefix)
     -- with contents as BS. The path must be within the module root path, and
     -- is modified to have prefix <name-hash> instead of the original root path.
-    srcFiles <-
-        forM fileDependencies $ \mPath -> do
-            contents <- BSL.readFile $ fromNormalizedFilePath mPath
-            return
-                ( pkgName </>
-                  fromNormalizedFilePath (makeRelative' srcRoot mPath)
-                , contents)
-    ifaceFaceFiles <-
-        forM ifaces $ \mPath -> do
-            contents <- BSL.readFile $ fromNormalizedFilePath mPath
-            let ifaceRoot =
-                    toNormalizedFilePath
-                        (ifaceDir </> fromNormalizedFilePath srcRoot)
-            return
-                ( pkgName </>
-                  fromNormalizedFilePath (makeRelative' ifaceRoot mPath)
-                , contents)
+    forM_ fileDependencies $ \mPath -> do
+        entry <- Zip.mkEntrySelector $ pkgName </> fromNormalizedFilePath (makeRelative' srcRoot mPath)
+        Zip.sinkEntry Zip.Deflate (sourceFile $ fromNormalizedFilePath mPath) entry
+    forM_ ifaces $ \mPath -> do
+        let ifaceRoot =
+                toNormalizedFilePath
+                    (ifaceDir </> fromNormalizedFilePath srcRoot)
+        entry <- Zip.mkEntrySelector $ pkgName </> fromNormalizedFilePath (makeRelative' ifaceRoot mPath)
+        Zip.sinkEntry Zip.Deflate (sourceFile $ fromNormalizedFilePath mPath) entry
     let dalfName = pkgName </> pkgNameVersion pName pVersion <.> "dalf"
     let dependencies =
             [ (pkgName </> T.unpack depName <> ".dalf", BSL.fromStrict bs)
@@ -213,11 +205,10 @@ createArchive PackageConfigFields {..} pkgId dalf dalfDependencies srcRoot fileD
             ( "META-INF/MANIFEST.MF"
             , manifestHeader dalfName (dalfName : map fst dependencies)) :
             (dalfName, dalf) :
-            srcFiles ++ ifaceFaceFiles ++ dependencies ++ dataFiles'
-        mkEntry (filePath, content) = Zip.toEntry filePath 0 content
-        zipArchive =
-            foldr (Zip.addEntryToArchive . mkEntry) Zip.emptyArchive allFiles
-    pure $ Zip.fromArchive zipArchive
+            dependencies ++ dataFiles'
+    forM_ allFiles $ \(file, content) -> do
+        entry <- Zip.mkEntrySelector file
+        Zip.sinkEntry Zip.Deflate (sourceLazy content) entry
   where
     pkgName = fullPkgName pName pVersion pkgId
     manifestHeader :: FilePath -> [String] -> BSL.ByteString

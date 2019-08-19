@@ -9,7 +9,7 @@ module DA.Daml.LF.Reader
     , getManifestField
     ) where
 
-import Codec.Archive.Zip
+import "zip-archive" Codec.Archive.Zip
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.Lazy.UTF8 as UTF8
 import qualified Data.ByteString.Char8 as BSC

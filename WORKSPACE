@@ -494,6 +494,7 @@ hazel_repositories(
         },
     ),
     exclude_packages = [
+        "bindings-DSL",
         "clock",
         # Excluded since we build it via the http_archive line above.
         "ghc-lib-parser",
@@ -515,6 +516,7 @@ hazel_repositories(
         {
             "z": "@com_github_madler_zlib//:z",
             "ffi": "" if is_windows else "@libffi_nix//:ffi",
+            "bz2": "@bzip2//:bz2",
         },
     ),
     ghc_workspaces = {
@@ -586,6 +588,12 @@ hazel_repositories(
                 "91dd121ac565009f2fc215c50f3365ed66705071a698a545e869041b5d7ff4da",
                 patch_args = ["-p1"],
                 patches = ["@com_github_digital_asset_daml//bazel_tools:haskell-c2hs.patch"],
+            ) + hazel_hackage(
+                "bzlib-conduit",
+                "0.3.0.2",
+                "eb2c732b3d4ab5f7b367c51eef845e597ade19da52c03ee11954d35b6cfc4128",
+                patch_args = ["-p1"],
+                patches = ["@com_github_digital_asset_daml//3rdparty/haskell:bzlib-conduit.patch"],
             ),
         pkgs = packages,
     ),
@@ -609,6 +617,15 @@ hazel_custom_package_hackage(
     build_file = "//3rdparty/haskell:BUILD.zlib",
     sha256 = "0dcc7d925769bdbeb323f83b66884101084167501f11d74d21eb9bc515707fed",
     version = "0.6.2",
+)
+
+hazel_custom_package_hackage(
+    package_name = "bindings-DSL",
+    # Without a custom build file, packages depending on bindings-DSL
+    # fail to find bindings.dsl.h.
+    build_file = "//3rdparty/haskell:BUILD.bindings-DSL",
+    sha256 = "63de32380c68d1cc5e9c7b3622d67832c786da21163ba0c8a4835e6dd169194f",
+    version = "1.0.25",
 )
 
 hazel_custom_package_hackage(
