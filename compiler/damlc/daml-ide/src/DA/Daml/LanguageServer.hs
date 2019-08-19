@@ -35,6 +35,10 @@ import qualified Network.URI                               as URI
 import Language.Haskell.LSP.Messages
 import qualified Language.Haskell.LSP.Core as LSP
 import Development.IDE.Types.Location
+import qualified Data.Map.Strict as Map
+import qualified DA.Daml.LF.Ast as LF
+import qualified DA.Cli.Visual as Visual
+import Data.Maybe
 
 
 
@@ -73,15 +77,13 @@ setIgnoreOptionalHandlers = PartialHandlers $ \WithMessage{..} x -> return x
     -- $/setTraceNotification which we want to ignore.
     where optionalPrefix = "$/"
 
-tt :: Aeson.Value -> T.Text
-tt  (Aeson.String x ) = x
-tt _ = error "this has to be reported in ide"
+tt :: Aeson.Value -> [T.Text]
+tt (Aeson.String x ) = [x]
+tt (Aeson.Array arr) =  concatMap tt arr
+tt _ex = error ("this has to be reported in ide" ++ show _ex )
 
-
-filesFromExecParams :: List Aeson.Value -> NormalizedFilePath
-filesFromExecParams (List files) =  case map tt files of
-    [] -> error "this has to be reported in ide"
-    (h : _) -> toNormalizedFilePath $ T.unpack h
+filesFromExecParams :: List Aeson.Value -> [NormalizedFilePath]
+filesFromExecParams (List files) =map (toNormalizedFilePath . T.unpack) (concatMap tt files)
 
 onCommand
     :: IdeState
@@ -91,32 +93,20 @@ onCommand ide ExecuteCommandParams{..} = do
     case _arguments of
         Nothing -> return $ Aeson.String "Generate Dalf then call visualize file path not set"
         Just path -> do
-            mbModMapping <- runAction ide (useWithStale GenerateVisualization (filesFromExecParams path))
-            case mbModMapping of
-                Nothing -> logInfo (ideLogger ide) "Generating dalf failed"
-                Just (mod, _mapping) -> logInfo (ideLogger ide) (textShow mod)
-            return $ Aeson.String "Generate Dalf then call visualize"
+            logInfo (ideLogger ide) "Geerating visualization for current daml project"
+            mbmodules <- mapM (\f -> runAction ide (useWithStale GenerateDalf f)) (filesFromExecParams path)
+            Just (WhnfPackage package, _) <- runAction ide (useWithStale GeneratePackage (head (filesFromExecParams path)))
+            pkgMap <- runAction ide  (useNoFile_ GeneratePackageMap)
+            let extpkgs = map dalfPackagePkg $ Map.elems pkgMap
+            let wrld = LF.initWorldSelf extpkgs package
+            let modules = map (fst . fromJust ) mbmodules
+            let dots = T.pack $ Visual.dotFileGen modules wrld
+            return $ Aeson.String dots
 
 setCommandHandler ::PartialHandlers
 setCommandHandler = PartialHandlers $ \WithMessage{..} x -> return x {
     LSP.executeCommandHandler = withResponse RspExecuteCommand $ const onCommand
 }
-
-
--- setHandlerDamlVisualize :: PartialHandlers
--- setHandlerDamlVisualize = PartialHandlers $ \WithMessage{..} x -> return x
---     {LSP.customRequestHandler = Just $ \msg@RequestMessage{_method} ->
---         case _method of
---             CustomClientMethod "daml/damlVisualize" -> maybe (return ()) ($ msg) $
---                 withResponse RspCustomServer (\_ ide _ -> do
---                     mbModMapping <- runAction ide (useWithStale GenerateDalf "filePath")
---                     case mbModMapping of
---                         Nothing ->logInfo (ideLogger ide) "nothing to see"
---                         Just (mod, _mapping) -> logInfo (ideLogger ide) (textShow mod)
---                     return $ Aeson.String "Generate Dalf then call visualize")
---             _ -> whenJust (LSP.customRequestHandler x) ($ msg)
---     }
-
 setHandlersVirtualResource :: PartialHandlers
 setHandlersVirtualResource = PartialHandlers $ \WithMessage{..} x -> return x
     {LSP.didOpenTextDocumentNotificationHandler = withNotification (LSP.didOpenTextDocumentNotificationHandler x) $

@@ -33,6 +33,7 @@ da_haskell_library(
     deps = [
         "//compiler/daml-lf-ast",
         "//compiler/damlc/daml-ide-core",
+        "//compiler/damlc/daml-visual",
         "//compiler/damlc/daml-lf-conversion",
         "//compiler/hie-core",
     ],

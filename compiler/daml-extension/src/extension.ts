@@ -130,13 +130,19 @@ async function visualize() {
 }
 
 function visualizeLsp() {
-    if (vscode.window.activeTextEditor){
-        let currentOpenFileName = vscode.window.activeTextEditor.document.fileName
-        // vscode.workspace.rootPath
-        damlLanguageClient.sendRequest(ExecuteCommandRequest.type,
-            {command: "daml/damlVisualize" , arguments : [currentOpenFileName]}).then(r => {
-            console.log(r);
-        })
+    if (vscode.window.activeTextEditor) {
+        const workspace = vscode.workspace.workspaceFolders![0];
+        if (workspace) {
+            vscode.workspace.findFiles(new vscode.RelativePattern(workspace, "**/*.daml"), "**/node_modules/**").then(r => {
+                let files = r.map(f => f.path)
+                damlLanguageClient.sendRequest(ExecuteCommandRequest.type,
+                    { command: "daml/damlVisualize", arguments: [files] }).then(r => {
+                        vscode.workspace.openTextDocument({ content: r, language: "dot" })
+                            .then(doc => vscode.window.showTextDocument(doc, vscode.ViewColumn.One, true)
+                                .then(_ => loadPreviewIfAvailable()))
+                    })
+            });
+        }
     }
 }
 
