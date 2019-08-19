@@ -696,7 +696,7 @@ class TransactionServiceIT
           val resultF = c.submitCreate(
             testIdsGenerator.testCommandId(
               "Creating_dummy_contract_for_default_agreement_text_test"),
-            templateIds.dummy,
+            templateIds.dummyWithParam,
             List(RecordField("operator", Alice.asParty)),
             Alice
           )
