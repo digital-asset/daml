@@ -27,6 +27,7 @@ private[kvutils] case class ProcessConfigSubmission(
 
   def run: (DamlLogEntry, Map[DamlStateKey, DamlStateValue]) =
     runSequence(
+      inputState = Map.empty,
       checkTtl,
       authorizeSubmission,
       validateSubmission,

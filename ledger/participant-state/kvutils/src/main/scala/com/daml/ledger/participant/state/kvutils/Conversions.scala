@@ -7,7 +7,12 @@ import java.time.{Duration, Instant}
 
 import com.daml.ledger.participant.state.backport.TimeModel
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
-import com.daml.ledger.participant.state.v1.{Configuration, SubmittedTransaction, SubmitterInfo}
+import com.daml.ledger.participant.state.v1.{
+  Configuration,
+  PackageId,
+  SubmittedTransaction,
+  SubmitterInfo
+}
 import com.digitalasset.daml.lf.data.Ref.{ContractIdString, LedgerString, Party}
 import com.digitalasset.daml.lf.data.Time
 import com.digitalasset.daml.lf.transaction.Node.GlobalKey
@@ -36,6 +41,9 @@ private[kvutils] object Conversions {
 
   def partyStateKey(party: String): DamlStateKey =
     DamlStateKey.newBuilder.setParty(party).build
+
+  def packageStateKey(packageId: PackageId): DamlStateKey =
+    DamlStateKey.newBuilder.setPackageId(packageId).build
 
   def toAbsCoid(txId: DamlLogEntryId, coid: ContractId): AbsoluteContractId = {
     val hexTxId =

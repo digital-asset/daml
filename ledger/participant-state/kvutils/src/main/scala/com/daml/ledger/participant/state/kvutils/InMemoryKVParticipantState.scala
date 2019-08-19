@@ -129,7 +129,7 @@ class InMemoryKVParticipantState(
   private val NS_DAML_STATE = ByteString.copyFromUtf8("DS")
 
   // For an in-memory ledger, an atomic integer is enough to guarantee uniqueness
-  private val submissionId = new AtomicInteger()
+  private val submissionIdSource = new AtomicInteger()
 
   /** Interval for heartbeats. Heartbeats are committed to [[State.commitLog]]
     * and sent as [[Update.Heartbeat]] to [[stateUpdates]] consumers.
@@ -449,7 +449,7 @@ class InMemoryKVParticipantState(
   private def allocatePartyOnLedger(
       party: String,
       displayName: Option[String]): CompletionStage[PartyAllocationResult] = {
-    val sId = submissionId.getAndIncrement().toString
+    val sId = submissionIdSource.getAndIncrement().toString
     val cf = new CompletableFuture[PartyAllocationResult]
     matcherActorRef ! AddPartyAllocationRequest(sId, cf)
     commitActorRef ! CommitSubmission(
@@ -466,7 +466,7 @@ class InMemoryKVParticipantState(
   override def uploadPackages(
       archives: List[Archive],
       sourceDescription: Option[String]): CompletionStage[UploadPackagesResult] = {
-    val sId = submissionId.getAndIncrement().toString
+    val sId = submissionIdSource.getAndIncrement().toString
     val cf = new CompletableFuture[UploadPackagesResult]
     matcherActorRef ! AddPackageUploadRequest(sId, cf)
     commitActorRef ! CommitSubmission(

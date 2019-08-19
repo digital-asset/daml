@@ -7,6 +7,7 @@ import com.daml.ledger.participant.state.kvutils.Conversions.buildTimestamp
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.Pretty
 import com.daml.ledger.participant.state.v1.ParticipantId
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import org.slf4j.LoggerFactory
 
@@ -23,13 +24,14 @@ private[kvutils] case class ProcessPartyAllocation(
   private val logger = LoggerFactory.getLogger(this.getClass)
   private val submissionId = partyAllocationEntry.getSubmissionId
   private val party: String = partyAllocationEntry.getParty
-  val partyKey = DamlStateKey.newBuilder.setParty(party).build
+  private val partyKey = DamlStateKey.newBuilder.setParty(party).build
 
   private def tracelog(msg: String): Unit =
     logger.trace(s"[entryId=${Pretty.prettyEntryId(entryId)}, submId=$submissionId]: $msg")
 
   def run: (DamlLogEntry, Map[DamlStateKey, DamlStateValue]) =
     runSequence(
+      inputState = Map.empty,
       authorizeSubmission,
       validateParty,
       deduplicate,
@@ -62,7 +64,7 @@ private[kvutils] case class ProcessPartyAllocation(
   }
 
   private val validateParty: Commit[Unit] = delay {
-    if (party.isEmpty) {
+    if (Ref.Party.fromString(party).isLeft) {
       tracelog(s"Party: $party allocation failed, party string invalid.")
       reject {
         _.setInvalidName(

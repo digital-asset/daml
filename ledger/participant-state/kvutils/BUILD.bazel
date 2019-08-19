@@ -57,6 +57,8 @@ da_scala_test(
         "//daml-lf/language",
         "//daml-lf/parser",
         "//daml-lf/transaction",
+        "//daml-lf/transaction/src/main/protobuf:transaction_java_proto",
+        "//daml-lf/transaction/src/main/protobuf:value_java_proto",
         "//ledger-api/testing-utils",
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-domain",
@@ -65,7 +67,7 @@ da_scala_test(
 )
 
 proto_library(
-    name = "daml_kvutils_proto3",
+    name = "daml_kvutils_proto",
     srcs = ["src/main/protobuf/daml_kvutils.proto"],
     deps = [
         "//daml-lf/archive:daml_lf_proto",
@@ -80,5 +82,5 @@ proto_library(
 da_java_proto_library(
     name = "daml_kvutils_java_proto",
     tags = ["maven_coordinates=com.daml.ledger:participant-state-kvutils-java-proto:__VERSION__"],
-    deps = [":daml_kvutils_proto3"],
+    deps = [":daml_kvutils_proto"],
 )

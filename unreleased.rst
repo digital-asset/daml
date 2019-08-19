@@ -26,3 +26,4 @@ HEAD — ongoing
 + [DAML Assistant] Spaces in user names or other parts of file names should now be handled correctly.
 + [DAML Assistant] The ``daml deploy`` and ``daml ledger`` experimental commands were added. Use ``daml deploy --help`` and ``daml ledger --help`` to find out more about them.
 + [DAML Integration Kit] Participant State API and kvutils was extended with support for changing the ledger configuration. See changelog in respective ``package.scala`` files.
+
