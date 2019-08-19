@@ -575,8 +575,8 @@ hazel_repositories(
             ) + hazel_github_external(
                 "mpickering",
                 "hie-bios",
-                "8427e424a83c2f3d60bdd26c02478c00d2189a73",
-                "c593ff871f31200e37a3c24c09da314d0ee41a8486defe7af91ac55a26efdc1e",
+                "7a75f520b2e7a482440edd023be8e267a0fa153f",
+                "015a5ca3c9b2425cdec38cbc238ae8f6b1b5f73591f27af6ab6b2f9b96c08750",
                 patch_args = ["-p1"],
                 patches = ["@com_github_digital_asset_daml//bazel_tools:haskell-hie-bios.patch"],
             ) + hazel_hackage("typed-process", "0.2.6.0", "31a2a81f33463fedc33cc519ad5b9679787e648fe2ec7efcdebd7d54bdbbc2b1") +
