@@ -3,6 +3,7 @@
 
 {-# LANGUAGE TemplateHaskell     #-}
 {-# LANGUAGE ApplicativeDo       #-}
+{-# LANGUAGE CPP #-}
 
 -- | Main entry-point of the DAML compiler
 module DA.Cli.Damlc (main) where
@@ -76,7 +77,9 @@ import System.Environment
 import System.Exit
 import System.FilePath
 import System.IO.Extra
+#ifndef mingw32_HOST_OS
 import System.Posix.Files
+#endif
 import System.Process (callProcess)
 import qualified Text.PrettyPrint.ANSI.Leijen      as PP
 
@@ -743,8 +746,10 @@ execMigrate projectOpts opts0 inFile1_ inFile2_ mbDir = do
                 ] $ \(path, mod) -> do
                 createDirectoryIfMissing True $ takeDirectory path
                 writeFile path mod
-
+#ifndef mingw32_HOST_OS
         setFileMode "build.sh" $ stdFileMode `unionFileModes` ownerExecuteMode
+#endif
+
         putStrLn "Generation of migration project complete."
   where
     decode dalf =

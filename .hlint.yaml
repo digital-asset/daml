@@ -82,6 +82,7 @@
   - name: CPP
     within:
     - Development.IDE.Core.FileStore
+    - DA.Cli.Damlc
     - DA.Sdk.Cli.System
     - DA.Sdk.Cli.Version
     - DA.Daml.Assistant.Install.Path
