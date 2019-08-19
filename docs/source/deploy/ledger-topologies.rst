@@ -14,60 +14,52 @@ The Ledger API provides parties with an abstraction of a virtual shared ledger, 
 
 The real-world topologies of actual ledger implementations differ significantly, however.
 The topologies can impact both the functional and non-functional properties of the resulting ledger.
-This document:
-
-1. Provides one useful categorization of the existing implementations' topologies.
-   The categorization is not the only one possible, and it is not always clear-cut.
-   Its main aim is to group the implementations according to their high-level properties.
-
-2. Describes the general ledger properties of each category.
-
+This document provides one useful categorization of the existing implementations' topologies: the split into global and partial state topologies, depending on whether single :ref:`trust domains <trust-domain>` can see the entire ledger, or just parts of it.
+The implementations with topologies from the same category share many non-functional properties and trust assumptions.
+Additionally, their :ref:`identity and package management <identity-package-management>` functions also behave similarly.
 
 .. _global-state-topologies:
 
 Global State Topologies
 ***********************
 
-.. _trust-domain:
-
-We call a system operated by a single real-world entity a **trust domain**.
-In global state topologies, there exists at least one trust domain (and possibly more) whose systems contain a physical copy of the entire virtual shared ledger that is accessible through the API.
+In global state topologies, there exists at least one :ref:`trust domain <trust-domain>` whose systems contain a physical copy of the entire virtual shared ledger that is accessible through the API.
 
 .. _fully-centralized-ledger:
 
 The Fully Centralized Ledger
 ============================
 
-The simplest global state topology is the one where the virtual shared ledger is implemented through a single machine containing a physical copy of the shared ledger.
+The simplest global state topology is the one where the virtual shared ledger is implemented through a single machine containing a physical copy of the shared ledger, whose real-world owner is called the **operator**.
 
 .. image:: ./images/ledger-topologies/physical-shared-ledger.svg
    :width: 80%
    :align: center
 
 The :ref:`DAML Sandbox <sandbox-manual>` uses this topology.
-While simple, this topology has certain downsides:
+While simple to deploy and operate, the single-machine setup also has downsides:
 
-- it provides no scaling
+1. it provides no scaling
 
-- it is not highly available
+#. it is not highly available
 
-- the real-world entity operating the physical shared ledger is fully trusted with preserving the ledger's integrity
+#. the operator is fully trusted with preserving the ledger's integrity
 
-- the real-world entity operating the physical shared ledger has full insight into the entire ledger, and is thus fully trusted with privacy
+#. the operator has full insight into the entire ledger, and is thus fully trusted with privacy
 
-- it provides no built-in way to interoperate (transactionally share data) across several deployed ledgers; each deployment defines its own segregated virtual shared ledger.
+#. it provides no built-in way to interoperate (transactionally share data) across several deployed ledgers; each deployment defines its own segregated virtual shared ledger.
 
 The first four problems can be solved or mitigated as follows:
 
-- scaling by splitting the system up into separate functional components and parallelizing execution
+#. scaling by splitting the system up into separate functional components and parallelizing execution
 
-- availability by replication
+#. availability by replication
 
-- trust for integrity by introducing multiple trust domains and distributing trust using Byzantine fault tolerant replication, or by maintaining one trust domain but using hardware-based Trusted Execution Environments (TEEs) or other cryptographic means to enforce or audit ledger integrity without having to trust the operating entity.
+#. trust for integrity by introducing multiple trust domains and distributing trust using Byzantine fault tolerant replication, or by maintaining one trust domain but using hardware-based Trusted Execution Environments (TEEs) or other cryptographic means to enforce or audit ledger integrity without having to trust the operator.
 
-- trust for privacy through TEEs that restrict data access by hardware means.
+#. trust for privacy through TEEs that restrict data access by hardware means.
 
-The remainder of the section discuses these solutions and their implementations in the different DAML Ledgers.
+The remainder of the section discuses these solutions and their implementations in the different DAML ledgers.
 The last problem, interoperability, is inherent when the two deployments are operated by different trust domains: by definition, a topology in which no single trust domain would hold the entire ledger is not a global state topology.
 
 .. _scaling-daml-ledgers:
@@ -126,7 +118,7 @@ In these situations, the system typically consists of two types of nodes:
 
 .. _participant-node-def:
 
-2. **Participant nodes**, (also called Client nodes in some platforms) which serve the ledger API to a subset of the system parties, which we say are hosted by this participant.
+2. **Participant nodes**, (also called Client nodes in some platforms) which serve the Ledger API to a subset of the system parties, which we say are hosted by this participant.
    A participant node proposes new commits on behalf of the parties it hosts, and holds a portion of the ledger that is relevant for those parties (i.e., the parties' :ref:`ledger projection <da-model-projections>`).
    The term "participant node" is sometimes also used more generally, for any physical node serving the Ledger API to a party.
 
@@ -152,7 +144,7 @@ Integrity and privacy can also be protected using hardware Trusted Execution Env
 The software implementing the ledger can then be deployed inside of TEE **enclaves**, which are code blocks that the processor isolates and protects from the rest of the software stack (even the operating system).
 The hardware ensures that the enclave data never leaves the processor unencrypted, offering privacy.
 Furthermore, hardware-based attestation can guarantee that the operating entities process data using the prescribed code only, guaranteeing integrity.
-The hardware is designed in such a way as to make any potential physical attacks by the operating entity extremely expensive.
+The hardware is designed in such a way as to make any potential physical attacks by the operator extremely expensive.
 This moves the trust necessary to achieve these properties from the operators of the trust domains that maintain the global state to the hardware manufacturer, who is anyway trusted with correctly producing the hardware.
 Recent security research has, however, found scenarios where the TEE protection mechanisms can be compromised.
 
