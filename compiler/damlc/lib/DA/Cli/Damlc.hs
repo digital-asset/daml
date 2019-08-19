@@ -742,7 +742,7 @@ execMigrate projectOpts opts0 inFile1_ inFile2_ mbDir = do
                 , (instancesModPath1, generatedInstancesMod1)
                 , (instancesModPath2, generatedInstancesMod2)
                 , ("build.sh", "#!/bin/sh\n" ++ buildCmd "'")
-                , ("build.cmd", buildCmd "@")
+                , ("build.cmd", buildCmd "")
                 ] $ \(path, mod) -> do
                 createDirectoryIfMissing True $ takeDirectory path
                 writeFile path mod
