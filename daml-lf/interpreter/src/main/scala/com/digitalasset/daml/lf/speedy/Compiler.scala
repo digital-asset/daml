@@ -617,7 +617,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
                 // stack: <party> <update> <token>
                 SBSBeginCommit(optLoc)(SEVar(3), SEVar(1)),
                 // stack: <party> <update> <token> ()
-                SEVar(3)(SEVar(2)),
+                SEApp(SEVar(3), Array(SEVar(2))),
                 // stack: <party> <update> <token> () result
               ) in
                 SBSEndCommit(false)(SEVar(1), SEVar(3))
@@ -637,7 +637,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
           SEAbs(1) {
             SELet(
               SBSBeginCommit(optLoc)(party, SEVar(1)),
-              SECatch(update(SEVar(2)), SEValue(SBool(true)), SEValue(SBool(false)))
+              SECatch(SEApp(update, Array(SEVar(2))), SEValue(SBool(true)), SEValue(SBool(false)))
             ) in SBSEndCommit(true)(SEVar(1), SEVar(3))
           }
         }
@@ -672,7 +672,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
       // e.g.
       // embed (error "foo") => \token -> error "foo"
       SEAbs(1) {
-        translate(expr)(SEVar(1))
+        SEApp(translate(expr), Array(SEVar(1)))
       }
     }
   }
@@ -681,9 +681,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
     // pure <E>
     // =>
     // ((\x token -> x) <E>)
-    SEAbs(2) { SEVar(2) }(
-      translate(body)
-    )
+    SEApp(SEAbs(2, SEVar(2)), Array(translate(body)))
   }
 
   private def translateBlock(bindings: ImmArray[Binding], body: Expr): SExpr = {
@@ -705,7 +703,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
       env = env.incrPos // token
 
       // add the first binding into the environment
-      val appBoundHead = SEVar(2)(SEVar(1))
+      val appBoundHead = SEApp(SEVar(2), Array(SEVar(1)))
       env = env.addExprVar(bindings.head.binder)
 
       // and then the rest
@@ -720,7 +718,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
       SELet(boundHead) in
         SEAbs(1) {
           SELet(allBounds: _*) in
-            translate(body)(SEVar(env.position - tokenPosition))
+            SEApp(translate(body), Array(SEVar(env.position - tokenPosition)))
         }
     }
   }
@@ -782,7 +780,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
                 mbKey,
                 SEVar(2)),
               // stack: <actors> <cid> <choice arg> <token> <template arg> ()
-              update(SEVar(3)),
+              SEApp(update, Array(SEVar(3))),
               // stack: <actors> <cid> <choice arg> <token> <template arg> () <ret value>
               SBUEndExercise(tmplId)(SEVar(4), SEVar(1))
             ) in
@@ -1237,7 +1235,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
         env = env.incrPos // token
 
         // add the first binding into the environment
-        val appBoundHead = SEVar(2)(SEVar(1))
+        val appBoundHead = SEApp(SEVar(2), Array(SEVar(1)))
         env = env.incrPos
 
         // and then the rest
@@ -1250,8 +1248,9 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
         SELet(boundHead) in
           SEAbs(1) {
             SELet(allBounds: _*) in
-              translate(EUpdate(UpdatePure(TBuiltin(BTUnit), EPrimCon(PCUnit))))(
-                SEVar(env.position - tokenPosition))
+              SEApp(
+                translate(EUpdate(UpdatePure(TBuiltin(BTUnit), EPrimCon(PCUnit)))),
+                Array(SEVar(env.position - tokenPosition)))
           }
       }
   }
