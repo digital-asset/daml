@@ -80,15 +80,15 @@ object ValueGenerators {
   val decimalGen: Gen[ValueDecimal] = {
     val integerPart = Gen.listOfN(28, Gen.choose(1, 9)).map(_.mkString)
     val decimalPart = Gen.listOfN(10, Gen.choose(1, 9)).map(_.mkString)
-    val bd = integerPart.flatMap(i => decimalPart.map(d => s"$i.$d")).map(BigDecimal(_))
+    val bd = integerPart.flatMap(i => decimalPart.map(d => Decimal.assertFromString(s"$i.$d")))
     Gen
       .frequency(
-        (1, Gen.const(BigDecimal("0.0"))),
+        (1, Gen.const(Decimal.assertFromString("0.0"))),
         (1, Gen.const(Decimal.MaxValue)),
         (1, Gen.const(Decimal.MinValue)),
         (5, bd)
       )
-      .map(d => ValueDecimal(Decimal.assertFromBigDecimal(d)))
+      .map(ValueDecimal)
   }
 
   val moduleSegmentGen: Gen[String] = for {

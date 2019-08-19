@@ -16,9 +16,9 @@ package object data {
   type Numeric = Numeric.Numeric
 
   val Decimal: DecimalModule = new DecimalModule {
-    type Decimal = BigDecimal
+    type Decimal = Numeric
     @inline
-    protected def cast(x: BigDecimal): Decimal = x
+    protected def cast(x: Numeric): Decimal = x
   }
   type Decimal = Decimal.Decimal
 

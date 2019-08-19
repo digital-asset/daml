@@ -3,52 +3,25 @@
 
 package com.digitalasset.daml.lf.data
 
-import scala.language.implicitConversions
-
 // Our legacy Numeric with fix scale 10
 abstract class DecimalModule {
 
   val scale: Int = 10
 
   // Decimal is a legacy Numeric with fix scale 10
-  type Decimal <: BigDecimal
+  type Decimal <: Numeric
 
   @inline
-  protected def cast(x: BigDecimal): Decimal
-
-  private implicit def toNumeric(x: Decimal): Numeric =
-    // will always succeeds
-    Numeric.assertFromBigDecimal(scale, x)
-
-  private implicit def toDecimal[Left](e: Either[Left, Numeric]): Either[Left, Decimal] =
-    e.right.map(cast(_))
+  protected def cast(x: Numeric): Decimal
 
   val MaxValue: Decimal = cast(Numeric.assertFromString("9999999999999999999999999999.9999999999"))
   val MinValue: Decimal = cast(Numeric.assertFromString("-9999999999999999999999999999.9999999999"))
 
   final def fromBigDecimal(x0: BigDecimal): Either[String, Decimal] =
-    Numeric.fromBigDecimal(scale, x0.bigDecimal.stripTrailingZeros)
+    Numeric.fromBigDecimal(scale, x0.bigDecimal.stripTrailingZeros).map(cast)
 
   final def assertFromBigDecimal(x: BigDecimal): Decimal =
     assertRight(fromBigDecimal(x))
-
-  final def add(x: Decimal, y: Decimal): Either[String, Decimal] =
-    Numeric.add(x, y)
-
-  final def div(x: Decimal, y: Decimal): Either[String, Decimal] =
-    Numeric.divide(x, y)
-
-  final def mult(x: Decimal, y: Decimal): Either[String, Decimal] =
-    Numeric.multiply(x, y)
-
-  final def sub(x: Decimal, y: Decimal): Either[String, Decimal] =
-    Numeric.subtract(x, y)
-
-  final def round(targetScale: Long, x: Decimal): Either[String, Decimal] =
-    Numeric.round(targetScale, x)
-
-  final def toLong(x: Decimal): Either[String, Long] =
-    Numeric.toLong(x)
 
   private val hasExpectedFormat =
     """[+-]?\d{1,28}(\.\d{1,10})?""".r.pattern
@@ -77,7 +50,7 @@ abstract class DecimalModule {
   }
 
   final def fromLong(x: Long): Either[String, Decimal] =
-    Numeric.fromLong(scale, x)
+    Numeric.fromLong(scale, x).map(cast)
 
   final def assertFromLong(x: Long): Decimal =
     assertRight(fromLong(x))

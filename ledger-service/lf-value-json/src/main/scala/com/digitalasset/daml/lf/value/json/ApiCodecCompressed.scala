@@ -104,8 +104,8 @@ abstract class ApiCodecCompressed[Cid](
   @throws[DeserializationException]
   protected[this] def jsValueToApiContractId(value: JsValue): Cid
 
-  private val max = BigDecimal.decimal(LfDecimal.MaxValue.bigDecimal, MathContext.UNLIMITED)
-  private val min = BigDecimal.decimal(LfDecimal.MinValue.bigDecimal, MathContext.UNLIMITED)
+  private val max = BigDecimal.decimal(LfDecimal.MaxValue, MathContext.UNLIMITED)
+  private val min = BigDecimal.decimal(LfDecimal.MinValue, MathContext.UNLIMITED)
 
   // FixMe: checkWithinBoundsAndRound checks fist the bound then round (using bankers'
   //  rounding). Should we not do the contrary, first round then check for bounds ?
