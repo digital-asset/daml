@@ -88,7 +88,6 @@ da_haskell_library(
         "//compiler/damlc:damlc-lib",
         "//compiler/damlc/daml-compiler",
         "//compiler/damlc/daml-opts",
-        "//compiler/damlc/daml-visual",
         "//compiler/damlc/daml-opts:daml-opts-types",
         "//compiler/hie-core",
         "//libs-haskell/bazel-runfiles",
