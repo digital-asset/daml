@@ -1,3 +1,6 @@
+-- Copyright (c) 2019 The DAML Authors. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
 {-# LANGUAGE EmptyCase #-}
 {-# LANGUAGE NoDamlSyntax #-}
 module FooBInstances where
@@ -13,3 +16,4 @@ instance {-# NO_OVERLAP #-} Generic Foo (DA.Generics.D1 ('DA.Generics.MetaData (
     = M1 (case x of { Foo g1 g2 -> M1 (P1 (M1 (K1 g1)) (M1 (K1 g2))) })
   to (M1 x)
     = case x of { (M1 (P1 (M1 (K1 g1)) (M1 (K1 g2)))) -> Foo g1 g2 }
+

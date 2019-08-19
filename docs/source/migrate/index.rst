@@ -63,14 +63,14 @@ where the ``Foo.daml`` file contains
 
 .. literalinclude:: foo-1.0.0/daml/Foo.daml
   :language: daml
-  :lines: 6-11
+  :lines: 6-14
 
 The package ``foo-2.0.0`` contains exactly the same modules, but a new template ``Bar`` has been
 added to the ``Foo`` module.
 
 .. literalinclude:: foo-2.0.0/daml/Foo.daml
   :language: daml
-  :lines: 6-18
+  :lines: 6-21
 
 If we generate a migration project with ``daml migrate`` as above, the directory contents of the
 ``foo-2.0.0-upgrade/daml`` directory is
@@ -89,7 +89,7 @@ an example:
 
 .. literalinclude:: foo-upgrade-2.0.0/daml/Foo.daml
   :language: daml
-  :lines: 9-36
+  :lines: 4-39
 
 Currently, we only support one upgrade/rollback contract template pair. In the future we might
 extend the ``migrate`` command with different possible upgrade/rollback templates. The above
@@ -131,7 +131,7 @@ package has been extended to
 
 .. literalinclude:: foo-2.0.0/daml/FooEmbedding.daml
   :language: daml
-  :lines: 3-12
+  :lines: 6-15
 
 Here is typical error message in this case:
 
@@ -155,11 +155,12 @@ The important hint is that the compiler is not able to deduce that our data type
 the ``DA.Upgrade.Conv`` class and hence not convertible. In this case you will have to add your own
 upgrade/rollback templates to ``daml/Foo.daml`` of the migration project, that describe how to
 convert a contract of the template in question of package ``foo-1.0.0`` to one of ``foo-2.0.0`` and
-vice versa. For example
+vice versa. You can take the generated template by the ``migrate`` command and replace the
+application of the `conv` function with your own conversion function. For example
 
 .. literalinclude:: foo-upgrade-2.0.0/daml/FooManual.daml
   :language: daml
-  :lines: 9-36
+  :lines: 12-39
 
 Deploying the migration
 -----------------------
