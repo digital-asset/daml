@@ -4,6 +4,7 @@
 module DA.Daml.LF.Proto3.Decode
   ( Error(..)
   , decodePayload
+  , decodeModuleNameIndex
   ) where
 
 import Da.DamlLf (ArchivePayload(..), ArchivePayloadSum(..))
@@ -18,3 +19,9 @@ decodePayload payload = case archivePayloadSum payload of
     Nothing -> Left $ ParseError "Empty payload"
     where
         minor = archivePayloadMinor payload
+
+decodeModuleNameIndex :: ArchivePayload -> Decode (Word64 -> Maybe ModuleName)
+decodeModuleNameIndex payload = case archivePayloadSum payload of
+    Just ArchivePayloadSumDamlLf0{} -> Left $ ParseError "Payload is DamlLf0"
+    Just (ArchivePayloadSumDamlLf1 package) -> DecodeV1.decodeInternedModuleNameIndex package
+    Nothing -> Left $ ParseError "Empty payload"

@@ -6,6 +6,7 @@
 
 module DA.Daml.LF.Proto3.DecodeV1
     ( decodePackage
+    , decodeInternedModuleNameIndex
     , Error(..)
     ) where
 
@@ -52,6 +53,11 @@ decodePackage minorText (LF1.Package mods internedPkgIds internedModNames) = do
   pkgIds <- decodeInternedPackageIds internedPkgIds
   modNames <- decodeInternedModuleNames internedModNames
   Package version <$> runReaderT (decodeNM DuplicateModule decodeModule mods) (PackageRefCtx pkgIds modNames)
+
+decodeInternedModuleNameIndex :: LF1.Package -> Decode (Word64 -> Maybe ModuleName)
+decodeInternedModuleNameIndex (LF1.Package mods _ _) = lookup <$> onlyModName `traverse` mods
+  where lookup v = (v V.!?) <=< decodeInternIndex
+        onlyModName (LF1.Module name _ _ _ _) = mayDecode "moduleName" name (decodeDottedName ModuleName)
 
 decodeModule :: LF1.Module -> DecodeImpl Module
 decodeModule (LF1.Module name flags dataTypes values templates) =

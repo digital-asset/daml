@@ -14,6 +14,7 @@ module DA.Daml.LF.Ast.Optics(
     _PRSelfModule,
     exprPartyLiteral,
     exprValueRef,
+    packageRefs,
     templateExpr,
     builtinType
     ) where

@@ -5,10 +5,11 @@
 -- | Encoding of the LF package into LF version 1 format.
 module DA.Daml.LF.Proto3.EncodeV1
   ( encodeModuleWithLargePackageIds
+  , encodedInternedModuleNameIndex
   , encodePackage
   ) where
 
-import           Control.Lens ((^.), (^..), matching, to, _1, _2)
+import           Control.Lens ((^.), (^..), matching, _1)
 import           Control.Lens.Ast (rightSpine)
 
 import           Data.Word
@@ -35,7 +36,7 @@ type Just a = Maybe a
 -- package-global state that encodePackageRef requires
 data PackageRefCtx = PackageRefCtx {
    internPackageId :: PackageId -> Maybe Word64
-  ,internModuleName :: ModuleName -> Maybe Word64
+  ,internModuleName :: PackageRef -> ModuleName -> Maybe Word64
 }
 
 data EncodeCtx = EncodeCtx {
@@ -50,7 +51,7 @@ data EncodeCtx = EncodeCtx {
 encodeList :: (a -> b) -> [a] -> V.Vector b
 encodeList encodeElem = V.fromList . map encodeElem
 
-encodeNameMap :: NM.Named a => (v -> a -> b) -> v -> NM.NameMap a -> V.Vector b
+encodeNameMap :: (v -> a -> b) -> v -> NM.NameMap a -> V.Vector b
 encodeNameMap encodeElem v = V.fromList . map (encodeElem v) . NM.toList
 
 encodePackageId :: PackageId -> TL.Text
@@ -100,34 +101,28 @@ encodePackageRef ctx = Just . \case
 -- NB(SC): May miss some package IDs because packageRefs excludes some members;
 -- see notes for `instance MonoTraversable ModuleRef SourceLoc` in Optics.hs,
 -- and revisit for DAML-LF v2
-internPackageRefIds :: Package -> (PackageRefCtx, [PackageId], [ModuleName])
-internPackageRefIds pkg =
+internPackageRefIds :: (PackageId -> ModuleName -> Maybe Word64)
+                    -> Package -> (PackageRefCtx, [PackageId])
+internPackageRefIds depModNames pkg =
   let pkgIdSet = S.fromList $ pkg ^.. packageModuleRef._1._PRImport
       packageIds = S.toAscList pkgIdSet
       internPackageRef pkgid = fromIntegral <$> pkgid `S.lookupIndex` pkgIdSet
-      (internModuleRef, moduleNames) =
-        if packageLfVersion pkg `supports` featureInternedModuleNames
-        then let freq = M.unionsWith (\_ _ -> True) $ pkg ^.. packageModuleRef._2.to (`M.singleton` False)
-                 list = fmap fst . filter snd . M.toAscList $ freq
-                 set = S.fromDistinctAscList list
-                 lookup modname = fromIntegral <$> modname `S.lookupIndex` set
-             in (lookup, list)
-        else (const Nothing, [])
-  in (PackageRefCtx internPackageRef internModuleRef, packageIds, moduleNames)
+      selfModuleRefs = encodedInternedModuleNameIndex pkg
+      internModuleRef = \case
+        PRSelf -> selfModuleRefs
+        PRImport pkgId -> depModNames pkgId
+  in (PackageRefCtx internPackageRef internModuleRef, packageIds)
 
 -- invariant: forall pkgid. pkgid `S.lookupIndex ` input = encodePackageId pkgid `V.elemIndex` output
 encodeInternedPackageIds :: [PackageId] -> V.Vector TL.Text
 encodeInternedPackageIds = encodeList encodePackageId
-
-encodeInternedModuleNames :: [ModuleName] -> V.Vector P.DottedName
-encodeInternedModuleNames = encodeList (encodeDottedNameId unModuleName)
 
 encodeModuleRef :: PackageRefCtx -> PackageRef -> ModuleName -> Just P.ModuleRef
 encodeModuleRef ctx pkgRef modName =
   Just $ P.ModuleRef (encodePackageRef ctx pkgRef)
                      $ Just $ maybe (P.ModuleRefSumModuleName $ encodeDottedNameId unModuleName modName)
                                     P.ModuleRefSumInternedId
-                                    (internModuleName ctx modName)
+                                    (internModuleName ctx pkgRef modName)
 
 encodeFieldsWithTypes :: EncodeCtx -> (a -> T.Text) -> [(a, Type)] -> V.Vector P.FieldWithType
 encodeFieldsWithTypes encctx unwrapName =
@@ -515,7 +510,8 @@ encodeFeatureFlags _version FeatureFlags{..} = Just P.FeatureFlags
     }
 
 encodeModuleWithLargePackageIds :: Version -> Module -> P.Module
-encodeModuleWithLargePackageIds = encodeModule . flip EncodeCtx (PackageRefCtx (const Nothing) (const Nothing))
+encodeModuleWithLargePackageIds =
+  encodeModule . flip EncodeCtx (PackageRefCtx (const Nothing) (const (const Nothing)))
 
 encodeModule :: EncodeCtx -> Module -> P.Module
 encodeModule encctx@EncodeCtx{..} Module{..} =
@@ -526,13 +522,16 @@ encodeModule encctx@EncodeCtx{..} Module{..} =
         (encodeNameMap encodeDefValue encctx moduleValues)
         (encodeNameMap encodeTemplate encctx moduleTemplates)
 
+encodedInternedModuleNameIndex :: Package -> ModuleName -> Maybe Word64
+encodedInternedModuleNameIndex (Package _ mods) = (`M.lookup` ixes)
+  where ixes = M.fromList $ NM.names mods `zip` [0..]
+
 -- | NOTE(MH): Assumes the DAML-LF version of the 'Package' is 'V1'.
-encodePackage :: Package -> P.Package
-encodePackage pkg@(Package version mods) =
+encodePackage :: (PackageId -> ModuleName -> Maybe Word64) -> Package -> P.Package
+encodePackage depModNames pkg@(Package version mods) =
     P.Package (encodeNameMap encodeModule (EncodeCtx version interned) mods)
               (encodeInternedPackageIds pkgIdList)
-              (encodeInternedModuleNames modNameList)
-  where (interned, pkgIdList, modNameList) = internPackageRefIds pkg
+  where (interned, pkgIdList) = internPackageRefIds depModNames pkg
 
 
 -- | NOTE(MH): This functions is used for sanity checking. The actual checks

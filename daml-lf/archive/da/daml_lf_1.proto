@@ -34,6 +34,7 @@
 //        2019-07-04: Transaction submitters must be in contract key maintainers when looking up. See #1866.
 // * dev (special staging area for the next version to be released)
 //        2019-07-29: Rename DECIMAL in NUMERIC. Add nat kind and nat types
+//        2019-TODO: Add ModuleRef.interned_id
 
 syntax = "proto3";
 package daml_lf_1;
@@ -1156,5 +1157,4 @@ message Module {
 message Package {
   repeated Module modules = 1;
   repeated string interned_package_ids = 2; /* Available since version 1.6 */
-  repeated DottedName interned_module_names = 3; /* Available since version 1.dev */
 }
