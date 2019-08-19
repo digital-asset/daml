@@ -22,6 +22,10 @@ abstract class NumericModule {
     * any valid scale `s` we denote `(Numeric s)` the set of Numerics of
     * scale `s`. Numerics are encoded using java BigDecimal, where the scale
     * is the scale of the Numeric.
+    *
+    * We use java BigDecimals instead of scala ones because:
+    *  - We prefer to use here lower level methods from java
+    *  - We want two numerics with different scales to be different (w.r.t. ==)
     */
   type Numeric <: BigDecimal
 

@@ -271,7 +271,7 @@ object Ast {
   }
 
   final case class PLInt64(override val value: Long) extends PrimLit
-  final case class PLDecimal(override val value: Decimal) extends PrimLit
+  final case class PLDecimal(override val value: Numeric) extends PrimLit
   // Text should be treated as Utf8, data.Utf8 provide emulation functions for that
   final case class PLText(override val value: String) extends PrimLit
   final case class PLTimestamp(override val value: Time.Timestamp) extends PrimLit
