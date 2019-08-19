@@ -488,15 +488,13 @@ hazel_repositories(
         core_packages,
         {
             "integer-simple": "0.1.1.1",
-
-            # this is a core package, but not reflected in hazel/packages.bzl.
-            "haskeline": "0.7.4.2",
             "Win32": "2.6.1.0",
         },
     ),
     exclude_packages = [
-        "arx",
         "clock",
+        # Excluded since we build it via the http_archive line above.
+        "ghc-lib-parser",
         "ghc-paths",
         "streaming-commons",
         "wai-app-static",
@@ -529,26 +527,19 @@ hazel_repositories(
             # Read [Working on ghc-lib] for ghc-lib update instructions at
             # https://github.com/DACH-NY/daml/blob/master/ghc-lib/working-on-ghc-lib.md.
             hazel_ghclibs(GHC_LIB_VERSION, "ce14e19bbe2a52289c5fb436941f948678a86bd821c17710082131bbe87d997f", "02482f4fd7691c2e442f9dd4c8d6816325d0bd164f6e03cec6a2db1ef9e65d43") +
-
-            # Support for Hlint:
-            #   - Requires haskell-src-exts 1.21.0 so override hazel/packages.bzl.
-            #   - To build the binary : `bazel build @haskell_hlint//:bin`
-            #   - To build the library : `bazel build @haskell_hlint//:lib`
-            # We'll be using it via the library, not the binary.
-            hazel_hackage("haskell-src-exts", "1.21.0", "95dac187824edfa23b6a2363880b5e113df8ce4a641e8a0f76e6d45aaa699ff3") +
             hazel_github_external("digital-asset", "hlint", "c57edffa2bd54605637671f7821a2519d34c37bf", "9c81a0822af933dc13240d74218534308c7e5a2db80bad4a33c72890397275fd") +
             hazel_github_external("awakesecurity", "proto3-wire", "43d8220dbc64ef7cc7681887741833a47b61070f", "1c3a7fbf4ab3308776675c6202583f9750de496757f3ad4815e81edd122d75e1") +
             hazel_github_external("awakesecurity", "proto3-suite", "dd01df7a3f6d0f1ea36125a67ac3c16936b53da0", "59ea7b876b14991347918eefefe24e7f0e064b5c2cc14574ac4ab5d6af6413ca") +
-            hazel_hackage("happy", "1.19.10", "22eb606c97105b396e1c7dc27e120ca02025a87f3e44d2ea52be6a653a52caed") +
+
+            # Not in stackage
             hazel_hackage("bytestring-nums", "0.3.6", "bdca97600d91f00bb3c0f654784e3fbd2d62fcf4671820578105487cdf39e7cd") +
-            hazel_hackage("semver", "0.3.4", "42dbdacb08f30ac8bf2f014981cb080737f793b89d57626cb7e2ab8c3d768e6b") +
+            # In Stackage but we want the latest version.
             hazel_hackage(
                 "network",
-                "2.8.0.0",
-                "c8905268b7e3b4cf624a40245bf11b35274a6dd836a5d4d531b5760075645303",
+                "2.8.0.1",
+                "61f55dbfed0f0af721a8ea36079e9309fcc5a1be20783b44ae500d9e4399a846",
                 patches = ["@ai_formation_hazel//third_party/haskell:network.patch"],
-            ) + hazel_hackage("terminal-progress-bar", "0.4.1", "a61ca10c92cacc712dbbe28881dc23f41cc139760b7b2eef66bd0faa60ea5e24") +
-            hazel_hackage("rope-utf16-splay", "0.3.1.0", "cbf878098355441ed7be445466fcb72d45390073a298b37649d762de2a7f8cc6") +
+            ) +
             hazel_github_external(
                 "alanz",
                 "haskell-lsp",
@@ -579,7 +570,7 @@ hazel_repositories(
                 "c593ff871f31200e37a3c24c09da314d0ee41a8486defe7af91ac55a26efdc1e",
                 patch_args = ["-p1"],
                 patches = ["@com_github_digital_asset_daml//bazel_tools:haskell-hie-bios.patch"],
-            ) + hazel_hackage("typed-process", "0.2.6.0", "31a2a81f33463fedc33cc519ad5b9679787e648fe2ec7efcdebd7d54bdbbc2b1") +
+            ) +
             hazel_hackage(
                 "c2hs",
                 "0.28.6",
@@ -625,16 +616,6 @@ hazel_custom_package_github(
     github_user = "nmattia-da",
     repo_sha = "05179164831432f207f3d43580c51161d519d191",
     strip_prefix = "wai-app-static",
-)
-
-hazel_custom_package_github(
-    package_name = "arx",
-    build_file = "//3rdparty/haskell:BUILD.arx",
-    github_repo = "arx",
-    github_user = "solidsnack",
-    patch_args = ["-p1"],
-    patches = ["@com_github_digital_asset_daml//bazel_tools:haskell-arx.patch"],
-    repo_sha = "7561fed76bb613302d1ae104f0eb2ad13daa9fac",
 )
 
 load("//bazel_tools:java.bzl", "java_home_runtime")
