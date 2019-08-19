@@ -62,7 +62,6 @@ import qualified DA.Daml.LF.ScenarioServiceClient as SS
 import qualified DA.Daml.LF.Simplifier as LF
 import qualified DA.Daml.LF.TypeChecker as LF
 import qualified DA.Pretty as Pretty
-import qualified DA.Cli.Visual as Visual
 
 import qualified Language.Haskell.Exts.SrcLoc as HSE
 import Language.Haskell.HLint4
@@ -201,14 +200,6 @@ generateDalfRule =
                 Serializability.inferModule world lfVersion rawDalf
             mapLeft liftError $ LF.checkModule world lfVersion dalf
             pure dalf
-
-generateVisualizationRule :: Rules ()
-generateVisualizationRule =
-    define $ \GenerateVisualization file -> do
-        dalf <- use_ GenerateDalf file
-        world <- worldForFile file
-        let dots = T.pack $ Visual.dotFileGen [dalf] world
-        pure ([], Just dots)
 
 -- | Generate a doctest module based on the doc tests in the given module.
 generateDocTestModuleRule :: Rules ()
@@ -687,7 +678,6 @@ damlRule opts = do
     generatePackageDepsRule opts
     runScenariosRule
     getScenarioRootsRule
-    generateVisualizationRule
     getScenarioRootRule
     getDlintDiagnosticsRule
     ofInterestRule opts

@@ -24,7 +24,6 @@ import Development.Shake
 import GHC.Generics (Generic)
 import "ghc-lib-parser" Module (UnitId)
 import Development.IDE.Core.Service.Daml
-import qualified Data.Text as T
 
 import Development.IDE.Types.Location
 import Development.IDE.Core.RuleTypes
@@ -131,14 +130,6 @@ data RunScenarios = RunScenarios
 instance Binary   RunScenarios
 instance Hashable RunScenarios
 instance NFData   RunScenarios
-
-data GenerateVisualization = GenerateVisualization
-    deriving (Eq, Show, Typeable, Generic)
-instance Binary   GenerateVisualization
-instance Hashable GenerateVisualization
-instance NFData   GenerateVisualization
-
-type instance RuleResult GenerateVisualization = T.Text
 
 data EncodeModule = EncodeModule
     deriving (Eq, Show, Typeable, Generic)

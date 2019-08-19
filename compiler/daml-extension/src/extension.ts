@@ -278,13 +278,6 @@ function keepAlive() {
 
 // Custom requests
 
-// namespace DamlVisualize {
-//     export let type = new RequestType<void, void, void, void>('daml/damlVisualize');
-
-//     // ExecuteCommandRequest
-//     new RequestType<"{}", any, void, void>
-// }
-
 namespace DamlKeepAliveRequest {
     export let type =
       new RequestType<void, void, void, void>('daml/keepAlive');

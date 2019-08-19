@@ -83,7 +83,7 @@ tt (Aeson.Array arr) =  concatMap tt arr
 tt _ex = error ("this has to be reported in ide" ++ show _ex )
 
 filesFromExecParams :: List Aeson.Value -> [NormalizedFilePath]
-filesFromExecParams (List files) =map (toNormalizedFilePath . T.unpack) (concatMap tt files)
+filesFromExecParams (List files) = map (toNormalizedFilePath . T.unpack) (concatMap tt files)
 
 onCommand
     :: IdeState
