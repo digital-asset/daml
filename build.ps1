@@ -32,6 +32,8 @@ bazel shutdown
 
 bazel clean --expunge
 
+bazel build @haskell_alex//...
+
 bazel build `-`-experimental_execution_log_file ${ARTIFACT_DIRS}/build_execution_windows.log //...
 
 bazel shutdown
