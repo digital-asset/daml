@@ -51,7 +51,7 @@ renderMdText env = \case
         case lookupReference env ref of
             Nothing -> escapeMd text
             Just anchorLoc -> T.concat
-                ["["
+                [ "["
                 , escapeMd text
                 , "]("
                 , anchorHyperlink anchorLoc (referenceAnchor ref)

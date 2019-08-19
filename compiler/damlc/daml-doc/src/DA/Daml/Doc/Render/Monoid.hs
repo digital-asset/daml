@@ -92,6 +92,16 @@ anchorHyperlink anchorLoc (Anchor anchor) =
         External uri -> T.pack . show $
             uri { URI.uriFragment = "#" <> T.unpack anchor }
 
+-- | Map package names to URLs. In the future this should be configurable
+-- but for now we are hardcoding the standard library packages which are
+-- documented on docs.daml.com
+packageURI :: Packagename -> Maybe URI.URI
+packageURI (Packagename "daml-prim") = Just damlBaseURI
+packageURI (Packagename "daml-stdlib") = Just damlBaseURI
+packageURI _ = Nothing
+
+damlBaseURI :: URI.URI
+damlBaseURI = fromJust $ URI.parseURI "https://docs.daml.com/daml/reference/base.html"
 
 type RenderFormatter = RenderEnv -> RenderOut -> [T.Text]
 
@@ -118,7 +128,10 @@ renderPage formatter output =
         | Set.member anchor localAnchors = Just SameFile
         | otherwise = Nothing
 
-    lookupReference = lookupAnchor . referenceAnchor
+    lookupReference ref = asum
+        [ lookupAnchor (referenceAnchor ref)
+        , External <$> (packageURI =<< referencePackage ref)
+        ]
 
     renderEnv = RenderEnv {..}
 
@@ -141,7 +154,11 @@ renderFolder formatter fileMap =
                 [ SameFile <$ guard (Set.member anchor localAnchors)
                 , SameFolder <$> Map.lookup anchor globalAnchors
                 ]
-            lookupReference = lookupAnchor . referenceAnchor
+            lookupReference ref = asum
+                [ lookupAnchor (referenceAnchor ref)
+                , External <$> (packageURI =<< referencePackage ref)
+                ]
+
             renderEnv = RenderEnv {..}
         in T.unlines (formatter renderEnv output)
 
