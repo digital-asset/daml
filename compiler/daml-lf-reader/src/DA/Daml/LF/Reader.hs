@@ -6,11 +6,13 @@ module DA.Daml.LF.Reader
     , ManifestData(..)
     , manifestFromDar
     , multiLineContent
+    , getManifestField
     ) where
 
-import Codec.Archive.Zip
+import "zip-archive" Codec.Archive.Zip
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.Lazy.UTF8 as UTF8
+import qualified Data.ByteString.Char8 as BSC
 import qualified Data.HashMap.Strict as Map
 import Data.List.Extra
 import System.FilePath
@@ -53,3 +55,14 @@ manifestFromDar dar = manifestDataFromDar dar manifest
         manifestLines = multiLineContent $ UTF8.toString manifestEntry
         manifest = manifestMapToManifest $ Map.fromList $ map lineToKeyValue manifestLines
 
+-- | Get a single field from the manifest zip entry.
+getManifestField :: Entry -> String -> Maybe String
+getManifestField manifest field =
+    headMay
+        [ value
+        | l <-
+              lines $
+              replace "\n " "" $ BSC.unpack $ BSL.toStrict $ fromEntry manifest
+              -- the newline replacement is for reassembling multilines
+        , Just value <- [stripPrefix (field ++ ": ") l]
+        ]

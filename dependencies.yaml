@@ -237,25 +237,25 @@ dependencies:
   com.typesafe.akka:
     akka-slf4j:
       lang: scala
-      version: "2.5.13"
+      version: "2.5.23"
     akka-stream:
       lang: scala
-      version: "2.5.13"
+      version: "2.5.23"
     akka-stream-testkit:
       lang: scala
-      version: "2.5.13"
+      version: "2.5.23"
     akka-actor:
       lang: scala
-      version: "2.5.13"
+      version: "2.5.23"
     akka-http:
       lang: scala
-      version: "10.0.13"
+      version: "10.1.9"
     akka-http-spray-json:
       lang: scala
-      version: "10.0.13"
+      version: "10.1.9"
     akka-http-testkit:
       lang: scala
-      version: "10.0.13"
+      version: "10.1.9"
    
 
   com.typesafe.play:

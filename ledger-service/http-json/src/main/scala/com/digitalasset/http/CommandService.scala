@@ -8,9 +8,11 @@ import java.time.Instant
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
 import com.digitalasset.http.CommandService.Error
+import com.digitalasset.http.domain.{ActiveContract, CreateCommand, ExerciseCommand, JwtPayload}
 import com.digitalasset.http.util.ClientUtil.{uniqueCommandId, workflowIdFromParty}
 import com.digitalasset.http.util.IdentifierConverters.refApiIdentifier
 import com.digitalasset.http.util.{Commands, Transactions}
+import com.digitalasset.jwt.domain.Jwt
 import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
 import com.digitalasset.ledger.api.{v1 => lav1}
 import com.typesafe.scalalogging.StrictLogging
@@ -25,19 +27,19 @@ import scala.util.{Failure, Success}
 
 class CommandService(
     resolveTemplateId: PackageService.ResolveTemplateId,
-    submitAndWaitForTransaction: Services.SubmitAndWaitForTransaction,
+    submitAndWaitForTransaction: LedgerClientJwt.SubmitAndWaitForTransaction,
     timeProvider: TimeProvider,
     defaultTimeToLive: Duration = 30.seconds)(implicit ec: ExecutionContext)
     extends StrictLogging {
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
-  def create(jwtPayload: domain.JwtPayload, input: domain.CreateCommand[lav1.value.Record])
-    : Future[Error \/ domain.ActiveContract[lav1.value.Value]] = {
+  def create(jwt: Jwt, jwtPayload: JwtPayload, input: CreateCommand[lav1.value.Record])
+    : Future[Error \/ ActiveContract[lav1.value.Value]] = {
 
-    val et: EitherT[Future, Error, domain.ActiveContract[lav1.value.Value]] = for {
+    val et: EitherT[Future, Error, ActiveContract[lav1.value.Value]] = for {
       command <- EitherT.either(createCommand(input))
       request = submitAndWaitRequest(jwtPayload, input.meta, command)
-      response <- liftET(logResult('create, submitAndWaitForTransaction(request)))
+      response <- liftET(logResult('create, submitAndWaitForTransaction(jwt, request)))
       contract <- EitherT.either(exactlyOneActiveContract(response))
     } yield contract
 
@@ -47,13 +49,13 @@ class CommandService(
   private def liftET[A](fa: Future[A]): EitherT[Future, Error, A] = EitherT.rightT(fa)
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
-  def exercise(jwtPayload: domain.JwtPayload, input: domain.ExerciseCommand[lav1.value.Record])
-    : Future[Error \/ ImmArraySeq[domain.ActiveContract[lav1.value.Value]]] = {
+  def exercise(jwt: Jwt, jwtPayload: JwtPayload, input: ExerciseCommand[lav1.value.Record])
+    : Future[Error \/ ImmArraySeq[ActiveContract[lav1.value.Value]]] = {
 
-    val et: EitherT[Future, Error, ImmArraySeq[domain.ActiveContract[lav1.value.Value]]] = for {
+    val et: EitherT[Future, Error, ImmArraySeq[ActiveContract[lav1.value.Value]]] = for {
       command <- EitherT.either(exerciseCommand(input))
       request = submitAndWaitRequest(jwtPayload, input.meta, command)
-      response <- liftET(logResult('exercise, submitAndWaitForTransaction(request)))
+      response <- liftET(logResult('exercise, submitAndWaitForTransaction(jwt, request)))
       contracts <- EitherT.either(activeContracts(response))
     } yield contracts
 
@@ -70,15 +72,15 @@ class CommandService(
     fa
   }
 
-  private def createCommand(input: domain.CreateCommand[lav1.value.Record])
-    : Error \/ lav1.commands.Command.Command.Create = {
+  private def createCommand(
+      input: CreateCommand[lav1.value.Record]): Error \/ lav1.commands.Command.Command.Create = {
     resolveTemplateId(input.templateId)
       .bimap(
         e => Error('createCommand, e.shows),
         x => Commands.create(refApiIdentifier(x), input.argument))
   }
 
-  private def exerciseCommand(input: domain.ExerciseCommand[lav1.value.Record])
+  private def exerciseCommand(input: ExerciseCommand[lav1.value.Record])
     : Error \/ lav1.commands.Command.Command.Exercise = {
     resolveTemplateId(input.templateId)
       .bimap(
@@ -87,7 +89,7 @@ class CommandService(
   }
 
   private def submitAndWaitRequest(
-      jwtPayload: domain.JwtPayload,
+      jwtPayload: JwtPayload,
       meta: Option[domain.CommandMeta],
       command: lav1.commands.Command.Command): lav1.command_service.SubmitAndWaitRequest = {
 
@@ -114,7 +116,7 @@ class CommandService(
 
   private def exactlyOneActiveContract(
       response: lav1.command_service.SubmitAndWaitForTransactionResponse)
-    : Error \/ domain.ActiveContract[lav1.value.Value] =
+    : Error \/ ActiveContract[lav1.value.Value] =
     activeContracts(response).flatMap {
       case Seq(x) => \/-(x)
       case xs @ _ =>
@@ -122,15 +124,15 @@ class CommandService(
     }
 
   private def activeContracts(response: lav1.command_service.SubmitAndWaitForTransactionResponse)
-    : Error \/ ImmArraySeq[domain.ActiveContract[lav1.value.Value]] =
+    : Error \/ ImmArraySeq[ActiveContract[lav1.value.Value]] =
     response.transaction
       .toRightDisjunction(
         Error('activeContracts, s"Received response without transaction: $response"))
       .flatMap(activeContracts)
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
-  private def activeContracts(tx: lav1.transaction.Transaction)
-    : Error \/ ImmArraySeq[domain.ActiveContract[lav1.value.Value]] = {
+  private def activeContracts(
+      tx: lav1.transaction.Transaction): Error \/ ImmArraySeq[ActiveContract[lav1.value.Value]] = {
 
     import scalaz.syntax.traverse._
 

@@ -19,7 +19,7 @@ import qualified Data.NameMap as NM
 import qualified Data.Set as Set
 import qualified DA.Pretty as DAP
 import qualified DA.Daml.LF.Proto3.Archive as Archive
-import qualified Codec.Archive.Zip as ZIPArchive
+import qualified "zip-archive" Codec.Archive.Zip as ZIPArchive
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString as B
 import Data.Generics.Uniplate.Data

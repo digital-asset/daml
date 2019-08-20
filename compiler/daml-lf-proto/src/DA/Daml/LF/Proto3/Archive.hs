@@ -24,6 +24,7 @@ import qualified DA.Daml.LF.Proto3.Encode as Encode
 import qualified Data.ByteArray           as BA
 import qualified Data.ByteString          as BS
 import qualified Data.ByteString.Lazy     as BSL
+import Data.Int
 import qualified Data.Text                as T
 import qualified Data.Text.Lazy           as TL
 import qualified Numeric
@@ -31,7 +32,7 @@ import qualified Proto3.Suite             as Proto
 
 data ArchiveError
     = ProtobufError !String
-    | UnknownHashFunction !Int
+    | UnknownHashFunction !Int32
     | HashMismatch !T.Text !T.Text
   deriving (Eq, Show)
 

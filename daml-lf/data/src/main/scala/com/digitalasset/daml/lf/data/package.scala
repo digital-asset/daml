@@ -3,16 +3,23 @@
 
 package com.digitalasset.daml.lf
 
-import scala.math.BigDecimal
-
 package object data {
 
-  val Decimal: DecimalModule = new DecimalModule {
-    type T = BigDecimal
-    protected def cast(x: BigDecimal): T = x
-  }
-  type Decimal = Decimal.T
-
-  private[data] def assert[X](either: Either[String, X]): X =
+  def assertRight[X](either: Either[String, X]): X =
     either.fold(e => throw new IllegalArgumentException(e), identity)
+
+  val Numeric: NumericModule = new NumericModule {
+    override type Numeric = java.math.BigDecimal
+    @inline
+    override private[data] def cast(x: java.math.BigDecimal): java.math.BigDecimal = x
+  }
+  type Numeric = Numeric.Numeric
+
+  val Decimal: DecimalModule = new DecimalModule {
+    type Decimal = BigDecimal
+    @inline
+    protected def cast(x: BigDecimal): Decimal = x
+  }
+  type Decimal = Decimal.Decimal
+
 }

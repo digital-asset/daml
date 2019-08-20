@@ -6,7 +6,7 @@ package archive
 
 import com.digitalasset.daml.lf.archive.Decode.ParseError
 import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.data.{Decimal, ImmArray, Time}
+import com.digitalasset.daml.lf.data.{Decimal, ImmArray, Numeric, Time}
 import ImmArray.ImmArraySeq
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.language.Util._
@@ -264,9 +264,6 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
           val params = kArrow.getParamsList.asScala
           assertNonEmpty(params, "params")
           (params :\ decodeKind(kArrow.getResult))((param, kind) => KArrow(decodeKind(param), kind))
-        case PLF.Kind.SumCase.NAT =>
-          // FixMe: https://github.com/digital-asset/daml/issues/2289
-          throw new Error("nat kind not supported")
         case PLF.Kind.SumCase.SUM_NOT_SET =>
           throw ParseError("Kind.SUM_NOT_SET")
       }
@@ -306,9 +303,6 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
           TTuple(
             ImmArray(fields.map(ft => name(ft.getField) -> decodeType(ft.getType)))
           )
-        case PLF.Type.SumCase.NAT =>
-          // FixMe: https://github.com/digital-asset/daml/issues/2289
-          throw new Error("nat type not supported")
 
         case PLF.Type.SumCase.SUM_NOT_SET =>
           throw ParseError("Type.SUM_NOT_SET")
@@ -699,10 +693,12 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
       lfPrimLit.getSumCase match {
         case PLF.PrimLit.SumCase.INT64 =>
           PLInt64(lfPrimLit.getInt64)
-        case PLF.PrimLit.SumCase.NUMERIC =>
-          checkDecimal(lfPrimLit.getNumeric)
-          val d = Decimal.fromString(lfPrimLit.getNumeric)
-          d.fold(e => throw ParseError("error parsing decimal: " + e), PLDecimal)
+        case PLF.PrimLit.SumCase.DECIMAL =>
+          checkDecimal(lfPrimLit.getDecimal)
+          Decimal
+            .fromString(lfPrimLit.getDecimal)
+            .flatMap(Numeric.fromBigDecimal(Decimal.scale, _))
+            .fold(e => throw ParseError("error parsing decimal: " + e), PLDecimal)
         case PLF.PrimLit.SumCase.TEXT =>
           PLText(lfPrimLit.getText)
         case PLF.PrimLit.SumCase.PARTY =>
@@ -746,7 +742,7 @@ private[lf] object DecodeV1 {
       BOOL -> (BTBool -> default),
       TEXT -> (BTText -> default),
       INT64 -> (BTInt64 -> default),
-      NUMERIC -> (BTDecimal -> default),
+      DECIMAL -> (BTDecimal -> default),
       TIMESTAMP -> (BTTimestamp -> default),
       PARTY -> (BTParty -> default),
       LIST -> (BTList -> default),
@@ -764,19 +760,19 @@ private[lf] object DecodeV1 {
     import PLF.BuiltinFunction._, LV.Features._
 
     Map[PLF.BuiltinFunction, (Ast.BuiltinFunction, LV)](
-      ADD_NUMERIC -> (BAddDecimal -> default),
-      SUB_NUMERIC -> (BSubDecimal -> default),
-      MUL_NUMERIC -> (BMulDecimal -> default),
-      DIV_NUMERIC -> (BDivDecimal -> default),
-      ROUND_NUMERIC -> (BRoundDecimal -> default),
+      ADD_DECIMAL -> (BAddDecimal -> default),
+      SUB_DECIMAL -> (BSubDecimal -> default),
+      MUL_DECIMAL -> (BMulDecimal -> default),
+      DIV_DECIMAL -> (BDivDecimal -> default),
+      ROUND_DECIMAL -> (BRoundDecimal -> default),
       ADD_INT64 -> (BAddInt64 -> default),
       SUB_INT64 -> (BSubInt64 -> default),
       MUL_INT64 -> (BMulInt64 -> default),
       DIV_INT64 -> (BDivInt64 -> default),
       MOD_INT64 -> (BModInt64 -> default),
       EXP_INT64 -> (BExpInt64 -> default),
-      INT64_TO_NUMERIC -> (BInt64ToDecimal -> default),
-      NUMERIC_TO_INT64 -> (BDecimalToInt64 -> default),
+      INT64_TO_DECIMAL -> (BInt64ToDecimal -> default),
+      DECIMAL_TO_INT64 -> (BDecimalToInt64 -> default),
       FOLDL -> (BFoldl -> default),
       FOLDR -> (BFoldr -> default),
       MAP_EMPTY -> (BMapEmpty -> map),
@@ -788,27 +784,27 @@ private[lf] object DecodeV1 {
       APPEND_TEXT -> (BAppendText -> default),
       ERROR -> (BError -> default),
       LEQ_INT64 -> (BLessEqInt64 -> default),
-      LEQ_NUMERIC -> (BLessEqDecimal -> default),
+      LEQ_DECIMAL -> (BLessEqDecimal -> default),
       LEQ_TEXT -> (BLessEqText -> default),
       LEQ_TIMESTAMP -> (BLessEqTimestamp -> default),
       LEQ_PARTY -> (BLessEqParty -> partyOrdering),
       GEQ_INT64 -> (BGreaterEqInt64 -> default),
-      GEQ_NUMERIC -> (BGreaterEqDecimal -> default),
+      GEQ_DECIMAL -> (BGreaterEqDecimal -> default),
       GEQ_TEXT -> (BGreaterEqText -> default),
       GEQ_TIMESTAMP -> (BGreaterEqTimestamp -> default),
       GEQ_PARTY -> (BGreaterEqParty -> partyOrdering),
       LESS_INT64 -> (BLessInt64 -> default),
-      LESS_NUMERIC -> (BLessDecimal -> default),
+      LESS_DECIMAL -> (BLessDecimal -> default),
       LESS_TEXT -> (BLessText -> default),
       LESS_TIMESTAMP -> (BLessTimestamp -> default),
       LESS_PARTY -> (BLessParty -> partyOrdering),
       GREATER_INT64 -> (BGreaterInt64 -> default),
-      GREATER_NUMERIC -> (BGreaterDecimal -> default),
+      GREATER_DECIMAL -> (BGreaterDecimal -> default),
       GREATER_TEXT -> (BGreaterText -> default),
       GREATER_TIMESTAMP -> (BGreaterTimestamp -> default),
       GREATER_PARTY -> (BGreaterParty -> partyOrdering),
       TO_TEXT_INT64 -> (BToTextInt64 -> default),
-      TO_TEXT_NUMERIC -> (BToTextDecimal -> default),
+      TO_TEXT_DECIMAL -> (BToTextDecimal -> default),
       TO_TEXT_TIMESTAMP -> (BToTextTimestamp -> default),
       TO_TEXT_PARTY -> (BToTextParty -> partyTextConversions),
       TO_TEXT_TEXT -> (BToTextText -> default),
@@ -816,7 +812,7 @@ private[lf] object DecodeV1 {
       TEXT_FROM_CODE_POINTS -> (BToTextCodePoints -> textPacking),
       FROM_TEXT_PARTY -> (BFromTextParty -> partyTextConversions),
       FROM_TEXT_INT64 -> (BFromTextInt64 -> numberParsing),
-      FROM_TEXT_NUMERIC -> (BFromTextDecimal -> numberParsing),
+      FROM_TEXT_DECIMAL -> (BFromTextDecimal -> numberParsing),
       TEXT_TO_CODE_POINTS -> (BFromTextCodePoints -> textPacking),
       SHA256_TEXT -> (BSHA256Text -> shaText),
       DATE_TO_UNIX_DAYS -> (BDateToUnixDays -> default),
@@ -831,7 +827,7 @@ private[lf] object DecodeV1 {
       UNIX_MICROSECONDS_TO_TIMESTAMP -> (BUnixMicrosecondsToTimestamp -> default),
       GREATER_DATE -> (BGreaterDate -> default),
       EQUAL_INT64 -> (BEqualInt64 -> default),
-      EQUAL_NUMERIC -> (BEqualDecimal -> default),
+      EQUAL_DECIMAL -> (BEqualDecimal -> default),
       EQUAL_TEXT -> (BEqualText -> default),
       EQUAL_TIMESTAMP -> (BEqualTimestamp -> default),
       EQUAL_DATE -> (BEqualDate -> default),

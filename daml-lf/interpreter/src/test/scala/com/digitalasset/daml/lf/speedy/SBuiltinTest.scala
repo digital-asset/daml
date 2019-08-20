@@ -16,13 +16,24 @@ import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.{FreeSpec, Matchers}
 
 import scala.collection.immutable.HashMap
-import scala.language.implicitConversions
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks {
 
-  import Decimal.{toString => str}
   import SBuiltinTest._
+
+  private def n(scale: Int, x: BigDecimal): Numeric = Numeric.assertFromBigDecimal(scale, x)
+  private def n(scale: Int, str: String): Numeric = n(scale, BigDecimal(str))
+  private def d(str: String): Decimal = Decimal.assertFromBigDecimal(BigDecimal(str))
+  private def s(scale: Int, x: BigDecimal) = Numeric.toString(n(scale, x))
+
+  private def tenPowerOf(i: Int, scale: Int = 10) =
+    if (i == 0)
+      "0." + "0" * scale
+    else if (i > 0)
+      "1" + "0" * i + "." + "0" * scale
+    else
+      "0." + "0" * (-i - 1) + "1" + "0" * (scale + i)
 
   "Integer operations" - {
 
@@ -208,55 +219,57 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
 
     "ADD_DECIMAL" - {
       "throw exception in case of overflow" in {
-        eval(e"ADD_DECIMAL $bigBigDecimal 2.0") shouldBe Right(SDecimal(bigBigDecimal + 2))
+        eval(e"ADD_DECIMAL $bigBigDecimal 2.0") shouldBe Right(SNumeric(n(10, bigBigDecimal + 2)))
         eval(e"ADD_DECIMAL $maxDecimal $minPosDecimal") shouldBe 'left
         eval(e"ADD_DECIMAL ${-maxDecimal} ${-minPosDecimal}") shouldBe 'left
         eval(e"ADD_DECIMAL $bigBigDecimal ${bigBigDecimal - 1}") shouldBe
           Left(
             DamlEArithmeticError(
-              s"Decimal overflow when adding ${bigBigDecimal - 1} to $bigBigDecimal."))
+              s"(Numeric 10) overflow when adding ${bigBigDecimal - 1} to $bigBigDecimal."))
       }
     }
 
     "SUB_DECIMAL" - {
       "throws exception in case of overflow" in {
-        eval(e"SUB_DECIMAL $bigBigDecimal 2.0") shouldBe Right(SDecimal(bigBigDecimal - 2))
+        eval(e"SUB_DECIMAL $bigBigDecimal 2.0") shouldBe Right(SNumeric(n(10, bigBigDecimal - 2)))
         eval(e"SUB_DECIMAL $maxDecimal -$minPosDecimal") shouldBe 'left
         eval(e"SUB_DECIMAL ${-maxDecimal} $minPosDecimal") shouldBe 'left
         eval(e"SUB_DECIMAL ${-bigBigDecimal} $bigBigDecimal") shouldBe
           Left(DamlEArithmeticError(
-            s"Decimal overflow when subtracting ${str(bigBigDecimal)} from ${str(-bigBigDecimal)}."))
+            s"(Numeric 10) overflow when subtracting ${s(10, bigBigDecimal)} from ${s(10, -bigBigDecimal)}."))
       }
     }
 
     "MUL_DECIMAL" - {
       "throws exception in case of overflow" in {
-        eval(e"MUL_DECIMAL 1.1 2.2") shouldBe Right(SDecimal(decimal(2.42)))
-        eval(e"MUL_DECIMAL ${1E13} ${1E14}") shouldBe Right(SDecimal(decimal(1E27)))
-        eval(e"MUL_DECIMAL ${1E14} ${1E14}") shouldBe 'left
+        eval(e"MUL_DECIMAL 1.1 2.2") shouldBe Right(SNumeric(n(10, 2.42)))
+        eval(e"MUL_DECIMAL ${tenPowerOf(13)} ${tenPowerOf(14)}") shouldBe Right(
+          SNumeric(n(10, 1E27)))
+        eval(e"MUL_DECIMAL ${tenPowerOf(14)} ${tenPowerOf(14)}") shouldBe 'left
         eval(e"MUL_DECIMAL $bigBigDecimal ${bigBigDecimal - 1}") shouldBe Left(
           DamlEArithmeticError(
-            s"Decimal overflow when multiplying ${str(bigBigDecimal)} by ${str(bigBigDecimal - 1)}.")
+            s"(Numeric 10) overflow when multiplying ${s(10, bigBigDecimal)} by ${s(10, bigBigDecimal - 1)}.")
         )
       }
     }
 
     "DIV_DECIMAL" - {
       "throws exception in case of overflow" in {
-        eval(e"DIV_DECIMAL 1.1 2.2") shouldBe Right(SDecimal(decimal(0.5)))
-        eval(e"DIV_DECIMAL $bigBigDecimal ${1E-10}") shouldBe 'left
-        eval(e"DIV_DECIMAL ${1E17} ${1E-10}") shouldBe Right(SDecimal(decimal(1E27)))
-        eval(e"DIV_DECIMAL ${1E18} ${1E-10}") shouldBe Left(
+        eval(e"DIV_DECIMAL 1.1 2.2") shouldBe Right(SNumeric(n(10, 0.5)))
+        eval(e"DIV_DECIMAL $bigBigDecimal ${tenPowerOf(-10)}") shouldBe 'left
+        eval(e"DIV_DECIMAL ${tenPowerOf(17)} ${tenPowerOf(-10)}") shouldBe Right(
+          SNumeric(n(10, 1E27)))
+        eval(e"DIV_DECIMAL ${tenPowerOf(18)} ${tenPowerOf(-10)}") shouldBe Left(
           DamlEArithmeticError(
-            s"Decimal overflow when dividing ${str(BigDecimal(1E18))} by ${str(BigDecimal(1E-10))}.")
+            s"(Numeric 10) overflow when dividing ${tenPowerOf(18)} by ${tenPowerOf(-10)}.")
         )
       }
 
       "throws exception when divided by 0" in {
-        eval(e"DIV_DECIMAL 1.0 ${1E-10}") shouldBe Right(SDecimal(decimal(1E10)))
+        eval(e"DIV_DECIMAL 1.0 ${tenPowerOf(-10)}") shouldBe Right(SNumeric(n(10, tenPowerOf(10))))
         eval(e"DIV_DECIMAL 1.0 0.0") shouldBe 'left
         eval(e"DIV_DECIMAL $bigBigDecimal 0.0") shouldBe Left(
-          DamlEArithmeticError(s"Attempt to divide $bigBigDecimal by 0.0.")
+          DamlEArithmeticError(s"Attempt to divide $bigBigDecimal by 0.0000000000.")
         )
 
       }
@@ -284,21 +297,21 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
         )
 
         forEvery(testCases) { (rounding, input, result) =>
-          eval(e"ROUND_DECIMAL $rounding $input") shouldBe Right(SDecimal(BigDecimal(result)))
+          eval(e"ROUND_DECIMAL $rounding $input") shouldBe Right(SNumeric(n(10, result)))
         }
       }
     }
 
     "Decimal binary operations compute proper results" in {
 
-      def round(x: BigDecimal) = x.setScale(10, BigDecimal.RoundingMode.HALF_EVEN)
+      def round(x: BigDecimal) = n(10, x.setScale(10, BigDecimal.RoundingMode.HALF_EVEN))
 
       val testCases = Table[String, (Decimal, Decimal) => Either[Any, SValue]](
         ("builtin", "reference"),
-        ("ADD_DECIMAL", (a, b) => Right(SDecimal(a + b))),
-        ("SUB_DECIMAL", (a, b) => Right(SDecimal(a - b))),
-        ("MUL_DECIMAL", (a, b) => Right(SDecimal(round(a * b)))),
-        ("DIV_DECIMAL", (a, b) => Either.cond(b != 0, SDecimal(round(a / b)), ())),
+        ("ADD_DECIMAL", (a, b) => Right(SNumeric(n(10, a + b)))),
+        ("SUB_DECIMAL", (a, b) => Right(SNumeric(n(10, a - b)))),
+        ("MUL_DECIMAL", (a, b) => Right(SNumeric(round(a * b)))),
+        ("DIV_DECIMAL", (a, b) => Either.cond(b != 0, SNumeric(round(a / b)), ())),
         ("LESS_EQ_DECIMAL", (a, b) => Right(SBool(a <= b))),
         ("GREATER_EQ_DECIMAL", (a, b) => Right(SBool(a >= b))),
         ("LESS_DECIMAL", (a, b) => Right(SBool(a < b))),
@@ -310,7 +323,7 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
         forEvery(decimals) { a =>
           forEvery(decimals) { b =>
             eval(e"$builtin $a $b").left
-              .map(_ => ()) shouldBe ref(decimal(BigDecimal(a)), decimal(BigDecimal(b)))
+              .map(_ => ()) shouldBe ref(d(a), d(b))
           }
         }
       }
@@ -771,7 +784,7 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
         val testCases = Table[Long]("Int64", 167, 11, 2, 1, 0, -1, -2, -13, -113)
 
         forEvery(testCases) { int64 =>
-          eval(e"INT64_TO_DECIMAL $int64") shouldBe Right(SDecimal(decimal(int64)))
+          eval(e"INT64_TO_DECIMAL $int64") shouldBe Right(SNumeric(n(10, int64)))
         }
       }
     }
@@ -956,9 +969,8 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
         )
 
       forEvery(positiveTestCases) { (input, expected) =>
-        eval(e"""FROM_TEXT_DECIMAL "$input"""") shouldBe Right(
-          SOptional(
-            Some(SDecimal(Decimal.assertFromBigDecimal(BigDecimal(expected).setScale(10))))))
+        val e = e"""FROM_TEXT_DECIMAL "$input""""
+        eval(e) shouldBe Right(SOptional(Some(SNumeric(n(10, expected)))))
       }
       forEvery(negativeTestCases) { s =>
         eval(e"""FROM_TEXT_DECIMAL "$s"""") shouldBe Right(SOptional(None))
@@ -974,7 +986,7 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
         val testCases = Table[String, SValue](
           "expression" -> "result",
           "1" -> SInt64(1),
-          "1.0" -> SDecimal(decimal(1)),
+          "1.0" -> SNumeric(n(10, 1)),
           "True" -> SBool(true),
           "()" -> SUnit(()),
           """ "text" """ -> SText("text"),
@@ -1044,7 +1056,5 @@ object SBuiltinTest {
     args.add(v)
     STuple(entryFields, args)
   }
-
-  private implicit def decimal(x: BigDecimal): Decimal = Decimal.assertFromBigDecimal(x)
 
 }

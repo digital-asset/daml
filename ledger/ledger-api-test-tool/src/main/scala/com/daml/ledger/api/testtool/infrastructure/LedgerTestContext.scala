@@ -3,30 +3,83 @@
 
 package com.daml.ledger.api.testtool.infrastructure
 
-import java.time.Instant
+import java.time.{Clock, Instant}
 
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.language.Ast
+import com.digitalasset.ledger.api.v1.active_contracts_service.{
+  GetActiveContractsRequest,
+  GetActiveContractsResponse
+}
+import com.digitalasset.ledger.api.v1.admin.party_management_service.AllocatePartyRequest
 import com.digitalasset.ledger.api.v1.command_service.SubmitAndWaitRequest
-import com.digitalasset.ledger.api.v1.commands.Command
-import com.digitalasset.ledger.api.v1.event.CreatedEvent
+import com.digitalasset.ledger.api.v1.commands.{Command, Commands}
+import com.digitalasset.ledger.api.v1.event.Event.Event.Created
+import com.digitalasset.ledger.api.v1.event.{CreatedEvent, Event}
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
+import com.digitalasset.ledger.api.v1.testing.time_service.{
+  GetTimeRequest,
+  GetTimeResponse,
+  SetTimeRequest
+}
 import com.digitalasset.ledger.api.v1.transaction.{Transaction, TransactionTree}
+import com.digitalasset.ledger.api.v1.transaction_filter.{
+  Filters,
+  InclusiveFilters,
+  TransactionFilter
+}
+import com.digitalasset.ledger.api.v1.transaction_service.{
+  GetTransactionByIdRequest,
+  GetTransactionsRequest
+}
 import com.digitalasset.ledger.api.v1.value.Identifier
 import com.digitalasset.ledger.client.binding.Primitive.Party
-import com.digitalasset.ledger.client.binding.{Contract, Primitive, Template, ValueDecoder}
+import com.digitalasset.ledger.client.binding.{Primitive, Template}
+import com.digitalasset.platform.testing.{FiniteStreamObserver, SingleItemObserver}
+import com.google.protobuf.timestamp.Timestamp
+import io.grpc.stub.StreamObserver
+import scalaz.Tag
+import scalaz.syntax.tag._
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.control.NonFatal
 
-final class LedgerTestContext(
+object LedgerTestContext {
+
+  private[this] def filter(templateIds: Seq[Identifier]): Filters =
+    new Filters(if (templateIds.isEmpty) None else Some(new InclusiveFilters(templateIds)))
+
+  private def transactionFilter(
+      parties: Seq[String],
+      templateIds: Seq[Identifier]): Some[TransactionFilter] =
+    Some(new TransactionFilter(Map(parties.map(_ -> filter(templateIds)): _*)))
+
+  private def timestamp(i: Instant): Some[Timestamp] =
+    Some(new Timestamp(i.getEpochSecond, i.getNano))
+
+  private def timestampToInstant(t: Timestamp): Instant =
+    Instant.EPOCH.plusSeconds(t.seconds).plusNanos(t.nanos.toLong)
+
+  private def instantToTimestamp(t: Instant): Timestamp =
+    new Timestamp(t.getEpochSecond, t.getNano)
+
+  private val end = LedgerOffset(
+    LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_END))
+
+  private val defaultTtlSeconds = 30
+
+}
+
+private[infrastructure] final class LedgerTestContext(
+    val ledgerId: String,
     val applicationId: String,
-    val offsetAtStart: LedgerOffset,
-    bindings: LedgerBindings)(implicit val ec: ExecutionContext)
-    extends ExecutionContext {
+    referenceOffset: LedgerOffset,
+    services: LedgerServices,
+    commandTtlFactor: Double)(implicit ec: ExecutionContext) {
 
-  override def execute(runnable: Runnable): Unit = ec.execute(runnable)
-  override def reportFailure(cause: Throwable): Unit = ec.reportFailure(cause)
+  import LedgerTestContext._
+
+  private[this] def timestampWithTtl(i: Instant): Some[Timestamp] =
+    timestamp(i.plusSeconds(math.floor(defaultTtlSeconds * commandTtlFactor).toLong))
 
   private[this] val nextPartyHintId: () => String = {
     val it = Iterator.from(0).map(n => s"$applicationId-party-$n")
@@ -39,64 +92,123 @@ final class LedgerTestContext(
       it.synchronized(it.next())
   }
 
-  val ledgerId: Future[String] = bindings.ledgerId
+  def time(): Future[Instant] =
+    SingleItemObserver
+      .first[GetTimeResponse](services.time.getTime(new GetTimeRequest(ledgerId), _))
+      .map(_.map(r => timestampToInstant(r.getCurrentTime)).get)
+      .recover {
+        case NonFatal(_) => Clock.systemUTC().instant()
+      }
+
+  def passTime(t: Duration): Future[Unit] =
+    for {
+      currentInstant <- time()
+      currentTime = Some(instantToTimestamp(currentInstant))
+      newTime = Some(instantToTimestamp(currentInstant.plusNanos(t.toNanos)))
+      result <- services.time
+        .setTime(new SetTimeRequest(ledgerId, currentTime, newTime))
+        .map(_ => ())
+    } yield result
 
   def allocateParty(): Future[Party] =
-    bindings.allocateParty(nextPartyHintId())
+    services.partyManagement
+      .allocateParty(new AllocatePartyRequest(partyIdHint = nextPartyHintId()))
+      .map(r => Party(r.partyDetails.get.party))
 
-  def time: Future[Instant] = bindings.time
+  def allocateParties(n: Int): Future[Vector[Party]] =
+    Future.sequence(Vector.fill(n)(allocateParty()))
 
-  def passTime(t: Duration): Future[Unit] = bindings.passTime(t)
+  def activeContracts(parties: Party*): Future[Vector[CreatedEvent]] =
+    for {
+      contracts <- FiniteStreamObserver[GetActiveContractsResponse](
+        services.activeContracts.getActiveContracts(
+          new GetActiveContractsRequest(
+            ledgerId = ledgerId,
+            filter = transactionFilter(Tag.unsubst(parties), Seq.empty),
+            verbose = true
+          ),
+          _
+        )
+      )
+    } yield contracts.flatMap(_.activeContracts)
 
-  def activeContracts(
+  private def getTransactionsRequest(parties: Seq[Party]): GetTransactionsRequest =
+    new GetTransactionsRequest(
+      ledgerId = ledgerId,
+      begin = Some(referenceOffset),
+      end = Some(end),
+      filter = transactionFilter(Tag.unsubst(parties), Seq.empty),
+      verbose = true
+    )
+
+  private def transactions[Res](
       parties: Seq[Party],
-      templateIds: Seq[Identifier]): Future[Vector[CreatedEvent]] =
-    bindings.activeContracts(parties, templateIds)
+      service: (GetTransactionsRequest, StreamObserver[Res]) => Unit): Future[Vector[Res]] =
+    FiniteStreamObserver[Res](service(getTransactionsRequest(parties), _))
 
-  def create[T <: Template[T]: ValueDecoder](
-      party: Party,
-      template: Template[T]): Future[Contract[T]] =
-    bindings.create(party, applicationId, nextCommandId(), template)
+  def flatTransactions(parties: Party*): Future[Vector[Transaction]] =
+    transactions(parties, services.transaction.getTransactions).map(_.flatMap(_.transactions))
 
-  def createAndGetTransactionId[T <: Template[T]: ValueDecoder](
+  def transactionTrees(parties: Party*): Future[Vector[TransactionTree]] =
+    transactions(parties, services.transaction.getTransactionTrees).map(_.flatMap(_.transactions))
+
+  def transactionTreeById(transactionId: String, parties: Party*): Future[TransactionTree] =
+    services.transaction
+      .getTransactionById(
+        new GetTransactionByIdRequest(ledgerId, transactionId, Tag.unsubst(parties)))
+      .map(_.getTransaction)
+
+  def create[T](
       party: Party,
-      template: Template[T]): Future[(String, Contract[T])] =
-    bindings.createAndGetTransactionId(party, applicationId, nextCommandId(), template)
+      template: Template[T]
+  ): Future[Primitive.ContractId[T]] =
+    submitAndWaitRequest(party, template.create.command)
+      .flatMap(submitAndWaitForTransaction)
+      .map(_.events.collect {
+        case Event(Created(e)) => Primitive.ContractId(e.contractId)
+      }.head)
+
+  def createAndGetTransactionId[T](
+      party: Party,
+      template: Template[T]
+  ): Future[(String, Primitive.ContractId[T])] =
+    submitAndWaitRequest(party, template.create.command)
+      .flatMap(submitAndWaitForTransaction)
+      .map(tx =>
+        tx.transactionId -> tx.events.collect {
+          case Event(Created(e)) => Primitive.ContractId(e.contractId)
+        }.head)
 
   def exercise[T](
       party: Party,
       exercise: Party => Primitive.Update[T]
-  ): Future[TransactionTree] = bindings.exercise(party, applicationId, nextCommandId(), exercise)
+  ): Future[TransactionTree] =
+    submitAndWaitRequest(party, exercise(party).command).flatMap(submitAndWaitForTransactionTree)
 
-  def flatTransactions(
-      parties: Seq[Party],
-      templateIds: Seq[Identifier]): Future[Vector[Transaction]] =
-    bindings.flatTransactions(offsetAtStart, parties, templateIds)
-
-  def transactionTrees(
-      parties: Seq[Party],
-      templateIds: Seq[Identifier]): Future[Vector[TransactionTree]] =
-    bindings.transactionTrees(offsetAtStart, parties, templateIds)
-
-  def transactionTreeById(transactionId: String, parties: Seq[Party]): Future[TransactionTree] =
-    bindings.getTransactionById(transactionId, parties)
-
-  def prepareSubmission(party: Party, command: Command): Future[SubmitAndWaitRequest] =
-    bindings.prepareSubmission(party, applicationId, nextCommandId(), Seq(command))
+  def submitAndWaitRequest(party: Party, commands: Command*): Future[SubmitAndWaitRequest] =
+    time().map(
+      let =>
+        new SubmitAndWaitRequest(
+          Some(new Commands(
+            ledgerId = ledgerId,
+            applicationId = applicationId,
+            commandId = nextCommandId(),
+            party = party.unwrap,
+            ledgerEffectiveTime = timestamp(let),
+            maximumRecordTime = timestampWithTtl(let),
+            commands = commands
+          ))))
 
   def submitAndWait(request: SubmitAndWaitRequest): Future[Unit] =
-    bindings.submitAndWait(request)
+    services.command.submitAndWait(request).map(_ => ())
 
   def submitAndWaitForTransactionId(request: SubmitAndWaitRequest): Future[String] =
-    bindings.submitAndWaitForTransactionId(request)
+    services.command.submitAndWaitForTransactionId(request).map(_.transactionId)
 
   def submitAndWaitForTransaction(request: SubmitAndWaitRequest): Future[Transaction] =
-    bindings.submitAndWaitForTransaction(request)
+    services.command.submitAndWaitForTransaction(request).map(_.getTransaction)
 
   def submitAndWaitForTransactionTree(request: SubmitAndWaitRequest): Future[TransactionTree] =
-    bindings.submitAndWaitForTransactionTree(request)
-
-  def semanticTesterLedger(parties: Set[Ref.Party], packages: Map[Ref.PackageId, Ast.Package]) =
-    new SemanticTesterLedger(bindings)(parties, packages)(this)
+    services.command.submitAndWaitForTransactionTree(request).map(_.getTransaction)
 
 }

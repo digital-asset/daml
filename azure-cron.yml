@@ -2,22 +2,27 @@
 
 # Do not run on PRs
 pr: none
+
 # Do not run on merge to master
 trigger: none
+
 # Do run on a schedule (hourly)
-# This feature seems completely broken, so for the time being the schedule has
-# been defined manually in the Azure Pipelines Web UI. Note that Azure
-# Pipelines sometimes spontaneously decides to silently delete that
-# configuration, so someone should keep an eye on that.
 #
-# The setup is kept here in case it suddenly starts to work.
-schedules:
-- cron: "0 * * * *"
-  displayName: hourly cron
-  branches:
-    include:
-    - master
-  always: true
+# This is currently (2019-08-15) broken on Azure for GitHub-hosted repos. It
+# does, however, work as expected for Azure-hosted repos. As a workaround, we
+# have created a repo inside Azure that contains an `azure-pipelines.yml` file
+# that just triggers this job.
+#
+# When the situation is resolved, delete that repo in Azure and uncomment the
+# following. In the meantime, this should stay commented so we avoid running
+# jobs twice when Azure fixes this issue.
+#schedules:
+#- cron: "0 * * * *"
+#  displayName: hourly cron
+#  branches:
+#    include:
+#    - master
+#  always: true
 
 jobs:
   - job: docs

@@ -7,13 +7,14 @@ module DA.Daml.LF.Proto3.Error
     ) where
 
 import qualified Data.Text as T
+import Data.Int (Int32)
 import Data.Word (Word64)
 
 import DA.Daml.LF.Ast
 
 data Error
   = MissingField String
-  | UnknownEnum String Int
+  | UnknownEnum String Int32
   | ParseError String
   | DuplicateModule ModuleName
   | DuplicateDataType TypeConName

@@ -293,6 +293,9 @@ def c2hs_suite(name, hazel_deps, deps = [], srcs = [], c2hs_srcs = [], c2hs_src_
             srcs = [file],
             deps = deps + [":" + t for t in ts],
             src_strip_prefix = c2hs_src_strip_prefix,
+            # language-c fails to pass mingw’s intrinsic-impl.h header if
+            # we do not unset this option.
+            extra_args = ["-C-U__GCC_ASM_FLAG_OUTPUTS__"] if is_windows else [],
         )
         ts.append(n)
     da_haskell_library(

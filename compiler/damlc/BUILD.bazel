@@ -120,10 +120,11 @@ da_haskell_library(
         "vector",
         "xml",
         "yaml",
+        "zip",
         "zip-archive",
         "unordered-containers",
         "uniplate",
-    ],
+    ] + ([] if is_windows else ["unix"]),
     src_strip_prefix = "lib",
     visibility = ["//visibility:public"],
     deps = [

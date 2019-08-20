@@ -11,11 +11,7 @@ object LedgerTest {
 
   def apply(shortIdentifier: String, description: String, timeout: Long = 30000L)(
       test: LedgerTestContext => Future[Unit]): LedgerTest =
-    new LedgerTest(
-      Ref.LedgerString.fromString(shortIdentifier).fold(m => throw sys.error(m), identity),
-      description,
-      timeout,
-      test)
+    new LedgerTest(Ref.LedgerString.assertFromString(shortIdentifier), description, timeout, test)
 
 }
 

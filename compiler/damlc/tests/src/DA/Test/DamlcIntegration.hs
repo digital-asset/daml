@@ -70,7 +70,7 @@ import qualified Test.Tasty.HUnit as HUnit
 import Test.Tasty.HUnit ((@?=))
 import Test.Tasty.Options
 import Test.Tasty.Providers
-import Test.Tasty.Runners
+import Test.Tasty.Runners (Outcome(..), Result(..))
 
 -- Newtype to avoid mixing up the loging function and the one for registering TODOs.
 newtype TODO = TODO String

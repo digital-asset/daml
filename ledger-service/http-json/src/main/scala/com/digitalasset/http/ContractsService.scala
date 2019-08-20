@@ -5,12 +5,12 @@ package com.digitalasset.http
 
 import akka.stream.Materializer
 import akka.stream.scaladsl.Sink
-import com.digitalasset.http.domain.TemplateId
+import com.digitalasset.http.domain.{GetActiveContractsRequest, JwtPayload, TemplateId}
 import com.digitalasset.http.util.FutureUtil.toFuture
 import com.digitalasset.http.util.IdentifierConverters.apiIdentifier
+import com.digitalasset.jwt.domain.Jwt
 import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
 import com.digitalasset.ledger.api.{v1 => lav1}
-import com.digitalasset.ledger.client.services.acs.ActiveContractSetClient
 import scalaz.std.string._
 import scalaz.{-\/, \/-}
 
@@ -18,24 +18,28 @@ import scala.concurrent.{ExecutionContext, Future}
 
 class ContractsService(
     resolveTemplateIds: PackageService.ResolveTemplateIds,
-    activeContractSetClient: ActiveContractSetClient,
+    getActiveContracts: LedgerClientJwt.GetActiveContracts,
     parallelism: Int = 8)(implicit ec: ExecutionContext, mat: Materializer) {
 
-  def lookup(jwtPayload: domain.JwtPayload, request: domain.ContractLookupRequest[lav1.value.Value])
+  def lookup(
+      jwt: Jwt,
+      jwtPayload: JwtPayload,
+      request: domain.ContractLookupRequest[lav1.value.Value])
     : Future[Option[domain.ActiveContract[lav1.value.Value]]] =
     request.id match {
       case -\/((templateId, contractKey)) =>
-        lookup(jwtPayload.party, templateId, contractKey)
+        lookup(jwt, jwtPayload.party, templateId, contractKey)
       case \/-((templateId, contractId)) =>
-        lookup(jwtPayload.party, templateId, contractId)
+        lookup(jwt, jwtPayload.party, templateId, contractId)
     }
 
   def lookup(
+      jwt: Jwt,
       party: lar.Party,
       templateId: TemplateId.OptionalPkg,
       contractKey: lav1.value.Value): Future[Option[domain.ActiveContract[lav1.value.Value]]] =
     for {
-      as <- search(party, Set(templateId))
+      as <- search(jwt, party, Set(templateId))
       a = findByContractKey(contractKey)(as)
     } yield a
 
@@ -51,11 +55,12 @@ class ContractsService(
     a.key.fold(false)(_ == k)
 
   def lookup(
+      jwt: Jwt,
       party: lar.Party,
       templateId: Option[TemplateId.OptionalPkg],
       contractId: String): Future[Option[domain.ActiveContract[lav1.value.Value]]] =
     for {
-      as <- search(party, templateIds(templateId))
+      as <- search(jwt, party, templateIds(templateId))
       a = findByContractId(contractId)(as)
     } yield a
 
@@ -69,16 +74,15 @@ class ContractsService(
       .flatMap(a => a.activeContracts)
       .find(x => (x.contractId: String) == k)
 
-  def search(jwtPayload: domain.JwtPayload, request: domain.GetActiveContractsRequest)
+  def search(jwt: Jwt, jwtPayload: JwtPayload, request: GetActiveContractsRequest)
     : Future[Seq[domain.GetActiveContractsResponse[lav1.value.Value]]] =
-    search(jwtPayload.party, request.templateIds)
+    search(jwt, jwtPayload.party, request.templateIds)
 
-  def search(party: lar.Party, templateIds: Set[domain.TemplateId.OptionalPkg])
+  def search(jwt: Jwt, party: lar.Party, templateIds: Set[domain.TemplateId.OptionalPkg])
     : Future[Seq[domain.GetActiveContractsResponse[lav1.value.Value]]] =
     for {
       templateIds <- toFuture(resolveTemplateIds(templateIds))
-      activeContracts <- activeContractSetClient
-        .getActiveContracts(transactionFilter(party, templateIds), verbose = true)
+      activeContracts <- getActiveContracts(jwt, transactionFilter(party, templateIds), true)
         .mapAsyncUnordered(parallelism)(gacr =>
           toFuture(domain.GetActiveContractsResponse.fromLedgerApi(gacr)))
         .runWith(Sink.seq)
@@ -95,8 +99,4 @@ class ContractsService(
 
     TransactionFilter(Map(lar.Party.unwrap(party) -> filters))
   }
-}
-
-object ContractsService {
-  final case class Error(message: String)
 }

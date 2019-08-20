@@ -74,7 +74,7 @@ buildBazelPackage rec {
       find . -type d -empty -delete
     '';
 
-    sha256 = "1nlcw7p1gcsxkm4zzv4znqdkd42258576m9aavi57b1xqhk68fjm";
+    sha256 = "1al0wywcdrcgh647s9wrdlyd2iq90rhm5v2pfkbxi2zyq403k61w";
   };
 
   buildAttrs = {

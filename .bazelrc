@@ -97,4 +97,9 @@ build:darwin --protocopt=--include_source_info
 # using ComSpec environment variable. By default it's not passed from Bazel client environment.
 test:windows --test_env=ComSpec
 
+# We default to -c opt. We compile Haskell with -O1 anyway since otherwise
+# it is unusably slow and the C deps change rarely so there is little reason
+# to not compile them with optimizations.
+build -c opt
+
 try-import %workspace%/.bazelrc.local
