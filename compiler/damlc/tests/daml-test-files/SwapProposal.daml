@@ -109,14 +109,17 @@ s = scenario do
   -- Rohan tries to get revenge by only paying $25 USD
   let rohans25 = Cash with owner = rohan; amount = 25.0; currency = "USD"
   rohans25Cid <- rohan `submit` create rohans25
-  -- However this will also fail because of the other runtime assertion
+  -- However this will also fail because of the runtime assertion
   rohan `submitMustFail` exercise cashSwapProposal Accept with paymentCid = rohans25Cid
+  -- Rohan accepts the deal
+  -- FIXME: This fails because Rohan can't exercise the TransferCash choice on Martin's cash
+  -- How to solve this?
   rohan `submit` exercise cashSwapProposal Accept with paymentCid = rohans50Cid
   -- Rohan formally requests a better deal with a counter offer
-  newSwapProposal <- rohan `submit` exercise cashSwapProposal RejectWithCounterOffer with
-    newOffer = rohans25
-    newOfferCid = rohans25Cid
-    newExpected = martins50
+  -- newSwapProposal <- rohan `submit` exercise cashSwapProposal RejectWithCounterOffer with
+  --   newOffer = rohans25
+  --   newOfferCid = rohans25Cid
+  --   newExpected = martins50
   -- Martin begrudgingly accepts and the deal is finally done
-  --martin `submit` exercise newSwapProposal Accept with paymentCid = martins50Cid
+  -- martin `submit` exercise newSwapProposal Accept with paymentCid = martins50Cid
   pure ()
