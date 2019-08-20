@@ -88,22 +88,27 @@ onCommand
     :: IdeState
     -> ExecuteCommandParams
     -> IO Aeson.Value
-onCommand ide ExecuteCommandParams{..} = do
-    case _arguments of
-        Nothing -> return $ Aeson.String "No .daml files where found in the IDE workspace"
-        Just path -> do
-            case filesFromExecParams path of
-                (head : _rest) -> do
-                        logInfo (ideLogger ide) "Generating visualization for current daml project"
-                        Just(WhnfPackage package) <- runAction ide (use GeneratePackage head)
-                        let mods =  NM.toList $ LF.packageModules package
-                        pkgMap <- runAction ide  (useNoFile_ GeneratePackageMap)
-                        let extpkgs = map dalfPackagePkg $ Map.elems pkgMap
-                        let wrld = LF.initWorldSelf extpkgs package
-                        let dots = T.pack $ Visual.dotFileGen mods wrld
-                        return $ Aeson.String dots
-                _ -> return $ Aeson.String "Could not consutruct world and the module list."
-
+onCommand ide execParsms = case execParsms of
+    ExecuteCommandParams "daml/damlVisualize" (Just _arguments) -> do
+        case filesFromExecParams _arguments of
+            [mod] -> do
+                    logInfo (ideLogger ide) "Generating visualization for current daml project"
+                    Just(WhnfPackage package) <- runAction ide (use GeneratePackage mod)
+                    let mods =  NM.toList $ LF.packageModules package
+                    pkgMap <- runAction ide  (useNoFile_ GeneratePackageMap)
+                    let extpkgs = map dalfPackagePkg $ Map.elems pkgMap
+                    let wrld = LF.initWorldSelf extpkgs package
+                    let dots = T.pack $ Visual.dotFileGen mods wrld
+                    return $ Aeson.String dots
+            _ -> do
+                logError (ideLogger ide) "Expected a single module to visualize, got multiple module"
+                return $ Aeson.String "Could not consutruct world and the module list."
+    ExecuteCommandParams  _ (Just _arguments) -> do
+        logError (ideLogger ide) "Command is not supported"
+        return Aeson.Null
+    ExecuteCommandParams  _ Nothing -> do
+        logError (ideLogger ide) "Missing DAML module to visualize"
+        return Aeson.Null
 
 setCommandHandler ::PartialHandlers
 setCommandHandler = PartialHandlers $ \WithMessage{..} x -> return x {
