@@ -23,6 +23,8 @@ and creates a new project containing generated code to migrate contracts from ``
 
   Available options:
     TARGET_PATH              Path where the new project should be located
+    SOURCE                   Path to the main source file ('source' entry of the
+                             project configuration files of the input projects).
     FROM_PATH                Path to the dar-package from which to migrate from
     TO_PATH                  Path to the dar-package to which to migrate to
     -h,--help                Show this help text
