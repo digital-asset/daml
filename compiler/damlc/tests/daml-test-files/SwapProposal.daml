@@ -4,10 +4,10 @@ daml 1.2
 module SwapProposal where
 
 -- Interface for dealing with swappable assets
-class Transferrable t where
+class (Template t, Eq t) => Transferrable t where
   transfer: ContractId t -> Party -> Update (ContractId t)
 
-template (Template t, Eq t, Transferrable t) => SwapProposal t with
+template Transferrable t => SwapProposal t with
     proposer: Party
     proposee: Party
     offer: t
@@ -58,33 +58,52 @@ template (Template t, Eq t, Transferrable t) => SwapProposal t with
              offerCid = newOfferCid
              expected = newExpected
 
--- A couple of transferrable assets: Cash and Bricks
-
 template Cash
   with
     owner: Party
     amount: Decimal
+    currency: Text
   where
     signatory owner
 
     controller owner can
       TransferCash: ContractId Cash
         with newOwner: Party
-        do create $ Cash newOwner amount
-
-template Brick
-  with
-    owner: Party
-  where
-    signatory owner
-
-    controller owner can
-      TransferBrick: ContractId Brick
-        with newOwner: Party
-        do create $ Brick newOwner
+        do create this with owner = newOwner
 
 instance Transferrable Cash where
   transfer cid newOwner = exercise cid TransferCash with newOwner
 
-instance Transferrable Brick where
-  transfer cid newOwner = exercise cid TransferBrick with newOwner
+template instance CashSwap = SwapProposal Cash
+
+s = scenario do
+  rohan <- getParty "Rohan"
+  martin <- getParty "Martin"
+  rohanCash <- rohan `submit` create Cash with owner = rohan; amount = 50.0; currency = "USD"
+  martinCash <- martin `submit` create Cash with owner = martin; amount = 50.0; currency = "CHF"
+  -- Martin tries to trick Rohan by pretending to offer 100 CHF when he only has 50
+  cashSwapProposal <- martin `submit` create SwapProposal with
+    proposer = martin
+    proposee = rohan
+    offer = Cash martin 100.0 "CHF"
+    offerCid = martinCash
+    expected = Cash rohan 50.0 "USD"
+  -- Rohan believes it's a fair deal and tries to accept
+  -- However it fails due to the assertion in the choice body
+  rohan `submitMustFail` exercise cashSwapProposal Accept with paymentCid = rohanCash
+  -- Cottoning on to the deception, Rohan rejects the proposal.
+  rohan `submit` exercise cashSwapProposal Reject
+  -- Then Martin feels bad and proposes an honest swap
+  cashSwapProposal <- martin `submit` create SwapProposal with
+    proposer = martin
+    proposee = rohan
+    offer = Cash martin 50.0 "CHF"
+    offerCid = martinCash
+    expected = Cash rohan 50.0 "USD"
+  -- Rohan tries to get revenge by only paying $25 USD
+  rohanCash25 <- rohan `submit` create Cash with owner = rohan; amount = 25.0; currency = "USD"
+  -- However this will also fail because of the other runtime assertion
+  rohan `submitMustFail` exercise cashSwapProposal Accept with paymentCid = rohanCash25
+  -- Finally Rohan accepts with the right amount and everyone is somewhat happy
+  rohan `submitMustFail` exercise cashSwapProposal Accept with paymentCid = rohanCash
+  pure ()
