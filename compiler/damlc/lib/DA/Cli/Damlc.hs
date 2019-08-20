@@ -3,6 +3,7 @@
 
 {-# LANGUAGE TemplateHaskell     #-}
 {-# LANGUAGE ApplicativeDo       #-}
+{-# LANGUAGE CPP #-}
 
 -- | Main entry-point of the DAML compiler
 module DA.Cli.Damlc (main) where
@@ -76,6 +77,9 @@ import System.Environment
 import System.Exit
 import System.FilePath
 import System.IO.Extra
+#ifndef mingw32_HOST_OS
+import System.Posix.Files
+#endif
 import System.Process (callProcess)
 import qualified Text.PrettyPrint.ANSI.Leijen      as PP
 
@@ -706,6 +710,12 @@ execMigrate projectOpts opts0 inFile1_ inFile2_ mbDir = do
         let eqModNames =
                 (NM.names $ LF.packageModules lfPkg1) `intersect`
                 (NM.names $ LF.packageModules lfPkg2)
+        let eqModNamesStr = map (T.unpack . LF.moduleNameString) eqModNames
+        let buildCmd escape =
+                    "daml build --init-package-db=no" <> " --package " <>
+                    escape (show (pkgName1, [(m, m ++ "A") | m <- eqModNamesStr])) <>
+                    " --package " <>
+                    escape (show (pkgName2, [(m, m ++ "B") | m <- eqModNamesStr]))
         forM_ eqModNames $ \m@(LF.ModuleName modName) -> do
             [genSrc1, genSrc2] <-
                 forM [(pkgId1, lfPkg1), (pkgId2, lfPkg2)] $ \(pkgId, pkg) -> do
@@ -715,10 +725,10 @@ execMigrate projectOpts opts0 inFile1_ inFile2_ mbDir = do
                     ".daml"
             let instancesModPath1 =
                     replaceBaseName upgradeModPath $
-                    takeBaseName upgradeModPath <> "InstancesA"
+                    takeBaseName upgradeModPath <> "AInstances"
             let instancesModPath2 =
                     replaceBaseName upgradeModPath $
-                    takeBaseName upgradeModPath <> "InstancesB"
+                    takeBaseName upgradeModPath <> "BInstances"
             templateNames <-
                 map (T.unpack . T.intercalate "." . LF.unTypeConName) .
                 NM.names . LF.moduleTemplates <$>
@@ -727,19 +737,28 @@ execMigrate projectOpts opts0 inFile1_ inFile2_ mbDir = do
                     generateUpgradeModule
                         templateNames
                         (T.unpack $ LF.moduleNameString m)
-                        pkgName1
-                        pkgName2
+                        "A"
+                        "B"
             let generatedInstancesMod1 =
                     generateGenInstancesModule "A" (pkgName1, genSrc1)
             let generatedInstancesMod2 =
                     generateGenInstancesModule "B" (pkgName2, genSrc2)
+                escapeUnix arg = "'" <> arg <> "'"
+                escapeWindows arg = T.unpack $ "\"" <> T.replace "\"" "\\\"" (T.pack arg) <> "\""
             forM_
                 [ (upgradeModPath, generatedUpgradeMod)
                 , (instancesModPath1, generatedInstancesMod1)
                 , (instancesModPath2, generatedInstancesMod2)
+                , ("build.sh", "#!/bin/sh\n" ++ buildCmd escapeUnix)
+                , ("build.cmd", buildCmd escapeWindows)
                 ] $ \(path, mod) -> do
                 createDirectoryIfMissing True $ takeDirectory path
                 writeFile path mod
+#ifndef mingw32_HOST_OS
+        setFileMode "build.sh" $ stdFileMode `unionFileModes` ownerExecuteMode
+#endif
+
+        putStrLn "Generation of migration project complete."
   where
     decode dalf =
         errorOnLeft
