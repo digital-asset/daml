@@ -193,11 +193,11 @@ instance Pretty BuiltinExpr where
     BEGreater t   -> maybeParens (prec > precEApp) ("GREATER"    <-> prettyBTyArg lvl t)
     BEGreaterEq t -> maybeParens (prec > precEApp) ("GREATER_EQ" <-> prettyBTyArg lvl t)
     BEToText t    -> maybeParens (prec > precEApp) ("TO_TEXT"    <-> prettyBTyArg lvl t)
-    BEAddDecimal -> "ADD_NUMERIC"
-    BESubDecimal -> "SUB_NUMERIC"
-    BEMulDecimal -> "MUL_NUMERIC"
-    BEDivDecimal -> "DIV_NUMERIC"
-    BERoundDecimal -> "ROUND_NUMERIC"
+    BEAddDecimal -> "ADD_DECIMAL"
+    BESubDecimal -> "SUB_DECIMAL"
+    BEMulDecimal -> "MUL_DECIMAL"
+    BEDivDecimal -> "DIV_DECIMAL"
+    BERoundDecimal -> "ROUND_DECIMAL"
     BEAddInt64 -> "ADD_INT64"
     BESubInt64 -> "SUB_INT64"
     BEMulInt64 -> "MUL_INT64"
@@ -216,8 +216,8 @@ instance Pretty BuiltinExpr where
     BEAppendText -> "APPEND_TEXT"
     BETimestamp ts -> pretty (timestampToText ts)
     BEDate date -> pretty (dateToText date)
-    BEInt64ToDecimal -> "INT64_TO_NUMERIC"
-    BEDecimalToInt64 -> "NUMERIC_TO_INT64"
+    BEInt64ToDecimal -> "INT64_TO_DECIMAL"
+    BEDecimalToInt64 -> "DECIMAL_TO_INT64"
     BETimestampToUnixMicroseconds -> "TIMESTAMP_TO_UNIX_MICROSECONDS"
     BEUnixMicrosecondsToTimestamp -> "UNIX_MICROSECONDS_TO_TIMESTAMP"
     BEDateToUnixDays -> "DATE_TO_UNIX_DAYS"
@@ -229,7 +229,7 @@ instance Pretty BuiltinExpr where
     BEEqualContractId -> "EQUAL_CONTRACT_ID"
     BEPartyFromText -> "FROM_TEXT_PARTY"
     BEInt64FromText -> "FROM_TEXT_INT64"
-    BEDecimalFromText -> "FROM_TEXT_NUMERIC"
+    BEDecimalFromText -> "FROM_TEXT_DECIMAL"
     BEPartyToQuotedText -> "PARTY_TO_QUOTED_TEXT"
     BETextToCodePoints -> "TEXT_TO_CODE_POINTS"
     BETextFromCodePoints -> "TEXT_FROM_CODE_POINTS"

@@ -334,7 +334,7 @@ private[digitalasset] class EncodeV1(val minor: LV.Minor) {
       val builder = PLF.PrimLit.newBuilder()
       primLit match {
         case PLInt64(value) => builder.setInt64(value)
-        case PLDecimal(value) => builder.setNumeric(Decimal.toString(value))
+        case PLDecimal(value) => builder.setDecimal(Decimal.toString(value))
         case PLText(value) => builder.setText(value)
         case PLTimestamp(value) => builder.setTimestamp(value.micros)
         case PLParty(party) => builder.setParty(party)
