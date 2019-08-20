@@ -8,8 +8,7 @@
 daml 1.2
 
 module DA.Upgrade
-  ( conv
-  , iso
+  ( iso
   , Convertible(..)
   , GenConvertible
   , Upgrade(..)
@@ -61,10 +60,12 @@ template (Template i, Template o, Convertible o i) => Rollback i o
 -- | Types, for which there exists a conversion.
 class Convertible a b where
   convert : a -> b
+  default convert : (Generic a repA, Generic b repB, GenConvertible repA repB) => a -> b
+  convert = to . cv . from
 
--- | GenConvertible data types that are isomorphic and have the same meta-data up to package id.
-conv : (Generic a repA, Generic b repB, GenConvertible repA repB) => a -> b
-conv = to . cv . from
+-- | Generically convert data types that are isomorphic and have the same meta-data up to package id.
+genConvert : (Generic a repA, Generic b repB, GenConvertible repA repB) => a -> b
+genConvert = to . cv . from
 
 -- | Generic representations that are isomorphic and have the same meta-data up to package id.
 class GenConvertible a b where
@@ -92,7 +93,7 @@ instance GenConvertible (K1 R c) (K1 R c) where cv = identity
 instance GenConvertible c1 c2 => GenConvertible (K1 R (c1 x)) (K1 R (c2 x)) where
   cv = K1 . cv . unK1
 instance (Generic x repX, Generic y repY, GenConvertible repX repY) => GenConvertible (K1 R x) (K1 R y) where
-  cv = K1 . conv . unK1
+  cv = K1 . genConvert . unK1
 
 -- | This class describes meta-data that is equal up to package id.
 class MetaEquiv (m1: Meta) (m2: Meta)

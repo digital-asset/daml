@@ -94,8 +94,7 @@ upgradeTemplates :: String -> [String]
 upgradeTemplates n =
     [ "type " <> n <> "Upgrade = Upgrade A." <> n <> " B." <> n
     , "type " <> n <> "Rollback = Rollback A." <> n <> " B." <> n
-    , "instance Convertible A." <> n <> " B." <> n <> " where"
-    , "    convert = conv"
+    , "instance Convertible A." <> n <> " B." <> n
     ]
 
 -- | Generate the full source for a daml-lf package.
