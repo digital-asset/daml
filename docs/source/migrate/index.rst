@@ -23,8 +23,6 @@ and creates a new project containing generated code to migrate contracts from ``
 
   Available options:
     TARGET_PATH              Path where the new project should be located
-    SOURCE                   Path to the main source file ('source' entry of the
-                             project configuration files of the input projects).
     FROM_PATH                Path to the dar-package from which to migrate from
     TO_PATH                  Path to the dar-package to which to migrate to
     -h,--help                Show this help text
@@ -91,25 +89,21 @@ an example:
 
 .. literalinclude:: foo-upgrade-2.0.0/daml/Foo.daml
   :language: daml
-  :lines: 4-39
+  :lines: 4-14
 
-Currently, we only support one upgrade/rollback contract template pair. In the future we might
-extend the ``migrate`` command with different possible upgrade/rollback templates. The above
-contract template offers a choice to input a contract instance defined in ``foo-1.0.0``, convert it
-with the ``conv`` function and create a new one that follows the data type definition in
-``foo-2.0.0``. The heart of the migration code is the ``conv`` function. It is defined in the DAML
-standard library in the module ``DA.Upgrade`` and has the following type signature:
+The new template types are defined via a type alias and use generic templates to update or rollback
+contract instances defined in the DAML standard library (see
+https://docs.daml.com/daml/reference/base.html#module-da-upgrade). The ``Upgrade`` template offers a
+choice to input a contract instance defined in ``foo-1.0.0`` and create a new one that has been
+converted to a contract instance defined in ``foo-2.0.0``. The ``Rollback`` template implements the
+reversed workflow.
 
-.. code-block:: daml
-
-  conv : (Generic a repA, Generic b repB, Conv repA repB) => a -> b
-
-From its type signature you can see that it can convert any two data types that are instances of the
-``Generic`` class and whose generic representation can be converted itself.
-
-The ``migrate`` command takes care of defining generic instances for all relevant data types in the
-two packages. In our example, you'll find them in the files ``FooAInstances.daml`` and
-``FooBInstances.daml``.
+The last line generates a ``Convertible`` instance for the ``Foo`` template of both packages. This
+is a manifestation that instances of the ``Foo`` template in ``foo-1.0.0`` can be converted to
+instances of the equally named template in ``foo-2.0.0``. The migrate command tries to infer the
+instances of the ``Convertible`` type class automatically via generics and takes care of defining
+generic instances for all relevant data types in the two packages. In our example, you'll find them
+in the files ``FooAInstances.daml`` and ``FooBInstances.daml``.
 
 Generic representations can be converted when they are *isomorphic*. That means the corresponding
 data types defined in package ``foo-1.0.0`` and ``foo-2.0.0`` have exactly the same shape. For
@@ -135,34 +129,27 @@ package has been extended to
   :language: daml
   :lines: 6-15
 
-Here is typical error message in this case:
+Here is typical error message in this case of an invocation of ``build.sh``:
 
 .. code-block:: none
 
-  daml/Foo.daml:22:30: error:
-  • Could not deduce (DA.Upgrade.Conv
+  daml/Foo.daml:10:10: error:
+  • No instance for (GenConvertible
   (DA.Generics.M1
   DA.Generics.S
   ('DA.Generics.MetaSel
   ('DA.Generics.MetaSel0
   ('Some "p")
-  'DA.Generics.NoSourceUnpackedness
-  'DA.Generics.NoSourceStrictness))
-  (DA.Generics.Rec0 Party))
-  (DA.Generics.S1
-  ('DA.Generics.MetaSel
   ...
 
 The important hint is that the compiler is not able to deduce that our data type is an instance of
-the ``DA.Upgrade.Conv`` class and hence not convertible. In this case you will have to add your own
-upgrade/rollback templates to ``daml/Foo.daml`` of the migration project, that describe how to
-convert a contract of the template in question of package ``foo-1.0.0`` to one of ``foo-2.0.0`` and
-vice versa. You can take the generated template by the ``migrate`` command and replace the
-application of the `conv` function with your own conversion function. For example
+the ``DA.Upgrade.GenConvertible`` class and hence not generically convertible. In this case you will
+have to implement a ``convert`` method that describes how to convert a contract of the template in
+question of package ``foo-1.0.0`` to one of ``foo-2.0.0`` and vice versa. For example
 
 .. literalinclude:: foo-upgrade-2.0.0/daml/FooManual.daml
   :language: daml
-  :lines: 12-39
+  :lines: 4-19
 
 Deploying the migration
 -----------------------
