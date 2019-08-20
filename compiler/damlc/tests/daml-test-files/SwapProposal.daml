@@ -79,31 +79,40 @@ template instance CashSwap = SwapProposal Cash
 s = scenario do
   rohan <- getParty "Rohan"
   martin <- getParty "Martin"
-  rohanCash <- rohan `submit` create Cash with owner = rohan; amount = 50.0; currency = "USD"
-  martinCash <- martin `submit` create Cash with owner = martin; amount = 50.0; currency = "CHF"
+  let rohans50 = Cash with owner = rohan; amount = 50.0; currency = "USD"
+      martins50 = Cash with owner = martin; amount = 50.0; currency = "CHF"
+  rohans50Cid <- rohan `submit` create rohans50
+  martins50Cid <- martin `submit` create martins50
   -- Martin tries to trick Rohan by pretending to offer 100 CHF when he only has 50
   cashSwapProposal <- martin `submit` create SwapProposal with
     proposer = martin
     proposee = rohan
     offer = Cash martin 100.0 "CHF"
-    offerCid = martinCash
-    expected = Cash rohan 50.0 "USD"
+    offerCid = martins50Cid
+    expected = rohans50
   -- Rohan believes it's a fair deal and tries to accept
   -- However it fails due to the assertion in the choice body
-  rohan `submitMustFail` exercise cashSwapProposal Accept with paymentCid = rohanCash
-  -- Cottoning on to the deception, Rohan rejects the proposal.
+  rohan `submitMustFail` exercise cashSwapProposal Accept with paymentCid = rohans50Cid
+  -- Learning of the deception, Rohan rejects the proposal
   rohan `submit` exercise cashSwapProposal Reject
   -- Then Martin feels bad and proposes an honest swap
   cashSwapProposal <- martin `submit` create SwapProposal with
     proposer = martin
     proposee = rohan
-    offer = Cash martin 50.0 "CHF"
-    offerCid = martinCash
-    expected = Cash rohan 50.0 "USD"
+    offer = martins50
+    offerCid = martins50Cid
+    expected = rohans50
   -- Rohan tries to get revenge by only paying $25 USD
-  rohanCash25 <- rohan `submit` create Cash with owner = rohan; amount = 25.0; currency = "USD"
+  let rohans25 = Cash with owner = rohan; amount = 25.0; currency = "USD"
+  rohans25Cid <- rohan `submit` create rohans25
   -- However this will also fail because of the other runtime assertion
-  rohan `submitMustFail` exercise cashSwapProposal Accept with paymentCid = rohanCash25
-  -- Finally Rohan accepts with the right amount and everyone is somewhat happy
-  rohan `submitMustFail` exercise cashSwapProposal Accept with paymentCid = rohanCash
+  rohan `submitMustFail` exercise cashSwapProposal Accept with paymentCid = rohans25Cid
+  rohan `submit` exercise cashSwapProposal Accept with paymentCid = rohans50Cid
+  -- Rohan formally requests a better deal with a counter offer
+  newSwapProposal <- rohan `submit` exercise cashSwapProposal RejectWithCounterOffer with
+    newOffer = rohans25
+    newOfferCid = rohans25Cid
+    newExpected = martins50
+  -- Martin begrudgingly accepts and the deal is finally done
+  --martin `submit` exercise newSwapProposal Accept with paymentCid = martins50Cid
   pure ()
