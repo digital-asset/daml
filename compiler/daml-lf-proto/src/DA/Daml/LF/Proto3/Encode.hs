@@ -17,9 +17,12 @@ type ModuleNameIndex = ModuleName -> Maybe Word64
 encodePayload :: Package -> ArchivePayload
 encodePayload package = case packageLfVersion package of
     V1 minor ->
-        let payload = ArchivePayloadSumDamlLf1 (EncodeV1.encodePackage package)
+        let payload = ArchivePayloadSumDamlLf1 (EncodeV1.encodePackage zeroPriorPackages package)
         in  ArchivePayload (TL.pack $ renderMinorVersion minor) (Just payload)
 
 encodeModuleNameIndex :: Package -> ModuleNameIndex
 encodeModuleNameIndex package = case packageLfVersion package of
     V1 _ -> EncodeV1.encodedInternedModuleNameIndex package
+
+zeroPriorPackages :: pid -> ModuleNameIndex
+zeroPriorPackages _ _ = Nothing
