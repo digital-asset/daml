@@ -87,40 +87,15 @@ generateUpgradeModule templateNames modName qualA qualB =
         , "import " <> modName <> qualB <> " qualified as B"
         , "import " <> modName <> "AInstances()"
         , "import " <> modName <> "BInstances()"
-        , "import DA.Next.Set"
         , "import DA.Upgrade"
         ]
 
 upgradeTemplates :: String -> [String]
 upgradeTemplates n =
-    [ "template " <> n <> "Upgrade"
-    , "    with"
-    , "        op : Party"
-    , "    where"
-    , "        signatory op"
-    , "        nonconsuming choice Upgrade: ContractId B." <> n
-    , "            with"
-    , "                inC : ContractId A." <> n
-    , "                sigs : [Party]"
-    , "            controller sigs"
-    , "                do"
-    , "                    d <- fetch inC"
-    , "                    assert $ fromList sigs == fromList (signatory d)"
-    , "                    create $ conv d"
-    , "template " <> n <> "Rollback"
-    , "    with"
-    , "        op : Party"
-    , "    where"
-    , "        signatory op"
-    , "        nonconsuming choice Rollback: ContractId A." <> n
-    , "            with"
-    , "                inC : ContractId B." <> n
-    , "                sigs : [Party]"
-    , "            controller sigs"
-    , "                do"
-    , "                    d <- fetch inC"
-    , "                    assert $ fromList sigs == fromList (signatory d)"
-    , "                    create $ conv d"
+    [ "type " <> n <> "Upgrade = Upgrade A." <> n <> " B." <> n
+    , "type " <> n <> "Rollback = Rollback A." <> n <> " B." <> n
+    , "instance Convertable A." <> n <> " B." <> n <> " where"
+    , "    convert = conv"
     ]
 
 -- | Generate the full source for a daml-lf package.
