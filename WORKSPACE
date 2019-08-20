@@ -536,10 +536,8 @@ hazel_repositories(
             hazel_github_external(
                 "awakesecurity",
                 "proto3-suite",
-                "dd01df7a3f6d0f1ea36125a67ac3c16936b53da0",
-                "59ea7b876b14991347918eefefe24e7f0e064b5c2cc14574ac4ab5d6af6413ca",
-                patch_args = ["-p1"],
-                patches = ["@com_github_digital_asset_daml//bazel_tools:haskell-proto3-suite.patch"],
+                "f5ca2bee361d518de5c60b9d05d0f54c5d2f22af",
+                "878ecbda73c6b7ed924e55f8c4314af39303c6b19a30312f9a1b4d41db67ad1d",
             ) +
 
             # Not in stackage
