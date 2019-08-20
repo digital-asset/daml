@@ -100,19 +100,17 @@ function getViewColumnForShowResource(): ViewColumn {
 }
 
 function visualize() {
-    if (vscode.window.activeTextEditor) {
-        const workspace = vscode.workspace.workspaceFolders![0];
-        if (workspace) {
-            vscode.workspace.findFiles(new vscode.RelativePattern(workspace, "**/*.daml"), "").then(r => {
-                let files = r.map(f => f.path)
-                damlLanguageClient.sendRequest(ExecuteCommandRequest.type,
-                    { command: "daml/damlVisualize", arguments: [files] }).then(r => {
-                        vscode.workspace.openTextDocument({ content: r, language: "dot" })
-                            .then(doc => vscode.window.showTextDocument(doc, vscode.ViewColumn.One, true)
-                                .then(_ => loadPreviewIfAvailable()))
-                    })
+    if (vscode.window.activeTextEditor){
+        let currentFile = vscode.window.activeTextEditor.document.fileName
+        damlLanguageClient.sendRequest(ExecuteCommandRequest.type,
+            { command: "daml/damlVisualize", arguments: [currentFile] }).then(r => {
+                vscode.workspace.openTextDocument({ content: r, language: "dot" })
+                    .then(doc => vscode.window.showTextDocument(doc, vscode.ViewColumn.One, true)
+                        .then(_ => loadPreviewIfAvailable()))
             });
-        }
+    }
+    else{
+        vscode.window.showInformationMessage("Please open a DAML module to be visualized and then run the command")
     }
 }
 

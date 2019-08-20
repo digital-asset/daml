@@ -38,7 +38,8 @@ import Development.IDE.Types.Location
 import qualified Data.Map.Strict as Map
 import qualified DA.Daml.LF.Ast as LF
 import qualified DA.Cli.Visual as Visual
-import Data.Maybe
+import qualified Data.NameMap as NM
+-- import Data.Maybe
 
 
 
@@ -81,7 +82,6 @@ filesFromExecParams :: List Aeson.Value -> [NormalizedFilePath]
 filesFromExecParams (List files) = map (toNormalizedFilePath . T.unpack) (concatMap fileStringToPath files)
             where fileStringToPath :: Aeson.Value -> [T.Text]
                   fileStringToPath (Aeson.String x) = [x]
-                  fileStringToPath (Aeson.Array arr) = concatMap fileStringToPath arr
                   fileStringToPath _ex = error ("Failed to get daml files from workspace" ++ show _ex )
 
 onCommand
@@ -93,15 +93,14 @@ onCommand ide ExecuteCommandParams{..} = do
         Nothing -> return $ Aeson.String "No .daml files where found in the IDE workspace"
         Just path -> do
             case filesFromExecParams path of
-                (head : rest) -> do
+                (head : _rest) -> do
                         logInfo (ideLogger ide) "Generating visualization for current daml project"
-                        mbmodules <- mapM (\f -> runAction ide (useWithStale GenerateDalf f)) rest
-                        Just (WhnfPackage package, _) <- runAction ide (useWithStale GeneratePackage head)
+                        Just(WhnfPackage package) <- runAction ide (use GeneratePackage head)
+                        let mods =  NM.toList $ LF.packageModules package
                         pkgMap <- runAction ide  (useNoFile_ GeneratePackageMap)
                         let extpkgs = map dalfPackagePkg $ Map.elems pkgMap
                         let wrld = LF.initWorldSelf extpkgs package
-                        let modules = map (fst . fromJust ) mbmodules
-                        let dots = T.pack $ Visual.dotFileGen modules wrld
+                        let dots = T.pack $ Visual.dotFileGen mods wrld
                         return $ Aeson.String dots
                 _ -> return $ Aeson.String "Could not consutruct world and the module list."
 
