@@ -1,0 +1,80 @@
+-- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- Test parsing for "template headers", i.e. the types between `template` and `with`.
+-- This can include a context (list of constraints), template name and type variables.
+-- We test that the parser works for different combinations of these.
+-- We also test a couple of template instances while we are at it.
+
+{-# LANGUAGE FlexibleContexts #-}
+
+daml 1.2
+module TemplateHeaders where
+
+template A with
+    pa : Party
+  where
+    signatory pa
+    controller pa can
+      -- Used in template I
+      Transfer : ContractId A
+        with newParty: Party
+        do create A with pa = newParty
+
+template B a with
+    pb : Party
+    xb : a
+  where
+    signatory pb
+
+template C a b c with
+    pc : Party
+    xc : a
+  where
+    signatory pc
+
+template () => D
+  with
+    pd: Party
+  where
+    signatory pd
+
+template Show a => E a b c
+  with
+    pe: Party
+  where
+    signatory pe
+
+template (Show a) => F a b c
+  with
+    pf: Party
+  where
+    signatory pf
+
+template (Show a, Ord b) => G a b c
+  with
+    pg: Party
+  where
+    signatory pg
+
+template (Show a, Ord b, Eq c) => H a b c
+  with
+    ph: Party
+  where
+    signatory ph
+
+template Choice a Transfer (ContractId a) => I a
+  with
+    pi: Party
+    aa: ContractId a
+  where
+    signatory pi
+    controller pi can
+      TransferA: ContractId (I a)
+        with newParty: Party
+        do newaa <- exercise aa Transfer with newParty
+           create this with aa = newaa
+
+template instance BA = B A
+
+template instance CA = C Int (Either Bool Decimal) Text
