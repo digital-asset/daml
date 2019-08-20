@@ -62,6 +62,7 @@ import qualified DA.Daml.LF.ScenarioServiceClient as SS
 import qualified DA.Daml.LF.Simplifier as LF
 import qualified DA.Daml.LF.TypeChecker as LF
 import qualified DA.Pretty as Pretty
+import qualified DA.Cli.Visual as Visual
 
 import qualified Language.Haskell.Exts.SrcLoc as HSE
 import Language.Haskell.HLint4
@@ -247,6 +248,18 @@ generatePackageRule =
         WhnfPackage deps <- use_ GeneratePackageDeps file
         dalf <- use_ GenerateDalf file
         return ([], Just $ WhnfPackage $ deps{LF.packageModules = NM.insert dalf (LF.packageModules deps)})
+
+generateVisualizationRule :: Rules ()
+generateVisualizationRule =
+    define $ \GenerateVisualization file -> do
+        Just (WhnfPackage package) <- use GeneratePackage file
+        let mods =  NM.toList $ LF.packageModules package
+        pkgMap <- useNoFile_ GeneratePackageMap
+        let extpkgs = map dalfPackagePkg $ Map.elems pkgMap
+        let wrld = LF.initWorldSelf extpkgs package
+        let dots = T.pack $ Visual.dotFileGen mods wrld
+        pure ([], Just dots)
+
 
 -- Generates a DAML-LF archive without adding serializability information
 -- or type checking it. This must only be used for debugging/testing.
@@ -680,6 +693,7 @@ damlRule opts = do
     getScenarioRootsRule
     getScenarioRootRule
     getDlintDiagnosticsRule
+    generateVisualizationRule
     ofInterestRule opts
     encodeModuleRule
     createScenarioContextRule

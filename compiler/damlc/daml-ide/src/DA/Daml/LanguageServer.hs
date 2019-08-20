@@ -35,11 +35,6 @@ import qualified Network.URI                               as URI
 import Language.Haskell.LSP.Messages
 import qualified Language.Haskell.LSP.Core as LSP
 import Development.IDE.Types.Location
-import qualified Data.Map.Strict as Map
-import qualified DA.Daml.LF.Ast as LF
-import qualified DA.Cli.Visual as Visual
-import qualified Data.NameMap as NM
--- import Data.Maybe
 
 
 
@@ -93,14 +88,9 @@ onCommand ide execParsms = case execParsms of
         case filesFromExecParams _arguments of
             [mod] -> do
                     logInfo (ideLogger ide) "Generating visualization for current daml project"
-                    Just(WhnfPackage package) <- runAction ide (use GeneratePackage mod)
-                    let mods =  NM.toList $ LF.packageModules package
-                    pkgMap <- runAction ide  (useNoFile_ GeneratePackageMap)
-                    let extpkgs = map dalfPackagePkg $ Map.elems pkgMap
-                    let wrld = LF.initWorldSelf extpkgs package
-                    let dots = T.pack $ Visual.dotFileGen mods wrld
+                    Just dots <- runAction ide (use GenerateVisualization mod)
                     return $ Aeson.String dots
-            _ -> do
+            _     -> do
                 logError (ideLogger ide) "Expected a single module to visualize, got multiple module"
                 return $ Aeson.String "Could not consutruct world and the module list."
     ExecuteCommandParams  _ (Just _arguments) -> do

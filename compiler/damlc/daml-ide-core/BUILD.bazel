@@ -52,6 +52,7 @@ da_haskell_library(
         "//compiler/damlc/daml-doctest",
         "//compiler/damlc/daml-lf-conversion",
         "//compiler/damlc/daml-opts:daml-opts-types",
+        "//compiler/damlc/daml-visual",
         "//compiler/hie-core",
         "//compiler/scenario-service/client",
         "//libs-haskell/da-hs-base",
