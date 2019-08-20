@@ -43,7 +43,7 @@ jobs:
         displayName: 'stack setup'
       - bash: (cd compiler/hie-core; stack build --only-dependencies)
         displayName: 'stack build --only-dependencies --test'
-      - bash: (cd compiler/hie-core; stack test)
+      - bash: (cd compiler/hie-core; set -ueo pipefail; for i in `seq 30`; do stack test; echo -e "############################################################\n# $i\n############################################################"; done)
         displayName: 'stack test'
       - bash: |
           mkdir -p .azure-cache
