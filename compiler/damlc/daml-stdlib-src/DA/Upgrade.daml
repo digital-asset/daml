@@ -10,8 +10,8 @@ daml 1.2
 module DA.Upgrade
   ( conv
   , iso
-  , Convertable(..)
-  , GenConvertable
+  , Convertible(..)
+  , GenConvertible
   , Upgrade(..)
   , Rollback(..)
   )
@@ -24,7 +24,7 @@ import DA.Next.Set
 -- Upgrade templates
 ----------------------------------------------------------------------------------------------------
 
-template (Template i, Template o, Convertable i o) => Upgrade i o
+template (Template i, Template o, Convertible i o) => Upgrade i o
     with
         op : Party
     where
@@ -39,7 +39,7 @@ template (Template i, Template o, Convertable i o) => Upgrade i o
                     assert $ fromList sigs == fromList (signatory d)
                     create $ convert d
 
-template (Template i, Template o, Convertable o i) => Rollback i o
+template (Template i, Template o, Convertible o i) => Rollback i o
     with
         op : Party
     where
@@ -59,39 +59,39 @@ template (Template i, Template o, Convertable o i) => Rollback i o
 ----------------------------------------------------------------------------------------------------
 
 -- | Types, for which there exists a conversion.
-class Convertable a b where
+class Convertible a b where
   convert : a -> b
 
--- | GenConvertable data types that are isomorphic and have the same meta-data up to package id.
-conv : (Generic a repA, Generic b repB, GenConvertable repA repB) => a -> b
+-- | GenConvertible data types that are isomorphic and have the same meta-data up to package id.
+conv : (Generic a repA, Generic b repB, GenConvertible repA repB) => a -> b
 conv = to . cv . from
 
 -- | Generic representations that are isomorphic and have the same meta-data up to package id.
-class GenConvertable a b where
+class GenConvertible a b where
   cv : a x -> b x
 
 -- copy values
-instance GenConvertable V1 V1 where cv = identity
-instance GenConvertable U1 U1 where cv = identity
+instance GenConvertible V1 V1 where cv = identity
+instance GenConvertible U1 U1 where cv = identity
 
 -- Isomorphic types in different packages
-instance (MetaEquiv c1 c2, GenConvertable f1 f2) => GenConvertable (M1 i1 c1 f1) (M1 i2 c2 f2) where
+instance (MetaEquiv c1 c2, GenConvertible f1 f2) => GenConvertible (M1 i1 c1 f1) (M1 i2 c2 f2) where
   cv = M1 . cv . unM1
 
 -- products
-instance (GenConvertable a1 a2, GenConvertable b1 b2) => GenConvertable (a1 :*: b1) (a2 :*: b2) where
+instance (GenConvertible a1 a2, GenConvertible b1 b2) => GenConvertible (a1 :*: b1) (a2 :*: b2) where
   cv ~(P1 a b) = P1 (cv a) (cv b)
 
 -- sums
-instance (GenConvertable a1 a2, GenConvertable b1 b2) => GenConvertable (a1 :+: b1) (a2 :+: b2) where
+instance (GenConvertible a1 a2, GenConvertible b1 b2) => GenConvertible (a1 :+: b1) (a2 :+: b2) where
   cv (L1 a) = L1 $ cv a
   cv (R1 b) = R1 $ cv b
 
 -- recursion
-instance GenConvertable (K1 R c) (K1 R c) where cv = identity
-instance GenConvertable c1 c2 => GenConvertable (K1 R (c1 x)) (K1 R (c2 x)) where
+instance GenConvertible (K1 R c) (K1 R c) where cv = identity
+instance GenConvertible c1 c2 => GenConvertible (K1 R (c1 x)) (K1 R (c2 x)) where
   cv = K1 . cv . unK1
-instance (Generic x repX, Generic y repY, GenConvertable repX repY) => GenConvertable (K1 R x) (K1 R y) where
+instance (Generic x repX, Generic y repY, GenConvertible repX repY) => GenConvertible (K1 R x) (K1 R y) where
   cv = K1 . conv . unK1
 
 -- | This class describes meta-data that is equal up to package id.

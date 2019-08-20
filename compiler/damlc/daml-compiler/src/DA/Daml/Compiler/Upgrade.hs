@@ -94,7 +94,7 @@ upgradeTemplates :: String -> [String]
 upgradeTemplates n =
     [ "type " <> n <> "Upgrade = Upgrade A." <> n <> " B." <> n
     , "type " <> n <> "Rollback = Rollback A." <> n <> " B." <> n
-    , "instance Convertable A." <> n <> " B." <> n <> " where"
+    , "instance Convertible A." <> n <> " B." <> n <> " where"
     , "    convert = conv"
     ]
 
