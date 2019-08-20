@@ -17,3 +17,5 @@ HEAD — ongoing
 + [DAML Compiler] ``damlc build`` should no longer leak file handles so
   ``ulimit`` workarounds should no longer be necessary.
 + [DAML-LF] **Breaking** Rename ``NUMERIC`` back to ``DECIMAL`` in Protobuf definition.
++ [DAML Compiler] Allow more contexts in generic templates. Specifically, template constraints can
+  have arguments besides type variables, if the FlexibleContexts extension is enabled.
