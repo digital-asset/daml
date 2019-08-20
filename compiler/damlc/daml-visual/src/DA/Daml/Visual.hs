@@ -2,7 +2,7 @@
 -- SPDX-License-Identifier: Apache-2.0
 {-# LANGUAGE PatternSynonyms #-}
 -- | Main entry-point of the DAML compiler
-module DA.Cli.Visual
+module DA.Daml.Visual
   ( execVisual
   , moduleAndTemplates
   , tplNameUnqual

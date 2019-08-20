@@ -62,7 +62,7 @@ import qualified DA.Daml.LF.ScenarioServiceClient as SS
 import qualified DA.Daml.LF.Simplifier as LF
 import qualified DA.Daml.LF.TypeChecker as LF
 import qualified DA.Pretty as Pretty
-import qualified DA.Cli.Visual as Visual
+import qualified DA.Daml.Visual as Visual
 
 import qualified Language.Haskell.Exts.SrcLoc as HSE
 import Language.Haskell.HLint4
