@@ -7,8 +7,9 @@ module DA.Daml.LF.Proto3.Decode
   , decodeModuleNameIndex
   ) where
 
+import Data.Word (Word64)
 import Da.DamlLf (ArchivePayload(..), ArchivePayloadSum(..))
-import DA.Daml.LF.Ast (Package)
+import DA.Daml.LF.Ast (Package, ModuleName)
 import DA.Daml.LF.Proto3.Error (Error(ParseError), Decode)
 import qualified DA.Daml.LF.Proto3.DecodeV1 as DecodeV1
 

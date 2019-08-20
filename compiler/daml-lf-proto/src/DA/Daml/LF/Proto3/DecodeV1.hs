@@ -48,14 +48,22 @@ decodeVersion minorText = do
   if version `elem` LF.supportedInputVersions then pure version else unsupported
 
 decodePackage :: TL.Text -> LF1.Package -> Decode Package
-decodePackage minorText (LF1.Package mods internedPkgIds internedModNames) = do
+decodePackage minorText pkg@(LF1.Package mods internedPkgIds) = do
   version <- decodeVersion minorText
   pkgIds <- decodeInternedPackageIds internedPkgIds
-  modNames <- decodeInternedModuleNames internedModNames
+  modNames <- internedModuleNameIndex (\_ _ -> Nothing {- TODO SC -}) pkg
   Package version <$> runReaderT (decodeNM DuplicateModule decodeModule mods) (PackageRefCtx pkgIds modNames)
 
+internedModuleNameIndex :: (PackageId -> Word64 -> Maybe ModuleName) -> LF1.Package
+                        -> Decode (PackageRef -> Word64 -> Maybe ModuleName)
+internedModuleNameIndex depModNames pkg =
+  let internModuleRef selfModuleRefs = \case
+        PRSelf -> selfModuleRefs
+        PRImport pkgId -> depModNames pkgId
+  in internModuleRef <$> decodeInternedModuleNameIndex pkg
+
 decodeInternedModuleNameIndex :: LF1.Package -> Decode (Word64 -> Maybe ModuleName)
-decodeInternedModuleNameIndex (LF1.Package mods _ _) = lookup <$> onlyModName `traverse` mods
+decodeInternedModuleNameIndex (LF1.Package mods _) = lookup <$> onlyModName `traverse` mods
   where lookup v = (v V.!?) <=< decodeInternIndex
         onlyModName (LF1.Module name _ _ _ _) = mayDecode "moduleName" name (decodeDottedName ModuleName)
 
@@ -573,7 +581,7 @@ decodePackageId = PackageId . TL.toStrict
 -- it is only true internally for one particular encoder implementation
 data PackageRefCtx = PackageRefCtx {
    uninternPackageId :: Word64 -> Maybe PackageId
-  ,uninternModuleName :: Word64 -> Maybe ModuleName
+  ,uninternModuleName :: PackageRef -> Word64 -> Maybe ModuleName
 }
 
 decodePackageRef :: LF1.PackageRef -> DecodeImpl PackageRef
@@ -589,21 +597,18 @@ decodePackageRef (LF1.PackageRef pref) =
 decodeInternedPackageIds :: V.Vector TL.Text -> Decode (Word64 -> Maybe PackageId)
 decodeInternedPackageIds = pure . (decodeInternIndex >=>) . (V.!?) . fmap decodePackageId
 
-decodeInternedModuleNames :: V.Vector LF1.DottedName -> Decode (Word64 -> Maybe ModuleName)
-decodeInternedModuleNames = fmap ((decodeInternIndex >=>) . (V.!?)) . traverse (decodeDottedName ModuleName)
-
 decodeModuleRef :: LF1.ModuleRef -> DecodeImpl (PackageRef, ModuleName)
-decodeModuleRef LF1.ModuleRef{..} =
-  (,)
-    <$> mayDecode "moduleRefPackageRef" moduleRefPackageRef decodePackageRef
-    <*> mayDecode "moduleRefModuleName" moduleRefSum decodeModuleName
+decodeModuleRef LF1.ModuleRef{..} = do
+  pkgRef <- mayDecode "moduleRefPackageRef" moduleRefPackageRef decodePackageRef
+  (pkgRef,)
+    <$> mayDecode "moduleRefModuleName" moduleRefSum (decodeModuleName pkgRef)
 
-decodeModuleName :: LF1.ModuleRefSum -> DecodeImpl ModuleName
-decodeModuleName (LF1.ModuleRefSumModuleName mn) = decodeDottedName ModuleName mn
-decodeModuleName (LF1.ModuleRefSumInternedId ix) = do
+decodeModuleName :: PackageRef -> LF1.ModuleRefSum -> DecodeImpl ModuleName
+decodeModuleName _ (LF1.ModuleRefSumModuleName mn) = decodeDottedName ModuleName mn
+decodeModuleName pkgRef (LF1.ModuleRefSumInternedId ix) = do
   ctx <- ask
   maybe (throwError $ MissingModuleName ix) pure
-    $ uninternModuleName ctx ix
+    $ uninternModuleName ctx pkgRef ix
 
 decodeValName :: LF1.ValName -> DecodeImpl (Qualified ExprValName)
 decodeValName LF1.ValName{..} = do
