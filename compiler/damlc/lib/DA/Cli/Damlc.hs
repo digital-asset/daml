@@ -703,13 +703,9 @@ execMigrate projectOpts opts0 inFile1_ inFile2_ mbDir = do
         let eqModNamesStr = map (T.unpack . LF.moduleNameString) eqModNames
         let buildCmd escape =
                     "daml build --init-package-db=no" <> " --package " <>
-                    escape <>
-                    show (pkgName1, [(m, m ++ "A") | m <- eqModNamesStr]) <>
-                    escape <>
+                    escape (show (pkgName1, [(m, m ++ "A") | m <- eqModNamesStr])) <>
                     " --package " <>
-                    escape <>
-                    show (pkgName2, [(m, m ++ "B") | m <- eqModNamesStr]) <>
-                    escape
+                    escape (show (pkgName2, [(m, m ++ "B") | m <- eqModNamesStr]))
         forM_ eqModNames $ \m@(LF.ModuleName modName) -> do
             [genSrc1, genSrc2] <-
                 forM [(pkgId1, lfPkg1), (pkgId2, lfPkg2)] $ \(pkgId, pkg) -> do
@@ -737,12 +733,14 @@ execMigrate projectOpts opts0 inFile1_ inFile2_ mbDir = do
                     generateGenInstancesModule "A" (pkgName1, genSrc1)
             let generatedInstancesMod2 =
                     generateGenInstancesModule "B" (pkgName2, genSrc2)
+                escapeUnix arg = "'" <> arg <> "'"
+                escapeWindows arg = T.unpack $ "\"" <> T.replace "\"" "\\\"" (T.pack arg) <> "\""
             forM_
                 [ (upgradeModPath, generatedUpgradeMod)
                 , (instancesModPath1, generatedInstancesMod1)
                 , (instancesModPath2, generatedInstancesMod2)
-                , ("build.sh", "#!/bin/sh\n" ++ buildCmd "'")
-                , ("build.cmd", buildCmd "")
+                , ("build.sh", "#!/bin/sh\n" ++ buildCmd escapeUnix)
+                , ("build.cmd", buildCmd escapeWindows)
                 ] $ \(path, mod) -> do
                 createDirectoryIfMissing True $ takeDirectory path
                 writeFile path mod
