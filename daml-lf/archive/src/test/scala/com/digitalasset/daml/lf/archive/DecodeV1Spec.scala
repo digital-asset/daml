@@ -20,14 +20,15 @@ class DecodeV1Spec extends WordSpec with Matchers with Inside with OptionValues 
 
   "The keys of primTypeTable correspond to Protobuf DamlLf1.PrimType" in {
 
-    (DecodeV1.primTypeTable.keySet + DamlLf1.PrimType.UNRECOGNIZED) shouldBe
+    (Set(DamlLf1.PrimType.UNRECOGNIZED, DamlLf1.PrimType.DECIMAL) ++
+      DecodeV1.builtinTypeInfos.map(_.proto)) shouldBe
       DamlLf1.PrimType.values().toSet
 
   }
 
   "The keys of builtinFunctionMap correspond to Protobuf DamlLf1.BuiltinFunction" in {
 
-    (DecodeV1.builtinFunctionMap.keySet + DamlLf1.BuiltinFunction.UNRECOGNIZED) shouldBe
+    (Set(DamlLf1.BuiltinFunction.UNRECOGNIZED) ++ DecodeV1.builtinFunctionInfos.map(_.proto)) shouldBe
       DamlLf1.BuiltinFunction.values().toSet
 
   }

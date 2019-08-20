@@ -23,14 +23,15 @@ private[validation] object Typing {
   }
 
   private def kindOfBuiltin(bType: BuiltinType): Kind = bType match {
-    case BTInt64 | BTDecimal | BTText | BTTimestamp | BTParty | BTBool | BTDate | BTUnit => KStar
+    case BTInt64 | BTText | BTTimestamp | BTParty | BTBool | BTDate | BTUnit => KStar
+    case BTNumeric => KArrow(KNat, KStar)
     case BTList | BTUpdate | BTScenario | BTContractId | BTOptional | BTMap => KArrow(KStar, KStar)
     case BTArrow => KArrow(KStar, KArrow(KStar, KStar))
   }
 
   private def typeOfPrimLit(lit: PrimLit): Type = lit match {
     case PLInt64(_) => TInt64
-    case PLDecimal(_) => TDecimal
+    case PLNumeric(s) => TNumeric(TNat(s.scale))
     case PLText(_) => TText
     case PLTimestamp(_) => TTimestamp
     case PLParty(_) => TParty
@@ -41,16 +42,18 @@ private[validation] object Typing {
     val alpha = TVar(Name.assertFromString("$alpha$"))
     val beta = TVar(Name.assertFromString("$beta$"))
     def tBinop(typ: Type): Type = typ ->: typ ->: typ
+    def tNumBinop = TForall(alpha.name -> KNat, tBinop(TNumeric(alpha)))
     def tComparison(bType: BuiltinType): Type = TBuiltin(bType) ->: TBuiltin(bType) ->: TBool
+    def tNumComparison = TForall(alpha.name -> KNat, TNumeric(alpha) ->: TNumeric(alpha) ->: TBool)
 
     Map[BuiltinFunction, Type](
       BTrace -> TForall(alpha.name -> KStar, TText ->: alpha ->: alpha),
-      // Decimal arithmetic
-      BAddDecimal -> tBinop(TDecimal),
-      BSubDecimal -> tBinop(TDecimal),
-      BMulDecimal -> tBinop(TDecimal),
-      BDivDecimal -> tBinop(TDecimal),
-      BRoundDecimal -> (TInt64 ->: TDecimal ->: TDecimal),
+      // Numeric arithmetic
+      BAddNumeric -> tNumBinop,
+      BSubNumeric -> tNumBinop,
+      BMulNumeric -> tNumBinop,
+      BDivNumeric -> tNumBinop,
+      BRoundNumeric -> TForall(alpha.name -> KNat, TInt64 ->: TNumeric(alpha) ->: TNumeric(alpha)),
       // Int64 arithmetic
       BAddInt64 -> tBinop(TInt64),
       BSubInt64 -> tBinop(TInt64),
@@ -59,8 +62,8 @@ private[validation] object Typing {
       BModInt64 -> tBinop(TInt64),
       BExpInt64 -> tBinop(TInt64),
       // Conversions
-      BInt64ToDecimal -> (TInt64 ->: TDecimal),
-      BDecimalToInt64 -> (TDecimal ->: TInt64),
+      BInt64ToNumeric -> TForall(alpha.name -> KNat, TInt64 ->: TNumeric(alpha)),
+      BNumericToInt64 -> TForall(alpha.name -> KNat, TNumeric(alpha) ->: TInt64),
       BDateToUnixDays -> (TDate ->: TInt64),
       BUnixDaysToDate -> (TInt64 ->: TDate),
       BTimestampToUnixMicroseconds -> (TTimestamp ->: TInt64),
@@ -113,7 +116,7 @@ private[validation] object Typing {
       BExplodeText -> (TText ->: TList(TText)),
       BAppendText -> tBinop(TText),
       BToTextInt64 -> (TInt64 ->: TText),
-      BToTextDecimal -> (TDecimal ->: TText),
+      BToTextNumeric -> TForall(alpha.name -> KNat, TNumeric(alpha) ->: TText),
       BToTextText -> (TText ->: TText),
       BToTextTimestamp -> (TTimestamp ->: TText),
       BToTextParty -> (TParty ->: TText),
@@ -123,37 +126,37 @@ private[validation] object Typing {
       BToTextCodePoints -> (TList(TInt64) ->: TText),
       BFromTextParty -> (TText ->: TOptional(TParty)),
       BFromTextInt64 -> (TText ->: TOptional(TInt64)),
-      BFromTextDecimal -> (TText ->: TOptional(TDecimal)),
+      BFromTextNumeric -> TForall(alpha.name -> KNat, TText ->: TOptional(TNumeric(alpha))),
       BFromTextCodePoints -> (TText ->: TList(TInt64)),
       BError -> TForall(alpha.name -> KStar, TText ->: alpha),
       // ComparisonsA
       BLessInt64 -> tComparison(BTInt64),
-      BLessDecimal -> tComparison(BTDecimal),
+      BLessNumeric -> tNumComparison,
       BLessText -> tComparison(BTText),
       BLessTimestamp -> tComparison(BTTimestamp),
       BLessDate -> tComparison(BTDate),
       BLessParty -> tComparison(BTParty),
       BLessEqInt64 -> tComparison(BTInt64),
-      BLessEqDecimal -> tComparison(BTDecimal),
+      BLessEqNumeric -> tNumComparison,
       BLessEqText -> tComparison(BTText),
       BLessEqTimestamp -> tComparison(BTTimestamp),
       BLessEqDate -> tComparison(BTDate),
       BLessEqParty -> tComparison(BTParty),
       BGreaterInt64 -> tComparison(BTInt64),
-      BGreaterDecimal -> tComparison(BTDecimal),
+      BGreaterNumeric -> tNumComparison,
       BGreaterText -> tComparison(BTText),
       BGreaterTimestamp -> tComparison(BTTimestamp),
       BGreaterDate -> tComparison(BTDate),
       BGreaterParty -> tComparison(BTParty),
       BGreaterEqInt64 -> tComparison(BTInt64),
-      BGreaterEqDecimal -> tComparison(BTDecimal),
+      BGreaterEqNumeric -> tNumComparison,
       BGreaterEqText -> tComparison(BTText),
       BGreaterEqTimestamp -> tComparison(BTTimestamp),
       BGreaterEqDate -> tComparison(BTDate),
       BGreaterEqParty -> tComparison(BTParty),
       BImplodeText -> (TList(TText) ->: TText),
       BEqualInt64 -> tComparison(BTInt64),
-      BEqualDecimal -> tComparison(BTDecimal),
+      BEqualNumeric -> tNumComparison,
       BEqualText -> tComparison(BTText),
       BEqualTimestamp -> tComparison(BTTimestamp),
       BEqualDate -> tComparison(BTDate),
@@ -352,11 +355,13 @@ private[validation] object Typing {
     def kindOf(typ0: Type): Kind = typ0 match {
       case TVar(v) =>
         lookupTypeVar(v)
+      case TNat(_) =>
+        KNat
       case TTyCon(tycon) =>
         kindOfDataType(lookupDataType(ctx, tycon))
       case TApp(tFun, tArg) =>
         kindOf(tFun) match {
-          case KStar => throw EExpectedHigherKind(ctx, KStar)
+          case KStar | KNat => throw EExpectedHigherKind(ctx, KStar)
           case KArrow(argKind, resKind) =>
             checkType(tArg, argKind)
             resKind
@@ -783,16 +788,6 @@ private[validation] object Typing {
   }
 
   /* Utils */
-
-  private val TInt64 = TBuiltin(BTInt64)
-  private val TDecimal = TBuiltin(BTDecimal)
-  private val TText = TBuiltin(BTText)
-  private val TTimestamp = TBuiltin(BTTimestamp)
-  private val TParty = TBuiltin(BTParty)
-  private val TParties = TList(TParty)
-  private val TBool = TBuiltin(BTBool)
-  private val TUnit = TBuiltin(BTUnit)
-  private val TDate = TBuiltin(BTDate)
 
   private implicit final class TypeOp(val rightType: Type) extends AnyVal {
     def ->:(leftType: Type) = TFun(leftType, rightType)

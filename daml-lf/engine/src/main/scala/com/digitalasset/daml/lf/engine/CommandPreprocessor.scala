@@ -58,8 +58,7 @@ private[engine] class CommandPreprocessor(compiledPackages: ConcurrentCompiledPa
                 fail(s"Got out of bounds type variable $v when replacing parameters")
               case Some(ty) => ty
             }
-          case tycon: TTyCon => tycon
-          case bltin: TBuiltin => bltin
+          case TTyCon(_) | TBuiltin(_) | TNat(_) => typ
           case TApp(tyfun, arg) => TApp(go(tyfun), go(arg))
           case forall: TForall =>
             fail(
@@ -110,7 +109,7 @@ private[engine] class CommandPreprocessor(compiledPackages: ConcurrentCompiledPa
             ResultDone(SDate(t))
           case (TBuiltin(BTText), ValueText(t)) =>
             ResultDone(SText(t))
-          case (TBuiltin(BTDecimal), ValueNumeric(d)) =>
+          case (TBuiltin(BTNumeric), ValueNumeric(d)) =>
             Numeric.fromBigDecimal(Decimal.scale, d).fold(fail, d => ResultDone(SNumeric(d)))
           case (TBuiltin(BTParty), ValueParty(p)) =>
             ResultDone(SParty(p))

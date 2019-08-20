@@ -157,16 +157,20 @@ object Ast {
 
     def prettyKind(kind: Kind, needParens: Boolean = false): String = kind match {
       case KStar => "*"
+      case KNat => "nat"
       case KArrow(fun, arg) if needParens =>
         "(" + prettyKind(fun, true) + "->" + prettyKind(arg, false)
         ")"
-      case KArrow(fun, arg) if needParens =>
+      case KArrow(fun, arg) =>
         prettyKind(fun, true) + "->" + prettyKind(arg, false)
     }
   }
 
   /** Kind of a proper data type. */
   case object KStar extends Kind
+
+  /** Kind of nat tye */
+  case object KNat extends Kind
 
   /** Kind of higher kinded type. */
   final case class KArrow(param: Kind, result: Kind) extends Kind
@@ -191,6 +195,7 @@ object Ast {
 
       def prettyType(t0: Type, prec: Int = precTForall): String = t0 match {
         case TVar(n) => n
+        case TNat(n) => n.toString
         case TTyCon(con) => con.qualifiedName.name.toString
         case TBuiltin(BTArrow) => "(->)"
         case TBuiltin(bt) => bt.toString.stripPrefix("BT")
@@ -223,6 +228,9 @@ object Ast {
   /** Reference to a type variable. */
   final case class TVar(name: TypeVarName) extends Type
 
+  /** nat type */
+  final case class TNat(n: Int) extends Type
+
   /** Reference to a type constructor. */
   final case class TTyCon(tycon: TypeConName) extends Type
 
@@ -247,7 +255,7 @@ object Ast {
   sealed abstract class BuiltinType extends Product with Serializable
 
   case object BTInt64 extends BuiltinType
-  case object BTDecimal extends BuiltinType
+  case object BTNumeric extends BuiltinType
   case object BTText extends BuiltinType
   case object BTTimestamp extends BuiltinType
   case object BTParty extends BuiltinType
@@ -271,7 +279,7 @@ object Ast {
   }
 
   final case class PLInt64(override val value: Long) extends PrimLit
-  final case class PLDecimal(override val value: Numeric) extends PrimLit
+  final case class PLNumeric(override val value: Numeric) extends PrimLit
   // Text should be treated as Utf8, data.Utf8 provide emulation functions for that
   final case class PLText(override val value: String) extends PrimLit
   final case class PLTimestamp(override val value: Time.Timestamp) extends PrimLit
@@ -296,12 +304,12 @@ object Ast {
 
   final case object BTrace extends BuiltinFunction(2) // : ∀a. Text -> a -> a
 
-  // Decimal arithmetic
-  final case object BAddDecimal extends BuiltinFunction(2) // : Decimal → Decimal → Decimal
-  final case object BSubDecimal extends BuiltinFunction(2) // : Decimal → Decimal → Decimal
-  final case object BMulDecimal extends BuiltinFunction(2) // : Decimal → Decimal → Decimal
-  final case object BDivDecimal extends BuiltinFunction(2) // : Decimal → Decimal → Decimal
-  final case object BRoundDecimal extends BuiltinFunction(2) // : Integer → Decimal → Decimal
+  // Numeric arithmetic
+  final case object BAddNumeric extends BuiltinFunction(2) // :  ∀s. Numeric s → Numeric s → Numeric s
+  final case object BSubNumeric extends BuiltinFunction(2) // :  ∀s. Numeric s → Numeric s → Numeric s
+  final case object BMulNumeric extends BuiltinFunction(2) // :  ∀s. Numeric s → Numeric s → Numeric s
+  final case object BDivNumeric extends BuiltinFunction(2) // :  ∀s. Numeric s → Numeric s → Numeric s
+  final case object BRoundNumeric extends BuiltinFunction(2) // :  ∀s. Integer → Numeric s → Numeric s
 
   // Int64 arithmetic
   final case object BAddInt64 extends BuiltinFunction(2) // : Int64 → Int64 → Int64
@@ -312,8 +320,8 @@ object Ast {
   final case object BExpInt64 extends BuiltinFunction(2) // : Int64 → Int64 → Int64
 
   // Conversions
-  final case object BInt64ToDecimal extends BuiltinFunction(1) // : Int64 → Decimal
-  final case object BDecimalToInt64 extends BuiltinFunction(1) // : Decimal → Int64
+  final case object BInt64ToNumeric extends BuiltinFunction(1) // : ∀s. Int64 → Numeric s
+  final case object BNumericToInt64 extends BuiltinFunction(1) // : ∀s. Numeric s → Int64
   final case object BDateToUnixDays extends BuiltinFunction(1) // : Date -> Int64
   final case object BUnixDaysToDate extends BuiltinFunction(1) // : Int64 -> Date
   final case object BTimestampToUnixMicroseconds extends BuiltinFunction(1) // : Timestamp -> Int64
@@ -337,7 +345,7 @@ object Ast {
   final case object BAppendText extends BuiltinFunction(2) // : Text → Text → Text
 
   final case object BToTextInt64 extends BuiltinFunction(1) //  Int64 → Text
-  final case object BToTextDecimal extends BuiltinFunction(1) // : Decimal → Text
+  final case object BToTextNumeric extends BuiltinFunction(1) // : ∀s. Numeric s → Text
   final case object BToTextText extends BuiltinFunction(1) // : Text → Text
   final case object BToTextTimestamp extends BuiltinFunction(1) // : Timestamp → Text
   final case object BToTextParty extends BuiltinFunction(1) // : Party → Text
@@ -346,7 +354,7 @@ object Ast {
   final case object BToTextCodePoints extends BuiltinFunction(1) // : [Int64] -> Text
   final case object BFromTextParty extends BuiltinFunction(1) // : Text -> Optional Party
   final case object BFromTextInt64 extends BuiltinFunction(1) // : Text -> Optional Int64
-  final case object BFromTextDecimal extends BuiltinFunction(1) // : Text -> Optional Decimal
+  final case object BFromTextNumeric extends BuiltinFunction(1) // :  ∀s. Text -> Optional (Numeric s)
   final case object BFromTextCodePoints extends BuiltinFunction(1) // : Text -> List Int64
 
   final case object BSHA256Text extends BuiltinFunction(arity = 1) // : Text -> Text
@@ -356,35 +364,35 @@ object Ast {
 
   // Comparisons
   final case object BLessInt64 extends BuiltinFunction(2) // : Int64 → Int64 → Bool
-  final case object BLessDecimal extends BuiltinFunction(2) // : Decimal → Decimal → Bool
+  final case object BLessNumeric extends BuiltinFunction(2) // :  ∀s. Numeric s → Numeric s → Bool
   final case object BLessText extends BuiltinFunction(2) // : Text → Text → Bool
   final case object BLessTimestamp extends BuiltinFunction(2) // : Timestamp → Timestamp → Bool
   final case object BLessDate extends BuiltinFunction(2) // : Date → Date → Bool
   final case object BLessParty extends BuiltinFunction(2) // : Party → Party → Bool
 
   final case object BLessEqInt64 extends BuiltinFunction(2) // : Int64 → Int64 → Bool
-  final case object BLessEqDecimal extends BuiltinFunction(2) // : Decimal → Decimal → Bool
+  final case object BLessEqNumeric extends BuiltinFunction(2) // :  ∀s. Numeric →  ∀s. Numeric → Bool
   final case object BLessEqText extends BuiltinFunction(2) // : Text → Text → Bool
   final case object BLessEqTimestamp extends BuiltinFunction(2) // : Timestamp → Timestamp → Bool
   final case object BLessEqDate extends BuiltinFunction(2) // : Date → Date → Bool
   final case object BLessEqParty extends BuiltinFunction(2) // : Party → Party → Bool
 
   final case object BGreaterInt64 extends BuiltinFunction(2) // : Int64 → Int64 → Bool
-  final case object BGreaterDecimal extends BuiltinFunction(2) // : Decimal → Decimal → Bool
+  final case object BGreaterNumeric extends BuiltinFunction(2) // :  ∀s. Numeric s → Numeric s → Bool
   final case object BGreaterText extends BuiltinFunction(2) // : Text → Text → Bool
   final case object BGreaterTimestamp extends BuiltinFunction(2) // : Timestamp → Timestamp → Bool
   final case object BGreaterDate extends BuiltinFunction(2) // : Date → Date → Bool
   final case object BGreaterParty extends BuiltinFunction(2) // : Party → Party → Bool
 
   final case object BGreaterEqInt64 extends BuiltinFunction(2) // : Int64 → Int64 → Bool
-  final case object BGreaterEqDecimal extends BuiltinFunction(2) // : Decimal → Decimal → Bool
+  final case object BGreaterEqNumeric extends BuiltinFunction(2) // : ∀s. Numeric s → Numeric s → Bool
   final case object BGreaterEqText extends BuiltinFunction(2) // : Text → Text → Bool
   final case object BGreaterEqTimestamp extends BuiltinFunction(2) // : Timestamp → Timestamp → Bool
   final case object BGreaterEqDate extends BuiltinFunction(2) // : Date → Date → Bool
   final case object BGreaterEqParty extends BuiltinFunction(2) // : Party → Party → Bool
 
   final case object BEqualInt64 extends BuiltinFunction(2) // : Int64 -> Int64 -> Bool
-  final case object BEqualDecimal extends BuiltinFunction(2) // : Decimal -> Decimal -> Bool
+  final case object BEqualNumeric extends BuiltinFunction(2) // :  ∀s. Numeric s ->  ∀s. Numeric s -> Bool
   final case object BEqualText extends BuiltinFunction(2) // : Text -> Text -> Bool
   final case object BEqualTimestamp extends BuiltinFunction(2) // : Timestamp -> Timestamp -> Bool
   final case object BEqualDate extends BuiltinFunction(2) // : Date -> Date -> Bool
