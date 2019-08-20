@@ -3,6 +3,63 @@
 daml 1.2
 module SwapProposal where
 
+-- Interface for dealing with swappable assets
+class Transferrable t where
+  transfer: ContractId t -> Party -> Update (ContractId t)
+
+template (Template t, Eq t, Transferrable t) => SwapProposal t with
+    proposer: Party
+    proposee: Party
+    offer: t
+    offerCid: ContractId t
+    expected: t
+  where
+    signatory proposer
+
+    controller proposer can
+      Withdraw: ()
+        do pure ()
+
+      ChangeOffer: ContractId (SwapProposal t)
+        with
+          newOffer: t
+          newOfferCid: ContractId t
+          newExpected: t
+        do create this with
+             offer = newOffer
+             offerCid = newOfferCid
+             expected = newExpected
+
+    controller proposee can
+      Accept: (ContractId t, ContractId t)
+        with paymentCid: ContractId t
+        do -- check that the offer and payment match what each party expects
+           realOffer <- fetch offerCid
+           assert $ realOffer == offer
+           realPayment <- fetch paymentCid
+           assert $ realPayment == expected
+           -- exchange ownership of contracts
+           proposeeNewCid <- transfer offerCid proposee
+           proposerNewCid <- transfer paymentCid proposer
+           return (proposeeNewCid, proposerNewCid)
+
+      Reject: ()
+        do pure ()
+
+      RejectWithCounterOffer: ContractId (SwapProposal t)
+        with
+          newOffer: t
+          newOfferCid: ContractId t
+          newExpected: t
+        do create $ SwapProposal with
+             proposer = proposee
+             proposee = proposer
+             offer = newOffer
+             offerCid = newOfferCid
+             expected = newExpected
+
+-- A couple of transferrable assets: Cash and Bricks
+
 template Cash
   with
     owner: Party
@@ -11,25 +68,23 @@ template Cash
     signatory owner
 
     controller owner can
-      Transfer: ContractId Cash
+      TransferCash: ContractId Cash
         with newOwner: Party
         do create $ Cash newOwner amount
 
-type Transferrable t = Choice t Transfer (ContractId t)
-template (Template t, Eq t, Transferrable t) => SwapProposal t with
-    proposer: Party
-    proposee: Party
-    offeredContract: ContractId t
-    expected: t
+template Brick
+  with
+    owner: Party
   where
-    signatory proposer
+    signatory owner
 
-    controller proposee can
-      Accept: (ContractId t, ContractId t)
-        with expectedContract: ContractId t
-        do offered <- fetch offeredContract
-           newCid1 <- exercise offeredContract Transfer with newOwner = proposee
-           exchanged <- fetch expectedContract
-           assert $ exchanged == expected
-           newCid2 <- exercise expectedContract Transfer with newOwner = proposer
-           return (newCid1, newCid2)
+    controller owner can
+      TransferBrick: ContractId Brick
+        with newOwner: Party
+        do create $ Brick newOwner
+
+instance Transferrable Cash where
+  transfer cid newOwner = exercise cid TransferCash with newOwner
+
+instance Transferrable Brick where
+  transfer cid newOwner = exercise cid TransferBrick with newOwner
