@@ -25,12 +25,9 @@ import Language.Haskell.LSP.Messages
 import qualified Language.Haskell.LSP.Core as LSP
 import Development.IDE.Types.Location
 
-
-filesFromExecParams :: List Aeson.Value -> [NormalizedFilePath]
-filesFromExecParams (List files) = map (toNormalizedFilePath . T.unpack) (concatMap fileStringToPath files)
-            where fileStringToPath :: Aeson.Value -> [T.Text]
-                  fileStringToPath (Aeson.String x) = [x]
-                  fileStringToPath _ex = error ("Failed to get daml files from workspace" ++ show _ex )
+collectTexts :: List Aeson.Value -> Maybe NormalizedFilePath
+collectTexts (List [Aeson.String file])  = Just (toNormalizedFilePath (T.unpack file))
+collectTexts _= Nothing
 
 onCommand
     :: IdeState
@@ -38,12 +35,12 @@ onCommand
     -> IO Aeson.Value
 onCommand ide execParsms = case execParsms of
     ExecuteCommandParams "daml/damlVisualize" (Just _arguments) -> do
-        case filesFromExecParams _arguments of
-            [mod] -> do
+        case collectTexts _arguments of
+            Just mod -> do
                     logInfo (ideLogger ide) "Generating visualization for current daml project"
                     Just dots <- runAction ide (use GenerateVisualization mod)
                     return $ Aeson.String dots
-            _     -> do
+            Nothing     -> do
                 logError (ideLogger ide) "Expected a single module to visualize, got multiple module"
                 return $ Aeson.String "Expected a single module to visualize, got multiple module"
     ExecuteCommandParams  _ (Just _arguments) -> do
