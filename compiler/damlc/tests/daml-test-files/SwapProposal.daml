@@ -5,7 +5,7 @@ module SwapProposal where
 
 -- Interface for dealing with swappable assets
 class (Template t, Eq t) => Transferrable t where
-  transfer: ContractId t -> Party -> Update (ContractId t)
+  transfer: ContractId t -> t -> Party -> Update (ContractId t)
 
 template Transferrable t => SwapProposal t with
     proposer: Party
@@ -34,13 +34,13 @@ template Transferrable t => SwapProposal t with
       Accept: (ContractId t, ContractId t)
         with paymentCid: ContractId t
         do -- check that the offer and payment match what each party expects
-           realOffer <- fetch offerCid
-           assert $ realOffer == offer
-           realPayment <- fetch paymentCid
-           assert $ realPayment == expected
+          --  realOffer <- fetch offerCid
+          --  assert $ realOffer == offer
+          --  realPayment <- fetch paymentCid
+          --  assert $ realPayment == expected
            -- exchange ownership of contracts
-           proposeeNewCid <- transfer offerCid proposee
-           proposerNewCid <- transfer paymentCid proposer
+           proposeeNewCid <- transfer offerCid offer proposee
+           proposerNewCid <- transfer paymentCid expected proposer
            return (proposeeNewCid, proposerNewCid)
 
       Reject: ()
@@ -63,31 +63,42 @@ template Cash
     owner: Party
     amount: Decimal
     currency: Text
+    delegates: [Party]
   where
     signatory owner
+    observer delegates
 
     controller owner can
+      Disclose: ContractId Cash
+        with p: Party
+        do create this with delegates = p :: delegates
+
       TransferCash: ContractId Cash
-        with newOwner: Party
-        do create this with owner = newOwner
+        with
+          expected: Cash
+          newOwner: Party
+        do assert $ this == expected
+           create this with owner = newOwner
 
 instance Transferrable Cash where
-  transfer cid newOwner = exercise cid TransferCash with newOwner
+  transfer cid expected newOwner = do
+    cid <- exercise cid Disclose with p = newOwner
+    exercise cid TransferCash with expected; newOwner
 
 template instance CashSwap = SwapProposal Cash
 
 s = scenario do
   rohan <- getParty "Rohan"
   martin <- getParty "Martin"
-  let rohans50 = Cash with owner = rohan; amount = 50.0; currency = "USD"
-      martins50 = Cash with owner = martin; amount = 50.0; currency = "CHF"
+  let rohans50 = Cash with owner = rohan; amount = 50.0; currency = "USD"; delegates = []
+      martins50 = Cash with owner = martin; amount = 50.0; currency = "CHF"; delegates = []
   rohans50Cid <- rohan `submit` create rohans50
   martins50Cid <- martin `submit` create martins50
   -- Martin tries to trick Rohan by pretending to offer 100 CHF when he only has 50
   cashSwapProposal <- martin `submit` create SwapProposal with
     proposer = martin
     proposee = rohan
-    offer = Cash martin 100.0 "CHF"
+    offer = Cash martin 100.0 "CHF" []
     offerCid = martins50Cid
     expected = rohans50
   -- Rohan believes it's a fair deal and tries to accept
@@ -103,7 +114,7 @@ s = scenario do
     offerCid = martins50Cid
     expected = rohans50
   -- Rohan tries to get revenge by only paying $25 USD
-  let rohans25 = Cash with owner = rohan; amount = 25.0; currency = "USD"
+  let rohans25 = Cash with owner = rohan; amount = 25.0; currency = "USD"; delegates = []
   rohans25Cid <- rohan `submit` create rohans25
   -- However this will also fail because of the other runtime assertion
   rohan `submitMustFail` exercise cashSwapProposal Accept with paymentCid = rohans25Cid
