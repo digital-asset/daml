@@ -253,7 +253,7 @@ generateVisualizationRule :: Rules ()
 generateVisualizationRule =
     define $ \GenerateVisualization file -> do
         Just (WhnfPackage package) <- use GeneratePackage file
-        let mods =  NM.toList $ LF.packageModules package
+        let mods = NM.toList $ LF.packageModules package
         pkgMap <- useNoFile_ GeneratePackageMap
         let extpkgs = map dalfPackagePkg $ Map.elems pkgMap
         let wrld = LF.initWorldSelf extpkgs package

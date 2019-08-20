@@ -103,8 +103,8 @@ function visualize() {
     if (vscode.window.activeTextEditor){
         let currentFile = vscode.window.activeTextEditor.document.fileName
         damlLanguageClient.sendRequest(ExecuteCommandRequest.type,
-            { command: "daml/damlVisualize", arguments: [currentFile] }).then(r => {
-                vscode.workspace.openTextDocument({ content: r, language: "dot" })
+            { command: "daml/damlVisualize", arguments: [currentFile] }).then(dotFileContents => {
+                vscode.workspace.openTextDocument({ content: dotFileContents, language: "dot" })
                     .then(doc => vscode.window.showTextDocument(doc, vscode.ViewColumn.One, true)
                         .then(_ => loadPreviewIfAvailable()))
             });

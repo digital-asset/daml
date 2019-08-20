@@ -92,7 +92,7 @@ onCommand ide execParsms = case execParsms of
                     return $ Aeson.String dots
             _     -> do
                 logError (ideLogger ide) "Expected a single module to visualize, got multiple module"
-                return $ Aeson.String "Could not consutruct world and the module list."
+                return $ Aeson.String "Could not construct world and the module list."
     ExecuteCommandParams  _ (Just _arguments) -> do
         logError (ideLogger ide) "Command is not supported"
         return Aeson.Null
