@@ -20,8 +20,8 @@ HEAD — ongoing
 + [DAML Compiler] Allow more contexts in generic templates. Specifically, template constraints can
   have arguments besides type variables, if the FlexibleContexts extension is enabled.
 + [DAML Studio] ``damlc ide`` now also accepts ``--ghc-option`` arguments like ``damlc build``
-  so ``damlc ide --ghc-option -W`` launches the IDE with more warnings. Note that
-  an option for the VSCode extension to pass additional options is still work in progress.
+  so ``damlc ide --ghc-option -W`` launches the IDE with more warnings.
 + [DAML Integration Kit] Participant State API and kvutils was extended with support for
   changing the ledger configuration. See changelog in respective ``package.scala`` files.
-
++ [DAML Studio] The VSCode extension now has a configuration field for
+  passing extra arguments to ``damlc ide``.
