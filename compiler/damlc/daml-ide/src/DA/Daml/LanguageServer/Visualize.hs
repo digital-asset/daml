@@ -26,6 +26,7 @@ collectTexts :: List Aeson.Value -> Maybe NormalizedFilePath
 collectTexts (List [Aeson.String file])  = Just (toNormalizedFilePath (T.unpack file))
 collectTexts _= Nothing
 
+-- TODO(Anup) - Return errors via LSP instead of (return Aeson.Null) for which we will need some changes to withResponse
 onCommand
     :: IdeState
     -> ExecuteCommandParams
@@ -45,11 +46,11 @@ onCommand ide execParsms = case execParsms of
             Nothing     -> do
                 logError (ideLogger ide) "Expected a single module to visualize, got multiple module"
                 return $ Aeson.String "Expected a single module to visualize, got multiple module"
-    ExecuteCommandParams  _ (Just _arguments) -> do
-        logError (ideLogger ide) "Command is not supported"
-        return Aeson.Null
-    ExecuteCommandParams  _ Nothing -> do
+    ExecuteCommandParams  "daml/damlVisualize" Nothing -> do
         logError (ideLogger ide) "Missing DAML module to visualize"
+        return Aeson.Null
+    ExecuteCommandParams _ _ -> do
+        logError (ideLogger ide) "Unsupported command"
         return Aeson.Null
 
 setCommandHandler ::PartialHandlers
