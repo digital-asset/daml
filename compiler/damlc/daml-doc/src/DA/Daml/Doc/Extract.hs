@@ -27,6 +27,7 @@ import Development.IDE.Types.Logger
 import Development.IDE.Types.Location
 
 import           "ghc-lib" GHC
+import           "ghc-lib-parser" Module
 import           "ghc-lib-parser" TyCoRep
 import           "ghc-lib-parser" TyCon
 import           "ghc-lib-parser" ConLike
@@ -620,6 +621,14 @@ getModulename = Modulename . T.pack . moduleNameString . moduleName
 
 ---------------------------------------------------------------------
 
+-- | Get package name from unit id.
+modulePackage :: Module -> Maybe Packagename
+modulePackage mod =
+    case moduleUnitId mod of
+        unitId@(DefiniteUnitId _) ->
+            Just . Packagename . T.pack . unitIdString $ unitId
+        _ -> Nothing
+
 -- | Create an anchor from a TyCon.
 tyConAnchor :: DocCtx -> TyCon -> Maybe Anchor
 tyConAnchor DocCtx{..} tycon = do
@@ -630,6 +639,17 @@ tyConAnchor DocCtx{..} tycon = do
             | isClassTyCon tycon = classAnchor
             | otherwise = typeAnchor
     Just (anchorFn mod name)
+
+-- | Create a (possibly external) reference from a TyCon.
+tyConReference :: DocCtx -> TyCon -> Maybe Reference
+tyConReference ctx@DocCtx{..} tycon = do
+    referenceAnchor <- tyConAnchor ctx tycon
+    let ghcName = tyConName tycon
+        referencePackage = do
+            guard (not (nameIsHomePackage dc_ghcMod ghcName))
+            mod <- nameModule_maybe ghcName
+            modulePackage mod
+    Just Reference {..}
 
 -- | Extract a potentially qualified typename from a TyCon.
 tyConTypename :: DocCtx -> TyCon -> Typename
@@ -708,7 +728,7 @@ typeToType ctx = \case
 
     TyConApp tycon bs ->
         TypeApp
-            (tyConAnchor ctx tycon)
+            (tyConReference ctx tycon)
             (tyConTypename ctx tycon)
             (map (typeToType ctx) bs)
 

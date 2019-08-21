@@ -24,7 +24,7 @@ Templates
        - [Party]
        - 
      * - name
-       - Text
+       - `Text <https://docs.daml.com/daml/reference/base.html#type-ghc-types-text-57703>`_
        - 
   
   + **Choice Accept**

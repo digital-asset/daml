@@ -24,7 +24,7 @@ Templates
        - Party
        - 
      * - amount
-       - Decimal
+       - `Decimal <https://docs.daml.com/daml/reference/base.html#type-ghc-types-decimal-54602>`_
        - 
   
   + **Choice External:Archive**
