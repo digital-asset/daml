@@ -15,8 +15,6 @@ import { Uri, Event, TextDocumentContentProvider, ViewColumn, EventEmitter, wind
 import * as which from 'which';
 
 let damlRoot: string = path.join(os.homedir(), '.daml');
-let daSdkPath: string = path.join(os.homedir(), '.da');
-let daCmdPath: string = path.join(daSdkPath, 'bin', 'da');
 
 var damlLanguageClient: LanguageClient;
 // Extension activation
@@ -158,29 +156,17 @@ export function createLanguageClient(config: vscode.WorkspaceConfiguration, tele
     };
 
     let command: string;
-    let args: string[];
-
-    const daArgs = ["run", "damlc", "--", "lax", "ide"];
+    let args: string[] = ["ide", "--"];
 
     try {
         command = which.sync("daml");
-        args = ["ide"];
     } catch (ex) {
-        try {
-            command = which.sync("da");
-            args = daArgs;
-        } catch (ex) {
-            const damlCmdPath = path.join(damlRoot, "bin", "daml");
-            if (fs.existsSync(damlCmdPath)) {
-                command = damlCmdPath;
-                args = ["ide"];
-            } else if (fs.existsSync(daCmdPath)) {
-                command = daCmdPath;
-                args = daArgs;
-            } else {
-                vscode.window.showErrorMessage("Failed to start the DAML language server. Make sure the assistant is installed.");
-                throw new Error("Failed to locate assistant.");
-            }
+        const damlCmdPath = path.join(damlRoot, "bin", "daml");
+        if (fs.existsSync(damlCmdPath)) {
+            command = damlCmdPath;
+        } else {
+            vscode.window.showErrorMessage("Failed to start the DAML language server. Make sure the assistant is installed.");
+            throw new Error("Failed to locate assistant.");
         }
     }
 
@@ -189,6 +175,8 @@ export function createLanguageClient(config: vscode.WorkspaceConfiguration, tele
     } else if (telemetryConsent === false){
         args.push('--optOutTelemetry')
     }
+    const extraArgs = config.get("extraArguments", "").split(" ");
+    args = args.concat(extraArgs);
     const serverArgs : string[] = addIfInConfig(config, args,
         [ ['debug', ['--debug']]
         , ['experimental', ['--experimental']]

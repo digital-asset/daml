@@ -105,6 +105,11 @@
                     ],
                     "default": "From consent popup",
                     "description": "Controls whether you send DAML usage data to Digital Asset"
+                },
+                "daml.extraArguments": {
+                    "type": "string",
+                    "default": "",
+                    "description": "Extra arguments passed to `damlc ide`. This can be used to enable additional warnings via `--ghc-option -W`"
                 }
             }
         },
