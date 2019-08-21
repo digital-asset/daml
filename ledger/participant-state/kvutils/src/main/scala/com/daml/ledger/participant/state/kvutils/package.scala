@@ -51,9 +51,5 @@ package com.daml.ledger.participant.state
   *  using [[KeyValueConsumption.logEntryToUpdate]], and pairs it with an offset corresponding to the
   *  position of the commit (the "block height" if you will).
   *
-  * The above example implementation is suitable for situations where the inputs to the transaction have
-  * to be pre-computed. For ledger's that do not require this a more natural implementation could assign
-  * the log entry identifiers at commit time and store the log entries with a monotonically increasing
-  * integer as the key (which would allow for efficient range queries).
   */
 package object kvutils {}

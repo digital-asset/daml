@@ -7,7 +7,7 @@ package parser
 import com.digitalasset.daml.lf.data.{Decimal, Ref}
 import com.digitalasset.daml.lf.language.Ast.{Expr, Kind, Package, Type}
 
-private[digitalasset] object Implicits {
+object Implicits {
 
   implicit val defaultParserParameters: ParserParameters[this.type] = ParserParameters(
     defaultPackageId,

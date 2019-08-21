@@ -8,9 +8,10 @@ import com.daml.ledger.participant.state.v1._
 import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.engine.Blinding
+import com.digitalasset.daml.lf.transaction.BlindingInfo
 import com.digitalasset.daml.lf.transaction.Node.{NodeCreate, NodeExercises}
-import com.digitalasset.daml.lf.transaction.{BlindingInfo, Transaction}
 import com.digitalasset.daml.lf.value.Value
+import com.digitalasset.daml.lf.value.Value.ContractId
 import com.digitalasset.daml_lf.DamlLf.Archive
 import com.digitalasset.ledger.api.domain.PartyDetails
 import com.digitalasset.platform.sandbox.stores.InMemoryActiveContracts
@@ -71,7 +72,9 @@ final case class IndexState(
         case u: Update.ConfigurationChanged =>
           Right(state.copy(configuration = u.newConfiguration))
 
-        //party: Ref.Party, displayName: Option[String], isLocal: Boolean
+        case _: Update.ConfigurationChangeRejected =>
+          Right(state)
+
         case u: Update.PartyAddedToParticipant =>
           Right(
             state.copy(
@@ -91,7 +94,6 @@ final case class IndexState(
                 uploadRecordTime,
                 sourceDescription))
 
-          //val decodedPackages = newPackages.mapValues(archive => Decode.decodeArchive(archive)._2)
           Right(
             state
               .copy(
@@ -108,8 +110,7 @@ final case class IndexState(
 
         case u: Update.TransactionAccepted =>
           val blindingInfo = Blinding.blind(
-            // FIXME(JM): Make Blinding.blind polymorphic.
-            u.transaction.asInstanceOf[Transaction.Transaction]
+            u.transaction.mapContractId(cid => cid: ContractId)
           )
           activeContracts
             .addTransaction(

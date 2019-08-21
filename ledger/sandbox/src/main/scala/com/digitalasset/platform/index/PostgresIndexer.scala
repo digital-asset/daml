@@ -228,8 +228,12 @@ class PostgresIndexer private (
           .storeLedgerEntry(headRef, headRef + 1, Some(offset.toLedgerString), pt)
           .map(_ => headRef = headRef + 1)(DEC)
 
-      case ConfigurationChanged(newConfiguration) =>
+      case _: ConfigurationChanged =>
         // TODO (GS) implement configuration changes
+        Future.successful(())
+
+      case _: ConfigurationChangeRejected =>
+        // TODO(JM) implement configuration rejections
         Future.successful(())
 
       case CommandRejected(submitterInfo, reason) =>

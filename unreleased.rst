@@ -22,3 +22,6 @@ HEAD — ongoing
 + [DAML Studio] ``damlc ide`` now also accepts ``--ghc-option`` arguments like ``damlc build``
   so ``damlc ide --ghc-option -W`` launches the IDE with more warnings. Note that
   an option for the VSCode extension to pass additional options is still work in progress.
++ [DAML Integration Kit] Participant State API and kvutils was extended with support for
+  changing the ledger configuration. See changelog in respective ``package.scala`` files.
+

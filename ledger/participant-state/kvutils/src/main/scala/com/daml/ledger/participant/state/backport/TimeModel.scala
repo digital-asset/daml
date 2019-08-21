@@ -21,10 +21,10 @@ import scala.util.Try
   *                              Must be greater than the derived minimum time to live.
   * @throws IllegalArgumentException if the parameters aren't valid
   */
-class TimeModel private (
-    val minTransactionLatency: Duration,
-    val maxClockSkew: Duration,
-    val maxTtl: Duration)
+case class TimeModel private (
+    minTransactionLatency: Duration,
+    maxClockSkew: Duration,
+    maxTtl: Duration)
     extends ITimeModel {
 
   /**

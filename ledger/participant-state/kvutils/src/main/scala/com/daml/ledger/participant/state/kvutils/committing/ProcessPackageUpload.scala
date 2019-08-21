@@ -5,7 +5,7 @@ package com.daml.ledger.participant.state.kvutils.committing
 
 import com.daml.ledger.participant.state.kvutils.Conversions.buildTimestamp
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
-import com.daml.ledger.participant.state.kvutils.KeyValueCommitting.prettyEntryId
+import com.daml.ledger.participant.state.kvutils.{Err, Pretty}
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import org.slf4j.LoggerFactory
 
@@ -23,9 +23,10 @@ private[kvutils] case class ProcessPackageUpload(
   private val archives = packageUploadEntry.getArchivesList.asScala
 
   private def tracelog(msg: String): Unit =
-    logger.trace(s"""[entryId=${prettyEntryId(entryId)}, submId=$submissionId], packages=${archives
-      .map(_.getHash)
-      .mkString(",")}]: $msg""")
+    logger.trace(
+      s"""[entryId=${Pretty.prettyEntryId(entryId)}, submId=$submissionId], packages=${archives
+        .map(_.getHash)
+        .mkString(",")}]: $msg""")
 
   def run: (DamlLogEntry, Map[DamlStateKey, DamlStateValue]) = {
     // TODO: Add more comprehensive validity test, in particular, take the transitive closure
@@ -45,13 +46,14 @@ private[kvutils] case class ProcessPackageUpload(
               .setDetails(error)))
       case (_, _) =>
         val filteredArchives = archives
-          .filter(
-            archive =>
-              inputState(
-                DamlStateKey.newBuilder
-                  .setPackageId(archive.getHash)
-                  .build).isEmpty
-          )
+          .filter { archive =>
+            val stateKey = DamlStateKey.newBuilder
+              .setPackageId(archive.getHash)
+              .build
+            inputState
+              .getOrElse(stateKey, throw Err.MissingInputState(stateKey))
+              .isEmpty
+          }
         tracelog(s"Packages committed")
         (
           DamlLogEntry.newBuilder
