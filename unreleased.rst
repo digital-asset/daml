@@ -19,3 +19,6 @@ HEAD — ongoing
 + [DAML-LF] **Breaking** Rename ``NUMERIC`` back to ``DECIMAL`` in Protobuf definition.
 + [DAML Compiler] Allow more contexts in generic templates. Specifically, template constraints can
   have arguments besides type variables, if the FlexibleContexts extension is enabled.
++ [DAML Studio] ``damlc ide`` now also accepts ``--ghc-option`` arguments like ``damlc build``
+  so ``damlc ide --ghc-option -W`` launches the IDE with more warnings. Note that
+  an option for the VSCode extension to pass additional options is still work in progress.

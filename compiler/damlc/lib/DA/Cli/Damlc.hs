@@ -94,7 +94,12 @@ cmdIde =
         "Start the DAML language server on standard input/output."
     <> fullDesc
   where
-    cmd = execIde <$> telemetryOpt <*> debugOpt <*> enableScenarioOpt <*> shakeProfilingOpt
+    cmd = execIde
+        <$> telemetryOpt
+        <*> debugOpt
+        <*> enableScenarioOpt
+        <*> optGhcCustomOptions
+        <*> shakeProfilingOpt
 
 cmdLicense :: Mod CommandFields Command
 cmdLicense =
@@ -278,9 +283,10 @@ execLicense = B.putStr licenseData
 execIde :: Telemetry
         -> Debug
         -> EnableScenarioService
+        -> [String]
         -> Maybe FilePath
         -> Command
-execIde telemetry (Debug debug) enableScenarioService mbProfileDir = NS.withSocketsDo $ do
+execIde telemetry (Debug debug) enableScenarioService ghcOpts mbProfileDir = NS.withSocketsDo $ do
     let threshold =
             if debug
             then Logger.Debug
@@ -312,6 +318,7 @@ execIde telemetry (Debug debug) enableScenarioService mbProfileDir = NS.withSock
         , optShakeProfiling = mbProfileDir
         , optThreads = 0
         , optDlintUsage = DlintEnabled dlintDataDir True
+        , optGhcCustomOpts = ghcOpts
         }
     scenarioServiceConfig <- readScenarioServiceConfig
     withLogger $ \loggerH ->
@@ -865,7 +872,7 @@ optionsParser numProcessors enableScenarioService parsePkgName = Options
     <*> optShakeThreads
     <*> lfVersionOpt
     <*> optDebugLog
-    <*> (concat <$> many optGhcCustomOptions)
+    <*> optGhcCustomOptions
     <*> pure enableScenarioService
     <*> pure (optScenarioValidation $ defaultOptions Nothing)
     <*> dlintUsageOpt
@@ -929,12 +936,14 @@ optionsParser numProcessors enableScenarioService parsePkgName = Options
             , "Note that the output is not deterministic for > 1 job."
             ]
 
-    optGhcCustomOptions :: Parser [String]
-    optGhcCustomOptions =
-        option (stringsSepBy ' ') $
-        long "ghc-option" <>
-        metavar "OPTION" <>
-        help "Options to pass to the underlying GHC"
+
+optGhcCustomOptions :: Parser [String]
+optGhcCustomOptions =
+    fmap concat $ many $
+    option (stringsSepBy ' ') $
+    long "ghc-option" <>
+    metavar "OPTION" <>
+    help "Options to pass to the underlying GHC"
 
 shakeProfilingOpt :: Parser (Maybe FilePath)
 shakeProfilingOpt = optional $ strOption $
