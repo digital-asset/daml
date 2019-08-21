@@ -105,7 +105,7 @@ object Common {
     /** Delay a commit. Useful for delaying expensive computation, e.g.
       * delay { val foo = someExpensiveComputation; if (foo) done(err) else pass }
       */
-    def delay(act: => Commit[Unit]): Commit[Unit] =
+    def delay[A](act: => Commit[A]): Commit[A] =
       Commit { state =>
         act.run(state)
       }

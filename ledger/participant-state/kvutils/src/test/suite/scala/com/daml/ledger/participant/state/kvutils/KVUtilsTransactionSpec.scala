@@ -23,6 +23,8 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
 
   "transaction" should {
     val alice = Ref.Party.assertFromString("Alice")
+    val bob = Ref.Party.assertFromString("Bob")
+
     val simpleCreateCmd: Command = CreateCommand(simpleTemplateId, mkSimpleTemplateArg("Alice"))
     def simpleExerciseCmd(coid: String): Command =
       ExerciseCommand(
@@ -116,7 +118,7 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
         }
         createTx <- runCommand(alice, simpleCreateCmd)
 
-        newParty <- withParticipantId(p1)(allocateParty("unhosted", "alice"))
+        newParty <- withParticipantId(p1)(allocateParty("unhosted", alice))
         txEntry1 <- withParticipantId(p0)(
           submitTransaction(submitter = newParty, tx = createTx).map(_._2))
         txEntry2 <- withParticipantId(p1)(
@@ -130,5 +132,17 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
 
       }
     }
+    "reject unauthorized transactions " in KVTest.runTest {
+      for {
+        // Submit a creation of a contract with owner 'Alice', but submit it as 'Bob'.
+        createTx <- runCommand(alice, simpleCreateCmd)
+        bob <- allocateParty("bob", bob)
+        txEntry <- submitTransaction(submitter = bob, tx = createTx).map(_._2)
+      } yield {
+        txEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.TRANSACTION_REJECTION_ENTRY
+        txEntry.getTransactionRejectionEntry.getReasonCase shouldEqual DamlTransactionRejectionEntry.ReasonCase.DISPUTED
+      }
+    }
+
   }
 }
