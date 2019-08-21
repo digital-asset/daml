@@ -34,7 +34,6 @@ import Language.Haskell.LSP.Messages
 import qualified Language.Haskell.LSP.Core as LSP
 
 
-
 textShow :: Show a => a -> T.Text
 textShow = T.pack . show
 

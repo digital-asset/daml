@@ -24,7 +24,6 @@ import Development.Shake
 import GHC.Generics (Generic)
 import "ghc-lib-parser" Module (UnitId)
 import Development.IDE.Core.Service.Daml
-import qualified Data.Text as T
 
 import Development.IDE.Types.Location
 import Development.IDE.Core.RuleTypes
@@ -168,14 +167,6 @@ instance NFData Classify where rnf = rwhnf
 instance Show Hint where show = const "<hint>"
 
 type instance RuleResult GetDlintSettings = ([Classify], Hint)
-
-data GenerateVisualization = GenerateVisualization
-    deriving (Eq, Show, Typeable, Generic)
-instance Binary   GenerateVisualization
-instance Hashable GenerateVisualization
-instance NFData   GenerateVisualization
-
-type instance RuleResult GenerateVisualization = T.Text
 
 data GetDlintDiagnostics = GetDlintDiagnostics
     deriving (Eq, Show, Typeable, Generic)
