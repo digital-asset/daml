@@ -75,11 +75,32 @@ object KeyValueConsumption {
         List(txEntryToUpdate(entryId, entry.getTransactionEntry, recordTime))
 
       case DamlLogEntry.PayloadCase.CONFIGURATION_ENTRY =>
-        val newConfig = parseDamlConfiguration(entry.getConfigurationEntry).get
-        List(Update.ConfigurationChanged(newConfig))
+        val configEntry = entry.getConfigurationEntry
+        val newConfig = parseDamlConfiguration(configEntry.getConfiguration).get
+        List(Update.ConfigurationChanged(configEntry.getSubmissionId, newConfig))
 
       case DamlLogEntry.PayloadCase.CONFIGURATION_REJECTION_ENTRY =>
-        List(Update.ConfigurationChangeRejected( /* FIXME */ ))
+        val rejection = entry.getConfigurationRejectionEntry
+        val proposedConfig = rejection.getConfiguration
+        List(
+          Update.ConfigurationChangeRejected(
+            submissionId = rejection.getSubmissionId,
+            reason = rejection.getReasonCase match {
+              case DamlConfigurationRejectionEntry.ReasonCase.GENERATION_MISMATCH =>
+                s"Generation mismatch: ${proposedConfig.getGeneration} != ${rejection.getGenerationMismatch.getExpectedGeneration}"
+              case DamlConfigurationRejectionEntry.ReasonCase.INVALID_CONFIGURATION =>
+                s"Invalid configuration: ${rejection.getInvalidConfiguration.getError}"
+              case DamlConfigurationRejectionEntry.ReasonCase.PARTICIPANT_NOT_AUTHORIZED =>
+                s"Participant not authorized to modify configuration"
+              case DamlConfigurationRejectionEntry.ReasonCase.TIMED_OUT =>
+                val timedOut = rejection.getTimedOut
+                val mrt = Conversions.parseTimestamp(timedOut.getMaximumRecordTime)
+                val rt = Conversions.parseTimestamp(timedOut.getRecordTime)
+                s"Configuration change request timed out: $mrt > $rt"
+              case DamlConfigurationRejectionEntry.ReasonCase.REASON_NOT_SET =>
+                "Unknown reason"
+            }
+          ))
 
       case DamlLogEntry.PayloadCase.TRANSACTION_REJECTION_ENTRY =>
         List(transactionRejectionEntryToUpdate(entry.getTransactionRejectionEntry))

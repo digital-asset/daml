@@ -531,10 +531,11 @@ class InMemoryKVParticipantState(
   /** Submit a new configuration to the ledger. */
   override def submitConfiguration(
       maxRecordTime: Timestamp,
+      submissionId: String,
       config: Configuration): CompletionStage[SubmissionResult] =
     CompletableFuture.completedFuture({
       val submission =
-        KeyValueSubmission.configurationToSubmission(maxRecordTime, config)
+        KeyValueSubmission.configurationToSubmission(maxRecordTime, submissionId, config)
       commitActorRef ! CommitSubmission(
         allocateEntryId,
         submission

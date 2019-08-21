@@ -430,6 +430,7 @@ class LedgerBackedWriteService(ledger: Ledger, timeProvider: TimeProvider) exten
   // WriteConfigService
   override def submitConfiguration(
       maxRecordTime: Time.Timestamp,
+      submissionId: String,
       config: Configuration): CompletionStage[SubmissionResult] =
     // FIXME(JM): Implement configuration changes in sandbox.
     CompletableFuture.completedFuture(SubmissionResult.NotSupported)

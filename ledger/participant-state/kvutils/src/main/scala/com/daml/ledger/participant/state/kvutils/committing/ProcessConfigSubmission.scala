@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils.committing
@@ -24,6 +24,8 @@ private[kvutils] case class ProcessConfigSubmission(
   private val logger = LoggerFactory.getLogger(this.getClass)
   private val currentConfig =
     Common.getCurrentConfiguration(defaultConfig, inputState, logger)
+
+  private val newConfig = configSubmission.getConfiguration
 
   def run: (DamlLogEntry, Map[DamlStateKey, DamlStateValue]) =
     runSequence(
@@ -66,10 +68,10 @@ private[kvutils] case class ProcessConfigSubmission(
   }
 
   private def validateSubmission(): Commit[Unit] =
-    parseDamlConfiguration(configSubmission.getConfiguration)
+    parseDamlConfiguration(newConfig)
       .fold(exc => rejectInvalidConfiguration(exc.getMessage), pure)
-      .flatMap { newConfig =>
-        if (newConfig.generation != (1 + currentConfig.generation))
+      .flatMap { config =>
+        if (config.generation != (1 + currentConfig.generation))
           rejectGenerationMismatch(1 + currentConfig.generation)
         else
           pass
@@ -79,17 +81,18 @@ private[kvutils] case class ProcessConfigSubmission(
     delay {
       logger.trace(
         s"processSubmission[entryId=${Pretty.prettyEntryId(entryId)}]: New configuration committed.")
-
       set(
         configurationStateKey ->
           DamlStateValue.newBuilder
-            .setConfiguration(configSubmission.getConfiguration)
+            .setConfiguration(newConfig)
             .build)
     },
     done(
       DamlLogEntry.newBuilder
         .setRecordTime(buildTimestamp(recordTime))
-        .setConfigurationEntry(configSubmission.getConfiguration)
+        .setConfigurationEntry(DamlConfigurationEntry.newBuilder
+          .setSubmissionId(configSubmission.getSubmissionId)
+          .setConfiguration(configSubmission.getConfiguration))
         .build)
   )
 
@@ -98,6 +101,7 @@ private[kvutils] case class ProcessConfigSubmission(
       DamlLogEntry.newBuilder
         .setConfigurationRejectionEntry(
           DamlConfigurationRejectionEntry.newBuilder
+            .setSubmissionId(configSubmission.getSubmissionId)
             .setConfiguration(configSubmission.getConfiguration)
             .setGenerationMismatch(
               DamlConfigurationRejectionEntry.GenerationMismatch.newBuilder
@@ -112,6 +116,7 @@ private[kvutils] case class ProcessConfigSubmission(
       DamlLogEntry.newBuilder
         .setConfigurationRejectionEntry(
           DamlConfigurationRejectionEntry.newBuilder
+            .setSubmissionId(configSubmission.getSubmissionId)
             .setConfiguration(configSubmission.getConfiguration)
             .setInvalidConfiguration(
               DamlConfigurationRejectionEntry.InvalidConfiguration.newBuilder
@@ -126,9 +131,10 @@ private[kvutils] case class ProcessConfigSubmission(
       DamlLogEntry.newBuilder
         .setConfigurationRejectionEntry(
           DamlConfigurationRejectionEntry.newBuilder
+            .setSubmissionId(configSubmission.getSubmissionId)
             .setConfiguration(configSubmission.getConfiguration)
             .setParticipantNotAuthorized(
-              ParticipantNotAuthorized.newBuilder
+              DamlConfigurationRejectionEntry.ParticipantNotAuthorized.newBuilder
                 .setDetails(
                   s"Participant $participantId is not the authorized participant " +
                     currentConfig.authorizedParticipantId.getOrElse("<missing>")
@@ -143,6 +149,7 @@ private[kvutils] case class ProcessConfigSubmission(
       DamlLogEntry.newBuilder
         .setConfigurationRejectionEntry(
           DamlConfigurationRejectionEntry.newBuilder
+            .setSubmissionId(configSubmission.getSubmissionId)
             .setConfiguration(configSubmission.getConfiguration)
             .setTimedOut(
               DamlConfigurationRejectionEntry.TimedOut.newBuilder

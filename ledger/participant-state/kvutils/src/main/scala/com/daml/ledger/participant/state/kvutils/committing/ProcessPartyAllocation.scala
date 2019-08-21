@@ -55,7 +55,7 @@ private[kvutils] case class ProcessPartyAllocation(
         s"Party allocation rejected, participant id ${partyAllocationEntry.getParticipantId} did not match authenticated participant id $participantId.")
       reject {
         _.setParticipantNotAuthorized(
-          ParticipantNotAuthorized.newBuilder
+          DamlPartyAllocationRejectionEntry.ParticipantNotAuthorized.newBuilder
             .setDetails(
               s"Authenticated participant id ($participantId) did not match declared participant id (${partyAllocationEntry.getParticipantId}")
         )

@@ -1,3 +1,6 @@
+// Copyright (c) 2019 The DAML Authors. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 package com.daml.ledger.participant.state.kvutils
 
 import java.time.Duration
@@ -184,6 +187,7 @@ object KVTest {
 
   def submitConfig(
       configModify: Configuration => Configuration,
+      submissionId: String = "",
       mrtDelta: Duration = minMRTDelta
   ): KVTest[DamlLogEntry] =
     for {
@@ -192,6 +196,7 @@ object KVTest {
       result <- submit(
         KeyValueSubmission.configurationToSubmission(
           maxRecordTime = testState.recordTime.addMicros(mrtDelta.toNanos / 1000),
+          submissionId = submissionId,
           config = configModify(oldConf)
         )
       )

@@ -449,6 +449,7 @@ class InMemoryKVParticipantStateIT extends AsyncWordSpec with AkkaBeforeAndAfter
       _ <- ps
         .submitConfiguration(
           maxRecordTime = rt.addMicros(1000000),
+          submissionId = "test1",
           config = lic.config.copy(
             generation = lic.config.generation + 1,
             openWorld = !lic.config.openWorld
@@ -459,6 +460,7 @@ class InMemoryKVParticipantStateIT extends AsyncWordSpec with AkkaBeforeAndAfter
       _ <- ps
         .submitConfiguration(
           maxRecordTime = rt.addMicros(1000000),
+          submissionId = "test2",
           config = lic.config.copy(
             timeModel = TimeModel(
               Duration.ofSeconds(123),
