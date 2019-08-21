@@ -158,18 +158,19 @@ class JdbcIndexer private (
   }
 
   private def handleStateUpdate(offset: Offset, update: Update): Future[Unit] = {
+    val externalOffset = Some(offset.toLedgerString)
     update match {
       case Heartbeat(recordTime) =>
         ledgerDao
           .storeLedgerEntry(
             headRef,
             headRef + 1,
-            Some(offset.toLedgerString),
+            externalOffset,
             PersistenceEntry.Checkpoint(LedgerEntry.Checkpoint(recordTime.toInstant)))
           .map(_ => headRef = headRef + 1)(DEC)
 
       case PartyAddedToParticipant(party, displayName, _, _) =>
-        ledgerDao.storeParty(party, Some(displayName)).map(_ => ())(DEC)
+        ledgerDao.storeParty(party, Some(displayName), externalOffset).map(_ => ())(DEC)
 
       case PublicPackageUploaded(archive, sourceDescription, _, _) =>
         val uploadId = UUID.randomUUID().toString
@@ -181,7 +182,7 @@ class JdbcIndexer private (
             sourceDescription = sourceDescription
           )
         )
-        ledgerDao.uploadLfPackages(uploadId, packages).map(_ => ())(DEC)
+        ledgerDao.uploadLfPackages(uploadId, packages, externalOffset).map(_ => ())(DEC)
 
       case TransactionAccepted(
           optSubmitterInfo,
@@ -223,7 +224,7 @@ class JdbcIndexer private (
           blindingInfo.globalImplicitDisclosure
         )
         ledgerDao
-          .storeLedgerEntry(headRef, headRef + 1, Some(offset.toLedgerString), pt)
+          .storeLedgerEntry(headRef, headRef + 1, externalOffset, pt)
           .map(_ => headRef = headRef + 1)(DEC)
 
       case _: ConfigurationChanged =>
@@ -245,7 +246,7 @@ class JdbcIndexer private (
           )
         )
         ledgerDao
-          .storeLedgerEntry(headRef, headRef + 1, Some(offset.toLedgerString), rejection)
+          .storeLedgerEntry(headRef, headRef + 1, externalOffset, rejection)
           .map(_ => ())(DEC)
           .map(_ => headRef = headRef + 1)(DEC)
     }

@@ -10,9 +10,10 @@ import java.util.concurrent.atomic.AtomicLong
 
 import akka.stream.scaladsl.{Sink, Source}
 import com.daml.ledger.participant.state.index.v2
+import com.daml.ledger.participant.state.v1.Offset
 import com.digitalasset.daml.bazeltools.BazelRunfiles
 import com.digitalasset.daml.lf.archive.DarReader
-import com.digitalasset.daml.lf.data.Ref.{Identifier, Party}
+import com.digitalasset.daml.lf.data.Ref.{Identifier, LedgerString, Party}
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.transaction.GenTransaction
 import com.digitalasset.daml.lf.transaction.Node.{
@@ -86,12 +87,18 @@ class PostgresDaoSpec
   private val someValueText = ValueText("some text")
   private val agreement = "agreement"
 
+  private val nextExternalOffset = {
+    val n = new AtomicLong(0)
+    () =>
+      Some(Offset(Array.fill(3)(n.getAndIncrement())).toLedgerString)
+  }
+
   "Postgres Ledger DAO" should {
 
     val event1: EventId = "event1"
     val event2: EventId = "event2"
 
-    "be able to persist and load contracts" in {
+    def persistAndLoadContractsTest(externalOffset: Option[LedgerString]) = {
       val offset = nextOffset()
       val absCid = AbsoluteContractId("cId1")
       val let = Instant.now
@@ -105,7 +112,7 @@ class PostgresDaoSpec
         agreement
       )
       val keyWithMaintainers = KeyWithMaintainers(
-        VersionedValue(ValueVersions.acceptedVersions.head, ValueText("key")),
+        VersionedValue(ValueVersions.acceptedVersions.head, ValueText(s"key-$offset")),
         Set(alice)
       )
 
@@ -145,13 +152,13 @@ class PostgresDaoSpec
         ),
         Map(event1 -> Set[Party]("Alice", "Bob"), event2 -> Set[Party]("Alice", "In", "Chains"))
       )
-
       for {
+        originalExternalLedgerEnd <- ledgerDao.lookupExternalLedgerEnd()
         result1 <- ledgerDao.lookupActiveContract(absCid)
         _ <- ledgerDao.storeLedgerEntry(
           offset,
           offset + 1,
-          None,
+          externalOffset,
           PersistenceEntry.Transaction(
             transaction,
             Map.empty,
@@ -160,32 +167,59 @@ class PostgresDaoSpec
           )
         )
         result2 <- ledgerDao.lookupActiveContract(absCid)
+        externalLedgerEnd <- ledgerDao.lookupExternalLedgerEnd()
       } yield {
         result1 shouldEqual None
         result2 shouldEqual Some(contract)
+        // we reuse this function for tests with and without ledger end
+        // it should either match the provided externalOffset (if it's Some),
+        // otherwise it should match the previous one
+        externalLedgerEnd shouldEqual externalOffset.orElse(originalExternalLedgerEnd)
       }
     }
 
-    "be able to persist and load a checkpoint" in {
+    "be able to persist and load contracts without external offset" in {
+      persistAndLoadContractsTest(None)
+    }
+
+    "be able to persist and load contracts with external offset" in {
+      persistAndLoadContractsTest(nextExternalOffset())
+    }
+
+    def persistAndLoadCheckpointTest(externalOffset: Option[LedgerString]) = {
       val checkpoint = LedgerEntry.Checkpoint(Instant.now)
       val offset = nextOffset()
 
       for {
         startingOffset <- ledgerDao.lookupLedgerEnd()
+        originalExternalLedgerEnd <- ledgerDao.lookupExternalLedgerEnd()
         _ <- ledgerDao.storeLedgerEntry(
           offset,
           offset + 1,
-          None,
+          externalOffset,
           PersistenceEntry.Checkpoint(checkpoint))
         entry <- ledgerDao.lookupLedgerEntry(offset)
         endingOffset <- ledgerDao.lookupLedgerEnd()
+        externalLedgerEnd <- ledgerDao.lookupExternalLedgerEnd()
       } yield {
         entry shouldEqual Some(checkpoint)
         endingOffset shouldEqual (startingOffset + 1)
+        // we reuse this function for tests with and without ledger end
+        // it should either match the provided externalOffset (if it's Some),
+        // otherwise it should match the previous one
+        externalLedgerEnd shouldEqual externalOffset.orElse(originalExternalLedgerEnd)
       }
     }
 
-    "be able to persist and load a rejection" in {
+    "be able to persist and load a checkpoint without external offset" in {
+      persistAndLoadCheckpointTest(None)
+    }
+
+    "be able to persist and load a checkpoint with external offset" in {
+      persistAndLoadCheckpointTest(nextExternalOffset())
+    }
+
+    def persistAndLoadRejection(externalOffset: Option[LedgerString]) = {
       val offset = nextOffset()
       val rejection = LedgerEntry.Rejection(
         Instant.now,
@@ -196,28 +230,53 @@ class PostgresDaoSpec
 
       for {
         startingOffset <- ledgerDao.lookupLedgerEnd()
+        originalExternalLedgerEnd <- ledgerDao.lookupExternalLedgerEnd()
         _ <- ledgerDao.storeLedgerEntry(
           offset,
           offset + 1,
-          None,
+          externalOffset,
           PersistenceEntry.Rejection(rejection))
         entry <- ledgerDao.lookupLedgerEntry(offset)
         endingOffset <- ledgerDao.lookupLedgerEnd()
+        externalLedgerEnd <- ledgerDao.lookupExternalLedgerEnd()
       } yield {
         entry shouldEqual Some(rejection)
         endingOffset shouldEqual (startingOffset + 1)
+        // we reuse this function for tests with and without ledger end
+        // it should either match the provided externalOffset (if it's Some),
+        // otherwise it should match the previous one
+        externalLedgerEnd shouldEqual externalOffset.orElse(originalExternalLedgerEnd)
+      }
+
+    }
+    "be able to persist and load a rejection without external offset" in {
+      persistAndLoadRejection(None)
+    }
+
+    "be able to persist and load a rejection with external offset" in {
+      persistAndLoadRejection(nextExternalOffset())
+    }
+
+    "refuse to persist an upload with no packages without external offset" in {
+      recoverToSucceededIf[IllegalArgumentException] {
+        ledgerDao.uploadLfPackages(UUID.randomUUID().toString, Nil, None)
       }
     }
 
-    "refuse to persist an upload with no packages" in {
-      recoverToSucceededIf[IllegalArgumentException] {
-        ledgerDao.uploadLfPackages(UUID.randomUUID().toString, Nil)
-      }
+    "refuse to persist an upload with no packages with external offset" in {
+      for {
+        beforeExternalLedgerEnd <- ledgerDao.lookupExternalLedgerEnd()
+        _ <- recoverToSucceededIf[IllegalArgumentException] {
+          ledgerDao.uploadLfPackages(UUID.randomUUID().toString, Nil, nextExternalOffset())
+        }
+        afterExternalLedgerEnd <- ledgerDao.lookupExternalLedgerEnd()
+
+      } yield beforeExternalLedgerEnd shouldEqual afterExternalLedgerEnd
     }
 
     "refuse to persist an upload with an empty id" in {
       recoverToSucceededIf[IllegalArgumentException] {
-        ledgerDao.uploadLfPackages("", PostgresDaoSpec.Fixtures.packages)
+        ledgerDao.uploadLfPackages("", PostgresDaoSpec.Fixtures.packages, None)
       }
     }
 
@@ -230,12 +289,14 @@ class PostgresDaoSpec
             UUID.randomUUID().toString,
             PostgresDaoSpec.Fixtures.packages
               .map(a => a._1 -> a._2.copy(sourceDescription = Some(firstDescription)))
-              .take(1))
+              .take(1),
+            None)
         secondUploadResult <- ledgerDao
           .uploadLfPackages(
             UUID.randomUUID().toString,
             PostgresDaoSpec.Fixtures.packages.map(a =>
-              a._1 -> a._2.copy(sourceDescription = Some(secondDescription))))
+              a._1 -> a._2.copy(sourceDescription = Some(secondDescription))),
+            None)
         loadedPackages <- ledgerDao.listLfPackages
       } yield {
         firstUploadResult shouldBe Map(PersistenceResponse.Ok -> 1)
