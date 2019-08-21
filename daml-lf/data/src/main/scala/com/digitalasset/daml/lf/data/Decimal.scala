@@ -6,7 +6,6 @@ package data
 
 import java.math.BigDecimal
 
-
 import scala.math.{BigDecimal => BigDec}
 
 // Our legacy Numerics are fix scale 10, aka Decimals
