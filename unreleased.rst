@@ -26,3 +26,5 @@ HEAD — ongoing
 + [DAML Studio] The VSCode extension now has a configuration field for
   passing extra arguments to ``damlc ide``.
 + [Sandbox] Fixed a bug that caused the reset service to hang for 10 seconds. See issue `#2549 <https://github.com/digital-asset/daml/issues/2549>`__.
++ [Java Bindings] The Java Codegen now supports parametrized ContractIds.
+  See `#2258 <https://github.com/digital-asset/daml/issues/2258>`__.

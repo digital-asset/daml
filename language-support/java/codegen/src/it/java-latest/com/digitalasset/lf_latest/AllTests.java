@@ -14,6 +14,7 @@ import com.digitalasset.AllGenericTests;
         OptionalTest.class,
         MapTest.class,
         ContractKeysTest.class,
+        ParametrizedContractIdTest.class,
 })
 public class AllTests {
 }
