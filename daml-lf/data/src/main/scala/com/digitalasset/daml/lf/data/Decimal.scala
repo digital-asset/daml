@@ -1,11 +1,11 @@
 // Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.data
+package com.digitalasset.daml.lf
+package data
 
 import java.math.BigDecimal
 
-import com.digitalasset.daml.lf.data
 
 import scala.math.{BigDecimal => BigDec}
 
