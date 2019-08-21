@@ -67,8 +67,10 @@ renderUnwords = renderIntercalate " "
 
 -- | Environment in which to generate final documentation.
 data RenderEnv = RenderEnv
-    { lookupReference :: Reference -> Maybe AnchorLocation
-        -- ^ get location of anchor relative to render output, if available
+    { re_localAnchors :: Set.Set Anchor
+        -- ^ anchors defined in the same file
+    , re_globalAnchors :: Map.Map Anchor FilePath
+        -- ^ anchors defined in the same folder
     }
 
 -- | Location of an anchor relative to the output being rendered. An anchor
@@ -91,6 +93,17 @@ anchorHyperlink anchorLoc (Anchor anchor) =
         SameFolder fileName -> T.concat [T.pack fileName, "#", anchor]
         External uri -> T.pack . show $
             uri { URI.uriFragment = "#" <> T.unpack anchor }
+
+-- | Find the location of an anchor by reference, if possible.
+lookupReference ::
+    RenderEnv
+    -> Reference
+    -> Maybe AnchorLocation
+lookupReference RenderEnv{..} ref = asum
+    [ SameFile <$ guard (Set.member (referenceAnchor ref) re_localAnchors)
+    , SameFolder <$> Map.lookup (referenceAnchor ref) re_globalAnchors
+    , External <$> (packageURI =<< referencePackage ref)
+    ]
 
 -- | Map package names to URLs. In the future this should be configurable
 -- but for now we are hardcoding the standard library packages which are
@@ -121,19 +134,10 @@ renderPage :: RenderFormatter -> RenderOut -> T.Text
 renderPage formatter output =
     T.unlines (formatter renderEnv output)
   where
-    localAnchors = getRenderAnchors output
-
-    lookupAnchor :: Anchor -> Maybe AnchorLocation
-    lookupAnchor anchor
-        | Set.member anchor localAnchors = Just SameFile
-        | otherwise = Nothing
-
-    lookupReference ref = asum
-        [ lookupAnchor (referenceAnchor ref)
-        , External <$> (packageURI =<< referencePackage ref)
-        ]
-
-    renderEnv = RenderEnv {..}
+    renderEnv = RenderEnv
+        { re_localAnchors = getRenderAnchors output
+        , re_globalAnchors = Map.empty
+        }
 
 -- | Render a folder of modules.
 renderFolder ::
@@ -142,23 +146,14 @@ renderFolder ::
     -> Map.Map Modulename T.Text
 renderFolder formatter fileMap =
     let moduleAnchors = Map.map getRenderAnchors fileMap
-        globalAnchors = Map.fromList
+        re_globalAnchors = Map.fromList
             [ (anchor, moduleNameToFileName moduleName <.> "html")
             | (moduleName, anchors) <- Map.toList moduleAnchors
             , anchor <- Set.toList anchors
             ]
     in flip Map.mapWithKey fileMap $ \moduleName output ->
-        let localAnchors = fromMaybe Set.empty $
+        let re_localAnchors = fromMaybe Set.empty $
                 Map.lookup moduleName moduleAnchors
-            lookupAnchor anchor = asum
-                [ SameFile <$ guard (Set.member anchor localAnchors)
-                , SameFolder <$> Map.lookup anchor globalAnchors
-                ]
-            lookupReference ref = asum
-                [ lookupAnchor (referenceAnchor ref)
-                , External <$> (packageURI =<< referencePackage ref)
-                ]
-
             renderEnv = RenderEnv {..}
         in T.unlines (formatter renderEnv output)
 
