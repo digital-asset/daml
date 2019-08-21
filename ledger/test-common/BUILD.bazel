@@ -90,3 +90,13 @@ lf_test_versions = [
     ]
     for (target, target_name) in lf_test_versions
 ]
+
+filegroup(
+    name = "dar-files",
+    srcs = [
+        ":SemanticTests.dar",
+        ":Test-dev.dar",
+        ":Test-stable.dar",
+    ],
+    visibility = ["//visibility:public"],
+)
