@@ -158,7 +158,7 @@ da_scala_test_suite(
         ["src/test/suite/**/*.scala"],
     ),
     data = [
-        "//ledger/test-common:Test.dar",
+        "//ledger/test-common:Test-stable.dar",
         "@postgresql_dev_env//:all",
         "@postgresql_dev_env//:createdb",
         "@postgresql_dev_env//:initdb",
@@ -180,8 +180,8 @@ client_server_test(
     ],
     data = [
         "//ledger/test-common:SemanticTests.dar",
-        "//ledger/test-common:Test.dar",
-        "//ledger/test-common:Test-1.6.dar",
+        "//ledger/test-common:Test-dev.dar",
+        "//ledger/test-common:Test-stable.dar",
     ],
     server = "//ledger/sandbox:sandbox-binary",
     server_args = [
@@ -189,8 +189,8 @@ client_server_test(
         "--static-time",
         "--eager-package-loading",
         "ledger/test-common/SemanticTests.dar",
-        "ledger/test-common/Test.dar",
-        "ledger/test-common/Test-1.6.dar",
+        "ledger/test-common/Test-stable.dar",
+        "ledger/test-common/Test-dev.dar",
     ],
     tags = [
         "dont-run-on-darwin",
@@ -208,8 +208,8 @@ client_server_test(
     ],
     data = [
         "//ledger/test-common:SemanticTests.dar",
-        "//ledger/test-common:Test.dar",
-        "//ledger/test-common:Test-1.6.dar",
+        "//ledger/test-common:Test-dev.dar",
+        "//ledger/test-common:Test-stable.dar",
     ],
     server = "//ledger/sandbox:sandbox-binary",
     server_args = [
@@ -217,8 +217,8 @@ client_server_test(
         "--wall-clock-time",
         "--eager-package-loading",
         "ledger/test-common/SemanticTests.dar",
-        "ledger/test-common/Test.dar",
-        "ledger/test-common/Test-1.6.dar",
+        "ledger/test-common/Test-stable.dar",
+        "ledger/test-common/Test-dev.dar",
     ],
     tags = [
         "dont-run-on-darwin",
@@ -235,8 +235,8 @@ client_server_test(
     ],
     data = [
         "//ledger/test-common:SemanticTests.dar",
-        "//ledger/test-common:Test.dar",
-        "//ledger/test-common:Test-1.6.dar",
+        "//ledger/test-common:Test-dev.dar",
+        "//ledger/test-common:Test-stable.dar",
         "@postgresql_dev_env//:all",
         "@postgresql_dev_env//:createdb",
         "@postgresql_dev_env//:initdb",
@@ -248,8 +248,8 @@ client_server_test(
         "--static-time",
         "--eager-package-loading",
         "ledger/test-common/SemanticTests.dar",
-        "ledger/test-common/Test.dar",
-        "ledger/test-common/Test-1.6.dar",
+        "ledger/test-common/Test-stable.dar",
+        "ledger/test-common/Test-dev.dar",
     ],
     tags = [
         "dont-run-on-darwin",
@@ -267,8 +267,8 @@ client_server_test(
     ],
     data = [
         "//ledger/test-common:SemanticTests.dar",
-        "//ledger/test-common:Test.dar",
-        "//ledger/test-common:Test-1.6.dar",
+        "//ledger/test-common:Test-dev.dar",
+        "//ledger/test-common:Test-stable.dar",
         "@postgresql_dev_env//:all",
         "@postgresql_dev_env//:createdb",
         "@postgresql_dev_env//:initdb",
@@ -280,8 +280,8 @@ client_server_test(
         "--wall-clock-time",
         "--eager-package-loading",
         "ledger/test-common/SemanticTests.dar",
-        "ledger/test-common/Test.dar",
-        "ledger/test-common/Test-1.6.dar",
+        "ledger/test-common/Test-stable.dar",
+        "ledger/test-common/Test-dev.dar",
     ],
     tags = [
         "dont-run-on-darwin",

@@ -6,12 +6,12 @@ package com.daml.ledger.api.testtool.tests
 import java.util.UUID
 
 import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTest, LedgerTestSuite}
-import com.digitalasset.ledger.test_1_6.DA.Types.Tuple2
-import com.digitalasset.ledger.test_1_6.Test.Delegation._
-import com.digitalasset.ledger.test_1_6.Test.ShowDelegated._
-import com.digitalasset.ledger.test_1_6.Test.TextKey._
-import com.digitalasset.ledger.test_1_6.Test.TextKeyOperations._
-import com.digitalasset.ledger.test_1_6.Test._
+import com.digitalasset.ledger.test_stable.DA.Types.Tuple2
+import com.digitalasset.ledger.test_stable.Test.Delegation._
+import com.digitalasset.ledger.test_stable.Test.ShowDelegated._
+import com.digitalasset.ledger.test_stable.Test.TextKey._
+import com.digitalasset.ledger.test_stable.Test.TextKeyOperations._
+import com.digitalasset.ledger.test_stable.Test._
 import io.grpc.Status
 
 final class ContractKeys(session: LedgerSession) extends LedgerTestSuite(session) {

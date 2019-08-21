@@ -62,7 +62,7 @@ class PackageManagementServiceIT
   private case class LoadedPackage(size: Long, archive: Archive, pkg: Ast.Package)
 
   private def loadTestDar: (Array[Byte], List[LoadedPackage], String) = {
-    val file = new File(rlocation("ledger/test-common/Test.dar"))
+    val file = new File(rlocation("ledger/test-common/Test-stable.dar"))
 
     val testDarBytes = Files.readAllBytes(file.toPath)
 
