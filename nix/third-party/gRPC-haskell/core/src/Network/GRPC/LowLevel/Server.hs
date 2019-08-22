@@ -26,7 +26,7 @@ import           Control.Concurrent.STM.TVar           (TVar
                                                         , writeTVar
                                                         , readTVarIO
                                                         , newTVarIO)
-import           Control.Exception                     (bracket, finally)
+import           Control.Exception                     (bracket)
 import           Control.Monad
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Except
