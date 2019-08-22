@@ -5,7 +5,7 @@ package com.digitalasset.daml.lf
 package value
 
 import scala.language.higherKinds
-import data.{Decimal, FrontStack, Ref, SortedLookupList, Time}
+import data.{Numeric, FrontStack, Ref, SortedLookupList, Time}
 import data.ImmArray.ImmArraySeq
 import data.DataArbitrary._
 import iface.{Type, TypePrim, PrimType => PT}
@@ -60,7 +60,7 @@ object TypedValueGenerators {
     import Value._, ValueGenerators.Implicits._
     val text = noCid(PT.Text, ValueText) { case ValueText(t) => t }
     val int64 = noCid(PT.Int64, ValueInt64) { case ValueInt64(i) => i }
-    val decimal = noCid(PT.Decimal, ValueDecimal) { case ValueDecimal(d) => d }
+    val numeric = noCid(PT.Decimal, ValueNumeric) { case ValueNumeric(d) => d }
     val unit = noCid(PT.Unit, (_: Unit) => ValueUnit) { case ValueUnit => () }
     val date = noCid(PT.Date, ValueDate) { case ValueDate(d) => d }
     val timestamp = noCid(PT.Timestamp, ValueTimestamp) { case ValueTimestamp(t) => t }
@@ -139,13 +139,13 @@ object TypedValueGenerators {
   trait PrimInstances[F[_]] {
     def text: F[String]
     def int64: F[Long]
-    def decimal: F[Decimal]
+    def numeric: F[Numeric]
     def unit: F[Unit]
     def date: F[Time.Date]
     def timestamp: F[Time.Timestamp]
     def bool: F[Boolean]
     def party: F[Ref.Party]
-    def leafInstances: Seq[F[_]] = Seq(text, int64, decimal, unit, date, timestamp, bool, party)
+    def leafInstances: Seq[F[_]] = Seq(text, int64, numeric, unit, date, timestamp, bool, party)
   }
 
   /** This is the key member of interest, supporting many patterns:

@@ -3,7 +3,7 @@
 
 package com.digitalasset.extractor.writers.postgresql
 
-import com.digitalasset.daml.lf.data.{Time => LfTime}
+import com.digitalasset.daml.lf.data.{Decimal, Time => LfTime}
 import com.digitalasset.daml.lf.value.{Value => V}
 import com.digitalasset.extractor.json.JsonConverters._
 import com.digitalasset.extractor.Types._
@@ -302,7 +302,12 @@ object Queries {
             toJsonString(l)
           )
         case V.ValueInt64(value) => Fragment("?", value)
-        case V.ValueDecimal(value) => Fragment("?::numeric(38,10)", value: BigDecimal)
+        case V.ValueNumeric(value) =>
+          // FixMe: https://github.com/digital-asset/daml/issues/2289
+          //  For now all the ValueNumeric should have scale 10
+          //  Adapt this code once it is possible to create Numerics with different scale
+          assert(value.scale == Decimal.scale)
+          Fragment("?::numeric(38,10)", value: BigDecimal)
         case V.ValueText(value) => Fragment("?", value)
         case ts @ V.ValueTimestamp(_) => Fragment("?", ts)
         case V.ValueParty(value) => Fragment("?", value: String)

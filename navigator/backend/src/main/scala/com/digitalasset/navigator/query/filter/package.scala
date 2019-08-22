@@ -153,8 +153,8 @@ package object filter {
           Right(checkContained(value, expectedValue))
         case V.ValueInt64(value) if cursor.isLast =>
           Right(checkContained(value.toString, expectedValue))
-        case V.ValueDecimal(value) if cursor.isLast =>
-          Right(checkContained(value.decimalToString, expectedValue))
+        case V.ValueNumeric(value) if cursor.isLast =>
+          Right(checkContained(value.toUnscaledString, expectedValue))
         case V.ValueText(value) if cursor.isLast => Right(checkContained(value, expectedValue))
         case V.ValueParty(value) if cursor.isLast => Right(checkContained(value, expectedValue))
         case V.ValueBool(value) if cursor.isLast =>

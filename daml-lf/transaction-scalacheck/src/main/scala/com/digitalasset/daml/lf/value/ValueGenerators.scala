@@ -77,18 +77,18 @@ object ValueGenerators {
   val defaultNidEncode: TransactionCoder.EncodeNid[NodeId] = nid => nid.index.toString
 
   //generate decimal values
-  val decimalGen: Gen[ValueDecimal] = {
+  val decimalGen: Gen[ValueNumeric] = {
     val integerPart = Gen.listOfN(28, Gen.choose(1, 9)).map(_.mkString)
     val decimalPart = Gen.listOfN(10, Gen.choose(1, 9)).map(_.mkString)
-    val bd = integerPart.flatMap(i => decimalPart.map(d => s"$i.$d")).map(BigDecimal(_))
+    val bd = integerPart.flatMap(i => decimalPart.map(d => Decimal.assertFromString(s"$i.$d")))
     Gen
       .frequency(
-        (1, Gen.const(BigDecimal("0.0"))),
+        (1, Gen.const(Decimal.assertFromString("0.0"))),
         (1, Gen.const(Decimal.MaxValue)),
         (1, Gen.const(Decimal.MinValue)),
         (5, bd)
       )
-      .map(d => ValueDecimal(Decimal.assertFromBigDecimal(d)))
+      .map(ValueNumeric)
   }
 
   val moduleSegmentGen: Gen[String] = for {
@@ -421,7 +421,7 @@ object ValueGenerators {
       .filter(x => !TransactionVersions.acceptedVersions.contains(x))
 
   object Implicits {
-    implicit val vdecimalArb: Arbitrary[Decimal] = Arbitrary(decimalGen map (_.value))
+    implicit val vdecimalArb: Arbitrary[Numeric] = Arbitrary(decimalGen map (_.value))
     implicit val vdateArb: Arbitrary[Time.Date] = Arbitrary(dateGen)
     implicit val vtimestampArb: Arbitrary[Time.Timestamp] = Arbitrary(timestampGen)
     implicit val vpartyArb: Arbitrary[Ref.Party] = Arbitrary(party)

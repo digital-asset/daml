@@ -69,7 +69,7 @@ da_scala_binary(
     name = "encoder_binary",
     srcs = glob(["src/main/scala/com/digitalasset/daml/lf/archive/testing/DamlLfEncoder.scala"]),
     main_class = "com.digitalasset.daml.lf.archive.testing.DamlLfEncoder",
-    scalacopts = ["-Xsource:2.13"],
+    scalacopts = lf_scalacopts,
     visibility = [
         "//daml-lf:__subpackages__",
         "//language-support:__subpackages__",

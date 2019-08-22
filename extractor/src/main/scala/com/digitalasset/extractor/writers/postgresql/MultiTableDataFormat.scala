@@ -249,7 +249,11 @@ class MultiTableDataFormat(
         case iface.PrimTypeList => "JSONB"
         case iface.PrimTypeContractId => "TEXT"
         case iface.PrimTypeTimestamp => "TIMESTAMP"
-        case iface.PrimTypeDecimal => "NUMERIC(38, 10)"
+        case iface.PrimTypeDecimal =>
+          // FixMe: https://github.com/digital-asset/daml/issues/2289
+          //  For now all the Numerics (the values behind PrimTypeDecimal) should have scale 10
+          //  Adapt this code once it is possible to create Numerics with different scale
+          "NUMERIC(38, 10)"
         case iface.PrimTypeBool => "BOOLEAN"
         case iface.PrimTypeUnit => "SMALLINT"
         case iface.PrimTypeInt64 => "BIGINT"

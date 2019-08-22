@@ -291,7 +291,7 @@ object ValueCoder {
             ValueUnit
           case proto.Value.SumCase.DECIMAL =>
             val d = Decimal.fromString(protoValue.getDecimal)
-            d.fold(e => throw Err("error decoding decimal: " + e), ValueDecimal)
+            d.fold(e => throw Err("error decoding decimal: " + e), ValueNumeric)
           case proto.Value.SumCase.INT64 =>
             ValueInt64(protoValue.getInt64)
           case proto.Value.SumCase.TEXT =>
@@ -426,8 +426,8 @@ object ValueCoder {
             builder.setBool(b).build()
           case ValueInt64(i) =>
             builder.setInt64(i).build()
-          case ValueDecimal(d) =>
-            builder.setDecimal(Decimal.toString(d)).build()
+          case ValueNumeric(d) =>
+            builder.setDecimal(Numeric.toUnscaledString(d)).build()
           case ValueText(t) =>
             builder.setText(t).build()
           case ValueParty(p) =>

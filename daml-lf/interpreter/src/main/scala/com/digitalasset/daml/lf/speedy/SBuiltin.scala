@@ -228,7 +228,7 @@ object SBuiltin {
       SText(v match {
         case SBool(b) => b.toString
         case SInt64(i) => i.toString
-        case SNumeric(d) => Decimal.toString(d)
+        case SNumeric(d) => Numeric.toUnscaledString(d)
         case STimestamp(t) => t.toString
         case SText(t) => t
         case SParty(p) => p
