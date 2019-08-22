@@ -95,7 +95,7 @@ da_haskell_test(
     ],
 )
 
-# Tests for daml-doctest
+# Unit tests for daml-doctest
 da_haskell_test(
     name = "daml-doctest",
     srcs = ["src/DA/Test/DamlDocTest.hs"],
@@ -117,6 +117,27 @@ da_haskell_test(
         "//compiler/damlc/daml-opts:daml-opts-types",
         "//compiler/hie-core",
         "//libs-haskell/da-hs-base",
+    ],
+)
+
+# Integration test for damlc doctest
+da_haskell_test(
+    name = "daml-doctest-integration",
+    srcs = ["src/DA/Test/DamlDocTestIntegration.hs"],
+    data = ["//compiler/damlc"],
+    hazel_deps = [
+        "base",
+        "extra",
+        "filepath",
+        "process",
+        "tasty",
+        "tasty-hunit",
+    ],
+    main_function = "DA.Test.DamlDocTestIntegration.main",
+    src_strip_prefix = "src",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//libs-haskell/bazel-runfiles",
     ],
 )
 
