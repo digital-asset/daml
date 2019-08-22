@@ -19,9 +19,7 @@ package object tests {
    * - CommandTransactionChecksHighLevelIT
    * - CommandTransactionChecksLowLevelIT
    * - PackageManagementServiceIT
-   * - PartyManagementServiceIT
    * - CommandSubmissionTtlIT
-   * - ActiveContractsServiceIT
    */
   val optional: Map[String, LedgerSession => LedgerTestSuite] = Map(
     "DivulgenceIT" -> (new Divulgence(_)),
@@ -31,7 +29,8 @@ package object tests {
     "ContractKeysIT" -> (new ContractKeys(_)),
     "WitnessesIT" -> (new Witnesses(_)),
     "CommandServiceIT" -> (new CommandService(_)),
-    "ActiveContractsServiceIT" -> (new ActiveContractsService(_))
+    "ActiveContractsServiceIT" -> (new ActiveContractsService(_)),
+    "PartyManagementServiceIT" -> (new PartyManagement(_))
   )
 
   val all = default ++ optional

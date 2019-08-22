@@ -9,7 +9,10 @@ import com.digitalasset.ledger.api.v1.active_contracts_service.{
   GetActiveContractsRequest,
   GetActiveContractsResponse
 }
-import com.digitalasset.ledger.api.v1.admin.party_management_service.AllocatePartyRequest
+import com.digitalasset.ledger.api.v1.admin.party_management_service.{
+  AllocatePartyRequest,
+  GetParticipantIdRequest
+}
 import com.digitalasset.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.digitalasset.ledger.api.v1.commands.{Command, Commands}
 import com.digitalasset.ledger.api.v1.event.Event.Event.Created
@@ -110,9 +113,27 @@ private[testtool] final class LedgerTestContext private[infrastructure] (
         .map(_ => ())
     } yield result
 
+  def participantId(): Future[String] =
+    services.partyManagement.getParticipantId(new GetParticipantIdRequest).map(_.participantId)
+
+  /**
+    * Managed version of party allocation, should be used anywhere a party has
+    * to be allocated unless the party management service itself is under test
+    */
   def allocateParty(): Future[Party] =
     services.partyManagement
       .allocateParty(new AllocatePartyRequest(partyIdHint = nextPartyHintId()))
+      .map(r => Party(r.partyDetails.get.party))
+
+  /**
+    * Non managed version of party allocation. Use exclusively when testing the party management service.
+    */
+  def allocateParty(partyHintId: Option[String], displayName: Option[String]): Future[Party] =
+    services.partyManagement
+      .allocateParty(
+        new AllocatePartyRequest(
+          partyIdHint = partyHintId.getOrElse(""),
+          displayName = displayName.getOrElse("")))
       .map(r => Party(r.partyDetails.get.party))
 
   def allocateParties(n: Int): Future[Vector[Party]] =
