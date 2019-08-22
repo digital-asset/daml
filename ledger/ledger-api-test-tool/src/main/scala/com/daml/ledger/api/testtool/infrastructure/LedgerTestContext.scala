@@ -69,7 +69,7 @@ object LedgerTestContext {
 
 }
 
-private[testtool] final class LedgerTestContext(
+private[testtool] final class LedgerTestContext private[infrastructure] (
     val ledgerId: String,
     val applicationId: String,
     referenceOffset: LedgerOffset,
