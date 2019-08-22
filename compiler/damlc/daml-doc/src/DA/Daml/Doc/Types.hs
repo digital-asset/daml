@@ -41,6 +41,21 @@ data Type = TypeApp !(Maybe Reference) !Typename [Type] -- ^ Type application
           | TypeLit Text -- ^ a literal (e.g. "foo") appearing at the type level
   deriving (Eq, Ord, Show, Generic)
 
+getTypeAppAnchor :: Type -> Maybe Anchor
+getTypeAppAnchor = \case
+    TypeApp refM _ _ -> referenceAnchor <$> refM
+    _ -> Nothing
+
+getTypeAppName :: Type -> Maybe Typename
+getTypeAppName = \case
+    TypeApp _ n _ -> Just n
+    _ -> Nothing
+
+getTypeAppArgs :: Type -> Maybe [Type]
+getTypeAppArgs = \case
+    TypeApp _ _ a -> Just a
+    _ -> Nothing
+
 instance Hashable Type where
   hashWithSalt salt = hashWithSalt salt . show
 
