@@ -18,7 +18,6 @@ client=$(rlocation "$TEST_WORKSPACE/{client}")
 server=$(rlocation "$TEST_WORKSPACE/{server}")
 server_args="{server_args}"
 for file in {server_files}; do
-    echo "$("rlocation $TEST_WORKSPACE/$file")"  >> /tmp/log
     server_args+=" $(rlocation $TEST_WORKSPACE/$file)"
 done
 
@@ -26,7 +25,7 @@ client_args="$@"
 if [ -z "$client_args" ]; then
     client_args="{client_args}"
     for file in {client_files}; do
-        server_args+=" $(rlocation $TEST_WORKSPACE/$file)"
+        client_args+=" $(rlocation $TEST_WORKSPACE/$file)"
     done
 fi
 
@@ -93,10 +92,11 @@ The server process is killed after the client process exits.
 The client and server executables can be any Bazel target that
 is executable, e.g. scala_binary, sh_binary, etc.
 
-The client and server files are runfiles paths of files that must be
-fully resolved before being fed as argument to the client and server,
-respectively. Those paths are typically obtained using rootpath(s) on
-bazel targets.
+The client and server files must be valid arguments to rlocation, as
+can be obtained using $(rootpath ...) or $(rootpaths ...). (See
+https://docs.bazel.build/versions/master/be/make-variables.html#predefined_label_variables.)
+Once expended using rlocation, those are simply appended to client
+and server arguments, respectively.
 
 Example:
   ```bzl
@@ -104,10 +104,10 @@ Example:
     name = "my_test",
     client = ":my_client",
     client_args = ["--extra-argument"],
-    client_files = ["file-for-client"]
+    client_files = ["$(rootpath :target-for-client)"]
     server = ":my_server",
     server_args = ["--fast"],
-    server_files = ["file-for-server"]
+    server_files = ["$(rootpath :target-for-client)"]
   )
   ```
 """
