@@ -11,7 +11,7 @@
 -- `Network.GRPC.LowLevel.Client.Unregistered`.
 module Network.GRPC.LowLevel.Client where
 
-import           Control.Exception                     (bracket, finally)
+import           Control.Exception                     (bracket)
 import           Control.Concurrent.MVar
 import           Control.Monad
 import           Control.Monad.IO.Class
@@ -216,9 +216,12 @@ withClientCallParent :: Client
                      -> (ClientCall -> IO (Either GRPCIOError a))
                      -> IO (Either GRPCIOError a)
 withClientCallParent cl rm tm parent f =
-  clientCreateCallParent cl rm tm parent >>= \case
+  bracket (clientCreateCallParent cl rm tm parent) cleanup $ \case
     Left e  -> return (Left e)
-    Right c -> f c `finally` do
+    Right c -> f c
+  where
+    cleanup (Left _) = pure ()
+    cleanup (Right c) = do
       debugClientCall c
       grpcDebug "withClientCall(R): destroying."
       destroyClientCall c

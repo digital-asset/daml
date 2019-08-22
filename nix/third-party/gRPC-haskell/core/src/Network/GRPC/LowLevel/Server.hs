@@ -26,7 +26,7 @@ import           Control.Concurrent.STM.TVar           (TVar
                                                         , writeTVar
                                                         , readTVarIO
                                                         , newTVarIO)
-import           Control.Exception                     (bracket, finally)
+import           Control.Exception                     (bracket)
 import           Control.Monad
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Except
@@ -343,13 +343,16 @@ withServerCall :: Server
                -> (ServerCall (MethodPayload mt) -> IO (Either GRPCIOError a))
                -> IO (Either GRPCIOError a)
 withServerCall s rm f =
-    serverCreateCall s rm >>= \case
-      Left e  -> return (Left e)
-      Right c -> do
-        debugServerCall c
-        f c `finally` do
-          grpcDebug "withServerCall(R): destroying."
-          destroyServerCall c
+  bracket (serverCreateCall s rm) cleanup $ \case
+    Left e  -> return (Left e)
+    Right c -> do
+      debugServerCall c
+      f c
+  where
+    cleanup (Left _) = pure ()
+    cleanup (Right c) = do
+      grpcDebug "withServerCall(R): destroying."
+      destroyServerCall c
 
 --------------------------------------------------------------------------------
 -- serverReader (server side of client streaming mode)

@@ -23,7 +23,6 @@ module Network.GRPC.HighLevel.Client
 
 where
 
-import Control.Exception
 import qualified Network.GRPC.LowLevel.Client as LL
 import qualified Network.GRPC.LowLevel.Call as LL
 import Network.GRPC.LowLevel.CompletionQueue (TimeoutSeconds)
@@ -94,13 +93,7 @@ clientRequest :: (Message request, Message response) =>
                  LL.Client -> RegisteredMethod streamType request response
               -> ClientRequest streamType request response -> IO (ClientResult streamType response)
 clientRequest client (RegisteredMethod method) (ClientNormalRequest req timeout meta) =
-    -- The internals of clientRequest are not able to handle asynchronous exceptions so we mask them.
-    -- This is probably also an issue for the other methods below but until we have a good
-    -- test case for those, I’ll leave it as is.
-    -- In particular for streaming requests, masking everything is not reasonable
-    -- so we probably need to fix the internals to handle asynchronous exceptions properly
-    -- at a finer granularity.
-    mkResponse <$> mask_ (LL.clientRequest client method timeout (BL.toStrict (toLazyByteString req)) meta)
+    mkResponse <$> LL.clientRequest client method timeout (BL.toStrict (toLazyByteString req)) meta
   where
     mkResponse (Left ioError_) = ClientErrorResponse (ClientIOError ioError_)
     mkResponse (Right rsp) =

@@ -3,7 +3,7 @@
 
 module Network.GRPC.LowLevel.Server.Unregistered where
 
-import           Control.Exception                                  (finally)
+import           Control.Exception                                  (bracket, finally, mask)
 import           Control.Monad
 import           Control.Monad.Trans.Except
 import           Data.ByteString                                    (ByteString)
@@ -30,9 +30,12 @@ withServerCall :: Server
                -> (ServerCall -> IO (Either GRPCIOError a))
                -> IO (Either GRPCIOError a)
 withServerCall s f =
-  serverCreateCall s >>= \case
-    Left e  -> return (Left e)
-    Right c -> f c `finally` do
+  bracket (serverCreateCall s) cleanup $ \case
+    Left e -> return (Left e)
+    Right c -> f c
+  where
+    cleanup (Left _) = pure ()
+    cleanup (Right c) = do
       grpcDebug "withServerCall: destroying."
       destroyServerCall c
 
@@ -44,13 +47,13 @@ withServerCall s f =
 withServerCallAsync :: Server
                     -> (ServerCall -> IO ())
                     -> IO ()
-withServerCallAsync s f =
+withServerCallAsync s f = mask $ \unmask ->
   serverCreateCall s >>= \case
     Left e -> do grpcDebug $ "withServerCallAsync: call error: " ++ show e
                  return ()
     Right c -> do wasForkSuccess <- forkServer s handler
                   unless wasForkSuccess destroy
-                where handler = f c `finally` destroy
+                where handler = unmask (f c) `finally` destroy
                       -- TODO: We sometimes never finish cleanup if the server
                       -- is shutting down and calls killThread. This causes gRPC
                       -- core to complain about leaks.  I think the cause of
