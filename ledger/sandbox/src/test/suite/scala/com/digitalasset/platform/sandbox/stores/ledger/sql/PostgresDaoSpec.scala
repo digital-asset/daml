@@ -534,7 +534,7 @@ object PostgresDaoSpec {
       Try(DamlLf.Archive.parseFrom(stream))
     }
     private val Success(dar) =
-      reader.readArchiveFromFile(new File(rlocation("ledger/test-common/Test.dar")))
+      reader.readArchiveFromFile(new File(rlocation("ledger/test-common/Test-stable.dar")))
     private val now = Instant.now()
 
     val packages =

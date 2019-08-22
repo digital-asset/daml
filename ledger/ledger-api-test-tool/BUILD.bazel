@@ -21,9 +21,7 @@ da_scala_binary(
     main_class = "com.daml.ledger.api.testtool.LedgerApiTestTool",
     resources = [
         "src/main/resources/logback.xml",
-        "//ledger/test-common:SemanticTests.dar",
-        "//ledger/test-common:Test.dar",
-        "//ledger/test-common:Test-1.6.dar",
+        "//ledger/test-common:dar-files",
     ],
     tags = [
         "maven_coordinates=com.daml.ledger.testtool:ledger-api-test-tool:__VERSION__",
@@ -50,8 +48,8 @@ da_scala_binary(
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-domain",
         "//ledger/test-common",
-        "//ledger/test-common:Test.scala",
-        "//ledger/test-common:Test-1.6.scala",
+        "//ledger/test-common:Test-dev.scala",
+        "//ledger/test-common:Test-stable.scala",
     ],
 )
 
@@ -66,19 +64,15 @@ client_server_test(
     ],
     # Data files available to both client and server.
     data = [
-        "//ledger/test-common:SemanticTests.dar",
-        "//ledger/test-common:Test.dar",
-        "//ledger/test-common:Test-1.6.dar",
+        "//ledger/test-common:dar-files",
         "@postgresql_dev_env//:all",
         "@postgresql_dev_env//:createdb",
         "@postgresql_dev_env//:initdb",
         "@postgresql_dev_env//:pg_ctl",
     ],
     server = "//ledger/api-server-damlonx/reference-v2:ephemeral-postgres-reference-server",
-    server_args = [
-        "$(rlocation $TEST_WORKSPACE/$(rootpath //ledger/test-common:SemanticTests.dar))",
-        "$(rlocation $TEST_WORKSPACE/$(rootpath //ledger/test-common:Test.dar))",
-        "$(rlocation $TEST_WORKSPACE/$(rootpath //ledger/test-common:Test-1.6.dar))",
+    server_files = [
+        "$(rootpaths //ledger/test-common:dar-files)",
     ],
     tags = [
         # NOTE(JM,GP): As this test is somewhat heavy and has timeouts, run it
@@ -101,9 +95,7 @@ client_server_test(
     ],
     # Data files available to both client and server.
     data = [
-        "//ledger/test-common:SemanticTests.dar",
-        "//ledger/test-common:Test.dar",
-        "//ledger/test-common:Test-1.6.dar",
+        "//ledger/test-common:dar-files",
         "@postgresql_dev_env//:all",
         "@postgresql_dev_env//:createdb",
         "@postgresql_dev_env//:initdb",
@@ -111,12 +103,12 @@ client_server_test(
     ] + glob(["test/main/resources/*"]),
     server = "//ledger/api-server-damlonx/reference-v2:ephemeral-postgres-reference-server",
     server_args = [
-        "$(rlocation $TEST_WORKSPACE/$(rootpath //ledger/test-common:SemanticTests.dar))",
-        "$(rlocation $TEST_WORKSPACE/$(rootpath //ledger/test-common:Test.dar))",
-        "$(rlocation $TEST_WORKSPACE/$(rootpath //ledger/test-common:Test-1.6.dar))",
         "--crt $(rlocation $TEST_WORKSPACE/$(rootpath test/main/resources/server.crt))",
         "--cacrt $(rlocation $TEST_WORKSPACE/$(rootpath test/main/resources/ca.crt))",
         "--pem $(rlocation $TEST_WORKSPACE/$(rootpath test/main/resources/server.pem))",
+    ],
+    server_files = [
+        "$(rootpaths //ledger/test-common:dar-files)",
     ],
     tags = [
         # NOTE(JM,GP): As this test is somewhat heavy and has timeouts, run it

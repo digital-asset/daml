@@ -4,7 +4,7 @@
 package com.daml.ledger.api.testtool.tests
 
 import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTest, LedgerTestSuite}
-import com.digitalasset.ledger.test.Test.Dummy
+import com.digitalasset.ledger.test_stable.Test.Dummy
 import io.grpc.Status
 import scalaz.syntax.tag._
 
