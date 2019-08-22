@@ -6,7 +6,8 @@ package com.digitalasset.daml.lf.codegen.backend.java.inner
 import java.util.Optional
 
 import com.daml.ledger.javaapi
-import com.daml.ledger.javaapi.data.{ContractId, CreatedEvent}
+import com.daml.ledger.javaapi.data.CreatedEvent
+import com.daml.ledger.javaapi.data.codegen.{ContractId => CodegenContractId}
 import com.digitalasset.daml.lf.codegen.TypeWithContext
 import com.digitalasset.daml.lf.codegen.backend.java.ObjectMethods
 import com.digitalasset.daml.lf.data.Ref.{ChoiceName, PackageId, QualifiedName}
@@ -301,14 +302,15 @@ private[inner] object TemplateClass extends StrictLogging {
     val idClassBuilder =
       TypeSpec
         .classBuilder("ContractId")
+        .superclass(ParameterizedTypeName
+          .get(ClassName.get(classOf[CodegenContractId[_]]), templateClassName))
         .addModifiers(Modifier.FINAL, Modifier.PUBLIC, Modifier.STATIC)
-        .addField(ClassName.get(classOf[String]), "contractId", Modifier.PUBLIC, Modifier.FINAL)
     val constructor =
       MethodSpec
         .constructorBuilder()
         .addModifiers(Modifier.PUBLIC)
         .addParameter(ClassName.get(classOf[String]), "contractId")
-        .addStatement("this.contractId = contractId")
+        .addStatement("super(contractId)")
         .build()
     idClassBuilder.addMethod(constructor)
     for ((choiceName, choice) <- choices) {
@@ -327,19 +329,6 @@ private[inner] object TemplateClass extends StrictLogging {
         idClassBuilder.addMethod(splatted)
       }
     }
-    val toValue = MethodSpec
-      .methodBuilder("toValue")
-      .addModifiers(Modifier.PUBLIC)
-      .returns(classOf[javaapi.data.Value])
-      .addStatement(
-        CodeBlock.of("return new $L(this.contractId)", ClassName.get(classOf[ContractId])))
-      .build()
-    idClassBuilder.addMethod(toValue)
-
-    idClassBuilder.addMethods(ObjectMethods(
-      ClassName.bestGuess("ContractId"),
-      IndexedSeq("contractId"),
-      templateClassName).asJava)
     idClassBuilder.build()
   }
 

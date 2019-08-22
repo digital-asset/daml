@@ -6,6 +6,7 @@ package com.digitalasset.daml.lf.codegen.backend.java
 import java.util
 
 import com.daml.ledger.javaapi
+import com.daml.ledger.javaapi.data.codegen.ContractId
 import com.daml.ledger.javaapi.data.{DamlList, DamlMap, DamlOptional}
 import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
 import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
@@ -59,7 +60,9 @@ package object inner {
       case TypePrim(PrimTypeContractId, ImmArraySeq(templateType)) =>
         toJavaTypeName(templateType, packagePrefixes) match {
           case templateClass: ClassName => templateClass.nestedClass("ContractId")
-          case _ => sys.error("should not happen")
+          case typeVariableName: TypeVariableName =>
+            ParameterizedTypeName.get(ClassName.get(classOf[ContractId[_]]), typeVariableName)
+          case unexpected => sys.error(s"Unexpected type [$unexpected] for DAML type [$damlType]")
         }
       case TypePrim(PrimTypeList, typeParameters) =>
         ParameterizedTypeName
