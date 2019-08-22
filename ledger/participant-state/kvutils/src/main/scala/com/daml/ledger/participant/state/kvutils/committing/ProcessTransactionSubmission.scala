@@ -13,7 +13,7 @@ import com.digitalasset.daml.lf.archive.Reader.ParseError
 import com.digitalasset.daml.lf.data.Ref.{PackageId, Party}
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.engine.{Blinding, Engine}
-import com.digitalasset.daml.lf.transaction.GenTransaction
+import com.digitalasset.daml.lf.transaction.{BlindingInfo, GenTransaction}
 import com.digitalasset.daml.lf.transaction.Node.{GlobalKey, NodeCreate}
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractId, NodeId, VersionedValue}
 import org.slf4j.LoggerFactory
@@ -42,7 +42,8 @@ private[kvutils] case class ProcessTransactionSubmission(
       validateLetAndTtl,
       validateContractKeyUniqueness,
       validateModelConformance,
-      buildFinalResult
+      authorizeAndBlind
+        .flatMap(buildFinalResult)
     )
 
   // -------------------------------------------------------------------------------
@@ -144,6 +145,13 @@ private[kvutils] case class ProcessTransactionSubmission(
       .fold(err => reject(RejectionReason.Disputed(err.msg)), _ => pass)
   }
 
+  /** Validate the submission's conformance to the DAML model */
+  private def authorizeAndBlind: Commit[BlindingInfo] = delay {
+    Blinding
+      .checkAuthorizationAndBlind(relTx, initialAuthorizers = Set(submitter))
+      .fold(err => reject(RejectionReason.Disputed(err.msg)), pure)
+  }
+
   private def validateContractKeyUniqueness: Commit[Unit] =
     for {
       damlState <- getDamlState
@@ -170,9 +178,8 @@ private[kvutils] case class ProcessTransactionSubmission(
     } yield r
 
   /** All checks passed. Produce the log entry and contract state updates. */
-  private def buildFinalResult: Commit[Unit] = delay {
+  private def buildFinalResult(blindingInfo: BlindingInfo): Commit[Unit] = delay {
     val effects = InputsAndEffects.computeEffects(entryId, relTx)
-    val blindingInfo = Blinding.blind(relTx)
 
     // Helper to read the _current_ contract state.
     // NOTE(JM): Important to fetch from the state that is currently being built up since
