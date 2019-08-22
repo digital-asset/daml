@@ -4,7 +4,7 @@
 module Network.GRPC.LowLevel.Client.Unregistered where
 
 import           Control.Arrow
-import           Control.Exception                                  (finally)
+import           Control.Exception                                  (bracket)
 import           Control.Monad                                      (join)
 import           Data.ByteString                                    (ByteString)
 import           Foreign.Ptr                                        (nullPtr)
@@ -40,13 +40,15 @@ withClientCall :: Client
                -> TimeoutSeconds
                -> (ClientCall -> IO (Either GRPCIOError a))
                -> IO (Either GRPCIOError a)
-withClientCall client method timeout f = do
-  createResult <- clientCreateCall client method timeout
-  case createResult of
+withClientCall client method timeout f =
+  bracket (clientCreateCall client method timeout) cleanup $ \case
     Left x -> return $ Left x
-    Right call -> f call `finally` logDestroy call
-                    where logDestroy c = grpcDebug "withClientCall(U): destroying."
-                                         >> destroyClientCall c
+    Right call -> f call
+  where
+    cleanup (Left _) = pure ()
+    cleanup (Right call) = do
+      grpcDebug "withClientCall(U): destroying."
+      destroyClientCall call
 
 -- | Makes a normal (non-streaming) request without needing to register a method
 -- first. Probably only useful for testing.
