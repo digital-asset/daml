@@ -12,8 +12,8 @@ import com.daml.ledger.api.testtool.infrastructure.{
 import com.digitalasset.ledger.api.v1.event.Event.Event.Created
 import com.digitalasset.ledger.api.v1.event.{CreatedEvent, Event}
 import com.digitalasset.ledger.client.binding.Primitive.{Party, TemplateId}
-import com.digitalasset.ledger.test.Test.Dummy._
-import com.digitalasset.ledger.test.Test.{Dummy, DummyFactory, DummyWithParam}
+import com.digitalasset.ledger.test_stable.Test.Dummy._
+import com.digitalasset.ledger.test_stable.Test.{Dummy, DummyFactory, DummyWithParam}
 import io.grpc.Status
 import scalaz.syntax.tag._
 
