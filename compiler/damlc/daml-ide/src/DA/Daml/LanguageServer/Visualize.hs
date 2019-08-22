@@ -46,11 +46,8 @@ onCommand ide execParsms = case execParsms of
             Nothing     -> do
                 logError (ideLogger ide) "Expected a single module to visualize, got multiple module"
                 return $ Aeson.String "Expected a single module to visualize, got multiple module"
-    ExecuteCommandParams  "daml/damlVisualize" Nothing -> do
-        logError (ideLogger ide) "Missing DAML module to visualize"
-        return Aeson.Null
-    ExecuteCommandParams _ _ -> do
-        logError (ideLogger ide) "Unsupported command"
+    ExecuteCommandParams  command args -> do
+        logError (ideLogger ide) $ T.pack ("Unsupported command " ++ show command ++ "with args " ++ show args)
         return Aeson.Null
 
 setCommandHandler ::PartialHandlers
