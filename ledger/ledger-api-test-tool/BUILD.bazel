@@ -71,7 +71,7 @@ client_server_test(
         "@postgresql_dev_env//:pg_ctl",
     ],
     server = "//ledger/api-server-damlonx/reference-v2:ephemeral-postgres-reference-server",
-    server_args = [
+    server_files = [
         "$(rootpaths //ledger/test-common:dar-files)",
     ],
     tags = [
@@ -103,10 +103,12 @@ client_server_test(
     ] + glob(["test/main/resources/*"]),
     server = "//ledger/api-server-damlonx/reference-v2:ephemeral-postgres-reference-server",
     server_args = [
-        "$(rootpaths //ledger/test-common:dar-files)",
         "--crt $(rlocation $TEST_WORKSPACE/$(rootpath test/main/resources/server.crt))",
         "--cacrt $(rlocation $TEST_WORKSPACE/$(rootpath test/main/resources/ca.crt))",
         "--pem $(rlocation $TEST_WORKSPACE/$(rootpath test/main/resources/server.pem))",
+    ],
+    server_files = [
+        "$(rootpaths //ledger/test-common:dar-files)",
     ],
     tags = [
         # NOTE(JM,GP): As this test is somewhat heavy and has timeouts, run it

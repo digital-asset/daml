@@ -78,7 +78,7 @@ client_server_test(
         "@postgresql_dev_env//:pg_ctl",
     ],
     server = ":ephemeral-postgres-reference-server",
-    server_args = [
+    server_files = [
         "$(rootpaths //ledger/test-common:dar-files)",
     ],
     tags = [

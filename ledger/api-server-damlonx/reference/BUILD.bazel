@@ -51,10 +51,13 @@ client_server_test(
         "--exclude=*",
         "--include=SemanticTests,ContractKeysIT",
     ],
-    data = ["//ledger/test-common:dar-files"],
+    data = [
+        "//ledger/test-common:Test-stable.dar",
+        "//ledger/test-common:dar-files",
+    ],
     server = ":reference",
-    server_args = [
-        "$(for file in $(rootpaths //ledger/test-common:dar-files); do rlocation $TEST_WORKSPACE/$file; done)",
+    server_files = [
+        "$(rootpaths //ledger/test-common:dar-files)",
     ],
     tags = [
         # NOTE(JM): As this test is somewhat heavy and has timeouts, run it without competition to avoid flakyness.

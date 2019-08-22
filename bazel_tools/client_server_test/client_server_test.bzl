@@ -13,22 +13,32 @@ def _client_server_test_impl(ctx):
         content = """#!/usr/bin/env bash
 set -eou pipefail
 
-RUNNER=$(rlocation $TEST_WORKSPACE/{runner})
-CLIENT=$(rlocation $TEST_WORKSPACE/{client})
-SERVER=$(rlocation $TEST_WORKSPACE/{server})
+runner=$(rlocation "$TEST_WORKSPACE/{runner}")
+client=$(rlocation "$TEST_WORKSPACE/{client}")
+server=$(rlocation "$TEST_WORKSPACE/{server}")
+server_args="{server_args}"
+for file in {server_files}; do
+    echo "$("rlocation $TEST_WORKSPACE/$file")"  >> /tmp/log
+    server_args+=" $(rlocation $TEST_WORKSPACE/$file)"
+done
 
-CLIENT_ARGS="$@"
-if [ -z "$CLIENT_ARGS" ]; then
-    CLIENT_ARGS="{client_args}"
+client_args="$@"
+if [ -z "$client_args" ]; then
+    client_args="{client_args}"
+    for file in {client_files}; do
+        server_args+=" $(rlocation $TEST_WORKSPACE/$file)"
+    done
 fi
 
-$RUNNER "$CLIENT" "$CLIENT_ARGS" "$SERVER" "{server_args}"
+$runner "$client" "$client_args" "$server" "$server_args"
 """.format(
             runner = ctx.executable._runner.short_path,
             client = ctx.executable.client.short_path,
             client_args = _expand_args(ctx, ctx.attr.client_args),
+            client_files = _expand_args(ctx, ctx.attr.client_files),
             server = ctx.executable.server.short_path,
             server_args = _expand_args(ctx, ctx.attr.server_args),
+            server_files = _expand_args(ctx, ctx.attr.server_files),
         ),
         is_executable = True,
     )
@@ -60,11 +70,13 @@ client_server_test = rule(
             executable = True,
         ),
         "client_args": attr.string_list(),
+        "client_files": attr.string_list(),
         "server": attr.label(
             cfg = "target",
             executable = True,
         ),
         "server_args": attr.string_list(),
+        "server_files": attr.string_list(),
         "data": attr.label_list(allow_files = True),
     },
 )
@@ -81,14 +93,21 @@ The server process is killed after the client process exits.
 The client and server executables can be any Bazel target that
 is executable, e.g. scala_binary, sh_binary, etc.
 
+The client and server files are runfiles paths of files that must be
+fully resolved before being fed as argument to the client and server,
+respectively. Those paths are typically obtained using rootpath(s) on
+bazel targets.
+
 Example:
   ```bzl
   client_server_test(
     name = "my_test",
     client = ":my_client",
     client_args = ["--extra-argument"],
+    client_files = ["file-for-client"]
     server = ":my_server",
     server_args = ["--fast"],
+    server_files = ["file-for-server"]
   )
   ```
 """

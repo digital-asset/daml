@@ -186,6 +186,8 @@ client_server_test(
         "--port 0",
         "--static-time",
         "--eager-package-loading",
+    ],
+    server_files = [
         "$(rootpaths //ledger/test-common:dar-files)",
     ],
     tags = [
@@ -210,6 +212,8 @@ client_server_test(
         "--port 0",
         "--wall-clock-time",
         "--eager-package-loading",
+    ],
+    server_files = [
         "$(rootpaths //ledger/test-common:dar-files)",
     ],
     tags = [
@@ -237,6 +241,8 @@ client_server_test(
         "--port 0",
         "--static-time",
         "--eager-package-loading",
+    ],
+    server_files = [
         "$(rootpaths //ledger/test-common:dar-files)",
     ],
     tags = [
@@ -265,6 +271,8 @@ client_server_test(
         "--port 0",
         "--wall-clock-time",
         "--eager-package-loading",
+    ],
+    server_files = [
         "$(rootpaths //ledger/test-common:dar-files)",
     ],
     tags = [
