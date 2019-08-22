@@ -51,9 +51,9 @@ unwrapWithInvalidArgument = \case
 sendToStream :: Show b => Int -> a -> (b -> Perhaps c) -> Stream c -> (ClientRequest 'ServerStreaming a b -> IO (ClientResult 'ServerStreaming b)) -> IO ()
 sendToStream timeout request convertResponse stream rpc = do
     res <- rpc $
-        ClientReaderRequestCC request timeout emptyMdm
-        (\cc -> onClose stream $ \_cancel -> clientCallCancel cc)
-        $ \_mdm recv -> do
+        ClientReaderRequest request timeout emptyMdm
+        $ \clientCall _mdm recv -> do
+          onClose stream $ \_ -> clientCallCancel clientCall
           fix $ \again -> do
             recv >>= \case
                 Left e ->  failToStream (show e)

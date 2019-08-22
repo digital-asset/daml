@@ -253,39 +253,27 @@ compileNormalRequestResults x =
 -- clientReader (client side of server streaming mode)
 
 -- | First parameter is initial server metadata.
-type ClientReaderHandler = MetadataMap -> StreamRecv ByteString -> IO ()
+type ClientReaderHandler = ClientCall -> MetadataMap -> StreamRecv ByteString -> IO ()
 type ClientReaderResult  = (MetadataMap, C.StatusCode, StatusDetails)
 
-clientReaderCC :: Client
+clientReader :: Client
                -> RegisteredMethod 'ServerStreaming
                -> TimeoutSeconds
                -> ByteString -- ^ The body of the request
                -> MetadataMap -- ^ Metadata to send with the request
-               -> (ClientCall -> IO ())
                -> ClientReaderHandler
                -> IO (Either GRPCIOError ClientReaderResult)
-clientReaderCC cl@Client{ clientCQ = cq } rm tm body initMeta fCC f =
+clientReader cl@Client{ clientCQ = cq } rm tm body initMeta  f =
   withClientCall cl rm tm go
   where
     go cc@(unsafeCC -> c) = runExceptT $ do
-      liftIO $ fCC cc
       void $ runOps' c cq [ OpSendInitialMetadata initMeta
                           , OpSendMessage body
                           , OpSendCloseFromClient
                           ]
       srvMD <- recvInitialMetadata c cq
-      liftIO $ f srvMD (streamRecvPrim c cq)
+      liftIO $ f cc srvMD (streamRecvPrim c cq)
       recvStatusOnClient c cq
-
-clientReader :: Client
-             -> RegisteredMethod 'ServerStreaming
-             -> TimeoutSeconds
-             -> ByteString -- ^ The body of the request
-             -> MetadataMap -- ^ Metadata to send with the request
-             -> ClientReaderHandler
-             -> IO (Either GRPCIOError ClientReaderResult)
-clientReader cl rm tm body initMeta f =
-  clientReaderCC cl rm tm body initMeta fCC f where fCC _ = return ()
 
 --------------------------------------------------------------------------------
 -- clientWriter (client side of client streaming mode)
@@ -335,7 +323,8 @@ pattern CWRFinal mmsg initMD trailMD st ds
 -- clientRW (client side of bidirectional streaming mode)
 
 type ClientRWHandler
-  =  IO (Either GRPCIOError MetadataMap)
+  =  ClientCall
+  -> IO (Either GRPCIOError MetadataMap)
   -> StreamRecv ByteString
   -> StreamSend ByteString
   -> WritesDone
@@ -361,7 +350,7 @@ clientRW' :: Client
           -> MetadataMap
           -> ClientRWHandler
           -> IO (Either GRPCIOError ClientRWResult)
-clientRW' (clientCQ -> cq) (unsafeCC -> c) initMeta f = runExceptT $ do
+clientRW' (clientCQ -> cq) cc@(unsafeCC -> c) initMeta f = runExceptT $ do
   sendInitialMetadata c cq initMeta
 
   -- 'mdmv' is used to synchronize between callers of 'getMD' and 'recv'
@@ -421,7 +410,7 @@ clientRW' (clientCQ -> cq) (unsafeCC -> c) initMeta f = runExceptT $ do
     -- programmer.
     writesDone = writesDonePrim c cq
 
-  liftIO (f getMD recv send writesDone)
+  liftIO (f cc getMD recv send writesDone)
   recvStatusOnClient c cq -- Finish()
 
 --------------------------------------------------------------------------------
