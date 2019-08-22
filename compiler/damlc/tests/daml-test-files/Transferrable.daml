@@ -6,26 +6,16 @@ module Transferrable where
 
 import DA.Record
 
-class (Template t, Eq t, HasField "issuer" t Party, HasField "owner" t Party) => Issuable t
+class (Template t, Eq t, HasField "issuer" t Party, HasField "owner" t Party) => Asset t
+-- ^ Would like to write this as a constraint synonym but DAML doesn't allow it currently
 
-template Issuable t => Issuance t with
-    assetToIssue: t
-  where
-    signatory assetToIssue.issuer
-
-    controller assetToIssue.owner can
-      AcceptIssuance: ContractId t
-        do create assetToIssue
-
-template (Issuable t, TransferProposalInstance t) => Transferrable t
+template (Asset t, TransferProposalInstance t) => Transferrable t
   with
     transferrableAsset: t
   where
     let owner = transferrableAsset.owner
 
-    -- Note that the issuer is not a signatory, as it would require further
-    -- proposal or authorisation steps.
-    signatory owner
+    signatory transferrableAsset.issuer, owner
 
     controller owner can
       ProposeTransfer: ContractId (TransferProposal t)
@@ -34,7 +24,7 @@ template (Issuable t, TransferProposalInstance t) => Transferrable t
             assetToTransfer = this
             newOwner
 
-template (Issuable t, TransferrableInstance t) => TransferProposal t
+template (Asset t, TransferrableInstance t) => TransferProposal t
   with
     assetToTransfer: Transferrable t
     newOwner: Party
@@ -61,37 +51,25 @@ template Cash
     amount: Decimal
     currency: Text
   where
-    -- Note that the issuer is not a signatory, to simplify our workflow.
-    signatory owner
+    signatory issuer, owner
 
-    controller owner can
-      MakeTransferrable: ContractId (Transferrable Cash)
-        do create $ Transferrable this
-
-instance Issuable Cash
-template instance CashIssuance = Issuance Cash
+instance Asset Cash
 template instance CashTransferProposal = TransferProposal Cash
 template instance CashTransferrable = Transferrable Cash
 
 s = scenario do
-  issuer <- getParty "World Bank"
   rohan <- getParty "Rohan"
   martin <- getParty "Martin"
-  -- Issue $50 each to Rohan and Martin
-  let rohans50 = Cash with issuer; owner = rohan; amount = 50.0; currency = "USD"
-      martins50 = Cash with issuer; owner = martin; amount = 50.0; currency = "CHF"
-  rohans50Issuance <- issuer `submit` create Issuance with assetToIssue = rohans50
-  rohans50Cid <- rohan `submit` exercise rohans50Issuance AcceptIssuance
-  martins50Issuance <- issuer `submit` create Issuance with assetToIssue = martins50
-  martins50Cid <- martin `submit` exercise martins50Issuance AcceptIssuance
-  -- Rohan and Martin need to explicitly make their cash transferrable,
-  -- i.e. convert the Cash contracts into Transferrable contracts
-  rohans50Transferrable <- rohan `submit` exercise rohans50Cid MakeTransferrable
-  martins50Transferrable <- martin `submit` exercise martins50Cid MakeTransferrable
+  -- Cash is self-issued by Rohan and Martin to simplify the workflow
+  let rohans50 = Transferrable Cash with issuer = rohan; owner = rohan; amount = 50.0; currency = "USD"
+      martins50 = Transferrable Cash with issuer = martin; owner = martin; amount = 50.0; currency = "CHF"
+  -- Create the Transferrable contracts
+  rohans50Cid <- rohan `submit` create rohans50
+  martins50Cid <- martin `submit` create martins50
   -- Martin transfers his $50 to Rohan
-  martinsTransferProposal <- martin `submit` exercise martins50Transferrable ProposeTransfer with newOwner = rohan
+  martinsTransferProposal <- martin `submit` exercise martins50Cid ProposeTransfer with newOwner = rohan
   rohan `submit` exercise martinsTransferProposal AcceptTransfer
   -- Rohan returns the favour by initiating a transfer in the other direction
-  rohansTransferProposal <- rohan `submit` exercise rohans50Transferrable ProposeTransfer with newOwner = martin
+  rohansTransferProposal <- rohan `submit` exercise rohans50Cid ProposeTransfer with newOwner = martin
   martin `submit` exercise rohansTransferProposal AcceptTransfer
   return ()
