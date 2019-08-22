@@ -350,12 +350,11 @@ getClsDocs ctx@DocCtx{..} (DeclData (L _ (TyClD _ c@ClassDecl{..})) docs) = do
     -- for comparison because it is more accurate than typenames (which are
     -- generally susceptible to qualification and shadowing).
     matchesMemberContext :: Maybe Anchor -> [T.Text] -> DDoc.Type -> Bool
-    matchesMemberContext cl_anchor cl_args ty = and
-        [ cl_anchor == getTypeAppAnchor ty
-        , Just [(Just (Typename arg), Just []) | arg <- cl_args] ==
+    matchesMemberContext cl_anchor cl_args ty =
+        cl_anchor == getTypeAppAnchor ty &&
+        Just [(Just (Typename arg), Just []) | arg <- cl_args] ==
             (map (\arg -> (getTypeAppName arg, getTypeAppArgs arg))
             <$> getTypeAppArgs ty)
-        ]
 
     subdocs = memberDocs c
 getClsDocs _ _ = Nothing
