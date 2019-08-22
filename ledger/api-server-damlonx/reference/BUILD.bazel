@@ -54,7 +54,7 @@ client_server_test(
     data = ["//ledger/test-common:dar-files"],
     server = ":reference",
     server_args = [
-        "$(printf $(rlocation $TEST_WORKSPACE)/\"%s \" $(rootpaths //ledger/test-common:dar-files))",
+        "$(for file in $(rootpaths //ledger/test-common:dar-files); do rlocation $TEST_WORKSPACE/$file; done)",
     ],
     tags = [
         # NOTE(JM): As this test is somewhat heavy and has timeouts, run it without competition to avoid flakyness.
