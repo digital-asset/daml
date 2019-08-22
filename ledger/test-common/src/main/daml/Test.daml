@@ -13,6 +13,8 @@ template Dummy
   where
     signatory operator
 
+    agreement (show operator <> "operates a dummy.")
+
     controller operator can
       DummyChoice1 : ()
         do return ()

@@ -69,7 +69,7 @@ object LedgerTestContext {
 
 }
 
-private[infrastructure] final class LedgerTestContext(
+private[testtool] final class LedgerTestContext private[infrastructure] (
     val ledgerId: String,
     val applicationId: String,
     referenceOffset: LedgerOffset,
@@ -118,24 +118,40 @@ private[infrastructure] final class LedgerTestContext(
   def allocateParties(n: Int): Future[Vector[Party]] =
     Future.sequence(Vector.fill(n)(allocateParty()))
 
-  def activeContracts(parties: Party*): Future[Vector[CreatedEvent]] =
+  def activeContracts(
+      request: GetActiveContractsRequest): Future[(Option[LedgerOffset], Vector[CreatedEvent])] =
     for {
       contracts <- FiniteStreamObserver[GetActiveContractsResponse](
-        services.activeContracts.getActiveContracts(
-          new GetActiveContractsRequest(
-            ledgerId = ledgerId,
-            filter = transactionFilter(Tag.unsubst(parties), Seq.empty),
-            verbose = true
-          ),
-          _
-        )
+        services.activeContracts.getActiveContracts(request, _)
       )
-    } yield contracts.flatMap(_.activeContracts)
+    } yield
+      contracts.lastOption.map(c => LedgerOffset(LedgerOffset.Value.Absolute(c.offset))) -> contracts
+        .flatMap(_.activeContracts)
 
-  private def getTransactionsRequest(parties: Seq[Party]): GetTransactionsRequest =
+  def activeContractsRequest(
+      parties: Seq[Party],
+      templateIds: Seq[Identifier] = Seq.empty,
+  ): GetActiveContractsRequest =
+    new GetActiveContractsRequest(
+      ledgerId = ledgerId,
+      filter = transactionFilter(Tag.unsubst(parties), templateIds),
+      verbose = true
+    )
+
+  def activeContracts(parties: Party*): Future[Vector[CreatedEvent]] =
+    activeContractsByTemplateId(Seq.empty, parties: _*)
+
+  def activeContractsByTemplateId(
+      templateIds: Seq[Identifier],
+      parties: Party*): Future[Vector[CreatedEvent]] =
+    activeContracts(activeContractsRequest(parties, templateIds)).map(_._2)
+
+  private def getTransactionsRequest(
+      parties: Seq[Party],
+      beginOffset: Option[LedgerOffset] = None): GetTransactionsRequest =
     new GetTransactionsRequest(
       ledgerId = ledgerId,
-      begin = Some(referenceOffset),
+      begin = beginOffset.orElse(Some(referenceOffset)),
       end = Some(end),
       filter = transactionFilter(Tag.unsubst(parties), Seq.empty),
       verbose = true
@@ -143,11 +159,18 @@ private[infrastructure] final class LedgerTestContext(
 
   private def transactions[Res](
       parties: Seq[Party],
-      service: (GetTransactionsRequest, StreamObserver[Res]) => Unit): Future[Vector[Res]] =
-    FiniteStreamObserver[Res](service(getTransactionsRequest(parties), _))
+      service: (GetTransactionsRequest, StreamObserver[Res]) => Unit,
+      beginOffset: Option[LedgerOffset] = None): Future[Vector[Res]] =
+    FiniteStreamObserver[Res](service(getTransactionsRequest(parties, beginOffset), _))
 
   def flatTransactions(parties: Party*): Future[Vector[Transaction]] =
     transactions(parties, services.transaction.getTransactions).map(_.flatMap(_.transactions))
+
+  def flatTransactionsFromOffset(
+      offset: LedgerOffset,
+      parties: Seq[Party]): Future[Vector[Transaction]] =
+    transactions(parties, services.transaction.getTransactions, Some(offset))
+      .map(_.flatMap(_.transactions))
 
   def transactionTrees(parties: Party*): Future[Vector[TransactionTree]] =
     transactions(parties, services.transaction.getTransactionTrees).map(_.flatMap(_.transactions))

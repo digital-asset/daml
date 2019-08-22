@@ -196,7 +196,8 @@ abstract class LedgerBackedIndexService(
       ac.witnesses,
       ac.key.map(_.key),
       ac.signatories,
-      ac.observers
+      ac.observers,
+      ac.agreementText
     )
 
   private def getTransactionById(

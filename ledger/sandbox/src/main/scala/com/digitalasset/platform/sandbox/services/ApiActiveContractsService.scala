@@ -75,7 +75,8 @@ class ApiActiveContractsService private (
                                     create.argument.value))),
                             create.stakeholders.toSeq,
                             signatories = create.signatories.map(_.toString)(collection.breakOut),
-                            observers = create.observers.map(_.toString)(collection.breakOut)
+                            observers = create.observers.map(_.toString)(collection.breakOut),
+                            agreementText = Some(create.agreementText)
                           )
                         )
                       )
