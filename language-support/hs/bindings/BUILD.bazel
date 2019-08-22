@@ -15,6 +15,7 @@ da_haskell_library(
         "containers",
         "exceptions",
         "extra",
+        "grpc-haskell",
         "proto3-suite",
         "retry",
         "text",
@@ -29,7 +30,6 @@ da_haskell_library(
         "//compiler/daml-lf-proto",
         "//daml-lf/archive:daml_lf_haskell_proto",
         "//ledger-api/grpc-definitions:ledger-api-haskellpb",
-        "//nix/third-party/gRPC-haskell:grpc-haskell",
     ],
 )
 

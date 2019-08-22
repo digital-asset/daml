@@ -20,6 +20,8 @@ da_haskell_library(
         "directory",
         "extra",
         "filepath",
+        "grpc-haskell",
+        "grpc-haskell-core",
         "hashable",
         "lens",
         "mtl",
@@ -44,7 +46,5 @@ da_haskell_library(
         "//daml-assistant:daml-project-config",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
-        "//nix/third-party/gRPC-haskell:grpc-haskell",
-        "//nix/third-party/gRPC-haskell/core:grpc-haskell-core",
     ],
 )
