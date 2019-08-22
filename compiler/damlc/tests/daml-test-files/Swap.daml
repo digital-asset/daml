@@ -1,0 +1,71 @@
+{-# LANGUAGE UndecidableSuperClasses #-}
+
+daml 1.2
+module Swap where
+
+import Transferrable
+
+template (Asset t, TransferrableInstance t, SwapProposalInstance t) => Swappable t with
+    swappableAsset: t
+  where
+    let owner = swappableAsset.owner
+
+    signatory swappableAsset.issuer, owner
+
+    controller owner can
+      ProposeSwap: ContractId (SwapProposal t)
+        with assetInReturn: Swappable t
+             assetInReturnCid: ContractId (Swappable t)
+        do create SwapProposal with
+            assetOffered = this
+            assetInReturn
+            assetInReturnCid
+
+template SwappableInstance t => SwapProposal t with
+    assetOffered: Swappable t
+    assetInReturn: Swappable t
+    assetInReturnCid: ContractId (Swappable t)
+  where
+    let ownerOffering = assetOffered.swappableAsset.owner
+        ownerReturning = assetInReturn.swappableAsset.owner
+    signatory ownerOffering
+
+    controller ownerOffering can
+      WithdrawSwap: ContractId (Swappable t)
+        do create assetOffered
+
+    controller ownerReturning can
+      RejectSwap: ContractId (Swappable t)
+        do create assetOffered
+
+      AcceptSwap: (ContractId (TransferProposal t), ContractId (TransferProposal t))
+        do proposeesNewCid <- create TransferProposal with
+            assetToTransfer = Transferrable with transferrableAsset = assetOffered.swappableAsset
+            newOwner = ownerReturning
+           actualAssetInReturn <- fetch assetInReturnCid
+           assert $ actualAssetInReturn == assetInReturn
+           archive assetInReturnCid
+           proposersNewCid <- create TransferProposal with
+            assetToTransfer = Transferrable with transferrableAsset = assetInReturn.swappableAsset
+            newOwner = ownerOffering
+           return (proposersNewCid, proposeesNewCid)
+
+template instance CashSwapProposal = SwapProposal Cash
+template instance CashSwappable = Swappable Cash
+
+s = scenario do
+  rohan <- getParty "Rohan"
+  martin <- getParty "Martin"
+  -- Cash is self-issued by Rohan and Martin to simplify the workflow
+  let rohans50 = Swappable Cash with issuer = rohan; owner = rohan; amount = 50.0; currency = "USD"
+      martins50 = Swappable Cash with issuer = martin; owner = martin; amount = 50.0; currency = "CHF"
+  -- Create the Swappable contracts
+  rohans50Cid <- rohan `submit` create rohans50
+  martins50Cid <- martin `submit` create martins50
+  -- Martin initiates a swap with Rohan
+  martinsSwapProposal <- martin `submit` exercise martins50Cid (ProposeSwap rohans50 rohans50Cid)
+  (martinsNew50, rohansNew50) <- rohan `submit` exercise martinsSwapProposal AcceptSwap
+  -- Both parties accept the resulting transfers
+  martin `submit` exercise martinsNew50 AcceptTransfer
+  rohan `submit` exercise rohansNew50 AcceptTransfer
+  return ()
