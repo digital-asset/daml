@@ -31,9 +31,10 @@ tests damlcPath = testGroup "doctest integration tests"
                   , "add : Int -> Int -> Int"
                   , "add x y = 0"
                   ]
-              (exit, stdout, _stderr) <- readProcessWithExitCode damlcPath ["doctest", f] ""
-              exit @?= ExitFailure 1
-              assertBool "doctest error" ("expected 0 === 2" `isInfixOf` stdout)
+              (exit, stdout, stderr) <- readProcessWithExitCode damlcPath ["doctest", f] ""
+              assertBool ("error in: " <> stdout) ("expected 0 === 2" `isInfixOf` stdout)
+              stderr @?= ""
+              assertBool "exit code" (exit /= ExitSuccess)
     , testCase "succeeding doctest" $
           withTempDir $ \tmpDir -> do
               let f = tmpDir </> "Main.daml"
@@ -46,7 +47,8 @@ tests damlcPath = testGroup "doctest integration tests"
                   , "add : Int -> Int -> Int"
                   , "add x y = x + y"
                   ]
-              (exit, _stdout, _stderr) <- readProcessWithExitCode damlcPath ["doctest", f] ""
-              exit @?= ExitSuccess
+              (exit, stdout, stderr) <- readProcessWithExitCode damlcPath ["doctest", f] ""
+              stdout @?= ""
+              stderr @?= ""
+              assertBool "exit code" (exit == ExitSuccess)
     ]
-
