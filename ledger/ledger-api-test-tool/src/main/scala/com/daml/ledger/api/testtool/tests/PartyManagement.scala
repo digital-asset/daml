@@ -77,7 +77,7 @@ final class PartyManagement(session: LedgerSession) extends LedgerTestSuite(sess
       for {
         parties <- ledger.allocateParties(100)
       } yield {
-        val nonUniqueNames = parties.groupBy(Tag.unwrap).filter(_._2.size > 1)
+        val nonUniqueNames = parties.groupBy(Tag.unwrap).mapValues(_.size).filter(_._2 > 1)
         assert(nonUniqueNames.isEmpty, s"There are non-unique party names: ${nonUniqueNames
           .map { case (name, count) => s"$name ($count)" } mkString (", ")}")
       }
