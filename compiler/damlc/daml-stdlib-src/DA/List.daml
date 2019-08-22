@@ -35,6 +35,7 @@ module DA.List
   , sortOn
   , stripPrefix
   , stripSuffix
+  , stripInfix
   , tails
   , takeWhileEnd
   , transpose
@@ -254,6 +255,22 @@ stripPrefix _ _ = None
 -- entire first list.
 stripSuffix : Eq a => [a] -> [a] -> Optional [a]
 stripSuffix a b = reverse <$> stripPrefix (reverse a) (reverse b)
+
+-- | Return the string before and after the search string or `None`
+-- if the search string is not found.
+--
+-- ```
+-- >>> stripInfix [0,0] [1,0,0,2,0,0,3]
+-- Some ([1], [2,0,0,3])
+--
+-- >>> stripInfix [0,0] [1,2,0,4,5]
+-- None
+-- ```
+stripInfix : Eq a => [a] -> [a] -> Optional ([a], [a])
+stripInfix a b
+  | Some rest <- stripPrefix a b = Some ([], rest)
+stripInfix a [] = None
+stripInfix a (b::bs) = first (b::) <$> stripInfix a bs
 
 -- | The `isPrefixOf` function takes two lists and returns `True` if
 -- and only if the first is a prefix of the second.
