@@ -21,4 +21,13 @@ Typeclasses
   .. _function-constrainedclassmethod-bar-13431:
   
   `bar <function-constrainedclassmethod-bar-13431_>`_
-    : t -> t
+    : `Eq <https://docs.daml.com/daml/reference/base.html#class-ghc-classes-eq-21216>`_ t => t -> t
+
+.. _class-constrainedclassmethod-b-99749:
+
+**class** `B <class-constrainedclassmethod-b-99749_>`_ t **where**
+
+  .. _function-constrainedclassmethod-baz-40143:
+  
+  `baz <function-constrainedclassmethod-baz-40143_>`_
+    : `B <class-constrainedclassmethod-b-99749_>`_ b => b -> t

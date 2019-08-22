@@ -279,13 +279,11 @@ toDocText docs =
 --   function.
 getFctDocs :: DocCtx -> Maybe Typename -> DeclData -> Maybe FunctionDoc
 getFctDocs ctx@DocCtx{..} cl_nameM (DeclData decl docs) = do
-    (name, keepContext) <- case unLoc decl of
-        SigD _ (TypeSig _ (L _ n :_) _) ->
-            Just (n, True)
-        SigD _ (ClassOpSig _ _ (L _ n :_) _) ->
-            Just (n, False)
+    name <- case unLoc decl of
+        SigD _ (TypeSig _ (L _ n :_) _) -> Just n
+        SigD _ (ClassOpSig _ _ (L _ n :_) _) -> Just n
         ValD _ FunBind{..} | not (null docs) ->
-            Just (unLoc fun_id, True)
+            Just (unLoc fun_id)
             -- NB assuming we do _not_ have a type signature for the function in the
             -- pairs (otherwise we'll get a duplicate)
         _ ->
@@ -295,7 +293,7 @@ getFctDocs ctx@DocCtx{..} cl_nameM (DeclData decl docs) = do
     id <- MS.lookup fct_name dc_ids
 
     let ty = idType id
-        fct_context = guard keepContext >> typeToContext ctx ty
+        fct_context = typeToContext ctx ty
         fct_type = typeToType ctx ty
         fct_anchor = Just $ functionAnchor dc_modname fct_name
         fct_descr = docs
@@ -312,8 +310,9 @@ getClsDocs ctx@DocCtx{..} (DeclData (L _ (TyClD _ c@ClassDecl{..})) docs) = do
         tyconMb = MS.lookup cl_name dc_tycons
         cl_anchor = tyConAnchor ctx =<< tyconMb
         cl_descr = docs
-        cl_functions = concatMap (f cl_name) tcdSigs
         cl_args = map (tyVarText . unLoc) $ hsq_explicit tcdTyVars
+        cl_functions = map (dropMemberContext cl_anchor cl_args) $
+            concatMap (f cl_name) tcdSigs
         cl_super = do
             tycon <- tyconMb
             cls <- tyConClass_maybe tycon
@@ -330,6 +329,34 @@ getClsDocs ctx@DocCtx{..} (DeclData (L _ (TyClD _ c@ClassDecl{..})) docs) = do
       | L loc name <- names
       ]
     f _ _ = []
+
+    -- | Remove the implied context from typeclass member functions.
+    dropMemberContext :: Maybe Anchor -> [T.Text] -> FunctionDoc -> FunctionDoc
+    dropMemberContext cl_anchor cl_args fn = fn
+        { fct_context = do
+            context <- fct_context fn
+            case context of
+                TypeTuple xs -> do
+                    let xs' = filter (not . matchesMemberContext cl_anchor cl_args) xs
+                    guard (notNull xs')
+                    Just (TypeTuple xs')
+
+                _ -> Just context
+                    -- TODO: Move to using a more appropriate type
+                    -- for contexts in damldocs, to avoid this case.
+        }
+
+    -- | Is this the implied context for member functions? We use an anchor
+    -- for comparison because it is more accurate than typenames (which are
+    -- generally susceptible to qualification and shadowing).
+    matchesMemberContext :: Maybe Anchor -> [T.Text] -> DDoc.Type -> Bool
+    matchesMemberContext cl_anchor cl_args ty = and
+        [ cl_anchor == getTypeAppAnchor ty
+        , Just [(Just (Typename arg), Just []) | arg <- cl_args] ==
+            (map (\arg -> (getTypeAppName arg, getTypeAppArgs arg))
+            <$> getTypeAppArgs ty)
+        ]
+
     subdocs = memberDocs c
 getClsDocs _ _ = Nothing
 

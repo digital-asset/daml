@@ -8,3 +8,6 @@ module ConstrainedClassMethod where
 class A t where
     foo : t -> t
     bar : Eq t => t -> t
+
+class B t where
+    baz : B b => b -> t
