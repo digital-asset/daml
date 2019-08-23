@@ -111,6 +111,12 @@ case object URScenario extends UnserializabilityReason {
 case object URTuple extends UnserializabilityReason {
   def pretty: String = "structural record"
 }
+case object URNumeric extends UnserializabilityReason {
+  def pretty: String = "unapplied Numeric"
+}
+case object URNat extends UnserializabilityReason {
+  def pretty: String = "Nat"
+}
 case object URList extends UnserializabilityReason {
   def pretty: String = "unapplied List"
 }

@@ -35,7 +35,7 @@ class TypeSpec extends WordSpec with Matchers {
           case Pkg.BTInt64 =>
             assertZeroArgs(args)
             TypePrim(PrimTypeInt64, ImmArraySeq.empty)
-          case Pkg.BTDecimal =>
+          case Pkg.BTNumeric =>
             assertZeroArgs(args)
             TypePrim(PrimTypeDecimal, ImmArraySeq.empty)
           case Pkg.BTText =>
@@ -70,6 +70,7 @@ class TypeSpec extends WordSpec with Matchers {
           case Pkg.BTArrow => sys.error("cannot use arrow in interface type")
         }
       case Pkg.TTyCon(tycon) => TypeCon(TypeConName(tycon), args.toImmArray.toSeq)
+      case Pkg.TNat(_) => sys.error("cannot use nat type in interface type")
       case _: Pkg.TTuple => sys.error("cannot use tuples in interface type")
       case _: Pkg.TForall => sys.error("cannot use forall in interface type")
     }

@@ -290,6 +290,7 @@ object Repl {
 
     def prettyType(t0: Type, prec: Int = precTForall): String = t0 match {
       case TVar(n) => n
+      case TNat(n) => n.toString
       case TTyCon(con) =>
         prettyQualified(pkgId, modId, con)
       case TBuiltin(bt) => bt.toString.stripPrefix("BT")

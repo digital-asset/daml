@@ -15,7 +15,7 @@ import com.digitalasset.daml.lf.data.{FrontStack, ImmArray, Ref}
 import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
 import com.digitalasset.daml.lf.data.Ref.{PackageId, QualifiedName}
 import com.digitalasset.daml.lf.language.Ast
-import com.digitalasset.daml.lf.language.Ast.TypeVarName
+import com.digitalasset.daml.lf.language.{Util => AstUtil}
 
 import scala.collection.immutable.Map
 
@@ -108,7 +108,7 @@ object InterfaceReader {
     (State() /: module.definitions) {
       case (state, (name, Ast.DDataType(true, params, dataType))) =>
         val fullName = QualifiedName(module.name, name)
-        val tyVars: ImmArraySeq[TypeVarName] = params.map(_._1).toSeq
+        val tyVars: ImmArraySeq[Ast.TypeVarName] = params.map(_._1).toSeq
 
         val result = dataType match {
           case dfn: Ast.DataRecord =>
@@ -131,7 +131,7 @@ object InterfaceReader {
 
   private[reader] def recordOrTemplate(
       name: QualifiedName,
-      tyVars: ImmArraySeq[TypeVarName],
+      tyVars: ImmArraySeq[Ast.TypeVarName],
       record: Ast.DataRecord
   ) =
     for {
@@ -172,7 +172,7 @@ object InterfaceReader {
 
   private[reader] def variant(
       name: QualifiedName,
-      tyVars: ImmArraySeq[TypeVarName],
+      tyVars: ImmArraySeq[Ast.TypeVarName],
       variant: Ast.DataVariant
   ) = {
     for {
@@ -182,7 +182,7 @@ object InterfaceReader {
 
   private[reader] def enum(
       name: QualifiedName,
-      tyVars: ImmArraySeq[TypeVarName],
+      tyVars: ImmArraySeq[Ast.TypeVarName],
       enum: Ast.DataEnum) =
     if (tyVars.isEmpty)
       \/-(
@@ -208,11 +208,18 @@ object InterfaceReader {
           unserializableDataType(ctx, "arguments passed to a type parameter")
       case Ast.TTyCon(c) =>
         \/-(TypeCon(TypeConName(c), args.toImmArray.toSeq))
+      case AstUtil.TDecimal =>
+        if (args.empty)
+          \/-(TypePrim(PrimType.Decimal, ImmArraySeq.empty))
+        else
+          unserializableDataType(
+            ctx,
+            s"unserializable data type: ${a.pretty} cannot be applied to anything}")
       case Ast.TBuiltin(bt) =>
         primitiveType(ctx, bt, args.toImmArray.toSeq)
       case Ast.TApp(tyfun, arg) =>
         type_(ctx, arg, FrontStack.empty) flatMap (tArg => type_(ctx, tyfun, tArg +: args))
-      case Ast.TForall(_, _) | Ast.TTuple(_) =>
+      case Ast.TForall(_, _) | Ast.TTuple(_) | Ast.TNat(_) =>
         unserializableDataType(ctx, s"unserializable data type: ${a.pretty}")
     }
 
@@ -226,7 +233,6 @@ object InterfaceReader {
         case Ast.BTUnit => \/-((0, PrimType.Unit))
         case Ast.BTBool => \/-((0, PrimType.Bool))
         case Ast.BTInt64 => \/-((0, PrimType.Int64))
-        case Ast.BTDecimal => \/-((0, PrimType.Decimal))
         case Ast.BTText => \/-((0, PrimType.Text))
         case Ast.BTDate => \/-((0, PrimType.Date))
         case Ast.BTTimestamp => \/-((0, PrimType.Timestamp))
@@ -235,6 +241,8 @@ object InterfaceReader {
         case Ast.BTList => \/-((1, PrimType.List))
         case Ast.BTOptional => \/-((1, PrimType.Optional))
         case Ast.BTMap => \/-((1, PrimType.Map))
+        case Ast.BTNumeric =>
+          unserializableDataType(ctx, s"Unserializable primitive type: $a must be applied to TNat")
         case Ast.BTUpdate | Ast.BTScenario | Ast.BTArrow =>
           unserializableDataType(ctx, s"Unserializable primitive type: $a")
       }

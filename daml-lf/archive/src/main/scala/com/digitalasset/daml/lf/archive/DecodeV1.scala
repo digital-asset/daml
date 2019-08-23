@@ -10,7 +10,7 @@ import com.digitalasset.daml.lf.data.{Decimal, ImmArray, Numeric, Time}
 import ImmArray.ImmArraySeq
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.language.Util._
-import com.digitalasset.daml.lf.language.{Ast, LanguageVersion => LV}
+import com.digitalasset.daml.lf.language.{LanguageVersion => LV}
 import com.digitalasset.daml_lf.{DamlLf1 => PLF}
 import com.google.protobuf.CodedInputStream
 
@@ -248,11 +248,11 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
       TemplateChoice(
         name = name(chName),
         consuming = lfChoice.getConsuming,
-        controllers = decodeExpr(lfChoice.getControllers, s"${tpl}:${chName}:controller"),
+        controllers = decodeExpr(lfChoice.getControllers, s"$tpl:$chName:controller"),
         selfBinder = name(lfChoice.getSelfBinder),
         argBinder = Some(v) -> t,
         returnType = decodeType(lfChoice.getRetType),
-        update = decodeExpr(lfChoice.getUpdate, s"${tpl}:${chName}:choice")
+        update = decodeExpr(lfChoice.getUpdate, s"$tpl:$chName:choice")
       )
     }
 
@@ -280,12 +280,20 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
             (typ, arg) => TApp(typ, decodeType(arg)))
         case PLF.Type.SumCase.PRIM =>
           val prim = lfType.getPrim
-          val (tPrim, minVersion) = primTypeTable(prim.getPrim)
-          assertSince(minVersion, prim.getPrim.getValueDescriptor.getFullName)
-          (TBuiltin(tPrim) /: [Type] prim.getArgsList.asScala)((typ, arg) =>
-            TApp(typ, decodeType(arg)))
+          val baseType =
+            if (prim.getPrim == PLF.PrimType.DECIMAL) {
+              // FixMe: https://github.com/digital-asset/daml/issues/2289
+              //  enable the check once the compiler produces proper DAML-LF 1.dev
+              // assertUntil(LV.Features.numeric, "PLF.PrimType.DECIMAL")
+              TDecimal
+            } else {
+              val info = builtinTypeInfoMap(prim.getPrim)
+              assertSince(info.minVersion, prim.getPrim.getValueDescriptor.getFullName)
+              TBuiltin(info.bTyp)
+            }
+          (baseType /: [Type] prim.getArgsList.asScala)((typ, arg) => TApp(typ, decodeType(arg)))
         case PLF.Type.SumCase.FUN =>
-          assertUntil(LV.Features.default, "Type.Fun")
+          assertUntil(LV.Features.arrowType, "Type.Fun")
           val tFun = lfType.getFun
           val params = tFun.getParamsList.asScala
           assertNonEmpty(params, "params")
@@ -379,9 +387,19 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
           }
 
         case PLF.Expr.SumCase.BUILTIN =>
-          val (builtin, minVersion) = DecodeV1.builtinFunctionMap(lfExpr.getBuiltin)
-          assertSince(minVersion, lfExpr.getBuiltin.getValueDescriptor.getFullName)
-          EBuiltin(builtin)
+          val info = DecodeV1.builtinInfoMap(lfExpr.getBuiltin)
+          assertSince(info.minVersion, lfExpr.getBuiltin.getValueDescriptor.getFullName)
+
+          if (info.handleLegacyDecimal) {
+            // FixMe: https://github.com/digital-asset/daml/issues/2289
+            //   enable the check once the compiler produces proper DAML-LF 1.dev
+            // info.maxVersion.foreach(assertUntil(_, lfExpr.getBuiltin.getValueDescriptor.getFullName))
+            ETyApp(EBuiltin(info.builtin), TDecimalScale)
+          } else {
+            info.maxVersion.foreach(
+              assertUntil(_, lfExpr.getBuiltin.getValueDescriptor.getFullName))
+            EBuiltin(info.builtin)
+          }
 
         case PLF.Expr.SumCase.REC_CON =>
           val recCon = lfExpr.getRecCon
@@ -698,7 +716,7 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
           Decimal
             .fromString(lfPrimLit.getDecimal)
             .flatMap(Numeric.fromBigDecimal(Decimal.scale, _))
-            .fold(e => throw ParseError("error parsing decimal: " + e), PLDecimal)
+            .fold(e => throw ParseError("error parsing decimal: " + e), PLNumeric)
         case PLF.PrimLit.SumCase.TEXT =>
           PLText(lfPrimLit.getText)
         case PLF.PrimLit.SumCase.PARTY =>
@@ -717,12 +735,15 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
       }
   }
 
+  private def versionIsOlderThan(minVersion: LV): Boolean =
+    LV.ordering.lt(languageVersion, minVersion)
+
   private def assertUntil(maxVersion: LV, description: String): Unit =
-    if (LV.ordering.gt(languageVersion, maxVersion))
+    if (!versionIsOlderThan(maxVersion))
       throw ParseError(s"$description is not supported by DAML-LF 1.$minor")
 
   private def assertSince(minVersion: LV, description: String): Unit =
-    if (LV.ordering.lt(languageVersion, minVersion))
+    if (versionIsOlderThan(minVersion))
       throw ParseError(s"$description is not supported by DAML-LF 1.$minor")
 
   private def assertNonEmpty(s: Seq[_], description: String): Unit =
@@ -735,109 +756,189 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
 
 private[lf] object DecodeV1 {
 
-  val primTypeTable: Map[PLF.PrimType, (BuiltinType, LV)] = {
+  case class BuiltinTypeInfo(
+      proto: PLF.PrimType,
+      bTyp: BuiltinType,
+      minVersion: LV = LV.Features.default
+  )
+
+  val builtinTypeInfos: List[BuiltinTypeInfo] = {
     import PLF.PrimType._, LV.Features._
-    Map(
-      UNIT -> (BTUnit -> default),
-      BOOL -> (BTBool -> default),
-      TEXT -> (BTText -> default),
-      INT64 -> (BTInt64 -> default),
-      DECIMAL -> (BTDecimal -> default),
-      TIMESTAMP -> (BTTimestamp -> default),
-      PARTY -> (BTParty -> default),
-      LIST -> (BTList -> default),
-      UPDATE -> (BTUpdate -> default),
-      SCENARIO -> (BTScenario -> default),
-      CONTRACT_ID -> (BTContractId -> default),
-      DATE -> (BTDate -> default),
-      OPTIONAL -> (BTOptional -> optional),
-      MAP -> (BTMap -> optional),
-      ARROW -> (BTArrow -> arrowType),
+    // DECIMAL is not there and should be handled in an ad-hoc way.
+    List(
+      BuiltinTypeInfo(UNIT, BTUnit),
+      BuiltinTypeInfo(BOOL, BTBool),
+      BuiltinTypeInfo(TEXT, BTText),
+      BuiltinTypeInfo(INT64, BTInt64),
+      BuiltinTypeInfo(TIMESTAMP, BTTimestamp),
+      BuiltinTypeInfo(PARTY, BTParty),
+      BuiltinTypeInfo(LIST, BTList),
+      BuiltinTypeInfo(UPDATE, BTUpdate),
+      BuiltinTypeInfo(SCENARIO, BTScenario),
+      BuiltinTypeInfo(CONTRACT_ID, BTContractId),
+      BuiltinTypeInfo(DATE, BTDate),
+      BuiltinTypeInfo(OPTIONAL, BTOptional, minVersion = optional),
+      BuiltinTypeInfo(MAP, BTMap, minVersion = optional),
+      BuiltinTypeInfo(ARROW, BTArrow, minVersion = arrowType),
     )
   }
 
-  val builtinFunctionMap = {
-    import PLF.BuiltinFunction._, LV.Features._
+  private val builtinTypeInfoMap =
+    builtinTypeInfos
+      .map(info => info.proto -> info)
+      .toMap
 
-    Map[PLF.BuiltinFunction, (Ast.BuiltinFunction, LV)](
-      ADD_DECIMAL -> (BAddDecimal -> default),
-      SUB_DECIMAL -> (BSubDecimal -> default),
-      MUL_DECIMAL -> (BMulDecimal -> default),
-      DIV_DECIMAL -> (BDivDecimal -> default),
-      ROUND_DECIMAL -> (BRoundDecimal -> default),
-      ADD_INT64 -> (BAddInt64 -> default),
-      SUB_INT64 -> (BSubInt64 -> default),
-      MUL_INT64 -> (BMulInt64 -> default),
-      DIV_INT64 -> (BDivInt64 -> default),
-      MOD_INT64 -> (BModInt64 -> default),
-      EXP_INT64 -> (BExpInt64 -> default),
-      INT64_TO_DECIMAL -> (BInt64ToDecimal -> default),
-      DECIMAL_TO_INT64 -> (BDecimalToInt64 -> default),
-      FOLDL -> (BFoldl -> default),
-      FOLDR -> (BFoldr -> default),
-      MAP_EMPTY -> (BMapEmpty -> map),
-      MAP_INSERT -> (BMapInsert -> map),
-      MAP_LOOKUP -> (BMapLookup -> map),
-      MAP_DELETE -> (BMapDelete -> map),
-      MAP_TO_LIST -> (BMapToList -> map),
-      MAP_SIZE -> (BMapSize -> map),
-      APPEND_TEXT -> (BAppendText -> default),
-      ERROR -> (BError -> default),
-      LEQ_INT64 -> (BLessEqInt64 -> default),
-      LEQ_DECIMAL -> (BLessEqDecimal -> default),
-      LEQ_TEXT -> (BLessEqText -> default),
-      LEQ_TIMESTAMP -> (BLessEqTimestamp -> default),
-      LEQ_PARTY -> (BLessEqParty -> partyOrdering),
-      GEQ_INT64 -> (BGreaterEqInt64 -> default),
-      GEQ_DECIMAL -> (BGreaterEqDecimal -> default),
-      GEQ_TEXT -> (BGreaterEqText -> default),
-      GEQ_TIMESTAMP -> (BGreaterEqTimestamp -> default),
-      GEQ_PARTY -> (BGreaterEqParty -> partyOrdering),
-      LESS_INT64 -> (BLessInt64 -> default),
-      LESS_DECIMAL -> (BLessDecimal -> default),
-      LESS_TEXT -> (BLessText -> default),
-      LESS_TIMESTAMP -> (BLessTimestamp -> default),
-      LESS_PARTY -> (BLessParty -> partyOrdering),
-      GREATER_INT64 -> (BGreaterInt64 -> default),
-      GREATER_DECIMAL -> (BGreaterDecimal -> default),
-      GREATER_TEXT -> (BGreaterText -> default),
-      GREATER_TIMESTAMP -> (BGreaterTimestamp -> default),
-      GREATER_PARTY -> (BGreaterParty -> partyOrdering),
-      TO_TEXT_INT64 -> (BToTextInt64 -> default),
-      TO_TEXT_DECIMAL -> (BToTextDecimal -> default),
-      TO_TEXT_TIMESTAMP -> (BToTextTimestamp -> default),
-      TO_TEXT_PARTY -> (BToTextParty -> partyTextConversions),
-      TO_TEXT_TEXT -> (BToTextText -> default),
-      TO_QUOTED_TEXT_PARTY -> (BToQuotedTextParty -> default),
-      TEXT_FROM_CODE_POINTS -> (BToTextCodePoints -> textPacking),
-      FROM_TEXT_PARTY -> (BFromTextParty -> partyTextConversions),
-      FROM_TEXT_INT64 -> (BFromTextInt64 -> numberParsing),
-      FROM_TEXT_DECIMAL -> (BFromTextDecimal -> numberParsing),
-      TEXT_TO_CODE_POINTS -> (BFromTextCodePoints -> textPacking),
-      SHA256_TEXT -> (BSHA256Text -> shaText),
-      DATE_TO_UNIX_DAYS -> (BDateToUnixDays -> default),
-      EXPLODE_TEXT -> (BExplodeText -> default),
-      IMPLODE_TEXT -> (BImplodeText -> default),
-      GEQ_DATE -> (BGreaterEqDate -> default),
-      LEQ_DATE -> (BLessEqDate -> default),
-      LESS_DATE -> (BLessDate -> default),
-      TIMESTAMP_TO_UNIX_MICROSECONDS -> (BTimestampToUnixMicroseconds -> default),
-      TO_TEXT_DATE -> (BToTextDate -> default),
-      UNIX_DAYS_TO_DATE -> (BUnixDaysToDate -> default),
-      UNIX_MICROSECONDS_TO_TIMESTAMP -> (BUnixMicrosecondsToTimestamp -> default),
-      GREATER_DATE -> (BGreaterDate -> default),
-      EQUAL_INT64 -> (BEqualInt64 -> default),
-      EQUAL_DECIMAL -> (BEqualDecimal -> default),
-      EQUAL_TEXT -> (BEqualText -> default),
-      EQUAL_TIMESTAMP -> (BEqualTimestamp -> default),
-      EQUAL_DATE -> (BEqualDate -> default),
-      EQUAL_PARTY -> (BEqualParty -> default),
-      EQUAL_BOOL -> (BEqualBool -> default),
-      EQUAL_LIST -> (BEqualList -> default),
-      EQUAL_CONTRACT_ID -> (BEqualContractId -> default),
-      TRACE -> (BTrace -> default),
-      COERCE_CONTRACT_ID -> (BCoerceContractId -> coerceContractId),
-    ).withDefault(_ => throw ParseError("BuiltinFunction.UNRECOGNIZED"))
+  case class BuiltinFunctionInfo(
+      proto: PLF.BuiltinFunction,
+      builtin: BuiltinFunction,
+      minVersion: LV = LV.Features.default, // first version that does support the builtin
+      maxVersion: Option[LV] = None, // first version that does not support the builtin
+      handleLegacyDecimal: Boolean = false
+  )
+
+  val builtinFunctionInfos: List[BuiltinFunctionInfo] = {
+    import PLF.BuiltinFunction._, LV.Features._
+    List(
+      BuiltinFunctionInfo(
+        ADD_DECIMAL,
+        BAddNumeric,
+        maxVersion = Some(numeric),
+        handleLegacyDecimal = true),
+      BuiltinFunctionInfo(
+        SUB_DECIMAL,
+        BSubNumeric,
+        maxVersion = Some(numeric),
+        handleLegacyDecimal = true),
+      BuiltinFunctionInfo(
+        MUL_DECIMAL,
+        BMulNumeric,
+        maxVersion = Some(numeric),
+        handleLegacyDecimal = true),
+      BuiltinFunctionInfo(
+        DIV_DECIMAL,
+        BDivNumeric,
+        maxVersion = Some(numeric),
+        handleLegacyDecimal = true),
+      BuiltinFunctionInfo(
+        ROUND_DECIMAL,
+        BRoundNumeric,
+        maxVersion = Some(numeric),
+        handleLegacyDecimal = true),
+      BuiltinFunctionInfo(ADD_INT64, BAddInt64),
+      BuiltinFunctionInfo(SUB_INT64, BSubInt64),
+      BuiltinFunctionInfo(MUL_INT64, BMulInt64),
+      BuiltinFunctionInfo(DIV_INT64, BDivInt64),
+      BuiltinFunctionInfo(MOD_INT64, BModInt64),
+      BuiltinFunctionInfo(EXP_INT64, BExpInt64),
+      BuiltinFunctionInfo(
+        INT64_TO_DECIMAL,
+        BInt64ToNumeric,
+        maxVersion = Some(numeric),
+        handleLegacyDecimal = true),
+      BuiltinFunctionInfo(
+        DECIMAL_TO_INT64,
+        BNumericToInt64,
+        maxVersion = Some(numeric),
+        handleLegacyDecimal = true),
+      BuiltinFunctionInfo(FOLDL, BFoldl),
+      BuiltinFunctionInfo(FOLDR, BFoldr),
+      BuiltinFunctionInfo(MAP_EMPTY, BMapEmpty, minVersion = map),
+      BuiltinFunctionInfo(MAP_INSERT, BMapInsert, minVersion = map),
+      BuiltinFunctionInfo(MAP_LOOKUP, BMapLookup, minVersion = map),
+      BuiltinFunctionInfo(MAP_DELETE, BMapDelete, minVersion = map),
+      BuiltinFunctionInfo(MAP_TO_LIST, BMapToList, minVersion = map),
+      BuiltinFunctionInfo(MAP_SIZE, BMapSize, minVersion = map),
+      BuiltinFunctionInfo(APPEND_TEXT, BAppendText),
+      BuiltinFunctionInfo(ERROR, BError),
+      BuiltinFunctionInfo(LEQ_INT64, BLessEqInt64),
+      BuiltinFunctionInfo(
+        LEQ_DECIMAL,
+        BLessEqNumeric,
+        maxVersion = Some(numeric),
+        handleLegacyDecimal = true),
+      BuiltinFunctionInfo(LEQ_TEXT, BLessEqText),
+      BuiltinFunctionInfo(LEQ_TIMESTAMP, BLessEqTimestamp),
+      BuiltinFunctionInfo(LEQ_PARTY, BLessEqParty, minVersion = partyOrdering),
+      BuiltinFunctionInfo(GEQ_INT64, BGreaterEqInt64),
+      BuiltinFunctionInfo(
+        GEQ_DECIMAL,
+        BGreaterEqNumeric,
+        maxVersion = Some(numeric),
+        handleLegacyDecimal = true),
+      BuiltinFunctionInfo(GEQ_TEXT, BGreaterEqText),
+      BuiltinFunctionInfo(GEQ_TIMESTAMP, BGreaterEqTimestamp),
+      BuiltinFunctionInfo(GEQ_PARTY, BGreaterEqParty, minVersion = partyOrdering),
+      BuiltinFunctionInfo(LESS_INT64, BLessInt64),
+      BuiltinFunctionInfo(
+        LESS_DECIMAL,
+        BLessNumeric,
+        maxVersion = Some(numeric),
+        handleLegacyDecimal = true),
+      BuiltinFunctionInfo(LESS_TEXT, BLessText),
+      BuiltinFunctionInfo(LESS_TIMESTAMP, BLessTimestamp),
+      BuiltinFunctionInfo(LESS_PARTY, BLessParty, minVersion = partyOrdering),
+      BuiltinFunctionInfo(GREATER_INT64, BGreaterInt64),
+      BuiltinFunctionInfo(
+        GREATER_DECIMAL,
+        BGreaterNumeric,
+        maxVersion = Some(numeric),
+        handleLegacyDecimal = true),
+      BuiltinFunctionInfo(GREATER_TEXT, BGreaterText),
+      BuiltinFunctionInfo(GREATER_TIMESTAMP, BGreaterTimestamp),
+      BuiltinFunctionInfo(GREATER_PARTY, BGreaterParty, minVersion = partyOrdering),
+      BuiltinFunctionInfo(TO_TEXT_INT64, BToTextInt64),
+      BuiltinFunctionInfo(
+        TO_TEXT_DECIMAL,
+        BToTextNumeric,
+        maxVersion = Some(numeric),
+        handleLegacyDecimal = true),
+      BuiltinFunctionInfo(TO_TEXT_TIMESTAMP, BToTextTimestamp),
+      BuiltinFunctionInfo(TO_TEXT_PARTY, BToTextParty, minVersion = partyTextConversions),
+      BuiltinFunctionInfo(TO_TEXT_TEXT, BToTextText),
+      BuiltinFunctionInfo(TO_QUOTED_TEXT_PARTY, BToQuotedTextParty),
+      BuiltinFunctionInfo(TEXT_FROM_CODE_POINTS, BToTextCodePoints, minVersion = textPacking),
+      BuiltinFunctionInfo(FROM_TEXT_PARTY, BFromTextParty, minVersion = partyTextConversions),
+      BuiltinFunctionInfo(FROM_TEXT_INT64, BFromTextInt64, minVersion = numberParsing),
+      BuiltinFunctionInfo(
+        FROM_TEXT_DECIMAL,
+        BFromTextNumeric,
+        handleLegacyDecimal = true,
+        minVersion = numberParsing),
+      BuiltinFunctionInfo(TEXT_TO_CODE_POINTS, BFromTextCodePoints, minVersion = textPacking),
+      BuiltinFunctionInfo(SHA256_TEXT, BSHA256Text, minVersion = shaText),
+      BuiltinFunctionInfo(DATE_TO_UNIX_DAYS, BDateToUnixDays),
+      BuiltinFunctionInfo(EXPLODE_TEXT, BExplodeText),
+      BuiltinFunctionInfo(IMPLODE_TEXT, BImplodeText),
+      BuiltinFunctionInfo(GEQ_DATE, BGreaterEqDate),
+      BuiltinFunctionInfo(LEQ_DATE, BLessEqDate),
+      BuiltinFunctionInfo(LESS_DATE, BLessDate),
+      BuiltinFunctionInfo(TIMESTAMP_TO_UNIX_MICROSECONDS, BTimestampToUnixMicroseconds),
+      BuiltinFunctionInfo(TO_TEXT_DATE, BToTextDate),
+      BuiltinFunctionInfo(UNIX_DAYS_TO_DATE, BUnixDaysToDate),
+      BuiltinFunctionInfo(UNIX_MICROSECONDS_TO_TIMESTAMP, BUnixMicrosecondsToTimestamp),
+      BuiltinFunctionInfo(GREATER_DATE, BGreaterDate),
+      BuiltinFunctionInfo(EQUAL_INT64, BEqualInt64),
+      BuiltinFunctionInfo(
+        EQUAL_DECIMAL,
+        BEqualNumeric,
+        maxVersion = Some(numeric),
+        handleLegacyDecimal = true),
+      BuiltinFunctionInfo(EQUAL_TEXT, BEqualText),
+      BuiltinFunctionInfo(EQUAL_TIMESTAMP, BEqualTimestamp),
+      BuiltinFunctionInfo(EQUAL_DATE, BEqualDate),
+      BuiltinFunctionInfo(EQUAL_PARTY, BEqualParty),
+      BuiltinFunctionInfo(EQUAL_BOOL, BEqualBool),
+      BuiltinFunctionInfo(EQUAL_LIST, BEqualList),
+      BuiltinFunctionInfo(EQUAL_CONTRACT_ID, BEqualContractId),
+      BuiltinFunctionInfo(TRACE, BTrace),
+      BuiltinFunctionInfo(COERCE_CONTRACT_ID, BCoerceContractId, minVersion = coerceContractId)
+    )
   }
+
+  private val builtinInfoMap =
+    builtinFunctionInfos
+      .map(info => info.proto -> info)
+      .toMap
+      .withDefault(_ => throw ParseError("BuiltinFunction.UNRECOGNIZED"))
 
 }

@@ -15,7 +15,7 @@ private[validation] case class TypeSubst(map: Map[TypeVarName, Type], private va
 
   def apply(typ: Type): Type = typ match {
     case TVar(name) => map.getOrElse(name, typ)
-    case TTyCon(_) | TBuiltin(_) => typ
+    case TTyCon(_) | TBuiltin(_) | TNat(_) => typ
     case TApp(t1, t2) => TApp(apply(t1), apply(t2))
     case TForall((v, k), t) =>
       val (v1, subst1) = if (freeVars.contains(v)) {

@@ -58,8 +58,7 @@ private[engine] class CommandPreprocessor(compiledPackages: ConcurrentCompiledPa
                 fail(s"Got out of bounds type variable $v when replacing parameters")
               case Some(ty) => ty
             }
-          case tycon: TTyCon => tycon
-          case bltin: TBuiltin => bltin
+          case TTyCon(_) | TBuiltin(_) | TNat(_) => typ
           case TApp(tyfun, arg) => TApp(go(tyfun), go(arg))
           case forall: TForall =>
             fail(
@@ -98,21 +97,21 @@ private[engine] class CommandPreprocessor(compiledPackages: ConcurrentCompiledPa
         val newNesting = nesting + 1
         (ty, value) match {
           // simple values
-          case (TBuiltin(BTUnit), ValueUnit) =>
+          case (TUnit, ValueUnit) =>
             ResultDone(SUnit(()))
-          case (TBuiltin(BTBool), ValueBool(b)) =>
+          case (TBool, ValueBool(b)) =>
             ResultDone(SBool(b))
-          case (TBuiltin(BTInt64), ValueInt64(i)) =>
+          case (TInt64, ValueInt64(i)) =>
             ResultDone(SInt64(i))
-          case (TBuiltin(BTTimestamp), ValueTimestamp(t)) =>
+          case (TTimestamp, ValueTimestamp(t)) =>
             ResultDone(STimestamp(t))
-          case (TBuiltin(BTDate), ValueDate(t)) =>
+          case (TDate, ValueDate(t)) =>
             ResultDone(SDate(t))
-          case (TBuiltin(BTText), ValueText(t)) =>
+          case (TText, ValueText(t)) =>
             ResultDone(SText(t))
-          case (TBuiltin(BTDecimal), ValueNumeric(d)) =>
+          case (TNumeric(TNat(10)), ValueNumeric(d)) =>
             Numeric.fromBigDecimal(Decimal.scale, d).fold(fail, d => ResultDone(SNumeric(d)))
-          case (TBuiltin(BTParty), ValueParty(p)) =>
+          case (TParty, ValueParty(p)) =>
             ResultDone(SParty(p))
           case (TContractId(typ), ValueContractId(c)) =>
             typ match {
