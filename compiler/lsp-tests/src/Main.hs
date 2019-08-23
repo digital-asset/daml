@@ -439,8 +439,8 @@ executeCommandTests run _ = testGroup "execute command"
             , "        do return ()"
             ]
         Just escapedFp <- pure $ uriToFilePath (main' ^. uri)
-        _ <- LSP.executeCommand  (Command "" "daml/damlVisualize"  (Just (List [Aeson.String $ T.pack  escapedFp])))
-        rsp <- manyTill anyResponse (LSP.message :: Session ApplyWorkspaceEditRequest)
+        rsp :: ExecuteCommandResponse <- LSP.request WorkspaceExecuteCommand $ ExecuteCommandParams
+           "daml/damlVisualize"  (Just (List [Aeson.String $ T.pack escapedFp]))
         -- msgs <- satisfy (\x -> case x of
         --     RspExecuteCommand _ -> True
         --     NotProgressDone _ -> False
