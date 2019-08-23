@@ -449,7 +449,7 @@ executeCommandTests run _ = testGroup "execute command"
             ]
         Just escapedFp <- pure $ uriToFilePath (main' ^. uri)
         actualDotString :: ExecuteCommandResponse <- LSP.request WorkspaceExecuteCommand $ ExecuteCommandParams
-           "daml/Visualize"  (Just (List [Aeson.String $ T.pack escapedFp]))
+           "daml/NoCommand"  (Just (List [Aeson.String $ T.pack escapedFp]))
         let expectedNull = Just Aeson.Null
         liftIO $ assertBool "Invlalid command" (expectedNull == _result actualDotString)
         closeDoc main'
