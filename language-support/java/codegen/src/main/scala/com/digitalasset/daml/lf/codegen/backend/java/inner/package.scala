@@ -110,7 +110,7 @@ package object inner {
   def fullyQualifiedName(
       identifier: Identifier,
       packagePrefixes: Map[PackageId, String]): String = {
-    val Identifier(packageId, QualifiedName(module, name)) = identifier
+    val Identifier(_, QualifiedName(module, name)) = identifier
 
     // consider all but the last name segment to be part of the java package name
     val packageSegments = module.segments.slowAppend(name.segments).toSeq.dropRight(1)
@@ -126,30 +126,43 @@ package object inner {
       .mkString(".")
   }
 
-  def findTypeParamsInFields(fields: Fields) = {
-    // We traverse the types of the fields with `findActualTypeParams`
-    // to find all unbound type parameters. At the end we need to make sure
-    // that we that we have a unique set of parameters without duplicates.
-    // This can happen if there are two fields of type `a`, but we only need to carry
-    // this particular type parameter forward once, hence the call to `distinct`.
-    fields.map(_.damlType).flatMap(findTypeParams).distinct
+  def distinctTypeVars(
+      fields: Fields,
+      typeVars: IndexedSeq[String]): IndexedSeq[IndexedSeq[String]] = {
+    val escapedNestedTypeVars = escapedNestedTypeVarNames(fields)
+    if (escapedNestedTypeVars.sorted == typeVars.sorted) Vector(typeVars)
+    else Vector(escapedNestedTypeVars, typeVars)
   }
 
-  def findTypeParams(tpe: Type): Vector[String] = {
-    def go(tpe: Type, typeParams: List[String]): List[String] = {
+  def distinctTypeVars(tpe: Type, typeVars: IndexedSeq[String]): IndexedSeq[IndexedSeq[String]] = {
+    val escapedNestedTypeVars = escapedNestedTypeVarNames(tpe)
+    if (escapedNestedTypeVars.sorted == typeVars.sorted) Vector(typeVars)
+    else Vector(escapedNestedTypeVars, typeVars)
+  }
+
+  // Ensures that different sets of nested unbound type variables
+  // do not repeat with the call to `distinct` at the end
+  def escapedNestedTypeVarNames(fields: Fields): IndexedSeq[String] =
+    fields
+      .map(_.damlType)
+      .flatMap(escapedNestedTypeVarNames)
+      .distinct
+
+  // We traverse nested unbound type parameters. At the end we need to make sure
+  // that we that we have a unique set of parameters without duplicates.
+  // This can happen if there are two fields of type `a`, but we only need to carry
+  // this particular type parameter forward once, hence the usage of a set.
+  def escapedNestedTypeVarNames(tpe: Type): IndexedSeq[String] = {
+    def go(typeParams: Set[String], tpe: Type): Set[String] = {
       tpe match {
-        case TypeVar(x) => JavaEscaper.escapeString(x) :: typeParams
+        case TypeVar(x) => typeParams + JavaEscaper.escapeString(x)
         case TypePrim(_, args) =>
-          args.foldLeft(typeParams) {
-            case (params, argType) => go(argType, params)
-          }
+          args.foldLeft(typeParams)(go)
         case TypeCon(_, args) =>
-          args.foldLeft(typeParams) {
-            case (params, argType) => go(argType, params)
-          }
+          args.foldLeft(typeParams)(go)
       }
     }
-    go(tpe, Nil).toVector.reverse
+    go(Set.empty, tpe).toVector
   }
 
   implicit class TypeNameExtensions(name: TypeName) {

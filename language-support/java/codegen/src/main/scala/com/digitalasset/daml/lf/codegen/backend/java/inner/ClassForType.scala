@@ -48,8 +48,6 @@ object ClassForType extends StrictLogging {
           constructors.map(cons => javaFile(typeWithContext, subPackage, cons))
 
       case Some(Normal(DefDataType(_, enum: Enum))) =>
-        val subPackage = className.packageName() + "." + JavaEscaper.escapeString(
-          className.simpleName().toLowerCase)
         List(
           JavaFile
             .builder(javaPackage, EnumClass.generate(className, typeWithContext.identifier, enum))
