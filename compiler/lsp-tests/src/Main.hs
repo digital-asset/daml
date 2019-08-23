@@ -23,6 +23,9 @@ import System.Info.Extra
 import System.IO.Extra
 import Test.Tasty
 import Test.Tasty.HUnit
+import qualified Data.Aeson as Aeson
+-- import Language.Haskell.LSP.Messages
+
 
 import DA.Daml.Lsp.Test.Util
 import qualified Language.Haskell.LSP.Test as LSP
@@ -44,10 +47,12 @@ main = do
             | isWindows = pure ()
             | otherwise = withTempDir $ \dir -> runSessionWithConfig conf (damlcPath <> " ide --scenarios=yes") fullCaps' dir s
     defaultMain $ testGroup "LSP"
-        [ diagnosticTests run runScenarios
-        , requestTests run runScenarios
-        , scenarioTests runScenarios
-        , stressTests run runScenarios
+        [
+            --diagnosticTests run runScenarios
+        -- , requestTests run runScenarios
+        -- , scenarioTests runScenarios
+        -- , stressTests run runScenarios
+         executeCommandTests run runScenarios
         ]
     where
         conf = defaultConfig
@@ -56,11 +61,11 @@ main = do
             { logStdErr = True }
             -- { logMessages = True, logColor = False, logStdErr = True }
 
-diagnosticTests
+_diagnosticTests
     :: (forall a. Session a -> IO a)
     -> (Session () -> IO ())
     -> TestTree
-diagnosticTests run runScenarios = testGroup "diagnostics"
+_diagnosticTests run runScenarios = testGroup "diagnostics"
     [ testCase "diagnostics disappear after error is fixed" $ run $ do
           test <- openDoc' "Test.daml" damlId $ T.unlines
               [ "daml 1.2"
@@ -223,11 +228,11 @@ diagnosticTests run runScenarios = testGroup "diagnostics"
     ]
 
 
-requestTests
+_requestTests
     :: (forall a. Session a -> IO a)
     -> (Session () -> IO ())
     -> TestTree
-requestTests run _runScenarios = testGroup "requests"
+_requestTests run _runScenarios = testGroup "requests"
     [ testCase "code-lenses" $ run $ do
           main' <- openDoc' "Main.daml" damlId $ T.unlines
               [ "daml 1.2"
@@ -367,8 +372,8 @@ requestTests run _runScenarios = testGroup "requests"
           closeDoc test
     ]
 
-scenarioTests :: (Session () -> IO ()) -> TestTree
-scenarioTests run = testGroup "scenarios"
+_scenarioTests :: (Session () -> IO ()) -> TestTree
+_scenarioTests run = testGroup "scenarios"
     [ testCase "opening codelens produces a notification" $ run $ do
           main' <- openDoc' "Main.daml" damlId $ T.unlines
               [ "daml 1.2"
@@ -417,12 +422,38 @@ scenarioTests run = testGroup "scenarios"
     ]
 
 
+-- type ExecuteCommandResponse = ResponseMessage Aeson.Value
+executeCommandTests :: (forall a. Session a -> IO a) -> (Session () -> IO ()) -> TestTree
+executeCommandTests run _ = testGroup "execute command"
+    [ testCase "exexute commands" $ run $ do
+        main' <- openDoc' "Main.daml" damlId $ T.unlines
+            [ "daml 1.2"
+            , "module Coin where"
+            , "template Coin"
+            , "  with"
+            , "    owner : Party"
+            , "  where"
+            , "    signatory owner"
+            , "    controller owner can"
+            , "      Delete : ()"
+            , "        do return ()"
+            ]
+        Just escapedFp <- pure $ uriToFilePath (main' ^. uri)
+        _ <- LSP.executeCommand  (Command "" "daml/damlVisualize"  (Just (List [Aeson.String $ T.pack  escapedFp])))
+        rsp <- manyTill anyResponse (LSP.message :: Session ApplyWorkspaceEditRequest)
+        -- msgs <- satisfy (\x -> case x of
+        --     RspExecuteCommand _ -> True
+        --     NotProgressDone _ -> False
+        --     _ -> False)
+        liftIO $ assertBool (show rsp) ("thisdddd" == show rsp)
+        closeDoc main'
+    ]
 -- | Do extreme things to the compiler service.
-stressTests
+_stressTests
   :: (forall a. Session a -> IO a)
   -> (Session () -> IO ())
   -> TestTree
-stressTests run _runScenarios = testGroup "Stress tests"
+_stressTests run _runScenarios = testGroup "Stress tests"
   [ testCase "Modify a file 2000 times" $ run $ do
 
         let fooValue :: Int -> T.Text
