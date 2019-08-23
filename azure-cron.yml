@@ -181,8 +181,9 @@ jobs:
               fi
               echo "Building version ${version#v}..."
               cd ci/docker/daml-sdk
-              docker build -t digitalasset/daml-sdk:${version#v} --build-arg VERSION=${version#v} .
+              docker build -t digitalasset/daml-sdk:${version#v} -t digitalasset/daml-sdk:latest --build-arg VERSION=${version#v} .
               docker push digitalasset/daml-sdk:${version#v}
+              docker push digitalasset/daml-sdk:latest
               cd "$DIR"
               echo "Done."
             fi
