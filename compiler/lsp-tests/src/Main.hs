@@ -24,9 +24,6 @@ import System.IO.Extra
 import Test.Tasty
 import Test.Tasty.HUnit
 import qualified Data.Aeson as Aeson
--- import Language.Haskell.LSP.Messages
-
-
 import DA.Daml.Lsp.Test.Util
 import qualified Language.Haskell.LSP.Test as LSP
 
