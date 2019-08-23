@@ -280,17 +280,18 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
             (typ, arg) => TApp(typ, decodeType(arg)))
         case PLF.Type.SumCase.PRIM =>
           val prim = lfType.getPrim
-          if (prim.getPrim == PLF.PrimType.DECIMAL) {
-            // FixMe: https://github.com/digital-asset/daml/issues/2289
-            //  enable the check once the compiler produces proper DAML-LF 1.dev
-            // assertUntil(LV.Features.numeric, "PLF.PrimType.DECIMAL")
-            TDecimal
-          } else {
-            val info = builtinTypeInfoMap(prim.getPrim)
-            assertSince(info.minVersion, prim.getPrim.getValueDescriptor.getFullName)
-            (TBuiltin(info.bTyp) /: [Type] prim.getArgsList.asScala)((typ, arg) =>
-              TApp(typ, decodeType(arg)))
-          }
+          val baseType =
+            if (prim.getPrim == PLF.PrimType.DECIMAL) {
+              // FixMe: https://github.com/digital-asset/daml/issues/2289
+              //  enable the check once the compiler produces proper DAML-LF 1.dev
+              // assertUntil(LV.Features.numeric, "PLF.PrimType.DECIMAL")
+              TDecimal
+            } else {
+              val info = builtinTypeInfoMap(prim.getPrim)
+              assertSince(info.minVersion, prim.getPrim.getValueDescriptor.getFullName)
+              TBuiltin(info.bTyp)
+            }
+          (baseType /: [Type] prim.getArgsList.asScala)((typ, arg) => TApp(typ, decodeType(arg)))
         case PLF.Type.SumCase.FUN =>
           assertUntil(LV.Features.arrowType, "Type.Fun")
           val tFun = lfType.getFun
@@ -760,8 +761,6 @@ private[lf] object DecodeV1 {
       bTyp: BuiltinType,
       minVersion: LV = LV.Features.default
   )
-
-  val TDecimalScale = TNat(Decimal.scale)
 
   val builtinTypeInfos: List[BuiltinTypeInfo] = {
     import PLF.PrimType._, LV.Features._

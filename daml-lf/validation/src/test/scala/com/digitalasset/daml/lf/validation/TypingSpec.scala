@@ -390,8 +390,8 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
         E"Λ (τ : ⋆) (σ : ⋆). λ (e : σ) → (( uembed_expr @τ e ))",
       )
 
-      forEvery(testCases) { exp: Expr =>
-        an[ValidationError] should be thrownBy env.typeOf(exp)
+      forEvery(testCases) { exp =>
+        a[ValidationError] should be thrownBy env.typeOf(exp)
       }
     }
 
