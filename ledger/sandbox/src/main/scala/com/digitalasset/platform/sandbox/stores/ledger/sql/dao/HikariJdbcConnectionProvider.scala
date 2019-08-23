@@ -50,10 +50,10 @@ class HikariJdbcConnectionProvider(
     config.addDataSourceProperty("cachePrepStmts", "true")
     config.addDataSourceProperty("prepStmtCacheSize", "128")
     config.addDataSourceProperty("prepStmtCacheSqlLimit", "2048")
-    config.addDataSourceProperty("minimumIdle", minimumIdle)
-    config.addDataSourceProperty("maximumPoolSize", maxPoolSize)
-    config.addDataSourceProperty("connectionTimeout", connectionTimeout.toMillis)
-    config.addDataSourceProperty("autoCommit", false)
+    config.setAutoCommit(false)
+    config.setMaximumPoolSize(maxPoolSize)
+    config.setMinimumIdle(minimumIdle)
+    config.setConnectionTimeout(connectionTimeout.toMillis)
 
     //note that Hikari uses auto-commit by default.
     //in `runSql` below, the `.close()` will automatically trigger a commit.
