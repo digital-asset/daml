@@ -233,7 +233,7 @@ Version: 1.dev
 
   * **Add** Nat kind and Nat type.
 
-  * **Replace** fixed scaled 'Decimal' type by parametricly  scaled
+  * **Replace** fixed scaled 'Decimal' type by parametrically scaled
     'Numeric' type.
 
 Abstract syntax
@@ -2117,7 +2117,7 @@ Numeric functions
 * ``SUB_NUMERIC : ∀ (α : nat) . 'Numeric' α → 'Numeric' α → 'Numeric' α``
 
   Subtracts the second decimal from the first one.  The
-  scale of the inputs and the ouput is given by the type parameter
+  scale of the inputs and the output is given by the type parameter
   `α`.  Throws an error if overflow.
 
 * ``MUL_NUMERIC : ∀ (α : nat) . 'Numeric' α → 'Numeric' α → 'Numeric' α``
@@ -2125,7 +2125,7 @@ Numeric functions
   Multiplies the two decimals and rounds the result to the closest
   multiple of ``10⁻ᵅ`` using `banker's rounding convention
   <https://en.wikipedia.org/wiki/Rounding#Round_half_to_even>`_.  The
-  scale of the inputs and the ouput is given by the type parameter
+  scale of the inputs and the output is given by the type parameter
   `α`. Throws an error in case of overflow.
 
 * ``DIV_NUMERIC : ∀ (α : nat) . 'Numeric' α → 'Numeric' α → 'Numeric' α``
@@ -2134,7 +2134,7 @@ Numeric functions
   the closest multiple of ``10⁻ᵅ`` using `banker's rounding convention
   <https://en.wikipedia.org/wiki/Rounding#Round_half_to_even>`_ (where
   `n` is given as the type parameter).  The scale of the inputs and
-  the ouput is given by the type parameter `α`.  Throws an error in
+  the output is given by the type parameter `α`.  Throws an error in
   case of overflow.
 
 * ``ROUND_NUMERIC : ∀ (α : nat) . 'Int64' → 'Numeric' α → 'Numeric' α``
@@ -2144,49 +2144,48 @@ Numeric functions
   half-way between two multiples, rounds toward the even one,
   following the `banker's rounding convention
   <https://en.wikipedia.org/wiki/Rounding#Round_half_to_even>`_.  The
-  scale of the inputs and the ouput is given by the type parameter
+  scale of the inputs and the output is given by the type parameter
   `α`.  Throws an exception if the integer is not between `α-37` and
   `α` inclusive.
 
 * ``LESS_EQ_NUMERIC : ∀ (α : nat) . 'Numeric' α → 'Numeric' α → 'Bool'``
 
-  Returns ``'True'`` if the first decimal is less or equal than the
+  Returns ``'True'`` if the first numeric is less or equal than the
   second, ``'False'`` otherwise.  The scale of the inputs is given by
   the type parameter `α`.
 
 * ``GREATER_EQ_NUMERIC : ∀ (α : nat) . 'Numeric' α → 'Numeric' α → 'Bool'``
 
-  Returns ``'True'`` if the first decimal is greater or equal than the
+  Returns ``'True'`` if the first numeric is greater or equal than the
   second, ``'False'`` otherwise. The scale of the inputs is given by
   the type parameter `α`.
 
 * ``LESS_NUMERIC : ∀ (α : nat) . 'Numeric' α → 'Numeric' α → 'Bool'``
 
-  Returns ``'True'`` if the first decimal is strictly less than the
+  Returns ``'True'`` if the first numeric is strictly less than the
   second, ``'False'`` otherwise.  The scale of the inputs is given by
   the type parameter `α`.
 
-
 * ``GREATER_NUMERIC : ∀ (α : nat) . 'Numeric' α → 'Numeric' α → 'Bool'``
 
-  Returns ``'True'`` if the first decimal is strictly greater than the
+  Returns ``'True'`` if the first numeric is strictly greater than the
   second, ``'False'`` otherwise.  The scale of the inputs is given by
   the type parameter `α`.
 
 * ``EQUAL_NUMERIC : ∀ (α : nat) . 'Numeric' α → 'Numeric' α → 'Bool'``
 
-  Returns ``'True'`` if the first decimal is equal to the second,
+  Returns ``'True'`` if the first numeric is equal to the second,
   ``'False'`` otherwise.  The scale of the inputs is given by the type
   parameter `α`.
 
 * ``TO_TEXT_NUMERIC : ∀ (α : nat) . 'Numeric' α → 'Text'``
 
-  Returns the decimal string representation of the decimal.  The scale
+  Returns the numeric string representation of the numeric.  The scale
   of the input is given by the type parameter `α`.
 
 * ``FROM_TEXT_NUMERIC : ∀ (α : nat) .'Text' → 'Optional' 'Numeric' α``
 
-  Given a string representation of a decimal returns the decimal
+  Given a string representation of a numeric returns the numeric
   wrapped in ``Some``. If the input does not match the regexp
   ``[+-]?\d+(\.d+)?`` or if the result of the conversion cannot
   be mapped into a decimal without loss of precision, returns
@@ -2222,27 +2221,27 @@ String functions
 
 * ``LESS_EQ_TEXT : 'Text' → 'Text' → 'Bool'``
 
-  Returns ``'True'`` if the first decimal is lexicographically less
+  Returns ``'True'`` if the first string is lexicographically less
   or equal than the second, ``'False'`` otherwise.
 
 * ``GREATER_EQ_TEXT : 'Text' → 'Text' → 'Bool'``
 
-  Returns ``'True'`` if the first decimal is lexicographically
+  Returns ``'True'`` if the first string is lexicographically
   greater or equal than the second, ``'False'`` otherwise.
 
 * ``LESS_TEXT : 'Text' → 'Text' → 'Bool'``
 
-  Returns ``'True'`` if the first decimal is lexicographically
+  Returns ``'True'`` if the first string is lexicographically
   strictly less than the second, ``'False'`` otherwise.
 
 * ``GREATER_TEXT : 'Text' → 'Text' → 'Bool'``
 
-  Returns ``'True'`` if the first decimal is lexicographically
+  Returns ``'True'`` if the first string is lexicographically
   strictly greater than the second, ``'False'`` otherwise.
 
 * ``EQUAL_TEXT : 'Text' → 'Text' → 'Bool'``
 
-  Returns ``'True'`` if the first decimal is equal to the second,
+  Returns ``'True'`` if the first string is equal to the second,
   ``'False'`` otherwise.
 
 * ``TO_TEXT_TEXT : 'Text' → 'Text'``
@@ -2466,59 +2465,59 @@ List functions
 Map functions
 ~~~~~~~~~~~~~
 
- * ``MAP_EMPTY : ∀ α. 'Map' α``
+* ``MAP_EMPTY : ∀ α. 'Map' α``
 
-   Returns the empty map.
+  Returns the empty map.
 
-   [*Available since version 1.3*]
+  [*Available since version 1.3*]
 
- * ``MAP_INSERT : ∀ α.  'Text' → α → 'Map' α → 'Map' α``
+* ``MAP_INSERT : ∀ α.  'Text' → α → 'Map' α → 'Map' α``
 
-   Inserts a new key and value in the map. If the key is already
-   present in the map, the associated value is replaced with the
-   supplied value.
+  Inserts a new key and value in the map. If the key is already
+  present in the map, the associated value is replaced with the
+  supplied value.
 
-   [*Available since version 1.3*]
+  [*Available since version 1.3*]
 
- * ``MAP_LOOKUP : ∀ α. 'Text' → 'Map' α → 'Optional' α``
+* ``MAP_LOOKUP : ∀ α. 'Text' → 'Map' α → 'Optional' α``
 
-   Lookups the value at a key in the map.
+  Lookups the value at a key in the map.
 
-   [*Available since version 1.3*]
+  [*Available since version 1.3*]
 
- * ``MAP_DELETE : ∀ α. 'Text' → 'Map' α → 'Map' α``
+* ``MAP_DELETE : ∀ α. 'Text' → 'Map' α → 'Map' α``
 
-   Deletes a key and its value from the map. When the key is not a
-   member of the map, the original map is returned.
+  Deletes a key and its value from the map. When the key is not a
+  member of the map, the original map is returned.
 
-   [*Available since version 1.3*]
+  [*Available since version 1.3*]
 
- * ``MAP_LIST : ∀ α. 'Map' α → 'List' ⟨ key: 'Text', value: α  ⟩``
+* ``MAP_LIST : ∀ α. 'Map' α → 'List' ⟨ key: 'Text', value: α  ⟩``
 
-   Converts to a list of key/value pairs. The output list is guaranteed to be
-   sorted according to the ordering of its keys.
+  Converts to a list of key/value pairs. The output list is guaranteed to be
+  sorted according to the ordering of its keys.
 
-   [*Available since version 1.3*]
+  [*Available since version 1.3*]
 
- * ``MAP_SIZE : ∀ α. 'Map' α → 'Int64'``
+* ``MAP_SIZE : ∀ α. 'Map' α → 'Int64'``
 
-   Return the number of elements in the map.
+  Return the number of elements in the map.
 
-   [*Available since version 1.3*]
+  [*Available since version 1.3*]
 
 Conversions functions
 ~~~~~~~~~~~~~~~~~~~~~
 
 * ``INT64_TO_NUMERIC : ∀ (α : nat) . 'Int64' → 'Numeric' α``
 
-  Returns a decimal representation of the integer.  The scale of the
-  output and the ouput is given by the type parameter `α`. Throws an
+  Returns a numeric representation of the integer.  The scale of the
+  output and the output is given by the type parameter `α`. Throws an
   error in case of overflow.
 
 * ``NUMERIC_TO_INT64 : ∀ (α : nat) . 'Numeric' α → 'Int64'``
 
-  Returns the integral part of the given decimal -- in other words,
-  rounds towards 0. The scale of the input and the ouput is given by
+  Returns the integral part of the given numeric -- in other words,
+  rounds towards 0. The scale of the input and the output is given by
   the type parameter `α`.  Throws an error in case of overflow.
 
 * ``TIMESTAMP_TO_UNIX_MICROSECONDS : 'Timestamp' → 'Int64'``
@@ -2877,21 +2876,12 @@ Parametric scaled Decimals
 
 DAML-LF 1.dev is the first version that supports parametric scaled
 decimals. Prior versions have decimal number with a fixed scale of 10
-called Decimal. Backward compatibility with the current specification
-is achieved by
-
-1. Renaming the fields and the enum values containing "``decimal``" in
-   the Protocol buffer definition with "``numeric``" instead,
-2. Unconditionally fixing the scale of Numeric literals to ``10`` when
-   reading DAML-LF 1.6 (or earlier),
-3. Automatically applying the Numeric types and the numeric
-   builtin functions to the Nat type ``10`` when reading DAML-LF
-   1.6 (or earlier).
-
+called Decimal.  Backward compatibility with the current specification
+is achieved as follows:
 
 On the one hand, in case of DAML-LF 1.6 (or earlier) archive:
 
-- The ``numeric`` fields of the ``PrimLit`` message must match the
+- The ``decimal`` fields of the ``PrimLit`` message must match the
   regexp::
 
     ``[+-]?\d{1,28}(.[0-9]\d{1-10})?``
@@ -2900,13 +2890,32 @@ On the one hand, in case of DAML-LF 1.6 (or earlier) archive:
   contains such field to a numeric literal of scale 10. The
   deserialization process will reject any non-compliant program.
 
-- ``PrimType`` message with a field ``numeric`` set are translated to
+- ``PrimType`` message with a field ``decimal`` set are translated to
   ``(Numeric 10)`` type when deserialized.
 
-- Any ``BuiltinFunction`` message that corresponds to a numeric
-  builtin (all those builtins that contains ``NUMERIC`` within their
-  name) are silently applied to the ``nat`` type ``10`` when
-  deserialized to expression.
+- Decimal ``BuiltinFunction`` messages are translated as follows :
+
+  + ``ADD_DECIMAL`` message is translated to ``(ADD_NUMERIC @10)
+  + ``SUB_DECIMAL`` message is translated to ``(SUB_NUMERIC @10)
+  + ``MUL_DECIMAL`` message is translated to ``(MUL_NUMERIC @10)
+  + ``DIV_DECIMAL`` message is translated to ``(DIV_NUMERIC @10)
+  + ``ROUND_DECIMAL`` message is translated to ``(ROUND_NUMERIC @10)
+  + ``LESS_EQ_DECIMAL`` message is translated to ``(LESS_EQ_NUMERIC @10)
+  + ``GREATER_EQ_DECIMAL`` message is translated to ``(GREATER_EQ_NUMERIC @10)
+  + ``LESS_DECIMAL`` message is translated to ``(LESS_NUMERIC @10)
+  + ``GREATER_DECIMAL`` message is translated to ``(GREATER_NUMERIC @10)
+  + ``EQUAL_DECIMAL`` message is translated to ``(EQUAL_NUMERIC @10)
+  + ``TO_TEXT_DECIMAL`` message is translated to ``(TO_TEXT_NUMERIC @10)
+  + ``FROM_TEXT_DECIMAL`` message is translated to ``(FROM_TEXT_NUMERIC @10)  [*Available since version 1.5*]
+  + ``INT64_TO_DECIMAL`` message is translated to ``(INT64_TO_NUMERIC @10)
+  + ``DECIMAL_TO_INT64`` message is translated to ``(NUMERIC_TO_INT64 @10)
+
+- Numeric types, literals and builtins cannot be refer directly. In
+  other words ``numeric`` fields in ``PrimLit`` and ``PrimType``
+  messages must remain unset and ``BuiltinFunction`` containing
+  ``NUMERIC`` in their name are forbiddens. The deserialization
+  process will reject any DAML-LF 1.6 (or earlier) that does not
+  comply those restrictions.
 
 On the other hand, starting from DAML-LF 1.dev:
 
@@ -2921,15 +2930,12 @@ On the other hand, starting from DAML-LF 1.dev:
   converting the message to numeric literals. The deserialization
   process will reject any non-compliant program.
 
-- ``PrimType`` messages with a field ``numeric`` set and
-  ``BuiltinFunction`` messages that corresponds to a numeric builtin
-  are straightforwardly translated to the corresponding types or
-  expressions without implicit application.
-
-
-
-
-
+- Decimal types, literals and builtins cannot be refer directly. In
+  other words ``decimal`` fields in ``PrimLit`` and ``PrimType``
+  messages must remain unset and ``BuiltinFunction`` containing
+  ``DECIMAL`` in their name are forbiddens. The deserialization
+  process will reject any DAML-LF 1.dev (or latter) that does not
+  comply those restrictions.
 
 .. Local Variables:
 .. eval: (flyspell-mode 1)
