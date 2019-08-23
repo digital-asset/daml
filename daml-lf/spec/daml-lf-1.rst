@@ -72,12 +72,12 @@ to interpret previous versions of the language in a backward
 compatibility way.
 
 In the following of this document, we will use annotations between
-square brackets such as *[Available since version x.y]* and *[Changed
-in version x.y]* to emphasize that a particular feature is concerned
-with a change introduced in DAML x.y version. In addition, we will
-mark lines within inference rules with annotations of the form
-``[DAML-LF < x.y]`` and ``[DAML-LF ≥ x.y]`` to make the respective
-line conditional upon the DAML-LF version.
+square brackets such as *[Available in version < x.y]*, *[Available in
+versions >= x.y]*, and *[Changed in version x.y]* to emphasize that a
+particular feature is concerned with a change introduced in DAML x.y
+version. In addition, we will mark lines within inference rules with
+annotations of the form ``[DAML-LF < x.y]`` and ``[DAML-LF ≥ x.y]`` to
+make the respective line conditional upon the DAML-LF version.
 
 The version 1.dev is a special staging area for the next 1.x version to
 be released. Compliant implementations are not required to implement any
@@ -2103,7 +2103,7 @@ Int64 functions
   in ``Some``. If the input does not match the regexp ``[+-]?\d+`` or
   if the result of the conversion overflows, returns ``None``.
 
-  [*Available since version 1.5*]
+  [*Available in versions >= 1.5*]
 
 Numeric functions
 ~~~~~~~~~~~~~~~~~
@@ -2192,7 +2192,7 @@ Numeric functions
   ``None``.  The scale of the output is given by the type parameter
   `α`.
 
-  [*Available since version 1.5*]
+  [*Available in versions >= 1.5*]
 
 String functions
 ~~~~~~~~~~~~~~~~
@@ -2217,7 +2217,7 @@ String functions
   hashing of the UTF-8 string and returns it encoded as a Hexadecimal
   string (lower-case).
 
-  [*Available since version 1.2*]
+  [*Available in versions >= 1.2*]
 
 * ``LESS_EQ_TEXT : 'Text' → 'Text' → 'Bool'``
 
@@ -2254,7 +2254,7 @@ String functions
   <https://en.wikipedia.org/wiki/Code_point>`_ of the input
   string represented as integer.
 
-  [*Available since version 1.6*]
+  [*Available in versions >= 1.6*]
 
 * ``TEXT_TO_CODE_POINTS``: 'List' 'Int64' → 'Text'
 
@@ -2264,7 +2264,7 @@ String functions
   from `0x000000` to `0x00D7FF` or in the range from `0x00DFFF`
   to `0x10FFFF` (bounds included).
 
-  [*Available since version 1.6*]
+  [*Available in versions >= 1.6*]
 
 Timestamp functions
 ~~~~~~~~~~~~~~~~~~~
@@ -2383,22 +2383,22 @@ Party functions
 * ``LESS_EQ_PARTY : 'Party' → 'Party' → 'Bool'``
 
   Returns ``'True'`` if the first party is less or equal than the
-  second, ``'False'`` otherwise. [*Available since version 1.1*]
+  second, ``'False'`` otherwise. [*Available in versions >= 1.1*]
 
 * ``GREATER_EQ_PARTY : 'Party' → 'Party' → 'Bool'``
 
   Returns ``'True'`` if the first party is greater or equal than the
-  second, ``'False'`` otherwise. [*Available since version 1.1*]
+  second, ``'False'`` otherwise. [*Available in versions >= 1.1*]
 
 * ``LESS_PARTY : 'Party' → 'Party' → 'Bool'``
 
   Returns ``'True'`` if the first party is strictly less than the
-  second, ``'False'`` otherwise. [*Available since version 1.1*]
+  second, ``'False'`` otherwise. [*Available in versions >= 1.1*]
 
 * ``GREATER_PARTY : 'Party' → 'Party' → 'Bool'``
 
   Returns ``'True'`` if the first party is strictly greater than the
-  second, ``'False'`` otherwise. [*Available since version 1.1*]
+  second, ``'False'`` otherwise. [*Available in versions >= 1.1*]
 
 * ``EQUAL_PARTY : 'Party' → 'Party' → 'Bool'``
 
@@ -2421,14 +2421,14 @@ Party functions
     ∀ p. FROM_TEXT_PARTY (TO_TEXT_PARTY p) = 'Some' p
     ∀ txt p. FROM_TEXT_PARTY txt = 'Some' p → TO_TEXT_PARTY p = txt
 
-  [*Available since version 1.2*]
+  [*Available in versions >= 1.2*]
 
 * ``FROM_TEXT_PARTY : 'Text' → 'Optional' 'Party'``
 
   Given the string representation of the party, returns the party,
   if the input string is a `PartyId strings <Literals_>`_.
 
-  [*Available since version 1.2*]
+  [*Available in versions >= 1.2*]
 
 ContractId functions
 ~~~~~~~~~~~~~~~~~~~~
@@ -2442,7 +2442,7 @@ ContractId functions
 
   Returns the given contract id unchanged at a different type.
 
-  [*Available since version 1.5*]
+  [*Available in versions >= 1.5*]
 
 List functions
 ~~~~~~~~~~~~~~
@@ -2469,7 +2469,7 @@ Map functions
 
   Returns the empty map.
 
-  [*Available since version 1.3*]
+  [*Available in versions >= 1.3*]
 
 * ``MAP_INSERT : ∀ α.  'Text' → α → 'Map' α → 'Map' α``
 
@@ -2477,33 +2477,33 @@ Map functions
   present in the map, the associated value is replaced with the
   supplied value.
 
-  [*Available since version 1.3*]
+  [*Available in versions >= 1.3*]
 
 * ``MAP_LOOKUP : ∀ α. 'Text' → 'Map' α → 'Optional' α``
 
   Lookups the value at a key in the map.
 
-  [*Available since version 1.3*]
+  [*Available in versions >= 1.3*]
 
 * ``MAP_DELETE : ∀ α. 'Text' → 'Map' α → 'Map' α``
 
   Deletes a key and its value from the map. When the key is not a
   member of the map, the original map is returned.
 
-  [*Available since version 1.3*]
+  [*Available in versions >= 1.3*]
 
 * ``MAP_LIST : ∀ α. 'Map' α → 'List' ⟨ key: 'Text', value: α  ⟩``
 
   Converts to a list of key/value pairs. The output list is guaranteed to be
   sorted according to the ordering of its keys.
 
-  [*Available since version 1.3*]
+  [*Available in versions >= 1.3*]
 
 * ``MAP_SIZE : ∀ α. 'Map' α → 'Int64'``
 
   Return the number of elements in the map.
 
-  [*Available since version 1.3*]
+  [*Available in versions >= 1.3*]
 
 Conversions functions
 ~~~~~~~~~~~~~~~~~~~~~
@@ -2618,12 +2618,12 @@ message::
   }
 
 One should use either the field ``self`` to refer the current package or
-one of ``interned_id`` [available since version 1.6] or ``package_id``
+one of ``interned_id`` [Available in versions >= 1.6] or ``package_id``
 to refer to an external package. During deserialization ``self``
 references are replaced by the actual digest of the package in which it
 appears.
 
-[*Available since version 1.6*]
+[*Available in versions >= 1.6*]
 
 ``Package.interned_package_ids`` is a list of package IDs.
 ``interned_id``, if used, must be a valid zero-based index into this
@@ -2689,7 +2689,7 @@ introduced to the serialization format since version 1.0
 Option type
 ...........
 
-[*Available since version 1.1*]
+[*Available in versions >= 1.1*]
 
 DAML-LF 1.1 is the first version that supports option type.
 
@@ -2700,7 +2700,7 @@ this data structure.
 Party ordering
 ..............
 
-[*Available since version 1.1*]
+[*Available in versions >= 1.1*]
 
 DAML-LF 1.1 is the first version that supports the built-in functions
 ``LESS_EQ_PARTY``, ``GREATER_EQ_PARTY``, ``LESS_PARTY``, and
@@ -2749,7 +2749,7 @@ The deserialization process will reject:
 Flexible controllers
 ....................
 
-[*Available since version 1.2*]
+[*Available in versions >= 1.2*]
 
 Version 1.2 changes what is in scope when the controllers of a choice are
 computed.
@@ -2797,7 +2797,7 @@ validation phases can be distinguished.
 SHA-256 Hashing
 ...............
 
-[*Available since version 1.2*]
+[*Available in versions >= 1.2*]
 
 DAML-LF 1.2 is the first version that supports the built-in functions
 ``SHA256_TEXT`` to hash string.
@@ -2808,7 +2808,7 @@ program using this functions.
 Contract Key
 ............
 
-[*Available since version 1.3*]
+[*Available in versions >= 1.3*]
 
 Since DAML-LF 1.3, a contract key can be associated to a contract at
 creation. Subsequently, the contract can be retrieved by the corresponding
@@ -2826,7 +2826,7 @@ the message ``DefTemplate`` .
 Map
 ...
 
-[*Available since version 1.3*]
+[*Available in versions >= 1.3*]
 
 The deserialization process will reject any DAML-LF 1.2 (or earlier)
 program using the builtin functions : ``MAP_EMPTY``, ``MAP_INSERT``,
@@ -2835,7 +2835,7 @@ program using the builtin functions : ``MAP_EMPTY``, ``MAP_INSERT``,
 Enum
 ....
 
-[*Available since version 1.6*]
+[*Available in versions >= 1.6*]
 
 The deserialization process will reject any DAML-LF 1.5 (or earlier)
 program using the field ``enum`` in ``DefDataType`` messages, the
@@ -2845,7 +2845,7 @@ in ``Expr`` messages.
 intern package IDs
 ..................
 
-[*Available since version 1.6*]
+[*Available in versions >= 1.6*]
 
 In ``PackageRef``, the alternative ``interned_id`` may be used in place
 of ``package_id``, in which case the package ID will be that at the
@@ -2855,7 +2855,7 @@ See `Package reference`_.
 Nat kind and Nat types
 ......................
 
-[*Available since version 1.dev*]
+[*Available in versions >= 1.dev*]
 
 The deserialization process will reject any DAML-LF 1.6 (or earlier)
 that uses ``nat`` field in ``Kind`` or ``Type`` messages.
@@ -2872,7 +2872,7 @@ section.
 Parametric scaled Decimals
 ..........................
 
-[*Available since version 1.dev*]
+[*Available in versions >= 1.dev*]
 
 DAML-LF 1.dev is the first version that supports parametric scaled
 decimals. Prior versions have decimal number with a fixed scale of 10
@@ -2906,7 +2906,7 @@ On the one hand, in case of DAML-LF 1.6 (or earlier) archive:
   + ``GREATER_DECIMAL`` message is translated to ``(GREATER_NUMERIC @10)
   + ``EQUAL_DECIMAL`` message is translated to ``(EQUAL_NUMERIC @10)
   + ``TO_TEXT_DECIMAL`` message is translated to ``(TO_TEXT_NUMERIC @10)
-  + ``FROM_TEXT_DECIMAL`` message is translated to ``(FROM_TEXT_NUMERIC @10)  [*Available since version 1.5*]
+  + ``FROM_TEXT_DECIMAL`` message is translated to ``(FROM_TEXT_NUMERIC @10)  [*Available in versions >= 1.5*]
   + ``INT64_TO_DECIMAL`` message is translated to ``(INT64_TO_NUMERIC @10)
   + ``DECIMAL_TO_INT64`` message is translated to ``(NUMERIC_TO_INT64 @10)
 

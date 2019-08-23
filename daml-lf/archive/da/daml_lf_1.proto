@@ -33,7 +33,7 @@
 //        2019-06-12: Add Package.interned_package_ids and PackageRef.interned_id
 //        2019-07-04: Transaction submitters must be in contract key maintainers when looking up. See #1866.
 // * dev (special staging area for the next version to be released)
-//        2019-07-29: Rename DECIMAL in NUMERIC. Add nat kind and nat types
+//        2019-07-29: Add nat kind and Nat types, Numeric types and Numeric builtins
 
 syntax = "proto3";
 package daml_lf_1;
@@ -60,7 +60,7 @@ message PackageRef {
 
     // An index into `interned_package_ids` of the Package containing
     // this reference.
-    uint64 interned_id = 3; /* Available since version 1.6 */
+    uint64 interned_id = 3; // *Available in versions >= 1.6*
   }
 }
 
@@ -169,7 +169,7 @@ message Kind {
     // Kind of polymorphic type.
     Arrow arrow = 2;
     // kind of TNat type;
-    // *Available since version 1.dev*
+    // *Available in versions >= 1.dev*
     Unit nat = 3;
   }
 }
@@ -187,7 +187,7 @@ enum PrimType {
 
   // Builtin type for legacy 'Decimal'
   // Alias for (Numeric 10)
-  // *available until version 1.6*
+  // *available in version < 1.dev*
   DECIMAL = 3;
 
   // CHAR = 4; // we have removed this in favor of TEXT for everything text related.
@@ -219,19 +219,19 @@ enum PrimType {
   CONTRACT_ID = 13;
 
   // Builtin type 'Optional'
-  // *Available since version 1.1*
+  // *Available in versions >= 1.1*
   OPTIONAL = 14;
 
   // Builtin type `TArrow`
-  // *Available since version 1.1*
+  // *Available in versions >= 1.1*
   ARROW = 15;
 
   // Builtin type 'TMap`
-  // *Available since version 1.3*
+  // *Available in versions >= 1.3*
   MAP = 16;
 
   // Builtin type 'Numeric'
-  // *Available since version 1.dev*
+  // *Available in versions >= 1.dev*
   NUMERIC = 17;
 
 }
@@ -272,7 +272,7 @@ message Type {
   }
 
   // n-ary function type
-  // *Available until version 1.2*
+  // *Available in versions < 1.2*
   message Fun {
     // type of the arguments
     // *Must be non-empty*
@@ -303,7 +303,7 @@ message Type {
     Fun fun = 4;
     Forall forall = 5;
     Tuple tuple = 7;
-    // *Available since version 1.dev*
+    // *Available in versions >= 1.dev*
     // *Must be between 0 and 38 (bounds inclusive)*
     // use standard signed long for future usage.
     sint64 nat = 11;
@@ -332,17 +332,17 @@ enum PrimCon {
 // Builtin functions
 // Refer to DAML-LF major version 1 specification for types and behavior of those.
 enum BuiltinFunction {
-  ADD_DECIMAL = 0; // *Available until version 1.6*
-  SUB_DECIMAL = 1; // *Available until version 1.6*
-  MUL_DECIMAL = 2; // *Available until version 1.6*
-  DIV_DECIMAL = 3; // *Available until version 1.6*
-  ROUND_DECIMAL = 6; // *Available until version 1.6*
+  ADD_DECIMAL = 0; // *Available in versions < 1.dev*
+  SUB_DECIMAL = 1; // *Available in versions < 1.dev*
+  MUL_DECIMAL = 2; // *Available in versions < 1.dev*
+  DIV_DECIMAL = 3; // *Available in versions < 1.dev*
+  ROUND_DECIMAL = 6; // *Available in versions < 1.dev*
 
-  ADD_NUMERIC = 107;    // *Available since version 1.dev*
-  SUB_NUMERIC = 108;    // *Available since version 1.dev*
-  MUL_NUMERIC = 109;    // *Available since version 1.dev*
-  DIV_NUMERIC = 110;    // *Available since version 1.dev*
-  ROUND_NUMERIC = 111;  // *Available since version 1.dev*
+  ADD_NUMERIC = 107;    // *Available in versions >= 1.dev*
+  SUB_NUMERIC = 108;    // *Available in versions >= 1.dev*
+  MUL_NUMERIC = 109;    // *Available in versions >= 1.dev*
+  DIV_NUMERIC = 110;    // *Available in versions >= 1.dev*
+  ROUND_NUMERIC = 111;  // *Available in versions >= 1.dev*
 
   ADD_INT64 = 7;
   SUB_INT64 = 8;
@@ -367,50 +367,50 @@ enum BuiltinFunction {
   ERROR = 25;
 
   LEQ_INT64 = 33;
-  LEQ_DECIMAL = 34;  // *available until version 1.6*
-  LEQ_NUMERIC = 112;  // *Available since version 1.dev*
+  LEQ_DECIMAL = 34;  // *Available in versions < 1.dev*
+  LEQ_NUMERIC = 112;  // *Available in versions >= 1.dev*
   LEQ_TEXT = 36;
   LEQ_TIMESTAMP = 37;
   LEQ_DATE = 67;
-  LEQ_PARTY = 89; // *Available Since version 1.1*
+  LEQ_PARTY = 89; // *Available in versions >= 1.1*
 
   LESS_INT64 = 39;
-  LESS_DECIMAL = 40;  // *available until version 1.6*
-  LESS_NUMERIC = 113;  // *available since version 1.dev*
+  LESS_DECIMAL = 40;  // *Available in versions < 1.dev*
+  LESS_NUMERIC = 113;  // *Available in versions >= 1.dev*
   LESS_TEXT = 42;
   LESS_TIMESTAMP = 43;
   LESS_DATE = 68;
-  LESS_PARTY = 90; // *Available Since version 1.1*
+  LESS_PARTY = 90; // *Available in versions >= 1.1*
 
   GEQ_INT64 = 45;
-  GEQ_DECIMAL = 46;  // *available until version 1.6*
-  GEQ_NUMERIC = 114;  // *available since version 1.dev*
+  GEQ_DECIMAL = 46;  // *Available in versions < 1.dev*
+  GEQ_NUMERIC = 114;  // *Available in versions >= 1.dev*
   GEQ_TEXT = 48;
   GEQ_TIMESTAMP = 49;
   GEQ_DATE = 69;
-  GEQ_PARTY = 91; // *Available Since version 1.1*
+  GEQ_PARTY = 91; // *Available in versions >= 1.1*
 
   GREATER_INT64 = 51;
-  GREATER_DECIMAL = 52;  // *available until version 1.6*
-  GREATER_NUMERIC = 115;  // *available since version 1.dev*
+  GREATER_DECIMAL = 52;  // *Available in versions < 1.dev*
+  GREATER_NUMERIC = 115;  // *Available in versions >= 1.dev*
   GREATER_TEXT = 54;
   GREATER_TIMESTAMP = 55;
   GREATER_DATE = 70;
-  GREATER_PARTY = 92; // *Available Since version 1.1*
+  GREATER_PARTY = 92; // *Available in versions >= 1.1*
 
   TO_TEXT_INT64 = 57;
-  TO_TEXT_DECIMAL = 58;  // *available until version 1.6*
-  TO_TEXT_NUMERIC = 116;  // *available since version 1.dev*
+  TO_TEXT_DECIMAL = 58;  // *Available in versions < 1.dev*
+  TO_TEXT_NUMERIC = 116;  // *Available in versions >= 1.dev*
   TO_TEXT_TEXT = 60;
   TO_TEXT_TIMESTAMP = 61;
   TO_TEXT_DATE = 71;
   TO_QUOTED_TEXT_PARTY = 63; // legacy, remove in next major version
-  TO_TEXT_PARTY = 94; // *Available Since version 1.2*
-  FROM_TEXT_PARTY = 95; // *Available Since version 1.2*, was named FROM_TEXT_PARTY in 1.2, 1.3 and 1.4
-  FROM_TEXT_INT64 = 103; // *Available Since version 1.5*
-  FROM_TEXT_DECIMAL = 104; // *Available between version 1.5 and 1.6
-  FROM_TEXT_NUMERIC = 117;  // *available since version 1.dev*
-  SHA256_TEXT = 93; // *Available Since version 1.2*
+  TO_TEXT_PARTY = 94; // *Available in versions >= 1.2*
+  FROM_TEXT_PARTY = 95; // *Available in versions >= 1.2*, was named FROM_TEXT_PARTY in 1.2, 1.3 and 1.4
+  FROM_TEXT_INT64 = 103; // *Available in versions >= 1.5*
+  FROM_TEXT_DECIMAL = 104; // *Available in versions 1.5 and 1.6
+  FROM_TEXT_NUMERIC = 117;  // *Available in versions >= 1.dev*
+  SHA256_TEXT = 93; // *Available in versions >= 1.2*
 
   DATE_TO_UNIX_DAYS = 72; // Date -> Int64
   UNIX_DAYS_TO_DATE = 73; // Int64 -> Date
@@ -418,17 +418,17 @@ enum BuiltinFunction {
   TIMESTAMP_TO_UNIX_MICROSECONDS = 74; // Timestamp -> Int64
   UNIX_MICROSECONDS_TO_TIMESTAMP = 75; // Int64 -> Timestamp
 
-  INT64_TO_DECIMAL = 76;  // *available until version 1.6*
-  DECIMAL_TO_INT64 = 77;  // *available until version 1.6*
+  INT64_TO_DECIMAL = 76;  // *Available in versions < 1.dev*
+  DECIMAL_TO_INT64 = 77;  // *Available in versions < 1.dev*
 
-  INT64_TO_NUMERIC = 118;  // *available since version 1.dev*
-  NUMERIC_TO_INT64 = 119;  // *available since version 1.dev*
+  INT64_TO_NUMERIC = 118;  // *Available in versions >= 1.dev*
+  NUMERIC_TO_INT64 = 119;  // *Available in versions >= 1.dev*
 
   IMPLODE_TEXT = 78;
 
   EQUAL_INT64 = 79;
-  EQUAL_DECIMAL = 80;  // *available until version 1.6*
-  EQUAL_NUMERIC = 120;  // *available since version 1.dev*
+  EQUAL_DECIMAL = 80;  // *Available in versions < 1.dev*
+  EQUAL_NUMERIC = 120;  // *Available in versions >= 1.dev*
   EQUAL_TEXT = 81;
   EQUAL_TIMESTAMP = 82;
   EQUAL_DATE = 83;
@@ -441,8 +441,8 @@ enum BuiltinFunction {
 
   COERCE_CONTRACT_ID = 102;
 
-  TEXT_FROM_CODE_POINTS = 105;  // *Available since version 1.6*
-  TEXT_TO_CODE_POINTS = 106; // *Available since version 1.6*
+  TEXT_FROM_CODE_POINTS = 105;  // *Available in versions >= 1.6*
+  TEXT_TO_CODE_POINTS = 106; // *Available in versions >= 1.6*
   // Next id is 121. 120 is EQUAL_NUMERIC.
 }
 
@@ -465,7 +465,7 @@ message PrimLit {
     // It would fit in an int128, but sadly protobuf does not have
     // one. so, string it is. note that we can't store the whole and
     // decimal part in two numbers either, because 10^28 > 2^63.
-    string decimal = 2; /* available until version 1.6 */
+    string decimal = 2; // *Available in versions < 1.dev*
 
     // Unicode string literal ('LitText')
     string text = 4;
@@ -500,7 +500,7 @@ message PrimLit {
     //        `-?([0-1]\d*|0)\.(\d*)
     //
     // The number of decimal digits indicate the scale of the number.
-    string numeric = 9; // *available since version 1.dev*
+    string numeric = 9; // *Available in versions >= 1.dev*
   }
 
   reserved 3; // This was char.
@@ -582,7 +582,7 @@ message Expr {
   }
 
    // Enum construction ('ExpEnumCon')
-   // *Available since version 1.6*
+   // *Available in versions >= 1.6*
    message EnumCon {
 
      // Name of the type constructor name
@@ -744,7 +744,7 @@ message Expr {
     VariantCon variant_con = 8;
 
     // Enum construction ('ExpEnumCon')
-    EnumCon enum_con = 28;  // *Available since version 1.6*
+    EnumCon enum_con = 28;  // *Available in versions >= 1.6*
 
     // Tuple construction ('ExpTupleCon')
     TupleCon tuple_con = 9;
@@ -786,11 +786,11 @@ message Expr {
     Scenario scenario = 21;
 
     // empty optional value ('ExpNone')
-    // *Available since version 1.1*
+    // *Available in versions >= 1.1*
     OptionalNone optional_none = 26;
 
     // non empty optional value ('ExpSome')
-    // *Available since version 1.1*
+    // *Available in versions >= 1.1*
     OptionalSome optional_some = 27;
   }
 
@@ -817,7 +817,7 @@ message CaseAlt {
   }
 
   // Enum pattern
-  // *Available since version 1.6*
+  // *Available in versions >= 1.6*
   message Enum {
 
     // name of the type constructor
@@ -840,7 +840,7 @@ message CaseAlt {
   }
 
   // Non empty option patterm
-  // *Available since version 1.1*
+  // *Available in versions >= 1.1*
   message OptionalSome {
     string var_body = 1;
   }
@@ -851,9 +851,9 @@ message CaseAlt {
     PrimCon prim_con = 3;
     Unit nil = 4;
     Cons cons = 5;
-    Unit optional_none = 7; // * Available since version 1.1*
-    OptionalSome optional_some = 8; // * Available since version 1.1*
-    Enum enum = 9; // * Available since version 1.6*
+    Unit optional_none = 7; // *Available in versions >= 1.1*
+    OptionalSome optional_some = 8; // *Available in versions >= 1.1*
+    Enum enum = 9; // *Available in versions >= 1.6*
   }
 
   Expr body = 6;
@@ -922,7 +922,7 @@ message Update {
   }
 
   // Retrieve by key Update
-  // *Available since version 1.2*
+  // *Available in versions >= 1.2*
   message RetrieveByKey {
     TypeConName template = 1;
     Expr key = 2;
@@ -935,8 +935,8 @@ message Update {
     Exercise exercise = 4;
     Fetch fetch = 5;
     Unit get_time = 6;
-    RetrieveByKey lookup_by_key = 8; //*Available since version 1.2*
-    RetrieveByKey fetch_by_key = 9; //*Available since version 1.2*
+    RetrieveByKey lookup_by_key = 8; // *Available in versions >= 1.2*
+    RetrieveByKey fetch_by_key = 9; // *Available in versions >= 1.2*
     // see similar constructor in `Scenario` on why this is useful.
     EmbedExpr embed_expr = 7;
   }
@@ -1092,7 +1092,7 @@ message DefTemplate {
   Location location = 9;
 
   // They key definition for the template, if present
-  DefKey key = 10; // optional // *Available since version 1.3*
+  DefKey key = 10; // optional // *Available in versions >= 1.3*
 }
 
 // Data type definition
@@ -1101,7 +1101,7 @@ message DefDataType {
     repeated FieldWithType fields = 1;
   }
 
-  // *Available since version 1.6*
+  // *Available in versions >= 1.6*
   message EnumConstructors {
     repeated string constructors = 1;
   }
@@ -1116,7 +1116,7 @@ message DefDataType {
   oneof DataCons {
     Fields record = 3; // Records without fields are explicitly allowed.
     Fields variant = 4; // Variants without constructors are explicitly allowed.
-    EnumConstructors enum = 7; // *Available since version 1.6*
+    EnumConstructors enum = 7; // *Available in versions >= 1.6*
   }
 
   // If true, this data type preserves serializability in the sense that when
@@ -1183,5 +1183,5 @@ message Module {
 
 message Package {
   repeated Module modules = 1;
-  repeated string interned_package_ids = 2; /* Available since version 1.6 */
+  repeated string interned_package_ids = 2; // *Available in versions >= 1.6*
 }
