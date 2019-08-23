@@ -44,8 +44,7 @@ main = do
             | isWindows = pure ()
             | otherwise = withTempDir $ \dir -> runSessionWithConfig conf (damlcPath <> " ide --scenarios=yes") fullCaps' dir s
     defaultMain $ testGroup "LSP"
-        [
-          diagnosticTests run runScenarios
+        [ diagnosticTests run runScenarios
         , requestTests run runScenarios
         , scenarioTests runScenarios
         , stressTests run runScenarios
