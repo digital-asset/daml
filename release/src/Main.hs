@@ -1,17 +1,19 @@
 -- Copyright (c) 2019 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TemplateHaskell, MultiWayIf #-}
 module Main (main) where
 
 import Control.Monad.Extra
 import Control.Monad.IO.Class
 import Control.Monad.Logger
 import Data.Yaml
+import qualified Data.List as List
 import Path
 import Path.IO
 
 import qualified Data.Text as T
+import qualified Data.Maybe as Maybe
 import qualified System.Directory as Dir
 import System.Process
 
@@ -54,8 +56,7 @@ main = do
       uploadArtifacts <- concatMapM (mavenArtifactCoords optsAllArtifacts) mavenUploadArtifacts
       validateMavenArtifacts releaseDir uploadArtifacts
 
-      if getPerformUpload upload
-          then do
+      if | getPerformUpload upload -> do
               $logInfo "Make release"
               releaseToBintray upload releaseDir (map (\(a, (_, outp)) -> (a, outp)) files)
 
@@ -70,8 +71,17 @@ main = do
               -- set variables for next steps in Azure pipelines
               liftIO . putStrLn $ "##vso[task.setvariable variable=has_released;isOutput=true]true"
               liftIO . putStrLn . T.unpack $ "##vso[task.setvariable variable=release_tag]" # renderVersion sdkVersion
-          else $logInfo "Make dry run of release"
-
+         | optsLocallyInstallJars -> do
+              let lib_jars = filter (\(mvn,_) -> (artifactType mvn == "jar" || artifactType mvn == "pom") && Maybe.isNothing (classifier mvn)) uploadArtifacts
+              forM_ lib_jars $ \(mvn_coords, path) -> do
+                  let args = ["install:install-file",
+                              "-Dfile=" <> pathToString releaseDir <> pathToString path,
+                              "-DgroupId=" <> foldr (<>) "" (List.intersperse "." $ map T.unpack $ groupId mvn_coords),
+                              "-DartifactId=" <> (T.unpack $ artifactId mvn_coords),
+                              "-Dversion=100.0.0",
+                              "-Dpackaging=" <> (T.unpack $ artifactType mvn_coords)]
+                  liftIO $ callProcess "mvn" args
+         | otherwise -> $logInfo "Make dry run of release"
   where
     runLog Options{..} m0 = do
         let m = filterLogger (\_ ll -> ll >= optsLogLevel) m0
