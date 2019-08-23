@@ -227,14 +227,13 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
 
       Template(
         param = name(lfTempl.getParam),
-        precond =
-          if (lfTempl.hasPrecond) decodeExpr(lfTempl.getPrecond, s"${tpl}:ensure") else ETrue,
-        signatories = decodeExpr(lfTempl.getSignatories, s"${tpl}.signatory"),
-        agreementText = decodeExpr(lfTempl.getAgreement, s"${tpl}:agreement"),
+        precond = if (lfTempl.hasPrecond) decodeExpr(lfTempl.getPrecond, s"$tpl:ensure") else ETrue,
+        signatories = decodeExpr(lfTempl.getSignatories, s"$tpl.signatory"),
+        agreementText = decodeExpr(lfTempl.getAgreement, s"$tpl:agreement"),
         choices = lfTempl.getChoicesList.asScala
           .map(decodeChoice(tpl, _))
           .map(ch => (ch.name, ch)),
-        observers = decodeExpr(lfTempl.getObservers, s"${tpl}:observer"),
+        observers = decodeExpr(lfTempl.getObservers, s"$tpl:observer"),
         key =
           if (lfTempl.hasKey) Some(decodeTemplateKey(tpl, lfTempl.getKey, name(lfTempl.getParam)))
           else None
@@ -256,9 +255,12 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
       )
     }
 
-    private[this] def decodeKind(lfKind: PLF.Kind): Kind =
+    private[lf] def decodeKind(lfKind: PLF.Kind): Kind =
       lfKind.getSumCase match {
         case PLF.Kind.SumCase.STAR => KStar
+        case PLF.Kind.SumCase.NAT =>
+          assertSince(LV.Features.numeric, "Kind.NAT")
+          KNat
         case PLF.Kind.SumCase.ARROW =>
           val kArrow = lfKind.getArrow
           val params = kArrow.getParamsList.asScala
@@ -268,12 +270,19 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
           throw ParseError("Kind.SUM_NOT_SET")
       }
 
-    private[this] def decodeType(lfType: PLF.Type): Type =
+    private[lf] def decodeType(lfType: PLF.Type): Type =
       lfType.getSumCase match {
         case PLF.Type.SumCase.VAR =>
           val tvar = lfType.getVar
           tvar.getArgsList.asScala
             .foldLeft[Type](TVar(name(tvar.getVar)))((typ, arg) => TApp(typ, decodeType(arg)))
+        case PLF.Type.SumCase.NAT =>
+          assertSince(LV.Features.numeric, "Type.NAT")
+          if (0 <= lfType.getNat && lfType.getNat <= Numeric.maxPrecision)
+            TNat(lfType.getNat.toInt)
+          else
+            throw ParseError(
+              s"TNat must be between 0 and ${Numeric.maxPrecision}, found ${lfType.getNat}")
         case PLF.Type.SumCase.CON =>
           val tcon = lfType.getCon
           (TTyCon(decodeTypeConName(tcon.getTycon)) /: [Type] tcon.getArgsList.asScala)(
@@ -283,8 +292,8 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
           val baseType =
             if (prim.getPrim == PLF.PrimType.DECIMAL) {
               // FixMe: https://github.com/digital-asset/daml/issues/2289
-              //  enable the check once the compiler produces proper DAML-LF 1.dev
-              // assertUntil(LV.Features.numeric, "PLF.PrimType.DECIMAL")
+              //   enable the check once the compiler produces proper DAML-LF 1.dev
+              // assertUntil(LV.Features.numeric, "PrimType.DECIMAL")
               TDecimal
             } else {
               val info = builtinTypeInfoMap(prim.getPrim)
@@ -712,11 +721,18 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
         case PLF.PrimLit.SumCase.INT64 =>
           PLInt64(lfPrimLit.getInt64)
         case PLF.PrimLit.SumCase.DECIMAL =>
-          checkDecimal(lfPrimLit.getDecimal)
+          // FixMe: https://github.com/digital-asset/daml/issues/2289
+          //   enable the check once the compiler produces proper DAML-LF 1.dev
+          // assertUntil(LV.Features.numeric, "PrimLit.decimal")
           Decimal
             .fromString(lfPrimLit.getDecimal)
             .flatMap(Numeric.fromBigDecimal(Decimal.scale, _))
             .fold(e => throw ParseError("error parsing decimal: " + e), PLNumeric)
+        case PLF.PrimLit.SumCase.NUMERIC =>
+          assertSince(LV.Features.numeric, "PrimLit.numeric")
+          Numeric
+            .fromString(lfPrimLit.getDecimal)
+            .fold(e => throw ParseError("error parsing numeric: " + e), PLNumeric)
         case PLF.PrimLit.SumCase.TEXT =>
           PLText(lfPrimLit.getText)
         case PLF.PrimLit.SumCase.PARTY =>
@@ -780,6 +796,7 @@ private[lf] object DecodeV1 {
       BuiltinTypeInfo(OPTIONAL, BTOptional, minVersion = optional),
       BuiltinTypeInfo(MAP, BTMap, minVersion = optional),
       BuiltinTypeInfo(ARROW, BTArrow, minVersion = arrowType),
+      BuiltinTypeInfo(NUMERIC, BTNumeric, minVersion = numeric)
     )
   }
 
@@ -824,6 +841,11 @@ private[lf] object DecodeV1 {
         BRoundNumeric,
         maxVersion = Some(numeric),
         handleLegacyDecimal = true),
+      BuiltinFunctionInfo(ADD_NUMERIC, BAddNumeric, minVersion = numeric),
+      BuiltinFunctionInfo(SUB_NUMERIC, BSubNumeric, minVersion = numeric),
+      BuiltinFunctionInfo(MUL_NUMERIC, BMulNumeric, minVersion = numeric),
+      BuiltinFunctionInfo(DIV_NUMERIC, BDivNumeric, minVersion = numeric),
+      BuiltinFunctionInfo(ROUND_NUMERIC, BRoundNumeric, minVersion = numeric),
       BuiltinFunctionInfo(ADD_INT64, BAddInt64),
       BuiltinFunctionInfo(SUB_INT64, BSubInt64),
       BuiltinFunctionInfo(MUL_INT64, BMulInt64),
@@ -840,6 +862,8 @@ private[lf] object DecodeV1 {
         BNumericToInt64,
         maxVersion = Some(numeric),
         handleLegacyDecimal = true),
+      BuiltinFunctionInfo(INT64_TO_NUMERIC, BInt64ToNumeric, minVersion = numeric),
+      BuiltinFunctionInfo(NUMERIC_TO_INT64, BNumericToInt64, minVersion = numeric),
       BuiltinFunctionInfo(FOLDL, BFoldl),
       BuiltinFunctionInfo(FOLDR, BFoldr),
       BuiltinFunctionInfo(MAP_EMPTY, BMapEmpty, minVersion = map),
@@ -856,6 +880,7 @@ private[lf] object DecodeV1 {
         BLessEqNumeric,
         maxVersion = Some(numeric),
         handleLegacyDecimal = true),
+      BuiltinFunctionInfo(LEQ_NUMERIC, BLessEqNumeric, minVersion = numeric),
       BuiltinFunctionInfo(LEQ_TEXT, BLessEqText),
       BuiltinFunctionInfo(LEQ_TIMESTAMP, BLessEqTimestamp),
       BuiltinFunctionInfo(LEQ_PARTY, BLessEqParty, minVersion = partyOrdering),
@@ -865,6 +890,7 @@ private[lf] object DecodeV1 {
         BGreaterEqNumeric,
         maxVersion = Some(numeric),
         handleLegacyDecimal = true),
+      BuiltinFunctionInfo(GEQ_NUMERIC, BGreaterEqNumeric, minVersion = numeric),
       BuiltinFunctionInfo(GEQ_TEXT, BGreaterEqText),
       BuiltinFunctionInfo(GEQ_TIMESTAMP, BGreaterEqTimestamp),
       BuiltinFunctionInfo(GEQ_PARTY, BGreaterEqParty, minVersion = partyOrdering),
@@ -874,6 +900,7 @@ private[lf] object DecodeV1 {
         BLessNumeric,
         maxVersion = Some(numeric),
         handleLegacyDecimal = true),
+      BuiltinFunctionInfo(LESS_NUMERIC, BLessNumeric, minVersion = numeric),
       BuiltinFunctionInfo(LESS_TEXT, BLessText),
       BuiltinFunctionInfo(LESS_TIMESTAMP, BLessTimestamp),
       BuiltinFunctionInfo(LESS_PARTY, BLessParty, minVersion = partyOrdering),
@@ -883,6 +910,7 @@ private[lf] object DecodeV1 {
         BGreaterNumeric,
         maxVersion = Some(numeric),
         handleLegacyDecimal = true),
+      BuiltinFunctionInfo(GREATER_NUMERIC, BGreaterNumeric, minVersion = numeric),
       BuiltinFunctionInfo(GREATER_TEXT, BGreaterText),
       BuiltinFunctionInfo(GREATER_TIMESTAMP, BGreaterTimestamp),
       BuiltinFunctionInfo(GREATER_PARTY, BGreaterParty, minVersion = partyOrdering),
@@ -892,6 +920,7 @@ private[lf] object DecodeV1 {
         BToTextNumeric,
         maxVersion = Some(numeric),
         handleLegacyDecimal = true),
+      BuiltinFunctionInfo(TO_TEXT_NUMERIC, BToTextNumeric, minVersion = numeric),
       BuiltinFunctionInfo(TO_TEXT_TIMESTAMP, BToTextTimestamp),
       BuiltinFunctionInfo(TO_TEXT_PARTY, BToTextParty, minVersion = partyTextConversions),
       BuiltinFunctionInfo(TO_TEXT_TEXT, BToTextText),
@@ -903,7 +932,9 @@ private[lf] object DecodeV1 {
         FROM_TEXT_DECIMAL,
         BFromTextNumeric,
         handleLegacyDecimal = true,
-        minVersion = numberParsing),
+        minVersion = numberParsing,
+        maxVersion = Some(numeric)),
+      BuiltinFunctionInfo(FROM_TEXT_NUMERIC, BFromTextNumeric, minVersion = numeric),
       BuiltinFunctionInfo(TEXT_TO_CODE_POINTS, BFromTextCodePoints, minVersion = textPacking),
       BuiltinFunctionInfo(SHA256_TEXT, BSHA256Text, minVersion = shaText),
       BuiltinFunctionInfo(DATE_TO_UNIX_DAYS, BDateToUnixDays),
@@ -923,6 +954,7 @@ private[lf] object DecodeV1 {
         BEqualNumeric,
         maxVersion = Some(numeric),
         handleLegacyDecimal = true),
+      BuiltinFunctionInfo(EQUAL_NUMERIC, BEqualNumeric, minVersion = numeric),
       BuiltinFunctionInfo(EQUAL_TEXT, BEqualText),
       BuiltinFunctionInfo(EQUAL_TIMESTAMP, BEqualTimestamp),
       BuiltinFunctionInfo(EQUAL_DATE, BEqualDate),

@@ -103,9 +103,10 @@ private[digitalasset] class EncodeV1(val minor: LV.Minor) {
         .build()
 
     /** * Encoding of Kinds ***/
-    private val star =
+    private val kStar =
       PLF.Kind.newBuilder().setStar(PLF.Unit.newBuilder()).build()
-
+    private val kNat =
+      PLF.Kind.newBuilder().setNat(PLF.Unit.newBuilder()).build()
     private val KArrows = RightRecMatcher[Kind, Kind]({
       case KArrow(param, result) => (param, result)
     })
@@ -120,20 +121,22 @@ private[digitalasset] class EncodeV1(val minor: LV.Minor) {
               PLF.Kind.Arrow
                 .newBuilder()
                 .accumulateLeft(params)(_ addParams encodeKind(_))
-                .setResult(star)
+                .setResult(kStar)
             )
             .build()
         case KStar =>
-          star
+          kStar
         case KNat =>
           assertSince(LV.Features.numeric, "Kind.KNat")
-          // FixMe: https://github.com/digital-asset/daml/issues/2289
-          throw EncodeError("Numeric not available in protoBuf")
+          kNat
       }
 
     /** * Encoding of types ***/
     private val builtinTypeInfoMap =
-      DecodeV1.builtinTypeInfos.map(info => info.bTyp -> info).toMap
+      DecodeV1.builtinTypeInfos
+        .filterNot(info => versionIsOlderThan(info.minVersion))
+        .map(info => info.bTyp -> info)
+        .toMap
 
     @inline
     private implicit def encodeTypeBinder(binder: (String, Kind)): PLF.TypeVarWithKind = {
@@ -159,7 +162,7 @@ private[digitalasset] class EncodeV1(val minor: LV.Minor) {
       typs match {
         case ImmArrayCons(TNat(_), tail) => tail
         case _ =>
-          sys.error("cannot encode the archive in LF <= 1.6")
+          sys.error(s"cannot encode the archive in LF < ${LV.Features.numeric.pretty}")
       }
 
     private implicit def encodeType(typ: Type): PLF.Type =
@@ -176,10 +179,9 @@ private[digitalasset] class EncodeV1(val minor: LV.Minor) {
         case TVar(varName) =>
           builder.setVar(
             PLF.Type.Var.newBuilder().setVar(varName).accumulateLeft(args)(_ addArgs _))
-        case TNat(_) =>
+        case TNat(n) =>
           assertSince(LV.Features.numeric, "Type.TNat")
-          // FixMe: https://github.com/digital-asset/daml/issues/2289
-          throw EncodeError("Nat type not available in protoBuf")
+          builder.setNat(n.toLong)
         case TTyCon(tycon) =>
           builder.setCon(
             PLF.Type.Con.newBuilder().setTycon(tycon).accumulateLeft(args)(_ addArgs _))
@@ -215,7 +217,13 @@ private[digitalasset] class EncodeV1(val minor: LV.Minor) {
 
     /** * Encoding Expression ***/
     private val builtinFunctionMap =
-      DecodeV1.builtinFunctionInfos.map(info => info.builtin -> info).toMap
+      DecodeV1.builtinFunctionInfos
+        .filterNot(
+          info =>
+            versionIsOlderThan(info.minVersion) &&
+              info.maxVersion.forall(v => !versionIsOlderThan(v)))
+        .map(info => info.builtin -> info)
+        .toMap
 
     @inline
     private implicit def encodeBuiltins(builtinFunction: BuiltinFunction): PLF.BuiltinFunction =
@@ -345,10 +353,11 @@ private[digitalasset] class EncodeV1(val minor: LV.Minor) {
       val builder = PLF.PrimLit.newBuilder()
       primLit match {
         case PLInt64(value) => builder.setInt64(value)
-        // FixMe: https://github.com/digital-asset/daml/issues/2289
-        //  enable the following check once it is possible to encode numeric in the proto
-        case PLNumeric(value) /*if versionIsOlderThan(LV.Features.numeric) */ =>
-          builder.setDecimal(Numeric.toUnscaledString(value))
+        case PLNumeric(value) =>
+          if (versionIsOlderThan(LV.Features.numeric))
+            builder.setDecimal(Numeric.toUnscaledString(value))
+          else
+            builder.setNumeric(Numeric.toString(value))
         case PLText(value) => builder.setText(value)
         case PLTimestamp(value) => builder.setTimestamp(value.micros)
         case PLParty(party) => builder.setParty(party)
