@@ -48,11 +48,11 @@ main = do
             | otherwise = withTempDir $ \dir -> runSessionWithConfig conf (damlcPath <> " ide --scenarios=yes") fullCaps' dir s
     defaultMain $ testGroup "LSP"
         [
-            --diagnosticTests run runScenarios
-        -- , requestTests run runScenarios
-        -- , scenarioTests runScenarios
-        -- , stressTests run runScenarios
-         executeCommandTests run runScenarios
+          diagnosticTests run runScenarios
+        , requestTests run runScenarios
+        , scenarioTests runScenarios
+        , stressTests run runScenarios
+        , executeCommandTests run runScenarios
         ]
     where
         conf = defaultConfig
@@ -61,11 +61,11 @@ main = do
             { logStdErr = True }
             -- { logMessages = True, logColor = False, logStdErr = True }
 
-_diagnosticTests
+diagnosticTests
     :: (forall a. Session a -> IO a)
     -> (Session () -> IO ())
     -> TestTree
-_diagnosticTests run runScenarios = testGroup "diagnostics"
+diagnosticTests run runScenarios = testGroup "diagnostics"
     [ testCase "diagnostics disappear after error is fixed" $ run $ do
           test <- openDoc' "Test.daml" damlId $ T.unlines
               [ "daml 1.2"
@@ -228,11 +228,11 @@ _diagnosticTests run runScenarios = testGroup "diagnostics"
     ]
 
 
-_requestTests
+requestTests
     :: (forall a. Session a -> IO a)
     -> (Session () -> IO ())
     -> TestTree
-_requestTests run _runScenarios = testGroup "requests"
+requestTests run _runScenarios = testGroup "requests"
     [ testCase "code-lenses" $ run $ do
           main' <- openDoc' "Main.daml" damlId $ T.unlines
               [ "daml 1.2"
@@ -372,8 +372,8 @@ _requestTests run _runScenarios = testGroup "requests"
           closeDoc test
     ]
 
-_scenarioTests :: (Session () -> IO ()) -> TestTree
-_scenarioTests run = testGroup "scenarios"
+scenarioTests :: (Session () -> IO ()) -> TestTree
+scenarioTests run = testGroup "scenarios"
     [ testCase "opening codelens produces a notification" $ run $ do
           main' <- openDoc' "Main.daml" damlId $ T.unlines
               [ "daml 1.2"
@@ -425,7 +425,7 @@ _scenarioTests run = testGroup "scenarios"
 -- type ExecuteCommandResponse = ResponseMessage Aeson.Value
 executeCommandTests :: (forall a. Session a -> IO a) -> (Session () -> IO ()) -> TestTree
 executeCommandTests run _ = testGroup "execute command"
-    [ testCase "exexute commands" $ run $ do
+    [ testCase "execute commands" $ run $ do
         main' <- openDoc' "Main.daml" damlId $ T.unlines
             [ "daml 1.2"
             , "module Coin where"
@@ -439,21 +439,35 @@ executeCommandTests run _ = testGroup "execute command"
             , "        do return ()"
             ]
         Just escapedFp <- pure $ uriToFilePath (main' ^. uri)
-        rsp :: ExecuteCommandResponse <- LSP.request WorkspaceExecuteCommand $ ExecuteCommandParams
+        actualDotString :: ExecuteCommandResponse <- LSP.request WorkspaceExecuteCommand $ ExecuteCommandParams
            "daml/damlVisualize"  (Just (List [Aeson.String $ T.pack escapedFp]))
-        -- msgs <- satisfy (\x -> case x of
-        --     RspExecuteCommand _ -> True
-        --     NotProgressDone _ -> False
-        --     _ -> False)
-        liftIO $ assertBool (show rsp) ("thisdddd" == show rsp)
+        let expectedDotString = "digraph G {\ncompound=true;\nrankdir=LR;\nsubgraph cluster_Coin{\nn0[label=Create][color=green]; \nn1[label=Archive][color=red]; \nn2[label=Delete][color=red]; \nlabel=Coin;color=blue\n}\n}\n"
+        liftIO $ assertBool "Visulization command" (Just expectedDotString == _result actualDotString)
         closeDoc main'
+    , testCase "Invalid commands result in empty response"  $ run $ do
+        main' <- openDoc' "Main.daml" damlId $ T.unlines
+            [ "daml 1.2"
+            , "module Empty where"
+            ]
+        Just escapedFp <- pure $ uriToFilePath (main' ^. uri)
+        actualDotString :: ExecuteCommandResponse <- LSP.request WorkspaceExecuteCommand $ ExecuteCommandParams
+           "daml/Visualize"  (Just (List [Aeson.String $ T.pack escapedFp]))
+        let expectedNull = Just Aeson.Null
+        liftIO $ assertBool "Invlalid command" (expectedNull == _result actualDotString)
+        closeDoc main'
+    , testCase "Visualization command with no arguments" $ run $ do
+        actualDotString :: ExecuteCommandResponse <- LSP.request WorkspaceExecuteCommand $ ExecuteCommandParams
+           "daml/damlVisualize"  Nothing
+        let expectedNull = Just Aeson.Null
+        liftIO $ assertBool "Invlalid command" (expectedNull == _result actualDotString)
     ]
+
 -- | Do extreme things to the compiler service.
-_stressTests
+stressTests
   :: (forall a. Session a -> IO a)
   -> (Session () -> IO ())
   -> TestTree
-_stressTests run _runScenarios = testGroup "Stress tests"
+stressTests run _runScenarios = testGroup "Stress tests"
   [ testCase "Modify a file 2000 times" $ run $ do
 
         let fooValue :: Int -> T.Text
