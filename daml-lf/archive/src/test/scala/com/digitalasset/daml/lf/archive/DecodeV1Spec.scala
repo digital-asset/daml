@@ -91,12 +91,12 @@ class DecodeV1Spec
     def buildNat(i: Long) = DamlLf1.Type.newBuilder().setNat(i).build()
 
     val validNatTypes = List(0, 1, 2, 5, 11, 35, 37, 38)
-    val invlidNatTypes = List(Long.MinValue, -100, -2, -1, 39, 40, 200, Long.MaxValue)
+    val invalidNatTypes = List(Long.MinValue, -100, -2, -1, 39, 40, 200, Long.MaxValue)
 
     "reject nat type if lf version < 1.dev" in {
 
       val testCases =
-        Table("proto nat type", (validNatTypes.map(_.toLong) ++ invlidNatTypes).map(buildNat): _*)
+        Table("proto nat type", (validNatTypes.map(_.toLong) ++ invalidNatTypes).map(buildNat): _*)
 
       forEvery(preNumericMinVersions) { minVersion =>
         val decoder = moduleDecoder(minVersion)
@@ -109,7 +109,7 @@ class DecodeV1Spec
     "accept only valid nat types if lf version >= 1.dev" in {
       val positiveTestCases =
         Table("proto nat type" -> "nat", validNatTypes.map(v => buildNat(v.toLong) -> v): _*)
-      val negativeTestCases = Table("proto nat type", invlidNatTypes.map(buildNat): _*)
+      val negativeTestCases = Table("proto nat type", invalidNatTypes.map(buildNat): _*)
 
       forEvery(postNumericMinVersions) { minVersion =>
         val decoder = moduleDecoder(minVersion)
@@ -150,7 +150,7 @@ class DecodeV1Spec
         TFun(TText, TNumeric.cons),
     )
 
-    "translate TDecimal to TApp(TNumeric, TNat(10)) if version =< 1.dev" in {
+    "translate TDecimal to TApp(TNumeric, TNat(10))" in {
       forEvery(preNumericMinVersions) { version =>
         val decoder = moduleDecoder(version)
         forEvery(decimalTestCases) { (input, expectedOutput) =>
@@ -159,7 +159,7 @@ class DecodeV1Spec
       }
     }
 
-    "reject Numeric types if version =< 1.dev" in {
+    "reject Numeric types if version < 1.dev" in {
       forEvery(preNumericMinVersions) { version =>
         val decoder = moduleDecoder(version)
         forEvery(numericTestCases) { (input, _) =>
@@ -179,7 +179,7 @@ class DecodeV1Spec
 
     // FixMe: https://github.com/digital-asset/daml/issues/2289
     //  reactive the test once the decoder is not so lenient
-    "reject Decimal types if version =< 1.dev" ignore {
+    "reject Decimal types if version >= 1.dev" ignore {
       forEvery(postNumericMinVersions) { version =>
         val decoder = moduleDecoder(version)
         forEvery(decimalTestCases) { (input, _) =>

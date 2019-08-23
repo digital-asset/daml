@@ -165,12 +165,12 @@ decodeChoice LF1.TemplateChoice{..} =
     <*> mayDecode "templateChoiceUpdate" templateChoiceUpdate decodeExpr
 
 -- FixMe: https://github.com/digital-asset/daml/issues/2289
---   NUMERIC and DECIMAL builtins should map to different internal builtin
+--   drop the `error "Numeric not implemented"` in the following function
 decodeBuiltinFunction :: MonadDecode m => LF1.BuiltinFunction -> m BuiltinExpr
 decodeBuiltinFunction = pure . \case
   LF1.BuiltinFunctionEQUAL_INT64 -> BEEqual BTInt64
   LF1.BuiltinFunctionEQUAL_DECIMAL -> BEEqual BTDecimal
-  LF1.BuiltinFunctionEQUAL_NUMERIC -> BEEqual BTDecimal
+  LF1.BuiltinFunctionEQUAL_NUMERIC -> error "Numeric not implemented"
   LF1.BuiltinFunctionEQUAL_TEXT -> BEEqual BTText
   LF1.BuiltinFunctionEQUAL_TIMESTAMP -> BEEqual BTTimestamp
   LF1.BuiltinFunctionEQUAL_DATE -> BEEqual BTDate
@@ -179,48 +179,48 @@ decodeBuiltinFunction = pure . \case
 
   LF1.BuiltinFunctionLEQ_INT64 -> BELessEq BTInt64
   LF1.BuiltinFunctionLEQ_DECIMAL -> BELessEq BTDecimal
-  LF1.BuiltinFunctionLEQ_NUMERIC -> BELessEq BTDecimal
-  LF1.BuiltinFunctionLEQ_TEXT    -> BELessEq BTText
-  LF1.BuiltinFunctionLEQ_TIMESTAMP    -> BELessEq BTTimestamp
+  LF1.BuiltinFunctionLEQ_NUMERIC -> error "Numeric not implemented"
+  LF1.BuiltinFunctionLEQ_TEXT -> BELessEq BTText
+  LF1.BuiltinFunctionLEQ_TIMESTAMP -> BELessEq BTTimestamp
   LF1.BuiltinFunctionLEQ_DATE -> BELessEq BTDate
   LF1.BuiltinFunctionLEQ_PARTY -> BELessEq BTParty
 
   LF1.BuiltinFunctionLESS_INT64 -> BELess BTInt64
   LF1.BuiltinFunctionLESS_DECIMAL -> BELess BTDecimal
-  LF1.BuiltinFunctionLESS_NUMERIC -> BELess BTDecimal
-  LF1.BuiltinFunctionLESS_TEXT    -> BELess BTText
-  LF1.BuiltinFunctionLESS_TIMESTAMP    -> BELess BTTimestamp
+  LF1.BuiltinFunctionLESS_NUMERIC -> error "Numeric not implemented"
+  LF1.BuiltinFunctionLESS_TEXT -> BELess BTText
+  LF1.BuiltinFunctionLESS_TIMESTAMP -> BELess BTTimestamp
   LF1.BuiltinFunctionLESS_DATE -> BELess BTDate
   LF1.BuiltinFunctionLESS_PARTY -> BELess BTParty
 
   LF1.BuiltinFunctionGEQ_INT64 -> BEGreaterEq BTInt64
   LF1.BuiltinFunctionGEQ_DECIMAL -> BEGreaterEq BTDecimal
-  LF1.BuiltinFunctionGEQ_NUMERIC -> BEGreaterEq BTDecimal
-  LF1.BuiltinFunctionGEQ_TEXT    -> BEGreaterEq BTText
-  LF1.BuiltinFunctionGEQ_TIMESTAMP    -> BEGreaterEq BTTimestamp
+  LF1.BuiltinFunctionGEQ_NUMERIC -> error "Numeric not implemented"
+  LF1.BuiltinFunctionGEQ_TEXT -> BEGreaterEq BTText
+  LF1.BuiltinFunctionGEQ_TIMESTAMP -> BEGreaterEq BTTimestamp
   LF1.BuiltinFunctionGEQ_DATE -> BEGreaterEq BTDate
   LF1.BuiltinFunctionGEQ_PARTY -> BEGreaterEq BTParty
 
   LF1.BuiltinFunctionGREATER_INT64 -> BEGreater BTInt64
   LF1.BuiltinFunctionGREATER_DECIMAL -> BEGreater BTDecimal
-  LF1.BuiltinFunctionGREATER_NUMERIC -> BEGreater BTDecimal
-  LF1.BuiltinFunctionGREATER_TEXT    -> BEGreater BTText
-  LF1.BuiltinFunctionGREATER_TIMESTAMP    -> BEGreater BTTimestamp
+  LF1.BuiltinFunctionGREATER_NUMERIC -> error "Numeric not implemented"
+  LF1.BuiltinFunctionGREATER_TEXT -> BEGreater BTText
+  LF1.BuiltinFunctionGREATER_TIMESTAMP -> BEGreater BTTimestamp
   LF1.BuiltinFunctionGREATER_DATE -> BEGreater BTDate
   LF1.BuiltinFunctionGREATER_PARTY -> BEGreater BTParty
 
   LF1.BuiltinFunctionTO_TEXT_INT64 -> BEToText BTInt64
   LF1.BuiltinFunctionTO_TEXT_DECIMAL -> BEToText BTDecimal
-  LF1.BuiltinFunctionTO_TEXT_NUMERIC -> BEToText BTDecimal
-  LF1.BuiltinFunctionTO_TEXT_TEXT    -> BEToText BTText
-  LF1.BuiltinFunctionTO_TEXT_TIMESTAMP    -> BEToText BTTimestamp
-  LF1.BuiltinFunctionTO_TEXT_PARTY   -> BEToText BTParty
+  LF1.BuiltinFunctionTO_TEXT_NUMERIC -> error "Numeric not implemented"
+  LF1.BuiltinFunctionTO_TEXT_TEXT -> BEToText BTText
+  LF1.BuiltinFunctionTO_TEXT_TIMESTAMP -> BEToText BTTimestamp
+  LF1.BuiltinFunctionTO_TEXT_PARTY -> BEToText BTParty
   LF1.BuiltinFunctionTO_TEXT_DATE -> BEToText BTDate
   LF1.BuiltinFunctionTEXT_FROM_CODE_POINTS -> BETextFromCodePoints
   LF1.BuiltinFunctionFROM_TEXT_PARTY -> BEPartyFromText
   LF1.BuiltinFunctionFROM_TEXT_INT64 -> BEInt64FromText
   LF1.BuiltinFunctionFROM_TEXT_DECIMAL -> BEDecimalFromText
-  LF1.BuiltinFunctionFROM_TEXT_NUMERIC -> BEDecimalFromText
+  LF1.BuiltinFunctionFROM_TEXT_NUMERIC -> error "Numeric not implemented"
   LF1.BuiltinFunctionTEXT_TO_CODE_POINTS -> BETextToCodePoints
   LF1.BuiltinFunctionTO_QUOTED_TEXT_PARTY -> BEPartyToQuotedText
 
@@ -229,11 +229,11 @@ decodeBuiltinFunction = pure . \case
   LF1.BuiltinFunctionMUL_DECIMAL   -> BEMulDecimal
   LF1.BuiltinFunctionDIV_DECIMAL   -> BEDivDecimal
   LF1.BuiltinFunctionROUND_DECIMAL -> BERoundDecimal
-  LF1.BuiltinFunctionADD_NUMERIC   -> BEAddDecimal
-  LF1.BuiltinFunctionSUB_NUMERIC   -> BESubDecimal
-  LF1.BuiltinFunctionMUL_NUMERIC   -> BEMulDecimal
-  LF1.BuiltinFunctionDIV_NUMERIC   -> BEDivDecimal
-  LF1.BuiltinFunctionROUND_NUMERIC -> BERoundDecimal
+  LF1.BuiltinFunctionADD_NUMERIC   -> error "Numeric not implemented"
+  LF1.BuiltinFunctionSUB_NUMERIC   -> error "Numeric not implemented"
+  LF1.BuiltinFunctionMUL_NUMERIC   -> error "Numeric not implemented"
+  LF1.BuiltinFunctionDIV_NUMERIC   -> error "Numeric not implemented"
+  LF1.BuiltinFunctionROUND_NUMERIC -> error "Numeric not implemented"
 
   LF1.BuiltinFunctionADD_INT64 -> BEAddInt64
   LF1.BuiltinFunctionSUB_INT64 -> BESubInt64
@@ -266,8 +266,8 @@ decodeBuiltinFunction = pure . \case
 
   LF1.BuiltinFunctionINT64_TO_DECIMAL -> BEInt64ToDecimal
   LF1.BuiltinFunctionDECIMAL_TO_INT64 -> BEDecimalToInt64
-  LF1.BuiltinFunctionINT64_TO_NUMERIC -> BEInt64ToDecimal
-  LF1.BuiltinFunctionNUMERIC_TO_INT64 -> BEDecimalToInt64
+  LF1.BuiltinFunctionINT64_TO_NUMERIC -> error "Numeric not implemented"
+  LF1.BuiltinFunctionNUMERIC_TO_INT64 -> error "Numeric not implemented"
 
   LF1.BuiltinFunctionTRACE -> BETrace
   LF1.BuiltinFunctionEQUAL_CONTRACT_ID -> BEEqualContractId
@@ -508,8 +508,7 @@ decodeKind :: LF1.Kind -> Decode Kind
 decodeKind LF1.Kind{..} = mayDecode "kindSum" kindSum $ \case
   LF1.KindSumStar LF1.Unit -> pure KStar
   -- FixMe: https://github.com/digital-asset/daml/issues/2289
-  --  should handle nat kind
-  LF1.KindSumNat LF1.Unit ->  throwError (ParseError "Nat kind not supported")
+  LF1.KindSumNat LF1.Unit -> error "Numeric not implemented"
   LF1.KindSumArrow (LF1.Kind_Arrow params mbResult) -> do
     result <- mayDecode "kind_ArrowResult" mbResult decodeKind
     foldr KArrow result <$> traverse decodeKind (V.toList params)
@@ -519,8 +518,7 @@ decodePrim = pure . \case
   LF1.PrimTypeINT64 -> BTInt64
   LF1.PrimTypeDECIMAL -> BTDecimal
   -- FixMe: https://github.com/digital-asset/daml/issues/2289
-  --  Should be different from LF1.PrimTypeDECIMAL
-  LF1.PrimTypeNUMERIC -> BTDecimal
+  LF1.PrimTypeNUMERIC -> error "Numeric not implemented"
   LF1.PrimTypeTEXT    -> BTText
   LF1.PrimTypeTIMESTAMP -> BTTimestamp
   LF1.PrimTypePARTY   -> BTParty
@@ -540,8 +538,7 @@ decodeType LF1.Type{..} = mayDecode "typeSum" typeSum $ \case
   LF1.TypeSumVar (LF1.Type_Var var args) ->
     decodeWithArgs args $ TVar <$> decodeName TypeVarName var
   -- FixMe: https://github.com/digital-asset/daml/issues/2289
-  --   should handle nat type
-  LF1.TypeSumNat _ -> throwError (ParseError "Nat kind not supported")
+  LF1.TypeSumNat _ -> error "Numeric not implemented"
   LF1.TypeSumCon (LF1.Type_Con mbCon args) ->
     decodeWithArgs args $ TCon <$> mayDecode "type_ConTycon" mbCon decodeTypeConName
   LF1.TypeSumPrim (LF1.Type_Prim (Proto.Enumerated (Right prim)) args) -> do
