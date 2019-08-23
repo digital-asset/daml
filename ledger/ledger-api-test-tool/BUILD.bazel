@@ -6,6 +6,10 @@ load(
     "daml_compile",
 )
 load(
+    "//daml-lf/language:daml-lf.bzl",
+    "lf_latest_version",
+)
+load(
     "//bazel_tools:scala.bzl",
     "da_scala_library",
 )
@@ -28,7 +32,7 @@ load("@os_info//:os_info.bzl", "is_windows")
 daml_compile(
     name = "PackageManagementTest",
     main_src = "src/main/daml/PackageManagementTest.daml",
-    target = "1.dev",
+    target = lf_latest_version,
 )
 
 dar_to_scala(
