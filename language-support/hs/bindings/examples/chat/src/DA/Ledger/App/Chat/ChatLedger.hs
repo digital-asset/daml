@@ -13,7 +13,6 @@ import DA.Ledger.App.Chat.Logging (Logger)
 import Data.List as List
 import Data.Maybe (maybeToList)
 import System.Random (randomIO)
-import qualified DA.Daml.LF.Ast as LF(Package)
 import qualified Data.Text.Lazy as Text (pack)
 import qualified Data.UUID as UUID
 
@@ -48,7 +47,7 @@ connect log = do
         xs@(_:_:_) -> fail $ "found multiple packages containing Chat: " <> show (map fst xs)
         [(pid,_)] -> return Handle{log,lid,pid}
 
-containsChat :: LF.Package -> Bool
+containsChat :: Package -> Bool
 containsChat package = "Chat" `isInfixOf` show package -- TODO: be more principled
 
 sendCommand :: Party -> Handle -> ChatContract -> IO (Maybe Rejection)

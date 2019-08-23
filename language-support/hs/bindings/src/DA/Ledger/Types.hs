@@ -58,7 +58,6 @@ module DA.Ledger.Types( -- High Level types for communication over Ledger API
 
     ) where
 
-import DA.Daml.LF.Ast.Base (E10)
 import Data.Fixed
 import Data.Int (Int64)
 import Data.Map (Map)
@@ -188,6 +187,10 @@ data Event
     deriving (Eq,Ord,Show)
 
 -- value.proto
+
+data E10
+instance HasResolution E10 where
+    resolution _ = 10000000000 -- 10^-10 resolution
 
 data Value
     = VRecord Record
