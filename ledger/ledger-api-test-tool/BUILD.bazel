@@ -2,6 +2,22 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load(
+    "//rules_daml:daml.bzl",
+    "daml_compile",
+)
+load(
+    "//daml-lf/language:daml-lf.bzl",
+    "lf_latest_version",
+)
+load(
+    "//bazel_tools:scala.bzl",
+    "da_scala_library",
+)
+load(
+    "//language-support/scala/codegen:codegen.bzl",
+    "dar_to_scala",
+)
+load(
     "//bazel_tools:scala.bzl",
     "da_scala_binary",
     "da_scala_library",
@@ -13,6 +29,30 @@ load(
 )
 load("@os_info//:os_info.bzl", "is_windows")
 
+daml_compile(
+    name = "PackageManagementTest",
+    main_src = "src/main/daml/PackageManagementTest.daml",
+    target = lf_latest_version,
+)
+
+dar_to_scala(
+    name = "PackageManagementTest.scala-codegen",
+    srcs = [
+        ":PackageManagementTest.dar",
+    ],
+    package_prefix = "com.digitalasset.ledger.packagemanagementtest",
+    srcjar_out = "PackageManagementTest.scala.srcjar",
+    verbosity = 2,
+)
+
+da_scala_library(
+    name = "PackageManagementTest.scala",
+    srcs = [":PackageManagementTest.scala-codegen"],
+    deps = [
+        "//language-support/scala/bindings",
+    ],
+)
+
 da_scala_binary(
     name = "ledger-api-test-tool",
     srcs = glob([
@@ -21,6 +61,8 @@ da_scala_binary(
     main_class = "com.daml.ledger.api.testtool.LedgerApiTestTool",
     resources = [
         "src/main/resources/logback.xml",
+        ":PackageManagementTest.dar",
+        "//ledger/test-common:SemanticTests.dar",
         "//ledger/test-common:dar-files",
     ],
     tags = [
@@ -31,6 +73,7 @@ da_scala_binary(
     ],
     visibility = ["//visibility:public"],
     deps = [
+        ":PackageManagementTest.scala",
         "//3rdparty/jvm/ch/qos/logback:logback_classic",
         "//3rdparty/jvm/com/github/scopt",
         "//3rdparty/jvm/io/grpc:grpc_netty",

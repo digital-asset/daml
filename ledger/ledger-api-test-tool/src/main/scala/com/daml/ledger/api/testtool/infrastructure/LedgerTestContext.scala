@@ -9,6 +9,11 @@ import com.digitalasset.ledger.api.v1.active_contracts_service.{
   GetActiveContractsRequest,
   GetActiveContractsResponse
 }
+import com.digitalasset.ledger.api.v1.admin.package_management_service.{
+  ListKnownPackagesRequest,
+  PackageDetails,
+  UploadDarFileRequest
+}
 import com.digitalasset.ledger.api.v1.admin.party_management_service.{
   AllocatePartyRequest,
   GetParticipantIdRequest
@@ -37,6 +42,7 @@ import com.digitalasset.ledger.api.v1.value.Identifier
 import com.digitalasset.ledger.client.binding.Primitive.Party
 import com.digitalasset.ledger.client.binding.{Primitive, Template}
 import com.digitalasset.platform.testing.{FiniteStreamObserver, SingleItemObserver}
+import com.google.protobuf.ByteString
 import com.google.protobuf.timestamp.Timestamp
 import io.grpc.stub.StreamObserver
 import scalaz.Tag
@@ -112,6 +118,14 @@ private[testtool] final class LedgerTestContext private[infrastructure] (
         .setTime(new SetTimeRequest(ledgerId, currentTime, newTime))
         .map(_ => ())
     } yield result
+
+  def listKnownPackages(): Future[Seq[PackageDetails]] =
+    services.packageManagement.listKnownPackages(new ListKnownPackagesRequest).map(_.packageDetails)
+
+  def uploadDarFile(bytes: ByteString): Future[Unit] =
+    services.packageManagement
+      .uploadDarFile(new UploadDarFileRequest(bytes))
+      .map(_ => ())
 
   def participantId(): Future[String] =
     services.partyManagement.getParticipantId(new GetParticipantIdRequest).map(_.participantId)
