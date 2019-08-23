@@ -1,14 +1,11 @@
 load(
-    "//bazel_tools:haskell.bzl",
+    "@com_github_digital_asset_daml//bazel_tools:haskell.bzl",
     "c2hs_suite",
-    "da_haskell_binary",
-    "da_haskell_library",
-    "da_haskell_test",
 )
-load("//bazel_tools:fat_cc_library.bzl", "fat_cc_library")
+load("@com_github_digital_asset_daml//bazel_tools:fat_cc_library.bzl", "fat_cc_library")
 
 c2hs_suite(
-    name = "grpc-haskell-core",
+    name = "lib",
     srcs = [
         "src/Network/GRPC/Unsafe/Constants.hsc",
     ] + glob(["src/**/*.hs"]),
