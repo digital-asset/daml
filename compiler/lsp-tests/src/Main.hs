@@ -421,8 +421,6 @@ scenarioTests run = testGroup "scenarios"
           closeDoc main'
     ]
 
-
--- type ExecuteCommandResponse = ResponseMessage Aeson.Value
 executeCommandTests :: (forall a. Session a -> IO a) -> (Session () -> IO ()) -> TestTree
 executeCommandTests run _ = testGroup "execute command"
     [ testCase "execute commands" $ run $ do
