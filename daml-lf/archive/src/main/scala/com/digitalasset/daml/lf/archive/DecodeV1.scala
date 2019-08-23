@@ -281,7 +281,9 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
         case PLF.Type.SumCase.PRIM =>
           val prim = lfType.getPrim
           if (prim.getPrim == PLF.PrimType.DECIMAL) {
-            assertUntil(LV.Features.numeric, "PLF.PrimType.DECIMAL")
+            // FixMe: https://github.com/digital-asset/daml/issues/2289
+            //  enable the check once the compiler produces proper DAML-LF 1.dev
+            // assertUntil(LV.Features.numeric, "PLF.PrimType.DECIMAL")
             TDecimal
           } else {
             val info = builtinTypeInfoMap(prim.getPrim)
@@ -386,11 +388,17 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
         case PLF.Expr.SumCase.BUILTIN =>
           val info = DecodeV1.builtinInfoMap(lfExpr.getBuiltin)
           assertSince(info.minVersion, lfExpr.getBuiltin.getValueDescriptor.getFullName)
-          info.maxVersion.foreach(assertUntil(_, lfExpr.getBuiltin.getValueDescriptor.getFullName))
-          if (info.handleLegacyDecimal)
+
+          if (info.handleLegacyDecimal) {
+            // FixMe: https://github.com/digital-asset/daml/issues/2289
+            //   enable the check once the compiler produces proper DAML-LF 1.dev
+            // info.maxVersion.foreach(assertUntil(_, lfExpr.getBuiltin.getValueDescriptor.getFullName))
             ETyApp(EBuiltin(info.builtin), TDecimalScale)
-          else
+          } else {
+            info.maxVersion.foreach(
+              assertUntil(_, lfExpr.getBuiltin.getValueDescriptor.getFullName))
             EBuiltin(info.builtin)
+          }
 
         case PLF.Expr.SumCase.REC_CON =>
           val recCon = lfExpr.getRecCon

@@ -70,10 +70,7 @@ da_haskell_test(
 damlc_integration_test("integration-stable", "DA.Test.DamlcIntegration.mainAll")
 
 # Integration tests for DAML-LF 1.dev
-# FixMe: https://github.com/digital-asset/daml/issues/2289
-#   DAML-LF 1.dev is currently broken.
-#   enable the test back once 1.dev is fixed and before numeric are frozen
-# damlc_integration_test("integration-dev", "DA.Test.DamlcIntegration.main")
+damlc_integration_test("integration-dev", "DA.Test.DamlcIntegration.main")
 
 # Tests for daml-doc
 da_haskell_test(
