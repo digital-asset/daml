@@ -42,12 +42,12 @@ c2hs_suite(
     ],
     visibility = ["//visibility:public"],
     deps = [
-        ":grpc-haskell-core-cbits",
+        ":fat_cbits",
     ],
 )
 
 cc_library(
-    name = "slim-cbits",
+    name = "cbits",
     srcs = glob(["cbits/*.c"]),
     hdrs = glob(["include/*.h"]),
     includes = ["include/"],
@@ -58,7 +58,6 @@ cc_library(
 )
 
 fat_cc_library(
-    name = "grpc-haskell-core-cbits",
-    input_lib = ":slim-cbits",
-    visibility = ["//visibility:public"],
+    name = "fat_cbits",
+    input_lib = ":cbits",
 )

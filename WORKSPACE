@@ -504,7 +504,7 @@ http_archive(
 http_archive(
     name = "haskell_grpc__haskell",
     build_file = "//3rdparty/haskell:BUILD.grpc-haskell",
-   sha256 = GRPC_HASKELL_HASH,
+    sha256 = GRPC_HASKELL_HASH,
     strip_prefix = "gRPC-haskell-{}".format(GRPC_HASKELL_COMMIT),
     urls = ["https://github.com/awakesecurity/gRPC-haskell/archive/{}.tar.gz".format(GRPC_HASKELL_COMMIT)],
 )
@@ -543,8 +543,6 @@ hazel_repositories(
             "z": "@com_github_madler_zlib//:z",
             "ffi": "" if is_windows else "@libffi_nix//:ffi",
             "bz2": "@bzip2//:bz2",
-            "grpc": "@com_github_grpc_grpc//:grpc",
-            "gpr": "@com_github_grpc_grpc//:gpr",
         },
     ),
     ghc_workspaces = {
