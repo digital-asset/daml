@@ -29,7 +29,7 @@ listPackages lid =
         ListPackagesResponse xs <- unwrap response
         return $ map PackageId $ Vector.toList xs
 
-data Package = Package ByteString deriving (Eq,Ord,Show)
+newtype Package = Package ByteString deriving (Eq,Ord,Show)
 
 getPackage :: LedgerId -> PackageId -> LedgerService (Maybe Package)
 getPackage lid pid =
