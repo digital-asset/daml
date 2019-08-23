@@ -369,7 +369,7 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
         ImmArray(lfTyConApp.getArgsList.asScala.map(decodeType))
       )
 
-    private[this] def decodeExpr(lfExpr: PLF.Expr, definition: String): Expr =
+    private[lf] def decodeExpr(lfExpr: PLF.Expr, definition: String): Expr =
       decodeLocation(lfExpr, definition) match {
         case None => decodeExprBody(lfExpr, definition)
         case Some(loc) => ELocation(loc, decodeExprBody(lfExpr, definition))
@@ -731,7 +731,7 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
         case PLF.PrimLit.SumCase.NUMERIC =>
           assertSince(LV.Features.numeric, "PrimLit.numeric")
           Numeric
-            .fromString(lfPrimLit.getDecimal)
+            .fromString(lfPrimLit.getNumeric)
             .fold(e => throw ParseError("error parsing numeric: " + e), PLNumeric)
         case PLF.PrimLit.SumCase.TEXT =>
           PLText(lfPrimLit.getText)
