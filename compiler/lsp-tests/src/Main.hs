@@ -436,7 +436,7 @@ executeCommandTests run _ = testGroup "execute command"
         actualDotString :: ExecuteCommandResponse <- LSP.request WorkspaceExecuteCommand $ ExecuteCommandParams
            "daml/damlVisualize"  (Just (List [Aeson.String $ T.pack escapedFp]))
         let expectedDotString = "digraph G {\ncompound=true;\nrankdir=LR;\nsubgraph cluster_Coin{\nn0[label=Create][color=green]; \nn1[label=Archive][color=red]; \nn2[label=Delete][color=red]; \nlabel=Coin;color=blue\n}\n}\n"
-        liftIO $ assertBool "Visulization command" (Just expectedDotString == _result actualDotString)
+        liftIO $ assertEqual "Visulization command" (Just expectedDotString) (_result actualDotString)
         closeDoc main'
     , testCase "Invalid commands result in empty response"  $ run $ do
         main' <- openDoc' "Main.daml" damlId $ T.unlines
@@ -447,13 +447,13 @@ executeCommandTests run _ = testGroup "execute command"
         actualDotString :: ExecuteCommandResponse <- LSP.request WorkspaceExecuteCommand $ ExecuteCommandParams
            "daml/NoCommand"  (Just (List [Aeson.String $ T.pack escapedFp]))
         let expectedNull = Just Aeson.Null
-        liftIO $ assertBool "Invlalid command" (expectedNull == _result actualDotString)
+        liftIO $ assertEqual "Invlalid command" expectedNull (_result actualDotString)
         closeDoc main'
     , testCase "Visualization command with no arguments" $ run $ do
         actualDotString :: ExecuteCommandResponse <- LSP.request WorkspaceExecuteCommand $ ExecuteCommandParams
            "daml/damlVisualize"  Nothing
         let expectedNull = Just Aeson.Null
-        liftIO $ assertBool "Invlalid command" (expectedNull == _result actualDotString)
+        liftIO $ assertEqual "Invlalid command" expectedNull (_result actualDotString)
     ]
 
 -- | Do extreme things to the compiler service.
