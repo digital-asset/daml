@@ -7,34 +7,8 @@ import FooA qualified as A
 import FooB qualified as B
 import FooAInstances()
 import FooBInstances()
-import DA.Next.Set
 import DA.Upgrade
-template FooUpgrade
-    with
-        op : Party
-    where
-        signatory op
-        nonconsuming choice Upgrade: ContractId B.Foo
-            with
-                inC : ContractId A.Foo
-                sigs : [Party]
-            controller sigs
-                do
-                    d <- fetch inC
-                    assert $ fromList sigs == fromList (signatory d)
-                    create $ conv d
-template FooRollback
-    with
-        op : Party
-    where
-        signatory op
-        nonconsuming choice Rollback: ContractId A.Foo
-            with
-                inC : ContractId B.Foo
-                sigs : [Party]
-            controller sigs
-                do
-                    d <- fetch inC
-                    assert $ fromList sigs == fromList (signatory d)
-                    create $ conv d
+type FooUpgrade = Upgrade A.Foo B.Foo
+type FooRollback = Rollback A.Foo B.Foo
+instance Convertible A.Foo B.Foo
 
