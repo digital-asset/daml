@@ -195,9 +195,7 @@ private[digitalasset] class EncodeV1(val minor: LV.Minor) {
           }
         case TBuiltin(bType) =>
           val (proto, typs) =
-            // FixMe: https://github.com/digital-asset/daml/issues/2289
-            // enable the following check once it is possible to encode numeric in the proto
-            if (bType == BTNumeric /*&& versionIsOlderThan(LV.Features.numeric)*/ )
+            if (bType == BTNumeric && versionIsOlderThan(LV.Features.numeric))
               PLF.PrimType.DECIMAL -> ignoreFirstTNatForDecimalLegacy(args)
             else
               builtinTypeInfoMap(bType).proto -> args
@@ -354,9 +352,10 @@ private[digitalasset] class EncodeV1(val minor: LV.Minor) {
       primLit match {
         case PLInt64(value) => builder.setInt64(value)
         case PLNumeric(value) =>
-          if (versionIsOlderThan(LV.Features.numeric))
+          if (versionIsOlderThan(LV.Features.numeric)) {
+            assert(value.scale == Decimal.scale)
             builder.setDecimal(Numeric.toUnscaledString(value))
-          else
+          } else
             builder.setNumeric(Numeric.toString(value))
         case PLText(value) => builder.setText(value)
         case PLTimestamp(value) => builder.setTimestamp(value.micros)

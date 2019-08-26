@@ -2895,27 +2895,27 @@ On the one hand, in case of DAML-LF 1.6 (or earlier) archive:
 
 - Decimal ``BuiltinFunction`` messages are translated as follows :
 
-  + ``ADD_DECIMAL`` message is translated to ``(ADD_NUMERIC @10)
-  + ``SUB_DECIMAL`` message is translated to ``(SUB_NUMERIC @10)
-  + ``MUL_DECIMAL`` message is translated to ``(MUL_NUMERIC @10)
-  + ``DIV_DECIMAL`` message is translated to ``(DIV_NUMERIC @10)
-  + ``ROUND_DECIMAL`` message is translated to ``(ROUND_NUMERIC @10)
-  + ``LESS_EQ_DECIMAL`` message is translated to ``(LESS_EQ_NUMERIC @10)
-  + ``GREATER_EQ_DECIMAL`` message is translated to ``(GREATER_EQ_NUMERIC @10)
-  + ``LESS_DECIMAL`` message is translated to ``(LESS_NUMERIC @10)
-  + ``GREATER_DECIMAL`` message is translated to ``(GREATER_NUMERIC @10)
-  + ``EQUAL_DECIMAL`` message is translated to ``(EQUAL_NUMERIC @10)
-  + ``TO_TEXT_DECIMAL`` message is translated to ``(TO_TEXT_NUMERIC @10)
-  + ``FROM_TEXT_DECIMAL`` message is translated to ``(FROM_TEXT_NUMERIC @10)  [*Available in versions >= 1.5*]
-  + ``INT64_TO_DECIMAL`` message is translated to ``(INT64_TO_NUMERIC @10)
-  + ``DECIMAL_TO_INT64`` message is translated to ``(NUMERIC_TO_INT64 @10)
+  + ``ADD_DECIMAL`` message is translated to ``(ADD_NUMERIC @10)``
+  + ``SUB_DECIMAL`` message is translated to ``(SUB_NUMERIC @10)``
+  + ``MUL_DECIMAL`` message is translated to ``(MUL_NUMERIC @10)``
+  + ``DIV_DECIMAL`` message is translated to ``(DIV_NUMERIC @10)``
+  + ``ROUND_DECIMAL`` message is translated to ``(ROUND_NUMERIC @10)``
+  + ``LESS_EQ_DECIMAL`` message is translated to ``(LESS_EQ_NUMERIC @10)``
+  + ``GREATER_EQ_DECIMAL`` message is translated to ``(GREATER_EQ_NUMERIC @10)``
+  + ``LESS_DECIMAL`` message is translated to ``(LESS_NUMERIC @10)``
+  + ``GREATER_DECIMAL`` message is translated to ``(GREATER_NUMERIC @10)``
+  + ``EQUAL_DECIMAL`` message is translated to ``(EQUAL_NUMERIC @10)``
+  + ``TO_TEXT_DECIMAL`` message is translated to ``(TO_TEXT_NUMERIC @10)``
+  + ``FROM_TEXT_DECIMAL`` message is translated to ``(FROM_TEXT_NUMERIC @10)``  [*Available in versions >= 1.5*]
+  + ``INT64_TO_DECIMAL`` message is translated to ``(INT64_TO_NUMERIC @10)``
+  + ``DECIMAL_TO_INT64`` message is translated to ``(NUMERIC_TO_INT64 @10)``
 
-- Numeric types, literals and builtins cannot be refer directly. In
-  other words ``numeric`` fields in ``PrimLit`` and ``PrimType``
-  messages must remain unset and ``BuiltinFunction`` containing
-  ``NUMERIC`` in their name are forbiddens. The deserialization
-  process will reject any DAML-LF 1.6 (or earlier) that does not
-  comply those restrictions.
+- Numeric types, literals and builtins cannot be referred directly.
+  In other words ``numeric`` fields in ``PrimLit`` and ``PrimType``
+  messages must remain unset and Numeric ``BuiltinFunction`` (those
+  containing ``NUMERIC`` in their name) are forbidden. The
+  deserialization process will reject any DAML-LF 1.6 (or earlier)
+  that does not comply those restrictions.
 
 On the other hand, starting from DAML-LF 1.dev:
 
@@ -2925,17 +2925,17 @@ On the other hand, starting from DAML-LF 1.dev:
   ``[-]?([1-9]\d*|0).\d*``
 
   with the addition constrains that it contains at most 38 digits
-  (ignoring possibly leading ``0``). The deserialization process will
-  use the number of digits on the right of the dot as scale when
-  converting the message to numeric literals. The deserialization
-  process will reject any non-compliant program.
+  (ignoring a possibly leading ``0``). The deserialization process
+  will use the number of digits on the right of the decimal dot
+  as scale when converting the message to numeric literals. The
+  deserialization process will reject any non-compliant program.
 
-- Decimal types, literals and builtins cannot be refer directly. In
-  other words ``decimal`` fields in ``PrimLit`` and ``PrimType``
-  messages must remain unset and ``BuiltinFunction`` containing
-  ``DECIMAL`` in their name are forbiddens. The deserialization
-  process will reject any DAML-LF 1.dev (or latter) that does not
-  comply those restrictions.
+- Decimal types, literals and builtins cannot be referred directly.
+  In other words ``decimal`` fields in ``PrimLit`` and ``PrimType``
+  messages must remain unset and Decimal ``BuiltinFunction`` (those
+  containing ``DECIMAL`` in their name are forbidden). The
+  deserialization process will reject any DAML-LF 1.dev (or latter)
+  that does not comply those restrictions.
 
 .. Local Variables:
 .. eval: (flyspell-mode 1)
