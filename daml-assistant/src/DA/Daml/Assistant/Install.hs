@@ -157,14 +157,18 @@ installExtracted env@InstallEnv{..} sourcePath =
         when (shouldInstallAssistant env sourceVersion) $
             activateDaml env targetPath
 
+installedAssistantPath :: DamlPath -> FilePath
+installedAssistantPath damlPath =
+    let damlName = if isWindows then "daml.cmd" else "daml"
+    in unwrapDamlPath damlPath </> "bin" </> damlName
+
 activateDaml :: InstallEnv -> SdkPath -> IO ()
 activateDaml env@InstallEnv{..} targetPath = do
 
     let damlSourceName = if isWindows then "daml.exe" else "daml"
-        damlTargetName = if isWindows then "daml.cmd" else "daml"
         damlBinarySourcePath = unwrapSdkPath targetPath </> "daml" </> damlSourceName
-        damlBinaryTargetDir  = unwrapDamlPath damlPath </> "bin"
-        damlBinaryTargetPath = damlBinaryTargetDir </> damlTargetName
+        damlBinaryTargetPath = installedAssistantPath damlPath
+        damlBinaryTargetDir = takeDirectory damlBinaryTargetPath
 
     unlessM (doesFileExist damlBinarySourcePath) $
         throwIO $ assistantErrorBecause
@@ -383,8 +387,7 @@ install options damlPath projectPathM assistantVersion = do
             , ""
             ]
 
-    missingAssistant <- not <$> doesFileExist
-        (unwrapDamlPath damlPath </> "bin" </> "daml")
+    missingAssistant <- not <$> doesFileExist (installedAssistantPath damlPath)
     execPath <- getExecutablePath
     let installingFromOutside = not $
             isPrefixOf (unwrapDamlPath damlPath </> "") execPath
