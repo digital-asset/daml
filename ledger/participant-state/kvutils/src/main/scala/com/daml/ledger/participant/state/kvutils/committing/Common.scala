@@ -178,8 +178,8 @@ private[kvutils] object Common {
       .get(Conversions.configurationStateKey)
       .flatten
       .flatMap { v =>
-        Conversions
-          .parseDamlConfiguration(v.getConfiguration)
+        Configuration
+          .decode(v.getConfiguration)
           .fold({ err =>
             logger.error(s"Failed to parse configuration: $err, using default configuration.")
             None

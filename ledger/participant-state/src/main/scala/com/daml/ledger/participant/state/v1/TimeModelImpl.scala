@@ -1,7 +1,9 @@
 // Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.ledger.participant.state.backport
+// FIXME(JM): Merge with TimeModel.scala and remove services.time.TimeModel?
+
+package com.daml.ledger.participant.state.v1
 
 import java.time.{Duration, Instant}
 
@@ -21,7 +23,7 @@ import scala.util.Try
   *                              Must be greater than the derived minimum time to live.
   * @throws IllegalArgumentException if the parameters aren't valid
   */
-case class TimeModel private (
+case class TimeModelImpl private (
     minTransactionLatency: Duration,
     maxClockSkew: Duration,
     maxTtl: Duration)
@@ -42,14 +44,14 @@ case class TimeModel private (
 
 }
 
-object TimeModel {
+object TimeModelImpl {
 
   /**
     * A default TimeModel that's reasonable for a test or sandbox ledger application.
     * Serious applications (viz. ledger) should probably specify their own TimeModel.
     */
   val reasonableDefault: TimeModel =
-    TimeModel(Duration.ofSeconds(1L), Duration.ofSeconds(1L), Duration.ofSeconds(30L)).get
+    TimeModelImpl(Duration.ofSeconds(1L), Duration.ofSeconds(1L), Duration.ofSeconds(30L)).get
 
   def apply(
       minTransactionLatency: Duration,
@@ -59,11 +61,11 @@ object TimeModel {
     require(!maxTtl.isNegative, "Negative max TTL")
     require(!maxClockSkew.isNegative, "Negative max clock skew")
     require(!maxTtl.minus(maxClockSkew).isNegative, "Max TTL must be greater than max clock skew")
-    new TimeModel(minTransactionLatency, maxClockSkew, maxTtl)
+    new TimeModelImpl(minTransactionLatency, maxClockSkew, maxTtl)
   }
 }
 
-case class TimeModelChecker(timeModel: ITimeModel) extends ITimeModelChecker {
+case class TimeModelCheckerImpl(timeModel: ITimeModel) extends ITimeModelChecker {
 
   import timeModel._
 

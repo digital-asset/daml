@@ -1,0 +1,55 @@
+// Copyright (c) 2019 The DAML Authors. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+//
+// The DAML Ledger configuration. Please refer to the spec
+// (ledger/participant-state/protobuf/ledger_configuration.rst)
+// for detailed information on versions and semantics.
+//
+// version summary:
+// * 1: initial version
+//
+
+syntax = "proto3";
+package com.daml.ledger.participant.state;
+option java_package = "com.daml.ledger.participant.state.protobuf";
+option java_multiple_files = true;
+option csharp_namespace = "Com.Daml.Ledger.Participant.State.Protobuf";
+
+import "google/protobuf/duration.proto";
+
+message LedgerConfiguration {
+  // The version of the configuration message. Defines the semantics
+  // of how it is decoded and interpreted.
+  int64 version = 1;
+
+  // The configuration generation. If submitting a configuration the new generation
+  // must be one larger than previous configuration. This safe-guards against
+  // configuration changes that are based upon stale data.
+  int64 generation = 2;
+
+  // The ledger time model, specifying the bounds for
+  // ledger effective time and maximum record time of transactions.
+  LedgerTimeModel time_model = 3;
+
+  // The identity of the participant that is allowed to change
+  // the ledger configuration.
+  // If unset the configuration can be changed by anyone.
+  string authorized_participant_id = 4;
+
+  // If the "open world" flag is true, then party allocations are not
+  // explicitly required. That is, a submission from a party that is
+  // not allocated is allowed. This setting is useful when testing.
+  bool open_world = 5;
+}
+
+message LedgerTimeModel {
+  // The expected minimum latency of a transaction.
+  google.protobuf.Duration min_transaction_latency = 1;
+
+  // The maximum allowed clock skew between the ledger and clients.
+  google.protobuf.Duration max_clock_skew = 2;
+
+  // The maximum allowed time to live for a transaction.
+  // Must be greater than the derived minimum time to live.
+  google.protobuf.Duration max_ttl = 3;
+}

@@ -76,7 +76,7 @@ object KeyValueConsumption {
 
       case DamlLogEntry.PayloadCase.CONFIGURATION_ENTRY =>
         val configEntry = entry.getConfigurationEntry
-        val newConfig = parseDamlConfiguration(configEntry.getConfiguration).get
+        val newConfig = Configuration.decode(configEntry.getConfiguration).right.get // FIXME(JM): handle error
         List(Update.ConfigurationChanged(configEntry.getSubmissionId, newConfig))
 
       case DamlLogEntry.PayloadCase.CONFIGURATION_REJECTION_ENTRY =>

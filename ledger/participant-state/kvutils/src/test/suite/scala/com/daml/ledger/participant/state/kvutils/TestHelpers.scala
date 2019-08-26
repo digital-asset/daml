@@ -5,9 +5,8 @@ package com.daml.ledger.participant.state.kvutils
 
 import java.util.UUID
 
-import com.daml.ledger.participant.state.backport.TimeModel
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlLogEntryId
-import com.daml.ledger.participant.state.v1.{Configuration, ParticipantId}
+import com.daml.ledger.participant.state.v1.{Configuration, ParticipantId, TimeModelImpl}
 import com.digitalasset.daml.lf.archive.Decode
 import com.digitalasset.daml.lf.archive.testing.Encode
 import com.digitalasset.daml.lf.data.Time.Timestamp
@@ -72,7 +71,7 @@ object TestHelpers {
   val theRecordTime: Timestamp = Timestamp.Epoch
   val theDefaultConfig = Configuration(
     generation = 0,
-    timeModel = TimeModel.reasonableDefault,
+    timeModel = TimeModelImpl.reasonableDefault,
     authorizedParticipantId = None,
     openWorld = true,
   )

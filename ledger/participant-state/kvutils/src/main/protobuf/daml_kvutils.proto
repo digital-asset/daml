@@ -20,6 +20,7 @@ import "google/protobuf/duration.proto";
 import "com/digitalasset/daml_lf_dev/daml_lf.proto";
 import "com/digitalasset/daml/lf/transaction.proto";
 import "com/digitalasset/daml/lf/value.proto";
+import "ledger/participant-state/protobuf/ledger_configuration.proto";
 
 
 // Envelope with which we wrap all kvutils messages that are sent over the network
@@ -254,7 +255,7 @@ message DamlConfigurationSubmission {
   google.protobuf.Timestamp maximum_record_time = 2;
 
   // The new configuration that replaces the current configuration.
-  DamlConfiguration configuration = 3;
+  com.daml.ledger.participant.state.LedgerConfiguration configuration = 3;
 }
 
 // A log entry describing a rejected configuration change.
@@ -264,7 +265,7 @@ message DamlConfigurationRejectionEntry {
   string submission_id = 1;
 
   // The new proposed configuration that was rejected.
-  DamlConfiguration configuration = 2;
+  com.daml.ledger.participant.state.LedgerConfiguration configuration = 2;
 
   // A mismatch in the configuration generation, that is, the
   // new configuration did not carry a generation that was one
@@ -303,41 +304,7 @@ message DamlConfigurationEntry {
   string submission_id = 1;
 
   // The ledger configuration.
-  DamlConfiguration configuration = 2;
-}
-
-message DamlConfiguration {
-  // The configuration generation. If submitting a configuration the new generation
-  // must be one larger than previous configuration. This safe-guards against
-  // configuration changes that are based upon stale data.
-  int64 generation = 1;
-
-  // The ledger time model, specifying the bounds for
-  // ledger effective time and maximum record time of transactions.
-  DamlTimeModel time_model = 2;
-
-  // The identity of the participant that is allowed to change
-  // the ledger configuration.
-  // If unset the configuration can be changed by anyone.
-  string authorized_participant_id = 3;
-
-  // If the "open world" flag is true, then party allocations are not
-  // explicitly required. That is, a submission from a party that is
-  // not allocated is allowed. This setting is useful when testing.
-  bool open_world = 4;
-}
-
-
-message DamlTimeModel {
-  // The expected minimum latency of a transaction.
-  google.protobuf.Duration min_transaction_latency = 1;
-
-  // The maximum allowed clock skew between the ledger and clients.
-  google.protobuf.Duration max_clock_skew = 2;
-
-  // The maximum allowed time to live for a transaction.
-  // Must be greater than the derived minimum time to live.
-  google.protobuf.Duration max_ttl = 3;
+  com.daml.ledger.participant.state.LedgerConfiguration configuration = 2;
 }
 
 // An allocation of party name and assignment of a party to a given
@@ -414,7 +381,7 @@ message DamlStateValue {
     DamlCommandDedupValue command_dedup = 3;
     DamlPartyAllocation party = 4;
     DamlContractKeyState contract_key_state = 5;
-    DamlConfiguration configuration = 6;
+    com.daml.ledger.participant.state.LedgerConfiguration configuration = 6;
   }
 }
 

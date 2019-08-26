@@ -6,9 +6,8 @@ package com.daml.ledger.participant.state.kvutils
 import java.time.Duration
 
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
+import com.daml.ledger.participant.state.v1.Configuration
 import org.scalatest.{Matchers, WordSpec}
-
-import scala.util.Success
 
 class KVUtilsConfigSpec extends WordSpec with Matchers {
   import KVTest._
@@ -28,8 +27,7 @@ class KVUtilsConfigSpec extends WordSpec with Matchers {
       val configSubm = subm.getConfigurationSubmission
       Conversions.parseTimestamp(configSubm.getMaximumRecordTime) shouldEqual theRecordTime
       configSubm.getSubmissionId shouldEqual "foobar"
-      Conversions.parseDamlConfiguration(configSubm.getConfiguration) shouldEqual Success(
-        theDefaultConfig)
+      Configuration.decode(configSubm.getConfiguration) shouldEqual Right(theDefaultConfig)
     }
 
     "check generation" in KVTest.runTest {

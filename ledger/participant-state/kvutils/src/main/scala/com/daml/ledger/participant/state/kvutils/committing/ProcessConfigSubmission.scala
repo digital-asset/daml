@@ -73,8 +73,9 @@ private[kvutils] case class ProcessConfigSubmission(
   }
 
   private def validateSubmission(): Commit[Unit] =
-    parseDamlConfiguration(newConfig)
-      .fold(exc => rejectInvalidConfiguration(exc.getMessage), pure)
+    Configuration
+      .decode(newConfig)
+      .fold(exc => rejectInvalidConfiguration(exc), pure)
       .flatMap { config =>
         if (config.generation != (1 + currentConfig.generation))
           rejectGenerationMismatch(1 + currentConfig.generation)
