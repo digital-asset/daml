@@ -1,25 +1,24 @@
 // Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.interp.testing
+package com.digitalasset.daml.lf.speedy
 
-import com.digitalasset.daml.lf.data.{ImmArray, Ref}
-import com.digitalasset.daml.lf.speedy.{SValue, Speedy}
-import com.digitalasset.daml.lf.speedy.SResult
-import com.digitalasset.daml.lf.speedy.SResult._
-import com.digitalasset.daml.lf.speedy.SError._
-import com.digitalasset.daml.lf.speedy.TraceLog
-import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.language.Util._
-import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.PureCompiledPackages
+import com.digitalasset.daml.lf.data.Ref._
+import com.digitalasset.daml.lf.data.{ImmArray, Numeric, Ref}
+import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.language.LanguageVersion
+import com.digitalasset.daml.lf.language.Util._
+import com.digitalasset.daml.lf.speedy.SError._
 import com.digitalasset.daml.lf.speedy.SExpr.LfDefRef
+import com.digitalasset.daml.lf.speedy.SResult._
+import com.digitalasset.daml.lf.testing.parser.Implicits._
+import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.{Matchers, WordSpec}
 
 import scala.language.implicitConversions
 
-class InterpTest extends WordSpec with Matchers {
+class InterpreterTest extends WordSpec with Matchers with TableDrivenPropertyChecks {
 
   private implicit def id(s: String): Ref.Name.T = Name.assertFromString(s)
 
@@ -41,8 +40,10 @@ class InterpTest extends WordSpec with Matchers {
     "concat works" in {
       val int64 = TBuiltin(BTInt64)
       val int64List = TApp(TBuiltin(BTList), int64)
+
       def int64Cons(nums: ImmArray[Long], tail: Expr): Expr =
         ECons(int64, nums.map(i => EPrimLit(PLInt64(i))), tail)
+
       val int64Nil = ENil(int64)
       val concat =
         EAbs(
@@ -88,6 +89,35 @@ class InterpTest extends WordSpec with Matchers {
       val xss2 = ECons(int64List, ImmArray(int64Cons(ImmArray(2, 5, 7), int64Nil)), ENil(int64List))
       runExpr(EApp(concat, xss1)) shouldBe runExpr(EApp(concat, xss2))
     }
+  }
+
+  "compilation and evaluation handle properly nat types" in {
+
+    def result(s: String) =
+      SValue.SOptional(Some(SValue.SNumeric(Numeric.assertFromString(s))))
+
+    val testCases = Table(
+      "input" -> "output",
+      e"""(/\ (n: nat). FROM_TEXT_NUMERIC @n "0") @1""" ->
+        result("0.0"),
+      e"""(/\ (n: nat). /\ (n: nat). FROM_TEXT_NUMERIC @n "1") @2 @3 """ ->
+        result("1.000"),
+      e"""(/\ (n: nat). /\ (n: nat). \(n: Text) -> FROM_TEXT_NUMERIC @n n) @4 @5 "2"""" ->
+        result("2.00000"),
+      e"""(/\ (n: nat). \(n: Text) -> /\ (n: nat). FROM_TEXT_NUMERIC @n n) @6 "3" @7""" ->
+        result("3.0000000"),
+      e"""(\(n: Text) -> /\ (n: nat). /\ (n: nat). FROM_TEXT_NUMERIC @n n) "4" @8 @9""" ->
+        result("4.000000000"),
+      e"""(\(n: Text) -> /\ (n: *). /\ (n: nat). FROM_TEXT_NUMERIC @n n) "5" @Text @10""" ->
+        result("5.0000000000"),
+    )
+
+    forEvery(testCases) { (input, output) =>
+      runExpr(input) shouldBe output
+    }
+
+    a[Compiler.CompileError] shouldBe thrownBy(
+      runExpr(e"""(/\ (n: nat). /\ (n: *). FROM_TEXT_NUMERIC @n n) @4 @Text"""))
   }
 
   "large lists" should {
