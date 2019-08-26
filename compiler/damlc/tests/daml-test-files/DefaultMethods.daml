@@ -31,3 +31,10 @@ class Id a where
   id = \x -> x
 
 instance Id Int where
+
+-- Default implementation with a separate type signature for the default method.
+class MyShow t where
+  myShow : t -> Text
+
+  default myShow : Show t => t -> Text
+  myShow = show
