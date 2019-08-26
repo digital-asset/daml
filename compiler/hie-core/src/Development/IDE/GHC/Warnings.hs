@@ -11,6 +11,7 @@ import           Control.Concurrent.Extra
 import           Control.Monad.Extra
 
 import           Development.IDE.Types.Diagnostics
+import           Development.IDE.Types.Options
 import Development.IDE.GHC.Util
 import           Development.IDE.GHC.Error
 
@@ -24,8 +25,8 @@ import           Development.IDE.GHC.Error
 --   https://github.com/ghc/ghc/blob/5f1d949ab9e09b8d95319633854b7959df06eb58/compiler/main/GHC.hs#L623-L640
 --   which basically says that log_action is taken from the ModSummary when GHC feels like it.
 --   The given argument lets you refresh a ModSummary log_action
-withWarnings :: GhcMonad m => ((ModSummary -> ModSummary) -> m a) -> m ([FileDiagnostic], a)
-withWarnings action = do
+withWarnings :: GhcMonad m => IdeOptions -> ((ModSummary -> ModSummary) -> m a) -> m ([FileDiagnostic], a)
+withWarnings options action = do
   warnings <- liftIO $ newVar []
   oldFlags <- getDynFlags
   let newAction dynFlags _ _ loc _ msg = do
@@ -35,7 +36,7 @@ withWarnings action = do
   res <- action $ \x -> x{ms_hspp_opts = (ms_hspp_opts x){log_action = newAction}}
   setLogAction $ log_action oldFlags
   warns <- liftIO $ readVar warnings
-  return (reverse $ concat warns, res)
+  return (reverse $ filter (optDiagnosticFilter options . snd) $ concat warns, res)
 
 setLogAction :: GhcMonad m => LogAction -> m ()
 setLogAction act = void $ modifyDynFlags $ \dyn -> dyn{log_action = act}

@@ -16,6 +16,7 @@ import Data.Maybe
 import Development.Shake
 import           GHC hiding (parseModule, typecheckModule)
 import           GhcPlugins                     as GHC hiding (fst3, (<>))
+import qualified Language.Haskell.LSP.Types as LSP
 import qualified Language.Haskell.LSP.Types.Capabilities as LSP
 
 data IdeOptions = IdeOptions
@@ -31,6 +32,7 @@ data IdeOptions = IdeOptions
   , optReportProgress :: IdeReportProgress
   , optLanguageSyntax :: String -- ^ the ```language to use
   , optNewColonConvention :: Bool -- ^ whether to use new colon convention
+  , optDiagnosticFilter :: LSP.Diagnostic -> Bool -- ^ which diagnostics to keep
   }
 
 newtype IdeReportProgress = IdeReportProgress Bool
@@ -50,6 +52,7 @@ defaultIdeOptions session = IdeOptions
     ,optReportProgress = IdeReportProgress False
     ,optLanguageSyntax = "haskell"
     ,optNewColonConvention = False
+    ,optDiagnosticFilter = const True
     }
 
 

@@ -308,8 +308,9 @@ typeCheckRule =
         deps <- use_ GetDependencies file
         tms <- uses_ TypeCheck (transitiveModuleDeps deps)
         setPriority priorityTypeCheck
+        options <- getIdeOptions
         packageState <- useNoFile_ GhcSession
-        liftIO $ typecheckModule packageState tms pm
+        liftIO $ typecheckModule options packageState tms pm
 
 
 generateCoreRule :: Rules ()
@@ -318,8 +319,9 @@ generateCoreRule =
         deps <- use_ GetDependencies file
         (tm:tms) <- uses_ TypeCheck (file:transitiveModuleDeps deps)
         setPriority priorityGenerateCore
+        options <- getIdeOptions
         packageState <- useNoFile_ GhcSession
-        liftIO $ compileModule packageState tms tm
+        liftIO $ compileModule options packageState tms tm
 
 loadGhcSession :: Rules ()
 loadGhcSession =
