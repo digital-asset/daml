@@ -35,13 +35,18 @@ class HikariJdbcConnectionProvider(
   private val logger = LoggerFactory.getLogger(getClass)
   // these connections should never timeout as we have exactly the same number of threads using them as many connections we have
   private val shortLivedDataSource =
-    createDataSource(noOfShortLivedConnections, noOfShortLivedConnections, 250.millis)
+    createDataSource(
+      "Short-Lived-Connections",
+      noOfShortLivedConnections,
+      noOfShortLivedConnections,
+      250.millis)
 
   // this a dynamic pool as it's used for serving ACS snapshot requests, which we don't expect to get a lot
   private val streamingDataSource =
-    createDataSource(1, noOfStreamingConnections, 60.seconds)
+    createDataSource("Streaming-Connections", 1, noOfStreamingConnections, 60.seconds)
 
   private def createDataSource(
+      poolName: String,
       minimumIdle: Int,
       maxPoolSize: Int,
       connectionTimeout: FiniteDuration) = {
@@ -55,6 +60,7 @@ class HikariJdbcConnectionProvider(
     config.setMaximumPoolSize(maxPoolSize)
     config.setMinimumIdle(minimumIdle)
     config.setConnectionTimeout(connectionTimeout.toMillis)
+    config.setPoolName(poolName)
 
     //note that Hikari uses auto-commit by default.
     //in `runSql` below, the `.close()` will automatically trigger a commit.
