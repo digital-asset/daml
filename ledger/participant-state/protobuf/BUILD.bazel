@@ -1,0 +1,18 @@
+# Copyright (c) 2019 The DAML Authors. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+proto_library(
+    name = "ledger_configuration_proto",
+    srcs = ["ledger_configuration.proto"],
+    visibility = ["//ledger/participant-state:__subpackages__"],
+    deps = [
+        "@com_google_protobuf//:duration_proto",
+    ],
+)
+
+java_proto_library(
+    name = "ledger_configuration_java_proto",
+    tags = ["maven_coordinates=com.daml.ledger:participant-state-ledger-configuration-java-proto:__VERSION__"],
+    visibility = ["//ledger:__subpackages__"],
+    deps = [":ledger_configuration_proto"],
+)

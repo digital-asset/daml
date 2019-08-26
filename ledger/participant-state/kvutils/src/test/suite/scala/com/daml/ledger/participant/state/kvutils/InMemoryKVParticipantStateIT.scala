@@ -6,7 +6,6 @@ package com.daml.ledger.participant.state.kvutils
 import java.time.Duration
 
 import akka.stream.scaladsl.Sink
-import com.daml.ledger.participant.state.backport.TimeModel
 import com.daml.ledger.participant.state.v1.Update.{PartyAddedToParticipant, PublicPackageUploaded}
 import com.daml.ledger.participant.state.v1._
 import com.digitalasset.daml.lf.data.Ref
@@ -462,7 +461,7 @@ class InMemoryKVParticipantStateIT extends AsyncWordSpec with AkkaBeforeAndAfter
           maxRecordTime = rt.addMicros(1000000),
           submissionId = "test2",
           config = lic.config.copy(
-            timeModel = TimeModel(
+            timeModel = TimeModelImpl(
               Duration.ofSeconds(123),
               Duration.ofSeconds(123),
               Duration.ofSeconds(123)).get

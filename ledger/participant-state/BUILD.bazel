@@ -9,7 +9,8 @@ load(
 
 da_scala_library(
     name = "participant-state",
-    srcs = glob(["src/main/scala/com/daml/ledger/participant/state/v1/**/*.scala"]),
+    srcs =
+        glob(["src/main/scala/com/daml/ledger/participant/state/v1/**/*.scala"]),
     resources = glob(["src/main/resources/**/*"]),
     tags = ["maven_coordinates=com.daml.ledger:participant-state:__VERSION__"],
     visibility = [
@@ -25,5 +26,6 @@ da_scala_library(
         "//daml-lf/transaction/src/main/protobuf:transaction_java_proto",
         "//daml-lf/transaction/src/main/protobuf:value_java_proto",
         "//ledger/ledger-api-domain",
+        "//ledger/participant-state/protobuf:ledger_configuration_java_proto",
     ],
 )

@@ -14,7 +14,6 @@ import akka.actor.{Actor, ActorSystem, PoisonPill, Props}
 import akka.pattern.gracefulStop
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
-import com.daml.ledger.participant.state.backport.TimeModel
 import com.daml.ledger.participant.state.kvutils.{DamlKvutils => Proto}
 import com.daml.ledger.participant.state.v1.{UploadPackagesResult, _}
 import com.digitalasset.daml.lf.data.Ref
@@ -111,7 +110,7 @@ class InMemoryKVParticipantState(
   // The initial ledger configuration
   private val initialLedgerConfig = Configuration(
     generation = 0,
-    timeModel = TimeModel.reasonableDefault,
+    timeModel = TimeModelImpl.reasonableDefault,
     authorizedParticipantId = Some(participantId),
     openWorld = openWorld
   )

@@ -120,7 +120,7 @@ object KeyValueSubmission {
         DamlConfigurationSubmission.newBuilder
           .setSubmissionId(submissionId)
           .setMaximumRecordTime(buildTimestamp(maxRecordTime))
-          .setConfiguration(buildDamlConfiguration(config))
+          .setConfiguration(Configuration.encode(config))
       )
       .build
   }

@@ -34,6 +34,7 @@ da_scala_library(
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-domain",
         "//ledger/participant-state",
+        "//ledger/participant-state/protobuf:ledger_configuration_java_proto",
     ],
 )
 
@@ -63,6 +64,7 @@ da_scala_test(
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-domain",
         "//ledger/participant-state",
+        "//ledger/participant-state/protobuf:ledger_configuration_java_proto",
     ],
 )
 
@@ -73,6 +75,7 @@ proto_library(
         "//daml-lf/archive:daml_lf_proto",
         "//daml-lf/transaction/src/main/protobuf:transaction_proto",
         "//daml-lf/transaction/src/main/protobuf:value_proto",
+        "//ledger/participant-state/protobuf:ledger_configuration_proto",
         "@com_google_protobuf//:duration_proto",
         "@com_google_protobuf//:empty_proto",
         "@com_google_protobuf//:timestamp_proto",
