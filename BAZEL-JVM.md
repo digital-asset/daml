@@ -755,7 +755,7 @@ activated on all Scala targets by default. It is configured in the [Scala rule
 wrappers][wartremover_config] used in the daml repository.
 
 [wartremover_plugin]: https://github.com/wartremover/wartremover
-[wartremover_config]: https://github.com/DACH-NY/da/blob/f0fe4b65e6cfca4e354d0f6138d04c98107d771c/bazel_tools/scala.bzl#L56
+[wartremover_config]: https://github.com/digital-asset/daml/blob/ea02814b343e4754c70a8718cb14657d6c51915f/bazel_tools/scala.bzl#L71
 
 ### Command-Line Tools
 
@@ -781,7 +781,7 @@ a set of custom Bazel rules defined in [`rules_daml`][rules_daml]. Refer to the
 [user guide][bazel_user_guide] or the [API docs][bazel-api-documentation] for
 details.
 
-[rules_daml]: https://github.com/DACH-NY/da/tree/f0fe4b65e6cfca4e354d0f6138d04c98107d771c/rules_daml
+[rules_daml]: https://github.com/digital-asset/daml/tree/ea02814b343e4754c70a8718cb14657d6c51915f/rules_daml
 
 ## Java Runtime and Toolchain
 
