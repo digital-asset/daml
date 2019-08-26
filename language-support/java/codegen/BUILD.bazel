@@ -136,27 +136,24 @@ test_daml_lf_target_versions = [
             src = "//daml-lf/encoder:testing-dar-%s" % target,
             package_prefix = "test",
         ),
+        java_test(
+            name = "tests-%s" % target,
+            srcs = glob([
+                "src/test/java/**/*$All$*.java",
+                "src/test/java/**/*%s*.java" % mangle_for_java(target),
+            ]),
+            test_class = "com.digitalasset.testing.AllTestsFor$%s$" % mangle_for_java(target),
+            deps = [
+                ":test-model-%s.jar" % target,
+                "//3rdparty/jvm/com/google/protobuf:protobuf_java",
+                "//3rdparty/jvm/org/junit/jupiter:junit_jupiter_api",
+                "//3rdparty/jvm/org/junit/jupiter:junit_jupiter_engine",
+                "//3rdparty/jvm/org/junit/platform:junit_platform_runner",
+                "//language-support/java/bindings:bindings-java",
+            ],
+        ),
     ]
     for target in test_daml_lf_target_versions
-]
-
-[
-    java_test(
-        name = "tests-%s" % target,
-        srcs = glob([
-            "src/test/java-%s/**/*.java" % target,
-        ]),
-        test_class = "com.digitalasset.lf_%s.AllTests" % mangle_for_java(target),
-        deps = [
-            ":test-model-%s.jar" % target,
-            "//3rdparty/jvm/com/google/protobuf:protobuf_java",
-            "//3rdparty/jvm/org/junit/jupiter:junit_jupiter_api",
-            "//3rdparty/jvm/org/junit/jupiter:junit_jupiter_engine",
-            "//3rdparty/jvm/org/junit/platform:junit_platform_runner",
-            "//language-support/java/bindings:bindings-java",
-        ],
-    )
-    for target in ["1.6"]
 ]
 
 ########################################################

@@ -1,7 +1,7 @@
 // Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.lf_1_6;
+package com.digitalasset.testing;
 
 
 import com.daml.ledger.javaapi.data.DamlEnum;
@@ -19,7 +19,7 @@ import test.enum$.coloredtree.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 @RunWith(JUnitPlatform.class)
-public class EnumTest {
+public class EnumTestFor$1_6$1_dev$ {
 
     @Test
     void enum2Value2Enum() {
