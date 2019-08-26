@@ -3,7 +3,7 @@
 
 package com.digitalasset.platform.sandbox.stores.ledger.sql.util
 
-import java.util.concurrent.Executors
+import java.util.concurrent.{Executors, TimeUnit}
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 import org.slf4j.LoggerFactory
@@ -28,11 +28,18 @@ class SqlExecutor(noOfThread: Int) extends AutoCloseable {
         .build()
     )
 
-  def runQuery[A](block: () => A): Future[A] = {
+  def runQuery[A](description: String, block: () => A): Future[A] = {
     val promise = Promise[A]
+    val startWait = System.nanoTime()
     executor.execute(() => {
       try {
-        promise.success(block())
+        val elapsedWait = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startWait)
+        val start = System.nanoTime()
+        val res = block()
+        val elapsed = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - start)
+        logger.trace(
+          s"""DB Operation "$description": wait time ${elapsedWait}ms, execution time ${elapsed}ms""")
+        promise.success(res)
       } catch {
         case NonFatal(e) =>
           promise.failure(e)

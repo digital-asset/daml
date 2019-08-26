@@ -25,7 +25,7 @@ trait DbDispatcher extends AutoCloseable {
     * The isolation level by default is the one defined in the JDBC driver, it can be however overridden per query on
     * the Connection. See further details at: https://docs.oracle.com/cd/E19830-01/819-4721/beamv/index.html
     */
-  def executeSql[T](sql: Connection => T): Future[T]
+  def executeSql[T](description: String)(sql: Connection => T): Future[T]
 
   /**
     * Creates a lazy Source, which takes care of:
@@ -68,8 +68,8 @@ private class DbDispatcherImpl(
           logger.error(s"got an uncaught exception on thread: ${thread.getName}", t))
         .build()))
 
-  override def executeSql[T](sql: Connection => T): Future[T] =
-    sqlExecutor.runQuery(() => connectionProvider.runSQL(conn => sql(conn)))
+  override def executeSql[T](description: String)(sql: Connection => T): Future[T] =
+    sqlExecutor.runQuery(description, () => connectionProvider.runSQL(conn => sql(conn)))
 
   override def runStreamingSql[T](
       sql: Connection => Source[T, Future[Done]]): Source[T, NotUsed] = {
