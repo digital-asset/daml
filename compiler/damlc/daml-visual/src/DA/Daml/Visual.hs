@@ -2,13 +2,14 @@
 -- SPDX-License-Identifier: Apache-2.0
 {-# LANGUAGE PatternSynonyms #-}
 -- | Main entry-point of the DAML compiler
-module DA.Cli.Visual
+module DA.Daml.Visual
   ( execVisual
   , moduleAndTemplates
   , tplNameUnqual
   , TemplateChoices(..)
   , ChoiceAndAction(..)
   , Action(..)
+  , dotFileGen
   ) where
 
 
@@ -197,6 +198,14 @@ constructDotGraph subgraphs edges = "digraph G {\ncompound=true;\n" ++ "rankdir=
         edgesLines = unlines $ map (uncurry drawEdge) edges
         graphLines = subgraphsLines ++ edgesLines
 
+
+dotFileGen :: [LF.Module] -> LF.World -> String
+dotFileGen modules world = constructDotGraph subgraphClusters graphConnectedEdges
+    where templatesAndModules = concatMap (moduleAndTemplates world) modules
+          nodeWorld = choiceNameWithId templatesAndModules
+          subgraphClusters = map (constructSubgraphsWithLables nodeWorld) templatesAndModules
+          graphConnectedEdges = graphEdges nodeWorld templatesAndModules
+
 execVisual :: FilePath -> Maybe FilePath -> IO ()
 execVisual darFilePath dotFilePath = do
     darBytes <- B.readFile darFilePath
@@ -204,14 +213,10 @@ execVisual darFilePath dotFilePath = do
     (_, lfPkg) <- errorOnLeft "Cannot decode package" $ Archive.decodeArchive (BSL.toStrict (mainDalfContent manifestData) )
     let modules = NM.toList $ LF.packageModules lfPkg
         world = darToWorld manifestData lfPkg
-        templatesAndModules = concatMap (moduleAndTemplates world) modules
-        nodeWorld = choiceNameWithId templatesAndModules
-        subgraphClusters = map (constructSubgraphsWithLables nodeWorld) templatesAndModules
-        graphConnectedEdges = graphEdges nodeWorld templatesAndModules
-        dotString = constructDotGraph subgraphClusters graphConnectedEdges
+
     case dotFilePath of
-        Just outDotFile -> writeFile outDotFile dotString
-        Nothing -> putStrLn dotString
+        Just outDotFile -> writeFile outDotFile (dotFileGen modules world)
+        Nothing -> putStrLn (dotFileGen modules world)
 
 errorOnLeft :: Show a => String -> Either a b -> IO b
 errorOnLeft desc = \case

@@ -21,7 +21,7 @@ import DA.Cli.Damlc.BuildInfo
 import DA.Cli.Damlc.Command.Damldoc (cmdDamlDoc)
 import DA.Cli.Damlc.IdeState
 import DA.Cli.Damlc.Test
-import DA.Cli.Visual
+import DA.Daml.Visual
 import DA.Daml.Compiler.Dar
 import DA.Daml.Compiler.DocTest
 import DA.Daml.Compiler.Scenario

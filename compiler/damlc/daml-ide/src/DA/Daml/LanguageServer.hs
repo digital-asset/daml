@@ -27,6 +27,7 @@ import Development.IDE.Core.Rules
 import Development.IDE.Core.Rules.Daml
 import Development.IDE.Core.Service.Daml
 
+import DA.Daml.LanguageServer.Visualize
 import qualified Network.URI                               as URI
 
 import Language.Haskell.LSP.Messages
@@ -101,7 +102,7 @@ runLanguageServer
     :: ((FromServerMessage -> IO ()) -> VFSHandle -> ClientCapabilities -> IO IdeState)
     -> IO ()
 runLanguageServer getIdeState = do
-    let handlers = setHandlersKeepAlive <> setHandlersVirtualResource <> setHandlersCodeLens <> setIgnoreOptionalHandlers
+    let handlers = setHandlersKeepAlive <> setHandlersVirtualResource <> setHandlersCodeLens <> setIgnoreOptionalHandlers <> setCommandHandler
     LS.runLanguageServer options handlers getIdeState
 
 

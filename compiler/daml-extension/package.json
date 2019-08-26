@@ -64,7 +64,8 @@
             },
             {
                 "command": "daml.visualize",
-                "title": "Visualize daml project"
+                "title": "Visualize daml project",
+                "when": "editorLangId == daml"
             },
             {
                 "command": "daml.resetTelemetryConsent",
