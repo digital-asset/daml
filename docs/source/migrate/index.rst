@@ -92,11 +92,11 @@ an example:
   :lines: 4-14
 
 The new template types are defined via a type alias and use generic templates to update or rollback
-contract instances defined in the DAML standard library (see
-https://docs.daml.com/daml/reference/base.html#module-da-upgrade). The ``Upgrade`` template offers a
-choice to input a contract instance defined in ``foo-1.0.0`` and create a new one that has been
-converted to a contract instance defined in ``foo-2.0.0``. The ``Rollback`` template implements the
-reversed workflow.
+contract instances defined in the DAML standard library (see `DA.Upgrade
+<https://docs.daml.com/daml/reference/base.html#module-da-upgrade>`__). The ``Upgrade`` template
+offers a choice to input a contract instance defined in ``foo-1.0.0`` and create a new one that has
+been converted to a contract instance defined in ``foo-2.0.0``. The ``Rollback`` template implements
+the reversed workflow.
 
 The last line generates a ``Convertible`` instance for the ``Foo`` template of both packages. This
 is a manifestation that instances of the ``Foo`` template in ``foo-1.0.0`` can be converted to

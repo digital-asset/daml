@@ -60,6 +60,7 @@ template (Template i, Template o, Convertible o i) => Rollback i o
 -- | Types, for which there exists a conversion.
 class Convertible a b where
   convert : a -> b
+  -- | HIDE
   default convert : (Generic a repA, Generic b repB, GenConvertible repA repB) => a -> b
   convert = to . cv . from
 
