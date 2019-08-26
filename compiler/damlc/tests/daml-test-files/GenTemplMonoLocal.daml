@@ -1,0 +1,23 @@
+-- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+{-# LANGUAGE FlexibleContexts #-}
+
+-- The GHC type checker produces a warning to which suggests to use either
+-- `AInstance t` instead of `Template (A t)` as the context for `B t`,
+-- or to enable the `MonoLocalBinds` language extension. Both suggestions
+-- are not helpful since the former relies on an implementation detail
+-- whereas the latter does not work well with our record dot syntax.
+daml 1.2
+module GenTemplMonoLocal where
+
+template A t with
+    x : t
+    p : Party
+  where
+    signatory p
+
+template Template (A t) => B t with
+    x : t
+    p : Party
+  where
+    signatory p

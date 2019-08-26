@@ -17,7 +17,8 @@ import Control.Monad
 import qualified CmdLineParser as Cmd (warnMsg)
 import Data.Bifunctor
 import Data.IORef
-import Data.List
+import Data.List.Extra
+import qualified Data.Text as T
 import DynFlags (parseDynamicFilePragma)
 import qualified EnumSet
 import GHC                         hiding (convertLit)
@@ -25,6 +26,7 @@ import GHC.LanguageExtensions.Type
 import GhcMonad
 import GhcPlugins as GHC hiding (fst3, (<>))
 import HscMain
+import qualified Language.Haskell.LSP.Types as LSP
 import Panic (throwGhcExceptionIO)
 import System.Directory
 import System.FilePath
@@ -55,6 +57,7 @@ toCompileOpts options@Options{..} reportProgress =
       , optReportProgress = reportProgress
       , optLanguageSyntax = "daml"
       , optNewColonConvention = True
+      , optDiagnosticFilter = diagFilter
       }
   where
     toRenaming aliases = ModRenaming False [(GHC.mkModuleName mod, GHC.mkModuleName alias) | (mod, alias) <- aliases]
@@ -68,6 +71,21 @@ toCompileOpts options@Options{..} reportProgress =
                 then Just path
                 else Nothing
       | otherwise = pure Nothing
+    -- NOTE(MH): The type class contexts used with generic templates sometimes
+    -- trigger the `Opt_WarnSimplifiableClassConstraints` warning, which
+    -- suggests to use the `MonoLocalBinds` language extension. However, this
+    -- extensions does no play well with our record-dot-syntax. Thus, we
+    -- suppress these warnings.
+    isGenTemplMonoLocal msg
+        | Just (_, clasz:rest) <- stripInfix ["The", "constraint"] (T.words msg)
+        , T.drop 1 clasz == "DA.Internal.Template.Template"
+        , Just (_, rest) <- stripInfix ["matches"] rest
+        , Just (_, _) <- stripInfix (T.words "use MonoLocalBinds, or simplify it using the instance") rest
+        = True
+        | otherwise
+        = False
+    diagFilter LSP.Diagnostic{..} =
+        not (isGenTemplMonoLocal _message)
 
 -- | The subset of @DynFlags@ computed by package initialization.
 data PackageDynFlags = PackageDynFlags

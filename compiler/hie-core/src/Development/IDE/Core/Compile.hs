@@ -83,16 +83,17 @@ computePackageDeps env pkg = do
 
 -- | Typecheck a single module using the supplied dependencies and packages.
 typecheckModule
-    :: HscEnv
+    :: IdeOptions
+    -> HscEnv
     -> [TcModuleResult]
     -> ParsedModule
     -> IO ([FileDiagnostic], Maybe TcModuleResult)
-typecheckModule packageState deps pm =
+typecheckModule options packageState deps pm =
     fmap (either (, Nothing) (second Just)) $
     runGhcEnv packageState $
         catchSrcErrors $ do
             setupEnv deps
-            (warnings, tcm) <- withWarnings $ \tweak ->
+            (warnings, tcm) <- withWarnings options $ \tweak ->
                 GHC.typecheckModule pm{pm_mod_summary = tweak $ pm_mod_summary pm}
             tcm2 <- mkTcModuleResult tcm
             return (warnings, tcm2)
@@ -100,11 +101,12 @@ typecheckModule packageState deps pm =
 -- | Compile a single type-checked module to a 'CoreModule' value, or
 -- provide errors.
 compileModule
-    :: HscEnv
+    :: IdeOptions
+    -> HscEnv
     -> [TcModuleResult]
     -> TcModuleResult
     -> IO ([FileDiagnostic], Maybe CoreModule)
-compileModule packageState deps tmr =
+compileModule options packageState deps tmr =
     fmap (either (, Nothing) (second Just)) $
     runGhcEnv packageState $
         catchSrcErrors $ do
@@ -112,7 +114,7 @@ compileModule packageState deps tmr =
 
             let tm = tmrModule tmr
             session <- getSession
-            (warnings,desugar) <- withWarnings $ \tweak -> do
+            (warnings,desugar) <- withWarnings options $ \tweak -> do
                 let pm = tm_parsed_module tm
                 let pm' = pm{pm_mod_summary = tweak $ pm_mod_summary pm}
                 let tm' = tm{tm_parsed_module  = pm'}
