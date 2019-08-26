@@ -158,12 +158,11 @@ object SBuiltin {
 
   sealed abstract class SBBinaryOpNumeric(op: (Numeric, Numeric) => Numeric) extends SBuiltin(3) {
     final def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
-      val value = (args.get(0), args.get(1), args.get(2)) match {
-        case (STNat(scale), SNumeric(a), SNumeric(b)) if a.scale == scale && b.scale == scale =>
-          SNumeric(op(a, b))
-        case _ => crash(s"type mismatch add: $args")
-      }
-      machine.ctrl = CtrlValue(value)
+      val scale = args.get(0).asInstanceOf[STNat].n
+      val a = args.get(1).asInstanceOf[SNumeric].value
+      val b = args.get(2).asInstanceOf[SNumeric].value
+      assert(a.scale == scale && b.scale == scale)
+      machine.ctrl = CtrlValue(SNumeric(op(a, b)))
     }
   }
 
@@ -241,13 +240,12 @@ object SBuiltin {
 
   final case object SBToTextNumeric extends SBuiltin(2) {
     override def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
-      val value = (args.get(0), args.get(1)) match {
-        case (STNat(scale), SNumeric(x)) if x.scale == scale =>
-          SText(Numeric.toUnscaledString(x))
-        case _ =>
-          throw SErrorCrash(s"type mismatch FromTextNumeric: $args")
-      }
-      machine.ctrl = CtrlValue(value)
+      val scale = args.get(0).asInstanceOf[STNat].n
+      val x = args.get(1).asInstanceOf[SNumeric].value
+      // FixMe: https://github.com/digital-asset/daml/issues/2289
+      //   drop this double check
+      assert(x.scale == scale)
+      machine.ctrl = CtrlValue(SText(Numeric.toUnscaledString(x)))
     }
   }
 
@@ -296,15 +294,12 @@ object SBuiltin {
 
   final case object SBFromTextNumeric extends SBuiltin(2) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
-      val num = (args.get(0), args.get(1)) match {
-        case (STNat(scale), SText(s)) =>
-          Numeric
-            .fromUnscaledString(s)
-            .flatMap(Numeric.fromBigDecimal(scale, _))
-            .fold(_ => None, x => Some(SNumeric(x)))
-        case _ =>
-          throw SErrorCrash(s"type mismatch FromTextNumeric: $args")
-      }
+      val scale = args.get(0).asInstanceOf[STNat].n
+      val string = args.get(1).asInstanceOf[SText].value
+      val num = Numeric
+        .fromUnscaledString(string)
+        .flatMap(Numeric.fromBigDecimal(scale, _))
+        .fold(_ => None, x => Some(SNumeric(x)))
       machine.ctrl = CtrlValue(SOptional(num))
     }
   }
@@ -421,31 +416,29 @@ object SBuiltin {
 
   final case object SBInt64ToNumeric extends SBuiltin(2) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
-      val value = (args.get(0), args.get(1)) match {
-        case (STNat(scale), SInt64(x)) =>
-          SNumeric(
-            rightOrArithmeticError(
-              s"overflow when converting $x to (Numeric $scale)",
-              Numeric.fromLong(scale, x)))
-        case _ =>
-          throw SErrorCrash(s"type mismatch int64ToNumeric: $args")
-      }
-      machine.ctrl = CtrlValue(value)
+      val scale = args.get(0).asInstanceOf[STNat].n
+      val x = args.get(1).asInstanceOf[SInt64].value
+      machine.ctrl = CtrlValue(
+        SNumeric(
+          rightOrArithmeticError(
+            s"overflow when converting $x to (Numeric $scale)",
+            Numeric.fromLong(scale, x)))
+      )
     }
   }
 
   final case object SBNumericToInt64 extends SBuiltin(2) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
-      val value = (args.get(0), args.get(1)) match {
-        case (STNat(scale), SNumeric(x)) if x.scale == scale =>
-          SInt64(
-            rightOrArithmeticError(
-              s"Int64 overflow when converting ${Numeric.toString(x)} to Int64",
-              Numeric.toLong(x)))
-        case _ =>
-          throw SErrorCrash(s"type mismatch NumericToInt64: $args")
-      }
-      machine.ctrl = CtrlValue(value)
+      val scale = args.get(0).asInstanceOf[STNat].n
+      val x = args.get(1).asInstanceOf[SNumeric].value
+      // FixMe: https://github.com/digital-asset/daml/issues/2289
+      //   drop this double check
+      assert(x.scale == scale)
+      machine.ctrl = CtrlValue(
+        SInt64(
+          rightOrArithmeticError(
+            s"Int64 overflow when converting ${Numeric.toString(x)} to Int64",
+            Numeric.toLong(x))))
     }
   }
 
@@ -505,16 +498,16 @@ object SBuiltin {
 
   final case object SBRoundNumeric extends SBuiltin(3) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
-      val value = (args.get(0), args.get(1), args.get(2)) match {
-        case (STNat(scale), SInt64(prec), SNumeric(x)) if x.scale == scale =>
-          SNumeric(
-            rightOrArithmeticError(
-              s"Error while rounding (Numeric $scale)",
-              Numeric.round(prec, x)))
-        case _ =>
-          throw SErrorCrash(s"type mismatch roundD: $args")
-      }
-      machine.ctrl = CtrlValue(value)
+      val scale = args.get(0).asInstanceOf[STNat].n
+      val prec = args.get(1).asInstanceOf[SInt64].value
+      val x = args.get(2).asInstanceOf[SNumeric].value
+      // FixMe: https://github.com/digital-asset/daml/issues/2289
+      //   drop this double check
+      assert(x.scale == scale)
+      machine.ctrl = CtrlValue(
+        SNumeric(
+          rightOrArithmeticError(s"Error while rounding (Numeric $scale)", Numeric.round(prec, x)))
+      )
     }
   }
 
@@ -537,20 +530,20 @@ object SBuiltin {
         case (SDate(a), SDate(b)) => pred(a compareTo b)
         case (SParty(a), SParty(b)) => pred(a compareTo b)
         case _ =>
-          crash(s"type mismatch less: $args")
+          crash(s"type mismatch ${getClass.getSimpleName}: $args")
       }))
     }
   }
 
   sealed abstract class SBCompareNumeric(pred: Int => Boolean) extends SBuiltin(3) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
-      val value = SBool((args.get(0), args.get(1), args.get(2)) match {
-        case (STNat(scale), SNumeric(a), SNumeric(b)) if a.scale == scale && b.scale == scale =>
-          pred(Numeric.compareTo(a, b))
-        case _ =>
-          crash(s"type mismatch less: $args")
-      })
-      machine.ctrl = CtrlValue(value)
+      val scale = args.get(0).asInstanceOf[STNat].n
+      val a = args.get(1).asInstanceOf[SNumeric].value
+      val b = args.get(2).asInstanceOf[SNumeric].value
+      // FixMe: https://github.com/digital-asset/daml/issues/2289
+      //   drop this double check
+      assert(a.scale == scale && b.scale == scale)
+      machine.ctrl = CtrlValue(SBool(pred(Numeric.compareTo(a, b))))
     }
   }
 

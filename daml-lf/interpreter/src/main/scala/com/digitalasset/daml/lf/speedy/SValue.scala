@@ -181,6 +181,10 @@ object SValue {
 
   final case class SMap(value: HashMap[String, SValue]) extends SValue
 
+  // Corresponds to a DAML-LF Nat type reified as a Speedy value.
+  // It is currently used to track at runtime the scale of the
+  // Numeric builtin's arguments/output. Should never be translated
+  // back to DAML-LF expressions / values.
   final case class STNat(n: Int) extends SValue
 
   // NOTE(JM): We are redefining PrimLit here so it can be unified

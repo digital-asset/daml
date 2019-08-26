@@ -793,7 +793,7 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
         eval(e"NUMERIC_TO_INT64 @13 ${s(13, BigDecimal(2).pow(63) - almostZero(13))}") shouldBe Right(
           SInt64(Long.MaxValue))
         eval(e"NUMERIC_TO_INT64 @17 ${s(17, BigDecimal(2).pow(63))}") shouldBe 'left
-        eval(e"NUMERIC_TO_INT64 @23 ${s(13, "1E22")}") shouldBe 'left
+        eval(e"NUMERIC_TO_INT64 @13 ${s(13, "1E22")}") shouldBe 'left
       }
 
       "works as expected" in {

@@ -880,13 +880,13 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
     *
     * For example:
     *   SELet(...) in
-    *     SEAbs(2, SVar(4))
+    *     SEAbs(2, SEVar(4))
     * =>
     *   SELet(...) in
     *     SEMakeClo(
-    *       Array(SVar(2)), (capture 2nd value)
+    *       Array(SEVar(2)), (capture 2nd value)
     *       2, (still takes two arguments)
-    *       SVar(3)) (variable now first value after args)
+    *       SEVar(3)) (variable now first value after args)
     */
   def closureConvert(remaps: Map[Int, Int], bound: Int, expr: SExpr): SExpr = {
     def remap(i: Int): Int =
@@ -1028,7 +1028,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
       expr match {
         case SEVar(i) =>
           if (i < 1 || i > bound) {
-            throw CompileError(s"validate: SVar: index $i out of bound $bound")
+            throw CompileError(s"validate: SEVar: index $i out of bound $bound")
           }
         case _: SEVal => ()
         case _: SEBuiltin => ()
