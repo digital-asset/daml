@@ -28,7 +28,7 @@ class SqlExecutor(noOfThread: Int) extends AutoCloseable {
         .build()
     )
 
-  def runQuery[A](description: String, block: () => A): Future[A] = {
+  def runQuery[A](description: => String, block: () => A): Future[A] = {
     val promise = Promise[A]
     val startWait = System.nanoTime()
     executor.execute(() => {
