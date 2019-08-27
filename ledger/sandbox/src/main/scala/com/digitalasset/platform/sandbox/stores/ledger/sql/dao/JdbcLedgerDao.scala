@@ -792,7 +792,7 @@ private class JdbcLedgerDao(
       .map(mapContractDetails)
 
   override def lookupActiveContract(contractId: AbsoluteContractId): Future[Option[Contract]] =
-    dbDispatcher.executeSql(s"lookup active contract [$contractId]") { implicit conn =>
+    dbDispatcher.executeSql(s"lookup active contract [${contractId.coid}]") { implicit conn =>
       lookupActiveContractSync(contractId)
     }
 
