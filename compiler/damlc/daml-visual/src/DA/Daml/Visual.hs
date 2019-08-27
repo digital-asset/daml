@@ -208,16 +208,14 @@ choiceDetailsColorCode False = "green"
 subGraphBodyLine :: ChoiceDetails -> String
 subGraphBodyLine chc = "n" ++ show (nodeId chc)++ "[label=" ++ DAP.renderPretty (displayChoiceName chc) ++"][color=" ++ choiceDetailsColorCode (consuming chc) ++"]; "
 
-fieldTableLine :: [T.Text] -> String
-fieldTableLine fields = "<tr><td align=\"left\">" ++ show fields  ++ "</td></tr> \n"
-    -- where allFiledsInLine = map (T.append ",") fields
-
 subGraphEnd :: SubGraph -> String
 subGraphEnd sg = "label=<" ++ tHeader ++ tTitle ++ tBody  ++ tclose ++ ">" ++ ";color=" ++ "blue" ++ "\n}"
     where tHeader = "<table align = \"left\" border=\"0\" cellborder=\"0\" cellspacing=\"1\">\n"
-          tTitle =  "<tr><td align=\"center\"><b>" ++ DAP.renderPretty (LF.tplTypeCon $ clusterTemplate sg) ++ "</b></td></tr>"
-          tBody =  fieldTableLine (templateFileds sg)
+          tTitle =  "<tr><td align=\"center\"><b>" ++  DAP.renderPretty (LF.tplTypeCon $ clusterTemplate sg) ++ "</b></td></tr>"
+          tBody = concatMap fieldTableLine (templateFileds sg)
+          fieldTableLine field = "<tr><td align=\"left\">" ++ T.unpack field  ++ "</td></tr> \n"
           tclose = "</table>"
+
 -- DAP.renderPretty (LF.tplTypeCon (clusterTemplate sg))
 subGraphCluster :: SubGraph -> String
 subGraphCluster sg@SubGraph {..} = subGraphHeader clusterTemplate ++ unlines (map subGraphBodyLine nodes) ++ subGraphEnd sg
