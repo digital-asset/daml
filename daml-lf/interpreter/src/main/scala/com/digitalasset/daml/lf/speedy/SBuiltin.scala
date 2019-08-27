@@ -9,7 +9,6 @@ import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.speedy.SBuiltin.SBFromTextParty.getText
 import com.digitalasset.daml.lf.speedy.SError._
 import com.digitalasset.daml.lf.speedy.SExpr._
 import com.digitalasset.daml.lf.speedy.Speedy.{
@@ -40,50 +39,46 @@ sealed abstract class SBuiltin(val arity: Int) extends Product {
     * Updates the machine state accordingly. */
   def execute(args: util.ArrayList[SValue], machine: Machine): Unit
 
-  private def typeMismatch(i: Int, expected: String, found: SValue) =
+  private final def typeMismatch(i: Int, expected: String, found: SValue) =
     crash(s"type mismatch for arg($i) in $productPrefix: expected $expected, found: $found.")
 
   @inline
-  protected def getInt64(args: util.ArrayList[SValue], i: Int) =
+  protected final def getInt64(args: util.ArrayList[SValue], i: Int) =
     args.get(i) match {
       case SInt64(x) => x
       case v => typeMismatch(i, "Int64", v)
     }
 
   @inline
-  protected def getNat(args: util.ArrayList[SValue], i: Int) =
+  protected final def getNat(args: util.ArrayList[SValue], i: Int) =
     args.get(i) match {
       case STNat(x) => x
       case v => typeMismatch(i, "TNat", v)
     }
 
   @inline
-  protected def getNumeric(args: util.ArrayList[SValue], i: Int, scale: Int): Numeric =
+  protected final def getNumeric(args: util.ArrayList[SValue], i: Int, scale: Int): Numeric =
     args.get(i) match {
       case SNumeric(x) if x.scale() == scale => x
       case v => typeMismatch(i, "(Numeric @scale)", v)
     }
 
   @inline
-  protected def getText(args: util.ArrayList[SValue], i: Int): String =
+  protected final def getText(args: util.ArrayList[SValue], i: Int): String =
     args.get(i) match {
       case SText(x) => x
       case v => typeMismatch(i, "Text", v)
     }
 
-  protected def getList(args: util.ArrayList[SValue], i: Int): FrontStack[SValue] =
+  @inline
+  protected final def getList(args: util.ArrayList[SValue], i: Int): FrontStack[SValue] =
     args.get(i) match {
       case SList(x) => x
       case v => typeMismatch(i, "List", v)
     }
 
-  protected def getOptional(args: util.ArrayList[SValue], i: Int): Option[SValue] =
-    args.get(i) match {
-      case SOptional(x) => x
-      case v => typeMismatch(i, "Optional", v)
-    }
-
-  protected def getMap(args: util.ArrayList[SValue], i: Int): HashMap[String, SValue] =
+  @inline
+  protected final def getMap(args: util.ArrayList[SValue], i: Int): HashMap[String, SValue] =
     args.get(i) match {
       case SMap(x) => x
       case v => typeMismatch(i, "Map", v)
@@ -160,7 +155,7 @@ object SBuiltin {
             s"Int64 overflow when raising $base to the exponent $exponent.")
       }
 
-  sealed abstract class SBBinaryOpInt64(op: (Long, Long) => Long) extends SBuiltin(2) with Product {
+  sealed abstract class SBBinaryOpInt64(op: (Long, Long) => Long) extends SBuiltin(2) {
     final def execute(args: util.ArrayList[SValue], machine: Machine): Unit =
       machine.ctrl = CtrlValue(SInt64(op(getInt64(args, 0), getInt64(args, 1))))
   }
@@ -202,9 +197,7 @@ object SBuiltin {
       Numeric.subtract(x, y)
     )
 
-  sealed abstract class SBBinaryOpNumeric(op: (Numeric, Numeric) => Numeric)
-      extends SBuiltin(3)
-      with Product {
+  sealed abstract class SBBinaryOpNumeric(op: (Numeric, Numeric) => Numeric) extends SBuiltin(3) {
     final def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       val scale = getNat(args, 0)
       machine.ctrl = CtrlValue(SNumeric(op(getNumeric(args, 1, scale), getNumeric(args, 2, scale))))
@@ -234,7 +227,7 @@ object SBuiltin {
         case v =>
           crash(s"type mismatch implodeText: expected SText, got $v")
       }
-      SText(Utf8.implode(ts.toImmArray))
+      machine.ctrl = CtrlValue(SText(Utf8.implode(ts.toImmArray)))
     }
   }
 
