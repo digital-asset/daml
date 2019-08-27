@@ -43,6 +43,7 @@ data ChoiceAndAction = ChoiceAndAction
 
 data TemplateChoices = TemplateChoices
     { template :: LF.Template
+    , modName :: LF.ModuleName
     , choiceAndActions :: [ChoiceAndAction]
     } deriving (Show)
 
@@ -54,6 +55,7 @@ data ChoiceDetails = ChoiceDetails
 
 data SubGraph = SubGraph
     { nodes :: [ChoiceDetails]
+    , templateFileds :: [T.Text]
     , clusterTemplate :: LF.Template
     }
 
@@ -116,7 +118,7 @@ templatePossibleUpdates world tpl = map toActions $ NM.toList $ LF.tplChoices tp
               }
 
 moduleAndTemplates :: LF.World -> LF.Module -> [TemplateChoices]
-moduleAndTemplates world mod = map (\t -> TemplateChoices t (templatePossibleUpdates world t)) $ NM.toList $ LF.moduleTemplates mod
+moduleAndTemplates world mod = map (\t -> TemplateChoices t (LF.moduleName mod) (templatePossibleUpdates world t)) $ NM.toList $ LF.moduleTemplates mod
 
 dalfBytesToPakage :: BSL.ByteString -> ExternalPackage
 dalfBytesToPakage bytes = case Archive.decodeArchive $ BSL.toStrict bytes of
@@ -151,9 +153,32 @@ addCreateChoice :: TemplateChoices -> Map.Map LF.ChoiceName ChoiceDetails -> Cho
 addCreateChoice TemplateChoices {..} lookupData = nodeIdForChoice lookupData tplNameCreateChoice
     where tplNameCreateChoice = LF.ChoiceName $ T.pack $ DAP.renderPretty (headNote "addCreateChoice" (LF.unTypeConName (LF.tplTypeCon template))) ++ "_Create"
 
-constructSubgraphsWithLables :: Map.Map LF.ChoiceName ChoiceDetails -> TemplateChoices -> SubGraph
-constructSubgraphsWithLables lookupData tpla@TemplateChoices {..} = SubGraph nodesWithCreate template
+-- This is copied from PrettyScenarios but depending on SS for visual seems odd
+labledField :: T.Text -> T.Text -> T.Text
+labledField fname "" = fname
+labledField fname label = fname <> "." <> label
+
+typeConFieldsNames :: LF.World -> (LF.FieldName, LF.Type) -> [T.Text]
+typeConFieldsNames world (LF.FieldName fName, LF.TConApp tcn _) = map (labledField fName) (typeConFields tcn world)
+typeConFieldsNames _ (LF.FieldName fName, _) = [fName]
+
+typeConFields :: LF.Qualified LF.TypeConName -> LF.World -> [T.Text]
+typeConFields qName world = case LF.lookupDataType qName world of
+  Right dataType -> case LF.dataCons dataType of
+    LF.DataRecord re -> concatMap (typeConFieldsNames world) re
+    LF.DataVariant _ -> [""]
+    LF.DataEnum _ -> [""]
+  Left _ -> error "malformed template constructor"
+
+-- Other way is to go from Expr to Qalified a and then use that qualified
+tplQulified :: LF.World -> TemplateChoices -> [T.Text]
+tplQulified wrld tplc = typeConFields qualTpl wrld
+    where qualTpl = LF.Qualified LF.PRSelf (modName tplc) (LF.tplTypeCon $ template tplc)
+
+constructSubgraphsWithLables :: LF.World -> Map.Map LF.ChoiceName ChoiceDetails -> TemplateChoices -> SubGraph
+constructSubgraphsWithLables wrld lookupData tpla@TemplateChoices {..} = SubGraph nodesWithCreate fieldsInTemplate template
   where choicesInTemplate = map internalChcName choiceAndActions
+        fieldsInTemplate = tplQulified wrld tpla
         nodes = map (nodeIdForChoice lookupData) choicesInTemplate
         nodesWithCreate = addCreateChoice tpla lookupData : nodes
 
@@ -183,11 +208,19 @@ choiceDetailsColorCode False = "green"
 subGraphBodyLine :: ChoiceDetails -> String
 subGraphBodyLine chc = "n" ++ show (nodeId chc)++ "[label=" ++ DAP.renderPretty (displayChoiceName chc) ++"][color=" ++ choiceDetailsColorCode (consuming chc) ++"]; "
 
-subGraphEnd :: LF.Template -> String
-subGraphEnd tpl = "label=" ++ DAP.renderPretty (LF.tplTypeCon tpl) ++ ";color=" ++ "blue" ++ "\n}"
+fieldTableLine :: [T.Text] -> String
+fieldTableLine fields = "<tr><td align=\"left\">" ++ show fields  ++ "</td></tr> \n"
+    -- where allFiledsInLine = map (T.append ",") fields
 
+subGraphEnd :: SubGraph -> String
+subGraphEnd sg = "label=<" ++ tHeader ++ tTitle ++ tBody  ++ tclose ++ ">" ++ ";color=" ++ "blue" ++ "\n}"
+    where tHeader = "<table align = \"left\" border=\"0\" cellborder=\"0\" cellspacing=\"1\">\n"
+          tTitle =  "<tr><td align=\"center\"><b>" ++ DAP.renderPretty (LF.tplTypeCon $ clusterTemplate sg) ++ "</b></td></tr>"
+          tBody =  fieldTableLine (templateFileds sg)
+          tclose = "</table>"
+-- DAP.renderPretty (LF.tplTypeCon (clusterTemplate sg))
 subGraphCluster :: SubGraph -> String
-subGraphCluster SubGraph {..} = subGraphHeader clusterTemplate ++ unlines (map subGraphBodyLine nodes) ++ subGraphEnd clusterTemplate
+subGraphCluster sg@SubGraph {..} = subGraphHeader clusterTemplate ++ unlines (map subGraphBodyLine nodes) ++ subGraphEnd sg
 
 drawEdge :: ChoiceDetails -> ChoiceDetails -> String
 drawEdge n1 n2 = "n" ++ show (nodeId n1) ++ "->" ++ "n" ++ show (nodeId n2)
@@ -203,7 +236,7 @@ dotFileGen :: [LF.Module] -> LF.World -> String
 dotFileGen modules world = constructDotGraph subgraphClusters graphConnectedEdges
     where templatesAndModules = concatMap (moduleAndTemplates world) modules
           nodeWorld = choiceNameWithId templatesAndModules
-          subgraphClusters = map (constructSubgraphsWithLables nodeWorld) templatesAndModules
+          subgraphClusters = map (constructSubgraphsWithLables world nodeWorld) templatesAndModules
           graphConnectedEdges = graphEdges nodeWorld templatesAndModules
 
 execVisual :: FilePath -> Maybe FilePath -> IO ()
