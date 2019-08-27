@@ -74,7 +74,7 @@ import Options.Applicative.Extended
 import "ghc-lib-parser" Packages
 import qualified Proto3.Suite as PS
 import qualified Proto3.Suite.JSONPB as Proto.JSONPB
-import System.Directory
+import System.Directory.Extra
 import System.Environment
 import System.Exit
 import System.FilePath
@@ -158,7 +158,9 @@ runTestsInProjectOrFiles projectOpts Nothing color mbJUnitOutput cliOptions =
         project <- readProjectConfig $ ProjectPath pPath
         case parseProjectConfig project of
             Left err -> throwIO err
-            Right PackageConfigFields {..} -> execTest [toNormalizedFilePath pMain] color mbJUnitOutput cliOptions
+            Right PackageConfigFields {..} -> do
+              files <- filter (".daml" `isExtensionOf`) <$> listFilesRecursive pSrc
+              execTest (map toNormalizedFilePath files) color mbJUnitOutput cliOptions
 runTestsInProjectOrFiles projectOpts (Just inFiles) color mbJUnitOutput cliOptions =
     withProjectRoot' projectOpts $ \relativize -> do
         inFiles' <- mapM (fmap toNormalizedFilePath . relativize) inFiles
@@ -340,7 +342,8 @@ execCompile inputFile outputFile opts = withProjectRoot' (ProjectOpts Nothing (P
         setFilesOfInterest ide (Set.singleton inputFile)
         runAction ide $ do
           when (optWriteInterface opts') $ do
-              mbIfaces <- writeIfacesAndHie (toNormalizedFilePath $ fromMaybe ifaceDir $ optIfaceDir opts') inputFile
+              files <- nubSort . concatMap transitiveModuleDeps <$> use GetDependencies inputFile
+              mbIfaces <- writeIfacesAndHie (toNormalizedFilePath $ fromMaybe ifaceDir $ optIfaceDir opts') files
               void $ liftIO $ mbErr "ERROR: Compilation failed." mbIfaces
           mbDalf <- getDalf inputFile
           dalf <- liftIO $ mbErr "ERROR: Compilation failed." mbDalf
@@ -550,7 +553,7 @@ execPackage projectOpts filePath opts mbOutFile dalfInput = withProjectRoot' pro
         mbDar <- buildDar ide
                           PackageConfigFields
                             { pName = fromMaybe (takeBaseName filePath) $ optMbPackageName opts
-                            , pMain = filePath
+                            , pSrc = filePath
                             , pExposedModules = Nothing
                             , pVersion = ""
                             , pDependencies = []
