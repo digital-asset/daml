@@ -53,6 +53,10 @@ serializabilityConditionsType world0 _version mbModNameTpls vars = go
       TList typ -> go typ
       TOptional typ -> go typ
       TMap typ -> go typ
+      TNumeric n -> go n
+        -- TODO (#2289): decide if n should be forced to be a static nat
+        -- literal within LF's bounds for the numeric type (0 <= n <= 38).
+      TNat _ -> noConditions
       TVar v
         | v `HS.member` vars -> noConditions
         | otherwise -> Left (URFreeVar v)
@@ -86,6 +90,7 @@ serializabilityConditionsType world0 _version mbModNameTpls vars = go
         BTContractId -> Left URContractId  -- 'ContractId' is used as a higher-kinded type constructor
                                            -- (or polymorphically in DAML-LF <= 1.4).
         BTArrow -> Left URFunction
+        BTNumeric -> Left URNumeric -- 'Numeric' is used as a higher-kinded type constructor.
       TForall{} -> Left URForall
       TTuple{} -> Left URTuple
 

@@ -56,6 +56,7 @@ data UnserializabilityReason
   | URDataType !(Qualified TypeConName)  -- ^ It uses a data type which is not serializable.
   | URHigherKinded !TypeVarName !Kind  -- ^ A data type has a higher kinded parameter.
   | URUninhabitatedType  -- ^ A type without values, e.g., a variant with no constructors.
+  | URNumeric -- ^ It contains an unapplied Numeric type constructor.
 
 data Error
   = EUnknownTypeVar        !TypeVarName
@@ -155,6 +156,7 @@ instance Pretty UnserializabilityReason where
       "unserializable data type" <-> pretty tcon
     URHigherKinded v k -> "higher-kinded type variable" <-> pretty v <:> pretty k
     URUninhabitatedType -> "variant type without constructors"
+    URNumeric -> "unapplied Numeric"
 
 instance Pretty Error where
   pPrint = \case

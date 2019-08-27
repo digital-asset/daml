@@ -129,6 +129,7 @@ encodeExprVarWithType encctx (name, typ) = P.VarWithType (encodeName unExprVarNa
 encodeKind :: Version -> Kind -> P.Kind
 encodeKind version = P.Kind . Just . \case
     KStar -> P.KindSumStar P.Unit
+    KNat -> P.KindSumNat P.Unit
     k@KArrow{} ->
       let (params, result) = k ^. rightSpine _KArrow
       in P.KindSumArrow (P.Kind_Arrow (encodeList (encodeKind version) params) (Just $ encodeKind version result))
@@ -154,6 +155,7 @@ encodeBuiltinType _version = P.Enumerated . Right . \case
     BTOptional -> P.PrimTypeOPTIONAL
     BTMap -> P.PrimTypeMAP
     BTArrow -> P.PrimTypeARROW
+    BTNumeric -> P.PrimTypeNUMERIC
 
 encodeType' :: EncodeCtx -> Type -> P.Type
 encodeType' encctx@EncodeCtx{..} typ = P.Type . Just $
@@ -168,6 +170,10 @@ encodeType' encctx@EncodeCtx{..} typ = P.Type . Just $
           let (binders, body) = t ^. _TForalls
           in P.TypeSumForall (P.Type_Forall (encodeTypeVarsWithKinds version binders) (encodeType encctx body))
       (TTuple flds, []) -> P.TypeSumTuple (P.Type_Tuple (encodeFieldsWithTypes encctx unFieldName flds))
+
+      (TNat n, _) ->
+        P.TypeSumNat (fromIntegral n)
+        -- TODO (#2289): determine if some bounds check should be made here
 
       (TApp{}, _) -> error "TApp after unwinding TApp"
       -- NOTE(MH): The following case is ill-kinded.
@@ -249,6 +255,12 @@ encodeBuiltinExpr = \case
       BTParty -> builtin P.BuiltinFunctionGREATER_PARTY
       other -> error $ "BEGreater unexpected type " <> show other
 
+    BEEqualNumeric -> builtin P.BuiltinFunctionEQUAL_NUMERIC
+    BELessNumeric -> builtin P.BuiltinFunctionLESS_NUMERIC
+    BELessEqNumeric -> builtin P.BuiltinFunctionLEQ_NUMERIC
+    BEGreaterNumeric -> builtin P.BuiltinFunctionGREATER_NUMERIC
+    BEGreaterEqNumeric -> builtin P.BuiltinFunctionGEQ_NUMERIC
+
     BEToText typ -> case typ of
       BTInt64 -> builtin P.BuiltinFunctionTO_TEXT_INT64
       BTDecimal -> builtin P.BuiltinFunctionTO_TEXT_DECIMAL
@@ -257,10 +269,12 @@ encodeBuiltinExpr = \case
       BTDate -> builtin P.BuiltinFunctionTO_TEXT_DATE
       BTParty -> builtin P.BuiltinFunctionTO_TEXT_PARTY
       other -> error $ "BEToText unexpected type " <> show other
+    BEToTextNumeric -> builtin P.BuiltinFunctionTO_TEXT_NUMERIC
     BETextFromCodePoints -> builtin P.BuiltinFunctionTEXT_FROM_CODE_POINTS
     BEPartyFromText -> builtin P.BuiltinFunctionFROM_TEXT_PARTY
     BEInt64FromText -> builtin P.BuiltinFunctionFROM_TEXT_INT64
     BEDecimalFromText-> builtin P.BuiltinFunctionFROM_TEXT_DECIMAL
+    BENumericFromText-> builtin P.BuiltinFunctionFROM_TEXT_NUMERIC
     BETextToCodePoints -> builtin P.BuiltinFunctionTEXT_TO_CODE_POINTS
     BEPartyToQuotedText -> builtin P.BuiltinFunctionTO_QUOTED_TEXT_PARTY
 
@@ -269,6 +283,12 @@ encodeBuiltinExpr = \case
     BEMulDecimal -> builtin P.BuiltinFunctionMUL_DECIMAL
     BEDivDecimal -> builtin P.BuiltinFunctionDIV_DECIMAL
     BERoundDecimal -> builtin P.BuiltinFunctionROUND_DECIMAL
+
+    BEAddNumeric -> builtin P.BuiltinFunctionADD_NUMERIC
+    BESubNumeric -> builtin P.BuiltinFunctionSUB_NUMERIC
+    BEMulNumeric -> builtin P.BuiltinFunctionMUL_NUMERIC
+    BEDivNumeric -> builtin P.BuiltinFunctionDIV_NUMERIC
+    BERoundNumeric -> builtin P.BuiltinFunctionROUND_NUMERIC
 
     BEAddInt64 -> builtin P.BuiltinFunctionADD_INT64
     BESubInt64 -> builtin P.BuiltinFunctionSUB_INT64
@@ -279,6 +299,9 @@ encodeBuiltinExpr = \case
 
     BEInt64ToDecimal -> builtin P.BuiltinFunctionINT64_TO_DECIMAL
     BEDecimalToInt64 -> builtin P.BuiltinFunctionDECIMAL_TO_INT64
+
+    BEInt64ToNumeric -> builtin P.BuiltinFunctionINT64_TO_NUMERIC
+    BENumericToInt64 -> builtin P.BuiltinFunctionNUMERIC_TO_INT64
 
     BEFoldl -> builtin P.BuiltinFunctionFOLDL
     BEFoldr -> builtin P.BuiltinFunctionFOLDR

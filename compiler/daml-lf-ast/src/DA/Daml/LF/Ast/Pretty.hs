@@ -103,6 +103,7 @@ prettyHasType  = ":"
 instance Pretty Kind where
   pPrintPrec lvl prec = \case
     KStar -> "*"
+    KNat -> "nat"
     KArrow k1 k2 ->
       maybeParens (prec > precKArrow) $
         pPrintPrec lvl (succ precKArrow) k1 <-> prettyFunArrow <-> pPrintPrec lvl precKArrow k2
@@ -118,6 +119,7 @@ instance Pretty BuiltinType where
   pPrint = \case
     BTInt64          -> "Int64"
     BTDecimal        -> "Decimal"
+    BTNumeric -> "Numeric"
     BTText           -> "Text"
     BTTimestamp      -> "Timestamp"
     BTParty          -> "Party"
@@ -163,6 +165,7 @@ instance Pretty Type where
             (prettyForall <-> hsep (map (prettyAndKind lvl) vs) <> "."
              <-> pPrintPrec lvl precTForall t1)
     TTuple fields -> prettyTuple lvl prettyHasType fields
+    TNat n -> integer (fromIntegral n)
 
 precEApp, precEAbs :: Rational
 precEApp = 2
@@ -198,6 +201,20 @@ instance Pretty BuiltinExpr where
     BEMulDecimal -> "MUL_DECIMAL"
     BEDivDecimal -> "DIV_DECIMAL"
     BERoundDecimal -> "ROUND_DECIMAL"
+    BEAddNumeric -> "ADD_NUMERIC"
+    BESubNumeric -> "SUB_NUMERIC"
+    BEMulNumeric -> "MUL_NUMERIC"
+    BEDivNumeric -> "DIV_NUMERIC"
+    BERoundNumeric -> "ROUND_NUMERIC"
+    BEInt64ToNumeric -> "INT64_TO_NUMERIC"
+    BENumericToInt64 -> "NUMERIC_TO_INT64"
+    BEEqualNumeric -> "EQUAL_NUMERIC"
+    BELessEqNumeric -> "LEQ_NUMERIC"
+    BELessNumeric -> "LESS_NUMERIC"
+    BEGreaterEqNumeric -> "GEQ_NUMERIC"
+    BEGreaterNumeric -> "GREATER_NUMERIC"
+    BENumericFromText -> "FROM_TEXT_NUMERIC"
+    BEToTextNumeric -> "TO_TEXT_NUMERIC"
     BEAddInt64 -> "ADD_INT64"
     BESubInt64 -> "SUB_INT64"
     BEMulInt64 -> "MUL_INT64"

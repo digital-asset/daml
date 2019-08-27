@@ -31,6 +31,7 @@ freeVars e = go Set.empty e Set.empty
         TBuiltin _ -> acc
         TForall (v, _k) s -> go (Set.insert v boundVars) s acc
         TTuple fs -> foldl' (\acc (_, t) -> go boundVars t acc) acc fs
+        TNat _ -> Set.empty
 
 -- | Auxiliary data structure to track bound variables in the test for alpha
 -- equivalence.
@@ -104,6 +105,7 @@ substitute subst = go (Map.foldl' (\acc t -> acc `Set.union` freeVars t) Set.emp
             in  TForall (v1, k) (go fvSubst1 subst1 t)
         | otherwise -> TForall (v0, k) (go fvSubst0 (Map.delete v0 subst0) t)
       TTuple fs -> TTuple (map (second go0) fs)
+      TNat n -> TNat n
       where
         go0 = go fvSubst0 subst0
 
