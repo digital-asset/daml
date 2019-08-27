@@ -37,8 +37,12 @@ class SqlExecutor(noOfThread: Int) extends AutoCloseable {
         val start = System.nanoTime()
         val res = block()
         val elapsed = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - start)
-        logger.trace(
-          s"""DB Operation "$description": wait time ${elapsedWait}ms, execution time ${elapsed}ms""")
+
+        if (logger.isTraceEnabled) {
+          logger.trace(
+            s"""DB Operation "$description": wait time ${elapsedWait}ms, execution time ${elapsed}ms""")
+        }
+
         promise.success(res)
       } catch {
         case NonFatal(e) =>
