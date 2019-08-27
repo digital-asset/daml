@@ -8,6 +8,6 @@ import org.junit.runners.Suite;
 
 @RunWith(Suite.class)
 @Suite.SuiteClasses({
-        DecimalTestFor$All$.class
+        DecimalTestForAll.class
 })
-public class AllTestsFor$1_0$ { }
+public class AllTestsFor1_1 { }

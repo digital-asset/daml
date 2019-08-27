@@ -139,10 +139,10 @@ test_daml_lf_target_versions = [
         java_test(
             name = "tests-%s" % target,
             srcs = glob([
-                "src/test/java/**/*$All$*.java",
-                "src/test/java/**/*%s*.java" % mangle_for_java(target),
+                "src/test/java/**/*ForAll*.java",
+                "src/test/java/**/*For%s*.java" % mangle_for_java(target),
             ]),
-            test_class = "com.digitalasset.testing.AllTestsFor$%s$" % mangle_for_java(target),
+            test_class = "com.digitalasset.testing.AllTestsFor%s" % mangle_for_java(target),
             deps = [
                 ":test-model-%s.jar" % target,
                 "//3rdparty/jvm/com/google/protobuf:protobuf_java",

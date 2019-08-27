@@ -17,7 +17,7 @@ import java.math.BigDecimal;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 @RunWith(JUnitPlatform.class)
-public class DecimalTestFor$All$ {
+public class DecimalTestForAll {
 
     private String[] goodValues = {
             "-9999999999999999999999999999.9999999999",
