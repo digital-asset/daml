@@ -53,9 +53,10 @@ applyHide = concatMap onModule
         -- as that would be a security risk
         onTemplate x = [x | not $ isHide $ td_descr x]
         onFunction x = [x | not $ isHide $ fct_descr x]
+        onMethod x = [x | not $ isHide $ cm_descr x]
         onClass x
             | isHide $ cl_descr x = []
-            | ClassDoc {..} <- x = [x { cl_functions = concatMap onFunction cl_functions }]
+            | ClassDoc {..} <- x = [x { cl_methods = concatMap onMethod cl_methods }]
 
         onADT x
             | isHide $ ad_descr x = []

@@ -113,10 +113,51 @@ data ClassDoc = ClassDoc
   , cl_descr :: Maybe DocText
   , cl_super :: Maybe Type
   , cl_args :: [Text]
-  , cl_functions :: [FunctionDoc]
+  , cl_methods :: [ClassMethodDoc]
   , cl_instances :: Maybe [InstanceDoc] -- relevant instances
   }
   deriving (Eq, Show, Generic)
+
+-- | Documentation data for typeclass methods.
+data ClassMethodDoc = ClassMethodDoc
+    { cm_anchor :: Maybe Anchor
+    , cm_name :: Fieldname
+    , cm_isDefault :: Bool
+        -- ^ Is this a default implementation, associated with a
+        -- separate default type signature? (These are marked with
+        -- "default" in the source code and docs. For example, in
+        -- the typeclass:
+        --
+        -- @
+        --     class MyShow t where
+        --         myShow :: t -> String
+        --         default myShow :: Show t => t -> String
+        -- @
+        --
+        -- The former method would have 'cm_isDefault' set to 'False',
+        -- the latter would have 'cm_isDefault' set to 'True'.
+    , cm_localContext :: Maybe Type
+        -- ^ Context of class method inside typeclass declaration.
+        -- For example, 'fold' from @'Foldable' t@:
+        --
+        -- @
+        --     class Foldable t where
+        --         fold :: Monoid m => t m -> m
+        --         ...
+        -- @
+        --
+        -- Would have the 'cm_contextLocal' of @('Monoid' m)@.
+    , cm_globalContext :: Maybe Type
+        -- ^ Context of class method outside typeclass declaration.
+        -- Following the previous example, 'fold' from @'Foldable' t@
+        -- would have the 'cm_globalContext' of @('Foldable' t, 'Monoid' m)@.
+        --
+        -- In other words, the difference between 'cm_globalContext' and
+        -- 'cm_localContext' is that the former has the containing
+        -- typeclass in the context, but the latter does not.
+    , cm_type :: Type
+    , cm_descr :: Maybe DocText
+    } deriving (Eq, Show, Generic)
 
 -- | Documentation data for an ADT or type synonym
 data ADTDoc = ADTDoc
@@ -218,6 +259,12 @@ instance ToJSON ClassDoc where
     toJSON = genericToJSON aesonOptions
 
 instance FromJSON ClassDoc where
+    parseJSON = genericParseJSON aesonOptions
+
+instance ToJSON ClassMethodDoc where
+    toJSON = genericToJSON aesonOptions
+
+instance FromJSON ClassMethodDoc where
     parseJSON = genericParseJSON aesonOptions
 
 instance ToJSON FieldDoc where

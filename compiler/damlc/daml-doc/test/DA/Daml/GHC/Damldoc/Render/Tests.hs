@@ -52,7 +52,7 @@ cases = [ ("Empty module",
           )
         , ("Module with only a type class",
            ModuleDoc (Just "module-onlyclass") "OnlyClass" Nothing [] [] [] []
-            [ClassDoc (Just "class-onlyclass-c") "C" Nothing Nothing ["a"] [FunctionDoc (Just "function-onlyclass-member") "member" Nothing (TypeApp Nothing "a" []) Nothing] Nothing] [])
+            [ClassDoc (Just "class-onlyclass-c") "C" Nothing Nothing ["a"] [ClassMethodDoc (Just "function-onlyclass-member") "member" False Nothing Nothing (TypeApp Nothing "a" []) Nothing] Nothing] [])
         , ("Multiline field description",
            ModuleDoc
              (Just "module-multilinefield")

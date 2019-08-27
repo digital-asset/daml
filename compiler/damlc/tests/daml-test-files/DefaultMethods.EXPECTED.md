@@ -38,10 +38,16 @@
 
 <a name="class-defaultmethods-myshow-63359"></a>**class** [MyShow](#class-defaultmethods-myshow-63359) t **where**
 
-> <a name="function-defaultmethods-myshow-41356"></a>[myShow](#function-defaultmethods-myshow-41356)
-> 
-> > : t -\> [Text](https://docs.daml.com/daml/reference/base.html#type-ghc-types-text-57703)
+> Default implementation with a separate type signature for the default method.
 > 
 > <a name="function-defaultmethods-myshow-41356"></a>[myShow](#function-defaultmethods-myshow-41356)
 > 
 > > : t -\> [Text](https://docs.daml.com/daml/reference/base.html#type-ghc-types-text-57703)
+> > 
+> > Doc for method.
+> 
+> **default** myShow
+> 
+> > : [Show](https://docs.daml.com/daml/reference/base.html#class-ghc-show-show-56447) t =\> t -\> [Text](https://docs.daml.com/daml/reference/base.html#type-ghc-types-text-57703)
+> > 
+> > Doc for default.

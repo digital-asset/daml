@@ -58,12 +58,17 @@ Typeclasses
 
 **class** `MyShow <class-defaultmethods-myshow-63359_>`_ t **where**
 
-  .. _function-defaultmethods-myshow-41356:
-  
-  `myShow <function-defaultmethods-myshow-41356_>`_
-    : t -> `Text <https://docs.daml.com/daml/reference/base.html#type-ghc-types-text-57703>`_
+  Default implementation with a separate type signature for the default method.
   
   .. _function-defaultmethods-myshow-41356:
   
   `myShow <function-defaultmethods-myshow-41356_>`_
     : t -> `Text <https://docs.daml.com/daml/reference/base.html#type-ghc-types-text-57703>`_
+    
+    Doc for method.
+  
+  **default** myShow
+  
+    : `Show <https://docs.daml.com/daml/reference/base.html#class-ghc-show-show-56447>`_ t => t -> `Text <https://docs.daml.com/daml/reference/base.html#type-ghc-types-text-57703>`_
+    
+    Doc for default.

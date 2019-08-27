@@ -122,7 +122,10 @@ instance IsEmpty ChoiceDoc
 
 instance IsEmpty ClassDoc
   where isEmpty ClassDoc{..} =
-          isNothing cl_descr && all isEmpty cl_functions
+          isNothing cl_descr && all isEmpty cl_methods
+
+instance IsEmpty ClassMethodDoc where
+    isEmpty ClassMethodDoc{..} = isNothing cm_descr
 
 instance IsEmpty ADTDoc
   where isEmpty ADTDoc{..} =
