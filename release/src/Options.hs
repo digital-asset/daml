@@ -25,6 +25,7 @@ data Options = Options
   , optsFullLogging :: Bool
   , optsLogLevel :: LogLevel
   , optsAllArtifacts :: AllArtifacts
+  , optsLocallyInstallJars :: Bool
   } deriving (Eq, Show)
 
 optsParser :: Parser Options
@@ -36,6 +37,7 @@ optsParser = Options
   <*> switch (long "full-logging" <> help "full logging detail")
   <*> option readLogLevel (long "log-level" <> metavar "debug|info|warn|error (default: info)" <> help "Specify log level during release run" <> value LevelInfo )
   <*> (AllArtifacts <$> switch (long "all-artifacts" <> help "Produce all artifacts including platform-independent artifacts on MacOS"))
+  <*> switch (long "install-head-jars" <> help "install jars to ~/.m2")
   where
     readLogLevel :: ReadM LogLevel
     readLogLevel = do
