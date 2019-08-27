@@ -327,15 +327,21 @@ getClsDocs ctx@DocCtx{..} (DeclData (L _ (TyClD _ ClassDecl{..})) tcdocs) = do
                     cm_anchor = guard (not cm_isDefault) >>
                         Just (functionAnchor dc_modname cm_name)
                 (id, dmInfoM) <- MS.lookup cm_name opMap
-                ty <- case (cm_isDefault, dmInfoM) of
-                    (True, Nothing) ->
-                        error "getMethodDocs: expected default method to have associated default method info"
-                    (True, Just (_, GenericDM ty)) -> Just ty
-                    _ -> Just (idType id)
-                let cm_type = typeToType ctx ty
-                    cm_globalContext = typeToContext ctx ty
-                    cm_localContext =
-                        dropMemberContext cl_anchor cl_args =<< cm_globalContext
+
+                let ghcType
+                        | cm_isDefault = -- processing default method type sig
+                            case dmInfoM of
+                                Nothing ->
+                                    error "getMethodDocs: expected default method to have associated default method info"
+                                Just (_, VanillaDM) -> idType id
+                                Just (_, GenericDM ty) -> ty
+                        | otherwise = -- processing original method type sig
+                            idType id
+                    cm_type = typeToType ctx ghcType
+                    cm_globalContext = typeToContext ctx ghcType
+                    cm_localContext = do
+                        context <- cm_globalContext
+                        dropMemberContext cl_anchor cl_args context
                 guard (exportsField dc_exports cl_name cm_name)
                 Just ClassMethodDoc{..}
 
