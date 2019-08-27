@@ -153,7 +153,7 @@ packagingTests tmpDir = testGroup "packaging"
             [ "sdk-version: " <> sdkVersion
             , "name: a"
             , "version: \"1.0\""
-            , "source: daml/Foo/Bar/Baz.daml"
+            , "source: daml"
             , "exposed-modules: [A, Foo.Bar.Baz]"
             , "dependencies:"
             , "  - daml-prim"
@@ -177,7 +177,7 @@ packagingTests tmpDir = testGroup "packaging"
             [ "sdk-version: " <> sdkVersion
             , "version: \"1.0\""
             , "name: b"
-            , "source: daml/B.daml"
+            , "source: daml"
             , "exposed-modules: [B]"
             , "dependencies:"
             , "  - daml-prim"
@@ -255,7 +255,7 @@ packagingTests tmpDir = testGroup "packaging"
             [ "sdk-version: " <> sdkVersion
             , "name: a"
             , "version: \"1.0\""
-            , "source: daml/Main.daml"
+            , "source: daml"
             , "exposed-modules: [Main]"
             , "dependencies:"
             , "  - daml-prim"
@@ -279,9 +279,9 @@ packagingTests tmpDir = testGroup "packaging"
             ]
         writeFileUTF8 (projectB </> "daml.yaml") $ unlines
             [ "sdk-version: " <> sdkVersion
-            , "version: \"2.0\""
             , "name: a"
-            , "source: daml/Main.daml"
+            , "version: \"2.0\""
+            , "source: daml"
             , "exposed-modules: [Main]"
             , "dependencies:"
             , "  - daml-prim"
@@ -290,13 +290,13 @@ packagingTests tmpDir = testGroup "packaging"
         withCurrentDirectory projectB $ callCommandQuiet "daml build"
         assertBool "a-2.0.dar was not created." =<< doesFileExist bDar
         step "Creating upgrade project"
-        callCommandQuiet $ unwords ["daml", "migrate", projectUpgrade, "daml/Main.daml", aDar, bDar]
+        callCommandQuiet $ unwords ["daml", "migrate", projectUpgrade, aDar, bDar]
         step "Build migration project"
         withCurrentDirectory projectUpgrade $
             if isWindows
                 then callCommandQuiet ".\\build.cmd"
                 else callCommandQuiet "./build.sh"
-        assertBool "upgrade-0.0.1.dar was not created" =<< doesFileExist  upgradeDar
+        assertBool "upgrade-0.0.1.dar was not created" =<< doesFileExist upgradeDar
         step "Merging upgrade dar"
         callCommandQuiet $
           unwords

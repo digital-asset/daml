@@ -93,6 +93,7 @@ buildDar service pkgConf@PackageConfigFields {..} ifDir dalfInput = do
             pure $ Just $ createArchive pkgConf "" bytes [] (toNormalizedFilePath ".") [] [] []
         else runAction service $
              runMaybeT $ do
+                 srcRoot <- liftIO $ getSrcRoot
                  files <-
                      fmap (map toNormalizedFilePath . filter (".daml" `isExtensionOf`)) $
                      liftIO $ listFilesRecursive $ fromNormalizedFilePath srcRoot
@@ -128,7 +129,9 @@ buildDar service pkgConf@PackageConfigFields {..} ifDir dalfInput = do
                          dataFiles
                          ifaces
   where
-    srcRoot = toNormalizedFilePath pSrc
+    getSrcRoot = do
+      isFile <- doesFileExist pSrc
+      pure $ toNormalizedFilePath $ if isFile then takeDirectory pSrc else pSrc
 
 mergePkgs :: [WhnfPackage] -> LF.Package
 mergePkgs [] = error "No package build when building dar"
