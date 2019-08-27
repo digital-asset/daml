@@ -88,7 +88,7 @@ const ArgumentDisplay = (props: Props): JSX.Element => {
     case 'text': return <span>{argument.value}</span>;
     case 'party': return <span>{argument.value}</span>;
     case 'contractid': return <span>{argument.value}</span>;
-    case 'decimal': return <span>{argument.value}</span>;
+    case 'numeric': return <span>{argument.value}</span>;
     case 'int64': return <span>{argument.value}</span>;
     case 'timestamp': {
       const moment = DamlLfValueF.toMoment(argument);

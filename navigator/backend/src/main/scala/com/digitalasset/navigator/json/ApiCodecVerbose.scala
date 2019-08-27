@@ -36,7 +36,7 @@ object ApiCodecVerbose {
   private[this] final val propConstructor: String = "constructor"
   private[this] final val tagText: String = "text"
   private[this] final val tagInt64: String = "int64"
-  private[this] final val tagDecimal: String = "decimal"
+  private[this] final val tagNumeric: String = "numeric"
   private[this] final val tagBool: String = "bool"
   private[this] final val tagContractId: String = "contractid"
   private[this] final val tagTimestamp: String = "timestamp"
@@ -62,7 +62,7 @@ object ApiCodecVerbose {
     case V.ValueInt64(v) =>
       JsObject(propType -> JsString(tagInt64), propValue -> JsString((v: Long).toString))
     case V.ValueNumeric(v) =>
-      JsObject(propType -> JsString(tagDecimal), propValue -> JsString(v.toUnscaledString))
+      JsObject(propType -> JsString(tagNumeric), propValue -> JsString(v.toUnscaledString))
     case V.ValueBool(v) => JsObject(propType -> JsString(tagBool), propValue -> JsBoolean(v))
     case V.ValueContractId(v) =>
       JsObject(propType -> JsString(tagContractId), propValue -> JsString(v))
@@ -145,8 +145,8 @@ object ApiCodecVerbose {
         V.ValueList(arrayField(value, propValue, "ApiList").map(jsValueToApiValue).to[FrontStack])
       case `tagText` => V.ValueText(strField(value, propValue, "ApiText"))
       case `tagInt64` => V.ValueInt64(strField(value, propValue, "ApiInt64").toLong)
-      case `tagDecimal` =>
-        V.ValueNumeric(assertDE(LfDecimal fromString strField(value, propValue, "ApiDecimal")))
+      case `tagNumeric` =>
+        V.ValueNumeric(assertDE(LfDecimal fromString strField(value, propValue, "ApiNumeric")))
       case `tagBool` => V.ValueBool(boolField(value, propValue, "ApiBool"))
       case `tagContractId` => V.ValueContractId(strField(value, propValue, "ApiContractId"))
       case `tagTimestamp` =>
