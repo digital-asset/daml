@@ -967,7 +967,7 @@ visualDamlTests = Tasty.testGroup "Visual Tests"
                         ExpectedChoice "ReducedCoin" False Set.empty
                     ])
                 ]
-        , testCase' "excercise sould add new action" $ do
+        , testCase' "Exercise should add an edge" $ do
             exerciseTest <- makeModule "F"
                 [ "template TT"
                 , "  with"
@@ -1001,7 +1001,7 @@ visualDamlTests = Tasty.testGroup "Visual Tests"
                         ExpectedChoice "Archive" True Set.empty
                     ])
                 ]
-        , testCase' "create on other template should be edge" $ do
+        , testCase' "Create on other template should be edge" $ do
             createTest <- makeModule "F"
                 [ "template TT"
                 , "  with"
