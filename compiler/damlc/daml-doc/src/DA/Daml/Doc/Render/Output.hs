@@ -113,8 +113,27 @@ instance RenderDoc ClassDoc where
             ]
         , RenderBlock $ mconcat
             [ renderDoc cl_descr
-            , renderDoc cl_functions
+            , renderDoc cl_methods
             , renderDoc cl_instances
+            ]
+        ]
+
+instance RenderDoc ClassMethodDoc where
+    renderDoc ClassMethodDoc{..} = mconcat
+        [ renderDoc cm_anchor
+        , RenderParagraph . renderUnwords . concat $
+            [ [ RenderStrong "default" | cm_isDefault ]
+            , [ maybeAnchorLink cm_anchor (wrapOp (unFieldname cm_name)) ]
+            ]
+        , RenderBlock $ mconcat
+            [ RenderParagraph . renderUnwords . concat $
+                [ [RenderPlain ":"]
+                , renderContext cm_localContext
+                    -- TODO: use localContext only when rendering inside ClassDoc,
+                    -- otherwise use globalContext
+                , [renderType cm_type]
+                ]
+            , renderDoc cm_descr
             ]
         ]
 
