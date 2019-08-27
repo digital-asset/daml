@@ -3,14 +3,7 @@
 
 package com.digitalasset.daml.lf.value.json
 
-import com.digitalasset.daml.lf.data.{
-  Decimal => LfDecimal,
-  Numeric => LfNumeric,
-  FrontStack,
-  Ref,
-  SortedLookupList,
-  Time
-}
+import com.digitalasset.daml.lf.data.{FrontStack, Ref, SortedLookupList, Time, Numeric => LfNumeric}
 import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
 import com.digitalasset.daml.lf.data.ScalazEqual._
 import com.digitalasset.daml.lf.iface
@@ -18,13 +11,8 @@ import com.digitalasset.daml.lf.value.{Value => V}
 import com.digitalasset.daml.lf.value.json.{NavigatorModelAliases => Model}
 import Model.{DamlLfIdentifier, DamlLfType, DamlLfTypeLookup}
 import ApiValueImplicits._
-
 import spray.json._
 import scalaz.syntax.std.string._
-
-import java.math.MathContext
-
-import scala.math.BigDecimal
 
 /**
   * A compressed encoding of API values.
@@ -111,33 +99,11 @@ abstract class ApiCodecCompressed[Cid](
   @throws[DeserializationException]
   protected[this] def jsValueToApiContractId(value: JsValue): Cid
 
-  private val max = BigDecimal.decimal(LfDecimal.MaxValue, MathContext.UNLIMITED)
-  private val min = BigDecimal.decimal(LfDecimal.MinValue, MathContext.UNLIMITED)
-
-  // FixMe: checkWithinBoundsAndRound checks fist the bound then round (using bankers'
-  //  rounding). Should we not do the contrary, first round then check for bounds ?
-  private def checkWithinBoundsAndRound(x: BigDecimal): Either[String, LfNumeric] = {
-    if (!(min <= x && x <= max))
-      Left(s"out-of-bounds Decimal $x")
-    else
-      LfNumeric.fromBigDecimal(
-        LfDecimal.scale,
-        x.bigDecimal.setScale(LfDecimal.scale, BigDecimal.RoundingMode.HALF_EVEN))
-  }
-
   private[this] def jsValueToApiPrimitive(
       value: JsValue,
       prim: Model.DamlLfTypePrim,
       defs: Model.DamlLfTypeLookup): V[Cid] = {
     (prim.typ, value).match2 {
-      case Model.DamlLfPrimType.Decimal => {
-        case JsString(v) =>
-          V.ValueNumeric(
-            assertDE(checkWithinBoundsAndRound(
-              BigDecimal.decimal(new java.math.BigDecimal(v), MathContext.UNLIMITED))))
-        case JsNumber(v) =>
-          V.ValueNumeric(assertDE(checkWithinBoundsAndRound(v)))
-      }
       case Model.DamlLfPrimType.Int64 => {
         case JsString(v) => V.ValueInt64(assertDE(v.parseLong.leftMap(_.getMessage).toEither))
         case JsNumber(v) if v.isValidLong => V.ValueInt64(v.toLongExact)
@@ -275,7 +241,16 @@ abstract class ApiCodecCompressed[Cid](
           typeCon,
           defs(id).getOrElse(deserializationError(s"Type $id not found")))
         jsValueToApiDataType(value, id, dt, defs)
-      case v: Model.DamlLfTypeVar =>
+      case Model.DamlLfTypeNumeric(scale) =>
+        value match {
+          case JsString(v) =>
+            V.ValueNumeric(assertDE(LfNumeric.checkWithinBoundsAndRound(scale, BigDecimal(v))))
+          case JsNumber(v) =>
+            V.ValueNumeric(assertDE(LfNumeric.checkWithinBoundsAndRound(scale, v)))
+          case _ =>
+            deserializationError(s"Can't read ${value.prettyPrint} as (Numeric $scale)")
+        }
+      case Model.DamlLfTypeVar(_) =>
         deserializationError(s"Can't read ${value.prettyPrint} as DamlLfTypeVar")
     }
   }

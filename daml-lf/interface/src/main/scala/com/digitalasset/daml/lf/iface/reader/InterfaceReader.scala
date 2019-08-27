@@ -208,13 +208,8 @@ object InterfaceReader {
           unserializableDataType(ctx, "arguments passed to a type parameter")
       case Ast.TTyCon(c) =>
         \/-(TypeCon(TypeConName(c), args.toImmArray.toSeq))
-      case AstUtil.TDecimal =>
-        if (args.empty)
-          \/-(TypePrim(PrimType.Decimal, ImmArraySeq.empty))
-        else
-          unserializableDataType(
-            ctx,
-            s"unserializable data type: ${a.pretty} cannot be applied to anything}")
+      case AstUtil.TNumeric(Ast.TNat(n)) if args.empty =>
+        \/-(TypeNumeric(n))
       case Ast.TBuiltin(bt) =>
         primitiveType(ctx, bt, args.toImmArray.toSeq)
       case Ast.TApp(tyfun, arg) =>
@@ -242,7 +237,9 @@ object InterfaceReader {
         case Ast.BTOptional => \/-((1, PrimType.Optional))
         case Ast.BTMap => \/-((1, PrimType.Map))
         case Ast.BTNumeric =>
-          unserializableDataType(ctx, s"Unserializable primitive type: $a must be applied to TNat")
+          unserializableDataType(
+            ctx,
+            s"Unserializable primitive type: $a must be applied to one and only one TNat")
         case Ast.BTUpdate | Ast.BTScenario | Ast.BTArrow =>
           unserializableDataType(ctx, s"Unserializable primitive type: $a")
       }
