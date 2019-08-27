@@ -23,9 +23,6 @@ object Reporter {
     private def blue(s: String): String = s"\u001b[34m$s$reset"
     private def cyan(s: String): String = s"\u001b[36m$s$reset"
 
-    private def render(configuration: LedgerSessionConfiguration): String =
-      s"address: ${configuration.host}:${configuration.port}, ssl: ${configuration.ssl.isDefined}"
-
     private def render(t: Throwable): Seq[String] =
       s"${t.getClass.getName}: ${t.getMessage}" +: t.getStackTrace.map(render)
 
@@ -38,6 +35,7 @@ object Reporter {
         .find(
           stackTraceElement =>
             Try(Class.forName(stackTraceElement.getClassName))
+              .filter(_ != classOf[LedgerTestSuite])
               .filter(classOf[LedgerTestSuite].isAssignableFrom)
               .isSuccess)
         .map(_.getLineNumber)
@@ -49,7 +47,7 @@ object Reporter {
 
     import ColorizedPrintStreamReporter._
 
-    private def indented(n: Int, msg: String) = {
+    private def indented(msg: String, n: Int = 2) = {
       val indent = " " * n
       msg.lines.map(l => s"$indent$l").mkString("\n")
     }
@@ -72,7 +70,8 @@ object Reporter {
 
             s.print(cyan(s"- $test ... "))
             result match {
-              case Result.Succeeded => s.println(green(s"Success"))
+              case Result.Succeeded(duration) =>
+                s.println(green(s"Success (${duration.toMillis} ms)"))
               case Result.TimedOut => s.println(red(s"Timeout"))
               case Result.Skipped(reason) =>
                 s.println(yellow(s"Skipped (reason: $reason)"))
@@ -82,17 +81,22 @@ object Reporter {
                     s"Failed at line $lineHint"
                   }
                 s.println(red(message))
-                s.println(red(indented(2, cause.getMessage)))
+                s.println(red(indented(cause.getMessage)))
+                cause match {
+                  case AssertionErrorWithPreformattedMessage(preformattedMessage, _) =>
+                    preformattedMessage.split("\n").map(indented(_)).foreach(s.println(_))
+                  case _ => // ignore
+                }
                 if (printStackTraces) {
                   for (renderedStackTraceLine <- render(cause))
-                    s.println(red(indented(2, renderedStackTraceLine)))
+                    s.println(red(indented(renderedStackTraceLine)))
                 }
               case Result.FailedUnexpectedly(cause) =>
                 s.println(red("Failed due to an unexpected exception"))
-                s.println(red(indented(2, cause.getMessage)))
+                s.println(red(indented(cause.getMessage)))
                 if (printStackTraces) {
                   for (renderedStackTraceLine <- render(cause))
-                    s.println(red(indented(2, renderedStackTraceLine)))
+                    s.println(red(indented(renderedStackTraceLine)))
                 }
             }
 

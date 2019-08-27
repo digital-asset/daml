@@ -74,6 +74,7 @@ da_scala_binary(
     visibility = ["//visibility:public"],
     deps = [
         ":PackageManagementTest.scala",
+        "//3rdparty/jvm/ai/x:diff",
         "//3rdparty/jvm/ch/qos/logback:logback_classic",
         "//3rdparty/jvm/com/github/scopt",
         "//3rdparty/jvm/io/grpc:grpc_netty",

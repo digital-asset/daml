@@ -156,7 +156,9 @@ class ActiveContractsService(session: LedgerSession) extends LedgerTestSuite(ses
         (Some(offset), onlyDummy) <- ledger.activeContracts(
           ledger.activeContractsRequest(Seq(party)))
         dummyWithParam <- ledger.create(party, DummyWithParam(party))
-        transactions <- ledger.flatTransactionsFromOffset(offset, Seq(party))
+        request = ledger.getTransactionsRequest(Seq(party))
+        fromOffset = request.update(_.begin := offset)
+        transactions <- ledger.flatTransactions(fromOffset)
       } yield {
         assert(onlyDummy.size == 1)
         assert(

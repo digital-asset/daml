@@ -3,6 +3,7 @@
 
 package com.daml.ledger.api.testtool.infrastructure
 
+import java.time.Duration
 import java.util.concurrent.{ExecutionException, Executors, TimeoutException}
 import java.util.{Timer, TimerTask}
 
@@ -14,10 +15,9 @@ import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuiteRunner.{
 }
 import org.slf4j.LoggerFactory
 
-import scala.annotation.tailrec
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService, Future, Promise}
+import scala.util.Try
 import scala.util.control.NonFatal
-import scala.util.{Failure, Success, Try}
 
 object LedgerTestSuiteRunner {
 
@@ -52,35 +52,28 @@ final class LedgerTestSuiteRunner(
     suiteConstructors: Vector[LedgerSession => LedgerTestSuite],
     timeoutScaleFactor: Double) {
 
-  private def initSessions()(implicit ec: ExecutionContext): Try[Vector[LedgerSession]] = {
-    @tailrec
-    def go(
-        conf: Vector[LedgerSessionConfiguration],
-        result: Try[Vector[LedgerSession]]): Try[Vector[LedgerSession]] = {
-      (conf, result) match {
-        case (remaining, result) if remaining.isEmpty || result.isFailure => result
-        case (endpoint +: remaining, Success(sessions)) =>
-          val newSession = LedgerSession.getOrCreate(endpoint)
-          val newResult = newSession.map(sessions :+ _)
-          go(remaining, newResult)
-      }
-    }
-    go(endpoints, Try(Vector.empty))
-  }
+  private def initSessions()(implicit ec: ExecutionContext): Future[Vector[LedgerSession]] =
+    Future.sequence(endpoints.map(LedgerSession.getOrCreate))
 
   private def initTestSuites(sessions: Vector[LedgerSession]): Vector[LedgerTestSuite] =
     for (session <- sessions; suiteConstructor <- suiteConstructors)
       yield suiteConstructor(session)
 
   private def start(test: LedgerTest, session: LedgerSession)(
-      implicit ec: ExecutionContext): Future[Unit] = {
-    val execution = Promise[Unit]
+      implicit ec: ExecutionContext): Future[Duration] = {
+    val execution = Promise[Duration]
     val scaledTimeout = math.floor(test.timeout * timeoutScaleFactor).toLong
     val testTimeout = new TestTimeout(execution, test.description, scaledTimeout, session.config)
+    val startedTest =
+      session
+        .createTestContext(test.shortIdentifier)
+        .flatMap { context =>
+          val start = System.nanoTime()
+          val result = test(context).map(_ => Duration.ofNanos(System.nanoTime() - start))
+          logger.info(s"Started '${test.description} with a ${scaledTimeout} ms timeout'!")
+          result
+        }
     timer.schedule(testTimeout, scaledTimeout)
-    logger.info(s"Started ${scaledTimeout} ms timeout for '${test.description}'...")
-    val startedTest = session.createTestContext(test.shortIdentifier).flatMap(test)
-    logger.info(s"Started '${test.description}'!")
     startedTest.onComplete { _ =>
       testTimeout.cancel()
       logger.info(s"Finished '${test.description}")
@@ -88,9 +81,9 @@ final class LedgerTestSuiteRunner(
     execution.completeWith(startedTest).future
   }
 
-  private def result(startedTest: Future[Unit])(implicit ec: ExecutionContext): Future[Result] =
+  private def result(startedTest: Future[Duration])(implicit ec: ExecutionContext): Future[Result] =
     startedTest
-      .map[Result](_ => Result.Succeeded)
+      .map[Result](Result.Succeeded)
       .recover[Result] {
         case SkipTestException(reason) =>
           Result.Skipped(reason)
@@ -125,26 +118,17 @@ final class LedgerTestSuiteRunner(
 
     implicit val ec: ExecutionContextExecutorService =
       ExecutionContext.fromExecutorService(
-        Executors.newFixedThreadPool(Runtime.getRuntime.availableProcessors()))
+        Executors.newSingleThreadExecutor(new Thread(_, s"test-tool-dispatcher")))
 
-    def cleanUpAndComplete(result: Try[Vector[LedgerTestSummary]]): Unit = {
-      ec.shutdown()
-      endpoints.foreach(LedgerSession.close)
-      completionCallback(result)
-    }
-
-    initSessions() match {
-
-      case Failure(exception) =>
-        cleanUpAndComplete(Failure(exception))
-
-      case Success(sessions) =>
-        Future
-          .sequence(initTestSuites(sessions).flatMap(run))
-          .recover { case NonFatal(e) => throw LedgerTestSuiteRunner.UncaughtExceptionError(e) }
-          .onComplete(cleanUpAndComplete)
-
-    }
+    initSessions()
+      .map(initTestSuites)
+      .flatMap(suites => Future.sequence(suites.flatMap(run)))
+      .recover { case NonFatal(e) => throw LedgerTestSuiteRunner.UncaughtExceptionError(e) }
+      .onComplete { result =>
+        endpoints.foreach(LedgerSession.close)
+        completionCallback(result)
+        ec.shutdown()
+      }
 
   }
 

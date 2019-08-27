@@ -5,6 +5,7 @@ package com.daml.ledger.api.testtool.infrastructure
 
 import java.time.{Clock, Instant}
 
+import com.digitalasset.ledger.api.refinements.ApiTypes.TemplateId
 import com.digitalasset.ledger.api.v1.active_contracts_service.{
   GetActiveContractsRequest,
   GetActiveContractsResponse
@@ -35,13 +36,18 @@ import com.digitalasset.ledger.api.v1.transaction_filter.{
   TransactionFilter
 }
 import com.digitalasset.ledger.api.v1.transaction_service.{
+  GetLedgerEndRequest,
   GetTransactionByIdRequest,
   GetTransactionsRequest
 }
 import com.digitalasset.ledger.api.v1.value.Identifier
 import com.digitalasset.ledger.client.binding.Primitive.Party
 import com.digitalasset.ledger.client.binding.{Primitive, Template}
-import com.digitalasset.platform.testing.{FiniteStreamObserver, SingleItemObserver}
+import com.digitalasset.platform.testing.{
+  FiniteStreamObserver,
+  SingleItemObserver,
+  SizeBoundObserver
+}
 import com.google.protobuf.ByteString
 import com.google.protobuf.timestamp.Timestamp
 import io.grpc.stub.StreamObserver
@@ -65,15 +71,6 @@ object LedgerTestContext {
   private def timestamp(i: Instant): Some[Timestamp] =
     Some(new Timestamp(i.getEpochSecond, i.getNano))
 
-  private def timestampToInstant(t: Timestamp): Instant =
-    Instant.EPOCH.plusSeconds(t.seconds).plusNanos(t.nanos.toLong)
-
-  private def instantToTimestamp(t: Instant): Timestamp =
-    new Timestamp(t.getEpochSecond, t.getNano)
-
-  private val end = LedgerOffset(
-    LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_END))
-
   private val defaultTtlSeconds = 30
 
 }
@@ -86,6 +83,14 @@ private[testtool] final class LedgerTestContext private[infrastructure] (
     commandTtlFactor: Double)(implicit ec: ExecutionContext) {
 
   import LedgerTestContext._
+
+  val begin = LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN))
+
+  /**
+    * A reference to the moving ledger end. If you want a fixed reference to the offset at
+    * a given point in time, use [[currentEnd]]
+    */
+  val end = LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_END))
 
   private[this] def timestampWithTtl(i: Instant): Some[Timestamp] =
     timestamp(i.plusSeconds(math.floor(defaultTtlSeconds * commandTtlFactor).toLong))
@@ -100,6 +105,13 @@ private[testtool] final class LedgerTestContext private[infrastructure] (
     () =>
       it.synchronized(it.next())
   }
+
+  /**
+    * Gets the absolute offset of the ledger end at a point in time. Use [[end]] if you need
+    * a reference to the moving end of the ledger.
+    */
+  def currentEnd(): Future[LedgerOffset] =
+    services.transaction.getLedgerEnd(new GetLedgerEndRequest(ledgerId)).map(_.getOffset)
 
   def time(): Future[Instant] =
     SingleItemObserver
@@ -181,34 +193,89 @@ private[testtool] final class LedgerTestContext private[infrastructure] (
       parties: Party*): Future[Vector[CreatedEvent]] =
     activeContracts(activeContractsRequest(parties, templateIds)).map(_._2)
 
-  private def getTransactionsRequest(
+  /**
+    * Create a [[GetTransactionsRequest]] with a set of [[Party]] objects.
+    * You should use this only when you need to tweak the request of [[flatTransactions]]
+    * or [[transactionTrees]], otherwise use the shortcut override that allows you to
+    * directly pass a set of [[Party]]
+    */
+  def getTransactionsRequest(
       parties: Seq[Party],
-      beginOffset: Option[LedgerOffset] = None): GetTransactionsRequest =
+      templateIds: Seq[TemplateId] = Seq.empty): GetTransactionsRequest =
     new GetTransactionsRequest(
       ledgerId = ledgerId,
-      begin = beginOffset.orElse(Some(referenceOffset)),
+      begin = Some(referenceOffset),
       end = Some(end),
-      filter = transactionFilter(Tag.unsubst(parties), Seq.empty),
+      filter = transactionFilter(Tag.unsubst(parties), Tag.unsubst(templateIds)),
       verbose = true
     )
 
   private def transactions[Res](
-      parties: Seq[Party],
-      service: (GetTransactionsRequest, StreamObserver[Res]) => Unit,
-      beginOffset: Option[LedgerOffset] = None): Future[Vector[Res]] =
-    FiniteStreamObserver[Res](service(getTransactionsRequest(parties, beginOffset), _))
+      take: Int,
+      request: GetTransactionsRequest,
+      service: (GetTransactionsRequest, StreamObserver[Res]) => Unit): Future[Vector[Res]] =
+    SizeBoundObserver[Res](take)(service(request, _))
 
+  private def transactions[Res](
+      request: GetTransactionsRequest,
+      service: (GetTransactionsRequest, StreamObserver[Res]) => Unit): Future[Vector[Res]] =
+    FiniteStreamObserver[Res](service(request, _))
+
+  def flatTransactionsByTemplateId(
+      templateId: TemplateId,
+      parties: Party*): Future[Vector[Transaction]] =
+    flatTransactions(getTransactionsRequest(parties, Seq(templateId)))
+
+  /**
+    * Non-managed version of [[flatTransactions]], use this only if you need to tweak the request (i.e. to test low-level details)
+    */
+  def flatTransactions(request: GetTransactionsRequest): Future[Vector[Transaction]] =
+    transactions(request, services.transaction.getTransactions).map(_.flatMap(_.transactions))
+
+  /**
+    * Managed version of [[flatTransactions]], use this unless you need to tweak the request (i.e. to test low-level details)
+    */
   def flatTransactions(parties: Party*): Future[Vector[Transaction]] =
-    transactions(parties, services.transaction.getTransactions).map(_.flatMap(_.transactions))
+    flatTransactions(getTransactionsRequest(parties))
 
-  def flatTransactionsFromOffset(
-      offset: LedgerOffset,
-      parties: Seq[Party]): Future[Vector[Transaction]] =
-    transactions(parties, services.transaction.getTransactions, Some(offset))
+  /**
+    * Non-managed version of [[flatTransactions]], use this only if you need to tweak the request (i.e. to test low-level details)
+    */
+  def flatTransactions(take: Int, request: GetTransactionsRequest): Future[Vector[Transaction]] =
+    transactions(take, request, services.transaction.getTransactions).map(_.flatMap(_.transactions))
+
+  /**
+    * Managed version of [[flatTransactions]], use this unless you need to tweak the request (i.e. to test low-level details)
+    */
+  def flatTransactions(take: Int, parties: Party*): Future[Vector[Transaction]] =
+    flatTransactions(take, getTransactionsRequest(parties))
+
+  /**
+    * Non-managed version of [[transactionTrees]], use this only if you need to tweak the request (i.e. to test low-level details)
+    */
+  def transactionTrees(request: GetTransactionsRequest): Future[Vector[TransactionTree]] =
+    transactions(request, services.transaction.getTransactionTrees).map(_.flatMap(_.transactions))
+
+  /**
+    * Managed version of [[transactionTrees]], use this unless you need to tweak the request (i.e. to test low-level details)
+    */
+  def transactionTrees(parties: Party*): Future[Vector[TransactionTree]] =
+    transactionTrees(getTransactionsRequest(parties))
+
+  /**
+    * Non-managed version of [[transactionTrees]], use this only if you need to tweak the request (i.e. to test low-level details)
+    */
+  def transactionTrees(
+      take: Int,
+      request: GetTransactionsRequest): Future[Vector[TransactionTree]] =
+    transactions(take, request, services.transaction.getTransactionTrees)
       .map(_.flatMap(_.transactions))
 
-  def transactionTrees(parties: Party*): Future[Vector[TransactionTree]] =
-    transactions(parties, services.transaction.getTransactionTrees).map(_.flatMap(_.transactions))
+  /**
+    * Managed version of [[transactionTrees]], use this unless you need to tweak the request (i.e. to test low-level details)
+    */
+  def transactionTrees(take: Int, parties: Party*): Future[Vector[TransactionTree]] =
+    transactionTrees(take, getTransactionsRequest(parties))
 
   def transactionTreeById(transactionId: String, parties: Party*): Future[TransactionTree] =
     services.transaction
@@ -216,15 +283,33 @@ private[testtool] final class LedgerTestContext private[infrastructure] (
         new GetTransactionByIdRequest(ledgerId, transactionId, Tag.unsubst(parties)))
       .map(_.getTransaction)
 
+  private def extractContracts[T](transaction: Transaction): Seq[Primitive.ContractId[T]] =
+    transaction.events.collect {
+      case Event(Created(e)) => Primitive.ContractId(e.contractId)
+    }
+
   def create[T](
       party: Party,
-      template: Template[T]
+      template: Template[T],
   ): Future[Primitive.ContractId[T]] =
     submitAndWaitRequest(party, template.create.command)
       .flatMap(submitAndWaitForTransaction)
+      .map(extractContracts)
+      .map(_.head)
+
+  def create[T](
+      party: Party,
+      head: Template[_],
+      neck: Template[_],
+      tail: Template[_]*
+  ): Future[Seq[Primitive.ContractId[T]]] =
+    submitAndWaitRequest(
+      party,
+      head.create.command +: neck.create.command +: tail.map(_.create.command): _*)
+      .flatMap(submitAndWaitForTransaction)
       .map(_.events.collect {
         case Event(Created(e)) => Primitive.ContractId(e.contractId)
-      }.head)
+      })
 
   def createAndGetTransactionId[T](
       party: Party,
@@ -242,6 +327,23 @@ private[testtool] final class LedgerTestContext private[infrastructure] (
       exercise: Party => Primitive.Update[T]
   ): Future[TransactionTree] =
     submitAndWaitRequest(party, exercise(party).command).flatMap(submitAndWaitForTransactionTree)
+
+  def exerciseAndGetContract[T](
+      party: Party,
+      exercise: Party => Primitive.Update[_]
+  ): Future[Primitive.ContractId[T]] =
+    submitAndWaitRequest(party, exercise(party).command)
+      .flatMap(submitAndWaitForTransaction)
+      .map(extractContracts)
+      .map(_.head.asInstanceOf[Primitive.ContractId[T]])
+
+  def exerciseAndGetContracts[T](
+      party: Party,
+      exercise: Party => Primitive.Update[T]
+  ): Future[Seq[Primitive.ContractId[_]]] =
+    submitAndWaitRequest(party, exercise(party).command)
+      .flatMap(submitAndWaitForTransaction)
+      .map(extractContracts)
 
   def submitAndWaitRequest(party: Party, commands: Command*): Future[SubmitAndWaitRequest] =
     time().map(
