@@ -122,7 +122,7 @@ instance RenderDoc ClassMethodDoc where
     renderDoc ClassMethodDoc{..} = mconcat
         [ renderDoc cm_anchor
         , RenderParagraph . renderUnwords . concat $
-            [ if cm_isDefault then [ RenderStrong "default" ] else []
+            [ [ RenderStrong "default" | cm_isDefault ]
             , [ maybeAnchorLink cm_anchor (wrapOp (unFieldname cm_name)) ]
             ]
         , RenderBlock $ mconcat
