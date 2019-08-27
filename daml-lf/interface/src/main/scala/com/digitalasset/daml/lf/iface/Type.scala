@@ -100,7 +100,7 @@ final case class TypeCon(name: TypeConName, typArgs: ImmArraySeq[Type])
     }
 }
 
-final case class TypeNumeric(n: Int) extends Type
+final case class TypeNumeric(scale: Int) extends Type
 
 final case class TypePrim(typ: PrimType, typArgs: ImmArraySeq[Type])
     extends Type
