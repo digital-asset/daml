@@ -84,11 +84,12 @@ class TestIndexer(results: Iterator[SubscribeResult]) {
 class RecoveringIndexerIT extends WordSpec with Matchers {
 
   private[this] implicit val ec: ExecutionContext = DEC
+  private[this] val actorSystem = ActorSystem("RecoveringIndexerIT")
 
   "RecoveringIndexer" should {
 
     "work when the stream completes" in {
-      val recoveringIndexer = new RecoveringIndexer(10.millis, 1.second)
+      val recoveringIndexer = new RecoveringIndexer(actorSystem.scheduler, 10.millis, 1.second)
       val testIndexer = new TestIndexer(
         List(
           SubscribeResult("A", 10.millis, true, 10.millis, true)
@@ -106,7 +107,7 @@ class RecoveringIndexerIT extends WordSpec with Matchers {
     }
 
     "work when the stream is stopped" in {
-      val recoveringIndexer = new RecoveringIndexer(10.millis, 1.second)
+      val recoveringIndexer = new RecoveringIndexer(actorSystem.scheduler, 10.millis, 1.second)
       // Stream completes after 1sec, but stop() is called before
       val testIndexer = new TestIndexer(
         List(
@@ -127,7 +128,7 @@ class RecoveringIndexerIT extends WordSpec with Matchers {
     }
 
     "recover failures" in {
-      val recoveringIndexer = new RecoveringIndexer(10.millis, 1.second)
+      val recoveringIndexer = new RecoveringIndexer(actorSystem.scheduler, 10.millis, 1.second)
       // Subscribe fails, then the stream fails, then the stream completes without errors.
       val testIndexer = new TestIndexer(
         List(
@@ -153,7 +154,7 @@ class RecoveringIndexerIT extends WordSpec with Matchers {
     }
 
     "respect restart delay" in {
-      val recoveringIndexer = new RecoveringIndexer(500.millis, 1.second)
+      val recoveringIndexer = new RecoveringIndexer(actorSystem.scheduler, 500.millis, 1.second)
       // Subscribe fails, then the stream completes without errors. Note the restart delay of 500ms.
       val testIndexer = new TestIndexer(
         List(

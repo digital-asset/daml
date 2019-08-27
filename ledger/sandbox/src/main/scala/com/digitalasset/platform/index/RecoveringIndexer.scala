@@ -5,7 +5,7 @@ package com.digitalasset.platform.index
 
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicReference}
 
-import akka.actor.ActorSystem
+import akka.actor.Scheduler
 import akka.pattern.after
 import com.digitalasset.platform.common.util.{DirectExecutionContext => DEC}
 import org.slf4j.LoggerFactory
@@ -15,8 +15,11 @@ import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.control.NonFatal
 
 object RecoveringIndexer {
-  def apply(restartDelay: FiniteDuration, asyncTolerance: FiniteDuration): RecoveringIndexer =
-    new RecoveringIndexer(restartDelay, asyncTolerance)
+  def apply(
+      scheduler: Scheduler,
+      restartDelay: FiniteDuration,
+      asyncTolerance: FiniteDuration): RecoveringIndexer =
+    new RecoveringIndexer(scheduler, restartDelay, asyncTolerance)
 }
 
 /**
@@ -25,11 +28,12 @@ object RecoveringIndexer {
   * @param restartDelay Time to wait before restarting the indexer after a failure
   * @param asyncTolerance Time to wait for asynchronous operations to complete
   */
-class RecoveringIndexer(restartDelay: FiniteDuration, asyncTolerance: FiniteDuration)
+class RecoveringIndexer(
+    scheduler: Scheduler,
+    restartDelay: FiniteDuration,
+    asyncTolerance: FiniteDuration)
     extends AutoCloseable {
   private val logger = LoggerFactory.getLogger(this.getClass)
-
-  private[this] val actorSystem = ActorSystem("RecoveringIndexer")
 
   val closed = new AtomicBoolean(false)
   val lastHandle = new AtomicReference[Option[IndexFeedHandle]](None)
@@ -57,7 +61,7 @@ class RecoveringIndexer(restartDelay: FiniteDuration, asyncTolerance: FiniteDura
       case NonFatal(t) =>
         logger.error(s"Error while running indexer, restart scheduled after $restartDelay", t)
         lastHandle.set(None)
-        after(restartDelay, actorSystem.scheduler)(start(subscribe))
+        after(restartDelay, scheduler)(start(subscribe))
     }(DEC)
   }
 
