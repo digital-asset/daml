@@ -147,8 +147,10 @@ xExtensionsSet =
   , DataKinds, KindSignatures, RankNTypes, TypeApplications
   , ConstraintKinds
     -- type classes
-  , MultiParamTypeClasses, FlexibleInstances, GeneralizedNewtypeDeriving, TypeSynonymInstances
+  , MultiParamTypeClasses, FlexibleContexts, FlexibleInstances, GeneralizedNewtypeDeriving, TypeSynonymInstances
   , DefaultSignatures, StandaloneDeriving, FunctionalDependencies, DeriveFunctor
+    -- let generalization
+  , MonoLocalBinds
     -- replacing primitives
   , RebindableSyntax, OverloadedStrings
     -- strictness
