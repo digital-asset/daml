@@ -189,7 +189,7 @@ export function TableActionBarConfigCheckbox<
   <TableActionBarCheckboxLabel>
     <TableActionBarCheckbox
       type="checkbox"
-      checked={props.config[props.configKey]}
+      checked={!!props.config[props.configKey]}
       onChange={(e: React.FormEvent<HTMLInputElement>) => {
         if (props.onConfigChange) {
           const el = e.target as HTMLInputElement;

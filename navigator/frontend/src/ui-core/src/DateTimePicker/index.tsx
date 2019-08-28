@@ -84,7 +84,7 @@ class InputMoment extends React.Component<Props & {ledgerTime: LedgerTime}, Stat
       moment: m,
       onChange,
       enableTime,
-      ...props,
+      ...props
     } = this.props;
 
     return (

@@ -148,7 +148,7 @@ class Component extends React.Component<Props, ComponentState> {
       nextProps.state.configSource !== this.props.state.configSource
     ) {
 
-      this.setState(this.computeStateFromSession(nextProps));
+      this.setState<'config' | 'theme'>(this.computeStateFromSession(nextProps));
     }
   }
 

@@ -83,7 +83,6 @@ const defaultMargin = 6;
 export default class Popover extends React.Component<Props, {}> {
   private target: React.ReactInstance | null = null;
   private targetNode: Node | null = null;
-  private content: React.ReactInstance | null = null;
   private contentNode: Node | null = null;
   private onClickDocument: (e: MouseEvent) => void
     = (e) => this.handleDocumentClick(e);
@@ -178,7 +177,6 @@ export default class Popover extends React.Component<Props, {}> {
                 arrow={arrow}
                 margin={margin}
                 ref={(c) => {
-                  this.content = c;
                   this.contentNode = c ? ReactDOM.findDOMNode(c) : null;
                 }}
                 onClick={() => this.onInteraction('content')}
@@ -203,7 +201,6 @@ export default class Popover extends React.Component<Props, {}> {
               arrow={arrow}
               margin={margin}
               ref={(c) => {
-                this.content = c;
                 this.contentNode = c ? ReactDOM.findDOMNode(c) : null;
               }}
               onClick={() => this.onInteraction('content')}

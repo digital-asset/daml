@@ -205,7 +205,7 @@ export default class Tooltip extends React.Component<Props, {}> {
   render() {
     const {
       children,
-      ...otherProps,
+      ...otherProps
     } = this.props;
 
     return (
