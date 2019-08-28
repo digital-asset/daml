@@ -276,6 +276,7 @@ readFileAnns file = do
             ("UNTIL-LF", x) -> Just $ UntilLF $ fromJust $ LF.parseVersion $ trim x
             ("ERROR",x) -> Just (DiagnosticFields (DSeverity DsError : parseFields x))
             ("WARN",x) -> Just (DiagnosticFields (DSeverity DsWarning : parseFields x))
+            ("INFO",x) -> Just (DiagnosticFields (DSeverity DsInfo : parseFields x))
             ("QUERY-LF", x) -> Just $ QueryLF x
             ("TODO",x) -> Just $ Todo x
             _ -> error $ "Can't understand test annotation in " ++ show file ++ ", got " ++ show x
