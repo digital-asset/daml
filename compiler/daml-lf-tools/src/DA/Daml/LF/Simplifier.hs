@@ -133,7 +133,7 @@ safetyStep = \case
       BEDecimalToInt64    -> Safe 0 -- crash if the decimal doesn't fit
       BEFoldl             -> Safe 2
       BEFoldr             -> Safe 2
-      BEMapEmpty          -> Safe 1
+      BEMapEmpty          -> Safe 0
       BEMapInsert         -> Safe 3
       BEMapLookup         -> Safe 2
       BEMapDelete         -> Safe 2
