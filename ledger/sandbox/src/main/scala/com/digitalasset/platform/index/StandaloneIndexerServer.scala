@@ -21,7 +21,7 @@ object StandaloneIndexerServer {
 
     indexer.start(
       () =>
-        PostgresIndexer
+        JdbcIndexer
           .create(actorSystem, readService, jdbcUrl)
           .flatMap(_.subscribe(readService))(DEC))
 
