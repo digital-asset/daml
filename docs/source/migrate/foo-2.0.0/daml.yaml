@@ -1,6 +1,6 @@
 sdk-version: 0.0.0
 name: foo
-source: daml/Foo.daml
+source: daml
 parties:
   - Alice
   - Bob
