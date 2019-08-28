@@ -61,21 +61,25 @@ object JsonProtocol extends DefaultJsonProtocol {
   implicit def TemplateIdFormat[A: JsonFormat]: RootJsonFormat[domain.TemplateId[A]] =
     jsonFormat3(domain.TemplateId.apply[A])
 
+  private[this] def decodeContractRef(
+      fields: Map[String, JsValue],
+      what: String): domain.InputContractRef[JsValue] =
+    (fields get "templateId", fields get "key", fields get "contractId") match {
+      case (Some(templateId), Some(key), None) =>
+        -\/((templateId.convertTo[domain.TemplateId.OptionalPkg], key))
+      case (otid, None, Some(contractId)) =>
+        \/-((otid map (_.convertTo[domain.TemplateId.OptionalPkg]), contractId.convertTo[String]))
+      case (None, Some(_), None) =>
+        deserializationError(s"$what requires key to be accompanied by a templateId")
+      case (_, None, None) | (_, Some(_), Some(_)) =>
+        deserializationError(s"$what requires exactly one of a key or contractId")
+    }
+
   implicit val ContractLookupRequestFormat
     : RootJsonReader[domain.ContractLookupRequest[JsValue]] = {
     case JsObject(fields) =>
       val ledgerId = fields get "ledgerId" map (_.convertTo[String])
-      val id = (fields get "templateId", fields get "key", fields get "contractId") match {
-        case (Some(templateId), Some(key), None) =>
-          -\/((templateId.convertTo[domain.TemplateId.OptionalPkg], key))
-        case (otid, None, Some(contractId)) =>
-          \/-((otid map (_.convertTo[domain.TemplateId.OptionalPkg]), contractId.convertTo[String]))
-        case (None, Some(_), None) =>
-          deserializationError(
-            "ContractLookupRequest requires key to be accompanied by a templateId")
-        case (_, None, None) | (_, Some(_), Some(_)) =>
-          deserializationError("ContractLookupRequest requires exactly one of a key or contractId")
-      }
+      val id = decodeContractRef(fields, "ContractLookupRequest")
       domain.ContractLookupRequest(ledgerId, id)
     case _ => deserializationError("ContractLookupRequest must be an object")
   }

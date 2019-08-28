@@ -28,6 +28,9 @@ object domain {
 
   case class TemplateId[+PkgId](packageId: PkgId, moduleName: String, entityName: String)
 
+  type InputContractRef[+LfV] =
+    (TemplateId.OptionalPkg, LfV) \/ (Option[TemplateId.OptionalPkg], String)
+
   case class ActiveContract[+LfV](
       contractId: String,
       templateId: TemplateId.RequiredPkg,
@@ -36,9 +39,7 @@ object domain {
       witnessParties: Seq[String],
       agreementText: String)
 
-  case class ContractLookupRequest[+LfV](
-      ledgerId: Option[String],
-      id: (TemplateId.OptionalPkg, LfV) \/ (Option[TemplateId.OptionalPkg], String))
+  case class ContractLookupRequest[+LfV](ledgerId: Option[String], id: InputContractRef[LfV])
 
   case class GetActiveContractsRequest(templateIds: Set[TemplateId.OptionalPkg])
 
