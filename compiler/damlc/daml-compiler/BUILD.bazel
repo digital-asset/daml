@@ -28,6 +28,7 @@ da_haskell_library(
         "text",
         "time",
         "transformers",
+        "utf8-string",
         "zip",
     ],
     src_strip_prefix = "src",
