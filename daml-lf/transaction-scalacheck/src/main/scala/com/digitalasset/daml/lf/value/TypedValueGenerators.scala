@@ -65,8 +65,8 @@ object TypedValueGenerators {
     val bool = noCid(PT.Bool, ValueBool) { case ValueBool(b) => b }
     val party = noCid(PT.Party, ValueParty) { case ValueParty(p) => p }
 
-    def numeric(scale: Int) = new ValueAddend {
-      override type Inj[Cid] = Numeric
+    def numeric(scale: Int): NoCid[Numeric] = new ValueAddend {
+      type Inj[Cid] = Numeric
 
       override def t: Type = TypeNumeric(scale)
 
@@ -77,10 +77,10 @@ object TypedValueGenerators {
         case _ => None
       }
 
-      override implicit def injarb[Cid: Arbitrary]: Arbitrary[Numeric] =
+      override def injarb[Cid: Arbitrary]: Arbitrary[Numeric] =
         Arbitrary(ValueGenerators.numGen(scale))
 
-      override implicit def injshrink[Cid: Shrink]: Shrink[Numeric] =
+      override def injshrink[Cid: Shrink]: Shrink[Numeric] =
         implicitly
 
     }
@@ -182,7 +182,7 @@ object TypedValueGenerators {
     Gen.frequency(
       ((sz max 1) * ValueAddend.leafInstances.length, Gen.oneOf(ValueAddend.leafInstances)),
       (sz max 1, Gen.const(ValueAddend.contractId)),
-      (nestSize, Gen.choose(0, Numeric.maxPrecision).map(ValueAddend.numeric)),
+      (sz max 1, Gen.choose(0, Numeric.maxPrecision).map(ValueAddend.numeric)),
       (nestSize, self.map(ValueAddend.list(_))),
       (nestSize, self.map(ValueAddend.optional(_))),
       (nestSize, self.map(ValueAddend.map(_))),
