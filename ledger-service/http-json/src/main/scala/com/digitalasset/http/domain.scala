@@ -180,7 +180,10 @@ object domain {
       argument: LfV,
       meta: Option[CommandMeta])
 
-  trait HasTemplateId[F[_]] {
+  trait TraverseWithRefId[F[_]] {
+    def traverseWithRefId[G[_]: Applicative, A, B](fa: F[A])(
+        resolve: TemplateId.OptionalPkg => G[TemplateId.RequiredPkg])(
+        f: (Ref.Identifier, A) => G[B]): G[F[B]]
     def templateId(fa: F[_]): TemplateId.OptionalPkg
     def lfIdentifier(fa: F[_], templateId: TemplateId.RequiredPkg): lf.data.Ref.Identifier
   }
