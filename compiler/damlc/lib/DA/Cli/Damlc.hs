@@ -159,10 +159,9 @@ runTestsInProjectOrFiles projectOpts Nothing color mbJUnitOutput cliOptions =
         case parseProjectConfig project of
             Left err -> throwIO err
             Right PackageConfigFields {..} -> do
-              isFile <- doesFileExist pSrc
-              let srcDir = if isFile then takeDirectory pSrc else pSrc
-              files <- filter (".daml" `isExtensionOf`) <$> listFilesRecursive srcDir
-              execTest (map toNormalizedFilePath files) color mbJUnitOutput cliOptions
+              srcRoot <- getSrcRoot pSrc
+              files <- getDamlFiles srcRoot
+              execTest files color mbJUnitOutput cliOptions
 runTestsInProjectOrFiles projectOpts (Just inFiles) color mbJUnitOutput cliOptions =
     withProjectRoot' projectOpts $ \relativize -> do
         inFiles' <- mapM (fmap toNormalizedFilePath . relativize) inFiles

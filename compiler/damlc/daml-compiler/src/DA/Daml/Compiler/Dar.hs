@@ -6,6 +6,8 @@ module DA.Daml.Compiler.Dar
     , breakAt72Bytes
     , PackageConfigFields(..)
     , pkgNameVersion
+    , getSrcRoot
+    , getDamlFiles
     ) where
 
 import qualified "zip" Codec.Archive.Zip as Zip
@@ -93,10 +95,8 @@ buildDar service pkgConf@PackageConfigFields {..} ifDir dalfInput = do
             pure $ Just $ createArchive pkgConf "" bytes [] (toNormalizedFilePath ".") [] [] []
         else runAction service $
              runMaybeT $ do
-                 srcRoot <- liftIO $ getSrcRoot
-                 files <-
-                     fmap (map toNormalizedFilePath . filter (".daml" `isExtensionOf`)) $
-                     liftIO $ listFilesRecursive $ fromNormalizedFilePath srcRoot
+                 srcRoot <- liftIO $ getSrcRoot pSrc
+                 files <- liftIO $ getDamlFiles srcRoot
                  pkgs <- usesE GeneratePackage files
                  let pkg = mergePkgs pkgs
                  let pkgModuleNames = map T.unpack $ LF.packageModuleNames pkg
@@ -128,11 +128,15 @@ buildDar service pkgConf@PackageConfigFields {..} ifDir dalfInput = do
                          files
                          dataFiles
                          ifaces
-  where
-    getSrcRoot = do
-      isFile <- doesFileExist pSrc
-      pure $ toNormalizedFilePath $ if isFile then takeDirectory pSrc else pSrc
 
+-- For backwards compatibility we allow a file at the source root level and just take it's directory
+-- to be the source root.
+getSrcRoot :: FilePath -> IO NormalizedFilePath
+getSrcRoot fileOrDir = do
+  isFile <- doesFileExist fileOrDir
+  pure $ toNormalizedFilePath $ if isFile then takeDirectory fileOrDir else fileOrDir
+
+-- | Merge several packages into one.
 mergePkgs :: [WhnfPackage] -> LF.Package
 mergePkgs [] = error "No package build when building dar"
 mergePkgs (WhnfPackage pkg0:pkgs) =
@@ -144,6 +148,12 @@ mergePkgs (WhnfPackage pkg0:pkgs) =
                  })
         pkg0
         pkgs
+
+-- | Find all DAML files below a given source root.
+getDamlFiles :: NormalizedFilePath -> IO [NormalizedFilePath]
+getDamlFiles srcRoot = do
+    fs <- listFilesRecursive $ fromNormalizedFilePath srcRoot
+    pure $ map toNormalizedFilePath $ filter (".daml" `isExtensionOf`) fs
 
 fullPkgName :: String -> String -> String -> String
 fullPkgName n v h = intercalate "-" [n, v, h]
