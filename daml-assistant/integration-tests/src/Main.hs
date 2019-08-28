@@ -201,7 +201,7 @@ packagingTests tmpDir = testGroup "packaging"
           [ "sdk-version: " <> sdkVersion
           , "name: proj"
           , "version: \"1.0\""
-          , "source: A.daml"
+          , "source: ."
           , "exposed-modules: [A]"
           , "dependencies:"
           , "  - daml-prim"
