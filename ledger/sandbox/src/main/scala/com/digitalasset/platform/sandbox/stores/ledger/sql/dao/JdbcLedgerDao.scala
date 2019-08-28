@@ -1062,7 +1062,7 @@ private class JdbcLedgerDao(
                     "package" -> p._1.toByteArray
                 )
               )
-          val updated = executeBatchSql(dbType.SQL_INSERT_PACKAGE, params).map(math.max(0, _)).sum
+            val updated = executeBatchSql(dbType.SQL_INSERT_PACKAGE, params).map(math.max(0, _)).sum
             val duplicates = packages.length - updated
 
             Map(
