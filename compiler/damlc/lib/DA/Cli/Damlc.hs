@@ -43,8 +43,9 @@ import DA.Daml.Project.Types (ConfigError, ProjectPath(..))
 import qualified Da.DamlLf as PLF
 import qualified Data.Aeson.Encode.Pretty as Aeson.Pretty
 import qualified Data.ByteString as B
-import qualified Data.ByteString.Char8 as BSC
 import qualified Data.ByteString.Lazy as BSL
+import qualified Data.ByteString.Lazy.Char8 as BSC
+import qualified Data.ByteString.Lazy.UTF8 as BSLUTF8
 import Data.FileEmbed (embedFile)
 import Data.Graph
 import qualified Data.Set as Set
@@ -818,15 +819,14 @@ execMergeDars darFp1 darFp2 mbOutFp = do
                     ]
         m1 <- getEntry mfPath dar1
         let m' = do
-                l <- lines $ BSC.unpack $ BSL.toStrict $ ZipArchive.fromEntry m1
-                pure $
-                    maybe
-                        l
-                        (const $
-                         breakAt72Chars $
-                         "Dalfs: " <> intercalate ", " dalfNames)
-                        (stripPrefix "Dalfs:" l)
-        pure $ ZipArchive.toEntry mfPath 0 $ BSL.fromStrict $ BSC.pack $ unlines m'
+                l <- BSC.lines $ ZipArchive.fromEntry m1
+                -- TODO This should use the proper manifest reader.
+                -- At the moment this relies on the fact that the input manifest
+                -- does not have Dalfs: entries that are split over multiple lines.
+                pure $ case BSL.stripPrefix "Dalfs:" l of
+                    Nothing -> l
+                    Just _ -> breakAt72Bytes $ "Dalfs: " <> BSC.intercalate ", " (map BSLUTF8.fromString dalfNames)
+        pure $ ZipArchive.toEntry mfPath 0 $ BSC.unlines m'
 
 execDocTest :: Options -> [FilePath] -> IO ()
 execDocTest opts files = do

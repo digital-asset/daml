@@ -3,7 +3,7 @@
 module DA.Daml.Compiler.Dar
     ( buildDar
     , FromDalf(..)
-    , breakAt72Chars
+    , breakAt72Bytes
     , PackageConfigFields(..)
     , pkgNameVersion
     ) where
@@ -18,6 +18,7 @@ import DA.Daml.Options.Types
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.Lazy.Char8 as BSC
+import qualified Data.ByteString.Lazy.UTF8 as BSLUTF8
 import Data.Conduit.Combinators (sourceFile, sourceLazy)
 import Data.List.Extra
 import qualified Data.Map.Strict as Map
@@ -213,14 +214,13 @@ createArchive PackageConfigFields {..} pkgId dalf dalfDependencies srcRoot fileD
     pkgName = fullPkgName pName pVersion pkgId
     manifestHeader :: FilePath -> [String] -> BSL.ByteString
     manifestHeader location dalfs =
-        BSC.pack $
-        unlines
+        BSC.unlines $
+        map (breakAt72Bytes . BSLUTF8.fromString)
             [ "Manifest-Version: 1.0"
-            , "Created-By: Digital Asset packager (DAML-GHC)"
+            , "Created-By: damlc"
             , "Sdk-Version: " <> pSdkVersion
-            , breakAt72Chars $ "Main-Dalf: " <> toPosixFilePath location
-            , breakAt72Chars $
-              "Dalfs: " <> intercalate ", " (map toPosixFilePath dalfs)
+            , "Main-Dalf: " <> toPosixFilePath location
+            , "Dalfs: " <> intercalate ", " (map toPosixFilePath dalfs)
             , "Format: daml-lf"
             , "Encryption: non-encrypted"
             ]
@@ -231,11 +231,13 @@ createArchive PackageConfigFields {..} pkgId dalf dalfDependencies srcRoot fileD
 
 -- | Break lines at 72 characters and indent following lines by one space. As of MANIFEST.md
 -- specification.
-breakAt72Chars :: String -> String
-breakAt72Chars s =
-    case splitAt 72 s of
-        (s0, []) -> s0
-        (s0, rest) -> s0 ++ "\n" ++ breakAt72Chars (" " ++ rest)
+breakAt72Bytes :: BSL.ByteString -> BSL.ByteString
+breakAt72Bytes s =
+    -- We break at 71 to give us one byte for \n (BSC.unlines will always use \n, never \r\n).
+    case BSL.splitAt 71 s of
+        (s0, rest)
+            | BSL.null rest -> s0
+            | otherwise -> s0 <> "\n" <> breakAt72Bytes (BSC.cons ' ' rest)
 
 -- | Like `makeRelative` but also takes care of normalising filepaths so
 --
