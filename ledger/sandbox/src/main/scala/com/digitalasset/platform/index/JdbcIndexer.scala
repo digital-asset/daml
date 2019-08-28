@@ -49,8 +49,10 @@ object JdbcIndexer {
   private val logger = LoggerFactory.getLogger(classOf[JdbcIndexer])
   private[index] val asyncTolerance = 30.seconds
 
-  def create(readService: ReadService, jdbcUrl: String): Future[JdbcIndexer] = {
-    val actorSystem = ActorSystem("postgres-indexer")
+  def create(
+      actorSystem: ActorSystem,
+      readService: ReadService,
+      jdbcUrl: String): Future[JdbcIndexer] = {
     val materializer: ActorMaterializer = ActorMaterializer()(actorSystem)
     val metricsManager = MetricsManager(false)
 

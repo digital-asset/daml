@@ -19,8 +19,11 @@ object StandaloneIndexerServer {
     val indexer =
       RecoveringIndexer(actorSystem.scheduler, 10.seconds, JdbcIndexer.asyncTolerance)
 
-    indexer.start(() =>
-      PostgresIndexer.create(readService, jdbcUrl).flatMap(_.subscribe(readService))(DEC))
+    indexer.start(
+      () =>
+        PostgresIndexer
+          .create(actorSystem, readService, jdbcUrl)
+          .flatMap(_.subscribe(readService))(DEC))
 
     indexer
   }
