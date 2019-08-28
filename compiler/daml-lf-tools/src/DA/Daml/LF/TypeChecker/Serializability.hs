@@ -53,9 +53,14 @@ serializabilityConditionsType world0 _version mbModNameTpls vars = go
       TList typ -> go typ
       TOptional typ -> go typ
       TMap typ -> go typ
-      TNumeric n -> go n
-        -- TODO (#2289): decide if n should be forced to be a static nat
-        -- literal within LF's bounds for the numeric type (0 <= n <= 38).
+      TNumeric (TNat n)
+          | n <= 38 -> noConditions
+          | otherwise -> Left (URNumericOutOfRange n)
+      TNumeric _ -> Left URNumericNotFixed
+          -- We statically enforce bounds check for Numeric type,
+          -- requiring 0 <= n <= 38 for the argument to Numeric.
+          -- If the argument isn't given explicitly, we can't
+          -- guarantee serializability.
       TNat _ -> noConditions
       TVar v
         | v `HS.member` vars -> noConditions
