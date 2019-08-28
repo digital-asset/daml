@@ -21,7 +21,7 @@ import com.digitalasset.platform.sandbox.stores.ledger.{
 
 import scala.concurrent.Future
 
-object PostgresIndex {
+object JdbcIndex {
   def apply(
       readService: ReadService,
       ledgerId: LedgerId,
@@ -30,7 +30,7 @@ object PostgresIndex {
       implicit mat: Materializer,
       mm: MetricsManager): Future[IndexService with AutoCloseable] =
     Ledger
-      .postgresReadOnly(jdbcUrl, ledgerId)
+      .jdbcBackedReadOnly(jdbcUrl, ledgerId)
       .map { ledger =>
         val contractStore = new SandboxContractStore(ledger)
         new LedgerBackedIndexService(MeteredReadOnlyLedger(ledger), contractStore, participantId) {

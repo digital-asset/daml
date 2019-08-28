@@ -70,13 +70,14 @@ class PostgresDaoSpec
 
   override def beforeAll(): Unit = {
     super.beforeAll()
-    dbDispatcher = DbDispatcher(postgresFixture.jdbcUrl, 4, 4)
-    ledgerDao = PostgresLedgerDao(
+    dbDispatcher = DbDispatcher(postgresFixture.jdbcUrl, JdbcLedgerDao.Postgres, 4, 4)
+    ledgerDao = JdbcLedgerDao(
       dbDispatcher,
       ContractSerializer,
       TransactionSerializer,
       ValueSerializer,
-      KeyHasher)
+      KeyHasher,
+      JdbcLedgerDao.Postgres)
     Await.result(ledgerDao.initializeLedger(LedgerId("test-ledger"), 0), 10.seconds)
   }
 

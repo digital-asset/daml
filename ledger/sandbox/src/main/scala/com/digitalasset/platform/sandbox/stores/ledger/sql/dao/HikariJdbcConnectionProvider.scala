@@ -27,6 +27,7 @@ trait JdbcConnectionProvider extends AutoCloseable {
 
 class HikariJdbcConnectionProvider(
     jdbcUrl: String,
+    dbType: JdbcLedgerDao.DbType,
     noOfShortLivedConnections: Int,
     noOfStreamingConnections: Int)
     extends JdbcConnectionProvider {
@@ -60,7 +61,7 @@ class HikariJdbcConnectionProvider(
     new HikariDataSource(config)
   }
 
-  private val flyway = FlywayMigrations(shortLivedDataSource)
+  private val flyway = FlywayMigrations(shortLivedDataSource, dbType)
   flyway.migrate()
 
   override def runSQL[T](block: Connection => T): T = {
@@ -95,7 +96,12 @@ class HikariJdbcConnectionProvider(
 object HikariJdbcConnectionProvider {
   def apply(
       jdbcUrl: String,
+      dbType: JdbcLedgerDao.DbType,
       noOfShortLivedConnections: Int,
       noOfStreamingConnections: Int): JdbcConnectionProvider =
-    new HikariJdbcConnectionProvider(jdbcUrl, noOfShortLivedConnections, noOfStreamingConnections)
+    new HikariJdbcConnectionProvider(
+      jdbcUrl,
+      dbType,
+      noOfShortLivedConnections,
+      noOfStreamingConnections)
 }

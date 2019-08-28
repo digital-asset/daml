@@ -45,12 +45,13 @@ import scala.concurrent.Future
 import scala.util.Try
 import scala.util.control.NonFatal
 
-private class PostgresLedgerDao(
+private class JdbcLedgerDao(
     dbDispatcher: DbDispatcher,
     contractSerializer: ContractSerializer,
     transactionSerializer: TransactionSerializer,
     valueSerializer: ValueSerializer,
-    keyHasher: KeyHasher)
+    keyHasher: KeyHasher,
+    dbType: JdbcLedgerDao.DbType)
     extends LedgerDao {
 
   private val logger = LoggerFactory.getLogger(getClass)
@@ -177,7 +178,7 @@ private class PostgresLedgerDao(
   private def storeContracts(offset: Long, contracts: immutable.Seq[Contract])(
       implicit connection: Connection): Unit = {
 
-    // A ACS contract contaixns several collections (e.g., witnesses or divulgences).
+    // An ACS contract contains several collections (e.g., witnesses or divulgences).
     // The contract is therefore stored in several SQL tables.
 
     // Part 1: insert the contract data into the 'contracts' table
@@ -253,7 +254,7 @@ private class PostgresLedgerDao(
 
         if (!namedDivulgenceParams.isEmpty) {
           executeBatchSql(
-            SQL_BATCH_INSERT_DIVULGENCES_FROM_TRANSACTION_ID,
+            dbType.SQL_BATCH_INSERT_DIVULGENCES_FROM_TRANSACTION_ID,
             namedDivulgenceParams
           )
         }
@@ -274,7 +275,7 @@ private class PostgresLedgerDao(
 
         if (!namedDivulgenceParams.isEmpty) {
           executeBatchSql(
-            SQL_BATCH_INSERT_DIVULGENCES,
+            dbType.SQL_BATCH_INSERT_DIVULGENCES,
             namedDivulgenceParams
           )
         }
@@ -323,35 +324,9 @@ private class PostgresLedgerDao(
   private val SQL_BATCH_INSERT_DISCLOSURES =
     "insert into disclosures(transaction_id, event_id, party) values({transaction_id}, {event_id}, {party})"
 
-  // Note: the SQL backend may receive divulgence information for the same (contract, party) tuple
-  // more than once through BlindingInfo.globalImplicitDisclosure.
-  // The ledger offsets for the same (contract, party) tuple should always be increasing, and the database
-  // stores the offset at which the contract was first disclosed.
-  // We therefore don't need to update anything if there is already some data for the given (contract, party) tuple.
-  private val SQL_BATCH_INSERT_DIVULGENCES =
-    """insert into contract_divulgences(contract_id, party, ledger_offset, transaction_id)
-      |values({contract_id}, {party}, {ledger_offset}, {transaction_id})
-      |on conflict on constraint contract_divulgences_idx
-      |do nothing""".stripMargin
-
-  private val SQL_BATCH_INSERT_DIVULGENCES_FROM_TRANSACTION_ID =
-    """insert into contract_divulgences(contract_id, party, ledger_offset, transaction_id)
-      |select {contract_id}, {party}, ledger_offset, {transaction_id}
-      |from ledger_entries
-      |where transaction_id={transaction_id}
-      |on conflict on constraint contract_divulgences_idx
-      |do nothing""".stripMargin
-
   private val SQL_INSERT_CHECKPOINT =
     SQL(
       "insert into ledger_entries(typ, ledger_offset, recorded_at) values('checkpoint', {ledger_offset}, {recorded_at})")
-
-  private val SQL_IMPLICITLY_INSERT_PARTIES =
-    """insert into parties(party, explicit, ledger_offset)
-        |values({name}, {explicit}, {ledger_offset})
-        |on conflict (party)
-        |do nothing
-        |""".stripMargin
 
   /**
     * Updates the active contract set from the given DAML transaction.
@@ -405,7 +380,7 @@ private class PostgresLedgerDao(
                 "explicit" -> false
             ))
           if (partyParams.nonEmpty) {
-            executeBatchSql(SQL_IMPLICITLY_INSERT_PARTIES, partyParams)
+            executeBatchSql(dbType.SQL_IMPLICITLY_INSERT_PARTIES, partyParams)
           }
           this
         }
@@ -429,7 +404,7 @@ private class PostgresLedgerDao(
           // Do we need here the equivalent to 'contracts.intersectWith(global)', used in the in-memory
           // implementation of implicitlyDisclose?
           if (divulgenceParams.nonEmpty) {
-            executeBatchSql(SQL_BATCH_INSERT_DIVULGENCES, divulgenceParams)
+            executeBatchSql(dbType.SQL_BATCH_INSERT_DIVULGENCES, divulgenceParams)
           }
           this
         }
@@ -564,7 +539,7 @@ private class PostgresLedgerDao(
                 }
               } getOrElse Ok
           }.recover {
-            case NonFatal(e) if (e.getMessage.contains("duplicate key")) =>
+            case NonFatal(e) if e.getMessage.contains(dbType.DUPLICATE_KEY_ERROR) =>
               logger.warn(
                 "Ignoring duplicate submission for applicationId {}, commandId {}",
                 tx.applicationId: Any,
@@ -1002,20 +977,13 @@ private class PostgresLedgerDao(
           .execute()
         PersistenceResponse.Ok
       }.recover {
-        case NonFatal(e) if e.getMessage.contains("duplicate key") =>
+        case NonFatal(e) if e.getMessage.contains(dbType.DUPLICATE_KEY_ERROR) =>
           logger.warn("Party with ID {} already exists", party)
           conn.rollback()
           PersistenceResponse.Duplicate
       }.get
     }
   }
-
-  private val SQL_INSERT_PACKAGE =
-    """insert into packages(package_id, upload_id, source_description, size, known_since, ledger_offset, package)
-          |select {package_id}, {upload_id}, {source_description}, {size}, {known_since}, ledger_end, {package}
-          |from parameters
-          |on conflict (package_id) do nothing
-          |""".stripMargin
 
   private val SQL_SELECT_PACKAGES =
     SQL("""select package_id, source_description, known_since, size
@@ -1088,7 +1056,7 @@ private class PostgresLedgerDao(
                   "package" -> p._1.toByteArray
               )
             )
-          val updated = executeBatchSql(SQL_INSERT_PACKAGE, params).map(math.max(0, _)).sum
+          val updated = executeBatchSql(dbType.SQL_INSERT_PACKAGE, params).map(math.max(0, _)).sum
           val duplicates = packages.length - updated
 
           Map(
@@ -1127,17 +1095,112 @@ private class PostgresLedgerDao(
 
 }
 
-object PostgresLedgerDao {
+object JdbcLedgerDao {
   def apply(
       dbDispatcher: DbDispatcher,
       contractSerializer: ContractSerializer,
       transactionSerializer: TransactionSerializer,
       valueSerializer: ValueSerializer,
-      keyHasher: KeyHasher): LedgerDao =
-    new PostgresLedgerDao(
+      keyHasher: KeyHasher,
+      dbType: JdbcLedgerDao.DbType): LedgerDao =
+    new JdbcLedgerDao(
       dbDispatcher,
       contractSerializer,
       transactionSerializer,
       valueSerializer,
-      keyHasher)
+      keyHasher,
+      dbType)
+
+  sealed trait DbType {
+
+    def name: String
+
+    val supportsParallelLedgerAppend: Boolean = true
+
+    // SQL statements using the proprietary Postgres on conflict .. do nothing clause
+    protected[JdbcLedgerDao] def SQL_INSERT_PACKAGE: String
+    protected[JdbcLedgerDao] def SQL_IMPLICITLY_INSERT_PARTIES: String
+
+    // Note: the SQL backend may receive divulgence information for the same (contract, party) tuple
+    // more than once through BlindingInfo.globalImplicitDisclosure.
+    // The ledger offsets for the same (contract, party) tuple should always be increasing, and the database
+    // stores the offset at which the contract was first disclosed.
+    // We therefore don't need to update anything if there is already some data for the given (contract, party) tuple.
+    protected[JdbcLedgerDao] def SQL_BATCH_INSERT_DIVULGENCES: String
+    protected[JdbcLedgerDao] def SQL_BATCH_INSERT_DIVULGENCES_FROM_TRANSACTION_ID: String
+
+    protected[JdbcLedgerDao] def DUPLICATE_KEY_ERROR
+      : String // TODO: Avoid brittleness of error message checks
+  }
+
+  object Postgres extends DbType {
+
+    override val name: String = "postgres"
+
+    override protected[JdbcLedgerDao] val SQL_INSERT_PACKAGE: String =
+      """insert into packages(package_id, upload_id, source_description, size, known_since, ledger_offset, package)
+        |select {package_id}, {upload_id}, {source_description}, {size}, {known_since}, ledger_end, {package}
+        |from parameters
+        |on conflict (package_id) do nothing""".stripMargin
+
+    override protected[JdbcLedgerDao] val SQL_IMPLICITLY_INSERT_PARTIES: String =
+      """insert into parties(party, explicit, ledger_offset)
+        |values({name}, {explicit}, {ledger_offset})
+        |on conflict (party) do nothing""".stripMargin
+
+    override protected[JdbcLedgerDao] val SQL_BATCH_INSERT_DIVULGENCES: String =
+      """insert into contract_divulgences(contract_id, party, ledger_offset, transaction_id)
+        |values({contract_id}, {party}, {ledger_offset}, {transaction_id})
+        |on conflict on constraint contract_divulgences_idx do nothing""".stripMargin
+
+    override protected[JdbcLedgerDao] val SQL_BATCH_INSERT_DIVULGENCES_FROM_TRANSACTION_ID: String =
+      """insert into contract_divulgences(contract_id, party, ledger_offset, transaction_id)
+        |select {contract_id}, {party}, ledger_offset, {transaction_id}
+        |from ledger_entries
+        |where transaction_id={transaction_id}
+        |on conflict on constraint contract_divulgences_idx do nothing""".stripMargin
+
+    override protected[JdbcLedgerDao] val DUPLICATE_KEY_ERROR: String = "duplicate key"
+  }
+
+  object H2Database extends DbType {
+
+    override val name: String = "h2database"
+
+    // H2 does not support concurrent, conditional updates to the ledger_end at read committed isolation
+    // level: "It is possible that a transaction from one connection overtakes a transaction from a different
+    // connection. Depending on the operations, this might result in different results, for example when conditionally
+    // incrementing a value in a row." - from http://www.h2database.com/html/advanced.html
+    override val supportsParallelLedgerAppend: Boolean = false
+
+    override protected[JdbcLedgerDao] val SQL_INSERT_PACKAGE: String =
+      """merge into packages using dual on package_id = {package_id}
+        |when not matched then insert (package_id, upload_id, source_description, size, known_since, ledger_offset, package)
+        |select {package_id}, {upload_id}, {source_description}, {size}, {known_since}, ledger_end, {package}
+        |from parameters""".stripMargin
+
+    override protected[JdbcLedgerDao] val SQL_IMPLICITLY_INSERT_PARTIES: String =
+      """merge into parties using dual on party = {name}
+        |when not matched then insert (party, explicit, ledger_offset) values ({name}, {explicit}, {ledger_offset})""".stripMargin
+
+    override protected[JdbcLedgerDao] val SQL_BATCH_INSERT_DIVULGENCES: String =
+      """merge into contract_divulgences using dual on contract_id = {contract_id} and party = {party}
+        |when not matched then insert (contract_id, party, ledger_offset, transaction_id)
+        |values ({contract_id}, {party}, {ledger_offset}, {transaction_id})""".stripMargin
+
+    override protected[JdbcLedgerDao] val SQL_BATCH_INSERT_DIVULGENCES_FROM_TRANSACTION_ID: String =
+      """merge into contract_divulgences using dual on contract_id = {contract_id} and party = {party}
+        |when not matched then insert (contract_id, party, ledger_offset, transaction_id)
+        |select {contract_id}, {party}, ledger_offset, {transaction_id}
+        |from ledger_entries
+        |where transaction_id={transaction_id}""".stripMargin
+
+    override protected[JdbcLedgerDao] val DUPLICATE_KEY_ERROR: String =
+      "Unique index or primary key violation"
+  }
+
+  def jdbcType(jdbcUrl: String): DbType = jdbcUrl match {
+    case h2 if h2.startsWith("jdbc:h2:") => H2Database
+    case _ => Postgres
+  }
 }
