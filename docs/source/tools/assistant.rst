@@ -106,7 +106,7 @@ Here is what each field means:
 
    The assistant will warn you when it is time to update this setting (see the ``update-check`` setting in the global config  to control how often it checks, or to disable this check entirely).
 - ``name``: the name of the project. This determines the filename of the ``.dar`` file compiled by ``daml build``.
-- ``source``: the location of your DAML source code files.
+- ``source``: the root folder of your DAML source code files relative to the project root.
 - ``scenario``: the name of the scenario to run when using ``daml start``.
 - ``parties``: the parties to display in the Navigator when using ``daml start``.
 - ``version``: the project version.
