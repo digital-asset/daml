@@ -40,7 +40,7 @@ message Value {
     sint64 int64 = 5 [jstype = JS_STRING];
 
     // A decimal value with precision 38 (38 decimal digits) and scale
-    // between 0 and 38. The field have to match the following regexp
+    // between 0 and 38. The field has to match the regexp
     //   [+-]?\d+(.\d*)?
     string numeric = 6;
 
