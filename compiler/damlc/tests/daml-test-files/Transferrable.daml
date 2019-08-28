@@ -10,11 +10,11 @@ class (Template t, Eq t, HasField "issuer" t Party, HasField "owner" t Party) =>
 
 template (Asset t, Template (TransferProposal t)) => Transferrable t
   with
-    transferrableAsset: t
+    asset: t
   where
-    let owner = transferrableAsset.owner
+    let owner = asset.owner
 
-    signatory transferrableAsset.issuer, owner
+    signatory asset.issuer, owner
 
     controller owner can
       ProposeTransfer: ContractId (TransferProposal t)
@@ -28,7 +28,7 @@ template (Asset t, Template (Transferrable t)) => TransferProposal t
     assetToTransfer: Transferrable t
     newOwner: Party
   where
-    let owner = assetToTransfer.transferrableAsset.owner
+    let owner = assetToTransfer.asset.owner
     signatory owner
 
     controller owner can
@@ -41,7 +41,7 @@ template (Asset t, Template (Transferrable t)) => TransferProposal t
 
       AcceptTransfer: ContractId (Transferrable t)
         do create assetToTransfer with
-            transferrableAsset = assetToTransfer.transferrableAsset with owner = newOwner
+            asset = assetToTransfer.asset with owner = newOwner
 
 template Cash
   with

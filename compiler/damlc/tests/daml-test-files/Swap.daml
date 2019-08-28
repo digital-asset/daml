@@ -6,11 +6,11 @@ module Swap where
 import Transferrable
 
 template (Asset t, Template (SwapProposal t)) => Swappable t with
-    swappableAsset: t
+    asset: t
   where
-    let owner = swappableAsset.owner
+    let owner = asset.owner
 
-    signatory swappableAsset.issuer, owner
+    signatory asset.issuer, owner
 
     controller owner can
       ProposeSwap: ContractId (SwapProposal t)
@@ -26,8 +26,8 @@ template (Asset t, Template (TransferProposal t), Template (Swappable t)) => Swa
     assetInReturn: Swappable t
     assetInReturnCid: ContractId (Swappable t)
   where
-    let ownerOffering = assetOffered.swappableAsset.owner
-        ownerReturning = assetInReturn.swappableAsset.owner
+    let ownerOffering = assetOffered.asset.owner
+        ownerReturning = assetInReturn.asset.owner
     signatory ownerOffering
 
     controller ownerOffering can
@@ -40,13 +40,13 @@ template (Asset t, Template (TransferProposal t), Template (Swappable t)) => Swa
 
       AcceptSwap: (ContractId (TransferProposal t), ContractId (TransferProposal t))
         do proposeesNewCid <- create TransferProposal with
-            assetToTransfer = Transferrable with transferrableAsset = assetOffered.swappableAsset
+            assetToTransfer = Transferrable with transferrableAsset = assetOffered.asset
             newOwner = ownerReturning
            actualAssetInReturn <- fetch assetInReturnCid
            assert $ actualAssetInReturn == assetInReturn
            archive assetInReturnCid
            proposersNewCid <- create TransferProposal with
-            assetToTransfer = Transferrable with transferrableAsset = assetInReturn.swappableAsset
+            assetToTransfer = Transferrable with transferrableAsset = assetInReturn.asset
             newOwner = ownerOffering
            return (proposersNewCid, proposeesNewCid)
 
