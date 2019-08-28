@@ -236,31 +236,6 @@ abstract class NumericModule {
   final def assertFromUnscaledBigDecimal(x: BigDec): Numeric =
     assertRight(fromUnscaledBigDecimal(x))
 
-  private val validUnscaledFormat =
-    """[+-]?\d+(\.\d+)?""".r.pattern
-
-  /**
-    * Given a string representation of a numeric returns the Numeric with the smallest possible
-    * scale.
-    * If the input does not match
-    *   `[+-]?\d+(\.\d+)?`
-    * or if the result of the conversion cannot be mapped into a numeric without loss of precision
-    * returns an error message instead.
-    */
-  final def fromUnscaledString(s: String): Either[String, Numeric] = {
-    if (validUnscaledFormat.matcher(s).matches())
-      fromUnscaledBigDecimal(new BigDecimal(s))
-    else
-      Left(s"""Could not read unscaled Numeric string "$s"""")
-  }
-
-  /**
-    * Like fromUnscaledBigDecimal, but throws an exception instead of returning a message in case of error.
-    */
-  @throws[IllegalArgumentException]
-  final def assertFromUnscaledString(s: String): Numeric =
-    assertRight(fromUnscaledString(s))
-
   final def toUnscaledString(x: Numeric): String = {
     // Strip the trailing zeros (which BigDecimal keeps if the string
     // it was created from had them), and use the plain notation rather
