@@ -15,7 +15,8 @@ module DA.Daml.LF.Ast.World(
     lookupDataType,
     lookupChoice,
     lookupValue,
-    lookupModule
+    lookupModule,
+    typeConFields
     ) where
 
 import DA.Pretty
@@ -31,6 +32,8 @@ import DA.Daml.LF.Ast.Base
 import DA.Daml.LF.Ast.Optics (moduleModuleRef)
 import DA.Daml.LF.Ast.Pretty ()
 import DA.Daml.LF.Ast.Version
+import DA.Daml.LF.Ast.Util
+import qualified Data.Text as T
 
 -- | The 'World' contains all imported packages together with (a subset of)
 -- the modules of the current package. The latter shall always be closed under
@@ -126,6 +129,22 @@ lookupChoice (tplRef, chName) world = do
   case NM.lookup chName (tplChoices tpl) of
     Nothing -> Left (LEChoice tplRef chName)
     Just choice -> Right choice
+
+labledField :: T.Text -> T.Text -> T.Text
+labledField fname "" = fname
+labledField fname label = fname <> "." <> label
+
+typeConFieldsNames :: World -> (FieldName, Type) -> [T.Text]
+typeConFieldsNames world (FieldName fName, TConApp tcn _) = map (labledField fName) (typeConFields tcn world)
+typeConFieldsNames _ (FieldName fName, _) = [fName]
+
+typeConFields :: Qualified TypeConName -> World -> [T.Text]
+typeConFields qName world = case lookupDataType qName world of
+  Right dataType -> case dataCons dataType of
+    DataRecord re -> concatMap (typeConFieldsNames world) re
+    DataVariant _ -> [""]
+    DataEnum _ -> [""]
+  Left _ -> error "malformed template constructor"
 
 instance Pretty LookupError where
   pPrint = \case
