@@ -292,15 +292,37 @@ object SBuiltin {
     }
   }
 
+  // The specification of FromTextNumeric is lenient about the format of the string it should
+  // accept and convert. In particular it should convert any string with an arbitrary number of
+  // leading and trailing '0's as long as the corresponding number fits a Numeric without loss of
+  // precision. We should take care not calling String to BigDecimal conversion on huge strings.
   final case object SBFromTextNumeric extends SBuiltin(2) {
+    private val validFormat =
+      """([+-]?)0*(\d+)(\.(\d*[1-9]|0)0*)?""".r
+
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       val scale = args.get(0).asInstanceOf[STNat].n
       val string = args.get(1).asInstanceOf[SText].value
-      val num = Numeric
-        .fromUnscaledString(string)
-        .flatMap(Numeric.fromBigDecimal(scale, _))
-        .fold(_ => None, x => Some(SNumeric(x)))
-      machine.ctrl = CtrlValue(SOptional(num))
+      val result = string match {
+        case validFormat(signPart, intPart, _, decPartOrNull) =>
+          val decPart = Option(decPartOrNull).filterNot(_ == "0").getOrElse("")
+          // First, we count the number of significant digits to avoid the conversion attempts that
+          // are doomed to failure.
+          val significantIntDigits = if (intPart == "0") 0 else intPart.length
+          val significantDecDigits = decPart.length
+          if (significantIntDigits <= Numeric.maxPrecision - scale && significantDecDigits <= scale) {
+            // Then, we reconstruct the string dropping non significant '0's to avoid unnecessary and
+            // potentially very costly String to BigDecimal conversions. Take for example the String
+            // "1." followed by millions of '0's
+            val newString = s"$signPart$intPart.${Option(decPartOrNull).getOrElse("")}"
+            Some(SNumeric(Numeric.assertFromBigDecimal(scale, BigDecimal(newString))))
+          } else {
+            None
+          }
+        case _ =>
+          None
+      }
+      machine.ctrl = CtrlValue(SOptional(result))
     }
   }
 
