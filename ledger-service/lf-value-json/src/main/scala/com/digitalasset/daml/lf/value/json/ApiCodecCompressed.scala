@@ -242,14 +242,15 @@ abstract class ApiCodecCompressed[Cid](
           defs(id).getOrElse(deserializationError(s"Type $id not found")))
         jsValueToApiDataType(value, id, dt, defs)
       case Model.DamlLfTypeNumeric(scale) =>
-        value match {
+        val numericOrError = value match {
           case JsString(v) =>
-            V.ValueNumeric(assertDE(LfNumeric.checkWithinBoundsAndRound(scale, BigDecimal(v))))
+            LfNumeric.checkWithinBoundsAndRound(scale, BigDecimal(v))
           case JsNumber(v) =>
-            V.ValueNumeric(assertDE(LfNumeric.checkWithinBoundsAndRound(scale, v)))
+            LfNumeric.checkWithinBoundsAndRound(scale, v)
           case _ =>
             deserializationError(s"Can't read ${value.prettyPrint} as (Numeric $scale)")
         }
+        V.ValueNumeric(assertDE(numericOrError))
       case Model.DamlLfTypeVar(_) =>
         deserializationError(s"Can't read ${value.prettyPrint} as DamlLfTypeVar")
     }
