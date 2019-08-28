@@ -55,7 +55,7 @@ data ChoiceDetails = ChoiceDetails
 
 data SubGraph = SubGraph
     { nodes :: [ChoiceDetails]
-    , templateFileds :: [T.Text]
+    , templateFields :: [T.Text]
     , clusterTemplate :: LF.Template
     }
 
@@ -170,15 +170,14 @@ typeConFields qName world = case LF.lookupDataType qName world of
     LF.DataEnum _ -> [""]
   Left _ -> error "malformed template constructor"
 
--- Other way is to go from Expr to Qalified a and then use that qualified
-tplQulified :: LF.World -> TemplateChoices -> [T.Text]
-tplQulified wrld tplc = typeConFields qualTpl wrld
+tplQualified :: LF.World -> TemplateChoices -> [T.Text]
+tplQualified wrld tplc = typeConFields qualTpl wrld
     where qualTpl = LF.Qualified LF.PRSelf (modName tplc) (LF.tplTypeCon $ template tplc)
 
 constructSubgraphsWithLables :: LF.World -> Map.Map LF.ChoiceName ChoiceDetails -> TemplateChoices -> SubGraph
 constructSubgraphsWithLables wrld lookupData tpla@TemplateChoices {..} = SubGraph nodesWithCreate fieldsInTemplate template
   where choicesInTemplate = map internalChcName choiceAndActions
-        fieldsInTemplate = tplQulified wrld tpla
+        fieldsInTemplate = tplQualified wrld tpla
         nodes = map (nodeIdForChoice lookupData) choicesInTemplate
         nodesWithCreate = addCreateChoice tpla lookupData : nodes
 
@@ -198,8 +197,8 @@ graphEdges lookupData tplChcActions = map (\(chn1, chn2) -> (nodeIdForChoice loo
   where chcActionsFromAllTemplates = concatMap choiceAndActions tplChcActions
         choicePairsForTemplates = concatMap choiceActionToChoicePairs chcActionsFromAllTemplates
 
-subGraphHeader :: LF.Template -> String
-subGraphHeader tpl = "subgraph cluster_" ++ (DAP.renderPretty $ head (LF.unTypeConName $ LF.tplTypeCon tpl)) ++ "{\n"
+subGraphHeader :: SubGraph -> String
+subGraphHeader sg = "subgraph cluster_" ++ (DAP.renderPretty $ head (LF.unTypeConName $ LF.tplTypeCon $ clusterTemplate sg)) ++ "{\n"
 
 choiceDetailsColorCode :: IsConsuming -> String
 choiceDetailsColorCode True = "red"
@@ -212,13 +211,12 @@ subGraphEnd :: SubGraph -> String
 subGraphEnd sg = "label=<" ++ tHeader ++ tTitle ++ tBody  ++ tclose ++ ">" ++ ";color=" ++ "blue" ++ "\n}"
     where tHeader = "<table align = \"left\" border=\"0\" cellborder=\"0\" cellspacing=\"1\">\n"
           tTitle =  "<tr><td align=\"center\"><b>" ++  DAP.renderPretty (LF.tplTypeCon $ clusterTemplate sg) ++ "</b></td></tr>"
-          tBody = concatMap fieldTableLine (templateFileds sg)
+          tBody = concatMap fieldTableLine (templateFields sg)
           fieldTableLine field = "<tr><td align=\"left\">" ++ T.unpack field  ++ "</td></tr> \n"
           tclose = "</table>"
 
--- DAP.renderPretty (LF.tplTypeCon (clusterTemplate sg))
 subGraphCluster :: SubGraph -> String
-subGraphCluster sg@SubGraph {..} = subGraphHeader clusterTemplate ++ unlines (map subGraphBodyLine nodes) ++ subGraphEnd sg
+subGraphCluster sg@SubGraph {..} = subGraphHeader sg ++ unlines (map subGraphBodyLine nodes) ++ subGraphEnd sg
 
 drawEdge :: ChoiceDetails -> ChoiceDetails -> String
 drawEdge n1 n2 = "n" ++ show (nodeId n1) ++ "->" ++ "n" ++ show (nodeId n2)
