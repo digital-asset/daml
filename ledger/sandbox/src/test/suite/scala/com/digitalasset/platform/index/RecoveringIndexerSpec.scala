@@ -8,9 +8,9 @@ import java.util.concurrent.ConcurrentLinkedQueue
 import akka.actor.ActorSystem
 import akka.pattern.after
 import com.digitalasset.platform.common.util.{DirectExecutionContext => DEC}
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.{AsyncWordSpec, Matchers}
 
-import scala.concurrent.{Await, ExecutionContext, Future, Promise}
+import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.concurrent.duration._
 
 case class SubscribeResult(
@@ -81,7 +81,7 @@ class TestIndexer(results: Iterator[SubscribeResult]) {
   }
 }
 
-class RecoveringIndexerIT extends WordSpec with Matchers {
+class RecoveringIndexerIT extends AsyncWordSpec with Matchers {
 
   private[this] implicit val ec: ExecutionContext = DEC
   private[this] val actorSystem = ActorSystem("RecoveringIndexerIT")
@@ -97,14 +97,14 @@ class RecoveringIndexerIT extends WordSpec with Matchers {
         ).iterator)
 
       val end = recoveringIndexer.start(() => testIndexer.subscribe())
-      Await.result(end, 10.seconds)
-
-      List(testIndexer.actions.toArray: _*) should contain theSameElementsInOrderAs List[
-        IndexerEvent](
-        EventSubscribeCalled("A"),
-        EventSubscribeSuccess("A"),
-        EventStreamComplete("A")
-      )
+      end map { _ =>
+        List(testIndexer.actions.toArray: _*) should contain theSameElementsInOrderAs List[
+          IndexerEvent](
+          EventSubscribeCalled("A"),
+          EventSubscribeSuccess("A"),
+          EventStreamComplete("A")
+        )
+      }
     }
 
     "work when the stream is stopped" in {
@@ -117,14 +117,15 @@ class RecoveringIndexerIT extends WordSpec with Matchers {
 
       val end = recoveringIndexer.start(() => testIndexer.subscribe())
       scheduler.scheduleOnce(50.millis, () => recoveringIndexer.close())
-      Await.result(end, 10.seconds)
 
-      List(testIndexer.actions.toArray: _*) should contain theSameElementsInOrderAs List[
-        IndexerEvent](
-        EventSubscribeCalled("A"),
-        EventSubscribeSuccess("A"),
-        EventStopCalled("A")
-      )
+      end map { _ =>
+        List(testIndexer.actions.toArray: _*) should contain theSameElementsInOrderAs List[
+          IndexerEvent](
+          EventSubscribeCalled("A"),
+          EventSubscribeSuccess("A"),
+          EventStopCalled("A")
+        )
+      }
     }
 
     "recover failures" in {
@@ -138,19 +139,20 @@ class RecoveringIndexerIT extends WordSpec with Matchers {
         ).iterator)
 
       val end = recoveringIndexer.start(() => testIndexer.subscribe())
-      Await.result(end, 10.seconds)
 
-      List(testIndexer.actions.toArray: _*) should contain theSameElementsInOrderAs List[
-        IndexerEvent](
-        EventSubscribeCalled("A"),
-        EventSubscribeFail("A"),
-        EventSubscribeCalled("B"),
-        EventSubscribeSuccess("B"),
-        EventStreamFail("B"),
-        EventSubscribeCalled("C"),
-        EventSubscribeSuccess("C"),
-        EventStreamComplete("C")
-      )
+      end map { _ =>
+        List(testIndexer.actions.toArray: _*) should contain theSameElementsInOrderAs List[
+          IndexerEvent](
+          EventSubscribeCalled("A"),
+          EventSubscribeFail("A"),
+          EventSubscribeCalled("B"),
+          EventSubscribeSuccess("B"),
+          EventStreamFail("B"),
+          EventSubscribeCalled("C"),
+          EventSubscribeSuccess("C"),
+          EventStreamComplete("C")
+        )
+      }
     }
 
     "respect restart delay" in {
@@ -164,18 +166,19 @@ class RecoveringIndexerIT extends WordSpec with Matchers {
 
       val t0 = System.nanoTime()
       val end = recoveringIndexer.start(() => testIndexer.subscribe())
-      Await.result(end, 10.seconds)
-      val t1 = System.nanoTime()
+      end map { _ =>
+        val t1 = System.nanoTime()
 
-      (t1 - t0) should be >= 500L * 1000L * 1000L
-      List(testIndexer.actions.toArray: _*) should contain theSameElementsInOrderAs List[
-        IndexerEvent](
-        EventSubscribeCalled("A"),
-        EventSubscribeFail("A"),
-        EventSubscribeCalled("B"),
-        EventSubscribeSuccess("B"),
-        EventStreamComplete("B")
-      )
+        (t1 - t0) should be >= 500.millis.toNanos
+        List(testIndexer.actions.toArray: _*) should contain theSameElementsInOrderAs List[
+          IndexerEvent](
+          EventSubscribeCalled("A"),
+          EventSubscribeFail("A"),
+          EventSubscribeCalled("B"),
+          EventSubscribeSuccess("B"),
+          EventStreamComplete("B")
+        )
+      }
     }
   }
 }
