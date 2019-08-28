@@ -475,9 +475,9 @@ HASKELL_LSP_COMMIT = "bfbd8630504ebc57b70948689c37b85cfbe589da"
 
 HASKELL_LSP_HASH = "9a5c2871333a5e7e82abdf0bd8c3ab52a130d03832a899aee68bea993cdead1b"
 
-GRPC_HASKELL_COMMIT = "5ceeae74cc802f9d6e58a3a4110bc2c0d1b29c2b"
+GRPC_HASKELL_COMMIT = "11681ec6b99add18a8d1315f202634aea343d146"
 
-GRPC_HASKELL_HASH = "7888f3afa2a338834191e5b2d82cf2c340788fbe11834977e58a8778b8094eb2"
+GRPC_HASKELL_HASH = "c6201f4e2fd39f25ca1d47b1dac4efdf151de88a2eb58254d61abc2760e58fda"
 
 GHC_LIB_VERSION = "8.8.0.20190819"
 
@@ -494,7 +494,7 @@ http_archive(
     build_file = "//3rdparty/haskell:BUILD.grpc-haskell-core",
     patch_args = ["-p2"],
     patches = [
-        "@com_github_digital_asset_daml//bazel_tools:haskell-grpc-haskell-core-cabal.patch",
+        "@com_github_digital_asset_daml//bazel_tools:grpc-haskell-core-mask-runops.patch",
     ],
     sha256 = GRPC_HASKELL_HASH,
     strip_prefix = "gRPC-haskell-{}/core/".format(GRPC_HASKELL_COMMIT),
