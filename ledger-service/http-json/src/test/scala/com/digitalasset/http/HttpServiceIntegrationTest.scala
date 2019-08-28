@@ -274,7 +274,7 @@ class HttpServiceIntegrationTest
         v.RecordField("issuer", Some(v.Value(v.Value.Sum.Party("Alice")))),
         v.RecordField("owner", Some(v.Value(v.Value.Sum.Party("Alice")))),
         v.RecordField("currency", Some(v.Value(v.Value.Sum.Text("USD")))),
-        v.RecordField("amount", Some(v.Value(v.Value.Sum.Decimal("999.99")))),
+        v.RecordField("amount", Some(v.Value(v.Value.Sum.Numeric("999.99")))),
         v.RecordField("observers", Some(v.Value(v.Value.Sum.List(v.List()))))
       ))
 

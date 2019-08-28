@@ -66,7 +66,7 @@ class ValueSpec extends FlatSpec with Matchers with GeneratorDrivenPropertyCheck
   assertConversions(SumCase.BOOL, Value.fromProto(boolValueGen.sample.get))
   assertConversions(SumCase.CONTRACT_ID, Value.fromProto(contractIdValueGen.sample.get))
   assertConversions(SumCase.DATE, Value.fromProto(dateValueGen.sample.get))
-  assertConversions(SumCase.DECIMAL, Value.fromProto(decimalValueGen.sample.get))
+  assertConversions(SumCase.NUMERIC, Value.fromProto(decimalValueGen.sample.get))
   assertConversions(SumCase.INT64, Value.fromProto(int64ValueGen.sample.get))
   assertConversions(SumCase.LIST, Value.fromProto(listValueGen.sample.get))
   assertConversions(SumCase.PARTY, Value.fromProto(partyValueGen.sample.get))

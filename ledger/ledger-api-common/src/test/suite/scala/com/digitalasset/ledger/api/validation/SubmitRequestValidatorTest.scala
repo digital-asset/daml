@@ -190,7 +190,7 @@ class SubmitRequestValidatorTest
         forEvery(signs) { sign =>
           forEvery(absoluteValues) { absoluteValue =>
             val s = sign + absoluteValue
-            val input = Value(Sum.Decimal(s))
+            val input = Value(Sum.Numeric(s))
             val expected = Lf.ValueNumeric(Decimal.fromString(s).getOrElse(unexpectedError))
             validateValue(input) shouldEqual Right(expected)
           }
@@ -212,7 +212,7 @@ class SubmitRequestValidatorTest
         forEvery(signs) { sign =>
           forEvery(absoluteValues) { absoluteValue =>
             val s = sign + absoluteValue
-            val input = Value(Sum.Decimal(s))
+            val input = Value(Sum.Numeric(s))
             requestMustFailWith(
               validateValue(input),
               INVALID_ARGUMENT,
