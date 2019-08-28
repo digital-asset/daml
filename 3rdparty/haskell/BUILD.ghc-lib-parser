@@ -6,7 +6,7 @@ haskell_library(
   name = "lib",
   visibility = ["//visibility:public"],
   srcs = glob(
-    ["**/*.hs", "**/*.hs-boot"], # No .hsc files here!
+    ["**/*.hs", "**/*.hsc", "**/*.hs-boot"],
     exclude = ["**/GHCConstants*","**/includes/CodeGen.Platform.hs"],
   ),
   extra_srcs = glob([
@@ -52,7 +52,7 @@ haskell_library(
     "-I/compiler", "-I/compiler/utils"
   ],
   package_name = "ghc-lib-parser",
-  version = "8.8.1.20190828",
+  version = "8.8.1.20190828.1",
 )
 
 cc_library(

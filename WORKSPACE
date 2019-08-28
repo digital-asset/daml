@@ -479,12 +479,12 @@ GRPC_HASKELL_COMMIT = "11681ec6b99add18a8d1315f202634aea343d146"
 
 GRPC_HASKELL_HASH = "c6201f4e2fd39f25ca1d47b1dac4efdf151de88a2eb58254d61abc2760e58fda"
 
-GHC_LIB_VERSION = "8.8.1.20190828"
+GHC_LIB_VERSION = "8.8.1.20190828.1"
 
 http_archive(
     name = "haskell_ghc__lib__parser",
     build_file = "//3rdparty/haskell:BUILD.ghc-lib-parser",
-    sha256 = "945cec00919bb24c0b9d96a428d4aa6474f076c36938cf500121a682c3a40605",
+    sha256 = "67dc90575bc5289e8fd58d92ba4ec079cbdf56fd958fe435a724e462682d9c24",
     strip_prefix = "ghc-lib-parser-{}".format(GHC_LIB_VERSION),
     urls = ["https://digitalassetsdk.bintray.com/ghc-lib/ghc-lib-parser-{}.tar.gz".format(GHC_LIB_VERSION)],
 )
@@ -556,7 +556,7 @@ hazel_repositories(
 
             # Read [Working on ghc-lib] for ghc-lib update instructions at
             # https://github.com/digital-asset/daml/blob/master/ghc-lib/working-on-ghc-lib.md.
-            hazel_ghclibs(GHC_LIB_VERSION, "945cec00919bb24c0b9d96a428d4aa6474f076c36938cf500121a682c3a40605", "496a4ef203f8ffd1331ce87667425e2100347e07e3a0fed1a6936fb8cc643559") +
+            hazel_ghclibs(GHC_LIB_VERSION, "67dc90575bc5289e8fd58d92ba4ec079cbdf56fd958fe435a724e462682d9c24", "050771795e125605ffd55ced3e90d9dbc440b823faa3c818adc2cf4158dbb4a8") +
             hazel_github_external("digital-asset", "hlint", "783df11bb08d88f069cc22a698d7bc38323bd32d", "10ec5ba641eca0505ed2aa3367221c9ec4bc7467bbb3f41668407fd337d5c30e") +
             hazel_github_external("awakesecurity", "proto3-wire", "4f355bbac895d577d8a28f567ab4380f042ccc24", "031e05d523a887fbc546096618bc11dceabae224462a6cdd6aab11c1658e17a3") +
             hazel_github_external(
