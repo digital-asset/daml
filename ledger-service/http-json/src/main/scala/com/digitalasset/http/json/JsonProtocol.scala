@@ -68,7 +68,10 @@ object JsonProtocol extends DefaultJsonProtocol {
       case (Some(templateId), Some(key), None) =>
         -\/((templateId.convertTo[domain.TemplateId.OptionalPkg], key))
       case (otid, None, Some(contractId)) =>
-        \/-((otid map (_.convertTo[domain.TemplateId.OptionalPkg]), contractId.convertTo[String]))
+        \/-(
+          (
+            otid map (_.convertTo[domain.TemplateId.OptionalPkg]),
+            contractId.convertTo[lar.ContractId]))
       case (None, Some(_), None) =>
         deserializationError(s"$what requires key to be accompanied by a templateId")
       case (_, None, None) | (_, Some(_), Some(_)) =>

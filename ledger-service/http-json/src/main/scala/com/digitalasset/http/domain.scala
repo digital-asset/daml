@@ -29,7 +29,7 @@ object domain {
   case class TemplateId[+PkgId](packageId: PkgId, moduleName: String, entityName: String)
 
   type InputContractRef[+LfV] =
-    (TemplateId.OptionalPkg, LfV) \/ (Option[TemplateId.OptionalPkg], String)
+    (TemplateId.OptionalPkg, LfV) \/ (Option[TemplateId.OptionalPkg], lar.ContractId)
 
   case class ActiveContract[+LfV](
       contractId: String,
