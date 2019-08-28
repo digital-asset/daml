@@ -509,6 +509,9 @@ generateSrcFromLf (Qualify qualify) thisPkgId pkgMap m = noLoc mod
                     noExt
                     HsBoxedTuple
                     [noLoc $ convType ty | (_fldName, ty) <- fls]
+            -- TODO (#2289): Add support for nat kind.
+            LF.TNat _ -> error "nat kind not yet suppported in upgrades"
+
     convBuiltInTy :: LF.BuiltinType -> HsType GhcPs
     convBuiltInTy =
         \case
@@ -527,6 +530,8 @@ generateSrcFromLf (Qualify qualify) thisPkgId pkgMap m = noLoc mod
             LF.BTOptional -> mkLfInternalPrelude "Optional"
             LF.BTMap -> mkLfInternalType "TextMap"
             LF.BTArrow -> mkTyConTypeUnqual funTyCon
+            -- TODO (#2289): Add support for Numeric types.
+            LF.BTNumeric -> error "Numeric type not yet supported in upgrades"
     mkGhcType =
         HsTyVar noExt NotPromoted .
         noLoc . mkOrig gHC_TYPES . mkOccName varName
@@ -629,6 +634,8 @@ generateSrcFromLf (Qualify qualify) thisPkgId pkgMap m = noLoc mod
             LF.BTOptional -> (damlStdlibUnitId, LF.ModuleName ["DA", "Internal", "Prelude"])
             LF.BTMap -> (damlStdlibUnitId, LF.ModuleName ["DA", "Internal", "LF"])
             LF.BTArrow -> (primUnitId, translateModName funTyCon)
+            -- TODO (#2289): Add support for Numeric types.
+            LF.BTNumeric -> error "Numeric type not yet supported in upgrades"
 
     translateModName ::
            forall a. NamedThing a
