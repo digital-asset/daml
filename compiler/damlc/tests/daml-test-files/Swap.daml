@@ -1,7 +1,7 @@
 daml 1.2
 module Swap where
 
-import Transferrable
+import CashAsset
 
 template (Asset t, Template (SwapProposal t)) => Swappable t with
     asset: t
