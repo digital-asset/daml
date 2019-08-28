@@ -9,6 +9,7 @@ module DA.Cli.Damlc.IdeState
 
 import qualified Language.Haskell.LSP.Messages as LSP
 
+import Control.Exception
 import DA.Daml.Options
 import DA.Daml.Options.Types
 import qualified DA.Service.Logger as Logger
@@ -45,8 +46,10 @@ withDamlIdeState opts@Options{..} loggerH eventHandler f = do
         vfs <- makeVFSHandle
         -- We only use withDamlIdeState outside of the IDE where we do not care about
         -- progress reporting.
-        ideState <- getDamlIdeState opts mbScenarioService loggerH eventHandler vfs (IdeReportProgress False)
-        f ideState
+        bracket
+            (getDamlIdeState opts mbScenarioService loggerH eventHandler vfs (IdeReportProgress False))
+            shutdown
+            f
 
 -- | Adapter to the IDE logger module.
 toIdeLogger :: Logger.Handle IO -> IdeLogger.Logger

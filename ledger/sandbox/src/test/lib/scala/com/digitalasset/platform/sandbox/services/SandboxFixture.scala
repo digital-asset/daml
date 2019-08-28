@@ -33,7 +33,7 @@ import com.digitalasset.ledger.api.domain.LedgerId
 trait SandboxFixture extends SuiteResource[Channel] {
   self: Suite =>
 
-  protected def darFile = new File(rlocation("ledger/test-common/Test.dar"))
+  protected def darFile = new File(rlocation("ledger/test-common/Test-stable.dar"))
 
   protected def channel: Channel = suiteResource.value
 

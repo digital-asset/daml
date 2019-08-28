@@ -122,7 +122,10 @@ instance IsEmpty ChoiceDoc
 
 instance IsEmpty ClassDoc
   where isEmpty ClassDoc{..} =
-          isNothing cl_descr && all isEmpty cl_functions
+          isNothing cl_descr && all isEmpty cl_methods
+
+instance IsEmpty ClassMethodDoc where
+    isEmpty ClassMethodDoc{..} = isNothing cm_descr
 
 instance IsEmpty ADTDoc
   where isEmpty ADTDoc{..} =
@@ -165,11 +168,13 @@ distributeInstanceDocs docs =
         [ (anchor, Set.singleton inst)
         | anchor <- Set.toList . getTypeAnchors $ id_type inst ]
 
+    -- | Get the set of internal references i.e. anchors in the type expression.
     getTypeAnchors :: Type -> Set.Set Anchor
     getTypeAnchors = \case
-        TypeApp anchorM _ args -> Set.unions
-            $ maybe Set.empty Set.singleton anchorM
+        TypeApp (Just (Reference Nothing anchor)) _ args -> Set.unions
+            $ Set.singleton anchor
             : map getTypeAnchors args
+        TypeApp _ _ args -> Set.unions $ map getTypeAnchors args
         TypeFun parts -> Set.unions $ map getTypeAnchors parts
         TypeTuple parts -> Set.unions $ map getTypeAnchors parts
         TypeList p -> getTypeAnchors p

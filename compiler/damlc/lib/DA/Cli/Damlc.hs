@@ -21,7 +21,7 @@ import DA.Cli.Damlc.BuildInfo
 import DA.Cli.Damlc.Command.Damldoc (cmdDamlDoc)
 import DA.Cli.Damlc.IdeState
 import DA.Cli.Damlc.Test
-import DA.Cli.Visual
+import DA.Daml.Visual
 import DA.Daml.Compiler.Dar
 import DA.Daml.Compiler.DocTest
 import DA.Daml.Compiler.Scenario
@@ -43,8 +43,9 @@ import DA.Daml.Project.Types (ConfigError, ProjectPath(..))
 import qualified Da.DamlLf as PLF
 import qualified Data.Aeson.Encode.Pretty as Aeson.Pretty
 import qualified Data.ByteString as B
-import qualified Data.ByteString.Char8 as BSC
 import qualified Data.ByteString.Lazy as BSL
+import qualified Data.ByteString.Lazy.Char8 as BSC
+import qualified Data.ByteString.Lazy.UTF8 as BSLUTF8
 import Data.FileEmbed (embedFile)
 import Data.Graph
 import qualified Data.Set as Set
@@ -94,7 +95,12 @@ cmdIde =
         "Start the DAML language server on standard input/output."
     <> fullDesc
   where
-    cmd = execIde <$> telemetryOpt <*> debugOpt <*> enableScenarioOpt <*> shakeProfilingOpt
+    cmd = execIde
+        <$> telemetryOpt
+        <*> debugOpt
+        <*> enableScenarioOpt
+        <*> optGhcCustomOptions
+        <*> shakeProfilingOpt
 
 cmdLicense :: Mod CommandFields Command
 cmdLicense =
@@ -278,9 +284,10 @@ execLicense = B.putStr licenseData
 execIde :: Telemetry
         -> Debug
         -> EnableScenarioService
+        -> [String]
         -> Maybe FilePath
         -> Command
-execIde telemetry (Debug debug) enableScenarioService mbProfileDir = NS.withSocketsDo $ do
+execIde telemetry (Debug debug) enableScenarioService ghcOpts mbProfileDir = NS.withSocketsDo $ do
     let threshold =
             if debug
             then Logger.Debug
@@ -312,6 +319,7 @@ execIde telemetry (Debug debug) enableScenarioService mbProfileDir = NS.withSock
         , optShakeProfiling = mbProfileDir
         , optThreads = 0
         , optDlintUsage = DlintEnabled dlintDataDir True
+        , optGhcCustomOpts = ghcOpts
         }
     scenarioServiceConfig <- readScenarioServiceConfig
     withLogger $ \loggerH ->
@@ -811,15 +819,14 @@ execMergeDars darFp1 darFp2 mbOutFp = do
                     ]
         m1 <- getEntry mfPath dar1
         let m' = do
-                l <- lines $ BSC.unpack $ BSL.toStrict $ ZipArchive.fromEntry m1
-                pure $
-                    maybe
-                        l
-                        (const $
-                         breakAt72Chars $
-                         "Dalfs: " <> intercalate ", " dalfNames)
-                        (stripPrefix "Dalfs:" l)
-        pure $ ZipArchive.toEntry mfPath 0 $ BSL.fromStrict $ BSC.pack $ unlines m'
+                l <- BSC.lines $ ZipArchive.fromEntry m1
+                -- TODO This should use the proper manifest reader.
+                -- At the moment this relies on the fact that the input manifest
+                -- does not have Dalfs: entries that are split over multiple lines.
+                pure $ case BSL.stripPrefix "Dalfs:" l of
+                    Nothing -> l
+                    Just _ -> breakAt72Bytes $ "Dalfs: " <> BSC.intercalate ", " (map BSLUTF8.fromString dalfNames)
+        pure $ ZipArchive.toEntry mfPath 0 $ BSC.unlines m'
 
 execDocTest :: Options -> [FilePath] -> IO ()
 execDocTest opts files = do
@@ -833,7 +840,7 @@ execDocTest opts files = do
         -- This is horrible but we do not have a way to change the import paths in a running
         -- IdeState at the moment.
         pure $ nubOrd $ mapMaybe moduleImportPaths pmS
-    opts <- mkOptions opts { optImportPath = importPaths <> optImportPath opts}
+    opts <- mkOptions opts { optImportPath = importPaths <> optImportPath opts, optHaddock = Haddock True }
     withDamlIdeState opts logger diagnosticsLogger $ \ideState ->
         docTest ideState files'
 
@@ -865,7 +872,7 @@ optionsParser numProcessors enableScenarioService parsePkgName = Options
     <*> optShakeThreads
     <*> lfVersionOpt
     <*> optDebugLog
-    <*> (concat <$> many optGhcCustomOptions)
+    <*> optGhcCustomOptions
     <*> pure enableScenarioService
     <*> pure (optScenarioValidation $ defaultOptions Nothing)
     <*> dlintUsageOpt
@@ -929,12 +936,14 @@ optionsParser numProcessors enableScenarioService parsePkgName = Options
             , "Note that the output is not deterministic for > 1 job."
             ]
 
-    optGhcCustomOptions :: Parser [String]
-    optGhcCustomOptions =
-        option (stringsSepBy ' ') $
-        long "ghc-option" <>
-        metavar "OPTION" <>
-        help "Options to pass to the underlying GHC"
+
+optGhcCustomOptions :: Parser [String]
+optGhcCustomOptions =
+    fmap concat $ many $
+    option (stringsSepBy ' ') $
+    long "ghc-option" <>
+    metavar "OPTION" <>
+    help "Options to pass to the underlying GHC"
 
 shakeProfilingOpt :: Parser (Maybe FilePath)
 shakeProfilingOpt = optional $ strOption $

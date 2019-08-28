@@ -19,7 +19,7 @@ import com.daml.ledger.participant.state.v1.{
 import com.daml.ledger.participant.state.{v1 => ParticipantState}
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.Ref.{LedgerString, PackageId, Party, TransactionIdString}
-import com.digitalasset.daml.lf.data.{ImmArray, Ref}
+import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.transaction.Node.GlobalKey
 import com.digitalasset.daml.lf.value.Value
@@ -74,7 +74,7 @@ object SandboxIndexAndWriteService {
       implicit mat: Materializer,
       mm: MetricsManager): Future[IndexAndWriteService] =
     Ledger
-      .postgres(
+      .jdbcBacked(
         jdbcUrl,
         ledgerId,
         timeProvider,
@@ -196,7 +196,8 @@ abstract class LedgerBackedIndexService(
       ac.witnesses,
       ac.key.map(_.key),
       ac.signatories,
-      ac.observers
+      ac.observers,
+      ac.agreementText
     )
 
   private def getTransactionById(
@@ -352,7 +353,8 @@ abstract class LedgerBackedIndexService(
               Checkpoint(
                 domain.LedgerOffset.Absolute(Ref.LedgerString.assertFromString(offset.toString)),
                 c.recordedAt)
-            case (offset, r: LedgerEntry.Rejection) =>
+            case (offset, r: LedgerEntry.Rejection)
+                if r.commandId.nonEmpty && r.applicationId.contains(applicationId.unwrap) =>
               CommandRejected(
                 domain.LedgerOffset.Absolute(Ref.LedgerString.assertFromString(offset.toString)),
                 r.recordTime,
@@ -419,11 +421,19 @@ class LedgerBackedWriteService(ledger: Ledger, timeProvider: TimeProvider) exten
     }
   }
 
-  // PackageWriteService
+  // WritePackagesService
   override def uploadPackages(
       payload: List[Archive],
       sourceDescription: Option[String]
   ): CompletionStage[UploadPackagesResult] =
     FutureConverters.toJava(
       ledger.uploadPackages(timeProvider.getCurrentTime, sourceDescription, payload))
+
+  // WriteConfigService
+  override def submitConfiguration(
+      maxRecordTime: Time.Timestamp,
+      submissionId: String,
+      config: Configuration): CompletionStage[SubmissionResult] =
+    // FIXME(JM): Implement configuration changes in sandbox.
+    CompletableFuture.completedFuture(SubmissionResult.NotSupported)
 }

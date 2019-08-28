@@ -4,10 +4,10 @@
 package com.digitalasset.daml.lf.testing
 package parser
 
-import com.digitalasset.daml.lf.data.{Decimal, Ref}
+import com.digitalasset.daml.lf.data.{Numeric, Ref}
 import com.digitalasset.daml.lf.language.Ast.{Expr, Kind, Package, Type}
 
-private[digitalasset] object Implicits {
+object Implicits {
 
   implicit val defaultParserParameters: ParserParameters[this.type] = ParserParameters(
     defaultPackageId,
@@ -36,7 +36,7 @@ private[digitalasset] object Implicits {
   }
 
   private def toString(x: BigDecimal) =
-    Decimal.toString(Decimal.assertFromBigDecimal(x))
+    Numeric.toUnscaledString(Numeric.assertFromUnscaledBigDecimal(x))
 
   private def prettyPrint(x: Any): String =
     x match {

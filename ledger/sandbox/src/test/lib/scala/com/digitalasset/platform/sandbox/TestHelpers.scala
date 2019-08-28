@@ -26,7 +26,7 @@ import com.digitalasset.platform.services.time.TimeModel
 import scala.concurrent.ExecutionContext
 
 object TestDar {
-  val darFile: File = new File("ledger/test-common/Test.dar")
+  val darFile: File = new File("ledger/test-common/Test-stable.dar")
   lazy val parsedPackageId = DarReader()
     .readArchiveFromFile(darFile)
     .get

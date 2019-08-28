@@ -473,16 +473,40 @@ use_integer_simple = not is_windows
 
 HASKELL_LSP_COMMIT = "bfbd8630504ebc57b70948689c37b85cfbe589da"
 
-HASKELL_LSP_HASH = "a301d9409c3a19a042bdf5763611c6a60af5cbc1ff0f281acbc19b3ee70dde5f"
+HASKELL_LSP_HASH = "9a5c2871333a5e7e82abdf0bd8c3ab52a130d03832a899aee68bea993cdead1b"
 
-GHC_LIB_VERSION = "8.8.0.20190814"
+GRPC_HASKELL_COMMIT = "11681ec6b99add18a8d1315f202634aea343d146"
+
+GRPC_HASKELL_HASH = "c6201f4e2fd39f25ca1d47b1dac4efdf151de88a2eb58254d61abc2760e58fda"
+
+GHC_LIB_VERSION = "8.8.1.20190828.1"
 
 http_archive(
     name = "haskell_ghc__lib__parser",
     build_file = "//3rdparty/haskell:BUILD.ghc-lib-parser",
-    sha256 = "ce14e19bbe2a52289c5fb436941f948678a86bd821c17710082131bbe87d997f",
+    sha256 = "67dc90575bc5289e8fd58d92ba4ec079cbdf56fd958fe435a724e462682d9c24",
     strip_prefix = "ghc-lib-parser-{}".format(GHC_LIB_VERSION),
     urls = ["https://digitalassetsdk.bintray.com/ghc-lib/ghc-lib-parser-{}.tar.gz".format(GHC_LIB_VERSION)],
+)
+
+http_archive(
+    name = "haskell_grpc__haskell__core",
+    build_file = "//3rdparty/haskell:BUILD.grpc-haskell-core",
+    patch_args = ["-p2"],
+    patches = [
+        "@com_github_digital_asset_daml//bazel_tools:grpc-haskell-core-mask-runops.patch",
+    ],
+    sha256 = GRPC_HASKELL_HASH,
+    strip_prefix = "gRPC-haskell-{}/core/".format(GRPC_HASKELL_COMMIT),
+    urls = ["https://github.com/awakesecurity/gRPC-haskell/archive/{}.tar.gz".format(GRPC_HASKELL_COMMIT)],
+)
+
+http_archive(
+    name = "haskell_grpc__haskell",
+    build_file = "//3rdparty/haskell:BUILD.grpc-haskell",
+    sha256 = GRPC_HASKELL_HASH,
+    strip_prefix = "gRPC-haskell-{}".format(GRPC_HASKELL_COMMIT),
+    urls = ["https://github.com/awakesecurity/gRPC-haskell/archive/{}.tar.gz".format(GRPC_HASKELL_COMMIT)],
 )
 
 hazel_repositories(
@@ -499,6 +523,8 @@ hazel_repositories(
         # Excluded since we build it via the http_archive line above.
         "ghc-lib-parser",
         "ghc-paths",
+        "grpc-haskell",
+        "grpc-haskell-core",
         "streaming-commons",
         "wai-app-static",
         "zlib",
@@ -529,15 +555,15 @@ hazel_repositories(
         extra =
 
             # Read [Working on ghc-lib] for ghc-lib update instructions at
-            # https://github.com/DACH-NY/daml/blob/master/ghc-lib/working-on-ghc-lib.md.
-            hazel_ghclibs(GHC_LIB_VERSION, "ce14e19bbe2a52289c5fb436941f948678a86bd821c17710082131bbe87d997f", "02482f4fd7691c2e442f9dd4c8d6816325d0bd164f6e03cec6a2db1ef9e65d43") +
-            hazel_github_external("digital-asset", "hlint", "c57edffa2bd54605637671f7821a2519d34c37bf", "9c81a0822af933dc13240d74218534308c7e5a2db80bad4a33c72890397275fd") +
-            hazel_github_external("awakesecurity", "proto3-wire", "4f355bbac895d577d8a28f567ab4380f042ccc24", "b49bd371847b0cffe0673592870e221708d4ec238589c1739a6d3d03f570ed66") +
+            # https://github.com/digital-asset/daml/blob/master/ghc-lib/working-on-ghc-lib.md.
+            hazel_ghclibs(GHC_LIB_VERSION, "67dc90575bc5289e8fd58d92ba4ec079cbdf56fd958fe435a724e462682d9c24", "050771795e125605ffd55ced3e90d9dbc440b823faa3c818adc2cf4158dbb4a8") +
+            hazel_github_external("digital-asset", "hlint", "783df11bb08d88f069cc22a698d7bc38323bd32d", "10ec5ba641eca0505ed2aa3367221c9ec4bc7467bbb3f41668407fd337d5c30e") +
+            hazel_github_external("awakesecurity", "proto3-wire", "4f355bbac895d577d8a28f567ab4380f042ccc24", "031e05d523a887fbc546096618bc11dceabae224462a6cdd6aab11c1658e17a3") +
             hazel_github_external(
                 "awakesecurity",
                 "proto3-suite",
                 "f5ca2bee361d518de5c60b9d05d0f54c5d2f22af",
-                "878ecbda73c6b7ed924e55f8c4314af39303c6b19a30312f9a1b4d41db67ad1d",
+                "6a803b1655824e5bec2c518b39b6def438af26135d631b60c9b70bf3af5f0db2",
             ) +
 
             # Not in stackage
@@ -569,14 +595,14 @@ hazel_repositories(
                 "bubba",
                 "lsp-test",
                 "d126623dc6895d325e3d204d74e2a22d4f515587",
-                "a2be2d812010eaadd4885fb0228370a5467627bbb6bd43177fd1f6e5a7eb05f8",
+                "214848612d319bbded67341c51fd151d65cc80264b9cfe70755ef6941b450ec9",
                 patch_args = ["-p1"],
                 patches = ["@com_github_digital_asset_daml//bazel_tools:haskell-lsp-test-no-reexport.patch"],
             ) + hazel_github_external(
                 "mpickering",
                 "hie-bios",
                 "7a75f520b2e7a482440edd023be8e267a0fa153f",
-                "015a5ca3c9b2425cdec38cbc238ae8f6b1b5f73591f27af6ab6b2f9b96c08750",
+                "782469b30bb06cf26873e1c84bd58c8427020ff5777f4ef9d84c75cd26e3ea23",
                 patch_args = ["-p1"],
                 patches = ["@com_github_digital_asset_daml//bazel_tools:haskell-hie-bios.patch"],
             ) +
@@ -826,6 +852,14 @@ jar_jar_repositories()
 load("@com_github_grpc_grpc//bazel:grpc_deps.bzl", "grpc_deps")
 
 grpc_deps()
+
+load("@upb//bazel:workspace_deps.bzl", "upb_deps")
+
+upb_deps()
+
+load("@build_bazel_rules_apple//apple:repositories.bzl", "apple_rules_dependencies")
+
+apple_rules_dependencies()
 
 load("@com_github_bazelbuild_buildtools//buildifier:deps.bzl", "buildifier_dependencies")
 

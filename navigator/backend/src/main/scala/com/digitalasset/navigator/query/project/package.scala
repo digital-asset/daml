@@ -159,7 +159,7 @@ object project {
           }
         case V.ValueContractId(value) if cursor.isLast => Right(StringValue(value))
         case V.ValueInt64(value) if cursor.isLast => Right(NumberValue(value))
-        case V.ValueDecimal(value) if cursor.isLast => Right(StringValue(value.decimalToString))
+        case V.ValueNumeric(value) if cursor.isLast => Right(StringValue(value.toUnscaledString))
         case V.ValueText(value) if cursor.isLast => Right(StringValue(value))
         case V.ValueParty(value) if cursor.isLast => Right(StringValue(value))
         case V.ValueBool(value) if cursor.isLast => Right(BooleanValue(value))

@@ -87,40 +87,14 @@ generateUpgradeModule templateNames modName qualA qualB =
         , "import " <> modName <> qualB <> " qualified as B"
         , "import " <> modName <> "AInstances()"
         , "import " <> modName <> "BInstances()"
-        , "import DA.Next.Set"
         , "import DA.Upgrade"
         ]
 
 upgradeTemplates :: String -> [String]
 upgradeTemplates n =
-    [ "template " <> n <> "Upgrade"
-    , "    with"
-    , "        op : Party"
-    , "    where"
-    , "        signatory op"
-    , "        nonconsuming choice Upgrade: ContractId B." <> n
-    , "            with"
-    , "                inC : ContractId A." <> n
-    , "                sigs : [Party]"
-    , "            controller sigs"
-    , "                do"
-    , "                    d <- fetch inC"
-    , "                    assert $ fromList sigs == fromList (signatory d)"
-    , "                    create $ conv d"
-    , "template " <> n <> "Rollback"
-    , "    with"
-    , "        op : Party"
-    , "    where"
-    , "        signatory op"
-    , "        nonconsuming choice Rollback: ContractId A." <> n
-    , "            with"
-    , "                inC : ContractId B." <> n
-    , "                sigs : [Party]"
-    , "            controller sigs"
-    , "                do"
-    , "                    d <- fetch inC"
-    , "                    assert $ fromList sigs == fromList (signatory d)"
-    , "                    create $ conv d"
+    [ "type " <> n <> "Upgrade = Upgrade A." <> n <> " B." <> n
+    , "type " <> n <> "Rollback = Rollback A." <> n <> " B." <> n
+    , "instance Convertible A." <> n <> " B." <> n
     ]
 
 -- | Generate the full source for a daml-lf package.
@@ -535,6 +509,9 @@ generateSrcFromLf (Qualify qualify) thisPkgId pkgMap m = noLoc mod
                     noExt
                     HsBoxedTuple
                     [noLoc $ convType ty | (_fldName, ty) <- fls]
+            -- TODO (#2289): Add support for nat kind.
+            LF.TNat _ -> error "nat kind not yet suppported in upgrades"
+
     convBuiltInTy :: LF.BuiltinType -> HsType GhcPs
     convBuiltInTy =
         \case
@@ -553,6 +530,8 @@ generateSrcFromLf (Qualify qualify) thisPkgId pkgMap m = noLoc mod
             LF.BTOptional -> mkLfInternalPrelude "Optional"
             LF.BTMap -> mkLfInternalType "TextMap"
             LF.BTArrow -> mkTyConTypeUnqual funTyCon
+            -- TODO (#2289): Add support for Numeric types.
+            LF.BTNumeric -> error "Numeric type not yet supported in upgrades"
     mkGhcType =
         HsTyVar noExt NotPromoted .
         noLoc . mkOrig gHC_TYPES . mkOccName varName
@@ -655,6 +634,8 @@ generateSrcFromLf (Qualify qualify) thisPkgId pkgMap m = noLoc mod
             LF.BTOptional -> (damlStdlibUnitId, LF.ModuleName ["DA", "Internal", "Prelude"])
             LF.BTMap -> (damlStdlibUnitId, LF.ModuleName ["DA", "Internal", "LF"])
             LF.BTArrow -> (primUnitId, translateModName funTyCon)
+            -- TODO (#2289): Add support for Numeric types.
+            LF.BTNumeric -> error "Numeric type not yet supported in upgrades"
 
     translateModName ::
            forall a. NamedThing a

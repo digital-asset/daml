@@ -156,14 +156,14 @@ object SBuiltin {
       Numeric.subtract(x, y)
     )
 
-  sealed abstract class SBBinaryOpNumeric(op: (Numeric, Numeric) => Numeric) extends SBuiltin(2) {
-    final def execute(args: util.ArrayList[SValue], machine: Machine): Unit =
-      machine.ctrl = CtrlValue(
-        (args.get(0), args.get(1)) match {
-          case (SNumeric(a), SNumeric(b)) => SNumeric(op(a, b))
-          case _ => crash(s"type mismatch add: $args")
-        }
-      )
+  sealed abstract class SBBinaryOpNumeric(op: (Numeric, Numeric) => Numeric) extends SBuiltin(3) {
+    final def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
+      val scale = args.get(0).asInstanceOf[STNat].n
+      val a = args.get(1).asInstanceOf[SNumeric].value
+      val b = args.get(2).asInstanceOf[SNumeric].value
+      assert(a.scale == scale && b.scale == scale)
+      machine.ctrl = CtrlValue(SNumeric(op(a, b)))
+    }
   }
 
   final case object SBAddNumeric extends SBBinaryOpNumeric(add)
@@ -228,14 +228,24 @@ object SBuiltin {
       SText(v match {
         case SBool(b) => b.toString
         case SInt64(i) => i.toString
-        case SNumeric(d) => Decimal.toString(d)
         case STimestamp(t) => t.toString
         case SText(t) => t
         case SParty(p) => p
         case SUnit(_) => s"<unit>"
         case SDate(date) => date.toString
-        case SContractId(_) => crash("litToText: ContractId not supported")
+        case SContractId(_) | SNumeric(_) => crash("litToText: literal not supported")
       })
+    }
+  }
+
+  final case object SBToTextNumeric extends SBuiltin(2) {
+    override def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
+      val scale = args.get(0).asInstanceOf[STNat].n
+      val x = args.get(1).asInstanceOf[SNumeric].value
+      // FixMe: https://github.com/digital-asset/daml/issues/2289
+      //   drop this double check
+      assert(x.scale == scale)
+      machine.ctrl = CtrlValue(SText(Numeric.toUnscaledString(x)))
     }
   }
 
@@ -282,19 +292,37 @@ object SBuiltin {
     }
   }
 
-  final case object SBFromTextNumeric extends SBuiltin(1) {
-    private val pattern = """[+-]?\d+(\.\d+)?""".r.pattern
+  // The specification of FromTextNumeric is lenient about the format of the string it should
+  // accept and convert. In particular it should convert any string with an arbitrary number of
+  // leading and trailing '0's as long as the corresponding number fits a Numeric without loss of
+  // precision. We should take care not calling String to BigDecimal conversion on huge strings.
+  final case object SBFromTextNumeric extends SBuiltin(2) {
+    private val validFormat =
+      """([+-]?)0*(\d+)(\.(\d*[1-9]|0)0*)?""".r
 
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
-      val s = args.get(0).asInstanceOf[SText].value
-      val numeric =
-        if (pattern.matcher(s).matches())
-          Numeric
-            .fromBigDecimal(Decimal.scale, BigDecimal(s))
-            .fold(_ => None, x => Some(SNumeric(x)))
-        else
+      val scale = args.get(0).asInstanceOf[STNat].n
+      val string = args.get(1).asInstanceOf[SText].value
+      val result = string match {
+        case validFormat(signPart, intPart, _, decPartOrNull) =>
+          val decPart = Option(decPartOrNull).filterNot(_ == "0").getOrElse("")
+          // First, we count the number of significant digits to avoid the conversion attempts that
+          // are doomed to failure.
+          val significantIntDigits = if (intPart == "0") 0 else intPart.length
+          val significantDecDigits = decPart.length
+          if (significantIntDigits <= Numeric.maxPrecision - scale && significantDecDigits <= scale) {
+            // Then, we reconstruct the string dropping non significant '0's to avoid unnecessary and
+            // potentially very costly String to BigDecimal conversions. Take for example the String
+            // "1." followed by millions of '0's
+            val newString = s"$signPart$intPart.${Option(decPartOrNull).getOrElse("")}"
+            Some(SNumeric(Numeric.assertFromBigDecimal(scale, BigDecimal(newString))))
+          } else {
+            None
+          }
+        case _ =>
           None
-      machine.ctrl = CtrlValue(SOptional(numeric))
+      }
+      machine.ctrl = CtrlValue(SOptional(result))
     }
   }
 
@@ -408,33 +436,31 @@ object SBuiltin {
   // Conversions
   //
 
-  final case object SBInt64ToNumeric extends SBuiltin(1) {
+  final case object SBInt64ToNumeric extends SBuiltin(2) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
+      val scale = args.get(0).asInstanceOf[STNat].n
+      val x = args.get(1).asInstanceOf[SInt64].value
       machine.ctrl = CtrlValue(
-        args.get(0) match {
-          case SInt64(x) =>
-            SNumeric(
-              rightOrArithmeticError(
-                s"overflow when converting $x to (Numeric 10)",
-                Numeric.fromLong(Decimal.scale, x)))
-          case _ => throw SErrorCrash(s"type mismatch int64ToNumeric: $args")
-        }
+        SNumeric(
+          rightOrArithmeticError(
+            s"overflow when converting $x to (Numeric $scale)",
+            Numeric.fromLong(scale, x)))
       )
     }
   }
 
-  final case object SBNumericToInt64 extends SBuiltin(1) {
+  final case object SBNumericToInt64 extends SBuiltin(2) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
+      val scale = args.get(0).asInstanceOf[STNat].n
+      val x = args.get(1).asInstanceOf[SNumeric].value
+      // FixMe: https://github.com/digital-asset/daml/issues/2289
+      //   drop this double check
+      assert(x.scale == scale)
       machine.ctrl = CtrlValue(
-        args.get(0) match {
-          case SNumeric(x) =>
-            SInt64(
-              rightOrArithmeticError(
-                s"Int64 overflow when converting ${Numeric.toString(x)} to Int64",
-                Numeric.toLong(x)))
-          case _ => throw SErrorCrash(s"type mismatch NumericToInt64: $args")
-        }
-      )
+        SInt64(
+          rightOrArithmeticError(
+            s"Int64 overflow when converting ${Numeric.toString(x)} to Int64",
+            Numeric.toLong(x))))
     }
   }
 
@@ -492,16 +518,18 @@ object SBuiltin {
     }
   }
 
-  final case object SBRoundNumeric extends SBuiltin(2) {
+  final case object SBRoundNumeric extends SBuiltin(3) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
-      machine.ctrl = CtrlValue((args.get(0), args.get(1)) match {
-        case (SInt64(prec), SNumeric(x)) =>
-          SNumeric(
-            rightOrArithmeticError(
-              s"Error while rounding (Numeric ${x.scale})",
-              Numeric.round(prec, x)))
-        case _ => throw SErrorCrash(s"type mismatch roundD: $args")
-      })
+      val scale = args.get(0).asInstanceOf[STNat].n
+      val prec = args.get(1).asInstanceOf[SInt64].value
+      val x = args.get(2).asInstanceOf[SNumeric].value
+      // FixMe: https://github.com/digital-asset/daml/issues/2289
+      //   drop this double check
+      assert(x.scale == scale)
+      machine.ctrl = CtrlValue(
+        SNumeric(
+          rightOrArithmeticError(s"Error while rounding (Numeric $scale)", Numeric.round(prec, x)))
+      )
     }
   }
 
@@ -519,14 +547,25 @@ object SBuiltin {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       machine.ctrl = CtrlValue(SBool((args.get(0), args.get(1)) match {
         case (SInt64(a), SInt64(b)) => pred(a compareTo b)
-        case (SNumeric(a), SNumeric(b)) => pred(Numeric.compareTo(a, b))
         case (STimestamp(a), STimestamp(b)) => pred(a compareTo b)
         case (SText(a), SText(b)) => pred(Utf8.Ordering.compare(a, b))
         case (SDate(a), SDate(b)) => pred(a compareTo b)
         case (SParty(a), SParty(b)) => pred(a compareTo b)
         case _ =>
-          crash(s"type mismatch less: $args")
+          crash(s"type mismatch ${getClass.getSimpleName}: $args")
       }))
+    }
+  }
+
+  sealed abstract class SBCompareNumeric(pred: Int => Boolean) extends SBuiltin(3) {
+    def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
+      val scale = args.get(0).asInstanceOf[STNat].n
+      val a = args.get(1).asInstanceOf[SNumeric].value
+      val b = args.get(2).asInstanceOf[SNumeric].value
+      // FixMe: https://github.com/digital-asset/daml/issues/2289
+      //   drop this double check
+      assert(a.scale == scale && b.scale == scale)
+      machine.ctrl = CtrlValue(SBool(pred(Numeric.compareTo(a, b))))
     }
   }
 
@@ -534,6 +573,12 @@ object SBuiltin {
   final case object SBLessEq extends SBCompare(_ <= 0)
   final case object SBGreater extends SBCompare(_ > 0)
   final case object SBGreaterEq extends SBCompare(_ >= 0)
+
+  final case object SBEqualNumeric extends SBCompareNumeric(_ == 0)
+  final case object SBLessNumeric extends SBCompareNumeric(_ < 0)
+  final case object SBLessEqNumeric extends SBCompareNumeric(_ <= 0)
+  final case object SBGreaterNumeric extends SBCompareNumeric(_ > 0)
+  final case object SBGreaterEqNumeric extends SBCompareNumeric(_ >= 0)
 
   /** $consMany[n] :: a -> ... -> List a -> List a */
   final case class SBConsMany(n: Int) extends SBuiltin(1 + n) {

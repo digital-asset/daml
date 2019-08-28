@@ -19,30 +19,27 @@ private[inner] object VariantRecordMethods extends StrictLogging {
       packagePrefixes: Map[PackageId, String]): Vector[MethodSpec] = {
     val constructor = ConstructorGenerator.generateConstructor(fields)
 
-    val actualTypeParameters = findTypeParamsInFields(fields)
-
-    val conversionMethods = Vector(actualTypeParameters, typeParameters).distinct.flatMap {
-      params =>
-        val toValue = ToValueGenerator.generateToValueForRecordLike(
-          params,
-          fields,
-          packagePrefixes,
-          TypeName.get(classOf[javaapi.data.Variant]),
-          name =>
-            CodeBlock.of(
-              "return new $T($S, new $T($L))",
-              classOf[javaapi.data.Variant],
-              constructorName,
-              classOf[javaapi.data.Record],
-              name)
-        )
-        val fromValue = FromValueGenerator.generateFromValueForRecordLike(
-          fields,
-          className,
-          params,
-          FromValueGenerator.variantCheck(constructorName, _, _),
-          packagePrefixes)
-        List(toValue, fromValue)
+    val conversionMethods = distinctTypeVars(fields, typeParameters).flatMap { params =>
+      val toValue = ToValueGenerator.generateToValueForRecordLike(
+        params,
+        fields,
+        packagePrefixes,
+        TypeName.get(classOf[javaapi.data.Variant]),
+        name =>
+          CodeBlock.of(
+            "return new $T($S, new $T($L))",
+            classOf[javaapi.data.Variant],
+            constructorName,
+            classOf[javaapi.data.Record],
+            name)
+      )
+      val fromValue = FromValueGenerator.generateFromValueForRecordLike(
+        fields,
+        className,
+        params,
+        FromValueGenerator.variantCheck(constructorName, _, _),
+        packagePrefixes)
+      List(toValue, fromValue)
     }
 
     Vector(constructor) ++ conversionMethods ++

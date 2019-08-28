@@ -19,6 +19,7 @@ fi
 
 NUKE=0
 PROFILING=0
+SKIP_JARS=0
 for opt in "$@" ; do
   case $opt in
     "--nuke")
@@ -27,11 +28,15 @@ for opt in "$@" ; do
     "--profiling")
       PROFILING=1
       ;;
+    "--skip-jars")
+      SKIP_JARS=1;
+      ;;
     *)
       echo "Unknown option: $opt"
       echo "Available options:"
       echo "  --nuke  Remove existing daml installation before installing daml-head."
       echo "  --profiling  Build Haskell executables with profiling enabled."
+      echo "  --skip-jars  Skip building and installing the JARs."
       exit 1
   esac
 done
@@ -95,3 +100,25 @@ chmod +x $DAML_HOME/bin/daml-head
 trap - EXIT
 echo "$(tput setaf 3)Successfully installed daml-head command.$(tput sgr 0)"
 
+if [ "$SKIP_JARS" -eq "0" ]; then
+    echo "$(tput setaf 3)Installing JARs as 100.0.0...$(tput sgr 0)"
+
+    cp "$REPO_ROOT/VERSION" "$REPO_ROOT/VERSION.head-build-in-progress"
+
+    function cleanup() {
+      echo "$(tput setaf 3)FAILED TO INSTALL JARS! $(tput sgr 0)"
+      mv "$REPO_ROOT/VERSION.head-build-in-progress" "$REPO_ROOT/VERSION"
+    }
+    trap cleanup EXIT
+
+    echo "0.0.0" > "$REPO_ROOT/VERSION"
+
+    bazel build //release:release
+    tmp=$(mktemp -d)
+    "$REPO_ROOT/bazel-bin/release/release" --artifacts "$REPO_ROOT/release/artifacts.yaml" --release-dir $tmp --all-artifacts --install-head-jars
+
+    mv "$REPO_ROOT/VERSION.head-build-in-progress" "$REPO_ROOT/VERSION"
+    trap - EXIT
+
+    echo "$(tput setaf 3)Done installing JARs as 100.0.0.$(tput sgr 0)"
+fi

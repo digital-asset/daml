@@ -94,6 +94,7 @@ da_scala_binary(
     visibility = ["//visibility:public"],
     deps = [
         ":sandbox",
+        "//3rdparty/jvm/com/h2database:h2",
     ],
 )
 
@@ -142,6 +143,7 @@ testDependencies = [
     "//3rdparty/jvm/org/scalacheck:scalacheck",
     "//3rdparty/jvm/org/awaitility:awaitility",
     "//3rdparty/jvm/commons_io:commons_io",
+    "//3rdparty/jvm/com/h2database:h2",
     "//bazel_tools/runfiles:scala_runfiles",
 ] + compileDependencies
 
@@ -158,7 +160,7 @@ da_scala_test_suite(
         ["src/test/suite/**/*.scala"],
     ),
     data = [
-        "//ledger/test-common:Test.dar",
+        "//ledger/test-common:Test-stable.dar",
         "@postgresql_dev_env//:all",
         "@postgresql_dev_env//:createdb",
         "@postgresql_dev_env//:initdb",
@@ -179,18 +181,16 @@ client_server_test(
         "--timeout-scale-factor=10",
     ],
     data = [
-        "//ledger/test-common:SemanticTests.dar",
-        "//ledger/test-common:Test.dar",
-        "//ledger/test-common:Test-1.6.dar",
+        "//ledger/test-common:dar-files",
     ],
     server = "//ledger/sandbox:sandbox-binary",
     server_args = [
         "--port 0",
         "--static-time",
         "--eager-package-loading",
-        "ledger/test-common/SemanticTests.dar",
-        "ledger/test-common/Test.dar",
-        "ledger/test-common/Test-1.6.dar",
+    ],
+    server_files = [
+        "$(rootpaths //ledger/test-common:dar-files)",
     ],
     tags = [
         "dont-run-on-darwin",
@@ -207,18 +207,16 @@ client_server_test(
         "--timeout-scale-factor=10",
     ],
     data = [
-        "//ledger/test-common:SemanticTests.dar",
-        "//ledger/test-common:Test.dar",
-        "//ledger/test-common:Test-1.6.dar",
+        "//ledger/test-common:dar-files",
     ],
     server = "//ledger/sandbox:sandbox-binary",
     server_args = [
         "--port 0",
         "--wall-clock-time",
         "--eager-package-loading",
-        "ledger/test-common/SemanticTests.dar",
-        "ledger/test-common/Test.dar",
-        "ledger/test-common/Test-1.6.dar",
+    ],
+    server_files = [
+        "$(rootpaths //ledger/test-common:dar-files)",
     ],
     tags = [
         "dont-run-on-darwin",
@@ -234,9 +232,7 @@ client_server_test(
         "--timeout-scale-factor=10",
     ],
     data = [
-        "//ledger/test-common:SemanticTests.dar",
-        "//ledger/test-common:Test.dar",
-        "//ledger/test-common:Test-1.6.dar",
+        "//ledger/test-common:dar-files",
         "@postgresql_dev_env//:all",
         "@postgresql_dev_env//:createdb",
         "@postgresql_dev_env//:initdb",
@@ -247,9 +243,35 @@ client_server_test(
         "--port 0",
         "--static-time",
         "--eager-package-loading",
-        "ledger/test-common/SemanticTests.dar",
-        "ledger/test-common/Test.dar",
-        "ledger/test-common/Test-1.6.dar",
+    ],
+    server_files = [
+        "$(rootpaths //ledger/test-common:dar-files)",
+    ],
+    tags = [
+        "dont-run-on-darwin",
+    ],
+) if not is_windows else None
+
+client_server_test(
+    name = "conformance-test-static-time-h2database",
+    timeout = "long",
+    client = "//ledger/ledger-api-test-tool",
+    client_args = [
+        "--all-tests",
+        "--timeout-scale-factor=10",
+    ],
+    data = [
+        "//ledger/test-common:dar-files",
+    ],
+    server = "//ledger/sandbox:sandbox-binary",
+    server_args = [
+        "--port 0",
+        "--static-time",
+        "--eager-package-loading",
+        "--sql-backend-jdbcurl jdbc:h2:mem:static_time",
+    ],
+    server_files = [
+        "$(rootpaths //ledger/test-common:dar-files)",
     ],
     tags = [
         "dont-run-on-darwin",
@@ -266,9 +288,7 @@ client_server_test(
         "--timeout-scale-factor=10",
     ],
     data = [
-        "//ledger/test-common:SemanticTests.dar",
-        "//ledger/test-common:Test.dar",
-        "//ledger/test-common:Test-1.6.dar",
+        "//ledger/test-common:dar-files",
         "@postgresql_dev_env//:all",
         "@postgresql_dev_env//:createdb",
         "@postgresql_dev_env//:initdb",
@@ -279,9 +299,36 @@ client_server_test(
         "--port 0",
         "--wall-clock-time",
         "--eager-package-loading",
-        "ledger/test-common/SemanticTests.dar",
-        "ledger/test-common/Test.dar",
-        "ledger/test-common/Test-1.6.dar",
+    ],
+    server_files = [
+        "$(rootpaths //ledger/test-common:dar-files)",
+    ],
+    tags = [
+        "dont-run-on-darwin",
+    ],
+) if not is_windows else None
+
+client_server_test(
+    name = "conformance-test-wall-clock-h2database",
+    timeout = "long",
+    client = "//ledger/ledger-api-test-tool:ledger-api-test-tool",
+    client_args = [
+        "--all-tests",
+        "--exclude TimeIT",
+        "--timeout-scale-factor=10",
+    ],
+    data = [
+        "//ledger/test-common:dar-files",
+    ],
+    server = "//ledger/sandbox:sandbox-binary",
+    server_args = [
+        "--port 0",
+        "--wall-clock-time",
+        "--eager-package-loading",
+        "--sql-backend-jdbcurl jdbc:h2:mem:wall_clock_time",
+    ],
+    server_files = [
+        "$(rootpaths //ledger/test-common:dar-files)",
     ],
     tags = [
         "dont-run-on-darwin",

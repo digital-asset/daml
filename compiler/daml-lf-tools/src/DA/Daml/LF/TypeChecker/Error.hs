@@ -12,6 +12,7 @@ module DA.Daml.LF.TypeChecker.Error(
 
 import DA.Pretty
 import qualified Data.Text as T
+import Numeric.Natural
 
 import DA.Daml.LF.Ast
 import DA.Daml.LF.Ast.Pretty
@@ -56,6 +57,9 @@ data UnserializabilityReason
   | URDataType !(Qualified TypeConName)  -- ^ It uses a data type which is not serializable.
   | URHigherKinded !TypeVarName !Kind  -- ^ A data type has a higher kinded parameter.
   | URUninhabitatedType  -- ^ A type without values, e.g., a variant with no constructors.
+  | URNumeric -- ^ It contains an unapplied Numeric type constructor.
+  | URNumericNotFixed
+  | URNumericOutOfRange !Natural
 
 data Error
   = EUnknownTypeVar        !TypeVarName
@@ -155,6 +159,9 @@ instance Pretty UnserializabilityReason where
       "unserializable data type" <-> pretty tcon
     URHigherKinded v k -> "higher-kinded type variable" <-> pretty v <:> pretty k
     URUninhabitatedType -> "variant type without constructors"
+    URNumeric -> "unapplied Numeric"
+    URNumericNotFixed -> "Numeric scale is not fixed"
+    URNumericOutOfRange n -> "Numeric scale " <> integer (fromIntegral n) <> " is out of range (needs to be between 0 and 38)"
 
 instance Pretty Error where
   pPrint = \case

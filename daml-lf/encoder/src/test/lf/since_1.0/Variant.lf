@@ -5,7 +5,7 @@ module Variant {
 
   variant @serializable Either (a:*) (b: *) = Left: a | Right: b ;
 
-  record @serializable Box = { x: Variant:Either Int64 Decimal, party: Party } ;
+  record @serializable Box = { x: Variant:Either Int64 (Numeric 10), party: Party } ;
 
   template (this : Box) =  {
     precondition True,

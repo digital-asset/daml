@@ -120,7 +120,8 @@ class ActiveContractsManager[ACS](initialState: => ACS)(implicit ACS: ACS => Act
                     .toMap,
                   key = nc.key,
                   signatories = nc.signatories,
-                  observers = nc.stakeholders.diff(nc.signatories)
+                  observers = nc.stakeholders.diff(nc.signatories),
+                  agreementText = nc.coinst.agreementText
                 )
                 activeContract.key match {
                   case None =>
@@ -201,6 +202,7 @@ object ActiveContracts {
       divulgences: Map[Party, TransactionIdString], // for each party, the transaction id at which the contract was divulged
       key: Option[KeyWithMaintainers[VersionedValue[AbsoluteContractId]]],
       signatories: Set[Party],
-      observers: Set[Party])
+      observers: Set[Party],
+      agreementText: String)
 
 }

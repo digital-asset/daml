@@ -20,7 +20,7 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
       val testCases = Table(
         "builtin type" -> "expected kind",
         BTInt64 -> k"*",
-        BTDecimal -> k"*",
+        BTNumeric -> k"nat -> *",
         BTText -> k"*",
         BTTimestamp -> k"*",
         BTParty -> k"*",
@@ -106,7 +106,7 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
         // ExpLitInt64
         E"(( 42 ))" -> T"Int64",
         // ExpLitDecimal
-        E"(( 3.1415926536 ))" -> T"(( Decimal ))",
+        E"(( 3.1415926536 ))" -> T"(( Numeric 10 ))",
         //ExpLitText
         E"""(( "text" ))""" -> T"(( Text ))",
         //ExpLitDate
@@ -390,8 +390,8 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
         E"Λ (τ : ⋆) (σ : ⋆). λ (e : σ) → (( uembed_expr @τ e ))",
       )
 
-      forEvery(testCases) { exp: Expr =>
-        an[ValidationError] should be thrownBy env.typeOf(exp)
+      forEvery(testCases) { exp =>
+        a[ValidationError] should be thrownBy env.typeOf(exp)
       }
     }
 

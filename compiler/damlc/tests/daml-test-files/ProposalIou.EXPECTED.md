@@ -4,11 +4,11 @@
 
 <a name="type-proposaliou-iou-51326"></a>**template** [Iou](#type-proposaliou-iou-51326)
 
-> | Field   | Type    | Description |
-> | :------ | :------ | :---------- |
-> | issuer  | Party   |  |
-> | owner   | Party   |  |
-> | amount  | Decimal |  |
+> | Field                                                                                  | Type                                                                                   | Description |
+> | :------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------- | :---------- |
+> | issuer                                                                                 | Party                                                                                  |  |
+> | owner                                                                                  | Party                                                                                  |  |
+> | amount                                                                                 | [Decimal](https://docs.daml.com/daml/reference/base.html#type-ghc-types-decimal-54602) |  |
 > 
 > * **Choice External:Archive**
 >   

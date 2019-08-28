@@ -19,7 +19,7 @@ import org.openjdk.jmh.annotations.Benchmark
 
 class AcsBench extends TestCommands with InfAwait {
 
-  override protected def darFile: File = new File(rlocation("ledger/test-common/Test.dar"))
+  override protected def darFile: File = new File(rlocation("ledger/test-common/Test-stable.dar"))
 
   private def generateCommand(
       sequenceNumber: Int,

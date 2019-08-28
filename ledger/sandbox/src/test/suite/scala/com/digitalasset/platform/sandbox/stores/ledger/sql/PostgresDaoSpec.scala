@@ -70,13 +70,14 @@ class PostgresDaoSpec
 
   override def beforeAll(): Unit = {
     super.beforeAll()
-    dbDispatcher = DbDispatcher(postgresFixture.jdbcUrl, 4, 4)
-    ledgerDao = PostgresLedgerDao(
+    dbDispatcher = DbDispatcher(postgresFixture.jdbcUrl, JdbcLedgerDao.Postgres, 4, 4)
+    ledgerDao = JdbcLedgerDao(
       dbDispatcher,
       ContractSerializer,
       TransactionSerializer,
       ValueSerializer,
-      KeyHasher)
+      KeyHasher,
+      JdbcLedgerDao.Postgres)
     Await.result(ledgerDao.initializeLedger(LedgerId("test-ledger"), 0), 10.seconds)
   }
 
@@ -534,7 +535,7 @@ object PostgresDaoSpec {
       Try(DamlLf.Archive.parseFrom(stream))
     }
     private val Success(dar) =
-      reader.readArchiveFromFile(new File(rlocation("ledger/test-common/Test.dar")))
+      reader.readArchiveFromFile(new File(rlocation("ledger/test-common/Test-stable.dar")))
     private val now = Instant.now()
 
     val packages =

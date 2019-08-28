@@ -37,10 +37,16 @@ renderRstText env = \case
     RenderConcat ts -> mconcatMap (renderRstText env) ts
     RenderPlain text -> text
     RenderStrong text -> T.concat ["**", text, "**"]
-    RenderLink anchor text ->
-        case lookupAnchor env anchor of
+    RenderLink ref text ->
+        case lookupReference env ref of
             Nothing -> text
-            Just _ -> T.concat ["`", text, " <", unAnchor anchor, "_>`_"]
+            Just anchorLoc@(External _) ->
+                T.concat
+                    ["`", text, " <"
+                    , anchorHyperlink anchorLoc (referenceAnchor ref)
+                    , ">`_"]
+            Just _ ->
+                T.concat ["`", text, " <", unAnchor (referenceAnchor ref), "_>`_"]
     RenderDocsInline docText ->
         T.unwords (docTextToRst docText)
 

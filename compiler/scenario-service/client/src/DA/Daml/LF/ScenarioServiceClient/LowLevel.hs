@@ -239,7 +239,7 @@ withScenarioService opts@Options{..} f = do
             liftIO $ optLogInfo $ "Scenario service backend running on port " <> show port
             -- Using 127.0.0.1 instead of localhost helps when our packaging logic falls over
             -- and DNS lookups break, e.g., on Alpine linux.
-            let grpcConfig = ClientConfig (Host "127.0.0.1") (Port port) [] Nothing
+            let grpcConfig = ClientConfig (Host "127.0.0.1") (Port port) [] Nothing Nothing
             withGRPCClient grpcConfig $ \client -> do
                 ssClient <- SS.scenarioServiceClient client
                 f Handle

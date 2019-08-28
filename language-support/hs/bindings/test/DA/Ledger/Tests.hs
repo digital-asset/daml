@@ -121,8 +121,8 @@ tListPackages withSandbox = testCase "listPackages" $ run withSandbox $ \pid _te
 tGetPackage :: SandboxTest
 tGetPackage withSandbox = testCase "getPackage" $ run withSandbox $ \pid _testId -> do
     lid <-  getLedgerIdentity
-    Just package <- getPackage lid pid
-    liftIO $ assertBool "contents" ("currency" `isInfixOf` show package)
+    Just (Package bs) <- getPackage lid pid
+    liftIO $ assertBool "contents" ("currency" `isInfixOf` show bs)
 
 tGetPackageBad :: SandboxTest
 tGetPackageBad withSandbox = testCase "getPackage/bad" $ run withSandbox $ \_pid _testId -> do

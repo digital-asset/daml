@@ -492,8 +492,8 @@ convertBind2 env (NonRec name x)
     -- lifting where the lifted version of `f` happens to be `name`.)
     -- This workaround should be removed once we either have a proper lambda
     -- lifter or DAML-LF supports local recursion.
-    | (as, Let (Rec [(f, Lam v y)]) (Var f')) <- collectTyBinders x, f == f'
-    = convertBind2 env $ NonRec name $ mkLams as $ Lam v $ Let (NonRec f $ mkTyApps (Var name) $ map mkTyVarTy as) y
+    | (as, Let (Rec [(f, Lam v y)]) (Var f')) <- collectBinders x, f == f'
+    = convertBind2 env $ NonRec name $ mkLams as $ Lam v $ Let (NonRec f $ mkVarApps (Var name) as) y
     | otherwise
     = withRange (convNameLoc name) $ do
     x' <- convertExpr env x

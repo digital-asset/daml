@@ -53,7 +53,6 @@ import com.digitalasset.daml.lf.value.Value
   * possible. There can therefore potentially be multiple versions of
   * participant state APIs at the same time. We plan to deprecate and drop old
   * versions on separate and appropriate timelines.
-  *
   */
 package object v1 {
 
@@ -63,20 +62,16 @@ package object v1 {
   /** Identifier for the participant, MUST match regexp [a-zA-Z0-9-]. */
   type ParticipantId = Ref.LedgerString
 
-  /** Identifiers for transactions.
-    * Currently unrestricted unicode (See issue #398). */
+  /** Identifiers for transactions. */
   type TransactionId = Ref.TransactionIdString
 
-  /** Identifiers used to correlate submission with results.
-    * Currently unrestricted unicode (See issue #398). */
+  /** Identifiers used to correlate submission with results. */
   type CommandId = Ref.LedgerString
 
-  /** Identifiers used for correlating submission with a workflow.
-    * Currently unrestricted unicode (See issue #398).  */
+  /** Identifiers used for correlating submission with a workflow. */
   type WorkflowId = Ref.LedgerString
 
-  /** Identifiers for submitting client applications.
-    * Currently unrestricted unicode (See issue #398). */
+  /** Identifiers for submitting client applications. */
   type ApplicationId = Ref.LedgerString
 
   /** Identifiers for nodes in a transaction. */

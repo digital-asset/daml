@@ -12,7 +12,6 @@ import DA.Ledger.App.Nim.NimCommand
 import DA.Ledger.App.Nim.NimTrans
 import Data.List as List
 import System.Random(randomIO)
-import qualified DA.Daml.LF.Ast as LF(Package)
 import qualified Data.Text.Lazy as Text (pack)
 import qualified Data.UUID as UUID
 
@@ -47,7 +46,7 @@ connect log = do
         xs@(_:_:_) -> fail $ "found multiple packages containing Nim: " <> show (map fst xs)
         [(pid,_)] -> return Handle{log,lid,pid}
 
-containsNim :: LF.Package -> Bool
+containsNim :: Package -> Bool
 containsNim package = "Nim" `isInfixOf` show package -- TODO: be more principled
 
 sendCommand :: Party -> Handle -> NimCommand -> IO (Maybe Rejection)

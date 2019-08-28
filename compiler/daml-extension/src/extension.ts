@@ -10,13 +10,11 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as cp from 'child_process';
 import * as tmp from 'tmp';
-import { LanguageClient, LanguageClientOptions, RequestType, NotificationType, TextDocumentIdentifier, TextDocument } from 'vscode-languageclient';
+import { LanguageClient, LanguageClientOptions, RequestType, NotificationType, TextDocumentIdentifier, TextDocument, ExecuteCommandRequest } from 'vscode-languageclient';
 import { Uri, Event, TextDocumentContentProvider, ViewColumn, EventEmitter, window, QuickPickOptions, ExtensionContext, env, WorkspaceConfiguration } from 'vscode'
 import * as which from 'which';
 
 let damlRoot: string = path.join(os.homedir(), '.daml');
-let daSdkPath: string = path.join(os.homedir(), '.da');
-let daCmdPath: string = path.join(daSdkPath, 'bin', 'da');
 
 var damlLanguageClient: LanguageClient;
 // Extension activation
@@ -99,34 +97,24 @@ function getViewColumnForShowResource(): ViewColumn {
     }
 }
 
-async function visualize() {
-    const util = require('util');
-    const exec = util.promisify(require('child_process').exec);
-    tmp.file(((err, path) => {
-        if (err) throw err;
-        let buildCmd = "daml build -o " + path
-        let visualizeCmd = "daml damlc visual " + path
-        let workspaceRoot = vscode.workspace.rootPath;
-        let execOpts = { cwd: workspaceRoot }
-        exec(buildCmd, execOpts, ((error: Error, stdout: string, stderr: string) => {
-            if (error) {
-                vscode.window.showErrorMessage("daml build failed with" + error)
-            }
-            else {
-                exec(visualizeCmd, execOpts, ((error: Error, stdout: string, stderr: string) => {
-                    if (error) {
-                        vscode.window.showErrorMessage("damlc visual command failed with " + error)
-                    }
-                    else {
-                        vscode.workspace.openTextDocument({ content: stdout, language: "dot" })
-                            .then(doc => vscode.window.showTextDocument(doc, vscode.ViewColumn.One, true)
-                                .then(_ => loadPreviewIfAvailable()))
-                    }
-                }))
-            }
-        }))
-
-    }))
+function visualize() {
+    if (vscode.window.activeTextEditor) {
+        let currentFile = vscode.window.activeTextEditor.document.fileName
+        if (vscode.window.activeTextEditor.document.languageId != "daml") {
+            vscode.window.showInformationMessage("Open the daml file to visualize")
+        }
+        else {
+            damlLanguageClient.sendRequest(ExecuteCommandRequest.type,
+                { command: "daml/damlVisualize", arguments: [currentFile] }).then(dotFileContents => {
+                    vscode.workspace.openTextDocument({ content: dotFileContents, language: "dot" })
+                        .then(doc => vscode.window.showTextDocument(doc, vscode.ViewColumn.One, true)
+                            .then(_ => loadPreviewIfAvailable()))
+                });
+        }
+    }
+    else {
+        vscode.window.showInformationMessage("Please open a DAML module to be visualized and then run the command")
+    }
 }
 
 function loadPreviewIfAvailable() {
@@ -158,29 +146,17 @@ export function createLanguageClient(config: vscode.WorkspaceConfiguration, tele
     };
 
     let command: string;
-    let args: string[];
-
-    const daArgs = ["run", "damlc", "--", "lax", "ide"];
+    let args: string[] = ["ide", "--"];
 
     try {
         command = which.sync("daml");
-        args = ["ide"];
     } catch (ex) {
-        try {
-            command = which.sync("da");
-            args = daArgs;
-        } catch (ex) {
-            const damlCmdPath = path.join(damlRoot, "bin", "daml");
-            if (fs.existsSync(damlCmdPath)) {
-                command = damlCmdPath;
-                args = ["ide"];
-            } else if (fs.existsSync(daCmdPath)) {
-                command = daCmdPath;
-                args = daArgs;
-            } else {
-                vscode.window.showErrorMessage("Failed to start the DAML language server. Make sure the assistant is installed.");
-                throw new Error("Failed to locate assistant.");
-            }
+        const damlCmdPath = path.join(damlRoot, "bin", "daml");
+        if (fs.existsSync(damlCmdPath)) {
+            command = damlCmdPath;
+        } else {
+            vscode.window.showErrorMessage("Failed to start the DAML language server. Make sure the assistant is installed.");
+            throw new Error("Failed to locate assistant.");
         }
     }
 
@@ -189,6 +165,10 @@ export function createLanguageClient(config: vscode.WorkspaceConfiguration, tele
     } else if (telemetryConsent === false){
         args.push('--optOutTelemetry')
     }
+    const extraArgsString = config.get("extraArguments", "").trim();
+    // split on an empty string returns an array with a single empty string
+    const extraArgs = extraArgsString === "" ? [] : extraArgsString.split(" ");
+    args = args.concat(extraArgs);
     const serverArgs : string[] = addIfInConfig(config, args,
         [ ['debug', ['--debug']]
         , ['experimental', ['--experimental']]

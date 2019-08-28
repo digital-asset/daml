@@ -9,7 +9,10 @@ import java.util.concurrent.Executors
 import akka.stream.scaladsl.Source
 import akka.{Done, NotUsed}
 import com.digitalasset.platform.common.util.DirectExecutionContext
-import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.HikariJdbcConnectionProvider
+import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.{
+  HikariJdbcConnectionProvider,
+  JdbcLedgerDao
+}
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 import org.slf4j.LoggerFactory
 
@@ -19,9 +22,9 @@ trait DbDispatcher extends AutoCloseable {
 
   /** Runs an SQL statement in a dedicated Executor. The whole block will be run in a single database transaction.
     *
-    * The isolation level by default is the one defined in the JDBC driver, it can be however overriden per query on
+    * The isolation level by default is the one defined in the JDBC driver, it can be however overridden per query on
     * the Connection. See further details at: https://docs.oracle.com/cd/E19830-01/819-4721/beamv/index.html
-    * */
+    */
   def executeSql[T](sql: Connection => T): Future[T]
 
   /**
@@ -42,13 +45,18 @@ trait DbDispatcher extends AutoCloseable {
 
 private class DbDispatcherImpl(
     jdbcUrl: String,
+    dbType: JdbcLedgerDao.DbType,
     val noOfShortLivedConnections: Int,
     noOfStreamingConnections: Int)
     extends DbDispatcher {
 
   private val logger = LoggerFactory.getLogger(getClass)
   private val connectionProvider =
-    HikariJdbcConnectionProvider(jdbcUrl, noOfShortLivedConnections, noOfStreamingConnections)
+    HikariJdbcConnectionProvider(
+      jdbcUrl,
+      dbType,
+      noOfShortLivedConnections,
+      noOfStreamingConnections)
   private val sqlExecutor = SqlExecutor(noOfShortLivedConnections)
 
   private val connectionGettingThreadPool = ExecutionContext.fromExecutorService(
@@ -91,12 +99,14 @@ object DbDispatcher {
     * * in sync with the number of JDBC connections in the pool.
     *
     * @param jdbcUrl                   the jdbc url containing the database name, user name and password
+    * @param dbType                    the jdbc database type, needed for db migrations
     * @param noOfShortLivedConnections the number of connections to be pre-allocated for regular SQL queries
     * @param noOfStreamingConnections  the max number of connections to be used for long, streaming queries
     */
   def apply(
       jdbcUrl: String,
+      dbType: JdbcLedgerDao.DbType,
       noOfShortLivedConnections: Int,
       noOfStreamingConnections: Int): DbDispatcher =
-    new DbDispatcherImpl(jdbcUrl, noOfShortLivedConnections, noOfStreamingConnections)
+    new DbDispatcherImpl(jdbcUrl, dbType, noOfShortLivedConnections, noOfStreamingConnections)
 }

@@ -36,7 +36,7 @@ def hazel_hackage(name, version, sha, **kwargs):
 # Things we override from GitHub
 def hazel_github_external(project, repoName, commit, sha, directory = "", name = None, **kwargs):
     args = {
-        "url": "https://github.com/" + project + "/" + repoName + "/archive/" + commit + ".zip",
+        "url": "https://github.com/" + project + "/" + repoName + "/archive/" + commit + ".tar.gz",
         "sha256": sha,
         "stripPrefix": repoName + "-" + commit + directory,
     }

@@ -122,6 +122,8 @@ object SExpr {
       machine.kont.add(KMatch(alts))
       CtrlExpr(scrut)
     }
+
+    override def toString: String = s"SECase($scrut, ${alts.mkString("[", ",", "]")})"
   }
 
   object SECase {

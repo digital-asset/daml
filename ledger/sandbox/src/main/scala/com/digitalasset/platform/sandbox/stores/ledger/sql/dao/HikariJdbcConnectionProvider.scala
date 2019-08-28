@@ -27,6 +27,7 @@ trait JdbcConnectionProvider extends AutoCloseable {
 
 class HikariJdbcConnectionProvider(
     jdbcUrl: String,
+    dbType: JdbcLedgerDao.DbType,
     noOfShortLivedConnections: Int,
     noOfStreamingConnections: Int)
     extends JdbcConnectionProvider {
@@ -50,17 +51,17 @@ class HikariJdbcConnectionProvider(
     config.addDataSourceProperty("cachePrepStmts", "true")
     config.addDataSourceProperty("prepStmtCacheSize", "128")
     config.addDataSourceProperty("prepStmtCacheSqlLimit", "2048")
-    config.addDataSourceProperty("minimumIdle", minimumIdle)
-    config.addDataSourceProperty("maximumPoolSize", maxPoolSize)
-    config.addDataSourceProperty("connectionTimeout", connectionTimeout.toMillis)
-    config.addDataSourceProperty("autoCommit", false)
+    config.setAutoCommit(false)
+    config.setMaximumPoolSize(maxPoolSize)
+    config.setMinimumIdle(minimumIdle)
+    config.setConnectionTimeout(connectionTimeout.toMillis)
 
     //note that Hikari uses auto-commit by default.
     //in `runSql` below, the `.close()` will automatically trigger a commit.
     new HikariDataSource(config)
   }
 
-  private val flyway = FlywayMigrations(shortLivedDataSource)
+  private val flyway = FlywayMigrations(shortLivedDataSource, dbType)
   flyway.migrate()
 
   override def runSQL[T](block: Connection => T): T = {
@@ -95,7 +96,12 @@ class HikariJdbcConnectionProvider(
 object HikariJdbcConnectionProvider {
   def apply(
       jdbcUrl: String,
+      dbType: JdbcLedgerDao.DbType,
       noOfShortLivedConnections: Int,
       noOfStreamingConnections: Int): JdbcConnectionProvider =
-    new HikariJdbcConnectionProvider(jdbcUrl, noOfShortLivedConnections, noOfStreamingConnections)
+    new HikariJdbcConnectionProvider(
+      jdbcUrl,
+      dbType,
+      noOfShortLivedConnections,
+      noOfStreamingConnections)
 }

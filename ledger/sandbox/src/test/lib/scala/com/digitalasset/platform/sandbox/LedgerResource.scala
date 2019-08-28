@@ -64,7 +64,7 @@ object LedgerResource {
 
         ledger = LedgerResource.resource(
           () =>
-            Ledger.postgres(
+            Ledger.jdbcBacked(
               postgres.value.jdbcUrl,
               ledgerId,
               timeProvider,

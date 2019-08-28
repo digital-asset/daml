@@ -57,7 +57,10 @@ instance RenderDoc ModuleDoc where
 
 
 maybeAnchorLink :: Maybe Anchor -> T.Text -> RenderText
-maybeAnchorLink = maybe RenderPlain RenderLink
+maybeAnchorLink = maybe RenderPlain (RenderLink . Reference Nothing)
+
+maybeReferenceLink :: Maybe Reference -> T.Text -> RenderText
+maybeReferenceLink = maybe RenderPlain RenderLink
 
 instance RenderDoc TemplateDoc where
     renderDoc TemplateDoc{..} = mconcat
@@ -110,8 +113,27 @@ instance RenderDoc ClassDoc where
             ]
         , RenderBlock $ mconcat
             [ renderDoc cl_descr
-            , renderDoc cl_functions
+            , renderDoc cl_methods
             , renderDoc cl_instances
+            ]
+        ]
+
+instance RenderDoc ClassMethodDoc where
+    renderDoc ClassMethodDoc{..} = mconcat
+        [ renderDoc cm_anchor
+        , RenderParagraph . renderUnwords . concat $
+            [ [ RenderStrong "default" | cm_isDefault ]
+            , [ maybeAnchorLink cm_anchor (wrapOp (unFieldname cm_name)) ]
+            ]
+        , RenderBlock $ mconcat
+            [ RenderParagraph . renderUnwords . concat $
+                [ [RenderPlain ":"]
+                , renderContext cm_localContext
+                    -- TODO: use localContext only when rendering inside ClassDoc,
+                    -- otherwise use globalContext
+                , [renderType cm_type]
+                ]
+            , renderDoc cm_descr
             ]
         ]
 
@@ -210,10 +232,10 @@ renderType = renderTypePrec  0
 -- * precedence 2: brackets around function types and type application
 renderTypePrec :: Int -> Type -> RenderText
 renderTypePrec prec = \case
-    TypeApp anchorM (Typename typename) args ->
+    TypeApp referenceM (Typename typename) args ->
         (if prec >= 2 && notNull args then renderInParens else id)
             . renderUnwords
-            $ maybeAnchorLink anchorM (wrapOp typename)
+            $ maybeReferenceLink referenceM (wrapOp typename)
             : map (renderTypePrec 2) args
     TypeFun ts ->
         (if prec >= 1 then renderInParens else id)

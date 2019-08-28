@@ -23,7 +23,7 @@ import System.Info.Extra
 import System.IO.Extra
 import Test.Tasty
 import Test.Tasty.HUnit
-
+import qualified Data.Aeson as Aeson
 import DA.Daml.Lsp.Test.Util
 import qualified Language.Haskell.LSP.Test as LSP
 
@@ -48,6 +48,7 @@ main = do
         , requestTests run runScenarios
         , scenarioTests runScenarios
         , stressTests run runScenarios
+        , executeCommandTests run runScenarios
         ]
     where
         conf = defaultConfig
@@ -416,6 +417,44 @@ scenarioTests run = testGroup "scenarios"
           closeDoc main'
     ]
 
+executeCommandTests :: (forall a. Session a -> IO a) -> (Session () -> IO ()) -> TestTree
+executeCommandTests run _ = testGroup "execute command"
+    [ testCase "execute commands" $ run $ do
+        main' <- openDoc' "Main.daml" damlId $ T.unlines
+            [ "daml 1.2"
+            , "module Coin where"
+            , "template Coin"
+            , "  with"
+            , "    owner : Party"
+            , "  where"
+            , "    signatory owner"
+            , "    controller owner can"
+            , "      Delete : ()"
+            , "        do return ()"
+            ]
+        Just escapedFp <- pure $ uriToFilePath (main' ^. uri)
+        actualDotString :: ExecuteCommandResponse <- LSP.request WorkspaceExecuteCommand $ ExecuteCommandParams
+           "daml/damlVisualize"  (Just (List [Aeson.String $ T.pack escapedFp]))
+        let expectedDotString = "digraph G {\ncompound=true;\nrankdir=LR;\nsubgraph cluster_Coin{\nn0[label=Create][color=green]; \nn1[label=Archive][color=red]; \nn2[label=Delete][color=red]; \nlabel=Coin;color=blue\n}\n}\n"
+        liftIO $ assertEqual "Visulization command" (Just expectedDotString) (_result actualDotString)
+        closeDoc main'
+    , testCase "Invalid commands result in empty response"  $ run $ do
+        main' <- openDoc' "Main.daml" damlId $ T.unlines
+            [ "daml 1.2"
+            , "module Empty where"
+            ]
+        Just escapedFp <- pure $ uriToFilePath (main' ^. uri)
+        actualDotString :: ExecuteCommandResponse <- LSP.request WorkspaceExecuteCommand $ ExecuteCommandParams
+           "daml/NoCommand"  (Just (List [Aeson.String $ T.pack escapedFp]))
+        let expectedNull = Just Aeson.Null
+        liftIO $ assertEqual "Invlalid command" expectedNull (_result actualDotString)
+        closeDoc main'
+    , testCase "Visualization command with no arguments" $ run $ do
+        actualDotString :: ExecuteCommandResponse <- LSP.request WorkspaceExecuteCommand $ ExecuteCommandParams
+           "daml/damlVisualize"  Nothing
+        let expectedNull = Just Aeson.Null
+        liftIO $ assertEqual "Invlalid command" expectedNull (_result actualDotString)
+    ]
 
 -- | Do extreme things to the compiler service.
 stressTests

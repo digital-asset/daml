@@ -194,8 +194,8 @@ unitTests =
                    ("Expected a class description and a function description, got " <> show md)
                    (isJust $ do cls <- getSingle $ md_classes md
                                 check (Just "Class description" == cl_descr cls)
-                                member <- getSingle $ cl_functions cls
-                                check (Just "Member description" == fct_descr member)))
+                                member <- getSingle $ cl_methods cls
+                                check (Just "Member description" == cm_descr member)))
          ]
 
 

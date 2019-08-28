@@ -104,6 +104,7 @@ kindOfBuiltin :: BuiltinType -> Kind
 kindOfBuiltin = \case
   BTInt64 -> KStar
   BTDecimal -> KStar
+  BTNumeric -> KNat `KArrow` KStar
   BTText -> KStar
   BTTimestamp -> KStar
   BTParty -> KStar
@@ -136,6 +137,7 @@ kindOf = \case
   TBuiltin btype -> pure (kindOfBuiltin btype)
   TForall (v, k) t1 -> introTypeVar v k $ checkType t1 KStar $> KStar
   TTuple recordType -> checkRecordType recordType $> KStar
+  TNat _ -> pure KNat
 
 typeOfBuiltin :: MonadGamma m => BuiltinExpr -> m Type
 typeOfBuiltin = \case
@@ -165,6 +167,21 @@ typeOfBuiltin = \case
   BEMulDecimal       -> pure $ tBinop TDecimal
   BEDivDecimal       -> pure $ tBinop TDecimal
   BERoundDecimal     -> pure $ TInt64 :-> TDecimal :-> TDecimal
+  BEEqualNumeric     -> pure $ TForall (alpha, KNat) $ TNumeric tAlpha :-> TNumeric tAlpha :-> TBool
+  BELessNumeric      -> pure $ TForall (alpha, KNat) $ TNumeric tAlpha :-> TNumeric tAlpha :-> TBool
+  BELessEqNumeric    -> pure $ TForall (alpha, KNat) $ TNumeric tAlpha :-> TNumeric tAlpha :-> TBool
+  BEGreaterNumeric   -> pure $ TForall (alpha, KNat) $ TNumeric tAlpha :-> TNumeric tAlpha :-> TBool
+  BEGreaterEqNumeric -> pure $ TForall (alpha, KNat) $ TNumeric tAlpha :-> TNumeric tAlpha :-> TBool
+  BEAddNumeric -> pure $ TForall (alpha, KNat) $ TNumeric tAlpha :-> TNumeric tAlpha :-> TNumeric tAlpha
+  BESubNumeric -> pure $ TForall (alpha, KNat) $ TNumeric tAlpha :-> TNumeric tAlpha :-> TNumeric tAlpha
+  BEMulNumeric -> pure $ TForall (alpha, KNat) $ TNumeric tAlpha :-> TNumeric tAlpha :-> TNumeric tAlpha
+  BEDivNumeric -> pure $ TForall (alpha, KNat) $ TNumeric tAlpha :-> TNumeric tAlpha :-> TNumeric tAlpha
+  BERoundNumeric -> pure $ TForall (alpha, KNat) $ TInt64 :-> TNumeric tAlpha :-> TNumeric tAlpha
+  BEInt64ToNumeric -> pure $ TForall (alpha, KNat) $ TInt64 :-> TNumeric tAlpha
+  BENumericToInt64 -> pure $ TForall (alpha, KNat) $ TNumeric tAlpha :-> TInt64
+  BEToTextNumeric -> pure $ TForall (alpha, KNat) $ TNumeric tAlpha :-> TText
+  BENumericFromText -> pure $ TForall (alpha, KNat) $ TText :-> TOptional (TNumeric tAlpha)
+
   BEAddInt64         -> pure $ tBinop TInt64
   BESubInt64         -> pure $ tBinop TInt64
   BEMulInt64         -> pure $ tBinop TInt64

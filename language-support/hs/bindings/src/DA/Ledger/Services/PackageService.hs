@@ -5,7 +5,7 @@
 
 module DA.Ledger.Services.PackageService (
     listPackages,
-    getPackage,
+    getPackage, Package(..),
     getPackageStatus, PackageStatus(..),
     ) where
 
@@ -15,10 +15,8 @@ import DA.Ledger.LedgerService
 import DA.Ledger.Types
 import Network.GRPC.HighLevel.Generated
 import Proto3.Suite.Types(Enumerated(..))
-import qualified DA.Daml.LF.Ast as LF(Package)
-import qualified DA.Daml.LF.Proto3.Decode as Decode(decodePayload)
 import qualified Data.Vector as Vector
-import qualified Proto3.Suite(fromByteString)
+import Data.ByteString(ByteString)
 
 listPackages :: LedgerId -> LedgerService [PackageId]
 listPackages lid =
@@ -31,7 +29,9 @@ listPackages lid =
         ListPackagesResponse xs <- unwrap response
         return $ map PackageId $ Vector.toList xs
 
-getPackage :: LedgerId -> PackageId -> LedgerService (Maybe LF.Package)
+newtype Package = Package ByteString deriving (Eq,Ord,Show)
+
+getPackage :: LedgerId -> PackageId -> LedgerService (Maybe Package)
 getPackage lid pid =
     makeLedgerService $ \timeout config ->
     withGRPCClient config $ \client -> do
@@ -43,11 +43,8 @@ getPackage lid pid =
             >>= \case
             Nothing ->
                 return Nothing
-            Just (GetPackageResponse _ bs _) -> do
-                let ap = either (error . show) id (Proto3.Suite.fromByteString bs)
-                case Decode.decodePayload ap of
-                    Left e -> fail (show e)
-                    Right package -> return (Just package)
+            Just (GetPackageResponse _ bs _) ->
+                return $ Just $ Package bs
 
 getPackageStatus :: LedgerId -> PackageId -> LedgerService PackageStatus
 getPackageStatus lid pid =

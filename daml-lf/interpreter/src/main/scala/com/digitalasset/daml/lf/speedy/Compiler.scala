@@ -3,8 +3,8 @@
 
 package com.digitalasset.daml.lf.speedy
 
-import com.digitalasset.daml.lf.data.{Decimal, FrontStack, Numeric, ImmArray, Ref}
 import com.digitalasset.daml.lf.data.Ref._
+import com.digitalasset.daml.lf.data.{FrontStack, ImmArray, Ref}
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.speedy.Compiler.{CompileError, PackageNotFound}
 import com.digitalasset.daml.lf.speedy.SBuiltin._
@@ -40,7 +40,10 @@ object Compiler {
 final case class Compiler(packages: PackageId PartialFunction Package) {
 
   private abstract class VarRef { def name: Ref.Name }
+  // corresponds to DAML-LF expression variable.
   private case class EVarRef(name: ExprVarName) extends VarRef
+  // corresponds to DAML-LF type variable.
+  private case class TVarRef(name: TypeVarName) extends VarRef
 
   private case class Env(position: Int = 0, varIndices: List[(VarRef, Option[Int])] = List.empty) {
     def incrPos: Env = copy(position = position + 1)
@@ -52,10 +55,14 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
       incrPos.addExprVar(name, position)
     def addExprVar(name: ExprVarName): Env =
       addExprVar(Some(name))
+    def addTypeVar(name: TypeVarName): Env =
+      incrPos.copy(varIndices = (TVarRef(name), Some(position)) :: varIndices)
+    def hideTypeVar(name: TypeVarName): Env =
+      copy(varIndices = (TVarRef(name), None) :: varIndices)
 
     def vars: List[VarRef] = varIndices.map(_._1)
 
-    def lookUp(varRef: VarRef): Option[Int] =
+    private def lookUpVar(varRef: VarRef): Option[Int] =
       varIndices
         .find(_._1 == varRef)
         .flatMap(_._2)
@@ -65,11 +72,11 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
         .map(position - _)
 
     def lookUpExprVar(name: ExprVarName): Int =
-      lookUp(EVarRef(name)) match {
-        case Some(x) => x
-        case None =>
-          throw CompileError(s"Unknown variable: $name. Known: ${env.vars.mkString(",")}")
-      }
+      lookUpVar(EVarRef(name))
+        .getOrElse(throw CompileError(s"Unknown variable: $name. Known: ${env.vars.mkString(",")}"))
+
+    def lookUpTypeVar(name: TypeVarName): Option[Int] =
+      lookUpVar(TVarRef(name))
 
   }
 
@@ -187,11 +194,11 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
               case BTrace => SBTrace
 
               // Decimal arithmetic
-              case BAddDecimal => SBAddNumeric
-              case BSubDecimal => SBSubNumeric
-              case BMulDecimal => SBMulNumeric
-              case BDivDecimal => SBDivNumeric
-              case BRoundDecimal => SBRoundNumeric
+              case BAddNumeric => SBAddNumeric
+              case BSubNumeric => SBSubNumeric
+              case BMulNumeric => SBMulNumeric
+              case BDivNumeric => SBDivNumeric
+              case BRoundNumeric => SBRoundNumeric
 
               // Int64 arithmetic
               case BAddInt64 => SBAddInt64
@@ -202,8 +209,8 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
               case BExpInt64 => SBExpInt64
 
               // Conversions
-              case BInt64ToDecimal => SBInt64ToNumeric
-              case BDecimalToInt64 => SBNumericToInt64
+              case BInt64ToNumeric => SBInt64ToNumeric
+              case BNumericToInt64 => SBNumericToInt64
               case BDateToUnixDays => SBDateToUnixDays
               case BUnixDaysToDate => SBUnixDaysToDate
               case BTimestampToUnixMicroseconds => SBTimestampToUnixMicroseconds
@@ -215,7 +222,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
               case BAppendText => SBAppendText
 
               case BToTextInt64 => SBToText
-              case BToTextDecimal => SBToText
+              case BToTextNumeric => SBToTextNumeric
               case BToTextText => SBToText
               case BToTextTimestamp => SBToText
               case BToTextParty => SBToText
@@ -224,7 +231,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
               case BToTextCodePoints => SBToTextCodePoints
               case BFromTextParty => SBFromTextParty
               case BFromTextInt64 => SBFromTextInt64
-              case BFromTextDecimal => SBFromTextNumeric
+              case BFromTextNumeric => SBFromTextNumeric
               case BFromTextCodePoints => SBFromTextCodePoints
 
               case BSHA256Text => SBSHA256Text
@@ -238,10 +245,10 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
               case BGreaterInt64 => SBGreater
               case BGreaterEqInt64 => SBGreaterEq
 
-              case BLessDecimal => SBLess
-              case BLessEqDecimal => SBLessEq
-              case BGreaterDecimal => SBGreater
-              case BGreaterEqDecimal => SBGreaterEq
+              case BLessNumeric => SBLessNumeric
+              case BLessEqNumeric => SBLessEqNumeric
+              case BGreaterNumeric => SBGreaterNumeric
+              case BGreaterEqNumeric => SBGreaterEqNumeric
 
               case BLessText => SBLess
               case BLessEqText => SBLessEq
@@ -266,7 +273,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
               // Equality
               case BEqualText => SBEqual
               case BEqualInt64 => SBEqual
-              case BEqualDecimal => SBEqual
+              case BEqualNumeric => SBEqualNumeric
               case BEqualTimestamp => SBEqual
               case BEqualDate => SBEqual
               case BEqualParty => SBEqual
@@ -299,19 +306,21 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
       case EPrimLit(lit) =>
         SEValue(lit match {
           case PLInt64(i) => SInt64(i)
-          case PLDecimal(d) =>
-            SNumeric(Numeric.assertFromBigDecimal(Decimal.scale, d))
+          case PLNumeric(d) => SNumeric(d)
           case PLText(t) => SText(t)
           case PLTimestamp(ts) => STimestamp(ts)
           case PLParty(p) => SParty(p)
           case PLDate(d) => SDate(d)
         })
-      case EAbs(_, _, _) =>
+
+      case EAbs(_, _, _) | ETyAbs(_, _) =>
         withEnv { _ =>
           translateAbss(expr0)
         }
-      case EApp(_, _) =>
+
+      case EApp(_, _) | ETyApp(_, _) =>
         translateApps(expr0)
+
       case ERecCon(tApp, fields) =>
         if (fields.isEmpty)
           SEBuiltin(SBRecCon(tApp.tycon, Name.Array.empty))
@@ -344,10 +353,6 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
       case ETupleUpd(field, tuple, update) =>
         SBTupleUpd(field)(translate(tuple), translate(update))
 
-      case ETyAbs(_, body) =>
-        translate(body)
-      case ETyApp(expr, _) =>
-        translate(expr)
       case ECase(scrut, alts) =>
         SECase(
           translate(scrut),
@@ -488,7 +493,8 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
                 case Some(tplKey) => translate(tplKey.maintainers)
               }
               SELet(key, SEApp(keyMaintainers, Array(SEVar(1)))) in {
-                env = env.incrPos.incrPos // key, keyMaintainers
+                env = env.incrPos // key
+                env = env.incrPos // keyMaintainers
                 SEAbs(1) {
                   env = env.incrPos // token
                   SELet(
@@ -572,22 +578,41 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
     }
 
   @tailrec
-  private def translateAbss(expr: Expr, arity: Int = 0): SExpr =
-    expr match {
+  private def translateAbss(expr0: Expr, arity: Int = 0): SExpr =
+    expr0 match {
       case EAbs((binder, typ @ _), body, ref @ _) =>
         env = env.addExprVar(binder)
         translateAbss(body, arity + 1)
+      case ETyAbs((binder, KNat), body) =>
+        env = env.addTypeVar(binder)
+        translateAbss(body, arity + 1)
+      case ETyAbs((binder, _), body) =>
+        env = env.hideTypeVar(binder)
+        translateAbss(body, arity)
+      case _ if arity == 0 =>
+        translate(expr0)
       case _ =>
-        SEAbs(arity, translate(expr))
+        SEAbs(arity, translate(expr0))
     }
 
   @tailrec
-  private def translateApps(expr: Expr, args: List[SExpr] = List.empty): SExpr =
-    expr match {
+  private def translateApps(expr0: Expr, args: List[SExpr] = List.empty): SExpr =
+    expr0 match {
       case EApp(fun, arg) =>
         translateApps(fun, translate(arg) :: args)
+      case ETyApp(fun, arg) =>
+        translateApps(fun, translateType(arg).fold(args)(_ :: args))
+      case _ if args.isEmpty =>
+        translate(expr0)
       case _ =>
-        SEApp(translate(expr), args.toArray)
+        SEApp(translate(expr0), args.toArray)
+    }
+
+  private def translateType(typ: Type): Option[SExpr] =
+    typ match {
+      case TNat(n) => Some(SEValue(STNat(n)))
+      case TVar(name) => env.lookUpTypeVar(name).map(SEVar)
+      case _ => None
     }
 
   private def translateScenario(scen: Scenario, optLoc: Option[Location]): SExpr =
@@ -987,14 +1012,14 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
 
     def goV(v: SValue): Unit = {
       v match {
-        case _: SPrimLit =>
+        case _: SPrimLit | STNat(_) =>
         case SList(a) => a.iterator.foreach(goV)
         case SOptional(x) => x.foreach(goV)
         case SMap(map) => map.values.foreach(goV)
         case SRecord(_, _, args) => args.forEach(goV)
         case SVariant(_, _, value) => goV(value)
         case SEnum(_, _) => ()
-        case _: SPAP | SToken | _: STuple =>
+        case _: SPAP | SToken | STuple(_, _) =>
           throw CompileError("validate: unexpected SEValue")
       }
     }

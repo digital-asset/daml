@@ -30,7 +30,7 @@ sealed trait SValue {
   def toValue: V[V.ContractId] =
     this match {
       case SInt64(x) => V.ValueInt64(x)
-      case SNumeric(x) => V.ValueDecimal(Decimal.assertFromBigDecimal(x))
+      case SNumeric(x) => V.ValueNumeric(x)
       case SText(x) => V.ValueText(x)
       case STimestamp(x) => V.ValueTimestamp(x)
       case SParty(x) => V.ValueParty(x)
@@ -42,11 +42,9 @@ sealed trait SValue {
           ImmArray(
             fields.toSeq
               .zip(svalues.asScala)
-              .map {
-                case (fld, sv) =>
-                  (fld, sv.toValue)
-              }))
-
+              .map { case (fld, sv) => (fld, sv.toValue) }
+          )
+        )
       case SRecord(id, fields, svalues) =>
         V.ValueRecord(
           Some(id),
@@ -56,7 +54,6 @@ sealed trait SValue {
               .map({ case (fld, sv) => (Some(fld), sv.toValue) })
           )
         )
-
       case SVariant(id, variant, sv) =>
         V.ValueVariant(Some(id), variant, sv.toValue)
       case SEnum(id, constructor) =>
@@ -69,10 +66,10 @@ sealed trait SValue {
         V.ValueMap(SortedLookupList(mVal).mapValue(_.toValue))
       case SContractId(coid) =>
         V.ValueContractId(coid)
-
+      case STNat(_) =>
+        throw SErrorCrash("SValue.toValue: unexpected STNat")
       case _: SPAP =>
         throw SErrorCrash("SValue.toValue: unexpected SPAP")
-
       case SToken =>
         throw SErrorCrash("SValue.toValue: unexpected SToken")
     }
@@ -111,9 +108,8 @@ sealed trait SValue {
         SMap(value.transform((_, v) => v.mapContractId(f)))
       case SContractId(coid) =>
         SContractId(f(coid))
-      case _: SEnum => this
-      case _: SPrimLit => this
-      case SToken => this
+      case SEnum(_, _) | _: SPrimLit | SToken | STNat(_) => this
+
     }
 
   def equalTo(v2: SValue): Boolean = {
@@ -125,13 +121,11 @@ sealed trait SValue {
           values.iterator.asScala.zip(values2.iterator.asScala).forall {
             case (x, y) => x.equalTo(y)
           }
-
       case (STuple(fields, values), STuple(fields2, values2)) =>
         ComparableArray(fields) == ComparableArray(fields2) &&
           values.iterator.asScala.zip(values2.iterator.asScala).forall {
             case (x, y) => x.equalTo(y)
           }
-
       case (SVariant(tycon1, con1, value), SVariant(tycon2, con2, value2)) =>
         tycon1 == tycon2 && con1 == con2 && value.equalTo(value2)
       case (SContractId(coid), SContractId(coid2)) =>
@@ -142,6 +136,8 @@ sealed trait SValue {
         }
       case (x: SPrimLit, y: SPrimLit) =>
         x == y
+      case (STNat(n1), STNat(n2)) =>
+        n1 == n2
       case _ =>
         false
     }
@@ -153,7 +149,9 @@ object SValue {
   /** "Primitives" that can be applied. */
   sealed trait Prim
   final case class PBuiltin(b: SBuiltin) extends Prim
-  final case class PClosure(expr: SExpr, closure: Array[SValue]) extends Prim with SomeArrayEquals
+  final case class PClosure(expr: SExpr, closure: Array[SValue]) extends Prim with SomeArrayEquals {
+    override def toString: String = s"PClosure($expr, ${closure.mkString("[", ",", "]")})"
+  }
 
   /** A partially (or fully) applied primitive.
     * This is constructed when an argument is applied. When it becomes fully
@@ -161,7 +159,9 @@ object SValue {
     * If the primitive is a closure, the arguments are pushed to the environment and the
     * closure body is entered.
     */
-  final case class SPAP(prim: Prim, args: util.ArrayList[SValue], arity: Int) extends SValue
+  final case class SPAP(prim: Prim, args: util.ArrayList[SValue], arity: Int) extends SValue {
+    override def toString: String = s"SPAP($prim, ${args.asScala.mkString("[", ",", "]")}, $arity)"
+  }
 
   final case class SRecord(id: Identifier, fields: Array[Name], values: util.ArrayList[SValue])
       extends SValue
@@ -180,6 +180,12 @@ object SValue {
   final case class SList(list: FrontStack[SValue]) extends SValue
 
   final case class SMap(value: HashMap[String, SValue]) extends SValue
+
+  // Corresponds to a DAML-LF Nat type reified as a Speedy value.
+  // It is currently used to track at runtime the scale of the
+  // Numeric builtin's arguments/output. Should never be translated
+  // back to DAML-LF expressions / values.
+  final case class STNat(n: Int) extends SValue
 
   // NOTE(JM): We are redefining PrimLit here so it can be unified
   // with SValue and we can remove one layer of indirection.
@@ -205,13 +211,11 @@ object SValue {
         SList(vs.map[SValue](fromValue))
       case V.ValueContractId(coid) => SContractId(coid)
       case V.ValueInt64(x) => SInt64(x)
-      case V.ValueDecimal(x) =>
-        Numeric
-          .fromBigDecimal(Decimal.scale, x)
-          .fold(
-            e => throw SErrorCrash("SValue.fromValue: " + e),
-            SNumeric
-          )
+      case V.ValueNumeric(x) =>
+        // FixMe: https://github.com/digital-asset/daml/issues/2289
+        //   drop this double check
+        assert(x.scale == Decimal.scale)
+        SNumeric(x)
       case V.ValueText(t) => SText(t)
       case V.ValueTimestamp(t) => STimestamp(t)
       case V.ValueParty(p) => SParty(p)

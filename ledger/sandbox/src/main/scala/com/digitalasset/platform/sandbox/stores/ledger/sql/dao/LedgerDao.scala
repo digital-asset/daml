@@ -48,7 +48,8 @@ final case class Contract(
       divulgences,
       key,
       signatories,
-      observers)
+      observers,
+      coinst.agreementText)
 }
 
 object Contract {

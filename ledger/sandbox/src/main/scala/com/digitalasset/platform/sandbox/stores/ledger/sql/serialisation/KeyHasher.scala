@@ -6,7 +6,7 @@ package com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation
 import java.nio.ByteBuffer
 import java.security.MessageDigest
 
-import com.digitalasset.daml.lf.data.{Decimal, Utf8}
+import com.digitalasset.daml.lf.data.{Numeric, Utf8}
 import com.digitalasset.daml.lf.transaction.Node.GlobalKey
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
@@ -49,7 +49,7 @@ object KeyHasher extends KeyHasher {
     value match {
       case ValueContractId(v) => op(z, HashTokenText(v.coid))
       case ValueInt64(v) => op(z, HashTokenLong(v))
-      case ValueDecimal(v) => op(z, HashTokenText(Decimal.toString(v)))
+      case ValueNumeric(v) => op(z, HashTokenText(Numeric.toUnscaledString(v)))
       case ValueText(v) => op(z, HashTokenText(v))
       case ValueTimestamp(v) => op(z, HashTokenLong(v.micros))
       case ValueParty(v) => op(z, HashTokenText(v))

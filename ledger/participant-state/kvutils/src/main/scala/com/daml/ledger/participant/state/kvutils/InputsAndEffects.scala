@@ -4,22 +4,16 @@
 package com.daml.ledger.participant.state.kvutils
 
 import com.daml.ledger.participant.state.kvutils.Conversions._
+import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.v1.SubmittedTransaction
+import com.digitalasset.daml.lf.transaction.Node._
 import com.digitalasset.daml.lf.transaction.{GenTransaction, Transaction}
-import com.digitalasset.daml.lf.transaction.Node.{
-  NodeCreate,
-  NodeExercises,
-  NodeFetch,
-  NodeLookupByKey,
-  GlobalKey
-}
 import com.digitalasset.daml.lf.value.Value.{
   AbsoluteContractId,
   ContractId,
   RelativeContractId,
   VersionedValue
 }
-import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 
 /** Internal utilities to compute the inputs and effects of a DAML transaction */
 private[kvutils] object InputsAndEffects {
@@ -57,7 +51,7 @@ private[kvutils] object InputsAndEffects {
       DamlStateKey.newBuilder.setPackageId(pkgId).build
     }.toList
 
-    def addStateInput(inputs: List[DamlStateKey], coid: ContractId): List[DamlStateKey] =
+    def addContractInput(inputs: List[DamlStateKey], coid: ContractId): List[DamlStateKey] =
       coid match {
         case acoid: AbsoluteContractId =>
           absoluteContractIdToStateKey(acoid) :: inputs
@@ -69,7 +63,7 @@ private[kvutils] object InputsAndEffects {
       case (stateInputs, (nodeId, node)) =>
         node match {
           case fetch: NodeFetch[ContractId] =>
-            addStateInput(stateInputs, fetch.coid)
+            addContractInput(stateInputs, fetch.coid)
           case create: NodeCreate[ContractId, VersionedValue[ContractId]] =>
             create.key.fold(stateInputs) { keyWithM =>
               contractKeyToStateKey(GlobalKey(
@@ -77,12 +71,12 @@ private[kvutils] object InputsAndEffects {
                 forceAbsoluteContractIds(keyWithM.key))) :: stateInputs
             }
           case exe: NodeExercises[_, ContractId, _] =>
-            addStateInput(stateInputs, exe.targetCoid)
+            addContractInput(stateInputs, exe.targetCoid)
           case l: NodeLookupByKey[ContractId, Transaction.Value[ContractId]] =>
             // We need both the contract key state and the contract state. The latter is used to verify
             // that the submitter can access the contract.
             contractKeyToStateKey(GlobalKey(l.templateId, forceAbsoluteContractIds(l.key.key))) ::
-              l.result.fold(stateInputs)(addStateInput(stateInputs, _))
+              l.result.fold(stateInputs)(addContractInput(stateInputs, _))
         }
     }
   }

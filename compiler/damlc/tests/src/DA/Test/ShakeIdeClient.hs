@@ -333,6 +333,26 @@ dlintSmokeTests mbScenarioService = Tasty.testGroup "Dlint smoke tests"
             setFilesOfInterest [foo]
             expectNoErrors
             expectDiagnostic DsInfo (foo, 0, 0) "Warning: Use fewer LANGUAGE pragmas"
+    ,  testCase' "Warning use map" $ do
+            foo <- makeFile "Foo.daml" $ T.unlines
+                [ "daml 1.2"
+                , "module Foo where"
+                , "g : [Int] -> [Int]"
+                , "g (x :: xs) = x + 1 :: g xs"
+                , "g [] = []"]
+            setFilesOfInterest [foo]
+            expectNoErrors
+            expectDiagnostic DsInfo (foo, 3, 0) "Warning: Use map"
+    ,  testCase' "Suggest use foldr" $ do
+            foo <- makeFile "Foo.daml" $ T.unlines
+                [ "daml 1.2"
+                , "module Foo where"
+                , "f : [Int] -> Int"
+                , "f (x :: xs) = negate x + f xs"
+                , "f [] = 0"]
+            setFilesOfInterest [foo]
+            expectNoErrors
+            expectDiagnostic DsInfo (foo, 3, 0) "Suggestion: Use foldr"
   ]
   where
       testCase' = testCase mbScenarioService
@@ -967,7 +987,7 @@ visualDamlTests = Tasty.testGroup "Visual Tests"
                         ExpectedChoice "ReducedCoin" False Set.empty
                     ])
                 ]
-        , testCase' "excercise sould add new action" $ do
+        , testCase' "Exercise should add an edge" $ do
             exerciseTest <- makeModule "F"
                 [ "template TT"
                 , "  with"
@@ -1001,7 +1021,7 @@ visualDamlTests = Tasty.testGroup "Visual Tests"
                         ExpectedChoice "Archive" True Set.empty
                     ])
                 ]
-        , testCase' "create on other template should be edge" $ do
+        , testCase' "Create on other template should be edge" $ do
             createTest <- makeModule "F"
                 [ "template TT"
                 , "  with"

@@ -27,7 +27,7 @@ class SerializabilitySpec extends WordSpec with TableDrivenPropertyChecks with M
         t"List serializableType",
         t"serializableType serializableType",
         t"Int64",
-        t"Decimal",
+        t"(Numeric 10)",
         t"Text",
         t"Timestamp",
         t"Date",
@@ -50,6 +50,8 @@ class SerializabilitySpec extends WordSpec with TableDrivenPropertyChecks with M
       val testCases = Table(
         "type",
         t"unserializableType0",
+        t"Numeric",
+        t"10",
         t"Mod:R",
         t"Mod:f",
         t"List unserializableType",

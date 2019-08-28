@@ -31,9 +31,19 @@ object Update {
   }
 
   /** Signal that the current [[Configuration]] has changed. */
-  final case class ConfigurationChanged(newConfiguration: Configuration) extends Update {
+  final case class ConfigurationChanged(submissionId: String, newConfiguration: Configuration)
+      extends Update {
     override def description: String =
       s"Configuration changed to: $newConfiguration"
+  }
+
+  /** Signal that a configuration change submitted by this participant was rejected.
+    */
+  final case class ConfigurationChangeRejected(submissionId: String, reason: String)
+      extends Update {
+    override def description: String = {
+      s"Configuration change '$submissionId' was rejected: $reason"
+    }
   }
 
   /** Signal that a party is hosted at a participant.
@@ -159,4 +169,5 @@ object Update {
       s"Reject command ${submitterInfo.commandId}: $reason"
     }
   }
+
 }

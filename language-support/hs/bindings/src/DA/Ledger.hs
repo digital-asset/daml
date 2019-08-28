@@ -43,6 +43,7 @@ configOfHostAndPort host port =
                  , clientServerPort = port
                  , clientArgs = []
                  , clientSSLConfig = Nothing
+                 , clientAuthority = Nothing
                  }
 
 withTimeout :: LedgerService a -> LedgerService (Maybe a)

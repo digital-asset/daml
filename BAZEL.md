@@ -688,7 +688,7 @@ More comprehensive documentation on the `bazel` command can be found
 If your work goes beyond simply adding targets to existing
 `BUILD.bazel` files and involves things like defining toolchains and
 external dependencies, then [this
-document](https://github.com/DACH-NY/da/blob/master/BAZEL-haskell.md)
+document](https://github.com/digital-asset/daml/blob/master/BAZEL-haskell.md)
 is for you!
 
 ## Documentation packages in Bazel

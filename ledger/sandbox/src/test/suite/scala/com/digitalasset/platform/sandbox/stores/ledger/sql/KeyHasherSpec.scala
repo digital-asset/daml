@@ -27,8 +27,8 @@ class KeyHasherSpec extends WordSpec with Matchers {
     builder += None -> ValueInt64(0)
     builder += None -> ValueInt64(123456)
     builder += None -> ValueInt64(-1)
-    builder += None -> ValueDecimal(decimal(0))
-    builder += None -> ValueDecimal(decimal(BigDecimal("0.3333333333")))
+    builder += None -> ValueNumeric(decimal(0))
+    builder += None -> ValueNumeric(decimal(BigDecimal("0.3333333333")))
     builder += None -> ValueBool(true)
     builder += None -> ValueBool(false)
     builder += None -> ValueDate(Time.Date.assertFromDaysSinceEpoch(0))
@@ -129,11 +129,11 @@ class KeyHasherSpec extends WordSpec with Matchers {
       val value1 =
         VersionedValue(
           ValueVersion("4"),
-          ValueList(FrontStack(ValueDecimal(decimal(10)), ValueDecimal(decimal(10)))))
+          ValueList(FrontStack(ValueNumeric(decimal(10)), ValueNumeric(decimal(10)))))
       val value2 =
         VersionedValue(
           ValueVersion("4"),
-          ValueList(FrontStack(ValueDecimal(decimal(101)), ValueDecimal(decimal(0)))))
+          ValueList(FrontStack(ValueNumeric(decimal(101)), ValueNumeric(decimal(0)))))
 
       val tid = templateId("module", "name")
 
@@ -275,8 +275,8 @@ class KeyHasherSpec extends WordSpec with Matchers {
     }
 
     "not produce collision in Decimal" in {
-      val value1 = VersionedValue(ValueVersion("4"), ValueDecimal(decimal(0)))
-      val value2 = VersionedValue(ValueVersion("4"), ValueDecimal(decimal(1)))
+      val value1 = VersionedValue(ValueVersion("4"), ValueNumeric(decimal(0)))
+      val value2 = VersionedValue(ValueVersion("4"), ValueNumeric(decimal(1)))
 
       val tid = templateId("module", "name")
 
@@ -353,6 +353,7 @@ class KeyHasherSpec extends WordSpec with Matchers {
     }
   }
 
-  private implicit def decimal(x: BigDecimal): Decimal = Decimal.assertFromBigDecimal(x)
+  private implicit def decimal(x: BigDecimal): Numeric =
+    Numeric.assertFromBigDecimal(Decimal.scale, x)
 
 }

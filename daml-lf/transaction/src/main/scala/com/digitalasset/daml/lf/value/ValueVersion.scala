@@ -43,7 +43,7 @@ object ValueVersions
               case ValueRecord(_, fs) => go(currentVersion, fs.map(v => v._2) ++: values)
               case ValueVariant(_, _, arg) => go(currentVersion, arg +: values)
               case ValueList(vs) => go(currentVersion, vs.toImmArray ++: values)
-              case ValueContractId(_) | ValueInt64(_) | ValueDecimal(_) | ValueText(_) |
+              case ValueContractId(_) | ValueInt64(_) | ValueNumeric(_) | ValueText(_) |
                   ValueTimestamp(_) | ValueParty(_) | ValueBool(_) | ValueDate(_) | ValueUnit =>
                 go(currentVersion, values)
               // for things added after version 1, we raise the minimum if present

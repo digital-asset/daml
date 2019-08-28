@@ -70,14 +70,12 @@ da_haskell_library(
         "bytestring",
         "containers",
         "deepseq",
+        "grpc-haskell",
+        "grpc-haskell-core",
         "proto3-suite",
         "proto3-wire",
         "text",
         "vector",
     ],
     visibility = ["//visibility:public"],
-    deps = [
-        "//nix/third-party/gRPC-haskell:grpc-haskell",
-        "//nix/third-party/gRPC-haskell/core:grpc-haskell-core",
-    ],
 )

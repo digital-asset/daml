@@ -3,7 +3,7 @@
 
 module Decimal {
 
-  record @serializable Box = { x: Decimal, party: Party  } ;
+  record @serializable Box = { x: Numeric 10, party: Party  } ;
 
   template (this : Box) =  {
     precondition True,

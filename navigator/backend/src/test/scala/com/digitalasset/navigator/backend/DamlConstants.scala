@@ -59,7 +59,7 @@ case object DamlConstants {
 
   val simpleTextV = V.ValueText("foo")
   val simpleInt64V = V.ValueInt64(100)
-  val simpleDecimalV = V.ValueDecimal(LfDecimal assertFromString "100")
+  val simpleDecimalV = V.ValueNumeric(LfDecimal assertFromString "100")
   val simpleUnitV = V.ValueUnit
   val simpleDateV = V.ValueDate.fromIso8601("2019-01-28")
   val simpleTimestampV = V.ValueTimestamp.fromIso8601("2019-01-28T12:44:33.22Z")

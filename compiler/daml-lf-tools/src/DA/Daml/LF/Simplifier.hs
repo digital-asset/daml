@@ -123,6 +123,20 @@ safetyStep = \case
       BEMulDecimal        -> Safe 1
       BEDivDecimal        -> Safe 1
       BERoundDecimal      -> Safe 1
+      BEEqualNumeric      -> Safe 2
+      BELessNumeric       -> Safe 2
+      BELessEqNumeric     -> Safe 2
+      BEGreaterNumeric    -> Safe 2
+      BEGreaterEqNumeric  -> Safe 2
+      BEAddNumeric        -> Safe 1
+      BESubNumeric        -> Safe 1
+      BEMulNumeric        -> Safe 1
+      BEDivNumeric        -> Safe 1
+      BEInt64ToNumeric    -> Safe 0
+      BENumericToInt64    -> Safe 0
+      BENumericFromText   -> Safe 1
+      BEToTextNumeric     -> Safe 1
+      BERoundNumeric      -> Safe 1
       BEAddInt64          -> Safe 1
       BESubInt64          -> Safe 1
       BEMulInt64          -> Safe 1
@@ -133,7 +147,7 @@ safetyStep = \case
       BEDecimalToInt64    -> Safe 0 -- crash if the decimal doesn't fit
       BEFoldl             -> Safe 2
       BEFoldr             -> Safe 2
-      BEMapEmpty          -> Safe 1
+      BEMapEmpty          -> Safe 0
       BEMapInsert         -> Safe 3
       BEMapLookup         -> Safe 2
       BEMapDelete         -> Safe 2

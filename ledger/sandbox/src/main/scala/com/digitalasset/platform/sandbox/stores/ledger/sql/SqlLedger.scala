@@ -84,14 +84,17 @@ object SqlLedger {
       mm: MetricsManager): Future[Ledger] = {
     implicit val ec: ExecutionContext = DEC
 
-    val dbDispatcher = DbDispatcher(jdbcUrl, noOfShortLivedConnections, noOfStreamingConnections)
+    val dbType = JdbcLedgerDao.jdbcType(jdbcUrl)
+    val dbDispatcher =
+      DbDispatcher(jdbcUrl, dbType, noOfShortLivedConnections, noOfStreamingConnections)
     val ledgerDao = LedgerDao.metered(
-      PostgresLedgerDao(
+      JdbcLedgerDao(
         dbDispatcher,
         ContractSerializer,
         TransactionSerializer,
         ValueSerializer,
-        KeyHasher))
+        KeyHasher,
+        dbType))
 
     val sqlLedgerFactory = SqlLedgerFactory(ledgerDao)
 
@@ -102,7 +105,8 @@ object SqlLedger {
       acs,
       packages,
       initialLedgerEntries,
-      queueDepth)
+      queueDepth,
+      dbType.supportsParallelLedgerAppend)
   }
 }
 
@@ -112,7 +116,8 @@ private class SqlLedger(
     ledgerDao: LedgerDao,
     timeProvider: TimeProvider,
     packages: InMemoryPackageStore,
-    queueDepth: Int)(implicit mat: Materializer)
+    queueDepth: Int,
+    parallelLedgerAppend: Boolean)(implicit mat: Materializer)
     extends Ledger {
 
   import SqlLedger._
@@ -168,12 +173,13 @@ private class SqlLedger(
       SourceShape(merge.out)
     })
 
-    // We process the requests in batches when under pressure (see semantics of `batch`). Note
+    // By default we process the requests in batches when under pressure (see semantics of `batch`). Note
     // that this is safe on the read end because the readers rely on the dispatchers to know the
     // ledger end, and not the database itself. This means that they will not start reading from the new
     // ledger end until we tell them so, which we do when _all_ the entries have been committed.
+    val maxBatchSize = if (parallelLedgerAppend) noOfShortLivedConnections * 2L else 1L
     mergedSources
-      .batch(noOfShortLivedConnections * 2L, e => Queue(e))((batch, e) => batch :+ e)
+      .batch(maxBatchSize, e => Queue(e))((batch, e) => batch :+ e)
       .mapAsync(1) { queue =>
         val startOffset = headRef // we can only do this because there is no parallelism here!
         //shooting the SQL queries in parallel
@@ -380,6 +386,7 @@ private class SqlLedgerFactory(ledgerDao: LedgerDao) {
     *                             used if starting from a fresh database.
     * @param queueDepth      the depth of the buffer for persisting entries. When gets full, the system will signal back-pressure
     *                        upstream
+    * @param parallelLedgerAppend whether to append to the ledger in parallelized batches
     * @return a compliant Ledger implementation
     */
   def createSqlLedger(
@@ -389,7 +396,9 @@ private class SqlLedgerFactory(ledgerDao: LedgerDao) {
       acs: InMemoryActiveContracts,
       packages: InMemoryPackageStore,
       initialLedgerEntries: ImmArray[LedgerEntryOrBump],
-      queueDepth: Int)(implicit mat: Materializer): Future[SqlLedger] = {
+      queueDepth: Int,
+      parallelLedgerAppend: Boolean
+  )(implicit mat: Materializer): Future[SqlLedger] = {
     @SuppressWarnings(Array("org.wartremover.warts.ExplicitImplicitTypes"))
     implicit val ec = DEC
 
@@ -406,7 +415,15 @@ private class SqlLedgerFactory(ledgerDao: LedgerDao) {
     for {
       ledgerId <- init()
       ledgerEnd <- ledgerDao.lookupLedgerEnd()
-    } yield new SqlLedger(ledgerId, ledgerEnd, ledgerDao, timeProvider, packages, queueDepth)
+    } yield
+      new SqlLedger(
+        ledgerId,
+        ledgerEnd,
+        ledgerDao,
+        timeProvider,
+        packages,
+        queueDepth,
+        parallelLedgerAppend)
   }
 
   private def reset(): Future[Unit] =

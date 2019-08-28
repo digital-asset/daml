@@ -9,7 +9,15 @@ import com.digitalasset.ledger.api.v1.active_contracts_service.{
   GetActiveContractsRequest,
   GetActiveContractsResponse
 }
-import com.digitalasset.ledger.api.v1.admin.party_management_service.AllocatePartyRequest
+import com.digitalasset.ledger.api.v1.admin.package_management_service.{
+  ListKnownPackagesRequest,
+  PackageDetails,
+  UploadDarFileRequest
+}
+import com.digitalasset.ledger.api.v1.admin.party_management_service.{
+  AllocatePartyRequest,
+  GetParticipantIdRequest
+}
 import com.digitalasset.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.digitalasset.ledger.api.v1.commands.{Command, Commands}
 import com.digitalasset.ledger.api.v1.event.Event.Event.Created
@@ -34,6 +42,7 @@ import com.digitalasset.ledger.api.v1.value.Identifier
 import com.digitalasset.ledger.client.binding.Primitive.Party
 import com.digitalasset.ledger.client.binding.{Primitive, Template}
 import com.digitalasset.platform.testing.{FiniteStreamObserver, SingleItemObserver}
+import com.google.protobuf.ByteString
 import com.google.protobuf.timestamp.Timestamp
 import io.grpc.stub.StreamObserver
 import scalaz.Tag
@@ -69,7 +78,7 @@ object LedgerTestContext {
 
 }
 
-private[infrastructure] final class LedgerTestContext(
+private[testtool] final class LedgerTestContext private[infrastructure] (
     val ledgerId: String,
     val applicationId: String,
     referenceOffset: LedgerOffset,
@@ -110,32 +119,74 @@ private[infrastructure] final class LedgerTestContext(
         .map(_ => ())
     } yield result
 
+  def listKnownPackages(): Future[Seq[PackageDetails]] =
+    services.packageManagement.listKnownPackages(new ListKnownPackagesRequest).map(_.packageDetails)
+
+  def uploadDarFile(bytes: ByteString): Future[Unit] =
+    services.packageManagement
+      .uploadDarFile(new UploadDarFileRequest(bytes))
+      .map(_ => ())
+
+  def participantId(): Future[String] =
+    services.partyManagement.getParticipantId(new GetParticipantIdRequest).map(_.participantId)
+
+  /**
+    * Managed version of party allocation, should be used anywhere a party has
+    * to be allocated unless the party management service itself is under test
+    */
   def allocateParty(): Future[Party] =
     services.partyManagement
       .allocateParty(new AllocatePartyRequest(partyIdHint = nextPartyHintId()))
       .map(r => Party(r.partyDetails.get.party))
 
+  /**
+    * Non managed version of party allocation. Use exclusively when testing the party management service.
+    */
+  def allocateParty(partyHintId: Option[String], displayName: Option[String]): Future[Party] =
+    services.partyManagement
+      .allocateParty(
+        new AllocatePartyRequest(
+          partyIdHint = partyHintId.getOrElse(""),
+          displayName = displayName.getOrElse("")))
+      .map(r => Party(r.partyDetails.get.party))
+
   def allocateParties(n: Int): Future[Vector[Party]] =
     Future.sequence(Vector.fill(n)(allocateParty()))
 
-  def activeContracts(parties: Party*): Future[Vector[CreatedEvent]] =
+  def activeContracts(
+      request: GetActiveContractsRequest): Future[(Option[LedgerOffset], Vector[CreatedEvent])] =
     for {
       contracts <- FiniteStreamObserver[GetActiveContractsResponse](
-        services.activeContracts.getActiveContracts(
-          new GetActiveContractsRequest(
-            ledgerId = ledgerId,
-            filter = transactionFilter(Tag.unsubst(parties), Seq.empty),
-            verbose = true
-          ),
-          _
-        )
+        services.activeContracts.getActiveContracts(request, _)
       )
-    } yield contracts.flatMap(_.activeContracts)
+    } yield
+      contracts.lastOption.map(c => LedgerOffset(LedgerOffset.Value.Absolute(c.offset))) -> contracts
+        .flatMap(_.activeContracts)
 
-  private def getTransactionsRequest(parties: Seq[Party]): GetTransactionsRequest =
+  def activeContractsRequest(
+      parties: Seq[Party],
+      templateIds: Seq[Identifier] = Seq.empty,
+  ): GetActiveContractsRequest =
+    new GetActiveContractsRequest(
+      ledgerId = ledgerId,
+      filter = transactionFilter(Tag.unsubst(parties), templateIds),
+      verbose = true
+    )
+
+  def activeContracts(parties: Party*): Future[Vector[CreatedEvent]] =
+    activeContractsByTemplateId(Seq.empty, parties: _*)
+
+  def activeContractsByTemplateId(
+      templateIds: Seq[Identifier],
+      parties: Party*): Future[Vector[CreatedEvent]] =
+    activeContracts(activeContractsRequest(parties, templateIds)).map(_._2)
+
+  private def getTransactionsRequest(
+      parties: Seq[Party],
+      beginOffset: Option[LedgerOffset] = None): GetTransactionsRequest =
     new GetTransactionsRequest(
       ledgerId = ledgerId,
-      begin = Some(referenceOffset),
+      begin = beginOffset.orElse(Some(referenceOffset)),
       end = Some(end),
       filter = transactionFilter(Tag.unsubst(parties), Seq.empty),
       verbose = true
@@ -143,11 +194,18 @@ private[infrastructure] final class LedgerTestContext(
 
   private def transactions[Res](
       parties: Seq[Party],
-      service: (GetTransactionsRequest, StreamObserver[Res]) => Unit): Future[Vector[Res]] =
-    FiniteStreamObserver[Res](service(getTransactionsRequest(parties), _))
+      service: (GetTransactionsRequest, StreamObserver[Res]) => Unit,
+      beginOffset: Option[LedgerOffset] = None): Future[Vector[Res]] =
+    FiniteStreamObserver[Res](service(getTransactionsRequest(parties, beginOffset), _))
 
   def flatTransactions(parties: Party*): Future[Vector[Transaction]] =
     transactions(parties, services.transaction.getTransactions).map(_.flatMap(_.transactions))
+
+  def flatTransactionsFromOffset(
+      offset: LedgerOffset,
+      parties: Seq[Party]): Future[Vector[Transaction]] =
+    transactions(parties, services.transaction.getTransactions, Some(offset))
+      .map(_.flatMap(_.transactions))
 
   def transactionTrees(parties: Party*): Future[Vector[TransactionTree]] =
     transactions(parties, services.transaction.getTransactionTrees).map(_.flatMap(_.transactions))
