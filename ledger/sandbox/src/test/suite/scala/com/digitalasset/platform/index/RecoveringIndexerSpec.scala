@@ -85,6 +85,7 @@ class RecoveringIndexerIT extends WordSpec with Matchers {
 
   private[this] implicit val ec: ExecutionContext = DEC
   private[this] val actorSystem = ActorSystem("RecoveringIndexerIT")
+  private[this] val scheduler = actorSystem.scheduler
 
   "RecoveringIndexer" should {
 
@@ -115,8 +116,7 @@ class RecoveringIndexerIT extends WordSpec with Matchers {
         ).iterator)
 
       val end = recoveringIndexer.start(() => testIndexer.subscribe())
-      Thread.sleep(50)
-      recoveringIndexer.close()
+      scheduler.scheduleOnce(50.millis, () => recoveringIndexer.close())
       Await.result(end, 10.seconds)
 
       List(testIndexer.actions.toArray: _*) should contain theSameElementsInOrderAs List[
