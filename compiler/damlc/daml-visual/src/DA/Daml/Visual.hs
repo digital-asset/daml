@@ -170,15 +170,12 @@ typeConFields qName world = case LF.lookupDataType qName world of
     LF.DataEnum _ -> [""]
   Left _ -> error "malformed template constructor"
 
-tplQualified :: LF.World -> TemplateChoices -> [T.Text]
-tplQualified wrld tplc = typeConFields qualTpl wrld
-    where qualTpl = LF.Qualified LF.PRSelf (modName tplc) (LF.tplTypeCon $ template tplc)
-
 constructSubgraphsWithLables :: LF.World -> Map.Map LF.ChoiceName ChoiceDetails -> TemplateChoices -> SubGraph
 constructSubgraphsWithLables wrld lookupData tpla@TemplateChoices {..} = SubGraph nodesWithCreate fieldsInTemplate template
   where choicesInTemplate = map internalChcName choiceAndActions
-        fieldsInTemplate = tplQualified wrld tpla
+        fieldsInTemplate = typeConFields  qualTpl wrld
         nodes = map (nodeIdForChoice lookupData) choicesInTemplate
+        qualTpl = LF.Qualified LF.PRSelf modName (LF.tplTypeCon template)
         nodesWithCreate = addCreateChoice tpla lookupData : nodes
 
 tplNamet :: LF.TypeConName -> T.Text
