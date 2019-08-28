@@ -1,0 +1,21 @@
+-- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- Check that the `Template (A t)` context for template `B` does not cause
+-- any warnings. (If we turned of `MonoLocalBinds` there would be warning
+-- suggesting to simplify the context to `AInstance t`, which would expose
+-- an implementation detail we prefer to hide.)
+daml 1.2
+module GenTemplContext where
+
+template A t with
+    x : t
+    p : Party
+  where
+    signatory p
+
+template Template (A t) => B t with
+    x : t
+    p : Party
+  where
+    signatory p

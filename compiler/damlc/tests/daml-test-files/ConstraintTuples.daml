@@ -1,0 +1,4 @@
+daml 1.2
+module ConstraintTuples where
+
+type Ser a = (Eq a, Show a)
