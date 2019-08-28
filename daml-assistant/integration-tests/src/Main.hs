@@ -229,8 +229,9 @@ packagingTests tmpDir = testGroup "packaging"
             ]
         withCurrentDirectory projDir $ callCommandQuiet "daml build"
     , testCaseSteps "Build migration package" $ \step -> do
-        let projectA = tmpDir </> "a"
-        let projectB = tmpDir </> "b"
+        -- it's important that we have fresh empty directories here!
+        let projectA = tmpDir </> "a-1.0"
+        let projectB = tmpDir </> "a-2.0"
         let projectUpgrade = tmpDir </> "upgrade"
         let aDar = projectA </> distDir </> "a-1.0.dar"
         let bDar = projectB </> distDir </> "a-2.0.dar"
