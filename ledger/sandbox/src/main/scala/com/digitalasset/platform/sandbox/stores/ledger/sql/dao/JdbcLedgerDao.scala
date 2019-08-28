@@ -1115,6 +1115,8 @@ object JdbcLedgerDao {
 
     def name: String
 
+    val supportsParallelLedgerAppend: Boolean = true
+
     // SQL statements using the proprietary Postgres on conflict .. do nothing clause
     protected[JdbcLedgerDao] def SQL_INSERT_PACKAGE: String
     protected[JdbcLedgerDao] def SQL_IMPLICITLY_INSERT_PARTIES: String
@@ -1164,6 +1166,12 @@ object JdbcLedgerDao {
   object H2Database extends DbType {
 
     override val name: String = "h2database"
+
+    // H2 does not support concurrent, conditional updates to the ledger_end at read committed isolation
+    // level: "It is possible that a transaction from one connection overtakes a transaction from a different
+    // connection. Depending on the operations, this might result in different results, for example when conditionally
+    // incrementing a value in a row." - from http://www.h2database.com/html/advanced.html
+    override val supportsParallelLedgerAppend: Boolean = false
 
     override protected[JdbcLedgerDao] val SQL_INSERT_PACKAGE: String =
       """merge into packages using dual on package_id = {package_id}
