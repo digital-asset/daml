@@ -19,7 +19,7 @@ Ledger Model </concepts/ledger-model/index>`.
 
 Please note that currently the tool is in experimental status.
 
-Downloading the tool
+Downloading the tool (from bintray)
 ====================
 
 Run the following command to fetch the tool:
@@ -29,6 +29,15 @@ Run the following command to fetch the tool:
      curl -L 'https://bintray.com/api/v1/content/digitalassetsdk/DigitalAssetSDK/com/daml/ledger/testtool/ledger-api-test-tool_2.12/$latest/ledger-api-test-tool_2.12-$latest.jar?bt_package=sdk-components' -o ledger-api-test-tool.jar
 
 This will create a file ``ledger-api-test-tool.jar`` in your current directory.
+
+You can alternatively build the tool from source via Bazel if you want to run the tool off the latest daml repo code
+
+.. code-block:: shell
+
+     bazel build //ledger/ledger-api-test-tool:ledger-api-test-tool_deploy.jar
+
+This will create a file ``ledger-api-test-tool_deploy.jar`` in your bazel-bin directory
+
 
 Extracting ``.dar`` files required to run the tests
 ======================================================
@@ -167,3 +176,7 @@ Use the command line options ``--timeout-scale-factor`` and
   The default value is 1.0 and will be applied to the default TTL, which is the
   maximum TTL as returned by the LedgerConfigurationService. In any case,
   the used TTL value will be clipped to stay between the minimum and maximum TTL.
+
+Verbosity
+========================================
+Use the command line options ``--verbose`` to print out a full stack trace for test failures
