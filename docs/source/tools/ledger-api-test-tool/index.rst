@@ -20,7 +20,7 @@ Ledger Model </concepts/ledger-model/index>`.
 Please note that currently the tool is in experimental status.
 
 Downloading the tool (from bintray)
-====================
+======================================================
 
 Run the following command to fetch the tool:
 
@@ -75,7 +75,7 @@ If any test embedded in the tool fails, it will print out details of the failure
 for further debugging.
 
 Exploring options the tool provides
-===================================
+======================================================
 
 Run the tool with ``--help`` flag to obtain the list of options the tool provides:
 
@@ -126,7 +126,7 @@ If you wanted to test out the tool, you can run it against :doc:`DAML Sandbox
 
      $ java -jar ledger-api-test-tool.jar --extract
      $ daml sandbox -- *.dar
-     $ java -jar ledger-api-test-tool.jar
+     $ java -jar ledger-api-test-tool.jar --all-tests
 
 This should always succeed, as the Sandbox is tested to correctly implement the
 Ledger API. This is useful if you do not have yet a custom Ledger API endpoint.
