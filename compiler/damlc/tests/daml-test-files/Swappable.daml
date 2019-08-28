@@ -1,5 +1,5 @@
 daml 1.2
-module Swap where
+module Swappable where
 
 import CashAsset
 
