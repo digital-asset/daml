@@ -109,14 +109,14 @@ class RecoveringIndexerIT extends AsyncWordSpec with Matchers {
 
     "work when the stream is stopped" in {
       val recoveringIndexer = new RecoveringIndexer(actorSystem.scheduler, 10.millis, 1.second)
-      // Stream completes after 1sec, but stop() is called before
+      // Stream completes after 10sec, but stop() is called before
       val testIndexer = new TestIndexer(
         List(
-          SubscribeResult("A", 10.millis, true, 1000.millis, true) // Stream completes after a long delay
+          SubscribeResult("A", 10.millis, true, 10000.millis, true) // Stream completes after a long delay
         ).iterator)
 
       val end = recoveringIndexer.start(() => testIndexer.subscribe())
-      scheduler.scheduleOnce(50.millis, () => recoveringIndexer.close())
+      scheduler.scheduleOnce(100.millis, () => recoveringIndexer.close())
 
       end map { _ =>
         List(testIndexer.actions.toArray: _*) should contain theSameElementsInOrderAs List[
