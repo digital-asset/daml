@@ -45,6 +45,9 @@ object ValueValidator {
       fields <- validateRecordFields(rec.fields)
     } yield Lf.ValueRecord(recId, fields)
 
+  private val validNumericString =
+    """[+-]?\d{1,38}(.\d{0,38})?""".r.pattern
+
   def validateValue(value: Value): Either[StatusRuntimeException, domain.Value] = value.sum match {
     case Sum.ContractId(cId) =>
       Ref.ContractIdString
@@ -53,7 +56,12 @@ object ValueValidator {
         .map(invalidArgument)
         .map(coid => Lf.ValueContractId(Lf.AbsoluteContractId(coid)))
     case Sum.Numeric(value) =>
-      Decimal.fromString(value).left.map(invalidArgument).map(Lf.ValueNumeric)
+      if (validNumericString.matcher(value).matches())
+        Numeric
+          .fromUnscaledBigDecimal(new java.math.BigDecimal(value))
+          .left map invalidArgument map Lf.ValueNumeric
+      else
+        Left(invalidField("numeric", s"""should match "$validNumericString""""))
 
     case Sum.Party(party) =>
       Ref.Party.fromString(party).left.map(invalidArgument).map(Lf.ValueParty)

@@ -39,9 +39,11 @@ message Value {
 
     sint64 int64 = 5 [jstype = JS_STRING];
 
-    // A decimal value with precision 38 (38 decimal digits) and scale
-    // between 0 and 38. The field has to match the regexp
-    //   [+-]?\d+(.\d*)?
+    // A Numeric, that is a decimal value with precision 38 (at most 38 significant digits) and a
+    // scale between 0 and 38 (significant digits on the right of the decimal point).
+    // The field has to match the regex
+    //   [+-]?\d{1,38}(.\d{0,38})?
+    // and should be representable by a Numeric without loss of precision.
     string numeric = 6;
 
     // A string.
