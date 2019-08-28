@@ -1,4 +1,3 @@
-{-# LANGUAGE UndecidableSuperClasses #-}
 {-# LANGUAGE FlexibleContexts #-}
 
 daml 1.2
@@ -9,7 +8,7 @@ import DA.Record
 class (Template t, Eq t, HasField "issuer" t Party, HasField "owner" t Party) => Asset t
 -- ^ Would like to write this as a constraint synonym but DAML doesn't allow it currently
 
-template (Asset t, TransferProposalInstance t) => Transferrable t
+template (Asset t, Template (TransferProposal t)) => Transferrable t
   with
     transferrableAsset: t
   where
@@ -24,7 +23,7 @@ template (Asset t, TransferProposalInstance t) => Transferrable t
             assetToTransfer = this
             newOwner
 
-template (Asset t, TransferrableInstance t) => TransferProposal t
+template (Asset t, Template (Transferrable t)) => TransferProposal t
   with
     assetToTransfer: Transferrable t
     newOwner: Party
@@ -54,8 +53,8 @@ template Cash
     signatory issuer, owner
 
 instance Asset Cash
-template instance CashTransferProposal = TransferProposal Cash
 template instance CashTransferrable = Transferrable Cash
+template instance CashTransferProposal = TransferProposal Cash
 
 s = scenario do
   rohan <- getParty "Rohan"

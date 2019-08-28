@@ -1,11 +1,11 @@
-{-# LANGUAGE UndecidableSuperClasses #-}
+{-# LANGUAGE FlexibleContexts #-}
 
 daml 1.2
 module Swap where
 
 import Transferrable
 
-template (Asset t, TransferrableInstance t, SwapProposalInstance t) => Swappable t with
+template (Asset t, Template (SwapProposal t)) => Swappable t with
     swappableAsset: t
   where
     let owner = swappableAsset.owner
@@ -21,7 +21,7 @@ template (Asset t, TransferrableInstance t, SwapProposalInstance t) => Swappable
             assetInReturn
             assetInReturnCid
 
-template SwappableInstance t => SwapProposal t with
+template (Asset t, Template (TransferProposal t), Template (Swappable t)) => SwapProposal t with
     assetOffered: Swappable t
     assetInReturn: Swappable t
     assetInReturnCid: ContractId (Swappable t)
