@@ -8,11 +8,9 @@ import Transferrable
 template (Asset t, Template (SwapProposal t)) => Swappable t with
     asset: t
   where
-    let owner = asset.owner
+    signatory asset.issuer, asset.owner
 
-    signatory asset.issuer, owner
-
-    controller owner can
+    controller asset.owner can
       ProposeSwap: ContractId (SwapProposal t)
         with assetInReturn: Swappable t
              assetInReturnCid: ContractId (Swappable t)
@@ -40,13 +38,13 @@ template (Asset t, Template (TransferProposal t), Template (Swappable t)) => Swa
 
       AcceptSwap: (ContractId (TransferProposal t), ContractId (TransferProposal t))
         do proposeesNewCid <- create TransferProposal with
-            assetToTransfer = Transferrable with transferrableAsset = assetOffered.asset
+            assetToTransfer = Transferrable assetOffered.asset
             newOwner = ownerReturning
            actualAssetInReturn <- fetch assetInReturnCid
            assert $ actualAssetInReturn == assetInReturn
            archive assetInReturnCid
            proposersNewCid <- create TransferProposal with
-            assetToTransfer = Transferrable with transferrableAsset = assetInReturn.asset
+            assetToTransfer = Transferrable assetInReturn.asset
             newOwner = ownerOffering
            return (proposersNewCid, proposeesNewCid)
 

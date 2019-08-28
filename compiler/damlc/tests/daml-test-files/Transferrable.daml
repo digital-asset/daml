@@ -12,11 +12,9 @@ template (Asset t, Template (TransferProposal t)) => Transferrable t
   with
     asset: t
   where
-    let owner = asset.owner
+    signatory asset.issuer, asset.owner
 
-    signatory asset.issuer, owner
-
-    controller owner can
+    controller asset.owner can
       ProposeTransfer: ContractId (TransferProposal t)
         with newOwner: Party
         do create TransferProposal with
