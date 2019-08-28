@@ -50,9 +50,8 @@ da_haskell_test(
         ":for-upload.dar",
         "//ledger/sandbox:sandbox-binary",
     ],
-    # The tests are flaky on Windows. It looks like the gRPC segfaults are gone
-    # but there are more issues that need investigation.
-    flaky = is_windows,
+    # The tests are flaky probably due to issues in gRPC-haskell.
+    flaky = True,
     hazel_deps = [
         "async",
         "base",
