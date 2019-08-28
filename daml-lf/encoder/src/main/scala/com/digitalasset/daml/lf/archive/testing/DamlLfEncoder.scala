@@ -130,8 +130,10 @@ private[digitalasset] object DamlLfEncoder extends App {
 
   val MANIFEST =
     """Manifest-Version: 1.0
-      |Created-By: Digital Asset packager
-      |Location: archive.dalf
+      |Created-By: DAML-LF Encoder
+      |Sdk-Version:
+      |Main-Dalf: archive.dalf
+      |Dalfs: archive.dalf
       |Format: daml-lf
       |Encryption: non-encrypted
       |""".stripMargin
