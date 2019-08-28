@@ -88,7 +88,7 @@ package object inner {
     damlType match {
       case TypePrim(PrimTypeBool, _) => ClassName.get(classOf[javaapi.data.Bool])
       case TypePrim(PrimTypeInt64, _) => ClassName.get(classOf[javaapi.data.Int64])
-      case TypePrim(PrimTypeDecimal, _) => ClassName.get(classOf[javaapi.data.Decimal])
+      case TypePrim(PrimTypeDecimal, _) => ClassName.get(classOf[javaapi.data.Numeric])
       case TypePrim(PrimTypeText, _) => ClassName.get(classOf[javaapi.data.Text])
       case TypePrim(PrimTypeDate, _) => ClassName.get(classOf[javaapi.data.Date])
       case TypePrim(PrimTypeTimestamp, _) => ClassName.get(classOf[javaapi.data.Timestamp])

@@ -90,7 +90,7 @@ abstract class CommandTransactionChecks
       Vector(
         RecordField("operator", Alice.asParty),
         RecordField("integer", 1.asInt64),
-        RecordField("decimal", "1.1".asDecimal),
+        RecordField("decimal", "1.1".asNumeric),
         RecordField("text", Value(Text("text"))),
         RecordField("bool", Value(Bool(true))),
         RecordField("time", Value(Timestamp(0))),
@@ -200,7 +200,7 @@ abstract class CommandTransactionChecks
         val newArgs =
           ctx.testingHelpers.recordWithArgument(
             paramShowcaseArgs,
-            RecordField("decimal", Some(Value(Value.Sum.Decimal("37.0")))))
+            RecordField("decimal", Some(Value(Value.Sum.Numeric("37.0")))))
         verifyParamShowcaseChoice(
           ctx,
           "Choice1", // choice name
@@ -522,7 +522,7 @@ abstract class CommandTransactionChecks
             testIdsGenerator.testCommandId("Decimal-scale"),
             alice,
             templateIds.decimalRounding,
-            Record(fields = List(RecordField(value = Some(alice.asParty)), RecordField(value = Some("0.00000000005".asDecimal)))),
+            Record(fields = List(RecordField(value = Some(alice.asParty)), RecordField(value = Some("0.00000000005".asNumeric)))),
             Code.INVALID_ARGUMENT,
             "Could not read Decimal string"
           )
@@ -530,7 +530,7 @@ abstract class CommandTransactionChecks
             testIdsGenerator.testCommandId("Decimal-bounds-positive"),
             alice,
             templateIds.decimalRounding,
-            Record(fields = List(RecordField(value = Some(alice.asParty)), RecordField(value = Some("10000000000000000000000000000.0000000000".asDecimal)))),
+            Record(fields = List(RecordField(value = Some(alice.asParty)), RecordField(value = Some("10000000000000000000000000000.0000000000".asNumeric)))),
             Code.INVALID_ARGUMENT,
             "Could not read Decimal string"
           )
@@ -538,7 +538,7 @@ abstract class CommandTransactionChecks
             testIdsGenerator.testCommandId("Decimal-bounds-negative"),
             alice,
             templateIds.decimalRounding,
-            Record(fields = List(RecordField(value = Some(alice.asParty)), RecordField(value = Some("-10000000000000000000000000000.0000000000".asDecimal)))),
+            Record(fields = List(RecordField(value = Some(alice.asParty)), RecordField(value = Some("-10000000000000000000000000000.0000000000".asNumeric)))),
             Code.INVALID_ARGUMENT,
             "Could not read Decimal string"
           )

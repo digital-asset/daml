@@ -52,7 +52,7 @@ object ValueValidator {
         .left
         .map(invalidArgument)
         .map(coid => Lf.ValueContractId(Lf.AbsoluteContractId(coid)))
-    case Sum.Decimal(value) =>
+    case Sum.Numeric(value) =>
       Decimal.fromString(value).left.map(invalidArgument).map(Lf.ValueNumeric)
 
     case Sum.Party(party) =>

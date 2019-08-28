@@ -91,7 +91,7 @@ object LfEngineToApi {
     value0 match {
       case Lf.ValueUnit => Right(ApiValue(ApiValue.Sum.Unit(Empty())))
       case Lf.ValueNumeric(d) =>
-        Right(ApiValue(ApiValue.Sum.Decimal(Numeric.toUnscaledString(d))))
+        Right(ApiValue(ApiValue.Sum.Numeric(Numeric.toUnscaledString(d))))
       case Lf.ValueContractId(c) => Right(ApiValue(ApiValue.Sum.ContractId(c.coid)))
       case Lf.ValueBool(b) => Right(ApiValue(ApiValue.Sum.Bool(b)))
       case Lf.ValueDate(d) => Right(ApiValue(ApiValue.Sum.Date(d.days)))

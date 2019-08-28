@@ -410,7 +410,7 @@ class CommandClientIT
                   Record(
                     Some(templateIds.parameterShowcase),
                     paramShowcaseArgs(templateIds.testPackageId)),
-                  RecordField("decimal", "1E-19".asDecimal)))
+                  RecordField("decimal", "1E-19".asNumeric)))
             ).wrap)
         )
 

@@ -28,7 +28,7 @@ class ValueSpec extends FlatSpec with Matchers with GeneratorDrivenPropertyCheck
     SumCase.BOOL -> (((_: Value).asBool(), "asBool")),
     SumCase.CONTRACT_ID -> (((_: Value).asContractId(), "asContractId")),
     SumCase.DATE -> (((_: Value).asDate(), "asDate")),
-    SumCase.DECIMAL -> (((_: Value).asDecimal(), "asDecimal")),
+    SumCase.NUMERIC -> (((_: Value).asNumeric(), "asNumeric")),
     SumCase.INT64 -> (((_: Value).asInt64(), "asInt64")),
     SumCase.LIST -> (((_: Value).asList(), "asList")),
     SumCase.PARTY -> (((_: Value).asParty(), "asParty")),

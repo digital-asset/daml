@@ -39,11 +39,10 @@ message Value {
 
     sint64 int64 = 5 [jstype = JS_STRING];
 
-    // A decimal value with precision 38 (38 decimal digits), of which
-    // 10 after the comma / period. in other words a decimal is a number
-    // of the form ``x / 10^10`` where ``|x| < 10^38``.
-    // The number can start with a leading sign [+-] followed by digits
-    string decimal = 6;
+    // A decimal value with precision 38 (38 decimal digits) and scale
+    // between 0 and 38. The field have to match the following regexp
+    //   [+-]?\d+(.\d*)?
+    string numeric = 6;
 
     // A string.
     string text = 8;

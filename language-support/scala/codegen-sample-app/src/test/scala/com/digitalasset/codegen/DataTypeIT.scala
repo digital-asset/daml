@@ -14,7 +14,7 @@ class DataTypeIT extends WordSpec with Matchers {
     "idempotent on records" in {
       import Record.Pair._
 
-      type T = Record.Pair[P.Int64, P.Decimal]
+      type T = Record.Pair[P.Int64, P.Numeric]
 
       val record: T = Record.Pair(1, 1.1)
 
@@ -24,7 +24,7 @@ class DataTypeIT extends WordSpec with Matchers {
     "idempotent on variants" in {
       import Variant.Either._
 
-      type T = Variant.Either[P.Int64, P.Decimal]
+      type T = Variant.Either[P.Int64, P.Numeric]
 
       val variant1: T = Variant.Either.Left(1)
       val variant2: T = Variant.Either.Right(1.1)

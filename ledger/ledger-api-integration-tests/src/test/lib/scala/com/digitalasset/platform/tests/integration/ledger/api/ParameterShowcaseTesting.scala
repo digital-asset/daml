@@ -30,7 +30,7 @@ trait ParameterShowcaseTesting {
     Vector(
       RecordField("operator", Alice.asParty),
       RecordField("integer", 1.asInt64),
-      RecordField("decimal", "1.1".asDecimal),
+      RecordField("decimal", "1.1".asNumeric),
       RecordField("text", Value(Text("text"))),
       RecordField("bool", Value(Bool(true))),
       RecordField("time", Value(Timestamp(0))),
@@ -48,7 +48,7 @@ trait ParameterShowcaseTesting {
     Vector(
       RecordField("", Alice.asParty),
       RecordField("", 1.asInt64),
-      RecordField("", "1.1".asDecimal),
+      RecordField("", "1.1".asNumeric),
       RecordField("", Value(Text("text"))),
       RecordField("", Value(Bool(true))),
       RecordField("", Value(Timestamp(0))),

@@ -39,7 +39,8 @@ object LedgerValue {
       case Sum.Bool(value) => V.ValueBool(value).right
       case Sum.ContractId(value) => V.ValueContractId(value).right
       case Sum.Int64(value) => V.ValueInt64(value).right
-      case Sum.Decimal(value) => lfdata.Decimal.fromString(value).disjunction map V.ValueNumeric
+      case Sum.Numeric(value) =>
+        lfdata.Numeric.fromUnscaledString(value).disjunction map V.ValueNumeric
       case Sum.Text(value) => V.ValueText(value).right
       case Sum.Timestamp(value) =>
         lfdata.Time.Timestamp.fromLong(value).disjunction map V.ValueTimestamp
