@@ -366,7 +366,7 @@ quickstartTests quickstartDir mvnDir = testGroup "quickstart"
                   req <- pure req { requestHeaders = [(hContentType, "application/json")] }
                   resp <- httpLbs req manager
                   responseBody resp @?=
-                      "{\"0\":{\"issuer\":\"EUR_Bank\",\"owner\":\"Alice\",\"currency\":\"EUR\",\"amount\":100.0,\"observers\":[]}}"
+                      "{\"0\":{\"issuer\":\"EUR_Bank\",\"owner\":\"Alice\",\"currency\":\"EUR\",\"amount\":100.0000000000,\"observers\":[]}}"
                   -- waitForProcess' will block on Windows so we explicitly kill the process.
                   terminateProcess ph
               -- waitForProcess' will block on Windows so we explicitly kill the process.

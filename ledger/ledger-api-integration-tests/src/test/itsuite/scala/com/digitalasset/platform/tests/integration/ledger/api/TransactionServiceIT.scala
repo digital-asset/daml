@@ -520,7 +520,9 @@ class TransactionServiceIT
             paramShowcaseArgs(templateIds.testPackageId),
             RecordField("decimal", Some("37.0".asNumeric)))
         val expectedArg =
-          paramShowcaseArgsWithoutLabels.updated(2, RecordField("", Some("37.0".asNumeric)))
+          paramShowcaseArgsWithoutLabels.updated(
+            2,
+            RecordField("", Some("37.0000000000".asNumeric)))
 
         verifyParamShowcaseChoice(
           c,
