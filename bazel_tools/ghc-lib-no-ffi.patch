@@ -1,0 +1,8 @@
+--- a/ghc-lib.cabal	2019-08-30 09:14:05.199708631 +0200
++++ b/ghc-lib.cabal	2019-08-30 09:14:13.923814400 +0200
+@@ -652,5 +652,3 @@
+         X86.Ppr
+         X86.RegInfo
+         X86.Regs
+-    extra-libraries:
+-        ffi

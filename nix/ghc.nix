@@ -49,6 +49,7 @@ let
     inherit (pkgs) buildLlvmPackages;
     enableIntegerSimple = true;
     enableRelocatedStaticLibs = true;
+    libffi = null;
   };
 
   packages = pkgs.callPackage "${toString pkgs.path}/pkgs/development/haskell-modules" {
