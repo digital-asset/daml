@@ -22,11 +22,16 @@ private[engine] class CommandPreprocessor(compiledPackages: ConcurrentCompiledPa
 
     valueTranslator.translateValue(ty0, v0) match {
       case ResultNeedPackage(pkgId, resume) =>
-        Result.needPackage(compiledPackages, pkgId, x => resume(Some(x)))
+        ResultNeedPackage(
+          pkgId, {
+            case None => ResultError(Error(s"Couldn't find package $pkgId"))
+            case Some(pkg) =>
+              compiledPackages.addPackage(pkgId, pkg).flatMap(_ => resume(Some(pkg)))
+          }
+        )
       case result =>
         result
     }
-
   }
 
   private[engine] def preprocessCreate(
