@@ -1,4 +1,6 @@
-module DA.Daml.LF.Ast.Tests where
+module DA.Daml.LF.Ast.Tests
+    ( main
+    ) where
 
 import Data.Foldable
 import Text.Read
