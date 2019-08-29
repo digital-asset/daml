@@ -61,8 +61,13 @@ class HikariJdbcConnectionProvider(
     new HikariDataSource(config)
   }
 
-  private val flyway = FlywayMigrations(shortLivedDataSource, dbType)
-  flyway.migrate()
+  private val temporaryMigrationDataSource =
+    createDataSource(1, 2, 250.millis) // Flyway needs 2 connections
+  try {
+    FlywayMigrations(temporaryMigrationDataSource, dbType).migrate()
+  } finally {
+    temporaryMigrationDataSource.close()
+  }
 
   override def runSQL[T](block: Connection => T): T = {
     val conn = shortLivedDataSource.getConnection()

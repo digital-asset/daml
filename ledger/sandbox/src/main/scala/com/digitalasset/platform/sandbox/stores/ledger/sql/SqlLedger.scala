@@ -106,7 +106,7 @@ object SqlLedger {
       packages,
       initialLedgerEntries,
       queueDepth,
-      dbType.supportsParallelLedgerAppend)
+      dbType.supportsParallelWrites)
   }
 }
 

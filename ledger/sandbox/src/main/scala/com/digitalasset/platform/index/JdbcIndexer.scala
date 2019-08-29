@@ -84,7 +84,11 @@ object JdbcIndexer {
   private def initializeDao(jdbcUrl: String, mm: MetricsManager) = {
     val dbType = JdbcLedgerDao.jdbcType(jdbcUrl)
     val dbDispatcher =
-      DbDispatcher(jdbcUrl, dbType, noOfShortLivedConnections, noOfStreamingConnections)
+      DbDispatcher(
+        jdbcUrl,
+        dbType,
+        if (dbType.supportsParallelWrites) noOfShortLivedConnections else 1,
+        noOfStreamingConnections)
     val ledgerDao = LedgerDao.metered(
       JdbcLedgerDao(
         dbDispatcher,
