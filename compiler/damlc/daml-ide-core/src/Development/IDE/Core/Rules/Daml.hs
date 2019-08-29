@@ -150,9 +150,9 @@ ideErrorPretty :: Pretty.Pretty e => NormalizedFilePath -> e -> FileDiagnostic
 ideErrorPretty fp = ideErrorText fp . T.pack . HughesPJPretty.prettyShow
 
 
-getDalfDependencies :: NormalizedFilePath -> MaybeT Action (Map.Map UnitId DalfPackage)
-getDalfDependencies file = do
-    unitIds <- transitivePkgDeps <$> useE GetDependencies file
+getDalfDependencies :: [NormalizedFilePath] -> MaybeT Action (Map.Map UnitId DalfPackage)
+getDalfDependencies files = do
+    unitIds <- concatMap transitivePkgDeps <$> usesE GetDependencies files
     pkgMap <- useNoFileE GeneratePackageMap
     pure $ Map.restrictKeys pkgMap (Set.fromList $ map (DefiniteUnitId . DefUnitId) unitIds)
 

@@ -29,7 +29,7 @@ DAML package management. To import a package ``Bar`` in project ``Foo``, add the
 
   sdk-version: 0.0.0
   name: foo
-  source: daml/Foo.daml
+  source: daml
   version: 1.0.0
   exposed-modules:
     - Some.Module
