@@ -1,0 +1,62 @@
+daml 1.2
+module Transferrable where
+
+import CashAsset
+
+template (Asset t, Template (TransferProposal t)) => Transferrable t
+  with
+    asset: t
+  where
+    signatory asset.issuer, asset.owner
+
+    controller asset.owner can
+      ProposeTransfer: ContractId (TransferProposal t)
+        with newOwner: Party
+        do create TransferProposal with
+            assetToTransfer = this
+            newOwner
+
+template (Asset t, Template (Transferrable t)) => TransferProposal t
+  with
+    assetToTransfer: Transferrable t
+    newOwner: Party
+  where
+    let owner = assetToTransfer.asset.owner
+    signatory owner
+
+    controller owner can
+      WithdrawTransfer: ContractId (Transferrable t)
+        do create assetToTransfer
+
+    controller newOwner can
+      RejectTransfer: ContractId (Transferrable t)
+        do create assetToTransfer
+
+      AcceptTransfer: ContractId (Transferrable t)
+        do create Transferrable with
+            asset = assetToTransfer.asset with owner = newOwner
+
+template instance CashTransferrable = Transferrable Cash
+template instance CashTransferProposal = TransferProposal Cash
+
+s = scenario do
+  rohan <- getParty "Rohan"
+  martin <- getParty "Martin"
+  -- Cash is self-issued to simplify the workflow
+  let rohans50 = Transferrable Cash with issuer = rohan; owner = rohan; amount = 50.0; currency = "USD"
+      martins50 = Transferrable Cash with issuer = martin; owner = martin; amount = 50.0; currency = "CHF"
+  -- Create the Transferrable contracts
+  rohans50Cid <- rohan `submit` create rohans50
+  martins50Cid <- martin `submit` create martins50
+  -- Martin proposes to transfer his $50 to Rohan, which Rohan gladly accepts
+  martinsTransferProposal <- martin `submit` exercise martins50Cid ProposeTransfer with newOwner = rohan
+  rohansNewCashCid <- rohan `submit` exercise martinsTransferProposal AcceptTransfer
+  -- Rohan returns the favour by initiating a transfer in the other direction
+  rohansTransferProposal <- rohan `submit` exercise rohans50Cid ProposeTransfer with newOwner = martin
+  martinsNewCashCid <- martin `submit` exercise rohansTransferProposal AcceptTransfer
+  -- Check that the transfers were successful
+  martinsNewCash <- martin `submit` fetch martinsNewCashCid
+  assert $ martinsNewCash.asset.currency == "USD"
+  rohansNewCash <- rohan `submit` fetch rohansNewCashCid
+  assert $ rohansNewCash.asset.currency == "CHF"
+  return ()
