@@ -159,8 +159,7 @@ runTestsInProjectOrFiles projectOpts Nothing color mbJUnitOutput cliOptions =
         case parseProjectConfig project of
             Left err -> throwIO err
             Right PackageConfigFields {..} -> do
-              srcRoot <- getSrcRoot pSrc
-              files <- getDamlFiles srcRoot
+              files <- getDamlFiles pSrc
               execTest files color mbJUnitOutput cliOptions
 runTestsInProjectOrFiles projectOpts (Just inFiles) color mbJUnitOutput cliOptions =
     withProjectRoot' projectOpts $ \relativize -> do

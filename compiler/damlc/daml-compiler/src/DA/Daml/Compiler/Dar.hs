@@ -95,8 +95,7 @@ buildDar service pkgConf@PackageConfigFields {..} ifDir dalfInput = do
             pure $ Just $ createArchive pkgConf "" bytes [] (toNormalizedFilePath ".") [] [] []
         else runAction service $
              runMaybeT $ do
-                 srcRoot <- liftIO $ getSrcRoot pSrc
-                 files <- liftIO $ getDamlFiles srcRoot
+                 files <- liftIO $ getDamlFiles pSrc
                  pkgs <- usesE GeneratePackage files
                  let pkg = mergePkgs pkgs
                  let pkgModuleNames = map T.unpack $ LF.packageModuleNames pkg
@@ -118,6 +117,7 @@ buildDar service pkgConf@PackageConfigFields {..} ifDir dalfInput = do
                          | (unitId, pkg) <- Map.toList dalfDependencies0
                          ]
                  let dataFiles = [mkConfFile pkgConf pkgModuleNames (T.unpack pkgId)]
+                 srcRoot <- liftIO $ getSrcRoot pSrc
                  pure $
                      createArchive
                          pkgConf
@@ -133,8 +133,8 @@ buildDar service pkgConf@PackageConfigFields {..} ifDir dalfInput = do
 -- to be the source root.
 getSrcRoot :: FilePath -> IO NormalizedFilePath
 getSrcRoot fileOrDir = do
-  isFile <- doesFileExist fileOrDir
-  pure $ toNormalizedFilePath $ if isFile then takeDirectory fileOrDir else fileOrDir
+  isDir <- doesDirectoryExist fileOrDir
+  pure $ toNormalizedFilePath $ if isDir then fileOrDir else takeDirectory fileOrDir
 
 -- | Merge several packages into one.
 mergePkgs :: [WhnfPackage] -> LF.Package
@@ -149,11 +149,17 @@ mergePkgs (WhnfPackage pkg0:pkgs) =
         pkg0
         pkgs
 
--- | Find all DAML files below a given source root.
-getDamlFiles :: NormalizedFilePath -> IO [NormalizedFilePath]
+-- | Find all DAML files below a given source root. If the source root is a file we interpret it as
+-- main and just return that one file.
+getDamlFiles :: FilePath -> IO [NormalizedFilePath]
 getDamlFiles srcRoot = do
-    fs <- listFilesRecursive $ fromNormalizedFilePath srcRoot
-    pure $ map toNormalizedFilePath $ filter (".daml" `isExtensionOf`) fs
+    isDir <- doesDirectoryExist srcRoot
+    if isDir
+        then do
+            fs <- listFilesRecursive srcRoot
+            pure $
+                map toNormalizedFilePath $ filter (".daml" `isExtensionOf`) fs
+        else pure [toNormalizedFilePath srcRoot]
 
 fullPkgName :: String -> String -> String -> String
 fullPkgName n v h = intercalate "-" [n, v, h]
