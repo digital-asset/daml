@@ -45,7 +45,7 @@ subTime d1 d2 =
 
 -- | Returns the number of whole days in a time offset. Fraction of time is rounded towards zero.
 wholeDays : RelTime -> Int
-wholeDays (RelTime rt) = rt / microsecondsPerDay
+wholeDays (RelTime rt) = rt `div` microsecondsPerDay
 
 -- | A number of days in relative time.
 days : Int -> RelTime

@@ -46,24 +46,24 @@ fromGregorian (year, month, day) = date year month day
 toGregorian : Date -> (Int, Month, Int)
 toGregorian date =
   let a = dateToDaysSinceEpoch date + 2472632
-      b = (4 * a + 3) / 146097
-      c = a - (b * 146097) / 4
-      d = (4 * c + 3) / 1461
-      e = c - (1461 * d) / 4
-      m = (5 * e + 2) / 153
-      year = b * 100 + d - 4800 + m / 10
-      mth = m + 3 - 12 * (m / 10)
-      day = e - (153 * m + 2) / 5 + 1
+      b = (4 * a + 3) `div` 146097
+      c = a - (b * 146097) `div` 4
+      d = (4 * c + 3) `div` 1461
+      e = c - (1461 * d) `div` 4
+      m = (5 * e + 2) `div` 153
+      year = b * 100 + d - 4800 + m `div` 10
+      mth = m + 3 - 12 * (m `div` 10)
+      day = e - (153 * m + 2) `div` 5 + 1
    in (year, toEnum $ mth - 1, day)
 
 -- | Given the three values (year, month, day), constructs a `Date` value.
 -- `date (y, m, d)` turns the year `y`, month `m`, and day `d` into a `Date` value.
 date : Int -> Month -> Int -> Date
 date year month day =
-  let a = (14 - (fromMonth month)) / 12
+  let a = (14 - (fromMonth month)) `div` 12
       y = year + 4800 - a
       m = (fromMonth month) + 12 * a - 3
-      date = day + (153 * m + 2) / 5 + y * 365 + y / 4 - y / 100 + y / 400 - 2472633
+      date = day + (153 * m + 2) `div` 5 + y * 365 + y `div` 4 - y `div` 100 + y `div` 400 - 2472633
       ml = monthDayCount year month
   in daysSinceEpochToDate date
   -- assert day >= 1 && ml >= day
@@ -123,7 +123,7 @@ datetime year month day h m s = time (date year month day) h m s
 -- yesterday if retrieved when the market opens in say Singapore.
 toDateUTC : Time -> Date
 toDateUTC t =
-  daysSinceEpochToDate $ (/ microsecondsPerDay) $ timeToMicrosecondsSinceEpoch t
+  daysSinceEpochToDate $ (`div` microsecondsPerDay) $ timeToMicrosecondsSinceEpoch t
 
 -- | Within a `scenario`, pass the simulated scenario to given date.
 passToDate : Date -> Scenario Time
