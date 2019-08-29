@@ -17,14 +17,9 @@ trait Indexer {
     * Subscribes to an instance of ReadService.
     *
     * @param readService the ReadService to subscribe to
-    * @param onError     callback to signal error during feed processing
-    * @param onComplete  callback fired only once at normal feed termination.
     * @return a handle of IndexFeedHandle or a failed Future
     */
-  def subscribe(
-      readService: ReadService,
-      onError: Throwable => Unit,
-      onComplete: () => Unit): Future[IndexFeedHandle]
+  def subscribe(readService: ReadService): Future[IndexFeedHandle]
 
 }
 
@@ -37,4 +32,11 @@ trait IndexFeedHandle {
     * @return Done if success or a failed future in case of an error.
     */
   def stop(): Future[Done]
+
+  /**
+    * A future that completes when the feed terminates.
+    *
+    * @return Done if the feed terminates normally or a failed future in case of an error during feed processing.
+    */
+  def completed(): Future[Done]
 }
