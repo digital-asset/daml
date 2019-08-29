@@ -518,9 +518,11 @@ class TransactionServiceIT
         val args =
           c.testingHelpers.recordFieldsWithArgument(
             paramShowcaseArgs(templateIds.testPackageId),
-            RecordField("decimal", Some("37.0".asDecimal)))
+            RecordField("decimal", Some("37.0".asNumeric)))
         val expectedArg =
-          paramShowcaseArgsWithoutLabels.updated(2, RecordField("", Some("37.0".asDecimal)))
+          paramShowcaseArgsWithoutLabels.updated(
+            2,
+            RecordField("", Some("37.0000000000".asNumeric)))
 
         verifyParamShowcaseChoice(
           c,

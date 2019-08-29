@@ -4,7 +4,7 @@
 package com.digitalasset.testing;
 
 
-import com.daml.ledger.javaapi.data.Decimal;
+import com.daml.ledger.javaapi.data.Numeric;
 import com.daml.ledger.javaapi.data.Party;
 import com.daml.ledger.javaapi.data.Record;
 import org.junit.jupiter.api.Test;
@@ -42,7 +42,7 @@ public class DecimalTestFor$All$ {
         Record.Field partiField = new Record.Field("party", new Party("alice"));
         for(String s : goodValues) {
             Record record = new Record(
-                    new Record.Field("x", new Decimal(new BigDecimal(s))),
+                    new Record.Field("x", new Numeric(new BigDecimal(s))),
                     partiField
             );
             assertEquals(Box.fromValue(record).toValue(), record);

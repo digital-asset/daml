@@ -77,8 +77,8 @@ object DamlCodecs extends encoding.ValuePrimitiveEncoding[Value] {
     override def write(obj: P.Int64): VSum = VSum.Int64(obj)
   }
 
-  implicit override val valueDecimal: Value[P.Decimal] =
-    fromArgumentValueFuns(_.decimal map BigDecimal.exact, bd => VSum.Decimal(bd.toString))
+  implicit override val valueNumeric: Value[P.Numeric] =
+    fromArgumentValueFuns(_.numeric map BigDecimal.exact, bd => VSum.Numeric(bd.toString))
 
   implicit override val valueParty: Value[P.Party] =
     Party.subst(fromArgumentValueFuns(_.party, VSum.Party))

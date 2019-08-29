@@ -165,7 +165,7 @@ object Pretty {
         PrettyField(listType._1.fold("List")(n => s"List [$n]"), listType._2)
       )
     case model.DamlLfPrimType.Bool => PrettyPrimitive("Bool")
-    case model.DamlLfPrimType.Decimal => PrettyPrimitive("Decimal")
+    case model.DamlLfPrimType.Decimal => PrettyPrimitive("Numeric")
     case model.DamlLfPrimType.Int64 => PrettyPrimitive("Int64")
     case model.DamlLfPrimType.ContractId => PrettyPrimitive("ContractId")
     case model.DamlLfPrimType.Date => PrettyPrimitive("Date")

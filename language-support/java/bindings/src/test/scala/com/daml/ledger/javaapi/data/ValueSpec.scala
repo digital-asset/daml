@@ -28,7 +28,7 @@ class ValueSpec extends FlatSpec with Matchers with GeneratorDrivenPropertyCheck
     SumCase.BOOL -> (((_: Value).asBool(), "asBool")),
     SumCase.CONTRACT_ID -> (((_: Value).asContractId(), "asContractId")),
     SumCase.DATE -> (((_: Value).asDate(), "asDate")),
-    SumCase.DECIMAL -> (((_: Value).asDecimal(), "asDecimal")),
+    SumCase.NUMERIC -> (((_: Value).asNumeric(), "asNumeric")),
     SumCase.INT64 -> (((_: Value).asInt64(), "asInt64")),
     SumCase.LIST -> (((_: Value).asList(), "asList")),
     SumCase.PARTY -> (((_: Value).asParty(), "asParty")),
@@ -66,7 +66,7 @@ class ValueSpec extends FlatSpec with Matchers with GeneratorDrivenPropertyCheck
   assertConversions(SumCase.BOOL, Value.fromProto(boolValueGen.sample.get))
   assertConversions(SumCase.CONTRACT_ID, Value.fromProto(contractIdValueGen.sample.get))
   assertConversions(SumCase.DATE, Value.fromProto(dateValueGen.sample.get))
-  assertConversions(SumCase.DECIMAL, Value.fromProto(decimalValueGen.sample.get))
+  assertConversions(SumCase.NUMERIC, Value.fromProto(decimalValueGen.sample.get))
   assertConversions(SumCase.INT64, Value.fromProto(int64ValueGen.sample.get))
   assertConversions(SumCase.LIST, Value.fromProto(listValueGen.sample.get))
   assertConversions(SumCase.PARTY, Value.fromProto(partyValueGen.sample.get))

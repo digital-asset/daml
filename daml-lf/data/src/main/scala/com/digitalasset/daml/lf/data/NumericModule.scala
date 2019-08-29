@@ -50,7 +50,7 @@ abstract class NumericModule {
     Either.cond(
       x.precision <= maxPrecision,
       cast(x),
-      s"Out-of-bounds (Numeric ${x.scale}) $x"
+      s"Out-of-bounds (Numeric ${x.scale}) ${toString(x)}"
     )
 
   /**
@@ -109,7 +109,7 @@ abstract class NumericModule {
     */
   final def toLong(x: Numeric): Either[String, Long] =
     Try(x.setScale(0, ROUND_DOWN).longValueExact()).toEither.left.map(
-      _ => s"(Numeric ${x.scale}) $x does not fit into an Int64",
+      _ => s"(Numeric ${x.scale}) ${toString(x)} does not fit into an Int64",
     )
 
   /**
@@ -144,7 +144,7 @@ abstract class NumericModule {
     if (!(0 <= scale && scale <= maxPrecision))
       Left(s"Bad scale $scale, must be between 0 and $maxPrecision")
     else if (!(x.stripTrailingZeros.scale <= scale))
-      Left(s"Cannot represent $x as (Numeric $scale) without lost of precision")
+      Left(s"Cannot represent ${toString(x)} as (Numeric $scale) without lost of precision")
     else
       checkForOverflow(x.setScale(scale, ROUND_UNNECESSARY))
 
@@ -177,13 +177,13 @@ abstract class NumericModule {
     * - the decimal point (".") to separate the integral part from the decimal part,
     * - the decimal part of `x` with '0' padded to match the scale. The number of decimal digits must be the same as the scale.
     */
-  final def toString(x: Numeric): String = {
+  final def toString(x: BigDecimal): String = {
     val s = x.toPlainString
     if (x.scale == 0) s + "." else s
   }
 
   private val validScaledFormat =
-    """-?([1-9]\d*|0).(\d*)""".r
+    """-?([1-9]\d*|0)\.(\d*)""".r
 
   /**
     * Given a string representation of a decimal returns the corresponding Numeric, where the number of

@@ -97,7 +97,7 @@ object ShowEncoding extends ShowEncoding {
 
     override def valueInt64: Show[P.Int64] = longInstance
 
-    override def valueDecimal: Show[P.Decimal] = bigDecimalInstance
+    override def valueNumeric: Show[P.Numeric] = bigDecimalInstance
 
     override def valueParty: Show[P.Party] =
       P.Party.subst(show(p => Cord("P@", ShowUnicodeEscapedString.show(p))))

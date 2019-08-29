@@ -106,7 +106,7 @@ private[inner] object FromValueGenerator extends StrictLogging {
     Map[PrimType, (String, Option[String])](
       (PrimTypeBool, ("asBool", Some(".getValue()"))),
       (PrimTypeInt64, ("asInt64", Some(".getValue()"))),
-      (PrimTypeDecimal, ("asDecimal", Some(".getValue()"))),
+      (PrimTypeDecimal, ("asNumeric", Some(".getValue()"))),
       (PrimTypeText, ("asText", Some(".getValue()"))),
       (PrimTypeTimestamp, ("asTimestamp", Some(".getValue()"))),
       (PrimTypeParty, ("asParty", Some(".getValue()"))),

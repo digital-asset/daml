@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.ledger.client.binding.encoding
+
 import org.scalacheck.Arbitrary.arbitrary
 import org.scalacheck.{Arbitrary, Gen}
 import com.digitalasset.ledger.client.binding.{Primitive => P}
@@ -30,6 +31,6 @@ object DamlDecimalGen {
       BigDecimal(1).setScale(scale),
       BigDecimal(-1).setScale(scale))
 
-  lazy val arbDamlDecimal: Arbitrary[P.Decimal] = Arbitrary(
+  lazy val arbDamlDecimal: Arbitrary[P.Numeric] = Arbitrary(
     Gen.frequency((10, genDamlDecimal), (5, genSpecificDamlDecimal)))
 }

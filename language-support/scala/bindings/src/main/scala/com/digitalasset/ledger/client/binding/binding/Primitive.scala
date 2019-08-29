@@ -16,7 +16,7 @@ import java.util.TimeZone
 
 sealed abstract class Primitive {
   type Int64 = Long
-  type Decimal = BigDecimal
+  type Numeric = BigDecimal
   type Party = ApiTypes.Party
   val Party: ApiTypes.Party.type = ApiTypes.Party
   type Text = String

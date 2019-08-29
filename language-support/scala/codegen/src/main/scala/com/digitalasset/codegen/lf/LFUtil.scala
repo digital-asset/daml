@@ -86,7 +86,7 @@ final case class LFUtil(
       refType match {
         case PT.Bool => q"$primitiveObject.Bool"
         case PT.Int64 => q"$primitiveObject.Int64"
-        case PT.Decimal => q"$primitiveObject.Decimal"
+        case PT.Decimal => q"$primitiveObject.Numeric"
         case PT.Party => q"$primitiveObject.Party"
         case PT.Text => q"$primitiveObject.Text"
         case PT.Date => q"$primitiveObject.Date"
@@ -131,7 +131,7 @@ final case class LFUtil(
 
   /** Produces the for-comprehension body of a "reader" method.
     *
-    * Example: Take two variables "a: Int64", "b: Decimal", a nameOfRecord of "m"
+    * Example: Take two variables "a: Int64", "b: Numeric", a nameOfRecord of "m"
     * This will produce:
     *
     *   if (m.fields == 2) {
@@ -139,7 +139,7 @@ final case class LFUtil(
     *       RecordField("" | "a", Some(z0)) = m.fields(0)
     *       a <- Value.decode[Int64](zv0)
     *       RecordField("" | "b", Some(zv1)) = m.fields(1)
-    *       b <- Value.decode[Decimal](zv1)
+    *       b <- Value.decode[Numeric](zv1)
     *     } yield (...) // what the user passes in
     *   } else {
     *     None
