@@ -123,10 +123,12 @@ dalfBytesToPakage bytes = case Archive.decodeArchive $ BSL.toStrict bytes of
     Right (pkgId, pkg) -> rewriteSelfReferences pkgId pkg
     Left err -> error (show err)
 
-darToWorld :: ManifestData -> LF.Package -> LF.World
-darToWorld manifest pkg = AST.initWorldSelf pkgs pkg
+darToWorld :: Dalfs -> LF.World
+darToWorld Dalfs{..} = case Archive.decodeArchive $ BSL.toStrict mainDalf of
+    Right (_, mainPkg) -> AST.initWorldSelf pkgs mainPkg
+    Left err -> error (show err)
     where
-        pkgs = map dalfBytesToPakage (dalfsContent manifest)
+        pkgs = map dalfBytesToPakage dalfs
 
 tplNameUnqual :: LF.Template -> T.Text
 tplNameUnqual LF.Template {..} = headNote "tplNameUnqual" (LF.unTypeConName tplTypeCon)
@@ -209,16 +211,9 @@ dotFileGen modules world = constructDotGraph subgraphClusters graphConnectedEdge
 execVisual :: FilePath -> Maybe FilePath -> IO ()
 execVisual darFilePath dotFilePath = do
     darBytes <- B.readFile darFilePath
-    let manifestData = manifestFromDar $ ZIPArchive.toArchive (BSL.fromStrict darBytes)
-    (_, lfPkg) <- errorOnLeft "Cannot decode package" $ Archive.decodeArchive (BSL.toStrict (mainDalfContent manifestData) )
-    let modules = NM.toList $ LF.packageModules lfPkg
-        world = darToWorld manifestData lfPkg
-
+    dalfs <- either fail pure $ readDalfs $ ZIPArchive.toArchive (BSL.fromStrict darBytes)
+    let world = darToWorld dalfs
+        modules = NM.toList $ LF.packageModules $ getWorldSelf world
     case dotFilePath of
         Just outDotFile -> writeFile outDotFile (dotFileGen modules world)
         Nothing -> putStrLn (dotFileGen modules world)
-
-errorOnLeft :: Show a => String -> Either a b -> IO b
-errorOnLeft desc = \case
-  Left err -> ioError $ userError $ unlines [ desc, show err ]
-  Right x  -> return x

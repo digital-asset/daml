@@ -43,9 +43,10 @@ import DA.Daml.Project.Types (ConfigError, ProjectPath(..))
 import qualified Da.DamlLf as PLF
 import qualified Data.Aeson.Encode.Pretty as Aeson.Pretty
 import qualified Data.ByteString as B
+import qualified Data.ByteString.UTF8 as BSUTF8
+import qualified Data.ByteString.Char8 as BSC
 import qualified Data.ByteString.Lazy as BSL
-import qualified Data.ByteString.Lazy.Char8 as BSC
-import qualified Data.ByteString.Lazy.UTF8 as BSLUTF8
+import qualified Data.ByteString.Lazy.Char8 as BSLC
 import Data.FileEmbed (embedFile)
 import Data.Graph
 import qualified Data.Set as Set
@@ -429,8 +430,12 @@ createProjectPackageDb (AllowDifferentSdkVersions allowDiffSdkVersions) lfVersio
         forM fps0 $ \fp -> do
             bs <- BSL.readFile fp
             let archive = ZipArchive.toArchive bs
-            manifest <- getEntry "META-INF/MANIFEST.MF" archive
-            sdkVersion <- trim <$> getManifestFieldOrErr manifest "Sdk-Version"
+            manifest <- getEntry manifestPath archive
+            sdkVersion <- case parseManifestFile $ BSL.toStrict $ ZipArchive.fromEntry manifest of
+                Left err -> fail err
+                Right manifest -> case lookup "Sdk-Version" manifest of
+                    Nothing -> fail "No Sdk-Version entry in manifest"
+                    Just version -> pure $! trim $ BSUTF8.toString version
             let confFiles =
                     [ e
                     | e <- ZipArchive.zEntries archive
@@ -579,10 +584,13 @@ execPackage projectOpts filePath opts mbOutFile dalfInput = withProjectRoot' pro
 
 execInspect :: FilePath -> FilePath -> Bool -> DA.Pretty.PrettyLevel -> Command
 execInspect inFile outFile jsonOutput lvl = do
-    let mainDalf
-            | "dar" `isExtensionOf` inFile = BSL.toStrict . mainDalfContent . manifestFromDar . ZipArchive.toArchive . BSL.fromStrict
-            | otherwise = id
-    bytes <- mainDalf <$> B.readFile inFile
+    bytes <-
+        if "dar" `isExtensionOf` inFile
+            then do
+                dar <- B.readFile inFile
+                dalfs <- either fail pure $ readDalfs $ ZipArchive.toArchive $ BSL.fromStrict dar
+                pure $! BSL.toStrict $ mainDalf dalfs
+            else B.readFile inFile
 
     if jsonOutput
     then do
@@ -709,9 +717,8 @@ execMigrate projectOpts opts0 inFile1_ inFile2_ mbDir = do
                 let pkgName = takeBaseName inFile
                 let dar = ZipArchive.toArchive $ BSL.fromStrict bytes
                 -- get the main pkg
-                manifest <- getEntry "META-INF/MANIFEST.MF" dar
-                mainDalfPath <- getManifestFieldOrErr manifest "Main-Dalf"
-                mainDalfEntry <- getEntry mainDalfPath dar
+                dalfManifest <- either fail pure $ readDalfManifest dar
+                mainDalfEntry <- getEntry (mainDalfPath dalfManifest) dar
                 (mainPkgId, mainLfPkg) <- decode $ BSL.toStrict $ ZipArchive.fromEntry mainDalfEntry
                 pure (pkgName, mainPkgId, mainLfPkg)
         -- generate upgrade modules and instances modules
@@ -784,12 +791,6 @@ getEntry fp dar =
     maybe (fail $ "Package does not contain " <> fp) pure $
     ZipArchive.findEntryByPath fp dar
 
--- | Parse a manifest field.
-getManifestFieldOrErr :: ZipArchive.Entry -> String -> IO String
-getManifestFieldOrErr manifest field =
-    mbErr ("Missing field in META-INF/MANIFEST.MD: " ++ field) $
-    getManifestField manifest field
-
 -- | Merge two dars. The idea is that the second dar is a delta. Hence, we take the main in the
 -- manifest from the first.
 execMergeDars :: FilePath -> FilePath -> Maybe FilePath -> IO ()
@@ -809,24 +810,13 @@ execMergeDars darFp1 darFp2 mbOutFp = do
     BSL.writeFile outFp $ ZipArchive.fromArchive merged
   where
     mergeManifests dar1 dar2 = do
-        let mfPath = "META-INF/MANIFEST.MF"
-        let dalfNames =
-                nubSort
-                    [ takeFileName p
-                    | e <- ZipArchive.zEntries dar1 ++ ZipArchive.zEntries dar2
-                    , let p = ZipArchive.eRelativePath e
-                    , ".dalf" `isExtensionOf` p
-                    ]
-        m1 <- getEntry mfPath dar1
-        let m' = do
-                l <- BSC.lines $ ZipArchive.fromEntry m1
-                -- TODO This should use the proper manifest reader.
-                -- At the moment this relies on the fact that the input manifest
-                -- does not have Dalfs: entries that are split over multiple lines.
-                pure $ case BSL.stripPrefix "Dalfs:" l of
-                    Nothing -> l
-                    Just _ -> breakAt72Bytes $ "Dalfs: " <> BSC.intercalate ", " (map BSLUTF8.fromString dalfNames)
-        pure $ ZipArchive.toEntry mfPath 0 $ BSC.unlines m'
+        manifest1 <- either fail pure $ readDalfManifest dar1
+        manifest2 <- either fail pure $ readDalfManifest dar2
+        let mergedDalfs = BSC.intercalate ", " $ map BSUTF8.fromString $ nubSort $ dalfPaths manifest1 ++ dalfPaths manifest2
+        attrs1 <- either fail pure $ readManifest dar1
+        attrs1 <- pure $ map (\(k, v) -> if k == "Dalfs" then (k, mergedDalfs) else (k, v)) attrs1
+        pure $ ZipArchive.toEntry manifestPath 0 $ BSLC.unlines $
+            map (\(k, v) -> breakAt72Bytes $ BSL.fromStrict $ k <> ": " <> v) attrs1
 
 execDocTest :: Options -> [FilePath] -> IO ()
 execDocTest opts files = do
