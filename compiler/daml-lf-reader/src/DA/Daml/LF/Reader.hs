@@ -59,8 +59,12 @@ manifestHeaderParser = do
 nameParser :: Parser ByteString
 nameParser = do
     x <- alphaNumChar
-    xs <- takeWhileP Nothing (\x -> let xChr = chr $ fromIntegral x in isAlphaNum xChr || xChr == '-' || xChr == '_')
+    xs <- takeWhileP Nothing isHeaderChar
     pure $! BS.cons x xs
+    where isHeaderChar x =
+              -- isAlphaNum will also match non-ASCII chars but since we get it by applying chr
+              -- to a single byte that is not an issue.
+              let xChr = chr $ fromIntegral x in isAlphaNum xChr || xChr == '-' || xChr == '_'
 
 valueParser :: Parser ByteString
 valueParser = do
