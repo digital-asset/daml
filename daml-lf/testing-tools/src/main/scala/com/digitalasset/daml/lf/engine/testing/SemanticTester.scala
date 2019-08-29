@@ -48,12 +48,16 @@ class SemanticTester(
 )(implicit ec: ExecutionContext) {
   import SemanticTester._
 
+  private val compiledPackages = PureCompiledPackages(packages).right.get
+  private val semanticsEquality = new SemanticsEquality(compiledPackages)
+  import semanticsEquality._
+
   // result ledgers from all scenarios found in packages
   private lazy val allScenarioLedgers: Map[QualifiedName, L.Ledger] = {
     val modules = packages(packageToTest).modules.values
     val buildMachine =
       Speedy.Machine
-        .newBuilder(PureCompiledPackages(packages).right.get)
+        .newBuilder(compiledPackages)
         .fold(err => sys.error(err.toString), identity)
 
     modules.foldLeft(Map.empty[QualifiedName, L.Ledger]) {
@@ -211,7 +215,7 @@ class SemanticTester(
                   val scenarioCreateEventToCompare =
                     scenarioCreateEvent.copy(signatories = Set.empty, observers = Set.empty)
                   // check that they're the same
-                  if (scenarioCreateEventToCompare != ledgerCreateEventToCompare) {
+                  if (!equalEvent(scenarioCreateEventToCompare, ledgerCreateEventToCompare)) {
                     throw SemanticTesterError(
                       reference,
                       s"Expected create event $scenarioCreateEventToCompare but got $ledgerCreateEventToCompare")
@@ -254,7 +258,7 @@ class SemanticTester(
                     ledgerExerciseEvent.copy(children = ImmArray.empty, stakeholders = Set.empty)
                   val comparedScenarioExerciseEvent =
                     scenarioExerciseEvent.copy(stakeholders = Set.empty)
-                  if (comparedScenarioExerciseEvent != ledgerExerciseEventToCompare) {
+                  if (!equalEvent(comparedScenarioExerciseEvent, ledgerExerciseEventToCompare)) {
                     throw SemanticTesterError(
                       reference,
                       s"Expected exercise event $comparedScenarioExerciseEvent but got $ledgerExerciseEventToCompare"
