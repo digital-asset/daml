@@ -6,6 +6,7 @@ module DA.Daml.LF.Ast.Numeric
     ( Numeric
     , numeric
     , numericScale
+    , numericMaxScale
     ) where
 
 import Control.DeepSeq
