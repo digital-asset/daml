@@ -10,6 +10,7 @@ da_haskell_library(
         "base",
         "containers",
         "deepseq",
+        "Decimal",
         "extra",
         "hashable",
         "lens",
