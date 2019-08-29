@@ -20,6 +20,7 @@ da_scala_binary(
     runtime_deps = [
         "//3rdparty/jvm/ch/qos/logback:logback_classic",
         "//3rdparty/jvm/ch/qos/logback:logback_core",
+        "//3rdparty/jvm/com/h2database:h2",
     ],
     deps = [
         "//3rdparty/jvm/com/github/scopt",
@@ -65,7 +66,7 @@ da_scala_binary(
 client_server_test(
     name = "conformance-test",
     timeout = "long",
-    client = "//ledger/ledger-api-test-tool:ledger-api-test-tool",
+    client = "//ledger/ledger-api-test-tool",
     client_args = [
         "--all-tests",
         "--exclude TimeIT",
@@ -85,5 +86,28 @@ client_server_test(
         "dont-run-on-darwin",
         # NOTE(JM): As this test is somewhat heavy and has timeouts, run it without competition to avoid flakyness.
         "exclusive",
+    ],
+) if not is_windows else None
+
+client_server_test(
+    name = "conformance-test-h2database",
+    timeout = "long",
+    client = "//ledger/ledger-api-test-tool",
+    client_args = [
+        "--all-tests",
+        "--exclude TimeIT",
+    ],
+    data = [
+        "//ledger/test-common:dar-files",
+    ],
+    server = ":reference-v2",
+    server_args = [
+        "--jdbc-url jdbc:h2:mem:daml_on_x;db_close_on_exit=false",  # reference server explicitly closes databases
+    ],
+    server_files = [
+        "$(rootpaths //ledger/test-common:dar-files)",
+    ],
+    tags = [
+        "dont-run-on-darwin",
     ],
 ) if not is_windows else None
