@@ -20,3 +20,5 @@ HEAD — ongoing
 + [DAML Compiler] **BREAKING CHANGE** Enable the language extension ``MonoLocalBinds`` by default. ``let`` and ``where`` bindings introducing polymorphic functions that are used at different types now need an explicit type annotation. Without the type annotation the type of the first use site will be inferred and use sites at different types will fail with a type mismatch error.
 + [Ledger] H2 Database support in the Ledger API Server.
 + [Ledger Api] *BREAKING CHANGE** In Protobuf ``Value`` message, rename ``decimal` field to ``numeric``.
++ [Sandbox] Fixed a bug that could lead to an inconsistent snapshot of active contracts being served
+  by the ActiveContractsService under high load.

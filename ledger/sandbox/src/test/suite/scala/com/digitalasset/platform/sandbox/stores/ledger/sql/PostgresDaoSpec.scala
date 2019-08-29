@@ -490,11 +490,11 @@ class PostgresDaoSpec
       // The resulting snapshot should contain N-1 contracts
       for {
         startingOffset <- ledgerDao.lookupLedgerEnd()
-        startingSnapshot <- ledgerDao.getActiveContractSnapshot()
+        startingSnapshot <- ledgerDao.getActiveContractSnapshot(startingOffset)
         _ <- runSequentially(N, _ => storeCreateTransaction())
         _ <- storeExerciseTransaction(AbsoluteContractId(s"cId$startingOffset"))
         snapshotOffset <- ledgerDao.lookupLedgerEnd()
-        snapshot <- ledgerDao.getActiveContractSnapshot()
+        snapshot <- ledgerDao.getActiveContractSnapshot(snapshotOffset)
         _ <- runSequentially(M, _ => storeCreateTransaction())
         endingOffset <- ledgerDao.lookupLedgerEnd()
         startingSnapshotSize <- startingSnapshot.acs.map(_ => 1).runWith(sumSink)

@@ -911,7 +911,8 @@ private class JdbcLedgerDao(
     SQL(
       "select c.*, le.effective_at, le.transaction from contracts c inner join ledger_entries le on c.transaction_id = le.transaction_id where create_offset <= {offset} and (archive_offset is null or archive_offset > {offset})")
 
-  override def getActiveContractSnapshot()(implicit mat: Materializer): Future[LedgerSnapshot] = {
+  override def getActiveContractSnapshot(untilExclusive: LedgerOffset)(
+      implicit mat: Materializer): Future[LedgerSnapshot] = {
 
     def contractStream(conn: Connection, offset: Long) = {
       //TODO: investigate where Akka Streams is actually iterating on the JDBC ResultSet (because, that is blocking IO!)
@@ -926,10 +927,10 @@ private class JdbcLedgerDao(
         }
     }.mapMaterializedValue(_.map(_ => Done)(DirectExecutionContext))
 
-    lookupLedgerEnd()
-      .map(offset =>
-        LedgerSnapshot(offset, dbDispatcher.runStreamingSql(conn => contractStream(conn, offset))))(
-        DirectExecutionContext)
+    Future.successful(
+      LedgerSnapshot(
+        untilExclusive,
+        dbDispatcher.runStreamingSql(conn => contractStream(conn, untilExclusive))))
   }
 
   private val SQL_SELECT_PARTIES =
