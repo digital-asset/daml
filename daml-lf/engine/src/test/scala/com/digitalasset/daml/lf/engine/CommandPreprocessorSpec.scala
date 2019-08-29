@@ -79,7 +79,7 @@ class CommandPreprocessorSpec extends WordSpec with Matchers with TableDrivenPro
 
     val compiledPackage = ConcurrentCompiledPackages()
     assert(compiledPackage.addPackage(pkgId, pkg) == ResultDone(()))
-    val preprocessor = CommandPreprocessor(compiledPackage)
+    val preprocessor = new CommandPreprocessor(compiledPackage)
     import preprocessor.translateValue
     val valueVersion = ValueVersion("last")
 
