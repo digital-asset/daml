@@ -10,10 +10,11 @@ module DA.Daml.LF.Ast.Numeric
 
 import Numeric.Natural
 
+import Control.Arrow (first)
+import Control.DeepSeq
 import Data.Data
 import Data.Decimal
-import Control.DeepSeq
-import GHC.Generics(Generic)
+import GHC.Generics (Generic)
 
 -- | Numeric literal. This must encode both the mantissa (up to 38 digits) and
 -- the scale (0-37), the latter controlling how many digits appear after the
@@ -81,3 +82,13 @@ conNumeric :: Constr
 conNumeric = mkConstr tyNumeric "numeric" ["numericScale", "numericMantissa"] Prefix
 
 instance NFData Numeric
+
+instance Read Numeric where
+    readsPrec p = filter (numericValid . fst) . map (first Numeric) . readsPrec p
+
+-- | Check Numeric is valid. Any Numeric constructed from outside this
+-- module should already satisfy this, but just in case.
+numericValid :: Numeric -> Bool
+numericValid n =
+    numericScale n <= numericMaxScale
+    && numericMantissa n <= numericMaxMantissa

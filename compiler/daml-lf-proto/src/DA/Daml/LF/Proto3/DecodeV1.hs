@@ -494,9 +494,9 @@ decodePrimLit (LF1.PrimLit mbSum) = mayDecode "primLitSum" mbSum $ \case
   LF1.PrimLitSumDecimal sDec -> case readMaybe (TL.unpack sDec) of
     Nothing -> throwError $ ParseError ("bad fixed while decoding Decimal: '" <> TL.unpack sDec <> "'")
     Just dec -> return (BEDecimal dec)
-    -- FixMe: https://github.com/digital-asset/daml/issues/2289
-    --  should handle numerics
-  LF1.PrimLitSumNumeric _ -> throwError (ParseError "Numeric not supported")
+  LF1.PrimLitSumNumeric sNum -> case readMaybe (TL.unpack sNum) of
+    Nothing -> throwError $ ParseError ("bad Numeric literal: '" <> TL.unpack sNum <> "'")
+    Just n -> return (BENumeric n)
   LF1.PrimLitSumTimestamp sTime -> pure $ BETimestamp sTime
   LF1.PrimLitSumText x           -> pure $ BEText $ TL.toStrict x
   LF1.PrimLitSumParty p          -> pure $ BEParty $ PartyLiteral $ TL.toStrict p
