@@ -183,7 +183,7 @@ abstract class NumericModule {
   }
 
   private val validScaledFormat =
-    """-?([1-9]\d*|0).(\d*)""".r
+    """-?([1-9]\d*|0)\.(\d*)""".r
 
   /**
     * Given a string representation of a decimal returns the corresponding Numeric, where the number of
