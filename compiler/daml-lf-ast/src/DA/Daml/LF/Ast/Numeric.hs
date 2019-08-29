@@ -1,20 +1,20 @@
 -- Copyright (c) 2019 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
--- | Numeric literals, with scale attached.
+-- | DAML-LF Numeric literals, with scale attached.
 module DA.Daml.LF.Ast.Numeric
     ( Numeric
     , numeric
     , numericScale
     ) where
 
-import Numeric.Natural
-
-import Control.Arrow (first)
 import Control.DeepSeq
+import Control.Monad
 import Data.Data
 import Data.Decimal
+import Data.Maybe
 import GHC.Generics (Generic)
+import Numeric.Natural
 
 -- | Numeric literal. This must encode both the mantissa (up to 38 digits) and
 -- the scale (0-37), the latter controlling how many digits appear after the
@@ -28,7 +28,8 @@ import GHC.Generics (Generic)
 -- with Show and Read, with a few adjustments:
 --
 -- * we perform bounds checks with smart constructor 'numeric'
--- * for scale 0, we have to add the decimal point in the Show instance
+-- * for scale 0, we have to handle the decimal point in the Show
+--   and Read instances manually
 -- * when reading, we check numeric bounds for scale and mantissa
 -- * we add Data, NFData, Generic instances
 -- * we don't add Num instances (for now anyway)
@@ -69,6 +70,25 @@ instance Show Numeric where
         | numericScale n == 0 = shows (numericDecimal n) . ("." ++)
         | otherwise = showsPrec p (numericDecimal n)
 
+instance Read Numeric where
+    readsPrec p = mapMaybe postProcess . readsPrec p
+      where
+        postProcess :: (Decimal, String) -> Maybe (Numeric, String)
+        postProcess (d, xs) = do
+            let n = Numeric d
+            guard (numericValid n)
+            if numericScale n > 0 then
+                Just (n, xs)
+            else -- for scale == 0, we have to take the decimal point manually
+                case xs of
+                    '.':ys -> Just (n, ys)
+                    _ -> Nothing
+
+        numericValid :: Numeric -> Bool
+        numericValid n =
+            numericScale n <= numericMaxScale
+            && numericMantissa n <= numericMaxMantissa
+
 instance Data Numeric where
     gfoldl k z n = z numeric `k` numericScale n `k` numericMantissa n
     gunfold k z _ = k (k (z numeric))
@@ -82,13 +102,3 @@ conNumeric :: Constr
 conNumeric = mkConstr tyNumeric "numeric" ["numericScale", "numericMantissa"] Prefix
 
 instance NFData Numeric
-
-instance Read Numeric where
-    readsPrec p = filter (numericValid . fst) . map (first Numeric) . readsPrec p
-
--- | Check Numeric is valid. Any Numeric constructed from outside this
--- module should already satisfy this, but just in case.
-numericValid :: Numeric -> Bool
-numericValid n =
-    numericScale n <= numericMaxScale
-    && numericMantissa n <= numericMaxMantissa

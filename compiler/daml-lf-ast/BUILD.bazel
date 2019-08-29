@@ -1,7 +1,7 @@
 # Copyright (c) 2019 The DAML Authors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load("//bazel_tools:haskell.bzl", "da_haskell_library")
+load("//bazel_tools:haskell.bzl", "da_haskell_library", "da_haskell_test")
 
 da_haskell_library(
     name = "daml-lf-ast",
@@ -26,6 +26,23 @@ da_haskell_library(
     src_strip_prefix = "src",
     visibility = ["//visibility:public"],
     deps = [
+        "//libs-haskell/da-hs-base",
+    ],
+)
+
+da_haskell_test(
+    name = "tests",
+    srcs = glob(["test/**/*.hs"]),
+    hazel_deps = [
+        "base",
+        "tasty",
+        "tasty-hunit",
+    ],
+    main_function = "DA.Daml.LF.Ast.Tests.main",
+    src_strip_prefix = "test",
+    visibility = ["//visibility:public"],
+    deps = [
+        ":daml-lf-ast",
         "//libs-haskell/da-hs-base",
     ],
 )
