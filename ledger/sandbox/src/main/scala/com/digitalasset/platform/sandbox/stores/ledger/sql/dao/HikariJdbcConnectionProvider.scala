@@ -68,7 +68,7 @@ class HikariJdbcConnectionProvider(
   }
 
   private val temporaryMigrationDataSource =
-    createDataSource(1, 2, 250.millis) // Flyway needs 2 connections
+    createDataSource("Temp-Flyway-Migration", 1, 2, 250.millis) // Flyway needs 2 connections
   try {
     FlywayMigrations(temporaryMigrationDataSource, dbType).migrate()
   } finally {
