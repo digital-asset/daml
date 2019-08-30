@@ -23,8 +23,6 @@ def hazel_ghclibs(version, shaParser, shaLibrary):
                 "url": "https://digitalassetsdk.bintray.com/ghc-lib/ghc-lib-" + version + ".tar.gz",
                 "stripPrefix": "ghc-lib-" + version,
                 "sha256": shaLibrary,
-                "patches": ["@com_github_digital_asset_daml//bazel_tools:ghc-lib-no-ffi.patch"],
-                "patch_args": ["-p1"],
             },
         ),
     ]
