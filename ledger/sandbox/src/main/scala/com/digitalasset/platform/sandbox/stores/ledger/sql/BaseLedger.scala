@@ -56,7 +56,7 @@ class BaseLedger(val ledgerId: LedgerId, headAtInitialization: Long, ledgerDao: 
     //TODO (robert): SQL DAO does not know about ActiveContract, this method does a (trivial) mapping from DAO Contract to Ledger ActiveContract. Intended? The DAO layer was introduced its own Contract abstraction so it can also reason read archived ones if it's needed. In hindsight, this might be necessary at all  so we could probably collapse the two
     ledgerDao
       .getActiveContractSnapshot(ledgerEnd)
-      .map(s => LedgerSnapshot(s.offset, s.acs.map(c => (c.contractId, c.toActiveContract))))(DEC)
+      .map(s => LedgerSnapshot(s.offset, s.acs.map(_.toActiveContract)))(DEC)
 
   override def lookupContract(
       contractId: AbsoluteContractId): Future[Option[ActiveLedgerState.ActiveContract]] =

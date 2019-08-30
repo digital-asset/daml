@@ -114,6 +114,7 @@ class ActiveLedgerStateManager[ALS](initialState: => ALS)(
                   .union(nc.key.map(_.maintainers).getOrElse(Set.empty))
                 val absCoid = SandboxEventIdFormatter.makeAbsCoid(transactionId)(nc.coid)
                 val activeContract = ActiveContract(
+                  id = absCoid,
                   let = let,
                   transactionId = transactionId,
                   workflowId = workflowId,
@@ -133,14 +134,14 @@ class ActiveLedgerStateManager[ALS](initialState: => ALS)(
                 )
                 activeContract.key match {
                   case None =>
-                    ats.copy(acc = Some(acc.addContract(absCoid, activeContract, None)))
+                    ats.copy(acc = Some(acc.addContract(activeContract, None)))
                   case Some(key) =>
                     val gk = GlobalKey(activeContract.contract.template, key.key)
                     if (acc keyExists gk) {
                       AddTransactionState(None, errs + DuplicateKey(gk), parties.union(nodeParties))
                     } else {
                       ats.copy(
-                        acc = Some(acc.addContract(absCoid, activeContract, Some(gk))),
+                        acc = Some(acc.addContract(activeContract, Some(gk))),
                         parties = parties.union(nodeParties)
                       )
                     }

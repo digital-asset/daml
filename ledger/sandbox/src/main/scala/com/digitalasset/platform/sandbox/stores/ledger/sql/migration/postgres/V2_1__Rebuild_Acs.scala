@@ -351,12 +351,9 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
 
         override def keyExists(key: GlobalKey): Boolean = selectContractKey(key).isDefined
 
-        override def addContract(
-            cid: AbsoluteContractId,
-            c: ActiveLedgerState.ActiveContract,
-            keyO: Option[GlobalKey]) = {
-          storeContract(offset, Contract.fromActiveContract(cid, c))
-          keyO.foreach(key => storeContractKey(key, cid))
+        override def addContract(c: ActiveLedgerState.ActiveContract, keyO: Option[GlobalKey]) = {
+          storeContract(offset, Contract.fromActiveContract(c))
+          keyO.foreach(key => storeContractKey(key, c.id))
           this
         }
 

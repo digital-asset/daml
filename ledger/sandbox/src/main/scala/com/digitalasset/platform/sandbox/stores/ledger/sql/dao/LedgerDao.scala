@@ -40,6 +40,7 @@ final case class Contract(
     observers: Set[Party]) {
   def toActiveContract: ActiveContract =
     ActiveContract(
+      contractId,
       let,
       transactionId,
       workflowId,
@@ -53,9 +54,9 @@ final case class Contract(
 }
 
 object Contract {
-  def fromActiveContract(cid: AbsoluteContractId, ac: ActiveContract): Contract =
+  def fromActiveContract(ac: ActiveContract): Contract =
     Contract(
-      cid,
+      ac.id,
       ac.let,
       ac.transactionId,
       ac.workflowId,

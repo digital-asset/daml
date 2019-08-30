@@ -368,11 +368,10 @@ private class JdbcLedgerDao(
         override def keyExists(key: GlobalKey): Boolean = selectContractKey(key).isDefined
 
         override def addContract(
-            cid: AbsoluteContractId,
             c: ActiveLedgerState.ActiveContract,
-            keyO: Option[GlobalKey]) = {
-          storeContract(offset, Contract.fromActiveContract(cid, c))
-          keyO.foreach(key => storeContractKey(key, cid))
+            keyO: Option[GlobalKey]): AcsStoreAcc = {
+          storeContract(offset, Contract.fromActiveContract(c))
+          keyO.foreach(key => storeContractKey(key, c.id))
           this
         }
 

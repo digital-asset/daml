@@ -26,11 +26,11 @@ case class InMemoryActiveLedgerState(
 
   override def keyExists(key: GlobalKey) = keys.contains(key)
 
-  override def addContract(cid: AbsoluteContractId, c: ActiveContract, keyO: Option[GlobalKey]) =
+  override def addContract(c: ActiveContract, keyO: Option[GlobalKey]): InMemoryActiveLedgerState =
     keyO match {
-      case None => copy(contracts = contracts + (cid -> c))
+      case None => copy(contracts = contracts + (c.id -> c))
       case Some(key) =>
-        copy(contracts = contracts + (cid -> c), keys = keys + (key -> cid))
+        copy(contracts = contracts + (c.id -> c), keys = keys + (key -> c.id))
     }
 
   override def removeContract(cid: AbsoluteContractId, keyO: Option[GlobalKey]) = keyO match {

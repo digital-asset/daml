@@ -8,6 +8,7 @@ import java.time.Instant
 import com.digitalasset.daml.lf.data.Ref.{Party, TransactionIdString}
 import com.digitalasset.daml.lf.data.Relation.Relation
 import com.digitalasset.daml.lf.transaction.Node.{GlobalKey, KeyWithMaintainers}
+import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst, VersionedValue}
 import com.digitalasset.ledger.WorkflowId
 import com.digitalasset.platform.sandbox.stores.ActiveLedgerState._
@@ -34,7 +35,7 @@ trait ActiveLedgerState[+Self] { this: ActiveLedgerState[Self] =>
   def keyExists(key: GlobalKey): Boolean
 
   /** Called when a new contract is created */
-  def addContract(cid: AbsoluteContractId, c: ActiveContract, keyO: Option[GlobalKey]): Self
+  def addContract(c: ActiveContract, keyO: Option[GlobalKey]): Self
 
   /** Called when the given contract is archived */
   def removeContract(cid: AbsoluteContractId, keyO: Option[GlobalKey]): Self
@@ -61,6 +62,7 @@ object ActiveLedgerState {
     * Depending on where the contract came from, other metadata may be available.
     */
   sealed abstract class Contract {
+    def id: Value.AbsoluteContractId
     def contract: ContractInst[VersionedValue[AbsoluteContractId]]
   }
 
@@ -71,6 +73,7 @@ object ActiveLedgerState {
     * These contracts are only used for transaction validation, they are not part of the active contract set.
     */
   final case class DivulgedContract(
+      id: Value.AbsoluteContractId,
       contract: ContractInst[VersionedValue[AbsoluteContractId]],
       /** For each party, the transaction id at which the contract was divulged */
       divulgences: Map[Party, TransactionIdString],
@@ -80,6 +83,7 @@ object ActiveLedgerState {
     * For active contracts, we know all metadata.
     */
   final case class ActiveContract(
+      id: Value.AbsoluteContractId,
       let: Instant, // time when the contract was committed
       transactionId: TransactionIdString, // transaction id where the contract originates
       workflowId: Option[WorkflowId], // workflow id from where the contract originates

@@ -33,6 +33,7 @@ import com.digitalasset.ledger.api.domain.{
   RejectionReason
 }
 import com.digitalasset.platform.sandbox.services.transaction.SandboxEventIdFormatter
+import com.digitalasset.platform.sandbox.stores.ActiveLedgerState.ActiveContract
 import com.digitalasset.platform.sandbox.stores.deduplicator.Deduplicator
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry.{Checkpoint, Rejection}
 import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
@@ -87,7 +88,7 @@ class InMemoryLedger(
   // need to take the lock to make sure the two pieces of data are consistent.
   override def snapshot(): Future[LedgerSnapshot] =
     Future.successful(this.synchronized {
-      LedgerSnapshot(entries.ledgerEnd, Source(acs.contracts))
+      LedgerSnapshot(entries.ledgerEnd, Source[ActiveContract](acs.contracts.map(_._2)))
     })
 
   override def lookupContract(

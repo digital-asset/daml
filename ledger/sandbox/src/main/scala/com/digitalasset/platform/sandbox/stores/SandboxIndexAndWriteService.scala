@@ -171,14 +171,13 @@ abstract class LedgerBackedIndexService(
           ActiveContractSetSnapshot(
             LedgerOffset.Absolute(LedgerString.fromLong(offset)),
             acsStream
-              .mapConcat {
-                case (cId, ac) =>
-                  val create = toUpdateEvent(cId, ac)
-                  EventFilter
-                    .byTemplates(filter)
-                    .filterActiveContractWitnesses(create)
-                    .map(create => ac.workflowId.map(domain.WorkflowId(_)) -> create)
-                    .toList
+              .mapConcat { ac =>
+                val create = toUpdateEvent(ac.id, ac)
+                EventFilter
+                  .byTemplates(filter)
+                  .filterActiveContractWitnesses(create)
+                  .map(create => ac.workflowId.map(domain.WorkflowId(_)) -> create)
+                  .toList
               }
           )
       }(mat.executionContext)

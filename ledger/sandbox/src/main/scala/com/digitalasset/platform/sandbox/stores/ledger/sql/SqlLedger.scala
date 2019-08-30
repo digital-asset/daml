@@ -411,8 +411,8 @@ private class SqlLedgerFactory(ledgerDao: LedgerDao) {
                   s"Initializing ledger with ${initialLedgerEntries.length} ledger entries")
               }
 
-              val contracts = acs.contracts
-                .map(f => Contract.fromActiveContract(f._1, f._2))
+              val contracts = acs.contracts.values
+                .map(f => Contract.fromActiveContract(f))
                 .toList
 
               val initialLedgerEnd = 0L
