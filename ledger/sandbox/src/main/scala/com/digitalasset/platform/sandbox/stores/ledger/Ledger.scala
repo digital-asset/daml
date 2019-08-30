@@ -14,6 +14,7 @@ import com.daml.ledger.participant.state.v1._
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.data.Ref.{PackageId, Party, TransactionIdString}
+import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.transaction.Node.GlobalKey
 import com.digitalasset.daml.lf.value.Value
@@ -53,6 +54,14 @@ trait WriteLedger extends AutoCloseable {
       knownSince: Instant,
       sourceDescription: Option[String],
       payload: List[Archive]): Future[UploadPackagesResult]
+
+  // Configuration management
+  def publishConfiguration(
+      maxRecordTime: Timestamp,
+      submissionId: String,
+      config: Configuration
+  ): Future[SubmissionResult]
+
 }
 
 /** Defines all the functionalities a Ledger needs to provide */
@@ -85,6 +94,8 @@ trait ReadOnlyLedger extends AutoCloseable {
 
   def getLfPackage(packageId: PackageId): Future[Option[Ast.Package]]
 
+  // Configuration management
+  def lookupLedgerConfiguration(): Future[Option[Configuration]]
 }
 
 object Ledger {

@@ -7,7 +7,7 @@ import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.codahale.metrics.MetricRegistry
-import com.daml.ledger.participant.state.v1.TransactionId
+import com.daml.ledger.participant.state.v1.{Configuration, ParticipantId, TransactionId}
 import com.digitalasset.daml.lf.data.Ref.{LedgerString, PackageId, Party}
 import com.daml.ledger.participant.state.index.v2.PackageDetails
 import com.digitalasset.daml.lf.transaction.Node
@@ -18,6 +18,7 @@ import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilte
 import com.digitalasset.platform.sandbox.metrics.timedFuture
 import com.digitalasset.platform.sandbox.stores.ActiveLedgerState.{ActiveContract, Contract}
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry
+import com.digitalasset.platform.sandbox.stores.ledger.{ConfigurationEntry, LedgerEntry}
 
 import scala.collection.immutable
 import scala.concurrent.Future
@@ -88,6 +89,16 @@ private class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: MetricRegi
   override def close(): Unit = {
     ledgerDao.close()
   }
+
+  /** Looks up the current ledger configuration, if it has been set. */
+  override def lookupLedgerConfiguration(): Future[Option[Configuration]] =
+    mm.timedFuture("lookupLedgerConfiguration", ledgerDao.lookupLedgerConfiguration())
+
+  /** Get a stream of configuration entries. */
+  override def getConfigurationEntries(
+      startInclusive: LedgerOffset,
+      endExclusive: LedgerOffset): Source[(LedgerOffset, ConfigurationEntry), NotUsed] =
+    ledgerDao.getConfigurationEntries(startInclusive, endExclusive)
 }
 
 private class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: MetricRegistry)
@@ -130,6 +141,27 @@ private class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: MetricRegistry)
       displayName: Option[String],
       externalOffset: Option[ExternalOffset]): Future[PersistenceResponse] =
     timedFuture(Metrics.storeParty, ledgerDao.storeParty(party, displayName, externalOffset))
+
+  override def storeConfigurationEntry(
+      offset: LedgerOffset,
+      newLedgerEnd: LedgerOffset,
+      externalOffset: Option[ExternalOffset],
+      submissionId: String,
+      participantId: ParticipantId,
+      configuration: Configuration,
+      rejectionReason: Option[String]
+  ): Future[PersistenceResponse] =
+    mm.timedFuture(
+      "storeConfigurationEntry",
+      ledgerDao.storeConfigurationEntry(
+        offset,
+        newLedgerEnd,
+        externalOffset,
+        submissionId,
+        participantId,
+        configuration,
+        rejectionReason)
+    )
 
   override def uploadLfPackages(
       uploadId: String,

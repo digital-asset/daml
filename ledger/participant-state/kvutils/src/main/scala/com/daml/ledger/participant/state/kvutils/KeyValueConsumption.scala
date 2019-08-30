@@ -39,6 +39,7 @@ object KeyValueConsumption {
     * @return [[Update]] constructed from log entry.
     */
   def logEntryToUpdate(entryId: DamlLogEntryId, entry: DamlLogEntry): List[Update] = {
+    // FIXME(JM): Bunch of exceptions can be thrown by this method. Return a `Try[List[Update]]` instead?
 
     val recordTime = parseTimestamp(entry.getRecordTime)
 
@@ -76,18 +77,26 @@ object KeyValueConsumption {
 
       case DamlLogEntry.PayloadCase.CONFIGURATION_ENTRY =>
         val configEntry = entry.getConfigurationEntry
-        val newConfig = Configuration.decode(configEntry.getConfiguration).right.get // FIXME(JM): handle error
-        List(Update.ConfigurationChanged(configEntry.getSubmissionId, newConfig))
+        val newConfig = Configuration.decode(configEntry.getConfiguration).right.get
+        List(
+          Update.ConfigurationChanged(
+            configEntry.getSubmissionId,
+            LedgerString.assertFromString(configEntry.getParticipantId),
+            newConfig))
 
       case DamlLogEntry.PayloadCase.CONFIGURATION_REJECTION_ENTRY =>
         val rejection = entry.getConfigurationRejectionEntry
-        val proposedConfig = rejection.getConfiguration
+        val proposedConfig = Configuration.decode(rejection.getConfiguration).right.get
+
         List(
           Update.ConfigurationChangeRejected(
             submissionId = rejection.getSubmissionId,
-            reason = rejection.getReasonCase match {
+            participantId = LedgerString.assertFromString(rejection.getParticipantId),
+            proposedConfiguration = proposedConfig,
+            // FIXME(JM): Should we just break out the rejection reasons in the participant-state api?
+            rejectionReason = rejection.getReasonCase match {
               case DamlConfigurationRejectionEntry.ReasonCase.GENERATION_MISMATCH =>
-                s"Generation mismatch: ${proposedConfig.getGeneration} != ${rejection.getGenerationMismatch.getExpectedGeneration}"
+                s"Generation mismatch: ${proposedConfig.generation} != ${rejection.getGenerationMismatch.getExpectedGeneration}"
               case DamlConfigurationRejectionEntry.ReasonCase.INVALID_CONFIGURATION =>
                 s"Invalid configuration: ${rejection.getInvalidConfiguration.getError}"
               case DamlConfigurationRejectionEntry.ReasonCase.PARTICIPANT_NOT_AUTHORIZED =>
@@ -106,7 +115,7 @@ object KeyValueConsumption {
         List(transactionRejectionEntryToUpdate(entry.getTransactionRejectionEntry))
 
       case DamlLogEntry.PayloadCase.PAYLOAD_NOT_SET =>
-        sys.error("entryToUpdate: PAYLOAD_NOT_SET!")
+        sys.error("logEntryToUpdate: PAYLOAD_NOT_SET!")
     }
   }
 

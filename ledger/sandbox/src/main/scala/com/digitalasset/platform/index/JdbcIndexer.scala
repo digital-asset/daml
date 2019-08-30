@@ -319,13 +319,31 @@ class JdbcIndexer private[index] (
           .storeLedgerEntry(headRef, headRef + 1, externalOffset, pt)
           .map(_ => headRef = headRef + 1)(DEC)
 
-      case _: ConfigurationChanged =>
-        // TODO (GS) implement configuration changes
-        Future.successful(())
+      case config: ConfigurationChanged =>
+        ledgerDao
+          .storeConfigurationEntry(
+            headRef,
+            headRef + 1,
+            Some(offset.toLedgerString),
+            config.submissionId,
+            config.participantId,
+            config.newConfiguration,
+            None
+          )
+          .map(_ => headRef = headRef + 1)(DEC)
 
-      case _: ConfigurationChangeRejected =>
-        // TODO(JM) implement configuration rejections
-        Future.successful(())
+      case configRejection: ConfigurationChangeRejected =>
+        ledgerDao
+          .storeConfigurationEntry(
+            headRef,
+            headRef + 1,
+            Some(offset.toLedgerString),
+            configRejection.submissionId,
+            configRejection.participantId,
+            configRejection.proposedConfiguration,
+            Some(configRejection.rejectionReason)
+          )
+          .map(_ => headRef = headRef + 1)(DEC)
 
       case CommandRejected(submitterInfo, RejectionReason.DuplicateCommand) =>
         Future.successful(())

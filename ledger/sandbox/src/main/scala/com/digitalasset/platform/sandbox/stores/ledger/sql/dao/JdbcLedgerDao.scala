@@ -13,7 +13,7 @@ import anorm.SqlParser._
 import anorm.ToStatement.optionToStatement
 import anorm.{AkkaStream, BatchSql, Macro, NamedParameter, RowParser, SQL, SqlParser}
 import com.daml.ledger.participant.state.index.v2.PackageDetails
-import com.daml.ledger.participant.state.v1.{AbsoluteContractInst, TransactionId}
+import com.daml.ledger.participant.state.v1.{AbsoluteContractInst, Configuration, ParticipantId, TransactionId}
 import com.digitalasset.daml.lf.archive.Decode
 import com.digitalasset.daml.lf.data.Ref.{
   ContractIdString,
@@ -40,7 +40,7 @@ import com.digitalasset.platform.sandbox.stores.ActiveLedgerState.{
   DivulgedContract
 }
 import com.digitalasset.platform.sandbox.stores._
-import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry
+import com.digitalasset.platform.sandbox.stores.ledger.{ConfigurationEntry, LedgerEntry}
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry._
 import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.JdbcLedgerDao.{
   H2DatabaseQueries,
@@ -138,7 +138,147 @@ private class JdbcLedgerDao(
     SQL_UPDATE_EXTERNAL_LEDGER_END
       .on("ExternalLedgerEnd" -> externalLedgerEnd)
       .execute()
+      ()
+  }
+
+  private val SQL_UPDATE_CURRENT_CONFIGURATION = SQL(
+    "update parameters set configuration={configuration}"
+  )
+  private val SQL_SELECT_CURRENT_CONFIGURATION = SQL("select configuration from parameters")
+
+  private val SQL_GET_CONFIGURATION_ENTRIES = SQL(
+    "select * from configuration_entries where ledger_offset>={startInclusive} and ledger_offset<{endExclusive} order by ledger_offset asc")
+
+  private def updateCurrentConfiguration(configBytes: Array[Byte])(
+      implicit conn: Connection): Unit = {
+    SQL_UPDATE_CURRENT_CONFIGURATION
+      .on("configuration" -> configBytes)
+      .execute()
     ()
+  }
+
+  private def selectLedgerConfiguration(implicit conn: Connection) =
+    SQL_SELECT_CURRENT_CONFIGURATION
+      .as(byteArray("configuration").?.single)
+      .flatMap(Configuration.decode(_).toOption)
+
+  override def lookupLedgerConfiguration(): Future[Option[Configuration]] =
+    dbDispatcher.executeSql("lookup configuration")(implicit conn => selectLedgerConfiguration)
+
+  private val configurationEntryParser: RowParser[ConfigurationEntry] =
+    (long("ledger_offset") ~
+      str("typ") ~
+      str("submission_id") ~
+      str("participant_id") ~
+      str("rejection_reason")(emptyStringToNullColumn).? ~
+      byteArray("configuration"))
+      .map(flatten)
+      .map {
+        case (offset, typ, submissionId, participantIdRaw, rejectionReason, configBytes) =>
+          val config = Configuration
+            .decode(configBytes)
+            .fold(err => sys.error(s"Failed to decode configuration: $err"), identity)
+          val participantId = LedgerString
+            .fromString(participantIdRaw)
+            .fold(
+              err => sys.error(s"Failed to decode participant id in configuration entry: $err"),
+              identity)
+
+          offset ->
+            (typ match {
+              case "accept" =>
+                ConfigurationEntry.Accepted(
+                  submissionId = submissionId,
+                  participantId = participantId,
+                  configuration = config
+                )
+              case "reject" =>
+                ConfigurationEntry.Rejected(
+                  submissionId = submissionId,
+                  participantId = participantId,
+                  rejectionReason = rejectionReason.getOrElse("<missing reason>"),
+                  proposedConfiguration = config
+                )
+
+              case _ =>
+                sys.error(s"getConfigurationEntries: Unknown configuration entry type: $typ")
+            })
+      }
+
+  override def getConfigurationEntries(
+      startInclusive: Long,
+      endExclusive: Long): Source[(Long, ConfigurationEntry), NotUsed] =
+    paginatingStream(
+      startInclusive,
+      endExclusive,
+      PageSize,
+      (startI, endE) => {
+        Source
+          .fromFuture(dbDispatcher.executeSql(s"load ledger entries [$startI, $endE[") {
+            implicit conn =>
+              SQL_GET_CONFIGURATION_ENTRIES
+                .on("startInclusive" -> startI, "endExclusive" -> endE)
+                .as(configurationEntryParser.*)
+          })
+          .flatMapConcat(Source(_))
+      }
+    )
+
+  private val SQL_INSERT_CONFIGURATION_ENTRY =
+    SQL(
+      """insert into configuration_entries(ledger_offset, submission_id, participant_id, typ, rejection_reason, configuration)
+        |values({ledger_offset}, {submission_id}, {participant_id}, {typ}, {rejection_reason}, {configuration})
+        |""".stripMargin)
+
+  override def storeConfigurationEntry(
+      offset: LedgerOffset,
+      newLedgerEnd: LedgerOffset,
+      externalOffset: Option[ExternalOffset],
+      submissionId: String,
+      participantId: ParticipantId,
+      configuration: Configuration,
+      rejectionReason: Option[String]
+  ): Future[PersistenceResponse] = {
+    dbDispatcher.executeSql(s"store configuration entry submissionId=$submissionId") {
+      implicit conn =>
+        // If the entry is stored by indexer, we never expect the generation or duplicate submission
+        // and the indexer should correctly crash on duplicate. If we're storing for sandbox, then we can
+        // expect this to fail with "Duplicate".
+        val currentConfig = selectLedgerConfiguration
+        if (rejectionReason.isEmpty && (currentConfig exists (_.generation + 1 != configuration.generation))) {
+          PersistenceResponse.Duplicate
+        } else {
+          updateLedgerEnd(newLedgerEnd, externalOffset)
+          val configurationBytes = Configuration.encode(configuration).toByteArray
+          val typ = if (rejectionReason.isDefined) "reject" else "accept"
+          if (rejectionReason.isEmpty)
+            updateCurrentConfiguration(configurationBytes)
+
+          Try({
+            SQL_INSERT_CONFIGURATION_ENTRY
+              .on(
+                "ledger_offset" -> offset,
+                "submission_id" -> submissionId,
+                "participant_id" -> participantId,
+                "typ" -> typ,
+                "rejection_reason" -> rejectionReason.orNull,
+                "configuration" -> configurationBytes
+              )
+              .execute()
+            PersistenceResponse.Ok
+          }).recover {
+            // FIXME(JM): If this is over participant-state ReadService we should never get this,
+            // however if we're using the SandboxIndexAndWriteService I guess we could, but I'm slightly
+            // worried about catching this error... Same applies for the ledger entry recovery.
+            // FIXME(JM): This rolls back the "updateLedgerEnd" as well.
+            case NonFatal(e) if e.getMessage.contains(dbType.DUPLICATE_KEY_ERROR) =>
+              logger.warn(
+                s"Ignoring duplicate configuration submission for submissionId $submissionId, participantId $participantId")
+              conn.rollback()
+              PersistenceResponse.Duplicate
+          }.get
+        }
+    }
   }
 
   private val SQL_INSERT_CONTRACT_KEY =
@@ -1317,6 +1457,7 @@ private class JdbcLedgerDao(
         |truncate contract_key_maintainers cascade;
         |truncate parameters cascade;
         |truncate contract_keys cascade;
+        |truncate configuration_entries cascade;
       """.stripMargin)
 
   override def reset(): Future[Unit] =

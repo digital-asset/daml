@@ -250,12 +250,15 @@ message DamlConfigurationSubmission {
   // Implementers are free to select adequate mechanism e.g. UUID or similar.
   string submission_id = 1;
 
+  // Submitting participant's id.
+  string participant_id = 2;
+
   // The maximum record time after which the submission will be rejected.
   // Allows submitter to control when the request times out and to retry.
-  google.protobuf.Timestamp maximum_record_time = 2;
+  google.protobuf.Timestamp maximum_record_time = 3;
 
   // The new configuration that replaces the current configuration.
-  com.daml.ledger.participant.state.LedgerConfiguration configuration = 3;
+  com.daml.ledger.participant.state.LedgerConfiguration configuration = 4;
 }
 
 // A log entry describing a rejected configuration change.
@@ -264,8 +267,11 @@ message DamlConfigurationRejectionEntry {
   // request with the result.
   string submission_id = 1;
 
+  // Submitting participant's id.
+  string participant_id = 2;
+
   // The new proposed configuration that was rejected.
-  com.daml.ledger.participant.state.LedgerConfiguration configuration = 2;
+  com.daml.ledger.participant.state.LedgerConfiguration configuration = 3;
 
   // A mismatch in the configuration generation, that is, the
   // new configuration did not carry a generation that was one
@@ -292,10 +298,10 @@ message DamlConfigurationRejectionEntry {
   }
 
   oneof reason {
-    ParticipantNotAuthorized participant_not_authorized = 3;
-    GenerationMismatch generation_mismatch = 4;
-    InvalidConfiguration invalid_configuration = 5;
-    TimedOut timed_out = 6;
+    ParticipantNotAuthorized participant_not_authorized = 4;
+    GenerationMismatch generation_mismatch = 5;
+    InvalidConfiguration invalid_configuration = 6;
+    TimedOut timed_out = 7;
   }
 }
 
@@ -303,8 +309,11 @@ message DamlConfigurationEntry {
   // The submission from which this configuration originated.
   string submission_id = 1;
 
+  // Submitting participant's id.
+  string participant_id = 2;
+
   // The ledger configuration.
-  com.daml.ledger.participant.state.LedgerConfiguration configuration = 2;
+  com.daml.ledger.participant.state.LedgerConfiguration configuration = 3;
 }
 
 // An allocation of party name and assignment of a party to a given

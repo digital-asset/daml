@@ -15,6 +15,9 @@ da_scala_library(
     visibility = [
         "//visibility:public",
     ],
+    exports = [
+        "//ledger/participant-state/protobuf:ledger_configuration_java_proto",
+    ],
     runtime_deps = [],
     deps = [
         "//daml-lf/archive:daml_lf_dev_archive_java_proto",

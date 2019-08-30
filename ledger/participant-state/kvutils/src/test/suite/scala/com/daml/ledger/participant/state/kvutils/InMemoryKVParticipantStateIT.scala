@@ -80,7 +80,7 @@ class InMemoryKVParticipantStateIT
 
     "provide update after uploadPackages" in {
       val ps = new InMemoryKVParticipantState(participantId)
-      val rt = ps.getNewRecordTime()
+      val rt = ps.getNewRecordTime
 
       for {
         result <- ps
@@ -101,7 +101,7 @@ class InMemoryKVParticipantStateIT
 
     "provide two updates after uploadPackages with two archives" in {
       val ps = new InMemoryKVParticipantState(participantId)
-      val rt = ps.getNewRecordTime()
+      val rt = ps.getNewRecordTime
 
       for {
         result <- ps
@@ -123,7 +123,7 @@ class InMemoryKVParticipantStateIT
 
     "remove duplicate package from update after uploadPackages" in {
       val ps = new InMemoryKVParticipantState(participantId)
-      val rt = ps.getNewRecordTime()
+      val rt = ps.getNewRecordTime
 
       for {
         _ <- ps
@@ -154,7 +154,7 @@ class InMemoryKVParticipantStateIT
 
     "reject uploadPackages when archive is empty" in {
       val ps = new InMemoryKVParticipantState(participantId)
-      val rt = ps.getNewRecordTime()
+      val rt = ps.getNewRecordTime
 
       val badArchive = DamlLf.Archive.newBuilder
         .setHash("asdf")
@@ -177,7 +177,7 @@ class InMemoryKVParticipantStateIT
 
     "provide update after allocateParty" in {
       val ps = new InMemoryKVParticipantState(participantId)
-      val rt = ps.getNewRecordTime()
+      val rt = ps.getNewRecordTime
 
       val hint = Some("Alice")
       val displayName = Some("Alice Cooper")
@@ -211,7 +211,7 @@ class InMemoryKVParticipantStateIT
 
     "accept allocateParty when hint is empty" in {
       val ps = new InMemoryKVParticipantState(participantId)
-      val rt = ps.getNewRecordTime()
+      val rt = ps.getNewRecordTime
 
       val hint = None
       val displayName = Some("Alice Cooper")
@@ -239,7 +239,7 @@ class InMemoryKVParticipantStateIT
 
     "reject allocateParty when hint contains invalid string for a party" in {
       val ps = new InMemoryKVParticipantState(participantId)
-      val rt = ps.getNewRecordTime()
+      val rt = ps.getNewRecordTime
 
       val hint = Some("Alice!@")
       val displayName = Some("Alice Cooper")
@@ -259,7 +259,7 @@ class InMemoryKVParticipantStateIT
 
     "reject duplicate allocateParty" in {
       val ps = new InMemoryKVParticipantState(participantId)
-      val rt = ps.getNewRecordTime()
+      val rt = ps.getNewRecordTime
 
       val hint = Some("Alice")
       val displayName = Some("Alice Cooper")
@@ -288,7 +288,7 @@ class InMemoryKVParticipantStateIT
     "provide update after transaction submission" in {
 
       val ps = new InMemoryKVParticipantState(participantId)
-      val rt = ps.getNewRecordTime()
+      val rt = ps.getNewRecordTime
 
       val waitForUpdateFuture =
         ps.stateUpdates(beginAfter = None).runWith(Sink.head).map {
@@ -304,7 +304,7 @@ class InMemoryKVParticipantStateIT
 
     "reject duplicate commands" in {
       val ps = new InMemoryKVParticipantState(participantId)
-      val rt = ps.getNewRecordTime()
+      val rt = ps.getNewRecordTime
 
       val waitForUpdateFuture =
         ps.stateUpdates(beginAfter = None).take(2).runWith(Sink.seq).map { updates =>
@@ -331,7 +331,7 @@ class InMemoryKVParticipantStateIT
 
     "return second update with beginAfter=0" in {
       val ps = new InMemoryKVParticipantState(participantId)
-      val rt = ps.getNewRecordTime()
+      val rt = ps.getNewRecordTime
 
       val waitForUpdateFuture =
         ps.stateUpdates(beginAfter = Some(Offset(Array(0L, 0L)))).runWith(Sink.head).map {
@@ -347,7 +347,7 @@ class InMemoryKVParticipantStateIT
 
     "correctly implements open world tx submission authorization" in {
       val ps = new InMemoryKVParticipantState(participantId, openWorld = true)
-      val rt = ps.getNewRecordTime()
+      val rt = ps.getNewRecordTime
 
       val waitForUpdateFuture =
         ps.stateUpdates(beginAfter = None).take(3).runWith(Sink.seq).map { updates =>
@@ -391,7 +391,7 @@ class InMemoryKVParticipantStateIT
 
     "correctly implements closed world tx submission authorization" in {
       val ps = new InMemoryKVParticipantState(participantId, openWorld = false)
-      val rt = ps.getNewRecordTime()
+      val rt = ps.getNewRecordTime
 
       val waitForUpdateFuture =
         ps.stateUpdates(beginAfter = None).take(3).runWith(Sink.seq).map { updates =>
@@ -438,7 +438,7 @@ class InMemoryKVParticipantStateIT
 
   "can submit new configuration" in {
     val ps = new InMemoryKVParticipantState(participantId)
-    val rt = ps.getNewRecordTime()
+    val rt = ps.getNewRecordTime
 
     for {
       lic <- ps.getLedgerInitialConditions().runWith(Sink.head)
@@ -482,7 +482,7 @@ class InMemoryKVParticipantStateIT
 
   "return update [0,1] with beginAfter=[0,0]" in {
     val ps = new InMemoryKVParticipantState(participantId)
-    val rt = ps.getNewRecordTime()
+    val rt = ps.getNewRecordTime
 
     for {
       _ <- ps

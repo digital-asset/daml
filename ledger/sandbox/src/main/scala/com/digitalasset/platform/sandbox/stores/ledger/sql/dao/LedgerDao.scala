@@ -9,6 +9,7 @@ import akka.stream.scaladsl.Source
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.index.v2.PackageDetails
 import com.daml.ledger.participant.state.v1.{AbsoluteContractInst, TransactionId}
+import com.daml.ledger.participant.state.v1.{Configuration, ParticipantId, TransactionId}
 import com.digitalasset.daml.lf.data.Ref.{LedgerString, PackageId, Party}
 import com.digitalasset.daml.lf.data.Relation.Relation
 import com.digitalasset.daml.lf.transaction.Node
@@ -21,6 +22,8 @@ import com.digitalasset.platform.common.util.DirectExecutionContext
 import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilter
 import com.digitalasset.platform.sandbox.stores.ActiveLedgerState.{ActiveContract, Contract}
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry
+import com.digitalasset.platform.sandbox.stores.ActiveContracts.ActiveContract
+import com.digitalasset.platform.sandbox.stores.ledger.{ConfigurationEntry, LedgerEntry}
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry.Transaction
 
 import scala.collection.immutable
@@ -77,6 +80,16 @@ trait LedgerReadDao extends AutoCloseable {
   def lookupActiveOrDivulgedContract(
       contractId: AbsoluteContractId,
       forParty: Party): Future[Option[Contract]]
+  /** Looks up the current ledger configuration, if it has been set. */
+  def lookupLedgerConfiguration(): Future[Option[Configuration]]
+
+  /** Get a stream of configuration entries. */
+  def getConfigurationEntries(
+      startInclusive: Long,
+      endExclusive: Long): Source[(Long, ConfigurationEntry), NotUsed]
+
+  /** Looks up an active contract. Archived contracts must not be returned by this method */
+  def lookupActiveContract(contractId: AbsoluteContractId): Future[Option[Contract]]
 
   /**
     * Looks up a LedgerEntry at a given offset
@@ -198,6 +211,19 @@ trait LedgerWriteDao extends AutoCloseable {
       party: Party,
       displayName: Option[String],
       externalOffset: Option[ExternalOffset]
+  ): Future[PersistenceResponse]
+
+  /**
+    * Store a configuration change or rejection.
+    */
+  def storeConfigurationEntry(
+      offset: LedgerOffset,
+      newLedgerEnd: LedgerOffset,
+      externalOffset: Option[ExternalOffset],
+      submissionId: String,
+      participantId: ParticipantId,
+      configuration: Configuration,
+      rejectionReason: Option[String]
   ): Future[PersistenceResponse]
 
   /**

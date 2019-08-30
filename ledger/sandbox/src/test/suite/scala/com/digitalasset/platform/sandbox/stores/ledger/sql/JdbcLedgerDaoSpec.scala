@@ -11,7 +11,7 @@ import java.util.concurrent.atomic.AtomicLong
 import akka.stream.scaladsl.{Sink, Source}
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.index.v2
-import com.daml.ledger.participant.state.v1.Offset
+import com.daml.ledger.participant.state.v1.{Offset, Configuration, TimeModelImpl}
 import com.digitalasset.daml.bazeltools.BazelRunfiles
 import com.digitalasset.daml.lf.archive.DarReader
 import com.digitalasset.daml.lf.data.Ref.LedgerString.ordering
@@ -46,6 +46,7 @@ import com.digitalasset.platform.participant.util.EventFilter
 import com.digitalasset.platform.sandbox.persistence.PostgresAroundAll
 import com.digitalasset.platform.sandbox.stores.ActiveLedgerState.ActiveContract
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry
+import com.digitalasset.platform.sandbox.stores.ledger.{ConfigurationEntry, LedgerEntry}
 import com.digitalasset.platform.sandbox.stores.ledger.sql.dao._
 import com.digitalasset.platform.sandbox.stores.ledger.sql.migration.FlywayMigrations
 import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{
@@ -268,6 +269,135 @@ class JdbcLedgerDaoSpec
 
     "be able to persist and load a rejection with external offset" in {
       persistAndLoadRejection(nextExternalOffset())
+    }
+
+    val defaultConfig = Configuration(
+      generation = 0,
+      timeModel = TimeModelImpl.reasonableDefault,
+      authorizedParticipantId = None,
+      openWorld = true)
+
+    "be able to persist and load configuration" in {
+      val offset = nextOffset()
+      for {
+        startingOffset <- ledgerDao.lookupLedgerEnd()
+        startingConfig <- ledgerDao.lookupLedgerConfiguration()
+
+        response <- ledgerDao.storeConfigurationEntry(
+          offset,
+          offset + 1,
+          None,
+          "submission-0",
+          Ref.LedgerString.assertFromString("participant-0"),
+          defaultConfig,
+          None
+        )
+        storedConfig <- ledgerDao.lookupLedgerConfiguration()
+        endingOffset <- ledgerDao.lookupLedgerEnd()
+      } yield {
+        response shouldEqual PersistenceResponse.Ok
+        startingConfig shouldEqual None
+        storedConfig shouldEqual Some(defaultConfig)
+        endingOffset shouldEqual (startingOffset + 1)
+      }
+    }
+
+    "be able to persist configuration rejection" in {
+      val offset = nextOffset()
+      val participantId = Ref.LedgerString.assertFromString("participant-0")
+      for {
+        startingConfig <- ledgerDao.lookupLedgerConfiguration()
+        proposedConfig = startingConfig.getOrElse(defaultConfig)
+        response <- ledgerDao.storeConfigurationEntry(
+          offset,
+          offset + 1,
+          None,
+          "config-rejection-0",
+          participantId,
+          proposedConfig,
+          Some("bad config")
+        )
+        storedConfig <- ledgerDao.lookupLedgerConfiguration()
+        entries <- ledgerDao.getConfigurationEntries(offset, offset + 1).runWith(Sink.seq)
+
+      } yield {
+        response shouldEqual PersistenceResponse.Ok
+        startingConfig shouldEqual storedConfig
+        entries shouldEqual List(
+          offset -> ConfigurationEntry
+            .Rejected("config-rejection-0", participantId, "bad config", proposedConfig)
+        )
+      }
+    }
+
+    "refuse to persist invalid configuration entry" in {
+      val offset0 = nextOffset()
+      val participantId = Ref.LedgerString.assertFromString("participant-0")
+      for {
+        config <- ledgerDao.lookupLedgerConfiguration().map(_.getOrElse(defaultConfig))
+
+        // Store a new configuration with a known submission id
+        resp0 <- ledgerDao.storeConfigurationEntry(
+          offset0,
+          offset0 + 1,
+          None,
+          "refuse-config-0",
+          participantId,
+          config.copy(generation = config.generation + 1),
+          None
+        )
+        newConfig <- ledgerDao.lookupLedgerConfiguration().map(_.get)
+
+        // Submission with duplicate submissionId is rejected
+        offset1 = nextOffset()
+        resp1 <- ledgerDao.storeConfigurationEntry(
+          offset1,
+          offset1 + 1,
+          None,
+          "refuse-config-0",
+          participantId,
+          newConfig.copy(generation = config.generation + 1),
+          None
+        )
+
+        // Submission with mismatching generation is rejected
+        offset2 = nextOffset()
+        resp2 <- ledgerDao.storeConfigurationEntry(
+          offset2,
+          offset2 + 1,
+          None,
+          "refuse-config-1",
+          participantId,
+          config,
+          None
+        )
+
+        // Submission with unique submissionId and correct generation is accepted.
+        offset3 = nextOffset()
+        lastConfig = newConfig.copy(generation = newConfig.generation + 1)
+        resp3 <- ledgerDao.storeConfigurationEntry(
+          offset3,
+          offset3 + 1,
+          None,
+          "refuse-config-2",
+          participantId,
+          lastConfig,
+          None
+        )
+        lastConfigActual <- ledgerDao.lookupLedgerConfiguration().map(_.get)
+
+        entries <- ledgerDao.getConfigurationEntries(offset0, offset3 + 1).runWith(Sink.seq)
+      } yield {
+        resp0 shouldEqual PersistenceResponse.Ok
+        resp1 shouldEqual PersistenceResponse.Duplicate
+        resp2 shouldEqual PersistenceResponse.Duplicate
+        resp3 shouldEqual PersistenceResponse.Ok
+        lastConfig shouldEqual lastConfigActual
+        entries shouldEqual List(
+          offset0 -> ConfigurationEntry.Accepted("refuse-config-0", participantId, newConfig),
+          offset3 -> ConfigurationEntry.Accepted("refuse-config-2", participantId, lastConfig),
+        )
+      }
     }
 
     "refuse to persist an upload with no packages without external offset" in {

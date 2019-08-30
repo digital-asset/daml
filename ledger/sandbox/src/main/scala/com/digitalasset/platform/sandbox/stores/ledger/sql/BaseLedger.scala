@@ -7,6 +7,7 @@ import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.daml.ledger.participant.state.index.v2
+import com.daml.ledger.participant.state.v1.Configuration
 import com.digitalasset.daml.lf.archive.Decode
 import com.digitalasset.daml.lf.data.Ref.{PackageId, Party, TransactionIdString}
 import com.digitalasset.daml.lf.language.Ast
@@ -85,8 +86,12 @@ class BaseLedger(val ledgerId: LedgerId, headAtInitialization: Long, ledgerDao: 
       .flatMap(archiveO =>
         Future.fromTry(Try(archiveO.map(archive => Decode.decodeArchive(archive)._2))))(DEC)
 
+  override def lookupLedgerConfiguration(): Future[Option[Configuration]] =
+    ledgerDao.lookupLedgerConfiguration()
+
   override def close(): Unit = {
     dispatcher.close()
     ledgerDao.close()
   }
+
 }

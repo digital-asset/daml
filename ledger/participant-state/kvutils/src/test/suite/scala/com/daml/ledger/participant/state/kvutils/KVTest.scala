@@ -206,6 +206,7 @@ object KVTest {
         KeyValueSubmission.configurationToSubmission(
           maxRecordTime = testState.recordTime.addMicros(mrtDelta.toNanos / 1000),
           submissionId = submissionId,
+          participantId = testState.participantId,
           config = configModify(oldConf)
         )
       )
