@@ -92,7 +92,7 @@ class InMemoryLedger(
     })
 
   override def lookupContract(
-      contractId: AbsoluteContractId): Future[Option[ActiveLedgerState.ActiveContract]] =
+      contractId: AbsoluteContractId): Future[Option[ActiveLedgerState.Contract]] =
     Future.successful(this.synchronized {
       acs.contracts.get(contractId)
     })

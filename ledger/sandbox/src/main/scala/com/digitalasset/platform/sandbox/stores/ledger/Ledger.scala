@@ -20,7 +20,7 @@ import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 import com.digitalasset.daml_lf.DamlLf.Archive
 import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails}
 import com.digitalasset.platform.sandbox.metrics.MetricsManager
-import com.digitalasset.platform.sandbox.stores.ActiveLedgerState.ActiveContract
+import com.digitalasset.platform.sandbox.stores.ActiveLedgerState.Contract
 import com.digitalasset.platform.sandbox.stores.{InMemoryActiveLedgerState, InMemoryPackageStore}
 import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
 import com.digitalasset.platform.sandbox.stores.ledger.inmemory.InMemoryLedger
@@ -64,7 +64,7 @@ trait ReadOnlyLedger extends AutoCloseable {
 
   def snapshot(): Future[LedgerSnapshot]
 
-  def lookupContract(contractId: Value.AbsoluteContractId): Future[Option[ActiveContract]]
+  def lookupContract(contractId: Value.AbsoluteContractId): Future[Option[Contract]]
 
   def lookupKey(key: GlobalKey): Future[Option[AbsoluteContractId]]
 

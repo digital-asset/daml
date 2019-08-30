@@ -17,7 +17,7 @@ import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 import com.digitalasset.daml_lf.DamlLf.Archive
 import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails}
 import com.digitalasset.platform.sandbox.metrics.MetricsManager
-import com.digitalasset.platform.sandbox.stores.ActiveLedgerState.ActiveContract
+import com.digitalasset.platform.sandbox.stores.ActiveLedgerState.Contract
 
 import scala.concurrent.Future
 
@@ -33,8 +33,7 @@ private class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, mm: MetricsManager)
   override def snapshot(): Future[LedgerSnapshot] =
     ledger.snapshot()
 
-  override def lookupContract(
-      contractId: Value.AbsoluteContractId): Future[Option[ActiveContract]] =
+  override def lookupContract(contractId: Value.AbsoluteContractId): Future[Option[Contract]] =
     mm.timedFuture("Ledger:lookupContract", ledger.lookupContract(contractId))
 
   override def lookupKey(key: GlobalKey): Future[Option[AbsoluteContractId]] =
