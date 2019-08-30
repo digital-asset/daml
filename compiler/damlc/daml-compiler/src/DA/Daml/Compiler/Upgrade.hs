@@ -625,7 +625,7 @@ generateSrcFromLf (Qualify qualify) thisPkgId pkgMap m = noLoc mod
             LF.BTInt64 -> (primUnitId, translateModName intTyCon)
             LF.BTNumeric -> (primUnitId, LF.ModuleName ["GHC", "Types"])
                 -- This is here because of TDecimal, for now.
-                -- TODO (#2898): actually supply a general numeric type in GHC.Types
+                -- TODO (#2289): actually supply a general numeric type in GHC.Types
             LF.BTText -> (primUnitId, LF.ModuleName ["GHC", "Types"])
             LF.BTTimestamp -> (damlStdlibUnitId, LF.ModuleName ["DA", "Internal", "LF"])
             LF.BTDate -> (damlStdlibUnitId, LF.ModuleName ["DA", "Internal", "LF"])
