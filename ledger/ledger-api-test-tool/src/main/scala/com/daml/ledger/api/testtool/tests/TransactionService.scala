@@ -244,7 +244,11 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
       val filterBy = Dummy.id
       for {
         party <- ledger.allocateParty()
-        _ <- ledger.create(party, Dummy(party), DummyFactory(party))
+        create <- ledger.submitAndWaitRequest(
+          party,
+          Dummy(party).create.command,
+          DummyFactory(party).create.command)
+        _ <- ledger.submitAndWait(create)
         transactions <- ledger.flatTransactionsByTemplateId(filterBy, party)
       } yield {
         val contract = assertSingleton("FilterByTemplate", transactions.flatMap(createdEvents))

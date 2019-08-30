@@ -297,20 +297,6 @@ private[testtool] final class LedgerTestContext private[infrastructure] (
       .map(extractContracts)
       .map(_.head)
 
-  def create[T](
-      party: Party,
-      head: Template[_],
-      neck: Template[_],
-      tail: Template[_]*
-  ): Future[Seq[Primitive.ContractId[T]]] =
-    submitAndWaitRequest(
-      party,
-      head.create.command +: neck.create.command +: tail.map(_.create.command): _*)
-      .flatMap(submitAndWaitForTransaction)
-      .map(_.events.collect {
-        case Event(Created(e)) => Primitive.ContractId(e.contractId)
-      })
-
   def createAndGetTransactionId[T](
       party: Party,
       template: Template[T]
