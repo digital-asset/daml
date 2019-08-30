@@ -153,6 +153,23 @@ addCreateChoice :: TemplateChoices -> Map.Map LF.ChoiceName ChoiceDetails -> Cho
 addCreateChoice TemplateChoices {..} lookupData = nodeIdForChoice lookupData tplNameCreateChoice
     where tplNameCreateChoice = LF.ChoiceName $ T.pack $ DAP.renderPretty (headNote "addCreateChoice" (LF.unTypeConName (LF.tplTypeCon template))) ++ "_Create"
 
+-- This is copied from PrettyScenarios but depending on SS for visual seems odd
+labledField :: T.Text -> T.Text -> T.Text
+labledField fname "" = fname
+labledField fname label = fname <> "." <> label
+
+typeConFieldsNames :: LF.World -> (LF.FieldName, LF.Type) -> [T.Text]
+typeConFieldsNames world (LF.FieldName fName, LF.TConApp tcn _) = map (labledField fName) (typeConFields tcn world)
+typeConFieldsNames _ (LF.FieldName fName, _) = [fName]
+
+typeConFields :: LF.Qualified LF.TypeConName -> LF.World -> [T.Text]
+typeConFields qName world = case LF.lookupDataType qName world of
+  Right dataType -> case LF.dataCons dataType of
+    LF.DataRecord re -> concatMap (typeConFieldsNames world) re
+    LF.DataVariant _ -> [""]
+    LF.DataEnum _ -> [""]
+  Left _ -> error "malformed template constructor"
+
 constructSubgraphsWithLables :: LF.World -> Map.Map LF.ChoiceName ChoiceDetails -> TemplateChoices -> SubGraph
 constructSubgraphsWithLables wrld lookupData tpla@TemplateChoices {..} = SubGraph nodesWithCreate fieldsInTemplate template
   where choicesInTemplate = map internalChcName choiceAndActions

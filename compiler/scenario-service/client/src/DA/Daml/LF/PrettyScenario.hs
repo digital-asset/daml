@@ -40,6 +40,7 @@ import           ScenarioService
 import qualified Text.Blaze.Html5 as H
 import qualified Text.Blaze.Html5.Attributes as A
 import qualified Text.Blaze.Html.Renderer.Text as Blaze
+
 data Error = ErrorMissingNode NodeId
 type M = ExceptT Error (Reader (MS.Map NodeId Node, LF.World))
 
@@ -809,12 +810,28 @@ templateConName (Identifier mbPkgId (TL.toStrict -> qualName)) = LF.Qualified pk
                   Just (PackageIdentifier Nothing) -> error "unidentified package reference"
                   Nothing -> error "unidentified package reference"
 
+labledField :: T.Text -> T.Text -> T.Text
+labledField fname "" = fname
+labledField fname label = fname <> "." <> label
+
+typeConFieldsNames :: LF.World -> (LF.FieldName, LF.Type) -> [T.Text]
+typeConFieldsNames world (LF.FieldName fName, LF.TConApp tcn _) = map (labledField fName) (typeConFields tcn world)
+typeConFieldsNames _ (LF.FieldName fName, _) = [fName]
+
+typeConFields :: LF.Qualified LF.TypeConName -> LF.World -> [T.Text]
+typeConFields qName world = case LF.lookupDataType qName world of
+  Right dataType -> case LF.dataCons dataType of
+    LF.DataRecord re -> concatMap (typeConFieldsNames world) re
+    LF.DataVariant _ -> [""]
+    LF.DataEnum _ -> [""]
+  Left _ -> error "malformed template constructor"
+
 renderHeader :: LF.World -> Identifier -> S.Set T.Text -> H.Html
 renderHeader world identifier parties = H.tr $ mconcat
             [ foldMap (H.th . (H.div H.! A.class_ "observer") . H.text) parties
             , H.th "id"
             , H.th "status"
-            , foldMap (H.th . H.text) (LF.typeConFields (templateConName identifier) world)
+            , foldMap (H.th . H.text) (typeConFields (templateConName identifier) world)
             ]
 
 renderRow :: LF.World -> S.Set T.Text -> NodeInfo -> H.Html
