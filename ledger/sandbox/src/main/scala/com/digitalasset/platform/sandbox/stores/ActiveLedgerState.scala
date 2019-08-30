@@ -28,7 +28,7 @@ import com.digitalasset.platform.sandbox.stores.ActiveLedgerState._
 trait ActiveLedgerState[+Self] { this: ActiveLedgerState[Self] =>
 
   /** Callback to query a contract, used for transaction validation */
-  def lookupContract(cid: AbsoluteContractId): Option[ActiveContract]
+  def lookupContract(cid: AbsoluteContractId): Option[Contract]
 
   /** Callback to query a contract key, used for transaction validation */
   def keyExists(key: GlobalKey): Boolean
@@ -57,7 +57,29 @@ trait ActiveLedgerState[+Self] { this: ActiveLedgerState[Self] =>
 
 object ActiveLedgerState {
 
-  case class ActiveContract(
+  /** A contract that is part of the [[ActiveLedgerState]].
+    * Depending on where the contract came from, other metadata may be available.
+    */
+  sealed abstract class Contract {
+    def contract: ContractInst[VersionedValue[AbsoluteContractId]]
+  }
+
+  /**
+    * For divulged contracts, we only their contract argument, but no other metadata.
+    * Note also that a ledger node may not be notified when a divulged contract gets archived.
+    *
+    * These contracts are only used for transaction validation, they are not part of the active contract set.
+    */
+  final case class DivulgedContract(
+      contract: ContractInst[VersionedValue[AbsoluteContractId]],
+      /** For each party, the transaction id at which the contract was divulged */
+      divulgences: Map[Party, TransactionIdString],
+  ) extends Contract
+
+  /**
+    * For active contracts, we know all metadata.
+    */
+  final case class ActiveContract(
       let: Instant, // time when the contract was committed
       transactionId: TransactionIdString, // transaction id where the contract originates
       workflowId: Option[WorkflowId], // workflow id from where the contract originates
@@ -68,5 +90,6 @@ object ActiveLedgerState {
       signatories: Set[Party],
       observers: Set[Party],
       agreementText: String)
+      extends Contract
 
 }

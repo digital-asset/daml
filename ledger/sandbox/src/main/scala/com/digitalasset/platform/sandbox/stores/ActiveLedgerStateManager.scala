@@ -87,12 +87,14 @@ class ActiveLedgerStateManager[ALS](initialState: => ALS)(
                 predType: PredicateType): Option[SequencingError] =
               acc lookupContract cid match {
                 case None => Some(InactiveDependencyError(cid, predType))
-                case Some(otherTx) =>
-                  if (otherTx.let.isAfter(let)) {
-                    Some(TimeBeforeError(cid, otherTx.let, let, predType))
+                case Some(otherContract: ActiveContract) =>
+                  if (otherContract.let.isAfter(let)) {
+                    Some(TimeBeforeError(cid, otherContract.let, let, predType))
                   } else {
                     None
                   }
+                case Some(_: DivulgedContract) =>
+                  None
               }
 
             node match {
@@ -151,10 +153,13 @@ class ActiveLedgerStateManager[ALS](initialState: => ALS)(
                 ats.copy(
                   errs = contractCheck(absCoid, Exercise).fold(errs)(errs + _),
                   acc = Some(if (ne.consuming) {
-                    acc.removeContract(absCoid, (acc lookupContract absCoid).flatMap(_.key) match {
+                    val keyO = (acc lookupContract absCoid)
+                      .collect({ case c: ActiveContract => c })
+                      .flatMap(_.key) match {
                       case None => None
                       case Some(key) => Some(GlobalKey(ne.templateId, key.key))
-                    })
+                    }
+                    acc.removeContract(absCoid, keyO)
                   } else {
                     acc
                   }),
