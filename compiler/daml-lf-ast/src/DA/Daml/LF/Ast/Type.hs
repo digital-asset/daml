@@ -73,6 +73,7 @@ alphaEquiv = go (AlphaEnv 0 Map.empty Map.empty)
             and bs
         where
           agree (l1, t1) (l2, t2) = l1 == l2 && go0 t1 t2
+      (TNat n1, TNat n2) -> n1 == n2
       (_, _) -> False
       where
         go0 = go env0
