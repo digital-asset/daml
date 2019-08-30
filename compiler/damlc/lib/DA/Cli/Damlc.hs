@@ -733,7 +733,8 @@ execMigrate projectOpts opts0 inFile1_ inFile2_ mbDir = do
                     "daml build --init-package-db=no" <> " --package " <>
                     escape (show (pkgName1, [(m, m ++ "A") | m <- eqModNamesStr])) <>
                     " --package " <>
-                    escape (show (pkgName2, [(m, m ++ "B") | m <- eqModNamesStr]))
+                    escape (show (pkgName2, [(m, m ++ "B") | m <- eqModNamesStr])) <>
+                    " --ghc-option -Wno-unrecognised-pragmas"
         forM_ eqModNames $ \m@(LF.ModuleName modName) -> do
             [genSrc1, genSrc2] <-
                 forM [(pkgId1, lfPkg1), (pkgId2, lfPkg2)] $ \(pkgId, pkg) -> do
