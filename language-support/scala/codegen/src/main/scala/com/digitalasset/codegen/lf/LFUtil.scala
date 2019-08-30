@@ -120,7 +120,7 @@ final case class LFUtil(
       case TypeCon(name, typeArgs) =>
         TypeApply(refTypeToIdent(name), typeArgs.toList map genTypeToScalaType)
       case TypeVar(name) => toIdent(name)
-      case TypeNumeric(_) => q"$primitiveObject.Decimal"
+      case TypeNumeric(_) => q"$primitiveObject.Numeric"
     }
   }
 
