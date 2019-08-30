@@ -15,7 +15,7 @@ import akka.pattern.gracefulStop
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
 import com.daml.ledger.participant.state.backport.TimeModel
-import com.daml.ledger.participant.state.kvutils.DamlKvutils._
+import com.daml.ledger.participant.state.kvutils.{DamlKvutils => Proto}
 import com.daml.ledger.participant.state.v1.{UploadPackagesResult, _}
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.{LedgerString, Party}
@@ -67,8 +67,8 @@ object InMemoryKVParticipantState {
     * which inserts it into [[State.commitLog]].
     */
   final case class CommitSubmission(
-      entryId: DamlLogEntryId,
-      submission: DamlSubmission
+      entryId: Proto.DamlLogEntryId,
+      envelope: ByteString
   ) extends Commit
 
   /** A periodically emitted heartbeat that is committed to the ledger. */
@@ -189,8 +189,14 @@ class InMemoryKVParticipantState(
               .flatMap { blob =>
                 KeyValueConsumption.logEntryToAsyncResponse(
                   entryId,
-                  KeyValueConsumption.unpackDamlLogEntry(blob),
-                  participantId)
+                  Envelope.open(blob) match {
+                    case Right(Envelope.LogEntryMessage(logEntry)) =>
+                      logEntry
+                    case _ =>
+                      sys.error(s"Envolope did not contain log entry")
+                  },
+                  participantId
+                )
               }
               .foreach {
                 case KeyValueConsumption.PartyAllocationResponse(submissionId, result) =>
@@ -239,7 +245,12 @@ class InMemoryKVParticipantState(
         // Wake up consumers.
         dispatcher.signalNewHead(stateRef.commitLog.size)
 
-      case commit @ CommitSubmission(entryId, submission) =>
+      case commit @ CommitSubmission(entryId, envelope) =>
+        val submission: Proto.DamlSubmission = Envelope.open(envelope) match {
+          case Left(err) => sys.error(s"Cannot open submission envelope: $err")
+          case Right(Envelope.SubmissionMessage(submission)) => submission
+          case Right(_) => sys.error("Unexpected message in envelope")
+        }
         val state = stateRef
         val newRecordTime = getNewRecordTime
 
@@ -251,7 +262,7 @@ class InMemoryKVParticipantState(
           logger.trace(s"CommitActor: processing submission ${Pretty.prettyEntryId(entryId)}...")
           // Process the submission to produce the log entry and the state updates.
 
-          val stateInputs: Map[DamlStateKey, Option[DamlStateValue]] =
+          val stateInputs: Map[Proto.DamlStateKey, Option[Proto.DamlStateValue]] =
             submission.getInputDamlStateList.asScala
               .map(key => key -> getDamlState(state, key))(breakOut)
 
@@ -278,8 +289,8 @@ class InMemoryKVParticipantState(
             damlStateUpdates.map {
               case (k, v) =>
                 NS_DAML_STATE.concat(KeyValueCommitting.packDamlStateKey(k)) ->
-                  KeyValueCommitting.packDamlStateValue(v)
-            } + (entryId.getEntryId -> KeyValueCommitting.packDamlLogEntry(logEntry))
+                  Envelope.enclose(v)
+            } + (entryId.getEntryId -> Envelope.enclose(logEntry))
 
           logger.trace(
             s"CommitActor: committing ${Pretty.prettyEntryId(entryId)} and ${allUpdates.size} updates to store.")
@@ -350,9 +361,12 @@ class InMemoryKVParticipantState(
         state.store
           .get(entryId.getEntryId)
           .map { blob =>
-            KeyValueConsumption.logEntryToUpdate(
-              entryId,
-              KeyValueConsumption.unpackDamlLogEntry(blob))
+            val logEntry = Envelope.open(blob) match {
+              case Left(err) => sys.error(s"getUpdate: cannot open envelope: $err")
+              case Right(Envelope.LogEntryMessage(logEntry)) => logEntry
+              case Right(_) => sys.error(s"getUpdate: Envelope did not contain log entry")
+            }
+            KeyValueConsumption.logEntryToUpdate(entryId, logEntry)
           }
           .getOrElse(
             sys.error(s"getUpdate: ${Pretty.prettyEntryId(entryId)} not found from store!")
@@ -426,7 +440,9 @@ class InMemoryKVParticipantState(
       // each message, hence this is safe under concurrency.
       commitActorRef ! CommitSubmission(
         allocateEntryId,
-        submission
+        Envelope.enclose(
+          submission
+        )
       )
       SubmissionResult.Acknowledged
     })
@@ -454,7 +470,9 @@ class InMemoryKVParticipantState(
     matcherActorRef ! AddPartyAllocationRequest(sId, cf)
     commitActorRef ! CommitSubmission(
       allocateEntryId(),
-      KeyValueSubmission.partyToSubmission(sId, Some(party), displayName, participantId)
+      Envelope.enclose(
+        KeyValueSubmission.partyToSubmission(sId, Some(party), displayName, participantId)
+      )
     )
     cf
   }
@@ -471,8 +489,9 @@ class InMemoryKVParticipantState(
     matcherActorRef ! AddPackageUploadRequest(sId, cf)
     commitActorRef ! CommitSubmission(
       allocateEntryId,
-      KeyValueSubmission
-        .archivesToSubmission(sId, archives, sourceDescription.getOrElse(""), participantId)
+      Envelope.enclose(
+        KeyValueSubmission
+          .archivesToSubmission(sId, archives, sourceDescription.getOrElse(""), participantId))
     )
     cf
   }
@@ -492,26 +511,34 @@ class InMemoryKVParticipantState(
     val _ = Await.ready(gracefulStop(commitActorRef, 5.seconds, PoisonPill), 6.seconds)
   }
 
-  private def getLogEntry(state: State, entryId: DamlLogEntryId): DamlLogEntry = {
-    DamlLogEntry
-      .parseFrom(
-        state.store
-          .getOrElse(
-            entryId.getEntryId,
-            sys.error(s"getLogEntry: Cannot find ${Pretty.prettyEntryId(entryId)}!")
-          )
-      )
+  private def getLogEntry(state: State, entryId: Proto.DamlLogEntryId): Proto.DamlLogEntry = {
+    Envelope.open(
+      state.store
+        .getOrElse(
+          entryId.getEntryId,
+          sys.error(s"getLogEntry: Cannot find ${Pretty.prettyEntryId(entryId)}!")
+        )
+    ) match {
+      case Right(Envelope.LogEntryMessage(logEntry)) =>
+        logEntry
+      case _ =>
+        sys.error(s"getLogEntry: Envelope did not contain log entry")
+    }
   }
 
-  private def getDamlState(state: State, key: DamlStateKey): Option[DamlStateValue] =
+  private def getDamlState(state: State, key: Proto.DamlStateKey): Option[Proto.DamlStateValue] =
     state.store
       .get(NS_DAML_STATE.concat(KeyValueCommitting.packDamlStateKey(key)))
-      .map(DamlStateValue.parseFrom)
+      .map(blob =>
+        Envelope.open(blob) match {
+          case Right(Envelope.StateValueMessage(v)) => v
+          case _ => sys.error(s"getDamlState: Envelope did not contain a state value")
+      })
 
-  private def allocateEntryId(): DamlLogEntryId = {
+  private def allocateEntryId(): Proto.DamlLogEntryId = {
     val nonce: Array[Byte] = Array.ofDim(8)
     rng.nextBytes(nonce)
-    DamlLogEntryId.newBuilder
+    Proto.DamlLogEntryId.newBuilder
       .setEntryId(NS_LOG_ENTRIES.concat(ByteString.copyFrom(nonce)))
       .build
   }
@@ -538,7 +565,7 @@ class InMemoryKVParticipantState(
         KeyValueSubmission.configurationToSubmission(maxRecordTime, submissionId, config)
       commitActorRef ! CommitSubmission(
         allocateEntryId,
-        submission
+        Envelope.enclose(submission)
       )
       SubmissionResult.Acknowledged
     })

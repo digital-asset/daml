@@ -7,6 +7,10 @@ package com.daml.ledger.participant.state.kvutils
   * and the changelog of kvutils.
   *
   * Changes:
+  * [since 100.13.21]:
+  * - Added 'Envelope' for compressing and versioning kvutils messages that are transmitted
+  *   or stored on disk. [[Envelope.enclose]] and [[Envelope.open]] should be now used for
+  *   submissions and for results from processing them.
   *
   * [since 100.13.16]: *BACKWARDS INCOMPATIBLE*
   * - Log entries are no longer used as inputs to submission processing. The
@@ -20,7 +24,5 @@ package com.daml.ledger.participant.state.kvutils
   * - Bug in command deduplication fixed: rejected commands are now deduplicated correctly.
   */
 object Version {
-
-  // FIXME(JM): Introduce versioned messages.
-  // final val protoVersion: Long = 0
+  val version: Long = 0
 }
