@@ -19,7 +19,8 @@ load(
     "mangle_for_java",
 )
 load(
-"//daml-lf/language:daml-lf.bzl","lf_latest_version"
+    "//daml-lf/language:daml-lf.bzl",
+    "lf_latest_version",
 )
 load(
     "@com_github_johnynek_bazel_jar_jar//:jar_jar.bzl",
@@ -195,7 +196,7 @@ daml_compile(
     name = "integration-tests-model-latest",
     srcs = glob(["src/it/daml/**/*.daml"]),
     main_src = "src/it/daml/Lib.daml",
-    target = lf_latest_version
+    target = lf_latest_version,
 )
 
 [
