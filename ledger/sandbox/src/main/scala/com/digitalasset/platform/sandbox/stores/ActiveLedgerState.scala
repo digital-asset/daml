@@ -12,7 +12,7 @@ import com.digitalasset.daml.lf.transaction.{GenTransaction, Node => N}
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst, VersionedValue}
 import com.digitalasset.ledger.WorkflowId
 import com.digitalasset.platform.sandbox.services.transaction.SandboxEventIdFormatter
-import com.digitalasset.platform.sandbox.stores.ActiveContracts._
+import com.digitalasset.platform.sandbox.stores.ActiveLedgerState._
 import com.digitalasset.platform.sandbox.stores.ledger.SequencingError
 import com.digitalasset.platform.sandbox.stores.ledger.SequencingError.PredicateType.{
   Exercise,
@@ -25,7 +25,8 @@ import com.digitalasset.platform.sandbox.stores.ledger.SequencingError.{
   TimeBeforeError
 }
 
-class ActiveContractsManager[ACS](initialState: => ACS)(implicit ACS: ACS => ActiveContracts[ACS]) {
+class ActiveContractsManager[ACS](initialState: => ACS)(
+    implicit ACS: ACS => ActiveLedgerState[ACS]) {
 
   private case class AddTransactionState(
       acc: Option[ACS],
@@ -169,10 +170,31 @@ class ActiveContractsManager[ACS](initialState: => ACS)(implicit ACS: ACS => Act
 
 }
 
-trait ActiveContracts[+Self] { this: ActiveContracts[Self] =>
+/**
+  * An abstract representation of the active ledger state:
+  * - Active contracts
+  * - Divulged contracts
+  * - Contract keys
+  * - Known parties
+  *
+  * The active ledger state is used for validating transactions,
+  * see [[ActiveContractsManager]].
+  *
+  * The active ledger state could be derived from the transaction stream,
+  * we keep track of it explicitly for performance reasons.
+  */
+trait ActiveLedgerState[+Self] { this: ActiveLedgerState[Self] =>
+
+  /** Callback to query a contract, used for transaction validation */
   def lookupContract(cid: AbsoluteContractId): Option[ActiveContract]
+
+  /** Callback to query a contract key, used for transaction validation */
   def keyExists(key: GlobalKey): Boolean
+
+  /** Called when a new contract is created */
   def addContract(cid: AbsoluteContractId, c: ActiveContract, keyO: Option[GlobalKey]): Self
+
+  /** Called when the given contract is archived */
   def removeContract(cid: AbsoluteContractId, keyO: Option[GlobalKey]): Self
 
   /** Called once for each transaction with the set of parties found in that transaction.
@@ -191,7 +213,7 @@ trait ActiveContracts[+Self] { this: ActiveContracts[Self] =>
       global: Relation[AbsoluteContractId, Party]): Self
 }
 
-object ActiveContracts {
+object ActiveLedgerState {
 
   case class ActiveContract(
       let: Instant, // time when the contract was committed

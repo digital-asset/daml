@@ -344,7 +344,7 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
       val mappedDisclosure = explicitDisclosure
         .mapValues(parties => parties.map(Party.assertFromString))
 
-      final class AcsStoreAcc extends ActiveContracts[AcsStoreAcc] {
+      final class AcsStoreAcc extends ActiveLedgerState[AcsStoreAcc] {
 
         override def lookupContract(cid: AbsoluteContractId) =
           lookupActiveContractSync(cid).map(_.toActiveContract)
@@ -353,7 +353,7 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
 
         override def addContract(
             cid: AbsoluteContractId,
-            c: ActiveContracts.ActiveContract,
+            c: ActiveLedgerState.ActiveContract,
             keyO: Option[GlobalKey]) = {
           storeContract(offset, Contract.fromActiveContract(cid, c))
           keyO.foreach(key => storeContractKey(key, cid))

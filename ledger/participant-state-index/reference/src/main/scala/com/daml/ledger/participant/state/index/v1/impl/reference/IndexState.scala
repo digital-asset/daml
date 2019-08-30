@@ -14,7 +14,7 @@ import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.ContractId
 import com.digitalasset.daml_lf.DamlLf.Archive
 import com.digitalasset.ledger.api.domain.PartyDetails
-import com.digitalasset.platform.sandbox.stores.InMemoryActiveContracts
+import com.digitalasset.platform.sandbox.stores.InMemoryActiveLedgerState
 import org.slf4j.{Logger, LoggerFactory}
 
 import scala.collection.immutable.TreeMap
@@ -28,7 +28,7 @@ final case class IndexState(
     private val beginning: Option[Offset],
     // Accepted transactions indexed by offset.
     txs: TreeMap[Offset, (Update.TransactionAccepted, BlindingInfo)],
-    activeContracts: InMemoryActiveContracts,
+    activeContracts: InMemoryActiveLedgerState,
     // Rejected commands indexed by offset.
     commandRejections: TreeMap[Offset, Update.CommandRejected],
     // Uploaded packages.
@@ -171,7 +171,7 @@ object IndexState {
       configuration = lic.config,
       recordTime = lic.initialRecordTime,
       txs = TreeMap.empty,
-      activeContracts = InMemoryActiveContracts.empty,
+      activeContracts = InMemoryActiveLedgerState.empty,
       commandRejections = TreeMap.empty,
       packages = Map.empty,
       packageDetails = Map.empty,

@@ -12,15 +12,15 @@ import com.digitalasset.daml.lf.transaction.GenTransaction
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 import com.digitalasset.ledger.WorkflowId
 import com.digitalasset.ledger.api.domain.PartyDetails
-import com.digitalasset.platform.sandbox.stores.ActiveContracts._
+import com.digitalasset.platform.sandbox.stores.ActiveLedgerState._
 import com.digitalasset.platform.sandbox.stores.ledger.SequencingError
 import scalaz.syntax.std.map._
 
-case class InMemoryActiveContracts(
+case class InMemoryActiveLedgerState(
     contracts: Map[AbsoluteContractId, ActiveContract],
     keys: Map[GlobalKey, AbsoluteContractId],
     parties: Map[Party, PartyDetails])
-    extends ActiveContracts[InMemoryActiveContracts] {
+    extends ActiveLedgerState[InMemoryActiveLedgerState] {
 
   override def lookupContract(cid: AbsoluteContractId) = contracts.get(cid)
 
@@ -38,12 +38,12 @@ case class InMemoryActiveContracts(
     case Some(key) => copy(contracts = contracts - cid, keys = keys - key)
   }
 
-  override def addParties(newParties: Set[Party]): InMemoryActiveContracts =
+  override def addParties(newParties: Set[Party]): InMemoryActiveLedgerState =
     copy(parties = newParties.map(p => p -> PartyDetails(p, None, true)).toMap ++ parties)
 
   override def divulgeAlreadyCommittedContract(
       transactionId: TransactionIdString,
-      global: Relation[AbsoluteContractId, Party]): InMemoryActiveContracts =
+      global: Relation[AbsoluteContractId, Party]): InMemoryActiveLedgerState =
     if (global.nonEmpty)
       copy(
         contracts = contracts ++
@@ -67,7 +67,7 @@ case class InMemoryActiveContracts(
       explicitDisclosure: Relation[Nid, Party],
       localImplicitDisclosure: Relation[Nid, Party],
       globalImplicitDisclosure: Relation[AbsoluteContractId, Party]
-  ): Either[Set[SequencingError], InMemoryActiveContracts] =
+  ): Either[Set[SequencingError], InMemoryActiveLedgerState] =
     acManager.addTransaction(
       let,
       transactionId,
@@ -80,12 +80,12 @@ case class InMemoryActiveContracts(
   /**
     * Adds a new party to the list of known parties.
     */
-  def addParty(details: PartyDetails): InMemoryActiveContracts = {
+  def addParty(details: PartyDetails): InMemoryActiveLedgerState = {
     assert(!parties.contains(details.party))
     copy(parties = parties + (details.party -> details))
   }
 }
 
-object InMemoryActiveContracts {
-  def empty: InMemoryActiveContracts = InMemoryActiveContracts(Map(), Map(), Map.empty)
+object InMemoryActiveLedgerState {
+  def empty: InMemoryActiveLedgerState = InMemoryActiveLedgerState(Map(), Map(), Map.empty)
 }

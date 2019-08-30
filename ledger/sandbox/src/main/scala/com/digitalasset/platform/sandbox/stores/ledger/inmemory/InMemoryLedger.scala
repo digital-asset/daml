@@ -38,8 +38,8 @@ import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry.{Checkpoint, 
 import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
 import com.digitalasset.platform.sandbox.stores.ledger.{Ledger, LedgerEntry, LedgerSnapshot}
 import com.digitalasset.platform.sandbox.stores.{
-  ActiveContracts,
-  InMemoryActiveContracts,
+  ActiveLedgerState,
+  InMemoryActiveLedgerState,
   InMemoryPackageStore
 }
 import org.slf4j.LoggerFactory
@@ -53,7 +53,7 @@ import scala.util.{Failure, Success, Try}
 class InMemoryLedger(
     val ledgerId: LedgerId,
     timeProvider: TimeProvider,
-    acs0: InMemoryActiveContracts,
+    acs0: InMemoryActiveLedgerState,
     packageStoreInit: InMemoryPackageStore,
     ledgerEntries: ImmArray[LedgerEntryOrBump])
     extends Ledger {
@@ -91,7 +91,7 @@ class InMemoryLedger(
     })
 
   override def lookupContract(
-      contractId: AbsoluteContractId): Future[Option[ActiveContracts.ActiveContract]] =
+      contractId: AbsoluteContractId): Future[Option[ActiveLedgerState.ActiveContract]] =
     Future.successful(this.synchronized {
       acs.contracts.get(contractId)
     })

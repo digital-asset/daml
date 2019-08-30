@@ -22,7 +22,7 @@ import com.digitalasset.platform.sandbox.config.SandboxConfig
 import com.digitalasset.platform.sandbox.metrics.MetricsManager
 import com.digitalasset.platform.sandbox.services.SandboxResetService
 import com.digitalasset.platform.sandbox.stores.{
-  InMemoryActiveContracts,
+  InMemoryActiveLedgerState,
   InMemoryPackageStore,
   SandboxIndexAndWriteService
 }
@@ -53,7 +53,7 @@ object SandboxServer {
 
   // if requested, initialize the ledger state with the given scenario
   private def createInitialState(config: SandboxConfig, packageStore: InMemoryPackageStore)
-    : (InMemoryActiveContracts, ImmArray[LedgerEntryOrBump], Option[Instant]) = {
+    : (InMemoryActiveLedgerState, ImmArray[LedgerEntryOrBump], Option[Instant]) = {
     // [[ScenarioLoader]] needs all the packages to be already compiled --
     // make sure that that's the case
     if (config.eagerPackageLoading || config.scenario.nonEmpty) {
@@ -72,7 +72,7 @@ object SandboxServer {
       }
     }
     config.scenario match {
-      case None => (InMemoryActiveContracts.empty, ImmArray.empty, None)
+      case None => (InMemoryActiveLedgerState.empty, ImmArray.empty, None)
       case Some(scenario) =>
         val (acs, records, ledgerTime) =
           ScenarioLoader.fromScenario(packageStore, engine.compiledPackages(), scenario)

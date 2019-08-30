@@ -20,8 +20,8 @@ import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 import com.digitalasset.daml_lf.DamlLf.Archive
 import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails}
 import com.digitalasset.platform.sandbox.metrics.MetricsManager
-import com.digitalasset.platform.sandbox.stores.ActiveContracts.ActiveContract
-import com.digitalasset.platform.sandbox.stores.{InMemoryActiveContracts, InMemoryPackageStore}
+import com.digitalasset.platform.sandbox.stores.ActiveLedgerState.ActiveContract
+import com.digitalasset.platform.sandbox.stores.{InMemoryActiveLedgerState, InMemoryPackageStore}
 import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
 import com.digitalasset.platform.sandbox.stores.ledger.inmemory.InMemoryLedger
 import com.digitalasset.platform.sandbox.stores.ledger.sql.{
@@ -85,7 +85,7 @@ trait ReadOnlyLedger extends AutoCloseable {
 
 object Ledger {
 
-  type LedgerFactory = (InMemoryActiveContracts, Seq[LedgerEntry]) => Ledger
+  type LedgerFactory = (InMemoryActiveLedgerState, Seq[LedgerEntry]) => Ledger
 
   /**
     * Creates an in-memory ledger
@@ -99,7 +99,7 @@ object Ledger {
   def inMemory(
       ledgerId: LedgerId,
       timeProvider: TimeProvider,
-      acs: InMemoryActiveContracts,
+      acs: InMemoryActiveLedgerState,
       packages: InMemoryPackageStore,
       ledgerEntries: ImmArray[LedgerEntryOrBump]): Ledger =
     new InMemoryLedger(ledgerId, timeProvider, acs, packages, ledgerEntries)
@@ -120,7 +120,7 @@ object Ledger {
       jdbcUrl: String,
       ledgerId: LedgerId,
       timeProvider: TimeProvider,
-      acs: InMemoryActiveContracts,
+      acs: InMemoryActiveLedgerState,
       packages: InMemoryPackageStore,
       ledgerEntries: ImmArray[LedgerEntryOrBump],
       queueDepth: Int,

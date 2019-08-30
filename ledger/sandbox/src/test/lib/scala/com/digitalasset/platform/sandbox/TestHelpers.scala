@@ -17,7 +17,7 @@ import com.digitalasset.platform.sandbox.metrics.MetricsManager
 import com.digitalasset.platform.sandbox.services.ApiSubmissionService
 import com.digitalasset.platform.sandbox.stores.ledger.CommandExecutorImpl
 import com.digitalasset.platform.sandbox.stores.{
-  InMemoryActiveContracts,
+  InMemoryActiveLedgerState,
   InMemoryPackageStore,
   SandboxIndexAndWriteService
 }
@@ -60,7 +60,7 @@ trait TestHelpers {
         participantId,
         TimeModel.reasonableDefault,
         TimeProvider.Constant(Instant.EPOCH),
-        InMemoryActiveContracts.empty,
+        InMemoryActiveLedgerState.empty,
         ImmArray.empty,
         packageStore
       )

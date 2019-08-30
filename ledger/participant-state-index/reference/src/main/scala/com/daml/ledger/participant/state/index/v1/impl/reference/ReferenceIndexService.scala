@@ -19,7 +19,7 @@ import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml_lf.DamlLf
 import com.digitalasset.ledger.api.domain.{LedgerOffset, PartyDetails, TransactionFilter}
 import com.digitalasset.platform.akkastreams.dispatcher.SignalDispatcher
-import com.digitalasset.platform.sandbox.stores.ActiveContracts
+import com.digitalasset.platform.sandbox.stores.ActiveLedgerState
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.duration.FiniteDuration
@@ -328,7 +328,7 @@ final case class ReferenceIndexService(
       })
   }
 
-  private def canSeeContract(submitter: Party, ac: ActiveContracts.ActiveContract): Boolean = {
+  private def canSeeContract(submitter: Party, ac: ActiveLedgerState.ActiveContract): Boolean = {
     // ^ only parties disclosed or divulged to can lookup; see https://github.com/digital-asset/daml/issues/10
     // and https://github.com/digital-asset/daml/issues/751 .
     Right(submitter) exists (p => ac.witnesses(p) || ac.divulgences.contains(p))

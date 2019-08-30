@@ -37,7 +37,7 @@ import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{
 }
 import com.digitalasset.platform.sandbox.stores.ledger.sql.util.DbDispatcher
 import com.digitalasset.platform.sandbox.stores.ledger.{Ledger, LedgerEntry}
-import com.digitalasset.platform.sandbox.stores.{InMemoryActiveContracts, InMemoryPackageStore}
+import com.digitalasset.platform.sandbox.stores.{InMemoryActiveLedgerState, InMemoryPackageStore}
 import org.slf4j.LoggerFactory
 import scalaz.syntax.tag._
 
@@ -68,7 +68,7 @@ object SqlLedger {
       jdbcUrl: String,
       ledgerId: Option[LedgerId],
       timeProvider: TimeProvider,
-      acs: InMemoryActiveContracts,
+      acs: InMemoryActiveLedgerState,
       packages: InMemoryPackageStore,
       initialLedgerEntries: ImmArray[LedgerEntryOrBump],
       queueDepth: Int,
@@ -339,7 +339,7 @@ private class SqlLedgerFactory(ledgerDao: LedgerDao) {
       initialLedgerId: Option[LedgerId],
       timeProvider: TimeProvider,
       startMode: SqlStartMode,
-      acs: InMemoryActiveContracts,
+      acs: InMemoryActiveLedgerState,
       packages: InMemoryPackageStore,
       initialLedgerEntries: ImmArray[LedgerEntryOrBump],
       queueDepth: Int,
@@ -378,7 +378,7 @@ private class SqlLedgerFactory(ledgerDao: LedgerDao) {
   private def initialize(
       initialLedgerId: Option[LedgerId],
       timeProvider: TimeProvider,
-      acs: InMemoryActiveContracts,
+      acs: InMemoryActiveLedgerState,
       packages: InMemoryPackageStore,
       initialLedgerEntries: ImmArray[LedgerEntryOrBump]): Future[LedgerId] = {
     // Note that here we only store the ledger entry and we do not update anything else, such as the

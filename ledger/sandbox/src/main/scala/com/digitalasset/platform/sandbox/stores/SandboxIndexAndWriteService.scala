@@ -66,7 +66,7 @@ object SandboxIndexAndWriteService {
       jdbcUrl: String,
       timeModel: TimeModel,
       timeProvider: TimeProvider,
-      acs: InMemoryActiveContracts,
+      acs: InMemoryActiveLedgerState,
       ledgerEntries: ImmArray[LedgerEntryOrBump],
       startMode: SqlStartMode,
       queueDepth: Int,
@@ -92,7 +92,7 @@ object SandboxIndexAndWriteService {
       participantId: ParticipantId,
       timeModel: TimeModel,
       timeProvider: TimeProvider,
-      acs: InMemoryActiveContracts,
+      acs: InMemoryActiveLedgerState,
       ledgerEntries: ImmArray[LedgerEntryOrBump],
       templateStore: InMemoryPackageStore)(
       implicit mat: Materializer,
@@ -185,7 +185,7 @@ abstract class LedgerBackedIndexService(
 
   private def toUpdateEvent(
       cId: Value.AbsoluteContractId,
-      ac: ActiveContracts.ActiveContract): AcsUpdateEvent.Create =
+      ac: ActiveLedgerState.ActiveContract): AcsUpdateEvent.Create =
     AcsUpdateEvent.Create(
       // we use absolute contract ids as event ids throughout the sandbox
       domain.TransactionId(ac.transactionId),

@@ -9,14 +9,14 @@ import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.transaction.Transaction.{Value => TxValue}
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.platform.common.util.{DirectExecutionContext => DEC}
-import com.digitalasset.platform.sandbox.stores.ActiveContracts
+import com.digitalasset.platform.sandbox.stores.ActiveLedgerState
 
 import scala.concurrent.{ExecutionContext, Future}
 
 class SandboxContractStore(ledger: ReadOnlyLedger) extends ContractStore {
   private[this] def canSeeContract(
       submitter: Party,
-      ac: ActiveContracts.ActiveContract): Boolean = {
+      ac: ActiveLedgerState.ActiveContract): Boolean = {
     // ^ only parties disclosed or divulged to can lookup; see https://github.com/digital-asset/daml/issues/10
     // and https://github.com/digital-asset/daml/issues/751 .
     Party fromString submitter exists (p => ac.witnesses(p) || ac.divulgences.contains(p))
