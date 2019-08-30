@@ -54,7 +54,7 @@ case class InMemoryActiveLedgerState(
     else this
 
   private val acManager =
-    new ActiveContractsManager(this)
+    new ActiveLedgerStateManager(this)
 
   /** adds a transaction to the ActiveContracts, make sure that there are no double spends or
     * timing errors. this check is leveraged to achieve higher concurrency, see LedgerState

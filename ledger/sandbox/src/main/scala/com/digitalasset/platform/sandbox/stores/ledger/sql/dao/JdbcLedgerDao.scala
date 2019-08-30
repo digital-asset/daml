@@ -422,7 +422,7 @@ private class JdbcLedgerDao(
       }
 
       // this should be a class member field, we can't move it out yet as the functions above are closing over to the implicit Connection
-      val acsManager = new ActiveContractsManager(new AcsStoreAcc)
+      val acsManager = new ActiveLedgerStateManager(new AcsStoreAcc)
 
       // Note: ACS is typed as Unit here, as the ACS is given implicitly by the current database state
       // within the current SQL transaction. All of the given functions perform side effects to update the database.
