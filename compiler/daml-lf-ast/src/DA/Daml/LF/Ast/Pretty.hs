@@ -185,6 +185,7 @@ instance Pretty BuiltinExpr where
   pPrintPrec lvl prec = \case
     BEInt64 n -> pretty (toInteger n)
     BEDecimal dec -> string (show dec)
+    BENumeric n -> string (show n)
     BEText t -> string (show t) -- includes the double quotes, and escapes characters
     BEParty p -> pretty p
     BEUnit -> keyword_ "unit"

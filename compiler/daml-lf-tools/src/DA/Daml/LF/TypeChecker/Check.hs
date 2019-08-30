@@ -43,6 +43,7 @@ import           Safe.Exact (zipExactMay)
 import           DA.Daml.LF.Ast
 import           DA.Daml.LF.Ast.Optics (dataConsType)
 import           DA.Daml.LF.Ast.Type
+import           DA.Daml.LF.Ast.Numeric
 import           DA.Daml.LF.TypeChecker.Env
 import           DA.Daml.LF.TypeChecker.Error
 
@@ -143,6 +144,7 @@ typeOfBuiltin :: MonadGamma m => BuiltinExpr -> m Type
 typeOfBuiltin = \case
   BEInt64 _          -> pure TInt64
   BEDecimal _        -> pure TDecimal
+  BENumeric n        -> pure (TNumeric (TNat (numericScale n)))
   BEText    _        -> pure TText
   BETimestamp _      -> pure TTimestamp
   BEParty   _        -> pure TParty
