@@ -44,6 +44,17 @@ convertPrim _ "SGetParty" (t1@TText :-> TScenario TParty) =
     ETmLam (varV1, t1) $ EScenario $ SGetParty $ EVar varV1
 
 -- Comparison
+convertPrim _ "BEEqual" (TDecimal :-> TDecimal :-> TBool) =
+    ETyApp (EBuiltin BEEqualNumeric) (TNat 10)
+convertPrim _ "BELess" (TDecimal :-> TDecimal :-> TBool) =
+    ETyApp (EBuiltin BELessNumeric) (TNat 10)
+convertPrim _ "BELessEq" (TDecimal :-> TDecimal :-> TBool) =
+    ETyApp (EBuiltin BELessEqNumeric) (TNat 10)
+convertPrim _ "BEGreaterEq" (TDecimal :-> TDecimal :-> TBool) =
+    ETyApp (EBuiltin BEGreaterNumeric) (TNat 10)
+convertPrim _ "BEGreater" (TDecimal :-> TDecimal :-> TBool) =
+    ETyApp (EBuiltin BEGreaterEqNumeric) (TNat 10)
+
 convertPrim _ "BEEqual" (TBuiltin a1 :-> TBuiltin a2 :-> TBool) | a1 == a2 =
     EBuiltin $ BEEqual a1
 convertPrim _ "BELess" (TBuiltin a1 :-> TBuiltin a2 :-> TBool) | a1 == a2 =
@@ -61,15 +72,15 @@ convertPrim _ "BEEqualContractId" (TContractId a1 :-> TContractId a2 :-> TBool) 
 
 -- Decimal arithmetic
 convertPrim _ "BEAddDecimal" (TDecimal :-> TDecimal :-> TDecimal) =
-    EBuiltin BEAddDecimal
+    ETyApp (EBuiltin BEAddNumeric) (TNat 10)
 convertPrim _ "BESubDecimal" (TDecimal :-> TDecimal :-> TDecimal) =
-    EBuiltin BESubDecimal
+    ETyApp (EBuiltin BESubNumeric) (TNat 10)
 convertPrim _ "BEMulDecimal" (TDecimal :-> TDecimal :-> TDecimal) =
-    EBuiltin BEMulDecimal
+    ETyApp (EBuiltin BEMulNumeric) (TNat 10)
 convertPrim _ "BEDivDecimal" (TDecimal :-> TDecimal :-> TDecimal) =
-    EBuiltin BEDivDecimal
+    ETyApp (EBuiltin BEDivNumeric) (TNat 10)
 convertPrim _ "BERoundDecimal" (TInt64 :-> TDecimal :-> TDecimal) =
-    EBuiltin BERoundDecimal
+    ETyApp (EBuiltin BERoundNumeric) (TNat 10)
 
 -- Integer arithmetic
 convertPrim _ "BEAddInt64" (TInt64 :-> TInt64 :-> TInt64) =
@@ -97,9 +108,9 @@ convertPrim _ "BEUnixDaysToDate" (TInt64 :-> TDate) =
 
 -- Conversion to and from Decimal
 convertPrim _ "BEInt64ToDecimal" (TInt64 :-> TDecimal) =
-    EBuiltin BEInt64ToDecimal
+    ETyApp (EBuiltin BEInt64ToNumeric) (TNat 10)
 convertPrim _ "BEDecimalToInt64" (TDecimal :-> TInt64) =
-    EBuiltin BEDecimalToInt64
+    ETyApp (EBuiltin BENumericToInt64) (TNat 10)
 
 -- List operations
 convertPrim _ "BEFoldl" ((b1 :-> a1 :-> b2) :-> b3 :-> TList a2 :-> b4) | a1 == a2, b1 == b2, b2 == b3, b3 == b4 =
@@ -112,6 +123,8 @@ convertPrim _ "BEError" (TText :-> t2) =
     ETyApp (EBuiltin BEError) t2
 
 -- Text operations
+convertPrim _ "BEToText" (TDecimal :-> TText) =
+    ETyApp (EBuiltin BEToTextNumeric) (TNat 10)
 convertPrim _ "BEToText" (TBuiltin x :-> TText) =
     EBuiltin $ BEToText x
 convertPrim _ "BEExplodeText" (TText :-> TList TText) =
@@ -131,7 +144,7 @@ convertPrim _ "BEPartyFromText" (TText :-> TOptional TParty) =
 convertPrim _ "BEInt64FromText" (TText :-> TOptional TInt64) =
     EBuiltin BEInt64FromText
 convertPrim _ "BEDecimalFromText" (TText :-> TOptional TDecimal) =
-    EBuiltin BEDecimalFromText
+    ETyApp (EBuiltin BENumericFromText) (TNat 10)
 convertPrim _ "BETextToCodePoints" (TText :-> TList TInt64) =
     EBuiltin BETextToCodePoints
 convertPrim _ "BETextFromCodePoints" (TList TInt64 :-> TText) =

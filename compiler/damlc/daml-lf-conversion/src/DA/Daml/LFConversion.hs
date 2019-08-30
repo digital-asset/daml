@@ -94,6 +94,7 @@ import Control.Monad.Fail
 import           Control.Monad.Reader
 import           Control.Monad.State.Strict
 import           DA.Daml.LF.Ast as LF
+import           DA.Daml.LF.Ast.Numeric as LF
 import           Data.Data hiding (TyCon)
 import           Data.Foldable (foldlM)
 import           Data.Int
@@ -219,7 +220,7 @@ convertRational num denom
     -- upper limit.
     if | 10 ^ maxPrecision `mod` denom == 0 &&
              abs (r * 10 ^ maxPrecision) <= upperBound128Bit - 1 ->
-           pure $ EBuiltin $ BEDecimal $ fromRational r
+             pure $ EBuiltin $ BENumeric $ numericFromDecimal $ fromRational r
        | otherwise ->
            unsupported
                ("Rational is out of bounds: " ++
@@ -803,7 +804,7 @@ convertExpr env0 e = do
     go env o@(Case scrutinee bind _ [alt@(DataAlt con, vs, x)]) args = fmap (, args) $ do
         convertType env (varType bind) >>= \case
           TText -> asLet
-          TDecimal -> asLet
+          TNumeric _ -> asLet
           TParty -> asLet
           TTimestamp -> asLet
           TDate -> asLet

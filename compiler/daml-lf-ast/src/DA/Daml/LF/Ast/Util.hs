@@ -155,7 +155,6 @@ pattern TUnit, TBool, TInt64, TDecimal, TText, TTimestamp, TParty, TDate, TArrow
 pattern TUnit       = TBuiltin BTUnit
 pattern TBool       = TBuiltin BTBool
 pattern TInt64      = TBuiltin BTInt64
-pattern TDecimal    = TBuiltin BTDecimal
 pattern TText       = TBuiltin BTText
 pattern TTimestamp  = TBuiltin BTTimestamp
 pattern TParty      = TBuiltin BTParty
@@ -169,7 +168,9 @@ pattern TMap typ = TApp (TBuiltin BTMap) typ
 pattern TUpdate typ = TApp (TBuiltin BTUpdate) typ
 pattern TScenario typ = TApp (TBuiltin BTScenario) typ
 pattern TContractId typ = TApp (TBuiltin BTContractId) typ
+
 pattern TNumeric n = TApp (TBuiltin BTNumeric) n
+pattern TDecimal = TNumeric (TNat 10)
 
 pattern TMapEntry :: Type -> Type
 pattern TMapEntry a = TTuple [(FieldName "key", TText), (FieldName "value", a)]

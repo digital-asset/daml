@@ -103,7 +103,6 @@ safetyStep = \case
   EBuiltinF b ->
     case b of
       BEInt64 _           -> Safe 0
-      BEDecimal _         -> Safe 0
       BENumeric _         -> Safe 0
       BEText _            -> Safe 0
       BETimestamp _       -> Safe 0
@@ -119,11 +118,6 @@ safetyStep = \case
       BEGreater _         -> Safe 2
       BEToText _          -> Safe 1
       BETextFromCodePoints  -> Safe 1
-      BEAddDecimal        -> Safe 1
-      BESubDecimal        -> Safe 1
-      BEMulDecimal        -> Safe 1
-      BEDivDecimal        -> Safe 1
-      BERoundDecimal      -> Safe 1
       BEEqualNumeric      -> Safe 2
       BELessNumeric       -> Safe 2
       BELessEqNumeric     -> Safe 2
@@ -144,8 +138,6 @@ safetyStep = \case
       BEDivInt64          -> Safe 1
       BEModInt64          -> Safe 1
       BEExpInt64          -> Safe 1
-      BEInt64ToDecimal    -> Safe 1
-      BEDecimalToInt64    -> Safe 0 -- crash if the decimal doesn't fit
       BEFoldl             -> Safe 2
       BEFoldr             -> Safe 2
       BEMapEmpty          -> Safe 0
@@ -168,7 +160,6 @@ safetyStep = \case
       BEPartyToQuotedText -> Safe 1
       BEPartyFromText -> Safe 1
       BEInt64FromText -> Safe 1
-      BEDecimalFromText -> Safe 1
       BETextToCodePoints -> Safe 1
       BECoerceContractId -> Safe 1
   ERecConF _ fs -> minimum (Safe 0 : map snd fs)

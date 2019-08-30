@@ -9,8 +9,9 @@ module DA.Daml.LF.Proto3.DecodeV1
     , Error(..)
     ) where
 
-import           DA.Daml.LF.Ast as LF
-import           DA.Daml.LF.Proto3.Error
+import DA.Daml.LF.Ast as LF
+import DA.Daml.LF.Ast.Numeric as LF
+import DA.Daml.LF.Proto3.Error
 import Control.Monad
 import Control.Monad.Error.Class (MonadError(throwError))
 import Control.Monad.Reader (ReaderT, ask, runReaderT)
@@ -164,112 +165,115 @@ decodeChoice LF1.TemplateChoice{..} =
     <*> mayDecode "templateChoiceRetType" templateChoiceRetType decodeType
     <*> mayDecode "templateChoiceUpdate" templateChoiceUpdate decodeExpr
 
-decodeBuiltinFunction :: MonadDecode m => LF1.BuiltinFunction -> m BuiltinExpr
+-- | Decode DAML-LF built-in function. As specified in #2289, the
+-- legacy @Decimal@ built-in functions get converted to @Numeric@
+-- built-in functions with the scale @10@ applied automatically.
+decodeBuiltinFunction :: MonadDecode m => LF1.BuiltinFunction -> m Expr
 decodeBuiltinFunction = pure . \case
-  LF1.BuiltinFunctionEQUAL_INT64 -> BEEqual BTInt64
-  LF1.BuiltinFunctionEQUAL_DECIMAL -> BEEqual BTDecimal
-  LF1.BuiltinFunctionEQUAL_NUMERIC -> BEEqualNumeric
-  LF1.BuiltinFunctionEQUAL_TEXT -> BEEqual BTText
-  LF1.BuiltinFunctionEQUAL_TIMESTAMP -> BEEqual BTTimestamp
-  LF1.BuiltinFunctionEQUAL_DATE -> BEEqual BTDate
-  LF1.BuiltinFunctionEQUAL_PARTY -> BEEqual BTParty
-  LF1.BuiltinFunctionEQUAL_BOOL -> BEEqual BTBool
+  LF1.BuiltinFunctionEQUAL_INT64 -> EBuiltin $ BEEqual BTInt64
+  LF1.BuiltinFunctionEQUAL_DECIMAL -> ETyApp (EBuiltin BEEqualNumeric) (TNat 10)
+  LF1.BuiltinFunctionEQUAL_NUMERIC -> EBuiltin BEEqualNumeric
+  LF1.BuiltinFunctionEQUAL_TEXT -> EBuiltin $ BEEqual BTText
+  LF1.BuiltinFunctionEQUAL_TIMESTAMP -> EBuiltin $ BEEqual BTTimestamp
+  LF1.BuiltinFunctionEQUAL_DATE -> EBuiltin $ BEEqual BTDate
+  LF1.BuiltinFunctionEQUAL_PARTY -> EBuiltin $ BEEqual BTParty
+  LF1.BuiltinFunctionEQUAL_BOOL -> EBuiltin $ BEEqual BTBool
 
-  LF1.BuiltinFunctionLEQ_INT64 -> BELessEq BTInt64
-  LF1.BuiltinFunctionLEQ_DECIMAL -> BELessEq BTDecimal
-  LF1.BuiltinFunctionLEQ_NUMERIC -> BELessEqNumeric
-  LF1.BuiltinFunctionLEQ_TEXT -> BELessEq BTText
-  LF1.BuiltinFunctionLEQ_TIMESTAMP -> BELessEq BTTimestamp
-  LF1.BuiltinFunctionLEQ_DATE -> BELessEq BTDate
-  LF1.BuiltinFunctionLEQ_PARTY -> BELessEq BTParty
+  LF1.BuiltinFunctionLEQ_INT64 -> EBuiltin $ BELessEq BTInt64
+  LF1.BuiltinFunctionLEQ_DECIMAL -> ETyApp (EBuiltin BELessEqNumeric) (TNat 10)
+  LF1.BuiltinFunctionLEQ_NUMERIC -> EBuiltin BELessEqNumeric
+  LF1.BuiltinFunctionLEQ_TEXT -> EBuiltin $ BELessEq BTText
+  LF1.BuiltinFunctionLEQ_TIMESTAMP -> EBuiltin $ BELessEq BTTimestamp
+  LF1.BuiltinFunctionLEQ_DATE -> EBuiltin $ BELessEq BTDate
+  LF1.BuiltinFunctionLEQ_PARTY -> EBuiltin $ BELessEq BTParty
 
-  LF1.BuiltinFunctionLESS_INT64 -> BELess BTInt64
-  LF1.BuiltinFunctionLESS_DECIMAL -> BELess BTDecimal
-  LF1.BuiltinFunctionLESS_NUMERIC -> BELessNumeric
-  LF1.BuiltinFunctionLESS_TEXT -> BELess BTText
-  LF1.BuiltinFunctionLESS_TIMESTAMP -> BELess BTTimestamp
-  LF1.BuiltinFunctionLESS_DATE -> BELess BTDate
-  LF1.BuiltinFunctionLESS_PARTY -> BELess BTParty
+  LF1.BuiltinFunctionLESS_INT64 -> EBuiltin $ BELess BTInt64
+  LF1.BuiltinFunctionLESS_DECIMAL -> ETyApp (EBuiltin BELessNumeric) (TNat 10)
+  LF1.BuiltinFunctionLESS_NUMERIC -> EBuiltin BELessNumeric
+  LF1.BuiltinFunctionLESS_TEXT -> EBuiltin $ BELess BTText
+  LF1.BuiltinFunctionLESS_TIMESTAMP -> EBuiltin $ BELess BTTimestamp
+  LF1.BuiltinFunctionLESS_DATE -> EBuiltin $ BELess BTDate
+  LF1.BuiltinFunctionLESS_PARTY -> EBuiltin $ BELess BTParty
 
-  LF1.BuiltinFunctionGEQ_INT64 -> BEGreaterEq BTInt64
-  LF1.BuiltinFunctionGEQ_DECIMAL -> BEGreaterEq BTDecimal
-  LF1.BuiltinFunctionGEQ_NUMERIC -> BEGreaterEqNumeric
-  LF1.BuiltinFunctionGEQ_TEXT -> BEGreaterEq BTText
-  LF1.BuiltinFunctionGEQ_TIMESTAMP -> BEGreaterEq BTTimestamp
-  LF1.BuiltinFunctionGEQ_DATE -> BEGreaterEq BTDate
-  LF1.BuiltinFunctionGEQ_PARTY -> BEGreaterEq BTParty
+  LF1.BuiltinFunctionGEQ_INT64 -> EBuiltin $ BEGreaterEq BTInt64
+  LF1.BuiltinFunctionGEQ_DECIMAL -> ETyApp (EBuiltin BEGreaterEqNumeric) (TNat 10)
+  LF1.BuiltinFunctionGEQ_NUMERIC -> EBuiltin BEGreaterEqNumeric
+  LF1.BuiltinFunctionGEQ_TEXT -> EBuiltin $ BEGreaterEq BTText
+  LF1.BuiltinFunctionGEQ_TIMESTAMP -> EBuiltin $ BEGreaterEq BTTimestamp
+  LF1.BuiltinFunctionGEQ_DATE -> EBuiltin $ BEGreaterEq BTDate
+  LF1.BuiltinFunctionGEQ_PARTY -> EBuiltin $ BEGreaterEq BTParty
 
-  LF1.BuiltinFunctionGREATER_INT64 -> BEGreater BTInt64
-  LF1.BuiltinFunctionGREATER_DECIMAL -> BEGreater BTDecimal
-  LF1.BuiltinFunctionGREATER_NUMERIC -> BEGreaterNumeric
-  LF1.BuiltinFunctionGREATER_TEXT -> BEGreater BTText
-  LF1.BuiltinFunctionGREATER_TIMESTAMP -> BEGreater BTTimestamp
-  LF1.BuiltinFunctionGREATER_DATE -> BEGreater BTDate
-  LF1.BuiltinFunctionGREATER_PARTY -> BEGreater BTParty
+  LF1.BuiltinFunctionGREATER_INT64 -> EBuiltin $ BEGreater BTInt64
+  LF1.BuiltinFunctionGREATER_DECIMAL -> ETyApp (EBuiltin BEGreaterNumeric) (TNat 10)
+  LF1.BuiltinFunctionGREATER_NUMERIC -> EBuiltin BEGreaterNumeric
+  LF1.BuiltinFunctionGREATER_TEXT -> EBuiltin $ BEGreater BTText
+  LF1.BuiltinFunctionGREATER_TIMESTAMP -> EBuiltin $ BEGreater BTTimestamp
+  LF1.BuiltinFunctionGREATER_DATE -> EBuiltin $ BEGreater BTDate
+  LF1.BuiltinFunctionGREATER_PARTY -> EBuiltin $ BEGreater BTParty
 
-  LF1.BuiltinFunctionTO_TEXT_INT64 -> BEToText BTInt64
-  LF1.BuiltinFunctionTO_TEXT_DECIMAL -> BEToText BTDecimal
-  LF1.BuiltinFunctionTO_TEXT_NUMERIC -> BEToTextNumeric
-  LF1.BuiltinFunctionTO_TEXT_TEXT -> BEToText BTText
-  LF1.BuiltinFunctionTO_TEXT_TIMESTAMP -> BEToText BTTimestamp
-  LF1.BuiltinFunctionTO_TEXT_PARTY -> BEToText BTParty
-  LF1.BuiltinFunctionTO_TEXT_DATE -> BEToText BTDate
-  LF1.BuiltinFunctionTEXT_FROM_CODE_POINTS -> BETextFromCodePoints
-  LF1.BuiltinFunctionFROM_TEXT_PARTY -> BEPartyFromText
-  LF1.BuiltinFunctionFROM_TEXT_INT64 -> BEInt64FromText
-  LF1.BuiltinFunctionFROM_TEXT_DECIMAL -> BEDecimalFromText
-  LF1.BuiltinFunctionFROM_TEXT_NUMERIC -> BENumericFromText
-  LF1.BuiltinFunctionTEXT_TO_CODE_POINTS -> BETextToCodePoints
-  LF1.BuiltinFunctionTO_QUOTED_TEXT_PARTY -> BEPartyToQuotedText
+  LF1.BuiltinFunctionTO_TEXT_INT64 -> EBuiltin $ BEToText BTInt64
+  LF1.BuiltinFunctionTO_TEXT_DECIMAL -> ETyApp (EBuiltin BEToTextNumeric) (TNat 10)
+  LF1.BuiltinFunctionTO_TEXT_NUMERIC -> EBuiltin BEToTextNumeric
+  LF1.BuiltinFunctionTO_TEXT_TEXT -> EBuiltin $ BEToText BTText
+  LF1.BuiltinFunctionTO_TEXT_TIMESTAMP -> EBuiltin $ BEToText BTTimestamp
+  LF1.BuiltinFunctionTO_TEXT_PARTY -> EBuiltin $ BEToText BTParty
+  LF1.BuiltinFunctionTO_TEXT_DATE -> EBuiltin $ BEToText BTDate
+  LF1.BuiltinFunctionTEXT_FROM_CODE_POINTS -> EBuiltin BETextFromCodePoints
+  LF1.BuiltinFunctionFROM_TEXT_PARTY -> EBuiltin $ BEPartyFromText
+  LF1.BuiltinFunctionFROM_TEXT_INT64 -> EBuiltin $ BEInt64FromText
+  LF1.BuiltinFunctionFROM_TEXT_DECIMAL -> ETyApp (EBuiltin BENumericFromText) (TNat 10)
+  LF1.BuiltinFunctionFROM_TEXT_NUMERIC -> EBuiltin $ BENumericFromText
+  LF1.BuiltinFunctionTEXT_TO_CODE_POINTS -> EBuiltin $ BETextToCodePoints
+  LF1.BuiltinFunctionTO_QUOTED_TEXT_PARTY -> EBuiltin $ BEPartyToQuotedText
 
-  LF1.BuiltinFunctionADD_DECIMAL   -> BEAddDecimal
-  LF1.BuiltinFunctionSUB_DECIMAL   -> BESubDecimal
-  LF1.BuiltinFunctionMUL_DECIMAL   -> BEMulDecimal
-  LF1.BuiltinFunctionDIV_DECIMAL   -> BEDivDecimal
-  LF1.BuiltinFunctionROUND_DECIMAL -> BERoundDecimal
-  LF1.BuiltinFunctionADD_NUMERIC   -> BEAddNumeric
-  LF1.BuiltinFunctionSUB_NUMERIC   -> BESubNumeric
-  LF1.BuiltinFunctionMUL_NUMERIC   -> BEMulNumeric
-  LF1.BuiltinFunctionDIV_NUMERIC   -> BEDivNumeric
-  LF1.BuiltinFunctionROUND_NUMERIC -> BERoundNumeric
+  LF1.BuiltinFunctionADD_DECIMAL   -> ETyApp (EBuiltin BEAddNumeric) (TNat 10)
+  LF1.BuiltinFunctionSUB_DECIMAL   -> ETyApp (EBuiltin BESubNumeric) (TNat 10)
+  LF1.BuiltinFunctionMUL_DECIMAL   -> ETyApp (EBuiltin BEMulNumeric) (TNat 10)
+  LF1.BuiltinFunctionDIV_DECIMAL   -> ETyApp (EBuiltin BEDivNumeric) (TNat 10)
+  LF1.BuiltinFunctionROUND_DECIMAL -> ETyApp (EBuiltin BERoundNumeric) (TNat 10)
+  LF1.BuiltinFunctionADD_NUMERIC   -> EBuiltin BEAddNumeric
+  LF1.BuiltinFunctionSUB_NUMERIC   -> EBuiltin BESubNumeric
+  LF1.BuiltinFunctionMUL_NUMERIC   -> EBuiltin BEMulNumeric
+  LF1.BuiltinFunctionDIV_NUMERIC   -> EBuiltin BEDivNumeric
+  LF1.BuiltinFunctionROUND_NUMERIC -> EBuiltin BERoundNumeric
 
-  LF1.BuiltinFunctionADD_INT64 -> BEAddInt64
-  LF1.BuiltinFunctionSUB_INT64 -> BESubInt64
-  LF1.BuiltinFunctionMUL_INT64 -> BEMulInt64
-  LF1.BuiltinFunctionDIV_INT64 -> BEDivInt64
-  LF1.BuiltinFunctionMOD_INT64 -> BEModInt64
-  LF1.BuiltinFunctionEXP_INT64 -> BEExpInt64
+  LF1.BuiltinFunctionADD_INT64 -> EBuiltin BEAddInt64
+  LF1.BuiltinFunctionSUB_INT64 -> EBuiltin BESubInt64
+  LF1.BuiltinFunctionMUL_INT64 -> EBuiltin BEMulInt64
+  LF1.BuiltinFunctionDIV_INT64 -> EBuiltin BEDivInt64
+  LF1.BuiltinFunctionMOD_INT64 -> EBuiltin BEModInt64
+  LF1.BuiltinFunctionEXP_INT64 -> EBuiltin BEExpInt64
 
-  LF1.BuiltinFunctionFOLDL          -> BEFoldl
-  LF1.BuiltinFunctionFOLDR          -> BEFoldr
-  LF1.BuiltinFunctionEQUAL_LIST     -> BEEqualList
-  LF1.BuiltinFunctionAPPEND_TEXT    -> BEAppendText
-  LF1.BuiltinFunctionERROR          -> BEError
+  LF1.BuiltinFunctionFOLDL          -> EBuiltin BEFoldl
+  LF1.BuiltinFunctionFOLDR          -> EBuiltin BEFoldr
+  LF1.BuiltinFunctionEQUAL_LIST     -> EBuiltin BEEqualList
+  LF1.BuiltinFunctionAPPEND_TEXT    -> EBuiltin BEAppendText
+  LF1.BuiltinFunctionERROR          -> EBuiltin BEError
 
-  LF1.BuiltinFunctionMAP_EMPTY      -> BEMapEmpty
-  LF1.BuiltinFunctionMAP_INSERT     -> BEMapInsert
-  LF1.BuiltinFunctionMAP_LOOKUP     -> BEMapLookup
-  LF1.BuiltinFunctionMAP_DELETE     -> BEMapDelete
-  LF1.BuiltinFunctionMAP_TO_LIST    -> BEMapToList
-  LF1.BuiltinFunctionMAP_SIZE       -> BEMapSize
+  LF1.BuiltinFunctionMAP_EMPTY      -> EBuiltin BEMapEmpty
+  LF1.BuiltinFunctionMAP_INSERT     -> EBuiltin BEMapInsert
+  LF1.BuiltinFunctionMAP_LOOKUP     -> EBuiltin BEMapLookup
+  LF1.BuiltinFunctionMAP_DELETE     -> EBuiltin BEMapDelete
+  LF1.BuiltinFunctionMAP_TO_LIST    -> EBuiltin BEMapToList
+  LF1.BuiltinFunctionMAP_SIZE       -> EBuiltin BEMapSize
 
-  LF1.BuiltinFunctionEXPLODE_TEXT -> BEExplodeText
-  LF1.BuiltinFunctionIMPLODE_TEXT -> BEImplodeText
-  LF1.BuiltinFunctionSHA256_TEXT  -> BESha256Text
+  LF1.BuiltinFunctionEXPLODE_TEXT -> EBuiltin BEExplodeText
+  LF1.BuiltinFunctionIMPLODE_TEXT -> EBuiltin BEImplodeText
+  LF1.BuiltinFunctionSHA256_TEXT  -> EBuiltin BESha256Text
 
-  LF1.BuiltinFunctionDATE_TO_UNIX_DAYS -> BEDateToUnixDays
-  LF1.BuiltinFunctionUNIX_DAYS_TO_DATE -> BEUnixDaysToDate
-  LF1.BuiltinFunctionTIMESTAMP_TO_UNIX_MICROSECONDS -> BETimestampToUnixMicroseconds
-  LF1.BuiltinFunctionUNIX_MICROSECONDS_TO_TIMESTAMP -> BEUnixMicrosecondsToTimestamp
+  LF1.BuiltinFunctionDATE_TO_UNIX_DAYS -> EBuiltin BEDateToUnixDays
+  LF1.BuiltinFunctionUNIX_DAYS_TO_DATE -> EBuiltin BEUnixDaysToDate
+  LF1.BuiltinFunctionTIMESTAMP_TO_UNIX_MICROSECONDS -> EBuiltin BETimestampToUnixMicroseconds
+  LF1.BuiltinFunctionUNIX_MICROSECONDS_TO_TIMESTAMP -> EBuiltin BEUnixMicrosecondsToTimestamp
 
-  LF1.BuiltinFunctionINT64_TO_DECIMAL -> BEInt64ToDecimal
-  LF1.BuiltinFunctionDECIMAL_TO_INT64 -> BEDecimalToInt64
-  LF1.BuiltinFunctionINT64_TO_NUMERIC -> BEInt64ToNumeric
-  LF1.BuiltinFunctionNUMERIC_TO_INT64 -> BENumericToInt64
+  LF1.BuiltinFunctionINT64_TO_DECIMAL -> ETyApp (EBuiltin BEInt64ToNumeric) (TNat 10)
+  LF1.BuiltinFunctionDECIMAL_TO_INT64 -> ETyApp (EBuiltin BENumericToInt64) (TNat 10)
+  LF1.BuiltinFunctionINT64_TO_NUMERIC -> EBuiltin BEInt64ToNumeric
+  LF1.BuiltinFunctionNUMERIC_TO_INT64 -> EBuiltin BENumericToInt64
 
-  LF1.BuiltinFunctionTRACE -> BETrace
-  LF1.BuiltinFunctionEQUAL_CONTRACT_ID -> BEEqualContractId
-  LF1.BuiltinFunctionCOERCE_CONTRACT_ID -> BECoerceContractId
+  LF1.BuiltinFunctionTRACE -> EBuiltin BETrace
+  LF1.BuiltinFunctionEQUAL_CONTRACT_ID -> EBuiltin BEEqualContractId
+  LF1.BuiltinFunctionCOERCE_CONTRACT_ID -> EBuiltin BECoerceContractId
 
 decodeLocation :: LF1.Location -> DecodeImpl SourceLoc
 decodeLocation (LF1.Location mbModRef mbRange) = do
@@ -289,7 +293,7 @@ decodeExprSum :: Maybe LF1.ExprSum -> DecodeImpl Expr
 decodeExprSum exprSum = mayDecode "exprSum" exprSum $ \case
   LF1.ExprSumVar var -> EVar <$> decodeName ExprVarName var
   LF1.ExprSumVal val -> EVal <$> decodeValName val
-  LF1.ExprSumBuiltin (Proto.Enumerated (Right bi)) -> EBuiltin <$> decodeBuiltinFunction bi
+  LF1.ExprSumBuiltin (Proto.Enumerated (Right bi)) -> decodeBuiltinFunction bi
   LF1.ExprSumBuiltin (Proto.Enumerated (Left num)) -> throwError (UnknownEnum "ExprSumBuiltin" num)
   LF1.ExprSumPrimCon (Proto.Enumerated (Right con)) -> pure $ EBuiltin $ case con of
     LF1.PrimConCON_UNIT -> BEUnit
@@ -493,7 +497,7 @@ decodePrimLit (LF1.PrimLit mbSum) = mayDecode "primLitSum" mbSum $ \case
   LF1.PrimLitSumInt64 sInt -> pure $ BEInt64 sInt
   LF1.PrimLitSumDecimal sDec -> case readMaybe (TL.unpack sDec) of
     Nothing -> throwError $ ParseError ("bad fixed while decoding Decimal: '" <> TL.unpack sDec <> "'")
-    Just dec -> return (BEDecimal dec)
+    Just dec -> return (BENumeric (numericFromDecimal dec))
   LF1.PrimLitSumNumeric sNum -> case readMaybe (TL.unpack sNum) of
     Nothing -> throwError $ ParseError ("bad Numeric literal: '" <> TL.unpack sNum <> "'")
     Just n -> return (BENumeric n)
@@ -510,24 +514,26 @@ decodeKind LF1.Kind{..} = mayDecode "kindSum" kindSum $ \case
     result <- mayDecode "kind_ArrowResult" mbResult decodeKind
     foldr KArrow result <$> traverse decodeKind (V.toList params)
 
-decodePrim :: LF1.PrimType -> Decode BuiltinType
+-- | Decode DAML-LF Primitive Type. As specified in #2289, the
+-- legacy @Decimal@ type gets converted to @Numeric 10@ automatically.
+decodePrim :: LF1.PrimType -> Decode Type
 decodePrim = pure . \case
-  LF1.PrimTypeINT64 -> BTInt64
-  LF1.PrimTypeDECIMAL -> BTDecimal
-  LF1.PrimTypeNUMERIC -> BTNumeric
-  LF1.PrimTypeTEXT    -> BTText
-  LF1.PrimTypeTIMESTAMP -> BTTimestamp
-  LF1.PrimTypePARTY   -> BTParty
-  LF1.PrimTypeUNIT    -> BTUnit
-  LF1.PrimTypeBOOL    -> BTBool
-  LF1.PrimTypeLIST    -> BTList
-  LF1.PrimTypeUPDATE  -> BTUpdate
-  LF1.PrimTypeSCENARIO -> BTScenario
-  LF1.PrimTypeDATE -> BTDate
-  LF1.PrimTypeCONTRACT_ID -> BTContractId
-  LF1.PrimTypeOPTIONAL -> BTOptional
-  LF1.PrimTypeMAP -> BTMap
-  LF1.PrimTypeARROW -> BTArrow
+  LF1.PrimTypeINT64 -> TBuiltin BTInt64
+  LF1.PrimTypeDECIMAL -> TDecimal
+  LF1.PrimTypeNUMERIC -> TBuiltin BTNumeric
+  LF1.PrimTypeTEXT    -> TBuiltin BTText
+  LF1.PrimTypeTIMESTAMP -> TBuiltin BTTimestamp
+  LF1.PrimTypePARTY   -> TBuiltin BTParty
+  LF1.PrimTypeUNIT    -> TBuiltin BTUnit
+  LF1.PrimTypeBOOL    -> TBuiltin BTBool
+  LF1.PrimTypeLIST    -> TBuiltin BTList
+  LF1.PrimTypeUPDATE  -> TBuiltin BTUpdate
+  LF1.PrimTypeSCENARIO -> TBuiltin BTScenario
+  LF1.PrimTypeDATE -> TBuiltin BTDate
+  LF1.PrimTypeCONTRACT_ID -> TBuiltin BTContractId
+  LF1.PrimTypeOPTIONAL -> TBuiltin BTOptional
+  LF1.PrimTypeMAP -> TBuiltin BTMap
+  LF1.PrimTypeARROW -> TBuiltin BTArrow
 
 decodeType :: LF1.Type -> DecodeImpl Type
 decodeType LF1.Type{..} = mayDecode "typeSum" typeSum $ \case
@@ -539,7 +545,7 @@ decodeType LF1.Type{..} = mayDecode "typeSum" typeSum $ \case
   LF1.TypeSumCon (LF1.Type_Con mbCon args) ->
     decodeWithArgs args $ TCon <$> mayDecode "type_ConTycon" mbCon decodeTypeConName
   LF1.TypeSumPrim (LF1.Type_Prim (Proto.Enumerated (Right prim)) args) -> do
-    decodeWithArgs args $ TBuiltin <$> (decodeImpl $ decodePrim prim)
+    decodeWithArgs args $ (decodeImpl $ decodePrim prim)
   LF1.TypeSumPrim (LF1.Type_Prim (Proto.Enumerated (Left idx)) _args) ->
     throwError (UnknownEnum "Prim" idx)
   LF1.TypeSumFun (LF1.Type_Fun params mbResult) -> do

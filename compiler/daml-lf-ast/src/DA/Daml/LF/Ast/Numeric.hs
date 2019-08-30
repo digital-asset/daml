@@ -4,9 +4,11 @@
 -- | DAML-LF Numeric literals, with scale attached.
 module DA.Daml.LF.Ast.Numeric
     ( Numeric
+    , E10
     , numeric
     , numericScale
     , numericMaxScale
+    , numericFromDecimal
     ) where
 
 import Control.DeepSeq
@@ -16,6 +18,7 @@ import Data.Decimal
 import Data.Maybe
 import GHC.Generics (Generic)
 import Numeric.Natural
+import Data.Fixed
 
 -- | Numeric literal. This must encode both the mantissa (up to 38 digits) and
 -- the scale (0-37), the latter controlling how many digits appear after the
@@ -95,6 +98,15 @@ instance Data Numeric where
     gunfold k z _ = k (k (z numeric))
     dataTypeOf _ = tyNumeric
     toConstr _ = conNumeric
+
+-- | Resolution for legacy Decimal literal.
+data E10
+instance HasResolution E10 where
+  resolution _ = 10000000000 -- 10^-10 resolution
+
+-- | Convert a legacy Decimal literal into a Numeric literal.
+numericFromDecimal :: Fixed E10 -> Numeric
+numericFromDecimal (MkFixed n) = numeric 10 n
 
 tyNumeric :: DataType
 tyNumeric = mkDataType "DA.Daml.LF.Ast.Numeric.Numeric" [conNumeric]

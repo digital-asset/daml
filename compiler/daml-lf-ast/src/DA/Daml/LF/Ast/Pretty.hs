@@ -118,7 +118,6 @@ instance Pretty TypeConApp where
 instance Pretty BuiltinType where
   pPrint = \case
     BTInt64          -> "Int64"
-    BTDecimal        -> "Decimal"
     BTNumeric -> "Numeric"
     BTText           -> "Text"
     BTTimestamp      -> "Timestamp"
@@ -184,7 +183,6 @@ instance Pretty PartyLiteral where
 instance Pretty BuiltinExpr where
   pPrintPrec lvl prec = \case
     BEInt64 n -> pretty (toInteger n)
-    BEDecimal dec -> string (show dec)
     BENumeric n -> string (show n)
     BEText t -> string (show t) -- includes the double quotes, and escapes characters
     BEParty p -> pretty p
@@ -197,11 +195,6 @@ instance Pretty BuiltinExpr where
     BEGreater t   -> maybeParens (prec > precEApp) ("GREATER"    <-> prettyBTyArg lvl t)
     BEGreaterEq t -> maybeParens (prec > precEApp) ("GREATER_EQ" <-> prettyBTyArg lvl t)
     BEToText t    -> maybeParens (prec > precEApp) ("TO_TEXT"    <-> prettyBTyArg lvl t)
-    BEAddDecimal -> "ADD_DECIMAL"
-    BESubDecimal -> "SUB_DECIMAL"
-    BEMulDecimal -> "MUL_DECIMAL"
-    BEDivDecimal -> "DIV_DECIMAL"
-    BERoundDecimal -> "ROUND_DECIMAL"
     BEAddNumeric -> "ADD_NUMERIC"
     BESubNumeric -> "SUB_NUMERIC"
     BEMulNumeric -> "MUL_NUMERIC"
@@ -234,8 +227,6 @@ instance Pretty BuiltinExpr where
     BEAppendText -> "APPEND_TEXT"
     BETimestamp ts -> pretty (timestampToText ts)
     BEDate date -> pretty (dateToText date)
-    BEInt64ToDecimal -> "INT64_TO_DECIMAL"
-    BEDecimalToInt64 -> "DECIMAL_TO_INT64"
     BETimestampToUnixMicroseconds -> "TIMESTAMP_TO_UNIX_MICROSECONDS"
     BEUnixMicrosecondsToTimestamp -> "UNIX_MICROSECONDS_TO_TIMESTAMP"
     BEDateToUnixDays -> "DATE_TO_UNIX_DAYS"
@@ -247,7 +238,6 @@ instance Pretty BuiltinExpr where
     BEEqualContractId -> "EQUAL_CONTRACT_ID"
     BEPartyFromText -> "FROM_TEXT_PARTY"
     BEInt64FromText -> "FROM_TEXT_INT64"
-    BEDecimalFromText -> "FROM_TEXT_DECIMAL"
     BEPartyToQuotedText -> "PARTY_TO_QUOTED_TEXT"
     BETextToCodePoints -> "TEXT_TO_CODE_POINTS"
     BETextFromCodePoints -> "TEXT_FROM_CODE_POINTS"

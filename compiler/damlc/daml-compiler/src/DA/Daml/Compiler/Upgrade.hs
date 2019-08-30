@@ -492,6 +492,10 @@ generateSrcFromLf (Qualify qualify) thisPkgId pkgMap m = noLoc mod
                                 | (fieldName, fieldTy) <- fs
                                 ]
                     cs -> errTooManyNameComponents cs
+
+            LF.TDecimal -> mkGhcType "Decimal"
+                -- TODO (#2289): Use built-in Numeric type instead. See below.
+
             LF.TApp ty1 ty2 ->
                 HsParTy noExt $
                 noLoc $ HsAppTy noExt (noLoc $ convType ty1) (noLoc $ convType ty2)
@@ -516,7 +520,6 @@ generateSrcFromLf (Qualify qualify) thisPkgId pkgMap m = noLoc mod
     convBuiltInTy =
         \case
             LF.BTInt64 -> mkTyConType intTyCon
-            LF.BTDecimal -> mkGhcType "Decimal"
             LF.BTText -> mkGhcType "Text"
             LF.BTTimestamp -> mkLfInternalType "Time"
             LF.BTDate -> mkLfInternalType "Date"
@@ -530,8 +533,8 @@ generateSrcFromLf (Qualify qualify) thisPkgId pkgMap m = noLoc mod
             LF.BTOptional -> mkLfInternalPrelude "Optional"
             LF.BTMap -> mkLfInternalType "TextMap"
             LF.BTArrow -> mkTyConTypeUnqual funTyCon
-            -- TODO (#2289): Add support for Numeric types.
             LF.BTNumeric -> error "Numeric type not yet supported in upgrades"
+                -- TODO (#2289): Add a Numeric type in GHC.Types and use that here.
     mkGhcType =
         HsTyVar noExt NotPromoted .
         noLoc . mkOrig gHC_TYPES . mkOccName varName
@@ -620,7 +623,9 @@ generateSrcFromLf (Qualify qualify) thisPkgId pkgMap m = noLoc mod
              pure $ toListOf (dataConsType . builtinType) $ LF.dataCons dataTy)
     builtinToModuleRef = \case
             LF.BTInt64 -> (primUnitId, translateModName intTyCon)
-            LF.BTDecimal -> (primUnitId, LF.ModuleName ["GHC", "Types"])
+            LF.BTNumeric -> (primUnitId, LF.ModuleName ["GHC", "Types"])
+                -- This is here because of TDecimal, for now.
+                -- TODO (#2898): actually supply a general numeric type in GHC.Types
             LF.BTText -> (primUnitId, LF.ModuleName ["GHC", "Types"])
             LF.BTTimestamp -> (damlStdlibUnitId, LF.ModuleName ["DA", "Internal", "LF"])
             LF.BTDate -> (damlStdlibUnitId, LF.ModuleName ["DA", "Internal", "LF"])
@@ -634,8 +639,6 @@ generateSrcFromLf (Qualify qualify) thisPkgId pkgMap m = noLoc mod
             LF.BTOptional -> (damlStdlibUnitId, LF.ModuleName ["DA", "Internal", "Prelude"])
             LF.BTMap -> (damlStdlibUnitId, LF.ModuleName ["DA", "Internal", "LF"])
             LF.BTArrow -> (primUnitId, translateModName funTyCon)
-            -- TODO (#2289): Add support for Numeric types.
-            LF.BTNumeric -> error "Numeric type not yet supported in upgrades"
 
     translateModName ::
            forall a. NamedThing a

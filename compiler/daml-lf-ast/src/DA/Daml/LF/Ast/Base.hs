@@ -20,7 +20,6 @@ import           Control.DeepSeq
 import           Control.Lens
 import qualified Data.NameMap as NM
 import qualified Data.Text          as T
-import Data.Fixed
 import qualified "template-haskell" Language.Haskell.TH as TH
 import qualified Control.Lens.TH as Lens.TH
 
@@ -139,7 +138,6 @@ data Kind
 -- | Builtin type.
 data BuiltinType
   = BTInt64
-  | BTDecimal
   | BTNumeric
   | BTText
   | BTTimestamp
@@ -190,15 +188,10 @@ data TypeConApp = TypeConApp
   }
   deriving (Eq, Data, Generic, NFData, Ord, Show)
 
-data E10
-instance HasResolution E10 where
-  resolution _ = 10000000000 -- 10^-10 resolution
-
 -- | Builtin operation or literal.
 data BuiltinExpr
   -- Literals
   = BEInt64      !Int64          -- :: Int64
-  | BEDecimal    !(Fixed E10)    -- :: Decimal, precision 38, scale 10
   | BENumeric    !Numeric        -- :: Numeric, precision 38, scale 0 through 37
   | BEText       !T.Text         -- :: Text
   | BETimestamp  !Int64          -- :: Timestamp, microseconds since unix epoch
@@ -215,14 +208,7 @@ data BuiltinExpr
   | BEGreaterEq  !BuiltinType    -- :: t -> t -> Bool, where t is the builtin type
   | BEGreater    !BuiltinType    -- :: t -> t -> Bool, where t is the builtin type
   | BEToText     !BuiltinType    -- :: t -> Text, where t is one of the builtin types
-                                 -- {Int64, Decimal, Text, Timestamp, Date, Party}
-
-  -- Decimal arithmetic
-  | BEAddDecimal                 -- :: Decimal -> Decimal -> Decimal, crashes on overflow
-  | BESubDecimal                 -- :: Decimal -> Decimal -> Decimal, crashes on overflow
-  | BEMulDecimal                 -- :: Decimal -> Decimal -> Decimal, crashes on overflow and underflow, automatically rounds to even (see <https://en.wikipedia.org/wiki/Rounding#Round_half_to_even>)
-  | BEDivDecimal                 -- :: Decimal -> Decimal -> Decimal, automatically rounds to even, crashes on divisor = 0 and on overflow
-  | BERoundDecimal               -- :: Int64 -> Decimal -> Decimal, the Int64 is the required scale. Note that this doesn't modify the scale of the type itself, it just zeroes things outside that scale out. Can be negative. Crashes if the scale is > 10 or < -27.
+                                 -- {Int64, Text, Timestamp, Date, Party}
 
   -- Numeric arithmetic and comparisons
   | BEEqualNumeric               -- :: ∀n. Numeric n -> Numeric n -> Bool, where t is the builtin type
@@ -246,8 +232,6 @@ data BuiltinExpr
   | BEExpInt64                 -- :: Int64 -> Int64 -> Int64, crashes on overflow
 
   -- Numerical conversion
-  | BEInt64ToDecimal           -- :: Int64 -> Decimal, always succeeds since 10^28 > 2^63
-  | BEDecimalToInt64           -- :: Decimal -> Int64, only converts the whole part, crashes if it doesn't fit
   | BEInt64ToNumeric           -- :: ∀(s:nat). Int64 -> Numeric s, crashes if it doesn't fit (TODO: verify?)
   | BENumericToInt64           -- :: ∀(s:nat). Numeric s -> Int64, only converts the whole part, crashes if it doesn't fit
 
@@ -276,7 +260,6 @@ data BuiltinExpr
   | BESha256Text                 -- :: Text -> Text
   | BEPartyFromText              -- :: Text -> Optional Party
   | BEInt64FromText              -- :: Text -> Optional Int64
-  | BEDecimalFromText            -- :: Text -> Optional Decimal
   | BENumericFromText            -- :: ∀(s:nat). Text -> Optional (Numeric s)
   | BETextToCodePoints           -- :: Text -> List Int64
   | BETextFromCodePoints         -- :: List Int64 -> Text
