@@ -30,7 +30,7 @@ Run the following command to fetch the tool:
 
 This will create a file ``ledger-api-test-tool.jar`` in your current directory.
 
-You can alternatively build the tool from source via Bazel if you want to run the tool off the latest daml repo code
+You can alternatively build the tool from source via Bazel if you want to run the tool off the latest daml repo HEAD code
 
 .. code-block:: shell
 
