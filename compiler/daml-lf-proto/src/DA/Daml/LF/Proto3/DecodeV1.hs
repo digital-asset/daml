@@ -219,12 +219,12 @@ decodeBuiltinFunction = pure . \case
   LF1.BuiltinFunctionTO_TEXT_PARTY -> EBuiltin $ BEToText BTParty
   LF1.BuiltinFunctionTO_TEXT_DATE -> EBuiltin $ BEToText BTDate
   LF1.BuiltinFunctionTEXT_FROM_CODE_POINTS -> EBuiltin BETextFromCodePoints
-  LF1.BuiltinFunctionFROM_TEXT_PARTY -> EBuiltin $ BEPartyFromText
-  LF1.BuiltinFunctionFROM_TEXT_INT64 -> EBuiltin $ BEInt64FromText
+  LF1.BuiltinFunctionFROM_TEXT_PARTY -> EBuiltin BEPartyFromText
+  LF1.BuiltinFunctionFROM_TEXT_INT64 -> EBuiltin BEInt64FromText
   LF1.BuiltinFunctionFROM_TEXT_DECIMAL -> ETyApp (EBuiltin BENumericFromText) (TNat 10)
-  LF1.BuiltinFunctionFROM_TEXT_NUMERIC -> EBuiltin $ BENumericFromText
-  LF1.BuiltinFunctionTEXT_TO_CODE_POINTS -> EBuiltin $ BETextToCodePoints
-  LF1.BuiltinFunctionTO_QUOTED_TEXT_PARTY -> EBuiltin $ BEPartyToQuotedText
+  LF1.BuiltinFunctionFROM_TEXT_NUMERIC -> EBuiltin BENumericFromText
+  LF1.BuiltinFunctionTEXT_TO_CODE_POINTS -> EBuiltin BETextToCodePoints
+  LF1.BuiltinFunctionTO_QUOTED_TEXT_PARTY -> EBuiltin BEPartyToQuotedText
 
   LF1.BuiltinFunctionADD_DECIMAL   -> ETyApp (EBuiltin BEAddNumeric) (TNat 10)
   LF1.BuiltinFunctionSUB_DECIMAL   -> ETyApp (EBuiltin BESubNumeric) (TNat 10)
@@ -545,7 +545,7 @@ decodeType LF1.Type{..} = mayDecode "typeSum" typeSum $ \case
   LF1.TypeSumCon (LF1.Type_Con mbCon args) ->
     decodeWithArgs args $ TCon <$> mayDecode "type_ConTycon" mbCon decodeTypeConName
   LF1.TypeSumPrim (LF1.Type_Prim (Proto.Enumerated (Right prim)) args) -> do
-    decodeWithArgs args $ (decodeImpl $ decodePrim prim)
+    decodeWithArgs args . decodeImpl $ decodePrim prim
   LF1.TypeSumPrim (LF1.Type_Prim (Proto.Enumerated (Left idx)) _args) ->
     throwError (UnknownEnum "Prim" idx)
   LF1.TypeSumFun (LF1.Type_Fun params mbResult) -> do
