@@ -32,7 +32,7 @@ haskell_library(
     hazel_library("process"),
     hazel_library("hpc"),
     "ghc-lib-parser-cbits"
-  ] + ([hazel_library("Win32")] if is_windows else ["@libffi_nix//:ffi", hazel_library("unix")]),
+  ] + ([hazel_library("Win32")] if is_windows else [hazel_library("unix")]),
   compiler_flags = [
     "-XHaskell2010",
     "-XNoImplicitPrelude",
@@ -58,7 +58,7 @@ haskell_library(
 cc_library(
   name = "ghc-lib-parser-cbits",
   visibility = ["//visibility:public"],
-  deps = ["@haskell_rts//:lib"] + ([hazel_library("Win32")] if is_windows else ["@libffi_nix//:ffi", hazel_cbits("unix"), hazel_library("unix")]) + [
+  deps = ["@haskell_rts//:lib"] + ([hazel_library("Win32")] if is_windows else [hazel_cbits("unix"), hazel_library("unix")]) + [
     hazel_cbits("ghc-prim"),
     hazel_cbits("base"),
     hazel_cbits("containers"),

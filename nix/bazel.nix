@@ -15,7 +15,6 @@ let shared = rec {
     imagemagick
     jdk8
     jq
-    libffi
     nodejs
     patchelf
     postgresql

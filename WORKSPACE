@@ -541,7 +541,6 @@ hazel_repositories(
         hazel_default_extra_libs,
         {
             "z": "@com_github_madler_zlib//:z",
-            "ffi": "" if is_windows else "@libffi_nix//:ffi",
             "bz2": "@bzip2//:bz2",
         },
     ),
@@ -685,28 +684,6 @@ nixpkgs_package(
         visibility = ["//visibility:public"],
     )
     """,
-    nix_file = "//nix:bazel.nix",
-    nix_file_deps = common_nix_file_deps,
-    repositories = dev_env_nix_repos,
-)
-
-nixpkgs_package(
-    name = "libffi_nix",
-    attribute_path = "libffi.dev",
-    build_file_content = """
-package(default_visibility = ["//visibility:public"])
-
-filegroup(
-    name = "include",
-    srcs = glob(["include/**/*.h"]),
-)
-
-cc_library(
-    name = "ffi",
-    hdrs = [":include"],
-    strip_include_prefix = "include",
-)
-""",
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
     repositories = dev_env_nix_repos,
