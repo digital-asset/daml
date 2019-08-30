@@ -36,7 +36,7 @@ private[kvutils] case class ProcessConfigSubmission(
       buildLogEntry
     )
 
-  private def checkTtl(): Commit[Unit] = delay {
+  private val checkTtl: Commit[Unit] = delay {
     // Check the maximum record time against the record time of the commit.
     // This mechanism allows the submitter to detect lost submissions and retry
     // with a submitter controlled rate.
@@ -50,24 +50,30 @@ private[kvutils] case class ProcessConfigSubmission(
     }
   }
 
-  private def authorizeSubmission(): Commit[Unit] = delay {
+  private val authorizeSubmission: Commit[Unit] = delay {
     // Submission is authorized when:
-    //   1) The authorized participant is unset
-    //   2) The authorized participant matches the submitting participant.
+    //      the provided participant id matches source participant id
+    //  AND (
+    //      the authorized participant is unset
+    //   OR the authorized participant matches the submitting participant.
+    //  )
+    val wellFormed =
+      participantId == configSubmission.getParticipantId
+
     val authorized =
       currentConfig.authorizedParticipantId
         .fold(true)(authPid => authPid == participantId)
 
-    if (!authorized) {
+    if (wellFormed && authorized) {
+      pass
+    } else {
       logger.warn(
         s"Rejected configuration submission. Authorized participant (${currentConfig.authorizedParticipantId}) does not match submitting participant $participantId.")
       rejectParticipantNotAuthorized
-    } else {
-      pass
     }
   }
 
-  private def validateSubmission(): Commit[Unit] =
+  private val validateSubmission: Commit[Unit] =
     Configuration
       .decode(newConfig)
       .fold(exc => rejectInvalidConfiguration(exc), pure)
@@ -78,7 +84,7 @@ private[kvutils] case class ProcessConfigSubmission(
           pass
       }
 
-  private def buildLogEntry(): Commit[Unit] = sequence(
+  private val buildLogEntry: Commit[Unit] = sequence(
     delay {
       logger.trace(
         s"processSubmission[entryId=${Pretty.prettyEntryId(entryId)}]: New configuration committed.")

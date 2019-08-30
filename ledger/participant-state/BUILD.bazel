@@ -16,6 +16,9 @@ da_scala_library(
     visibility = [
         "//visibility:public",
     ],
+    exports = [
+        "//ledger/participant-state/protobuf:ledger_configuration_java_proto",
+    ],
     runtime_deps = [],
     deps = [
         "//3rdparty/jvm/com/google/guava",

@@ -7,6 +7,8 @@ import java.time.Duration
 
 import com.digitalasset.daml.lf.data.Ref
 
+import scala.util.Try
+
 /** Ledger configuration describing the ledger's time model.
   * Emitted in [[com.daml.ledger.participant.state.v1.Update.ConfigurationChanged]].
   */
@@ -26,6 +28,12 @@ object Configuration {
   import com.daml.ledger.participant.state.protobuf
 
   val protobufVersion: Long = 1L
+
+  def decode(bytes: Array[Byte]): Either[String, Configuration] =
+    Try(protobuf.LedgerConfiguration.parseFrom(bytes)).toEither.left
+      .map(_.getMessage)
+      .right
+      .flatMap(decode)
 
   def decode(config: protobuf.LedgerConfiguration): Either[String, Configuration] =
     config.getVersion match {
@@ -79,7 +87,6 @@ object Configuration {
           .setMaxTtl(buildDuration(tm.maxTtl))
       )
       .build
-
   }
 
   // TODO(JM): Find a common place for these.

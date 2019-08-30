@@ -466,7 +466,7 @@ class InMemoryKVParticipantState(
     val cf = new CompletableFuture[PartyAllocationResult]
     matcherActorRef ! AddPartyAllocationRequest(sId, cf)
     commitActorRef ! CommitSubmission(
-      allocateEntryId(),
+      allocateEntryId,
       Envelope.enclose(
         KeyValueSubmission.partyToSubmission(sId, Some(party), displayName, participantId)
       )
@@ -532,7 +532,7 @@ class InMemoryKVParticipantState(
           case _ => sys.error(s"getDamlState: Envelope did not contain a state value")
       })
 
-  private def allocateEntryId(): Proto.DamlLogEntryId = {
+  private def allocateEntryId: Proto.DamlLogEntryId = {
     val nonce: Array[Byte] = Array.ofDim(8)
     rng.nextBytes(nonce)
     Proto.DamlLogEntryId.newBuilder
@@ -549,7 +549,7 @@ class InMemoryKVParticipantState(
   /** Get a new record time for the ledger from the system clock.
     * Public for use from integration tests.
     */
-  def getNewRecordTime(): Timestamp =
+  def getNewRecordTime: Timestamp =
     Timestamp.assertFromInstant(Clock.systemUTC().instant())
 
   /** Submit a new configuration to the ledger. */
@@ -559,7 +559,8 @@ class InMemoryKVParticipantState(
       config: Configuration): CompletionStage[SubmissionResult] =
     CompletableFuture.completedFuture({
       val submission =
-        KeyValueSubmission.configurationToSubmission(maxRecordTime, submissionId, config)
+        KeyValueSubmission
+          .configurationToSubmission(maxRecordTime, submissionId, participantId, config)
       commitActorRef ! CommitSubmission(
         allocateEntryId,
         Envelope.enclose(submission)

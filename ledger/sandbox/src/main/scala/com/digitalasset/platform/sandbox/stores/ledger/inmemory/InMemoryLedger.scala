@@ -10,6 +10,7 @@ import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.ledger.participant.state.index.v2.PackageDetails
 import com.daml.ledger.participant.state.v1.{
+  Configuration,
   PartyAllocationResult,
   SubmissionResult,
   SubmittedTransaction,
@@ -18,7 +19,7 @@ import com.daml.ledger.participant.state.v1.{
   UploadPackagesResult
 }
 import com.digitalasset.api.util.TimeProvider
-import com.digitalasset.daml.lf.data.ImmArray
+import com.digitalasset.daml.lf.data.{ImmArray, Time}
 import com.digitalasset.daml.lf.data.Ref.{PackageId, Party, TransactionIdString}
 import com.digitalasset.daml.lf.engine.Blinding
 import com.digitalasset.daml.lf.language.Ast
@@ -273,4 +274,11 @@ class InMemoryLedger(
         }
       )
   }
+
+  override def publishConfiguration(
+      maxRecordTime: Time.Timestamp,
+      submissionId: String,
+      config: Configuration): Future[SubmissionResult] = ???
+
+  override def lookupLedgerConfiguration(): Future[Option[Configuration]] = ???
 }

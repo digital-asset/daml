@@ -10,6 +10,7 @@ import akka.stream.scaladsl.Source
 import com.daml.ledger.participant.state.index.v2.PackageDetails
 import com.daml.ledger.participant.state.v1._
 import com.digitalasset.daml.lf.data.Ref.{PackageId, Party, TransactionIdString}
+import com.digitalasset.daml.lf.data.Time
 import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.transaction.Node.GlobalKey
 import com.digitalasset.daml.lf.value.Value
@@ -59,6 +60,9 @@ private class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, mm: MetricsManager)
   override def close(): Unit = {
     ledger.close()
   }
+
+  override def lookupLedgerConfiguration(): Future[Option[Configuration]] =
+    mm.timedFuture("Ledger:lookupLedgerConfiguration", ledger.lookupLedgerConfiguration())
 }
 
 object MeteredReadOnlyLedger {
@@ -93,6 +97,14 @@ private class MeteredLedger(ledger: Ledger, mm: MetricsManager)
     mm.timedFuture(
       "Ledger:uploadPackages",
       ledger.uploadPackages(knownSince, sourceDescription, payload))
+
+  override def publishConfiguration(
+      maxRecordTime: Time.Timestamp,
+      submissionId: String,
+      config: Configuration): Future[SubmissionResult] =
+    mm.timedFuture(
+      "Ledger:publishConfiguration",
+      ledger.publishConfiguration(maxRecordTime, submissionId, config))
 
   override def close(): Unit = {
     ledger.close()

@@ -112,6 +112,7 @@ object KeyValueSubmission {
   def configurationToSubmission(
       maxRecordTime: Timestamp,
       submissionId: String,
+      participantId: String,
       config: Configuration): DamlSubmission = {
     val tm = config.timeModel
     DamlSubmission.newBuilder
@@ -119,6 +120,7 @@ object KeyValueSubmission {
       .setConfigurationSubmission(
         DamlConfigurationSubmission.newBuilder
           .setSubmissionId(submissionId)
+          .setParticipantId(participantId)
           .setMaximumRecordTime(buildTimestamp(maxRecordTime))
           .setConfiguration(Configuration.encode(config))
       )

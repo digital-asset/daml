@@ -434,6 +434,5 @@ class LedgerBackedWriteService(ledger: Ledger, timeProvider: TimeProvider) exten
       maxRecordTime: Time.Timestamp,
       submissionId: String,
       config: Configuration): CompletionStage[SubmissionResult] =
-    // FIXME(JM): Implement configuration changes in sandbox.
-    CompletableFuture.completedFuture(SubmissionResult.NotSupported)
+    FutureConverters.toJava(ledger.publishConfiguration(maxRecordTime, submissionId, config))
 }

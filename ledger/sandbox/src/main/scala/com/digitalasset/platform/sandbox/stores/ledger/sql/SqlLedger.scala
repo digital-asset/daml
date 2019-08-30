@@ -14,7 +14,7 @@ import com.daml.ledger.participant.state.index.v2.PackageDetails
 import com.daml.ledger.participant.state.v1._
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.Ref.Party
-import com.digitalasset.daml.lf.data.{ImmArray, Ref}
+import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.engine.Blinding
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractId}
 import com.digitalasset.daml_lf.DamlLf.Archive
@@ -118,11 +118,13 @@ private class SqlLedger(
 
   private val logger = LoggerFactory.getLogger(getClass)
 
+  private case class Offsets(offset: Long, nextOffset: Long)
+
   // the reason for modelling persistence as a reactive pipeline is to avoid having race-conditions between the
   // moving ledger-end, the async persistence operation and the dispatcher head notification
   private val (checkpointQueue, persistenceQueue): (
-      SourceQueueWithComplete[Long => PersistenceEntry],
-      SourceQueueWithComplete[Long => PersistenceEntry]) = createQueues()
+      SourceQueueWithComplete[Offsets => Future[Unit]],
+      SourceQueueWithComplete[Offsets => Future[Unit]]) = createQueues()
 
   watchForFailures(checkpointQueue, "checkpoint")
   watchForFailures(persistenceQueue, "persistence")
@@ -136,12 +138,12 @@ private class SqlLedger(
       }(DEC)
 
   private def createQueues(): (
-      SourceQueueWithComplete[Long => PersistenceEntry],
-      SourceQueueWithComplete[Long => PersistenceEntry]) = {
+      SourceQueueWithComplete[Offsets => Future[Unit]],
+      SourceQueueWithComplete[Offsets => Future[Unit]]) = {
 
-    val checkpointQueue = Source.queue[Long => PersistenceEntry](1, OverflowStrategy.dropHead)
+    val checkpointQueue = Source.queue[Offsets => Future[Unit]](1, OverflowStrategy.dropHead)
     val persistenceQueue =
-      Source.queue[Long => PersistenceEntry](queueDepth, OverflowStrategy.dropNew)
+      Source.queue[Offsets => Future[Unit]](queueDepth, OverflowStrategy.dropNew)
 
     implicit val ec: ExecutionContext = DEC
 
@@ -150,7 +152,7 @@ private class SqlLedger(
         q1Mat -> q2Mat
     } { implicit b => (s1, s2) =>
       import akka.stream.scaladsl.GraphDSL.Implicits._
-      val merge = b.add(MergePreferred[Long => PersistenceEntry](1))
+      val merge = b.add(MergePreferred[Offsets => Future[Unit]](1))
 
       s1 ~> merge.preferred
       s2 ~> merge.in(0)
@@ -171,28 +173,21 @@ private class SqlLedger(
         //shooting the SQL queries in parallel
         Future
           .sequence(queue.toIterator.zipWithIndex.map {
-            case (ledgerEntryGen, i) =>
+            case (persist, i) =>
               val offset = startOffset + i
-              ledgerDao
-                .storeLedgerEntry(offset, offset + 1, None, ledgerEntryGen(offset))
-                .map(_ => ())(DEC)
-                .recover {
-                  case t =>
-                    //recovering from the failure so the persistence stream doesn't die
-                    logger.error(s"Failed to persist entry with offset: $offset", t)
-                    ()
-                }(DEC)
+              persist(Offsets(offset, offset + 1L))
           })
           .map { _ =>
             //note that we can have holes in offsets in case of the storing of an entry failed for some reason
             dispatcher.signalNewHead(startOffset + queue.length) //signalling downstream subscriptions
           }(DEC)
       }
-      .toMat(Sink.ignore)(Keep.left[
-        (
-            SourceQueueWithComplete[Long => PersistenceEntry],
-            SourceQueueWithComplete[Long => PersistenceEntry]),
-        Future[Done]])
+      .toMat(Sink.ignore)(
+        Keep.left[
+          (
+              SourceQueueWithComplete[Offsets => Future[Unit]],
+              SourceQueueWithComplete[Offsets => Future[Unit]]),
+          Future[Done]])
       .run()
   }
 
@@ -202,17 +197,29 @@ private class SqlLedger(
     checkpointQueue.complete()
   }
 
+  private def storeLedgerEntry(offsets: Offsets, entry: PersistenceEntry): Future[Unit] =
+    ledgerDao
+      .storeLedgerEntry(offsets.offset, offsets.nextOffset, None, entry)
+      .map(_ => ())(DEC)
+      .recover {
+        case t =>
+          //recovering from the failure so the persistence stream doesn't die
+          logger.error(s"Failed to persist entry with offsets: $offsets", t)
+          ()
+      }(DEC)
+
   override def publishHeartbeat(time: Instant): Future[Unit] =
     checkpointQueue
-      .offer(_ => PersistenceEntry.Checkpoint(LedgerEntry.Checkpoint(time)))
+      .offer(offsets =>
+        storeLedgerEntry(offsets, PersistenceEntry.Checkpoint(LedgerEntry.Checkpoint(time))))
       .map(_ => ())(DEC) //this never pushes back, see createQueues above!
 
   override def publishTransaction(
       submitterInfo: SubmitterInfo,
       transactionMeta: TransactionMeta,
       transaction: SubmittedTransaction): Future[SubmissionResult] =
-    enqueue { offset =>
-      val transactionId = Ref.LedgerString.fromLong(offset)
+    enqueue { offsets =>
+      val transactionId = Ref.LedgerString.fromLong(offsets.offset)
       val toAbsCoid: ContractId => AbsoluteContractId =
         SandboxEventIdFormatter.makeAbsCoid(transactionId)
 
@@ -233,7 +240,7 @@ private class SqlLedger(
       }
 
       val recordTime = timeProvider.getCurrentTime
-      if (recordTime.isAfter(submitterInfo.maxRecordTime.toInstant)) {
+      val entry = if (recordTime.isAfter(submitterInfo.maxRecordTime.toInstant)) {
         // This can happen if the DAML-LF computation (i.e. exercise of a choice) takes longer
         // than the time window between LET and MRT allows for.
         // See https://github.com/digital-asset/daml/issues/987
@@ -264,11 +271,14 @@ private class SqlLedger(
           blindingInfo.globalImplicitDisclosure
         )
       }
+
+      storeLedgerEntry(offsets, entry)
+
     }
 
-  private def enqueue(f: Long => PersistenceEntry): Future[SubmissionResult] =
+  private def enqueue(persist: Offsets => Future[Unit]): Future[SubmissionResult] =
     persistenceQueue
-      .offer(f)
+      .offer(persist)
       .transform {
         case Success(Enqueued) =>
           Success(SubmissionResult.Acknowledged)
@@ -314,6 +324,31 @@ private class SqlLedger(
         UploadPackagesResult.Ok
       }(DEC)
   }
+
+  override def publishConfiguration(
+      maxRecordTime: Time.Timestamp,
+      submissionId: String,
+      config: Configuration): Future[SubmissionResult] =
+    enqueue { offsets =>
+      // FIXME(JM): Validate that configuration generation is one larger.
+      ledgerDao
+        .storeConfigurationEntry(
+          offsets.offset,
+          offsets.nextOffset,
+          None,
+          submissionId,
+          Ref.LedgerString.assertFromString("FIXME participant id"),
+          config,
+          None
+        )
+        .map(_ => ())(DEC)
+        .recover {
+          case t =>
+            //recovering from the failure so the persistence stream doesn't die
+            logger.error(s"Failed to persist configuration with offsets: $offsets", t)
+            ()
+        }(DEC)
+    }
 }
 
 private class SqlLedgerFactory(ledgerDao: LedgerDao) {
