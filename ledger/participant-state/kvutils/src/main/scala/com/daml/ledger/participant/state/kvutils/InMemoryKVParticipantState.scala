@@ -341,14 +341,8 @@ class InMemoryKVParticipantState(
     * given offset, and the method [[Dispatcher.signalNewHead]] to signal that
     * new elements has been added.
     */
-  private val dispatcher: Dispatcher[Int, List[Update]] = Dispatcher(
-    steppingMode = OneAfterAnother(
-      (idx: Int, _) => idx + 1,
-      (idx: Int) => Future.successful(getUpdate(idx, stateRef))
-    ),
-    zeroIndex = beginning,
-    headAtInitialization = beginning
-  )
+  private val dispatcher: Dispatcher[Int] =
+    Dispatcher(zeroIndex = beginning, headAtInitialization = beginning)
 
   /** Helper for [[dispatcher]] to fetch [[DamlLogEntry]] from the
     * state and convert it into [[Update]].
@@ -389,7 +383,11 @@ class InMemoryKVParticipantState(
       .startingAt(
         beginAfter
           .map(_.components.head.toInt)
-          .getOrElse(beginning)
+          .getOrElse(beginning),
+        OneAfterAnother[Int, List[Update]](
+          (idx: Int, _) => idx + 1,
+          (idx: Int) => Future.successful(getUpdate(idx, stateRef))
+        )
       )
       .collect {
         case (offset, updates) =>

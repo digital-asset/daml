@@ -31,8 +31,7 @@ class BaseLedger(val ledgerId: LedgerId, headAtInitialization: Long, ledgerDao: 
 
   implicit private val DEC: ExecutionContext = DirectExecutionContext
 
-  protected final val dispatcher: Dispatcher[Long, LedgerEntry] = Dispatcher[Long, LedgerEntry](
-    RangeSource(ledgerDao.getLedgerEntries(_, _)),
+  protected final val dispatcher: Dispatcher[Long] = Dispatcher[Long](
     0l,
     headAtInitialization
   )
@@ -41,7 +40,7 @@ class BaseLedger(val ledgerId: LedgerId, headAtInitialization: Long, ledgerDao: 
     ledgerDao.lookupKey(key)
 
   override def ledgerEntries(offset: Option[Long]): Source[(Long, LedgerEntry), NotUsed] =
-    dispatcher.startingAt(offset.getOrElse(0))
+    dispatcher.startingAt(offset.getOrElse(0), RangeSource(ledgerDao.getLedgerEntries(_, _)))
 
   override def ledgerEnd: Long = dispatcher.getHead()
 
