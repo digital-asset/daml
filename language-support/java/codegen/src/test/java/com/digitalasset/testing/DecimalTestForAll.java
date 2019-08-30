@@ -39,11 +39,11 @@ public class DecimalTestForAll {
 
     @Test
     void value2Decimal2value() {
-        Record.Field partiField = new Record.Field("party", new Party("alice"));
+        Record.Field partyField = new Record.Field("party", new Party("alice"));
         for(String s : goodValues) {
             Record record = new Record(
                     new Record.Field("x", new Numeric(new BigDecimal(s))),
-                    partiField
+                    partyField
             );
             assertEquals(Box.fromValue(record).toValue(), record);
         }

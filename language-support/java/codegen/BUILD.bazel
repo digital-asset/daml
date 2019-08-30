@@ -19,6 +19,9 @@ load(
     "mangle_for_java",
 )
 load(
+"//daml-lf/language:daml-lf.bzl","lf_latest_version"
+)
+load(
     "@com_github_johnynek_bazel_jar_jar//:jar_jar.bzl",
     "jar_jar",
 )
@@ -192,6 +195,7 @@ daml_compile(
     name = "integration-tests-model-latest",
     srcs = glob(["src/it/daml/**/*.daml"]),
     main_src = "src/it/daml/Lib.daml",
+    target = lf_latest_version
 )
 
 [
@@ -242,11 +246,12 @@ daml_compile(
     name = "ledger-tests-model",
     srcs = glob(["src/ledger-tests/daml/**/*.daml"]),
     main_src = "src/ledger-tests/daml/AllTests.daml",
+    target = lf_latest_version,
 )
 
 dar_to_java(
     name = "ledger-tests-model",
-    src = "ledger-tests-model.dar",
+    src = ":ledger-tests-model.dar",
 )
 
 da_scala_test(
