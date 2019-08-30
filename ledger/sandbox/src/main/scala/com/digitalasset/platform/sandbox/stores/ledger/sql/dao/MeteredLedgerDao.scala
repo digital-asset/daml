@@ -45,8 +45,9 @@ private class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, mm: MetricsManager)
   override def lookupKey(key: Node.GlobalKey): Future[Option[Value.AbsoluteContractId]] =
     mm.timedFuture("LedgerDao:lookupKey", ledgerDao.lookupKey(key))
 
-  override def getActiveContractSnapshot()(implicit mat: Materializer): Future[LedgerSnapshot] =
-    ledgerDao.getActiveContractSnapshot()
+  override def getActiveContractSnapshot(untilExclusive: LedgerOffset)(
+      implicit mat: Materializer): Future[LedgerSnapshot] =
+    ledgerDao.getActiveContractSnapshot(untilExclusive)
 
   override def getLedgerEntries(
       startInclusive: LedgerOffset,

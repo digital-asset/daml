@@ -6,25 +6,14 @@ package com.digitalasset.platform.sandbox.stores.ledger.sql
 import akka.NotUsed
 import akka.stream._
 import akka.stream.scaladsl.{Keep, RestartSource, Sink, Source}
-import com.daml.ledger.participant.state.index.v2.PackageDetails
-import com.digitalasset.daml.lf.archive.Decode
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.PackageId
-import com.digitalasset.daml.lf.language.Ast
-import com.digitalasset.daml.lf.transaction.Node
-import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
-import com.digitalasset.daml_lf.DamlLf.Archive
-import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails}
-import com.digitalasset.platform.akkastreams.dispatcher.Dispatcher
-import com.digitalasset.platform.akkastreams.dispatcher.SubSource.RangeSource
+import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.platform.common.util.{DirectExecutionContext => DEC}
 import com.digitalasset.platform.sandbox.metrics.MetricsManager
-import com.digitalasset.platform.sandbox.stores.ActiveContracts.ActiveContract
+import com.digitalasset.platform.sandbox.stores.ledger.ReadOnlyLedger
 import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.{
+  JdbcLedgerDao,
   LedgerDao,
-  LedgerReadDao,
-  JdbcLedgerDao
+  LedgerReadDao
 }
 import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{
   ContractSerializer,
@@ -33,13 +22,11 @@ import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{
   ValueSerializer
 }
 import com.digitalasset.platform.sandbox.stores.ledger.sql.util.DbDispatcher
-import com.digitalasset.platform.sandbox.stores.ledger.{LedgerEntry, LedgerSnapshot, ReadOnlyLedger}
 import org.slf4j.LoggerFactory
 import scalaz.syntax.tag._
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.Try
 
 object ReadOnlySqlLedger {
 
@@ -69,21 +56,16 @@ object ReadOnlySqlLedger {
 }
 
 private class ReadOnlySqlLedger(
-    val ledgerId: LedgerId,
+    ledgerId: LedgerId,
     headAtInitialization: Long,
-    ledgerDao: LedgerReadDao,
-    offsetUpdates: Source[Long, _])(implicit mat: Materializer)
-    extends ReadOnlyLedger {
-
-  private val logger = LoggerFactory.getLogger(getClass)
-
-  private val dispatcher = Dispatcher[Long, LedgerEntry](
-    RangeSource(ledgerDao.getLedgerEntries(_, _)),
-    0l,
-    headAtInitialization
-  )
+    ledgerDao: LedgerReadDao)(implicit mat: Materializer)
+    extends BaseLedger(ledgerId, headAtInitialization, ledgerDao) {
 
   private val ledgerEndUpdateKillSwitch = {
+    val offsetUpdates = Source
+      .tick(0.millis, 100.millis, ())
+      .mapAsync(1)(_ => ledgerDao.lookupLedgerEnd())
+
     RestartSource
       .withBackoff(
         minBackoff = 1.second,
@@ -97,47 +79,8 @@ private class ReadOnlySqlLedger(
 
   override def close(): Unit = {
     ledgerEndUpdateKillSwitch.shutdown()
-    ledgerDao.close()
+    super.close()
   }
-
-  override def ledgerEntries(offset: Option[Long]): Source[(Long, LedgerEntry), NotUsed] =
-    dispatcher.startingAt(offset.getOrElse(0))
-
-  override def ledgerEnd: Long = dispatcher.getHead()
-
-  override def snapshot(): Future[LedgerSnapshot] =
-    ledgerDao.getActiveContractSnapshot
-      .map(s => LedgerSnapshot(s.offset, s.acs.map(c => (c.contractId, c.toActiveContract))))(DEC)
-
-  override def lookupContract(
-      contractId: Value.AbsoluteContractId): Future[Option[ActiveContract]] =
-    ledgerDao
-      .lookupActiveContract(contractId)
-      .map(_.map(c => c.toActiveContract))(DEC)
-
-  override def lookupKey(key: Node.GlobalKey): Future[Option[AbsoluteContractId]] =
-    ledgerDao.lookupKey(key)
-
-  override def lookupTransaction(
-      transactionId: Ref.TransactionIdString): Future[Option[(Long, LedgerEntry.Transaction)]] =
-    ledgerDao
-      .lookupTransaction(transactionId)
-
-  override def parties: Future[List[PartyDetails]] =
-    ledgerDao.getParties
-
-  override def listLfPackages(): Future[Map[PackageId, PackageDetails]] =
-    ledgerDao.listLfPackages
-
-  override def getLfArchive(packageId: PackageId): Future[Option[Archive]] =
-    ledgerDao.getLfArchive(packageId)
-
-  override def getLfPackage(packageId: PackageId): Future[Option[Ast.Package]] =
-    ledgerDao
-      .getLfArchive(packageId)
-      .flatMap(archiveO =>
-        Future.fromTry(Try(archiveO.map(archive => Decode.decodeArchive(archive)._2))))(DEC)
-
 }
 
 private class ReadOnlySqlLedgerFactory(ledgerDao: LedgerReadDao) {
@@ -161,10 +104,8 @@ private class ReadOnlySqlLedgerFactory(ledgerDao: LedgerReadDao) {
       ledgerId <- initialize(initialLedgerId)
       ledgerEnd <- ledgerDao.lookupLedgerEnd()
     } yield {
-      val offsetUpdates = Source
-        .tick(0.millis, 100.millis, ())
-        .mapAsync(1)(_ => ledgerDao.lookupLedgerEnd())
-      new ReadOnlySqlLedger(ledgerId, ledgerEnd, ledgerDao, offsetUpdates)
+
+      new ReadOnlySqlLedger(ledgerId, ledgerEnd, ledgerDao)
     }
   }
 
