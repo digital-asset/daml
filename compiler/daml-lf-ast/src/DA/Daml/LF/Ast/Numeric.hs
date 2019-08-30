@@ -19,10 +19,10 @@ import Numeric.Natural
 
 -- | Numeric literal. This must encode both the mantissa (up to 38 digits) and
 -- the scale (0-37), the latter controlling how many digits appear after the
--- decimal point. Furthermore, when reading or writing a numeric instance,
+-- decimal point. Furthermore, when reading or writing a Numeric value,
 -- we need to show every significant digit after the decimal point, in order
 -- to preserve the scale. For scale 0, the decimal point needs to be shown
--- without a digit.
+-- without any following digits.
 --
 -- Internally we use Data.Decimal to represent these because it has the ability
 -- to encode every Numeric alongside its scale, and it mostly does what we want
