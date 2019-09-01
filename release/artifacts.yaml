@@ -46,8 +46,6 @@
   type: jar-scala
 - target: //daml-lf/repl:repl
   type: jar
-- target: //daml-lf/testing-tools:testing-tools
-  type: jar-scala
 - target: //ledger-api/grpc-definitions:ledger-api-protos-tarball
   type: targz
   mavenUpload: True
