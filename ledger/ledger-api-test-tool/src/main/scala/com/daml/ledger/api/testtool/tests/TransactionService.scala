@@ -146,9 +146,7 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     val parallelRequests = 10
     for {
       party <- ledger.allocateParty()
-      _ <- Future.sequence(Vector.fill(transactionsToSubmit)(for {
-        contract <- ledger.create(party, Dummy(party))
-      } yield contract))
+      _ <- Future.sequence(Vector.fill(transactionsToSubmit)(ledger.create(party, Dummy(party))))
       results <- Future.sequence(Vector.fill(parallelRequests)(for {
         transactions <- ledger.flatTransactions(party)
       } yield transactions))
