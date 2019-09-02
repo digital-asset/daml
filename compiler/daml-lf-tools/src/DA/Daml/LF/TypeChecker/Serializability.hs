@@ -62,7 +62,7 @@ serializabilityConditionsType world0 _version mbModNameTpls vars = go
           -- requiring 0 <= n <= 'numericMaxScale' for the argument
           -- to Numeric. If the argument isn't given explicitly, we
           -- can't guarantee serializability.
-      TNat _ -> noConditions
+      TNat _ -> Left URTypeLevelNat
       TVar v
         | v `HS.member` vars -> noConditions
         | otherwise -> Left (URFreeVar v)
