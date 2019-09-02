@@ -10,6 +10,7 @@ daml 1.2
 module GHC.Num
   ( Additive (..)
   , Multiplicative (..)
+  , Divisible (..)
   , Fractional (..)
   , Signed (..)
   , Number (..)
@@ -131,27 +132,34 @@ instance Signed Decimal where
     signum x = if x == 0.0 then 0.0 else if x <= 0.0 then (-1.0) else 1.0
     abs x = if x <= 0.0 then negate x else x
 
--- | Use the `Fractional` class for types that can be divided.
--- Instances have to respect the following laws:
+-- | Use the `Divisible` class for types that can be divided.
+-- Instances should respect that division is the inverse of
+-- multiplication, i.e. `x * y / y` is equal to `x` whenever
+-- it is defined.
+class (Multiplicative a) => Divisible a where
+    -- | `x / y` divides `x` by `y`
+    (/) : a -> a -> a
+
+instance Divisible Int where
+    (/) = primitive @"BEDivInt64"
+
+instance Divisible Decimal where
+    (/) = primitive @"BEDivDecimal"
+
+-- | Use the `Fractional` class for types that can be divided
+-- and where the reciprocal is well defined. Instances
+-- have to respect the following laws:
 --
 -- * When `recip x` is defined, it must be the inverse of
--- `x` wrt `*`, that is, `x * recip = munit`
+-- `x` with respect to multiplication: `x * recip x = munit`
+--
 -- * When `recip y` is defined, then `x / y = x * recip y`
-class (Multiplicative a) => Fractional a where
-    -- | `x / y` divides `x` by `y`.
-    (/)                 : a -> a -> a
-
+class (Divisible a) => Fractional a where
     -- | Calculates the reciprocal: `recip x` is `1/x`.
-    recip               : a -> a
-    x / y               = x * recip y
+    recip : a -> a
+    recip x = munit / x
 
-instance Fractional Decimal where
-    (/) = primitive @"BEDivDecimal"
-    recip x = 1.0 / x
-
-instance Fractional Int where
-    (/) = primitive @"BEDivInt64"
-    recip x = 1 / x
+instance Fractional Decimal
 
 -- | `x % y` calculates the remainder of `x` by `y`
 (%) : Int -> Int -> Int
