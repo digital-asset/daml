@@ -93,14 +93,16 @@ class JdbcLedgerDaoSpec
       Some(Offset(Array.fill(3)(n.getAndIncrement())).toLedgerString)
   }
 
-  "Postgres Ledger DAO" should {
+  "JDBC Ledger DAO" should {
 
     val event1: EventId = "event1"
     val event2: EventId = "event2"
 
     def persistAndLoadContractsTest(externalOffset: Option[LedgerString]) = {
       val offset = nextOffset()
-      val absCid = AbsoluteContractId("cId1")
+      val absCid = AbsoluteContractId(s"cId1-$offset")
+      val txId = s"trId-$offset"
+      val workflowId = s"workflowId-$offset"
       val let = Instant.now
       val contractInstance = ContractInst(
         Identifier(
@@ -119,10 +121,10 @@ class JdbcLedgerDaoSpec
       val contract = Contract(
         absCid,
         let,
-        "trId1",
-        Some("workflowId"),
+        txId,
+        Some(workflowId),
         Set(alice, bob),
-        Map(alice -> "trId1", bob -> "trId1"),
+        Map(alice -> txId, bob -> txId),
         contractInstance,
         Some(keyWithMaintainers),
         Set(alice, bob),
@@ -131,10 +133,10 @@ class JdbcLedgerDaoSpec
 
       val transaction = LedgerEntry.Transaction(
         Some("commandId1"),
-        "trId1",
-        Some("appID1"),
+        txId,
+        Some(s"appID-$offset"),
         Some("Alice"),
-        Some("workflowId"),
+        Some(workflowId),
         let,
         let,
         GenTransaction(
@@ -153,7 +155,6 @@ class JdbcLedgerDaoSpec
         Map(event1 -> Set[Party]("Alice", "Bob"), event2 -> Set[Party]("Alice", "In", "Chains"))
       )
       for {
-        originalExternalLedgerEnd <- ledgerDao.lookupExternalLedgerEnd()
         result1 <- ledgerDao.lookupActiveContract(absCid)
         _ <- ledgerDao.storeLedgerEntry(
           offset,
@@ -171,10 +172,7 @@ class JdbcLedgerDaoSpec
       } yield {
         result1 shouldEqual None
         result2 shouldEqual Some(contract)
-        // we reuse this function for tests with and without ledger end
-        // it should either match the provided externalOffset (if it's Some),
-        // otherwise it should match the previous one
-        externalLedgerEnd shouldEqual externalOffset.orElse(originalExternalLedgerEnd)
+        externalLedgerEnd shouldEqual externalOffset
       }
     }
 
@@ -192,7 +190,6 @@ class JdbcLedgerDaoSpec
 
       for {
         startingOffset <- ledgerDao.lookupLedgerEnd()
-        originalExternalLedgerEnd <- ledgerDao.lookupExternalLedgerEnd()
         _ <- ledgerDao.storeLedgerEntry(
           offset,
           offset + 1,
@@ -204,10 +201,7 @@ class JdbcLedgerDaoSpec
       } yield {
         entry shouldEqual Some(checkpoint)
         endingOffset shouldEqual (startingOffset + 1)
-        // we reuse this function for tests with and without ledger end
-        // it should either match the provided externalOffset (if it's Some),
-        // otherwise it should match the previous one
-        externalLedgerEnd shouldEqual externalOffset.orElse(originalExternalLedgerEnd)
+        externalLedgerEnd shouldEqual externalOffset
       }
     }
 
@@ -230,7 +224,6 @@ class JdbcLedgerDaoSpec
 
       for {
         startingOffset <- ledgerDao.lookupLedgerEnd()
-        originalExternalLedgerEnd <- ledgerDao.lookupExternalLedgerEnd()
         _ <- ledgerDao.storeLedgerEntry(
           offset,
           offset + 1,
@@ -242,10 +235,7 @@ class JdbcLedgerDaoSpec
       } yield {
         entry shouldEqual Some(rejection)
         endingOffset shouldEqual (startingOffset + 1)
-        // we reuse this function for tests with and without ledger end
-        // it should either match the provided externalOffset (if it's Some),
-        // otherwise it should match the previous one
-        externalLedgerEnd shouldEqual externalOffset.orElse(originalExternalLedgerEnd)
+        externalLedgerEnd shouldEqual externalOffset
       }
 
     }
