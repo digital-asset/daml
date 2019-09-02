@@ -420,7 +420,7 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     }
 
   private[this] val discloseCreateToSignatory =
-    LedgerTest("TXDiscloseCreateToSignatory", "Disclose create to chosen branching controller") {
+    LedgerTest("TXDiscloseCreateToSignatory", "Disclose create to the submitting signatory") {
       ledger =>
         for {
           Vector(alice, bob, eve) <- ledger.allocateParties(3)
