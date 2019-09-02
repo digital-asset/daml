@@ -229,8 +229,8 @@ There are some identifier fields that are represented as strings in the protobuf
 There are some other identifiers that are determined by your client code. These aren't interpreted by the server, and are transparently passed to the responses. They include:
 
 - Command IDs: used to uniquely identify a command and to match it against its response.
-- Application ID: used to uniquely identify client process talking to the server. You could use a combination of command ID and application ID for deduplication.
--  Workflow IDs: identify chains of transactions. You can use these to correlate transactions sent across time spans and by different parties.
+- Application ID: used to uniquely identify client process talking to the server. You could use a combination of submitting party, command ID, and application ID for deduplication of commands.
+- Workflow IDs: identify chains of transactions. You can use these to correlate transactions sent across time spans and by different parties.
 
 .. |image0| image:: images/BotFlow.png
    :width: 6.5in

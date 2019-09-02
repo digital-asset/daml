@@ -18,3 +18,4 @@ HEAD — ongoing
 + [Ledger Api] *BREAKING CHANGE** In Protobuf ``Value`` message, rename ``decimal` field to ``numeric``.
 + [Sandbox] Fixed a bug that could lead to an inconsistent snapshot of active contracts being served
   by the ActiveContractsService under high load.
++ [Sandbox] Commands are now deduplicated based on ``(submitter, application_id, command_id)``.
