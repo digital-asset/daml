@@ -52,7 +52,7 @@ import scala.util.{Success, Try}
 
 //TODO: use scalacheck when we have generators available for contracts and transactions
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
-class PostgresDaoSpec
+class JdbcLedgerDaoSpec
     extends AsyncWordSpec
     with Matchers
     with AkkaBeforeAndAfterAll
@@ -276,7 +276,7 @@ class PostgresDaoSpec
 
     "refuse to persist an upload with an empty id" in {
       recoverToSucceededIf[IllegalArgumentException] {
-        ledgerDao.uploadLfPackages("", PostgresDaoSpec.Fixtures.packages, None)
+        ledgerDao.uploadLfPackages("", JdbcLedgerDaoSpec.Fixtures.packages, None)
       }
     }
 
@@ -287,14 +287,14 @@ class PostgresDaoSpec
         firstUploadResult <- ledgerDao
           .uploadLfPackages(
             UUID.randomUUID().toString,
-            PostgresDaoSpec.Fixtures.packages
+            JdbcLedgerDaoSpec.Fixtures.packages
               .map(a => a._1 -> a._2.copy(sourceDescription = Some(firstDescription)))
               .take(1),
             None)
         secondUploadResult <- ledgerDao
           .uploadLfPackages(
             UUID.randomUUID().toString,
-            PostgresDaoSpec.Fixtures.packages.map(a =>
+            JdbcLedgerDaoSpec.Fixtures.packages.map(a =>
               a._1 -> a._2.copy(sourceDescription = Some(secondDescription))),
             None)
         loadedPackages <- ledgerDao.listLfPackages
@@ -588,7 +588,7 @@ class PostgresDaoSpec
 
 }
 
-object PostgresDaoSpec {
+object JdbcLedgerDaoSpec {
 
   object Fixtures extends BazelRunfiles {
 
