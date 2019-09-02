@@ -46,7 +46,9 @@ class TrackerImpl(queue: SourceQueueWithComplete[TrackerImpl.QueueInput], histor
     val promise = Promise[Completion]
 
     val storedResult =
-      knownResults.putIfAbsent((request.getCommands.commandId, request.getCommands.applicationId), promise.future)
+      knownResults.putIfAbsent(
+        (request.getCommands.commandId, request.getCommands.applicationId),
+        promise.future)
     if (storedResult == null) {
       submitNewRequest(request, promise)
     } else {

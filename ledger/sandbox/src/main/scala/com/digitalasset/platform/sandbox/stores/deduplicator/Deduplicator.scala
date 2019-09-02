@@ -7,7 +7,10 @@ import com.daml.ledger.participant.state.v1.Party
 import com.digitalasset.ledger.api.domain.{ApplicationId, CommandId}
 
 case class Deduplicator(transactions: Set[(Party, ApplicationId, CommandId)]) {
-  def checkAndAdd(submitter: Party, applicationId: ApplicationId, commandId: CommandId): (Deduplicator, Boolean) =
+  def checkAndAdd(
+      submitter: Party,
+      applicationId: ApplicationId,
+      commandId: CommandId): (Deduplicator, Boolean) =
     if (isDuplicate(submitter, applicationId, commandId)) {
       (this, true)
     } else {
