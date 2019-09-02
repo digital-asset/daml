@@ -5,6 +5,7 @@ genrule(
     name = "templates-tarball",
     srcs = glob([
         "default-gitignore",
+        "default-dlint-yaml",
         "skeleton/**",
         "migrate/**",
         "quickstart-java/**",
@@ -24,6 +25,7 @@ genrule(
             mkdir -p $$OUT/$$d
             cp -rL $$SRC/$$d/* $$OUT/$$d/
             cp $$SRC/default-gitignore $$OUT/$$d/.gitignore
+            cp $$SRC/default-dlint-yaml $$OUT/$$d/.dlint.yaml
         done
 
         ## special cases we should work to remove
