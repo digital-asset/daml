@@ -43,17 +43,16 @@ private[ledger] class LedgerEntries[T](identify: T => String) {
     newOffset
   }
 
-  private val dispatcher = Dispatcher[Long, T](
-    RangeSource(
-      (inclusiveStart, exclusiveEnd) =>
-        Source[(Long, T)](state.get().items.range(inclusiveStart, exclusiveEnd)),
-    ),
-    ledgerBeginning,
-    ledgerEnd
-  )
+  private val dispatcher = Dispatcher[Long](ledgerBeginning, ledgerEnd)
 
   def getSource(offset: Option[Long]): Source[(Long, T), NotUsed] =
-    dispatcher.startingAt(offset.getOrElse(ledgerBeginning))
+    dispatcher.startingAt(
+      offset.getOrElse(ledgerBeginning),
+      RangeSource(
+        (inclusiveStart, exclusiveEnd) =>
+          Source[(Long, T)](state.get().items.range(inclusiveStart, exclusiveEnd)),
+      )
+    )
 
   def publish(item: T): Long = {
     val newHead = store(item)
