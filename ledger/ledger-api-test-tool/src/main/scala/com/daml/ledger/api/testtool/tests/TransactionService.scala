@@ -100,9 +100,7 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     for {
       party <- ledger.allocateParty()
       transactionsFuture = ledger.flatTransactions(party)
-      _ <- Future.sequence(Vector.fill(transactionsToSubmit)(for {
-        contract <- ledger.create(party, Dummy(party))
-      } yield contract))
+      _ <- Future.sequence(Vector.fill(transactionsToSubmit)(ledger.create(party, Dummy(party))))
       _ <- transactionsFuture
     } yield {
       // doing nothing: we are just checking that `transactionsFuture` completes successfully
