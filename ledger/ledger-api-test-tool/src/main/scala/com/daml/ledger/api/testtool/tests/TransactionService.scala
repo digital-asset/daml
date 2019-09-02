@@ -141,7 +141,7 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
 
   private[this] val identicalAndParallel = LedgerTest(
     "TXParallel",
-    "The same data should be served for two identical, parallel requests") { ledger =>
+    "The same data should be served for more than 1 identical, parallel requests") { ledger =>
     val transactionsToSubmit = 5
     val parallelRequests = 10
     for {
