@@ -420,15 +420,19 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     }
 
   private[this] val discloseCreateToSignatory =
-    LedgerTest("TXDiscloseCreateToSignatory", "Disclose create to the submitting signatory") {
+    LedgerTest("TXDiscloseCreateToSignatory", "Disclose create to the chosen branching controller") {
       ledger =>
         for {
           Vector(alice, bob, eve) <- ledger.allocateParties(3)
           template = BranchingControllers(alice, true, bob, eve)
           _ <- ledger.create(alice, template)
-          transactions <- ledger.flatTransactions(alice)
+          aliceView <- ledger.flatTransactions(alice)
+          bobView <- ledger.flatTransactions(bob)
+          evesView <- ledger.flatTransactions(eve)
         } yield {
-          assert(template.arguments == transactions.head.events.head.getCreated.getCreateArguments)
+          assert(template.arguments == aliceView.head.events.head.getCreated.getCreateArguments)
+          assert(template.arguments == bobView.head.events.head.getCreated.getCreateArguments)
+          assert(evesView.isEmpty)
         }
     }
 
