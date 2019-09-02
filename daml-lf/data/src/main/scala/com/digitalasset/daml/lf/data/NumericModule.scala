@@ -3,7 +3,8 @@
 
 package com.digitalasset.daml.lf.data
 
-import java.math.BigDecimal
+import java.math.{BigDecimal, BigInteger}
+
 import scala.math.{BigDecimal => BigDec}
 import BigDecimal.{ROUND_DOWN, ROUND_HALF_EVEN, ROUND_UNNECESSARY}
 
@@ -40,6 +41,21 @@ abstract class NumericModule {
   @inline
   private[data] def cast(x: BigDecimal): Numeric
 
+  private val maxUnscaledValue =
+    (BigInteger.TEN pow maxPrecision) subtract BigInteger.ONE
+
+  /**
+    * Returns the largest Numeric of scale `scale`
+    */
+  final def maxValue(scale: Int): Numeric =
+    cast(new BigDecimal(maxUnscaledValue, scale))
+
+  /**
+    * Returns the smallest Numeric of scale `scale`
+    */
+  final def minValue(scale: Int): Numeric =
+    negate(maxValue(scale))
+
   /**
     * Casts `x` to a Numeric if it has a valid precision (<= `maxPrecision`). Returns an error
     * message otherwise
@@ -52,6 +68,12 @@ abstract class NumericModule {
       cast(x),
       s"Out-of-bounds (Numeric ${x.scale}) ${toString(x)}"
     )
+
+  /**
+    * Negate the input.
+    */
+  final def negate(x: Numeric): Numeric =
+    cast(x.negate)
 
   /**
     * Adds the two Numerics. The output has the same scale as the inputs.
@@ -149,6 +171,12 @@ abstract class NumericModule {
       checkForOverflow(x.setScale(scale, ROUND_UNNECESSARY))
 
   /**
+    * Like `fromBigDecimal(Int, BigDecimal)` but with a scala BigDecimal.
+    */
+  final def fromBigDecimal(scale: Int, x: BigDec): Either[String, Numeric] =
+    fromBigDecimal(scale, x.bigDecimal)
+
+  /**
     * Converts the Long `x` to a `(Numeric scale)``.
     * In case scale is not a valid Numeric scale or `x` cannot be represented as a
     * `(Numeric scale)`, returns an error message instead.
@@ -157,10 +185,11 @@ abstract class NumericModule {
     fromBigDecimal(scale, BigDecimal.valueOf(x))
 
   /**
-    * Like `fromBigDecimal(Int, BigDecimal)` but with a scala BigDecimal.
+    * Like `fromBigDecimal` but throws an exception instead of returning e message in case of error.
     */
-  final def fromBigDecimal(scale: Int, x: BigDec): Either[String, Numeric] =
-    fromBigDecimal(scale, x.bigDecimal)
+  @throws[IllegalArgumentException]
+  final def assertFromBigDecimal(scale: Int, x: BigDecimal): Numeric =
+    assertRight(fromBigDecimal(scale, x))
 
   /**
     * Like `fromBigDecimal` but throws an exception instead of returning e message in case of error.
@@ -248,6 +277,24 @@ abstract class NumericModule {
     val s = x.stripTrailingZeros.toPlainString
     if (s.contains(".")) s else s + ".0"
   }
+
+  /**
+    * Checks that a BigDecimal falls between `minValue(scale)` and
+    * `maxValue(scale)`, and round the number according to `scale`. Note
+    * that it does _not_ fail if the number contains data beyond `scale`.
+    */
+  def checkWithinBoundsAndRound(scale: Int, x: BigDecimal): Either[String, Numeric] =
+    Either.cond(
+      x.precision - x.scale <= maxPrecision - scale,
+      cast(x.setScale(scale, ROUND_HALF_EVEN)),
+      s"out-of-bounds (Numeric $scale) $x"
+    )
+
+  /**
+    * Like the previous function but with scala BigDecimals instead of java ones.
+    */
+  def checkWithinBoundsAndRound(scale: Int, x: BigDec): Either[String, Numeric] =
+    checkWithinBoundsAndRound(scale, x.bigDecimal)
 
 }
 

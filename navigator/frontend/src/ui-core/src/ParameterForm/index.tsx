@@ -12,17 +12,18 @@ import {
   DamlLfRecord,
   DamlLfType,
   DamlLfTypeCon,
+  DamlLfTypeNumeric,
   DamlLfTypePrim,
   DamlLfVariant,
 } from '../api/DamlLfType';
 import {
   DamlLfValue,
   DamlLfValueBool,
-  DamlLfValueDecimal,
   DamlLfValueEnum,
   DamlLfValueInt64,
   DamlLfValueList,
   DamlLfValueMap,
+  DamlLfValueNumeric,
   DamlLfValueOptional,
   DamlLfValueParty,
   DamlLfValueRecord,
@@ -59,10 +60,24 @@ interface InputProps<T> {
   validate?(val: T): boolean;
 }
 
+
 /** Returns true if both the `value` and the `type` are valid for the given type. */
 export function matchPrimitiveType(value: DamlLfValue, type: DamlLfTypePrim, name: DamlLfPrimType): boolean {
   return ((value.type === name || value.type === 'undefined') && type.name === name)
 }
+
+interface NumericInputProps {
+  parameter: DamlLfTypeNumeric,
+  disabled: boolean;
+  onChange(val: DamlLfValueNumeric): void;
+  argument: DamlLfValue;
+  validate?(val: DamlLfValueNumeric): boolean;
+}
+
+function matchNumeric(value: DamlLfValue, type: DamlLfTypeNumeric): boolean {
+  return ((value.type === 'numeric' || value.type === 'undefined') && type.type === 'numeric')
+}
+
 
 /** Returns true if both the `value` and the `type` are valid for the given type. */
 function matchDataType(value: DamlLfValue, type: DamlLfDataType, name: 'record'): value is DamlLfValueRecord;
@@ -153,18 +168,19 @@ function getNextValue<T>(
 // Decimal - primitive value
 //-------------------------------------------------------------------------------------------------
 
-const DecimalInput = (props: InputProps<DamlLfValueDecimal>): JSX.Element => {
+const NumericInput = (props: NumericInputProps): JSX.Element => {
   const { parameter, argument, disabled, onChange } = props;
-  if (matchPrimitiveType(argument, parameter, 'decimal')) {
-    const displayValue = argument.type === 'decimal' ? argument.value : undefined;
+  if (matchNumeric(argument, parameter)) {
+    const displayValue = argument.type === 'numeric' ? argument.value : undefined;
+    const prettyType = 'Numeric ' + parameter.scale;
     return (
       <StyledTextInput
         type="number"
         disabled={disabled}
-        placeholder="Decimal"
+        placeholder={prettyType}
         step="any"
         value={displayValue}
-        onChange={(e) => { onChange(DamlLfValueF.decimal((e.target as HTMLInputElement).value)); }}
+        onChange={(e) => { onChange(DamlLfValueF.numeric((e.target as HTMLInputElement).value)); }}
       />
     );
   } else {
@@ -906,15 +922,6 @@ export const ParameterInput = (props: ParameterInputProps): JSX.Element => {
           argument={argument}
         />
       );
-      case 'decimal': return (
-        <DecimalInput
-          parameter={parameter}
-          disabled={disabled}
-          onChange={onChange}
-          argument={argument}
-          validate={validate}
-        />
-      );
       case 'int64': return (
         <IntegerInput
           parameter={parameter}
@@ -1000,7 +1007,18 @@ export const ParameterInput = (props: ParameterInputProps): JSX.Element => {
       }
       default: throw new NonExhaustiveMatch(parameter.name)
     }
-  } else if (parameter.type === 'typecon') {
+  } else if (parameter.type === 'numeric') {
+    return (
+      <NumericInput
+        parameter={parameter}
+        disabled={disabled}
+        onChange={onChange}
+        argument={argument}
+        validate={validate}
+      />
+    );
+  }
+  else if (parameter.type === 'typecon') {
     return (
       <TypeConInput
         parameter={parameter}

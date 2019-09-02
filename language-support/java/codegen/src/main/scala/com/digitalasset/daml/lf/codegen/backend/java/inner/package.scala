@@ -52,7 +52,7 @@ package object inner {
           typeParameters.map(toJavaTypeName(_, packagePrefixes)): _*)
       case TypePrim(PrimTypeBool, _) => ClassName.get(classOf[java.lang.Boolean])
       case TypePrim(PrimTypeInt64, _) => ClassName.get(classOf[java.lang.Long])
-      case TypePrim(PrimTypeDecimal, _) => ClassName.get(classOf[java.math.BigDecimal])
+      case TypeNumeric(_) => ClassName.get(classOf[java.math.BigDecimal])
       case TypePrim(PrimTypeText, _) => ClassName.get(classOf[java.lang.String])
       case TypePrim(PrimTypeDate, _) => ClassName.get(classOf[java.time.LocalDate])
       case TypePrim(PrimTypeTimestamp, _) => ClassName.get(classOf[java.time.Instant])
@@ -88,7 +88,7 @@ package object inner {
     damlType match {
       case TypePrim(PrimTypeBool, _) => ClassName.get(classOf[javaapi.data.Bool])
       case TypePrim(PrimTypeInt64, _) => ClassName.get(classOf[javaapi.data.Int64])
-      case TypePrim(PrimTypeDecimal, _) => ClassName.get(classOf[javaapi.data.Numeric])
+      case TypeNumeric(_) => ClassName.get(classOf[javaapi.data.Numeric])
       case TypePrim(PrimTypeText, _) => ClassName.get(classOf[javaapi.data.Text])
       case TypePrim(PrimTypeDate, _) => ClassName.get(classOf[javaapi.data.Date])
       case TypePrim(PrimTypeTimestamp, _) => ClassName.get(classOf[javaapi.data.Timestamp])
@@ -156,10 +156,9 @@ package object inner {
     def go(typeParams: Set[String], tpe: Type): Set[String] = {
       tpe match {
         case TypeVar(x) => typeParams + JavaEscaper.escapeString(x)
-        case TypePrim(_, args) =>
-          args.foldLeft(typeParams)(go)
-        case TypeCon(_, args) =>
-          args.foldLeft(typeParams)(go)
+        case TypePrim(_, args) => args.foldLeft(typeParams)(go)
+        case TypeCon(_, args) => args.foldLeft(typeParams)(go)
+        case TypeNumeric(_) => Set.empty
       }
     }
     go(Set.empty, tpe).toVector

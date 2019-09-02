@@ -144,6 +144,8 @@ object Pretty {
           Some(typeCon.name.identifier.qualifiedName.name.toString),
           damlLfDataType(dt, typeDefs, doNotExpand + id))
       }
+    case model.DamlLfTypeNumeric(_) =>
+      (None, PrettyPrimitive("Decimal"))
     case typePrim: model.DamlLfTypePrim =>
       (None, damlLfPrimitive(typePrim.typ, typePrim.typArgs, typeDefs, doNotExpand))
     case typeVar: model.DamlLfTypeVar =>
@@ -165,7 +167,6 @@ object Pretty {
         PrettyField(listType._1.fold("List")(n => s"List [$n]"), listType._2)
       )
     case model.DamlLfPrimType.Bool => PrettyPrimitive("Bool")
-    case model.DamlLfPrimType.Decimal => PrettyPrimitive("Numeric")
     case model.DamlLfPrimType.Int64 => PrettyPrimitive("Int64")
     case model.DamlLfPrimType.ContractId => PrettyPrimitive("ContractId")
     case model.DamlLfPrimType.Date => PrettyPrimitive("Date")

@@ -17,7 +17,7 @@ import java.math.BigDecimal;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 @RunWith(JUnitPlatform.class)
-public class DecimalTestFor$All$ {
+public class DecimalTestForAll {
 
     private String[] goodValues = {
             "-9999999999999999999999999999.9999999999",
@@ -39,11 +39,11 @@ public class DecimalTestFor$All$ {
 
     @Test
     void value2Decimal2value() {
-        Record.Field partiField = new Record.Field("party", new Party("alice"));
+        Record.Field partyField = new Record.Field("party", new Party("alice"));
         for(String s : goodValues) {
             Record record = new Record(
                     new Record.Field("x", new Numeric(new BigDecimal(s))),
-                    partiField
+                    partyField
             );
             assertEquals(Box.fromValue(record).toValue(), record);
         }

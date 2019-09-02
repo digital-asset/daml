@@ -86,7 +86,6 @@ final case class LFUtil(
       refType match {
         case PT.Bool => q"$primitiveObject.Bool"
         case PT.Int64 => q"$primitiveObject.Int64"
-        case PT.Decimal => q"$primitiveObject.Numeric"
         case PT.Party => q"$primitiveObject.Party"
         case PT.Text => q"$primitiveObject.Text"
         case PT.Date => q"$primitiveObject.Date"
@@ -121,6 +120,7 @@ final case class LFUtil(
       case TypeCon(name, typeArgs) =>
         TypeApply(refTypeToIdent(name), typeArgs.toList map genTypeToScalaType)
       case TypeVar(name) => toIdent(name)
+      case TypeNumeric(_) => q"$primitiveObject.Numeric"
     }
   }
 
