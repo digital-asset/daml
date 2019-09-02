@@ -40,6 +40,24 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
         }
     }
 
+  private[this] val endToEndShouldBeEmpty =
+    LedgerTest(
+      "TXEndToEnd",
+      "An empty stream should be served when getting transactions from and to the end of the ledger") {
+      ledger =>
+        for {
+          party <- ledger.allocateParty()
+          _ <- ledger.create(party, Dummy(party))
+          request = ledger.getTransactionsRequest(Seq(party))
+          endToEnd = request.update(_.begin := ledger.end, _.end := ledger.end)
+          transactions <- ledger.flatTransactions(endToEnd)
+        } yield {
+          assert(
+            transactions.isEmpty,
+            s"No transactions were expected but ${transactions.size} were read")
+        }
+    }
+
   private[this] val serveElementsUntilCancellation =
     LedgerTest("TXServeUntilCancellation", "Items should be served until the client cancels") {
       ledger =>
@@ -169,24 +187,6 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
             bobsView.isEmpty,
             s"After Alice create a contract, Bob sees one or more transaction he shouldn't, namely those created by commands ${bobsView.map(_.commandId).mkString(", ")}"
           )
-        }
-    }
-
-  private[this] val endToEndShouldBeEmpty =
-    LedgerTest(
-      "TXEndToEnd",
-      "An empty stream should be served when getting transactions from and to the end of the ledger") {
-      ledger =>
-        for {
-          party <- ledger.allocateParty()
-          _ <- ledger.create(party, Dummy(party))
-          request = ledger.getTransactionsRequest(Seq(party))
-          endToEnd = request.update(_.begin := ledger.end, _.end := ledger.end)
-          transactions <- ledger.flatTransactions(endToEnd)
-        } yield {
-          assert(
-            transactions.isEmpty,
-            s"No transactions were expected but ${transactions.size} were read")
         }
     }
 
@@ -659,6 +659,7 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
 
   override val tests: Vector[LedgerTest] = Vector(
     beginToBeginShouldBeEmpty,
+    endToEndShouldBeEmpty,
     serveElementsUntilCancellation,
     deduplicateCommands,
     rejectEmptyFilter,
@@ -666,7 +667,6 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     processInTwoChunks,
     identicalAndParallel,
     notDivulgeToUnrelatedParties,
-    endToEndShouldBeEmpty,
     rejectBeginAfterEnd,
     hideCommandIdToNonSubmittingStakeholders,
     filterByTemplate,
