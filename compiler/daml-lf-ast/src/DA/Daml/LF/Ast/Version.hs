@@ -54,7 +54,7 @@ data Feature = Feature
 featureNumeric :: Feature
 featureNumeric = Feature
     { featureName = "Numeric type"
-    , featureMinVersion = versionDev -- TODO: Update when stabilized.
+    , featureMinVersion = versionDev -- TODO (#2289): Update when stabilized.
     }
 
 supports :: Version -> Feature -> Bool
