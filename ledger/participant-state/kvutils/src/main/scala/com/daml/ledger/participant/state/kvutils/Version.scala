@@ -11,6 +11,9 @@ package com.daml.ledger.participant.state.kvutils
   * - Added 'Envelope' for compressing and versioning kvutils messages that are transmitted
   *   or stored on disk. [[Envelope.enclose]] and [[Envelope.open]] should be now used for
   *   submissions and for results from processing them.
+  * - Disabled the time-to-live checks for ledger effective time and record time. The
+  *   time model is being redesigned and the checks will be reimplemented once we have
+  *   the new design.
   *
   * [since 100.13.16]: *BACKWARDS INCOMPATIBLE*
   * - Log entries are no longer used as inputs to submission processing. The
