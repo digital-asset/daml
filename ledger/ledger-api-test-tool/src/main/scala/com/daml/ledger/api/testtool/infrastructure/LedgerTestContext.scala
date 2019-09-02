@@ -78,6 +78,7 @@ object LedgerTestContext {
 private[testtool] final class LedgerTestContext private[infrastructure] (
     val ledgerId: String,
     val applicationId: String,
+    val identifierSuffix: String,
     referenceOffset: LedgerOffset,
     services: LedgerServices,
     commandTtlFactor: Double)(implicit ec: ExecutionContext) {
@@ -96,12 +97,12 @@ private[testtool] final class LedgerTestContext private[infrastructure] (
     timestamp(i.plusSeconds(math.floor(defaultTtlSeconds * commandTtlFactor).toLong))
 
   private[this] val nextPartyHintId: () => String = {
-    val it = Iterator.from(0).map(n => s"$applicationId-party-$n")
+    val it = Iterator.from(0).map(n => s"$applicationId-$identifierSuffix-party-$n")
     () =>
       it.synchronized(it.next())
   }
   private[this] val nextCommandId: () => String = {
-    val it = Iterator.from(0).map(n => s"$applicationId-command-$n")
+    val it = Iterator.from(0).map(n => s"$applicationId-$identifierSuffix-command-$n")
     () =>
       it.synchronized(it.next())
   }

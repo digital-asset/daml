@@ -26,11 +26,20 @@ private[testtool] final class LedgerSession private (
 
   private[this] val services: LedgerServices = new LedgerServices(channel)
 
-  private[testtool] def createTestContext(applicationId: String): Future[LedgerTestContext] =
+  private[testtool] def createTestContext(
+      applicationId: String,
+      identifierSuffix: String): Future[LedgerTestContext] =
     for {
       id <- services.identity.getLedgerIdentity(new GetLedgerIdentityRequest).map(_.ledgerId)
       end <- services.transaction.getLedgerEnd(new GetLedgerEndRequest(id)).map(_.getOffset)
-    } yield new LedgerTestContext(id, applicationId, end, services, config.commandTtlFactor)
+    } yield
+      new LedgerTestContext(
+        id,
+        applicationId,
+        identifierSuffix,
+        end,
+        services,
+        config.commandTtlFactor)
 
   private[testtool] def close(): Unit = {
     logger.info(s"Disconnecting from ledger at ${config.host}:${config.port}...")
