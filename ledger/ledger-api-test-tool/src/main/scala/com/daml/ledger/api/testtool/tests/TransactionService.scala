@@ -266,7 +266,7 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     }
 
   private[this] val rejectOnFailingAssertion =
-    LedgerTest("TXRejectOnFailingAssertion", "Reject a transaction on a failing transaction") {
+    LedgerTest("TXRejectOnFailingAssertion", "Reject a transaction on a failing assertion") {
       ledger =>
         for {
           party <- ledger.allocateParty()
