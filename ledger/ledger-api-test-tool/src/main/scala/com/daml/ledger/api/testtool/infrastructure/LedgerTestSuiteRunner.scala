@@ -16,7 +16,7 @@ import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuiteRunner.{
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService, Future, Promise}
-import scala.util.Try
+import scala.util.{Failure, Try}
 import scala.util.control.NonFatal
 
 object LedgerTestSuiteRunner {
@@ -138,7 +138,7 @@ final class LedgerTestSuiteRunner(
 
   def verifyRequirementsAndRun(completionCallback: Try[Vector[LedgerTestSummary]] => Unit): Unit = {
     verifyRequirements.fold(
-      throwable => completionCallback(throwable),
+      throwable => completionCallback(Failure(throwable)),
       _ => run(completionCallback)
     )
   }
