@@ -80,8 +80,7 @@ class StandaloneIndexServer(
     writeService: WriteService) {
 
   // Name of this participant,
-  // TODO: Pass this info in command-line (See issue #2025)
-  val participantId: ParticipantId = Ref.LedgerString.assertFromString("postgress-participant")
+  val participantId: ParticipantId = Ref.LedgerString.assertFromString(config.participantId)
 
   case class ApiServerState(
       ledgerId: LedgerId,

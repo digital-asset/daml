@@ -15,11 +15,20 @@ final case class Config(
     maxInboundMessageSize: Int,
     timeProvider: TimeProvider, // enables use of non-wall-clock time in tests
     jdbcUrl: String,
-    tlsConfig: Option[TlsConfiguration]
+    tlsConfig: Option[TlsConfiguration],
+    participantId: String
 )
 
 object Config {
   val DefaultMaxInboundMessageSize = 4194304
   def default: Config =
-    new Config(0, None, List.empty, 4194304, TimeProvider.UTC, "", None)
+    new Config(
+      0,
+      None,
+      List.empty,
+      DefaultMaxInboundMessageSize,
+      TimeProvider.UTC,
+      "",
+      None,
+      "standalone-participant")
 }
