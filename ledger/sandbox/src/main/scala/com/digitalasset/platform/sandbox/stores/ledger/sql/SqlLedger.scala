@@ -284,7 +284,7 @@ private class SqlLedger(
       party: Party,
       displayName: Option[String]): Future[PartyAllocationResult] =
     ledgerDao
-      .storeParty(party, displayName)
+      .storeParty(party, displayName, None)
       .map {
         case PersistenceResponse.Ok =>
           PartyAllocationResult.Ok(PartyDetails(party, displayName, true))
@@ -300,7 +300,7 @@ private class SqlLedger(
     val packages = payload.map(archive =>
       (archive, PackageDetails(archive.getPayload.size().toLong, knownSince, sourceDescription)))
     ledgerDao
-      .uploadLfPackages(submissionId, packages)
+      .uploadLfPackages(submissionId, packages, None)
       .map { result =>
         result.get(PersistenceResponse.Ok).fold(logger.info(s"No package uploaded")) { uploaded =>
           logger.info(s"Successfully uploaded $uploaded packages")
@@ -465,6 +465,7 @@ private class SqlLedgerFactory(ledgerDao: LedgerDao) {
   }
 
   private def copyPackages(store: InMemoryPackageStore, knownSince: Instant): Future[Unit] = {
+
     val packageDetails = store.listLfPackagesSync()
     if (packageDetails.nonEmpty) {
       logger.info(s"Copying initial packages ${packageDetails.keys.mkString(",")}")
@@ -475,7 +476,7 @@ private class SqlLedgerFactory(ledgerDao: LedgerDao) {
         archive -> PackageDetails(archive.getPayload.size.toLong, knownSince, None)
       })
       ledgerDao
-        .uploadLfPackages(submissionId, packages)
+        .uploadLfPackages(submissionId, packages, None)
         .transform(_ => (), e => sys.error("Failed to copy initial packages: " + e.getMessage))(DEC)
     } else {
       Future.successful(())

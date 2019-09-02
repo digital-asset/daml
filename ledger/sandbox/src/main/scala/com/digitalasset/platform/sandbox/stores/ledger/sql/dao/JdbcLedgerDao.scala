@@ -107,6 +107,17 @@ private class JdbcLedgerDao(
     ()
   }
 
+  private val SQL_UPDATE_EXTERNAL_LEDGER_END = SQL(
+    "update parameters set external_ledger_end = {ExternalLedgerEnd}")
+
+  private def updateExternalLedgerEnd(externalLedgerEnd: LedgerString)(
+      implicit conn: Connection): Unit = {
+    SQL_UPDATE_EXTERNAL_LEDGER_END
+      .on("ExternalLedgerEnd" -> externalLedgerEnd)
+      .execute()
+    ()
+  }
+
   private val SQL_INSERT_CONTRACT_KEY =
     SQL(
       "insert into contract_keys(package_id, name, value_hash, contract_id) values({package_id}, {name}, {value_hash}, {contract_id})")
@@ -970,7 +981,8 @@ private class JdbcLedgerDao(
 
   override def storeParty(
       party: Party,
-      displayName: Option[String]): Future[PersistenceResponse] = {
+      displayName: Option[String],
+      externalOffset: Option[ExternalOffset]): Future[PersistenceResponse] = {
     dbDispatcher.executeSql(s"store party [$party]") { implicit conn =>
       Try {
         SQL_INSERT_PARTY
@@ -979,6 +991,7 @@ private class JdbcLedgerDao(
             "display_name" -> displayName,
           )
           .execute()
+        externalOffset.foreach(updateExternalLedgerEnd)
         PersistenceResponse.Ok
       }.recover {
         case NonFatal(e) if e.getMessage.contains(dbType.DUPLICATE_KEY_ERROR) =>
@@ -1039,7 +1052,8 @@ private class JdbcLedgerDao(
 
   override def uploadLfPackages(
       uploadId: String,
-      packages: List[(Archive, PackageDetails)]): Future[Map[PersistenceResponse, Int]] = {
+      packages: List[(Archive, PackageDetails)],
+      externalOffset: Option[ExternalOffset]): Future[Map[PersistenceResponse, Int]] = {
     val requirements = Try {
       require(uploadId.nonEmpty, "The upload identifier cannot be the empty string")
       require(packages.nonEmpty, "The list of packages to upload cannot be empty")
@@ -1050,6 +1064,7 @@ private class JdbcLedgerDao(
         dbDispatcher.executeSql(
           s"store packages [${packages.map(_._1.getHash).mkString(", ")}] with uploadId [$uploadId]") {
           implicit conn =>
+            externalOffset.foreach(updateExternalLedgerEnd)
             val params = packages
               .map(
                 p =>

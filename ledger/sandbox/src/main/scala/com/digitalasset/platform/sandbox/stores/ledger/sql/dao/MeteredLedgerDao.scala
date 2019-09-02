@@ -98,13 +98,19 @@ private class MeteredLedgerDao(ledgerDao: LedgerDao, mm: MetricsManager)
   override def getParties: Future[List[PartyDetails]] =
     mm.timedFuture("getParties", ledgerDao.getParties)
 
-  override def storeParty(party: Party, displayName: Option[String]): Future[PersistenceResponse] =
-    mm.timedFuture("storeParty", ledgerDao.storeParty(party, displayName))
+  override def storeParty(
+      party: Party,
+      displayName: Option[String],
+      externalOffset: Option[ExternalOffset]): Future[PersistenceResponse] =
+    mm.timedFuture("storeParty", ledgerDao.storeParty(party, displayName, externalOffset))
 
   override def uploadLfPackages(
       uploadId: String,
-      packages: List[(Archive, PackageDetails)]): Future[Map[PersistenceResponse, Int]] =
-    mm.timedFuture("uploadLfPackages", ledgerDao.uploadLfPackages(uploadId, packages))
+      packages: List[(Archive, PackageDetails)],
+      externalOffset: Option[ExternalOffset]): Future[Map[PersistenceResponse, Int]] =
+    mm.timedFuture(
+      "uploadLfPackages",
+      ledgerDao.uploadLfPackages(uploadId, packages, externalOffset))
 
   override def close(): Unit = {
     ledgerDao.close()
