@@ -84,7 +84,7 @@ client_server_test(
     ],
     tags = [
         "dont-run-on-darwin",
-        # NOTE(JM): As this test is somewhat heavy and has timeouts, run it without competition to avoid flakyness.
+        # As this test is somewhat heavy and has timeouts, run it without competition to avoid flakiness.
         "exclusive",
     ],
 ) if not is_windows else None
@@ -110,5 +110,7 @@ client_server_test(
     ],
     tags = [
         "dont-run-on-darwin",
+        # As this test is somewhat heavy and has timeouts, run it without competition to avoid flakiness.
+        "exclusive",
     ],
 ) if not is_windows else None
