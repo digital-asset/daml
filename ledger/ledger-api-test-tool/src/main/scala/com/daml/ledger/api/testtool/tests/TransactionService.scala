@@ -480,16 +480,12 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
       "TXAgreementText",
       "Expose the agreement text for templates with an explicit agreement text") { ledger =>
       for {
-        Vector(receiver, giver) <- ledger.allocateParties(2)
-        agreementFactory <- ledger.create(giver, AgreementFactory(receiver, giver))
-        _ <- ledger.exercise(receiver, agreementFactory.exerciseCreateAgreement)
-        transactions <- ledger.flatTransactionsByTemplateId(Agreement.id, receiver, giver)
+        party <- ledger.allocateParty
+        _ <- ledger.create(party, Dummy(party))
+        transactions <- ledger.flatTransactionsByTemplateId(Dummy.id, party)
       } yield {
         val contract = assertSingleton("AgreementText", transactions.flatMap(createdEvents))
-        assertEquals(
-          "AgreementText",
-          contract.getAgreementText,
-          s"'$giver' promise to pay the '$receiver' on demand the sum of five pounds.")
+        assertEquals("AgreementText", contract.getAgreementText, s"'$party' operates a dummy.")
       }
     }
 
