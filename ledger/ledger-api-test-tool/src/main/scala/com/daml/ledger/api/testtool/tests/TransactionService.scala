@@ -120,9 +120,7 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
           .getTransactionsRequest(Seq(party))
           .update(_.end := endAfterFirstSection)
         firstSection <- ledger.flatTransactions(firstSectionRequest)
-        _ <- Future.sequence(Vector.fill(transactionsToSubmit)(for {
-          contract <- ledger.create(party, Dummy(party))
-        } yield contract))
+        _ <- Future.sequence(Vector.fill(transactionsToSubmit)(ledger.create(party, Dummy(party))))
         endAfterSecondSection <- ledger.currentEnd()
         secondSectionRequest = ledger
           .getTransactionsRequest(Seq(party))
