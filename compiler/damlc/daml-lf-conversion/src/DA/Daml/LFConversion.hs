@@ -102,7 +102,6 @@ import           Data.List.Extra
 import qualified Data.Map.Strict as MS
 import           Data.Maybe
 import qualified Data.NameMap as NM
-import qualified Data.Set as Set
 import qualified Data.Text as T
 import           Data.Tuple.Extra
 import           Data.Ratio
@@ -155,7 +154,6 @@ data Env = Env
     {envLFModuleName :: LF.ModuleName
     ,envGHCModuleName :: GHC.ModuleName
     ,envModuleUnitId :: GHC.UnitId
-    ,envDefaultMethods :: Set.Set Name
     ,envAliases :: MS.Map Var LF.Expr
     ,envPkgMap :: MS.Map GHC.UnitId T.Text
     ,envLfVersion :: LF.Version
@@ -250,12 +248,10 @@ convertModule lfVersion pkgMap file x = runConvertM (ConversionEnv file Nothing)
           | ATyCon t <- eltsUFM (cm_types x)
           , Just ([], wrappedT, co) <- [unwrapNewTyCon_maybe t]
           ]
-        defMeths = defaultMethods x
         env = Env
           { envLFModuleName = lfModName
           , envGHCModuleName = ghcModName
           , envModuleUnitId = thisUnitId
-          , envDefaultMethods = defMeths
           , envAliases = MS.empty
           , envPkgMap = pkgMap
           , envLfVersion = lfVersion
