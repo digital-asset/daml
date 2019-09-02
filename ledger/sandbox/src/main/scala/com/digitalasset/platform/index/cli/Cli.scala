@@ -60,6 +60,7 @@ object Cli {
         .text("The JDBC URL to the postgres database used for the indexer and the index")
         .action((u, c) => c.copy(jdbcUrl = u))
       opt[String]("participant-id")
+        .optional()
         .text("The participant id given to all components of a ledger api server")
         .action((p, c) => c.copy(participantId = Ref.LedgerString.assertFromString(p)))
         .validate(p => {
@@ -69,6 +70,7 @@ object Cli {
           }
         })
       arg[File]("<archive>...")
+        .optional()
         .unbounded()
         .action((f, c) => c.copy(archiveFiles = f :: c.archiveFiles))
         .text("DAR files to load. Scenarios are ignored. The servers starts with an empty ledger by default.")
