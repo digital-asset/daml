@@ -5,6 +5,7 @@ package com.digitalasset.platform.index.cli
 
 import java.io.File
 
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.ledger.api.tls.TlsConfiguration
 import com.digitalasset.platform.index.config.Config
 
@@ -60,7 +61,13 @@ object Cli {
         .action((u, c) => c.copy(jdbcUrl = u))
       opt[String]("participant-id")
         .text("The participant id given to all components of a ledger api server")
-        .action((p, c) => c.copy(participantId = p))
+        .action((p, c) => c.copy(participantId = Ref.LedgerString.assertFromString(p)))
+        .validate(p => {
+          Ref.LedgerString.fromString(p) match {
+            case Right(_) => success
+            case Left(_) => failure("Invalid character in participant id")
+          }
+        })
       arg[File]("<archive>...")
         .unbounded()
         .action((f, c) => c.copy(archiveFiles = f :: c.archiveFiles))

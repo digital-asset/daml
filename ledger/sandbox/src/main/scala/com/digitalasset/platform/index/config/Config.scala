@@ -6,6 +6,7 @@ package com.digitalasset.platform.index.config
 import java.io.File
 
 import com.digitalasset.api.util.TimeProvider
+import com.digitalasset.daml.lf.data.Ref.LedgerString
 import com.digitalasset.ledger.api.tls.TlsConfiguration
 
 final case class Config(
@@ -16,7 +17,7 @@ final case class Config(
     timeProvider: TimeProvider, // enables use of non-wall-clock time in tests
     jdbcUrl: String,
     tlsConfig: Option[TlsConfiguration],
-    participantId: String
+    participantId: LedgerString
 )
 
 object Config {
@@ -30,5 +31,5 @@ object Config {
       TimeProvider.UTC,
       "",
       None,
-      "standalone-participant")
+      LedgerString.assertFromString("standalone-participant"))
 }

@@ -10,7 +10,6 @@ import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.Sink
 import com.daml.ledger.participant.state.v1.{ParticipantId, ReadService, WriteService}
-import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.engine.Engine
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.ledger.api.domain
@@ -80,7 +79,7 @@ class StandaloneIndexServer(
     writeService: WriteService) {
 
   // Name of this participant,
-  val participantId: ParticipantId = Ref.LedgerString.assertFromString(config.participantId)
+  val participantId: ParticipantId = config.participantId
 
   case class ApiServerState(
       ledgerId: LedgerId,

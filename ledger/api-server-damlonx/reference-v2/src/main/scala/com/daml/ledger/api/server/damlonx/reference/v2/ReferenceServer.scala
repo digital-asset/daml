@@ -10,7 +10,6 @@ import akka.stream.{ActorMaterializer, ActorMaterializerSettings, Supervision}
 import com.daml.ledger.participant.state.kvutils.InMemoryKVParticipantState
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.digitalasset.daml.lf.archive.DarReader
-import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml_lf.DamlLf.Archive
 import com.digitalasset.platform.index.cli.Cli
 import com.digitalasset.platform.index.{StandaloneIndexServer, StandaloneIndexerServer}
@@ -32,7 +31,7 @@ object ReferenceServer extends App {
       .getOrElse(sys.exit(1))
 
   // Name of this participant
-  val participantId: ParticipantId = Ref.LedgerString.assertFromString(config.participantId)
+  val participantId: ParticipantId = config.participantId
 
   implicit val system: ActorSystem = ActorSystem("indexed-kvutils")
   implicit val materializer: ActorMaterializer = ActorMaterializer(
