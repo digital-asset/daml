@@ -185,7 +185,7 @@ convertPrim _ "BEDecimalToInt64" (TNumeric10 :-> TInt64) =
     ETyApp (EBuiltin BENumericToInt64) (TNat 10)
 convertPrim _ "BEToText" (TNumeric10 :-> TText) =
     ETyApp (EBuiltin BEToTextNumeric) (TNat 10)
-convertPrim _ "BEDecimalFromText" (TText :-> TNumeric10) =
+convertPrim _ "BEDecimalFromText" (TText :-> TOptional TNumeric10) =
     ETyApp (EBuiltin BENumericFromText) (TNat 10)
 
 convertPrim _ x ty = error $ "Unknown primitive " ++ show x ++ " at type " ++ renderPretty ty
