@@ -16,7 +16,7 @@ import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuiteRunner.{
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService, Future, Promise}
-import scala.util.Try
+import scala.util.{Failure, Try}
 import scala.util.control.NonFatal
 
 object LedgerTestSuiteRunner {
@@ -50,7 +50,14 @@ object LedgerTestSuiteRunner {
 final class LedgerTestSuiteRunner(
     endpoints: Vector[LedgerSessionConfiguration],
     suiteConstructors: Vector[LedgerSession => LedgerTestSuite],
-    timeoutScaleFactor: Double) {
+    timeoutScaleFactor: Double,
+    identifierSuffix: String) {
+
+  private[this] val verifyRequirements: Try[Unit] =
+    Try {
+      require(timeoutScaleFactor > 0, "The timeout scale factor must be strictly positive")
+      require(identifierSuffix.nonEmpty, "The identifier suffix cannot be an empty string")
+    }
 
   private def initSessions()(implicit ec: ExecutionContext): Future[Vector[LedgerSession]] =
     Future.sequence(endpoints.map(LedgerSession.getOrCreate))
@@ -66,7 +73,7 @@ final class LedgerTestSuiteRunner(
     val testTimeout = new TestTimeout(execution, test.description, scaledTimeout, session.config)
     val startedTest =
       session
-        .createTestContext(test.shortIdentifier)
+        .createTestContext(test.shortIdentifier, identifierSuffix)
         .flatMap { context =>
           val start = System.nanoTime()
           val result = test(context).map(_ => Duration.ofNanos(System.nanoTime() - start))
@@ -114,12 +121,10 @@ final class LedgerTestSuiteRunner(
       implicit ec: ExecutionContext): Vector[Future[LedgerTestSummary]] =
     suite.tests.map(test => summarize(suite, test, run(test, suite.session)))
 
-  def run(completionCallback: Try[Vector[LedgerTestSummary]] => Unit): Unit = {
-
+  private def run(completionCallback: Try[Vector[LedgerTestSummary]] => Unit): Unit = {
     implicit val ec: ExecutionContextExecutorService =
       ExecutionContext.fromExecutorService(
         Executors.newSingleThreadExecutor(new Thread(_, s"test-tool-dispatcher")))
-
     initSessions()
       .map(initTestSuites)
       .flatMap(suites => Future.sequence(suites.flatMap(run)))
@@ -129,7 +134,13 @@ final class LedgerTestSuiteRunner(
         completionCallback(result)
         ec.shutdown()
       }
+  }
 
+  def verifyRequirementsAndRun(completionCallback: Try[Vector[LedgerTestSummary]] => Unit): Unit = {
+    verifyRequirements.fold(
+      throwable => completionCallback(Failure(throwable)),
+      _ => run(completionCallback)
+    )
   }
 
 }
