@@ -36,7 +36,7 @@ class TrackerImpl(queue: SourceQueueWithComplete[TrackerImpl.QueueInput], histor
 
   require(historySize > 0, " History size must be a positive integer.")
 
-  private val knownResults: util.Map[String, Future[Completion]] =
+  private val knownResults: util.Map[(String, String), Future[Completion]] =
     Collections.synchronizedMap(new SizeCappedMap(historySize / 2, historySize))
 
   override def track(request: SubmitAndWaitRequest)(
@@ -46,7 +46,7 @@ class TrackerImpl(queue: SourceQueueWithComplete[TrackerImpl.QueueInput], histor
     val promise = Promise[Completion]
 
     val storedResult =
-      knownResults.putIfAbsent(request.getCommands.commandId, promise.future)
+      knownResults.putIfAbsent((request.getCommands.commandId, request.getCommands.applicationId), promise.future)
     if (storedResult == null) {
       submitNewRequest(request, promise)
     } else {
