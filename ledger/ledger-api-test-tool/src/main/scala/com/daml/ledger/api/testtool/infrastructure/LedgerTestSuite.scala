@@ -57,7 +57,7 @@ private[testtool] abstract class LedgerTestSuite(val session: LedgerSession) {
     as
   }
 
-  final def assertSingleton[A](context: String, as: IndexedSeq[A]): A =
+  final def assertSingleton[A](context: String, as: Seq[A]): A =
     assertLength(context, 1, as).head
 
   final def assertEquals[T: DiffShow](context: String, actual: T, expected: T): Unit = {
