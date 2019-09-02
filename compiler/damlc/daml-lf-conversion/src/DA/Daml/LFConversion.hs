@@ -235,7 +235,7 @@ convertRational env num denom
 
 convertModule :: LF.Version -> MS.Map UnitId T.Text -> NormalizedFilePath -> CoreModule -> Either FileDiagnostic LF.Module
 convertModule lfVersion pkgMap file x = runConvertM (ConversionEnv file Nothing) $ do
-    definitions <- concatMapM (convertBind env) $ filter (not . isTypeableInfo) $ cm_binds x
+    definitions <- concatMapM (convertBind env) binds
     types <- concatMapM (convertTypeDef env) (eltsUFM (cm_types x))
     pure (LF.moduleFromDefinitions lfModName (Just $ fromNormalizedFilePath file) flags (types ++ definitions))
     where
@@ -243,6 +243,16 @@ convertModule lfVersion pkgMap file x = runConvertM (ConversionEnv file Nothing)
         thisUnitId = GHC.moduleUnitId $ cm_module x
         lfModName = convertModuleName ghcModName
         flags = LF.daml12FeatureFlags
+        binds =
+          [ bind
+          | bindGroup <- cm_binds x
+          , bind <- case bindGroup of
+              NonRec name body
+                -- NOTE(MH): We can't cope with the generated Typeable stuff, so remove those bindings
+                | any (`T.isPrefixOf` getOccText name) ["$krep", "$tc", "$trModule"] -> []
+                | otherwise -> [(name, body)]
+              Rec binds -> binds
+          ]
         newtypes =
           [ (wrappedT, (t, mkUnbranchedAxInstCo Representational co [] []))
           | ATyCon t <- eltsUFM (cm_types x)
@@ -257,11 +267,6 @@ convertModule lfVersion pkgMap file x = runConvertM (ConversionEnv file Nothing)
           , envLfVersion = lfVersion
           , envNewtypes = newtypes
           }
-
--- | We can't cope with the generated Typeable stuff, so remove those bindings
-isTypeableInfo :: Bind Var -> Bool
-isTypeableInfo (NonRec name _) = any (`T.isPrefixOf` getOccText name) ["$krep", "$tc", "$trModule"]
-isTypeableInfo _ = False
 
 -- TODO(MH): We should run this on an `LF.Expr` instead of a `GHC.Expr`.
 -- This will avoid a fair bit of repetition.
@@ -452,8 +457,8 @@ convertCtors env (Ctors name _ tys cs) = do
               mkETyLams tys $ mkETmLams (zipExact (map fieldToVar fldNames') fldTys) $ EVariantCon tcon ctorName ctorArg
 
 
-convertBind :: Env -> CoreBind -> ConvertM [Definition]
-convertBind env (NonRec name x)
+convertBind :: Env -> (Var, GHC.Expr Var) -> ConvertM [Definition]
+convertBind env (name, x)
     | DFunId _ <- idDetails name
     , TypeCon (Is tplInst) _ <- varType name
     , "Instance" `T.isSuffixOf` fsToText tplInst
@@ -461,10 +466,6 @@ convertBind env (NonRec name x)
         (tmpl, dict) <- convertGenericTemplate env x
         name' <- convValWithType env name
         pure [DTemplate tmpl, defValue name name' dict]
-convertBind env x = convertBind2 env x
-
-convertBind2 :: Env -> CoreBind -> ConvertM [Definition]
-convertBind2 env (NonRec name x)
     | Just internals <- lookupUFM internalFunctions (envGHCModuleName env)
     , getOccFS name `elementOfUniqSet` internals
     = pure []
@@ -493,7 +494,7 @@ convertBind2 env (NonRec name x)
     -- This workaround should be removed once we either have a proper lambda
     -- lifter or DAML-LF supports local recursion.
     | (as, Let (Rec [(f, Lam v y)]) (Var f')) <- collectBinders x, f == f'
-    = convertBind2 env $ NonRec name $ mkLams as $ Lam v $ Let (NonRec f $ mkVarApps (Var name) as) y
+    = convertBind env $ (,) name $ mkLams as $ Lam v $ Let (NonRec f $ mkVarApps (Var name) as) y
     | otherwise
     = withRange (convNameLoc name) $ do
     x' <- convertExpr env x
@@ -506,7 +507,6 @@ convertBind2 env (NonRec name x)
           _ -> id
     name' <- convValWithType env name
     pure [defValue name name' (sanitize x')]
-convertBind2 env (Rec xs) = concatMapM (\(a, b) -> convertBind env (NonRec a b)) xs
 
 -- NOTE(MH): These are the names of the builtin DAML-LF types whose Surface
 -- DAML counterpart is not defined in 'GHC.Types'. They are all defined in
