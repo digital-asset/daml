@@ -81,7 +81,7 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
   private[this] val deduplicateCommands =
     LedgerTest(
       "TXDeduplicateCommands",
-      "Commands with identical command identifier and application identifier should be accepted and deduplicated") {
+      "Commands with identical submitter, command identifier, and application identifier should be accepted and deduplicated") {
       ledger =>
         for {
           alice <- ledger.allocateParty()
