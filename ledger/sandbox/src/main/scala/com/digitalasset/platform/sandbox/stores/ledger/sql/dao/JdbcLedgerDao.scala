@@ -111,7 +111,7 @@ private class JdbcLedgerDao(
     "update parameters set external_ledger_end = {ExternalLedgerEnd}")
 
   private def updateExternalLedgerEnd(externalLedgerEnd: LedgerString)(
-    implicit conn: Connection): Unit = {
+      implicit conn: Connection): Unit = {
     SQL_UPDATE_EXTERNAL_LEDGER_END
       .on("ExternalLedgerEnd" -> externalLedgerEnd)
       .execute()
@@ -1062,8 +1062,9 @@ private class JdbcLedgerDao(
       Future.failed,
       _ =>
         dbDispatcher.executeSql(
-          s"store packages [${packages.map(_._1.getHash).mkString(", ")}] with uploadId [$uploadId]") { implicit conn =>
-          externalOffset.foreach(updateExternalLedgerEnd)
+          s"store packages [${packages.map(_._1.getHash).mkString(", ")}] with uploadId [$uploadId]") {
+          implicit conn =>
+            externalOffset.foreach(updateExternalLedgerEnd)
             val params = packages
               .map(
                 p =>
