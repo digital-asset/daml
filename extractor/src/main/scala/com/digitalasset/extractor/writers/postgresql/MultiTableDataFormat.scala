@@ -244,7 +244,7 @@ class MultiTableDataFormat(
   }
 
   private def mapSQLType(iType: FullyAppliedType): String = iType match {
-    case TypeNumeric(scale) => s"NUMERIC(${maxPrecision - scale}, $scale)"
+    case TypeNumeric(scale) => s"NUMERIC($maxPrecision, $scale)"
     case TypePrim(typ, _) =>
       typ match {
         case iface.PrimTypeParty => "TEXT"
