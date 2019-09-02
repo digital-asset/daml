@@ -78,6 +78,7 @@ import System.Directory.Extra
 import System.Environment
 import System.Exit
 import System.FilePath
+import System.Info.Extra
 import System.IO.Extra
 #ifndef mingw32_HOST_OS
 import System.Posix.Files
@@ -475,7 +476,9 @@ createProjectPackageDb (AllowDifferentSdkVersions allowDiffSdkVersions) lfVersio
         "Package dependencies from different SDK versions: " ++
         intercalate ", " uniqSdkVersions
     ghcPkgPath <-
-        locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "ghc-pkg")
+        if isWindows
+          then locateRunfiles "rules_haskell_ghc_windows_amd64/bin"
+          else locateRunfiles "ghc_nix/lib/ghc-8.6.5/bin"
     callProcess
         (ghcPkgPath </> exe "ghc-pkg")
         [ "recache"
