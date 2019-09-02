@@ -54,6 +54,12 @@ data Feature = Feature
 supports :: Version -> Feature -> Bool
 supports version feature = version >= featureMinVersion feature
 
+notSupports :: Version -> Feature -> Bool
+notSupports version feature = not (supports version feature)
+
+featureNumeric :: Feature
+featureNumeric = Feature "Parametrised-scale Numeric type" versionDev
+
 renderMinorVersion :: MinorVersion -> String
 renderMinorVersion = \case
   PointStable minor -> show minor

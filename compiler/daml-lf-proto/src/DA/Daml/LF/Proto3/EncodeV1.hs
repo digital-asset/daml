@@ -163,6 +163,16 @@ encodeType' encctx@EncodeCtx{..} typ = P.Type . Just $
         P.TypeSumVar $ P.Type_Var (encodeName unTypeVarName var) (encodeTypes encctx args)
       (TCon con, args) ->
         P.TypeSumCon $ P.Type_Con (encodeQualTypeConName interned con) (encodeTypes encctx args)
+      ------------
+      -- Decimal->Numeric compatibility. Remove this section once
+      -- we no longer support emitting DAML-LF for versions without
+      -- Numeric support.
+      (TBuiltin BTNumeric, [TNat 10])
+        | version `notSupports` featureNumeric ->
+        P.TypeSumPrim $ P.Type_Prim
+            (P.Enumerated . Right $ P.PrimTypeDECIMAL)
+            V.empty
+      ------------
       (TBuiltin bltn, args) ->
         P.TypeSumPrim $ P.Type_Prim (encodeBuiltinType version bltn) (encodeTypes encctx args)
       (t@TForall{}, []) ->
@@ -318,6 +328,35 @@ encodeBuiltinExpr = \case
 
 encodeExpr' :: EncodeCtx -> Expr -> P.Expr
 encodeExpr' encctx@EncodeCtx{..} = \case
+  ------
+  -- Decimal->Numeric compatibility -- remove this section once we
+  -- no longer support emiting DAML-LF for versions without Numeric
+  -- support.
+
+  EBuiltin (BENumeric n) | version `notSupports` featureNumeric ->
+      lit $ P.PrimLitSumDecimal (TL.pack (show n))
+
+  ETyApp (EBuiltin numericOp) (TNat 10) | version  `notSupports` featureNumeric ->
+      case numericOp of
+          BEAddNumeric -> builtin P.BuiltinFunctionADD_DECIMAL
+          BESubNumeric -> builtin P.BuiltinFunctionSUB_DECIMAL
+          BEMulNumeric -> builtin P.BuiltinFunctionMUL_DECIMAL
+          BEDivNumeric -> builtin P.BuiltinFunctionDIV_DECIMAL
+          BERoundNumeric -> builtin P.BuiltinFunctionROUND_DECIMAL
+          BEInt64ToNumeric -> builtin P.BuiltinFunctionINT64_TO_DECIMAL
+          BENumericToInt64 -> builtin P.BuiltinFunctionDECIMAL_TO_INT64
+          BEToTextNumeric -> builtin P.BuiltinFunctionTO_TEXT_DECIMAL
+          BENumericFromText -> builtin P.BuiltinFunctionFROM_TEXT_DECIMAL
+          BEEqualNumeric -> builtin P.BuiltinFunctionEQUAL_DECIMAL
+          BELessNumeric -> builtin P.BuiltinFunctionLESS_DECIMAL
+          BELessEqNumeric -> builtin P.BuiltinFunctionLEQ_DECIMAL
+          BEGreaterNumeric -> builtin P.BuiltinFunctionGREATER_DECIMAL
+          BEGreaterEqNumeric -> builtin P.BuiltinFunctionGEQ_DECIMAL
+          _ -> error ("Unexpected operation for Decimal->Numeric compatibility: " <> show numericOp)
+            -- If this line causes errors, translate the type application
+            -- and builtin expressions properly as below.
+
+  ------
   EVar v -> expr $ P.ExprSumVar (encodeName unExprVarName v)
   EVal (Qualified pkgRef modName val) -> expr $ P.ExprSumVal $ P.ValName (encodeModuleRef interned pkgRef modName) (encodeValueName val)
   EBuiltin bi -> expr $ encodeBuiltinExpr bi
@@ -363,6 +402,8 @@ encodeExpr' encctx@EncodeCtx{..} = \case
   ESome typ body -> expr (P.ExprSumOptionalSome (P.Expr_OptionalSome (encodeType encctx typ) (encodeExpr encctx body)))
   where
     expr = P.Expr Nothing . Just
+    builtin = expr . P.ExprSumBuiltin . P.Enumerated . Right
+    lit = expr . P.ExprSumPrimLit . P.PrimLit . Just
 
 encodeExpr :: EncodeCtx -> Expr -> Just P.Expr
 encodeExpr encctx = Just . encodeExpr' encctx
