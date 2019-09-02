@@ -51,6 +51,12 @@ data Feature = Feature
 -- featureTextCodePoints :: Feature
 -- featureTextCodePoints = Feature "Conversion between text and code points" version1_6
 
+featureNumeric :: Feature
+featureNumeric = Feature
+    { featureName = "Numeric type"
+    , featureMinVersion = versionDev -- TODO: Update when stabilized.
+    }
+
 supports :: Version -> Feature -> Bool
 supports version feature = version >= featureMinVersion feature
 

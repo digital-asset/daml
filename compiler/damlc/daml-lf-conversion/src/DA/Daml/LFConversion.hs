@@ -804,6 +804,7 @@ convertExpr env0 e = do
         convertType env (varType bind) >>= \case
           TText -> asLet
           TDecimal -> asLet
+          TNumeric _ -> asLet
           TParty -> asLet
           TTimestamp -> asLet
           TDate -> asLet
@@ -1073,7 +1074,10 @@ convertTyCon env t
     | Just m <- nameModule_maybe (getName t), m == gHC_TYPES =
         case getOccText t of
             "Text" -> pure TText
-            "Decimal" -> pure TDecimal
+            "Decimal" ->
+                if envLfVersion env `supports` featureNumeric
+                    then pure (TNumeric (TNat 10))
+                    else pure TDecimal
             _ -> defaultTyCon
     -- TODO(DEL-6953): We need to add a condition on the package name as well.
     | Just m <- nameModule_maybe (getName t), GHC.moduleName m == mkModuleName "DA.Internal.LF" =

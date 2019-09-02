@@ -14,6 +14,15 @@ import           DA.Daml.LF.Ast
 import           DA.Pretty (renderPretty)
 import qualified Data.Text as T
 
+-- | Use a Numeric primitive (applied to scale = 10) or a
+-- Decimal primitive depending on whether the Numeric feature
+-- is available at the specified DAML-LF Version.
+numericOrDecimalPrim :: Version -> BuiltinExpr -> BuiltinExpr -> Expr
+numericOrDecimalPrim version numericPrim decimalPrim =
+    if version `supports` featureNumeric
+        then ETyApp (EBuiltin numericPrim) (TNat 10)
+        else EBuiltin decimalPrim
+
 convertPrim :: Version -> String -> Type -> Expr
 -- Update
 convertPrim _ "UPure" (a1 :-> TUpdate a2) | a1 == a2 =
@@ -44,32 +53,42 @@ convertPrim _ "SGetParty" (t1@TText :-> TScenario TParty) =
     ETmLam (varV1, t1) $ EScenario $ SGetParty $ EVar varV1
 
 -- Comparison
-convertPrim _ "BEEqual" (TBuiltin a1 :-> TBuiltin a2 :-> TBool) | a1 == a2 =
-    EBuiltin $ BEEqual a1
-convertPrim _ "BELess" (TBuiltin a1 :-> TBuiltin a2 :-> TBool) | a1 == a2 =
-    EBuiltin $ BELess a1
-convertPrim _ "BELessEq" (TBuiltin a1 :-> TBuiltin a2 :-> TBool) | a1 == a2 =
-    EBuiltin $ BELessEq a1
-convertPrim _ "BEGreaterEq" (TBuiltin a1 :-> TBuiltin a2 :-> TBool) | a1 == a2 =
-    EBuiltin $ BEGreaterEq a1
-convertPrim _ "BEGreater" (TBuiltin a1 :-> TBuiltin a2 :-> TBool) | a1 == a2 =
-    EBuiltin $ BEGreater a1
+convertPrim v "BEEqual" (TBuiltin a1 :-> TBuiltin a2 :-> TBool) | a1 == a2 =
+    if a1 == BTDecimal
+        then numericOrDecimalPrim v BEEqualNumeric (BEEqual a1)
+        else EBuiltin $ BEEqual a1
+convertPrim v "BELess" (TBuiltin a1 :-> TBuiltin a2 :-> TBool) | a1 == a2 =
+    if a1 == BTDecimal
+        then numericOrDecimalPrim v BELessNumeric (BELess a1)
+        else EBuiltin $ BELess a1
+convertPrim v "BELessEq" (TBuiltin a1 :-> TBuiltin a2 :-> TBool) | a1 == a2 =
+    if a1 == BTDecimal
+        then numericOrDecimalPrim v BELessEqNumeric (BELessEq a1)
+        else EBuiltin $ BELessEq a1
+convertPrim v "BEGreaterEq" (TBuiltin a1 :-> TBuiltin a2 :-> TBool) | a1 == a2 =
+    if a1 == BTDecimal
+        then numericOrDecimalPrim v BEGreaterEqNumeric (BEGreaterEq a1)
+        else EBuiltin $ BEGreaterEq a1
+convertPrim v "BEGreater" (TBuiltin a1 :-> TBuiltin a2 :-> TBool) | a1 == a2 =
+    if a1 == BTDecimal
+        then numericOrDecimalPrim v BEGreaterNumeric (BEGreater a1)
+        else EBuiltin $ BEGreater a1
 convertPrim _ "BEEqualList" ((a1 :-> a2 :-> TBool) :-> TList a3 :-> TList a4 :-> TBool) | a1 == a2, a2 == a3, a3 == a4 =
     EBuiltin BEEqualList `ETyApp` a1
 convertPrim _ "BEEqualContractId" (TContractId a1 :-> TContractId a2 :-> TBool) | a1 == a2 =
     EBuiltin BEEqualContractId `ETyApp` a1
 
 -- Decimal arithmetic
-convertPrim _ "BEAddDecimal" (TDecimal :-> TDecimal :-> TDecimal) =
-    EBuiltin BEAddDecimal
-convertPrim _ "BESubDecimal" (TDecimal :-> TDecimal :-> TDecimal) =
-    EBuiltin BESubDecimal
-convertPrim _ "BEMulDecimal" (TDecimal :-> TDecimal :-> TDecimal) =
-    EBuiltin BEMulDecimal
-convertPrim _ "BEDivDecimal" (TDecimal :-> TDecimal :-> TDecimal) =
-    EBuiltin BEDivDecimal
-convertPrim _ "BERoundDecimal" (TInt64 :-> TDecimal :-> TDecimal) =
-    EBuiltin BERoundDecimal
+convertPrim v "BEAddDecimal" (TDecimal :-> TDecimal :-> TDecimal) =
+    numericOrDecimalPrim v BEAddNumeric BEAddDecimal
+convertPrim v "BESubDecimal" (TDecimal :-> TDecimal :-> TDecimal) =
+    numericOrDecimalPrim v BESubNumeric BESubDecimal
+convertPrim v "BEMulDecimal" (TDecimal :-> TDecimal :-> TDecimal) =
+    numericOrDecimalPrim v BEMulNumeric BEMulDecimal
+convertPrim v "BEDivDecimal" (TDecimal :-> TDecimal :-> TDecimal) =
+    numericOrDecimalPrim v BEDivNumeric BEDivDecimal
+convertPrim v "BERoundDecimal" (TInt64 :-> TDecimal :-> TDecimal) =
+    numericOrDecimalPrim v BERoundNumeric BERoundDecimal
 
 -- Integer arithmetic
 convertPrim _ "BEAddInt64" (TInt64 :-> TInt64 :-> TInt64) =
@@ -96,10 +115,10 @@ convertPrim _ "BEUnixDaysToDate" (TInt64 :-> TDate) =
     EBuiltin BEUnixDaysToDate
 
 -- Conversion to and from Decimal
-convertPrim _ "BEInt64ToDecimal" (TInt64 :-> TDecimal) =
-    EBuiltin BEInt64ToDecimal
-convertPrim _ "BEDecimalToInt64" (TDecimal :-> TInt64) =
-    EBuiltin BEDecimalToInt64
+convertPrim v "BEInt64ToDecimal" (TInt64 :-> TDecimal) =
+    numericOrDecimalPrim v BEInt64ToNumeric BEInt64ToDecimal
+convertPrim v "BEDecimalToInt64" (TDecimal :-> TInt64) =
+    numericOrDecimalPrim v BENumericToInt64 BEDecimalToInt64
 
 -- List operations
 convertPrim _ "BEFoldl" ((b1 :-> a1 :-> b2) :-> b3 :-> TList a2 :-> b4) | a1 == a2, b1 == b2, b2 == b3, b3 == b4 =
@@ -112,8 +131,10 @@ convertPrim _ "BEError" (TText :-> t2) =
     ETyApp (EBuiltin BEError) t2
 
 -- Text operations
-convertPrim _ "BEToText" (TBuiltin x :-> TText) =
-    EBuiltin $ BEToText x
+convertPrim v "BEToText" (TBuiltin x :-> TText) =
+    if x == BTDecimal
+        then numericOrDecimalPrim v BEToTextNumeric (BEToText x)
+        else EBuiltin $ BEToText x
 convertPrim _ "BEExplodeText" (TText :-> TList TText) =
     EBuiltin BEExplodeText
 convertPrim _ "BEImplodeText" (TList TText :-> TText) =
@@ -130,8 +151,8 @@ convertPrim _ "BEPartyFromText" (TText :-> TOptional TParty) =
     EBuiltin BEPartyFromText
 convertPrim _ "BEInt64FromText" (TText :-> TOptional TInt64) =
     EBuiltin BEInt64FromText
-convertPrim _ "BEDecimalFromText" (TText :-> TOptional TDecimal) =
-    EBuiltin BEDecimalFromText
+convertPrim v "BEDecimalFromText" (TText :-> TOptional TDecimal) =
+    numericOrDecimalPrim v BENumericFromText BEDecimalFromText
 convertPrim _ "BETextToCodePoints" (TText :-> TList TInt64) =
     EBuiltin BETextToCodePoints
 convertPrim _ "BETextFromCodePoints" (TList TInt64 :-> TText) =
