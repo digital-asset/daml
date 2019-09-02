@@ -1,0 +1,31 @@
+-- Copyright (c) 2019 The DAML Authors. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+daml 1.2
+module ACS where
+
+import DA.TextMap (TextMap)
+import qualified DA.TextMap as TM
+
+import Daml.Trigger
+
+type ACS = TextMap Identifier
+
+test : Trigger (TextMap Identifier)
+test = Trigger
+  { initialState = TM.empty
+  , update = update
+  }
+  where
+    update : Message -> TextMap Identifier -> (TextMap Identifier, Text)
+    update (MTransaction t) acs = (foldl updateEvent acs (events t), transactionId t)
+    updateEvent : TextMap Identifier -> Event -> TextMap Identifier
+    updateEvent acs ev = case ev of
+      CreatedEvent (Created _ cId tId) -> TM.insert cId tId acs
+      ArchivedEvent (Archived _ cId _) -> TM.delete cId acs
+
+template Asset
+  with
+    issuer : Party
+  where
+    signatory issuer
