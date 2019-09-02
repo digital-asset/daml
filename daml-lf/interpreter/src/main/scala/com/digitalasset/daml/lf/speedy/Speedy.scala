@@ -280,6 +280,15 @@ object Speedy {
         ctrl = CtrlExpr(sexpr),
       )
     }
+
+    // Construct a machine from an SExpr. This is useful when you don’t have
+    // an update expression and build’s behavior of applying the expression to
+    // a token is not appropriate.
+    def fromSExpr(
+        sexpr: SExpr,
+        checkSubmitterInMaintainers: Boolean,
+        compiledPackages: CompiledPackages): Machine =
+      initial(checkSubmitterInMaintainers, compiledPackages).copy(ctrl = CtrlExpr(sexpr))
   }
 
   /** Control specifies the thing that the machine should be reducing.
