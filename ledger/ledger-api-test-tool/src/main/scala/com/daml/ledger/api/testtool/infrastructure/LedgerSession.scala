@@ -16,7 +16,6 @@ import org.slf4j.LoggerFactory
 
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.Try
 
 private[testtool] final class LedgerSession private (
     val config: LedgerSessionConfiguration,
@@ -90,8 +89,8 @@ private[testtool] object LedgerSession {
   }
 
   def getOrCreate(configuration: LedgerSessionConfiguration)(
-      implicit ec: ExecutionContext): Try[LedgerSession] =
-    Try(channels.getOrElseUpdate(configuration, create(configuration)))
+      implicit ec: ExecutionContext): Future[LedgerSession] =
+    Future(channels.getOrElseUpdate(configuration, create(configuration)))
 
   def close(configuration: LedgerSessionConfiguration) =
     channels.get(configuration).foreach(_.close())

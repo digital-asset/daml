@@ -12,8 +12,7 @@ final class Identity(session: LedgerSession) extends LedgerTestSuite(session) {
   private[this] val identity =
     LedgerTest("IdNotEmpty", "A ledger should return a non-empty string as its identity") {
       ledger =>
-        Future.successful(
-          assert(ledger.ledgerId.nonEmpty, "The returned ledger identifier was empty"))
+        Future(assert(ledger.ledgerId.nonEmpty, "The returned ledger identifier was empty"))
     }
 
   override val tests: Vector[LedgerTest] = Vector(identity)
