@@ -4,15 +4,18 @@
 -- | DAML-LF Numeric literals, with scale attached.
 module DA.Daml.LF.Ast.Numeric
     ( Numeric
+    , E10
     , numeric
     , numericScale
     , numericMaxScale
+    , numericFromDecimal
     ) where
 
 import Control.DeepSeq
 import Control.Monad
 import Data.Data
 import Data.Decimal
+import Data.Fixed
 import Data.Maybe
 import GHC.Generics (Generic)
 import Numeric.Natural
@@ -65,6 +68,15 @@ numericScale = fromIntegral . decimalPlaces . numericDecimal
 -- (inclusive).
 numericMantissa :: Numeric -> Integer
 numericMantissa = decimalMantissa . numericDecimal
+
+-- | Fixed scale for (legacy) Decimal literals.
+data E10
+instance HasResolution E10 where
+  resolution _ = 10000000000 -- 10^-10 resolution
+
+-- | Convert a decimal literal into a numeric literal.
+numericFromDecimal :: Fixed E10 -> Numeric
+numericFromDecimal (MkFixed n) = numeric 10 n
 
 instance Show Numeric where
     showsPrec p n

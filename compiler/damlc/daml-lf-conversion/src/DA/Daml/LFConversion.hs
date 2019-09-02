@@ -94,6 +94,7 @@ import Control.Monad.Fail
 import           Control.Monad.Reader
 import           Control.Monad.State.Strict
 import           DA.Daml.LF.Ast as LF
+import           DA.Daml.LF.Ast.Numeric (numericFromDecimal)
 import           Data.Data hiding (TyCon)
 import           Data.Foldable (foldlM)
 import           Data.Int
@@ -210,8 +211,8 @@ convertInt64 x
     | otherwise =
         unsupported "Int literal out of bounds" (negate x)
 
-convertRational :: Integer -> Integer -> ConvertM LF.Expr
-convertRational num denom
+convertRational :: Env -> Integer -> Integer -> ConvertM LF.Expr
+convertRational env num denom
  =
     -- the denominator needs to be a divisor of 10^10.
     -- num % denom * 10^10 needs to fit within a 128bit signed number.
@@ -219,7 +220,10 @@ convertRational num denom
     -- upper limit.
     if | 10 ^ maxPrecision `mod` denom == 0 &&
              abs (r * 10 ^ maxPrecision) <= upperBound128Bit - 1 ->
-           pure $ EBuiltin $ BEDecimal $ fromRational r
+            pure $ EBuiltin $
+            if envLfVersion env `supports` featureNumeric
+                then BENumeric $ numericFromDecimal $ fromRational r
+                else BEDecimal $ fromRational r
        | otherwise ->
            unsupported
                ("Rational is out of bounds: " ++
@@ -584,7 +588,7 @@ convertExpr env0 e = do
             withTmArg env (varV2, record') args $ \x2 args ->
                 pure (ERecUpd (fromTCon record') (mkField $ fsToText name) x2 x1, args)
     go env (VarIs "fromRational") (LExpr (VarIs ":%" `App` tyInteger `App` Lit (LitNumber _ top _) `App` Lit (LitNumber _ bot _)) : args)
-        = fmap (, args) $ convertRational top bot
+        = fmap (, args) $ convertRational env top bot
     go env (VarIs "negate") (tyInt : LExpr (VarIs "$fAdditiveInt") : LExpr (untick -> VarIs "fromInteger" `App` Lit (LitNumber _ x _)) : args)
         = fmap (, args) $ convertInt64 (negate x)
     go env (VarIs "fromInteger") (LExpr (Lit (LitNumber _ x _)) : args)
