@@ -51,6 +51,7 @@ data EncodeCtx = EncodeCtx {
 encodeList :: (a -> b) -> [a] -> V.Vector b
 encodeList encodeElem = V.fromList . map encodeElem
 
+-- invariant: vector's order = namemap's order
 encodeNameMap :: (v -> a -> b) -> v -> NM.NameMap a -> V.Vector b
 encodeNameMap encodeElem v = V.fromList . map (encodeElem v) . NM.toList
 

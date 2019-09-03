@@ -3,25 +3,47 @@
 
 module DA.Daml.LF.Proto3.Decode
   ( Error(..)
+  , decodePayloads
   , decodePayload
+  , decodeModuleNameIndices
   , decodeModuleNameIndex
   ) where
 
+import qualified Data.HashMap.Lazy as M
+import Data.Foldable (toList)
 import Data.Word (Word64)
 import Da.DamlLf (ArchivePayload(..), ArchivePayloadSum(..))
-import DA.Daml.LF.Ast (Package, ModuleName)
+import DA.Daml.LF.Ast (Package, PackageId, ModuleName)
 import DA.Daml.LF.Proto3.Error (Error(ParseError), Decode)
 import qualified DA.Daml.LF.Proto3.DecodeV1 as DecodeV1
 
-decodePayload :: ArchivePayload -> Decode Package
-decodePayload payload = case archivePayloadSum payload of
+type ModuleNameIndex = Word64 -> Maybe ModuleName
+
+-- traverses ArchivePayloads twice; we could do only one traversal if they were
+-- guaranteed to be topologically sorted, but they are not guaranteed to be so,
+-- even if our own implementation happens to do that when encoding.  We could
+-- also make ModuleNameIndex produce Decode ModuleName to avoid the first
+-- traversal, since the function would then be nonstrict on ArchivePayload
+decodePayloads :: Traversable f => f (PackageId, ArchivePayload) -> Decode (f Package)
+decodePayloads payloads = do
+  depModNames <- decodeModuleNameIndices payloads
+  traverse (decodePayload depModNames . snd) payloads
+
+decodePayload :: (PackageId -> ModuleNameIndex) -> ArchivePayload -> Decode Package
+decodePayload depModNames payload = case archivePayloadSum payload of
     Just ArchivePayloadSumDamlLf0{} -> Left $ ParseError "Payload is DamlLf0"
-    Just (ArchivePayloadSumDamlLf1 package) -> DecodeV1.decodePackage minor package
+    Just (ArchivePayloadSumDamlLf1 package) -> DecodeV1.decodePackage depModNames minor package
     Nothing -> Left $ ParseError "Empty payload"
     where
         minor = archivePayloadMinor payload
 
-decodeModuleNameIndex :: ArchivePayload -> Decode (Word64 -> Maybe ModuleName)
+decodeModuleNameIndices :: Foldable f => f (PackageId, ArchivePayload) -> Decode (PackageId -> ModuleNameIndex)
+decodeModuleNameIndices payloads =
+  let decodes = (traverse . traverse) decodeModuleNameIndex $ toList payloads
+      depModNames index mn w = mn `M.lookup` index >>= ($ w)
+  in depModNames . M.fromList <$> decodes
+
+decodeModuleNameIndex :: ArchivePayload -> Decode ModuleNameIndex
 decodeModuleNameIndex payload = case archivePayloadSum payload of
     Just ArchivePayloadSumDamlLf0{} -> Left $ ParseError "Payload is DamlLf0"
     Just (ArchivePayloadSumDamlLf1 package) -> DecodeV1.decodeInternedModuleNameIndex package

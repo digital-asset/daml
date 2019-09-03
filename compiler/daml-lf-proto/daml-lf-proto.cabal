@@ -35,6 +35,7 @@ library
       text,
       transformers,
       vector,
+      unordered-containers,
     exposed-modules:
       DA.Daml.LF.Mangling
       DA.Daml.LF.Proto3.Archive

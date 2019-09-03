@@ -47,11 +47,11 @@ decodeVersion minorText = do
   let version = V1 minor
   if version `elem` LF.supportedInputVersions then pure version else unsupported
 
-decodePackage :: TL.Text -> LF1.Package -> Decode Package
-decodePackage minorText pkg@(LF1.Package mods internedPkgIds) = do
+decodePackage :: (PackageId -> Word64 -> Maybe ModuleName) -> TL.Text -> LF1.Package -> Decode Package
+decodePackage depModNames minorText pkg@(LF1.Package mods internedPkgIds) = do
   version <- decodeVersion minorText
   pkgIds <- decodeInternedPackageIds internedPkgIds
-  modNames <- internedModuleNameIndex (\_ _ -> Nothing {- TODO SC -}) pkg
+  modNames <- internedModuleNameIndex depModNames pkg
   Package version <$> runReaderT (decodeNM DuplicateModule decodeModule mods) (PackageRefCtx pkgIds modNames)
 
 internedModuleNameIndex :: (PackageId -> Word64 -> Maybe ModuleName) -> LF1.Package

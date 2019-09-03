@@ -21,6 +21,7 @@ da_haskell_library(
         "text",
         "transformers",
         "vector",
+        "unordered-containers",
     ],
     src_strip_prefix = "src",
     visibility = ["//visibility:public"],
