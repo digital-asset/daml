@@ -10,7 +10,7 @@ import Control.Concurrent
 import Control.Monad
 import Control.Monad.IO.Class(liftIO)
 import DA.Bazel.Runfiles
-import DA.Daml.LF.Proto3.Archive (decodeArchive)
+import DA.Daml.LF.Proto3.Archive (decodeArchivePayload)
 import DA.Daml.LF.Reader(Dalfs(..),readDalfs)
 import DA.Ledger.Sandbox (Sandbox,SandboxSpec(..),startSandbox,shutdownSandbox,withSandbox)
 import Data.List (elem,isPrefixOf,isInfixOf,(\\))
@@ -693,7 +693,7 @@ mainPackageId :: SandboxSpec -> IO PackageId
 mainPackageId (SandboxSpec dar) = do
     archive <- Zip.toArchive <$> BSL.readFile dar
     Dalfs { mainDalf } <- either fail pure $ readDalfs archive
-    case decodeArchive (BSL.toStrict mainDalf) of
+    case decodeArchivePayload (BSL.toStrict mainDalf) of
         Left err -> fail $ show err
         Right (LF.PackageId pId, _) -> pure (PackageId $ Text.fromStrict pId)
 

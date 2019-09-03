@@ -5,6 +5,7 @@
 -- | Utilities for working with DAML-LF protobuf archives
 module DA.Daml.LF.Proto3.Archive
   ( decodeArchive
+  , decodeArchivePayload
   , encodeArchive
   , encodeArchiveLazy
   , encodeArchiveAndHash
@@ -38,8 +39,8 @@ data ArchiveError
 
 -- decodeArchives :: Traversable f => f BS.ByteString -> Either ArchiveError (f (LF.PackageId, LF.Package))
 
-prepareArchivePayload :: BS.ByteString -> Either ArchiveError (LF.PackageId, ProtoLF.ArchivePayload)
-prepareArchivePayload bytes = do
+decodeArchivePayload :: BS.ByteString -> Either ArchiveError (LF.PackageId, ProtoLF.ArchivePayload)
+decodeArchivePayload bytes = do
     archive <- over _Left (ProtobufError . show) $ Proto.fromByteString bytes
     let payloadBytes = ProtoLF.archivePayload archive
     let archiveHash = TL.toStrict (ProtoLF.archiveHash archive)
@@ -59,7 +60,7 @@ prepareArchivePayload bytes = do
 -- | Decode a LF archive header, returing the hash and the payload
 decodeArchive :: BS.ByteString -> Either ArchiveError (LF.PackageId, LF.Package)
 decodeArchive bytes = do
-    (packageId, payload) <- prepareArchivePayload bytes
+    (packageId, payload) <- decodeArchivePayload bytes
     package <- over _Left (ProtobufError. show) $ Decode.decodePayload payload
     return (packageId, package)
 
