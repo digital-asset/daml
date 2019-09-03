@@ -552,8 +552,9 @@ private class JdbcLedgerDao(
           }.recover {
             case NonFatal(e) if e.getMessage.contains(dbType.DUPLICATE_KEY_ERROR) =>
               logger.warn(
-                "Ignoring duplicate submission for applicationId {}, commandId {}",
-                tx.applicationId: Any,
+                "Ignoring duplicate submission for submitter{}, applicationId {}, commandId {}",
+                tx.submittingParty,
+                tx.applicationId,
                 tx.commandId)
               conn.rollback()
               Duplicate
