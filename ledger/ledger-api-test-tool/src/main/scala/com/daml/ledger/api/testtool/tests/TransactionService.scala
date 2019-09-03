@@ -671,19 +671,22 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
       }
     }
 
-  private[this] val transactionStreamingOfManyTransactions = LedgerTest("TXStreamingOfManyTransactions", "Loading many transactions properly works.") { ledger =>
-    // this tests the paging mechanism in the SQL backends. The page size hardcoded as 100.
-    for {
-      party <- ledger.allocateParty()
-      expectedContractIds <- Future.sequence(Vector.fill(200)(ledger.create(party, Dummy(party))))
-      createdEvents <- ledger.flatTransactions(party)
-    } yield {
+  private[this] val transactionStreamingOfManyTransactions =
+    LedgerTest("TXStreamingOfManyTransactions", "Loading many transactions properly works.") {
+      ledger =>
+        // this tests the paging mechanism in the SQL backends. The page size hardcoded as 100.
+        for {
+          party <- ledger.allocateParty()
+          expectedContractIds <- Future.sequence(
+            Vector.fill(200)(ledger.create(party, Dummy(party))))
+          createdEvents <- ledger.flatTransactions(party)
+        } yield {
 
-      val actual = createdEvents.flatMap(_.events).map(_.getCreated.contractId).sorted
-      val expected = expectedContractIds.map(_.unwrap).sorted
-      assertEquals("ManyTransactions", actual, expected)
+          val actual = createdEvents.flatMap(_.events).map(_.getCreated.contractId).sorted
+          val expected = expectedContractIds.map(_.unwrap).sorted
+          assertEquals("ManyTransactions", actual, expected)
+        }
     }
-  }
 
   override val tests: Vector[LedgerTest] = Vector(
     beginToBeginShouldBeEmpty,
