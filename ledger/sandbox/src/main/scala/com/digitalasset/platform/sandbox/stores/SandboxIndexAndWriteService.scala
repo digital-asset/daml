@@ -77,6 +77,7 @@ object SandboxIndexAndWriteService {
       .jdbcBacked(
         jdbcUrl,
         ledgerId,
+        participantId,
         timeProvider,
         acs,
         templateStore,

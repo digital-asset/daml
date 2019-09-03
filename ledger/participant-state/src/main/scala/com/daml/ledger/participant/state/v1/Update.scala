@@ -21,6 +21,9 @@ sealed trait Update extends Product with Serializable {
 
   /** Short human-readable one-line description summarizing the state updates content. */
   def description: String
+
+  /** The record time at which the state change was committed. */
+  def recordTime: Timestamp
 }
 
 object Update {
@@ -32,6 +35,7 @@ object Update {
 
   /** Signal that the current [[Configuration]] has changed. */
   final case class ConfigurationChanged(
+      recordTime: Timestamp,
       submissionId: String,
       participantId: ParticipantId,
       newConfiguration: Configuration)
@@ -43,6 +47,7 @@ object Update {
   /** Signal that a configuration change submitted by this participant was rejected.
     */
   final case class ConfigurationChangeRejected(
+      recordTime: Timestamp,
       submissionId: String,
       participantId: ParticipantId,
       proposedConfiguration: Configuration,
@@ -169,6 +174,7 @@ object Update {
     * rejected.
     */
   final case class CommandRejected(
+      recordTime: Timestamp,
       submitterInfo: SubmitterInfo,
       reason: RejectionReason,
   ) extends Update {

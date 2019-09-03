@@ -263,6 +263,7 @@ class JdbcLedgerDaoSpec
           offset,
           offset + 1,
           None,
+          Instant.EPOCH,
           "submission-0",
           Ref.LedgerString.assertFromString("participant-0"),
           defaultConfig,
@@ -288,6 +289,7 @@ class JdbcLedgerDaoSpec
           offset,
           offset + 1,
           None,
+          Instant.EPOCH,
           "config-rejection-0",
           participantId,
           proposedConfig,
@@ -317,6 +319,7 @@ class JdbcLedgerDaoSpec
           offset0,
           offset0 + 1,
           None,
+          Instant.EPOCH,
           "refuse-config-0",
           participantId,
           config.copy(generation = config.generation + 1),
@@ -330,6 +333,7 @@ class JdbcLedgerDaoSpec
           offset1,
           offset1 + 1,
           None,
+          Instant.EPOCH,
           "refuse-config-0",
           participantId,
           newConfig.copy(generation = config.generation + 1),
@@ -342,6 +346,7 @@ class JdbcLedgerDaoSpec
           offset2,
           offset2 + 1,
           None,
+          Instant.EPOCH,
           "refuse-config-1",
           participantId,
           config,
@@ -355,6 +360,7 @@ class JdbcLedgerDaoSpec
           offset3,
           offset3 + 1,
           None,
+          Instant.EPOCH,
           "refuse-config-2",
           participantId,
           lastConfig,
@@ -371,7 +377,7 @@ class JdbcLedgerDaoSpec
         lastConfig shouldEqual lastConfigActual
         entries shouldEqual List(
           offset0 -> ConfigurationEntry.Accepted("refuse-config-0", participantId, newConfig),
-          offset3 -> ConfigurationEntry.Accepted("refuse-config-2", participantId, lastConfig),
+          offset3 -> ConfigurationEntry.Accepted("refuse-config-2", participantId, lastConfig)
         )
       }
     }

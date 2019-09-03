@@ -4,6 +4,7 @@
 package com.digitalasset.platform.sandbox
 
 import akka.stream.Materializer
+import com.daml.ledger.participant.state.v1.ParticipantId
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.ledger.api.testing.utils.Resource
 import com.digitalasset.platform.sandbox.metrics.MetricsManager
@@ -45,6 +46,7 @@ object LedgerResource {
 
   def postgres(
       ledgerId: LedgerId,
+      participantId: ParticipantId,
       timeProvider: TimeProvider,
       packages: InMemoryPackageStore = InMemoryPackageStore.empty)(
       implicit mat: Materializer,
@@ -67,6 +69,7 @@ object LedgerResource {
             Ledger.jdbcBacked(
               postgres.value.jdbcUrl,
               ledgerId,
+              participantId,
               timeProvider,
               InMemoryActiveContracts.empty,
               packages,

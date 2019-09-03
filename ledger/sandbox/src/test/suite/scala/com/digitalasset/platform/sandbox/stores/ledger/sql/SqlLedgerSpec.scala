@@ -3,6 +3,7 @@
 
 package com.digitalasset.platform.sandbox.stores.ledger.sql
 
+import com.daml.ledger.participant.state.v1.ParticipantId
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.digitalasset.platform.sandbox.MetricsAround
@@ -30,12 +31,14 @@ class SqlLedgerSpec
   private val queueDepth = 128
 
   private val ledgerId: LedgerId = LedgerId(Ref.LedgerString.assertFromString("TheLedger"))
+  private val participantId: ParticipantId = Ref.LedgerString.assertFromString("TheParticipant")
 
   "SQL Ledger" should {
     "be able to be created from scratch with a random ledger id" in {
       val ledgerF = SqlLedger(
         jdbcUrl = postgresFixture.jdbcUrl,
         ledgerId = None,
+        participantId = participantId,
         timeProvider = TimeProvider.UTC,
         acs = InMemoryActiveContracts.empty,
         packages = InMemoryPackageStore.empty,
@@ -52,6 +55,7 @@ class SqlLedgerSpec
       val ledgerF = SqlLedger(
         jdbcUrl = postgresFixture.jdbcUrl,
         ledgerId = Some(ledgerId),
+        participantId = participantId,
         timeProvider = TimeProvider.UTC,
         acs = InMemoryActiveContracts.empty,
         packages = InMemoryPackageStore.empty,
@@ -70,6 +74,7 @@ class SqlLedgerSpec
         ledger1 <- SqlLedger(
           jdbcUrl = postgresFixture.jdbcUrl,
           ledgerId = Some(ledgerId),
+          participantId = participantId,
           timeProvider = TimeProvider.UTC,
           acs = InMemoryActiveContracts.empty,
           packages = InMemoryPackageStore.empty,
@@ -80,6 +85,7 @@ class SqlLedgerSpec
         ledger2 <- SqlLedger(
           jdbcUrl = postgresFixture.jdbcUrl,
           ledgerId = Some(ledgerId),
+          participantId = participantId,
           timeProvider = TimeProvider.UTC,
           acs = InMemoryActiveContracts.empty,
           packages = InMemoryPackageStore.empty,
@@ -90,6 +96,7 @@ class SqlLedgerSpec
         ledger3 <- SqlLedger(
           jdbcUrl = postgresFixture.jdbcUrl,
           ledgerId = None,
+          participantId = participantId,
           timeProvider = TimeProvider.UTC,
           acs = InMemoryActiveContracts.empty,
           packages = InMemoryPackageStore.empty,
@@ -110,6 +117,7 @@ class SqlLedgerSpec
         _ <- SqlLedger(
           jdbcUrl = postgresFixture.jdbcUrl,
           ledgerId = Some(LedgerId(Ref.LedgerString.assertFromString("TheLedger"))),
+          participantId = participantId,
           timeProvider = TimeProvider.UTC,
           acs = InMemoryActiveContracts.empty,
           packages = InMemoryPackageStore.empty,
@@ -119,6 +127,7 @@ class SqlLedgerSpec
         _ <- SqlLedger(
           jdbcUrl = postgresFixture.jdbcUrl,
           ledgerId = Some(LedgerId(Ref.LedgerString.assertFromString("AnotherLedger"))),
+          participantId = participantId,
           timeProvider = TimeProvider.UTC,
           acs = InMemoryActiveContracts.empty,
           packages = InMemoryPackageStore.empty,
