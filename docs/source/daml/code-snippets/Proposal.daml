@@ -14,7 +14,6 @@ template Template t => Proposal t
     receiver : Party
   where
     signatory (signatory asset \\ [receiver])
-    observer receiver
 
     controller receiver can
       Accept : ContractId t
