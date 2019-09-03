@@ -348,6 +348,9 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
 
       final class AcsStoreAcc extends ActiveLedgerState[AcsStoreAcc] {
 
+        override def lookupActiveContract(cid: AbsoluteContractId) =
+          lookupActiveContractSync(cid).map(_.toActiveContract)
+
         override def lookupContract(cid: AbsoluteContractId) =
           lookupActiveContractSync(cid).map(_.toActiveContract)
 

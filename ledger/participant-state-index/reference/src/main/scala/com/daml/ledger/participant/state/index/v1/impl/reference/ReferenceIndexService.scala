@@ -219,7 +219,7 @@ final case class ReferenceIndexService(
               }
               .collect {
                 case (workflowId, create: AcsUpdateEvent.Create)
-                    if state.activeContracts.contracts.contains(create.contractId) =>
+                    if state.activeContracts.activeContracts.contains(create.contractId) =>
                   (workflowId, create)
               }
               .toIterator)
@@ -339,7 +339,7 @@ final case class ReferenceIndexService(
     futureWithState { state =>
       Future {
         state.activeContracts
-          .lookupContract(contractId)
+          .lookupActiveContract(contractId)
           .flatMap {
             case ac if canSeeContract(submitter, ac) => Some(ac.contract)
             case _ => None
@@ -360,7 +360,7 @@ final case class ReferenceIndexService(
 
             // note that we need to check visibility for keys, too, otherwise we leak the existence of a non-divulged
             // contract if we return `Some`.
-            state.activeContracts.lookupContract(cid).flatMap {
+            state.activeContracts.lookupActiveContract(cid).flatMap {
               case ac if canSeeContract(submitter, ac) => Some(cid)
               case _ => None
             }

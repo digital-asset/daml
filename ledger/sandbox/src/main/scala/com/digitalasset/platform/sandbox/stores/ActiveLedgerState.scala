@@ -29,7 +29,10 @@ import com.digitalasset.platform.sandbox.stores.ActiveLedgerState._
   */
 trait ActiveLedgerState[+Self] { this: ActiveLedgerState[Self] =>
 
-  /** Callback to query a contract, used for transaction validation */
+  /** Callback to query an active contract */
+  def lookupActiveContract(cid: AbsoluteContractId): Option[ActiveContract]
+
+  /** Callback to query an active or divulged contract, used for transaction validation */
   def lookupContract(cid: AbsoluteContractId): Option[Contract]
 
   /** Callback to query a contract key, used for transaction validation */
@@ -66,6 +69,15 @@ object ActiveLedgerState {
   sealed abstract class Contract {
     def id: Value.AbsoluteContractId
     def contract: ContractInst[VersionedValue[AbsoluteContractId]]
+
+    /** For each party, the transaction id at which the contract was divulged */
+    def divulgences: Map[Party, TransactionIdString]
+
+    /** Returns the new divulgences after the contract has been divulged to the given parties at the given transaction */
+    def divulgeTo(
+        parties: Set[Party],
+        transactionId: TransactionIdString): Map[Party, TransactionIdString] =
+      parties.foldLeft(divulgences)((m, e) => if (m.contains(e)) m else m + (e -> transactionId))
   }
 
   /**

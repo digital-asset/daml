@@ -19,25 +19,52 @@ import com.digitalasset.platform.sandbox.stores.ledger.SequencingError
 import scalaz.syntax.std.map._
 
 case class InMemoryActiveLedgerState(
-    contracts: Map[AbsoluteContractId, ActiveContract],
+    activeContracts: Map[AbsoluteContractId, ActiveContract],
+    divulgedContracts: Map[AbsoluteContractId, DivulgedContract],
     keys: Map[GlobalKey, AbsoluteContractId],
     parties: Map[Party, PartyDetails])
     extends ActiveLedgerState[InMemoryActiveLedgerState] {
 
-  override def lookupContract(cid: AbsoluteContractId) = contracts.get(cid)
+  override def lookupActiveContract(cid: AbsoluteContractId): Option[ActiveContract] =
+    activeContracts.get(cid)
+
+  override def lookupContract(cid: AbsoluteContractId): Option[Contract] =
+    activeContracts.get(cid).orElse[Contract](divulgedContracts.get(cid))
 
   override def keyExists(key: GlobalKey) = keys.contains(key)
 
-  override def addContract(c: ActiveContract, keyO: Option[GlobalKey]): InMemoryActiveLedgerState =
-    keyO match {
-      case None => copy(contracts = contracts + (c.id -> c))
-      case Some(key) =>
-        copy(contracts = contracts + (c.id -> c), keys = keys + (key -> c.id))
+  /**
+    * Updates divulgence information on the given active contract with information
+    * from the already existing divulged contract.
+    */
+  private def copyDivulgences(ac: ActiveContract, dc: DivulgedContract): ActiveContract =
+    ac.copy(divulgences = ac.divulgences.unionWith(dc.divulgences)((l, _) => l))
+
+  override def addContract(
+      c: ActiveContract,
+      keyO: Option[GlobalKey]): InMemoryActiveLedgerState = {
+    val newKeys = keyO match {
+      case None => keys
+      case Some(key) => keys + (key -> c.id)
     }
+    divulgedContracts.get(c.id) match {
+      case None =>
+        copy(
+          activeContracts = activeContracts + (c.id -> c),
+          keys = newKeys
+        )
+      case Some(dc) =>
+        copy(
+          activeContracts = activeContracts + (c.id -> copyDivulgences(c, dc)),
+          divulgedContracts = divulgedContracts - c.id,
+          keys = newKeys
+        )
+    }
+  }
 
   override def removeContract(cid: AbsoluteContractId, keyO: Option[GlobalKey]) = keyO match {
-    case None => copy(contracts = contracts - cid)
-    case Some(key) => copy(contracts = contracts - cid, keys = keys - key)
+    case None => copy(activeContracts = activeContracts - cid)
+    case Some(key) => copy(activeContracts = activeContracts - cid, keys = keys - key)
   }
 
   override def addParties(newParties: Set[Party]): InMemoryActiveLedgerState =
@@ -48,14 +75,34 @@ case class InMemoryActiveLedgerState(
       global: Relation[AbsoluteContractId, Party],
       referencedContracts: List[(Value.AbsoluteContractId, AbsoluteContractInst)])
     : InMemoryActiveLedgerState =
-    if (global.nonEmpty)
+    if (global.nonEmpty) {
+      val referencedContractsM = referencedContracts.toMap
+      // Note: each entry in `global` can refer to either:
+      // - a known active contract, in which case its divulgence info is updated
+      // - a divulged contract, in which case its divulgence info is updated
+      // - an unknown contract, in which case a new divulged contract is stored
+      val updatedAcs = activeContracts.intersectWith(global) { (ac, parties) =>
+        ac copy (divulgences = ac.divulgeTo(parties, transactionId))
+      }
+      val updatedDcs = divulgedContracts.intersectWith(global) { (dc, parties) =>
+        dc copy (divulgences = dc.divulgeTo(parties, transactionId))
+      }
+      val newDcs = global.foldLeft(Map.empty[AbsoluteContractId, DivulgedContract])(
+        (m, e) =>
+          if (updatedAcs.contains(e._1) || updatedDcs.contains(e._1))
+            m
+          else
+            m + (e._1 -> DivulgedContract(
+              id = e._1,
+              contract = referencedContractsM
+                .getOrElse(e._1, sys.error(s"Divulged contract ${e._1.coid} not known")),
+              divulgences = Map.empty ++ e._2.map(p => p -> transactionId)
+            )))
       copy(
-        contracts = contracts ++
-          contracts.intersectWith(global) { (ac, parties) =>
-            ac copy (divulgences = parties.foldLeft(ac.divulgences)((m, e) =>
-              if (m.contains(e)) m else m + (e -> transactionId)))
-          })
-    else this
+        activeContracts = activeContracts ++ updatedAcs,
+        divulgedContracts = divulgedContracts ++ updatedDcs ++ newDcs
+      )
+    } else this
 
   private val acManager =
     new ActiveLedgerStateManager(this)
@@ -93,5 +140,6 @@ case class InMemoryActiveLedgerState(
 }
 
 object InMemoryActiveLedgerState {
-  def empty: InMemoryActiveLedgerState = InMemoryActiveLedgerState(Map(), Map(), Map.empty)
+  def empty: InMemoryActiveLedgerState =
+    InMemoryActiveLedgerState(Map.empty, Map.empty, Map.empty, Map.empty)
 }
