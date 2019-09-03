@@ -13,12 +13,13 @@ import anorm.SqlParser._
 import anorm.ToStatement.optionToStatement
 import anorm.{AkkaStream, BatchSql, Macro, NamedParameter, RowParser, SQL, SqlParser}
 import com.daml.ledger.participant.state.index.v2.PackageDetails
-import com.daml.ledger.participant.state.v1.TransactionId
+import com.daml.ledger.participant.state.v1.{AbsoluteContractInst, TransactionId}
 import com.digitalasset.daml.lf.archive.Decode
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.Relation.Relation
 import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.transaction.Node.{GlobalKey, KeyWithMaintainers, NodeCreate}
+import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 import com.digitalasset.daml_lf.DamlLf.Archive
 import com.digitalasset.ledger._
@@ -348,7 +349,8 @@ private class JdbcLedgerDao(
       offset: Long,
       tx: Transaction,
       localImplicitDisclosure: Relation[EventId, Party],
-      globalImplicitDisclosure: Relation[AbsoluteContractId, Party])(
+      globalImplicitDisclosure: Relation[AbsoluteContractId, Party],
+      referencedContracts: List[(Value.AbsoluteContractId, AbsoluteContractInst)])(
       implicit connection: Connection): Option[RejectionReason] = tx match {
     case Transaction(
         _,
@@ -397,7 +399,8 @@ private class JdbcLedgerDao(
 
         override def divulgeAlreadyCommittedContract(
             transactionId: TransactionIdString,
-            global: Relation[AbsoluteContractId, Party]) = {
+            global: Relation[AbsoluteContractId, Party],
+            referencedContracts: List[(Value.AbsoluteContractId, AbsoluteContractInst)]) = {
           val divulgenceParams = global
             .flatMap {
               case (cid, parties) =>
@@ -432,7 +435,8 @@ private class JdbcLedgerDao(
         transaction,
         disclosure,
         localImplicitDisclosure,
-        globalImplicitDisclosure
+        globalImplicitDisclosure,
+        referencedContracts
       )
 
       atr match {
@@ -522,11 +526,20 @@ private class JdbcLedgerDao(
 
     def insertEntry(le: PersistenceEntry)(implicit conn: Connection): PersistenceResponse =
       le match {
-        case PersistenceEntry.Transaction(tx, localImplicitDisclosure, globalImplicitDisclosure) =>
+        case PersistenceEntry.Transaction(
+            tx,
+            localImplicitDisclosure,
+            globalImplicitDisclosure,
+            referencedContracts) =>
           Try {
             storeTransaction(offset, tx)
 
-            updateActiveContractSet(offset, tx, localImplicitDisclosure, globalImplicitDisclosure)
+            updateActiveContractSet(
+              offset,
+              tx,
+              localImplicitDisclosure,
+              globalImplicitDisclosure,
+              referencedContracts)
               .flatMap { rejectionReason =>
                 // we need to rollback the existing sql transaction
                 conn.rollback()

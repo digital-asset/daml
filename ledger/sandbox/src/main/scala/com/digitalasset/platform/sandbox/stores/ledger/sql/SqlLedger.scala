@@ -261,7 +261,8 @@ private class SqlLedger(
             mappedDisclosure
           ),
           mappedLocalImplicitDisclosure,
-          blindingInfo.globalImplicitDisclosure
+          blindingInfo.globalImplicitDisclosure,
+          List.empty
         )
       }
     }

@@ -163,6 +163,7 @@ class InMemoryLedger(
         blindingInfo.explicitDisclosure,
         blindingInfo.localImplicitDisclosure,
         blindingInfo.globalImplicitDisclosure,
+        List.empty
       )
       acsRes match {
         case Left(err) =>

@@ -5,6 +5,7 @@ package com.digitalasset.platform.sandbox.stores
 
 import java.time.Instant
 
+import com.daml.ledger.participant.state.v1.AbsoluteContractInst
 import com.digitalasset.daml.lf.data.Ref.{Party, TransactionIdString}
 import com.digitalasset.daml.lf.data.Relation.Relation
 import com.digitalasset.daml.lf.transaction.Node.{GlobalKey, KeyWithMaintainers}
@@ -53,7 +54,8 @@ trait ActiveLedgerState[+Self] { this: ActiveLedgerState[Self] =>
     */
   def divulgeAlreadyCommittedContract(
       transactionId: TransactionIdString,
-      global: Relation[AbsoluteContractId, Party]): Self
+      global: Relation[AbsoluteContractId, Party],
+      referencedContracts: List[(Value.AbsoluteContractId, AbsoluteContractInst)]): Self
 }
 
 object ActiveLedgerState {

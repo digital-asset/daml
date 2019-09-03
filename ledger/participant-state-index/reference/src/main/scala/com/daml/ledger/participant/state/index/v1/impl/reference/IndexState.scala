@@ -120,7 +120,8 @@ final case class IndexState(
               transaction = u.transaction,
               explicitDisclosure = blindingInfo.explicitDisclosure,
               localImplicitDisclosure = blindingInfo.localImplicitDisclosure,
-              globalImplicitDisclosure = blindingInfo.globalImplicitDisclosure
+              globalImplicitDisclosure = blindingInfo.globalImplicitDisclosure,
+              referencedContracts = u.referencedContracts
             )
             .fold(_ => Left(SequencingError), { newActiveContracts =>
               Right(

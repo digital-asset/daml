@@ -9,11 +9,12 @@ import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.daml.ledger.participant.state.index.v2.PackageDetails
-import com.daml.ledger.participant.state.v1.TransactionId
+import com.daml.ledger.participant.state.v1.{AbsoluteContractInst, TransactionId}
 import com.digitalasset.daml.lf.data.Ref.{LedgerString, PackageId, Party}
 import com.digitalasset.daml.lf.data.Relation.Relation
 import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.transaction.Node.KeyWithMaintainers
+import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst, VersionedValue}
 import com.digitalasset.daml_lf.DamlLf.Archive
 import com.digitalasset.ledger._
@@ -80,7 +81,8 @@ object PersistenceEntry {
   final case class Transaction(
       entry: LedgerEntry.Transaction,
       localImplicitDisclosure: Relation[EventId, Party],
-      globalImplicitDisclosure: Relation[AbsoluteContractId, Party]
+      globalImplicitDisclosure: Relation[AbsoluteContractId, Party],
+      referencedContracts: List[(Value.AbsoluteContractId, AbsoluteContractInst)]
   ) extends PersistenceEntry
   final case class Checkpoint(entry: LedgerEntry.Checkpoint) extends PersistenceEntry
 }

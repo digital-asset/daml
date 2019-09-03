@@ -5,10 +5,12 @@ package com.digitalasset.platform.sandbox.stores
 
 import java.time.Instant
 
+import com.daml.ledger.participant.state.v1.AbsoluteContractInst
 import com.digitalasset.daml.lf.data.Ref.{Party, TransactionIdString}
 import com.digitalasset.daml.lf.data.Relation.Relation
 import com.digitalasset.daml.lf.transaction.Node.GlobalKey
 import com.digitalasset.daml.lf.transaction.GenTransaction
+import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 import com.digitalasset.ledger.WorkflowId
 import com.digitalasset.ledger.api.domain.PartyDetails
@@ -43,7 +45,9 @@ case class InMemoryActiveLedgerState(
 
   override def divulgeAlreadyCommittedContract(
       transactionId: TransactionIdString,
-      global: Relation[AbsoluteContractId, Party]): InMemoryActiveLedgerState =
+      global: Relation[AbsoluteContractId, Party],
+      referencedContracts: List[(Value.AbsoluteContractId, AbsoluteContractInst)])
+    : InMemoryActiveLedgerState =
     if (global.nonEmpty)
       copy(
         contracts = contracts ++
@@ -66,7 +70,8 @@ case class InMemoryActiveLedgerState(
       transaction: GenTransaction.WithTxValue[Nid, AbsoluteContractId],
       explicitDisclosure: Relation[Nid, Party],
       localImplicitDisclosure: Relation[Nid, Party],
-      globalImplicitDisclosure: Relation[AbsoluteContractId, Party]
+      globalImplicitDisclosure: Relation[AbsoluteContractId, Party],
+      referencedContracts: List[(Value.AbsoluteContractId, AbsoluteContractInst)]
   ): Either[Set[SequencingError], InMemoryActiveLedgerState] =
     acManager.addTransaction(
       let,
@@ -75,7 +80,8 @@ case class InMemoryActiveLedgerState(
       transaction,
       explicitDisclosure,
       localImplicitDisclosure,
-      globalImplicitDisclosure)
+      globalImplicitDisclosure,
+      referencedContracts)
 
   /**
     * Adds a new party to the list of known parties.

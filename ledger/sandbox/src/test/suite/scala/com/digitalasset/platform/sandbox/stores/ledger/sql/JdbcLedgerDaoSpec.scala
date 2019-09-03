@@ -164,7 +164,10 @@ class JdbcLedgerDaoSpec
             transaction,
             Map.empty,
             Map(
-              absCid -> Set(Ref.Party.assertFromString("Alice"), Ref.Party.assertFromString("Bob")))
+              absCid -> Set(
+                Ref.Party.assertFromString("Alice"),
+                Ref.Party.assertFromString("Bob"))),
+            List.empty
           )
         )
         result2 <- ledgerDao.lookupActiveContract(absCid)
@@ -349,7 +352,7 @@ class JdbcLedgerDaoSpec
           offset,
           offset + 1,
           None,
-          PersistenceEntry.Transaction(transaction, Map.empty, Map.empty))
+          PersistenceEntry.Transaction(transaction, Map.empty, Map.empty, List.empty))
         entry <- ledgerDao.lookupLedgerEntry(offset)
         endingOffset <- ledgerDao.lookupLedgerEnd()
       } yield {
@@ -414,7 +417,7 @@ class JdbcLedgerDaoSpec
           offset,
           offset + 1,
           None,
-          PersistenceEntry.Transaction(transaction, Map.empty, Map.empty))
+          PersistenceEntry.Transaction(transaction, Map.empty, Map.empty, List.empty))
         entry <- ledgerDao.lookupLedgerEntry(offset)
         endingOffset <- ledgerDao.lookupLedgerEnd()
       } yield {
@@ -510,7 +513,7 @@ class JdbcLedgerDaoSpec
             offset,
             offset + 1,
             None,
-            PersistenceEntry.Transaction(t, Map.empty, Map.empty))
+            PersistenceEntry.Transaction(t, Map.empty, Map.empty, List.empty))
           .map(_ => ())
       }
 
@@ -522,7 +525,7 @@ class JdbcLedgerDaoSpec
             offset,
             offset + 1,
             None,
-            PersistenceEntry.Transaction(t, Map.empty, Map.empty))
+            PersistenceEntry.Transaction(t, Map.empty, Map.empty, List.empty))
           .map(_ => ())
       }
 

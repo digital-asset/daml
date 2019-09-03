@@ -252,7 +252,8 @@ object ScenarioLoader {
           tx,
           explicitDisclosure,
           implicitDisclosure,
-          globalizedImplicitDisclosure) match {
+          globalizedImplicitDisclosure,
+          List.empty) match {
           case Right(newAcs) =>
             val recordTx = tx.mapNodeId(nodeIdWithHash)
             val recordDisclosure = explicitDisclosure.map {

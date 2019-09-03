@@ -5,10 +5,12 @@ package com.digitalasset.platform.sandbox.stores
 
 import java.time.Instant
 
+import com.daml.ledger.participant.state.v1.AbsoluteContractInst
 import com.digitalasset.daml.lf.data.Ref.{Party, TransactionIdString}
 import com.digitalasset.daml.lf.data.Relation.Relation
 import com.digitalasset.daml.lf.transaction.Node.GlobalKey
 import com.digitalasset.daml.lf.transaction.{GenTransaction, Node => N}
+import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 import com.digitalasset.ledger.WorkflowId
 import com.digitalasset.platform.sandbox.services.transaction.SandboxEventIdFormatter
@@ -73,7 +75,8 @@ class ActiveLedgerStateManager[ALS](initialState: => ALS)(
       transaction: GenTransaction.WithTxValue[Nid, AbsoluteContractId],
       explicitDisclosure: Relation[Nid, Party],
       localImplicitDisclosure: Relation[Nid, Party],
-      globalImplicitDisclosure: Relation[AbsoluteContractId, Party])
+      globalImplicitDisclosure: Relation[AbsoluteContractId, Party],
+      referencedContracts: List[(Value.AbsoluteContractId, AbsoluteContractInst)])
     : Either[Set[SequencingError], ALS] = {
     val st =
       transaction
@@ -174,7 +177,8 @@ class ActiveLedgerStateManager[ALS](initialState: => ALS)(
             }
         }
 
-    st.mapAcs(_ divulgeAlreadyCommittedContract (transactionId, globalImplicitDisclosure))
+    st.mapAcs(
+        _ divulgeAlreadyCommittedContract (transactionId, globalImplicitDisclosure, referencedContracts))
       .mapAcs(_ addParties st.parties)
       .result
   }

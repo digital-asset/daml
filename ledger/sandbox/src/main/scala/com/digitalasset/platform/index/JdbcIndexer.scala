@@ -221,7 +221,8 @@ class JdbcIndexer private (
             mappedDisclosure
           ),
           mappedLocalImplicitDisclosure,
-          blindingInfo.globalImplicitDisclosure
+          blindingInfo.globalImplicitDisclosure,
+          referencedContracts
         )
         ledgerDao
           .storeLedgerEntry(headRef, headRef + 1, externalOffset, pt)

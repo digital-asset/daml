@@ -13,12 +13,14 @@ import akka.stream.scaladsl.Source
 import akka.NotUsed
 import anorm.SqlParser._
 import anorm.{BatchSql, Macro, NamedParameter, RowParser, SQL, SqlParser}
+import com.daml.ledger.participant.state.v1.AbsoluteContractInst
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.Relation.Relation
 import com.digitalasset.daml.lf.engine.Blinding
 import com.digitalasset.daml.lf.transaction.Transaction
 import com.digitalasset.daml.lf.transaction.Node.{GlobalKey, KeyWithMaintainers, NodeCreate}
+import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractId}
 import com.digitalasset.ledger._
 import com.digitalasset.ledger.api.domain.RejectionReason
@@ -370,7 +372,8 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
 
         override def divulgeAlreadyCommittedContract(
             transactionId: TransactionIdString,
-            global: Relation[AbsoluteContractId, Party]) = {
+            global: Relation[AbsoluteContractId, Party],
+            referencedContracts: List[(Value.AbsoluteContractId, AbsoluteContractInst)]) = {
           val divulgenceParams = global
             .flatMap {
               case (cid, parties) =>
@@ -405,7 +408,8 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
         transaction,
         mappedDisclosure,
         localImplicitDisclosure,
-        globalImplicitDisclosure
+        globalImplicitDisclosure,
+        List.empty
       )
 
       atr match {
