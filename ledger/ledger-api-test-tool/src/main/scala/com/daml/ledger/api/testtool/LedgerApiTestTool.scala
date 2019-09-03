@@ -92,6 +92,8 @@ object LedgerApiTestTool {
         sys.exit(1)
       })
 
+    Thread.sleep(5000)
+
     val runner = new LedgerTestSuiteRunner(
       LedgerSessionConfiguration(
         config.participants,

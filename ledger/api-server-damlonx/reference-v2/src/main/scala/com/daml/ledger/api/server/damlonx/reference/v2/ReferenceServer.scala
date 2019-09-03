@@ -10,6 +10,7 @@ import akka.stream.{ActorMaterializer, ActorMaterializerSettings, Supervision}
 import com.daml.ledger.participant.state.kvutils.InMemoryKVParticipantState
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.digitalasset.daml.lf.archive.DarReader
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml_lf.DamlLf.Archive
 import com.digitalasset.platform.index.cli.Cli
 import com.digitalasset.platform.index.{StandaloneIndexServer, StandaloneIndexerServer}
@@ -47,7 +48,7 @@ object ReferenceServer extends App {
   val writeService = ledger
 
   config.archiveFiles.foreach { file =>
-    val archivesTry = for {
+    for {
       dar <- DarReader { case (_, x) => Try(Archive.parseFrom(x)) }
         .readArchiveFromFile(file)
     } yield ledger.uploadPackages(dar.all, None)
@@ -56,12 +57,26 @@ object ReferenceServer extends App {
   val indexerServer = StandaloneIndexerServer(readService, config.jdbcUrl)
   val indexServer = StandaloneIndexServer(config, readService, writeService).start()
 
+  val indexerServer2 =
+    StandaloneIndexerServer(readService, "jdbc:h2:mem:daml_on_x2;db_close_on_exit=false")
+  val indexServer2 =
+    StandaloneIndexServer(
+      config.copy(
+        port = 6866,
+        participantId = Ref.LedgerString.assertFromString("second-participant"),
+        jdbcUrl = "jdbc:h2:mem:daml_on_x2;db_close_on_exit=false"),
+      readService,
+      writeService
+    ).start()
+
   val closed = new AtomicBoolean(false)
 
   def closeServer(): Unit = {
     if (closed.compareAndSet(false, true)) {
       indexServer.close()
+      indexServer2.close()
       indexerServer.close()
+      indexerServer2.close()
       ledger.close()
       materializer.shutdown()
       val _ = system.terminate()

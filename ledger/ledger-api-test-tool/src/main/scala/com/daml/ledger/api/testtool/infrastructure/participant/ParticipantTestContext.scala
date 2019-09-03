@@ -20,10 +20,7 @@ import com.digitalasset.ledger.api.v1.admin.package_management_service.{
   PackageDetails,
   UploadDarFileRequest
 }
-import com.digitalasset.ledger.api.v1.admin.party_management_service.{
-  AllocatePartyRequest,
-  GetParticipantIdRequest
-}
+import com.digitalasset.ledger.api.v1.admin.party_management_service.AllocatePartyRequest
 import com.digitalasset.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.digitalasset.ledger.api.v1.commands.{Command, Commands}
 import com.digitalasset.ledger.api.v1.event.Event.Event.Created
@@ -82,6 +79,7 @@ private[testtool] object ParticipantTestContext {
 
 private[testtool] final class ParticipantTestContext private[participant] (
     val ledgerId: String,
+    val participantId: String,
     val applicationId: String,
     val identifierSuffix: String,
     referenceOffset: LedgerOffset,
@@ -102,12 +100,12 @@ private[testtool] final class ParticipantTestContext private[participant] (
     timestamp(i.plusSeconds(math.floor(defaultTtlSeconds * commandTtlFactor).toLong))
 
   private[this] val nextPartyHintId: () => String = {
-    val it = Iterator.from(0).map(n => s"$applicationId-$identifierSuffix-party-$n")
+    val it = Iterator.from(0).map(n => s"$applicationId-$participantId-$identifierSuffix-party-$n")
     () =>
       it.synchronized(it.next())
   }
   private[this] val nextCommandId: () => String = {
-    val it = Iterator.from(0).map(n => s"$applicationId-$identifierSuffix-command-$n")
+    val it = Iterator.from(0).map(n => s"$applicationId-$participantId-$identifierSuffix-cmd-$n")
     () =>
       it.synchronized(it.next())
   }
@@ -144,9 +142,6 @@ private[testtool] final class ParticipantTestContext private[participant] (
     services.packageManagement
       .uploadDarFile(new UploadDarFileRequest(bytes))
       .map(_ => ())
-
-  def participantId(): Future[String] =
-    services.partyManagement.getParticipantId(new GetParticipantIdRequest).map(_.participantId)
 
   /**
     * Managed version of party allocation, should be used anywhere a party has

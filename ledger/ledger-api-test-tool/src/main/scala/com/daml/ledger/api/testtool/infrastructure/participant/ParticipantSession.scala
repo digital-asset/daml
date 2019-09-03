@@ -6,6 +6,7 @@ package com.daml.ledger.api.testtool.infrastructure.participant
 import java.util.concurrent.TimeUnit
 
 import com.daml.ledger.api.testtool.infrastructure.LedgerServices
+import com.digitalasset.ledger.api.v1.admin.party_management_service.GetParticipantIdRequest
 import com.digitalasset.ledger.api.v1.ledger_identity_service.GetLedgerIdentityRequest
 import com.digitalasset.ledger.api.v1.transaction_service.GetLedgerEndRequest
 import io.grpc.ManagedChannel
@@ -28,10 +29,14 @@ private[participant] final class ParticipantSession(
       identifierSuffix: String): Future[ParticipantTestContext] =
     for {
       id <- services.identity.getLedgerIdentity(new GetLedgerIdentityRequest).map(_.ledgerId)
+      pid <- services.partyManagement
+        .getParticipantId(new GetParticipantIdRequest)
+        .map(_.participantId)
       end <- services.transaction.getLedgerEnd(new GetLedgerEndRequest(id)).map(_.getOffset)
     } yield
       new ParticipantTestContext(
         id,
+        pid,
         applicationId,
         identifierSuffix,
         end,
