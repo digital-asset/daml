@@ -59,6 +59,11 @@ data SubGraph = SubGraph
     , clusterTemplate :: LF.Template
     }
 
+data Graph = Graph
+    { subgraphs :: [SubGraph]
+    , edges :: [(ChoiceDetails, ChoiceDetails)]
+    }
+
 startFromUpdate :: Set.Set (LF.Qualified LF.ExprValName) -> LF.World -> LF.Update -> Set.Set Action
 startFromUpdate seen world update = case update of
     LF.UPure _ e -> startFromExpr seen world e
@@ -153,7 +158,6 @@ addCreateChoice :: TemplateChoices -> Map.Map LF.ChoiceName ChoiceDetails -> Cho
 addCreateChoice TemplateChoices {..} lookupData = nodeIdForChoice lookupData tplNameCreateChoice
     where tplNameCreateChoice = LF.ChoiceName $ T.pack $ DAP.renderPretty (headNote "addCreateChoice" (LF.unTypeConName (LF.tplTypeCon template))) ++ "_Create"
 
--- This is copied from PrettyScenarios but depending on SS for visual seems odd
 labledField :: T.Text -> T.Text -> T.Text
 labledField fname "" = fname
 labledField fname label = fname <> "." <> label
@@ -218,19 +222,22 @@ subGraphCluster sg@SubGraph {..} = subGraphHeader sg ++ unlines (map subGraphBod
 drawEdge :: ChoiceDetails -> ChoiceDetails -> String
 drawEdge n1 n2 = "n" ++ show (nodeId n1) ++ "->" ++ "n" ++ show (nodeId n2)
 
-constructDotGraph :: [SubGraph] -> [(ChoiceDetails, ChoiceDetails)] -> String
-constructDotGraph subgraphs edges = "digraph G {\ncompound=true;\n" ++ "rankdir=LR;\n"++ graphLines ++ "\n}\n"
-  where subgraphsLines = concatMap subGraphCluster subgraphs
-        edgesLines = unlines $ map (uncurry drawEdge) edges
+constructDotGraph :: Graph -> String
+constructDotGraph graph  = "digraph G {\ncompound=true;\n" ++ "rankdir=LR;\n"++ graphLines ++ "\n}\n"
+  where subgraphsLines = concatMap subGraphCluster (subgraphs graph)
+        edgesLines = unlines $ map (uncurry drawEdge) (edges graph)
         graphLines = subgraphsLines ++ edgesLines
+
+graphFromModule :: [LF.Module] -> LF.World -> Graph
+graphFromModule modules world = Graph subGraphs edges
+    where templatesAndModules = concatMap (moduleAndTemplates world) modules
+          nodes = choiceNameWithId templatesAndModules
+          subGraphs = map (constructSubgraphsWithLables world nodes) templatesAndModules
+          edges = graphEdges nodes templatesAndModules
 
 
 dotFileGen :: [LF.Module] -> LF.World -> String
-dotFileGen modules world = constructDotGraph subgraphClusters graphConnectedEdges
-    where templatesAndModules = concatMap (moduleAndTemplates world) modules
-          nodeWorld = choiceNameWithId templatesAndModules
-          subgraphClusters = map (constructSubgraphsWithLables world nodeWorld) templatesAndModules
-          graphConnectedEdges = graphEdges nodeWorld templatesAndModules
+dotFileGen modules world = constructDotGraph $ graphFromModule modules world
 
 execVisual :: FilePath -> Maybe FilePath -> IO ()
 execVisual darFilePath dotFilePath = do
