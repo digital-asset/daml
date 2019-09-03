@@ -321,7 +321,7 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
         template = ParameterShowcase(
           party,
           42L,
-          BigDecimal("47.0000000000"),
+          BigDecimal("47.0"),
           "some text",
           true,
           Primitive.Timestamp.MIN,
@@ -347,7 +347,7 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
         template = ParameterShowcase(
           party,
           42L,
-          BigDecimal("47.0000000000"),
+          BigDecimal("47.0"),
           "some text",
           true,
           Primitive.Timestamp.MIN,
@@ -357,7 +357,7 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
         )
         choice1 = Choice1(
           template.integer,
-          BigDecimal("37.0000000000"),
+          BigDecimal("37.0"),
           template.text,
           template.bool,
           template.time,
@@ -387,7 +387,7 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
           template = ParameterShowcase(
             party,
             42L,
-            BigDecimal("47.0000000000"),
+            BigDecimal("47.0"),
             "some text",
             true,
             Primitive.Timestamp.MIN,
