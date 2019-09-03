@@ -36,9 +36,10 @@ data ArchiveError
     | HashMismatch !T.Text !T.Text
   deriving (Eq, Show)
 
--- | Decode a LF archive header, returing the hash and the payload
-decodeArchive :: BS.ByteString -> Either ArchiveError (LF.PackageId, LF.Package)
-decodeArchive bytes = do
+-- decodeArchives :: Traversable f => f BS.ByteString -> Either ArchiveError (f (LF.PackageId, LF.Package))
+
+prepareArchivePayload :: BS.ByteString -> Either ArchiveError (LF.PackageId, ProtoLF.ArchivePayload)
+prepareArchivePayload bytes = do
     archive <- over _Left (ProtobufError . show) $ Proto.fromByteString bytes
     let payloadBytes = ProtoLF.archivePayload archive
     let archiveHash = TL.toStrict (ProtoLF.archiveHash archive)
@@ -53,8 +54,14 @@ decodeArchive bytes = do
       Left (HashMismatch archiveHash computedHash)
 
     payload <- over _Left (ProtobufError . show) $ Proto.fromByteString payloadBytes
+    return (LF.PackageId archiveHash, payload)
+
+-- | Decode a LF archive header, returing the hash and the payload
+decodeArchive :: BS.ByteString -> Either ArchiveError (LF.PackageId, LF.Package)
+decodeArchive bytes = do
+    (packageId, payload) <- prepareArchivePayload bytes
     package <- over _Left (ProtobufError. show) $ Decode.decodePayload payload
-    return (LF.PackageId archiveHash, package)
+    return (packageId, package)
 
 
 -- | Encode a LFv1 package payload into a DAML-LF archive using the default
