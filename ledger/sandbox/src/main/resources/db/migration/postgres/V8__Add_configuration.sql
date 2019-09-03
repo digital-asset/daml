@@ -2,7 +2,7 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 ---------------------------------------------------------------------------------------------------
--- V7: Add table for ledger configuration changes
+-- V8: Add table for ledger configuration changes
 --
 -- This schema version adds a table for ledger configuration changes and adds the latest
 -- configuration to the parameters table.
@@ -11,6 +11,8 @@
 -- Table for storing a log of ledger configuration changes and rejections.
 CREATE TABLE configuration_entries (
   ledger_offset bigint primary key not null,
+  recorded_at timestamp not null, -- with time zone
+
   submission_id varchar not null,
   participant_id varchar not null,
   -- The type of entry, one of 'accept' or 'reject'.

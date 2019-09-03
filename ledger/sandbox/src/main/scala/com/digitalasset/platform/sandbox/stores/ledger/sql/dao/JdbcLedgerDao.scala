@@ -4,6 +4,7 @@ package com.digitalasset.platform.sandbox.stores.ledger.sql.dao
 
 import java.io.InputStream
 import java.sql.Connection
+import java.time.Instant
 import java.util.Date
 
 import akka.stream.Materializer
@@ -138,7 +139,7 @@ private class JdbcLedgerDao(
     SQL_UPDATE_EXTERNAL_LEDGER_END
       .on("ExternalLedgerEnd" -> externalLedgerEnd)
       .execute()
-      ()
+    ()
   }
 
   private val SQL_UPDATE_CURRENT_CONFIGURATION = SQL(
@@ -165,7 +166,7 @@ private class JdbcLedgerDao(
   override def lookupLedgerConfiguration(): Future[Option[Configuration]] =
     dbDispatcher.executeSql("lookup configuration")(implicit conn => selectLedgerConfiguration)
 
-  private val configurationEntryParser: RowParser[ConfigurationEntry] =
+  private val configurationEntryParser: RowParser[(Long, ConfigurationEntry)] =
     (long("ledger_offset") ~
       str("typ") ~
       str("submission_id") ~
@@ -226,14 +227,15 @@ private class JdbcLedgerDao(
 
   private val SQL_INSERT_CONFIGURATION_ENTRY =
     SQL(
-      """insert into configuration_entries(ledger_offset, submission_id, participant_id, typ, rejection_reason, configuration)
-        |values({ledger_offset}, {submission_id}, {participant_id}, {typ}, {rejection_reason}, {configuration})
+      """insert into configuration_entries(ledger_offset, recorded_at, submission_id, participant_id, typ, rejection_reason, configuration)
+        |values({ledger_offset}, {recorded_at}, {submission_id}, {participant_id}, {typ}, {rejection_reason}, {configuration})
         |""".stripMargin)
 
   override def storeConfigurationEntry(
       offset: LedgerOffset,
       newLedgerEnd: LedgerOffset,
       externalOffset: Option[ExternalOffset],
+      recordedAt: Instant,
       submissionId: String,
       participantId: ParticipantId,
       configuration: Configuration,
@@ -258,6 +260,7 @@ private class JdbcLedgerDao(
             SQL_INSERT_CONFIGURATION_ENTRY
               .on(
                 "ledger_offset" -> offset,
+                "recorded_at" -> recordedAt,
                 "submission_id" -> submissionId,
                 "participant_id" -> participantId,
                 "typ" -> typ,
@@ -267,10 +270,6 @@ private class JdbcLedgerDao(
               .execute()
             PersistenceResponse.Ok
           }).recover {
-            // FIXME(JM): If this is over participant-state ReadService we should never get this,
-            // however if we're using the SandboxIndexAndWriteService I guess we could, but I'm slightly
-            // worried about catching this error... Same applies for the ledger entry recovery.
-            // FIXME(JM): This rolls back the "updateLedgerEnd" as well.
             case NonFatal(e) if e.getMessage.contains(dbType.DUPLICATE_KEY_ERROR) =>
               logger.warn(
                 s"Ignoring duplicate configuration submission for submissionId $submissionId, participantId $participantId")

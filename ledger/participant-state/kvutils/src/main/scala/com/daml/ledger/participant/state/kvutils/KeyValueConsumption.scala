@@ -80,6 +80,7 @@ object KeyValueConsumption {
         val newConfig = Configuration.decode(configEntry.getConfiguration).right.get
         List(
           Update.ConfigurationChanged(
+            recordTime,
             configEntry.getSubmissionId,
             LedgerString.assertFromString(configEntry.getParticipantId),
             newConfig))
@@ -90,6 +91,7 @@ object KeyValueConsumption {
 
         List(
           Update.ConfigurationChangeRejected(
+            recordTime = recordTime,
             submissionId = rejection.getSubmissionId,
             participantId = LedgerString.assertFromString(rejection.getParticipantId),
             proposedConfiguration = proposedConfig,
@@ -112,7 +114,7 @@ object KeyValueConsumption {
           ))
 
       case DamlLogEntry.PayloadCase.TRANSACTION_REJECTION_ENTRY =>
-        List(transactionRejectionEntryToUpdate(entry.getTransactionRejectionEntry))
+        List(transactionRejectionEntryToUpdate(recordTime, entry.getTransactionRejectionEntry))
 
       case DamlLogEntry.PayloadCase.PAYLOAD_NOT_SET =>
         sys.error("logEntryToUpdate: PAYLOAD_NOT_SET!")
@@ -192,9 +194,11 @@ object KeyValueConsumption {
   }
 
   private def transactionRejectionEntryToUpdate(
+      recordTime: Timestamp,
       rejEntry: DamlTransactionRejectionEntry): Update.CommandRejected = {
 
     Update.CommandRejected(
+      recordTime = recordTime,
       submitterInfo = parseSubmitterInfo(rejEntry.getSubmitterInfo),
       reason = rejEntry.getReasonCase match {
         case DamlTransactionRejectionEntry.ReasonCase.DISPUTED =>

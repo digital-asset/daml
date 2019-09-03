@@ -70,6 +70,7 @@ object SqlLedger {
   def apply(
       jdbcUrl: String,
       ledgerId: Option[LedgerId],
+      participantId: ParticipantId,
       timeProvider: TimeProvider,
       acs: InMemoryActiveLedgerState,
       packages: InMemoryPackageStore,
@@ -109,6 +110,7 @@ object SqlLedger {
 
     sqlLedgerFactory.createSqlLedger(
       ledgerId,
+      participantId,
       timeProvider,
       startMode,
       acs,
@@ -124,6 +126,7 @@ object SqlLedger {
 
 private class SqlLedger(
     ledgerId: LedgerId,
+    participantId: ParticipantId,
     headAtInitialization: Long,
     ledgerDao: LedgerDao,
     timeProvider: TimeProvider,
@@ -348,14 +351,17 @@ private class SqlLedger(
       submissionId: String,
       config: Configuration): Future[SubmissionResult] =
     enqueue { offsets =>
-      // FIXME(JM): Validate that configuration generation is one larger.
+      val recordTime = timeProvider.getCurrentTime
+      // FIXME(JM): Configurations with wrong generation or used submission id will result in 'Duplicate'.
+      // For the wrong generation case one would prefer storing a rejection!
       ledgerDao
         .storeConfigurationEntry(
           offsets.offset,
           offsets.nextOffset,
           None,
+          recordTime,
           submissionId,
-          Ref.LedgerString.assertFromString("FIXME participant id"),
+          participantId,
           config,
           None
         )
@@ -379,6 +385,7 @@ private class SqlLedgerFactory(ledgerDao: LedgerDao, loggerFactory: NamedLoggerF
     * @param initialLedgerId a random ledger id is generated if none given, if set it's used to initialize the ledger.
     *                        In case the ledger had already been initialized, the given ledger id must not be set or must
     *                        be equal to the one in the database.
+    * @param participantId   the participant identifier
     * @param timeProvider    to get the current time when sequencing transactions
     * @param startMode       whether we should start with a clean state or continue where we left off
     * @param initialLedgerEntries The initial ledger entries -- usually provided by the scenario runner. Will only be
@@ -390,6 +397,7 @@ private class SqlLedgerFactory(ledgerDao: LedgerDao, loggerFactory: NamedLoggerF
     */
   def createSqlLedger(
       initialLedgerId: Option[LedgerId],
+      participantId: ParticipantId,
       timeProvider: TimeProvider,
       startMode: SqlStartMode,
       acs: InMemoryActiveLedgerState,
@@ -417,6 +425,7 @@ private class SqlLedgerFactory(ledgerDao: LedgerDao, loggerFactory: NamedLoggerF
     } yield
       new SqlLedger(
         ledgerId,
+        participantId,
         ledgerEnd,
         ledgerDao,
         timeProvider,

@@ -49,7 +49,11 @@ private[kvutils] case class ProcessConfigSubmission(
     if (recordTime > maxRecordTime) {
       logger.warn(
         s"Rejected configuration submission. The submission timed out ($recordTime > $maxRecordTime)")
-      rejectTimedOut
+      reject(
+        _.setTimedOut(
+          DamlConfigurationRejectionEntry.TimedOut.newBuilder
+            .setMaximumRecordTime(configSubmission.getMaximumRecordTime)
+        ))
     } else {
       pass
     }
@@ -74,17 +78,33 @@ private[kvutils] case class ProcessConfigSubmission(
     } else {
       logger.warn(
         s"Rejected configuration submission. Authorized participant (${currentConfig.authorizedParticipantId}) does not match submitting participant $participantId.")
-      rejectParticipantNotAuthorized
+
+      reject(
+        _.setParticipantNotAuthorized(
+          DamlConfigurationRejectionEntry.ParticipantNotAuthorized.newBuilder
+            .setDetails(
+              s"Participant $participantId is not the authorized participant " +
+                currentConfig.authorizedParticipantId.getOrElse("<missing>")
+            )
+        ))
     }
   }
 
   private val validateSubmission: Commit[Unit] =
     Configuration
       .decode(newConfig)
-      .fold(exc => rejectInvalidConfiguration(exc), pure)
+      .fold(
+        err =>
+          reject(
+            _.setInvalidConfiguration(
+              DamlConfigurationRejectionEntry.InvalidConfiguration.newBuilder
+                .setError(err))),
+        pure)
       .flatMap { config =>
         if (config.generation != (1 + currentConfig.generation))
-          rejectGenerationMismatch(1 + currentConfig.generation)
+          reject(
+            _.setGenerationMismatch(DamlConfigurationRejectionEntry.GenerationMismatch.newBuilder
+              .setExpectedGeneration(1 + currentConfig.generation)))
         else
           pass
       }
@@ -122,15 +142,30 @@ private[kvutils] case class ProcessConfigSubmission(
                 .setExpectedGeneration(expected)
             )
         )
+        .setConfigurationEntry(
+          DamlConfigurationEntry.newBuilder
+            .setSubmissionId(configSubmission.getSubmissionId)
+            .setParticipantId(participantId)
+            .setConfiguration(configSubmission.getConfiguration))
         .build
     )
+  )
   }
 
+  private def reject[A](
+      addReason: DamlConfigurationRejectionEntry.Builder => DamlConfigurationRejectionEntry.Builder)
+    : Commit[A] =
   private def rejectInvalidConfiguration(error: String): Commit[Configuration] = {
     Metrics.rejections.inc()
     done(
       DamlLogEntry.newBuilder
         .setConfigurationRejectionEntry(
+          addReason(
+            DamlConfigurationRejectionEntry.newBuilder
+              .setSubmissionId(configSubmission.getSubmissionId)
+              .setParticipantId(participantId)
+              .setConfiguration(configSubmission.getConfiguration)
+          )
           DamlConfigurationRejectionEntry.newBuilder
             .setSubmissionId(configSubmission.getSubmissionId)
             .setConfiguration(configSubmission.getConfiguration)

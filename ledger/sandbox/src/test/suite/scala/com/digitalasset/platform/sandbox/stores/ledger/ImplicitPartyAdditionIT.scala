@@ -6,7 +6,12 @@ package com.digitalasset.platform.sandbox.stores.ledger
 import java.time.Instant
 
 import akka.stream.scaladsl.Sink
-import com.daml.ledger.participant.state.v1.{SubmissionResult, SubmitterInfo, TransactionMeta}
+import com.daml.ledger.participant.state.v1.{
+  ParticipantId,
+  SubmissionResult,
+  SubmitterInfo,
+  TransactionMeta
+}
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.transaction.Node._
@@ -60,6 +65,7 @@ class ImplicitPartyAdditionIT
   override def timeLimit: Span = scaled(60.seconds)
 
   private val ledgerId: LedgerId = LedgerId("ledgerId")
+  private val participantId: ParticipantId = Ref.LedgerString.assertFromString("participantId")
   private val timeProvider = TimeProvider.Constant(Instant.EPOCH.plusSeconds(10))
 
   private val templateId1: Ref.Identifier = Ref.Identifier(
@@ -82,7 +88,7 @@ class ImplicitPartyAdditionIT
       case BackendType.InMemory =>
         LedgerResource.inMemory(ledgerId, timeProvider)
       case BackendType.Postgres =>
-        LedgerResource.postgres(ledgerId, timeProvider, metrics)
+        LedgerResource.postgres(ledgerId, timeProvider, participantId, metrics)
     }
 
   private def publishSingleNodeTx(

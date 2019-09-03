@@ -124,6 +124,7 @@ object Ledger {
     *
     * @param jdbcUrl       the jdbc url string containing the username and password as well
     * @param ledgerId      the id to be used for the ledger
+    * @param participantId the participant identifier
     * @param timeProvider  the provider of time
     * @param acs           the starting ACS store
     * @param ledgerEntries the starting entries
@@ -134,6 +135,7 @@ object Ledger {
   def jdbcBacked(
       jdbcUrl: String,
       ledgerId: LedgerId,
+      participantId: ParticipantId,
       timeProvider: TimeProvider,
       acs: InMemoryActiveLedgerState,
       packages: InMemoryPackageStore,
@@ -146,6 +148,7 @@ object Ledger {
     SqlLedger(
       jdbcUrl,
       Some(ledgerId),
+      participantId,
       timeProvider,
       acs,
       packages,

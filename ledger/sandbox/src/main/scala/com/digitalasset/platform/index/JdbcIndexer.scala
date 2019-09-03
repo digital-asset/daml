@@ -325,6 +325,7 @@ class JdbcIndexer private[index] (
             headRef,
             headRef + 1,
             Some(offset.toLedgerString),
+            config.recordTime.toInstant,
             config.submissionId,
             config.participantId,
             config.newConfiguration,
@@ -338,6 +339,7 @@ class JdbcIndexer private[index] (
             headRef,
             headRef + 1,
             Some(offset.toLedgerString),
+            configRejection.recordTime.toInstant,
             configRejection.submissionId,
             configRejection.participantId,
             configRejection.proposedConfiguration,
@@ -345,13 +347,10 @@ class JdbcIndexer private[index] (
           )
           .map(_ => headRef = headRef + 1)(DEC)
 
-      case CommandRejected(submitterInfo, RejectionReason.DuplicateCommand) =>
-        Future.successful(())
-
-      case CommandRejected(submitterInfo, reason) =>
+      case CommandRejected(recordTime, submitterInfo, reason) =>
         val rejection = PersistenceEntry.Rejection(
           LedgerEntry.Rejection(
-            Instant.now(), // TODO should we get this from the backend?
+            recordTime.toInstant,
             submitterInfo.commandId,
             submitterInfo.applicationId,
             submitterInfo.submitter,

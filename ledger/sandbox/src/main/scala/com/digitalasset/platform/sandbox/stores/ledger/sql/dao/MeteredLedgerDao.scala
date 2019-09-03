@@ -3,6 +3,8 @@
 
 package com.digitalasset.platform.sandbox.stores.ledger.sql.dao
 
+import java.time.Instant
+
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
@@ -146,6 +148,7 @@ private class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: MetricRegistry)
       offset: LedgerOffset,
       newLedgerEnd: LedgerOffset,
       externalOffset: Option[ExternalOffset],
+      recordTime: Instant,
       submissionId: String,
       participantId: ParticipantId,
       configuration: Configuration,
@@ -157,6 +160,7 @@ private class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: MetricRegistry)
         offset,
         newLedgerEnd,
         externalOffset,
+        recordTime,
         submissionId,
         participantId,
         configuration,
