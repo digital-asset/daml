@@ -24,10 +24,9 @@ load(
     "da_scala_test_suite",
 )
 load(
-    "//bazel_tools/client_server_test:client_server_test.bzl",
-    "client_server_test",
+    ":conformance.bzl",
+    "conformance_test",
 )
-load("@os_info//:os_info.bzl", "is_windows")
 
 daml_compile(
     name = "PackageManagementTest",
@@ -97,49 +96,21 @@ da_scala_binary(
     ],
 )
 
-client_server_test(
-    name = "ledger-api-test-tool-test",
-    timeout = "short",
-    client = ":ledger-api-test-tool",
-    client_args = [
-        # NOTE(GP): our CI has a tendency to be more unpredictable than local
-        # machine with timeouts, we value lack of flakes on CI.
-        "--timeout-scale-factor=10",
-    ],
-    # Data files available to both client and server.
-    data = [
-        "//ledger/test-common:dar-files",
+conformance_test(
+    name = "test",
+    extra_data = [
         "@postgresql_dev_env//:all",
         "@postgresql_dev_env//:createdb",
         "@postgresql_dev_env//:initdb",
         "@postgresql_dev_env//:pg_ctl",
     ],
     server = "//ledger/api-server-damlonx/reference-v2:ephemeral-postgres-reference-server",
-    server_files = [
-        "$(rootpaths //ledger/test-common:dar-files)",
-    ],
-    tags = [
-        # NOTE(JM,GP): As this test is somewhat heavy and has timeouts, run it
-        # without competition to avoid flakiness.
-        "exclusive",
-    ],
-) if not is_windows else None
+    server_args = ["--port 6865"],
+)
 
-client_server_test(
-    name = "ledger-api-test-tool-ssltest",
-    timeout = "short",
-    client = ":ledger-api-test-tool",
-    client_args = [
-        "--crt $(rlocation $TEST_WORKSPACE/$(rootpath test/main/resources/client.crt))",
-        "--cacrt $(rlocation $TEST_WORKSPACE/$(rootpath test/main/resources/ca.crt))",
-        "--pem $(rlocation $TEST_WORKSPACE/$(rootpath test/main/resources/client.pem))",
-        # NOTE(GP): our CI has a tendency to be more unpredictable than local
-        # machine with timeouts, we value lack of flakes on CI.
-        "--timeout-scale-factor=10",
-    ],
-    # Data files available to both client and server.
-    data = [
-        "//ledger/test-common:dar-files",
+conformance_test(
+    name = "ssl-test",
+    extra_data = [
         "@postgresql_dev_env//:all",
         "@postgresql_dev_env//:createdb",
         "@postgresql_dev_env//:initdb",
@@ -147,16 +118,14 @@ client_server_test(
     ] + glob(["test/main/resources/*"]),
     server = "//ledger/api-server-damlonx/reference-v2:ephemeral-postgres-reference-server",
     server_args = [
+        "--port 6865",
         "--crt $(rlocation $TEST_WORKSPACE/$(rootpath test/main/resources/server.crt))",
         "--cacrt $(rlocation $TEST_WORKSPACE/$(rootpath test/main/resources/ca.crt))",
         "--pem $(rlocation $TEST_WORKSPACE/$(rootpath test/main/resources/server.pem))",
     ],
-    server_files = [
-        "$(rootpaths //ledger/test-common:dar-files)",
+    test_tool_args = [
+        "--crt $(rlocation $TEST_WORKSPACE/$(rootpath test/main/resources/client.crt))",
+        "--cacrt $(rlocation $TEST_WORKSPACE/$(rootpath test/main/resources/ca.crt))",
+        "--pem $(rlocation $TEST_WORKSPACE/$(rootpath test/main/resources/client.pem))",
     ],
-    tags = [
-        # NOTE(JM,GP): As this test is somewhat heavy and has timeouts, run it
-        # without competition to avoid flakiness.
-        "exclusive",
-    ],
-) if not is_windows else None
+)

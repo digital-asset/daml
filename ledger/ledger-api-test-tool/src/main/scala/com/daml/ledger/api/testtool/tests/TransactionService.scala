@@ -27,8 +27,9 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     LedgerTest(
       "TXBeginToBegin",
       "An empty stream should be served when getting transactions from and to the beginning of the ledger") {
-      ledger =>
+      context =>
         for {
+          ledger <- context.participant()
           party <- ledger.allocateParty()
           request = ledger.getTransactionsRequest(Seq(party))
           fromAndToBegin = request.update(_.begin := ledger.begin, _.end := ledger.begin)
@@ -44,8 +45,9 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     LedgerTest(
       "TXEndToEnd",
       "An empty stream should be served when getting transactions from and to the end of the ledger") {
-      ledger =>
+      context =>
         for {
+          ledger <- context.participant()
           party <- ledger.allocateParty()
           _ <- ledger.create(party, Dummy(party))
           request = ledger.getTransactionsRequest(Seq(party))
@@ -60,10 +62,11 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
 
   private[this] val serveElementsUntilCancellation =
     LedgerTest("TXServeUntilCancellation", "Items should be served until the client cancels") {
-      ledger =>
+      context =>
         val transactionsToSubmit = 14
         val transactionsToRead = 10
         for {
+          ledger <- context.participant()
           party <- ledger.allocateParty()
           dummies <- Future.sequence(
             Vector.fill(transactionsToSubmit)(ledger.create(party, Dummy(party))))
@@ -82,8 +85,9 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     LedgerTest(
       "TXDeduplicateCommands",
       "Commands with identical submitter, command identifier, and application identifier should be accepted and deduplicated") {
-      ledger =>
+      context =>
         for {
+          ledger <- context.participant()
           alice <- ledger.allocateParty()
           bob <- ledger.allocateParty()
           aliceRequest <- ledger.submitAndWaitRequest(alice, Dummy(alice).create.command)
@@ -113,8 +117,9 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     LedgerTest(
       "TXRejectEmptyFilter",
       "A query with an empty transaction filter should be rejected with an INVALID_ARGUMENT status") {
-      ledger =>
+      context =>
         for {
+          ledger <- context.participant()
           party <- ledger.allocateParty()
           request = ledger.getTransactionsRequest(Seq(party))
           requestWithEmptyFilter = request.update(_.filter.filtersByParty := Map.empty)
@@ -126,9 +131,10 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
 
   private[this] val completeOnLedgerEnd = LedgerTest(
     "TXCompleteOnLedgerEnd",
-    "A stream should complete as soon as the ledger end is hit") { ledger =>
+    "A stream should complete as soon as the ledger end is hit") { context =>
     val transactionsToSubmit = 14
     for {
+      ledger <- context.participant()
       party <- ledger.allocateParty()
       transactionsFuture = ledger.flatTransactions(party)
       _ <- Future.sequence(Vector.fill(transactionsToSubmit)(ledger.create(party, Dummy(party))))
@@ -141,9 +147,10 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
   private[this] val processInTwoChunks = LedgerTest(
     "TXProcessInTwoChunks",
     "Serve the complete sequence of transactions even if processing is stopped and resumed") {
-    ledger =>
+    context =>
       val transactionsToSubmit = 5
       for {
+        ledger <- context.participant()
         party <- ledger.allocateParty()
         _ <- Future.sequence(Vector.fill(transactionsToSubmit)(ledger.create(party, Dummy(party))))
         endAfterFirstSection <- ledger.currentEnd()
@@ -172,10 +179,11 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
 
   private[this] val identicalAndParallel = LedgerTest(
     "TXParallel",
-    "The same data should be served for more than 1 identical, parallel requests") { ledger =>
+    "The same data should be served for more than 1 identical, parallel requests") { context =>
     val transactionsToSubmit = 5
     val parallelRequests = 10
     for {
+      ledger <- context.participant()
       party <- ledger.allocateParty()
       _ <- Future.sequence(Vector.fill(transactionsToSubmit)(ledger.create(party, Dummy(party))))
       results <- Future.sequence(Vector.fill(parallelRequests)(ledger.flatTransactions(party)))
@@ -190,8 +198,9 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
 
   private[this] val notDivulgeToUnrelatedParties =
     LedgerTest("TXNotDivulge", "Data should not be exposed to parties unrelated to a transaction") {
-      ledger =>
+      context =>
         for {
+          ledger <- context.participant()
           Vector(alice, bob) <- ledger.allocateParties(2)
           _ <- ledger.create(alice, Dummy(alice))
           bobsView <- ledger.flatTransactions(bob)
@@ -207,8 +216,9 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     LedgerTest(
       "TXRejectBeginAfterEnd",
       "A request with the end before the begin should be rejected with INVALID_ARGUMENT") {
-      ledger =>
+      context =>
         for {
+          ledger <- context.participant()
           party <- ledger.allocateParty()
           earlier <- ledger.currentEnd()
           _ <- ledger.create(party, Dummy(party))
@@ -225,8 +235,9 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     LedgerTest(
       "TXHideCommandIdToNonSubmittingStakeholders",
       "A transaction should be visible to a non-submitting stakeholder but its command identifier should be empty"
-    ) { ledger =>
+    ) { context =>
       for {
+        ledger <- context.participant()
         Vector(submitter, listener) <- ledger.allocateParties(2)
         (id, _) <- ledger.createAndGetTransactionId(
           submitter,
@@ -242,9 +253,10 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
   private[this] val filterByTemplate =
     LedgerTest(
       "TXFilterByTemplate",
-      "The transaction service should correctly filter by template identifier") { ledger =>
+      "The transaction service should correctly filter by template identifier") { context =>
       val filterBy = Dummy.id
       for {
+        ledger <- context.participant()
         party <- ledger.allocateParty()
         create <- ledger.submitAndWaitRequest(
           party,
@@ -261,8 +273,9 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
   private[this] val useCreateToExercise =
     LedgerTest(
       "TXUseCreateToExercise",
-      "Should be able to directly use a contract identifier to exercise a choice") { ledger =>
+      "Should be able to directly use a contract identifier to exercise a choice") { context =>
       for {
+        ledger <- context.participant()
         party <- ledger.allocateParty()
         dummyFactory <- ledger.create(party, DummyFactory(party))
         transactions <- ledger.exercise(party, dummyFactory.exerciseDummyFactoryCall)
@@ -280,8 +293,9 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
 
   private[this] val rejectOnFailingAssertion =
     LedgerTest("TXRejectOnFailingAssertion", "Reject a transaction on a failing assertion") {
-      ledger =>
+      context =>
         for {
+          ledger <- context.participant()
           party <- ledger.allocateParty()
           dummy <- ledger.create(party, Dummy(party))
           failure <- ledger
@@ -300,8 +314,9 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
   private[this] val createWithAnyType =
     LedgerTest(
       "TXCreateWithAnyType",
-      "Creates should not have issues dealing with any type of argument") { ledger =>
+      "Creates should not have issues dealing with any type of argument") { context =>
       for {
+        ledger <- context.participant()
         party <- ledger.allocateParty()
         template = ParameterShowcase(
           party,
@@ -325,8 +340,9 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
   private[this] val exerciseWithAnyType =
     LedgerTest(
       "TXExerciseWithAnyType",
-      "Exercise should not have issues dealing with any type of argument") { ledger =>
+      "Exercise should not have issues dealing with any type of argument") { context =>
       for {
+        ledger <- context.participant()
         party <- ledger.allocateParty()
         template = ParameterShowcase(
           party,
@@ -362,10 +378,11 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
 
   private[this] val submitAVeryLongList =
     LedgerTest("TXVeryLongList", "Accept a submission with a very long list (10,000 items)") {
-      ledger =>
+      context =>
         val n = 10000
         val veryLongList = Primitive.List(List.iterate(0L, n)(_ + 1): _*)
         for {
+          ledger <- context.participant()
           party <- ledger.allocateParty()
           template = ParameterShowcase(
             party,
@@ -390,8 +407,9 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     LedgerTest(
       "TXNotArchiveNonConsuming",
       "Expressing a non-consuming choice on a contract should not result in its archival") {
-      ledger =>
+      context =>
         for {
+          ledger <- context.participant()
           Vector(receiver, giver) <- ledger.allocateParties(2)
           agreementFactory <- ledger.create(giver, AgreementFactory(receiver, giver))
           _ <- ledger.exercise(receiver, agreementFactory.exerciseCreateAgreement)
@@ -406,8 +424,9 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
 
   private[this] val requireAuthorization =
     LedgerTest("TXRequireAuthorization", "Require only authorization of chosen branching signatory") {
-      ledger =>
+      context =>
         for {
+          ledger <- context.participant()
           Vector(alice, bob) <- ledger.allocateParties(2)
           template = BranchingSignatories(true, alice, bob)
           _ <- ledger.create(alice, template)
@@ -420,8 +439,9 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
   private[this] val notDiscloseCreateToNonSignatory =
     LedgerTest(
       "TXNotDiscloseCreateToNonSignatory",
-      "Not disclose create to non-chosen branching signatory") { ledger =>
+      "Not disclose create to non-chosen branching signatory") { context =>
       for {
+        ledger <- context.participant()
         Vector(alice, bob) <- ledger.allocateParties(2)
         template = BranchingSignatories(false, alice, bob)
         create <- ledger.submitAndWaitRequest(bob, template.create.command)
@@ -434,8 +454,9 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
 
   private[this] val discloseCreateToSignatory =
     LedgerTest("TXDiscloseCreateToSignatory", "Disclose create to the chosen branching controller") {
-      ledger =>
+      context =>
         for {
+          ledger <- context.participant()
           Vector(alice, bob, eve) <- ledger.allocateParties(3)
           template = BranchingControllers(alice, true, bob, eve)
           _ <- ledger.create(alice, template)
@@ -452,8 +473,9 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
   private[this] val notDiscloseCreateToNonChosenBranchingController =
     LedgerTest(
       "TXNotDiscloseCreateToNonChosenBranchingController",
-      "Not disclose create to non-chosen branching controller") { ledger =>
+      "Not disclose create to non-chosen branching controller") { context =>
       for {
+        ledger <- context.participant()
         Vector(alice, bob, eve) <- ledger.allocateParties(3)
         template = BranchingControllers(alice, false, bob, eve)
         create <- ledger.submitAndWaitRequest(alice, template.create.command)
@@ -465,8 +487,9 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     }
 
   private[this] val discloseCreateToObservers =
-    LedgerTest("TXDiscloseCreateToObservers", "Disclose create to observers") { ledger =>
+    LedgerTest("TXDiscloseCreateToObservers", "Disclose create to observers") { context =>
       for {
+        ledger <- context.participant()
         Vector(alice, bob, eve) <- ledger.allocateParties(3)
         observers = Seq(bob, eve)
         template = WithObservers(alice, Primitive.List(observers: _*))
@@ -480,8 +503,9 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
 
   private[this] val unitAsArgumentToNothing =
     LedgerTest("TXUnitAsArgumentToNothing", "DAML engine returns Unit as argument to Nothing") {
-      ledger =>
+      context =>
         for {
+          ledger <- context.participant()
           party <- ledger.allocateParty()
           template = NothingArgument(party, Primitive.Optional.empty)
           create <- ledger.submitAndWaitRequest(party, template.create.command)
@@ -495,8 +519,9 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
   private[this] val agreementText =
     LedgerTest(
       "TXAgreementText",
-      "Expose the agreement text for templates with an explicit agreement text") { ledger =>
+      "Expose the agreement text for templates with an explicit agreement text") { context =>
       for {
+        ledger <- context.participant()
         party <- ledger.allocateParty
         _ <- ledger.create(party, Dummy(party))
         transactions <- ledger.flatTransactionsByTemplateId(Dummy.id, party)
@@ -509,8 +534,9 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
   private[this] val agreementTextDefault =
     LedgerTest(
       "TXAgreementTextDefault",
-      "Expose the default text for templates without an agreement text") { ledger =>
+      "Expose the default text for templates without an agreement text") { context =>
       for {
+        ledger <- context.participant()
         party <- ledger.allocateParty()
         _ <- ledger.create(party, DummyWithParam(party))
         transactions <- ledger.flatTransactions(party)
@@ -521,8 +547,9 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     }
 
   private[this] val stakeholders =
-    LedgerTest("TXStakeholders", "Expose the correct stakeholders") { ledger =>
+    LedgerTest("TXStakeholders", "Expose the correct stakeholders") { context =>
       for {
+        ledger <- context.participant()
         Vector(giver, receiver) <- ledger.allocateParties(2)
         _ <- ledger.create(giver, CallablePayout(giver, receiver))
         transactions <- ledger.flatTransactions(giver, receiver)
@@ -536,8 +563,9 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
   private[this] val noContractKey =
     LedgerTest(
       "TXNoContractKey",
-      "There should be no contract key if the template does not specify one") { ledger =>
+      "There should be no contract key if the template does not specify one") { context =>
       for {
+        ledger <- context.participant()
         Vector(giver, receiver) <- ledger.allocateParties(2)
         _ <- ledger.create(giver, CallablePayout(giver, receiver))
         transactions <- ledger.flatTransactions(giver, receiver)
@@ -551,9 +579,10 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
 
   private[this] val contractKey =
     LedgerTest("TXContractKey", "The contract key should be exposed if the template specifies one") {
-      ledger =>
+      context =>
         val expectedKey = "some-fancy-key"
         for {
+          ledger <- context.participant()
           tkParty <- ledger.allocateParty()
           _ <- ledger.create(tkParty, TextKey(tkParty, expectedKey, Primitive.List.empty))
           transactions <- ledger.flatTransactions(tkParty)
@@ -572,8 +601,9 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
 
   private[this] val multiActorChoiceOk =
     LedgerTest("TXMultiActorChoiceOk", "Accept exercising a well-authorized multi-actor choice") {
-      ledger =>
+      context =>
         for {
+          ledger <- context.participant()
           Vector(operator, receiver, giver) <- ledger.allocateParties(3)
           agreementFactory <- ledger.create(giver, AgreementFactory(receiver, giver))
           agreement <- ledger.exerciseAndGetContract[Agreement](
@@ -595,8 +625,9 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     LedgerTest(
       "TXMultiActorChoiceOkCoincidingControllers",
       "Accept exercising a well-authorized multi-actor choice with coinciding controllers") {
-      ledger =>
+      context =>
         for {
+          ledger <- context.participant()
           Vector(operator, giver) <- ledger.allocateParties(2)
           agreementFactory <- ledger.create(giver, AgreementFactory(giver, giver))
           agreement <- ledger.exerciseAndGetContract[Agreement](
@@ -617,8 +648,9 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
   private[this] val rejectMultiActorMissingAuth =
     LedgerTest(
       "TXRejectMultiActorMissingAuth",
-      "Reject exercising a multi-actor choice with missing authorizers") { ledger =>
+      "Reject exercising a multi-actor choice with missing authorizers") { context =>
       for {
+        ledger <- context.participant()
         Vector(operator, receiver, giver) <- ledger.allocateParties(3)
         triProposal <- ledger.create(operator, TriProposal(operator, receiver, giver))
         failure <- ledger.exercise(giver, triProposal.exerciseTriProposalAccept).failed
@@ -634,8 +666,9 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
   private[this] val rejectMultiActorExcessiveAuth =
     LedgerTest(
       "TXRejectMultiActorExcessiveAuth",
-      "Reject exercising a multi-actor choice with too many authorizers") { ledger =>
+      "Reject exercising a multi-actor choice with too many authorizers") { context =>
       for {
+        ledger <- context.participant()
         Vector(operator, receiver, giver) <- ledger.allocateParties(3)
         agreementFactory <- ledger.create(giver, AgreementFactory(receiver, giver))
         agreement <- ledger
@@ -653,8 +686,9 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     }
 
   private[this] val noReorder =
-    LedgerTest("TXNoReorder", "Don't reorder fields in data structures of choices") { ledger =>
+    LedgerTest("TXNoReorder", "Don't reorder fields in data structures of choices") { context =>
       for {
+        ledger <- context.participant()
         party <- ledger.allocateParty()
         dummy <- ledger.create(party, Dummy(party))
         tree <- ledger.exercise(

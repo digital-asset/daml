@@ -19,9 +19,10 @@ final class ContractKeysSubmitterIsMaintainer(session: LedgerSession)
 
   val fetchDivulgedContract =
     LedgerTest("CKNoFetchOrLookup", "Divulged contracts cannot be fetched or looked up by key") {
-      ledger =>
+      context =>
         val key = s"${UUID.randomUUID.toString}-key"
         for {
+          ledger <- context.participant()
           Vector(owner, delegate) <- ledger.allocateParties(2)
 
           // create contracts to work with
@@ -64,9 +65,10 @@ final class ContractKeysSubmitterIsMaintainer(session: LedgerSession)
   val rejectFetchingUndisclosedContract =
     LedgerTest(
       "CKSubmitterIsMaintainerNoFetchUndisclosed",
-      "Contract Keys should reject fetching an undisclosed contract") { ledger =>
+      "Contract Keys should reject fetching an undisclosed contract") { context =>
       val key = s"${UUID.randomUUID.toString}-key"
       for {
+        ledger <- context.participant()
         Vector(owner, delegate) <- ledger.allocateParties(2)
 
         // create contracts to work with
@@ -115,13 +117,14 @@ final class ContractKeysSubmitterIsMaintainer(session: LedgerSession)
   val processContractKeys =
     LedgerTest(
       "CKSubmitterIsMaintainerMaintainerScoped",
-      "Contract keys should be scoped by maintainer") { ledger =>
+      "Contract keys should be scoped by maintainer") { context =>
       val keyPrefix = UUID.randomUUID.toString
       val key1 = s"$keyPrefix-some-key"
       val key2 = s"$keyPrefix-some-other-key"
       val unknownKey = s"$keyPrefix-unknown-key"
 
       for {
+        ledger <- context.participant()
         Vector(alice, bob) <- ledger.allocateParties(2)
 
         //create contracts to work with
