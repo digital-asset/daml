@@ -11,12 +11,12 @@ import DA.List
 template Template t => Proposal t
   with
     asset : t
-    receivers : [Party]
+    receiver : Party
   where
-    signatory (signatory asset \\ receivers)
-    observer receivers
+    signatory (signatory asset \\ [receiver])
+    observer receiver
 
-    controller receivers can
+    controller receiver can
       Accept : ContractId t
         do create asset
 -- end proposal body

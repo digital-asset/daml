@@ -10,7 +10,7 @@ Sometimes different DAML templates have a common structure. Typically this occur
 Example: Generic Proposal
 *************************
 
-Suppose we want to model a propose and accept workflow. This means that a party can propose a contract to some number of receiving parties, and any one of them can accept it with the terms of that contract. We see this pattern occur frequently for different types of contracts. Of course, we could implement one proposal template for every underlying template. However this is tedious and error prone. Alternatively, we can write it once and for all using a generic template.
+Suppose we want to model a propose and accept workflow. This means that a party can propose a contract to a specific party, who may accept it with the terms of that contract. We see this pattern occur frequently for different types of contracts. Of course, we could implement one proposal template for every underlying template. However this is tedious and error prone. Alternatively, we can write it once and for all using a generic template.
 
 This is how a generic Proposal template looks in DAML.
 
@@ -27,7 +27,7 @@ Secondly, the ``asset`` parameter to the template has the abstract type ``t``. W
 
 Notice that the signatories of the proposal are obtained from the signatories of the underlying contract. This is done by calling the overloaded ``signatory`` method. The observers on the other hand are independent of the underlying asset.
 
-Finally let's look at the ``Accept`` choice which characterizes the propose and accept workflow. Any receiver can ``Accept`` which results in a contract of the underlying asset type being created. We are able to call ``create`` on the asset since we know it satisfies the ``Template`` constraint.
+Finally let's look at the ``Accept`` choice which characterizes the propose and accept workflow. The receiver can ``Accept`` which results in a contract of the underlying asset type being created. We are able to call ``create`` on the asset since we know it satisfies the ``Template`` constraint.
 
 Template Instances
 ******************

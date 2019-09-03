@@ -24,7 +24,7 @@ coinIssuance = scenario do
   alice <- getParty "alice"
   bank <- getParty "bank"
   let coin = Coin with issuer = bank; owner = alice
-  let proposal = Proposal with asset = coin; receivers = [alice]
+  let proposal = Proposal with asset = coin; receiver = alice
   propId <- bank `submit` create proposal
   alice `submit` exercise propId Accept
 -- end scenario
