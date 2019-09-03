@@ -8,7 +8,7 @@ import com.digitalasset.daml.lf.data.Ref.{Identifier, QualifiedName, PackageId}
 import com.digitalasset.daml.lf.data.BackStack
 import org.scalatest.{Matchers, WordSpec}
 import com.digitalasset.daml.lf.testing.parser.Implicits._
-import com.digitalasset.daml.lf.language.{Ast => Pkg}
+import com.digitalasset.daml.lf.language.{Ast => Pkg, Util => PkgUtil}
 
 import scala.language.implicitConversions
 
@@ -29,6 +29,9 @@ class TypeSpec extends WordSpec with Matchers {
       case Pkg.TVar(v) =>
         assertZeroArgs(args)
         TypeVar(v)
+      case PkgUtil.TNumeric(Pkg.TNat(n)) =>
+        assertZeroArgs(args)
+        TypeNumeric(n)
       case Pkg.TApp(fun, arg) => go(fun, args :+ fromLfPackageType(arg))
       case Pkg.TBuiltin(bltin) =>
         bltin match {
@@ -36,8 +39,7 @@ class TypeSpec extends WordSpec with Matchers {
             assertZeroArgs(args)
             TypePrim(PrimTypeInt64, ImmArraySeq.empty)
           case Pkg.BTNumeric =>
-            assertZeroArgs(args)
-            TypePrim(PrimTypeDecimal, ImmArraySeq.empty)
+            sys.error("cannot use Numeric not applied to TNat in interface type")
           case Pkg.BTText =>
             assertZeroArgs(args)
             TypePrim(PrimTypeText, ImmArraySeq.empty)

@@ -19,6 +19,7 @@ object Types {
   sealed abstract class FullyAppliedType extends Product with Serializable
 
   object FullyAppliedType {
+    final case class TypeNumeric(scale: Int) extends FullyAppliedType
     final case class TypePrim(typ: iface.PrimType, typArgs: List[FullyAppliedType])
         extends FullyAppliedType
     final case class TypeCon(
@@ -48,6 +49,8 @@ object Types {
               tyConName,
               typArgs.toList.map(_.fat(packageStore)),
               isEnum(tyConName, packageStore))
+          case iface.TypeNumeric(scale) =>
+            TypeNumeric(scale)
           case iface.TypeVar(_) =>
             throw new IllegalArgumentException(
               s"A `TypeVar` ($genType) cannot be converted to a `FullyAppliedType`"

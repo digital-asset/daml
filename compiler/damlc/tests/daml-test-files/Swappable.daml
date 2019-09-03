@@ -1,0 +1,43 @@
+daml 1.2
+module Swappable where
+
+import Asset
+
+template (Asset t, Template (SwapProposal t)) => Swappable t with
+    asset: t
+  where
+    signatory asset.issuer, asset.owner
+
+    controller asset.owner can
+      ProposeSwap: ContractId (SwapProposal t)
+        with assetInReturn: Swappable t
+        do create SwapProposal with
+            assetOffered = this
+            assetInReturn
+
+template (Asset t, Template (Swappable t)) => SwapProposal t with
+    assetOffered: Swappable t
+    assetInReturn: Swappable t
+  where
+    let proposer = assetOffered.asset.owner
+        proposee = assetInReturn.asset.owner
+    signatory proposer
+
+    controller proposer can
+      WithdrawSwap: ContractId (Swappable t)
+        do create assetOffered
+
+    controller proposee can
+      RejectSwap: ContractId (Swappable t)
+        do create assetOffered
+
+      -- If successful, return the proposer's and proposee's new assets respectively
+      AcceptSwap: (ContractId (Swappable t), ContractId (Swappable t))
+        with assetInReturnCid: ContractId (Swappable t)
+        do -- first check that the asset given in return really is the requested asset
+           actualAssetInReturn <- fetch assetInReturnCid
+           assert $ actualAssetInReturn == assetInReturn
+           archive assetInReturnCid
+           proposersNewAsset <- create $ Swappable $ assetInReturn.asset with owner = proposer
+           proposeesNewAsset <- create $ Swappable $ assetOffered.asset with owner = proposee
+           return (proposersNewAsset, proposeesNewAsset)

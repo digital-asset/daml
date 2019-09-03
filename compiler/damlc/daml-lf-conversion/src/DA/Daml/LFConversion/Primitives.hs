@@ -155,6 +155,39 @@ convertPrim _ "BEMapSize" (TMap a :-> TInt64) =
 convertPrim _ "BECoerceContractId" (TContractId a :-> TContractId b) =
     EBuiltin BECoerceContractId `ETyApp` a `ETyApp` b
 
+-- Decimal->Numeric compatibility. These will only be invoked when
+-- Numeric is available as a feature (otherwise it would not appear
+-- in the type) but Decimal primitives are still used (from the
+-- stdlib). Eventually the Decimal primitives will be phased out.
+convertPrim _ "BEAddDecimal" (TNumeric10 :-> TNumeric10 :-> TNumeric10) =
+    ETyApp (EBuiltin BEAddNumeric) (TNat 10)
+convertPrim _ "BESubDecimal" (TNumeric10 :-> TNumeric10 :-> TNumeric10) =
+    ETyApp (EBuiltin BESubNumeric) (TNat 10)
+convertPrim _ "BEMulDecimal" (TNumeric10 :-> TNumeric10 :-> TNumeric10) =
+    ETyApp (EBuiltin BEMulNumeric) (TNat 10)
+convertPrim _ "BEDivDecimal" (TNumeric10 :-> TNumeric10 :-> TNumeric10) =
+    ETyApp (EBuiltin BEDivNumeric) (TNat 10)
+convertPrim _ "BERoundDecimal" (TInt64 :-> TNumeric10 :-> TNumeric10) =
+    ETyApp (EBuiltin BERoundNumeric) (TNat 10)
+convertPrim _ "BEEqual" (TNumeric10 :-> TNumeric10 :-> TBool) =
+    ETyApp (EBuiltin BEEqualNumeric) (TNat 10)
+convertPrim _ "BELess" (TNumeric10 :-> TNumeric10 :-> TBool) =
+    ETyApp (EBuiltin BELessNumeric) (TNat 10)
+convertPrim _ "BELessEq" (TNumeric10 :-> TNumeric10 :-> TBool) =
+    ETyApp (EBuiltin BELessEqNumeric) (TNat 10)
+convertPrim _ "BEGreaterEq" (TNumeric10 :-> TNumeric10 :-> TBool) =
+    ETyApp (EBuiltin BEGreaterEqNumeric) (TNat 10)
+convertPrim _ "BEGreater" (TNumeric10 :-> TNumeric10 :-> TBool) =
+    ETyApp (EBuiltin BEGreaterNumeric) (TNat 10)
+convertPrim _ "BEInt64ToDecimal" (TInt64 :-> TNumeric10) =
+    ETyApp (EBuiltin BEInt64ToNumeric) (TNat 10)
+convertPrim _ "BEDecimalToInt64" (TNumeric10 :-> TInt64) =
+    ETyApp (EBuiltin BENumericToInt64) (TNat 10)
+convertPrim _ "BEToText" (TNumeric10 :-> TText) =
+    ETyApp (EBuiltin BEToTextNumeric) (TNat 10)
+convertPrim _ "BEDecimalFromText" (TText :-> TOptional TNumeric10) =
+    ETyApp (EBuiltin BENumericFromText) (TNat 10)
+
 convertPrim _ x ty = error $ "Unknown primitive " ++ show x ++ " at type " ++ renderPretty ty
 
 -- | Some builtins are only supported in specific versions of DAML-LF.

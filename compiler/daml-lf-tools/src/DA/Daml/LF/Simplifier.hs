@@ -104,6 +104,7 @@ safetyStep = \case
     case b of
       BEInt64 _           -> Safe 0
       BEDecimal _         -> Safe 0
+      BENumeric _         -> Safe 0
       BEText _            -> Safe 0
       BETimestamp _       -> Safe 0
       BEParty _           -> Safe 0

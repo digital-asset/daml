@@ -60,6 +60,7 @@ data UnserializabilityReason
   | URNumeric -- ^ It contains an unapplied Numeric type constructor.
   | URNumericNotFixed
   | URNumericOutOfRange !Natural
+  | URTypeLevelNat
 
 data Error
   = EUnknownTypeVar        !TypeVarName
@@ -162,6 +163,7 @@ instance Pretty UnserializabilityReason where
     URNumeric -> "unapplied Numeric"
     URNumericNotFixed -> "Numeric scale is not fixed"
     URNumericOutOfRange n -> "Numeric scale " <> integer (fromIntegral n) <> " is out of range (needs to be between 0 and 38)"
+    URTypeLevelNat -> "type-level nat"
 
 instance Pretty Error where
   pPrint = \case

@@ -16,13 +16,11 @@ module DA.Daml.LFConversion.UtilGHC(
     module DA.Daml.LFConversion.UtilGHC
     ) where
 
-import           "ghc-lib-parser" Class
 import           "ghc-lib" GHC                         hiding (convertLit)
 import           "ghc-lib" GhcPlugins                  as GHC hiding (fst3, (<>))
 
 import           Data.Generics.Uniplate.Data
 import           Data.List
-import qualified Data.Set as Set
 import           Data.Tuple.Extra
 import qualified Data.ByteString as BS
 import qualified Data.Text as T
@@ -90,13 +88,6 @@ defaultLast = uncurry (++) . partition ((/=) DEFAULT . fst3)
 isLitAlt :: Alt Var -> Bool
 isLitAlt (LitAlt{},_,_) = True
 isLitAlt _              = False
-
-defaultMethods :: CoreModule -> Set.Set Name
-defaultMethods core = Set.fromList
-  [ name
-  | ATyCon (tyConClass_maybe -> Just class_) <- nameEnvElts (cm_types core)
-  , (_id, Just (name, VanillaDM)) <- classOpItems class_
-  ]
 
 untick :: GHC.Expr b -> GHC.Expr b
 untick = \case

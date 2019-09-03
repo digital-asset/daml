@@ -77,19 +77,21 @@ object ValueGenerators {
   val defaultNidEncode: TransactionCoder.EncodeNid[NodeId] = nid => nid.index.toString
 
   //generate decimal values
-  val decimalGen: Gen[ValueNumeric] = {
-    val integerPart = Gen.listOfN(28, Gen.choose(1, 9)).map(_.mkString)
-    val decimalPart = Gen.listOfN(10, Gen.choose(1, 9)).map(_.mkString)
-    val bd = integerPart.flatMap(i => decimalPart.map(d => Decimal.assertFromString(s"$i.$d")))
+  def numGen(scale: Int): Gen[Numeric] = {
+    val integerPart = Gen.listOfN(Numeric.maxPrecision - scale, Gen.choose(1, 9)).map(_.mkString)
+    val decimalPart = Gen.listOfN(scale, Gen.choose(1, 9)).map(_.mkString)
+    val bd = integerPart.flatMap(i => decimalPart.map(d => Numeric.assertFromString(s"$i.$d")))
     Gen
       .frequency(
-        (1, Gen.const(Decimal.assertFromString("0.0"))),
-        (1, Gen.const(Decimal.MaxValue)),
-        (1, Gen.const(Decimal.MinValue)),
+        (1, Gen.const(Numeric.assertFromBigDecimal(scale, 0))),
+        (1, Gen.const(Numeric.maxValue(scale))),
+        (1, Gen.const(Numeric.minValue(scale))),
         (5, bd)
       )
-      .map(ValueNumeric)
   }
+
+  def unscaledNumGen: Gen[Numeric] =
+    Gen.choose(0, Numeric.maxPrecision).flatMap(numGen)
 
   val moduleSegmentGen: Gen[String] = for {
     n <- Gen.choose(1, 100)
@@ -216,10 +218,14 @@ object ValueGenerators {
       )
       val flat = List(
         (sz + 1, dateGen.map(ValueDate)),
-        (sz + 1, Gen.alphaStr.map(x => ValueText(x))),
-        (sz + 1, decimalGen),
+        (sz + 1, Gen.alphaStr.map(ValueText)),
+        // FixMe: https://github.com/digital-asset/daml/issues/2289
+        //  once arbirtary Numeric can be encoded as value, replace the
+        //  following line by:
+        //    (sz + 1, unscaledNumGen.map(ValueNumeric)),
+        (sz + 1, numGen(Decimal.scale).map(ValueNumeric)),
         (sz + 1, Arbitrary.arbLong.arbitrary.map(ValueInt64)),
-        (sz + 1, Gen.alphaStr.map(x => ValueText(x))),
+        (sz + 1, Gen.alphaStr.map(ValueText)),
         (sz + 1, timestampGen.map(ValueTimestamp)),
         (sz + 1, coidValueGen),
         (sz + 1, party.map(ValueParty)),
@@ -421,7 +427,6 @@ object ValueGenerators {
       .filter(x => !TransactionVersions.acceptedVersions.contains(x))
 
   object Implicits {
-    implicit val vdecimalArb: Arbitrary[Numeric] = Arbitrary(decimalGen map (_.value))
     implicit val vdateArb: Arbitrary[Time.Date] = Arbitrary(dateGen)
     implicit val vtimestampArb: Arbitrary[Time.Timestamp] = Arbitrary(timestampGen)
     implicit val vpartyArb: Arbitrary[Ref.Party] = Arbitrary(party)

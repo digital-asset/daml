@@ -121,7 +121,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
 
   // TODO make these two per-test, so that we make sure not to pollute the package cache and other possibly mutable stuff
   val engine = Engine()
-  val commandTranslator = CommandPreprocessor(ConcurrentCompiledPackages())
+  val commandTranslator = new CommandPreprocessor(ConcurrentCompiledPackages())
 
   "valid data variant identifier" should {
     "found and return the argument types" in {
@@ -407,7 +407,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
       val (optionalPkgId, optionalPkg @ _, allOptionalPackages) =
         loadPackage("daml-lf/tests/Optional.dar")
 
-      val translator = CommandPreprocessor(ConcurrentCompiledPackages.apply())
+      val translator = new CommandPreprocessor(ConcurrentCompiledPackages.apply())
 
       val id = Identifier(optionalPkgId, "Optional:Rec")
       val someValue = assertAsVersionedValue(
@@ -433,7 +433,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
     }
 
     "returns correct error when resuming" in {
-      val translator = CommandPreprocessor(ConcurrentCompiledPackages.apply())
+      val translator = new CommandPreprocessor(ConcurrentCompiledPackages.apply())
       val id = Identifier(basicTestsPkgId, "BasicTests:MyRec")
       val wrongRecord = assertAsVersionedValue(
         ValueRecord(Some(id), ImmArray(Some[Name]("wrongLbl") -> ValueText("foo"))))

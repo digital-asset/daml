@@ -379,7 +379,7 @@ Assuming that your Ledger API endpoint is accessible at ``localhost:6865``, you 
 
 #. Run the tool against your ledger:
 
-   ``java -jar ledger-api-test-tool.jar -h localhost -p 6865``
+   ``java -jar ledger-api-test-tool.jar localhost:6865``
 
 See more in :doc:`Ledger API Test Tool </tools/ledger-api-test-tool/index>`.
 

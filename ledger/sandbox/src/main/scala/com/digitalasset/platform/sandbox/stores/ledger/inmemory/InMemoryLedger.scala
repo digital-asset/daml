@@ -115,6 +115,7 @@ class InMemoryLedger(
       this.synchronized[SubmissionResult] {
         val (newDeduplicator, isDuplicate) =
           deduplicator.checkAndAdd(
+            submitterInfo.submitter,
             ApplicationId(submitterInfo.applicationId),
             CommandId(submitterInfo.commandId))
         deduplicator = newDeduplicator

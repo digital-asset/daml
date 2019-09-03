@@ -166,7 +166,8 @@ trait LedgerReadDao extends AutoCloseable {
     *
     * @param mat the Akka stream materializer to be used for the contract stream.
     */
-  def getActiveContractSnapshot()(implicit mat: Materializer): Future[LedgerSnapshot]
+  def getActiveContractSnapshot(untilExclusive: LedgerOffset)(
+      implicit mat: Materializer): Future[LedgerSnapshot]
 
   /** Returns a list of all known parties. */
   def getParties: Future[List[PartyDetails]]
@@ -230,7 +231,8 @@ trait LedgerWriteDao extends AutoCloseable {
     */
   def storeParty(
       party: Party,
-      displayName: Option[String]
+      displayName: Option[String],
+      externalOffset: Option[ExternalOffset]
   ): Future[PersistenceResponse]
 
   /**
@@ -245,7 +247,8 @@ trait LedgerWriteDao extends AutoCloseable {
     */
   def uploadLfPackages(
       uploadId: String,
-      packages: List[(Archive, PackageDetails)]
+      packages: List[(Archive, PackageDetails)],
+      externalOffset: Option[ExternalOffset]
   ): Future[Map[PersistenceResponse, Int]]
 
   /** Resets the platform into a state as it was never used before. Meant to be used solely for testing. */

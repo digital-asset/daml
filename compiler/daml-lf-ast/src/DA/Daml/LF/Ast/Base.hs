@@ -24,7 +24,8 @@ import Data.Fixed
 import qualified "template-haskell" Language.Haskell.TH as TH
 import qualified Control.Lens.TH as Lens.TH
 
-import           DA.Daml.LF.Ast.Version
+import DA.Daml.LF.Ast.Version
+import DA.Daml.LF.Ast.Numeric
 
 infixr 1 `KArrow`
 
@@ -189,16 +190,12 @@ data TypeConApp = TypeConApp
   }
   deriving (Eq, Data, Generic, NFData, Ord, Show)
 
-data E10
-instance HasResolution E10 where
-  resolution _ = 10000000000 -- 10^-10 resolution
-
 -- | Builtin operation or literal.
 data BuiltinExpr
   -- Literals
   = BEInt64      !Int64          -- :: Int64
   | BEDecimal    !(Fixed E10)    -- :: Decimal, precision 38, scale 10
-  -- TODO (#2289): add numeric literals
+  | BENumeric    !Numeric        -- :: Numeric, precision 38, scale 0 through 37
   | BEText       !T.Text         -- :: Text
   | BETimestamp  !Int64          -- :: Timestamp, microseconds since unix epoch
   | BEParty      !PartyLiteral   -- :: Party

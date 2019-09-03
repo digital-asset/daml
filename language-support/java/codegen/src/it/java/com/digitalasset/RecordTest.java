@@ -47,7 +47,7 @@ public class RecordTest {
     @Test
     void deserializableFromRecord() {
         Int64 int_ = new Int64(int64Value);
-        Decimal decimal = new Decimal(decimalValue);
+        Numeric decimal = new Numeric(decimalValue);
         Text text = new Text(textValue);
         Bool bool = new Bool(boolValue);
         Party party = new Party(partyValue);

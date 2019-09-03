@@ -4,6 +4,7 @@ module DarReaderTest
    ( main
    ) where
 
+import qualified Data.ByteString.Char8 as BS
 import Test.Tasty
 import DA.Daml.LF.Reader
 import Test.Tasty.HUnit
@@ -16,15 +17,17 @@ unitTests = testGroup "testing dar reader for longer manifest lines"
     [
         testCase "multiline manifest file test" $
         assertEqual "content over multiple lines"
-            ["Dalfs: stdlib.dalf, prim.dalf", "Main-Dalf: testing.dalf"]
-            (multiLineContent $ unlines [ "Dalfs: stdlib.da"
-                                        , " lf, prim.dalf"
-                                        , "Main-Dalf: testing.dalf"
-                                        ])
+            (Right [("Dalfs", "stdlib.dalf, prim.dalf"), ("Main-Dalf", "testing.dalf")])
+            (parseManifestFile $ BS.unlines
+                 [ "Dalfs: stdlib.da"
+                 , " lf, prim.dalf"
+                 , "Main-Dalf: testing.dalf"
+                 ])
     , testCase "multiline manifest file test" $
         assertEqual "all content in the same line"
-            ["Dalfs: stdlib.dalf", "Main-Dalf:solution.dalf"]
-            (multiLineContent $ unlines [ "Dalfs: stdlib.dalf"
-                                        , "Main-Dalf:solution.dalf"
-                                        ])
+            (Right [("Dalfs", "stdlib.dalf"), ("Main-Dalf", "solution.dalf")])
+            (parseManifestFile $ BS.unlines
+                [ "Dalfs: stdlib.dalf"
+                , "Main-Dalf: solution.dalf"
+                ])
     ]

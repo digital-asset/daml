@@ -130,8 +130,12 @@ private[kvutils] case class ProcessTransactionSubmission(
         currentTime = recordTime.toInstant,
         givenLedgerEffectiveTime = givenLET,
         givenMaximumRecordTime = givenMRT)
-      &&
-      timeModelChecker.checkTtl(givenLET, givenMRT))
+      /* NOTE(JM): This check has been disabled to be more lenient while
+       * we're still in beta phase. Time model is being redesigned and
+       * appropriate checks will be put back in place along with the new
+       * implementation.
+       *
+       * && timeModelChecker.checkTtl(givenLET, givenMRT) */ )
       pass
     else
       reject(RejectionReason.MaximumRecordTimeExceeded)

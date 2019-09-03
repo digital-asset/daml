@@ -249,8 +249,10 @@ object Speedy {
         compiledPackages: CompiledPackages): Either[SError, (Boolean, Expr) => Machine] = {
       val compiler = Compiler(compiledPackages.packages)
       Right({ (checkSubmitterInMaintainers: Boolean, expr: Expr) =>
-        initial(checkSubmitterInMaintainers, compiledPackages).copy(
-          ctrl = CtrlExpr(SEApp(compiler.compile(expr), Array(SEValue(SToken)))))
+        fromSExpr(
+          SEApp(compiler.compile(expr), Array(SEValue(SToken))),
+          checkSubmitterInMaintainers,
+          compiledPackages)
       })
     }
 
@@ -258,10 +260,7 @@ object Speedy {
         checkSubmitterInMaintainers: Boolean,
         sexpr: SExpr,
         compiledPackages: CompiledPackages): Machine =
-      initial(checkSubmitterInMaintainers, compiledPackages).copy(
-        // apply token
-        ctrl = CtrlExpr(SEApp(sexpr, Array(SEValue(SToken)))),
-      )
+      fromSExpr(SEApp(sexpr, Array(SEValue(SToken))), checkSubmitterInMaintainers, compiledPackages)
 
     // Used from repl.
     def fromExpr(
@@ -276,10 +275,17 @@ object Speedy {
         else
           compiler.compile(expr)
 
-      initial(checkSubmitterInMaintainers, compiledPackages).copy(
-        ctrl = CtrlExpr(sexpr),
-      )
+      fromSExpr(sexpr, checkSubmitterInMaintainers, compiledPackages)
     }
+
+    // Construct a machine from an SExpr. This is useful when you don’t have
+    // an update expression and build’s behavior of applying the expression to
+    // a token is not appropriate.
+    def fromSExpr(
+        sexpr: SExpr,
+        checkSubmitterInMaintainers: Boolean,
+        compiledPackages: CompiledPackages): Machine =
+      initial(checkSubmitterInMaintainers, compiledPackages).copy(ctrl = CtrlExpr(sexpr))
   }
 
   /** Control specifies the thing that the machine should be reducing.

@@ -6,6 +6,32 @@ Release notes
 
 This page contains release notes for the SDK.
 
+.. _release-0-13-21:
+
+0.13.21 - 2019-08-29
+--------------------
+
+DAML Compiler
+~~~~~~~~~~~~~
+
+- Enable the language extension ``FlexibleContexts`` by default.
+- **BREAKING CHANGE** Enable the language extension ``MonoLocalBinds`` by default. ``let`` and ``where`` bindings introducing polymorphic functions that are used at different types now need an explicit type annotation. Without the type annotation the type of the first use site will be inferred and use sites at different types will fail with a type mismatch error.
+
+Java Codegen
+~~~~~~~~~~~~
+
+- Fix bug that caused the generation of duplicate methods that affected sources with data constructors with type parameters that are either non-unique or not presented in the same order as in the corresponding data type declaration. See `#2367 <https://github.com/digital-asset/daml/issues/2367>`__.
+
+Ledger
+~~~~~~
+
+- H2 Database support in the Ledger API Server.
+
+Sandbox
+~~~~~~~
+
+- The sandbox now properly sets the connection pool properties ``minimumIdle``, ``maximumPoolSize``, and ``connectionTimeout``.
+
 .. _release-0-13-20:
 
 0.13.20 - 2019-08-22

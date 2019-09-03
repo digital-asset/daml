@@ -84,7 +84,7 @@ object project {
 
         case DamlLfTypeVar(name) => Right(StringValue(name))
         case DamlLfTypePrim(DamlLfPrimType.Bool, _) => Right(StringValue("bool"))
-        case DamlLfTypePrim(DamlLfPrimType.Decimal, _) => Right(StringValue("decimal"))
+        case DamlLfTypeNumeric(_) => Right(StringValue("decimal"))
         case DamlLfTypePrim(DamlLfPrimType.Int64, _) => Right(StringValue("int64"))
         case DamlLfTypePrim(DamlLfPrimType.Date, _) => Right(StringValue("date"))
         case DamlLfTypePrim(DamlLfPrimType.Text, _) => Right(StringValue("text"))

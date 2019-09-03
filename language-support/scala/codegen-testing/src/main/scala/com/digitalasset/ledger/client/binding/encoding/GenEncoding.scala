@@ -71,7 +71,7 @@ object GenEncoding extends GenEncoding {
   class primitiveImpl extends ValuePrimitiveEncoding[Out] {
     override val valueInt64: Out[P.Int64] = arbitrary[P.Int64]
 
-    override val valueDecimal: Out[P.Decimal] = arbitrary[BigDecimal](DamlDecimalGen.arbDamlDecimal)
+    override val valueNumeric: Out[P.Numeric] = arbitrary[BigDecimal](DamlDecimalGen.arbDamlDecimal)
 
     override val valueParty: Out[P.Party] = P.Party.subst(Gen.identifier)
 

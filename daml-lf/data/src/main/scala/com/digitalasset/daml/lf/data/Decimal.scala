@@ -14,8 +14,8 @@ object Decimal {
 
   val scale: Int = 10
 
-  val MaxValue: Numeric = Numeric.assertFromString("9999999999999999999999999999.9999999999")
-  val MinValue: Numeric = Numeric.assertFromString("-9999999999999999999999999999.9999999999")
+  def MaxValue: Numeric = Numeric.maxValue(scale)
+  def MinValue: Numeric = Numeric.minValue(scale)
 
   def fromBigDecimal(x: BigDec): Either[String, data.Numeric.Numeric] =
     Numeric.fromBigDecimal(scale, x)

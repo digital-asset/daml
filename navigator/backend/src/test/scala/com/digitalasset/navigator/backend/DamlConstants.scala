@@ -44,7 +44,7 @@ case object DamlConstants {
   // ------------------------------------------------------------------------------------------------------------------
   val simpleTextT = DamlLfTypePrim(DamlLfPrimType.Text, DamlLfImmArraySeq())
   val simpleInt64T = DamlLfTypePrim(DamlLfPrimType.Int64, DamlLfImmArraySeq())
-  val simpleDecimalT = DamlLfTypePrim(DamlLfPrimType.Decimal, DamlLfImmArraySeq())
+  val simpleDecimalT = DamlLfTypeNumeric(10)
   val simpleUnitT = DamlLfTypePrim(DamlLfPrimType.Unit, DamlLfImmArraySeq())
   val simpleDateT = DamlLfTypePrim(DamlLfPrimType.Date, DamlLfImmArraySeq())
   val simpleTimestampT = DamlLfTypePrim(DamlLfPrimType.Timestamp, DamlLfImmArraySeq())

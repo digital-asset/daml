@@ -287,7 +287,7 @@ dependencies:
   org.postgresql:
     postgresql:
       lang: java
-      version: "9.4.1212"
+      version: "42.2.6"
 
   io.spray:
     spray-json:
@@ -565,6 +565,11 @@ dependencies:
     java-jwt:
       lang: java
       version: 3.8.1
+
+  ai.x:
+    diff:
+      lang: scala
+      version: 2.0.1
 
 # Packages listed here will not be resolved as part of regular dependency
 # resolution. Instead, the generated bazel targets will redirect to whichever

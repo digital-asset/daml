@@ -152,7 +152,7 @@ export interface DamlLfRecordField {
 
 export type DamlLfValueText       = { type: 'text', value: string }
 export type DamlLfValueInt64      = { type: 'int64', value: string }
-export type DamlLfValueDecimal    = { type: 'decimal', value: string }
+export type DamlLfValueNumeric    = { type: 'numeric', value: string }
 export type DamlLfValueBool       = { type: 'bool', value: boolean }
 export type DamlLfValueContractId = { type: 'contractid', value: string }
 export type DamlLfValueTimestamp  = { type: 'timestamp', value: string }
@@ -167,14 +167,14 @@ export type DamlLfValueUndefined  = { type: 'undefined' }
 
 export type DamlLfValue
   = DamlLfValueText
-  | DamlLfValueInt64
-  | DamlLfValueDecimal
+  | DamlLfValueNumeric
   | DamlLfValueBool
   | DamlLfValueContractId
   | DamlLfValueTimestamp
   | DamlLfValueDate
   | DamlLfValueParty
   | DamlLfValueUnit
+  | DamlLfValueInt64
   | DamlLfValueOptional
   | DamlLfValueList
   | DamlLfValueRecord

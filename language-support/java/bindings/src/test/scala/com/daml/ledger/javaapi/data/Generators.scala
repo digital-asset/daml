@@ -168,7 +168,7 @@ object Generators {
 
   def decimalValueGen: Gen[ValueOuterClass.Value] =
     Arbitrary.arbBigDecimal.arbitrary.map(d =>
-      ValueOuterClass.Value.newBuilder().setDecimal(d.bigDecimal.toPlainString).build())
+      ValueOuterClass.Value.newBuilder().setNumeric(d.bigDecimal.toPlainString).build())
 
   def eventGen: Gen[EventOuterClass.Event] =
     for {

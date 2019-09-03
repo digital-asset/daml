@@ -10,7 +10,6 @@ import akka.stream.{ActorMaterializer, ActorMaterializerSettings, Supervision}
 import com.daml.ledger.participant.state.kvutils.InMemoryKVParticipantState
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.digitalasset.daml.lf.archive.DarReader
-import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml_lf.DamlLf.Archive
 import com.digitalasset.platform.index.cli.Cli
 import com.digitalasset.platform.index.{StandaloneIndexServer, StandaloneIndexerServer}
@@ -23,11 +22,16 @@ object ReferenceServer extends App {
 
   val logger = LoggerFactory.getLogger("indexed-kvutils")
 
-  val config = Cli.parse(args).getOrElse(sys.exit(1))
+  val config =
+    Cli
+      .parse(
+        args,
+        "damlonx-reference-server",
+        "A fully compliant DAML Ledger API server backed by an in-memory store.")
+      .getOrElse(sys.exit(1))
 
   // Name of this participant
-  // TODO: Pass this info in command-line (See issue #2025)
-  val participantId: ParticipantId = Ref.LedgerString.assertFromString("in-memory-participant")
+  val participantId: ParticipantId = config.participantId
 
   implicit val system: ActorSystem = ActorSystem("indexed-kvutils")
   implicit val materializer: ActorMaterializer = ActorMaterializer(

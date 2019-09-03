@@ -1,0 +1,13 @@
+daml 1.2
+module Asset where
+
+import DA.Record
+
+-- These are some simple typeclasses that can be used as preconditions for
+-- generic templates, for example in the Fungible and Transferrable templates.
+-- It would be better to write these as constraint synonyms, but DAML doesn't
+-- allow them at the moment.
+
+class (Eq t, HasField "issuer" t Party, HasField "owner" t Party) => Asset t
+
+class (Asset t, HasField "amount" t Decimal) => Quantity t

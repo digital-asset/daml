@@ -11,8 +11,9 @@ import scalaz.Tag
 final class Witnesses(session: LedgerSession) extends LedgerTestSuite(session) {
 
   private[this] val respectDisclosureRules =
-    LedgerTest("RespectDisclosureRules", "The ledger should respect disclosure rules") { ledger =>
+    LedgerTest("RespectDisclosureRules", "The ledger should respect disclosure rules") { context =>
       for {
+        ledger <- context.participant()
         Vector(alice, bob, charlie) <- ledger.allocateParties(3)
 
         // Create the Witnesses contract as Alice and get the resulting transaction as seen by all parties

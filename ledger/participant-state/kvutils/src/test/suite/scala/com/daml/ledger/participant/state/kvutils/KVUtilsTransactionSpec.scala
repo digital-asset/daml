@@ -3,8 +3,6 @@
 
 package com.daml.ledger.participant.state.kvutils
 
-import java.time.Duration
-
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlLogEntry,
   DamlTransactionRejectionEntry
@@ -45,6 +43,7 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
       }
     )
 
+    /* Disabled while we rework the time model.
     "reject transaction with elapsed max record time" in KVTest.runTest(
       for {
         tx <- runCommand(alice, simpleCreateCmd)
@@ -55,6 +54,7 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
         logEntry.getTransactionRejectionEntry.getReasonCase shouldEqual DamlTransactionRejectionEntry.ReasonCase.MAXIMUM_RECORD_TIME_EXCEEDED
       }
     )
+     */
 
     "reject transaction with out of bounds LET" in KVTest.runTest(
       for {

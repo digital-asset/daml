@@ -6,6 +6,13 @@ load("//rules_daml:daml.bzl", "daml_compile", "daml_doc_test")
 load("@os_info//:os_info.bzl", "is_windows")
 load("//bazel_tools/packaging:packaging.bzl", "package_app")
 
+# This is a gross hack: ghc-pkg is linked dynamically so to distribute
+# it we have to throw it at package_app. However, the result of that
+# is a tarball so if we try to add that to resources `bazel run` is
+# not going to work. We thus use the dynamically linked executable in the runfiles of damlc
+# and the tarball produced by package_app in the resources of damlc-dist.
+ghc_pkg = "@rules_haskell_ghc_windows_amd64//:bin/ghc-pkg.exe" if is_windows else "@ghc_nix//:lib/ghc-8.6.5/bin/ghc-pkg"
+
 da_haskell_binary(
     name = "damlc",
     srcs = ["exe/Main.hs"],
@@ -18,6 +25,7 @@ da_haskell_binary(
     ] if is_windows else [],
     data = [
         "//compiler/damlc/daml-ide-core:dlint.yaml",
+        ghc_pkg,
         "//compiler/damlc/pkg-db",
         "//compiler/scenario-service/server:scenario_service_jar",
     ],

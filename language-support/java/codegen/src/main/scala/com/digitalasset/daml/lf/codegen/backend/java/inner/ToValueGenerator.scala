@@ -78,10 +78,8 @@ object ToValueGenerator {
     damlType match {
       case TypeVar(tvName) =>
         CodeBlock.of("toValue$L.apply($L)", JavaEscaper.escapeString(tvName), accessor)
-      case TypePrim(
-          PrimTypeBool | PrimTypeInt64 | PrimTypeDecimal | PrimTypeText | PrimTypeParty,
-          _
-          ) =>
+      case TypeNumeric(_) |
+          TypePrim(PrimTypeBool | PrimTypeInt64 | PrimTypeText | PrimTypeParty, _) =>
         CodeBlock.of("new $T($L)", toAPITypeName(damlType), accessor)
       case TypePrim(PrimTypeTimestamp, _) =>
         CodeBlock.of("$T.fromInstant($L)", toAPITypeName(damlType), accessor)

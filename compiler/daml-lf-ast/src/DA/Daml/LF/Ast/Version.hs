@@ -27,8 +27,9 @@ version1_5 = V1 $ PointStable 5
 version1_6 :: Version
 version1_6 = V1 $ PointStable 6
 
+-- | DAML-LF version 1.7
 version1_7 :: Version
-version1_7 = versionDev
+version1_7 = versionDev -- Update once 1.7 is out.
 
 -- | The DAML-LF version used by default.
 versionDefault :: Version
@@ -39,7 +40,7 @@ versionDev :: Version
 versionDev = V1 PointDev
 
 supportedOutputVersions :: [Version]
-supportedOutputVersions = [version1_6, versionDev]
+supportedOutputVersions = [version1_6, version1_7, versionDev]
 
 supportedInputVersions :: [Version]
 supportedInputVersions = version1_5 : supportedOutputVersions
@@ -53,6 +54,12 @@ data Feature = Feature
 -- NOTE(MH): We comment this out to leave an example how to deal with features.
 -- featureTextCodePoints :: Feature
 -- featureTextCodePoints = Feature "Conversion between text and code points" version1_6
+
+featureNumeric :: Feature
+featureNumeric = Feature
+    { featureName = "Numeric type"
+    , featureMinVersion = version1_7
+    }
 
 featureInternedModuleNames :: Feature
 featureInternedModuleNames = Feature "Module reference compression" version1_7

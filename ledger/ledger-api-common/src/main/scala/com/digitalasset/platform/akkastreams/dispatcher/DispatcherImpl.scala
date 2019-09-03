@@ -13,11 +13,8 @@ import org.slf4j.LoggerFactory
 import scala.collection.immutable
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
-final class DispatcherImpl[Index: Ordering, T](
-    subsource: SubSource[Index, T],
-    zeroIndex: Index,
-    headAtInitialization: Index)
-    extends Dispatcher[Index, T] {
+final class DispatcherImpl[Index: Ordering](zeroIndex: Index, headAtInitialization: Index)
+    extends Dispatcher[Index] {
 
   private val logger = LoggerFactory.getLogger(getClass)
 
@@ -78,16 +75,21 @@ final class DispatcherImpl[Index: Ordering, T](
         logger.debug("Failed to update Dispatcher HEAD: instance already closed.")
     }
 
-  override def startingAt(start: Index, requestedEnd: Option[Index]): Source[(Index, T), NotUsed] =
-    requestedEnd.fold(startingAt(start))(
+  override def startingAt[T](
+      start: Index,
+      subSource: SubSource[Index, T],
+      requestedEnd: Option[Index]): Source[(Index, T), NotUsed] =
+    requestedEnd.fold(startingAt(start, subSource))(
       end =>
         if (Ordering[Index].gt(start, end))
           Source.failed(new IllegalArgumentException(
             s"Invalid index section: start '$start' is after end '$end'"))
-        else startingAt(start).takeWhile(_._1 != end, inclusive = true))
+        else startingAt(start, subSource).takeWhile(_._1 != end, inclusive = true))
 
   // noinspection MatchToPartialFunction, ScalaUnusedSymbol
-  override def startingAt(start: Index): Source[(Index, T), NotUsed] =
+  override def startingAt[T](
+      start: Index,
+      subsource: SubSource[Index, T]): Source[(Index, T), NotUsed] =
     if (indexIsBeforeZero(start))
       Source.failed(
         new IllegalArgumentException(

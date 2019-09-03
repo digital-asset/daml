@@ -216,6 +216,7 @@ encodeBuiltinExpr :: BuiltinExpr -> P.ExprSum
 encodeBuiltinExpr = \case
     BEInt64 x -> lit $ P.PrimLitSumInt64 x
     BEDecimal dec -> lit $ P.PrimLitSumDecimal (TL.pack (show dec))
+    BENumeric n -> lit $ P.PrimLitSumNumeric (TL.pack (show n))
     BEText x -> lit $ P.PrimLitSumText (TL.fromStrict x)
     BETimestamp x -> lit $ P.PrimLitSumTimestamp x
     BEParty x -> lit $ P.PrimLitSumParty $ TL.fromStrict $ unPartyLiteral x

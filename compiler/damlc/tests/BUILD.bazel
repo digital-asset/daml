@@ -29,8 +29,9 @@ da_haskell_test(
     name = "daml-lf-reader",
     srcs = ["src/DarReaderTest.hs"],
     hazel_deps = [
-        "tasty",
         "base",
+        "bytestring",
+        "tasty",
         "tasty-hunit",
     ],
     main_function = "DarReaderTest.main",

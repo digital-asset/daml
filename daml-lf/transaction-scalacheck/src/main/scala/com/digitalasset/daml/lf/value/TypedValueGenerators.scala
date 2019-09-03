@@ -5,11 +5,10 @@ package com.digitalasset.daml.lf
 package value
 
 import scala.language.higherKinds
-import data.{Numeric, FrontStack, Ref, SortedLookupList, Time}
+import data.{FrontStack, Numeric, Ref, SortedLookupList, Time}
 import data.ImmArray.ImmArraySeq
 import data.DataArbitrary._
-import iface.{Type, TypePrim, PrimType => PT}
-
+import iface.{Type, TypeNumeric, TypePrim, PrimType => PT}
 import scalaz.Id.Id
 import scalaz.syntax.traverse._
 import scalaz.std.option._
@@ -60,12 +59,31 @@ object TypedValueGenerators {
     import Value._, ValueGenerators.Implicits._
     val text = noCid(PT.Text, ValueText) { case ValueText(t) => t }
     val int64 = noCid(PT.Int64, ValueInt64) { case ValueInt64(i) => i }
-    val numeric = noCid(PT.Decimal, ValueNumeric) { case ValueNumeric(d) => d }
     val unit = noCid(PT.Unit, (_: Unit) => ValueUnit) { case ValueUnit => () }
     val date = noCid(PT.Date, ValueDate) { case ValueDate(d) => d }
     val timestamp = noCid(PT.Timestamp, ValueTimestamp) { case ValueTimestamp(t) => t }
     val bool = noCid(PT.Bool, ValueBool) { case ValueBool(b) => b }
     val party = noCid(PT.Party, ValueParty) { case ValueParty(p) => p }
+
+    def numeric(scale: Int): NoCid[Numeric] = new ValueAddend {
+      type Inj[Cid] = Numeric
+
+      override def t: Type = TypeNumeric(scale)
+
+      override def inj[Cid]: Numeric => Value[Cid] = ValueNumeric
+
+      override def prj[Cid]: Value[Cid] => Option[Numeric] = {
+        case ValueNumeric(x) if x.scale <= scale => Some(x)
+        case _ => None
+      }
+
+      override def injarb[Cid: Arbitrary]: Arbitrary[Numeric] =
+        Arbitrary(ValueGenerators.numGen(scale))
+
+      override def injshrink[Cid: Shrink]: Shrink[Numeric] =
+        implicitly
+
+    }
 
     val contractId: Aux[Id] = new ValueAddend {
       type Inj[Cid] = Cid
@@ -139,13 +157,12 @@ object TypedValueGenerators {
   trait PrimInstances[F[_]] {
     def text: F[String]
     def int64: F[Long]
-    def numeric: F[Numeric]
     def unit: F[Unit]
     def date: F[Time.Date]
     def timestamp: F[Time.Timestamp]
     def bool: F[Boolean]
     def party: F[Ref.Party]
-    def leafInstances: Seq[F[_]] = Seq(text, int64, numeric, unit, date, timestamp, bool, party)
+    def leafInstances: Seq[F[_]] = Seq(text, int64, unit, date, timestamp, bool, party)
   }
 
   /** This is the key member of interest, supporting many patterns:
@@ -165,6 +182,7 @@ object TypedValueGenerators {
     Gen.frequency(
       ((sz max 1) * ValueAddend.leafInstances.length, Gen.oneOf(ValueAddend.leafInstances)),
       (sz max 1, Gen.const(ValueAddend.contractId)),
+      (sz max 1, Gen.choose(0, Numeric.maxPrecision).map(ValueAddend.numeric)),
       (nestSize, self.map(ValueAddend.list(_))),
       (nestSize, self.map(ValueAddend.optional(_))),
       (nestSize, self.map(ValueAddend.map(_))),
