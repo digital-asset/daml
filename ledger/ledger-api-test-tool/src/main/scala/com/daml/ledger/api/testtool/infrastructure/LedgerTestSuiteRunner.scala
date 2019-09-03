@@ -13,6 +13,7 @@ import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuiteRunner.{
   logger,
   timer
 }
+import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantSessionManager
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService, Future, Promise}
@@ -25,16 +26,11 @@ object LedgerTestSuiteRunner {
 
   private val logger = LoggerFactory.getLogger(classOf[LedgerTestSuiteRunner])
 
-  final class TestTimeout(
-      testPromise: Promise[_],
-      testDescription: String,
-      testTimeoutMs: Long,
-      sessionConfig: LedgerSessionConfiguration)
+  final class TestTimeout(testPromise: Promise[_], testDescription: String, testTimeoutMs: Long)
       extends TimerTask {
     override def run(): Unit = {
       if (testPromise.tryFailure(new TimeoutException())) {
-        val LedgerSessionConfiguration(host, port, _, _) = sessionConfig
-        logger.error(s"Timeout of $testTimeoutMs ms for '$testDescription' hit ($host:$port)")
+        logger.error(s"Timeout of $testTimeoutMs ms for '$testDescription' hit")
       }
     }
   }
@@ -48,7 +44,7 @@ object LedgerTestSuiteRunner {
 }
 
 final class LedgerTestSuiteRunner(
-    endpoints: Vector[LedgerSessionConfiguration],
+    config: LedgerSessionConfiguration,
     suiteConstructors: Vector[LedgerSession => LedgerTestSuite],
     timeoutScaleFactor: Double,
     identifierSuffix: String) {
@@ -59,18 +55,11 @@ final class LedgerTestSuiteRunner(
       require(identifierSuffix.nonEmpty, "The identifier suffix cannot be an empty string")
     }
 
-  private def initSessions()(implicit ec: ExecutionContext): Future[Vector[LedgerSession]] =
-    Future.sequence(endpoints.map(LedgerSession.getOrCreate))
-
-  private def initTestSuites(sessions: Vector[LedgerSession]): Vector[LedgerTestSuite] =
-    for (session <- sessions; suiteConstructor <- suiteConstructors)
-      yield suiteConstructor(session)
-
   private def start(test: LedgerTest, session: LedgerSession)(
       implicit ec: ExecutionContext): Future[Duration] = {
     val execution = Promise[Duration]
     val scaledTimeout = math.floor(test.timeout * timeoutScaleFactor).toLong
-    val testTimeout = new TestTimeout(execution, test.description, scaledTimeout, session.config)
+    val testTimeout = new TestTimeout(execution, test.description, scaledTimeout)
     val startedTest =
       session
         .createTestContext(test.shortIdentifier, identifierSuffix)
@@ -83,7 +72,7 @@ final class LedgerTestSuiteRunner(
     timer.schedule(testTimeout, scaledTimeout)
     startedTest.onComplete { _ =>
       testTimeout.cancel()
-      logger.info(s"Finished '${test.description}")
+      logger.info(s"Finished '${test.description}'")
     }
     execution.completeWith(startedTest).future
   }
@@ -125,12 +114,14 @@ final class LedgerTestSuiteRunner(
     implicit val ec: ExecutionContextExecutorService =
       ExecutionContext.fromExecutorService(
         Executors.newSingleThreadExecutor(new Thread(_, s"test-tool-dispatcher")))
-    initSessions()
-      .map(initTestSuites)
-      .flatMap(suites => Future.sequence(suites.flatMap(run)))
+    val participantSessionManager = new ParticipantSessionManager
+    Future {
+      val ledgerSession = new LedgerSession(config, participantSessionManager)
+      suiteConstructors.map(constructor => constructor(ledgerSession))
+    }.flatMap(suites => Future.sequence(suites.flatMap(run)))
       .recover { case NonFatal(e) => throw LedgerTestSuiteRunner.UncaughtExceptionError(e) }
       .onComplete { result =>
-        endpoints.foreach(LedgerSession.close)
+        participantSessionManager.closeAll()
         completionCallback(result)
         ec.shutdown()
       }

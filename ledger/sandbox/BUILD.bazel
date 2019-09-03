@@ -12,10 +12,9 @@ load(
     "daml_compile",
 )
 load("//bazel_tools:pom_file.bzl", "pom_file")
-load("@os_info//:os_info.bzl", "is_darwin", "is_windows")
 load(
-    "//bazel_tools/client_server_test:client_server_test.bzl",
-    "client_server_test",
+    "//ledger/ledger-api-test-tool:conformance.bzl",
+    "conformance_test",
 )
 
 compileDependencies = [
@@ -172,165 +171,115 @@ da_scala_test_suite(
     ] + testDependencies,
 )
 
-client_server_test(
+conformance_test(
     name = "conformance-test-static-time",
-    timeout = "long",
-    client = "//ledger/ledger-api-test-tool",
-    client_args = [
-        "--all-tests",
-        "--timeout-scale-factor=10",
-    ],
-    data = [
-        "//ledger/test-common:dar-files",
-    ],
-    server = "//ledger/sandbox:sandbox-binary",
+    server = ":sandbox-binary",
     server_args = [
-        "--port 0",
+        "--port 6865",
         "--static-time",
         "--eager-package-loading",
     ],
-    server_files = [
-        "$(rootpaths //ledger/test-common:dar-files)",
+    test_tool_args = [
+        "--all-tests",
+        "--timeout-scale-factor=10",
     ],
-    tags = [
-        "dont-run-on-darwin",
-    ],
-) if not is_windows else None
+)
 
-client_server_test(
+conformance_test(
     name = "conformance-test-wall-clock",
-    timeout = "long",
-    client = "//ledger/ledger-api-test-tool:ledger-api-test-tool",
-    client_args = [
+    server = ":sandbox-binary",
+    server_args = [
+        "--port 6865",
+        "--wall-clock-time",
+        "--eager-package-loading",
+    ],
+    test_tool_args = [
         "--all-tests",
         "--exclude TimeIT",
         "--timeout-scale-factor=10",
     ],
-    data = [
-        "//ledger/test-common:dar-files",
-    ],
-    server = "//ledger/sandbox:sandbox-binary",
-    server_args = [
-        "--port 0",
-        "--wall-clock-time",
-        "--eager-package-loading",
-    ],
-    server_files = [
-        "$(rootpaths //ledger/test-common:dar-files)",
-    ],
-    tags = [
-        "dont-run-on-darwin",
-    ],
-) if not is_windows else None
+)
 
-client_server_test(
+conformance_test(
     name = "conformance-test-static-time-postgres",
-    timeout = "long",
-    client = "//ledger/ledger-api-test-tool",
-    client_args = [
-        "--all-tests",
-        "--timeout-scale-factor=10",
-    ],
-    data = [
-        "//ledger/test-common:dar-files",
+    extra_data = [
         "@postgresql_dev_env//:all",
         "@postgresql_dev_env//:createdb",
         "@postgresql_dev_env//:initdb",
         "@postgresql_dev_env//:pg_ctl",
     ],
-    server = "//ledger/sandbox:sandbox-ephemeral-postgres",
+    server = ":sandbox-binary",
     server_args = [
-        "--port 0",
+        "--port 6865",
         "--static-time",
         "--eager-package-loading",
     ],
-    server_files = [
-        "$(rootpaths //ledger/test-common:dar-files)",
-    ],
-    tags = [
-        "dont-run-on-darwin",
-    ],
-) if not is_windows else None
-
-client_server_test(
-    name = "conformance-test-static-time-h2database",
-    timeout = "long",
-    client = "//ledger/ledger-api-test-tool",
-    client_args = [
+    test_tool_args = [
         "--all-tests",
         "--timeout-scale-factor=10",
     ],
-    data = [
-        "//ledger/test-common:dar-files",
+)
+
+conformance_test(
+    name = "conformance-test-wall-clock-postgres",
+    extra_data = [
+        "@postgresql_dev_env//:all",
+        "@postgresql_dev_env//:createdb",
+        "@postgresql_dev_env//:initdb",
+        "@postgresql_dev_env//:pg_ctl",
     ],
-    server = "//ledger/sandbox:sandbox-binary",
+    server = ":sandbox-binary",
     server_args = [
-        "--port 0",
+        "--port 6865",
+        "--wall-clock-time",
+        "--eager-package-loading",
+    ],
+    test_tool_args = [
+        "--all-tests",
+        "--exclude TimeIT",
+        "--timeout-scale-factor=10",
+    ],
+)
+
+conformance_test(
+    name = "conformance-test-static-time-h2database",
+    extra_data = [
+        "@postgresql_dev_env//:all",
+        "@postgresql_dev_env//:createdb",
+        "@postgresql_dev_env//:initdb",
+        "@postgresql_dev_env//:pg_ctl",
+    ],
+    server = ":sandbox-binary",
+    server_args = [
+        "--port 6865",
         "--static-time",
         "--eager-package-loading",
         "--sql-backend-jdbcurl jdbc:h2:mem:static_time",
     ],
-    server_files = [
-        "$(rootpaths //ledger/test-common:dar-files)",
-    ],
-    tags = [
-        "dont-run-on-darwin",
-    ],
-) if not is_windows else None
-
-client_server_test(
-    name = "conformance-test-wall-clock-postgres",
-    timeout = "long",
-    client = "//ledger/ledger-api-test-tool:ledger-api-test-tool",
-    client_args = [
+    test_tool_args = [
         "--all-tests",
-        "--exclude TimeIT",
         "--timeout-scale-factor=10",
     ],
-    data = [
-        "//ledger/test-common:dar-files",
+)
+
+conformance_test(
+    name = "conformance-test-wall-clock-h2database",
+    extra_data = [
         "@postgresql_dev_env//:all",
         "@postgresql_dev_env//:createdb",
         "@postgresql_dev_env//:initdb",
         "@postgresql_dev_env//:pg_ctl",
     ],
-    server = "//ledger/sandbox:sandbox-ephemeral-postgres",
+    server = ":sandbox-binary",
     server_args = [
-        "--port 0",
-        "--wall-clock-time",
-        "--eager-package-loading",
-    ],
-    server_files = [
-        "$(rootpaths //ledger/test-common:dar-files)",
-    ],
-    tags = [
-        "dont-run-on-darwin",
-    ],
-) if not is_windows else None
-
-client_server_test(
-    name = "conformance-test-wall-clock-h2database",
-    timeout = "long",
-    client = "//ledger/ledger-api-test-tool:ledger-api-test-tool",
-    client_args = [
-        "--all-tests",
-        "--exclude TimeIT",
-        "--timeout-scale-factor=10",
-    ],
-    data = [
-        "//ledger/test-common:dar-files",
-    ],
-    server = "//ledger/sandbox:sandbox-binary",
-    server_args = [
-        "--port 0",
+        "--port 6865",
         "--wall-clock-time",
         "--eager-package-loading",
         "--sql-backend-jdbcurl jdbc:h2:mem:wall_clock_time",
     ],
-    server_files = [
-        "$(rootpaths //ledger/test-common:dar-files)",
+    test_tool_args = [
+        "--all-tests",
+        "--exclude TimeIT",
+        "--timeout-scale-factor=10",
     ],
-    tags = [
-        "dont-run-on-darwin",
-    ],
-) if not is_windows else None
+)

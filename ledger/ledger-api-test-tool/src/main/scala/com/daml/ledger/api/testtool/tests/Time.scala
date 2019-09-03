@@ -12,8 +12,9 @@ import scala.concurrent.duration.DurationInt
 final class Time(session: LedgerSession) extends LedgerTestSuite(session) {
 
   val pass =
-    LedgerTest("PassTime", "Advancing time should return the new time") { ledger =>
+    LedgerTest("PassTime", "Advancing time should return the new time") { context =>
       for {
+        ledger <- context.participant()
         t1 <- ledger.time()
         _ <- ledger.passTime(1.second)
         t2 <- ledger.time()

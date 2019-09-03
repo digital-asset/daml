@@ -19,3 +19,8 @@ HEAD — ongoing
 + [Sandbox] Fixed a bug that could lead to an inconsistent snapshot of active contracts being served
   by the ActiveContractsService under high load.
 + [Sandbox] Commands are now deduplicated based on ``(submitter, application_id, command_id)``.
++ [DAML Integration Kit] Introduced initial support for multi-node testing. Note that for the time
+  being no test actually uses more than one node.
++ [DAML Integration Kit] **BREAKING CHANGE** The ``-p`` / ``--target-port`` and ``-h`` / ``--host``
+  flags have been discontinued. Pass one (or more) endpoints to test as command line arguments in the
+  ``<host>:<port>`` form.

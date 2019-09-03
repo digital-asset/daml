@@ -4,12 +4,8 @@
 package com.daml.ledger.api.testtool.tests
 
 import ai.x.diff.conversions._
-import com.daml.ledger.api.testtool.infrastructure.{
-  LedgerSession,
-  LedgerTest,
-  LedgerTestContext,
-  LedgerTestSuite
-}
+import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
+import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTest, LedgerTestSuite}
 import com.digitalasset.ledger.client.binding.Primitive
 import com.digitalasset.ledger.api.v1.value.{Optional, Record, RecordField, Value}
 import com.digitalasset.ledger.test.DA.Types.{Tuple2 => DamlTuple2}
@@ -47,8 +43,9 @@ final class SemanticTests(session: LedgerSession) extends LedgerTestSuite(sessio
    */
 
   private[this] val doubleSpendAcrossTwoTransactions =
-    LedgerTest("SemanticDoubleSpend", "Cannot double spend across transactions") { ledger =>
+    LedgerTest("SemanticDoubleSpend", "Cannot double spend across transactions") { context =>
       for {
+        ledger <- context.participant()
         Vector(payer, owner, newOwner, leftWithNothing) <- ledger.allocateParties(4)
         iou <- ledger.create(payer, Iou(payer, owner, onePound))
         _ <- ledger.exercise(owner, iou.exerciseTransfer(_, newOwner))
@@ -59,8 +56,9 @@ final class SemanticTests(session: LedgerSession) extends LedgerTestSuite(sessio
     }
 
   private[this] val doubleSpendInTransaction =
-    LedgerTest("SemanticDoubleSpendSameTx", "Cannot double spend within a transaction") { ledger =>
+    LedgerTest("SemanticDoubleSpendSameTx", "Cannot double spend within a transaction") { context =>
       for {
+        ledger <- context.participant()
         Vector(payer, owner, newOwner1, newOwner2) <- ledger.allocateParties(4)
         iou <- ledger.create(payer, Iou(payer, owner, onePound))
         doubleSpend <- ledger.submitAndWaitRequest(
@@ -78,8 +76,9 @@ final class SemanticTests(session: LedgerSession) extends LedgerTestSuite(sessio
 
   private[this] val doubleSpendSharedContract =
     LedgerTest("SemanticDoubleSpendShared", "Different parties cannot spend the same contract") {
-      ledger =>
+      context =>
         for {
+          ledger <- context.participant()
           Vector(payer, owner1, owner2) <- ledger.allocateParties(3)
           shared <- ledger.create(payer, SharedContract(payer, owner1, owner2))
           _ <- ledger.exercise(owner1, shared.exerciseSharedContract_Consume1)
@@ -100,8 +99,9 @@ final class SemanticTests(session: LedgerSession) extends LedgerTestSuite(sessio
    */
 
   private[this] val successfulPaintOffer =
-    LedgerTest("SemanticPaintOffer", "Conduct the paint offer worflow successfully") { ledger =>
+    LedgerTest("SemanticPaintOffer", "Conduct the paint offer worflow successfully") { context =>
       for {
+        ledger <- context.participant()
         Vector(bank, houseOwner, painter) <- ledger.allocateParties(3)
         iou <- ledger.create(bank, Iou(bank, houseOwner, onePound))
         offer <- ledger.create(painter, PaintOffer(painter, houseOwner, bank, onePound))
@@ -126,8 +126,9 @@ final class SemanticTests(session: LedgerSession) extends LedgerTestSuite(sessio
 
   private[this] val successfulPaintCounterOffer =
     LedgerTest("SemanticPaintCounterOffer", "Conduct the paint counter-offer worflow successfully") {
-      ledger =>
+      context =>
         for {
+          ledger <- context.participant()
           Vector(bank, houseOwner, painter) <- ledger.allocateParties(3)
           iou <- ledger.create(bank, Iou(bank, houseOwner, onePound))
           offer <- ledger.create(painter, PaintOffer(painter, houseOwner, bank, twoPounds))
@@ -156,8 +157,9 @@ final class SemanticTests(session: LedgerSession) extends LedgerTestSuite(sessio
   private[this] val partialSignatories =
     LedgerTest(
       "SemanticPartialSignatories",
-      "A signatory should not be able to create a contract on behalf of two parties") { ledger =>
+      "A signatory should not be able to create a contract on behalf of two parties") { context =>
       for {
+        ledger <- context.participant()
         Vector(houseOwner, painter) <- ledger.allocateParties(2)
         failure <- ledger.create(houseOwner, PaintAgree(painter, houseOwner)).failed
       } yield {
@@ -169,8 +171,9 @@ final class SemanticTests(session: LedgerSession) extends LedgerTestSuite(sessio
     LedgerTest(
       "SemanticAcceptOnBehalf",
       "It should not be possible to exercise a choice without the consent of the controller") {
-      ledger =>
+      context =>
         for {
+          ledger <- context.participant()
           Vector(bank, houseOwner, painter) <- ledger.allocateParties(3)
           iou <- ledger.create(painter, Iou(painter, houseOwner, onePound))
           offer <- ledger.create(painter, PaintOffer(painter, houseOwner, bank, onePound))
@@ -191,8 +194,9 @@ final class SemanticTests(session: LedgerSession) extends LedgerTestSuite(sessio
   private[this] val privacyProjections =
     LedgerTest(
       "SemanticPrivacyProjections",
-      "Test visibility via contract fetches for the paint-offer flow") { ledger =>
+      "Test visibility via contract fetches for the paint-offer flow") { context =>
       for {
+        ledger <- context.participant()
         Vector(bank, houseOwner, painter) <- ledger.allocateParties(3)
         iou <- ledger.create(bank, Iou(bank, houseOwner, onePound))
 
@@ -232,7 +236,7 @@ final class SemanticTests(session: LedgerSession) extends LedgerTestSuite(sessio
     }
 
   private def fetchIou(
-      ledger: LedgerTestContext,
+      ledger: ParticipantTestContext,
       party: Primitive.Party,
       iou: Primitive.ContractId[Iou]): Future[Unit] =
     for {
@@ -241,7 +245,7 @@ final class SemanticTests(session: LedgerSession) extends LedgerTestSuite(sessio
     } yield ()
 
   private def fetchPaintOffer(
-      ledger: LedgerTestContext,
+      ledger: ParticipantTestContext,
       party: Primitive.Party,
       paintOffer: Primitive.ContractId[PaintOffer]
   ): Future[Unit] =
@@ -251,7 +255,7 @@ final class SemanticTests(session: LedgerSession) extends LedgerTestSuite(sessio
     } yield ()
 
   private def fetchPaintAgree(
-      ledger: LedgerTestContext,
+      ledger: ParticipantTestContext,
       party: Primitive.Party,
       agreement: Primitive.ContractId[PaintAgree]
   ): Future[Unit] =
@@ -265,8 +269,9 @@ final class SemanticTests(session: LedgerSession) extends LedgerTestSuite(sessio
    */
 
   private[this] val divulgence =
-    LedgerTest("SemanticDivulgence", "Respect divulgence rules") { ledger =>
+    LedgerTest("SemanticDivulgence", "Respect divulgence rules") { context =>
       for {
+        ledger <- context.participant()
         Vector(issuer, owner, delegate) <- ledger.allocateParties(3)
         token <- ledger.create(issuer, Token(issuer, owner, 1))
         delegation <- ledger.create(owner, Delegation(owner, delegate))
@@ -289,8 +294,9 @@ final class SemanticTests(session: LedgerSession) extends LedgerTestSuite(sessio
 
   private[this] val contractKeys =
     LedgerTest("SemanticContractKeys", "Perform correctly operations based on contract keys") {
-      ledger =>
+      context =>
         for {
+          ledger <- context.participant()
           Vector(bank, accountHolder) <- ledger.allocateParties(2)
           accountTemplate = Account(bank, accountHolder, DamlTuple2("CH", 123))
           // Replicating the logic with which we compute the contract key, which in DAML is the following:

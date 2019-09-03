@@ -8,8 +8,7 @@ import java.io.File
 import com.digitalasset.ledger.api.tls.TlsConfiguration
 
 final case class Config(
-    host: String,
-    port: Int,
+    participants: Vector[(String, Int)],
     darPackages: List[File],
     mustFail: Boolean,
     verbose: Boolean,
@@ -25,8 +24,7 @@ final case class Config(
 
 object Config {
   val default = Config(
-    host = "localhost",
-    port = 6865,
+    participants = Vector.empty,
     darPackages = Nil,
     mustFail = false,
     verbose = false,
