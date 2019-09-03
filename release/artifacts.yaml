@@ -175,6 +175,8 @@
   mavenUpload: True
 - target: //ledger/sandbox:ledger-api-server
   type: jar-scala
+- target: //ledger/participant-state/protobuf:ledger_configuration_java_proto
+  type: jar-proto
   mavenUpload: True
 - target: //ledger/participant-state/kvutils:daml_kvutils_java_proto
   type: jar-proto
