@@ -708,7 +708,7 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     beginToBeginShouldBeEmpty,
     endToEndShouldBeEmpty,
     serveElementsUntilCancellation,
-    deduplicateCommands,
+//    deduplicateCommands,
     rejectEmptyFilter,
     completeOnLedgerEnd,
     processInTwoChunks,
