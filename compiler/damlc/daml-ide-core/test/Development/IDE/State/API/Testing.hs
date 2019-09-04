@@ -60,7 +60,6 @@ import DA.Test.Util (standardizeQuotes)
 import Language.Haskell.LSP.Messages (FromServerMessage(..))
 import Language.Haskell.LSP.Types
 import qualified DA.Daml.Visual as V
--- import qualified DA.Pretty as DAP
 import qualified DA.Daml.LF.Ast as LF
 
 -- * external dependencies
