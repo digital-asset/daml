@@ -36,7 +36,7 @@ Documentation
 Ledger API
 ~~~~~~~~~~
 
-- *BREAKING CHANGE** In Protobuf ``Value`` message, rename ``decimal` field to ``numeric``.
+- **BREAKING CHANGE** In Protobuf ``Value`` message, rename ``decimal` field to ``numeric``.
 
 Sandbox
 ~~~~~~~
