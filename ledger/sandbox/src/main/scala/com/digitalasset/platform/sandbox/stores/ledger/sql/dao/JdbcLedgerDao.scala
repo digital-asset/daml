@@ -178,8 +178,11 @@ private class JdbcLedgerDao(
       .execute()
 
   private val SQL_INSERT_CONTRACT =
-    """insert into contracts(id, transaction_id, workflow_id, package_id, name, create_offset, contract, key)
-      |values({id}, {transaction_id}, {workflow_id}, {package_id}, {name}, {create_offset}, {contract}, {key})""".stripMargin
+    """insert into contracts(id, transaction_id, workflow_id, package_id, name, create_offset, key)
+      |values({id}, {transaction_id}, {workflow_id}, {package_id}, {name}, {create_offset}, {key})""".stripMargin
+
+  private val SQL_INSERT_CONTRACT_DATA =
+    "insert into contract_data(id, contract) values({id}, {contract})"
 
   private val SQL_INSERT_CONTRACT_WITNESS =
     "insert into contract_witnesses(contract_id, witness) values({contract_id}, {witness})"
@@ -205,9 +208,6 @@ private class JdbcLedgerDao(
               "package_id" -> c.coinst.template.packageId,
               "name" -> c.coinst.template.qualifiedName.toString,
               "create_offset" -> offset,
-              "contract" -> contractSerializer
-                .serializeContractInstance(c.coinst)
-                .getOrElse(sys.error(s"failed to serialize contract! cid:${c.contractId.coid}")),
               "key" -> c.key
                 .map(
                   k =>
@@ -221,6 +221,22 @@ private class JdbcLedgerDao(
       executeBatchSql(
         SQL_INSERT_CONTRACT,
         namedContractParams
+      )
+
+      val namedContractDataParams = contracts
+        .map(
+          c =>
+            Seq[NamedParameter](
+              "id" -> c.contractId.coid,
+              "contract" -> contractSerializer
+                .serializeContractInstance(c.coinst)
+                .getOrElse(sys.error(s"failed to serialize contract! cid:${c.contractId.coid}"))
+            )
+        )
+
+      executeBatchSql(
+        SQL_INSERT_CONTRACT_DATA,
+        namedContractDataParams
       )
 
       // Part 2: insert witnesses into the 'contract_witnesses' table
@@ -796,7 +812,12 @@ private class JdbcLedgerDao(
 
   private val SQL_SELECT_CONTRACT =
     SQL(
-      "select c.*, le.effective_at, le.transaction from contracts c inner join ledger_entries le on c.transaction_id = le.transaction_id where id={contract_id} and archive_offset is null ")
+      """
+        |select cd.id, cd.contract, c.transaction_id, c.workflow_id, c.key, le.effective_at, le.transaction
+        |from contract_data cd
+        |left join contracts c on cd.id=c.id
+        |left join ledger_entries le on c.transaction_id = le.transaction_id
+        |where cd.id={contract_id} and c.archive_offset is null""".stripMargin)
 
   private val SQL_SELECT_WITNESS =
     SQL("select witness from contract_witnesses where contract_id={contract_id}")
@@ -940,7 +961,12 @@ private class JdbcLedgerDao(
 
   private val SQL_SELECT_ACTIVE_CONTRACTS =
     SQL(
-      "select c.*, le.effective_at, le.transaction from contracts c inner join ledger_entries le on c.transaction_id = le.transaction_id where create_offset <= {offset} and (archive_offset is null or archive_offset > {offset})")
+      """
+        |select cd.id, cd.contract, c.transaction_id, c.workflow_id, c.key, le.effective_at, le.transaction
+        |from contracts c
+        |inner join contract_data cd on c.id = cd.id
+        |inner join ledger_entries le on c.transaction_id = le.transaction_id
+        |where create_offset <= {offset} and (archive_offset is null or archive_offset > {offset})""".stripMargin)
 
   override def getActiveContractSnapshot(untilExclusive: LedgerOffset)(
       implicit mat: Materializer): Future[LedgerSnapshot] = {
