@@ -957,36 +957,28 @@ visualDamlTests = Tasty.testGroup "Visual Tests"
                 ]
             setFilesOfInterest [foo]
             expectedGraph foo (
-                ExpectedGraph
-                    [ExpectedSubGraph ["Create","Archive","Delete"]  ["owner"] "Coin"]
+                ExpectedGraph [ExpectedSubGraph ["Create","Archive","Delete"]  ["owner"] "Coin"]
                     [])
-
-
-
-        -- , testCase' "Fetch shoud not be an create action" $ do
-        --     fetchTest <- makeModule "F"
-        --         [ "template Coin"
-        --         , "  with"
-        --         , "    owner : Party"
-        --         , "    amount : Int"
-        --         , "  where"
-        --         , "    signatory owner"
-        --         , "    controller owner can"
-        --         , "      nonconsuming ReducedCoin : ()"
-        --         , "        with otherCoin : ContractId Coin"
-        --         , "        do "
-        --         , "        cn <- fetch otherCoin"
-        --         , "        return ()"
-        --         ]
-        --     setFilesOfInterest [fetchTest]
-        --     expectNoErrors
-        --     expectedGraph fetchTest $ Set.fromList
-        --         [TemplateProp "Coin"
-        --             (Set.fromList
-        --             [   ExpectedChoice "Archive" True Set.empty,
-        --                 ExpectedChoice "ReducedCoin" False Set.empty
-        --             ])
-        --         ]
+        , testCase' "Fetch shoud not be an create action" $ do
+            fetchTest <- makeModule "F"
+                [ "template Coin"
+                , "  with"
+                , "    owner : Party"
+                , "    amount : Int"
+                , "  where"
+                , "    signatory owner"
+                , "    controller owner can"
+                , "      nonconsuming ReducedCoin : ()"
+                , "        with otherCoin : ContractId Coin"
+                , "        do "
+                , "        cn <- fetch otherCoin"
+                , "        return ()"
+                ]
+            setFilesOfInterest [fetchTest]
+            expectNoErrors
+            expectedGraph fetchTest (ExpectedGraph
+                [ ExpectedSubGraph ["Create","Archive","ReducedCoin"]  ["owner", "amount"] "Coin"]
+                [])
         -- , testCase' "Exercise should add an edge" $ do
         --     exerciseTest <- makeModule "F"
         --         [ "template TT"

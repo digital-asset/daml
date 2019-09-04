@@ -125,7 +125,11 @@ data ShakeTestEnv = ShakeTestEnv
 
 type TemplateName = String
 type ChoiceName = String
-type ExpectedChoiceDetails = String
+
+data ExpectedChoiceDetails = ExpectedChoiceDetails
+    { expectedConsuming :: Bool
+    , expectedName :: String
+    } deriving (Eq, Ord, Show )
 
 data ExpectedSubGraph = ExpectedSubGraph
     { expectedNodes :: [ChoiceName]
