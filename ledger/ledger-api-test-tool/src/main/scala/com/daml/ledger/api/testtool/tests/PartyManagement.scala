@@ -6,6 +6,8 @@ package com.daml.ledger.api.testtool.tests
 import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTest, LedgerTestSuite}
 import scalaz.Tag
 
+import scala.util.Random
+
 final class PartyManagement(session: LedgerSession) extends LedgerTestSuite(session) {
 
   private[this] val nonEmptyParticipantId =
@@ -28,7 +30,7 @@ final class PartyManagement(session: LedgerSession) extends LedgerTestSuite(sess
       for {
         ledger <- context.participant()
         party <- ledger.allocateParty(
-          partyHintId = Some("PMAllocateWithHint"),
+          partyHintId = Some(Random.alphanumeric.take(10).mkString),
           displayName = Some("Bob Ross"))
       } yield
         assert(Tag.unwrap(party).nonEmpty, "The allocated party identifier is an empty string")
@@ -54,7 +56,7 @@ final class PartyManagement(session: LedgerSession) extends LedgerTestSuite(sess
       for {
         ledger <- context.participant()
         party <- ledger.allocateParty(
-          partyHintId = Some("PMAllocateWithoutDisplayName"),
+          partyHintId = Some(Random.alphanumeric.take(10).mkString),
           displayName = None)
       } yield
         assert(Tag.unwrap(party).nonEmpty, "The allocated party identifier is an empty string")
