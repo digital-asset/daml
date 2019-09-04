@@ -394,7 +394,7 @@ parseProjectConfig project = do
     Right $ PackageConfigFields name main exposedModules version dependencies sdkVersion
   where
     consistencyCheck n ver deps
-        | n <> "-" <> ver `elem` (map takeBaseName deps) =
+        | n <> "-" <> ver `elem` map takeBaseName deps =
             Left $
             ConfigFieldInvalid
                 "name"
