@@ -113,7 +113,7 @@ jobs:
     pool:
       vmImage: "ubuntu-latest"
     condition: and(succeeded(),
-                   succeeded(),
+                   eq(dependencies.Linux.outputs['release.has_released'], 'true'),
                    succeeded(),
                    succeeded())
     steps:
