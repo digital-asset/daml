@@ -400,7 +400,7 @@ parseProjectConfig project = do
                 "name"
                 ["name"]
                 ("Package " <> n <>
-                 " can not depend on itself. Either rename the package or remove it from the dependencies field.")
+                 " can not depend on a package with the same name. Either rename the package or remove it from the dependencies field.")
         | otherwise = Right ()
 
 -- | We assume that this is only called within `withProjectRoot`.
