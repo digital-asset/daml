@@ -979,40 +979,33 @@ visualDamlTests = Tasty.testGroup "Visual Tests"
             expectedGraph fetchTest (ExpectedGraph
                 [ ExpectedSubGraph ["Create","Archive","ReducedCoin"]  ["owner", "amount"] "Coin"]
                 [])
-        -- , testCase' "Exercise should add an edge" $ do
-        --     exerciseTest <- makeModule "F"
-        --         [ "template TT"
-        --         , "  with"
-        --         , "    owner : Party"
-        --         , "  where"
-        --         , "    signatory owner"
-        --         , "    controller owner can"
-        --         , "      Consume : ()"
-        --         , "        with coinId : ContractId Coin"
-        --         , "        do exercise coinId Delete"
-        --         , "template Coin"
-        --         , "  with"
-        --         , "    owner : Party"
-        --         , "  where"
-        --         , "    signatory owner"
-        --         , "    controller owner can"
-        --         , "        Delete : ()"
-        --         , "            do return ()"
-        --         ]
-        --     setFilesOfInterest [exerciseTest]
-        --     expectNoErrors
-        --     expectedGraph $ Set.fromList
-        --         [TemplateProp "Coin"
-        --             (Set.fromList
-        --             [   ExpectedChoice "Archive" True Set.empty,
-        --                 ExpectedChoice "Delete" True Set.empty
-        --             ])
-        --         , TemplateProp "TT"
-        --             (Set.fromList
-        --             [   ExpectedChoice "Consume" True (Set.fromList [Exercise "F:Coin" "Delete"]),
-        --                 ExpectedChoice "Archive" True Set.empty
-        --             ])
-        --         ]
+        , testCase' "Exercise should add an edge" $ do
+            exerciseTest <- makeModule "F"
+                [ "template TT"
+                , "  with"
+                , "    owner : Party"
+                , "  where"
+                , "    signatory owner"
+                , "    controller owner can"
+                , "      Consume : ()"
+                , "        with coinId : ContractId Coin"
+                , "        do exercise coinId Delete"
+                , "template Coin"
+                , "  with"
+                , "    owner : Party"
+                , "  where"
+                , "    signatory owner"
+                , "    controller owner can"
+                , "        Delete : ()"
+                , "            do return ()"
+                ]
+            setFilesOfInterest [exerciseTest]
+            expectNoErrors
+            expectedGraph exerciseTest (ExpectedGraph
+                [ ExpectedSubGraph ["Create", "Archive", "Delete"] ["owner"] "Coin"
+                , ExpectedSubGraph ["Create", "Archive", "Consume"] ["owner"] "TT"]
+                [(ExpectedChoiceDetails {expectedConsuming = True, expectedName = "Consume"},ExpectedChoiceDetails {expectedConsuming = True, expectedName = "Delete"})]
+                )
         -- , testCase' "Create on other template should be edge" $ do
             -- createTest <- makeModule "F"
             --     [ "template TT"
