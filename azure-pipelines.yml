@@ -113,9 +113,9 @@ jobs:
     pool:
       vmImage: "ubuntu-latest"
     condition: and(succeeded(),
-                   eq(dependencies.macOS.outputs['release.has_released'], 'true'),
-                   and(eq(dependencies.Linux.outputs['release.has_released'], 'true'),
-                       eq(dependencies.Windows.outputs['release.has_released'], 'true')))
+                   and(eq(dependencies.macOS.outputs['release.has_released'], 'true'),
+                       and(eq(dependencies.Linux.outputs['release.has_released'], 'true'),
+                           eq(dependencies.Windows.outputs['release.has_released'], 'true'))))
     steps:
       - template: ci/report-start.yml
       - checkout: self
