@@ -24,6 +24,7 @@ import           Data.Foldable (for_)
 import qualified Data.HashSet as HS
 
 import DA.Daml.LF.Ast
+import DA.Daml.LF.Ast.Numeric (numericMaxScale)
 import DA.Daml.LF.Ast.Optics (_PRSelfModule, dataConsType)
 import DA.Daml.LF.TypeChecker.Env
 import DA.Daml.LF.TypeChecker.Error
@@ -53,6 +54,15 @@ serializabilityConditionsType world0 _version mbModNameTpls vars = go
       TList typ -> go typ
       TOptional typ -> go typ
       TMap typ -> go typ
+      TNumeric (TNat n)
+          | n <= numericMaxScale -> noConditions
+          | otherwise -> Left (URNumericOutOfRange n)
+      TNumeric _ -> Left URNumericNotFixed
+          -- We statically enforce bounds check for Numeric type,
+          -- requiring 0 <= n <= 'numericMaxScale' for the argument
+          -- to Numeric. If the argument isn't given explicitly, we
+          -- can't guarantee serializability.
+      TNat _ -> Left URTypeLevelNat
       TVar v
         | v `HS.member` vars -> noConditions
         | otherwise -> Left (URFreeVar v)
@@ -86,6 +96,7 @@ serializabilityConditionsType world0 _version mbModNameTpls vars = go
         BTContractId -> Left URContractId  -- 'ContractId' is used as a higher-kinded type constructor
                                            -- (or polymorphically in DAML-LF <= 1.4).
         BTArrow -> Left URFunction
+        BTNumeric -> Left URNumeric -- 'Numeric' is used as a higher-kinded type constructor.
       TForall{} -> Left URForall
       TTuple{} -> Left URTuple
 

@@ -4,6 +4,7 @@
 package com.digitalasset.daml.lf.archive.testing
 
 import java.io.File
+import java.nio.charset.StandardCharsets
 import java.nio.file.Paths
 import java.util.zip.ZipEntry
 
@@ -72,7 +73,7 @@ private[digitalasset] object DamlLfEncoder extends App {
 
     val out = new ZipOutputStream(new FileOutputStream(file))
     out.putNextEntry(new ZipEntry("META-INF/MANIFEST.MF"))
-    out.write(MANIFEST.getBytes)
+    out.write(MANIFEST)
     out.closeEntry()
 
     out.putNextEntry(new ZipEntry("archive.dalf"))
@@ -128,13 +129,18 @@ private[digitalasset] object DamlLfEncoder extends App {
         error(s"version '$version' not supported")
     }
 
-  val MANIFEST =
+  // Be careful when adjusting the Manifest.
+  // Each line of the manifest must be shorter than 72 bytes.
+  // See https://docs.oracle.com/javase/6/docs/technotes/guides/jar/jar.html#JAR%20Manifest.
+  private val MANIFEST =
     """Manifest-Version: 1.0
-      |Created-By: Digital Asset packager
-      |Location: archive.dalf
+      |Created-By: DAML-LF Encoder
+      |Sdk-Version: 0.0.0
+      |Main-Dalf: archive.dalf
+      |Dalfs: archive.dalf
       |Format: daml-lf
       |Encryption: non-encrypted
-      |""".stripMargin
+      |""".stripMargin.getBytes(StandardCharsets.US_ASCII)
 
   main()
 

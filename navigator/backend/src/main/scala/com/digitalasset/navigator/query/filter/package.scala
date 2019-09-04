@@ -69,8 +69,7 @@ package object filter {
 
         case DamlLfTypeVar(name) => Right(checkContained(name, expectedValue))
         case DamlLfTypePrim(DamlLfPrimType.Bool, _) => Right(checkContained("bool", expectedValue))
-        case DamlLfTypePrim(DamlLfPrimType.Decimal, _) =>
-          Right(checkContained("decimal", expectedValue))
+        case DamlLfTypeNumeric(_) => Right(checkContained("decimal", expectedValue))
         case DamlLfTypePrim(DamlLfPrimType.Int64, _) =>
           Right(checkContained("int64", expectedValue))
         case DamlLfTypePrim(DamlLfPrimType.Date, _) => Right(checkContained("date", expectedValue))

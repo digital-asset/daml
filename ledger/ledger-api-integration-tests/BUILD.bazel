@@ -56,9 +56,7 @@ da_scala_library(
     visibility = [
         "//visibility:public",
     ],
-    deps = dependencies + [
-        "//daml-lf/testing-tools",
-    ],
+    deps = dependencies,
 )
 
 java_library(

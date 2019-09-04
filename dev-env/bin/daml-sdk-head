@@ -36,6 +36,7 @@ for opt in "$@" ; do
       echo "Available options:"
       echo "  --nuke  Remove existing daml installation before installing daml-head."
       echo "  --profiling  Build Haskell executables with profiling enabled."
+      echo "  --skip-jars  Skip building and installing the JARs."
       exit 1
   esac
 done

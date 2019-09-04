@@ -94,6 +94,7 @@ import Control.Monad.Fail
 import           Control.Monad.Reader
 import           Control.Monad.State.Strict
 import           DA.Daml.LF.Ast as LF
+import           DA.Daml.LF.Ast.Numeric (numericFromDecimal)
 import           Data.Data hiding (TyCon)
 import           Data.Foldable (foldlM)
 import           Data.Int
@@ -101,7 +102,6 @@ import           Data.List.Extra
 import qualified Data.Map.Strict as MS
 import           Data.Maybe
 import qualified Data.NameMap as NM
-import qualified Data.Set as Set
 import qualified Data.Text as T
 import           Data.Tuple.Extra
 import           Data.Ratio
@@ -154,7 +154,6 @@ data Env = Env
     {envLFModuleName :: LF.ModuleName
     ,envGHCModuleName :: GHC.ModuleName
     ,envModuleUnitId :: GHC.UnitId
-    ,envDefaultMethods :: Set.Set Name
     ,envAliases :: MS.Map Var LF.Expr
     ,envPkgMap :: MS.Map GHC.UnitId T.Text
     ,envLfVersion :: LF.Version
@@ -210,8 +209,8 @@ convertInt64 x
     | otherwise =
         unsupported "Int literal out of bounds" (negate x)
 
-convertRational :: Integer -> Integer -> ConvertM LF.Expr
-convertRational num denom
+convertRational :: Env -> Integer -> Integer -> ConvertM LF.Expr
+convertRational env num denom
  =
     -- the denominator needs to be a divisor of 10^10.
     -- num % denom * 10^10 needs to fit within a 128bit signed number.
@@ -219,7 +218,10 @@ convertRational num denom
     -- upper limit.
     if | 10 ^ maxPrecision `mod` denom == 0 &&
              abs (r * 10 ^ maxPrecision) <= upperBound128Bit - 1 ->
-           pure $ EBuiltin $ BEDecimal $ fromRational r
+            pure $ EBuiltin $
+            if envLfVersion env `supports` featureNumeric
+                then BENumeric $ numericFromDecimal $ fromRational r
+                else BEDecimal $ fromRational r
        | otherwise ->
            unsupported
                ("Rational is out of bounds: " ++
@@ -233,7 +235,7 @@ convertRational num denom
 
 convertModule :: LF.Version -> MS.Map UnitId T.Text -> NormalizedFilePath -> CoreModule -> Either FileDiagnostic LF.Module
 convertModule lfVersion pkgMap file x = runConvertM (ConversionEnv file Nothing) $ do
-    definitions <- concatMapM (convertBind env) $ filter (not . isTypeableInfo) $ cm_binds x
+    definitions <- concatMapM (convertBind env) binds
     types <- concatMapM (convertTypeDef env) (eltsUFM (cm_types x))
     pure (LF.moduleFromDefinitions lfModName (Just $ fromNormalizedFilePath file) flags (types ++ definitions))
     where
@@ -241,27 +243,30 @@ convertModule lfVersion pkgMap file x = runConvertM (ConversionEnv file Nothing)
         thisUnitId = GHC.moduleUnitId $ cm_module x
         lfModName = convertModuleName ghcModName
         flags = LF.daml12FeatureFlags
+        binds =
+          [ bind
+          | bindGroup <- cm_binds x
+          , bind <- case bindGroup of
+              NonRec name body
+                -- NOTE(MH): We can't cope with the generated Typeable stuff, so remove those bindings
+                | any (`T.isPrefixOf` getOccText name) ["$krep", "$tc", "$trModule"] -> []
+                | otherwise -> [(name, body)]
+              Rec binds -> binds
+          ]
         newtypes =
           [ (wrappedT, (t, mkUnbranchedAxInstCo Representational co [] []))
           | ATyCon t <- eltsUFM (cm_types x)
           , Just ([], wrappedT, co) <- [unwrapNewTyCon_maybe t]
           ]
-        defMeths = defaultMethods x
         env = Env
           { envLFModuleName = lfModName
           , envGHCModuleName = ghcModName
           , envModuleUnitId = thisUnitId
-          , envDefaultMethods = defMeths
           , envAliases = MS.empty
           , envPkgMap = pkgMap
           , envLfVersion = lfVersion
           , envNewtypes = newtypes
           }
-
--- | We can't cope with the generated Typeable stuff, so remove those bindings
-isTypeableInfo :: Bind Var -> Bool
-isTypeableInfo (NonRec name _) = any (`T.isPrefixOf` getOccText name) ["$krep", "$tc", "$trModule"]
-isTypeableInfo _ = False
 
 -- TODO(MH): We should run this on an `LF.Expr` instead of a `GHC.Expr`.
 -- This will avoid a fair bit of repetition.
@@ -452,8 +457,8 @@ convertCtors env (Ctors name _ tys cs) = do
               mkETyLams tys $ mkETmLams (zipExact (map fieldToVar fldNames') fldTys) $ EVariantCon tcon ctorName ctorArg
 
 
-convertBind :: Env -> CoreBind -> ConvertM [Definition]
-convertBind env (NonRec name x)
+convertBind :: Env -> (Var, GHC.Expr Var) -> ConvertM [Definition]
+convertBind env (name, x)
     | DFunId _ <- idDetails name
     , TypeCon (Is tplInst) _ <- varType name
     , "Instance" `T.isSuffixOf` fsToText tplInst
@@ -461,10 +466,6 @@ convertBind env (NonRec name x)
         (tmpl, dict) <- convertGenericTemplate env x
         name' <- convValWithType env name
         pure [DTemplate tmpl, defValue name name' dict]
-convertBind env x = convertBind2 env x
-
-convertBind2 :: Env -> CoreBind -> ConvertM [Definition]
-convertBind2 env (NonRec name x)
     | Just internals <- lookupUFM internalFunctions (envGHCModuleName env)
     , getOccFS name `elementOfUniqSet` internals
     = pure []
@@ -492,8 +493,8 @@ convertBind2 env (NonRec name x)
     -- lifting where the lifted version of `f` happens to be `name`.)
     -- This workaround should be removed once we either have a proper lambda
     -- lifter or DAML-LF supports local recursion.
-    | (as, Let (Rec [(f, Lam v y)]) (Var f')) <- collectTyBinders x, f == f'
-    = convertBind2 env $ NonRec name $ mkLams as $ Lam v $ Let (NonRec f $ mkTyApps (Var name) $ map mkTyVarTy as) y
+    | (as, Let (Rec [(f, Lam v y)]) (Var f')) <- collectBinders x, f == f'
+    = convertBind env $ (,) name $ mkLams as $ Lam v $ Let (NonRec f $ mkVarApps (Var name) as) y
     | otherwise
     = withRange (convNameLoc name) $ do
     x' <- convertExpr env x
@@ -506,7 +507,6 @@ convertBind2 env (NonRec name x)
           _ -> id
     name' <- convValWithType env name
     pure [defValue name name' (sanitize x')]
-convertBind2 env (Rec xs) = concatMapM (\(a, b) -> convertBind env (NonRec a b)) xs
 
 -- NOTE(MH): These are the names of the builtin DAML-LF types whose Surface
 -- DAML counterpart is not defined in 'GHC.Types'. They are all defined in
@@ -584,7 +584,7 @@ convertExpr env0 e = do
             withTmArg env (varV2, record') args $ \x2 args ->
                 pure (ERecUpd (fromTCon record') (mkField $ fsToText name) x2 x1, args)
     go env (VarIs "fromRational") (LExpr (VarIs ":%" `App` tyInteger `App` Lit (LitNumber _ top _) `App` Lit (LitNumber _ bot _)) : args)
-        = fmap (, args) $ convertRational top bot
+        = fmap (, args) $ convertRational env top bot
     go env (VarIs "negate") (tyInt : LExpr (VarIs "$fAdditiveInt") : LExpr (untick -> VarIs "fromInteger" `App` Lit (LitNumber _ x _)) : args)
         = fmap (, args) $ convertInt64 (negate x)
     go env (VarIs "fromInteger") (LExpr (Lit (LitNumber _ x _)) : args)
@@ -804,6 +804,7 @@ convertExpr env0 e = do
         convertType env (varType bind) >>= \case
           TText -> asLet
           TDecimal -> asLet
+          TNumeric _ -> asLet
           TParty -> asLet
           TTimestamp -> asLet
           TDate -> asLet
@@ -1073,7 +1074,10 @@ convertTyCon env t
     | Just m <- nameModule_maybe (getName t), m == gHC_TYPES =
         case getOccText t of
             "Text" -> pure TText
-            "Decimal" -> pure TDecimal
+            "Decimal" ->
+                if envLfVersion env `supports` featureNumeric
+                    then pure (TNumeric (TNat 10))
+                    else pure TDecimal
             _ -> defaultTyCon
     -- TODO(DEL-6953): We need to add a condition on the package name as well.
     | Just m <- nameModule_maybe (getName t), GHC.moduleName m == mkModuleName "DA.Internal.LF" =

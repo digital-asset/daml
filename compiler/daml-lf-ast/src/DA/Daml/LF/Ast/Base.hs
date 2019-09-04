@@ -13,6 +13,7 @@ module DA.Daml.LF.Ast.Base(
 
 import Data.Hashable
 import Data.Data
+import Numeric.Natural
 import GHC.Generics(Generic)
 import Data.Int
 import           Control.DeepSeq
@@ -23,7 +24,8 @@ import Data.Fixed
 import qualified "template-haskell" Language.Haskell.TH as TH
 import qualified Control.Lens.TH as Lens.TH
 
-import           DA.Daml.LF.Ast.Version
+import DA.Daml.LF.Ast.Version
+import DA.Daml.LF.Ast.Numeric
 
 infixr 1 `KArrow`
 
@@ -130,6 +132,7 @@ data SourceLoc = SourceLoc
 -- | Kinds.
 data Kind
   = KStar
+  | KNat
   | KArrow Kind Kind
   deriving (Eq, Data, Generic, NFData, Ord, Show)
 
@@ -137,6 +140,7 @@ data Kind
 data BuiltinType
   = BTInt64
   | BTDecimal
+  | BTNumeric
   | BTText
   | BTTimestamp
   | BTDate
@@ -173,6 +177,8 @@ data Type
   -- | Type for tuples aka structural records. Parameterized by the names of the
   -- fields and their types.
   | TTuple      ![(FieldName, Type)]
+  -- | Type-level natural numbers
+  | TNat !Natural
   deriving (Eq, Data, Generic, NFData, Ord, Show)
 
 -- | Fully applied qualified type constructor.
@@ -184,15 +190,12 @@ data TypeConApp = TypeConApp
   }
   deriving (Eq, Data, Generic, NFData, Ord, Show)
 
-data E10
-instance HasResolution E10 where
-  resolution _ = 10000000000 -- 10^-10 resolution
-
 -- | Builtin operation or literal.
 data BuiltinExpr
   -- Literals
   = BEInt64      !Int64          -- :: Int64
   | BEDecimal    !(Fixed E10)    -- :: Decimal, precision 38, scale 10
+  | BENumeric    !Numeric        -- :: Numeric, precision 38, scale 0 through 37
   | BEText       !T.Text         -- :: Text
   | BETimestamp  !Int64          -- :: Timestamp, microseconds since unix epoch
   | BEParty      !PartyLiteral   -- :: Party
@@ -217,6 +220,19 @@ data BuiltinExpr
   | BEDivDecimal                 -- :: Decimal -> Decimal -> Decimal, automatically rounds to even, crashes on divisor = 0 and on overflow
   | BERoundDecimal               -- :: Int64 -> Decimal -> Decimal, the Int64 is the required scale. Note that this doesn't modify the scale of the type itself, it just zeroes things outside that scale out. Can be negative. Crashes if the scale is > 10 or < -27.
 
+  -- Numeric arithmetic and comparisons
+  | BEEqualNumeric               -- :: ∀n. Numeric n -> Numeric n -> Bool, where t is the builtin type
+  | BELessNumeric                -- :: ∀(s:nat). Numeric s -> Numeric s -> Bool
+  | BELessEqNumeric              -- :: ∀(s:nat). Numeric s -> Numeric s -> Bool
+  | BEGreaterEqNumeric           -- :: ∀(s:nat). Numeric s -> Numeric s -> Bool
+  | BEGreaterNumeric             -- :: ∀(s:nat). Numeric s -> Numeric s -> Bool
+  | BEToTextNumeric              -- :: ∀(s:nat). Numeric s -> Text
+  | BEAddNumeric                 -- :: ∀(s:nat). Numeric s -> Numeric s -> Numeric s, crashes on overflow
+  | BESubNumeric                 -- :: ∀(s:nat). Numeric s -> Numeric s -> Numeric s, crashes on overflow
+  | BEMulNumeric                 -- :: ∀(s:nat). Numeric s -> Numeric s -> Numeric s, crashes on overflow and underflow, automatically rounds to even (see <https://en.wikipedia.org/wiki/Rounding#Round_half_to_even>)
+  | BEDivNumeric                 -- :: ∀(s:nat). Numeric s -> Numeric s -> Numeric s, automatically rounds to even, crashes on divisor = 0 and on overflow
+  | BERoundNumeric              -- :: ∀(s:nat). Int64 -> Numeric s -> Numeric s, the Int64 is the required scale. Note that this doesn't modify the scale of the type itself, it just zeroes things outside that scale out. Can be negative. Crashes if the scale is > 10 or < -27.
+
   -- Integer arithmetic
   | BEAddInt64                 -- :: Int64 -> Int64 -> Int64, crashes on overflow
   | BESubInt64                 -- :: Int64 -> Int64 -> Int64, crashes on overflow
@@ -228,6 +244,8 @@ data BuiltinExpr
   -- Numerical conversion
   | BEInt64ToDecimal           -- :: Int64 -> Decimal, always succeeds since 10^28 > 2^63
   | BEDecimalToInt64           -- :: Decimal -> Int64, only converts the whole part, crashes if it doesn't fit
+  | BEInt64ToNumeric           -- :: ∀(s:nat). Int64 -> Numeric s, crashes if it doesn't fit (TODO: verify?)
+  | BENumericToInt64           -- :: ∀(s:nat). Numeric s -> Int64, only converts the whole part, crashes if it doesn't fit
 
   -- Time conversion
   | BETimestampToUnixMicroseconds -- :: Timestamp -> Int64, in microseconds
@@ -255,6 +273,7 @@ data BuiltinExpr
   | BEPartyFromText              -- :: Text -> Optional Party
   | BEInt64FromText              -- :: Text -> Optional Int64
   | BEDecimalFromText            -- :: Text -> Optional Decimal
+  | BENumericFromText            -- :: ∀(s:nat). Text -> Optional (Numeric s)
   | BETextToCodePoints           -- :: Text -> List Int64
   | BETextFromCodePoints         -- :: List Int64 -> Text
   | BEPartyToQuotedText          -- :: Party -> Text

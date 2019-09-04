@@ -11,8 +11,9 @@ import scalaz.syntax.tag._
 final class CommandService(session: LedgerSession) extends LedgerTestSuite(session) {
   private val submitAndWaitTest =
     LedgerTest("CSsubmitAndWait", "SubmitAndWait creates a contract of the expected template") {
-      ledger =>
+      context =>
         for {
+          ledger <- context.participant()
           alice <- ledger.allocateParty()
           request <- ledger.submitAndWaitRequest(alice, Dummy(alice).create.command)
           _ <- ledger.submitAndWait(request)
@@ -26,8 +27,9 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
 
   private val submitAndWaitForTransactionIdTest = LedgerTest(
     "CSsubmitAndWaitForTransactionId",
-    "SubmitAndWaitForTransactionId returns a valid transaction identifier") { ledger =>
+    "SubmitAndWaitForTransactionId returns a valid transaction identifier") { context =>
     for {
+      ledger <- context.participant()
       alice <- ledger.allocateParty()
       request <- ledger.submitAndWaitRequest(alice, Dummy(alice).create.command)
       transactionId <- ledger.submitAndWaitForTransactionId(request)
@@ -70,8 +72,9 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
 
   private val submitAndWaitForTransactionTest = LedgerTest(
     "CSsubmitAndWaitForTransaction",
-    "SubmitAndWaitForTransaction returns a transaction") { ledger =>
+    "SubmitAndWaitForTransaction returns a transaction") { context =>
     for {
+      ledger <- context.participant()
       alice <- ledger.allocateParty()
       request <- ledger.submitAndWaitRequest(alice, Dummy(alice).create.command)
       transaction <- ledger.submitAndWaitForTransaction(request)
@@ -96,8 +99,9 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
 
   private val submitAndWaitForTransactionTreeTest = LedgerTest(
     "CSsubmitAndWaitForTransactionTree",
-    "SubmitAndWaitForTransactionTree returns a transaction tree") { ledger =>
+    "SubmitAndWaitForTransactionTree returns a transaction tree") { context =>
     for {
+      ledger <- context.participant()
       alice <- ledger.allocateParty()
       request <- ledger.submitAndWaitRequest(alice, Dummy(alice).create.command)
       transactionTree <- ledger.submitAndWaitForTransactionTree(request)
@@ -121,8 +125,9 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
 
   private val resendingSubmitAndWait = LedgerTest(
     "CSduplicateSubmitAndWait",
-    "SubmitAndWait should be idempotent when reusing the same command identifier") { ledger =>
+    "SubmitAndWait should be idempotent when reusing the same command identifier") { context =>
     for {
+      ledger <- context.participant()
       alice <- ledger.allocateParty()
       request <- ledger.submitAndWaitRequest(alice, Dummy(alice).create.command)
       _ <- ledger.submitAndWait(request)
@@ -139,8 +144,9 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
   private val resendingSubmitAndWaitForTransactionId = LedgerTest(
     "CSduplicateSubmitAndWaitForTransactionId",
     "SubmitAndWaitForTransactionId should be idempotent when reusing the same command identifier") {
-    ledger =>
+    context =>
       for {
+        ledger <- context.participant()
         alice <- ledger.allocateParty()
         request <- ledger.submitAndWaitRequest(alice, Dummy(alice).create.command)
         transactionId1 <- ledger.submitAndWaitForTransactionId(request)
@@ -155,8 +161,9 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
   private val resendingSubmitAndWaitForTransaction = LedgerTest(
     "CSduplicateSubmitAndWaitForTransaction",
     "SubmitAndWaitForTransaction should be idempotent when reusing the same command identifier") {
-    ledger =>
+    context =>
       for {
+        ledger <- context.participant()
         alice <- ledger.allocateParty()
         request <- ledger.submitAndWaitRequest(alice, Dummy(alice).create.command)
         transaction1 <- ledger.submitAndWaitForTransaction(request)
@@ -171,8 +178,9 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
   private val resendingSubmitAndWaitForTransactionTree = LedgerTest(
     "CSduplicateSubmitAndWaitForTransactionTree",
     "SubmitAndWaitForTransactionTree should be idempotent when reusing the same command identifier") {
-    ledger =>
+    context =>
       for {
+        ledger <- context.participant()
         alice <- ledger.allocateParty()
         request <- ledger.submitAndWaitRequest(alice, Dummy(alice).create.command)
         transactionTree1 <- ledger.submitAndWaitForTransactionTree(request)
@@ -186,9 +194,10 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
 
   private val submitAndWaitWithInvalidLedgerIdTest = LedgerTest(
     "CSsubmitAndWaitInvalidLedgerId",
-    "SubmitAndWait should fail for invalid ledger ids") { ledger =>
+    "SubmitAndWait should fail for invalid ledger ids") { context =>
     val invalidLedgerId = "CSsubmitAndWaitInvalidLedgerId"
     for {
+      ledger <- context.participant()
       alice <- ledger.allocateParty()
       request <- ledger.submitAndWaitRequest(alice, Dummy(alice).create.command)
       badLedgerId = request.update(_.commands.ledgerId := invalidLedgerId)
@@ -199,9 +208,10 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
 
   private val submitAndWaitForTransactionIdWithInvalidLedgerIdTest = LedgerTest(
     "CSsubmitAndWaitForTransactionIdInvalidLedgerId",
-    "SubmitAndWaitForTransactionId should fail for invalid ledger ids") { ledger =>
+    "SubmitAndWaitForTransactionId should fail for invalid ledger ids") { context =>
     val invalidLedgerId = "CSsubmitAndWaitForTransactionIdInvalidLedgerId"
     for {
+      ledger <- context.participant()
       alice <- ledger.allocateParty()
       request <- ledger.submitAndWaitRequest(alice, Dummy(alice).create.command)
       badLedgerId = request.update(_.commands.ledgerId := invalidLedgerId)
@@ -212,9 +222,10 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
 
   private val submitAndWaitForTransactionWithInvalidLedgerIdTest = LedgerTest(
     "CSsubmitAndWaitForTransactionInvalidLedgerId",
-    "SubmitAndWaitForTransaction should fail for invalid ledger ids") { ledger =>
+    "SubmitAndWaitForTransaction should fail for invalid ledger ids") { context =>
     val invalidLedgerId = "CSsubmitAndWaitForTransactionInvalidLedgerId"
     for {
+      ledger <- context.participant()
       alice <- ledger.allocateParty()
       request <- ledger.submitAndWaitRequest(alice, Dummy(alice).create.command)
       badLedgerId = request.update(_.commands.ledgerId := invalidLedgerId)
@@ -225,9 +236,10 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
 
   private val submitAndWaitForTransactionTreeWithInvalidLedgerIdTest = LedgerTest(
     "CSsubmitAndWaitForTransactionTreeInvalidLedgerId",
-    "SubmitAndWaitForTransactionTree should fail for invalid ledger ids") { ledger =>
+    "SubmitAndWaitForTransactionTree should fail for invalid ledger ids") { context =>
     val invalidLedgerId = "CSsubmitAndWaitForTransactionTreeInvalidLedgerId"
     for {
+      ledger <- context.participant()
       alice <- ledger.allocateParty()
       request <- ledger.submitAndWaitRequest(alice, Dummy(alice).create.command)
       badLedgerId = request.update(_.commands.ledgerId := invalidLedgerId)

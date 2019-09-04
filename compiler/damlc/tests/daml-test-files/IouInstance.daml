@@ -1,0 +1,35 @@
+daml 1.2
+module IouInstance where
+
+import Asset
+import Fungible
+import Transferrable
+
+template Iou
+  with
+    issuer : Party
+    owner : Party
+    amount : Decimal
+    currency : Text
+  where
+    signatory issuer
+    ensure amount > 0.0
+    agreement show issuer <> " promises to pay " <>
+              show amount <> " " <> currency <>
+              " on demand to " <> show owner
+
+instance Asset Iou
+instance Quantity Iou
+template instance FungibleIou = Fungible Iou
+template instance TransferrableIou = Transferrable Iou
+template instance TransferProposalIou = TransferProposal Iou
+
+s = scenario do
+  rohan <- getParty "Rohan"
+  let rohans50Iou = Fungible Iou with issuer = rohan; owner = rohan; amount = 50.0; currency = "USD"
+      rohans25Iou = Fungible Iou with issuer = rohan; owner = rohan; amount = 25.0; currency = "USD"
+  rohans50 <- rohan `submit` create rohans50Iou
+  rohans25 <- rohan `submit` create rohans25Iou
+  rohans75 <- rohan `submit` exercise rohans50 Merge with other = rohans25
+  (rohans40, rohans35) <- rohan `submit` exercise rohans75 Split with splitAmount = 40.0
+  return ()

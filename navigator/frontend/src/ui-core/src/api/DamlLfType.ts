@@ -15,7 +15,6 @@ export interface DamlLfIdentifier {
 export type DamlLfPrimType
   = 'text'
   | 'int64'
-  | 'decimal'
   | 'bool'
   | 'contractid'
   | 'timestamp'
@@ -26,11 +25,12 @@ export type DamlLfPrimType
   | 'list'
   | 'map'
 
-export type DamlLfTypePrim  = { type: 'primitive', name: DamlLfPrimType, args: DamlLfType[] }
-export type DamlLfTypeVar   = { type: 'typevar', name: string }
-export type DamlLfTypeCon   = { type: 'typecon', name: DamlLfIdentifier, args: DamlLfType[] }
+export type DamlLfTypePrim    = { type: 'primitive', name: DamlLfPrimType, args: DamlLfType[] }
+export type DamlLfTypeVar     = { type: 'typevar', name: string }
+export type DamlLfTypeCon     = { type: 'typecon', name: DamlLfIdentifier, args: DamlLfType[] }
+export type DamlLfTypeNumeric = { type: 'numeric', scale: number }
 
-export type DamlLfType = DamlLfTypePrim | DamlLfTypeVar | DamlLfTypeCon
+export type DamlLfType = DamlLfTypePrim | DamlLfTypeVar | DamlLfTypeCon | DamlLfTypeNumeric
 
 
 export type DamlLFFieldWithType = { name: string, value: DamlLfType }
@@ -50,7 +50,7 @@ export function unit(): DamlLfTypePrim { return { type: 'primitive', name: 'unit
 export function bool(): DamlLfTypePrim { return { type: 'primitive', name: 'bool', args: [] } }
 export function int64(): DamlLfTypePrim { return { type: 'primitive', name: 'int64', args: [] } }
 export function text(): DamlLfTypePrim { return { type: 'primitive', name: 'text', args: [] } }
-export function decimal(): DamlLfTypePrim { return { type: 'primitive', name: 'decimal', args: [] } }
+export function numeric(s: number): DamlLfTypeNumeric { return { type: 'numeric', scale: s } }
 export function party(): DamlLfTypePrim { return { type: 'primitive', name: 'party', args: [] } }
 export function contractid(): DamlLfTypePrim { return { type: 'primitive', name: 'contractid', args: [] } }
 export function timestamp(): DamlLfTypePrim { return { type: 'primitive', name: 'timestamp', args: [] } }
@@ -91,6 +91,7 @@ export function mapTypeVars(t: DamlLfType, f: (t: DamlLfTypeVar) => DamlLfType):
     case 'typevar':   return f(t)
     case 'primitive': return { type: 'primitive', name: t.name, args: t.args.map((a) => mapTypeVars(a, f)) }
     case 'typecon':   return { type: 'typecon',   name: t.name, args: t.args.map((a) => mapTypeVars(a, f)) }
+    case 'numeric':   return t
     default: throw new NonExhaustiveMatch(t)
   }
 }

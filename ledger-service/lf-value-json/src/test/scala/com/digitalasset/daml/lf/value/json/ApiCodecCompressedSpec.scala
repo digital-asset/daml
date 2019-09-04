@@ -127,32 +127,32 @@ class ApiCodecCompressedSpec
     val successes = Table(
       ("line#", "serialized", "serializedNumerically", "type", "parsed", "alternates"),
       c("\"123\"", VA.contractId)("123"),
-      cn("\"42.0\"", "42.0", VA.numeric)(
+      cn("\"42.0\"", "42.0", VA.numeric(10))(
         Decimal assertFromString "42",
         "\"42\"",
         "42",
         "42.0",
         "\"+42\""),
-      cn("\"2000.0\"", "2000", VA.numeric)(
+      cn("\"2000.0\"", "2000", VA.numeric(10))(
         Decimal assertFromString "2000",
         "\"2000\"",
         "2000",
         "2e3"),
-      cn("\"0.3\"", "0.3", VA.numeric)(
+      cn("\"0.3\"", "0.3", VA.numeric(10))(
         Decimal assertFromString "0.3",
         "\"0.30000000000000004\"",
         "0.30000000000000004"),
       cn(
         "\"9999999999999999999999999999.9999999999\"",
         "9999999999999999999999999999.9999999999",
-        VA.numeric)(Decimal assertFromString "9999999999999999999999999999.9999999999"),
-      cn("\"0.1234512346\"", "0.1234512346", VA.numeric)(
+        VA.numeric(10))(Decimal assertFromString "9999999999999999999999999999.9999999999"),
+      cn("\"0.1234512346\"", "0.1234512346", VA.numeric(10))(
         Decimal assertFromString "0.1234512346",
         "0.12345123455",
         "0.12345123465",
         "\"0.12345123455\"",
         "\"0.12345123465\""),
-      cn("\"0.1234512345\"", "0.1234512345", VA.numeric)(
+      cn("\"0.1234512345\"", "0.1234512345", VA.numeric(10))(
         Decimal assertFromString "0.1234512345",
         "0.123451234549",
         "0.12345123445001",

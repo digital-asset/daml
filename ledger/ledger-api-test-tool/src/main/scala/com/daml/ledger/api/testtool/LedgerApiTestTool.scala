@@ -20,6 +20,17 @@ object LedgerApiTestTool {
 
   private[this] val logger = LoggerFactory.getLogger(getClass.getName.stripSuffix("$"))
 
+  // The suffix that will be appended to all party and command identifiers to ensure
+  // they are unique across test runs (but still somewhat stable within a single test run)
+  // This implementation could fail based on the limitations of System.nanoTime, that you
+  // can read on here: https://docs.oracle.com/javase/8/docs/api/java/lang/System.html#nanoTime--
+  // Still, the only way in which this can fail is if two test runs target the same ledger
+  // with the identifier suffix being computed to the same value, which at the very least
+  // requires this to happen on what is resolved by the JVM as the very same millisecond.
+  // This is very unlikely to fail and allows to easily "date" parties on a ledger used
+  // for testing and compare data related to subsequent runs without any reference
+  private[this] val identifierSuffix = f"${System.nanoTime}%x"
+
   private[this] val uncaughtExceptionErrorMessage =
     "UNEXPECTED UNCAUGHT EXCEPTION ON MAIN THREAD, GATHER THE STACKTRACE AND OPEN A _DETAILED_ TICKET DESCRIBING THE ISSUE HERE: https://github.com/digital-asset/daml/issues/new"
 
@@ -82,17 +93,16 @@ object LedgerApiTestTool {
       })
 
     val runner = new LedgerTestSuiteRunner(
-      Vector(
-        LedgerSessionConfiguration(
-          config.host,
-          config.port,
-          config.tlsConfig,
-          config.commandSubmissionTtlScaleFactor)),
+      LedgerSessionConfiguration(
+        config.participants,
+        config.tlsConfig,
+        config.commandSubmissionTtlScaleFactor),
       testsToRun.values.toVector,
-      config.timeoutScaleFactor
+      config.timeoutScaleFactor,
+      identifierSuffix
     )
 
-    runner.run {
+    runner.verifyRequirementsAndRun {
       case Success(summaries) =>
         new ColorizedPrintStreamReporter(System.out, config.verbose).report(summaries)
         sys.exit(exitCode(summaries, config.mustFail))

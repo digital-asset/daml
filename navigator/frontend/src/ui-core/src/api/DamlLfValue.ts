@@ -16,7 +16,7 @@ export interface DamlLfRecordField {
 
 export type DamlLfValueText       = { type: 'text', value: string }
 export type DamlLfValueInt64      = { type: 'int64', value: string }
-export type DamlLfValueDecimal    = { type: 'decimal', value: string }
+export type DamlLfValueNumeric    = { type: 'numeric', value: string }
 export type DamlLfValueBool       = { type: 'bool', value: boolean }
 export type DamlLfValueContractId = { type: 'contractid', value: string }
 export type DamlLfValueTimestamp  = { type: 'timestamp', value: string }
@@ -35,7 +35,7 @@ export type DamlLfValueMapEntry   = { key: string, value: DamlLfValue }
 export type DamlLfValue
   = DamlLfValueText
   | DamlLfValueInt64
-  | DamlLfValueDecimal
+  | DamlLfValueNumeric
   | DamlLfValueBool
   | DamlLfValueContractId
   | DamlLfValueTimestamp
@@ -59,7 +59,7 @@ const valueUnit: DamlLfValueUnit = { type: 'unit' };
 
 export function text(value: string): DamlLfValueText { return { type: 'text', value }}
 export function int64(value: string): DamlLfValueInt64 { return { type: 'int64', value }}
-export function decimal(value: string): DamlLfValueDecimal { return { type: 'decimal', value }}
+export function numeric(value: string): DamlLfValueNumeric { return { type: 'numeric', value }}
 export function bool(value: boolean): DamlLfValueBool { return { type: 'bool', value }}
 export function contractid(value: string): DamlLfValueContractId { return { type: 'contractid', value }}
 export function timestamp(value: string): DamlLfValueTimestamp { return { type: 'timestamp', value }}
@@ -94,7 +94,7 @@ export function evalPath(value: DamlLfValue, path: string[], index: number = 0):
       return isLast ? value.value : notFound;
     case 'int64':
       return isLast ? value.value : notFound;
-    case 'decimal':
+    case 'numeric':
       return isLast ? value.value : notFound;
     case 'bool':
       return isLast ? value.value : notFound;
@@ -122,7 +122,7 @@ export function evalPath(value: DamlLfValue, path: string[], index: number = 0):
       if (isLast) {
         return value;
       } else {
-        const listIndex = parseInt(path[index])
+        const listIndex = parseInt(path[index]);
         if (isNaN(listIndex)) {
           return notFound;
         } else if (listIndex < 0 || listIndex >= value.value.length) {
@@ -182,10 +182,10 @@ export function initialValue(type: DamlLfType): DamlLfValue {
   switch (type.type) {
     case 'typevar': return undef();
     case 'typecon': return undef();
+    case 'numeric':     return undef();
     case 'primitive': switch (type.name) {
       case 'text':        return undef();
       case 'int64':       return undef();
-      case 'decimal':     return undef();
       case 'bool':        return bool(false);
       case 'contractid':  return undef();
       case 'timestamp':   return undef();
@@ -208,7 +208,7 @@ export function toJSON(value: DamlLfValue): JSON {
   switch (value.type) {
     case 'text':        return value.value;
     case 'int64':       return value.value;
-    case 'decimal':     return value.value;
+    case 'numeric':     return value.value;
     case 'bool':        return value.value;
     case 'contractid':  return value.value;
     case 'timestamp':   return value.value;

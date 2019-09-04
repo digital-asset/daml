@@ -1,0 +1,28 @@
+daml 1.2
+module Fungible where
+
+import Asset
+
+template Quantity t => Fungible t with
+    asset: t
+  where
+    signatory asset.issuer, asset.owner
+    ensure asset.amount > 0.0
+
+    controller asset.owner can
+      Merge: ContractId (Fungible t)
+        with other: ContractId (Fungible t)
+        do
+          otherAsset <- fetch other
+          let newAmount = asset.amount + otherAsset.asset.amount
+          archive other
+          create $ Fungible $ asset with amount = newAmount
+
+      Split: (ContractId (Fungible t), ContractId (Fungible t))
+        with splitAmount: Decimal
+        do
+          assert $ splitAmount > 0.0
+          assert $ splitAmount < asset.amount
+          newAsset1 <- create $ Fungible $ asset with amount = splitAmount
+          newAsset2 <- create $ Fungible $ asset with amount = asset.amount - splitAmount
+          return (newAsset1, newAsset2)

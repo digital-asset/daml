@@ -5,9 +5,9 @@
 // Protocol buffer messages used by the participant state key-value utilities
 // for implementing a DAML ledger backed by a key-value store.
 //
-// These messages must only be produced and consumed by the methods in
+// These messages should only be produced and consumed by the methods in
 // `KeyValueCommitting`, `KeyValueConsumption` and `KeyValueSubmission` objects.
-// You must not embed these messages in other protocol buffer messages.
+//
 
 syntax = "proto3";
 package com.daml.ledger.participant.state.kvutils;
@@ -21,6 +21,35 @@ import "da/daml_lf.proto";
 import "daml-lf/transaction/src/main/protobuf/transaction.proto";
 import "daml-lf/transaction/src/main/protobuf/com/digitalasset/daml/lf/value.proto";
 
+
+// Envelope with which we wrap all kvutils messages that are sent over the network
+// or persisted on disk. The envelope specifies the kvutils version that defines how
+// a message is decoded and processed. Optionally the message payload may be stored
+// compressed.
+message Envelope {
+  enum MessageKind {
+    SUBMISSION = 0;
+    LOG_ENTRY = 1;
+    STATE_VALUE = 2;
+  }
+
+  enum CompressionSchema {
+    NONE = 0;
+    GZIP = 1;
+  }
+
+  // Kvutils version number
+  int64 version = 1;
+
+  // Kind of message contained within.
+  MessageKind kind = 2;
+
+  // Compression schema, if any, used to compress the message.
+  CompressionSchema compression = 3;
+
+  // The enclosed, potentially compressed, message
+  bytes message = 4;
+}
 
 // A submission to the ledger: a payload and its inputs if any.
 // Produced by [[KeyValueSubmission]].

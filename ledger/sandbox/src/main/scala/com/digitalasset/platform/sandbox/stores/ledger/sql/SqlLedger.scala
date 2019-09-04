@@ -6,32 +6,24 @@ package com.digitalasset.platform.sandbox.stores.ledger.sql
 import java.time.Instant
 import java.util.UUID
 
+import akka.Done
 import akka.stream.QueueOfferResult.{Dropped, Enqueued, QueueClosed}
 import akka.stream.scaladsl.{GraphDSL, Keep, MergePreferred, Sink, Source, SourceQueueWithComplete}
 import akka.stream.{Materializer, OverflowStrategy, QueueOfferResult, SourceShape}
-import akka.{Done, NotUsed}
 import com.daml.ledger.participant.state.index.v2.PackageDetails
 import com.daml.ledger.participant.state.v1._
 import com.digitalasset.api.util.TimeProvider
-import com.digitalasset.daml.lf.archive.Decode
-import com.digitalasset.daml.lf.data.Ref.{PackageId, Party}
+import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.engine.Blinding
-import com.digitalasset.daml.lf.language.Ast
-import com.digitalasset.daml.lf.transaction.Node
-import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractId}
 import com.digitalasset.daml_lf.DamlLf.Archive
 import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails, RejectionReason}
-import com.digitalasset.platform.akkastreams.dispatcher.Dispatcher
-import com.digitalasset.platform.akkastreams.dispatcher.SubSource.RangeSource
 import com.digitalasset.platform.common.util.{DirectExecutionContext => DEC}
 import com.digitalasset.platform.sandbox.LedgerIdGenerator
 import com.digitalasset.platform.sandbox.metrics.MetricsManager
 import com.digitalasset.platform.sandbox.services.transaction.SandboxEventIdFormatter
-import com.digitalasset.platform.sandbox.stores.ActiveContracts.ActiveContract
 import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
-import com.digitalasset.platform.sandbox.stores.{InMemoryActiveContracts, InMemoryPackageStore}
 import com.digitalasset.platform.sandbox.stores.ledger.sql.SqlStartMode.{
   AlwaysReset,
   ContinueIfExists
@@ -44,14 +36,15 @@ import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{
   ValueSerializer
 }
 import com.digitalasset.platform.sandbox.stores.ledger.sql.util.DbDispatcher
-import com.digitalasset.platform.sandbox.stores.ledger.{Ledger, LedgerEntry, LedgerSnapshot}
+import com.digitalasset.platform.sandbox.stores.ledger.{Ledger, LedgerEntry}
+import com.digitalasset.platform.sandbox.stores.{InMemoryActiveContracts, InMemoryPackageStore}
 import org.slf4j.LoggerFactory
+import scalaz.syntax.tag._
 
 import scala.collection.immutable
 import scala.collection.immutable.Queue
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Failure, Success, Try}
-import scalaz.syntax.tag._
+import scala.util.{Failure, Success}
 
 sealed abstract class SqlStartMode extends Product with Serializable
 
@@ -84,14 +77,17 @@ object SqlLedger {
       mm: MetricsManager): Future[Ledger] = {
     implicit val ec: ExecutionContext = DEC
 
-    val dbDispatcher = DbDispatcher(jdbcUrl, noOfShortLivedConnections, noOfStreamingConnections)
+    val dbType = JdbcLedgerDao.jdbcType(jdbcUrl)
+    val dbDispatcher =
+      DbDispatcher(jdbcUrl, dbType, noOfShortLivedConnections, noOfStreamingConnections)
     val ledgerDao = LedgerDao.metered(
-      PostgresLedgerDao(
+      JdbcLedgerDao(
         dbDispatcher,
         ContractSerializer,
         TransactionSerializer,
         ValueSerializer,
-        KeyHasher))
+        KeyHasher,
+        dbType))
 
     val sqlLedgerFactory = SqlLedgerFactory(ledgerDao)
 
@@ -102,31 +98,25 @@ object SqlLedger {
       acs,
       packages,
       initialLedgerEntries,
-      queueDepth)
+      queueDepth,
+      dbType.supportsParallelWrites)
   }
 }
 
 private class SqlLedger(
-    val ledgerId: LedgerId,
+    ledgerId: LedgerId,
     headAtInitialization: Long,
     ledgerDao: LedgerDao,
     timeProvider: TimeProvider,
     packages: InMemoryPackageStore,
-    queueDepth: Int)(implicit mat: Materializer)
-    extends Ledger {
+    queueDepth: Int,
+    parallelLedgerAppend: Boolean)(implicit mat: Materializer)
+    extends BaseLedger(ledgerId, headAtInitialization, ledgerDao)
+    with Ledger {
 
   import SqlLedger._
 
   private val logger = LoggerFactory.getLogger(getClass)
-
-  private val dispatcher = Dispatcher[Long, LedgerEntry](
-    RangeSource(ledgerDao.getLedgerEntries(_, _)),
-    0l,
-    headAtInitialization
-  )
-
-  @volatile
-  private var headRef: Long = headAtInitialization
 
   // the reason for modelling persistence as a reactive pipeline is to avoid having race-conditions between the
   // moving ledger-end, the async persistence operation and the dispatcher head notification
@@ -168,14 +158,16 @@ private class SqlLedger(
       SourceShape(merge.out)
     })
 
-    // We process the requests in batches when under pressure (see semantics of `batch`). Note
+    // By default we process the requests in batches when under pressure (see semantics of `batch`). Note
     // that this is safe on the read end because the readers rely on the dispatchers to know the
     // ledger end, and not the database itself. This means that they will not start reading from the new
     // ledger end until we tell them so, which we do when _all_ the entries have been committed.
+    val maxBatchSize = if (parallelLedgerAppend) noOfShortLivedConnections * 2L else 1L
     mergedSources
-      .batch(noOfShortLivedConnections * 2L, e => Queue(e))((batch, e) => batch :+ e)
+      .batch(maxBatchSize, e => Queue(e))((batch, e) => batch :+ e)
       .mapAsync(1) { queue =>
-        val startOffset = headRef // we can only do this because there is no parallelism here!
+        val startOffset = dispatcher.getHead()
+        // we can only do this because there is no parallelism here!
         //shooting the SQL queries in parallel
         Future
           .sequence(queue.toIterator.zipWithIndex.map {
@@ -189,12 +181,11 @@ private class SqlLedger(
                     //recovering from the failure so the persistence stream doesn't die
                     logger.error(s"Failed to persist entry with offset: $offset", t)
                     ()
-                }
+                }(DEC)
           })
           .map { _ =>
             //note that we can have holes in offsets in case of the storing of an entry failed for some reason
-            headRef = startOffset + queue.length //updating the headRef
-            dispatcher.signalNewHead(headRef) //signalling downstream subscriptions
+            dispatcher.signalNewHead(startOffset + queue.length) //signalling downstream subscriptions
           }(DEC)
       }
       .toMat(Sink.ignore)(Keep.left[
@@ -206,29 +197,10 @@ private class SqlLedger(
   }
 
   override def close(): Unit = {
+    super.close()
     persistenceQueue.complete()
     checkpointQueue.complete()
-    ledgerDao.close()
   }
-
-  override def ledgerEntries(offset: Option[Long]): Source[(Long, LedgerEntry), NotUsed] =
-    dispatcher.startingAt(offset.getOrElse(0))
-
-  override def ledgerEnd: Long = headRef
-
-  override def snapshot(): Future[LedgerSnapshot] =
-    //TODO (robert): SQL DAO does not know about ActiveContract, this method does a (trivial) mapping from DAO Contract to Ledger ActiveContract. Intended? The DAO layer was introduced its own Contract abstraction so it can also reason read archived ones if it's needed. In hindsight, this might be necessary at all  so we could probably collapse the two
-    ledgerDao.getActiveContractSnapshot
-      .map(s => LedgerSnapshot(s.offset, s.acs.map(c => (c.contractId, c.toActiveContract))))(DEC)
-
-  override def lookupContract(
-      contractId: Value.AbsoluteContractId): Future[Option[ActiveContract]] =
-    ledgerDao
-      .lookupActiveContract(contractId)
-      .map(_.map(c => c.toActiveContract))(DEC)
-
-  override def lookupKey(key: Node.GlobalKey): Future[Option[AbsoluteContractId]] =
-    ledgerDao.lookupKey(key)
 
   override def publishHeartbeat(time: Instant): Future[Unit] =
     checkpointQueue
@@ -308,37 +280,17 @@ private class SqlLedger(
         case Failure(f) => Failure(f)
       }(DEC)
 
-  override def lookupTransaction(
-      transactionId: Ref.TransactionIdString): Future[Option[(Long, LedgerEntry.Transaction)]] =
-    ledgerDao
-      .lookupTransaction(transactionId)
-
   override def allocateParty(
       party: Party,
       displayName: Option[String]): Future[PartyAllocationResult] =
     ledgerDao
-      .storeParty(party, displayName)
+      .storeParty(party, displayName, None)
       .map {
         case PersistenceResponse.Ok =>
           PartyAllocationResult.Ok(PartyDetails(party, displayName, true))
         case PersistenceResponse.Duplicate =>
           PartyAllocationResult.AlreadyExists
       }(DEC)
-
-  override def parties: Future[List[PartyDetails]] =
-    ledgerDao.getParties
-
-  override def listLfPackages(): Future[Map[PackageId, PackageDetails]] =
-    ledgerDao.listLfPackages
-
-  override def getLfArchive(packageId: PackageId): Future[Option[Archive]] =
-    ledgerDao.getLfArchive(packageId)
-
-  override def getLfPackage(packageId: PackageId): Future[Option[Ast.Package]] =
-    ledgerDao
-      .getLfArchive(packageId)
-      .flatMap(archiveO =>
-        Future.fromTry(Try(archiveO.map(archive => Decode.decodeArchive(archive)._2))))(DEC)
 
   override def uploadPackages(
       knownSince: Instant,
@@ -348,7 +300,7 @@ private class SqlLedger(
     val packages = payload.map(archive =>
       (archive, PackageDetails(archive.getPayload.size().toLong, knownSince, sourceDescription)))
     ledgerDao
-      .uploadLfPackages(submissionId, packages)
+      .uploadLfPackages(submissionId, packages, None)
       .map { result =>
         result.get(PersistenceResponse.Ok).fold(logger.info(s"No package uploaded")) { uploaded =>
           logger.info(s"Successfully uploaded $uploaded packages")
@@ -380,6 +332,7 @@ private class SqlLedgerFactory(ledgerDao: LedgerDao) {
     *                             used if starting from a fresh database.
     * @param queueDepth      the depth of the buffer for persisting entries. When gets full, the system will signal back-pressure
     *                        upstream
+    * @param parallelLedgerAppend whether to append to the ledger in parallelized batches
     * @return a compliant Ledger implementation
     */
   def createSqlLedger(
@@ -389,7 +342,9 @@ private class SqlLedgerFactory(ledgerDao: LedgerDao) {
       acs: InMemoryActiveContracts,
       packages: InMemoryPackageStore,
       initialLedgerEntries: ImmArray[LedgerEntryOrBump],
-      queueDepth: Int)(implicit mat: Materializer): Future[SqlLedger] = {
+      queueDepth: Int,
+      parallelLedgerAppend: Boolean
+  )(implicit mat: Materializer): Future[SqlLedger] = {
     @SuppressWarnings(Array("org.wartremover.warts.ExplicitImplicitTypes"))
     implicit val ec = DEC
 
@@ -406,7 +361,15 @@ private class SqlLedgerFactory(ledgerDao: LedgerDao) {
     for {
       ledgerId <- init()
       ledgerEnd <- ledgerDao.lookupLedgerEnd()
-    } yield new SqlLedger(ledgerId, ledgerEnd, ledgerDao, timeProvider, packages, queueDepth)
+    } yield
+      new SqlLedger(
+        ledgerId,
+        ledgerEnd,
+        ledgerDao,
+        timeProvider,
+        packages,
+        queueDepth,
+        parallelLedgerAppend)
   }
 
   private def reset(): Future[Unit] =
@@ -502,6 +465,7 @@ private class SqlLedgerFactory(ledgerDao: LedgerDao) {
   }
 
   private def copyPackages(store: InMemoryPackageStore, knownSince: Instant): Future[Unit] = {
+
     val packageDetails = store.listLfPackagesSync()
     if (packageDetails.nonEmpty) {
       logger.info(s"Copying initial packages ${packageDetails.keys.mkString(",")}")
@@ -512,7 +476,7 @@ private class SqlLedgerFactory(ledgerDao: LedgerDao) {
         archive -> PackageDetails(archive.getPayload.size.toLong, knownSince, None)
       })
       ledgerDao
-        .uploadLfPackages(submissionId, packages)
+        .uploadLfPackages(submissionId, packages, None)
         .transform(_ => (), e => sys.error("Failed to copy initial packages: " + e.getMessage))(DEC)
     } else {
       Future.successful(())

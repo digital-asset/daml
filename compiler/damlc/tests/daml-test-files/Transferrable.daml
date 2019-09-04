@@ -1,0 +1,37 @@
+daml 1.2
+module Transferrable where
+
+import Asset
+
+template (Asset t, Template (TransferProposal t)) => Transferrable t
+  with
+    asset: t
+  where
+    signatory asset.issuer, asset.owner
+
+    controller asset.owner can
+      ProposeTransfer: ContractId (TransferProposal t)
+        with newOwner: Party
+        do create TransferProposal with
+            assetToTransfer = this
+            newOwner
+
+template (Asset t, Template (Transferrable t)) => TransferProposal t
+  with
+    assetToTransfer: Transferrable t
+    newOwner: Party
+  where
+    let owner = assetToTransfer.asset.owner
+    signatory owner
+
+    controller owner can
+      WithdrawTransfer: ContractId (Transferrable t)
+        do create assetToTransfer
+
+    controller newOwner can
+      RejectTransfer: ContractId (Transferrable t)
+        do create assetToTransfer
+
+      AcceptTransfer: ContractId (Transferrable t)
+        do create Transferrable with
+            asset = assetToTransfer.asset with owner = newOwner

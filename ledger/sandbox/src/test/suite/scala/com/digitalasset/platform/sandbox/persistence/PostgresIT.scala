@@ -3,12 +3,16 @@
 
 package com.digitalasset.platform.sandbox.persistence
 
-import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.HikariJdbcConnectionProvider
+import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.{
+  HikariJdbcConnectionProvider,
+  JdbcLedgerDao
+}
 import org.scalatest._
 
 class PostgresIT extends WordSpec with Matchers with PostgresAroundAll {
 
-  private lazy val connectionProvider = HikariJdbcConnectionProvider(postgresFixture.jdbcUrl, 4, 4)
+  private lazy val connectionProvider =
+    HikariJdbcConnectionProvider(postgresFixture.jdbcUrl, JdbcLedgerDao.Postgres, 4, 4)
 
   "Postgres" when {
 

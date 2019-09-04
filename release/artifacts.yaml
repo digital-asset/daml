@@ -4,12 +4,12 @@
   src-jar: daml_lf_archive_java_srcjar.jar
   mavenUpload: True
 - target: //daml-lf/data:data
-  type: jar
+  type: jar-scala
 - target: //compiler/damlc/jar:damlc_jar
   type: jar-deploy
   platformDependent: True
 - target: //daml-lf/archive:daml_lf_archive_scala
-  type: jar
+  type: jar-scala
 - target: //daml-lf/archive:daml_lf_archive_protos_zip
   type: zip
   location:
@@ -29,9 +29,9 @@
 - target: //daml-lf/transaction:transaction
   type: jar-scala
 - target: //daml-lf/data-scalacheck:data-scalacheck
-  type: jar
+  type: jar-scala
 - target: //daml-lf/transaction-scalacheck:transaction-scalacheck
-  type: jar
+  type: jar-scala
 - target: //daml-lf/language:language
   type: jar-scala
 - target: //daml-lf/interface:interface
@@ -46,8 +46,6 @@
   type: jar-scala
 - target: //daml-lf/repl:repl
   type: jar
-- target: //daml-lf/testing-tools:testing-tools
-  type: jar-scala
 - target: //ledger-api/grpc-definitions:ledger-api-protos-tarball
   type: targz
   mavenUpload: True
@@ -135,3 +133,5 @@
   type: jar-scala
 - target: //ledger-service/http-json:http-json
   type: jar-scala
+- target: //ledger-service/http-json:http-json-binary
+  type: jar-deploy

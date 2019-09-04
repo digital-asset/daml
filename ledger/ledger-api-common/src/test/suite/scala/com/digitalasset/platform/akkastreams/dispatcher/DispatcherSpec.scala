@@ -77,7 +77,7 @@ class DispatcherSpec
 
   def gen(
       count: Int,
-      publishTo: Option[Dispatcher[Index, Value]] = None,
+      publishTo: Option[Dispatcher[Index]] = None,
       meanDelayMs: Int = 0): IndexedSeq[(Index, Value)] = {
     def genManyHelper(i: Index, count: Int): Stream[(Index, Value)] = {
       if (count == 0) {
@@ -101,7 +101,7 @@ class DispatcherSpec
     genManyHelper(latest.get(), count).toIndexedSeq.map { case (i, v) => (i, v) }
   }
 
-  def publish(head: Index, dispatcher: Dispatcher[Index, Value], meanDelayMs: Int = 0): Unit = {
+  def publish(head: Index, dispatcher: Dispatcher[Index], meanDelayMs: Int = 0): Unit = {
     publishedHead.set(head)
     dispatcher.signalNewHead(head)
     Thread.sleep(r.nextInt(meanDelayMs + 1).toLong * 2)
@@ -111,16 +111,21 @@ class DispatcherSpec
     * Collect the actual results between start (exclusive) and stop (inclusive) from the given Dispatcher,
     * then cancels the obtained stream.
     */
-  private def collect(start: Index, stop: Index, src: Dispatcher[Index, Value], delayMs: Int = 0) =
+  private def collect(
+      start: Index,
+      stop: Index,
+      src: Dispatcher[Index],
+      subSrc: SubSource[Index, Value],
+      delayMs: Int = 0) =
     if (delayMs > 0) {
       src
-        .startingAt(start)
+        .startingAt(start, subSrc)
         .delay(Duration(delayMs.toLong, TimeUnit.MILLISECONDS), DelayOverflowStrategy.backpressure)
         .takeWhile(_._1 != stop, inclusive = true)
         .runWith(Sink.collection)
     } else {
       src
-        .startingAt(start)
+        .startingAt(start, subSrc)
         .takeWhile(_._1 != stop, inclusive = true)
         .runWith(Sink.collection)
     }
@@ -150,18 +155,8 @@ class DispatcherSpec
         .throttle(1, delayMs.milliseconds * 2)
   )
 
-  def vanillaDispatcher(
-      begin: Index = genesis,
-      end: Index = genesis,
-      steppingMode: SubSource[Index, Value]): Dispatcher[Index, Value] =
-    Dispatcher[Index, Value](steppingMode, begin, end)
-
-  def slowDispatcher(steppingMode: SubSource[Index, Value]): Dispatcher[Index, Value] =
-    Dispatcher[Index, Value](
-      steppingMode,
-      genesis,
-      genesis
-    )
+  def newDispatcher(begin: Index = genesis, end: Index = genesis): Dispatcher[Index] =
+    Dispatcher[Index](begin, end)
 
   private def forAllSteppingModes(
       oneAfterAnother: OneAfterAnother[Index, Value] = oneAfterAnotherSteppingMode,
@@ -176,21 +171,20 @@ class DispatcherSpec
   "A Dispatcher" should {
 
     "fail to initialize if end index < begin index" in {
-      forAllSteppingModes() { sm =>
-        recoverToSucceededIf[IllegalArgumentException](
-          Future(vanillaDispatcher(Index(0), Index(-1), sm)))
+      forAllSteppingModes() { subSrc =>
+        recoverToSucceededIf[IllegalArgumentException](Future(newDispatcher(Index(0), Index(-1))))
       }
     }
 
     "return errors after being started and stopped" in {
-      forAllSteppingModes() { sm =>
-        val dispatcher = vanillaDispatcher(steppingMode = sm)
+      forAllSteppingModes() { subSrc =>
+        val dispatcher = newDispatcher()
 
         dispatcher.close()
 
         dispatcher.signalNewHead(Index(1)) // should not throw
         dispatcher
-          .startingAt(Index(0))
+          .startingAt(Index(0), subSrc)
           .runWith(Sink.ignore)
           .failed
           .map(_ shouldBe a[IllegalStateException])
@@ -198,25 +192,25 @@ class DispatcherSpec
     }
 
     "work with one outlet" in {
-      forAllSteppingModes() { sm =>
-        val dispatcher = vanillaDispatcher(steppingMode = sm)
+      forAllSteppingModes() { subSrc =>
+        val dispatcher = newDispatcher()
         val pairs = gen(100)
-        val out = collect(genesis, pairs.last._1, dispatcher)
+        val out = collect(genesis, pairs.last._1, dispatcher, subSrc)
         publish(latest.get(), dispatcher)
         out.map(_ shouldEqual pairs)
       }
     }
 
     "complete when the dispatcher completes" in {
-      forAllSteppingModes() { sm =>
-        val dispatcher = vanillaDispatcher(steppingMode = sm)
+      forAllSteppingModes() { subSrc =>
+        val dispatcher = newDispatcher()
         val pairs50 = gen(50)
         val pairs100 = gen(50)
         val i49 = pairs50.last._1
 
         publish(i49.next, dispatcher)
         // latest.get() will never be published
-        val out = collect(i49.next, latest.get(), dispatcher)
+        val out = collect(i49.next, latest.get(), dispatcher, subSrc)
         publish(latest.get(), dispatcher)
 
         dispatcher.close()
@@ -226,15 +220,15 @@ class DispatcherSpec
     }
 
     "work with mid-stream subscriptions" in {
-      forAllSteppingModes() { sm =>
-        val dispatcher = vanillaDispatcher(steppingMode = sm)
+      forAllSteppingModes() { subSrc =>
+        val dispatcher = newDispatcher()
 
         val pairs50 = gen(50)
         val pairs100 = gen(50)
         val i49 = pairs50.last._1
 
         publish(i49.next, dispatcher)
-        val out = collect(i49.next, pairs100.last._1, dispatcher)
+        val out = collect(i49.next, pairs100.last._1, dispatcher, subSrc)
         publish(latest.get(), dispatcher)
 
         out.map(_ shouldEqual pairs100)
@@ -242,13 +236,13 @@ class DispatcherSpec
     }
 
     "work with mid-stream cancellation" in {
-      forAllSteppingModes() { sm =>
-        val dispatcher = vanillaDispatcher(steppingMode = sm)
+      forAllSteppingModes() { subSrc =>
+        val dispatcher = newDispatcher()
 
         val pairs50 = gen(50)
         val i50 = pairs50.last._1
         // the below cancels the stream after reaching element 50
-        val out = collect(genesis, i50, dispatcher)
+        val out = collect(genesis, i50, dispatcher, subSrc)
         gen(50, publishTo = Some(dispatcher))
 
         out.map(_ shouldEqual pairs50)
@@ -256,8 +250,8 @@ class DispatcherSpec
     }
 
     "work with many outlets at different start/end indices" in {
-      forAllSteppingModes() { sm =>
-        val dispatcher = vanillaDispatcher(steppingMode = sm)
+      forAllSteppingModes() { subSrc =>
+        val dispatcher = newDispatcher()
 
         val pairs25 = gen(25)
         val pairs50 = gen(25)
@@ -267,13 +261,13 @@ class DispatcherSpec
         val i50 = pairs50.last._1
         val i75 = pairs75.last._1
 
-        val outF = collect(genesis, i50, dispatcher)
+        val outF = collect(genesis, i50, dispatcher, subSrc)
         publish(i25.next, dispatcher)
-        val out25F = collect(i25.next, i75, dispatcher)
+        val out25F = collect(i25.next, i75, dispatcher, subSrc)
         publish(i50.next, dispatcher)
-        val out50F = collect(i50.next, latest.get(), dispatcher)
+        val out50F = collect(i50.next, latest.get(), dispatcher, subSrc)
         publish(i75.next, dispatcher)
-        val out75F = collect(i75.next, latest.get(), dispatcher)
+        val out75F = collect(i75.next, latest.get(), dispatcher, subSrc)
         publish(latest.get(), dispatcher)
 
         dispatcher.close()
@@ -284,8 +278,8 @@ class DispatcherSpec
 
     "work with slow producers and consumers" in {
       forAllSteppingModes(slowOneAfterAnotherSteppingMode(10), slowRangeQuerySteppingMode(10)) {
-        sm =>
-          val dispatcher = slowDispatcher(sm)
+        subSrc =>
+          val dispatcher = newDispatcher()
 
           val pairs25 = gen(25)
           val pairs50 = gen(25)
@@ -295,13 +289,13 @@ class DispatcherSpec
           val i50 = pairs50.last._1
           val i75 = pairs75.last._1
 
-          val outF = collect(genesis, i50, dispatcher, delayMs = 10)
+          val outF = collect(genesis, i50, dispatcher, subSrc, delayMs = 10)
           publish(i25.next, dispatcher)
-          val out25F = collect(i25.next, i75, dispatcher, delayMs = 10)
+          val out25F = collect(i25.next, i75, dispatcher, subSrc, delayMs = 10)
           publish(i50.next, dispatcher)
-          val out50F = collect(i50.next, latest.get(), dispatcher, delayMs = 10)
+          val out50F = collect(i50.next, latest.get(), dispatcher, subSrc, delayMs = 10)
           publish(i75.next, dispatcher)
-          val out75F = collect(i75.next, latest.get(), dispatcher, delayMs = 10)
+          val out75F = collect(i75.next, latest.get(), dispatcher, subSrc, delayMs = 10)
           publish(latest.get(), dispatcher)
 
           dispatcher.close()
@@ -311,14 +305,14 @@ class DispatcherSpec
     }
 
     "handle subscriptions for future elements by waiting for the ledger end to reach them" in {
-      forAllSteppingModes() { sm =>
-        val dispatcher = vanillaDispatcher(steppingMode = sm)
+      forAllSteppingModes() { subSrc =>
+        val dispatcher = newDispatcher()
 
         val startIndex = 10
         val pairs25 = gen(25).drop(startIndex)
         val i25 = pairs25.last._1
 
-        val resultsF = collect(Index(startIndex), i25, dispatcher)
+        val resultsF = collect(Index(startIndex), i25, dispatcher, subSrc)
         publish(i25.next, dispatcher)
         for {
           results <- resultsF
@@ -330,21 +324,23 @@ class DispatcherSpec
     }
 
     "stall subscriptions for future elements until the ledger end reaches the start index" in {
-      val dispatcher = vanillaDispatcher(steppingMode = oneAfterAnotherSteppingMode)
+      val dispatcher = newDispatcher()
 
       val startIndex = 10
       val pairs25 = gen(25).drop(startIndex)
       val i25 = pairs25.last._1
 
-      expectTimeout(collect(Index(startIndex), i25, dispatcher), 1.second).andThen {
+      expectTimeout(
+        collect(Index(startIndex), i25, dispatcher, oneAfterAnotherSteppingMode),
+        1.second).andThen {
         case _ => dispatcher.close()
       }
     }
 
     "tolerate non-monotonic Head updates" in {
-      val dispatcher = vanillaDispatcher(steppingMode = oneAfterAnotherSteppingMode)
+      val dispatcher = newDispatcher()
       val pairs = gen(100)
-      val out = collect(genesis, pairs.last._1, dispatcher)
+      val out = collect(genesis, pairs.last._1, dispatcher, oneAfterAnotherSteppingMode)
       val updateCount = 10
       val random = new Random()
       1.to(updateCount).foreach(_ => dispatcher.signalNewHead(Index(random.nextInt(100))))

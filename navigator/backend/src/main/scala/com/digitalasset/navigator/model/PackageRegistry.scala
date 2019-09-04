@@ -126,11 +126,11 @@ case class PackageRegistry(
         instantiatesRemaining: Int
     ): Map[DamlLfIdentifier, DamlLfDefDataType] = {
       typ match {
-        case t @ DamlLfTypeVar(_) => deps
-        case t @ DamlLfTypePrim(_, vars) =>
+        case DamlLfTypeVar(_) | DamlLfTypeNumeric(_) => deps
+        case DamlLfTypePrim(_, vars) =>
           vars.foldLeft(deps)((r, v) => foldType(v, r, instantiatesRemaining))
-        case t @ DamlLfTypeCon(name, vars) =>
-          deps.get(t.name.identifier) match {
+        case DamlLfTypeCon(name, vars) =>
+          deps.get(name.identifier) match {
             // Dependency already added
             case Some(_) => deps
             // New dependency

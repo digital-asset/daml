@@ -6,10 +6,9 @@ load(
     "da_scala_binary",
 )
 load(
-    "//bazel_tools/client_server_test:client_server_test.bzl",
-    "client_server_test",
+    "//ledger/ledger-api-test-tool:conformance.bzl",
+    "conformance_test",
 )
-load("@os_info//:os_info.bzl", "is_windows")
 
 da_scala_binary(
     name = "reference-v2",
@@ -20,6 +19,7 @@ da_scala_binary(
     runtime_deps = [
         "//3rdparty/jvm/ch/qos/logback:logback_classic",
         "//3rdparty/jvm/ch/qos/logback:logback_core",
+        "//3rdparty/jvm/com/h2database:h2",
     ],
     deps = [
         "//3rdparty/jvm/com/github/scopt",
@@ -62,28 +62,40 @@ da_scala_binary(
     ],
 )
 
-client_server_test(
+conformance_test(
     name = "conformance-test",
-    timeout = "long",
-    client = "//ledger/ledger-api-test-tool:ledger-api-test-tool",
-    client_args = [
-        "--all-tests",
-        "--exclude TimeIT",
-    ],
-    data = [
-        "//ledger/test-common:dar-files",
+    extra_data = [
         "@postgresql_dev_env//:all",
         "@postgresql_dev_env//:createdb",
         "@postgresql_dev_env//:initdb",
         "@postgresql_dev_env//:pg_ctl",
     ],
     server = ":ephemeral-postgres-reference-server",
-    server_files = [
-        "$(rootpaths //ledger/test-common:dar-files)",
+    server_args = [
+        "--port 6865",
     ],
-    tags = [
-        "dont-run-on-darwin",
-        # NOTE(JM): As this test is somewhat heavy and has timeouts, run it without competition to avoid flakyness.
-        "exclusive",
+    test_tool_args = [
+        "--all-tests",
+        "--exclude TimeIT",
     ],
-) if not is_windows else None
+)
+
+conformance_test(
+    name = "conformance-test-h2database",
+    extra_data = [
+        "@postgresql_dev_env//:all",
+        "@postgresql_dev_env//:createdb",
+        "@postgresql_dev_env//:initdb",
+        "@postgresql_dev_env//:pg_ctl",
+    ],
+    server = ":reference-v2",
+    server_args = [
+        "--port 6865",
+        "--jdbc-url jdbc:h2:mem:daml_on_x;db_close_on_exit=false",
+    ],
+    test_tool_args = [
+        "--all-tests",
+        "--exclude TimeIT",
+        "--timeout-scale-factor=10",
+    ],
+)

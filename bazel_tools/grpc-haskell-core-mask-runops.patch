@@ -1,0 +1,32 @@
+From 387b62134deebe39aadd8db13c09c0ce5c98b2c7 Mon Sep 17 00:00:00 2001
+From: Moritz Kiefer <moritz.kiefer@purelyfunctional.org>
+Date: Wed, 28 Aug 2019 13:34:23 +0200
+Subject: [PATCH] Mask body of runOps to avoid a heap corruption
+
+---
+ core/src/Network/GRPC/LowLevel/Op.hs | 9 ++++++++-
+ 1 file changed, 8 insertions(+), 1 deletion(-)
+
+diff --git a/core/src/Network/GRPC/LowLevel/Op.hs b/core/src/Network/GRPC/LowLevel/Op.hs
+index 32244d0..ed8cd8e 100644
+--- a/core/src/Network/GRPC/LowLevel/Op.hs
++++ b/core/src/Network/GRPC/LowLevel/Op.hs
+@@ -208,7 +208,14 @@ runOps :: C.Call
+        -> IO (Either GRPCIOError [OpRecvResult])
+ runOps call cq ops =
+   let l = length ops in
+-    withOpArrayAndCtxts ops $ \(opArray, contexts) -> do
++    -- It is crucial to mask exceptions here. If we don’t do this, we can
++    -- run into the following situation:
++    --
++    -- 1. We allocate an OpContext, e.g., OpRecvMessageContext and the corresponding ByteBuffer.
++    -- 2. We pass the buffer to gRPC in startBatch.
++    -- 3. If we now get an exception we will free the ByteBuffer.
++    -- 4. gRPC can now end up writing to the freed ByteBuffer and we get a heap corruption.
++    withOpArrayAndCtxts ops $ \(opArray, contexts) -> mask_ $ do
+       grpcDebug $ "runOps: allocated op contexts: " ++ show contexts
+       tag <- newTag cq
+       grpcDebug $ "runOps: tag: " ++ show tag
+-- 
+2.23.0
+

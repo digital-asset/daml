@@ -4,7 +4,7 @@
 package com.digitalasset.codegen.lf
 
 import com.digitalasset.codegen.lf.DamlDataTypeGen.DataType
-import com.digitalasset.daml.lf.iface.{Type, TypeVar, TypeCon, TypePrim}
+import com.digitalasset.daml.lf.iface
 import scalaz.Monoid
 import scalaz.std.list._
 import scalaz.std.set._
@@ -21,14 +21,15 @@ object UsedTypeParams {
   def collectTypeParamsInUse(typeDecl: DataType): Set[String] =
     foldMapGenTypes(typeDecl)(collectTypeParams)
 
-  private def foldMapGenTypes[Z: Monoid](typeDecl: DataType)(f: Type => Z): Z = {
+  private def foldMapGenTypes[Z: Monoid](typeDecl: DataType)(f: iface.Type => Z): Z = {
     val notAGT = (s: String) => mzero[Z]
     typeDecl.foldMap(_.bifoldMap(f)(_.bifoldMap(_ foldMap (_.bifoldMap(notAGT)(f)))(f)))
   }
 
-  private def collectTypeParams(field: Type): Set[String] = field match {
-    case TypeVar(x) => Set(x)
-    case TypePrim(_, xs) => xs.toSet.flatMap(collectTypeParams)
-    case TypeCon(_, xs) => xs.toSet.flatMap(collectTypeParams)
+  private def collectTypeParams(field: iface.Type): Set[String] = field match {
+    case iface.TypeVar(x) => Set(x)
+    case iface.TypePrim(_, xs) => xs.toSet.flatMap(collectTypeParams)
+    case iface.TypeCon(_, xs) => xs.toSet.flatMap(collectTypeParams)
+    case iface.TypeNumeric(_) => Set.empty
   }
 }

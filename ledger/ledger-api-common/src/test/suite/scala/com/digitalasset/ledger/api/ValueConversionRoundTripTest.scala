@@ -121,23 +121,23 @@ class ValueConversionRoundTripTest
 
       val testCases = Table(
         "input/output",
-        "0" -> "0.0",
-        "0.0" -> "0.0",
+        "0" -> "0.",
+        "0.0" -> "0.",
         "3.1415926536" -> "3.1415926536",
-        ("1" + "0" * 27) -> ("1" + "0" * 27 + ".0"),
+        ("1" + "0" * 27) -> ("1" + "0" * 27 + "."),
         ("1" + "0" * 27 + "." + "0" * 9 + "1") -> ("1" + "0" * 27 + "." + "0" * 9 + "1"),
         ("0." + "0" * 9 + "1") -> ("0." + "0" * 9 + "1"),
-        ("0" * 10 + "42") -> "42.0",
-        ("0" * 10 + "42." + "0" * 10) -> "42.0"
+        ("0" * 10 + "42") -> "42.",
+        ("0" * 10 + "42." + "0" * 10) -> "42."
       )
 
-      roundTrip(Value(Sum.Decimal("0"))) shouldNot equal(Value(Sum.Decimal("0")))
-      roundTrip(Value(Sum.Decimal("+1.0"))) shouldNot equal(Value(Sum.Decimal("+1.0")))
+      roundTrip(Value(Sum.Numeric("0"))) shouldNot equal(Value(Sum.Numeric("0")))
+      roundTrip(Value(Sum.Numeric("+1.0"))) shouldNot equal(Value(Sum.Numeric("+1.0")))
 
       forEvery(testCases) {
         case (input, expected) =>
-          roundTrip(Value(Sum.Decimal(input))) shouldEqual Right(Value(Sum.Decimal(expected)))
-          roundTrip(Value(Sum.Decimal("+" + input))) shouldEqual Right(Value(Sum.Decimal(expected)))
+          roundTrip(Value(Sum.Numeric(input))) shouldEqual Right(Value(Sum.Numeric(expected)))
+          roundTrip(Value(Sum.Numeric("+" + input))) shouldEqual Right(Value(Sum.Numeric(expected)))
       }
     }
 
@@ -145,21 +145,21 @@ class ValueConversionRoundTripTest
 
       val testCases = Table(
         "input/output",
-        "-0" -> "0.0",
-        "-0.0" -> "0.0",
+        "-0" -> "0.",
+        "-0.0" -> "0.",
         "-3.1415926536" -> "-3.1415926536",
-        ("-1" + "0" * 27) -> ("-1" + "0" * 27 + ".0"),
+        ("-1" + "0" * 27) -> ("-1" + "0" * 27 + "."),
         ("-1" + "0" * 27 + "." + "0" * 9 + "1") -> ("-1" + "0" * 27 + "." + "0" * 9 + "1"),
         ("-0." + "0" * 9 + "1") -> ("-0." + "0" * 9 + "1"),
-        ("-" + "0" * 10 + "42") -> "-42.0",
-        ("-" + "0" * 10 + "42." + "0" * 10) -> "-42.0"
+        ("-" + "0" * 10 + "42") -> "-42.",
+        ("-" + "0" * 10 + "42." + "0" * 10) -> "-42."
       )
 
-      roundTrip(Value(Sum.Decimal("-0"))) shouldNot equal(Value(Sum.Decimal("-0")))
+      roundTrip(Value(Sum.Numeric("-0"))) shouldNot equal(Value(Sum.Numeric("-0")))
 
       forEvery(testCases) {
         case (input, expected) =>
-          roundTrip(Value(Sum.Decimal(input))) shouldEqual Right(Value(Sum.Decimal(expected)))
+          roundTrip(Value(Sum.Numeric(input))) shouldEqual Right(Value(Sum.Numeric(expected)))
       }
     }
   }

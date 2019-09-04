@@ -6,10 +6,9 @@ load(
     "da_scala_binary",
 )
 load(
-    "//bazel_tools/client_server_test:client_server_test.bzl",
-    "client_server_test",
+    "//ledger/ledger-api-test-tool:conformance.bzl",
+    "conformance_test",
 )
-load("@os_info//:os_info.bzl", "is_windows")
 
 da_scala_binary(
     name = "reference",
@@ -43,24 +42,17 @@ da_scala_binary(
     ],
 )
 
-client_server_test(
+conformance_test(
     name = "conformance-test",
-    timeout = "short",
-    client = "//ledger/ledger-api-test-tool:ledger-api-test-tool",
-    client_args = [
-        "--exclude=*",
-        "--include=SemanticTests,ContractKeysIT",
-    ],
-    data = [
+    extra_data = [
         "//ledger/test-common:Test-stable.dar",
-        "//ledger/test-common:dar-files",
     ],
     server = ":reference",
-    server_files = [
-        "$(rootpaths //ledger/test-common:dar-files)",
+    server_args = [
+        "--port 6865",
     ],
-    tags = [
-        # NOTE(JM): As this test is somewhat heavy and has timeouts, run it without competition to avoid flakyness.
-        "exclusive",
+    test_tool_args = [
+        "--exclude=*",
+        "--include=SemanticTests,ContractKeysIT",
     ],
 )

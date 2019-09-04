@@ -3,9 +3,11 @@
 module DA.Daml.Compiler.Dar
     ( buildDar
     , FromDalf(..)
-    , breakAt72Chars
+    , breakAt72Bytes
     , PackageConfigFields(..)
     , pkgNameVersion
+    , getSrcRoot
+    , getDamlFiles
     ) where
 
 import qualified "zip" Codec.Archive.Zip as Zip
@@ -18,20 +20,22 @@ import DA.Daml.Options.Types
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.Lazy.Char8 as BSC
+import qualified Data.ByteString.Lazy.UTF8 as BSLUTF8
 import Data.Conduit.Combinators (sourceFile, sourceLazy)
 import Data.List.Extra
 import qualified Data.Map.Strict as Map
 import Data.Maybe
+import qualified Data.NameMap as NM
 import qualified Data.Set as S
 import qualified Data.Text as T
 import Development.IDE.Core.API
 import Development.IDE.Core.RuleTypes.Daml
 import Development.IDE.Core.Rules.Daml
-import Development.IDE.GHC.Util
 import Development.IDE.Types.Location
 import qualified Development.IDE.Types.Logger as IdeLogger
 import Module
 import SdkVersion
+import System.Directory.Extra
 import System.FilePath
 
 ------------------------------------------------------------------------------
@@ -67,7 +71,7 @@ newtype FromDalf = FromDalf
 -- | daml.yaml config fields specific to packaging.
 data PackageConfigFields = PackageConfigFields
     { pName :: String
-    , pMain :: String
+    , pSrc :: String
     , pExposedModules :: Maybe [String]
     , pVersion :: String
     , pDependencies :: [String]
@@ -83,19 +87,17 @@ buildDar ::
 buildDar service pkgConf@PackageConfigFields {..} ifDir dalfInput = do
     liftIO $
         IdeLogger.logDebug (ideLogger service) $
-        "Creating dar: " <> T.pack pMain
+        "Creating dar: " <> T.pack pSrc
     if unFromDalf dalfInput
         then do
-            bytes <- BSL.readFile pMain
+            bytes <- BSL.readFile pSrc
+            -- in the dalfInput case we interpret pSrc as the filepath pointing to the dalf.
             pure $ Just $ createArchive pkgConf "" bytes [] (toNormalizedFilePath ".") [] [] []
         else runAction service $
              runMaybeT $ do
-                 WhnfPackage pkg <- useE GeneratePackage file
-                 parsedMain <- useE GetParsedModule file
-                 let srcRoot =
-                         toNormalizedFilePath $
-                         fromMaybe (error "Cannot determine source root") $
-                         moduleImportPaths parsedMain
+                 files <- liftIO $ getDamlFiles pSrc
+                 pkgs <- usesE GeneratePackage files
+                 let pkg = mergePkgs pkgs
                  let pkgModuleNames = map T.unpack $ LF.packageModuleNames pkg
                  let missingExposed =
                          S.fromList (fromMaybe [] pExposedModules) S.\\
@@ -107,17 +109,15 @@ buildDar service pkgConf@PackageConfigFields {..} ifDir dalfInput = do
                      show (S.toList missingExposed)
                  let (dalf, pkgId) = encodeArchiveAndHash pkg
                  -- create the interface files
-                 ifaces <- MaybeT $ writeIfacesAndHie ifDir file
+                 ifaces <- MaybeT $ writeIfacesAndHie ifDir files
                  -- get all dalf dependencies.
-                 dalfDependencies0 <- getDalfDependencies file
+                 dalfDependencies0 <- getDalfDependencies files
                  let dalfDependencies =
                          [ (T.pack $ unitIdString unitId, dalfPackageBytes pkg)
                          | (unitId, pkg) <- Map.toList dalfDependencies0
                          ]
-                 -- get all file dependencies
-                 fileDependencies <- MaybeT $ getDependencies file
-                 let dataFiles =
-                         [mkConfFile pkgConf pkgModuleNames (T.unpack pkgId)]
+                 let dataFiles = [mkConfFile pkgConf pkgModuleNames (T.unpack pkgId)]
+                 srcRoot <- liftIO $ getSrcRoot pSrc
                  pure $
                      createArchive
                          pkgConf
@@ -125,11 +125,41 @@ buildDar service pkgConf@PackageConfigFields {..} ifDir dalfInput = do
                          dalf
                          dalfDependencies
                          srcRoot
-                         (file : fileDependencies)
+                         files
                          dataFiles
                          ifaces
-  where
-    file = toNormalizedFilePath pMain
+
+-- For backwards compatibility we allow a file at the source root level and just take it's directory
+-- to be the source root.
+getSrcRoot :: FilePath -> IO NormalizedFilePath
+getSrcRoot fileOrDir = do
+  isDir <- doesDirectoryExist fileOrDir
+  pure $ toNormalizedFilePath $ if isDir then fileOrDir else takeDirectory fileOrDir
+
+-- | Merge several packages into one.
+mergePkgs :: [WhnfPackage] -> LF.Package
+mergePkgs [] = error "No package build when building dar"
+mergePkgs (WhnfPackage pkg0:pkgs) =
+    foldl
+        (\pkg1 (WhnfPackage pkg2) ->
+             LF.Package
+                 { LF.packageLfVersion = LF.packageLfVersion pkg2
+                 , LF.packageModules = LF.packageModules pkg1 `NM.union` LF.packageModules pkg2
+                 })
+        pkg0
+        pkgs
+
+-- | Find all DAML files below a given source root. If the source root is a file we interpret it as
+-- main and just return that one file.
+getDamlFiles :: FilePath -> IO [NormalizedFilePath]
+getDamlFiles srcRoot = do
+    isDir <- doesDirectoryExist srcRoot
+    if isDir
+        then do
+            fs <- listFilesRecursive srcRoot
+            pure $
+                map toNormalizedFilePath $ filter (".daml" `isExtensionOf`) fs
+        else pure [toNormalizedFilePath srcRoot]
 
 fullPkgName :: String -> String -> String -> String
 fullPkgName n v h = intercalate "-" [n, v, h]
@@ -213,14 +243,13 @@ createArchive PackageConfigFields {..} pkgId dalf dalfDependencies srcRoot fileD
     pkgName = fullPkgName pName pVersion pkgId
     manifestHeader :: FilePath -> [String] -> BSL.ByteString
     manifestHeader location dalfs =
-        BSC.pack $
-        unlines
+        BSC.unlines $
+        map (breakAt72Bytes . BSLUTF8.fromString)
             [ "Manifest-Version: 1.0"
-            , "Created-By: Digital Asset packager (DAML-GHC)"
+            , "Created-By: damlc"
             , "Sdk-Version: " <> pSdkVersion
-            , breakAt72Chars $ "Main-Dalf: " <> toPosixFilePath location
-            , breakAt72Chars $
-              "Dalfs: " <> intercalate ", " (map toPosixFilePath dalfs)
+            , "Main-Dalf: " <> toPosixFilePath location
+            , "Dalfs: " <> intercalate ", " (map toPosixFilePath dalfs)
             , "Format: daml-lf"
             , "Encryption: non-encrypted"
             ]
@@ -231,11 +260,13 @@ createArchive PackageConfigFields {..} pkgId dalf dalfDependencies srcRoot fileD
 
 -- | Break lines at 72 characters and indent following lines by one space. As of MANIFEST.md
 -- specification.
-breakAt72Chars :: String -> String
-breakAt72Chars s =
-    case splitAt 72 s of
-        (s0, []) -> s0
-        (s0, rest) -> s0 ++ "\n" ++ breakAt72Chars (" " ++ rest)
+breakAt72Bytes :: BSL.ByteString -> BSL.ByteString
+breakAt72Bytes s =
+    -- We break at 71 to give us one byte for \n (BSC.unlines will always use \n, never \r\n).
+    case BSL.splitAt 71 s of
+        (s0, rest)
+            | BSL.null rest -> s0
+            | otherwise -> s0 <> "\n" <> breakAt72Bytes (BSC.cons ' ' rest)
 
 -- | Like `makeRelative` but also takes care of normalising filepaths so
 --

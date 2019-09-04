@@ -151,24 +151,26 @@ infixr 1 :->
 pattern (:->) :: Type -> Type -> Type
 pattern a :-> b = TArrow `TApp` a `TApp` b
 
-pattern TUnit, TBool, TInt64, TDecimal, TText, TTimestamp, TParty, TDate, TArrow :: Type
+pattern TUnit, TBool, TInt64, TDecimal, TText, TTimestamp, TParty, TDate, TArrow, TNumeric10 :: Type
 pattern TUnit       = TBuiltin BTUnit
 pattern TBool       = TBuiltin BTBool
 pattern TInt64      = TBuiltin BTInt64
-pattern TDecimal    = TBuiltin BTDecimal
+pattern TDecimal    = TBuiltin BTDecimal -- legacy decimal (LF version <= 1.6)
+pattern TNumeric10  = TNumeric (TNat 10) -- new decimal
 pattern TText       = TBuiltin BTText
 pattern TTimestamp  = TBuiltin BTTimestamp
 pattern TParty      = TBuiltin BTParty
 pattern TDate       = TBuiltin BTDate
 pattern TArrow      = TBuiltin BTArrow
 
-pattern TList, TOptional, TMap, TUpdate, TScenario, TContractId :: Type -> Type
+pattern TList, TOptional, TMap, TUpdate, TScenario, TContractId, TNumeric :: Type -> Type
 pattern TList typ = TApp (TBuiltin BTList) typ
 pattern TOptional typ = TApp (TBuiltin BTOptional) typ
 pattern TMap typ = TApp (TBuiltin BTMap) typ
 pattern TUpdate typ = TApp (TBuiltin BTUpdate) typ
 pattern TScenario typ = TApp (TBuiltin BTScenario) typ
 pattern TContractId typ = TApp (TBuiltin BTContractId) typ
+pattern TNumeric n = TApp (TBuiltin BTNumeric) n
 
 pattern TMapEntry :: Type -> Type
 pattern TMapEntry a = TTuple [(FieldName "key", TText), (FieldName "value", a)]
@@ -189,13 +191,18 @@ _TOptional = prism' TOptional $ \case
   _ -> Nothing
 
 _TUpdate :: Prism' Type Type
-_TUpdate = prism' TList $ \case
+_TUpdate = prism' TUpdate $ \case
   TUpdate typ -> Just typ
   _ -> Nothing
 
 _TScenario :: Prism' Type Type
-_TScenario = prism' TList $ \case
+_TScenario = prism' TScenario $ \case
   TScenario typ -> Just typ
+  _ -> Nothing
+
+_TNumeric :: Prism' Type Type
+_TNumeric = prism' TNumeric $ \case
+  TNumeric n -> Just n
   _ -> Nothing
 
 _TConApp :: Prism' Type (Qualified TypeConName, [Type])

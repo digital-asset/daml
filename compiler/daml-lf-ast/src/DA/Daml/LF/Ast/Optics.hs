@@ -18,6 +18,7 @@ module DA.Daml.LF.Ast.Optics(
     builtinType
     ) where
 
+import Numeric.Natural
 import Control.Lens
 import Control.Lens.Ast
 import Control.Lens.MonoTraversal
@@ -99,6 +100,7 @@ builtinType f =
         TBuiltin x -> TBuiltin <$> f x
         TForall b body -> TForall b <$> builtinType f body
         TTuple fs -> TTuple <$> (traverse . _2) (builtinType f) fs
+        TNat n -> pure $ TNat n
 
 type ModuleRef = (PackageRef, ModuleName)
 
@@ -137,6 +139,8 @@ instance MonoTraversable ModuleRef BuiltinExpr where monoTraverse _ = pure
 -- https://github.com/digital-asset/daml/pull/2327#discussion_r308445649 for
 -- discussion
 instance MonoTraversable ModuleRef SourceLoc where monoTraverse _ = pure
+
+instance MonoTraversable ModuleRef Natural where monoTraverse _ = pure
 
 instance MonoTraversable ModuleRef TypeConApp
 instance MonoTraversable ModuleRef Type
