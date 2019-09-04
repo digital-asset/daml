@@ -24,3 +24,7 @@ HEAD — ongoing
 + [DAML Integration Kit] **BREAKING CHANGE** The ``-p`` / ``--target-port`` and ``-h`` / ``--host``
   flags have been discontinued. Pass one (or more) endpoints to test as command line arguments in the
   ``<host>:<port>`` form.
++ [DAML Integration Kit] The reference implementation can now spin up multiple nodes, either scaling
+  a single participant horizontally or adding new participants. Check the CLI ``--help`` option.
++ [DAML Integration Kit] The test tool now runs the double spend test on a shared contract in a
+  multi-node setup (as well as single-node).
