@@ -112,10 +112,7 @@ jobs:
     dependsOn: [ "Linux", "macOS", "Windows", "Windows_signing", "perf"]
     pool:
       vmImage: "ubuntu-latest"
-    condition: "and(succeeded(),
-                   eq( dependencies.Linux.outputs['release.has_released'], 'true' ),
-                   eq( dependencies.macOS.outputs['release.has_released'], 'true' ),
-                   eq( dependencies.Windows.outputs['release.has_released'], 'true' ))"
+    condition: and(succeeded(), eq( dependencies.Linux.outputs['release.has_released'], 'true' ), eq( dependencies.macOS.outputs['release.has_released'], 'true' ), eq( dependencies.Windows.outputs['release.has_released'], 'true' ))
     steps:
       - template: ci/report-start.yml
       - checkout: self
