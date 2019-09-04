@@ -957,8 +957,12 @@ visualDamlTests = Tasty.testGroup "Visual Tests"
                 ]
             setFilesOfInterest [foo]
             expectedGraph foo (
-                ExpectedGraph [ExpectedSubGraph ["Create","Archive","Delete"]  ["owner"] "Coin"]
-                    [])
+                ExpectedGraph {expectedSubgraphs =
+                                [ExpectedSubGraph {expectedNodes = ["Create","Archive","Delete"]
+                                      , expectedTplFields = ["owner"]
+                                      , expectedTemplate = "Coin"}
+                                ]
+                                , expectedEdges = []})
         , testCase' "Fetch shoud not be an create action" $ do
             fetchTest <- makeModule "F"
                 [ "template Coin"
@@ -976,9 +980,11 @@ visualDamlTests = Tasty.testGroup "Visual Tests"
                 ]
             setFilesOfInterest [fetchTest]
             expectNoErrors
-            expectedGraph fetchTest (ExpectedGraph
-                [ ExpectedSubGraph ["Create","Archive","ReducedCoin"]  ["owner", "amount"] "Coin"]
-                [])
+            expectedGraph fetchTest ( ExpectedGraph {expectedSubgraphs =
+                                        [ExpectedSubGraph {expectedNodes = ["Create","Archive","ReducedCoin"]
+                                            , expectedTplFields = ["owner","amount"]
+                                            , expectedTemplate = "Coin"}]
+                              , expectedEdges = []})
         , testCase' "Exercise should add an edge" $ do
             exerciseTest <- makeModule "F"
                 [ "template TT"
@@ -1002,38 +1008,49 @@ visualDamlTests = Tasty.testGroup "Visual Tests"
             setFilesOfInterest [exerciseTest]
             expectNoErrors
             expectedGraph exerciseTest (ExpectedGraph
-                [ ExpectedSubGraph ["Create", "Archive", "Delete"] ["owner"] "Coin"
-                , ExpectedSubGraph ["Create", "Archive", "Consume"] ["owner"] "TT"]
-                [(ExpectedChoiceDetails {expectedConsuming = True, expectedName = "Consume"},ExpectedChoiceDetails {expectedConsuming = True, expectedName = "Delete"})]
-                )
+                [ ExpectedSubGraph { expectedNodes = ["Create", "Archive", "Delete"]
+                                   , expectedTplFields = ["owner"]
+                                   , expectedTemplate = "Coin"
+                                    }
+                , ExpectedSubGraph { expectedNodes = ["Create", "Archive", "Consume"]
+                                   , expectedTplFields = ["owner"]
+                                   , expectedTemplate = "TT"}]
+
+                [(ExpectedChoiceDetails {expectedConsuming = True
+                                        , expectedName = "Consume"},
+                  ExpectedChoiceDetails {expectedConsuming = True
+                                        , expectedName = "Delete"})
+                ])
         -- , testCase' "Create on other template should be edge" $ do
-            -- createTest <- makeModule "F"
-            --     [ "template TT"
-            --     , "  with"
-            --     , "    owner : Party"
-            --     , "  where"
-            --     , "    signatory owner"
-            --     , "    controller owner can"
-            --     , "      CreateCoin : ContractId Coin"
-            --     , "        do create Coin with owner"
-            --     , "template Coin"
-            --     , "  with"
-            --     , "    owner : Party"
-            --     , "  where"
-            --     , "    signatory owner"
-            --     ]
-            -- setFilesOfInterest [createTest]
-            -- expectNoErrors
-            -- expectedGraph createTest $ Set.fromList
-            --     [TemplateProp "Coin"
-            --         (Set.fromList
-            --         [ExpectedChoice "Archive" True Set.empty])
-            --     , TemplateProp "TT"
-            --         (Set.fromList
-            --         [   ExpectedChoice "CreateCoin" True (Set.fromList [Create "F:Coin"]),
-            --             ExpectedChoice "Archive" True Set.empty
-            --         ])
-            --     ]
+        --     createTest <- makeModule "F"
+        --         [ "template TT"
+        --         , "  with"
+        --         , "    owner : Party"
+        --         , "  where"
+        --         , "    signatory owner"
+        --         , "    controller owner can"
+        --         , "      CreateCoin : ContractId Coin"
+        --         , "        do create Coin with owner"
+        --         , "template Coin"
+        --         , "  with"
+        --         , "    owner : Party"
+        --         , "  where"
+        --         , "    signatory owner"
+        --         ]
+        --     setFilesOfInterest [createTest]
+        --     expectNoErrors
+        --     expectedGraph createTest
+
+        --     $ Set.fromList
+        --         [TemplateProp "Coin"
+        --             (Set.fromList
+        --             [ExpectedChoice "Archive" True Set.empty])
+        --         , TemplateProp "TT"
+        --             (Set.fromList
+        --             [   ExpectedChoice "CreateCoin" True (Set.fromList [Create "F:Coin"]),
+        --                 ExpectedChoice "Archive" True Set.empty
+        --             ])
+        --         ]
     ]
     where
         testCase' = testCase Nothing
