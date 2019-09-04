@@ -10,11 +10,12 @@ daml-head sandbox --wall-clock-time --ledgerid MyLedger ./.daml/dist/quickstart-
 ### Start HTTP service from the DAML project root
 This will build the service first, can take up to 5-10 minutes when running first time.
 ```
-$ bazel run //ledger-service/http-json:http-json-binary -- localhost 6865 7575
+$ bazel run //ledger-service/http-json:http-json-binary -- localhost 6865 7575 4194304
 ```
 Where:
  - localhost 6865 -- sandbox host and port
  - 7575 -- HTTP service port
+ - 4194304 -- max inbound message size in bytes (the max size of the message received from the ledger). To set the same limit on the sandbox side, use ` --maxInboundMessageSize` command line parameter.
 
 ## Example session
 
