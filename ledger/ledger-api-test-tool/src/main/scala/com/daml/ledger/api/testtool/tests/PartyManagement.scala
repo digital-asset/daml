@@ -22,15 +22,16 @@ final class PartyManagement(session: LedgerSession) extends LedgerTestSuite(sess
       }
     }
 
+  private val pMAllocateWithHint = "PMAllocateWithHint"
   private[this] val allocateWithHint =
     LedgerTest(
-      "PMAllocateWithHint",
+      pMAllocateWithHint,
       "It should be possible to provide a hint when allocating a party"
     ) { context =>
       for {
         ledger <- context.participant()
         party <- ledger.allocateParty(
-          partyHintId = Some(Random.alphanumeric.take(10).mkString),
+          partyHintId = Some(pMAllocateWithHint + "_" + Random.alphanumeric.take(10).mkString),
           displayName = Some("Bob Ross"))
       } yield
         assert(Tag.unwrap(party).nonEmpty, "The allocated party identifier is an empty string")
@@ -48,15 +49,16 @@ final class PartyManagement(session: LedgerSession) extends LedgerTestSuite(sess
         assert(Tag.unwrap(party).nonEmpty, "The allocated party identifier is an empty string")
     }
 
+  private val pMAllocateWithoutDisplayName = "PMAllocateWithoutDisplayName"
   private[this] val allocateWithoutDisplayName =
     LedgerTest(
-      "PMAllocateWithoutDisplayName",
+      pMAllocateWithoutDisplayName,
       "It should be possible to not provide a display name when allocating a party"
     ) { context =>
       for {
         ledger <- context.participant()
         party <- ledger.allocateParty(
-          partyHintId = Some(Random.alphanumeric.take(10).mkString),
+          partyHintId = Some(pMAllocateWithoutDisplayName + "_" + Random.alphanumeric.take(10).mkString),
           displayName = None)
       } yield
         assert(Tag.unwrap(party).nonEmpty, "The allocated party identifier is an empty string")
