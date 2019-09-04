@@ -58,7 +58,8 @@ final class PartyManagement(session: LedgerSession) extends LedgerTestSuite(sess
       for {
         ledger <- context.participant()
         party <- ledger.allocateParty(
-          partyHintId = Some(pMAllocateWithoutDisplayName + "_" + Random.alphanumeric.take(10).mkString),
+          partyHintId =
+            Some(pMAllocateWithoutDisplayName + "_" + Random.alphanumeric.take(10).mkString),
           displayName = None)
       } yield
         assert(Tag.unwrap(party).nonEmpty, "The allocated party identifier is an empty string")
