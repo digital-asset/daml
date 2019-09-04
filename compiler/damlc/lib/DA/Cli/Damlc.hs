@@ -39,7 +39,7 @@ import qualified DA.Service.Logger.Impl.IO as Logger.IO
 import DA.Signals
 import DA.Daml.Project.Config
 import DA.Daml.Project.Consts
-import DA.Daml.Project.Types (ConfigError, ProjectPath(..))
+import DA.Daml.Project.Types (ConfigError(..), ProjectPath(..))
 import qualified Da.DamlLf as PLF
 import qualified Data.Aeson.Encode.Pretty as Aeson.Pretty
 import qualified Data.ByteString as B
@@ -390,7 +390,18 @@ parseProjectConfig project = do
     dependencies <-
         queryProjectConfigRequired ["dependencies"] project
     sdkVersion <- queryProjectConfigRequired ["sdk-version"] project
+    consistencyCheck name version dependencies
     Right $ PackageConfigFields name main exposedModules version dependencies sdkVersion
+  where
+    consistencyCheck n ver deps
+        | n <> "-" <> ver `elem` (map takeBaseName deps) =
+            Left $
+            ConfigFieldInvalid
+                "name"
+                ["name"]
+                ("Package " <> n <>
+                 " can not depend on itself. Either rename the package or remove it from the dependencies field.")
+        | otherwise = Right ()
 
 -- | We assume that this is only called within `withProjectRoot`.
 withPackageConfig :: (PackageConfigFields -> IO a) -> IO a
