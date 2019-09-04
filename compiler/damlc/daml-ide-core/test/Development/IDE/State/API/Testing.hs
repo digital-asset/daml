@@ -557,7 +557,7 @@ graphTest wrld pkg expectedGraph = do
     unless (expectedGraph == actualGraph) $
         throwError $ ExpectedGraphProps expectedGraph actualGraph
 
--- Not using the ide call as we do not have a rule refined for visualization because of memory overhead
+-- Not using the ide call as we do not have a rule defined for visualization because of memory overhead
 expectedGraph :: D.NormalizedFilePath -> ExpectedGraph -> ShakeTest ()
 expectedGraph damlFilePath expectedGraph = do
     ideState <- ShakeTest $ Reader.asks steService
