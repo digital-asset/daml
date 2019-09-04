@@ -46,6 +46,7 @@ ghc-bindist
 ensime.sbt
 pipelinePerformance.xml
 **/database_test.manifest
+.gradle/
 .ghci
 .ghcid
 *.log
