@@ -35,18 +35,25 @@ renderRst env = \case
 renderRstText :: RenderEnv -> RenderText -> T.Text
 renderRstText env = \case
     RenderConcat ts -> mconcatMap (renderRstText env) ts
-    RenderPlain text -> text
-    RenderStrong text -> T.concat ["**", text, "**"]
+    RenderPlain text -> escapeRst text
+    RenderStrong text -> T.concat ["**", escapeRst text, "**"]
     RenderLink ref text ->
         case lookupReference env ref of
-            Nothing -> text
+            Nothing -> escapeRst text
             Just anchorLoc@(External _) ->
                 T.concat
-                    ["`", text, " <"
-                    , anchorHyperlink anchorLoc (referenceAnchor ref)
+                    [ "`", escapeRst (escapeRst text)
+                        -- For some reason, link text seem to be
+                        -- unescaped twice? This is the only way to
+                        -- get Sphinx to render `\\` properly (it
+                        -- becomes `\\\\\\\\` in the Rst source).
+                    , " <", anchorHyperlink anchorLoc (referenceAnchor ref)
                     , ">`_"]
             Just _ ->
-                T.concat ["`", text, " <", unAnchor (referenceAnchor ref), "_>`_"]
+                T.concat
+                    [ "`", escapeRst (escapeRst text) -- same here
+                    , " <", unAnchor (referenceAnchor ref)
+                    , "_>`_" ]
     RenderDocsInline docText ->
         T.unwords (docTextToRst docText)
 
@@ -94,7 +101,7 @@ renderRstFields env fields = concat
     ]
   where
     fieldRows = concat
-        [ [ "   * - " <> escapeTr_ (renderRstText env name)
+        [ [ "   * - " <> renderRstText env name
           , "     - " <> renderRstText env ty
           , "     - " <> renderRstText env doc ]
         | (name, ty, doc) <- fields
@@ -164,11 +171,15 @@ docTextToRst = T.lines . renderStrict . layoutPretty defaultLayoutOptions . rend
     -- Loses the newline structure (unwords . ... . words), but which
     -- commonMarkToNode destroyed earlier at the call site here.
     prettyRst :: T.Text -> Doc ()
-    prettyRst txt = pretty $ leadingWhite <> T.unwords (map escapeTr_ (T.words txt)) <> trailingWhite
+    prettyRst txt = pretty $ leadingWhite <> T.unwords (map escapeRst (T.words txt)) <> trailingWhite
       where trailingWhite = T.takeWhileEnd isSpace txt
             leadingWhite  = T.takeWhile isSpace txt
 
-escapeTr_ :: T.Text -> T.Text
-escapeTr_ w | T.null w        = w
-            | T.last w == '_' = T.init w <> "\\_"
-            | otherwise       = w
+escapeRst :: T.Text -> T.Text
+escapeRst = T.pack . concatMap escapeChar . T.unpack
+  where
+    escapeChar c
+        | shouldEscape c = ['\\', c]
+        | otherwise = [c]
+
+    shouldEscape = (`elem` ("[]*_~`<>\\&" :: String))

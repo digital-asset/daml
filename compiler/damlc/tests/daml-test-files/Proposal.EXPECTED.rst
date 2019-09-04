@@ -8,7 +8,7 @@ Templates
 
 .. _type-proposal-proposal-1384:
 
-**template** Template t => `Proposal <type-proposal-proposal-1384_>`_ t
+**template** Template t =\> `Proposal <type-proposal-proposal-1384_>`_ t
 
   .. list-table::
      :widths: 15 10 30
@@ -21,7 +21,7 @@ Templates
        - t
        - 
      * - receivers
-       - [Party]
+       - \[Party\]
        - 
      * - name
        - `Text <https://docs.daml.com/daml/reference/base.html#type-ghc-types-text-57703>`_

@@ -30,7 +30,7 @@ Templates
        - `Decimal <https://docs.daml.com/daml/reference/base.html#type-ghc-types-decimal-54602>`_
        - must be positive
      * - regulators
-       - [Party]
+       - \[Party\]
        - ``regulators`` may observe any use of the ``Iou``
   
   + **Choice External:Archive**
@@ -94,5 +94,5 @@ Functions
   : Scenario ()
   
   A single test scenario covering all functionality that ``Iou`` implements.
-  This description contains a link(http://example.com), some bogus <inline html>,
+  This description contains a link(http://example.com), some bogus \<inline html\>,
   and words\_ with\_ underscore, to test damldoc capabilities.
