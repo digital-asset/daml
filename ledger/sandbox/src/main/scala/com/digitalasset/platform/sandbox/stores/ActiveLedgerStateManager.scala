@@ -38,7 +38,8 @@ class ActiveLedgerStateManager[ALS](initialState: => ALS)(
   private case class AddTransactionState(
       acc: Option[ALS],
       errs: Set[SequencingError],
-      parties: Set[Party]) {
+      parties: Set[Party],
+      archivedIds: Set[AbsoluteContractId]) {
 
     def mapAcs(f: ALS => ALS): AddTransactionState = copy(acc = acc map f)
 
@@ -61,7 +62,7 @@ class ActiveLedgerStateManager[ALS](initialState: => ALS)(
 
   private object AddTransactionState {
     def apply(acs: ALS): AddTransactionState =
-      AddTransactionState(Some(acs), Set(), Set.empty)
+      AddTransactionState(Some(acs), Set(), Set.empty, Set.empty)
   }
 
   /**
@@ -78,26 +79,44 @@ class ActiveLedgerStateManager[ALS](initialState: => ALS)(
       globalImplicitDisclosure: Relation[AbsoluteContractId, Party],
       referencedContracts: List[(Value.AbsoluteContractId, AbsoluteContractInst)])
     : Either[Set[SequencingError], ALS] = {
+    // NOTE(RC): `globalImplicitDisclosure` was meant to refer to contracts created in previous transactions.
+    // However, because we have translated relative to absolute IDs at this point, `globalImplicitDisclosure`
+    // will also point to contracts created in the same transaction.
+    //
+    // This is dealt with as follows:
+    // - First, all transaction nodes are traversed without updating divulgence info.
+    //   - When validating a fetch/exercise node, both the set of previously divulged contracts and
+    //     the newly divulged contracts is used.
+    //   - While traversing consuming exercise nodes, the set of all contracts archived in this transaction is collected.
+    // - Finally, divulgence information is updated using `globalImplicitDisclosure` minus the set of contracts
+    //   archived in this transaction.
     val st =
       transaction
         .fold[AddTransactionState](GenTransaction.TopDown, AddTransactionState(initialState)) {
-          case (ats @ AddTransactionState(None, _, _), _) => ats
-          case (ats @ AddTransactionState(Some(acc), errs, parties), (nodeId, node)) =>
-            // if some node requires a contract, check that we have that contract, and check that that contract is not
+          case (ats @ AddTransactionState(None, _, _, _), _) => ats
+          case (ats @ AddTransactionState(Some(acc), errs, parties, archivedIds), (nodeId, node)) =>
+            // If some node requires a contract, check that we have that contract, and check that that contract is not
             // created after the current let.
             def contractCheck(
                 cid: AbsoluteContractId,
                 predType: PredicateType): Option[SequencingError] =
               acc lookupContract cid match {
-                case None => Some(InactiveDependencyError(cid, predType))
                 case Some(otherContract: ActiveContract) =>
+                  // Existing active contract, check its LET
                   if (otherContract.let.isAfter(let)) {
                     Some(TimeBeforeError(cid, otherContract.let, let, predType))
                   } else {
                     None
                   }
                 case Some(_: DivulgedContract) =>
+                  // Contract divulged in the past
                   None
+                case None if referencedContracts.exists(_._1 == cid) =>
+                  // Contract is going to be divulged in this transaction
+                  None
+                case None =>
+                  // Contract not known
+                  Some(InactiveDependencyError(cid, predType))
               }
 
             node match {
@@ -109,7 +128,8 @@ class ActiveLedgerStateManager[ALS](initialState: => ALS)(
                 AddTransactionState(
                   Some(acc),
                   contractCheck(absCoid, Fetch).fold(errs)(errs + _),
-                  parties.union(nodeParties)
+                  parties.union(nodeParties),
+                  archivedIds
                 )
               case nc: N.NodeCreate.WithTxValue[AbsoluteContractId] =>
                 val nodeParties = nc.signatories
@@ -141,7 +161,11 @@ class ActiveLedgerStateManager[ALS](initialState: => ALS)(
                   case Some(key) =>
                     val gk = GlobalKey(activeContract.contract.template, key.key)
                     if (acc keyExists gk) {
-                      AddTransactionState(None, errs + DuplicateKey(gk), parties.union(nodeParties))
+                      AddTransactionState(
+                        None,
+                        errs + DuplicateKey(gk),
+                        parties.union(nodeParties),
+                        archivedIds)
                     } else {
                       ats.copy(
                         acc = Some(acc.addContract(activeContract, Some(gk))),
@@ -165,7 +189,8 @@ class ActiveLedgerStateManager[ALS](initialState: => ALS)(
                   } else {
                     acc
                   }),
-                  parties = parties.union(nodeParties)
+                  parties = parties.union(nodeParties),
+                  archivedIds = if (ne.consuming) archivedIds + absCoid else archivedIds
                 )
               case nlkup: N.NodeLookupByKey.WithTxValue[AbsoluteContractId] =>
                 // NOTE(FM) we do not need to check anything, since
@@ -175,8 +200,9 @@ class ActiveLedgerStateManager[ALS](initialState: => ALS)(
             }
         }
 
+    val divulgedContracts = globalImplicitDisclosure -- st.archivedIds
     st.mapAcs(
-        _ divulgeAlreadyCommittedContracts (transactionId, globalImplicitDisclosure, referencedContracts))
+        _ divulgeAlreadyCommittedContracts (transactionId, divulgedContracts, referencedContracts))
       .mapAcs(_ addParties st.parties)
       .result
   }
