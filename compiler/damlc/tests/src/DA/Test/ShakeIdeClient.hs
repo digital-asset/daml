@@ -1021,36 +1021,34 @@ visualDamlTests = Tasty.testGroup "Visual Tests"
                   ExpectedChoiceDetails {expectedConsuming = True
                                         , expectedName = "Delete"})
                 ])
-        -- , testCase' "Create on other template should be edge" $ do
-        --     createTest <- makeModule "F"
-        --         [ "template TT"
-        --         , "  with"
-        --         , "    owner : Party"
-        --         , "  where"
-        --         , "    signatory owner"
-        --         , "    controller owner can"
-        --         , "      CreateCoin : ContractId Coin"
-        --         , "        do create Coin with owner"
-        --         , "template Coin"
-        --         , "  with"
-        --         , "    owner : Party"
-        --         , "  where"
-        --         , "    signatory owner"
-        --         ]
-        --     setFilesOfInterest [createTest]
-        --     expectNoErrors
-        --     expectedGraph createTest
+        , testCase' "Create on other template should be edge" $ do
+            createTest <- makeModule "F"
+                [ "template TT"
+                , "  with"
+                , "    owner : Party"
+                , "  where"
+                , "    signatory owner"
+                , "    controller owner can"
+                , "      CreateCoin : ContractId Coin"
+                , "        do create Coin with owner"
+                , "template Coin"
+                , "  with"
+                , "    owner : Party"
+                , "  where"
+                , "    signatory owner"
+                ]
+            setFilesOfInterest [createTest]
+            expectNoErrors
+            expectedGraph createTest (ExpectedGraph
+                {expectedSubgraphs = [ExpectedSubGraph {expectedNodes = ["Create","Archive"]
+                                                       , expectedTplFields = ["owner"]
+                                                       , expectedTemplate = "Coin"}
+                                     , ExpectedSubGraph {expectedNodes = ["Create","Archive","CreateCoin"]
+                                                        , expectedTplFields = ["owner"]
+                                                        , expectedTemplate = "TT"}]
+                , expectedEdges = [(ExpectedChoiceDetails {expectedConsuming = True, expectedName = "CreateCoin"}
+                                   ,ExpectedChoiceDetails {expectedConsuming = False, expectedName = "Create"})]})
 
-        --     $ Set.fromList
-        --         [TemplateProp "Coin"
-        --             (Set.fromList
-        --             [ExpectedChoice "Archive" True Set.empty])
-        --         , TemplateProp "TT"
-        --             (Set.fromList
-        --             [   ExpectedChoice "CreateCoin" True (Set.fromList [Create "F:Coin"]),
-        --                 ExpectedChoice "Archive" True Set.empty
-        --             ])
-        --         ]
     ]
     where
         testCase' = testCase Nothing

@@ -548,8 +548,8 @@ expectedSubgraph vSubgraph = ExpectedSubGraph vNodes vFields vTplName
 graphToExpectedGraph :: V.Graph -> ExpectedGraph
 graphToExpectedGraph vGraph = ExpectedGraph vSubgrpaghs vEdges
     where vSubgrpaghs = map expectedSubgraph (V.subgraphs vGraph)
-          vEdges = map (\(c1,c2) -> (chNameUnpack c1, chNameUnpack c2)) (V.edges vGraph)
-          chNameUnpack chc = ExpectedChoiceDetails (V.consuming chc)
+          vEdges = map (\(c1,c2) -> (expectedChcDetails c1, expectedChcDetails c2)) (V.edges vGraph)
+          expectedChcDetails chc = ExpectedChoiceDetails (V.consuming chc)
                                 ((T.unpack . LF.unChoiceName . V.displayChoiceName) chc)
 
 graphTest :: LF.World -> LF.Package -> ExpectedGraph -> ShakeTest ()
