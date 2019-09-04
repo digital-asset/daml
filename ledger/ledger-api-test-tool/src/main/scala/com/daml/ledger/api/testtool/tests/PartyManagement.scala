@@ -14,8 +14,9 @@ final class PartyManagement(session: LedgerSession) extends LedgerTestSuite(sess
       "Asking for the participant identifier should return a non-empty string") { context =>
       for {
         ledger <- context.participant()
+        participantId <- ledger.participantId()
       } yield {
-        assert(ledger.participantId.nonEmpty, "The ledger returned an empty participant identifier")
+        assert(participantId.nonEmpty, "The ledger returned an empty participant identifier")
       }
     }
 

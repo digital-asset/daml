@@ -10,7 +10,6 @@ import akka.stream.{ActorMaterializer, ActorMaterializerSettings, Supervision}
 import com.daml.ledger.participant.state.kvutils.InMemoryKVParticipantState
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.digitalasset.daml.lf.archive.DarReader
-import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml_lf.DamlLf.Archive
 import com.digitalasset.platform.index.cli.Cli
 import com.digitalasset.platform.index.{StandaloneIndexServer, StandaloneIndexerServer}
@@ -61,10 +60,7 @@ object ReferenceServer extends App {
     StandaloneIndexerServer(readService, "jdbc:h2:mem:daml_on_x2;db_close_on_exit=false")
   val indexServer2 =
     StandaloneIndexServer(
-      config.copy(
-        port = 6866,
-        participantId = Ref.LedgerString.assertFromString("second-participant"),
-        jdbcUrl = "jdbc:h2:mem:daml_on_x2;db_close_on_exit=false"),
+      config.copy(port = 6866, jdbcUrl = "jdbc:h2:mem:daml_on_x2;db_close_on_exit=false"),
       readService,
       writeService
     ).start()
