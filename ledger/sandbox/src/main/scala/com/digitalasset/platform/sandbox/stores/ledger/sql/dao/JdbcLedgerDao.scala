@@ -401,7 +401,7 @@ private class JdbcLedgerDao(
           this
         }
 
-        override def divulgeAlreadyCommittedContract(
+        override def divulgeAlreadyCommittedContracts(
             transactionId: TransactionIdString,
             global: Relation[AbsoluteContractId, Party],
             referencedContracts: List[(Value.AbsoluteContractId, AbsoluteContractInst)]) = {

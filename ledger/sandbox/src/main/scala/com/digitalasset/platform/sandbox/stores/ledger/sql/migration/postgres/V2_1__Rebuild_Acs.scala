@@ -373,7 +373,7 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
           this
         }
 
-        override def divulgeAlreadyCommittedContract(
+        override def divulgeAlreadyCommittedContracts(
             transactionId: TransactionIdString,
             global: Relation[AbsoluteContractId, Party],
             referencedContracts: List[(Value.AbsoluteContractId, AbsoluteContractInst)]) = {

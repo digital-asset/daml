@@ -55,7 +55,7 @@ trait ActiveLedgerState[+Self] { this: ActiveLedgerState[Self] =>
     * divulgence information already present in `ActiveContract#divulgences` in the `addContract`
     * method.
     */
-  def divulgeAlreadyCommittedContract(
+  def divulgeAlreadyCommittedContracts(
       transactionId: TransactionIdString,
       global: Relation[AbsoluteContractId, Party],
       referencedContracts: List[(Value.AbsoluteContractId, AbsoluteContractInst)]): Self

@@ -77,7 +77,7 @@ case class InMemoryActiveLedgerState(
   override def addParties(newParties: Set[Party]): InMemoryActiveLedgerState =
     copy(parties = newParties.map(p => p -> PartyDetails(p, None, true)).toMap ++ parties)
 
-  override def divulgeAlreadyCommittedContract(
+  override def divulgeAlreadyCommittedContracts(
       transactionId: TransactionIdString,
       global: Relation[AbsoluteContractId, Party],
       referencedContracts: List[(Value.AbsoluteContractId, AbsoluteContractInst)])

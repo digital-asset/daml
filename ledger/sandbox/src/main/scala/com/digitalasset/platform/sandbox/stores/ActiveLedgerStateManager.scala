@@ -178,7 +178,7 @@ class ActiveLedgerStateManager[ALS](initialState: => ALS)(
         }
 
     st.mapAcs(
-        _ divulgeAlreadyCommittedContract (transactionId, globalImplicitDisclosure, referencedContracts))
+        _ divulgeAlreadyCommittedContracts (transactionId, globalImplicitDisclosure, referencedContracts))
       .mapAcs(_ addParties st.parties)
       .result
   }
