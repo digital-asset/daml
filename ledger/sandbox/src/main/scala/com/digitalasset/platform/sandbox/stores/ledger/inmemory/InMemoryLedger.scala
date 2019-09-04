@@ -88,7 +88,7 @@ class InMemoryLedger(
   // need to take the lock to make sure the two pieces of data are consistent.
   override def snapshot(): Future[LedgerSnapshot] =
     Future.successful(this.synchronized {
-      LedgerSnapshot(entries.ledgerEnd, Source[ActiveContract](acs.activeContracts.map(_._2)))
+      LedgerSnapshot(entries.ledgerEnd, Source[ActiveContract](acs.activeContracts.values))
     })
 
   override def lookupContract(
