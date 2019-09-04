@@ -62,9 +62,16 @@ case class InMemoryActiveLedgerState(
     }
   }
 
-  override def removeContract(cid: AbsoluteContractId, keyO: Option[GlobalKey]) = keyO match {
-    case None => copy(activeContracts = activeContracts - cid)
-    case Some(key) => copy(activeContracts = activeContracts - cid, keys = keys - key)
+  override def removeContract(cid: AbsoluteContractId, keyO: Option[GlobalKey]) = {
+    val newKeys = keyO match {
+      case None => keys
+      case Some(key) => keys - key
+    }
+    copy(
+      activeContracts = activeContracts - cid,
+      divulgedContracts = divulgedContracts - cid,
+      keys = newKeys
+    )
   }
 
   override def addParties(newParties: Set[Party]): InMemoryActiveLedgerState =
