@@ -9,7 +9,11 @@ module DA.Daml.Visual
   , TemplateChoices(..)
   , ChoiceAndAction(..)
   , Action(..)
+  , Graph(..)
+  , SubGraph(..)
+  , ChoiceDetails(..)
   , dotFileGen
+  , graphFromModule
   ) where
 
 
@@ -51,18 +55,18 @@ data ChoiceDetails = ChoiceDetails
     { nodeId :: Int
     , consuming :: Bool
     , displayChoiceName :: LF.ChoiceName
-    }
+    } deriving (Show, Eq)
 
 data SubGraph = SubGraph
     { nodes :: [ChoiceDetails]
     , templateFields :: [T.Text]
     , clusterTemplate :: LF.Template
-    }
+    } deriving (Show, Eq)
 
 data Graph = Graph
     { subgraphs :: [SubGraph]
     , edges :: [(ChoiceDetails, ChoiceDetails)]
-    }
+    } deriving (Show, Eq)
 
 startFromUpdate :: Set.Set (LF.Qualified LF.ExprValName) -> LF.World -> LF.Update -> Set.Set Action
 startFromUpdate seen world update = case update of
