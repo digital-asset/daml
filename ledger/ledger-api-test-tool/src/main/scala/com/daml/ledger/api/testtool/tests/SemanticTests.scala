@@ -336,15 +336,15 @@ final class SemanticTests(session: LedgerSession) extends LedgerTestSuite(sessio
     }
 
   override val tests: Vector[LedgerTest] = Vector(
-//    doubleSpendAcrossTwoTransactions,
-//    doubleSpendInTransaction,
+    doubleSpendAcrossTwoTransactions,
+    doubleSpendInTransaction,
     doubleSpendSharedContract,
-//    successfulPaintOffer,
-//    successfulPaintCounterOffer,
-//    partialSignatories,
-//    acceptOnBehalf,
-//    privacyProjections,
-//    divulgence,
-//    contractKeys
+    successfulPaintOffer,
+    successfulPaintCounterOffer,
+    partialSignatories,
+    acceptOnBehalf,
+    privacyProjections,
+    divulgence,
+    contractKeys
   )
 }
