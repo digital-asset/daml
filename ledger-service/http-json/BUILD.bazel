@@ -42,10 +42,14 @@ da_scala_library(
 )
 
 da_scala_binary(
-    name = "http-json-bin",
-    srcs = glob(["src/main/scala/**/*.scala"]),
+    name = "http-json-binary",
     main_class = "com.digitalasset.http.Main",
     scalacopts = hj_scalacopts,
+    tags = [
+        "maven_coordinates=com.digitalasset.ledger-service:http-json-deploy:__VERSION__",
+        "no_scala_version_suffix",
+    ],
+    visibility = ["//visibility:public"],
     deps = [":http-json"] + http_json_deps,
 )
 
