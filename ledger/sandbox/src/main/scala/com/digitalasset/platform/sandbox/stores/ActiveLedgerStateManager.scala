@@ -159,10 +159,8 @@ class ActiveLedgerStateManager[ALS](initialState: => ALS)(
                   acc = Some(if (ne.consuming) {
                     val keyO = (acc lookupContract absCoid)
                       .collect({ case c: ActiveContract => c })
-                      .flatMap(_.key) match {
-                      case None => None
-                      case Some(key) => Some(GlobalKey(ne.templateId, key.key))
-                    }
+                      .flatMap(_.key)
+                      .map(key => GlobalKey(ne.templateId, key.key))
                     acc.removeContract(absCoid, keyO)
                   } else {
                     acc
