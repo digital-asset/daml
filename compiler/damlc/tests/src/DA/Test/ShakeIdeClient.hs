@@ -16,7 +16,6 @@ import qualified Test.Tasty.HUnit    as Tasty
 import qualified Data.Text.Extended  as T
 
 import Data.Either
--- import qualified Data.Set as Set
 import System.Directory
 import System.Environment.Blank (setEnv)
 import Control.Monad.IO.Class
@@ -26,7 +25,6 @@ import Development.IDE.Types.Diagnostics
 import Development.IDE.Types.Location
 import qualified DA.Service.Logger.Impl.Pure as Logger
 import Development.IDE.Core.API.Testing
--- import DA.Daml.Visual as V
 import Development.IDE.Core.Service.Daml(VirtualResource(..))
 
 main :: IO ()
