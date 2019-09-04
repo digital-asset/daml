@@ -44,7 +44,8 @@ toCompileOpts options@Options{..} reportProgress =
                 setupDamlGHC options
                 GHC.getSession
             pkg <- liftIO $ generatePackageState optPackageDbs optHideAllPkgs $ map (second toRenaming) optPackageImports
-            return env{hsc_dflags = setPackageDynFlags pkg $ hsc_dflags env}
+            dflags <- liftIO $ checkDFlags $ setPackageDynFlags pkg $ hsc_dflags env
+            return env{hsc_dflags = dflags}
       , optPkgLocationOpts = HieCore.IdePkgLocationOptions
           { optLocateHieFile = locateInPkgDb "hie"
           , optLocateSrcFile = locateInPkgDb "daml"
@@ -267,3 +268,17 @@ setupDamlGHC options@Options{..} = do
 
     modifySession $ \h ->
       h { hsc_dflags = dflags', hsc_IC = (hsc_IC h) {ic_dflags = dflags' } }
+
+-- | Check for bad @DynFlags@.
+-- Checks:
+--    * thisInstalledUnitId not contained in loaded packages.
+checkDFlags :: DynFlags -> IO DynFlags
+checkDFlags dflags@DynFlags {..} = do
+    case lookupPackage dflags $ DefiniteUnitId $ DefUnitId thisInstalledUnitId of
+        Nothing -> pure dflags
+        Just _conf ->
+            fail $
+            "Package " <> installedUnitIdString thisInstalledUnitId <>
+            " imports a package with the same name. \
+            \ Please check your dependencies and rename the package you are compiling \
+            \ or the dependency."
