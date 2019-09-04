@@ -114,7 +114,7 @@ jobs:
       vmImage: "ubuntu-latest"
     condition: and(succeeded(),
                    eq(dependencies.Linux.outputs['release.has_released'], 'true'),
-                   succeeded(),
+                   eq(dependencies.macOS.outputs['release.has_released'], 'true'),
                    succeeded())
     steps:
       - template: ci/report-start.yml
