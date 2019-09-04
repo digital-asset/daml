@@ -96,7 +96,7 @@ case class InMemoryActiveLedgerState(
       }
       val newDcs = global.foldLeft(Map.empty[AbsoluteContractId, DivulgedContract]){
         case (m, (cid, divulgeTo)) =>
-          if (updatedAcs.contains(cid) || updatedDcs.contains(cid))
+          if (divulgeTo.isEmpty || updatedAcs.contains(cid) || updatedDcs.contains(cid))
             m
           else
             m + (cid -> DivulgedContract(
