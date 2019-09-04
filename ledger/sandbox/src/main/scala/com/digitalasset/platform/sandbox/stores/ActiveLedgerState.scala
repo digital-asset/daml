@@ -50,7 +50,7 @@ trait ActiveLedgerState[+Self] { this: ActiveLedgerState[Self] =>
     */
   def addParties(parties: Set[Party]): Self
 
-  /** Note that this method is about disclosing contracts _that have already been
+  /** Note that this method is about divulging contracts _that have already been
     * committed_. Implementors of [[ActiveLedgerState]] must take care to also store
     * divulgence information already present in `ActiveContract#divulgences` in the `addContract`
     * method.
