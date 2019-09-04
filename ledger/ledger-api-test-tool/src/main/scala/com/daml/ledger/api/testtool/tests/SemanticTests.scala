@@ -78,12 +78,12 @@ final class SemanticTests(session: LedgerSession) extends LedgerTestSuite(sessio
     LedgerTest("SemanticDoubleSpendShared", "Different parties cannot spend the same contract") {
       context =>
         for {
-          Vector(node1, node2) <- context.participants(2)
-          Vector(payer, owner1) <- node1.allocateParties(2)
-          owner2 <- node2.allocateParty()
-          shared <- node1.create(payer, SharedContract(payer, owner1, owner2))
-          _ <- node1.exercise(owner1, shared.exerciseSharedContract_Consume1)
-          failure <- node2.exercise(owner2, shared.exerciseSharedContract_Consume2).failed
+          Vector(alpha, beta) <- context.participants(2)
+          Vector(payer, owner1) <- alpha.allocateParties(2)
+          owner2 <- beta.allocateParty()
+          shared <- alpha.create(payer, SharedContract(payer, owner1, owner2))
+          _ <- alpha.exercise(owner1, shared.exerciseSharedContract_Consume1)
+          failure <- beta.exercise(owner2, shared.exerciseSharedContract_Consume2).failed
         } yield {
           assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "couldn't find contract")
         }
