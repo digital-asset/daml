@@ -194,7 +194,7 @@ jobs:
   - job: release
     dependsOn: [ "Linux", "macOS", "Windows", "Windows_signing", "perf"]
     pool:
-      vmImage: "Ubuntu-16.04"
+      vmImage: "ubuntu-latest"
     condition: and(succeeded(),
                    eq( dependencies.Linux.outputs['release.has_released'], 'true' ),
                    eq( dependencies.macOS.outputs['release.has_released'], 'true' ),
