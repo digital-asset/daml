@@ -86,8 +86,8 @@ case class InMemoryActiveLedgerState(
       val referencedContractsM = referencedContracts.toMap
       // Note: each entry in `global` can refer to either:
       // - a known active contract, in which case its divulgence info is updated
-      // - a divulged contract, in which case its divulgence info is updated
-      // - an unknown contract, in which case a new divulged contract is stored
+      // - a previously divulged contract, in which case its divulgence info is updated
+      // - an unknown contract, in which case a new divulged contract is created from the corresponding info in `referencedContracts`
       val updatedAcs = activeContracts.intersectWith(global) { (ac, parties) =>
         ac copy (divulgences = ac.divulgeTo(parties, transactionId))
       }
