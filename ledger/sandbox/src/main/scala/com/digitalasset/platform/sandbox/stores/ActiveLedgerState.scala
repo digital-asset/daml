@@ -81,7 +81,7 @@ object ActiveLedgerState {
   }
 
   /**
-    * For divulged contracts, we only their contract argument, but no other metadata.
+    * For divulged contracts, we only know their contract argument, but no other metadata.
     * Note also that a ledger node may not be notified when a divulged contract gets archived.
     *
     * These contracts are only used for transaction validation, they are not part of the active contract set.
