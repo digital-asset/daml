@@ -94,7 +94,7 @@ case class InMemoryActiveLedgerState(
       val updatedDcs = divulgedContracts.intersectWith(global) { (dc, parties) =>
         dc copy (divulgences = dc.divulgeTo(parties, transactionId))
       }
-      val newDcs = global.foldLeft(Map.empty[AbsoluteContractId, DivulgedContract]){
+      val newDcs = global.foldLeft(Map.empty[AbsoluteContractId, DivulgedContract]) {
         case (m, (cid, divulgeTo)) =>
           if (divulgeTo.isEmpty || updatedAcs.contains(cid) || updatedDcs.contains(cid))
             m
@@ -102,10 +102,15 @@ case class InMemoryActiveLedgerState(
             m + (cid -> DivulgedContract(
               id = cid,
               contract = referencedContractsM
-                .getOrElse(cid, sys.error(
-                  s"Transaction $transactionId says it divulges contract ${cid.coid} to parties ${divulgeTo.mkString(",")}, but that contract does not exist.")),
+                .getOrElse(
+                  cid,
+                  sys.error(
+                    s"Transaction $transactionId says it divulges contract ${cid.coid} to parties ${divulgeTo
+                      .mkString(",")}, but that contract does not exist.")
+                ),
               divulgences = Map.empty ++ divulgeTo.map(p => p -> transactionId)
-            ))}
+            ))
+      }
       copy(
         activeContracts = activeContracts ++ updatedAcs,
         divulgedContracts = divulgedContracts ++ updatedDcs ++ newDcs
