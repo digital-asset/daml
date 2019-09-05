@@ -492,7 +492,7 @@ Also note that package identifiers are typically `cryptographic hash
 
 
 Kinds, types, and expressions
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. TODO We might want to consider changing the syntax for ``Mod``,
    since in our software we use the colon to separate the module name
