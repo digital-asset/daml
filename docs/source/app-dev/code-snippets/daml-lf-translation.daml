@@ -43,9 +43,9 @@ template Template a => Proposal a
   where
 -- end code snippet: generic template data types
     signatory proposers
-    observers receivers
+    observer receivers
 
-    choice Accept: ContractId t
+    choice Accept: ContractId a
       controller receivers
       do
         create proposal
