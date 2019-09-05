@@ -554,7 +554,7 @@ graphToExpectedGraph vGraph = ExpectedGraph vSubgrpaghs vEdges
 graphTest :: LF.World -> LF.Package -> ExpectedGraph -> ShakeTest ()
 graphTest wrld pkg expectedGraph = do
     let actualGraph = V.graphFromModule (NM.toList $ LF.packageModules pkg) wrld
-    unless (expectedGraph == (graphToExpectedGraph actualGraph)) $
+    unless (expectedGraph == graphToExpectedGraph actualGraph) $
         throwError $ ExpectedGraphProps expectedGraph actualGraph
 
 -- Not using the ide call as we do not have a rule defined for visualization because of memory overhead
