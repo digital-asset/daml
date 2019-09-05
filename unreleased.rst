@@ -14,4 +14,4 @@ HEAD — ongoing
 + [DAML Integration Kit] The test tool now runs the double spend test on a shared contract in a
   multi-node setup (as well as single-node).
 + [DAML Integration Kit] The test tool can now run all semantic test in a multi-node setup.
-+ [DAML Compiler] Improve the UX of generic templates over the Ledger API.
++ [DAML Compiler] **BREAKING CHANGE** Move the DAML-LF produced by generic template instantiations closer to the surface syntax. See the documentation on `How DAML types are translated to DAML-LF <https://docs.daml.com/app-dev/daml-lf-translation.html#template-types>`__ for details.
