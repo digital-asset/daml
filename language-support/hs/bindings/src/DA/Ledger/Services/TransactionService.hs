@@ -11,7 +11,7 @@ module DA.Ledger.Services.TransactionService (
     getFlatTransactionByEventId,
     getFlatTransactionById,
     ledgerEnd,
-    GetTransactionsRequest(..), filterEverthingForParty,
+    GetTransactionsRequest(..), filterEverythingForParty,
     ) where
 
 import Com.Digitalasset.Ledger.Api.V1.TransactionFilter --TODO: HL mirror
@@ -143,8 +143,8 @@ data GetTransactionsRequest = GetTransactionsRequest {
     verbose :: Verbosity
     }
 
-filterEverthingForParty :: Party -> TransactionFilter
-filterEverthingForParty party = TransactionFilter (Map.singleton (unParty party) (Just noFilters))
+filterEverythingForParty :: Party -> TransactionFilter
+filterEverythingForParty party = TransactionFilter (Map.singleton (unParty party) (Just noFilters))
     where
         noFilters :: Filters
         noFilters = Filters Nothing
