@@ -273,12 +273,15 @@ setupDamlGHC options@Options{..} = do
 -- Checks:
 --    * thisInstalledUnitId not contained in loaded packages.
 checkDFlags :: DynFlags -> IO DynFlags
-checkDFlags dflags@DynFlags {..} = do
-    case lookupPackage dflags $ DefiniteUnitId $ DefUnitId thisInstalledUnitId of
-        Nothing -> pure dflags
-        Just _conf ->
-            fail $
-            "Package " <> installedUnitIdString thisInstalledUnitId <>
-            " imports a package with the same name. \
+checkDFlags dflags@DynFlags {..}
+    | thisInstalledUnitId == toInstalledUnitId primUnitId = pure dflags
+    | otherwise = do
+        case lookupPackage dflags $
+             DefiniteUnitId $ DefUnitId thisInstalledUnitId of
+            Nothing -> pure dflags
+            Just _conf ->
+                fail $
+                "Package " <> installedUnitIdString thisInstalledUnitId <>
+                " imports a package with the same name. \
             \ Please check your dependencies and rename the package you are compiling \
             \ or the dependency."
