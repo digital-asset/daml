@@ -220,7 +220,7 @@ More generally, if you want to learn more about Actions (aka Monads), we recomme
 Errors
 ------
 
-Above, you've learnt about ``assertMsg`` and ``abort``, which represent (potentially) failing actions. Actions only have an effect only if they are performed, so the following scenario succeeds or fails depending on the value of ``abortScenario``:
+Above, you've learnt about ``assertMsg`` and ``abort``, which represent (potentially) failing actions. Actions only have an effect when they are performed, so the following scenario succeeds or fails depending on the value of ``abortScenario``:
 
 .. literalinclude:: daml/daml-intro-5/Restrictions.daml
   :language: daml
