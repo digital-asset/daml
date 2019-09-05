@@ -538,15 +538,15 @@ timedSection targetDiffTime block = do
         throwError $ TimedSectionTookTooLong targetDiffTime actualDiffTime
     return value
 
-expectedSubgraph :: V.SubGraph -> ExpectedSubGraph
-expectedSubgraph vSubgraph = ExpectedSubGraph vNodes vFields vTplName
+subgraphToExpectedSubgraph :: V.SubGraph -> ExpectedSubGraph
+subgraphToExpectedSubgraph vSubgraph = ExpectedSubGraph vNodes vFields vTplName
     where vNodes = map (T.unpack . LF.unChoiceName . V.displayChoiceName) (V.nodes vSubgraph)
           vFields = map T.unpack (V.templateFields vSubgraph)
           vTplName = T.unpack $ V.tplNameUnqual (V.clusterTemplate vSubgraph)
 
 graphToExpectedGraph :: V.Graph -> ExpectedGraph
 graphToExpectedGraph vGraph = ExpectedGraph vSubgrpaghs vEdges
-    where vSubgrpaghs = map expectedSubgraph (V.subgraphs vGraph)
+    where vSubgrpaghs = map subgraphToExpectedSubgraph (V.subgraphs vGraph)
           vEdges = map (\(c1,c2) -> (expectedChcDetails c1, expectedChcDetails c2)) (V.edges vGraph)
           expectedChcDetails chc = ExpectedChoiceDetails (V.consuming chc)
                                 ((T.unpack . LF.unChoiceName . V.displayChoiceName) chc)
