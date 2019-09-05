@@ -10,7 +10,9 @@ daml-head sandbox --wall-clock-time --ledgerid MyLedger ./.daml/dist/quickstart-
 ### Start HTTP service from the DAML project root
 This will build the service first, can take up to 5-10 minutes when running first time.
 ```
-$ bazel run //ledger-service/http-json:http-json-binary -- localhost 6865 7575 4194304
+$ bazel run //ledger-service/http-json:http-json-binary -- \
+    --ledger-host localhost --ledger-port 6865 --http-port 7575 \
+    --max-inbound-message-size 4194304 --application-id HTTP-JSON-API-Gateway
 ```
 Where:
  - localhost 6865 -- sandbox host and port
@@ -29,8 +31,9 @@ $ cd iou-quickstart-java/
 $ daml-head build
 $ daml-head sandbox --wall-clock-time --ledgerid MyLedger ./.daml/dist/quickstart-0.0.1.dar
 
-cd <daml-root>/
-$ bazel run //ledger-service/http-json:http-json-binary -- localhost 6865 7575
+$ cd <daml-root>/
+$ bazel run //ledger-service/http-json:http-json-binary -- \
+    --ledger-host localhost --ledger-port 6865 --http-port 7575
 ```
 
 ### Choosing a party

@@ -8,9 +8,9 @@ import akka.http.scaladsl.Http.ServerBinding
 import akka.stream.ActorMaterializer
 import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.digitalasset.ledger.api.refinements.ApiTypes.ApplicationId
-
 import com.typesafe.scalalogging.StrictLogging
 import scalaz.\/
+import scalaz.syntax.tag._
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -23,19 +23,30 @@ object Main extends StrictLogging {
     val StartupError = 101
   }
 
-  def main(args: Array[String]): Unit = {
+  private final case class Config(
+      ledgerHost: String,
+      ledgerPort: Int,
+      httpPort: Int,
+      applicationId: ApplicationId = ApplicationId("HTTP-JSON-API-Gateway"),
+      maxInboundMessageSize: Int = HttpService.DefaultMaxInboundMessageSize,
+  )
 
-    if (args.length != 3 && args.length != 4)
-      reportInvalidUsageAndExit()
+  private val EmptyConfig = Config("", -1, -1)
 
-    val ledgerHost: String = args(0)
-    val ledgerPort: Int = Try(args(1).toInt).fold(e => reportInvalidUsageAndExit(e), identity)
-    val httpPort: Int = Try(args(2).toInt).fold(e => reportInvalidUsageAndExit(e), identity)
-    val maxInboundMessageSize: Int =
-      if (args.length >= 4) Try(args(3).toInt).fold(e => reportInvalidUsageAndExit(e), identity)
-      else HttpService.DefaultMaxInboundMessageSize
+  def main(args: Array[String]): Unit =
+    parseConfig(args) match {
+      case Some(config) =>
+        main(config)
+      case None =>
+        // error is printed out by scopt... yeah I know... why?
+        sys.exit(ErrorCodes.InvalidUsage)
+    }
 
-    logger.info(s"ledgerHost: $ledgerHost, ledgerPort: $ledgerPort, httpPort: $httpPort")
+  private def main(config: Config): Unit = {
+    logger.info(
+      s"Config(ledgerHost=${config.ledgerHost: String}, ledgerPort=${config.ledgerPort: Int}" +
+        s", httpPort=${config.httpPort: Int}, applicationId=${config.applicationId.unwrap: String}" +
+        s", maxInboundMessageSize=${config.maxInboundMessageSize: Int})")
 
     implicit val asys: ActorSystem = ActorSystem("dummy-http-json-ledger-api")
     implicit val mat: ActorMaterializer = ActorMaterializer()
@@ -43,10 +54,13 @@ object Main extends StrictLogging {
       new AkkaExecutionSequencerPool("clientPool")(asys)
     implicit val ec: ExecutionContext = asys.dispatcher
 
-    val applicationId = ApplicationId("HTTP-JSON-API-Gateway")
-
     val serviceF: Future[HttpService.Error \/ ServerBinding] =
-      HttpService.start(ledgerHost, ledgerPort, applicationId, httpPort, maxInboundMessageSize)
+      HttpService.start(
+        config.ledgerHost,
+        config.ledgerPort,
+        config.applicationId,
+        config.httpPort,
+        config.maxInboundMessageSize)
 
     sys.addShutdownHook {
       HttpService
@@ -72,20 +86,39 @@ object Main extends StrictLogging {
     case _ =>
   }
 
-  /**
-    * Report usage and exit the program. Guaranteed by type not to terminate.
-    */
-  private def reportInvalidUsageAndExit(): Nothing = {
-    logger.error(
-      "Usage: <ledger-host> <ledger-port> <http-port> [<max-inbound-message-size-in-bytes>]")
-    sys.exit(ErrorCodes.InvalidUsage)
-  }
+  private def parseConfig(args: Seq[String]): Option[Config] =
+    configParser.parse(args, EmptyConfig)
 
-  /**
-    * Print error, report usage and exit the program. Guaranteed by type not to terminate.
-    */
-  private def reportInvalidUsageAndExit(e: Throwable): Nothing = {
-    logger.error("Could not start", e)
-    reportInvalidUsageAndExit()
+  private val configParser = new scopt.OptionParser[Config]("http-json-binary") {
+    head("HTTP JSON API daemon")
+
+    help("help").text("Print this usage text")
+
+    opt[String]("ledger-host")
+      .action((x, c) => c.copy(ledgerHost = x))
+      .required()
+      .text("Ledger host name or IP address")
+
+    opt[Int]("ledger-port")
+      .action((x, c) => c.copy(ledgerPort = x))
+      .required()
+      .text("Ledger port number")
+
+    opt[Int]("http-port")
+      .action((x, c) => c.copy(httpPort = x))
+      .required()
+      .text("HTTP JSON API service port number")
+
+    opt[String]("application-id")
+      .action((x, c) => c.copy(applicationId = ApplicationId(x)))
+      .optional()
+      .text(
+        s"Optional application ID to use for ledger registration. Defaults to ${EmptyConfig.applicationId.unwrap: String}")
+
+    opt[Int]("max-inbound-message-size")
+      .action((x, c) => c.copy(maxInboundMessageSize = x))
+      .optional()
+      .text(
+        s"Optional max inbound message size in bytes. Defaults to ${EmptyConfig.maxInboundMessageSize}")
   }
 }
