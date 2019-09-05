@@ -69,6 +69,7 @@ trait TestHelpers {
       ledgerId,
       indexAndWriteService.indexService,
       indexAndWriteService.writeService,
+      indexAndWriteService.indexService,
       TimeModel.reasonableDefault,
       timeProvider,
       new CommandExecutorImpl(Engine(), packageStore.getLfPackage)

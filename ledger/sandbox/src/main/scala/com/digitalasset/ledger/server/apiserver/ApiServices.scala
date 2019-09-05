@@ -86,6 +86,7 @@ object ApiServices {
           ledgerId,
           contractStore,
           writeService,
+          partyManagementService,
           timeModel,
           timeProvider,
           new CommandExecutorImpl(engine, packagesService.getLfPackage)

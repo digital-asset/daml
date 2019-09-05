@@ -4,7 +4,7 @@
 package com.digitalasset.platform.sandbox.services
 import com.digitalasset.ledger.api.v1.command_submission_service.CommandSubmissionServiceLogging
 import akka.stream.ActorMaterializer
-import com.daml.ledger.participant.state.index.v2.ContractStore
+import com.daml.ledger.participant.state.index.v2.{ContractStore, IndexPartyManagementService}
 import com.daml.ledger.participant.state.v1.SubmissionResult.{
   Acknowledged,
   NotSupported,
@@ -18,6 +18,7 @@ import com.daml.ledger.participant.state.v1.{
 }
 import com.daml.ledger.participant.state.v1._
 import com.digitalasset.api.util.TimeProvider
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.engine.{Error => LfError}
 import com.digitalasset.daml.lf.transaction.{BlindingInfo, Transaction}
 import com.digitalasset.daml.lf.transaction.Transaction.Transaction
@@ -45,6 +46,7 @@ object ApiSubmissionService {
       ledgerId: LedgerId,
       contractStore: ContractStore,
       writeService: WriteService,
+      partyManagementService: IndexPartyManagementService,
       timeModel: TimeModel,
       timeProvider: TimeProvider,
       commandExecutor: CommandExecutor)(implicit ec: ExecutionContext, mat: ActorMaterializer)
@@ -52,6 +54,7 @@ object ApiSubmissionService {
     new GrpcCommandSubmissionService(
       new ApiSubmissionService(
         contractStore,
+        partyManagementService,
         writeService,
         timeModel,
         timeProvider,
@@ -67,6 +70,7 @@ object ApiSubmissionService {
 
 class ApiSubmissionService private (
     contractStore: ContractStore,
+    partyManagementService: IndexPartyManagementService,
     writeService: WriteService,
     timeModel: TimeModel,
     timeProvider: TimeProvider,
@@ -77,6 +81,9 @@ class ApiSubmissionService private (
 
   private val logger = LoggerFactory.getLogger(this.getClass)
   private val validator = TimeModelValidator(timeModel)
+
+  private def isLocal(party: Ref.Party): Future[Boolean] =
+    partyManagementService.listParties().map(_.find(p => p.isLocal && p.party == party).isDefined)
 
   override def submit(request: SubmitRequest): Future[Unit] = {
     val commands = request.commands
@@ -98,25 +105,40 @@ class ApiSubmissionService private (
           "Received composite command {} with let {}.",
           if (logger.isTraceEnabled()) commands else commands.commandId.unwrap,
           commands.ledgerEffectiveTime: Any)
-        recordOnLedger(commands).transform {
-          case Success(Acknowledged) =>
-            logger.debug(s"Submission of command {} has succeeded", commands.commandId.unwrap)
-            Success(())
+        isLocal(request.commands.submitter).flatMap {
+          submitterIsLocal =>
+            if (submitterIsLocal) {
+              recordOnLedger(commands).transform {
+                case Success(Acknowledged) =>
+                  logger.debug(s"Submission of command {} has succeeded", commands.commandId.unwrap)
+                  Success(())
 
-          case Success(Overloaded) =>
-            logger.debug(
-              s"Submission of command {} has failed due to back pressure",
-              commands.commandId.unwrap)
-            Failure(Status.RESOURCE_EXHAUSTED.asRuntimeException)
+                case Success(Overloaded) =>
+                  logger.debug(
+                    s"Submission of command {} has failed due to back pressure",
+                    commands.commandId.unwrap)
+                  Failure(Status.RESOURCE_EXHAUSTED.asRuntimeException)
 
-          case Success(NotSupported) =>
-            logger.debug(s"Submission of command {} was not supported", commands.commandId.unwrap)
-            Failure(Status.INVALID_ARGUMENT.asRuntimeException)
+                case Success(NotSupported) =>
+                  logger
+                    .debug(s"Submission of command {} was not supported", commands.commandId.unwrap)
+                  Failure(Status.INVALID_ARGUMENT.asRuntimeException)
 
-          case Failure(error) =>
-            logger.warn(s"Submission of command ${commands.commandId.unwrap} has failed.", error)
-            Failure(error)
+                case Failure(error) =>
+                  logger
+                    .warn(s"Submission of command ${commands.commandId.unwrap} has failed.", error)
+                  Failure(error)
 
+              }(DirectExecutionContext)
+            } else {
+              logger.debug(
+                s"Submission of command {} by non-local party {} is going to be rejected",
+                Seq(commands.commandId, commands.submitter): _*)
+              Future.failed(
+                Status.PERMISSION_DENIED
+                  .augmentDescription(s"Unknown party '${commands.submitter}'")
+                  .asRuntimeException())
+            }
         }(DirectExecutionContext)
       }
     )
@@ -150,7 +172,7 @@ class ApiSubmissionService private (
 
   private def toStatus(errorCause: ErrorCause) = {
     errorCause match {
-      case e @ ErrorCause.DamlLf(d) =>
+      case e @ ErrorCause.DamlLf(_) =>
         Status.INVALID_ARGUMENT.withDescription(e.explain)
       case e @ ErrorCause.Sequencer(errors) =>
         val base = if (errors.exists(_.isFinal)) Status.INVALID_ARGUMENT else Status.ABORTED
