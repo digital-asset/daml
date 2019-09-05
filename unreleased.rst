@@ -14,3 +14,4 @@ HEAD — ongoing
 + [DAML Integration Kit] The test tool now runs the double spend test on a shared contract in a
   multi-node setup (as well as single-node).
 + [DAML Integration Kit] The test tool can now run all semantic test in a multi-node setup.
++ [DAML Compiler] Improve the UX of generic templates over the Ledger API.

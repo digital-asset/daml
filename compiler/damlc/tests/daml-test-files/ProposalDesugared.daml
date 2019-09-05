@@ -164,7 +164,7 @@ instance IouInstance where
 
 -- The instantiation of the generic `Proposal a` template for `a = Iou`
 -- in its deugared form.
-newtype ProposalIou = MkProposalIou with unProposalIou : Proposal Iou -- ^ TEMPLATE_INSTANCE
+newtype ProposalIou = ProposalIou (Proposal Iou) -- ^ TEMPLATE_INSTANCE
 
 instance ProposalInstance Iou where
 
