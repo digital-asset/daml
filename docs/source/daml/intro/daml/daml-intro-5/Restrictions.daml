@@ -276,10 +276,9 @@ instance Action CoinGame where
 
 -- NON_PERFORMED_ABORT_BEGIN
 nonPerformedAbort = scenario do
-  let
-    abortScenario = False
-    failingAction : Scenario () = abort "Foo"
-    successfulAction : Scenario () = return ()
+  let abortScenario = False
+  let failingAction : Scenario () = abort "Foo"
+  let successfulAction : Scenario () = return ()
   if abortScenario then failingAction else successfulAction
 -- NON_PERFORMED_ABORT_END
 
@@ -303,10 +302,9 @@ errPow x y
 {-
 -- NON_PERFORMED_ERROR_BEGIN
 nonPerformedError = scenario do
-  let
-    causeError = False
-    failingComputation = errPow 1 (-1)
-    successfulComputation = errPow 1 1
+  let causeError = False
+  let failingComputation = errPow 1 (-1)
+  let successfulComputation = errPow 1 1
   return if causeError then failingComputation else successfulComputation
 -- NON_PERFORMED_ERROR_END
 -}
