@@ -220,6 +220,26 @@ This translates to the DAML-LF record declaration:
 
 	record Iou ↦ { issuer: Party; owner: Party; currency: Text; amount: Decimal }
 
+Similarly, the generic template definition
+
+.. literalinclude:: code-snippets/daml-lf-translation.daml
+   :language: daml
+   :start-after: -- start code snippet: generic template data types
+   :end-before: -- end code snippet: generic template data types
+
+results in the record declaration:
+
+.. literalinclude:: code-snippets/daml-lf-result.daml
+   :language: daml
+   :start-after: -- start snippet: data from generic template
+   :end-before: -- end snippet: data from generic template
+
+which translates to the DAML-LF record declaration:
+
+.. code-block:: none
+
+	record Proposal a ↦ { proposal: a; proposers: List Party; receivers: List Party }
+
 Choice data types
 =================
 
@@ -245,3 +265,21 @@ These translate to the DAML-LF record declarations:
 
 	record DoNothing ↦ {}
 	record Transfer ↦ { newOwner: Party }
+
+Generic template instantiations
+===============================
+
+In the context of the templates ``Iou`` and ``Proposal`` above, the generic template instantiation
+
+.. literalinclude:: code-snippets/daml-lf-translation.daml
+   :language: daml
+   :start-after: -- start code snippet: generic template instantiation
+   :end-before: -- end code snippet: generic template instantiation
+
+which does not produce a DAML data definition but only the DAML-LF record declaration:
+
+.. code-block:: none
+
+	record IouProposal ↦ { proposal: Iou; proposers: List Party; receivers: List Party }
+
+Note that ``IouProposal`` is a copy of ``Proposal`` with the type variable ``a`` replaced by ``Iou`` on the right hand side.
