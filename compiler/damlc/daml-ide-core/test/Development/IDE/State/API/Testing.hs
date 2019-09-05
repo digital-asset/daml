@@ -103,7 +103,7 @@ data ShakeTestError
     | ExpectedVirtualResourceNote VirtualResource T.Text (Map VirtualResource T.Text)
     | ExpectedNoVirtualResourceNote VirtualResource (Map VirtualResource T.Text)
     | ExpectedNoErrors [D.FileDiagnostic]
-    | ExpectedGraphProps ExpectedGraph ExpectedGraph
+    | ExpectedGraphProps ExpectedGraph V.Graph
     | ExpectedDefinition Cursor GoToDefinitionPattern (Maybe D.Location)
     | ExpectedHoverText Cursor HoverExpectation [T.Text]
     | TimedSectionTookTooLong Clock.NominalDiffTime Clock.NominalDiffTime
@@ -553,8 +553,8 @@ graphToExpectedGraph vGraph = ExpectedGraph vSubgrpaghs vEdges
 
 graphTest :: LF.World -> LF.Package -> ExpectedGraph -> ShakeTest ()
 graphTest wrld pkg expectedGraph = do
-    let actualGraph = graphToExpectedGraph (V.graphFromModule (NM.toList $ LF.packageModules pkg) wrld)
-    unless (expectedGraph == actualGraph) $
+    let actualGraph = V.graphFromModule (NM.toList $ LF.packageModules pkg) wrld
+    unless (expectedGraph == (graphToExpectedGraph actualGraph)) $
         throwError $ ExpectedGraphProps expectedGraph actualGraph
 
 -- Not using the ide call as we do not have a rule defined for visualization because of memory overhead
