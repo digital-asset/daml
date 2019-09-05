@@ -42,8 +42,8 @@ Data Types
   
   **instance** `Functor <https://docs.daml.com/daml/reference/base.html#class-ghc-base-functor-73448>`_ `Formula <type-deriving-formula-84903_>`_
   
-  **instance** `Eq <https://docs.daml.com/daml/reference/base.html#class-ghc-classes-eq-21216>`_ t =\> `Eq <https://docs.daml.com/daml/reference/base.html#class-ghc-classes-eq-21216>`_ (`Formula <type-deriving-formula-84903_>`_ t)
+  **instance** `Eq <https://docs.daml.com/daml/reference/base.html#class-ghc-classes-eq-21216>`_ t \=\> `Eq <https://docs.daml.com/daml/reference/base.html#class-ghc-classes-eq-21216>`_ (`Formula <type-deriving-formula-84903_>`_ t)
   
-  **instance** `Ord <https://docs.daml.com/daml/reference/base.html#class-ghc-classes-ord-70960>`_ t =\> `Ord <https://docs.daml.com/daml/reference/base.html#class-ghc-classes-ord-70960>`_ (`Formula <type-deriving-formula-84903_>`_ t)
+  **instance** `Ord <https://docs.daml.com/daml/reference/base.html#class-ghc-classes-ord-70960>`_ t \=\> `Ord <https://docs.daml.com/daml/reference/base.html#class-ghc-classes-ord-70960>`_ (`Formula <type-deriving-formula-84903_>`_ t)
   
-  **instance** `Show <https://docs.daml.com/daml/reference/base.html#class-ghc-show-show-56447>`_ t =\> `Show <https://docs.daml.com/daml/reference/base.html#class-ghc-show-show-56447>`_ (`Formula <type-deriving-formula-84903_>`_ t)
+  **instance** `Show <https://docs.daml.com/daml/reference/base.html#class-ghc-show-show-56447>`_ t \=\> `Show <https://docs.daml.com/daml/reference/base.html#class-ghc-show-show-56447>`_ (`Formula <type-deriving-formula-84903_>`_ t)

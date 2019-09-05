@@ -8,7 +8,7 @@ Templates
 
 .. _type-proposal-proposal-1384:
 
-**template** Template t =\> `Proposal <type-proposal-proposal-1384_>`_ t
+**template** Template t \=\> `Proposal <type-proposal-proposal-1384_>`_ t
 
   .. list-table::
      :widths: 15 10 30
@@ -30,5 +30,5 @@ Templates
   + **Choice Accept**
     
   
-  + **Choice External:Archive**
+  + **Choice External\:Archive**
     

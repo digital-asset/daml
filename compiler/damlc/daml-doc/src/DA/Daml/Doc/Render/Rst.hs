@@ -66,7 +66,7 @@ spaced = intercalate [""] . respace
     respace = \case
         [line1] : (line2 : block) : xs
             | any (`T.isPrefixOf` line1) ["`", "**type**", "**template instance**"]
-            , any (`T.isPrefixOf` line2) ["  :", "  ="] ->
+            , any (`T.isPrefixOf` line2) ["  \\:", "  \\="] ->
                 (line1 : line2 : block) : respace xs
         x : xs -> x : respace xs
         [] -> []
