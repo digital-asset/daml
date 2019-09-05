@@ -25,15 +25,15 @@ Templates
        - 
      * - currency
        - `Text <https://docs.daml.com/daml/reference/base.html#type-ghc-types-text-57703>`_
-       - only 3-letter symbols are allowed
+       - only 3\-letter symbols are allowed
      * - amount
        - `Decimal <https://docs.daml.com/daml/reference/base.html#type-ghc-types-decimal-54602>`_
        - must be positive
      * - regulators
-       - [Party]
+       - \[Party\]
        - ``regulators`` may observe any use of the ``Iou``
   
-  + **Choice External:Archive**
+  + **Choice External\:Archive**
     
   
   + **Choice DoNothing**
@@ -41,7 +41,7 @@ Templates
   
   + **Choice Merge**
     
-    merges two "compatible" ``Iou``s
+    merges two \"compatible\" ``Iou``s
     
     .. list-table::
        :widths: 15 10 30
@@ -52,7 +52,7 @@ Templates
          - Description
        * - otherCid
          - ContractId `Iou <type-iou12-iou-45923_>`_
-         - Must have same owner, issuer, and currency. The regulators may differ, and are taken from the original ``Iou``.
+         - Must have same owner, issuer, and currency\. The regulators may differ, and are taken from the original ``Iou``\.
   
   + **Choice Split**
     
@@ -91,8 +91,8 @@ Functions
 .. _function-iou12-main-35518:
 
 `main <function-iou12-main-35518_>`_
-  : Scenario ()
+  \: Scenario ()
   
-  A single test scenario covering all functionality that ``Iou`` implements.
-  This description contains a link(http://example.com), some bogus <inline html>,
-  and words\_ with\_ underscore, to test damldoc capabilities.
+  A single test scenario covering all functionality that ``Iou`` implements\.
+  This description contains a link(http://example.com), some bogus \<inline html\>,
+  and words\_ with\_ underscore, to test damldoc capabilities\.

@@ -4,7 +4,7 @@ Module ConstrainedClassMethod
 -----------------------------
 
 This module tests the case where a class method contains a constraint
-not present in the class itself.
+not present in the class itself\.
 
 Typeclasses
 ^^^^^^^^^^^
@@ -16,12 +16,12 @@ Typeclasses
   .. _function-constrainedclassmethod-foo-58176:
   
   `foo <function-constrainedclassmethod-foo-58176_>`_
-    : t -> t
+    \: t \-\> t
   
   .. _function-constrainedclassmethod-bar-13431:
   
   `bar <function-constrainedclassmethod-bar-13431_>`_
-    : `Eq <https://docs.daml.com/daml/reference/base.html#class-ghc-classes-eq-21216>`_ t => t -> t
+    \: `Eq <https://docs.daml.com/daml/reference/base.html#class-ghc-classes-eq-21216>`_ t \=\> t \-\> t
 
 .. _class-constrainedclassmethod-b-99749:
 
@@ -30,4 +30,4 @@ Typeclasses
   .. _function-constrainedclassmethod-baz-40143:
   
   `baz <function-constrainedclassmethod-baz-40143_>`_
-    : `B <class-constrainedclassmethod-b-99749_>`_ b => b -> t
+    \: `B <class-constrainedclassmethod-b-99749_>`_ b \=\> b \-\> t

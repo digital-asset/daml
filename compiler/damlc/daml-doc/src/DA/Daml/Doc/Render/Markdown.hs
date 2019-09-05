@@ -7,7 +7,7 @@ module DA.Daml.Doc.Render.Markdown
   ) where
 
 import DA.Daml.Doc.Types
-import DA.Daml.Doc.Render.Util (adjust)
+import DA.Daml.Doc.Render.Util (adjust, escapeText)
 import DA.Daml.Doc.Render.Monoid
 
 import Data.List.Extra
@@ -78,13 +78,7 @@ bullet [] = []
 bullet (x : xs) = ("* " <> x) : indent xs
 
 escapeMd :: T.Text -> T.Text
-escapeMd = T.pack . concatMap escapeChar . T.unpack
-  where
-    escapeChar c
-        | shouldEscape c = ['\\', c]
-        | otherwise = [c]
-
-    shouldEscape = (`elem` ("[]*_~`<>\\&" :: String))
+escapeMd = escapeText (`elem` ("[]*_~`<>\\&" :: String))
 
 -- | Render fields as a pipe-table, like this:
 -- >  | Field    | Type     | Description
