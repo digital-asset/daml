@@ -22,3 +22,4 @@ HEAD — ongoing
 + [JSON API] **BREAKING CHANGE** The ``/contracts/search`` request payload must use
   ``"%templates"`` in place of ``"templateIds"`` to select which templates' contracts are
   returned.  See `issue #2777 <https://github.com/digital-asset/daml/issues/2777>`_.
++ [DAML Compiler] Improve the UX of generic templates over the Ledger API.
