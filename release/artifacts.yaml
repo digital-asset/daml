@@ -133,3 +133,5 @@
   type: jar-scala
 - target: //ledger-service/http-json:http-json
   type: jar-scala
+- target: //ledger-service/http-json:http-json-binary
+  type: jar-deploy

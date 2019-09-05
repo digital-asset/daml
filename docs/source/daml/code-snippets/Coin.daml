@@ -1,0 +1,30 @@
+-- Copyright (c) 2019 The DAML Authors. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+daml 1.2
+module Coin where
+
+import Proposal
+
+-- start coin
+template Coin
+  with
+    issuer : Party
+    owner : Party
+  where
+    signatory issuer, owner
+-- end coin
+
+-- start instance
+template instance CoinProposal = Proposal Coin
+-- end instance
+
+-- start scenario
+coinIssuance = scenario do
+  alice <- getParty "alice"
+  bank <- getParty "bank"
+  let coin = Coin with issuer = bank; owner = alice
+  let proposal = Proposal with asset = coin; receiver = alice
+  propId <- bank `submit` create proposal
+  alice `submit` exercise propId Accept
+-- end scenario

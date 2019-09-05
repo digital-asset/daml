@@ -31,12 +31,17 @@ object LedgerClientJwt {
   type GetActiveContracts =
     (Jwt, TransactionFilter, Boolean) => Source[GetActiveContractsResponse, Future[String]]
 
-  def singleHostChannel(hostIp: String, port: Int, configuration: LedgerClientConfiguration)(
+  def singleHostChannel(
+      hostIp: String,
+      port: Int,
+      configuration: LedgerClientConfiguration,
+      maxInboundMessageSize: Int)(
       implicit ec: ExecutionContext,
       esf: ExecutionSequencerFactory): Throwable \/ Channel = \/.fromTryCatchNonFatal {
 
     val builder: NettyChannelBuilder = NettyChannelBuilder
       .forAddress(hostIp, port)
+      .maxInboundMessageSize(maxInboundMessageSize)
 
     configuration.sslContext
       .fold {

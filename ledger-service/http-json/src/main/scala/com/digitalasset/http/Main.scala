@@ -8,6 +8,7 @@ import akka.http.scaladsl.Http.ServerBinding
 import akka.stream.ActorMaterializer
 import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.digitalasset.ledger.api.refinements.ApiTypes.ApplicationId
+
 import com.typesafe.scalalogging.StrictLogging
 import scalaz.\/
 
@@ -24,12 +25,15 @@ object Main extends StrictLogging {
 
   def main(args: Array[String]): Unit = {
 
-    if (args.length != 3)
+    if (args.length != 3 && args.length != 4)
       reportInvalidUsageAndExit()
 
     val ledgerHost: String = args(0)
     val ledgerPort: Int = Try(args(1).toInt).fold(e => reportInvalidUsageAndExit(e), identity)
     val httpPort: Int = Try(args(2).toInt).fold(e => reportInvalidUsageAndExit(e), identity)
+    val maxInboundMessageSize: Int =
+      if (args.length >= 4) Try(args(3).toInt).fold(e => reportInvalidUsageAndExit(e), identity)
+      else HttpService.DefaultMaxInboundMessageSize
 
     logger.info(s"ledgerHost: $ledgerHost, ledgerPort: $ledgerPort, httpPort: $httpPort")
 
@@ -42,7 +46,7 @@ object Main extends StrictLogging {
     val applicationId = ApplicationId("HTTP-JSON-API-Gateway")
 
     val serviceF: Future[HttpService.Error \/ ServerBinding] =
-      HttpService.start(ledgerHost, ledgerPort, applicationId, httpPort)
+      HttpService.start(ledgerHost, ledgerPort, applicationId, httpPort, maxInboundMessageSize)
 
     sys.addShutdownHook {
       HttpService
@@ -72,7 +76,8 @@ object Main extends StrictLogging {
     * Report usage and exit the program. Guaranteed by type not to terminate.
     */
   private def reportInvalidUsageAndExit(): Nothing = {
-    logger.error("Usage: LEDGER_HOST LEDGER_PORT HTTP_PORT")
+    logger.error(
+      "Usage: <ledger-host> <ledger-port> <http-port> [<max-inbound-message-size-in-bytes>]")
     sys.exit(ErrorCodes.InvalidUsage)
   }
 
