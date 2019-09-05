@@ -27,7 +27,7 @@ Templates
        - `Decimal <https://docs.daml.com/daml/reference/base.html#type-ghc-types-decimal-54602>`_
        - 
   
-  + **Choice External:Archive**
+  + **Choice External\:Archive**
     
   
   + **Choice Burn**
@@ -39,4 +39,4 @@ Template Instances
 .. _type-proposaliou-proposaliou-81988:
 
 **template instance** `ProposalIou <type-proposaliou-proposaliou-81988_>`_
-  = Proposal `Iou <type-proposaliou-iou-51326_>`_
+  \= Proposal `Iou <type-proposaliou-iou-51326_>`_

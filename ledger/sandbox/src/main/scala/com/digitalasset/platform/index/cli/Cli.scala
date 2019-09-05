@@ -8,8 +8,21 @@ import java.io.File
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.ledger.api.tls.TlsConfiguration
 import com.digitalasset.platform.index.config.Config
+import scopt.Read
 
 object Cli {
+
+  private implicit val ledgerStringRead: Read[Ref.LedgerString] =
+    Read.stringRead.map(Ref.LedgerString.assertFromString)
+
+  private implicit def tripleRead[A, B, C](
+      implicit readA: Read[A],
+      readB: Read[B],
+      readC: Read[C]): Read[(A, B, C)] =
+    Read.seqRead[String].map {
+      case Seq(a, b, c) => (readA.reads(a), readB.reads(b), readC.reads(c))
+      case a => throw new RuntimeException(s"Expected a comma-separated triple, got '$a'")
+    }
 
   private val pemConfig = (path: String, config: Config) =>
     config.copy(
@@ -29,7 +42,10 @@ object Cli {
         Some(TlsConfiguration(enabled = true, None, None, Some(new File(path)))))(c =>
         Some(c.copy(trustCertCollectionFile = Some(new File(path))))))
 
-  private def cmdArgParser(binaryName: String, description: String) =
+  private def cmdArgParser(
+      binaryName: String,
+      description: String,
+      allowExtraParticipants: Boolean) =
     new scopt.OptionParser[Config](binaryName) {
       head(description)
       opt[Int]("port")
@@ -59,16 +75,17 @@ object Cli {
       opt[String]("jdbc-url")
         .text("The JDBC URL to the postgres database used for the indexer and the index")
         .action((u, c) => c.copy(jdbcUrl = u))
-      opt[String]("participant-id")
+      opt[Ref.LedgerString]("participant-id")
         .optional()
         .text("The participant id given to all components of a ledger api server")
-        .action((p, c) => c.copy(participantId = Ref.LedgerString.assertFromString(p)))
-        .validate(p => {
-          Ref.LedgerString.fromString(p) match {
-            case Right(_) => success
-            case Left(_) => failure("Invalid character in participant id")
-          }
-        })
+        .action((p, c) => c.copy(participantId = p))
+      if (allowExtraParticipants) {
+        opt[(Ref.LedgerString, Int, String)]('P', "extra-participant")
+          .optional()
+          .unbounded()
+          .text("A list of triples in the form `<participant-id>,<port>,<index-jdbc-url>` to spin up multiple nodes backed by the same in-memory ledger")
+          .action((e, c) => c.copy(extraPartipants = c.extraPartipants :+ e))
+      }
       arg[File]("<archive>...")
         .optional()
         .unbounded()
@@ -76,6 +93,10 @@ object Cli {
         .text("DAR files to load. Scenarios are ignored. The servers starts with an empty ledger by default.")
     }
 
-  def parse(args: Array[String], binaryName: String, description: String): Option[Config] =
-    cmdArgParser(binaryName, description).parse(args, Config.default)
+  def parse(
+      args: Array[String],
+      binaryName: String,
+      description: String,
+      allowExtraParticipants: Boolean = false): Option[Config] =
+    cmdArgParser(binaryName, description, allowExtraParticipants).parse(args, Config.default)
 }

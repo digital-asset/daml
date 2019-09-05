@@ -103,6 +103,16 @@ jobs:
           done
 
           git checkout $CUR_SHA
+
+          echo "Done building docs bundle. Checking versions again to avoid race condition..."
+          S3_VERSIONS=$(mktemp)
+          aws s3 cp s3://docs-daml-com/versions.json $S3_VERSIONS
+          if diff $S3_VERSIONS $DOCDIR/versions.json; then
+            echo "No more new version, another process must have pushed already."
+            exit 0
+          fi
+          echo "Pushing new versions file first..."
+          aws s3 cp $DOCDIR/versions.json s3://docs-daml-com/versions.json --acl public-read
           echo "Pushing to S3 bucket..."
           aws s3 sync $DOCDIR \
                       s3://docs-daml-com/ \

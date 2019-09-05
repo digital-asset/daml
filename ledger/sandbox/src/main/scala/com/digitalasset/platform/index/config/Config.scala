@@ -17,7 +17,8 @@ final case class Config(
     timeProvider: TimeProvider, // enables use of non-wall-clock time in tests
     jdbcUrl: String,
     tlsConfig: Option[TlsConfiguration],
-    participantId: LedgerString
+    participantId: LedgerString,
+    extraPartipants: Vector[(LedgerString, Int, String)]
 )
 
 object Config {
@@ -31,5 +32,7 @@ object Config {
       TimeProvider.UTC,
       "",
       None,
-      LedgerString.assertFromString("standalone-participant"))
+      LedgerString.assertFromString("standalone-participant"),
+      Vector.empty
+    )
 }

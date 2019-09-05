@@ -9,6 +9,7 @@ module DA.Daml.Doc.Render.Rst
 
 import DA.Daml.Doc.Types
 import DA.Daml.Doc.Render.Monoid
+import DA.Daml.Doc.Render.Util (escapeText)
 
 import qualified Data.Text.Prettyprint.Doc as Pretty
 import Data.Text.Prettyprint.Doc (Doc, defaultLayoutOptions, layoutPretty, pretty, (<+>))
@@ -35,18 +36,21 @@ renderRst env = \case
 renderRstText :: RenderEnv -> RenderText -> T.Text
 renderRstText env = \case
     RenderConcat ts -> mconcatMap (renderRstText env) ts
-    RenderPlain text -> text
-    RenderStrong text -> T.concat ["**", text, "**"]
+    RenderPlain text -> escapeRst text
+    RenderStrong text -> T.concat ["**", escapeRst text, "**"]
     RenderLink ref text ->
         case lookupReference env ref of
-            Nothing -> text
+            Nothing -> escapeRst text
             Just anchorLoc@(External _) ->
                 T.concat
-                    ["`", text, " <"
-                    , anchorHyperlink anchorLoc (referenceAnchor ref)
+                    [ "`", escapeLinkText text
+                    , " <", anchorHyperlink anchorLoc (referenceAnchor ref)
                     , ">`_"]
             Just _ ->
-                T.concat ["`", text, " <", unAnchor (referenceAnchor ref), "_>`_"]
+                T.concat
+                    [ "`", escapeLinkText text
+                    , " <", unAnchor (referenceAnchor ref)
+                    , "_>`_" ]
     RenderDocsInline docText ->
         T.unwords (docTextToRst docText)
 
@@ -62,7 +66,7 @@ spaced = intercalate [""] . respace
     respace = \case
         [line1] : (line2 : block) : xs
             | any (`T.isPrefixOf` line1) ["`", "**type**", "**template instance**"]
-            , any (`T.isPrefixOf` line2) ["  :", "  ="] ->
+            , any (`T.isPrefixOf` line2) ["  \\:", "  \\="] ->
                 (line1 : line2 : block) : respace xs
         x : xs -> x : respace xs
         [] -> []
@@ -94,7 +98,7 @@ renderRstFields env fields = concat
     ]
   where
     fieldRows = concat
-        [ [ "   * - " <> escapeTr_ (renderRstText env name)
+        [ [ "   * - " <> renderRstText env name
           , "     - " <> renderRstText env ty
           , "     - " <> renderRstText env doc ]
         | (name, ty, doc) <- fields
@@ -164,11 +168,22 @@ docTextToRst = T.lines . renderStrict . layoutPretty defaultLayoutOptions . rend
     -- Loses the newline structure (unwords . ... . words), but which
     -- commonMarkToNode destroyed earlier at the call site here.
     prettyRst :: T.Text -> Doc ()
-    prettyRst txt = pretty $ leadingWhite <> T.unwords (map escapeTr_ (T.words txt)) <> trailingWhite
+    prettyRst txt = pretty $ leadingWhite <> T.unwords (map escapeRst (T.words txt)) <> trailingWhite
       where trailingWhite = T.takeWhileEnd isSpace txt
             leadingWhite  = T.takeWhile isSpace txt
 
-escapeTr_ :: T.Text -> T.Text
-escapeTr_ w | T.null w        = w
-            | T.last w == '_' = T.init w <> "\\_"
-            | otherwise       = w
+escapeSlash :: T.Text -> T.Text
+escapeSlash = escapeText (== '\\')
+
+-- | There doesn't seem to be any rhyme or reason to what gets
+-- escaped in link text. Certainly slashes are *special*,
+-- they need to be escaped twice (i.e. each slash in the link text
+-- needs to appear as four slashes, otherwise it may interfere with
+-- the rendering of another character). But trying to escape
+-- indiscriminately just results in a lot of slashes being rendered
+-- as link text.
+escapeLinkText :: T.Text -> T.Text
+escapeLinkText = escapeSlash . escapeSlash
+
+escapeRst :: T.Text -> T.Text
+escapeRst = escapeText (`elem` ("\\*_`<>#=-^\":.[]+" :: String))

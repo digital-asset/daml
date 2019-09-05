@@ -6,6 +6,7 @@ package com.daml.ledger.api.testtool.infrastructure.participant
 import java.time.{Clock, Instant}
 
 import com.daml.ledger.api.testtool.infrastructure.{
+  Identification,
   LedgerServices,
   instantToTimestamp,
   timestampToInstant
@@ -82,6 +83,7 @@ private[testtool] object ParticipantTestContext {
 
 private[testtool] final class ParticipantTestContext private[participant] (
     val ledgerId: String,
+    val endpointId: String,
     val applicationId: String,
     val identifierSuffix: String,
     referenceOffset: LedgerOffset,
@@ -101,16 +103,12 @@ private[testtool] final class ParticipantTestContext private[participant] (
   private[this] def timestampWithTtl(i: Instant): Some[Timestamp] =
     timestamp(i.plusSeconds(math.floor(defaultTtlSeconds * commandTtlFactor).toLong))
 
-  private[this] val nextPartyHintId: () => String = {
-    val it = Iterator.from(0).map(n => s"$applicationId-$identifierSuffix-party-$n")
-    () =>
-      it.synchronized(it.next())
-  }
-  private[this] val nextCommandId: () => String = {
-    val it = Iterator.from(0).map(n => s"$applicationId-$identifierSuffix-command-$n")
-    () =>
-      it.synchronized(it.next())
-  }
+  private[this] val identifierPrefix = s"$applicationId-$endpointId-$identifierSuffix"
+
+  private[this] val nextPartyHintId: () => String =
+    Identification.indexSuffix(s"$identifierPrefix-party")
+  private[this] val nextCommandId: () => String =
+    Identification.indexSuffix(s"$identifierPrefix-command")
 
   /**
     * Gets the absolute offset of the ledger end at a point in time. Use [[end]] if you need

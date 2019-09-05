@@ -10,7 +10,7 @@ load("@os_info//:os_info.bzl", "is_windows")
 def conformance_test(name, server, server_args = [], extra_data = [], ports = [6865], test_tool_args = []):
     client_server_test(
         name = name,
-        timeout = "short",
+        timeout = "long",
         client = "//ledger/ledger-api-test-tool",
         client_args = test_tool_args + ["localhost:%s" % port for port in ports],
         data = extra_data + [
