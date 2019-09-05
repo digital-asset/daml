@@ -9,6 +9,7 @@ da_haskell_library(
     hazel_deps = [
         "base",
         "bytestring",
+        "comonad",
         "containers",
         "cryptonite",
         "either",

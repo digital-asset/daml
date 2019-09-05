@@ -4,7 +4,8 @@
 
 -- | Utilities for working with DAML-LF protobuf archives
 module DA.Daml.LF.Proto3.Archive
-  ( decodeArchive
+  ( decodeArchives
+  , decodeArchive
   , decodeArchivePayload
   , encodeArchive
   , encodeArchiveLazy
@@ -16,15 +17,18 @@ module DA.Daml.LF.Proto3.Archive
 import           Control.Lens             (over, _Left)
 import qualified "cryptonite" Crypto.Hash as Crypto
 import qualified Da.DamlLf                as ProtoLF
+import Control.Comonad (duplicate)
 import Control.Monad
 import Data.List
 import           DA.Pretty
 import qualified DA.Daml.LF.Ast           as LF
 import qualified DA.Daml.LF.Proto3.Decode as Decode
 import qualified DA.Daml.LF.Proto3.Encode as Encode
+import Data.Bifunctor (bimap)
 import qualified Data.ByteArray           as BA
 import qualified Data.ByteString          as BS
 import qualified Data.ByteString.Lazy     as BSL
+import Data.Functor.Compose (Compose(..))
 import Data.Int
 import qualified Data.Text                as T
 import qualified Data.Text.Lazy           as TL
@@ -37,7 +41,11 @@ data ArchiveError
     | HashMismatch !T.Text !T.Text
   deriving (Eq, Show)
 
--- decodeArchives :: Traversable f => f BS.ByteString -> Either ArchiveError (f (LF.PackageId, LF.Package))
+decodeArchives :: Traversable f => f BS.ByteString -> Either ArchiveError (f (LF.PackageId, LF.Package))
+decodeArchives bytess = do
+  pkPayloads <- traverse decodeArchivePayload bytess
+  bimap (ProtobufError . show) getCompose . Decode.decodePayloads . Compose
+    $ duplicate <$> pkPayloads
 
 decodeArchivePayload :: BS.ByteString -> Either ArchiveError (LF.PackageId, ProtoLF.ArchivePayload)
 decodeArchivePayload bytes = do
@@ -61,7 +69,7 @@ decodeArchivePayload bytes = do
 decodeArchive :: BS.ByteString -> Either ArchiveError (LF.PackageId, LF.Package)
 decodeArchive bytes = do
     (packageId, payload) <- decodeArchivePayload bytes
-    package <- over _Left (ProtobufError. show) $ Decode.decodePayload payload
+    package <- over _Left (ProtobufError. show) $ Decode.decodePayload (\_ _ -> Nothing {-TODO SC-}) payload
     return (packageId, package)
 
 
