@@ -85,3 +85,6 @@
 1. Leave a comment like "All manual tests have passed" on the release PR on
    GitHub.
 1. Finally, announce the release in the relevant Slack channels.
+1. Documentation is published automatically once you make the release
+   public on Github but you might have to wait up to an hour for the
+   job to run.
