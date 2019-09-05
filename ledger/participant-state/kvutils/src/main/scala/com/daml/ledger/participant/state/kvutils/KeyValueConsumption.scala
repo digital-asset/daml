@@ -262,7 +262,7 @@ object KeyValueConsumption {
       transaction = makeCommittedTransaction(entryId, relTx),
       transactionId = hexTxId,
       recordTime = recordTime,
-      referencedContracts = List.empty // TODO(JM): rename this to additionalContracts. Always empty here.
+      divulgedContracts = List.empty
     )
   }
 

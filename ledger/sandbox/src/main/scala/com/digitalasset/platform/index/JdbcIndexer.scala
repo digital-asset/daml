@@ -190,7 +190,7 @@ class JdbcIndexer private (
           transaction,
           transactionId,
           recordTime,
-          referencedContracts) =>
+          divulgedContracts) =>
         val toAbsCoid: ContractId => AbsoluteContractId =
           SandboxEventIdFormatter.makeAbsCoid(transactionId)
 
