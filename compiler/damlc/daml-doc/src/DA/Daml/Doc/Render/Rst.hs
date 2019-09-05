@@ -9,6 +9,7 @@ module DA.Daml.Doc.Render.Rst
 
 import DA.Daml.Doc.Types
 import DA.Daml.Doc.Render.Monoid
+import DA.Daml.Doc.Render.Util (escapeText)
 
 import qualified Data.Text.Prettyprint.Doc as Pretty
 import Data.Text.Prettyprint.Doc (Doc, defaultLayoutOptions, layoutPretty, pretty, (<+>))
@@ -42,16 +43,12 @@ renderRstText env = \case
             Nothing -> escapeRst text
             Just anchorLoc@(External _) ->
                 T.concat
-                    [ "`", escapeRst (escapeRst text)
-                        -- For some reason, link text seem to be
-                        -- unescaped twice? This is the only way to
-                        -- get Sphinx to render `\\` properly (it
-                        -- becomes `\\\\\\\\` in the Rst source).
+                    [ "`", escapeLinkText text
                     , " <", anchorHyperlink anchorLoc (referenceAnchor ref)
                     , ">`_"]
             Just _ ->
                 T.concat
-                    [ "`", escapeRst (escapeRst text) -- same here
+                    [ "`", escapeLinkText text
                     , " <", unAnchor (referenceAnchor ref)
                     , "_>`_" ]
     RenderDocsInline docText ->
@@ -175,11 +172,18 @@ docTextToRst = T.lines . renderStrict . layoutPretty defaultLayoutOptions . rend
       where trailingWhite = T.takeWhileEnd isSpace txt
             leadingWhite  = T.takeWhile isSpace txt
 
-escapeRst :: T.Text -> T.Text
-escapeRst = T.pack . concatMap escapeChar . T.unpack
-  where
-    escapeChar c
-        | shouldEscape c = ['\\', c]
-        | otherwise = [c]
+escapeSlash :: T.Text -> T.Text
+escapeSlash = escapeText (== '\\')
 
-    shouldEscape = (`elem` ("[]*_~`<>\\&" :: String))
+-- | There doesn't seem to be any rhyme or reason to what gets
+-- escaped in link text. Certainly slashes are *special*,
+-- they need to be escaped twice (i.e. each slash in the link text
+-- needs to appear as four slashes, otherwise it may interfere with
+-- the rendering of another character). But trying to escape
+-- indiscriminately just results in a lot of slashes being rendered
+-- as link text.
+escapeLinkText :: T.Text -> T.Text
+escapeLinkText = escapeSlash . escapeSlash
+
+escapeRst :: T.Text -> T.Text
+escapeRst = escapeText (`elem` ("\\*_`<>#=-^\":.[]+" :: String))
