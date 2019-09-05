@@ -26,6 +26,7 @@ package object tests {
     "ContractKeysSubmitterIsMaintainerIT" -> (new ContractKeysSubmitterIsMaintainer(_)),
     "DivulgenceIT" -> (new Divulgence(_)),
     "IdentityIT" -> (new Identity(_)),
+    "MultiNode" -> (new MultiNode(_)),
     "PackageManagementServiceIT" -> (new PackageManagement(_)),
     "PartyManagementServiceIT" -> (new PartyManagement(_)),
     "TimeIT" -> (new Time(_)),
