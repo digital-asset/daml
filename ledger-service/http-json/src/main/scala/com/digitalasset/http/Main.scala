@@ -38,7 +38,7 @@ object Main extends StrictLogging {
       case Some(config) =>
         main(config)
       case None =>
-        // error is printed out by scopt... yeah I know... why?
+        // error is printed out by scopt
         sys.exit(ErrorCodes.InvalidUsage)
     }
 
@@ -119,6 +119,6 @@ object Main extends StrictLogging {
       .action((x, c) => c.copy(maxInboundMessageSize = x))
       .optional()
       .text(
-        s"Optional max inbound message size in bytes. Defaults to ${EmptyConfig.maxInboundMessageSize}")
+        s"Optional max inbound message size in bytes. Defaults to ${EmptyConfig.maxInboundMessageSize: Int}")
   }
 }
