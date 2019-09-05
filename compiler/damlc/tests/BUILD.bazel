@@ -167,6 +167,7 @@ da_haskell_test(
         "//compiler/damlc/daml-compiler",
         "//compiler/damlc/daml-ide-core",
         "//compiler/damlc/daml-ide-core:ide-testing",
+        "//compiler/damlc/daml-visual",
         "//compiler/hie-core",
         "//libs-haskell/da-hs-base",
     ],

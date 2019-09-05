@@ -16,7 +16,6 @@ import qualified Test.Tasty.HUnit    as Tasty
 import qualified Data.Text.Extended  as T
 
 import Data.Either
-import qualified Data.Set as Set
 import System.Directory
 import System.Environment.Blank (setEnv)
 import Control.Monad.IO.Class
@@ -955,14 +954,13 @@ visualDamlTests = Tasty.testGroup "Visual Tests"
                 , "        do return ()"
                 ]
             setFilesOfInterest [foo]
-            expectedTemplatePoperties foo $ Set.fromList
-                [TemplateProp "Coin"
-                    (Set.fromList
-                        [ExpectedChoice "Archive" True Set.empty,
-                         ExpectedChoice "Delete" True Set.empty
-                        ]
-                    )
-                ]
+            expectedGraph foo (
+                ExpectedGraph {expectedSubgraphs =
+                                [ExpectedSubGraph {expectedNodes = ["Create","Archive","Delete"]
+                                      , expectedTplFields = ["owner"]
+                                      , expectedTemplate = "Coin"}
+                                ]
+                                , expectedEdges = []})
         , testCase' "Fetch shoud not be an create action" $ do
             fetchTest <- makeModule "F"
                 [ "template Coin"
@@ -980,13 +978,11 @@ visualDamlTests = Tasty.testGroup "Visual Tests"
                 ]
             setFilesOfInterest [fetchTest]
             expectNoErrors
-            expectedTemplatePoperties fetchTest $ Set.fromList
-                [TemplateProp "Coin"
-                    (Set.fromList
-                    [   ExpectedChoice "Archive" True Set.empty,
-                        ExpectedChoice "ReducedCoin" False Set.empty
-                    ])
-                ]
+            expectedGraph fetchTest ( ExpectedGraph {expectedSubgraphs =
+                                        [ExpectedSubGraph {expectedNodes = ["Create","Archive","ReducedCoin"]
+                                            , expectedTplFields = ["owner","amount"]
+                                            , expectedTemplate = "Coin"}]
+                              , expectedEdges = []})
         , testCase' "Exercise should add an edge" $ do
             exerciseTest <- makeModule "F"
                 [ "template TT"
@@ -1009,18 +1005,20 @@ visualDamlTests = Tasty.testGroup "Visual Tests"
                 ]
             setFilesOfInterest [exerciseTest]
             expectNoErrors
-            expectedTemplatePoperties exerciseTest $ Set.fromList
-                [TemplateProp "Coin"
-                    (Set.fromList
-                    [   ExpectedChoice "Archive" True Set.empty,
-                        ExpectedChoice "Delete" True Set.empty
-                    ])
-                , TemplateProp "TT"
-                    (Set.fromList
-                    [   ExpectedChoice "Consume" True (Set.fromList [Exercise "F:Coin" "Delete"]),
-                        ExpectedChoice "Archive" True Set.empty
-                    ])
-                ]
+            expectedGraph exerciseTest (ExpectedGraph
+                [ ExpectedSubGraph { expectedNodes = ["Create", "Archive", "Delete"]
+                                   , expectedTplFields = ["owner"]
+                                   , expectedTemplate = "Coin"
+                                    }
+                , ExpectedSubGraph { expectedNodes = ["Create", "Archive", "Consume"]
+                                   , expectedTplFields = ["owner"]
+                                   , expectedTemplate = "TT"}]
+
+                [(ExpectedChoiceDetails {expectedConsuming = True
+                                        , expectedName = "Consume"},
+                  ExpectedChoiceDetails {expectedConsuming = True
+                                        , expectedName = "Delete"})
+                ])
         , testCase' "Create on other template should be edge" $ do
             createTest <- makeModule "F"
                 [ "template TT"
@@ -1039,16 +1037,16 @@ visualDamlTests = Tasty.testGroup "Visual Tests"
                 ]
             setFilesOfInterest [createTest]
             expectNoErrors
-            expectedTemplatePoperties createTest $ Set.fromList
-                [TemplateProp "Coin"
-                    (Set.fromList
-                    [ExpectedChoice "Archive" True Set.empty])
-                , TemplateProp "TT"
-                    (Set.fromList
-                    [   ExpectedChoice "CreateCoin" True (Set.fromList [Create "F:Coin"]),
-                        ExpectedChoice "Archive" True Set.empty
-                    ])
-                ]
+            expectedGraph createTest (ExpectedGraph
+                {expectedSubgraphs = [ExpectedSubGraph {expectedNodes = ["Create","Archive"]
+                                                       , expectedTplFields = ["owner"]
+                                                       , expectedTemplate = "Coin"}
+                                     , ExpectedSubGraph {expectedNodes = ["Create","Archive","CreateCoin"]
+                                                        , expectedTplFields = ["owner"]
+                                                        , expectedTemplate = "TT"}]
+                , expectedEdges = [(ExpectedChoiceDetails {expectedConsuming = True, expectedName = "CreateCoin"}
+                                   ,ExpectedChoiceDetails {expectedConsuming = False, expectedName = "Create"})]})
+
     ]
     where
         testCase' = testCase Nothing

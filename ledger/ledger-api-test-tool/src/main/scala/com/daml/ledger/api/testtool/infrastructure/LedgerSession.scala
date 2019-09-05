@@ -15,19 +15,27 @@ private[testtool] final class LedgerSession(
     participantSessionManager: ParticipantSessionManager)(
     implicit val executionContext: ExecutionContext) {
 
+  private[this] val endpointIdProvider =
+    Identification.circularWithIndex(Identification.greekAlphabet)
+
   private[this] val participantSessions =
-    Future.sequence(config.participants.map {
-      case (host, port) =>
-        participantSessionManager.getOrCreate(
-          ParticipantSessionConfiguration(host, port, config.ssl, config.commandTtlFactor))
-    })
+    Future
+      .sequence(config.participants.map {
+        case (host, port) =>
+          participantSessionManager.getOrCreate(
+            ParticipantSessionConfiguration(host, port, config.ssl, config.commandTtlFactor))
+      })
+      .map(sessions => sessions.map(endpointIdProvider() -> _))
 
   private[testtool] def createTestContext(
       applicationId: String,
       identifierSuffix: String): Future[LedgerTestContext] =
     participantSessions.flatMap { sessions =>
       Future
-        .sequence(sessions.map(_.createTestContext(applicationId, identifierSuffix)))
+        .sequence(sessions.map {
+          case (endpointId, session) =>
+            session.createTestContext(endpointId, applicationId, identifierSuffix)
+        })
         .map(new LedgerTestContext(_))
     }
 

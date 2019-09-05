@@ -47,8 +47,7 @@ private[infrastructure] final class ParticipantSessionManager {
         .negotiationType(NegotiationType.TLS)
     }
     val managedChannel = managedChannelBuilder.build()
-    logger.info(
-      s"Connection to ledger under test open via participant on ${config.host}:${config.port}")
+    logger.info(s"Connection to participant at ${config.host}:${config.port}")
     new ParticipantSession(config, managedChannel, eventLoopGroup)
   }
 

@@ -308,13 +308,13 @@ tGetActiveContracts :: SandboxTest
 tGetActiveContracts withSandbox = testCase "tGetActiveContracts" $ run withSandbox $ \pid testId -> do
     lid <- getLedgerIdentity
     -- no active contracts here
-    [(off1,_,[])] <- getActiveContracts lid (filterEverthingForParty (alice testId)) (Verbosity True)
+    [(off1,_,[])] <- getActiveContracts lid (filterEverythingForParty (alice testId)) (Verbosity True)
     -- so let's create one
     Right _ <- submitCommand lid (alice testId) (createIOU pid (alice testId) "A-coin" 100)
     withGetAllTransactions lid (alice testId) (Verbosity True) $ \txs -> do
     Just (Right [Transaction{events=[ev]}]) <- liftIO $ timeout 1 (takeStream txs)
     -- and then we get it
-    [(off2,_,[active]),(off3,_,[])] <- getActiveContracts lid (filterEverthingForParty (alice testId)) (Verbosity True)
+    [(off2,_,[active]),(off3,_,[])] <- getActiveContracts lid (filterEverythingForParty (alice testId)) (Verbosity True)
     let diffOffset :: AbsOffset -> AbsOffset -> Int
         (AbsOffset a) `diffOffset` (AbsOffset b) = read (Text.unpack a) - read (Text.unpack b)
     liftIO $ do

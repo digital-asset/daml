@@ -3,7 +3,7 @@
 Module MultipleNames
 --------------------
 
-Test multiple names sharing the same type signature.
+Test multiple names sharing the same type signature\.
 
 Typeclasses
 ^^^^^^^^^^^
@@ -15,13 +15,13 @@ Typeclasses
   .. _function-multiplenames-foo1-60996:
   
   `foo1 <function-multiplenames-foo1-60996_>`_
-    : t
+    \: t
     
-    This documentation is duplicated.
+    This documentation is duplicated\.
   
   .. _function-multiplenames-foo2-88479:
   
   `foo2 <function-multiplenames-foo2-88479_>`_
-    : t
+    \: t
     
-    This documentation is duplicated.
+    This documentation is duplicated\.

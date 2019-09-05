@@ -43,7 +43,7 @@ data Formula t
   | Negation (Formula t)
   -- | For formulas f1, ..., fn, `Conjunction [f1, ..., fn]` is f1 ∧ ... ∧ fn
   | Conjunction [Formula t]
-  -- | For formulas f1, ..., fn, `Disjunction [f1, ..., fn]` is f1 ∧ ... ∧ fn
+  -- | For formulas f1, ..., fn, `Disjunction [f1, ..., fn]` is f1 ∨ ... ∨ fn
   | Disjunction [Formula t]
   deriving (Eq, Ord, Show, Functor)
 
@@ -78,7 +78,7 @@ conj : [Formula t] -> Formula t
 conj = Conjunction
 
 -- | `disj` is a list version of `|||`, enabled by the associativity
--- of ∧.
+-- of ∨.
 disj : [Formula t] -> Formula t
 disj = Disjunction
 
