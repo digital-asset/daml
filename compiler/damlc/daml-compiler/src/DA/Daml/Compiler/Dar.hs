@@ -76,6 +76,7 @@ data PackageConfigFields = PackageConfigFields
     , pVersion :: String
     , pDependencies :: [String]
     , pSdkVersion :: String
+    , cliOpts :: Maybe [String]
     }
 
 buildDar ::

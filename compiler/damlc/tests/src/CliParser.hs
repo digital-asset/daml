@@ -5,14 +5,12 @@ module Cli
     ( main
     ) where
 
-import Control.Exception
 import Options.Applicative
 import System.Environment.Blank
-import System.Exit
 import Test.Tasty
 import Test.Tasty.HUnit
 
-import DA.Cli.Args
+import qualified DA.Cli.Args as ParseArgs
 
 main :: IO ()
 main = do
@@ -28,25 +26,15 @@ tests = testGroup
     , testCase "Bad flags in lax mode" $ parseSucceeds ["lax", "ide", "--badFlag"]
     ]
 
-parse :: [String] -> IO ()
-parse args = withArgs args $ execParserLax parserInfo
+parse :: [String] -> Maybe ()
+parse args = getParseResult $ snd $ ParseArgs.lax parserInfo args
 
 parseSucceeds :: [String] -> Assertion
-parseSucceeds = shouldSucceed . parse
+parseSucceeds args = parse args @?= Just ()
 
 parseFails :: [String] -> Assertion
-parseFails = shouldFail . parse
+parseFails args = parse args @?= Nothing
 
 parserInfo :: ParserInfo ()
 parserInfo = info (subparser cmdIde) idm
    where cmdIde = command "ide" $ info (pure ()) idm
-
-shouldFail :: IO () -> Assertion
-shouldFail a = do
-    b <- try a
-    b @?= Left (ExitFailure 1)
-
-shouldSucceed :: IO () -> Assertion
-shouldSucceed a = do
-    b :: Either ExitCode () <- try a
-    b @?= Right ()
