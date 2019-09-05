@@ -491,7 +491,7 @@ Also note that package identifiers are typically `cryptographic hash
 <Package hash_>`_ of the content of the package itself.
 
 
-Kinds, types and, expression
+Kinds, types, and expressions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. TODO We might want to consider changing the syntax for ``Mod``,
