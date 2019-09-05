@@ -1,0 +1,43 @@
+name:                daml-ledger
+version:             0.1.0.0
+description:         Haskell bindings for a DAML Ledger
+license:             BSD3
+author:              Nick Chapman
+maintainer:          nic@amadido.co.uk
+github:              https://github.com/???-TODO-???/daml-ledger.git
+
+dependencies:
+- async
+- base >= 4.7 && < 5
+- bytestring
+- containers
+- deepseq
+- exceptions
+- extra
+- grpc-haskell
+- proto3-suite
+- proto3-wire
+- retry
+- text
+- time
+- transformers
+- unliftio
+- vector
+
+library:
+  source-dirs:
+  - src
+  - ../../../bazel-genfiles/ledger-api/grpc-definitions
+
+  ghc-options:
+  - -Wall
+  - -Wno-name-shadowing
+
+  - -XGeneralizedNewtypeDeriving
+  - -XLambdaCase
+  - -XNamedFieldPuns
+  - -XNondecreasingIndentation
+  - -XNumericUnderscores
+  - -XOverloadedStrings
+  - -XRecordWildCards
+  - -XScopedTypeVariables

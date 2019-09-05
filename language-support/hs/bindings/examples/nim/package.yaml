@@ -1,0 +1,37 @@
+name:                nim
+version:             0.1.0.0
+description:         Play Nim on a DAML Ledger
+license:             BSD3
+author:              Nick Chapman
+maintainer:          nic@amadido.co.uk
+github:              https://github.com/???-TODO-???/nim.git
+
+dependencies:
+- ansi-terminal
+- base >= 4.7 && < 5
+- containers
+- daml-ledger
+- extra
+- haskeline
+- random
+- text
+- transformers
+- uuid
+
+executables:
+  nim-exe:
+    main:                DA.Ledger.App.Nim.Main
+    source-dirs:         src
+    ghc-options:
+    - -Wall
+    - -Wno-name-shadowing
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+
+    - -XGeneralizedNewtypeDeriving
+    - -XLambdaCase
+    - -XNamedFieldPuns
+    - -XOverloadedStrings
+    - -XRecordWildCards
+    - -XScopedTypeVariables

@@ -1,0 +1,20 @@
+resolver: lts-14.3
+
+extra-lib-dirs:
+- /usr/local/grpc/lib
+
+extra-deps:
+
+- git: https://github.com/awakesecurity/proto3-suite
+  commit: HEAD
+
+- git: https://github.com/awakesecurity/proto3-wire
+  commit: HEAD
+
+- git: https://github.com/awakesecurity/gRPC-haskell
+  commit: HEAD
+  subdirs:
+  - .
+  - core
+
+- ../..
