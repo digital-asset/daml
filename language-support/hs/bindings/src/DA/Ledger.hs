@@ -55,7 +55,7 @@ withTimeout ls = do
 getTransactionsPF :: LedgerId -> Party -> LedgerService (PastAndFuture [Transaction])
 getTransactionsPF lid party = do
     now <- fmap LedgerAbsOffset (ledgerEnd lid)
-    let filter = filterEverthingForParty party
+    let filter = filterEverythingForParty party
     let verbose = Verbosity False
     let req1 = GetTransactionsRequest lid LedgerBegin (Just now) filter verbose
     let req2 = GetTransactionsRequest lid now         Nothing    filter verbose
@@ -90,7 +90,7 @@ withGetAllTransactions
     -> (Stream [Transaction] -> LedgerService a)
     -> LedgerService a
 withGetAllTransactions lid party verbose act = do
-    let filter = filterEverthingForParty party
+    let filter = filterEverythingForParty party
     let req = GetTransactionsRequest lid LedgerBegin Nothing filter verbose
     withGetTransactions req act
 
@@ -100,7 +100,7 @@ withGetTransactionsPF
     -> LedgerService a
 withGetTransactionsPF lid party act = do
     now <- fmap LedgerAbsOffset (ledgerEnd lid)
-    let filter = filterEverthingForParty party
+    let filter = filterEverythingForParty party
     let verbose = Verbosity False
     let req1 = GetTransactionsRequest lid LedgerBegin (Just now) filter verbose
     let req2 = GetTransactionsRequest lid now         Nothing    filter verbose
@@ -115,6 +115,6 @@ withGetAllTransactionTrees
     -> (Stream [TransactionTree] -> LedgerService a)
     -> LedgerService a
 withGetAllTransactionTrees lid party verbose act = do
-    let filter = filterEverthingForParty party
+    let filter = filterEverythingForParty party
     let req = GetTransactionsRequest lid LedgerBegin Nothing filter verbose
     withGetTransactionTrees req act
