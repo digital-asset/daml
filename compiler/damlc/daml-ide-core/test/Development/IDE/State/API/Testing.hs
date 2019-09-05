@@ -10,12 +10,12 @@
 -- | Testing framework for Shake API.
 module Development.IDE.Core.API.Testing
     ( ShakeTest
-    , TemplateProp(..)
-    , ExpectedChoice(..)
     , GoToDefinitionPattern (..)
     , HoverExpectation (..)
     , D.DiagnosticSeverity(..)
-    , ExpectedChoiceAction(..)
+    , ExpectedGraph(..)
+    , ExpectedSubGraph(..)
+    , ExpectedChoiceDetails(..)
     , runShakeTest
     , makeFile
     , makeModule
@@ -39,7 +39,7 @@ module Development.IDE.Core.API.Testing
     , expectNoVirtualResource
     , expectVirtualResourceNote
     , expectNoVirtualResourceNote
-    , expectedTemplatePoperties
+    , expectedGraph
     , timedSection
     , example
     ) where
@@ -60,7 +60,6 @@ import DA.Test.Util (standardizeQuotes)
 import Language.Haskell.LSP.Messages (FromServerMessage(..))
 import Language.Haskell.LSP.Types
 import qualified DA.Daml.Visual as V
-import qualified DA.Pretty as DAP
 import qualified DA.Daml.LF.Ast as LF
 
 -- * external dependencies
@@ -104,7 +103,7 @@ data ShakeTestError
     | ExpectedVirtualResourceNote VirtualResource T.Text (Map VirtualResource T.Text)
     | ExpectedNoVirtualResourceNote VirtualResource (Map VirtualResource T.Text)
     | ExpectedNoErrors [D.FileDiagnostic]
-    | ExpectedTemplateProps (Set.Set TemplateProp) (Set.Set TemplateProp)
+    | ExpectedGraphProps ExpectedGraph V.Graph
     | ExpectedDefinition Cursor GoToDefinitionPattern (Maybe D.Location)
     | ExpectedHoverText Cursor HoverExpectation [T.Text]
     | TimedSectionTookTooLong Clock.NominalDiffTime Clock.NominalDiffTime
@@ -127,20 +126,21 @@ data ShakeTestEnv = ShakeTestEnv
 type TemplateName = String
 type ChoiceName = String
 
-data ExpectedChoiceAction
-    = Create TemplateName
-    | Exercise TemplateName ChoiceName deriving (Eq, Ord, Show)
-
-data ExpectedChoice = ExpectedChoice
-    { _cName :: String
-    , _consuming :: Bool
-    , _action :: Set.Set ExpectedChoiceAction
+data ExpectedChoiceDetails = ExpectedChoiceDetails
+    { expectedConsuming :: Bool
+    , expectedName :: String
     } deriving (Eq, Ord, Show )
 
-data TemplateProp = TemplateProp
-    { _tplName :: T.Text
-    , _choices :: Set.Set ExpectedChoice
-    } deriving (Eq, Ord, Show)
+data ExpectedSubGraph = ExpectedSubGraph
+    { expectedNodes :: [ChoiceName]
+    , expectedTplFields :: [String]
+    , expectedTemplate :: TemplateName
+    } deriving (Eq, Ord, Show )
+
+data ExpectedGraph = ExpectedGraph
+    { expectedSubgraphs :: [ExpectedSubGraph]
+    , expectedEdges :: [(ExpectedChoiceDetails, ExpectedChoiceDetails)]
+    } deriving (Eq, Ord, Show )
 
 -- | Monad for specifying Shake API tests. This type is abstract.
 newtype ShakeTest t = ShakeTest (ExceptT ShakeTestError (ReaderT ShakeTestEnv IO) t)
@@ -538,33 +538,34 @@ timedSection targetDiffTime block = do
         throwError $ TimedSectionTookTooLong targetDiffTime actualDiffTime
     return value
 
-actionsToChoiceActions :: Set.Set V.Action -> Set.Set ExpectedChoiceAction
-actionsToChoiceActions acts = Set.map expectedChcAction acts
-    where expectedChcAction = \case
-            V.ACreate tcon -> Create (DAP.renderPretty tcon)
-            V.AExercise tcon choice -> Exercise (DAP.renderPretty tcon) (DAP.renderPretty choice)
+subgraphToExpectedSubgraph :: V.SubGraph -> ExpectedSubGraph
+subgraphToExpectedSubgraph vSubgraph = ExpectedSubGraph vNodes vFields vTplName
+    where vNodes = map (T.unpack . LF.unChoiceName . V.displayChoiceName) (V.nodes vSubgraph)
+          vFields = map T.unpack (V.templateFields vSubgraph)
+          vTplName = T.unpack $ V.tplNameUnqual (V.clusterTemplate vSubgraph)
 
-templateChoicesToProps :: V.TemplateChoices -> TemplateProp
-templateChoicesToProps tca = TemplateProp tName choicesInTpl
-    where tName = V.tplNameUnqual (V.template tca)
-          choicesInTpl = Set.fromList $ map (\ca -> ExpectedChoice (DAP.renderPretty $ V.choiceName ca) (V.choiceConsuming ca) (actionsToChoiceActions $ V.actions ca)) (V.choiceAndActions tca)
+graphToExpectedGraph :: V.Graph -> ExpectedGraph
+graphToExpectedGraph vGraph = ExpectedGraph vSubgrpaghs vEdges
+    where vSubgrpaghs = map subgraphToExpectedSubgraph (V.subgraphs vGraph)
+          vEdges = map (\(c1,c2) -> (expectedChcDetails c1, expectedChcDetails c2)) (V.edges vGraph)
+          expectedChcDetails chc = ExpectedChoiceDetails (V.consuming chc)
+                                ((T.unpack . LF.unChoiceName . V.displayChoiceName) chc)
 
-graphTest :: LF.World -> LF.Package -> Set.Set TemplateProp -> ShakeTest ()
-graphTest wrld lfPkg expectedProps = do
-    let actual = Set.fromList $ map templateChoicesToProps tplPropsActual
-        tplPropsActual = concatMap (V.moduleAndTemplates wrld) (NM.toList $ LF.packageModules lfPkg)
-    unless (expectedProps == actual) $
-        throwError $ ExpectedTemplateProps expectedProps actual
+graphTest :: LF.World -> LF.Package -> ExpectedGraph -> ShakeTest ()
+graphTest wrld pkg expectedGraph = do
+    let actualGraph = V.graphFromModule (NM.toList $ LF.packageModules pkg) wrld
+    unless (expectedGraph == graphToExpectedGraph actualGraph) $
+        throwError $ ExpectedGraphProps expectedGraph actualGraph
 
-expectedTemplatePoperties :: D.NormalizedFilePath -> Set.Set TemplateProp -> ShakeTest ()
-expectedTemplatePoperties damlFilePath expectedProps = do
+-- Not using the ide call as we do not have a rule defined for visualization because of memory overhead
+expectedGraph :: D.NormalizedFilePath -> ExpectedGraph -> ShakeTest ()
+expectedGraph damlFilePath expectedGraph = do
     ideState <- ShakeTest $ Reader.asks steService
     mbDalf <- liftIO $ API.runAction ideState (API.getDalf damlFilePath)
     expectNoErrors
     Just lfPkg <- pure mbDalf
     wrld <- Reader.liftIO $ API.runAction ideState (API.worldForFile damlFilePath)
-    graphTest wrld lfPkg expectedProps
-
+    graphTest wrld lfPkg expectedGraph
 
 -- | Example testing scenario.
 example :: ShakeTest ()
