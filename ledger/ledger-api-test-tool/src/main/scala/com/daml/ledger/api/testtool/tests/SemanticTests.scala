@@ -45,11 +45,12 @@ final class SemanticTests(session: LedgerSession) extends LedgerTestSuite(sessio
   private[this] val doubleSpendAcrossTwoTransactions =
     LedgerTest("SemanticDoubleSpend", "Cannot double spend across transactions") { context =>
       for {
-        ledger <- context.participant()
-        Vector(payer, owner, newOwner, leftWithNothing) <- ledger.allocateParties(4)
-        iou <- ledger.create(payer, Iou(payer, owner, onePound))
-        _ <- ledger.exercise(owner, iou.exerciseTransfer(_, newOwner))
-        failure <- ledger.exercise(owner, iou.exerciseTransfer(_, leftWithNothing)).failed
+        Vector(alpha, beta) <- context.participants(2)
+        Vector(payer, owner) <- alpha.allocateParties(2)
+        Vector(newOwner, leftWithNothing) <- beta.allocateParties(2)
+        iou <- alpha.create(payer, Iou(payer, owner, onePound))
+        _ <- alpha.exercise(owner, iou.exerciseTransfer(_, newOwner))
+        failure <- alpha.exercise(owner, iou.exerciseTransfer(_, leftWithNothing)).failed
       } yield {
         assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "couldn't find contract")
       }
@@ -58,14 +59,15 @@ final class SemanticTests(session: LedgerSession) extends LedgerTestSuite(sessio
   private[this] val doubleSpendInTransaction =
     LedgerTest("SemanticDoubleSpendSameTx", "Cannot double spend within a transaction") { context =>
       for {
-        ledger <- context.participant()
-        Vector(payer, owner, newOwner1, newOwner2) <- ledger.allocateParties(4)
-        iou <- ledger.create(payer, Iou(payer, owner, onePound))
-        doubleSpend <- ledger.submitAndWaitRequest(
+        Vector(alpha, beta) <- context.participants(2)
+        Vector(payer, owner) <- alpha.allocateParties(2)
+        Vector(newOwner1, newOwner2) <- beta.allocateParties(2)
+        iou <- alpha.create(payer, Iou(payer, owner, onePound))
+        doubleSpend <- alpha.submitAndWaitRequest(
           owner,
           iou.exerciseTransfer(owner, newOwner1).command,
           iou.exerciseTransfer(owner, newOwner2).command)
-        failure <- ledger.submitAndWait(doubleSpend).failed
+        failure <- alpha.submitAndWait(doubleSpend).failed
       } yield {
         assertGrpcError(
           failure,
@@ -102,11 +104,12 @@ final class SemanticTests(session: LedgerSession) extends LedgerTestSuite(sessio
   private[this] val successfulPaintOffer =
     LedgerTest("SemanticPaintOffer", "Conduct the paint offer worflow successfully") { context =>
       for {
-        ledger <- context.participant()
-        Vector(bank, houseOwner, painter) <- ledger.allocateParties(3)
-        iou <- ledger.create(bank, Iou(bank, houseOwner, onePound))
-        offer <- ledger.create(painter, PaintOffer(painter, houseOwner, bank, onePound))
-        tree <- ledger.exercise(houseOwner, offer.exercisePaintOffer_Accept(_, iou))
+        Vector(alpha, beta) <- context.participants(2)
+        Vector(bank, houseOwner) <- alpha.allocateParties(2)
+        painter <- beta.allocateParty()
+        iou <- alpha.create(bank, Iou(bank, houseOwner, onePound))
+        offer <- beta.create(painter, PaintOffer(painter, houseOwner, bank, onePound))
+        tree <- alpha.exercise(houseOwner, offer.exercisePaintOffer_Accept(_, iou))
       } yield {
         val agreement = assertSingleton(
           "SemanticPaintOffer",
@@ -129,14 +132,15 @@ final class SemanticTests(session: LedgerSession) extends LedgerTestSuite(sessio
     LedgerTest("SemanticPaintCounterOffer", "Conduct the paint counter-offer worflow successfully") {
       context =>
         for {
-          ledger <- context.participant()
-          Vector(bank, houseOwner, painter) <- ledger.allocateParties(3)
-          iou <- ledger.create(bank, Iou(bank, houseOwner, onePound))
-          offer <- ledger.create(painter, PaintOffer(painter, houseOwner, bank, twoPounds))
-          counter <- ledger.exerciseAndGetContract[PaintCounterOffer](
+          Vector(alpha, beta) <- context.participants(2)
+          Vector(bank, houseOwner) <- alpha.allocateParties(2)
+          painter <- beta.allocateParty()
+          iou <- alpha.create(bank, Iou(bank, houseOwner, onePound))
+          offer <- beta.create(painter, PaintOffer(painter, houseOwner, bank, twoPounds))
+          counter <- alpha.exerciseAndGetContract[PaintCounterOffer](
             houseOwner,
             offer.exercisePaintOffer_Counter(_, iou))
-          tree <- ledger.exercise(painter, counter.exercisePaintCounterOffer_Accept)
+          tree <- beta.exercise(painter, counter.exercisePaintCounterOffer_Accept)
         } yield {
           val agreement = assertSingleton(
             "SemanticPaintCounterOffer",
@@ -160,9 +164,10 @@ final class SemanticTests(session: LedgerSession) extends LedgerTestSuite(sessio
       "SemanticPartialSignatories",
       "A signatory should not be able to create a contract on behalf of two parties") { context =>
       for {
-        ledger <- context.participant()
-        Vector(houseOwner, painter) <- ledger.allocateParties(2)
-        failure <- ledger.create(houseOwner, PaintAgree(painter, houseOwner)).failed
+        Vector(alpha, beta) <- context.participants(2)
+        houseOwner <- alpha.allocateParty()
+        painter <- beta.allocateParty()
+        failure <- alpha.create(houseOwner, PaintAgree(painter, houseOwner)).failed
       } yield {
         assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "requires authorizers")
       }
@@ -174,11 +179,12 @@ final class SemanticTests(session: LedgerSession) extends LedgerTestSuite(sessio
       "It should not be possible to exercise a choice without the consent of the controller") {
       context =>
         for {
-          ledger <- context.participant()
-          Vector(bank, houseOwner, painter) <- ledger.allocateParties(3)
-          iou <- ledger.create(painter, Iou(painter, houseOwner, onePound))
-          offer <- ledger.create(painter, PaintOffer(painter, houseOwner, bank, onePound))
-          failure <- ledger.exercise(painter, offer.exercisePaintOffer_Accept(_, iou)).failed
+          Vector(alpha, beta) <- context.participants(2)
+          Vector(bank, houseOwner) <- alpha.allocateParties(2)
+          painter <- beta.allocateParty()
+          iou <- beta.create(painter, Iou(painter, houseOwner, onePound))
+          offer <- beta.create(painter, PaintOffer(painter, houseOwner, bank, onePound))
+          failure <- beta.exercise(painter, offer.exercisePaintOffer_Accept(_, iou)).failed
         } yield {
           assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "requires authorizers")
         }
@@ -197,39 +203,40 @@ final class SemanticTests(session: LedgerSession) extends LedgerTestSuite(sessio
       "SemanticPrivacyProjections",
       "Test visibility via contract fetches for the paint-offer flow") { context =>
       for {
-        ledger <- context.participant()
-        Vector(bank, houseOwner, painter) <- ledger.allocateParties(3)
-        iou <- ledger.create(bank, Iou(bank, houseOwner, onePound))
+        Vector(alpha, beta) <- context.participants(2)
+        Vector(bank, houseOwner) <- alpha.allocateParties(2)
+        painter <- beta.allocateParty()
+        iou <- alpha.create(bank, Iou(bank, houseOwner, onePound))
 
         // The IOU should be visible only to the payer and the owner
-        _ <- fetchIou(ledger, bank, iou)
-        _ <- fetchIou(ledger, houseOwner, iou)
-        _ <- fetchIou(ledger, painter, iou).failed
+        _ <- fetchIou(alpha, bank, iou)
+        _ <- fetchIou(alpha, houseOwner, iou)
+        _ <- fetchIou(beta, painter, iou).failed
 
-        offer <- ledger.create(painter, PaintOffer(painter, houseOwner, bank, onePound))
+        offer <- beta.create(painter, PaintOffer(painter, houseOwner, bank, onePound))
 
         // The house owner and the painter can see the offer but the bank can't
-        _ <- fetchPaintOffer(ledger, houseOwner, offer)
-        _ <- fetchPaintOffer(ledger, painter, offer)
-        _ <- fetchPaintOffer(ledger, bank, offer).failed
+        _ <- fetchPaintOffer(alpha, houseOwner, offer)
+        _ <- fetchPaintOffer(beta, painter, offer)
+        _ <- fetchPaintOffer(alpha, bank, offer).failed
 
-        tree <- ledger.exercise(houseOwner, offer.exercisePaintOffer_Accept(_, iou))
+        tree <- alpha.exercise(houseOwner, offer.exercisePaintOffer_Accept(_, iou))
         (newIouEvent +: _, agreementEvent +: _) = createdEvents(tree).partition(
           _.getTemplateId == Tag.unwrap(Iou.id))
         newIou = Primitive.ContractId[Iou](newIouEvent.contractId)
         agreement = Primitive.ContractId[PaintAgree](agreementEvent.contractId)
 
         // The Bank can see the new IOU, but it cannot see the PaintAgree contract
-        _ <- fetchIou(ledger, bank, newIou)
-        _ <- fetchPaintAgree(ledger, bank, agreement).failed
+        _ <- fetchIou(alpha, bank, newIou)
+        _ <- fetchPaintAgree(alpha, bank, agreement).failed
 
         // The house owner and the painter can see the contract
-        _ <- fetchPaintAgree(ledger, painter, agreement)
-        _ <- fetchPaintAgree(ledger, houseOwner, agreement)
+        _ <- fetchPaintAgree(beta, painter, agreement)
+        _ <- fetchPaintAgree(alpha, houseOwner, agreement)
 
         // The painter sees its new IOU but the house owner cannot see it
-        _ <- fetchIou(ledger, painter, newIou)
-        _ <- fetchIou(ledger, houseOwner, newIou).failed
+        _ <- fetchIou(beta, painter, newIou)
+        _ <- fetchIou(alpha, houseOwner, newIou).failed
 
       } yield {
         // Nothing to do, all checks have been done in the for-comprehension
@@ -272,20 +279,21 @@ final class SemanticTests(session: LedgerSession) extends LedgerTestSuite(sessio
   private[this] val divulgence =
     LedgerTest("SemanticDivulgence", "Respect divulgence rules") { context =>
       for {
-        ledger <- context.participant()
-        Vector(issuer, owner, delegate) <- ledger.allocateParties(3)
-        token <- ledger.create(issuer, Token(issuer, owner, 1))
-        delegation <- ledger.create(owner, Delegation(owner, delegate))
+        Vector(alpha, beta) <- context.participants(2)
+        Vector(issuer, owner) <- alpha.allocateParties(2)
+        delegate <- beta.allocateParty()
+        token <- alpha.create(issuer, Token(issuer, owner, 1))
+        delegation <- alpha.create(owner, Delegation(owner, delegate))
 
         // The owner tries to divulge with a non-consuming choice, which actually doesn't work
-        noDivulgeToken <- ledger.create(owner, Delegation(owner, delegate))
-        _ <- ledger.exercise(owner, noDivulgeToken.exerciseDelegation_Wrong_Divulge_Token(_, token))
-        _ <- ledger.exercise(delegate, delegation.exerciseDelegation_Token_Consume(_, token)).failed
+        noDivulgeToken <- alpha.create(owner, Delegation(owner, delegate))
+        _ <- alpha.exercise(owner, noDivulgeToken.exerciseDelegation_Wrong_Divulge_Token(_, token))
+        _ <- beta.exercise(delegate, delegation.exerciseDelegation_Token_Consume(_, token)).failed
 
         // Successful divulgence and delegation
-        divulgeToken <- ledger.create(owner, Delegation(owner, delegate))
-        _ <- ledger.exercise(owner, divulgeToken.exerciseDelegation_Divulge_Token(_, token))
-        _ <- ledger.exercise(delegate, delegation.exerciseDelegation_Token_Consume(_, token))
+        divulgeToken <- alpha.create(owner, Delegation(owner, delegate))
+        _ <- alpha.exercise(owner, divulgeToken.exerciseDelegation_Divulge_Token(_, token))
+        _ <- beta.exercise(delegate, delegation.exerciseDelegation_Token_Consume(_, token))
       } yield {}
     }
 
@@ -297,19 +305,20 @@ final class SemanticTests(session: LedgerSession) extends LedgerTestSuite(sessio
     LedgerTest("SemanticContractKeys", "Perform correctly operations based on contract keys") {
       context =>
         for {
-          ledger <- context.participant()
-          Vector(bank, accountHolder) <- ledger.allocateParties(2)
+          Vector(alpha, beta) <- context.participants(2)
+          bank <- alpha.allocateParty()
+          accountHolder <- beta.allocateParty()
           accountTemplate = Account(bank, accountHolder, DamlTuple2("CH", 123))
           // Replicating the logic with which we compute the contract key, which in DAML is the following:
           // key (bank, accountNumber._1 <> show (this.accountNumber._2)) : (Party, Text)
           accountKey = DamlTuple2(bank, "CH123") //
-          invitation <- ledger.create(bank, AccountInvitation(accountTemplate))
-          account <- ledger
+          invitation <- alpha.create(bank, AccountInvitation(accountTemplate))
+          account <- beta
             .exerciseAndGetContract[Account](accountHolder, invitation.exerciseAccept)
-          toLookup <- ledger.create(bank, AccountLookupByKey(bank, accountKey))
-          lookup <- ledger.exercise(bank, toLookup.exerciseAccountLookupByKey_Execute)
-          toFetch <- ledger.create(bank, AccountFetchByKey(bank, accountKey))
-          fetch <- ledger.exercise(bank, toFetch.exerciseAccountFetchByKey_Execute)
+          toLookup <- alpha.create(bank, AccountLookupByKey(bank, accountKey))
+          lookup <- alpha.exercise(bank, toLookup.exerciseAccountLookupByKey_Execute)
+          toFetch <- alpha.create(bank, AccountFetchByKey(bank, accountKey))
+          fetch <- alpha.exercise(bank, toFetch.exerciseAccountFetchByKey_Execute)
         } yield {
 
           val lookupEvent = assertSingleton("Lookup", exercisedEvents(lookup))
