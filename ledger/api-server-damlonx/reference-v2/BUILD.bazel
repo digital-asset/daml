@@ -108,6 +108,7 @@ conformance_test(
         "--extra-participant second-participant,6866,jdbc:h2:mem:daml_on_x2;db_close_on_exit=false",
     ],
     test_tool_args = [
+        "--include=SemanticTests",
         "--timeout-scale-factor=10",
     ],
 )

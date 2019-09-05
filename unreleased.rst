@@ -13,3 +13,4 @@ HEAD — ongoing
   a single participant horizontally or adding new participants. Check the CLI ``--help`` option.
 + [DAML Integration Kit] The test tool now runs the double spend test on a shared contract in a
   multi-node setup (as well as single-node).
++ [DAML Integration Kit] The test tool can now run all semantic test in a multi-node setup.
