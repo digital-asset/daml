@@ -4,7 +4,6 @@
 -- | Main entry-point of the DAML compiler
 module DA.Daml.Visual
   ( execVisual
-  , moduleAndTemplates
   , tplNameUnqual
   , TemplateChoices(..)
   , ChoiceAndAction(..)
@@ -172,6 +171,7 @@ typeConFieldsNames :: LF.World -> (LF.FieldName, LF.Type) -> [T.Text]
 typeConFieldsNames world (LF.FieldName fName, LF.TConApp tcn _) = map (labledField fName) (typeConFields tcn world)
 typeConFieldsNames _ (LF.FieldName fName, _) = [fName]
 
+-- TODO: Anup This will fail if we were to recursively continue exploring the AST.
 typeConFields :: LF.Qualified LF.TypeConName -> LF.World -> [T.Text]
 typeConFields qName world = case LF.lookupDataType qName world of
   Right dataType -> case LF.dataCons dataType of
