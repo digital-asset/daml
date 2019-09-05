@@ -206,6 +206,8 @@ class JdbcIndexer private (
             SandboxEventIdFormatter.fromTransactionId(transactionId, nodeId) -> parties
         }
 
+        assert(blindingInfo.localImplicitDisclosure.isEmpty)
+
         val pt = PersistenceEntry.Transaction(
           LedgerEntry.Transaction(
             optSubmitterInfo.map(_.commandId),

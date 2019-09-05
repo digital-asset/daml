@@ -136,6 +136,13 @@ class ActiveLedgerStateManager[ALS](initialState: => ALS)(
                   .union(nc.stakeholders)
                   .union(nc.key.map(_.maintainers).getOrElse(Set.empty))
                 val absCoid = SandboxEventIdFormatter.makeAbsCoid(transactionId)(nc.coid)
+                val withoutStakeHolders = localImplicitDisclosure
+                  .getOrElse(nodeId, Set.empty) diff nc.stakeholders
+                val withStakeHolders = localImplicitDisclosure
+                  .getOrElse(nodeId, Set.empty)
+
+                assert(withoutStakeHolders == withStakeHolders)
+
                 val activeContract = ActiveContract(
                   id = absCoid,
                   let = let,
