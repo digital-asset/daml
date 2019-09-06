@@ -121,7 +121,7 @@ final case class IndexState(
               explicitDisclosure = blindingInfo.explicitDisclosure,
               localImplicitDisclosure = blindingInfo.localImplicitDisclosure,
               globalImplicitDisclosure = blindingInfo.globalImplicitDisclosure,
-              referencedContracts = u.referencedContracts
+              referencedContracts = u.divulgedContracts.map(c => c.contractId -> c.contractInst)
             )
             .fold(_ => Left(SequencingError), { newActiveContracts =>
               Right(
