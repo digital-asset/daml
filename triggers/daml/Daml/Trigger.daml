@@ -10,6 +10,7 @@ module Daml.Trigger
   , Created(..)
   , Archived(..)
   , Trigger(..)
+  , ActiveContracts(..)
   ) where
 
 data Identifier = Identifier
@@ -42,10 +43,14 @@ data Archived = Archived
 
 data Message
   = MTransaction Transaction
+  deriving (Show, Eq)
+
+data ActiveContracts = ActiveContracts { activeContracts : [Created] }
+  deriving (Show, Eq)
 
 -- | Trigger is (approximately) a left-fold over `Message` with
 -- an accumulator of type `s`.
 data Trigger s = Trigger
-  { initialState : s
+  { initialState : ActiveContracts -> s
   , update : Message -> s -> (s, Text)
   }
