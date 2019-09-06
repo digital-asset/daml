@@ -101,7 +101,7 @@ def da_haskell_library(**kwargs):
     """
     Define a Haskell library.
 
-    Allows to define Hazel dependencies using `hackage_deps`,
+    Allows to define Hackage dependencies using `hackage_deps`,
     applies common Haskell options defined in `bazel_tools/haskell.bzl`
     and forwards to `haskell_library` from `rules_haskell`.
     Refer to the [`rules_haskell` documentation][rules_haskell_docs].
@@ -131,7 +131,7 @@ def da_haskell_binary(main_function = "Main.main", **kwargs):
     """
     Define a Haskell executable.
 
-    Allows to define Hazel dependencies using `hackage_deps`,
+    Allows to define Hackage dependencies using `hackage_deps`,
     applies common Haskell options defined in `bazel_tools/haskell.bzl`
     and forwards to `haskell_binary` from `rules_haskell`.
     Refer to the [`rules_haskell` documentation][rules_haskell_docs].
@@ -167,7 +167,7 @@ def da_haskell_test(main_function = "Main.main", testonly = True, **kwargs):
     """
     Define a Haskell test suite.
 
-    Allows to define Hazel dependencies using `hackage_deps`,
+    Allows to define Hackage dependencies using `hackage_deps`,
     applies common Haskell options defined in `bazel_tools/haskell.bzl`
     and forwards to `haskell_test` from `rules_haskell`.
     Refer to the [`rules_haskell` documentation][rules_haskell_docs].
