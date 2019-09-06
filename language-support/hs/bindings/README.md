@@ -26,7 +26,7 @@ You can find some usage examples
 
 *Note: These instructions document the current process. We do plan make it simpler!*
 
-These bindings can be build as a standalone Haskell package `daml-ledger` using `stack`. Currently, `stack` references the code directly in the `daml` repo. The only annoyance is that part of the Haskell code for `daml-ledger` is generated from `.proto` files, and this generation step must be performed using the `bazel` build. We plan to simplify this step by directly providing `daml-ledger` as a package on hackage.
+These bindings can be exported as a standalone Haskell package `daml-ledger` using `stack`. Currently, `stack` references the code directly in the `daml` repo. The only annoyance is that part of the Haskell code for `daml-ledger` is generated from `.proto` files, and this generation step must be performed using the `bazel` build. We plan to simplify this step by directly providing `daml-ledger` as a package on hackage. Instructions for working with the daml repo can be found here: https://github.com/digital-asset/daml
 
 As well as `stack`, the only other prerequisite is to have `grpc` installed.
 We are currently using gRPC version `1.23.0`. To install `grpc`  requires building `grpc` from source (really!). See detailed instructions here: https://github.com/grpc/grpc/blob/master/BUILDING.md.
