@@ -9,6 +9,7 @@ module DA.Daml.LF.Proto3.Decode
   , CrossReferences
   ) where
 
+import Control.Monad.Error.Class (MonadError(throwError))
 import qualified Data.HashMap.Lazy as M
 import Data.Foldable (toList)
 import Data.Word (Word64)
@@ -17,19 +18,19 @@ import DA.Daml.LF.Ast (Package, PackageId, ModuleName)
 import DA.Daml.LF.Proto3.Error (Error(ParseError), Decode)
 import qualified DA.Daml.LF.Proto3.DecodeV1 as DecodeV1
 
-type ModuleNameIndex = Word64 -> Maybe ModuleName
+type ModuleNameIndex = Word64 -> Decode ModuleName
 
 newtype CrossReferences = CrossReferences (PackageId -> ModuleNameIndex)
 
--- traverses ArchivePayloads twice; we could do only one traversal if they were
--- guaranteed to be topologically sorted, but they are not guaranteed to be so,
--- even if our own implementation happens to do that when encoding.  We could
--- also make ModuleNameIndex produce Decode ModuleName to avoid the first
--- traversal, since the function would then be nonstrict on ArchivePayload
-decodePayloads :: Traversable f => f (PackageId, ArchivePayload) -> Decode (f Package)
-decodePayloads payloads = do
-  depModNames <- decodeCrossReferences payloads
-  traverse (decodePayload depModNames . snd) payloads
+-- we could build up the CrossReferences iteratively if they were guaranteed to
+-- be topologically sorted, but they are not guaranteed to be so, even if our
+-- own implementation happens to do that when encoding.  We avoid an initial
+-- traversal (and a traversal here) by deferring failures in
+-- decodeCrossReferences until you try to lookup a module name
+decodePayloads :: (Functor f, Foldable f) => f (PackageId, ArchivePayload) -> f (Decode Package)
+decodePayloads payloads =
+  let depModNames = decodeCrossReferences payloads
+  in decodePayload depModNames . snd <$> payloads
 
 decodePayload :: CrossReferences -> ArchivePayload -> Decode Package
 decodePayload (CrossReferences depModNames) payload = case archivePayloadSum payload of
@@ -39,14 +40,17 @@ decodePayload (CrossReferences depModNames) payload = case archivePayloadSum pay
     where
         minor = archivePayloadMinor payload
 
-decodeCrossReferences :: Foldable f => f (PackageId, ArchivePayload) -> Decode CrossReferences
+decodeCrossReferences :: Foldable f => f (PackageId, ArchivePayload) -> CrossReferences
 decodeCrossReferences payloads =
-  let decodes = (traverse . traverse) decodeModuleNameIndex $ toList payloads
-      depModNames index mn w = mn `M.lookup` index >>= ($ w)
-  in CrossReferences . depModNames . M.fromList <$> decodes
+  let decodes = (fmap . fmap) decodeModuleNameIndex $ toList payloads
+      depModNames index mn w = do
+        mni <- maybe (throwError $ ParseError "Missing dependency package") pure
+                 $ mn `M.lookup` index
+        mni w
+  in CrossReferences . depModNames . M.fromList $ decodes
 
-decodeModuleNameIndex :: ArchivePayload -> Decode ModuleNameIndex
+decodeModuleNameIndex :: ArchivePayload -> ModuleNameIndex
 decodeModuleNameIndex payload = case archivePayloadSum payload of
-    Just ArchivePayloadSumDamlLf0{} -> Left $ ParseError "Payload is DamlLf0"
+    Just ArchivePayloadSumDamlLf0{} -> const . Left $ ParseError "Payload is DamlLf0"
     Just (ArchivePayloadSumDamlLf1 package) -> DecodeV1.decodeInternedModuleNameIndex package
-    Nothing -> Left $ ParseError "Empty payload"
+    Nothing -> const . Left $ ParseError "Empty payload"

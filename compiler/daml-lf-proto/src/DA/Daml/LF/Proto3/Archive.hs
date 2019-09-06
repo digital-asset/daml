@@ -44,7 +44,7 @@ data ArchiveError
 decodeArchives :: Traversable f => f BS.ByteString -> Either ArchiveError (f (LF.PackageId, LF.Package))
 decodeArchives bytess = do
   pkPayloads <- traverse decodeArchivePayload bytess
-  bimap (ProtobufError . show) getCompose . Decode.decodePayloads . Compose
+  bimap (ProtobufError . show) getCompose . sequence . Decode.decodePayloads . Compose
     $ duplicate <$> pkPayloads
 
 decodeArchivePayload :: BS.ByteString -> Either ArchiveError (LF.PackageId, ProtoLF.ArchivePayload)
