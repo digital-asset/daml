@@ -9,7 +9,7 @@ load(
 da_haskell_library(
     name = "daml-lf-conversion",
     srcs = glob(["src/**/*.hs"]),
-    hazel_deps = [
+    hackage_deps = [
         "base",
         "bytestring",
         "containers",

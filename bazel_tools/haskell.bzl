@@ -64,9 +64,9 @@ common_haskell_flags = [
     "-with-rtsopts=-N2 -qg -I0",
 ]
 
-def _wrap_rule(rule, name = "", deps = [], hazel_deps = [], compiler_flags = [], **kwargs):
+def _wrap_rule(rule, name = "", deps = [], hackage_deps = [], compiler_flags = [], **kwargs):
     ext_flags = ["-X%s" % ext for ext in common_haskell_exts]
-    hazel_libs = [hazel_library(dep) for dep in hazel_deps]
+    hazel_libs = [hazel_library(dep) for dep in hackage_deps]
     rule(
         name = name,
         compiler_flags = ext_flags + common_haskell_flags + compiler_flags,
@@ -101,7 +101,7 @@ def da_haskell_library(**kwargs):
     """
     Define a Haskell library.
 
-    Allows to define Hazel dependencies using `hazel_deps`,
+    Allows to define Hazel dependencies using `hackage_deps`,
     applies common Haskell options defined in `bazel_tools/haskell.bzl`
     and forwards to `haskell_library` from `rules_haskell`.
     Refer to the [`rules_haskell` documentation][rules_haskell_docs].
@@ -114,7 +114,7 @@ def da_haskell_library(**kwargs):
             name = "example",
             src_strip_prefix = "src",
             srcs = glob(["src/**/*.hs"]),
-            hazel_deps = [
+            hackage_deps = [
                 "base",
                 "text",
             ],
@@ -131,7 +131,7 @@ def da_haskell_binary(main_function = "Main.main", **kwargs):
     """
     Define a Haskell executable.
 
-    Allows to define Hazel dependencies using `hazel_deps`,
+    Allows to define Hazel dependencies using `hackage_deps`,
     applies common Haskell options defined in `bazel_tools/haskell.bzl`
     and forwards to `haskell_binary` from `rules_haskell`.
     Refer to the [`rules_haskell` documentation][rules_haskell_docs].
@@ -144,7 +144,7 @@ def da_haskell_binary(main_function = "Main.main", **kwargs):
             name = "example",
             src_strip_prefix = "src",
             srcs = glob(["src/**/*.hs"]),
-            hazel_deps = [
+            hackage_deps = [
                 "base",
                 "text",
             ],
@@ -167,7 +167,7 @@ def da_haskell_test(main_function = "Main.main", testonly = True, **kwargs):
     """
     Define a Haskell test suite.
 
-    Allows to define Hazel dependencies using `hazel_deps`,
+    Allows to define Hazel dependencies using `hackage_deps`,
     applies common Haskell options defined in `bazel_tools/haskell.bzl`
     and forwards to `haskell_test` from `rules_haskell`.
     Refer to the [`rules_haskell` documentation][rules_haskell_docs].
@@ -180,7 +180,7 @@ def da_haskell_test(main_function = "Main.main", testonly = True, **kwargs):
             name = "example",
             src_strip_prefix = "src",
             srcs = glob(["src/**/*.hs"]),
-            hazel_deps = [
+            hackage_deps = [
                 "base",
                 "text",
             ],
@@ -284,7 +284,7 @@ def _sanitize_string_for_usage(s):
             res_array.append("_")
     return "".join(res_array)
 
-def c2hs_suite(name, hazel_deps, deps = [], srcs = [], c2hs_srcs = [], c2hs_src_strip_prefix = "", **kwargs):
+def c2hs_suite(name, hackage_deps, deps = [], srcs = [], c2hs_srcs = [], c2hs_src_strip_prefix = "", **kwargs):
     ts = []
     for file in c2hs_srcs:
         n = _sanitize_string_for_usage(file)
@@ -302,7 +302,7 @@ def c2hs_suite(name, hazel_deps, deps = [], srcs = [], c2hs_srcs = [], c2hs_src_
         name = name,
         srcs = [":" + t for t in ts] + srcs,
         deps = deps,
-        hazel_deps = hazel_deps,
+        hackage_deps = hackage_deps,
         **kwargs
     )
 

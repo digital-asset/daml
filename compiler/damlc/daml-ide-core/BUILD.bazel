@@ -12,7 +12,7 @@ da_haskell_library(
     name = "daml-ide-core",
     srcs = glob(["src/**/*.hs"]),
     data = [":dlint.yaml"],
-    hazel_deps = [
+    hackage_deps = [
         "aeson",
         "base",
         "binary",
@@ -62,7 +62,7 @@ da_haskell_library(
 da_haskell_library(
     name = "ide-testing",
     srcs = glob(["test/**/*.hs"]),
-    hazel_deps = [
+    hackage_deps = [
         "aeson",
         "base",
         "containers",

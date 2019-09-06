@@ -29,7 +29,7 @@ da_haskell_binary(
         "//compiler/damlc/pkg-db",
         "//compiler/scenario-service/server:scenario_service_jar",
     ],
-    hazel_deps = [
+    hackage_deps = [
         "base",
     ],
     src_strip_prefix = "exe",
@@ -51,7 +51,7 @@ da_haskell_binary(
         "-optl-static",
         "-optl-pthread",
     ] if is_windows else [],
-    hazel_deps = [
+    hackage_deps = [
         "base",
     ],
     src_strip_prefix = "exe",
@@ -91,7 +91,7 @@ da_haskell_library(
     extra_srcs = [
         "//compiler/daml-licenses/licenses:licensing.md",
     ],
-    hazel_deps = [
+    hackage_deps = [
         "aeson-pretty",
         "aeson",
         "ansi-wl-pprint",
