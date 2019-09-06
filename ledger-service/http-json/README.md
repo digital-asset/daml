@@ -8,7 +8,6 @@ daml-head sandbox --wall-clock-time --ledgerid MyLedger ./.daml/dist/quickstart-
 ```
 
 ### Start HTTP service from a DAML Assistant project directory
-This will build the service first, can take up to 5-10 minutes when running first time.
 ```
 $ daml-head json-api --ledger-host localhost --ledger-port 6865 --http-port 7575 --max-inbound-message-size 4194304 --application-id HTTP-JSON-API-Gateway
 ```
