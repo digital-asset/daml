@@ -1,10 +1,10 @@
 name:                nim
 version:             0.1.0.0
 description:         Play Nim on a DAML Ledger
-license:             BSD3
-author:              Nick Chapman
-maintainer:          nic@amadido.co.uk
-github:              https://github.com/???-TODO-???/nim.git
+license:             Apache-2.0
+author:              The DAML Authors
+maintainer:          nick.chapman@digitalasset.com
+github:              https://github.com/digital-asset/daml
 
 dependencies:
 - ansi-terminal

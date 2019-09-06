@@ -6,13 +6,13 @@ extra-lib-dirs:
 extra-deps:
 
 - git: https://github.com/awakesecurity/proto3-suite
-  commit: HEAD
+  commit: 3f6dd6f612cf2eba3c05798926ff924b0d5ab4fa
 
 - git: https://github.com/awakesecurity/proto3-wire
-  commit: HEAD
+  commit: 4f355bbac895d577d8a28f567ab4380f042ccc24
 
 - git: https://github.com/awakesecurity/gRPC-haskell
-  commit: HEAD
+  commit: be70fc49b0dc25313f57d0e6c6ba2a9fa46b9e6b
   subdirs:
   - .
   - core
