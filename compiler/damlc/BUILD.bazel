@@ -303,5 +303,6 @@ daml_doc_test(
     name = "daml-stdlib-doctest",
     package_name = "daml-stdlib",
     srcs = ["//compiler/damlc/daml-stdlib-src"],
+    flags = ["--no-dflags-check"],
     ignored_srcs = ["LibraryModules.daml"],
 )

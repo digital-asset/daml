@@ -274,7 +274,7 @@ setupDamlGHC options@Options{..} = do
 --    * thisInstalledUnitId not contained in loaded packages.
 checkDFlags :: Options -> DynFlags -> IO DynFlags
 checkDFlags Options {..} dflags@DynFlags {..}
-    | optIsGenerated || thisInstalledUnitId == toInstalledUnitId primUnitId =
+    | not optDflagCheck || thisInstalledUnitId == toInstalledUnitId primUnitId =
         pure dflags
     | otherwise = do
         case lookupPackage dflags $
