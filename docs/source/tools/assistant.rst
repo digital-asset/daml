@@ -18,9 +18,13 @@ DAML Assistant (``daml``)
 
   - Launch :doc:`DAML Studio </daml/daml-studio>`: ``daml studio``
   - Launch :doc:`Sandbox </tools/sandbox>` and :doc:`Navigator </tools/navigator/index>` together: ``daml start``
+    You can additionally start the HTTP JSON API by passing ``--json-api-port 7575`` to ``daml start``.
   - Launch Sandbox: ``daml sandbox``
   - Launch Navigator: ``daml navigator``
   - Launch :doc:`Extractor </tools/extractor>`: ``daml extractor``
+  - Launch the HTTP JSON API: ``daml json-api``
+    You can find more information in the
+    `README <https://github.com/digital-asset/daml/blob/master/ledger-service/http-json/README.md>`_.
 
 - Install new SDK versions manually: ``daml install <version>``
 
