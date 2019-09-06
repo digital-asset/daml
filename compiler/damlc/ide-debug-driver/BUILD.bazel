@@ -6,7 +6,7 @@ load("//bazel_tools:haskell.bzl", "da_haskell_binary")
 da_haskell_binary(
     name = "ide-debug-driver",
     srcs = glob(["src/**/*.hs"]),
-    hazel_deps = [
+    hackage_deps = [
         "aeson",
         "base",
         "haskell-lsp",

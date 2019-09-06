@@ -10,7 +10,7 @@ load("@os_info//:os_info.bzl", "is_windows")
 da_haskell_library(
     name = "daml-project-config",
     srcs = glob(["daml-project-config/**/*.hs"]),
-    hazel_deps = [
+    hackage_deps = [
         "base",
         "directory",
         "extra",
@@ -35,7 +35,7 @@ da_haskell_library(
             "src/DA/Daml/Assistant/Tests.hs",
         ],
     ),
-    hazel_deps = [
+    hackage_deps = [
         "aeson",
         "base",
         "bytestring",
@@ -78,7 +78,7 @@ da_haskell_library(
 da_haskell_binary(
     name = "daml",
     srcs = ["exe/DA/Daml/Assistant.hs"],
-    hazel_deps = [
+    hackage_deps = [
         "base",
         "directory",
         "extra",
@@ -107,7 +107,7 @@ package_app(
 da_haskell_test(
     name = "test",
     srcs = ["test/DA/Daml/Assistant/Tests.hs"],
-    hazel_deps = [
+    hackage_deps = [
         "base",
         "conduit",
         "conduit-extra",

@@ -11,7 +11,7 @@ load(
 da_haskell_library(
     name = "daml-doc",
     srcs = glob(["src/**/*.hs"]),
-    hazel_deps = [
+    hackage_deps = [
         "aeson-pretty",
         "aeson",
         "base",
@@ -44,7 +44,7 @@ da_haskell_library(
 da_haskell_library(
     name = "daml-doc-testing",
     srcs = glob(["test/**/*.hs"]),
-    hazel_deps = [
+    hackage_deps = [
         "aeson-pretty",
         "base",
         "bytestring",

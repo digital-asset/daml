@@ -10,7 +10,7 @@ da_haskell_library(
         ["src/**/*.hs"],
         exclude = ["src/DA/Daml/Helper/Main.hs"],
     ),
-    hazel_deps = [
+    hackage_deps = [
         "aeson",
         "async",
         "base",
@@ -41,7 +41,7 @@ da_haskell_library(
 da_haskell_binary(
     name = "daml-helper",
     srcs = ["src/DA/Daml/Helper/Main.hs"],
-    hazel_deps = [
+    hackage_deps = [
         "base",
         "extra",
     ],

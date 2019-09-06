@@ -6,7 +6,7 @@ load("//bazel_tools:haskell.bzl", "da_haskell_library", "da_haskell_test")
 da_haskell_library(
     name = "daml-lf-ast",
     srcs = glob(["src/**/*.hs"]),
-    hazel_deps = [
+    hackage_deps = [
         "base",
         "containers",
         "deepseq",
@@ -33,7 +33,7 @@ da_haskell_library(
 da_haskell_test(
     name = "tests",
     srcs = glob(["test/**/*.hs"]),
-    hazel_deps = [
+    hackage_deps = [
         "base",
         "tasty",
         "tasty-hunit",

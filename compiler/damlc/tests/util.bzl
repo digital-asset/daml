@@ -86,7 +86,7 @@ def damlc_integration_test(name, main_function):
             "//libs-haskell/da-hs-base",
             "//libs-haskell/test-utils",
         ],
-        hazel_deps = [
+        hackage_deps = [
             "aeson",
             "base",
             "bytestring",

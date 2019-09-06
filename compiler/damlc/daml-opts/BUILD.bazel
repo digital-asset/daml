@@ -9,7 +9,7 @@ load(
 da_haskell_library(
     name = "daml-opts-types",
     srcs = ["daml-opts-types/DA/Daml/Options/Types.hs"],
-    hazel_deps = [
+    hackage_deps = [
         "base",
         "directory",
         "extra",
@@ -34,7 +34,7 @@ da_haskell_library(
 da_haskell_library(
     name = "daml-opts",
     srcs = ["daml-opts/DA/Daml/Options.hs"],
-    hazel_deps = [
+    hackage_deps = [
         "base",
         "directory",
         "extra",
