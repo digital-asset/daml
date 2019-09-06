@@ -44,7 +44,7 @@ toCompileOpts options@Options{..} reportProgress =
                 setupDamlGHC options
                 GHC.getSession
             pkg <- liftIO $ generatePackageState optPackageDbs optHideAllPkgs $ map (second toRenaming) optPackageImports
-            dflags <- liftIO $ checkDFlags $ setPackageDynFlags pkg $ hsc_dflags env
+            dflags <- liftIO $ checkDFlags options $ setPackageDynFlags pkg $ hsc_dflags env
             return env{hsc_dflags = dflags}
       , optPkgLocationOpts = HieCore.IdePkgLocationOptions
           { optLocateHieFile = locateInPkgDb "hie"
@@ -272,9 +272,10 @@ setupDamlGHC options@Options{..} = do
 -- | Check for bad @DynFlags@.
 -- Checks:
 --    * thisInstalledUnitId not contained in loaded packages.
-checkDFlags :: DynFlags -> IO DynFlags
-checkDFlags dflags@DynFlags {..}
-    | thisInstalledUnitId == toInstalledUnitId primUnitId = pure dflags
+checkDFlags :: Options -> DynFlags -> IO DynFlags
+checkDFlags Options {..} dflags@DynFlags {..}
+    | optIsGenerated || thisInstalledUnitId == toInstalledUnitId primUnitId =
+        pure dflags
     | otherwise = do
         case lookupPackage dflags $
              DefiniteUnitId $ DefUnitId thisInstalledUnitId of
