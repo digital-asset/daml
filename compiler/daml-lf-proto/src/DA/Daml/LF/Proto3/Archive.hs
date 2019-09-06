@@ -66,10 +66,10 @@ decodeArchivePayload bytes = do
     return (LF.PackageId archiveHash, payload)
 
 -- | Decode a LF archive header, returing the hash and the payload
-decodeArchive :: BS.ByteString -> Either ArchiveError (LF.PackageId, LF.Package)
-decodeArchive bytes = do
+decodeArchive :: Decode.CrossReferences -> BS.ByteString -> Either ArchiveError (LF.PackageId, LF.Package)
+decodeArchive xrefs bytes = do
     (packageId, payload) <- decodeArchivePayload bytes
-    package <- over _Left (ProtobufError. show) $ Decode.decodePayload (\_ _ -> Nothing {-TODO SC-}) payload
+    package <- over _Left (ProtobufError. show) $ Decode.decodePayload xrefs payload
     return (packageId, package)
 
 
