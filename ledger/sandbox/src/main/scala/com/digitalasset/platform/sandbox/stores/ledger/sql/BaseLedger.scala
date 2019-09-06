@@ -61,7 +61,7 @@ class BaseLedger(val ledgerId: LedgerId, headAtInitialization: Long, ledgerDao: 
   override def lookupContract(
       contractId: AbsoluteContractId): Future[Option[ActiveLedgerState.Contract]] =
     ledgerDao
-      .lookupActiveContract(contractId)
+      .lookupActiveOrDivulgedContract(contractId)
       .map(_.map(c => c.toActiveContract))(DEC)
 
   override def lookupTransaction(

@@ -31,9 +31,9 @@ private class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, mm: MetricsManager)
   override def lookupExternalLedgerEnd(): Future[Option[LedgerString]] =
     mm.timedFuture("LedgerDao:lookupExternalLedgerEnd", ledgerDao.lookupExternalLedgerEnd())
 
-  override def lookupActiveContract(
+  override def lookupActiveOrDivulgedContract(
       contractId: Value.AbsoluteContractId): Future[Option[Contract]] =
-    mm.timedFuture("LedgerDao:lookupActiveContract", ledgerDao.lookupActiveContract(contractId))
+    mm.timedFuture("LedgerDao:lookupActiveContract", ledgerDao.lookupActiveOrDivulgedContract(contractId))
 
   override def lookupLedgerEntry(offset: Long): Future[Option[LedgerEntry]] =
     mm.timedFuture("LedgerDao:lookupLedgerEntry", ledgerDao.lookupLedgerEntry(offset))
