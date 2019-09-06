@@ -26,6 +26,8 @@ import qualified Data.Text as T
 import qualified Data.Text.IO as T
 import Language.Haskell.LSP.Messages
 import Linker
+import System.Info
+import Data.Version
 import Development.IDE.LSP.LanguageServer
 import System.Directory.Extra as IO
 import System.Environment
@@ -36,7 +38,7 @@ import qualified Data.Set as Set
 -- import CmdLineParser
 -- import DynFlags
 -- import Panic
-import GHC
+import GHC hiding (def)
 import qualified GHC.Paths
 
 import HIE.Bios
@@ -49,7 +51,7 @@ main :: IO ()
 main = do
     -- WARNING: If you write to stdout before runLanguageServer
     --          then the language server will not work
-    hPutStrLn stderr "Starting hie-core"
+    hPutStrLn stderr $ "Starting hie-core (GHC v" ++ showVersion compilerVersion ++ ")"
     Arguments{..} <- getArguments
 
     -- lock to avoid overlapping output on stdout
