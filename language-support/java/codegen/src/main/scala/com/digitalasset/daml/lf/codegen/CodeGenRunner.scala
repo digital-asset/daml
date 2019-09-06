@@ -24,7 +24,7 @@ import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.Try
 
-private[codegen] object CodeGenRunner extends StrictLogging {
+object CodeGenRunner extends StrictLogging {
 
   def run(conf: Conf): Unit = {
 

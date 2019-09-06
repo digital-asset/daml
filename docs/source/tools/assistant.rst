@@ -25,6 +25,7 @@ DAML Assistant (``daml``)
   - Launch the HTTP JSON API: ``daml json-api``
     You can find more information in the
     `README <https://github.com/digital-asset/daml/blob/master/ledger-service/http-json/README.md>`_.
+  - Run :doc:`DAML codegen </tools/codegen>`: ``daml codegen``
 
 - Install new SDK versions manually: ``daml install <version>``
 
