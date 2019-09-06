@@ -9,6 +9,7 @@ import Options.Applicative.Extended
 import System.Environment
 import System.Exit
 import System.IO
+import Text.Read (readMaybe)
 
 import DA.Signals
 import DA.Daml.Helper.Run
@@ -32,7 +33,14 @@ data Command
     | Migrate { targetFolder :: FilePath, pkgPathFrom :: FilePath, pkgPathTo :: FilePath }
     | Init { targetFolderM :: Maybe FilePath }
     | ListTemplates
-    | Start { sandboxPortM :: Maybe SandboxPort, openBrowser :: OpenBrowser, startNavigator :: StartNavigator, onStartM :: Maybe String, waitForSignal :: WaitForSignal }
+    | Start
+      { sandboxPortM :: Maybe SandboxPort
+      , openBrowser :: OpenBrowser
+      , startNavigator :: StartNavigator
+      , jsonApiCfg :: JsonApiConfig
+      , onStartM :: Maybe String
+      , waitForSignal :: WaitForSignal
+      }
     | Deploy { flags :: HostAndPortFlags }
     | LedgerListParties { flags :: HostAndPortFlags, json :: JsonFlag }
     | LedgerAllocateParties { flags :: HostAndPortFlags, parties :: [String] }
@@ -90,6 +98,7 @@ commandParser = subparser $ fold
         <$> optional (SandboxPort <$> option auto (long "sandbox-port" <> metavar "PORT_NUM" <>     help "Port number for the sandbox"))
         <*> (OpenBrowser <$> flagYesNoAuto "open-browser" True "Open the browser after navigator" idm)
         <*> (StartNavigator <$> flagYesNoAuto "start-navigator" True "Start navigator after sandbox" idm)
+        <*> jsonApiCfg
         <*> optional (option str (long "on-start" <> metavar "COMMAND" <> help "Command to run once sandbox and navigator are running."))
         <*> (WaitForSignal <$> flagYesNoAuto "wait-for-signal" True "Wait for Ctrl+C or interrupt after starting servers." idm)
 
@@ -109,6 +118,20 @@ commandParser = subparser $ fold
 
     deployCmd = Deploy
         <$> hostAndPortFlags
+
+    jsonApiCfg = JsonApiConfig <$> option
+        readJsonApiPort
+        ( long "json-api-port"
+       <> value Nothing -- Disabled by default until https://github.com/digital-asset/daml/issues/2788 is resolved.
+       <> help "Port that the HTTP JSON API should listen on or 'none' to disable it"
+        )
+
+    readJsonApiPort = eitherReader $ \case
+        "none" -> Right Nothing
+        s -> maybe
+            (Left $ "Failed to parse port " <> show s)
+            (Right . Just . JsonApiPort)
+            (readMaybe s)
 
     ledgerCmdInfo = mconcat
         [ forwardOptions
@@ -187,7 +210,7 @@ runCommand New {..} = runNew targetFolder templateNameM []
 runCommand Migrate {..} = runMigrate targetFolder pkgPathFrom pkgPathTo
 runCommand Init {..} = runInit targetFolderM
 runCommand ListTemplates = runListTemplates
-runCommand Start {..} = runStart sandboxPortM startNavigator openBrowser onStartM waitForSignal
+runCommand Start {..} = runStart sandboxPortM startNavigator jsonApiCfg openBrowser onStartM waitForSignal
 runCommand Deploy {..} = runDeploy flags
 runCommand LedgerListParties {..} = runLedgerListParties flags json
 runCommand LedgerAllocateParties {..} = runLedgerAllocateParties flags parties

@@ -69,6 +69,7 @@ genrule(
         "//ledger/sandbox:sandbox-binary_deploy.jar",
         "//navigator/backend:navigator-binary_deploy.jar",
         "//extractor:extractor-binary_deploy.jar",
+        "//ledger-service/http-json:http-json-binary_deploy.jar",
         "//templates:templates-tarball.tar.gz",
     ],
     outs = ["sdk-release-tarball.tar.gz"],
@@ -106,6 +107,9 @@ genrule(
 
       mkdir -p $$OUT/extractor
       cp $(location //extractor:extractor-binary_deploy.jar) $$OUT/extractor/extractor.jar
+
+      mkdir -p $$OUT/json-api
+      cp $(location //ledger-service/http-json:http-json-binary_deploy.jar) $$OUT/json-api/json-api.jar
 
       mkdir -p $$OUT/templates
       tar xf $(location //templates:templates-tarball.tar.gz) --strip-components=1 -C $$OUT/templates

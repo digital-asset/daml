@@ -22,7 +22,7 @@ genrule(
     ],
     outs = ["integration-tests-mvn.tar"],
     cmd = """
-      set -euxo pipefail
+      set -euo pipefail
       TMP_DIR=$$(mktemp -d)
       MVN_DB="$$TMP_DIR/m2"
       VERSION=$$(cat $(location //:component-version))

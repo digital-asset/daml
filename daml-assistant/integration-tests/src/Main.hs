@@ -338,6 +338,30 @@ quickstartTests quickstartDir mvnDir = testGroup "quickstart"
                   (\s -> connect s (addrAddress addr))
               -- waitForProcess' will block on Windows so we explicitly kill the process.
               terminateProcess ph
+    , testCase "JSON API startup" $
+      withCurrentDirectory quickstartDir $
+      withDevNull $ \devNull1 -> do
+      withDevNull $ \devNull2 -> do
+          sandboxPort :: Int <- fromIntegral <$> getFreePort
+          let sandboxProc = (shell $ unwords ["daml", "sandbox", "--port", show sandboxPort, ".daml/dist/quickstart-0.0.1.dar"]) { std_out = UseHandle devNull1 }
+          withCreateProcess sandboxProc  $ \_ _ _ sandboxPh -> race_ (waitForProcess' sandboxProc sandboxPh) $ do
+              waitForConnectionOnPort (threadDelay 100000) sandboxPort
+              jsonApiPort :: Int <- fromIntegral <$> getFreePort
+              let jsonApiProc = (shell $ unwords ["daml", "json-api", "--ledger-host", "localhost", "--ledger-port", show sandboxPort, "--http-port", show jsonApiPort]) { std_out = UseHandle devNull2 }
+              withCreateProcess jsonApiProc $ \_ _ _ jsonApiPh -> race_ (waitForProcess' jsonApiProc jsonApiPh) $ do
+                  let headers =
+                          [ ("Authorization", "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJsZWRnZXJJZCI6Ik15TGVkZ2VyIiwiYXBwbGljYXRpb25JZCI6ImZvb2JhciIsInBhcnR5IjoiQWxpY2UifQ.4HYfzjlYr1ApUDot0a6a4zB49zS_jrwRUOCkAiPMqo0")
+                          ] :: RequestHeaders
+                  waitForHttpServer (threadDelay 100000) ("http://localhost:" <> show jsonApiPort <> "/contracts/search") headers
+                  req <- parseRequest $ "http://localhost:" <> show jsonApiPort <> "/contracts/search"
+                  req <- pure req { requestHeaders = headers }
+                  manager <- newManager defaultManagerSettings
+                  resp <- httpLbs req manager
+                  responseBody resp @?=
+                      "{\"status\":200,\"result\":[{\"offset\":\"0\",\"activeContracts\":[]}]}"
+                  -- waitForProcess' will block on Windows so we explicitly kill the process.
+                  terminateProcess jsonApiPh
+              terminateProcess sandboxPh
     , testCase "mvn compile" $
       withCurrentDirectory quickstartDir $ do
           mvnDbTarball <- locateRunfiles (mainWorkspace </> "daml-assistant" </> "integration-tests" </> "integration-tests-mvn.tar")
@@ -359,7 +383,7 @@ quickstartTests quickstartDir mvnDir = testGroup "quickstart"
               withCreateProcess mavenProc $
                   \_ _ _ ph -> race_ (waitForProcess' mavenProc ph) $ do
                   let url = "http://localhost:" <> show restPort <> "/iou"
-                  waitForHttpServer (threadDelay 1000000) url
+                  waitForHttpServer (threadDelay 1000000) url []
                   threadDelay 5000000
                   manager <- newManager defaultManagerSettings
                   req <- parseRequest url

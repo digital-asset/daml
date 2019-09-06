@@ -14,3 +14,8 @@ HEAD — ongoing
 + [DAML Integration Kit] The test tool now runs the double spend test on a shared contract in a
   multi-node setup (as well as single-node).
 + [DAML Integration Kit] The test tool can now run all semantic test in a multi-node setup.
++ [DAML Assistant] The HTTP JSON API is now integrated with the
+  assistant and distributed with the SDK. It can either be launched
+  via ``daml json-api`` or by passing ``--json-api-port 7575`` to
+  ``daml start``. You can find more information in the
+  `README <https://github.com/digital-asset/daml/blob/master/ledger-service/http-json/README.md>`_.
