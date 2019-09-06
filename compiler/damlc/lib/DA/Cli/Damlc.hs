@@ -706,6 +706,7 @@ execMigrate projectOpts opts0 inFile1_ inFile2_ mbDir = do
                         , optPackageDbs = [projectPkgDb]
                         , optIfaceDir = Just (dbPath </> installedUnitIdString iuid)
                         , optIsGenerated = True
+                        , optDflagCheck = False
                         , optMbPackageName = Just $ installedUnitIdString iuid
                         }
                 withDamlIdeState opts' loggerH diagnosticsLogger $ \ide ->
@@ -874,6 +875,7 @@ optionsParser numProcessors enableScenarioService parsePkgName = Options
     <*> pure (optScenarioValidation $ defaultOptions Nothing)
     <*> dlintUsageOpt
     <*> pure False
+    <*> optNoDflagCheck
     <*> pure False
     <*> pure (Haddock False)
   where
@@ -932,6 +934,15 @@ optionsParser numProcessors enableScenarioService parsePkgName = Options
             , "Use --jobs=N to explicitely set the number of threads to N."
             , "Note that the output is not deterministic for > 1 job."
             ]
+
+
+    optNoDflagCheck :: Parser Bool
+    optNoDflagCheck =
+      flag True False $
+      help "Dont check generated GHC DynFlags for errors." <>
+      long "no-dflags-check" <>
+      internal
+
 
 
 optGhcCustomOptions :: Parser [String]

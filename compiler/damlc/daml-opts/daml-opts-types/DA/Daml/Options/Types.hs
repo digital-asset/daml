@@ -63,6 +63,9 @@ data Options = Options
   -- ^ Information about dlint usage.
   , optIsGenerated :: Bool
     -- ^ Whether we're compiling generated code. Then we allow internal imports.
+  , optDflagCheck :: Bool
+    -- ^ Whether to check dflags. In some cases we want to turn this check of. For example when
+    -- migrating or running the daml doc test.
   , optCoreLinting :: Bool
     -- ^ Whether to enable linting of the generated GHC Core. (Used in testing.)
   , optHaddock :: Haddock
@@ -150,6 +153,7 @@ defaultOptions mbVersion =
         , optScenarioValidation = ScenarioValidationFull
         , optDlintUsage = DlintDisabled
         , optIsGenerated = False
+        , optDflagCheck = True
         , optCoreLinting = False
         , optHaddock = Haddock False
         }
