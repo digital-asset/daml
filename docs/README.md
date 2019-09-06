@@ -63,38 +63,10 @@ The docs get built as part of the main `daml` repo CI, to make sure we don't bre
 
 ## Publishing docs
 
-### Prerequisites
-
-To publish to the docs, you'll need to:
-
-- Get access to the S3 bucket and Cloudfront (DA only).
-- Create a directory to run everything from. Mine is `s3-env`.
-- Install [AWS Google Auth tool](https://digitalasset.atlassian.net/wiki/spaces/IS/pages/719750045/AWS+Google+Auth) (DA only, internal link).
-- Run the following:
-
-```
-# cd to the directory you created above
-pipenv --python 3.6
-pipenv install awscli
-pipenv install aws-google-auth
-```
-
-### Once setup is done
-
-After you've gone through the above steps, you can publish:
-
-```
-# if you're not already in it, cd to the directory you created above
-pipenv shell
- # use google account password. Be fast!
-aws-google-auth -u <yourname>@digitalasset.com
-# cd to daml repo
-# this bit takes a while. If it asks you about overwriting files, say yes
-docs/scripts/publish.sh
- exit
-```
-
- To publish to the staging website instead, use `docs/scripts/publish.sh --stage`.
+Documentation is published automatically whenever a release is made
+public on Github. Note that there is a delay so you might have to wait
+up to an hour until the docs are published after making a release
+public.
 
 ## Testing code in docs
 

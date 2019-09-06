@@ -3,5 +3,11 @@
 
 package com.daml.ledger.participant.state.v1
 
-/** changelog... */
+/** This file contains the changelog for the participant state API
+  * and version constants (currently none).
+  *
+  * Changes:
+  * [since 100.13.21]:
+  * - Rename referencedContracts to divulgedContracts in [[Update.TransactionAccepted]].
+  */
 object Version {}

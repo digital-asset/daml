@@ -6,7 +6,7 @@ load("//bazel_tools:haskell.bzl", "da_haskell_binary")
 da_haskell_binary(
     name = "runner",
     srcs = ["Main.hs"],
-    hazel_deps = [
+    hackage_deps = [
         "base",
         "extra",
         "process",

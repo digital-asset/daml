@@ -77,7 +77,7 @@ da_haskell_library(
     name = "daml_lf_haskell_proto",
     srcs = [":daml_lf_haskell_proto_src"],
     compiler_flags = ["-O0"],  # disable optimization as this is otherwise way too slow to compile.
-    hazel_deps = [
+    hackage_deps = [
         "base",
         "bytestring",
         "containers",

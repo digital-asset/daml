@@ -15,7 +15,6 @@ hj_scalacopts = [
 
 http_json_deps = [
     "//3rdparty/jvm/ch/qos/logback:logback_classic",
-    "//3rdparty/jvm/com/github/pureconfig",
     "//3rdparty/jvm/com/github/scopt",
     "//3rdparty/jvm/com/typesafe/akka:akka_http",
     "//3rdparty/jvm/com/typesafe/akka:akka_http_spray_json",

@@ -258,7 +258,7 @@ da_haskell_library(
         ":ledger-api-haskellpb-sources-testing",
     ],
     compiler_flags = ["-O0"],
-    hazel_deps = [
+    hackage_deps = [
         "base",
         "bytestring",
         "containers",

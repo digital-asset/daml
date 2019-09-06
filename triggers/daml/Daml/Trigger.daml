@@ -1,0 +1,51 @@
+-- Copyright (c) 2019 The DAML Authors. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+daml 1.2
+module Daml.Trigger
+  ( Message(..)
+  , Transaction(..)
+  , Identifier(..)
+  , Event(..)
+  , Created(..)
+  , Archived(..)
+  , Trigger(..)
+  ) where
+
+data Identifier = Identifier
+  { packageId : Text
+  , moduleName : Text
+  , name : Text
+  } deriving (Show, Eq)
+
+data Transaction = Transaction
+ { transactionId : Text
+ , events : [Event]
+ } deriving (Show, Eq)
+
+data Event
+  = CreatedEvent Created
+  | ArchivedEvent Archived
+  deriving (Show, Eq)
+
+data Created = Created
+  { eventId : Text
+  , contractId : Text
+  , templateId : Identifier
+  } deriving (Show, Eq)
+
+data Archived = Archived
+  { eventId : Text
+  , contractId : Text
+  , templateId : Identifier
+  } deriving (Show, Eq)
+
+data Message
+  = MTransaction Transaction
+
+-- | Trigger is (approximately) a left-fold over `Message` with
+-- an accumulator of type `s`.
+data Trigger s = Trigger
+  { initialState : s
+  , update : Message -> s -> (s, Text)
+  }

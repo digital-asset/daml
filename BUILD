@@ -152,7 +152,7 @@ EOF
 da_haskell_library(
     name = "sdk-version-hs-lib",
     srcs = [":sdk-version-hs"],
-    hazel_deps = ["base"],
+    hackage_deps = ["base"],
     visibility = ["//visibility:public"],
 )
 

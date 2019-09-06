@@ -75,7 +75,7 @@ da_haskell_test(
     ],
     # I’m sure the mvn stuff will be flaky.
     flaky = True,
-    hazel_deps = [
+    hackage_deps = [
         "async",
         "base",
         "bytestring",

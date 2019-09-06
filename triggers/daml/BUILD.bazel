@@ -1,0 +1,26 @@
+# Copyright (c) 2019 The DAML Authors. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+# TODO Once daml_compile uses build instead of package we should use
+# daml_compile instead of a genrule.
+
+genrule(
+    name = "trigger",
+    srcs = glob(["**/*.daml"]),
+    outs = ["trigger.dar"],
+    cmd = """
+      cat << EOF > daml.yaml
+sdk-version: 0.0.0
+name: trigger
+source: triggers/daml
+version: 0.0.1
+dependencies:
+  - daml-stdlib
+  - daml-prim
+EOF
+
+      $(location //compiler/damlc) build -o $(location trigger.dar)
+    """,
+    tools = ["//compiler/damlc"],
+    visibility = ["//visibility:public"],
+)

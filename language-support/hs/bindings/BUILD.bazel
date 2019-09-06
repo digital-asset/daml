@@ -8,7 +8,7 @@ load("@os_info//:os_info.bzl", "is_windows")
 da_haskell_library(
     name = "hs-ledger",
     srcs = glob(["src/**/*.hs"]),
-    hazel_deps = [
+    hackage_deps = [
         "async",
         "base",
         "bytestring",
@@ -52,7 +52,7 @@ da_haskell_test(
     ],
     # The tests are flaky probably due to issues in gRPC-haskell.
     flaky = True,
-    hazel_deps = [
+    hackage_deps = [
         "async",
         "base",
         "bytestring",
