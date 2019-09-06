@@ -45,7 +45,7 @@ library
         prettyprinter,
         rope-utf16-splay,
         safe-exceptions,
-        shake,
+        shake >= 0.17.5,
         sorted-list,
         stm,
         syb,
