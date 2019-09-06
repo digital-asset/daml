@@ -17,4 +17,4 @@ extra-deps:
   - .
   - core
 
-- archive: ../../gen/daml-ledger-0.1.0.0.tar.gz
+- archive: /tmp/daml-ledger-0.1.0.0.tar.gz
