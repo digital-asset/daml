@@ -231,7 +231,7 @@ private class JdbcLedgerDao(
               "contract" -> contractSerializer
                 .serializeContractInstance(c.coinst)
                 .getOrElse(sys.error(s"failed to serialize contract! cid:${c.contractId.coid}"))
-            )
+          )
         )
 
       executeBatchSql(
@@ -840,7 +840,8 @@ private class JdbcLedgerDao(
       .as(ContractDataParser.singleOpt)
       .map(mapContractDetails)
 
-  override def lookupActiveOrDivulgedContract(contractId: AbsoluteContractId): Future[Option[Contract]] =
+  override def lookupActiveOrDivulgedContract(
+      contractId: AbsoluteContractId): Future[Option[Contract]] =
     dbDispatcher.executeSql(s"lookup active contract [${contractId.coid}]") { implicit conn =>
       lookupActiveContractSync(contractId)
     }
