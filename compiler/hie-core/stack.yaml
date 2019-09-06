@@ -11,7 +11,7 @@ extra-deps:
 - git: https://github.com/bubba/lsp-test.git
   commit: d126623dc6895d325e3d204d74e2a22d4f515587
 - git: https://github.com/mpickering/hie-bios.git
-  commit: 7a75f520b2e7a482440edd023be8e267a0fa153f
+  commit: 89e4ba24f87aac9909d9814b0e8c51b679a0ccd4
 nix:
   packages: [zlib]
 allow-newer: true
