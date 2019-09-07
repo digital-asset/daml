@@ -270,23 +270,25 @@ getModSummaryFromBuffer fp contents dflags parsed = do
           then (HsBootFile, \newExt -> stem <.> newExt ++ "-boot")
           else (HsSrcFile , \newExt -> stem <.> newExt)
 
--- | Run (unlit) literate haskell preprocessor on a file
+-- | Run (unlit) literate haskell preprocessor on a file, or buffer if set
 runLhs :: DynFlags -> FilePath -> Maybe SB.StringBuffer -> IO SB.StringBuffer
 runLhs dflags filename contents = withTempDir $ \dir -> do
     let fout = dir </> takeFileName filename <.> "unlit"
-    case contents of
-        Nothing -> do
-            unlit fout
-            liftIO $ SB.hGetStringBuffer fout
-
-        Just _contents -> do
-            error "will not yet do that!"
+    filesrc <- case contents of
+        Nothing   -> return filename
+        Just cnts -> do
+            let fsrc = dir </> takeFileName filename <.> "literate"
+            withBinaryFile fsrc WriteMode $ \h ->
+                hPutStringBuffer h cnts
+            return fsrc
+    unlit filesrc fout
+    SB.hGetStringBuffer fout
   where
-    unlit fileout = SysTools.runUnlit dflags (args fileout)
-    args fout = [ SysTools.Option     "-h"
-                , SysTools.Option     (escape filename) -- name this file
-                , SysTools.FileOption "" filename  -- input file
-                , SysTools.FileOption "" fout ]    -- output file
+    unlit filein fileout = SysTools.runUnlit dflags (args filein fileout)
+    args fin fout = [ SysTools.Option     "-h"
+                    , SysTools.Option     (escape filename) -- name this file
+                    , SysTools.FileOption "" fin       -- input file
+                    , SysTools.FileOption "" fout ]    -- output file
     -- taken from ghc's DriverPipeline.hs
     escape ('\\':cs) = '\\':'\\': escape cs
     escape ('\"':cs) = '\\':'\"': escape cs
@@ -341,19 +343,23 @@ parseFileContents
        -> ExceptT [FileDiagnostic] m ([FileDiagnostic], ParsedModule)
 parseFileContents preprocessor filename mbContents = do
    let loc  = mkRealSrcLoc (mkFastString filename) 1 1
-
    contents <- liftIO $ maybe (hGetStringBuffer filename) return mbContents
+   let isOnDisk = isNothing mbContents
+
+   -- unlit content if literate Haskell ending
+   (isOnDisk, contents) <- if ".lhs" `isSuffixOf` filename
+      then do
+        dflags <- getDynFlags
+        newcontent <- liftIO $ runLhs dflags filename mbContents
+        return (False, newcontent)
+      else return (isOnDisk, contents)
+
    dflags  <- ExceptT $ parsePragmasIntoDynFlags filename contents
-
-   contents <- if ".lhs" `isSuffixOf` filename && isNothing mbContents
-      then liftIO $ runLhs dflags filename mbContents
-      else return contents
-
    (contents, dflags) <-
       if not $ xopt LangExt.Cpp dflags then
           return (contents, dflags)
       else do
-          contents <- liftIO $ runCpp dflags filename mbContents
+          contents <- liftIO $ runCpp dflags filename $ if isOnDisk then Nothing else Just contents
           dflags <- ExceptT $ parsePragmasIntoDynFlags filename contents
           return (contents, dflags)
 
