@@ -9,6 +9,7 @@ module Test
       main
     ) where
 
+import Bird
 \end{code}
 
 
@@ -17,7 +18,9 @@ our main procedure
 \begin{code}
 
 main :: IO ()
-main = putStrLn "hello world."
+main = do
+  putStrLn "hello world."
+  fly
 
 \end{code}
 
