@@ -10,17 +10,19 @@ module Development.IDE.Types.Options
   , clientSupportsProgress
   , IdePkgLocationOptions(..)
   , defaultIdeOptions
+  , HscEnvEq(..)
   ) where
 
 import Data.Maybe
 import Development.Shake
+import Development.IDE.GHC.Util
 import           GHC hiding (parseModule, typecheckModule)
 import           GhcPlugins                     as GHC hiding (fst3, (<>))
 import qualified Language.Haskell.LSP.Types.Capabilities as LSP
 
 data IdeOptions = IdeOptions
   { optPreprocessor :: GHC.ParsedSource -> ([(GHC.SrcSpan, String)], GHC.ParsedSource)
-  , optGhcSession :: Action HscEnv
+  , optGhcSession :: FilePath -> Action HscEnvEq
   -- ^ Setup a GHC session using a given package state. If a `ParsedModule` is supplied,
   -- the import path should be setup for that module.
   , optPkgLocationOpts :: IdePkgLocationOptions
@@ -39,7 +41,7 @@ clientSupportsProgress :: LSP.ClientCapabilities -> IdeReportProgress
 clientSupportsProgress caps = IdeReportProgress $ fromMaybe False $
     LSP._progress =<< LSP._window (caps :: LSP.ClientCapabilities)
 
-defaultIdeOptions :: Action HscEnv -> IdeOptions
+defaultIdeOptions :: (FilePath -> Action HscEnvEq) -> IdeOptions
 defaultIdeOptions session = IdeOptions
     {optPreprocessor = (,) []
     ,optGhcSession = session
@@ -51,7 +53,6 @@ defaultIdeOptions session = IdeOptions
     ,optLanguageSyntax = "haskell"
     ,optNewColonConvention = False
     }
-
 
 -- | The set of options used to locate files belonging to external packages.
 data IdePkgLocationOptions = IdePkgLocationOptions

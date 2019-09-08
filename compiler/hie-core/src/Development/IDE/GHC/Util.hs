@@ -16,7 +16,8 @@ module Development.IDE.GHC.Util(
     prettyPrint,
     runGhcEnv,
     textToStringBuffer,
-    moduleImportPaths
+    moduleImportPaths,
+    HscEnvEq(..)
     ) where
 
 import Config
@@ -31,6 +32,7 @@ import Data.IORef
 import Control.Exception
 import FileCleanup
 import Platform
+import Development.Shake.Classes
 import qualified Data.Text as T
 import StringBuffer
 import System.FilePath
@@ -110,3 +112,16 @@ moduleImportPaths pm
     mod'  = GHC.ms_mod ms
     rootPathDir  = takeDirectory file
     rootModDir   = takeDirectory . moduleNameSlashes . GHC.moduleName $ mod'
+
+-- | An HscEnv with equality. In a single program, the first
+--   'String' should uniquely determine the 'HscEnv'.
+data HscEnvEq = HscEnvEq {hscEnvKey :: String, hscEnv :: HscEnv}
+
+instance Show HscEnvEq where
+  show (HscEnvEq a _) = "HscEnvEq " ++ show a
+
+instance Eq HscEnvEq where
+  HscEnvEq a _ == HscEnvEq b _ = a == b
+
+instance NFData HscEnvEq where
+  rnf (HscEnvEq a b) = rnf a `seq` b `seq` ()

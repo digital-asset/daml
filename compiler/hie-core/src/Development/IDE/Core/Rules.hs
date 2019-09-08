@@ -116,7 +116,7 @@ getAtPoint file pos = fmap join $ runMaybeT $ do
 getDefinition :: NormalizedFilePath -> Position -> Action (Maybe Location)
 getDefinition file pos = fmap join $ runMaybeT $ do
     spans <- useE GetSpanInfo file
-    pkgState <- useNoFileE GhcSession
+    pkgState <- hscEnv <$> useE GhcSession file
     opts <- lift getIdeOptions
     let getHieFile x = useNoFile (GetHieFile x)
     lift $ AtPoint.gotoDefinition getHieFile opts pkgState spans pos
@@ -131,7 +131,7 @@ writeIfacesAndHie ::
 writeIfacesAndHie ifDir files =
     runMaybeT $ do
         tcms <- usesE TypeCheck files
-        session <- lift $ useNoFile_ GhcSession
+        session <- lift $ hscEnv <$> use_ GhcSession (head files)
         liftIO $ concat <$> mapM (writeTcm session) tcms
   where
     writeTcm session tcm =
@@ -174,7 +174,7 @@ getParsedModuleRule :: Rules ()
 getParsedModuleRule =
     define $ \GetParsedModule file -> do
         (_, contents) <- getFileContents file
-        packageState <- useNoFile_ GhcSession
+        packageState <- hscEnv <$> use_ GhcSession file
         opt <- getIdeOptions
         liftIO $ parseModule opt packageState (fromNormalizedFilePath file) contents
 
@@ -184,7 +184,7 @@ getLocatedImportsRule =
         pm <- use_ GetParsedModule file
         let ms = pm_mod_summary pm
         let imports = ms_textual_imps ms
-        env <- useNoFile_ GhcSession
+        env <- hscEnv <$> use_ GhcSession file
         let dflags = addRelativeImport pm $ hsc_dflags env
         opt <- getIdeOptions
         (diags, imports') <- fmap unzip $ forM imports $ \(mbPkgName, modName) -> do
@@ -295,7 +295,7 @@ getSpanInfoRule =
     define $ \GetSpanInfo file -> do
         tc <- use_ TypeCheck file
         (fileImports, _) <- use_ GetLocatedImports file
-        packageState <- useNoFile_ GhcSession
+        packageState <- hscEnv <$> use_ GhcSession file
         x <- liftIO $ getSrcSpanInfos packageState fileImports tc
         return ([], Just x)
 
@@ -307,7 +307,7 @@ typeCheckRule =
         deps <- use_ GetDependencies file
         tms <- uses_ TypeCheck (transitiveModuleDeps deps)
         setPriority priorityTypeCheck
-        packageState <- useNoFile_ GhcSession
+        packageState <- hscEnv <$> use_ GhcSession file
         liftIO $ typecheckModule packageState tms pm
 
 
@@ -317,14 +317,15 @@ generateCoreRule =
         deps <- use_ GetDependencies file
         (tm:tms) <- uses_ TypeCheck (file:transitiveModuleDeps deps)
         setPriority priorityGenerateCore
-        packageState <- useNoFile_ GhcSession
+        packageState <- hscEnv <$> use_ GhcSession file
         liftIO $ compileModule packageState tms tm
 
 loadGhcSession :: Rules ()
 loadGhcSession =
-    defineNoFile $ \GhcSession -> do
+    define $ \GhcSession file -> do
         opts <- getIdeOptions
-        optGhcSession opts
+        val <- optGhcSession opts $ fromNormalizedFilePath file
+        return ([], Just val)
 
 
 getHieFileRule :: Rules ()

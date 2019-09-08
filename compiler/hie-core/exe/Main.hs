@@ -29,6 +29,7 @@ import Language.Haskell.LSP.Messages
 import Linker
 import System.Info
 import Data.Version
+import Data.Unique
 import Development.IDE.LSP.LanguageServer
 import System.Directory.Extra as IO
 import System.Environment
@@ -36,9 +37,6 @@ import System.IO
 import Development.Shake hiding (Env)
 import qualified Data.Set as Set
 
--- import CmdLineParser
--- import DynFlags
--- import Panic
 import GHC hiding (def)
 import qualified GHC.Paths
 
@@ -71,7 +69,8 @@ main = do
         runLanguageServer def def $ \event vfs caps -> do
             t <- t
             hPutStrLn stderr $ "Started LSP server in " ++ showDuration t
-            let options = (defaultIdeOptions $ liftIO $ newSession' =<< findCradle (dir <> "/"))
+            env <- loadEnvironment dir
+            let options = (defaultIdeOptions env)
                     { optReportProgress = clientSupportsProgress caps }
             initialise (mainRule >> action kick) event logger options vfs
     else do
@@ -84,7 +83,7 @@ main = do
 
         putStrLn "\n[3/6] Initialising IDE session"
         vfs <- makeVFSHandle
-        ide <- initialise mainRule (showEvent lock) logger (defaultIdeOptions $ return env) vfs
+        ide <- initialise mainRule (showEvent lock) logger (defaultIdeOptions $ const $ return env) vfs
 
         putStrLn "\n[4/6] Finding interesting files"
         files <- nubOrd <$> expandFiles (argFiles ++ ["." | null argFiles])
@@ -128,10 +127,17 @@ showEvent lock (EventFileDiagnostics (toNormalizedFilePath -> file) diags) =
     withLock lock $ T.putStrLn $ showDiagnosticsColored $ map (file,) diags
 showEvent lock e = withLock lock $ print e
 
-newSession' :: Cradle -> IO HscEnv
+newSession' :: Cradle -> IO HscEnvEq
 newSession' cradle = getLibdir >>= \libdir -> do
     env <- runGhc (Just libdir) $ do
         initializeFlagsWithCradle "" cradle
         getSession
     initDynLinker env
-    pure env
+    u <- newUnique
+    pure $ HscEnvEq (show $ hashUnique u) env
+
+loadEnvironment :: FilePath -> IO (FilePath -> Action HscEnvEq)
+loadEnvironment dir = do
+    op <- newCacheIO $ \() -> do
+        liftIO $ newSession' =<< findCradle (dir <> "/")
+    return $ \_ -> op ()
