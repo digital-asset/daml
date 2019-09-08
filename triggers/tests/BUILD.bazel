@@ -19,18 +19,22 @@ genrule(
     outs = ["acs.dar"],
     cmd = """
       set -eou pipefail
-      cat << EOF > daml.yaml
+      TMP_DIR=$$(mktemp -d)
+      mkdir -p $$TMP_DIR/daml
+      cp -L $(location :daml/ACS.daml) $$TMP_DIR/daml
+      cp -L $(location //triggers/daml:trigger.dar) $$TMP_DIR/
+      cat << EOF > $$TMP_DIR/daml.yaml
 sdk-version: 0.0.0
 name: acs
-source: triggers/tests/daml
+source: daml
 version: 0.0.1
 dependencies:
   - daml-stdlib
   - daml-prim
-  - $(location //triggers/daml:trigger.dar)
+  - trigger.dar
 EOF
-
-      $(location //compiler/damlc) build -o $(location acs.dar)
+      $(location //compiler/damlc) build --project-root=$$TMP_DIR -o $$PWD/$(location acs.dar)
+      rm -rf $$TMP_DIR
     """,
     tools = ["//compiler/damlc"],
     visibility = ["//visibility:public"],
