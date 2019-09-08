@@ -132,8 +132,9 @@ writeIfacesAndHie ::
 writeIfacesAndHie ifDir files =
     runMaybeT $ do
         tcms <- usesE TypeCheck files
-        session <- lift $ hscEnv <$> use_ GhcSession (head files)
-        liftIO $ concat <$> mapM (writeTcm session) tcms
+        fmap concat $ forM (zip files tcms) $ \(file, tcm) -> do
+            session <- lift $ hscEnv <$> use_ GhcSession file
+            liftIO $ writeTcm session tcm
   where
     writeTcm session tcm =
         do
