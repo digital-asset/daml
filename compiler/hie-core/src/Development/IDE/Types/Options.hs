@@ -10,7 +10,6 @@ module Development.IDE.Types.Options
   , clientSupportsProgress
   , IdePkgLocationOptions(..)
   , defaultIdeOptions
-  , HscEnvEq(..)
   ) where
 
 import Data.Maybe

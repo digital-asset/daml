@@ -36,6 +36,7 @@ import Development.IDE.Import.FindImports
 import           Development.IDE.Core.FileStore
 import           Development.IDE.Types.Diagnostics
 import Development.IDE.Types.Location
+import Development.IDE.GHC.Util
 import Data.Coerce
 import Data.Either.Extra
 import Data.Maybe

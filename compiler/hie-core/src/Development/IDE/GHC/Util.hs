@@ -17,7 +17,7 @@ module Development.IDE.GHC.Util(
     runGhcEnv,
     textToStringBuffer,
     moduleImportPaths,
-    HscEnvEq(..)
+    HscEnvEq, hscEnv, newHscEnvEq
     ) where
 
 import Config
@@ -27,11 +27,12 @@ import Fingerprint
 #endif
 import GHC
 import GhcMonad
-import GhcPlugins
+import GhcPlugins hiding (Unique)
 import Data.IORef
 import Control.Exception
 import FileCleanup
 import Platform
+import Data.Unique
 import Development.Shake.Classes
 import qualified Data.Text as T
 import StringBuffer
@@ -113,15 +114,20 @@ moduleImportPaths pm
     rootPathDir  = takeDirectory file
     rootModDir   = takeDirectory . moduleNameSlashes . GHC.moduleName $ mod'
 
--- | An HscEnv with equality. In a single program, the first
---   'String' should uniquely determine the 'HscEnv'.
-data HscEnvEq = HscEnvEq {hscEnvKey :: String, hscEnv :: HscEnv}
+-- | An HscEnv with equality.
+data HscEnvEq = HscEnvEq Unique HscEnv
+
+hscEnv :: HscEnvEq -> HscEnv
+hscEnv (HscEnvEq _ x) = x
+
+newHscEnvEq :: HscEnv -> IO HscEnvEq
+newHscEnvEq e = do u <- newUnique; return $ HscEnvEq u e
 
 instance Show HscEnvEq where
-  show (HscEnvEq a _) = "HscEnvEq " ++ show a
+  show (HscEnvEq a _) = "HscEnvEq " ++ show (hashUnique a)
 
 instance Eq HscEnvEq where
   HscEnvEq a _ == HscEnvEq b _ = a == b
 
 instance NFData HscEnvEq where
-  rnf (HscEnvEq a b) = rnf a `seq` b `seq` ()
+  rnf (HscEnvEq a b) = rnf (hashUnique a) `seq` b `seq` ()

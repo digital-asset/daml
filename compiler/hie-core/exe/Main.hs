@@ -23,13 +23,13 @@ import Development.IDE.Types.Location
 import Development.IDE.Types.Diagnostics
 import Development.IDE.Types.Options
 import Development.IDE.Types.Logger
+import Development.IDE.GHC.Util
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
 import Language.Haskell.LSP.Messages
 import Linker
 import System.Info
 import Data.Version
-import Data.Unique
 import Development.IDE.LSP.LanguageServer
 import System.Directory.Extra as IO
 import System.Environment
@@ -133,8 +133,7 @@ newSession' cradle = getLibdir >>= \libdir -> do
         initializeFlagsWithCradle "" cradle
         getSession
     initDynLinker env
-    u <- newUnique
-    pure $ HscEnvEq (show $ hashUnique u) env
+    newHscEnvEq env
 
 loadEnvironment :: FilePath -> IO (FilePath -> Action HscEnvEq)
 loadEnvironment dir = do

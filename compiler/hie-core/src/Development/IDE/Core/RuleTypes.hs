@@ -13,7 +13,7 @@ module Development.IDE.Core.RuleTypes(
 
 import           Control.DeepSeq
 import           Development.IDE.Import.DependencyInformation
-import           Development.IDE.Types.Options
+import Development.IDE.GHC.Util
 import Development.IDE.Types.Location
 import           Data.Hashable
 import           Data.Typeable
