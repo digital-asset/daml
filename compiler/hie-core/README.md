@@ -1,3 +1,3 @@
 # Note
 
-`hie-core` has been renamed to [ghcide](compiler/ghcide).
+`hie-core` has been renamed to [ghcide](../ghcide).
