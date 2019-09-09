@@ -47,7 +47,7 @@ import Data.List
 import qualified Data.Set                                 as Set
 import qualified Data.Text                                as T
 import           Development.IDE.GHC.Error
-import           Development.Shake                        hiding (Diagnostic, Env, newCache)
+import           Development.Shake                        hiding (Diagnostic, Env)
 import Development.IDE.Core.RuleTypes
 
 import           GHC hiding (parseModule, typecheckModule)
@@ -323,10 +323,13 @@ generateCoreRule =
         liftIO $ compileModule packageState tms tm
 
 loadGhcSession :: Rules ()
-loadGhcSession =
-    define $ \GhcSession file -> do
+loadGhcSession = do
+    session <- newCache $ \() -> do
         opts <- getIdeOptions
-        val <- optGhcSession opts $ fromNormalizedFilePath file
+        liftIO $ optGhcSession opts
+    define $ \GhcSession file -> do
+        fun <- session ()
+        val <- fun $ fromNormalizedFilePath file
         return ([], Just val)
 
 

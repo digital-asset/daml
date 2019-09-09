@@ -69,8 +69,7 @@ main = do
         runLanguageServer def def $ \event vfs caps -> do
             t <- t
             hPutStrLn stderr $ "Started LSP server in " ++ showDuration t
-            env <- loadEnvironment dir
-            let options = (defaultIdeOptions env)
+            let options = (defaultIdeOptions $ loadEnvironment dir)
                     { optReportProgress = clientSupportsProgress caps }
             initialise (mainRule >> action kick) event logger options vfs
     else do
@@ -83,7 +82,7 @@ main = do
 
         putStrLn "\n[3/6] Initialising IDE session"
         vfs <- makeVFSHandle
-        ide <- initialise mainRule (showEvent lock) logger (defaultIdeOptions $ const $ return env) vfs
+        ide <- initialise mainRule (showEvent lock) logger (defaultIdeOptions $ return $ const $ return env) vfs
 
         putStrLn "\n[4/6] Finding interesting files"
         files <- nubOrd <$> expandFiles (argFiles ++ ["." | null argFiles])
