@@ -1,6 +1,7 @@
 -- Copyright (c) 2019, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
+-- @IGNORE
 -- @ERROR No instance for (Generic Int repX0) arising from a use of ‘iso’
 
 daml 1.2
@@ -18,6 +19,7 @@ data NodeB0 = NodeB0 {lB : Int, rB : Text} deriving Generic
 
 treeA : TreeA
 treeA = NodeA (NodeA0 1 2)
+
 
 -- This should not work because TreeA and Tree are not isomorphic.
 treeB : TreeB

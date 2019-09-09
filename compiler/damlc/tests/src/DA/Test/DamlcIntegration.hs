@@ -347,6 +347,8 @@ lfTypeCheck log file = timed log "LF type check" $ unjust $ getDalf file
 lfRunScenarios :: (String -> IO ()) -> NormalizedFilePath -> Action ()
 lfRunScenarios log file = timed log "LF execution" $ void $ unjust $ runScenarios file
 
+
+
 timed :: MonadIO m => (String -> IO ()) -> String -> m a -> m a
 timed log msg act = do
     time <- liftIO offsetTime
