@@ -2,13 +2,12 @@
 
 ## How to start
 
-### Start sandbox from a DAML Assistant project directory
+### Start sandbox from a DAML project directory
 ```
 daml-head sandbox --wall-clock-time --ledgerid MyLedger ./.daml/dist/quickstart-0.0.1.dar
 ```
 
-### Start HTTP service from the DAML project root
-This will build the service first, can take up to 5-10 minutes when running first time.
+### Start HTTP service from a DAML project directory
 ```
 $ daml-head json-api --ledger-host localhost --ledger-port 6865 --http-port 7575 --max-inbound-message-size 4194304 --application-id HTTP-JSON-API-Gateway
 ```

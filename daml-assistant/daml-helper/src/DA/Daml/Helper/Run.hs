@@ -43,6 +43,7 @@ import Control.Exception.Safe
 import Control.Monad
 import Control.Monad.Extra hiding (fromMaybeM)
 import Control.Monad.Loops (untilJust)
+import Data.Foldable
 import Data.Maybe
 import Data.List.Extra
 import qualified Data.ByteString as BS
@@ -302,14 +303,23 @@ installBundledExtension pathToVsix = do
            , "https://github.com/digital-asset/daml/issues/new?template=bug_report.md"
            ]
 
-runJar :: FilePath -> [String] -> IO ()
-runJar jarPath remainingArguments = withJar jarPath remainingArguments (const $ pure ())
+runJar :: FilePath -> Maybe FilePath -> [String] -> IO ()
+runJar jarPath mbLogbackPath remainingArgs = do
+    mbLogbackArg <- traverse getLogbackArg mbLogbackPath
+    withJar jarPath (toList mbLogbackArg) remainingArgs (const $ pure ())
 
-withJar :: FilePath -> [String] -> (Process () () () -> IO a) -> IO a
-withJar jarPath args a = do
+getLogbackArg :: FilePath -> IO String
+getLogbackArg relPath = do
+    sdkPath <- getSdkPath
+    let logbackPath = sdkPath </> relPath
+    pure $ "-Dlogback.configurationFile=" <> logbackPath
+
+-- The first set of arguments is passed before -jar, the other after the jar path.
+withJar :: FilePath -> [String] -> [String] -> (Process () () () -> IO a) -> IO a
+withJar jarPath jvmArgs jarArgs a = do
     sdkPath <- getSdkPath
     let absJarPath = sdkPath </> jarPath
-    withProcessWait_ (proc "java" ("-jar" : absJarPath : args)) a `catchIO`
+    withProcessWait_ (proc "java" (jvmArgs ++ ["-jar", absJarPath] ++ jarArgs)) a `catchIO`
         (\e -> hPutStrLn stderr "Failed to start java. Make sure it is installed and in the PATH." *> throwIO e)
 
 getTemplatesFolder :: IO FilePath
@@ -670,7 +680,7 @@ navigatorURL (NavigatorPort p) = "http://localhost:" <> show p
 
 withSandbox :: SandboxPort -> [String] -> (Process () () () -> IO a) -> IO a
 withSandbox (SandboxPort port) args a = do
-    withJar sandboxPath (["--port", show port] ++ args) $ \ph -> do
+    withJar sandboxPath [] (["--port", show port] ++ args) $ \ph -> do
         putStrLn "Waiting for sandbox to start: "
         -- TODO We need to figure out what a sane timeout for this step.
         waitForConnectionOnPort (putStr "." *> threadDelay 500000) port
@@ -683,7 +693,7 @@ withNavigator (SandboxPort sandboxPort) navigatorPort args a = do
             , navigatorPortNavigatorArgs navigatorPort
             , args
             ]
-    withJar navigatorPath navigatorArgs $ \ph -> do
+    withJar navigatorPath [] navigatorArgs $ \ph -> do
         putStrLn "Waiting for navigator to start: "
         -- TODO We need to figure out a sane timeout for this step.
         waitForHttpServer (putStr "." *> threadDelay 500000) (navigatorURL navigatorPort) []
@@ -691,9 +701,10 @@ withNavigator (SandboxPort sandboxPort) navigatorPort args a = do
 
 withJsonApi :: SandboxPort -> JsonApiPort -> [String] -> (Process () () () -> IO a) -> IO a
 withJsonApi (SandboxPort sandboxPort) (JsonApiPort jsonApiPort) args a = do
+    logbackArg <- getLogbackArg ("json-api" </> "json-api-logback.xml")
     let jsonApiArgs =
             ["--ledger-host", "localhost", "--ledger-port", show sandboxPort, "--http-port", show jsonApiPort] <> args
-    withJar jsonApiPath jsonApiArgs $ \ph -> do
+    withJar jsonApiPath [logbackArg] jsonApiArgs $ \ph -> do
         putStrLn "Waiting for JSON API to start: "
         -- For now, we have a dummy authorization header here to wait for startup since we cannot get a 200
         -- response otherwise. We probably want to add some method to detect successful startup without
@@ -843,7 +854,7 @@ runLedgerNavigator flags remainingArguments = do
         writeFileUTF8 navigatorConfPath (T.unpack $ navigatorConfig partyDetails)
         unsetEnv "DAML_PROJECT" -- necessary to prevent config contamination
         withCurrentDirectory confDir $ do
-            withJar navigatorPath navigatorArgs $ \ph -> do
+            withJar navigatorPath [] navigatorArgs $ \ph -> do
                 exitCode <- waitExitCode ph
                 exitWith exitCode
 
