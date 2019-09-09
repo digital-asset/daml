@@ -1004,7 +1004,11 @@ private class JdbcLedgerDao(
           // it's ok to not have query isolation as witnesses cannot change once we saved them
           dbDispatcher
             .executeSql(s"load contract details ${contractResult._1}") { implicit conn =>
-              mapContractDetails(contractResult).asInstanceOf[ActiveContract]
+              mapContractDetails(contractResult) match {
+                case ac: ActiveContract => ac
+                case _: DivulgedContract =>
+                  sys.error("Impossible: SQL_SELECT_ACTIVE_CONTRACTS returned a divulged contract")
+              }
             }
         }
     }.mapMaterializedValue(_.map(_ => Done)(DirectExecutionContext))
