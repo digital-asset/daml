@@ -7,8 +7,8 @@ cd "$(dirname "$0")"/..
 export RULES_HASKELL_EXEC_ROOT=$PWD/
 ENV_FILE=$(mktemp)
 ARGS_FILE=$(mktemp)
-bazel build @haskell_ghcide//:ghcide-exe >/dev/null 2>&1
+bazel build @ghcide//:ghcide >/dev/null 2>&1
 bazel run --define hie_bios_ghci=True //compiler/damlc:damlc@ghci -- "$ENV_FILE" "$ARGS_FILE" >/dev/null 2>&1
 source "$ENV_FILE"
 export HIE_BIOS_ARGS="$ARGS_FILE"
-./bazel-bin/external/haskell_ghcide/ghcide-exe $@
+./bazel-bin/external/ghcide/_install/bin/ghcide $@

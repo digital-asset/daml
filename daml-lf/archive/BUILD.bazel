@@ -102,7 +102,7 @@ genrule(
         "\n".join(
             [
                 """
-                   $(location @haskell_proto3__suite//:compile-proto-file)  \
+                   $(location @proto3_suite//:compile-proto-file)  \
                      --includeDir daml-lf/archive/src/main/protobuf/        \
                      --proto com/digitalasset/daml_lf_dev/daml_lf%s.proto   \
                      --out $(@D)
@@ -111,7 +111,7 @@ genrule(
             ],
         ),
     tools = [
-        "@haskell_proto3__suite//:compile-proto-file",
+        "@proto3_suite//:compile-proto-file",
     ],
 )
 

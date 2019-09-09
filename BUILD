@@ -56,7 +56,7 @@ load(
 
 c2hs_toolchain(
     name = "c2hs-toolchain",
-    c2hs = "@haskell_c2hs//:bin",
+    c2hs = "@c2hs//:c2hs",
 )
 
 #

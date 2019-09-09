@@ -99,14 +99,14 @@ genrule(
             external/com_google_protobuf/src/google/protobuf/timestamp.proto \
             external/com_google_protobuf/src/google/protobuf/wrappers.proto \
         ; do
-            $(location @haskell_proto3__suite//:compile-proto-file) \
+            $(location @proto3_suite//:compile-proto-file) \
                 --includeDir """ + google_protobuf_src + """ \
                 --proto google/protobuf/$$(basename $$src) \
                 --out $(@D)
         done
     """,
     tools = [
-        "@haskell_proto3__suite//:compile-proto-file",
+        "@proto3_suite//:compile-proto-file",
     ],
 )
 
@@ -120,7 +120,7 @@ genrule(
     ],
     outs = ["Google/Rpc/Status.hs"],
     cmd = """
-        $(location @haskell_proto3__suite//:compile-proto-file) \
+        $(location @proto3_suite//:compile-proto-file) \
             --includeDir """ + google_protobuf_src + """ \
             --includeDir """ + google_rpc_src + """ \
             --proto google/rpc/status.proto \
@@ -128,7 +128,7 @@ genrule(
                #2x dirname because @D works differently for a single output
     """,
     tools = [
-        "@haskell_proto3__suite//:compile-proto-file",
+        "@proto3_suite//:compile-proto-file",
     ],
 )
 
@@ -167,7 +167,7 @@ genrule(
     outs = ["Com/Digitalasset/Ledger/Api/V1/" + b for b in ledger_api_haskellpb_sources],
     cmd = """
         for src in $(locations :ledger-api-protos-fg); do
-            $(location @haskell_proto3__suite//:compile-proto-file) \
+            $(location @proto3_suite//:compile-proto-file) \
                 --includeDir """ + google_protobuf_src + """ \
                 --includeDir """ + google_rpc_src + """ \
                 --includeDir """ + ledger_api_proto_source_root + """ \
@@ -176,7 +176,7 @@ genrule(
         done
     """,
     tools = [
-        "@haskell_proto3__suite//:compile-proto-file",
+        "@proto3_suite//:compile-proto-file",
     ],
 )
 
@@ -201,7 +201,7 @@ genrule(
     outs = ["Com/Digitalasset/Ledger/Api/V1/Testing/" + b for b in ledger_api_haskellpb_sources_testing],
     cmd = """
         for src in $(locations :ledger-api-protos-fg-testing); do
-            $(location @haskell_proto3__suite//:compile-proto-file) \
+            $(location @proto3_suite//:compile-proto-file) \
                 --includeDir """ + google_protobuf_src + """ \
                 --includeDir """ + google_rpc_src + """ \
                 --includeDir """ + ledger_api_proto_source_root + """ \
@@ -210,7 +210,7 @@ genrule(
         done
     """,
     tools = [
-        "@haskell_proto3__suite//:compile-proto-file",
+        "@proto3_suite//:compile-proto-file",
     ],
 )
 
@@ -235,7 +235,7 @@ genrule(
     outs = ["Com/Digitalasset/Ledger/Api/V1/Admin/" + b for b in ledger_api_haskellpb_sources_admin],
     cmd = """
         for src in $(locations :ledger-api-protos-fg-admin); do
-            $(location @haskell_proto3__suite//:compile-proto-file) \
+            $(location @proto3_suite//:compile-proto-file) \
                 --includeDir """ + google_protobuf_src + """ \
                 --includeDir """ + google_rpc_src + """ \
                 --includeDir """ + ledger_api_proto_source_root + """ \
@@ -244,7 +244,7 @@ genrule(
         done
     """,
     tools = [
-        "@haskell_proto3__suite//:compile-proto-file",
+        "@proto3_suite//:compile-proto-file",
     ],
 )
 

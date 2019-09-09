@@ -12,10 +12,6 @@ load(
     "@rules_haskell//haskell:c2hs.bzl",
     "c2hs_library",
 )
-load(
-    "@ai_formation_hazel//:hazel.bzl",
-    "hazel_library",
-)
 load("//bazel_tools:hlint.bzl", "haskell_hlint")
 load("@os_info//:os_info.bzl", "is_windows")
 
@@ -66,11 +62,11 @@ common_haskell_flags = [
 
 def _wrap_rule(rule, name = "", deps = [], hackage_deps = [], compiler_flags = [], **kwargs):
     ext_flags = ["-X%s" % ext for ext in common_haskell_exts]
-    hazel_libs = [hazel_library(dep) for dep in hackage_deps]
+    stackage_libs = ["@stackage//:{}".format(dep) for dep in hackage_deps]
     rule(
         name = name,
         compiler_flags = ext_flags + common_haskell_flags + compiler_flags,
-        deps = hazel_libs + deps,
+        deps = stackage_libs + deps,
         **kwargs
     )
 
