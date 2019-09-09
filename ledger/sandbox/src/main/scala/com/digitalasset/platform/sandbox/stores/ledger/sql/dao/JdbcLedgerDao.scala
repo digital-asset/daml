@@ -1137,6 +1137,7 @@ private class JdbcLedgerDao(
         |truncate ledger_entries cascade;
         |truncate disclosures cascade;
         |truncate contracts cascade;
+        |truncate contract_data cascade;
         |truncate contract_witnesses cascade;
         |truncate contract_key_maintainers cascade;
         |truncate parameters cascade;
