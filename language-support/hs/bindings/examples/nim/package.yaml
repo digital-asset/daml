@@ -27,7 +27,7 @@ executables:
     - -Wno-name-shadowing
     - -threaded
     - -rtsopts
-    - -with-rtsopts=-N
+    - '"-with-rtsopts=-N2 -qg -I0"'
 
     default-extensions:
     - LambdaCase
