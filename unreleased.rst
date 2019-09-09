@@ -14,3 +14,4 @@ HEAD — ongoing
 + [Sandbox] Dramatically increased performance of the ActiveContractService by only loading the contracts that the parties in the transaction filter are allowed to see.
 + [DAML-LF] change signature of MUL_NUMERIC and DIV_NUMERIC
 + [DAML Integration Kit] fix contract key uniqueness check in kvutils.
++ [Ledger API] ActiveContractsService now specifies to always return at least one message with the offset. This removes a special case where clients would need to check if the stream was empty or not.
