@@ -29,7 +29,12 @@ import com.digitalasset.platform.sandbox.services.transaction.SandboxEventIdForm
 import com.digitalasset.platform.sandbox.stores.ActiveLedgerState.{ActiveContract, Contract}
 import com.digitalasset.platform.sandbox.stores._
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry
-import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{ContractSerializer, KeyHasher, TransactionSerializer, ValueSerializer}
+import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{
+  ContractSerializer,
+  KeyHasher,
+  TransactionSerializer,
+  ValueSerializer
+}
 import com.digitalasset.platform.sandbox.stores.ledger.sql.util.Conversions._
 import com.google.common.io.ByteStreams
 import org.flywaydb.core.api.migration.{BaseJavaMigration, Context}
@@ -171,8 +176,8 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
                   k =>
                     valueSerializer
                       .serializeValue(k.key)
-                      .getOrElse(sys.error(
-                        s"failed to serialize contract key value! cid:${c.id.coid}")))
+                      .getOrElse(
+                        sys.error(s"failed to serialize contract key value! cid:${c.id.coid}")))
           )
         )
 
@@ -349,7 +354,7 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
         override def keyExists(key: GlobalKey): Boolean = selectContractKey(key).isDefined
 
         override def addContract(c: ActiveLedgerState.ActiveContract, keyO: Option[GlobalKey]) = {
-          storeContract(offset,c)
+          storeContract(offset, c)
           keyO.foreach(key => storeContractKey(key, c.id))
           this
         }

@@ -26,11 +26,20 @@ import com.digitalasset.ledger._
 import com.digitalasset.ledger.api.domain.RejectionReason._
 import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails, RejectionReason}
 import com.digitalasset.platform.common.util.DirectExecutionContext
-import com.digitalasset.platform.sandbox.stores.ActiveLedgerState.{ActiveContract, Contract, DivulgedContract}
+import com.digitalasset.platform.sandbox.stores.ActiveLedgerState.{
+  ActiveContract,
+  Contract,
+  DivulgedContract
+}
 import com.digitalasset.platform.sandbox.stores._
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry._
-import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{ContractSerializer, KeyHasher, TransactionSerializer, ValueSerializer}
+import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{
+  ContractSerializer,
+  KeyHasher,
+  TransactionSerializer,
+  ValueSerializer
+}
 import com.digitalasset.platform.sandbox.stores.ledger.sql.util.Conversions._
 import com.digitalasset.platform.sandbox.stores.ledger.sql.util.DbDispatcher
 import com.google.common.io.ByteStreams
@@ -209,8 +218,8 @@ private class JdbcLedgerDao(
                   k =>
                     valueSerializer
                       .serializeValue(k.key)
-                      .getOrElse(sys.error(
-                        s"failed to serialize contract key value! cid:${c.id.coid}")))
+                      .getOrElse(
+                        sys.error(s"failed to serialize contract key value! cid:${c.id.coid}")))
           )
         )
 
@@ -376,15 +385,12 @@ private class JdbcLedgerDao(
         disclosure) =>
       final class AcsStoreAcc extends ActiveLedgerState[AcsStoreAcc] {
 
-
         override def lookupContract(cid: AbsoluteContractId) =
           lookupContractSync(cid)
 
         override def keyExists(key: GlobalKey): Boolean = selectContractKey(key).isDefined
 
-        override def addContract(
-            c: ActiveContract,
-            keyO: Option[GlobalKey]): AcsStoreAcc = {
+        override def addContract(c: ActiveContract, keyO: Option[GlobalKey]): AcsStoreAcc = {
           storeContract(offset, c)
           keyO.foreach(key => storeContractKey(key, c.id))
           this
@@ -858,9 +864,17 @@ private class JdbcLedgerDao(
           contractSerializer
             .deserializeContractInstance(ByteStreams.toByteArray(contractStream))
             .getOrElse(sys.error(s"failed to deserialize contract! cid:$coid")),
-          divulgences)
+          divulgences
+        )
 
-      case (coid, Some(transactionId), workflowId, Some(ledgerEffectiveTime), contractStream, keyStreamO, Some(tx)) =>
+      case (
+          coid,
+          Some(transactionId),
+          workflowId,
+          Some(ledgerEffectiveTime),
+          contractStream,
+          keyStreamO,
+          Some(tx)) =>
         val witnesses = lookupWitnesses(coid)
         val divulgences = lookupDivulgences(coid)
         val absoluteCoid = AbsoluteContractId(coid)
@@ -900,7 +914,8 @@ private class JdbcLedgerDao(
         )
 
       case (_, _, _, _, _, _, _) =>
-        sys.error("mapContractDetails called with partial data, can not map to either active or divulged contract")
+        sys.error(
+          "mapContractDetails called with partial data, can not map to either active or divulged contract")
     }
 
   private def lookupWitnesses(coid: String)(implicit conn: Connection): Set[Party] =
