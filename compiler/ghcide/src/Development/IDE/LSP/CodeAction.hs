@@ -112,10 +112,10 @@ extractRenamableTerms msg
                        . filter isKnownSymbol
                        . T.lines
     singleSuggestions = T.splitOn "), " -- Each suggestion is comma delimited
-    isKnownSymbol t = " (imported from" `T.isInfixOf` t || " (line " `T.isInfixOf` t
-    getEnclosed = T.dropWhile (== '‘')
-                . T.dropWhileEnd (== '’')
-                . T.dropAround (\c -> c /= '‘' && c /= '’')
+    isKnownSymbol t = " (imported from" `T.isInfixOf` t  || " (line " `T.isInfixOf` t
+    getEnclosed = T.dropWhile (== '`')
+                . T.dropWhileEnd (== '\'')
+                . T.dropAround (\c -> c /= '`' && c /= '\'')
 
 -- | If a range takes up a whole line (it begins at the start of the line and there's only whitespace
 -- between the end of the range and the next newline), extend the range to take up the whole line.
