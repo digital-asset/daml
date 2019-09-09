@@ -71,7 +71,7 @@ supports such tokens.
 ### POST http://localhost:7575/contracts/search
 application/json body:
 ```
-{"templateIds": [{"moduleName": "Iou", "entityName": "Iou"}]}
+{"%template": [{"moduleName": "Iou", "entityName": "Iou"}]}
 ```
 
 ### POST http://localhost:7575/command/create
