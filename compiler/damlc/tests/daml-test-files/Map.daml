@@ -46,7 +46,7 @@ testNull = scenario do
 
 testInsert = scenario do
   [(1, True), (2, False), (3, True), (4, False), (5, False)] === toList
-    (foldl (\a b -> (uncurry insert) b a) M.empty [(3, True), (1, False), (4, False), (2, True), (5, False), (2, False), (1, True)])
+    (foldl (\a b -> uncurry insert b a) M.empty [(3, True), (1, False), (4, False), (2, True), (5, False), (2, False), (1, True)])
 
 testFilterWithKey = scenario do
   [(1, True), (2, False), (3, True)] === toList (M.filterWithKey (\k v -> k < 3 || v) (fromList [(3, True), (1, False), (4, False), (2, True), (5, False), (2, False), (1, True)]))

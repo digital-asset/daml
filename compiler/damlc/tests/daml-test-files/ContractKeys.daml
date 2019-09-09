@@ -1,5 +1,33 @@
 -- Check that the compiler bits of contract keys work.
 -- @SINCE-LF 1.4
+--
+
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+
 daml 1.2
 module ContractKeys where
 

@@ -1,7 +1,39 @@
 -- Copyright (c) 2019, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
-
+--
 -- Check that all syntaxes for defining choices can be parsed.
+--
+-- @INFO Redundant
+-- @INFO Redundant
+-- @INFO Redundant
+-- @INFO Redundant
+-- @INFO Redundant
+-- @INFO Redundant
+-- @INFO Redundant
+-- @INFO Redundant
+-- @INFO Redundant
+-- @INFO Redundant
+-- @INFO Redundant
+-- @INFO Redundant
+-- @INFO Redundant
+-- @INFO Redundant
+-- @INFO Redundant
+-- @INFO Redundant
+-- @INFO Redundant
+-- @INFO Redundant
+-- @INFO Redundant
+-- @INFO Redundant
+-- @INFO Redundant
+-- @INFO Redundant
+-- @INFO Redundant
+-- @INFO Redundant
+-- @INFO Redundant
+-- @INFO Redundant
+-- @INFO Redundant
+-- @INFO Redundant
+-- @INFO Redundant
+-- @INFO Redundant
+
 daml 1.2
 module ChoiceSyntaxes where
 

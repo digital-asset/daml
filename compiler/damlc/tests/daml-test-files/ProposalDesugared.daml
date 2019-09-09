@@ -4,6 +4,21 @@
 -- This test demonstrates how the desugared form of the generical proposal
 -- workflow and its instantiation for an IOU look like.
 -- @SINCE-LF 1.5
+--
+
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+
 daml 1.2
 module ProposalDesugared
   ( main

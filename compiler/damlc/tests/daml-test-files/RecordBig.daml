@@ -3,6 +3,29 @@
 
 daml 1.2
 -- big records (3 fields or more) use primitives for set/update, as per DEL-5490
+
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+
 module RecordBig where
 
 import DA.Assert

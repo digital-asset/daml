@@ -3,6 +3,25 @@
 --
 -- Check that `coerceContractId` works properly.
 -- @SINCE-LF 1.5
+--
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+
 daml 1.2
 module CoerceContractId where
 

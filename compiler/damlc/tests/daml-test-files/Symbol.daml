@@ -2,6 +2,15 @@
 -- All rights reserved.
 
 -- DEL-6902: This used to clash with GHC.Types.Symbol.
+
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+
 daml 1.2
 module Symbol where
 

@@ -6,6 +6,20 @@
 -- Show that if the names of `Prelude` are not in scope, then there
 -- should be no ambiguity about `concat` introduced by `DA.Foldable`.
 
+
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+
 daml 1.2
 module No_concat_clash where
 

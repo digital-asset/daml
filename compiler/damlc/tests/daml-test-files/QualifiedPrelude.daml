@@ -5,6 +5,23 @@
 -- + DEL-5923 return not in scope
 -- + DEL-5955 Template not in scope
 -- + DEL-5958 ApplicativeDo pieces
+--
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+
 {-# LANGUAGE ApplicativeDo #-}
 
 daml 1.2

@@ -4,6 +4,18 @@
 -- A generic proposal workflow using generic templates. This is not tested
 -- itself but imported in the `ProposalIou` test.
 -- @SINCE-LF 1.5
+
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+
 daml 1.2
 module Proposal where
 

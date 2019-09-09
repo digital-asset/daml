@@ -5,6 +5,18 @@
 -- any warnings. (If we turned of `MonoLocalBinds` there would be warning
 -- suggesting to simplify the context to `AInstance t`, which would expose
 -- an implementation detail we prefer to hide.)
+--
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+-- @INFO Redundant bracket
+
 daml 1.2
 module GenTemplContext where
 
