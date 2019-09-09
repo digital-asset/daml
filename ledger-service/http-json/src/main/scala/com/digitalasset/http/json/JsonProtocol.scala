@@ -83,8 +83,16 @@ object JsonProtocol extends DefaultJsonProtocol {
   implicit val ActiveContractFormat: RootJsonFormat[domain.ActiveContract[JsValue]] =
     jsonFormat6(domain.ActiveContract.apply[JsValue])
 
-  implicit val GetActiveContractsRequestFormat: RootJsonFormat[domain.GetActiveContractsRequest] =
-    jsonFormat1(domain.GetActiveContractsRequest)
+  implicit val GetActiveContractsRequestFormat: RootJsonReader[domain.GetActiveContractsRequest] = {
+    case JsObject(fields) =>
+      val templates = (fields get "%template")
+        .map(_.convertTo[Set[domain.TemplateId.OptionalPkg]])
+        .filter(_.nonEmpty)
+        .getOrElse(
+          deserializationError("/contracts/search requires at least one item in '%template'"))
+      domain.GetActiveContractsRequest(templateIds = templates)
+    case _ => deserializationError("/contracts/search must receive an object")
+  }
 
   implicit val GetActiveContractsResponseFormat
     : RootJsonFormat[domain.GetActiveContractsResponse[JsValue]] =
