@@ -39,13 +39,13 @@ toCompileOpts :: Options -> HieCore.IdeReportProgress -> HieCore.IdeOptions
 toCompileOpts options@Options{..} reportProgress =
     HieCore.IdeOptions
       { optPreprocessor = if optIsGenerated then noPreprocessor else damlPreprocessor optMbPackageName
-      , optGhcSession = do
+      , optGhcSession = const $ do
             env <- liftIO $ runGhcFast $ do
                 setupDamlGHC options
                 GHC.getSession
             pkg <- liftIO $ generatePackageState optPackageDbs optHideAllPkgs $ map (second toRenaming) optPackageImports
             dflags <- liftIO $ checkDFlags options $ setPackageDynFlags pkg $ hsc_dflags env
-            return env{hsc_dflags = dflags}
+            newHscEnvEq env{hsc_dflags = dflags}
       , optPkgLocationOpts = HieCore.IdePkgLocationOptions
           { optLocateHieFile = locateInPkgDb "hie"
           , optLocateSrcFile = locateInPkgDb "daml"
