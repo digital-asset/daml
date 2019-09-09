@@ -149,7 +149,7 @@ da_haskell_library(
         "//compiler/damlc/daml-opts",
         "//compiler/damlc/daml-opts:daml-opts-types",
         "//compiler/damlc/daml-visual",
-        "//compiler/hie-core",
+        "//compiler/ghcide",
         "//compiler/scenario-service/client",
         "//compiler/scenario-service/protos:scenario_service_haskell_proto",
         "//daml-assistant:daml-project-config",

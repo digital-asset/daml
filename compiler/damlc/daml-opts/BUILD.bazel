@@ -22,14 +22,14 @@ da_haskell_library(
     visibility = ["//visibility:public"],
     deps = [
         "//compiler/daml-lf-ast",
-        "//compiler/hie-core",
+        "//compiler/ghcide",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
     ],
 )
 
 # This contains the conversion from the DAML-dependent Options type to
-# hie-core’s IdeOpts. We split this into a separate lib so that daml-opts-types
+# ghcide’s IdeOpts. We split this into a separate lib so that daml-opts-types
 # does not need to depend on the preprocessor.
 da_haskell_library(
     name = "daml-opts",
@@ -49,7 +49,7 @@ da_haskell_library(
         ":daml-opts-types",
         "//compiler/daml-lf-ast",
         "//compiler/damlc/daml-preprocessor",
-        "//compiler/hie-core",
+        "//compiler/ghcide",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
     ],

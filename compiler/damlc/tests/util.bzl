@@ -75,7 +75,7 @@ def damlc_integration_test(name, main_function):
         deps = [
             "//compiler/daml-lf-ast",
             "//compiler/daml-lf-proto",
-            "//compiler/hie-core",
+            "//compiler/ghcide",
             "//compiler/damlc/daml-compiler",
             "//compiler/damlc/daml-ide-core",
             "//compiler/damlc/daml-lf-conversion",

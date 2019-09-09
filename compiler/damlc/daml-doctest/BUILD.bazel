@@ -17,6 +17,6 @@ da_haskell_library(
     src_strip_prefix = "src",
     visibility = ["//visibility:public"],
     deps = [
-        "//compiler/hie-core",
+        "//compiler/ghcide",
     ],
 )
