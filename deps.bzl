@@ -30,8 +30,8 @@ load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive", "http_file"
 load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
 
 rules_scala_version = "8092d5f6165a8d9c4797d5f089c1ba4eee3326b1"
-rules_haskell_version = "21c277b5a7ef019bbd10348568538723aef2699c"
-rules_haskell_sha256 = "ee07ebe05886823ca479d644019fd1b44db5a1c8d576b216d1a3a44ae2dc2765"
+rules_haskell_version = "74d91c116c59f0a3ad41e376d3307d85ddcc3253"
+rules_haskell_sha256 = "5f2423d4707c5601f465d7343c68ff4e8f271c1269e79af4dc2d156cb8a0c17d"
 rules_nixpkgs_version = "5ffb8a4ee9a52bc6bc12f95cd64ecbd82a79bc82"
 
 def daml_deps():
@@ -41,12 +41,15 @@ def daml_deps():
             strip_prefix = "rules_haskell-%s" % rules_haskell_version,
             urls = ["https://github.com/tweag/rules_haskell/archive/%s.tar.gz" % rules_haskell_version],
             patches = [
-                "@com_github_digital_asset_daml//bazel_tools:haskell-drop-fake-static.patch",
+                # Remove once https://github.com/tweag/rules_haskell/pull/1039 is merged.
+                "@com_github_digital_asset_daml//bazel_tools:haskell-cc-wrapper.patch",
+                # Upstream once https://github.com/tweag/rules_haskell/pull/1039 is merged.
+                # Used to work around https://github.com/tweag/rules_haskell/issues/1062.
+                "@com_github_digital_asset_daml//bazel_tools:haskell-cc-wrapper-include-dirs.patch",
+                "@com_github_digital_asset_daml//bazel_tools:haskell-cc-wrapper-globbing.patch",
                 "@com_github_digital_asset_daml//bazel_tools:haskell-windows-extra-libraries.patch",
-                "@com_github_digital_asset_daml//bazel_tools:haskell-darwin-symlink-dylib.patch",
                 "@com_github_digital_asset_daml//bazel_tools:haskell-ghci-grpc.patch",
                 "@com_github_digital_asset_daml//bazel_tools:haskell_public_ghci_repl_wrapper.patch",
-                "@com_github_digital_asset_daml//bazel_tools:haskell-windows-library-dirs.patch",
                 "@com_github_digital_asset_daml//bazel_tools:haskell-no-isystem.patch",
                 "@com_github_digital_asset_daml//bazel_tools:haskell-opt.patch",
             ],
@@ -68,8 +71,6 @@ def daml_deps():
             strip_prefix = "rules_haskell-{}/hazel".format(rules_haskell_version),
             urls = ["https://github.com/tweag/rules_haskell/archive/%s.tar.gz" % rules_haskell_version],
             sha256 = rules_haskell_sha256,
-            patch_args = ["-p2"],
-            patches = ["@com_github_digital_asset_daml//bazel_tools:haskell-c2hs-prefix.patch"],
         )
 
     if "com_github_madler_zlib" not in native.existing_rules():
