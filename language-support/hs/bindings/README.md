@@ -28,42 +28,39 @@ You can find some usage examples
 
 These bindings can be exported as a standalone Haskell package `daml-ledger` using `stack`. Currently, `stack` references the code directly in the `daml` repo. The only annoyance is that part of the Haskell code for `daml-ledger` is generated from `.proto` files, and this generation step must be performed using the `bazel` build. We plan to simplify this step by directly providing `daml-ledger` as a package on hackage. Instructions for working with the daml repo can be found here: https://github.com/digital-asset/daml
 
-As well as `stack`, the only other prerequisite is to have `grpc` installed.
+As well as `stack`, the only other prerequisite is to have `grpc` installed. (`grpc` is not required to generate the `daml-ledger` package, but it is required to use it).
+
 We are currently using gRPC version `1.23.0`. To install `grpc`  requires building `grpc` from source (really!). See detailed instructions here: https://github.com/grpc/grpc/blob/master/BUILDING.md.
 
-Note, the `grpc` build instructions warn against doing a global install:
+In the instructions below we do `make install` for grpc despite the warning from the `grpc` build instructions:
 
 > *"WARNING: After installing with make install there is no easy way to uninstall, which can cause issues if you later want to remove the grpc and/or protobuf installation or upgrade to a newer version."*
 
-If you follow this advice, then you must adjust `extra-lib-dirs` in your `stack.yaml` config. This is explicated in the detailed instructions below.
+If you decide against the `make install`, or choose a different install location, you will need to adjust the settings of `extra-lib-dirs` and `extra-include-dirs` in your `stack.yaml` config.
 
+Also, in the instructions below we export the `daml-ledger` package to `/tmp` which matches the locat
+ion declared in the `stack.yaml` of the example application `nim`. If you export somewhere else, you will need to adapt your `stack.yaml`
 
-## Download (somewhere permanent) and build grpc at version 1.23.0
+## Download and build grpc at version 1.23.0
 
     git clone -b v1.23.0 https://github.com/grpc/grpc
     cd grpc
-    GRPC=$(pwd)                         # for later
     git submodule update --init
     make
+    make prefix=/usr/local/grpc install
 
-## Clone daml repo; and export the daml-ledger package
+## Clone daml repo, and export the daml-ledger package
 
     cd /tmp
     git clone https://github.com/digital-asset/daml.git
     cd daml
     direnv allow
+    eval $(dev-env/bin/dade-assist)
     language-support/hs/bindings/export-package.sh /tmp
 
-## Write a DAML Ledger App in Haskell (or copy one!)
+## Write a DAML Ledger App in Haskell (or copy one!), and build it
 
     cd /tmp
     cp -rp /tmp/daml/language-support/hs/bindings/examples/nim nim
     cd nim
-
-## Adjust `stack.yaml` to find `grpc`
-
-    sed -i 's,/usr/local/grpc/lib,'$GRPC'/libs/opt,' stack.yaml
-
-## Build
-
     stack build

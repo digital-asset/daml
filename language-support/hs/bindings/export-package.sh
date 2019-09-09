@@ -6,7 +6,7 @@ set -eou pipefail
 
 if [ "$#" -ne 1 ]; then
     echo "Expected exactly one argument."
-    echo "Usage: ./build_packages.sh TARGET_DIR"
+    echo "Usage: ${BASH_SOURCE[0]} TARGET_DIR"
     exit 1
 fi
 
@@ -14,7 +14,7 @@ cd "$(dirname ${BASH_SOURCE[0]})"
 
 TARGET_DIR=$1
 
-bazel build //ledger-api/grpc-definitions:google-protobuf-haskellpb-sources //ledger-api/grpc-definitions:google-rpc-haskellpb-sources //ledger-api/grpc-definitions:ledger-api-haskellpb-sources //ledger-api/grpc-definitions:ledger-api-haskellpb-sources-admin //ledger-api/grpc-definitions:ledger-api-haskellpb-sources-testing
+bazel build //ledger-api/grpc-definitions:all-ledger-api-haskellpb-sources
 
 BAZEL_BIN=$(bazel info bazel-bin)
 

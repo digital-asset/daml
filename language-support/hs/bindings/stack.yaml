@@ -3,6 +3,9 @@ resolver: lts-14.3
 extra-lib-dirs:
 - /usr/local/grpc/lib
 
+extra-include-dirs:
+- /usr/local/grpc/include
+
 extra-deps:
 
 - git: https://github.com/awakesecurity/proto3-suite

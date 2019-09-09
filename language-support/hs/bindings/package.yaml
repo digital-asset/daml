@@ -33,11 +33,12 @@ library:
   - -Wall
   - -Wno-name-shadowing
 
-  - -XGeneralizedNewtypeDeriving
-  - -XLambdaCase
-  - -XNamedFieldPuns
-  - -XNondecreasingIndentation
-  - -XNumericUnderscores
-  - -XOverloadedStrings
-  - -XRecordWildCards
-  - -XScopedTypeVariables
+  default-extensions:
+  - GeneralizedNewtypeDeriving
+  - LambdaCase
+  - NamedFieldPuns
+  - NondecreasingIndentation
+  - NumericUnderscores
+  - OverloadedStrings
+  - RecordWildCards
+  - ScopedTypeVariables

@@ -29,9 +29,9 @@ executables:
     - -rtsopts
     - -with-rtsopts=-N
 
-    - -XGeneralizedNewtypeDeriving
-    - -XLambdaCase
-    - -XNamedFieldPuns
-    - -XOverloadedStrings
-    - -XRecordWildCards
-    - -XScopedTypeVariables
+    default-extensions:
+    - LambdaCase
+    - NamedFieldPuns
+    - OverloadedStrings
+    - RecordWildCards
+    - ScopedTypeVariables
