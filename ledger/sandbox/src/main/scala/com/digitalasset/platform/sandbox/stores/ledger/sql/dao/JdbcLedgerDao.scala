@@ -215,7 +215,7 @@ private class JdbcLedgerDao(
       PageSize,
       (startI, endE) => {
         Source
-          .fromFuture(dbDispatcher.executeSql(s"load ledger entries [$startI, $endE[") {
+          .fromFuture(dbDispatcher.executeSql(s"load configuration entries [$startI, $endE[") {
             implicit conn =>
               SQL_GET_CONFIGURATION_ENTRIES
                 .on("startInclusive" -> startI, "endExclusive" -> endE)

@@ -85,8 +85,8 @@ trait LedgerReadDao extends AutoCloseable {
 
   /** Get a stream of configuration entries. */
   def getConfigurationEntries(
-      startInclusive: Long,
-      endExclusive: Long): Source[(Long, ConfigurationEntry), NotUsed]
+      startInclusive: LedgerOffset,
+      endExclusive: LedgerOffset): Source[(Long, ConfigurationEntry), NotUsed]
 
   /** Looks up an active contract. Archived contracts must not be returned by this method */
   def lookupActiveContract(contractId: AbsoluteContractId): Future[Option[Contract]]

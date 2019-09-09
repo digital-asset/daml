@@ -338,7 +338,7 @@ class JdbcIndexer private[index] (
           .storeConfigurationEntry(
             headRef,
             headRef + 1,
-            Some(offset.toLedgerString),
+            externalOffset,
             configRejection.recordTime.toInstant,
             configRejection.submissionId,
             configRejection.participantId,
