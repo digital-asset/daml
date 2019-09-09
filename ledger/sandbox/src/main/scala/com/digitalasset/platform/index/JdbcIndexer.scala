@@ -232,7 +232,7 @@ class JdbcIndexer private (
           .storeConfigurationEntry(
             headRef,
             headRef + 1,
-            Some(offset.toLedgerString),
+            externalOffset,
             config.recordTime.toInstant,
             config.submissionId,
             config.participantId,
