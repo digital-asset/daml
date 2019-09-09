@@ -77,14 +77,6 @@ def daml_deps():
             sha256 = rules_nixpkgs_sha256,
         )
 
-    if "ai_formation_hazel" not in native.existing_rules():
-        http_archive(
-            name = "ai_formation_hazel",
-            strip_prefix = "rules_haskell-{}/hazel".format(rules_haskell_version),
-            urls = ["https://github.com/tweag/rules_haskell/archive/%s.tar.gz" % rules_haskell_version],
-            sha256 = rules_haskell_sha256,
-        )
-
     if "com_github_madler_zlib" not in native.existing_rules():
         http_archive(
             name = "com_github_madler_zlib",

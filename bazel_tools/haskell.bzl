@@ -301,10 +301,3 @@ def c2hs_suite(name, hackage_deps, deps = [], srcs = [], c2hs_srcs = [], c2hs_sr
         hackage_deps = hackage_deps,
         **kwargs
     )
-
-# Add extra packages, e.g., packages that are on Hackage but not in Stackage.
-# This cannot be inlined since it is impossible to create a struct in WORKSPACE.
-def add_extra_packages(pkgs, extra):
-    result = dict(pkgs)
-    result.update({k: struct(**v) for (k, v) in extra})
-    return result
