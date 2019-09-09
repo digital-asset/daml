@@ -26,8 +26,9 @@ data IdeOptions = IdeOptions
   , optGhcSession :: IO (FilePath -> Action HscEnvEq)
     -- ^ Setup a GHC session for a given file, e.g. @Foo.hs@.
     --   The 'IO' will be called once, then the resulting function will be applied once per file.
-    --   It is desirable that many files get the same 'HscEnvEq', so that more IDE features work
-    --   - the Shake function 'newCacheIO' may be helpful to ensure that.
+    --   It is desirable that many files get the same 'HscEnvEq', so that more IDE features work.
+    --   You should not use 'newCacheIO' to get that caching, because of
+    --   https://github.com/ndmitchell/shake/issues/725.
   , optPkgLocationOpts :: IdePkgLocationOptions
     -- ^ How to locate source and @.hie@ files given a module name.
   , optExtensions :: [String]
