@@ -28,7 +28,11 @@ main =
 
 data Command
     = DamlStudio { replaceExtension :: ReplaceExtension, remainingArguments :: [String] }
-    | RunJar { jarPath :: FilePath, remainingArguments :: [String] }
+    | RunJar
+        { jarPath :: FilePath
+        , mbLogbackConfig :: Maybe FilePath
+        -- Both file paths are relative to the SDK directory.
+        , remainingArguments :: [String] }
     | New { targetFolder :: FilePath, templateNameM :: Maybe String }
     | Migrate { targetFolder :: FilePath, pkgPathFrom :: FilePath, pkgPathTo :: FilePath }
     | Init { targetFolderM :: Maybe FilePath }
@@ -77,6 +81,7 @@ commandParser = subparser $ fold
 
     runJarCmd = RunJar
         <$> argument str (metavar "JAR" <> help "Path to JAR relative to SDK path")
+        <*> optional (strOption (long "logback-config"))
         <*> many (argument str (metavar "ARG"))
 
     newCmd = asum
@@ -122,7 +127,7 @@ commandParser = subparser $ fold
     jsonApiCfg = JsonApiConfig <$> option
         readJsonApiPort
         ( long "json-api-port"
-       <> value Nothing -- Disabled by default until https://github.com/digital-asset/daml/issues/2788 is resolved.
+       <> value (Just $ JsonApiPort 7575)
        <> help "Port that the HTTP JSON API should listen on or 'none' to disable it"
         )
 
@@ -205,7 +210,7 @@ commandParser = subparser $ fold
 
 runCommand :: Command -> IO ()
 runCommand DamlStudio {..} = runDamlStudio replaceExtension remainingArguments
-runCommand RunJar {..} = runJar jarPath remainingArguments
+runCommand RunJar {..} = runJar jarPath mbLogbackConfig remainingArguments
 runCommand New {..} = runNew targetFolder templateNameM []
 runCommand Migrate {..} = runMigrate targetFolder pkgPathFrom pkgPathTo
 runCommand Init {..} = runInit targetFolderM
