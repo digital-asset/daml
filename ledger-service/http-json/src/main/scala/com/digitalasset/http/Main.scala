@@ -48,7 +48,7 @@ object Main extends StrictLogging {
         s", httpPort=${config.httpPort: Int}, applicationId=${config.applicationId.unwrap: String}" +
         s", maxInboundMessageSize=${config.maxInboundMessageSize: Int})")
 
-    implicit val asys: ActorSystem = ActorSystem("dummy-http-json-ledger-api")
+    implicit val asys: ActorSystem = ActorSystem("http-json-ledger-api")
     implicit val mat: ActorMaterializer = ActorMaterializer()
     implicit val aesf: ExecutionSequencerFactory =
       new AkkaExecutionSequencerPool("clientPool")(asys)
