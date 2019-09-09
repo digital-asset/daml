@@ -162,4 +162,4 @@ run s = withTempDir $ \dir -> do
     conf = defaultConfig
       -- If you uncomment this you can see all messages
       -- which can be quite useful for debugging.
-      -- { logMessages = True, logColor = False, logStdErr = True }
+            { logMessages = True, logColor = False, logStdErr = True, messageTimeout = 120 }
