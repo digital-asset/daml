@@ -136,6 +136,5 @@ newSession' cradle = getLibdir >>= \libdir -> do
 
 loadEnvironment :: FilePath -> IO (FilePath -> Action HscEnvEq)
 loadEnvironment dir = do
-    op <- newCacheIO $ \() -> do
-        liftIO $ newSession' =<< findCradle (dir <> "/")
-    return $ \_ -> op ()
+    res <- liftIO $ newSession' =<< findCradle (dir <> "/")
+    return $ const $ return res
