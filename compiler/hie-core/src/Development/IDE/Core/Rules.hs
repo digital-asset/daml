@@ -55,10 +55,12 @@ import Development.IDE.GHC.Compat
 import           UniqSupply
 import NameCache
 import HscTypes
+import GHC.Generics(Generic)
 
 import qualified Development.IDE.Spans.AtPoint as AtPoint
 import Development.IDE.Core.Service
 import Development.IDE.Core.Shake
+import Development.Shake.Classes
 import System.Directory
 import System.FilePath
 import MkIface
@@ -322,13 +324,28 @@ generateCoreRule =
         packageState <- hscEnv <$> use_ GhcSession file
         liftIO $ compileModule packageState tms tm
 
+
+-- A local rule type to get caching. We want to use newCache, but it has
+-- thread killed exception issues, so we lift it to a full rule.
+-- https://github.com/digital-asset/daml/pull/2808#issuecomment-529639547
+type instance RuleResult GhcSessionIO = GhcSessionFun
+
+data GhcSessionIO = GhcSessionIO deriving (Eq, Show, Typeable, Generic)
+instance Hashable GhcSessionIO
+instance NFData   GhcSessionIO
+
+newtype GhcSessionFun = GhcSessionFun (FilePath -> Action HscEnvEq)
+instance Show GhcSessionFun where show _ = "GhcSessionFun"
+instance NFData GhcSessionFun where rnf !_ = ()
+
+
 loadGhcSession :: Rules ()
 loadGhcSession = do
-    session <- newCache $ \() -> do
+    defineNoFile $ \GhcSessionIO -> do
         opts <- getIdeOptions
-        liftIO $ optGhcSession opts
+        liftIO $ GhcSessionFun <$> optGhcSession opts
     define $ \GhcSession file -> do
-        fun <- session ()
+        GhcSessionFun fun <- useNoFile_ GhcSessionIO
         val <- fun $ fromNormalizedFilePath file
         return ([], Just val)
 
