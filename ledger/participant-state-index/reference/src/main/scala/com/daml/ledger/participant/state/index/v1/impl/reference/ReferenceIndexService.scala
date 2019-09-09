@@ -328,10 +328,15 @@ final case class ReferenceIndexService(
       })
   }
 
-  private def canSeeContract(submitter: Party, ac: ActiveLedgerState.ActiveContract): Boolean = {
-    // ^ only parties disclosed or divulged to can lookup; see https://github.com/digital-asset/daml/issues/10
-    // and https://github.com/digital-asset/daml/issues/751 .
-    Right(submitter) exists (p => ac.witnesses(p) || ac.divulgences.contains(p))
+  private def canSeeContract(submitter: Party, c: ActiveLedgerState.Contract): Boolean = c match {
+    case ac: ActiveLedgerState.ActiveContract =>
+      // ^ only parties disclosed or divulged to can lookup; see https://github.com/digital-asset/daml/issues/10
+      // and https://github.com/digital-asset/daml/issues/751 .
+      Right(submitter) exists (p => ac.witnesses(p) || ac.divulgences.contains(p))
+    case dc: ActiveLedgerState.DivulgedContract =>
+      // ^ only parties divulged to can lookup; see https://github.com/digital-asset/daml/issues/10
+      // and https://github.com/digital-asset/daml/issues/751 .
+      Right(submitter) exists (p => dc.divulgences.contains(p))
   }
 
   override def lookupActiveContract(submitter: Party, contractId: Value.AbsoluteContractId)
@@ -339,7 +344,7 @@ final case class ReferenceIndexService(
     futureWithState { state =>
       Future {
         state.activeContracts
-          .lookupActiveContract(contractId)
+          .lookupContract(contractId)
           .flatMap {
             case ac if canSeeContract(submitter, ac) => Some(ac.contract)
             case _ => None
@@ -360,7 +365,7 @@ final case class ReferenceIndexService(
 
             // note that we need to check visibility for keys, too, otherwise we leak the existence of a non-divulged
             // contract if we return `Some`.
-            state.activeContracts.lookupActiveContract(cid).flatMap {
+            state.activeContracts.lookupContract(cid).flatMap {
               case ac if canSeeContract(submitter, ac) => Some(cid)
               case _ => None
             }

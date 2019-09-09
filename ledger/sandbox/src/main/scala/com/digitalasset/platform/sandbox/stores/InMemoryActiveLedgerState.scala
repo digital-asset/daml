@@ -25,9 +25,6 @@ case class InMemoryActiveLedgerState(
     parties: Map[Party, PartyDetails])
     extends ActiveLedgerState[InMemoryActiveLedgerState] {
 
-  override def lookupActiveContract(cid: AbsoluteContractId): Option[ActiveContract] =
-    activeContracts.get(cid)
-
   override def lookupContract(cid: AbsoluteContractId): Option[Contract] =
     activeContracts.get(cid).orElse[Contract](divulgedContracts.get(cid))
 

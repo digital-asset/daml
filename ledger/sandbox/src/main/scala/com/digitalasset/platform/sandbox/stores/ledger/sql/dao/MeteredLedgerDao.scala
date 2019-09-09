@@ -14,6 +14,7 @@ import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml_lf.DamlLf.Archive
 import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails}
 import com.digitalasset.platform.sandbox.metrics.MetricsManager
+import com.digitalasset.platform.sandbox.stores.ActiveLedgerState.{ActiveContract, Contract}
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry
 
 import scala.collection.immutable
@@ -83,7 +84,7 @@ private class MeteredLedgerDao(ledgerDao: LedgerDao, mm: MetricsManager)
       ledgerDao.storeLedgerEntry(offset, newLedgerEnd, externalOffset, ledgerEntry))
 
   override def storeInitialState(
-      activeContracts: immutable.Seq[Contract],
+      activeContracts: immutable.Seq[ActiveContract],
       ledgerEntries: immutable.Seq[(LedgerOffset, LedgerEntry)],
       newLedgerEnd: LedgerOffset
   ): Future[Unit] =

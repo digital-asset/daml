@@ -26,15 +26,11 @@ import com.digitalasset.ledger._
 import com.digitalasset.ledger.api.domain.RejectionReason._
 import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails, RejectionReason}
 import com.digitalasset.platform.common.util.DirectExecutionContext
+import com.digitalasset.platform.sandbox.stores.ActiveLedgerState.{ActiveContract, Contract, DivulgedContract}
 import com.digitalasset.platform.sandbox.stores._
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry._
-import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{
-  ContractSerializer,
-  KeyHasher,
-  TransactionSerializer,
-  ValueSerializer
-}
+import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{ContractSerializer, KeyHasher, TransactionSerializer, ValueSerializer}
 import com.digitalasset.platform.sandbox.stores.ledger.sql.util.Conversions._
 import com.digitalasset.platform.sandbox.stores.ledger.sql.util.DbDispatcher
 import com.google.common.io.ByteStreams
@@ -165,7 +161,7 @@ private class JdbcLedgerDao(
   override def lookupKey(key: Node.GlobalKey): Future[Option[AbsoluteContractId]] =
     dbDispatcher.executeSql("lookup contract by key")(implicit conn => selectContractKey(key))
 
-  private def storeContract(offset: Long, contract: Contract)(
+  private def storeContract(offset: Long, contract: ActiveContract)(
       implicit connection: Connection): Unit = storeContracts(offset, List(contract))
 
   private def archiveContract(offset: Long, cid: AbsoluteContractId)(
@@ -190,7 +186,7 @@ private class JdbcLedgerDao(
   private val SQL_INSERT_CONTRACT_KEY_MAINTAINERS =
     "insert into contract_key_maintainers(contract_id, maintainer) values({contract_id}, {maintainer})"
 
-  private def storeContracts(offset: Long, contracts: immutable.Seq[Contract])(
+  private def storeContracts(offset: Long, contracts: immutable.Seq[ActiveContract])(
       implicit connection: Connection): Unit = {
 
     // An ACS contract contains several collections (e.g., witnesses or divulgences).
@@ -202,11 +198,11 @@ private class JdbcLedgerDao(
         .map(
           c =>
             Seq[NamedParameter](
-              "id" -> c.contractId.coid,
+              "id" -> c.id.coid,
               "transaction_id" -> c.transactionId,
               "workflow_id" -> c.workflowId,
-              "package_id" -> c.coinst.template.packageId,
-              "name" -> c.coinst.template.qualifiedName.toString,
+              "package_id" -> c.contract.template.packageId,
+              "name" -> c.contract.template.qualifiedName.toString,
               "create_offset" -> offset,
               "key" -> c.key
                 .map(
@@ -214,7 +210,7 @@ private class JdbcLedgerDao(
                     valueSerializer
                       .serializeValue(k.key)
                       .getOrElse(sys.error(
-                        s"failed to serialize contract key value! cid:${c.contractId.coid}")))
+                        s"failed to serialize contract key value! cid:${c.id.coid}")))
           )
         )
 
@@ -227,10 +223,10 @@ private class JdbcLedgerDao(
         .map(
           c =>
             Seq[NamedParameter](
-              "id" -> c.contractId.coid,
+              "id" -> c.id.coid,
               "contract" -> contractSerializer
-                .serializeContractInstance(c.coinst)
-                .getOrElse(sys.error(s"failed to serialize contract! cid:${c.contractId.coid}"))
+                .serializeContractInstance(c.contract)
+                .getOrElse(sys.error(s"failed to serialize contract! cid:${c.id.coid}"))
           )
         )
 
@@ -246,7 +242,7 @@ private class JdbcLedgerDao(
             c.witnesses.map(
               w =>
                 Seq[NamedParameter](
-                  "contract_id" -> c.contractId.coid,
+                  "contract_id" -> c.id.coid,
                   "witness" -> w
               ))
         )
@@ -273,7 +269,7 @@ private class JdbcLedgerDao(
               c.divulgences.map(
                 w =>
                   Seq[NamedParameter](
-                    "contract_id" -> c.contractId.coid,
+                    "contract_id" -> c.id.coid,
                     "party" -> w._1,
                     "transaction_id" -> w._2
                 ))
@@ -293,7 +289,7 @@ private class JdbcLedgerDao(
               c.divulgences.map(
                 w =>
                   Seq[NamedParameter](
-                    "contract_id" -> c.contractId.coid,
+                    "contract_id" -> c.id.coid,
                     "party" -> w._1,
                     "ledger_offset" -> offset,
                     "transaction_id" -> c.transactionId
@@ -319,7 +315,7 @@ private class JdbcLedgerDao(
                   k.maintainers.map(
                     p =>
                       Seq[NamedParameter](
-                        "contract_id" -> c.contractId.coid,
+                        "contract_id" -> c.id.coid,
                         "maintainer" -> p
                     )))
               .getOrElse(Set.empty)
@@ -380,19 +376,16 @@ private class JdbcLedgerDao(
         disclosure) =>
       final class AcsStoreAcc extends ActiveLedgerState[AcsStoreAcc] {
 
-        override def lookupActiveContract(cid: AbsoluteContractId) =
-          lookupActiveContractSync(cid).map(_.toActiveContract)
 
         override def lookupContract(cid: AbsoluteContractId) =
-          // TODO(RC): look up divulged contracts
-          lookupActiveContractSync(cid).map(_.toActiveContract)
+          lookupContractSync(cid)
 
         override def keyExists(key: GlobalKey): Boolean = selectContractKey(key).isDefined
 
         override def addContract(
-            c: ActiveLedgerState.ActiveContract,
+            c: ActiveContract,
             keyO: Option[GlobalKey]): AcsStoreAcc = {
-          storeContract(offset, Contract.fromActiveContract(c))
+          storeContract(offset, c)
           keyO.foreach(key => storeContractKey(key, c.id))
           this
         }
@@ -610,7 +603,7 @@ private class JdbcLedgerDao(
   }
 
   override def storeInitialState(
-      activeContracts: immutable.Seq[Contract],
+      activeContracts: immutable.Seq[ActiveContract],
       ledgerEntries: immutable.Seq[(LedgerOffset, LedgerEntry)],
       newLedgerEnd: LedgerOffset
   ): Future[Unit] = {
@@ -803,12 +796,12 @@ private class JdbcLedgerDao(
   }
 
   private val ContractDataParser = (ledgerString("id")
-    ~ ledgerString("transaction_id")
+    ~ ledgerString("transaction_id").?
     ~ ledgerString("workflow_id").?
-    ~ date("effective_at")
+    ~ date("effective_at").?
     ~ binaryStream("contract")
     ~ binaryStream("key").?
-    ~ binaryStream("transaction") map (flatten))
+    ~ binaryStream("transaction").? map (flatten))
 
   private val SQL_SELECT_CONTRACT =
     SQL(
@@ -833,7 +826,7 @@ private class JdbcLedgerDao(
   private val SQL_SELECT_KEY_MAINTAINERS =
     SQL("select maintainer from contract_key_maintainers where contract_id={contract_id}")
 
-  private def lookupActiveContractSync(contractId: AbsoluteContractId)(
+  private def lookupContractSync(contractId: AbsoluteContractId)(
       implicit conn: Connection): Option[Contract] =
     SQL_SELECT_CONTRACT
       .on("contract_id" -> contractId.coid)
@@ -843,23 +836,37 @@ private class JdbcLedgerDao(
   override def lookupActiveOrDivulgedContract(
       contractId: AbsoluteContractId): Future[Option[Contract]] =
     dbDispatcher.executeSql(s"lookup active contract [${contractId.coid}]") { implicit conn =>
-      lookupActiveContractSync(contractId)
+      lookupContractSync(contractId)
     }
 
   private def mapContractDetails(
       contractResult: (
           ContractIdString,
-          TransactionIdString,
+          Option[TransactionIdString],
           Option[WorkflowId],
-          Date,
+          Option[Date],
           InputStream,
           Option[InputStream],
-          InputStream))(implicit conn: Connection) =
+          Option[InputStream]))(implicit conn: Connection): Contract =
     contractResult match {
-      case (coid, transactionId, workflowId, ledgerEffectiveTime, contractStream, keyStreamO, tx) =>
+      case (coid, None, None, None, contractStream, None, None) =>
+        val divulgences = lookupDivulgences(coid)
+        val absoluteCoid = AbsoluteContractId(coid)
+
+        DivulgedContract(
+          absoluteCoid,
+          contractSerializer
+            .deserializeContractInstance(ByteStreams.toByteArray(contractStream))
+            .getOrElse(sys.error(s"failed to deserialize contract! cid:$coid")),
+          divulgences)
+
+      case (coid, Some(transactionId), workflowId, Some(ledgerEffectiveTime), contractStream, keyStreamO, Some(tx)) =>
         val witnesses = lookupWitnesses(coid)
         val divulgences = lookupDivulgences(coid)
         val absoluteCoid = AbsoluteContractId(coid)
+        val contractInstance = contractSerializer
+          .deserializeContractInstance(ByteStreams.toByteArray(contractStream))
+          .getOrElse(sys.error(s"failed to deserialize contract! cid:$coid"))
 
         val (signatories, observers) =
           transactionSerializer
@@ -872,16 +879,14 @@ private class JdbcLedgerDao(
                 (signatories, stakeholders diff signatories)
             } getOrElse sys.error(s"no create node in contract creating transaction! cid:$coid")
 
-        Contract(
+        ActiveContract(
           absoluteCoid,
           ledgerEffectiveTime.toInstant,
           transactionId,
           workflowId,
+          contractInstance,
           witnesses,
           divulgences,
-          contractSerializer
-            .deserializeContractInstance(ByteStreams.toByteArray(contractStream))
-            .getOrElse(sys.error(s"failed to deserialize contract! cid:$coid")),
           keyStreamO.map(keyStream => {
             val keyMaintainers = lookupKeyMaintainers(coid)
             val keyValue = valueSerializer
@@ -890,8 +895,12 @@ private class JdbcLedgerDao(
             KeyWithMaintainers(keyValue, keyMaintainers)
           }),
           signatories,
-          observers
+          observers,
+          contractInstance.agreementText
         )
+
+      case (_, _, _, _, _, _, _) =>
+        sys.error("mapContractDetails called with partial data, can not map to either active or divulged contract")
     }
 
   private def lookupWitnesses(coid: String)(implicit conn: Connection): Set[Party] =
@@ -980,7 +989,7 @@ private class JdbcLedgerDao(
           // it's ok to not have query isolation as witnesses cannot change once we saved them
           dbDispatcher
             .executeSql(s"load contract details ${contractResult._1}") { implicit conn =>
-              mapContractDetails(contractResult)
+              mapContractDetails(contractResult).asInstanceOf[ActiveContract]
             }
         }
     }.mapMaterializedValue(_.map(_ => Done)(DirectExecutionContext))

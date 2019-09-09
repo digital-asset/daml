@@ -29,9 +29,6 @@ import com.digitalasset.platform.sandbox.stores.ActiveLedgerState._
   */
 trait ActiveLedgerState[+Self] { this: ActiveLedgerState[Self] =>
 
-  /** Callback to query an active contract */
-  def lookupActiveContract(cid: AbsoluteContractId): Option[ActiveContract]
-
   /** Callback to query an active or divulged contract, used for transaction validation */
   def lookupContract(cid: AbsoluteContractId): Option[Contract]
 
