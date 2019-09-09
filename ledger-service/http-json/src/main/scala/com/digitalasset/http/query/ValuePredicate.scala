@@ -28,17 +28,28 @@ object ValuePredicate {
       typ: iface.Type,
       defs: TypeLookup): ValuePredicate[iface.Type, JsValue] = {
     type Result = ValuePredicate[iface.Type, JsValue]
+
     def fromValue(it: JsValue, typ: iface.Type): Result =
       (typ, it).match2 {
         case p @ iface.TypePrim(_, _) => { case _ => fromPrim(it, p) }
-        case iface.TypeCon(_, _) => ???
-        case iface.TypeNumeric(_) => ???
+        case tc @ iface.TypeCon(iface.TypeConName(id), _) => {
+          case _ =>
+            val ddt = defs(id).getOrElse(sys.error(s"Type $id not found"))
+            fromCon(it, id, tc instantiate ddt)
+        }
+        case iface.TypeNumeric(_) => { case JsString(_) | JsNumber(_) => Literal(it, typ) }
         case iface.TypeVar(_) => sys.error("no vars allowed!")
       }(fallback = ???)
-    def fromDDT(it: Map[String, JsValue], typ: iface.DefDataType.FWT): Result =
+
+    def fromCon(it: JsValue, id: Ref.Identifier, typ: iface.DataType.FWT): Result =
       typ match {
-        case _ => ???
+        case iface.Record(fieldTyps) => ???
+        case iface.Variant(fieldTyps) => ???
+        case iface.Enum(ctors) => ???
       }
+
+    def fromEnum(it: String, typ: iface.Enum): Result = ???
+
     def fromPrim(it: JsValue, typ: iface.TypePrim): Result = {
       import iface.PrimType._
       def lit = Literal(it, typ)
@@ -56,6 +67,7 @@ object ValuePredicate {
         case Map => { case JsObject(_) => lit }
       }(fallback = sys.error("TODO fallback"))
     }
+
     RecordSubset(Map()) // TODO
   }
 }
