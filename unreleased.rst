@@ -20,5 +20,5 @@ HEAD — ongoing
   via ``daml json-api`` or via ``daml start``. You can find more information in the
   `README <https://github.com/digital-asset/daml/blob/master/ledger-service/http-json/README.md>`_.
 + [JSON API] **BREAKING CHANGE** The ``/contracts/search`` request payload must use
-  ``"%template"`` in place of ``"templateIds"`` to select which templates' contracts are
+  ``"%templates"`` in place of ``"templateIds"`` to select which templates' contracts are
   returned.  See `issue #2777 <https://github.com/digital-asset/daml/issues/2777>`_.
