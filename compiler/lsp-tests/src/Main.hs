@@ -61,7 +61,7 @@ diagnosticTests
     :: (forall a. Session a -> IO a)
     -> (Session () -> IO ())
     -> TestTree
-diagnosticTests run runScenarios = testGroup "diagnostics"
+diagnosticTests run _runScenarios = testGroup "diagnostics"
     [ testCase "diagnostics disappear after error is fixed" $ run $ do
           test <- openDoc' "Test.daml" damlId $ T.unlines
               [ "daml 1.2"
@@ -204,23 +204,24 @@ diagnosticTests run runScenarios = testGroup "diagnostics"
                 )
               ]
           closeDoc main'
-    , testCase "scenario error" $ runScenarios $ do
-          main' <- openDoc' "Main.daml" damlId $ T.unlines
-              [ "daml 1.2"
-              , "module Main where"
-              , "template Agree with p1 : Party; p2 : Party where"
-              , "  signatory [p1, p2]"
-              , "myScenario = scenario do"
-              , "  foo <- getParty \"Foo\""
-              , "  alice <- getParty \"Alice\""
-              , "  submit foo $ create $ Agree with p1 = foo, p2 = alice"
-              ]
-          expectDiagnostics
-              [ ( "Main.daml"
-                , [(DsError, (4, 0), "missing authorization from 'Alice'")]
-                )
-              ]
-          closeDoc main'
+    -- , testCase "scenario error" $ runScenarios $ do
+    --       main' <- openDoc' "Main.daml" damlId $ T.unlines
+    --           [ "daml 1.2"
+    --           , "module Main where"
+    --           , "template Agree with p1 : Party; p2 : Party where"
+    --           , "  signatory [p1, p2]"
+    --           , "myScenario = scenario do"
+    --           , "  foo <- getParty \"Foo\""
+    --           , "  alice <- getParty \"Alice\""
+    --           , "  submit foo $ create $ Agree with p1 = foo, p2 = alice"
+    --           ]
+    --       expectDiagnostics
+    --           [
+    --            ( "Main.daml"
+    --            , [(DsError, (4, 0), "missing authorization from 'Alice'")]
+    --            )
+    --           ]
+    --       closeDoc main'
     ]
 
 
