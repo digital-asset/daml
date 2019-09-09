@@ -83,7 +83,7 @@ class ApiSubmissionService private (
   private val validator = TimeModelValidator(timeModel)
 
   private def isLocal(party: Ref.Party): Future[Boolean] =
-    partyManagementService.listParties().map(_.find(p => p.isLocal && p.party == party).isDefined)
+    partyManagementService.listParties().map(_.exists(p => p.isLocal && p.party == party))
 
   override def submit(request: SubmitRequest): Future[Unit] = {
     val commands = request.commands
