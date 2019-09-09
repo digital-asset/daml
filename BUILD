@@ -185,8 +185,8 @@ alias(
 )
 
 alias(
-    name = "hie-core",
-    actual = "//compiler/hie-core:hie-core-exe",
+    name = "ghcide",
+    actual = "//compiler/ghcide:ghcide-exe",
 ) if not is_windows else None  # Disable on Windows until ghc-paths is fixed upstream
 
 alias(

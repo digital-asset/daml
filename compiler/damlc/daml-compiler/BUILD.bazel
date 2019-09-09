@@ -41,7 +41,7 @@ da_haskell_library(
         "//compiler/damlc/daml-ide-core",
         "//compiler/damlc/daml-opts:daml-opts-types",
         "//compiler/damlc/daml-preprocessor",
-        "//compiler/hie-core",
+        "//compiler/ghcide",
         "//compiler/scenario-service/client",
         "//libs-haskell/da-hs-base",
     ],
