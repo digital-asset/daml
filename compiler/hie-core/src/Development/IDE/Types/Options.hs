@@ -21,17 +21,26 @@ import qualified Language.Haskell.LSP.Types.Capabilities as LSP
 
 data IdeOptions = IdeOptions
   { optPreprocessor :: GHC.ParsedSource -> ([(GHC.SrcSpan, String)], GHC.ParsedSource)
+    -- ^ Preprocessor to run over all parsed source trees, generating a list of warnings
+    --   along with a new parse tree.
   , optGhcSession :: FilePath -> Action HscEnvEq
-  -- ^ Setup a GHC session using a given package state. If a `ParsedModule` is supplied,
-  -- the import path should be setup for that module.
+    -- ^ Setup a GHC session for a given file, e.g. @Foo.hs@.
+    --   It is desirable that many files get the same HscEnvEq, so that more IDE features work.
   , optPkgLocationOpts :: IdePkgLocationOptions
+    -- ^ How to locate source and @.hie@ files given a module name.
   , optExtensions :: [String]
+    -- ^ File extensions to search for code, defaults to Haskell sources (including @.hs@)
 
   , optThreads :: Int
+    -- ^ Number of threads to use. Use 0 for number of threads on the machine.
   , optShakeProfiling :: Maybe FilePath
+    -- ^ Set to 'Just' to create a directory of profiling reports.
   , optReportProgress :: IdeReportProgress
-  , optLanguageSyntax :: String -- ^ the ```language to use
-  , optNewColonConvention :: Bool -- ^ whether to use new colon convention
+    -- ^ Whether to report progress during long operations.
+  , optLanguageSyntax :: String
+    -- ^ the ```language to use
+  , optNewColonConvention :: Bool
+    -- ^ whether to use new colon convention
   }
 
 newtype IdeReportProgress = IdeReportProgress Bool
