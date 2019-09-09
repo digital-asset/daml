@@ -38,8 +38,7 @@ In the instructions below we do `make install` for grpc despite the warning from
 
 If you decide against the `make install`, or choose a different install location, you will need to adjust the settings of `extra-lib-dirs` and `extra-include-dirs` in your `stack.yaml` config.
 
-Also, in the instructions below we export the `daml-ledger` package to `/tmp` which matches the locat
-ion declared in the `stack.yaml` of the example application `nim`. If you export somewhere else, you will need to adapt your `stack.yaml`
+Also, in the instructions below we export the `daml-ledger` package to `/tmp` which matches the location declared in the `stack.yaml` of the example application `nim`. If you export somewhere else, you will need to adapt your `stack.yaml`
 
 ## Download and build grpc at version 1.23.0
 
@@ -54,7 +53,6 @@ ion declared in the `stack.yaml` of the example application `nim`. If you export
     cd /tmp
     git clone https://github.com/digital-asset/daml.git
     cd daml
-    direnv allow
     eval $(dev-env/bin/dade-assist)
     language-support/hs/bindings/export-package.sh /tmp
 
