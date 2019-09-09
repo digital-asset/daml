@@ -8,6 +8,7 @@ import java.time.Instant
 
 import akka.actor.ActorSystem
 import akka.stream._
+import akka.stream.scaladsl.Sink
 import scala.concurrent.{Await, ExecutionContext, Future, Promise}
 import scala.concurrent.duration.Duration
 import scala.util.{Success, Failure}
@@ -26,6 +27,7 @@ import com.digitalasset.ledger.api.v1.command_submission_service._
 import com.digitalasset.ledger.api.v1.commands._
 import com.digitalasset.ledger.api.v1.value
 import com.digitalasset.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
+import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
 import com.digitalasset.daml.lf.archive.DarReader
 import com.digitalasset.daml.lf.archive.Dar
 import com.digitalasset.daml.lf.language.Ast._
@@ -105,7 +107,7 @@ object AcsMain {
         )
 
         // Create a contract and return the contract id.
-        def create(client: LedgerClient, commandId: String): Future[String] = {
+        def create(client: LedgerClient, party: String, commandId: String): Future[String] = {
           val commands = Seq(
             Command().withCreate(CreateCommand(
               templateId = Some(assetId),
@@ -115,7 +117,7 @@ object AcsMain {
                   fields = Seq(
                     value.RecordField(
                       "issuer",
-                      Some(value.Value().withParty("Alice"))
+                      Some(value.Value().withParty(party))
                     )
                   )
                 )),
@@ -127,17 +129,21 @@ object AcsMain {
                   ledgerId = client.ledgerId.unwrap,
                   applicationId = applicationId.unwrap,
                   commandId = commandId,
-                  party = "Alice",
+                  party = party,
                   ledgerEffectiveTime = Some(fromInstant(Instant.EPOCH)),
                   maximumRecordTime = Some(fromInstant(Instant.EPOCH.plusSeconds(5))),
                   commands = commands
                 ))))
-            t <- client.transactionClient.getFlatTransactionById(r.transactionId, Seq("Alice"))
+            t <- client.transactionClient.getFlatTransactionById(r.transactionId, Seq(party))
           } yield t.transaction.get.events.head.getCreated.contractId
         }
 
         // Archive the contract with the given id.
-        def archive(client: LedgerClient, commandId: String, contractId: String): Future[Unit] = {
+        def archive(
+            client: LedgerClient,
+            party: String,
+            commandId: String,
+            contractId: String): Future[Unit] = {
           val archiveVal = Some(
             value
               .Value()
@@ -169,7 +175,7 @@ object AcsMain {
                   ledgerId = client.ledgerId.unwrap,
                   applicationId = applicationId.unwrap,
                   commandId = commandId,
-                  party = "Alice",
+                  party = party,
                   ledgerEffectiveTime = Some(fromInstant(Instant.EPOCH)),
                   maximumRecordTime = Some(fromInstant(Instant.EPOCH.plusSeconds(5))),
                   commands = commands
@@ -182,27 +188,36 @@ object AcsMain {
           } yield ()
         }
 
-        def test(transactions: Long, commands: LedgerClient => Future[Set[String]]) = {
+        var partyCount = 0
+        def getNewParty(): String = {
+          partyCount = partyCount + 1
+          s"Alice$partyCount"
+        }
+
+        def test(transactions: Long, commands: (LedgerClient, String) => Future[Set[String]]) = {
+          val party = getNewParty()
           val clientF =
             LedgerClient.singleHost("localhost", config.ledgerPort, clientConfig)(ec, sequencer)
+          val filter = TransactionFilter(List((party, Filters.defaultInstance)).toMap)
           val triggerFlow: Future[SExpr] = for {
             client <- clientF
-            offset <- client.transactionClient.getLedgerEnd.flatMap(response =>
-              response.offset match {
-                case None => Future.failed(new RuntimeException("Empty option"))
-                case Some(a) => Future.successful(a)
-            })
+            acsResponses <- client.activeContractSetClient
+              .getActiveContracts(filter, verbose = true)
+              .runWith(Sink.seq)
+
+            offset <- Future {
+              Array(acsResponses: _*).lastOption
+                .fold(LedgerOffset().withBoundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN))(resp =>
+                  LedgerOffset().withAbsolute(resp.offset))
+            }
             finalState <- client.transactionClient
-              .getTransactions(
-                offset,
-                None,
-                TransactionFilter(List(("Alice", Filters.defaultInstance)).toMap))
+              .getTransactions(offset, None, filter)
               .take(transactions)
-              .runWith(runner.triggerSink)
+              .runWith(runner.getTriggerSink(acsResponses.flatMap(x => x.activeContracts)))
           } yield finalState
           val commandsFlow: Future[Set[String]] = for {
             client <- clientF
-            activeContracts <- commands(client)
+            activeContracts <- commands(client, party)
           } yield activeContracts
 
           // We want to error out if either of the futures fails so Future.sequence
@@ -248,27 +263,27 @@ object AcsMain {
 
         try {
 
-          test(1, client => {
+          test(1, (client, party) => {
             for {
-              contractId <- create(client, "1.0")
+              contractId <- create(client, party, "1.0")
             } yield Set(contractId)
           })
 
-          test(2, client => {
+          test(2, (client, party) => {
             for {
-              contractId1 <- create(client, "2.0")
-              contractId2 <- create(client, "2.1")
+              contractId1 <- create(client, party, "2.0")
+              contractId2 <- create(client, party, "2.1")
             } yield Set(contractId1, contractId2)
           })
 
           test(
             4,
-            client => {
+            (client, party) => {
               for {
-                contractId1 <- create(client, "3.0")
-                contractId2 <- create(client, "3.1")
-                _ <- archive(client, "3.2", contractId1)
-                _ <- archive(client, "3.3", contractId2)
+                contractId1 <- create(client, party, "3.0")
+                contractId2 <- create(client, party, "3.1")
+                _ <- archive(client, party, "3.2", contractId1)
+                _ <- archive(client, party, "3.3", contractId2)
               } yield Set()
             }
           )

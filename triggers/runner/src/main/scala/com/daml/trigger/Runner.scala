@@ -15,6 +15,7 @@ import scala.collection.JavaConverters._
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration.Duration
 
+import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
 import com.digitalasset.ledger.api.v1.event._
 import com.digitalasset.ledger.api.v1.event.Event.Event.{Archived, Created}
 import com.digitalasset.ledger.api.v1.transaction.Transaction
@@ -93,7 +94,7 @@ object RunnerConfig {
 }
 
 // Convert from a Ledger API transaction to an SValue corresponding to a Message from the Daml.Trigger module
-case class Converter(fromTransaction: Transaction => SValue)
+case class Converter(fromTransaction: Transaction => SValue, fromACS: Seq[CreatedEvent] => SValue)
 
 object Converter {
   // Helper to make constructing an SRecord more convenient
@@ -132,33 +133,41 @@ object Converter {
       ("name", SText(id.entityName)))
   }
 
+  private def fromArchivedEvent(triggerIds: TriggerIds, archived: ArchivedEvent): SValue = {
+    val archivedTy = triggerIds.getId("Archived")
+    record(
+      archivedTy,
+      ("eventId", SText(archived.eventId)),
+      ("contractId", SText(archived.contractId)),
+      ("templateId", fromIdentifier(triggerIds, archived.getTemplateId))
+    )
+  }
+
+  private def fromCreatedEvent(triggerIds: TriggerIds, created: CreatedEvent): SValue = {
+    val createdTy = triggerIds.getId("Created")
+    record(
+      createdTy,
+      ("eventId", SText(created.eventId)),
+      ("contractId", SText(created.contractId)),
+      ("templateId", fromIdentifier(triggerIds, created.getTemplateId))
+    )
+  }
+
   private def fromEvent(triggerIds: TriggerIds, ev: Event): SValue = {
     val eventTy = triggerIds.getId("Event")
-    val createdTy = triggerIds.getId("Created")
-    val archivedTy = triggerIds.getId("Archived")
     ev.event match {
       case Archived(archivedEvent) => {
         SVariant(
           eventTy,
           Name.assertFromString("ArchivedEvent"),
-          record(
-            archivedTy,
-            ("eventId", SText(archivedEvent.eventId)),
-            ("contractId", SText(archivedEvent.contractId)),
-            ("templateId", fromIdentifier(triggerIds, archivedEvent.getTemplateId))
-          )
+          fromArchivedEvent(triggerIds, archivedEvent)
         )
       }
       case Created(createdEvent) => {
         SVariant(
           eventTy,
           Name.assertFromString("CreatedEvent"),
-          record(
-            createdTy,
-            ("eventId", SText(createdEvent.eventId)),
-            ("contractId", SText(createdEvent.contractId)),
-            ("templateId", fromIdentifier(triggerIds, createdEvent.getTemplateId))
-          )
+          fromCreatedEvent(triggerIds, createdEvent)
         )
       }
       case _ => {
@@ -180,13 +189,20 @@ object Converter {
     )
   }
 
+  private def fromACS(triggerIds: TriggerIds, createdEvents: Seq[CreatedEvent]): SValue = {
+    val activeContractsTy = triggerIds.getId("ActiveContracts")
+    record(
+      activeContractsTy,
+      ("activeContracts", SList(FrontStack(createdEvents.map(fromCreatedEvent(triggerIds, _))))))
+  }
+
   def fromDar(dar: Dar[(PackageId, Package)]): Converter = {
     val triggerIds = TriggerIds.fromDar(dar)
-    Converter(fromTransaction(triggerIds, _))
+    Converter(fromTransaction(triggerIds, _), fromACS(triggerIds, _))
   }
 }
 
-case class Runner(triggerSink: Sink[Transaction, Future[SExpr]])
+case class Runner(getTriggerSink: Seq[CreatedEvent] => Sink[Transaction, Future[SExpr]])
 
 object Runner {
   def fromDar(dar: Dar[(PackageId, Package)], triggerId: Identifier): Runner = {
@@ -204,13 +220,14 @@ object Runner {
       }
     val triggerTy: TypeConApp = TypeConApp(tyCon, ImmArray(stateTy))
     val update = compiler.compile(ERecProj(triggerTy, Name.assertFromString("update"), triggerExpr))
-    val initialState =
+    val getInitialState =
       compiler.compile(ERecProj(triggerTy, Name.assertFromString("initialState"), triggerExpr))
 
-    val machine = Speedy.Machine.fromSExpr(null, false, compiledPackages)
-    val sink = Sink.fold[SExpr, Transaction](initialState)((state, transaction) => {
-      val message = converter.fromTransaction(transaction)
-      machine.ctrl = Speedy.CtrlExpr(SEApp(update, Array(SEValue(message), state)))
+    def getSink(acs: Seq[CreatedEvent]): Sink[Transaction, Future[SExpr]] = {
+      val machine = Speedy.Machine.fromSExpr(null, false, compiledPackages)
+      val createdExpr: SExpr = SEValue(converter.fromACS(acs))
+      val initialState = SEApp(getInitialState, Array(createdExpr))
+      machine.ctrl = Speedy.CtrlExpr(initialState)
       while (!machine.isFinal) {
         machine.step() match {
           case SResultContinue => ()
@@ -222,20 +239,37 @@ object Runner {
           }
         }
       }
-      machine.toSValue match {
-        case SRecord(_, _, values) => {
-          val newState = values.get(0)
-          val command = values.get(1)
-          println(s"Emitted log message: $command")
-          println(s"New state: $newState")
-          SEValue(newState)
+      val evaluatedInitialState = machine.toSValue
+      println(s"Initial state: $evaluatedInitialState")
+      Sink.fold[SExpr, Transaction](SEValue(evaluatedInitialState))((state, transaction) => {
+        val message = converter.fromTransaction(transaction)
+        machine.ctrl = Speedy.CtrlExpr(SEApp(update, Array(SEValue(message), state)))
+        while (!machine.isFinal) {
+          machine.step() match {
+            case SResultContinue => ()
+            case SResultError(err) => {
+              throw new RuntimeException(err)
+            }
+            case res => {
+              throw new RuntimeException(s"Unexpected speed result $res")
+            }
+          }
         }
-        case v => {
-          throw new RuntimeException(s"Expected Tuple2 but got $v")
+        machine.toSValue match {
+          case SRecord(_, _, values) => {
+            val newState = values.get(0)
+            val command = values.get(1)
+            println(s"Emitted log message: $command")
+            println(s"New state: $newState")
+            SEValue(newState)
+          }
+          case v => {
+            throw new RuntimeException(s"Expected Tuple2 but got $v")
+          }
         }
-      }
-    })
-    Runner(sink)
+      })
+    }
+    Runner(getSink)
   }
 }
 
@@ -257,7 +291,7 @@ object RunnerMain {
         val runner = Runner.fromDar(dar, triggerId)
 
         val system: ActorSystem = ActorSystem("TriggerRunner")
-        val materializer: ActorMaterializer = ActorMaterializer()(system)
+        implicit val materializer: ActorMaterializer = ActorMaterializer()(system)
         val sequencer = new AkkaExecutionSequencerPool("TriggerRunnerPool")(system)
         implicit val ec: ExecutionContext = system.dispatcher
 
@@ -269,21 +303,28 @@ object RunnerMain {
           sslContext = None
         )
 
+        val filter = TransactionFilter(List((config.ledgerParty, Filters.defaultInstance)).toMap)
+
         val flow: Future[Unit] = for {
           client <- LedgerClient.singleHost(config.ledgerHost, config.ledgerPort, clientConfig)(
             ec,
             sequencer)
-          offset <- client.transactionClient.getLedgerEnd.flatMap(response =>
-            response.offset match {
-              case None => Future.failed(new RuntimeException("Empty option"))
-              case Some(a) => Future.successful(a)
-          })
+          acsResponses <- client.activeContractSetClient
+            .getActiveContracts(filter, verbose = true)
+            .runWith(Sink.seq)
+
+          offset <- Future {
+            Array(acsResponses: _*).lastOption
+              .fold(LedgerOffset().withBoundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN))(resp =>
+                LedgerOffset().withAbsolute(resp.offset))
+          }
+
           _ <- client.transactionClient
             .getTransactions(
               offset,
               None,
               TransactionFilter(List((config.ledgerParty, Filters.defaultInstance)).toMap))
-            .runWith(runner.triggerSink)(materializer)
+            .runWith(runner.getTriggerSink(acsResponses.flatMap(x => x.activeContracts)))
         } yield ()
 
         flow.onComplete(_ => system.terminate())
