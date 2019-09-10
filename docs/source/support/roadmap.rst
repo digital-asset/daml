@@ -10,7 +10,7 @@ We plan to update this roadmap roughly every three months.
 
 - **DAML Triggers**
 
-  Support for non-transactional automation written directly in DAML. See https://github.com/digital-asset/daml/issues/1615
+  Support for non-transactional automation written directly in DAML. See `discusison on GitHub <https://github.com/digital-asset/daml/issues/1615>`_
 
 - **Developer tooling**
 
@@ -37,9 +37,9 @@ We plan to update this roadmap roughly every three months.
 
   Public release of a pre-alpha reference distributed DAML Ledger implementation with a public test-net, strong privacy, regulatory compliance, and composabilty
 
-  See https://canton.io/
+  See `canton.io <https://canton.io/>`_
 
 - **Deployment Options**
 
   - DAML-on-Aurora publicly available on AWS Marketplace
-  - DAML-on-Sawtooth publicly available on Sextant by Blockchain Technology Partners (https://blockchaintp.com/sextant/)
+  - DAML-on-Sawtooth publicly available on `Sextant by Blockchain Technology Partners <https://blockchaintp.com/sextant/>`_
