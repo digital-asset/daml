@@ -226,14 +226,19 @@ adjustDynFlags options@Options{..} dflags
   $ apply xopt_set xExtensionsSet
   $ apply xopt_unset xExtensionsUnset
   $ apply gopt_set (xFlagsSet options)
+  $ addCppFlags
   dflags{
     mainModIs = mkModule primUnitId (mkModuleName "NotAnExistingName"), -- avoid DEL-6770
     debugLevel = 1,
     ghcLink = NoLink, hscTarget = HscNothing -- avoid generating .o or .hi files
     {-, dumpFlags = Opt_D_ppr_debug `EnumSet.insert` dumpFlags dflags -- turn on debug output from GHC-}
   }
-  where apply f xs d = foldl' f d xs
-
+  where
+    apply f xs d = foldl' f d xs
+    alterSettings f d = d { settings = f (settings d) }
+    addCppFlags = case optCppPath of
+        Nothing -> id
+        Just cppPath -> alterSettings (\s -> s { sPgm_P = (cppPath, [])})
 
 setThisInstalledUnitId :: UnitId -> DynFlags -> DynFlags
 setThisInstalledUnitId unitId dflags =

@@ -70,6 +70,8 @@ data Options = Options
     -- ^ Whether to enable linting of the generated GHC Core. (Used in testing.)
   , optHaddock :: Haddock
     -- ^ Whether to enable lexer option `Opt_Haddock` (default is `Haddock False`).
+  , optCppPath :: Maybe FilePath
+    -- ^ Enable CPP, by giving filepath to the executable.
   } deriving Show
 
 newtype Haddock = Haddock Bool
@@ -156,6 +158,7 @@ defaultOptions mbVersion =
         , optDflagCheck = True
         , optCoreLinting = False
         , optHaddock = Haddock False
+        , optCppPath = Nothing
         }
 
 getBaseDir :: IO FilePath
