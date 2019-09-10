@@ -21,14 +21,14 @@ import com.digitalasset.platform.sandbox.banner.Banner
 import com.digitalasset.platform.sandbox.config.SandboxConfig
 import com.digitalasset.platform.sandbox.metrics.MetricsManager
 import com.digitalasset.platform.sandbox.services.SandboxResetService
+import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
+import com.digitalasset.platform.sandbox.stores.ledger._
+import com.digitalasset.platform.sandbox.stores.ledger.sql.SqlStartMode
 import com.digitalasset.platform.sandbox.stores.{
   InMemoryActiveContracts,
   InMemoryPackageStore,
   SandboxIndexAndWriteService
 }
-import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
-import com.digitalasset.platform.sandbox.stores.ledger._
-import com.digitalasset.platform.sandbox.stores.ledger.sql.SqlStartMode
 import com.digitalasset.platform.server.services.testing.TimeServiceBackend
 import com.digitalasset.platform.services.time.TimeProviderType
 import org.slf4j.LoggerFactory

@@ -6,6 +6,7 @@ package com.digitalasset.platform.index
 import akka.actor.ActorSystem
 import com.daml.ledger.participant.state.v1.ReadService
 import com.digitalasset.platform.common.util.{DirectExecutionContext => DEC}
+import com.digitalasset.platform.index.config.{Config, StartupMode}
 
 import scala.concurrent.duration._
 
@@ -14,16 +15,32 @@ import scala.concurrent.duration._
 object StandaloneIndexerServer {
   private[this] val actorSystem = ActorSystem("StandaloneIndexerServer")
 
-  def apply(readService: ReadService, jdbcUrl: String): AutoCloseable = {
+  def apply(readService: ReadService, config: Config): AutoCloseable = {
 
+    val indexerFactory = JdbcIndexerFactory()
     val indexer =
-      RecoveringIndexer(actorSystem.scheduler, 10.seconds, JdbcIndexer.asyncTolerance)
+      RecoveringIndexer(actorSystem.scheduler, 10.seconds, indexerFactory.asyncTolerance)
 
-    indexer.start(
-      () =>
-        JdbcIndexer
-          .create(actorSystem, readService, jdbcUrl)
-          .flatMap(_.subscribe(readService))(DEC))
+    config.startupMode match {
+      case StartupMode.MigrateOnly =>
+        indexerFactory.migrateSchema(config.jdbcUrl)
+
+      case StartupMode.MigrateAndStart =>
+        indexer.start { () =>
+          indexerFactory
+            .migrateSchema(config.jdbcUrl)
+            .create(actorSystem, readService, config.jdbcUrl)
+            .flatMap(_.subscribe(readService))(DEC)
+        }
+
+      case StartupMode.ValidateAndStart =>
+        indexer.start { () =>
+          indexerFactory
+            .validateSchema(config.jdbcUrl)
+            .create(actorSystem, readService, config.jdbcUrl)
+            .flatMap(_.subscribe(readService))(DEC)
+        }
+    }
 
     indexer
   }

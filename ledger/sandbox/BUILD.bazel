@@ -54,6 +54,7 @@ compileDependencies = [
     "//3rdparty/jvm/com/typesafe/akka:akka_actor",
     "//3rdparty/jvm/com/google/guava:guava",
     "//3rdparty/jvm/org/postgresql:postgresql",
+    "//3rdparty/jvm/com/h2database:h2",
     "//3rdparty/jvm/com/zaxxer:HikariCP",
     "//3rdparty/jvm/org/flywaydb:flyway_core",
     "//3rdparty/jvm/com/typesafe/play:anorm",
@@ -93,7 +94,6 @@ da_scala_binary(
     visibility = ["//visibility:public"],
     deps = [
         ":sandbox",
-        "//3rdparty/jvm/com/h2database:h2",
     ],
 )
 
@@ -142,7 +142,6 @@ testDependencies = [
     "//3rdparty/jvm/org/scalacheck:scalacheck",
     "//3rdparty/jvm/org/awaitility:awaitility",
     "//3rdparty/jvm/commons_io:commons_io",
-    "//3rdparty/jvm/com/h2database:h2",
     "//bazel_tools/runfiles:scala_runfiles",
 ] + compileDependencies
 
@@ -243,18 +242,14 @@ conformance_test(
 
 conformance_test(
     name = "conformance-test-static-time-h2database",
-    extra_data = [
-        "@postgresql_dev_env//:all",
-        "@postgresql_dev_env//:createdb",
-        "@postgresql_dev_env//:initdb",
-        "@postgresql_dev_env//:pg_ctl",
-    ],
     server = ":sandbox-binary",
     server_args = [
         "--port 6865",
         "--static-time",
         "--eager-package-loading",
-        "--sql-backend-jdbcurl jdbc:h2:mem:static_time",
+        # db_close_delay=-1 is needed so that the in-memory database is not closed (and therefore lost)
+        # after the flyway migration
+        "--sql-backend-jdbcurl jdbc:h2:mem:static_time;db_close_delay=-1",
     ],
     test_tool_args = [
         "--all-tests",
@@ -264,18 +259,14 @@ conformance_test(
 
 conformance_test(
     name = "conformance-test-wall-clock-h2database",
-    extra_data = [
-        "@postgresql_dev_env//:all",
-        "@postgresql_dev_env//:createdb",
-        "@postgresql_dev_env//:initdb",
-        "@postgresql_dev_env//:pg_ctl",
-    ],
     server = ":sandbox-binary",
     server_args = [
         "--port 6865",
         "--wall-clock-time",
         "--eager-package-loading",
-        "--sql-backend-jdbcurl jdbc:h2:mem:wall_clock_time",
+        # db_close_delay=-1 is needed so that the in-memory database is not closed (and therefore lost)
+        # after the flyway migration
+        "--sql-backend-jdbcurl jdbc:h2:mem:wall_clock_time;db_close_delay=-1",
     ],
     test_tool_args = [
         "--all-tests",
