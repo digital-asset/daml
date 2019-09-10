@@ -2,7 +2,7 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 
-module DA.Cli.Damlc.Command.Damldoc(cmdDamlDoc) where
+module DA.Cli.Damlc.Command.Damldoc(cmd, exec) where
 
 import DA.Cli.Options
 import DA.Daml.Doc.Driver
@@ -18,11 +18,11 @@ import qualified Data.Text as T
 
 ------------------------------------------------------------
 
-cmdDamlDoc :: Mod CommandFields (IO ())
-cmdDamlDoc = command "docs" $
-             info (helper <*> (exec <$> documentation)) $
-             progDesc "Generate documentation for the given DAML program."
-             <> fullDesc
+cmd :: (CmdArgs -> a) -> Mod CommandFields a
+cmd f = command "docs" $
+        info (helper <*> (f <$> documentation)) $
+        progDesc "Generate documentation for the given DAML program."
+        <> fullDesc
 
 documentation :: Parser CmdArgs
 documentation = Damldoc
