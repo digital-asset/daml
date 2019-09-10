@@ -3,7 +3,7 @@
 
 package(default_visibility = ["//visibility:public"])
 
-load("@rules_haskell//haskell:defs.bzl", "haskell_library")
+load("@rules_haskell//haskell:defs.bzl", "haskell_library", "haskell_binary")
 load("@ai_formation_hazel//:hazel.bzl", "hazel_library")
 
 load("@os_info//:os_info.bzl", "is_windows")
@@ -59,6 +59,22 @@ hidden = [
     "Development.IDE.Spans.Type",
 ]
 
+common_flags = [
+   "-XBangPatterns",
+   "-XDeriveFunctor",
+   "-XDeriveGeneric",
+   "-XGeneralizedNewtypeDeriving",
+   "-XLambdaCase",
+   "-XNamedFieldPuns",
+   "-XOverloadedStrings",
+   "-XRecordWildCards",
+   "-XScopedTypeVariables",
+   "-XStandaloneDeriving",
+   "-XTupleSections",
+   "-XTypeApplications",
+   "-XViewPatterns",
+]
+
 haskell_library(
     name = "lib",
     srcs = glob(["src/**/*.hs"]),
@@ -66,22 +82,28 @@ haskell_library(
         hazel_library("ghc-lib"),
         hazel_library("ghc-lib-parser"),
     ] + ([] if is_windows else [":getmodtime"]),
-    compiler_flags = [
-       "-XBangPatterns",
-       "-XDeriveFunctor",
-       "-XDeriveGeneric",
-       "-XGeneralizedNewtypeDeriving",
-       "-XLambdaCase",
-       "-XNamedFieldPuns",
-       "-XOverloadedStrings",
-       "-XRecordWildCards",
-       "-XScopedTypeVariables",
-       "-XStandaloneDeriving",
-       "-XTupleSections",
-       "-XTypeApplications",
-       "-XViewPatterns",
-    ],
+    compiler_flags = common_flags,
     hidden_modules = hidden,
+    src_strip_prefix = "src",
+    visibility = ["//visibility:public"],
+)
+
+haskell_library(
+    name = "lib-ghc",
+    srcs = glob(["src/**/*.hs"]),
+    deps = depends + [
+        hazel_library("ghc"),
+        hazel_library("ghc-boot"),
+        hazel_library("ghc-boot-th"),
+    ] + ([] if is_windows else [":getmodtime"]),
+    compiler_flags = common_flags + ["-DGHC_STABLE"],
+    hidden_modules = hidden,
+    # Override the -hide-package flags defined in WORKSPACE
+    #   -hide-package=ghc-boot-th -hide-package=ghc-boot
+    repl_ghci_args = [
+        "-package=ghc-boot",
+        "-package=ghc-boot-th",
+    ],
     src_strip_prefix = "src",
     visibility = ["//visibility:public"],
 )
@@ -117,6 +139,30 @@ haskell_library(
     ],
     hidden_modules = hidden,
     src_strip_prefix = "test/src",
+    visibility = ["//visibility:public"],
+)
+
+haskell_binary(
+    name = "ghcide-exe",
+    srcs = glob(["exe/**/*.hs"]),
+    compiler_flags = common_flags,
+    deps = [
+        hazel_library("base"),
+        hazel_library("containers"),
+        hazel_library("data-default"),
+        hazel_library("directory"),
+        hazel_library("extra"),
+        hazel_library("filepath"),
+        hazel_library("ghc-paths"),
+        hazel_library("ghc"),
+        hazel_library("haskell-lsp"),
+        hazel_library("hie-bios"),
+        hazel_library("optparse-applicative"),
+        hazel_library("shake"),
+        hazel_library("text"),
+        ":lib-ghc",
+    ],
+    src_strip_prefix = "exe",
     visibility = ["//visibility:public"],
 )
 
