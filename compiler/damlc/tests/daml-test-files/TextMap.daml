@@ -46,26 +46,26 @@ testNull = scenario do
 
 testEq = scenario do
   (TM.empty : TextMap Int) === (TM.empty : TextMap Int)
-  assert (not (TM.empty == (TM.fromList [("1", 1)])))
-  (TM.fromList [("1", 1), ("2", 2), ("3", 3)]) === (TM.fromList [("1", 1), ("2", 2), ("3", 3)])
-  assert (not ((TM.fromList [("1", 1), ("2", 2), ("3", 3)]) == (TM.fromList [("1", 2), ("2", 2)])))
-  assert (not ((TM.fromList [("1", 1), ("2", 2), ("3", 3)]) == (TM.fromList [("1", 2), ("2", 2), ("3", 4)])))
-  assert (not ((TM.fromList [("1", 1), ("2", 2), ("3", 3)]) == (TM.fromList [("1", 2), ("2", 2), ("4", 3)])))
+  assert (not (TM.empty == TM.fromList [("1", 1)]))
+  TM.fromList [("1", 1), ("2", 2), ("3", 3)] === TM.fromList [("1", 1), ("2", 2), ("3", 3)]
+  assert (not (TM.fromList [("1", 1), ("2", 2), ("3", 3)] == TM.fromList [("1", 2), ("2", 2)]))
+  assert (not (TM.fromList [("1", 1), ("2", 2), ("3", 3)] == TM.fromList [("1", 2), ("2", 2), ("3", 4)]))
+  assert (not (TM.fromList [("1", 1), ("2", 2), ("3", 3)] == TM.fromList [("1", 2), ("2", 2), ("4", 3)]))
 
 testInsert = scenario do
   [("1", True), ("2", False), ("3", True), ("4", False), ("5", False)]
     ===
-    toList (foldl (\a b -> (uncurry TM.insert) b a) TM.empty [("3", True), ("1", False), ("4", False), ("2", True), ("5", False), ("2", False), ("1", True)])
+    toList (foldl (\a b -> uncurry TM.insert b a) TM.empty [("3", True), ("1", False), ("4", False), ("2", True), ("5", False), ("2", False), ("1", True)])
 
 testFilterWithKey = scenario do
-  (fromList [("1", True), ("2", False), ("3", True)])
+  fromList [("1", True), ("2", False), ("3", True)]
     ===
-    (TM.filterWithKey (\k v -> k < "3" || v) (fromList [("3", True), ("1", False), ("4", False), ("2", True), ("5", False), ("2", False), ("1", True)]))
+    TM.filterWithKey (\k v -> k < "3" || v) (fromList [("3", True), ("1", False), ("4", False), ("2", True), ("5", False), ("2", False), ("1", True)])
 
 testDelete = scenario do
-  (fromList [("2", False), ("3", True), ("4", False), ("5", False)])
+  fromList [("2", False), ("3", True), ("4", False), ("5", False)]
     ===
-    (delete "1" (fromList [("3", True), ("1", False), ("4", False), ("2", True), ("5", False), ("2", False), ("1", True)]))
+    delete "1" (fromList [("3", True), ("1", False), ("4", False), ("2", True), ("5", False), ("2", False), ("1", True)])
 
 testMerge = scenario do
   let m1 = fromList [("C", "aa"), ("A", "bb"), ("D", "cc"), ("B", "dd"), ("F", "ee")]

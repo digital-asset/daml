@@ -981,3 +981,7 @@
 # DAML specific
 
 - ignore: {name: Use newtype instead of data}
+
+- ignore: {name: Redundant bracket}
+- ignore: {name: Redundant $}
+- ignore: {name: Move brackets to avoid $}
