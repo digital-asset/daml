@@ -27,6 +27,7 @@ da_scala_library(
         "//daml-lf/archive:daml_lf_java_proto",
         "//daml-lf/data",
         "//daml-lf/engine",
+        "//daml-lf/interpreter",
         "//daml-lf/language",
         "//daml-lf/transaction",
         "//daml-lf/transaction/src/main/protobuf:transaction_java_proto",
@@ -40,6 +41,9 @@ da_scala_library(
 da_scala_test(
     name = "kvutils-tests",
     srcs = glob(["src/test/suite/**/*.scala"]),
+    data = [
+        "//ledger/test-common:Test-stable.dar",
+    ],
     resources = glob(["src/test/resources/*"]),
     deps = [
         ":kvutils",
@@ -49,6 +53,7 @@ da_scala_test(
         "//3rdparty/jvm/org/scalacheck",
         "//3rdparty/jvm/org/scalatest",
         "//3rdparty/jvm/org/scalaz:scalaz_core",
+        "//bazel_tools/runfiles:scala_runfiles",
         "//daml-lf/archive:daml_lf_archive_scala",
         "//daml-lf/archive:daml_lf_java_proto",
         "//daml-lf/data",

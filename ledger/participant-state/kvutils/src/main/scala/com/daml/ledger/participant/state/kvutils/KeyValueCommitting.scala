@@ -75,6 +75,7 @@ object KeyValueCommitting {
     submission.getPayloadCase match {
       case DamlSubmission.PayloadCase.PACKAGE_UPLOAD_ENTRY =>
         ProcessPackageUpload(
+          engine,
           entryId,
           recordTime,
           submission.getPackageUploadEntry,

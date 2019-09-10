@@ -3,22 +3,35 @@
 
 package com.daml.ledger.participant.state.kvutils
 
+import java.io.File
+
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlLogEntry
+import com.digitalasset.daml.bazeltools.BazelRunfiles
+import com.digitalasset.daml.lf.archive.DarReader
+import com.digitalasset.daml_lf.DamlLf
 import org.scalatest.{Matchers, WordSpec}
 
-class KVUtilsPackageSpec extends WordSpec with Matchers {
+import scala.util.Try
+
+class KVUtilsPackageSpec extends WordSpec with Matchers with BazelRunfiles {
   import KVTest._
   import TestHelpers._
 
+  val darReader = DarReader { case (_, is) => Try(DamlLf.Archive.parseFrom(is)) }
+
+  val testStablePackages =
+    darReader.readArchiveFromFile(new File(rlocation("ledger/test-common/Test-stable.dar"))).get
+
   "packages" should {
-    "be able to submit package" in KVTest.runTest {
+    "be able to submit empty package" in KVTest.runTest {
       for {
         // NOTE(JM): 'runTest' always uploads 'simpleArchive' by default.
-        logEntry <- submitArchives(emptyArchive).map(_._2)
+        logEntry <- submitArchives("empty-archive-submission-1", emptyArchive).map(_._2)
         archiveState <- getDamlState(Conversions.packageStateKey(emptyPackageId))
 
         // Submit again and verify that the uploaded archive didn't appear again.
-        logEntry2 <- submitArchives(emptyArchive, simpleArchive).map(_._2)
+        logEntry2 <- submitArchives("empty-archive-submission-2", emptyArchive, simpleArchive).map(
+          _._2)
 
       } yield {
         logEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.PACKAGE_UPLOAD_ENTRY
@@ -33,9 +46,20 @@ class KVUtilsPackageSpec extends WordSpec with Matchers {
       }
     }
 
+    "be able to submit Test-stable.dar" in KVTest.runTest {
+      for {
+        // NOTE(JM): 'runTest' always uploads 'simpleArchive' by default.
+        logEntry <- submitArchives("test-stable-submission", testStablePackages.all: _*).map(_._2)
+      } yield {
+        logEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.PACKAGE_UPLOAD_ENTRY
+        logEntry.getPackageUploadEntry.getArchivesCount shouldEqual 3
+      }
+
+    }
+
     "reject invalid packages" in KVTest.runTest {
       for {
-        logEntry <- submitArchives(badArchive).map(_._2)
+        logEntry <- submitArchives("bad-archive-submission", badArchive).map(_._2)
       } yield {
         logEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.PACKAGE_UPLOAD_REJECTION_ENTRY
       }

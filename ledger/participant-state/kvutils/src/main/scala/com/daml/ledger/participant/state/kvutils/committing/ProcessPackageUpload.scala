@@ -3,16 +3,22 @@
 
 package com.daml.ledger.participant.state.kvutils.committing
 
+import java.util.concurrent.TimeUnit
+
 import com.daml.ledger.participant.state.kvutils.Conversions.buildTimestamp
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.{Err, Pretty}
+import com.digitalasset.daml.lf.archive.Decode
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Time.Timestamp
+import com.digitalasset.daml.lf.engine.Engine
 import org.slf4j.LoggerFactory
 
 import scala.collection.JavaConverters._
 import scala.collection.breakOut
 
 private[kvutils] case class ProcessPackageUpload(
+    engine: Engine,
     entryId: DamlLogEntryId,
     recordTime: Timestamp,
     packageUploadEntry: DamlPackageUploadEntry,
@@ -45,6 +51,37 @@ private[kvutils] case class ProcessPackageUpload(
             DamlPackageUploadRejectionEntry.InvalidPackage.newBuilder
               .setDetails(error)))
       case (_, _) =>
+        // Preload the engine.
+        tracelog("Preloading engine...")
+        val t0 = System.nanoTime()
+        val loadedPackages = engine.compiledPackages().packageIds
+        val packages = Map(
+          archives
+            .filterNot(
+              a =>
+                Ref.PackageId
+                  .fromString(a.getHash)
+                  .fold(_ => false, loadedPackages.contains))
+            .map { archive =>
+              Decode.readArchiveAndVersion(archive)._1
+            }: _*)
+        val t1 = System.nanoTime()
+        tracelog(s"Decoding of ${packages.size} archives completed in ${TimeUnit.NANOSECONDS
+          .toMillis(t1 - t0)}ms")
+        packages.headOption.foreach {
+          case (pkgId, pkg) =>
+            engine
+              .preloadPackage(pkgId, pkg)
+              .consume(
+                _ => sys.error("Unexpected request to PCS in preloadPackage"),
+                pkgId => packages.get(pkgId),
+                _ => sys.error("Unexpected request to keys in preloadPackage")
+              )
+        }
+        val t2 = System.nanoTime()
+        tracelog(s"Preload completed in ${TimeUnit.NANOSECONDS.toMillis(t2 - t0)}ms")
+
+        // Filter out archives that already exists.
         val filteredArchives = archives
           .filter { archive =>
             val stateKey = DamlStateKey.newBuilder
