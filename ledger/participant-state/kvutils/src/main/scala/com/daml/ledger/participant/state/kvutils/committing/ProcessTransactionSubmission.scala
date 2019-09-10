@@ -13,8 +13,8 @@ import com.digitalasset.daml.lf.archive.Reader.ParseError
 import com.digitalasset.daml.lf.data.Ref.{PackageId, Party}
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.engine.{Blinding, Engine}
-import com.digitalasset.daml.lf.transaction.{BlindingInfo, GenTransaction}
 import com.digitalasset.daml.lf.transaction.Node.{GlobalKey, NodeCreate}
+import com.digitalasset.daml.lf.transaction.{BlindingInfo, GenTransaction}
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractId, NodeId, VersionedValue}
 import org.slf4j.LoggerFactory
 
@@ -31,31 +31,29 @@ private[kvutils] case class ProcessTransactionSubmission(
     // state should be used.
     inputState: Map[DamlStateKey, Option[DamlStateValue]]) {
 
+  private val commandId = txEntry.getSubmitterInfo.getCommandId
+  private implicit val logger =
+    LoggerFactory.getLogger(
+      s"ProcessTransactionSubmission[entryId=${Pretty.prettyEntryId(entryId)}, cmdId=$commandId]")
+
   import Common._
   import Commit._
 
   def run: (DamlLogEntry, Map[DamlStateKey, DamlStateValue]) =
     runSequence(
       inputState = inputState.collect { case (k, Some(x)) => k -> x },
-      authorizeSubmitter,
-      deduplicateCommand,
-      validateLetAndTtl,
-      validateContractKeyUniqueness,
-      validateModelConformance,
-      authorizeAndBlind
-        .flatMap(buildFinalResult)
+      "Authorize submitter" -> authorizeSubmitter,
+      "Deduplicate" -> deduplicateCommand,
+      "Validate LET/TTL" -> validateLetAndTtl,
+      "Validate Contract Key Uniqueness" -> validateContractKeyUniqueness,
+      "Validate Model Conformance" -> validateModelConformance,
+      "Authorize and build result" -> authorizeAndBlind.flatMap(buildFinalResult)
     )
 
   // -------------------------------------------------------------------------------
 
-  private val logger = LoggerFactory.getLogger(this.getClass)
-
   private val config: Configuration =
     Common.getCurrentConfiguration(defaultConfig, inputState, logger)
-
-  private val commandId = txEntry.getSubmitterInfo.getCommandId
-  private def tracelog(msg: String): Unit =
-    logger.trace(s"[entryId=${Pretty.prettyEntryId(entryId)}, cmdId=$commandId]: $msg")
 
   private val txLet = parseTimestamp(txEntry.getLedgerEffectiveTime)
   private val submitterInfo = txEntry.getSubmitterInfo
@@ -194,9 +192,9 @@ private[kvutils] case class ProcessTransactionSubmission(
         _.getOrElse(throw Err.MissingInputState(key)).getContractState
       }
 
-    sequence(
+    sequence2(
       // Update contract state entries to mark contracts as consumed (checked by 'validateModelConformance')
-      sequence(effects.consumedContracts.map { key =>
+      sequence2(effects.consumedContracts.map { key =>
         for {
           cs <- getContractState(key).map { cs =>
             cs.toBuilder
@@ -205,7 +203,7 @@ private[kvutils] case class ProcessTransactionSubmission(
           }
           r <- set(key -> DamlStateValue.newBuilder.setContractState(cs).build)
         } yield r
-      }),
+      }: _*),
       // Add contract state entries to mark contract activeness (checked by 'validateModelConformance')
       set(effects.createdContracts.map {
         case (key, createNode) =>
@@ -231,7 +229,7 @@ private[kvutils] case class ProcessTransactionSubmission(
           key -> DamlStateValue.newBuilder.setContractState(cs).build
       }),
       // Update contract state of divulged contracts
-      sequence(blindingInfo.globalImplicitDisclosure.map {
+      sequence2(blindingInfo.globalImplicitDisclosure.map {
         case (absCoid, parties) =>
           val key = absoluteContractIdToStateKey(absCoid)
           getContractState(key).flatMap { cs =>
@@ -245,7 +243,7 @@ private[kvutils] case class ProcessTransactionSubmission(
               set(key -> DamlStateValue.newBuilder.setContractState(cs2).build)
             }
           }
-      }.toList),
+      }.toList: _*),
       // Update contract keys
       set(effects.updatedContractKeys.map {
         case (key, contractKeyState) =>
@@ -269,7 +267,7 @@ private[kvutils] case class ProcessTransactionSubmission(
     def isVisibleToSubmitter(cs: DamlContractState): Boolean =
       cs.getLocallyDisclosedToList.asScala.contains(submitter) || cs.getDivulgedToList.asScala
         .contains(submitter) || {
-        logger.trace(s"lookupContract($coid): Contract state not found!")
+        logger.trace(s"lookupContract($coid): Contract not visible to submitter.")
         false
       }
     def isActive(cs: DamlContractState): Boolean = {
@@ -281,7 +279,6 @@ private[kvutils] case class ProcessTransactionSubmission(
         false
       }
     }
-    val (eid, nid) = absoluteContractIdToLogEntryId(coid)
     val stateKey = absoluteContractIdToStateKey(coid)
     for {
       // Fetch the state of the contract so that activeness and visibility can be checked.

@@ -23,15 +23,15 @@ class KVUtilsPackageSpec extends WordSpec with Matchers with BazelRunfiles {
     darReader.readArchiveFromFile(new File(rlocation("ledger/test-common/Test-stable.dar"))).get
 
   "packages" should {
-    "be able to submit empty package" in KVTest.runTest {
+    "be able to submit simple package" in KVTest.runTest {
       for {
         // NOTE(JM): 'runTest' always uploads 'simpleArchive' by default.
-        logEntry <- submitArchives("empty-archive-submission-1", emptyArchive).map(_._2)
-        archiveState <- getDamlState(Conversions.packageStateKey(emptyPackageId))
+        logEntry <- submitArchives("simple-archive-submission-1", simpleArchive).map(_._2)
+        archiveState <- getDamlState(Conversions.packageStateKey(simplePackageId))
 
         // Submit again and verify that the uploaded archive didn't appear again.
-        logEntry2 <- submitArchives("empty-archive-submission-2", emptyArchive, simpleArchive).map(
-          _._2)
+        logEntry2 <- submitArchives("simple-archive-submission-2", simpleArchive)
+          .map(_._2)
 
       } yield {
         logEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.PACKAGE_UPLOAD_ENTRY
@@ -39,7 +39,7 @@ class KVUtilsPackageSpec extends WordSpec with Matchers with BazelRunfiles {
 
         archiveState.isDefined shouldBe true
         archiveState.get.hasArchive shouldBe true
-        archiveState.get.getArchive shouldEqual emptyArchive
+        archiveState.get.getArchive shouldEqual simpleArchive
 
         logEntry2.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.PACKAGE_UPLOAD_ENTRY
         logEntry2.getPackageUploadEntry.getArchivesCount shouldEqual 0
@@ -54,7 +54,6 @@ class KVUtilsPackageSpec extends WordSpec with Matchers with BazelRunfiles {
         logEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.PACKAGE_UPLOAD_ENTRY
         logEntry.getPackageUploadEntry.getArchivesCount shouldEqual 3
       }
-
     }
 
     "reject invalid packages" in KVTest.runTest {

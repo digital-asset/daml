@@ -31,7 +31,7 @@ object KVTest {
 
   type KVTest[A] = State[KVTestState, A]
 
-  val initialTestState: KVTestState =
+  def initialTestState: KVTestState =
     KVTestState(
       engine = Engine(),
       participantId = mkParticipantId(0),

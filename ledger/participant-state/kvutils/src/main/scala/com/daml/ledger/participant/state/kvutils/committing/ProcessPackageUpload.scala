@@ -24,15 +24,12 @@ private[kvutils] case class ProcessPackageUpload(
     packageUploadEntry: DamlPackageUploadEntry,
     inputState: Map[DamlStateKey, Option[DamlStateValue]]) {
 
-  private val logger = LoggerFactory.getLogger(this.getClass)
   private val submissionId = packageUploadEntry.getSubmissionId
-  private val archives = packageUploadEntry.getArchivesList.asScala
+  private val logger =
+    LoggerFactory.getLogger(
+      s"ProcessPackageUpload[entryId=${Pretty.prettyEntryId(entryId)}, submId=${submissionId}]")
 
-  private def tracelog(msg: String): Unit =
-    logger.trace(
-      s"""[entryId=${Pretty.prettyEntryId(entryId)}, submId=$submissionId], packages=${archives
-        .map(_.getHash)
-        .mkString(",")}]: $msg""")
+  private val archives = packageUploadEntry.getArchivesList.asScala
 
   def run: (DamlLogEntry, Map[DamlStateKey, DamlStateValue]) = {
     // TODO: Add more comprehensive validity test, in particular, take the transitive closure
@@ -43,7 +40,7 @@ private[kvutils] case class ProcessPackageUpload(
         else acc) match {
 
       case (false, error) =>
-        tracelog(s"Package upload failed, invalid package submitted")
+        logger.trace(s"Package upload failed, invalid package submitted: $error")
         buildPackageRejectionLogEntry(
           recordTime,
           packageUploadEntry,
@@ -52,7 +49,7 @@ private[kvutils] case class ProcessPackageUpload(
               .setDetails(error)))
       case (_, _) =>
         // Preload the engine.
-        tracelog("Preloading engine...")
+        logger.trace("Preloading engine...")
         val t0 = System.nanoTime()
         val loadedPackages = engine.compiledPackages().packageIds
         val packages = Map(
@@ -66,7 +63,7 @@ private[kvutils] case class ProcessPackageUpload(
               Decode.readArchiveAndVersion(archive)._1
             }: _*)
         val t1 = System.nanoTime()
-        tracelog(s"Decoding of ${packages.size} archives completed in ${TimeUnit.NANOSECONDS
+        logger.trace(s"Decoding of ${packages.size} archives completed in ${TimeUnit.NANOSECONDS
           .toMillis(t1 - t0)}ms")
         packages.headOption.foreach {
           case (pkgId, pkg) =>
@@ -79,7 +76,7 @@ private[kvutils] case class ProcessPackageUpload(
               )
         }
         val t2 = System.nanoTime()
-        tracelog(s"Preload completed in ${TimeUnit.NANOSECONDS.toMillis(t2 - t0)}ms")
+        logger.trace(s"Preload completed in ${TimeUnit.NANOSECONDS.toMillis(t2 - t0)}ms")
 
         // Filter out archives that already exists.
         val filteredArchives = archives
@@ -91,7 +88,7 @@ private[kvutils] case class ProcessPackageUpload(
               .getOrElse(stateKey, throw Err.MissingInputState(stateKey))
               .isEmpty
           }
-        tracelog(s"Packages committed")
+        logger.trace(s"Packages committed: ${filteredArchives.map(_.getHash).mkString(", ")}")
         (
           DamlLogEntry.newBuilder
             .setRecordTime(buildTimestamp(recordTime))
