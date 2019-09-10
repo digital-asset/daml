@@ -32,11 +32,9 @@ withWarnings diagSource action = do
   let newAction dynFlags _ _ loc _ msg = do
         let d = diagFromErrMsg diagSource dynFlags $ mkPlainWarnMsg dynFlags loc msg
         modifyVar_ warnings $ return . (d:)
-  setLogAction newAction
-  res <- action $ \x -> x{ms_hspp_opts = (ms_hspp_opts x){log_action = newAction}}
-  setLogAction $ log_action oldFlags
+      modFlags dyn = dyn{log_action = newAction, useUnicode = True}
+  void $ modifyDynFlags modFlags
+  res <- action $ \x -> x{ms_hspp_opts = modFlags (ms_hspp_opts x)}
+  void $ modifyDynFlags $ \dyn -> dyn{log_action = log_action oldFlags, useUnicode = useUnicode oldFlags}
   warns <- liftIO $ readVar warnings
   return (reverse $ concat warns, res)
-
-setLogAction :: GhcMonad m => LogAction -> m ()
-setLogAction act = void $ modifyDynFlags $ \dyn -> dyn{log_action = act}
