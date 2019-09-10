@@ -61,13 +61,14 @@ object ReferenceServer extends App {
     for {
       (participantId, port, jdbcUrl) <- config.extraPartipants
     } yield {
-      val extraIndexer = StandaloneIndexerServer(readService, config)
+      val participantConfig = config.copy(
+        port = port,
+        participantId = participantId,
+        jdbcUrl = jdbcUrl
+      )
+      val extraIndexer = StandaloneIndexerServer(readService, participantConfig)
       val extraLedgerApiServer = StandaloneIndexServer(
-        config.copy(
-          port = port,
-          participantId = participantId,
-          jdbcUrl = jdbcUrl
-        ),
+        participantConfig,
         readService,
         writeService
       )
