@@ -1,0 +1,25 @@
+daml 1.2
+module GenericChoice where
+
+template Foo c with
+    p : Party
+    a : c
+  where
+    signatory p
+
+    choice Delete: ()
+      controller p
+      do pure ()
+
+template Template (Foo c ) => FooTrigger c with
+    p : Party
+  where
+    signatory p
+
+    choice Trigger: () with
+        fooCid: ContractId (Foo c)
+      controller p
+      do exercise fooCid Delete
+
+exerciseDelete : Template (Foo c) => ContractId (Foo c) -> Update ()
+exerciseDelete fooCid = exercise fooCid Delete

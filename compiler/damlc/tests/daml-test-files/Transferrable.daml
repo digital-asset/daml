@@ -1,3 +1,4 @@
+{-# LANGUAGE UndecidableSuperClasses #-}
 daml 1.2
 module Transferrable where
 
