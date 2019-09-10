@@ -94,6 +94,7 @@ import Control.Monad.Fail
 import           Control.Monad.Reader
 import           Control.Monad.State.Strict
 import           DA.Daml.LF.Ast as LF
+import           DA.Daml.LF.Ast.Type as LF
 import           DA.Daml.LF.Ast.Numeric (numericFromDecimal)
 import           Data.Data hiding (TyCon)
 import           Data.Foldable (foldlM)
@@ -157,7 +158,8 @@ data Env = Env
     ,envAliases :: MS.Map Var LF.Expr
     ,envPkgMap :: MS.Map GHC.UnitId T.Text
     ,envLfVersion :: LF.Version
-    ,envNewtypes :: [(GHC.Type, (TyCon, Coercion))]
+    ,envNewtypes :: [(GHC.Type, TyCon)]
+    ,envInstances :: [(TyCon, [GHC.Type])]
     }
 
 -- v is an alias for x
@@ -254,10 +256,16 @@ convertModule lfVersion pkgMap file x = runConvertM (ConversionEnv file Nothing)
               Rec binds -> binds
           ]
         newtypes =
-          [ (wrappedT, (t, mkUnbranchedAxInstCo Representational co [] []))
+          [ (wrappedT, t)
           | ATyCon t <- eltsUFM (cm_types x)
-          , Just ([], wrappedT, co) <- [unwrapNewTyCon_maybe t]
+          , Just ([], wrappedT, _co) <- [unwrapNewTyCon_maybe t]
           ]
+        instances =
+            [ (c, ts)
+            | (name, _) <- binds
+            , DFunId _ <- [idDetails name]
+            , TypeCon c ts <- [varType name]
+            ]
         env = Env
           { envLFModuleName = lfModName
           , envGHCModuleName = ghcModName
@@ -266,6 +274,7 @@ convertModule lfVersion pkgMap file x = runConvertM (ConversionEnv file Nothing)
           , envPkgMap = pkgMap
           , envLfVersion = lfVersion
           , envNewtypes = newtypes
+          , envInstances = instances
           }
 
 -- TODO(MH): We should run this on an `LF.Expr` instead of a `GHC.Expr`.
@@ -278,17 +287,24 @@ convertGenericTemplate env x
     , (tyArgs, args) <- span isTypeArg args
     , Just tyArgs <- mapM isType_maybe tyArgs
     , Just (superClassDicts, signatories : observers : ensure : agreement : create : _fetch : archive : keyAndChoices) <- span isSuperClassDict <$> mapM isVar_maybe (dropWhile isTypeArg args)
-    , Just (polyType, _) <- splitFunTy_maybe (varType create)
-    , Just (monoTyCon, unwrapCo) <- findMonoTyp polyType
+    , Just (polyType@(TypeCon polyTyCon _), _) <- splitFunTy_maybe (varType create)
+    , Just monoTyCon <- findMonoTyp polyType
     = do
         let tplLocation = convNameLoc monoTyCon
-        polyType <- convertType env polyType
+        Ctors{_cCtors = [Ctor _ fields _]} <- toCtors env polyTyCon
+        polyType@(TConApp polyTyCon polyTyArgs) <- convertType env polyType
+        let polyTCA = TypeConApp polyTyCon polyTyArgs
         monoType@(TCon monoTyCon) <- convertTyCon env monoTyCon
-        (unwrapTpl, wrapTpl) <- convertCoercion env unwrapCo
-        let (unwrapCid, wrapCid)
-                | isReflCo unwrapCo = (id, id)
+        let monoTCA = TypeConApp monoTyCon []
+        let coerceRec fromType toType fromExpr =
+                ELet (Binding (rec, typeConAppToType fromType) fromExpr) $
+                ERecCon toType $ map (\field -> (field, ERecProj fromType field (EVar rec))) fields
+        let (unwrapTpl, wrapTpl, unwrapCid, wrapCid)
+                | null polyTyArgs = (id, id, id, id)
                 | otherwise =
-                    ( ETmApp $ mkETyApps (EBuiltin BECoerceContractId) [monoType, polyType]
+                    ( coerceRec monoTCA polyTCA
+                    , coerceRec polyTCA monoTCA
+                    , ETmApp $ mkETyApps (EBuiltin BECoerceContractId) [monoType, polyType]
                     , ETmApp $ mkETyApps (EBuiltin BECoerceContractId) [polyType, monoType]
                     )
         let tplTypeCon = qualObject monoTyCon
@@ -383,14 +399,15 @@ convertGenericTemplate env x
     -- NOTE(MH): We need the `$f` case since GHC inlines super class
     -- dictionaries without running the simplifier under some circumstances.
     isSuperClassDict v = any (`T.isPrefixOf` getOccText v) ["$cp", "$f"]
-    findMonoTyp :: GHC.Type -> Maybe (TyCon, Coercion)
+    findMonoTyp :: GHC.Type -> Maybe TyCon
     findMonoTyp t = case t of
-        TypeCon tcon [] -> Just (tcon, mkNomReflCo t)
+        TypeCon tcon [] -> Just tcon
         t -> snd <$> find (eqType t . fst) (envNewtypes env)
     this = mkVar "this"
     self = mkVar "self"
     arg = mkVar "arg"
     res = mkVar "res"
+    rec = mkVar "rec"
 convertGenericTemplate env x = unhandled "generic template" x
 
 data Consuming = PreConsuming
@@ -403,6 +420,23 @@ convertTypeDef env (ATyCon t)
   | GHC.moduleNameFS (GHC.moduleName (nameModule (getName t))) == "DA.Internal.LF"
   , getOccFS t `elementOfUniqSet` internalTypes
   = pure []
+convertTypeDef env (ATyCon t)
+    -- NOTE(MH): We detect `newtype` definitions produced by the desugring
+    -- of `template instance` declarations and inline the record definition
+    -- of the generic template.
+    | isNewTyCon t
+    , ([], TypeCon tpl args) <- newTyConRhs t
+    , any (\(c, args') -> getOccFS c == getOccFS tpl <> "Instance" && eqTypes args args') $ envInstances env
+    = do
+        ctors0 <- toCtors env tpl
+        args <- mapM (convertType env) args
+        let subst = MS.fromList $ zipExact (map fst (_cParams ctors0)) args
+        let ctors1 = ctors0
+                { _cTypeName = getName t
+                , _cParams = []
+                , _cCtors = map (\(Ctor n fs ts) -> Ctor n fs $ map (LF.substitute subst) ts) (_cCtors ctors0)
+                }
+        convertCtors env ctors1
 convertTypeDef env o@(ATyCon t) = withRange (convNameLoc t) $
     case tyConFlavour t of
       fl | fl `elem` [ClassFlavour,DataTypeFlavour,NewtypeFlavour] -> convertCtors env =<< toCtors env t
