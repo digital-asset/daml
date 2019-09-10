@@ -102,7 +102,7 @@ testFmap = scenario do
   [1, 4, 9] === ((\x -> x * x) <$> [1, 2, 3])
   [1, 2, 3] === (T.length <$> ["a", "ab", "abc"])
   [] === (T.length <$> [])
-  Right 2 === fmap (T.length) (Right "10" : Either Text Text)
+  Right 2 === fmap T.length (Right "10" : Either Text Text)
   Left "a" === fmap (+10) (Left "a")
 
 testOptional = scenario do
@@ -143,7 +143,7 @@ testConcat = scenario do
 
 testFlip = scenario do
   5 === flip (/) 4 20
-  Some 10 === (flip fmap) (Some 2) (*5)
+  Some 10 === flip fmap (Some 2) (*5)
 
 testReverse = scenario do
   ([] : [Int]) === reverse []
