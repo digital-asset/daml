@@ -8,11 +8,11 @@ import java.time.Instant
 
 import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
-import com.daml.ledger.participant.state.v1.ParticipantId
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.engine.Engine
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
+import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.server.apiserver.{ApiServer, ApiServices, LedgerApiServer}
 import com.digitalasset.platform.common.LedgerIdMode
@@ -46,6 +46,9 @@ object SandboxServer {
       "sandbox",
       config
     )
+
+  val participantId: domain.ParticipantId =
+    domain.ParticipantId(Ref.LedgerString.assertFromString("sandbox-participant"))
 
   // We memoize the engine between resets so we avoid the expensive
   // repeated validation of the sames packages after each reset
@@ -85,7 +88,6 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
 
   // Name of this participant
   // TODO: Pass this info in command-line (See issue #2025)
-  val participantId: ParticipantId = Ref.LedgerString.assertFromString("sandbox-participant")
 
   case class ApiServerState(
       ledgerId: LedgerId,
@@ -188,7 +190,7 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
       case Some(jdbcUrl) =>
         "postgres" -> SandboxIndexAndWriteService.postgres(
           ledgerId,
-          participantId,
+          SandboxServer.participantId,
           jdbcUrl,
           config.timeModel,
           timeProvider,
@@ -203,7 +205,7 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
         "in-memory" -> Future.successful(
           SandboxIndexAndWriteService.inMemory(
             ledgerId,
-            participantId,
+            SandboxServer.participantId,
             config.timeModel,
             timeProvider,
             acs,

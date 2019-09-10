@@ -17,7 +17,7 @@ import com.digitalasset.daml.lf.transaction.Node.KeyWithMaintainers
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst, VersionedValue}
 import com.digitalasset.daml_lf.DamlLf.Archive
 import com.digitalasset.ledger._
-import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails}
+import com.digitalasset.ledger.api.domain.{LedgerId, ParticipantId, PartyDetails}
 import com.digitalasset.platform.common.util.DirectExecutionContext
 import com.digitalasset.platform.sandbox.metrics.MetricsManager
 import com.digitalasset.platform.sandbox.stores.ActiveContracts.ActiveContract
@@ -104,6 +104,9 @@ trait LedgerReadDao extends AutoCloseable {
 
   /** Looks up the ledger id */
   def lookupLedgerId(): Future[Option[LedgerId]]
+
+  /** Looks up the participant id */
+  def lookupParticipantId(): Future[Option[ParticipantId]]
 
   /** Looks up the current ledger end */
   def lookupLedgerEnd(): Future[LedgerOffset]
@@ -192,6 +195,13 @@ trait LedgerWriteDao extends AutoCloseable {
     * @param ledgerEnd the ledger end to be stored
     */
   def initializeLedger(ledgerId: LedgerId, ledgerEnd: LedgerOffset): Future[Unit]
+
+  /**
+    * Initializes the participant. Must be called only once.
+    *
+    * @param participantId  the ledger id to be stored
+    */
+  def initializeParticipant(participantId: ParticipantId): Future[Unit]
 
   /**
     * Stores a ledger entry. The ledger end gets updated as well in the same transaction.

@@ -15,6 +15,7 @@ import com.digitalasset.daml.lf.transaction.Node.GlobalKey
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 import com.digitalasset.daml_lf.DamlLf.Archive
+import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails}
 import com.digitalasset.platform.sandbox.metrics.MetricsManager
 import com.digitalasset.platform.sandbox.stores.ActiveContracts.ActiveContract
@@ -24,6 +25,8 @@ import scala.concurrent.Future
 private class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, mm: MetricsManager)
     extends ReadOnlyLedger {
   override def ledgerId: LedgerId = ledger.ledgerId
+
+  override def participantId: domain.ParticipantId = ledger.participantId
 
   override def ledgerEntries(offset: Option[Long]): Source[(Long, LedgerEntry), NotUsed] =
     ledger.ledgerEntries(offset)

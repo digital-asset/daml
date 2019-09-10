@@ -18,7 +18,8 @@ import com.digitalasset.daml.lf.transaction.Node.GlobalKey
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 import com.digitalasset.daml_lf.DamlLf.Archive
-import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails}
+import com.digitalasset.ledger.api.domain
+import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails, ParticipantId}
 import com.digitalasset.platform.sandbox.metrics.MetricsManager
 import com.digitalasset.platform.sandbox.stores.ActiveContracts.ActiveContract
 import com.digitalasset.platform.sandbox.stores.{InMemoryActiveContracts, InMemoryPackageStore}
@@ -57,6 +58,8 @@ trait WriteLedger extends AutoCloseable {
 trait ReadOnlyLedger extends AutoCloseable {
 
   def ledgerId: LedgerId
+
+  def participantId: domain.ParticipantId
 
   def ledgerEntries(offset: Option[Long]): Source[(Long, LedgerEntry), NotUsed]
 
@@ -98,11 +101,12 @@ object Ledger {
     */
   def inMemory(
       ledgerId: LedgerId,
+      participantId: ParticipantId,
       timeProvider: TimeProvider,
       acs: InMemoryActiveContracts,
       packages: InMemoryPackageStore,
       ledgerEntries: ImmArray[LedgerEntryOrBump]): Ledger =
-    new InMemoryLedger(ledgerId, timeProvider, acs, packages, ledgerEntries)
+    new InMemoryLedger(ledgerId, participantId, timeProvider, acs, packages, ledgerEntries)
 
   /**
     * Creates a JDBC backed ledger
@@ -119,6 +123,7 @@ object Ledger {
   def jdbcBacked(
       jdbcUrl: String,
       ledgerId: LedgerId,
+      participantId: ParticipantId,
       timeProvider: TimeProvider,
       acs: InMemoryActiveContracts,
       packages: InMemoryPackageStore,
@@ -129,6 +134,7 @@ object Ledger {
     SqlLedger(
       jdbcUrl,
       Some(ledgerId),
+      participantId,
       timeProvider,
       acs,
       packages,
@@ -140,15 +146,12 @@ object Ledger {
     * Creates a JDBC backed read only ledger
     *
     * @param jdbcUrl       the jdbc url string containing the username and password as well
-    * @param ledgerId      the id to be used for the ledger
-    * @param timeProvider  the provider of time
     * @return a jdbc backed Ledger
     */
   def jdbcBackedReadOnly(
       jdbcUrl: String,
-      ledgerId: LedgerId,
   )(implicit mat: Materializer, mm: MetricsManager): Future[ReadOnlyLedger] =
-    ReadOnlySqlLedger(jdbcUrl, Some(ledgerId))
+    ReadOnlySqlLedger(jdbcUrl)
 
   /** Wraps the given Ledger adding metrics around important calls */
   def metered(ledger: Ledger)(implicit mm: MetricsManager): Ledger = MeteredLedger(ledger)

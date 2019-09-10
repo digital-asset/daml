@@ -11,7 +11,8 @@ import com.digitalasset.platform.sandbox.persistence.{PostgresFixture, PostgresR
 import com.digitalasset.platform.sandbox.stores.{InMemoryActiveContracts, InMemoryPackageStore}
 import com.digitalasset.platform.sandbox.stores.ledger.sql.SqlStartMode
 import com.digitalasset.platform.sandbox.stores.ledger.Ledger
-import com.digitalasset.daml.lf.data.ImmArray
+import com.digitalasset.daml.lf.data.{ImmArray, Ref}
+import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
 
@@ -30,6 +31,9 @@ object LedgerResource {
     override def close(): Unit = ledger.close()
   }
 
+  private val participantId =
+    domain.ParticipantId(Ref.LedgerString.assertFromString("TestParticipant"))
+
   def inMemory(
       ledgerId: LedgerId,
       timeProvider: TimeProvider,
@@ -39,7 +43,7 @@ object LedgerResource {
     LedgerResource.resource(
       () =>
         Future.successful(
-          Ledger.inMemory(ledgerId, timeProvider, acs, packages, entries)
+          Ledger.inMemory(ledgerId, participantId, timeProvider, acs, packages, entries)
       )
     )
 
@@ -67,6 +71,7 @@ object LedgerResource {
             Ledger.jdbcBacked(
               postgres.value.jdbcUrl,
               ledgerId,
+              participantId,
               timeProvider,
               InMemoryActiveContracts.empty,
               packages,

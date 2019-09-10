@@ -29,6 +29,7 @@ import com.digitalasset.ledger.api.domain.{
   ApplicationId,
   CommandId,
   LedgerId,
+  ParticipantId,
   PartyDetails,
   RejectionReason
 }
@@ -52,6 +53,7 @@ import scala.util.{Failure, Success, Try}
   */
 class InMemoryLedger(
     val ledgerId: LedgerId,
+    val participantId: ParticipantId,
     timeProvider: TimeProvider,
     acs0: InMemoryActiveContracts,
     packageStoreInit: InMemoryPackageStore,

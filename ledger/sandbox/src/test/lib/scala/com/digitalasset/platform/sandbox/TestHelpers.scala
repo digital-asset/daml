@@ -7,12 +7,11 @@ import java.io.File
 import java.time.Instant
 
 import akka.stream.ActorMaterializer
-import com.daml.ledger.participant.state.v1.ParticipantId
 import com.digitalasset.api.util.{TimeProvider, ToleranceWindow}
 import com.digitalasset.daml.lf.archive.DarReader
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.engine.Engine
-import com.digitalasset.ledger.api.domain.LedgerId
+import com.digitalasset.ledger.api.domain.{LedgerId, ParticipantId}
 import com.digitalasset.platform.sandbox.metrics.MetricsManager
 import com.digitalasset.platform.sandbox.services.ApiSubmissionService
 import com.digitalasset.platform.sandbox.stores.ledger.CommandExecutorImpl
@@ -52,7 +51,7 @@ trait TestHelpers {
     implicit val mm: MetricsManager = MetricsManager()
 
     val ledgerId = LedgerId("sandbox-ledger")
-    val participantId: ParticipantId = Ref.LedgerString.assertFromString("sandbox-participant")
+    val participantId = ParticipantId(Ref.LedgerString.assertFromString("sandbox-participant"))
 
     val indexAndWriteService = SandboxIndexAndWriteService
       .inMemory(

@@ -25,8 +25,11 @@ import com.digitalasset.platform.sandbox.stores.ledger.{LedgerEntry, LedgerSnaps
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
-class BaseLedger(val ledgerId: LedgerId, headAtInitialization: Long, ledgerDao: LedgerReadDao)(
-    implicit mat: Materializer)
+class BaseLedger(
+    val ledgerId: LedgerId,
+    val participantId: domain.ParticipantId,
+    headAtInitialization: Long,
+    ledgerDao: LedgerReadDao)(implicit mat: Materializer)
     extends ReadOnlyLedger {
 
   implicit private val DEC: ExecutionContext = DirectExecutionContext

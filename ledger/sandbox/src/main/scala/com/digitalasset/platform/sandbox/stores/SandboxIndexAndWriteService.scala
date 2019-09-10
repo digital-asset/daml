@@ -14,6 +14,7 @@ import com.daml.ledger.participant.state.v1.{
   ApplicationId => _,
   LedgerId => _,
   TransactionId => _,
+  ParticipantId => _,
   _
 }
 import com.daml.ledger.participant.state.{v1 => ParticipantState}
@@ -31,7 +32,7 @@ import com.digitalasset.ledger.api.domain.CompletionEvent.{
   CommandAccepted,
   CommandRejected
 }
-import com.digitalasset.ledger.api.domain.{ParticipantId => _, _}
+import com.digitalasset.ledger.api.domain._
 import com.digitalasset.platform.common.util.{DirectExecutionContext => DEC}
 import com.digitalasset.platform.participant.util.EventFilter
 import com.digitalasset.platform.sandbox.metrics.MetricsManager
@@ -77,6 +78,7 @@ object SandboxIndexAndWriteService {
       .jdbcBacked(
         jdbcUrl,
         ledgerId,
+        participantId,
         timeProvider,
         acs,
         templateStore,
@@ -98,7 +100,8 @@ object SandboxIndexAndWriteService {
       implicit mat: Materializer,
       mm: MetricsManager): IndexAndWriteService = {
     val ledger =
-      Ledger.metered(Ledger.inMemory(ledgerId, timeProvider, acs, templateStore, ledgerEntries))
+      Ledger.metered(
+        Ledger.inMemory(ledgerId, participantId, timeProvider, acs, templateStore, ledgerEntries))
     createInstance(ledger, participantId, timeModel, timeProvider)
   }
 
@@ -108,7 +111,8 @@ object SandboxIndexAndWriteService {
       timeModel: TimeModel,
       timeProvider: TimeProvider)(implicit mat: Materializer) = {
     val contractStore = new SandboxContractStore(ledger)
-    val indexSvc = new LedgerBackedIndexService(ledger, contractStore, participantId) {
+    val indexSvc = new LedgerBackedIndexService(ledger, contractStore) {
+
       override def getLedgerConfiguration(): Source[LedgerConfiguration, NotUsed] =
         Source
           .single(LedgerConfiguration(timeModel.minTtl, timeModel.maxTtl))
@@ -155,8 +159,7 @@ object SandboxIndexAndWriteService {
 
 abstract class LedgerBackedIndexService(
     ledger: ReadOnlyLedger,
-    contractStore: ContractStore,
-    participantId: ParticipantId
+    contractStore: ContractStore
 )(implicit mat: Materializer)
     extends IndexService
     with AutoCloseable {
@@ -387,8 +390,8 @@ abstract class LedgerBackedIndexService(
     contractStore.lookupContractKey(submitter, key)
 
   // PartyManagementService
-  override def getParticipantId(): Future[ParticipantId] =
-    Future.successful(participantId)
+  override def getParticipantId(): Future[domain.ParticipantId] =
+    Future.successful(ledger.participantId)
 
   override def listParties(): Future[List[PartyDetails]] =
     ledger.parties

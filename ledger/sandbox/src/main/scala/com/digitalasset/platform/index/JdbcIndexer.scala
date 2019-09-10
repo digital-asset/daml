@@ -18,7 +18,7 @@ import com.digitalasset.daml.lf.engine.Blinding
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractId}
 import com.digitalasset.daml_lf.DamlLf
 import com.digitalasset.ledger.api.domain
-import com.digitalasset.ledger.api.domain.LedgerId
+import com.digitalasset.ledger.api.domain.{LedgerId, ParticipantId}
 import com.digitalasset.platform.common.util.{DirectExecutionContext => DEC}
 import com.digitalasset.platform.sandbox.metrics.MetricsManager
 import com.digitalasset.platform.sandbox.services.transaction.SandboxEventIdFormatter
@@ -50,6 +50,7 @@ object JdbcIndexer {
   private[index] val asyncTolerance = 30.seconds
 
   def create(
+      participantId: ParticipantId,
       actorSystem: ActorSystem,
       readService: ReadService,
       jdbcUrl: String): Future[JdbcIndexer] = {
@@ -67,6 +68,7 @@ object JdbcIndexer {
       LedgerInitialConditions(ledgerIdString, _, _) <- ledgerInit
       ledgerId = domain.LedgerId(ledgerIdString)
       _ <- initializeLedger(ledgerId, ledgerDao)
+      _ <- initializeParticipant(participantId, ledgerDao)
       ledgerEnd <- ledgerDao.lookupLedgerEnd()
       externalOffset <- ledgerDao.lookupExternalLedgerEnd()
     } yield {
@@ -100,21 +102,39 @@ object JdbcIndexer {
     ledgerDao
   }
 
-  private def ledgerFound(foundLedgerId: LedgerId) = {
-    logger.info(s"Found existing ledger with id: ${foundLedgerId.unwrap}")
-    Future.successful(foundLedgerId)
+  private def initializeParticipant(
+      participantId: ParticipantId,
+      ledgerDao: LedgerDao): Future[ParticipantId] = {
+    ledgerDao
+      .lookupParticipantId()
+      .flatMap {
+        case Some(foundParticipantId) if foundParticipantId == participantId =>
+          logger.info(s"Found existing participant with id: ${foundParticipantId.unwrap}")
+          Future.successful(foundParticipantId)
+
+        case Some(foundParticipant) =>
+          val errorMsg =
+            s"Participant id mismatch. Participant id given ('$participantId') does not match the existing one ('$foundParticipant')!"
+          logger.error(errorMsg)
+          Future.failed(new IllegalArgumentException(errorMsg))
+
+        case None =>
+          logger.info(s"Initializing participant with id: ${participantId.unwrap}")
+          ledgerDao.initializeParticipant(participantId).map(_ => participantId)(DEC)
+      }(DEC)
   }
 
-  private def initializeLedger(ledgerId: domain.LedgerId, ledgerDao: LedgerDao) = {
+  private def initializeLedger(ledgerId: LedgerId, ledgerDao: LedgerDao): Future[LedgerId] = {
     ledgerDao
       .lookupLedgerId()
       .flatMap {
         case Some(foundLedgerId) if foundLedgerId == ledgerId =>
-          ledgerFound(foundLedgerId)
+          logger.info(s"Found existing ledger with id: ${foundLedgerId.unwrap}")
+          Future.successful(foundLedgerId)
 
         case Some(foundLedgerId) =>
           val errorMsg =
-            s"Ledger id mismatch. Ledger id given ('$ledgerId') is not equal to the existing one ('$foundLedgerId')!"
+            s"Ledger id mismatch. Ledger id given ('$ledgerId') does not match the existing one ('$foundLedgerId')!"
           logger.error(errorMsg)
           Future.failed(new IllegalArgumentException(errorMsg))
 

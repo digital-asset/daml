@@ -6,7 +6,7 @@ package com.digitalasset.platform.sandbox.stores.ledger.sql
 import akka.NotUsed
 import akka.stream._
 import akka.stream.scaladsl.{Keep, RestartSource, Sink, Source}
-import com.digitalasset.ledger.api.domain.LedgerId
+import com.digitalasset.ledger.api.domain.{LedgerId, ParticipantId}
 import com.digitalasset.platform.common.util.{DirectExecutionContext => DEC}
 import com.digitalasset.platform.sandbox.metrics.MetricsManager
 import com.digitalasset.platform.sandbox.stores.ledger.ReadOnlyLedger
@@ -34,9 +34,8 @@ object ReadOnlySqlLedger {
   val noOfStreamingConnections = 2
 
   //jdbcUrl must have the user/password encoded in form of: "jdbc:postgresql://localhost/test?user=fred&password=secret"
-  def apply(jdbcUrl: String, ledgerId: Option[LedgerId])(
-      implicit mat: Materializer,
-      mm: MetricsManager): Future[ReadOnlyLedger] = {
+  def apply(
+      jdbcUrl: String)(implicit mat: Materializer, mm: MetricsManager): Future[ReadOnlyLedger] = {
     implicit val ec: ExecutionContext = DEC
 
     val dbType = JdbcLedgerDao.jdbcType(jdbcUrl)
@@ -51,15 +50,16 @@ object ReadOnlySqlLedger {
         KeyHasher,
         dbType))
 
-    ReadOnlySqlLedgerFactory(ledgerReadDao).createReadOnlySqlLedger(ledgerId)
+    ReadOnlySqlLedgerFactory(ledgerReadDao).createReadOnlySqlLedger()
   }
 }
 
 private class ReadOnlySqlLedger(
     ledgerId: LedgerId,
+    participantId: ParticipantId,
     headAtInitialization: Long,
     ledgerDao: LedgerReadDao)(implicit mat: Materializer)
-    extends BaseLedger(ledgerId, headAtInitialization, ledgerDao) {
+    extends BaseLedger(ledgerId, participantId, headAtInitialization, ledgerDao) {
 
   private val ledgerEndUpdateKillSwitch = {
     val offsetUpdates = Source
@@ -90,62 +90,50 @@ private class ReadOnlySqlLedgerFactory(ledgerDao: LedgerReadDao) {
   /** *
     * Creates a DB backed Ledger implementation.
     *
-    * @param initialLedgerId a random ledger id is generated if none given, if set it's used to initialize the ledger.
-    *                        In case the ledger had already been initialized, the given ledger id must not be set or must
-    *                        be equal to the one in the database.
     * @return a compliant read-only Ledger implementation
     */
-  def createReadOnlySqlLedger(initialLedgerId: Option[LedgerId])(
-      implicit mat: Materializer): Future[ReadOnlySqlLedger] = {
+  def createReadOnlySqlLedger()(implicit mat: Materializer): Future[ReadOnlySqlLedger] = {
 
     implicit val ec: ExecutionContext = DEC
 
     for {
-      ledgerId <- initialize(initialLedgerId)
+      ledgerId <- fetchLedgerId()
+      participantId <- fetchParticipantId()
       ledgerEnd <- ledgerDao.lookupLedgerEnd()
     } yield {
 
-      new ReadOnlySqlLedger(ledgerId, ledgerEnd, ledgerDao)
+      new ReadOnlySqlLedger(ledgerId, participantId, ledgerEnd, ledgerDao)
     }
   }
 
-  private def initialize(initialLedgerId: Option[LedgerId]): Future[LedgerId] = {
-    // Note that here we only store the ledger entry and we do not update anything else, such as the
-    // headRef. We also are not concerns with heartbeats / checkpoints. This is OK since this initialization
-    // step happens before we start up the sql ledger at all, so it's running in isolation.
-
-    initialLedgerId match {
-      case Some(initialId) =>
-        ledgerDao
-          .lookupLedgerId()
-          .flatMap {
-            case Some(foundLedgerId) if (foundLedgerId == initialId) =>
-              ledgerFound(foundLedgerId)
-            case Some(foundLedgerId) =>
-              val errorMsg =
-                s"Ledger id mismatch. Ledger id given ('$initialId') is not equal to the existing one ('$foundLedgerId')!"
-              logger.error(errorMsg)
-              Future.failed(new IllegalArgumentException(errorMsg))
-            case None =>
-              Future.successful(initialId)
-
-          }(DEC)
-
-      case None =>
-        logger.info("No ledger id given. Looking for existing ledger in database.")
-        ledgerDao
-          .lookupLedgerId()
-          .flatMap {
-            case Some(foundLedgerId) => ledgerFound(foundLedgerId)
-            case None =>
-              Future.failed(new IllegalStateException("Underlying ledger not yet initialized"))
-          }(DEC)
-    }
+  private def fetchLedgerId(): Future[LedgerId] = {
+    ledgerDao
+      .lookupLedgerId()
+      .flatMap {
+        case Some(foundLedgerId) =>
+          logger.info(s"Found existing ledger with id: ${foundLedgerId.unwrap}")
+          Future.successful(foundLedgerId)
+        case None =>
+          val errorMsg =
+            s"Ledger id not found in database, most likely because it has not been initialized."
+          logger.error(errorMsg)
+          Future.failed(new IllegalStateException(errorMsg))
+      }(DEC)
   }
 
-  private def ledgerFound(foundLedgerId: LedgerId) = {
-    logger.info(s"Found existing ledger with id: ${foundLedgerId.unwrap}")
-    Future.successful(foundLedgerId)
+  private def fetchParticipantId(): Future[ParticipantId] = {
+    ledgerDao
+      .lookupParticipantId()
+      .flatMap {
+        case Some(foundParticipantId) =>
+          logger.info(s"Found existing participant with id: ${foundParticipantId.unwrap}")
+          Future.successful(foundParticipantId)
+        case None =>
+          val errorMsg =
+            s"Participant id not found in database, most likely because it has not been initialized."
+          logger.error(errorMsg)
+          Future.failed(new IllegalStateException(errorMsg))
+      }(DEC)
   }
 }
 

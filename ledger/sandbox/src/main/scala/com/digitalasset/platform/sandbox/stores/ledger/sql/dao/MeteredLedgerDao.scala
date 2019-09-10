@@ -12,7 +12,7 @@ import com.daml.ledger.participant.state.index.v2.PackageDetails
 import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml_lf.DamlLf.Archive
-import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails}
+import com.digitalasset.ledger.api.domain.{LedgerId, ParticipantId, PartyDetails}
 import com.digitalasset.platform.sandbox.metrics.MetricsManager
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry
 
@@ -24,6 +24,9 @@ private class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, mm: MetricsManager)
     with AutoCloseable {
   override def lookupLedgerId(): Future[Option[LedgerId]] =
     mm.timedFuture("LedgerDao:lookupLedgerId", ledgerDao.lookupLedgerId())
+
+  override def lookupParticipantId(): Future[Option[ParticipantId]] =
+    mm.timedFuture("LedgerDao:lookupParticipantId", ledgerDao.lookupParticipantId())
 
   override def lookupLedgerEnd(): Future[Long] =
     mm.timedFuture("LedgerDao:lookupLedgerEnd", ledgerDao.lookupLedgerEnd())
@@ -91,6 +94,9 @@ private class MeteredLedgerDao(ledgerDao: LedgerDao, mm: MetricsManager)
 
   override def initializeLedger(ledgerId: LedgerId, ledgerEnd: LedgerOffset): Future[Unit] =
     ledgerDao.initializeLedger(ledgerId, ledgerEnd)
+
+  override def initializeParticipant(participantId: ParticipantId): Future[Unit] =
+    ledgerDao.initializeParticipant(participantId)
 
   override def reset(): Future[Unit] =
     ledgerDao.reset()

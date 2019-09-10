@@ -8,7 +8,6 @@ import java.util.concurrent.atomic.AtomicBoolean
 import akka.actor.ActorSystem
 import akka.stream.{ActorMaterializer, ActorMaterializerSettings, Supervision}
 import com.daml.ledger.participant.state.kvutils.InMemoryKVParticipantState
-import com.daml.ledger.participant.state.v1.ParticipantId
 import com.digitalasset.daml.lf.archive.DarReader
 import com.digitalasset.daml_lf.DamlLf.Archive
 import com.digitalasset.platform.index.cli.Cli
@@ -31,9 +30,6 @@ object ReferenceServer extends App {
         allowExtraParticipants = true)
       .getOrElse(sys.exit(1))
 
-  // Name of this participant
-  val participantId: ParticipantId = config.participantId
-
   implicit val system: ActorSystem = ActorSystem("indexed-kvutils")
   implicit val materializer: ActorMaterializer = ActorMaterializer(
     ActorMaterializerSettings(system)
@@ -42,7 +38,7 @@ object ReferenceServer extends App {
         Supervision.Stop
       })
 
-  val ledger = new InMemoryKVParticipantState(participantId)
+  val ledger = new InMemoryKVParticipantState(config.participantId)
 
   val readService = ledger
   val writeService = ledger
@@ -54,14 +50,14 @@ object ReferenceServer extends App {
     } yield ledger.uploadPackages(dar.all, None)
   }
 
-  val indexerServer = StandaloneIndexerServer(readService, config.jdbcUrl)
+  val indexerServer = StandaloneIndexerServer(readService, config)
   val indexServer = StandaloneIndexServer(config, readService, writeService).start()
 
   val extraParticipants =
     for {
       (participantId, port, jdbcUrl) <- config.extraPartipants
     } yield {
-      val extraIndexer = StandaloneIndexerServer(readService, jdbcUrl)
+      val extraIndexer = StandaloneIndexerServer(readService, config)
       val extraLedgerApiServer = StandaloneIndexServer(
         config.copy(
           port = port,

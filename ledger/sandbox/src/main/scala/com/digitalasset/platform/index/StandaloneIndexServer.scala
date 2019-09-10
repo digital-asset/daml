@@ -9,7 +9,7 @@ import java.time.Instant
 import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.Sink
-import com.daml.ledger.participant.state.v1.{ParticipantId, ReadService, WriteService}
+import com.daml.ledger.participant.state.v1.{ReadService, WriteService}
 import com.digitalasset.daml.lf.engine.Engine
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.ledger.api.domain
@@ -78,9 +78,6 @@ class StandaloneIndexServer(
     readService: ReadService,
     writeService: WriteService) {
 
-  // Name of this participant,
-  val participantId: ParticipantId = config.participantId
-
   case class ApiServerState(
       ledgerId: LedgerId,
       apiServer: ApiServer,
@@ -137,11 +134,7 @@ class StandaloneIndexServer(
 
     val initF = for {
       cond <- readService.getLedgerInitialConditions().runWith(Sink.head)
-      indexService <- JdbcIndex(
-        readService,
-        domain.LedgerId(cond.ledgerId),
-        participantId,
-        config.jdbcUrl)
+      indexService <- JdbcIndex(readService, config.jdbcUrl)
     } yield (cond.ledgerId, cond.config.timeModel, indexService)
 
     val (actualLedgerId, timeModel, indexService) = Try(Await.result(initF, asyncTolerance))

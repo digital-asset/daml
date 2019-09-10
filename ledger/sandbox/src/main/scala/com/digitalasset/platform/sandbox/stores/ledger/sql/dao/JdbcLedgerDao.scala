@@ -23,7 +23,7 @@ import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 import com.digitalasset.daml_lf.DamlLf.Archive
 import com.digitalasset.ledger._
 import com.digitalasset.ledger.api.domain.RejectionReason._
-import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails, RejectionReason}
+import com.digitalasset.ledger.api.domain.{LedgerId, ParticipantId, PartyDetails, RejectionReason}
 import com.digitalasset.platform.common.util.DirectExecutionContext
 import com.digitalasset.platform.sandbox.stores._
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry
@@ -65,6 +65,16 @@ private class JdbcLedgerDao(
           .as(ledgerString("ledger_id").map(id => LedgerId(id.toString)).singleOpt)
       }
 
+  private val SQL_SELECT_PARTICIPANT_ID = SQL("select participant_id from parameters")
+
+  override def lookupParticipantId(): Future[Option[ParticipantId]] =
+    dbDispatcher
+      .executeSql("get participant id") { implicit conn =>
+        SQL_SELECT_PARTICIPANT_ID
+          .as(
+            ledgerString("participant_id")(emptyStringToNullColumn).?.map(_.map(ParticipantId(_))).single)
+      }
+
   private val SQL_SELECT_LEDGER_END = SQL("select ledger_end from parameters")
 
   override def lookupLedgerEnd(): Future[Long] =
@@ -81,14 +91,25 @@ private class JdbcLedgerDao(
         .as(ledgerString("external_ledger_end").?.single)
     }
 
-  private val SQL_INITIALIZE = SQL(
+  private val SQL_INITIALIZE_LEDGER = SQL(
     "insert into parameters(ledger_id, ledger_end) VALUES({LedgerId}, {LedgerEnd})")
 
   override def initializeLedger(ledgerId: LedgerId, ledgerEnd: LedgerOffset): Future[Unit] =
     dbDispatcher.executeSql("initialize ledger parameters") { implicit conn =>
-      val _ = SQL_INITIALIZE
+      val _ = SQL_INITIALIZE_LEDGER
         .on("LedgerId" -> ledgerId.unwrap)
         .on("LedgerEnd" -> ledgerEnd)
+        .execute()
+      ()
+    }
+
+  private val SQL_INITIALIZE_PARTICIPANT = SQL(
+    "update parameters set participant_id = {ParticipantId}")
+
+  override def initializeParticipant(participantId: ParticipantId): Future[Unit] =
+    dbDispatcher.executeSql("initialize participant parameters") { implicit conn =>
+      val _ = SQL_INITIALIZE_PARTICIPANT
+        .on("ParticipantId" -> participantId.unwrap)
         .execute()
       ()
     }

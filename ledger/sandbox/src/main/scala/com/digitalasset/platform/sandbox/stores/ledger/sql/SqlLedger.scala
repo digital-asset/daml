@@ -18,7 +18,7 @@ import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.engine.Blinding
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractId}
 import com.digitalasset.daml_lf.DamlLf.Archive
-import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails, RejectionReason}
+import com.digitalasset.ledger.api.domain.{LedgerId, ParticipantId, PartyDetails, RejectionReason}
 import com.digitalasset.platform.common.util.{DirectExecutionContext => DEC}
 import com.digitalasset.platform.sandbox.LedgerIdGenerator
 import com.digitalasset.platform.sandbox.metrics.MetricsManager
@@ -67,6 +67,7 @@ object SqlLedger {
   def apply(
       jdbcUrl: String,
       ledgerId: Option[LedgerId],
+      participantId: ParticipantId,
       timeProvider: TimeProvider,
       acs: InMemoryActiveContracts,
       packages: InMemoryPackageStore,
@@ -93,6 +94,7 @@ object SqlLedger {
 
     sqlLedgerFactory.createSqlLedger(
       ledgerId,
+      participantId,
       timeProvider,
       startMode,
       acs,
@@ -105,13 +107,14 @@ object SqlLedger {
 
 private class SqlLedger(
     ledgerId: LedgerId,
+    participantId: ParticipantId,
     headAtInitialization: Long,
     ledgerDao: LedgerDao,
     timeProvider: TimeProvider,
     packages: InMemoryPackageStore,
     queueDepth: Int,
     parallelLedgerAppend: Boolean)(implicit mat: Materializer)
-    extends BaseLedger(ledgerId, headAtInitialization, ledgerDao)
+    extends BaseLedger(ledgerId, participantId, headAtInitialization, ledgerDao)
     with Ledger {
 
   import SqlLedger._
@@ -337,6 +340,7 @@ private class SqlLedgerFactory(ledgerDao: LedgerDao) {
     */
   def createSqlLedger(
       initialLedgerId: Option[LedgerId],
+      participantId: ParticipantId,
       timeProvider: TimeProvider,
       startMode: SqlStartMode,
       acs: InMemoryActiveContracts,
@@ -348,22 +352,27 @@ private class SqlLedgerFactory(ledgerDao: LedgerDao) {
     @SuppressWarnings(Array("org.wartremover.warts.ExplicitImplicitTypes"))
     implicit val ec = DEC
 
-    def init(): Future[LedgerId] = startMode match {
+    def resetOrNot(): Future[Unit] = startMode match {
       case AlwaysReset =>
-        for {
-          _ <- reset()
-          ledgerId <- initialize(initialLedgerId, timeProvider, acs, packages, initialLedgerEntries)
-        } yield ledgerId
+        reset()
       case ContinueIfExists =>
-        initialize(initialLedgerId, timeProvider, acs, packages, initialLedgerEntries)
+        Future.successful(())
     }
 
     for {
-      ledgerId <- init()
+      _ <- resetOrNot()
+      ledgerId <- initialize(
+        initialLedgerId,
+        participantId,
+        timeProvider,
+        acs,
+        packages,
+        initialLedgerEntries)
       ledgerEnd <- ledgerDao.lookupLedgerEnd()
     } yield
       new SqlLedger(
         ledgerId,
+        participantId,
         ledgerEnd,
         ledgerDao,
         timeProvider,
@@ -377,6 +386,7 @@ private class SqlLedgerFactory(ledgerDao: LedgerDao) {
 
   private def initialize(
       initialLedgerId: Option[LedgerId],
+      participantId: ParticipantId,
       timeProvider: TimeProvider,
       acs: InMemoryActiveContracts,
       packages: InMemoryPackageStore,
@@ -399,7 +409,7 @@ private class SqlLedgerFactory(ledgerDao: LedgerDao) {
                 logger.warn(
                   s"Initial packages provided, presumably as command line arguments, but I'm picking up from an existing database, and thus they will not be used")
               }
-              ledgerFound(foundLedgerId)
+              ledgerFound(foundLedgerId, participantId)
             case Some(foundLedgerId) =>
               val errorMsg =
                 s"Ledger id mismatch. Ledger id given ('$initialId') is not equal to the existing one ('$foundLedgerId')!"
@@ -431,7 +441,7 @@ private class SqlLedgerFactory(ledgerDao: LedgerDao) {
               @SuppressWarnings(Array("org.wartremover.warts.ExplicitImplicitTypes"))
               implicit val ec = DEC
               for {
-                _ <- doInit(initialId)
+                _ <- doInit(initialId, participantId)
                 _ <- copyPackages(packages, timeProvider.getCurrentTime)
                 _ <- ledgerDao.storeInitialState(
                   contracts,
@@ -446,22 +456,39 @@ private class SqlLedgerFactory(ledgerDao: LedgerDao) {
         ledgerDao
           .lookupLedgerId()
           .flatMap {
-            case Some(foundLedgerId) => ledgerFound(foundLedgerId)
+            case Some(foundLedgerId) => ledgerFound(foundLedgerId, participantId)
             case None =>
               val randomLedgerId = LedgerIdGenerator.generateRandomId()
-              doInit(randomLedgerId).map(_ => randomLedgerId)(DEC)
+              doInit(randomLedgerId, participantId).map(_ => randomLedgerId)(DEC)
           }(DEC)
     }
   }
 
-  private def ledgerFound(foundLedgerId: LedgerId) = {
+  private def ledgerFound(foundLedgerId: LedgerId, participantId: ParticipantId) = {
     logger.info(s"Found existing ledger with id: ${foundLedgerId.unwrap}")
-    Future.successful(foundLedgerId)
+    val result = Future.successful(foundLedgerId)
+    ledgerDao
+      .lookupParticipantId()
+      .flatMap {
+        case Some(foundParticipantId) if foundParticipantId == participantId =>
+          result
+
+        case Some(foundParticipantId) =>
+          val errorMsg =
+            s"Participant id mismatch. Participant id given ('$participantId') is not equal to the existing one ('$foundParticipantId')!"
+          logger.error(errorMsg)
+          Future.failed(new IllegalArgumentException(errorMsg))
+
+        case None =>
+          ledgerDao.initializeParticipant(participantId).flatMap(_ => result)(DEC)
+      }(DEC)
   }
 
-  private def doInit(ledgerId: LedgerId): Future[Unit] = {
+  private def doInit(ledgerId: LedgerId, participantId: ParticipantId): Future[Unit] = {
     logger.info(s"Initializing ledger with id: ${ledgerId.unwrap}")
-    ledgerDao.initializeLedger(ledgerId, 0)
+    ledgerDao
+      .initializeLedger(ledgerId, 0)
+      .flatMap(_ => ledgerDao.initializeParticipant(participantId))(DEC)
   }
 
   private def copyPackages(store: InMemoryPackageStore, knownSince: Instant): Future[Unit] = {
