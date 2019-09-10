@@ -3,6 +3,8 @@
 
 package com.digitalasset.platform.sandbox.damle
 
+import java.util.concurrent.ConcurrentHashMap
+
 import com.digitalasset.daml.lf.engine.{
   Result,
   ResultDone,
@@ -19,12 +21,15 @@ import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 import com.digitalasset.daml.lf.language.Ast.Package
 import com.digitalasset.daml.lf.data.Ref
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.{ExecutionContext, Future, Promise}
 
 /**
   * provides smart constructor for DAML engine environment
   */
 object SandboxDamle {
+  // Concurrent map of promises to request each package only once.
+  private[this] val packagePromises: ConcurrentHashMap[Ref.PackageId, Promise[Option[Package]]] =
+    new ConcurrentHashMap()
 
   def consume[A](result: Result[A])(
       getPackage: Ref.PackageId => Future[Option[Package]],
@@ -36,7 +41,23 @@ object SandboxDamle {
     def resolveStep(result: Result[A]): Future[Either[DamlLfError, A]] = {
       result match {
         case ResultNeedPackage(packageId, resume) =>
-          getPackage(packageId).flatMap(mbPkg => resolveStep(resume(mbPkg)))
+          var gettingPackage = false
+          packagePromises
+            .computeIfAbsent(packageId, { _ =>
+              val p = Promise[Option[Package]]()
+              gettingPackage = true
+              getPackage(packageId).foreach(p.success)
+              p
+            })
+            .future
+            .flatMap { mbPkg =>
+              if (gettingPackage && mbPkg.isEmpty) {
+                // Failed to find the package. Remove the promise to allow later retries.
+                packagePromises.remove(packageId)
+              }
+              resolveStep(resume(mbPkg))
+            }
+
         case ResultDone(r) => Future.successful(Right(r))
         case ResultNeedKey(key, resume) =>
           lookupKey(key).flatMap(mbcoid => resolveStep(resume(mbcoid)))
