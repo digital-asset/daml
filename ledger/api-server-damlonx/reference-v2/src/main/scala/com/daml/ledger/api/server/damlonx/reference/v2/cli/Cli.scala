@@ -1,7 +1,6 @@
 // Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
-
-package com.digitalasset.platform.index.cli
+package com.daml.ledger.api.server.damlonx.reference.v2.cli
 
 import java.io.File
 

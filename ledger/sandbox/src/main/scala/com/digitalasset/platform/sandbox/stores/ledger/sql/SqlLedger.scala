@@ -29,6 +29,7 @@ import com.digitalasset.platform.sandbox.stores.ledger.sql.SqlStartMode.{
   ContinueIfExists
 }
 import com.digitalasset.platform.sandbox.stores.ledger.sql.dao._
+import com.digitalasset.platform.sandbox.stores.ledger.sql.migration.FlywayMigrations
 import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{
   ContractSerializer,
   KeyHasher,
@@ -77,9 +78,12 @@ object SqlLedger {
       mm: MetricsManager): Future[Ledger] = {
     implicit val ec: ExecutionContext = DEC
 
-    val dbType = JdbcLedgerDao.jdbcType(jdbcUrl)
+    new FlywayMigrations(jdbcUrl).migrate()
+
+    val dbType = DbType.jdbcType(jdbcUrl)
     val dbDispatcher =
-      DbDispatcher(jdbcUrl, dbType, noOfShortLivedConnections, noOfStreamingConnections)
+      DbDispatcher(jdbcUrl, noOfShortLivedConnections, noOfStreamingConnections)
+
     val ledgerDao = LedgerDao.metered(
       JdbcLedgerDao(
         dbDispatcher,

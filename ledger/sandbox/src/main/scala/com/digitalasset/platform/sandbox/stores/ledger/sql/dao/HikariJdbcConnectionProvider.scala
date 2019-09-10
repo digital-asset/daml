@@ -5,7 +5,6 @@ package com.digitalasset.platform.sandbox.stores.ledger.sql.dao
 
 import java.sql.Connection
 
-import com.digitalasset.platform.sandbox.stores.ledger.sql.migration.FlywayMigrations
 import com.zaxxer.hikari.{HikariConfig, HikariDataSource}
 import org.slf4j.LoggerFactory
 
@@ -25,34 +24,15 @@ trait JdbcConnectionProvider extends AutoCloseable {
   def getStreamingConnection(): Connection
 }
 
-class HikariJdbcConnectionProvider(
-    jdbcUrl: String,
-    dbType: JdbcLedgerDao.DbType,
-    noOfShortLivedConnections: Int,
-    noOfStreamingConnections: Int)
-    extends JdbcConnectionProvider {
-
-  private val logger = LoggerFactory.getLogger(getClass)
-  // these connections should never timeout as we have exactly the same number of threads using them as many connections we have
-  private val shortLivedDataSource =
-    createDataSource(
-      "Short-Lived-Connections",
-      noOfShortLivedConnections,
-      noOfShortLivedConnections,
-      250.millis)
-
-  // this a dynamic pool as it's used for serving ACS snapshot requests, which we don't expect to get a lot
-  private val streamingDataSource =
-    createDataSource("Streaming-Connections", 1, noOfStreamingConnections, 60.seconds)
-
-  private def createDataSource(
+object HikariConnection {
+  def createDataSource(
+      jdbcUrl: String,
       poolName: String,
       minimumIdle: Int,
       maxPoolSize: Int,
-      connectionTimeout: FiniteDuration) = {
+      connectionTimeout: FiniteDuration): HikariDataSource = {
     val config = new HikariConfig
     config.setJdbcUrl(jdbcUrl)
-    //TODO put these defaults out to a config file
     config.addDataSourceProperty("cachePrepStmts", "true")
     config.addDataSourceProperty("prepStmtCacheSize", "128")
     config.addDataSourceProperty("prepStmtCacheSqlLimit", "2048")
@@ -66,14 +46,32 @@ class HikariJdbcConnectionProvider(
     //in `runSql` below, the `.close()` will automatically trigger a commit.
     new HikariDataSource(config)
   }
+}
 
-  private val temporaryMigrationDataSource =
-    createDataSource("Temp-Flyway-Migration", 1, 2, 250.millis) // Flyway needs 2 connections
-  try {
-    FlywayMigrations(temporaryMigrationDataSource, dbType).migrate()
-  } finally {
-    temporaryMigrationDataSource.close()
-  }
+class HikariJdbcConnectionProvider(
+    jdbcUrl: String,
+    noOfShortLivedConnections: Int,
+    noOfStreamingConnections: Int)
+    extends JdbcConnectionProvider {
+
+  private val logger = LoggerFactory.getLogger(getClass)
+  // these connections should never timeout as we have exactly the same number of threads using them as many connections we have
+  private val shortLivedDataSource =
+    HikariConnection.createDataSource(
+      jdbcUrl,
+      "Short-Lived-Connections",
+      noOfShortLivedConnections,
+      noOfShortLivedConnections,
+      250.millis)
+
+  // this a dynamic pool as it's used for serving ACS snapshot requests, which we don't expect to get a lot
+  private val streamingDataSource =
+    HikariConnection.createDataSource(
+      jdbcUrl,
+      "Streaming-Connections",
+      1,
+      noOfStreamingConnections,
+      60.seconds)
 
   override def runSQL[T](block: Connection => T): T = {
     val conn = shortLivedDataSource.getConnection()
@@ -101,18 +99,12 @@ class HikariJdbcConnectionProvider(
     shortLivedDataSource.close()
     streamingDataSource.close()
   }
-
 }
 
 object HikariJdbcConnectionProvider {
   def apply(
       jdbcUrl: String,
-      dbType: JdbcLedgerDao.DbType,
       noOfShortLivedConnections: Int,
       noOfStreamingConnections: Int): JdbcConnectionProvider =
-    new HikariJdbcConnectionProvider(
-      jdbcUrl,
-      dbType,
-      noOfShortLivedConnections,
-      noOfStreamingConnections)
+    new HikariJdbcConnectionProvider(jdbcUrl, noOfShortLivedConnections, noOfStreamingConnections)
 }

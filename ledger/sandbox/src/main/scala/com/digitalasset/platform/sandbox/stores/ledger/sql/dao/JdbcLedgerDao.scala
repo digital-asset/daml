@@ -28,6 +28,10 @@ import com.digitalasset.platform.common.util.DirectExecutionContext
 import com.digitalasset.platform.sandbox.stores._
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry._
+import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.JdbcLedgerDao.{
+  H2DatabaseQueries,
+  PostgresQueries
+}
 import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{
   ContractSerializer,
   KeyHasher,
@@ -51,9 +55,13 @@ private class JdbcLedgerDao(
     transactionSerializer: TransactionSerializer,
     valueSerializer: ValueSerializer,
     keyHasher: KeyHasher,
-    dbType: JdbcLedgerDao.DbType)
+    dbType: DbType)
     extends LedgerDao {
 
+  private val queries = dbType match {
+    case DbType.Postgres => PostgresQueries
+    case DbType.H2Database => H2DatabaseQueries
+  }
   private val logger = LoggerFactory.getLogger(getClass)
 
   private val SQL_SELECT_LEDGER_ID = SQL("select ledger_id from parameters")
@@ -265,7 +273,7 @@ private class JdbcLedgerDao(
 
         if (!namedDivulgenceParams.isEmpty) {
           executeBatchSql(
-            dbType.SQL_BATCH_INSERT_DIVULGENCES_FROM_TRANSACTION_ID,
+            queries.SQL_BATCH_INSERT_DIVULGENCES_FROM_TRANSACTION_ID,
             namedDivulgenceParams
           )
         }
@@ -286,7 +294,7 @@ private class JdbcLedgerDao(
 
         if (!namedDivulgenceParams.isEmpty) {
           executeBatchSql(
-            dbType.SQL_BATCH_INSERT_DIVULGENCES,
+            queries.SQL_BATCH_INSERT_DIVULGENCES,
             namedDivulgenceParams
           )
         }
@@ -391,7 +399,7 @@ private class JdbcLedgerDao(
                 "explicit" -> false
             ))
           if (partyParams.nonEmpty) {
-            executeBatchSql(dbType.SQL_IMPLICITLY_INSERT_PARTIES, partyParams)
+            executeBatchSql(queries.SQL_IMPLICITLY_INSERT_PARTIES, partyParams)
           }
           this
         }
@@ -415,7 +423,7 @@ private class JdbcLedgerDao(
           // Do we need here the equivalent to 'contracts.intersectWith(global)', used in the in-memory
           // implementation of implicitlyDisclose?
           if (divulgenceParams.nonEmpty) {
-            executeBatchSql(dbType.SQL_BATCH_INSERT_DIVULGENCES, divulgenceParams)
+            executeBatchSql(queries.SQL_BATCH_INSERT_DIVULGENCES, divulgenceParams)
           }
           this
         }
@@ -550,7 +558,7 @@ private class JdbcLedgerDao(
                 }
               } getOrElse Ok
           }.recover {
-            case NonFatal(e) if e.getMessage.contains(dbType.DUPLICATE_KEY_ERROR) =>
+            case NonFatal(e) if e.getMessage.contains(queries.DUPLICATE_KEY_ERROR) =>
               logger.warn(
                 "Ignoring duplicate submission for submitter{}, applicationId {}, commandId {}",
                 tx.submittingParty,
@@ -995,7 +1003,7 @@ private class JdbcLedgerDao(
         externalOffset.foreach(updateExternalLedgerEnd)
         PersistenceResponse.Ok
       }.recover {
-        case NonFatal(e) if e.getMessage.contains(dbType.DUPLICATE_KEY_ERROR) =>
+        case NonFatal(e) if e.getMessage.contains(queries.DUPLICATE_KEY_ERROR) =>
           logger.warn("Party with ID {} already exists", party)
           conn.rollback()
           PersistenceResponse.Duplicate
@@ -1078,7 +1086,8 @@ private class JdbcLedgerDao(
                     "package" -> p._1.toByteArray
                 )
               )
-            val updated = executeBatchSql(dbType.SQL_INSERT_PACKAGE, params).map(math.max(0, _)).sum
+            val updated =
+              executeBatchSql(queries.SQL_INSERT_PACKAGE, params).map(math.max(0, _)).sum
             val duplicates = packages.length - updated
 
             Map(
@@ -1124,7 +1133,7 @@ object JdbcLedgerDao {
       transactionSerializer: TransactionSerializer,
       valueSerializer: ValueSerializer,
       keyHasher: KeyHasher,
-      dbType: JdbcLedgerDao.DbType): LedgerDao =
+      dbType: DbType): LedgerDao =
     new JdbcLedgerDao(
       dbDispatcher,
       contractSerializer,
@@ -1133,11 +1142,7 @@ object JdbcLedgerDao {
       keyHasher,
       dbType)
 
-  sealed trait DbType {
-
-    def name: String
-
-    val supportsParallelWrites: Boolean = true
+  sealed trait Queries {
 
     // SQL statements using the proprietary Postgres on conflict .. do nothing clause
     protected[JdbcLedgerDao] def SQL_INSERT_PACKAGE: String
@@ -1155,9 +1160,7 @@ object JdbcLedgerDao {
       : String // TODO: Avoid brittleness of error message checks
   }
 
-  object Postgres extends DbType {
-
-    override val name: String = "postgres"
+  object PostgresQueries extends Queries {
 
     override protected[JdbcLedgerDao] val SQL_INSERT_PACKAGE: String =
       """insert into packages(package_id, upload_id, source_description, size, known_since, ledger_offset, package)
@@ -1185,15 +1188,7 @@ object JdbcLedgerDao {
     override protected[JdbcLedgerDao] val DUPLICATE_KEY_ERROR: String = "duplicate key"
   }
 
-  object H2Database extends DbType {
-
-    override val name: String = "h2database"
-
-    // H2 does not support concurrent, conditional updates to the ledger_end at read committed isolation
-    // level: "It is possible that a transaction from one connection overtakes a transaction from a different
-    // connection. Depending on the operations, this might result in different results, for example when conditionally
-    // incrementing a value in a row." - from http://www.h2database.com/html/advanced.html
-    override val supportsParallelWrites: Boolean = false
+  object H2DatabaseQueries extends Queries {
 
     override protected[JdbcLedgerDao] val SQL_INSERT_PACKAGE: String =
       """merge into packages using dual on package_id = {package_id}
@@ -1219,10 +1214,5 @@ object JdbcLedgerDao {
 
     override protected[JdbcLedgerDao] val DUPLICATE_KEY_ERROR: String =
       "Unique index or primary key violation"
-  }
-
-  def jdbcType(jdbcUrl: String): DbType = jdbcUrl match {
-    case h2 if h2.startsWith("jdbc:h2:") => H2Database
-    case _ => Postgres
   }
 }

@@ -7,11 +7,11 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 import akka.actor.ActorSystem
 import akka.stream.{ActorMaterializer, ActorMaterializerSettings, Supervision}
+import com.daml.ledger.api.server.damlonx.reference.v2.cli.Cli
 import com.daml.ledger.participant.state.kvutils.InMemoryKVParticipantState
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.digitalasset.daml.lf.archive.DarReader
 import com.digitalasset.daml_lf.DamlLf.Archive
-import com.digitalasset.platform.index.cli.Cli
 import com.digitalasset.platform.index.{StandaloneIndexServer, StandaloneIndexerServer}
 import org.slf4j.LoggerFactory
 
@@ -54,14 +54,14 @@ object ReferenceServer extends App {
     } yield ledger.uploadPackages(dar.all, None)
   }
 
-  val indexerServer = StandaloneIndexerServer(readService, config.jdbcUrl)
+  val indexerServer = StandaloneIndexerServer(readService, config)
   val indexServer = StandaloneIndexServer(config, readService, writeService).start()
 
   val extraParticipants =
     for {
       (participantId, port, jdbcUrl) <- config.extraPartipants
     } yield {
-      val extraIndexer = StandaloneIndexerServer(readService, jdbcUrl)
+      val extraIndexer = StandaloneIndexerServer(readService, config)
       val extraLedgerApiServer = StandaloneIndexServer(
         config.copy(
           port = port,

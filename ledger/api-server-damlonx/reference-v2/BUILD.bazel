@@ -86,7 +86,9 @@ conformance_test(
     server = ":reference-v2",
     server_args = [
         "--port 6865",
-        "--jdbc-url jdbc:h2:mem:daml_on_x;db_close_on_exit=false",
+        # db_close_delay=-1 is needed so that the in-memory database is not closed (and therefore lost)
+        # after the flyway migration
+        "--jdbc-url jdbc:h2:mem:daml_on_x;db_close_delay=-1;db_close_on_exit=false",
     ],
     test_tool_args = [
         "--all-tests",
