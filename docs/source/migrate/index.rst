@@ -31,7 +31,7 @@ For example, to create a migration project from ``foo-1.0.0`` to ``foo-2.0.0`` r
 
 .. code-block:: none
 
-  daml migrate foo-upgrade-2.0.0 daml/Foo.daml foo-1.0.0/.daml/dist/foo-1.0.0.dar foo-2.0.0/.daml/dist/foo-2.0.0.dar
+  daml migrate foo-upgrade-2.0.0 foo-1.0.0/.daml/dist/foo-1.0.0.dar foo-2.0.0/.daml/dist/foo-2.0.0.dar
 
 This generates a migration project in the directory ``foo-upgrade-2.0.0``. To build it, change
 directory to ``foo-upgrade-2.0.0`` and run
