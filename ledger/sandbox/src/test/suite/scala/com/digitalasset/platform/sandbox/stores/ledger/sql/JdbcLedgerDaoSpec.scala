@@ -16,8 +16,18 @@ import com.digitalasset.daml.lf.archive.DarReader
 import com.digitalasset.daml.lf.data.Ref.{Identifier, LedgerString, Party}
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.transaction.GenTransaction
-import com.digitalasset.daml.lf.transaction.Node.{KeyWithMaintainers, NodeCreate, NodeExercises, NodeFetch}
-import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst, ValueText, VersionedValue}
+import com.digitalasset.daml.lf.transaction.Node.{
+  KeyWithMaintainers,
+  NodeCreate,
+  NodeExercises,
+  NodeFetch
+}
+import com.digitalasset.daml.lf.value.Value.{
+  AbsoluteContractId,
+  ContractInst,
+  ValueText,
+  VersionedValue
+}
 import com.digitalasset.daml.lf.value.ValueVersions
 import com.digitalasset.daml_lf.DamlLf
 import com.digitalasset.ledger.EventId
@@ -27,7 +37,12 @@ import com.digitalasset.platform.sandbox.persistence.PostgresAroundAll
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry
 import com.digitalasset.platform.sandbox.stores.ledger.sql.dao._
 import com.digitalasset.platform.sandbox.stores.ledger.sql.migration.FlywayMigrations
-import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{ContractSerializer, KeyHasher, TransactionSerializer, ValueSerializer}
+import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{
+  ContractSerializer,
+  KeyHasher,
+  TransactionSerializer,
+  ValueSerializer
+}
 import com.digitalasset.platform.sandbox.stores.ledger.sql.util.DbDispatcher
 import org.scalatest.{AsyncWordSpec, Matchers, OptionValues}
 
