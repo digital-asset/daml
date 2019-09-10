@@ -25,6 +25,7 @@ da_haskell_library(
         "filepattern",
         "ghc-lib-parser",
         "ghc-lib",
+        "ghcide",
         "hashable",
         "mtl",
         "network-uri",
@@ -36,7 +37,6 @@ da_haskell_library(
     src_strip_prefix = "src",
     visibility = ["//visibility:public"],
     deps = [
-        "//compiler/ghcide",
         "//libs-haskell/da-hs-base",
     ],
 )
@@ -51,6 +51,7 @@ da_haskell_library(
         "directory",
         "extra",
         "filepath",
+        "ghcide",
         "mtl",
         "tasty-hunit",
         "tasty-golden",
@@ -62,7 +63,6 @@ da_haskell_library(
         "//compiler/damlc/daml-doc",
         "//compiler/damlc/daml-opts",
         "//compiler/damlc/daml-opts:daml-opts-types",
-        "//compiler/ghcide",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
         "//libs-haskell/test-utils",
