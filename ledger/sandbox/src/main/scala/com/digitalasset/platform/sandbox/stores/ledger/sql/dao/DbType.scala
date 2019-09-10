@@ -16,6 +16,8 @@ object DbType {
 
   def jdbcType(jdbcUrl: String): DbType = jdbcUrl match {
     case h2 if h2.startsWith("jdbc:h2:") => H2Database
-    case _ => Postgres
+    case pg if pg.startsWith("jdbc:postgresql:") => Postgres
+    case otherwise =>
+      sys.error(s"JDBC URL doesn't match any supported databases (h2, pg): $otherwise")
   }
 }
