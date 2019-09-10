@@ -199,7 +199,7 @@ trait LedgerWriteDao extends AutoCloseable {
   /**
     * Initializes the participant. Must be called only once.
     *
-    * @param participantId  the ledger id to be stored
+    * @param participantId  the participant id to be stored
     */
   def initializeParticipant(participantId: ParticipantId): Future[Unit]
 

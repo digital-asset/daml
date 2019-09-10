@@ -108,7 +108,7 @@ class SqlLedgerSpec
         )
 
       } yield {
-        ledger1.ledgerId shouldBe a[LedgerId]
+        ledger1.ledgerId shouldBe ledgerId
         ledger1.ledgerId shouldEqual ledger2.ledgerId
         ledger2.ledgerId shouldEqual ledger3.ledgerId
 

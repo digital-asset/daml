@@ -352,7 +352,7 @@ private class SqlLedgerFactory(ledgerDao: LedgerDao) {
     @SuppressWarnings(Array("org.wartremover.warts.ExplicitImplicitTypes"))
     implicit val ec = DEC
 
-    def resetOrNot(): Future[Unit] = startMode match {
+    def resetIfNeeded(): Future[Unit] = startMode match {
       case AlwaysReset =>
         reset()
       case ContinueIfExists =>
@@ -360,7 +360,7 @@ private class SqlLedgerFactory(ledgerDao: LedgerDao) {
     }
 
     for {
-      _ <- resetOrNot()
+      _ <- resetIfNeeded()
       ledgerId <- initialize(
         initialLedgerId,
         participantId,
