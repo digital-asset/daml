@@ -5,6 +5,7 @@
 \subsection{Testing LHS}
 
 \begin{code}
+{-# ANN module "HLint: ignore" #-}
 {-# LANGUAGE CPP #-}
 
 module Test
