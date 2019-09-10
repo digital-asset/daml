@@ -1,14 +1,14 @@
 On MacOS GHCi fails to load grpc fat_cbits statically due to duplicate symbols.
 diff --git a/haskell/providers.bzl b/haskell/providers.bzl
-index 7574456..a5241e1 100644
+index 9c6e1d5..e2952bd 100644
 --- a/haskell/providers.bzl
 +++ b/haskell/providers.bzl
-@@ -270,6 +270,10 @@ def get_extra_libs(hs, cc_info, dynamic = False, pic = None, fixup_dir = "_libs"
-             dynamic_lib = symlink_dynamic_library(hs, dynamic_lib, fixed_lib_dir)
+@@ -264,6 +264,10 @@ def get_extra_libs(hs, cc_info, dynamic = False, pic = None, fixup_dir = "_libs"
+ 
          static_lib = mangle_static_library(hs, dynamic_lib, static_lib, fixed_lib_dir)
  
-+        if fixup_dir == "_ghci_libs" and dynamic_lib and get_lib_name(dynamic_lib) == "fat_cbits":
-+            dynamic_libs.append(dynamic_lib)
++        if hs.toolchain.is_darwin and fixup_dir == "_ghci_libs" and dynamic_lib and get_lib_name(dynamic_lib) == "fat_cbits":
++            dynamic_libs.append(symlink_dynamic_library(hs, dynamic_lib, fixup_dir))
 +            continue
 +
          if static_lib and not (dynamic and dynamic_lib):

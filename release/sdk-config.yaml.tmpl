@@ -60,4 +60,4 @@ commands:
 - name: json-api
   path: daml-helper/daml-helper
   desc: "Launch the HTTP JSON API"
-  args: ["run-jar", "json-api/json-api.jar"]
+  args: ["run-jar", "--logback-config=json-api/json-api-logback.xml", "json-api/json-api.jar"]

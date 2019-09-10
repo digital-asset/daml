@@ -17,8 +17,8 @@ DAML Assistant (``daml``)
 - Launch the tools in the SDK:
 
   - Launch :doc:`DAML Studio </daml/daml-studio>`: ``daml studio``
-  - Launch :doc:`Sandbox </tools/sandbox>` and :doc:`Navigator </tools/navigator/index>` together: ``daml start``
-    You can additionally start the HTTP JSON API by passing ``--json-api-port 7575`` to ``daml start``.
+  - Launch :doc:`Sandbox </tools/sandbox>`, :doc:`Navigator </tools/navigator/index>` and the HTTP JSON API: ``daml start``
+    You can disable the HTTP JSON API by passing ``--json-api-port none`` to ``daml start``.
   - Launch Sandbox: ``daml sandbox``
   - Launch Navigator: ``daml navigator``
   - Launch :doc:`Extractor </tools/extractor>`: ``daml extractor``

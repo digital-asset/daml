@@ -17,6 +17,8 @@ HEAD — ongoing
 + [DAML Integration Kit] The test tool can now run all semantic test in a multi-node setup.
 + [DAML Assistant] The HTTP JSON API is now integrated with the
   assistant and distributed with the SDK. It can either be launched
-  via ``daml json-api`` or by passing ``--json-api-port 7575`` to
-  ``daml start``. You can find more information in the
+  via ``daml json-api`` or via ``daml start``. You can find more information in the
   `README <https://github.com/digital-asset/daml/blob/master/ledger-service/http-json/README.md>`_.
++ [JSON API] **BREAKING CHANGE** The ``/contracts/search`` request payload must use
+  ``"%templates"`` in place of ``"templateIds"`` to select which templates' contracts are
+  returned.  See `issue #2777 <https://github.com/digital-asset/daml/issues/2777>`_.

@@ -69,3 +69,5 @@ da_scala_test(
         "//bazel_tools/runfiles:scala_runfiles",
     ] + http_json_deps,
 )
+
+exports_files(["release/json-api-logback.xml"])

@@ -1,0 +1,169 @@
+cabal-version:      1.20
+build-type:         Simple
+category:           Development
+name:               ghcide
+version:            0.0.1
+license:            Apache-2.0
+license-file:       LICENSE
+author:             Digital Asset
+maintainer:         Digital Asset
+copyright:          Digital Asset 2018-2019
+synopsis:           The core of an IDE
+description:
+    A library for building Haskell IDE's on top of the GHC API.
+homepage:           https://github.com/digital-asset/daml#readme
+bug-reports:        https://github.com/digital-asset/daml/issues
+tested-with:        GHC==8.6.5
+
+source-repository head
+    type:     git
+    location: https://github.com/digital-asset/daml.git
+
+library
+    default-language:   Haskell2010
+    build-depends:
+        aeson,
+        async,
+        base == 4.*,
+        binary,
+        bytestring,
+        containers,
+        data-default,
+        deepseq,
+        directory,
+        extra,
+        filepath,
+        ghc-boot-th,
+        ghc-boot,
+        ghc >= 8.4,
+        hashable,
+        haskell-lsp-types,
+        haskell-lsp >= 0.15,
+        mtl,
+        network-uri,
+        prettyprinter-ansi-terminal,
+        prettyprinter-ansi-terminal,
+        prettyprinter,
+        rope-utf16-splay,
+        safe-exceptions,
+        shake >= 0.17.5,
+        sorted-list,
+        stm,
+        syb,
+        text,
+        time,
+        transformers,
+        unordered-containers,
+        utf8-string
+    if !os(windows)
+      build-depends:
+        unix
+      c-sources:
+        cbits/getmodtime.c
+
+    cpp-options: -DGHC_STABLE
+    default-extensions:
+        BangPatterns
+        DeriveFunctor
+        DeriveGeneric
+        GeneralizedNewtypeDeriving
+        LambdaCase
+        NamedFieldPuns
+        OverloadedStrings
+        RecordWildCards
+        ScopedTypeVariables
+        StandaloneDeriving
+        TupleSections
+        TypeApplications
+        ViewPatterns
+
+    hs-source-dirs:
+        src
+    exposed-modules:
+        Development.IDE.Core.FileStore
+        Development.IDE.Core.OfInterest
+        Development.IDE.Core.PositionMapping
+        Development.IDE.Core.Rules
+        Development.IDE.Core.RuleTypes
+        Development.IDE.Core.Service
+        Development.IDE.Core.Shake
+        Development.IDE.GHC.Util
+        Development.IDE.Import.DependencyInformation
+        Development.IDE.LSP.LanguageServer
+        Development.IDE.LSP.Protocol
+        Development.IDE.LSP.Server
+        Development.IDE.Types.Diagnostics
+        Development.IDE.Types.Location
+        Development.IDE.Types.Logger
+        Development.IDE.Types.Options
+    other-modules:
+        Development.IDE.Core.Debouncer
+        Development.IDE.Core.Compile
+        Development.IDE.GHC.Compat
+        Development.IDE.GHC.CPP
+        Development.IDE.GHC.Error
+        Development.IDE.GHC.Orphans
+        Development.IDE.GHC.Warnings
+        Development.IDE.Import.FindImports
+        Development.IDE.LSP.CodeAction
+        Development.IDE.LSP.Definition
+        Development.IDE.LSP.Hover
+        Development.IDE.LSP.Notifications
+        Development.IDE.Spans.AtPoint
+        Development.IDE.Spans.Calculate
+        Development.IDE.Spans.Documentation
+        Development.IDE.Spans.Type
+
+executable ghcide
+    default-language:   Haskell2010
+    hs-source-dirs:     exe
+    ghc-options: -threaded
+    main-is: Main.hs
+    build-depends:
+        base == 4.*,
+        containers,
+        data-default,
+        directory,
+        extra,
+        filepath,
+        ghc-paths,
+        ghc,
+        haskell-lsp,
+        hie-bios,
+        ghcide,
+        optparse-applicative,
+        shake,
+        text
+    other-modules:
+        Arguments
+
+    default-extensions:
+        RecordWildCards
+        TupleSections
+        ViewPatterns
+
+test-suite ghcide-tests
+    type: exitcode-stdio-1.0
+    default-language: Haskell2010
+    build-tool-depends:
+        ghcide:ghcide
+    build-depends:
+        base,
+        containers,
+        extra,
+        filepath,
+        haskell-lsp-types,
+        lens,
+        lsp-test,
+        parser-combinators,
+        tasty,
+        tasty-hunit,
+        text
+    hs-source-dirs: test/cabal test/exe test/src
+    ghc-options: -threaded
+    main-is: Main.hs
+    other-modules:
+        Development.IDE.Test
+        Development.IDE.Test.Runfiles
+    default-extensions:
+        OverloadedStrings

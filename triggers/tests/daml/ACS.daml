@@ -13,10 +13,14 @@ type ACS = TextMap Identifier
 
 test : Trigger (TextMap Identifier)
 test = Trigger
-  { initialState = TM.empty
+  { initialState = init
   , update = update
   }
   where
+    init : ActiveContracts -> TextMap Identifier
+    init (ActiveContracts events) = foldl updateAcs TM.empty events
+    updateAcs : TextMap Identifier -> Created -> TextMap Identifier
+    updateAcs acs (Created _ cId tId) = TM.insert cId tId acs
     update : Message -> TextMap Identifier -> (TextMap Identifier, Text)
     update (MTransaction t) acs = (foldl updateEvent acs (events t), transactionId t)
     updateEvent : TextMap Identifier -> Event -> TextMap Identifier

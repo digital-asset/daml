@@ -248,14 +248,22 @@ genrule(
     ],
 )
 
-da_haskell_library(
-    name = "ledger-api-haskellpb",
+filegroup(
+    name = "all-ledger-api-haskellpb-sources",
     srcs = [
         ":google-protobuf-haskellpb-sources",
         ":google-rpc-haskellpb-sources",
         ":ledger-api-haskellpb-sources",
         ":ledger-api-haskellpb-sources-admin",
         ":ledger-api-haskellpb-sources-testing",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+da_haskell_library(
+    name = "ledger-api-haskellpb",
+    srcs = [
+        ":all-ledger-api-haskellpb-sources",
     ],
     compiler_flags = ["-O0"],
     hackage_deps = [

@@ -32,12 +32,12 @@ import System.FilePath
 import DA.Daml.Options.Types
 import DA.Daml.Preprocessor
 import Development.IDE.GHC.Util
-import qualified Development.IDE.Types.Options as HieCore
+import qualified Development.IDE.Types.Options as Ghcide
 
--- | Convert to hie-core’s IdeOptions type.
-toCompileOpts :: Options -> HieCore.IdeReportProgress -> HieCore.IdeOptions
+-- | Convert to ghcide’s IdeOptions type.
+toCompileOpts :: Options -> Ghcide.IdeReportProgress -> Ghcide.IdeOptions
 toCompileOpts options@Options{..} reportProgress =
-    HieCore.IdeOptions
+    Ghcide.IdeOptions
       { optPreprocessor = if optIsGenerated then noPreprocessor else damlPreprocessor optMbPackageName
       , optGhcSession = do
             env <- runGhcFast $ do
@@ -47,7 +47,7 @@ toCompileOpts options@Options{..} reportProgress =
             dflags <- checkDFlags options $ setPackageDynFlags pkg $ hsc_dflags env
             hscenv <- newHscEnvEq env{hsc_dflags = dflags}
             return $ const $ return hscenv
-      , optPkgLocationOpts = HieCore.IdePkgLocationOptions
+      , optPkgLocationOpts = Ghcide.IdePkgLocationOptions
           { optLocateHieFile = locateInPkgDb "hie"
           , optLocateSrcFile = locateInPkgDb "daml"
           }

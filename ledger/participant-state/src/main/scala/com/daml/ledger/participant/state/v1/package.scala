@@ -60,18 +60,23 @@ package object v1 {
   type LedgerId = String
 
   /** Identifier for the participant, MUST match regexp [a-zA-Z0-9-]. */
+  val ParticipantId: Ref.LedgerString.type = Ref.LedgerString
   type ParticipantId = Ref.LedgerString
 
   /** Identifiers for transactions. */
+  val TransactionIdString: Ref.TransactionIdString.type = Ref.TransactionIdString
   type TransactionId = Ref.TransactionIdString
 
   /** Identifiers used to correlate submission with results. */
+  val CommandId: Ref.LedgerString.type = Ref.LedgerString
   type CommandId = Ref.LedgerString
 
   /** Identifiers used for correlating submission with a workflow. */
+  val WorkflowId: Ref.LedgerString.type = Ref.LedgerString
   type WorkflowId = Ref.LedgerString
 
   /** Identifiers for submitting client applications. */
+  val ApplicationId: Ref.LedgerString.type = Ref.LedgerString
   type ApplicationId = Ref.LedgerString
 
   /** Identifiers for nodes in a transaction. */
