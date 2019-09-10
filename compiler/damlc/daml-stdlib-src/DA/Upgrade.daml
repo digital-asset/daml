@@ -36,6 +36,7 @@ template (Template i, Template o, Convertible i o) => Upgrade i o
                 do
                     d <- fetch inC
                     assert $ fromList sigs == fromList (signatory d)
+                    archive inC
                     create $ convert d
 
 template (Template i, Template o, Convertible o i) => Rollback i o
@@ -51,6 +52,7 @@ template (Template i, Template o, Convertible o i) => Rollback i o
                 do
                     d <- fetch inC
                     assert $ fromList sigs == fromList (signatory d)
+                    archive inC
                     create $ convert d
 
 ----------------------------------------------------------------------------------------------------
