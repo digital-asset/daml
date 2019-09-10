@@ -389,7 +389,7 @@ class Runner(
           throw new RuntimeException(err)
         }
         case res => {
-          throw new RuntimeException(s"Unexpected speed result $res")
+          throw new RuntimeException(s"Unexpected speedy result $res")
         }
       }
     }
