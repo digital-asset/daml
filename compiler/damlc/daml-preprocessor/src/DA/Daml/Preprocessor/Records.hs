@@ -117,7 +117,11 @@ onDecl o = descendBi onExp o : extraDecls o
             where ctors = dd_cons $ tcdDataDefn x
         extraDecls _ = []
 
-getFields :: TyClDecl GhcPs -> [(LHsType GhcPs, IdP GhcPs, FieldOcc GhcPs, HsType GhcPs)]
+-- Process a Haskell data type definition. Walk its constructors. For
+-- each, harvest a tuple of the parent type, the ctor name, the field
+-- name and the field type.
+getFields :: TyClDecl GhcPs ->
+               [(LHsType GhcPs, IdP GhcPs, FieldOcc GhcPs, HsType GhcPs)]
 getFields DataDecl{tcdDataDefn=HsDataDefn{..}, ..} = concatMap ctor dd_cons
     where
         ctor (L _ ConDeclH98{con_args=RecCon (L _ fields),con_name=L _ name}) = concatMap (field name) fields
@@ -126,7 +130,9 @@ getFields DataDecl{tcdDataDefn=HsDataDefn{..}, ..} = concatMap ctor dd_cons
         field name (L _ ConDeclField{cd_fld_type=L _ ty, ..}) = [(result, name, fld, ty) | L _ fld <- cd_fld_names]
         field _ _ = error "unknown field declaration in getFields"
 
-        result = noL $ HsParTy noE $ foldl (\x y -> noL $ HsAppTy noE x $ hsLTyVarBndrToType y) (noL $ HsTyVar noE GHC.NotPromoted tcdLName) $ hsq_explicit tcdTyVars
+        -- A value of this data declaration will have this type.
+        result = foldl' (\x y -> noL $ HsAppTy noE x $ hsLTyVarBndrToType y)
+                   (noL $ HsTyVar noE GHC.NotPromoted tcdLName) $ hsq_explicit tcdTyVars
 getFields _ = []
 
 
