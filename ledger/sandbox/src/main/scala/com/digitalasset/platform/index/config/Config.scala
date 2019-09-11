@@ -5,9 +5,17 @@ package com.digitalasset.platform.index.config
 
 import java.io.File
 
+import com.daml.ledger.participant.state.v1.ParticipantId
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.Ref.LedgerString
 import com.digitalasset.ledger.api.tls.TlsConfiguration
+
+sealed trait StartupMode
+object StartupMode {
+  case object ValidateAndStart extends StartupMode
+  case object MigrateAndStart extends StartupMode
+  case object MigrateOnly extends StartupMode
+}
 
 final case class Config(
     port: Int,
@@ -17,8 +25,9 @@ final case class Config(
     timeProvider: TimeProvider, // enables use of non-wall-clock time in tests
     jdbcUrl: String,
     tlsConfig: Option[TlsConfiguration],
-    participantId: LedgerString,
-    extraPartipants: Vector[(LedgerString, Int, String)]
+    participantId: ParticipantId,
+    extraPartipants: Vector[(ParticipantId, Int, String)],
+    startupMode: StartupMode
 )
 
 object Config {
@@ -33,6 +42,7 @@ object Config {
       "",
       None,
       LedgerString.assertFromString("standalone-participant"),
-      Vector.empty
+      Vector.empty,
+      StartupMode.MigrateAndStart
     )
 }

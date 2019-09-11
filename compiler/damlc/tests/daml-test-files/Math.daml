@@ -35,7 +35,7 @@ logTest = scenario do
   4.605170186 === log 100.0
   assert(abs(100.0 - exp (log 100.0)) <= 0.000000002)
   log10e27 === log (10.0 ^ 27)
-  assert(abs(log10em9 - log (10.0 ^ (negate 9))) <= 0.000000001)
+  assert(abs(log10em9 - log (10.0 ^ negate 9)) <= 0.000000001)
   assert(abs(25.0 - logBase 10.0 (10.0 ^ 25)) <= 0.0000000001)
 
 powerTest = scenario do
@@ -47,11 +47,11 @@ trigTest = scenario do
   let
     delta = 10.0 ^ (-10)
   assert (abs(sin (pi / 4.0) - cos (pi / 4.0)) <= 3.0 * delta)
-  assert (abs(0.0 - sin (0.0)) <= delta)
+  assert (abs(0.0 - sin 0.0) <= delta)
   assert (abs(1.0 - sin (pi / 2.0)) <= delta)
   assert (abs(1.0 + sin (3.0 * pi / 2.0)) <= delta)
-  assert (abs(2.0 ** (negate 0.5) - sin (pi / 4.0)) <= delta)
+  assert (abs(2.0 ** negate 0.5 - sin (pi / 4.0)) <= delta)
   assert (abs(3.0 ** 0.5 / 2.0 - sin (pi / 3.0)) <= 2.0 * delta)
-  
+
   assert (cos (15.0 * pi / 2.0) <= delta)
   assert (abs(0.5 - cos (pi / 3.0)) <= 4.0 * delta)

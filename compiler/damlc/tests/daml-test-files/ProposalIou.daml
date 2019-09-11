@@ -3,6 +3,7 @@
 
 -- An IOU to be proposed using the generic proposal workflow.
 -- @SINCE-LF 1.5
+-- @QUERY-LF [.modules[] | .data_types[] | select(.name.segments == ["ProposalIou"]) | .record | .fields[] | .field] == ["asset", "receivers", "name"]
 daml 1.2
 module ProposalIou where
 

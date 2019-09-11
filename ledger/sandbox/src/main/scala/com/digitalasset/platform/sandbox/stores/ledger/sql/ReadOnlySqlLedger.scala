@@ -11,6 +11,7 @@ import com.digitalasset.platform.common.util.{DirectExecutionContext => DEC}
 import com.digitalasset.platform.sandbox.metrics.MetricsManager
 import com.digitalasset.platform.sandbox.stores.ledger.ReadOnlyLedger
 import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.{
+  DbType,
   JdbcLedgerDao,
   LedgerDao,
   LedgerReadDao
@@ -39,9 +40,9 @@ object ReadOnlySqlLedger {
       mm: MetricsManager): Future[ReadOnlyLedger] = {
     implicit val ec: ExecutionContext = DEC
 
-    val dbType = JdbcLedgerDao.jdbcType(jdbcUrl)
+    val dbType = DbType.jdbcType(jdbcUrl)
     val dbDispatcher =
-      DbDispatcher(jdbcUrl, dbType, noOfShortLivedConnections, noOfStreamingConnections)
+      DbDispatcher(jdbcUrl, noOfShortLivedConnections, noOfStreamingConnections)
     val ledgerReadDao = LedgerDao.meteredRead(
       JdbcLedgerDao(
         dbDispatcher,
@@ -90,9 +91,6 @@ private class ReadOnlySqlLedgerFactory(ledgerDao: LedgerReadDao) {
   /** *
     * Creates a DB backed Ledger implementation.
     *
-    * @param initialLedgerId a random ledger id is generated if none given, if set it's used to initialize the ledger.
-    *                        In case the ledger had already been initialized, the given ledger id must not be set or must
-    *                        be equal to the one in the database.
     * @return a compliant read-only Ledger implementation
     */
   def createReadOnlySqlLedger(initialLedgerId: Option[LedgerId])(
@@ -147,6 +145,7 @@ private class ReadOnlySqlLedgerFactory(ledgerDao: LedgerReadDao) {
     logger.info(s"Found existing ledger with id: ${foundLedgerId.unwrap}")
     Future.successful(foundLedgerId)
   }
+
 }
 
 private object ReadOnlySqlLedgerFactory {

@@ -3,69 +3,27 @@
 
 package com.digitalasset.platform.sandbox.stores.ledger.sql.dao
 
-import java.time.Instant
-
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.daml.ledger.participant.state.index.v2.PackageDetails
-import com.daml.ledger.participant.state.v1.TransactionId
+import com.daml.ledger.participant.state.v1.{AbsoluteContractInst, TransactionId}
 import com.digitalasset.daml.lf.data.Ref.{LedgerString, PackageId, Party}
 import com.digitalasset.daml.lf.data.Relation.Relation
 import com.digitalasset.daml.lf.transaction.Node
-import com.digitalasset.daml.lf.transaction.Node.KeyWithMaintainers
-import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst, VersionedValue}
+import com.digitalasset.daml.lf.value.Value
+import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 import com.digitalasset.daml_lf.DamlLf.Archive
 import com.digitalasset.ledger._
 import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails}
 import com.digitalasset.platform.common.util.DirectExecutionContext
 import com.digitalasset.platform.sandbox.metrics.MetricsManager
-import com.digitalasset.platform.sandbox.stores.ActiveContracts.ActiveContract
+import com.digitalasset.platform.sandbox.stores.ActiveLedgerState.{ActiveContract, Contract}
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry.Transaction
 
 import scala.collection.immutable
 import scala.concurrent.Future
-
-final case class Contract(
-    contractId: AbsoluteContractId,
-    let: Instant,
-    transactionId: TransactionId,
-    workflowId: Option[WorkflowId],
-    witnesses: Set[Party],
-    divulgences: Map[Party, TransactionId],
-    coinst: ContractInst[VersionedValue[AbsoluteContractId]],
-    key: Option[KeyWithMaintainers[VersionedValue[AbsoluteContractId]]],
-    signatories: Set[Party],
-    observers: Set[Party]) {
-  def toActiveContract: ActiveContract =
-    ActiveContract(
-      let,
-      transactionId,
-      workflowId,
-      coinst,
-      witnesses,
-      divulgences,
-      key,
-      signatories,
-      observers,
-      coinst.agreementText)
-}
-
-object Contract {
-  def fromActiveContract(cid: AbsoluteContractId, ac: ActiveContract): Contract =
-    Contract(
-      cid,
-      ac.let,
-      ac.transactionId,
-      ac.workflowId,
-      ac.witnesses,
-      ac.divulgences,
-      ac.contract,
-      ac.key,
-      ac.signatories,
-      ac.observers)
-}
 
 /**
   * Every time the ledger persists a transactions, the active contract set (ACS) is updated.
@@ -79,7 +37,8 @@ object PersistenceEntry {
   final case class Transaction(
       entry: LedgerEntry.Transaction,
       localImplicitDisclosure: Relation[EventId, Party],
-      globalImplicitDisclosure: Relation[AbsoluteContractId, Party]
+      globalImplicitDisclosure: Relation[AbsoluteContractId, Party],
+      divulgedContracts: List[(Value.AbsoluteContractId, AbsoluteContractInst)]
   ) extends PersistenceEntry
   final case class Checkpoint(entry: LedgerEntry.Checkpoint) extends PersistenceEntry
 }
@@ -94,7 +53,7 @@ object PersistenceResponse {
 
 }
 
-case class LedgerSnapshot(offset: Long, acs: Source[Contract, NotUsed])
+case class LedgerSnapshot(offset: Long, acs: Source[ActiveContract, NotUsed])
 
 trait LedgerReadDao extends AutoCloseable {
 
@@ -111,8 +70,8 @@ trait LedgerReadDao extends AutoCloseable {
   /** Looks up the current external ledger end offset*/
   def lookupExternalLedgerEnd(): Future[Option[LedgerString]]
 
-  /** Looks up an active contract. Archived contracts must not be returned by this method */
-  def lookupActiveContract(contractId: AbsoluteContractId): Future[Option[Contract]]
+  /** Looks up an active or divulged contract. Archived contracts must not be returned by this method */
+  def lookupActiveOrDivulgedContract(contractId: AbsoluteContractId): Future[Option[Contract]]
 
   /**
     * Looks up a LedgerEntry at a given offset
@@ -217,7 +176,7 @@ trait LedgerWriteDao extends AutoCloseable {
     * @return Ok when the operation was successful
     */
   def storeInitialState(
-      activeContracts: immutable.Seq[Contract],
+      activeContracts: immutable.Seq[ActiveContract],
       ledgerEntries: immutable.Seq[(LedgerOffset, LedgerEntry)],
       newLedgerEnd: LedgerOffset
   ): Future[Unit]

@@ -528,6 +528,7 @@ hazel_repositories(
         # Excluded since we build it via the http_archive line above.
         "ghc-lib-parser",
         "ghc-paths",
+        "ghcide",
         "grpc-haskell",
         "grpc-haskell-core",
         "streaming-commons",
@@ -561,7 +562,7 @@ hazel_repositories(
             # Read [Working on ghc-lib] for ghc-lib update instructions at
             # https://github.com/digital-asset/daml/blob/master/ghc-lib/working-on-ghc-lib.md.
             hazel_ghclibs(GHC_LIB_VERSION, "8e223494b9622cfd46282a9544626f66e477d7652551cce7186603bfaa18d15d", "9fa2ea51c634c0d9b2a4b132abdec398c6b2eb0150821ac5664abff2fe63373d") +
-            hazel_github_external("digital-asset", "hlint", "783df11bb08d88f069cc22a698d7bc38323bd32d", "10ec5ba641eca0505ed2aa3367221c9ec4bc7467bbb3f41668407fd337d5c30e") +
+            hazel_github_external("digital-asset", "hlint", "0245fe3572764e9f01cbb1664f841906c7044c22", "4690214c7fa491c16751016dbae68e2e72b07a715ae1a5251e2692765c3848bc") +
             hazel_github_external("awakesecurity", "proto3-wire", "4f355bbac895d577d8a28f567ab4380f042ccc24", "031e05d523a887fbc546096618bc11dceabae224462a6cdd6aab11c1658e17a3") +
             hazel_github_external(
                 "awakesecurity",
@@ -622,6 +623,10 @@ hazel_repositories(
                 "eb2c732b3d4ab5f7b367c51eef845e597ade19da52c03ee11954d35b6cfc4128",
                 patch_args = ["-p1"],
                 patches = ["@com_github_digital_asset_daml//3rdparty/haskell:bzlib-conduit.patch"],
+            ) + hazel_hackage(
+                "hpp",
+                "0.6.1",
+                "d1a843f4383223f85de4d91759545966f33a139d0019ab30a2f766bf9a7d62bf",
             ),
         pkgs = packages,
     ),
@@ -670,6 +675,17 @@ hazel_custom_package_github(
     github_user = "nmattia-da",
     repo_sha = "05179164831432f207f3d43580c51161d519d191",
     strip_prefix = "wai-app-static",
+)
+
+GHCIDE_REV = "44b11667d8593ae84c48ca88e96f4f227deec096"
+
+# We need a custom build file to depend on ghc-lib and ghc-lib-parser
+hazel_custom_package_github(
+    package_name = "ghcide",
+    build_file = "//3rdparty/haskell:BUILD.ghcide",
+    github_repo = "ghcide",
+    github_user = "digital-asset",
+    repo_sha = GHCIDE_REV,
 )
 
 load("//bazel_tools:java.bzl", "java_home_runtime")

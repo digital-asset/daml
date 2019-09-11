@@ -185,11 +185,6 @@ alias(
 )
 
 alias(
-    name = "ghcide",
-    actual = "//compiler/ghcide:ghcide-exe",
-) if not is_windows else None  # Disable on Windows until ghc-paths is fixed upstream
-
-alias(
     name = "daml-lf-repl",
     actual = "//daml-lf/repl:repl",
 )

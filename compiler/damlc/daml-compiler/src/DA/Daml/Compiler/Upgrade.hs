@@ -92,9 +92,10 @@ generateUpgradeModule templateNames modName qualA qualB =
 
 upgradeTemplates :: String -> [String]
 upgradeTemplates n =
-    [ "type " <> n <> "Upgrade = Upgrade A." <> n <> " B." <> n
-    , "type " <> n <> "Rollback = Rollback A." <> n <> " B." <> n
+    [ "template instance " <> n <> "Upgrade = Upgrade A." <> n <> " B." <> n
+    , "template instance " <> n <> "Rollback = Rollback A." <> n <> " B." <> n
     , "instance Convertible A." <> n <> " B." <> n
+    , "instance Convertible B." <> n <> " A." <> n
     ]
 
 -- | Generate the full source for a daml-lf package.

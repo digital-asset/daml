@@ -100,6 +100,8 @@ The existence of a ``daml.yaml`` file is what tells ``daml`` that this directory
     scenario-service:
       grpc-max-message-size: 134217728
       grpc-timeout: 60
+    build-options: ["--ghc-option", "-Werror",
+                    "--ghc-option", "-v"]
 
 
 Here is what each field means:
@@ -125,6 +127,8 @@ Here is what each field means:
   - ``grpc-timeout``: This option controls the timeout used for communicating
     with the scenario service. If unspecified this defaults to 60s. Unless you get
     errors, there should be no reason to modify this.
+
+- ``build-options``: a list of tokens that will be appended to some invocations of ``damlc`` (currently `build` and `ide`). Note that there is no further shell parsing applied.
 
 ..  TODO (@robin-da) document the dependency syntax
 

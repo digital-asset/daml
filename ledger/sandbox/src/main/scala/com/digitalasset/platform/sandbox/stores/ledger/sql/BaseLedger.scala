@@ -18,7 +18,7 @@ import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.platform.akkastreams.dispatcher.Dispatcher
 import com.digitalasset.platform.akkastreams.dispatcher.SubSource.RangeSource
 import com.digitalasset.platform.common.util.DirectExecutionContext
-import com.digitalasset.platform.sandbox.stores.ActiveContracts
+import com.digitalasset.platform.sandbox.stores.ActiveLedgerState
 import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.LedgerReadDao
 import com.digitalasset.platform.sandbox.stores.ledger.{LedgerEntry, LedgerSnapshot, ReadOnlyLedger}
 
@@ -53,16 +53,14 @@ class BaseLedger(val ledgerId: LedgerId, headAtInitialization: Long, ledgerDao: 
     // 3. A GetActiveContractsRequest comes in and we look at the latest ledger_end offset in the database. We will see 6 (from transaction B).
     // 4. If we finish streaming the active contracts up to offset 6 before transaction A is properly inserted into the DB, the client will not see the contracts from transaction A
     // The fix to that is to use the latest known headRef, which is updated AFTER a batch has been inserted completely.
-    //TODO (robert): SQL DAO does not know about ActiveContract, this method does a (trivial) mapping from DAO Contract to Ledger ActiveContract. Intended? The DAO layer was introduced its own Contract abstraction so it can also reason read archived ones if it's needed. In hindsight, this might be necessary at all  so we could probably collapse the two
     ledgerDao
       .getActiveContractSnapshot(ledgerEnd)
-      .map(s => LedgerSnapshot(s.offset, s.acs.map(c => (c.contractId, c.toActiveContract))))(DEC)
+      .map(s => LedgerSnapshot(s.offset, s.acs))(DEC)
 
   override def lookupContract(
-      contractId: AbsoluteContractId): Future[Option[ActiveContracts.ActiveContract]] =
+      contractId: AbsoluteContractId): Future[Option[ActiveLedgerState.Contract]] =
     ledgerDao
-      .lookupActiveContract(contractId)
-      .map(_.map(c => c.toActiveContract))(DEC)
+      .lookupActiveOrDivulgedContract(contractId)
 
   override def lookupTransaction(
       transactionId: TransactionIdString): Future[Option[(Long, LedgerEntry.Transaction)]] =

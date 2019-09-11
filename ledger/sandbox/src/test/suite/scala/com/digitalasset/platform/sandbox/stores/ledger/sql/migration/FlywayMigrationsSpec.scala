@@ -6,7 +6,7 @@ package com.digitalasset.platform.sandbox.stores.ledger.sql.migration
 import java.math.BigInteger
 import java.security.MessageDigest
 
-import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.JdbcLedgerDao
+import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.DbType
 import com.digitalasset.platform.sandbox.stores.ledger.sql.migration.FlywayMigrations.configurationBase
 import org.flywaydb.core.internal.resource.LoadableResource
 import org.flywaydb.core.internal.scanner.Scanner
@@ -20,22 +20,22 @@ import scala.collection.JavaConverters._
 class FlywayMigrationsSpec extends WordSpec with Matchers {
 
   private val digester = MessageDigest.getInstance("SHA-256")
-  private def scannerOfDbType(dbType: JdbcLedgerDao.DbType) = {
+  private def scannerOfDbType(dbType: DbType) = {
     val config = configurationBase(dbType)
     new Scanner(config.getLocations.toList.asJava, getClass.getClassLoader, config.getEncoding)
   }
 
   "Postgres flyway migration files" should {
     "always have a valid SHA-256 digest file accompanied" in assertFlywayMigrationFileHashes(
-      JdbcLedgerDao.Postgres)
+      DbType.Postgres)
   }
 
   "H2 database flyway migration files" should {
     "always have a valid SHA-256 digest file accompanied" in assertFlywayMigrationFileHashes(
-      JdbcLedgerDao.H2Database)
+      DbType.H2Database)
   }
 
-  private def assertFlywayMigrationFileHashes(dbType: JdbcLedgerDao.DbType) = {
+  private def assertFlywayMigrationFileHashes(dbType: DbType) = {
     val resourceScanner = scannerOfDbType(dbType)
 
     resourceScanner
