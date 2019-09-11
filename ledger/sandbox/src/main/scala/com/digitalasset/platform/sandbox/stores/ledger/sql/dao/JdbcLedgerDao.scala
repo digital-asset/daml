@@ -371,7 +371,7 @@ private class JdbcLedgerDao(
       tx: Transaction,
       localImplicitDisclosure: Relation[EventId, Party],
       globalImplicitDisclosure: Relation[AbsoluteContractId, Party],
-      referencedContracts: List[(Value.AbsoluteContractId, AbsoluteContractInst)])(
+      divulgedContracts: List[(Value.AbsoluteContractId, AbsoluteContractInst)])(
       implicit connection: Connection): Option[RejectionReason] = tx match {
     case Transaction(
         _,
@@ -419,7 +419,7 @@ private class JdbcLedgerDao(
         override def divulgeAlreadyCommittedContracts(
             transactionId: TransactionIdString,
             global: Relation[AbsoluteContractId, Party],
-            referencedContracts: List[(Value.AbsoluteContractId, AbsoluteContractInst)]) = {
+            divulgedContracts: List[(Value.AbsoluteContractId, AbsoluteContractInst)]) = {
           val divulgenceParams = global
             .flatMap {
               case (cid, parties) =>
@@ -455,7 +455,7 @@ private class JdbcLedgerDao(
         disclosure,
         localImplicitDisclosure,
         globalImplicitDisclosure,
-        referencedContracts
+        divulgedContracts
       )
 
       atr match {
@@ -549,7 +549,7 @@ private class JdbcLedgerDao(
             tx,
             localImplicitDisclosure,
             globalImplicitDisclosure,
-            referencedContracts) =>
+            divulgedContracts) =>
           Try {
             storeTransaction(offset, tx)
 
@@ -558,7 +558,7 @@ private class JdbcLedgerDao(
               tx,
               localImplicitDisclosure,
               globalImplicitDisclosure,
-              referencedContracts)
+              divulgedContracts)
               .flatMap { rejectionReason =>
                 // we need to rollback the existing sql transaction
                 conn.rollback()

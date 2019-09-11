@@ -38,7 +38,7 @@ object PersistenceEntry {
       entry: LedgerEntry.Transaction,
       localImplicitDisclosure: Relation[EventId, Party],
       globalImplicitDisclosure: Relation[AbsoluteContractId, Party],
-      referencedContracts: List[(Value.AbsoluteContractId, AbsoluteContractInst)]
+      divulgedContracts: List[(Value.AbsoluteContractId, AbsoluteContractInst)]
   ) extends PersistenceEntry
   final case class Checkpoint(entry: LedgerEntry.Checkpoint) extends PersistenceEntry
 }
