@@ -74,7 +74,7 @@ data Options = Options
     -- ^ Enable CPP, by giving filepath to the executable.
   , optGhcVersionFile :: Maybe FilePath
     -- ^ Path to "ghcversion.h". Needed for running CPP. We ship this
-    -- an part of our runfiles.
+    -- as part of our runfiles. This is set by 'mkOptions'.
   } deriving Show
 
 newtype Haddock = Haddock Bool

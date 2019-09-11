@@ -262,7 +262,7 @@ adjustDynFlags options@Options{..} dflags
             { platformArch = P.ArchUnknown
             , platformOS = P.OSUnknown
             , platformWordSize = 8
-            , platformUnregisterised = False
+            , platformUnregisterised = True
             , platformHasGnuNonexecStack = False
             , platformHasIdentDirective = False
             , platformHasSubsectionsViaSymbols = False
