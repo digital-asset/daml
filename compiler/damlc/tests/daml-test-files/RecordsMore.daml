@@ -10,4 +10,4 @@ data B = B with y: A; z: A
 -- Check parsing/linting.
 
 f : Int -> A -> B
-f x a = B (a with x) (a with x)
+f x a = B a with x a with x
