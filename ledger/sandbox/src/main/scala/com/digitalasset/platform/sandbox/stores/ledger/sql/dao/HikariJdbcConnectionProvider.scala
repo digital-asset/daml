@@ -33,6 +33,7 @@ object HikariConnection {
       connectionTimeout: FiniteDuration): HikariDataSource = {
     val config = new HikariConfig
     config.setJdbcUrl(jdbcUrl)
+    config.setDriverClassName(DbType.jdbcType(jdbcUrl).driver)
     config.addDataSourceProperty("cachePrepStmts", "true")
     config.addDataSourceProperty("prepStmtCacheSize", "128")
     config.addDataSourceProperty("prepStmtCacheSqlLimit", "2048")
