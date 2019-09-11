@@ -12,6 +12,8 @@ module DA.Upgrade
   , Convertible(..)
   , GenConvertible
   , Upgrade(..)
+  , UpgradeInstance(..)
+  , RollbackInstance(..)
   , Rollback(..)
   )
   where
