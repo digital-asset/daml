@@ -26,9 +26,9 @@ da_haskell_binary(
     data = [
         "//compiler/damlc/daml-ide-core:dlint.yaml",
         ghc_pkg,
+        "//compiler/damlc:ghcversion",
         "//compiler/damlc/pkg-db",
         "//compiler/scenario-service/server:scenario_service_jar",
-        "//compiler/damlc:ghcversion",
     ],
     hackage_deps = [
         "base",
