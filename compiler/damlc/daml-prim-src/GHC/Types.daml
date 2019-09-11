@@ -5,7 +5,6 @@
 
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE MagicHash #-}
-{-# LANGUAGE CPP #-}
 {-# OPTIONS -Wno-unused-binds #-} -- the opaque constructors are not exported
 daml 1.2
 
