@@ -20,7 +20,7 @@ There are two modes:
 
 - command line configuration, specifying **all** settings in the command line
 
-- project file configuration mode, specifying **all** settings in the ``daml.yaml``
+- project file configuration, specifying **all** settings in the ``daml.yaml``
 
 Command line configuration
 --------------------------
@@ -79,19 +79,19 @@ All above settings can be configured in the ``codegen`` element of the DAML proj
         output-directory: scala-codegen/src/main/scala
         verbosity: 2
 
-You can run the above configuration to generate Java code::
+You can run the above configuration to generate **Java** code::
 
     $ daml codegen java
 
-and to generate Scala code::
+and to generate **Scala** code::
 
     $ daml codegen scala
 
-The equivalent DAML to Java command line configuration::
+The equivalent **DAML to Java** command line configuration::
 
     $ daml codegen java ./.daml/dist/quickstart-0.0.1.dar=com.digitalasset.quickstart.iou --output-directory=java-codegen/src/main/java --verbosity=2
 
-and DAML to Scala command line configuration::
+and **DAML to Scala** command line configuration::
 
     $ daml codegen scala ./.daml/dist/quickstart-0.0.1.dar=com.digitalasset.quickstart.iou --output-directory=scala-codegen/src/main/scala --verbosity=2
 
