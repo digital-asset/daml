@@ -928,6 +928,8 @@ optionsParser numProcessors enableScenarioService parsePkgName = Options
     <*> optNoDflagCheck
     <*> pure False
     <*> pure (Haddock False)
+    <*> optCppPath
+    <*> pure Nothing
   where
     optImportPath :: Parser [FilePath]
     optImportPath =
@@ -993,7 +995,12 @@ optionsParser numProcessors enableScenarioService parsePkgName = Options
       long "no-dflags-check" <>
       internal
 
-
+    optCppPath :: Parser (Maybe FilePath)
+    optCppPath = optional . option str
+        $ metavar "PATH"
+        <> long "cpp"
+        <> help "Set path to CPP."
+        <> internal
 
 optGhcCustomOptions :: Parser [String]
 optGhcCustomOptions =
