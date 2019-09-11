@@ -1,5 +1,6 @@
 -- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
+{-# LANGUAGE AllowAmbiguousTypes #-}
 
 -- Check that choices on generic templates can be exercised in generic contexts.
 daml 1.2
@@ -10,6 +11,8 @@ template Foo c with
     a : c
   where
     signatory p
+    key p : Party
+    maintainer key
 
     choice Delete: ()
       controller p
@@ -25,5 +28,10 @@ template Template (Foo c) => FooTrigger c with
       controller p
       do exercise fooCid Delete
 
-exerciseDelete : Template (Foo c) => ContractId (Foo c) -> Update ()
-exerciseDelete fooCid = exercise fooCid Delete
+deleteFoo : Template (Foo c) => ContractId (Foo c) -> Update ()
+deleteFoo fooCid = exercise fooCid Delete
+
+deleteFooByKey : forall c. Template (Foo c) => Party -> Update ()
+deleteFooByKey fooKey = do
+    (fooCid, _) <- fetchByKey @(Foo c) fooKey
+    exercise fooCid Delete
