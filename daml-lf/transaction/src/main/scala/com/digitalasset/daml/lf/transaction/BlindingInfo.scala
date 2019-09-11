@@ -20,7 +20,7 @@ import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
   * See also https://docs.daml.com/concepts/ledger-model/ledger-privacy.html#divulgence-when-non-stakeholders-see-contracts
   */
 case class BlindingInfo(
-    /** Divulgence, specified in terms of local node IDs */
+    /** Disclosure, specified in terms of local node IDs */
     disclosure: Relation[Transaction.NodeId, Party],
     /** Divulgence, specified in terms of local node IDs */
     localDivulgence: Relation[Transaction.NodeId, Party],
