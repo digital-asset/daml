@@ -112,3 +112,8 @@ support for running DAML.
      - `Digital Asset <https://digitalasset.com/>`__
      - `www.canton.io <https://www.canton.io>`__, has native support for :doc:`DAML's fine-grained privacy model
        </concepts/ledger-model/ledger-privacy>`.
+   * - `QLDB <https://aws.amazon.com/qldb/>`__
+     - In development
+     - `Blockchain Technology Partners <https://blockchaintp.com/>`__
+     - `press release, September 2019
+       <https://blog.daml.com/daml-driven/quantum-daml-amazon-qldb-goes-ga?utm_content=100649987&utm_medium=social&utm_source=twitter&hss_channel=tw-3245509722>`__
