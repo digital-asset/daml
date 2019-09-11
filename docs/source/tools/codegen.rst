@@ -7,7 +7,7 @@ DAML codegen
 Introduction
 ============
 
-You can use the DAML codegen to generate Java and Scala classes representing DAML contract templates. These classes incorporate all boilerplate code for constructing corresponding :ref:`com.digitalasset.ledger.api.v1.CreateCommand` and :ref:`com.digitalasset.ledger.api.v1.ExerciseCommand` ledger commands.
+You can use the DAML codegen to generate Java and Scala classes representing DAML contract templates. These classes incorporate all boilerplate code for constructing corresponding ledger :ref:`com.digitalasset.ledger.api.v1.CreateCommand` and :ref:`com.digitalasset.ledger.api.v1.ExerciseCommand`.
 
 Running the DAML codegen
 ========================
@@ -52,7 +52,7 @@ Both **DAML to Java** and **DAML to Scala** take the same set of configuration s
 Project file configuration
 --------------------------
 
-All above settings can be configured in the ``codegen`` element of the DAML project file ``daml.yaml``::
+The above settings can be configured in the ``codegen`` element of the DAML project file ``daml.yaml``. Here is an example::
 
     sdk-version: 0.0.0
     name: quickstart
