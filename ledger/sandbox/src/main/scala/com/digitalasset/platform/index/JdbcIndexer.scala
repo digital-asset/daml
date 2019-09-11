@@ -220,12 +220,12 @@ class JdbcIndexer private[index] (
             SandboxEventIdFormatter.fromTransactionId(transactionId, nodeId) -> parties
         }
 
-        val mappedLocalImplicitDisclosure = blindingInfo.localDivulgence.map {
+        val mappedLocalDivulgence = blindingInfo.localDivulgence.map {
           case (nodeId, parties) =>
             SandboxEventIdFormatter.fromTransactionId(transactionId, nodeId) -> parties
         }
 
-        assert(blindingInfo.localImplicitDisclosure.isEmpty)
+        assert(blindingInfo.localDivulgence.isEmpty)
 
         val pt = PersistenceEntry.Transaction(
           LedgerEntry.Transaction(
@@ -241,7 +241,7 @@ class JdbcIndexer private[index] (
               .mapNodeId(SandboxEventIdFormatter.fromTransactionId(transactionId, _)),
             mappedDisclosure
           ),
-          mappedLocalImplicitDisclosure,
+          mappedLocalDivulgence,
           blindingInfo.globalDivulgence,
           divulgedContracts.map(c => c.contractId -> c.contractInst)
         )
