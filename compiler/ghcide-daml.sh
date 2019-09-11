@@ -3,13 +3,12 @@
 # SPDX-License-Identifier: Apache-2.0
 
 set -euo pipefail
-cd "$(dirname "$0")"/../..
+cd "$(dirname "$0")"/..
 export RULES_HASKELL_EXEC_ROOT=$PWD/
 ENV_FILE=$(mktemp)
 ARGS_FILE=$(mktemp)
-bazel build //compiler/ghcide:ghcide-exe >/dev/null 2>&1
+bazel build @haskell_ghcide//:ghcide-exe >/dev/null 2>&1
 bazel run --define hie_bios_ghci=True //compiler/damlc:damlc@ghci -- "$ENV_FILE" "$ARGS_FILE" >/dev/null 2>&1
 source "$ENV_FILE"
 export HIE_BIOS_ARGS="$ARGS_FILE"
-./bazel-bin/compiler/ghcide/ghcide-exe $@
-
+./bazel-bin/external/haskell_ghcide/ghcide-exe $@

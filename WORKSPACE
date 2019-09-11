@@ -528,6 +528,7 @@ hazel_repositories(
         # Excluded since we build it via the http_archive line above.
         "ghc-lib-parser",
         "ghc-paths",
+        "ghcide",
         "grpc-haskell",
         "grpc-haskell-core",
         "streaming-commons",
@@ -670,6 +671,17 @@ hazel_custom_package_github(
     github_user = "nmattia-da",
     repo_sha = "05179164831432f207f3d43580c51161d519d191",
     strip_prefix = "wai-app-static",
+)
+
+GHCIDE_REV = "44b11667d8593ae84c48ca88e96f4f227deec096"
+
+# We need a custom build file to depend on ghc-lib and ghc-lib-parser
+hazel_custom_package_github(
+    package_name = "ghcide",
+    build_file = "//3rdparty/haskell:BUILD.ghcide",
+    github_repo = "ghcide",
+    github_user = "digital-asset",
+    repo_sha = GHCIDE_REV,
 )
 
 load("//bazel_tools:java.bzl", "java_home_runtime")

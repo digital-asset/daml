@@ -5,14 +5,16 @@ package com.digitalasset.platform.sandbox.stores
 
 import java.time.Instant
 
+import com.daml.ledger.participant.state.v1.AbsoluteContractInst
 import com.digitalasset.daml.lf.data.Ref.{Party, TransactionIdString}
 import com.digitalasset.daml.lf.data.Relation.Relation
-import com.digitalasset.daml.lf.transaction.Node.{GlobalKey, KeyWithMaintainers}
+import com.digitalasset.daml.lf.transaction.Node.GlobalKey
 import com.digitalasset.daml.lf.transaction.{GenTransaction, Node => N}
-import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst, VersionedValue}
+import com.digitalasset.daml.lf.value.Value
+import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 import com.digitalasset.ledger.WorkflowId
 import com.digitalasset.platform.sandbox.services.transaction.SandboxEventIdFormatter
-import com.digitalasset.platform.sandbox.stores.ActiveContracts._
+import com.digitalasset.platform.sandbox.stores.ActiveLedgerState._
 import com.digitalasset.platform.sandbox.stores.ledger.SequencingError
 import com.digitalasset.platform.sandbox.stores.ledger.SequencingError.PredicateType.{
   Exercise,
@@ -25,16 +27,23 @@ import com.digitalasset.platform.sandbox.stores.ledger.SequencingError.{
   TimeBeforeError
 }
 
-class ActiveContractsManager[ACS](initialState: => ACS)(implicit ACS: ACS => ActiveContracts[ACS]) {
+/**
+  * A helper for updating an [[ActiveLedgerState]] with new transactions:
+  * - Validates the transaction against the [[ActiveLedgerState]].
+  * - Updates the [[ActiveLedgerState].
+  */
+class ActiveLedgerStateManager[ALS](initialState: => ALS)(
+    implicit ACS: ALS => ActiveLedgerState[ALS]) {
 
   private case class AddTransactionState(
-      acc: Option[ACS],
+      acc: Option[ALS],
       errs: Set[SequencingError],
-      parties: Set[Party]) {
+      parties: Set[Party],
+      archivedIds: Set[AbsoluteContractId]) {
 
-    def mapAcs(f: ACS => ACS): AddTransactionState = copy(acc = acc map f)
+    def mapAcs(f: ALS => ALS): AddTransactionState = copy(acc = acc map f)
 
-    def result: Either[Set[SequencingError], ACS] = {
+    def result: Either[Set[SequencingError], ALS] = {
       acc match {
         case None =>
           if (errs.isEmpty) {
@@ -52,12 +61,12 @@ class ActiveContractsManager[ACS](initialState: => ACS)(implicit ACS: ACS => Act
   }
 
   private object AddTransactionState {
-    def apply(acs: ACS): AddTransactionState =
-      AddTransactionState(Some(acs), Set(), Set.empty)
+    def apply(acs: ALS): AddTransactionState =
+      AddTransactionState(Some(acs), Set(), Set.empty, Set.empty)
   }
 
   /**
-    * A higher order function to update an abstract active contract set (ACS) with the effects of the given transaction.
+    * A higher order function to update an abstract active ledger state (ALS) with the effects of the given transaction.
     * Makes sure that there are no double spends or timing errors.
     */
   def addTransaction[Nid](
@@ -67,26 +76,47 @@ class ActiveContractsManager[ACS](initialState: => ACS)(implicit ACS: ACS => Act
       transaction: GenTransaction.WithTxValue[Nid, AbsoluteContractId],
       explicitDisclosure: Relation[Nid, Party],
       localImplicitDisclosure: Relation[Nid, Party],
-      globalImplicitDisclosure: Relation[AbsoluteContractId, Party])
-    : Either[Set[SequencingError], ACS] = {
+      globalImplicitDisclosure: Relation[AbsoluteContractId, Party],
+      referencedContracts: List[(Value.AbsoluteContractId, AbsoluteContractInst)])
+    : Either[Set[SequencingError], ALS] = {
+    // NOTE(RC): `globalImplicitDisclosure` was meant to refer to contracts created in previous transactions.
+    // However, because we have translated relative to absolute IDs at this point, `globalImplicitDisclosure`
+    // will also point to contracts created in the same transaction.
+    //
+    // This is dealt with as follows:
+    // - First, all transaction nodes are traversed without updating divulgence info.
+    //   - When validating a fetch/exercise node, both the set of previously divulged contracts and
+    //     the newly divulged contracts is used.
+    //   - While traversing consuming exercise nodes, the set of all contracts archived in this transaction is collected.
+    // - Finally, divulgence information is updated using `globalImplicitDisclosure` minus the set of contracts
+    //   archived in this transaction.
     val st =
       transaction
         .fold[AddTransactionState](GenTransaction.TopDown, AddTransactionState(initialState)) {
-          case (ats @ AddTransactionState(None, _, _), _) => ats
-          case (ats @ AddTransactionState(Some(acc), errs, parties), (nodeId, node)) =>
-            // if some node requires a contract, check that we have that contract, and check that that contract is not
+          case (ats @ AddTransactionState(None, _, _, _), _) => ats
+          case (ats @ AddTransactionState(Some(acc), errs, parties, archivedIds), (nodeId, node)) =>
+            // If some node requires a contract, check that we have that contract, and check that that contract is not
             // created after the current let.
             def contractCheck(
                 cid: AbsoluteContractId,
                 predType: PredicateType): Option[SequencingError] =
               acc lookupContract cid match {
-                case None => Some(InactiveDependencyError(cid, predType))
-                case Some(otherTx) =>
-                  if (otherTx.let.isAfter(let)) {
-                    Some(TimeBeforeError(cid, otherTx.let, let, predType))
+                case Some(otherContract: ActiveContract) =>
+                  // Existing active contract, check its LET
+                  if (otherContract.let.isAfter(let)) {
+                    Some(TimeBeforeError(cid, otherContract.let, let, predType))
                   } else {
                     None
                   }
+                case Some(_: DivulgedContract) =>
+                  // Contract divulged in the past
+                  None
+                case None if referencedContracts.exists(_._1 == cid) =>
+                  // Contract is going to be divulged in this transaction
+                  None
+                case None =>
+                  // Contract not known
+                  Some(InactiveDependencyError(cid, predType))
               }
 
             node match {
@@ -98,14 +128,23 @@ class ActiveContractsManager[ACS](initialState: => ACS)(implicit ACS: ACS => Act
                 AddTransactionState(
                   Some(acc),
                   contractCheck(absCoid, Fetch).fold(errs)(errs + _),
-                  parties.union(nodeParties)
+                  parties.union(nodeParties),
+                  archivedIds
                 )
               case nc: N.NodeCreate.WithTxValue[AbsoluteContractId] =>
                 val nodeParties = nc.signatories
                   .union(nc.stakeholders)
                   .union(nc.key.map(_.maintainers).getOrElse(Set.empty))
                 val absCoid = SandboxEventIdFormatter.makeAbsCoid(transactionId)(nc.coid)
+                val withoutStakeHolders = localImplicitDisclosure
+                  .getOrElse(nodeId, Set.empty) diff nc.stakeholders
+                val withStakeHolders = localImplicitDisclosure
+                  .getOrElse(nodeId, Set.empty)
+
+                assert(withoutStakeHolders == withStakeHolders)
+
                 val activeContract = ActiveContract(
+                  id = absCoid,
                   let = let,
                   transactionId = transactionId,
                   workflowId = workflowId,
@@ -125,14 +164,18 @@ class ActiveContractsManager[ACS](initialState: => ACS)(implicit ACS: ACS => Act
                 )
                 activeContract.key match {
                   case None =>
-                    ats.copy(acc = Some(acc.addContract(absCoid, activeContract, None)))
+                    ats.copy(acc = Some(acc.addContract(activeContract, None)))
                   case Some(key) =>
                     val gk = GlobalKey(activeContract.contract.template, key.key)
                     if (acc keyExists gk) {
-                      AddTransactionState(None, errs + DuplicateKey(gk), parties.union(nodeParties))
+                      AddTransactionState(
+                        None,
+                        errs + DuplicateKey(gk),
+                        parties.union(nodeParties),
+                        archivedIds)
                     } else {
                       ats.copy(
-                        acc = Some(acc.addContract(absCoid, activeContract, Some(gk))),
+                        acc = Some(acc.addContract(activeContract, Some(gk))),
                         parties = parties.union(nodeParties)
                       )
                     }
@@ -145,14 +188,16 @@ class ActiveContractsManager[ACS](initialState: => ACS)(implicit ACS: ACS => Act
                 ats.copy(
                   errs = contractCheck(absCoid, Exercise).fold(errs)(errs + _),
                   acc = Some(if (ne.consuming) {
-                    acc.removeContract(absCoid, (acc lookupContract absCoid).flatMap(_.key) match {
-                      case None => None
-                      case Some(key) => Some(GlobalKey(ne.templateId, key.key))
-                    })
+                    val keyO = (acc lookupContract absCoid)
+                      .collect({ case c: ActiveContract => c })
+                      .flatMap(_.key)
+                      .map(key => GlobalKey(ne.templateId, key.key))
+                    acc.removeContract(absCoid, keyO)
                   } else {
                     acc
                   }),
-                  parties = parties.union(nodeParties)
+                  parties = parties.union(nodeParties),
+                  archivedIds = if (ne.consuming) archivedIds + absCoid else archivedIds
                 )
               case nlkup: N.NodeLookupByKey.WithTxValue[AbsoluteContractId] =>
                 // NOTE(FM) we do not need to check anything, since
@@ -162,47 +207,11 @@ class ActiveContractsManager[ACS](initialState: => ACS)(implicit ACS: ACS => Act
             }
         }
 
-    st.mapAcs(_ divulgeAlreadyCommittedContract (transactionId, globalImplicitDisclosure))
+    val divulgedContracts = globalImplicitDisclosure -- st.archivedIds
+    st.mapAcs(
+        _ divulgeAlreadyCommittedContracts (transactionId, divulgedContracts, referencedContracts))
       .mapAcs(_ addParties st.parties)
       .result
   }
-
-}
-
-trait ActiveContracts[+Self] { this: ActiveContracts[Self] =>
-  def lookupContract(cid: AbsoluteContractId): Option[ActiveContract]
-  def keyExists(key: GlobalKey): Boolean
-  def addContract(cid: AbsoluteContractId, c: ActiveContract, keyO: Option[GlobalKey]): Self
-  def removeContract(cid: AbsoluteContractId, keyO: Option[GlobalKey]): Self
-
-  /** Called once for each transaction with the set of parties found in that transaction.
-    * As the sandbox has an open world of parties, any party name mentioned in a transaction
-    * will implicitly add that name to the list of known parties.
-    */
-  def addParties(parties: Set[Party]): Self
-
-  /** Note that this method is about disclosing contracts _that have already been
-    * committed_. Implementors of `ActiveContracts` must take care to also store
-    * divulgence information already present in `ActiveContract#divulgences` in the `addContract`
-    * method.
-    */
-  def divulgeAlreadyCommittedContract(
-      transactionId: TransactionIdString,
-      global: Relation[AbsoluteContractId, Party]): Self
-}
-
-object ActiveContracts {
-
-  case class ActiveContract(
-      let: Instant, // time when the contract was committed
-      transactionId: TransactionIdString, // transaction id where the contract originates
-      workflowId: Option[WorkflowId], // workflow id from where the contract originates
-      contract: ContractInst[VersionedValue[AbsoluteContractId]],
-      witnesses: Set[Party],
-      divulgences: Map[Party, TransactionIdString], // for each party, the transaction id at which the contract was divulged
-      key: Option[KeyWithMaintainers[VersionedValue[AbsoluteContractId]]],
-      signatories: Set[Party],
-      observers: Set[Party],
-      agreementText: String)
 
 }

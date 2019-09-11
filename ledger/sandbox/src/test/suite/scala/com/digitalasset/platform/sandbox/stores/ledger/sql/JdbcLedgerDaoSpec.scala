@@ -34,6 +34,7 @@ import com.digitalasset.ledger.EventId
 import com.digitalasset.ledger.api.domain.{LedgerId, RejectionReason}
 import com.digitalasset.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.digitalasset.platform.sandbox.persistence.PostgresAroundAll
+import com.digitalasset.platform.sandbox.stores.ActiveLedgerState.ActiveContract
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry
 import com.digitalasset.platform.sandbox.stores.ledger.sql.dao._
 import com.digitalasset.platform.sandbox.stores.ledger.sql.migration.FlywayMigrations
@@ -120,17 +121,18 @@ class JdbcLedgerDaoSpec
         Set(alice)
       )
 
-      val contract = Contract(
+      val contract = ActiveContract(
         absCid,
         let,
         txId,
         Some(workflowId),
+        contractInstance,
         Set(alice, bob),
         Map(alice -> txId, bob -> txId),
-        contractInstance,
         Some(keyWithMaintainers),
         Set(alice, bob),
-        Set.empty
+        Set.empty,
+        contractInstance.agreementText
       )
 
       val transaction = LedgerEntry.Transaction(
@@ -157,7 +159,7 @@ class JdbcLedgerDaoSpec
         Map(event1 -> Set[Party]("Alice", "Bob"), event2 -> Set[Party]("Alice", "In", "Chains"))
       )
       for {
-        result1 <- ledgerDao.lookupActiveContract(absCid)
+        result1 <- ledgerDao.lookupActiveOrDivulgedContract(absCid)
         _ <- ledgerDao.storeLedgerEntry(
           offset,
           offset + 1,
@@ -166,10 +168,13 @@ class JdbcLedgerDaoSpec
             transaction,
             Map.empty,
             Map(
-              absCid -> Set(Ref.Party.assertFromString("Alice"), Ref.Party.assertFromString("Bob")))
+              absCid -> Set(
+                Ref.Party.assertFromString("Alice"),
+                Ref.Party.assertFromString("Bob"))),
+            List.empty
           )
         )
-        result2 <- ledgerDao.lookupActiveContract(absCid)
+        result2 <- ledgerDao.lookupActiveOrDivulgedContract(absCid)
         externalLedgerEnd <- ledgerDao.lookupExternalLedgerEnd()
       } yield {
         result1 shouldEqual None
@@ -351,7 +356,7 @@ class JdbcLedgerDaoSpec
           offset,
           offset + 1,
           None,
-          PersistenceEntry.Transaction(transaction, Map.empty, Map.empty))
+          PersistenceEntry.Transaction(transaction, Map.empty, Map.empty, List.empty))
         entry <- ledgerDao.lookupLedgerEntry(offset)
         endingOffset <- ledgerDao.lookupLedgerEnd()
       } yield {
@@ -416,7 +421,7 @@ class JdbcLedgerDaoSpec
           offset,
           offset + 1,
           None,
-          PersistenceEntry.Transaction(transaction, Map.empty, Map.empty))
+          PersistenceEntry.Transaction(transaction, Map.empty, Map.empty, List.empty))
         entry <- ledgerDao.lookupLedgerEntry(offset)
         endingOffset <- ledgerDao.lookupLedgerEnd()
       } yield {
@@ -512,7 +517,7 @@ class JdbcLedgerDaoSpec
             offset,
             offset + 1,
             None,
-            PersistenceEntry.Transaction(t, Map.empty, Map.empty))
+            PersistenceEntry.Transaction(t, Map.empty, Map.empty, List.empty))
           .map(_ => ())
       }
 
@@ -524,7 +529,7 @@ class JdbcLedgerDaoSpec
             offset,
             offset + 1,
             None,
-            PersistenceEntry.Transaction(t, Map.empty, Map.empty))
+            PersistenceEntry.Transaction(t, Map.empty, Map.empty, List.empty))
           .map(_ => ())
       }
 

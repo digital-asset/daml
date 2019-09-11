@@ -225,6 +225,8 @@ class JdbcIndexer private[index] (
             SandboxEventIdFormatter.fromTransactionId(transactionId, nodeId) -> parties
         }
 
+        assert(blindingInfo.localImplicitDisclosure.isEmpty)
+
         val pt = PersistenceEntry.Transaction(
           LedgerEntry.Transaction(
             optSubmitterInfo.map(_.commandId),
@@ -240,7 +242,8 @@ class JdbcIndexer private[index] (
             mappedDisclosure
           ),
           mappedLocalImplicitDisclosure,
-          blindingInfo.globalImplicitDisclosure
+          blindingInfo.globalImplicitDisclosure,
+          divulgedContracts.map(c => c.contractId -> c.contractInst)
         )
         ledgerDao
           .storeLedgerEntry(headRef, headRef + 1, externalOffset, pt)

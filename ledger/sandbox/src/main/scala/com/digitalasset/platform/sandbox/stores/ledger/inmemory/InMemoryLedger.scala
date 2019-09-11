@@ -33,13 +33,14 @@ import com.digitalasset.ledger.api.domain.{
   RejectionReason
 }
 import com.digitalasset.platform.sandbox.services.transaction.SandboxEventIdFormatter
+import com.digitalasset.platform.sandbox.stores.ActiveLedgerState.ActiveContract
 import com.digitalasset.platform.sandbox.stores.deduplicator.Deduplicator
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry.{Checkpoint, Rejection}
 import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
 import com.digitalasset.platform.sandbox.stores.ledger.{Ledger, LedgerEntry, LedgerSnapshot}
 import com.digitalasset.platform.sandbox.stores.{
-  ActiveContracts,
-  InMemoryActiveContracts,
+  ActiveLedgerState,
+  InMemoryActiveLedgerState,
   InMemoryPackageStore
 }
 import org.slf4j.LoggerFactory
@@ -53,7 +54,7 @@ import scala.util.{Failure, Success, Try}
 class InMemoryLedger(
     val ledgerId: LedgerId,
     timeProvider: TimeProvider,
-    acs0: InMemoryActiveContracts,
+    acs0: InMemoryActiveLedgerState,
     packageStoreInit: InMemoryPackageStore,
     ledgerEntries: ImmArray[LedgerEntryOrBump])
     extends Ledger {
@@ -87,13 +88,15 @@ class InMemoryLedger(
   // need to take the lock to make sure the two pieces of data are consistent.
   override def snapshot(): Future[LedgerSnapshot] =
     Future.successful(this.synchronized {
-      LedgerSnapshot(entries.ledgerEnd, Source(acs.contracts))
+      LedgerSnapshot(
+        entries.ledgerEnd,
+        Source.fromIterator[ActiveContract](() => acs.activeContracts.valuesIterator))
     })
 
   override def lookupContract(
-      contractId: AbsoluteContractId): Future[Option[ActiveContracts.ActiveContract]] =
+      contractId: AbsoluteContractId): Future[Option[ActiveLedgerState.Contract]] =
     Future.successful(this.synchronized {
-      acs.contracts.get(contractId)
+      acs.activeContracts.get(contractId)
     })
 
   override def lookupKey(key: Node.GlobalKey): Future[Option[AbsoluteContractId]] =
@@ -162,6 +165,7 @@ class InMemoryLedger(
         blindingInfo.explicitDisclosure,
         blindingInfo.localImplicitDisclosure,
         blindingInfo.globalImplicitDisclosure,
+        List.empty
       )
       acsRes match {
         case Left(err) =>
