@@ -555,7 +555,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
     "events are collected" in {
       val Right(blindingInfo) =
         Blinding.checkAuthorizationAndBlind(tx, Set(party))
-      val events = Event.collectEvents(tx, blindingInfo.explicitDisclosure)
+      val events = Event.collectEvents(tx, blindingInfo.disclosure)
       val partyEvents = events.events.values.toList.filter(_.witnesses contains party)
       partyEvents.size shouldBe 1
       partyEvents(0) match {
@@ -647,7 +647,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
     "events are collected" in {
       val Right(blindingInfo) =
         Blinding.checkAuthorizationAndBlind(tx, Set(alice))
-      val events = Event.collectEvents(tx, blindingInfo.explicitDisclosure)
+      val events = Event.collectEvents(tx, blindingInfo.disclosure)
       val partyEvents = events.events.values.toList.filter(_.witnesses contains alice)
       partyEvents.size shouldBe 1
       partyEvents(0) match {
@@ -977,7 +977,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
       val Right(tx) = interpretResult
       val Right(blindingInfo) =
         Blinding.checkAuthorizationAndBlind(tx, Set(bob))
-      val events = Event.collectEvents(tx, blindingInfo.explicitDisclosure)
+      val events = Event.collectEvents(tx, blindingInfo.disclosure)
       val partyEvents = events.filter(_.witnesses contains bob)
       partyEvents.roots.length shouldBe 1
       val bobExercise = partyEvents.events(partyEvents.roots(0))
