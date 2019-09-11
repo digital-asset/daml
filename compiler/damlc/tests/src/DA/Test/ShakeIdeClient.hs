@@ -279,17 +279,18 @@ dlintSmokeTests mbScenarioService = Tasty.testGroup "Dlint smoke tests"
             setFilesOfInterest [foo]
             expectNoErrors
             expectDiagnostic DsInfo (foo, 2, 0) "Warning: Use fewer imports"
-    ,  testCase' "Suggest use camelCase" $ do
-            foo <- makeFile "Foo.daml" $ T.unlines
-                [ "daml 1.2"
-                , "module Foo where"
-                , "my_fact (n : Int) : Int"
-                , "  | n <= 1    = 1"
-                , "  | otherwise = n * my_fact (n - 1)"
-                ]
-            setFilesOfInterest [foo]
-            expectNoErrors
-            expectDiagnostic DsInfo (foo, 2, 0) "Suggestion: Use camelCase"
+    -- Now disabled by default.
+    -- ,  testCase' "Suggest use camelCase" $ do
+    --         foo <- makeFile "Foo.daml" $ T.unlines
+    --             [ "daml 1.2"
+    --             , "module Foo where"
+    --             , "my_fact (n : Int) : Int"
+    --             , "  | n <= 1    = 1"
+    --             , "  | otherwise = n * my_fact (n - 1)"
+    --             ]
+    --         setFilesOfInterest [foo]
+    --         expectNoErrors
+    --         expectDiagnostic DsInfo (foo, 2, 0) "Suggestion: Use camelCase"
     ,  testCase' "Suggest reduce duplication" $ do
             foo <- makeFile "Foo.daml" $ T.unlines
                 [ "daml 1.2"
