@@ -5,6 +5,7 @@
 
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE MagicHash #-}
+{-# LANGUAGE CPP #-}
 {-# OPTIONS -Wno-unused-binds #-} -- the opaque constructors are not exported
 daml 1.2
 
@@ -117,6 +118,8 @@ data KindRep = KindRepTyConApp TyCon [KindRep]
              | KindRepTYPE !RuntimeRep
              | KindRepTypeLitS TypeLitSort Addr#
              | KindRepTypeLitD TypeLitSort [Char]
+
+#line 10
 
 -- | HIDE
 data TypeLitSort = TypeLitSymbol

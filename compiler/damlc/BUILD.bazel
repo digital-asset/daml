@@ -28,6 +28,7 @@ da_haskell_binary(
         ghc_pkg,
         "//compiler/damlc/pkg-db",
         "//compiler/scenario-service/server:scenario_service_jar",
+        "//compiler/damlc:ghcversion",
     ],
     hackage_deps = [
         "base",
@@ -37,6 +38,12 @@ da_haskell_binary(
     deps = [
         ":damlc-lib",
     ],
+)
+
+filegroup(
+    name = "ghcversion",
+    srcs = ["ghcversion.h"],
+    visibility = ["__pkg__"],
 )
 
 # damlc without runfiles. We use that to build the daml-prim and daml-stdlib
@@ -51,6 +58,7 @@ da_haskell_binary(
         "-optl-static",
         "-optl-pthread",
     ] if is_windows else [],
+    data = ["//compiler/damlc:ghcversion"],
     hackage_deps = [
         "base",
     ],

@@ -19,6 +19,7 @@ import Data.Bifunctor
 import Data.IORef
 import Data.List
 import DynFlags (parseDynamicFilePragma)
+import qualified Platform as P
 import qualified EnumSet
 import GHC                         hiding (convertLit)
 import GHC.LanguageExtensions.Type
@@ -230,15 +231,33 @@ adjustDynFlags options@Options{..} dflags
   dflags{
     mainModIs = mkModule primUnitId (mkModuleName "NotAnExistingName"), -- avoid DEL-6770
     debugLevel = 1,
-    ghcLink = NoLink, hscTarget = HscNothing -- avoid generating .o or .hi files
+    ghcLink = NoLink, hscTarget = HscNothing, -- avoid generating .o or .hi files
     {-, dumpFlags = Opt_D_ppr_debug `EnumSet.insert` dumpFlags dflags -- turn on debug output from GHC-}
+    ghcVersionFile = optGhcVersionFile
   }
   where
     apply f xs d = foldl' f d xs
     alterSettings f d = d { settings = f (settings d) }
     addCppFlags = case optCppPath of
         Nothing -> id
-        Just cppPath -> alterSettings (\s -> s { sPgm_P = (cppPath, [])})
+        Just cppPath -> alterSettings $ \s -> s
+            { sPgm_P = (cppPath, [])
+            , sOpt_P = []
+                -- Try adding "-P" here to suppress #line pragmas from the
+                -- preprocessor (hpp, specifically), if #line pragmas become
+                -- an issue. The reason they aren't an issue right now is because
+                -- ghcversion.h is empty, so no #line pragmas are generated.
+            , sTargetPlatform = P.Platform
+                { platformArch = P.ArchUnknown
+                , platformOS = P.OSUnknown
+                , platformWordSize = 8 -- 8 bytes / 64 bits
+                , platformUnregisterised = False
+                , platformHasGnuNonexecStack = False
+                , platformHasIdentDirective = False
+                , platformHasSubsectionsViaSymbols = False
+                , platformIsCrossCompiling = False
+                }
+            }
 
 setThisInstalledUnitId :: UnitId -> DynFlags -> DynFlags
 setThisInstalledUnitId unitId dflags =
