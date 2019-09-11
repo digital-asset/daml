@@ -980,8 +980,11 @@
 # --
 # DAML specific
 
+# Not popular or useful
+- ignore: {name: Use camelCase}
+# Not relevant to DAML
 - ignore: {name: Use newtype instead of data}
-
+# Bracketing rules
 - ignore: {name: Redundant bracket}
 - ignore: {name: Redundant $}
 - ignore: {name: Move brackets to avoid $}
