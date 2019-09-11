@@ -38,6 +38,6 @@ template (Asset t, Template (Swappable t)) => SwapProposal t with
            actualAssetInReturn <- fetch assetInReturnCid
            assert $ actualAssetInReturn == assetInReturn
            archive assetInReturnCid
-           proposersNewAsset <- create $ Swappable $ assetInReturn.asset with owner = proposer
-           proposeesNewAsset <- create $ Swappable $ assetOffered.asset with owner = proposee
+           proposersNewAsset <- create $ Swappable assetInReturn.asset with owner = proposer
+           proposeesNewAsset <- create $ Swappable assetOffered.asset with owner = proposee
            return (proposersNewAsset, proposeesNewAsset)
