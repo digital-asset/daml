@@ -229,7 +229,7 @@ private[kvutils] case class ProcessTransactionSubmission(
           key -> DamlStateValue.newBuilder.setContractState(cs).build
       }),
       // Update contract state of divulged contracts
-      sequence2(blindingInfo.globalImplicitDisclosure.map {
+      sequence2(blindingInfo.globalDivulgence.map {
         case (absCoid, parties) =>
           val key = absoluteContractIdToStateKey(absCoid)
           getContractState(key).flatMap { cs =>

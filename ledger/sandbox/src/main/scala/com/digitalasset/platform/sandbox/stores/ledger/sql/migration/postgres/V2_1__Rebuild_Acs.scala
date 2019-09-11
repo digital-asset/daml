@@ -782,7 +782,7 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
               .mapContractIdAndValue(toCoid, _.mapContractId(toCoid))
 
             val blindingInfo = Blinding.blind(unmappedTx)
-            val mappedLocalImplicitDisclosure = blindingInfo.localImplicitDisclosure.map {
+            val mappedLocalImplicitDisclosure = blindingInfo.localDivulgence.map {
               case (k, v) => SandboxEventIdFormatter.fromTransactionId(tx.transactionId, k) -> v
             }
 
@@ -790,7 +790,7 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
               offset,
               tx,
               mappedLocalImplicitDisclosure,
-              blindingInfo.globalImplicitDisclosure)
+              blindingInfo.globalDivulgence)
           })
       }
     })

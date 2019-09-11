@@ -215,12 +215,12 @@ class JdbcIndexer private[index] (
 
         val blindingInfo = Blinding.blind(transaction.mapContractId(cid => cid: ContractId))
 
-        val mappedDisclosure = blindingInfo.explicitDisclosure.map {
+        val mappedDisclosure = blindingInfo.disclosure.map {
           case (nodeId, parties) =>
             SandboxEventIdFormatter.fromTransactionId(transactionId, nodeId) -> parties
         }
 
-        val mappedLocalImplicitDisclosure = blindingInfo.localImplicitDisclosure.map {
+        val mappedLocalImplicitDisclosure = blindingInfo.localDivulgence.map {
           case (nodeId, parties) =>
             SandboxEventIdFormatter.fromTransactionId(transactionId, nodeId) -> parties
         }
@@ -242,7 +242,7 @@ class JdbcIndexer private[index] (
             mappedDisclosure
           ),
           mappedLocalImplicitDisclosure,
-          blindingInfo.globalImplicitDisclosure,
+          blindingInfo.globalDivulgence,
           divulgedContracts.map(c => c.contractId -> c.contractInst)
         )
         ledgerDao

@@ -118,9 +118,9 @@ final case class IndexState(
               transactionId = u.transactionId,
               workflowId = u.transactionMeta.workflowId,
               transaction = u.transaction,
-              explicitDisclosure = blindingInfo.explicitDisclosure,
-              localImplicitDisclosure = blindingInfo.localImplicitDisclosure,
-              globalImplicitDisclosure = blindingInfo.globalImplicitDisclosure,
+              explicitDisclosure = blindingInfo.disclosure,
+              localImplicitDisclosure = blindingInfo.localDivulgence,
+              globalImplicitDisclosure = blindingInfo.globalDivulgence,
               referencedContracts = u.divulgedContracts.map(c => c.contractId -> c.contractInst)
             )
             .fold(_ => Left(SequencingError), { newActiveContracts =>
