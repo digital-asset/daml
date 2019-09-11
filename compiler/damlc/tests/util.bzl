@@ -75,7 +75,6 @@ def damlc_integration_test(name, main_function):
         deps = [
             "//compiler/daml-lf-ast",
             "//compiler/daml-lf-proto",
-            "//compiler/ghcide",
             "//compiler/damlc/daml-compiler",
             "//compiler/damlc/daml-ide-core",
             "//compiler/damlc/daml-lf-conversion",
@@ -98,6 +97,7 @@ def damlc_integration_test(name, main_function):
             "filepath",
             "ghc-lib",
             "ghc-lib-parser",
+            "ghcide",
             "lens",
             "lens-aeson",
             "optparse-applicative",

@@ -16,6 +16,7 @@ da_haskell_library(
         "containers",
         "data-default",
         "extra",
+        "ghcide",
         "haskell-lsp",
         "haskell-lsp-types",
         "network-uri",
@@ -35,7 +36,6 @@ da_haskell_library(
         "//compiler/damlc/daml-ide-core",
         "//compiler/damlc/daml-lf-conversion",
         "//compiler/damlc/daml-visual",
-        "//compiler/ghcide",
         "//libs-haskell/da-hs-base",
     ],
 )

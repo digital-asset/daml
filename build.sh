@@ -34,5 +34,5 @@ bazel query 'deps(//...)' > /dev/null
 # Check that we can load damlc in ghci
 da-ghci --data yes //:repl -e '()'
 # Check that our IDE works on our codebase
-./compiler/ghcide/ghcide-daml.sh compiler/damlc/exe/Main.hs 2>&1 | tee ide-log
+./compiler/ghcide-daml.sh compiler/damlc/exe/Main.hs 2>&1 | tee ide-log
 grep -q "Files that failed: 0" ide-log

@@ -118,41 +118,6 @@ jobs:
       - template: ci/tell-slack-failed.yml
       - template: ci/report-end.yml
 
-  - job: ghcide_stack_86
-    timeoutInMinutes: 60
-    pool:
-      vmImage: 'ubuntu-latest'
-    steps:
-      - template: ci/report-start.yml
-      - checkout: self
-      - task: CacheBeta@0
-        inputs:
-          key: stack-cache-v1 | $(Agent.OS) | $(Build.SourcesDirectory)/compiler/ghcide/stack.yaml | $(Build.SourcesDirectory)/compiler/ghcide/ghcide.cabal
-          path: .azure-cache
-          cacheHitVar: CACHE_RESTORED
-        displayName: "Cache stack artifacts"
-      - bash: |
-          mkdir -p ~/.stack
-          tar xzf .azure-cache/stack-root.tar.gz -C $HOME
-        displayName: "Unpack cache"
-        condition: eq(variables.CACHE_RESTORED, 'true')
-      - bash: |
-          sudo apt-get install -y g++ gcc libc6-dev libffi-dev libgmp-dev make zlib1g-dev
-          curl -sSL https://get.haskellstack.org/ | sh
-        displayName: 'Install Stack'
-      - bash: (cd compiler/ghcide; stack setup)
-        displayName: 'stack setup'
-      - bash: (cd compiler/ghcide; stack build --only-dependencies)
-        displayName: 'stack build --only-dependencies --test'
-      - bash: (cd compiler/ghcide; stack test || stack test || stack test)
-        # ghcide stack tests are flaky, see https://github.com/digital-asset/daml/issues/2606.
-        displayName: 'stack test'
-      - bash: |
-          mkdir -p .azure-cache
-          tar czf .azure-cache/stack-root.tar.gz -C $HOME .stack
-        displayName: "Pack cache"
-      - template: ci/tell-slack-failed.yml
-      - template: ci/report-end.yml
   - job: Windows_signing
     # Signing is a separate job so that we can make sure that we only sign on releases.
     # Since the release check is run on Linux, we do not have access to that information
@@ -252,7 +217,7 @@ jobs:
 
   - job: collect_build_data
     condition: always()
-    dependsOn: ["Linux", "macOS", "Windows", "Windows_signing", "perf", "release", "ghcide_stack_86"]
+    dependsOn: ["Linux", "macOS", "Windows", "Windows_signing", "perf", "release"]
     pool:
       name: "linux-pool"
     variables:
@@ -280,10 +245,6 @@ jobs:
       release.machine: $[ dependencies.release.outputs['start.machine'] ]
       release.end: $[ dependencies.release.outputs['end.time'] ]
       release.status: $[ dependencies.release.result ]
-      ghcide_stack_86.start: $[ dependencies.ghcide_stack_86.outputs['start.time'] ]
-      ghcide_stack_86.machine: $[ dependencies.ghcide_stack_86.outputs['start.machine'] ]
-      ghcide_stack_86.end: $[ dependencies.ghcide_stack_86.outputs['end.time'] ]
-      ghcide_stack_86.status: $[ dependencies.ghcide_stack_86.result ]
     steps:
       - checkout: self
       - bash: |
@@ -314,11 +275,7 @@ jobs:
                     "release": {"start": "$(release.start)",
                                 "machine": "$(release.machine)",
                                 "end": "$(release.end)",
-                                "status": "$(release.status)"},
-                    "ghcide_stack_86": {"start": "$(ghcide_stack_86.start)",
-                                          "machine": "$(ghcide_stack_86.machine)",
-                                          "end": "$(ghcide_stack_86.end)",
-                                          "status": "$(ghcide_stack_86.status)"}},
+                                "status": "$(release.status)"}},
            "id": "$(Build.BuildId)",
            "url": "https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)",
            "name": "$(Build.DefinitionName)",
