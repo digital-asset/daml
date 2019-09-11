@@ -227,6 +227,7 @@ adjustDynFlags options@Options{..} dflags
   $ apply xopt_set xExtensionsSet
   $ apply xopt_unset xExtensionsUnset
   $ apply gopt_set (xFlagsSet options)
+  $ addPlatformFlags
   $ addCppFlags
   dflags{
     mainModIs = mkModule primUnitId (mkModuleName "NotAnExistingName"), -- avoid DEL-6770
@@ -242,22 +243,32 @@ adjustDynFlags options@Options{..} dflags
         Nothing -> id
         Just cppPath -> alterSettings $ \s -> s
             { sPgm_P = (cppPath, [])
-            , sOpt_P = []
-                -- Try adding "-P" here to suppress #line pragmas from the
-                -- preprocessor (hpp, specifically), if #line pragmas become
-                -- an issue. The reason they aren't an issue right now is because
-                -- ghcversion.h is empty, so no #line pragmas are generated.
-            , sTargetPlatform = P.Platform
-                { platformArch = P.ArchUnknown
-                , platformOS = P.OSUnknown
-                , platformWordSize = 8 -- 8 bytes / 64 bits
-                , platformUnregisterised = False
-                , platformHasGnuNonexecStack = False
-                , platformHasIdentDirective = False
-                , platformHasSubsectionsViaSymbols = False
-                , platformIsCrossCompiling = False
-                }
+            , sOpt_P = ["-P"]
+                -- We add "-P" here to suppress #line pragmas from the
+                -- preprocessor (hpp, specifically) because the daml
+                -- parser can't handle them. This is a non-issue right now
+                -- because ghcversion.h is empty, but if it weren't empty
+                -- it would result in #line pragmas. By suppressing these
+                -- pragmas, line numbers may be wrong up when using CPP.
+                -- Ideally we fix the issue with the daml parser and
+                -- then remove this flag.
             }
+
+    -- We need to add platform info in order to run CPP. To prevent
+    -- .hi file incompatibilities, we set the platform the same way
+    -- for everyone even if they don't use CPP.
+    addPlatformFlags = alterSettings $ \s -> s
+        { sTargetPlatform = P.Platform
+            { platformArch = P.ArchUnknown
+            , platformOS = P.OSUnknown
+            , platformWordSize = 8
+            , platformUnregisterised = False
+            , platformHasGnuNonexecStack = False
+            , platformHasIdentDirective = False
+            , platformHasSubsectionsViaSymbols = False
+            , platformIsCrossCompiling = False
+            }
+        }
 
 setThisInstalledUnitId :: UnitId -> DynFlags -> DynFlags
 setThisInstalledUnitId unitId dflags =
