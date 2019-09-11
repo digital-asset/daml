@@ -40,9 +40,14 @@ da_haskell_binary(
     ],
 )
 
-filegroup(
+genrule(
     name = "ghcversion",
-    srcs = ["ghcversion.h"],
+    srcs = [],
+    outs = ["ghcversion.h"],
+    cmd = """
+        echo > $(OUTS)
+    """,
+    tools = [],
     visibility = ["__pkg__"],
 )
 
