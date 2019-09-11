@@ -42,13 +42,26 @@ object ValuePredicate {
       }(fallback = ???)
 
     def fromCon(it: JsValue, id: Ref.Identifier, typ: iface.DataType.FWT): Result =
-      typ match {
-        case iface.Record(fieldTyps) => ???
+      (typ, it).match2 {
+        case iface.Record(fieldTyps) => {
+          case JsObject(fields) =>
+            val lookup = fieldTyps.toMap[String, iface.Type]
+            RecordSubset(fields transform { (fName, fSpec) =>
+              fromValue(
+                fSpec,
+                lookup.getOrElse(
+                  fName,
+                  sys.error(s"no field $fName in ${id.qualifiedName.qualifiedName}")))
+            })
+        }
         case iface.Variant(fieldTyps) => ???
-        case iface.Enum(ctors) => ???
-      }
+        case e @ iface.Enum(_) => {
+          case JsString(s) => fromEnum(s, e)
+        }
+      }(fallback = ???)
 
-    def fromEnum(it: String, typ: iface.Enum): Result = ???
+    def fromEnum(it: String, typ: iface.Enum): Result =
+      if (typ.constructors contains it) ??? else sys.error("not a member of the enum")
 
     def fromPrim(it: JsValue, typ: iface.TypePrim): Result = {
       import iface.PrimType._
