@@ -158,7 +158,8 @@ onExp (L o (SectionR _ mid@(isDot -> True) rhs))
     , srcSpanStart o == srcSpanStart (getLoc mid)
     , srcSpanEnd o == srcSpanEnd (getLoc rhs)
     , Just sels <- getSelectors rhs
-    -- Don't bracket : it came in as a section so it's already enclosed.
+    -- Don't bracket here. The argument came in as a section so it's
+    -- already enclosed in brackets.
     = setL o $ foldl1 (\x y -> noL $ OpApp noE x (mkVar var_dot) y) $ map (mkVar var_getField `mkAppType`) $ reverse sels
 
 -- Turn a{b=c, ...} into setField calls

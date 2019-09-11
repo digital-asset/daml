@@ -1,0 +1,13 @@
+-- Copyright (c) 2019, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+daml 1.2
+module RecordUpdateExp where
+
+data A = A with x: Int
+data B = B with y: A; z: A
+
+-- Check parsing/linting.
+
+f : Int -> A -> B
+f x a = B (a with x) (a with x)
