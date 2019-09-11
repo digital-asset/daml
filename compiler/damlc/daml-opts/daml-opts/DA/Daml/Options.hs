@@ -40,12 +40,13 @@ toCompileOpts options@Options{..} reportProgress =
     Ghcide.IdeOptions
       { optPreprocessor = if optIsGenerated then noPreprocessor else damlPreprocessor optMbPackageName
       , optGhcSession = do
-            env <- liftIO $ runGhcFast $ do
+            env <- runGhcFast $ do
                 setupDamlGHC options
                 GHC.getSession
-            pkg <- liftIO $ generatePackageState optPackageDbs optHideAllPkgs $ map (second toRenaming) optPackageImports
-            dflags <- liftIO $ checkDFlags options $ setPackageDynFlags pkg $ hsc_dflags env
-            return env{hsc_dflags = dflags}
+            pkg <- generatePackageState optPackageDbs optHideAllPkgs $ map (second toRenaming) optPackageImports
+            dflags <- checkDFlags options $ setPackageDynFlags pkg $ hsc_dflags env
+            hscenv <- newHscEnvEq env{hsc_dflags = dflags}
+            return $ const $ return hscenv
       , optPkgLocationOpts = Ghcide.IdePkgLocationOptions
           { optLocateHieFile = locateInPkgDb "hie"
           , optLocateSrcFile = locateInPkgDb "daml"
