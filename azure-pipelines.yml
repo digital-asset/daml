@@ -160,6 +160,11 @@ jobs:
     dependsOn: [ "Linux", "macOS", "Windows", "Windows_signing", "perf"]
     pool:
       vmImage: "Ubuntu-16.04"
+    # As of 2019-09-04, Azure seems to be unable to handle more than 2
+    # references to a dependency in the `condition` field. Therefore, I have
+    # removed the check for the Windows job output, as, at the moment, it
+    # always sets its `has_released` variable to true so in effect that check
+    # is already covered by the `succeeded` call.
     condition: and(succeeded(),
                    eq( dependencies.Linux.outputs['release.has_released'], 'true' ),
                    eq( dependencies.macOS.outputs['release.has_released'], 'true' ))
