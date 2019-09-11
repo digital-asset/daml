@@ -118,8 +118,6 @@ data KindRep = KindRepTyConApp TyCon [KindRep]
              | KindRepTypeLitS TypeLitSort Addr#
              | KindRepTypeLitD TypeLitSort [Char]
 
-#line 10
-
 -- | HIDE
 data TypeLitSort = TypeLitSymbol
                  | TypeLitNat
