@@ -358,3 +358,124 @@ dlintDisabledOpt = flag' DlintDisabled
 dlintUsageOpt :: Parser DlintUsage
 dlintUsageOpt = fmap (fromMaybe DlintDisabled . lastMay) $
   many (dlintEnabledOpt <|> dlintDisabledOpt)
+
+
+optDebugLog :: Parser Bool
+optDebugLog = switch $ help "Enable debug output" <> long "debug"
+
+optPackageName :: Parser (Maybe String)
+optPackageName = optional $ strOption $
+       metavar "PACKAGE-NAME"
+    <> help "create package artifacts for the given package name"
+    <> long "package-name"
+
+-- | Parametrized by the type of pkgname parser since we want that to be different for
+-- "package".
+optionsParser :: Int -> EnableScenarioService -> Parser (Maybe String) -> Parser Options
+optionsParser numProcessors enableScenarioService parsePkgName = Options
+    <$> optImportPath
+    <*> optPackageDir
+    <*> parsePkgName
+    <*> optWriteIface
+    <*> pure Nothing
+    <*> optHideAllPackages
+    <*> many optPackage
+    <*> shakeProfilingOpt
+    <*> optShakeThreads
+    <*> lfVersionOpt
+    <*> optDebugLog
+    <*> optGhcCustomOptions
+    <*> pure enableScenarioService
+    <*> pure (optScenarioValidation $ defaultOptions Nothing)
+    <*> dlintUsageOpt
+    <*> pure False
+    <*> optNoDflagCheck
+    <*> pure False
+    <*> pure (Haddock False)
+    <*> optCppPath
+    <*> pure Nothing
+  where
+    optImportPath :: Parser [FilePath]
+    optImportPath =
+        many $
+        strOption $
+        metavar "INCLUDE-PATH" <>
+        help "Path to an additional source directory to be included" <>
+        long "include"
+
+    optPackageDir :: Parser [FilePath]
+    optPackageDir = many $ strOption $ metavar "LOC-OF-PACKAGE-DB"
+                      <> help "use package database in the given location"
+                      <> long "package-db"
+
+    optWriteIface :: Parser Bool
+    optWriteIface =
+        switch $
+          help "Whether to write interface files during type checking, required for building a package such as daml-prim" <>
+          long "write-iface"
+
+    optPackage :: Parser (String, [(String, String)])
+    optPackage =
+      option auto $
+      metavar "PACKAGE" <>
+      help "explicit import of a package with optional renaming of modules" <>
+      long "package" <>
+      internal
+
+    optHideAllPackages :: Parser Bool
+    optHideAllPackages =
+      switch $
+      help "hide all packages, use -package for explicit import" <>
+      long "hide-all-packages" <>
+      internal
+
+    -- optparse-applicative does not provide a nice way
+    -- to make the argument for -j optional, see
+    -- https://github.com/pcapriotti/optparse-applicative/issues/243
+    optShakeThreads :: Parser Int
+    optShakeThreads =
+        flag' numProcessors
+          (short 'j' <>
+           internal) <|>
+        option auto
+          (long "jobs" <>
+           metavar "THREADS" <>
+           help threadsHelp <>
+           value 1)
+    threadsHelp =
+        unlines
+            [ "The number of threads to run in parallel."
+            , "When -j is not passed, 1 thread is used."
+            , "If -j is passed, the number of threads defaults to the number of processors."
+            , "Use --jobs=N to explicitely set the number of threads to N."
+            , "Note that the output is not deterministic for > 1 job."
+            ]
+
+
+    optNoDflagCheck :: Parser Bool
+    optNoDflagCheck =
+      flag True False $
+      help "Dont check generated GHC DynFlags for errors." <>
+      long "no-dflags-check" <>
+      internal
+
+    optCppPath :: Parser (Maybe FilePath)
+    optCppPath = optional . option str
+        $ metavar "PATH"
+        <> long "cpp"
+        <> help "Set path to CPP."
+        <> internal
+
+optGhcCustomOptions :: Parser [String]
+optGhcCustomOptions =
+    fmap concat $ many $
+    option (stringsSepBy ' ') $
+    long "ghc-option" <>
+    metavar "OPTION" <>
+    help "Options to pass to the underlying GHC"
+
+shakeProfilingOpt :: Parser (Maybe FilePath)
+shakeProfilingOpt = optional $ strOption $
+       metavar "PROFILING-REPORT"
+    <> help "Directory for Shake profiling reports"
+    <> long "shake-profiling"
