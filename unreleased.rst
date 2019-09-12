@@ -10,3 +10,6 @@ HEAD — ongoing
 --------------
 
 + [Java codegen] If the DAR source cannot be read, the application crashes and prints an error report.
++ [DAML Assistant] Java and Scala codegen is now integrated with the
+  assistant and distributed with the SDK. It can be run via ``daml codegen``.
+  You can find more information in the `DAML Assistant documentation <https://docs.daml.com/tools/assistant.html>`_.
