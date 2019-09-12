@@ -5,6 +5,7 @@ package com.digitalasset.daml.lf.speedy
 
 import java.util
 
+import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.PureCompiledPackages
 import com.digitalasset.daml.lf.data.{FrontStack, Ref}
 import com.digitalasset.daml.lf.language.Ast
@@ -19,6 +20,7 @@ import org.scalatest.{Matchers, WordSpec}
 class SpeedyTest extends WordSpec with Matchers {
 
   import SpeedyTest._
+  import defaultParserParameters.{defaultPackageId => pkgId}
 
   "pattern matching" should {
 
@@ -89,6 +91,74 @@ class SpeedyTest extends WordSpec with Matchers {
       eval(e"""Matcher:enum Mod:Color:Blue""", pkgs) shouldBe Right(SInt64(43))
     }
 
+  }
+
+  val anyTemplatePkg =
+    p"""
+      module Test {
+        record @serializable T1 = { party: Party } ;
+        template (record : T1) = {
+          precondition True,
+          signatories Cons @Party [(Test:T1 {party} record)] (Nil @Party),
+          observers Nil @Party,
+          agreement "Agreement",
+          choices {
+          }
+        } ;
+        record @serializable T2 = { party: Party } ;
+        template (record : T2) = {
+          precondition True,
+          signatories Cons @Party [(Test:T2 {party} record)] (Nil @Party),
+          observers Nil @Party,
+          agreement "Agreement",
+          choices {
+          }
+        } ;
+     }
+    """
+
+  val anyTemplatePkgs = typeAndCompile(anyTemplatePkg)
+
+  "to_any_template" should {
+
+    "throw an exception on Int64" in {
+      eval(e"""to_any_template 1""", anyTemplatePkgs) shouldBe 'left
+    }
+    "succeed on template type" in {
+      eval(e"""to_any_template (Test:T1 {party = 'Alice'})""", anyTemplatePkgs) shouldBe
+        Right(
+          SAnyTemplate(SRecord(
+            Identifier(pkgId, QualifiedName.assertFromString("Test:T1")),
+            Name.Array(Name.assertFromString("party")),
+            ArrayList(SParty(Party.assertFromString("Alice")))
+          )))
+    }
+
+  }
+
+  "from_any_template" should {
+
+    "throw an exception on Int64" in {
+      eval(e"""from_any_template @Test:T1 1""", anyTemplatePkgs) shouldBe 'left
+    }
+
+    "return Some(tpl) if template id matches" in {
+      eval(
+        e"""from_any_template @Test:T1 (to_any_template (Test:T1 {party = 'Alice'}))""",
+        anyTemplatePkgs) shouldBe
+        Right(
+          SOptional(Some(SRecord(
+            Identifier(pkgId, QualifiedName.assertFromString("Test:T1")),
+            Name.Array(Name.assertFromString("party")),
+            ArrayList(SParty(Party.assertFromString("Alice")))
+          ))))
+    }
+
+    "return None if template id does not match" in {
+      eval(
+        e"""from_any_template @Test:T2 (to_any_template (Test:T1 {party = 'Alice'}))""",
+        anyTemplatePkgs) shouldBe Right(SOptional(None))
+    }
   }
 
 }

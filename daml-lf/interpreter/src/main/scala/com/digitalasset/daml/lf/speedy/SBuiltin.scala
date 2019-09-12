@@ -1203,6 +1203,25 @@ object SBuiltin {
       throw DamlEUserError(args.get(0).asInstanceOf[SText].value)
   }
 
+  final case object SBToAnyTemplate extends SBuiltin(1) {
+    def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
+      machine.ctrl = CtrlValue(args.get(0) match {
+        case r @ SRecord(_, _, _) => SAnyTemplate(r)
+        case v => crash(s"ToAnyTemplate on non-record: $v")
+      })
+    }
+  }
+
+  final case class SBFromAnyTemplate(expectedTemplateId: TypeConName) extends SBuiltin(1) {
+    def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
+      machine.ctrl = CtrlValue(args.get(0) match {
+        case SAnyTemplate(r @ SRecord(actualTemplateId, _, _)) =>
+          SOptional(if (actualTemplateId == expectedTemplateId) Some(r) else None)
+        case v => crash(s"FromAnyTemplate applied to non-AnyTemplate: $v")
+      })
+    }
+  }
+
   // Helpers
   //
 

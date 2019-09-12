@@ -138,6 +138,9 @@ final case class URHigherKinded(varName: TypeVarName, kind: Kind) extends Unseri
 case object URUninhabitatedType extends UnserializabilityReason {
   def pretty: String = "variant type without constructors"
 }
+case object URAnyTemplate extends UnserializabilityReason {
+  def pretty: String = "AnyTemplate"
+}
 
 abstract class ValidationError extends java.lang.RuntimeException with Product with Serializable {
   def context: Context
@@ -284,6 +287,11 @@ final case class EExpectedTemplatableType(context: Context, conName: TypeConName
     extends ValidationError {
   protected def prettyInternal: String =
     s"expected monomorphic record type in template definition, but found: ${conName.qualifiedName}"
+
+}
+final case class EExpectedTemplateType(context: Context, typ: Type) extends ValidationError {
+  protected def prettyInternal: String =
+    s"expected template type as argument to toAnyTemplate, but found: ${typ.pretty}"
 
 }
 final case class EImportCycle(context: Context, modName: List[ModuleName]) extends ValidationError {

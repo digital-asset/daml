@@ -145,6 +145,12 @@ object Ast {
 
   final case class ESome(typ: Type, body: Expr) extends Expr
 
+  /** AnyTemplate constructor **/
+  final case class EToAnyTemplate(body: Expr) extends Expr
+
+  /** Extract the underlying template if it matches the tmplId **/
+  final case class EFromAnyTemplate(tmplId: TypeConName, body: Expr) extends Expr
+
   //
   // Kinds
   //
@@ -269,6 +275,7 @@ object Ast {
   case object BTDate extends BuiltinType
   case object BTContractId extends BuiltinType
   case object BTArrow extends BuiltinType
+  case object BTAnyTemplate extends BuiltinType
 
   //
   // Primitive literals

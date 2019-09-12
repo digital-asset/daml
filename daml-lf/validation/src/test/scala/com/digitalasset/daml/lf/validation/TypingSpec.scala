@@ -32,6 +32,7 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
         BTDate -> k"*",
         BTContractId -> k"* -> *",
         BTArrow -> k"* -> * -> *",
+        BTAnyTemplate -> k"*",
       )
 
       forEvery(testCases) { (bType: BuiltinType, expectedKind: Kind) =>
@@ -161,6 +162,12 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
         // ExpDefault
         E"Λ (τ : ⋆) (σ : ⋆). λ (e₁ : τ) (e₂: σ) → (( case e₁ of _ → e₂ ))" ->
           T"∀ (τ : ⋆) (σ : ⋆). τ → σ → (( σ ))",
+        // ExpToAnyTemplate
+        E"""to_any_template (Mod:T { person = 'Alice', name = "foobar" })""" ->
+          T"AnyTemplate",
+        // ExpFromAnyTemplate
+        E"""λ (t: AnyTemplate) -> from_any_template @Mod:T t""" ->
+          T"AnyTemplate → Option Mod:T",
       )
 
       forEvery(testCases) { (exp: Expr, expectedType: Type) =>
@@ -388,6 +395,15 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
         // ScenarioEmbedExpr
         E"Λ (τ : ⋆) (σ : ⋆). λ (e : Udpate σ) → (( uembed_expr @τ e ))",
         E"Λ (τ : ⋆) (σ : ⋆). λ (e : σ) → (( uembed_expr @τ e ))",
+        // ToAnyTemplate
+        E"Λ (τ : *). λ (r: Mod:R τ) -> to_any_template r",
+        E"Λ (τ : *). λ (t: Mod:Tree τ) -> to_any_template t",
+        E"λ (c: Color) -> to_any_template c",
+        // FromAnyTemplate
+        E"λ (t: AnyTemplate) -> from_any_template @Mod:R t",
+        E"λ (t: AnyTemplate) -> from_any_template @Mod:Tree t",
+        E"λ (t: AnyTemplate) -> from_any_template @Mod:Color t",
+        E"λ (t: Mod:T) -> from_any_template @Mod:T t",
       )
 
       forEvery(testCases) { exp =>
