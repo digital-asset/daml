@@ -10,3 +10,4 @@ HEAD — ongoing
 --------------
 
 + [Java codegen] If the DAR source cannot be read, the application crashes and prints an error report.
++ [Ledger] Upgraded ledger-api server H2 Database version to 1.4.199 with stability fixes including one to the ``merge`` statement.
