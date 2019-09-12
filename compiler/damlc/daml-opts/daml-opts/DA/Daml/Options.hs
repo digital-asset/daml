@@ -29,7 +29,6 @@ import HscMain
 import Panic (throwGhcExceptionIO)
 import System.Directory
 import System.FilePath
-import System.Info.Extra (isWindows)
 
 import DA.Daml.Options.Types
 import DA.Daml.Preprocessor
@@ -207,8 +206,8 @@ wOptsUnset =
   ]
 
 
-adjustDynFlags :: Options -> DynFlags -> DynFlags
-adjustDynFlags options@Options{..} dflags
+adjustDynFlags :: Options -> FilePath -> DynFlags -> DynFlags
+adjustDynFlags options@Options{..} tmpDir dflags
   =
   -- Generally, the lexer's "haddock mode" is disabled (`Haddock
   -- False` is the default option. In this case, we run the lexer in
@@ -254,8 +253,8 @@ adjustDynFlags options@Options{..} dflags
                 -- pragmas, line numbers may be wrong up when using CPP.
                 -- Ideally we fix the issue with the daml parser and
                 -- then remove this flag.
-            , sTmpDir = if isWindows then "C:\\Windows\\Temp" else "/tmp"
-                -- awful hack ... sometimes this is required by CPP?
+            , sTmpDir = tmpDir
+                -- sometimes this is required by CPP?
             }
 
     -- We need to add platform info in order to run CPP. To prevent
@@ -292,7 +291,8 @@ setImports paths dflags = dflags { importPaths = paths }
 --       (may fail if the custom options are inconsistent with std DAML ones)
 setupDamlGHC :: GhcMonad m => Options -> m ()
 setupDamlGHC options@Options{..} = do
-  modifyDynFlags $ adjustDynFlags options
+  tmpDir <- liftIO $ getTemporaryDirectory
+  modifyDynFlags $ adjustDynFlags options tmpDir
 
   unless (null optGhcCustomOpts) $ do
     damlDFlags <- getSessionDynFlags
