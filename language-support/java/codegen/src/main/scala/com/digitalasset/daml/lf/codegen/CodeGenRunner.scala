@@ -14,7 +14,7 @@ import com.digitalasset.daml.lf.codegen.backend.java.JavaBackend
 import com.digitalasset.daml.lf.codegen.conf.Conf
 import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.data.Ref.PackageId
-import com.digitalasset.daml.lf.iface.reader.InterfaceReader
+import com.digitalasset.daml.lf.iface.reader.{Errors, InterfaceReader}
 import com.digitalasset.daml.lf.iface.{Type => _, _}
 import com.digitalasset.daml_lf.DamlLf
 import com.typesafe.scalalogging.StrictLogging
@@ -72,7 +72,11 @@ private[codegen] object CodeGenRunner extends StrictLogging {
         // Explicitly calling `get` to bubble up any exception when reading the dar
         val dar = ArchiveReader.readArchiveFromFile(file).get
         dar.all.map { archive =>
-          val (_, interface) = InterfaceReader.readInterface(archive)
+          val (errors, interface) = InterfaceReader.readInterface(archive)
+          if (!errors.equals(Errors.zeroErrors)) {
+            throw new RuntimeException(
+              InterfaceReader.InterfaceReaderError.treeReport(errors).toString)
+          }
           logger.trace(s"DAML-LF Archive decoded, packageId '${interface.packageId}'")
           (interface, interface.packageId -> pkgPrefix)
         }
