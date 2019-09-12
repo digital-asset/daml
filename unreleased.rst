@@ -8,3 +8,5 @@ This page contains release notes for the SDK.
 
 HEAD — ongoing
 --------------
+
++ [Java codegen] If the DAR source cannot be read, the application crashes and prints an error report.
