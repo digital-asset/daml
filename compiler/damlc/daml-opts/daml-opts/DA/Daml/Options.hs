@@ -291,7 +291,7 @@ setImports paths dflags = dflags { importPaths = paths }
 --       (may fail if the custom options are inconsistent with std DAML ones)
 setupDamlGHC :: GhcMonad m => Options -> m ()
 setupDamlGHC options@Options{..} = do
-  tmpDir <- liftIO $ getTemporaryDirectory
+  tmpDir <- liftIO getTemporaryDirectory
   modifyDynFlags $ adjustDynFlags options tmpDir
 
   unless (null optGhcCustomOpts) $ do
