@@ -1,0 +1,7 @@
+name: quickstart
+version: 0.0.1
+codegen:
+  scala:
+    package-prefix: com.digitalasset.quickstart.iou.model
+    output-directory: scala-codegen/src/main/scala
+    verbosity: 2
