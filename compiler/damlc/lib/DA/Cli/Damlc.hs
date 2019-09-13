@@ -699,7 +699,7 @@ execInspectDar inFile =
           (pkgId, _lfPkg) <-
               errorOnLeft
                   ("Cannot decode package " <> ZipArchive.eRelativePath dalfEntry)
-                  (Archive.decodeArchive dalf)
+                  (Archive.decodeArchive _ dalf)
           putStrLn $
               (dropExtension $ takeFileName $ ZipArchive.eRelativePath dalfEntry) <> " " <>
               show (LF.unPackageId pkgId)
@@ -852,7 +852,7 @@ execMigrate projectOpts opts0 inFile1_ inFile2_ mbDir =
     decode dalf =
         errorOnLeft
             "Cannot decode daml-lf archive"
-            (Archive.decodeArchive dalf)
+            (Archive.decodeArchive _ dalf)
     getModule modName pkg =
         maybe
             (fail $ T.unpack $ "Can't find module" <> LF.moduleNameString modName)
