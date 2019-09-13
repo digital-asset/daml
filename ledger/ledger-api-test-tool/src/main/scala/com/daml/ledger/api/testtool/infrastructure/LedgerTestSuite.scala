@@ -10,6 +10,7 @@ import com.digitalasset.ledger.api.v1.transaction.{Transaction, TransactionTree,
 import io.grpc.{Status, StatusException, StatusRuntimeException}
 
 import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.duration.DurationInt
 import scala.language.higherKinds
 
 private[testtool] object LedgerTestSuite {
@@ -25,6 +26,16 @@ private[testtool] abstract class LedgerTestSuite(val session: LedgerSession) {
   val tests: Vector[LedgerTest] = Vector.empty
 
   protected final implicit val ec: ExecutionContext = session.executionContext
+
+  // TODO Make this configurable
+  final private[this] val eventually = RetryStrategy.exponentialBackoff(10, 10.millis)
+
+  final def assertEventually[A](message: String)(assertion: () => Future[A]): Future[Unit] =
+    eventually { _ =>
+      assertion()
+    } map { _ =>
+      ()
+    }
 
   final def skip(reason: String): Future[Unit] = Future.failed(SkipTestException(reason))
 

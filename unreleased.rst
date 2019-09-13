@@ -14,3 +14,4 @@ HEAD — ongoing
   assistant and distributed with the SDK. It can be run via ``daml codegen``.
   You can find more information in the `DAML Assistant documentation <https://docs.daml.com/tools/assistant.html>`_.
 + [Ledger] Upgraded ledger-api server H2 Database version to 1.4.199 with stability fixes including one to the ``merge`` statement.
++ [DAML Integration Kit] One more test case added. Transaction service tests are not multi-node aware.

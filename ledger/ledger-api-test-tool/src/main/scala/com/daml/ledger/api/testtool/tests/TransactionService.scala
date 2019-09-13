@@ -6,8 +6,8 @@ package com.daml.ledger.api.testtool.tests
 import ai.x.diff.conversions._
 import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTest, LedgerTestSuite}
 import com.digitalasset.ledger.api.v1.value.{RecordField, Value}
-import com.digitalasset.ledger.client.binding.Value.encode
 import com.digitalasset.ledger.client.binding.Primitive
+import com.digitalasset.ledger.client.binding.Value.encode
 import com.digitalasset.ledger.test_stable.Test.Agreement._
 import com.digitalasset.ledger.test_stable.Test.AgreementFactory._
 import com.digitalasset.ledger.test_stable.Test.Choice1._
@@ -200,10 +200,11 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     LedgerTest("TXNotDivulge", "Data should not be exposed to parties unrelated to a transaction") {
       context =>
         for {
-          ledger <- context.participant()
-          Vector(alice, bob) <- ledger.allocateParties(2)
-          _ <- ledger.create(alice, Dummy(alice))
-          bobsView <- ledger.flatTransactions(bob)
+          Vector(alpha, beta) <- context.participants(2)
+          alice <- alpha.allocateParty()
+          bob <- beta.allocateParty()
+          _ <- alpha.create(alice, Dummy(alice))
+          bobsView <- alpha.flatTransactions(bob)
         } yield {
           assert(
             bobsView.isEmpty,
@@ -237,12 +238,11 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
       "A transaction should be visible to a non-submitting stakeholder but its command identifier should be empty"
     ) { context =>
       for {
-        ledger <- context.participant()
-        Vector(submitter, listener) <- ledger.allocateParties(2)
-        (id, _) <- ledger.createAndGetTransactionId(
-          submitter,
-          AgreementFactory(listener, submitter))
-        tree <- ledger.transactionTreeById(id, listener)
+        Vector(alpha, beta) <- context.participants(2)
+        submitter <- alpha.allocateParty()
+        listener <- beta.allocateParty()
+        (id, _) <- alpha.createAndGetTransactionId(submitter, AgreementFactory(listener, submitter))
+        tree <- beta.transactionTreeById(id, listener)
       } yield {
         assert(
           tree.commandId.isEmpty,
@@ -439,11 +439,12 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
       "Expressing a non-consuming choice on a contract should not result in its archival") {
       context =>
         for {
-          ledger <- context.participant()
-          Vector(receiver, giver) <- ledger.allocateParties(2)
-          agreementFactory <- ledger.create(giver, AgreementFactory(receiver, giver))
-          _ <- ledger.exercise(receiver, agreementFactory.exerciseCreateAgreement)
-          transactions <- ledger.flatTransactions(receiver, giver)
+          Vector(alpha, beta) <- context.participants(2)
+          receiver <- alpha.allocateParty()
+          giver <- beta.allocateParty()
+          agreementFactory <- beta.create(giver, AgreementFactory(receiver, giver))
+          _ <- alpha.exercise(receiver, agreementFactory.exerciseCreateAgreement)
+          transactions <- alpha.flatTransactions(receiver, giver)
         } yield {
           assert(
             !transactions.exists(_.events.exists(_.event.isArchived)),
@@ -456,11 +457,12 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     LedgerTest("TXRequireAuthorization", "Require only authorization of chosen branching signatory") {
       context =>
         for {
-          ledger <- context.participant()
-          Vector(alice, bob) <- ledger.allocateParties(2)
+          Vector(alpha, beta) <- context.participants(2)
+          alice <- alpha.allocateParty()
+          bob <- beta.allocateParty()
           template = BranchingSignatories(true, alice, bob)
-          _ <- ledger.create(alice, template)
-          transactions <- ledger.flatTransactions(alice)
+          _ <- alpha.create(alice, template)
+          transactions <- alpha.flatTransactions(alice)
         } yield {
           assert(template.arguments == transactions.head.events.head.getCreated.getCreateArguments)
         }
@@ -471,12 +473,13 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
       "TXNotDiscloseCreateToNonSignatory",
       "Not disclose create to non-chosen branching signatory") { context =>
       for {
-        ledger <- context.participant()
-        Vector(alice, bob) <- ledger.allocateParties(2)
+        Vector(alpha, beta) <- context.participants(2)
+        alice <- alpha.allocateParty()
+        bob <- beta.allocateParty()
         template = BranchingSignatories(false, alice, bob)
-        create <- ledger.submitAndWaitRequest(bob, template.create.command)
-        transaction <- ledger.submitAndWaitForTransaction(create)
-        transactions <- ledger.flatTransactions(alice)
+        create <- beta.submitAndWaitRequest(bob, template.create.command)
+        transaction <- beta.submitAndWaitForTransaction(create)
+        transactions <- alpha.flatTransactions(alice)
       } yield {
         assert(transactions.find(_.transactionId != transaction.transactionId).isEmpty)
       }
@@ -486,17 +489,35 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     LedgerTest("TXDiscloseCreateToSignatory", "Disclose create to the chosen branching controller") {
       context =>
         for {
-          ledger <- context.participant()
-          Vector(alice, bob, eve) <- ledger.allocateParties(3)
+          Vector(alpha, beta) <- context.participants(2)
+          alice <- alpha.allocateParty()
+          Vector(bob, eve) <- beta.allocateParties(2)
           template = BranchingControllers(alice, true, bob, eve)
-          _ <- ledger.create(alice, template)
-          aliceView <- ledger.flatTransactions(alice)
-          bobView <- ledger.flatTransactions(bob)
-          evesView <- ledger.flatTransactions(eve)
+          _ <- alpha.create(alice, template)
+          _ <- assertEventually("Correct disclosure") { () =>
+            for {
+              aliceView <- alpha.flatTransactions(alice)
+              bobView <- beta.flatTransactions(bob)
+              evesView <- beta.flatTransactions(eve)
+            } yield {
+              val aliceCreate = assertSingleton(
+                "Alice should see one transaction",
+                aliceView.flatMap(createdEvents))
+              assertEquals(
+                "Alice arguments do not match",
+                aliceCreate.getCreateArguments,
+                template.arguments)
+              val bobCreate =
+                assertSingleton("Bob should see one transaction", bobView.flatMap(createdEvents))
+              assertEquals(
+                "Bob arguments do not match",
+                bobCreate.getCreateArguments,
+                template.arguments)
+              assert(evesView.isEmpty, "Eve should not see any contract")
+            }
+          }
         } yield {
-          assert(template.arguments == aliceView.head.events.head.getCreated.getCreateArguments)
-          assert(template.arguments == bobView.head.events.head.getCreated.getCreateArguments)
-          assert(evesView.isEmpty)
+          // Checks performed in the `assertEventually` block
         }
     }
 
@@ -505,12 +526,13 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
       "TXNotDiscloseCreateToNonChosenBranchingController",
       "Not disclose create to non-chosen branching controller") { context =>
       for {
-        ledger <- context.participant()
-        Vector(alice, bob, eve) <- ledger.allocateParties(3)
+        Vector(alpha, beta) <- context.participants(2)
+        alice <- alpha.allocateParty()
+        Vector(bob, eve) <- beta.allocateParties(2)
         template = BranchingControllers(alice, false, bob, eve)
-        create <- ledger.submitAndWaitRequest(alice, template.create.command)
-        transaction <- ledger.submitAndWaitForTransaction(create)
-        transactions <- ledger.flatTransactions(bob)
+        create <- alpha.submitAndWaitRequest(alice, template.create.command)
+        transaction <- alpha.submitAndWaitForTransaction(create)
+        transactions <- beta.flatTransactions(bob)
       } yield {
         assert(transactions.find(_.transactionId != transaction.transactionId).isEmpty)
       }
@@ -519,15 +541,21 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
   private[this] val discloseCreateToObservers =
     LedgerTest("TXDiscloseCreateToObservers", "Disclose create to observers") { context =>
       for {
-        ledger <- context.participant()
-        Vector(alice, bob, eve) <- ledger.allocateParties(3)
-        observers = Seq(bob, eve)
+        Vector(alpha, beta) <- context.participants(2)
+        alice <- alpha.allocateParty()
+        observers <- beta.allocateParties(2)
         template = WithObservers(alice, Primitive.List(observers: _*))
-        create <- ledger.submitAndWaitRequest(alice, template.create.command)
-        transactionId <- ledger.submitAndWaitForTransactionId(create)
-        transactions <- ledger.flatTransactions(observers: _*)
+        create <- alpha.submitAndWaitRequest(alice, template.create.command)
+        transactionId <- alpha.submitAndWaitForTransactionId(create)
+        _ <- assertEventually("") { () =>
+          for {
+            transactions <- beta.flatTransactions(observers: _*)
+          } yield {
+            assert(transactions.exists(_.transactionId == transactionId))
+          }
+        }
       } yield {
-        assert(transactions.exists(_.transactionId == transactionId))
+        // Checks performed in the `assertEventually` block
       }
     }
 
@@ -552,7 +580,7 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
       "Expose the agreement text for templates with an explicit agreement text") { context =>
       for {
         ledger <- context.participant()
-        party <- ledger.allocateParty
+        party <- ledger.allocateParty()
         _ <- ledger.create(party, Dummy(party))
         transactions <- ledger.flatTransactionsByTemplateId(Dummy.id, party)
       } yield {
@@ -579,10 +607,11 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
   private[this] val stakeholders =
     LedgerTest("TXStakeholders", "Expose the correct stakeholders") { context =>
       for {
-        ledger <- context.participant()
-        Vector(giver, receiver) <- ledger.allocateParties(2)
-        _ <- ledger.create(giver, CallablePayout(giver, receiver))
-        transactions <- ledger.flatTransactions(giver, receiver)
+        Vector(alpha, beta) <- context.participants(2)
+        receiver <- alpha.allocateParty()
+        giver <- beta.allocateParty()
+        _ <- beta.create(giver, CallablePayout(giver, receiver))
+        transactions <- beta.flatTransactions(giver, receiver)
       } yield {
         val contract = assertSingleton("Stakeholders", transactions.flatMap(createdEvents))
         assertEquals("Signatories", contract.signatories, Seq(Tag.unwrap(giver)))
@@ -595,10 +624,11 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
       "TXNoContractKey",
       "There should be no contract key if the template does not specify one") { context =>
       for {
-        ledger <- context.participant()
-        Vector(giver, receiver) <- ledger.allocateParties(2)
-        _ <- ledger.create(giver, CallablePayout(giver, receiver))
-        transactions <- ledger.flatTransactions(giver, receiver)
+        Vector(alpha, beta) <- context.participants(2)
+        receiver <- alpha.allocateParty()
+        giver <- beta.allocateParty()
+        _ <- beta.create(giver, CallablePayout(giver, receiver))
+        transactions <- beta.flatTransactions(giver, receiver)
       } yield {
         val contract = assertSingleton("NoContractKey", transactions.flatMap(createdEvents))
         assert(
@@ -633,15 +663,16 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     LedgerTest("TXMultiActorChoiceOk", "Accept exercising a well-authorized multi-actor choice") {
       context =>
         for {
-          ledger <- context.participant()
-          Vector(operator, receiver, giver) <- ledger.allocateParties(3)
-          agreementFactory <- ledger.create(giver, AgreementFactory(receiver, giver))
-          agreement <- ledger.exerciseAndGetContract[Agreement](
+          Vector(alpha, beta) <- context.participants(2)
+          Vector(operator, receiver) <- alpha.allocateParties(2)
+          giver <- beta.allocateParty()
+          agreementFactory <- beta.create(giver, AgreementFactory(receiver, giver))
+          agreement <- alpha.exerciseAndGetContract[Agreement](
             receiver,
             agreementFactory.exerciseAgreementFactoryAccept)
           triProposalTemplate = TriProposal(operator, receiver, giver)
-          triProposal <- ledger.create(operator, triProposalTemplate)
-          tree <- ledger.exercise(giver, agreement.exerciseAcceptTriProposal(_, triProposal))
+          triProposal <- alpha.create(operator, triProposalTemplate)
+          tree <- beta.exercise(giver, agreement.exerciseAcceptTriProposal(_, triProposal))
         } yield {
           val contract = assertSingleton("AcceptTriProposal", createdEvents(tree))
           assertEquals(
@@ -657,15 +688,16 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
       "Accept exercising a well-authorized multi-actor choice with coinciding controllers") {
       context =>
         for {
-          ledger <- context.participant()
-          Vector(operator, giver) <- ledger.allocateParties(2)
-          agreementFactory <- ledger.create(giver, AgreementFactory(giver, giver))
-          agreement <- ledger.exerciseAndGetContract[Agreement](
+          Vector(alpha, beta) <- context.participants(2)
+          operator <- alpha.allocateParty()
+          giver <- beta.allocateParty()
+          agreementFactory <- beta.create(giver, AgreementFactory(giver, giver))
+          agreement <- beta.exerciseAndGetContract[Agreement](
             giver,
             agreementFactory.exerciseAgreementFactoryAccept)
           triProposalTemplate = TriProposal(operator, giver, giver)
-          triProposal <- ledger.create(operator, triProposalTemplate)
-          tree <- ledger.exercise(giver, agreement.exerciseAcceptTriProposal(_, triProposal))
+          triProposal <- alpha.create(operator, triProposalTemplate)
+          tree <- beta.exercise(giver, agreement.exerciseAcceptTriProposal(_, triProposal))
         } yield {
           val contract = assertSingleton("AcceptTriProposalCoinciding", createdEvents(tree))
           assertEquals(
@@ -680,10 +712,11 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
       "TXRejectMultiActorMissingAuth",
       "Reject exercising a multi-actor choice with missing authorizers") { context =>
       for {
-        ledger <- context.participant()
-        Vector(operator, receiver, giver) <- ledger.allocateParties(3)
-        triProposal <- ledger.create(operator, TriProposal(operator, receiver, giver))
-        failure <- ledger.exercise(giver, triProposal.exerciseTriProposalAccept).failed
+        Vector(alpha, beta) <- context.participants(2)
+        Vector(operator, receiver) <- alpha.allocateParties(2)
+        giver <- beta.allocateParty()
+        triProposal <- alpha.create(operator, TriProposal(operator, receiver, giver))
+        failure <- beta.exercise(giver, triProposal.exerciseTriProposalAccept).failed
       } yield {
         assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "requires authorizers")
       }
@@ -698,16 +731,17 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
       "TXRejectMultiActorExcessiveAuth",
       "Reject exercising a multi-actor choice with too many authorizers") { context =>
       for {
-        ledger <- context.participant()
-        Vector(operator, receiver, giver) <- ledger.allocateParties(3)
-        agreementFactory <- ledger.create(giver, AgreementFactory(receiver, giver))
-        agreement <- ledger
+        Vector(alpha, beta) <- context.participants(2)
+        Vector(operator, receiver) <- alpha.allocateParties(2)
+        giver <- beta.allocateParty()
+        agreementFactory <- beta.create(giver, AgreementFactory(receiver, giver))
+        agreement <- alpha
           .exerciseAndGetContract[Agreement](
             receiver,
             agreementFactory.exerciseAgreementFactoryAccept)
         triProposalTemplate = TriProposal(operator, giver, giver)
-        triProposal <- ledger.create(operator, triProposalTemplate)
-        failure <- ledger
+        triProposal <- alpha.create(operator, triProposalTemplate)
+        failure <- beta
           .exercise(giver, agreement.exerciseAcceptTriProposal(_, triProposal))
           .failed
       } yield {
