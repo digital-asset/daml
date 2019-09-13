@@ -7,6 +7,7 @@ module DA.Daml.LF.Proto3.Archive
   ( decodeArchives
   , decodeArchive
   , decodeArchivePayload
+  , decodeArchiveCrossReferences
   , encodeArchive
   , encodeArchiveLazy
   , encodeArchiveAndHash
@@ -46,6 +47,9 @@ decodeArchives bytess = do
   pkPayloads <- traverse decodeArchivePayload bytess
   bimap (ProtobufError . show) getCompose . sequence . Decode.decodePayloads . Compose
     $ duplicate <$> pkPayloads
+
+decodeArchiveCrossReferences :: Foldable f => f (LF.PackageId, ProtoLF.ArchivePayload) -> Decode.CrossReferences
+decodeArchiveCrossReferences = Decode.decodeCrossReferences
 
 decodeArchivePayload :: BS.ByteString -> Either ArchiveError (LF.PackageId, ProtoLF.ArchivePayload)
 decodeArchivePayload bytes = do

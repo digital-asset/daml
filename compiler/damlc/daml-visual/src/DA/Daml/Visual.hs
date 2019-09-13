@@ -19,9 +19,12 @@ module DA.Daml.Visual
 import qualified DA.Daml.LF.Ast as LF
 import DA.Daml.LF.Ast.World as AST
 import DA.Daml.LF.Reader
+import Data.Bifunctor (first)
 import qualified Data.NameMap as NM
 import qualified Data.Set as Set
+import Data.Traversable (for)
 import qualified DA.Pretty as DAP
+import qualified DA.Daml.LF.Proto3.Decode as Decode
 import qualified DA.Daml.LF.Proto3.Archive as Archive
 import qualified "zip-archive" Codec.Archive.Zip as ZIPArchive
 import qualified Data.ByteString.Lazy as BSL
@@ -128,17 +131,14 @@ templatePossibleUpdates world tpl = map toActions $ NM.toList $ LF.tplChoices tp
 moduleAndTemplates :: LF.World -> LF.Module -> [TemplateChoices]
 moduleAndTemplates world mod = map (\t -> TemplateChoices t (LF.moduleName mod) (templatePossibleUpdates world t)) $ NM.toList $ LF.moduleTemplates mod
 
-dalfBytesToPakage :: BSL.ByteString -> ExternalPackage
-dalfBytesToPakage bytes = case Archive.decodeArchive $ BSL.toStrict bytes of
-    Right (pkgId, pkg) -> rewriteSelfReferences pkgId pkg
-    Left err -> error (show err)
-
 darToWorld :: Dalfs -> LF.World
-darToWorld Dalfs{..} = case Archive.decodeArchive $ BSL.toStrict mainDalf of
-    Right (_, mainPkg) -> AST.initWorldSelf pkgs mainPkg
-    Left err -> error (show err)
-    where
-        pkgs = map dalfBytesToPakage dalfs
+darToWorld Dalfs{..} = either (error . show) id $ do
+  payloads <- traverse (Archive.decodeArchivePayload . BSL.toStrict) dalfs
+  let xrefs = Archive.decodeArchiveCrossReferences payloads
+  pkgs <- first (Archive.ProtobufError . show) $ for payloads $ \(pkgId, payload) ->
+            rewriteSelfReferences pkgId <$> Decode.decodePayload xrefs payload
+  (_, mainPkg) <- Archive.decodeArchive xrefs $ BSL.toStrict mainDalf
+  return $ AST.initWorldSelf pkgs mainPkg
 
 tplNameUnqual :: LF.Template -> T.Text
 tplNameUnqual LF.Template {..} = headNote "tplNameUnqual" (LF.unTypeConName tplTypeCon)
