@@ -7,6 +7,7 @@ import com.digitalasset.daml.lf.data
 import scalaz.Equal
 
 object Ref {
+  import Interning._
 
   /* Location annotation */
   case class Location(
@@ -62,15 +63,16 @@ object Ref {
     override def toString: String = dottedName
 
     override def compare(that: data.Ref.DottedName): Int = {
-      import scala.math.Ordering.Implicits._
       import Name.ordering
+
+      import scala.math.Ordering.Implicits._
 
       implicitly[Ordering[Seq[Name]]].compare(segments.toSeq, that.segments.toSeq)
     }
 
   }
 
-  object DottedName {
+  object DottedName extends Internable[DottedName] {
     type T = DottedName
 
     def fromString(s: String): Either[String, DottedName] =
@@ -101,7 +103,7 @@ object Ref {
       assertRight(fromSegments(s))
 
     def fromNames(names: ImmArray[Name]): Either[String, DottedName] =
-      Either.cond(names.nonEmpty, new DottedName(names), "No segments provided")
+      Either.cond(names.nonEmpty, intern(new DottedName(names)), "No segments provided")
 
     @throws[IllegalArgumentException]
     def assertFromNames(names: ImmArray[Name]): DottedName =
@@ -111,7 +113,7 @@ object Ref {
       * to the lexical specification embodied by `fromStrings`.
       */
     def unsafeFromNames(segments: ImmArray[Name]): DottedName = {
-      new DottedName(segments)
+      intern(new DottedName(segments))
     }
   }
 
@@ -119,19 +121,26 @@ object Ref {
     override def toString: String = module.toString + ":" + name.toString
     def qualifiedName: String = toString
   }
-  object QualifiedName {
+  object QualifiedName extends Memoizable[String, QualifiedName] {
     type T = QualifiedName
 
     def fromString(s: String): Either[String, QualifiedName] = {
-      val segments = split(s, ':')
-      if (segments.length != 2)
-        Left(s"Expecting two segments in $s, but got ${segments.length}")
-      else
-        ModuleName.fromString(segments(0)).flatMap { module =>
-          DottedName.fromString(segments(1)).map { name =>
-            QualifiedName(module, name)
+      val internedName = memoized.get(s)
+      if (internedName != null) {
+        Right(internedName)
+      } else {
+        val segments = split(s, ':')
+        if (segments.length != 2)
+          Left(s"Expecting two segments in $s, but got ${segments.length}")
+        else
+          ModuleName.fromString(segments(0)).flatMap { module =>
+            DottedName.fromString(segments(1)).map { name =>
+              val qname = QualifiedName(module, name)
+              memoized.put(s, qname)
+              qname
+            }
           }
-        }
+      }
     }
 
     @throws[IllegalArgumentException]
@@ -141,7 +150,13 @@ object Ref {
 
   /* A fully-qualified identifier pointing to a definition in the
    * specified package. */
-  case class Identifier(packageId: PackageId, qualifiedName: QualifiedName)
+  case class Identifier private (packageId: PackageId, qualifiedName: QualifiedName)
+
+  object Identifier extends Internable[Identifier] {
+    def apply(packageId: PackageId, qualifiedName: QualifiedName): Identifier = {
+      intern(new Identifier(packageId, qualifiedName))
+    }
+  }
 
   /* Choice name in a template. */
   val ChoiceName: Name.type = Name
