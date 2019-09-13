@@ -7,24 +7,25 @@ load(
     "da_scala_test",
 )
 
+codegen_common_deps = [
+    "//3rdparty/jvm/ch/qos/logback:logback_classic",
+    "//3rdparty/jvm/com/github/scopt",
+    "//3rdparty/jvm/com/typesafe/scala_logging",
+    "//3rdparty/jvm/io/circe:circe_core",
+    "//daml-assistant/scala-daml-project-config",
+]
+
 da_scala_library(
     name = "codegen-common",
     srcs = glob(["src/main/**/*.scala"]),
     tags = ["maven_coordinates=com.daml:codegen-common:__VERSION__"],
     visibility = ["//visibility:public"],
-    deps = [
-        "//3rdparty/jvm/ch/qos/logback:logback_classic",
-        "//3rdparty/jvm/com/github/scopt",
-    ],
+    deps = codegen_common_deps,
 )
 
 da_scala_test(
     name = "test",
     srcs = glob(["src/test/**/*.scala"]),
     resources = glob(["src/test/resources/**/*"]),
-    deps = [
-        ":codegen-common",
-        "//3rdparty/jvm/com/github/scopt",
-        "//3rdparty/jvm/org/scalatest",
-    ],
+    deps = [":codegen-common"] + codegen_common_deps,
 )
