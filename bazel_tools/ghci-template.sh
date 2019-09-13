@@ -4,7 +4,7 @@
 
 ENV_FILE=$1
 ARGS_FILE=$2
-RULES_HASKELL_EXEC_ROOT=$(dirname $(readlink ${BUILD_WORKSPACE_DIRECTORY}/bazel-out))/
+RULES_HASKELL_EXEC_ROOT=bazel-$(basename ${BUILD_WORKSPACE_DIRECTORY})/
 # Setting -pgm* flags explicitly has the unfortunate side effect
 # of resetting any program flags in the GHC settings file. So we
 # restore them here. See
