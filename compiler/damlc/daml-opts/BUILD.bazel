@@ -43,6 +43,7 @@ da_haskell_library(
         "ghc-lib-parser",
         "ghcide",
         "mtl",
+        "text",
     ],
     src_strip_prefix = "daml-opts",
     visibility = ["//visibility:public"],
