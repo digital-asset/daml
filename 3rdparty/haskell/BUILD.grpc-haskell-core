@@ -21,7 +21,7 @@ c2hs_suite(
         "src/Network/GRPC/Unsafe/Security.chs",
     ],
     compiler_flags = ["-XCPP"],
-    hazel_deps = [
+    hackage_deps = [
         "async",
         "base",
         "bytestring",

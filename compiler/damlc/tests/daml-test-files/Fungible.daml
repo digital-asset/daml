@@ -23,6 +23,6 @@ template Quantity t => Fungible t with
         do
           assert $ splitAmount > 0.0
           assert $ splitAmount < asset.amount
-          newAsset1 <- create $ Fungible $ asset with amount = splitAmount
-          newAsset2 <- create $ Fungible $ asset with amount = asset.amount - splitAmount
+          newAsset1 <- create $ Fungible asset with amount = splitAmount
+          newAsset2 <- create $ Fungible asset with amount = asset.amount - splitAmount
           return (newAsset1, newAsset2)

@@ -58,6 +58,7 @@ DAML SDK documentation
    tools/sandbox
    tools/visual
    tools/navigator/index
+   tools/codegen
 
 .. toctree::
    :titlesonly:

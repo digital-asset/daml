@@ -17,10 +17,15 @@ DAML Assistant (``daml``)
 - Launch the tools in the SDK:
 
   - Launch :doc:`DAML Studio </daml/daml-studio>`: ``daml studio``
-  - Launch :doc:`Sandbox </tools/sandbox>` and :doc:`Navigator </tools/navigator/index>` together: ``daml start``
+  - Launch :doc:`Sandbox </tools/sandbox>`, :doc:`Navigator </tools/navigator/index>` and the HTTP JSON API: ``daml start``
+    You can disable the HTTP JSON API by passing ``--json-api-port none`` to ``daml start``.
   - Launch Sandbox: ``daml sandbox``
   - Launch Navigator: ``daml navigator``
   - Launch :doc:`Extractor </tools/extractor>`: ``daml extractor``
+  - Launch the HTTP JSON API: ``daml json-api``
+    You can find more information in the
+    `README <https://github.com/digital-asset/daml/blob/master/ledger-service/http-json/README.md>`_.
+  - Run :doc:`DAML codegen </tools/codegen>`: ``daml codegen``
 
 - Install new SDK versions manually: ``daml install <version>``
 
@@ -96,6 +101,8 @@ The existence of a ``daml.yaml`` file is what tells ``daml`` that this directory
     scenario-service:
       grpc-max-message-size: 134217728
       grpc-timeout: 60
+    build-options: ["--ghc-option", "-Werror",
+                    "--ghc-option", "-v"]
 
 
 Here is what each field means:
@@ -121,6 +128,8 @@ Here is what each field means:
   - ``grpc-timeout``: This option controls the timeout used for communicating
     with the scenario service. If unspecified this defaults to 60s. Unless you get
     errors, there should be no reason to modify this.
+
+- ``build-options``: a list of tokens that will be appended to some invocations of ``damlc`` (currently `build` and `ide`). Note that there is no further shell parsing applied.
 
 ..  TODO (@robin-da) document the dependency syntax
 

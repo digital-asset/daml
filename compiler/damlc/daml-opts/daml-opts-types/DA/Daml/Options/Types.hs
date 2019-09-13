@@ -63,10 +63,18 @@ data Options = Options
   -- ^ Information about dlint usage.
   , optIsGenerated :: Bool
     -- ^ Whether we're compiling generated code. Then we allow internal imports.
+  , optDflagCheck :: Bool
+    -- ^ Whether to check dflags. In some cases we want to turn this check of. For example when
+    -- migrating or running the daml doc test.
   , optCoreLinting :: Bool
     -- ^ Whether to enable linting of the generated GHC Core. (Used in testing.)
   , optHaddock :: Haddock
     -- ^ Whether to enable lexer option `Opt_Haddock` (default is `Haddock False`).
+  , optCppPath :: Maybe FilePath
+    -- ^ Enable CPP, by giving filepath to the executable.
+  , optGhcVersionFile :: Maybe FilePath
+    -- ^ Path to "ghcversion.h". Needed for running CPP. We ship this
+    -- as part of our runfiles. This is set by 'mkOptions'.
   } deriving Show
 
 newtype Haddock = Haddock Bool
@@ -116,7 +124,13 @@ mkOptions opts@Options {..} = do
     case optDlintUsage of
       DlintEnabled dir _ -> checkDirExists dir
       DlintDisabled -> return ()
-    pure opts {optPackageDbs = map (</> versionSuffix) $ pkgDbs ++ optPackageDbs}
+
+    ghcVersionFile <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "ghcversion.h")
+
+    pure opts {
+        optPackageDbs = map (</> versionSuffix) $ pkgDbs ++ optPackageDbs,
+        optGhcVersionFile = Just ghcVersionFile
+    }
   where checkDirExists f =
           Dir.doesDirectoryExist f >>= \ok ->
           unless ok $ fail $ "Required directory does not exist: " <> f
@@ -150,8 +164,11 @@ defaultOptions mbVersion =
         , optScenarioValidation = ScenarioValidationFull
         , optDlintUsage = DlintDisabled
         , optIsGenerated = False
+        , optDflagCheck = True
         , optCoreLinting = False
         , optHaddock = Haddock False
+        , optCppPath = Nothing
+        , optGhcVersionFile = Nothing
         }
 
 getBaseDir :: IO FilePath

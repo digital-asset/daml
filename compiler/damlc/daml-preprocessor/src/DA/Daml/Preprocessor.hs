@@ -9,6 +9,7 @@ module DA.Daml.Preprocessor
 
 import           DA.Daml.Preprocessor.Records
 import           DA.Daml.Preprocessor.Generics
+import           DA.Daml.Preprocessor.TemplateConstraint
 
 import qualified "ghc-lib" GHC
 import Outputable
@@ -39,7 +40,7 @@ mayImportInternal =
 damlPreprocessor :: Maybe String -> GHC.ParsedSource -> ([(GHC.SrcSpan, String)], GHC.ParsedSource)
 damlPreprocessor mbPkgName x
     | maybe False (isInternal ||^ (`elem` mayImportInternal)) name = ([], x)
-    | otherwise = (checkImports x ++ checkDataTypes x ++ checkModuleDefinition x, recordDotPreprocessor $ importDamlPreprocessor $ genericsPreprocessor mbPkgName x)
+    | otherwise = (checkImports x ++ checkDataTypes x ++ checkModuleDefinition x, recordDotPreprocessor $ importDamlPreprocessor $ genericsPreprocessor mbPkgName $ templateConstraintPreprocessor x)
     where name = fmap GHC.unLoc $ GHC.hsmodName $ GHC.unLoc x
 
 -- | No preprocessing. Used for generated code.

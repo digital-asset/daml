@@ -42,7 +42,7 @@ object StandaloneIndexServer {
       readService: ReadService,
       writeService: WriteService): StandaloneIndexServer =
     new StandaloneIndexServer(
-      "sandbox",
+      "index",
       config,
       readService,
       writeService

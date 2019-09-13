@@ -9,22 +9,55 @@ import qualified DA.TextMap as TM
 
 import Daml.Trigger
 
-type ACS = TextMap Identifier
+data TriggerState = TriggerState
+  { activeAssets : TextMap Identifier
+  , nextCommandId : Int
+  , party : Party
+  }
 
-test : Trigger (TextMap Identifier)
+initState : Party -> ActiveContracts -> TriggerState
+initState party (ActiveContracts events) = TriggerState (foldl updateAcs TM.empty events) 0 party
+  where
+    updateAcs : TextMap Identifier -> Created -> TextMap Identifier
+    updateAcs acs (Created _ cId tId)
+      | tId.entityName == "Asset" = TM.insert cId tId acs
+      | otherwise = acs
+
+-- | This is a very silly trigger for testing purposes:
+-- We track the active Asset contracts (we make no attempts to distinguish different things called Asset)
+-- and we create a new AssetMirror contract whenever an Asset contract is created (but we do not archive them).
+test : Trigger TriggerState
 test = Trigger
-  { initialState = TM.empty
+  { initialState = initState
   , update = update
   }
   where
-    update : Message -> TextMap Identifier -> (TextMap Identifier, Text)
-    update (MTransaction t) acs = (foldl updateEvent acs (events t), transactionId t)
-    updateEvent : TextMap Identifier -> Event -> TextMap Identifier
-    updateEvent acs ev = case ev of
-      CreatedEvent (Created _ cId tId) -> TM.insert cId tId acs
-      ArchivedEvent (Archived _ cId _) -> TM.delete cId acs
+    update : Message -> TriggerState -> (TriggerState, Optional Commands,  Text)
+    update (MTransaction t) (TriggerState acs nextId party) = case foldl updateEvent ([], acs) (events t) of
+      ([], acs) -> (TriggerState acs nextId  party, None, "No command")
+      (cmds, acs) ->
+        ( TriggerState acs (nextId + 1) party
+        , Some $ Commands ("command_" <> show nextId) cmds
+        , "Submitted " <> show (length cmds) <> " commands"
+        )
+      where
+        updateEvent : ([Command], TextMap Identifier) -> Event -> ([Command], TextMap Identifier)
+        updateEvent (cmds, acs) ev = case ev of
+          CreatedEvent (Created _ cId tId)
+            | tId.entityName == "Asset" ->
+            let createMirror : Command = createCmd (TemplateId "ACS" "AssetMirror") (AssetMirror { issuer = party })
+            in (createMirror :: cmds, TM.insert cId tId acs)
+          ArchivedEvent (Archived _ cId tId)
+            | tId.entityName == "Asset" -> (cmds, TM.delete cId acs)
+          _ -> (cmds, acs)
 
 template Asset
+  with
+    issuer : Party
+  where
+    signatory issuer
+
+template AssetMirror
   with
     issuer : Party
   where

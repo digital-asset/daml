@@ -9,7 +9,7 @@ load(
 da_haskell_library(
     name = "daml-lf-conversion",
     srcs = glob(["src/**/*.hs"]),
-    hazel_deps = [
+    hackage_deps = [
         "base",
         "bytestring",
         "containers",
@@ -19,6 +19,7 @@ da_haskell_library(
         "haskell-lsp-types",
         "ghc-lib-parser",
         "ghc-lib",
+        "ghcide",
         "lens",
         "mtl",
         "recursion-schemes",
@@ -33,7 +34,6 @@ da_haskell_library(
         "//compiler/daml-lf-ast",
         "//compiler/daml-lf-proto",
         "//compiler/daml-lf-tools",
-        "//compiler/hie-core",
         "//libs-haskell/da-hs-base",
     ],
 )

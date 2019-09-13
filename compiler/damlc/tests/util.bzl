@@ -75,7 +75,6 @@ def damlc_integration_test(name, main_function):
         deps = [
             "//compiler/daml-lf-ast",
             "//compiler/daml-lf-proto",
-            "//compiler/hie-core",
             "//compiler/damlc/daml-compiler",
             "//compiler/damlc/daml-ide-core",
             "//compiler/damlc/daml-lf-conversion",
@@ -86,7 +85,7 @@ def damlc_integration_test(name, main_function):
             "//libs-haskell/da-hs-base",
             "//libs-haskell/test-utils",
         ],
-        hazel_deps = [
+        hackage_deps = [
             "aeson",
             "base",
             "bytestring",
@@ -98,6 +97,7 @@ def damlc_integration_test(name, main_function):
             "filepath",
             "ghc-lib",
             "ghc-lib-parser",
+            "ghcide",
             "lens",
             "lens-aeson",
             "optparse-applicative",

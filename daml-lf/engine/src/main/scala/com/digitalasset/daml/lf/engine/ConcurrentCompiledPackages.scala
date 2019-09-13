@@ -12,6 +12,7 @@ import com.digitalasset.daml.lf.language.Ast.Package
 import com.digitalasset.daml.lf.speedy.Compiler.PackageNotFound
 import com.digitalasset.daml.lf.speedy.SExpr.SDefinitionRef
 import com.digitalasset.daml.lf.speedy.{Compiler, SExpr}
+import scala.collection.JavaConverters._
 
 /** Thread-safe class that can be used when you need to maintain a shared, mutable collection of
   * packages.
@@ -91,6 +92,9 @@ final class ConcurrentCompiledPackages extends CompiledPackages {
     _packages.clear()
     _defns.clear()
   }
+
+  override def packageIds: Set[PackageId] =
+    _packages.keySet.asScala.toSet
 }
 
 object ConcurrentCompiledPackages {

@@ -152,7 +152,7 @@ EOF
 da_haskell_library(
     name = "sdk-version-hs-lib",
     srcs = [":sdk-version-hs"],
-    hazel_deps = ["base"],
+    hackage_deps = ["base"],
     visibility = ["//visibility:public"],
 )
 
@@ -183,11 +183,6 @@ alias(
     name = "damlc-dist",
     actual = "//compiler/damlc:damlc-dist",
 )
-
-alias(
-    name = "hie-core",
-    actual = "//compiler/hie-core:hie-core-exe",
-) if not is_windows else None  # Disable on Windows until ghc-paths is fixed upstream
 
 alias(
     name = "daml-lf-repl",

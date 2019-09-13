@@ -14,6 +14,7 @@ import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml_lf.DamlLf.Archive
 import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails}
 import com.digitalasset.platform.sandbox.metrics.MetricsManager
+import com.digitalasset.platform.sandbox.stores.ActiveLedgerState.{ActiveContract, Contract}
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry
 
 import scala.collection.immutable
@@ -31,9 +32,11 @@ private class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, mm: MetricsManager)
   override def lookupExternalLedgerEnd(): Future[Option[LedgerString]] =
     mm.timedFuture("LedgerDao:lookupExternalLedgerEnd", ledgerDao.lookupExternalLedgerEnd())
 
-  override def lookupActiveContract(
+  override def lookupActiveOrDivulgedContract(
       contractId: Value.AbsoluteContractId): Future[Option[Contract]] =
-    mm.timedFuture("LedgerDao:lookupActiveContract", ledgerDao.lookupActiveContract(contractId))
+    mm.timedFuture(
+      "LedgerDao:lookupActiveContract",
+      ledgerDao.lookupActiveOrDivulgedContract(contractId))
 
   override def lookupLedgerEntry(offset: Long): Future[Option[LedgerEntry]] =
     mm.timedFuture("LedgerDao:lookupLedgerEntry", ledgerDao.lookupLedgerEntry(offset))
@@ -81,7 +84,7 @@ private class MeteredLedgerDao(ledgerDao: LedgerDao, mm: MetricsManager)
       ledgerDao.storeLedgerEntry(offset, newLedgerEnd, externalOffset, ledgerEntry))
 
   override def storeInitialState(
-      activeContracts: immutable.Seq[Contract],
+      activeContracts: immutable.Seq[ActiveContract],
       ledgerEntries: immutable.Seq[(LedgerOffset, LedgerEntry)],
       newLedgerEnd: LedgerOffset
   ): Future[Unit] =

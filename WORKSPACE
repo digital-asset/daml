@@ -27,6 +27,11 @@ load("@rules_haskell//haskell:repositories.bzl", "rules_haskell_dependencies")
 
 rules_haskell_dependencies()
 
+load("@rules_haskell//tools:repositories.bzl", "rules_haskell_worker_dependencies")
+
+# We don't use the worker mode, but this is required for bazel query to function.
+rules_haskell_worker_dependencies()
+
 register_toolchains(
     "//:c2hs-toolchain",
 )
@@ -479,12 +484,12 @@ GRPC_HASKELL_COMMIT = "11681ec6b99add18a8d1315f202634aea343d146"
 
 GRPC_HASKELL_HASH = "c6201f4e2fd39f25ca1d47b1dac4efdf151de88a2eb58254d61abc2760e58fda"
 
-GHC_LIB_VERSION = "8.8.1.20190830"
+GHC_LIB_VERSION = "8.8.1.20190912"
 
 http_archive(
     name = "haskell_ghc__lib__parser",
     build_file = "//3rdparty/haskell:BUILD.ghc-lib-parser",
-    sha256 = "8e223494b9622cfd46282a9544626f66e477d7652551cce7186603bfaa18d15d",
+    sha256 = "04140cbb24667d75259429c100ef49e20faa76f32441588b775c77ddf36acc44",
     strip_prefix = "ghc-lib-parser-{}".format(GHC_LIB_VERSION),
     urls = ["https://digitalassetsdk.bintray.com/ghc-lib/ghc-lib-parser-{}.tar.gz".format(GHC_LIB_VERSION)],
 )
@@ -523,6 +528,7 @@ hazel_repositories(
         # Excluded since we build it via the http_archive line above.
         "ghc-lib-parser",
         "ghc-paths",
+        "ghcide",
         "grpc-haskell",
         "grpc-haskell-core",
         "streaming-commons",
@@ -555,8 +561,8 @@ hazel_repositories(
 
             # Read [Working on ghc-lib] for ghc-lib update instructions at
             # https://github.com/digital-asset/daml/blob/master/ghc-lib/working-on-ghc-lib.md.
-            hazel_ghclibs(GHC_LIB_VERSION, "8e223494b9622cfd46282a9544626f66e477d7652551cce7186603bfaa18d15d", "9fa2ea51c634c0d9b2a4b132abdec398c6b2eb0150821ac5664abff2fe63373d") +
-            hazel_github_external("digital-asset", "hlint", "783df11bb08d88f069cc22a698d7bc38323bd32d", "10ec5ba641eca0505ed2aa3367221c9ec4bc7467bbb3f41668407fd337d5c30e") +
+            hazel_ghclibs(GHC_LIB_VERSION, "04140cbb24667d75259429c100ef49e20faa76f32441588b775c77ddf36acc44", "5a819b9e1a7b01cd327f8a1d11bf8d0441c4c37ab7528ddecf161fb33e596fa3") +
+            hazel_github_external("digital-asset", "hlint", "e679bd34bb4e7783e1468f5988c22e71d0152e9e", "c7d2a68459677aaec71cbe224f2b290a633b1aaddf94e773720bd159b3343cad") +
             hazel_github_external("awakesecurity", "proto3-wire", "4f355bbac895d577d8a28f567ab4380f042ccc24", "031e05d523a887fbc546096618bc11dceabae224462a6cdd6aab11c1658e17a3") +
             hazel_github_external(
                 "awakesecurity",
@@ -617,6 +623,10 @@ hazel_repositories(
                 "eb2c732b3d4ab5f7b367c51eef845e597ade19da52c03ee11954d35b6cfc4128",
                 patch_args = ["-p1"],
                 patches = ["@com_github_digital_asset_daml//3rdparty/haskell:bzlib-conduit.patch"],
+            ) + hazel_hackage(
+                "hpp",
+                "0.6.1",
+                "d1a843f4383223f85de4d91759545966f33a139d0019ab30a2f766bf9a7d62bf",
             ),
         pkgs = packages,
     ),
@@ -665,6 +675,17 @@ hazel_custom_package_github(
     github_user = "nmattia-da",
     repo_sha = "05179164831432f207f3d43580c51161d519d191",
     strip_prefix = "wai-app-static",
+)
+
+GHCIDE_REV = "44b11667d8593ae84c48ca88e96f4f227deec096"
+
+# We need a custom build file to depend on ghc-lib and ghc-lib-parser
+hazel_custom_package_github(
+    package_name = "ghcide",
+    build_file = "//3rdparty/haskell:BUILD.ghcide",
+    github_repo = "ghcide",
+    github_user = "digital-asset",
+    repo_sha = GHCIDE_REV,
 )
 
 load("//bazel_tools:java.bzl", "java_home_runtime")

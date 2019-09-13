@@ -43,16 +43,6 @@ object TestHelpers {
   val simpleDecodedPackage =
     Decode.decodeArchive(simpleArchive)._2
 
-  val emptyPackage: Ast.Package =
-    p"""
-      module Empty { }
-    """
-  val emptyArchive: DamlLf.Archive =
-    Encode.encodeArchive(
-      defaultParserParameters.defaultPackageId -> emptyPackage,
-      defaultParserParameters.languageVersion)
-  val emptyPackageId: Ref.PackageId = Ref.PackageId.assertFromString(emptyArchive.getHash)
-
   val badArchive: DamlLf.Archive =
     DamlLf.Archive.newBuilder
       .setHash("blablabla")

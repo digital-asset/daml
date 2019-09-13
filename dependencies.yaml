@@ -277,7 +277,7 @@ dependencies:
   com.h2database:
     h2:
       lang: java
-      version: "1.4.198"
+      version: "1.4.199"
 
   org.testcontainers:
     postgresql:

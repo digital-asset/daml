@@ -29,6 +29,7 @@ import com.digitalasset.platform.sandbox.stores.ledger.sql.SqlStartMode.{
   ContinueIfExists
 }
 import com.digitalasset.platform.sandbox.stores.ledger.sql.dao._
+import com.digitalasset.platform.sandbox.stores.ledger.sql.migration.FlywayMigrations
 import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{
   ContractSerializer,
   KeyHasher,
@@ -37,7 +38,7 @@ import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{
 }
 import com.digitalasset.platform.sandbox.stores.ledger.sql.util.DbDispatcher
 import com.digitalasset.platform.sandbox.stores.ledger.{Ledger, LedgerEntry}
-import com.digitalasset.platform.sandbox.stores.{InMemoryActiveContracts, InMemoryPackageStore}
+import com.digitalasset.platform.sandbox.stores.{InMemoryActiveLedgerState, InMemoryPackageStore}
 import org.slf4j.LoggerFactory
 import scalaz.syntax.tag._
 
@@ -68,7 +69,7 @@ object SqlLedger {
       jdbcUrl: String,
       ledgerId: Option[LedgerId],
       timeProvider: TimeProvider,
-      acs: InMemoryActiveContracts,
+      acs: InMemoryActiveLedgerState,
       packages: InMemoryPackageStore,
       initialLedgerEntries: ImmArray[LedgerEntryOrBump],
       queueDepth: Int,
@@ -77,9 +78,12 @@ object SqlLedger {
       mm: MetricsManager): Future[Ledger] = {
     implicit val ec: ExecutionContext = DEC
 
-    val dbType = JdbcLedgerDao.jdbcType(jdbcUrl)
+    new FlywayMigrations(jdbcUrl).migrate()
+
+    val dbType = DbType.jdbcType(jdbcUrl)
     val dbDispatcher =
-      DbDispatcher(jdbcUrl, dbType, noOfShortLivedConnections, noOfStreamingConnections)
+      DbDispatcher(jdbcUrl, noOfShortLivedConnections, noOfStreamingConnections)
+
     val ledgerDao = LedgerDao.metered(
       JdbcLedgerDao(
         dbDispatcher,
@@ -261,7 +265,8 @@ private class SqlLedger(
             mappedDisclosure
           ),
           mappedLocalImplicitDisclosure,
-          blindingInfo.globalImplicitDisclosure
+          blindingInfo.globalImplicitDisclosure,
+          List.empty
         )
       }
     }
@@ -339,7 +344,7 @@ private class SqlLedgerFactory(ledgerDao: LedgerDao) {
       initialLedgerId: Option[LedgerId],
       timeProvider: TimeProvider,
       startMode: SqlStartMode,
-      acs: InMemoryActiveContracts,
+      acs: InMemoryActiveLedgerState,
       packages: InMemoryPackageStore,
       initialLedgerEntries: ImmArray[LedgerEntryOrBump],
       queueDepth: Int,
@@ -378,7 +383,7 @@ private class SqlLedgerFactory(ledgerDao: LedgerDao) {
   private def initialize(
       initialLedgerId: Option[LedgerId],
       timeProvider: TimeProvider,
-      acs: InMemoryActiveContracts,
+      acs: InMemoryActiveLedgerState,
       packages: InMemoryPackageStore,
       initialLedgerEntries: ImmArray[LedgerEntryOrBump]): Future[LedgerId] = {
     // Note that here we only store the ledger entry and we do not update anything else, such as the
@@ -411,9 +416,7 @@ private class SqlLedgerFactory(ledgerDao: LedgerDao) {
                   s"Initializing ledger with ${initialLedgerEntries.length} ledger entries")
               }
 
-              val contracts = acs.contracts
-                .map(f => Contract.fromActiveContract(f._1, f._2))
-                .toList
+              val contracts = acs.activeContracts.values.toList
 
               val initialLedgerEnd = 0L
               val entriesWithOffset = initialLedgerEntries.foldLeft(

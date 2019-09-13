@@ -52,7 +52,7 @@ haskell_library(
     "-I/compiler", "-I/compiler/utils"
   ],
   package_name = "ghc-lib-parser",
-  version = "8.8.1.20190830",
+  version = "8.8.1.20190912",
 )
 
 cc_library(
@@ -84,7 +84,7 @@ cc_library(
   ],
   copts = ["-D__GLASGOW_HASKELL__=806", "-w"],
   srcs = [":compiler/cbits/genSym.c", ":compiler/parser/cutils.c"],
-  # NOTE(MK) Without linkstatic=True hie-core falls over probably
+  # NOTE(MK) Without linkstatic=True ghcide falls over probably
   # due to Bazel underlinking the dynamic library which GHC doesn’t like.
   linkstatic = True,
   textual_hdrs = glob([

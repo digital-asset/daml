@@ -79,6 +79,7 @@
   - {name: ViewPatterns, within: []}
 
   # Shady extensions
+  - {name: ImplicitParams, within: []}
   - name: CPP
     within:
     - Development.IDE.Core.FileStore
@@ -89,12 +90,14 @@
     - DA.Signals
     - Development.IDE.Core.Compile
     - Development.IDE.GHC.Compat
-  - {name: ImplicitParams, within: []}
+    - Development.IDE.GHC.Util
+    - Development.IDE.Import.FindImports
+    - Development.IDE.Spans.Calculate
 
 - flags:
   - default: false
   - {name: [-Wno-missing-signatures, -Wno-orphans, -Wno-overlapping-patterns, -Wno-incomplete-patterns, -Wno-missing-fields, -Wno-unused-matches]}
-
+  - {name: [-Wno-dodgy-imports], within: Main}
 # - modules:
 #   - {name: [Data.Set, Data.HashSet], as: Set} # if you import Data.Set qualified, it must be as 'Set'
 #   - {name: Control.Arrow, within: []} # Certain modules are banned entirely

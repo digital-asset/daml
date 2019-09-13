@@ -1,6 +1,6 @@
 -- Copyright (c) 2019 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
-
+{-# LANGUAGE AllowAmbiguousTypes #-}
 daml 1.2
 module Daml.Trigger
   ( Message(..)
@@ -10,12 +10,18 @@ module Daml.Trigger
   , Created(..)
   , Archived(..)
   , Trigger(..)
+  , ActiveContracts(..)
+  , Commands(..)
+  , TemplateId(..)
+  , Command
+  , exerciseCmd
+  , createCmd
   ) where
 
 data Identifier = Identifier
   { packageId : Text
   , moduleName : Text
-  , name : Text
+  , entityName : Text
   } deriving (Show, Eq)
 
 data Transaction = Transaction
@@ -42,10 +48,57 @@ data Archived = Archived
 
 data Message
   = MTransaction Transaction
+  deriving (Show, Eq)
+
+data ActiveContracts = ActiveContracts { activeContracts : [Created] }
+  deriving (Show, Eq)
 
 -- | Trigger is (approximately) a left-fold over `Message` with
 -- an accumulator of type `s`.
 data Trigger s = Trigger
-  { initialState : s
-  , update : Message -> s -> (s, Text)
+  { initialState : Party -> ActiveContracts -> s
+  , update : Message -> s -> (s, Optional Commands, Text)
+  }
+
+-- | We implicitly assume that the package id corresponds to the package the trigger is part of.
+-- This type is temporary until we have a builtin in LF for identifiers.
+data TemplateId = TemplateId
+  { moduleName : Text
+  , entityName : Text
+  }
+
+-- | This is an internal hack until we have this as a builtin in DAML-LF.
+
+-- You can think of this as an existential `data Dynamic = forall a. Dynamic a`
+-- that you can’t convert back from.
+data LedgerValue = LedgerValue {}
+
+-- | At runtime we turn this into the identity function
+-- and convert the result to ledger values.
+toLedgerValue : a -> LedgerValue
+toLedgerValue = error "toLedgerValue should be removed."
+
+data Command
+  = CreateCommand
+      { templateId : TemplateId
+      , templateArg : LedgerValue
+      }
+  | ExerciseCommand
+      { templateId : TemplateId
+      , contractId : Text
+      , choiceName : Text
+      , choiceArg : LedgerValue
+      }
+
+createCmd : Template t => TemplateId -> t -> Command
+createCmd templateId templateArg =
+  CreateCommand templateId (toLedgerValue templateArg)
+
+exerciseCmd : Choice t c r => TemplateId -> Text -> Text -> c -> Command
+exerciseCmd templateId contractId choiceName choiceArg =
+  ExerciseCommand templateId contractId choiceName (toLedgerValue choiceArg)
+
+data Commands = Commands
+  { commandId : Text
+  , commands : [Command]
   }

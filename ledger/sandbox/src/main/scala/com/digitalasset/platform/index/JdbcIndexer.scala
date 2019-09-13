@@ -28,10 +28,12 @@ import com.digitalasset.platform.sandbox.stores.ledger.sql.SqlLedger.{
   noOfStreamingConnections
 }
 import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.{
+  DbType,
+  JdbcLedgerDao,
   LedgerDao,
-  PersistenceEntry,
-  JdbcLedgerDao
+  PersistenceEntry
 }
+import com.digitalasset.platform.sandbox.stores.ledger.sql.migration.FlywayMigrations
 import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{
   ContractSerializer,
   KeyHasher,
@@ -45,14 +47,32 @@ import scalaz.syntax.tag._
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
 
-object JdbcIndexer {
+sealed trait InitStatus
+final abstract class Initialized extends InitStatus
+final abstract class Uninitialized extends InitStatus
+
+object JdbcIndexerFactory {
+  def apply(): JdbcIndexerFactory[Uninitialized] = new JdbcIndexerFactory[Uninitialized]()
+}
+
+class JdbcIndexerFactory[Status <: InitStatus] private () {
   private val logger = LoggerFactory.getLogger(classOf[JdbcIndexer])
   private[index] val asyncTolerance = 30.seconds
 
-  def create(
-      actorSystem: ActorSystem,
-      readService: ReadService,
-      jdbcUrl: String): Future[JdbcIndexer] = {
+  def validateSchema(jdbcUrl: String)(
+      implicit x: Status =:= Uninitialized): JdbcIndexerFactory[Initialized] = {
+    FlywayMigrations(jdbcUrl).validate()
+    this.asInstanceOf[JdbcIndexerFactory[Initialized]]
+  }
+
+  def migrateSchema(jdbcUrl: String)(
+      implicit x: Status =:= Uninitialized): JdbcIndexerFactory[Initialized] = {
+    FlywayMigrations(jdbcUrl).migrate()
+    this.asInstanceOf[JdbcIndexerFactory[Initialized]]
+  }
+
+  def create(actorSystem: ActorSystem, readService: ReadService, jdbcUrl: String)(
+      implicit x: Status =:= Initialized): Future[JdbcIndexer] = {
     val materializer: ActorMaterializer = ActorMaterializer()(actorSystem)
     val metricsManager = MetricsManager(false)
 
@@ -82,11 +102,10 @@ object JdbcIndexer {
   }
 
   private def initializeDao(jdbcUrl: String, mm: MetricsManager) = {
-    val dbType = JdbcLedgerDao.jdbcType(jdbcUrl)
+    val dbType = DbType.jdbcType(jdbcUrl)
     val dbDispatcher =
       DbDispatcher(
         jdbcUrl,
-        dbType,
         if (dbType.supportsParallelWrites) noOfShortLivedConnections else 1,
         noOfStreamingConnections)
     val ledgerDao = LedgerDao.metered(
@@ -130,7 +149,7 @@ object JdbcIndexer {
   * @param beginAfterExternalOffset The last offset received from the read service.
   *                                 This offset has inclusive semantics,
   */
-class JdbcIndexer private (
+class JdbcIndexer private[index] (
     initialInternalOffset: Long,
     beginAfterExternalOffset: Option[LedgerString],
     ledgerDao: LedgerDao)(implicit mat: Materializer)
@@ -206,6 +225,8 @@ class JdbcIndexer private (
             SandboxEventIdFormatter.fromTransactionId(transactionId, nodeId) -> parties
         }
 
+        assert(blindingInfo.localImplicitDisclosure.isEmpty)
+
         val pt = PersistenceEntry.Transaction(
           LedgerEntry.Transaction(
             optSubmitterInfo.map(_.commandId),
@@ -221,7 +242,8 @@ class JdbcIndexer private (
             mappedDisclosure
           ),
           mappedLocalImplicitDisclosure,
-          blindingInfo.globalImplicitDisclosure
+          blindingInfo.globalImplicitDisclosure,
+          divulgedContracts.map(c => c.contractId -> c.contractInst)
         )
         ledgerDao
           .storeLedgerEntry(headRef, headRef + 1, externalOffset, pt)

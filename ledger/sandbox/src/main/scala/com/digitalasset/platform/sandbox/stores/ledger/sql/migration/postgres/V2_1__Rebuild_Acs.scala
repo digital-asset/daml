@@ -13,20 +13,22 @@ import akka.stream.scaladsl.Source
 import akka.NotUsed
 import anorm.SqlParser._
 import anorm.{BatchSql, Macro, NamedParameter, RowParser, SQL, SqlParser}
+import com.daml.ledger.participant.state.v1.AbsoluteContractInst
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.Relation.Relation
 import com.digitalasset.daml.lf.engine.Blinding
 import com.digitalasset.daml.lf.transaction.Transaction
 import com.digitalasset.daml.lf.transaction.Node.{GlobalKey, KeyWithMaintainers, NodeCreate}
+import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractId}
 import com.digitalasset.ledger._
 import com.digitalasset.ledger.api.domain.RejectionReason
 import com.digitalasset.ledger.api.domain.RejectionReason._
 import com.digitalasset.platform.sandbox.services.transaction.SandboxEventIdFormatter
+import com.digitalasset.platform.sandbox.stores.ActiveLedgerState.{ActiveContract, Contract}
 import com.digitalasset.platform.sandbox.stores._
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry
-import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.Contract
 import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{
   ContractSerializer,
   KeyHasher,
@@ -126,7 +128,7 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
       .as(ledgerString("contract_id").singleOpt)
       .map(AbsoluteContractId)
 
-  private def storeContract(offset: Long, contract: Contract)(
+  private def storeContract(offset: Long, contract: ActiveContract)(
       implicit connection: Connection): Unit = storeContracts(offset, List(contract))
 
   private def archiveContract(offset: Long, cid: AbsoluteContractId)(
@@ -148,7 +150,7 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
   private val SQL_INSERT_CONTRACT_KEY_MAINTAINERS =
     "insert into contract_key_maintainers(contract_id, maintainer) values({contract_id}, {maintainer})"
 
-  private def storeContracts(offset: Long, contracts: immutable.Seq[Contract])(
+  private def storeContracts(offset: Long, contracts: immutable.Seq[ActiveContract])(
       implicit connection: Connection): Unit = {
 
     // A ACS contract contaixns several collections (e.g., witnesses or divulgences).
@@ -160,22 +162,22 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
         .map(
           c =>
             Seq[NamedParameter](
-              "id" -> c.contractId.coid,
+              "id" -> c.id.coid,
               "transaction_id" -> c.transactionId,
               "workflow_id" -> c.workflowId.getOrElse(""),
-              "package_id" -> c.coinst.template.packageId,
-              "name" -> c.coinst.template.qualifiedName.toString,
+              "package_id" -> c.contract.template.packageId,
+              "name" -> c.contract.template.qualifiedName.toString,
               "create_offset" -> offset,
               "contract" -> contractSerializer
-                .serializeContractInstance(c.coinst)
-                .getOrElse(sys.error(s"failed to serialize contract! cid:${c.contractId.coid}")),
+                .serializeContractInstance(c.contract)
+                .getOrElse(sys.error(s"failed to serialize contract! cid:${c.id.coid}")),
               "key" -> c.key
                 .map(
                   k =>
                     valueSerializer
                       .serializeValue(k.key)
-                      .getOrElse(sys.error(
-                        s"failed to serialize contract key value! cid:${c.contractId.coid}")))
+                      .getOrElse(
+                        sys.error(s"failed to serialize contract key value! cid:${c.id.coid}")))
           )
         )
 
@@ -191,7 +193,7 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
             c.witnesses.map(
               w =>
                 Seq[NamedParameter](
-                  "contract_id" -> c.contractId.coid,
+                  "contract_id" -> c.id.coid,
                   "witness" -> w
               ))
         )
@@ -218,7 +220,7 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
               c.divulgences.map(
                 w =>
                   Seq[NamedParameter](
-                    "contract_id" -> c.contractId.coid,
+                    "contract_id" -> c.id.coid,
                     "party" -> (w._1: String),
                     "transaction_id" -> w._2
                 ))
@@ -238,7 +240,7 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
               c.divulgences.map(
                 w =>
                   Seq[NamedParameter](
-                    "contract_id" -> c.contractId.coid,
+                    "contract_id" -> c.id.coid,
                     "party" -> (w._1: String),
                     "ledger_offset" -> offset,
                     "transaction_id" -> c.transactionId
@@ -264,7 +266,7 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
                   k.maintainers.map(
                     p =>
                       Seq[NamedParameter](
-                        "contract_id" -> c.contractId.coid,
+                        "contract_id" -> c.id.coid,
                         "maintainer" -> p
                     )))
               .getOrElse(Set.empty)
@@ -344,19 +346,16 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
       val mappedDisclosure = explicitDisclosure
         .mapValues(parties => parties.map(Party.assertFromString))
 
-      final class AcsStoreAcc extends ActiveContracts[AcsStoreAcc] {
+      final class AcsStoreAcc extends ActiveLedgerState[AcsStoreAcc] {
 
         override def lookupContract(cid: AbsoluteContractId) =
-          lookupActiveContractSync(cid).map(_.toActiveContract)
+          lookupActiveContractSync(cid)
 
         override def keyExists(key: GlobalKey): Boolean = selectContractKey(key).isDefined
 
-        override def addContract(
-            cid: AbsoluteContractId,
-            c: ActiveContracts.ActiveContract,
-            keyO: Option[GlobalKey]) = {
-          storeContract(offset, Contract.fromActiveContract(cid, c))
-          keyO.foreach(key => storeContractKey(key, cid))
+        override def addContract(c: ActiveLedgerState.ActiveContract, keyO: Option[GlobalKey]) = {
+          storeContract(offset, c)
+          keyO.foreach(key => storeContractKey(key, c.id))
           this
         }
 
@@ -371,9 +370,10 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
           this
         }
 
-        override def divulgeAlreadyCommittedContract(
+        override def divulgeAlreadyCommittedContracts(
             transactionId: TransactionIdString,
-            global: Relation[AbsoluteContractId, Party]) = {
+            global: Relation[AbsoluteContractId, Party],
+            referencedContracts: List[(Value.AbsoluteContractId, AbsoluteContractInst)]) = {
           val divulgenceParams = global
             .flatMap {
               case (cid, parties) =>
@@ -397,7 +397,7 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
       }
 
       // this should be a class member field, we can't move it out yet as the functions above are closing over to the implicit Connection
-      val acsManager = new ActiveContractsManager(new AcsStoreAcc)
+      val acsManager = new ActiveLedgerStateManager(new AcsStoreAcc)
 
       // Note: ACS is typed as Unit here, as the ACS is given implicitly by the current database state
       // within the current SQL transaction. All of the given functions perform side effects to update the database.
@@ -408,7 +408,8 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
         transaction,
         mappedDisclosure,
         localImplicitDisclosure,
-        globalImplicitDisclosure
+        globalImplicitDisclosure,
+        List.empty
       )
 
       atr match {
@@ -629,6 +630,9 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
       .as(ContractDataParser.singleOpt)
       .map(mapContractDetails)
 
+  /** Note: at the time this migration was written, divulged contracts were not stored separately from active contracts.
+    * This method therefore always returns an ActiveContract.
+    */
   private def mapContractDetails(
       contractResult: (
           ContractIdString,
@@ -637,12 +641,15 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
           Date,
           InputStream,
           Option[InputStream],
-          InputStream))(implicit conn: Connection) =
+          InputStream))(implicit conn: Connection): ActiveContract =
     contractResult match {
       case (coid, transactionId, workflowId, createdAt, contractStream, keyStreamO, tx) =>
         val witnesses = lookupWitnesses(coid)
         val divulgences = lookupDivulgences(coid)
         val absoluteCoid = AbsoluteContractId(coid)
+        val contractInstance = contractSerializer
+          .deserializeContractInstance(ByteStreams.toByteArray(contractStream))
+          .getOrElse(sys.error(s"failed to deserialize contract! cid:$coid"))
 
         val (signatories: Set[Ref.Party], observers: Set[Ref.Party]) =
           transactionSerializer
@@ -658,16 +665,14 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
             (Set.empty, Set.empty)
           }
 
-        Contract(
+        ActiveContract(
           absoluteCoid,
           createdAt.toInstant,
           transactionId,
           Some(workflowId),
+          contractInstance,
           witnesses,
           divulgences,
-          contractSerializer
-            .deserializeContractInstance(ByteStreams.toByteArray(contractStream))
-            .getOrElse(sys.error(s"failed to deserialize contract! cid:$coid")),
           keyStreamO.map(keyStream => {
             val keyMaintainers = lookupKeyMaintainers(coid)
             val keyValue = valueSerializer
@@ -676,7 +681,8 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
             KeyWithMaintainers(keyValue, keyMaintainers)
           }),
           signatories,
-          observers
+          observers,
+          contractInstance.agreementText
         )
     }
 

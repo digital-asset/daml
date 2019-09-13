@@ -16,6 +16,7 @@ trait CompiledPackages {
   def getDefinition(dref: SDefinitionRef): Option[SExpr]
 
   def packages: PartialFunction[PackageId, Package] = Function.unlift(this.getPackage)
+  def packageIds: Set[PackageId]
   def definitions: PartialFunction[SDefinitionRef, SExpr] =
     Function.unlift(this.getDefinition)
 }
@@ -24,6 +25,7 @@ final class PureCompiledPackages private (
     packages: Map[PackageId, Package],
     defns: Map[SDefinitionRef, SExpr])
     extends CompiledPackages {
+  override def packageIds = packages.keySet
   override def getPackage(pkgId: PackageId): Option[Package] = packages.get(pkgId)
   override def getDefinition(dref: SDefinitionRef): Option[SExpr] = defns.get(dref)
 }

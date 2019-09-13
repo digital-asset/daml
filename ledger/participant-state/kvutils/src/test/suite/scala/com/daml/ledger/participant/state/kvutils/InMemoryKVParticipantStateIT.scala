@@ -3,23 +3,29 @@
 
 package com.daml.ledger.participant.state.kvutils
 
+import java.io.File
 import java.time.Duration
 
 import akka.stream.scaladsl.Sink
 import com.daml.ledger.participant.state.backport.TimeModel
 import com.daml.ledger.participant.state.v1.Update.{PartyAddedToParticipant, PublicPackageUploaded}
 import com.daml.ledger.participant.state.v1._
+import com.digitalasset.daml.bazeltools.BazelRunfiles
+import com.digitalasset.daml.lf.archive.DarReader
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.transaction.Transaction.PartialTransaction
 import com.digitalasset.daml_lf.DamlLf
 import com.digitalasset.ledger.api.testing.utils.AkkaBeforeAndAfterAll
-import com.google.protobuf.ByteString
 import org.scalatest.{Assertion, AsyncWordSpec}
 
 import scala.compat.java8.FutureConverters._
+import scala.util.Try
 
-class InMemoryKVParticipantStateIT extends AsyncWordSpec with AkkaBeforeAndAfterAll {
+class InMemoryKVParticipantStateIT
+    extends AsyncWordSpec
+    with AkkaBeforeAndAfterAll
+    with BazelRunfiles {
 
   private val emptyTransaction: SubmittedTransaction =
     PartialTransaction.initial.finish.right.get
@@ -28,16 +34,9 @@ class InMemoryKVParticipantStateIT extends AsyncWordSpec with AkkaBeforeAndAfter
     Ref.LedgerString.assertFromString("in-memory-participant")
   private val sourceDescription = Some("provided by test")
 
-  private val archives = List(
-    DamlLf.Archive.newBuilder
-      .setHash("asdf")
-      .setPayload(ByteString.copyFromUtf8("AAAAAAAHHHHHH"))
-      .build,
-    DamlLf.Archive.newBuilder
-      .setHash("zxcv")
-      .setPayload(ByteString.copyFromUtf8("ZZZZZZZZZZZZZ"))
-      .build
-  )
+  private val darReader = DarReader { case (_, is) => Try(DamlLf.Archive.parseFrom(is)) }
+  private val archives =
+    darReader.readArchiveFromFile(new File(rlocation("ledger/test-common/Test-stable.dar"))).get.all
 
   private def submitterInfo(rt: Timestamp, party: String = "Alice") = SubmitterInfo(
     submitter = Ref.Party.assertFromString(party),

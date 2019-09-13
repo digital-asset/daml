@@ -9,7 +9,7 @@ load(
 da_haskell_library(
     name = "daml-compiler",
     srcs = glob(["src/**/*.hs"]),
-    hazel_deps = [
+    hackage_deps = [
         "base",
         "bytestring",
         "conduit",
@@ -19,6 +19,7 @@ da_haskell_library(
         "filepath",
         "ghc-lib",
         "ghc-lib-parser",
+        "ghcide",
         "haskell-lsp",
         "lens",
         "mtl",
@@ -41,7 +42,6 @@ da_haskell_library(
         "//compiler/damlc/daml-ide-core",
         "//compiler/damlc/daml-opts:daml-opts-types",
         "//compiler/damlc/daml-preprocessor",
-        "//compiler/hie-core",
         "//compiler/scenario-service/client",
         "//libs-haskell/da-hs-base",
     ],

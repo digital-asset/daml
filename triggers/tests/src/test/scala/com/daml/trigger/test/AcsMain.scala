@@ -8,6 +8,7 @@ import java.time.Instant
 
 import akka.actor.ActorSystem
 import akka.stream._
+import akka.stream.scaladsl.Sink
 import scala.concurrent.{Await, ExecutionContext, Future, Promise}
 import scala.concurrent.duration.Duration
 import scala.util.{Success, Failure}
@@ -26,6 +27,7 @@ import com.digitalasset.ledger.api.v1.command_submission_service._
 import com.digitalasset.ledger.api.v1.commands._
 import com.digitalasset.ledger.api.v1.value
 import com.digitalasset.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
+import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
 import com.digitalasset.daml.lf.archive.DarReader
 import com.digitalasset.daml.lf.archive.Dar
 import com.digitalasset.daml.lf.language.Ast._
@@ -64,6 +66,9 @@ object AcsMain {
 
   private val applicationId = ApplicationId("AscMain test")
 
+  case class ActiveAssetMirrors(num: Int)
+  case class NumTransactions(num: Long)
+
   def main(args: Array[String]): Unit = {
     configParser.parse(args, Config(0, null)) match {
       case None =>
@@ -84,7 +89,6 @@ object AcsMain {
 
         val triggerId: Identifier =
           Identifier(dar.main._1, QualifiedName.assertFromString("ACS:test"))
-        val runner = Runner.fromDar(dar, triggerId)
 
         val system: ActorSystem = ActorSystem("TriggerRunner")
         implicit val materializer: ActorMaterializer = ActorMaterializer()(system)
@@ -105,7 +109,7 @@ object AcsMain {
         )
 
         // Create a contract and return the contract id.
-        def create(client: LedgerClient, commandId: String): Future[String] = {
+        def create(client: LedgerClient, party: String, commandId: String): Future[String] = {
           val commands = Seq(
             Command().withCreate(CreateCommand(
               templateId = Some(assetId),
@@ -115,7 +119,7 @@ object AcsMain {
                   fields = Seq(
                     value.RecordField(
                       "issuer",
-                      Some(value.Value().withParty("Alice"))
+                      Some(value.Value().withParty(party))
                     )
                   )
                 )),
@@ -127,17 +131,21 @@ object AcsMain {
                   ledgerId = client.ledgerId.unwrap,
                   applicationId = applicationId.unwrap,
                   commandId = commandId,
-                  party = "Alice",
+                  party = party,
                   ledgerEffectiveTime = Some(fromInstant(Instant.EPOCH)),
                   maximumRecordTime = Some(fromInstant(Instant.EPOCH.plusSeconds(5))),
                   commands = commands
                 ))))
-            t <- client.transactionClient.getFlatTransactionById(r.transactionId, Seq("Alice"))
+            t <- client.transactionClient.getFlatTransactionById(r.transactionId, Seq(party))
           } yield t.transaction.get.events.head.getCreated.contractId
         }
 
         // Archive the contract with the given id.
-        def archive(client: LedgerClient, commandId: String, contractId: String): Future[Unit] = {
+        def archive(
+            client: LedgerClient,
+            party: String,
+            commandId: String,
+            contractId: String): Future[Unit] = {
           val archiveVal = Some(
             value
               .Value()
@@ -169,7 +177,7 @@ object AcsMain {
                   ledgerId = client.ledgerId.unwrap,
                   applicationId = applicationId.unwrap,
                   commandId = commandId,
-                  party = "Alice",
+                  party = party,
                   ledgerEffectiveTime = Some(fromInstant(Instant.EPOCH)),
                   maximumRecordTime = Some(fromInstant(Instant.EPOCH.plusSeconds(5))),
                   commands = commands
@@ -182,32 +190,49 @@ object AcsMain {
           } yield ()
         }
 
-        def test(transactions: Long, commands: LedgerClient => Future[Set[String]]) = {
+        var partyCount = 0
+        def getNewParty(): String = {
+          partyCount = partyCount + 1
+          s"Alice$partyCount"
+        }
+
+        def test(
+            transactions: NumTransactions,
+            commands: (LedgerClient, String) => Future[(Set[String], ActiveAssetMirrors)]) = {
+          val party = getNewParty()
           val clientF =
             LedgerClient.singleHost("localhost", config.ledgerPort, clientConfig)(ec, sequencer)
+          val filter = TransactionFilter(List((party, Filters.defaultInstance)).toMap)
           val triggerFlow: Future[SExpr] = for {
             client <- clientF
-            offset <- client.transactionClient.getLedgerEnd.flatMap(response =>
-              response.offset match {
-                case None => Future.failed(new RuntimeException("Empty option"))
-                case Some(a) => Future.successful(a)
-            })
+            acsResponses <- client.activeContractSetClient
+              .getActiveContracts(filter, verbose = true)
+              .runWith(Sink.seq)
+
+            offset <- Future {
+              Array(acsResponses: _*).lastOption
+                .fold(LedgerOffset().withBoundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN))(resp =>
+                  LedgerOffset().withAbsolute(resp.offset))
+            }
+            runner <- Future {
+              new Runner(client.ledgerId, applicationId, party, dar, submitRequest => {
+                val _ = client.commandClient.submitSingleCommand(submitRequest)
+              })
+            }
             finalState <- client.transactionClient
-              .getTransactions(
-                offset,
-                None,
-                TransactionFilter(List(("Alice", Filters.defaultInstance)).toMap))
-              .take(transactions)
-              .runWith(runner.triggerSink)
+              .getTransactions(offset, None, filter)
+              .take(transactions.num)
+              .runWith(
+                runner.getTriggerSink(triggerId, acsResponses.flatMap(x => x.activeContracts)))
           } yield finalState
-          val commandsFlow: Future[Set[String]] = for {
+          val commandsFlow: Future[(Set[String], ActiveAssetMirrors)] = for {
             client <- clientF
-            activeContracts <- commands(client)
-          } yield activeContracts
+            r <- commands(client, party)
+          } yield r
 
           // We want to error out if either of the futures fails so Future.sequence
           // does not do the trick and we have to hack around it using a Promise
-          val p = Promise[(SExpr, Set[String])]()
+          val p = Promise[(SExpr, (Set[String], ActiveAssetMirrors))]()
           triggerFlow.onComplete(r =>
             r match {
               case Success(_) => ()
@@ -238,38 +263,60 @@ object AcsMain {
           val r = Await.result(p.future, Duration.Inf)
 
           r._1 match {
-            case SEValue(SMap(v)) =>
+            case SEValue(SRecord(_, _, vals)) => {
+              assert(vals.size == 3, s"Expected record with 3 fields but got ${r._1}")
+              val activeAssets = vals.get(0) match {
+                case SMap(v) => v.keySet
+                case _ => throw new RuntimeException(s"Expected a map but got ${vals.get(0)}")
+              }
+              assert(activeAssets == r._2._1, s"Expected ${r._2._1} but got $activeAssets")
+              val activeMirrorContractsF: Future[Int] = for {
+                client <- clientF
+                acsResponses <- client.activeContractSetClient
+                  .getActiveContracts(filter, verbose = true)
+                  .runWith(Sink.seq)
+
+              } yield
+                (acsResponses
+                  .flatMap(x => x.activeContracts)
+                  .filter(x => x.getTemplateId.entityName == "AssetMirror")
+                  .size)
+              val activeMirrorContracts = Await.result(activeMirrorContractsF, Duration.Inf)
               assert(
-                v.keySet == r._2,
-                "Expected " + r._2.toString + " but got " + v.keySet.toString)
-            case _ => assert(false, "Expected a map but got " + r._1.toString)
+                activeMirrorContracts == r._2._2.num,
+                s"Expected  ${r._2._2.num} but  got $activeMirrorContracts")
+            }
+            case _ => assert(false, "Expected a map but got ${r._1.toString}")
           }
         }
 
         try {
 
-          test(1, client => {
+          test(NumTransactions(2), (client, party) => {
             for {
-              contractId <- create(client, "1.0")
-            } yield Set(contractId)
-          })
-
-          test(2, client => {
-            for {
-              contractId1 <- create(client, "2.0")
-              contractId2 <- create(client, "2.1")
-            } yield Set(contractId1, contractId2)
+              contractId <- create(client, party, "1.0")
+            } yield (Set(contractId), ActiveAssetMirrors(1))
           })
 
           test(
-            4,
-            client => {
+            NumTransactions(4),
+            (client, party) => {
               for {
-                contractId1 <- create(client, "3.0")
-                contractId2 <- create(client, "3.1")
-                _ <- archive(client, "3.2", contractId1)
-                _ <- archive(client, "3.3", contractId2)
-              } yield Set()
+                contractId1 <- create(client, party, "2.0")
+                contractId2 <- create(client, party, "2.1")
+              } yield (Set(contractId1, contractId2), ActiveAssetMirrors(2))
+            }
+          )
+
+          test(
+            NumTransactions(6),
+            (client, party) => {
+              for {
+                contractId1 <- create(client, party, "3.0")
+                contractId2 <- create(client, party, "3.1")
+                _ <- archive(client, party, "3.2", contractId1)
+                _ <- archive(client, party, "3.3", contractId2)
+              } yield (Set(), ActiveAssetMirrors(2))
             }
           )
 

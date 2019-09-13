@@ -21,7 +21,9 @@ private[kvutils] case class ProcessConfigSubmission(
   import Common._
   import Commit._
 
-  private val logger = LoggerFactory.getLogger(this.getClass)
+  private implicit val logger =
+    LoggerFactory.getLogger(
+      s"ProcessConfigSubmission[entryId=${Pretty.prettyEntryId(entryId)}, submId=${configSubmission.getSubmissionId}]")
   private val currentConfig =
     Common.getCurrentConfiguration(defaultConfig, inputState, logger)
 
@@ -30,10 +32,10 @@ private[kvutils] case class ProcessConfigSubmission(
   def run: (DamlLogEntry, Map[DamlStateKey, DamlStateValue]) =
     runSequence(
       inputState = Map.empty,
-      checkTtl,
-      authorizeSubmission,
-      validateSubmission,
-      buildLogEntry
+      "Check TTL" -> checkTtl,
+      "Authorize" -> authorizeSubmission,
+      "Validate" -> validateSubmission,
+      "Build" -> buildLogEntry
     )
 
   private def checkTtl(): Commit[Unit] = delay {
@@ -77,10 +79,9 @@ private[kvutils] case class ProcessConfigSubmission(
           pass
       }
 
-  private def buildLogEntry(): Commit[Unit] = sequence(
+  private def buildLogEntry(): Commit[Unit] = sequence2(
     delay {
-      logger.trace(
-        s"processSubmission[entryId=${Pretty.prettyEntryId(entryId)}]: New configuration committed.")
+      logger.trace(s"New configuration with generation ${newConfig.getGeneration} accepted.")
       set(
         configurationStateKey ->
           DamlStateValue.newBuilder

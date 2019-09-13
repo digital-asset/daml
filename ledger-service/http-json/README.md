@@ -2,15 +2,14 @@
 
 ## How to start
 
-### Start sandbox from a DAML Assistant project directory
+### Start sandbox from a DAML project directory
 ```
 daml-head sandbox --wall-clock-time --ledgerid MyLedger ./.daml/dist/quickstart-0.0.1.dar
 ```
 
-### Start HTTP service from the DAML project root
-This will build the service first, can take up to 5-10 minutes when running first time.
+### Start HTTP service from a DAML project directory
 ```
-$ bazel run //ledger-service/http-json:http-json-binary -- localhost 6865 7575 4194304
+$ daml-head json-api --ledger-host localhost --ledger-port 6865 --http-port 7575 --max-inbound-message-size 4194304 --application-id HTTP-JSON-API-Gateway
 ```
 Where:
  - localhost 6865 -- sandbox host and port
@@ -28,9 +27,7 @@ $ daml-head new iou-quickstart-java quickstart-java
 $ cd iou-quickstart-java/
 $ daml-head build
 $ daml-head sandbox --wall-clock-time --ledgerid MyLedger ./.daml/dist/quickstart-0.0.1.dar
-
-cd <daml-root>/
-$ bazel run //ledger-service/http-json:http-json-binary -- localhost 6865 7575
+$ daml-head json-api --ledger-host localhost --ledger-port 6865 --http-port 7575
 ```
 
 ### Choosing a party
@@ -74,7 +71,7 @@ supports such tokens.
 ### POST http://localhost:7575/contracts/search
 application/json body:
 ```
-{"templateIds": [{"moduleName": "Iou", "entityName": "Iou"}]}
+{"%templates": [{"moduleName": "Iou", "entityName": "Iou"}]}
 ```
 
 ### POST http://localhost:7575/command/create

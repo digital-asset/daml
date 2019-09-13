@@ -9,7 +9,7 @@ load(
 da_haskell_library(
     name = "test-utils",
     srcs = glob(["DA/Test/Util.hs"]),
-    hazel_deps = [
+    hackage_deps = [
         "base",
         "text",
     ],
