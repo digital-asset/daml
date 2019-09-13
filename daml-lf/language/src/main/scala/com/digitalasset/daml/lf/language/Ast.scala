@@ -4,9 +4,11 @@
 package com.digitalasset.daml.lf.language
 
 import com.digitalasset.daml.lf.data.Ref._
+import com.digitalasset.daml.lf.data.Interning._
 import com.digitalasset.daml.lf.data._
 
 object Ast {
+
   //
   // Identifiers
   //
@@ -51,10 +53,16 @@ object Ast {
   }
 
   /** Reference to a variable in current lexical scope. */
-  final case class EVar(value: ExprVarName) extends Expr
+  final case class EVar private (value: ExprVarName) extends Expr
+  object EVar extends (ExprVarName => EVar) with Memoizable[ExprVarName, EVar] {
+    def apply(value: ExprVarName): EVar = memoize(value, new EVar(value))
+  }
 
   /** Reference to a value definition. */
-  final case class EVal(value: ValueRef) extends Expr
+  final case class EVal private (value: ValueRef) extends Expr
+  object EVal extends (ValueRef => EVal) with Memoizable[ValueRef, EVal] {
+    def apply(value: ValueRef): EVal = memoize(value, new EVal(value))
+  }
 
   /** Reference to a builtin function. */
   final case class EBuiltin(value: BuiltinFunction) extends Expr
@@ -235,7 +243,11 @@ object Ast {
   final case class TTyCon(tycon: TypeConName) extends Type
 
   /** Reference to builtin type. */
-  final case class TBuiltin(bt: BuiltinType) extends Type
+  final case class TBuiltin private (bt: BuiltinType) extends Type
+  object TBuiltin extends (BuiltinType => TBuiltin) with Memoizable[BuiltinType, TBuiltin] {
+    def apply(bt: BuiltinType): TBuiltin =
+      memoize(bt, new TBuiltin(bt))
+  }
 
   /** Application of a type function to a type. */
   final case class TApp(tyfun: Type, arg: Type) extends Type
