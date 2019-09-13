@@ -69,7 +69,10 @@ decodeArchivePayload bytes = do
     payload <- over _Left (ProtobufError . show) $ Proto.fromByteString payloadBytes
     return (LF.PackageId archiveHash, payload)
 
--- | Decode a LF archive header, returing the hash and the payload
+-- | Decode a LF archive header, returning the hash and the payload.
+-- 'xrefs' must contain at least those packages given to
+-- 'decodeArchiveCrossReferences' that 'bytes' will depend on, but may
+-- contain more.
 decodeArchive :: Decode.CrossReferences -> BS.ByteString -> Either ArchiveError (LF.PackageId, LF.Package)
 decodeArchive xrefs bytes = do
     (packageId, payload) <- decodeArchivePayload bytes

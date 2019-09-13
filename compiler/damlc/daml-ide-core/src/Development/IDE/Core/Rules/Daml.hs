@@ -20,6 +20,8 @@ import qualified Data.ByteString as BS
 import qualified Data.ByteString.UTF8 as BS
 import Data.Either.Extra
 import Data.Foldable
+import Data.Functor ((<&>))
+import Data.Functor.Compose (Compose(..))
 import Data.List
 import qualified Data.IntMap.Strict as IntMap
 import qualified Data.Map.Strict as Map
@@ -58,6 +60,7 @@ import qualified DA.Daml.LF.Ast as LF
 import qualified DA.Daml.LF.InferSerializability as Serializability
 import qualified DA.Daml.LF.PrettyScenario as LF
 import qualified DA.Daml.LF.Proto3.Archive as Archive
+import qualified DA.Daml.LF.Proto3.Decode as Decode
 import qualified DA.Daml.LF.ScenarioServiceClient as SS
 import qualified DA.Daml.LF.Simplifier as LF
 import qualified DA.Daml.LF.TypeChecker as LF
@@ -214,20 +217,26 @@ generateDocTestModuleRule =
 generatePackageMap ::
      [FilePath] -> IO ([FileDiagnostic], Map.Map UnitId DalfPackage)
 generatePackageMap fps = do
-  (diags, pkgs) <-
-    fmap (partitionEithers . concat) $
-    forM fps $ \fp -> do
-      allFiles <- listFilesRecursive fp
-      let dalfs = filter ((== ".dalf") . takeExtension) allFiles
-      forM dalfs $ \dalf -> do
-        dalfBS <- BS.readFile dalf
-        return $ do
-          (pkgId, package) <-
-            mapLeft (ideErrorPretty $ toNormalizedFilePath dalf) $
-            Archive.decodeArchive dalfBS
-          let unitId = stringToUnitId $ dropExtension $ takeFileName dalf
+  dalfs <- concat <$> traverse (fmap (filter ((== ".dalf") . takeExtension)) . listFilesRecursive) fps
+  (payloadDiags, payloads) <-
+    fmap partitionEithers $
+    forM dalfs $ \dalf -> do
+      dalfBS <- BS.readFile dalf
+      return $ do
+        (pkgId, payload) <-
+          mapLeft (ideErrorPretty $ toNormalizedFilePath dalf) $
+          Archive.decodeArchivePayload dalfBS
+        let unitId = stringToUnitId $ dropExtension $ takeFileName dalf
+        Right ((unitId, dalf, dalfBS), (pkgId, payload))
+  let xrefs = Archive.decodeArchiveCrossReferences $ Compose payloads
+      (diags, pkgs) =
+        partitionEithers $
+        payloads <&> \((unitId, dalf, dalfBS), (pkgId, payload)) -> do
+          package <-
+            mapLeft (ideErrorPretty (toNormalizedFilePath dalf) . Archive.ProtobufError . show) $
+            Decode.decodePayload xrefs payload
           Right (unitId, DalfPackage pkgId (LF.rewriteSelfReferences pkgId package) dalfBS)
-  return (diags, Map.fromList pkgs)
+  return (payloadDiags <> diags, Map.fromList pkgs)
 
 generatePackageMapRule :: Options -> Rules ()
 generatePackageMapRule opts =
