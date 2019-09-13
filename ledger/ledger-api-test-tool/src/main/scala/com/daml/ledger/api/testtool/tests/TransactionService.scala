@@ -291,6 +291,36 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
       }
     }
 
+  private[this] val contractIdFromExerciseWhenFilter =
+    LedgerTest(
+      "TXContractIdFromExerciseWhenFilter",
+      "Expose contract identifiers that are results of exercising choices when filtering by template") {
+      context =>
+        for {
+          ledger <- context.participant()
+          party <- ledger.allocateParty()
+          factory <- ledger.create(party, DummyFactory(party))
+          _ <- ledger.exercise(party, factory.exerciseDummyFactoryCall)
+          dummyWithParam <- ledger.flatTransactionsByTemplateId(DummyWithParam.id, party)
+          dummyFactory <- ledger.flatTransactionsByTemplateId(DummyFactory.id, party)
+        } yield {
+          val create = assertSingleton("GetCreate", dummyWithParam.flatMap(createdEvents))
+          assertEquals(
+            "Create should be of DummyWithParam",
+            create.getTemplateId,
+            Tag.unwrap(DummyWithParam.id))
+          val archive = assertSingleton("GetArchive", dummyFactory.flatMap(archivedEvents))
+          assertEquals(
+            "Archive should be of DummyFactory",
+            archive.getTemplateId,
+            Tag.unwrap(DummyFactory.id))
+          assertEquals(
+            "Mismatching archived contract identifier",
+            archive.contractId,
+            Tag.unwrap(factory))
+        }
+    }
+
   private[this] val rejectOnFailingAssertion =
     LedgerTest("TXRejectOnFailingAssertion", "Reject a transaction on a failing assertion") {
       context =>
@@ -718,6 +748,7 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     hideCommandIdToNonSubmittingStakeholders,
     filterByTemplate,
     useCreateToExercise,
+    contractIdFromExerciseWhenFilter,
     rejectOnFailingAssertion,
     createWithAnyType,
     exerciseWithAnyType,

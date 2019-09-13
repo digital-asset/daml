@@ -254,6 +254,11 @@ private[testtool] final class ParticipantTestContext private[participant] (
   def flatTransactions(take: Int, parties: Party*): Future[Vector[Transaction]] =
     flatTransactions(take, getTransactionsRequest(parties))
 
+  def transactionTreesByTemplateId(
+      templateId: TemplateId,
+      parties: Party*): Future[Vector[TransactionTree]] =
+    transactionTrees(getTransactionsRequest(parties, Seq(templateId)))
+
   /**
     * Non-managed version of [[transactionTrees]], use this only if you need to tweak the request (i.e. to test low-level details)
     */
