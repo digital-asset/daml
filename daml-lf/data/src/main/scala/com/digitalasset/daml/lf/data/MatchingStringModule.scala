@@ -37,7 +37,10 @@ object MatchingStringModule extends (String => StringModule) {
     private val pattern = regex.pattern
 
     override def fromString(s: String): Either[String, T] =
-      Either.cond(pattern.matcher(s).matches(), s, s"""string "$s" does not match regex "$regex"""")
+      Either.cond(
+        pattern.matcher(s).matches(),
+        s.intern(),
+        s"""string "$s" does not match regex "$regex"""")
 
     override def equalInstance: Equal[T] = scalaz.std.string.stringInstance
 
@@ -81,7 +84,7 @@ object ConcatenableMatchingStringModule
         Left(s"""string too long""")
       else
         s.find(c => c > 0x7f || !(c.isLetterOrDigit || extraAllowedChars(c)))
-          .fold[Either[String, T]](Right(s))(c =>
+          .fold[Either[String, T]](Right(s.intern()))(c =>
             Left(s"""non expected character 0x${c.toInt.toHexString} in "$s""""))
 
     override def fromLong(i: Long): T = i.toString
