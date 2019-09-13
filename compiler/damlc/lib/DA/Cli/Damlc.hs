@@ -62,7 +62,7 @@ import Development.IDE.Core.Shake
 import Development.IDE.Core.Rules
 import Development.IDE.Core.Rules.Daml (getDalf, getDlintIdeas)
 import Development.IDE.Core.RuleTypes.Daml (DalfPackage(..), GetParsedModule(..))
-import Development.IDE.GHC.Util (fakeDynFlags, moduleImportPaths)
+import Development.IDE.GHC.Util (fakeDynFlags, moduleImportPaths, hscEnv)
 import Development.IDE.Types.Diagnostics
 import Development.IDE.Types.Location
 import Development.IDE.Types.Options (clientSupportsProgress)
@@ -85,6 +85,14 @@ import System.Posix.Files
 #endif
 import System.Process (callProcess)
 import qualified Text.PrettyPrint.ANSI.Leijen      as PP
+-- For dumps
+import "ghc-lib" GHC
+import "ghc-lib" HsDumpAst
+import "ghc-lib" HscStats
+import "ghc-lib-parser" HscTypes
+import qualified "ghc-lib-parser" Outputable as GHC
+import "ghc-lib-parser" ErrUtils
+import Development.IDE.Core.RuleTypes
 
 --------------------------------------------------------------------------------
 -- Commands
@@ -373,8 +381,18 @@ execCompile inputFile outputFile opts =
                 files <- nubSort . concatMap transitiveModuleDeps <$> use GetDependencies inputFile
                 mbIfaces <- writeIfacesAndHie (toNormalizedFilePath $ fromMaybe ifaceDir $ optIfaceDir opts') files
                 void $ liftIO $ mbErr "ERROR: Compilation failed." mbIfaces
+
             mbDalf <- getDalf inputFile
             dalf <- liftIO $ mbErr "ERROR: Compilation failed." mbDalf
+
+            -- Support for '-ddump-parsed', '-ddump-parsed-ast', '-dsource-stats'.
+            dflags <- hsc_dflags . hscEnv <$> use_ GhcSession inputFile
+            parsed <- pm_parsed_source <$> use_ GetParsedModule inputFile
+            liftIO $ do
+              ErrUtils.dumpIfSet_dyn dflags Opt_D_dump_parsed "Parser" $ GHC.ppr parsed
+              ErrUtils.dumpIfSet_dyn dflags Opt_D_dump_parsed_ast "Parser AST" $ showAstData NoBlankSrcSpan parsed
+              ErrUtils.dumpIfSet_dyn dflags Opt_D_source_stats "Source Statistics" $ ppSourceStats False parsed
+
             liftIO $ write dalf
     write bs
       | outputFile == "-" = putStrLn $ render Colored $ DA.Pretty.pretty bs
