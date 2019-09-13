@@ -3,6 +3,8 @@
 
 package com.daml.ledger.participant.state.kvutils.committing
 
+import java.util.concurrent.TimeUnit
+
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlLogEntry,
   DamlStateKey,
@@ -52,14 +54,25 @@ object Common {
 
   object Commit {
 
-    def sequence(acts: Iterable[Commit[Unit]]): Commit[Unit] = {
+    def sequence(acts: Iterable[(String, Commit[Unit])])(implicit logger: Logger): Commit[Unit] = {
       @tailrec
       def go(
           state: CommitContext,
-          act: Commit[Unit],
-          rest: Iterable[Commit[Unit]]
+          act: (String, Commit[Unit]),
+          rest: Iterable[(String, Commit[Unit])]
       ): Either[CommitDone, (Unit, CommitContext)] = {
-        act.run(state) match {
+        val result =
+          if (act._1.isEmpty || !logger.isTraceEnabled)
+            act._2.run(state)
+          else {
+            val t0 = System.nanoTime()
+            val r = act._2.run(state)
+            val t1 = System.nanoTime()
+            if (!act._1.isEmpty)
+              logger.trace(s"${act._1}: ${TimeUnit.NANOSECONDS.toMillis(t1 - t0)}ms")
+            r
+          }
+        result match {
           case Left(done) =>
             Left(done)
           case Right(((), state2)) =>
@@ -78,11 +91,18 @@ object Common {
     }
 
     /** Sequence commit actions which produces no intermediate values. */
-    def sequence(acts: Commit[Unit]*): Commit[Unit] =
+    def sequence(acts: (String, Commit[Unit])*)(implicit logger: Logger): Commit[Unit] =
       sequence(acts)
 
+    /** Sequence commit actions which produces no intermediate values. */
+    def sequence2(acts: Commit[Unit]*)(implicit logger: Logger): Commit[Unit] =
+      sequence(acts.map { act =>
+        "" -> act
+      })
+
     /** Run a sequence of commit computations, producing a log entry and the state. */
-    def runSequence(inputState: DamlStateMap, acts: Commit[Unit]*): (DamlLogEntry, DamlStateMap) =
+    def runSequence(inputState: DamlStateMap, acts: (String, Commit[Unit])*)(
+        implicit logger: Logger): (DamlLogEntry, DamlStateMap) =
       sequence(acts).run(CommitContext(inputState, Map.empty)) match {
         case Left(done) => done.logEntry -> done.state
         case Right(_) =>
