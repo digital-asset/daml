@@ -648,13 +648,13 @@ execInspect inFile outFile jsonOutput lvl =
   Command Inspect effect
   where
     effect = do
-      bytes <-
+      (depBytes, bytes) <-
           if "dar" `isExtensionOf` inFile
               then do
                   dar <- B.readFile inFile
-                  dalfs <- either fail pure $ readDalfs $ ZipArchive.toArchive $ BSL.fromStrict dar
-                  pure $! BSL.toStrict $ mainDalf dalfs
-              else B.readFile inFile
+                  Dalfs{..} <- either fail pure $ readDalfs $ ZipArchive.toArchive $ BSL.fromStrict dar
+                  (dalfs,) <$> (pure $! BSL.toStrict mainDalf)
+              else ([],) <$> B.readFile inFile
 
       if jsonOutput
       then do
@@ -663,8 +663,11 @@ execInspect inFile outFile jsonOutput lvl =
          $ Aeson.Pretty.encodePretty
          $ Proto.JSONPB.toAesonValue archive
       else do
+        xrefs <- errorOnLeft "Cannot decode dependency" $
+                   Archive.decodeArchiveCrossReferences <$>
+                   traverse (Archive.decodeArchivePayload . BSL.toStrict) depBytes
         (pkgId, lfPkg) <- errorOnLeft "Cannot decode package" $
-                   Archive.decodeArchive bytes
+                   Archive.decodeArchive xrefs bytes
         writeOutput outFile $ render Plain $
           DA.Pretty.vsep
             [ DA.Pretty.keyword_ "package" DA.Pretty.<-> DA.Pretty.text (LF.unPackageId pkgId) DA.Pretty.<-> DA.Pretty.keyword_ "where"
