@@ -27,6 +27,7 @@ In order to use the Scala bindings, you should be familiar with:
 - `Akka Streams API <https://doc.akka.io/docs/akka/current/stream/index.html>`_
 - `Scala programming language <https://www.scala-lang.org>`_
 - :ref:`assistant-manual-building-dars`
+- :doc:`DAML codegen </tools/codegen>`
 
 Getting started
 ===============
@@ -40,10 +41,10 @@ To use the Scala bindings, set up the following dependencies in your project:
    :start-after: // <doc-ref:dependencies>
    :end-before: // </doc-ref:dependencies>
 
-We recommend separating generated code and application code into different modules. There are two modules in the example below:
+We recommend separating generated code and application code into different modules. There are two modules in the ``quickstart-scala`` example:
 
 - ``scala-codegen``
-    This modules contains all generated Scala classes.
+    This module will contain only generated Scala classes.
 - ``application``
     This is the application code that makes use of the generated Scala classes.
 
@@ -51,45 +52,37 @@ We recommend separating generated code and application code into different modul
    :start-after: // <doc-ref:modules>
    :end-before: // </doc-ref:modules>
 
-``scala-codegen`` module uses the following function to generate Scala classes from a DAR file.
-
-.. literalinclude:: ./code-snippets/quickstart-scala/build.sbt
-   :start-after: // <doc-ref:generate-scala>
-   :end-before: // </doc-ref:generate-scala>
-
-You can get the entire `build.sbt file <https://github.com/digital-asset/daml/blob/master/language-support/scala/examples/quickstart-scala/build.sbt>`__ from the ``daml`` repository on GitHub.
-
-Generating Scala code from the command line
-===========================================
-
-The above example demonstrates how to use Scala codegen from **sbt**. You can also call Scala codegen directly
-from a command line.
-
+Generating Scala code
+=====================
 
 1) Install :doc:`the latest version of the DAML SDK </getting-started/installation>`.
 
-2) Download `the latest version of the Scala codegen command line interface <https://bintray.com/api/v1/content/digitalassetsdk/DigitalAssetSDK/com/daml/codegen-main/$latest/codegen-main-$latest.jar?bt_package=sdk-components>`_.
+2) Build a **DAR** file from a **DAML** model. Refer to :ref:`assistant-manual-building-dars` for more instructions.
 
-3) Build a **DAR** file from a **DAML** model. Refer to :ref:`assistant-manual-building-dars` for more instructions.
+3) Configure ``codegen`` in the ``daml.yaml`` (for more details see :doc:`DAML codegen </tools/codegen>` documentation).
+
+.. literalinclude:: ./code-snippets/quickstart-scala/daml.yaml
+   :start-after: # <doc-ref:codegen-scala>
+   :end-before: # </doc-ref:codegen-scala>
 
 4) Run Scala codegen::
 
-    $ java -jar <parth-to-codegen-main-jar> scala <path-to-DAR-file>=<package-name> \
-        --output-directory=<path-to-output-directory> --verbosity=<0|1|2|3|4>
+    $ daml codegen scala
 
-Here is an example, assuming SDK Version: **0.12.17**, DAR file: **./quickstart-scala.dar**,
-package name: **com.digitalasset.quickstart.iou.model**, codegen output directory: **./codegen-out** and
-verbosity level: **2** (INFO)::
+If the command is successful, it should print::
 
-    $ java -jar codegen-main-100.12.17.jar scala ./quickstart-scala.dar=com.digitalasset.quickstart.iou.model \
-        --output-directory=./codegen-out --verbosity=2
-    ...
+    Scala codegen
+    Reading configuration from project configuration file
+    [INFO ] Scala Codegen verbosity: INFO
+    [INFO ] decoding archive with Package ID: 5c96aa21d5f38386833ff47fe1a7562afb5b3fe5be520f289c42892dfb0ef42b
+    [INFO ] decoding archive with Package ID: 748d55be531976e941076a44fe8c06ad4a7bdb36160711dd0204b5ab8dc77e44
+    [INFO ] decoding archive with Package ID: d841a5e45897aea965ab7699f3e51613c9d00b9fbd1bb09658d7fb00486f5b57
     [INFO ] Scala Codegen result:
     Number of generated templates: 3
     Number of not generated templates: 0
     Details:
 
-The output above tells that codegen produced Scala classes for 3 templates without errors (empty ``Details:`` line).
+The output above tells that Scala codegen read configuration from `daml.yaml` and produced Scala classes for 3 templates without errors (empty ``Details:`` line).
 
 Example code
 ============

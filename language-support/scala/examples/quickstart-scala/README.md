@@ -6,10 +6,44 @@ This example demonstrates how to:
 - how to exercise a choice and send a corresponding exercise command  
 - subscribe to receive ledger events and decode them into generated Scala ADTs
 
+All instructions below assume that you have DAML SDK installed. If you have not installed it yet, please follow these instructions: https://docs.daml.com/getting-started/installation.html
+
+## Create quickstart-scala project
+```
+daml new ./quickstart-scala quickstart-scala
+```
+This should output:
+```
+Created a new project in "./quickstart-scala" based on the template "quickstart-scala".
+```
+Where:
+- `./quickstart-scala` is a project directory name
+- `quickstart-scala` is a project template name, to see the entire list of available templates, run: `daml new --list`
+
 ## Compile DAML project
 The DAML code for the IOU example is located in the `./daml` folder. Run the following command to build it:
 ```
+$ cd ./quickstart-scala
 $ daml buld
+```
+this should output:
+```
+Compiling quickstart to a DAR.
+Created .daml/dist/quickstart-0.0.1.dar.
+```
+
+## Generate Scala classes representing DAML contract templates
+```
+$ daml codegen scala
+```
+This should generate scala classes in the `./scala-codegen/src/main/scala` directory. See `codegen` configuration in the `daml.yaml` file:
+```
+...
+codegen:
+  scala:
+    package-prefix: com.digitalasset.quickstart.iou.model
+    output-directory: scala-codegen/src/main/scala
+    verbosity: 2
 ```
 
 ## Start sandbox
