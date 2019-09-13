@@ -94,7 +94,8 @@ instance (GenConvertible a1 a2) => GenConvertible a1 (a2 :*: Opt b s) where
 
 -- product projections
 instance GenConvertible a1 a2 => GenConvertible (a1 :*: Opt b1 s) a2 where
-  cv ~(P1 a _b) = cv a
+  cv ~(P1 a (M1 (K1 {unK1 = None}))) = cv a
+  -- cv ~(P1 a (M1 (K1 {unK1 = Some _b}))) = error "This conversion would have introduced data loss"
 
 -- sums
 instance (GenConvertible a1 a2, GenConvertible b1 b2) => GenConvertible (a1 :+: b1) (a2 :+: b2) where
@@ -162,3 +163,4 @@ type Opt a s = S1
 -- Generic representation of an optional field with a `None` value
 genNone : Opt a s p
 genNone = M1 $ K1 {unK1 = None}
+
