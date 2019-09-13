@@ -82,7 +82,7 @@ If the command is successful, it should print::
     Number of not generated templates: 0
     Details:
 
-The output above tells that Scala codegen read configuration from `daml.yaml` and produced Scala classes for 3 templates without errors (empty ``Details:`` line).
+The output above tells that Scala codegen read configuration from ``daml.yaml`` and produced Scala classes for 3 templates without errors (empty ``Details:`` line).
 
 Example code
 ============
