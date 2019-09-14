@@ -54,6 +54,7 @@ data ChoiceDetails = ChoiceDetails
     { nodeId :: Int
     , consuming :: Bool
     , displayChoiceName :: LF.ChoiceName
+    , uniqChoiceName ::InternalChcName
     } deriving (Show, Eq)
 
 data SubGraph = SubGraph
@@ -145,7 +146,7 @@ tplNameUnqual LF.Template {..} = headNote "tplNameUnqual" (LF.unTypeConName tplT
 
 choiceNameWithId :: [TemplateChoices] -> Map.Map InternalChcName ChoiceDetails
 choiceNameWithId tplChcActions = Map.fromList choiceWithIds
-  where choiceWithIds = map (\(ChoiceAndAction {..}, id) -> (internalChcName, ChoiceDetails id choiceConsuming choiceName)) $ zip choiceActions [0..]
+  where choiceWithIds = map (\(ChoiceAndAction {..}, id) -> (internalChcName, ChoiceDetails id choiceConsuming choiceName internalChcName)) $ zip choiceActions [0..]
         choiceActions = concatMap (\t -> createChoice (template t) : choiceAndActions t) tplChcActions
         createChoice tpl = ChoiceAndAction
             { choiceName = LF.ChoiceName "Create"
@@ -241,9 +242,27 @@ graphFromModule modules world = Graph subGraphs edges
           subGraphs = map (constructSubgraphsWithLables world nodes) templatesAndModules
           edges = graphEdges nodes templatesAndModules
 
+type TplName = T.Text
+choiceToTplMap :: SubGraph -> Map.Map LF.ChoiceName TplName
+choiceToTplMap sGraph = Map.fromList $ map (\c -> (uniqChoiceName c , tplNameUnqual templateInSubg)) (nodes sGraph)
+    where templateInSubg = clusterTemplate sGraph
+
+csvLine :: Map.Map LF.ChoiceName TplName -> ChoiceDetails -> ChoiceDetails -> String
+csvLine chcNameTpl c1 c2 = case Map.lookup  (uniqChoiceName c1) chcNameTpl of
+    Just tplName -> DAP.renderPretty (uniqChoiceName c1) ++ "," ++ DAP.renderPretty (uniqChoiceName c2) ++  "," ++ T.unpack  tplName
+    Nothing -> error "Impossible"
+
+constructGraphToCsv :: [LF.Module] -> LF.World -> [String]
+constructGraphToCsv modules world = header : map  (\(c1, c2) -> csvLine' c1 c2) (edges graph)
+    where header = "source,target,templateName"
+          graph = graphFromModule modules world
+          csvLine' = csvLine $ Map.unions $ map choiceToTplMap (subgraphs graph)
+
+
 
 dotFileGen :: [LF.Module] -> LF.World -> String
 dotFileGen modules world = constructDotGraph $ graphFromModule modules world
+
 
 execVisual :: FilePath -> Maybe FilePath -> IO ()
 execVisual darFilePath dotFilePath = do
@@ -253,4 +272,4 @@ execVisual darFilePath dotFilePath = do
         modules = NM.toList $ LF.packageModules $ getWorldSelf world
     case dotFilePath of
         Just outDotFile -> writeFile outDotFile (dotFileGen modules world)
-        Nothing -> putStrLn (dotFileGen modules world)
+        Nothing -> putStrLn $ unlines (constructGraphToCsv modules world)
