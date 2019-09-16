@@ -79,7 +79,7 @@ private[testtool] abstract class LedgerTestSuite(val session: LedgerSession) {
         s"$context: two objects are supposed to be equal but they are not")
   }
 
-  final def assertGrpcError[A](t: Throwable, expectedCode: Status.Code, pattern: String): Unit = {
+  final def assertGrpcError(t: Throwable, expectedCode: Status.Code, pattern: String): Unit = {
 
     val (actualCode, message) = t match {
       case sre: StatusRuntimeException => (sre.getStatus.getCode, sre.getStatus.getDescription)

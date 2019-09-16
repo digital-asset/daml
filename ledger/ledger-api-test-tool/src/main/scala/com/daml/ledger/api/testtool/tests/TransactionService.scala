@@ -728,9 +728,15 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
         Vector(operator, receiver) <- alpha.allocateParties(2)
         giver <- beta.allocateParty()
         triProposal <- alpha.create(operator, TriProposal(operator, receiver, giver))
-        failure <- beta.exercise(giver, triProposal.exerciseTriProposalAccept).failed
+        _ <- eventually {
+          for {
+            failure <- beta.exercise(giver, triProposal.exerciseTriProposalAccept).failed
+          } yield {
+            assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "requires authorizers")
+          }
+        }
       } yield {
-        assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "requires authorizers")
+        // Check performed in the `eventually` block
       }
     }
 
