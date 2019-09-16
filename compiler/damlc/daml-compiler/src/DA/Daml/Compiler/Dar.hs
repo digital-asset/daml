@@ -15,13 +15,14 @@ import Control.Monad.Extra
 import Control.Monad.IO.Class
 import Control.Monad.Trans.Maybe
 import qualified DA.Daml.LF.Ast as LF
-import DA.Daml.LF.Proto3.Archive (encodeArchiveAndHash)
+import DA.Daml.LF.Proto3.Archive (encodeArchiveAndHash, encodeArchiveCrossReferences, decodeArchivePayload)
 import DA.Daml.Options.Types
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.Lazy.Char8 as BSC
 import qualified Data.ByteString.Lazy.UTF8 as BSLUTF8
 import Data.Conduit.Combinators (sourceFile, sourceLazy)
+import Data.Either (partitionEithers)
 import Data.List.Extra
 import qualified Data.Map.Strict as Map
 import Data.Maybe
@@ -108,7 +109,6 @@ buildDar service pkgConf@PackageConfigFields {..} ifDir dalfInput = do
                      error $
                      "The following modules are declared in exposed-modules but are not part of the DALF: " <>
                      show (S.toList missingExposed)
-                 let (dalf, pkgId) = encodeArchiveAndHash pkg
                  -- create the interface files
                  ifaces <- MaybeT $ writeIfacesAndHie ifDir files
                  -- get all dalf dependencies.
@@ -117,6 +117,11 @@ buildDar service pkgConf@PackageConfigFields {..} ifDir dalfInput = do
                          [ (T.pack $ unitIdString unitId, dalfPackageBytes pkg)
                          | (unitId, pkg) <- Map.toList dalfDependencies0
                          ]
+                 let (xrefErrs, xrefPayloads) = partitionEithers $ (decodeArchivePayload . snd) <$> dalfDependencies
+                 unless (null xrefErrs) $
+                   error $ "Main DALF depends on DALFs that could not be loaded: " <> show xrefErrs
+                 let dependencyXrefs = encodeArchiveCrossReferences xrefPayloads
+                     (dalf, pkgId) = encodeArchiveAndHash dependencyXrefs pkg
                  let dataFiles = [mkConfFile pkgConf pkgModuleNames (T.unpack pkgId)]
                  srcRoot <- liftIO $ getSrcRoot pSrc
                  pure $
