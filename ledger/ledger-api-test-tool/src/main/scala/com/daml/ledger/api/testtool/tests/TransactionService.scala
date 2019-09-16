@@ -444,6 +444,7 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
           giver <- beta.allocateParty()
           agreementFactory <- beta.create(giver, AgreementFactory(receiver, giver))
           _ <- alpha.exercise(receiver, agreementFactory.exerciseCreateAgreement)
+          _ <- synchronize(alpha, beta)
           transactions <- alpha.flatTransactions(receiver, giver)
         } yield {
           assert(
