@@ -586,6 +586,12 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
 
       case ELocation(loc, e) =>
         SELocation(loc, translate(e))
+
+      case EToAnyTemplate(e) =>
+        SEApp(SEBuiltin(SBToAnyTemplate), Array(translate(e)))
+
+      case EFromAnyTemplate(tmplId, e) =>
+        SEApp(SEBuiltin(SBFromAnyTemplate(tmplId)), Array(translate(e)))
     }
 
   @tailrec
@@ -1030,6 +1036,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
         case SRecord(_, _, args) => args.forEach(goV)
         case SVariant(_, _, value) => goV(value)
         case SEnum(_, _) => ()
+        case SAnyTemplate(SRecord(_, _, args)) => args.forEach(goV)
         case _: SPAP | SToken | STuple(_, _) =>
           throw CompileError("validate: unexpected SEValue")
       }

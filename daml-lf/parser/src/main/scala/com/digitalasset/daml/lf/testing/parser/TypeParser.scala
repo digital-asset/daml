@@ -27,6 +27,7 @@ private[parser] class TypeParser[P](parameters: ParserParameters[P]) {
     "ContractId" -> BTContractId,
     "Arrow" -> BTArrow,
     "Map" -> BTMap,
+    "AnyTemplate" -> BTAnyTemplate,
   )
 
   private[parser] def fullIdentifier: Parser[Ref.Identifier] =

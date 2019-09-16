@@ -233,9 +233,11 @@ packagingTests tmpDir = testGroup "packaging"
         let projectA = tmpDir </> "a-1.0"
         let projectB = tmpDir </> "a-2.0"
         let projectUpgrade = tmpDir </> "upgrade"
+        let projectRollback = tmpDir </> "rollback"
         let aDar = projectA </> distDir </> "a-1.0.dar"
         let bDar = projectB </> distDir </> "a-2.0.dar"
         let upgradeDar = projectUpgrade </> distDir </> "upgrade-0.0.1.dar"
+        let rollbackDar= projectRollback </> distDir </> "rollback-0.0.1.dar"
         let bWithUpgradesDar = "a-2.0-with-upgrades.dar"
         step "Creating project a-1.0 ..."
         createDirectoryIfMissing True (projectA </> "daml")
@@ -275,6 +277,7 @@ packagingTests tmpDir = testGroup "packaging"
             , "  with"
             , "    a : Int"
             , "    p : Party"
+            , "    new : Optional Text"
             , "  where"
             , "    signatory p"
             ]
@@ -290,14 +293,21 @@ packagingTests tmpDir = testGroup "packaging"
             ]
         withCurrentDirectory projectB $ callCommandQuiet "daml build"
         assertBool "a-2.0.dar was not created." =<< doesFileExist bDar
-        step "Creating upgrade project"
+        step "Creating upgrade/rollback project"
         callCommandQuiet $ unwords ["daml", "migrate", projectUpgrade, aDar, bDar]
+        callCommandQuiet $ unwords ["daml", "migrate", projectRollback, bDar, aDar]
         step "Build migration project"
         withCurrentDirectory projectUpgrade $
             if isWindows
                 then callCommandQuiet ".\\build.cmd"
                 else callCommandQuiet "./build.sh"
         assertBool "upgrade-0.0.1.dar was not created" =<< doesFileExist upgradeDar
+        step "Build rollback project"
+        withCurrentDirectory projectRollback $
+            if isWindows
+                then callCommandQuiet ".\\build.cmd"
+                else callCommandQuiet "./build.sh"
+        assertBool "rollback-0.0.1.dar was not created" =<< doesFileExist rollbackDar
         step "Merging upgrade dar"
         callCommandQuiet $
           unwords

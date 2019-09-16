@@ -66,6 +66,8 @@ sealed trait SValue {
         V.ValueMap(SortedLookupList(mVal).mapValue(_.toValue))
       case SContractId(coid) =>
         V.ValueContractId(coid)
+      case SAnyTemplate(_) =>
+        throw SErrorCrash("SValue.toValue: unexpected SAnyTemplate")
       case STNat(_) =>
         throw SErrorCrash("SValue.toValue: unexpected STNat")
       case _: SPAP =>
@@ -109,7 +111,8 @@ sealed trait SValue {
       case SContractId(coid) =>
         SContractId(f(coid))
       case SEnum(_, _) | _: SPrimLit | SToken | STNat(_) => this
-
+      case SAnyTemplate(SRecord(tycon, fields, values)) =>
+        SAnyTemplate(SRecord(tycon, fields, mapArrayList(values, v => v.mapContractId(f))))
     }
 
   def equalTo(v2: SValue): Boolean = {
@@ -180,6 +183,8 @@ object SValue {
   final case class SList(list: FrontStack[SValue]) extends SValue
 
   final case class SMap(value: HashMap[String, SValue]) extends SValue
+
+  final case class SAnyTemplate(t: SRecord) extends SValue
 
   // Corresponds to a DAML-LF Nat type reified as a Speedy value.
   // It is currently used to track at runtime the scale of the

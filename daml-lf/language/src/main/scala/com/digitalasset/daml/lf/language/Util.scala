@@ -48,6 +48,7 @@ object Util {
   val TTimestamp = TBuiltin(BTTimestamp)
   val TDate = TBuiltin(BTDate)
   val TParty = TBuiltin(BTParty)
+  val TAnyTemplate = TBuiltin(BTAnyTemplate)
 
   val TNumeric = new ParametricType1(BTNumeric)
   val TList = new ParametricType1(BTList)

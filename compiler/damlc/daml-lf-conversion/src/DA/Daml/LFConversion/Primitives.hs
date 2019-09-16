@@ -199,7 +199,7 @@ _whenRuntimeSupports version feature t e
     | otherwise = runtimeUnsupported feature t
 
 runtimeUnsupported :: Feature -> Type -> Expr
-runtimeUnsupported (Feature name version) t =
+runtimeUnsupported (Feature name version _) t =
   ETmApp
   (ETyApp (EBuiltin BEError) t)
   (EBuiltin (BEText (name <> " only supported when compiling to DAML-LF " <> T.pack (renderVersion version) <> " or later")))
