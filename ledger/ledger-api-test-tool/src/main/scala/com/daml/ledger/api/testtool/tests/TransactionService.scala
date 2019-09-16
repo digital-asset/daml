@@ -703,13 +703,19 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
             agreementFactory.exerciseAgreementFactoryAccept)
           triProposalTemplate = TriProposal(operator, giver, giver)
           triProposal <- alpha.create(operator, triProposalTemplate)
-          tree <- beta.exercise(giver, agreement.exerciseAcceptTriProposal(_, triProposal))
+          _ <- eventually {
+            for {
+              tree <- beta.exercise(giver, agreement.exerciseAcceptTriProposal(_, triProposal))
+            } yield {
+              val contract = assertSingleton("AcceptTriProposalCoinciding", createdEvents(tree))
+              assertEquals(
+                "AcceptTriProposalCoinciding",
+                contract.getCreateArguments.fields,
+                triProposalTemplate.arguments.fields)
+            }
+          }
         } yield {
-          val contract = assertSingleton("AcceptTriProposalCoinciding", createdEvents(tree))
-          assertEquals(
-            "AcceptTriProposalCoinciding",
-            contract.getCreateArguments.fields,
-            triProposalTemplate.arguments.fields)
+          // Check performed in the `eventually` block
         }
     }
 
