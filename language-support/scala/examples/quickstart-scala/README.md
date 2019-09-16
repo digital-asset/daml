@@ -8,7 +8,7 @@ This example demonstrates how to:
 
 All instructions below assume that you have DAML SDK installed. If you have not installed it yet, please follow these instructions: https://docs.daml.com/getting-started/installation.html
 
-## Create quickstart-scala project
+## Create a quickstart-scala project
 ```
 daml new ./quickstart-scala quickstart-scala
 ```
@@ -20,7 +20,7 @@ Where:
 - `./quickstart-scala` is a project directory name
 - `quickstart-scala` is a project template name, to see the entire list of available templates, run: `daml new --list`
 
-## Compile DAML project
+## Compile the DAML project
 The DAML code for the IOU example is located in the `./daml` folder. Run the following command to build it:
 ```
 $ cd ./quickstart-scala
@@ -46,12 +46,12 @@ codegen:
     verbosity: 2
 ```
 
-## Start sandbox
+## Start Sandbox
 This examples requires a running sandbox. To start it, run the following command:
 ```
 $ daml sandbox ./.daml/dist/quickstart-0.0.1.dar
 ```
-Where `./.daml/dist/quickstart-0.0.1.dar` is the DAR file created in the previous step.
+where `./.daml/dist/quickstart-0.0.1.dar` is the DAR file created in the previous step.
 
 ## Compile and run Scala example
 Run the following command from the `quickstart-scala` folder:
@@ -67,7 +67,7 @@ If example completes successfully, the above process should terminate and the ou
 [success] Total time: 7 s, completed Sep 12, 2019, 11:54:04 AM
 ```
 
-To run the quickstart-scala as a standalone project (not part of the DAML project) or to override the default SDK version configured in the `./SDK_VERSION` file, you have to specify `da.sdk.version` JVM system properties:
+To run the quickstart-scala as a standalone project (not part of the DAML project), or to override the default SDK version configured in the `./SDK_VERSION` file, you have to specify `da.sdk.version` JVM system properties:
 ```
 $ sbt -Dda.sdk.version=<DA_SDK_VERSION> "application/runMain com.digitalasset.quickstart.iou.IouMain localhost 6865"
 ```
