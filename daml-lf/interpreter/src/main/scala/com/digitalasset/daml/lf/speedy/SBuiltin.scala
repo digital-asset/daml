@@ -1203,6 +1203,10 @@ object SBuiltin {
       throw DamlEUserError(args.get(0).asInstanceOf[SText].value)
   }
 
+  /** $to_any_template
+    *    :: arg (template argument)
+    *    -> AnyTemplate
+    */
   final case object SBToAnyTemplate extends SBuiltin(1) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       machine.ctrl = CtrlValue(args.get(0) match {
@@ -1212,6 +1216,10 @@ object SBuiltin {
     }
   }
 
+  /** $from_any_template
+    *    :: AnyTemplate
+    *    -> Optional t (where t = TTyCon(expectedTemplateId))
+    */
   final case class SBFromAnyTemplate(expectedTemplateId: TypeConName) extends SBuiltin(1) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       machine.ctrl = CtrlValue(args.get(0) match {
