@@ -344,7 +344,7 @@ enum BuiltinFunction {
   DIV_NUMERIC = 110;    // *Available in versions >= 1.dev*
   ROUND_NUMERIC = 111;  // *Available in versions >= 1.dev*
   CAST_NUMERIC = 121;   // *Available in versions >= 1.dev*
-  SHIFT_NUMERIC = 123;  // *Available in versions >= 1.dev*
+  SHIFT_NUMERIC = 122;  // *Available in versions >= 1.dev*
 
   ADD_INT64 = 7;
   SUB_INT64 = 8;

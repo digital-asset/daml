@@ -2155,7 +2155,7 @@ Numeric functions
   keeping the value the same. Throws an exception in case of
   overflow or precision loss.
 
-* ``SHIFT_NUMERIC : ∀ (α₁, α₂: nat) . 'Int64' → 'Numeric' α → 'Numeric' α``
+* ``SHIFT_NUMERIC : ∀ (α₁, α₂: nat) . 'Int64' → 'Numeric' α₁ → 'Numeric' α₂``
 
   Converts a decimal of scale `α₁` to a decimal scale `α₂` to another
   by shifting the decimal point. Thus the ouput will be equal to the input
