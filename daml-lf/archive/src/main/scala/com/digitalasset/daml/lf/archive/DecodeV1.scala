@@ -326,8 +326,13 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
       }
 
     private[this] def decodeModuleRef(lfRef: PLF.ModuleRef): (PackageId, ModuleName) = {
-      val modName = eitherToParseError(
-        ModuleName.fromSegments(lfRef.getModuleName.getSegmentsList.asScala))
+      import PLF.ModuleRef.{SumCase => MC}
+      val modName = lfRef.getSumCase match {
+        case MC.MODULE_NAME =>
+          eitherToParseError(ModuleName.fromSegments(lfRef.getModuleName.getSegmentsList.asScala))
+        case MC.INTERNED_ID => throw ParseError("interned ModuleRefs not supported yet")
+        case MC.SUM_NOT_SET => throw ParseError("ModuleRef.SUM_NOT_SET")
+      }
       import PLF.PackageRef.{SumCase => SC}
       val pkgId = lfRef.getPackageRef.getSumCase match {
         case SC.SELF =>
