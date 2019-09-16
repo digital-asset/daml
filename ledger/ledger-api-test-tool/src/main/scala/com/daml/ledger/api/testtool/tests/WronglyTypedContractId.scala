@@ -10,7 +10,7 @@ import com.digitalasset.ledger.test_stable.Test.Delegation._
 import com.digitalasset.ledger.test_stable.Test.{Delegated, Delegation, Dummy, DummyWithParam}
 import io.grpc.Status.Code
 
-class WronglyTypedContractId(session: LedgerSession) extends LedgerTestSuite(session) {
+final class WronglyTypedContractId(session: LedgerSession) extends LedgerTestSuite(session) {
 
   private[this] val failedExercise =
     LedgerTest("WTExerciseFails", "Exercising on a wrong type fails") { context =>
