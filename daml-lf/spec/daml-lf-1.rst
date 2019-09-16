@@ -370,7 +370,7 @@ We can now define all the literals that a program can handle::
        n ∈  \d+
 
   64-bit integer literals:
-        LitInt64  ∈  (-?)\d+                         -- LitInt64:
+        LitInt64  ∈  (-?)\d+                         -- LitInt64
 
   Numeric literals:
       LitNumeric  ∈  ([+-]?)([1-9]\d+|0).\d*        -- LitNumeric
@@ -495,8 +495,8 @@ Kinds, types, and expressions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. TODO We might want to consider changing the syntax for ``Mod``,
-since in our software we use the colon to separate the module name
-from the definition name inside the module.
+  since in our software we use the colon to separate the module name
+  from the definition name inside the module.
 
 Then we can define our kinds, types, and expressions::
 
@@ -1245,8 +1245,8 @@ Party literal restriction
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. TODO I think this is incorrect, and actually before the
-``ForbidPartyLiterals`` feature flag party literals where
-allowed everywhere.
+  ``ForbidPartyLiterals`` feature flag party literals where
+  allowed everywhere.
 
 The usage of party literals is restricted in DAML-LF. By default,
 party literals are neither allowed in templates nor in values used in
@@ -2147,6 +2147,19 @@ Numeric functions
   scale of the inputs and the output is given by the type parameter
   `α`.  Throws an exception if the integer is not between `α-37` and
   `α` inclusive.
+
+
+* ``CAST_NUMERIC : ∀ (α₁, α₂: nat) . 'Numeric' α₁ → 'Numeric' α₂``
+
+  Converts a decimal of scale `α₁` to a decimal scale `α₂` while
+  keeping the value the same. Throws an exception in case of
+  overflow or precision loss.
+
+* ``SHIFT_NUMERIC : ∀ (α₁, α₂: nat) . 'Int64' → 'Numeric' α → 'Numeric' α``
+
+  Converts a decimal of scale `α₁` to a decimal scale `α₂` to another
+  by shifting the decimal point. Thus the ouput will be equal to the input
+  multiplied by `1E(α₁-α₂)`.
 
 * ``LESS_EQ_NUMERIC : ∀ (α : nat) . 'Numeric' α → 'Numeric' α → 'Bool'``
 
