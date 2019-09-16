@@ -60,7 +60,7 @@
       and switch to it using `cd ./quickstart-scala`
    1. Run `daml build`
    1. Run `daml codegen scala`
-   1. In 2 separate terminals (since each command will block) run
+   1. In 2 separate terminals (since the first command will block) run
       1. `daml sandbox ./.daml/dist/quickstart-0.0.1.dar`
       1. `sbt "application/runMain com.digitalasset.quickstart.iou.IouMain localhost 6865"`
          If above command completes successfully, it should terminate and the output should look like this:
