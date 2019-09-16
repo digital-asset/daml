@@ -242,7 +242,7 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
         submitter <- alpha.allocateParty()
         listener <- beta.allocateParty()
         (id, _) <- alpha.createAndGetTransactionId(submitter, AgreementFactory(listener, submitter))
-        tree <- beta.transactionTreeById(id, listener)
+        tree <- eventually { beta.transactionTreeById(id, listener) }
       } yield {
         assert(
           tree.commandId.isEmpty,
