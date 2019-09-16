@@ -6,6 +6,7 @@
 module DA.Daml.LF.Proto3.EncodeV1
   ( encodeModuleWithLargePackageIds
   , encodedInternedModuleNameIndex
+  , moduleNameIndexFromEncodedModule
   , encodePackage
   ) where
 
@@ -15,6 +16,7 @@ import           Control.Lens.Ast (rightSpine)
 import           Data.Word
 import qualified Data.NameMap as NM
 import qualified Data.Map.Strict as M
+import Data.Maybe (catMaybes)
 import qualified Data.Set as S
 import qualified Data.Text           as T
 import qualified Data.Text.Lazy      as TL
@@ -32,6 +34,8 @@ import qualified Proto3.Suite as P (Enumerated (..))
 -- Some functions always return `Just x` instead of `x` since they would
 -- otherwise always be wrapped in `Just` at their call sites.
 type Just a = Maybe a
+
+type ModuleNameIndex = ModuleName -> Maybe Word64
 
 -- package-global state that encodePackageRef requires
 data PackageRefCtx = PackageRefCtx {
@@ -547,9 +551,13 @@ encodeModule encctx@EncodeCtx{..} Module{..} =
         (encodeNameMap encodeDefValue encctx moduleValues)
         (encodeNameMap encodeTemplate encctx moduleTemplates)
 
-encodedInternedModuleNameIndex :: Package -> ModuleName -> Maybe Word64
+encodedInternedModuleNameIndex :: Package -> ModuleNameIndex
 encodedInternedModuleNameIndex (Package _ mods) = (`M.lookup` ixes)
   where ixes = M.fromList $ NM.names mods `zip` [0..]
+
+moduleNameIndexFromEncodedModule :: P.Package -> ModuleNameIndex
+moduleNameIndexFromEncodedModule (P.Package mods _) = (`M.lookup` ixes) . encodeDottedNameId unModuleName
+  where ixes = M.fromList $ (catMaybes . V.toList $ P.moduleName <$> mods) `zip` [0..]
 
 -- | NOTE(MH): Assumes the DAML-LF version of the 'Package' is 'V1'.
 encodePackage :: (PackageId -> ModuleName -> Maybe Word64) -> Package -> P.Package

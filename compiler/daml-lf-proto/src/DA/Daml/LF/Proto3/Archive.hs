@@ -11,6 +11,7 @@ module DA.Daml.LF.Proto3.Archive
   , encodeArchive
   , encodeArchiveLazy
   , encodeArchiveAndHash
+  , encodeArchiveCrossReferences
   , encodePackageHash
   , ArchiveError(..)
   ) where
@@ -102,6 +103,9 @@ encodeArchiveAndHash package =
 
 encodeArchive :: LF.Package -> BS.ByteString
 encodeArchive = BSL.toStrict . encodeArchiveLazy
+
+encodeArchiveCrossReferences :: Foldable f => f (LF.PackageId, ProtoLF.ArchivePayload) -> Encode.CrossReferences
+encodeArchiveCrossReferences = Encode.encodeCrossReferences
 
 -- | Encode the hash bytes of the payload in the canonical
 -- lower-case ascii7 hex presentation.
