@@ -56,6 +56,19 @@
    1. Right click on `eurBank` in line 17 and verify that goto
       definition takes you to the definition in line 14.
    1. Close all files.
+   1. Create a new project with `daml new ./quickstart-scala quickstart-scala`
+      and switch to it using `cd ./quickstart-scala`
+   1. Run `daml build`
+   1. Run `daml codegen scala`
+   1. In 2 separate terminals (since each command will block) run
+      1. `daml sandbox ./.daml/dist/quickstart-0.0.1.dar`
+      1. `sbt "application/runMain com.digitalasset.quickstart.iou.IouMain localhost 6865"`
+         If above command completes successfully, it should terminate and the output should look like this:
+         ```
+         ...
+         [success] Total time: 7 s, completed Sep 12, 2019, 11:54:04 AM
+         ```
+   1. Kill all processes
 
 1. Run through the following test plan on Windows.
    This is slightly shortened to not make testing too annoying and
