@@ -46,6 +46,7 @@ private[infrastructure] final class ParticipantSessionManager {
         .sslContext(sslContext)
         .negotiationType(NegotiationType.TLS)
     }
+    managedChannelBuilder.maxInboundMessageSize(10000000)
     val managedChannel = managedChannelBuilder.build()
     logger.info(s"Connection to participant at ${config.host}:${config.port}")
     new ParticipantSession(config, managedChannel, eventLoopGroup)

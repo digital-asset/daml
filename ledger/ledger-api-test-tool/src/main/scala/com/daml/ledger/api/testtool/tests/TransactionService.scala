@@ -790,6 +790,22 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
       }
     }
 
+  private[this] val largeCommand =
+    LedgerTest("TXLargeCommand", "Accept huge submissions with a large number of commands") {
+      context =>
+        val targetNumberOfSubCommands = 1500
+        for {
+          ledger <- context.participant()
+          party <- ledger.allocateParty()
+          request <- ledger.submitAndWaitRequest(
+            party,
+            List.fill(targetNumberOfSubCommands)(Dummy(party).create.command): _*)
+          result <- ledger.submitAndWaitForTransaction(request)
+        } yield {
+          val _ = assertLength("LargeCommand", targetNumberOfSubCommands, result.events)
+        }
+    }
+
   override val tests: Vector[LedgerTest] = Vector(
     beginToBeginShouldBeEmpty,
     endToEndShouldBeEmpty,
@@ -825,6 +841,7 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     multiActorChoiceOkCoincidingControllers,
     rejectMultiActorMissingAuth,
     rejectMultiActorExcessiveAuth,
-    noReorder
+    noReorder,
+    largeCommand
   )
 }
