@@ -793,7 +793,9 @@ execMigrate projectOpts opts0 inFile1_ inFile2_ mbDir =
                   -- get the main pkg
                   dalfManifest <- either fail pure $ readDalfManifest dar
                   mainDalfEntry <- getEntry (mainDalfPath dalfManifest) dar
-                  (mainPkgId, mainLfPkg) <- decode $ BSL.toStrict $ ZipArchive.fromEntry mainDalfEntry
+                  xrefs <- indexDeps =<< traverse (fmap (BSL.toStrict . ZipArchive.fromEntry)
+                                                   . flip getEntry dar) (dalfPaths dalfManifest)
+                  (mainPkgId, mainLfPkg) <- decode xrefs $ BSL.toStrict $ ZipArchive.fromEntry mainDalfEntry
                   pure (pkgName, mainPkgId, mainLfPkg)
           -- generate upgrade modules and instances modules
           let eqModNames =
@@ -849,10 +851,14 @@ execMigrate projectOpts opts0 inFile1_ inFile2_ mbDir =
 #endif
 
           putStrLn "Generation of migration project complete."
-    decode dalf =
+    indexDeps dalfs =
+        errorOnLeft
+            "Cannot decode daml-lf dependencies" $
+            Archive.decodeArchiveCrossReferences <$> traverse Archive.decodeArchivePayload dalfs
+    decode xrefs dalf =
         errorOnLeft
             "Cannot decode daml-lf archive"
-            (Archive.decodeArchive _ dalf)
+            (Archive.decodeArchive xrefs dalf)
     getModule modName pkg =
         maybe
             (fail $ T.unpack $ "Can't find module" <> LF.moduleNameString modName)
