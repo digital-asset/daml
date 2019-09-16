@@ -494,7 +494,7 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
           Vector(bob, eve) <- beta.allocateParties(2)
           template = BranchingControllers(alice, true, bob, eve)
           _ <- alpha.create(alice, template)
-          _ <- assertEventually("Correct disclosure") { () =>
+          _ <- eventually {
             for {
               aliceView <- alpha.flatTransactions(alice)
               bobView <- beta.flatTransactions(bob)
@@ -517,7 +517,7 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
             }
           }
         } yield {
-          // Checks performed in the `assertEventually` block
+          // Checks performed in the `eventually` block
         }
     }
 
@@ -547,7 +547,7 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
         template = WithObservers(alice, Primitive.List(observers: _*))
         create <- alpha.submitAndWaitRequest(alice, template.create.command)
         transactionId <- alpha.submitAndWaitForTransactionId(create)
-        _ <- assertEventually("") { () =>
+        _ <- eventually {
           for {
             transactions <- beta.flatTransactions(observers: _*)
           } yield {
@@ -555,7 +555,7 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
           }
         }
       } yield {
-        // Checks performed in the `assertEventually` block
+        // Checks performed in the `eventually` block
       }
     }
 

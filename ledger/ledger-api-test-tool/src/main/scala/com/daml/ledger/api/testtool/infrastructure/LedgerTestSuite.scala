@@ -28,11 +28,11 @@ private[testtool] abstract class LedgerTestSuite(val session: LedgerSession) {
   protected final implicit val ec: ExecutionContext = session.executionContext
 
   // TODO Make this configurable
-  final private[this] val eventually = RetryStrategy.exponentialBackoff(10, 10.millis)
+  final private[this] val withRetryStrategy = RetryStrategy.exponentialBackoff(10, 10.millis)
 
-  final def assertEventually[A](message: String)(assertion: () => Future[A]): Future[Unit] =
-    eventually { _ =>
-      assertion()
+  final def eventually[A](runAssertion: => Future[A]): Future[Unit] =
+    withRetryStrategy { _ =>
+      runAssertion
     } map { _ =>
       ()
     }
