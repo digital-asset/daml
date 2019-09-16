@@ -740,10 +740,9 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
       }
     }
 
-  // NOTE(MH): This is the current, most conservative semantics of
-  // multi-actor choice authorization. It is likely that this will change
-  // in the future. Should we delete this test, we should also remove the
-  // 'UnrestrictedAcceptTriProposal' choice from the 'Agreement' template.
+  // This is the current, most conservative semantics of multi-actor choice authorization.
+  // It is likely that this will change in the future. Should we delete this test, we should
+  // also remove the 'UnrestrictedAcceptTriProposal' choice from the 'Agreement' template.
   private[this] val rejectMultiActorExcessiveAuth =
     LedgerTest(
       "TXRejectMultiActorExcessiveAuth",
@@ -759,11 +758,17 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
             agreementFactory.exerciseAgreementFactoryAccept)
         triProposalTemplate = TriProposal(operator, giver, giver)
         triProposal <- alpha.create(operator, triProposalTemplate)
-        failure <- beta
-          .exercise(giver, agreement.exerciseAcceptTriProposal(_, triProposal))
-          .failed
+        _ <- eventually {
+          for {
+            failure <- beta
+              .exercise(giver, agreement.exerciseAcceptTriProposal(_, triProposal))
+              .failed
+          } yield {
+            assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "Assertion failed")
+          }
+        }
       } yield {
-        assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "Assertion failed")
+        // Check performed in the `eventually` block
       }
     }
 
