@@ -81,7 +81,8 @@ object SqlLedger {
     new FlywayMigrations(jdbcUrl).migrate()
 
     val dbType = DbType.jdbcType(jdbcUrl)
-    val noOfShortLivedConnections = if (dbType.supportsParallelWrites) defaultNumberOfShortLivedConnections else 1
+    val noOfShortLivedConnections =
+      if (dbType.supportsParallelWrites) defaultNumberOfShortLivedConnections else 1
     val dbDispatcher =
       DbDispatcher(jdbcUrl, noOfShortLivedConnections, defaultNumberOfStreamingConnections)
 
@@ -106,7 +107,8 @@ object SqlLedger {
       queueDepth,
       // we use noOfShortLivedConnections for the maximum batch size, since it doesn't make sense
       // to try to persist more ledger entries concurrently than we have SQL executor threads and SQL connections available.
-      noOfShortLivedConnections)
+      noOfShortLivedConnections
+    )
   }
 }
 
