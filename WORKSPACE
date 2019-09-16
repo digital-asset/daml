@@ -606,8 +606,8 @@ hazel_repositories(
             ) + hazel_github_external(
                 "mpickering",
                 "hie-bios",
-                "7a75f520b2e7a482440edd023be8e267a0fa153f",
-                "782469b30bb06cf26873e1c84bd58c8427020ff5777f4ef9d84c75cd26e3ea23",
+                "68c662ea1d0e7095ccf2a4e3d393fc524e769bfe",
+                "065e54a01103c79c20a7e9ac3967cda9bdc027579bf1d0ca9a9d8023ff46dfb9",
                 patch_args = ["-p1"],
                 patches = ["@com_github_digital_asset_daml//bazel_tools:haskell-hie-bios.patch"],
             ) +
@@ -677,7 +677,7 @@ hazel_custom_package_github(
     strip_prefix = "wai-app-static",
 )
 
-GHCIDE_REV = "44b11667d8593ae84c48ca88e96f4f227deec096"
+GHCIDE_REV = "a162e81aa306c8efe2be3ce0d591f46abd5f88e4"
 
 # We need a custom build file to depend on ghc-lib and ghc-lib-parser
 hazel_custom_package_github(
