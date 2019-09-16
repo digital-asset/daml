@@ -78,9 +78,13 @@ object ValueGenerators {
 
   //generate decimal values
   def numGen(scale: Int): Gen[Numeric] = {
-    val integerPart = Gen.listOfN(Numeric.maxPrecision - scale, Gen.choose(1, 9)).map(_.mkString)
+    def integerPart = Gen.listOfN(Numeric.maxPrecision - scale, Gen.choose(1, 9)).map(_.mkString)
     val decimalPart = Gen.listOfN(scale, Gen.choose(1, 9)).map(_.mkString)
-    val bd = integerPart.flatMap(i => decimalPart.map(d => Numeric.assertFromString(s"$i.$d")))
+    val bd =
+      if (scale == Numeric.maxPrecision)
+        decimalPart.map(d => Numeric.assertFromString(s"0.$d"))
+      else
+        integerPart.flatMap(i => decimalPart.map(d => Numeric.assertFromString(s"$i.$d")))
     Gen
       .frequency(
         (1, Gen.const(Numeric.assertFromBigDecimal(scale, 0))),
