@@ -80,11 +80,6 @@ private[kvutils] case class ProcessPackageUpload(
 
         // Filter out archives that already exists.
         val filteredArchives = archives
-          .filterNot(
-            a =>
-              Ref.PackageId
-                .fromString(a.getHash)
-                .fold(_ => false, loadedPackages.contains))
           .filter { archive =>
             val stateKey = DamlStateKey.newBuilder
               .setPackageId(archive.getHash)
