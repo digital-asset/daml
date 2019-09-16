@@ -76,54 +76,6 @@ class TransactionServiceIT
 
     "submitting and reading transactions" should {
 
-      "expose contract Ids that are results of exercising choices when filtering by template" in allFixtures {
-        context =>
-          val factoryCreation = testIdsGenerator.testCommandId("Creating_second_factory")
-          val exercisingChoice =
-            testIdsGenerator.testCommandId("Exercising_choice_on_second_factory")
-          val exercisedTemplate = templateIds.dummyFactory
-          for {
-            creation <- context.submitCreate(
-              factoryCreation,
-              exercisedTemplate,
-              List("operator" -> Alice.asParty).asRecordFields,
-              Alice)
-            factoryContractId = creation.contractId
-
-            offsetToListenFrom <- context.testingHelpers.submitSuccessfullyAndReturnOffset(
-              context
-                .command(
-                  exercisingChoice,
-                  Alice,
-                  List(exerciseCallChoice(exercisedTemplate, factoryContractId).wrap))
-            )
-
-            txsWithCreate <- context.testingHelpers.listenForResultOfCommand(
-              TransactionFilters.templatesByParty(Alice -> List(templateIds.dummyWithParam)),
-              Some(exercisingChoice),
-              offsetToListenFrom)
-
-            txsWithArchive <- context.testingHelpers.listenForResultOfCommand(
-              TransactionFilters.templatesByParty(Alice -> List(templateIds.dummyFactory)),
-              Some(exercisingChoice),
-              offsetToListenFrom)
-
-          } yield {
-            val txCreate = getHead(txsWithCreate)
-            val txArchive = getHead(txsWithArchive)
-
-            // Create
-            txCreate.commandId shouldEqual exercisingChoice
-            val createdEvent = getHead(createdEventsIn(txCreate))
-            createdEvent.getTemplateId shouldEqual templateIds.dummyWithParam
-
-            // Archive
-            txArchive.commandId shouldEqual exercisingChoice
-            val archivedEvent = getHead(archivedEventsIn(txArchive))
-            archivedEvent.getTemplateId shouldEqual templateIds.dummyFactory
-          }
-      }
-
       "serve the proper content for each party, regardless of single/multi party subscription" in allFixtures {
         c =>
           for {
