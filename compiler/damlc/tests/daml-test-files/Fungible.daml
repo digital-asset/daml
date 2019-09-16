@@ -16,7 +16,7 @@ template Quantity t => Fungible t with
           otherAsset <- fetch other
           let newAmount = asset.amount + otherAsset.asset.amount
           archive other
-          create $ Fungible $ asset with amount = newAmount
+          create $ Fungible asset with amount = newAmount
 
       Split: (ContractId (Fungible t), ContractId (Fungible t))
         with splitAmount: Decimal
