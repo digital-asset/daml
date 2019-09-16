@@ -719,14 +719,14 @@ private[validation] object Typing {
       typeOf(body) match {
         case TTyCon(tmplId) =>
           lookupTemplate(ctx, tmplId)
-          TBuiltin(BTAnyTemplate)
+          TAnyTemplate
         case typ =>
           throw EExpectedTemplateType(ctx, typ)
       }
 
     private def typeOfFromAnyTemplate(tpl: TypeConName, body: Expr): Type = {
       lookupTemplate(ctx, tpl)
-      checkExpr(body, TBuiltin(BTAnyTemplate))
+      checkExpr(body, TAnyTemplate)
       TOptional(TTyCon(tpl))
     }
 
