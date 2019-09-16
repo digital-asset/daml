@@ -39,7 +39,9 @@ private[parser] object Lexer extends RegexParsers {
     "fetch_by_key" -> `fetch_by_key`,
     "lookup_by_key" -> `lookup_by_key`,
     "by" -> `by`,
-    "to" -> `to`
+    "to" -> `to`,
+    "to_any_template" -> `to_any_template`,
+    "from_any_template" -> `from_any_template`
   )
 
   val token: Parser[Token] =

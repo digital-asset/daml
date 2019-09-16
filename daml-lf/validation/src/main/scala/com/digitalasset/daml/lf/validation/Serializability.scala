@@ -95,6 +95,8 @@ private[validation] object Serializability {
             unserializable(URContractId)
           case BTArrow =>
             unserializable(URFunction)
+          case BTAnyTemplate =>
+            unserializable(URAnyTemplate)
         }
       case TForall(_, _) =>
         unserializable(URForall)

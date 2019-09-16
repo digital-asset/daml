@@ -23,7 +23,8 @@ private[validation] object Typing {
   }
 
   private def kindOfBuiltin(bType: BuiltinType): Kind = bType match {
-    case BTInt64 | BTText | BTTimestamp | BTParty | BTBool | BTDate | BTUnit => KStar
+    case BTInt64 | BTText | BTTimestamp | BTParty | BTBool | BTDate | BTUnit | BTAnyTemplate =>
+      KStar
     case BTNumeric => KArrow(KNat, KStar)
     case BTList | BTUpdate | BTScenario | BTContractId | BTOptional | BTMap => KArrow(KStar, KStar)
     case BTArrow => KArrow(KStar, KArrow(KStar, KStar))
@@ -714,6 +715,21 @@ private[validation] object Typing {
         checkExpr(exp, TScenario(typ))
     }
 
+    private def typeOfToAnyTemplate(body: Expr): Type =
+      typeOf(body) match {
+        case TTyCon(tmplId) =>
+          lookupTemplate(ctx, tmplId)
+          TAnyTemplate
+        case typ =>
+          throw EExpectedTemplateType(ctx, typ)
+      }
+
+    private def typeOfFromAnyTemplate(tpl: TypeConName, body: Expr): Type = {
+      lookupTemplate(ctx, tpl)
+      checkExpr(body, TAnyTemplate)
+      TOptional(TTyCon(tpl))
+    }
+
     def typeOf(expr0: Expr): Type = expr0 match {
       case EVar(name) =>
         lookupExpVar(name)
@@ -777,6 +793,10 @@ private[validation] object Typing {
         checkType(typ, KStar)
         val _ = checkExpr(body, typ)
         TOptional(typ)
+      case EToAnyTemplate(body) =>
+        typeOfToAnyTemplate(body)
+      case EFromAnyTemplate(tmplId, body) =>
+        typeOfFromAnyTemplate(tmplId, body)
     }
 
     def checkExpr(expr: Expr, typ: Type): Type = {
