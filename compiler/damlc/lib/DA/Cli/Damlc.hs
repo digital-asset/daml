@@ -699,7 +699,7 @@ execInspectDar inFile =
           (pkgId, _lfPkg) <-
               errorOnLeft
                   ("Cannot decode package " <> ZipArchive.eRelativePath dalfEntry)
-                  (Archive.decodeArchive _ dalf)
+                  (Archive.decodeArchivePayload dalf)
           putStrLn $
               (dropExtension $ takeFileName $ ZipArchive.eRelativePath dalfEntry) <> " " <>
               show (LF.unPackageId pkgId)

@@ -21,6 +21,7 @@ import qualified DA.Daml.LF.Proto3.DecodeV1 as DecodeV1
 type ModuleNameIndex = Word64 -> Decode ModuleName
 
 newtype CrossReferences = CrossReferences (PackageId -> ModuleNameIndex)
+-- conceptually has a reasonable Monoid instance
 
 -- we could build up the CrossReferences iteratively if they were guaranteed to
 -- be topologically sorted, but they are not guaranteed to be so, even if our
