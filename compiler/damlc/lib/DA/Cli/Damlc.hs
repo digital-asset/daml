@@ -28,6 +28,7 @@ import DA.Daml.Compiler.Scenario
 import DA.Daml.Compiler.Upgrade
 import qualified DA.Daml.LF.Ast as LF
 import qualified DA.Daml.LF.Proto3.Archive as Archive
+import DA.Daml.LF.Proto3.Encode (zeroPriorPackages)
 import DA.Daml.LF.Reader
 import DA.Daml.LanguageServer
 import DA.Daml.Options
@@ -393,12 +394,12 @@ execCompile inputFile outputFile opts =
               ErrUtils.dumpIfSet_dyn dflags Opt_D_dump_parsed_ast "Parser AST" $ showAstData NoBlankSrcSpan parsed
               ErrUtils.dumpIfSet_dyn dflags Opt_D_source_stats "Source Statistics" $ ppSourceStats False parsed
 
-            liftIO $ write dalf
-    write bs
+            liftIO $ write zeroPriorPackages dalf -- TODO SC where to get xrefs?
+    write xrefs bs
       | outputFile == "-" = putStrLn $ render Colored $ DA.Pretty.pretty bs
       | otherwise = do
         createDirectoryIfMissing True $ takeDirectory outputFile
-        B.writeFile outputFile $ Archive.encodeArchive bs
+        B.writeFile outputFile $ Archive.encodeArchive xrefs bs
 
 execLint :: FilePath -> Options -> Command
 execLint inputFile opts =
