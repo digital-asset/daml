@@ -2120,33 +2120,23 @@ Numeric functions
   scale of the inputs and the output is given by the type parameter
   `α`.  Throws an error if overflow.
 
-* ``MUL_NUMERIC : ∀ (α : nat) . 'Numeric' α → 'Numeric' α → 'Numeric' α``
+* ``MUL_NUMERIC : ∀ (α₁ α₂ α : nat) . 'Numeric' α₁ → 'Numeric' α₂ → 'Numeric' α``
 
-  Multiplies the two decimals and rounds the result to the closest
+  Multiplies the two numerics and rounds the result to the closest
   multiple of ``10⁻ᵅ`` using `banker's rounding convention
-  <https://en.wikipedia.org/wiki/Rounding#Round_half_to_even>`_.  The
-  scale of the inputs and the output is given by the type parameter
-  `α`. Throws an error in case of overflow.
+  <https://en.wikipedia.org/wiki/Rounding#Round_half_to_even>`_.
+  The type parameters `α₁`, `α₂`, `α` define the scale of the first
+  input, the second input, and the output, respectively. Throws an
+  error in case of overflow.
 
-* ``DIV_NUMERIC : ∀ (α : nat) . 'Numeric' α → 'Numeric' α → 'Numeric' α``
+* ``DIV_NUMERIC : ∀ (α₁ α₂ α : nat) . 'Numeric' α₁ → 'Numeric' α₂ → 'Numeric' α``
 
   Divides the first decimal by the second one and rounds the result to
   the closest multiple of ``10⁻ᵅ`` using `banker's rounding convention
   <https://en.wikipedia.org/wiki/Rounding#Round_half_to_even>`_ (where
-  `n` is given as the type parameter).  The scale of the inputs and
-  the output is given by the type parameter `α`.  Throws an error in
-  case of overflow.
-
-* ``ROUND_NUMERIC : ∀ (α : nat) . 'Int64' → 'Numeric' α → 'Numeric' α``
-
-  Rounds the decimal to the closest multiple of ``10ⁱ`` where ``i`` is
-  integer argument.  In case the value to be rounded is exactly
-  half-way between two multiples, rounds toward the even one,
-  following the `banker's rounding convention
-  <https://en.wikipedia.org/wiki/Rounding#Round_half_to_even>`_.  The
-  scale of the inputs and the output is given by the type parameter
-  `α`.  Throws an exception if the integer is not between `α-37` and
-  `α` inclusive.
+  `n` is given as the type parameter).  The type parameters `α₁`,
+  `α₂`, `α` define the scale of the first input, the second input, and
+  the output, respectively. Throws an error in case of overflow.
 
 
 * ``CAST_NUMERIC : ∀ (α₁, α₂: nat) . 'Numeric' α₁ → 'Numeric' α₂``

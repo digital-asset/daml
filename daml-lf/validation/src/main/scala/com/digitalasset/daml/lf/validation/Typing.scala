@@ -42,8 +42,15 @@ private[validation] object Typing {
   protected[validation] lazy val typeOfBuiltinFunction = {
     val alpha = TVar(Name.assertFromString("$alpha$"))
     val beta = TVar(Name.assertFromString("$beta$"))
+    val gamma = TVar(Name.assertFromString("$beta$"))
     def tBinop(typ: Type): Type = typ ->: typ ->: typ
     val tNumBinop = TForall(alpha.name -> KNat, tBinop(TNumeric(alpha)))
+    val tMultiNumBinop =
+      TForall(
+        alpha.name -> KNat,
+        TForall(
+          beta.name -> KNat,
+          TForall(gamma.name -> KNat, TNumeric(alpha) ->: TNumeric(beta) ->: TNumeric(gamma))))
     val tNumConversion =
       TForall(alpha.name -> KNat, TForall(beta.name -> KNat, TNumeric(alpha) ->: TNumeric(beta)))
     def tComparison(bType: BuiltinType): Type = TBuiltin(bType) ->: TBuiltin(bType) ->: TBool
@@ -54,8 +61,8 @@ private[validation] object Typing {
       // Numeric arithmetic
       BAddNumeric -> tNumBinop,
       BSubNumeric -> tNumBinop,
-      BMulNumeric -> tNumBinop,
-      BDivNumeric -> tNumBinop,
+      BMulNumeric -> tMultiNumBinop,
+      BDivNumeric -> tMultiNumBinop,
       BRoundNumeric -> TForall(alpha.name -> KNat, TInt64 ->: TNumeric(alpha) ->: TNumeric(alpha)),
       BCastNumeric -> tNumConversion,
       BShiftNumeric -> tNumConversion,

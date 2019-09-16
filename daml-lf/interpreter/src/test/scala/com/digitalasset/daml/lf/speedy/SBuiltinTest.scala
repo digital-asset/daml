@@ -263,15 +263,16 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
       val overSqrtOfTen = "3.1622776601683793319988935444327185338"
 
       "throws exception in case of overflow" in {
-        eval(e"$builtin @0 1${"0" * 18}. 1${"0" * 19}.") shouldBe 'right
-        eval(e"$builtin @0 1${"0" * 19}.  1${"0" * 19}.") shouldBe 'left
-        eval(e"$builtin @37 $underSqrtOfTen $underSqrtOfTen") shouldBe 'right
-        eval(e"$builtin @37 $overSqrtOfTen $underSqrtOfTen") shouldBe 'left
-        eval(e"$builtin @10 1.1000000000 2.2000000000") shouldBe Right(SNumeric(n(10, 2.42)))
-        eval(e"$builtin @10 ${tenPowerOf(13)} ${tenPowerOf(14)}") shouldBe Right(
+        eval(e"$builtin @0 @0 @0 1${"0" * 18}. 1${"0" * 19}.") shouldBe 'right
+        eval(e"$builtin @0 @0 @0 1${"0" * 19}.  1${"0" * 19}.") shouldBe 'left
+        eval(e"$builtin @37 @37 @37 $underSqrtOfTen $underSqrtOfTen") shouldBe 'right
+        eval(e"$builtin @37 @37 @37 $overSqrtOfTen $underSqrtOfTen") shouldBe 'left
+        eval(e"$builtin @10 @10 @10 1.1000000000 2.2000000000") shouldBe Right(
+          SNumeric(n(10, 2.42)))
+        eval(e"$builtin @10 @10 @10 ${tenPowerOf(13)} ${tenPowerOf(14)}") shouldBe Right(
           SNumeric(n(10, "1E27")))
-        eval(e"$builtin @10 ${tenPowerOf(14)} ${tenPowerOf(14)}") shouldBe 'left
-        eval(e"$builtin @10 ${s(10, bigBigDecimal)} ${bigBigDecimal - 1}") shouldBe Left(
+        eval(e"$builtin @10 @10 @10 ${tenPowerOf(14)} ${tenPowerOf(14)}") shouldBe 'left
+        eval(e"$builtin @10 @10 @10 ${s(10, bigBigDecimal)} ${bigBigDecimal - 1}") shouldBe Left(
           DamlEArithmeticError(
             s"(Numeric 10) overflow when multiplying ${s(10, bigBigDecimal)} by ${s(10, bigBigDecimal - 1)}.")
         )
@@ -281,25 +282,25 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
     "DIV_NUMERIC" - {
       val builtin = "DIV_NUMERIC"
       "throws exception in case of overflow" in {
-        eval(e"$builtin @38 ${s(38, "1E-18")} ${s(38, "-1E-17")}") shouldBe 'right
-        eval(e"$builtin @38 ${s(38, "1E-18")} ${s(38, "-1E-18")}") shouldBe 'left
-        eval(e"$builtin @1 ${s(1, "1E36")} 0.2") shouldBe 'right
-        eval(e"$builtin @1 ${s(1, "1E36")} 0.1") shouldBe 'left
-        eval(e"$builtin @10 1.1000000000 2.2000000000") shouldBe Right(SNumeric(n(10, 0.5)))
-        eval(e"$builtin @10 ${s(10, bigBigDecimal)} ${tenPowerOf(-10)}") shouldBe 'left
-        eval(e"$builtin @10 ${tenPowerOf(17)} ${tenPowerOf(-10)}") shouldBe Right(
+        eval(e"$builtin @38 @38 @38 ${s(38, "1E-18")} ${s(38, "-1E-17")}") shouldBe 'right
+        eval(e"$builtin @38 @38 @38 ${s(38, "1E-18")} ${s(38, "-1E-18")}") shouldBe 'left
+        eval(e"$builtin @1 @1 @1 ${s(1, "1E36")} 0.2") shouldBe 'right
+        eval(e"$builtin @1 @1 @1 ${s(1, "1E36")} 0.1") shouldBe 'left
+        eval(e"$builtin @10 @10 @10 1.1000000000 2.2000000000") shouldBe Right(SNumeric(n(10, 0.5)))
+        eval(e"$builtin @10 @10 @10 ${s(10, bigBigDecimal)} ${tenPowerOf(-10)}") shouldBe 'left
+        eval(e"$builtin @10 @10 @10 ${tenPowerOf(17)} ${tenPowerOf(-10)}") shouldBe Right(
           SNumeric(n(10, "1E27")))
-        eval(e"$builtin @10 ${tenPowerOf(18)} ${tenPowerOf(-10)}") shouldBe Left(
+        eval(e"$builtin @10 @10 @10 ${tenPowerOf(18)} ${tenPowerOf(-10)}") shouldBe Left(
           DamlEArithmeticError(
             s"(Numeric 10) overflow when dividing ${tenPowerOf(18)} by ${tenPowerOf(-10)}.")
         )
       }
 
       "throws exception when divided by 0" in {
-        eval(e"$builtin @10 ${s(10, one)} ${tenPowerOf(-10)}") shouldBe Right(
+        eval(e"$builtin @10 @10 @10 ${s(10, one)} ${tenPowerOf(-10)}") shouldBe Right(
           SNumeric(n(10, tenPowerOf(10))))
-        eval(e"$builtin @10 ${s(10, one)} ${s(10, zero)}") shouldBe 'left
-        eval(e"$builtin @10 ${s(10, bigBigDecimal)} ${s(10, zero)}") shouldBe Left(
+        eval(e"$builtin @10 @10 @10 ${s(10, one)} ${s(10, zero)}") shouldBe 'left
+        eval(e"$builtin @10 @10 @10 ${s(10, bigBigDecimal)} ${s(10, zero)}") shouldBe Left(
           DamlEArithmeticError(s"Attempt to divide ${s(10, bigBigDecimal)} by 0.0000000000.")
         )
 
@@ -340,23 +341,23 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
 
       val testCases = Table[String, (Numeric, Numeric) => Either[Any, SValue]](
         ("builtin", "reference"),
-        ("ADD_NUMERIC", (a, b) => Right(SNumeric(n(10, a add b)))),
-        ("SUB_NUMERIC", (a, b) => Right(SNumeric(n(10, a subtract b)))),
-        ("MUL_NUMERIC", (a, b) => Right(SNumeric(round(a multiply b)))),
+        ("ADD_NUMERIC @10", (a, b) => Right(SNumeric(n(10, a add b)))),
+        ("SUB_NUMERIC @10", (a, b) => Right(SNumeric(n(10, a subtract b)))),
+        ("MUL_NUMERIC @10 @10 @10 ", (a, b) => Right(SNumeric(round(a multiply b)))),
         (
-          "DIV_NUMERIC",
+          "DIV_NUMERIC @10 @10 @10",
           (a, b) => Either.cond(b.signum != 0, SNumeric(round(BigDecimal(a) / BigDecimal(b))), ())),
-        ("LESS_EQ_NUMERIC", (a, b) => Right(SBool(BigDecimal(a) <= BigDecimal(b)))),
-        ("GREATER_EQ_NUMERIC", (a, b) => Right(SBool(BigDecimal(a) >= BigDecimal(b)))),
-        ("LESS_NUMERIC", (a, b) => Right(SBool(BigDecimal(a) < BigDecimal(b)))),
-        ("GREATER_NUMERIC", (a, b) => Right(SBool(BigDecimal(a) > BigDecimal(b)))),
-        ("EQUAL_NUMERIC", (a, b) => Right(SBool(BigDecimal(a) == BigDecimal(b)))),
+        ("LESS_EQ_NUMERIC @10", (a, b) => Right(SBool(BigDecimal(a) <= BigDecimal(b)))),
+        ("GREATER_EQ_NUMERIC @10", (a, b) => Right(SBool(BigDecimal(a) >= BigDecimal(b)))),
+        ("LESS_NUMERIC @10", (a, b) => Right(SBool(BigDecimal(a) < BigDecimal(b)))),
+        ("GREATER_NUMERIC @10", (a, b) => Right(SBool(BigDecimal(a) > BigDecimal(b)))),
+        ("EQUAL_NUMERIC @10", (a, b) => Right(SBool(BigDecimal(a) == BigDecimal(b)))),
       )
 
       forEvery(testCases) { (builtin, ref) =>
         forEvery(decimals) { a =>
           forEvery(decimals) { b =>
-            eval(e"$builtin @10 ${s(10, a)} ${s(10, b)}").left
+            eval(e"$builtin ${s(10, a)} ${s(10, b)}").left
               .map(_ => ()) shouldBe ref(n(10, a), n(10, b))
           }
         }

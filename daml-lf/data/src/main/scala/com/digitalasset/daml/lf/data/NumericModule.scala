@@ -98,29 +98,24 @@ abstract class NumericModule {
   }
 
   /**
-    * Multiplies `x` by `y`. The output has the same scale as the inputs. If rounding must be
+    * Multiplies `x` by `y`. The output has the scale `scale`. If rounding must be
     * performed, the [[https://en.wikipedia.org/wiki/Rounding#Round_half_to_even> banker's rounding convention]]
     * is applied.
     * In case of overflow, returns an error message instead.
-    *
-    * ```Requires the scale of `x` and `y` are the same.```
     */
-  final def multiply(x: Numeric, y: Numeric): Either[String, Numeric] = {
-    assert(x.scale == y.scale)
-    checkForOverflow((x multiply y).setScale(x.scale, ROUND_HALF_EVEN))
+  final def multiply(scale: Int, x: Numeric, y: Numeric): Either[String, Numeric] = {
+    checkForOverflow((x multiply y).setScale(scale, ROUND_HALF_EVEN))
   }
 
   /**
-    * Divides `x` by `y`. The output has the same scale as the inputs. If rounding must be
+    * Divides `x` by `y`. The output has the scale `scale`. If rounding must be
     * performed, the [[https://en.wikipedia.org/wiki/Rounding#Round_half_to_even> banker's rounding convention]]
     * is applied.
     * In case of overflow, returns an error message instead.
     *
-    * ```Requires the scale of `x` and `y` are the same.```
     */
-  final def divide(x: Numeric, y: Numeric): Either[String, Numeric] = {
-    assert(x.scale == y.scale)
-    checkForOverflow(x.divide(y, x.scale, ROUND_HALF_EVEN))
+  final def divide(scale: Int, x: Numeric, y: Numeric): Either[String, Numeric] = {
+    checkForOverflow(x.divide(y, scale, ROUND_HALF_EVEN))
   }
 
   /**
