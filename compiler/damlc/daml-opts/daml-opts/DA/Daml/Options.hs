@@ -19,6 +19,7 @@ import Data.Bifunctor
 import Data.IORef
 import Data.List
 import DynFlags (parseDynamicFilePragma)
+import qualified Data.Text as T
 import qualified Platform as P
 import qualified EnumSet
 import GHC                         hiding (convertLit)
@@ -29,6 +30,7 @@ import HscMain
 import Panic (throwGhcExceptionIO)
 import System.Directory
 import System.FilePath
+import qualified DA.Daml.LF.Ast.Version as LF
 
 import DA.Daml.Options.Types
 import DA.Daml.Preprocessor
@@ -244,7 +246,7 @@ adjustDynFlags options@Options{..} tmpDir dflags
         Nothing -> id
         Just cppPath -> alterSettings $ \s -> s
             { sPgm_P = (cppPath, [])
-            , sOpt_P = ["-P"]
+            , sOpt_P = "-P" : ["-D" <> T.unpack flag | flag <- cppFlags]
                 -- We add "-P" here to suppress #line pragmas from the
                 -- preprocessor (hpp, specifically) because the daml
                 -- parser can't handle them. This is a non-issue right now
@@ -256,6 +258,8 @@ adjustDynFlags options@Options{..} tmpDir dflags
             , sTmpDir = tmpDir
                 -- sometimes this is required by CPP?
             }
+
+    cppFlags = map LF.featureCppFlag (LF.allFeaturesForVersion optDamlLfVersion)
 
     -- We need to add platform info in order to run CPP. To prevent
     -- .hi file incompatibilities, we set the platform the same way
