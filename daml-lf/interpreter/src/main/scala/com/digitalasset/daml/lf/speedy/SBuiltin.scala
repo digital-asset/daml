@@ -171,6 +171,54 @@ object SBuiltin {
   final case object SBMulNumeric extends SBBinaryOpNumeric(multiply)
   final case object SBDivNumeric extends SBBinaryOpNumeric(divide)
 
+  final case object SBRoundNumeric extends SBuiltin(3) {
+    def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
+      val scale = args.get(0).asInstanceOf[STNat].n
+      val prec = args.get(1).asInstanceOf[SInt64].value
+      val x = args.get(2).asInstanceOf[SNumeric].value
+      // FixMe: https://github.com/digital-asset/daml/issues/2289
+      //   drop this double check
+      assert(x.scale == scale)
+      machine.ctrl = CtrlValue(
+        SNumeric(
+          rightOrArithmeticError(s"Error while rounding (Numeric $scale)", Numeric.round(prec, x)))
+      )
+    }
+  }
+
+  final case object SBCastNumeric extends SBuiltin(3) {
+    def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
+      val inputScale = args.get(0).asInstanceOf[STNat].n
+      val outputScale = args.get(1).asInstanceOf[STNat].n
+      val x = args.get(2).asInstanceOf[SNumeric].value
+      // FixMe: https://github.com/digital-asset/daml/issues/2289
+      //   drop this double check
+      assert(x.scale == inputScale)
+      machine.ctrl = CtrlValue(
+        SNumeric(
+          rightOrArithmeticError(
+            s"Error while casting (Numeric $inputScale) to (Numeric $outputScale)",
+            Numeric.fromBigDecimal(outputScale, x))))
+    }
+  }
+
+  final case object SBShiftNumeric extends SBuiltin(3) {
+    def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
+      val inputScale = args.get(0).asInstanceOf[STNat].n
+      val outputScale = args.get(1).asInstanceOf[STNat].n
+      val x = args.get(2).asInstanceOf[SNumeric].value
+      // FixMe: https://github.com/digital-asset/daml/issues/2289
+      //   drop this double check
+      assert(x.scale == inputScale)
+      machine.ctrl = CtrlValue(
+        SNumeric(
+          rightOrArithmeticError(
+            s"Error while shifting (Numeric $inputScale) to (Numeric $outputScale)",
+            Numeric.fromBigDecimal(outputScale, x.scaleByPowerOfTen(inputScale - outputScale))
+          )))
+    }
+  }
+
   //
   // Text functions
   //
@@ -514,21 +562,6 @@ object SBuiltin {
           case _ =>
             throw SErrorCrash(s"type mismatch unixMicrosecondsToTimestamp: $args")
         }
-      )
-    }
-  }
-
-  final case object SBRoundNumeric extends SBuiltin(3) {
-    def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
-      val scale = args.get(0).asInstanceOf[STNat].n
-      val prec = args.get(1).asInstanceOf[SInt64].value
-      val x = args.get(2).asInstanceOf[SNumeric].value
-      // FixMe: https://github.com/digital-asset/daml/issues/2289
-      //   drop this double check
-      assert(x.scale == scale)
-      machine.ctrl = CtrlValue(
-        SNumeric(
-          rightOrArithmeticError(s"Error while rounding (Numeric $scale)", Numeric.round(prec, x)))
       )
     }
   }

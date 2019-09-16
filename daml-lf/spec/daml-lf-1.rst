@@ -495,8 +495,8 @@ Kinds, types, and expressions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. TODO We might want to consider changing the syntax for ``Mod``,
-   since in our software we use the colon to separate the module name
-   from the definition name inside the module.
+since in our software we use the colon to separate the module name
+from the definition name inside the module.
 
 Then we can define our kinds, types, and expressions::
 
@@ -1245,8 +1245,8 @@ Party literal restriction
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. TODO I think this is incorrect, and actually before the
-   ``ForbidPartyLiterals`` feature flag party literals where
-   allowed everywhere.
+``ForbidPartyLiterals`` feature flag party literals where
+allowed everywhere.
 
 The usage of party literals is restricted in DAML-LF. By default,
 party literals are neither allowed in templates nor in values used in
