@@ -12,7 +12,6 @@ module DA.Daml.LF.Proto3.Archive
   , encodeArchiveLazy
   , encodeArchiveAndHash
   , encodeArchiveCrossReferences
-  , encodePackageHash
   , ArchiveError(..)
   ) where
 
@@ -83,15 +82,12 @@ decodeArchive xrefs bytes = do
 
 -- | Encode a LFv1 package payload into a DAML-LF archive using the default
 -- hash function.
-encodeArchiveLazy :: LF.Package -> BSL.ByteString
-encodeArchiveLazy = fst . encodeArchiveAndHash
+encodeArchiveLazy :: Encode.CrossReferences -> LF.Package -> BSL.ByteString
+encodeArchiveLazy xrefs = fst . encodeArchiveAndHash xrefs
 
-encodePackageHash :: LF.Package -> T.Text
-encodePackageHash = snd . encodeArchiveAndHash
-
-encodeArchiveAndHash :: LF.Package -> (BSL.ByteString, T.Text)
-encodeArchiveAndHash package =
-    let payload = BSL.toStrict $ Proto.toLazyByteString $ Encode.encodePayload package
+encodeArchiveAndHash :: Encode.CrossReferences -> LF.Package -> (BSL.ByteString, T.Text)
+encodeArchiveAndHash xrefs package =
+    let payload = BSL.toStrict $ Proto.toLazyByteString $ Encode.encodePayload xrefs package
         hash = encodeHash (BA.convert (Crypto.hash @_ @Crypto.SHA256 payload) :: BS.ByteString)
         archive =
           ProtoLF.Archive
@@ -101,8 +97,8 @@ encodeArchiveAndHash package =
           }
     in (Proto.toLazyByteString archive, hash)
 
-encodeArchive :: LF.Package -> BS.ByteString
-encodeArchive = BSL.toStrict . encodeArchiveLazy
+encodeArchive :: Encode.CrossReferences -> LF.Package -> BS.ByteString
+encodeArchive xrefs = BSL.toStrict . encodeArchiveLazy xrefs
 
 encodeArchiveCrossReferences :: Foldable f => f (LF.PackageId, ProtoLF.ArchivePayload) -> Encode.CrossReferences
 encodeArchiveCrossReferences = Encode.encodeCrossReferences

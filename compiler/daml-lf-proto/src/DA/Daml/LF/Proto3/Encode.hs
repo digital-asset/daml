@@ -5,6 +5,7 @@ module DA.Daml.LF.Proto3.Encode
   ( encodePayload
   , encodeCrossReferences
   , CrossReferences
+  , zeroPriorPackages
   ) where
 
 import Data.Foldable (toList)
@@ -19,10 +20,10 @@ type ModuleNameIndex = ModuleName -> Maybe Word64
 
 newtype CrossReferences = CrossReferences (PackageId -> ModuleNameIndex)
 
-encodePayload :: Package -> ArchivePayload
-encodePayload package = case packageLfVersion package of
+encodePayload :: CrossReferences -> Package -> ArchivePayload
+encodePayload (CrossReferences xrefs) package = case packageLfVersion package of
     V1 minor ->
-        let payload = ArchivePayloadSumDamlLf1 (EncodeV1.encodePackage zeroPriorPackages package)
+        let payload = ArchivePayloadSumDamlLf1 (EncodeV1.encodePackage xrefs package)
         in  ArchivePayload (TL.pack $ renderMinorVersion minor) (Just payload)
 
 encodeCrossReferences :: Foldable f => f (PackageId, ArchivePayload) -> CrossReferences
@@ -38,5 +39,7 @@ encodeCrossReferences payloads = CrossReferences lookup
 -- encodeModuleNameIndex package = case packageLfVersion package of
 --     V1 _ -> EncodeV1.encodedInternedModuleNameIndex package
 
-zeroPriorPackages :: pid -> ModuleNameIndex
-zeroPriorPackages _ _ = Nothing
+-- | Always safe to use when encoding, however, will cause packages to
+-- bloat with additional module names.
+zeroPriorPackages :: CrossReferences
+zeroPriorPackages = CrossReferences $ \_ _ -> Nothing
