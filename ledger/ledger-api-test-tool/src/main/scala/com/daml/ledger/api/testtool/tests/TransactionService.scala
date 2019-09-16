@@ -535,9 +535,12 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
         template = BranchingControllers(alice, false, bob, eve)
         create <- alpha.submitAndWaitRequest(alice, template.create.command)
         transaction <- alpha.submitAndWaitForTransaction(create)
+        _ <- synchronize(alpha, beta)
         transactions <- beta.flatTransactions(bob)
       } yield {
-        assert(transactions.find(_.transactionId != transaction.transactionId).isEmpty)
+        assert(
+          !transactions.exists(_.transactionId != transaction.transactionId),
+          s"The transaction ${transaction.transactionId} should not have been disclosed.")
       }
     }
 
