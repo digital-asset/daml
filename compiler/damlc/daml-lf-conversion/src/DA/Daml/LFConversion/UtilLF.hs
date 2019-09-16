@@ -10,6 +10,7 @@ module DA.Daml.LFConversion.UtilLF(
 
 import           DA.Daml.LF.Ast
 import qualified DA.Daml.LF.Proto3.Archive  as Archive
+import DA.Daml.LF.Proto3.Encode (zeroPriorPackages)
 import           DA.Pretty (renderPretty)
 
 import qualified Data.ByteString.Char8      as BS
@@ -68,7 +69,7 @@ synthesizeVariantRecord (VariantConName dcon) (TypeConName tcon) = TypeConName (
 
 writeFileLf :: FilePath -> Package -> IO ()
 writeFileLf outFile lfPackage = do
-    BS.writeFile outFile $ Archive.encodeArchive lfPackage
+    BS.writeFile outFile $ Archive.encodeArchive zeroPriorPackages lfPackage
 
 -- | Fails if there are any duplicate module names
 buildPackage :: HasCallStack => Maybe String -> Version -> [Module] -> Package
