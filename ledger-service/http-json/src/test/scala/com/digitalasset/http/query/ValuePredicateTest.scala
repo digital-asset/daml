@@ -25,6 +25,8 @@ class ValuePredicateTest extends WordSpec with Matchers with TableDrivenProperty
       ("query", "type", "expected", "should match?"),
       c("\"foo\"", VA.text)("foo", true),
       c("\"foo\"", VA.text)("bar", false),
+      c("42", VA.int64)(42, true),
+      c("42", VA.int64)(43, false),
     )
 
     val dummyId = Ref.Identifier(

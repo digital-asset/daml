@@ -70,21 +70,29 @@ object ValuePredicate {
 
     def fromCon(it: JsValue, id: Ref.Identifier, typ: iface.DataType.FWT): Result =
       (typ, it).match2 {
-        case iface.Record(fieldTyps) => {
+        case rec @ iface.Record(_) => {
           case JsObject(fields) =>
-            val invalidKeys = fields.keySet diff fieldTyps.iterator.map(_._1).toSet
-            if (invalidKeys.nonEmpty)
-              sys.error(s"$id does not have fields $invalidKeys")
-            RecordSubset(fieldTyps map {
-              case (fName, fTy) =>
-                fields get fName map (fSpec => (fName, fromValue(fSpec, fTy)))
-            })
+            fromRecord(fields, id, rec)
         }
         case iface.Variant(fieldTyps) => ???
         case e @ iface.Enum(_) => {
           case JsString(s) => fromEnum(s, e)
         }
       }(fallback = ???)
+
+    def fromRecord(
+        fields: Map[String, JsValue],
+        id: Ref.Identifier,
+        typ: iface.Record.FWT): Result = {
+      val iface.Record(fieldTyps) = typ
+      val invalidKeys = fields.keySet diff fieldTyps.iterator.map(_._1).toSet
+      if (invalidKeys.nonEmpty)
+        sys.error(s"$id does not have fields $invalidKeys")
+      RecordSubset(fieldTyps map {
+        case (fName, fTy) =>
+          fields get fName map (fSpec => (fName, fromValue(fSpec, fTy)))
+      })
+    }
 
     def fromEnum(it: String, typ: iface.Enum): Result =
       if (typ.constructors contains it)
@@ -128,6 +136,13 @@ object ValuePredicate {
       }(fallback = sys.error("TODO fallback"))
     }
 
-    RecordSubset(ImmArraySeq.empty) // TODO
+    (typ match {
+      case tc @ iface.TypeCon(iface.TypeConName(id), typArgs) =>
+        for {
+          dt <- defs(id)
+          recTy <- tc instantiate dt match { case r @ iface.Record(_) => Some(r); case _ => None }
+        } yield fromRecord(it, id, recTy)
+      case _ => None
+    }) getOrElse sys.error(s"No record type found for $typ")
   }
 }
