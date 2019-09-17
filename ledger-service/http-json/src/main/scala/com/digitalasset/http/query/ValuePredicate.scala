@@ -7,20 +7,31 @@ package query
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.ScalazEqual._
 import com.digitalasset.daml.lf.iface
+import com.digitalasset.daml.lf.value.{Value => V}
 import iface.{Type => Ty}
 
 import scalaz.\&/
 import spray.json._
 
 sealed abstract class ValuePredicate extends Product with Serializable {
-  // def toFunPredicate:
+  import ValuePredicate._
+  def toFunPredicate: LfV => Boolean = {
+    def go(self: ValuePredicate): LfV => Boolean = self match {
+      case Literal(p) => p.isDefinedAt
+      case RecordSubset(q) =>
+        // val cq = q transform ((_, vq) => vq.toFunPredicate)
+        ???
+      case Range(_, _) => sys.error("range not supported yet")
+    }
+    go(this)
+  }
 }
 
 object ValuePredicate {
   type TypeLookup = Ref.Identifier => Option[iface.DefDataType.FWT]
-  type LfV = JsValue
+  type LfV = V[V.AbsoluteContractId]
 
-  final case class Literal(literal: LfV, typ: Ty) extends ValuePredicate
+  final case class Literal(p: LfV PartialFunction Unit) extends ValuePredicate
   final case class RecordSubset(fields: Map[String, ValuePredicate]) extends ValuePredicate
   // boolean is whether inclusive (lte vs lt)
   final case class Range(ltgt: (Boolean, LfV) \&/ (Boolean, LfV), typ: Ty) extends ValuePredicate
@@ -60,19 +71,25 @@ object ValuePredicate {
       }(fallback = ???)
 
     def fromEnum(it: String, typ: iface.Enum): Result =
-      if (typ.constructors contains it) ??? else sys.error("not a member of the enum")
+      if (typ.constructors contains it)
+        Literal { case V.ValueEnum(_, v) if it == (v: String) => } else
+        sys.error("not a member of the enum")
 
     def fromPrim(it: JsValue, typ: iface.TypePrim): Result = {
       import iface.PrimType._
-      def lit = Literal(it, typ)
+      def lit = Literal { case _ if false => /* TODO match */ }
       (typ.typ, it).match2 {
-        case Bool => { case JsBoolean(_) => lit }
+        case Bool => { case JsBoolean(q) => Literal { case V.ValueBool(v) if q == v => } }
         case Int64 => { case JsNumber(_) | JsString(_) => lit }
-        case Text => { case JsString(_) => lit }
+        case Text => { case JsString(q) => Literal { case V.ValueText(v) if q == v => } }
         case Date => { case JsString(_) => lit }
         case Timestamp => { case JsString(_) => lit }
-        case Party => { case JsString(_) => lit }
-        case ContractId => { case JsString(_) => lit }
+        case Party => {
+          case JsString(q) => Literal { case V.ValueParty(v) if q == (v: String) => }
+        }
+        case ContractId => {
+          case JsString(q) => Literal { case V.ValueContractId(v) if q == (v.coid: String) => }
+        }
         case List => { case JsArray(_) => lit }
         case Unit => { case JsObject(_) => lit }
         case Optional => { case todo => lit }
