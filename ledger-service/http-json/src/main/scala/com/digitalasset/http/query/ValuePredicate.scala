@@ -4,7 +4,8 @@
 package com.digitalasset.http
 package query
 
-import com.digitalasset.daml.lf.data.{Numeric, Ref, Time}
+import com.digitalasset.daml.lf.data.{ImmArray, Numeric, Ref, Time}
+import ImmArray.ImmArraySeq
 import com.digitalasset.daml.lf.data.ScalazEqual._
 import com.digitalasset.daml.lf.iface
 import com.digitalasset.daml.lf.value.{Value => V}
@@ -20,8 +21,15 @@ sealed abstract class ValuePredicate extends Product with Serializable {
     def go(self: ValuePredicate): LfV => Boolean = self match {
       case Literal(p) => p.isDefinedAt
       case RecordSubset(q) =>
-        // val cq = q transform ((_, vq) => vq.toFunPredicate)
-        ???
+        val cq = q map (_ map (_._2.toFunPredicate));
+        {
+          case V.ValueRecord(_, fields) =>
+            cq zip fields.toSeq forall {
+              case (None, _) => true
+              case (Some(fp), (_, lfv)) => fp(lfv)
+            }
+          case _ => false
+        }
       case Range(_, _) => sys.error("range not supported yet")
     }
     go(this)
@@ -33,7 +41,8 @@ object ValuePredicate {
   type LfV = V[V.AbsoluteContractId]
 
   final case class Literal(p: LfV PartialFunction Unit) extends ValuePredicate
-  final case class RecordSubset(fields: Map[String, ValuePredicate]) extends ValuePredicate
+  final case class RecordSubset(fields: ImmArraySeq[Option[(Ref.Name, ValuePredicate)]])
+      extends ValuePredicate
   // boolean is whether inclusive (lte vs lt)
   final case class Range(ltgt: (Boolean, LfV) \&/ (Boolean, LfV), typ: Ty) extends ValuePredicate
 
@@ -63,13 +72,12 @@ object ValuePredicate {
       (typ, it).match2 {
         case iface.Record(fieldTyps) => {
           case JsObject(fields) =>
-            val lookup = fieldTyps.toMap[String, iface.Type]
-            RecordSubset(fields transform { (fName, fSpec) =>
-              fromValue(
-                fSpec,
-                lookup.getOrElse(
-                  fName,
-                  sys.error(s"no field $fName in ${id.qualifiedName.qualifiedName}")))
+            val invalidKeys = fields.keySet diff fieldTyps.iterator.map(_._1).toSet
+            if (invalidKeys.nonEmpty)
+              sys.error(s"$id does not have fields $invalidKeys")
+            RecordSubset(fieldTyps map {
+              case (fName, fTy) =>
+                fields get fName map (fSpec => (fName, fromValue(fSpec, fTy)))
             })
         }
         case iface.Variant(fieldTyps) => ???
@@ -120,6 +128,6 @@ object ValuePredicate {
       }(fallback = sys.error("TODO fallback"))
     }
 
-    RecordSubset(Map()) // TODO
+    RecordSubset(ImmArraySeq.empty) // TODO
   }
 }
