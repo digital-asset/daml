@@ -24,6 +24,11 @@ data Identifier = Identifier
   , entityName : Text
   } deriving (Show, Eq)
 
+data AnyContractId = AnyContractId
+  { templateId : Identifier
+  , contractId : Text
+  } deriving (Show, Eq)
+
 data Transaction = Transaction
  { transactionId : Text
  , events : [Event]
@@ -36,14 +41,12 @@ data Event
 
 data Created = Created
   { eventId : Text
-  , contractId : Text
-  , templateId : Identifier
+  , contractId : AnyContractId
   } deriving (Show, Eq)
 
 data Archived = Archived
   { eventId : Text
-  , contractId : Text
-  , templateId : Identifier
+  , contractId : AnyContractId
   } deriving (Show, Eq)
 
 data Message
@@ -83,9 +86,7 @@ data Command
       { templateArg : LedgerValue
       }
   | ExerciseCommand
-      { templateId : TemplateId
-      , contractId : Text
-      , choiceName : Text
+      { contractId : AnyContractId
       , choiceArg : LedgerValue
       }
 
@@ -93,9 +94,9 @@ createCmd : Template t => t -> Command
 createCmd templateArg =
   CreateCommand (toLedgerValue templateArg)
 
-exerciseCmd : Choice t c r => TemplateId -> Text -> Text -> c -> Command
-exerciseCmd templateId contractId choiceName choiceArg =
-  ExerciseCommand templateId contractId choiceName (toLedgerValue choiceArg)
+exerciseCmd : Choice t c r => AnyContractId -> c -> Command
+exerciseCmd contractId choiceArg =
+  ExerciseCommand contractId (toLedgerValue choiceArg)
 
 data Commands = Commands
   { commandId : Text

@@ -177,13 +177,21 @@ object Converter {
       ("name", SText(id.entityName)))
   }
 
+  private def fromContractId(triggerIds: TriggerIds, templateId: value.Identifier, contractId: String): SValue = {
+    val contractIdTy = triggerIds.getId("AnyContractId")
+    record(
+      contractIdTy,
+      ("templateId", fromIdentifier(triggerIds, templateId)),
+      ("contractId", SText(contractId))
+    )
+  }
+
   private def fromArchivedEvent(triggerIds: TriggerIds, archived: ArchivedEvent): SValue = {
     val archivedTy = triggerIds.getId("Archived")
     record(
       archivedTy,
       ("eventId", SText(archived.eventId)),
-      ("contractId", SText(archived.contractId)),
-      ("templateId", fromIdentifier(triggerIds, archived.getTemplateId))
+      ("contractId", fromContractId(triggerIds, archived.getTemplateId, archived.contractId))
     )
   }
 
@@ -192,8 +200,7 @@ object Converter {
     record(
       createdTy,
       ("eventId", SText(created.eventId)),
-      ("contractId", SText(created.contractId)),
-      ("templateId", fromIdentifier(triggerIds, created.getTemplateId))
+      ("contractId", fromContractId(triggerIds, created.getTemplateId, created.contractId))
     )
   }
 
@@ -240,6 +247,20 @@ object Converter {
     }
   }
 
+  private def toIdentifier(v: SValue): Either[String, Identifier] = {
+    v match {
+      case SRecord(_, _, vals) => {
+        assert(vals.size == 3)
+        for {
+          packageId <- toText(vals.get(0)).flatMap(PackageId.fromString)
+          moduleName <- toText(vals.get(1)).flatMap(DottedName.fromString)
+          entityName <- toText(vals.get(2)).flatMap(DottedName.fromString)
+        } yield Identifier(packageId, QualifiedName(moduleName, entityName))
+      }
+      case _ => Left(s"Expected Identifier but got $v")
+    }
+  }
+
   private def getTemplateId(v: SValue): Either[String, Identifier] = {
     v match {
       case SRecord(templateId, _, _) => Right(templateId)
@@ -260,6 +281,28 @@ object Converter {
     }
   }
 
+  private def toContractId(v: SValue): Either[String, (Identifier, String)] = {
+    v match {
+      case SRecord(_, _, vals) => {
+        assert(vals.size == 2)
+        for {
+          templateId <- toIdentifier(vals.get(0))
+          contractId <- toText(vals.get(1))
+        } yield (templateId, contractId)
+      }
+      case _ => Left(s"Expected AnyContractId but got $v")
+    }
+  }
+
+  private def toChoiceName(v: SValue): Either[String, String] = {
+    v match {
+      case SRecord(ty, _, _) => {
+        Right(ty.qualifiedName.name.toString)
+      }
+      case _ => Left(s"Expected choice value but got $v")
+    }
+  }
+
   private def toCreate(triggerIds: TriggerIds, v: SValue): Either[String, CreateCommand] = {
     v match {
       case SRecord(_, _, vals) => {
@@ -276,18 +319,19 @@ object Converter {
   private def toExercise(triggerIds: TriggerIds, v: SValue): Either[String, ExerciseCommand] = {
     v match {
       case SRecord(_, _, vals) => {
-        assert(vals.size == 4)
+        assert(vals.size == 2)
         for {
-          templateId <- toTemplateId(triggerIds, vals.get(0))
-          contractId <- toText(vals.get(1))
-          choiceName <- toText(vals.get(2))
-          choiceArg <- toLedgerValue(vals.get(2))
-        } yield
+          templateAndContractId <- toContractId(vals.get(0))
+          choiceName <- toChoiceName(vals.get(1))
+          choiceArg <- toLedgerValue(vals.get(1))
+        } yield {
+          val (templateId, contractId) = templateAndContractId
           ExerciseCommand(
             Some(toApiIdentifier(templateId)),
             contractId,
             choiceName,
             Some(choiceArg))
+        }
       }
       case _ => Left(s"Expected ExerciseCommand but got $v")
     }

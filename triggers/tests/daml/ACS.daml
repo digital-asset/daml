@@ -19,8 +19,8 @@ initState : Party -> ActiveContracts -> TriggerState
 initState party (ActiveContracts events) = TriggerState (foldl updateAcs TM.empty events) 0 party
   where
     updateAcs : TextMap Identifier -> Created -> TextMap Identifier
-    updateAcs acs (Created _ cId tId)
-      | tId.entityName == "Asset" = TM.insert cId tId acs
+    updateAcs acs (Created _ cId)
+      | cId.templateId.entityName == "Asset" = TM.insert cId.contractId cId.templateId acs
       | otherwise = acs
 
 -- | This is a very silly trigger for testing purposes:
@@ -43,12 +43,12 @@ test = Trigger
       where
         updateEvent : ([Command], TextMap Identifier) -> Event -> ([Command], TextMap Identifier)
         updateEvent (cmds, acs) ev = case ev of
-          CreatedEvent (Created _ cId tId)
-            | tId.entityName == "Asset" ->
+          CreatedEvent (Created _ cId)
+            | cId.templateId.entityName == "Asset" ->
             let createMirror : Command = createCmd (AssetMirror { issuer = party })
-            in (createMirror :: cmds, TM.insert cId tId acs)
-          ArchivedEvent (Archived _ cId tId)
-            | tId.entityName == "Asset" -> (cmds, TM.delete cId acs)
+            in (createMirror :: cmds, TM.insert cId.contractId cId.templateId acs)
+          ArchivedEvent (Archived _ cId)
+            | cId.templateId.entityName == "Asset" -> (cmds, TM.delete cId.contractId acs)
           _ -> (cmds, acs)
 
 template Asset
