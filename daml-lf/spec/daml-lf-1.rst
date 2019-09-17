@@ -576,8 +576,8 @@ Then we can define our kinds, types, and expressions::
        |  e.f                                       -- ExpTupleProj: Tuple projection
        |  ⟨ e₁ 'with' f = e₂ ⟩                      -- ExpTupleUpdate: Tuple update
        |  u                                         -- ExpUpdate: Update expression
-       | 'to_any_template t'                        -- ExpToAnyTemplate: Wrap a template in AnyTemplate
-       | 'from_any_template @Mod:T t'               -- ExpToAnyTemplate: Extract the given template from AnyTemplate or return None
+       | 'to_any_template' @Mod:T t                 -- ExpToAnyTemplate: Wrap a template in AnyTemplate
+       | 'from_any_template' @Mod:T t               -- ExpToAnyTemplate: Extract the given template from AnyTemplate or return None
 
   Patterns
     p
@@ -872,7 +872,7 @@ Then we define *well-formed expressions*. ::
 
       'tpl' (x : T) ↦ …  ∈  〚Ξ〛Mod       Γ  ⊢  e  : Mod:T
     ——————————————————————————————————————————————————————————————— ExpToAnyTemplate
-      Γ  ⊢  'to_any_template' e  :  'AnyTemplate'
+      Γ  ⊢  'to_any_template' @Mod:T e  :  'AnyTemplate'
 
       'tpl' (x : T) ↦ …  ∈  〚Ξ〛Mod       Γ  ⊢  e  : AnyTemplate
     ——————————————————————————————————————————————————————————————— ExpFromAnyTemplate
@@ -1648,18 +1648,13 @@ exact output.
     —————————————————————————————————————————————————————————————————————— EvExpLet
       'let' x : τ = e₁ 'in' e₂ ‖ E₀  ⇓  r ‖ E₂
 
-      e₁ ‖ E₀  ⇓  Ok v₁ ‖ E₁
-      e₂[x ↦ v₁] ‖ E₁  ⇓  r ‖ E₂
-    —————————————————————————————————————————————————————————————————————— EvExpLet
-      'let' x : τ = e₁ 'in' e₂ ‖ E₀  ⇓  r ‖ E₂
-
-      e₁ ‖ E₀  ⇓  Ok (Mod:T e₂) ‖ E₁
+      e₁ ‖ E₀  ⇓  Ok (to_any_template @Mod:T v₁) ‖ E₁
     —————————————————————————————————————————————————————————————————————— EvExpFromAnyTemplateSucc
-      'from_any_template' @Mod:T e₁ ‖ E₀  ⇓  'Some' @Mod:T e₂ ‖ E₁
+      'from_any_template' @Mod:T e₁ ‖ E₀  ⇓  'Some' @Mod:T v₁ ‖ E₁
 
-      e₁ ‖ E₀  ⇓  Ok (Mod₂:T₂ e₂) ‖ E₁, Mod₁:T₁ ≠ Mod₂:T₂
+      e₁ ‖ E₀  ⇓  Ok (to_any_template @Mod₂:T₂ v₂) ‖ E₁, Mod₁:T₁ ≠ Mod₂:T₂
     —————————————————————————————————————————————————————————————————————— EvExpFromAnyTemplateFail
-      'from_any_template' @Mod₁:T₁ e₁ ‖ E₀  ⇓  'Some' @Mod:T e₂ ‖ E₁
+      'from_any_template' @Mod₁:T₁ e₁ ‖ E₀  ⇓  'None' ‖ E₁
 
 
       e₁ ‖ E₀  ⇓  Ok v₁ ‖ E₁
