@@ -1,6 +1,8 @@
 -- Copyright (c) 2019 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 {-# LANGUAGE PatternSynonyms #-}
+{-# LANGUAGE DeriveGeneric #-}
+
 -- | Main entry-point of the DAML compiler
 module DA.Daml.Visual
   ( execVisual
@@ -29,6 +31,9 @@ import qualified Data.ByteString as B
 import Data.Generics.Uniplate.Data
 import qualified Data.Map.Strict as Map
 import qualified Data.Text as T
+import GHC.Generics
+import Data.Aeson
+
 import Safe
 
 type IsConsuming = Bool
@@ -67,6 +72,49 @@ data Graph = Graph
     { subgraphs :: [SubGraph]
     , edges :: [(ChoiceDetails, ChoiceDetails)]
     } deriving (Show, Eq)
+
+data D3Link = D3Link
+    { source :: Int
+    , target :: Int
+    , weight :: Int
+    } deriving (Generic, Show)
+
+-- can add more information like signatories, observers
+data D3Node = D3Node
+    { fields :: T.Text
+    , tplName :: T.Text
+    , id :: Int
+    , chcName :: T.Text
+    } deriving (Generic, Show)
+
+data D3Graph = D3Graph
+    { d3links :: [D3Link]
+    , d3nodes :: [D3Node]
+    } deriving (Generic, Show)
+
+d3LinksFromGraphEdges :: Graph -> [D3Link]
+d3LinksFromGraphEdges g = map edgeToD3Link (edges g)
+    where edgeToD3Link edge = D3Link (nodeId (fst edge)) (nodeId (snd edge)) 10
+
+subGraphToD3Nodes :: SubGraph -> [D3Node]
+subGraphToD3Nodes sg = map (\cd -> D3Node tplFields tpName (nodeId cd) (DAP.renderPretty $ displayChoiceName cd)) (nodes sg)
+    where tplFields = T.unlines $ templateFields sg
+          tpName =  tplNameUnqual (clusterTemplate sg)
+
+d3NodesFromGraph :: Graph -> [D3Node]
+d3NodesFromGraph g = concatMap subGraphToD3Nodes (subgraphs g)
+
+graphToD3Graph :: Graph -> D3Graph
+graphToD3Graph g = D3Graph (d3LinksFromGraphEdges g) (d3NodesFromGraph g)
+
+instance ToJSON D3Link where
+    toEncoding = genericToEncoding defaultOptions
+
+instance ToJSON D3Node where
+    toEncoding = genericToEncoding defaultOptions
+
+instance ToJSON D3Graph where
+    toEncoding = genericToEncoding defaultOptions
 
 startFromUpdate :: Set.Set (LF.Qualified LF.ExprValName) -> LF.World -> LF.Update -> Set.Set Action
 startFromUpdate seen world update = case update of
@@ -242,23 +290,9 @@ graphFromModule modules world = Graph subGraphs edges
           subGraphs = map (constructSubgraphsWithLables world nodes) templatesAndModules
           edges = graphEdges nodes templatesAndModules
 
-type TplName = T.Text
-choiceToTplMap :: SubGraph -> Map.Map LF.ChoiceName TplName
-choiceToTplMap sGraph = Map.fromList $ map (\c -> (uniqChoiceName c , tplNameUnqual templateInSubg)) (nodes sGraph)
-    where templateInSubg = clusterTemplate sGraph
-
-csvLine :: Map.Map LF.ChoiceName TplName -> ChoiceDetails -> ChoiceDetails -> String
-csvLine chcNameTpl c1 c2 = case Map.lookup  (uniqChoiceName c1) chcNameTpl of
-    Just tplName -> DAP.renderPretty (uniqChoiceName c1) ++ "," ++ DAP.renderPretty (uniqChoiceName c2) ++  "," ++ T.unpack  tplName
-    Nothing -> error "Impossible"
-
-constructGraphToCsv :: [LF.Module] -> LF.World -> [String]
-constructGraphToCsv modules world = header : map  (\(c1, c2) -> csvLine' c1 c2) (edges graph)
-    where header = "source,target,templateName"
-          graph = graphFromModule modules world
-          csvLine' = csvLine $ Map.unions $ map choiceToTplMap (subgraphs graph)
-
-
+d3JsonThing ::[LF.Module] -> LF.World -> BSL.ByteString
+d3JsonThing modules world = encode $ graphToD3Graph g
+    where  g = graphFromModule modules world
 
 dotFileGen :: [LF.Module] -> LF.World -> String
 dotFileGen modules world = constructDotGraph $ graphFromModule modules world
@@ -272,4 +306,4 @@ execVisual darFilePath dotFilePath = do
         modules = NM.toList $ LF.packageModules $ getWorldSelf world
     case dotFilePath of
         Just outDotFile -> writeFile outDotFile (dotFileGen modules world)
-        Nothing -> putStrLn $ unlines (constructGraphToCsv modules world)
+        Nothing -> BSL.writeFile "/Users/anupkalburgi/projects/daml/data.json" (d3JsonThing modules world)
