@@ -4,13 +4,14 @@
 package com.digitalasset.http
 package query
 
-import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.{Numeric, Ref, Time}
 import com.digitalasset.daml.lf.data.ScalazEqual._
 import com.digitalasset.daml.lf.iface
 import com.digitalasset.daml.lf.value.{Value => V}
 import iface.{Type => Ty}
 
 import scalaz.\&/
+import scalaz.syntax.std.string._
 import spray.json._
 
 sealed abstract class ValuePredicate extends Product with Serializable {
@@ -47,7 +48,14 @@ object ValuePredicate {
             val ddt = defs(id).getOrElse(sys.error(s"Type $id not found"))
             fromCon(it, id, tc instantiate ddt)
         }
-        case iface.TypeNumeric(_) => { case JsString(_) | JsNumber(_) => Literal(it, typ) }
+        case iface.TypeNumeric(scale) => {
+          case JsString(q) =>
+            val nq = Numeric fromString q fold (sys.error(_), identity)
+            Literal { case V.ValueNumeric(v) if nq == v => }
+          case JsNumber(q) =>
+            val nq = Numeric fromBigDecimal (scale, q) fold (sys.error(_), identity)
+            Literal { case V.ValueNumeric(v) if nq == v => }
+        }
         case iface.TypeVar(_) => sys.error("no vars allowed!")
       }(fallback = ???)
 
@@ -80,10 +88,25 @@ object ValuePredicate {
       def lit = Literal { case _ if false => /* TODO match */ }
       (typ.typ, it).match2 {
         case Bool => { case JsBoolean(q) => Literal { case V.ValueBool(v) if q == v => } }
-        case Int64 => { case JsNumber(_) | JsString(_) => lit }
+        case Int64 => {
+          case JsNumber(q) if q.isValidLong =>
+            val lq = q.toLongExact
+            Literal { case V.ValueInt64(v) if lq == (v: Long) => }
+          case JsString(q) =>
+            val lq: Long = q.parseLong.fold(e => throw e, identity)
+            Literal { case V.ValueInt64(v) if lq == (v: Long) => }
+        }
         case Text => { case JsString(q) => Literal { case V.ValueText(v) if q == v => } }
-        case Date => { case JsString(_) => lit }
-        case Timestamp => { case JsString(_) => lit }
+        case Date => {
+          case JsString(q) =>
+            val dq = Time.Date fromString q fold (sys.error(_), identity)
+            Literal { case V.ValueDate(v) if dq == v => }
+        }
+        case Timestamp => {
+          case JsString(q) =>
+            val tq = Time.Timestamp fromString q fold (sys.error(_), identity)
+            Literal { case V.ValueTimestamp(v) if tq == v => }
+        }
         case Party => {
           case JsString(q) => Literal { case V.ValueParty(v) if q == (v: String) => }
         }
@@ -91,7 +114,7 @@ object ValuePredicate {
           case JsString(q) => Literal { case V.ValueContractId(v) if q == (v.coid: String) => }
         }
         case List => { case JsArray(_) => lit }
-        case Unit => { case JsObject(_) => lit }
+        case Unit => { case JsObject(q) if q.isEmpty => Literal { case V.ValueUnit => } }
         case Optional => { case todo => lit }
         case Map => { case JsObject(_) => lit }
       }(fallback = sys.error("TODO fallback"))
