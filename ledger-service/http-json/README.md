@@ -73,6 +73,80 @@ application/json body:
 ```
 {"%templates": [{"moduleName": "Iou", "entityName": "Iou"}]}
 ```
+empty output:
+```
+{
+    "status": 200,
+    "result": [
+        {
+            "offset": "130",
+            "activeContracts": []
+        }
+    ]
+}
+```
+output:
+```
+{
+    "status": 200,
+    "result": [
+        {
+            "offset": "",
+            "workflowId": "Alice Workflow",
+            "activeContracts": [
+                {
+                    "agreementText": "",
+                    "contractId": "#221:0",
+                    "templateId": {
+                        "packageId": "ac3a64908d9f6b4453329b3d7d8ddea44c83f4f5469de5f7ae19158c69bf8473",
+                        "moduleName": "Iou",
+                        "entityName": "Iou"
+                    },
+                    "witnessParties": [
+                        "Alice"
+                    ],
+                    "argument": {
+                        "observers": [],
+                        "issuer": "Alice",
+                        "amount": "999.99",
+                        "currency": "USD",
+                        "owner": "Alice"
+                    }
+                }
+            ]
+        },
+        {
+            "offset": "",
+            "workflowId": "Alice Workflow",
+            "activeContracts": [
+                {
+                    "agreementText": "",
+                    "contractId": "#224:0",
+                    "templateId": {
+                        "packageId": "ac3a64908d9f6b4453329b3d7d8ddea44c83f4f5469de5f7ae19158c69bf8473",
+                        "moduleName": "Iou",
+                        "entityName": "Iou"
+                    },
+                    "witnessParties": [
+                        "Alice"
+                    ],
+                    "argument": {
+                        "observers": [],
+                        "issuer": "Alice",
+                        "amount": "999.99",
+                        "currency": "USD",
+                        "owner": "Alice"
+                    }
+                }
+            ]
+        },
+        {
+            "offset": "227",
+            "activeContracts": []
+        }
+    ]
+}
+```
 
 ### POST http://localhost:7575/command/create
 application/json body:
