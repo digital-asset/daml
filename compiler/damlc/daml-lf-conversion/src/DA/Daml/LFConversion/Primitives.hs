@@ -188,6 +188,37 @@ convertPrim _ "BEToText" (TNumeric10 :-> TText) =
 convertPrim _ "BEDecimalFromText" (TText :-> TOptional TNumeric10) =
     ETyApp (EBuiltin BENumericFromText) (TNat 10)
 
+-- Numeric primitives. These are polymorphic in the scale.
+convertPrim _ "BEAddNumeric" (TNumeric n1 :-> TNumeric n2 :-> TNumeric n3) | n1 == n2, n1 == n3 =
+    ETyApp (EBuiltin BEAddNumeric) n1
+convertPrim _ "BESubNumeric" (TNumeric n1 :-> TNumeric n2 :-> TNumeric n3) | n1 == n2, n1 == n3 =
+    ETyApp (EBuiltin BESubNumeric) n1
+convertPrim _ "BEMulNumeric" (TNumeric n1 :-> TNumeric n2 :-> TNumeric n3) | n1 == n2, n1 == n3 =
+    ETyApp (EBuiltin BEMulNumeric) n1
+convertPrim _ "BEDivNumeric" (TNumeric n1 :-> TNumeric n2 :-> TNumeric n3) | n1 == n2, n1 == n3 =
+    ETyApp (EBuiltin BEDivNumeric) n1
+convertPrim _ "BERoundNumeric" (TInt64 :-> TNumeric n1 :-> TNumeric n2) | n1 == n2 =
+    ETyApp (EBuiltin BERoundNumeric) n1
+convertPrim _ "BEEqualNumeric" (TNumeric n1 :-> TNumeric n2 :-> TBool) | n1 == n2 =
+    ETyApp (EBuiltin BEEqualNumeric) n1
+convertPrim _ "BELessNumeric" (TNumeric n1 :-> TNumeric n2 :-> TBool) | n1 == n2 =
+    ETyApp (EBuiltin BELessNumeric) n1
+convertPrim _ "BELessEqNumeric" (TNumeric n1 :-> TNumeric n2 :-> TBool) | n1 == n2 =
+    ETyApp (EBuiltin BELessEqNumeric) n1
+convertPrim _ "BEGreaterEqNumeric" (TNumeric n1 :-> TNumeric n2 :-> TBool) | n1 == n2 =
+    ETyApp (EBuiltin BEGreaterEqNumeric) n1
+convertPrim _ "BEGreaterNumeric" (TNumeric n1 :-> TNumeric n2 :-> TBool) | n1 == n2 =
+    ETyApp (EBuiltin BEGreaterNumeric) n1
+convertPrim _ "BEInt64ToNumeric" (TInt64 :-> TNumeric n) =
+    ETyApp (EBuiltin BEInt64ToNumeric) n
+convertPrim _ "BENumericToInt64" (TNumeric n :-> TInt64) =
+    ETyApp (EBuiltin BENumericToInt64) n
+convertPrim _ "BEToTextNumeric" (TNumeric n :-> TText) =
+    ETyApp (EBuiltin BEToTextNumeric) n
+convertPrim _ "BENumericFromText" (TText :-> TOptional (TNumeric n)) =
+    ETyApp (EBuiltin BENumericFromText) n
+
+
 convertPrim _ x ty = error $ "Unknown primitive " ++ show x ++ " at type " ++ renderPretty ty
 
 -- | Some builtins are only supported in specific versions of DAML-LF.

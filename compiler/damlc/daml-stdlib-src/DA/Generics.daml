@@ -22,6 +22,7 @@
 {-# LANGUAGE TypeSynonymInstances       #-}
 {-# LANGUAGE UndecidableInstances       #-}
 {-# LANGUAGE DamlSyntax                 #-}
+{-# LANGUAGE CPP #-}
 
 daml 1.2
 
@@ -184,7 +185,9 @@ data Fixity = Prefix | Infix Infix0
 
 data Infix0 = Infix0 {associativity : Associativity, fixity : Int} deriving (Eq, Show, Ord)
 
+#ifndef DAML_NUMERIC
 data Nat
+#endif
 
 -- | This variant of 'Fixity' appears at the type level.
 data FixityI = PrefixI | InfixI InfixI0

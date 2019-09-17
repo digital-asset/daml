@@ -211,8 +211,60 @@ convertInt64 x
     | otherwise =
         unsupported "Int literal out of bounds" (negate x)
 
-convertRational :: Env -> Integer -> Integer -> ConvertM LF.Expr
-convertRational env num denom
+-- | Convert a rational number into a (legacy) Decimal literal.
+convertRationalDecimal :: Env -> Integer -> Integer -> ConvertM LF.Expr
+convertRationalDecimal env num denom
+ =
+    -- the denominator needs to be a divisor of 10^10.
+    -- num % denom * 10^10 needs to fit within a 128bit signed number.
+    -- note that we can also get negative rationals here, hence we ask for upperBound128Bit - 1 as
+    -- upper limit.
+    if | 10 ^ maxPrecision `mod` denom == 0 &&
+             abs (r * 10 ^ maxPrecision) <= upperBound128Bit - 1 ->
+            pure $ EBuiltin $
+            if envLfVersion env `supports` featureNumeric
+                then BENumeric $ numericFromDecimal $ fromRational r
+                else BEDecimal $ fromRational r
+       | otherwise ->
+           unsupported
+               ("Rational is out of bounds: " ++
+                show ((fromInteger num / fromInteger denom) :: Double) ++
+                ".  Maximal supported precision is e^-10, maximal range after multiplying with 10^10 is [10^38 -1, -10^38 + 1]")
+               (num, denom)
+  where
+    r = num % denom
+    upperBound128Bit = 10 ^ (38 :: Integer)
+    maxPrecision = 10 :: Integer
+
+-- | Convert a rational number into a fixed scale Numeric literal. We check
+-- that the number can be represented without loss of precision or overflow.
+convertRationalNumericMono :: Env -> Integer -> Integer -> Integer -> ConvertM LF.Expr
+convertRationalNumericMono env _scale num denom
+ =
+    -- the denominator needs to be a divisor of 10^10.
+    -- num % denom * 10^10 needs to fit within a 128bit signed number.
+    -- note that we can also get negative rationals here, hence we ask for upperBound128Bit - 1 as
+    -- upper limit.
+    if | 10 ^ maxPrecision `mod` denom == 0 &&
+             abs (r * 10 ^ maxPrecision) <= upperBound128Bit - 1 ->
+            pure $ EBuiltin $
+            if envLfVersion env `supports` featureNumeric
+                then BENumeric $ numericFromDecimal $ fromRational r
+                else BEDecimal $ fromRational r
+       | otherwise ->
+           unsupported
+               ("Rational is out of bounds: " ++
+                show ((fromInteger num / fromInteger denom) :: Double) ++
+                ".  Maximal supported precision is e^-10, maximal range after multiplying with 10^10 is [10^38 -1, -10^38 + 1]")
+               (num, denom)
+  where
+    r = num % denom
+    upperBound128Bit = 10 ^ (38 :: Integer)
+    maxPrecision = 10 :: Integer
+
+-- | Convert a rational number into a variable scale Numeric literal.
+convertRationalNumericPoly :: Env -> LF.Type -> Integer -> Integer -> ConvertM LF.Expr
+convertRationalNumericPoly env scale num denom
  =
     -- the denominator needs to be a divisor of 10^10.
     -- num % denom * 10^10 needs to fit within a 128bit signed number.
@@ -622,7 +674,15 @@ convertExpr env0 e = do
             withTmArg env (varV2, record') args $ \x2 args ->
                 pure (ERecUpd (fromTCon record') (mkField $ fsToText name) x2 x1, args)
     go env (VarIs "fromRational") (LExpr (VarIs ":%" `App` tyInteger `App` Lit (LitNumber _ top _) `App` Lit (LitNumber _ bot _)) : args)
-        = fmap (, args) $ convertRational env top bot
+        = fmap (, args) $ convertRationalDecimal env top bot
+    go env (VarIs "fromRational") (LType (isNumLitTy -> Just n) : LExpr (VarIs ":%" `App` tyInteger `App` Lit (LitNumber _ top _) `App` Lit (LitNumber _ bot _)) : args)
+        = fmap (, args) $ convertRationalNumericMono env n top bot
+    go env (VarIs "fromRational") (LType scaleTyCoRep : LExpr (VarIs ":%" `App` tyInteger `App` Lit (LitNumber _ top _) `App` Lit (LitNumber _ bot _)) : args)
+        = do
+            scaleType <- convertType env scaleTyCoRep
+            fmap (, args) $ convertRationalNumericPoly env scaleType top bot
+
+
     go env (VarIs "negate") (tyInt : LExpr (VarIs "$fAdditiveInt") : LExpr (untick -> VarIs "fromInteger" `App` Lit (LitNumber _ x _)) : args)
         = fmap (, args) $ convertInt64 (negate x)
     go env (VarIs "fromInteger") (LExpr (Lit (LitNumber _ x _)) : args)
@@ -1153,6 +1213,7 @@ convertTyCon env t
     | Just m <- nameModule_maybe (getName t), m == gHC_TYPES =
         case getOccText t of
             "Text" -> pure TText
+            "Numeric" -> pure (TBuiltin BTNumeric)
             "Decimal" ->
                 if envLfVersion env `supports` featureNumeric
                     then pure (TNumeric (TNat 10))
@@ -1209,6 +1270,8 @@ convertType env t | Just t' <- getTyVar_maybe t
   = TVar . fst <$> convTypeVar t'
 convertType env t | Just s <- isStrLitTy t
   = pure TUnit
+convertType env t | Just n <- isNumLitTy t, n >= 0
+  = pure (TNat (fromIntegral n))
 convertType env t | Just (a,b) <- splitAppTy_maybe t
   = TApp <$> convertType env a <*> convertType env b
 convertType env x
@@ -1222,6 +1285,8 @@ convertKind x@(TypeCon t ts)
     | t == runtimeRepTyCon, null ts = pure KStar
     -- TODO (drsk): We want to check that the 'Meta' constructor really comes from GHC.Generics.
     | getOccFS t == "Meta", null ts = pure KStar
+    -- TODO : We want to check that the 'Nat' constructor really comes from GHC.Types.
+    | getOccFS t == "Nat", null ts = pure KNat
     | t == funTyCon, [_,_,t1,t2] <- ts = KArrow <$> convertKind t1 <*> convertKind t2
 convertKind (TyVarTy x) = convertKind $ tyVarKind x
 convertKind x = unhandled "Kind" x

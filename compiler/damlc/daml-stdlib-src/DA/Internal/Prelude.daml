@@ -2,6 +2,7 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE CPP #-}
 
 daml 1.2
 -- | MOVE Prelude Our Prelude, extending WiredIn with things that don't need special treatment.
@@ -23,11 +24,15 @@ import GHC.Real as GHC (fromRational)
 import GHC.Show as GHC
 import DA.Types as GHC (Either(..))
 import GHC.Tuple()
-import GHC.Types as GHC (Bool (..), Int, Ordering (..), Text, Decimal, ifThenElse, primitive, magic)
+import GHC.Types as GHC (Bool (..), Int, Ordering (..), Text, Decimal, ifThenElse, primitive, magic
+#ifdef DAML_NUMERIC
+  , Numeric
+#endif
+  )
 
 infixr 0 $
 -- | Take a function from `a` to `b` and a value of type `a`, and apply the
--- function to the value of type `a`, returning a value of type `b`. 
+-- function to the value of type `a`, returning a value of type `b`.
 -- This function has a very low precedence, which is why you might want to use
 -- it instead of regular function application.
 ($) : (a -> b) -> a -> b
@@ -85,7 +90,7 @@ ap : Applicative f => f (a -> b) -> f a -> f b
 ap = (<*>)
 
 -- This is a poor doc string but I don't know what the correct improvement would be.
--- | Inject a value into the monadic type. For example, for `Update` and a 
+-- | Inject a value into the monadic type. For example, for `Update` and a
 -- value of type `a`, `return` would give you an `Update a`.
 return      : Applicative m => a -> m a
 return      = pure
@@ -136,7 +141,7 @@ guard : ActionFail m => Bool -> m ()
 guard False = fail "guard is false"
 guard True = pure ()
 
--- | This function is a left fold, which you can use to inspect/analyse/consume lists. 
+-- | This function is a left fold, which you can use to inspect/analyse/consume lists.
 -- `foldl f i xs` performs a left fold over the list `xs` using
 -- the function `f`, using the starting value `i`.
 --
@@ -145,7 +150,7 @@ guard True = pure ()
 -- ```
 -- >>> foldl (+) 0 [1,2,3]
 -- 6
--- 
+--
 -- >>> foldl (^) 10 [2,3]
 -- 1000000
 -- ```
@@ -154,8 +159,8 @@ guard True = pure ()
 foldl : (b -> a -> b) -> b -> [a] -> b
 foldl = primitive @"BEFoldl"
 
--- | `find p xs` finds the first element of the list `xs` where the 
--- predicate `p` is true. There might not be such an element, which 
+-- | `find p xs` finds the first element of the list `xs` where the
+-- predicate `p` is true. There might not be such an element, which
 -- is why this function returns an `Optional a`.
 find : (a -> Bool) -> [a] -> Optional a
 find p [] = None
@@ -507,6 +512,56 @@ fst (x, _) = x
 snd : (a, b) -> b
 snd (_, x) = x
 
+#ifdef DAML_NUMERIC
+
+-- | `truncate x` rounds `x` toward zero.
+truncate : Numeric n -> Int
+truncate = primitive @"BENumericToInt64"
+
+-- | Convert an `Int` to a `Numeric`.
+intToNumeric : Int -> Numeric n
+intToNumeric = primitive @"BEInt64ToNumeric"
+
+-- | Convert an `Int` to a `Decimal`.
+--
+-- Deprecated, use `intToNumeric` instead.
+intToDecimal : Int -> Decimal
+intToDecimal = intToNumeric
+
+-- | Bankers' Rounding: `roundBankers dp x` rounds `x` to `dp` decimal places, where a `.5` is rounded to the nearest even digit.
+roundBankers : Int -> Numeric n -> Numeric n
+roundBankers = primitive @"BERoundNumeric"
+
+-- | Commercial Rounding: `roundCommercial dp x` rounds `x` to `dp` decimal places, where a `.5` is rounded away from zero.
+roundCommercial : Int -> Numeric n -> Numeric n
+roundCommercial d x =
+  let t = intToNumeric (10 ^ d)
+      v = round (x * t)
+      w = intToNumeric v
+  in w / t
+
+-- | Round a `Numeric` to the nearest integer, where a `.5` is rounded away from zero.
+round : Numeric n -> Int
+round x = if x > aunit
+    then truncate (x + half)
+    else truncate (x - half)
+  where
+    half = munit / (munit + munit)
+
+-- | Round a `Numeric` down to the nearest integer.
+floor : Numeric n -> Int
+floor x =
+  let i = truncate x
+  in if intToNumeric i <= x then i else i - munit
+
+-- | Round a `Numeric` up to the nearest integer.
+ceiling : Numeric n -> Int
+ceiling x =
+  let i = truncate x
+  in if intToNumeric i < x then i + 1 else i
+
+#else
+
 -- | `truncate x` rounds `x` toward zero.
 truncate : Decimal -> Int
 truncate = primitive @"BEDecimalToInt64"
@@ -544,6 +599,8 @@ ceiling : Decimal -> Int
 ceiling x =
   let i = truncate x
   in if intToDecimal i < x then i + 1 else i
+
+#endif
 
 -- | Is the list empty? `null xs` is true if `xs` is the empty list.
 null : [a] -> Bool

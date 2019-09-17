@@ -6,7 +6,7 @@
 
 {-# LANGUAGE DamlSyntax #-} -- [DA]
 
--- [DA] {-# LANGUAGE CPP #-}
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE Trustworthy #-}
 {-# LANGUAGE NoImplicitPrelude, MagicHash, StandaloneDeriving, BangPatterns,
              KindSignatures, DataKinds, ConstraintKinds,
@@ -195,8 +195,13 @@ instance Eq Bool where
 instance Eq Int where
     (==) = primitive @"BEEqual"
 
+#ifdef DAML_NUMERIC
+instance Eq (Numeric n) where
+    (==) = primitive @"BEEqualNumeric"
+#else
 instance Eq Decimal where
     (==) = primitive @"BEEqual"
+#endif
 
 instance Eq Text where
     (==) = primitive @"BEEqual"
@@ -315,11 +320,19 @@ instance Ord Int where
     (>=) = primitive @"BEGreaterEq"
     (>)  = primitive @"BEGreater"
 
+#ifdef DAML_NUMERIC
+instance Ord (Numeric n) where
+    (<)  = primitive @"BELessNumeric"
+    (<=) = primitive @"BELessEqNumeric"
+    (>=) = primitive @"BEGreaterEqNumeric"
+    (>)  = primitive @"BEGreaterNumeric"
+#else
 instance Ord Decimal where
     (<)  = primitive @"BELess"
     (<=) = primitive @"BELessEq"
     (>=) = primitive @"BEGreaterEq"
     (>)  = primitive @"BEGreater"
+#endif
 
 instance Ord Text where
     (<)  = primitive @"BELess"
