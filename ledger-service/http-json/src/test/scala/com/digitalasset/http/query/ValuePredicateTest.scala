@@ -41,6 +41,8 @@ class ValuePredicateTest extends WordSpec with Matchers with TableDrivenProperty
       ("query or json", "type"),
       ("\"foo\"", VA.text),
       ("42", VA.int64),
+      ("[1, 2, 3]", VA.list(VA.int64)),
+      ("""["1", "2", "3"]""", VA.list(VA.int64)),
     )
 
     val successes = Table(
@@ -52,6 +54,10 @@ class ValuePredicateTest extends WordSpec with Matchers with TableDrivenProperty
       c("""{"a": 1, "b": 2}""", VA.map(VA.int64))(SortedLookupList(Map("a" -> 1, "b" -> 2)), true),
       c("""{"a": 1, "b": 2}""", VA.map(VA.int64))(SortedLookupList(Map("a" -> 1, "c" -> 2)), false),
       c("""{"a": 1, "b": 2}""", VA.map(VA.int64))(SortedLookupList(Map()), false),
+      c("[1, 2, 3]", VA.list(VA.int64))(Vector(1, 2, 3), true),
+      c("[1, 2, 3]", VA.list(VA.int64))(Vector(3, 2, 1), false),
+      c("""["1", "2", "3"]""", VA.list(VA.int64))(Vector(1, 2, 3), true),
+      c("""["1", "2", "3"]""", VA.list(VA.int64))(Vector(3, 2, 1), false),
     )
 
     "treat literals exactly like ApiCodecCompressed" in forAll(literals) { (queryOrJson, va) =>

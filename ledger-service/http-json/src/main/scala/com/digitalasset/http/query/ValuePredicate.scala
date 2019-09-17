@@ -10,7 +10,6 @@ import com.digitalasset.daml.lf.data.ScalazEqual._
 import com.digitalasset.daml.lf.iface
 import com.digitalasset.daml.lf.value.{Value => V}
 import iface.{Type => Ty}
-
 import scalaz.\&/
 import scalaz.syntax.std.string._
 import spray.json._
@@ -42,6 +41,14 @@ sealed abstract class ValuePredicate extends Product with Serializable {
           case _ => false
         }
 
+      case ListMatch(qs) => {
+        case V.ValueList(vs) if qs.length == vs.length =>
+          qs zip vs.toImmArray.toSeq forall {
+            case (q, v) => q.toFunPredicate(v)
+          }
+        case _ => false
+      }
+
       case Range(_, _) => sys.error("range not supported yet")
     }
     go(this)
@@ -56,6 +63,7 @@ object ValuePredicate {
   final case class RecordSubset(fields: ImmArraySeq[Option[(Ref.Name, ValuePredicate)]])
       extends ValuePredicate
   final case class MapMatch(elems: SortedLookupList[ValuePredicate]) extends ValuePredicate
+  final case class ListMatch(elems: Vector[ValuePredicate]) extends ValuePredicate
   // boolean is whether inclusive (lte vs lt)
   final case class Range(ltgt: (Boolean, LfV) \&/ (Boolean, LfV), typ: Ty) extends ValuePredicate
 
@@ -142,7 +150,11 @@ object ValuePredicate {
         case ContractId => {
           case JsString(q) => Literal { case V.ValueContractId(v) if q == (v.coid: String) => }
         }
-        case List => { case JsArray(_) => lit }
+        case List => {
+          case JsArray(as) =>
+            val elemTy = typ.typArgs.headOption getOrElse sys.error("missing type arg to List")
+            ListMatch(as.map(a => fromValue(a, elemTy)))
+        }
         case Unit => { case JsObject(q) if q.isEmpty => Literal { case V.ValueUnit => } }
         case Optional => { case todo => lit }
         case Map => {
