@@ -1648,6 +1648,10 @@ exact output.
     —————————————————————————————————————————————————————————————————————— EvExpLet
       'let' x : τ = e₁ 'in' e₂ ‖ E₀  ⇓  r ‖ E₂
 
+      e ‖ E₀  ⇓  Ok v ‖ E₁
+    —————————————————————————————————————————————————————————————————————— EvExpToAnyTemplate
+      'to_any_template' @Mod:T e ‖ E₀  ⇓  Ok('to_any_template' @Mod:T v) ‖ E₁
+
       e ‖ E₀  ⇓  Ok ('to_any_template' @Mod:T v) ‖ E₁
     —————————————————————————————————————————————————————————————————————— EvExpFromAnyTemplateSucc
       'from_any_template' @Mod:T e ‖ E₀  ⇓  'Some' @Mod:T v ‖ E₁
