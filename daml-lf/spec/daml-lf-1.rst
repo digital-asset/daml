@@ -370,7 +370,7 @@ We can now define all the literals that a program can handle::
        n ∈  \d+
 
   64-bit integer literals:
-        LitInt64  ∈  (-?)\d+                         -- LitInt64:
+        LitInt64  ∈  (-?)\d+                         -- LitInt64
 
   Numeric literals:
       LitNumeric  ∈  ([+-]?)([1-9]\d+|0).\d*        -- LitNumeric
@@ -2147,6 +2147,19 @@ Numeric functions
   scale of the inputs and the output is given by the type parameter
   `α`.  Throws an exception if the integer is not between `α-37` and
   `α` inclusive.
+
+
+* ``CAST_NUMERIC : ∀ (α₁, α₂: nat) . 'Numeric' α₁ → 'Numeric' α₂``
+
+  Converts a decimal of scale `α₁` to a decimal scale `α₂` while
+  keeping the value the same. Throws an exception in case of
+  overflow or precision loss.
+
+* ``SHIFT_NUMERIC : ∀ (α₁, α₂: nat) . 'Int64' → 'Numeric' α₁ → 'Numeric' α₂``
+
+  Converts a decimal of scale `α₁` to a decimal scale `α₂` to another
+  by shifting the decimal point. Thus the ouput will be equal to the input
+  multiplied by `1E(α₁-α₂)`.
 
 * ``LESS_EQ_NUMERIC : ∀ (α : nat) . 'Numeric' α → 'Numeric' α → 'Bool'``
 

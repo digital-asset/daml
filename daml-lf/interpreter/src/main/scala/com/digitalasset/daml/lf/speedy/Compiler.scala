@@ -210,6 +210,8 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
               case BMulNumeric => SBMulNumeric
               case BDivNumeric => SBDivNumeric
               case BRoundNumeric => SBRoundNumeric
+              case BCastNumeric => SBCastNumeric
+              case BShiftNumeric => SBShiftNumeric
 
               // Int64 arithmetic
               case BAddInt64 => SBAddInt64

@@ -343,6 +343,8 @@ enum BuiltinFunction {
   MUL_NUMERIC = 109;    // *Available in versions >= 1.dev*
   DIV_NUMERIC = 110;    // *Available in versions >= 1.dev*
   ROUND_NUMERIC = 111;  // *Available in versions >= 1.dev*
+  CAST_NUMERIC = 121;   // *Available in versions >= 1.dev*
+  SHIFT_NUMERIC = 122;  // *Available in versions >= 1.dev*
 
   ADD_INT64 = 7;
   SUB_INT64 = 8;
@@ -443,7 +445,7 @@ enum BuiltinFunction {
 
   TEXT_FROM_CODE_POINTS = 105;  // *Available in versions >= 1.6*
   TEXT_TO_CODE_POINTS = 106; // *Available in versions >= 1.6*
-  // Next id is 121. 120 is EQUAL_NUMERIC.
+  // Next id is 123. 122 is SHIFT_NUMERIC.
 }
 
 // Builtin literals

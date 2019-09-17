@@ -846,6 +846,8 @@ private[lf] object DecodeV1 {
       BuiltinFunctionInfo(MUL_NUMERIC, BMulNumeric, minVersion = numeric),
       BuiltinFunctionInfo(DIV_NUMERIC, BDivNumeric, minVersion = numeric),
       BuiltinFunctionInfo(ROUND_NUMERIC, BRoundNumeric, minVersion = numeric),
+      BuiltinFunctionInfo(CAST_NUMERIC, BCastNumeric, minVersion = numeric),
+      BuiltinFunctionInfo(SHIFT_NUMERIC, BShiftNumeric, minVersion = numeric),
       BuiltinFunctionInfo(ADD_INT64, BAddInt64),
       BuiltinFunctionInfo(SUB_INT64, BSubInt64),
       BuiltinFunctionInfo(MUL_INT64, BMulInt64),
