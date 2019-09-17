@@ -5,8 +5,7 @@ package com.digitalasset.http
 package query
 
 import json.JsonProtocol.LfValueCodec.jsValueToApiValue
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.ImmArray
+import com.digitalasset.daml.lf.data.{ImmArray, Ref, SortedLookupList}
 import ImmArray.ImmArraySeq
 import com.digitalasset.daml.lf.iface
 import com.digitalasset.daml.lf.value.{Value => V}
@@ -50,6 +49,9 @@ class ValuePredicateTest extends WordSpec with Matchers with TableDrivenProperty
       c("\"foo\"", VA.text)("bar", false),
       c("42", VA.int64)(42, true),
       c("42", VA.int64)(43, false),
+      c("""{"a": 1, "b": 2}""", VA.map(VA.int64))(SortedLookupList(Map("a" -> 1, "b" -> 2)), true),
+      c("""{"a": 1, "b": 2}""", VA.map(VA.int64))(SortedLookupList(Map("a" -> 1, "c" -> 2)), false),
+      c("""{"a": 1, "b": 2}""", VA.map(VA.int64))(SortedLookupList(Map()), false),
     )
 
     "treat literals exactly like ApiCodecCompressed" in forAll(literals) { (queryOrJson, va) =>

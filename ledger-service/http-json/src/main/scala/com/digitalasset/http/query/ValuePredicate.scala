@@ -4,7 +4,7 @@
 package com.digitalasset.http
 package query
 
-import com.digitalasset.daml.lf.data.{ImmArray, Numeric, Ref, Time}
+import com.digitalasset.daml.lf.data.{ImmArray, Numeric, Ref, SortedLookupList, Time}
 import ImmArray.ImmArraySeq
 import com.digitalasset.daml.lf.data.ScalazEqual._
 import com.digitalasset.daml.lf.iface
@@ -20,6 +20,7 @@ sealed abstract class ValuePredicate extends Product with Serializable {
   def toFunPredicate: LfV => Boolean = {
     def go(self: ValuePredicate): LfV => Boolean = self match {
       case Literal(p) => p.isDefinedAt
+
       case RecordSubset(q) =>
         val cq = q map (_ map (_._2.toFunPredicate));
         {
@@ -30,6 +31,17 @@ sealed abstract class ValuePredicate extends Product with Serializable {
             }
           case _ => false
         }
+
+      case MapMatch(q) =>
+        val cq = q mapValue (_.toFunPredicate);
+        {
+          case V.ValueMap(v) if cq.toImmArray.length == v.toImmArray.length =>
+            cq.toImmArray.toSeq zip v.toImmArray.toSeq forall {
+              case ((qk, qp), (vk, vv)) => qk == vk && qp(vv)
+            }
+          case _ => false
+        }
+
       case Range(_, _) => sys.error("range not supported yet")
     }
     go(this)
@@ -43,6 +55,7 @@ object ValuePredicate {
   final case class Literal(p: LfV PartialFunction Unit) extends ValuePredicate
   final case class RecordSubset(fields: ImmArraySeq[Option[(Ref.Name, ValuePredicate)]])
       extends ValuePredicate
+  final case class MapMatch(elems: SortedLookupList[ValuePredicate]) extends ValuePredicate
   // boolean is whether inclusive (lte vs lt)
   final case class Range(ltgt: (Boolean, LfV) \&/ (Boolean, LfV), typ: Ty) extends ValuePredicate
 
@@ -132,7 +145,11 @@ object ValuePredicate {
         case List => { case JsArray(_) => lit }
         case Unit => { case JsObject(q) if q.isEmpty => Literal { case V.ValueUnit => } }
         case Optional => { case todo => lit }
-        case Map => { case JsObject(_) => lit }
+        case Map => {
+          case JsObject(q) =>
+            val elemTy = typ.typArgs.headOption getOrElse sys.error("missing type arg to Map")
+            MapMatch(SortedLookupList(q) mapValue (fromValue(_, elemTy)))
+        }
       }(fallback = sys.error("TODO fallback"))
     }
 
