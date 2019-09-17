@@ -80,8 +80,7 @@ toLedgerValue = error "toLedgerValue should be removed."
 
 data Command
   = CreateCommand
-      { templateId : TemplateId
-      , templateArg : LedgerValue
+      { templateArg : LedgerValue
       }
   | ExerciseCommand
       { templateId : TemplateId
@@ -90,9 +89,9 @@ data Command
       , choiceArg : LedgerValue
       }
 
-createCmd : Template t => TemplateId -> t -> Command
-createCmd templateId templateArg =
-  CreateCommand templateId (toLedgerValue templateArg)
+createCmd : Template t => t -> Command
+createCmd templateArg =
+  CreateCommand (toLedgerValue templateArg)
 
 exerciseCmd : Choice t c r => TemplateId -> Text -> Text -> c -> Command
 exerciseCmd templateId contractId choiceName choiceArg =

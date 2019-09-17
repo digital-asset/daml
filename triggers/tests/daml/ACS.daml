@@ -45,7 +45,7 @@ test = Trigger
         updateEvent (cmds, acs) ev = case ev of
           CreatedEvent (Created _ cId tId)
             | tId.entityName == "Asset" ->
-            let createMirror : Command = createCmd (TemplateId "ACS" "AssetMirror") (AssetMirror { issuer = party })
+            let createMirror : Command = createCmd (AssetMirror { issuer = party })
             in (createMirror :: cmds, TM.insert cId tId acs)
           ArchivedEvent (Archived _ cId tId)
             | tId.entityName == "Asset" -> (cmds, TM.delete cId acs)

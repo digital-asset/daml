@@ -240,6 +240,13 @@ object Converter {
     }
   }
 
+  private def getTemplateId(v: SValue): Either[String, Identifier] = {
+    v match {
+      case SRecord(templateId, _, _) => Right(templateId)
+      case _ => Left(s"Expected TemplateId but got $v")
+    }
+  }
+
   private def toTemplateId(triggerIds: TriggerIds, v: SValue): Either[String, Identifier] = {
     v match {
       case SRecord(_, _, vals) => {
@@ -256,10 +263,10 @@ object Converter {
   private def toCreate(triggerIds: TriggerIds, v: SValue): Either[String, CreateCommand] = {
     v match {
       case SRecord(_, _, vals) => {
-        assert(vals.size == 2)
+        assert(vals.size == 1)
         for {
-          templateId <- toTemplateId(triggerIds, vals.get(0))
-          templateArg <- toLedgerRecord(vals.get(1))
+          templateId <- getTemplateId(vals.get(0))
+          templateArg <- toLedgerRecord(vals.get(0))
         } yield CreateCommand(Some(toApiIdentifier(templateId)), Some(templateArg))
       }
       case _ => Left(s"Expected CreateCommand but got $v")
