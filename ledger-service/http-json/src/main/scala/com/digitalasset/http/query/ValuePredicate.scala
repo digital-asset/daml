@@ -7,27 +7,26 @@ package query
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.ScalazEqual._
 import com.digitalasset.daml.lf.iface
+import iface.{Type => Ty}
 
 import scalaz.\&/
 import spray.json._
 
-sealed abstract class ValuePredicate[+Ty, +LfV] extends Product with Serializable
+sealed abstract class ValuePredicate extends Product with Serializable {
+  // def toFunPredicate:
+}
 
 object ValuePredicate {
   type TypeLookup = Ref.Identifier => Option[iface.DefDataType.FWT]
+  type LfV = JsValue
 
-  final case class Literal[+Ty, +LfV](literal: LfV, typ: Ty) extends ValuePredicate[Ty, LfV]
-  final case class RecordSubset[+Ty, +LfV](fields: Map[String, ValuePredicate[Ty, LfV]])
-      extends ValuePredicate[Ty, LfV]
+  final case class Literal(literal: LfV, typ: Ty) extends ValuePredicate
+  final case class RecordSubset(fields: Map[String, ValuePredicate]) extends ValuePredicate
   // boolean is whether inclusive (lte vs lt)
-  final case class Range[+Ty, +LfV](ltgt: (Boolean, LfV) \&/ (Boolean, LfV), typ: Ty)
-      extends ValuePredicate[Ty, LfV]
+  final case class Range(ltgt: (Boolean, LfV) \&/ (Boolean, LfV), typ: Ty) extends ValuePredicate
 
-  def fromJsObject(
-      it: Map[String, JsValue],
-      typ: iface.Type,
-      defs: TypeLookup): ValuePredicate[iface.Type, JsValue] = {
-    type Result = ValuePredicate[iface.Type, JsValue]
+  def fromJsObject(it: Map[String, JsValue], typ: iface.Type, defs: TypeLookup): ValuePredicate = {
+    type Result = ValuePredicate
 
     def fromValue(it: JsValue, typ: iface.Type): Result =
       (typ, it).match2 {
