@@ -344,7 +344,9 @@ convertGenericTemplate env x
                 choices -> pure (Nothing, [], choices)
         let convertGenericChoice :: [Var] -> ConvertM (TemplateChoice, [LF.Expr])
             convertGenericChoice [consumption, controllers, action, _exercise] = do
-                TContractId _ :-> _ :-> argType@(TConApp argTCon _) :-> TUpdate resType <- convertType env (varType action)
+                (argType, argTCon, resType) <- convertType env (varType action) >>= \case
+                    TContractId _ :-> _ :-> argType@(TConApp argTCon _) :-> TUpdate resType -> pure (argType, argTCon, resType)
+                    t -> unhandled "Choice action type" (varType action)
                 let chcLocation = Nothing
                 let chcName = ChoiceName $ T.intercalate "." $ unTypeConName $ qualObject argTCon
                 consumptionType <- case varType consumption of
@@ -408,9 +410,9 @@ convertGenericTemplate env x
         Var v -> Just v
         _ -> Nothing
     isSuperClassDict :: Var -> Bool
-    -- NOTE(MH): We need the `$f` case since GHC inlines super class
+    -- NOTE(MH): We need the `$f` and `$d` cases since GHC inlines super class
     -- dictionaries without running the simplifier under some circumstances.
-    isSuperClassDict v = any (`T.isPrefixOf` getOccText v) ["$cp", "$f"]
+    isSuperClassDict v = any (`T.isPrefixOf` getOccText v) ["$cp", "$f", "$d"]
     findMonoTyp :: GHC.Type -> Maybe TyCon
     findMonoTyp t = case t of
         TypeCon tcon [] -> Just tcon
