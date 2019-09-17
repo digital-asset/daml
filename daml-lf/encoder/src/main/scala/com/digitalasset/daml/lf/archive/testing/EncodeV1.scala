@@ -157,8 +157,7 @@ private[digitalasset] class EncodeV1(val minor: LV.Minor) {
       case TApp(fun, arg) => fun -> arg
     })
 
-    private def ignoreFirstTNatForDecimalLegacy(typs: ImmArray[Type]): ImmArray[Type] =
-      // BTNumeric must be applied to a TNat that we should ignore
+    private def ignoreOneDecimalScaleParameter(typs: ImmArray[Type]): ImmArray[Type] =
       typs match {
         case ImmArrayCons(TNat(_), tail) => tail
         case _ =>
@@ -196,7 +195,7 @@ private[digitalasset] class EncodeV1(val minor: LV.Minor) {
         case TBuiltin(bType) =>
           val (proto, typs) =
             if (bType == BTNumeric && versionIsOlderThan(LV.Features.numeric))
-              PLF.PrimType.DECIMAL -> ignoreFirstTNatForDecimalLegacy(args)
+              PLF.PrimType.DECIMAL -> ignoreOneDecimalScaleParameter(args)
             else
               builtinTypeInfoMap(bType).proto -> args
           builder.setPrim(
@@ -405,10 +404,10 @@ private[digitalasset] class EncodeV1(val minor: LV.Minor) {
       case ETyAbs(binder, body) => binder -> body
     })
 
-    private def isLegacyDecimalBuiltin(expr: Expr) =
+    private def implicitDecimalScaleParameters(expr: Expr) =
       expr match {
-        case EBuiltin(f) => builtinFunctionMap(f).handleLegacyDecimal
-        case _ => false
+        case EBuiltin(f) => builtinFunctionMap(f).implicitDecimalScaleParameters
+        case _ => 0
       }
 
     private def encodeExprBuilder(expr0: Expr): PLF.Expr.Builder = {
@@ -460,11 +459,8 @@ private[digitalasset] class EncodeV1(val minor: LV.Minor) {
         case EApps(fun, args) =>
           newBuilder.setApp(PLF.Expr.App.newBuilder().setFun(fun).accumulateLeft(args)(_ addArgs _))
         case ETyApps(expr, typs1) =>
-          val typs: ImmArray[Type] =
-            if (isLegacyDecimalBuiltin(expr) && versionIsOlderThan(LV.Features.numeric))
-              ignoreFirstTNatForDecimalLegacy(typs1)
-            else
-              typs1
+          val typs =
+            ntimes(implicitDecimalScaleParameters(expr), ignoreOneDecimalScaleParameter, typs1)
           newBuilder.setTyApp(
             PLF.Expr.TyApp.newBuilder().setExpr(expr).accumulateLeft(typs)(_ addTypes _))
         case ETyApps(expr, typs) =>
@@ -601,6 +597,10 @@ private[digitalasset] class EncodeV1(val minor: LV.Minor) {
 }
 
 object EncodeV1 {
+
+  @tailrec
+  private def ntimes[A](n: Int, f: A => A, a: A): A =
+    if (n == 0) a else ntimes(n - 1, f, f(a))
 
   private sealed abstract class LeftRecMatcher[Left, Right] {
     def unapply(arg: Left): Option[(Left, ImmArray[Right])]

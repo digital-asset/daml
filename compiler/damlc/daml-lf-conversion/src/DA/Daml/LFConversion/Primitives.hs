@@ -164,9 +164,9 @@ convertPrim _ "BEAddDecimal" (TNumeric10 :-> TNumeric10 :-> TNumeric10) =
 convertPrim _ "BESubDecimal" (TNumeric10 :-> TNumeric10 :-> TNumeric10) =
     ETyApp (EBuiltin BESubNumeric) (TNat 10)
 convertPrim _ "BEMulDecimal" (TNumeric10 :-> TNumeric10 :-> TNumeric10) =
-    ETyApp (EBuiltin BEMulNumeric) (TNat 10)
+    ETyApp (ETyApp (ETyApp (EBuiltin BEMulNumeric) (TNat 10)) (TNat 10)) (TNat 10)
 convertPrim _ "BEDivDecimal" (TNumeric10 :-> TNumeric10 :-> TNumeric10) =
-    ETyApp (EBuiltin BEDivNumeric) (TNat 10)
+    ETyApp (ETyApp (ETyApp (EBuiltin BEDivNumeric) (TNat 10)) (TNat 10)) (TNat 10)
 convertPrim _ "BERoundDecimal" (TInt64 :-> TNumeric10 :-> TNumeric10) =
     ETyApp (EBuiltin BERoundNumeric) (TNat 10)
 convertPrim _ "BEEqual" (TNumeric10 :-> TNumeric10 :-> TBool) =

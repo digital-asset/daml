@@ -134,27 +134,27 @@ object SBuiltin {
       Numeric.add(x, y)
     )
 
-  private def divide(x: Numeric, y: Numeric): Numeric =
-    if (y.signum() == 0)
-      throw DamlEArithmeticError(
-        s"Attempt to divide ${Numeric.toString(x)} by ${Numeric.toString(y)}.")
-    else
-      rightOrArithmeticError(
-        s"(Numeric ${x.scale}) overflow when dividing ${Numeric.toString(x)} by ${Numeric.toString(y)}.",
-        Numeric.divide(x, y)
-      )
-
-  private def multiply(x: Numeric, y: Numeric): Numeric =
-    rightOrArithmeticError(
-      s"(Numeric ${x.scale}) overflow when multiplying ${Numeric.toString(x)} by ${Numeric.toString(y)}.",
-      Numeric.multiply(x, y)
-    )
-
   private def subtract(x: Numeric, y: Numeric): Numeric =
     rightOrArithmeticError(
       s"(Numeric ${x.scale}) overflow when subtracting ${Numeric.toString(y)} from ${Numeric.toString(x)}.",
       Numeric.subtract(x, y)
     )
+
+  private def multiply(scale: Int, x: Numeric, y: Numeric): Numeric =
+    rightOrArithmeticError(
+      s"(Numeric ${scale}) overflow when multiplying ${Numeric.toString(x)} by ${Numeric.toString(y)}.",
+      Numeric.multiply(scale, x, y)
+    )
+
+  private def divide(scale: Int, x: Numeric, y: Numeric): Numeric =
+    if (y.signum() == 0)
+      throw DamlEArithmeticError(
+        s"Attempt to divide ${Numeric.toString(x)} by ${Numeric.toString(y)}.")
+    else
+      rightOrArithmeticError(
+        s"(Numeric ${scale}) overflow when dividing ${Numeric.toString(x)} by ${Numeric.toString(y)}.",
+        Numeric.divide(scale, x, y)
+      )
 
   sealed abstract class SBBinaryOpNumeric(op: (Numeric, Numeric) => Numeric) extends SBuiltin(3) {
     final def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
@@ -166,10 +166,23 @@ object SBuiltin {
     }
   }
 
+  sealed abstract class SBBinaryOpNumeric2(op: (Int, Numeric, Numeric) => Numeric)
+      extends SBuiltin(5) {
+    final def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
+      val scaleA = args.get(0).asInstanceOf[STNat].n
+      val scaleB = args.get(1).asInstanceOf[STNat].n
+      val scale = args.get(2).asInstanceOf[STNat].n
+      val a = args.get(3).asInstanceOf[SNumeric].value
+      val b = args.get(4).asInstanceOf[SNumeric].value
+      assert(a.scale == scaleA && b.scale == scaleB)
+      machine.ctrl = CtrlValue(SNumeric(op(scale, a, b)))
+    }
+  }
+
   final case object SBAddNumeric extends SBBinaryOpNumeric(add)
   final case object SBSubNumeric extends SBBinaryOpNumeric(subtract)
-  final case object SBMulNumeric extends SBBinaryOpNumeric(multiply)
-  final case object SBDivNumeric extends SBBinaryOpNumeric(divide)
+  final case object SBMulNumeric extends SBBinaryOpNumeric2(multiply)
+  final case object SBDivNumeric extends SBBinaryOpNumeric2(divide)
 
   final case object SBRoundNumeric extends SBuiltin(3) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
