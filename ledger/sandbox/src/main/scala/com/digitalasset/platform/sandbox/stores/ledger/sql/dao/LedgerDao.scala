@@ -17,6 +17,7 @@ import com.digitalasset.daml_lf.DamlLf.Archive
 import com.digitalasset.ledger._
 import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails}
 import com.digitalasset.platform.common.util.DirectExecutionContext
+import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilter
 import com.digitalasset.platform.sandbox.metrics.MetricsManager
 import com.digitalasset.platform.sandbox.stores.ActiveLedgerState.{ActiveContract, Contract}
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry
@@ -125,7 +126,7 @@ trait LedgerReadDao extends AutoCloseable {
     *
     * @param mat the Akka stream materializer to be used for the contract stream.
     */
-  def getActiveContractSnapshot(untilExclusive: LedgerOffset)(
+  def getActiveContractSnapshot(untilExclusive: LedgerOffset, filter: TemplateAwareFilter)(
       implicit mat: Materializer): Future[LedgerSnapshot]
 
   /** Returns a list of all known parties. */

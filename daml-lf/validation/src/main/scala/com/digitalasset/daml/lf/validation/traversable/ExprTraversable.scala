@@ -58,7 +58,7 @@ private[validation] object ExprTraversable {
       case ENone(typ @ _) =>
       case ESome(typ @ _, body) =>
         f(body)
-      case EToAnyTemplate(body) =>
+      case EToAnyTemplate(tmplId @ _, body) =>
         f(body)
       case EFromAnyTemplate(tmplId @ _, body) =>
         f(body)

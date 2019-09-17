@@ -177,7 +177,9 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
     }
 
   private lazy val eToAnyTemplate: Parser[Expr] =
-    `to_any_template` ~>! expr0 ^^ EToAnyTemplate
+    `to_any_template` ~>! `@` ~> fullIdentifier ~ expr0 ^^ {
+      case tyCon ~ e => EToAnyTemplate(tyCon, e)
+    }
 
   private lazy val eFromAnyTemplate: Parser[Expr] =
     `from_any_template` ~>! `@` ~> fullIdentifier ~ expr0 ^^ {

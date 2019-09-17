@@ -13,6 +13,7 @@ import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml_lf.DamlLf.Archive
 import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails}
+import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilter
 import com.digitalasset.platform.sandbox.metrics.MetricsManager
 import com.digitalasset.platform.sandbox.stores.ActiveLedgerState.{ActiveContract, Contract}
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry
@@ -48,9 +49,9 @@ private class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, mm: MetricsManager)
   override def lookupKey(key: Node.GlobalKey): Future[Option[Value.AbsoluteContractId]] =
     mm.timedFuture("LedgerDao:lookupKey", ledgerDao.lookupKey(key))
 
-  override def getActiveContractSnapshot(untilExclusive: LedgerOffset)(
+  override def getActiveContractSnapshot(untilExclusive: LedgerOffset, filter: TemplateAwareFilter)(
       implicit mat: Materializer): Future[LedgerSnapshot] =
-    ledgerDao.getActiveContractSnapshot(untilExclusive)
+    ledgerDao.getActiveContractSnapshot(untilExclusive, filter)
 
   override def getLedgerEntries(
       startInclusive: LedgerOffset,

@@ -119,6 +119,7 @@ kindOfBuiltin = \case
   BTOptional -> KStar `KArrow` KStar
   BTMap -> KStar `KArrow` KStar
   BTArrow -> KStar `KArrow` KStar `KArrow` KStar
+  BTAnyTemplate -> KStar
 
 kindOf :: MonadGamma m => Type -> m Kind
 kindOf = \case
@@ -497,6 +498,14 @@ typeOf = \case
   ECons elemType headExpr tailExpr -> checkCons elemType headExpr tailExpr $> TList elemType
   ESome bodyType bodyExpr -> checkSome bodyType bodyExpr $> TOptional bodyType
   ENone bodyType -> checkType bodyType KStar $> TOptional bodyType
+  EToAnyTemplate tpl bodyExpr -> do
+    _ :: Template <- inWorld (lookupTemplate tpl)
+    checkExpr bodyExpr (TCon tpl)
+    pure $ TBuiltin BTAnyTemplate
+  EFromAnyTemplate tpl bodyExpr -> do
+    _ :: Template <- inWorld (lookupTemplate tpl)
+    checkExpr bodyExpr (TBuiltin BTAnyTemplate)
+    pure $ TOptional (TCon tpl)
   EUpdate upd -> typeOfUpdate upd
   EScenario scen -> typeOfScenario scen
   ELocation _ expr -> typeOf expr
