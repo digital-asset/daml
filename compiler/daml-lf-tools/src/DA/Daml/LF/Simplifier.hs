@@ -57,6 +57,8 @@ freeVarsStep = \case
   EConsF _ s1 s2 -> s1 <> s2
   ENoneF _ -> mempty
   ESomeF _ s -> s
+  EToAnyTemplateF _ s -> s
+  EFromAnyTemplateF _ s -> s
   EUpdateF u ->
     case u of
       UPureF _ s -> s
@@ -206,6 +208,13 @@ safetyStep = \case
   ESomeF _ s
     | Safe _ <- s -> Safe 0
     | otherwise   -> Unsafe
+  EToAnyTemplateF _ s
+    | Safe _ <- s -> Safe 0
+    | otherwise -> Unsafe
+  EFromAnyTemplateF _ s
+    | Safe _ <- s -> Safe 0
+    | otherwise -> Unsafe
+
 
 infoStep :: ExprF Info -> Info
 infoStep e = Info (freeVarsStep (fmap freeVars e)) (safetyStep (fmap safety e))

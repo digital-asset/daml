@@ -154,6 +154,7 @@ data BuiltinType
   | BTOptional
   | BTMap
   | BTArrow
+  | BTAnyTemplate
   deriving (Eq, Data, Generic, NFData, Ord, Show)
 
 -- | Type as used in typed binders.
@@ -436,6 +437,14 @@ data Expr
     }
   | ENone
     { noneType :: !Type
+    }
+  | EToAnyTemplate
+    { toAnyTemplateTemplate :: !(Qualified TypeConName)
+    , toAnyTemplateBody :: !Expr
+    }
+  | EFromAnyTemplate
+    { fromAnyTemplateTemplate :: !(Qualified TypeConName)
+    , fromAnyTemplateBody :: !Expr
     }
   -- | Update expression.
   | EUpdate !Update

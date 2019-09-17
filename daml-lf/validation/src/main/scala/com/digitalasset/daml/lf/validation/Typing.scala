@@ -719,14 +719,11 @@ private[validation] object Typing {
         checkExpr(exp, TScenario(typ))
     }
 
-    private def typeOfToAnyTemplate(body: Expr): Type =
-      typeOf(body) match {
-        case TTyCon(tmplId) =>
-          lookupTemplate(ctx, tmplId)
-          TAnyTemplate
-        case typ =>
-          throw EExpectedTemplateType(ctx, typ)
-      }
+    private def typeOfToAnyTemplate(tpl: TypeConName, body: Expr): Type = {
+      lookupTemplate(ctx, tpl)
+      checkExpr(body, TTyCon(tpl))
+      TAnyTemplate
+    }
 
     private def typeOfFromAnyTemplate(tpl: TypeConName, body: Expr): Type = {
       lookupTemplate(ctx, tpl)
@@ -797,8 +794,8 @@ private[validation] object Typing {
         checkType(typ, KStar)
         val _ = checkExpr(body, typ)
         TOptional(typ)
-      case EToAnyTemplate(body) =>
-        typeOfToAnyTemplate(body)
+      case EToAnyTemplate(tmplId, body) =>
+        typeOfToAnyTemplate(tmplId, body)
       case EFromAnyTemplate(tmplId, body) =>
         typeOfFromAnyTemplate(tmplId, body)
     }

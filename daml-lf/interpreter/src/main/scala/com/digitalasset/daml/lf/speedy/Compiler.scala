@@ -589,7 +589,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
       case ELocation(loc, e) =>
         SELocation(loc, translate(e))
 
-      case EToAnyTemplate(e) =>
+      case EToAnyTemplate(_, e) =>
         SEApp(SEBuiltin(SBToAnyTemplate), Array(translate(e)))
 
       case EFromAnyTemplate(tmplId, e) =>

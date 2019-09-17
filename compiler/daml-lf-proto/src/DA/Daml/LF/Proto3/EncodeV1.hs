@@ -156,6 +156,7 @@ encodeBuiltinType _version = P.Enumerated . Right . \case
     BTMap -> P.PrimTypeMAP
     BTArrow -> P.PrimTypeARROW
     BTNumeric -> P.PrimTypeNUMERIC
+    BTAnyTemplate -> P.PrimTypeANY
 
 encodeType' :: EncodeCtx -> Type -> P.Type
 encodeType' encctx@EncodeCtx{..} typ = P.Type . Just $
@@ -379,6 +380,8 @@ encodeExpr' encctx@EncodeCtx{..} = \case
     in P.Expr (Just $ encodeSourceLoc interned loc) esum
   ENone typ -> expr (P.ExprSumOptionalNone (P.Expr_OptionalNone (encodeType encctx typ)))
   ESome typ body -> expr (P.ExprSumOptionalSome (P.Expr_OptionalSome (encodeType encctx typ) (encodeExpr encctx body)))
+  EToAnyTemplate tpl body -> expr (P.ExprSumToAny (P.Expr_ToAny (encodeType encctx (TCon tpl)) (encodeExpr encctx body)))
+  EFromAnyTemplate tpl body -> expr (P.ExprSumFromAny (P.Expr_FromAny (encodeType encctx (TCon tpl)) (encodeExpr encctx body)))
   where
     expr = P.Expr Nothing . Just
 
