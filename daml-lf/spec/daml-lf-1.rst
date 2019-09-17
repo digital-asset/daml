@@ -1652,7 +1652,7 @@ exact output.
     —————————————————————————————————————————————————————————————————————— EvExpFromAnyTemplateSucc
       'from_any_template' @Mod:T e ‖ E₀  ⇓  'Some' @Mod:T v ‖ E₁
 
-      e₁ ‖ E₀  ⇓  Ok (to_any_template @Mod₂:T₂ v₂) ‖ E₁, Mod₁:T₁ ≠ Mod₂:T₂
+      e ‖ E₀  ⇓  Ok ('to_any_template' @Mod₂:T₂ v) ‖ E₁     Mod₁:T₁ ≠ Mod₂:T₂
     —————————————————————————————————————————————————————————————————————— EvExpFromAnyTemplateFail
       'from_any_template' @Mod₁:T₁ e₁ ‖ E₀  ⇓  'None' ‖ E₁
 
