@@ -166,7 +166,7 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
         E"Λ (τ : ⋆) (σ : ⋆). λ (e₁ : τ) (e₂: σ) → (( case e₁ of _ → e₂ ))" ->
           T"∀ (τ : ⋆) (σ : ⋆). τ → σ → (( σ ))",
         // ExpToAnyTemplate
-        E"""λ (t : Mod:T) -> (( to_any_template t ))""" ->
+        E"""λ (t : Mod:T) -> (( to_any_template @Mod:T t ))""" ->
           T"Mod:T -> AnyTemplate",
         // ExpFromAnyTemplate
         E"""λ (t: AnyTemplate) -> (( from_any_template @Mod:T t ))""" ->
@@ -340,9 +340,9 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
         // ExpCaseOr
         E"Λ (τ : ⋆). λ (e : τ) → (( case e of  ))",
         // ExpToAnyTemplate
-        E"Λ (τ : *). λ (r: Mod:R τ) -> to_any_template r",
-        E"Λ (τ : *). λ (t: Mod:Tree τ) -> to_any_template t",
-        E"λ (c: Color) -> to_any_template c",
+        E"Λ (τ : *). λ (r: Mod:R τ) -> to_any_template @Mod:R r",
+        E"Λ (τ : *). λ (t: Mod:Tree τ) -> to_any_template @Mod:Tree t",
+        E"λ (c: Color) -> to_any_template @Mod:Color c",
         // ExpFromAnyTemplate
         E"λ (t: AnyTemplate) -> from_any_template @Mod:R t",
         E"λ (t: AnyTemplate) -> from_any_template @Mod:Tree t",

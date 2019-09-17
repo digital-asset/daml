@@ -533,6 +533,8 @@ generateSrcFromLf (Qualify qualify) thisPkgId pkgMap m = noLoc mod
             LF.BTArrow -> mkTyConTypeUnqual funTyCon
             -- TODO (#2289): Add support for Numeric types.
             LF.BTNumeric -> error "Numeric type not yet supported in upgrades"
+            -- TODO see https://github.com/digital-asset/daml/issues/2876
+            LF.BTAnyTemplate -> error "AnyTemplate type not yet supported in upgrades"
     mkGhcType =
         HsTyVar noExt NotPromoted .
         noLoc . mkOrig gHC_TYPES . mkOccName varName
@@ -637,6 +639,8 @@ generateSrcFromLf (Qualify qualify) thisPkgId pkgMap m = noLoc mod
             LF.BTArrow -> (primUnitId, translateModName funTyCon)
             -- TODO (#2289): Add support for Numeric types.
             LF.BTNumeric -> error "Numeric type not yet supported in upgrades"
+            -- TODO: see https://github.com/digital-asset/daml/issues/2876
+            LF.BTAnyTemplate -> error "AnyTemplate type not yet supported in upgrades"
 
     translateModName ::
            forall a. NamedThing a

@@ -122,10 +122,10 @@ class SpeedyTest extends WordSpec with Matchers {
   "to_any_template" should {
 
     "throw an exception on Int64" in {
-      eval(e"""to_any_template 1""", anyTemplatePkgs) shouldBe 'left
+      eval(e"""to_any_template @Test:T1 1""", anyTemplatePkgs) shouldBe 'left
     }
     "succeed on template type" in {
-      eval(e"""to_any_template (Test:T1 {party = 'Alice'})""", anyTemplatePkgs) shouldBe
+      eval(e"""to_any_template @Test:T1 (Test:T1 {party = 'Alice'})""", anyTemplatePkgs) shouldBe
         Right(
           SAnyTemplate(SRecord(
             Identifier(pkgId, QualifiedName.assertFromString("Test:T1")),
@@ -144,7 +144,7 @@ class SpeedyTest extends WordSpec with Matchers {
 
     "return Some(tpl) if template id matches" in {
       eval(
-        e"""from_any_template @Test:T1 (to_any_template (Test:T1 {party = 'Alice'}))""",
+        e"""from_any_template @Test:T1 (to_any_template @Test:T1 (Test:T1 {party = 'Alice'}))""",
         anyTemplatePkgs) shouldBe
         Right(
           SOptional(Some(SRecord(
@@ -156,7 +156,7 @@ class SpeedyTest extends WordSpec with Matchers {
 
     "return None if template id does not match" in {
       eval(
-        e"""from_any_template @Test:T2 (to_any_template (Test:T1 {party = 'Alice'}))""",
+        e"""from_any_template @Test:T2 (to_any_template @Test:T1 (Test:T1 {party = 'Alice'}))""",
         anyTemplatePkgs) shouldBe Right(SOptional(None))
     }
   }

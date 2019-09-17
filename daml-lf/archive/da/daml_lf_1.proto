@@ -234,6 +234,9 @@ enum PrimType {
   // *Available in versions >= 1.dev*
   NUMERIC = 17;
 
+  // Builtin type 'Any'
+  // *Available in versions >= 1.dev*
+  ANY = 18;
 }
 
 // Types
@@ -711,6 +714,24 @@ message Expr {
     Expr body = 2;
   }
 
+  // Wrap a value in Any
+ // *Available in versions >= 1.dev*
+  message ToAny {
+    // type of argument. Must be the TypeConName of a template.
+    Type type = 1;
+    // argument
+    Expr expr = 2;
+  }
+
+  // Extract the given type from Any or return None on type-mismatch
+ // *Available in versions >= 1.dev*
+  message FromAny {
+    // type that should be extracted. Must be the TypeConName of a template.
+    Type type = 1;
+    // Value of type Any
+    Expr expr = 2;
+  }
+
   // Location of the expression in the DAML code source.
   // Optional
   Location location = 25;
@@ -794,6 +815,14 @@ message Expr {
     // non empty optional value ('ExpSome')
     // *Available in versions >= 1.1*
     OptionalSome optional_some = 27;
+
+    // Wrap an arbitrary value in Any ('ExpToAny')
+    // *Available in versions >= 1.dev*
+    ToAny to_any = 29;
+
+    // Extract the given type from Any or return None on type-mismatch ('ExpFromAny')
+    // *Available in versions >= 1.dev*
+    FromAny from_any = 30;
   }
 
   reserved 19; // This was equals. Removed in favour of BuiltinFunction.EQUAL_*
