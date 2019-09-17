@@ -7,10 +7,9 @@ import com.daml.ledger.participant.state.index.v2.AcsUpdateEvent
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.ledger.api.domain.Event.{ArchivedEvent, CreateOrArchiveEvent, CreatedEvent}
-import com.digitalasset.ledger.api.domain.TransactionFilter
+import com.digitalasset.ledger.api.domain.{InclusiveFilters, TransactionFilter}
 
-import scala.collection.mutable.ArrayBuffer
-import scala.collection.{breakOut, immutable}
+import scala.collection.breakOut
 
 object EventFilter {
 
@@ -27,19 +26,15 @@ object EventFilter {
       transactionFilter.filtersByParty.contains(submitterParty)
 
     lazy val (specificSubscriptions, globalSubscriptions) = {
-      val specific = new ArrayBuffer[(Ref.Identifier, Party)]
-      val global = immutable.Set.newBuilder[Party]
-      transactionFilter.filtersByParty.foreach {
-        case (party, filters) =>
-          filters.inclusive.fold[Unit] {
-            global += party
-          } { inclusive =>
-            inclusive.templateIds.foreach { tid =>
-              specific += tid -> party
-            }
-          }
+      val specific = List.newBuilder[(Ref.Identifier, Party)]
+      val global = Set.newBuilder[Party]
+      for ((party, filters) <- transactionFilter.filtersByParty) {
+        filters.inclusive match {
+          case Some(InclusiveFilters(templateIds)) => specific ++= templateIds.map(_ -> party)
+          case None => global += party
+        }
       }
-      (specific.toList, global.result())
+      (specific.result(), global.result())
     }
 
     lazy val subscribersByTemplateId: Map[Ref.Identifier, Set[Party]] = {
