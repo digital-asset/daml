@@ -7,13 +7,14 @@ import java.util.UUID
 
 import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTest, LedgerTestSuite}
 import com.digitalasset.ledger.test_stable.DA.Types.Tuple2
-import com.digitalasset.ledger.test_stable.Test.Delegated._
 import com.digitalasset.ledger.test_stable.Test.Delegation._
+import com.digitalasset.ledger.test_stable.Test.Delegated._
 import com.digitalasset.ledger.test_stable.Test.ShowDelegated._
 import com.digitalasset.ledger.test_stable.Test.TextKey._
 import com.digitalasset.ledger.test_stable.Test.TextKeyOperations._
 import com.digitalasset.ledger.test_stable.Test._
 import io.grpc.Status
+import scalaz.Tag
 
 final class ContractKeys(session: LedgerSession) extends LedgerTestSuite(session) {
 
@@ -168,10 +169,25 @@ final class ContractKeys(session: LedgerSession) extends LedgerTestSuite(session
       val key = s"${UUID.randomUUID.toString}-key"
       for {
         ledger <- context.participant()
-        Vector(owner) <- ledger.allocateParties(1)
-        delegated <- ledger.create(owner, Delegated(owner, key))
-        _ <- ledger.exercise(owner, delegated.exerciseRecreate(_))
-      } yield { () }
+        owner <- ledger.allocateParty()
+        delegated1TxTree <- ledger
+          .submitAndWaitRequest(owner, Delegated(owner, key).create.command)
+          .flatMap(ledger.submitAndWaitForTransactionTree)
+        delegated1Id = com.digitalasset.ledger.client.binding.Primitive
+          .ContractId[Delegated](delegated1TxTree.eventsById.head._2.getCreated.contractId)
+
+        delegated2TxTree <- ledger.exercise(owner, delegated1Id.exerciseRecreate)
+      } yield {
+        assert(delegated2TxTree.eventsById.size == 2)
+        val event = delegated2TxTree.eventsById.filter(_._2.kind.isCreated).head._2
+        assert(
+          Tag.unwrap(delegated1Id) != event.getCreated.contractId,
+          "New contract was not created")
+        assert(
+          event.getCreated.contractKey == delegated1TxTree.eventsById.head._2.getCreated.contractKey,
+          "Contract keys did not match")
+
+      }
     }
 
   override val tests: Vector[LedgerTest] = Vector(
