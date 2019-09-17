@@ -49,6 +49,8 @@ supportedInputVersions = version1_5 : supportedOutputVersions
 data Feature = Feature
     { featureName :: !T.Text
     , featureMinVersion :: !Version
+    , featureCppFlag :: !T.Text
+        -- ^ CPP flag to test for availability of the feature.
     }
 
 -- NOTE(MH): We comment this out to leave an example how to deal with features.
@@ -59,7 +61,16 @@ featureNumeric :: Feature
 featureNumeric = Feature
     { featureName = "Numeric type"
     , featureMinVersion = version1_7
+    , featureCppFlag = "DAML_NUMERIC"
     }
+
+allFeatures :: [Feature]
+allFeatures =
+    [ featureNumeric
+    ]
+
+allFeaturesForVersion :: Version -> [Feature]
+allFeaturesForVersion version = filter (supports version) allFeatures
 
 supports :: Version -> Feature -> Bool
 supports version feature = version >= featureMinVersion feature

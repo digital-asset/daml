@@ -16,13 +16,13 @@ template Quantity t => Fungible t with
           otherAsset <- fetch other
           let newAmount = asset.amount + otherAsset.asset.amount
           archive other
-          create $ Fungible $ asset with amount = newAmount
+          create $ Fungible asset with amount = newAmount
 
       Split: (ContractId (Fungible t), ContractId (Fungible t))
         with splitAmount: Decimal
         do
           assert $ splitAmount > 0.0
           assert $ splitAmount < asset.amount
-          newAsset1 <- create $ Fungible $ asset with amount = splitAmount
-          newAsset2 <- create $ Fungible $ asset with amount = asset.amount - splitAmount
+          newAsset1 <- create $ Fungible asset with amount = splitAmount
+          newAsset2 <- create $ Fungible asset with amount = asset.amount - splitAmount
           return (newAsset1, newAsset2)

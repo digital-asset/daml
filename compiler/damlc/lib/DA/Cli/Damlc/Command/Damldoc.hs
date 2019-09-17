@@ -18,27 +18,27 @@ import qualified Data.Text as T
 
 ------------------------------------------------------------
 
-cmd :: (CmdArgs -> a) -> Mod CommandFields a
-cmd f = command "docs" $
-        info (helper <*> (f <$> documentation)) $
+cmd :: Int -> (CmdArgs -> a) -> Mod CommandFields a
+cmd numProcessors f = command "docs" $
+        info (helper <*> (f <$> documentation numProcessors)) $
         progDesc "Generate documentation for the given DAML program."
         <> fullDesc
 
-documentation :: Parser CmdArgs
-documentation = Damldoc
-                <$> optInputFormat
-                <*> optOutputPath
-                <*> optOutputFormat
-                <*> optMbPackageName
-                <*> optTemplate
-                <*> optOmitEmpty
-                <*> optDataOnly
-                <*> optNoAnnot
-                <*> optInclude
-                <*> optExclude
-                <*> optCombine
-                <*> optExtractOptions
-                <*> argMainFiles
+documentation :: Int -> Parser CmdArgs
+documentation numProcessors = Damldoc
+    <$> optionsParser numProcessors (EnableScenarioService False) optPackageName
+    <*> optInputFormat
+    <*> optOutputPath
+    <*> optOutputFormat
+    <*> optTemplate
+    <*> optOmitEmpty
+    <*> optDataOnly
+    <*> optNoAnnot
+    <*> optInclude
+    <*> optExclude
+    <*> optCombine
+    <*> optExtractOptions
+    <*> argMainFiles
   where
     optInputFormat :: Parser InputFormat
     optInputFormat =
@@ -62,13 +62,6 @@ documentation = Damldoc
             <> help "Path to output folder. If the --combine flag is passed, this is the path to the output file instead. (required)"
             <> long "output"
             <> short 'o'
-
-    optMbPackageName :: Parser (Maybe String)
-    optMbPackageName =
-        optional . option str
-            $ metavar "NAME"
-            <> help "Name of package to generate."
-            <> long "package-name"
 
     optTemplate :: Parser (Maybe FilePath)
     optTemplate =
@@ -175,34 +168,35 @@ documentation = Damldoc
 
 -- Command Execution
 
-data CmdArgs = Damldoc { cInputFormat :: InputFormat
-                       , cOutputPath :: FilePath
-                       , cOutputFormat :: OutputFormat
-                       , cPkgName :: Maybe String
-                       , cTemplate :: Maybe FilePath
-                       , cOmitEmpty :: Bool
-                       , cDataOnly  :: Bool
-                       , cNoAnnot   :: Bool
-                       , cIncludeMods :: [String]
-                       , cExcludeMods :: [String]
-                       , cCombine :: Bool
-                       , cExtractOptions :: ExtractOptions
-                       , cMainFiles :: [FilePath]
-                       }
-             deriving (Eq, Show, Read)
+data CmdArgs = Damldoc
+    { cOptions :: Options
+    , cInputFormat :: InputFormat
+    , cOutputPath :: FilePath
+    , cOutputFormat :: OutputFormat
+    , cTemplate :: Maybe FilePath
+    , cOmitEmpty :: Bool
+    , cDataOnly  :: Bool
+    , cNoAnnot   :: Bool
+    , cIncludeMods :: [String]
+    , cExcludeMods :: [String]
+    , cCombine :: Bool
+    , cExtractOptions :: ExtractOptions
+    , cMainFiles :: [FilePath]
+    } deriving (Show)
 
 exec :: CmdArgs -> IO ()
 exec Damldoc{..} = do
-    opts <- fmap (\opts -> opts {optHaddock=Haddock True}) $ defaultOptionsIO Nothing
+    opts <- mkOptions cOptions
     runDamlDoc DamldocOptions
-        { do_ideOptions = toCompileOpts opts { optMbPackageName = cPkgName } (IdeReportProgress False)
+        { do_ideOptions = toCompileOpts opts { optHaddock=Haddock True}
+            (IdeReportProgress False)
         , do_outputPath = cOutputPath
         , do_outputFormat = cOutputFormat
         , do_inputFormat = cInputFormat
         , do_inputFiles = map toNormalizedFilePath cMainFiles
         , do_docTemplate = cTemplate
         , do_transformOptions = transformOptions
-        , do_docTitle = T.pack <$> cPkgName
+        , do_docTitle = T.pack <$> optMbPackageName opts
         , do_combine = cCombine
         , do_extractOptions = cExtractOptions
         }

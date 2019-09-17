@@ -19,6 +19,7 @@ import Data.Bifunctor
 import Data.IORef
 import Data.List
 import DynFlags (parseDynamicFilePragma)
+import qualified Data.Text as T
 import qualified Platform as P
 import qualified EnumSet
 import GHC                         hiding (convertLit)
@@ -29,6 +30,7 @@ import HscMain
 import Panic (throwGhcExceptionIO)
 import System.Directory
 import System.FilePath
+import qualified DA.Daml.LF.Ast.Version as LF
 
 import DA.Daml.Options.Types
 import DA.Daml.Preprocessor
@@ -206,8 +208,8 @@ wOptsUnset =
   ]
 
 
-adjustDynFlags :: Options -> DynFlags -> DynFlags
-adjustDynFlags options@Options{..} dflags
+adjustDynFlags :: Options -> FilePath -> DynFlags -> DynFlags
+adjustDynFlags options@Options{..} tmpDir dflags
   =
   -- Generally, the lexer's "haddock mode" is disabled (`Haddock
   -- False` is the default option. In this case, we run the lexer in
@@ -244,7 +246,7 @@ adjustDynFlags options@Options{..} dflags
         Nothing -> id
         Just cppPath -> alterSettings $ \s -> s
             { sPgm_P = (cppPath, [])
-            , sOpt_P = ["-P"]
+            , sOpt_P = "-P" : ["-D" <> T.unpack flag | flag <- cppFlags]
                 -- We add "-P" here to suppress #line pragmas from the
                 -- preprocessor (hpp, specifically) because the daml
                 -- parser can't handle them. This is a non-issue right now
@@ -253,7 +255,11 @@ adjustDynFlags options@Options{..} dflags
                 -- pragmas, line numbers may be wrong up when using CPP.
                 -- Ideally we fix the issue with the daml parser and
                 -- then remove this flag.
+            , sTmpDir = tmpDir
+                -- sometimes this is required by CPP?
             }
+
+    cppFlags = map LF.featureCppFlag (LF.allFeaturesForVersion optDamlLfVersion)
 
     -- We need to add platform info in order to run CPP. To prevent
     -- .hi file incompatibilities, we set the platform the same way
@@ -289,7 +295,8 @@ setImports paths dflags = dflags { importPaths = paths }
 --       (may fail if the custom options are inconsistent with std DAML ones)
 setupDamlGHC :: GhcMonad m => Options -> m ()
 setupDamlGHC options@Options{..} = do
-  modifyDynFlags $ adjustDynFlags options
+  tmpDir <- liftIO getTemporaryDirectory
+  modifyDynFlags $ adjustDynFlags options tmpDir
 
   unless (null optGhcCustomOpts) $ do
     damlDFlags <- getSessionDynFlags

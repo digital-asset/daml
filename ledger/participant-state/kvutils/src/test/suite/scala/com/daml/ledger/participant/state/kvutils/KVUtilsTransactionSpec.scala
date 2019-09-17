@@ -34,7 +34,7 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
     val p0 = mkParticipantId(0)
     val p1 = mkParticipantId(1)
 
-    "be able to submit transaction" in KVTest.runTest(
+    "be able to submit transaction" in KVTest.runTestWithSimplePackage(
       for {
         tx <- runCommand(alice, simpleCreateCmd)
         logEntry <- submitTransaction(submitter = alice, tx = tx).map(_._2)
@@ -44,7 +44,7 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
     )
 
     /* Disabled while we rework the time model.
-    "reject transaction with elapsed max record time" in KVTest.runTest(
+    "reject transaction with elapsed max record time" in KVTest.runTestWithSimplePackage(
       for {
         tx <- runCommand(alice, simpleCreateCmd)
         logEntry <- submitTransaction(submitter = alice, tx = tx, mrtDelta = Duration.ZERO)
@@ -56,7 +56,7 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
     )
      */
 
-    "reject transaction with out of bounds LET" in KVTest.runTest(
+    "reject transaction with out of bounds LET" in KVTest.runTestWithSimplePackage(
       for {
         tx <- runCommand(alice, simpleCreateCmd)
         conf <- getDefaultConfiguration
@@ -69,7 +69,7 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
       }
     )
 
-    "be able to exercise and rejects double spends" in KVTest.runTest {
+    "be able to exercise and rejects double spends" in KVTest.runTestWithSimplePackage {
       for {
         createTx <- runCommand(alice, simpleCreateCmd)
         result <- submitTransaction(submitter = alice, tx = createTx)
@@ -97,7 +97,7 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
       }
     }
 
-    "reject transactions for unallocated parties" in KVTest.runTest {
+    "reject transactions for unallocated parties" in KVTest.runTestWithSimplePackage {
       for {
         configEntry <- submitConfig { c =>
           c.copy(generation = c.generation + 1, openWorld = false)
@@ -111,7 +111,7 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
       }
     }
 
-    "reject transactions for unhosted parties" in KVTest.runTest {
+    "reject transactions for unhosted parties" in KVTest.runTestWithSimplePackage {
       for {
         configEntry <- submitConfig { c =>
           c.copy(generation = c.generation + 1, openWorld = false)
@@ -132,7 +132,7 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
 
       }
     }
-    "reject unauthorized transactions " in KVTest.runTest {
+    "reject unauthorized transactions " in KVTest.runTestWithSimplePackage {
       for {
         // Submit a creation of a contract with owner 'Alice', but submit it as 'Bob'.
         createTx <- runCommand(alice, simpleCreateCmd)

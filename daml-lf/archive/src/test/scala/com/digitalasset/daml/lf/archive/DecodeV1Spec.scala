@@ -7,11 +7,11 @@ import java.math.BigDecimal
 import java.nio.file.{Files, Paths}
 
 import com.digitalasset.daml.bazeltools.BazelRunfiles._
-import com.digitalasset.daml.lf.archive.DecodeV1.BuiltinFunctionInfo
 import com.digitalasset.daml.lf.archive.Reader.ParseError
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.language.Util._
-import com.digitalasset.daml.lf.language.{Ast, LanguageVersion => LV}
+import com.digitalasset.daml.lf.language.{Ast, LanguageMinorVersion, LanguageVersion => LV}
+import LanguageMinorVersion.Implicits._
 import com.digitalasset.daml_lf.DamlLf1
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.{Inside, Matchers, OptionValues, WordSpec}
@@ -60,6 +60,18 @@ class DecodeV1Spec
   // FixMe: https://github.com/digital-asset/daml/issues/2289
   //        add stable version when numerics are released
   private val postNumericMinVersions = Table(
+    "minVersion",
+    LV.Minor.Dev
+  )
+
+  private val preAnyTemplateVersions = Table(
+    "minVersion",
+    List(1, 4, 6).map(i => LV.Minor.Stable(i.toString)): _*
+  )
+
+  // FixMe: https://github.com/digital-asset/daml/issues/2876
+  //        add stable version when AnyTemplate is released
+  private val postAnyTemplateVersions = Table(
     "minVersion",
     LV.Minor.Dev
   )
@@ -187,12 +199,26 @@ class DecodeV1Spec
         }
       }
     }
+
+    "reject AnyTemplate if version < 1.dev" in {
+      forEvery(preAnyTemplateVersions) { version =>
+        val decoder = moduleDecoder(version)
+        a[ParseError] shouldBe thrownBy(decoder.decodeType(buildPrimType(ANY)))
+      }
+    }
+
+    "accept AnyTemplate if version >= 1.dev" in {
+      forEvery(postAnyTemplateVersions) { minVersion =>
+        val decoder = moduleDecoder(minVersion)
+        decoder.decodeType(buildPrimType(ANY)) shouldBe TAnyTemplate
+      }
+    }
   }
 
   "decodeExpr" should {
 
-    def toProto(b: BuiltinFunctionInfo) =
-      DamlLf1.Expr.newBuilder().setBuiltin(b.proto).build()
+    def toProtoExpr(b: DamlLf1.BuiltinFunction) =
+      DamlLf1.Expr.newBuilder().setBuiltin(b).build()
 
     def toDecimalProto(s: String) =
       DamlLf1.Expr.newBuilder().setPrimLit(DamlLf1.PrimLit.newBuilder().setDecimal(s)).build()
@@ -200,39 +226,102 @@ class DecodeV1Spec
     def toNumericProto(s: String) =
       DamlLf1.Expr.newBuilder().setPrimLit(DamlLf1.PrimLit.newBuilder().setNumeric(s)).build()
 
-    def toScala(b: BuiltinFunctionInfo) =
-      Ast.EBuiltin(b.builtin)
+    val decimalBuiltinTestCases = Table[DamlLf1.BuiltinFunction, LanguageMinorVersion, Ast.Expr](
+      ("decimal builtins", "minVersion", "expected output"),
+      (
+        DamlLf1.BuiltinFunction.ADD_DECIMAL,
+        "1",
+        Ast.ETyApp(Ast.EBuiltin(Ast.BAddNumeric), TDecimalScale)),
+      (
+        DamlLf1.BuiltinFunction.SUB_DECIMAL,
+        "1",
+        Ast.ETyApp(Ast.EBuiltin(Ast.BSubNumeric), TDecimalScale)),
+      (
+        DamlLf1.BuiltinFunction.MUL_DECIMAL,
+        "1",
+        Ast.ETyApp(
+          Ast.ETyApp(Ast.ETyApp(Ast.EBuiltin(Ast.BMulNumeric), TDecimalScale), TDecimalScale),
+          TDecimalScale)),
+      (
+        DamlLf1.BuiltinFunction.DIV_DECIMAL,
+        "1",
+        Ast.ETyApp(
+          Ast.ETyApp(Ast.ETyApp(Ast.EBuiltin(Ast.BDivNumeric), TDecimalScale), TDecimalScale),
+          TDecimalScale)),
+      (
+        DamlLf1.BuiltinFunction.ROUND_DECIMAL,
+        "1",
+        Ast.ETyApp(Ast.EBuiltin(Ast.BRoundNumeric), TDecimalScale)),
+      (
+        DamlLf1.BuiltinFunction.LEQ_DECIMAL,
+        "1",
+        Ast.ETyApp(Ast.EBuiltin(Ast.BLessEqNumeric), TDecimalScale)),
+      (
+        DamlLf1.BuiltinFunction.LESS_DECIMAL,
+        "1",
+        Ast.ETyApp(Ast.EBuiltin(Ast.BLessNumeric), TDecimalScale)),
+      (
+        DamlLf1.BuiltinFunction.GEQ_DECIMAL,
+        "1",
+        Ast.ETyApp(Ast.EBuiltin(Ast.BGreaterEqNumeric), TDecimalScale)),
+      (
+        DamlLf1.BuiltinFunction.GREATER_DECIMAL,
+        "1",
+        Ast.ETyApp(Ast.EBuiltin(Ast.BGreaterNumeric), TDecimalScale)),
+      (
+        DamlLf1.BuiltinFunction.TO_TEXT_DECIMAL,
+        "1",
+        Ast.ETyApp(Ast.EBuiltin(Ast.BToTextNumeric), TDecimalScale)),
+      (
+        DamlLf1.BuiltinFunction.FROM_TEXT_DECIMAL,
+        "5",
+        Ast.ETyApp(Ast.EBuiltin(Ast.BFromTextNumeric), TDecimalScale)),
+      (
+        DamlLf1.BuiltinFunction.INT64_TO_DECIMAL,
+        "1",
+        Ast.ETyApp(Ast.EBuiltin(Ast.BInt64ToNumeric), TDecimalScale)),
+      (
+        DamlLf1.BuiltinFunction.DECIMAL_TO_INT64,
+        "1",
+        Ast.ETyApp(Ast.EBuiltin(Ast.BNumericToInt64), TDecimalScale)),
+      (
+        DamlLf1.BuiltinFunction.EQUAL_DECIMAL,
+        "1",
+        Ast.ETyApp(Ast.EBuiltin(Ast.BEqualNumeric), TDecimalScale)),
+    )
 
-    // All the legacy decimal bultins.
-    val decimalBuilttins =
-      DecodeV1.builtinFunctionInfos.filter(_.handleLegacyDecimal)
+    val numericBuiltinTestCases = Table(
+      "numeric builtins" -> "expected output",
+      DamlLf1.BuiltinFunction.ADD_NUMERIC -> Ast.EBuiltin(Ast.BAddNumeric),
+      DamlLf1.BuiltinFunction.SUB_NUMERIC -> Ast.EBuiltin(Ast.BSubNumeric),
+      DamlLf1.BuiltinFunction.MUL_NUMERIC -> Ast.EBuiltin(Ast.BMulNumeric),
+      DamlLf1.BuiltinFunction.DIV_NUMERIC -> Ast.EBuiltin(Ast.BDivNumeric),
+      DamlLf1.BuiltinFunction.ROUND_NUMERIC -> Ast.EBuiltin(Ast.BRoundNumeric),
+      DamlLf1.BuiltinFunction.LEQ_NUMERIC -> Ast.EBuiltin(Ast.BLessEqNumeric),
+      DamlLf1.BuiltinFunction.LESS_NUMERIC -> Ast.EBuiltin(Ast.BLessNumeric),
+      DamlLf1.BuiltinFunction.GEQ_NUMERIC -> Ast.EBuiltin(Ast.BGreaterEqNumeric),
+      DamlLf1.BuiltinFunction.GREATER_NUMERIC -> Ast.EBuiltin(Ast.BGreaterNumeric),
+      DamlLf1.BuiltinFunction.TO_TEXT_NUMERIC -> Ast.EBuiltin(Ast.BToTextNumeric),
+      DamlLf1.BuiltinFunction.FROM_TEXT_NUMERIC -> Ast.EBuiltin(Ast.BFromTextNumeric),
+      DamlLf1.BuiltinFunction.INT64_TO_NUMERIC -> Ast.EBuiltin(Ast.BInt64ToNumeric),
+      DamlLf1.BuiltinFunction.NUMERIC_TO_INT64 -> Ast.EBuiltin(Ast.BNumericToInt64),
+      DamlLf1.BuiltinFunction.EQUAL_NUMERIC -> Ast.EBuiltin(Ast.BEqualNumeric),
+    )
 
-    // All the numeric versions of the former.
-    val numericBuilttins = {
-      val isNumeric = decimalBuilttins.map(_.builtin).toSet
-      DecodeV1.builtinFunctionInfos.filter(info =>
-        !info.handleLegacyDecimal && isNumeric(info.builtin))
-    }
-
-    // Two other unrelated builtins, no need to test more.
-    val otherBuiltins =
-      DecodeV1.builtinFunctionInfos.filter(
-        info =>
-          info.proto == DamlLf1.BuiltinFunction.ADD_INT64 ||
-            info.proto == DamlLf1.BuiltinFunction.APPEND_TEXT)
-    assert(otherBuiltins.length == 2)
-
-    val decimalBuiltinTestCases = Table("decimal builtinInfo", numericBuilttins: _*)
-    val numericBuiltinTestCases = Table("numeric builtinInfo", numericBuilttins: _*)
-    val negativeBuiltinTestCases = Table("other builtinInfo", otherBuiltins: _*)
+    val negativeBuiltinTestCases = Table(
+      "other builtins" -> "expected output",
+      // We do not need to test all other builtin
+      DamlLf1.BuiltinFunction.ADD_INT64 -> Ast.EBuiltin(Ast.BAddInt64),
+      DamlLf1.BuiltinFunction.APPEND_TEXT -> Ast.EBuiltin(Ast.BAppendText)
+    )
 
     "translate non numeric/decimal builtin as is for any version" in {
       val allVersions = Table("all versions", preNumericMinVersions ++ postNumericMinVersions: _*)
 
       forEvery(allVersions) { version =>
         val decoder = moduleDecoder(version)
-        forEvery(negativeBuiltinTestCases) { info =>
-          decoder.decodeExpr(toProto(info), "test") shouldBe toScala(info)
+        forEvery(negativeBuiltinTestCases) { (proto, scala) =>
+          decoder.decodeExpr(toProtoExpr(proto), "test") shouldBe scala
         }
       }
     }
@@ -242,10 +331,9 @@ class DecodeV1Spec
       forEvery(preNumericMinVersions) { version =>
         val decoder = moduleDecoder(version)
 
-        forEvery(decimalBuiltinTestCases) { info =>
-          if (LV.ordering.gteq(LV(LV.Major.V1, version), info.minVersion))
-            decoder.decodeExpr(toProto(info), "test") shouldBe Ast
-              .ETyApp(toScala(info), Ast.TNat(10))
+        forEvery(decimalBuiltinTestCases) { (proto, minVersion, scala) =>
+          if (LV.Major.V1.minorVersionOrdering.gteq(version, minVersion))
+            decoder.decodeExpr(toProtoExpr(proto), "test") shouldBe scala
         }
       }
     }
@@ -255,20 +343,19 @@ class DecodeV1Spec
       forEvery(preNumericMinVersions) { version =>
         val decoder = moduleDecoder(version)
 
-        forEvery(numericBuiltinTestCases) { info =>
-          an[ParseError] shouldBe thrownBy(decoder.decodeExpr(toProto(info), "test"))
+        forEvery(numericBuiltinTestCases) { (proto, _) =>
+          an[ParseError] shouldBe thrownBy(decoder.decodeExpr(toProtoExpr(proto), "test"))
         }
       }
     }
 
     "translate Numeric builtins as is if version >= 1.dev" in {
 
-      forEvery(preNumericMinVersions) { version =>
+      forEvery(postNumericMinVersions) { version =>
         val decoder = moduleDecoder(version)
 
-        forEvery(numericBuiltinTestCases) { info =>
-          if (LV.ordering.gteq(LV(LV.Major.V1, version), info.minVersion))
-            decoder.decodeExpr(toProto(info), "test") shouldBe toScala(info)
+        forEvery(numericBuiltinTestCases) { (proto, scala) =>
+          decoder.decodeExpr(toProtoExpr(proto), "test") shouldBe scala
         }
       }
     }
@@ -277,11 +364,11 @@ class DecodeV1Spec
     //  reactive the test once the decoder is not so lenient
     "reject Decimal builtins if version >= 1.dev" ignore {
 
-      forEvery(preNumericMinVersions) { version =>
+      forEvery(postNumericMinVersions) { version =>
         val decoder = moduleDecoder(version)
 
-        forEvery(decimalBuiltinTestCases) { info =>
-          an[ParseError] shouldBe thrownBy(decoder.decodeExpr(toProto(info), "test"))
+        forEvery(decimalBuiltinTestCases) { (proto, _, _) =>
+          an[ParseError] shouldBe thrownBy(decoder.decodeExpr(toProtoExpr(proto), "test"))
         }
       }
     }

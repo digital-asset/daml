@@ -119,6 +119,7 @@ kindOfBuiltin = \case
   BTOptional -> KStar `KArrow` KStar
   BTMap -> KStar `KArrow` KStar
   BTArrow -> KStar `KArrow` KStar `KArrow` KStar
+  BTAnyTemplate -> KStar
 
 kindOf :: MonadGamma m => Type -> m Kind
 kindOf = \case
@@ -176,8 +177,8 @@ typeOfBuiltin = \case
   BEGreaterEqNumeric -> pure $ TForall (alpha, KNat) $ TNumeric tAlpha :-> TNumeric tAlpha :-> TBool
   BEAddNumeric -> pure $ TForall (alpha, KNat) $ TNumeric tAlpha :-> TNumeric tAlpha :-> TNumeric tAlpha
   BESubNumeric -> pure $ TForall (alpha, KNat) $ TNumeric tAlpha :-> TNumeric tAlpha :-> TNumeric tAlpha
-  BEMulNumeric -> pure $ TForall (alpha, KNat) $ TNumeric tAlpha :-> TNumeric tAlpha :-> TNumeric tAlpha
-  BEDivNumeric -> pure $ TForall (alpha, KNat) $ TNumeric tAlpha :-> TNumeric tAlpha :-> TNumeric tAlpha
+  BEMulNumeric -> pure $ TForall (alpha, KNat) $ TForall (beta, KNat) $ TForall (gamma, KNat) $ TNumeric tAlpha :-> TNumeric tBeta :-> TNumeric tGamma
+  BEDivNumeric -> pure $ TForall (alpha, KNat) $ TForall (beta, KNat) $ TForall (gamma, KNat) $ TNumeric tAlpha :-> TNumeric tBeta :-> TNumeric tGamma
   BERoundNumeric -> pure $ TForall (alpha, KNat) $ TInt64 :-> TNumeric tAlpha :-> TNumeric tAlpha
   BEInt64ToNumeric -> pure $ TForall (alpha, KNat) $ TInt64 :-> TNumeric tAlpha
   BENumericToInt64 -> pure $ TForall (alpha, KNat) $ TNumeric tAlpha :-> TInt64
@@ -497,6 +498,14 @@ typeOf = \case
   ECons elemType headExpr tailExpr -> checkCons elemType headExpr tailExpr $> TList elemType
   ESome bodyType bodyExpr -> checkSome bodyType bodyExpr $> TOptional bodyType
   ENone bodyType -> checkType bodyType KStar $> TOptional bodyType
+  EToAnyTemplate tpl bodyExpr -> do
+    _ :: Template <- inWorld (lookupTemplate tpl)
+    checkExpr bodyExpr (TCon tpl)
+    pure $ TBuiltin BTAnyTemplate
+  EFromAnyTemplate tpl bodyExpr -> do
+    _ :: Template <- inWorld (lookupTemplate tpl)
+    checkExpr bodyExpr (TBuiltin BTAnyTemplate)
+    pure $ TOptional (TCon tpl)
   EUpdate upd -> typeOfUpdate upd
   EScenario scen -> typeOfScenario scen
   ELocation _ expr -> typeOf expr

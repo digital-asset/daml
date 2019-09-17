@@ -43,6 +43,8 @@ data ExprF expr
   | ELocationF   !SourceLoc !expr
   | ENoneF       !Type
   | ESomeF       !Type !expr
+  | EToAnyTemplateF !(Qualified TypeConName) !expr
+  | EFromAnyTemplateF !(Qualified TypeConName) !expr
   deriving (Foldable, Functor, Traversable)
 
 data BindingF expr = BindingF !(ExprVarName, Type) !expr
@@ -172,6 +174,8 @@ instance Recursive Expr where
     ELocation   a b   -> ELocationF     a b
     ENone       a     -> ENoneF         a
     ESome       a b   -> ESomeF         a b
+    EToAnyTemplate a b  -> EToAnyTemplateF a b
+    EFromAnyTemplate a b -> EFromAnyTemplateF a b
 
 instance Corecursive Expr where
   embed = \case
@@ -199,3 +203,5 @@ instance Corecursive Expr where
     ELocationF   a b   -> ELocation a b
     ENoneF       a     -> ENone a
     ESomeF       a b   -> ESome a b
+    EToAnyTemplateF a b  -> EToAnyTemplate a b
+    EFromAnyTemplateF a b -> EFromAnyTemplate a b
