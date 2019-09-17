@@ -45,8 +45,11 @@ test = Trigger
         updateEvent (cmds, acs) ev = case ev of
           CreatedEvent (Created _ cId)
             | cId.templateId.entityName == "Asset" ->
-            let createMirror : Command = createCmd (AssetMirror { issuer = party })
-            in (createMirror :: cmds, TM.insert cId.contractId cId.templateId acs)
+            let proposeMirror : Command = createCmd (AssetMirrorProposal { issuer = party })
+            in (proposeMirror :: cmds, TM.insert cId.contractId cId.templateId acs)
+            | cId.templateId.entityName == "AssetMirrorProposal" ->
+            let accept : Command = exerciseCmd @AssetMirrorProposal cId Accept
+            in (accept :: cmds, acs)
           ArchivedEvent (Archived _ cId)
             | cId.templateId.entityName == "Asset" -> (cmds, TM.delete cId.contractId acs)
           _ -> (cmds, acs)
@@ -62,3 +65,13 @@ template AssetMirror
     issuer : Party
   where
     signatory issuer
+
+template AssetMirrorProposal
+  with
+    issuer : Party
+  where
+    signatory issuer
+
+    controller issuer can
+      Accept : ContractId AssetMirror
+        do create AssetMirror { issuer = issuer }
