@@ -49,7 +49,7 @@ applyTransform opts = distributeInstanceDocs . maybeDoAnnotations opts'
     processWith (ExcludeModules rs : rest) ms
       = maybeDoAnnotations rest $ filter (not . moduleMatchesAny (map withSlashes rs)) ms
 
-    processWith (DataOnly : rest) ms = maybeDoAnnotations rest $ map prune ms
+    processWith (DataOnly : rest) ms = maybeDoAnnotations rest $ map pruneNonData ms
 
     processWith (IgnoreAnnotations : rest) ms = processWith rest ms
 
@@ -74,8 +74,17 @@ applyTransform opts = distributeInstanceDocs . maybeDoAnnotations opts'
           -- went past it without finding IgnoreAnnotations, so apply them
 
 
-    prune :: ModuleDoc -> ModuleDoc
-    prune m = m{ md_functions = [], md_classes = [] }
+    -- When --data-only is chosen, remove all non-data documentation. This
+    -- includes functions, classes, and instances of all data types (but not
+    -- template instances).
+    pruneNonData :: ModuleDoc -> ModuleDoc
+    pruneNonData m = m{ md_functions = []
+                      , md_classes = []
+                      , md_instances = []
+                      , md_adts = map noInstances $ md_adts m
+                      }
+    noInstances :: ADTDoc -> ADTDoc
+    noInstances d = d{ ad_instances = Nothing }
 
     -- conversions to use file pattern matcher
 
