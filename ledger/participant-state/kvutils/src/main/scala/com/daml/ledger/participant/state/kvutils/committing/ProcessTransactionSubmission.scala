@@ -13,7 +13,7 @@ import com.digitalasset.daml.lf.archive.Reader.ParseError
 import com.digitalasset.daml.lf.data.Ref.{PackageId, Party}
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.engine.{Blinding, Engine}
-import com.digitalasset.daml.lf.transaction.Node.{GlobalKey, NodeCreate}
+import com.digitalasset.daml.lf.transaction.Node.{GlobalKey, NodeCreate, NodeExercises}
 import com.digitalasset.daml.lf.transaction.{BlindingInfo, GenTransaction}
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractId, NodeId, VersionedValue}
 import org.slf4j.LoggerFactory
@@ -157,21 +157,34 @@ private[kvutils] case class ProcessTransactionSubmission(
   private def validateContractKeyUniqueness: Commit[Unit] =
     for {
       damlState <- getDamlState
-      allUnique = relTx.fold(GenTransaction.AnyOrder, true) {
-        case (allUnique, (_nodeId, create: NodeCreate[_, VersionedValue[ContractId]]))
-            if create.key.isDefined =>
-          val stateKey = Conversions.contractKeyToStateKey(
-            GlobalKey(
-              create.coinst.template,
-              Conversions.forceAbsoluteContractIds(create.key.get.key)))
+      startingKeys = damlState.collect {
+        case (k, v) if k.hasContractKey && v.getContractKeyState.hasContractId => k
+      }.toSet
 
-          allUnique &&
-          damlState
-            .get(stateKey)
-            .forall(!_.getContractKeyState.hasContractId)
+      allUnique = relTx
+        .fold(GenTransaction.TopDown, (true, startingKeys)) {
+          case (
+              (allUnique, existingKeys),
+              (_nodeId, exe: NodeExercises[_, _, VersionedValue[ContractId]]))
+              if exe.key.isDefined && exe.consuming =>
+            val stateKey = Conversions.contractKeyToStateKey(
+              GlobalKey(exe.templateId, Conversions.forceAbsoluteContractIds(exe.key.get)))
+            (allUnique, existingKeys - stateKey)
 
-        case (allUnique, _) => allUnique
-      }
+          case (
+              (allUnique, existingKeys),
+              (_nodeId, create: NodeCreate[_, VersionedValue[ContractId]]))
+              if create.key.isDefined =>
+            val stateKey = Conversions.contractKeyToStateKey(
+              GlobalKey(
+                create.coinst.template,
+                Conversions.forceAbsoluteContractIds(create.key.get.key)))
+
+            (allUnique && !existingKeys.contains(stateKey), existingKeys + stateKey)
+
+          case (accum, _) => accum
+        }
+        ._1
 
       r <- if (allUnique)
         pass

@@ -7,6 +7,7 @@ import java.util.UUID
 
 import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTest, LedgerTestSuite}
 import com.digitalasset.ledger.test_stable.DA.Types.Tuple2
+import com.digitalasset.ledger.test_stable.Test.Delegated._
 import com.digitalasset.ledger.test_stable.Test.Delegation._
 import com.digitalasset.ledger.test_stable.Test.ShowDelegated._
 import com.digitalasset.ledger.test_stable.Test.TextKey._
@@ -162,10 +163,22 @@ final class ContractKeys(session: LedgerSession) extends LedgerTestSuite(session
       }
     }
 
+  val recreateContractKeys =
+    LedgerTest("CKRecreate", "Contract keys can be recreated in single transaction") { context =>
+      val key = s"${UUID.randomUUID.toString}-key"
+      for {
+        ledger <- context.participant()
+        Vector(owner) <- ledger.allocateParties(1)
+        delegated <- ledger.create(owner, Delegated(owner, key))
+        _ <- ledger.exercise(owner, delegated.exerciseRecreate(_))
+      } yield { () }
+    }
+
   override val tests: Vector[LedgerTest] = Vector(
     fetchDivulgedContract,
     rejectFetchingUndisclosedContract,
-    processContractKeys
+    processContractKeys,
+    recreateContractKeys
   )
 
 }
