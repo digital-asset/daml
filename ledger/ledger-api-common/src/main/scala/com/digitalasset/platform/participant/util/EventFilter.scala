@@ -20,6 +20,7 @@ object EventFilter {
   def byTemplates(transactionFilter: TransactionFilter): TemplateAwareFilter =
     TemplateAwareFilter(transactionFilter)
 
+  @SuppressWarnings(Array("org.wartremover.warts.Any", "org.wartremover.warts.JavaSerializable"))
   final case class TemplateAwareFilter(transactionFilter: TransactionFilter) {
 
     def isSubmitterSubscriber(submitterParty: Party): Boolean =
