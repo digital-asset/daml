@@ -295,6 +295,8 @@ jobs:
            "pr_url": "https://github.com/digital-asset/daml/pull/$(System.PullRequest.PullRequestNumber)",
            "pr_source_branch": "$(System.PullRequest.SourceBranch)"}
           END
+          # Test above JSON is well formed
+          cat $REPORT | jq '.'
           REPORT_GZ=$(mktemp)
           cat $REPORT | gzip -9 > $REPORT_GZ
           GCS_KEY=$(mktemp)
