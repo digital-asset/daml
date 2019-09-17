@@ -189,9 +189,7 @@ class DecodeV1Spec
       }
     }
 
-    // FixMe: https://github.com/digital-asset/daml/issues/2289
-    //  reactive the test once the decoder is not so lenient
-    "reject Decimal types if version >= 1.dev" ignore {
+    "reject Decimal types if version >= 1.dev" in {
       forEvery(postNumericMinVersions) { version =>
         val decoder = moduleDecoder(version)
         forEvery(decimalTestCases) { (input, _) =>
@@ -360,9 +358,7 @@ class DecodeV1Spec
       }
     }
 
-    // FixMe: https://github.com/digital-asset/daml/issues/2289
-    //  reactive the test once the decoder is not so lenient
-    "reject Decimal builtins if version >= 1.dev" ignore {
+    "reject Decimal builtins if version >= 1.dev" in {
 
       forEvery(postNumericMinVersions) { version =>
         val decoder = moduleDecoder(version)
@@ -480,9 +476,7 @@ class DecodeV1Spec
       }
     }
 
-    // FixMe: https://github.com/digital-asset/daml/issues/2289
-    //  enable the test once the dev decoder is not so lenien
-    "reject numeric decimal if version >= 1.dev" ignore {
+    "reject numeric decimal if version >= 1.dev" in {
 
       forEvery(postNumericMinVersions) { version =>
         val decoder = moduleDecoder(version)
