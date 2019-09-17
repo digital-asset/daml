@@ -18,6 +18,7 @@ import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.platform.akkastreams.dispatcher.Dispatcher
 import com.digitalasset.platform.akkastreams.dispatcher.SubSource.RangeSource
 import com.digitalasset.platform.common.util.DirectExecutionContext
+import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilter
 import com.digitalasset.platform.sandbox.stores.ActiveLedgerState
 import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.LedgerReadDao
 import com.digitalasset.platform.sandbox.stores.ledger.{LedgerEntry, LedgerSnapshot, ReadOnlyLedger}
@@ -44,7 +45,7 @@ class BaseLedger(val ledgerId: LedgerId, headAtInitialization: Long, ledgerDao: 
 
   override def ledgerEnd: Long = dispatcher.getHead()
 
-  override def snapshot(): Future[LedgerSnapshot] =
+  override def snapshot(filter: TemplateAwareFilter): Future[LedgerSnapshot] =
     // instead of looking up the latest ledger end, we can only take the latest known ledgerEnd in the scope of SqlLedger.
     // If we don't do that, we can miss contracts from a partially inserted batch insert of ledger entries
     // scenario:
@@ -54,7 +55,7 @@ class BaseLedger(val ledgerId: LedgerId, headAtInitialization: Long, ledgerDao: 
     // 4. If we finish streaming the active contracts up to offset 6 before transaction A is properly inserted into the DB, the client will not see the contracts from transaction A
     // The fix to that is to use the latest known headRef, which is updated AFTER a batch has been inserted completely.
     ledgerDao
-      .getActiveContractSnapshot(ledgerEnd)
+      .getActiveContractSnapshot(ledgerEnd, filter)
       .map(s => LedgerSnapshot(s.offset, s.acs))(DEC)
 
   override def lookupContract(

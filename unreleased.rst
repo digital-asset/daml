@@ -10,3 +10,4 @@ HEAD — ongoing
 --------------
 
 + [DAML-LF] add CAST_NUMERIC and SHIFT_NUMERIC in DAML-LF 1.dev
++ [Sandbox] Dramatically increased performance of the ActiveContractService by only loading the contracts that the parties in the transaction filter are allowed to see.
