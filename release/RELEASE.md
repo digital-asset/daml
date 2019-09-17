@@ -33,7 +33,7 @@
    1. In 3 separate terminals (since each command will block) run
       1. `daml sandbox --port 6865 --scenario Main:setup .daml/dist/quickstart-0.0.1.dar`.
       1. `daml navigator server localhost 6865 --port 7500`
-      1. `mvn compile exec:java@run-quickstart`
+      1. `mvn compile exec:java@run-quickstart -U`
    1. Point your browser to `http://localhost:7500`, 
       login as `Alice` and verify that there is 1 contract, 3 templates and 1 owned IOU.
    1. Check that `curl http://localhost:8080/iou` returns
