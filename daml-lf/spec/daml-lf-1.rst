@@ -1658,7 +1658,7 @@ exact output.
 
       e ‖ E₀  ⇓  Ok ('to_any_template' @Mod₂:T₂ v) ‖ E₁     Mod₁:T₁ ≠ Mod₂:T₂
     —————————————————————————————————————————————————————————————————————— EvExpFromAnyTemplateFail
-      'from_any_template' @Mod₁:T₁ e₁ ‖ E₀  ⇓  'None' ‖ E₁
+      'from_any_template' @Mod₁:T₁ e ‖ E₀  ⇓  'None' ‖ E₁
 
 
       e₁ ‖ E₀  ⇓  Ok v₁ ‖ E₁
