@@ -42,9 +42,10 @@ class EventFilterSpec extends WordSpec with Matchers with ScalaFutures with Opti
   )
 
   private val filter = (event: CreateOrArchiveEvent) =>
-    EventFilter
-      .TemplateAwareFilter(TransactionFilter(mapping))
-      .filterCreateOrArchiveWitnesses(event)
+    EventFilter.filterCreateOrArchiveWitnesses(
+      EventFilter
+        .TemplateAwareFilter(TransactionFilter(mapping)),
+      event)
 
   def getFilter(templateIds: Seq[(String, String)]) =
     Filters(InclusiveFilters(templateIds.map {

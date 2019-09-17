@@ -26,6 +26,7 @@ import com.digitalasset.ledger._
 import com.digitalasset.ledger.api.domain.RejectionReason._
 import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails, RejectionReason}
 import com.digitalasset.platform.common.util.DirectExecutionContext
+import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilter
 import com.digitalasset.platform.sandbox.stores.ActiveLedgerState.{
   ActiveContract,
   Contract,
@@ -992,22 +993,45 @@ private class JdbcLedgerDao(
       }
     )
 
+  // this query pre-filters the active contracts. this avoids loading data that anyway will be dismissed later
   private val SQL_SELECT_ACTIVE_CONTRACTS =
     SQL(
+      // the distinct keyword is required, because a single contract can be visible by 2 parties,
+      // thus resulting in multiple output rows
       """
-        |select cd.id, cd.contract, c.transaction_id, c.workflow_id, c.key, le.effective_at, le.transaction
+        |select distinct cd.id, cd.contract, c.transaction_id, c.workflow_id, c.key, le.effective_at, le.transaction
         |from contracts c
         |inner join contract_data cd on c.id = cd.id
         |inner join ledger_entries le on c.transaction_id = le.transaction_id
-        |where create_offset <= {offset} and (archive_offset is null or archive_offset > {offset})""".stripMargin)
+        |inner join contract_witnesses w on c.id = w.contract_id
+        |where create_offset <= {offset} and (archive_offset is null or archive_offset > {offset})
+        |and
+        |   (
+        |     concat(c.name,'&',w.witness) in ({template_parties})
+        |     OR w.witness in ({wildcard_parties})
+        |    )
+        |""".stripMargin)
 
-  override def getActiveContractSnapshot(untilExclusive: LedgerOffset)(
+  override def getActiveContractSnapshot(untilExclusive: LedgerOffset, filter: TemplateAwareFilter)(
       implicit mat: Materializer): Future[LedgerSnapshot] = {
+
+    def orEmptyStringList(xs: Seq[String]) = if (xs.nonEmpty) xs else List("")
 
     def contractStream(conn: Connection, offset: Long) = {
       //TODO: investigate where Akka Streams is actually iterating on the JDBC ResultSet (because, that is blocking IO!)
       AkkaStream
-        .source(SQL_SELECT_ACTIVE_CONTRACTS.on("offset" -> offset), ContractDataParser)(mat, conn)
+        .source(
+          SQL_SELECT_ACTIVE_CONTRACTS.on(
+            "offset" -> offset,
+            // using '&' as a "separator" for the two columns because it is not allowed in either Party or Identifier strings
+            // and querying on tuples is basically impossible to do sensibly.
+            "template_parties" -> orEmptyStringList(filter.specificSubscriptions.map {
+              case (ident, party) => (ident.qualifiedName.qualifiedName + "&" + party.toString)
+            }),
+            "wildcard_parties" -> orEmptyStringList(filter.globalSubscriptions.toList)
+          ),
+          ContractDataParser
+        )(mat, conn)
         .mapAsync(dbDispatcher.noOfShortLivedConnections) { contractResult =>
           // it's ok to not have query isolation as witnesses cannot change once we saved them
           dbDispatcher
