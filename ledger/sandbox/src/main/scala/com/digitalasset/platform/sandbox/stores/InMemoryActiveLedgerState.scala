@@ -125,9 +125,9 @@ case class InMemoryActiveLedgerState(
       transactionId: TransactionIdString,
       workflowId: Option[WorkflowId],
       transaction: GenTransaction.WithTxValue[Nid, AbsoluteContractId],
-      explicitDisclosure: Relation[Nid, Party],
-      localImplicitDisclosure: Relation[Nid, Party],
-      globalImplicitDisclosure: Relation[AbsoluteContractId, Party],
+      disclosure: Relation[Nid, Party],
+      localDivulgence: Relation[Nid, Party],
+      glovalDivulgence: Relation[AbsoluteContractId, Party],
       referencedContracts: List[(Value.AbsoluteContractId, AbsoluteContractInst)]
   ): Either[Set[SequencingError], InMemoryActiveLedgerState] =
     acManager.addTransaction(
@@ -135,9 +135,9 @@ case class InMemoryActiveLedgerState(
       transactionId,
       workflowId,
       transaction,
-      explicitDisclosure,
-      localImplicitDisclosure,
-      globalImplicitDisclosure,
+      disclosure,
+      localDivulgence,
+      glovalDivulgence,
       referencedContracts)
 
   /**

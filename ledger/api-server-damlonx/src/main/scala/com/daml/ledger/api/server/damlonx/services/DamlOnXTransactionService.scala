@@ -115,7 +115,7 @@ class DamlOnXTransactionService private (val indexService: IndexService, paralle
       TransactionConversion
         .genToFlatTransaction(
           transactionWithEventIds,
-          blindingInfo.explicitDisclosure.map {
+          blindingInfo.disclosure.map {
             case (nodeId, parties) =>
               nodeIdToEventId(trans.transactionId, nodeId) -> parties
           },

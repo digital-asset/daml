@@ -74,10 +74,10 @@ class ActiveLedgerStateManager[ALS](initialState: => ALS)(
       transactionId: TransactionIdString,
       workflowId: Option[WorkflowId],
       transaction: GenTransaction.WithTxValue[Nid, AbsoluteContractId],
-      explicitDisclosure: Relation[Nid, Party],
-      localImplicitDisclosure: Relation[Nid, Party],
-      globalImplicitDisclosure: Relation[AbsoluteContractId, Party],
-      referencedContracts: List[(Value.AbsoluteContractId, AbsoluteContractInst)])
+      disclosure: Relation[Nid, Party],
+      localDivulgence: Relation[Nid, Party],
+      globalDivulgence: Relation[AbsoluteContractId, Party],
+      divulgedContracts: List[(Value.AbsoluteContractId, AbsoluteContractInst)])
     : Either[Set[SequencingError], ALS] = {
     // NOTE(RC): `globalImplicitDisclosure` was meant to refer to contracts created in previous transactions.
     // However, because we have translated relative to absolute IDs at this point, `globalImplicitDisclosure`
@@ -111,7 +111,7 @@ class ActiveLedgerStateManager[ALS](initialState: => ALS)(
                 case Some(_: DivulgedContract) =>
                   // Contract divulged in the past
                   None
-                case None if referencedContracts.exists(_._1 == cid) =>
+                case None if divulgedContracts.exists(_._1 == cid) =>
                   // Contract is going to be divulged in this transaction
                   None
                 case None =>
@@ -136,9 +136,9 @@ class ActiveLedgerStateManager[ALS](initialState: => ALS)(
                   .union(nc.stakeholders)
                   .union(nc.key.map(_.maintainers).getOrElse(Set.empty))
                 val absCoid = SandboxEventIdFormatter.makeAbsCoid(transactionId)(nc.coid)
-                val withoutStakeHolders = localImplicitDisclosure
+                val withoutStakeHolders = localDivulgence
                   .getOrElse(nodeId, Set.empty) diff nc.stakeholders
-                val withStakeHolders = localImplicitDisclosure
+                val withStakeHolders = localDivulgence
                   .getOrElse(nodeId, Set.empty)
 
                 assert(withoutStakeHolders == withStakeHolders)
@@ -150,10 +150,10 @@ class ActiveLedgerStateManager[ALS](initialState: => ALS)(
                   workflowId = workflowId,
                   contract = nc.coinst.mapValue(
                     _.mapContractId(SandboxEventIdFormatter.makeAbsCoid(transactionId))),
-                  witnesses = explicitDisclosure(nodeId),
+                  witnesses = disclosure(nodeId),
                   // we need to `getOrElse` here because the `Nid` might include absolute
                   // contract ids, and those are never present in the local disclosure.
-                  divulgences = (localImplicitDisclosure
+                  divulgences = (localDivulgence
                     .getOrElse(nodeId, Set.empty) diff nc.stakeholders).toList
                     .map(p => p -> transactionId)
                     .toMap,
@@ -207,9 +207,9 @@ class ActiveLedgerStateManager[ALS](initialState: => ALS)(
             }
         }
 
-    val divulgedContracts = globalImplicitDisclosure -- st.archivedIds
+    val divulgedContractIds = globalDivulgence -- st.archivedIds
     st.mapAcs(
-        _ divulgeAlreadyCommittedContracts (transactionId, divulgedContracts, referencedContracts))
+        _ divulgeAlreadyCommittedContracts (transactionId, divulgedContractIds, divulgedContracts))
       .mapAcs(_ addParties st.parties)
       .result
   }

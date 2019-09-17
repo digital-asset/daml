@@ -215,17 +215,17 @@ class JdbcIndexer private[index] (
 
         val blindingInfo = Blinding.blind(transaction.mapContractId(cid => cid: ContractId))
 
-        val mappedDisclosure = blindingInfo.explicitDisclosure.map {
+        val mappedDisclosure = blindingInfo.disclosure.map {
           case (nodeId, parties) =>
             SandboxEventIdFormatter.fromTransactionId(transactionId, nodeId) -> parties
         }
 
-        val mappedLocalImplicitDisclosure = blindingInfo.localImplicitDisclosure.map {
+        val mappedLocalDivulgence = blindingInfo.localDivulgence.map {
           case (nodeId, parties) =>
             SandboxEventIdFormatter.fromTransactionId(transactionId, nodeId) -> parties
         }
 
-        assert(blindingInfo.localImplicitDisclosure.isEmpty)
+        assert(blindingInfo.localDivulgence.isEmpty)
 
         val pt = PersistenceEntry.Transaction(
           LedgerEntry.Transaction(
@@ -241,8 +241,8 @@ class JdbcIndexer private[index] (
               .mapNodeId(SandboxEventIdFormatter.fromTransactionId(transactionId, _)),
             mappedDisclosure
           ),
-          mappedLocalImplicitDisclosure,
-          blindingInfo.globalImplicitDisclosure,
+          mappedLocalDivulgence,
+          blindingInfo.globalDivulgence,
           divulgedContracts.map(c => c.contractId -> c.contractInst)
         )
         ledgerDao
