@@ -30,7 +30,7 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
 
   private def tenPowerOf(i: Int, scale: Int = 10) =
     if (i == 0)
-      "0." + "0" * scale
+      "1." + "0" * scale
     else if (i > 0)
       "1" + "0" * i + "." + "0" * scale
     else
@@ -367,6 +367,73 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
       "returns proper results" in {
         forEvery(decimals) { a =>
           eval(e"TO_TEXT_NUMERIC @10 ${s(10, a)}") shouldBe Right(SText(a))
+        }
+      }
+    }
+
+    "CAST_NUMERIC" - {
+      "throws an error in case of overflow" in {
+        val testCases = Table[Int, Int, String](
+          ("input scale", "output scale", "x"),
+          (0, 1, s(0, Numeric.maxValue(0))),
+          (0, 37, "10."),
+          (20, 30, tenPowerOf(15, 20)),
+          (36, 37, s(36, Numeric.minValue(36))),
+        )
+
+        forEvery(testCases) { (inputScale, outputScale, x) =>
+          eval(e"CAST_NUMERIC @$inputScale @$outputScale $x") shouldBe 'left
+        }
+
+      }
+
+      "throws an error in case of precision loss" in {
+        val testCases = Table[Int, Int, String](
+          ("input scale", "output scale", "x"),
+          (1, 0, tenPowerOf(-1, 1)),
+          (37, 0, tenPowerOf(-37, 37)),
+          (20, 10, "-" + tenPowerOf(-15, 20)),
+          (37, 36, tenPowerOf(-37, 37)),
+        )
+
+        forEvery(testCases) { (inputScale, outputScale, x) =>
+          eval(e"CAST_NUMERIC @$inputScale @$outputScale $x") shouldBe 'left
+        }
+      }
+
+      "returns proper result" in {
+        val testCases = Table[Int, Int, String](
+          ("input scale", "output scale", "x"),
+          (1, 0, "1.0"),
+          (10, 20, tenPowerOf(-5, 10)),
+          (20, 10, tenPowerOf(-5, 20)),
+          (10, 20, tenPowerOf(10, 10)),
+          (20, 10, tenPowerOf(10, 20)),
+        )
+        forEvery(testCases) { (inputScale, outputScale, x) =>
+          eval(e"CAST_NUMERIC @$inputScale @$outputScale $x") shouldBe Right(
+            SNumeric(n(outputScale, x)))
+        }
+      }
+    }
+
+    "SHIFT_NUMERIC" - {
+
+      "returns proper result" in {
+        val testCases = Table[Int, Int, String, String](
+          ("input scale", "output scale", "input", "output"),
+          (0, 1, s(0, Numeric.maxValue(0)), s(1, Numeric.maxValue(1))),
+          (0, 37, tenPowerOf(1, 0), tenPowerOf(-36, 37)),
+          (20, 30, tenPowerOf(15, 20), tenPowerOf(5, 30)),
+          (20, 10, tenPowerOf(15, 20), tenPowerOf(25, 10)),
+          (10, 20, tenPowerOf(-5, 10), tenPowerOf(-15, 20)),
+          (20, 10, tenPowerOf(-5, 20), tenPowerOf(5, 10)),
+          (10, 20, tenPowerOf(10, 10), tenPowerOf(0, 20)),
+          (20, 10, tenPowerOf(10, 20), tenPowerOf(20, 10)),
+        )
+        forEvery(testCases) { (inputScale, outputScale, input, output) =>
+          eval(e"SHIFT_NUMERIC @$inputScale @$outputScale $input") shouldBe Right(
+            SNumeric(n(outputScale, output)))
         }
       }
     }

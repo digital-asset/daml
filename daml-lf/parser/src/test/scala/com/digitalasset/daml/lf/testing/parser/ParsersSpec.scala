@@ -173,6 +173,8 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
         "MUL_NUMERIC" -> BMulNumeric,
         "DIV_NUMERIC" -> BDivNumeric,
         "ROUND_NUMERIC" -> BRoundNumeric,
+        "CAST_NUMERIC" -> BCastNumeric,
+        "SHIFT_NUMERIC" -> BShiftNumeric,
         "ADD_INT64" -> BAddInt64,
         "SUB_INT64" -> BSubInt64,
         "MUL_INT64" -> BMulInt64,
