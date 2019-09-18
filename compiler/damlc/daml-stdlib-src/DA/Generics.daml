@@ -53,7 +53,7 @@ module DA.Generics (
   ) where
 
 -- We use some base types
-import GHC.Types
+import GHC.Types hiding (Nat)
 
 -- Needed for instances
 import GHC.Classes ( Eq(..), Ord(..) )
@@ -185,9 +185,7 @@ data Fixity = Prefix | Infix Infix0
 
 data Infix0 = Infix0 {associativity : Associativity, fixity : Int} deriving (Eq, Show, Ord)
 
-#ifndef DAML_NUMERIC
 data Nat
-#endif
 
 -- | This variant of 'Fixity' appears at the type level.
 data FixityI = PrefixI | InfixI InfixI0

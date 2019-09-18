@@ -1295,8 +1295,9 @@ convertKind x@(TypeCon t ts)
     | t == runtimeRepTyCon, null ts = pure KStar
     -- TODO (drsk): We want to check that the 'Meta' constructor really comes from GHC.Generics.
     | getOccFS t == "Meta", null ts = pure KStar
-    -- TODO : We want to check that the 'Nat' constructor really comes from GHC.Types.
-    | getOccFS t == "Nat", null ts = pure KNat
+    | Just m <- nameModule_maybe (getName t)
+    , GHC.moduleName m == mkModuleName "GHC.Types"
+    , getOccFS t == "Nat", null ts = pure KNat
     | t == funTyCon, [_,_,t1,t2] <- ts = KArrow <$> convertKind t1 <*> convertKind t2
 convertKind (TyVarTy x) = convertKind $ tyVarKind x
 convertKind x = unhandled "Kind" x
