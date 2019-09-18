@@ -292,14 +292,14 @@ object AcsMain {
 
         try {
 
-          test(NumTransactions(2), (client, party) => {
+          test(NumTransactions(3), (client, party) => {
             for {
               contractId <- create(client, party, "1.0")
             } yield (Set(contractId), ActiveAssetMirrors(1))
           })
 
           test(
-            NumTransactions(4),
+            NumTransactions(6),
             (client, party) => {
               for {
                 contractId1 <- create(client, party, "2.0")
@@ -309,7 +309,7 @@ object AcsMain {
           )
 
           test(
-            NumTransactions(6),
+            NumTransactions(8),
             (client, party) => {
               for {
                 contractId1 <- create(client, party, "3.0")

@@ -190,14 +190,12 @@ object SValue {
   // It is currently used to track at runtime the scale of the
   // Numeric builtin's arguments/output. Should never be translated
   // back to DAML-LF expressions / values.
-  final case class STNat(n: Int) extends SValue
+  final case class STNat(n: Numeric.Scale) extends SValue
 
   // NOTE(JM): We are redefining PrimLit here so it can be unified
   // with SValue and we can remove one layer of indirection.
   sealed trait SPrimLit extends SValue with Equals
   final case class SInt64(value: Long) extends SPrimLit
-  // FixMe: https://github.com/digital-asset/daml/issues/2289
-  //   SNumeric currently hold only (Numeric 10) aka Decimal
   final case class SNumeric(value: Numeric) extends SPrimLit
   final case class SText(value: String) extends SPrimLit
   final case class STimestamp(value: Time.Timestamp) extends SPrimLit
@@ -218,7 +216,7 @@ object SValue {
       case V.ValueInt64(x) => SInt64(x)
       case V.ValueNumeric(x) =>
         // FixMe: https://github.com/digital-asset/daml/issues/2289
-        //   drop this double check
+        //   drop this when numerics can be  persisted
         assert(x.scale == Decimal.scale)
         SNumeric(x)
       case V.ValueText(t) => SText(t)

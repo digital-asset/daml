@@ -163,9 +163,9 @@ class InMemoryLedger(
         trId,
         transactionMeta.workflowId,
         mappedTx,
-        blindingInfo.explicitDisclosure,
-        blindingInfo.localImplicitDisclosure,
-        blindingInfo.globalImplicitDisclosure,
+        blindingInfo.disclosure,
+        blindingInfo.localDivulgence,
+        blindingInfo.globalDivulgence,
         List.empty
       )
       acsRes match {
@@ -178,7 +178,7 @@ class InMemoryLedger(
           val recordTx = mappedTx
             .mapNodeId(SandboxEventIdFormatter.fromTransactionId(trId, _))
           val recordBlinding =
-            blindingInfo.explicitDisclosure.map {
+            blindingInfo.disclosure.map {
               case (nid, parties) =>
                 (SandboxEventIdFormatter.fromTransactionId(trId, nid), parties)
             }

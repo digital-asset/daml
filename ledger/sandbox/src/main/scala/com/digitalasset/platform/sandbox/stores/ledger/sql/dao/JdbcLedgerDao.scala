@@ -378,8 +378,8 @@ private class JdbcLedgerDao(
   private def updateActiveContractSet(
       offset: Long,
       tx: Transaction,
-      localImplicitDisclosure: Relation[EventId, Party],
-      globalImplicitDisclosure: Relation[AbsoluteContractId, Party],
+      localDivulgence: Relation[EventId, Party],
+      globalDivulgence: Relation[AbsoluteContractId, Party],
       divulgedContracts: List[(Value.AbsoluteContractId, AbsoluteContractInst)])(
       implicit connection: Connection): Option[RejectionReason] = tx match {
     case Transaction(
@@ -462,8 +462,8 @@ private class JdbcLedgerDao(
         workflowId,
         transaction,
         disclosure,
-        localImplicitDisclosure,
-        globalImplicitDisclosure,
+        localDivulgence,
+        globalDivulgence,
         divulgedContracts
       )
 
@@ -556,8 +556,8 @@ private class JdbcLedgerDao(
       le match {
         case PersistenceEntry.Transaction(
             tx,
-            localImplicitDisclosure,
-            globalImplicitDisclosure,
+            localDivulgence,
+            globalDivulgence,
             divulgedContracts) =>
           Try {
             storeTransaction(offset, tx)
@@ -565,8 +565,8 @@ private class JdbcLedgerDao(
             updateActiveContractSet(
               offset,
               tx,
-              localImplicitDisclosure,
-              globalImplicitDisclosure,
+              localDivulgence,
+              globalDivulgence,
               divulgedContracts)
               .flatMap { rejectionReason =>
                 // we need to rollback the existing sql transaction
@@ -1245,7 +1245,7 @@ object JdbcLedgerDao {
     protected[JdbcLedgerDao] def SQL_IMPLICITLY_INSERT_PARTIES: String
 
     // Note: the SQL backend may receive divulgence information for the same (contract, party) tuple
-    // more than once through BlindingInfo.globalImplicitDisclosure.
+    // more than once through BlindingInfo.globalDivulgence.
     // The ledger offsets for the same (contract, party) tuple should always be increasing, and the database
     // stores the offset at which the contract was first disclosed.
     // We therefore don't need to update anything if there is already some data for the given (contract, party) tuple.

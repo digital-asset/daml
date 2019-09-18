@@ -77,7 +77,7 @@ object ValueGenerators {
   val defaultNidEncode: TransactionCoder.EncodeNid[NodeId] = nid => nid.index.toString
 
   //generate decimal values
-  def numGen(scale: Int): Gen[Numeric] = {
+  def numGen(scale: Numeric.Scale): Gen[Numeric] = {
     def integerPart = Gen.listOfN(Numeric.maxPrecision - scale, Gen.choose(1, 9)).map(_.mkString)
     val decimalPart = Gen.listOfN(scale, Gen.choose(1, 9)).map(_.mkString)
     val bd =
@@ -95,7 +95,7 @@ object ValueGenerators {
   }
 
   def unscaledNumGen: Gen[Numeric] =
-    Gen.choose(0, Numeric.maxPrecision).flatMap(numGen)
+    Gen.oneOf(Numeric.Scale.Values).flatMap(numGen)
 
   val moduleSegmentGen: Gen[String] = for {
     n <- Gen.choose(1, 100)

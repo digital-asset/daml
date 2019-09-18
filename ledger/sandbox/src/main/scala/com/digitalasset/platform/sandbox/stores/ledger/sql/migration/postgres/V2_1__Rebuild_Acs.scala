@@ -300,7 +300,7 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
     "insert into disclosures(transaction_id, event_id, party) values({transaction_id}, {event_id}, {party})"
 
   // Note: the SQL backend may receive divulgence information for the same (contract, party) tuple
-  // more than once through BlindingInfo.globalImplicitDisclosure.
+  // more than once through BlindingInfo.globalDivulgence.
   // The ledger offsets for the same (contract, party) tuple should always be increasing, and the database
   // stores the offset at which the contract was first disclosed.
   // We therefore don't need to update anything if there is already some data for the given (contract, party) tuple.
@@ -330,8 +330,8 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
   private def updateActiveContractSet(
       offset: Long,
       tx: LedgerEntry.Transaction,
-      localImplicitDisclosure: Relation[EventId, Party],
-      globalImplicitDisclosure: Relation[AbsoluteContractId, Party])(
+      localDivulgence: Relation[EventId, Party],
+      globalDivulgence: Relation[AbsoluteContractId, Party])(
       implicit connection: Connection): Unit = tx match {
     case LedgerEntry.Transaction(
         _,
@@ -407,8 +407,8 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
         workflowId,
         transaction,
         mappedDisclosure,
-        localImplicitDisclosure,
-        globalImplicitDisclosure,
+        localDivulgence,
+        globalDivulgence,
         List.empty
       )
 
@@ -782,15 +782,15 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
               .mapContractIdAndValue(toCoid, _.mapContractId(toCoid))
 
             val blindingInfo = Blinding.blind(unmappedTx)
-            val mappedLocalImplicitDisclosure = blindingInfo.localImplicitDisclosure.map {
+            val mappedLocalDivulgence = blindingInfo.localDivulgence.map {
               case (k, v) => SandboxEventIdFormatter.fromTransactionId(tx.transactionId, k) -> v
             }
 
             updateActiveContractSet(
               offset,
               tx,
-              mappedLocalImplicitDisclosure,
-              blindingInfo.globalImplicitDisclosure)
+              mappedLocalDivulgence,
+              blindingInfo.globalDivulgence)
           })
       }
     })

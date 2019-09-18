@@ -377,14 +377,6 @@ execCompile inputFile outputFile opts =
       withDamlIdeState opts' loggerH diagnosticsLogger $ \ide -> do
           setFilesOfInterest ide (Set.singleton inputFile)
           runAction ide $ do
-            when (optWriteInterface opts') $ do
-                files <- nubSort . concatMap transitiveModuleDeps <$> use GetDependencies inputFile
-                mbIfaces <- writeIfacesAndHie (toNormalizedFilePath $ fromMaybe ifaceDir $ optIfaceDir opts') files
-                void $ liftIO $ mbErr "ERROR: Compilation failed." mbIfaces
-
-            mbDalf <- getDalf inputFile
-            dalf <- liftIO $ mbErr "ERROR: Compilation failed." mbDalf
-
             -- Support for '-ddump-parsed', '-ddump-parsed-ast', '-dsource-stats'.
             dflags <- hsc_dflags . hscEnv <$> use_ GhcSession inputFile
             parsed <- pm_parsed_source <$> use_ GetParsedModule inputFile
@@ -393,6 +385,13 @@ execCompile inputFile outputFile opts =
               ErrUtils.dumpIfSet_dyn dflags Opt_D_dump_parsed_ast "Parser AST" $ showAstData NoBlankSrcSpan parsed
               ErrUtils.dumpIfSet_dyn dflags Opt_D_source_stats "Source Statistics" $ ppSourceStats False parsed
 
+            when (optWriteInterface opts') $ do
+                files <- nubSort . concatMap transitiveModuleDeps <$> use GetDependencies inputFile
+                mbIfaces <- writeIfacesAndHie (toNormalizedFilePath $ fromMaybe ifaceDir $ optIfaceDir opts') files
+                void $ liftIO $ mbErr "ERROR: Compilation failed." mbIfaces
+
+            mbDalf <- getDalf inputFile
+            dalf <- liftIO $ mbErr "ERROR: Compilation failed." mbDalf
             liftIO $ write dalf
     write bs
       | outputFile == "-" = putStrLn $ render Colored $ DA.Pretty.pretty bs

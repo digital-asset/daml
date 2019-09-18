@@ -55,7 +55,7 @@ class CommandPreprocessorSpec extends WordSpec with Matchers with TableDrivenPro
         ValueDate(Time.Date.assertFromString("1879-03-14")),
       TText ->
         ValueText("daml"),
-      TNumeric(TNat(10)) ->
+      TNumeric(TNat(Decimal.scale)) ->
         ValueNumeric(Numeric.assertFromString("10.0000000000")),
 //      TNumeric(TNat(9)) ->
 //        ValueNumeric(Numeric.assertFromString("9.000000000")),

@@ -233,8 +233,9 @@ Version: 1.dev
 
   * **Add** Nat kind and Nat type.
 
-  * **Replace** fixed scaled 'Decimal' type by parametrically scaled
-    'Numeric' type.
+  * **Add** parametrically scaled Numeric type.
+
+  * **Drop** support for Decimal type. Use Numeric of scale 10 instead.
 
   * **Add** existential ``AnyTemplate`` type and
     ``from_any_template`` and ``to_any_template`` functions to convert from/to
@@ -2942,6 +2943,7 @@ On the one hand, in case of DAML-LF 1.6 (or earlier) archive:
   + ``LESS_EQ_DECIMAL`` message is translated to ``(LESS_EQ_NUMERIC @10)``
   + ``GREATER_EQ_DECIMAL`` message is translated to ``(GREATER_EQ_NUMERIC @10)``
   + ``LESS_DECIMAL`` message is translated to ``(LESS_NUMERIC @10)``
+  + ``GREATER_DECIMAL`` message is translated to ``(GREATER_NUMERIC @10)``
   + ``GREATER_DECIMAL`` message is translated to ``(GREATER_NUMERIC @10)``
   + ``EQUAL_DECIMAL`` message is translated to ``(EQUAL_NUMERIC @10)``
   + ``TO_TEXT_DECIMAL`` message is translated to ``(TO_TEXT_NUMERIC @10)``

@@ -19,6 +19,13 @@ import scalaz.syntax.tag._
 
 class ActiveContractSetClient(ledgerId: LedgerId, activeContractsService: ActiveContractsService)(
     implicit esf: ExecutionSequencerFactory) {
+  /*
+    Returns a stream of GetActiveContractsResponse messages. The materialized value will
+    be resolved to the offset that can be used as a starting offset for streaming transactions
+    via the transaction service.
+    If the stream completes before the offset can be set, the materialized future will
+    be failed with an exception.
+   */
   def getActiveContracts(
       filter: TransactionFilter,
       verbose: Boolean = false): Source[GetActiveContractsResponse, Future[String]] = {

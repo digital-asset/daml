@@ -279,11 +279,14 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
             .foldLeft[Type](TVar(name(tvar.getVar)))((typ, arg) => TApp(typ, decodeType(arg)))
         case PLF.Type.SumCase.NAT =>
           assertSince(LV.Features.numeric, "Type.NAT")
-          if (0 <= lfType.getNat && lfType.getNat <= Numeric.maxPrecision)
-            TNat(lfType.getNat.toInt)
-          else
-            throw ParseError(
-              s"TNat must be between 0 and ${Numeric.maxPrecision}, found ${lfType.getNat}")
+          Numeric.Scale
+            .fromLong(lfType.getNat)
+            .fold[TNat](
+              _ =>
+                throw ParseError(
+                  s"TNat must be between ${Numeric.Scale.MinValue} and ${Numeric.Scale.MaxValue}, found ${lfType.getNat}"),
+              TNat
+            )
         case PLF.Type.SumCase.CON =>
           val tcon = lfType.getCon
           (TTyCon(decodeTypeConName(tcon.getTycon)) /: [Type] tcon.getArgsList.asScala)(
@@ -292,9 +295,7 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
           val prim = lfType.getPrim
           val baseType =
             if (prim.getPrim == PLF.PrimType.DECIMAL) {
-              // FixMe: https://github.com/digital-asset/daml/issues/2289
-              //   enable the check once the compiler produces proper DAML-LF 1.dev
-              // assertUntil(LV.Features.numeric, "PrimType.DECIMAL")
+              assertUntil(LV.Features.numeric, "PrimType.DECIMAL")
               TDecimal
             } else {
               val info = builtinTypeInfoMap(prim.getPrim)
@@ -735,9 +736,7 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
         case PLF.PrimLit.SumCase.INT64 =>
           PLInt64(lfPrimLit.getInt64)
         case PLF.PrimLit.SumCase.DECIMAL =>
-          // FixMe: https://github.com/digital-asset/daml/issues/2289
-          //   enable the check once the compiler produces proper DAML-LF 1.dev
-          // assertUntil(LV.Features.numeric, "PrimLit.decimal")
+          assertUntil(LV.Features.numeric, "PrimLit.decimal")
           Decimal
             .fromString(lfPrimLit.getDecimal)
             .flatMap(Numeric.fromBigDecimal(Decimal.scale, _))

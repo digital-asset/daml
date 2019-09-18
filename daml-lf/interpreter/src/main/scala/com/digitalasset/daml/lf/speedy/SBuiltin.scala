@@ -7,6 +7,7 @@ import java.util
 
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data._
+import com.digitalasset.daml.lf.data.Numeric.Scale
 import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.speedy.SError._
@@ -140,19 +141,19 @@ object SBuiltin {
       Numeric.subtract(x, y)
     )
 
-  private def multiply(scale: Int, x: Numeric, y: Numeric): Numeric =
+  private def multiply(scale: Scale, x: Numeric, y: Numeric): Numeric =
     rightOrArithmeticError(
-      s"(Numeric ${scale}) overflow when multiplying ${Numeric.toString(x)} by ${Numeric.toString(y)}.",
+      s"(Numeric $scale) overflow when multiplying ${Numeric.toString(x)} by ${Numeric.toString(y)}.",
       Numeric.multiply(scale, x, y)
     )
 
-  private def divide(scale: Int, x: Numeric, y: Numeric): Numeric =
+  private def divide(scale: Scale, x: Numeric, y: Numeric): Numeric =
     if (y.signum() == 0)
       throw DamlEArithmeticError(
         s"Attempt to divide ${Numeric.toString(x)} by ${Numeric.toString(y)}.")
     else
       rightOrArithmeticError(
-        s"(Numeric ${scale}) overflow when dividing ${Numeric.toString(x)} by ${Numeric.toString(y)}.",
+        s"(Numeric $scale) overflow when dividing ${Numeric.toString(x)} by ${Numeric.toString(y)}.",
         Numeric.divide(scale, x, y)
       )
 
@@ -166,7 +167,7 @@ object SBuiltin {
     }
   }
 
-  sealed abstract class SBBinaryOpNumeric2(op: (Int, Numeric, Numeric) => Numeric)
+  sealed abstract class SBBinaryOpNumeric2(op: (Scale, Numeric, Numeric) => Numeric)
       extends SBuiltin(5) {
     final def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       val scaleA = args.get(0).asInstanceOf[STNat].n

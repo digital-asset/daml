@@ -65,7 +65,7 @@ object TypedValueGenerators {
     val bool = noCid(PT.Bool, ValueBool) { case ValueBool(b) => b }
     val party = noCid(PT.Party, ValueParty) { case ValueParty(p) => p }
 
-    def numeric(scale: Int): NoCid[Numeric] = new ValueAddend {
+    def numeric(scale: Numeric.Scale): NoCid[Numeric] = new ValueAddend {
       type Inj[Cid] = Numeric
 
       override def t: Type = TypeNumeric(scale)
@@ -182,7 +182,7 @@ object TypedValueGenerators {
     Gen.frequency(
       ((sz max 1) * ValueAddend.leafInstances.length, Gen.oneOf(ValueAddend.leafInstances)),
       (sz max 1, Gen.const(ValueAddend.contractId)),
-      (sz max 1, Gen.choose(0, Numeric.maxPrecision).map(ValueAddend.numeric)),
+      (sz max 1, Gen.oneOf(Numeric.Scale.Values).map(ValueAddend.numeric)),
       (nestSize, self.map(ValueAddend.list(_))),
       (nestSize, self.map(ValueAddend.optional(_))),
       (nestSize, self.map(ValueAddend.map(_))),

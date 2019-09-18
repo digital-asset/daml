@@ -60,6 +60,7 @@ toCompileOpts options@Options{..} reportProgress =
       , optReportProgress = reportProgress
       , optLanguageSyntax = "daml"
       , optNewColonConvention = True
+      , optDefer = Ghcide.IdeDefer False
       }
   where
     toRenaming aliases = ModRenaming False [(GHC.mkModuleName mod, GHC.mkModuleName alias) | (mod, alias) <- aliases]

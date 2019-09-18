@@ -6,7 +6,7 @@ package com.digitalasset.daml.lf.iface
 import java.{util => j}
 
 import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
-import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.{Numeric, Ref}
 import com.digitalasset.daml.lf.data.Ref.Identifier
 import scalaz.Monoid
 import scalaz.syntax.foldable._
@@ -100,7 +100,7 @@ final case class TypeCon(name: TypeConName, typArgs: ImmArraySeq[Type])
     }
 }
 
-final case class TypeNumeric(scale: Int) extends Type
+final case class TypeNumeric(scale: Numeric.Scale) extends Type
 
 final case class TypePrim(typ: PrimType, typArgs: ImmArraySeq[Type])
     extends Type

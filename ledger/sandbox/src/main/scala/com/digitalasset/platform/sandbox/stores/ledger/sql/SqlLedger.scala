@@ -228,13 +228,13 @@ private class SqlLedger(
 
       val blindingInfo = Blinding.blind(transaction)
 
-      val mappedDisclosure = blindingInfo.explicitDisclosure
+      val mappedDisclosure = blindingInfo.disclosure
         .map {
           case (nodeId, parties) =>
             SandboxEventIdFormatter.fromTransactionId(transactionId, nodeId) -> parties
         }
 
-      val mappedLocalImplicitDisclosure = blindingInfo.localImplicitDisclosure.map {
+      val mappedLocalDivulgence = blindingInfo.localDivulgence.map {
         case (k, v) => SandboxEventIdFormatter.fromTransactionId(transactionId, k) -> v
       }
 
@@ -266,8 +266,8 @@ private class SqlLedger(
             mappedTx,
             mappedDisclosure
           ),
-          mappedLocalImplicitDisclosure,
-          blindingInfo.globalImplicitDisclosure,
+          mappedLocalDivulgence,
+          blindingInfo.globalDivulgence,
           List.empty
         )
       }
