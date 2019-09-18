@@ -25,6 +25,7 @@ object ActiveContractSetSource {
 
     ClientAdapter
       .serverStreaming(request, stub)
-      .viaMat(new ExtractMaterializedValue(r => Some(r.offset)))(Keep.right)
+      .viaMat(new ExtractMaterializedValue(r => if (r.offset.nonEmpty) Some(r.offset) else None))(
+        Keep.right)
   }
 }
