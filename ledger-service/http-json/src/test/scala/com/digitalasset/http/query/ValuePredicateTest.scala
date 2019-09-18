@@ -37,11 +37,26 @@ class ValuePredicateTest extends WordSpec with Matchers with TableDrivenProperty
     def c(query: String, ty: VA)(expected: ty.Inj[Cid], shouldMatch: Boolean) =
       (query.parseJson, ty, ty.inj(expected), shouldMatch)
 
+    object VAs {
+      val oi = VA.optional(VA.int64)
+      val ooi = VA.optional(oi)
+      val oooi = VA.optional(ooi)
+    }
+
     val literals = Table(
       ("query or json", "type"),
       ("\"foo\"", VA.text),
       ("42", VA.int64),
       ("[1, 2, 3]", VA.list(VA.int64)),
+      ("null", VAs.oi),
+      ("42", VAs.oi),
+      ("null", VAs.ooi),
+      ("[]", VAs.ooi),
+      ("[42]", VAs.ooi),
+      ("null", VAs.oooi),
+      ("[]", VAs.oooi),
+      ("[[]]", VAs.oooi),
+      ("[[42]]", VAs.oooi),
     )
 
     val successes = Table(
