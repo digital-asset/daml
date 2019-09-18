@@ -286,7 +286,7 @@ convertGenericTemplate env x
     , Just dictCon <- isDataConId_maybe dictCon
     , (tyArgs, args) <- span isTypeArg args
     , Just tyArgs <- mapM isType_maybe tyArgs
-    , Just (superClassDicts, signatories : observers : ensure : agreement : create : _fetch : archive : keyAndChoices) <- span isSuperClassDict <$> mapM isVar_maybe (dropWhile isTypeArg args)
+    , Just (superClassDicts, signatories : observers : ensure : agreement : create : _fetch : archive : keyAndChoices) <- span isSuperClassDict <$> mapM isVar_maybe args
     , Just (polyType@(TypeCon polyTyCon _), _) <- splitFunTy_maybe (varType create)
     , Just monoTyCon <- findMonoTyp polyType
     = do
