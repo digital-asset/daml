@@ -257,6 +257,9 @@ class JdbcIndexer private[index] (
         // TODO(JM) implement configuration rejections
         Future.successful(())
 
+      case CommandRejected(submitterInfo, RejectionReason.DuplicateCommand) =>
+        Future.successful(())
+
       case CommandRejected(submitterInfo, reason) =>
         val rejection = PersistenceEntry.Rejection(
           LedgerEntry.Rejection(
