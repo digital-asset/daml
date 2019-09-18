@@ -146,11 +146,10 @@ daml_test = rule(
 
 def _daml_doctest_impl(ctx):
     script = """
-      set -eoux pipefail
+      set -eou pipefail
       DAMLC=$(rlocation $TEST_WORKSPACE/{damlc})
-      CPP=$(rlocation $TEST_WORKSPACE/{cpp})
       rlocations () {{ for i in $@; do echo $(rlocation $TEST_WORKSPACE/$i); done; }}
-      $DAMLC doctest {flags} --cpp $CPP --package-name {package_name}-`cat $(rlocation $TEST_WORKSPACE/{version_file})` $(rlocations "{files}")
+      $DAMLC doctest {flags} --cpp {cpp} --package-name {package_name}-`cat $(rlocation $TEST_WORKSPACE/{version_file})` $(rlocations "{files}")
     """.format(
         damlc = ctx.executable.damlc.short_path,
         cpp = ctx.executable.cpp.short_path,
