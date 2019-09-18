@@ -146,7 +146,7 @@ daml_test = rule(
 
 def _daml_doctest_impl(ctx):
     script = """
-      set -eou pipefail
+      set -eoux pipefail
       DAMLC=$(rlocation $TEST_WORKSPACE/{damlc})
       CPP=$(rlocation $TEST_WORKSPACE/{cpp})
       rlocations () {{ for i in $@; do echo $(rlocation $TEST_WORKSPACE/$i); done; }}
