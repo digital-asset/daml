@@ -5,7 +5,6 @@ package com.digitalasset.http
 
 import akka.stream.Materializer
 import akka.stream.scaladsl.Sink
-import com.digitalasset.daml.lf.value.{Value => V}
 import com.digitalasset.http.domain.{GetActiveContractsRequest, JwtPayload, TemplateId}
 import com.digitalasset.http.query.ValuePredicate
 import com.digitalasset.http.util.FutureUtil.toFuture
@@ -19,14 +18,19 @@ import spray.json.JsValue
 
 import scala.concurrent.{ExecutionContext, Future}
 
+object ContractsService {
+  type Result = (
+      Seq[domain.GetActiveContractsResponse[lav1.value.Value]],
+      Map[domain.TemplateId.RequiredPkg, query.ValuePredicate])
+}
+
 class ContractsService(
     resolveTemplateIds: PackageService.ResolveTemplateIds,
     getActiveContracts: LedgerClientJwt.GetActiveContracts,
     lookupType: query.ValuePredicate.TypeLookup,
     parallelism: Int = 8)(implicit ec: ExecutionContext, mat: Materializer) {
 
-  type Result = (Seq[domain.GetActiveContractsResponse[lav1.value.Value]], CompiledPredicates)
-  type CompiledPredicates = Map[domain.TemplateId.RequiredPkg, query.ValuePredicate]
+  import ContractsService._
 
   def lookup(
       jwt: Jwt,
@@ -97,16 +101,6 @@ class ContractsService(
         .runWith(Sink.seq)
       predicates = templateIds.iterator.map(a => (a, valuePredicate(a, q))).toMap
     } yield (allActiveContracts, predicates)
-
-  def filterSearch(
-      compiledPredicates: CompiledPredicates,
-      rawContracts: Seq[domain.GetActiveContractsResponse[V[V.AbsoluteContractId]]])
-    : Seq[domain.GetActiveContractsResponse[V[V.AbsoluteContractId]]] = {
-    val predFuns = compiledPredicates transform ((_, vp) => vp.toFunPredicate)
-    rawContracts map (gacr =>
-      gacr copy (activeContracts = gacr.activeContracts.filter(ac =>
-        predFuns get ac.templateId forall (_(ac.argument)))))
-  }
 
   private def valuePredicate(
       templateId: domain.TemplateId.RequiredPkg,
