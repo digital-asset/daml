@@ -248,7 +248,7 @@ abstract class NumericModule {
     * Convert a BigDecimal to the Numeric with the smallest possible scale able to represent the
     * former without loss of precision. Returns an error if such Numeric does not exists.
     *
-    * With use this function to convert BigDecimal with unknown scale.
+    * Use this function to convert BigDecimal with unknown scale.
     */
   final def fromUnscaledBigDecimal(x: BigDecimal): Either[String, Numeric] =
     for {
