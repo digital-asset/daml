@@ -22,7 +22,7 @@ sealed abstract class ValuePredicate extends Product with Serializable {
       case Literal(p) => p.isDefinedAt
 
       case RecordSubset(q) =>
-        val cq = q map (_ map (_._2.toFunPredicate));
+        val cq = q map (_ map { case (_, vp) => go(vp) });
         {
           case V.ValueRecord(_, fields) =>
             cq zip fields.toSeq forall {
@@ -33,7 +33,7 @@ sealed abstract class ValuePredicate extends Product with Serializable {
         }
 
       case MapMatch(q) =>
-        val cq = q mapValue (_.toFunPredicate);
+        val cq = q mapValue go;
         {
           case V.ValueMap(v) if cq.toImmArray.length == v.toImmArray.length =>
             cq.toImmArray.toSeq zip v.toImmArray.toSeq forall {
