@@ -17,11 +17,13 @@ import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.{FreeSpec, Matchers}
 
 import scala.collection.immutable.HashMap
-
+import scala.language.implicitConversions
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks {
 
   import SBuiltinTest._
+
+  private implicit def toScale(i: Int): Numeric.Scale = Numeric.Scale.assertFromInt(i)
 
   private def n(scale: Int, x: BigDecimal): Numeric = Numeric.assertFromBigDecimal(scale, x)
   private def n(scale: Int, str: String): Numeric = n(scale, BigDecimal(str))

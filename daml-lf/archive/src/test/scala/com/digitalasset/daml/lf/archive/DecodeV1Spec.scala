@@ -8,7 +8,7 @@ import java.nio.file.{Files, Paths}
 
 import com.digitalasset.daml.bazeltools.BazelRunfiles._
 import com.digitalasset.daml.lf.archive.Reader.ParseError
-import com.digitalasset.daml.lf.data.{ImmArray, Ref}
+import com.digitalasset.daml.lf.data.{Decimal, ImmArray, Numeric, Ref}
 import com.digitalasset.daml.lf.language.Util._
 import com.digitalasset.daml.lf.language.{Ast, LanguageMinorVersion, LanguageVersion => LV}
 import LanguageMinorVersion.Implicits._
@@ -126,7 +126,7 @@ class DecodeV1Spec
       forEvery(postNumericMinVersions) { minVersion =>
         val decoder = moduleDecoder(minVersion)
         forEvery(positiveTestCases) { (natType, nat) =>
-          decoder.decodeType(natType) shouldBe Ast.TNat(nat)
+          decoder.decodeType(natType) shouldBe Ast.TNat(Numeric.Scale.assertFromInt(nat))
         }
         forEvery(negativeTestCases) { natType =>
           an[ParseError] shouldBe thrownBy(decoder.decodeType(natType))
@@ -143,19 +143,19 @@ class DecodeV1Spec
     val decimalTestCases = Table(
       "input" -> "expected output",
       buildPrimType(DECIMAL) ->
-        TNumeric(Ast.TNat(10)),
+        TNumeric(Ast.TNat(Decimal.scale)),
       buildPrimType(DECIMAL, buildPrimType(TEXT)) ->
-        Ast.TApp(TNumeric(Ast.TNat(10)), TText),
+        Ast.TApp(TNumeric(Ast.TNat(Decimal.scale)), TText),
       buildPrimType(ARROW, buildPrimType(TEXT), buildPrimType(DECIMAL)) ->
-        TFun(TText, TNumeric(Ast.TNat(10))),
+        TFun(TText, TNumeric(Ast.TNat(Decimal.scale))),
     )
 
     val numericTestCases = Table(
       "input" -> "expected output",
       buildPrimType(NUMERIC) ->
         TNumeric.cons,
-      buildPrimType(NUMERIC, DamlLf1.Type.newBuilder().setNat(10).build()) ->
-        TNumeric(Ast.TNat(10)),
+      buildPrimType(NUMERIC, DamlLf1.Type.newBuilder().setNat(Decimal.scale.toLong).build()) ->
+        TNumeric(Ast.TNat(Decimal.scale)),
       buildPrimType(NUMERIC, buildPrimType(TEXT)) ->
         Ast.TApp(TNumeric.cons, TText),
       buildPrimType(ARROW, buildPrimType(TEXT), buildPrimType(NUMERIC)) ->

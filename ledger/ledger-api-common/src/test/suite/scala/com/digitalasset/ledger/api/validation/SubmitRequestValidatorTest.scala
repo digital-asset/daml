@@ -26,7 +26,6 @@ import io.grpc.Status.Code.INVALID_ARGUMENT
 import org.scalatest.WordSpec
 import org.scalatest.prop.TableDrivenPropertyChecks
 import scalaz.syntax.tag._
-
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 class SubmitRequestValidatorTest
     extends WordSpec
@@ -194,7 +193,8 @@ class SubmitRequestValidatorTest
             val s = sign + absoluteValue
             val input = Value(Sum.Numeric(s))
             val expected =
-              Lf.ValueNumeric(Numeric.assertFromBigDecimal(expectedScale, BigDecimal(s)))
+              Lf.ValueNumeric(Numeric
+                .assertFromBigDecimal(Numeric.Scale.assertFromInt(expectedScale), BigDecimal(s)))
             validateValue(input) shouldEqual Right(expected)
           }
         }

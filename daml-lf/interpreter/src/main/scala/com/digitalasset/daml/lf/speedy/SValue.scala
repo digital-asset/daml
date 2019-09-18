@@ -190,7 +190,7 @@ object SValue {
   // It is currently used to track at runtime the scale of the
   // Numeric builtin's arguments/output. Should never be translated
   // back to DAML-LF expressions / values.
-  final case class STNat(n: Int) extends SValue
+  final case class STNat(n: Numeric.Scale) extends SValue
 
   // NOTE(JM): We are redefining PrimLit here so it can be unified
   // with SValue and we can remove one layer of indirection.
