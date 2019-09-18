@@ -5,7 +5,7 @@
 , lr, xe, zip, unzip, bash, writeCBin, coreutils
 , which, gawk, gnused, gnutar, gnugrep, gzip, findutils
 # XXX: Modified relative to upstream Nix expression.
-, diffutils, getopt, perl, postgresql
+, diffutils, getopt, perl, postgresql_10
 # updater
 , python3, writeScript
 # Apple dependencies
@@ -90,7 +90,7 @@ let
     #
     # XXX: Modified relative to upstream Nix expression.
     [ bash coreutils findutils gawk gnugrep gnutar gnused gzip which unzip
-      diffutils getopt perl postgresql ];
+      diffutils getopt perl postgresql_10 ];
 
   # Java toolchain used for the build and tests
   javaToolchain = "@bazel_tools//tools/jdk:toolchain_host${buildJdkName}";
