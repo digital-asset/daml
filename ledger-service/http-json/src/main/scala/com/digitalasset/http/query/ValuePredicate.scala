@@ -4,6 +4,8 @@
 package com.digitalasset.http
 package query
 
+import util.IdentifierConverters.lfIdentifier
+
 import com.digitalasset.daml.lf.data.{ImmArray, Numeric, Ref, SortedLookupList, Time}
 import ImmArray.ImmArraySeq
 import com.digitalasset.daml.lf.data.ScalazEqual._
@@ -84,6 +86,12 @@ object ValuePredicate {
   final case class OptionalMatch(elem: Option[ValuePredicate]) extends ValuePredicate
   // boolean is whether inclusive (lte vs lt)
   final case class Range(ltgt: (Boolean, LfV) \&/ (Boolean, LfV), typ: Ty) extends ValuePredicate
+
+  private[http] def fromTemplateJsObject(
+      it: Map[String, JsValue],
+      typ: domain.TemplateId.RequiredPkg,
+      defs: TypeLookup): ValuePredicate =
+    fromJsObject(it, iface.TypeCon(iface.TypeConName(lfIdentifier(typ)), ImmArraySeq.empty), defs)
 
   def fromJsObject(it: Map[String, JsValue], typ: iface.Type, defs: TypeLookup): ValuePredicate = {
     type Result = ValuePredicate

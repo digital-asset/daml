@@ -115,7 +115,8 @@ class Endpoints(
   private def encodeList(as: Seq[JsValue]): ServerError \/ JsValue =
     SprayJson.encode(as).leftMap(e => ServerError(e.shows))
 
-  private val emptyGetActiveContractsRequest = domain.GetActiveContractsRequest(Set.empty)
+  private val emptyGetActiveContractsRequest =
+    domain.GetActiveContractsRequest(Set.empty, Map.empty)
 
   lazy val contracts: PartialFunction[HttpRequest, Future[HttpResponse]] = {
     case req @ HttpRequest(GET, Uri.Path("/contracts/lookup"), _, _, _) =>
@@ -151,10 +152,10 @@ class Endpoints(
 
         (jwt, jwtPayload, _) = input
 
-        as <- eitherT(
-          handleFutureFailure(
-            contractsService.search(jwt, jwtPayload, emptyGetActiveContractsRequest))): ET[
-          Seq[domain.GetActiveContractsResponse[lav1.value.Value]]]
+        asIgnoreQ <- eitherT(
+          handleFutureFailure(contractsService
+            .search(jwt, jwtPayload, emptyGetActiveContractsRequest))): ET[ContractsService.Result]
+        (as, _) = asIgnoreQ
 
         jsVal <- either(
           as.toList
@@ -179,12 +180,11 @@ class Endpoints(
             .leftMap(e => InvalidUserInput(e.shows))
         ): ET[domain.GetActiveContractsRequest]
 
-        as <- eitherT(
-          handleFutureFailure(contractsService.search(jwt, jwtPayload, cmd))
-        ): ET[Seq[domain.GetActiveContractsResponse[lav1.value.Value]]]
+        as <- eitherT(handleFutureFailure(contractsService.search(jwt, jwtPayload, cmd))): ET[
+          ContractsService.Result]
 
         jsVal <- either(
-          as.toList
+          as._1.toList
             .traverse(a => encoder.encodeV(a))
             .leftMap(e => ServerError(e.shows))
             .flatMap(js => encodeList(js))
