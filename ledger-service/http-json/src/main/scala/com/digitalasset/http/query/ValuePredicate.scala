@@ -11,6 +11,7 @@ import com.digitalasset.daml.lf.iface
 import com.digitalasset.daml.lf.value.{Value => V}
 import iface.{Type => Ty}
 import scalaz.\&/
+import scalaz.syntax.std.option._
 import scalaz.syntax.std.string._
 import spray.json._
 
@@ -41,13 +42,19 @@ sealed abstract class ValuePredicate extends Product with Serializable {
           case _ => false
         }
 
-      case ListMatch(qs) => {
-        case V.ValueList(vs) if qs.length == vs.length =>
-          qs zip vs.toImmArray.toSeq forall {
-            case (q, v) => q.toFunPredicate(v)
-          }
-        case _ => false
-      }
+      case ListMatch(qs) =>
+        val cqs = qs map go;
+        {
+          case V.ValueList(vs) if qs.length == vs.length =>
+            cqs zip vs.toImmArray.toSeq forall {
+              case (q, v) => q(v)
+            }
+          case _ => false
+        }
+
+      case OptionalMatch(oq) =>
+        oq map go cata (csq => { case V.ValueOptional(Some(v)) => csq(v); case _ => false },
+        { case V.ValueOptional(None) => true; case _ => false })
 
       case Range(_, _) => sys.error("range not supported yet")
     }
@@ -64,6 +71,7 @@ object ValuePredicate {
       extends ValuePredicate
   final case class MapMatch(elems: SortedLookupList[ValuePredicate]) extends ValuePredicate
   final case class ListMatch(elems: Vector[ValuePredicate]) extends ValuePredicate
+  final case class OptionalMatch(elem: Option[ValuePredicate]) extends ValuePredicate
   // boolean is whether inclusive (lte vs lt)
   final case class Range(ltgt: (Boolean, LfV) \&/ (Boolean, LfV), typ: Ty) extends ValuePredicate
 
@@ -120,9 +128,25 @@ object ValuePredicate {
         Literal { case V.ValueEnum(_, v) if it == (v: String) => } else
         sys.error("not a member of the enum")
 
+    def fromOptional(it: JsValue, typ: iface.Type): Result =
+      (typ, it).match2 {
+        case iface.TypePrim(iface.PrimType.Optional, _) => {
+          case JsNull => OptionalMatch(None)
+          case JsArray(Seq()) => OptionalMatch(Some(fromOptional(JsNull, typ)))
+          case JsArray(Seq(elem)) => OptionalMatch(Some(fromValue(elem, typ)))
+        }
+        case _ => {
+          case JsNull => OptionalMatch(None)
+          case other => OptionalMatch(Some(fromValue(other, typ)))
+        }
+      }(fallback = ???)
+
     def fromPrim(it: JsValue, typ: iface.TypePrim): Result = {
       import iface.PrimType._
-      def lit = Literal { case _ if false => /* TODO match */ }
+      def soleTypeArg(of: String) = typ.typArgs match {
+        case Seq(hd) => hd
+        case _ => sys.error(s"missing type arg to $of")
+      }
       (typ.typ, it).match2 {
         case Bool => { case JsBoolean(q) => Literal { case V.ValueBool(v) if q == v => } }
         case Int64 => {
@@ -152,14 +176,18 @@ object ValuePredicate {
         }
         case List => {
           case JsArray(as) =>
-            val elemTy = typ.typArgs.headOption getOrElse sys.error("missing type arg to List")
+            val elemTy = soleTypeArg("List")
             ListMatch(as.map(a => fromValue(a, elemTy)))
         }
         case Unit => { case JsObject(q) if q.isEmpty => Literal { case V.ValueUnit => } }
-        case Optional => { case todo => lit }
+        case Optional => {
+          case q =>
+            val elemTy = soleTypeArg("Optional")
+            fromOptional(q, elemTy)
+        }
         case Map => {
           case JsObject(q) =>
-            val elemTy = typ.typArgs.headOption getOrElse sys.error("missing type arg to Map")
+            val elemTy = soleTypeArg("Map")
             MapMatch(SortedLookupList(q) mapValue (fromValue(_, elemTy)))
         }
       }(fallback = sys.error("TODO fallback"))
