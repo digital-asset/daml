@@ -13,15 +13,13 @@ import com.digitalasset.ledger.api.testing.utils.{
   IsStatusException,
   SuiteResourceManagementAroundAll
 }
-import com.digitalasset.ledger.api.v1.commands.ExerciseCommand
 import com.digitalasset.ledger.api.v1.event.Event.Event.{Archived, Created}
-import com.digitalasset.ledger.api.v1.event.{ArchivedEvent, CreatedEvent, Event}
-import com.digitalasset.ledger.api.v1.transaction.{Transaction, TransactionTree, TreeEvent}
+import com.digitalasset.ledger.api.v1.event.{ArchivedEvent, Event}
+import com.digitalasset.ledger.api.v1.transaction.{TransactionTree, TreeEvent}
 import com.digitalasset.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
 import com.digitalasset.ledger.api.v1.transaction_service.GetLedgerEndResponse
 import com.digitalasset.ledger.api.v1.transaction_service.TransactionServiceGrpc.TransactionService
-import com.digitalasset.ledger.api.v1.value.Value.Sum
-import com.digitalasset.ledger.api.v1.value.{Identifier, Record, Value}
+import com.digitalasset.ledger.api.v1.value.{Record, Value}
 import com.digitalasset.ledger.client.services.transactions.TransactionClient
 import com.digitalasset.platform.api.v1.event.EventOps._
 import com.digitalasset.platform.apitesting.LedgerContextExtensions._
@@ -51,7 +49,6 @@ class TransactionServiceIT
     with Inside
     with AsyncTimeLimitedTests
     with TestExecutionSequencerFactory
-    with ParameterShowcaseTesting
     with OptionValues
     with Matchers {
 
@@ -69,8 +66,6 @@ class TransactionServiceIT
     new TransactionClient(ledgerId, stub)
 
   private val configuredParties = config.parties
-
-  private val unitArg = Value(Sum.Record(Record.defaultInstance))
 
   "Transaction Service" when {
 
@@ -729,10 +724,6 @@ class TransactionServiceIT
     }
   }
 
-  private def exerciseCallChoice(exercisedTemplate: Identifier, factoryContractId: String) = {
-    ExerciseCommand(Some(exercisedTemplate), factoryContractId, "DummyFactoryCall", Some(unitArg))
-  }
-
   private def insertCommands(
       prefix: String,
       commandsPerSection: Int,
@@ -758,18 +749,6 @@ class TransactionServiceIT
     elements should have size 1
     elements.headOption.value
   }
-
-  private def createdEventsIn(transaction: Transaction): Seq[CreatedEvent] =
-    transaction.events
-      .map(_.event)
-      .collect {
-        case Created(createdEvent) => createdEvent
-      }
-
-  private def archivedEventsIn(transaction: Transaction): Seq[ArchivedEvent] =
-    transaction.events.map(_.event).collect {
-      case Archived(archivedEvent) => archivedEvent
-    }
 
   private def removeOtherWitnesses(t: TransactionTree, party: String): TransactionTree = {
     t.copy(eventsById = t.eventsById.map {
