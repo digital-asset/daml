@@ -33,10 +33,12 @@ sealed abstract class ValuePredicate extends Product with Serializable {
         }
 
       case MapMatch(q) =>
-        val cq = q mapValue go;
+        val cq = (q mapValue go).toImmArray;
         {
-          case V.ValueMap(v) if cq.toImmArray.length == v.toImmArray.length =>
-            cq.toImmArray.toSeq zip v.toImmArray.toSeq forall {
+          case V.ValueMap(v) if cq.length == v.toImmArray.length =>
+            // the sort-by-key is the same for cq and v, so if equal, the keys
+            // are at equal indices
+            cq.iterator zip v.toImmArray.iterator forall {
               case ((qk, qp), (vk, vv)) => qk == vk && qp(vv)
             }
           case _ => false
@@ -45,8 +47,8 @@ sealed abstract class ValuePredicate extends Product with Serializable {
       case ListMatch(qs) =>
         val cqs = qs map go;
         {
-          case V.ValueList(vs) if qs.length == vs.length =>
-            cqs zip vs.toImmArray.toSeq forall {
+          case V.ValueList(vs) if cqs.length == vs.length =>
+            cqs.iterator zip vs.iterator forall {
               case (q, v) => q(v)
             }
           case _ => false
