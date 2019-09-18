@@ -18,10 +18,10 @@ type Rational = Ratio Integer
 
 #ifdef DAML_NUMERIC
 fromRational : Rational -> Numeric n
-fromRational = magic @"fromRational"
 #else
 fromRational : Rational -> Decimal
-fromRational = magic @"fromRational"
 #endif
+
+fromRational = magic @"fromRational"
 
 {-# NOINLINE fromRational #-}
