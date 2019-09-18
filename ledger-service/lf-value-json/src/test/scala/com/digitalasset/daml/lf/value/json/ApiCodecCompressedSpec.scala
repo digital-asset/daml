@@ -138,7 +138,7 @@ class ApiCodecCompressedSpec
         "\"2000\"",
         "2000",
         "2e3"),
-      cn ("\"0.3\"", "0.3", VA.numeric(Decimal.scale))(
+      cn("\"0.3\"", "0.3", VA.numeric(Decimal.scale))(
         Decimal assertFromString "0.3",
         "\"0.30000000000000004\"",
         "0.30000000000000004"),
