@@ -52,9 +52,9 @@ buildBazelPackage rec {
 
     sha256 =
       if stdenv.isDarwin then
-        "0nz0z9d8y7kckgzshlsbjxrkqdaxrjdyinjs4ffkbvr3iikf958g"
+        "00ck1h80lmh5cls3gnl8nsajlz9ydn48m2yax5y3idbmym7d4nhc"
       else
-        "08yr8419yl065sf129xy1dzadsxgq0vwsl59x7wq6f0ax08si1di"
+        "0h7kkfm5v0c5gq1ysc6lvxzk8m0cbb3svb1zzn7zxjr4m5xjb0ah"
     ;
   };
 
