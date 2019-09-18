@@ -155,12 +155,9 @@ object DamlLfCodec {
             arrayField(value, propArgs, "DamlLfTypePrim").map(jsValueToDamlLfType): _*)
         )
       case `tagTypeNumeric` =>
-        val scale = intField(value, propScale, "DamlLfTypeNumeric")
-        if (!(0 <= scale && scale <= DamlLfNumeric.maxPrecision))
-          deserializationError(
-            s"scale should be between 0 and ${DamlLfNumeric.maxPrecision}, found $scale'")
-        else
-          Model.DamlLfTypeNumeric(scale.toInt)
+        DamlLfNumeric.Scale
+          .fromLong(intField(value, propScale, "DamlLfTypeNumeric"))
+          .fold[Model.DamlLfTypeNumeric](deserializationError(_), Model.DamlLfTypeNumeric)
     }
 
   def jsValueToDamlLfPrimType(value: String): Model.DamlLfPrimType = value match {
