@@ -6,6 +6,36 @@ Release notes
 
 This page contains release notes for the SDK.
 
+.. _release-0-13-25:
+
+0.13.25 - 2019-09-18
+--------------------
+
+Documentation
+~~~~~~~~~~~~~
+
+- Suppress instance documentation when `--data-only` mode is requested.
+
+DAML-LF
+~~~~~~~
+
+- Add CAST_NUMERIC and SHIFT_NUMERIC in DAML-LF 1.dev.
+- Change signature of MUL_NUMERIC and DIV_NUMERIC.
+
+DAML Integration Kit
+~~~~~~~~~~~~~~~~~~~~
+
+- Fix contract key uniqueness check in kvutils.
+
+- Preload packages in a background thread in kvutils.
+
+Ledger
+~~~~~~
+
+- ActiveContractsService now specifies to always return at least one message with the offset. This removes a special case where clients would need to check if the stream was empty or not.
+
+- Dramatically increased performance of the ActiveContractService by only loading the contracts that the parties in the transaction filter are allowed to see.
+
 .. _release-0-13-24:
 
 0.13.24 - 2019-09-16
