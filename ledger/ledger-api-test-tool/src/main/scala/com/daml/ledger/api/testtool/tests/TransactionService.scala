@@ -1324,18 +1324,6 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
         }
     }
 
-  /*
-  private[this] val foo =
-    LedgerTest("TXfoo", "foo") {
-      context =>
-        for {
-          ledger <- context.participant()
-        } yield {
-
-        }
-    }
-   */
-
   override val tests: Vector[LedgerTest] = Vector(
     beginToBeginShouldBeEmpty,
     endToEndShouldBeEmpty,
