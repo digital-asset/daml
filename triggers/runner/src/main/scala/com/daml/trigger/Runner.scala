@@ -266,7 +266,7 @@ object Converter {
     }
   }
 
-  private def toTemplateId(v: SValue): Either[String, Identifier] = {
+  private def extractTemplateId(v: SValue): Either[String, Identifier] = {
     v match {
       case SRecord(templateId, _, _) => Right(templateId)
       case _ => Left(s"Expected contract value but got $v")
@@ -286,7 +286,7 @@ object Converter {
     }
   }
 
-  private def toChoiceName(v: SValue): Either[String, String] = {
+  private def extractChoiceName(v: SValue): Either[String, String] = {
     v match {
       case SRecord(ty, _, _) => {
         Right(ty.qualifiedName.name.toString)
@@ -300,7 +300,7 @@ object Converter {
       case SRecord(_, _, vals) => {
         assert(vals.size == 1)
         for {
-          templateId <- toTemplateId(vals.get(0))
+          templateId <- extractTemplateId(vals.get(0))
           templateArg <- toLedgerRecord(vals.get(0))
         } yield CreateCommand(Some(toApiIdentifier(templateId)), Some(templateArg))
       }
@@ -314,7 +314,7 @@ object Converter {
         assert(vals.size == 2)
         for {
           anyContractId <- toAnyContractId(vals.get(0))
-          choiceName <- toChoiceName(vals.get(1))
+          choiceName <- extractChoiceName(vals.get(1))
           choiceArg <- toLedgerValue(vals.get(1))
         } yield {
           ExerciseCommand(
