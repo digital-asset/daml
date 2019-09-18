@@ -291,6 +291,8 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
         // ExpLet
         E"Λ  (τ₁: ⋆) (τ₂ : ⋆) (σ: ⋆). λ (e₁ : τ₁) (e₂ : σ) → (( let x : τ₂ = e₁ in e₂ ))",
         E"Λ (τ : ⋆ → ⋆) (σ: ⋆). λ (e₁ : τ) (e₂ : τ → σ) → (( let x : τ = e₁ in e₂ x ))",
+        // ExpLitDecimal
+        E"λ (f: Numeric 0 → Unit) → f (( 3.1415926536 ))",
         // ExpListNil
         E"Λ (τ : ⋆ → ⋆). (( Nil @τ ))",
         // ExpListCons
