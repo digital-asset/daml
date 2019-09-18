@@ -268,19 +268,6 @@ object Converter {
     }
   }
 
-  private def toTemplateId(triggerIds: TriggerIds, v: SValue): Either[String, Identifier] = {
-    v match {
-      case SRecord(_, _, vals) => {
-        assert(vals.size == 2)
-        for {
-          moduleName <- toText(vals.get(0)).flatMap(DottedName.fromString)
-          entityName <- toText(vals.get(1)).flatMap(DottedName.fromString)
-        } yield Identifier(triggerIds.mainPackageId, QualifiedName(moduleName, entityName))
-      }
-      case _ => Left(s"Expected TemplateId but got $v")
-    }
-  }
-
   private def toContractId(v: SValue): Either[String, (Identifier, String)] = {
     v match {
       case SRecord(_, _, vals) => {
