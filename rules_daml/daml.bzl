@@ -149,9 +149,10 @@ def _daml_doctest_impl(ctx):
       set -eou pipefail
       DAMLC=$(rlocation $TEST_WORKSPACE/{damlc})
       rlocations () {{ for i in $@; do echo $(rlocation $TEST_WORKSPACE/$i); done; }}
-      $DAMLC doctest {flags} --package-name {package_name}-`cat $(rlocation $TEST_WORKSPACE/{version_file})` $(rlocations "{files}")
+      $DAMLC doctest {flags} --cpp {cpp} --package-name {package_name}-`cat $(rlocation $TEST_WORKSPACE/{version_file})` $(rlocations "{files}")
     """.format(
         damlc = ctx.executable.damlc.short_path,
+        cpp = ctx.executable.cpp.short_path,
         package_name = ctx.attr.package_name,
         flags = " ".join(ctx.attr.flags),
         version_file = ctx.file.version.path,
@@ -166,10 +167,11 @@ def _daml_doctest_impl(ctx):
         content = script,
     )
     damlc_runfiles = ctx.attr.damlc[DefaultInfo].data_runfiles
+    cpp_runfiles = ctx.attr.cpp[DefaultInfo].data_runfiles
     runfiles = ctx.runfiles(
         collect_data = True,
         files = ctx.files.srcs + [ctx.file.version],
-    ).merge(damlc_runfiles)
+    ).merge(damlc_runfiles).merge(cpp_runfiles)
     return [DefaultInfo(runfiles = runfiles)]
 
 daml_doc_test = rule(
@@ -189,6 +191,12 @@ daml_doc_test = rule(
             cfg = "host",
             allow_files = True,
             default = Label("//compiler/damlc"),
+        ),
+        "cpp": attr.label(
+            executable = True,
+            cfg = "host",
+            allow_files = True,
+            default = Label("@haskell_hpp//:bin"),
         ),
         "flags": attr.string_list(
             default = [],
