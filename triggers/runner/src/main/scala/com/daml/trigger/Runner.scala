@@ -139,6 +139,10 @@ object TriggerIds {
   }
 }
 
+case class AnyContractId(
+    templateId: Identifier,
+    contractId: String)
+
 object Converter {
   // Helper to make constructing an SRecord more convenient
   private def record(ty: Identifier, fields: (String, SValue)*): SValue = {
@@ -177,7 +181,7 @@ object Converter {
       ("name", SText(id.entityName)))
   }
 
-  private def fromContractId(triggerIds: TriggerIds, templateId: value.Identifier, contractId: String): SValue = {
+  private def fromAnyContractId(triggerIds: TriggerIds, templateId: value.Identifier, contractId: String): SValue = {
     val contractIdTy = triggerIds.getId("AnyContractId")
     record(
       contractIdTy,
@@ -191,7 +195,7 @@ object Converter {
     record(
       archivedTy,
       ("eventId", SText(archived.eventId)),
-      ("contractId", fromContractId(triggerIds, archived.getTemplateId, archived.contractId))
+      ("contractId", fromAnyContractId(triggerIds, archived.getTemplateId, archived.contractId))
     )
   }
 
@@ -200,7 +204,7 @@ object Converter {
     record(
       createdTy,
       ("eventId", SText(created.eventId)),
-      ("contractId", fromContractId(triggerIds, created.getTemplateId, created.contractId))
+      ("contractId", fromAnyContractId(triggerIds, created.getTemplateId, created.contractId))
     )
   }
 
@@ -268,14 +272,14 @@ object Converter {
     }
   }
 
-  private def toContractId(v: SValue): Either[String, (Identifier, String)] = {
+  private def toAnyContractId(v: SValue): Either[String, AnyContractId] = {
     v match {
       case SRecord(_, _, vals) => {
         assert(vals.size == 2)
         for {
           templateId <- toIdentifier(vals.get(0))
           contractId <- toText(vals.get(1))
-        } yield (templateId, contractId)
+        } yield AnyContractId(templateId, contractId)
       }
       case _ => Left(s"Expected AnyContractId but got $v")
     }
@@ -308,14 +312,13 @@ object Converter {
       case SRecord(_, _, vals) => {
         assert(vals.size == 2)
         for {
-          templateAndContractId <- toContractId(vals.get(0))
+          anyContractId <- toAnyContractId(vals.get(0))
           choiceName <- toChoiceName(vals.get(1))
           choiceArg <- toLedgerValue(vals.get(1))
         } yield {
-          val (templateId, contractId) = templateAndContractId
           ExerciseCommand(
-            Some(toApiIdentifier(templateId)),
-            contractId,
+            Some(toApiIdentifier(anyContractId.templateId)),
+            anyContractId.contractId,
             choiceName,
             Some(choiceArg))
         }
