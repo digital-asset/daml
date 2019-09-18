@@ -52,6 +52,13 @@ sealed abstract class ValuePredicate extends Product with Serializable {
           case _ => false
         }
 
+      case VariantMatch((n1, p)) =>
+        val cp = go(p);
+        {
+          case V.ValueVariant(_, n2, v) if n1 == n2 => cp(v)
+          case _ => false
+        }
+
       case OptionalMatch(oq) =>
         oq map go cata (csq => { case V.ValueOptional(Some(v)) => csq(v); case _ => false },
         { case V.ValueOptional(None) => true; case _ => false })
@@ -71,6 +78,7 @@ object ValuePredicate {
       extends ValuePredicate
   final case class MapMatch(elems: SortedLookupList[ValuePredicate]) extends ValuePredicate
   final case class ListMatch(elems: Vector[ValuePredicate]) extends ValuePredicate
+  final case class VariantMatch(elem: (Ref.Name, ValuePredicate)) extends ValuePredicate
   final case class OptionalMatch(elem: Option[ValuePredicate]) extends ValuePredicate
   // boolean is whether inclusive (lte vs lt)
   final case class Range(ltgt: (Boolean, LfV) \&/ (Boolean, LfV), typ: Ty) extends ValuePredicate
@@ -103,7 +111,10 @@ object ValuePredicate {
           case JsObject(fields) =>
             fromRecord(fields, id, rec)
         }
-        case iface.Variant(fieldTyps) => ???
+        case iface.Variant(fieldTyps) => {
+          case JsObject(fields) =>
+            fromVariant(fields, id, fieldTyps)
+        }
         case e @ iface.Enum(_) => {
           case JsString(s) => fromEnum(s, e)
         }
@@ -121,6 +132,23 @@ object ValuePredicate {
         case (fName, fTy) =>
           fields get fName map (fSpec => (fName, fromValue(fSpec, fTy)))
       })
+    }
+
+    def fromVariant(
+        fields: Map[String, JsValue],
+        id: Ref.Identifier,
+        fieldTyps: ImmArraySeq[(Ref.Name, Ty)]): Result = fields.toSeq match {
+      case Seq((k, v)) =>
+        val name = Ref.Name.assertFromString(k)
+        val field: Option[(Ref.Name, Ty)] = fieldTyps.find(_._1 == name)
+        val fieldP: Option[(Ref.Name, ValuePredicate)] = field.map {
+          case (n, t) => (n, fromValue(v, t))
+        }
+        fieldP.fold(
+          sys.error(s"Cannot locate Variants (datacons, type) field, id: $id, name: $name")
+        )(VariantMatch)
+
+      case _ => sys.error(s"Variant must have exactly 1 field, got: $fields, id: $id")
     }
 
     def fromEnum(it: String, typ: iface.Enum): Result =
