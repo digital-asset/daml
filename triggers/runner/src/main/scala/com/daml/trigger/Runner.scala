@@ -261,10 +261,10 @@ object Converter {
     }
   }
 
-  private def getTemplateId(v: SValue): Either[String, Identifier] = {
+  private def toTemplateId(v: SValue): Either[String, Identifier] = {
     v match {
       case SRecord(templateId, _, _) => Right(templateId)
-      case _ => Left(s"Expected TemplateId but got $v")
+      case _ => Left(s"Expected contract value but got $v")
     }
   }
 
@@ -295,7 +295,7 @@ object Converter {
       case SRecord(_, _, vals) => {
         assert(vals.size == 1)
         for {
-          templateId <- getTemplateId(vals.get(0))
+          templateId <- toTemplateId(vals.get(0))
           templateArg <- toLedgerRecord(vals.get(0))
         } yield CreateCommand(Some(toApiIdentifier(templateId)), Some(templateArg))
       }
