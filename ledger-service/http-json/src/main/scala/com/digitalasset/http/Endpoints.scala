@@ -154,7 +154,7 @@ class Endpoints(
 
         asIgnoreQ <- eitherT(
           handleFutureFailure(contractsService
-            .search(jwt, jwtPayload, emptyGetActiveContractsRequest))): ET[ContractsService.Result]
+            .search(jwt, jwtPayload, emptyGetActiveContractsRequest))): ET[contractsService.Result]
         (as, _) = asIgnoreQ
 
         jsVal <- either(
@@ -181,7 +181,7 @@ class Endpoints(
         ): ET[domain.GetActiveContractsRequest]
 
         as <- eitherT(handleFutureFailure(contractsService.search(jwt, jwtPayload, cmd))): ET[
-          ContractsService.Result]
+          contractsService.Result]
 
         jsVal <- either(
           as._1.toList
