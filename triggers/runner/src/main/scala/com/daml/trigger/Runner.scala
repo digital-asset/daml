@@ -139,9 +139,7 @@ object TriggerIds {
   }
 }
 
-case class AnyContractId(
-    templateId: Identifier,
-    contractId: String)
+case class AnyContractId(templateId: Identifier, contractId: String)
 
 object Converter {
   // Helper to make constructing an SRecord more convenient
@@ -181,7 +179,10 @@ object Converter {
       ("name", SText(id.entityName)))
   }
 
-  private def fromAnyContractId(triggerIds: TriggerIds, templateId: value.Identifier, contractId: String): SValue = {
+  private def fromAnyContractId(
+      triggerIds: TriggerIds,
+      templateId: value.Identifier,
+      contractId: String): SValue = {
     val contractIdTy = triggerIds.getId("AnyContractId")
     record(
       contractIdTy,
