@@ -104,7 +104,8 @@ class ContractsService(
     : Seq[domain.GetActiveContractsResponse[V[V.AbsoluteContractId]]] = {
     val predFuns = compiledPredicates transform ((_, vp) => vp.toFunPredicate)
     rawContracts map (gacr =>
-      gacr copy (activeContracts = gacr.activeContracts.filter(ac => true /*TODO use predFuns*/ )))
+      gacr copy (activeContracts = gacr.activeContracts.filter(ac =>
+        predFuns get ac.templateId forall (_(ac.argument)))))
   }
 
   private def valuePredicate(
