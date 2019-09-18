@@ -207,7 +207,7 @@ conformance_test(
         "@postgresql_dev_env//:initdb",
         "@postgresql_dev_env//:pg_ctl",
     ],
-    server = ":sandbox-binary",
+    server = ":sandbox-ephemeral-postgres",
     server_args = [
         "--port 6865",
         "--static-time",
@@ -227,7 +227,7 @@ conformance_test(
         "@postgresql_dev_env//:initdb",
         "@postgresql_dev_env//:pg_ctl",
     ],
-    server = ":sandbox-binary",
+    server = ":sandbox-ephemeral-postgres",
     server_args = [
         "--port 6865",
         "--wall-clock-time",
