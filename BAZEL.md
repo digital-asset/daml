@@ -1017,3 +1017,8 @@ Unfortunately, [GHC builds are not deterministic](https://gitlab.haskell.org/ghc
     rm -r .bazel-cache    # clean the local cache
 
 This will also mean that changes made locally will need to be rebuilt, but it's likely that this will still result in a net positive gain on your build time.
+
+### Working in environments with low or intermittent connectivity
+
+Bazel tries to leverage the remote cache to speed up the build process but this can turn out to work against you if you are working in an environment with low or intermittent connectivity. To disable fetching from the remote cache in such scenario, you can use the `--noremote_accept_cached` option.
+
