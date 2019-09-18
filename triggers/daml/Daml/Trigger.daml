@@ -6,6 +6,7 @@ module Daml.Trigger
   ( Message(..)
   , Transaction(..)
   , Identifier(..)
+  , AnyContractId(..)
   , Event(..)
   , Created(..)
   , Archived(..)
