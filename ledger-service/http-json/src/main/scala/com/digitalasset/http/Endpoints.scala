@@ -153,13 +153,12 @@ class Endpoints(
 
         (jwt, jwtPayload, _) = input
 
-        asIgnoreQ <- eitherT(
+        as <- eitherT(
           handleFutureFailure(contractsService
             .search(jwt, jwtPayload, emptyGetActiveContractsRequest))): ET[contractsService.Result]
-        (as, _) = asIgnoreQ
 
         jsVal <- either(
-          as.toList
+          as._1.toList
             .traverse(a => encoder.encodeV(a))
             .leftMap(e => ServerError(e.shows))
             .flatMap(js => encodeList(js))
