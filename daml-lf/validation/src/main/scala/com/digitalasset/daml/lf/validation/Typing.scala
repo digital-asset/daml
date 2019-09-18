@@ -3,7 +3,7 @@
 
 package com.digitalasset.daml.lf.validation
 
-import com.digitalasset.daml.lf.data.ImmArray
+import com.digitalasset.daml.lf.data.{ImmArray, Numeric}
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.language.Util._
@@ -32,7 +32,7 @@ private[validation] object Typing {
 
   private def typeOfPrimLit(lit: PrimLit): Type = lit match {
     case PLInt64(_) => TInt64
-    case PLNumeric(s) => TNumeric(TNat(s.scale))
+    case PLNumeric(s) => TNumeric(TNat(Numeric.scale(s)))
     case PLText(_) => TText
     case PLTimestamp(_) => TTimestamp
     case PLParty(_) => TParty

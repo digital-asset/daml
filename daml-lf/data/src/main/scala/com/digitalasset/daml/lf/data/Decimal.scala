@@ -12,7 +12,7 @@ import scala.math.{BigDecimal => BigDec}
 // This object provides some legacy utility functions for Decimal
 object Decimal {
 
-  val scale: Int = 10
+  val scale: Numeric.Scale = Numeric.Scale.assertFromInt(10)
 
   def MaxValue: Numeric = Numeric.maxValue(scale)
   def MinValue: Numeric = Numeric.minValue(scale)

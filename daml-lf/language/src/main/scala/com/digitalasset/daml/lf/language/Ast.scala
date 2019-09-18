@@ -235,7 +235,8 @@ object Ast {
   final case class TVar(name: TypeVarName) extends Type
 
   /** nat type */
-  final case class TNat(n: Int) extends Type
+  // for now it can contains only a Numeric Scale
+  final case class TNat(n: Numeric.Scale) extends Type
 
   /** Reference to a type constructor. */
   final case class TTyCon(tycon: TypeConName) extends Type

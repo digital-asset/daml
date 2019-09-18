@@ -16,9 +16,11 @@ class NumericSpec
     with scalatest.Matchers
     with scalatest.prop.TableDrivenPropertyChecks {
 
+  private implicit def toScale(i: Int): Numeric.Scale = Numeric.Scale.assertFromInt(i)
+
   "fromBigDecimal" should {
-    implicit def toBigDecimal(s: String): BigDecimal =
-      new BigDecimal(s)
+
+    implicit def toBigDecimal(s: String): BigDecimal = new BigDecimal(s)
 
     "succeed for valid inputs" in {
 
