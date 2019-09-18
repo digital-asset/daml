@@ -145,7 +145,7 @@ object ValuePredicate {
           case (n, t) => (n, fromValue(v, t))
         }
         fieldP.fold(
-          sys.error(s"Cannot locate Variants (datacons, type) field, id: $id, name: $name")
+          sys.error(s"Cannot locate Variant's (datacon, type) field, id: $id, name: $name")
         )(VariantMatch)
 
       case _ => sys.error(s"Variant must have exactly 1 field, got: $fields, id: $id")
