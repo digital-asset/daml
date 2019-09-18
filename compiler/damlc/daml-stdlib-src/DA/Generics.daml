@@ -22,7 +22,6 @@
 {-# LANGUAGE TypeSynonymInstances       #-}
 {-# LANGUAGE UndecidableInstances       #-}
 {-# LANGUAGE DamlSyntax                 #-}
-{-# LANGUAGE CPP #-}
 
 daml 1.2
 

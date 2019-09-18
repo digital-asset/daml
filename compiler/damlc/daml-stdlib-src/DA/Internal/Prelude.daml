@@ -513,94 +513,54 @@ snd : (a, b) -> b
 snd (_, x) = x
 
 #ifdef DAML_NUMERIC
+#define IF_NUMERIC(a,b) a
+#else
+#define IF_NUMERIC(a,b) b
+#endif
 
 -- | `truncate x` rounds `x` toward zero.
-truncate : Numeric n -> Int
-truncate = primitive @"BENumericToInt64"
+truncate : IF_NUMERIC(Numeric n, Decimal) -> Int
+truncate = primitive @IF_NUMERIC("BENumericToInt64", "BEDecimalToInt64")
 
+#ifdef DAML_NUMERIC
 -- | Convert an `Int` to a `Numeric`.
 intToNumeric : Int -> Numeric n
 intToNumeric = primitive @"BEInt64ToNumeric"
-
--- | Convert an `Int` to a `Decimal`.
---
--- Deprecated, use `intToNumeric` instead.
-intToDecimal : Int -> Decimal
-intToDecimal = intToNumeric
-
--- | Bankers' Rounding: `roundBankers dp x` rounds `x` to `dp` decimal places, where a `.5` is rounded to the nearest even digit.
-roundBankers : Int -> Numeric n -> Numeric n
-roundBankers = primitive @"BERoundNumeric"
-
--- | Commercial Rounding: `roundCommercial dp x` rounds `x` to `dp` decimal places, where a `.5` is rounded away from zero.
-roundCommercial : Int -> Numeric n -> Numeric n
-roundCommercial d x =
-  let t = intToNumeric (10 ^ d)
-      v = round (x * t)
-      w = intToNumeric v
-  in w / t
-
--- | Round a `Numeric` to the nearest integer, where a `.5` is rounded away from zero.
-round : Numeric n -> Int
-round x = if x > aunit
-    then truncate (x + half)
-    else truncate (x - half)
-  where
-    half = munit / (munit + munit)
-
--- | Round a `Numeric` down to the nearest integer.
-floor : Numeric n -> Int
-floor x =
-  let i = truncate x
-  in if intToNumeric i <= x then i else i - munit
-
--- | Round a `Numeric` up to the nearest integer.
-ceiling : Numeric n -> Int
-ceiling x =
-  let i = truncate x
-  in if intToNumeric i < x then i + 1 else i
-
-#else
-
--- | `truncate x` rounds `x` toward zero.
-truncate : Decimal -> Int
-truncate = primitive @"BEDecimalToInt64"
+#endif
 
 -- | Convert an `Int` to a `Decimal`.
 intToDecimal : Int -> Decimal
-intToDecimal = primitive @"BEInt64ToDecimal"
+intToDecimal = IF_NUMERIC(intToNumeric, primitive @"BEInt64ToDecimal")
 
 -- | Bankers' Rounding: `roundBankers dp x` rounds `x` to `dp` decimal places, where a `.5` is rounded to the nearest even digit.
-roundBankers : Int -> Decimal -> Decimal
-roundBankers = primitive @"BERoundDecimal"
+roundBankers : Int -> IF_NUMERIC(Numeric n -> Numeric n, Decimal -> Decimal)
+roundBankers = primitive @IF_NUMERIC("BERoundNumeric", "BERoundDecimal")
 
 -- | Commercial Rounding: `roundCommercial dp x` rounds `x` to `dp` decimal places, where a `.5` is rounded away from zero.
-roundCommercial : Int -> Decimal -> Decimal
+roundCommercial : Int -> IF_NUMERIC(Numeric n -> Numeric n, Decimal -> Decimal)
 roundCommercial d x =
-  let t = intToDecimal (10 ^ d)
+  let t = IF_NUMERIC(intToNumeric, intToDecimal) (10 ^ d)
       v = round (x * t)
-      w = intToDecimal v
+      w = IF_NUMERIC(intToNumeric, intToDecimal) v
   in w / t
 
 -- | Round a `Decimal` to the nearest integer, where a `.5` is rounded away from zero.
-round : Decimal -> Int
+round : IF_NUMERIC(Numeric n, Decimal) -> Int
 round x = if x > 0.0
     then truncate (x + 0.5)
     else truncate (x - 0.5)
 
 -- | Round a `Decimal` down to the nearest integer.
-floor : Decimal -> Int
+floor : IF_NUMERIC(Numeric n, Decimal) -> Int
 floor x =
   let i = truncate x
-  in if intToDecimal i <= x then i else i - 1
+  in if IF_NUMERIC(intToNumeric, intToDecimal) i <= x then i else i - 1
 
 -- | Round a `Decimal` up to the nearest integer.
-ceiling : Decimal -> Int
+ceiling : IF_NUMERIC(Numeric n, Decimal) -> Int
 ceiling x =
   let i = truncate x
-  in if intToDecimal i < x then i + 1 else i
-
-#endif
+  in if IF_NUMERIC(intToNumeric, intToDecimal) i < x then i + 1 else i
 
 -- | Is the list empty? `null xs` is true if `xs` is the empty list.
 null : [a] -> Bool
