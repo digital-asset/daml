@@ -243,6 +243,8 @@ generateSrcFromLf (Qualify qualify) thisPkgId pkgMap m = noLoc mod
             , "ensure"
             , "create"
             , "archive"
+            , "toAnyTemplate"
+            , "fromAnyTemplate"
             ]
     classMethodStub :: Located RdrName -> LHsBindLR GhcPs GhcPs
     classMethodStub funName =
