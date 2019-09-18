@@ -115,24 +115,24 @@ instance Signed Int where
 instance Additive (Numeric n) where
     (+) = primitive @"BEAddNumeric"
     (-) = primitive @"BESubNumeric"
-    negate x = aunit - x
-    aunit = primitive @"BEInt64ToNumeric" 0
+    negate x = 0.0 - x
+    aunit = 0.0
 
 instance Multiplicative (Numeric n) where
     (*) = primitive @"BEMulNumeric"
-    munit = primitive @"BEInt64ToNumeric" 1
+    munit = 1.0
     x ^ n
-        | n == 0 = munit
+        | n == 0 = 1.0
         | n == 2 = x * x
-        | n < 0 = munit / x ^ (negate n)
+        | n < 0 = 1.0 / x ^ (negate n)
         | n % 2 == 0 = (x ^ (n / 2)) ^ 2
         | otherwise = x * x ^ (n - 1)
 
 instance Number (Numeric n)
 
 instance Signed (Numeric n) where
-    signum x = if x == aunit then aunit else if x <= aunit then (-munit) else munit
-    abs x = if x <= aunit then negate x else x
+    signum x = if x == 0.0 then 0.0 else if x <= 0.0 then (-1.0) else 1.0
+    abs x = if x <= 0.0 then negate x else x
 #else
 
 instance Additive Decimal where
@@ -172,7 +172,7 @@ instance Divisible Int where
 
 #ifdef DAML_NUMERIC
 instance Divisible (Numeric n) where
-    (/) = (primitive @"BEDivNumeric" : forall n. Numeric n -> Numeric n -> Numeric n) @n
+    (/) = primitive @"BEDivNumeric"
 #else
 instance Divisible Decimal where
     (/) = primitive @"BEDivDecimal"

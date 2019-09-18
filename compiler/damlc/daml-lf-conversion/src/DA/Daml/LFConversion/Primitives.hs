@@ -193,10 +193,10 @@ convertPrim _ "BEAddNumeric" (TNumeric n1 :-> TNumeric n2 :-> TNumeric n3) | n1 
     ETyApp (EBuiltin BEAddNumeric) n1
 convertPrim _ "BESubNumeric" (TNumeric n1 :-> TNumeric n2 :-> TNumeric n3) | n1 == n2, n1 == n3 =
     ETyApp (EBuiltin BESubNumeric) n1
-convertPrim _ "BEMulNumeric" (TNumeric n1 :-> TNumeric n2 :-> TNumeric n3) | n1 == n2, n1 == n3 =
-    ETyApp (EBuiltin BEMulNumeric) n1
-convertPrim _ "BEDivNumeric" (TNumeric n1 :-> TNumeric n2 :-> TNumeric n3) | n1 == n2, n1 == n3 =
-    ETyApp (EBuiltin BEDivNumeric) n1
+convertPrim _ "BEMulNumeric" (TNumeric n1 :-> TNumeric n2 :-> TNumeric n3) =
+    EBuiltin BEMulNumeric `ETyApp` n1 `ETyApp` n2 `ETyApp` n3
+convertPrim _ "BEDivNumeric" (TNumeric n1 :-> TNumeric n2 :-> TNumeric n3) =
+    EBuiltin BEDivNumeric `ETyApp` n1 `ETyApp` n2 `ETyApp` n3
 convertPrim _ "BERoundNumeric" (TInt64 :-> TNumeric n1 :-> TNumeric n2) | n1 == n2 =
     ETyApp (EBuiltin BERoundNumeric) n1
 convertPrim _ "BEEqualNumeric" (TNumeric n1 :-> TNumeric n2 :-> TBool) | n1 == n2 =

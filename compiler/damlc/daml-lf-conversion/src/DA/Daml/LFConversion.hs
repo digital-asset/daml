@@ -95,7 +95,7 @@ import           Control.Monad.Reader
 import           Control.Monad.State.Strict
 import           DA.Daml.LF.Ast as LF
 import           DA.Daml.LF.Ast.Type as LF
-import           DA.Daml.LF.Ast.Numeric (numericFromDecimal)
+import           DA.Daml.LF.Ast.Numeric
 import           Data.Data hiding (TyCon)
 import           Data.Foldable (foldlM)
 import           Data.Int
@@ -237,55 +237,65 @@ convertRationalDecimal env num denom
     maxPrecision = 10 :: Integer
 
 -- | Convert a rational number into a fixed scale Numeric literal. We check
--- that the number can be represented without loss of precision or overflow.
+-- that the scale is in bounds, and the number can be represented without
+-- overflow or loss of precision.
 convertRationalNumericMono :: Env -> Integer -> Integer -> Integer -> ConvertM LF.Expr
-convertRationalNumericMono env _scale num denom
- =
-    -- the denominator needs to be a divisor of 10^10.
-    -- num % denom * 10^10 needs to fit within a 128bit signed number.
-    -- note that we can also get negative rationals here, hence we ask for upperBound128Bit - 1 as
-    -- upper limit.
-    if | 10 ^ maxPrecision `mod` denom == 0 &&
-             abs (r * 10 ^ maxPrecision) <= upperBound128Bit - 1 ->
-            pure $ EBuiltin $
-            if envLfVersion env `supports` featureNumeric
-                then BENumeric $ numericFromDecimal $ fromRational r
-                else BEDecimal $ fromRational r
-       | otherwise ->
-           unsupported
-               ("Rational is out of bounds: " ++
-                show ((fromInteger num / fromInteger denom) :: Double) ++
-                ".  Maximal supported precision is e^-10, maximal range after multiplying with 10^10 is [10^38 -1, -10^38 + 1]")
-               (num, denom)
-  where
-    r = num % denom
-    upperBound128Bit = 10 ^ (38 :: Integer)
-    maxPrecision = 10 :: Integer
+convertRationalNumericMono env scale num denom =
+    if  | scale < 0 || scale > 37 ->
+            unsupported
+                ("Tried to construct value of type Numeric " ++ show scale ++ ", but scale is out of bounds. Scale must be between 0 through 37, not " ++ show scale ++ ".")
+                scale
 
--- | Convert a rational number into a variable scale Numeric literal.
-convertRationalNumericPoly :: Env -> LF.Type -> Integer -> Integer -> ConvertM LF.Expr
-convertRationalNumericPoly env scale num denom
- =
-    -- the denominator needs to be a divisor of 10^10.
-    -- num % denom * 10^10 needs to fit within a 128bit signed number.
-    -- note that we can also get negative rationals here, hence we ask for upperBound128Bit - 1 as
-    -- upper limit.
-    if | 10 ^ maxPrecision `mod` denom == 0 &&
-             abs (r * 10 ^ maxPrecision) <= upperBound128Bit - 1 ->
-            pure $ EBuiltin $
-            if envLfVersion env `supports` featureNumeric
-                then BENumeric $ numericFromDecimal $ fromRational r
-                else BEDecimal $ fromRational r
-       | otherwise ->
-           unsupported
-               ("Rational is out of bounds: " ++
+        | abs (r * 10 ^ scale) >= upperBound128Bit ->
+            unsupported
+                ("Numeric is out of bounds: " ++
                 show ((fromInteger num / fromInteger denom) :: Double) ++
-                ".  Maximal supported precision is e^-10, maximal range after multiplying with 10^10 is [10^38 -1, -10^38 + 1]")
-               (num, denom)
+                ". The range of values representable by the Numeric " ++ show scale ++ " type is  -10^" ++ show (38-scale) ++ " + 1  through  10^" ++ show (38-scale) ++ " - 1.")
+                (num, denom)
+
+        | 10^scale `mod` denom /= 0 ->
+            unsupported
+                ("Numeric cannot be represented without loss of precision: " ++
+                show ((fromInteger num / fromInteger denom) :: Double) ++
+                ". Maximum precision for the Numeric " ++ show scale ++ " type is 10^-" ++ show scale ++ ".")
+                (num, denom)
+
+        | otherwise ->
+            pure $ EBuiltin $ BENumeric $
+                numeric (fromIntegral scale)
+                        ((num * 10^scale) `div` denom)
   where
     r = num % denom
     upperBound128Bit = 10 ^ (38 :: Integer)
-    maxPrecision = 10 :: Integer
+
+-- | Convert a rational number into a variable scale Numeric literal. We check that
+-- the number can be represented at *some* Numeric scale without overflow or
+-- loss of precision, and then we round and cast (with a multi-scale MUL_NUMERIC)
+-- to the required scale. This means, for example, that a polymorphic literal like
+-- "3.141592... : Numeric n" will be correctly rounded for all scales.
+convertRationalNumericPoly :: Env -> LF.Type -> Integer -> Integer -> ConvertM LF.Expr
+convertRationalNumericPoly env outputScale num denom =
+    if  | max (abs num) (abs denom) >= upperBound128Bit
+        || inputScale < 0 || inputScale > 37 ->
+            unsupported
+                ("Numeric is out of bounds: " ++
+                show ((fromInteger num / fromInteger denom) :: Double) ++
+                ". Numeric can only represent 38 digits of precision.")
+                (num, denom)
+
+        | otherwise ->
+            pure $
+                EBuiltin BEMulNumeric
+                `ETyApp` TNat inputScale
+                `ETyApp` TNat 0
+                `ETyApp` outputScale
+                `ETmApp` EBuiltin (BENumeric $ inputNumeric)
+                `ETmApp` EBuiltin (BENumeric $ numeric 0 1)
+
+  where
+    inputNumeric = numericFromRational (num % denom)
+    inputScale = numericScale inputNumeric
+    upperBound128Bit = 10 ^ (38 :: Integer)
 
 convertModule :: LF.Version -> MS.Map UnitId T.Text -> NormalizedFilePath -> CoreModule -> Either FileDiagnostic LF.Module
 convertModule lfVersion pkgMap file x = runConvertM (ConversionEnv file Nothing) $ do
