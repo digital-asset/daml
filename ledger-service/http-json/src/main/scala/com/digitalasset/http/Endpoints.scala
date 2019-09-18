@@ -280,11 +280,11 @@ object Endpoints {
 
   private type ET[A] = EitherT[Future, Error, A]
 
+  private type ApiValue = lav1.value.Value
+
+  private type LfValue = lf.value.Value[lf.value.Value.AbsoluteContractId]
+
   type ValidateJwt = Jwt => Unauthorized \/ DecodedJwt[String]
-
-  type ApiValue = lav1.value.Value
-
-  type LfValue = lf.value.Value[lf.value.Value.AbsoluteContractId]
 
   sealed abstract class Error(message: String) extends Product with Serializable
 
