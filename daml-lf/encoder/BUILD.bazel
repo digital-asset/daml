@@ -68,10 +68,7 @@ da_scala_binary(
     srcs = glob(["src/main/scala/com/digitalasset/daml/lf/archive/testing/DamlLfEncoder.scala"]),
     main_class = "com.digitalasset.daml.lf.archive.testing.DamlLfEncoder",
     scalacopts = lf_scalacopts,
-    visibility = [
-        "//daml-lf:__subpackages__",
-        "//language-support:__subpackages__",
-    ],
+    visibility = ["//visibility:public"],
     deps = [
         ":encoder",
         "//3rdparty/jvm/com/google/protobuf:protobuf_java",

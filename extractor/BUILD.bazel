@@ -44,7 +44,6 @@ compileDependencies = [
 
 TEST_DARS = [
     "RecordsAndVariants",
-    "PrimitiveTypes",
     "TransactionExample",
 ]
 
@@ -55,6 +54,14 @@ TEST_DARS = [
     )
     for darmod in TEST_DARS
 ]
+
+genrule(
+    name = "PrimitiveTypes.dar",
+    srcs = ["src/test/resources/damls/PrimitiveTypes.lf"],
+    outs = ["PrimitiveTypes.dar"],
+    cmd = "$(location //daml-lf/encoder:encoder_binary) $(SRCS) --output $@ --target latest",
+    tools = ["//daml-lf/encoder:encoder_binary"],
+)
 
 genrule(
     name = "VeryLargeArchive_src",

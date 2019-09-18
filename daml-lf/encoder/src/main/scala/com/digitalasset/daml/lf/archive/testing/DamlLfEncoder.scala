@@ -9,7 +9,7 @@ import java.nio.file.Paths
 import java.util.zip.ZipEntry
 
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.language.{Ast, LanguageMajorVersion, LanguageVersion}
+import com.digitalasset.daml.lf.language.{Ast, LanguageMajorVersion => LMV, LanguageVersion}
 import com.digitalasset.daml.lf.testing.parser.{ParserParameters, parseModules}
 import com.digitalasset.daml.lf.validation.Validation
 
@@ -122,9 +122,14 @@ private[digitalasset] object DamlLfEncoder extends App {
 
   private def parseVersion(version: String) =
     version.split("""\.""").toSeq match {
-      case Seq("1", minor)
-          if LanguageMajorVersion.V1.supportsMinorVersion(minor) || minor == "dev" =>
-        LanguageVersion(LanguageMajorVersion.V1, minor)
+      case Seq("default") =>
+        LanguageVersion.default
+      case Seq("latest") =>
+        LanguageVersion(LMV.V1, LMV.V1.maxSupportedStableMinorVersion)
+      case Seq("dev") =>
+        LanguageVersion(LMV.V1, "dev")
+      case Seq("1", minor) if LMV.V1.supportsMinorVersion(minor) || minor == "dev" =>
+        LanguageVersion(LMV.V1, minor)
       case _ =>
         error(s"version '$version' not supported")
     }

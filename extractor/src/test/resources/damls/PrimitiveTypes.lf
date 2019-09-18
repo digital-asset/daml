@@ -1,0 +1,214 @@
+// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+module PrimitiveTypes {
+
+  /*** Atomic types ***/
+
+  record @serializable BasicPrimitiveTypes = {
+    reference: Text,
+    int_field: Int64,
+    decimal_field: Numeric 10,
+    text_field: Text,
+    bool_field: Bool,
+    party_field: Party,
+    date_field: Date,
+    time_field: Timestamp
+  };
+
+  template (this : BasicPrimitiveTypes) = {
+    precondition True,
+    signatories PrimitiveTypes:signatories,
+    observers (Nil @Party),
+    agreement "whatevs",
+    choices { }
+  };
+
+  val primitives: Scenario Unit =
+    sbind
+      c1: ContractId PrimitiveTypes:BasicPrimitiveTypes <-
+        commit @(ContractId PrimitiveTypes:BasicPrimitiveTypes) 'Bob' (
+          create @PrimitiveTypes:BasicPrimitiveTypes PrimitiveTypes:BasicPrimitiveTypes {
+            reference = "Simple values",
+            int_field = 5,
+            decimal_field = 5.5000000000,
+            text_field = "Hey",
+            bool_field = True,
+            party_field = 'Bob',
+            date_field = 2020-02-22,
+            time_field = 2020-02-22T12:13:14.000000Z
+          }
+        );
+      c2: ContractId PrimitiveTypes:BasicPrimitiveTypes <-
+        commit @(ContractId PrimitiveTypes:BasicPrimitiveTypes) 'Bob' (
+          create @PrimitiveTypes:BasicPrimitiveTypes PrimitiveTypes:BasicPrimitiveTypes {
+            reference = "Positive extremes",
+            int_field = 9223372036854775807,
+            decimal_field = 9999999999999999999999999999.9999999999,
+            text_field = "Hey",
+            bool_field = True,
+            party_field = 'Bob',
+            date_field = 9999-12-31,
+            time_field = 9999-12-31T23:59:59.000000Z
+          }
+        );
+      c3: ContractId PrimitiveTypes:BasicPrimitiveTypes <-
+        commit @(ContractId PrimitiveTypes:BasicPrimitiveTypes) 'Bob' (
+          create @PrimitiveTypes:BasicPrimitiveTypes PrimitiveTypes:BasicPrimitiveTypes {
+            reference = "Negative extremes",
+            int_field = -9223372036854775808,
+            decimal_field = -9999999999999999999999999999.9999999999,
+            text_field = "Hey",
+            bool_field = True,
+            party_field = 'Bob',
+            date_field = 0001-01-01,
+            time_field = 0001-01-01T00:00:00.000000Z
+          }
+        )
+      in
+        spure @Unit ();
+
+  /*** List ***/
+
+  record @serializable Lists = {
+    reference: Text,
+    int_list: List Int64,
+    text_list: List Text,
+    party: Party
+  };
+
+  template (this: Lists) = {
+    precondition True,
+    signatories PrimitiveTypes:signatories,
+    observers (Nil @Party),
+    agreement "whatevs",
+    choices { }
+  };
+
+  val lists: Scenario Unit =
+    sbind
+      c1: ContractId PrimitiveTypes:Lists <-
+        commit @(ContractId PrimitiveTypes:Lists) 'Bob' (
+          create @PrimitiveTypes:Lists PrimitiveTypes:Lists {
+            reference = "Empty lists",
+            int_list = Nil @Int64,
+            text_list = Nil @Text,
+            party = 'Bob'
+          }
+        );
+      c1: ContractId PrimitiveTypes:Lists <-
+        commit @(ContractId PrimitiveTypes:Lists) 'Bob' (
+          create @PrimitiveTypes:Lists PrimitiveTypes:Lists {
+            reference = "Non-empty lists",
+            int_list = Cons @Int64 [1, 2, 3, 4, 5] (Nil @Int64),
+            text_list = Cons @Text ["foo", "bar", "baz"] (Nil @Text),
+            party = 'Bob'
+        }
+      )
+    in
+      spure @Unit ();  
+
+    /*** Optional ***/
+  
+   record @serializable Optionals = {
+     reference: Text,
+     optional: Option Text,
+     deep_optional: Option (Option Text),
+     party: Party
+   };
+
+   template (this: Optionals) = {
+     precondition True,
+     signatories PrimitiveTypes:signatories,
+     observers (Nil @Party),
+     agreement "whatevs",
+     choices { }
+   };
+
+  val optionals: Scenario Unit =
+    sbind
+      c1: ContractId PrimitiveTypes:Optionals <-
+        commit @(ContractId PrimitiveTypes:Optionals) 'Bob' (
+          create @PrimitiveTypes:Optionals PrimitiveTypes:Optionals {
+            reference = "Nones",
+            optional = None @Text,
+            deep_optional = None @(Option Text),
+            party = 'Bob'
+          }
+        );
+      c2: ContractId PrimitiveTypes:Optionals <-
+        commit @(ContractId PrimitiveTypes:Optionals) 'Bob' (
+          create @PrimitiveTypes:Optionals PrimitiveTypes:Optionals {
+            reference = "Somes",
+            optional = Some @Text "foo",
+            deep_optional = Some @(Option Text) (Some @Text "foo"),
+            party = 'Bob'
+          }
+        );
+      c3: ContractId PrimitiveTypes:Optionals <-
+        commit @(ContractId PrimitiveTypes:Optionals) 'Bob' (
+          create @PrimitiveTypes:Optionals PrimitiveTypes:Optionals {
+            reference = "Some None",
+            optional = Some @Text "foo",
+            deep_optional = Some @(Option Text) (None @Text),
+            party = 'Bob'
+          }
+        )        
+    in
+      spure @Unit ();  
+      
+   
+   /*** TextMaps ***/
+   
+  record @serializable TextMaps = {
+    reference: Text,
+    map: Map Int64,
+    deep_map: Map (Map Int64),
+    party: Party
+  };
+  
+  template (this: TextMaps) = {
+    precondition True,
+    signatories PrimitiveTypes:signatories,
+    observers (Nil @Party),
+    agreement "whatevs",
+    choices { }
+  };
+
+  val map0: Map Int64 = MAP_EMPTY @Int64;
+  val map1: Map Int64 = MAP_INSERT @Int64 "1" 1 PrimitiveTypes:map0;
+  val map2: Map Int64 = MAP_INSERT @Int64 "2" 2 PrimitiveTypes:map1;
+  val map3: Map Int64 = MAP_INSERT @Int64 "3" 3 PrimitiveTypes:map2;
+  val map4: Map Int64 = MAP_INSERT @Int64 "4" 4 PrimitiveTypes:map3;
+  val map5: Map Int64 = MAP_INSERT @Int64 "5" 5 PrimitiveTypes:map4;
+
+  val maps: Scenario Unit =
+      sbind
+        c1: ContractId PrimitiveTypes:TextMaps <-
+          commit @(ContractId PrimitiveTypes:TextMaps) 'Bob' (
+            create @PrimitiveTypes:TextMaps PrimitiveTypes:TextMaps {
+              reference = "Empty maps",
+              map = PrimitiveTypes:map0,
+              deep_map = MAP_EMPTY @(Map Int64),
+              party = 'Bob'
+            }
+          );
+        c2: ContractId PrimitiveTypes:TextMaps <-
+          commit @(ContractId PrimitiveTypes:TextMaps) 'Bob' (
+            create @PrimitiveTypes:TextMaps PrimitiveTypes:TextMaps {
+              reference = "Non-empty maps",
+              map = PrimitiveTypes:map5,
+              deep_map = MAP_EMPTY @(Map Int64),
+              party = 'Bob'
+            }
+          )
+      in
+        spure @Unit ();
+
+  // signatories = ['Bob']
+
+  val @noPartyLiterals signatories: List Party = case (FROM_TEXT_PARTY "Bob") of
+      None -> ERROR @(List Party) "Unexpected Error"
+    | Some p -> (Cons @Party [p] (Nil @Party));
+
+}
