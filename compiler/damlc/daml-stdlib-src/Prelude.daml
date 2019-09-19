@@ -11,9 +11,10 @@ import DA.Internal.LF as X hiding (Pair(..), TextMap, unpackPair)
 -- Template desugaring uses fromAnyTemplate and toAnyTemplate so we
 -- can’t remove them from the typeclass for older LF versions
 -- but we can hide them.
+#ifdef DAML_ANY_TEMPLATE
 import DA.Internal.Template as X
-#ifndef DAML_ANY_TEMPLATE
-  hiding (fromAnyTemplate, toAnyTemplate)
+#else
+import DA.Internal.Template as X hiding (fromAnyTemplate, toAnyTemplate)
 #endif
 import DA.Internal.Compatible as X
 import DA.Internal.Assert as X
