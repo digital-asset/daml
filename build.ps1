@@ -36,7 +36,7 @@ bazel build //compiler/damlc/pkg-db:daml-stdlib-1.dev
 
 bazel shutdown
 
-bazel test //compiler/damlc/tests:integration-dev
+bazel test //compiler/damlc/tests/...
 
 # bazel build `-`-experimental_execution_log_file ${ARTIFACT_DIRS}/build_execution_windows.log //...
 
