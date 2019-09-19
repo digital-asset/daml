@@ -23,13 +23,11 @@ template A with
 
 template B a with
     pb : Party
-    xb : a
   where
     signatory pb
 
 template C a b c with
     pc : Party
-    xc : a
   where
     signatory pc
 

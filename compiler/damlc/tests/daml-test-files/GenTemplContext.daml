@@ -8,7 +8,7 @@
 daml 1.2
 module GenTemplContext where
 
-template A t with
+template (Eq t, Show t) => A t with
     x : t
     p : Party
   where

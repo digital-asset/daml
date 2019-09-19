@@ -8,7 +8,7 @@ template A with
   where
     signatory p
 
-template T a with
+template (Eq a, Show a) => T a with
     p : Party
     x : a
   where

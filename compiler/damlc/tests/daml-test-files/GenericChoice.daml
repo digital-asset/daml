@@ -6,7 +6,7 @@
 daml 1.2
 module GenericChoice where
 
-template Foo c with
+template (Eq c, Show c) => Foo c with
     p : Party
     a : c
   where
