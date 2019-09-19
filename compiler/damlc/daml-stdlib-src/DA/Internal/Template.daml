@@ -11,7 +11,7 @@ module DA.Internal.Template where
 import DA.Internal.LF
 import DA.Internal.Prelude
 
-class Template t where
+class (Eq t, Show t) => Template t where
 
   -- | The signatories of a contract.
   signatory : t -> [Party]
