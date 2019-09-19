@@ -4,20 +4,28 @@
 package com.digitalasset.http
 package query
 
-import json.JsonProtocol.LfValueCodec.jsValueToApiValue
-import com.digitalasset.daml.lf.data.{ImmArray, Ref, SortedLookupList}
+import json.JsonProtocol.LfValueCodec.{apiValueToJsValue, jsValueToApiValue}
+import com.digitalasset.daml.lf.data.{ImmArray, Numeric, Ref, SortedLookupList}
 import ImmArray.ImmArraySeq
 import com.digitalasset.daml.lf.iface
 import com.digitalasset.daml.lf.value.{Value => V}
-import com.digitalasset.daml.lf.value.TypedValueGenerators.{ValueAddend => VA}
+import com.digitalasset.daml.lf.value.TypedValueGenerators.{genAddend, ValueAddend => VA}
 
-import org.scalatest.prop.TableDrivenPropertyChecks
+import org.scalacheck.{Arbitrary, Gen}
+import org.scalatest.prop.{GeneratorDrivenPropertyChecks, TableDrivenPropertyChecks}
 import org.scalatest.{Matchers, WordSpec}
 import spray.json._
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
-class ValuePredicateTest extends WordSpec with Matchers with TableDrivenPropertyChecks {
+class ValuePredicateTest
+    extends WordSpec
+    with Matchers
+    with GeneratorDrivenPropertyChecks
+    with TableDrivenPropertyChecks {
   type Cid = V.AbsoluteContractId
+  private[this] val genCid = Gen.zip(Gen.alphaChar, Gen.alphaStr) map {
+    case (h, t) => V.AbsoluteContractId(Ref.ContractIdString assertFromString (h +: t))
+  }
 
   private[this] val dummyId = Ref.Identifier(
     Ref.PackageId assertFromString "dummy-package-id",
@@ -47,6 +55,7 @@ class ValuePredicateTest extends WordSpec with Matchers with TableDrivenProperty
       ("query or json", "type"),
       ("\"foo\"", VA.text),
       ("42", VA.int64),
+      ("111.11", VA.numeric(Numeric.Scale assertFromInt 10)),
       ("[1, 2, 3]", VA.list(VA.int64)),
       ("null", VAs.oi),
       ("42", VAs.oi),
@@ -88,6 +97,19 @@ class ValuePredicateTest extends WordSpec with Matchers with TableDrivenProperty
         defs
       )
       vp.toFunPredicate(wrappedExpected) shouldBe shouldMatch
+    }
+
+    "examine all sorts of primitives literally" in forAll(genAddend, minSuccessful(100)) { va =>
+      import va.injshrink
+      implicit val arbInj: Arbitrary[va.Inj[Cid]] = va.injarb(Arbitrary(genCid))
+      forAll(minSuccessful(20)) { v: va.Inj[Cid] =>
+        val expected = va.inj(v)
+        val (wrappedExpected, defs) = valueAndTypeInObject(expected, va.t)
+        val query = apiValueToJsValue(expected)
+        val vp =
+          ValuePredicate.fromJsObject(Map((dummyFieldName: String) -> query), dummyTypeCon, defs)
+        vp.toFunPredicate(wrappedExpected) shouldBe true
+      }
     }
   }
 }

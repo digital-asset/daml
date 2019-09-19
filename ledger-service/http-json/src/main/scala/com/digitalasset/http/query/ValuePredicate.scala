@@ -106,10 +106,10 @@ object ValuePredicate {
         }
         case iface.TypeNumeric(scale) => {
           case JsString(q) =>
-            val nq = Numeric fromString q fold (predicateParseError(_), identity)
+            val nq = Numeric checkWithinBoundsAndRound (scale, BigDecimal(q)) fold (predicateParseError, identity)
             Literal { case V.ValueNumeric(v) if nq == v => }
           case JsNumber(q) =>
-            val nq = Numeric fromBigDecimal (scale, q) fold (predicateParseError(_), identity)
+            val nq = Numeric checkWithinBoundsAndRound (scale, q) fold (predicateParseError, identity)
             Literal { case V.ValueNumeric(v) if nq == v => }
         }
         case iface.TypeVar(_) => predicateParseError("no vars allowed!")
