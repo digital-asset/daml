@@ -3,7 +3,8 @@
 
 -- This test demonstrates how the desugared form of the generical proposal
 -- workflow and its instantiation for an IOU look like.
--- @SINCE-LF 1.5
+-- Limited to 1.dev since we do not expose toAnyTemplate/fromAnyTemplate for older LF versions
+-- @SINCE-LF 1.dev
 daml 1.2
 module ProposalDesugared
   ( main
@@ -29,6 +30,8 @@ instance ProposalInstance t => Template (Proposal t) where
     create = _createProposal
     fetch = _fetchProposal
     archive = _archiveProposal
+    toAnyTemplate = _toAnyTemplateProposal
+    fromAnyTemplate = _fromAnyTemplateProposal
 
 instance ProposalInstance t => TemplateKey (Proposal t) ([Party], Text) where
     key = _keyProposal
@@ -64,6 +67,10 @@ class Template t => ProposalInstance t where
     _fetchProposal = error "code will be injected by the compiler"
     _archiveProposal : ContractId (Proposal t) -> Update ()
     _archiveProposal cid = _exerciseProposalArchive cid Archive
+    _toAnyTemplateProposal : Proposal t -> AnyTemplate
+    _toAnyTemplateProposal = error "code will be injected by the compiler"
+    _fromAnyTemplateProposal : AnyTemplate -> Optional (Proposal t)
+    _fromAnyTemplateProposal = error "code will be injected by the compiler"
 
     _hasKeyProposal : HasKey (Proposal t)
     _hasKeyProposal = HasKey
@@ -112,6 +119,8 @@ instance IouInstance => Template Iou where
   create = _createIou
   fetch = _fetchIou
   archive = _archiveIou
+  toAnyTemplate = _toAnyTemplateIou
+  fromAnyTemplate = _fromAnyTemplateIou
 
 data Burn = Burn{}
   deriving (Eq, Show)
@@ -138,6 +147,10 @@ class IouInstance where
   _fetchIou = error "code will be injected by the compiler"
   _archiveIou : ContractId Iou -> Update ()
   _archiveIou cid = _exerciseIouArchive cid Archive
+  _toAnyTemplateIou : Iou -> AnyTemplate
+  _toAnyTemplateIou = error "code will be injected by the compiler"
+  _fromAnyTemplateIou : AnyTemplate -> Optional Iou
+  _fromAnyTemplateIou = error "code will be injected by the compiler"
 
   _consumptionIouArchive : PreConsuming Iou
   _consumptionIouArchive = PreConsuming

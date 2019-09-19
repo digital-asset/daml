@@ -36,6 +36,13 @@ class Template t where
   -- | Archive the contract with the given contract ID.
   archive : ContractId t -> Update ()
 
+  -- | Wrap the template in AnyTemplate
+  toAnyTemplate : t -> AnyTemplate
+
+  -- | Extract the underlying template from AnyTemplate if the type matches
+  -- or return `None`.
+  fromAnyTemplate : AnyTemplate -> Optional t
+
 -- | The stakeholders of a contract: its signatories and observers.
 stakeholder : Template t => t -> [Party]
 stakeholder t = signatory t ++ observer t

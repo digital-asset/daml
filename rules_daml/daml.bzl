@@ -148,11 +148,14 @@ def _daml_doctest_impl(ctx):
     script = """
       set -eou pipefail
       DAMLC=$(rlocation $TEST_WORKSPACE/{damlc})
+      CPP=$(rlocation $TEST_WORKSPACE/{cpp})
       rlocations () {{ for i in $@; do echo $(rlocation $TEST_WORKSPACE/$i); done; }}
-      $DAMLC doctest {flags} --cpp {cpp} --package-name {package_name}-`cat $(rlocation $TEST_WORKSPACE/{version_file})` $(rlocations "{files}")
+      $DAMLC doctest {flags} --cpp $CPP --package-name {package_name}-`cat $(rlocation $TEST_WORKSPACE/{version_file})` $(rlocations "{files}")
     """.format(
         damlc = ctx.executable.damlc.short_path,
-        cpp = ctx.executable.cpp.short_path,
+        # we end up with "../haskell_hpp/bin" while we want "external/haskell_hpp/bin"
+        # so we just do the replacement ourselves.
+        cpp = ctx.executable.cpp.short_path.replace("..", "external", maxsplit = 1),
         package_name = ctx.attr.package_name,
         flags = " ".join(ctx.attr.flags),
         version_file = ctx.file.version.path,
