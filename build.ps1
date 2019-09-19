@@ -32,8 +32,14 @@ bazel shutdown
 
 bazel clean --expunge
 
-bazel build `-`-experimental_execution_log_file ${ARTIFACT_DIRS}/build_execution_windows.log //...
+bazel build //compiler/damlc/pkg-db:daml-stdlib-1.dev
 
 bazel shutdown
 
-bazel test `-`-experimental_execution_log_file ${ARTIFACT_DIRS}/test_execution_windows.log //...
+bazel test //compiler/damlc/tests:integration-dev
+
+# bazel build `-`-experimental_execution_log_file ${ARTIFACT_DIRS}/build_execution_windows.log //...
+
+# bazel shutdown
+
+# bazel test `-`-experimental_execution_log_file ${ARTIFACT_DIRS}/test_execution_windows.log //...
