@@ -105,7 +105,7 @@ def _daml_package_rule_impl(ctx):
         tools = [ctx.executable.damlc_bootstrap, ctx.executable.cpp],
         progress_message = "Compiling " + name + ".daml to daml-lf " + ctx.attr.daml_lf_version,
         command = """
-      set -eou pipefail
+      set -eoux pipefail
       PKG_NAME=`cat {pkg_name_version_file}`
 
       # Compile the dalf file

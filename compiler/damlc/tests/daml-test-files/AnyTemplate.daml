@@ -1,0 +1,48 @@
+-- Copyright (c) 2019, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- @SINCE-LF 1.dev
+daml 1.2 module AnyTemplate where
+
+import DA.Assert
+
+template T1
+  with
+    x : Int
+    p : Party
+  where
+    signatory p
+
+template T2
+  with
+    y : Text
+    p : Party
+  where
+    signatory p
+
+template Template t => GenericT t
+  with
+    wrapped : t
+    p : Party
+  where
+    signatory p
+
+template instance GT1 = GenericT T1
+template instance GT2 = GenericT T2
+
+main = scenario do
+  p <- getParty "Alice"
+  let t1 = T1 0 p
+  let t2 = T2 "" p
+  let gT1 = GenericT t1 p
+  let gT2 = GenericT t2 p
+  fromAnyTemplate @T1 (toAnyTemplate t1) === Some t1
+  fromAnyTemplate @T2 (toAnyTemplate t1) === None
+  fromAnyTemplate @T2 (toAnyTemplate t2) === Some t2
+  fromAnyTemplate @T1 (toAnyTemplate t2) === None
+  fromAnyTemplate @(GenericT T1) (toAnyTemplate gT1) === Some gT1
+  fromAnyTemplate @(GenericT T2) (toAnyTemplate gT1) === None
+  fromAnyTemplate @T1 (toAnyTemplate gT1) === None
+  fromAnyTemplate @(GenericT T2) (toAnyTemplate gT2) === Some gT2
+  fromAnyTemplate @(GenericT T1) (toAnyTemplate gT2) === None
+  fromAnyTemplate @T2 (toAnyTemplate gT2) === None
