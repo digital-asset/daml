@@ -248,14 +248,14 @@ convertRationalNumericMono env scale num denom =
 
         | abs (r * 10 ^ scale) >= upperBound128Bit ->
             unsupported
-                ("Numeric is out of bounds: " ++
+                ("Rational is out of bounds: " ++
                 show ((fromInteger num / fromInteger denom) :: Double) ++
                 ". The range of values representable by the Numeric " ++ show scale ++ " type is  -10^" ++ show (38-scale) ++ " + 1  through  10^" ++ show (38-scale) ++ " - 1.")
                 (num, denom)
 
-        | 10^scale `mod` denom /= 0 ->
+        | (num * 10^scale) `mod` denom /= 0 ->
             unsupported
-                ("Numeric cannot be represented without loss of precision: " ++
+                ("Rational is out of bounds: it cannot be represented without loss of precision. " ++
                 show ((fromInteger num / fromInteger denom) :: Double) ++
                 ". Maximum precision for the Numeric " ++ show scale ++ " type is 10^-" ++ show scale ++ ".")
                 (num, denom)

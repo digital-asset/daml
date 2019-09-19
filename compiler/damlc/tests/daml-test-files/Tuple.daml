@@ -12,8 +12,8 @@ testFirst = scenario do
   (3, "abc") === first length ([1,2,3], "abc")
 
 testSecond = scenario do
-  (5.0, 12) === second (*4) (5.0, 3)
-  (5.0, 3) === second length (5.0, [1,2,3])
+  (5.0, 12) === second (*4) ((5.0 : Decimal), 3)
+  (5.0, 3) === second length ((5.0 : Decimal), [1,2,3])
 
 testBoth = scenario do
   (3, 1) === both length ([1,2,3], [1])
