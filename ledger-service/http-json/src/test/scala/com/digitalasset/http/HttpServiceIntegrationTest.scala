@@ -24,9 +24,10 @@ import com.digitalasset.ledger.api.v1.value.Record
 import com.digitalasset.ledger.api.v1.{value => v}
 import com.typesafe.scalalogging.StrictLogging
 import org.scalatest._
-import scalaz.\/-
+import scalaz.std.list._
 import scalaz.syntax.show._
 import scalaz.syntax.traverse._
+import scalaz.{\/, \/-}
 import spray.json._
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -77,41 +78,93 @@ class HttpServiceIntegrationTest
       }: Future[Assertion]
   }
 
-  "contracts/search with query" in withHttpService(dar, testId) { (uri, encoder, _) =>
-    val query: JsValue =
-      SprayJson
-        .parse(
-          """{"%templates": [{"moduleName": "Iou", "entityName": "Iou"}], "currency": "EUR"}""")
-        .valueOr(e => fail(e.shows))
+  "contracts/search with query, one field" in withHttpService(dar, testId) { (uri, encoder, _) =>
+    searchWithQuery(
+      List(
+        iouCreateCommand(amount = "111.11", currency = "EUR"),
+        iouCreateCommand(amount = "222.22", currency = "EUR"),
+        iouCreateCommand(amount = "333.33", currency = "GBP"),
+        iouCreateCommand(amount = "444.44", currency = "BTC"),
+      ),
+      jsObject(
+        """{"%templates": [{"moduleName": "Iou", "entityName": "Iou"}], "currency": "EUR"}"""),
+      uri,
+      encoder
+    ).map { acl: List[domain.ActiveContract[JsValue]] =>
+      acl.size shouldBe 2
+      acl.map(a => objectField(a.argument, "currency")) shouldBe List.fill(2)(Some(JsString("EUR")))
+    }
+  }
 
-    Future
-      .sequence(List(
-        postCreateCommand(iouCreateCommand(amount = "111.11", currency = "EUR"), encoder, uri),
-        postCreateCommand(iouCreateCommand(amount = "222.22", currency = "EUR"), encoder, uri),
-        postCreateCommand(iouCreateCommand(amount = "333.33", currency = "GBP"), encoder, uri),
-        postCreateCommand(iouCreateCommand(amount = "444.44", currency = "BTC"), encoder, uri),
-      ))
-      .flatMap { response =>
-        response.map(_._1) shouldBe List.fill(4)(StatusCodes.OK)
-        postJsonRequest(uri.withPath(Uri.Path("/contracts/search")), query, headersWithAuth)
-          .flatMap {
-            case (status, output) =>
-              status shouldBe StatusCodes.OK
+  "contracts/search with query, two fields" in withHttpService(dar, testId) { (uri, encoder, _) =>
+    searchWithQuery(
+      List(
+        iouCreateCommand(amount = "111.11", currency = "EUR"),
+        iouCreateCommand(amount = "222.22", currency = "EUR"),
+        iouCreateCommand(amount = "333.33", currency = "GBP"),
+        iouCreateCommand(amount = "444.44", currency = "BTC"),
+      ),
+      jsObject(
+        """{"%templates": [{"moduleName": "Iou", "entityName": "Iou"}], "currency": "EUR", "amount": "111.11"}"""),
+      uri,
+      encoder
+    ).map { acl: List[domain.ActiveContract[JsValue]] =>
+      acl.size shouldBe 1
+      acl.map(a => objectField(a.argument, "currency")) shouldBe List.fill(1)(Some(JsString("EUR")))
+      acl.map(a => objectField(a.argument, "amount")) shouldBe
+        List.fill(1)(Some(JsString("111.11")))
+    }
+  }
 
-              val result = SprayJson
-                .objectField(output, "result")
-                .getOrElse(fail(s"output: $output is missing result element"))
+  "contracts/search with query, no results" in withHttpService(dar, testId) { (uri, encoder, _) =>
+    searchWithQuery(
+      List(
+        iouCreateCommand(amount = "111.11", currency = "EUR"),
+        iouCreateCommand(amount = "222.22", currency = "EUR"),
+        iouCreateCommand(amount = "333.33", currency = "GBP"),
+        iouCreateCommand(amount = "444.44", currency = "BTC"),
+      ),
+      jsObject(
+        """{"%templates": [{"moduleName": "Iou", "entityName": "Iou"}], "currency": "RUB", "amount": "666.66"}"""),
+      uri,
+      encoder
+    ).map { acl: List[domain.ActiveContract[JsValue]] =>
+      acl.size shouldBe 0
+    }
+  }
 
-              val searchResponse = SprayJson
-                .decode[List[domain.GetActiveContractsResponse[JsValue]]](result)
-                .valueOr(e => fail(e.shows))
-              val acl: List[domain.ActiveContract[JsValue]] = activeContractList(searchResponse)
+  private def jsObject(s: String): JsObject = {
+    val r: JsonError \/ JsObject = for {
+      jsVal <- SprayJson.parse(s).leftMap(e => JsonError(e.shows))
+      jsObj <- SprayJson.mustBeJsObject(jsVal)
+    } yield jsObj
+    r.valueOr(e => fail(e.shows))
+  }
 
-              acl.size shouldBe 2
-              acl.map(a => objectField(a.argument, "currency")) shouldBe List.fill(2)(
-                Some(JsString("EUR")))
-          }
+  private def searchWithQuery(
+      commands: List[domain.CreateCommand[v.Record]],
+      query: JsObject,
+      uri: Uri,
+      encoder: DomainJsonEncoder): Future[List[domain.ActiveContract[JsValue]]] = {
+    import scalaz.std.scalaFuture._
+
+    commands.traverse(c => postCreateCommand(c, encoder, uri)).flatMap { rs =>
+      rs.map(_._1) shouldBe List.fill(commands.size)(StatusCodes.OK)
+      postJsonRequest(uri.withPath(Uri.Path("/contracts/search")), query, headersWithAuth).map {
+        case (status, output) =>
+          status shouldBe StatusCodes.OK
+
+          val result = SprayJson
+            .objectField(output, "result")
+            .getOrElse(fail(s"output: $output is missing result element"))
+
+          val searchResponse = SprayJson
+            .decode[List[domain.GetActiveContractsResponse[JsValue]]](result)
+            .valueOr(e => fail(e.shows))
+
+          activeContractList(searchResponse): List[domain.ActiveContract[JsValue]]
       }
+    }
   }
 
   "command/create IOU" in withHttpService(dar, testId) { (uri, encoder, decoder) =>
