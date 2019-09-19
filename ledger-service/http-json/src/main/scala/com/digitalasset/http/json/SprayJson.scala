@@ -52,4 +52,9 @@ object SprayJson {
     case b: JsObject => \/-(b)
     case _ => -\/(JsonError(s"Expected JsObject, got: ${a: JsValue}"))
   }
+
+  def objectField(o: JsValue, f: String): Option[JsValue] = o match {
+    case JsObject(fields) => fields.get(f)
+    case _ => None
+  }
 }

@@ -13,7 +13,9 @@ import com.digitalasset.daml.bazeltools.BazelRunfiles._
 import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.digitalasset.http.HttpServiceTestFixture.{jsonCodecs, withHttpService, withLedger}
 import com.digitalasset.http.domain.TemplateId.OptionalPkg
+import com.digitalasset.http.json.SprayJson.objectField
 import com.digitalasset.http.json._
+import com.digitalasset.http.util.FutureUtil.toFuture
 import com.digitalasset.http.util.TestUtil.requiredFile
 import com.digitalasset.jwt.JwtSigner
 import com.digitalasset.jwt.domain.{DecodedJwt, Jwt}
@@ -23,8 +25,8 @@ import com.digitalasset.ledger.api.v1.{value => v}
 import com.typesafe.scalalogging.StrictLogging
 import org.scalatest._
 import scalaz.\/-
-import scalaz.syntax.functor._
 import scalaz.syntax.show._
+import scalaz.syntax.traverse._
 import spray.json._
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -60,7 +62,7 @@ class HttpServiceIntegrationTest
 
   private val headersWithAuth = List(Authorization(OAuth2BearerToken(jwt.value)))
 
-  "contracts/search test" in withHttpService(dar, testId) { (uri: Uri, _, _) =>
+  "contracts/search without query" in withHttpService(dar, testId) { (uri: Uri, _, _) =>
     getRequest(uri = uri.withPath(Uri.Path("/contracts/search")), headers = headersWithAuth)
       .flatMap {
         case (status, output) =>
@@ -75,11 +77,47 @@ class HttpServiceIntegrationTest
       }: Future[Assertion]
   }
 
-  "command/create IOU" in withHttpService(dar, testId) { (uri, encoder, decoder) =>
-    val command: domain.CreateCommand[v.Record] = iouCreateCommand
-    val input: JsObject = encoder.encodeR(command).valueOr(e => fail(e.shows))
+  "contracts/search with query" in withHttpService(dar, testId) { (uri, encoder, _) =>
+    val query: JsValue =
+      SprayJson
+        .parse(
+          """{"%templates": [{"moduleName": "Iou", "entityName": "Iou"}], "currency": "EUR"}""")
+        .valueOr(e => fail(e.shows))
 
-    postJsonRequest(uri.withPath(Uri.Path("/command/create")), input, headersWithAuth).flatMap {
+    Future
+      .sequence(List(
+        postCreateCommand(iouCreateCommand(amount = "111.11", currency = "EUR"), encoder, uri),
+        postCreateCommand(iouCreateCommand(amount = "222.22", currency = "EUR"), encoder, uri),
+        postCreateCommand(iouCreateCommand(amount = "333.33", currency = "GBP"), encoder, uri),
+        postCreateCommand(iouCreateCommand(amount = "444.44", currency = "BTC"), encoder, uri),
+      ))
+      .flatMap { response =>
+        response.map(_._1) shouldBe List.fill(4)(StatusCodes.OK)
+        postJsonRequest(uri.withPath(Uri.Path("/contracts/search")), query, headersWithAuth)
+          .flatMap {
+            case (status, output) =>
+              status shouldBe StatusCodes.OK
+
+              val result = SprayJson
+                .objectField(output, "result")
+                .getOrElse(fail(s"output: $output is missing result element"))
+
+              val searchResponse = SprayJson
+                .decode[List[domain.GetActiveContractsResponse[JsValue]]](result)
+                .valueOr(e => fail(e.shows))
+              val acl: List[domain.ActiveContract[JsValue]] = activeContractList(searchResponse)
+
+              acl.size shouldBe 2
+              acl.map(a => objectField(a.argument, "currency")) shouldBe List.fill(2)(
+                Some(JsString("EUR")))
+          }
+      }
+  }
+
+  "command/create IOU" in withHttpService(dar, testId) { (uri, encoder, decoder) =>
+    val command: domain.CreateCommand[v.Record] = iouCreateCommand()
+
+    postCreateCommand(command, encoder, uri).flatMap {
       case (status, output) =>
         status shouldBe StatusCodes.OK
         assertStatus(output, StatusCodes.OK)
@@ -96,7 +134,7 @@ class HttpServiceIntegrationTest
   "command/create IOU should fail if authorization header is missing" in withHttpService(
     dar,
     testId) { (uri, encoder, _) =>
-    val command: domain.CreateCommand[v.Record] = iouCreateCommand
+    val command: domain.CreateCommand[v.Record] = iouCreateCommand()
     val input: JsObject = encoder.encodeR(command).valueOr(e => fail(e.shows))
 
     postJsonRequest(uri.withPath(Uri.Path("/command/create")), input, List()).flatMap {
@@ -112,7 +150,7 @@ class HttpServiceIntegrationTest
     dar,
     testId) { (uri, encoder, _) =>
     val command: domain.CreateCommand[v.Record] =
-      iouCreateCommand.copy(templateId = domain.TemplateId(None, "Iou", "Dummy"))
+      iouCreateCommand().copy(templateId = domain.TemplateId(None, "Iou", "Dummy"))
     val input: JsObject = encoder.encodeR(command).valueOr(e => fail(e.shows))
 
     postJsonRequest(uri.withPath(Uri.Path("/command/create")), input, headersWithAuth).flatMap {
@@ -127,10 +165,8 @@ class HttpServiceIntegrationTest
   }
 
   "command/exercise IOU_Transfer" in withHttpService(dar, testId) { (uri, encoder, decoder) =>
-    val create: domain.CreateCommand[v.Record] = iouCreateCommand
-    val createJson: JsObject = encoder.encodeR(create).valueOr(e => fail(e.shows))
-
-    postJsonRequest(uri.withPath(Uri.Path("/command/create")), createJson, headersWithAuth)
+    val create: domain.CreateCommand[v.Record] = iouCreateCommand()
+    postCreateCommand(create, encoder, uri)
       .flatMap {
         case (createStatus, createOutput) =>
           createStatus shouldBe StatusCodes.OK
@@ -221,7 +257,7 @@ class HttpServiceIntegrationTest
       decoder: DomainJsonDecoder): Assertion = {
     import json.JsonProtocol._
 
-    val command0: domain.CreateCommand[v.Record] = iouCreateCommand
+    val command0: domain.CreateCommand[v.Record] = iouCreateCommand()
 
     val x = for {
       jsonObj <- encoder.encodeR(command0)
@@ -267,14 +303,16 @@ class HttpServiceIntegrationTest
 
   private def removeRecordId(a: v.Record): v.Record = a.copy(recordId = None)
 
-  private def iouCreateCommand: domain.CreateCommand[v.Record] = {
+  private def iouCreateCommand(
+      amount: String = "999.9900000000",
+      currency: String = "USD"): domain.CreateCommand[v.Record] = {
     val templateId: OptionalPkg = domain.TemplateId(None, "Iou", "Iou")
     val arg: Record = v.Record(
       fields = List(
         v.RecordField("issuer", Some(v.Value(v.Value.Sum.Party("Alice")))),
         v.RecordField("owner", Some(v.Value(v.Value.Sum.Party("Alice")))),
-        v.RecordField("currency", Some(v.Value(v.Value.Sum.Text("USD")))),
-        v.RecordField("amount", Some(v.Value(v.Value.Sum.Numeric("999.9900000000")))),
+        v.RecordField("currency", Some(v.Value(v.Value.Sum.Text(currency)))),
+        v.RecordField("amount", Some(v.Value(v.Value.Sum.Numeric(amount)))),
         v.RecordField("observers", Some(v.Value(v.Value.Sum.List(v.List()))))
       ))
 
@@ -351,4 +389,17 @@ class HttpServiceIntegrationTest
           case Some(JsArray(Vector(JsString(errorMsg)))) => errorMsg
         }
     }
+
+  private def postCreateCommand(
+      cmd: domain.CreateCommand[v.Record],
+      encoder: DomainJsonEncoder,
+      uri: Uri): Future[(StatusCode, JsValue)] =
+    for {
+      json <- toFuture(encoder.encodeR(cmd)): Future[JsObject]
+      result <- postJsonRequest(uri.withPath(Uri.Path("/command/create")), json, headersWithAuth)
+    } yield result
+
+  private def activeContractList[A](
+      response: List[domain.GetActiveContractsResponse[A]]): List[domain.ActiveContract[A]] =
+    response.flatMap(_.activeContracts)
 }
