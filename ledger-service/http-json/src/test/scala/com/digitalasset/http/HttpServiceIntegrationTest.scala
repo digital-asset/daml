@@ -133,10 +133,8 @@ class HttpServiceIntegrationTest
       uri,
       encoder).map { acl: List[domain.ActiveContract[JsValue]] =>
       acl.size shouldBe 1
-      acl.map(a => objectField(a.argument, "currency")) shouldBe
-        List.fill(1)(Some(JsString("EUR")))
-      acl.map(a => objectField(a.argument, "amount")) shouldBe
-        List.fill(1)(Some(JsString("111.11")))
+      acl.map(a => objectField(a.argument, "currency")) shouldBe List(Some(JsString("EUR")))
+      acl.map(a => objectField(a.argument, "amount")) shouldBe List(Some(JsString("111.11")))
     }
   }
 
