@@ -120,6 +120,13 @@ class HttpServiceIntegrationTest
             inside(rs.map(_._2)) {
               case List(jsVal1, jsVal2) =>
                 jsVal1 shouldBe jsVal2
+                val acl1: List[domain.ActiveContract[JsValue]] = activeContractList(jsVal1)
+                val acl2: List[domain.ActiveContract[JsValue]] = activeContractList(jsVal2)
+                acl1 shouldBe acl2
+                inside(acl1) {
+                  case List(ac) =>
+                    objectField(ac.argument, "amount") shouldBe Some(JsString("111.11"))
+                }
             }
           }
       }
@@ -170,16 +177,7 @@ class HttpServiceIntegrationTest
       postJsonRequest(uri.withPath(Uri.Path("/contracts/search")), query).map {
         case (status, output) =>
           status shouldBe StatusCodes.OK
-
-          val result = SprayJson
-            .objectField(output, "result")
-            .getOrElse(fail(s"output: $output is missing result element"))
-
-          val searchResponse = SprayJson
-            .decode[List[domain.GetActiveContractsResponse[JsValue]]](result)
-            .valueOr(e => fail(e.shows))
-
-          activeContractList(searchResponse): List[domain.ActiveContract[JsValue]]
+          activeContractList(output)
       }
     }
   }
@@ -465,6 +463,18 @@ class HttpServiceIntegrationTest
       json <- toFuture(encoder.encodeR(cmd)): Future[JsObject]
       result <- postJsonRequest(uri.withPath(Uri.Path("/command/create")), json)
     } yield result
+
+  private def activeContractList(output: JsValue): List[domain.ActiveContract[JsValue]] = {
+    val result = SprayJson
+      .objectField(output, "result")
+      .getOrElse(fail(s"output: $output is missing result element"))
+
+    val searchResponse = SprayJson
+      .decode[List[domain.GetActiveContractsResponse[JsValue]]](result)
+      .valueOr(e => fail(e.shows))
+
+    activeContractList(searchResponse): List[domain.ActiveContract[JsValue]]
+  }
 
   private def activeContractList[A](
       response: List[domain.GetActiveContractsResponse[A]]): List[domain.ActiveContract[A]] =
