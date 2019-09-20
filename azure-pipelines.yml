@@ -141,6 +141,10 @@ jobs:
           INSTALLER=daml-sdk-$(cat VERSION)-windows.exe
           mv "$(Build.StagingDirectory)/$(unsigned-installer)" "$(Build.StagingDirectory)/$INSTALLER"
           chmod +x "$(Build.StagingDirectory)/$INSTALLER"
+          cleanup () {
+              rm -f signing_key.pfx
+          }
+          trap cleanup EXIT
           echo "$SIGNING_KEY" | base64 -d > signing_key.pfx
           MSYS_NO_PATHCONV=1 signtool.exe sign '/f' signing_key.pfx '/fd' sha256 '/tr' "http://timestamp.digicert.com" '/v' "$(Build.StagingDirectory)/$INSTALLER"
           rm signing_key.pfx
@@ -205,6 +209,24 @@ jobs:
           artifactName: $(artifact-windows-installer)
           targetPath: $(Build.StagingDirectory)/release
         condition: not(eq(variables['skip-github'], 'TRUE'))
+      - bash: |
+          set -euo pipefail
+          KEY_FILE=$(mktemp)
+          GPG_DIR=$(mktemp -d)
+          cleanup() {
+              rm -rf $KEY_FILE $GPG_DIR
+          }
+          trap cleanup EXIT
+          echo "$GPG_KEY" > $KEY_FILE
+          gpg --homedir $GPG_DIR --no-tty --quiet --import $KEY_FILE
+          cd $(Build.StagingDirectory)/release
+          # Note: relies on our release artifacts not having spaces in their
+          # names. Creates a ${f}.asc with the signature for each $f.
+          for f in *; do
+              gpg --homedir $GPG_DIR -ab $f
+          done
+        env:
+          GPG_KEY: $(gpg-code-signing)
       - task: GitHubRelease@0
         inputs:
           gitHubConnection: 'garyverhaegen-da'
@@ -307,6 +329,10 @@ jobs:
           REPORT_GZ=$(mktemp)
           cat $REPORT | gzip -9 > $REPORT_GZ
           GCS_KEY=$(mktemp)
+          cleanup() {
+              rm -rf $GCS_KEY
+          }
+          trap cleanup EXIT
           # Application credentials will not be set for forks. We give up on
           # tracking those for now. "Not set" in Azure world means set to the
           # expression Azure would otherwise substitute, i.e. the literal value
