@@ -208,6 +208,5 @@ unpackPair = magic @"unpackPair"
 
 -- | Existential template type that can wrap an arbitrary template.
 data AnyTemplate =
-  -- | HIDE
   AnyTemplate Opaque
 -- We need the constructor to avoid GHC warning about impossible pattern matches.
