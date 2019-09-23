@@ -1069,19 +1069,13 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
           _ <- alpha.create(submitter, AgreementFactory(listener, submitter))
           _ <- synchronize(alpha, beta)
           trees <- alpha.transactionTrees(listener, submitter)
-          _ <- eventually {
-            for {
-              byId <- Future.sequence(
-                trees.map(t => beta.transactionTreeById(t.transactionId, listener, submitter)))
-            } yield {
-              assertEquals(
-                "The events fetched by identifier did not match with the ones on the transaction stream",
-                trees,
-                byId)
-            }
-          }
+          byId <- Future.sequence(
+            trees.map(t => beta.transactionTreeById(t.transactionId, listener, submitter)))
         } yield {
-          // Checks performed in the `eventually` block
+          assertEquals(
+            "The events fetched by identifier did not match with the ones on the transaction stream",
+            trees,
+            byId)
         }
     }
 
