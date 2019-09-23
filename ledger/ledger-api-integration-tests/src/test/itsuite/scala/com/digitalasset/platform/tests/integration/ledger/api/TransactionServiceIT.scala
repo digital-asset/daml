@@ -4,7 +4,7 @@
 package com.digitalasset.platform.tests.integration.ledger.api
 
 import akka.Done
-import akka.stream.scaladsl.{Sink, Source}
+import akka.stream.scaladsl.Sink
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.grpc.adapter.utils.DirectExecutionContext
 import com.digitalasset.ledger.api.domain.{EventId, LedgerId}
@@ -13,15 +13,9 @@ import com.digitalasset.ledger.api.testing.utils.{
   IsStatusException,
   SuiteResourceManagementAroundAll
 }
-import com.digitalasset.ledger.api.v1.commands.ExerciseCommand
-import com.digitalasset.ledger.api.v1.event.Event.Event.{Archived, Created}
-import com.digitalasset.ledger.api.v1.event.{ArchivedEvent, CreatedEvent, Event}
-import com.digitalasset.ledger.api.v1.transaction.{Transaction, TransactionTree, TreeEvent}
+import com.digitalasset.ledger.api.v1.event.Event
+import com.digitalasset.ledger.api.v1.transaction.{TransactionTree, TreeEvent}
 import com.digitalasset.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
-import com.digitalasset.ledger.api.v1.transaction_service.GetLedgerEndResponse
-import com.digitalasset.ledger.api.v1.transaction_service.TransactionServiceGrpc.TransactionService
-import com.digitalasset.ledger.api.v1.value.Value.Sum
-import com.digitalasset.ledger.api.v1.value.{Identifier, Record, Value}
 import com.digitalasset.ledger.client.services.transactions.TransactionClient
 import com.digitalasset.platform.api.v1.event.EventOps._
 import com.digitalasset.platform.apitesting.LedgerContextExtensions._
@@ -29,9 +23,8 @@ import com.digitalasset.platform.apitesting.LedgerOffsets._
 import com.digitalasset.platform.apitesting.TestParties._
 import com.digitalasset.platform.apitesting._
 import com.digitalasset.platform.esf.TestExecutionSequencerFactory
-import com.digitalasset.platform.participant.util.ValueConversions._
 import com.digitalasset.platform.services.time.TimeProviderType
-import io.grpc.{Status, StatusRuntimeException}
+import io.grpc.Status
 import org.scalatest._
 import org.scalatest.concurrent.AsyncTimeLimitedTests
 import org.scalatest.time.Span
@@ -51,7 +44,6 @@ class TransactionServiceIT
     with Inside
     with AsyncTimeLimitedTests
     with TestExecutionSequencerFactory
-    with ParameterShowcaseTesting
     with OptionValues
     with Matchers {
 
@@ -65,410 +57,9 @@ class TransactionServiceIT
 
   override val timeLimit: Span = scaled(300.seconds)
 
-  private def newClient(stub: TransactionService, ledgerId: LedgerId): TransactionClient =
-    new TransactionClient(ledgerId, stub)
-
   private val configuredParties = config.parties
 
-  private val unitArg = Value(Sum.Record(Record.defaultInstance))
-
   "Transaction Service" when {
-
-    "submitting and reading transactions" should {
-
-      "serve the proper content for each party, regardless of single/multi party subscription" in allFixtures {
-        c =>
-          for {
-            mpResults <- c.transactionClient
-              .getTransactions(
-                LedgerBegin,
-                Some(LedgerEnd),
-                TransactionFilter(configuredParties.map(_ -> Filters.defaultInstance).toMap))
-              .runWith(Sink.seq)
-            spResults <- Future.sequence(configuredParties.map { party =>
-              c.transactionClient
-                .getTransactions(
-                  LedgerBegin,
-                  Some(LedgerEnd),
-                  TransactionFilter(
-                    Map(party -> Filters.defaultInstance)
-                  ))
-                .runWith(Sink.seq)
-            })
-          } yield {
-            val brokenUpMultiPartyEvents = mpResults.flatMap(tx =>
-              tx.events.flatMap { event =>
-                withClue("All disclosed events should have a non-empty set of witnesses")(
-                  event.witnesses should not be empty)
-                event.witnesses.map(w => event.withWitnesses(List(w)))
-            })
-            val singlePartyEvents = spResults.flatten.flatMap(_.events)
-
-            brokenUpMultiPartyEvents should contain theSameElementsAs singlePartyEvents
-          }
-      }
-
-      "allow fetching a contract that has been created in the same transaction" in allFixtures {
-        context =>
-          val createAndFetchTid = templateIds.createAndFetch
-          for {
-            createdEvent <- context.submitCreate(
-              testIdsGenerator.testCommandId("CreateAndFetch_Create"),
-              createAndFetchTid,
-              List("p" -> Alice.asParty).asRecordFields,
-              Alice)
-            cid = createdEvent.contractId
-            exerciseTx <- context.submitExercise(
-              testIdsGenerator.testCommandId("CreateAndFetch_Run"),
-              createAndFetchTid,
-              Value(Value.Sum.Record(Record())),
-              "CreateAndFetch_Run",
-              cid,
-              Alice
-            )
-          } yield {
-            val events = exerciseTx.events.map(_.event)
-            val (created, archived) = events.partition(_.isCreated)
-            created should have length 1
-            getHead(archived).archived.value.contractId shouldEqual cid
-          }
-
-      }
-
-    }
-
-    "ledger Ids don't match" should {
-
-      "fail with the expected status" in allFixtures { context =>
-        newClient(context.transactionService, LedgerId("notLedgerId"))
-          .getTransactions(LedgerBegin, Some(LedgerEnd), TransactionFilters.allForParties(Alice))
-          .runWith(Sink.head)
-          .failed
-          .map(IsStatusException(Status.NOT_FOUND))
-      }
-
-    }
-
-    "querying ledger end" should {
-
-      "return the value if ledger Ids match" in allFixtures { context =>
-        context.transactionClient.getLedgerEnd.map(_ => succeed)
-      }
-
-      "return NOT_FOUND if ledger Ids don't match" in allFixtures { context =>
-        newClient(context.transactionService, LedgerId(s"not-${context.ledgerId.unwrap}")).getLedgerEnd.failed
-          .map(IsStatusException(Status.NOT_FOUND))
-
-      }
-    }
-
-    "asking for historical transaction trees by id" should {
-
-      "return the transaction tree if it exists, and the party can see it" in allFixtures {
-        context =>
-          for {
-            GetLedgerEndResponse(Some(beginOffset)) <- context.transactionClient.getLedgerEnd
-            _ <- insertCommandsUnique("tree-provenance-by-id", 1, context)
-            firstTransaction <- context.transactionClient
-              .getTransactions(beginOffset, None, TransactionFilters.allForParties(Alice))
-              .runWith(Sink.head)
-            transactionId = firstTransaction.transactionId
-            response <- context.transactionClient
-              .getTransactionById(transactionId, List(Alice))
-            notVisibleError <- context.transactionClient
-              .getTransactionById(transactionId, List(Bob))
-              .failed
-          } yield {
-            response.transaction should not be empty
-            inside(notVisibleError) {
-              case sre: StatusRuntimeException =>
-                sre.getStatus.getCode shouldEqual Status.NOT_FOUND.getCode
-                sre.getStatus.getDescription shouldEqual "Transaction not found, or not visible."
-            }
-          }
-      }
-
-      "return NOT_FOUND if it does not exist" in allFixtures { context =>
-        context.transactionClient
-          .getTransactionById(
-            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-            List(Alice))
-          .failed
-          .map(IsStatusException(Status.NOT_FOUND))
-      }
-
-      "fail with the expected status on a ledger Id mismatch" in allFixtures { context =>
-        newClient(context.transactionService, LedgerId(s"not-${context.ledgerId.unwrap}"))
-          .getTransactionById("invalid", List(Alice))
-          .failed
-          .map(IsStatusException(Status.NOT_FOUND))
-      }
-
-      "fail with INVALID_ARGUMENT status if the requesting parties field is empty" in allFixtures {
-        context =>
-          context.transactionClient
-            .getTransactionById("invalid", Nil)
-            .failed
-            .map(IsStatusException(Status.INVALID_ARGUMENT))
-      }
-
-      "return the same events for each tx as the transaction stream itself" in allFixtures {
-        context =>
-          val requestingParties = TransactionFilters.allForParties(Alice).filtersByParty.keySet
-
-          Source
-            .fromFuture(context.transactionClient.getLedgerEnd)
-            .map(resp => resp.getOffset)
-            .flatMapConcat(
-              beginOffset =>
-                context.transactionClient
-                  .getTransactions(
-                    beginOffset,
-                    Some(LedgerEnd),
-                    TransactionFilters.allForParties(Alice),
-                    true))
-            .mapAsyncUnordered(16) { tx =>
-              context.transactionClient
-                .getTransactionById(tx.transactionId, requestingParties.toList)
-                .map(tx -> _.getTransaction)
-            }
-            .runFold(succeed) { (acc, pair) =>
-              inside(pair) {
-                case (tx, tree) =>
-                  tx.transactionId shouldEqual tree.transactionId
-                  tx.traceContext shouldEqual tree.traceContext
-                  tx.commandId shouldEqual tree.commandId
-                  tx.effectiveAt shouldEqual tree.effectiveAt
-                  tx.workflowId shouldEqual tree.workflowId
-                  // tx.offset shouldEqual tree.offset We don't return the offset.
-                  // TODO we can't get proper Archived Event Ids while the old daml core interpreter is in place. ADD JIRA
-                  val flatEvents = tx.events.map {
-                    case Event(Archived(v)) => Archived(v.copy(eventId = ""))
-                    case other => other.event
-                  }
-                  val treeEvents =
-                    tree.rootEventIds.flatMap(e => getEventsFromTree(e, tree.eventsById, Nil))
-
-                  withClue("Non-requesting party present among witnesses") {
-                    treeEvents.foreach { event =>
-                      event.witnesses.foreach(party => requestingParties should contain(party))
-                    }
-                  }
-
-                  treeEvents.filter(_.isCreated) should contain theSameElementsAs flatEvents.filter(
-                    _.isCreated)
-                  // there are some transient archives present in the events generated from the tree
-                  treeEvents.filter(_.isArchived) should contain allElementsOf flatEvents.filter(
-                    _.isArchived)
-                  succeed
-              }
-            }
-      }
-    }
-
-    "asking for historical flat transactions by id" should {
-
-      "return the flat transaction if it exists, and the party can see it" in allFixtures {
-        context =>
-          for {
-            GetLedgerEndResponse(Some(beginOffset)) <- context.transactionClient.getLedgerEnd
-            _ <- insertCommandsUnique("flat-provenance-by-id", 1, context)
-            firstTransaction <- context.transactionClient
-              .getTransactions(beginOffset, None, TransactionFilters.allForParties(Alice))
-              .runWith(Sink.head)
-            transactionId = firstTransaction.transactionId
-            response <- context.transactionClient
-              .getFlatTransactionById(transactionId, List(Alice))
-            notVisibleError <- context.transactionClient
-              .getFlatTransactionById(transactionId, List(Bob))
-              .failed
-          } yield {
-            response.transaction should not be empty
-            inside(notVisibleError) {
-              case sre: StatusRuntimeException =>
-                sre.getStatus.getCode shouldEqual Status.NOT_FOUND.getCode
-                sre.getStatus.getDescription shouldEqual "Transaction not found, or not visible."
-            }
-          }
-      }
-
-      "return NOT_FOUND if it does not exist" in allFixtures { context =>
-        context.transactionClient
-          .getFlatTransactionById(
-            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-            List(Alice))
-          .failed
-          .map(IsStatusException(Status.NOT_FOUND))
-      }
-
-      "fail with the expected status on a ledger Id mismatch" in allFixtures { context =>
-        newClient(context.transactionService, LedgerId(s"not-${context.ledgerId.unwrap}"))
-          .getFlatTransactionById("invalid", List(Alice))
-          .failed
-          .map(IsStatusException(Status.NOT_FOUND))
-      }
-
-      "fail with INVALID_ARGUMENT status if the requesting parties field is empty" in allFixtures {
-        context =>
-          context.transactionClient
-            .getFlatTransactionById("invalid", Nil)
-            .failed
-            .map(IsStatusException(Status.INVALID_ARGUMENT))
-      }
-
-      "return the same events for each tx as the transaction stream itself" in allFixtures {
-        context =>
-          val requestingParties = TransactionFilters.allForParties(Alice).filtersByParty.keySet
-          Source
-            .fromFuture(context.transactionClient.getLedgerEnd)
-            .map(resp => resp.getOffset)
-            .flatMapConcat(
-              beginOffset =>
-                context.transactionClient
-                  .getTransactions(
-                    beginOffset,
-                    Some(LedgerEnd),
-                    TransactionFilters.allForParties(Alice),
-                    true))
-            .mapAsyncUnordered(16) { tx =>
-              context.transactionClient
-                .getFlatTransactionById(tx.transactionId, requestingParties.toList)
-                .map(tx -> _.getTransaction)
-            }
-            .runFold(succeed) {
-              case (acc, (original, byId)) =>
-                byId shouldBe original
-            }
-      }
-    }
-
-    "asking for historical transaction trees by event id" should {
-      "return the transaction tree if it exists" in allFixtures { context =>
-        for {
-          GetLedgerEndResponse(Some(beginOffset)) <- context.transactionClient.getLedgerEnd
-          _ <- insertCommandsUnique("tree-provenance-by-event-id", 1, context)
-          tx <- context.transactionClient
-            .getTransactions(beginOffset, None, TransactionFilters.allForParties(Alice))
-            .runWith(Sink.head)
-          eventId = tx.events.headOption
-            .map(_.event match {
-              case Archived(v) => v.eventId
-              case Created(v) => v.eventId
-              case Event.Event.Empty => fail(s"Received empty event in $tx")
-            })
-            .value
-          result <- context.transactionClient
-            .getTransactionByEventId(eventId, List(Alice))
-
-          notVisibleError <- context.transactionClient
-            .getTransactionByEventId(eventId, List(Bob))
-            .failed
-        } yield {
-          result.transaction should not be empty
-
-          inside(notVisibleError) {
-            case sre: StatusRuntimeException =>
-              sre.getStatus.getCode shouldEqual Status.NOT_FOUND.getCode
-              sre.getStatus.getDescription shouldEqual "Transaction not found, or not visible."
-          }
-        }
-      }
-
-      "return INVALID_ARGUMENT for invalid event IDs" in allFixtures { context =>
-        context.transactionClient
-          .getTransactionByEventId("don't worry, be happy", List(Alice))
-          .failed
-          .map(IsStatusException(Status.INVALID_ARGUMENT))
-      }
-
-      "return NOT_FOUND if it does not exist" in allFixtures { context =>
-        context.transactionClient
-          .getTransactionByEventId(
-            "#aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:000",
-            List(Alice))
-          .failed
-          .map(IsStatusException(Status.NOT_FOUND))
-      }
-
-      "fail with the expected status on a ledger Id mismatch" in allFixtures { context =>
-        newClient(context.transactionService, LedgerId(s"not-${context.ledgerId.unwrap}"))
-          .getTransactionByEventId("#42:0", List(Alice))
-          .failed
-          .map(IsStatusException(Status.NOT_FOUND))
-      }
-
-      "fail with INVALID_ARGUMENT status if the requesting parties field is empty" in allFixtures {
-        context =>
-          context.transactionClient
-            .getTransactionByEventId("invalid", Nil)
-            .failed
-            .map(IsStatusException(Status.INVALID_ARGUMENT))
-      }
-    }
-
-    "asking for historical flat transactions by event id" should {
-      "return the flat transaction if it exists" in allFixtures { context =>
-        for {
-          GetLedgerEndResponse(Some(beginOffset)) <- context.transactionClient.getLedgerEnd
-          _ <- insertCommandsUnique("flat-provenance-by-event-id", 1, context)
-          tx <- context.transactionClient
-            .getTransactions(beginOffset, None, TransactionFilters.allForParties(Alice))
-            .runWith(Sink.head)
-          eventId = tx.events.headOption
-            .map(_.event match {
-              case Archived(v) => v.eventId
-              case Created(v) => v.eventId
-              case Event.Event.Empty => fail(s"Received empty event in $tx")
-            })
-            .value
-          result <- context.transactionClient
-            .getFlatTransactionByEventId(eventId, Seq(Alice))
-
-          notVisibleError <- context.transactionClient
-            .getFlatTransactionByEventId(eventId, List(Bob))
-            .failed
-        } yield {
-          result.transaction should not be empty
-
-          inside(notVisibleError) {
-            case sre: StatusRuntimeException =>
-              sre.getStatus.getCode shouldEqual Status.NOT_FOUND.getCode
-              sre.getStatus.getDescription shouldEqual "Transaction not found, or not visible."
-          }
-        }
-      }
-
-      "return INVALID_ARGUMENT for invalid event IDs" in allFixtures { context =>
-        context.transactionClient
-          .getFlatTransactionByEventId("don't worry, be happy", List(Alice))
-          .failed
-          .map(IsStatusException(Status.INVALID_ARGUMENT))
-      }
-
-      "return NOT_FOUND if it does not exist" in allFixtures { context =>
-        context.transactionClient
-          .getFlatTransactionByEventId(
-            "#aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:000",
-            List(Alice))
-          .failed
-          .map(IsStatusException(Status.NOT_FOUND))
-      }
-
-      "fail with the expected status on a ledger Id mismatch" in allFixtures { context =>
-        newClient(context.transactionService, LedgerId(s"not-${context.ledgerId.unwrap}"))
-          .getFlatTransactionByEventId("#42:0", List(Alice))
-          .failed
-          .map(IsStatusException(Status.NOT_FOUND))
-      }
-
-      "fail with INVALID_ARGUMENT status if the requesting parties field is empty" in allFixtures {
-        context =>
-          context.transactionClient
-            .getFlatTransactionByEventId("invalid", Nil)
-            .failed
-            .map(IsStatusException(Status.INVALID_ARGUMENT))
-      }
-    }
 
     "reading transactions events " should {
 
@@ -707,32 +298,6 @@ class TransactionServiceIT
 
   }
 
-  private def getEventsFromTree(
-      eventId: String,
-      events: Map[String, TreeEvent],
-      inheritedWitnesses: Seq[String] = Nil): Seq[Event.Event] = {
-    val event = events(eventId).kind
-    event match {
-      case TreeEvent.Kind.Empty => fail("Unexpected empty event")
-      case TreeEvent.Kind.Created(c) => List(Event.Event.Created(c))
-      case TreeEvent.Kind.Exercised(e) =>
-        val allWitnesses = e.witnessParties ++ inheritedWitnesses
-        val childEvents = e.childEventIds.flatMap { e =>
-          getEventsFromTree(e, events, allWitnesses)
-        }
-        childEvents ++ (if (e.consuming)
-                          // TODO we can't get proper Archived Event Ids while the old daml core interpreter is in place. ADD JIRA
-                          List(
-                            Archived(
-                              ArchivedEvent("", e.contractId, e.templateId, allWitnesses.distinct)))
-                        else Nil)
-    }
-  }
-
-  private def exerciseCallChoice(exercisedTemplate: Identifier, factoryContractId: String) = {
-    ExerciseCommand(Some(exercisedTemplate), factoryContractId, "DummyFactoryCall", Some(unitArg))
-  }
-
   private def insertCommands(
       prefix: String,
       commandsPerSection: Int,
@@ -753,23 +318,6 @@ class TransactionServiceIT
       context: LedgerContext): Future[Done] = {
     insertCommands(testIdsGenerator.testCommandId(prefix), commandsPerSection, context)
   }
-
-  def getHead[T](elements: Iterable[T]): T = {
-    elements should have size 1
-    elements.headOption.value
-  }
-
-  private def createdEventsIn(transaction: Transaction): Seq[CreatedEvent] =
-    transaction.events
-      .map(_.event)
-      .collect {
-        case Created(createdEvent) => createdEvent
-      }
-
-  private def archivedEventsIn(transaction: Transaction): Seq[ArchivedEvent] =
-    transaction.events.map(_.event).collect {
-      case Archived(archivedEvent) => archivedEvent
-    }
 
   private def removeOtherWitnesses(t: TransactionTree, party: String): TransactionTree = {
     t.copy(eventsById = t.eventsById.map {

@@ -43,6 +43,7 @@ import com.digitalasset.ledger.api.v1.transaction_filter.{
 }
 import com.digitalasset.ledger.api.v1.transaction_service.{
   GetLedgerEndRequest,
+  GetTransactionByEventIdRequest,
   GetTransactionByIdRequest,
   GetTransactionsRequest
 }
@@ -116,6 +117,15 @@ private[testtool] final class ParticipantTestContext private[participant] (
     */
   def currentEnd(): Future[LedgerOffset] =
     services.transaction.getLedgerEnd(new GetLedgerEndRequest(ledgerId)).map(_.getOffset)
+
+  /**
+    * Works just like [[currentEnd]] but allows to override the ledger identifier.
+    *
+    * Used only for low-level testing. Please use the other method unless you want to test the
+    * behavior of the ledger end endpoint with a wrong ledger identifier.
+    */
+  def currentEnd(overrideLedgerId: String): Future[LedgerOffset] =
+    services.transaction.getLedgerEnd(new GetLedgerEndRequest(overrideLedgerId)).map(_.getOffset)
 
   def time(): Future[Instant] =
     SingleItemObserver
@@ -286,11 +296,75 @@ private[testtool] final class ParticipantTestContext private[participant] (
   def transactionTrees(take: Int, parties: Party*): Future[Vector[TransactionTree]] =
     transactionTrees(take, getTransactionsRequest(parties))
 
+  /**
+    * Create a [[GetTransactionByIdRequest]] with an identifier and a set of [[Party]] objects.
+    * You should use this only when you need to tweak the request of [[transactionTreeById]] or
+    * [[flatTransactionById]], otherwise use the shortcut override that allows you to directly
+    * pass the identifier and parties.
+    */
+  def getTransactionByIdRequest(
+      transactionId: String,
+      parties: Seq[Party]): GetTransactionByIdRequest =
+    new GetTransactionByIdRequest(ledgerId, transactionId, Tag.unsubst(parties))
+
+  /**
+    * Non-managed version of [[transactionTreeById]], use this only if you need to tweak the request (i.e. to test low-level details)
+    */
+  def transactionTreeById(request: GetTransactionByIdRequest): Future[TransactionTree] =
+    services.transaction.getTransactionById(request).map(_.getTransaction)
+
+  /**
+    * Managed version of [[transactionTrees]], use this unless you need to tweak the request (i.e. to test low-level details)
+    */
   def transactionTreeById(transactionId: String, parties: Party*): Future[TransactionTree] =
-    services.transaction
-      .getTransactionById(
-        new GetTransactionByIdRequest(ledgerId, transactionId, Tag.unsubst(parties)))
-      .map(_.getTransaction)
+    transactionTreeById(getTransactionByIdRequest(transactionId, parties))
+
+  /**
+    * Non-managed version of [[flatTransactionById]], use this only if you need to tweak the request (i.e. to test low-level details)
+    */
+  def flatTransactionById(request: GetTransactionByIdRequest): Future[Transaction] =
+    services.transaction.getFlatTransactionById(request).map(_.getTransaction)
+
+  /**
+    * Managed version of [[flatTransactionById]], use this unless you need to tweak the request (i.e. to test low-level details)
+    */
+  def flatTransactionById(transactionId: String, parties: Party*): Future[Transaction] =
+    flatTransactionById(getTransactionByIdRequest(transactionId, parties))
+
+  /**
+    * Create a [[GetTransactionByEventIdRequest]] with an identifier and a set of [[Party]] objects.
+    * You should use this only when you need to tweak the request of [[transactionTreeByEventId]] or
+    * [[flatTransactionByEventId]], otherwise use the shortcut override that allows you to directly
+    * pass the identifier and parties.
+    */
+  def getTransactionByEventIdRequest(
+      eventId: String,
+      parties: Seq[Party]): GetTransactionByEventIdRequest =
+    new GetTransactionByEventIdRequest(ledgerId, eventId, Tag.unsubst(parties))
+
+  /**
+    * Non-managed version of [[transactionTreeByEventId]], use this only if you need to tweak the request (i.e. to test low-level details)
+    */
+  def transactionTreeByEventId(request: GetTransactionByEventIdRequest): Future[TransactionTree] =
+    services.transaction.getTransactionByEventId(request).map(_.getTransaction)
+
+  /**
+    * Managed version of [[transactionTreeByEventId]], use this unless you need to tweak the request (i.e. to test low-level details)
+    */
+  def transactionTreeByEventId(eventId: String, parties: Party*): Future[TransactionTree] =
+    transactionTreeByEventId(getTransactionByEventIdRequest(eventId, parties))
+
+  /**
+    * Non-managed version of [[flatTransactionByEventId]], use this only if you need to tweak the request (i.e. to test low-level details)
+    */
+  def flatTransactionByEventId(request: GetTransactionByEventIdRequest): Future[Transaction] =
+    services.transaction.getFlatTransactionByEventId(request).map(_.getTransaction)
+
+  /**
+    * Managed version of [[flatTransactionByEventId]], use this unless you need to tweak the request (i.e. to test low-level details)
+    */
+  def flatTransactionByEventId(eventId: String, parties: Party*): Future[Transaction] =
+    flatTransactionByEventId(getTransactionByEventIdRequest(eventId, parties))
 
   private def extractContracts[T](transaction: Transaction): Seq[Primitive.ContractId[T]] =
     transaction.events.collect {
@@ -322,6 +396,12 @@ private[testtool] final class ParticipantTestContext private[participant] (
       exercise: Party => Primitive.Update[T]
   ): Future[TransactionTree] =
     submitAndWaitRequest(party, exercise(party).command).flatMap(submitAndWaitForTransactionTree)
+
+  def exerciseForFlatTransaction[T](
+      party: Party,
+      exercise: Party => Primitive.Update[T]
+  ): Future[Transaction] =
+    submitAndWaitRequest(party, exercise(party).command).flatMap(submitAndWaitForTransaction)
 
   def exerciseAndGetContract[T](
       party: Party,
