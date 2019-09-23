@@ -5,6 +5,7 @@ module Main (main) where
 import qualified Codec.Archive.Zip as Zip
 import Conduit hiding (connect)
 import qualified Data.Conduit.Zlib as Zlib
+import Data.Conduit.Tar.Extra (dropDirectory1)
 import qualified Data.Conduit.Tar.Extra as Tar.Conduit.Extra
 import Control.Concurrent
 import Control.Concurrent.Async
@@ -241,6 +242,41 @@ packagingTests tmpDir = testGroup "packaging"
         assertBool "B.daml missing" (any (\f -> takeFileName f == "B.daml") darFiles)
         assertBool "B.hi missing" (any (\f -> takeFileName f == "B.hi") darFiles)
         assertBool "B.hie missing" (any (\f -> takeFileName f == "B.hie") darFiles)
+
+    , testCase "Root source file in subdir" $ withTempDir $ \projDir -> do
+        -- Test that the daml source files get included properly if "source" points to a file
+        -- in a subdirectory.
+        createDirectoryIfMissing True (projDir </> "A")
+        createDirectoryIfMissing True (projDir </> "B")
+        writeFileUTF8 (projDir </> "A/B.daml") $ unlines
+          [ "daml 1.2"
+          , "module A.B where"
+          , "import B.C ()"
+          ]
+        writeFileUTF8 (projDir </> "B/C.daml") $ unlines
+          [ "daml 1.2"
+          , "module B.C where"
+          ]
+        writeFileUTF8 (projDir </> "daml.yaml") $ unlines
+          [ "sdk-version: " <> sdkVersion
+          , "name: proj"
+          , "version: 0.1.0"
+          , "source: A/B.daml"
+          , "dependencies: [daml-prim, daml-stdlib]"
+          ]
+        withCurrentDirectory projDir $ callCommandQuiet "daml build"
+        let dar = projDir </> ".daml/dist/proj-0.1.0.dar"
+        assertBool "proj-0.1.0.dar was not created." =<< doesFileExist dar
+        darFiles <- Zip.filesInArchive . Zip.toArchive <$> BSL.readFile dar
+        let checkSource dir file =
+              assertBool (dir </> file <> " missing") $
+              any (\f -> normalise (dropDirectory1 f) == dir </> file) darFiles
+        checkSource "A" "B.daml"
+        checkSource "A" "B.hi"
+        checkSource "A" "B.hie"
+        checkSource "B" "C.daml"
+        checkSource "B" "C.hi"
+        checkSource "B" "C.hie"
 
     , testCase "Imports from differen directories" $ withTempDir $ \projDir -> do
         -- Regression test for #2929
