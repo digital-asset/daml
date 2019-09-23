@@ -1,5 +1,7 @@
 # HTTP JSON Service
 
+**WARNING:** the HTTP JSON API described in this document is actively being designed and is subject to breaking changes.
+
 ## How to start
 
 ### Start sandbox from a DAML project directory
