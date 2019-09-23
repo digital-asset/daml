@@ -456,7 +456,7 @@ quickstartTests quickstartDir mvnDir = testGroup "quickstart"
                   manager <- newManager defaultManagerSettings
                   resp <- httpLbs req manager
                   responseBody resp @?=
-                      "{\"status\":200,\"result\":[{\"offset\":\"0\",\"activeContracts\":[]}]}"
+                      "{\"status\":200,\"result\":[]}"
                   -- waitForProcess' will block on Windows so we explicitly kill the process.
                   terminateProcess jsonApiPh
               terminateProcess sandboxPh
