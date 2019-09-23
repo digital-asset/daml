@@ -267,7 +267,7 @@ packagingTests tmpDir = testGroup "packaging"
           , "source: ."
           , "dependencies: [daml-prim, daml-stdlib]"
           ]
-        withCurrentDirectory projDir $ callCommand "daml build"
+        withCurrentDirectory projDir $ callCommandQuiet "daml build"
 
     , testCase "Project without exposed modules" $ withTempDir $ \projDir -> do
         writeFileUTF8 (projDir </> "A.daml") $ unlines
