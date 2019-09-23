@@ -149,8 +149,8 @@ generateSrcPkgFromLf thisPkgId pkgMap pkg = do
             ]
         | LF.unModuleName (LF.moduleName m) == ["DA", "Internal", "Template"] =
             [ ""
-            , "class Template c where"
-            , "   signatory :: c -> [DA.Internal.LF.Party]"
+            , "class (Eq t, Show t) => Template t where"
+            , "   signatory :: t -> [DA.Internal.LF.Party]"
             ]
         | LF.unModuleName (LF.moduleName m) == ["GHC", "Types"] =
             [ ""
@@ -317,6 +317,7 @@ generateSrcFromLf (Qualify qualify) thisPkgId pkgMap m = noLoc mod
                              (LF.Qualified LF.PRSelf (LF.moduleName m) dataTypeCon))
                         (map (LF.TVar . fst) dataParams)
             let occName = mkOccName varName $ T.unpack $ sanitize dataTypeCon0
+            let mkClsTy = noLoc . HsTyVar noExt NotPromoted . noLoc . mkRdrQual (mkModuleName "DA.Internal.Desugar") . mkClsOcc
             let dataDecl =
                     noLoc $
                     TyClD noExt $
@@ -340,7 +341,9 @@ generateSrcFromLf (Qualify qualify) thisPkgId pkgMap m = noLoc mod
                                   , dd_cType = Nothing
                                   , dd_kindSig = Nothing
                                   , dd_cons = convDataCons dataTypeCon0 dataCons
-                                  , dd_derivs = noLoc []
+                                  , dd_derivs = noLoc
+                                        [ noLoc $ HsDerivingClause noExt Nothing $ noLoc $
+                                          map (HsIB noExt . mkClsTy) ["Eq", "Show"] ]
                                   }
                         }
             -- dummy template instance to make sure we get a template instance in the interface
