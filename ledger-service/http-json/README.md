@@ -1,5 +1,7 @@
 # HTTP JSON Service
 
+**WARNING:** the HTTP JSON API described in this document is actively being designed and is subject to breaking changes.
+
 ## How to start
 
 ### Start sandbox from a DAML project directory
@@ -71,7 +73,8 @@ supports such tokens.
 ### POST http://localhost:7575/contracts/search
 application/json body:
 ```
-{"%templates": [{"moduleName": "Iou", "entityName": "Iou"}]}
+{"%templates": [{"moduleName": "Iou", "entityName": "Iou"}],
+ "amount": 999.99}
 ```
 empty output:
 ```

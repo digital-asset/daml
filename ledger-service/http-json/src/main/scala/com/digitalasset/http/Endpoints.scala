@@ -8,12 +8,13 @@ import akka.http.scaladsl.model._
 import akka.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
 import akka.stream.Materializer
 import akka.util.ByteString
+import com.digitalasset.daml.lf
 import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
 import com.digitalasset.http.domain.JwtPayload
 import com.digitalasset.http.json.ResponseFormats._
 import com.digitalasset.http.json.{DomainJsonDecoder, DomainJsonEncoder, SprayJson}
-import com.digitalasset.http.util.FutureUtil
 import com.digitalasset.http.util.FutureUtil.{either, eitherT}
+import com.digitalasset.http.util.{ApiValueToLfValueConverter, FutureUtil}
 import com.digitalasset.jwt.domain.{DecodedJwt, Jwt}
 import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
 import com.digitalasset.ledger.api.{v1 => lav1}
@@ -115,7 +116,8 @@ class Endpoints(
   private def encodeList(as: Seq[JsValue]): ServerError \/ JsValue =
     SprayJson.encode(as).leftMap(e => ServerError(e.shows))
 
-  private val emptyGetActiveContractsRequest = domain.GetActiveContractsRequest(Set.empty)
+  private val emptyGetActiveContractsRequest =
+    domain.GetActiveContractsRequest(Set.empty, Map.empty)
 
   lazy val contracts: PartialFunction[HttpRequest, Future[HttpResponse]] = {
     case req @ HttpRequest(GET, Uri.Path("/contracts/lookup"), _, _, _) =>
@@ -152,12 +154,11 @@ class Endpoints(
         (jwt, jwtPayload, _) = input
 
         as <- eitherT(
-          handleFutureFailure(
-            contractsService.search(jwt, jwtPayload, emptyGetActiveContractsRequest))): ET[
-          Seq[domain.GetActiveContractsResponse[lav1.value.Value]]]
+          handleFutureFailure(contractsService
+            .search(jwt, jwtPayload, emptyGetActiveContractsRequest))): ET[contractsService.Result]
 
         jsVal <- either(
-          as.toList
+          as._1.toList
             .traverse(a => encoder.encodeV(a))
             .leftMap(e => ServerError(e.shows))
             .flatMap(js => encodeList(js))
@@ -181,19 +182,32 @@ class Endpoints(
 
         as <- eitherT(
           handleFutureFailure(contractsService.search(jwt, jwtPayload, cmd))
-        ): ET[Seq[domain.GetActiveContractsResponse[lav1.value.Value]]]
+        ): ET[contractsService.Result]
 
-        jsVal <- either(
-          as.toList
-            .traverse(a => encoder.encodeV(a))
-            .leftMap(e => ServerError(e.shows))
-            .flatMap(js => encodeList(js))
-        ): ET[JsValue]
+        xs <- either(
+          as._1.toList.traverse(_.traverse(v => apValueToLfValue(v)))
+        ): ET[List[domain.GetActiveContractsResponse[LfValue]]]
 
-      } yield jsVal
+        ys = contractsService
+          .filterSearch(as._2, xs): Seq[domain.GetActiveContractsResponse[LfValue]]
+
+        js <- either(
+          ys.toList.traverse(_.traverse(v => lfValueToJsValue(v)))
+        ): ET[Seq[domain.GetActiveContractsResponse[JsValue]]]
+
+        j <- either(SprayJson.encode(js).leftMap(e => ServerError(e.shows))): ET[JsValue]
+
+      } yield j
 
       httpResponse(et)
   }
+
+  private def apValueToLfValue(a: ApiValue): Error \/ LfValue =
+    ApiValueToLfValueConverter.apiValueToLfValue(a).leftMap(e => ServerError(e.shows))
+
+  private def lfValueToJsValue(a: LfValue): Error \/ JsValue =
+    \/.fromTryCatchNonFatal(LfValueCodec.apiValueToJsValue(a)).leftMap(e =>
+      ServerError(e.getMessage))
 
   private def httpResponse(output: ET[JsValue]): Future[HttpResponse] = {
     val fa: Future[Error \/ JsValue] = output.run
@@ -265,6 +279,10 @@ class Endpoints(
 object Endpoints {
 
   private type ET[A] = EitherT[Future, Error, A]
+
+  private type ApiValue = lav1.value.Value
+
+  private type LfValue = lf.value.Value[lf.value.Value.AbsoluteContractId]
 
   type ValidateJwt = Jwt => Unauthorized \/ DecodedJwt[String]
 

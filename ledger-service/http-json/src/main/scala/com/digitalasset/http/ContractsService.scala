@@ -5,7 +5,9 @@ package com.digitalasset.http
 
 import akka.stream.Materializer
 import akka.stream.scaladsl.Sink
+import com.digitalasset.daml.lf.value.{Value => V}
 import com.digitalasset.http.domain.{GetActiveContractsRequest, JwtPayload, TemplateId}
+import com.digitalasset.http.query.ValuePredicate
 import com.digitalasset.http.util.FutureUtil.toFuture
 import com.digitalasset.http.util.IdentifierConverters.apiIdentifier
 import com.digitalasset.jwt.domain.Jwt
@@ -13,13 +15,18 @@ import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
 import com.digitalasset.ledger.api.{v1 => lav1}
 import scalaz.std.string._
 import scalaz.{-\/, \/-}
+import spray.json.JsValue
 
 import scala.concurrent.{ExecutionContext, Future}
 
 class ContractsService(
     resolveTemplateIds: PackageService.ResolveTemplateIds,
     getActiveContracts: LedgerClientJwt.GetActiveContracts,
+    lookupType: query.ValuePredicate.TypeLookup,
     parallelism: Int = 8)(implicit ec: ExecutionContext, mat: Materializer) {
+
+  type Result = (Seq[domain.GetActiveContractsResponse[lav1.value.Value]], CompiledPredicates)
+  type CompiledPredicates = Map[domain.TemplateId.RequiredPkg, query.ValuePredicate]
 
   def lookup(
       jwt: Jwt,
@@ -39,7 +46,7 @@ class ContractsService(
       templateId: TemplateId.OptionalPkg,
       contractKey: lav1.value.Value): Future[Option[domain.ActiveContract[lav1.value.Value]]] =
     for {
-      as <- search(jwt, party, Set(templateId))
+      (as, _) <- search(jwt, party, Set(templateId), Map.empty)
       a = findByContractKey(contractKey)(as)
     } yield a
 
@@ -60,7 +67,7 @@ class ContractsService(
       templateId: Option[TemplateId.OptionalPkg],
       contractId: String): Future[Option[domain.ActiveContract[lav1.value.Value]]] =
     for {
-      as <- search(jwt, party, templateIds(templateId))
+      (as, _) <- search(jwt, party, templateIds(templateId), Map.empty)
       a = findByContractId(contractId)(as)
     } yield a
 
@@ -74,19 +81,37 @@ class ContractsService(
       .flatMap(a => a.activeContracts)
       .find(x => (x.contractId: String) == k)
 
-  def search(jwt: Jwt, jwtPayload: JwtPayload, request: GetActiveContractsRequest)
-    : Future[Seq[domain.GetActiveContractsResponse[lav1.value.Value]]] =
-    search(jwt, jwtPayload.party, request.templateIds)
+  def search(jwt: Jwt, jwtPayload: JwtPayload, request: GetActiveContractsRequest): Future[Result] =
+    search(jwt, jwtPayload.party, request.templateIds, request.query)
 
-  def search(jwt: Jwt, party: lar.Party, templateIds: Set[domain.TemplateId.OptionalPkg])
-    : Future[Seq[domain.GetActiveContractsResponse[lav1.value.Value]]] =
+  def search(
+      jwt: Jwt,
+      party: lar.Party,
+      templateIds: Set[domain.TemplateId.OptionalPkg],
+      q: Map[String, JsValue]): Future[Result] =
     for {
       templateIds <- toFuture(resolveTemplateIds(templateIds))
-      activeContracts <- getActiveContracts(jwt, transactionFilter(party, templateIds), true)
+      allActiveContracts <- getActiveContracts(jwt, transactionFilter(party, templateIds), true)
         .mapAsyncUnordered(parallelism)(gacr =>
           toFuture(domain.GetActiveContractsResponse.fromLedgerApi(gacr)))
         .runWith(Sink.seq)
-    } yield activeContracts
+      predicates = templateIds.iterator.map(a => (a, valuePredicate(a, q))).toMap
+    } yield (allActiveContracts, predicates)
+
+  def filterSearch(
+      compiledPredicates: CompiledPredicates,
+      rawContracts: Seq[domain.GetActiveContractsResponse[V[V.AbsoluteContractId]]])
+    : Seq[domain.GetActiveContractsResponse[V[V.AbsoluteContractId]]] = {
+    val predFuns = compiledPredicates transform ((_, vp) => vp.toFunPredicate)
+    rawContracts map (gacr =>
+      gacr copy (activeContracts = gacr.activeContracts.filter(ac =>
+        predFuns get ac.templateId forall (_(ac.argument)))))
+  }
+
+  private def valuePredicate(
+      templateId: domain.TemplateId.RequiredPkg,
+      q: Map[String, JsValue]): query.ValuePredicate =
+    ValuePredicate.fromTemplateJsObject(q, templateId, lookupType)
 
   private def transactionFilter(
       party: lar.Party,
