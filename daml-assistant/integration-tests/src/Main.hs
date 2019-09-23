@@ -354,15 +354,11 @@ packagingTests tmpDir = testGroup "packaging"
         callCommandQuiet $ unwords ["daml", "migrate", projectRollback, bDar, aDar]
         step "Build migration project"
         withCurrentDirectory projectUpgrade $
-            if isWindows
-                then callCommandQuiet ".\\build.cmd"
-                else callCommandQuiet "./build.sh"
+            callCommand "daml build"
         assertBool "upgrade-0.0.1.dar was not created" =<< doesFileExist upgradeDar
         step "Build rollback project"
         withCurrentDirectory projectRollback $
-            if isWindows
-                then callCommandQuiet ".\\build.cmd"
-                else callCommandQuiet "./build.sh"
+            callCommand "daml build"
         assertBool "rollback-0.0.1.dar was not created" =<< doesFileExist rollbackDar
         step "Merging upgrade dar"
         callCommandQuiet $

@@ -16,3 +16,6 @@ HEAD — ongoing
 - [DAML Compiler]
   Fix a bug where importing the same module from different directories
   resulted in an error in ``daml build``.
+- [DAML Compiler]
+  ``damlc migrate`` now produces a project that can be built with ``daml build`` as opposed to
+  having to use the special ``build.sh`` and ``build.cmd`` scripts.

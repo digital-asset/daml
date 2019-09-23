@@ -55,7 +55,7 @@ import qualified Data.List.Split as Split
 import qualified Data.Map.Strict as MS
 import Data.Maybe
 import qualified Data.NameMap as NM
-import qualified Data.Text as T
+import qualified Data.Text.Extended as T
 import Development.IDE.Core.API
 import Development.IDE.Core.Service (runAction)
 import Development.IDE.Core.Shake
@@ -80,9 +80,6 @@ import System.Exit
 import System.FilePath
 import System.Info.Extra
 import System.IO.Extra
-#ifndef mingw32_HOST_OS
-import System.Posix.Files
-#endif
 import System.Process (callProcess)
 import qualified Text.PrettyPrint.ANSI.Leijen      as PP
 -- For dumps
@@ -800,12 +797,12 @@ execMigrate projectOpts opts0 inFile1_ inFile2_ mbDir =
                   (NM.names $ LF.packageModules lfPkg1) `intersect`
                   (NM.names $ LF.packageModules lfPkg2)
           let eqModNamesStr = map (T.unpack . LF.moduleNameString) eqModNames
-          let buildCmd escape =
-                      "daml build --init-package-db=no" <> " --package " <>
-                      escape (show (pkgName1, [(m, m ++ "A") | m <- eqModNamesStr])) <>
-                      " --package " <>
-                      escape (show (pkgName2, [(m, m ++ "B") | m <- eqModNamesStr])) <>
-                      " --ghc-option -Wno-unrecognised-pragmas"
+          let buildOptions =
+                  [ "--init-package-db=no"
+                  , "'--package=" <> show (pkgName1, [(m, m ++ "A") | m <- eqModNamesStr]) <> "'"
+                  , "'--package=" <> show (pkgName2, [(m, m ++ "B") | m <- eqModNamesStr]) <> "'"
+                  , "--ghc-option=-Wno-unrecognised-pragmas"
+                  ]
           forM_ eqModNames $ \m@(LF.ModuleName modName) -> do
               [genSrc1, genSrc2] <-
                   forM [(pkgId1, lfPkg1), (pkgId2, lfPkg2)] $ \(pkgId, pkg) -> do
@@ -833,21 +830,19 @@ execMigrate projectOpts opts0 inFile1_ inFile2_ mbDir =
                       generateGenInstancesModule "A" (pkgName1, genSrc1)
               let generatedInstancesMod2 =
                       generateGenInstancesModule "B" (pkgName2, genSrc2)
-                  escapeUnix arg = "'" <> arg <> "'"
-                  escapeWindows arg = T.unpack $ "\"" <> T.replace "\"" "\\\"" (T.pack arg) <> "\""
               forM_
                   [ (upgradeModPath, generatedUpgradeMod)
                   , (instancesModPath1, generatedInstancesMod1)
                   , (instancesModPath2, generatedInstancesMod2)
-                  , ("build.sh", "#!/bin/sh\n" ++ buildCmd escapeUnix)
-                  , ("build.cmd", buildCmd escapeWindows)
                   ] $ \(path, mod) -> do
                   createDirectoryIfMissing True $ takeDirectory path
                   writeFile path mod
-#ifndef mingw32_HOST_OS
-          setFileMode "build.sh" $ stdFileMode `unionFileModes` ownerExecuteMode
-#endif
-
+          oldDamlYaml <- T.readFileUtf8 "daml.yaml"
+          let newDamlYaml = T.unlines $
+                T.lines oldDamlYaml ++
+                ["build-options:"] ++
+                map (\opt -> T.pack $ "- " <> opt) buildOptions
+          T.writeFileUtf8 "daml.yaml" newDamlYaml
           putStrLn "Generation of migration project complete."
     decode dalf =
         errorOnLeft
