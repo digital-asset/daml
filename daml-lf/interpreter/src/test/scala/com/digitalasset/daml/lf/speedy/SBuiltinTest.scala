@@ -227,11 +227,11 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
     "ADD_NUMERIC" - {
       val builtin = "ADD_NUMERIC"
 
-      "throw exception in case of overflow" in {
+      "throws an exception in case of overflow" in {
         eval(e"$builtin @0 ${"9" * 38}. -1.") shouldBe 'right
         eval(e"$builtin @0 ${"9" * 38}. 1.") shouldBe 'left
-        eval(e"$builtin @38 0.${"9" * 38} -0.${"0" * 37}1") shouldBe 'right
-        eval(e"$builtin @38 0.${"9" * 38} 0.${"0" * 37}1") shouldBe 'left
+        eval(e"$builtin @37 9.${"9" * 37} -0.${"0" * 36}1") shouldBe 'right
+        eval(e"$builtin @37 9.${"9" * 37} 0.${"0" * 36}1") shouldBe 'left
         eval(e"$builtin @10 ${s(10, bigBigDecimal)} ${s(10, two)}") shouldBe Right(
           SNumeric(n(10, bigBigDecimal + 2)))
         eval(e"$builtin @10 ${s(10, maxDecimal)} ${s(10, minPosDecimal)}") shouldBe 'left
@@ -244,11 +244,12 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
 
     "SUB_NUMERIC" - {
       val builtin = "SUB_NUMERIC"
-      "throws exception in case of overflow" in {
+
+      "throws an exception in case of overflow" in {
         eval(e"$builtin @0 -${"9" * 38}. -1.") shouldBe 'right
         eval(e"$builtin @0 -${"9" * 38}. 1.") shouldBe 'left
-        eval(e"$builtin @38 -0.${"9" * 38} -0.${"0" * 37}1") shouldBe 'right
-        eval(e"$builtin @38 -0.${"9" * 38} 0.${"0" * 37}1") shouldBe 'left
+        eval(e"$builtin @37 -9.${"9" * 37} -0.${"0" * 36}1") shouldBe 'right
+        eval(e"$builtin @37 -9.${"9" * 37} 0.${"0" * 36}1") shouldBe 'left
         eval(e"$builtin @10 $bigBigDecimal ${s(10, two)}") shouldBe Right(
           SNumeric(n(10, bigBigDecimal - 2)))
         eval(e"$builtin @10 ${s(10, maxDecimal)} -$minPosDecimal") shouldBe 'left
@@ -264,7 +265,7 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
       val underSqrtOfTen = "3.1622776601683793319988935444327185337"
       val overSqrtOfTen = "3.1622776601683793319988935444327185338"
 
-      "throws exception in case of overflow" in {
+      "throws an exception in case of overflow" in {
         eval(e"$builtin @0 @0 @0 1${"0" * 18}. 1${"0" * 19}.") shouldBe 'right
         eval(e"$builtin @0 @0 @0 1${"0" * 19}.  1${"0" * 19}.") shouldBe 'left
         eval(e"$builtin @37 @37 @37 $underSqrtOfTen $underSqrtOfTen") shouldBe 'right
@@ -283,9 +284,10 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
 
     "DIV_NUMERIC" - {
       val builtin = "DIV_NUMERIC"
-      "throws exception in case of overflow" in {
-        eval(e"$builtin @38 @38 @38 ${s(38, "1E-18")} ${s(38, "-1E-17")}") shouldBe 'right
-        eval(e"$builtin @38 @38 @38 ${s(38, "1E-18")} ${s(38, "-1E-18")}") shouldBe 'left
+
+      "throws an exception in case of overflow" in {
+        eval(e"$builtin @37 @37 @37 ${s(37, "1E-18")} ${s(37, "-1E-18")}") shouldBe 'right
+        eval(e"$builtin @37 @37 @37 ${s(37, "1E-18")} ${s(37, "-1E-19")}") shouldBe 'left
         eval(e"$builtin @1 @1 @1 ${s(1, "1E36")} 0.2") shouldBe 'right
         eval(e"$builtin @1 @1 @1 ${s(1, "1E36")} 0.1") shouldBe 'left
         eval(e"$builtin @10 @10 @10 1.1000000000 2.2000000000") shouldBe Right(SNumeric(n(10, 0.5)))
@@ -298,7 +300,7 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
         )
       }
 
-      "throws exception when divided by 0" in {
+      "throws an exception when divided by 0" in {
         eval(e"$builtin @10 @10 @10 ${s(10, one)} ${tenPowerOf(-10)}") shouldBe Right(
           SNumeric(n(10, tenPowerOf(10))))
         eval(e"$builtin @10 @10 @10 ${s(10, one)} ${s(10, zero)}") shouldBe 'left

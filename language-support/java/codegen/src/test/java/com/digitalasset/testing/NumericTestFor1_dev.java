@@ -26,7 +26,7 @@ public class NumericTestFor1_dev {
                 new BigDecimal(0),
                 new BigDecimal(10),
                 new BigDecimal(17),
-                new BigDecimal("0.38"),
+                new BigDecimal("0.37"),
                 "alice"
         );
         assertEquals(Box.fromValue(b.toValue()), b);
@@ -38,7 +38,7 @@ public class NumericTestFor1_dev {
                 new Record.Field("x0", new Numeric(new BigDecimal(0))),
                 new Record.Field("x10", new Numeric(new BigDecimal(10))),
                 new Record.Field("x17", new Numeric(new BigDecimal(17))),
-                new Record.Field("x38", new Numeric(new BigDecimal("0.38"))),
+                new Record.Field("x37", new Numeric(new BigDecimal("0.37"))),
                 new Record.Field("party", new Party("alice"))
             );
         assertEquals(Box.fromValue(record).toValue(), record);

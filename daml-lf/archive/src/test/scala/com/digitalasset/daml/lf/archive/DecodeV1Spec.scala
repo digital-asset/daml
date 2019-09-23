@@ -102,8 +102,8 @@ class DecodeV1Spec
 
     def buildNat(i: Long) = DamlLf1.Type.newBuilder().setNat(i).build()
 
-    val validNatTypes = List(0, 1, 2, 5, 11, 35, 37, 38)
-    val invalidNatTypes = List(Long.MinValue, -100, -2, -1, 39, 40, 200, Long.MaxValue)
+    val validNatTypes = List(0, 1, 2, 5, 11, 35, 36, 37)
+    val invalidNatTypes = List(Long.MinValue, -100, -2, -1, 38, 39, 200, Long.MaxValue)
 
     "reject nat type if lf version < 1.dev" in {
 
