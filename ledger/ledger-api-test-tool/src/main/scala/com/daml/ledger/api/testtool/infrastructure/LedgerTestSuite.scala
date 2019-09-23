@@ -91,7 +91,7 @@ private[testtool] abstract class LedgerTestSuite(val session: LedgerSession) {
     }
     assert(actualCode == expectedCode, s"Expected code [$expectedCode], but got [$actualCode].")
     assert(
-      message.contains(pattern),
+      Option(message).getOrElse("").contains(pattern),
       s"Error message did not contain [$pattern], but was [$message].")
   }
 
