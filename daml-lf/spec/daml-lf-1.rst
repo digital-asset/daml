@@ -1491,7 +1491,7 @@ need to be evaluated further. ::
      ⊢ᵥ  ⟨ f₁ = e₁, …, fₘ = eₘ ⟩
 
 
-     ⊢ᵥ e
+     ⊢ᵥ  e
    ——————————————————————————————————————————————————— ValExpToAnyTemplate
      ⊢ᵥ  'to_any_template' @Mod:T e
 

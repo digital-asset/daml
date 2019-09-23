@@ -207,5 +207,6 @@ unpackPair : forall f1 f2 a1 a2. Pair f1 f2 a1 a2 -> (a1, a2)
 unpackPair = magic @"unpackPair"
 
 -- | Existential template type that can wrap an arbitrary template.
-data AnyTemplate = AnyTemplate
+data AnyTemplate =
+  AnyTemplate Opaque
 -- We need the constructor to avoid GHC warning about impossible pattern matches.

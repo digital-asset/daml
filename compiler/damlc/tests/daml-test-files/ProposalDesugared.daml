@@ -4,7 +4,7 @@
 -- This test demonstrates how the desugared form of the generical proposal
 -- workflow and its instantiation for an IOU look like.
 -- Limited to 1.dev since we do not expose toAnyTemplate/fromAnyTemplate for older LF versions
--- @SINCE-LF 1.dev
+-- @SINCE-LF 1.7
 daml 1.2
 module ProposalDesugared
   ( main
