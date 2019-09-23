@@ -7,7 +7,7 @@ module Numeric {
     x0: Numeric 0,
     x10: Numeric 10,
     x17: Numeric 17,
-    x38: Numeric 38,
+    x37: Numeric 37,
     party: Party
   };
 

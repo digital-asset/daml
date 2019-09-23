@@ -33,17 +33,17 @@ data AnyContractId = AnyContractId
 data Transaction = Transaction
  { transactionId : Text
  , events : [Event]
- } deriving (Show, Eq)
+ }
 
 data Event
   = CreatedEvent Created
   | ArchivedEvent Archived
-  deriving (Show, Eq)
 
 data Created = Created
   { eventId : Text
   , contractId : AnyContractId
-  } deriving (Show, Eq)
+  , argument : AnyTemplate
+  }
 
 data Archived = Archived
   { eventId : Text
@@ -52,10 +52,8 @@ data Archived = Archived
 
 data Message
   = MTransaction Transaction
-  deriving (Show, Eq)
 
 data ActiveContracts = ActiveContracts { activeContracts : [Created] }
-  deriving (Show, Eq)
 
 -- | Trigger is (approximately) a left-fold over `Message` with
 -- an accumulator of type `s`.
@@ -84,7 +82,9 @@ toLedgerValue = error "toLedgerValue should be removed."
 
 data Command
   = CreateCommand
-      { templateArg : LedgerValue
+      { templateArg : AnyTemplate
+      -- This needs to be AnyTemplate instead of LedgerValue
+      -- to handle generic templates.
       }
   | ExerciseCommand
       { contractId : AnyContractId
@@ -93,7 +93,7 @@ data Command
 
 createCmd : Template t => t -> Command
 createCmd templateArg =
-  CreateCommand (toLedgerValue templateArg)
+  CreateCommand (toAnyTemplate templateArg)
 
 exerciseCmd : Choice t c r => AnyContractId -> c -> Command
 exerciseCmd contractId choiceArg =

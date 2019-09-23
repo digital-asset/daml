@@ -12,7 +12,7 @@ import scala.util.Try
 
 /** The model of our floating point decimal numbers.
   *
-  *  These are numbers of precision 38 (38 decimal digits), and variable scale (from 0 to 38 bounds
+  *  These are numbers of precision 38 (38 decimal digits), and variable scale (from 0 to 37 bounds
   *  included).
   */
 abstract class NumericModule {
@@ -38,7 +38,8 @@ abstract class NumericModule {
   val Scale: ScaleModule = new ScaleModule {
     override type Scale = Int
     override val MinValue: Scale = 0
-    override val MaxValue: Scale = maxPrecision
+    // We want 1 be representable at any scale, so we have to prevent (Numeric 38).
+    override val MaxValue: Scale = maxPrecision - 1
     override private[NumericModule] def cast(x: Int): Scale = x
   }
 
@@ -231,7 +232,10 @@ abstract class NumericModule {
       case validScaledFormat(intPart, decPart) =>
         val scale = decPart.length
         val precision = if (intPart == "0") scale else intPart.length + scale
-        Either.cond(precision <= maxPrecision, cast(new BigDecimal(s).setScale(scale)), errMsg)
+        Either.cond(
+          precision <= maxPrecision && scale <= Scale.MaxValue,
+          cast(new BigDecimal(s).setScale(scale)),
+          errMsg)
       case _ =>
         Left(errMsg)
     }

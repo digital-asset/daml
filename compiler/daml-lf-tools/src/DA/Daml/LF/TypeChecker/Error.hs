@@ -104,6 +104,7 @@ data Error
   | EContext               !Context !Error
   | EKeyOperationOnTemplateWithNoKey !(Qualified TypeConName)
   | EUnsupportedFeature !Feature
+  | EForbiddenNameCollision !T.Text ![T.Text]
 
 contextLocation :: Context -> Maybe SourceLoc
 contextLocation = \case
@@ -287,6 +288,8 @@ instance Pretty Error where
     EUnsupportedFeature Feature{..} ->
       "unsupported feature:" <-> pretty featureName
       <-> "only supported in DAML-LF version" <-> pretty featureMinVersion <-> "and later"
+    EForbiddenNameCollision name names ->
+      "name collision between " <-> pretty name <-> " and " <-> pretty (T.intercalate ", " names)
 
 instance Pretty Context where
   pPrint = \case

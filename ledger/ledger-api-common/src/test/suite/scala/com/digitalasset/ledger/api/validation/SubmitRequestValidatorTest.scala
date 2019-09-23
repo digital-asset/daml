@@ -237,7 +237,7 @@ class SubmitRequestValidatorTest
             ".",
             "",
             ".0",
-            "0." + "0" * 38 + "1",
+            "0." + "0" * 37 + "1",
           )
 
         forEvery(signs) { sign =>

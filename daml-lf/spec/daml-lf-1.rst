@@ -402,7 +402,7 @@ The literals represent actual DAML-LF values:
   in base-10 without loss of precision with at most 38 digits
   (ignoring possible leading 0 and with a scale (the number of
   significant digits on the right of the decimal point) between ``0``
-  and ``38`` (bounds inclusive). In the following, we will use
+  and ``37`` (bounds inclusive). In the following, we will use
   ``scale(LitNumeric)`` to denote the scale of the decimal number.
 * A ``LitDate`` represents the number of day since
   ``1970-01-01`` with allowed range from ``0001-01-01`` to
@@ -441,6 +441,10 @@ Identifiers are standard `java identifiers
 <https://docs.oracle.com/javase/specs/jls/se8/html/jls-3.html#jls-3.8>`_
 restricted to US-ASCII while names are sequences of identifiers
 intercalated with dots.
+
+The character ``%`` is reserved for external languages built on
+DAML-LF as a "not an Ident" notation, so should not be considered for
+future addition to allowed identifier characters.
 
 In the following, we will use identifiers to represent *built-in
 functions*, term and type *variable names*, record and tuple *field
@@ -519,7 +523,7 @@ Then we can define our kinds, types, and expressions::
     BuiltinType
       ::= 'TArrow'                                  -- BTArrow: Arrow type
        |  'Int64'                                   -- BTyInt64: 64-bit integer
-       |  'Numeric'                                 -- BTyNumeric: numeric, precision 38, parametric scale between 0 and 38
+       |  'Numeric'                                 -- BTyNumeric: numeric, precision 38, parametric scale between 0 and 37
        |  'Text'                                    -- BTyText: UTF-8 string
        |  'Date'                                    -- BTyDate
        |  'Timestamp'                               -- BTyTime: UTC timestamp

@@ -309,7 +309,7 @@ message Type {
     Forall forall = 5;
     Tuple tuple = 7;
     // *Available in versions >= 1.dev*
-    // *Must be between 0 and 38 (bounds inclusive)*
+    // *Must be between 0 and 37 (bounds inclusive)*
     // use standard signed long for future usage.
     sint64 nat = 11;
   }
@@ -501,7 +501,7 @@ message PrimLit {
 
     // Numeric literal ('LitNumeric')
     //
-    // Serialization of number with precision 38 and scale between 0 and 38
+    // Serialization of number with precision 38 and scale between 0 and 37
     //
     // *Must be a string that matched
     //        `-?([0-1]\d*|0)\.(\d*)
