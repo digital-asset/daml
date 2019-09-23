@@ -15,6 +15,7 @@ module DA.Daml.Visual
   , ChoiceDetails(..)
   , dotFileGen
   , graphFromModule
+  , d3HtmlWebPage
   ) where
 
 
@@ -33,6 +34,9 @@ import qualified Data.Map.Strict as Map
 import qualified Data.Text as T
 import GHC.Generics
 import Data.Aeson
+import Text.Mustache
+import qualified Data.Text.Lazy.IO as TIO
+-- import System.Directory.Extra
 
 import Safe
 
@@ -92,6 +96,13 @@ data D3Graph = D3Graph
     , d3nodes :: [D3Node]
     } deriving (Generic, Show)
 
+data WebPage = WebPage
+    { links :: [D3Link]
+    , dnodes :: [D3Node]
+    , d3Js :: String
+    , d3PlusJs :: String
+    } deriving (Generic, Show)
+
 d3LinksFromGraphEdges :: Graph -> [D3Link]
 d3LinksFromGraphEdges g = map edgeToD3Link (edges g)
     where edgeToD3Link edge = D3Link (nodeId (fst edge)) (nodeId (snd edge)) 10
@@ -114,6 +125,9 @@ instance ToJSON D3Node where
     toEncoding = genericToEncoding defaultOptions
 
 instance ToJSON D3Graph where
+    toEncoding = genericToEncoding defaultOptions
+
+instance ToJSON WebPage where
     toEncoding = genericToEncoding defaultOptions
 
 startFromUpdate :: Set.Set (LF.Qualified LF.ExprValName) -> LF.World -> LF.Update -> Set.Set Action
@@ -297,6 +311,52 @@ d3JsonThing modules world = encode $ graphToD3Graph g
 dotFileGen :: [LF.Module] -> LF.World -> String
 dotFileGen modules world = constructDotGraph $ graphFromModule modules world
 
+
+webPageTemplate :: T.Text
+webPageTemplate =
+    T.unlines [ "<html>"
+    , "<head><title>DAML Visualization</title><meta charset=\"utf-8\"></head>"
+    , "<body>"
+    , "<script>"
+    , "{{d3Js}}"
+    , "</script>"
+    , "<script>"
+    , "{{d3PlusJs}}"
+    , "</script>"
+    , "var nodes = {{dnodes}}"
+    , "var links = {{links}}"
+    , "d3plus.viz()"
+    , "          .container('#viz')"
+    , "          .type('network')"
+    , "          .data(nodes)"
+    , "          .text('chcName')"
+    , "          .edges({ value: links, arrows: true })"
+    , "          .tooltip({"
+    , "             Template: function (d) { return d['tplName'].toString() },"
+    , "             Fields: function (d) { return d['fields'].toString(); }"
+    , "          })"
+    , "          .draw();"
+    , "</body>"
+    , "</html>"
+    ]
+
+d3HtmlWebPage :: FilePath -> IO ()
+d3HtmlWebPage darFilePath = do
+
+    darBytes <- B.readFile darFilePath
+    dalfs <- either fail pure $ readDalfs $ ZIPArchive.toArchive (BSL.fromStrict darBytes)
+    -- fls <- listFilesRecursive "."
+    -- print fls
+    d3js <-   readFile "compiler/damlc/daml-visual/d3.js"
+    d3plusjs <- readFile "compiler/damlc/daml-visual/d3plus.js"
+    let world = darToWorld dalfs
+        modules = NM.toList $ LF.packageModules $ getWorldSelf world
+        graph = graphFromModule modules world
+        d3G = graphToD3Graph graph
+        webPage = WebPage (d3links d3G) (d3nodes d3G) d3js d3plusjs
+    case compileMustacheText "fooo" webPageTemplate of
+        Left err -> print err
+        Right mTpl -> TIO.putStr $ renderMustache mTpl $ toJSON webPage
 
 execVisual :: FilePath -> Maybe FilePath -> IO ()
 execVisual darFilePath dotFilePath = do

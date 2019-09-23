@@ -25,6 +25,8 @@ da_haskell_binary(
     ] if is_windows else [],
     data = [
         "//compiler/damlc/daml-ide-core:dlint.yaml",
+        "//compiler/damlc/daml-visual:d3.js",
+        "//compiler/damlc/daml-visual:d3plus.js",
         ghc_pkg,
         "//compiler/damlc:ghcversion",
         "//compiler/damlc/pkg-db",

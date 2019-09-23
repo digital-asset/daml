@@ -204,7 +204,7 @@ cmdVisual =
     command "visual" $ info (helper <*> cmd) $ progDesc "Generate visual from dar" <> fullDesc
     where
       cmd = vis <$> inputDarOpt <*> dotFileOpt
-      vis a b = Command Visual $ execVisual a b
+      vis a _b = Command Visual $ d3HtmlWebPage a
 
 
 cmdBuild :: Int -> Mod CommandFields Command
