@@ -8,6 +8,7 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
 import akka.{Done, NotUsed}
 import com.digitalasset.api.util.TimeProvider
+import com.digitalasset.http.domain
 import com.digitalasset.http.util.FutureUtil.toFuture
 import com.digitalasset.ledger.api.refinements.ApiTypes.{
   ApplicationId,
@@ -64,7 +65,7 @@ object ClientUtil {
 
   def uniqueId(): String = UUID.randomUUID.toString
 
-  def workflowIdFromParty(p: Party): WorkflowId =
+  def workflowIdFromParty(p: Party): domain.WorkflowId =
     WorkflowId(s"${Party.unwrap(p)} Workflow")
 
   def uniqueCommandId(): CommandId = CommandId(uniqueId())

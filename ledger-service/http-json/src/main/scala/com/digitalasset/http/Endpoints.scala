@@ -186,14 +186,14 @@ class Endpoints(
 
         xs <- either(
           as._1.toList.traverse(_.traverse(v => apValueToLfValue(v)))
-        ): ET[List[domain.GetActiveContractsResponse[LfValue]]]
+        ): ET[List[domain.ActiveContract[LfValue]]]
 
         ys = contractsService
-          .filterSearch(as._2, xs): Seq[domain.GetActiveContractsResponse[LfValue]]
+          .filterSearch(as._2, xs): Seq[domain.ActiveContract[LfValue]]
 
         js <- either(
           ys.toList.traverse(_.traverse(v => lfValueToJsValue(v)))
-        ): ET[Seq[domain.GetActiveContractsResponse[JsValue]]]
+        ): ET[Seq[domain.ActiveContract[JsValue]]]
 
         j <- either(SprayJson.encode(js).leftMap(e => ServerError(e.shows))): ET[JsValue]
 

@@ -10,26 +10,32 @@ import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.http.util.IdentifierConverters
 import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
 import com.digitalasset.ledger.api.{v1 => lav1}
-import scalaz.std.list._
 import scalaz.std.option._
 import scalaz.std.tuple._
-import scalaz.std.vector._
 import scalaz.syntax.std.option._
 import scalaz.syntax.traverse._
-import scalaz.{-\/, Applicative, Traverse, \/, \/-}
+import scalaz.{-\/, Applicative, Show, Traverse, \/, \/-}
 import spray.json.JsValue
 
 import scala.language.higherKinds
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 object domain {
-  type Error = String
+
+  case class Error(id: Symbol, message: String)
+
+  object Error {
+    implicit val errorShow: Show[Error] = Show shows { e =>
+      s"domain.Error, ${e.id: Symbol}: ${e.message: String}"
+    }
+  }
 
   case class JwtPayload(ledgerId: lar.LedgerId, applicationId: lar.ApplicationId, party: lar.Party)
 
   case class TemplateId[+PkgId](packageId: PkgId, moduleName: String, entityName: String)
 
   case class ActiveContract[+LfV](
+      workflowId: Option[WorkflowId],
       contractId: String,
       templateId: TemplateId.RequiredPkg,
       key: Option[LfV],
@@ -45,10 +51,22 @@ object domain {
       templateIds: Set[TemplateId.OptionalPkg],
       query: Map[String, JsValue])
 
-  case class GetActiveContractsResponse[+LfV](
-      offset: String,
-      workflowId: Option[String],
-      activeContracts: Seq[ActiveContract[LfV]])
+  type WorkflowIdTag = lar.WorkflowIdTag
+  type WorkflowId = lar.WorkflowId
+
+  object WorkflowId {
+
+    def apply(s: String): WorkflowId = lar.WorkflowId(s)
+
+    def unwrap(x: WorkflowId): String = lar.WorkflowId.unwrap(x)
+
+    def fromLedgerApi(
+        gacr: lav1.active_contracts_service.GetActiveContractsResponse): Option[WorkflowId] =
+      Option(gacr.workflowId).filter(_.nonEmpty).map(x => WorkflowId(x))
+
+    def fromLedgerApi(tx: lav1.transaction.Transaction): Option[WorkflowId] =
+      Option(tx.workflowId).filter(_.nonEmpty).map(x => WorkflowId(x))
+  }
 
   object TemplateId {
     type OptionalPkg = TemplateId[Option[String]]
@@ -60,13 +78,15 @@ object domain {
   }
 
   object ActiveContract {
-    def fromLedgerApi(in: lav1.event.CreatedEvent): Error \/ ActiveContract[lav1.value.Value] =
+    def fromLedgerApi(workflowId: Option[WorkflowId])(
+        in: lav1.event.CreatedEvent): Error \/ ActiveContract[lav1.value.Value] =
       for {
         templateId <- in.templateId required "templateId"
         argument <- in.createArguments required "createArguments"
         boxedArgument = lav1.value.Value(lav1.value.Value.Sum.Record(argument))
       } yield
         ActiveContract(
+          workflowId = workflowId,
           contractId = in.contractId,
           templateId = TemplateId fromLedgerApi templateId,
           key = in.contractKey,
@@ -137,35 +157,13 @@ object domain {
       }
   }
 
-  object GetActiveContractsResponse {
-    def fromLedgerApi(in: lav1.active_contracts_service.GetActiveContractsResponse)
-      : Error \/ GetActiveContractsResponse[lav1.value.Value] =
-      for {
-        activeContracts <- in.activeContracts.toVector traverse (ActiveContract.fromLedgerApi(_))
-      } yield
-        GetActiveContractsResponse(
-          offset = in.offset,
-          workflowId = Some(in.workflowId) filter (_.nonEmpty),
-          activeContracts = activeContracts)
-
-    implicit val covariant: Traverse[GetActiveContractsResponse] =
-      new Traverse[GetActiveContractsResponse] {
-        override def traverseImpl[G[_]: Applicative, A, B](fa: GetActiveContractsResponse[A])(
-            f: A => G[B]): G[GetActiveContractsResponse[B]] = {
-
-          val gas: G[List[ActiveContract[B]]] =
-            fa.activeContracts.toList.traverse(a => a.traverse(f))
-          gas.map(as => fa.copy(activeContracts = as))
-        }
-      }
-  }
-
   private[this] implicit final class ErrorOps[A](private val o: Option[A]) extends AnyVal {
-    def required(label: String): Error \/ A = o toRightDisjunction s"Missing required field $label"
+    def required(label: String): Error \/ A =
+      o toRightDisjunction Error('ErrorOps_required, s"Missing required field $label")
   }
 
   final case class CommandMeta(
-      workflowId: Option[lar.WorkflowId],
+      workflowId: Option[WorkflowId],
       commandId: Option[lar.CommandId],
       ledgerEffectiveTime: Option[Instant],
       maximumRecordTime: Option[Instant])
