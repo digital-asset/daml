@@ -20,6 +20,7 @@ import scala.concurrent.duration.Duration
 
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.refinements.ApiTypes.{ApplicationId}
+import com.digitalasset.ledger.api.validation.ValueValidator
 
 import com.digitalasset.ledger.api.v1.command_submission_service.SubmitRequest
 import com.digitalasset.api.util.TimestampConversion.fromInstant
@@ -202,11 +203,22 @@ object Converter {
 
   private def fromCreatedEvent(triggerIds: TriggerIds, created: CreatedEvent): SValue = {
     val createdTy = triggerIds.getId("Created")
-    record(
-      createdTy,
-      ("eventId", SText(created.eventId)),
-      ("contractId", fromAnyContractId(triggerIds, created.getTemplateId, created.contractId))
-    )
+    ValueValidator.validateRecord(created.getCreateArguments) match {
+      case Right(createArguments) =>
+        SValue.fromValue(createArguments) match {
+          case r @ SRecord(_, _, _) =>
+            record(
+              createdTy,
+              ("eventId", SText(created.eventId)),
+              (
+                "contractId",
+                fromAnyContractId(triggerIds, created.getTemplateId, created.contractId)),
+              ("argument", SAnyTemplate(r))
+            )
+          case v => throw new RuntimeException(s"Expected record but got $v")
+        }
+      case Left(err) => throw err
+    }
   }
 
   private def fromEvent(triggerIds: TriggerIds, ev: Event): SValue = {
@@ -299,10 +311,14 @@ object Converter {
     v match {
       case SRecord(_, _, vals) => {
         assert(vals.size == 1)
-        for {
-          templateId <- extractTemplateId(vals.get(0))
-          templateArg <- toLedgerRecord(vals.get(0))
-        } yield CreateCommand(Some(toApiIdentifier(templateId)), Some(templateArg))
+        vals.get(0) match {
+          case SAnyTemplate(tpl) =>
+            for {
+              templateId <- extractTemplateId(tpl)
+              templateArg <- toLedgerRecord(tpl)
+            } yield CreateCommand(Some(toApiIdentifier(templateId)), Some(templateArg))
+          case v => Left(s"Expected AnyTemplate but got $v")
+        }
       }
       case _ => Left(s"Expected CreateCommand but got $v")
     }
@@ -549,7 +565,8 @@ object RunnerMain {
             .getTransactions(
               offset,
               None,
-              TransactionFilter(List((config.ledgerParty, Filters.defaultInstance)).toMap))
+              TransactionFilter(List((config.ledgerParty, Filters.defaultInstance)).toMap),
+              verbose = true)
             .runWith(runner.getTriggerSink(triggerId, acsResponses.flatMap(x => x.activeContracts)))
         } yield ()
 

@@ -105,7 +105,7 @@ object AcsMain {
         val assetId = value.Identifier(
           packageId = dar.main._1,
           moduleName = "ACS",
-          entityName = "Asset"
+          entityName = "AssetUnit"
         )
 
         // Create a contract and return the contract id.
@@ -164,7 +164,7 @@ object AcsMain {
                 value.Identifier(
                   packageId = dar.main._1,
                   moduleName = "ACS",
-                  entityName = "Asset",
+                  entityName = "AssetUnit",
                 )),
               contractId = contractId,
               choice = "Archive",
@@ -220,7 +220,7 @@ object AcsMain {
               })
             }
             finalState <- client.transactionClient
-              .getTransactions(offset, None, filter)
+              .getTransactions(offset, None, filter, verbose = true)
               .take(transactions.num)
               .runWith(
                 runner.getTriggerSink(triggerId, acsResponses.flatMap(x => x.activeContracts)))
