@@ -1091,10 +1091,10 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
         ledger <- context.participant()
         party <- ledger.allocateParty()
         dummy <- ledger.create(party, Dummy(party))
-        tree <- ledger.exerciseForFlatTransaction(party, dummy.exerciseDummyChoice1)
-        byId <- ledger.flatTransactionById(tree.transactionId, party)
+        transaction <- ledger.exerciseForFlatTransaction(party, dummy.exerciseDummyChoice1)
+        byId <- ledger.flatTransactionById(transaction.transactionId, party)
       } yield {
-        assertEquals("The transaction fetched by identifier does not match", tree, byId)
+        assertEquals("The transaction fetched by identifier does not match", transaction, byId)
       }
     }
 
