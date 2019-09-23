@@ -1,3 +1,6 @@
+-- Copyright (c) 2019 The DAML Authors. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
 module DA.Daml.LF.TypeChecker.NameCollision
     ( checkModule
     ) where
@@ -156,3 +159,4 @@ checkModule mod0 =
         forM_ (moduleTemplates mod0) $ \tpl ->
             withContext (ContextTemplate mod0 tpl TPWhole) $
                 checkTemplate (moduleName mod0) tpl
+
