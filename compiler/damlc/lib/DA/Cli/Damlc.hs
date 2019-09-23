@@ -188,7 +188,11 @@ runTestsInProjectOrFiles projectOpts Nothing color mbJUnitOutput cliOptions = Co
         case parseProjectConfig project of
             Left err -> throwIO err
             Right PackageConfigFields {..} -> do
-              files <- getDamlFiles pSrc
+              -- TODO: We set up one scenario service context per file that
+              -- we pass to execTest and scenario cnotexts are quite expensive.
+              -- Therefore we keep the behavior of only passing the root file
+              -- if source points to a specific file.
+              files <- getDamlRootFiles pSrc
               execTest files color mbJUnitOutput cliOptions
 runTestsInProjectOrFiles projectOpts (Just inFiles) color mbJUnitOutput cliOptions = Command Test effect
   where effect = withProjectRoot' projectOpts $ \relativize -> do

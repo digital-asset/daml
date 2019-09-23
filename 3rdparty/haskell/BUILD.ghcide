@@ -43,7 +43,6 @@ depends = [
 
 hidden = [
     "Development.IDE.Core.Compile",
-    "Development.IDE.GHC.Compat",
     "Development.IDE.GHC.CPP",
     "Development.IDE.GHC.Error",
     "Development.IDE.GHC.Orphans",
