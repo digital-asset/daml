@@ -28,3 +28,10 @@ HEAD — ongoing
 - [Security] Document how to verify the signature on release tarballs.
 + [DAML Ledger Integration Kit] The TTL for commands is now read from the configuration service.
 + [DAML Ledger Integration Kit] The contract key tests now live under a single test suite and are multi-node aware.
+- [DAML Compiler] **BREAKING CHANGE**
+  Require Eq and Show as preconditions to the Template type class.
+  This means that a type parameter to a generic template must satisfy the Eq and Show constraints
+  if it is used as a template or choice parameter.
+  This change catches a particular class of errors - where unserializable types are used as
+  template/choice parameters - in the template declaration instead of the later template instance.
+  This should not affect working templates in practice.
