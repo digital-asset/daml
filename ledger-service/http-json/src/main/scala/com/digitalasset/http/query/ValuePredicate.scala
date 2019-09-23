@@ -128,7 +128,7 @@ object ValuePredicate {
         case e @ iface.Enum(_) => {
           case JsString(s) => fromEnum(s, id, e)
         }
-      }(fallback = ???)
+      }(fallback = illTypedQuery(it, id))
 
     def fromRecord(
         fields: Map[String, JsValue],
