@@ -212,6 +212,35 @@ packagingTests tmpDir = testGroup "packaging"
         assertBool "proj.dar was not created." =<< doesFileExist dar
         darFiles <- Zip.filesInArchive . Zip.toArchive <$> BSL.readFile dar
         assertBool "A.daml is missing" (any (\f -> takeFileName f == "A.daml") darFiles)
+    , testCase "Non-root sources files" $ withTempDir $ \projDir -> do
+        -- Test that all daml source files get included in the dar if "source" points to a file
+        -- rather than a directory
+        writeFileUTF8 (projDir </> "A.daml") $ unlines
+          [ "daml 1.2"
+          , "module A where"
+          , "import B"
+          ]
+        writeFileUTF8 (projDir </> "B.daml") $ unlines
+          [ "daml 1.2"
+          , "module B where"
+          ]
+        writeFileUTF8 (projDir </> "daml.yaml") $ unlines
+          [ "sdk-version: " <> sdkVersion
+          , "name: proj"
+          , "version: 0.1.0"
+          , "source: A.daml"
+          , "dependencies: [daml-prim, daml-stdlib]"
+          ]
+        withCurrentDirectory projDir $ callCommandQuiet "daml build"
+        let dar = projDir </> ".daml/dist/proj-0.1.0.dar"
+        assertBool "proj-0.1.0.dar was not created." =<< doesFileExist dar
+        darFiles <- Zip.filesInArchive . Zip.toArchive <$> BSL.readFile dar
+        assertBool "A.daml missing" (any (\f -> takeFileName f == "A.daml") darFiles)
+        assertBool "A.hi missing" (any (\f -> takeFileName f == "A.hi") darFiles)
+        assertBool "A.hie missing" (any (\f -> takeFileName f == "A.hie") darFiles)
+        assertBool "B.daml missing" (any (\f -> takeFileName f == "B.daml") darFiles)
+        assertBool "B.hi missing" (any (\f -> takeFileName f == "B.hi") darFiles)
+        assertBool "B.hie missing" (any (\f -> takeFileName f == "B.hie") darFiles)
 
     , testCase "Project without exposed modules" $ withTempDir $ \projDir -> do
         writeFileUTF8 (projDir </> "A.daml") $ unlines
