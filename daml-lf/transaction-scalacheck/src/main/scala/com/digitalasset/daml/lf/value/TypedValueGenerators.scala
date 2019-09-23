@@ -182,7 +182,7 @@ object TypedValueGenerators {
     Gen.frequency(
       ((sz max 1) * ValueAddend.leafInstances.length, Gen.oneOf(ValueAddend.leafInstances)),
       (sz max 1, Gen.const(ValueAddend.contractId)),
-      (sz max 1, Gen.oneOf(Numeric.Scale.Values).map(ValueAddend.numeric)),
+      (sz max 1, Gen.oneOf(Numeric.Scale.values).map(ValueAddend.numeric)),
       (nestSize, self.map(ValueAddend.list(_))),
       (nestSize, self.map(ValueAddend.optional(_))),
       (nestSize, self.map(ValueAddend.map(_))),
