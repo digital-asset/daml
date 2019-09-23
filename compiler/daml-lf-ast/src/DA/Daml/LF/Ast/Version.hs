@@ -53,10 +53,6 @@ data Feature = Feature
         -- ^ CPP flag to test for availability of the feature.
     }
 
--- NOTE(MH): We comment this out to leave an example how to deal with features.
--- featureTextCodePoints :: Feature
--- featureTextCodePoints = Feature "Conversion between text and code points" version1_6
-
 featureNumeric :: Feature
 featureNumeric = Feature
     { featureName = "Numeric type"
