@@ -62,7 +62,7 @@ import Development.IDE.Core.Shake
 import Development.IDE.Core.Rules
 import Development.IDE.Core.Rules.Daml (getDalf, getDlintIdeas)
 import Development.IDE.Core.RuleTypes.Daml (DalfPackage(..), GetParsedModule(..))
-import Development.IDE.GHC.Util (fakeDynFlags, moduleImportPaths, hscEnv)
+import Development.IDE.GHC.Util (fakeDynFlags, moduleImportPath, hscEnv)
 import Development.IDE.Types.Diagnostics
 import Development.IDE.Types.Location
 import Development.IDE.Types.Options (clientSupportsProgress)
@@ -908,7 +908,7 @@ execDocTest opts files =
           pmS <- catMaybes <$> uses GetParsedModule files'
           -- This is horrible but we do not have a way to change the import paths in a running
           -- IdeState at the moment.
-          pure $ nubOrd $ mapMaybe moduleImportPaths pmS
+          pure $ nubOrd $ mapMaybe moduleImportPath pmS
       opts <- mkOptions opts { optImportPath = importPaths <> optImportPath opts, optHaddock = Haddock True }
       withDamlIdeState opts logger diagnosticsLogger $ \ideState ->
           docTest ideState files'

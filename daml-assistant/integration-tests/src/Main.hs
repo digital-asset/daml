@@ -242,6 +242,33 @@ packagingTests tmpDir = testGroup "packaging"
         assertBool "B.hi missing" (any (\f -> takeFileName f == "B.hi") darFiles)
         assertBool "B.hie missing" (any (\f -> takeFileName f == "B.hie") darFiles)
 
+    , testCase "Imports from differen directories" $ withTempDir $ \projDir -> do
+        -- Regression test for #2929
+        createDirectory (projDir </> "A")
+        writeFileUTF8 (projDir </> "A.daml") $ unlines
+          [ "daml 1.2"
+          , "module A where"
+          , "import A.B ()"
+          , "import A.C ()"
+          ]
+        writeFileUTF8 (projDir </> "A/B.daml") $ unlines
+          [ "daml 1.2"
+          , "module A.B where"
+          , "import A.C ()"
+          ]
+        writeFileUTF8 (projDir </> "A/C.daml") $ unlines
+          [ "daml 1.2"
+          , "module A.C where"
+          ]
+        writeFileUTF8 (projDir </> "daml.yaml") $ unlines
+          [ "sdk-version: " <> sdkVersion
+          , "name: proj"
+          , "version: 0.1.0"
+          , "source: ."
+          , "dependencies: [daml-prim, daml-stdlib]"
+          ]
+        withCurrentDirectory projDir $ callCommandQuiet "daml build"
+
     , testCase "Project without exposed modules" $ withTempDir $ \projDir -> do
         writeFileUTF8 (projDir </> "A.daml") $ unlines
             [ "daml 1.2"

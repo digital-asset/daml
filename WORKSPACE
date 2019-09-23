@@ -677,7 +677,7 @@ hazel_custom_package_github(
     strip_prefix = "wai-app-static",
 )
 
-GHCIDE_REV = "a162e81aa306c8efe2be3ce0d591f46abd5f88e4"
+GHCIDE_REV = "dcd7cb499e33273e1d5835ea1e69907e8224e483"
 
 # We need a custom build file to depend on ghc-lib and ghc-lib-parser
 hazel_custom_package_github(
