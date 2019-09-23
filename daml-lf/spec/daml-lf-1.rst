@@ -442,6 +442,10 @@ Identifiers are standard `java identifiers
 restricted to US-ASCII while names are sequences of identifiers
 intercalated with dots.
 
+The character ``%`` is reserved for external languages built on
+DAML-LF as a "not an Ident" notation, so should not be considered for
+future addition to allowed identifier characters.
+
 In the following, we will use identifiers to represent *built-in
 functions*, term and type *variable names*, record and tuple *field
 names*, *variant constructors*, and *template choices*. On the other
