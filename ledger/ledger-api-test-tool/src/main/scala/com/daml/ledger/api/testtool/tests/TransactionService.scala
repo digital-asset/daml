@@ -1256,7 +1256,7 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
         dummy <- ledger.create(party, Dummy(party))
         tree <- ledger.exerciseForFlatTransaction(party, dummy.exerciseDummyChoice1)
         event = tree.events.head.event
-        eventId = event.created.map(_.eventId).getOrElse(event.archived.map(_.eventId).get)
+        eventId = event.archived.map(_.eventId).get
         byId <- ledger.flatTransactionByEventId(eventId, party)
       } yield {
         assertEquals("The transaction fetched by identifier does not match", tree, byId)
