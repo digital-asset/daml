@@ -1,6 +1,6 @@
 # HTTP JSON Service
 
-**WARNING:** the HTTP JSON API described in this document is actively being designed and is subject to breaking changes.
+**WARNING:** the HTTP JSON API described in this document is actively being designed and is a subject to breaking changes.
 
 ## How to start
 
