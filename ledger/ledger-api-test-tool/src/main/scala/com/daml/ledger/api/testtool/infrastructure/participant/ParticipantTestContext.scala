@@ -30,6 +30,13 @@ import com.digitalasset.ledger.api.v1.commands.{Command, Commands}
 import com.digitalasset.ledger.api.v1.event.Event.Event.Created
 import com.digitalasset.ledger.api.v1.event.{CreatedEvent, Event}
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
+import com.digitalasset.ledger.api.v1.package_service.{
+  GetPackageRequest,
+  GetPackageResponse,
+  GetPackageStatusRequest,
+  ListPackagesRequest,
+  PackageStatus
+}
 import com.digitalasset.ledger.api.v1.testing.time_service.{
   GetTimeRequest,
   GetTimeResponse,
@@ -145,6 +152,17 @@ private[testtool] final class ParticipantTestContext private[participant] (
 
   def participantId(): Future[String] =
     services.partyManagement.getParticipantId(new GetParticipantIdRequest).map(_.participantId)
+
+  def listPackages(): Future[Seq[String]] =
+    services.packages.listPackages(new ListPackagesRequest(ledgerId)).map(_.packageIds)
+
+  def getPackage(packageId: String): Future[GetPackageResponse] =
+    services.packages.getPackage(new GetPackageRequest(ledgerId, packageId))
+
+  def getPackageStatus(packageId: String): Future[PackageStatus] =
+    services.packages
+      .getPackageStatus(new GetPackageStatusRequest(ledgerId, packageId))
+      .map(_.packageStatus)
 
   /**
     * Managed version of party allocation, should be used anywhere a party has
