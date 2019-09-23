@@ -1155,19 +1155,13 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
         _ <- alpha.create(submitter, AgreementFactory(listener, submitter))
         _ <- synchronize(alpha, beta)
         transactions <- alpha.flatTransactions(listener, submitter)
-        _ <- eventually {
-          for {
-            byId <- Future.sequence(
-              transactions.map(t => beta.flatTransactionById(t.transactionId, listener, submitter)))
-          } yield {
-            assertEquals(
-              "The events fetched by identifier did not match with the ones on the transaction stream",
-              transactions,
-              byId)
-          }
-        }
+        byId <- Future.sequence(
+          transactions.map(t => beta.flatTransactionById(t.transactionId, listener, submitter)))
       } yield {
-        // Checks performed in the `eventually` block
+        assertEquals(
+          "The events fetched by identifier did not match with the ones on the transaction stream",
+          transactions,
+          byId)
       }
     }
 
