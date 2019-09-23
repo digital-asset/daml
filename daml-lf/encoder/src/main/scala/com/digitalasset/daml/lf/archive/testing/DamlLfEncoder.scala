@@ -9,7 +9,7 @@ import java.nio.file.Paths
 import java.util.zip.ZipEntry
 
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.language.{Ast, LanguageMajorVersion => LMV, LanguageVersion}
+import com.digitalasset.daml.lf.language.{Ast, LanguageMajorVersion => LMV, LanguageVersion => LV}
 import com.digitalasset.daml.lf.testing.parser.{ParserParameters, parseModules}
 import com.digitalasset.daml.lf.validation.Validation
 
@@ -86,7 +86,7 @@ private[digitalasset] object DamlLfEncoder extends App {
   private case class Arguments(
       inputFiles: List[String],
       outputFile: String,
-      languageVersion: LanguageVersion
+      languageVersion: LV
   )
 
   private def parseArgs() = {
@@ -94,7 +94,7 @@ private[digitalasset] object DamlLfEncoder extends App {
 
     @tailrec
     def go(
-        appArgs: Arguments = Arguments(List.empty, "", LanguageVersion.default),
+        appArgs: Arguments = Arguments(List.empty, "", LV.default),
         i: Int = 0
     ): Arguments =
       if (i == nAgrs) {
@@ -123,13 +123,13 @@ private[digitalasset] object DamlLfEncoder extends App {
   private def parseVersion(version: String) =
     version.split("""\.""").toSeq match {
       case Seq("default") =>
-        LanguageVersion.default
+        LV.default
       case Seq("latest") =>
-        LanguageVersion(LMV.V1, LMV.V1.maxSupportedStableMinorVersion)
+        LV(LMV.V1, LMV.V1.maxSupportedStableMinorVersion)
       case Seq("dev") =>
-        LanguageVersion(LMV.V1, "dev")
+        LV(LMV.V1, LV.Minor.Dev)
       case Seq("1", minor) if LMV.V1.supportsMinorVersion(minor) || minor == "dev" =>
-        LanguageVersion(LMV.V1, minor)
+        LV(LMV.V1, minor)
       case _ =>
         error(s"version '$version' not supported")
     }
