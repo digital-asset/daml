@@ -21,8 +21,8 @@ values are interpreted according to the `LF values' JSON format
 Simple equality
 ---------------
 
-Match documents having at least all the (potentially nested) keys
-expressed in the query. The result document may contain additional
+Match records having at least all the (potentially nested) keys
+expressed in the query. The result record may contain additional
 properties.
 
 Example: ``{ person: { name: "Bob" }, city: "London" }``
