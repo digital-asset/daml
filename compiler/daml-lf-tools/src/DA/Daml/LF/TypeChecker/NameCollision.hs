@@ -12,7 +12,7 @@ import Data.Maybe
 import Control.Monad.Extra
 import qualified Data.Map.Strict as M
 import qualified Data.Text as T
-import qualified Control.Monad.Trans.State as S
+import qualified Control.Monad.State.Strict as S
 
 -- | The various names we wish to track within a package.
 -- This type separates all the different kinds of names
@@ -114,7 +114,7 @@ addName name (NCState nameMap) = do
         oldNames = fromMaybe [] (M.lookup frName nameMap)
         badNames = filter (nameCollisionForbidden name) oldNames
     if null badNames then do
-        Right . NCState $ M.insert frName (oldNames ++ [name]) nameMap
+        Right . NCState $ M.insert frName (name : oldNames) nameMap
     else do
         Left $ EForbiddenNameCollision
             (displayName name)
@@ -122,8 +122,12 @@ addName name (NCState nameMap) = do
 
 checkName :: MonadGamma m => Name -> S.StateT NCState m ()
 checkName name = do
-    ncState <- S.get
-    either throwWithContext S.put (addName name ncState)
+    oldState <- S.get
+    case addName name oldState of
+        Left err ->
+            throwWithContext err
+        Right !newState ->
+            S.put newState
 
 checkDataType :: MonadGamma m => ModuleName -> DefDataType -> S.StateT NCState m ()
 checkDataType moduleName DefDataType{..} =
@@ -159,4 +163,3 @@ checkModule mod0 =
         forM_ (moduleTemplates mod0) $ \tpl ->
             withContext (ContextTemplate mod0 tpl TPWhole) $
                 checkTemplate (moduleName mod0) tpl
-

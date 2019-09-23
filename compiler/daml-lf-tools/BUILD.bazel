@@ -17,7 +17,6 @@ da_haskell_library(
         "recursion-schemes",
         "safe",
         "text",
-        "transformers",
         "uniplate",
         "unordered-containers",
     ],
