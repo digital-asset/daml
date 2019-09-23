@@ -32,7 +32,7 @@ import qualified Data.Set as S
 import qualified Data.Text as T
 import Development.IDE.Core.API
 import Development.IDE.Core.RuleTypes.Daml
-import Development.IDE.Core.Rules.Daml hiding (writeIfacesAndHie)
+import Development.IDE.Core.Rules.Daml
 import Development.IDE.Core.Shake
 import Development.IDE.GHC.Compat
 import Development.IDE.GHC.Util
