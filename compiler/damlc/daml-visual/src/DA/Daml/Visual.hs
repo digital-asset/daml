@@ -36,7 +36,7 @@ import GHC.Generics
 import Data.Aeson
 import Text.Mustache
 import qualified Data.Text.Lazy.IO as TIO
--- import System.Directory.Extra
+import qualified Data.Text.Encoding as DT
 
 import Safe
 
@@ -52,6 +52,7 @@ data ChoiceAndAction = ChoiceAndAction
     , choiceConsuming :: IsConsuming
     , actions :: Set.Set Action
     } deriving (Show)
+
 
 data TemplateChoices = TemplateChoices
     { template :: LF.Template
@@ -97,8 +98,8 @@ data D3Graph = D3Graph
     } deriving (Generic, Show)
 
 data WebPage = WebPage
-    { links :: [D3Link]
-    , dnodes :: [D3Node]
+    { links :: T.Text
+    , dnodes :: T.Text
     , d3Js :: String
     , d3PlusJs :: String
     } deriving (Generic, Show)
@@ -317,14 +318,16 @@ webPageTemplate =
     T.unlines [ "<html>"
     , "<head><title>DAML Visualization</title><meta charset=\"utf-8\"></head>"
     , "<body>"
+    , "<div id='viz'></div>"
     , "<script>"
-    , "{{d3Js}}"
+    , "{{{d3Js}}}"
     , "</script>"
     , "<script>"
-    , "{{d3PlusJs}}"
+    , "{{{d3PlusJs}}}"
     , "</script>"
-    , "var nodes = {{dnodes}}"
-    , "var links = {{links}}"
+    , "<script>"
+    , "var nodes = {{{dnodes}}}"
+    , "var links = {{{links}}}"
     , "d3plus.viz()"
     , "          .container('#viz')"
     , "          .type('network')"
@@ -332,31 +335,33 @@ webPageTemplate =
     , "          .text('chcName')"
     , "          .edges({ value: links, arrows: true })"
     , "          .tooltip({"
-    , "             Template: function (d) { return d['tplName'].toString() },"
-    , "             Fields: function (d) { return d['fields'].toString(); }"
+    , "             Template: function (d) { return d['tplName'] },"
+    , "             Fields: function (d) { return d['fields']; }"
     , "          })"
     , "          .draw();"
+    , "</script>"
     , "</body>"
     , "</html>"
     ]
 
-d3HtmlWebPage :: FilePath -> IO ()
-d3HtmlWebPage darFilePath = do
-
+d3HtmlWebPage :: FilePath -> Maybe FilePath -> IO ()
+d3HtmlWebPage darFilePath webFilePath = do
     darBytes <- B.readFile darFilePath
     dalfs <- either fail pure $ readDalfs $ ZIPArchive.toArchive (BSL.fromStrict darBytes)
-    -- fls <- listFilesRecursive "."
-    -- print fls
     d3js <-   readFile "compiler/damlc/daml-visual/d3.js"
     d3plusjs <- readFile "compiler/damlc/daml-visual/d3plus.js"
     let world = darToWorld dalfs
         modules = NM.toList $ LF.packageModules $ getWorldSelf world
         graph = graphFromModule modules world
         d3G = graphToD3Graph graph
-        webPage = WebPage (d3links d3G) (d3nodes d3G) d3js d3plusjs
-    case compileMustacheText "fooo" webPageTemplate of
-        Left err -> print err
-        Right mTpl -> TIO.putStr $ renderMustache mTpl $ toJSON webPage
+        linksJson = (DT.decodeUtf8 $ BSL.toStrict $ encode $ d3links d3G)
+        nodesJson = (DT.decodeUtf8 $ BSL.toStrict $ encode $ d3nodes d3G)
+        webPage = WebPage linksJson nodesJson d3js d3plusjs
+    case compileMustacheText "Webpage" webPageTemplate of
+        Left err -> error $ show err
+        Right mTpl -> case webFilePath of
+            Just wPath -> TIO.writeFile wPath $ renderMustache mTpl $ toJSON webPage
+            Nothing -> TIO.writeFile "daml-visual.html" $ renderMustache mTpl $ toJSON webPage
 
 execVisual :: FilePath -> Maybe FilePath -> IO ()
 execVisual darFilePath dotFilePath = do

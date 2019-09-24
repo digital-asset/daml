@@ -82,6 +82,8 @@ package_app(
     resources = [
         ":ghc-pkg-dist",
         "//compiler/damlc/daml-ide-core:dlint.yaml",
+        "//compiler/damlc/daml-visual:d3.js",
+        "//compiler/damlc/daml-visual:d3plus.js",
         "//compiler/damlc/pkg-db",
         "//compiler/scenario-service/server:scenario_service_jar",
     ],
