@@ -35,6 +35,7 @@ import Data.Aeson
 import Text.Mustache
 import qualified Data.Text.Lazy.IO as TIO
 import qualified Data.Text.Encoding as DT
+import Web.Browser
 import Safe
 
 type IsConsuming = Bool
@@ -354,7 +355,11 @@ execVisualHtml darFilePath webFilePath = do
         webPage = WebPage linksJson nodesJson d3js d3plusjs
     case compileMustacheText "Webpage" webPageTemplate of
         Left err -> error $ show err
-        Right mTpl -> TIO.writeFile webFilePath $ renderMustache mTpl $ toJSON webPage
+        Right mTpl -> do
+            TIO.writeFile webFilePath $ renderMustache mTpl $ toJSON webPage
+            openOp <- openBrowser webFilePath
+            if openOp then return () else
+                error $ "Failed to open browser open " ++ webFilePath ++ "in a webbroswer"
 
 execVisual :: FilePath -> Maybe FilePath -> IO ()
 execVisual darFilePath dotFilePath = do
