@@ -1,7 +1,6 @@
 -- Copyright (c) 2019 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 {-# LANGUAGE PatternSynonyms #-}
-{-# LANGUAGE DeriveGeneric #-}
 
 -- | Main entry-point of the DAML compiler
 module DA.Daml.Visual
@@ -347,15 +346,16 @@ webPageTemplate =
 d3HtmlWebPage :: FilePath -> Maybe FilePath -> IO ()
 d3HtmlWebPage darFilePath webFilePath = do
     darBytes <- B.readFile darFilePath
-    dalfs <- either fail pure $ readDalfs $ ZIPArchive.toArchive (BSL.fromStrict darBytes)
+    dalfs <- either fail pure $
+                readDalfs $ ZIPArchive.toArchive (BSL.fromStrict darBytes)
     d3js <-   readFile "compiler/damlc/daml-visual/d3.js"
     d3plusjs <- readFile "compiler/damlc/daml-visual/d3plus.js"
     let world = darToWorld dalfs
         modules = NM.toList $ LF.packageModules $ getWorldSelf world
         graph = graphFromModule modules world
         d3G = graphToD3Graph graph
-        linksJson = (DT.decodeUtf8 $ BSL.toStrict $ encode $ d3links d3G)
-        nodesJson = (DT.decodeUtf8 $ BSL.toStrict $ encode $ d3nodes d3G)
+        linksJson = DT.decodeUtf8 $ BSL.toStrict $ encode $ d3links d3G
+        nodesJson = DT.decodeUtf8 $ BSL.toStrict $ encode $ d3nodes d3G
         webPage = WebPage linksJson nodesJson d3js d3plusjs
     case compileMustacheText "Webpage" webPageTemplate of
         Left err -> error $ show err

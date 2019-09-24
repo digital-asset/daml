@@ -3,14 +3,17 @@
 
 load("//bazel_tools:haskell.bzl", "da_haskell_library")
 
-exports_files(["d3.js", "d3plus.js"])
+exports_files([
+    "d3.js",
+    "d3plus.js",
+])
 
 da_haskell_library(
     name = "daml-visual",
     srcs = glob(["src/**/*.hs"]),
     data = [
         ":d3.js",
-        ":d3plus.js"
+        ":d3plus.js",
     ],
     hackage_deps = [
         "aeson",
