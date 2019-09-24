@@ -57,13 +57,14 @@ final class Packages(session: LedgerSession) extends LedgerTestSuite(session) {
     }
 
   private[this] val getUnknownPackageStatus =
-    LedgerTest("PackagesStatusUnknown", "Getting package status for an unknown package should fail") { context =>
-      for {
-        ledger <- context.participant()
-        status <- ledger.getPackageStatus(unknownPackageId)
-      } yield {
-        assert(status.isUnknown, s"Package $unknownPackageId is not unknown.")
-      }
+    LedgerTest("PackagesStatusUnknown", "Getting package status for an unknown package should fail") {
+      context =>
+        for {
+          ledger <- context.participant()
+          status <- ledger.getPackageStatus(unknownPackageId)
+        } yield {
+          assert(status.isUnknown, s"Package $unknownPackageId is not unknown.")
+        }
     }
 
   override val tests: Vector[LedgerTest] = Vector(
