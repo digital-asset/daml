@@ -22,3 +22,4 @@ HEAD — ongoing
 - [DAML Compiler]
   ``damlc migrate`` now produces a project that can be built with ``daml build`` as opposed to
   having to use the special ``build.sh`` and ``build.cmd`` scripts.
+- [security] Starting with this one, releases are now signed on GitHub.
