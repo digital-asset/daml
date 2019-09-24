@@ -6,6 +6,38 @@ Release notes
 
 This page contains release notes for the SDK.
 
+.. _release-0-13-26:
+
+0.13.26 - 2019-09-24
+--------------------
+
+JSON API
+~~~~~~~~
+
+- ``/contracts/search`` now supports a query language for filtering the
+  contracts returned by matching fields.  See `issue 2778
+  <https://github.com/digital-asset/daml/issues/2778>`_.
+
+DAML Compiler
+~~~~~~~~~~~~~
+
+- Fix a bug where ``.dar`` files produced by ``daml build`` were missing
+  all ``.daml`` files except for the one that ``source`` pointed to.
+- Fix a bug where importing the same module from different directories
+  resulted in an error in ``daml build``.
+- ``damlc migrate`` now produces a project that can be built with ``daml build`` as opposed to
+  having to use the special ``build.sh`` and ``build.cmd`` scripts.
+
+DAML Integration Toolkit
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+- 30 more test cases have been added to the transaction service test suite.
+
+Security
+~~~~~~~~
+
+- Starting with this one, releases are now signed on GitHub.
+
 .. _release-0-13-25:
 
 0.13.25 - 2019-09-18
