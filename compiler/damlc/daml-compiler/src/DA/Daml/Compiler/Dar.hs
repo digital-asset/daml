@@ -128,7 +128,7 @@ buildDar service pkgConf@PackageConfigFields {..} ifDir dalfInput = do
                          | (unitId, pkg) <- Map.toList dalfDependencies0
                          ]
                  let dataFiles = [mkConfFile pkgConf pkgModuleNames (T.unpack pkgId)]
-                 srcRoot <- liftIO $ getSrcRoot pSrc
+                 srcRoot <- getSrcRoot pSrc
                  pure $
                      createArchive
                          pkgConf
@@ -175,10 +175,16 @@ writeIfacesAndHie ifDir files =
 
 -- For backwards compatibility we allow a file at the source root level and just take it's directory
 -- to be the source root.
-getSrcRoot :: FilePath -> IO NormalizedFilePath
+getSrcRoot :: FilePath -> MaybeT Action NormalizedFilePath
 getSrcRoot fileOrDir = do
-  isDir <- doesDirectoryExist fileOrDir
-  pure $ toNormalizedFilePath $ if isDir then fileOrDir else takeDirectory fileOrDir
+  let fileOrDir' = toNormalizedFilePath fileOrDir
+  isDir <- liftIO $ doesDirectoryExist fileOrDir
+  if isDir
+      then pure fileOrDir'
+      else do
+          pm <- useE GetParsedModule fileOrDir'
+          Just root <- pure $ moduleImportPath pm
+          pure $ toNormalizedFilePath root
 
 -- | Merge several packages into one.
 mergePkgs :: [WhnfPackage] -> LF.Package
