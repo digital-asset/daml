@@ -15,8 +15,8 @@ Fallback rule
 -------------
 
 Unless otherwise required by one of the other rules below or to follow,
-values are interpreted according to the `LF values' JSON format
-<../lf-value-json/specification.rst>`_, and compared for equality.
+values are interpreted according to :doc:`lf-value-specification`, and
+compared for equality.
 
 Simple equality
 ---------------

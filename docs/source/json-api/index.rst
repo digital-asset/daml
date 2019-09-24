@@ -92,7 +92,7 @@ GET http://localhost:7575/contracts/search
 POST http://localhost:7575/contracts/search
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-application/json body::
+application/json body, formatted according to the :doc:`search-query-language`::
 
     {"%templates": [{"moduleName": "Iou", "entityName": "Iou"}],
      "amount": 999.99}
