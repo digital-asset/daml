@@ -786,10 +786,10 @@ execMigrate projectOpts opts0 inFile1_ inFile2_ mbDir =
           [(pkgName1, pkgId1, lfPkg1), (pkgName2, pkgId2, lfPkg2)] <-
               forM [inFile1, inFile2] $ \inFile -> do
                   bytes <- B.readFile inFile
-                  let pkgName = takeBaseName inFile
                   let dar = ZipArchive.toArchive $ BSL.fromStrict bytes
                   -- get the main pkg
                   dalfManifest <- either fail pure $ readDalfManifest dar
+                  let pkgName = takeBaseName $ mainDalfPath dalfManifest
                   mainDalfEntry <- getEntry (mainDalfPath dalfManifest) dar
                   (mainPkgId, mainLfPkg) <- decode $ BSL.toStrict $ ZipArchive.fromEntry mainDalfEntry
                   pure (pkgName, mainPkgId, mainLfPkg)
