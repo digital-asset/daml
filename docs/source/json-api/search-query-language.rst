@@ -3,6 +3,7 @@
 
 /contracts/search query language
 ################################
+
 The body of ``POST /contracts/search`` looks like so::
 
   {"%templates": [...template IDs...],
@@ -12,12 +13,14 @@ The elements of that query are defined here.
 
 Fallback rule
 *************
+
 Unless otherwise required by one of the other rules below or to follow,
 values are interpreted according to :doc:`lf-value-specification`, and
 compared for equality.
 
 Simple equality
 ***************
+
 Match records having at least all the (potentially nested) keys
 expressed in the query. The result record may contain additional
 properties.
@@ -44,6 +47,7 @@ with `the forthcoming comparison queries
 
 Appendix: Type-aware queries
 ****************************
+
 **This section is non-normative.**
 
 This is not a *JSON* query language, it is a *DAML-LF* query

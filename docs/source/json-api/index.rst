@@ -18,12 +18,14 @@ How to start
 
 Start sandbox from a DAML project directory
 ===========================================
+
 ::
 
     $ daml-head sandbox --wall-clock-time --ledgerid MyLedger ./.daml/dist/quickstart-0.0.1.dar
 
 Start HTTP service from a DAML project directory
 ================================================
+
 ::
 
     $ daml-head json-api --ledger-host localhost --ledger-port 6865 \
@@ -37,6 +39,7 @@ Where:
 
 Example session
 ***************
+
 ::
 
     $ cd <daml-root>/
@@ -86,8 +89,10 @@ supports such tokens.
 
 GET http://localhost:7575/contracts/search
 ==========================================
+
 POST http://localhost:7575/contracts/search
 ===========================================
+
 application/json body, formatted according to the :doc:`search-query-language`::
 
     {"%templates": [{"moduleName": "Iou", "entityName": "Iou"}],
@@ -169,6 +174,7 @@ output, each contract formatted according to :doc:`lf-value-specification`::
 
 POST http://localhost:7575/command/create
 =========================================
+
 application/json body, ``argument`` formatted according to :doc:`lf-value-specification`::
 
     {
@@ -212,6 +218,7 @@ output::
  
 POST http://localhost:44279/command/exercise
 ============================================
+
 ``"contractId": "#20:0"`` is the value from the create output
 application/json body::
 

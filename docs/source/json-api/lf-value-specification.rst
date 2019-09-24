@@ -3,6 +3,7 @@
 
 DAML-LF JSON Encoding
 #####################
+
 We describe how to decode and encode DAML-LF values as JSON. For each
 DAML-LF type we explain what JSON inputs we accept (decoding), and what
 JSON output we produce (encoding).
@@ -24,6 +25,7 @@ and the expected DAML-LF type is needed to decide which one.
 
 ContractId
 **********
+
 Contract ids are expressed as their string representation::
 
     "123"
@@ -32,8 +34,10 @@ Contract ids are expressed as their string representation::
 
 Decimal
 *******
+
 Input
 =====
+
 Decimals can be expressed as JSON numbers or as JSON strings. JSON
 strings are accepted using the same format that JSON accepts, and
 treated them as the equivalent JSON number::
@@ -75,6 +79,7 @@ A few invalid examples::
 
 Output
 ======
+
 If encodeDecimalAsString is set, decimals are encoded as strings, using
 the format ``-?[0-9]{1,28}(\.[0-9]{1,10})?``. If encodeDecimalAsString
 is not set, they are encoded as JSON numbers, also using the format
@@ -86,8 +91,10 @@ JSON.parse.
 
 Int64
 *****
+
 Input
 =====
+
 Int64, much like Decimal, can be represented as JSON numbers and as
 strings, with the string representation being ``[+-]?[0-9]+``. The
 numbers must fall within [-9223372036854775808,
@@ -117,6 +124,7 @@ A few invalid examples::
 
 Output
 ======
+
 If encodeInt64AsString is set, Int64s are encoded as strings, using the
 format ``-?[0-9]+``. If encodeInt64AsString is not set, they are encoded as
 JSON numbers, also using the format ``-?[0-9]+``.
@@ -127,8 +135,10 @@ JavaScript consumers consume Int64s safely with the standard
 
 Timestamp
 *********
+
 Input
 =====
+
 Timestamps are represented as ISO 8601 strings, rendered using the
 format ``yyyy-mm-ddThh:mm:ss[.ssssss]Z``::
 
@@ -175,6 +185,7 @@ Java
 
 Output
 ======
+
 Timestamps are encoded as ISO 8601 strings, rendered using the format
 ``yyyy-mm-ddThh:mm:ss[.ssssss]Z``.
 
@@ -194,6 +205,7 @@ part, a sub-second part of length 3, or a sub-second part of length 6.
 
 Party
 *****
+
 Represented using their string representation, without any additional
 quotes::
 
@@ -202,7 +214,9 @@ quotes::
 
 Unit
 ****
+
 Represented as empty object ``{}``. Note that in JavaScript ``{} !==
+
 {}``; however, ``null`` would be ambiguous; for the type ``Optional
 Unit``, ``null`` decodes to ``None``, but ``{}`` decodes to ``Some ()``.
 
@@ -213,6 +227,7 @@ Python.
 
 Date
 ****
+
 Represented as an ISO 8601 date rendered using the format
 ``yyyy-mm-dd``::
 
@@ -225,16 +240,20 @@ The dates must be between the bounds specified by DAML-LF and ISO 8601,
 
 Text
 ****
+
 Represented as strings.
 
 Bool
 ****
+
 Represented as booleans.
 
 Record
 ******
+
 Input
 =====
+
 Records can be represented in two ways. As objects::
 
     { f₁: v₁, ..., fₙ: vₙ }
@@ -261,10 +280,12 @@ _1 = 42, _2 = True }``.
 
 Output
 ======
+
 Records are always encoded as objects.
 
 List
 ****
+
 Lists are represented as
 
 ::
@@ -273,6 +294,7 @@ Lists are represented as
 
 Map
 ***
+
 Maps are represented as objects:
 
 ::
@@ -281,8 +303,10 @@ Maps are represented as objects:
 
 Optional
 ********
+
 Input
 =====
+
 Optionals are encoded using ``null`` if the value is None, and with the
 value itself if it's Some. However, this alone does not let us encode
 nested optionals unambiguously. Therefore, nested Optionals are encoded
@@ -351,11 +375,13 @@ you get when you have eliminated all type variables.
 
 Output
 ======
+
 Encoded as described above, always applying the shortcut for None record
 fields.
 
 Variant
 *******
+
 Variants are expressed as
 
 ::
@@ -403,6 +429,7 @@ checking; see `a keyed example`_.
 
 Enum
 ****
+
 Enums are represented as strings. So if we have
 
 ::
