@@ -114,13 +114,15 @@ extractDocs extractOpts diagsLogger ideOpts fp = do
             md_functions = mapMaybe (getFctDocs ctx) dc_decls
             md_instances = map (getInstanceDocs ctx) dc_insts
 
-            filteredAdts -- all ADT docs without templates or choices
+            -- Type constructor docs without data types corresponding to
+            -- templates and choices
+            filteredTyCons
                 = MS.elems . MS.withoutKeys typeMap . Set.unions
                 $ dc_templates : MS.elems dc_choices
 
             (md_adts, md_templateInstances) =
-                partitionEithers . flip map filteredAdts $ \adt ->
-                    case getTemplateInstanceDoc adt of
+                partitionEithers . flip map filteredTyCons $ \adt ->
+                    case getTemplateInstanceDoc dc_decldocs adt of
                         Nothing -> Left adt
                         Just ti -> Right ti
 
@@ -501,28 +503,33 @@ getTemplateDocs DocCtx{..} typeMap templateInstanceMap =
                       [] -> [] -- catching the dummy case here, see above
                       _other -> error "getFields: found multiple constructors"
 
--- | A template instance is desugared into a newtype with a docs marker.
+-- | A template instance is desugared to a type synonym with a doc decl
+-- around it.
+--
 -- For example,
 --
 -- @template instance ProposalIou = Proposal Iou@
 --
 -- becomes
 --
--- @newtype ProposalIou = ProposalIou (Proposal Iou) -- ^ TEMPLATE_INSTANCE@
+-- @--| TEMPLATE_INSTANCE@
+-- @type ProposalIou = Proposal Iou@
 --
 -- So the goal of this function is to extract the template instance doc
--- from the newtype doc if it exists.
-getTemplateInstanceDoc :: ADTDoc -> Maybe TemplateInstanceDoc
-getTemplateInstanceDoc adt
-    | ADTDoc{..} <- adt
-    , [PrefixC{..}] <- ad_constrs
-    , Just (DocText "TEMPLATE_INSTANCE") <- ac_descr
-    , [argType] <- ac_args
+-- from the doc preceding the type synonym if it exists.
+getTemplateInstanceDoc :: ADTDoc -> Maybe DeclDocMap -> Maybe TemplateInstanceDoc
+getTemplateInstanceDoc tyCon docMap
+    | TypeSynDoc{..} <- tyCon
+    , Typename name <- ad_name
+    , Just declDocs <- docMap
+    , let docStringMap = mapKeys (showSDocUnsafe . ppr) declDocs
+    , let doc = MS.lookup (show name) docStringMap
+    , Just (DocText "TEMPLATE_INSTANCE") <- doc
     = Just TemplateInstanceDoc
         { ti_name = ad_name
         , ti_anchor = ad_anchor
         , ti_descr = ad_descr
-        , ti_rhs = argType
+        , ti_rhs = ad_rhs
         }
 
     | otherwise
