@@ -82,6 +82,31 @@ object JsonProtocol extends DefaultJsonProtocol {
     case _ => deserializationError("ContractLookupRequest must be an object")
   }
 
+  implicit val ContractFormat: RootJsonFormat[domain.Contract[JsValue]] =
+    new RootJsonFormat[domain.Contract[JsValue]] {
+      private val archivedKey = "archived"
+      private val activeKey = "active"
+
+      override def read(json: JsValue): domain.Contract[JsValue] = json match {
+        case JsObject(fields) =>
+          fields.toList match {
+            case List((`archivedKey`, archived)) =>
+              domain.Contract(-\/(ArchivedContractFormat.read(archived)))
+            case List((`activeKey`, active)) =>
+              domain.Contract(\/-(ActiveContractFormat.read(active)))
+            case _ =>
+              deserializationError(
+                s"Contract must be either {$archivedKey: obj} or {$activeKey: obj}, got: $fields")
+          }
+        case _ => deserializationError("Contract must be an object")
+      }
+
+      override def write(obj: domain.Contract[JsValue]): JsValue = obj.value match {
+        case -\/(archived) => JsObject(archivedKey -> ArchivedContractFormat.write(archived))
+        case \/-(active) => JsObject(activeKey -> ActiveContractFormat.write(active))
+      }
+    }
+
   implicit val ActiveContractFormat: RootJsonFormat[domain.ActiveContract[JsValue]] =
     jsonFormat9(domain.ActiveContract.apply[JsValue])
 

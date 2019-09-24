@@ -34,6 +34,8 @@ object domain {
 
   case class TemplateId[+PkgId](packageId: PkgId, moduleName: String, entityName: String)
 
+  case class Contract[+LfV](value: ArchivedContract \/ ActiveContract[LfV])
+
   case class ActiveContract[+LfV](
       workflowId: Option[WorkflowId],
       contractId: ContractId,
