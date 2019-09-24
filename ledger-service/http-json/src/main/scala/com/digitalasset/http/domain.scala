@@ -30,7 +30,7 @@ object domain {
     }
   }
 
-  case class JwtPayload(ledgerId: lar.LedgerId, applicationId: lar.ApplicationId, party: lar.Party)
+  case class JwtPayload(ledgerId: lar.LedgerId, applicationId: lar.ApplicationId, party: Party)
 
   case class TemplateId[+PkgId](packageId: PkgId, moduleName: String, entityName: String)
 
@@ -40,7 +40,7 @@ object domain {
       templateId: TemplateId.RequiredPkg,
       key: Option[LfV],
       argument: LfV,
-      witnessParties: Seq[String],
+      witnessParties: Seq[Party],
       agreementText: String)
 
   case class ContractLookupRequest[+LfV](
@@ -57,6 +57,10 @@ object domain {
   type ContractIdTag = lar.ContractIdTag
   type ContractId = lar.ContractId
   val ContractId = lar.ContractId
+
+  type PartyTag = lar.PartyTag
+  type Party = lar.Party
+  val Party = lar.Party
 
   object WorkflowId {
 
@@ -95,7 +99,7 @@ object domain {
           templateId = TemplateId fromLedgerApi templateId,
           key = in.contractKey,
           argument = boxedArgument,
-          witnessParties = in.witnessParties,
+          witnessParties = Party.subst(in.witnessParties),
           agreementText = in.agreementText getOrElse ""
         )
 

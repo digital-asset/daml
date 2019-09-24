@@ -24,8 +24,8 @@ object JsonProtocol extends DefaultJsonProtocol {
   implicit val WorkflowIdFormat: JsonFormat[domain.WorkflowId] =
     taggedJsonFormat[String, domain.WorkflowIdTag]
 
-  implicit val PartyFormat: JsonFormat[lar.Party] =
-    taggedJsonFormat[String, lar.PartyTag]
+  implicit val PartyFormat: JsonFormat[domain.Party] =
+    taggedJsonFormat[String, domain.PartyTag]
 
   implicit val CommandIdFormat: JsonFormat[lar.CommandId] =
     taggedJsonFormat[String, lar.CommandIdTag]
