@@ -8,7 +8,7 @@ import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.speedy.{SValue, Command => SpeedyCommand}
-import com.digitalasset.daml.lf.value.Value._
+import com.digitalasset.daml.lf.value.Value
 
 import scala.annotation.tailrec
 
@@ -18,7 +18,7 @@ private[engine] class CommandPreprocessor(compiledPackages: ConcurrentCompiledPa
 
   private[engine] def translateValue(
       ty0: Type,
-      v0: VersionedValue[AbsoluteContractId]): Result[SValue] = {
+      v0: Value[Value.AbsoluteContractId]): Result[SValue] = {
 
     valueTranslator.translateValue(ty0, v0) match {
       case ResultNeedPackage(pkgId, resume) =>
@@ -36,7 +36,7 @@ private[engine] class CommandPreprocessor(compiledPackages: ConcurrentCompiledPa
 
   private[engine] def preprocessCreate(
       templateId: Identifier,
-      argument: VersionedValue[AbsoluteContractId]): Result[(Type, SpeedyCommand)] =
+      argument: Value[Value.AbsoluteContractId]): Result[(Type, SpeedyCommand)] =
     Result.needDataType(
       compiledPackages,
       templateId,
@@ -55,7 +55,7 @@ private[engine] class CommandPreprocessor(compiledPackages: ConcurrentCompiledPa
 
   private[engine] def preprocessFetch(
       templateId: Identifier,
-      coid: AbsoluteContractId): Result[(Type, SpeedyCommand)] =
+      coid: Value.AbsoluteContractId): Result[(Type, SpeedyCommand)] =
     Result.needDataType(
       compiledPackages,
       templateId,
@@ -74,9 +74,9 @@ private[engine] class CommandPreprocessor(compiledPackages: ConcurrentCompiledPa
 
   private[engine] def preprocessExercise(
       templateId: Identifier,
-      contractId: ContractId,
+      contractId: Value.ContractId,
       choiceId: ChoiceName,
-      argument: VersionedValue[AbsoluteContractId]): Result[(Type, SpeedyCommand)] =
+      argument: Value[Value.AbsoluteContractId]): Result[(Type, SpeedyCommand)] =
     Result.needTemplate(
       compiledPackages,
       templateId,
@@ -97,9 +97,9 @@ private[engine] class CommandPreprocessor(compiledPackages: ConcurrentCompiledPa
 
   private[engine] def preprocessExerciseByKey(
       templateId: Identifier,
-      contractKey: VersionedValue[AbsoluteContractId],
+      contractKey: Value[Value.AbsoluteContractId],
       choiceId: ChoiceName,
-      argument: VersionedValue[AbsoluteContractId]): Result[(Type, SpeedyCommand)] =
+      argument: Value[Value.AbsoluteContractId]): Result[(Type, SpeedyCommand)] =
     Result.needTemplate(
       compiledPackages,
       templateId,
@@ -126,9 +126,9 @@ private[engine] class CommandPreprocessor(compiledPackages: ConcurrentCompiledPa
 
   private[engine] def preprocessCreateAndExercise(
       templateId: ValueRef,
-      createArgument: VersionedValue[AbsoluteContractId],
+      createArgument: Value[Value.AbsoluteContractId],
       choiceId: ChoiceName,
-      choiceArgument: VersionedValue[AbsoluteContractId]
+      choiceArgument: Value[Value.AbsoluteContractId]
   ): Result[(Type, SpeedyCommand)] = {
     Result.needDataType(
       compiledPackages,
@@ -171,7 +171,7 @@ private[engine] class CommandPreprocessor(compiledPackages: ConcurrentCompiledPa
       case CreateCommand(templateId, argument) =>
         preprocessCreate(templateId, argument)
       case ExerciseCommand(templateId, contractId, choiceId, argument) =>
-        preprocessExercise(templateId, AbsoluteContractId(contractId), choiceId, argument)
+        preprocessExercise(templateId, Value.AbsoluteContractId(contractId), choiceId, argument)
       case ExerciseByKeyCommand(templateId, contractKey, choiceId, argument) =>
         preprocessExerciseByKey(
           templateId,

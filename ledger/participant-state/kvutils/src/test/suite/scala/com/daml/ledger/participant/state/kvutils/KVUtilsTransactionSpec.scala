@@ -12,7 +12,7 @@ import com.daml.ledger.participant.state.v1.Update
 import com.digitalasset.daml.lf.command.{Command, CreateCommand, ExerciseCommand}
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.transaction.Node.NodeCreate
-import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
+import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ValueUnit}
 import org.scalatest.{Matchers, WordSpec}
 
 class KVUtilsTransactionSpec extends WordSpec with Matchers {
@@ -29,7 +29,7 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
         simpleTemplateId,
         Ref.ContractIdString.assertFromString(coid),
         simpleConsumeChoiceid,
-        mkUnitValue)
+        ValueUnit)
 
     val p0 = mkParticipantId(0)
     val p1 = mkParticipantId(1)
