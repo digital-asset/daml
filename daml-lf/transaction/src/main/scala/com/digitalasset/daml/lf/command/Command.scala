@@ -4,7 +4,7 @@
 package com.digitalasset.daml.lf.command
 
 import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.value.Value._
+import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.data.{ImmArray, Time}
 
 // ---------------------------------
@@ -19,7 +19,7 @@ sealed trait Command extends Product with Serializable {
   *  @param templateId identifier of the template that the contract is instantiating
   *  @param argument value passed to the template
   */
-final case class CreateCommand(templateId: Identifier, argument: VersionedValue[AbsoluteContractId])
+final case class CreateCommand(templateId: Identifier, argument: Value[Value.AbsoluteContractId])
     extends Command
 
 /** Command for exercising a choice on an existing contract
@@ -33,7 +33,7 @@ final case class ExerciseCommand(
     templateId: Identifier,
     contractId: ContractIdString,
     choiceId: ChoiceName,
-    argument: VersionedValue[AbsoluteContractId])
+    argument: Value[Value.AbsoluteContractId])
     extends Command
 
 /** Command for exercising a choice on an existing contract specified by its key
@@ -45,9 +45,9 @@ final case class ExerciseCommand(
   */
 final case class ExerciseByKeyCommand(
     templateId: Identifier,
-    contractKey: VersionedValue[AbsoluteContractId],
+    contractKey: Value[Value.AbsoluteContractId],
     choiceId: ChoiceName,
-    argument: VersionedValue[AbsoluteContractId])
+    argument: Value[Value.AbsoluteContractId])
     extends Command
 
 /** Command for creating a contract and exercising a choice
@@ -60,9 +60,9 @@ final case class ExerciseByKeyCommand(
   */
 final case class CreateAndExerciseCommand(
     templateId: Identifier,
-    createArgument: VersionedValue[AbsoluteContractId],
+    createArgument: Value[Value.AbsoluteContractId],
     choiceId: ChoiceName,
-    choiceArgument: VersionedValue[AbsoluteContractId])
+    choiceArgument: Value[Value.AbsoluteContractId])
     extends Command
 
 /** Commands input adapted from ledger-api
@@ -77,4 +77,5 @@ case class Commands(
     submitter: Party,
     commands: ImmArray[Command],
     ledgerEffectiveTime: Time.Timestamp,
-    commandsReference: String)
+    commandsReference: String
+)

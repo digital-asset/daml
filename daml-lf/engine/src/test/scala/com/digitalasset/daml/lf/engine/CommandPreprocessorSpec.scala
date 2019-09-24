@@ -10,7 +10,6 @@ import com.digitalasset.daml.lf.language.Ast.{TNat, TTyCon}
 import com.digitalasset.daml.lf.language.Util._
 import com.digitalasset.daml.lf.testing.parser.Implicits._
 import com.digitalasset.daml.lf.value.Value._
-import com.digitalasset.daml.lf.value.ValueVersion
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.{Matchers, WordSpec}
 
@@ -81,11 +80,10 @@ class CommandPreprocessorSpec extends WordSpec with Matchers with TableDrivenPro
     assert(compiledPackage.addPackage(pkgId, pkg) == ResultDone(()))
     val preprocessor = new CommandPreprocessor(compiledPackage)
     import preprocessor.translateValue
-    val valueVersion = ValueVersion("last")
 
     "succeeds on well type values" in {
       forAll(testCases) { (typ, value) =>
-        translateValue(typ, VersionedValue(valueVersion, value)) shouldBe a[ResultDone[_]]
+        translateValue(typ, value) shouldBe a[ResultDone[_]]
       }
     }
 
@@ -93,7 +91,7 @@ class CommandPreprocessorSpec extends WordSpec with Matchers with TableDrivenPro
       forAll(testCases) { (typ1, value1) =>
         forAll(testCases) { (_, value2) =>
           if (value1 != value2)
-            translateValue(typ1, VersionedValue(valueVersion, value2)) shouldBe a[ResultError]
+            translateValue(typ1, value2) shouldBe a[ResultError]
         }
       }
     }

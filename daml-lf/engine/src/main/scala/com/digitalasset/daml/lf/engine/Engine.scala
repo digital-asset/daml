@@ -219,7 +219,7 @@ final class Engine {
       case NodeCreate(coid @ _, coinst, optLoc @ _, sigs @ _, stks @ _, key @ _) =>
         val identifier = coinst.template
         asValueWithAbsoluteContractIds(coinst.arg).flatMap(
-          absArg => commandPreprocessor.preprocessCreate(identifier, absArg)
+          absArg => commandPreprocessor.preprocessCreate(identifier, absArg.value)
         )
 
       case NodeExercises(
@@ -240,7 +240,7 @@ final class Engine {
         asValueWithAbsoluteContractIds(chosenVal).flatMap(
           absChosenVal =>
             commandPreprocessor
-              .preprocessExercise(templateId, coid, choice, absChosenVal))
+              .preprocessExercise(templateId, coid, choice, absChosenVal.value))
 
       case NodeFetch(coid, templateId, _, _, _, _) =>
         asAbsoluteContractId(coid)
