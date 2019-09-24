@@ -217,7 +217,7 @@ jobs:
               rm -rf $KEY_FILE $GPG_DIR
           }
           trap cleanup EXIT
-          echo "$GPG_KEY" > $KEY_FILE
+          echo "$GPG_KEY" | base64 -d > $KEY_FILE
           gpg --homedir $GPG_DIR --no-tty --quiet --import $KEY_FILE
           cd $(Build.StagingDirectory)/release
           # Note: relies on our release artifacts not having spaces in their
