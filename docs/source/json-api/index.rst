@@ -46,14 +46,14 @@ Start sandbox from a DAML project directory
 
 ::
 
-    $ daml-head sandbox --wall-clock-time --ledgerid MyLedger ./.daml/dist/quickstart-0.0.1.dar
+    $ daml sandbox --wall-clock-time --ledgerid MyLedger ./.daml/dist/quickstart-0.0.1.dar
 
 Start HTTP service from a DAML project directory
 ================================================
 
 ::
 
-    $ daml-head json-api --ledger-host localhost --ledger-port 6865 \
+    $ daml json-api --ledger-host localhost --ledger-port 6865 \
         --http-port 7575 --max-inbound-message-size 4194304 --application-id HTTP-JSON-API-Gateway
 
 Where:
@@ -67,15 +67,11 @@ Example session
 
 ::
 
-    $ cd <daml-root>/
-    $ daml-sdk-head
-
-    $ cd $HOME
-    $ daml-head new iou-quickstart-java quickstart-java
+    $ daml new iou-quickstart-java quickstart-java
     $ cd iou-quickstart-java/
-    $ daml-head build
-    $ daml-head sandbox --wall-clock-time --ledgerid MyLedger ./.daml/dist/quickstart-0.0.1.dar
-    $ daml-head json-api --ledger-host localhost --ledger-port 6865 --http-port 7575
+    $ daml build
+    $ daml sandbox --wall-clock-time --ledgerid MyLedger ./.daml/dist/quickstart-0.0.1.dar
+    $ daml json-api --ledger-host localhost --ledger-port 6865 --http-port 7575
 
 Choosing a party
 ================
