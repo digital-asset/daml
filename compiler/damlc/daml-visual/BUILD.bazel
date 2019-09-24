@@ -34,11 +34,11 @@ da_haskell_library(
     src_strip_prefix = "src",
     visibility = ["//visibility:public"],
     deps = [
-        "//libs-haskell/bazel-runfiles",
         "//compiler/daml-lf-ast",
         "//compiler/daml-lf-proto",
         "//compiler/daml-lf-reader",
         "//compiler/daml-lf-tools",
+        "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
     ],
 )
