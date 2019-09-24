@@ -401,7 +401,7 @@ dlintSmokeTests mbScenarioService = Tasty.testGroup "Dlint smoke tests"
             setFilesOfInterest [foo]
             expectNoErrors
             expectDiagnostic DsInfo (foo, 2, 4) "Suggestion: Use list literal pattern"
-    ,  testCase' "Use ::" $ do
+    ,  testCase' "Use '::'" $ do
             foo <- makeFile "Foo.daml" $ T.unlines
                 [ "daml 1.2"
                 , "module Foo where"
