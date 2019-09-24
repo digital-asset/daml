@@ -119,17 +119,10 @@ d3NodesFromGraph g = concatMap subGraphToD3Nodes (subgraphs g)
 graphToD3Graph :: Graph -> D3Graph
 graphToD3Graph g = D3Graph (d3LinksFromGraphEdges g) (d3NodesFromGraph g)
 
-instance ToJSON D3Link where
-    toEncoding = genericToEncoding defaultOptions
-
-instance ToJSON D3Node where
-    toEncoding = genericToEncoding defaultOptions
-
-instance ToJSON D3Graph where
-    toEncoding = genericToEncoding defaultOptions
-
-instance ToJSON WebPage where
-    toEncoding = genericToEncoding defaultOptions
+instance ToJSON D3Link
+instance ToJSON D3Node
+instance ToJSON D3Graph
+instance ToJSON WebPage
 
 startFromUpdate :: Set.Set (LF.Qualified LF.ExprValName) -> LF.World -> LF.Update -> Set.Set Action
 startFromUpdate seen world update = case update of
