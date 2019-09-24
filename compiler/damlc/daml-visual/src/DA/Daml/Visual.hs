@@ -355,7 +355,7 @@ execVisualHtml darFilePath webFilePath = do
             TIO.writeFile webFilePath $ renderMustache mTpl $ toJSON webPage
             openOp <- openBrowser webFilePath
             if openOp then return () else
-                error $ "Failed to open browser open " ++ webFilePath ++ "in a webbroswer"
+                error $ "Failed to open browser. Open " ++ webFilePath ++ "in a web broswer"
 
 execVisual :: FilePath -> Maybe FilePath -> IO ()
 execVisual darFilePath dotFilePath = do
