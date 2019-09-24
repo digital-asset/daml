@@ -90,9 +90,11 @@ private[testtool] abstract class LedgerTestSuite(val session: LedgerSession) {
           "Exception is neither a StatusRuntimeException nor a StatusException")
     }
     assert(actualCode == expectedCode, s"Expected code [$expectedCode], but got [$actualCode].")
+    // Note: Status.getDescription() is nullable, map missing descriptions to an empty string
+    val nonNullMessage = Option(message).getOrElse("")
     assert(
-      Option(message).getOrElse("").contains(pattern),
-      s"Error message did not contain [$pattern], but was [$message].")
+      nonNullMessage.contains(pattern),
+      s"Error message did not contain [$pattern], but was [$nonNullMessage].")
   }
 
   /**
