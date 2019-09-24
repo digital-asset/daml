@@ -216,7 +216,6 @@ Unit
 ****
 
 Represented as empty object ``{}``. Note that in JavaScript ``{} !==
-
 {}``; however, ``null`` would be ambiguous; for the type ``Optional
 Unit``, ``null`` decodes to ``None``, but ``{}`` decodes to ``Some ()``.
 
