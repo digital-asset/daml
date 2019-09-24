@@ -36,6 +36,8 @@ import Text.Mustache
 import qualified Data.Text.Lazy.IO as TIO
 import qualified Data.Text.Encoding as DT
 import Web.Browser
+import DA.Bazel.Runfiles
+import System.FilePath
 import Safe
 
 type IsConsuming = Bool
@@ -337,8 +339,9 @@ execVisualHtml darFilePath webFilePath = do
     darBytes <- B.readFile darFilePath
     dalfs <- either fail pure $
                 readDalfs $ ZIPArchive.toArchive (BSL.fromStrict darBytes)
-    d3js <-   readFile "compiler/damlc/daml-visual/d3.js"
-    d3plusjs <- readFile "compiler/damlc/daml-visual/d3plus.js"
+    staticDir <- locateRunfiles $ mainWorkspace </> "compiler" </> "damlc" </> "daml-visual"
+    d3js <-   readFile $ staticDir </> "d3.js"
+    d3plusjs <- readFile $ staticDir </> "d3plus.js"
     let world = darToWorld dalfs
         modules = NM.toList $ LF.packageModules $ getWorldSelf world
         graph = graphFromModule modules world
