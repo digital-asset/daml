@@ -36,7 +36,7 @@ object domain {
 
   case class ActiveContract[+LfV](
       workflowId: Option[WorkflowId],
-      contractId: String,
+      contractId: ContractId,
       templateId: TemplateId.RequiredPkg,
       key: Option[LfV],
       argument: LfV,
@@ -45,7 +45,7 @@ object domain {
 
   case class ContractLookupRequest[+LfV](
       ledgerId: Option[String],
-      id: (TemplateId.OptionalPkg, LfV) \/ (Option[TemplateId.OptionalPkg], String))
+      id: (TemplateId.OptionalPkg, LfV) \/ (Option[TemplateId.OptionalPkg], ContractId))
 
   case class GetActiveContractsRequest(
       templateIds: Set[TemplateId.OptionalPkg],
@@ -53,6 +53,10 @@ object domain {
 
   type WorkflowIdTag = lar.WorkflowIdTag
   type WorkflowId = lar.WorkflowId
+
+  type ContractIdTag = lar.ContractIdTag
+  type ContractId = lar.ContractId
+  val ContractId = lar.ContractId
 
   object WorkflowId {
 
@@ -87,7 +91,7 @@ object domain {
       } yield
         ActiveContract(
           workflowId = workflowId,
-          contractId = in.contractId,
+          contractId = ContractId(in.contractId),
           templateId = TemplateId fromLedgerApi templateId,
           key = in.contractKey,
           argument = boxedArgument,

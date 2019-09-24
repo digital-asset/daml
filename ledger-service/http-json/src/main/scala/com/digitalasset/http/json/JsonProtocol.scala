@@ -32,8 +32,8 @@ object JsonProtocol extends DefaultJsonProtocol {
 
   implicit val ChoiceFormat: JsonFormat[lar.Choice] = taggedJsonFormat[String, lar.ChoiceTag]
 
-  implicit val ContractIdFormat: JsonFormat[lar.ContractId] =
-    taggedJsonFormat[String, lar.ContractIdTag]
+  implicit val ContractIdFormat: JsonFormat[domain.ContractId] =
+    taggedJsonFormat[String, domain.ContractIdTag]
 
   object LfValueCodec
       extends ApiCodecCompressed[AbsoluteContractId](
@@ -69,7 +69,9 @@ object JsonProtocol extends DefaultJsonProtocol {
         case (Some(templateId), Some(key), None) =>
           -\/((templateId.convertTo[domain.TemplateId.OptionalPkg], key))
         case (otid, None, Some(contractId)) =>
-          \/-((otid map (_.convertTo[domain.TemplateId.OptionalPkg]), contractId.convertTo[String]))
+          val a = otid map (_.convertTo[domain.TemplateId.OptionalPkg])
+          val b = contractId.convertTo[domain.ContractId]
+          \/-((a, b))
         case (None, Some(_), None) =>
           deserializationError(
             "ContractLookupRequest requires key to be accompanied by a templateId")
