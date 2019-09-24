@@ -170,6 +170,7 @@ data DocCtx = DocCtx
         -- ^ command line options that affect the doc extractor
     , dc_exports :: ExportSet
         -- ^ set of export, unless everything is exported
+    , dc_decldocs :: Maybe DeclDocMap
     }
 
 -- | Parsed declaration with associated docs.
@@ -180,16 +181,17 @@ data DeclData = DeclData
 
 buildDocCtx :: ExtractOptions -> TypecheckedModule -> DocCtx
 buildDocCtx dc_extractOptions dc_tcmod  =
-    let dc_ghcMod = ms_mod . pm_mod_summary . tm_parsed_module $ dc_tcmod
+    let parsedMod = tm_parsed_module dc_tcmod
+        checkedModInfo = tm_checked_module_info dc_tcmod
+    let dc_ghcMod = ms_mod . pm_mod_summary $ parsedMod
         dc_modname = getModulename dc_ghcMod
         dc_decls
             = map (uncurry DeclData) . collectDocs . hsmodDecls . unLoc
-            . pm_parsed_source . tm_parsed_module $ dc_tcmod
-        (dc_templates, dc_choices)
-            = getTemplateData . tm_parsed_module $ dc_tcmod
+            . pm_parsed_source $ parsedMod
+        (dc_templates, dc_choices) = getTemplateData parsedMod
 
-        tythings = modInfoTyThings . tm_checked_module_info $ dc_tcmod
-        dc_insts = modInfoInstances . tm_checked_module_info $ dc_tcmod
+        tythings = modInfoTyThings checkedModInfo
+        dc_insts = modInfoInstances checkedModInfo
 
         dc_tycons = MS.fromList
             [ (typename, tycon)
@@ -209,7 +211,9 @@ buildDocCtx dc_extractOptions dc_tcmod  =
             , let fieldname = Fieldname . packId $ id
             ]
 
-        dc_exports = extractExports . tm_parsed_module $ dc_tcmod
+        dc_exports = extractExports parsedMod
+
+        dc_decldocs = mi_decl_docs <$> modInfoIface checkedModInfo
 
     in DocCtx {..}
 
