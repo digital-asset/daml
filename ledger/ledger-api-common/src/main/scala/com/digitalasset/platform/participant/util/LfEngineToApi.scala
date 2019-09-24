@@ -173,7 +173,7 @@ object LfEngineToApi {
           ApiCommand.Command.Create(
             ApiCreateCommand(
               Some(toApiIdentifier(templateId)),
-              LfEngineToApi.lfVersionedValueToApiRecord(verbose = true, argument).toOption)))
+              LfEngineToApi.lfValueToApiRecord(verbose = true, argument).toOption)))
       case ExerciseCommand(templateId, contractId, choiceId, argument) =>
         ApiCommand(
           ApiCommand.Command.Exercise(
@@ -181,22 +181,22 @@ object LfEngineToApi {
               Some(toApiIdentifier(templateId)),
               contractId,
               choiceId,
-              LfEngineToApi.lfValueToApiValue(verbose = true, argument.value).toOption)))
+              LfEngineToApi.lfValueToApiValue(verbose = true, argument).toOption)))
       case ExerciseByKeyCommand(templateId, contractKey, choiceId, argument) =>
         ApiCommand(
           ApiCommand.Command.ExerciseByKey(ApiExerciseByKeyCommand(
             Some(toApiIdentifier(templateId)),
-            LfEngineToApi.lfValueToApiValue(verbose = true, contractKey.value).toOption,
+            LfEngineToApi.lfValueToApiValue(verbose = true, contractKey).toOption,
             choiceId,
-            LfEngineToApi.lfValueToApiValue(verbose = true, argument.value).toOption
+            LfEngineToApi.lfValueToApiValue(verbose = true, argument).toOption
           )))
       case CreateAndExerciseCommand(templateId, createArgument, choiceId, choiceArgument) =>
         ApiCommand(
           ApiCommand.Command.CreateAndExercise(ApiCreateAndExerciseCommand(
             Some(toApiIdentifier(templateId)),
-            LfEngineToApi.lfVersionedValueToApiRecord(verbose = true, createArgument).toOption,
+            LfEngineToApi.lfValueToApiRecord(verbose = true, createArgument).toOption,
             choiceId,
-            LfEngineToApi.lfVersionedValueToApiValue(verbose = true, choiceArgument).toOption
+            LfEngineToApi.lfValueToApiValue(verbose = true, choiceArgument).toOption
           )))
     }
 
