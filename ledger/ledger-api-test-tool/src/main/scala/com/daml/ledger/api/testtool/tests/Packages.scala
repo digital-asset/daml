@@ -30,6 +30,9 @@ final class Packages(session: LedgerSession) extends LedgerTestSuite(session) {
         somePackage <- ledger.getPackage(somePackageId)
       } yield {
         assert(somePackage.hash.length > 0, s"Package $somePackageId has an empty hash.")
+        assert(
+          somePackage.hash == somePackageId,
+          s"Package $somePackageId has hash ${somePackage.hash}, expected hash to be equal to the package ID.")
         assert(somePackage.archivePayload.size() >= 0, s"Package $somePackageId has zero size.")
       }
     }
