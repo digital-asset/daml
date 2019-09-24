@@ -50,6 +50,6 @@ This does not require any packages installed. You can generate D3 graphs for the
 Running the above should produce an image which looks something like this:
 
 
-.. image:: images/quickstart.png
+.. image:: images/d3-visual.png
   :width: 30%
   :align: center
