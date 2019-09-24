@@ -41,7 +41,15 @@ object domain {
       key: Option[LfV],
       argument: LfV,
       witnessParties: Seq[Party],
+      signatories: Seq[Party],
+      observers: Seq[Party],
       agreementText: String)
+
+  case class ArchivedContract(
+      workflowId: Option[WorkflowId],
+      contractId: ContractId,
+      templateId: TemplateId.RequiredPkg,
+      witnessParties: Seq[Party])
 
   case class ContractLookupRequest[+LfV](
       ledgerId: Option[String],
@@ -100,6 +108,8 @@ object domain {
           key = in.contractKey,
           argument = boxedArgument,
           witnessParties = Party.subst(in.witnessParties),
+          signatories = Party.subst(in.signatories),
+          observers = Party.subst(in.observers),
           agreementText = in.agreementText getOrElse ""
         )
 
@@ -129,6 +139,20 @@ object domain {
           templateId: TemplateId.RequiredPkg): lf.data.Ref.Identifier =
         IdentifierConverters.lfIdentifier(templateId)
     }
+  }
+
+  object ArchivedContract {
+    def fromLedgerApi(workflowId: Option[WorkflowId])(
+        in: lav1.event.ArchivedEvent): Error \/ ArchivedContract =
+      for {
+        templateId <- in.templateId required "templateId"
+      } yield
+        ArchivedContract(
+          workflowId = workflowId,
+          contractId = ContractId(in.contractId),
+          templateId = TemplateId fromLedgerApi templateId,
+          witnessParties = Party.subst(in.witnessParties)
+        )
   }
 
   object ContractLookupRequest {
