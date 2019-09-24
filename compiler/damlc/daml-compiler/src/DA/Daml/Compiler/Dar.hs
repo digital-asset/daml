@@ -58,16 +58,16 @@ A (fat) dar file is a zip file containing
 * all source files to that library
      - a dependency tree of imports
      - starting from the given top-level DAML 'file'
-     - all these files _must_ reside in the same directory 'topdir'
-     - the 'topdir' in the absolute path is replaced by 'name'
+     - all these files _must_ reside in the same “source root” directory
+     - the “source root” in the absolute path is replaced by 'name-hash'
 * all dalf dependencies
 * additional data files under the data/ directory.
 
-'topdir' is the path prefix of the top module that is _not_ part of the
-qualified module name.
+“source root” corresponds to the import directory for a module,
+i.e., the path prefix that is not part of the module name.
 Example:  'file' = "/home/dude/work/solution-xy/daml/XY/Main/LibraryModules.daml"
 contains "daml-1.2 module XY.Main.LibraryModules"
-so 'topdir' is "/home/dude/work/solution-xy/daml"
+so “source root” is "/home/dude/work/solution-xy/daml"
 
 The dar archive should stay independent of the dependency resolution tool. Therefore the pom file is
 gernerated separately.
@@ -173,8 +173,8 @@ writeIfacesAndHie ifDir files =
             writeHieFile hieFp hieFile
             pure [toNormalizedFilePath ifaceFp, toNormalizedFilePath hieFp]
 
--- For backwards compatibility we allow a file at the source root level and just take it's directory
--- to be the source root.
+-- For backwards compatibility we allow both a file or a directory in "source".
+-- For a file we use the import path as the src root.
 getSrcRoot :: FilePath -> MaybeT Action NormalizedFilePath
 getSrcRoot fileOrDir = do
   let fileOrDir' = toNormalizedFilePath fileOrDir
