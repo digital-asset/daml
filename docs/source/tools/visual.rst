@@ -20,7 +20,32 @@ Here's an example visualization based on the :doc:`quickstart </getting-started/
 
 1. Generate the dar using ``daml build``
 2. Generate a dot file ``daml damlc visual dist/quickstart-0.0.1.dar --dot quickstart.dot``
-3. Generate the visual graph with Graphviz by running ``dot -Tpng quickstart.dot -o quickstart.png``
+3. Generate the visual graph with Graphviz by running ``daml damlc visual .daml/dist/quickstart-0.0.1.dar  --dot quickstart.dot``
+
+Running the above should produce an image which looks something like this:
+
+
+.. image:: images/quickstart.png
+  :width: 30%
+  :align: center
+
+
+
+Visualizing DAML Contracts - Within IDE
+#######################################
+
+You can generate visual graphs from VS Code IDE. Open the daml project in VS Code and use `command palette <https://code.visualstudio.com/docs/getstarted/tips-and-tricks#_command-palette/>`_. Should reveal a new window pane with dot image. Also visual generates only the currently open daml file and its imports.
+
+Note: You will need to install the Graphviz/dot packages as mentioned above.
+
+
+Visualizing DAML Contracts - D3 Network
+#######################################
+
+This does not require any packages installed. You can generate D3 graphs for the contracts in your DAML project. To do this
+
+  1. Generate a DAR from your project by running ``daml build``.
+  2. Generate HTML file ``daml damlc visual-web .daml/dist/quickstart-0.0.1.dar quickstart.html``
 
 Running the above should produce an image which looks something like this:
 
