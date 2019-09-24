@@ -77,6 +77,7 @@ Then the "Encoded" box should have your token; set HTTP header
 ``Authorization: Bearer copy-paste-token-here``.
 
 Here are two tokens you can use for testing:
+
 - ``{"ledgerId": "MyLedger", "applicationId": "foobar", "party": "Alice"}``
   ``eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJsZWRnZXJJZCI6Ik15TGVkZ2VyIiwiYXBwbGljYXRpb25JZCI6ImZvb2JhciIsInBhcnR5IjoiQWxpY2UifQ.4HYfzjlYr1ApUDot0a6a4zB49zS_jrwRUOCkAiPMqo0``
 
