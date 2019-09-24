@@ -35,6 +35,9 @@ module DA.Daml.Helper.Run
     , StartNavigator(..)
     , WaitForSignal(..)
     , DamlHelperError(..)
+    , SandboxOptions(..)
+    , NavigatorOptions(..)
+    , JsonApiOptions(..)
     ) where
 
 import Control.Concurrent
@@ -728,8 +731,32 @@ data JsonApiConfig = JsonApiConfig
 -- | Whether `daml start` should wait for Ctrl+C or interrupt after starting servers.
 newtype WaitForSignal = WaitForSignal Bool
 
-runStart :: Maybe SandboxPort -> StartNavigator -> JsonApiConfig -> OpenBrowser -> Maybe String -> WaitForSignal -> IO ()
-runStart sandboxPortM (StartNavigator shouldStartNavigator) (JsonApiConfig mbJsonApiPort) (OpenBrowser shouldOpenBrowser) onStartM (WaitForSignal shouldWaitForSignal) = withProjectRoot Nothing (ProjectCheck "daml start" True) $ \_ _ -> do
+newtype SandboxOptions = SandboxOptions [String]
+newtype NavigatorOptions = NavigatorOptions [String]
+newtype JsonApiOptions = JsonApiOptions [String]
+
+runStart
+    :: Maybe SandboxPort
+    -> StartNavigator
+    -> JsonApiConfig
+    -> OpenBrowser
+    -> Maybe String
+    -> WaitForSignal
+    -> SandboxOptions
+    -> NavigatorOptions
+    -> JsonApiOptions
+    -> IO ()
+runStart
+  sandboxPortM
+  (StartNavigator shouldStartNavigator)
+  (JsonApiConfig mbJsonApiPort)
+  (OpenBrowser shouldOpenBrowser)
+  onStartM
+  (WaitForSignal shouldWaitForSignal)
+  (SandboxOptions sandboxOpts)
+  (NavigatorOptions navigatorOpts)
+  (JsonApiOptions jsonApiOpts)
+  = withProjectRoot Nothing (ProjectCheck "daml start" True) $ \_ _ -> do
     let sandboxPort = fromMaybe defaultSandboxPort sandboxPortM
     projectConfig <- getProjectConfig
     darPath <- getDarPath
@@ -738,12 +765,12 @@ runStart sandboxPortM (StartNavigator shouldStartNavigator) (JsonApiConfig mbJso
         queryProjectConfig ["scenario"] projectConfig
     doBuild
     let scenarioArgs = maybe [] (\scenario -> ["--scenario", scenario]) mbScenario
-    withSandbox sandboxPort (darPath : scenarioArgs) $ \sandboxPh -> do
-        withNavigator' sandboxPh sandboxPort navigatorPort [] $ \navigatorPh -> do
+    withSandbox sandboxPort (darPath : scenarioArgs ++ sandboxOpts) $ \sandboxPh -> do
+        withNavigator' sandboxPh sandboxPort navigatorPort navigatorOpts $ \navigatorPh -> do
             whenJust onStartM $ \onStart -> runProcess_ (shell onStart)
             when (shouldStartNavigator && shouldOpenBrowser) $
                 void $ openBrowser (navigatorURL navigatorPort)
-            withJsonApi' sandboxPh sandboxPort [] $ \jsonApiPh -> do
+            withJsonApi' sandboxPh sandboxPort jsonApiOpts $ \jsonApiPh -> do
                 when shouldWaitForSignal $
                   void $ waitAnyCancel =<< mapM (async . waitExitCode) [navigatorPh,sandboxPh,jsonApiPh]
 

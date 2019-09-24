@@ -326,8 +326,8 @@ packagingTests tmpDir = testGroup "packaging"
         let projectB = tmpDir </> "a-2.0"
         let projectUpgrade = tmpDir </> "upgrade"
         let projectRollback = tmpDir </> "rollback"
-        let aDar = projectA </> distDir </> "a-1.0.dar"
-        let bDar = projectB </> distDir </> "a-2.0.dar"
+        let aDar = projectA </> "projecta.dar"
+        let bDar = projectB </> "projectb.dar"
         let upgradeDar = projectUpgrade </> distDir </> "upgrade-0.0.1.dar"
         let rollbackDar= projectRollback </> distDir </> "rollback-0.0.1.dar"
         let bWithUpgradesDar = "a-2.0-with-upgrades.dar"
@@ -356,7 +356,8 @@ packagingTests tmpDir = testGroup "packaging"
             , "  - daml-prim"
             , "  - daml-stdlib"
             ]
-        withCurrentDirectory projectA $ callCommandQuiet "daml build"
+        -- We use -o to test that we do not depend on the name of the dar
+        withCurrentDirectory projectA $ callCommandQuiet $ "daml build -o " <> aDar
         assertBool "a-1.0.dar was not created." =<< doesFileExist aDar
         step "Creating project a-2.0 ..."
         createDirectoryIfMissing True (projectB </> "daml")
@@ -383,9 +384,11 @@ packagingTests tmpDir = testGroup "packaging"
             , "  - daml-prim"
             , "  - daml-stdlib"
             ]
-        withCurrentDirectory projectB $ callCommandQuiet "daml build"
+        -- We use -o to test that we do not depend on the name of the dar
+        withCurrentDirectory projectB $ callCommandQuiet $ "daml build -o " <> bDar
         assertBool "a-2.0.dar was not created." =<< doesFileExist bDar
         step "Creating upgrade/rollback project"
+        -- We use -o to verify that we do not depend on the
         callCommandQuiet $ unwords ["daml", "migrate", projectUpgrade, aDar, bDar]
         callCommandQuiet $ unwords ["daml", "migrate", projectRollback, bDar, aDar]
         step "Build migration project"

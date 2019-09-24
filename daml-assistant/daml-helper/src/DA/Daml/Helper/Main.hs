@@ -44,6 +44,9 @@ data Command
       , jsonApiCfg :: JsonApiConfig
       , onStartM :: Maybe String
       , waitForSignal :: WaitForSignal
+      , sandboxOptions :: SandboxOptions
+      , navigatorOptions :: NavigatorOptions
+      , jsonApiOptions :: JsonApiOptions
       }
     | Deploy { flags :: HostAndPortFlags }
     | LedgerListParties { flags :: HostAndPortFlags, json :: JsonFlag }
@@ -106,6 +109,9 @@ commandParser = subparser $ fold
         <*> jsonApiCfg
         <*> optional (option str (long "on-start" <> metavar "COMMAND" <> help "Command to run once sandbox and navigator are running."))
         <*> (WaitForSignal <$> flagYesNoAuto "wait-for-signal" True "Wait for Ctrl+C or interrupt after starting servers." idm)
+        <*> (SandboxOptions <$> many (strOption (long "sandbox-option" <> metavar "SANDBOX_OPTION" <> help "Pass option to sandbox")))
+        <*> (NavigatorOptions <$> many (strOption (long "navigator-option" <> metavar "NAVIGATOR_OPTION" <> help "Pass option to navigator")))
+        <*> (JsonApiOptions <$> many (strOption (long "json-api-option" <> metavar "JSON_API_OPTION" <> help "Pass option to HTTP JSON API")))
 
     deployCmdInfo = mconcat
         [ progDesc $ concat
@@ -215,7 +221,17 @@ runCommand New {..} = runNew targetFolder templateNameM []
 runCommand Migrate {..} = runMigrate targetFolder pkgPathFrom pkgPathTo
 runCommand Init {..} = runInit targetFolderM
 runCommand ListTemplates = runListTemplates
-runCommand Start {..} = runStart sandboxPortM startNavigator jsonApiCfg openBrowser onStartM waitForSignal
+runCommand Start {..} =
+    runStart
+        sandboxPortM
+        startNavigator
+        jsonApiCfg
+        openBrowser
+        onStartM
+        waitForSignal
+        sandboxOptions
+        navigatorOptions
+        jsonApiOptions
 runCommand Deploy {..} = runDeploy flags
 runCommand LedgerListParties {..} = runLedgerListParties flags json
 runCommand LedgerAllocateParties {..} = runLedgerAllocateParties flags parties
