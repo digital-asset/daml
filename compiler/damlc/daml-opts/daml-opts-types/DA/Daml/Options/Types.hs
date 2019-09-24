@@ -86,8 +86,8 @@ data DlintUsage
   deriving Show
 
 data ScenarioValidation
-    = ScenarioValidationLight
-    | ScenarioValidationFull
+    = ScenarioValidationDisable
+    | ScenarioValidationEnable
     deriving Show
 
 newtype EnableScenarioService = EnableScenarioService { getEnableScenarioService :: Bool }
@@ -161,7 +161,7 @@ defaultOptions mbVersion =
         , optDebug = False
         , optGhcCustomOpts = []
         , optScenarioService = EnableScenarioService True
-        , optScenarioValidation = ScenarioValidationFull
+        , optScenarioValidation = ScenarioValidationEnable
         , optDlintUsage = DlintDisabled
         , optIsGenerated = False
         , optDflagCheck = True

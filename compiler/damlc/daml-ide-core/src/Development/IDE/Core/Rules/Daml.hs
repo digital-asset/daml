@@ -286,9 +286,9 @@ contextForFile file = do
         { ctxModules = Map.fromList encodedModules
         , ctxPackages = [(dalfPackageId pkg, dalfPackageBytes pkg) | pkg <- Map.elems pkgMap]
         , ctxDamlLfVersion = lfVersion
-        , ctxLightValidation = case envScenarioValidation of
-              ScenarioValidationFull -> SS.LightValidation False
-              ScenarioValidationLight -> SS.LightValidation True
+        , ctxNoValidation = case envScenarioValidation of
+              ScenarioValidationEnable -> SS.LightValidation False
+              ScenarioValidationDisable -> SS.LightValidation True
         }
 
 worldForFile :: NormalizedFilePath -> Action LF.World
@@ -329,8 +329,8 @@ dalfForScenario :: NormalizedFilePath -> Action LF.Module
 dalfForScenario file = do
     DamlEnv{..} <- getDamlServiceEnv
     case envScenarioValidation of
-        ScenarioValidationLight -> use_ GenerateRawDalf file
-        ScenarioValidationFull -> use_ GenerateDalf file
+        ScenarioValidationDisable -> use_ GenerateRawDalf file
+        ScenarioValidationEnable -> use_ GenerateDalf file
 
 runScenariosRule :: Rules ()
 runScenariosRule =
