@@ -22,6 +22,7 @@ case class InMemoryActiveLedgerState(
     activeContracts: Map[AbsoluteContractId, ActiveContract],
     divulgedContracts: Map[AbsoluteContractId, DivulgedContract],
     keys: Map[GlobalKey, AbsoluteContractId],
+    reverseKeys: Map[AbsoluteContractId, GlobalKey],
     parties: Map[Party, PartyDetails])
     extends ActiveLedgerState[InMemoryActiveLedgerState] {
 
@@ -40,34 +41,37 @@ case class InMemoryActiveLedgerState(
   override def addContract(
       c: ActiveContract,
       keyO: Option[GlobalKey]): InMemoryActiveLedgerState = {
-    val newKeys = keyO match {
-      case None => keys
-      case Some(key) => keys + (key -> c.id)
+    val (newKeys, newReverseKeys) = keyO match {
+      case None => (keys, reverseKeys)
+      case Some(key) => (keys + (key -> c.id), reverseKeys + (c.id -> key))
     }
     divulgedContracts.get(c.id) match {
       case None =>
         copy(
           activeContracts = activeContracts + (c.id -> c),
-          keys = newKeys
+          keys = newKeys,
+          reverseKeys = newReverseKeys
         )
       case Some(dc) =>
         copy(
           activeContracts = activeContracts + (c.id -> copyDivulgences(c, dc)),
           divulgedContracts = divulgedContracts - c.id,
-          keys = newKeys
+          keys = newKeys,
+          reverseKeys = newReverseKeys
         )
     }
   }
 
-  override def removeContract(cid: AbsoluteContractId, keyO: Option[GlobalKey]) = {
-    val newKeys = keyO match {
-      case None => keys
-      case Some(key) => keys - key
+  override def removeContract(cid: AbsoluteContractId) = {
+    val (newKeys, newReverseKeys) = reverseKeys.get(cid) match {
+      case None => (keys, reverseKeys)
+      case Some(key) => (keys - key, reverseKeys - cid)
     }
     copy(
       activeContracts = activeContracts - cid,
       divulgedContracts = divulgedContracts - cid,
-      keys = newKeys
+      keys = newKeys,
+      reverseKeys = newReverseKeys
     )
   }
 
@@ -151,5 +155,5 @@ case class InMemoryActiveLedgerState(
 
 object InMemoryActiveLedgerState {
   def empty: InMemoryActiveLedgerState =
-    InMemoryActiveLedgerState(Map.empty, Map.empty, Map.empty, Map.empty)
+    InMemoryActiveLedgerState(Map.empty, Map.empty, Map.empty, Map.empty, Map.empty)
 }

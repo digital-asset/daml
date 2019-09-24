@@ -188,11 +188,7 @@ class ActiveLedgerStateManager[ALS](initialState: => ALS)(
                 ats.copy(
                   errs = contractCheck(absCoid, Exercise).fold(errs)(errs + _),
                   acc = Some(if (ne.consuming) {
-                    val keyO = (acc lookupContract absCoid)
-                      .collect({ case c: ActiveContract => c })
-                      .flatMap(_.key)
-                      .map(key => GlobalKey(ne.templateId, key.key))
-                    acc.removeContract(absCoid, keyO)
+                    acc.removeContract(absCoid)
                   } else {
                     acc
                   }),

@@ -94,8 +94,7 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
       "select contract_id from contract_keys where package_id={package_id} and name={name} and value_hash={value_hash}")
 
   private val SQL_REMOVE_CONTRACT_KEY =
-    SQL(
-      "delete from contract_keys where package_id={package_id} and name={name} and value_hash={value_hash}")
+    SQL("delete from contract_keys where contract_id={contract_id}")
 
   private[this] def storeContractKey(key: GlobalKey, cid: AbsoluteContractId)(
       implicit connection: Connection): Boolean =
@@ -108,12 +107,11 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
       )
       .execute()
 
-  private[this] def removeContractKey(key: GlobalKey)(implicit connection: Connection): Boolean =
+  private[this] def removeContractKey(cid: AbsoluteContractId)(
+      implicit connection: Connection): Boolean =
     SQL_REMOVE_CONTRACT_KEY
       .on(
-        "package_id" -> key.templateId.packageId,
-        "name" -> key.templateId.qualifiedName.toString,
-        "value_hash" -> keyHasher.hashKeyString(key)
+        "contract_id" -> cid.coid,
       )
       .execute()
 
@@ -359,9 +357,9 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
           this
         }
 
-        override def removeContract(cid: AbsoluteContractId, keyO: Option[GlobalKey]) = {
+        override def removeContract(cid: AbsoluteContractId) = {
           archiveContract(offset, cid)
-          keyO.foreach(key => removeContractKey(key))
+          removeContractKey(cid)
           this
         }
 

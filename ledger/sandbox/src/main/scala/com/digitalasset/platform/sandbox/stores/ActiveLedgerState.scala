@@ -39,7 +39,7 @@ trait ActiveLedgerState[+Self] { this: ActiveLedgerState[Self] =>
   def addContract(c: ActiveContract, keyO: Option[GlobalKey]): Self
 
   /** Called when the given contract is archived */
-  def removeContract(cid: AbsoluteContractId, keyO: Option[GlobalKey]): Self
+  def removeContract(cid: AbsoluteContractId): Self
 
   /** Called once for each transaction with the set of parties found in that transaction.
     * As the sandbox has an open world of parties, any party name mentioned in a transaction
