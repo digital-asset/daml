@@ -304,10 +304,6 @@ graphFromModule modules world = Graph subGraphs edges
           subGraphs = map (constructSubgraphsWithLables world nodes) templatesAndModules
           edges = graphEdges nodes templatesAndModules
 
-d3JsonThing ::[LF.Module] -> LF.World -> BSL.ByteString
-d3JsonThing modules world = encode $ graphToD3Graph g
-    where  g = graphFromModule modules world
-
 dotFileGen :: [LF.Module] -> LF.World -> String
 dotFileGen modules world = constructDotGraph $ graphFromModule modules world
 
@@ -371,4 +367,4 @@ execVisual darFilePath dotFilePath = do
         modules = NM.toList $ LF.packageModules $ getWorldSelf world
     case dotFilePath of
         Just outDotFile -> writeFile outDotFile (dotFileGen modules world)
-        Nothing -> BSL.writeFile "/Users/anupkalburgi/projects/daml/data.json" (d3JsonThing modules world)
+        Nothing -> putStrLn (dotFileGen modules world)
