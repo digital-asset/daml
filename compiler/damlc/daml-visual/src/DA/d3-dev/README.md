@@ -7,7 +7,9 @@ The dev setup is not automated, to get a local dev env follow steps.
     python -m http.server --directory .
     open http://0.0.0.0:8000/d3-dev.html
 
-Note: We can automate this with using npm/yarn but does not seem like a good idea as of yet as we are not dealing with a lot of JS/HTML/CSS code yet.
+If there are any changes to be made to the JS, they will have to be made to the webpage template within `Visual.hs` module.
+
+Note: We can automate this with using npm/yarn but is not done as of yet as we are not dealing with a lot of JS/HTML/CSS code. If we add more customization it might be worth the effort to setup a automated dev setup.
 
 ### About D3 and D3Plus and versions used in this project
 [D3JS](https://d3js.org/) is a popular Data visualization library and [D3Plus](https://github.com/alexandersimoes/d3plus) gives simple api with reasonable defaults to draw SVG.

@@ -1,7 +1,6 @@
 -- Copyright (c) 2019 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 {-# LANGUAGE PatternSynonyms #-}
-
 -- | Main entry-point of the DAML compiler
 module DA.Daml.Visual
   ( execVisual
@@ -36,7 +35,6 @@ import Data.Aeson
 import Text.Mustache
 import qualified Data.Text.Lazy.IO as TIO
 import qualified Data.Text.Encoding as DT
-
 import Safe
 
 type IsConsuming = Bool
@@ -63,7 +61,7 @@ data ChoiceDetails = ChoiceDetails
     { nodeId :: Int
     , consuming :: Bool
     , displayChoiceName :: LF.ChoiceName
-    , uniqChoiceName ::InternalChcName
+    , uniqChoiceName :: InternalChcName
     } deriving (Show, Eq)
 
 data SubGraph = SubGraph
@@ -306,7 +304,6 @@ graphFromModule modules world = Graph subGraphs edges
 
 dotFileGen :: [LF.Module] -> LF.World -> String
 dotFileGen modules world = constructDotGraph $ graphFromModule modules world
-
 
 webPageTemplate :: T.Text
 webPageTemplate =
