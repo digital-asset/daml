@@ -542,6 +542,7 @@ hazel_repositories(
         "integer-logarithms": {"integer-gmp": not use_integer_simple},
         "text": {"integer-simple": use_integer_simple},
         "scientific": {"integer-simple": use_integer_simple},
+        "hlint": {"ghc-lib": True},  # Force dependency on ghc-lib-parser (don't use the ghc package).
     },
     extra_libs = dicts.add(
         hazel_default_extra_libs,
@@ -562,7 +563,7 @@ hazel_repositories(
             # Read [Working on ghc-lib] for ghc-lib update instructions at
             # https://github.com/digital-asset/daml/blob/master/ghc-lib/working-on-ghc-lib.md.
             hazel_ghclibs(GHC_LIB_VERSION, "c42c61ebdc241b2f42162c0cee1547d6acc33f32019730bcfb6441b9dd0b92ba", "1305b7959d4ee9cdb95d51e6a6f87664a8311cd84c36a8d5e496ce523c203d0d") +
-            hazel_github_external("digital-asset", "hlint", "db0b8f15624d0f5ba7a8062dfe6efb2cbf981e9e", "8a50fbe5aabda59f88550b0fd6d7dff10e2d1e6789c95e142a0d553cc09d05dd") +
+            hazel_github_external("digital-asset", "hlint", "15797ad1af8f92cb236afb7fa0df34cd58982efa", "581a9f537c13285df2a1d06ce2bf1eefd7ae67c70a7e4b3dda450e0fc69a5556") +
             hazel_github_external("awakesecurity", "proto3-wire", "4f355bbac895d577d8a28f567ab4380f042ccc24", "031e05d523a887fbc546096618bc11dceabae224462a6cdd6aab11c1658e17a3") +
             hazel_github_external(
                 "awakesecurity",
