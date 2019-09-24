@@ -146,6 +146,7 @@ cmdCompile numProcessors =
         <$> inputFileOpt
         <*> outputFileOpt
         <*> optionsParser numProcessors (EnableScenarioService False) optPackageName
+        <*> optional (strOption $ long "iface-dir" <> metavar "IFACE_DIR" <> help "Directory for interface files")
 
 cmdLint :: Int -> Mod CommandFields Command
 cmdLint numProcessors =
@@ -367,14 +368,14 @@ execIde telemetry (Debug debug) enableScenarioService ghcOpts mbProfileDir = Com
                       getDamlIdeState opts mbScenarioService loggerH sendMsg vfs (clientSupportsProgress caps)
 
 
-execCompile :: FilePath -> FilePath -> Options -> Command
-execCompile inputFile outputFile opts =
+execCompile :: FilePath -> FilePath -> Options -> Maybe FilePath -> Command
+execCompile inputFile outputFile opts mbIfaceDir =
   Command Compile effect
   where
     effect = withProjectRoot' (ProjectOpts Nothing (ProjectCheck "" False)) $ \relativize -> do
       loggerH <- getLogger opts "compile"
       inputFile <- toNormalizedFilePath <$> relativize inputFile
-      opts' <- mkOptions opts
+      opts' <- mkOptions opts { optIfaceDir = mbIfaceDir }
       withDamlIdeState opts' loggerH diagnosticsLogger $ \ide -> do
           setFilesOfInterest ide (Set.singleton inputFile)
           runAction ide $ do

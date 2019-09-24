@@ -105,21 +105,27 @@ def _daml_package_rule_impl(ctx):
         tools = [ctx.executable.damlc_bootstrap, ctx.executable.cpp],
         progress_message = "Compiling " + name + ".daml to daml-lf " + ctx.attr.daml_lf_version,
         command = """
-      set -eoux pipefail
+      set -eou pipefail
       PKG_NAME=`cat {pkg_name_version_file}`
+
+      # We use a temp directory here to avoid issues due to the lack of sandboxing
+      # on Windows.
+      IFACE_DIR=$(mktemp -d)
 
       # Compile the dalf file
       {damlc_bootstrap} compile \
         --package-name $PKG_NAME \
         --package-db {package_db_dir} \
         --write-iface \
+        --iface-dir $IFACE_DIR \
         --target {daml_lf_version} \
         --cpp {cpp} \
         -o {dalf_file} \
         {main}
 
       cp -a {pkg_root}/* {iface_dir}
-      cp -a .daml/interfaces/{pkg_root}/* {iface_dir}
+      cp -a $IFACE_DIR/{pkg_root}/* {iface_dir}
+      rm -rf $IFACE_DIR
     """.format(
             main = modules[ctx.attr.main],
             pkg_name_version_file = pkg_name_version.path,

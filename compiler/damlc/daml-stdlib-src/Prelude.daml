@@ -16,7 +16,7 @@ import DA.Internal.LF as X hiding (Pair(..), TextMap, unpackPair)
 -- Windows so for now we always expose this
 -- and crash at runtime if you use fromAnyTemplate/toAnyTemplate
 -- with older LF versions.
-#if 1
+#ifdef DAML_ANY_TEMPLATE
 import DA.Internal.Template as X
 #else
 import DA.Internal.Template as X hiding (fromAnyTemplate, toAnyTemplate)
