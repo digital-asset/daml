@@ -8,17 +8,8 @@ import java.time.Instant
 import com.digitalasset.daml.lf.data.Ref.Identifier
 import com.digitalasset.daml.lf.data.Numeric
 import com.digitalasset.daml.lf.data.LawlessTraversals._
-import com.digitalasset.daml.lf.command._
 import com.digitalasset.daml.lf.transaction.Node.KeyWithMaintainers
 import com.digitalasset.daml.lf.value.{Value => Lf}
-import com.digitalasset.ledger.api.v1.commands.{
-  Command => ApiCommand,
-  Commands => ApiCommands,
-  CreateCommand => ApiCreateCommand,
-  ExerciseCommand => ApiExerciseCommand,
-  ExerciseByKeyCommand => ApiExerciseByKeyCommand,
-  CreateAndExerciseCommand => ApiCreateAndExerciseCommand
-}
 import com.digitalasset.ledger.api.v1.value.{
   Optional,
   RecordField,
@@ -159,58 +150,6 @@ object LfEngineToApi {
         }
     }
 
-  def lfCommandToApiCommand(
-      submitter: String,
-      ledgerId: String,
-      workflowId: String,
-      applicationId: String,
-      ledgerEffectiveTime: Option[Timestamp],
-      maximumRecordTime: Option[Timestamp],
-      cmds: Commands): ApiCommands = {
-    val cmdss = cmds.commands.map {
-      case CreateCommand(templateId, argument) =>
-        ApiCommand(
-          ApiCommand.Command.Create(
-            ApiCreateCommand(
-              Some(toApiIdentifier(templateId)),
-              LfEngineToApi.lfValueToApiRecord(verbose = true, argument).toOption)))
-      case ExerciseCommand(templateId, contractId, choiceId, argument) =>
-        ApiCommand(
-          ApiCommand.Command.Exercise(
-            ApiExerciseCommand(
-              Some(toApiIdentifier(templateId)),
-              contractId,
-              choiceId,
-              LfEngineToApi.lfValueToApiValue(verbose = true, argument).toOption)))
-      case ExerciseByKeyCommand(templateId, contractKey, choiceId, argument) =>
-        ApiCommand(
-          ApiCommand.Command.ExerciseByKey(ApiExerciseByKeyCommand(
-            Some(toApiIdentifier(templateId)),
-            LfEngineToApi.lfValueToApiValue(verbose = true, contractKey).toOption,
-            choiceId,
-            LfEngineToApi.lfValueToApiValue(verbose = true, argument).toOption
-          )))
-      case CreateAndExerciseCommand(templateId, createArgument, choiceId, choiceArgument) =>
-        ApiCommand(
-          ApiCommand.Command.CreateAndExercise(ApiCreateAndExerciseCommand(
-            Some(toApiIdentifier(templateId)),
-            LfEngineToApi.lfValueToApiRecord(verbose = true, createArgument).toOption,
-            choiceId,
-            LfEngineToApi.lfValueToApiValue(verbose = true, choiceArgument).toOption
-          )))
-    }
-
-    ApiCommands(
-      ledgerId,
-      workflowId,
-      applicationId,
-      cmds.commandsReference,
-      submitter,
-      ledgerEffectiveTime,
-      maximumRecordTime,
-      cmdss.toSeq)
-  }
-
   def lfContractKeyToApiValue(
       verbose: Boolean,
       lf: KeyWithMaintainers[Lf.VersionedValue[Lf.AbsoluteContractId]]): Either[String, ApiValue] =
@@ -219,4 +158,5 @@ object LfEngineToApi {
   @throws[RuntimeException]
   def assertOrRuntimeEx[A](failureContext: String, ea: Either[String, A]): A =
     ea.fold(e => throw new RuntimeException(s"Unexpected error when $failureContext: $e"), identity)
+
 }
