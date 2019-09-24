@@ -353,7 +353,17 @@ dlintSmokeTests mbScenarioService = Tasty.testGroup "Dlint smoke tests"
             setFilesOfInterest [foo]
             expectNoErrors
             expectDiagnostic DsInfo (foo, 3, 0) "Suggestion: Use foldr"
-  ]
+    ,  testCase' "Short-circuited list comprehension" $ do
+            foo <- makeFile "Foo.daml" $ T.unlines
+                [ "daml 1.2"
+                , "module Foo where"
+                , "foo = [x | False, x <- [1..10]]" ]
+            setFilesOfInterest [foo]
+            expectNoErrors
+            expectOnlyDiagnostics []
+
+            --expectDiagnostic DsInfo (foo, 3, 0) "Suggestion: Short-circuited list comprehension"
+    ]
   where
       testCase' = testCase mbScenarioService
 
