@@ -122,7 +122,7 @@ extractDocs extractOpts diagsLogger ideOpts fp = do
 
             (md_adts, md_templateInstances) =
                 partitionEithers . flip map filteredTyCons $ \adt ->
-                    case getTemplateInstanceDoc dc_decldocs adt of
+                    case getTemplateInstanceDoc adt of
                         Nothing -> Left adt
                         Just ti -> Right ti
 
@@ -172,7 +172,6 @@ data DocCtx = DocCtx
         -- ^ command line options that affect the doc extractor
     , dc_exports :: ExportSet
         -- ^ set of export, unless everything is exported
-    , dc_decldocs :: Maybe DeclDocMap
     }
 
 -- | Parsed declaration with associated docs.
@@ -185,7 +184,7 @@ buildDocCtx :: ExtractOptions -> TypecheckedModule -> DocCtx
 buildDocCtx dc_extractOptions dc_tcmod  =
     let parsedMod = tm_parsed_module dc_tcmod
         checkedModInfo = tm_checked_module_info dc_tcmod
-    let dc_ghcMod = ms_mod . pm_mod_summary $ parsedMod
+        dc_ghcMod = ms_mod $ pm_mod_summary parsedMod
         dc_modname = getModulename dc_ghcMod
         dc_decls
             = map (uncurry DeclData) . collectDocs . hsmodDecls . unLoc
@@ -214,8 +213,6 @@ buildDocCtx dc_extractOptions dc_tcmod  =
             ]
 
         dc_exports = extractExports parsedMod
-
-        dc_decldocs = mi_decl_docs <$> modInfoIface checkedModInfo
 
     in DocCtx {..}
 
@@ -517,14 +514,10 @@ getTemplateDocs DocCtx{..} typeMap templateInstanceMap =
 --
 -- So the goal of this function is to extract the template instance doc
 -- from the doc preceding the type synonym if it exists.
-getTemplateInstanceDoc :: ADTDoc -> Maybe DeclDocMap -> Maybe TemplateInstanceDoc
-getTemplateInstanceDoc tyCon docMap
-    | TypeSynDoc{..} <- tyCon
-    , Typename name <- ad_name
-    , Just declDocs <- docMap
-    , let docStringMap = mapKeys (showSDocUnsafe . ppr) declDocs
-    , let doc = MS.lookup (show name) docStringMap
-    , Just (DocText "TEMPLATE_INSTANCE") <- doc
+getTemplateInstanceDoc :: ADTDoc -> Maybe TemplateInstanceDoc
+getTemplateInstanceDoc tyConDoc
+    | TypeSynDoc{..} <- tyConDoc
+    , Just (DocText "TEMPLATE_INSTANCE") <- ad_descr
     = Just TemplateInstanceDoc
         { ti_name = ad_name
         , ti_anchor = ad_anchor
