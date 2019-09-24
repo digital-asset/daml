@@ -24,9 +24,7 @@ DAML Assistant (``daml``)
   - Launch Sandbox: ``daml sandbox``
   - Launch Navigator: ``daml navigator``
   - Launch :doc:`Extractor </tools/extractor>`: ``daml extractor``
-  - Launch the HTTP JSON API: ``daml json-api``
-    You can find more information in the
-    `README <https://github.com/digital-asset/daml/blob/master/ledger-service/http-json/README.md>`_.
+  - Launch the :doc:`/json-api/index`: ``daml json-api``
   - Run :doc:`DAML codegen </tools/codegen>`: ``daml codegen``
 
 - Install new SDK versions manually: ``daml install <version>``
