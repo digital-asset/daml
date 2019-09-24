@@ -105,13 +105,15 @@ d3LinksFromGraphEdges :: Graph -> [D3Link]
 d3LinksFromGraphEdges g = map edgeToD3Link (edges g)
     where edgeToD3Link edge = D3Link (nodeId (fst edge)) (nodeId (snd edge)) 10
 
-subGraphToD3Nodes :: SubGraph -> [D3Node]
-subGraphToD3Nodes sg = map (\cd -> D3Node tplFields tpName (nodeId cd) (DAP.renderPretty $ displayChoiceName cd)) (nodes sg)
-    where tplFields = T.unlines $ templateFields sg
-          tpName =  tplNameUnqual (clusterTemplate sg)
-
 d3NodesFromGraph :: Graph -> [D3Node]
 d3NodesFromGraph g = concatMap subGraphToD3Nodes (subgraphs g)
+        where subGraphToD3Nodes sg = map (\chcD ->
+                                            D3Node (T.unlines $ templateFields sg)
+                                            (tplNameUnqual $ clusterTemplate sg)
+                                            (nodeId chcD)
+                                            (DAP.renderPretty $ displayChoiceName chcD)
+                                            )
+                                    (nodes sg)
 
 graphToD3Graph :: Graph -> D3Graph
 graphToD3Graph g = D3Graph (d3LinksFromGraphEdges g) (d3NodesFromGraph g)
