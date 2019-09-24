@@ -29,8 +29,13 @@ import com.digitalasset.platform.sandbox.stores.ActiveLedgerState._
   */
 trait ActiveLedgerState[+Self] { this: ActiveLedgerState[Self] =>
 
-  /** Callback to query an active or divulged contract, used for transaction validation */
-  def lookupContract(cid: AbsoluteContractId): Option[Contract]
+  /** Callback to query an active or divulged contract, used for transaction validation
+    * Returns:
+    * - None if the contract does not exist
+    * - Some(None) if the contract exists, but its LET is unknown (i.e., a divulged contract)
+    * - Some(Some(_)) if the contract exists and its LET is known
+    * */
+  def lookupContractLet(cid: AbsoluteContractId): Option[Option[Instant]]
 
   /** Callback to query a contract key, used for transaction validation */
   def keyExists(key: GlobalKey): Boolean

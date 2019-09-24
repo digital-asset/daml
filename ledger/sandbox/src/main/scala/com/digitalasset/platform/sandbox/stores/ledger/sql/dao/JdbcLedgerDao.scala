@@ -4,6 +4,7 @@ package com.digitalasset.platform.sandbox.stores.ledger.sql.dao
 
 import java.io.InputStream
 import java.sql.Connection
+import java.time.Instant
 import java.util.Date
 
 import akka.stream.Materializer
@@ -392,8 +393,8 @@ private class JdbcLedgerDao(
         disclosure) =>
       final class AcsStoreAcc extends ActiveLedgerState[AcsStoreAcc] {
 
-        override def lookupContract(cid: AbsoluteContractId) =
-          lookupContractSync(cid)
+        override def lookupContractLet(cid: AbsoluteContractId): Option[Option[Instant]] =
+          lookupContractLetSync(cid)
 
         override def keyExists(key: GlobalKey): Boolean = selectContractKey(key).isDefined
 
@@ -816,6 +817,9 @@ private class JdbcLedgerDao(
     ~ binaryStream("key").?
     ~ binaryStream("transaction").? map (flatten))
 
+  private val ContractLetParser = (ledgerString("id")
+    ~ date("effective_at").? map (flatten))
+
   private val SQL_SELECT_CONTRACT =
     SQL(
       """
@@ -824,6 +828,13 @@ private class JdbcLedgerDao(
         |left join contracts c on cd.id=c.id
         |left join ledger_entries le on c.transaction_id = le.transaction_id
         |where cd.id={contract_id} and c.archive_offset is null""".stripMargin)
+
+  private val SQL_SELECT_CONTRACT_LET =
+    SQL("""
+        |select c.id, le.effective_at
+        |from contracts c
+        |left join ledger_entries le on c.transaction_id = le.transaction_id
+        |where c.id={contract_id} and c.archive_offset is null""".stripMargin)
 
   private val SQL_SELECT_WITNESS =
     SQL("select witness from contract_witnesses where contract_id={contract_id}")
@@ -845,6 +856,16 @@ private class JdbcLedgerDao(
       .on("contract_id" -> contractId.coid)
       .as(ContractDataParser.singleOpt)
       .map(mapContractDetails)
+
+  private def lookupContractLetSync(contractId: AbsoluteContractId)(
+      implicit conn: Connection): Option[Option[Instant]] =
+    SQL_SELECT_CONTRACT_LET
+      .on("contract_id" -> contractId.coid)
+      .as(ContractLetParser.singleOpt)
+      .map {
+        case (_, None) => None
+        case (_, Some(let)) => Some(let.toInstant)
+      }
 
   override def lookupActiveOrDivulgedContract(
       contractId: AbsoluteContractId): Future[Option[Contract]] =
