@@ -2,7 +2,7 @@
 .. SPDX-License-Identifier: Apache-2.0
 
 DAML-LF JSON Encoding
-=====================
+#####################
 
 We describe how to decode and encode DAML-LF values as JSON. For each
 DAML-LF type we explain what JSON inputs we accept (decoding), and what
@@ -24,7 +24,7 @@ other words, the same JSON value can correspond to many DAML-LF values,
 and the expected DAML-LF type is needed to decide which one.
 
 ContractId
-----------
+**********
 
 Contract ids are expressed as their string representation::
 
@@ -33,10 +33,10 @@ Contract ids are expressed as their string representation::
     "foo:bar#baz"
 
 Decimal
--------
+*******
 
 Input
-~~~~~
+=====
 
 Decimals can be expressed as JSON numbers or as JSON strings. JSON
 strings are accepted using the same format that JSON accepts, and
@@ -78,7 +78,7 @@ A few invalid examples::
     +42
 
 Output
-~~~~~~
+======
 
 If encodeDecimalAsString is set, decimals are encoded as strings, using
 the format ``-?[0-9]{1,28}(\.[0-9]{1,10})?``. If encodeDecimalAsString
@@ -90,10 +90,10 @@ JavaScript consumers consume Decimals safely with the standard
 JSON.parse.
 
 Int64
------
+*****
 
 Input
-~~~~~
+=====
 
 Int64, much like Decimal, can be represented as JSON numbers and as
 strings, with the string representation being ``[+-]?[0-9]+``. The
@@ -123,7 +123,7 @@ A few invalid examples::
     "   42 "
 
 Output
-~~~~~~
+======
 
 If encodeInt64AsString is set, Int64s are encoded as strings, using the
 format ``-?[0-9]+``. If encodeInt64AsString is not set, they are encoded as
@@ -134,10 +134,10 @@ JavaScript consumers consume Int64s safely with the standard
 ``JSON.parse``.
 
 Timestamp
----------
+*********
 
 Input
-~~~~~
+=====
 
 Timestamps are represented as ISO 8601 strings, rendered using the
 format ``yyyy-mm-ddThh:mm:ss[.ssssss]Z``::
@@ -184,7 +184,7 @@ Java
     }
 
 Output
-~~~~~~
+======
 
 Timestamps are encoded as ISO 8601 strings, rendered using the format
 ``yyyy-mm-ddThh:mm:ss[.ssssss]Z``.
@@ -204,7 +204,7 @@ In other words, the encoded timestamp will either have no sub-second
 part, a sub-second part of length 3, or a sub-second part of length 6.
 
 Party
------
+*****
 
 Represented using their string representation, without any additional
 quotes::
@@ -213,7 +213,7 @@ quotes::
     "Bob"
 
 Unit
-----
+****
 
 Represented as empty object ``{}``. Note that in JavaScript ``{} !==
 {}``; however, ``null`` would be ambiguous; for the type ``Optional
@@ -225,7 +225,7 @@ imply that Unit is used similarly to null in JavaScript or None in
 Python.
 
 Date
-----
+****
 
 Represented as an ISO 8601 date rendered using the format
 ``yyyy-mm-dd``::
@@ -238,20 +238,20 @@ The dates must be between the bounds specified by DAML-LF and ISO 8601,
 [0001-01-01, 9999-99-99].
 
 Text
-----
+****
 
 Represented as strings.
 
 Bool
-----
+****
 
 Represented as booleans.
 
 Record
-------
+******
 
 Input
-~~~~~
+=====
 
 Records can be represented in two ways. As objects::
 
@@ -278,12 +278,12 @@ tuple, i.e. (42, True), will be compiled to a DAML-LF record ``Tuple2 {
 _1 = 42, _2 = True }``.
 
 Output
-~~~~~~
+======
 
 Records are always encoded as objects.
 
 List
-----
+****
 
 Lists are represented as
 
@@ -292,7 +292,7 @@ Lists are represented as
     [v₁, ..., vₙ]
 
 Map
----
+***
 
 Maps are represented as objects:
 
@@ -301,10 +301,10 @@ Maps are represented as objects:
     { k₁: v₁, ..., kₙ: vₙ }
 
 Optional
---------
+********
 
 Input
-~~~~~
+=====
 
 Optionals are encoded using ``null`` if the value is None, and with the
 value itself if it's Some. However, this alone does not let us encode
@@ -373,13 +373,13 @@ In other words, the correct JSON encoding for any LF value is the one
 you get when you have eliminated all type variables.
 
 Output
-~~~~~~
+======
 
 Encoded as described above, always applying the shortcut for None record
 fields.
 
 Variant
--------
+*******
 
 Variants are expressed as
 
@@ -427,7 +427,7 @@ checking; see `a keyed example`_.
 .. _a keyed example: https://www.typescriptlang.org/play/#src=type%20Foo%20%3D%0D%0A%20%20%20%20%7B%20Bar%3A%20%7B%20f1%3A%20number%2C%20f2%3A%20boolean%20%7D%20%7D%0D%0A%20%20%7C%20%7B%20Baz%3A%20%7B%20f3%3A%20string%20%7D%20%7D%3B%0D%0A%0D%0Afunction%20test(v%3A%20Foo)%20%7B%0D%0A%20%20if%20(%22Bar%22%20in%20v)%20%7B%0D%0A%20%20%20%20console.log(v.Bar.f1%2C%20v.Bar.f2)%3B%0D%0A%20%20%7D%20else%20if%20(%22Baz%22%20in%20v)%20%7B%0D%0A%20%20%20%20console.log(v.Baz.f3)%3B%0D%0A%20%20%7D%20else%20%7B%0D%0A%20%20%20%20const%20_%3A%20never%20%3D%20v%3B%0D%0A%20%20%7D%0D%0A%7D%20%0D%0A
 
 Enum
-----
+****
 
 Enums are represented as strings. So if we have
 
