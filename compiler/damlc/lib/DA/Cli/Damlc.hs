@@ -210,7 +210,7 @@ cmdVisualWeb :: Mod CommandFields Command
 cmdVisualWeb =
     command "visual-web" $ info (helper <*> cmd) $ progDesc "Generate D3-Web Visual from dar" <> fullDesc
     where
-      cmd = vis <$> inputDarOpt <*> dotFileOpt
+      cmd = vis <$> inputDarOpt <*> htmlOutFile
       vis a b = Command Visual $ execVisualHtml a b
 
 cmdBuild :: Int -> Mod CommandFields Command

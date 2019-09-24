@@ -338,7 +338,7 @@ webPageTemplate =
     , "</html>"
     ]
 
-execVisualHtml :: FilePath -> Maybe FilePath -> IO ()
+execVisualHtml :: FilePath -> FilePath -> IO ()
 execVisualHtml darFilePath webFilePath = do
     darBytes <- B.readFile darFilePath
     dalfs <- either fail pure $
@@ -354,9 +354,7 @@ execVisualHtml darFilePath webFilePath = do
         webPage = WebPage linksJson nodesJson d3js d3plusjs
     case compileMustacheText "Webpage" webPageTemplate of
         Left err -> error $ show err
-        Right mTpl -> case webFilePath of
-            Just wPath -> TIO.writeFile wPath $ renderMustache mTpl $ toJSON webPage
-            Nothing -> TIO.writeFile "daml-visual.html" $ renderMustache mTpl $ toJSON webPage
+        Right mTpl -> TIO.writeFile webFilePath $ renderMustache mTpl $ toJSON webPage
 
 execVisual :: FilePath -> Maybe FilePath -> IO ()
 execVisual darFilePath dotFilePath = do
