@@ -4,6 +4,7 @@
 module Data.Conduit.Tar.Extra
     ( module Data.Conduit.Tar
     , restoreFile
+    , dropDirectory1
     ) where
 
 import Conduit

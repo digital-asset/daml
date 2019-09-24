@@ -43,7 +43,6 @@ depends = [
 
 hidden = [
     "Development.IDE.Core.Compile",
-    "Development.IDE.GHC.Compat",
     "Development.IDE.GHC.CPP",
     "Development.IDE.GHC.Error",
     "Development.IDE.GHC.Orphans",
@@ -73,30 +72,35 @@ common_flags = [
    "-XTupleSections",
    "-XTypeApplications",
    "-XViewPatterns",
+   # This is a bit of a hack but it should become unnecessary with the switch to stack_snapshot
+   # so there is no point trying to clean it up now.
+   "-Iexternal/haskell_ghcide/include",
 ]
 
 haskell_library(
     name = "lib",
-    srcs = glob(["src/**/*.hs"]),
+    srcs = glob(["src/**/*.hs", "include/*.h"]),
     deps = depends + [
         hazel_library("ghc-lib"),
         hazel_library("ghc-lib-parser"),
     ] + ([] if is_windows else [":getmodtime"]),
-    compiler_flags = common_flags,
+    compiler_flags = common_flags + ["-DGHC_LIB"],
     hidden_modules = hidden,
     src_strip_prefix = "src",
     visibility = ["//visibility:public"],
+    # We need a version to make sure that the version macros get defined
+    version = "0.1.0",
 )
 
 haskell_library(
     name = "lib-ghc",
-    srcs = glob(["src/**/*.hs"]),
+    srcs = glob(["src/**/*.hs", "include/*.h"]),
     deps = depends + [
         hazel_library("ghc"),
         hazel_library("ghc-boot"),
         hazel_library("ghc-boot-th"),
     ] + ([] if is_windows else [":getmodtime"]),
-    compiler_flags = common_flags + ["-DGHC_STABLE"],
+    compiler_flags = common_flags,
     hidden_modules = hidden,
     # Override the -hide-package flags defined in WORKSPACE
     #   -hide-package=ghc-boot-th -hide-package=ghc-boot
@@ -106,6 +110,8 @@ haskell_library(
     ],
     src_strip_prefix = "src",
     visibility = ["//visibility:public"],
+    # We need a version to make sure that the version macros get defined
+    version = "0.1.0",
 )
 
 haskell_library(
@@ -161,8 +167,22 @@ haskell_binary(
         hazel_library("shake"),
         hazel_library("text"),
         ":lib-ghc",
+        "ghcide-paths",
     ],
+    version = "0.1.0",
     src_strip_prefix = "exe",
+    visibility = ["//visibility:public"],
+)
+
+# For now, we hack this together manually. This will change
+# with stack_snapshot anyway.
+haskell_library(
+    name = "ghcide-paths",
+    srcs = ["@com_github_digital_asset_daml//3rdparty/haskell:Paths_ghcide.hs"],
+    compiler_flags = common_flags,
+    deps = [
+      hazel_library("base")
+    ],
     visibility = ["//visibility:public"],
 )
 

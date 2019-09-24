@@ -121,6 +121,10 @@ private[digitalasset] class AstRewriter(
           ENone(apply(typ))
         case ESome(typ, body) =>
           ESome(apply(typ), apply(body))
+        case EToAnyTemplate(tmplId, body) =>
+          EToAnyTemplate(tmplId, apply(body))
+        case EFromAnyTemplate(tmplId, body) =>
+          EFromAnyTemplate(tmplId, apply(body))
       }
 
   def apply(x: TypeConApp): TypeConApp = x match {

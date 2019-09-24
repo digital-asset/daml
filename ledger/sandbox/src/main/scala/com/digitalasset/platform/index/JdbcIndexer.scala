@@ -24,8 +24,8 @@ import com.digitalasset.platform.sandbox.metrics.MetricsManager
 import com.digitalasset.platform.sandbox.services.transaction.SandboxEventIdFormatter
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry
 import com.digitalasset.platform.sandbox.stores.ledger.sql.SqlLedger.{
-  noOfShortLivedConnections,
-  noOfStreamingConnections
+  defaultNumberOfShortLivedConnections,
+  defaultNumberOfStreamingConnections
 }
 import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.{
   DbType,
@@ -106,8 +106,8 @@ class JdbcIndexerFactory[Status <: InitStatus] private () {
     val dbDispatcher =
       DbDispatcher(
         jdbcUrl,
-        if (dbType.supportsParallelWrites) noOfShortLivedConnections else 1,
-        noOfStreamingConnections)
+        if (dbType.supportsParallelWrites) defaultNumberOfShortLivedConnections else 1,
+        defaultNumberOfStreamingConnections)
     val ledgerDao = LedgerDao.metered(
       JdbcLedgerDao(
         dbDispatcher,
@@ -215,17 +215,17 @@ class JdbcIndexer private[index] (
 
         val blindingInfo = Blinding.blind(transaction.mapContractId(cid => cid: ContractId))
 
-        val mappedDisclosure = blindingInfo.explicitDisclosure.map {
+        val mappedDisclosure = blindingInfo.disclosure.map {
           case (nodeId, parties) =>
             SandboxEventIdFormatter.fromTransactionId(transactionId, nodeId) -> parties
         }
 
-        val mappedLocalImplicitDisclosure = blindingInfo.localImplicitDisclosure.map {
+        val mappedLocalDivulgence = blindingInfo.localDivulgence.map {
           case (nodeId, parties) =>
             SandboxEventIdFormatter.fromTransactionId(transactionId, nodeId) -> parties
         }
 
-        assert(blindingInfo.localImplicitDisclosure.isEmpty)
+        assert(blindingInfo.localDivulgence.isEmpty)
 
         val pt = PersistenceEntry.Transaction(
           LedgerEntry.Transaction(
@@ -241,8 +241,8 @@ class JdbcIndexer private[index] (
               .mapNodeId(SandboxEventIdFormatter.fromTransactionId(transactionId, _)),
             mappedDisclosure
           ),
-          mappedLocalImplicitDisclosure,
-          blindingInfo.globalImplicitDisclosure,
+          mappedLocalDivulgence,
+          blindingInfo.globalDivulgence,
           divulgedContracts.map(c => c.contractId -> c.contractInst)
         )
         ledgerDao
@@ -255,6 +255,9 @@ class JdbcIndexer private[index] (
 
       case _: ConfigurationChangeRejected =>
         // TODO(JM) implement configuration rejections
+        Future.successful(())
+
+      case CommandRejected(submitterInfo, RejectionReason.DuplicateCommand) =>
         Future.successful(())
 
       case CommandRejected(submitterInfo, reason) =>

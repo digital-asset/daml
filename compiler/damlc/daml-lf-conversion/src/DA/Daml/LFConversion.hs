@@ -286,7 +286,7 @@ convertGenericTemplate env x
     , Just dictCon <- isDataConId_maybe dictCon
     , (tyArgs, args) <- span isTypeArg args
     , Just tyArgs <- mapM isType_maybe tyArgs
-    , Just (superClassDicts, signatories : observers : ensure : agreement : create : _fetch : archive : keyAndChoices) <- span isSuperClassDict <$> mapM isVar_maybe (dropWhile isTypeArg args)
+    , Just (superClassDicts, signatories : observers : ensure : agreement : create : _fetch : archive : _toAnyTemplate : _fromAnyTemplate : keyAndChoices) <- span isSuperClassDict <$> mapM isVar_maybe args
     , Just (polyType@(TypeCon polyTyCon _), _) <- splitFunTy_maybe (varType create)
     , Just monoTyCon <- findMonoTyp polyType
     = do
@@ -344,7 +344,9 @@ convertGenericTemplate env x
                 choices -> pure (Nothing, [], choices)
         let convertGenericChoice :: [Var] -> ConvertM (TemplateChoice, [LF.Expr])
             convertGenericChoice [consumption, controllers, action, _exercise] = do
-                TContractId _ :-> _ :-> argType@(TConApp argTCon _) :-> TUpdate resType <- convertType env (varType action)
+                (argType, argTCon, resType) <- convertType env (varType action) >>= \case
+                    TContractId _ :-> _ :-> argType@(TConApp argTCon _) :-> TUpdate resType -> pure (argType, argTCon, resType)
+                    t -> unhandled "Choice action type" (varType action)
                 let chcLocation = Nothing
                 let chcName = ChoiceName $ T.intercalate "." $ unTypeConName $ qualObject argTCon
                 consumptionType <- case varType consumption of
@@ -382,9 +384,21 @@ convertGenericTemplate env x
         agreement <- convertExpr env (Var agreement)
         let create = ETmLam (this, polyType) $ EUpdate $ UBind (Binding (self, TContractId monoType) $ EUpdate $ UCreate monoTyCon $ wrapTpl $ EVar this) $ EUpdate $ UPure (TContractId polyType) $ unwrapCid $ EVar self
         let fetch = ETmLam (self, TContractId polyType) $ EUpdate $ UBind (Binding (this, monoType) $ EUpdate $ UFetch monoTyCon $ wrapCid $ EVar self) $ EUpdate $ UPure polyType $ unwrapTpl $ EVar this
+        let toAnyTemplate =
+                if envLfVersion env `supports` featureAnyTemplate
+                  then ETmLam (this, polyType) $ EToAnyTemplate monoTyCon (wrapTpl $ EVar this)
+                  else EBuiltin BEError `ETyApp` (polyType :-> TUnit) `ETmApp` EBuiltin (BEText "toAnyTemplate is not supported in this DAML-LF version")
+        let fromAnyTemplate =
+                if envLfVersion env `supports` featureAnyTemplate
+                    then ETmLam (anyTpl, TAnyTemplate) $
+                         ECase (EFromAnyTemplate monoTyCon (EVar anyTpl))
+                             [ CaseAlternative CPNone $ ENone polyType
+                             , CaseAlternative (CPSome self) $ ESome polyType $ unwrapTpl $ EVar self
+                             ]
+                    else EBuiltin BEError `ETyApp` (TUnit :-> TOptional polyType) `ETmApp` EBuiltin (BEText "fromAnyTemplate is not supported in this DAML-LF version")
         tyArgs <- mapM (convertType env) tyArgs
         -- NOTE(MH): The additional lambda is DICTIONARY SANITIZATION step (3).
-        let tmArgs = map (ETmLam (mkVar "_", TUnit)) $ superClassDicts ++ [signatories, observers, ensure, agreement, create, fetch, archive] ++ key ++ concat choices
+        let tmArgs = map (ETmLam (mkVar "_", TUnit)) $ superClassDicts ++ [signatories, observers, ensure, agreement, create, fetch, archive, toAnyTemplate, fromAnyTemplate] ++ key ++ concat choices
         qTCon <- qualify env m  $ mkTypeCon [getOccText $ dataConTyCon dictCon]
         let tcon = TypeConApp qTCon tyArgs
         Ctor _ fldNames _ <- toCtor env dictCon
@@ -396,9 +410,9 @@ convertGenericTemplate env x
         Var v -> Just v
         _ -> Nothing
     isSuperClassDict :: Var -> Bool
-    -- NOTE(MH): We need the `$f` case since GHC inlines super class
+    -- NOTE(MH): We need the `$f` and `$d` cases since GHC inlines super class
     -- dictionaries without running the simplifier under some circumstances.
-    isSuperClassDict v = any (`T.isPrefixOf` getOccText v) ["$cp", "$f"]
+    isSuperClassDict v = any (`T.isPrefixOf` getOccText v) ["$cp", "$f", "$d"]
     findMonoTyp :: GHC.Type -> Maybe TyCon
     findMonoTyp t = case t of
         TypeCon tcon [] -> Just tcon
@@ -408,6 +422,7 @@ convertGenericTemplate env x
     arg = mkVar "arg"
     res = mkVar "res"
     rec = mkVar "rec"
+    anyTpl = mkVar "anyTpl"
 convertGenericTemplate env x = unhandled "generic template" x
 
 data Consuming = PreConsuming
@@ -504,7 +519,7 @@ convertBind env (name, x)
     --
     -- TODO(MH): The check is an approximation which will fail when users
     -- start the name of their own methods with, say, `_exercise`.
-    | any (`T.isPrefixOf` getOccText name) [ "$" <> prefix <> "_" <> method | prefix <- ["dm", "c"], method <- ["create", "fetch", "exercise", "fetchByKey", "lookupByKey"] ]
+    | any (`T.isPrefixOf` getOccText name) [ "$" <> prefix <> "_" <> method | prefix <- ["dm", "c"], method <- ["create", "fetch", "exercise", "toAnyTemplate", "fromAnyTemplate", "fetchByKey", "lookupByKey"] ]
     = pure []
     -- NOTE(MH): Our inline return type syntax produces a local letrec for
     -- recursive functions. We currently don't support local letrecs.
@@ -539,7 +554,7 @@ convertBind env (name, x)
 -- during conversion to DAML-LF together with their constructors since we
 -- deliberately remove 'GHC.Types.Opaque' as well.
 internalTypes :: UniqSet FastString
-internalTypes = mkUniqSet ["Scenario","Update","ContractId","Time","Date","Party","Pair", "TextMap"]
+internalTypes = mkUniqSet ["Scenario","Update","ContractId","Time","Date","Party","Pair", "TextMap", "AnyTemplate"]
 
 internalFunctions :: UniqFM (UniqSet FastString)
 internalFunctions = listToUFM $ map (bimap mkModuleNameFS mkUniqSet)
@@ -876,6 +891,7 @@ convertExpr env0 e = do
           TContractId{} -> asLet
           TUpdate{} -> asLet
           TScenario{} -> asLet
+          TAnyTemplate{} -> asLet
           tcon -> do
               ctor@(Ctor _ fldNames fldTys) <- toCtor env con
               if not (isRecordCtor ctor)
@@ -1154,6 +1170,13 @@ convertTyCon env t
             "Date" -> pure TDate
             "Time" -> pure TTimestamp
             "TextMap" -> pure (TBuiltin BTMap)
+            "AnyTemplate" ->
+                -- We just translate this to TUnit when it is not supported.
+                -- We can’t get rid of it completely since the template desugaring uses
+                -- this and we do not want to make that dependent on the DAML-LF version.
+                pure $ if envLfVersion env `supports` featureAnyTemplate
+                    then TAnyTemplate
+                    else TUnit
             _ -> defaultTyCon
     | isBuiltinName "Optional" t = pure (TBuiltin BTOptional)
     | otherwise = defaultTyCon

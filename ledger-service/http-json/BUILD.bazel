@@ -64,6 +64,7 @@ da_scala_test(
         "//3rdparty/jvm/org/scalacheck",
         "//3rdparty/jvm/org/scalaz:scalaz_scalacheck_binding",
         "//3rdparty/jvm/org/scalatest",
+        "//daml-lf/transaction-scalacheck",
         "//ledger/sandbox:sandbox",
         "//ledger/participant-state",
         "//bazel_tools/runfiles:scala_runfiles",

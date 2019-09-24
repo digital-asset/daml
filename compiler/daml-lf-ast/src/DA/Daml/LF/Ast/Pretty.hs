@@ -133,6 +133,7 @@ instance Pretty BuiltinType where
     BTOptional -> "Optional"
     BTMap -> "Map"
     BTArrow -> "(->)"
+    BTAnyTemplate -> "AnyTemplate"
 
 prettyRecord :: (Pretty a) =>
   PrettyLevel -> Doc ann -> [(FieldName, a)] -> Doc ann
@@ -443,6 +444,8 @@ instance Pretty Expr where
         | otherwise -> pPrintPrec lvl prec x
     ESome typ body -> prettyAppKeyword lvl prec "some" [TyArg typ, TmArg body]
     ENone typ -> prettyAppKeyword lvl prec "none" [TyArg typ]
+    EToAnyTemplate tpl body -> prettyAppKeyword lvl prec "to_any_template" [tplArg tpl, TmArg body]
+    EFromAnyTemplate tpl body -> prettyAppKeyword lvl prec "from_any_template" [tplArg tpl, TmArg body]
 
 instance Pretty DefDataType where
   pPrintPrec lvl _prec (DefDataType mbLoc tcon (IsSerializable serializable) params dataCons) =

@@ -61,8 +61,8 @@ object SqlStartMode {
 
 object SqlLedger {
 
-  val noOfShortLivedConnections = 16
-  val noOfStreamingConnections = 2
+  val defaultNumberOfShortLivedConnections = 16
+  val defaultNumberOfStreamingConnections = 2
 
   //jdbcUrl must have the user/password encoded in form of: "jdbc:postgresql://localhost/test?user=fred&password=secret"
   def apply(
@@ -81,8 +81,10 @@ object SqlLedger {
     new FlywayMigrations(jdbcUrl).migrate()
 
     val dbType = DbType.jdbcType(jdbcUrl)
+    val noOfShortLivedConnections =
+      if (dbType.supportsParallelWrites) defaultNumberOfShortLivedConnections else 1
     val dbDispatcher =
-      DbDispatcher(jdbcUrl, noOfShortLivedConnections, noOfStreamingConnections)
+      DbDispatcher(jdbcUrl, noOfShortLivedConnections, defaultNumberOfStreamingConnections)
 
     val ledgerDao = LedgerDao.metered(
       JdbcLedgerDao(
@@ -103,7 +105,10 @@ object SqlLedger {
       packages,
       initialLedgerEntries,
       queueDepth,
-      dbType.supportsParallelWrites)
+      // we use noOfShortLivedConnections for the maximum batch size, since it doesn't make sense
+      // to try to persist more ledger entries concurrently than we have SQL executor threads and SQL connections available.
+      noOfShortLivedConnections
+    )
   }
 }
 
@@ -114,11 +119,9 @@ private class SqlLedger(
     timeProvider: TimeProvider,
     packages: InMemoryPackageStore,
     queueDepth: Int,
-    parallelLedgerAppend: Boolean)(implicit mat: Materializer)
+    maxBatchSize: Int)(implicit mat: Materializer)
     extends BaseLedger(ledgerId, headAtInitialization, ledgerDao)
     with Ledger {
-
-  import SqlLedger._
 
   private val logger = LoggerFactory.getLogger(getClass)
 
@@ -166,9 +169,8 @@ private class SqlLedger(
     // that this is safe on the read end because the readers rely on the dispatchers to know the
     // ledger end, and not the database itself. This means that they will not start reading from the new
     // ledger end until we tell them so, which we do when _all_ the entries have been committed.
-    val maxBatchSize = if (parallelLedgerAppend) noOfShortLivedConnections * 2L else 1L
     mergedSources
-      .batch(maxBatchSize, e => Queue(e))((batch, e) => batch :+ e)
+      .batch(maxBatchSize.toLong, e => Queue(e))((batch, e) => batch :+ e)
       .mapAsync(1) { queue =>
         val startOffset = dispatcher.getHead()
         // we can only do this because there is no parallelism here!
@@ -226,13 +228,13 @@ private class SqlLedger(
 
       val blindingInfo = Blinding.blind(transaction)
 
-      val mappedDisclosure = blindingInfo.explicitDisclosure
+      val mappedDisclosure = blindingInfo.disclosure
         .map {
           case (nodeId, parties) =>
             SandboxEventIdFormatter.fromTransactionId(transactionId, nodeId) -> parties
         }
 
-      val mappedLocalImplicitDisclosure = blindingInfo.localImplicitDisclosure.map {
+      val mappedLocalDivulgence = blindingInfo.localDivulgence.map {
         case (k, v) => SandboxEventIdFormatter.fromTransactionId(transactionId, k) -> v
       }
 
@@ -264,8 +266,8 @@ private class SqlLedger(
             mappedTx,
             mappedDisclosure
           ),
-          mappedLocalImplicitDisclosure,
-          blindingInfo.globalImplicitDisclosure,
+          mappedLocalDivulgence,
+          blindingInfo.globalDivulgence,
           List.empty
         )
       }
@@ -337,7 +339,7 @@ private class SqlLedgerFactory(ledgerDao: LedgerDao) {
     *                             used if starting from a fresh database.
     * @param queueDepth      the depth of the buffer for persisting entries. When gets full, the system will signal back-pressure
     *                        upstream
-    * @param parallelLedgerAppend whether to append to the ledger in parallelized batches
+    * @param maxBatchSize maximum size of ledger entry batches to be persisted
     * @return a compliant Ledger implementation
     */
   def createSqlLedger(
@@ -348,7 +350,7 @@ private class SqlLedgerFactory(ledgerDao: LedgerDao) {
       packages: InMemoryPackageStore,
       initialLedgerEntries: ImmArray[LedgerEntryOrBump],
       queueDepth: Int,
-      parallelLedgerAppend: Boolean
+      maxBatchSize: Int
   )(implicit mat: Materializer): Future[SqlLedger] = {
     @SuppressWarnings(Array("org.wartremover.warts.ExplicitImplicitTypes"))
     implicit val ec = DEC
@@ -374,7 +376,7 @@ private class SqlLedgerFactory(ledgerDao: LedgerDao) {
         timeProvider,
         packages,
         queueDepth,
-        parallelLedgerAppend)
+        maxBatchSize)
   }
 
   private def reset(): Future[Unit] =

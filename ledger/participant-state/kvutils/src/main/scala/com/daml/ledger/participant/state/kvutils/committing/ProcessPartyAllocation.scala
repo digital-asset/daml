@@ -21,7 +21,7 @@ private[kvutils] case class ProcessPartyAllocation(
   import Common._
   import Commit._
 
-  private val logger = LoggerFactory.getLogger(this.getClass)
+  private implicit val logger = LoggerFactory.getLogger(this.getClass)
   private val submissionId = partyAllocationEntry.getSubmissionId
   private val party: String = partyAllocationEntry.getParty
   private val partyKey = DamlStateKey.newBuilder.setParty(party).build
@@ -32,10 +32,10 @@ private[kvutils] case class ProcessPartyAllocation(
   def run: (DamlLogEntry, Map[DamlStateKey, DamlStateValue]) =
     runSequence(
       inputState = Map.empty,
-      authorizeSubmission,
-      validateParty,
-      deduplicate,
-      buildFinalResult
+      "Authorize submission" -> authorizeSubmission,
+      "Validate party" -> validateParty,
+      "Deduplicate" -> deduplicate,
+      "Build result" -> buildFinalResult
     )
 
   private val buildFinalResult: Commit[Unit] = delay {

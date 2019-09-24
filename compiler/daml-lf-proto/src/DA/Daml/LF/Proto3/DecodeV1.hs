@@ -232,6 +232,8 @@ decodeBuiltinFunction = pure . \case
   LF1.BuiltinFunctionMUL_NUMERIC   -> BEMulNumeric
   LF1.BuiltinFunctionDIV_NUMERIC   -> BEDivNumeric
   LF1.BuiltinFunctionROUND_NUMERIC -> BERoundNumeric
+  LF1.BuiltinFunctionCAST_NUMERIC  -> error "CAST_NUMERIC not implemented"
+  LF1.BuiltinFunctionSHIFT_NUMERIC -> error "SHIFT_DECIMAL not implemented"
 
   LF1.BuiltinFunctionADD_INT64 -> BEAddInt64
   LF1.BuiltinFunctionSUB_INT64 -> BESubInt64
@@ -371,6 +373,20 @@ decodeExprSum exprSum = mayDecode "exprSum" exprSum $ \case
     bodyType <- mayDecode "expr_OptionalSomeType" mbType decodeType
     bodyExpr <- mayDecode "expr_OptionalSomeBody" mbBody decodeExpr
     return (ESome bodyType bodyExpr)
+  LF1.ExprSumToAny (LF1.Expr_ToAny mbType mbExpr) -> do
+    type' <- mayDecode "expr_ToAnyType" mbType decodeType
+    case type' of
+        TCon con -> do
+            expr <- mayDecode "expr_ToAnyExpr" mbExpr decodeExpr
+            return (EToAnyTemplate con expr)
+        _ -> throwError (ExpectedTCon type')
+  LF1.ExprSumFromAny (LF1.Expr_FromAny mbType mbExpr) -> do
+    type' <- mayDecode "expr_FromAnyType" mbType decodeType
+    case type' of
+        TCon con -> do
+            expr <- mayDecode "expr_FromAnyExpr" mbExpr decodeExpr
+            return (EFromAnyTemplate con expr)
+        _ -> throwError (ExpectedTCon type')
 
 decodeUpdate :: LF1.Update -> DecodeImpl Expr
 decodeUpdate LF1.Update{..} = mayDecode "updateSum" updateSum $ \case
@@ -528,6 +544,7 @@ decodePrim = pure . \case
   LF1.PrimTypeOPTIONAL -> BTOptional
   LF1.PrimTypeMAP -> BTMap
   LF1.PrimTypeARROW -> BTArrow
+  LF1.PrimTypeANY -> BTAnyTemplate
 
 decodeType :: LF1.Type -> DecodeImpl Type
 decodeType LF1.Type{..} = mayDecode "typeSum" typeSum $ \case

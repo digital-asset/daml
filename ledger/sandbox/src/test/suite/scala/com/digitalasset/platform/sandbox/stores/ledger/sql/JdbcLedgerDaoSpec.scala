@@ -31,8 +31,15 @@ import com.digitalasset.daml.lf.value.Value.{
 import com.digitalasset.daml.lf.value.ValueVersions
 import com.digitalasset.daml_lf.DamlLf
 import com.digitalasset.ledger.EventId
-import com.digitalasset.ledger.api.domain.{LedgerId, RejectionReason}
+import com.digitalasset.ledger.api.domain.{
+  Filters,
+  InclusiveFilters,
+  LedgerId,
+  RejectionReason,
+  TransactionFilter
+}
 import com.digitalasset.ledger.api.testing.utils.AkkaBeforeAndAfterAll
+import com.digitalasset.platform.participant.util.EventFilter
 import com.digitalasset.platform.sandbox.persistence.PostgresAroundAll
 import com.digitalasset.platform.sandbox.stores.ActiveLedgerState.ActiveContract
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry
@@ -87,6 +94,7 @@ class JdbcLedgerDaoSpec
 
   private val alice = Party.assertFromString("Alice")
   private val bob = Party.assertFromString("Bob")
+  private val charlie = Party.assertFromString("Charlie")
   private val someValueText = ValueText("some text")
   private val agreement = "agreement"
 
@@ -546,23 +554,82 @@ class JdbcLedgerDaoSpec
       // - Take a snapshot
       // - Create another M contracts
       // The resulting snapshot should contain N-1 contracts
+      val aliceWildcardFilter =
+        EventFilter.byTemplates(TransactionFilter(Map(alice -> Filters(None))))
+      val aliceSpecificTemplatesFilter = EventFilter.byTemplates(
+        TransactionFilter(Map(alice -> Filters(InclusiveFilters(Set(templateId))))))
+
+      val charlieWildcardFilter =
+        EventFilter.byTemplates(TransactionFilter(Map(charlie -> Filters(None))))
+      val charlieSpecificFilter = EventFilter.byTemplates(
+        TransactionFilter(Map(charlie -> Filters(InclusiveFilters(Set(templateId))))))
+
+      val mixedFilter = EventFilter.byTemplates(
+        TransactionFilter(
+          Map(
+            alice -> Filters(InclusiveFilters(Set(templateId))),
+            bob -> Filters(None),
+            charlie -> Filters(None),
+          )))
+
       for {
         startingOffset <- ledgerDao.lookupLedgerEnd()
-        startingSnapshot <- ledgerDao.getActiveContractSnapshot(startingOffset)
+        aliceStartingSnapshot <- ledgerDao.getActiveContractSnapshot(
+          startingOffset,
+          aliceWildcardFilter)
+        charlieStartingSnapshot <- ledgerDao.getActiveContractSnapshot(
+          startingOffset,
+          charlieWildcardFilter)
+
+        mixedStartingSnapshot <- ledgerDao.getActiveContractSnapshot(startingOffset, mixedFilter)
+
         _ <- runSequentially(N, _ => storeCreateTransaction())
         _ <- storeExerciseTransaction(AbsoluteContractId(s"cId$startingOffset"))
+
         snapshotOffset <- ledgerDao.lookupLedgerEnd()
-        snapshot <- ledgerDao.getActiveContractSnapshot(snapshotOffset)
+
+        aliceWildcardSnapshot <- ledgerDao.getActiveContractSnapshot(
+          snapshotOffset,
+          aliceWildcardFilter)
+        aliceSpecificTemplatesSnapshot <- ledgerDao.getActiveContractSnapshot(
+          snapshotOffset,
+          aliceSpecificTemplatesFilter)
+
+        charlieWildcardSnapshot <- ledgerDao.getActiveContractSnapshot(
+          snapshotOffset,
+          charlieWildcardFilter)
+        charlieSpecificTemplateSnapshot <- ledgerDao.getActiveContractSnapshot(
+          snapshotOffset,
+          charlieSpecificFilter)
+
+        mixedSnapshot <- ledgerDao.getActiveContractSnapshot(snapshotOffset, mixedFilter)
+
         _ <- runSequentially(M, _ => storeCreateTransaction())
+
         endingOffset <- ledgerDao.lookupLedgerEnd()
-        startingSnapshotSize <- startingSnapshot.acs.map(_ => 1).runWith(sumSink)
-        snapshotSize <- snapshot.acs.map(_ => 1).runWith(sumSink)
+
+        aliceStartingSnapshotSize <- aliceStartingSnapshot.acs.map(_ => 1).runWith(sumSink)
+        aliceWildcardSnapshotSize <- aliceWildcardSnapshot.acs.map(_ => 1).runWith(sumSink)
+        aliceSpecificTemplatesSnapshotSize <- aliceSpecificTemplatesSnapshot.acs
+          .map(_ => 1)
+          .runWith(sumSink)
+
+        charlieStartingSnapshotSize <- charlieStartingSnapshot.acs.map(_ => 1).runWith(sumSink)
+        charlieWildcardSnapshotSize <- charlieWildcardSnapshot.acs.map(_ => 1).runWith(sumSink)
+        charlieSpecificTemplateSnapshotSize <- charlieSpecificTemplateSnapshot.acs
+          .map(_ => 1)
+          .runWith(sumSink)
+
+        mixedStartingSnapshotSize <- mixedStartingSnapshot.acs.map(_ => 1).runWith(sumSink)
+        mixedSnapshotSize <- mixedSnapshot.acs.map(_ => 1).runWith(sumSink)
+
       } yield {
         withClue("starting offset: ") {
-          startingSnapshot.offset shouldEqual startingOffset
+          aliceStartingSnapshot.offset shouldEqual startingOffset
         }
         withClue("snapshot offset: ") {
-          snapshot.offset shouldEqual snapshotOffset
+          aliceWildcardSnapshot.offset shouldEqual snapshotOffset
+          aliceSpecificTemplatesSnapshot.offset shouldEqual snapshotOffset
         }
         withClue("snapshot offset (2): ") {
           snapshotOffset shouldEqual (startingOffset + N + 1)
@@ -570,8 +637,20 @@ class JdbcLedgerDaoSpec
         withClue("ending offset: ") {
           endingOffset shouldEqual (snapshotOffset + M)
         }
-        withClue("snapshot size: ") {
-          (snapshotSize - startingSnapshotSize) shouldEqual (N - 1)
+        withClue("alice wildcard snapshot size: ") {
+          (aliceWildcardSnapshotSize - aliceStartingSnapshotSize) shouldEqual (N - 1)
+        }
+        withClue("alice specific template snapshot size: ") {
+          (aliceSpecificTemplatesSnapshotSize - aliceStartingSnapshotSize) shouldEqual (N - 1)
+        }
+        withClue("charlie wildcard snapshot size: ") {
+          (charlieWildcardSnapshotSize - charlieStartingSnapshotSize) shouldEqual 0
+        }
+        withClue("charlie specific template snapshot size: ") {
+          (charlieSpecificTemplateSnapshotSize - charlieStartingSnapshotSize) shouldEqual 0
+        }
+        withClue("mixed snapshot size: ") {
+          (mixedSnapshotSize - mixedStartingSnapshotSize) shouldEqual (N - 1)
         }
       }
     }

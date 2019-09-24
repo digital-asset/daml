@@ -1,0 +1,25 @@
+-- Copyright (c) 2019 The DAML Authors. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- NOTE(MH): This test would fail if `$d` wasn't considered a super class
+-- prefix in `isSuperClassDict` in template resugaring.
+daml 1.2
+module TemplateSuperClassD where
+
+template Template t => Gen t with
+    p: Party
+  where
+    signatory p
+
+template T with
+    p: Party
+  where
+    signatory p
+
+template instance GenT = Gen T
+
+test: Scenario ()
+test = do
+  p <- getParty "operator"
+  p `submit` create T with p
+  return ()

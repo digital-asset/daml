@@ -89,9 +89,7 @@ private[engine] class ValueTranslator(compiledPackages: CompiledPackages) {
 
   // since we get these values from third-party users of the library, check the recursion limit
   // here, too.
-  private[engine] def translateValue(
-      ty0: Type,
-      v0: VersionedValue[AbsoluteContractId]): Result[SValue] = {
+  private[engine] def translateValue(ty0: Type, v0: Value[AbsoluteContractId]): Result[SValue] = {
     import SValue._
     import scalaz.std.option._
     import scalaz.syntax.traverse.ToTraverseOps
@@ -284,7 +282,7 @@ private[engine] class ValueTranslator(compiledPackages: CompiledPackages) {
       }
     }
 
-    exceptionToResultError(go(0, ty0, v0.value))
+    exceptionToResultError(go(0, ty0, v0))
   }
 
 }

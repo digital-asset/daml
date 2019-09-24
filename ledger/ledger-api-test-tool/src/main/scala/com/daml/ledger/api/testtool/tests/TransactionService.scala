@@ -6,11 +6,12 @@ package com.daml.ledger.api.testtool.tests
 import ai.x.diff.conversions._
 import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTest, LedgerTestSuite}
 import com.digitalasset.ledger.api.v1.value.{RecordField, Value}
-import com.digitalasset.ledger.client.binding.Value.encode
 import com.digitalasset.ledger.client.binding.Primitive
+import com.digitalasset.ledger.client.binding.Value.encode
 import com.digitalasset.ledger.test_stable.Test.Agreement._
 import com.digitalasset.ledger.test_stable.Test.AgreementFactory._
 import com.digitalasset.ledger.test_stable.Test.Choice1._
+import com.digitalasset.ledger.test_stable.Test.CreateAndFetch._
 import com.digitalasset.ledger.test_stable.Test.Dummy._
 import com.digitalasset.ledger.test_stable.Test.DummyFactory._
 import com.digitalasset.ledger.test_stable.Test.ParameterShowcase._
@@ -200,10 +201,11 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     LedgerTest("TXNotDivulge", "Data should not be exposed to parties unrelated to a transaction") {
       context =>
         for {
-          ledger <- context.participant()
-          Vector(alice, bob) <- ledger.allocateParties(2)
-          _ <- ledger.create(alice, Dummy(alice))
-          bobsView <- ledger.flatTransactions(bob)
+          Vector(alpha, beta) <- context.participants(2)
+          alice <- alpha.allocateParty()
+          bob <- beta.allocateParty()
+          _ <- alpha.create(alice, Dummy(alice))
+          bobsView <- alpha.flatTransactions(bob)
         } yield {
           assert(
             bobsView.isEmpty,
@@ -237,12 +239,11 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
       "A transaction should be visible to a non-submitting stakeholder but its command identifier should be empty"
     ) { context =>
       for {
-        ledger <- context.participant()
-        Vector(submitter, listener) <- ledger.allocateParties(2)
-        (id, _) <- ledger.createAndGetTransactionId(
-          submitter,
-          AgreementFactory(listener, submitter))
-        tree <- ledger.transactionTreeById(id, listener)
+        Vector(alpha, beta) <- context.participants(2)
+        submitter <- alpha.allocateParty()
+        listener <- beta.allocateParty()
+        (id, _) <- alpha.createAndGetTransactionId(submitter, AgreementFactory(listener, submitter))
+        tree <- eventually { beta.transactionTreeById(id, listener) }
       } yield {
         assert(
           tree.commandId.isEmpty,
@@ -289,6 +290,36 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
             .unwrap(dummyFactory)} but instead it was ${exercised.head.getExercised.contractId}"
         )
       }
+    }
+
+  private[this] val contractIdFromExerciseWhenFilter =
+    LedgerTest(
+      "TXContractIdFromExerciseWhenFilter",
+      "Expose contract identifiers that are results of exercising choices when filtering by template") {
+      context =>
+        for {
+          ledger <- context.participant()
+          party <- ledger.allocateParty()
+          factory <- ledger.create(party, DummyFactory(party))
+          _ <- ledger.exercise(party, factory.exerciseDummyFactoryCall)
+          dummyWithParam <- ledger.flatTransactionsByTemplateId(DummyWithParam.id, party)
+          dummyFactory <- ledger.flatTransactionsByTemplateId(DummyFactory.id, party)
+        } yield {
+          val create = assertSingleton("GetCreate", dummyWithParam.flatMap(createdEvents))
+          assertEquals(
+            "Create should be of DummyWithParam",
+            create.getTemplateId,
+            Tag.unwrap(DummyWithParam.id))
+          val archive = assertSingleton("GetArchive", dummyFactory.flatMap(archivedEvents))
+          assertEquals(
+            "Archive should be of DummyFactory",
+            archive.getTemplateId,
+            Tag.unwrap(DummyFactory.id))
+          assertEquals(
+            "Mismatching archived contract identifier",
+            archive.contractId,
+            Tag.unwrap(factory))
+        }
     }
 
   private[this] val rejectOnFailingAssertion =
@@ -409,11 +440,13 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
       "Expressing a non-consuming choice on a contract should not result in its archival") {
       context =>
         for {
-          ledger <- context.participant()
-          Vector(receiver, giver) <- ledger.allocateParties(2)
-          agreementFactory <- ledger.create(giver, AgreementFactory(receiver, giver))
-          _ <- ledger.exercise(receiver, agreementFactory.exerciseCreateAgreement)
-          transactions <- ledger.flatTransactions(receiver, giver)
+          Vector(alpha, beta) <- context.participants(2)
+          receiver <- alpha.allocateParty()
+          giver <- beta.allocateParty()
+          agreementFactory <- beta.create(giver, AgreementFactory(receiver, giver))
+          _ <- alpha.exercise(receiver, agreementFactory.exerciseCreateAgreement)
+          _ <- synchronize(alpha, beta)
+          transactions <- alpha.flatTransactions(receiver, giver)
         } yield {
           assert(
             !transactions.exists(_.events.exists(_.event.isArchived)),
@@ -426,11 +459,12 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     LedgerTest("TXRequireAuthorization", "Require only authorization of chosen branching signatory") {
       context =>
         for {
-          ledger <- context.participant()
-          Vector(alice, bob) <- ledger.allocateParties(2)
+          Vector(alpha, beta) <- context.participants(2)
+          alice <- alpha.allocateParty()
+          bob <- beta.allocateParty()
           template = BranchingSignatories(true, alice, bob)
-          _ <- ledger.create(alice, template)
-          transactions <- ledger.flatTransactions(alice)
+          _ <- alpha.create(alice, template)
+          transactions <- alpha.flatTransactions(alice)
         } yield {
           assert(template.arguments == transactions.head.events.head.getCreated.getCreateArguments)
         }
@@ -441,14 +475,18 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
       "TXNotDiscloseCreateToNonSignatory",
       "Not disclose create to non-chosen branching signatory") { context =>
       for {
-        ledger <- context.participant()
-        Vector(alice, bob) <- ledger.allocateParties(2)
+        Vector(alpha, beta) <- context.participants(2)
+        alice <- alpha.allocateParty()
+        bob <- beta.allocateParty()
         template = BranchingSignatories(false, alice, bob)
-        create <- ledger.submitAndWaitRequest(bob, template.create.command)
-        transaction <- ledger.submitAndWaitForTransaction(create)
-        transactions <- ledger.flatTransactions(alice)
+        create <- beta.submitAndWaitRequest(bob, template.create.command)
+        transaction <- beta.submitAndWaitForTransaction(create)
+        _ <- synchronize(alpha, beta)
+        transactions <- alpha.flatTransactions(alice)
       } yield {
-        assert(transactions.find(_.transactionId != transaction.transactionId).isEmpty)
+        assert(
+          !transactions.exists(_.transactionId != transaction.transactionId),
+          s"The transaction ${transaction.transactionId} should not have been disclosed.")
       }
     }
 
@@ -456,17 +494,35 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     LedgerTest("TXDiscloseCreateToSignatory", "Disclose create to the chosen branching controller") {
       context =>
         for {
-          ledger <- context.participant()
-          Vector(alice, bob, eve) <- ledger.allocateParties(3)
+          Vector(alpha, beta) <- context.participants(2)
+          alice <- alpha.allocateParty()
+          Vector(bob, eve) <- beta.allocateParties(2)
           template = BranchingControllers(alice, true, bob, eve)
-          _ <- ledger.create(alice, template)
-          aliceView <- ledger.flatTransactions(alice)
-          bobView <- ledger.flatTransactions(bob)
-          evesView <- ledger.flatTransactions(eve)
+          _ <- alpha.create(alice, template)
+          _ <- eventually {
+            for {
+              aliceView <- alpha.flatTransactions(alice)
+              bobView <- beta.flatTransactions(bob)
+              evesView <- beta.flatTransactions(eve)
+            } yield {
+              val aliceCreate = assertSingleton(
+                "Alice should see one transaction",
+                aliceView.flatMap(createdEvents))
+              assertEquals(
+                "Alice arguments do not match",
+                aliceCreate.getCreateArguments,
+                template.arguments)
+              val bobCreate =
+                assertSingleton("Bob should see one transaction", bobView.flatMap(createdEvents))
+              assertEquals(
+                "Bob arguments do not match",
+                bobCreate.getCreateArguments,
+                template.arguments)
+              assert(evesView.isEmpty, "Eve should not see any contract")
+            }
+          }
         } yield {
-          assert(template.arguments == aliceView.head.events.head.getCreated.getCreateArguments)
-          assert(template.arguments == bobView.head.events.head.getCreated.getCreateArguments)
-          assert(evesView.isEmpty)
+          // Checks performed in the `eventually` block
         }
     }
 
@@ -475,29 +531,39 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
       "TXNotDiscloseCreateToNonChosenBranchingController",
       "Not disclose create to non-chosen branching controller") { context =>
       for {
-        ledger <- context.participant()
-        Vector(alice, bob, eve) <- ledger.allocateParties(3)
+        Vector(alpha, beta) <- context.participants(2)
+        alice <- alpha.allocateParty()
+        Vector(bob, eve) <- beta.allocateParties(2)
         template = BranchingControllers(alice, false, bob, eve)
-        create <- ledger.submitAndWaitRequest(alice, template.create.command)
-        transaction <- ledger.submitAndWaitForTransaction(create)
-        transactions <- ledger.flatTransactions(bob)
+        create <- alpha.submitAndWaitRequest(alice, template.create.command)
+        transaction <- alpha.submitAndWaitForTransaction(create)
+        _ <- synchronize(alpha, beta)
+        transactions <- beta.flatTransactions(bob)
       } yield {
-        assert(transactions.find(_.transactionId != transaction.transactionId).isEmpty)
+        assert(
+          !transactions.exists(_.transactionId != transaction.transactionId),
+          s"The transaction ${transaction.transactionId} should not have been disclosed.")
       }
     }
 
   private[this] val discloseCreateToObservers =
     LedgerTest("TXDiscloseCreateToObservers", "Disclose create to observers") { context =>
       for {
-        ledger <- context.participant()
-        Vector(alice, bob, eve) <- ledger.allocateParties(3)
-        observers = Seq(bob, eve)
+        Vector(alpha, beta) <- context.participants(2)
+        alice <- alpha.allocateParty()
+        observers <- beta.allocateParties(2)
         template = WithObservers(alice, Primitive.List(observers: _*))
-        create <- ledger.submitAndWaitRequest(alice, template.create.command)
-        transactionId <- ledger.submitAndWaitForTransactionId(create)
-        transactions <- ledger.flatTransactions(observers: _*)
+        create <- alpha.submitAndWaitRequest(alice, template.create.command)
+        transactionId <- alpha.submitAndWaitForTransactionId(create)
+        _ <- eventually {
+          for {
+            transactions <- beta.flatTransactions(observers: _*)
+          } yield {
+            assert(transactions.exists(_.transactionId == transactionId))
+          }
+        }
       } yield {
-        assert(transactions.exists(_.transactionId == transactionId))
+        // Checks performed in the `eventually` block
       }
     }
 
@@ -522,7 +588,7 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
       "Expose the agreement text for templates with an explicit agreement text") { context =>
       for {
         ledger <- context.participant()
-        party <- ledger.allocateParty
+        party <- ledger.allocateParty()
         _ <- ledger.create(party, Dummy(party))
         transactions <- ledger.flatTransactionsByTemplateId(Dummy.id, party)
       } yield {
@@ -549,10 +615,11 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
   private[this] val stakeholders =
     LedgerTest("TXStakeholders", "Expose the correct stakeholders") { context =>
       for {
-        ledger <- context.participant()
-        Vector(giver, receiver) <- ledger.allocateParties(2)
-        _ <- ledger.create(giver, CallablePayout(giver, receiver))
-        transactions <- ledger.flatTransactions(giver, receiver)
+        Vector(alpha, beta) <- context.participants(2)
+        receiver <- alpha.allocateParty()
+        giver <- beta.allocateParty()
+        _ <- beta.create(giver, CallablePayout(giver, receiver))
+        transactions <- beta.flatTransactions(giver, receiver)
       } yield {
         val contract = assertSingleton("Stakeholders", transactions.flatMap(createdEvents))
         assertEquals("Signatories", contract.signatories, Seq(Tag.unwrap(giver)))
@@ -565,10 +632,11 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
       "TXNoContractKey",
       "There should be no contract key if the template does not specify one") { context =>
       for {
-        ledger <- context.participant()
-        Vector(giver, receiver) <- ledger.allocateParties(2)
-        _ <- ledger.create(giver, CallablePayout(giver, receiver))
-        transactions <- ledger.flatTransactions(giver, receiver)
+        Vector(alpha, beta) <- context.participants(2)
+        receiver <- alpha.allocateParty()
+        giver <- beta.allocateParty()
+        _ <- beta.create(giver, CallablePayout(giver, receiver))
+        transactions <- beta.flatTransactions(giver, receiver)
       } yield {
         val contract = assertSingleton("NoContractKey", transactions.flatMap(createdEvents))
         assert(
@@ -603,15 +671,18 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     LedgerTest("TXMultiActorChoiceOk", "Accept exercising a well-authorized multi-actor choice") {
       context =>
         for {
-          ledger <- context.participant()
-          Vector(operator, receiver, giver) <- ledger.allocateParties(3)
-          agreementFactory <- ledger.create(giver, AgreementFactory(receiver, giver))
-          agreement <- ledger.exerciseAndGetContract[Agreement](
+          Vector(alpha, beta) <- context.participants(2)
+          Vector(operator, receiver) <- alpha.allocateParties(2)
+          giver <- beta.allocateParty()
+          agreementFactory <- beta.create(giver, AgreementFactory(receiver, giver))
+          agreement <- alpha.exerciseAndGetContract[Agreement](
             receiver,
             agreementFactory.exerciseAgreementFactoryAccept)
           triProposalTemplate = TriProposal(operator, receiver, giver)
-          triProposal <- ledger.create(operator, triProposalTemplate)
-          tree <- ledger.exercise(giver, agreement.exerciseAcceptTriProposal(_, triProposal))
+          triProposal <- alpha.create(operator, triProposalTemplate)
+          tree <- eventually {
+            beta.exercise(giver, agreement.exerciseAcceptTriProposal(_, triProposal))
+          }
         } yield {
           val contract = assertSingleton("AcceptTriProposal", createdEvents(tree))
           assertEquals(
@@ -627,15 +698,18 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
       "Accept exercising a well-authorized multi-actor choice with coinciding controllers") {
       context =>
         for {
-          ledger <- context.participant()
-          Vector(operator, giver) <- ledger.allocateParties(2)
-          agreementFactory <- ledger.create(giver, AgreementFactory(giver, giver))
-          agreement <- ledger.exerciseAndGetContract[Agreement](
+          Vector(alpha, beta) <- context.participants(2)
+          operator <- alpha.allocateParty()
+          giver <- beta.allocateParty()
+          agreementFactory <- beta.create(giver, AgreementFactory(giver, giver))
+          agreement <- beta.exerciseAndGetContract[Agreement](
             giver,
             agreementFactory.exerciseAgreementFactoryAccept)
           triProposalTemplate = TriProposal(operator, giver, giver)
-          triProposal <- ledger.create(operator, triProposalTemplate)
-          tree <- ledger.exercise(giver, agreement.exerciseAcceptTriProposal(_, triProposal))
+          triProposal <- alpha.create(operator, triProposalTemplate)
+          tree <- eventually {
+            beta.exercise(giver, agreement.exerciseAcceptTriProposal(_, triProposal))
+          }
         } yield {
           val contract = assertSingleton("AcceptTriProposalCoinciding", createdEvents(tree))
           assertEquals(
@@ -650,38 +724,51 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
       "TXRejectMultiActorMissingAuth",
       "Reject exercising a multi-actor choice with missing authorizers") { context =>
       for {
-        ledger <- context.participant()
-        Vector(operator, receiver, giver) <- ledger.allocateParties(3)
-        triProposal <- ledger.create(operator, TriProposal(operator, receiver, giver))
-        failure <- ledger.exercise(giver, triProposal.exerciseTriProposalAccept).failed
+        Vector(alpha, beta) <- context.participants(2)
+        Vector(operator, receiver) <- alpha.allocateParties(2)
+        giver <- beta.allocateParty()
+        triProposal <- alpha.create(operator, TriProposal(operator, receiver, giver))
+        _ <- eventually {
+          for {
+            failure <- beta.exercise(giver, triProposal.exerciseTriProposalAccept).failed
+          } yield {
+            assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "requires authorizers")
+          }
+        }
       } yield {
-        assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "requires authorizers")
+        // Check performed in the `eventually` block
       }
     }
 
-  // NOTE(MH): This is the current, most conservative semantics of
-  // multi-actor choice authorization. It is likely that this will change
-  // in the future. Should we delete this test, we should also remove the
-  // 'UnrestrictedAcceptTriProposal' choice from the 'Agreement' template.
+  // This is the current, most conservative semantics of multi-actor choice authorization.
+  // It is likely that this will change in the future. Should we delete this test, we should
+  // also remove the 'UnrestrictedAcceptTriProposal' choice from the 'Agreement' template.
   private[this] val rejectMultiActorExcessiveAuth =
     LedgerTest(
       "TXRejectMultiActorExcessiveAuth",
       "Reject exercising a multi-actor choice with too many authorizers") { context =>
       for {
-        ledger <- context.participant()
-        Vector(operator, receiver, giver) <- ledger.allocateParties(3)
-        agreementFactory <- ledger.create(giver, AgreementFactory(receiver, giver))
-        agreement <- ledger
+        Vector(alpha, beta) <- context.participants(2)
+        Vector(operator, receiver) <- alpha.allocateParties(2)
+        giver <- beta.allocateParty()
+        agreementFactory <- beta.create(giver, AgreementFactory(receiver, giver))
+        agreement <- alpha
           .exerciseAndGetContract[Agreement](
             receiver,
             agreementFactory.exerciseAgreementFactoryAccept)
         triProposalTemplate = TriProposal(operator, giver, giver)
-        triProposal <- ledger.create(operator, triProposalTemplate)
-        failure <- ledger
-          .exercise(giver, agreement.exerciseAcceptTriProposal(_, triProposal))
-          .failed
+        triProposal <- alpha.create(operator, triProposalTemplate)
+        _ <- eventually {
+          for {
+            failure <- beta
+              .exercise(giver, agreement.exerciseAcceptTriProposal(_, triProposal))
+              .failed
+          } yield {
+            assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "Assertion failed")
+          }
+        }
       } yield {
-        assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "Assertion failed")
+        // Check performed in the `eventually` block
       }
     }
 
@@ -704,6 +791,527 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
       }
     }
 
+  private[this] val largeCommand =
+    LedgerTest("TXLargeCommand", "Accept huge submissions with a large number of commands") {
+      context =>
+        val targetNumberOfSubCommands = 1500
+        for {
+          ledger <- context.participant()
+          party <- ledger.allocateParty()
+          request <- ledger.submitAndWaitRequest(
+            party,
+            List.fill(targetNumberOfSubCommands)(Dummy(party).create.command): _*)
+          result <- ledger.submitAndWaitForTransaction(request)
+        } yield {
+          val _ = assertLength("LargeCommand", targetNumberOfSubCommands, result.events)
+        }
+    }
+
+  private[this] val singleMultiSame =
+    LedgerTest(
+      "TXSingleMultiSame",
+      "The same transaction should be served regardless of subscribing as one or multiple parties") {
+      context =>
+        for {
+          Vector(alpha, beta) <- context.participants(2)
+          alice <- alpha.allocateParty()
+          bob <- beta.allocateParty()
+          _ <- alpha.create(alice, Dummy(alice))
+          _ <- beta.create(bob, Dummy(bob))
+          aliceView <- alpha.flatTransactions(alice)
+          bobView <- beta.flatTransactions(bob)
+          _ <- synchronize(alpha, beta)
+          alphaView <- alpha.flatTransactions(alice, bob)
+          betaView <- beta.flatTransactions(alice, bob)
+        } yield {
+          val jointView = aliceView ++ bobView
+          assertEquals(
+            "Single- and multi-party subscription yield different results",
+            jointView,
+            alphaView)
+          assertEquals(
+            "Single- and multi-party subscription yield different results",
+            jointView,
+            betaView)
+        }
+    }
+
+  private[this] val fetchContractCreatedInTransaction =
+    LedgerTest(
+      "TXFetchContractCreatedInTransaction",
+      "It should be possible to fetch a contract created within a transaction") { context =>
+      for {
+        ledger <- context.participant()
+        alice <- ledger.allocateParty()
+        createAndFetch <- ledger.create(alice, CreateAndFetch(alice))
+        transaction <- ledger.exerciseForFlatTransaction(
+          alice,
+          createAndFetch.exerciseCreateAndFetch_Run)
+      } yield {
+        val _ = assertSingleton("There should be only one create", createdEvents(transaction))
+        val exercise =
+          assertSingleton("There should be only one archive", archivedEvents(transaction))
+        assertEquals(
+          "The contract identifier of the exercise does not match",
+          Tag.unwrap(createAndFetch),
+          exercise.contractId)
+      }
+    }
+
+  private[this] val flatTransactionsWrongLedgerId =
+    LedgerTest(
+      "TXFlatTransactionsWrongLedgerId",
+      "The getTransactions endpoint should reject calls with the wrong ledger identifier") {
+      context =>
+        val invalidLedgerId = "DEFINITELY_NOT_A_VALID_LEDGER_IDENTIFIER"
+        for {
+          ledger <- context.participant()
+          party <- ledger.allocateParty()
+          invalidRequest = ledger
+            .getTransactionsRequest(Seq(party))
+            .update(_.ledgerId := invalidLedgerId)
+          failure <- ledger.flatTransactions(invalidRequest).failed
+        } yield {
+          assertGrpcError(
+            failure,
+            Status.Code.NOT_FOUND,
+            s"Ledger ID '$invalidLedgerId' not found.")
+        }
+    }
+
+  private[this] val transactionTreesWrongLedgerId =
+    LedgerTest(
+      "TXTransactionTreesWrongLedgerId",
+      "The getTransactionTrees endpoint should reject calls with the wrong ledger identifier") {
+      context =>
+        val invalidLedgerId = "DEFINITELY_NOT_A_VALID_LEDGER_IDENTIFIER"
+        for {
+          ledger <- context.participant()
+          party <- ledger.allocateParty()
+          invalidRequest = ledger
+            .getTransactionsRequest(Seq(party))
+            .update(_.ledgerId := invalidLedgerId)
+          failure <- ledger.transactionTrees(invalidRequest).failed
+        } yield {
+          assertGrpcError(
+            failure,
+            Status.Code.NOT_FOUND,
+            s"Ledger ID '$invalidLedgerId' not found.")
+        }
+    }
+
+  private[this] val transactionTreeByIdWrongLedgerId =
+    LedgerTest(
+      "TXTransactionTreeByIdWrongLedgerId",
+      "The getTransactionTreeById endpoint should reject calls with the wrong ledger identifier") {
+      context =>
+        val invalidLedgerId = "DEFINITELY_NOT_A_VALID_LEDGER_IDENTIFIER"
+        for {
+          ledger <- context.participant()
+          party <- ledger.allocateParty()
+          invalidRequest = ledger
+            .getTransactionByIdRequest("not-relevant", Seq(party))
+            .update(_.ledgerId := invalidLedgerId)
+          failure <- ledger.transactionTreeById(invalidRequest).failed
+        } yield {
+          assertGrpcError(
+            failure,
+            Status.Code.NOT_FOUND,
+            s"Ledger ID '$invalidLedgerId' not found.")
+        }
+    }
+
+  private[this] val flatTransactionByIdWrongLedgerId =
+    LedgerTest(
+      "TXFlatTransactionByIdWrongLedgerId",
+      "The getFlatTransactionById endpoint should reject calls with the wrong ledger identifier") {
+      context =>
+        val invalidLedgerId = "DEFINITELY_NOT_A_VALID_LEDGER_IDENTIFIER"
+        for {
+          ledger <- context.participant()
+          party <- ledger.allocateParty()
+          invalidRequest = ledger
+            .getTransactionByIdRequest("not-relevant", Seq(party))
+            .update(_.ledgerId := invalidLedgerId)
+          failure <- ledger.flatTransactionById(invalidRequest).failed
+        } yield {
+          assertGrpcError(
+            failure,
+            Status.Code.NOT_FOUND,
+            s"Ledger ID '$invalidLedgerId' not found.")
+        }
+    }
+
+  private[this] val transactionTreeByEventIdWrongLedgerId =
+    LedgerTest(
+      "TXTransactionTreeByEventIdWrongLedgerId",
+      "The getTransactionTreeByEventId endpoint should reject calls with the wrong ledger identifier") {
+      context =>
+        val invalidLedgerId = "DEFINITELY_NOT_A_VALID_LEDGER_IDENTIFIER"
+        for {
+          ledger <- context.participant()
+          party <- ledger.allocateParty()
+          invalidRequest = ledger
+            .getTransactionByEventIdRequest("not-relevant", Seq(party))
+            .update(_.ledgerId := invalidLedgerId)
+          failure <- ledger.transactionTreeByEventId(invalidRequest).failed
+        } yield {
+          assertGrpcError(
+            failure,
+            Status.Code.NOT_FOUND,
+            s"Ledger ID '$invalidLedgerId' not found.")
+        }
+    }
+
+  private[this] val flatTransactionByEventIdWrongLedgerId =
+    LedgerTest(
+      "TXFlatTransactionByEventIdWrongLedgerId",
+      "The getFlatTransactionByEventId endpoint should reject calls with the wrong ledger identifier") {
+      context =>
+        val invalidLedgerId = "DEFINITELY_NOT_A_VALID_LEDGER_IDENTIFIER"
+        for {
+          ledger <- context.participant()
+          party <- ledger.allocateParty()
+          invalidRequest = ledger
+            .getTransactionByEventIdRequest("not-relevant", Seq(party))
+            .update(_.ledgerId := invalidLedgerId)
+          failure <- ledger.flatTransactionByEventId(invalidRequest).failed
+        } yield {
+          assertGrpcError(
+            failure,
+            Status.Code.NOT_FOUND,
+            s"Ledger ID '$invalidLedgerId' not found.")
+        }
+    }
+
+  private[this] val ledgerEndWrongLedgerId =
+    LedgerTest(
+      "TXTransactionTreeByIdWrongLedgerId",
+      "The ledgerEnd endpoint should reject calls with the wrong ledger identifier") { context =>
+      val invalidLedgerId = "DEFINITELY_NOT_A_VALID_LEDGER_IDENTIFIER"
+      for {
+        ledger <- context.participant()
+        failure <- ledger.currentEnd(invalidLedgerId).failed
+      } yield {
+        assertGrpcError(failure, Status.Code.NOT_FOUND, s"Ledger ID '$invalidLedgerId' not found.")
+      }
+    }
+
+  private[this] val transactionTreeById =
+    LedgerTest("TXTransactionTreeById", "Expose a visible transaction tree by identifier") {
+      context =>
+        for {
+          ledger <- context.participant()
+          party <- ledger.allocateParty()
+          dummy <- ledger.create(party, Dummy(party))
+          tree <- ledger.exercise(party, dummy.exerciseDummyChoice1)
+          byId <- ledger.transactionTreeById(tree.transactionId, party)
+        } yield {
+          assertEquals("The transaction fetched by identifier does not match", tree, byId)
+        }
+    }
+
+  private[this] val invisibleTransactionTreeById =
+    LedgerTest(
+      "TXInvisibleTransactionTreeById",
+      "Do not expose an invisible transaction tree by identifier") { context =>
+      for {
+        Vector(alpha, beta) <- context.participants(2)
+        party <- alpha.allocateParty()
+        intruder <- beta.allocateParty()
+        dummy <- alpha.create(party, Dummy(party))
+        tree <- alpha.exercise(party, dummy.exerciseDummyChoice1)
+        _ <- synchronize(alpha, beta)
+        failure <- beta.transactionTreeById(tree.transactionId, intruder).failed
+      } yield {
+        assertGrpcError(failure, Status.Code.NOT_FOUND, "Transaction not found, or not visible.")
+      }
+    }
+
+  private[this] val transactionTreeByIdNotFound =
+    LedgerTest(
+      "TXTransactionTreeByIdNotFound",
+      "Return NOT_FOUND when looking up an inexistent transaction tree by identifier") { context =>
+      for {
+        ledger <- context.participant()
+        party <- ledger.allocateParty()
+        failure <- ledger.transactionTreeById("a" * 60, party).failed
+      } yield {
+        assertGrpcError(failure, Status.Code.NOT_FOUND, "Transaction not found, or not visible.")
+      }
+    }
+
+  private[this] val transactionTreeByIdNoParty =
+    LedgerTest(
+      "TXTransactionTreeByIdNotFound",
+      "Return INVALID_ARGUMENT when looking up a transaction tree by identifier without specifying a party") {
+      context =>
+        for {
+          ledger <- context.participant()
+          failure <- ledger.transactionTreeById("not-relevant").failed
+        } yield {
+          assertGrpcError(
+            failure,
+            Status.Code.INVALID_ARGUMENT,
+            "Missing field: requesting_parties")
+        }
+    }
+
+  private[this] val transactionTreeByIdSameAsTransactionStream =
+    LedgerTest(
+      "TXTransactionTreeByIdSameAsTransactionStream",
+      "Expose the same events for each transaction as the output of getTransactionTrees") {
+      context =>
+        for {
+          Vector(alpha, beta) <- context.participants(2)
+          submitter <- alpha.allocateParty()
+          listener <- beta.allocateParty()
+          _ <- alpha.create(submitter, AgreementFactory(listener, submitter))
+          _ <- synchronize(alpha, beta)
+          trees <- alpha.transactionTrees(listener, submitter)
+          byId <- Future.sequence(
+            trees.map(t => beta.transactionTreeById(t.transactionId, listener, submitter)))
+        } yield {
+          assertEquals(
+            "The events fetched by identifier did not match with the ones on the transaction stream",
+            trees,
+            byId)
+        }
+    }
+
+  private[this] val flatTransactionById =
+    LedgerTest("TXFlatTransactionById", "Expose a visible transaction by identifier") { context =>
+      for {
+        ledger <- context.participant()
+        party <- ledger.allocateParty()
+        dummy <- ledger.create(party, Dummy(party))
+        transaction <- ledger.exerciseForFlatTransaction(party, dummy.exerciseDummyChoice1)
+        byId <- ledger.flatTransactionById(transaction.transactionId, party)
+      } yield {
+        assertEquals("The transaction fetched by identifier does not match", transaction, byId)
+      }
+    }
+
+  private[this] val invisibleFlatTransactionById =
+    LedgerTest(
+      "TXInvisibleFlatTransactionById",
+      "Do not expose an invisible flat transaction by identifier") { context =>
+      for {
+        Vector(alpha, beta) <- context.participants(2)
+        party <- alpha.allocateParty()
+        intruder <- beta.allocateParty()
+        dummy <- alpha.create(party, Dummy(party))
+        tree <- alpha.exercise(party, dummy.exerciseDummyChoice1)
+        _ <- synchronize(alpha, beta)
+        failure <- beta.flatTransactionById(tree.transactionId, intruder).failed
+      } yield {
+        assertGrpcError(failure, Status.Code.NOT_FOUND, "Transaction not found, or not visible.")
+      }
+    }
+
+  private[this] val flatTransactionByIdNotFound =
+    LedgerTest(
+      "TXFlatTransactionByIdNotFound",
+      "Return NOT_FOUND when looking up an inexistent flat transaction by identifier") { context =>
+      for {
+        ledger <- context.participant()
+        party <- ledger.allocateParty()
+        failure <- ledger.flatTransactionById("a" * 60, party).failed
+      } yield {
+        assertGrpcError(failure, Status.Code.NOT_FOUND, "Transaction not found, or not visible.")
+      }
+    }
+
+  private[this] val flatTransactionByIdNoParty =
+    LedgerTest(
+      "TXFlatTransactionByIdNotFound",
+      "Return INVALID_ARGUMENT when looking up a flat transaction by identifier without specifying a party") {
+      context =>
+        for {
+          ledger <- context.participant()
+          failure <- ledger.flatTransactionById("not-relevant").failed
+        } yield {
+          assertGrpcError(
+            failure,
+            Status.Code.INVALID_ARGUMENT,
+            "Missing field: requesting_parties")
+        }
+    }
+
+  private[this] val flatTransactionByIdSameAsTransactionStream =
+    LedgerTest(
+      "TXFlatTransactionByIdSameAsTransactionStream",
+      "Expose the same events for each transaction as the output of getTransactions") { context =>
+      for {
+        Vector(alpha, beta) <- context.participants(2)
+        submitter <- alpha.allocateParty()
+        listener <- beta.allocateParty()
+        _ <- alpha.create(submitter, AgreementFactory(listener, submitter))
+        _ <- synchronize(alpha, beta)
+        transactions <- alpha.flatTransactions(listener, submitter)
+        byId <- Future.sequence(
+          transactions.map(t => beta.flatTransactionById(t.transactionId, listener, submitter)))
+      } yield {
+        assertEquals(
+          "The events fetched by identifier did not match with the ones on the transaction stream",
+          transactions,
+          byId)
+      }
+    }
+
+  private[this] val transactionTreeByEventId =
+    LedgerTest(
+      "TXTransactionTreeByEventId",
+      "Expose a visible transaction tree by event identifier") { context =>
+      for {
+        ledger <- context.participant()
+        party <- ledger.allocateParty()
+        dummy <- ledger.create(party, Dummy(party))
+        tree <- ledger.exercise(party, dummy.exerciseDummyChoice1)
+        byId <- ledger.transactionTreeByEventId(tree.rootEventIds.head, party)
+      } yield {
+        assertEquals("The transaction fetched by identifier does not match", tree, byId)
+      }
+    }
+
+  private[this] val invisibleTransactionTreeByEventId =
+    LedgerTest(
+      "TXInvisibleTransactionTreeByEventId",
+      "Do not expose an invisible transaction tree by event identifier") { context =>
+      for {
+        Vector(alpha, beta) <- context.participants(2)
+        party <- alpha.allocateParty()
+        intruder <- beta.allocateParty()
+        dummy <- alpha.create(party, Dummy(party))
+        tree <- alpha.exercise(party, dummy.exerciseDummyChoice1)
+        _ <- synchronize(alpha, beta)
+        failure <- beta.transactionTreeByEventId(tree.rootEventIds.head, intruder).failed
+      } yield {
+        assertGrpcError(failure, Status.Code.NOT_FOUND, "Transaction not found, or not visible.")
+      }
+    }
+
+  private[this] val transactionTreeByEventIdInvalid =
+    LedgerTest(
+      "TXTransactionTreeByEventIdInvalid",
+      "Return INVALID when looking up an invalid transaction tree by event identifier") { context =>
+      for {
+        ledger <- context.participant()
+        party <- ledger.allocateParty()
+        failure <- ledger.transactionTreeByEventId("dont' worry, be happy", party).failed
+      } yield {
+        assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "Invalid field event_id")
+      }
+    }
+
+  private[this] val transactionTreeByEventIdNotFound =
+    LedgerTest(
+      "TXTransactionTreeByEventIdNotFound",
+      "Return NOT_FOUND when looking up an inexistent transaction tree by event identifier") {
+      context =>
+        for {
+          ledger <- context.participant()
+          party <- ledger.allocateParty()
+          failure <- ledger.transactionTreeByEventId(s"#${"a" * 60}:000", party).failed
+        } yield {
+          assertGrpcError(failure, Status.Code.NOT_FOUND, "Transaction not found, or not visible.")
+        }
+    }
+
+  private[this] val transactionTreeByEventIdNoParty =
+    LedgerTest(
+      "TXTransactionTreeByEventIdNotFound",
+      "Return INVALID_ARGUMENT when looking up a transaction tree by event identifier without specifying a party") {
+      context =>
+        for {
+          ledger <- context.participant()
+          failure <- ledger.transactionTreeByEventId("not-relevant").failed
+        } yield {
+          assertGrpcError(
+            failure,
+            Status.Code.INVALID_ARGUMENT,
+            "Missing field: requesting_parties")
+        }
+    }
+
+  private[this] val flatTransactionByEventId =
+    LedgerTest(
+      "TXFlatTransactionByEventId",
+      "Expose a visible flat transaction by event identifier") { context =>
+      for {
+        ledger <- context.participant()
+        party <- ledger.allocateParty()
+        dummy <- ledger.create(party, Dummy(party))
+        transaction <- ledger.exerciseForFlatTransaction(party, dummy.exerciseDummyChoice1)
+        event = transaction.events.head.event
+        eventId = event.archived.map(_.eventId).get
+        byId <- ledger.flatTransactionByEventId(eventId, party)
+      } yield {
+        assertEquals("The transaction fetched by identifier does not match", transaction, byId)
+      }
+    }
+
+  private[this] val invisibleFlatTransactionByEventId =
+    LedgerTest(
+      "TXInvisibleFlatTransactionByEventId",
+      "Do not expose an invisible flat transaction by event identifier") { context =>
+      for {
+        Vector(alpha, beta) <- context.participants(2)
+        party <- alpha.allocateParty()
+        intruder <- beta.allocateParty()
+        dummy <- alpha.create(party, Dummy(party))
+        tree <- alpha.exercise(party, dummy.exerciseDummyChoice1)
+        _ <- synchronize(alpha, beta)
+        failure <- beta.flatTransactionByEventId(tree.rootEventIds.head, intruder).failed
+      } yield {
+        assertGrpcError(failure, Status.Code.NOT_FOUND, "Transaction not found, or not visible.")
+      }
+    }
+
+  private[this] val flatTransactionByEventIdInvalid =
+    LedgerTest(
+      "TXFlatTransactionByEventIdInvalid",
+      "Return INVALID when looking up a flat transaction by an invalid event identifier") {
+      context =>
+        for {
+          ledger <- context.participant()
+          party <- ledger.allocateParty()
+          failure <- ledger.flatTransactionByEventId("dont' worry, be happy", party).failed
+        } yield {
+          assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "Invalid field event_id")
+        }
+    }
+
+  private[this] val flatTransactionByEventIdNotFound =
+    LedgerTest(
+      "TXFlatTransactionByEventIdNotFound",
+      "Return NOT_FOUND when looking up an inexistent flat transaction by event identifier") {
+      context =>
+        for {
+          ledger <- context.participant()
+          party <- ledger.allocateParty()
+          failure <- ledger.flatTransactionByEventId(s"#${"a" * 60}:000", party).failed
+        } yield {
+          assertGrpcError(failure, Status.Code.NOT_FOUND, "Transaction not found, or not visible.")
+        }
+    }
+
+  private[this] val flatTransactionByEventIdNoParty =
+    LedgerTest(
+      "TXFlatTransactionByEventIdNotFound",
+      "Return INVALID_ARGUMENT when looking up a flat transaction by event identifier without specifying a party") {
+      context =>
+        for {
+          ledger <- context.participant()
+          failure <- ledger.flatTransactionByEventId("not-relevant").failed
+        } yield {
+          assertGrpcError(
+            failure,
+            Status.Code.INVALID_ARGUMENT,
+            "Missing field: requesting_parties")
+        }
+    }
+
   override val tests: Vector[LedgerTest] = Vector(
     beginToBeginShouldBeEmpty,
     endToEndShouldBeEmpty,
@@ -718,6 +1326,7 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     hideCommandIdToNonSubmittingStakeholders,
     filterByTemplate,
     useCreateToExercise,
+    contractIdFromExerciseWhenFilter,
     rejectOnFailingAssertion,
     createWithAnyType,
     exerciseWithAnyType,
@@ -738,6 +1347,36 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     multiActorChoiceOkCoincidingControllers,
     rejectMultiActorMissingAuth,
     rejectMultiActorExcessiveAuth,
-    noReorder
+    noReorder,
+    largeCommand,
+    singleMultiSame,
+    fetchContractCreatedInTransaction,
+    flatTransactionsWrongLedgerId,
+    transactionTreesWrongLedgerId,
+    flatTransactionByIdWrongLedgerId,
+    transactionTreeByIdWrongLedgerId,
+    flatTransactionByEventIdWrongLedgerId,
+    transactionTreeByEventIdWrongLedgerId,
+    ledgerEndWrongLedgerId,
+    transactionTreeById,
+    invisibleTransactionTreeById,
+    transactionTreeByIdNotFound,
+    transactionTreeByIdNoParty,
+    transactionTreeByIdSameAsTransactionStream,
+    flatTransactionById,
+    invisibleFlatTransactionById,
+    flatTransactionByIdNotFound,
+    flatTransactionByIdNoParty,
+    flatTransactionByIdSameAsTransactionStream,
+    transactionTreeByEventId,
+    invisibleTransactionTreeByEventId,
+    transactionTreeByEventIdInvalid,
+    transactionTreeByEventIdNotFound,
+    transactionTreeByEventIdNoParty,
+    flatTransactionByEventId,
+    invisibleFlatTransactionByEventId,
+    flatTransactionByEventIdInvalid,
+    flatTransactionByEventIdNotFound,
+    flatTransactionByEventIdNoParty
   )
 }

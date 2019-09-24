@@ -303,10 +303,7 @@ object Queries {
           )
         case V.ValueInt64(value) => Fragment("?", value)
         case V.ValueNumeric(value) =>
-          // FixMe: https://github.com/digital-asset/daml/issues/2289
-          //  For now all the ValueNumeric should have scale 10
-          //  Check this code once it is possible to create Numerics with different scale
-          Fragment("?::numeric(38,10)", value: BigDecimal)
+          Fragment(s"?::numeric(38,${value.scale})", value: BigDecimal)
         case V.ValueText(value) => Fragment("?", value)
         case ts @ V.ValueTimestamp(_) => Fragment("?", ts)
         case V.ValueParty(value) => Fragment("?", value: String)

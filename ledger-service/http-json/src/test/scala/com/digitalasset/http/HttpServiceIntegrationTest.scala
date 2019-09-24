@@ -13,7 +13,9 @@ import com.digitalasset.daml.bazeltools.BazelRunfiles._
 import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.digitalasset.http.HttpServiceTestFixture.{jsonCodecs, withHttpService, withLedger}
 import com.digitalasset.http.domain.TemplateId.OptionalPkg
+import com.digitalasset.http.json.SprayJson.objectField
 import com.digitalasset.http.json._
+import com.digitalasset.http.util.FutureUtil.toFuture
 import com.digitalasset.http.util.TestUtil.requiredFile
 import com.digitalasset.jwt.JwtSigner
 import com.digitalasset.jwt.domain.{DecodedJwt, Jwt}
@@ -22,9 +24,10 @@ import com.digitalasset.ledger.api.v1.value.Record
 import com.digitalasset.ledger.api.v1.{value => v}
 import com.typesafe.scalalogging.StrictLogging
 import org.scalatest._
-import scalaz.\/-
-import scalaz.syntax.functor._
+import scalaz.std.list._
 import scalaz.syntax.show._
+import scalaz.syntax.traverse._
+import scalaz.{\/, \/-}
 import spray.json._
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -60,8 +63,8 @@ class HttpServiceIntegrationTest
 
   private val headersWithAuth = List(Authorization(OAuth2BearerToken(jwt.value)))
 
-  "contracts/search test" in withHttpService(dar, testId) { (uri: Uri, _, _) =>
-    getRequest(uri = uri.withPath(Uri.Path("/contracts/search")), headers = headersWithAuth)
+  "contracts/search without query" in withHttpService(dar, testId) { (uri: Uri, _, _) =>
+    getRequest(uri = uri.withPath(Uri.Path("/contracts/search")))
       .flatMap {
         case (status, output) =>
           status shouldBe StatusCodes.OK
@@ -75,11 +78,114 @@ class HttpServiceIntegrationTest
       }: Future[Assertion]
   }
 
-  "command/create IOU" in withHttpService(dar, testId) { (uri, encoder, decoder) =>
-    val command: domain.CreateCommand[v.Record] = iouCreateCommand
-    val input: JsObject = encoder.encodeR(command).valueOr(e => fail(e.shows))
+  private val searchDataSet: List[domain.CreateCommand[v.Record]] = List(
+    iouCreateCommand(amount = "111.11", currency = "EUR"),
+    iouCreateCommand(amount = "222.22", currency = "EUR"),
+    iouCreateCommand(amount = "333.33", currency = "GBP"),
+    iouCreateCommand(amount = "444.44", currency = "BTC"),
+  )
 
-    postJsonRequest(uri.withPath(Uri.Path("/command/create")), input, headersWithAuth).flatMap {
+  "contracts/search with query, one field" in withHttpService(dar, testId) { (uri, encoder, _) =>
+    searchWithQuery(
+      searchDataSet,
+      jsObject(
+        """{"%templates": [{"moduleName": "Iou", "entityName": "Iou"}], "currency": "EUR"}"""),
+      uri,
+      encoder
+    ).map { acl: List[domain.ActiveContract[JsValue]] =>
+      acl.size shouldBe 2
+      acl.map(a => objectField(a.argument, "currency")) shouldBe List.fill(2)(Some(JsString("EUR")))
+    }
+  }
+
+  "contracts/search with query, can use number or string for numeric field" in
+    withHttpService(dar, testId) { (uri, encoder, _) =>
+      import scalaz.std.scalaFuture._
+
+      searchDataSet.traverse(c => postCreateCommand(c, encoder, uri)).flatMap {
+        rs: List[(StatusCode, JsValue)] =>
+          rs.map(_._1) shouldBe List.fill(searchDataSet.size)(StatusCodes.OK)
+
+          val queryAmountAsString = jsObject(
+            """{"%templates": [{"moduleName": "Iou", "entityName": "Iou"}], "amount": "111.11"}""")
+
+          val queryAmountAsNumber = jsObject(
+            """{"%templates": [{"moduleName": "Iou", "entityName": "Iou"}], "amount": 111.11}""")
+
+          List(
+            postJsonRequest(uri.withPath(Uri.Path("/contracts/search")), queryAmountAsString),
+            postJsonRequest(uri.withPath(Uri.Path("/contracts/search")), queryAmountAsNumber),
+          ).sequence.flatMap { rs: List[(StatusCode, JsValue)] =>
+            rs.map(_._1) shouldBe List.fill(2)(StatusCodes.OK)
+            inside(rs.map(_._2)) {
+              case List(jsVal1, jsVal2) =>
+                jsVal1 shouldBe jsVal2
+                val acl1: List[domain.ActiveContract[JsValue]] = activeContractList(jsVal1)
+                val acl2: List[domain.ActiveContract[JsValue]] = activeContractList(jsVal2)
+                acl1 shouldBe acl2
+                inside(acl1) {
+                  case List(ac) =>
+                    objectField(ac.argument, "amount") shouldBe Some(JsString("111.11"))
+                }
+            }
+          }
+      }
+    }
+
+  "contracts/search with query, two fields" in withHttpService(dar, testId) { (uri, encoder, _) =>
+    searchWithQuery(
+      searchDataSet,
+      jsObject(
+        """{"%templates": [{"moduleName": "Iou", "entityName": "Iou"}], "currency": "EUR", "amount": "111.11"}"""),
+      uri,
+      encoder).map { acl: List[domain.ActiveContract[JsValue]] =>
+      acl.size shouldBe 1
+      acl.map(a => objectField(a.argument, "currency")) shouldBe List(Some(JsString("EUR")))
+      acl.map(a => objectField(a.argument, "amount")) shouldBe List(Some(JsString("111.11")))
+    }
+  }
+
+  "contracts/search with query, no results" in withHttpService(dar, testId) { (uri, encoder, _) =>
+    searchWithQuery(
+      searchDataSet,
+      jsObject(
+        """{"%templates": [{"moduleName": "Iou", "entityName": "Iou"}], "currency": "RUB", "amount": "666.66"}"""),
+      uri,
+      encoder
+    ).map { acl: List[domain.ActiveContract[JsValue]] =>
+      acl.size shouldBe 0
+    }
+  }
+
+  private def jsObject(s: String): JsObject = {
+    val r: JsonError \/ JsObject = for {
+      jsVal <- SprayJson.parse(s).leftMap(e => JsonError(e.shows))
+      jsObj <- SprayJson.mustBeJsObject(jsVal)
+    } yield jsObj
+    r.valueOr(e => fail(e.shows))
+  }
+
+  private def searchWithQuery(
+      commands: List[domain.CreateCommand[v.Record]],
+      query: JsObject,
+      uri: Uri,
+      encoder: DomainJsonEncoder): Future[List[domain.ActiveContract[JsValue]]] = {
+    import scalaz.std.scalaFuture._
+
+    commands.traverse(c => postCreateCommand(c, encoder, uri)).flatMap { rs =>
+      rs.map(_._1) shouldBe List.fill(commands.size)(StatusCodes.OK)
+      postJsonRequest(uri.withPath(Uri.Path("/contracts/search")), query).map {
+        case (status, output) =>
+          status shouldBe StatusCodes.OK
+          activeContractList(output)
+      }
+    }
+  }
+
+  "command/create IOU" in withHttpService(dar, testId) { (uri, encoder, decoder) =>
+    val command: domain.CreateCommand[v.Record] = iouCreateCommand()
+
+    postCreateCommand(command, encoder, uri).flatMap {
       case (status, output) =>
         status shouldBe StatusCodes.OK
         assertStatus(output, StatusCodes.OK)
@@ -96,7 +202,7 @@ class HttpServiceIntegrationTest
   "command/create IOU should fail if authorization header is missing" in withHttpService(
     dar,
     testId) { (uri, encoder, _) =>
-    val command: domain.CreateCommand[v.Record] = iouCreateCommand
+    val command: domain.CreateCommand[v.Record] = iouCreateCommand()
     val input: JsObject = encoder.encodeR(command).valueOr(e => fail(e.shows))
 
     postJsonRequest(uri.withPath(Uri.Path("/command/create")), input, List()).flatMap {
@@ -112,10 +218,10 @@ class HttpServiceIntegrationTest
     dar,
     testId) { (uri, encoder, _) =>
     val command: domain.CreateCommand[v.Record] =
-      iouCreateCommand.copy(templateId = domain.TemplateId(None, "Iou", "Dummy"))
+      iouCreateCommand().copy(templateId = domain.TemplateId(None, "Iou", "Dummy"))
     val input: JsObject = encoder.encodeR(command).valueOr(e => fail(e.shows))
 
-    postJsonRequest(uri.withPath(Uri.Path("/command/create")), input, headersWithAuth).flatMap {
+    postJsonRequest(uri.withPath(Uri.Path("/command/create")), input).flatMap {
       case (status, output) =>
         status shouldBe StatusCodes.BadRequest
         assertStatus(output, StatusCodes.BadRequest)
@@ -127,10 +233,8 @@ class HttpServiceIntegrationTest
   }
 
   "command/exercise IOU_Transfer" in withHttpService(dar, testId) { (uri, encoder, decoder) =>
-    val create: domain.CreateCommand[v.Record] = iouCreateCommand
-    val createJson: JsObject = encoder.encodeR(create).valueOr(e => fail(e.shows))
-
-    postJsonRequest(uri.withPath(Uri.Path("/command/create")), createJson, headersWithAuth)
+    val create: domain.CreateCommand[v.Record] = iouCreateCommand()
+    postCreateCommand(create, encoder, uri)
       .flatMap {
         case (createStatus, createOutput) =>
           createStatus shouldBe StatusCodes.OK
@@ -140,10 +244,7 @@ class HttpServiceIntegrationTest
           val exercise: domain.ExerciseCommand[v.Record] = iouExerciseTransferCommand(contractId)
           val exerciseJson: JsObject = encoder.encodeR(exercise).valueOr(e => fail(e.shows))
 
-          postJsonRequest(
-            uri.withPath(Uri.Path("/command/exercise")),
-            exerciseJson,
-            headersWithAuth)
+          postJsonRequest(uri.withPath(Uri.Path("/command/exercise")), exerciseJson)
             .flatMap {
               case (exerciseStatus, exerciseOutput) =>
                 exerciseStatus shouldBe StatusCodes.OK
@@ -167,7 +268,7 @@ class HttpServiceIntegrationTest
     val exercise: domain.ExerciseCommand[v.Record] = iouExerciseTransferCommand(contractId)
     val exerciseJson: JsObject = encoder.encodeR(exercise).valueOr(e => fail(e.shows))
 
-    postJsonRequest(uri.withPath(Uri.Path("/command/exercise")), exerciseJson, headersWithAuth)
+    postJsonRequest(uri.withPath(Uri.Path("/command/exercise")), exerciseJson)
       .flatMap {
         case (status, output) =>
           status shouldBe StatusCodes.InternalServerError
@@ -221,7 +322,7 @@ class HttpServiceIntegrationTest
       decoder: DomainJsonDecoder): Assertion = {
     import json.JsonProtocol._
 
-    val command0: domain.CreateCommand[v.Record] = iouCreateCommand
+    val command0: domain.CreateCommand[v.Record] = iouCreateCommand()
 
     val x = for {
       jsonObj <- encoder.encodeR(command0)
@@ -247,7 +348,7 @@ class HttpServiceIntegrationTest
     x.fold(e => fail(e.shows), identity)
   }
 
-  "request non-existent endpoint should return 404 with no data" in withHttpService(dar, testId) {
+  "request non-existent endpoint should return 404 with errors" in withHttpService(dar, testId) {
     (uri: Uri, _, _) =>
       val badUri = uri.withPath(Uri.Path("/contracts/does-not-exist"))
       getRequest(uri = badUri)
@@ -267,14 +368,16 @@ class HttpServiceIntegrationTest
 
   private def removeRecordId(a: v.Record): v.Record = a.copy(recordId = None)
 
-  private def iouCreateCommand: domain.CreateCommand[v.Record] = {
+  private def iouCreateCommand(
+      amount: String = "999.9900000000",
+      currency: String = "USD"): domain.CreateCommand[v.Record] = {
     val templateId: OptionalPkg = domain.TemplateId(None, "Iou", "Iou")
     val arg: Record = v.Record(
       fields = List(
         v.RecordField("issuer", Some(v.Value(v.Value.Sum.Party("Alice")))),
         v.RecordField("owner", Some(v.Value(v.Value.Sum.Party("Alice")))),
-        v.RecordField("currency", Some(v.Value(v.Value.Sum.Text("USD")))),
-        v.RecordField("amount", Some(v.Value(v.Value.Sum.Numeric("999.9900000000")))),
+        v.RecordField("currency", Some(v.Value(v.Value.Sum.Text(currency)))),
+        v.RecordField("amount", Some(v.Value(v.Value.Sum.Numeric(amount)))),
         v.RecordField("observers", Some(v.Value(v.Value.Sum.List(v.List()))))
       ))
 
@@ -295,7 +398,7 @@ class HttpServiceIntegrationTest
   private def postJsonRequest(
       uri: Uri,
       json: JsValue,
-      headers: List[HttpHeader] = Nil): Future[(StatusCode, JsValue)] = {
+      headers: List[HttpHeader] = headersWithAuth): Future[(StatusCode, JsValue)] = {
     logger.info(s"postJson: $uri json: $json")
     Http()
       .singleRequest(
@@ -313,7 +416,7 @@ class HttpServiceIntegrationTest
 
   private def getRequest(
       uri: Uri,
-      headers: List[HttpHeader] = Nil): Future[(StatusCode, JsValue)] = {
+      headers: List[HttpHeader] = headersWithAuth): Future[(StatusCode, JsValue)] = {
     Http()
       .singleRequest(
         HttpRequest(method = HttpMethods.GET, uri = uri, headers = headers)
@@ -351,4 +454,29 @@ class HttpServiceIntegrationTest
           case Some(JsArray(Vector(JsString(errorMsg)))) => errorMsg
         }
     }
+
+  private def postCreateCommand(
+      cmd: domain.CreateCommand[v.Record],
+      encoder: DomainJsonEncoder,
+      uri: Uri): Future[(StatusCode, JsValue)] =
+    for {
+      json <- toFuture(encoder.encodeR(cmd)): Future[JsObject]
+      result <- postJsonRequest(uri.withPath(Uri.Path("/command/create")), json)
+    } yield result
+
+  private def activeContractList(output: JsValue): List[domain.ActiveContract[JsValue]] = {
+    val result = SprayJson
+      .objectField(output, "result")
+      .getOrElse(fail(s"output: $output is missing result element"))
+
+    val searchResponse = SprayJson
+      .decode[List[domain.GetActiveContractsResponse[JsValue]]](result)
+      .valueOr(e => fail(e.shows))
+
+    activeContractList(searchResponse): List[domain.ActiveContract[JsValue]]
+  }
+
+  private def activeContractList[A](
+      response: List[domain.GetActiveContractsResponse[A]]): List[domain.ActiveContract[A]] =
+    response.flatMap(_.activeContracts)
 }

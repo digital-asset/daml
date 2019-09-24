@@ -5,6 +5,7 @@ module Main (main) where
 import qualified Codec.Archive.Zip as Zip
 import Conduit hiding (connect)
 import qualified Data.Conduit.Zlib as Zlib
+import Data.Conduit.Tar.Extra (dropDirectory1)
 import qualified Data.Conduit.Tar.Extra as Tar.Conduit.Extra
 import Control.Concurrent
 import Control.Concurrent.Async
@@ -212,6 +213,97 @@ packagingTests tmpDir = testGroup "packaging"
         assertBool "proj.dar was not created." =<< doesFileExist dar
         darFiles <- Zip.filesInArchive . Zip.toArchive <$> BSL.readFile dar
         assertBool "A.daml is missing" (any (\f -> takeFileName f == "A.daml") darFiles)
+    , testCase "Non-root sources files" $ withTempDir $ \projDir -> do
+        -- Test that all daml source files get included in the dar if "source" points to a file
+        -- rather than a directory
+        writeFileUTF8 (projDir </> "A.daml") $ unlines
+          [ "daml 1.2"
+          , "module A where"
+          , "import B"
+          ]
+        writeFileUTF8 (projDir </> "B.daml") $ unlines
+          [ "daml 1.2"
+          , "module B where"
+          ]
+        writeFileUTF8 (projDir </> "daml.yaml") $ unlines
+          [ "sdk-version: " <> sdkVersion
+          , "name: proj"
+          , "version: 0.1.0"
+          , "source: A.daml"
+          , "dependencies: [daml-prim, daml-stdlib]"
+          ]
+        withCurrentDirectory projDir $ callCommandQuiet "daml build"
+        let dar = projDir </> ".daml/dist/proj-0.1.0.dar"
+        assertBool "proj-0.1.0.dar was not created." =<< doesFileExist dar
+        darFiles <- Zip.filesInArchive . Zip.toArchive <$> BSL.readFile dar
+        assertBool "A.daml missing" (any (\f -> takeFileName f == "A.daml") darFiles)
+        assertBool "A.hi missing" (any (\f -> takeFileName f == "A.hi") darFiles)
+        assertBool "A.hie missing" (any (\f -> takeFileName f == "A.hie") darFiles)
+        assertBool "B.daml missing" (any (\f -> takeFileName f == "B.daml") darFiles)
+        assertBool "B.hi missing" (any (\f -> takeFileName f == "B.hi") darFiles)
+        assertBool "B.hie missing" (any (\f -> takeFileName f == "B.hie") darFiles)
+
+    , testCase "Root source file in subdir" $ withTempDir $ \projDir -> do
+        -- Test that the daml source files get included properly if "source" points to a file
+        -- in a subdirectory.
+        createDirectoryIfMissing True (projDir </> "A")
+        createDirectoryIfMissing True (projDir </> "B")
+        writeFileUTF8 (projDir </> "A/B.daml") $ unlines
+          [ "daml 1.2"
+          , "module A.B where"
+          , "import B.C ()"
+          ]
+        writeFileUTF8 (projDir </> "B/C.daml") $ unlines
+          [ "daml 1.2"
+          , "module B.C where"
+          ]
+        writeFileUTF8 (projDir </> "daml.yaml") $ unlines
+          [ "sdk-version: " <> sdkVersion
+          , "name: proj"
+          , "version: 0.1.0"
+          , "source: A/B.daml"
+          , "dependencies: [daml-prim, daml-stdlib]"
+          ]
+        withCurrentDirectory projDir $ callCommandQuiet "daml build"
+        let dar = projDir </> ".daml/dist/proj-0.1.0.dar"
+        assertBool "proj-0.1.0.dar was not created." =<< doesFileExist dar
+        darFiles <- Zip.filesInArchive . Zip.toArchive <$> BSL.readFile dar
+        let checkSource dir file =
+              assertBool (dir </> file <> " missing") $
+              any (\f -> normalise (dropDirectory1 f) == dir </> file) darFiles
+        checkSource "A" "B.daml"
+        checkSource "A" "B.hi"
+        checkSource "A" "B.hie"
+        checkSource "B" "C.daml"
+        checkSource "B" "C.hi"
+        checkSource "B" "C.hie"
+
+    , testCase "Imports from differen directories" $ withTempDir $ \projDir -> do
+        -- Regression test for #2929
+        createDirectory (projDir </> "A")
+        writeFileUTF8 (projDir </> "A.daml") $ unlines
+          [ "daml 1.2"
+          , "module A where"
+          , "import A.B ()"
+          , "import A.C ()"
+          ]
+        writeFileUTF8 (projDir </> "A/B.daml") $ unlines
+          [ "daml 1.2"
+          , "module A.B where"
+          , "import A.C ()"
+          ]
+        writeFileUTF8 (projDir </> "A/C.daml") $ unlines
+          [ "daml 1.2"
+          , "module A.C where"
+          ]
+        writeFileUTF8 (projDir </> "daml.yaml") $ unlines
+          [ "sdk-version: " <> sdkVersion
+          , "name: proj"
+          , "version: 0.1.0"
+          , "source: ."
+          , "dependencies: [daml-prim, daml-stdlib]"
+          ]
+        withCurrentDirectory projDir $ callCommandQuiet "daml build"
 
     , testCase "Project without exposed modules" $ withTempDir $ \projDir -> do
         writeFileUTF8 (projDir </> "A.daml") $ unlines
@@ -233,9 +325,11 @@ packagingTests tmpDir = testGroup "packaging"
         let projectA = tmpDir </> "a-1.0"
         let projectB = tmpDir </> "a-2.0"
         let projectUpgrade = tmpDir </> "upgrade"
-        let aDar = projectA </> distDir </> "a-1.0.dar"
-        let bDar = projectB </> distDir </> "a-2.0.dar"
+        let projectRollback = tmpDir </> "rollback"
+        let aDar = projectA </> "projecta.dar"
+        let bDar = projectB </> "projectb.dar"
         let upgradeDar = projectUpgrade </> distDir </> "upgrade-0.0.1.dar"
+        let rollbackDar= projectRollback </> distDir </> "rollback-0.0.1.dar"
         let bWithUpgradesDar = "a-2.0-with-upgrades.dar"
         step "Creating project a-1.0 ..."
         createDirectoryIfMissing True (projectA </> "daml")
@@ -262,7 +356,8 @@ packagingTests tmpDir = testGroup "packaging"
             , "  - daml-prim"
             , "  - daml-stdlib"
             ]
-        withCurrentDirectory projectA $ callCommandQuiet "daml build"
+        -- We use -o to test that we do not depend on the name of the dar
+        withCurrentDirectory projectA $ callCommandQuiet $ "daml build -o " <> aDar
         assertBool "a-1.0.dar was not created." =<< doesFileExist aDar
         step "Creating project a-2.0 ..."
         createDirectoryIfMissing True (projectB </> "daml")
@@ -275,6 +370,7 @@ packagingTests tmpDir = testGroup "packaging"
             , "  with"
             , "    a : Int"
             , "    p : Party"
+            , "    new : Optional Text"
             , "  where"
             , "    signatory p"
             ]
@@ -288,16 +384,21 @@ packagingTests tmpDir = testGroup "packaging"
             , "  - daml-prim"
             , "  - daml-stdlib"
             ]
-        withCurrentDirectory projectB $ callCommandQuiet "daml build"
+        -- We use -o to test that we do not depend on the name of the dar
+        withCurrentDirectory projectB $ callCommandQuiet $ "daml build -o " <> bDar
         assertBool "a-2.0.dar was not created." =<< doesFileExist bDar
-        step "Creating upgrade project"
+        step "Creating upgrade/rollback project"
+        -- We use -o to verify that we do not depend on the
         callCommandQuiet $ unwords ["daml", "migrate", projectUpgrade, aDar, bDar]
+        callCommandQuiet $ unwords ["daml", "migrate", projectRollback, bDar, aDar]
         step "Build migration project"
         withCurrentDirectory projectUpgrade $
-            if isWindows
-                then callCommandQuiet ".\\build.cmd"
-                else callCommandQuiet "./build.sh"
+            callCommand "daml build"
         assertBool "upgrade-0.0.1.dar was not created" =<< doesFileExist upgradeDar
+        step "Build rollback project"
+        withCurrentDirectory projectRollback $
+            callCommand "daml build"
+        assertBool "rollback-0.0.1.dar was not created" =<< doesFileExist rollbackDar
         step "Merging upgrade dar"
         callCommandQuiet $
           unwords

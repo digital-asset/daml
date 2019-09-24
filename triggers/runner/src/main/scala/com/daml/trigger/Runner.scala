@@ -20,6 +20,7 @@ import scala.concurrent.duration.Duration
 
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.refinements.ApiTypes.{ApplicationId}
+import com.digitalasset.ledger.api.validation.ValueValidator
 
 import com.digitalasset.ledger.api.v1.command_submission_service.SubmitRequest
 import com.digitalasset.api.util.TimestampConversion.fromInstant
@@ -139,6 +140,8 @@ object TriggerIds {
   }
 }
 
+case class AnyContractId(templateId: Identifier, contractId: String)
+
 object Converter {
   // Helper to make constructing an SRecord more convenient
   private def record(ty: Identifier, fields: (String, SValue)*): SValue = {
@@ -177,24 +180,45 @@ object Converter {
       ("name", SText(id.entityName)))
   }
 
+  private def fromAnyContractId(
+      triggerIds: TriggerIds,
+      templateId: value.Identifier,
+      contractId: String): SValue = {
+    val contractIdTy = triggerIds.getId("AnyContractId")
+    record(
+      contractIdTy,
+      ("templateId", fromIdentifier(triggerIds, templateId)),
+      ("contractId", SText(contractId))
+    )
+  }
+
   private def fromArchivedEvent(triggerIds: TriggerIds, archived: ArchivedEvent): SValue = {
     val archivedTy = triggerIds.getId("Archived")
     record(
       archivedTy,
       ("eventId", SText(archived.eventId)),
-      ("contractId", SText(archived.contractId)),
-      ("templateId", fromIdentifier(triggerIds, archived.getTemplateId))
+      ("contractId", fromAnyContractId(triggerIds, archived.getTemplateId, archived.contractId))
     )
   }
 
   private def fromCreatedEvent(triggerIds: TriggerIds, created: CreatedEvent): SValue = {
     val createdTy = triggerIds.getId("Created")
-    record(
-      createdTy,
-      ("eventId", SText(created.eventId)),
-      ("contractId", SText(created.contractId)),
-      ("templateId", fromIdentifier(triggerIds, created.getTemplateId))
-    )
+    ValueValidator.validateRecord(created.getCreateArguments) match {
+      case Right(createArguments) =>
+        SValue.fromValue(createArguments) match {
+          case r @ SRecord(_, _, _) =>
+            record(
+              createdTy,
+              ("eventId", SText(created.eventId)),
+              (
+                "contractId",
+                fromAnyContractId(triggerIds, created.getTemplateId, created.contractId)),
+              ("argument", SAnyTemplate(r))
+            )
+          case v => throw new RuntimeException(s"Expected record but got $v")
+        }
+      case Left(err) => throw err
+    }
   }
 
   private def fromEvent(triggerIds: TriggerIds, ev: Event): SValue = {
@@ -240,27 +264,61 @@ object Converter {
     }
   }
 
-  private def toTemplateId(triggerIds: TriggerIds, v: SValue): Either[String, Identifier] = {
+  private def toIdentifier(v: SValue): Either[String, Identifier] = {
+    v match {
+      case SRecord(_, _, vals) => {
+        assert(vals.size == 3)
+        for {
+          packageId <- toText(vals.get(0)).flatMap(PackageId.fromString)
+          moduleName <- toText(vals.get(1)).flatMap(DottedName.fromString)
+          entityName <- toText(vals.get(2)).flatMap(DottedName.fromString)
+        } yield Identifier(packageId, QualifiedName(moduleName, entityName))
+      }
+      case _ => Left(s"Expected Identifier but got $v")
+    }
+  }
+
+  private def extractTemplateId(v: SValue): Either[String, Identifier] = {
+    v match {
+      case SRecord(templateId, _, _) => Right(templateId)
+      case _ => Left(s"Expected contract value but got $v")
+    }
+  }
+
+  private def toAnyContractId(v: SValue): Either[String, AnyContractId] = {
     v match {
       case SRecord(_, _, vals) => {
         assert(vals.size == 2)
         for {
-          moduleName <- toText(vals.get(0)).flatMap(DottedName.fromString)
-          entityName <- toText(vals.get(1)).flatMap(DottedName.fromString)
-        } yield Identifier(triggerIds.mainPackageId, QualifiedName(moduleName, entityName))
+          templateId <- toIdentifier(vals.get(0))
+          contractId <- toText(vals.get(1))
+        } yield AnyContractId(templateId, contractId)
       }
-      case _ => Left(s"Expected TemplateId but got $v")
+      case _ => Left(s"Expected AnyContractId but got $v")
+    }
+  }
+
+  private def extractChoiceName(v: SValue): Either[String, String] = {
+    v match {
+      case SRecord(ty, _, _) => {
+        Right(ty.qualifiedName.name.toString)
+      }
+      case _ => Left(s"Expected choice value but got $v")
     }
   }
 
   private def toCreate(triggerIds: TriggerIds, v: SValue): Either[String, CreateCommand] = {
     v match {
       case SRecord(_, _, vals) => {
-        assert(vals.size == 2)
-        for {
-          templateId <- toTemplateId(triggerIds, vals.get(0))
-          templateArg <- toLedgerRecord(vals.get(1))
-        } yield CreateCommand(Some(toApiIdentifier(templateId)), Some(templateArg))
+        assert(vals.size == 1)
+        vals.get(0) match {
+          case SAnyTemplate(tpl) =>
+            for {
+              templateId <- extractTemplateId(tpl)
+              templateArg <- toLedgerRecord(tpl)
+            } yield CreateCommand(Some(toApiIdentifier(templateId)), Some(templateArg))
+          case v => Left(s"Expected AnyTemplate but got $v")
+        }
       }
       case _ => Left(s"Expected CreateCommand but got $v")
     }
@@ -269,18 +327,18 @@ object Converter {
   private def toExercise(triggerIds: TriggerIds, v: SValue): Either[String, ExerciseCommand] = {
     v match {
       case SRecord(_, _, vals) => {
-        assert(vals.size == 4)
+        assert(vals.size == 2)
         for {
-          templateId <- toTemplateId(triggerIds, vals.get(0))
-          contractId <- toText(vals.get(1))
-          choiceName <- toText(vals.get(2))
-          choiceArg <- toLedgerValue(vals.get(2))
-        } yield
+          anyContractId <- toAnyContractId(vals.get(0))
+          choiceName <- extractChoiceName(vals.get(1))
+          choiceArg <- toLedgerValue(vals.get(1))
+        } yield {
           ExerciseCommand(
-            Some(toApiIdentifier(templateId)),
-            contractId,
+            Some(toApiIdentifier(anyContractId.templateId)),
+            anyContractId.contractId,
             choiceName,
             Some(choiceArg))
+        }
       }
       case _ => Left(s"Expected ExerciseCommand but got $v")
     }
@@ -507,7 +565,8 @@ object RunnerMain {
             .getTransactions(
               offset,
               None,
-              TransactionFilter(List((config.ledgerParty, Filters.defaultInstance)).toMap))
+              TransactionFilter(List((config.ledgerParty, Filters.defaultInstance)).toMap),
+              verbose = true)
             .runWith(runner.getTriggerSink(triggerId, acsResponses.flatMap(x => x.activeContracts)))
         } yield ()
 

@@ -145,6 +145,12 @@ object Ast {
 
   final case class ESome(typ: Type, body: Expr) extends Expr
 
+  /** AnyTemplate constructor **/
+  final case class EToAnyTemplate(tmplId: TypeConName, body: Expr) extends Expr
+
+  /** Extract the underlying template if it matches the tmplId **/
+  final case class EFromAnyTemplate(tmplId: TypeConName, body: Expr) extends Expr
+
   //
   // Kinds
   //
@@ -229,7 +235,8 @@ object Ast {
   final case class TVar(name: TypeVarName) extends Type
 
   /** nat type */
-  final case class TNat(n: Int) extends Type
+  // for now it can contains only a Numeric Scale
+  final case class TNat(n: Numeric.Scale) extends Type
 
   /** Reference to a type constructor. */
   final case class TTyCon(tycon: TypeConName) extends Type
@@ -269,6 +276,7 @@ object Ast {
   case object BTDate extends BuiltinType
   case object BTContractId extends BuiltinType
   case object BTArrow extends BuiltinType
+  case object BTAnyTemplate extends BuiltinType
 
   //
   // Primitive literals
@@ -307,9 +315,11 @@ object Ast {
   // Numeric arithmetic
   final case object BAddNumeric extends BuiltinFunction(2) // :  ∀s. Numeric s → Numeric s → Numeric s
   final case object BSubNumeric extends BuiltinFunction(2) // :  ∀s. Numeric s → Numeric s → Numeric s
-  final case object BMulNumeric extends BuiltinFunction(2) // :  ∀s. Numeric s → Numeric s → Numeric s
-  final case object BDivNumeric extends BuiltinFunction(2) // :  ∀s. Numeric s → Numeric s → Numeric s
+  final case object BMulNumeric extends BuiltinFunction(2) // :  ∀s1 s2 s. Numeric s1 → Numeric s2 → Numeric s
+  final case object BDivNumeric extends BuiltinFunction(2) // :  ∀s1 s2 s. Numeric s1 → Numeric s2 → Numeric s
   final case object BRoundNumeric extends BuiltinFunction(2) // :  ∀s. Integer → Numeric s → Numeric s
+  final case object BCastNumeric extends BuiltinFunction(1) // : ∀s1 s2. Numeric s1 → Numeric s2
+  final case object BShiftNumeric extends BuiltinFunction(1) // : ∀s1 s2. Numeric s1 → Numeric s2
 
   // Int64 arithmetic
   final case object BAddInt64 extends BuiltinFunction(2) // : Int64 → Int64 → Int64

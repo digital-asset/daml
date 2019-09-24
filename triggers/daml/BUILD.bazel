@@ -22,7 +22,7 @@ dependencies:
   - daml-stdlib
   - daml-prim
 EOF
-      $(location //compiler/damlc) build --project-root=$$TMP_DIR -o $$PWD/$(location trigger.dar)
+      $(location //compiler/damlc) build --target=1.dev --project-root=$$TMP_DIR -o $$PWD/$(location trigger.dar)
       rm -rf $$TMP_DIR
     """,
     tools = ["//compiler/damlc"],

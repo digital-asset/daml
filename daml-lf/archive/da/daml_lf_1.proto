@@ -34,6 +34,8 @@
 //        2019-07-04: Transaction submitters must be in contract key maintainers when looking up. See #1866.
 // * dev (special staging area for the next version to be released)
 //        2019-07-29: Add nat kind and Nat types, Numeric types and Numeric builtins
+//        2019-09-17: Add Any type and, To_Any and From_Any builtins
+//        2019-09-17: Drop support for Decimal
 
 syntax = "proto3";
 package daml_lf_1;
@@ -234,6 +236,9 @@ enum PrimType {
   // *Available in versions >= 1.dev*
   NUMERIC = 17;
 
+  // Builtin type 'Any'
+  // *Available in versions >= 1.dev*
+  ANY = 18;
 }
 
 // Types
@@ -304,7 +309,7 @@ message Type {
     Forall forall = 5;
     Tuple tuple = 7;
     // *Available in versions >= 1.dev*
-    // *Must be between 0 and 38 (bounds inclusive)*
+    // *Must be between 0 and 37 (bounds inclusive)*
     // use standard signed long for future usage.
     sint64 nat = 11;
   }
@@ -332,17 +337,19 @@ enum PrimCon {
 // Builtin functions
 // Refer to DAML-LF major version 1 specification for types and behavior of those.
 enum BuiltinFunction {
-  ADD_DECIMAL = 0; // *Deprecated in versions >= 1.dev*
-  SUB_DECIMAL = 1; // *Deprecated in versions >= 1.dev*
-  MUL_DECIMAL = 2; // *Deprecated in versions >= 1.dev*
-  DIV_DECIMAL = 3; // *Deprecated in versions >= 1.dev*
-  ROUND_DECIMAL = 6; // *Deprecated in versions >= 1.dev*
+  ADD_DECIMAL = 0; // *Available in versions < 1.dev*
+  SUB_DECIMAL = 1; // *Available in versions < 1.dev*
+  MUL_DECIMAL = 2; // *Available in versions < 1.dev*
+  DIV_DECIMAL = 3; // *Available in versions < 1.dev*
+  ROUND_DECIMAL = 6; // *Available in versions < 1.dev*
 
   ADD_NUMERIC = 107;    // *Available in versions >= 1.dev*
   SUB_NUMERIC = 108;    // *Available in versions >= 1.dev*
   MUL_NUMERIC = 109;    // *Available in versions >= 1.dev*
   DIV_NUMERIC = 110;    // *Available in versions >= 1.dev*
   ROUND_NUMERIC = 111;  // *Available in versions >= 1.dev*
+  CAST_NUMERIC = 121;   // *Available in versions >= 1.dev*
+  SHIFT_NUMERIC = 122;  // *Available in versions >= 1.dev*
 
   ADD_INT64 = 7;
   SUB_INT64 = 8;
@@ -367,7 +374,7 @@ enum BuiltinFunction {
   ERROR = 25;
 
   LEQ_INT64 = 33;
-  LEQ_DECIMAL = 34;  // *Deprecated in versions >= 1.dev*
+  LEQ_DECIMAL = 34;  // *Available in versions < 1.dev*
   LEQ_NUMERIC = 112;  // *Available in versions >= 1.dev*
   LEQ_TEXT = 36;
   LEQ_TIMESTAMP = 37;
@@ -375,7 +382,7 @@ enum BuiltinFunction {
   LEQ_PARTY = 89; // *Available in versions >= 1.1*
 
   LESS_INT64 = 39;
-  LESS_DECIMAL = 40;  // *Deprecated in versions >= 1.dev*
+  LESS_DECIMAL = 40;  // *Available in versions < 1.dev*
   LESS_NUMERIC = 113;  // *Available in versions >= 1.dev*
   LESS_TEXT = 42;
   LESS_TIMESTAMP = 43;
@@ -383,7 +390,7 @@ enum BuiltinFunction {
   LESS_PARTY = 90; // *Available in versions >= 1.1*
 
   GEQ_INT64 = 45;
-  GEQ_DECIMAL = 46;  // *Deprecated in versions >= 1.dev*
+  GEQ_DECIMAL = 46;  // *Available in versions < 1.dev*
   GEQ_NUMERIC = 114;  // *Available in versions >= 1.dev*
   GEQ_TEXT = 48;
   GEQ_TIMESTAMP = 49;
@@ -391,7 +398,7 @@ enum BuiltinFunction {
   GEQ_PARTY = 91; // *Available in versions >= 1.1*
 
   GREATER_INT64 = 51;
-  GREATER_DECIMAL = 52;  // *Deprecated in versions >= 1.dev*
+  GREATER_DECIMAL = 52;  // *Available in versions < 1.dev*
   GREATER_NUMERIC = 115;  // *Available in versions >= 1.dev*
   GREATER_TEXT = 54;
   GREATER_TIMESTAMP = 55;
@@ -399,7 +406,7 @@ enum BuiltinFunction {
   GREATER_PARTY = 92; // *Available in versions >= 1.1*
 
   TO_TEXT_INT64 = 57;
-  TO_TEXT_DECIMAL = 58;  // *Deprecated in versions >= 1.dev*
+  TO_TEXT_DECIMAL = 58;  // *Available in versions < 1.dev*
   TO_TEXT_NUMERIC = 116;  // *Available in versions >= 1.dev*
   TO_TEXT_TEXT = 60;
   TO_TEXT_TIMESTAMP = 61;
@@ -418,8 +425,8 @@ enum BuiltinFunction {
   TIMESTAMP_TO_UNIX_MICROSECONDS = 74; // Timestamp -> Int64
   UNIX_MICROSECONDS_TO_TIMESTAMP = 75; // Int64 -> Timestamp
 
-  INT64_TO_DECIMAL = 76;  // *Deprecated in versions >= 1.dev*
-  DECIMAL_TO_INT64 = 77;  // *Deprecated in versions >= 1.dev*
+  INT64_TO_DECIMAL = 76;  // *Available in versions < 1.dev*
+  DECIMAL_TO_INT64 = 77;  // *Available in versions < 1.dev*
 
   INT64_TO_NUMERIC = 118;  // *Available in versions >= 1.dev*
   NUMERIC_TO_INT64 = 119;  // *Available in versions >= 1.dev*
@@ -427,7 +434,7 @@ enum BuiltinFunction {
   IMPLODE_TEXT = 78;
 
   EQUAL_INT64 = 79;
-  EQUAL_DECIMAL = 80;  // *Deprecated in versions >= 1.dev*
+  EQUAL_DECIMAL = 80;  // *Available in versions < 1.dev*
   EQUAL_NUMERIC = 120;  // *Available in versions >= 1.dev*
   EQUAL_TEXT = 81;
   EQUAL_TIMESTAMP = 82;
@@ -443,7 +450,7 @@ enum BuiltinFunction {
 
   TEXT_FROM_CODE_POINTS = 105;  // *Available in versions >= 1.6*
   TEXT_TO_CODE_POINTS = 106; // *Available in versions >= 1.6*
-  // Next id is 121. 120 is EQUAL_NUMERIC.
+  // Next id is 123. 122 is SHIFT_NUMERIC.
 }
 
 // Builtin literals
@@ -465,7 +472,7 @@ message PrimLit {
     // It would fit in an int128, but sadly protobuf does not have
     // one. so, string it is. note that we can't store the whole and
     // decimal part in two numbers either, because 10^28 > 2^63.
-    string decimal = 2; // *Deprecated in versions >= 1.dev*
+    string decimal = 2; // *Available in versions < 1.dev*
 
     // Unicode string literal ('LitText')
     string text = 4;
@@ -494,7 +501,7 @@ message PrimLit {
 
     // Numeric literal ('LitNumeric')
     //
-    // Serialization of number with precision 38 and scale between 0 and 38
+    // Serialization of number with precision 38 and scale between 0 and 37
     //
     // *Must be a string that matched
     //        `-?([0-1]\d*|0)\.(\d*)
@@ -709,6 +716,24 @@ message Expr {
     Expr body = 2;
   }
 
+  // Wrap a value in Any
+ // *Available in versions >= 1.dev*
+  message ToAny {
+    // type of argument. Must be the TypeConName of a template.
+    Type type = 1;
+    // argument
+    Expr expr = 2;
+  }
+
+  // Extract the given type from Any or return None on type-mismatch
+ // *Available in versions >= 1.dev*
+  message FromAny {
+    // type that should be extracted. Must be the TypeConName of a template.
+    Type type = 1;
+    // Value of type Any
+    Expr expr = 2;
+  }
+
   // Location of the expression in the DAML code source.
   // Optional
   Location location = 25;
@@ -792,6 +817,14 @@ message Expr {
     // non empty optional value ('ExpSome')
     // *Available in versions >= 1.1*
     OptionalSome optional_some = 27;
+
+    // Wrap an arbitrary value in Any ('ExpToAny')
+    // *Available in versions >= 1.dev*
+    ToAny to_any = 29;
+
+    // Extract the given type from Any or return None on type-mismatch ('ExpFromAny')
+    // *Available in versions >= 1.dev*
+    FromAny from_any = 30;
   }
 
   reserved 19; // This was equals. Removed in favour of BuiltinFunction.EQUAL_*

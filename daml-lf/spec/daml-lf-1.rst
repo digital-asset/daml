@@ -233,8 +233,13 @@ Version: 1.dev
 
   * **Add** Nat kind and Nat type.
 
-  * **Replace** fixed scaled 'Decimal' type by parametrically scaled
-    'Numeric' type.
+  * **Add** parametrically scaled Numeric type.
+
+  * **Drop** support for Decimal type. Use Numeric of scale 10 instead.
+
+  * **Add** existential ``AnyTemplate`` type and
+    ``from_any_template`` and ``to_any_template`` functions to convert from/to
+    an arbitrary template to ``AnyTemplate``.
 
 Abstract syntax
 ^^^^^^^^^^^^^^^
@@ -370,7 +375,7 @@ We can now define all the literals that a program can handle::
        n ∈  \d+
 
   64-bit integer literals:
-        LitInt64  ∈  (-?)\d+                         -- LitInt64:
+        LitInt64  ∈  (-?)\d+                         -- LitInt64
 
   Numeric literals:
       LitNumeric  ∈  ([+-]?)([1-9]\d+|0).\d*        -- LitNumeric
@@ -397,7 +402,7 @@ The literals represent actual DAML-LF values:
   in base-10 without loss of precision with at most 38 digits
   (ignoring possible leading 0 and with a scale (the number of
   significant digits on the right of the decimal point) between ``0``
-  and ``38`` (bounds inclusive). In the following, we will use
+  and ``37`` (bounds inclusive). In the following, we will use
   ``scale(LitNumeric)`` to denote the scale of the decimal number.
 * A ``LitDate`` represents the number of day since
   ``1970-01-01`` with allowed range from ``0001-01-01`` to
@@ -436,6 +441,10 @@ Identifiers are standard `java identifiers
 <https://docs.oracle.com/javase/specs/jls/se8/html/jls-3.html#jls-3.8>`_
 restricted to US-ASCII while names are sequences of identifiers
 intercalated with dots.
+
+The character ``%`` is reserved for external languages built on
+DAML-LF as a "not an Ident" notation, so should not be considered for
+future addition to allowed identifier characters.
 
 In the following, we will use identifiers to represent *built-in
 functions*, term and type *variable names*, record and tuple *field
@@ -514,7 +523,7 @@ Then we can define our kinds, types, and expressions::
     BuiltinType
       ::= 'TArrow'                                  -- BTArrow: Arrow type
        |  'Int64'                                   -- BTyInt64: 64-bit integer
-       |  'Numeric'                                 -- BTyNumeric: numeric, precision 38, parametric scale between 0 and 38
+       |  'Numeric'                                 -- BTyNumeric: numeric, precision 38, parametric scale between 0 and 37
        |  'Text'                                    -- BTyText: UTF-8 string
        |  'Date'                                    -- BTyDate
        |  'Timestamp'                               -- BTyTime: UTC timestamp
@@ -527,6 +536,7 @@ Then we can define our kinds, types, and expressions::
        |  'Map'                                     -- BTMap
        |  'Update'                                  -- BTyUpdate
        |  'ContractId'                              -- BTyContractId
+       |  'AnyTemplate'                             –- BTyAnyTemplate
 
   Types (mnemonic: tau for type)
     τ, σ
@@ -571,6 +581,8 @@ Then we can define our kinds, types, and expressions::
        |  e.f                                       -- ExpTupleProj: Tuple projection
        |  ⟨ e₁ 'with' f = e₂ ⟩                      -- ExpTupleUpdate: Tuple update
        |  u                                         -- ExpUpdate: Update expression
+       | 'to_any_template' @Mod:T t                 -- ExpToAnyTemplate: Wrap a template in AnyTemplate
+       | 'from_any_template' @Mod:T t               -- ExpToAnyTemplate: Extract the given template from AnyTemplate or return None
 
   Patterns
     p
@@ -784,6 +796,9 @@ First, we formally defined *well-formed types*. ::
     ————————————————————————————————————————————— TyContractId
       Γ  ⊢  'ContractId' : ⋆  → ⋆
 
+    ————————————————————————————————————————————— TyAnyTemplate
+      Γ  ⊢  'AnyTemplate' : ⋆
+
       'record' T (α₁:k₁) … (αₙ:kₙ) ↦ … ∈ 〚Ξ〛Mod
     ————————————————————————————————————————————— TyRecordCon
       Γ  ⊢  Mod:T : k₁ → … → kₙ  → ⋆
@@ -859,6 +874,14 @@ Then we define *well-formed expressions*. ::
       Γ  ⊢  τ  :  ⋆     Γ  ⊢  e  :  τ
     ——————————————————————————————————————————————————————————————— ExpOptionSome
       Γ  ⊢  'Some' @τ e  :  'Option' τ
+
+      'tpl' (x : T) ↦ …  ∈  〚Ξ〛Mod       Γ  ⊢  e  : Mod:T
+    ——————————————————————————————————————————————————————————————— ExpToAnyTemplate
+      Γ  ⊢  'to_any_template' @Mod:T e  :  'AnyTemplate'
+
+      'tpl' (x : T) ↦ …  ∈  〚Ξ〛Mod       Γ  ⊢  e  : AnyTemplate
+    ——————————————————————————————————————————————————————————————— ExpFromAnyTemplate
+      Γ  ⊢  'from_any_template' @Mod:T e  :  'Optional' Mod:T
 
     ——————————————————————————————————————————————————————————————— ExpBuiltin
       Γ  ⊢  F : 𝕋(F)
@@ -1467,6 +1490,11 @@ need to be evaluated further. ::
    ——————————————————————————————————————————————————— ValExpTupleCon
      ⊢ᵥ  ⟨ f₁ = e₁, …, fₘ = eₘ ⟩
 
+
+     ⊢ᵥ  e
+   ——————————————————————————————————————————————————— ValExpToAnyTemplate
+     ⊢ᵥ  'to_any_template' @Mod:T e
+
      ⊢ᵥ  e
    ——————————————————————————————————————————————————— ValExpUpdPure
      ⊢ᵥ  'pure' e
@@ -1624,6 +1652,19 @@ exact output.
       e₂[x ↦ v₁] ‖ E₁  ⇓  r ‖ E₂
     —————————————————————————————————————————————————————————————————————— EvExpLet
       'let' x : τ = e₁ 'in' e₂ ‖ E₀  ⇓  r ‖ E₂
+
+      e ‖ E₀  ⇓  Ok v ‖ E₁
+    —————————————————————————————————————————————————————————————————————— EvExpToAnyTemplate
+      'to_any_template' @Mod:T e ‖ E₀  ⇓  Ok('to_any_template' @Mod:T v) ‖ E₁
+
+      e ‖ E₀  ⇓  Ok ('to_any_template' @Mod:T v) ‖ E₁
+    —————————————————————————————————————————————————————————————————————— EvExpFromAnyTemplateSucc
+      'from_any_template' @Mod:T e ‖ E₀  ⇓  'Some' @Mod:T v ‖ E₁
+
+      e ‖ E₀  ⇓  Ok ('to_any_template' @Mod₂:T₂ v) ‖ E₁     Mod₁:T₁ ≠ Mod₂:T₂
+    —————————————————————————————————————————————————————————————————————— EvExpFromAnyTemplateFail
+      'from_any_template' @Mod₁:T₁ e ‖ E₀  ⇓  'None' ‖ E₁
+
 
       e₁ ‖ E₀  ⇓  Ok v₁ ‖ E₁
       v 'matches' p₁  ⇝  Succ (x₁ ↦ v₁ · … · xₘ ↦ vₘ · ε)
@@ -2120,33 +2161,36 @@ Numeric functions
   scale of the inputs and the output is given by the type parameter
   `α`.  Throws an error if overflow.
 
-* ``MUL_NUMERIC : ∀ (α : nat) . 'Numeric' α → 'Numeric' α → 'Numeric' α``
+* ``MUL_NUMERIC : ∀ (α₁ α₂ α : nat) . 'Numeric' α₁ → 'Numeric' α₂ → 'Numeric' α``
 
-  Multiplies the two decimals and rounds the result to the closest
+  Multiplies the two numerics and rounds the result to the closest
   multiple of ``10⁻ᵅ`` using `banker's rounding convention
-  <https://en.wikipedia.org/wiki/Rounding#Round_half_to_even>`_.  The
-  scale of the inputs and the output is given by the type parameter
-  `α`. Throws an error in case of overflow.
+  <https://en.wikipedia.org/wiki/Rounding#Round_half_to_even>`_.
+  The type parameters `α₁`, `α₂`, `α` define the scale of the first
+  input, the second input, and the output, respectively. Throws an
+  error in case of overflow.
 
-* ``DIV_NUMERIC : ∀ (α : nat) . 'Numeric' α → 'Numeric' α → 'Numeric' α``
+* ``DIV_NUMERIC : ∀ (α₁ α₂ α : nat) . 'Numeric' α₁ → 'Numeric' α₂ → 'Numeric' α``
 
   Divides the first decimal by the second one and rounds the result to
   the closest multiple of ``10⁻ᵅ`` using `banker's rounding convention
   <https://en.wikipedia.org/wiki/Rounding#Round_half_to_even>`_ (where
-  `n` is given as the type parameter).  The scale of the inputs and
-  the output is given by the type parameter `α`.  Throws an error in
-  case of overflow.
+  `n` is given as the type parameter).  The type parameters `α₁`,
+  `α₂`, `α` define the scale of the first input, the second input, and
+  the output, respectively. Throws an error in case of overflow.
 
-* ``ROUND_NUMERIC : ∀ (α : nat) . 'Int64' → 'Numeric' α → 'Numeric' α``
 
-  Rounds the decimal to the closest multiple of ``10ⁱ`` where ``i`` is
-  integer argument.  In case the value to be rounded is exactly
-  half-way between two multiples, rounds toward the even one,
-  following the `banker's rounding convention
-  <https://en.wikipedia.org/wiki/Rounding#Round_half_to_even>`_.  The
-  scale of the inputs and the output is given by the type parameter
-  `α`.  Throws an exception if the integer is not between `α-37` and
-  `α` inclusive.
+* ``CAST_NUMERIC : ∀ (α₁, α₂: nat) . 'Numeric' α₁ → 'Numeric' α₂``
+
+  Converts a decimal of scale `α₁` to a decimal scale `α₂` while
+  keeping the value the same. Throws an exception in case of
+  overflow or precision loss.
+
+* ``SHIFT_NUMERIC : ∀ (α₁, α₂: nat) . 'Int64' → 'Numeric' α₁ → 'Numeric' α₂``
+
+  Converts a decimal of scale `α₁` to a decimal scale `α₂` to another
+  by shifting the decimal point. Thus the ouput will be equal to the input
+  multiplied by `1E(α₁-α₂)`.
 
 * ``LESS_EQ_NUMERIC : ∀ (α : nat) . 'Numeric' α → 'Numeric' α → 'Bool'``
 
@@ -2903,6 +2947,7 @@ On the one hand, in case of DAML-LF 1.6 (or earlier) archive:
   + ``LESS_EQ_DECIMAL`` message is translated to ``(LESS_EQ_NUMERIC @10)``
   + ``GREATER_EQ_DECIMAL`` message is translated to ``(GREATER_EQ_NUMERIC @10)``
   + ``LESS_DECIMAL`` message is translated to ``(LESS_NUMERIC @10)``
+  + ``GREATER_DECIMAL`` message is translated to ``(GREATER_NUMERIC @10)``
   + ``GREATER_DECIMAL`` message is translated to ``(GREATER_NUMERIC @10)``
   + ``EQUAL_DECIMAL`` message is translated to ``(EQUAL_NUMERIC @10)``
   + ``TO_TEXT_DECIMAL`` message is translated to ``(TO_TEXT_NUMERIC @10)``

@@ -32,6 +32,7 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
         BTDate -> k"*",
         BTContractId -> k"* -> *",
         BTArrow -> k"* -> * -> *",
+        BTAnyTemplate -> k"*",
       )
 
       forEvery(testCases) { (bType: BuiltinType, expectedKind: Kind) =>
@@ -65,6 +66,9 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
   "Checker.typeOf" should {
 
     "infers the proper type for expression" in {
+      // The part of the expression that corresponds to the expression
+      // defined by the given rule should be wrapped in double
+      // parentheses.
       val testCases = Table(
         "expression" ->
           "expected type",
@@ -161,6 +165,12 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
         // ExpDefault
         E"Λ (τ : ⋆) (σ : ⋆). λ (e₁ : τ) (e₂: σ) → (( case e₁ of _ → e₂ ))" ->
           T"∀ (τ : ⋆) (σ : ⋆). τ → σ → (( σ ))",
+        // ExpToAnyTemplate
+        E"""λ (t : Mod:T) -> (( to_any_template @Mod:T t ))""" ->
+          T"Mod:T -> AnyTemplate",
+        // ExpFromAnyTemplate
+        E"""λ (t: AnyTemplate) -> (( from_any_template @Mod:T t ))""" ->
+          T"AnyTemplate → Option Mod:T",
       )
 
       forEvery(testCases) { (exp: Expr, expectedType: Type) =>
@@ -281,6 +291,8 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
         // ExpLet
         E"Λ  (τ₁: ⋆) (τ₂ : ⋆) (σ: ⋆). λ (e₁ : τ₁) (e₂ : σ) → (( let x : τ₂ = e₁ in e₂ ))",
         E"Λ (τ : ⋆ → ⋆) (σ: ⋆). λ (e₁ : τ) (e₂ : τ → σ) → (( let x : τ = e₁ in e₂ x ))",
+        // ExpLitDecimal
+        E"λ (f: Numeric 0 → Unit) → f (( 3.1415926536 ))",
         // ExpListNil
         E"Λ (τ : ⋆ → ⋆). (( Nil @τ ))",
         // ExpListCons
@@ -329,6 +341,15 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
         E"Λ (τ : ⋆). λ (e : τ) → (( case e of () → () ))",
         // ExpCaseOr
         E"Λ (τ : ⋆). λ (e : τ) → (( case e of  ))",
+        // ExpToAnyTemplate
+        E"Λ (τ : *). λ (r: Mod:R τ) -> to_any_template @Mod:R r",
+        E"Λ (τ : *). λ (t: Mod:Tree τ) -> to_any_template @Mod:Tree t",
+        E"λ (c: Color) -> to_any_template @Mod:Color c",
+        // ExpFromAnyTemplate
+        E"λ (t: AnyTemplate) -> from_any_template @Mod:R t",
+        E"λ (t: AnyTemplate) -> from_any_template @Mod:Tree t",
+        E"λ (t: AnyTemplate) -> from_any_template @Mod:Color t",
+        E"λ (t: Mod:T) -> from_any_template @Mod:T t",
         // ScnPure
         E"Λ (τ : ⋆ → ⋆). λ (e: τ) → (( spure @τ e ))",
         E"Λ (τ : ⋆) (σ : ⋆). λ (e: τ) → (( spure @σ e ))",

@@ -134,15 +134,17 @@ mkAnds [x] = x
 mkAnds (x:xs) = mkAnd x $ mkAnds xs
 
 
-alpha, beta :: TypeVarName
+alpha, beta, gamma :: TypeVarName
 -- NOTE(MH): We want to avoid shadowing variables in the environment. That's
 -- what the weird names are for.
 alpha = TypeVarName "::alpha::"
 beta  = TypeVarName "::beta::"
+gamma = TypeVarName "::gamma::"
 
-tAlpha, tBeta :: Type
+tAlpha, tBeta, tGamma :: Type
 tAlpha = TVar alpha
 tBeta  = TVar beta
+tGamma = TVar gamma
 
 
 infixr 1 :->
@@ -151,7 +153,7 @@ infixr 1 :->
 pattern (:->) :: Type -> Type -> Type
 pattern a :-> b = TArrow `TApp` a `TApp` b
 
-pattern TUnit, TBool, TInt64, TDecimal, TText, TTimestamp, TParty, TDate, TArrow, TNumeric10 :: Type
+pattern TUnit, TBool, TInt64, TDecimal, TText, TTimestamp, TParty, TDate, TArrow, TNumeric10, TAnyTemplate :: Type
 pattern TUnit       = TBuiltin BTUnit
 pattern TBool       = TBuiltin BTBool
 pattern TInt64      = TBuiltin BTInt64
@@ -162,6 +164,7 @@ pattern TTimestamp  = TBuiltin BTTimestamp
 pattern TParty      = TBuiltin BTParty
 pattern TDate       = TBuiltin BTDate
 pattern TArrow      = TBuiltin BTArrow
+pattern TAnyTemplate = TBuiltin BTAnyTemplate
 
 pattern TList, TOptional, TMap, TUpdate, TScenario, TContractId, TNumeric :: Type -> Type
 pattern TList typ = TApp (TBuiltin BTList) typ

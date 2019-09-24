@@ -157,10 +157,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
       val id = Identifier(basicTestsPkgId, "BasicTests:Simple")
       val let = Time.Timestamp.now()
       val command =
-        CreateCommand(
-          id,
-          assertAsVersionedValue(
-            ValueRecord(Some(id), ImmArray((Some[Name]("p"), ValueParty(party))))))
+        CreateCommand(id, ValueRecord(Some(id), ImmArray((Some[Name]("p"), ValueParty(party)))))
 
       val res = commandTranslator
         .preprocessCommands(Commands(party, ImmArray(command), let, "test"))
@@ -173,9 +170,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
       val id = Identifier(basicTestsPkgId, "BasicTests:Simple")
       val let = Time.Timestamp.now()
       val command =
-        CreateCommand(
-          id,
-          assertAsVersionedValue(ValueRecord(Some(id), ImmArray((None, ValueParty(party))))))
+        CreateCommand(id, ValueRecord(Some(id), ImmArray((None, ValueParty(party)))))
 
       val res = commandTranslator
         .preprocessCommands(Commands(party, ImmArray(command), let, "test"))
@@ -189,10 +184,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
       val command =
         CreateCommand(
           id,
-          assertAsVersionedValue(
-            ValueRecord(
-              Some(id),
-              ImmArray((Some[Name]("this_is_not_the_one"), ValueParty(party))))))
+          ValueRecord(Some(id), ImmArray((Some[Name]("this_is_not_the_one"), ValueParty(party)))))
 
       val res = commandTranslator
         .preprocessCommands(Commands(party, ImmArray(command), let, "test"))
@@ -208,8 +200,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
         templateId,
         originalCoid,
         "Transfer",
-        assertAsVersionedValue(
-          ValueRecord(None, ImmArray((Some[Name]("newReceiver"), ValueParty(clara))))))
+        ValueRecord(None, ImmArray((Some[Name]("newReceiver"), ValueParty(clara)))))
 
       val res = commandTranslator
         .preprocessCommands(Commands(bob, ImmArray(command), let, "test"))
@@ -225,7 +216,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
         templateId,
         originalCoid,
         "Transfer",
-        assertAsVersionedValue(ValueRecord(None, ImmArray((None, ValueParty(clara))))))
+        ValueRecord(None, ImmArray((None, ValueParty(clara)))))
 
       val res = commandTranslator
         .preprocessCommands(Commands(bob, ImmArray(command), let, "test"))
@@ -238,10 +229,9 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
       val let = Time.Timestamp.now()
       val command = ExerciseByKeyCommand(
         templateId,
-        assertAsVersionedValue(
-          ValueRecord(None, ImmArray((None, ValueParty(alice)), (None, ValueInt64(42))))),
+        ValueRecord(None, ImmArray((None, ValueParty(alice)), (None, ValueInt64(42)))),
         "SumToK",
-        assertAsVersionedValue(ValueRecord(None, ImmArray((Some[Name]("n"), ValueInt64(5)))))
+        ValueRecord(None, ImmArray((Some[Name]("n"), ValueInt64(5))))
       )
 
       val res = commandTranslator
@@ -255,10 +245,9 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
       val let = Time.Timestamp.now()
       val command = ExerciseByKeyCommand(
         templateId,
-        assertAsVersionedValue(
-          ValueRecord(None, ImmArray((None, ValueParty(alice)), (None, ValueInt64(42))))),
+        ValueRecord(None, ImmArray((None, ValueParty(alice)), (None, ValueInt64(42)))),
         "SumToK",
-        assertAsVersionedValue(ValueRecord(None, ImmArray((None, ValueInt64(5)))))
+        ValueRecord(None, ImmArray((None, ValueInt64(5))))
       )
 
       val res = commandTranslator
@@ -272,10 +261,9 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
       val let = Time.Timestamp.now()
       val command = ExerciseByKeyCommand(
         templateId,
-        assertAsVersionedValue(
-          ValueRecord(None, ImmArray((None, ValueParty(alice)), (None, ValueInt64(42))))),
+        ValueRecord(None, ImmArray((None, ValueParty(alice)), (None, ValueInt64(42)))),
         "SumToK",
-        assertAsVersionedValue(ValueRecord(None, ImmArray((Some[Name]("WRONG"), ValueInt64(5)))))
+        ValueRecord(None, ImmArray((Some[Name]("WRONG"), ValueInt64(5))))
       )
 
       val res = commandTranslator
@@ -289,10 +277,9 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
       val let = Time.Timestamp.now()
       val command = ExerciseByKeyCommand(
         templateId,
-        assertAsVersionedValue(
-          ValueRecord(None, ImmArray((None, ValueParty(alice)), (None, ValueInt64(42))))),
+        ValueRecord(None, ImmArray((None, ValueParty(alice)), (None, ValueInt64(42)))),
         "Transfer",
-        assertAsVersionedValue(ValueRecord(None, ImmArray((None, ValueParty(clara)))))
+        ValueRecord(None, ImmArray((None, ValueParty(clara))))
       )
 
       val res = commandTranslator
@@ -307,10 +294,9 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
       val let = Time.Timestamp.now()
       val command = ExerciseByKeyCommand(
         templateId,
-        assertAsVersionedValue(
-          ValueRecord(None, ImmArray((None, ValueInt64(42)), (None, ValueInt64(42))))),
+        ValueRecord(None, ImmArray((None, ValueInt64(42)), (None, ValueInt64(42)))),
         "SumToK",
-        assertAsVersionedValue(ValueRecord(None, ImmArray((None, ValueInt64(5)))))
+        ValueRecord(None, ImmArray((None, ValueInt64(5))))
       )
 
       val res = commandTranslator
@@ -325,13 +311,12 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
       val command =
         CreateAndExerciseCommand(
           id,
-          assertAsVersionedValue(
-            ValueRecord(
-              Some(Identifier(basicTestsPkgId, "BasicTests:CallablePayout")),
-              ImmArray((Some("giver"), ValueParty(clara)), (Some("receiver"), ValueParty(clara))))),
+          ValueRecord(
+            Some(Identifier(basicTestsPkgId, "BasicTests:CallablePayout")),
+            ImmArray((Some("giver"), ValueParty(clara)), (Some("receiver"), ValueParty(clara)))
+          ),
           "Transfer",
-          assertAsVersionedValue(
-            ValueRecord(None, ImmArray((Some[Name]("newReceiver"), ValueParty(clara)))))
+          ValueRecord(None, ImmArray((Some[Name]("newReceiver"), ValueParty(clara))))
         )
 
       val res = commandTranslator
@@ -347,12 +332,11 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
       val command =
         CreateAndExerciseCommand(
           id,
-          assertAsVersionedValue(
-            ValueRecord(
-              Some(Identifier(basicTestsPkgId, "BasicTests:CallablePayout")),
-              ImmArray((None, ValueParty(clara)), (None, ValueParty(clara))))),
+          ValueRecord(
+            Some(Identifier(basicTestsPkgId, "BasicTests:CallablePayout")),
+            ImmArray((None, ValueParty(clara)), (None, ValueParty(clara)))),
           "Transfer",
-          assertAsVersionedValue(ValueRecord(None, ImmArray((None, ValueParty(clara)))))
+          ValueRecord(None, ImmArray((None, ValueParty(clara))))
         )
 
       val res = commandTranslator
@@ -367,13 +351,12 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
       val command =
         CreateAndExerciseCommand(
           id,
-          assertAsVersionedValue(
-            ValueRecord(
-              Some(Identifier(basicTestsPkgId, "BasicTests:CallablePayout")),
-              ImmArray((None, ValueParty(clara)), (Some("this_is_not_the_one"), ValueParty(clara)))
-            )),
+          ValueRecord(
+            Some(Identifier(basicTestsPkgId, "BasicTests:CallablePayout")),
+            ImmArray((None, ValueParty(clara)), (Some("this_is_not_the_one"), ValueParty(clara)))
+          ),
           "Transfer",
-          assertAsVersionedValue(ValueRecord(None, ImmArray((None, ValueParty(clara)))))
+          ValueRecord(None, ImmArray((None, ValueParty(clara))))
         )
 
       val res = commandTranslator
@@ -388,13 +371,11 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
       val command =
         CreateAndExerciseCommand(
           id,
-          assertAsVersionedValue(
-            ValueRecord(
-              Some(Identifier(basicTestsPkgId, "BasicTests:CallablePayout")),
-              ImmArray((None, ValueParty(clara)), (None, ValueParty(clara))))),
+          ValueRecord(
+            Some(Identifier(basicTestsPkgId, "BasicTests:CallablePayout")),
+            ImmArray((None, ValueParty(clara)), (None, ValueParty(clara)))),
           "Transfer",
-          assertAsVersionedValue(
-            ValueRecord(None, ImmArray((Some[Name]("this_is_not_the_one"), ValueParty(clara)))))
+          ValueRecord(None, ImmArray((Some[Name]("this_is_not_the_one"), ValueParty(clara))))
         )
 
       val res = commandTranslator
@@ -410,14 +391,12 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
       val translator = new CommandPreprocessor(ConcurrentCompiledPackages.apply())
 
       val id = Identifier(optionalPkgId, "Optional:Rec")
-      val someValue = assertAsVersionedValue(
+      val someValue =
         ValueRecord(
           Some(id),
           ImmArray(Some[Name]("recField") -> ValueOptional(Some(ValueText("foo")))))
-      )
-      val noneValue = assertAsVersionedValue(
+      val noneValue =
         ValueRecord(Some(id), ImmArray(Some[Name]("recField") -> ValueOptional(None)))
-      )
       val typ = TTyConApp(id, ImmArray.empty)
 
       translator
@@ -435,8 +414,8 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
     "returns correct error when resuming" in {
       val translator = new CommandPreprocessor(ConcurrentCompiledPackages.apply())
       val id = Identifier(basicTestsPkgId, "BasicTests:MyRec")
-      val wrongRecord = assertAsVersionedValue(
-        ValueRecord(Some(id), ImmArray(Some[Name]("wrongLbl") -> ValueText("foo"))))
+      val wrongRecord =
+        ValueRecord(Some(id), ImmArray(Some[Name]("wrongLbl") -> ValueText("foo")))
       translator
         .translateValue(
           TTyConApp(id, ImmArray.empty),
@@ -450,10 +429,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
     val id = Identifier(basicTestsPkgId, "BasicTests:Simple")
     val let = Time.Timestamp.now()
     val command =
-      CreateCommand(
-        id,
-        assertAsVersionedValue(
-          ValueRecord(Some(id), ImmArray((Some[Name]("p"), ValueParty(party))))))
+      CreateCommand(id, ValueRecord(Some(id), ImmArray((Some[Name]("p"), ValueParty(party)))))
 
     val res = commandTranslator
       .preprocessCommands(Commands(party, ImmArray(command), let, "test"))
@@ -501,11 +477,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
     val hello = Identifier(basicTestsPkgId, "BasicTests:Hello")
     val let = Time.Timestamp.now()
     val command =
-      ExerciseCommand(
-        templateId,
-        "1",
-        "Hello",
-        assertAsVersionedValue(ValueRecord(Some(hello), ImmArray.empty)))
+      ExerciseCommand(templateId, "1", "Hello", ValueRecord(Some(hello), ImmArray.empty))
 
     val res = commandTranslator
       .preprocessCommands(Commands(party, ImmArray(command), let, "test"))
@@ -555,7 +527,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
     "events are collected" in {
       val Right(blindingInfo) =
         Blinding.checkAuthorizationAndBlind(tx, Set(party))
-      val events = Event.collectEvents(tx, blindingInfo.explicitDisclosure)
+      val events = Event.collectEvents(tx, blindingInfo.disclosure)
       val partyEvents = events.events.values.toList.filter(_.witnesses contains party)
       partyEvents.size shouldBe 1
       partyEvents(0) match {
@@ -570,10 +542,9 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
     val let = Time.Timestamp.now()
     val command = ExerciseByKeyCommand(
       templateId,
-      assertAsVersionedValue(
-        ValueRecord(None, ImmArray((None, ValueParty(alice)), (None, ValueInt64(43))))),
+      ValueRecord(None, ImmArray((None, ValueParty(alice)), (None, ValueInt64(43)))),
       "SumToK",
-      assertAsVersionedValue(ValueRecord(None, ImmArray((None, ValueInt64(5)))))
+      ValueRecord(None, ImmArray((None, ValueInt64(5))))
     )
 
     val res = commandTranslator
@@ -594,10 +565,9 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
     val let = Time.Timestamp.now()
     val command = ExerciseByKeyCommand(
       templateId,
-      assertAsVersionedValue(
-        ValueRecord(None, ImmArray((None, ValueParty(alice)), (None, ValueInt64(42))))),
+      ValueRecord(None, ImmArray((None, ValueParty(alice)), (None, ValueInt64(42)))),
       "SumToK",
-      assertAsVersionedValue(ValueRecord(None, ImmArray((None, ValueInt64(5)))))
+      ValueRecord(None, ImmArray((None, ValueInt64(5))))
     )
 
     val res = commandTranslator
@@ -647,7 +617,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
     "events are collected" in {
       val Right(blindingInfo) =
         Blinding.checkAuthorizationAndBlind(tx, Set(alice))
-      val events = Event.collectEvents(tx, blindingInfo.explicitDisclosure)
+      val events = Event.collectEvents(tx, blindingInfo.disclosure)
       val partyEvents = events.events.values.toList.filter(_.witnesses contains alice)
       partyEvents.size shouldBe 1
       partyEvents(0) match {
@@ -664,10 +634,9 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
     val command =
       CreateAndExerciseCommand(
         templateId,
-        assertAsVersionedValue(
-          ValueRecord(Some(templateId), ImmArray(Some[Name]("p") -> ValueParty(party)))),
+        ValueRecord(Some(templateId), ImmArray(Some[Name]("p") -> ValueParty(party))),
         "Hello",
-        assertAsVersionedValue(ValueRecord(Some(hello), ImmArray.empty))
+        ValueRecord(Some(hello), ImmArray.empty)
       )
 
     val res = commandTranslator
@@ -720,7 +689,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
     "translate empty list" in {
       val list = ValueList(FrontStack.empty[Value[AbsoluteContractId]])
       val res = commandTranslator
-        .translateValue(TList(TBuiltin(BTInt64)), assertAsVersionedValue(list))
+        .translateValue(TList(TBuiltin(BTInt64)), list)
         .consume(lookupContract, lookupPackage, lookupKey)
 
       res shouldEqual Right(SList(FrontStack.empty))
@@ -729,7 +698,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
     "translate singleton" in {
       val list = ValueList(FrontStack(ValueInt64(1)))
       val res = commandTranslator
-        .translateValue(TList(TBuiltin(BTInt64)), assertAsVersionedValue(list))
+        .translateValue(TList(TBuiltin(BTInt64)), list)
         .consume(lookupContract, lookupPackage, lookupKey)
 
       res shouldEqual Right(SList(FrontStack(ImmArray(SInt64(1)))))
@@ -739,7 +708,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
       val list = ValueList(
         FrontStack(ValueInt64(1), ValueInt64(2), ValueInt64(3), ValueInt64(4), ValueInt64(5)))
       val res = commandTranslator
-        .translateValue(TList(TBuiltin(BTInt64)), assertAsVersionedValue(list))
+        .translateValue(TList(TBuiltin(BTInt64)), list)
         .consume(lookupContract, lookupPackage, lookupKey)
 
       res shouldEqual Right(
@@ -753,7 +722,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
       commandTranslator
         .translateValue(
           TTyConApp(TypeConName(basicTestsPkgId, "BasicTests:Nesting0"), ImmArray.empty),
-          assertAsVersionedValue(nested))
+          nested)
         .consume(lookupContract, lookupPackage, lookupKey)
         .left
         .get
@@ -782,7 +751,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
       val res = commandTranslator
         .translateValue(
           TTyConApp(Identifier(basicTestsPkgId, "BasicTests:MyNestedRec"), ImmArray.empty),
-          assertAsVersionedValue(rec))
+          rec)
         .consume(lookupContract, lookupPackage, lookupKey)
       res shouldBe 'right
     }
@@ -800,7 +769,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
       val res = commandTranslator
         .translateValue(
           TTyConApp(Identifier(basicTestsPkgId, "BasicTests:TypeWithParameters"), ImmArray.empty),
-          assertAsVersionedValue(rec))
+          rec)
         .consume(lookupContract, lookupPackage, lookupKey)
 
       res shouldBe 'right
@@ -819,7 +788,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
       val res = commandTranslator
         .translateValue(
           TTyConApp(Identifier(basicTestsPkgId, "BasicTests:TypeWithParameters"), ImmArray.empty),
-          assertAsVersionedValue(rec))
+          rec)
         .consume(lookupContract, lookupPackage, lookupKey)
 
       res shouldBe 'right
@@ -836,7 +805,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
       val res = commandTranslator
         .translateValue(
           TTyConApp(Identifier(basicTestsPkgId, "BasicTests:TypeWithParameters"), ImmArray.empty),
-          assertAsVersionedValue(rec))
+          rec)
         .consume(lookupContract, lookupPackage, lookupKey)
 
       res shouldBe 'left
@@ -853,7 +822,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
       val res = commandTranslator
         .translateValue(
           TTyConApp(Identifier(basicTestsPkgId, "BasicTests:TypeWithParameters"), ImmArray.empty),
-          assertAsVersionedValue(rec))
+          rec)
         .consume(lookupContract, lookupPackage, lookupKey)
 
       res shouldBe 'right
@@ -870,7 +839,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
       val res = commandTranslator
         .translateValue(
           TTyConApp(Identifier(basicTestsPkgId, "BasicTests:TypeWithParameters"), ImmArray.empty),
-          assertAsVersionedValue(rec))
+          rec)
         .consume(lookupContract, lookupPackage, lookupKey)
 
       res shouldBe 'left
@@ -886,8 +855,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
       templateId,
       originalCoid,
       "Transfer",
-      assertAsVersionedValue(
-        ValueRecord(None, ImmArray((Some[Name]("newReceiver"), ValueParty(clara))))))
+      ValueRecord(None, ImmArray((Some[Name]("newReceiver"), ValueParty(clara)))))
 
     val res = commandTranslator
       .preprocessCommands(Commands(bob, ImmArray(command), let, "test"))
@@ -977,7 +945,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
       val Right(tx) = interpretResult
       val Right(blindingInfo) =
         Blinding.checkAuthorizationAndBlind(tx, Set(bob))
-      val events = Event.collectEvents(tx, blindingInfo.explicitDisclosure)
+      val events = Event.collectEvents(tx, blindingInfo.disclosure)
       val partyEvents = events.filter(_.witnesses contains bob)
       partyEvents.roots.length shouldBe 1
       val bobExercise = partyEvents.events(partyEvents.roots(0))
@@ -1089,8 +1057,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
         fetcherTid,
         cid,
         "DoFetch",
-        assertAsVersionedValue(
-          ValueRecord(None, ImmArray((Some[Name]("cid"), ValueContractId(fetchedCid))))))
+        ValueRecord(None, ImmArray((Some[Name]("cid"), ValueContractId(fetchedCid)))))
 
       val res = commandTranslator
         .preprocessCommands(Commands(exerciseActor, ImmArray(command), let, "test"))

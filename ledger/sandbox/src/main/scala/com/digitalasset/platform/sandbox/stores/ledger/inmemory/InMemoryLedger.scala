@@ -32,6 +32,7 @@ import com.digitalasset.ledger.api.domain.{
   PartyDetails,
   RejectionReason
 }
+import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilter
 import com.digitalasset.platform.sandbox.services.transaction.SandboxEventIdFormatter
 import com.digitalasset.platform.sandbox.stores.ActiveLedgerState.ActiveContract
 import com.digitalasset.platform.sandbox.stores.deduplicator.Deduplicator
@@ -86,7 +87,7 @@ class InMemoryLedger(
   override def ledgerEnd: Long = entries.ledgerEnd
 
   // need to take the lock to make sure the two pieces of data are consistent.
-  override def snapshot(): Future[LedgerSnapshot] =
+  override def snapshot(filter: TemplateAwareFilter): Future[LedgerSnapshot] =
     Future.successful(this.synchronized {
       LedgerSnapshot(
         entries.ledgerEnd,
@@ -162,9 +163,9 @@ class InMemoryLedger(
         trId,
         transactionMeta.workflowId,
         mappedTx,
-        blindingInfo.explicitDisclosure,
-        blindingInfo.localImplicitDisclosure,
-        blindingInfo.globalImplicitDisclosure,
+        blindingInfo.disclosure,
+        blindingInfo.localDivulgence,
+        blindingInfo.globalDivulgence,
         List.empty
       )
       acsRes match {
@@ -177,7 +178,7 @@ class InMemoryLedger(
           val recordTx = mappedTx
             .mapNodeId(SandboxEventIdFormatter.fromTransactionId(trId, _))
           val recordBlinding =
-            blindingInfo.explicitDisclosure.map {
+            blindingInfo.disclosure.map {
               case (nid, parties) =>
                 (SandboxEventIdFormatter.fromTransactionId(trId, nid), parties)
             }

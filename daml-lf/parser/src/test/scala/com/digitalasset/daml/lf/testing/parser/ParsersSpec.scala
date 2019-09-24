@@ -12,7 +12,11 @@ import com.digitalasset.daml.lf.testing.parser.Implicits._
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.{Matchers, WordSpec}
 
+import scala.language.implicitConversions
+
 class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
+
+  private implicit def toScale(i: Int): Numeric.Scale = Numeric.Scale.assertFromInt(i)
 
   "kind parser" should {
 
@@ -120,6 +124,7 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
     }
 
     "parses properly literal" in {
+
       val testCases = Table[String, PrimLit](
         "string to parse" -> "expected literal",
         "1" -> PLInt64(1),
@@ -173,6 +178,8 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
         "MUL_NUMERIC" -> BMulNumeric,
         "DIV_NUMERIC" -> BDivNumeric,
         "ROUND_NUMERIC" -> BRoundNumeric,
+        "CAST_NUMERIC" -> BCastNumeric,
+        "SHIFT_NUMERIC" -> BShiftNumeric,
         "ADD_INT64" -> BAddInt64,
         "SUB_INT64" -> BSubInt64,
         "MUL_INT64" -> BMulInt64,

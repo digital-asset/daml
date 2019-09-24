@@ -19,8 +19,8 @@ initState : Party -> ActiveContracts -> TriggerState
 initState party (ActiveContracts events) = TriggerState (foldl updateAcs TM.empty events) 0 party
   where
     updateAcs : TextMap Identifier -> Created -> TextMap Identifier
-    updateAcs acs (Created _ cId tId)
-      | tId.entityName == "Asset" = TM.insert cId tId acs
+    updateAcs acs (Created _ cId argument)
+      | Some Asset{} <- fromAnyTemplate @(Asset ()) argument = TM.insert cId.contractId cId.templateId acs
       | otherwise = acs
 
 -- | This is a very silly trigger for testing purposes:
@@ -43,22 +43,38 @@ test = Trigger
       where
         updateEvent : ([Command], TextMap Identifier) -> Event -> ([Command], TextMap Identifier)
         updateEvent (cmds, acs) ev = case ev of
-          CreatedEvent (Created _ cId tId)
-            | tId.entityName == "Asset" ->
-            let createMirror : Command = createCmd (TemplateId "ACS" "AssetMirror") (AssetMirror { issuer = party })
-            in (createMirror :: cmds, TM.insert cId tId acs)
-          ArchivedEvent (Archived _ cId tId)
-            | tId.entityName == "Asset" -> (cmds, TM.delete cId acs)
+          CreatedEvent (Created _ cId argument)
+            | Some (Asset {issuer}) <- fromAnyTemplate @(Asset ()) argument ->
+            let proposeMirror : Command = createCmd (AssetMirrorProposal { issuer })
+            in (proposeMirror :: cmds, TM.insert cId.contractId cId.templateId acs)
+            | Some (AssetMirrorProposal {}) <- fromAnyTemplate argument ->
+            let accept : Command = exerciseCmd @AssetMirrorProposal cId Accept
+            in (accept :: cmds, acs)
+          ArchivedEvent (Archived _ cId)
+            | cId.templateId.entityName == "AssetUnit" -> (cmds, TM.delete cId.contractId acs)
           _ -> (cmds, acs)
 
-template Asset
+-- This is only a generic template to test that we do the conversion properly.
+template Asset t
   with
     issuer : Party
   where
     signatory issuer
+
+template instance AssetUnit = Asset ()
 
 template AssetMirror
   with
     issuer : Party
   where
     signatory issuer
+
+template AssetMirrorProposal
+  with
+    issuer : Party
+  where
+    signatory issuer
+
+    controller issuer can
+      Accept : ContractId AssetMirror
+        do create AssetMirror { issuer = issuer }

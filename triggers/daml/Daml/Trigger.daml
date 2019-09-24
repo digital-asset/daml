@@ -6,6 +6,7 @@ module Daml.Trigger
   ( Message(..)
   , Transaction(..)
   , Identifier(..)
+  , AnyContractId(..)
   , Event(..)
   , Created(..)
   , Archived(..)
@@ -24,34 +25,35 @@ data Identifier = Identifier
   , entityName : Text
   } deriving (Show, Eq)
 
+data AnyContractId = AnyContractId
+  { templateId : Identifier
+  , contractId : Text
+  } deriving (Show, Eq)
+
 data Transaction = Transaction
  { transactionId : Text
  , events : [Event]
- } deriving (Show, Eq)
+ }
 
 data Event
   = CreatedEvent Created
   | ArchivedEvent Archived
-  deriving (Show, Eq)
 
 data Created = Created
   { eventId : Text
-  , contractId : Text
-  , templateId : Identifier
-  } deriving (Show, Eq)
+  , contractId : AnyContractId
+  , argument : AnyTemplate
+  }
 
 data Archived = Archived
   { eventId : Text
-  , contractId : Text
-  , templateId : Identifier
+  , contractId : AnyContractId
   } deriving (Show, Eq)
 
 data Message
   = MTransaction Transaction
-  deriving (Show, Eq)
 
 data ActiveContracts = ActiveContracts { activeContracts : [Created] }
-  deriving (Show, Eq)
 
 -- | Trigger is (approximately) a left-fold over `Message` with
 -- an accumulator of type `s`.
@@ -80,23 +82,22 @@ toLedgerValue = error "toLedgerValue should be removed."
 
 data Command
   = CreateCommand
-      { templateId : TemplateId
-      , templateArg : LedgerValue
+      { templateArg : AnyTemplate
+      -- This needs to be AnyTemplate instead of LedgerValue
+      -- to handle generic templates.
       }
   | ExerciseCommand
-      { templateId : TemplateId
-      , contractId : Text
-      , choiceName : Text
+      { contractId : AnyContractId
       , choiceArg : LedgerValue
       }
 
-createCmd : Template t => TemplateId -> t -> Command
-createCmd templateId templateArg =
-  CreateCommand templateId (toLedgerValue templateArg)
+createCmd : Template t => t -> Command
+createCmd templateArg =
+  CreateCommand (toAnyTemplate templateArg)
 
-exerciseCmd : Choice t c r => TemplateId -> Text -> Text -> c -> Command
-exerciseCmd templateId contractId choiceName choiceArg =
-  ExerciseCommand templateId contractId choiceName (toLedgerValue choiceArg)
+exerciseCmd : Choice t c r => AnyContractId -> c -> Command
+exerciseCmd contractId choiceArg =
+  ExerciseCommand contractId (toLedgerValue choiceArg)
 
 data Commands = Commands
   { commandId : Text

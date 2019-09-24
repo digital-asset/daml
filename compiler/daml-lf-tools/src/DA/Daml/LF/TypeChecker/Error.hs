@@ -61,6 +61,7 @@ data UnserializabilityReason
   | URNumericNotFixed
   | URNumericOutOfRange !Natural
   | URTypeLevelNat
+  | URAnyTemplate -- ^ It contains a value of type AnyTemplate.
 
 data Error
   = EUnknownTypeVar        !TypeVarName
@@ -94,6 +95,7 @@ data Error
   | EExpectedOptionalType  !Type
   | EEmptyCase
   | EExpectedTemplatableType !TypeConName
+  | EExpectedTemplateType !Type
   | EImportCycle           ![ModuleName]
   | EDataTypeCycle         ![TypeConName]
   | EValueCycle            ![ExprValName]
@@ -102,6 +104,7 @@ data Error
   | EContext               !Context !Error
   | EKeyOperationOnTemplateWithNoKey !(Qualified TypeConName)
   | EUnsupportedFeature !Feature
+  | EForbiddenNameCollision !T.Text ![T.Text]
 
 contextLocation :: Context -> Maybe SourceLoc
 contextLocation = \case
@@ -164,6 +167,7 @@ instance Pretty UnserializabilityReason where
     URNumericNotFixed -> "Numeric scale is not fixed"
     URNumericOutOfRange n -> "Numeric scale " <> integer (fromIntegral n) <> " is out of range (needs to be between 0 and 38)"
     URTypeLevelNat -> "type-level nat"
+    URAnyTemplate -> "AnyTemplate"
 
 instance Pretty Error where
   pPrint = \case
@@ -244,6 +248,9 @@ instance Pretty Error where
     EExpectedTemplatableType tpl ->
       "expected monomorphic record type in template definition, but found:"
       <-> pretty tpl
+    EExpectedTemplateType ty ->
+      "expected template type as argument to to_any_template, but got:"
+      <-> pretty ty
     EImportCycle mods ->
       "found import cycle:" $$ vcat (map (\m -> "*" <-> pretty m) mods)
     EDataTypeCycle tycons ->
@@ -281,6 +288,8 @@ instance Pretty Error where
     EUnsupportedFeature Feature{..} ->
       "unsupported feature:" <-> pretty featureName
       <-> "only supported in DAML-LF version" <-> pretty featureMinVersion <-> "and later"
+    EForbiddenNameCollision name names ->
+      "name collision between " <-> pretty name <-> " and " <-> pretty (T.intercalate ", " names)
 
 instance Pretty Context where
   pPrint = \case

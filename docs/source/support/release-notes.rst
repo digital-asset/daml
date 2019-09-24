@@ -6,6 +6,101 @@ Release notes
 
 This page contains release notes for the SDK.
 
+.. _release-0-13-26:
+
+0.13.26 - 2019-09-24
+--------------------
+
+JSON API
+~~~~~~~~
+
+- ``/contracts/search`` now supports a query language for filtering the
+  contracts returned by matching fields.  See `issue 2778
+  <https://github.com/digital-asset/daml/issues/2778>`_.
+
+DAML Compiler
+~~~~~~~~~~~~~
+
+- Fix a bug where ``.dar`` files produced by ``daml build`` were missing
+  all ``.daml`` files except for the one that ``source`` pointed to.
+- Fix a bug where importing the same module from different directories
+  resulted in an error in ``daml build``.
+- ``damlc migrate`` now produces a project that can be built with ``daml build`` as opposed to
+  having to use the special ``build.sh`` and ``build.cmd`` scripts.
+
+DAML Integration Toolkit
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+- 30 more test cases have been added to the transaction service test suite.
+
+Security
+~~~~~~~~
+
+- Starting with this one, releases are now signed on GitHub.
+
+.. _release-0-13-25:
+
+0.13.25 - 2019-09-18
+--------------------
+
+Documentation
+~~~~~~~~~~~~~
+
+- Suppress instance documentation when `--data-only` mode is requested.
+
+DAML-LF
+~~~~~~~
+
+- Add CAST_NUMERIC and SHIFT_NUMERIC in DAML-LF 1.dev.
+- Change signature of MUL_NUMERIC and DIV_NUMERIC.
+
+DAML Integration Kit
+~~~~~~~~~~~~~~~~~~~~
+
+- Fix contract key uniqueness check in kvutils.
+
+- Preload packages in a background thread in kvutils.
+
+Ledger
+~~~~~~
+
+- ActiveContractsService now specifies to always return at least one message with the offset. This removes a special case where clients would need to check if the stream was empty or not.
+
+- Dramatically increased performance of the ActiveContractService by only loading the contracts that the parties in the transaction filter are allowed to see.
+
+.. _release-0-13-24:
+
+0.13.24 - 2019-09-16
+--------------------
+
+Java codegen
+~~~~~~~~~~~~
+
+- If the DAR source cannot be read, the application crashes and prints an error report.
+
+DAML Assistant
+~~~~~~~~~~~~~~
+
+- Java and Scala codegen is now integrated with the
+  assistant and distributed with the SDK. It can be run via ``daml codegen``.
+  You can find more information in the `DAML Assistant documentation <https://docs.daml.com/tools/assistant.html>`_.
+
+DAML Compiler
+~~~~~~~~~~~~~
+
+- Fix bug with qualified imports of generic templates.
+
+Ledger
+~~~~~~
+
+- Upgraded ledger-api server H2 Database version to 1.4.199 with stability fixes including one to the ``merge`` statement.
+
+DAML Integration Kit
+~~~~~~~~~~~~~~~~~~~~
+
+- One more test case added. Transaction service tests are not multi-node aware.
+- Semantic tests now ensure synchronization across participants when running in a multi-node setup.
+
 .. _release-0-13-23:
 
 0.13.23 - 2019-09-11

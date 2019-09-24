@@ -163,9 +163,10 @@ abstract class LedgerBackedIndexService(
   override def getLedgerId(): Future[LedgerId] = Future.successful(ledger.ledgerId)
 
   override def getActiveContractSetSnapshot(
-      filter: TransactionFilter): Future[ActiveContractSetSnapshot] =
+      txFilter: TransactionFilter): Future[ActiveContractSetSnapshot] = {
+    val filter = EventFilter.byTemplates(txFilter)
     ledger
-      .snapshot()
+      .snapshot(filter)
       .map {
         case LedgerSnapshot(offset, acsStream) =>
           ActiveContractSetSnapshot(
@@ -174,13 +175,13 @@ abstract class LedgerBackedIndexService(
               .mapConcat { ac =>
                 val create = toUpdateEvent(ac.id, ac)
                 EventFilter
-                  .byTemplates(filter)
-                  .filterActiveContractWitnesses(create)
+                  .filterActiveContractWitnesses(filter, create)
                   .map(create => ac.workflowId.map(domain.WorkflowId(_)) -> create)
                   .toList
               }
           )
       }(mat.executionContext)
+  }
 
   private def toUpdateEvent(
       cId: Value.AbsoluteContractId,

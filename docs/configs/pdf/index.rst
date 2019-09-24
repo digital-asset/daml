@@ -91,6 +91,7 @@ Experimental features
 
    experimental/warning
    daml-integration-kit/index
+   json-api/index
 
 Support and updates
 -------------------

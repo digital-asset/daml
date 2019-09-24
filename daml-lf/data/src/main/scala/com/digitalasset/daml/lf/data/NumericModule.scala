@@ -12,7 +12,7 @@ import scala.util.Try
 
 /** The model of our floating point decimal numbers.
   *
-  *  These are numbers of precision 38 (38 decimal digits), and variable scale (from 0 to 38 bounds
+  *  These are numbers of precision 38 (38 decimal digits), and variable scale (from 0 to 37 bounds
   *  included).
   */
 abstract class NumericModule {
@@ -35,6 +35,16 @@ abstract class NumericModule {
     */
   val maxPrecision = 38
 
+  val Scale: ScaleModule = new ScaleModule {
+    override type Scale = Int
+    override val MinValue: Scale = 0
+    // We want 1 be representable at any scale, so we have to prevent (Numeric 38).
+    override val MaxValue: Scale = maxPrecision - 1
+    override private[NumericModule] def cast(x: Int): Scale = x
+  }
+
+  type Scale = Scale.Scale
+
   /**
     * Cast the BigDecimal `x` to a `(Numeric s)` where `s` is the scale of `x`.
     */
@@ -47,14 +57,17 @@ abstract class NumericModule {
   /**
     * Returns the largest Numeric of scale `scale`
     */
-  final def maxValue(scale: Int): Numeric =
+  final def maxValue(scale: Scale): Numeric =
     cast(new BigDecimal(maxUnscaledValue, scale))
 
   /**
     * Returns the smallest Numeric of scale `scale`
     */
-  final def minValue(scale: Int): Numeric =
+  final def minValue(scale: Scale): Numeric =
     negate(maxValue(scale))
+
+  final def scale(numeric: Numeric): Scale =
+    Scale.cast(numeric.scale)
 
   /**
     * Casts `x` to a Numeric if it has a valid precision (<= `maxPrecision`). Returns an error
@@ -98,30 +111,23 @@ abstract class NumericModule {
   }
 
   /**
-    * Multiplies `x` by `y`. The output has the same scale as the inputs. If rounding must be
+    * Multiplies `x` by `y`. The output has the scale `scale`. If rounding must be
     * performed, the [[https://en.wikipedia.org/wiki/Rounding#Round_half_to_even> banker's rounding convention]]
     * is applied.
     * In case of overflow, returns an error message instead.
-    *
-    * ```Requires the scale of `x` and `y` are the same.```
     */
-  final def multiply(x: Numeric, y: Numeric): Either[String, Numeric] = {
-    assert(x.scale == y.scale)
-    checkForOverflow((x multiply y).setScale(x.scale, ROUND_HALF_EVEN))
-  }
+  final def multiply(scale: Scale, x: Numeric, y: Numeric): Either[String, Numeric] =
+    checkForOverflow((x multiply y).setScale(scale, ROUND_HALF_EVEN))
 
   /**
-    * Divides `x` by `y`. The output has the same scale as the inputs. If rounding must be
+    * Divides `x` by `y`. The output has the scale `scale`. If rounding must be
     * performed, the [[https://en.wikipedia.org/wiki/Rounding#Round_half_to_even> banker's rounding convention]]
     * is applied.
     * In case of overflow, returns an error message instead.
     *
-    * ```Requires the scale of `x` and `y` are the same.```
     */
-  final def divide(x: Numeric, y: Numeric): Either[String, Numeric] = {
-    assert(x.scale == y.scale)
-    checkForOverflow(x.divide(y, x.scale, ROUND_HALF_EVEN))
-  }
+  final def divide(scale: Scale, x: Numeric, y: Numeric): Either[String, Numeric] =
+    checkForOverflow(x.divide(y, scale, ROUND_HALF_EVEN))
 
   /**
     * Returns the integral part of the given decimal, in other words, rounds towards 0.
@@ -162,10 +168,8 @@ abstract class NumericModule {
     * In case scale is not a valid Numeric scale or `x` cannot be represented as a
     * `(Numeric scale)` without loss of precision, returns an error message instead.
     */
-  final def fromBigDecimal(scale: Int, x: BigDecimal): Either[String, Numeric] =
-    if (!(0 <= scale && scale <= maxPrecision))
-      Left(s"Bad scale $scale, must be between 0 and $maxPrecision")
-    else if (!(x.stripTrailingZeros.scale <= scale))
+  final def fromBigDecimal(scale: Scale, x: BigDecimal): Either[String, Numeric] =
+    if (!(x.stripTrailingZeros.scale <= scale))
       Left(s"Cannot represent ${toString(x)} as (Numeric $scale) without lost of precision")
     else
       checkForOverflow(x.setScale(scale, ROUND_UNNECESSARY))
@@ -173,7 +177,7 @@ abstract class NumericModule {
   /**
     * Like `fromBigDecimal(Int, BigDecimal)` but with a scala BigDecimal.
     */
-  final def fromBigDecimal(scale: Int, x: BigDec): Either[String, Numeric] =
+  final def fromBigDecimal(scale: Scale, x: BigDec): Either[String, Numeric] =
     fromBigDecimal(scale, x.bigDecimal)
 
   /**
@@ -181,21 +185,21 @@ abstract class NumericModule {
     * In case scale is not a valid Numeric scale or `x` cannot be represented as a
     * `(Numeric scale)`, returns an error message instead.
     */
-  final def fromLong(scale: Int, x: Long): Either[String, Numeric] =
+  final def fromLong(scale: Scale, x: Long): Either[String, Numeric] =
     fromBigDecimal(scale, BigDecimal.valueOf(x))
 
   /**
     * Like `fromBigDecimal` but throws an exception instead of returning e message in case of error.
     */
   @throws[IllegalArgumentException]
-  final def assertFromBigDecimal(scale: Int, x: BigDecimal): Numeric =
+  final def assertFromBigDecimal(scale: Scale, x: BigDecimal): Numeric =
     assertRight(fromBigDecimal(scale, x))
 
   /**
     * Like `fromBigDecimal` but throws an exception instead of returning e message in case of error.
     */
   @throws[IllegalArgumentException]
-  final def assertFromBigDecimal(scale: Int, x: BigDec): Numeric =
+  final def assertFromBigDecimal(scale: Scale, x: BigDec): Numeric =
     assertRight(fromBigDecimal(scale, x))
 
   /**
@@ -228,7 +232,10 @@ abstract class NumericModule {
       case validScaledFormat(intPart, decPart) =>
         val scale = decPart.length
         val precision = if (intPart == "0") scale else intPart.length + scale
-        Either.cond(precision <= maxPrecision, cast(new BigDecimal(s).setScale(scale)), errMsg)
+        Either.cond(
+          precision <= maxPrecision && scale <= Scale.MaxValue,
+          cast(new BigDecimal(s).setScale(scale)),
+          errMsg)
       case _ =>
         Left(errMsg)
     }
@@ -245,12 +252,13 @@ abstract class NumericModule {
     * Convert a BigDecimal to the Numeric with the smallest possible scale able to represent the
     * former without loss of precision. Returns an error if such Numeric does not exists.
     *
-    * With use this function to convert BigDecimal with unknown scale.
+    * Use this function to convert BigDecimal with unknown scale.
     */
-  final def fromUnscaledBigDecimal(x: BigDecimal): Either[String, Numeric] = {
-    val y = x.stripTrailingZeros()
-    fromBigDecimal(y.scale max 0, y)
-  }
+  final def fromUnscaledBigDecimal(x: BigDecimal): Either[String, Numeric] =
+    for {
+      s <- Scale.fromInt(x.stripTrailingZeros().scale max 0)
+      n <- fromBigDecimal(s, x)
+    } yield n
 
   /**
     * Like the previous function but with scala BigDecimal
@@ -283,7 +291,7 @@ abstract class NumericModule {
     * `maxValue(scale)`, and round the number according to `scale`. Note
     * that it does _not_ fail if the number contains data beyond `scale`.
     */
-  def checkWithinBoundsAndRound(scale: Int, x: BigDecimal): Either[String, Numeric] =
+  def checkWithinBoundsAndRound(scale: Scale, x: BigDecimal): Either[String, Numeric] =
     Either.cond(
       x.precision - x.scale <= maxPrecision - scale,
       cast(x.setScale(scale, ROUND_HALF_EVEN)),
@@ -293,8 +301,59 @@ abstract class NumericModule {
   /**
     * Like the previous function but with scala BigDecimals instead of java ones.
     */
-  def checkWithinBoundsAndRound(scale: Int, x: BigDec): Either[String, Numeric] =
+  def checkWithinBoundsAndRound(scale: Scale, x: BigDec): Either[String, Numeric] =
     checkWithinBoundsAndRound(scale, x.bigDecimal)
+
+  sealed abstract class ScaleModule {
+    type Scale <: Int
+
+    val MinValue: Scale
+
+    val MaxValue: Scale
+
+    val Values: Vector[Scale] = Vector.range(MinValue, MaxValue + 1).map(cast)
+
+    /**
+      * Cast the Int `x` to a `Scale`.
+      */
+    @inline
+    private[NumericModule] def cast(x: Int): Scale
+
+    /**
+      * Converts Int to an Scale.
+      * Returns an error if `scale` is not between `minScale` and `maxScale`.
+      */
+    final def fromInt(scale: Int): Either[String, Scale] =
+      Either.cond(
+        MinValue <= scale && scale <= MaxValue,
+        cast(scale),
+        s"Bad scale $scale, must be between 0 and $MaxValue"
+      )
+
+    /**
+      * Like `fromInt` but throws an exception instead of returning e message in case of error.
+      */
+    final def assertFromInt(scale: Int): Scale =
+      assertRight(fromInt(scale))
+
+    /**
+      * Converts Long to an Scale.
+      * Returns an error if `scale` is not between `minScale` and `maxScale`.
+      */
+    final def fromLong(scale: Long): Either[String, Scale] =
+      Either.cond(
+        MinValue <= scale && scale <= MaxValue,
+        cast(scale.toInt),
+        s"Bad scale $scale, must be between 0 and $MaxValue"
+      )
+
+    /**
+      * Like `fromLong` but throws an exception instead of returning e message in case of error.
+      */
+    final def assertFromLong(scale: Long): Scale =
+      assertRight(fromLong(scale))
+
+  }
 
 }
 

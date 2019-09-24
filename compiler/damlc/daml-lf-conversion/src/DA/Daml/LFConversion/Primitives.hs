@@ -164,9 +164,9 @@ convertPrim _ "BEAddDecimal" (TNumeric10 :-> TNumeric10 :-> TNumeric10) =
 convertPrim _ "BESubDecimal" (TNumeric10 :-> TNumeric10 :-> TNumeric10) =
     ETyApp (EBuiltin BESubNumeric) (TNat 10)
 convertPrim _ "BEMulDecimal" (TNumeric10 :-> TNumeric10 :-> TNumeric10) =
-    ETyApp (EBuiltin BEMulNumeric) (TNat 10)
+    ETyApp (ETyApp (ETyApp (EBuiltin BEMulNumeric) (TNat 10)) (TNat 10)) (TNat 10)
 convertPrim _ "BEDivDecimal" (TNumeric10 :-> TNumeric10 :-> TNumeric10) =
-    ETyApp (EBuiltin BEDivNumeric) (TNat 10)
+    ETyApp (ETyApp (ETyApp (EBuiltin BEDivNumeric) (TNat 10)) (TNat 10)) (TNat 10)
 convertPrim _ "BERoundDecimal" (TInt64 :-> TNumeric10 :-> TNumeric10) =
     ETyApp (EBuiltin BERoundNumeric) (TNat 10)
 convertPrim _ "BEEqual" (TNumeric10 :-> TNumeric10 :-> TBool) =
@@ -199,7 +199,7 @@ _whenRuntimeSupports version feature t e
     | otherwise = runtimeUnsupported feature t
 
 runtimeUnsupported :: Feature -> Type -> Expr
-runtimeUnsupported (Feature name version) t =
+runtimeUnsupported (Feature name version _) t =
   ETmApp
   (ETyApp (EBuiltin BEError) t)
   (EBuiltin (BEText (name <> " only supported when compiling to DAML-LF " <> T.pack (renderVersion version) <> " or later")))

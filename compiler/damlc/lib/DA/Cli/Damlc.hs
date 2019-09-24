@@ -55,14 +55,14 @@ import qualified Data.List.Split as Split
 import qualified Data.Map.Strict as MS
 import Data.Maybe
 import qualified Data.NameMap as NM
-import qualified Data.Text as T
+import qualified Data.Text.Extended as T
 import Development.IDE.Core.API
 import Development.IDE.Core.Service (runAction)
 import Development.IDE.Core.Shake
 import Development.IDE.Core.Rules
 import Development.IDE.Core.Rules.Daml (getDalf, getDlintIdeas)
 import Development.IDE.Core.RuleTypes.Daml (DalfPackage(..), GetParsedModule(..))
-import Development.IDE.GHC.Util (fakeDynFlags, moduleImportPaths)
+import Development.IDE.GHC.Util (fakeDynFlags, moduleImportPath, hscEnv)
 import Development.IDE.Types.Diagnostics
 import Development.IDE.Types.Location
 import Development.IDE.Types.Options (clientSupportsProgress)
@@ -80,11 +80,16 @@ import System.Exit
 import System.FilePath
 import System.Info.Extra
 import System.IO.Extra
-#ifndef mingw32_HOST_OS
-import System.Posix.Files
-#endif
 import System.Process (callProcess)
 import qualified Text.PrettyPrint.ANSI.Leijen      as PP
+-- For dumps
+import "ghc-lib" GHC
+import "ghc-lib" HsDumpAst
+import "ghc-lib" HscStats
+import "ghc-lib-parser" HscTypes
+import qualified "ghc-lib-parser" Outputable as GHC
+import "ghc-lib-parser" ErrUtils
+import Development.IDE.Core.RuleTypes
 
 --------------------------------------------------------------------------------
 -- Commands
@@ -141,6 +146,7 @@ cmdCompile numProcessors =
         <$> inputFileOpt
         <*> outputFileOpt
         <*> optionsParser numProcessors (EnableScenarioService False) optPackageName
+        <*> optional (strOption $ long "iface-dir" <> metavar "IFACE_DIR" <> help "Directory for interface files")
 
 cmdLint :: Int -> Mod CommandFields Command
 cmdLint numProcessors =
@@ -180,7 +186,11 @@ runTestsInProjectOrFiles projectOpts Nothing color mbJUnitOutput cliOptions = Co
         case parseProjectConfig project of
             Left err -> throwIO err
             Right PackageConfigFields {..} -> do
-              files <- getDamlFiles pSrc
+              -- TODO: We set up one scenario service context per file that
+              -- we pass to execTest and scenario cnotexts are quite expensive.
+              -- Therefore we keep the behavior of only passing the root file
+              -- if source points to a specific file.
+              files <- getDamlRootFiles pSrc
               execTest files color mbJUnitOutput cliOptions
 runTestsInProjectOrFiles projectOpts (Just inFiles) color mbJUnitOutput cliOptions = Command Test effect
   where effect = withProjectRoot' projectOpts $ \relativize -> do
@@ -364,21 +374,30 @@ execIde telemetry (Debug debug) enableScenarioService ghcOpts mbProfileDir = Com
                       getDamlIdeState opts mbScenarioService loggerH sendMsg vfs (clientSupportsProgress caps)
 
 
-execCompile :: FilePath -> FilePath -> Options -> Command
-execCompile inputFile outputFile opts =
+execCompile :: FilePath -> FilePath -> Options -> Maybe FilePath -> Command
+execCompile inputFile outputFile opts mbIfaceDir =
   Command Compile effect
   where
     effect = withProjectRoot' (ProjectOpts Nothing (ProjectCheck "" False)) $ \relativize -> do
       loggerH <- getLogger opts "compile"
       inputFile <- toNormalizedFilePath <$> relativize inputFile
-      opts' <- mkOptions opts
+      opts' <- mkOptions opts { optIfaceDir = mbIfaceDir }
       withDamlIdeState opts' loggerH diagnosticsLogger $ \ide -> do
           setFilesOfInterest ide (Set.singleton inputFile)
           runAction ide $ do
+            -- Support for '-ddump-parsed', '-ddump-parsed-ast', '-dsource-stats'.
+            dflags <- hsc_dflags . hscEnv <$> use_ GhcSession inputFile
+            parsed <- pm_parsed_source <$> use_ GetParsedModule inputFile
+            liftIO $ do
+              ErrUtils.dumpIfSet_dyn dflags Opt_D_dump_parsed "Parser" $ GHC.ppr parsed
+              ErrUtils.dumpIfSet_dyn dflags Opt_D_dump_parsed_ast "Parser AST" $ showAstData NoBlankSrcSpan parsed
+              ErrUtils.dumpIfSet_dyn dflags Opt_D_source_stats "Source Statistics" $ ppSourceStats False parsed
+
             when (optWriteInterface opts') $ do
                 files <- nubSort . concatMap transitiveModuleDeps <$> use GetDependencies inputFile
                 mbIfaces <- writeIfacesAndHie (toNormalizedFilePath $ fromMaybe ifaceDir $ optIfaceDir opts') files
                 void $ liftIO $ mbErr "ERROR: Compilation failed." mbIfaces
+
             mbDalf <- getDalf inputFile
             dalf <- liftIO $ mbErr "ERROR: Compilation failed." mbDalf
             liftIO $ write dalf
@@ -773,10 +792,10 @@ execMigrate projectOpts opts0 inFile1_ inFile2_ mbDir =
           [(pkgName1, pkgId1, lfPkg1), (pkgName2, pkgId2, lfPkg2)] <-
               forM [inFile1, inFile2] $ \inFile -> do
                   bytes <- B.readFile inFile
-                  let pkgName = takeBaseName inFile
                   let dar = ZipArchive.toArchive $ BSL.fromStrict bytes
                   -- get the main pkg
                   dalfManifest <- either fail pure $ readDalfManifest dar
+                  let pkgName = takeBaseName $ mainDalfPath dalfManifest
                   mainDalfEntry <- getEntry (mainDalfPath dalfManifest) dar
                   (mainPkgId, mainLfPkg) <- decode $ BSL.toStrict $ ZipArchive.fromEntry mainDalfEntry
                   pure (pkgName, mainPkgId, mainLfPkg)
@@ -785,12 +804,12 @@ execMigrate projectOpts opts0 inFile1_ inFile2_ mbDir =
                   (NM.names $ LF.packageModules lfPkg1) `intersect`
                   (NM.names $ LF.packageModules lfPkg2)
           let eqModNamesStr = map (T.unpack . LF.moduleNameString) eqModNames
-          let buildCmd escape =
-                      "daml build --init-package-db=no" <> " --package " <>
-                      escape (show (pkgName1, [(m, m ++ "A") | m <- eqModNamesStr])) <>
-                      " --package " <>
-                      escape (show (pkgName2, [(m, m ++ "B") | m <- eqModNamesStr])) <>
-                      " --ghc-option -Wno-unrecognised-pragmas"
+          let buildOptions =
+                  [ "--init-package-db=no"
+                  , "'--package=" <> show (pkgName1, [(m, m ++ "A") | m <- eqModNamesStr]) <> "'"
+                  , "'--package=" <> show (pkgName2, [(m, m ++ "B") | m <- eqModNamesStr]) <> "'"
+                  , "--ghc-option=-Wno-unrecognised-pragmas"
+                  ]
           forM_ eqModNames $ \m@(LF.ModuleName modName) -> do
               [genSrc1, genSrc2] <-
                   forM [(pkgId1, lfPkg1), (pkgId2, lfPkg2)] $ \(pkgId, pkg) -> do
@@ -818,21 +837,19 @@ execMigrate projectOpts opts0 inFile1_ inFile2_ mbDir =
                       generateGenInstancesModule "A" (pkgName1, genSrc1)
               let generatedInstancesMod2 =
                       generateGenInstancesModule "B" (pkgName2, genSrc2)
-                  escapeUnix arg = "'" <> arg <> "'"
-                  escapeWindows arg = T.unpack $ "\"" <> T.replace "\"" "\\\"" (T.pack arg) <> "\""
               forM_
                   [ (upgradeModPath, generatedUpgradeMod)
                   , (instancesModPath1, generatedInstancesMod1)
                   , (instancesModPath2, generatedInstancesMod2)
-                  , ("build.sh", "#!/bin/sh\n" ++ buildCmd escapeUnix)
-                  , ("build.cmd", buildCmd escapeWindows)
                   ] $ \(path, mod) -> do
                   createDirectoryIfMissing True $ takeDirectory path
                   writeFile path mod
-#ifndef mingw32_HOST_OS
-          setFileMode "build.sh" $ stdFileMode `unionFileModes` ownerExecuteMode
-#endif
-
+          oldDamlYaml <- T.readFileUtf8 "daml.yaml"
+          let newDamlYaml = T.unlines $
+                T.lines oldDamlYaml ++
+                ["build-options:"] ++
+                map (\opt -> T.pack $ "- " <> opt) buildOptions
+          T.writeFileUtf8 "daml.yaml" newDamlYaml
           putStrLn "Generation of migration project complete."
     decode dalf =
         errorOnLeft
@@ -893,7 +910,7 @@ execDocTest opts files =
           pmS <- catMaybes <$> uses GetParsedModule files'
           -- This is horrible but we do not have a way to change the import paths in a running
           -- IdeState at the moment.
-          pure $ nubOrd $ mapMaybe moduleImportPaths pmS
+          pure $ nubOrd $ mapMaybe moduleImportPath pmS
       opts <- mkOptions opts { optImportPath = importPaths <> optImportPath opts, optHaddock = Haddock True }
       withDamlIdeState opts logger diagnosticsLogger $ \ideState ->
           docTest ideState files'
@@ -901,126 +918,6 @@ execDocTest opts files =
 --------------------------------------------------------------------------------
 -- main
 --------------------------------------------------------------------------------
-
-optDebugLog :: Parser Bool
-optDebugLog = switch $ help "Enable debug output" <> long "debug"
-
-optPackageName :: Parser (Maybe String)
-optPackageName = optional $ strOption $
-       metavar "PACKAGE-NAME"
-    <> help "create package artifacts for the given package name"
-    <> long "package-name"
-
--- | Parametrized by the type of pkgname parser since we want that to be different for
--- "package".
-optionsParser :: Int -> EnableScenarioService -> Parser (Maybe String) -> Parser Options
-optionsParser numProcessors enableScenarioService parsePkgName = Options
-    <$> optImportPath
-    <*> optPackageDir
-    <*> parsePkgName
-    <*> optWriteIface
-    <*> pure Nothing
-    <*> optHideAllPackages
-    <*> many optPackage
-    <*> shakeProfilingOpt
-    <*> optShakeThreads
-    <*> lfVersionOpt
-    <*> optDebugLog
-    <*> optGhcCustomOptions
-    <*> pure enableScenarioService
-    <*> pure (optScenarioValidation $ defaultOptions Nothing)
-    <*> dlintUsageOpt
-    <*> pure False
-    <*> optNoDflagCheck
-    <*> pure False
-    <*> pure (Haddock False)
-    <*> optCppPath
-    <*> pure Nothing
-  where
-    optImportPath :: Parser [FilePath]
-    optImportPath =
-        many $
-        strOption $
-        metavar "INCLUDE-PATH" <>
-        help "Path to an additional source directory to be included" <>
-        long "include"
-
-    optPackageDir :: Parser [FilePath]
-    optPackageDir = many $ strOption $ metavar "LOC-OF-PACKAGE-DB"
-                      <> help "use package database in the given location"
-                      <> long "package-db"
-
-    optWriteIface :: Parser Bool
-    optWriteIface =
-        switch $
-          help "Whether to write interface files during type checking, required for building a package such as daml-prim" <>
-          long "write-iface"
-
-    optPackage :: Parser (String, [(String, String)])
-    optPackage =
-      option auto $
-      metavar "PACKAGE" <>
-      help "explicit import of a package with optional renaming of modules" <>
-      long "package" <>
-      internal
-
-    optHideAllPackages :: Parser Bool
-    optHideAllPackages =
-      switch $
-      help "hide all packages, use -package for explicit import" <>
-      long "hide-all-packages" <>
-      internal
-
-    -- optparse-applicative does not provide a nice way
-    -- to make the argument for -j optional, see
-    -- https://github.com/pcapriotti/optparse-applicative/issues/243
-    optShakeThreads :: Parser Int
-    optShakeThreads =
-        flag' numProcessors
-          (short 'j' <>
-           internal) <|>
-        option auto
-          (long "jobs" <>
-           metavar "THREADS" <>
-           help threadsHelp <>
-           value 1)
-    threadsHelp =
-        unlines
-            [ "The number of threads to run in parallel."
-            , "When -j is not passed, 1 thread is used."
-            , "If -j is passed, the number of threads defaults to the number of processors."
-            , "Use --jobs=N to explicitely set the number of threads to N."
-            , "Note that the output is not deterministic for > 1 job."
-            ]
-
-
-    optNoDflagCheck :: Parser Bool
-    optNoDflagCheck =
-      flag True False $
-      help "Dont check generated GHC DynFlags for errors." <>
-      long "no-dflags-check" <>
-      internal
-
-    optCppPath :: Parser (Maybe FilePath)
-    optCppPath = optional . option str
-        $ metavar "PATH"
-        <> long "cpp"
-        <> help "Set path to CPP."
-        <> internal
-
-optGhcCustomOptions :: Parser [String]
-optGhcCustomOptions =
-    fmap concat $ many $
-    option (stringsSepBy ' ') $
-    long "ghc-option" <>
-    metavar "OPTION" <>
-    help "Options to pass to the underlying GHC"
-
-shakeProfilingOpt :: Parser (Maybe FilePath)
-shakeProfilingOpt = optional $ strOption $
-       metavar "PROFILING-REPORT"
-    <> help "Directory for Shake profiling reports"
-    <> long "shake-profiling"
 
 options :: Int -> Parser Command
 options numProcessors =
@@ -1031,7 +928,7 @@ options numProcessors =
       <> cmdPackage numProcessors
       <> cmdBuild numProcessors
       <> cmdTest numProcessors
-      <> Damldoc.cmd (\cli -> Command DamlDoc $ Damldoc.exec cli)
+      <> Damldoc.cmd numProcessors (\cli -> Command DamlDoc $ Damldoc.exec cli)
       <> cmdVisual
       <> cmdVisualWeb
       <> cmdInspectDar

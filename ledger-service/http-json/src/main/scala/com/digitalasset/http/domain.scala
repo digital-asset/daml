@@ -17,6 +17,7 @@ import scalaz.std.vector._
 import scalaz.syntax.std.option._
 import scalaz.syntax.traverse._
 import scalaz.{-\/, Applicative, Traverse, \/, \/-}
+import spray.json.JsValue
 
 import scala.language.higherKinds
 
@@ -40,7 +41,9 @@ object domain {
       ledgerId: Option[String],
       id: (TemplateId.OptionalPkg, LfV) \/ (Option[TemplateId.OptionalPkg], String))
 
-  case class GetActiveContractsRequest(templateIds: Set[TemplateId.OptionalPkg])
+  case class GetActiveContractsRequest(
+      templateIds: Set[TemplateId.OptionalPkg],
+      query: Map[String, JsValue])
 
   case class GetActiveContractsResponse[+LfV](
       offset: String,

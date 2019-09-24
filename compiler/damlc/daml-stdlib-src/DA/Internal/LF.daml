@@ -36,6 +36,8 @@ module DA.Internal.LF
 
   , Pair
   , unpackPair
+
+  , AnyTemplate
   ) where
 
 import GHC.Types (Opaque, Symbol)
@@ -203,3 +205,8 @@ data Pair (f1 : Symbol) (f2 : Symbol) a1 a2 = Pair Opaque
 -- | HIDE Function to turn a DAML-LF structural record type into a DAML pair.
 unpackPair : forall f1 f2 a1 a2. Pair f1 f2 a1 a2 -> (a1, a2)
 unpackPair = magic @"unpackPair"
+
+-- | Existential template type that can wrap an arbitrary template.
+data AnyTemplate =
+  AnyTemplate Opaque
+-- We need the constructor to avoid GHC warning about impossible pattern matches.

@@ -46,7 +46,7 @@ object ValueValidator {
     } yield Lf.ValueRecord(recId, fields)
 
   private val validNumericString =
-    """[+-]?\d{1,38}(\.\d{0,38})?""".r.pattern
+    """[+-]?\d{1,38}(\.\d{0,37})?""".r.pattern
 
   def validateValue(value: Value): Either[StatusRuntimeException, domain.Value] = value.sum match {
     case Sum.ContractId(cId) =>

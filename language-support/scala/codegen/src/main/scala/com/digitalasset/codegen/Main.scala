@@ -18,17 +18,23 @@ object Main extends StrictLogging {
 
   private val codegenId = "Scala Codegen"
 
+  @deprecated("Use codegen font-end: com.digitalasset.codegen.CodegenMain.main", "0.13.23")
   def main(args: Array[String]): Unit =
     Conf.parse(args) match {
-      case Some(Conf(darMap, outputDir, decoderPkgAndClass, verbosity, roots)) =>
-        setGlobalLogLevel(verbosity)
-        logUnsupportedEventDecoderOverride(decoderPkgAndClass)
-        val (dars, packageName) = darsAndOnePackageName(darMap)
-        CodeGen.generateCode(dars, packageName, outputDir.toFile, CodeGen.Novel, roots)
+      case Some(conf) =>
+        generateCode(conf)
       case None =>
         throw new IllegalArgumentException(
           s"Invalid ${codegenId: String} command line arguments: ${args.mkString(" "): String}")
     }
+
+  def generateCode(conf: Conf): Unit = conf match {
+    case Conf(darMap, outputDir, decoderPkgAndClass, verbosity, roots) =>
+      setGlobalLogLevel(verbosity)
+      logUnsupportedEventDecoderOverride(decoderPkgAndClass)
+      val (dars, packageName) = darsAndOnePackageName(darMap)
+      CodeGen.generateCode(dars, packageName, outputDir.toFile, CodeGen.Novel, roots)
+  }
 
   private def setGlobalLogLevel(verbosity: Level): Unit = {
     LoggerFactory.getLogger(Logger.ROOT_LOGGER_NAME) match {

@@ -8,11 +8,14 @@ module DA.Daml.Compiler.Dar
     , pkgNameVersion
     , getSrcRoot
     , getDamlFiles
+    , getDamlRootFiles
+    , writeIfacesAndHie
     ) where
 
 import qualified "zip" Codec.Archive.Zip as Zip
 import Control.Monad.Extra
 import Control.Monad.IO.Class
+import Control.Monad.Trans.Class
 import Control.Monad.Trans.Maybe
 import qualified DA.Daml.LF.Ast as LF
 import DA.Daml.LF.Proto3.Archive (encodeArchiveAndHash)
@@ -31,12 +34,19 @@ import qualified Data.Text as T
 import Development.IDE.Core.API
 import Development.IDE.Core.RuleTypes.Daml
 import Development.IDE.Core.Rules.Daml
+import Development.IDE.Core.Shake
+import Development.IDE.GHC.Compat
+import Development.IDE.GHC.Util
 import Development.IDE.Types.Location
 import qualified Development.IDE.Types.Logger as IdeLogger
-import Module
 import SdkVersion
 import System.Directory.Extra
 import System.FilePath
+
+import GHC
+import MkIface
+import Module
+import HscTypes
 
 ------------------------------------------------------------------------------
 {- | Builds a dar file.
@@ -48,16 +58,16 @@ A (fat) dar file is a zip file containing
 * all source files to that library
      - a dependency tree of imports
      - starting from the given top-level DAML 'file'
-     - all these files _must_ reside in the same directory 'topdir'
-     - the 'topdir' in the absolute path is replaced by 'name'
+     - all these files _must_ reside in the same “source root” directory
+     - the “source root” in the absolute path is replaced by 'name-hash'
 * all dalf dependencies
 * additional data files under the data/ directory.
 
-'topdir' is the path prefix of the top module that is _not_ part of the
-qualified module name.
+“source root” corresponds to the import directory for a module,
+i.e., the path prefix that is not part of the module name.
 Example:  'file' = "/home/dude/work/solution-xy/daml/XY/Main/LibraryModules.daml"
 contains "daml-1.2 module XY.Main.LibraryModules"
-so 'topdir' is "/home/dude/work/solution-xy/daml"
+so “source root” is "/home/dude/work/solution-xy/daml"
 
 The dar archive should stay independent of the dependency resolution tool. Therefore the pom file is
 gernerated separately.
@@ -96,7 +106,7 @@ buildDar service pkgConf@PackageConfigFields {..} ifDir dalfInput = do
             pure $ Just $ createArchive pkgConf "" bytes [] (toNormalizedFilePath ".") [] [] []
         else runAction service $
              runMaybeT $ do
-                 files <- liftIO $ getDamlFiles pSrc
+                 files <- getDamlFiles pSrc
                  pkgs <- usesE GeneratePackage files
                  let pkg = mergePkgs pkgs
                  let pkgModuleNames = map T.unpack $ LF.packageModuleNames pkg
@@ -118,7 +128,7 @@ buildDar service pkgConf@PackageConfigFields {..} ifDir dalfInput = do
                          | (unitId, pkg) <- Map.toList dalfDependencies0
                          ]
                  let dataFiles = [mkConfFile pkgConf pkgModuleNames (T.unpack pkgId)]
-                 srcRoot <- liftIO $ getSrcRoot pSrc
+                 srcRoot <- getSrcRoot pSrc
                  pure $
                      createArchive
                          pkgConf
@@ -130,12 +140,51 @@ buildDar service pkgConf@PackageConfigFields {..} ifDir dalfInput = do
                          dataFiles
                          ifaces
 
--- For backwards compatibility we allow a file at the source root level and just take it's directory
--- to be the source root.
-getSrcRoot :: FilePath -> IO NormalizedFilePath
+-- | Write interface files and hie files to the location specified by the given options.
+writeIfacesAndHie ::
+       NormalizedFilePath -> [NormalizedFilePath] -> Action (Maybe [NormalizedFilePath])
+writeIfacesAndHie ifDir files =
+    runMaybeT $ do
+        tcms <- usesE TypeCheck files
+        fmap concat $ forM (zip files tcms) $ \(file, tcm) -> do
+            session <- lift $ hscEnv <$> use_ GhcSession file
+            liftIO $ writeTcm session tcm
+  where
+    writeTcm session tcm =
+        do
+            let fp =
+                    fromNormalizedFilePath ifDir </>
+                    (ms_hspp_file $
+                     pm_mod_summary $ tm_parsed_module $ tmrModule tcm)
+            createDirectoryIfMissing True (takeDirectory fp)
+            let ifaceFp = replaceExtension fp ".hi"
+            let hieFp = replaceExtension fp ".hie"
+            writeIfaceFile
+                (hsc_dflags session)
+                ifaceFp
+                (hm_iface $ tmrModInfo tcm)
+            hieFile <-
+                liftIO $
+                runHsc session $
+                mkHieFile
+                    (pm_mod_summary $ tm_parsed_module $ tmrModule tcm)
+                    (fst $ tm_internals_ $ tmrModule tcm)
+                    (fromJust $ tm_renamed_source $ tmrModule tcm)
+            writeHieFile hieFp hieFile
+            pure [toNormalizedFilePath ifaceFp, toNormalizedFilePath hieFp]
+
+-- For backwards compatibility we allow both a file or a directory in "source".
+-- For a file we use the import path as the src root.
+getSrcRoot :: FilePath -> MaybeT Action NormalizedFilePath
 getSrcRoot fileOrDir = do
-  isDir <- doesDirectoryExist fileOrDir
-  pure $ toNormalizedFilePath $ if isDir then fileOrDir else takeDirectory fileOrDir
+  let fileOrDir' = toNormalizedFilePath fileOrDir
+  isDir <- liftIO $ doesDirectoryExist fileOrDir
+  if isDir
+      then pure fileOrDir'
+      else do
+          pm <- useE GetParsedModule fileOrDir'
+          Just root <- pure $ moduleImportPath pm
+          pure $ toNormalizedFilePath root
 
 -- | Merge several packages into one.
 mergePkgs :: [WhnfPackage] -> LF.Package
@@ -151,15 +200,32 @@ mergePkgs (WhnfPackage pkg0:pkgs) =
         pkgs
 
 -- | Find all DAML files below a given source root. If the source root is a file we interpret it as
--- main and just return that one file.
-getDamlFiles :: FilePath -> IO [NormalizedFilePath]
+-- main and return that file and all dependencies.
+getDamlFiles :: FilePath -> MaybeT Action [NormalizedFilePath]
 getDamlFiles srcRoot = do
-    isDir <- doesDirectoryExist srcRoot
+    isDir <- liftIO $ doesDirectoryExist srcRoot
     if isDir
-        then do
-            fs <- listFilesRecursive srcRoot
-            pure $
-                map toNormalizedFilePath $ filter (".daml" `isExtensionOf`) fs
+        then liftIO $ damlFilesInDir srcRoot
+        else do
+            let normalizedSrcRoot = toNormalizedFilePath srcRoot
+            deps <- MaybeT $ getDependencies normalizedSrcRoot
+            pure (normalizedSrcRoot : deps)
+
+-- | Return all daml files in the given directory.
+damlFilesInDir :: FilePath -> IO [NormalizedFilePath]
+damlFilesInDir srcRoot = do
+    fs <- listFilesRecursive srcRoot
+    pure $
+        map toNormalizedFilePath $ filter (".daml" `isExtensionOf`) fs
+
+-- | Find all DAML files below a given source root. If the source root is a file we interpret it as
+-- main and return only that file. This is different from getDamlFiles which also returns
+-- all dependencies.
+getDamlRootFiles :: FilePath -> IO [NormalizedFilePath]
+getDamlRootFiles srcRoot = do
+    isDir <- liftIO $ doesDirectoryExist srcRoot
+    if isDir
+        then liftIO $ damlFilesInDir srcRoot
         else pure [toNormalizedFilePath srcRoot]
 
 fullPkgName :: String -> String -> String -> String
