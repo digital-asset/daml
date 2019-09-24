@@ -13,7 +13,7 @@ module DA.Daml.Visual
   , ChoiceDetails(..)
   , dotFileGen
   , graphFromModule
-  , d3HtmlWebPage
+  , execVisualHtml
   ) where
 
 
@@ -338,8 +338,8 @@ webPageTemplate =
     , "</html>"
     ]
 
-d3HtmlWebPage :: FilePath -> Maybe FilePath -> IO ()
-d3HtmlWebPage darFilePath webFilePath = do
+execVisualHtml :: FilePath -> Maybe FilePath -> IO ()
+execVisualHtml darFilePath webFilePath = do
     darBytes <- B.readFile darFilePath
     dalfs <- either fail pure $
                 readDalfs $ ZIPArchive.toArchive (BSL.fromStrict darBytes)
