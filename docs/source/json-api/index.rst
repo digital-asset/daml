@@ -4,14 +4,39 @@
 HTTP JSON API Service
 #####################
 
+**WARNING:** the HTTP JSON API described in this document is actively
+being designed and is *subject to breaking changes*, including all
+request and response elements demonstrated below or otherwise
+implemented by the API.  We welcome feedback about the API on `our issue
+tracker
+<https://github.com/digital-asset/daml/issues/new?milestone=HTTP+JSON+API+Maintenance>`_
+or `on Slack <https://damldriven.slack.com/>`_.
+
+The JSON API provides a significantly simpler way than :doc:`the Ledger
+API </app-dev/index>` to access *basic active contract set
+functionality*:
+
+- creating contracts,
+- exercising choices on contracts, and
+- querying the current active contract set.
+
+The goal is to get you up and running writing effective
+ledger-integrated applications quickly, so we have deliberately excluded
+complicating concerns, including but not limited to
+
+- inspecting transactions,
+- asynchronous submit/completion workflows,
+- temporal queries (e.g. active contracts *as of a certain time*), and
+- ledger metaprogramming (e.g. packages and templates).
+
+For these and other features, use :doc:`the Ledger API </app-dev/index>`
+instead.
+
 .. toctree::
    :hidden:
 
    lf-value-specification
    search-query-language
-
-**WARNING:** the HTTP JSON API described in this document is actively
-being designed and is *subject to breaking changes*.
 
 How to start
 ************
@@ -93,6 +118,8 @@ GET http://localhost:7575/contracts/search
 
 POST http://localhost:7575/contracts/search
 ===========================================
+
+List currently active contracts that match a given query.
 
 application/json body, formatted according to the :doc:`search-query-language`::
 
@@ -176,6 +203,8 @@ output, each contract formatted according to :doc:`lf-value-specification`::
 POST http://localhost:7575/command/create
 =========================================
 
+Create a contract.
+
 application/json body, ``argument`` formatted according to :doc:`lf-value-specification`::
 
     {
@@ -219,6 +248,8 @@ output::
  
 POST http://localhost:44279/command/exercise
 ============================================
+
+Exercise a choice on a contract.
 
 ``"contractId": "#20:0"`` is the value from the create output
 application/json body::
