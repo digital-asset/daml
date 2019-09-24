@@ -9,10 +9,10 @@ import io.grpc.Status
 final class Packages(session: LedgerSession) extends LedgerTestSuite(session) {
 
   /** A package ID that is guaranteed to not be uploaded */
-  val unknownPackageId = " "
+  private[this] val unknownPackageId = " "
 
-  val listPackages =
-    LedgerTest("Packages", "Listing packages should return a result") { context =>
+  private[this] val listPackages =
+    LedgerTest("PackagesList", "Listing packages should return a result") { context =>
       for {
         ledger <- context.participant()
         knownPackages <- ledger.listPackages()
@@ -22,8 +22,8 @@ final class Packages(session: LedgerSession) extends LedgerTestSuite(session) {
           s"List of packages was expected to contain at least 3 packages, got ${knownPackages.size} instead.")
     }
 
-  val getPackage =
-    LedgerTest("Packages", "Getting package content should return a valid result") { context =>
+  private[this] val getPackage =
+    LedgerTest("PackagesGet", "Getting package content should return a valid result") { context =>
       for {
         ledger <- context.participant()
         somePackageId <- ledger.listPackages().map(_.headOption.getOrElse(fail("No package found")))
@@ -34,8 +34,8 @@ final class Packages(session: LedgerSession) extends LedgerTestSuite(session) {
       }
     }
 
-  val getUnknownPackage =
-    LedgerTest("Packages", "Getting package content for an unknown package should fail") {
+  private[this] val getUnknownPackage =
+    LedgerTest("PackagesGetUnknown", "Getting package content for an unknown package should fail") {
       context =>
         for {
           ledger <- context.participant()
@@ -45,8 +45,8 @@ final class Packages(session: LedgerSession) extends LedgerTestSuite(session) {
         }
     }
 
-  val getPackageStatus =
-    LedgerTest("Packages", "Getting package status should return a valid result") { context =>
+  private[this] val getPackageStatus =
+    LedgerTest("PackagesStatus", "Getting package status should return a valid result") { context =>
       for {
         ledger <- context.participant()
         somePackageId <- ledger.listPackages().map(_.headOption.getOrElse(fail("No package found")))
@@ -56,8 +56,8 @@ final class Packages(session: LedgerSession) extends LedgerTestSuite(session) {
       }
     }
 
-  val getUnknownPackageStatus =
-    LedgerTest("Packages", "Getting package status for an unknown package should fail") { context =>
+  private[this] val getUnknownPackageStatus =
+    LedgerTest("PackagesStatusUnknown", "Getting package status for an unknown package should fail") { context =>
       for {
         ledger <- context.participant()
         status <- ledger.getPackageStatus(unknownPackageId)
