@@ -126,7 +126,7 @@ getIntegrationTests registerTODO scenarioService version = do
     opts <- defaultOptionsIO (Just version)
     opts <- pure $ opts
         { optThreads = 0
-        , optScenarioSkipValidation = ScenarioSkipValidation False
+        , optSkipScenarioValidation = SkipScenarioValidation False
         , optCoreLinting = True
         }
 

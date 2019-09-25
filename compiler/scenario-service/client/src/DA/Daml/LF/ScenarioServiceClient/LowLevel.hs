@@ -82,7 +82,7 @@ newtype ContextId = ContextId { getContextId :: Int64 }
   deriving (NFData, Eq, Show)
 
 -- | If true, the scenario service server do not run package validations.
-data SkipValidation = SkipValidation { getFlag :: Bool }
+data SkipValidation = SkipValidation { getSkipValidation :: Bool }
   deriving Show
 
 data ContextUpdate = ContextUpdate
@@ -294,7 +294,7 @@ updateCtx Handle{..} (ContextId ctxId) ContextUpdate{..} = do
           ctxId
           (Just updModules)
           (Just updPackages)
-          (getFlag updSkipValidation)
+          (getSkipValidation updSkipValidation)
   pure (void res)
   where
     updModules =
