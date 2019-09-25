@@ -11,3 +11,5 @@ HEAD — ongoing
 
 - [DAML Studio] ``damlc ide`` now also supports a ``--target`` option.
   The easiest way to specify this is the ``build-options`` field in ``daml.yaml``.
+- [Ledger] 
+  Improve SQL backend performance by eliminating extra queries to the database.
