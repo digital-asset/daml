@@ -272,27 +272,28 @@ convertRationalNumericMono env scale num denom
 -- to the required scale. This means, for example, that a polymorphic literal like
 -- "3.141592... : Numeric n" will be correctly rounded for all scales.
 convertRationalNumericPoly :: Env -> LF.Type -> Integer -> Integer -> ConvertM LF.Expr
-convertRationalNumericPoly env outputScale num denom
-    | max (abs num) (abs denom) >= 10 ^ numericMaxPrecision
-    || inputScale < 0 || inputScale > numericMaxScale =
-        unsupported
-            ("Numeric is out of bounds: " ++
-            show ((fromInteger num / fromInteger denom) :: Double) ++
-            ". Numeric can only represent 38 digits of precision.")
-            (num, denom)
+convertRationalNumericPoly env outputScale num denom =
+    case numericFromRational (num % denom) of
+        Left NEScaleTooLarge ->
+            unsupported
+                ("Rational is out of bounds: " ++ show double ++ ". Numeric can only represent " ++ show numericMaxScale ++ " digits after the decimal point.")
+                (num, denom)
 
-    | otherwise =
-        pure $
-            EBuiltin BEMulNumeric
-            `ETyApp` TNat inputScale
-            `ETyApp` TNat 0
-            `ETyApp` outputScale
-            `ETmApp` EBuiltin (BENumeric $ inputNumeric)
-            `ETmApp` EBuiltin (BENumeric $ numeric 0 1)
+        Left NEMantissaTooLarge ->
+            unsupported
+                ("Rational is out of bounds: " ++ show double ++ ". Numeric can only represent " ++ show numericMaxPrecision ++ " digits of precision.")
+                (num, denom)
 
+        Right inputNumeric ->
+            pure $
+                EBuiltin BEMulNumeric
+                `ETyApp` TNat (numericScale inputNumeric)
+                `ETyApp` TNat 0
+                `ETyApp` outputScale
+                `ETmApp` EBuiltin (BENumeric inputNumeric)
+                `ETmApp` EBuiltin (BENumeric $ numeric 0 1)
     where
-        inputNumeric = numericFromRational (num % denom)
-        inputScale = numericScale inputNumeric
+        double = (fromInteger num / fromInteger denom) :: Double
 
 convertModule :: LF.Version -> MS.Map UnitId T.Text -> NormalizedFilePath -> CoreModule -> Either FileDiagnostic LF.Module
 convertModule lfVersion pkgMap file x = runConvertM (ConversionEnv file Nothing) $ do
