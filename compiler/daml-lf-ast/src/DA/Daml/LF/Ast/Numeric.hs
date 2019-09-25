@@ -8,6 +8,7 @@ module DA.Daml.LF.Ast.Numeric
     , numeric
     , numericScale
     , numericMaxScale
+    , numericMaxPrecision
     , numericFromRational
     , numericFromDecimal
     ) where
@@ -56,6 +57,10 @@ numericFromRational r = Numeric (fromRational r)
 -- | Upper bound for numeric scale (inclusive).
 numericMaxScale :: Natural
 numericMaxScale = 37
+
+-- | Number of digits we can represent.
+numericMaxPrecision :: Natural
+numericMaxPrecision = 38
 
 -- | Upper bound for numeric mantissa (inclusive).
 numericMaxMantissa :: Integer

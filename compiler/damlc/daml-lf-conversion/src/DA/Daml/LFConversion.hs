@@ -237,36 +237,33 @@ convertRationalDecimal env num denom
     maxPrecision = 10 :: Integer
 
 -- | Convert a rational number into a fixed scale Numeric literal. We check
--- that the scale is in bounds, and the number can be represented without
+-- that the scale is in bound, and the number can be represented without
 -- overflow or loss of precision.
 convertRationalNumericMono :: Env -> Integer -> Integer -> Integer -> ConvertM LF.Expr
-convertRationalNumericMono env scale num denom =
-    if  | scale < 0 || scale > 37 ->
-            unsupported
-                ("Tried to construct value of type Numeric " ++ show scale ++ ", but scale is out of bounds. Scale must be between 0 through 37, not " ++ show scale ++ ".")
-                scale
+convertRationalNumericMono env scale num denom
+    | scale < 0 || scale > fromIntegral numericMaxScale =
+        unsupported
+            ("Tried to construct value of type Numeric " ++ show scale ++ ", but scale is out of bounds. Scale must be between 0 through 37, not " ++ show scale ++ ".")
+            scale
 
-        | abs (r * 10 ^ scale) >= upperBound128Bit ->
-            unsupported
-                ("Rational is out of bounds: " ++
-                show ((fromInteger num / fromInteger denom) :: Double) ++
-                ". The range of values representable by the Numeric " ++ show scale ++ " type is  -10^" ++ show (38-scale) ++ " + 1  through  10^" ++ show (38-scale) ++ " - 1.")
-                (num, denom)
+    | abs ((num % denom) * 10 ^ scale) >= 10 ^ numericMaxPrecision =
+        unsupported
+            ("Rational is out of bounds: " ++
+            show ((fromInteger num / fromInteger denom) :: Double) ++
+            ". The range of values representable by the Numeric " ++ show scale ++ " type is  -10^" ++ show (38-scale) ++ " + 1  through  10^" ++ show (38-scale) ++ " - 1.")
+            (num, denom)
 
-        | (num * 10^scale) `mod` denom /= 0 ->
-            unsupported
-                ("Rational is out of bounds: it cannot be represented without loss of precision. " ++
-                show ((fromInteger num / fromInteger denom) :: Double) ++
-                ". Maximum precision for the Numeric " ++ show scale ++ " type is 10^-" ++ show scale ++ ".")
-                (num, denom)
+    | (num * 10^scale) `mod` denom /= 0 =
+        unsupported
+            ("Rational is out of bounds: it cannot be represented without loss of precision. " ++
+            show ((fromInteger num / fromInteger denom) :: Double) ++
+            ". Maximum precision for the Numeric " ++ show scale ++ " type is 10^-" ++ show scale ++ ".")
+            (num, denom)
 
-        | otherwise ->
-            pure $ EBuiltin $ BENumeric $
-                numeric (fromIntegral scale)
-                        ((num * 10^scale) `div` denom)
-  where
-    r = num % denom
-    upperBound128Bit = 10 ^ (38 :: Integer)
+    | otherwise =
+        pure $ EBuiltin $ BENumeric $
+            numeric (fromIntegral scale)
+                    ((num * 10^scale) `div` denom)
 
 -- | Convert a rational number into a variable scale Numeric literal. We check that
 -- the number can be represented at *some* Numeric scale without overflow or
@@ -275,8 +272,8 @@ convertRationalNumericMono env scale num denom =
 -- "3.141592... : Numeric n" will be correctly rounded for all scales.
 convertRationalNumericPoly :: Env -> LF.Type -> Integer -> Integer -> ConvertM LF.Expr
 convertRationalNumericPoly env outputScale num denom =
-    if  | max (abs num) (abs denom) >= upperBound128Bit
-        || inputScale < 0 || inputScale > 37 ->
+    if  | max (abs num) (abs denom) >= 10 ^ numericMaxPrecision
+        || inputScale < 0 || inputScale > numericMaxScale ->
             unsupported
                 ("Numeric is out of bounds: " ++
                 show ((fromInteger num / fromInteger denom) :: Double) ++
@@ -295,7 +292,6 @@ convertRationalNumericPoly env outputScale num denom =
   where
     inputNumeric = numericFromRational (num % denom)
     inputScale = numericScale inputNumeric
-    upperBound128Bit = 10 ^ (38 :: Integer)
 
 convertModule :: LF.Version -> MS.Map UnitId T.Text -> NormalizedFilePath -> CoreModule -> Either FileDiagnostic LF.Module
 convertModule lfVersion pkgMap file x = runConvertM (ConversionEnv file Nothing) $ do
