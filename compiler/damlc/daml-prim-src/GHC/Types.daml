@@ -23,6 +23,11 @@ module GHC.Types (
         Opaque,
         ifThenElse,
         primitive, magic,
+
+#ifdef DAML_NUMERIC
+        Nat, Numeric,
+#endif
+
     ) where
 
 import GHC.Prim
@@ -148,9 +153,26 @@ data Text =
   -- | HIDE
   Text Opaque
 
+#ifdef DAML_NUMERIC
+
+-- | (Kind) This is the kind of type-level naturals.
+data Nat
+
+-- | A type for fixed-point decimal numbers, with the scale
+-- being passed as part of the type.
+data Numeric (n:Nat) =
+  -- | HIDE
+  Numeric Opaque
+
+type Decimal = Numeric 10
+
+#else
+
 -- | A type for fixed-point decimals: numbers of the form
 --   `x / 10e10` where `x` is an integer with `|x| < 10e38`.
 --   For example, `1.25`.
 data Decimal =
   -- | HIDE
   Decimal Opaque
+
+#endif

@@ -95,7 +95,7 @@ import           Control.Monad.Reader
 import           Control.Monad.State.Strict
 import           DA.Daml.LF.Ast as LF
 import           DA.Daml.LF.Ast.Type as LF
-import           DA.Daml.LF.Ast.Numeric (numericFromDecimal)
+import           DA.Daml.LF.Ast.Numeric
 import           Data.Data hiding (TyCon)
 import           Data.Foldable (foldlM)
 import           Data.Int
@@ -211,8 +211,9 @@ convertInt64 x
     | otherwise =
         unsupported "Int literal out of bounds" (negate x)
 
-convertRational :: Env -> Integer -> Integer -> ConvertM LF.Expr
-convertRational env num denom
+-- | Convert a rational number into a (legacy) Decimal literal.
+convertRationalDecimal :: Env -> Integer -> Integer -> ConvertM LF.Expr
+convertRationalDecimal env num denom
  =
     -- the denominator needs to be a divisor of 10^10.
     -- num % denom * 10^10 needs to fit within a 128bit signed number.
@@ -234,6 +235,67 @@ convertRational env num denom
     r = num % denom
     upperBound128Bit = 10 ^ (38 :: Integer)
     maxPrecision = 10 :: Integer
+
+-- | Convert a rational number into a fixed scale Numeric literal. We check
+-- that the scale is in bounds, and the number can be represented without
+-- overflow or loss of precision.
+convertRationalNumericMono :: Env -> Integer -> Integer -> Integer -> ConvertM LF.Expr
+convertRationalNumericMono env scale num denom =
+    if  | scale < 0 || scale > 37 ->
+            unsupported
+                ("Tried to construct value of type Numeric " ++ show scale ++ ", but scale is out of bounds. Scale must be between 0 through 37, not " ++ show scale ++ ".")
+                scale
+
+        | abs (r * 10 ^ scale) >= upperBound128Bit ->
+            unsupported
+                ("Rational is out of bounds: " ++
+                show ((fromInteger num / fromInteger denom) :: Double) ++
+                ". The range of values representable by the Numeric " ++ show scale ++ " type is  -10^" ++ show (38-scale) ++ " + 1  through  10^" ++ show (38-scale) ++ " - 1.")
+                (num, denom)
+
+        | (num * 10^scale) `mod` denom /= 0 ->
+            unsupported
+                ("Rational is out of bounds: it cannot be represented without loss of precision. " ++
+                show ((fromInteger num / fromInteger denom) :: Double) ++
+                ". Maximum precision for the Numeric " ++ show scale ++ " type is 10^-" ++ show scale ++ ".")
+                (num, denom)
+
+        | otherwise ->
+            pure $ EBuiltin $ BENumeric $
+                numeric (fromIntegral scale)
+                        ((num * 10^scale) `div` denom)
+  where
+    r = num % denom
+    upperBound128Bit = 10 ^ (38 :: Integer)
+
+-- | Convert a rational number into a variable scale Numeric literal. We check that
+-- the number can be represented at *some* Numeric scale without overflow or
+-- loss of precision, and then we round and cast (with a multi-scale MUL_NUMERIC)
+-- to the required scale. This means, for example, that a polymorphic literal like
+-- "3.141592... : Numeric n" will be correctly rounded for all scales.
+convertRationalNumericPoly :: Env -> LF.Type -> Integer -> Integer -> ConvertM LF.Expr
+convertRationalNumericPoly env outputScale num denom =
+    if  | max (abs num) (abs denom) >= upperBound128Bit
+        || inputScale < 0 || inputScale > 37 ->
+            unsupported
+                ("Numeric is out of bounds: " ++
+                show ((fromInteger num / fromInteger denom) :: Double) ++
+                ". Numeric can only represent 38 digits of precision.")
+                (num, denom)
+
+        | otherwise ->
+            pure $
+                EBuiltin BEMulNumeric
+                `ETyApp` TNat inputScale
+                `ETyApp` TNat 0
+                `ETyApp` outputScale
+                `ETmApp` EBuiltin (BENumeric $ inputNumeric)
+                `ETmApp` EBuiltin (BENumeric $ numeric 0 1)
+
+  where
+    inputNumeric = numericFromRational (num % denom)
+    inputScale = numericScale inputNumeric
+    upperBound128Bit = 10 ^ (38 :: Integer)
 
 convertModule :: LF.Version -> MS.Map UnitId T.Text -> NormalizedFilePath -> CoreModule -> Either FileDiagnostic LF.Module
 convertModule lfVersion pkgMap file x = runConvertM (ConversionEnv file Nothing) $ do
@@ -624,7 +686,15 @@ convertExpr env0 e = do
             withTmArg env (varV2, record') args $ \x2 args ->
                 pure (ERecUpd (fromTCon record') (mkField $ fsToText name) x2 x1, args)
     go env (VarIs "fromRational") (LExpr (VarIs ":%" `App` tyInteger `App` Lit (LitNumber _ top _) `App` Lit (LitNumber _ bot _)) : args)
-        = fmap (, args) $ convertRational env top bot
+        = fmap (, args) $ convertRationalDecimal env top bot
+    go env (VarIs "fromRational") (LType (isNumLitTy -> Just n) : LExpr (VarIs ":%" `App` tyInteger `App` Lit (LitNumber _ top _) `App` Lit (LitNumber _ bot _)) : args)
+        = fmap (, args) $ convertRationalNumericMono env n top bot
+    go env (VarIs "fromRational") (LType scaleTyCoRep : LExpr (VarIs ":%" `App` tyInteger `App` Lit (LitNumber _ top _) `App` Lit (LitNumber _ bot _)) : args)
+        = do
+            scaleType <- convertType env scaleTyCoRep
+            fmap (, args) $ convertRationalNumericPoly env scaleType top bot
+
+
     go env (VarIs "negate") (tyInt : LExpr (VarIs "$fAdditiveInt") : LExpr (untick -> VarIs "fromInteger" `App` Lit (LitNumber _ x _)) : args)
         = fmap (, args) $ convertInt64 (negate x)
     go env (VarIs "fromInteger") (LExpr (Lit (LitNumber _ x _)) : args)
@@ -1155,6 +1225,7 @@ convertTyCon env t
     | Just m <- nameModule_maybe (getName t), m == gHC_TYPES =
         case getOccText t of
             "Text" -> pure TText
+            "Numeric" -> pure (TBuiltin BTNumeric)
             "Decimal" ->
                 if envLfVersion env `supports` featureNumeric
                     then pure (TNumeric (TNat 10))
@@ -1211,6 +1282,8 @@ convertType env t | Just t' <- getTyVar_maybe t
   = TVar . fst <$> convTypeVar t'
 convertType env t | Just s <- isStrLitTy t
   = pure TUnit
+convertType env t | Just n <- isNumLitTy t, n >= 0
+  = pure (TNat (fromIntegral n))
 convertType env t | Just (a,b) <- splitAppTy_maybe t
   = TApp <$> convertType env a <*> convertType env b
 convertType env x
@@ -1224,6 +1297,9 @@ convertKind x@(TypeCon t ts)
     | t == runtimeRepTyCon, null ts = pure KStar
     -- TODO (drsk): We want to check that the 'Meta' constructor really comes from GHC.Generics.
     | getOccFS t == "Meta", null ts = pure KStar
+    | Just m <- nameModule_maybe (getName t)
+    , GHC.moduleName m == mkModuleName "GHC.Types"
+    , getOccFS t == "Nat", null ts = pure KNat
     | t == funTyCon, [_,_,t1,t2] <- ts = KArrow <$> convertKind t1 <*> convertKind t2
 convertKind (TyVarTy x) = convertKind $ tyVarKind x
 convertKind x = unhandled "Kind" x
