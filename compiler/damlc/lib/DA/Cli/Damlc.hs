@@ -128,6 +128,7 @@ cmdIde =
         <*> enableScenarioOpt
         <*> optGhcCustomOptions
         <*> shakeProfilingOpt
+        <*> optional lfVersionOpt
 
 cmdLicense :: Mod CommandFields Command
 cmdLicense =
@@ -323,8 +324,10 @@ execIde :: Telemetry
         -> EnableScenarioService
         -> [String]
         -> Maybe FilePath
+        -> Maybe LF.Version
         -> Command
-execIde telemetry (Debug debug) enableScenarioService ghcOpts mbProfileDir = Command Ide effect
+execIde telemetry (Debug debug) enableScenarioService ghcOpts mbProfileDir (fromMaybe LF.versionDefault -> lfVersion) =
+    Command Ide effect
   where effect = NS.withSocketsDo $ do
           let threshold =
                   if debug
@@ -347,10 +350,9 @@ execIde telemetry (Debug debug) enableScenarioService ghcOpts mbProfileDir = Com
                       Logger.GCP.logOptOut gcpState
                       f loggerH
                   Undecided -> f loggerH
-          -- TODO we should allow different LF versions in the IDE.
-          initPackageDb LF.versionDefault (InitPkgDb True) (AllowDifferentSdkVersions False)
+          initPackageDb lfVersion (InitPkgDb True) (AllowDifferentSdkVersions False)
           dlintDataDir <-locateRunfiles $ mainWorkspace </> "compiler/damlc/daml-ide-core"
-          opts <- defaultOptionsIO Nothing
+          opts <- defaultOptionsIO (Just lfVersion)
           opts <- pure $ opts
               { optScenarioService = enableScenarioService
               , optSkipScenarioValidation = SkipScenarioValidation True
