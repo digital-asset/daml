@@ -326,7 +326,7 @@ createScenarioContextRule =
 dalfForScenario :: NormalizedFilePath -> Action LF.Module
 dalfForScenario file = do
     DamlEnv{..} <- getDamlServiceEnv
-    if getFlag envScenarioSkipValidation then
+    if getSkipScenarioValidation envScenarioSkipValidation then
         use_ GenerateRawDalf file
     else
         use_ GenerateDalf file

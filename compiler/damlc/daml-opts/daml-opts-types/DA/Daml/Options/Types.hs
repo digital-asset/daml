@@ -84,7 +84,7 @@ data DlintUsage
   | DlintDisabled
   deriving Show
 
-data ScenarioSkipValidation = ScenarioSkipValidation { getFlag :: Bool }
+data ScenarioSkipValidation = ScenarioSkipValidation { getSkipScenarioValidation :: Bool }
   deriving Show
 
 newtype EnableScenarioService = EnableScenarioService { getEnableScenarioService :: Bool }
