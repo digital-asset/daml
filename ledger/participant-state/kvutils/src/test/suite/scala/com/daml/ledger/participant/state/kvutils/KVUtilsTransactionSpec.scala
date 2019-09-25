@@ -3,6 +3,7 @@
 
 package com.daml.ledger.participant.state.kvutils
 
+import com.codahale.metrics
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlLogEntry,
   DamlTransactionRejectionEntry
@@ -14,6 +15,8 @@ import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.transaction.Node.NodeCreate
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ValueUnit}
 import org.scalatest.{Matchers, WordSpec}
+
+import scala.collection.JavaConverters._
 
 class KVUtilsTransactionSpec extends WordSpec with Matchers {
 
@@ -140,7 +143,16 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
         txEntry <- submitTransaction(submitter = bob, tx = createTx).map(_._2)
       } yield {
         txEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.TRANSACTION_REJECTION_ENTRY
-        txEntry.getTransactionRejectionEntry.getReasonCase shouldEqual DamlTransactionRejectionEntry.ReasonCase.DISPUTED
+        val disputed = DamlTransactionRejectionEntry.ReasonCase.DISPUTED
+        txEntry.getTransactionRejectionEntry.getReasonCase shouldEqual disputed
+
+        // Check that we're updating the metrics (assuming this test at least has been run)
+        val reg = metrics.SharedMetricRegistries.getOrCreate("kvutils.committing.transaction")
+        val counters = reg.getCounters.asScala
+        counters("count").getCount should be >= 1L
+        counters("accepts").getCount should be >= 1L
+        counters(s"rejections_${disputed.name}").getCount should be >= 1L
+
       }
     }
 

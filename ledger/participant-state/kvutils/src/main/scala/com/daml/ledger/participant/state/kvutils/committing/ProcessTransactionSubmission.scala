@@ -3,6 +3,7 @@
 
 package com.daml.ledger.participant.state.kvutils.committing
 
+import com.codahale.metrics
 import com.daml.ledger.participant.state.backport.TimeModelChecker
 import com.daml.ledger.participant.state.kvutils.Conversions.{buildTimestamp, commandDedupKey, _}
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
@@ -30,6 +31,18 @@ private[kvutils] case class ProcessTransactionSubmission(
     // FIXME(JM): remove inputState as a global to avoid accessing it when the intermediate
     // state should be used.
     inputState: Map[DamlStateKey, Option[DamlStateValue]]) {
+  private object Metrics {
+    private val registry =
+      metrics.SharedMetricRegistries.getOrCreate("kvutils.committing.transaction")
+    val runTimer = registry.timer("run-timer")
+    val interpretTimer = registry.timer("interpret-timer")
+    val count = registry.counter("count")
+    val accepts = registry.counter("accepts")
+    val rejections =
+      DamlTransactionRejectionEntry.ReasonCase.values
+        .map(v => v.getNumber -> registry.counter(s"rejections_${v.name}"))
+        .toMap
+  }
 
   private val commandId = txEntry.getSubmitterInfo.getCommandId
   private implicit val logger =
@@ -39,16 +52,24 @@ private[kvutils] case class ProcessTransactionSubmission(
   import Common._
   import Commit._
 
-  def run: (DamlLogEntry, Map[DamlStateKey, DamlStateValue]) =
-    runSequence(
-      inputState = inputState.collect { case (k, Some(x)) => k -> x },
-      "Authorize submitter" -> authorizeSubmitter,
-      "Deduplicate" -> deduplicateCommand,
-      "Validate LET/TTL" -> validateLetAndTtl,
-      "Validate Contract Key Uniqueness" -> validateContractKeyUniqueness,
-      "Validate Model Conformance" -> validateModelConformance,
-      "Authorize and build result" -> authorizeAndBlind.flatMap(buildFinalResult)
-    )
+  def run: (DamlLogEntry, Map[DamlStateKey, DamlStateValue]) = {
+    val ctx = Metrics.runTimer.time()
+    Metrics.count.inc()
+
+    try {
+      runSequence(
+        inputState = inputState.collect { case (k, Some(x)) => k -> x },
+        "Authorize submitter" -> authorizeSubmitter,
+        "Deduplicate" -> deduplicateCommand,
+        "Validate LET/TTL" -> validateLetAndTtl,
+        "Validate Contract Key Uniqueness" -> validateContractKeyUniqueness,
+        "Validate Model Conformance" -> timed(Metrics.interpretTimer, validateModelConformance),
+        "Authorize and build result" -> authorizeAndBlind.flatMap(buildFinalResult)
+      )
+    } finally {
+      val _ = ctx.stop()
+    }
+  }
 
   // -------------------------------------------------------------------------------
 
@@ -141,10 +162,15 @@ private[kvutils] case class ProcessTransactionSubmission(
 
   /** Validate the submission's conformance to the DAML model */
   private def validateModelConformance: Commit[Unit] = delay {
-    engine
-      .validate(relTx, txLet)
-      .consume(lookupContract, lookupPackage, lookupKey)
-      .fold(err => reject(RejectionReason.Disputed(err.msg)), _ => pass)
+    val ctx = Metrics.interpretTimer.time()
+    try {
+      engine
+        .validate(relTx, txLet)
+        .consume(lookupContract, lookupPackage, lookupKey)
+        .fold(err => reject(RejectionReason.Disputed(err.msg)), _ => pass)
+    } finally {
+      val _ = ctx.stop()
+    }
   }
 
   /** Validate the submission's conformance to the DAML model */
@@ -264,12 +290,15 @@ private[kvutils] case class ProcessTransactionSubmission(
             .setContractKeyState(contractKeyState)
             .build
       }),
-      done(
-        DamlLogEntry.newBuilder
-          .setRecordTime(buildTimestamp(recordTime))
-          .setTransactionEntry(txEntry)
-          .build
-      )
+      delay {
+        Metrics.accepts.inc()
+        done(
+          DamlLogEntry.newBuilder
+            .setRecordTime(buildTimestamp(recordTime))
+            .setTransactionEntry(txEntry)
+            .build
+        )
+      }
     )
   }
 
@@ -391,6 +420,8 @@ private[kvutils] case class ProcessTransactionSubmission(
       }
       builder
     }
+
+    Metrics.rejections(rejectionEntry.getReasonCase.getNumber).inc()
 
     Commit.done(
       DamlLogEntry.newBuilder

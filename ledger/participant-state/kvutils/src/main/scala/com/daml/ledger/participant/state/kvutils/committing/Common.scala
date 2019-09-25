@@ -4,7 +4,6 @@
 package com.daml.ledger.participant.state.kvutils.committing
 
 import java.util.concurrent.TimeUnit
-
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlLogEntry,
   DamlStateKey,
@@ -13,6 +12,7 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
 import com.daml.ledger.participant.state.kvutils.{Conversions, Err}
 import com.daml.ledger.participant.state.v1.Configuration
 import org.slf4j.Logger
+import com.codahale.metrics
 
 import scala.annotation.tailrec
 
@@ -129,6 +129,16 @@ object Common {
       Commit { state =>
         act.run(state)
       }
+
+    /** Time a commit */
+    def timed[A](timer: metrics.Timer, act: Commit[A]): Commit[A] = Commit { state =>
+      val ctx = timer.time()
+      try {
+        act.run(state)
+      } finally {
+        val _ = ctx.stop()
+      }
+    }
 
     /** Set value(s) in the state. */
     def set(additionalState: (DamlStateKey, DamlStateValue)*): Commit[Unit] =

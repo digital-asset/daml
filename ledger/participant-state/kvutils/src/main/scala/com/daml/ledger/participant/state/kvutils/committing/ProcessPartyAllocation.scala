@@ -3,6 +3,7 @@
 
 package com.daml.ledger.participant.state.kvutils.committing
 
+import com.codahale.metrics
 import com.daml.ledger.participant.state.kvutils.Conversions.buildTimestamp
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.Pretty
@@ -21,6 +22,15 @@ private[kvutils] case class ProcessPartyAllocation(
   import Common._
   import Commit._
 
+  private object Metrics {
+    private val registry =
+      metrics.SharedMetricRegistries.getOrCreate("kvutils.committing.party")
+    val runTimer = registry.timer("run-timer")
+    val count = registry.counter("count")
+    val accepts = registry.counter("accepts")
+    val rejections = registry.counter("rejections")
+  }
+
   private implicit val logger = LoggerFactory.getLogger(this.getClass)
   private val submissionId = partyAllocationEntry.getSubmissionId
   private val party: String = partyAllocationEntry.getParty
@@ -29,16 +39,24 @@ private[kvutils] case class ProcessPartyAllocation(
   private def tracelog(msg: String): Unit =
     logger.trace(s"[entryId=${Pretty.prettyEntryId(entryId)}, submId=$submissionId]: $msg")
 
-  def run: (DamlLogEntry, Map[DamlStateKey, DamlStateValue]) =
-    runSequence(
-      inputState = Map.empty,
-      "Authorize submission" -> authorizeSubmission,
-      "Validate party" -> validateParty,
-      "Deduplicate" -> deduplicate,
-      "Build result" -> buildFinalResult
-    )
+  def run: (DamlLogEntry, Map[DamlStateKey, DamlStateValue]) = {
+    val ctx = Metrics.runTimer.time()
+    Metrics.count.inc()
+    try {
+      runSequence(
+        inputState = Map.empty,
+        "Authorize submission" -> authorizeSubmission,
+        "Validate party" -> validateParty,
+        "Deduplicate" -> deduplicate,
+        "Build result" -> buildFinalResult
+      )
+    } finally {
+      val _ = ctx.stop()
+    }
+  }
 
   private val buildFinalResult: Commit[Unit] = delay {
+    Metrics.accepts.inc()
     done(
       DamlLogEntry.newBuilder
         .setRecordTime(buildTimestamp(recordTime))
@@ -97,7 +115,8 @@ private[kvutils] case class ProcessPartyAllocation(
 
   private def reject(
       addErrorDetails: DamlPartyAllocationRejectionEntry.Builder => DamlPartyAllocationRejectionEntry.Builder
-  ): Commit[Unit] =
+  ): Commit[Unit] = {
+    Metrics.rejections.inc()
     done(
       DamlLogEntry.newBuilder
         .setRecordTime(buildTimestamp(recordTime))
@@ -110,5 +129,6 @@ private[kvutils] case class ProcessPartyAllocation(
         )
         .build
     )
+  }
 
 }

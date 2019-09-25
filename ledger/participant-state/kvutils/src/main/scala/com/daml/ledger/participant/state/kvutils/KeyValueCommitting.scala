@@ -3,6 +3,7 @@
 
 package com.daml.ledger.participant.state.kvutils
 
+import com.codahale.metrics.SharedMetricRegistries
 import com.daml.ledger.participant.state.kvutils.Conversions._
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.committing.{
@@ -23,6 +24,7 @@ import scala.collection.JavaConverters._
 
 object KeyValueCommitting {
   private val logger = LoggerFactory.getLogger(this.getClass)
+  private val metricRegistry = SharedMetricRegistries.getOrCreate("KeyValueCommitting")
 
   def packDamlStateKey(key: DamlStateKey): ByteString = key.toByteString
   def unpackDamlStateKey(bytes: ByteString): DamlStateKey = DamlStateKey.parseFrom(bytes)
@@ -68,7 +70,7 @@ object KeyValueCommitting {
       defaultConfig: Configuration,
       submission: DamlSubmission,
       participantId: ParticipantId,
-      inputState: Map[DamlStateKey, Option[DamlStateValue]]
+      inputState: Map[DamlStateKey, Option[DamlStateValue]],
   ): (DamlLogEntry, Map[DamlStateKey, DamlStateValue]) = {
 
     // Look at what kind of submission this is...
