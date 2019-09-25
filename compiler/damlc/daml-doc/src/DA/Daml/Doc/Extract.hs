@@ -515,7 +515,8 @@ getTemplateDocs DocCtx{..} typeMap templateInstanceMap =
 -- synonym and, if it finds it, creates the relevant doc structure.
 getTemplateInstanceDoc :: ADTDoc -> Maybe TemplateInstanceDoc
 getTemplateInstanceDoc tyConDoc
-    | TypeSynDoc{ ad_descr = Just (DocText doc) } <- tyConDoc
+    | TypeSynDoc{..} <- tyConDoc
+    , Just (DocText doc) <- ad_descr
     , (realDoc, "") <- T.breakOnEnd "TEMPLATE_INSTANCE" doc
     = Just TemplateInstanceDoc
         { ti_name = ad_name
