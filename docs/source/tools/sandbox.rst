@@ -12,7 +12,9 @@ You can start Sandbox together with :doc:`Navigator </tools/navigator/index>` us
 
 It is possible to execute the Sandbox launching step in isolation by typing ``daml sandbox``.
 
-Sandbox can also be run manually as in this example::
+Sandbox can also be run manually as in this example:
+
+.. code-block:: none
 
   $ daml sandbox Main.dar --scenario Main:example
 
@@ -20,7 +22,8 @@ Sandbox can also be run manually as in this example::
     / __/__ ____  ___/ / /  ___ __ __
    _\ \/ _ `/ _ \/ _  / _ \/ _ \\ \ /
   /___/\_,_/_//_/\_,_/_.__/\___/_\_\
-  initialized sandbox with ledger-id = sandbox-16ae201c-b2fd-45e0-af04-c61abe13fed7, port = 6865, dar file = DAR files at List(/Users/donkeykong/temp/da-sdk/test/Main.dar), time mode = Static, daml-engine = {}
+  initialized sandbox with ledger-id = sandbox-16ae201c-b2fd-45e0-af04-c61abe13fed7, port = 6865,
+  dar file = DAR files at List(/Users/donkeykong/temp/da-sdk/test/Main.dar), time mode = Static, daml-engine = {}
   Initialized Static time provider, starting from 1970-01-01T00:00:00Z
   listening on localhost:6865
 
@@ -49,6 +52,8 @@ To start Sandbox using persistence, pass an ``--sql-backend-jdbcurl <value>`` op
 Here is an example for such a url: ``jdbc:postgresql://localhost/test?user=fred&password=secret``
 
 Due to possible conflicts between the ``&`` character and various terminal shells, we recommend quoting the jdbc url like so:
+
+.. code-block:: none
 
   $ daml sandbox Main.dar --sql-backend-jdbcurl "jdbc:postgresql://localhost/test?user=fred&password=secret"
 
