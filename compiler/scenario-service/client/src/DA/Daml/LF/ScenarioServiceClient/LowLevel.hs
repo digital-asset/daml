@@ -18,7 +18,7 @@ module DA.Daml.LF.ScenarioServiceClient.LowLevel
   , deleteCtx
   , gcCtxs
   , ContextUpdate(..)
-  , LightValidation(..)
+  , SkipValidation(..)
   , updateCtx
   , runScenario
   , SS.ScenarioResult(..)
@@ -81,8 +81,9 @@ data Handle = Handle
 newtype ContextId = ContextId { getContextId :: Int64 }
   deriving (NFData, Eq, Show)
 
--- | If true, the scenario service server only runs a subset of validations.
-newtype LightValidation = LightValidation { getLightValidation :: Bool }
+-- | If true, the scenario service server do not run package validations.
+newtype SkipValidation = SkipValidation { getSkipValidation :: Bool }
+  deriving Show
 
 data ContextUpdate = ContextUpdate
   { updLoadModules :: ![(LF.ModuleName, BS.ByteString)]
@@ -90,7 +91,7 @@ data ContextUpdate = ContextUpdate
   , updLoadPackages :: ![(LF.PackageId, BS.ByteString)]
   , updUnloadPackages :: ![LF.PackageId]
   , updDamlLfVersion :: LF.Version
-  , updLightValidation :: LightValidation
+  , updSkipValidation :: SkipValidation
   }
 
 encodeModule :: LF.Version -> LF.Module -> BS.ByteString
@@ -293,7 +294,7 @@ updateCtx Handle{..} (ContextId ctxId) ContextUpdate{..} = do
           ctxId
           (Just updModules)
           (Just updPackages)
-          (getLightValidation updLightValidation)
+          (getSkipValidation updSkipValidation)
   pure (void res)
   where
     updModules =

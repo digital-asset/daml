@@ -17,7 +17,7 @@ import com.digitalasset.daml.lf.speedy.SValue
 import com.digitalasset.daml.lf.types.Ledger.Ledger
 import com.digitalasset.daml.lf.PureCompiledPackages
 import com.digitalasset.daml.lf.speedy.SExpr.{LfDefRef, SDefinitionRef}
-import com.digitalasset.daml.lf.validation.{Validation, ValidationError}
+import com.digitalasset.daml.lf.validation.Validation
 import com.google.protobuf.ByteString
 import com.digitalasset.daml.lf.transaction.VersionTimeline
 
@@ -85,15 +85,10 @@ class Context(val contextId: Context.ContextId) {
     dop.decodeScenarioModule(homePackageId, lfMod)
   }
 
-  private def validate(pkgIds: Traversable[PackageId], forScenarioService: Boolean): Unit = {
-    val validator: PackageId => Either[ValidationError, Unit] =
-      if (forScenarioService)
-        Validation.checkPackageForScenarioService(allPackages, _)
-      else
-        Validation.checkPackage(allPackages, _)
-
-    pkgIds.foreach(validator(_).left.foreach(e => throw ParseError(e.pretty)))
-  }
+  private def validate(pkgIds: Traversable[PackageId]): Unit =
+    pkgIds.foreach(
+      Validation.checkPackage(allPackages, _).left.foreach(e => throw ParseError(e.pretty))
+    )
 
   @throws[ParseError]
   def update(
@@ -137,7 +132,8 @@ class Context(val contextId: Context.ContextId) {
     })
     modules ++= lfModules.map(m => m.name -> m)
 
-    validate(newPackages.keys ++ Iterable(homePackageId), forScenarioService)
+    if (!forScenarioService)
+      validate(newPackages.keys ++ Iterable(homePackageId))
 
     // At this point 'allPackages' is consistent and we can
     // compile the new modules.
