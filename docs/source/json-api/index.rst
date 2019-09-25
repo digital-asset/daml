@@ -126,12 +126,7 @@ empty output::
 
     {
         "status": 200,
-        "result": [
-            {
-                "offset": "130",
-                "activeContracts": []
-            }
-        ]
+        "result": []
     }
 
 output, each contract formatted according to :doc:`lf-value-specification`::
@@ -140,58 +135,24 @@ output, each contract formatted according to :doc:`lf-value-specification`::
         "status": 200,
         "result": [
             {
-                "offset": "",
-                "workflowId": "Alice Workflow",
-                "activeContracts": [
-                    {
-                        "agreementText": "",
-                        "contractId": "#221:0",
-                        "templateId": {
-                            "packageId": "ac3a64908d9f6b4453329b3d7d8ddea44c83f4f5469de5f7ae19158c69bf8473",
-                            "moduleName": "Iou",
-                            "entityName": "Iou"
-                        },
-                        "witnessParties": [
-                            "Alice"
-                        ],
-                        "argument": {
-                            "observers": [],
-                            "issuer": "Alice",
-                            "amount": "999.99",
-                            "currency": "USD",
-                            "owner": "Alice"
-                        }
-                    }
-                ]
-            },
-            {
-                "offset": "",
-                "workflowId": "Alice Workflow",
-                "activeContracts": [
-                    {
-                        "agreementText": "",
-                        "contractId": "#224:0",
-                        "templateId": {
-                            "packageId": "ac3a64908d9f6b4453329b3d7d8ddea44c83f4f5469de5f7ae19158c69bf8473",
-                            "moduleName": "Iou",
-                            "entityName": "Iou"
-                        },
-                        "witnessParties": [
-                            "Alice"
-                        ],
-                        "argument": {
-                            "observers": [],
-                            "issuer": "Alice",
-                            "amount": "999.99",
-                            "currency": "USD",
-                            "owner": "Alice"
-                        }
-                    }
-                ]
-            },
-            {
-                "offset": "227",
-                "activeContracts": []
+                "agreementText": "",
+                "contractId": "#237:0",
+                "templateId": {
+                    "packageId": "cde2c40565fd8962eaebae7584ae89ba12d301d4c683189dccbbf0d0d67afc05",
+                    "moduleName": "Iou",
+                    "entityName": "Iou"
+                },
+                "witnessParties": [
+                    "Alice"
+                ],
+                "argument": {
+                    "observers": [],
+                    "issuer": "Alice",
+                    "amount": "999.99",
+                    "currency": "USD",
+                    "owner": "Alice"
+                },
+                "workflowId": "Alice Workflow"
             }
         ]
     }
@@ -207,7 +168,7 @@ application/json body, ``argument`` formatted according to :doc:`lf-value-specif
       "templateId": {
         "moduleName": "Iou",
         "entityName": "Iou"
-      },
+     },
       "argument": {
         "observers": [],
         "issuer": "Alice",
@@ -223,9 +184,9 @@ output::
         "status": 200,
         "result": {
             "agreementText": "",
-            "contractId": "#20:0",
+            "contractId": "#237:0",
             "templateId": {
-                "packageId": "bede798df37ce01fc402d266ae89d5bc4c61d70968b6a4f0baf69b24140579aa",
+                "packageId": "cde2c40565fd8962eaebae7584ae89ba12d301d4c683189dccbbf0d0d67afc05",
                 "moduleName": "Iou",
                 "entityName": "Iou"
             },
@@ -238,16 +199,17 @@ output::
                 "amount": "999.99",
                 "currency": "USD",
                 "owner": "Alice"
-            }
+            },
+            "workflowId": "Alice Workflow"
         }
-    } 
+    }
  
 POST http://localhost:44279/command/exercise
 ============================================
 
 Exercise a choice on a contract.
 
-``"contractId": "#20:0"`` is the value from the create output
+``"contractId": "#237:0"`` is the value from the create output
 application/json body::
 
     {
@@ -255,7 +217,7 @@ application/json body::
             "moduleName": "Iou",
             "entityName": "Iou"
         },
-        "contractId": "#20:0",
+        "contractId": "#237:0",
         "choice": "Iou_Transfer",
         "argument": {
             "newOwner": "Alice"
@@ -269,9 +231,9 @@ output::
         "result": [
             {
                 "agreementText": "",
-                "contractId": "#160:1",
+                "contractId": "#441:1",
                 "templateId": {
-                    "packageId": "bede798df37ce01fc402d266ae89d5bc4c61d70968b6a4f0baf69b24140579aa",
+                    "packageId": "cde2c40565fd8962eaebae7584ae89ba12d301d4c683189dccbbf0d0d67afc05",
                     "moduleName": "Iou",
                     "entityName": "IouTransfer"
                 },
@@ -287,7 +249,8 @@ output::
                         "owner": "Alice"
                     },
                     "newOwner": "Alice"
-                }
+                },
+                "workflowId": "Alice Workflow"
             }
         ]
     }
