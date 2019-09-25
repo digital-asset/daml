@@ -15,3 +15,7 @@ HEAD — ongoing
 - [DAML Assistant] ``daml start`` now supports ``--sandbox-option=opt``, ``--navigator-option=opt``
   and ``--json-api-option=opt`` to pass additional option to sandbox/navigator/json-api.
   These flags can be specified multiple times.
+- [DAML Studio] ``damlc ide`` now also supports a ``--target`` option.
+  The easiest way to specify this is the ``build-options`` field in ``daml.yaml``.
+- [Ledger] 
+  Improve SQL backend performance by eliminating extra queries to the database.

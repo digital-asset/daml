@@ -8,6 +8,7 @@ module DA.Daml.LF.Ast.Numeric
     , numeric
     , numericScale
     , numericMaxScale
+    , numericFromRational
     , numericFromDecimal
     ) where
 
@@ -47,6 +48,10 @@ numeric s m
     | s > numericMaxScale = error "numeric error: scale too large"
     | m > numericMaxMantissa = error "numeric error: mantissa too large"
     | otherwise = Numeric $ Decimal (fromIntegral s) m
+
+-- | Convert a rational number into a Numeric.
+numericFromRational :: Rational -> Numeric
+numericFromRational r = Numeric (fromRational r)
 
 -- | Upper bound for numeric scale (inclusive).
 numericMaxScale :: Natural

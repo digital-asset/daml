@@ -197,7 +197,7 @@ testIsInfixOf = scenario do
 
 testMapAccumL = scenario do
   (6, [0,1,3]) === mapAccumL (\a x -> (a+x, a)) 0 [1, 2, 3]
-  (7.1, [1,3,7]) === mapAccumL (\a x -> (a + x, floor (a + x))) 0.0 [1.2, 2.5, 3.4]
+  (7.1, [1,3,7]) === mapAccumL (\a x -> (a + x, floor (a + x))) 0.0 ([1.2, 2.5, 3.4] : [Decimal])
   (42, []) === mapAccumL (\a x -> (a*x, a)) 42 []
 
 testIntersperse = scenario do
@@ -295,12 +295,12 @@ testInit = scenario do
   submitMustFail p $ pure $ init []
 
 testFoldl1 = scenario do
-  1.25 === foldl1 (/) [10.0, 2.0, 4.0]
+  1.25 === foldl1 (/) ([10.0, 2.0, 4.0] : [Decimal])
   "abc" === foldl1 (<>) ["a", "b", "c"]
   -4 === foldl1 (-) [1, 2, 3]
 
 testFoldr1 = scenario do
-  3.0 === foldr1 (/) [9.0, 150.0, 50.0]
+  3.0 === foldr1 (/) ([9.0, 150.0, 50.0] : [Decimal])
   "abc" === foldr1 (<>) ["a", "b", "c"]
   2 === foldr1 (-) [1, 2, 3]
 
@@ -334,14 +334,14 @@ testFindIndex = scenario do
 testSum = scenario do
   assert $ sum [1, 2, 3] == 6
   assert $ sum [] == 0
-  assert $ sum [] == 0.0
-  assert $ sum [40.0, 2.0] == 42.0
+  assert $ sum [] == (0.0 : Decimal)
+  assert $ sum [40.0, 2.0] == (42.0 : Decimal)
 
 testProduct = scenario do
   assert $ product [1, 2, 3] == 6
   assert $ product [] == 1
-  assert $ product [] == 1.0
-  assert $ product [21.0, 2.0] == 42.0
+  assert $ product [] == (1.0 : Decimal)
+  assert $ product [21.0, 2.0] == (42.0 : Decimal)
 
 testDelete = scenario do
   delete "a" ["b","a","n","a","n","a"] === ["b","n","a","n","a"]

@@ -5,7 +5,6 @@
 // 'db.migration.postgres' for postgres migrations
 package db.migration.postgres
 
-import java.io.InputStream
 import java.sql.Connection
 import java.util.Date
 
@@ -14,19 +13,18 @@ import akka.NotUsed
 import anorm.SqlParser._
 import anorm.{BatchSql, Macro, NamedParameter, RowParser, SQL, SqlParser}
 import com.daml.ledger.participant.state.v1.AbsoluteContractInst
-import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.Relation.Relation
 import com.digitalasset.daml.lf.engine.Blinding
 import com.digitalasset.daml.lf.transaction.Transaction
-import com.digitalasset.daml.lf.transaction.Node.{GlobalKey, KeyWithMaintainers, NodeCreate}
+import com.digitalasset.daml.lf.transaction.Node.GlobalKey
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractId}
 import com.digitalasset.ledger._
 import com.digitalasset.ledger.api.domain.RejectionReason
 import com.digitalasset.ledger.api.domain.RejectionReason._
 import com.digitalasset.platform.sandbox.services.transaction.SandboxEventIdFormatter
-import com.digitalasset.platform.sandbox.stores.ActiveLedgerState.{ActiveContract, Contract}
+import com.digitalasset.platform.sandbox.stores.ActiveLedgerState.ActiveContract
 import com.digitalasset.platform.sandbox.stores._
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry
 import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{
@@ -36,7 +34,6 @@ import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{
   ValueSerializer
 }
 import com.digitalasset.platform.sandbox.stores.ledger.sql.util.Conversions._
-import com.google.common.io.ByteStreams
 import org.flywaydb.core.api.migration.{BaseJavaMigration, Context}
 import org.slf4j.LoggerFactory
 
@@ -94,8 +91,7 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
       "select contract_id from contract_keys where package_id={package_id} and name={name} and value_hash={value_hash}")
 
   private val SQL_REMOVE_CONTRACT_KEY =
-    SQL(
-      "delete from contract_keys where package_id={package_id} and name={name} and value_hash={value_hash}")
+    SQL("delete from contract_keys where contract_id={contract_id}")
 
   private[this] def storeContractKey(key: GlobalKey, cid: AbsoluteContractId)(
       implicit connection: Connection): Boolean =
@@ -108,12 +104,11 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
       )
       .execute()
 
-  private[this] def removeContractKey(key: GlobalKey)(implicit connection: Connection): Boolean =
+  private[this] def removeContractKey(cid: AbsoluteContractId)(
+      implicit connection: Connection): Boolean =
     SQL_REMOVE_CONTRACT_KEY
       .on(
-        "package_id" -> key.templateId.packageId,
-        "name" -> key.templateId.qualifiedName.toString,
-        "value_hash" -> keyHasher.hashKeyString(key)
+        "contract_id" -> cid.coid,
       )
       .execute()
 
@@ -348,8 +343,8 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
 
       final class AcsStoreAcc extends ActiveLedgerState[AcsStoreAcc] {
 
-        override def lookupContract(cid: AbsoluteContractId) =
-          lookupActiveContractSync(cid)
+        override def lookupContractLet(cid: AbsoluteContractId) =
+          lookupActiveContractLetSync(cid)
 
         override def keyExists(key: GlobalKey): Boolean = selectContractKey(key).isDefined
 
@@ -359,9 +354,9 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
           this
         }
 
-        override def removeContract(cid: AbsoluteContractId, keyO: Option[GlobalKey]) = {
+        override def removeContract(cid: AbsoluteContractId) = {
           archiveContract(offset, cid)
-          keyO.foreach(key => removeContractKey(key))
+          removeContractKey(cid)
           this
         }
 
@@ -605,7 +600,7 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
     ~ binaryStream("key").?
     ~ binaryStream("transaction") map (flatten))
 
-  private val SQL_SELECT_CONTRACT =
+  private val SQL_SELECT_CONTRACT_LET =
     SQL(
       "select c.*, le.recorded_at, le.transaction from contracts c inner join ledger_entries le on c.transaction_id = le.transaction_id where id={contract_id} and archive_offset is null ")
 
@@ -623,90 +618,17 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
   private val SQL_SELECT_KEY_MAINTAINERS =
     SQL("select maintainer from contract_key_maintainers where contract_id={contract_id}")
 
-  private def lookupActiveContractSync(contractId: AbsoluteContractId)(
-      implicit conn: Connection): Option[Contract] =
-    SQL_SELECT_CONTRACT
+  /** Note: at the time this migration was written, divulged contracts were not stored separately from active contracts.
+    * This method therefore treats all contracts as active contracts.
+    */
+  private def lookupActiveContractLetSync(contractId: AbsoluteContractId)(
+      implicit conn: Connection): Option[LetLookup] =
+    SQL_SELECT_CONTRACT_LET
       .on("contract_id" -> contractId.coid)
       .as(ContractDataParser.singleOpt)
-      .map(mapContractDetails)
-
-  /** Note: at the time this migration was written, divulged contracts were not stored separately from active contracts.
-    * This method therefore always returns an ActiveContract.
-    */
-  private def mapContractDetails(
-      contractResult: (
-          ContractIdString,
-          TransactionIdString,
-          WorkflowId,
-          Date,
-          InputStream,
-          Option[InputStream],
-          InputStream))(implicit conn: Connection): ActiveContract =
-    contractResult match {
-      case (coid, transactionId, workflowId, createdAt, contractStream, keyStreamO, tx) =>
-        val witnesses = lookupWitnesses(coid)
-        val divulgences = lookupDivulgences(coid)
-        val absoluteCoid = AbsoluteContractId(coid)
-        val contractInstance = contractSerializer
-          .deserializeContractInstance(ByteStreams.toByteArray(contractStream))
-          .getOrElse(sys.error(s"failed to deserialize contract! cid:$coid"))
-
-        val (signatories: Set[Ref.Party], observers: Set[Ref.Party]) =
-          transactionSerializer
-            .deserializeTransaction(ByteStreams.toByteArray(tx))
-            .getOrElse(sys.error(s"failed to deserialize transaction! cid:$coid"))
-            .nodes
-            .collectFirst {
-              case (_, NodeCreate(coid, _, _, signatories, stakeholders, _))
-                  if coid == absoluteCoid =>
-                (signatories, stakeholders diff signatories)
-            } getOrElse {
-            logger.warn(s"Unable to read stakeholders for contract $coid, returning empty result")
-            (Set.empty, Set.empty)
-          }
-
-        ActiveContract(
-          absoluteCoid,
-          createdAt.toInstant,
-          transactionId,
-          Some(workflowId),
-          contractInstance,
-          witnesses,
-          divulgences,
-          keyStreamO.map(keyStream => {
-            val keyMaintainers = lookupKeyMaintainers(coid)
-            val keyValue = valueSerializer
-              .deserializeValue(ByteStreams.toByteArray(keyStream))
-              .getOrElse(sys.error(s"failed to deserialize key value! cid:$coid"))
-            KeyWithMaintainers(keyValue, keyMaintainers)
-          }),
-          signatories,
-          observers,
-          contractInstance.agreementText
-        )
-    }
-
-  private def lookupWitnesses(coid: String)(implicit conn: Connection): Set[Party] =
-    SQL_SELECT_WITNESS
-      .on("contract_id" -> coid)
-      .as(party("witness").*)
-      .toSet
-
-  private def lookupDivulgences(coid: String)(
-      implicit conn: Connection): Map[Party, TransactionIdString] =
-    SQL_SELECT_DIVULGENCE
-      .on("contract_id" -> coid)
-      .as(DivulgenceParser.*)
       .map {
-        case (party, _, transaction_id) => party -> transaction_id
+        case (_, _, _, let, _, _, _) => Let(let.toInstant)
       }
-      .toMap
-
-  private def lookupKeyMaintainers(coid: String)(implicit conn: Connection) =
-    SQL_SELECT_KEY_MAINTAINERS
-      .on("contract_id" -> coid)
-      .as(party("maintainer").*)
-      .toSet
 
   private val SQL_GET_LEDGER_ENTRIES = SQL(
     "select * from ledger_entries where ledger_offset>={startInclusive} and ledger_offset<{endExclusive} order by ledger_offset asc")
