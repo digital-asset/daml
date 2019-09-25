@@ -500,28 +500,27 @@ getTemplateDocs DocCtx{..} typeMap templateInstanceMap =
                       [] -> [] -- catching the dummy case here, see above
                       _other -> error "getFields: found multiple constructors"
 
--- | A template instance is desugared to a type synonym with a doc decl
--- around it.
+-- | A template instance is desugared to a type synonym with a doc marker.
 --
 -- For example,
 --
 -- @template instance ProposalIou = Proposal Iou@
 --
--- becomes
+-- leads to the `type` declaration
 --
 -- @--| TEMPLATE_INSTANCE@
 -- @type ProposalIou = Proposal Iou@
 --
--- So the goal of this function is to extract the template instance doc
--- from the doc preceding the type synonym if it exists.
+-- This function looks for the "TEMPLATE_INSTANCE" doc marker around a type
+-- synonym and, if it finds it, creates the relevant doc structure.
 getTemplateInstanceDoc :: ADTDoc -> Maybe TemplateInstanceDoc
 getTemplateInstanceDoc tyConDoc
-    | TypeSynDoc{..} <- tyConDoc
-    , Just (DocText "TEMPLATE_INSTANCE") <- ad_descr
+    | TypeSynDoc{ ad_descr = Just (DocText doc) } <- tyConDoc
+    , (realDoc, "") <- T.breakOnEnd "TEMPLATE_INSTANCE" doc
     = Just TemplateInstanceDoc
         { ti_name = ad_name
         , ti_anchor = ad_anchor
-        , ti_descr = ad_descr
+        , ti_descr = Just (DocText realDoc)
         , ti_rhs = ad_rhs
         }
 
