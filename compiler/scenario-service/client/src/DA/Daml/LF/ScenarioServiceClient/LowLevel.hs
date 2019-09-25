@@ -18,6 +18,7 @@ module DA.Daml.LF.ScenarioServiceClient.LowLevel
   , deleteCtx
   , gcCtxs
   , ContextUpdate(..)
+  , SkipValidation(..)
   , updateCtx
   , runScenario
   , SS.ScenarioResult(..)
@@ -80,13 +81,17 @@ data Handle = Handle
 newtype ContextId = ContextId { getContextId :: Int64 }
   deriving (NFData, Eq, Show)
 
+-- | If true, the scenario service server do not run package validations.
+data SkipValidation = SkipValidation { getFlag :: Bool }
+  deriving Show
+
 data ContextUpdate = ContextUpdate
   { updLoadModules :: ![(LF.ModuleName, BS.ByteString)]
   , updUnloadModules :: ![LF.ModuleName]
   , updLoadPackages :: ![(LF.PackageId, BS.ByteString)]
   , updUnloadPackages :: ![LF.PackageId]
   , updDamlLfVersion :: LF.Version
-  , updValidation :: Bool
+  , updSkipValidation :: SkipValidation
   }
 
 encodeModule :: LF.Version -> LF.Module -> BS.ByteString
@@ -289,7 +294,7 @@ updateCtx Handle{..} (ContextId ctxId) ContextUpdate{..} = do
           ctxId
           (Just updModules)
           (Just updPackages)
-          (not updValidation)
+          (getFlag updSkipValidation)
   pure (void res)
   where
     updModules =

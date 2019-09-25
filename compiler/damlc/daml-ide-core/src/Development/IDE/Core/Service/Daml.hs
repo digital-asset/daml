@@ -66,7 +66,7 @@ data DamlEnv = DamlEnv
   -- ^ The scenario contexts we used as GC roots in the last iteration.
   -- This is used to avoid unnecessary GC calls.
   , envDamlLfVersion :: LF.Version
-  , envScenarioValidation :: Bool
+  , envScenarioValidation :: ScenarioValidation
   }
 
 instance IsIdeGlobal DamlEnv

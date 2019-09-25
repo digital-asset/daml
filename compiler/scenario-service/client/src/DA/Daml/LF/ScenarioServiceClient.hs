@@ -11,6 +11,7 @@ module DA.Daml.LF.ScenarioServiceClient
   , Handle
   , withScenarioService
   , Context(..)
+  , LowLevel.SkipValidation(..)
   , LowLevel.ContextId
   , getNewCtx
   , deleteCtx
@@ -117,7 +118,7 @@ data Context = Context
   { ctxModules :: MS.Map Hash (LF.ModuleName, BS.ByteString)
   , ctxPackages :: [(LF.PackageId, BS.ByteString)]
   , ctxDamlLfVersion :: LF.Version
-  , ctxValidation :: Bool
+  , ctxSkipValidation :: LowLevel.SkipValidation
   }
 
 getNewCtx :: Handle -> Context -> IO (Either LowLevel.BackendError LowLevel.ContextId)
@@ -140,7 +141,7 @@ getNewCtx Handle{..} Context{..} = withLock hContextLock $ withSem hConcurrencyS
       loadPackages
       (S.toList unloadPackages)
       ctxDamlLfVersion
-      ctxValidation
+      ctxSkipValidation
   writeIORef hLoadedPackages newLoadedPackages
   writeIORef hLoadedModules ctxModules
   res <- LowLevel.updateCtx hLowLevelHandle hContextId ctxUpdate

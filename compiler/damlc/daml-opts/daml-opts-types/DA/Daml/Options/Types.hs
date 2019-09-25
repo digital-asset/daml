@@ -4,6 +4,7 @@
 module DA.Daml.Options.Types
     ( Options(..)
     , EnableScenarioService(..)
+    , ScenarioValidation(..)
     , DlintUsage(..)
     , Haddock(..)
     , defaultOptionsIO
@@ -54,9 +55,9 @@ data Options = Options
     -- ^ custom options, parsed by GHC option parser, overriding DynFlags
   , optScenarioService :: EnableScenarioService
     -- ^ Controls whether the scenario service is started.
-  , optScenarioValidation :: Bool
-    -- ^ Controls whether the scenario service server skip the validation.
-    --  This is mostly used to run additional checks on CI while keeping the IDE fast.
+  , optScenarioValidation :: ScenarioValidation
+    -- ^ Controls whether the scenario service server run package validations.
+    -- This is mostly used to run additional checks on CI while keeping the IDE fast.
   , optDlintUsage :: DlintUsage
   -- ^ Information about dlint usage.
   , optIsGenerated :: Bool
@@ -81,6 +82,9 @@ newtype Haddock = Haddock Bool
 data DlintUsage
   = DlintEnabled { dlintUseDataDir :: FilePath, dlintAllowOverrides :: Bool }
   | DlintDisabled
+  deriving Show
+
+data ScenarioValidation = ScenarioValidation Bool
   deriving Show
 
 newtype EnableScenarioService = EnableScenarioService { getEnableScenarioService :: Bool }
@@ -154,7 +158,7 @@ defaultOptions mbVersion =
         , optDebug = False
         , optGhcCustomOpts = []
         , optScenarioService = EnableScenarioService True
-        , optScenarioValidation = True
+        , optScenarioValidation = ScenarioValidation True
         , optDlintUsage = DlintDisabled
         , optIsGenerated = False
         , optDflagCheck = True
