@@ -1,0 +1,27 @@
+-- Copyright (c) 2019 The DAML Authors. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- NOTE(MH): This test would fail if `$f` wasn't considered a super class
+-- prefix in `isSuperClassDict` in template resugaring.
+daml 1.2
+module TemplateSuperClassF where
+
+import DA.Record
+
+template (HasField "p" t Party, Template (G t)) => F t with
+    x: t
+  where
+    signatory x.p
+
+template (HasField "p" t Party, Template (F t)) => G t with
+    y: F t
+  where
+    signatory y.x.p
+
+template T with
+    p: Party
+  where
+    signatory p
+
+template instance FT = F T
+template instance GT = G T

@@ -98,7 +98,7 @@ message UpdateContextRequest {
   int64 context_id = 1;
   UpdateModules update_modules = 2;
   UpdatePackages update_packages = 3;
-  bool lightValidation = 4; // if true runs only a subset of the validations
+  bool noValidation = 4; // if true, does not run the package validations
 }
 
 message UpdateContextResponse {

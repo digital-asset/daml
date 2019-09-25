@@ -386,7 +386,7 @@ optionsParser numProcessors enableScenarioService parsePkgName = Options
     <*> optDebugLog
     <*> optGhcCustomOptions
     <*> pure enableScenarioService
-    <*> pure (optScenarioValidation $ defaultOptions Nothing)
+    <*> pure (optSkipScenarioValidation $ defaultOptions Nothing)
     <*> dlintUsageOpt
     <*> pure False
     <*> optNoDflagCheck

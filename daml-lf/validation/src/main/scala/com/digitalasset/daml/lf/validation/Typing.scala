@@ -42,7 +42,7 @@ private[validation] object Typing {
   protected[validation] lazy val typeOfBuiltinFunction = {
     val alpha = TVar(Name.assertFromString("$alpha$"))
     val beta = TVar(Name.assertFromString("$beta$"))
-    val gamma = TVar(Name.assertFromString("$beta$"))
+    val gamma = TVar(Name.assertFromString("$gamma$"))
     def tBinop(typ: Type): Type = typ ->: typ ->: typ
     val tNumBinop = TForall(alpha.name -> KNat, tBinop(TNumeric(alpha)))
     val tMultiNumBinop =
