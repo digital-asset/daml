@@ -6,7 +6,6 @@
 package db.migration.postgres
 
 import java.sql.Connection
-import java.time.Instant
 import java.util.Date
 
 import akka.stream.scaladsl.Source
@@ -623,12 +622,12 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
     * This method therefore treats all contracts as active contracts.
     */
   private def lookupActiveContractLetSync(contractId: AbsoluteContractId)(
-      implicit conn: Connection): Option[Option[Instant]] =
+      implicit conn: Connection): Option[LetLookup] =
     SQL_SELECT_CONTRACT_LET
       .on("contract_id" -> contractId.coid)
       .as(ContractDataParser.singleOpt)
       .map {
-        case (_, _, _, let, _, _, _) => Some(let.toInstant)
+        case (_, _, _, let, _, _, _) => Let(let.toInstant)
       }
 
   private val SQL_GET_LEDGER_ENTRIES = SQL(

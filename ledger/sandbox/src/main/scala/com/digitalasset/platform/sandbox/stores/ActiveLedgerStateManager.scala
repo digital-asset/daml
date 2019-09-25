@@ -101,14 +101,14 @@ class ActiveLedgerStateManager[ALS](initialState: => ALS)(
                 cid: AbsoluteContractId,
                 predType: PredicateType): Option[SequencingError] =
               acc lookupContractLet cid match {
-                case Some(Some(otherContractLet)) =>
+                case Some(Let(otherContractLet)) =>
                   // Existing active contract, check its LET
                   if (otherContractLet.isAfter(let)) {
                     Some(TimeBeforeError(cid, otherContractLet, let, predType))
                   } else {
                     None
                   }
-                case Some(None) =>
+                case Some(LetUnknown) =>
                   // Contract divulged in the past
                   None
                 case None if divulgedContracts.exists(_._1 == cid) =>

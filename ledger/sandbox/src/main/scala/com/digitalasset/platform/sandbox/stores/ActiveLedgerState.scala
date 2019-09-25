@@ -14,6 +14,14 @@ import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst, V
 import com.digitalasset.ledger.WorkflowId
 import com.digitalasset.platform.sandbox.stores.ActiveLedgerState._
 
+sealed abstract class LetLookup
+
+/** Contract exists, but contract LET is unknown (e.g., a divulged contract) */
+case object LetUnknown extends LetLookup
+
+/** Contract exists with the given LET */
+final case class Let(instant: Instant) extends LetLookup
+
 /**
   * An abstract representation of the active ledger state:
   * - Active contracts
@@ -32,10 +40,10 @@ trait ActiveLedgerState[+Self] { this: ActiveLedgerState[Self] =>
   /** Callback to query an active or divulged contract, used for transaction validation
     * Returns:
     * - None if the contract does not exist
-    * - Some(None) if the contract exists, but its LET is unknown (i.e., a divulged contract)
-    * - Some(Some(_)) if the contract exists and its LET is known
+    * - Some(LetUnknown) if the contract exists, but its LET is unknown (i.e., a divulged contract)
+    * - Some(Let(_)) if the contract exists and its LET is known
     * */
-  def lookupContractLet(cid: AbsoluteContractId): Option[Option[Instant]]
+  def lookupContractLet(cid: AbsoluteContractId): Option[LetLookup]
 
   /** Callback to query a contract key, used for transaction validation */
   def keyExists(key: GlobalKey): Boolean

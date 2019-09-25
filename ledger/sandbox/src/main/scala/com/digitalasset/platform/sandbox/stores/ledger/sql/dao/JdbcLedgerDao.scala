@@ -4,7 +4,6 @@ package com.digitalasset.platform.sandbox.stores.ledger.sql.dao
 
 import java.io.InputStream
 import java.sql.Connection
-import java.time.Instant
 import java.util.Date
 
 import akka.stream.Materializer
@@ -393,7 +392,7 @@ private class JdbcLedgerDao(
         disclosure) =>
       final class AcsStoreAcc extends ActiveLedgerState[AcsStoreAcc] {
 
-        override def lookupContractLet(cid: AbsoluteContractId): Option[Option[Instant]] =
+        override def lookupContractLet(cid: AbsoluteContractId): Option[LetLookup] =
           lookupContractLetSync(cid)
 
         override def keyExists(key: GlobalKey): Boolean = selectContractKey(key).isDefined
@@ -858,13 +857,13 @@ private class JdbcLedgerDao(
       .map(mapContractDetails)
 
   private def lookupContractLetSync(contractId: AbsoluteContractId)(
-      implicit conn: Connection): Option[Option[Instant]] =
+      implicit conn: Connection): Option[LetLookup] =
     SQL_SELECT_CONTRACT_LET
       .on("contract_id" -> contractId.coid)
       .as(ContractLetParser.singleOpt)
       .map {
-        case (_, None) => None
-        case (_, Some(let)) => Some(let.toInstant)
+        case (_, None) => LetUnknown
+        case (_, Some(let)) => Let(let.toInstant)
       }
 
   override def lookupActiveOrDivulgedContract(

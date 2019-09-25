@@ -29,11 +29,11 @@ case class InMemoryActiveLedgerState(
   def lookupContract(cid: AbsoluteContractId): Option[Contract] =
     activeContracts.get(cid).orElse[Contract](divulgedContracts.get(cid))
 
-  override def lookupContractLet(cid: AbsoluteContractId): Option[Option[Instant]] =
+  override def lookupContractLet(cid: AbsoluteContractId): Option[LetLookup] =
     activeContracts
       .get(cid)
-      .map(c => Some(c.let))
-      .orElse[Option[Instant]](divulgedContracts.get(cid).map(_ => None))
+      .map(c => Let(c.let))
+      .orElse[LetLookup](divulgedContracts.get(cid).map(_ => LetUnknown))
 
   override def keyExists(key: GlobalKey) = keys.contains(key)
 
