@@ -9,3 +9,5 @@ This page contains release notes for the SDK.
 HEAD — ongoing
 --------------
 
+- [DAML Studio] ``damlc ide`` now also supports a ``--target`` option.
+  The easiest way to specify this is the ``build-options`` field in ``daml.yaml``.
