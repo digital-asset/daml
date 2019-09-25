@@ -98,7 +98,7 @@ class CommandService(
     val maximumRecordTime: Instant = meta
       .flatMap(_.maximumRecordTime)
       .getOrElse(ledgerEffectiveTime.plusNanos(defaultTimeToLive.toNanos))
-    val workflowId: lar.WorkflowId =
+    val workflowId: domain.WorkflowId =
       meta.flatMap(_.workflowId).getOrElse(workflowIdFromParty(jwtPayload.party))
     val commandId: lar.CommandId = meta.flatMap(_.commandId).getOrElse(uniqueCommandId())
 
@@ -136,10 +136,12 @@ class CommandService(
 
     import scalaz.syntax.traverse._
 
+    val workflowId = domain.WorkflowId.fromLedgerApi(tx)
+
     Transactions
       .decodeAllCreatedEvents(tx)
-      .traverse(domain.ActiveContract.fromLedgerApi)
-      .leftMap(e => Error('activeContracts, e))
+      .traverse(domain.ActiveContract.fromLedgerApi(workflowId)(_))
+      .leftMap(e => Error('activeContracts, e.shows))
   }
 }
 
