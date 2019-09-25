@@ -157,6 +157,8 @@ This table lists every version of this specification in ascending order
 +--------------------+-----------------+
 |                  4 |      2019-03-27 |
 +--------------------+-----------------+
+|                  5 |      2019-05-29 |
++--------------------+-----------------+
 
 message VersionedValue
 ^^^^^^^^^^^^^^^^^^^^^^
@@ -546,8 +548,8 @@ An Enum value, a specialized form of variant without argument.
 
 In this version, these fields are included:
 
-* `message Identifier`_ `field variant_id`_
-* ``string`` `field constructor`_
+* `message Identifier`_ enum_id
+* ``string`` value
 
-Only ``Enum`` may be used to encode a Value that conforms to an LF
-enum type.  Alternative encodings are not permitted.
+Only ``value`` is required, and it is required to be one of the values
+of the enum type to which this ``message Enum`` conforms.

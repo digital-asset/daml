@@ -9,6 +9,7 @@
 // * 2: new message Optional, incorporated into Value sum
 // * 3: new message ContractId, replaces string contract_id in Value sum
 // * 4: new message Map, incorporated into Value sum
+// * 5: new message Enum, incorporated into Value sum
 syntax = "proto3";
 
 package com.digitalasset.daml.lf.value;
