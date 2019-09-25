@@ -187,6 +187,29 @@ packagingTests tmpDir = testGroup "packaging"
             ]
         withCurrentDirectory projectB $ callCommandQuiet "daml build"
         assertBool "b.dar was not created." =<< doesFileExist bDar
+    , testCase "Build package with SDK dependency" $ do
+        let project = tmpDir </> "project"
+        let dar = project </> ".daml" </> "dist" </> "project-1.0.dar"
+        createDirectoryIfMissing True (project </> "daml")
+        writeFileUTF8 (project </> "daml" </> "Project.daml") $ unlines
+            [ "daml 1.2"
+            , "module Project (foo) where"
+            , "foo : ()"
+            , "foo = ()"
+            ]
+        writeFileUTF8 (project </> "daml.yaml") $ unlines
+            [ "sdk-version: " <> sdkVersion
+            , "name: project"
+            , "version: \"1.0\""
+            , "source: daml"
+            , "exposed-modules: [Project]"
+            , "dependencies:"
+            , "  - daml-prim"
+            , "  - daml-stdlib"
+            , "  - daml-trigger"  -- SDK dependency
+            ]
+        withCurrentDirectory project $ callCommandQuiet "daml build"
+        assertBool "project-1.0.dar was not created." =<< doesFileExist dar
     , testCase "Top-level source files" $ do
         -- Test that a source file in the project root will be included in the
         -- DAR file. Regression test for #1048.
