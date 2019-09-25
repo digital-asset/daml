@@ -339,9 +339,9 @@ execVisualHtml darFilePath webFilePath = do
     darBytes <- B.readFile darFilePath
     dalfs <- either fail pure $
                 readDalfs $ ZIPArchive.toArchive (BSL.fromStrict darBytes)
-    staticDir <- locateRunfiles $ mainWorkspace </> "compiler" </> "damlc" </> "daml-visual"
-    d3js <-   readFile $ staticDir </> "d3.js"
-    d3plusjs <- readFile $ staticDir </> "d3plus.js"
+    staticDir <- locateRunfiles $ "static_asset_d3plus" </> "js"
+    d3js <-   readFile $ staticDir </> "d3.min.js"
+    d3plusjs <- readFile $ staticDir </> "d3plus.min.js"
     let world = darToWorld dalfs
         modules = NM.toList $ LF.packageModules $ getWorldSelf world
         graph = graphFromModule modules world

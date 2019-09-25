@@ -25,8 +25,7 @@ da_haskell_binary(
     ] if is_windows else [],
     data = [
         "//compiler/damlc/daml-ide-core:dlint.yaml",
-        "//compiler/damlc/daml-visual:d3.js",
-        "//compiler/damlc/daml-visual:d3plus.js",
+        "@static_asset_d3plus//:d3-assets",
         ghc_pkg,
         "//compiler/damlc:ghcversion",
         "//compiler/damlc/pkg-db",
@@ -82,8 +81,7 @@ package_app(
     resources = [
         ":ghc-pkg-dist",
         "//compiler/damlc/daml-ide-core:dlint.yaml",
-        "//compiler/damlc/daml-visual:d3.js",
-        "//compiler/damlc/daml-visual:d3plus.js",
+        "@static_asset_d3plus//:d3-assets",
         "//compiler/damlc/pkg-db",
         "//compiler/scenario-service/server:scenario_service_jar",
     ],

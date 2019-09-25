@@ -514,6 +514,20 @@ http_archive(
     urls = ["https://github.com/awakesecurity/gRPC-haskell/archive/{}.tar.gz".format(GRPC_HASKELL_COMMIT)],
 )
 
+http_archive(
+    name = "static_asset_d3plus",
+    type = "zip",
+    sha256 = "7d31a500a4850364a966ac938eea7f2fa5ce1334966b52729079490636e7049a",
+    strip_prefix = "d3plus.v1.9.8",
+    build_file_content="""
+filegroup(
+    name = "d3-assets",
+    srcs = glob(["js/d3.min.js", "js/d3plus.min.js"]),
+    visibility = ["//visibility:public"],
+)""",
+    urls = ["https://github.com/alexandersimoes/d3plus/releases/download/v1.9.8/d3plus.zip"],
+)
+
 hazel_repositories(
     core_packages = dicts.add(
         core_packages,
