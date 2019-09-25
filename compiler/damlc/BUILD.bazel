@@ -81,9 +81,9 @@ package_app(
     resources = [
         ":ghc-pkg-dist",
         "//compiler/damlc/daml-ide-core:dlint.yaml",
-        "@static_asset_d3plus//:d3-assets",
         "//compiler/damlc/pkg-db",
         "//compiler/scenario-service/server:scenario_service_jar",
+        "@static_asset_d3plus//:d3-assets",
     ],
     tags = ["no-cache"],
     visibility = ["//visibility:public"],
