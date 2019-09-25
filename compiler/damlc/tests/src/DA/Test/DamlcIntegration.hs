@@ -319,6 +319,7 @@ mainProj TestArguments{..} service outdir log file = do
 
     setFilesOfInterest service (Set.singleton file)
     runActionSync service $ do
+            getDlintIdeas file
             cores <- ghcCompile log file
             corePrettyPrint cores
             lf <- lfConvert log file
