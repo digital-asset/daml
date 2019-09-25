@@ -353,7 +353,7 @@ execIde telemetry (Debug debug) enableScenarioService ghcOpts mbProfileDir = Com
           opts <- defaultOptionsIO Nothing
           opts <- pure $ opts
               { optScenarioService = enableScenarioService
-              , optScenarioValidation = ScenarioValidation False
+              , optScenarioSkipValidation = ScenarioSkipValidation True
               , optShakeProfiling = mbProfileDir
               , optThreads = 0
               , optDlintUsage = DlintEnabled dlintDataDir True
