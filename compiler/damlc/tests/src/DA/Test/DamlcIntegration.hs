@@ -321,6 +321,7 @@ mainProj TestArguments{..} service outdir log file = do
     runActionSync service $ do
             cores <- ghcCompile log file
             corePrettyPrint cores
+            getDlintIdeas file
             lf <- lfConvert log file
             lfPrettyPrint lf
             lf <- lfTypeCheck log file
