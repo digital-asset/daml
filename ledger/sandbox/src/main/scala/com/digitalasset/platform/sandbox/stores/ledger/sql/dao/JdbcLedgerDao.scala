@@ -142,8 +142,7 @@ private class JdbcLedgerDao(
       "select contract_id from contract_keys where package_id={package_id} and name={name} and value_hash={value_hash}")
 
   private val SQL_REMOVE_CONTRACT_KEY =
-    SQL(
-      "delete from contract_keys where package_id={package_id} and name={name} and value_hash={value_hash}")
+    SQL("delete from contract_keys where contract_id={contract_id}")
 
   private[this] def storeContractKey(key: GlobalKey, cid: AbsoluteContractId)(
       implicit connection: Connection): Boolean =
@@ -156,12 +155,11 @@ private class JdbcLedgerDao(
       )
       .execute()
 
-  private[this] def removeContractKey(key: GlobalKey)(implicit connection: Connection): Boolean =
+  private[this] def removeContractKey(cid: AbsoluteContractId)(
+      implicit connection: Connection): Boolean =
     SQL_REMOVE_CONTRACT_KEY
       .on(
-        "package_id" -> key.templateId.packageId,
-        "name" -> key.templateId.qualifiedName.toString,
-        "value_hash" -> keyHasher.hashKeyString(key)
+        "contract_id" -> cid.coid,
       )
       .execute()
 
@@ -394,8 +392,8 @@ private class JdbcLedgerDao(
         disclosure) =>
       final class AcsStoreAcc extends ActiveLedgerState[AcsStoreAcc] {
 
-        override def lookupContract(cid: AbsoluteContractId) =
-          lookupContractSync(cid)
+        override def lookupContractLet(cid: AbsoluteContractId): Option[LetLookup] =
+          lookupContractLetSync(cid)
 
         override def keyExists(key: GlobalKey): Boolean = selectContractKey(key).isDefined
 
@@ -405,9 +403,9 @@ private class JdbcLedgerDao(
           this
         }
 
-        override def removeContract(cid: AbsoluteContractId, keyO: Option[GlobalKey]) = {
+        override def removeContract(cid: AbsoluteContractId) = {
           archiveContract(offset, cid)
-          keyO.foreach(key => removeContractKey(key))
+          removeContractKey(cid)
           this
         }
 
@@ -818,6 +816,9 @@ private class JdbcLedgerDao(
     ~ binaryStream("key").?
     ~ binaryStream("transaction").? map (flatten))
 
+  private val ContractLetParser = (ledgerString("id")
+    ~ date("effective_at").? map (flatten))
+
   private val SQL_SELECT_CONTRACT =
     SQL(
       """
@@ -826,6 +827,13 @@ private class JdbcLedgerDao(
         |left join contracts c on cd.id=c.id
         |left join ledger_entries le on c.transaction_id = le.transaction_id
         |where cd.id={contract_id} and c.archive_offset is null""".stripMargin)
+
+  private val SQL_SELECT_CONTRACT_LET =
+    SQL("""
+        |select c.id, le.effective_at
+        |from contracts c
+        |left join ledger_entries le on c.transaction_id = le.transaction_id
+        |where c.id={contract_id} and c.archive_offset is null""".stripMargin)
 
   private val SQL_SELECT_WITNESS =
     SQL("select witness from contract_witnesses where contract_id={contract_id}")
@@ -847,6 +855,16 @@ private class JdbcLedgerDao(
       .on("contract_id" -> contractId.coid)
       .as(ContractDataParser.singleOpt)
       .map(mapContractDetails)
+
+  private def lookupContractLetSync(contractId: AbsoluteContractId)(
+      implicit conn: Connection): Option[LetLookup] =
+    SQL_SELECT_CONTRACT_LET
+      .on("contract_id" -> contractId.coid)
+      .as(ContractLetParser.singleOpt)
+      .map {
+        case (_, None) => LetUnknown
+        case (_, Some(let)) => Let(let.toInstant)
+      }
 
   override def lookupActiveOrDivulgedContract(
       contractId: AbsoluteContractId): Future[Option[Contract]] =

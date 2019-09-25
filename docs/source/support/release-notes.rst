@@ -6,6 +6,28 @@ Release notes
 
 This page contains release notes for the SDK.
 
+.. _release-0-13-27:
+
+0.13.27 - 2019-09-25
+--------------------
+
+DAML Assistant
+~~~~~~~~~~~~~~
+
+- ``daml start`` now supports ``--sandbox-option=opt``, ``--navigator-option=opt``
+  and ``--json-api-option=opt`` to pass additional option to sandbox/navigator/json-api.
+  These flags can be specified multiple times.
+
+DAML Compiler
+~~~~~~~~~~~~~
+
+- Fix a bug where generic templates could crash the compiler.
+
+Security
+~~~~~~~~
+
+- Fix signing process.
+
 .. _release-0-13-26:
 
 0.13.26 - 2019-09-24

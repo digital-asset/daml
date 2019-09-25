@@ -72,7 +72,7 @@ class HttpServiceIntegrationTest
           inside(output) {
             case JsObject(fields) =>
               inside(fields.get("result")) {
-                case Some(JsArray(result)) => result.length should be > 0
+                case Some(jsArray) => jsArray shouldBe JsArray(Vector.empty)
               }
           }
       }: Future[Assertion]
@@ -155,6 +155,24 @@ class HttpServiceIntegrationTest
     ).map { acl: List[domain.ActiveContract[JsValue]] =>
       acl.size shouldBe 0
     }
+  }
+
+  "contracts/search with query returns workflowID" in withHttpService(dar, testId) {
+    (uri, encoder, _) =>
+      val workflowId = domain.WorkflowId("test-workflow")
+      val meta = domain.CommandMeta(Some(workflowId), None, None, None)
+      val cmd = iouCreateCommand(amount = "444.44", currency = "BTC").copy(meta = Some(meta))
+      searchWithQuery(
+        List(cmd),
+        jsObject(
+          """{"%templates": [{"moduleName": "Iou", "entityName": "Iou"}], "currency": "BTC", "amount": "444.44"}"""),
+        uri,
+        encoder
+      ).map { acl: List[domain.ActiveContract[JsValue]] =>
+        inside(acl) {
+          case List(ac) => ac.workflowId shouldBe Some(workflowId)
+        }
+      }
   }
 
   private def jsObject(s: String): JsObject = {
@@ -469,14 +487,8 @@ class HttpServiceIntegrationTest
       .objectField(output, "result")
       .getOrElse(fail(s"output: $output is missing result element"))
 
-    val searchResponse = SprayJson
-      .decode[List[domain.GetActiveContractsResponse[JsValue]]](result)
+    SprayJson
+      .decode[List[domain.ActiveContract[JsValue]]](result)
       .valueOr(e => fail(e.shows))
-
-    activeContractList(searchResponse): List[domain.ActiveContract[JsValue]]
   }
-
-  private def activeContractList[A](
-      response: List[domain.GetActiveContractsResponse[A]]): List[domain.ActiveContract[A]] =
-    response.flatMap(_.activeContracts)
 }

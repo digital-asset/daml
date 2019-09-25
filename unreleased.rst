@@ -13,7 +13,13 @@ DAML Tool - Visual
 ~~~~~~~~~~~~~~~~~~
 
 - Adding `daml damlc visual-web` command. visual-command generates webpage with `d3 <https://d3js.org>`_ network.
++ [JSON API - Experimental] Flattening the output of the ``/contracts/search`` endpoint.
+  The endpoint returns ``ActiveContract`` objects without ``GetActiveContractsResponse`` wrappers.
+  See `issue #2987 <https://github.com/digital-asset/daml/pull/2987>`_.
 - [DAML Assistant] ``daml start`` now supports ``--sandbox-option=opt``, ``--navigator-option=opt``
   and ``--json-api-option=opt`` to pass additional option to sandbox/navigator/json-api.
   These flags can be specified multiple times.
-- [DAML Compiler] Fix a bug where generic templates could crash the compiler.
+- [DAML Studio] ``damlc ide`` now also supports a ``--target`` option.
+  The easiest way to specify this is the ``build-options`` field in ``daml.yaml``.
+- [Ledger] 
+  Improve SQL backend performance by eliminating extra queries to the database.

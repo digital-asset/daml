@@ -100,15 +100,15 @@ class ActiveLedgerStateManager[ALS](initialState: => ALS)(
             def contractCheck(
                 cid: AbsoluteContractId,
                 predType: PredicateType): Option[SequencingError] =
-              acc lookupContract cid match {
-                case Some(otherContract: ActiveContract) =>
+              acc lookupContractLet cid match {
+                case Some(Let(otherContractLet)) =>
                   // Existing active contract, check its LET
-                  if (otherContract.let.isAfter(let)) {
-                    Some(TimeBeforeError(cid, otherContract.let, let, predType))
+                  if (otherContractLet.isAfter(let)) {
+                    Some(TimeBeforeError(cid, otherContractLet, let, predType))
                   } else {
                     None
                   }
-                case Some(_: DivulgedContract) =>
+                case Some(LetUnknown) =>
                   // Contract divulged in the past
                   None
                 case None if divulgedContracts.exists(_._1 == cid) =>
@@ -188,11 +188,7 @@ class ActiveLedgerStateManager[ALS](initialState: => ALS)(
                 ats.copy(
                   errs = contractCheck(absCoid, Exercise).fold(errs)(errs + _),
                   acc = Some(if (ne.consuming) {
-                    val keyO = (acc lookupContract absCoid)
-                      .collect({ case c: ActiveContract => c })
-                      .flatMap(_.key)
-                      .map(key => GlobalKey(ne.templateId, key.key))
-                    acc.removeContract(absCoid, keyO)
+                    acc.removeContract(absCoid)
                   } else {
                     acc
                   }),

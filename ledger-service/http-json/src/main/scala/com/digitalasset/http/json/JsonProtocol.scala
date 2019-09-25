@@ -21,8 +21,8 @@ object JsonProtocol extends DefaultJsonProtocol {
   implicit val ApplicationIdFormat: JsonFormat[lar.ApplicationId] =
     taggedJsonFormat[String, lar.ApplicationIdTag]
 
-  implicit val WorkflowIdFormat: JsonFormat[lar.WorkflowId] =
-    taggedJsonFormat[String, lar.WorkflowIdTag]
+  implicit val WorkflowIdFormat: JsonFormat[domain.WorkflowId] =
+    taggedJsonFormat[String, domain.WorkflowIdTag]
 
   implicit val PartyFormat: JsonFormat[lar.Party] =
     taggedJsonFormat[String, lar.PartyTag]
@@ -81,7 +81,7 @@ object JsonProtocol extends DefaultJsonProtocol {
   }
 
   implicit val ActiveContractFormat: RootJsonFormat[domain.ActiveContract[JsValue]] =
-    jsonFormat6(domain.ActiveContract.apply[JsValue])
+    jsonFormat7(domain.ActiveContract.apply[JsValue])
 
   private val templatesKey = "%templates"
 
@@ -95,10 +95,6 @@ object JsonProtocol extends DefaultJsonProtocol {
       domain.GetActiveContractsRequest(templateIds = templates, query = fields - templatesKey)
     case _ => deserializationError("/contracts/search must receive an object")
   }
-
-  implicit val GetActiveContractsResponseFormat
-    : RootJsonFormat[domain.GetActiveContractsResponse[JsValue]] =
-    jsonFormat3(domain.GetActiveContractsResponse[JsValue])
 
   implicit val CommandMetaFormat: RootJsonFormat[domain.CommandMeta] = jsonFormat4(
     domain.CommandMeta)
