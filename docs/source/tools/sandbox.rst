@@ -48,7 +48,7 @@ To start Sandbox using persistence, pass an ``--sql-backend-jdbcurl <value>`` op
 
 Here is an example for such a url: ``jdbc:postgresql://localhost/test?user=fred&password=secret``
 
-Due to possible conflicts between the ``&`` and various terminal shells, we recommend quoting the jdbc url like so:
+Due to possible conflicts between the ``&`` character and various terminal shells, we recommend quoting the jdbc url like so:
 
   $ daml sandbox Main.dar --sql-backend-jdbcurl "jdbc:postgresql://localhost/test?user=fred&password=secret"
 
