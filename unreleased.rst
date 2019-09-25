@@ -9,10 +9,6 @@ This page contains release notes for the SDK.
 HEAD — ongoing
 --------------
 
-DAML Tool - Visual
-~~~~~~~~~~~~~~~~~~
-
-- Adding `daml damlc visual-web` command. visual-command generates webpage with `d3 <https://d3js.org>`_ network.
 + [JSON API - Experimental] Flattening the output of the ``/contracts/search`` endpoint.
   The endpoint returns ``ActiveContract`` objects without ``GetActiveContractsResponse`` wrappers.
   See `issue #2987 <https://github.com/digital-asset/daml/pull/2987>`_.
@@ -21,5 +17,7 @@ DAML Tool - Visual
   These flags can be specified multiple times.
 - [DAML Studio] ``damlc ide`` now also supports a ``--target`` option.
   The easiest way to specify this is the ``build-options`` field in ``daml.yaml``.
-- [Ledger] 
+- [Ledger]
   Improve SQL backend performance by eliminating extra queries to the database.
+- [DAML Tool - Visual]
+  Adding `daml damlc visual-web` command. visual-command generates webpage with `d3 <https://d3js.org>`_ network.
