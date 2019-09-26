@@ -1,0 +1,15 @@
+-- Copyright (c) 2019, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- Test numeric literal errors.
+--
+-- @SINCE-LF 1.dev
+-- @ERROR scale is out of bounds
+
+daml 1.2
+
+module NumericLitMonoScaleOOB where
+
+-- Scale out of bounds for monomorphic literal.
+scaleOOB : Numeric 38
+scaleOOB = 0.00001
