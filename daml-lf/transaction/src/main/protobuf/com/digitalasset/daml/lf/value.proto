@@ -9,6 +9,7 @@
 // * 2: new message Optional, incorporated into Value sum
 // * 3: new message ContractId, replaces string contract_id in Value sum
 // * 4: new message Map, incorporated into Value sum
+// * 5: new message Enum, incorporated into Value sum
 syntax = "proto3";
 
 package com.digitalasset.daml.lf.value;
@@ -63,13 +64,13 @@ message Value {
         // https://www.ietf.org/rfc/rfc3339.txt
         int32 date = 13;
 
-        Optional optional = 14;
+        Optional optional = 14; // *since v2*
 
         ContractId contract_id_struct = 15;
 
-        Map map = 16;
+        Map map = 16; // *since v4*
 
-        Enum enum = 17;
+        Enum enum = 17; // *since v5*
     }
 }
 // architecture-handbook-entry-end: Value
