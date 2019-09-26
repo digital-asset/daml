@@ -517,7 +517,7 @@ getTemplateInstanceDoc :: ADTDoc -> Maybe TemplateInstanceDoc
 getTemplateInstanceDoc tyConDoc
     | TypeSynDoc{..} <- tyConDoc
     , Just (DocText doc) <- ad_descr
-    , (realDoc, "") <- T.breakOnEnd "TEMPLATE_INSTANCE" doc
+    , Just realDoc <- T.stripSuffix "TEMPLATE_INSTANCE" doc
     = Just TemplateInstanceDoc
         { ti_name = ad_name
         , ti_anchor = ad_anchor

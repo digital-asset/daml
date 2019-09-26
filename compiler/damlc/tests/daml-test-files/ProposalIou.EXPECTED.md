@@ -23,3 +23,4 @@
 <a name="type-proposaliou-proposaliou-81988"></a>**template instance** [ProposalIou](#type-proposaliou-proposaliou-81988)
 
 > = Proposal [Iou](#type-proposaliou-iou-51326)
+> 
