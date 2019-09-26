@@ -422,7 +422,7 @@ quickstartTests quickstartDir mvnDir = testGroup "quickstart"
     , testCase "daml damlc test --files" $ withCurrentDirectory quickstartDir $
           callCommandQuiet "daml damlc test --files daml/Main.daml"
     , testCase "daml damlc visual-web" $ withCurrentDirectory quickstartDir $
-          callCommandQuiet $ unwords ["daml build && daml damlc visual-web .daml/dist/quickstart-0.0.1.dar -o visual.html -b"]
+          callCommandQuiet $ unwords ["daml damlc visual-web .daml/dist/quickstart-0.0.1.dar -o visual.html -b"]
     , testCase "sandbox startup" $
       withCurrentDirectory quickstartDir $
       withDevNull $ \devNull -> do
