@@ -20,6 +20,7 @@ da_haskell_library(
         "template-haskell",
         "text",
         "transformers",
+        "unordered-containers",
         "vector",
     ],
     src_strip_prefix = "src",
