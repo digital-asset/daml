@@ -8,4 +8,5 @@ daml 1.2
 module RationalUpperBoundMax where
 
 -- 10^38 -1 / 10^10
+a : Decimal
 a = 9999999999999999999999999999.9999999999
