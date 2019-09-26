@@ -5,6 +5,7 @@ package com.daml.ledger.api.testtool.tests
 
 import ai.x.diff.conversions._
 import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTest, LedgerTestSuite}
+import com.digitalasset.ledger.api.v1.transaction.Transaction
 import com.digitalasset.ledger.api.v1.value.{RecordField, Value}
 import com.digitalasset.ledger.client.binding.Primitive
 import com.digitalasset.ledger.client.binding.Value.encode
@@ -35,6 +36,24 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
           request = ledger.getTransactionsRequest(Seq(party))
           fromAndToBegin = request.update(_.begin := ledger.begin, _.end := ledger.begin)
           transactions <- ledger.flatTransactions(fromAndToBegin)
+        } yield {
+          assert(
+            transactions.isEmpty,
+            s"Received a non-empty stream with ${transactions.size} transactions in it.")
+        }
+    }
+
+  private[this] val treesBeginToBeginShouldBeEmpty =
+    LedgerTest(
+      "TXTreesBeginToBegin",
+      "An empty stream of trees should be served when getting transactions from and to the beginning of the ledger") {
+      context =>
+        for {
+          ledger <- context.participant()
+          party <- ledger.allocateParty()
+          request = ledger.getTransactionsRequest(Seq(party))
+          fromAndToBegin = request.update(_.begin := ledger.begin, _.end := ledger.begin)
+          transactions <- ledger.transactionTrees(fromAndToBegin)
         } yield {
           assert(
             transactions.isEmpty,
@@ -79,6 +98,27 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
           assert(
             transactions.size == transactionsToRead,
             s"$transactionsToRead should have been received but ${transactions.size} were instead")
+        }
+    }
+
+  private[this] val serveTreesUntilCancellation =
+    LedgerTest("TXServeTreesUntilCancellation", "Trees should be served until the client cancels") {
+      context =>
+        val transactionsToSubmit = 14
+        val treesToRead = 10
+        for {
+          ledger <- context.participant()
+          party <- ledger.allocateParty()
+          dummies <- Future.sequence(
+            Vector.fill(transactionsToSubmit)(ledger.create(party, Dummy(party))))
+          trees <- ledger.transactionTrees(treesToRead, party)
+        } yield {
+          assert(
+            dummies.size == transactionsToSubmit,
+            s"$transactionsToSubmit should have been submitted but ${dummies.size} were instead")
+          assert(
+            trees.size == treesToRead,
+            s"$treesToRead should have been received but ${trees.size} were instead")
         }
     }
 
@@ -138,6 +178,21 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
       ledger <- context.participant()
       party <- ledger.allocateParty()
       transactionsFuture = ledger.flatTransactions(party)
+      _ <- Future.sequence(Vector.fill(transactionsToSubmit)(ledger.create(party, Dummy(party))))
+      _ <- transactionsFuture
+    } yield {
+      // doing nothing: we are just checking that `transactionsFuture` completes successfully
+    }
+  }
+
+  private[this] val completeTreesOnLedgerEnd = LedgerTest(
+    "TXCompleteTreesOnLedgerEnd",
+    "A stream of trees should complete as soon as the ledger end is hit") { context =>
+    val transactionsToSubmit = 14
+    for {
+      ledger <- context.participant()
+      party <- ledger.allocateParty()
+      transactionsFuture = ledger.transactionTrees(party)
       _ <- Future.sequence(Vector.fill(transactionsToSubmit)(ledger.create(party, Dummy(party))))
       _ <- transactionsFuture
     } yield {
@@ -836,6 +891,35 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
         }
     }
 
+  private[this] val singleMultiSameTrees =
+    LedgerTest(
+      "TXSingleMultiSameTrees",
+      "The same transaction trees should be served regardless of subscribing as one or multiple parties") {
+      context =>
+        for {
+          Vector(alpha, beta) <- context.participants(2)
+          alice <- alpha.allocateParty()
+          bob <- beta.allocateParty()
+          _ <- alpha.create(alice, Dummy(alice))
+          _ <- beta.create(bob, Dummy(bob))
+          aliceView <- alpha.transactionTrees(alice)
+          bobView <- beta.transactionTrees(bob)
+          _ <- synchronize(alpha, beta)
+          alphaView <- alpha.transactionTrees(alice, bob)
+          betaView <- beta.transactionTrees(alice, bob)
+        } yield {
+          val jointView = aliceView ++ bobView
+          assertEquals(
+            "Single- and multi-party subscription yield different results",
+            jointView,
+            alphaView)
+          assertEquals(
+            "Single- and multi-party subscription yield different results",
+            jointView,
+            betaView)
+        }
+    }
+
   private[this] val fetchContractCreatedInTransaction =
     LedgerTest(
       "TXFetchContractCreatedInTransaction",
@@ -1312,13 +1396,179 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
         }
     }
 
+  private def checkTransactionsOrder(
+      context: String,
+      transactions: Vector[Transaction],
+      contracts: Int): Unit = {
+    val (cs, as) =
+      transactions.flatMap(_.events).zipWithIndex.partition {
+        case (e, _) => e.event.isCreated
+      }
+    val creations = cs.map { case (e, i) => e.getCreated.contractId -> i }
+    val archivals = as.map { case (e, i) => e.getArchived.contractId -> i }
+    assert(
+      creations.size == contracts && archivals.size == contracts,
+      s"$context: either the number of archive events (${archivals.size}) or the number of create events (${creations.size}) don't match the expected number of $contracts."
+    )
+    val createdContracts = creations.iterator.map(_._1).toSet
+    val archivedContracts = archivals.iterator.map(_._1).toSet
+    assert(
+      createdContracts.size == creations.size,
+      s"$context: there are duplicate contract identifiers in the create events"
+    )
+    assert(
+      archivedContracts.size == archivals.size,
+      s"$context: there are duplicate contract identifiers in the archive events"
+    )
+    assert(
+      createdContracts == archivedContracts,
+      s"$context: the contract identifiers for created and archived contracts differ: ${createdContracts
+        .diff(archivedContracts)}"
+    )
+    val sortedCreations = creations.sortBy(_._1)
+    val sortedArchivals = archivals.sortBy(_._1)
+    for (i <- 0 until contracts) {
+      val (createdContract, creationIndex) = sortedCreations(i)
+      val (archivedContract, archivalIndex) = sortedArchivals(i)
+      assert(
+        createdContract == archivedContract,
+        s"$context: unexpected discrepancy between the created and archived events")
+      assert(
+        creationIndex < archivalIndex,
+        s"$context: the creation of $createdContract did not appear in the stream before it's archival")
+    }
+  }
+
+  private[this] val singleSubscriptionInOrder =
+    LedgerTest(
+      "TXSingleSubscriptionInOrder",
+      "Archives should always come after creations when subscribing as a single party") {
+      val contracts = 100
+      context =>
+        for {
+          ledger <- context.participant()
+          party <- ledger.allocateParty()
+          _ <- Future.sequence(
+            Vector.fill(contracts)(
+              ledger
+                .create(party, Dummy(party))
+                .flatMap(contract => ledger.exercise(party, contract.exerciseDummyChoice1))))
+          transactions <- ledger.flatTransactions(party)
+        } yield {
+          checkTransactionsOrder("Ledger", transactions, contracts)
+        }
+    }
+
+  private[this] val multiSubscriptionInOrder =
+    LedgerTest(
+      "TXMultiSubscriptionInOrder",
+      "Archives should always come after creations when subscribing as more than on party") {
+      val contracts = 100
+      context =>
+        for {
+          Vector(alpha, beta) <- context.participants(2)
+          alice <- alpha.allocateParty()
+          bob <- beta.allocateParty()
+          _ <- Future.sequence(
+            Vector.tabulate(contracts)(
+              n =>
+                if (n % 2 == 0)
+                  alpha
+                    .create(alice, Dummy(alice))
+                    .flatMap(contract => alpha.exercise(alice, contract.exerciseDummyChoice1))
+                else
+                  beta
+                    .create(bob, Dummy(bob))
+                    .flatMap(contract => beta.exercise(bob, contract.exerciseDummyChoice1)))
+          )
+          _ <- synchronize(alpha, beta)
+          aliceView <- alpha.flatTransactions(alice, bob)
+          bobView <- beta.flatTransactions(alice, bob)
+        } yield {
+          checkTransactionsOrder("Alpha", aliceView, contracts)
+          checkTransactionsOrder("Beta", bobView, contracts)
+        }
+    }
+
+  private[this] val flatSubsetOfTrees =
+    LedgerTest(
+      "TXFlatSubsetOfTrees",
+      "The event identifiers in the flat stream should be a subset of those in the trees stream") {
+      val contracts = 100
+      context =>
+        for {
+          ledger <- context.participant()
+          party <- ledger.allocateParty()
+          _ <- Future.sequence(
+            Vector.fill(contracts)(
+              ledger
+                .create(party, Dummy(party))
+                .flatMap(contract => ledger.exercise(party, contract.exerciseDummyChoice1))))
+          transactions <- ledger.flatTransactions(party)
+          trees <- ledger.transactionTrees(party)
+        } yield {
+          assert(
+            transactions
+              .flatMap(_.events.map(e =>
+                e.event.archived.map(_.eventId).orElse(e.event.created.map(_.eventId)).get))
+              .toSet
+              .subsetOf(trees.flatMap(_.eventsById.keys).toSet))
+        }
+    }
+
+  private[this] val flatWitnessesSubsetOfTrees =
+    LedgerTest(
+      "TXFlatWitnessesSubsetOfTrees",
+      "The witnesses in the flat stream should be a subset of those in the trees stream") {
+      val contracts = 100
+      context =>
+        for {
+          ledger <- context.participant()
+          party <- ledger.allocateParty()
+          _ <- Future.sequence(
+            Vector.fill(contracts)(
+              ledger
+                .create(party, Dummy(party))
+                .flatMap(contract => ledger.exercise(party, contract.exerciseDummyChoice1))))
+          transactions <- ledger.flatTransactions(party)
+          trees <- ledger.transactionTrees(party)
+        } yield {
+          val witnessesByEventIdInTreesStream =
+            trees.iterator
+              .flatMap(_.eventsById)
+              .map {
+                case (id, event) =>
+                  id -> event.kind.exercised
+                    .map(_.witnessParties.toSet)
+                    .orElse(event.kind.created.map(_.witnessParties.toSet))
+                    .get
+              }
+              .toMap
+          val witnessesByEventIdInFlatStream =
+            transactions
+              .flatMap(
+                _.events.map(
+                  e =>
+                    e.event.archived
+                      .map(a => a.eventId -> a.witnessParties.toSet)
+                      .orElse(e.event.created.map(c => c.eventId -> c.witnessParties.toSet))
+                      .get))
+          for ((event, witnesses) <- witnessesByEventIdInFlatStream) {
+            assert(witnesses.subsetOf(witnessesByEventIdInTreesStream(event)))
+          }
+        }
+    }
+
   override val tests: Vector[LedgerTest] = Vector(
     beginToBeginShouldBeEmpty,
+    treesBeginToBeginShouldBeEmpty,
     endToEndShouldBeEmpty,
     serveElementsUntilCancellation,
+    serveTreesUntilCancellation,
     deduplicateCommands,
     rejectEmptyFilter,
     completeOnLedgerEnd,
+    completeTreesOnLedgerEnd,
     processInTwoChunks,
     identicalAndParallel,
     notDivulgeToUnrelatedParties,
@@ -1350,6 +1600,7 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     noReorder,
     largeCommand,
     singleMultiSame,
+    singleMultiSameTrees,
     fetchContractCreatedInTransaction,
     flatTransactionsWrongLedgerId,
     transactionTreesWrongLedgerId,
@@ -1377,6 +1628,10 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     invisibleFlatTransactionByEventId,
     flatTransactionByEventIdInvalid,
     flatTransactionByEventIdNotFound,
-    flatTransactionByEventIdNoParty
+    flatTransactionByEventIdNoParty,
+    singleSubscriptionInOrder,
+    multiSubscriptionInOrder,
+    flatSubsetOfTrees,
+    flatWitnessesSubsetOfTrees
   )
 }
