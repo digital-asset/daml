@@ -319,9 +319,9 @@ mainProj TestArguments{..} service outdir log file = do
 
     setFilesOfInterest service (Set.singleton file)
     runActionSync service $ do
+            dlint log file
             cores <- ghcCompile log file
             corePrettyPrint cores
-            getDlintIdeas file
             lf <- lfConvert log file
             lfPrettyPrint lf
             lf <- lfTypeCheck log file
@@ -335,6 +335,9 @@ unjust act = do
     case res of
       Nothing -> fail "_IGNORE_"
       Just v -> return v
+
+dlint :: (String -> IO ()) -> NormalizedFilePath -> Action ()
+dlint log file = timed log "DLint" $ unjust $ getDlintIdeas file
 
 ghcCompile :: (String -> IO ()) -> NormalizedFilePath -> Action [GHC.CoreModule]
 ghcCompile log file = timed log "GHC compile" $ unjust $ getGhcCore file
