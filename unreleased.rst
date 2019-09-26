@@ -17,7 +17,8 @@ HEAD — ongoing
   These flags can be specified multiple times.
 - [DAML Studio] ``damlc ide`` now also supports a ``--target`` option.
   The easiest way to specify this is the ``build-options`` field in ``daml.yaml``.
-- [Ledger] 
+- [Ledger]
   Improve SQL backend performance by eliminating extra queries to the database.
 + [DAML Ledger Integration Kit] The transaction service is now fully tested.
 - [DAML Compiler] Fix a problem where constraints of the form `Template (Foo t)` caused the compiler to suggest enabling the `UndecidableInstances` language extension.
+- [Security] Document how to verify the signature on release tarballs.
