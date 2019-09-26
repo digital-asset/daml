@@ -15,13 +15,17 @@ import DA.Daml.Doc.Types
 import DA.Daml.Doc.Transform
 import DA.Daml.Doc.Anchor
 
+import Development.IDE.Types.Diagnostics
 import Development.IDE.Types.Location
 import Development.IDE.Types.Options (IdeReportProgress(..))
+import Development.IDE.LSP.Protocol
 
-import           Control.Monad.Except
+import Control.Monad
+import           Control.Monad.Trans.Maybe
 import qualified Data.Aeson.Encode.Pretty as AP
 import           Data.List.Extra
 import qualified Data.Text          as T
+import qualified Data.Text.IO as T
 import qualified Data.Text.Extended as T
 import qualified Data.Text.Lazy as TL
 import qualified Data.Text.Lazy.Encoding as TL
@@ -257,17 +261,22 @@ runDamldoc testfile importPathM = do
                   optImportPath opts
           }
 
+    let diagLogger = \case
+            EventFileDiagnostics fp diags -> T.hPutStrLn stderr $ showDiagnostics $ map (toNormalizedFilePath fp,) diags
+            _ -> pure ()
+
     -- run the doc generator on that file
-    mbResult <- runExceptT $ extractDocs
+    mbResult <- runMaybeT $ extractDocs
         defaultExtractOptions
+        diagLogger
         (toCompileOpts opts' (IdeReportProgress False))
         [toNormalizedFilePath testfile]
 
     case mbResult of
-      Left err ->
-        assertFailure $ unlines ["Parse error(s) for test file " <> testfile, show err]
+      Nothing ->
+        assertFailure $ unlines ["Parse error(s) for test file " <> testfile]
 
-      Right docs -> do
+      Just docs -> do
           let docs' = applyTransform [] docs
                 -- apply transforms to get instance data
               name = md_name (head docs)
