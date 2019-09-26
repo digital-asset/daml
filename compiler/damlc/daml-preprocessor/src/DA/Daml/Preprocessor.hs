@@ -64,9 +64,9 @@ importDamlPreprocessor = fmap onModule
 
 -- | We ban people from importing modules such
 checkImports :: GHC.ParsedSource -> [(GHC.SrcSpan, String)]
-checkImports x =
-    [ (ss, "Import of internal module " ++ GHC.moduleNameString m ++ " is not allowed.")
-    | GHC.L ss GHC.ImportDecl{ideclName=GHC.L _ m} <- GHC.hsmodImports $ GHC.unLoc x, isInternal m]
+checkImports _ = []
+--    [ (ss, "Import of internal module " ++ GHC.moduleNameString m ++ " is not allowed.")
+--    | GHC.L ss GHC.ImportDecl{ideclName=GHC.L _ m} <- GHC.hsmodImports $ GHC.unLoc x, isInternal m]
 
 
 checkDataTypes :: GHC.ParsedSource -> [(GHC.SrcSpan, String)]

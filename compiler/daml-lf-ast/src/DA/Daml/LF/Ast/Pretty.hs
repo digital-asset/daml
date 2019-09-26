@@ -117,6 +117,7 @@ instance Pretty TypeConApp where
 
 instance Pretty BuiltinType where
   pPrint = \case
+    BTSerializable        -> "Serializable"
     BTInt64          -> "Int64"
     BTDecimal        -> "Decimal"
     BTNumeric -> "Numeric"
@@ -184,6 +185,9 @@ instance Pretty PartyLiteral where
 
 instance Pretty BuiltinExpr where
   pPrintPrec lvl prec = \case
+    BEEqualSerializable -> "EQUAL_SERIALIZABLE"
+    BEIntIsSerializable -> "INT_IS_SERIALIZABLE"
+    BEListIsSerializable -> "LIST_IS_SERIALIZABLE"
     BEInt64 n -> pretty (toInteger n)
     BEDecimal dec -> string (show dec)
     BENumeric n -> string (show n)
@@ -446,6 +450,7 @@ instance Pretty Expr where
     ENone typ -> prettyAppKeyword lvl prec "none" [TyArg typ]
     EToAnyTemplate tpl body -> prettyAppKeyword lvl prec "to_any_template" [tplArg tpl, TmArg body]
     EFromAnyTemplate tpl body -> prettyAppKeyword lvl prec "from_any_template" [tplArg tpl, TmArg body]
+    EDataIsSerializable id -> prettyAppKeyword lvl prec "data_is_serializable" [tplArg id]
 
 instance Pretty DefDataType where
   pPrintPrec lvl _prec (DefDataType mbLoc tcon (IsSerializable serializable) params dataCons) =

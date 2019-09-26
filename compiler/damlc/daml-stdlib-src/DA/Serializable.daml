@@ -1,0 +1,28 @@
+-- Copyright (c) 2019 The DAML Authors. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+daml 1.2
+-- | LF.TextMap - A map is an associative array data type composed of a
+-- collection of key/value pairs such that, each possible key appears
+-- at most once in the collection.
+module DA.Serializable (Serializable, (===), isSerializable, force1, force2) where
+
+import DA.Internal.LF qualified as LF
+
+class Serializable a where
+  isSerializable : LF.Serializable a
+  (===): a -> a -> Bool
+  (===) = LF.equal isSerializable
+
+instance Serializable Int where
+  isSerializable  = LF.intIsSerializable
+
+instance (Serializable a) => Serializable [a] where
+  isSerializable = LF.listIsSerializable isSerializable
+
+
+force1: (LF.Serializable a -> LF.Serializable b) -> (LF.Serializable a -> LF.Serializable b)
+force1 x = x
+
+force2: (LF.Serializable a -> LF.Serializable b -> LF.Serializable c) -> (LF.Serializable a -> LF.Serializable b -> LF.Serializable c)
+force2 x = x

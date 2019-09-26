@@ -113,7 +113,7 @@ private[validation] case class TypeSubst(map: Map[TypeVarName, Type], private va
 
   def apply(expr0: Expr): Expr = expr0 match {
     case EVar(_) | EVal(_) | EBuiltin(_) | EPrimCon(_) | EPrimLit(_) | EContractId(_, _) |
-        EEnumCon(_, _) =>
+        EEnumCon(_, _) | EDataIsSerializable(_) =>
       expr0
     case ERecCon(tycon, fields) =>
       ERecCon(apply(tycon), fields.transform { (_, x) =>

@@ -200,8 +200,12 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
           case BFoldr => SEBuiltinRecursiveDefinition.FoldR
           case BEqualList => SEBuiltinRecursiveDefinition.EqualList
           case BCoerceContractId => SEAbs(1, SEVar(1))
+          case BIntIsSerializable => SEValue(SUnit(()))
+          case BListIsSerializable => SEAbs(1, SEVar(1))
           case _ =>
             SEBuiltin(bf match {
+              case BEqualSerializable => SBEqualSerializable
+
               case BTrace => SBTrace
 
               // Decimal arithmetic
@@ -307,6 +311,9 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
               case BFoldr => throw CompileError(s"unexpected BFoldr")
               case BEqualList => throw CompileError(s"unexpected BEqualList")
               case BCoerceContractId => throw CompileError(s"unexpected BCoerceContractId")
+
+              case BIntIsSerializable | BListIsSerializable =>
+                throw CompileError("unexpect Serializable")
             })
         }
 
@@ -594,6 +601,13 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
 
       case EFromAnyTemplate(tmplId, e) =>
         SEApp(SEBuiltin(SBFromAnyTemplate(tmplId)), Array(translate(e)))
+
+      case EDataIsSerializable(id) =>
+        lookupDefinition(id) match {
+          case Some(DDataType(_, p, _)) if p.isEmpty => SEValue(SUnit(()))
+          case Some(DDataType(_, p, _)) => SEAbs(p.length)(SEVar(1))
+          case _ => sys.error(s"definition for data type $id  not found")
+        }
     }
 
   @tailrec

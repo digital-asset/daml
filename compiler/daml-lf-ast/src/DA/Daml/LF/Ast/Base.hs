@@ -154,6 +154,7 @@ data BuiltinType
   | BTOptional
   | BTMap
   | BTArrow
+  | BTSerializable
   | BTAnyTemplate
   deriving (Eq, Data, Generic, NFData, Ord, Show)
 
@@ -282,6 +283,10 @@ data BuiltinExpr
   | BETrace                      -- :: forall a. Text -> a -> a
   | BEEqualContractId            -- :: forall a. ContractId a -> ContractId a -> Bool
   | BECoerceContractId           -- :: forall a b. ContractId a -> ContractId b
+
+  | BEEqualSerializable          -- :: ∀a. Serializable a -> a -> a -> Bool,
+  | BEIntIsSerializable            -- :: Serializable Int
+  | BEListIsSerializable           -- :: ∀a. Serializable a -> Serializable [a],
   deriving (Eq, Data, Generic, NFData, Ord, Show)
 
 
@@ -446,6 +451,7 @@ data Expr
     { fromAnyTemplateTemplate :: !(Qualified TypeConName)
     , fromAnyTemplateBody :: !Expr
     }
+  | EDataIsSerializable !(Qualified TypeConName)
   -- | Update expression.
   | EUpdate !Update
   -- | Scenario expression.

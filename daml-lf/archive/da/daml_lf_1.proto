@@ -239,6 +239,8 @@ enum PrimType {
   // Builtin type 'Any'
   // *Available in versions >= 1.dev*
   ANY = 18;
+
+  SERIALIZABLE = 999;
 }
 
 // Types
@@ -451,6 +453,11 @@ enum BuiltinFunction {
   TEXT_FROM_CODE_POINTS = 105;  // *Available in versions >= 1.6*
   TEXT_TO_CODE_POINTS = 106; // *Available in versions >= 1.6*
   // Next id is 123. 122 is SHIFT_NUMERIC.
+
+  EQUAL_SERIALIZABLE = 999;
+  INT_IS_SERIALIZABLE = 1000;
+  LIST_IS_SERIALIZABLE = 1001;
+
 }
 
 // Builtin literals
@@ -825,6 +832,8 @@ message Expr {
     // Extract the given type from Any or return None on type-mismatch ('ExpFromAny')
     // *Available in versions >= 1.dev*
     FromAny from_any = 30;
+
+    TypeConName data_is_serializable = 999;
   }
 
   reserved 19; // This was equals. Removed in favour of BuiltinFunction.EQUAL_*

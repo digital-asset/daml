@@ -81,6 +81,8 @@ private[validation] object Serializability {
           case BTInt64 | BTText | BTTimestamp | BTDate | BTParty | BTBool | BTUnit =>
           case BTNumeric =>
             unserializable(URNumeric)
+          case BTSerializable =>
+            unserializable(URNumeric) // FixMe
           case BTList =>
             unserializable(URList)
           case BTOptional =>

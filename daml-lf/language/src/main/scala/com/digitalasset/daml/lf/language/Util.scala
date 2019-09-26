@@ -50,6 +50,7 @@ object Util {
   val TParty = TBuiltin(BTParty)
   val TAnyTemplate = TBuiltin(BTAnyTemplate)
 
+  val TSerializable = new ParametricType1(BTSerializable)
   val TNumeric = new ParametricType1(BTNumeric)
   val TList = new ParametricType1(BTList)
   val TOptional = new ParametricType1(BTOptional)

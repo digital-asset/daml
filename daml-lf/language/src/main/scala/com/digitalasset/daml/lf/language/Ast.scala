@@ -151,6 +151,8 @@ object Ast {
   /** Extract the underlying template if it matches the tmplId **/
   final case class EFromAnyTemplate(tmplId: TypeConName, body: Expr) extends Expr
 
+  final case class EDataIsSerializable(id: TypeConName) extends Expr
+
   //
   // Kinds
   //
@@ -277,6 +279,7 @@ object Ast {
   case object BTContractId extends BuiltinType
   case object BTArrow extends BuiltinType
   case object BTAnyTemplate extends BuiltinType
+  case object BTSerializable extends BuiltinType
 
   //
   // Primitive literals
@@ -411,6 +414,10 @@ object Ast {
   final case object BEqualList extends BuiltinFunction(3) // : ∀a. (a -> a -> Bool) -> List a -> List a -> Bool
   final case object BEqualContractId extends BuiltinFunction(2) // : ∀a. ContractId a -> ContractId a -> Bool
   final case object BCoerceContractId extends BuiltinFunction(1) // : ∀a b. ContractId a -> ContractId b
+
+  final case object BEqualSerializable extends BuiltinFunction(3)
+  final case object BIntIsSerializable extends BuiltinFunction(0)
+  final case object BListIsSerializable extends BuiltinFunction(1)
 
   //
   // Update expressions

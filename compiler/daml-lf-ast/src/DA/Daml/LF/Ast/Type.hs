@@ -15,7 +15,6 @@ import qualified Data.Text as T
 import Data.List
 import           Safe (findJust)
 import           Safe.Exact (zipWithExactMay)
-
 import DA.Daml.LF.Ast.Base
 
 -- | Get the free type variables of a type.

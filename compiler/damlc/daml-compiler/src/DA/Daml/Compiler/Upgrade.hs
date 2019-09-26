@@ -518,6 +518,7 @@ generateSrcFromLf (Qualify qualify) thisPkgId pkgMap m = noLoc mod
     convBuiltInTy :: LF.BuiltinType -> HsType GhcPs
     convBuiltInTy =
         \case
+            LF.BTSerializable -> error "Serializable type not yet supported in upgrades"
             LF.BTInt64 -> mkTyConType intTyCon
             LF.BTDecimal -> mkGhcType "Decimal"
             LF.BTText -> mkGhcType "Text"
@@ -624,6 +625,7 @@ generateSrcFromLf (Qualify qualify) thisPkgId pkgMap m = noLoc mod
              dataTy <- NM.toList $ LF.moduleDataTypes m
              pure $ toListOf (dataConsType . builtinType) $ LF.dataCons dataTy)
     builtinToModuleRef = \case
+            LF.BTSerializable -> error "Serializable type not yet supported in upgrades"
             LF.BTInt64 -> (primUnitId, translateModName intTyCon)
             LF.BTDecimal -> (primUnitId, LF.ModuleName ["GHC", "Types"])
             LF.BTText -> (primUnitId, LF.ModuleName ["GHC", "Types"])

@@ -1231,6 +1231,14 @@ object SBuiltin {
     }
   }
 
+  final case object SBEqualSerializable extends SBuiltin(3) {
+
+    /** Execute the builtin with 'arity' number of arguments in 'args'.
+      * Updates the machine state accordingly. */
+    override def execute(args: util.ArrayList[SValue], machine: Machine): Unit =
+      machine.ctrl = CtrlValue(SBool(args.get(1) == args.get(2)))
+  }
+
   /** $trace :: Text -> a -> a */
   final case object SBTrace extends SBuiltin(2) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {

@@ -59,6 +59,7 @@ freeVarsStep = \case
   ESomeF _ s -> s
   EToAnyTemplateF _ s -> s
   EFromAnyTemplateF _ s -> s
+  EDataIsSerializableF _ -> mempty
   EUpdateF u ->
     case u of
       UPureF _ s -> s
@@ -104,6 +105,9 @@ safetyStep = \case
   EValF _ -> Unsafe
   EBuiltinF b ->
     case b of
+      BEEqualSerializable    -> Safe 3
+      BEIntIsSerializable    -> Safe 0
+      BEListIsSerializable    -> Safe 1
       BEInt64 _           -> Safe 0
       BEDecimal _         -> Safe 0
       BENumeric _         -> Safe 0
@@ -214,7 +218,7 @@ safetyStep = \case
   EFromAnyTemplateF _ s
     | Safe _ <- s -> Safe 0
     | otherwise -> Unsafe
-
+  EDataIsSerializableF _ -> Unsafe
 
 infoStep :: ExprF Info -> Info
 infoStep e = Info (freeVarsStep (fmap freeVars e)) (safetyStep (fmap safety e))

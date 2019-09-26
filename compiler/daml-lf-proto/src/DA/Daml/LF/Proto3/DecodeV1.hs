@@ -248,6 +248,10 @@ decodeChoice LF1.TemplateChoice{..} =
 
 decodeBuiltinFunction :: LF1.BuiltinFunction -> Decode BuiltinExpr
 decodeBuiltinFunction = pure . \case
+  LF1.BuiltinFunctionEQUAL_SERIALIZABLE -> BEEqualSerializable
+  LF1.BuiltinFunctionINT_IS_SERIALIZABLE -> BEIntIsSerializable
+  LF1.BuiltinFunctionLIST_IS_SERIALIZABLE -> BEListIsSerializable
+
   LF1.BuiltinFunctionEQUAL_INT64 -> BEEqual BTInt64
   LF1.BuiltinFunctionEQUAL_DECIMAL -> BEEqual BTDecimal
   LF1.BuiltinFunctionEQUAL_NUMERIC -> BEEqualNumeric
@@ -469,6 +473,9 @@ decodeExprSum exprSum = mayDecode "exprSum" exprSum $ \case
             expr <- mayDecode "expr_FromAnyExpr" mbExpr decodeExpr
             return (EFromAnyTemplate con expr)
         _ -> throwError (ExpectedTCon type')
+  LF1.ExprSumDataIsSerializable tyCon -> do
+    con <- decodeTypeConName tyCon
+    pure $ EDataIsSerializable con
 
 decodeUpdate :: LF1.Update -> Decode Expr
 decodeUpdate LF1.Update{..} = mayDecode "updateSum" updateSum $ \case
@@ -616,6 +623,7 @@ decodeKind LF1.Kind{..} = mayDecode "kindSum" kindSum $ \case
 
 decodePrim :: LF1.PrimType -> Decode BuiltinType
 decodePrim = pure . \case
+  LF1.PrimTypeSERIALIZABLE-> BTSerializable
   LF1.PrimTypeINT64 -> BTInt64
   LF1.PrimTypeDECIMAL -> BTDecimal
   LF1.PrimTypeNUMERIC -> BTNumeric

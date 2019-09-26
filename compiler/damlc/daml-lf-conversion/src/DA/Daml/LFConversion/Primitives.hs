@@ -219,6 +219,21 @@ convertPrim _ "BENumericFromText" (TText :-> TOptional (TNumeric n)) =
     ETyApp (EBuiltin BENumericFromText) n
 
 
+-- Serializable
+
+convertPrim _ "BEEqualSerializable" (TSerializable a1 :-> a2 :-> a3 :-> TBool) | a1 == a2, a2 == a3 =
+    EBuiltin BEEqualSerializable `ETyApp` a1
+convertPrim _ "BEIntIsSerializable" (TSerializable TInt64)  =
+    EBuiltin BEIntIsSerializable
+convertPrim _ "BEListIsSerializable" (TSerializable a1 :-> TSerializable (TList a2)) | a1 == a2 =
+    EBuiltin BEListIsSerializable `ETyApp` a1
+convertPrim _ "BEDataIsSerializable" (TSerializable (TCon tycon))  =
+    EDataIsSerializable tycon
+convertPrim _ "BEDataIsSerializable" (TSerializable a1 :-> TSerializable (TApp (TCon tycon) a2)) | a1 == a2 =
+    EDataIsSerializable tycon `ETyApp` a1
+convertPrim _ "BEDataIsSerializable" (TSerializable a1 :-> TSerializable a2 :-> TSerializable (TApp (TApp (TCon tycon) b1) b2)) | a1 == b1, a2 == b2  =
+    ((EDataIsSerializable tycon) `ETyApp` a1) `ETyApp` a2
+
 convertPrim _ x ty = error $ "Unknown primitive " ++ show x ++ " at type " ++ renderPretty ty
 
 -- | Some builtins are only supported in specific versions of DAML-LF.

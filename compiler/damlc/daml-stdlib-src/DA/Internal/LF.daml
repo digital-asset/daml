@@ -38,6 +38,7 @@ module DA.Internal.LF
   , unpackPair
 
   , AnyTemplate
+  , Serializable, equal, intIsSerializable, listIsSerializable
   ) where
 
 import GHC.Types (Opaque, Symbol)
@@ -210,3 +211,15 @@ unpackPair = magic @"unpackPair"
 data AnyTemplate =
   AnyTemplate Opaque
 -- We need the constructor to avoid GHC warning about impossible pattern matches.
+
+data Serializable a = Serializable Opaque
+
+equal : (Serializable a) -> a -> a -> Bool
+equal = (primitive @"BEEqualSerializable")
+
+intIsSerializable : (Serializable Int)
+intIsSerializable = (primitive @"BEIntIsSerializable")
+
+listIsSerializable : forall a. Serializable a -> Serializable [a]
+listIsSerializable = (primitive @"BEListIsSerializable")
+

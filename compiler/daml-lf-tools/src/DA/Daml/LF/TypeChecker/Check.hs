@@ -103,6 +103,7 @@ kindOfDataType = foldr (KArrow . snd) KStar . dataParams
 
 kindOfBuiltin :: BuiltinType -> Kind
 kindOfBuiltin = \case
+  BTSerializable -> KStar `KArrow` KStar
   BTInt64 -> KStar
   BTDecimal -> KStar
   BTNumeric -> KNat `KArrow` KStar
@@ -143,6 +144,9 @@ kindOf = \case
 
 typeOfBuiltin :: MonadGamma m => BuiltinExpr -> m Type
 typeOfBuiltin = \case
+  BEEqualSerializable   -> pure $ TForall (alpha, KStar) (TSerializable tAlpha :-> tAlpha :-> tAlpha :-> TBool)
+  BEIntIsSerializable   -> pure $ TSerializable TInt64
+  BEListIsSerializable   -> pure $ TForall (alpha, KStar) (TSerializable tAlpha :-> TSerializable (TList tAlpha))
   BEInt64 _          -> pure TInt64
   BEDecimal _        -> pure TDecimal
   BENumeric n        -> pure (TNumeric (TNat (numericScale n)))
@@ -506,9 +510,20 @@ typeOf = \case
     _ :: Template <- inWorld (lookupTemplate tpl)
     checkExpr bodyExpr (TBuiltin BTAnyTemplate)
     pure $ TOptional (TCon tpl)
+  EDataIsSerializable tyCon -> do
+    DefDataType _loc _naem _serializable tparams _dataCons <- inWorld (lookupDataType tyCon)
+    let vars = map (\x -> TVar (fst x)) tparams
+    pure $ foldr (\x -> TForall x) (foldr (\t -> tFun (tSerializable t)) (tSerializable (foldl TApp (TCon tyCon) vars)) vars) tparams
   EUpdate upd -> typeOfUpdate upd
   EScenario scen -> typeOfScenario scen
   ELocation _ expr -> typeOf expr
+
+tFun :: Type -> Type -> Type
+tFun t  = TApp (TApp (TBuiltin BTArrow) t)
+
+tSerializable :: Type -> Type
+tSerializable = TApp (TBuiltin BTSerializable)
+
 
 checkExpr' :: MonadGamma m => Expr -> Type -> m Type
 checkExpr' expr typ = do
@@ -590,3 +605,7 @@ checkModule m@(Module _modName _path _flags  dataTypes values templates) = do
   traverse_ (with (ContextDefDataType m) checkDefDataType) dataTypes
   traverse_ (with (\t -> ContextTemplate m t TPWhole) $ checkTemplate m) templates
   traverse_ (with (ContextDefValue m) checkDefValue) values
+
+
+-- TApp (TApp (TBuiltin BTArrow) (TApp (TBuiltin BTSerializable) (TVar (TypeVarName {unTypeVarName = "a8R"})))) (TApp (TApp (TBuiltin BTArrow) (TApp (TBuiltin BTSerializable) (TVar (TypeVarName {unTypeVarName = "a8S"})))) (TApp (TBuiltin BTSerializable) (TApp (TApp (TCon (Qualified {qualPackage = PRSelf, qualModule = ModuleName {unModuleName = ["Test"]}, qualObject = TypeConName {unTypeConName = ["R2"]}})) (TVar (TypeVarName {unTypeVarName = "a8R"}))) (TVar (TypeVarName {unTypeVarName = "a8S"})))))
+-- TApp (TApp (TBuiltin BTArrow) (TApp (TBuiltin BTSerializable) (TVar (TypeVarName {unTypeVarName = "arw"})))) (TApp (TApp (TBuiltin BTArrow) (TApp (TBuiltin BTSerializable) (TVar (TypeVarName {unTypeVarName = "arx"})))) (TApp (TBuiltin BTSerializable) (TApp (TApp (TCon (Qualified {qualPackage = PRSelf, qualModule = ModuleName {unModuleName = ["Test"]}, qualObject = TypeConName {unTypeConName = ["R2"]}})) (TVar (TypeVarName {unTypeVarName = "arw"}))) (TVar (TypeVarName {unTypeVarName = "arx"})))))

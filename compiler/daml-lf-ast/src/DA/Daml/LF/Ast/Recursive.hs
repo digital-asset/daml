@@ -45,6 +45,7 @@ data ExprF expr
   | ESomeF       !Type !expr
   | EToAnyTemplateF !(Qualified TypeConName) !expr
   | EFromAnyTemplateF !(Qualified TypeConName) !expr
+  | EDataIsSerializableF !(Qualified TypeConName)
   deriving (Foldable, Functor, Traversable)
 
 data BindingF expr = BindingF !(ExprVarName, Type) !expr
@@ -176,6 +177,7 @@ instance Recursive Expr where
     ESome       a b   -> ESomeF         a b
     EToAnyTemplate a b  -> EToAnyTemplateF a b
     EFromAnyTemplate a b -> EFromAnyTemplateF a b
+    EDataIsSerializable a -> EDataIsSerializableF a
 
 instance Corecursive Expr where
   embed = \case
@@ -205,3 +207,5 @@ instance Corecursive Expr where
     ESomeF       a b   -> ESome a b
     EToAnyTemplateF a b  -> EToAnyTemplate a b
     EFromAnyTemplateF a b -> EFromAnyTemplate a b
+    EDataIsSerializableF a -> EDataIsSerializable a
+

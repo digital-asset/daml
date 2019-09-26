@@ -166,7 +166,7 @@ pattern TDate       = TBuiltin BTDate
 pattern TArrow      = TBuiltin BTArrow
 pattern TAnyTemplate = TBuiltin BTAnyTemplate
 
-pattern TList, TOptional, TMap, TUpdate, TScenario, TContractId, TNumeric :: Type -> Type
+pattern TList, TOptional, TMap, TUpdate, TScenario, TContractId, TNumeric, TSerializable :: Type -> Type
 pattern TList typ = TApp (TBuiltin BTList) typ
 pattern TOptional typ = TApp (TBuiltin BTOptional) typ
 pattern TMap typ = TApp (TBuiltin BTMap) typ
@@ -174,6 +174,7 @@ pattern TUpdate typ = TApp (TBuiltin BTUpdate) typ
 pattern TScenario typ = TApp (TBuiltin BTScenario) typ
 pattern TContractId typ = TApp (TBuiltin BTContractId) typ
 pattern TNumeric n = TApp (TBuiltin BTNumeric) n
+pattern TSerializable n = TApp (TBuiltin BTSerializable) n
 
 pattern TMapEntry :: Type -> Type
 pattern TMapEntry a = TTuple [(FieldName "key", TText), (FieldName "value", a)]

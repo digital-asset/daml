@@ -198,6 +198,7 @@ encodeBuiltinType = P.Enumerated . Right . \case
     BTArrow -> P.PrimTypeARROW
     BTNumeric -> P.PrimTypeNUMERIC
     BTAnyTemplate -> P.PrimTypeANY
+    BTSerializable -> P.PrimTypeSERIALIZABLE
 
 encodeType' :: Type -> Encode P.Type
 encodeType' typ = fmap (P.Type . Just) $ case typ ^. _TApps of
@@ -381,6 +382,10 @@ encodeBuiltinExpr = \case
     BEEqualContractId -> builtin P.BuiltinFunctionEQUAL_CONTRACT_ID
     BECoerceContractId -> builtin P.BuiltinFunctionCOERCE_CONTRACT_ID
 
+    BEEqualSerializable -> builtin P.BuiltinFunctionEQUAL_SERIALIZABLE
+    BEIntIsSerializable -> builtin P.BuiltinFunctionINT_IS_SERIALIZABLE
+    BEListIsSerializable -> builtin P.BuiltinFunctionLIST_IS_SERIALIZABLE
+
     where
       builtin = pure . P.ExprSumBuiltin . P.Enumerated . Right
       lit = P.ExprSumPrimLit . P.PrimLit . Just
@@ -492,6 +497,12 @@ encodeExpr' = \case
         expr_FromAnyType <- encodeType (TCon tpl)
         expr_FromAnyExpr <- encodeExpr body
         pureExpr $ P.ExprSumFromAny P.Expr_FromAny{..}
+    EDataIsSerializable con -> do
+        tycon <- encodeQualTypeConName con
+        tycon_ <- pure $ case tycon of
+          Just x -> x
+          Nothing -> error("unexpected error")
+        pureExpr $ P.ExprSumDataIsSerializable tycon_
   where
     expr = P.Expr Nothing . Just
     pureExpr = pure . expr

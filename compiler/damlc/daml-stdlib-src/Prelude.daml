@@ -7,7 +7,7 @@ daml 1.2
 module Prelude (module X) where
 
 import DA.Internal.Prelude as X hiding (magic)
-import DA.Internal.LF as X hiding (Pair(..), TextMap, unpackPair)
+import DA.Internal.LF as X hiding (Pair(..), TextMap, unpackPair, Serializable, intIsSerializable, listIsSerializable)
 -- Template desugaring uses fromAnyTemplate and toAnyTemplate so we
 -- can’t remove them from the typeclass for older LF versions
 -- but we can hide them.

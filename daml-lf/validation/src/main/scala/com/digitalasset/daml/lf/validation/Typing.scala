@@ -26,7 +26,8 @@ private[validation] object Typing {
     case BTInt64 | BTText | BTTimestamp | BTParty | BTBool | BTDate | BTUnit | BTAnyTemplate =>
       KStar
     case BTNumeric => KArrow(KNat, KStar)
-    case BTList | BTUpdate | BTScenario | BTContractId | BTOptional | BTMap => KArrow(KStar, KStar)
+    case BTSerializable | BTList | BTUpdate | BTScenario | BTContractId | BTOptional | BTMap =>
+      KArrow(KStar, KStar)
     case BTArrow => KArrow(KStar, KArrow(KStar, KStar))
   }
 
@@ -57,6 +58,13 @@ private[validation] object Typing {
     val tNumComparison = TForall(alpha.name -> KNat, TNumeric(alpha) ->: TNumeric(alpha) ->: TBool)
 
     Map[BuiltinFunction, Type](
+      BEqualSerializable -> TForall(
+        alpha.name -> KStar,
+        TSerializable(alpha) ->: alpha ->: alpha ->: TBool),
+      BIntIsSerializable -> TSerializable(TInt64),
+      BListIsSerializable -> TForall(
+        alpha.name -> KStar,
+        TSerializable(alpha) ->: TSerializable(TList(alpha))),
       BTrace -> TForall(alpha.name -> KStar, TText ->: alpha ->: alpha),
       // Numeric arithmetic
       BAddNumeric -> tNumBinop,
@@ -805,12 +813,21 @@ private[validation] object Typing {
         typeOfToAnyTemplate(tmplId, body)
       case EFromAnyTemplate(tmplId, body) =>
         typeOfFromAnyTemplate(tmplId, body)
+      case EDataIsSerializable(id) =>
+        val DDataType(serializable, tparams, _) = lookupDataType(ctx, id)
+        if (!serializable)
+          throw EExpectedSerializableType(ctx, SRDataType, TTyCon(id), URDataType(id))
+        val params = tparams.map(x => TVar(x._1)).toSeq
+        (tparams.toSeq :\ (params :\ TSerializable(((TTyCon(id): Type) /: params)(TApp)))((v, t) =>
+          TFun(TSerializable(v), t)))(TForall)
     }
 
     def checkExpr(expr: Expr, typ: Type): Type = {
       val exprType = typeOf(expr)
-      if (!alphaEquiv(exprType, typ))
+      if (!alphaEquiv(exprType, typ)) {
+        remy.log(expr)
         throw ETypeMismatch(ctx, foundType = exprType, expectedType = typ, expr = Some(expr))
+      }
       exprType
     }
   }

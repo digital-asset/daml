@@ -96,6 +96,7 @@ serializabilityConditionsType world0 _version mbModNameTpls vars = go
         BTContractId -> Left URContractId  -- 'ContractId' is used as a higher-kinded type constructor
                                            -- (or polymorphically in DAML-LF <= 1.4).
         BTArrow -> Left URFunction
+        BTSerializable -> Left URNumeric -- FixMe
         BTNumeric -> Left URNumeric -- 'Numeric' is used as a higher-kinded type constructor.
         BTAnyTemplate -> Left URAnyTemplate
       TForall{} -> Left URForall

@@ -39,6 +39,8 @@ private[validation] object Recursion {
       def modRefsInVal(acc: Set[ModuleName], expr0: Expr): Set[ModuleName] = expr0 match {
         case EVal(valRef) if valRef.packageId == pkgId =>
           acc + valRef.qualifiedName.module
+        case EDataIsSerializable(id) if id.packageId == pkgId =>
+          acc + id.qualifiedName.module
         case EAbs(binder @ _, body, ref) =>
           ref.iterator.toSet.filter(_.packageId == pkgId).map(_.qualifiedName.module) |
             (acc /: ExprTraversable(body))(modRefsInVal)

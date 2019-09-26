@@ -40,6 +40,8 @@ class TypeSpec extends WordSpec with Matchers {
             TypePrim(PrimTypeInt64, ImmArraySeq.empty)
           case Pkg.BTNumeric =>
             sys.error("cannot use Numeric not applied to TNat in interface type")
+          case Pkg.BTSerializable =>
+            sys.error("cannot use Serializable in interface type")
           case Pkg.BTText =>
             assertZeroArgs(args)
             TypePrim(PrimTypeText, ImmArraySeq.empty)

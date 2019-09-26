@@ -554,6 +554,9 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
             case ty => throw ParseError(s"FROM_ANY must be applied to a template type but got $ty")
           }
 
+        case PLF.Expr.SumCase.DATA_IS_SERIALIZABLE =>
+          EDataIsSerializable(decodeTypeConName(lfExpr.getDataIsSerializable))
+
         case PLF.Expr.SumCase.SUM_NOT_SET =>
           throw ParseError("Expr.SUM_NOT_SET")
       }
@@ -814,7 +817,8 @@ private[lf] object DecodeV1 {
       BuiltinTypeInfo(MAP, BTMap, minVersion = optional),
       BuiltinTypeInfo(ARROW, BTArrow, minVersion = arrowType),
       BuiltinTypeInfo(NUMERIC, BTNumeric, minVersion = numeric),
-      BuiltinTypeInfo(ANY, BTAnyTemplate, minVersion = anyTemplate)
+      BuiltinTypeInfo(ANY, BTAnyTemplate, minVersion = anyTemplate),
+      BuiltinTypeInfo(SERIALIZABLE, BTSerializable),
     )
   }
 
@@ -996,7 +1000,10 @@ private[lf] object DecodeV1 {
       BuiltinFunctionInfo(EQUAL_LIST, BEqualList),
       BuiltinFunctionInfo(EQUAL_CONTRACT_ID, BEqualContractId),
       BuiltinFunctionInfo(TRACE, BTrace),
-      BuiltinFunctionInfo(COERCE_CONTRACT_ID, BCoerceContractId, minVersion = coerceContractId)
+      BuiltinFunctionInfo(COERCE_CONTRACT_ID, BCoerceContractId, minVersion = coerceContractId),
+      BuiltinFunctionInfo(EQUAL_SERIALIZABLE, BEqualSerializable),
+      BuiltinFunctionInfo(INT_IS_SERIALIZABLE, BIntIsSerializable),
+      BuiltinFunctionInfo(LIST_IS_SERIALIZABLE, BListIsSerializable)
     )
   }
 

@@ -613,7 +613,7 @@ convertBind env (name, x)
 -- during conversion to DAML-LF together with their constructors since we
 -- deliberately remove 'GHC.Types.Opaque' as well.
 internalTypes :: UniqSet FastString
-internalTypes = mkUniqSet ["Scenario","Update","ContractId","Time","Date","Party","Pair", "TextMap", "AnyTemplate"]
+internalTypes = mkUniqSet ["Scenario","Update","ContractId","Time","Date","Party","Pair", "TextMap", "AnyTemplate", "Serializable"]
 
 internalFunctions :: UniqFM (UniqSet FastString)
 internalFunctions = listToUFM $ map (bimap mkModuleNameFS mkUniqSet)
@@ -1245,6 +1245,8 @@ convertTyCon env t
                 pure $ if envLfVersion env `supports` featureAnyTemplate
                     then TAnyTemplate
                     else TUnit
+            "Serializable" ->
+                pure (TBuiltin BTSerializable)
             _ -> defaultTyCon
     | isBuiltinName "Optional" t = pure (TBuiltin BTOptional)
     | otherwise = defaultTyCon
