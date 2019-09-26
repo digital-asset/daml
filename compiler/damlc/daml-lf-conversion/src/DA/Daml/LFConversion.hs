@@ -248,7 +248,7 @@ convertRationalNumericMono env scale num denom
 
     | abs (rational * 10 ^ scale) >= 10 ^ numericMaxPrecision =
         unsupported
-            ("Rational is out of bounds: " ++ show double ++ ". The range of values representable by the Numeric " ++ show scale ++ " type is  -10^" ++ show maxPower ++ " + 1  through  10^" ++ show maxPower ++ " - 1.")
+            ("Rational is out of bounds: " ++ show double ++ ". The Numeric " ++ show scale ++ " type can only represent numbers greater than -10^" ++ show maxPower ++ " and smaller than 10^" ++ show maxPower ++ ".")
             (num, denom)
 
     | (num * 10^scale) `mod` denom /= 0 =
