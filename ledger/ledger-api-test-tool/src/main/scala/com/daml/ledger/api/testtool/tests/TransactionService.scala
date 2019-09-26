@@ -1443,7 +1443,7 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     LedgerTest(
       "TXSingleSubscriptionInOrder",
       "Archives should always come after creations when subscribing as a single party") {
-      val contracts = 100
+      val contracts = 50
       context =>
         for {
           ledger <- context.participant()
@@ -1463,7 +1463,7 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     LedgerTest(
       "TXMultiSubscriptionInOrder",
       "Archives should always come after creations when subscribing as more than on party") {
-      val contracts = 100
+      val contracts = 50
       context =>
         for {
           Vector(alpha, beta) <- context.participants(2)
@@ -1494,7 +1494,7 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     LedgerTest(
       "TXFlatSubsetOfTrees",
       "The event identifiers in the flat stream should be a subset of those in the trees stream") {
-      val contracts = 100
+      val contracts = 50
       context =>
         for {
           ledger <- context.participant()
@@ -1520,7 +1520,7 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     LedgerTest(
       "TXFlatWitnessesSubsetOfTrees",
       "The witnesses in the flat stream should be a subset of those in the trees stream") {
-      val contracts = 100
+      val contracts = 50
       context =>
         for {
           ledger <- context.participant()
