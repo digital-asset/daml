@@ -39,6 +39,7 @@ import Web.Browser
 import DA.Bazel.Runfiles
 import System.FilePath
 import Safe
+import Control.Monad
 
 type IsConsuming = Bool
 type InternalChcName = LF.ChoiceName
@@ -334,8 +335,9 @@ webPageTemplate =
     , "</html>"
     ]
 
-execVisualHtml :: FilePath -> FilePath -> IO ()
-execVisualHtml darFilePath webFilePath = do
+type OpenBrowserFlag = Bool
+execVisualHtml :: FilePath -> FilePath -> OpenBrowserFlag -> IO ()
+execVisualHtml darFilePath webFilePath oBrowser = do
     darBytes <- B.readFile darFilePath
     dalfs <- either fail pure $
                 readDalfs $ ZIPArchive.toArchive (BSL.fromStrict darBytes)
@@ -353,9 +355,10 @@ execVisualHtml darFilePath webFilePath = do
         Left err -> error $ show err
         Right mTpl -> do
             TIO.writeFile webFilePath $ renderMustache mTpl $ toJSON webPage
-            openOp <- openBrowser webFilePath
-            if openOp then return () else
-                error $ "Failed to open browser. Open " ++ webFilePath ++ "in a web broswer"
+            when oBrowser
+                (do _ <- openBrowser webFilePath
+                    return ())
+
 
 execVisual :: FilePath -> Maybe FilePath -> IO ()
 execVisual darFilePath dotFilePath = do

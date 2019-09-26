@@ -184,6 +184,16 @@ htmlOutFile = strOption $
     <> long "output"
     <> value "visual.html"
 
+-- switch' if a value is not present it is assumed to be be true, while switch assumes it to be false
+switch' :: Mod FlagFields Bool -> Parser Bool
+switch' = flag True False
+
+openBrowser :: Parser Bool
+openBrowser = switch' $
+       long "verbose"
+    <> short 'b'
+    <> help "Open Browser after generating D3 visualization, defaults to true"
+
 junitPackageNameOpt :: Parser (Maybe String)
 junitPackageNameOpt = option (Just <$> str) $
        metavar "NAME"
