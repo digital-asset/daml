@@ -24,16 +24,16 @@ object JsonProtocol extends DefaultJsonProtocol {
   implicit val WorkflowIdFormat: JsonFormat[domain.WorkflowId] =
     taggedJsonFormat[String, domain.WorkflowIdTag]
 
-  implicit val PartyFormat: JsonFormat[lar.Party] =
-    taggedJsonFormat[String, lar.PartyTag]
+  implicit val PartyFormat: JsonFormat[domain.Party] =
+    taggedJsonFormat[String, domain.PartyTag]
 
   implicit val CommandIdFormat: JsonFormat[lar.CommandId] =
     taggedJsonFormat[String, lar.CommandIdTag]
 
   implicit val ChoiceFormat: JsonFormat[lar.Choice] = taggedJsonFormat[String, lar.ChoiceTag]
 
-  implicit val ContractIdFormat: JsonFormat[lar.ContractId] =
-    taggedJsonFormat[String, lar.ContractIdTag]
+  implicit val ContractIdFormat: JsonFormat[domain.ContractId] =
+    taggedJsonFormat[String, domain.ContractIdTag]
 
   object LfValueCodec
       extends ApiCodecCompressed[AbsoluteContractId](
@@ -69,7 +69,9 @@ object JsonProtocol extends DefaultJsonProtocol {
         case (Some(templateId), Some(key), None) =>
           -\/((templateId.convertTo[domain.TemplateId.OptionalPkg], key))
         case (otid, None, Some(contractId)) =>
-          \/-((otid map (_.convertTo[domain.TemplateId.OptionalPkg]), contractId.convertTo[String]))
+          val a = otid map (_.convertTo[domain.TemplateId.OptionalPkg])
+          val b = contractId.convertTo[domain.ContractId]
+          \/-((a, b))
         case (None, Some(_), None) =>
           deserializationError(
             "ContractLookupRequest requires key to be accompanied by a templateId")
@@ -80,8 +82,36 @@ object JsonProtocol extends DefaultJsonProtocol {
     case _ => deserializationError("ContractLookupRequest must be an object")
   }
 
+  implicit val ContractFormat: RootJsonFormat[domain.Contract[JsValue]] =
+    new RootJsonFormat[domain.Contract[JsValue]] {
+      private val archivedKey = "archived"
+      private val activeKey = "active"
+
+      override def read(json: JsValue): domain.Contract[JsValue] = json match {
+        case JsObject(fields) =>
+          fields.toList match {
+            case List((`archivedKey`, archived)) =>
+              domain.Contract(-\/(ArchivedContractFormat.read(archived)))
+            case List((`activeKey`, active)) =>
+              domain.Contract(\/-(ActiveContractFormat.read(active)))
+            case _ =>
+              deserializationError(
+                s"Contract must be either {$archivedKey: obj} or {$activeKey: obj}, got: $fields")
+          }
+        case _ => deserializationError("Contract must be an object")
+      }
+
+      override def write(obj: domain.Contract[JsValue]): JsValue = obj.value match {
+        case -\/(archived) => JsObject(archivedKey -> ArchivedContractFormat.write(archived))
+        case \/-(active) => JsObject(activeKey -> ActiveContractFormat.write(active))
+      }
+    }
+
   implicit val ActiveContractFormat: RootJsonFormat[domain.ActiveContract[JsValue]] =
-    jsonFormat7(domain.ActiveContract.apply[JsValue])
+    jsonFormat9(domain.ActiveContract.apply[JsValue])
+
+  implicit val ArchivedContractFormat: RootJsonFormat[domain.ArchivedContract] =
+    jsonFormat4(domain.ArchivedContract.apply)
 
   private val templatesKey = "%templates"
 

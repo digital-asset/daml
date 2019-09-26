@@ -30,22 +30,32 @@ object domain {
     }
   }
 
-  case class JwtPayload(ledgerId: lar.LedgerId, applicationId: lar.ApplicationId, party: lar.Party)
+  case class JwtPayload(ledgerId: lar.LedgerId, applicationId: lar.ApplicationId, party: Party)
 
   case class TemplateId[+PkgId](packageId: PkgId, moduleName: String, entityName: String)
 
+  case class Contract[+LfV](value: ArchivedContract \/ ActiveContract[LfV])
+
   case class ActiveContract[+LfV](
       workflowId: Option[WorkflowId],
-      contractId: String,
+      contractId: ContractId,
       templateId: TemplateId.RequiredPkg,
       key: Option[LfV],
       argument: LfV,
-      witnessParties: Seq[String],
+      witnessParties: Seq[Party],
+      signatories: Seq[Party],
+      observers: Seq[Party],
       agreementText: String)
+
+  case class ArchivedContract(
+      workflowId: Option[WorkflowId],
+      contractId: ContractId,
+      templateId: TemplateId.RequiredPkg,
+      witnessParties: Seq[Party])
 
   case class ContractLookupRequest[+LfV](
       ledgerId: Option[String],
-      id: (TemplateId.OptionalPkg, LfV) \/ (Option[TemplateId.OptionalPkg], String))
+      id: (TemplateId.OptionalPkg, LfV) \/ (Option[TemplateId.OptionalPkg], ContractId))
 
   case class GetActiveContractsRequest(
       templateIds: Set[TemplateId.OptionalPkg],
@@ -53,6 +63,14 @@ object domain {
 
   type WorkflowIdTag = lar.WorkflowIdTag
   type WorkflowId = lar.WorkflowId
+
+  type ContractIdTag = lar.ContractIdTag
+  type ContractId = lar.ContractId
+  val ContractId = lar.ContractId
+
+  type PartyTag = lar.PartyTag
+  type Party = lar.Party
+  val Party = lar.Party
 
   object WorkflowId {
 
@@ -77,21 +95,52 @@ object domain {
       TemplateId(in.packageId, in.moduleName, in.entityName)
   }
 
+  object Contract {
+    def fromLedgerApi(workflowId: Option[WorkflowId])(
+        event: lav1.event.Event): Error \/ Contract[lav1.value.Value] = event.event match {
+      case lav1.event.Event.Event.Created(created) =>
+        ActiveContract.fromLedgerApi(workflowId)(created).map(a => Contract(\/-(a)))
+      case lav1.event.Event.Event.Archived(archived) =>
+        ArchivedContract.fromLedgerApi(workflowId)(archived).map(a => Contract(-\/(a)))
+      case lav1.event.Event.Event.Empty =>
+        val errorMsg = s"Expected either Created or Archived event, got: Empty"
+        -\/(Error('Contract_fromLedgerApi, errorMsg))
+    }
+
+    implicit val covariant: Traverse[Contract] = new Traverse[Contract] {
+
+      override def map[A, B](fa: Contract[A])(f: A => B): Contract[B] = {
+        val valueB: ArchivedContract \/ ActiveContract[B] = fa.value.map(a => a.map(f))
+        Contract(valueB)
+      }
+
+      override def traverseImpl[G[_]: Applicative, A, B](fa: Contract[A])(
+          f: A => G[B]): G[Contract[B]] = {
+        val valueB: G[ArchivedContract \/ ActiveContract[B]] = fa.value.traverse(a => a.traverse(f))
+        valueB.map(x => Contract[B](x))
+      }
+    }
+  }
+
+  def boxedRecord(a: lav1.value.Record): lav1.value.Value =
+    lav1.value.Value(lav1.value.Value.Sum.Record(a))
+
   object ActiveContract {
     def fromLedgerApi(workflowId: Option[WorkflowId])(
         in: lav1.event.CreatedEvent): Error \/ ActiveContract[lav1.value.Value] =
       for {
         templateId <- in.templateId required "templateId"
         argument <- in.createArguments required "createArguments"
-        boxedArgument = lav1.value.Value(lav1.value.Value.Sum.Record(argument))
       } yield
         ActiveContract(
           workflowId = workflowId,
-          contractId = in.contractId,
+          contractId = ContractId(in.contractId),
           templateId = TemplateId fromLedgerApi templateId,
           key = in.contractKey,
-          argument = boxedArgument,
-          witnessParties = in.witnessParties,
+          argument = boxedRecord(argument),
+          witnessParties = Party.subst(in.witnessParties),
+          signatories = Party.subst(in.signatories),
+          observers = Party.subst(in.observers),
           agreementText = in.agreementText getOrElse ""
         )
 
@@ -121,6 +170,20 @@ object domain {
           templateId: TemplateId.RequiredPkg): lf.data.Ref.Identifier =
         IdentifierConverters.lfIdentifier(templateId)
     }
+  }
+
+  object ArchivedContract {
+    def fromLedgerApi(workflowId: Option[WorkflowId])(
+        in: lav1.event.ArchivedEvent): Error \/ ArchivedContract =
+      for {
+        templateId <- in.templateId required "templateId"
+      } yield
+        ArchivedContract(
+          workflowId = workflowId,
+          contractId = ContractId(in.contractId),
+          templateId = TemplateId fromLedgerApi templateId,
+          witnessParties = Party.subst(in.witnessParties)
+        )
   }
 
   object ContractLookupRequest {

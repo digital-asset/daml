@@ -8,8 +8,14 @@ import java.time.Instant
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
 import com.digitalasset.http.CommandService.Error
-import com.digitalasset.http.domain.{ActiveContract, CreateCommand, ExerciseCommand, JwtPayload}
-import com.digitalasset.http.util.ClientUtil.{uniqueCommandId, workflowIdFromParty}
+import com.digitalasset.http.domain.{
+  ActiveContract,
+  Contract,
+  CreateCommand,
+  ExerciseCommand,
+  JwtPayload
+}
+import com.digitalasset.http.util.ClientUtil.uniqueCommandId
 import com.digitalasset.http.util.IdentifierConverters.refApiIdentifier
 import com.digitalasset.http.util.{Commands, Transactions}
 import com.digitalasset.jwt.domain.Jwt
@@ -19,6 +25,7 @@ import com.typesafe.scalalogging.StrictLogging
 import scalaz.std.scalaFuture._
 import scalaz.syntax.show._
 import scalaz.syntax.std.option._
+import scalaz.syntax.traverse._
 import scalaz.{-\/, EitherT, Show, \/, \/-}
 
 import scala.concurrent.duration._
@@ -50,13 +57,13 @@ class CommandService(
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def exercise(jwt: Jwt, jwtPayload: JwtPayload, input: ExerciseCommand[lav1.value.Record])
-    : Future[Error \/ ImmArraySeq[ActiveContract[lav1.value.Value]]] = {
+    : Future[Error \/ ImmArraySeq[Contract[lav1.value.Value]]] = {
 
-    val et: EitherT[Future, Error, ImmArraySeq[ActiveContract[lav1.value.Value]]] = for {
+    val et: EitherT[Future, Error, ImmArraySeq[Contract[lav1.value.Value]]] = for {
       command <- EitherT.either(exerciseCommand(input))
       request = submitAndWaitRequest(jwtPayload, input.meta, command)
       response <- liftET(logResult('exercise, submitAndWaitForTransaction(jwt, request)))
-      contracts <- EitherT.either(activeContracts(response))
+      contracts <- EitherT.either(contracts(response))
     } yield contracts
 
     et.run
@@ -98,8 +105,7 @@ class CommandService(
     val maximumRecordTime: Instant = meta
       .flatMap(_.maximumRecordTime)
       .getOrElse(ledgerEffectiveTime.plusNanos(defaultTimeToLive.toNanos))
-    val workflowId: domain.WorkflowId =
-      meta.flatMap(_.workflowId).getOrElse(workflowIdFromParty(jwtPayload.party))
+    val workflowId: Option[domain.WorkflowId] = meta.flatMap(_.workflowId)
     val commandId: lar.CommandId = meta.flatMap(_.commandId).getOrElse(uniqueCommandId())
 
     Commands.submitAndWaitRequest(
@@ -133,15 +139,27 @@ class CommandService(
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private def activeContracts(
       tx: lav1.transaction.Transaction): Error \/ ImmArraySeq[ActiveContract[lav1.value.Value]] = {
-
-    import scalaz.syntax.traverse._
-
     val workflowId = domain.WorkflowId.fromLedgerApi(tx)
-
     Transactions
       .decodeAllCreatedEvents(tx)
-      .traverse(domain.ActiveContract.fromLedgerApi(workflowId)(_))
+      .traverse(ActiveContract.fromLedgerApi(workflowId)(_))
       .leftMap(e => Error('activeContracts, e.shows))
+  }
+
+  private def contracts(response: lav1.command_service.SubmitAndWaitForTransactionResponse)
+    : Error \/ ImmArraySeq[Contract[lav1.value.Value]] =
+    response.transaction
+      .toRightDisjunction(Error('contracts, s"Received response without transaction: $response"))
+      .flatMap(contracts)
+
+  @SuppressWarnings(Array("org.wartremover.warts.Any"))
+  private def contracts(
+      tx: lav1.transaction.Transaction): Error \/ ImmArraySeq[Contract[lav1.value.Value]] = {
+    val workflowId = domain.WorkflowId.fromLedgerApi(tx)
+    tx.events.iterator
+      .to[ImmArraySeq]
+      .traverse(Contract.fromLedgerApi(workflowId)(_))
+      .leftMap(e => Error('contracts, e.shows))
   }
 }
 

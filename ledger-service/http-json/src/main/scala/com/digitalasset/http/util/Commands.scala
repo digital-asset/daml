@@ -53,16 +53,18 @@ object Commands {
   def submitAndWaitRequest(
       ledgerId: lar.LedgerId,
       applicationId: lar.ApplicationId,
-      workflowId: domain.WorkflowId,
+      workflowId: Option[domain.WorkflowId],
       commandId: lar.CommandId,
       ledgerEffectiveTime: Instant,
       maximumRecordTime: Instant,
       party: lar.Party,
       command: lav1.commands.Command.Command): lav1.command_service.SubmitAndWaitRequest = {
 
+    val workflowIdStr: String = workflowId.map(domain.WorkflowId.unwrap).getOrElse("")
+
     val commands = lav1.commands.Commands(
       ledgerId = lar.LedgerId.unwrap(ledgerId),
-      workflowId = domain.WorkflowId.unwrap(workflowId),
+      workflowId = workflowIdStr,
       applicationId = lar.ApplicationId.unwrap(applicationId),
       commandId = lar.CommandId.unwrap(commandId),
       party = lar.Party.unwrap(party),

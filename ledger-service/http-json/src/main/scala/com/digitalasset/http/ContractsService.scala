@@ -66,7 +66,7 @@ class ContractsService(
       jwt: Jwt,
       party: lar.Party,
       templateId: Option[TemplateId.OptionalPkg],
-      contractId: String): Future[Option[ActiveContract]] =
+      contractId: domain.ContractId): Future[Option[ActiveContract]] =
     for {
       (as, _) <- search(jwt, party, templateIds(templateId), Map.empty)
       a = findByContractId(contractId)(as)
@@ -75,8 +75,9 @@ class ContractsService(
   private def templateIds(a: Option[TemplateId.OptionalPkg]): Set[TemplateId.OptionalPkg] =
     a.toList.toSet
 
-  private def findByContractId(k: String)(as: Seq[ActiveContract]): Option[ActiveContract] =
-    as.find(x => (x.contractId: String) == k)
+  private def findByContractId(k: domain.ContractId)(
+      as: Seq[ActiveContract]): Option[ActiveContract] =
+    as.find(x => (x.contractId: domain.ContractId) == k)
 
   def search(jwt: Jwt, jwtPayload: JwtPayload, request: GetActiveContractsRequest): Future[Result] =
     search(jwt, jwtPayload.party, request.templateIds, request.query)
