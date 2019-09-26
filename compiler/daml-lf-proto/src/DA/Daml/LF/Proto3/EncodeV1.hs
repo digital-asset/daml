@@ -8,19 +8,20 @@ module DA.Daml.LF.Proto3.EncodeV1
   , encodePackage
   ) where
 
-import           Control.Lens ((^.), (^..), matching)
+import           Control.Lens ((^.), matching)
 import           Control.Lens.Ast (rightSpine)
-import           Control.Monad.Reader.Class
+import           Control.Monad.State.Strict
 
+import qualified Data.HashMap.Strict as HMS
+import qualified Data.List as L
 import qualified Data.NameMap as NM
-import qualified Data.Set as S
 import qualified Data.Text           as T
 import qualified Data.Text.Lazy      as TL
 import qualified Data.Vector         as V
+import           Data.Word
 
 import           DA.Pretty
 import           DA.Daml.LF.Ast
-import           DA.Daml.LF.Ast.Optics (packageRefs)
 import           DA.Daml.LF.Mangling
 import qualified Da.DamlLf1 as P
 
@@ -31,13 +32,28 @@ import qualified Proto3.Suite as P (Enumerated (..))
 -- otherwise always be wrapped in `Just` at their call sites.
 type Just a = Maybe a
 
-newtype Encode a = Encode{runEncode :: EncodeEnv -> a}
-    deriving (Functor, Applicative, Monad, MonadReader EncodeEnv)
+type Encode a = State EncodeEnv a
+
+data InternMode = InternNothing | InternPackageIdsOnly
 
 data EncodeEnv = EncodeEnv
-    { _version :: Version
-    , internedPackageIds :: S.Set PackageId
+    { _version :: !Version
+    , internMode :: !InternMode
+    , internedStrings :: !(HMS.HashMap T.Text Word64)
     }
+
+initEncodeEnv :: Version -> InternMode -> EncodeEnv
+initEncodeEnv version mode = EncodeEnv version mode HMS.empty
+
+allocString :: T.Text -> Encode Word64
+allocString t = do
+    env@EncodeEnv{internedStrings} <- get
+    case t `HMS.lookup` internedStrings of
+        Just n -> pure n
+        Nothing -> do
+            let n = fromIntegral (HMS.size internedStrings)
+            put $! env{internedStrings = HMS.insert t n internedStrings}
+            pure n
 
 ------------------------------------------------------------------------
 -- Simple encodings
@@ -92,10 +108,10 @@ encodePackageRef :: PackageRef -> Encode (Just P.PackageRef)
 encodePackageRef = fmap (Just . P.PackageRef . Just) . \case
     PRSelf -> pure $ P.PackageRefSumSelf P.Unit
     PRImport pkgId -> do
-        EncodeEnv{internedPackageIds} <- ask
-        pure $ case pkgId `S.lookupIndex` internedPackageIds of
-            Nothing -> P.PackageRefSumPackageId $ encodePackageId pkgId
-            Just n -> P.PackageRefSumInternedId $ fromIntegral n
+        EncodeEnv{internMode} <- get
+        case internMode of
+            InternNothing -> pure $ P.PackageRefSumPackageId $ encodePackageId pkgId
+            InternPackageIdsOnly -> P.PackageRefSumInternedId <$> allocString (unPackageId pkgId)
 
 encodeModuleRef :: PackageRef -> ModuleName -> Encode (Just P.ModuleRef)
 encodeModuleRef pkgRef modName = do
@@ -640,9 +656,9 @@ encodeFeatureFlags FeatureFlags{..} = Just P.FeatureFlags
 
 encodeModuleWithLargePackageIds :: Version -> Module -> P.Module
 encodeModuleWithLargePackageIds version mod =
-    let env = EncodeEnv version S.empty
+    let env = initEncodeEnv version InternNothing
     in
-    runEncode (encodeModule mod) env
+    evalState (encodeModule mod) env
 
 encodeModule :: Module -> Encode P.Module
 encodeModule Module{..} = do
@@ -655,14 +671,13 @@ encodeModule Module{..} = do
 
 -- | NOTE(MH): Assumes the DAML-LF version of the 'Package' is 'V1'.
 encodePackage :: Package -> P.Package
-encodePackage pkg@(Package version mods) =
-    let pkgIds = S.fromList $ pkg ^.. packageRefs._PRImport
-        env = EncodeEnv version pkgIds
+encodePackage (Package version mods) =
+    let env = initEncodeEnv version InternPackageIdsOnly
+        (packageModules, EncodeEnv{internedStrings}) = runState (encodeNameMap encodeModule mods) env
+        packageInternedPackageIds =
+            V.fromList $ map (TL.fromStrict . fst) $ L.sortOn snd $ HMS.toList internedStrings
     in
-    P.Package
-    { packageModules = runEncode (encodeNameMap encodeModule mods) env
-    , packageInternedPackageIds = V.fromList $ map encodePackageId $ S.toAscList pkgIds
-    }
+    P.Package{..}
 
 -- | NOTE(MH): This functions is used for sanity checking. The actual checks
 -- are done in the conversion to DAML-LF.
