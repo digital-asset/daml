@@ -43,7 +43,7 @@
       login as `Alice` and verify that there is 1 contract, 3 templates and 1 owned IOU.
    1. Check that `curl http://localhost:8080/iou` returns
       ```
-      {"0":{"issuer":"EUR_Bank","owner":"Alice","currency":"EUR","amount":100.0,"observers":[]}}
+      {"0":{"issuer":"EUR_Bank","owner":"Alice","currency":"EUR","amount":100.0000000000,"observers":[]}}
       ```
    1. Kill all processes.
    1. Run `daml studio --replace=always`.
