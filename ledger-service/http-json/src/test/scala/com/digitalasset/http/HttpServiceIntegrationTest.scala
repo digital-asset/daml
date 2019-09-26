@@ -330,7 +330,6 @@ class HttpServiceIntegrationTest
             v.RecordField("newOwner", Some(newOwner)))) =>
         val contractFields: Seq[v.RecordField] =
           contractRecord.sum.record.map(_.fields).getOrElse(Seq.empty)
-
         (contractFields: Seq[v.RecordField]) shouldBe (expectedContractFields: Seq[v.RecordField])
         (newOwner: v.Value) shouldBe (expectedNewOwner: v.Value)
     }
