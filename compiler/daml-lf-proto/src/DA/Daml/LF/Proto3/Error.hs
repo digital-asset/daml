@@ -2,8 +2,7 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 module DA.Daml.LF.Proto3.Error
-    ( Decode
-    , Error(..)
+    ( Error(..)
     ) where
 
 import qualified Data.Text as T
@@ -25,5 +24,3 @@ data Error
   | MissingPackageRefId Word64
   | ExpectedTCon Type
   deriving (Show, Eq)
-
-type Decode = Either Error

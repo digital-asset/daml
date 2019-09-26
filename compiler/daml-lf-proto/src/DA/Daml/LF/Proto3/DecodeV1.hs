@@ -12,8 +12,8 @@ module DA.Daml.LF.Proto3.DecodeV1
 import           DA.Daml.LF.Ast as LF
 import           DA.Daml.LF.Proto3.Error
 import Control.Monad
-import Control.Monad.Error.Class (MonadError(throwError))
-import Control.Monad.Reader (ReaderT, ask, runReaderT)
+import Control.Monad.Except
+import Control.Monad.Reader
 import Text.Read
 import           Data.List
 import           DA.Daml.LF.Mangling
@@ -24,14 +24,18 @@ import qualified Data.Text.Lazy as TL
 import qualified Data.Vector as V
 import qualified Proto3.Suite as Proto
 
--- internal functions that *implement* decoding
-type DecodeImpl = ReaderT PackageRefCtx Decode
-type MonadDecode = MonadError Error
 
-decodeImpl :: MonadDecode m => Decode a -> m a
-decodeImpl = either throwError pure
+newtype DecodeEnv = DecodeEnv
+    { internedStrings :: V.Vector T.Text
+    }
 
-decodeVersion :: TL.Text -> Decode Version
+newtype Decode a = Decode{unDecode :: ReaderT DecodeEnv (Except Error) a}
+    deriving (Functor, Applicative, Monad, MonadError Error, MonadReader DecodeEnv)
+
+runDecode :: DecodeEnv -> Decode a -> Either Error a
+runDecode env act = runExcept $ runReaderT (unDecode act) env
+
+decodeVersion :: TL.Text -> Either Error Version
 decodeVersion minorText = do
   let unsupported = throwError (UnsupportedMinorVersion (TL.toStrict minorText))
   -- we translate "no version" to minor version 0, since we introduced
@@ -45,18 +49,20 @@ decodeVersion minorText = do
   let version = V1 minor
   if version `elem` LF.supportedInputVersions then pure version else unsupported
 
-decodePackage :: TL.Text -> LF1.Package -> Decode Package
+decodePackage :: TL.Text -> LF1.Package -> Either Error Package
 decodePackage minorText (LF1.Package mods internedList) = do
   version <- decodeVersion minorText
-  interned <- decodeInternedPackageIds internedList
-  Package version <$> runReaderT (decodeNM DuplicateModule decodeModule mods) interned
+  let internedStrings = V.map TL.toStrict internedList
+  let env = DecodeEnv{internedStrings}
+  runDecode env $
+    Package version <$> decodeNM DuplicateModule decodeModule mods
 
-decodeModule :: LF1.Module -> DecodeImpl Module
+decodeModule :: LF1.Module -> Decode Module
 decodeModule (LF1.Module name flags dataTypes values templates) =
   Module
     <$> mayDecode "moduleName" name (decodeDottedName ModuleName)
     <*> pure Nothing
-    <*> mayDecode' "flags" flags decodeFeatureFlags
+    <*> mayDecode "flags" flags decodeFeatureFlags
     <*> decodeNM DuplicateDataType decodeDefDataType dataTypes
     <*> decodeNM DuplicateValue decodeDefValue values
     <*> decodeNM EDuplicateTemplate decodeDefTemplate templates
@@ -70,16 +76,16 @@ decodeFeatureFlags LF1.FeatureFlags{..} =
       { forbidPartyLiterals = featureFlagsForbidPartyLiterals
       }
 
-decodeDefDataType :: LF1.DefDataType -> DecodeImpl DefDataType
+decodeDefDataType :: LF1.DefDataType -> Decode DefDataType
 decodeDefDataType LF1.DefDataType{..} =
   DefDataType
     <$> traverse decodeLocation defDataTypeLocation
     <*> mayDecode "dataTypeName" defDataTypeName (decodeDottedName TypeConName)
     <*> pure (IsSerializable defDataTypeSerializable)
-    <*> (decodeImpl $ traverse decodeTypeVarWithKind (V.toList defDataTypeParams))
+    <*> traverse decodeTypeVarWithKind (V.toList defDataTypeParams)
     <*> mayDecode "dataTypeDataCons" defDataTypeDataCons decodeDataCons
 
-decodeDataCons :: LF1.DefDataTypeDataCons -> DecodeImpl DataCons
+decodeDataCons :: LF1.DefDataTypeDataCons -> Decode DataCons
 decodeDataCons = \case
   LF1.DefDataTypeDataConsRecord (LF1.DefDataType_Fields fs) ->
     DataRecord <$> mapM (decodeFieldWithType FieldName) (V.toList fs)
@@ -88,12 +94,12 @@ decodeDataCons = \case
   LF1.DefDataTypeDataConsEnum (LF1.DefDataType_EnumConstructors cs) ->
     DataEnum <$> mapM (decodeName VariantConName) (V.toList cs)
 
-decodeDefValueNameWithType :: LF1.DefValue_NameWithType -> DecodeImpl (ExprValName, Type)
+decodeDefValueNameWithType :: LF1.DefValue_NameWithType -> Decode (ExprValName, Type)
 decodeDefValueNameWithType LF1.DefValue_NameWithType{..} = (,)
   <$> decodeValueName "defValueName" defValue_NameWithTypeName
   <*> mayDecode "defValueType" defValue_NameWithTypeType decodeType
 
-decodeDefValue :: LF1.DefValue -> DecodeImpl DefValue
+decodeDefValue :: LF1.DefValue -> Decode DefValue
 decodeDefValue (LF1.DefValue mbBinder mbBody noParties isTest mbLoc) =
   DefValue
     <$> traverse decodeLocation mbLoc
@@ -102,7 +108,7 @@ decodeDefValue (LF1.DefValue mbBinder mbBody noParties isTest mbLoc) =
     <*> pure (IsTest isTest)
     <*> mayDecode "defValueExpr" mbBody decodeExpr
 
-decodeDefTemplate :: LF1.DefTemplate -> DecodeImpl Template
+decodeDefTemplate :: LF1.DefTemplate -> Decode Template
 decodeDefTemplate LF1.DefTemplate{..} = do
   tplParam <- decodeName ExprVarName defTemplateParam
   Template
@@ -117,21 +123,21 @@ decodeDefTemplate LF1.DefTemplate{..} = do
     <*> mapM (decodeDefTemplateKey tplParam) defTemplateKey
 
 
-decodeDefTemplateKey :: ExprVarName -> LF1.DefTemplate_DefKey -> DecodeImpl TemplateKey
+decodeDefTemplateKey :: ExprVarName -> LF1.DefTemplate_DefKey -> Decode TemplateKey
 decodeDefTemplateKey templateParam LF1.DefTemplate_DefKey{..} = do
   typ <- mayDecode "defTemplate_DefKeyType" defTemplate_DefKeyType decodeType
   key <- mayDecode "defTemplate_DefKeyKeyExpr" defTemplate_DefKeyKeyExpr (decodeKeyExpr templateParam)
   maintainers <- mayDecode "defTemplate_DefKeyMaintainers" defTemplate_DefKeyMaintainers decodeExpr
   return (TemplateKey typ key maintainers)
 
-decodeKeyExpr :: ExprVarName -> LF1.DefTemplate_DefKeyKeyExpr -> DecodeImpl Expr
+decodeKeyExpr :: ExprVarName -> LF1.DefTemplate_DefKeyKeyExpr -> Decode Expr
 decodeKeyExpr templateParam = \case
     LF1.DefTemplate_DefKeyKeyExprKey simpleKeyExpr ->
         decodeSimpleKeyExpr templateParam simpleKeyExpr
     LF1.DefTemplate_DefKeyKeyExprComplexKey keyExpr ->
         decodeExpr keyExpr
 
-decodeSimpleKeyExpr :: ExprVarName -> LF1.KeyExpr -> DecodeImpl Expr
+decodeSimpleKeyExpr :: ExprVarName -> LF1.KeyExpr -> Decode Expr
 decodeSimpleKeyExpr templateParam LF1.KeyExpr{..} = mayDecode "keyExprSum" keyExprSum $ \case
   LF1.KeyExprSumProjections LF1.KeyExpr_Projections{..} ->
     foldM
@@ -146,13 +152,13 @@ decodeSimpleKeyExpr templateParam LF1.KeyExpr{..} = mayDecode "keyExprSum" keyEx
       <$> mayDecode "keyExpr_RecordTycon" keyExpr_RecordTycon decodeTypeConApp
       <*> mapM (decodeFieldWithSimpleKeyExpr templateParam) (V.toList keyExpr_RecordFields)
 
-decodeFieldWithSimpleKeyExpr :: ExprVarName -> LF1.KeyExpr_RecordField -> DecodeImpl (FieldName, Expr)
+decodeFieldWithSimpleKeyExpr :: ExprVarName -> LF1.KeyExpr_RecordField -> Decode (FieldName, Expr)
 decodeFieldWithSimpleKeyExpr templateParam LF1.KeyExpr_RecordField{..} =
   (,)
   <$> decodeName FieldName keyExpr_RecordFieldField
   <*> mayDecode "keyExpr_RecordFieldExpr" keyExpr_RecordFieldExpr (decodeSimpleKeyExpr templateParam)
 
-decodeChoice :: LF1.TemplateChoice -> DecodeImpl TemplateChoice
+decodeChoice :: LF1.TemplateChoice -> Decode TemplateChoice
 decodeChoice LF1.TemplateChoice{..} =
   TemplateChoice
     <$> traverse decodeLocation templateChoiceLocation
@@ -164,7 +170,7 @@ decodeChoice LF1.TemplateChoice{..} =
     <*> mayDecode "templateChoiceRetType" templateChoiceRetType decodeType
     <*> mayDecode "templateChoiceUpdate" templateChoiceUpdate decodeExpr
 
-decodeBuiltinFunction :: MonadDecode m => LF1.BuiltinFunction -> m BuiltinExpr
+decodeBuiltinFunction :: LF1.BuiltinFunction -> Decode BuiltinExpr
 decodeBuiltinFunction = pure . \case
   LF1.BuiltinFunctionEQUAL_INT64 -> BEEqual BTInt64
   LF1.BuiltinFunctionEQUAL_DECIMAL -> BEEqual BTDecimal
@@ -273,7 +279,7 @@ decodeBuiltinFunction = pure . \case
   LF1.BuiltinFunctionEQUAL_CONTRACT_ID -> BEEqualContractId
   LF1.BuiltinFunctionCOERCE_CONTRACT_ID -> BECoerceContractId
 
-decodeLocation :: LF1.Location -> DecodeImpl SourceLoc
+decodeLocation :: LF1.Location -> Decode SourceLoc
 decodeLocation (LF1.Location mbModRef mbRange) = do
   mbModRef' <- traverse decodeModuleRef mbModRef
   LF1.Location_Range sline scol eline ecol <- mayDecode "Location_Range" mbRange pure
@@ -282,12 +288,12 @@ decodeLocation (LF1.Location mbModRef mbRange) = do
     (fromIntegral sline) (fromIntegral scol)
     (fromIntegral eline) (fromIntegral ecol)
 
-decodeExpr :: LF1.Expr -> DecodeImpl Expr
+decodeExpr :: LF1.Expr -> Decode Expr
 decodeExpr (LF1.Expr mbLoc exprSum) = case mbLoc of
   Nothing -> decodeExprSum exprSum
   Just loc -> ELocation <$> decodeLocation loc <*> decodeExprSum exprSum
 
-decodeExprSum :: Maybe LF1.ExprSum -> DecodeImpl Expr
+decodeExprSum :: Maybe LF1.ExprSum -> Decode Expr
 decodeExprSum exprSum = mayDecode "exprSum" exprSum $ \case
   LF1.ExprSumVar var -> EVar <$> decodeName ExprVarName var
   LF1.ExprSumVal val -> EVal <$> decodeValName val
@@ -348,7 +354,7 @@ decodeExprSum exprSum = mayDecode "exprSum" exprSum $ \case
     foldr ETmLam body <$> mapM decodeVarWithType (V.toList params)
   LF1.ExprSumTyAbs (LF1.Expr_TyAbs params mbBody) -> do
     body <- mayDecode "Expr_TyAbsBody" mbBody decodeExpr
-    decodeImpl $ foldr ETyLam body <$> traverse decodeTypeVarWithKind (V.toList params)
+    foldr ETyLam body <$> traverse decodeTypeVarWithKind (V.toList params)
   LF1.ExprSumCase (LF1.Case mbScrut alts) ->
     ECase
       <$> mayDecode "Case_caseScrut" mbScrut decodeExpr
@@ -388,7 +394,7 @@ decodeExprSum exprSum = mayDecode "exprSum" exprSum $ \case
             return (EFromAnyTemplate con expr)
         _ -> throwError (ExpectedTCon type')
 
-decodeUpdate :: LF1.Update -> DecodeImpl Expr
+decodeUpdate :: LF1.Update -> Decode Expr
 decodeUpdate LF1.Update{..} = mayDecode "updateSum" updateSum $ \case
   LF1.UpdateSumPure (LF1.Pure mbType mbExpr) ->
     fmap EUpdate $ UPure
@@ -423,12 +429,12 @@ decodeUpdate LF1.Update{..} = mayDecode "updateSum" updateSum $ \case
   LF1.UpdateSumFetchByKey retrieveByKey ->
     fmap (EUpdate . UFetchByKey) (decodeRetrieveByKey retrieveByKey)
 
-decodeRetrieveByKey :: LF1.Update_RetrieveByKey -> DecodeImpl RetrieveByKey
+decodeRetrieveByKey :: LF1.Update_RetrieveByKey -> Decode RetrieveByKey
 decodeRetrieveByKey LF1.Update_RetrieveByKey{..} = RetrieveByKey
   <$> mayDecode "update_RetrieveByKeyTemplate" update_RetrieveByKeyTemplate decodeTypeConName
   <*> mayDecode "update_RetrieveByKeyKey" update_RetrieveByKeyKey decodeExpr
 
-decodeScenario :: LF1.Scenario -> DecodeImpl Expr
+decodeScenario :: LF1.Scenario -> Decode Expr
 decodeScenario LF1.Scenario{..} = mayDecode "scenarioSum" scenarioSum $ \case
   LF1.ScenarioSumPure (LF1.Pure mbType mbExpr) ->
     fmap EScenario $ SPure
@@ -458,7 +464,7 @@ decodeScenario LF1.Scenario{..} = mayDecode "scenarioSum" scenarioSum $ \case
       <$> mayDecode "scenario_EmbedExprType" scenario_EmbedExprType decodeType
       <*> mayDecode "scenario_EmbedExprBody" scenario_EmbedExprBody decodeExpr
 
-decodeCaseAlt :: LF1.CaseAlt -> DecodeImpl CaseAlternative
+decodeCaseAlt :: LF1.CaseAlt -> Decode CaseAlternative
 decodeCaseAlt LF1.CaseAlt{..} = do
   pat <- mayDecode "caseAltSum" caseAltSum $ \case
     LF1.CaseAltSumDefault LF1.Unit -> pure CPDefault
@@ -486,7 +492,7 @@ decodeCaseAlt LF1.CaseAlt{..} = do
   body <- mayDecode "caseAltBody" caseAltBody decodeExpr
   pure $ CaseAlternative pat body
 
-decodeBinding :: LF1.Binding -> DecodeImpl Binding
+decodeBinding :: LF1.Binding -> Decode Binding
 decodeBinding (LF1.Binding mbBinder mbBound) =
   Binding
     <$> mayDecode "bindingBinder" mbBinder decodeVarWithType
@@ -498,13 +504,13 @@ decodeTypeVarWithKind LF1.TypeVarWithKind{..} =
     <$> decodeName TypeVarName typeVarWithKindVar
     <*> mayDecode "typeVarWithKindKind" typeVarWithKindKind decodeKind
 
-decodeVarWithType :: LF1.VarWithType -> DecodeImpl (ExprVarName, Type)
+decodeVarWithType :: LF1.VarWithType -> Decode (ExprVarName, Type)
 decodeVarWithType LF1.VarWithType{..} =
   (,)
     <$> decodeName ExprVarName varWithTypeVar
     <*> mayDecode "varWithTypeType" varWithTypeType decodeType
 
-decodePrimLit :: MonadDecode m => LF1.PrimLit -> m BuiltinExpr
+decodePrimLit :: LF1.PrimLit -> Decode BuiltinExpr
 decodePrimLit (LF1.PrimLit mbSum) = mayDecode "primLitSum" mbSum $ \case
   LF1.PrimLitSumInt64 sInt -> pure $ BEInt64 sInt
   LF1.PrimLitSumDecimal sDec -> case readMaybe (TL.unpack sDec) of
@@ -546,7 +552,7 @@ decodePrim = pure . \case
   LF1.PrimTypeARROW -> BTArrow
   LF1.PrimTypeANY -> BTAnyTemplate
 
-decodeType :: LF1.Type -> DecodeImpl Type
+decodeType :: LF1.Type -> Decode Type
 decodeType LF1.Type{..} = mayDecode "typeSum" typeSum $ \case
   LF1.TypeSumVar (LF1.Type_Var var args) ->
     decodeWithArgs args $ TVar <$> decodeName TypeVarName var
@@ -556,7 +562,7 @@ decodeType LF1.Type{..} = mayDecode "typeSum" typeSum $ \case
   LF1.TypeSumCon (LF1.Type_Con mbCon args) ->
     decodeWithArgs args $ TCon <$> mayDecode "type_ConTycon" mbCon decodeTypeConName
   LF1.TypeSumPrim (LF1.Type_Prim (Proto.Enumerated (Right prim)) args) -> do
-    decodeWithArgs args $ TBuiltin <$> (decodeImpl $ decodePrim prim)
+    decodeWithArgs args $ TBuiltin <$> decodePrim prim
   LF1.TypeSumPrim (LF1.Type_Prim (Proto.Enumerated (Left idx)) _args) ->
     throwError (UnknownEnum "Prim" idx)
   LF1.TypeSumFun (LF1.Type_Fun params mbResult) -> do
@@ -565,33 +571,33 @@ decodeType LF1.Type{..} = mayDecode "typeSum" typeSum $ \case
       <*> mayDecode "type_FunResult" mbResult decodeType
   LF1.TypeSumForall (LF1.Type_Forall binders mbBody) -> do
     body <- mayDecode "type_ForAllBody" mbBody decodeType
-    decodeImpl $ foldr TForall body <$> traverse decodeTypeVarWithKind (V.toList binders)
+    foldr TForall body <$> traverse decodeTypeVarWithKind (V.toList binders)
   LF1.TypeSumTuple (LF1.Type_Tuple flds) ->
     TTuple <$> mapM (decodeFieldWithType FieldName) (V.toList flds)
   where
-    decodeWithArgs :: V.Vector LF1.Type -> DecodeImpl Type -> DecodeImpl Type
+    decodeWithArgs :: V.Vector LF1.Type -> Decode Type -> Decode Type
     decodeWithArgs args fun = foldl TApp <$> fun <*> traverse decodeType args
 
 
-decodeFieldWithType :: (T.Text -> a) -> LF1.FieldWithType -> DecodeImpl (a, Type)
+decodeFieldWithType :: (T.Text -> a) -> LF1.FieldWithType -> Decode (a, Type)
 decodeFieldWithType wrapName (LF1.FieldWithType name mbType) =
   (,)
     <$> decodeName wrapName name
     <*> mayDecode "fieldWithTypeType" mbType decodeType
 
-decodeFieldWithExpr :: LF1.FieldWithExpr -> DecodeImpl (FieldName, Expr)
+decodeFieldWithExpr :: LF1.FieldWithExpr -> Decode (FieldName, Expr)
 decodeFieldWithExpr (LF1.FieldWithExpr name mbExpr) =
   (,)
     <$> decodeName FieldName name
     <*> mayDecode "fieldWithExprExpr" mbExpr decodeExpr
 
-decodeTypeConApp :: LF1.Type_Con -> DecodeImpl TypeConApp
+decodeTypeConApp :: LF1.Type_Con -> Decode TypeConApp
 decodeTypeConApp LF1.Type_Con{..} =
   TypeConApp
     <$> mayDecode "typeConAppTycon" type_ConTycon decodeTypeConName
     <*> mapM decodeType (V.toList type_ConArgs)
 
-decodeTypeConName :: LF1.TypeConName -> DecodeImpl (Qualified TypeConName)
+decodeTypeConName :: LF1.TypeConName -> Decode (Qualified TypeConName)
 decodeTypeConName LF1.TypeConName{..} = do
   (pref, mname) <- mayDecode "typeConNameModule" typeConNameModule decodeModuleRef
   con <- mayDecode "typeConNameName" typeConNameName (decodeDottedName TypeConName)
@@ -600,46 +606,44 @@ decodeTypeConName LF1.TypeConName{..} = do
 decodePackageId :: TL.Text -> PackageId
 decodePackageId = PackageId . TL.toStrict
 
--- the invariant *does not* hold: pkid `cmp` opkid = index pkid `cmp` index opkid
--- it is only true internally for one particular encoder implementation
-type PackageRefCtx = Int -> Maybe PackageId
-
-decodePackageRef :: LF1.PackageRef -> DecodeImpl PackageRef
+decodePackageRef :: LF1.PackageRef -> Decode PackageRef
 decodePackageRef (LF1.PackageRef pref) =
   mayDecode "packageRefSum" pref $ \case
     LF1.PackageRefSumSelf _          -> pure PRSelf
     LF1.PackageRefSumPackageId pkgId -> pure $ PRImport $ decodePackageId pkgId
-    LF1.PackageRefSumInternedId ix -> do
-      let ixd = fromIntegral ix :: Int
-      interned <- ask
-      maybe (throwError $ MissingPackageRefId ix) pure
-        $ PRImport <$> (guard (ix == fromIntegral ixd) *> interned ixd)
+    LF1.PackageRefSumInternedId ix0 -> do
+      let ix1 = toInteger ix0
+      when (ix1 > toInteger (maxBound :: Int)) $
+        throwError $ MissingPackageRefId ix0
+      let ix2 :: Int
+          ix2 = fromInteger ix1
+      DecodeEnv{internedStrings} <- ask
+      case internedStrings V.!? ix2 of
+          Nothing -> throwError $ MissingPackageRefId ix0
+          Just pkgId -> pure $ PRImport $ PackageId pkgId
 
-decodeInternedPackageIds :: V.Vector TL.Text -> Decode PackageRefCtx
-decodeInternedPackageIds = pure . (V.!?) . fmap decodePackageId
-
-decodeModuleRef :: LF1.ModuleRef -> DecodeImpl (PackageRef, ModuleName)
+decodeModuleRef :: LF1.ModuleRef -> Decode (PackageRef, ModuleName)
 decodeModuleRef LF1.ModuleRef{..} =
   (,)
     <$> mayDecode "moduleRefPackageRef" moduleRefPackageRef decodePackageRef
     <*> mayDecode "moduleRefModuleName" moduleRefModuleName (decodeDottedName ModuleName)
 
 
-decodeValName :: LF1.ValName -> DecodeImpl (Qualified ExprValName)
+decodeValName :: LF1.ValName -> Decode (Qualified ExprValName)
 decodeValName LF1.ValName{..} = do
   (pref, mname) <- mayDecode "valNameModule" valNameModule decodeModuleRef
   name <- decodeValueName "valNameName" valNameName
   pure $ Qualified pref mname name
 
-decodeDottedName :: MonadDecode m => ([T.Text] -> a) -> LF1.DottedName -> m a
-decodeDottedName wrapDottedName (LF1.DottedName parts) = decodeImpl $ do
+decodeDottedName :: ([T.Text] -> a) -> LF1.DottedName -> Decode a
+decodeDottedName wrapDottedName (LF1.DottedName parts) = do
   unmangledParts <- forM (V.toList parts) $ \part ->
     case unmangleIdentifier (TL.toStrict part) of
       Left err -> throwError (ParseError ("Could not unmangle part " ++ show part ++ ": " ++ err))
       Right unmangled -> pure unmangled
   pure (wrapDottedName unmangledParts)
 
-decodeName :: MonadDecode m => (T.Text -> a) -> TL.Text -> m a
+decodeName :: (T.Text -> a) -> TL.Text -> Decode a
 decodeName wrapName segment =
   case unmangleIdentifier (TL.toStrict segment) of
     Left err -> throwError (ParseError ("Could not unmangle part " ++ show segment ++ ": " ++ err))
@@ -649,23 +653,20 @@ decodeName wrapName segment =
 -- Helpers
 ------------------------------------------------------------------------
 
-mayDecode :: MonadDecode m => String -> Maybe a -> (a -> m b) -> m b
+mayDecode :: String -> Maybe a -> (a -> Decode b) -> Decode b
 mayDecode fieldName mb f =
   case mb of
     Nothing -> throwError (MissingField fieldName)
     Just x  -> f x
 
-mayDecode' :: String -> Maybe a -> (a -> Decode b) -> DecodeImpl b
-mayDecode' fieldName mb = decodeImpl . mayDecode fieldName mb
-
 decodeNM
-  :: (MonadDecode m, NM.Named b)
-  => (NM.Name b -> Error) -> (a -> m b) -> V.Vector a -> m (NM.NameMap b)
+  :: NM.Named b
+  => (NM.Name b -> Error) -> (a -> Decode b) -> V.Vector a -> Decode (NM.NameMap b)
 decodeNM mkDuplicateError decode1 xs = do
   ys <- traverse decode1 (V.toList xs)
   either (throwError . mkDuplicateError) pure $ NM.fromListEither ys
 
-decodeValueName :: MonadDecode m => String -> V.Vector TL.Text -> m ExprValName
+decodeValueName :: String -> V.Vector TL.Text -> Decode ExprValName
 decodeValueName ident xs = fmap ExprValName $ if
   | V.length xs == 1 -> case unmangleIdentifier (TL.toStrict (xs V.! 0)) of
       Right name -> pure name
