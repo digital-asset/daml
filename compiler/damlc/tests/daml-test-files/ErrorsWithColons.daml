@@ -1,11 +1,11 @@
 -- Copyright (c) 2019, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
--- @INFO range=9:35-9:42; Use list literal
--- @ERROR range=9:35-9:42; In the expression: (1 :: [])
+-- @ERROR range=8:35-8:43; In the expression: (1 :: nil)
 -- @ERROR range=11:13-11:14; In the expression: 1 : Text
 daml 1.2 module ErrorsWithColons where
 
-badIf = if True then Some 1 else (1 :: [])
+badIf = if True then Some 1 else (1 :: nil)
+    where nil = []
 
 notString = 1 : Text
