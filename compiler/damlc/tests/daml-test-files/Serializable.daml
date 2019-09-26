@@ -1,0 +1,53 @@
+
+daml 1.2
+
+module Test where
+
+import DA.Serializable
+
+emptyList : [Int]
+emptyList = []
+
+--
+testInt1 = scenario $ do
+    assert (1 === 1)
+--
+testInt2 = scenario $ do
+    assert (not (1 === 2))
+
+testList1 = scenario $ do
+   assert (emptyList === emptyList)
+   assert ([1] === [1])
+   assert ([1,2,3] === [1,2,3])
+   assert ([[1],[2,3]] === [[1],[2,3]])
+
+testList2 = scenario $ do
+   assert (not (emptyList === [1]))
+   assert (not ([1] === emptyList))
+   assert (not ([[1],[2,3]] === [[1]]))
+
+data R0 = R0 {int: Int, list: [Int], listOfList: [[Int]]}
+
+instance Serializable R0 where
+    isSerializable = (primitive @"BEDataIsSerializable")
+
+testR0 = scenario $ do
+   r <- pure $ R0 {  int = 1, list = [1], listOfList = [[1,2]] }
+   r1 <- pure $ R0 {  int = 1, list = [1], listOfList = [[1,2], [3]] }
+   assert (r === r)
+   assert (not (r === r1))
+
+data R2 a1 a2 = R2 {x0: Int, x1: a1, x2: a2}
+
+instance (Serializable a, Serializable b) => Serializable (R2 a b) where
+    isSerializable = (force2 @a @b (primitive @"BEDataIsSerializable")) isSerializable isSerializable
+
+testR2 = scenario $ do
+   r <- pure $ R2 {  x0 = 1, x1 = [1], x2 = [ R0 {  int = 1, list = [1], listOfList = [[1,2]] } ] }
+   r1 <- pure $ R2 {  x0 = 1, x1 = [1], x2 = [] }
+   assert (r === r)
+   assert (r1 === r1)
+   assert (not (r === r1))
+
+
+data LF_Serializable a = LF_Serializable {}
