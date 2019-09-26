@@ -2,7 +2,14 @@
 -- All rights reserved.
 
 -- @ SINCE-LF 1.6
-daml 1.2 module InternedExternalRefs where
+-- @QUERY-LF [ .modules[] | .values[] | .expr.val.module.package_ref.interned_id ] | sort == ["0", "1"]
+-- @QUERY-LF .interned_package_ids | length == 2
 
--- @ QUERY-LF .modules[] | .values[] | select(.name_with_type.name == ["reverseCopy"]) | .expr.val.module.package_ref.interned_id >= 0
-reverseCopy = reverse
+-- We test that interning of package ids works. The two packages we reference are
+-- daml-prim and daml-stdlib.
+daml 1.2
+module InternedExternalRefs where
+
+reverseCopy = reverse  -- this is a reference to daml-stdlib
+
+errorCopy = error  -- this is a reference to daml-prim

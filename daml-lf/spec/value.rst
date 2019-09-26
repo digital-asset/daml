@@ -4,7 +4,7 @@
 DAML-LF Value Specification
 ===========================
 
-**version 4, 2 April 2019**
+**version 5, 29 May 2019**
 
 The DAML-LF language includes ways to define *data types*,
 specifications of structure, and includes rules by which a restricted
@@ -157,6 +157,8 @@ This table lists every version of this specification in ascending order
 +--------------------+-----------------+
 |                  4 |      2019-03-27 |
 +--------------------+-----------------+
+|                  5 |      2019-05-29 |
++--------------------+-----------------+
 
 message VersionedValue
 ^^^^^^^^^^^^^^^^^^^^^^
@@ -234,6 +236,11 @@ As of version 4, may be any one of the above, or this:
 
 * `message Map`_ map
 
+*since version 5*
+
+As of version 5, may be any one of the above, or this:
+
+* `message Enum`_ enum
 
 field contract_id
 ~~~~~~~~~~~~~~~~~
@@ -524,10 +531,25 @@ message Map
 
 A homogeneous map of values.
 
-In this version, these fields are include:
+In this version, these fields are included:
 
 * repeated `message Map.Entry`_ entries
 
 The ``value`` field of every member of ``entries`` must conform to the
 same type. Furthermore,the ``key`` fields of the entries must be distinct.
 Entries may occur in arbitrary order.
+
+message Enum
+^^^^^^^^^^^^
+
+*since version 5*
+
+An Enum value, a specialized form of variant without argument.
+
+In this version, these fields are included:
+
+* `message Identifier`_ enum_id
+* ``string`` value
+
+Only ``value`` is required, and it is required to be one of the values
+of the enum type to which this ``message Enum`` conforms.

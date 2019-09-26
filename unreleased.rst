@@ -21,3 +21,4 @@ HEAD — ongoing
   Improve SQL backend performance by eliminating extra queries to the database.
 - [DAML Tool - Visual]
   Adding `daml damlc visual-web` command. visual-command generates webpage with `d3 <https://d3js.org>`_ network.
++ [DAML Ledger Integration Kit] The transaction service is now fully tested.

@@ -115,10 +115,12 @@ getIntegrationTests registerTODO scenarioService version = do
 
     -- test files are declared as data in BUILD.bazel
     testsLocation <- locateRunfiles $ mainWorkspace </> "compiler/damlc/tests/daml-test-files"
-    damlTestFiles <- filter (".daml" `isExtensionOf`) <$> listFiles testsLocation
+    damlTestFiles <-
+        map (\f -> (makeRelative testsLocation f, f)) .
+        filter (".daml" `isExtensionOf`) <$> listFiles testsLocation
     -- only run Test.daml (see https://github.com/digital-asset/daml/issues/726)
     bondTradingLocation <- locateRunfiles $ mainWorkspace </> "compiler/damlc/tests/bond-trading"
-    let allTestFiles = damlTestFiles ++ [bondTradingLocation </> "Test.daml"]
+    let allTestFiles = damlTestFiles ++ [("bond-trading/Test.daml", bondTradingLocation </> "Test.daml")]
 
     let outdir = "compiler/damlc/output"
     createDirectoryIfMissing True outdir
@@ -154,8 +156,8 @@ instance IsTest TestCase where
     pure $ res { resultDescription = desc }
   testOptions = Tagged []
 
-testCase :: TestArguments -> LF.Version -> IO IdeState -> FilePath -> (TODO -> IO ()) -> FilePath -> TestTree
-testCase args version getService outdir registerTODO file = singleTest file . TestCase $ \log -> do
+testCase :: TestArguments -> LF.Version -> IO IdeState -> FilePath -> (TODO -> IO ()) -> (String, FilePath) -> TestTree
+testCase args version getService outdir registerTODO (name, file) = singleTest name . TestCase $ \log -> do
   service <- getService
   anns <- readFileAnns file
   if any (ignoreVersion version) anns
@@ -319,6 +321,7 @@ mainProj TestArguments{..} service outdir log file = do
 
     setFilesOfInterest service (Set.singleton file)
     runActionSync service $ do
+            dlint log file
             cores <- ghcCompile log file
             corePrettyPrint cores
             lf <- lfConvert log file
@@ -334,6 +337,9 @@ unjust act = do
     case res of
       Nothing -> fail "_IGNORE_"
       Just v -> return v
+
+dlint :: (String -> IO ()) -> NormalizedFilePath -> Action ()
+dlint log file = timed log "DLint" $ unjust $ getDlintIdeas file
 
 ghcCompile :: (String -> IO ()) -> NormalizedFilePath -> Action [GHC.CoreModule]
 ghcCompile log file = timed log "GHC compile" $ unjust $ getGhcCore file

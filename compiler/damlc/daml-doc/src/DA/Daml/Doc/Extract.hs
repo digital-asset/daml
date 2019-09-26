@@ -22,9 +22,9 @@ import qualified Development.IDE.Core.Service     as Service
 import qualified Development.IDE.Core.Rules     as Service
 import qualified Development.IDE.Core.RuleTypes as Service
 import qualified Development.IDE.Core.OfInterest as Service
-import           Development.IDE.Types.Diagnostics
 import Development.IDE.Types.Logger
 import Development.IDE.Types.Location
+import qualified Language.Haskell.LSP.Messages as LSP
 
 import           "ghc-lib" GHC
 import           "ghc-lib-parser" Module
@@ -44,7 +44,7 @@ import qualified "ghc-lib-parser" Outputable                      as Out
 import qualified "ghc-lib-parser" DynFlags                        as DF
 import           "ghc-lib-parser" Bag (bagToList)
 
-import           Control.Monad.Except             as Ex
+import Control.Monad
 import Control.Monad.Trans.Maybe
 import           Data.Char (isSpace)
 import           Data.List.Extra
@@ -79,11 +79,12 @@ defaultExtractOptions = ExtractOptions
 -- | Extract documentation in a dependency graph of modules.
 extractDocs ::
     ExtractOptions
+    -> (LSP.FromServerMessage -> IO ())
     -> IdeOptions
     -> [NormalizedFilePath]
-    -> Ex.ExceptT [FileDiagnostic] IO [ModuleDoc]
-extractDocs extractOpts ideOpts fp = do
-    modules <- haddockParse ideOpts fp
+    -> MaybeT IO [ModuleDoc]
+extractDocs extractOpts diagsLogger ideOpts fp = do
+    modules <- haddockParse diagsLogger ideOpts fp
     pure $ map mkModuleDocs modules
 
   where
@@ -220,20 +221,19 @@ buildDocCtx dc_extractOptions dc_tcmod  =
 --
 --   Not using the cached file store, as it is expected to run stand-alone
 --   invoked by a CLI tool.
-haddockParse :: IdeOptions ->
+haddockParse :: (LSP.FromServerMessage -> IO ()) ->
+                IdeOptions ->
                 [NormalizedFilePath] ->
-                Ex.ExceptT [FileDiagnostic] IO [Service.TcModuleResult]
-haddockParse opts f = ExceptT $ do
+                MaybeT IO [Service.TcModuleResult]
+haddockParse diagsLogger opts f = MaybeT $ do
   vfs <- makeVFSHandle
-  service <- Service.initialise Service.mainRule (const $ pure ()) noLogging opts vfs
+  service <- Service.initialise Service.mainRule diagsLogger noLogging opts vfs
   Service.setFilesOfInterest service (Set.fromList f)
-  parsed  <- Service.runAction service $
+  Service.runAction service $
              runMaybeT $
              do deps <- Service.usesE Service.GetDependencies f
                 Service.usesE Service.TypeCheck $ nubOrd $ f ++ concatMap Service.transitiveModuleDeps deps
                 -- The DAML compiler always parses with Opt_Haddock on
-  diags <- Service.getDiagnostics service
-  pure (maybe (Left diags) Right parsed)
 
 ------------------------------------------------------------
 

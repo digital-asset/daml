@@ -143,8 +143,8 @@ data DalfDependency = DalfDependency
     -- ^ The absolute path to the dalf file.
   }
 
-getDlintIdeas :: NormalizedFilePath -> Action ()
-getDlintIdeas f = use_ GetDlintDiagnostics f
+getDlintIdeas :: NormalizedFilePath -> Action (Maybe ())
+getDlintIdeas f = runMaybeT $ useE GetDlintDiagnostics f
 
 ideErrorPretty :: Pretty.Pretty e => NormalizedFilePath -> e -> FileDiagnostic
 ideErrorPretty fp = ideErrorText fp . T.pack . HughesPJPretty.prettyShow
