@@ -7,4 +7,5 @@ daml 1.2
 
 module RationalPrecisionMax where
 
-a = (0.0000000005 : Decimal)
+a : Decimal
+a = 0.0000000005

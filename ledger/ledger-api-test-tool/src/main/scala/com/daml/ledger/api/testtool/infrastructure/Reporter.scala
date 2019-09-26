@@ -29,9 +29,8 @@ object Reporter {
     private def render(e: StackTraceElement): String =
       s"\tat ${e.getClassName}.${e.getMethodName}(${e.getFileName}:${e.getLineNumber})"
 
-    private def extractRelevantLineNumberFromAssertionError(
-        assertionError: AssertionError): Option[Int] =
-      assertionError.getStackTrace
+    private def extractRelevantLineNumber(t: Throwable): Option[Int] =
+      t.getStackTrace
         .find(
           stackTraceElement =>
             Try(Class.forName(stackTraceElement.getClassName))
@@ -77,8 +76,8 @@ object Reporter {
                 s.println(yellow(s"Skipped (reason: $reason)"))
               case Result.Failed(cause) =>
                 val message =
-                  extractRelevantLineNumberFromAssertionError(cause).fold(s"Failed") { lineHint =>
-                    s"Failed at line $lineHint"
+                  extractRelevantLineNumber(cause).fold("Assertion failed") { lineHint =>
+                    s"Assertion failed at line $lineHint"
                   }
                 s.println(red(message))
                 s.println(red(indented(cause.getMessage)))
@@ -92,7 +91,13 @@ object Reporter {
                     s.println(red(indented(renderedStackTraceLine)))
                 }
               case Result.FailedUnexpectedly(cause) =>
-                s.println(red("Failed due to an unexpected exception"))
+                val prefix =
+                  s"Unexpected failure (${cause.getClass.getSimpleName})"
+                val message =
+                  extractRelevantLineNumber(cause).fold(prefix) { lineHint =>
+                    s"$prefix at line $lineHint"
+                  }
+                s.println(red(message))
                 s.println(red(indented(cause.getMessage)))
                 if (printStackTraces) {
                   for (renderedStackTraceLine <- render(cause))

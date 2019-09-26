@@ -35,3 +35,8 @@ deleteFooByKey : forall c. Template (Foo c) => Party -> Update ()
 deleteFooByKey fooKey = do
     (fooCid, _) <- fetchByKey @(Foo c) fooKey
     exercise fooCid Delete
+
+-- NOTE(MH): The superfluous parentheses around the constraint caused the
+-- rewriting to fail in the past.
+deleteFoo' : (Template (Foo c)) => ContractId (Foo c) -> Update ()
+deleteFoo' fooCid = exercise fooCid Delete

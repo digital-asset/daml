@@ -4,10 +4,12 @@
 -- | DAML-LF Numeric literals, with scale attached.
 module DA.Daml.LF.Ast.Numeric
     ( Numeric
+    , NumericError (..)
     , E10
     , numeric
     , numericScale
     , numericMaxScale
+    , numericMaxPrecision
     , numericFromRational
     , numericFromDecimal
     ) where
@@ -42,24 +44,48 @@ import Numeric.Natural
 newtype Numeric = Numeric { numericDecimal :: Decimal }
   deriving (Eq, Ord, Generic)
 
--- | Smart constructor for Numeric literals.
-numeric :: Natural -> Integer -> Numeric
-numeric s m
-    | s > numericMaxScale = error "numeric error: scale too large"
-    | m > numericMaxMantissa = error "numeric error: mantissa too large"
-    | otherwise = Numeric $ Decimal (fromIntegral s) m
+data NumericError
+    = NEScaleTooLarge
+    | NEMantissaTooLarge
+    deriving (Eq, Show)
 
--- | Convert a rational number into a Numeric.
-numericFromRational :: Rational -> Numeric
-numericFromRational r = Numeric (fromRational r)
+-- | Total smart constructor for Numeric literals. Returns a NumericError
+-- if the number cannot be represented as a numeric.
+numericE :: Natural -> Integer -> Either NumericError Numeric
+numericE s m
+    | s > numericMaxScale = Left NEScaleTooLarge
+    | m > numericMaxMantissa = Left NEMantissaTooLarge
+    | otherwise = Right . Numeric $ Decimal (fromIntegral s) m
+
+-- | Partial smart constructor for Numeric literals. Returns undefined
+-- if the number cannot be represented as a numeric.
+numeric :: Natural -> Integer -> Numeric
+numeric s m =
+    case numericE s m of
+        Left NEScaleTooLarge -> error "numeric error: scale too large"
+        Left NEMantissaTooLarge -> error "numeric error: mantissa too large"
+        Right n -> n
+
+-- | Convert a rational number into a Numeric safely. Fails if the
+-- Numeric cannot be represented.
+numericFromRational :: Rational -> Either NumericError Numeric
+numericFromRational rational =
+    let decimal = fromRational rational
+        scale = fromIntegral (decimalPlaces decimal)
+        mantissa = decimalMantissa decimal
+    in numericE scale mantissa
 
 -- | Upper bound for numeric scale (inclusive).
 numericMaxScale :: Natural
 numericMaxScale = 37
 
+-- | Number of digits we can represent.
+numericMaxPrecision :: Natural
+numericMaxPrecision = 38
+
 -- | Upper bound for numeric mantissa (inclusive).
 numericMaxMantissa :: Integer
-numericMaxMantissa = 10^(38::Int)-1
+numericMaxMantissa = 10^numericMaxPrecision - 1
 
 -- | Get scale associated with numeric literal. This is the
 -- number of decimal places after the decimal point. Ranges

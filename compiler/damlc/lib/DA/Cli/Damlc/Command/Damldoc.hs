@@ -5,6 +5,7 @@
 module DA.Cli.Damlc.Command.Damldoc(cmd, exec) where
 
 import DA.Cli.Options
+import DA.Cli.Output
 import DA.Daml.Doc.Driver
 import DA.Daml.Doc.Extract
 import DA.Daml.Options
@@ -190,6 +191,7 @@ exec Damldoc{..} = do
     runDamlDoc DamldocOptions
         { do_ideOptions = toCompileOpts opts { optHaddock=Haddock True}
             (IdeReportProgress False)
+        , do_diagsLogger = diagnosticsLogger
         , do_outputPath = cOutputPath
         , do_outputFormat = cOutputFormat
         , do_inputFormat = cInputFormat

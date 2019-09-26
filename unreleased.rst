@@ -21,3 +21,5 @@ HEAD — ongoing
   The easiest way to specify this is the ``build-options`` field in ``daml.yaml``.
 - [Ledger] 
   Improve SQL backend performance by eliminating extra queries to the database.
++ [DAML Ledger Integration Kit] The transaction service is now fully tested.
+- [DAML Compiler] Fix a problem where constraints of the form `Template (Foo t)` caused the compiler to suggest enabling the `UndecidableInstances` language extension.
