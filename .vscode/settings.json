@@ -24,5 +24,4 @@
     "python.linting.pylintEnabled": false,
     "diffEditor.ignoreTrimWhitespace": false,
     "python.pythonPath": "${workspaceFolder}/dev-env/bin/python",
-    "restructuredtext.confPath": "${workspaceFolder}/docs/configs/pdf"
 }
