@@ -177,9 +177,12 @@ dotFileOpt = option (Just <$> str) $
     <> value Nothing
 
 htmlOutFile :: Parser FilePath
-htmlOutFile = argument str $
-       metavar "FILE"
-    <> help "Name of the HTML file to be generated."
+htmlOutFile = strOption $
+    metavar "FILE"
+    <> help "Name of the HTML file to be generated"
+    <> short 'o'
+    <> long "output"
+    <> value "visual.html"
 
 junitPackageNameOpt :: Parser (Maybe String)
 junitPackageNameOpt = option (Just <$> str) $
