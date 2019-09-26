@@ -243,17 +243,17 @@ convertRationalNumericMono :: Env -> Integer -> Integer -> Integer -> ConvertM L
 convertRationalNumericMono env scale num denom
     | scale < 0 || scale > fromIntegral numericMaxScale =
         unsupported
-            ("Tried to construct value of type Numeric " ++ show scale ++ ", but scale is out of bounds. Scale must be between 0 through 37, not " ++ show scale ++ ".")
+            ("Tried to construct value of type Numeric " ++ show scale ++ ", but scale is out of bounds. Scale must be between 0 through 37, not " ++ show scale)
             scale
 
     | abs (rational * 10 ^ scale) >= 10 ^ numericMaxPrecision =
         unsupported
-            ("Rational is out of bounds: " ++ show double ++ ". The Numeric " ++ show scale ++ " type can only represent numbers greater than -10^" ++ show maxPower ++ " and smaller than 10^" ++ show maxPower ++ ".")
+            ("Rational is out of bounds: " ++ show double ++ ". The Numeric " ++ show scale ++ " type can only represent numbers greater than -10^" ++ show maxPower ++ " and smaller than 10^" ++ show maxPower)
             (num, denom)
 
     | (num * 10^scale) `mod` denom /= 0 =
         unsupported
-            ("Rational is out of bounds: " ++ show double ++ ". It cannot be represented without loss of precision. Maximum precision for the Numeric " ++ show scale ++ " type is 10^-" ++ show scale ++ ".")
+            ("Rational is out of bounds: " ++ show double ++ ". It cannot be represented without loss of precision. Maximum precision for the Numeric " ++ show scale ++ " type is 10^-" ++ show scale)
             (num, denom)
 
     | otherwise =
@@ -276,12 +276,12 @@ convertRationalNumericPoly env outputScale num denom =
     case numericFromRational (num % denom) of
         Left NEScaleTooLarge ->
             unsupported
-                ("Rational is out of bounds: " ++ show double ++ ". Numeric can only represent " ++ show numericMaxScale ++ " digits after the decimal point.")
+                ("Rational is out of bounds: " ++ show double ++ ". Numeric can only represent " ++ show numericMaxScale ++ " digits after the decimal point")
                 (num, denom)
 
         Left NEMantissaTooLarge ->
             unsupported
-                ("Rational is out of bounds: " ++ show double ++ ". Numeric can only represent " ++ show numericMaxPrecision ++ " digits of precision.")
+                ("Rational is out of bounds: " ++ show double ++ ". Numeric can only represent " ++ show numericMaxPrecision ++ " digits of precision")
                 (num, denom)
 
         Right inputNumeric ->
