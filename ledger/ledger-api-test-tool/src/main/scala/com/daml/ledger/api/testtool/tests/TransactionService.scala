@@ -1408,7 +1408,7 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     val archivals = as.map { case (e, i) => e.getArchived.contractId -> i }
     assert(
       creations.size == contracts && archivals.size == contracts,
-      s"$context: either the number of archive events (${archivals.size}) or the number of create events (${creations.size}) don't match the expected number of $contracts."
+      s"$context: either the number of archive events (${archivals.size}) or the number of create events (${creations.size}) doesn't match the expected number of $contracts."
     )
     val createdContracts = creations.iterator.map(_._1).toSet
     val archivedContracts = archivals.iterator.map(_._1).toSet
