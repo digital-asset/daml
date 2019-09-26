@@ -158,7 +158,7 @@ data Env = Env
     ,envAliases :: MS.Map Var LF.Expr
     ,envPkgMap :: MS.Map GHC.UnitId T.Text
     ,envLfVersion :: LF.Version
-    ,envNewtypes :: [(GHC.Type, TyCon)]
+    ,envTypeSynonyms :: [(GHC.Type, TyCon)]
     ,envInstances :: [(TyCon, [GHC.Type])]
     }
 
@@ -315,10 +315,10 @@ convertModule lfVersion pkgMap file x = runConvertM (ConversionEnv file Nothing)
                 | otherwise -> [(name, body)]
               Rec binds -> binds
           ]
-        newtypes =
+        typeSynonyms =
           [ (wrappedT, t)
           | ATyCon t <- eltsUFM (cm_types x)
-          , Just ([], wrappedT, _co) <- [unwrapNewTyCon_maybe t]
+          , Just ([], wrappedT) <- [synTyConDefn_maybe t]
           ]
         instances =
             [ (c, ts)
@@ -333,7 +333,7 @@ convertModule lfVersion pkgMap file x = runConvertM (ConversionEnv file Nothing)
           , envAliases = MS.empty
           , envPkgMap = pkgMap
           , envLfVersion = lfVersion
-          , envNewtypes = newtypes
+          , envTypeSynonyms = typeSynonyms
           , envInstances = instances
           }
 
@@ -476,7 +476,7 @@ convertGenericTemplate env x
     findMonoTyp :: GHC.Type -> Maybe TyCon
     findMonoTyp t = case t of
         TypeCon tcon [] -> Just tcon
-        t -> snd <$> find (eqType t . fst) (envNewtypes env)
+        t -> snd <$> find (eqType t . fst) (envTypeSynonyms env)
     this = mkVar "this"
     self = mkVar "self"
     arg = mkVar "arg"
@@ -496,11 +496,10 @@ convertTypeDef env (ATyCon t)
   , getOccFS t `elementOfUniqSet` internalTypes
   = pure []
 convertTypeDef env (ATyCon t)
-    -- NOTE(MH): We detect `newtype` definitions produced by the desugring
+    -- NOTE(MH): We detect type synonyms produced by the desugring
     -- of `template instance` declarations and inline the record definition
     -- of the generic template.
-    | isNewTyCon t
-    , ([], TypeCon tpl args) <- newTyConRhs t
+    | Just ([], TypeCon tpl args) <- synTyConDefn_maybe t
     , any (\(c, args') -> getOccFS c == getOccFS tpl <> "Instance" && eqTypes args args') $ envInstances env
     = do
         ctors0 <- toCtors env tpl

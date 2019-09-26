@@ -116,7 +116,7 @@ instance IouInstance => Template Iou where
   fetch = fetchIou
   archive = archiveIou
 
-instance IouInstance where
+instance IouInstance
 ```
 
 When a type `t` is a `Template` instance, `class Choice` (defined by the DAML standard library) defines a (multi-parameter type class) relation on types `t`, `c` and `r` such that `r` is uniquely determined by the pair `(t, c)`:
@@ -216,7 +216,7 @@ class EnrollmentInstance where
   exerciseEnrollmentArchive : ContractId Enrollment -> Archive -> Update ()
   exerciseEnrollmentArchive = magic @"archive"
 
-instance EnrollmentInstance where
+instance EnrollmentInstance
 
 instance EnrollmentInstance => Template Enrollment where
   signatory = signatoryEnrollment
@@ -355,8 +355,8 @@ The name `ProposalIou` is not needed in DAML code but is required when creating 
 The `template instance` desugars to the following declarations.
 
 ```haskell
-newtype ProposalIou = ProposalIou (Proposal Iou)
-instance ProposalInstance Iou where
+type ProposalIou = Proposal Iou
+instance ProposalInstance Iou
 ```
 
 The `instance` here simply leverages the implementation of the `ProposalInstance` class.

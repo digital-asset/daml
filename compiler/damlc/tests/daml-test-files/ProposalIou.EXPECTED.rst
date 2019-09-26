@@ -40,3 +40,4 @@ Template Instances
 
 **template instance** `ProposalIou <type-proposaliou-proposaliou-81988_>`_
   \= Proposal `Iou <type-proposaliou-iou-51326_>`_
+  
