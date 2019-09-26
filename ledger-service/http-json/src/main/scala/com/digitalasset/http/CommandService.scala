@@ -15,7 +15,7 @@ import com.digitalasset.http.domain.{
   ExerciseCommand,
   JwtPayload
 }
-import com.digitalasset.http.util.ClientUtil.{uniqueCommandId, workflowIdFromParty}
+import com.digitalasset.http.util.ClientUtil.uniqueCommandId
 import com.digitalasset.http.util.IdentifierConverters.refApiIdentifier
 import com.digitalasset.http.util.{Commands, Transactions}
 import com.digitalasset.jwt.domain.Jwt
@@ -105,8 +105,7 @@ class CommandService(
     val maximumRecordTime: Instant = meta
       .flatMap(_.maximumRecordTime)
       .getOrElse(ledgerEffectiveTime.plusNanos(defaultTimeToLive.toNanos))
-    val workflowId: domain.WorkflowId =
-      meta.flatMap(_.workflowId).getOrElse(workflowIdFromParty(jwtPayload.party))
+    val workflowId: Option[domain.WorkflowId] = meta.flatMap(_.workflowId)
     val commandId: lar.CommandId = meta.flatMap(_.commandId).getOrElse(uniqueCommandId())
 
     Commands.submitAndWaitRequest(
