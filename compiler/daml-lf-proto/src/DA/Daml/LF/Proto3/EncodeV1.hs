@@ -10,7 +10,7 @@ module DA.Daml.LF.Proto3.EncodeV1
 
 import           Control.Lens ((^.), matching)
 import           Control.Lens.Ast (rightSpine)
-import           Control.Monad.State
+import           Control.Monad.State.Strict
 
 import qualified Data.HashMap.Strict as HMS
 import qualified Data.List as L
@@ -37,9 +37,9 @@ type Encode a = State EncodeEnv a
 data InternMode = InternNothing | InternPackageIdsOnly
 
 data EncodeEnv = EncodeEnv
-    { _version :: Version
-    , internMode :: InternMode
-    , internedStrings :: HMS.HashMap T.Text Word64
+    { _version :: !Version
+    , internMode :: !InternMode
+    , internedStrings :: !(HMS.HashMap T.Text Word64)
     }
 
 initEncodeEnv :: Version -> InternMode -> EncodeEnv
@@ -52,7 +52,7 @@ allocString t = do
         Just n -> pure n
         Nothing -> do
             let n = fromIntegral (HMS.size internedStrings)
-            put $ env{internedStrings = HMS.insert t n internedStrings}
+            put $! env{internedStrings = HMS.insert t n internedStrings}
             pure n
 
 ------------------------------------------------------------------------
@@ -658,7 +658,7 @@ encodeModuleWithLargePackageIds :: Version -> Module -> P.Module
 encodeModuleWithLargePackageIds version mod =
     let env = initEncodeEnv version InternNothing
     in
-    fst $ runState (encodeModule mod) env
+    evalState (encodeModule mod) env
 
 encodeModule :: Module -> Encode P.Module
 encodeModule Module{..} = do
