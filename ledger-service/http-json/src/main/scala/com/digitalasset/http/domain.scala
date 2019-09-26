@@ -95,20 +95,49 @@ object domain {
       TemplateId(in.packageId, in.moduleName, in.entityName)
   }
 
+  object Contract {
+    def fromLedgerApi(workflowId: Option[WorkflowId])(
+        event: lav1.event.Event): Error \/ Contract[lav1.value.Value] = event.event match {
+      case lav1.event.Event.Event.Created(created) =>
+        ActiveContract.fromLedgerApi(workflowId)(created).map(a => Contract(\/-(a)))
+      case lav1.event.Event.Event.Archived(archived) =>
+        ArchivedContract.fromLedgerApi(workflowId)(archived).map(a => Contract(-\/(a)))
+      case lav1.event.Event.Event.Empty =>
+        val errorMsg = s"Expected either Created or Archived event, got: Empty"
+        -\/(Error('Contract_fromLedgerApi, errorMsg))
+    }
+
+    implicit val covariant: Traverse[Contract] = new Traverse[Contract] {
+
+      override def map[A, B](fa: Contract[A])(f: A => B): Contract[B] = {
+        val valueB: ArchivedContract \/ ActiveContract[B] = fa.value.map(a => a.map(f))
+        Contract(valueB)
+      }
+
+      override def traverseImpl[G[_]: Applicative, A, B](fa: Contract[A])(
+          f: A => G[B]): G[Contract[B]] = {
+        val valueB: G[ArchivedContract \/ ActiveContract[B]] = fa.value.traverse(a => a.traverse(f))
+        valueB.map(x => Contract[B](x))
+      }
+    }
+  }
+
+  def boxedRecord(a: lav1.value.Record): lav1.value.Value =
+    lav1.value.Value(lav1.value.Value.Sum.Record(a))
+
   object ActiveContract {
     def fromLedgerApi(workflowId: Option[WorkflowId])(
         in: lav1.event.CreatedEvent): Error \/ ActiveContract[lav1.value.Value] =
       for {
         templateId <- in.templateId required "templateId"
         argument <- in.createArguments required "createArguments"
-        boxedArgument = lav1.value.Value(lav1.value.Value.Sum.Record(argument))
       } yield
         ActiveContract(
           workflowId = workflowId,
           contractId = ContractId(in.contractId),
           templateId = TemplateId fromLedgerApi templateId,
           key = in.contractKey,
-          argument = boxedArgument,
+          argument = boxedRecord(argument),
           witnessParties = Party.subst(in.witnessParties),
           signatories = Party.subst(in.signatories),
           observers = Party.subst(in.observers),

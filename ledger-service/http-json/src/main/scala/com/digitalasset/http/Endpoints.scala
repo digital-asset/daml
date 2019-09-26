@@ -85,12 +85,12 @@ class Endpoints(
             .leftMap(e => InvalidUserInput(e.shows))
         ): ET[domain.ExerciseCommand[lav1.value.Record]]
 
-        as <- eitherT(
+        cs <- eitherT(
           handleFutureFailure(commandService.exercise(jwt, jwtPayload, cmd))
-        ): ET[ImmArraySeq[domain.ActiveContract[lav1.value.Value]]]
+        ): ET[ImmArraySeq[domain.Contract[lav1.value.Value]]]
 
         jsVal <- either(
-          as.traverse(a => encoder.encodeV(a))
+          cs.traverse(a => encoder.encodeV(a))
             .leftMap(e => ServerError(e.shows))
             .flatMap(as => encodeList(as))): ET[JsValue]
 

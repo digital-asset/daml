@@ -271,8 +271,15 @@ class HttpServiceIntegrationTest
                 inside(exerciseOutput) {
                   case JsObject(fields) =>
                     inside(fields.get("result")) {
-                      case Some(JsArray(Vector(activeContract: JsObject))) =>
-                        assertActiveContract(decoder, activeContract, create, exercise)
+                      case Some(JsArray(Vector(contract1: JsObject, contract2: JsObject))) =>
+                        inside(contract1.fields.toList) {
+                          case List(("archived", archived: JsObject)) =>
+                            assertArchivedContract(archived, contractId)
+                        }
+                        inside(contract2.fields.toList) {
+                          case List(("active", active: JsObject)) =>
+                            assertActiveContract(decoder, active, create, exercise)
+                        }
                     }
                 }
             }
@@ -296,20 +303,36 @@ class HttpServiceIntegrationTest
       }: Future[Assertion]
   }
 
+  private def assertArchivedContract(
+      jsObject: JsObject,
+      contractId: domain.ContractId): Assertion = {
+    import JsonProtocol._
+    val archived = SprayJson.decode[domain.ArchivedContract](jsObject).valueOr(e => fail(e.shows))
+    archived.contractId shouldBe contractId
+  }
+
   private def assertActiveContract(
       decoder: DomainJsonDecoder,
       jsObject: JsObject,
       create: domain.CreateCommand[v.Record],
       exercise: domain.ExerciseCommand[v.Record]): Assertion = {
 
-    // TODO(Leo): check the jsObject.argument is the same as createCommand.argument
-    println(s"------- jsObject: $jsObject")
-    println(s"------- create: $create")
-    println(s"------- exercise: $exercise")
+    val expectedContractFields: Seq[v.RecordField] = create.argument.fields
+    val expectedNewOwner: v.Value = exercise.argument.fields.headOption
+      .flatMap(_.value)
+      .getOrElse(fail("Cannot extract expected newOwner"))
 
-    inside(jsObject.fields.get("argument")) {
-      case Some(JsObject(fields)) =>
-        fields.size shouldBe (exercise.argument.fields.size + 1) // +1 for the original "iou" from create
+    val active = decoder.decodeV[domain.ActiveContract](jsObject).valueOr(e => fail(e.shows))
+    inside(active.argument.sum.record.map(_.fields)) {
+      case Some(
+          Seq(
+            v.RecordField("iou", Some(contractRecord)),
+            v.RecordField("newOwner", Some(newOwner)))) =>
+        val contractFields: Seq[v.RecordField] =
+          contractRecord.sum.record.map(_.fields).getOrElse(Seq.empty)
+
+        (contractFields: Seq[v.RecordField]) shouldBe (expectedContractFields: Seq[v.RecordField])
+        (newOwner: v.Value) shouldBe (expectedNewOwner: v.Value)
     }
   }
 
@@ -454,13 +477,13 @@ class HttpServiceIntegrationTest
     }
   }
 
-  private def getContractId(output: JsValue): lar.ContractId =
+  private def getContractId(output: JsValue): domain.ContractId =
     inside(output) {
       case JsObject(topFields) =>
         inside(topFields.get("result")) {
           case Some(JsObject(fields)) =>
             inside(fields.get("contractId")) {
-              case Some(JsString(contractId)) => lar.ContractId(contractId)
+              case Some(JsString(contractId)) => domain.ContractId(contractId)
             }
         }
     }
