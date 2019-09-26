@@ -80,10 +80,10 @@ object Cli {
       .action((v, c) => c.copy(commandSubmissionTtlScaleFactor = v))
       .text("""Scale factor for time-to-live of commands sent for ledger processing
               |(captured as Maximum Record Time in submitted transactions) for
-              |"SemanticTests" suite. Useful to tune Maximum Record Time depending on
-              |the environment and the Ledger implementation under test. Defaults to
-              |1.0. Use numbers higher than 1.0 to make timeouts more lax, use
-              |numbers lower than 1.0 to make timeouts stricter. Applied to all endpoints.""".stripMargin)
+              |all test suites. Regardless the output of multiplying by this factor
+              |the TTL will always be clipped by the minimum and maximum value as defined
+              |by the LedgerConfigurationService, with the maximum being the default
+              |(which means that any value above 1.0 won't have any effect.""".stripMargin)
 
     opt[Double](name = "timeout-scale-factor")
       .optional()

@@ -85,8 +85,6 @@ private[testtool] object ParticipantTestContext {
   private def timestamp(i: Instant): Some[Timestamp] =
     Some(new Timestamp(i.getEpochSecond, i.getNano))
 
-  private val defaultTtlSeconds = 30
-
 }
 
 private[testtool] final class ParticipantTestContext private[participant] (
@@ -96,7 +94,7 @@ private[testtool] final class ParticipantTestContext private[participant] (
     val identifierSuffix: String,
     referenceOffset: LedgerOffset,
     services: LedgerServices,
-    commandTtlFactor: Double)(implicit ec: ExecutionContext) {
+    ttlNanos: Long)(implicit ec: ExecutionContext) {
 
   import ParticipantTestContext._
 
@@ -107,9 +105,6 @@ private[testtool] final class ParticipantTestContext private[participant] (
     * a given point in time, use [[currentEnd]]
     */
   val end = LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_END))
-
-  private[this] def timestampWithTtl(i: Instant): Some[Timestamp] =
-    timestamp(i.plusSeconds(math.floor(defaultTtlSeconds * commandTtlFactor).toLong))
 
   private[this] val identifierPrefix = s"$applicationId-$endpointId-$identifierSuffix"
 
@@ -448,7 +443,7 @@ private[testtool] final class ParticipantTestContext private[participant] (
             commandId = nextCommandId(),
             party = party.unwrap,
             ledgerEffectiveTime = timestamp(let),
-            maximumRecordTime = timestampWithTtl(let),
+            maximumRecordTime = timestamp(let.plusNanos(ttlNanos)),
             commands = commands
           ))))
 
