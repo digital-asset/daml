@@ -55,11 +55,15 @@ onType = \case
     t -> descend onType t
 
 onContext :: HsContext GhcPs -> HsContext GhcPs
-onContext = map . fmap $ \case
-    HsAppTy _ (L _ (HsTyVar _ _ (L _ (occNameString . rdrNameOcc -> "Template")))) (L _ t)
-        | Just t' <- instantifyType t
-        -> t'
-    t -> t
+onContext = map (fmap onContext1)
+  where
+    onContext1 :: HsType GhcPs -> HsType GhcPs
+    onContext1 = \case
+        HsAppTy _ (L _ (HsTyVar _ _ (L _ (occNameString . rdrNameOcc -> "Template")))) (L _ t)
+            | Just t' <- instantifyType t
+            -> t'
+        HsParTy ext t -> HsParTy ext (fmap onContext1 t)
+        t -> t
 
 -- | Check if the type is of the form `T t_1 ... t_n` for some type constructor
 -- `T` and return the constraint `TInstance t_1 ... t_n` in case it is.
