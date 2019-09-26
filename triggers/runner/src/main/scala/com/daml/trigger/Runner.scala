@@ -483,20 +483,23 @@ class Runner(
           println(s"New state: $newState")
           println(s"Emitted log message: ${logMessage}")
           commandOpt match {
-            case SOptional(Some(commandsVal)) =>
-              converter.toCommands(commandsVal) match {
-                case Left(err) => throw new RuntimeException(err)
-                case Right((commandId, commands)) => {
-                  val commandsArg = Commands(
-                    ledgerId = ledgerId.unwrap,
-                    applicationId = applicationId.unwrap,
-                    commandId = commandId,
-                    party = party,
-                    ledgerEffectiveTime = Some(fromInstant(Instant.EPOCH)),
-                    maximumRecordTime = Some(fromInstant(Instant.EPOCH.plusSeconds(5))),
-                    commands = commands
-                  )
-                  submit(SubmitRequest(commands = Some(commandsArg)))
+            case SList(transactions) =>
+              // Each transaction is a list of commands
+              for (commands <- transactions) {
+                converter.toCommands(commands) match {
+                  case Left(err) => throw new RuntimeException(err)
+                  case Right((commandId, commands)) => {
+                    val commandsArg = Commands(
+                      ledgerId = ledgerId.unwrap,
+                      applicationId = applicationId.unwrap,
+                      commandId = commandId,
+                      party = party,
+                      ledgerEffectiveTime = Some(fromInstant(Instant.EPOCH)),
+                      maximumRecordTime = Some(fromInstant(Instant.EPOCH.plusSeconds(5))),
+                      commands = commands
+                    )
+                    submit(SubmitRequest(commands = Some(commandsArg)))
+                  }
                 }
               }
             case _ => {}

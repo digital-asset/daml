@@ -59,7 +59,7 @@ data ActiveContracts = ActiveContracts { activeContracts : [Created] }
 -- an accumulator of type `s`.
 data Trigger s = Trigger
   { initialState : Party -> ActiveContracts -> s
-  , update : Message -> s -> (s, Optional Commands, Text)
+  , update : Message -> s -> (s, [Commands], Text)
   }
 
 -- | We implicitly assume that the package id corresponds to the package the trigger is part of.
