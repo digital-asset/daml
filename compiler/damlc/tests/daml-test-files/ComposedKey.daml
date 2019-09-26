@@ -56,6 +56,6 @@ test = scenario do
     let fact = Fact with owner = alice; name = "Answer"; value = 23
     let prop = Proposal with asset = fact; proposers = [bob]; receivers = [alice]
     propId <- submit bob do create prop
-    (propId', prop') <- submit bob do fetchByKey @(Proposal Fact (Party, Text)) ([bob], (alice, "Answer"))
+    (propId', prop') <- submit bob do fetchByKey @ProposalFact ([bob], (alice, "Answer"))
     propId' === propId
     prop' === prop
