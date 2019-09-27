@@ -28,7 +28,7 @@ class JsonProtocolTest
         case \/-(JsObject(fields)) =>
           inside(fields.toList) {
             case List(("archived", JsObject(_))) =>
-            case List(("active", JsObject(_))) =>
+            case List(("created", JsObject(_))) =>
           }
       }
     }
