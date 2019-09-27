@@ -59,7 +59,7 @@ http {
   server {
     listen 8081 default_server;
     server_name _;
-    return 307 https://hoogle.daml.com$request_uri;
+    return 307 https://hoogle.daml.com\$request_uri;
   }
 }
 NGINX
