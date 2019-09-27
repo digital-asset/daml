@@ -17,12 +17,7 @@ a DAML ledger on top of their distributed-ledger or database of choice.
 Use this tool to verify if your Ledger API endpoint conforms to the :doc:`DA
 Ledger Model </concepts/ledger-model/index>`.
 
-Please note that currently the tool is in ALPHA status:
-
-- ALPHA: contains a subset of the tests we use internally to test our ledger
-  implementations.
-- BETA: will be reached once we extended the coverage to include the full set of
-  our test as per <https://github.com/digital-asset/daml/issues/146>.
+Please note that currently the tool is in experimental status.
 
 Downloading the tool
 ====================
@@ -59,13 +54,13 @@ at a port ``<port>``:
 
 .. code-block:: console
 
-   $ java -jar ledger-api-test-tool.jar  -h <host> -p <port>
+   $ java -jar ledger-api-test-tool.jar <host>:<port>
 
 For example
 
 .. code-block:: console
 
-   $ java -jar ledger-api-test-tool.jar  -h localhost -p 6865
+   $ java -jar ledger-api-test-tool.jar localhost:6865
 
 If any test embedded in the tool fails, it will print out details of the failure
 for further debugging.
@@ -77,7 +72,7 @@ Run the tool with ``--help`` flag to obtain the list of options the tool provide
 
 .. code-block:: console
 
-   $ java -jar ledger-api-test-tool.jar  --help
+   $ java -jar ledger-api-test-tool.jar --help
 
 Selecting tests to run
 ~~~~~~~~~~~~~~~~~~~~~~
@@ -89,22 +84,22 @@ Running the tool without any arguments runs the *default tests*. Use the followi
 - ``--exclude``: do not run the tests provided as argument
 - ``--all-tests``: run all default and optional tests. This flag can be combined with the ``--exclude`` flag.
 
-Examples:
+Examples (hitting a single participant at ``localhost:6865``):
 
 .. code-block:: console
    :caption: Only run ``TestA``
 
-   $ java -jar ledger-api-test-tool.jar --include TestA
+   $ java -jar ledger-api-test-tool.jar --include TestA localhost:6865
 
 .. code-block:: console
    :caption: Run all default tests, but not ``TestB``
 
-   $ java -jar ledger-api-test-tool.jar --exclude TestB
+   $ java -jar ledger-api-test-tool.jar --exclude TestB localhost:6865
 
 .. code-block:: console
    :caption: Run all tests
 
-   $ java -jar ledger-api-test-tool.jar --all-tests
+   $ java -jar ledger-api-test-tool.jar --all-tests localhost:6865
 
 .. code-block:: console
    :caption: Run all tests, but not ``TestC``
@@ -121,15 +116,11 @@ If you wanted to test out the tool, you can run it against :doc:`DAML Sandbox
    .. code-block:: console
 
      $ java -jar ledger-api-test-tool.jar --extract
-     $ da sandbox -- *.dar
+     $ daml sandbox -- *.dar
      $ java -jar ledger-api-test-tool.jar
 
 This should always succeed, as the Sandbox is tested to correctly implement the
 Ledger API. This is useful if you do not have yet a custom Ledger API endpoint.
-
-You don't need to supply the hosts and ports arguments, because the Ledger API
-Test Tool defaults to using ``localhost:6865``, which the Sandbox uses by
-default.
 
 Testing your tool from continuous integration pipelines
 =======================================================
@@ -138,7 +129,7 @@ To test your ledger in a CI pipeline, run it as part of your pipeline:
 
    .. code-block:: console
 
-     $ java -jar ledger-api-test-tool 2>&1 /dev/null
+     $ java -jar ledger-api-test-tool localhost:6865 2>&1 /dev/null
      $ echo $?
      0
 
@@ -152,7 +143,7 @@ Use flag ``--must-fail`` if you expect one or more or the scenario tests to
 fail. If enabled, the tool will return the success exit code when at least one
 test fails, and it will return a failure exit code when all tests succeed:
 
-    ``java -jar ledger-api-test-tool.jar --must-fail -h localhost -p 6865``
+    ``java -jar ledger-api-test-tool.jar --must-fail localhost:6865``
 
 This is useful during development of a DAML ledger implementation, when tool
 needs to be used against a known-to-be-faulty implementation (e.g. in CI). It
@@ -171,9 +162,8 @@ Use the command line options ``--timeout-scale-factor`` and
   the tool wait longer for expected events coming from the DAML ledger
   implementation under test. Conversely use values smaller than 1.0 to make it
   wait shorter.
-- Set ``--command-submission-ttl-scale-factor`` to a value higher than 1.0 to
-  make the test tool generate Ledger API Commands with higher than default
-  maximum record time, which might be necessary for DAML ledger implementations
-  which take a long time to commit a proposed transaction. Conversely use values
-  smaller than 1.0 to make it give less time for a DAML ledger implementation to
-  commit a proposed transaction.
+- Set ``--command-submission-ttl-scale-factor`` to adjust the time-to-live of
+  commands as represented by the MRT (Maximum Record Time) on the Ledger API.
+  The default value is 1.0 and will be applied to the default TTL, which is the
+  maximum TTL as returned by the LedgerConfigurationService. In any case,
+  the used TTL value will be clipped to stay between the minimum and maximum TTL.
