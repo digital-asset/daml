@@ -8,7 +8,7 @@ module TemplateSuperClassF where
 
 import DA.Record
 
-template (HasField "p" t Party, Template (G t)) => F t with
+template (HasField "p" t Party, Eq t, Show t, Template (G t)) => F t with
     x: t
   where
     signatory x.p
