@@ -252,7 +252,7 @@ output::
                 }
             },
             {
-                "active": {
+                "created": {
                     "observers": [],
                     "agreementText": "",
                     "signatories": [

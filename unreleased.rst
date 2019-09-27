@@ -9,7 +9,7 @@ This page contains release notes for the SDK.
 HEAD — ongoing
 --------------
 
-+ [JSON API - Experimental] Returning archived and active contracts from ``/command/exercise``
++ [JSON API - Experimental] Returning archived and active/created contracts from ``/command/exercise``
   enpoint. See `issue #2925 <https://github.com/digital-asset/daml/issues/2925>`_.
 + [JSON API - Experimental] Flattening the output of the ``/contracts/search`` endpoint.
   The endpoint returns ``ActiveContract`` objects without ``GetActiveContractsResponse`` wrappers.

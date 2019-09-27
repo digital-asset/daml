@@ -277,7 +277,7 @@ class HttpServiceIntegrationTest
                             assertArchivedContract(archived, contractId)
                         }
                         inside(contract2.fields.toList) {
-                          case List(("active", active: JsObject)) =>
+                          case List(("created", active: JsObject)) =>
                             assertActiveContract(decoder, active, create, exercise)
                         }
                     }
