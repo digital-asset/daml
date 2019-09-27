@@ -4,9 +4,9 @@
 package com.daml.ledger.participant.state.kvutils.committing
 
 import java.util.concurrent.Executors
-import java.util.concurrent.TimeUnit
 
 import com.codahale.metrics
+import com.codahale.metrics.{Counter, Timer}
 import com.daml.ledger.participant.state.kvutils.Conversions.buildTimestamp
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.{Err, Pretty}
@@ -14,10 +14,10 @@ import com.digitalasset.daml.lf.archive.Decode
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.engine.Engine
+import com.digitalasset.daml.lf.language.Ast
 import org.slf4j.LoggerFactory
 
 import scala.collection.JavaConverters._
-import scala.collection.breakOut
 import scala.concurrent.{ExecutionContext, Future}
 
 private[kvutils] case class ProcessPackageUpload(
@@ -28,116 +28,61 @@ private[kvutils] case class ProcessPackageUpload(
     inputState: Map[DamlStateKey, Option[DamlStateValue]]) {
   import ProcessPackageUpload._
 
-  object Metrics {
-    private val registry =
-      metrics.SharedMetricRegistries.getOrCreate("kvutils.committing.package")
-    val runTimer = registry.timer("run-timer")
-    val preloadTimer = registry.timer("preload-timer")
-    val loadedPackages = registry.counter("loaded-packages")
-    val count = registry.counter("count")
-    val accepts = registry.counter("accepts")
-  }
-
   private val submissionId = packageUploadEntry.getSubmissionId
   private val logger =
     LoggerFactory.getLogger(
       s"ProcessPackageUpload[entryId=${Pretty.prettyEntryId(entryId)}, submId=${submissionId}]")
-
   private val archives = packageUploadEntry.getArchivesList.asScala
 
-  private def preload(): Future[Unit] =
-    Future {
-      val ctx = Metrics.preloadTimer.time()
-      try {
-        logger.trace("Preloading engine...")
-        val loadedPackages = engine.compiledPackages().packageIds
-        val t0 = System.nanoTime()
-        val packages = Map(
-          archives
-            .filterNot(
-              a =>
-                Ref.PackageId
-                  .fromString(a.getHash)
-                  .fold(_ => false, loadedPackages.contains))
-            .map { archive =>
-              Decode.readArchiveAndVersion(archive)._1
-            }: _*)
-        val t1 = System.nanoTime()
-        logger.trace(s"Decoding of ${packages.size} archives completed in ${TimeUnit.NANOSECONDS
-          .toMillis(t1 - t0)}ms")
-        packages.headOption.foreach {
-          case (pkgId, pkg) =>
-            engine
-              .preloadPackage(pkgId, pkg)
-              .consume(
-                _ => sys.error("Unexpected request to PCS in preloadPackage"),
-                pkgId => packages.get(pkgId),
-                _ => sys.error("Unexpected request to keys in preloadPackage")
-              )
-            Metrics.loadedPackages.inc()
-        }
-        val t2 = System.nanoTime()
-        logger.trace(s"Preload completed in ${TimeUnit.NANOSECONDS.toMillis(t2 - t0)}ms")
-      } finally {
-        val _ = ctx.stop()
-      }
-    }(serialContext)
+  def run: (DamlLogEntry, Map[DamlStateKey, DamlStateValue]) = Metrics.runTimer.time { () =>
+    archives.foldLeft[(Boolean, String)]((true, ""))(
+      (acc, archive) =>
+        if (archive.getPayload.isEmpty) (false, acc._2 ++ s"empty package '${archive.getHash}';")
+        else acc) match {
 
-  def run: (DamlLogEntry, Map[DamlStateKey, DamlStateValue]) = {
-    val ctx = Metrics.runTimer.time()
-    try {
-      // TODO: Add more comprehensive validity test, in particular, take the transitive closure
-      // of all packages being uploaded and see if they compile
-      archives.foldLeft[(Boolean, String)]((true, ""))(
-        (acc, archive) =>
-          if (archive.getPayload.isEmpty) (false, acc._2 ++ s"empty package '${archive.getHash}';")
-          else acc) match {
-
-        case (false, error) =>
-          logger.trace(s"Package upload failed, invalid package submitted: $error")
-          buildPackageRejectionLogEntry(
-            recordTime,
-            packageUploadEntry,
-            _.setInvalidPackage(
-              DamlPackageUploadRejectionEntry.InvalidPackage.newBuilder
-                .setDetails(error)))
-        case (_, _) =>
-          // Filter out archives that already exists.
-          val filteredArchives = archives
-            .filter { archive =>
-              val stateKey = DamlStateKey.newBuilder
-                .setPackageId(archive.getHash)
+      case (false, error) =>
+        logger.trace(s"Package upload failed, invalid package submitted: $error")
+        buildPackageRejectionLogEntry(
+          recordTime,
+          packageUploadEntry,
+          _.setInvalidPackage(
+            DamlPackageUploadRejectionEntry.InvalidPackage.newBuilder
+              .setDetails(error)))
+      case (_, _) =>
+        // Filter out archives that already exists.
+        val filteredArchives = archives
+          .filter { archive =>
+            val stateKey = DamlStateKey.newBuilder
+              .setPackageId(archive.getHash)
+              .build
+            inputState
+              .getOrElse(stateKey, throw Err.MissingInputState(stateKey))
+              .isEmpty
+          }
+        preload()
+        logger.trace(s"Packages committed: ${filteredArchives.map(_.getHash).mkString(", ")}")
+        (
+          DamlLogEntry.newBuilder
+            .setRecordTime(buildTimestamp(recordTime))
+            .setPackageUploadEntry(
+              DamlPackageUploadEntry.newBuilder
+                .setSubmissionId(submissionId)
+                .addAllArchives(filteredArchives.asJava)
+                .setSourceDescription(packageUploadEntry.getSourceDescription)
+                .setParticipantId(packageUploadEntry.getParticipantId)
                 .build
-              inputState
-                .getOrElse(stateKey, throw Err.MissingInputState(stateKey))
-                .isEmpty
-            }
-          preload()
-          logger.trace(s"Packages committed: ${filteredArchives.map(_.getHash).mkString(", ")}")
-          (
-            DamlLogEntry.newBuilder
-              .setRecordTime(buildTimestamp(recordTime))
-              .setPackageUploadEntry(
-                DamlPackageUploadEntry.newBuilder
-                  .setSubmissionId(submissionId)
-                  .addAllArchives(filteredArchives.asJava)
-                  .setSourceDescription(packageUploadEntry.getSourceDescription)
-                  .setParticipantId(packageUploadEntry.getParticipantId)
-                  .build
+            )
+            .build,
+          filteredArchives
+            .map(
+              archive =>
+                (
+                  DamlStateKey.newBuilder.setPackageId(archive.getHash).build,
+                  DamlStateValue.newBuilder.setArchive(archive).build
               )
-              .build,
-            filteredArchives
-              .map(
-                archive =>
-                  (
-                    DamlStateKey.newBuilder.setPackageId(archive.getHash).build,
-                    DamlStateValue.newBuilder.setArchive(archive).build
-                )
-              )(breakOut)
-          )
-      }
-    } finally {
-      val _ = ctx.stop()
+            )
+            .toMap
+        )
     }
   }
 
@@ -160,8 +105,61 @@ private[kvutils] case class ProcessPackageUpload(
     )
   }
 
+  private def preload(): Future[Unit] =
+    Future {
+      val ctx = Metrics.preloadTimer.time()
+      try {
+        logger.trace("Preloading engine...")
+        val loadedPackages = engine.compiledPackages().packageIds
+        val packages: Map[Ref.PackageId, Ast.Package] = Metrics.decodeTimer.time { () =>
+          archives
+            .filterNot(
+              a =>
+                Ref.PackageId
+                  .fromString(a.getHash)
+                  .fold(_ => false, loadedPackages.contains))
+            .map { archive =>
+              Decode.readArchiveAndVersion(archive)._1
+            }
+            .toMap
+        }
+        packages.headOption.foreach {
+          case (pkgId, pkg) =>
+            engine
+              .preloadPackage(pkgId, pkg)
+              .consume(
+                _ => sys.error("Unexpected request to PCS in preloadPackage"),
+                pkgId => packages.get(pkgId),
+                _ => sys.error("Unexpected request to keys in preloadPackage")
+              )
+            Metrics.loadedPackages.inc()
+        }
+        logger.trace(s"Preload complete.")
+      } catch {
+        case scala.util.control.NonFatal(e) =>
+          logger.error("preload exception: $err")
+      } finally {
+        val _ = ctx.stop()
+      }
+    }(serialContext)
+
 }
 
-object ProcessPackageUpload {
-  val serialContext = ExecutionContext.fromExecutor(Executors.newSingleThreadExecutor())
+private[kvutils] object ProcessPackageUpload {
+  private[committing] val serialContext =
+    ExecutionContext.fromExecutor(Executors.newSingleThreadExecutor())
+
+  private[committing] object Metrics {
+    private val registry = metrics.SharedMetricRegistries.getOrCreate("kvutils")
+    private val prefix = "kvutils.committing.package"
+    val runTimer: Timer = registry.timer(s"$prefix.run-timer")
+    val preloadTimer: Timer = registry.timer(s"$prefix.preload-timer")
+    val decodeTimer: Timer = registry.timer(s"$prefix.decode-timer")
+    val accepts: Counter = registry.counter(s"$prefix.accepts")
+
+    // FIXME(JM): This isn't entirely accurate. Convert this to a gauge once kvutils refactored use have engine
+    // and registry passed through to a singleton submission processors.
+    val loadedPackages: Counter = registry.counter(s"$prefix.loaded-packages")
+
+  }
 }

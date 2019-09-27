@@ -16,8 +16,6 @@ import com.digitalasset.daml.lf.transaction.Node.NodeCreate
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ValueUnit}
 import org.scalatest.{Matchers, WordSpec}
 
-import scala.collection.JavaConverters._
-
 class KVUtilsTransactionSpec extends WordSpec with Matchers {
 
   import KVTest._
@@ -147,12 +145,12 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
         txEntry.getTransactionRejectionEntry.getReasonCase shouldEqual disputed
 
         // Check that we're updating the metrics (assuming this test at least has been run)
-        val reg = metrics.SharedMetricRegistries.getOrCreate("kvutils.committing.transaction")
-        val counters = reg.getCounters.asScala
-        counters("count").getCount should be >= 1L
-        counters("accepts").getCount should be >= 1L
-        counters(s"rejections_${disputed.name}").getCount should be >= 1L
-
+        val reg = metrics.SharedMetricRegistries.getOrCreate("kvutils")
+        reg.counter("kvutils.committing.transaction.accepts").getCount should be >= 1L
+        reg
+          .counter(s"kvutils.committing.transaction.rejections_${disputed.name}")
+          .getCount should be >= 1L
+        reg.timer("kvutils.committing.transaction.run-timer").getCount should be >= 1L
       }
     }
 

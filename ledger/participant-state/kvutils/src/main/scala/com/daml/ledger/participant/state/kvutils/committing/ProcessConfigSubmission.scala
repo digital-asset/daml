@@ -21,15 +21,7 @@ private[kvutils] case class ProcessConfigSubmission(
 
   import Common._
   import Commit._
-
-  private object Metrics {
-    private val registry =
-      metrics.SharedMetricRegistries.getOrCreate("kvutils.committing.party")
-    val runTimer = registry.timer("run-timer")
-    val count = registry.counter("count")
-    val accepts = registry.counter("accepts")
-    val rejections = registry.counter("rejections")
-  }
+  import ProcessConfigSubmission._
 
   private implicit val logger =
     LoggerFactory.getLogger(
@@ -39,20 +31,14 @@ private[kvutils] case class ProcessConfigSubmission(
 
   private val newConfig = configSubmission.getConfiguration
 
-  def run: (DamlLogEntry, Map[DamlStateKey, DamlStateValue]) = {
-    val ctx = Metrics.runTimer.time()
-    Metrics.count.inc()
-    try {
-      runSequence(
-        inputState = Map.empty,
-        "Check TTL" -> checkTtl,
-        "Authorize" -> authorizeSubmission,
-        "Validate" -> validateSubmission,
-        "Build" -> buildLogEntry
-      )
-    } finally {
-      val _ = ctx.stop()
-    }
+  def run: (DamlLogEntry, Map[DamlStateKey, DamlStateValue]) = Metrics.runTimer.time { () =>
+    runSequence(
+      inputState = Map.empty,
+      "Check TTL" -> checkTtl,
+      "Authorize" -> authorizeSubmission,
+      "Validate" -> validateSubmission,
+      "Build" -> buildLogEntry
+    )
   }
 
   private def checkTtl(): Commit[Unit] = delay {
@@ -185,5 +171,14 @@ private[kvutils] case class ProcessConfigSubmission(
         .build
     )
   }
+}
 
+private[kvutils] object ProcessConfigSubmission {
+  private[committing] object Metrics {
+    private val registry = metrics.SharedMetricRegistries.getOrCreate("kvutils")
+    private val prefix = "kvutils.committing.config"
+    val runTimer = registry.timer("run-timer")
+    val accepts = registry.counter("accepts")
+    val rejections = registry.counter("rejections")
+  }
 }

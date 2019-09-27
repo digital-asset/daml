@@ -4,6 +4,8 @@
 package com.daml.ledger.participant.state.kvutils.committing
 
 import java.util.concurrent.TimeUnit
+
+import com.codahale.metrics
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlLogEntry,
   DamlStateKey,
@@ -11,15 +13,15 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
 }
 import com.daml.ledger.participant.state.kvutils.{Conversions, Err}
 import com.daml.ledger.participant.state.v1.Configuration
+import com.digitalasset.daml.lf.data.InsertOrdMap
 import org.slf4j.Logger
-import com.codahale.metrics
 
 import scala.annotation.tailrec
 
-object Common {
+private[kvutils] object Common {
   type DamlStateMap = Map[DamlStateKey, DamlStateValue]
 
-  final case class CommitContext(
+  final case class CommitContext private (
       /* The input state as declared by the submission. */
       inputState: DamlStateMap,
       /* The intermediate and final state that is committed. */
@@ -103,7 +105,7 @@ object Common {
     /** Run a sequence of commit computations, producing a log entry and the state. */
     def runSequence(inputState: DamlStateMap, acts: (String, Commit[Unit])*)(
         implicit logger: Logger): (DamlLogEntry, DamlStateMap) =
-      sequence(acts).run(CommitContext(inputState, Map.empty)) match {
+      sequence(acts).run(CommitContext(inputState, InsertOrdMap.empty)) match {
         case Left(done) => done.logEntry -> done.state
         case Right(_) =>
           throw Err.InternalError("Commit.runSequence: The commit processing did not terminate!")
@@ -132,11 +134,8 @@ object Common {
 
     /** Time a commit */
     def timed[A](timer: metrics.Timer, act: Commit[A]): Commit[A] = Commit { state =>
-      val ctx = timer.time()
-      try {
+      timer.time { () =>
         act.run(state)
-      } finally {
-        val _ = ctx.stop()
       }
     }
 
@@ -187,5 +186,4 @@ object Common {
           }, Some(_))
       }
       .getOrElse(defaultConfig)
-
 }

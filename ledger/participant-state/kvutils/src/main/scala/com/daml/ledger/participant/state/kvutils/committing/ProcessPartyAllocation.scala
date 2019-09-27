@@ -21,15 +21,7 @@ private[kvutils] case class ProcessPartyAllocation(
 ) {
   import Common._
   import Commit._
-
-  private object Metrics {
-    private val registry =
-      metrics.SharedMetricRegistries.getOrCreate("kvutils.committing.party")
-    val runTimer = registry.timer("run-timer")
-    val count = registry.counter("count")
-    val accepts = registry.counter("accepts")
-    val rejections = registry.counter("rejections")
-  }
+  import ProcessPartyAllocation._
 
   private implicit val logger = LoggerFactory.getLogger(this.getClass)
   private val submissionId = partyAllocationEntry.getSubmissionId
@@ -39,20 +31,14 @@ private[kvutils] case class ProcessPartyAllocation(
   private def tracelog(msg: String): Unit =
     logger.trace(s"[entryId=${Pretty.prettyEntryId(entryId)}, submId=$submissionId]: $msg")
 
-  def run: (DamlLogEntry, Map[DamlStateKey, DamlStateValue]) = {
-    val ctx = Metrics.runTimer.time()
-    Metrics.count.inc()
-    try {
-      runSequence(
-        inputState = Map.empty,
-        "Authorize submission" -> authorizeSubmission,
-        "Validate party" -> validateParty,
-        "Deduplicate" -> deduplicate,
-        "Build result" -> buildFinalResult
-      )
-    } finally {
-      val _ = ctx.stop()
-    }
+  def run: (DamlLogEntry, Map[DamlStateKey, DamlStateValue]) = Metrics.runTimer.time { () =>
+    runSequence(
+      inputState = Map.empty,
+      "Authorize submission" -> authorizeSubmission,
+      "Validate party" -> validateParty,
+      "Deduplicate" -> deduplicate,
+      "Build result" -> buildFinalResult
+    )
   }
 
   private val buildFinalResult: Commit[Unit] = delay {
@@ -130,5 +116,14 @@ private[kvutils] case class ProcessPartyAllocation(
         .build
     )
   }
+}
 
+private[kvutils] object ProcessPartyAllocation {
+  private[committing] object Metrics {
+    private val registry = metrics.SharedMetricRegistries.getOrCreate("kvutils")
+    private val prefix = "kvutils.committing.party"
+    val runTimer = registry.timer(s"$prefix.run-timer")
+    val accepts = registry.counter(s"$prefix.accepts")
+    val rejections = registry.counter(s"$prefix.rejections")
+  }
 }
