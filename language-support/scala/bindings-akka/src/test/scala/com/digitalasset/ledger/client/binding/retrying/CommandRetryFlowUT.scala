@@ -95,16 +95,21 @@ class CommandRetryFlowUT extends AsyncWordSpec with Matchers with AkkaTest {
       }
     }
 
-    "fail INVALID_ARGUMENT status" in {
-      submitRequest(Code.INVALID_ARGUMENT_VALUE, Instant.ofEpochSecond(45)) map { result =>
-        result.size shouldBe 1
-        result.head.context.nrOfRetries shouldBe 0
-        result.head.value.status.get.code shouldBe Code.INVALID_ARGUMENT_VALUE
+    "fail on all codes but RESOURCE_EXHAUSTED status" in {
+      val codesToFail =
+        Code.values().toList.filterNot(c => c == Code.RESOURCE_EXHAUSTED || c == Code.UNRECOGNIZED)
+      val failedSubmissions = codesToFail.map { code =>
+        submitRequest(code.getNumber, Instant.ofEpochSecond(45)) map { result =>
+          result.size shouldBe 1
+          result.head.context.nrOfRetries shouldBe 0
+          result.head.value.status.get.code shouldBe code.getNumber
+        }
       }
+      Future.sequence(failedSubmissions).map(_ => succeed)
     }
 
-    "retry ABORTED status" in {
-      submitRequest(Code.ABORTED_VALUE, Instant.ofEpochSecond(45)) map { result =>
+    "retry RESOURCE_EXHAUSTED status" in {
+      submitRequest(Code.RESOURCE_EXHAUSTED_VALUE, Instant.ofEpochSecond(45)) map { result =>
         result.size shouldBe 1
         result.head.context.nrOfRetries shouldBe 1
         result.head.value.status.get.code shouldBe Code.OK_VALUE
@@ -112,10 +117,10 @@ class CommandRetryFlowUT extends AsyncWordSpec with Matchers with AkkaTest {
     }
 
     "stop retrying after maxRetryTime" in {
-      submitRequest(Code.ABORTED_VALUE, Instant.ofEpochSecond(15)) map { result =>
+      submitRequest(Code.RESOURCE_EXHAUSTED_VALUE, Instant.ofEpochSecond(15)) map { result =>
         result.size shouldBe 1
         result.head.context.nrOfRetries shouldBe 0
-        result.head.value.status.get.code shouldBe Code.ABORTED_VALUE
+        result.head.value.status.get.code shouldBe Code.RESOURCE_EXHAUSTED_VALUE
       }
     }
 
