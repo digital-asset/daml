@@ -73,6 +73,7 @@ genrule(
         "//ledger-service/http-json:http-json-binary_deploy.jar",
         "//language-support/codegen-main:codegen-main_deploy.jar",
         "//templates:templates-tarball.tar.gz",
+        "//triggers/daml:daml-trigger.dar",
     ],
     outs = ["sdk-release-tarball.tar.gz"],
     cmd = """
@@ -94,6 +95,9 @@ genrule(
 
       mkdir -p $$OUT/damlc
       tar xf $(location //compiler/damlc:damlc-dist) --strip-components=1 -C $$OUT/damlc
+
+      mkdir -p $$OUT/daml-libs
+      cp -t $$OUT/daml-libs $(location //triggers/daml:daml-trigger.dar)
 
       mkdir -p $$OUT/daml-helper
       tar xf $(location //daml-assistant/daml-helper:daml-helper-dist) --strip-components=1 -C $$OUT/daml-helper
