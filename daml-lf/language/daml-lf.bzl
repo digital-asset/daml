@@ -2,3 +2,4 @@
 # SPDX-License-Identifier: Apache-2.0
 
 lf_latest_version = "1.6"
+lf_dev_version = "1.dev"
