@@ -45,7 +45,6 @@ class ValueCoderSpec extends WordSpec with Matchers with EitherAssertions with P
       }
     }
 
-    // decimal is tricky
     "do Decimal" in {
       forAll("Decimal (BigDecimal) invariant") { d: BigDecimal =>
         // we are filtering on decimals invariant under string conversion
@@ -67,7 +66,6 @@ class ValueCoderSpec extends WordSpec with Matchers with EitherAssertions with P
       }
     }
 
-    // decimal is tricky
     "do Numeric" in {
       import ValueGenerators.Implicits._
 
