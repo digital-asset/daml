@@ -85,7 +85,7 @@ object JsonProtocol extends DefaultJsonProtocol {
   implicit val ContractFormat: RootJsonFormat[domain.Contract[JsValue]] =
     new RootJsonFormat[domain.Contract[JsValue]] {
       private val archivedKey = "archived"
-      private val activeKey = "active"
+      private val activeKey = "created"
 
       override def read(json: JsValue): domain.Contract[JsValue] = json match {
         case JsObject(fields) =>
