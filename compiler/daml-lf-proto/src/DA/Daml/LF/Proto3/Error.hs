@@ -21,6 +21,7 @@ data Error
   | EDuplicateTemplate TypeConName
   | DuplicateChoice ChoiceName
   | UnsupportedMinorVersion T.Text
-  | MissingPackageRefId Word64
+  | BadStringId Word64
+  | BadDottedNameId Word64
   | ExpectedTCon Type
   deriving (Show, Eq)
