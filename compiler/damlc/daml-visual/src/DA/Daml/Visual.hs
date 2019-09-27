@@ -13,6 +13,7 @@ module DA.Daml.Visual
   , ChoiceDetails(..)
   , dotFileGen
   , graphFromModule
+  , execVisualHtml
   ) where
 
 
@@ -29,7 +30,16 @@ import qualified Data.ByteString as B
 import Data.Generics.Uniplate.Data
 import qualified Data.Map.Strict as Map
 import qualified Data.Text as T
+import GHC.Generics
+import Data.Aeson
+import Text.Mustache
+import qualified Data.Text.Lazy.IO as TIO
+import qualified Data.Text.Encoding as DT
+import Web.Browser
+import DA.Bazel.Runfiles
+import System.FilePath
 import Safe
+import Control.Monad
 
 type IsConsuming = Bool
 type InternalChcName = LF.ChoiceName
@@ -44,6 +54,7 @@ data ChoiceAndAction = ChoiceAndAction
     , actions :: Set.Set Action
     } deriving (Show)
 
+
 data TemplateChoices = TemplateChoices
     { template :: LF.Template
     , modName :: LF.ModuleName
@@ -54,6 +65,7 @@ data ChoiceDetails = ChoiceDetails
     { nodeId :: Int
     , consuming :: Bool
     , displayChoiceName :: LF.ChoiceName
+    , uniqChoiceName :: InternalChcName
     } deriving (Show, Eq)
 
 data SubGraph = SubGraph
@@ -66,6 +78,54 @@ data Graph = Graph
     { subgraphs :: [SubGraph]
     , edges :: [(ChoiceDetails, ChoiceDetails)]
     } deriving (Show, Eq)
+
+data D3Link = D3Link
+    { source :: Int
+    , target :: Int
+    , weight :: Int
+    } deriving (Generic, Show)
+
+-- can add more information like signatories, observers
+data D3Node = D3Node
+    { fields :: T.Text
+    , tplName :: T.Text
+    , id :: Int
+    , chcName :: T.Text
+    } deriving (Generic, Show)
+
+data D3Graph = D3Graph
+    { d3links :: [D3Link]
+    , d3nodes :: [D3Node]
+    } deriving (Generic, Show)
+
+data WebPage = WebPage
+    { links :: T.Text
+    , dnodes :: T.Text
+    , d3Js :: String
+    , d3PlusJs :: String
+    } deriving (Generic, Show)
+
+d3LinksFromGraphEdges :: Graph -> [D3Link]
+d3LinksFromGraphEdges g = map edgeToD3Link (edges g)
+    where edgeToD3Link edge = D3Link (nodeId (fst edge)) (nodeId (snd edge)) 10
+
+d3NodesFromGraph :: Graph -> [D3Node]
+d3NodesFromGraph g = concatMap subGraphToD3Nodes (subgraphs g)
+        where subGraphToD3Nodes sg = map (\chcD ->
+                                            D3Node (T.unlines $ templateFields sg)
+                                            (tplNameUnqual $ clusterTemplate sg)
+                                            (nodeId chcD)
+                                            (DAP.renderPretty $ displayChoiceName chcD)
+                                            )
+                                    (nodes sg)
+
+graphToD3Graph :: Graph -> D3Graph
+graphToD3Graph g = D3Graph (d3LinksFromGraphEdges g) (d3NodesFromGraph g)
+
+instance ToJSON D3Link
+instance ToJSON D3Node
+instance ToJSON D3Graph
+instance ToJSON WebPage
 
 startFromUpdate :: Set.Set (LF.Qualified LF.ExprValName) -> LF.World -> LF.Update -> Set.Set Action
 startFromUpdate seen world update = case update of
@@ -145,7 +205,7 @@ tplNameUnqual LF.Template {..} = headNote "tplNameUnqual" (LF.unTypeConName tplT
 
 choiceNameWithId :: [TemplateChoices] -> Map.Map InternalChcName ChoiceDetails
 choiceNameWithId tplChcActions = Map.fromList choiceWithIds
-  where choiceWithIds = map (\(ChoiceAndAction {..}, id) -> (internalChcName, ChoiceDetails id choiceConsuming choiceName)) $ zip choiceActions [0..]
+  where choiceWithIds = map (\(ChoiceAndAction {..}, id) -> (internalChcName, ChoiceDetails id choiceConsuming choiceName internalChcName)) $ zip choiceActions [0..]
         choiceActions = concatMap (\t -> createChoice (template t) : choiceAndActions t) tplChcActions
         createChoice tpl = ChoiceAndAction
             { choiceName = LF.ChoiceName "Create"
@@ -241,9 +301,64 @@ graphFromModule modules world = Graph subGraphs edges
           subGraphs = map (constructSubgraphsWithLables world nodes) templatesAndModules
           edges = graphEdges nodes templatesAndModules
 
-
 dotFileGen :: [LF.Module] -> LF.World -> String
 dotFileGen modules world = constructDotGraph $ graphFromModule modules world
+
+webPageTemplate :: T.Text
+webPageTemplate =
+    T.unlines [ "<html>"
+    , "<head><title>DAML Visualization</title><meta charset=\"utf-8\"></head>"
+    , "<body>"
+    , "<div id='viz'></div>"
+    , "<script>"
+    , "{{{d3Js}}}"
+    , "</script>"
+    , "<script>"
+    , "{{{d3PlusJs}}}"
+    , "</script>"
+    , "<script>"
+    , "var nodes = {{{dnodes}}}"
+    , "var links = {{{links}}}"
+    , "d3plus.viz()"
+    , "          .container('#viz')"
+    , "          .type('network')"
+    , "          .data(nodes)"
+    , "          .text('chcName')"
+    , "          .edges({ value: links, arrows: true })"
+    , "          .tooltip({"
+    , "             Template: function (d) { return d['tplName'] },"
+    , "             Fields: function (d) { return d['fields']; }"
+    , "          })"
+    , "          .draw();"
+    , "</script>"
+    , "</body>"
+    , "</html>"
+    ]
+
+type OpenBrowserFlag = Bool
+execVisualHtml :: FilePath -> FilePath -> OpenBrowserFlag -> IO ()
+execVisualHtml darFilePath webFilePath oBrowser = do
+    darBytes <- B.readFile darFilePath
+    dalfs <- either fail pure $
+                readDalfs $ ZIPArchive.toArchive (BSL.fromStrict darBytes)
+    staticDir <- locateRunfiles $ "static_asset_d3plus" </> "js"
+    d3js <-   readFile $ staticDir </> "d3.min.js"
+    d3plusjs <- readFile $ staticDir </> "d3plus.min.js"
+    let world = darToWorld dalfs
+        modules = NM.toList $ LF.packageModules $ getWorldSelf world
+        graph = graphFromModule modules world
+        d3G = graphToD3Graph graph
+        linksJson = DT.decodeUtf8 $ BSL.toStrict $ encode $ d3links d3G
+        nodesJson = DT.decodeUtf8 $ BSL.toStrict $ encode $ d3nodes d3G
+        webPage = WebPage linksJson nodesJson d3js d3plusjs
+    case compileMustacheText "Webpage" webPageTemplate of
+        Left err -> error $ show err
+        Right mTpl -> do
+            TIO.writeFile webFilePath $ renderMustache mTpl $ toJSON webPage
+            when oBrowser
+                (do _ <- openBrowser webFilePath
+                    return ())
+
 
 execVisual :: FilePath -> Maybe FilePath -> IO ()
 execVisual darFilePath dotFilePath = do

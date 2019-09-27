@@ -217,6 +217,12 @@ cmdVisual =
       cmd = vis <$> inputDarOpt <*> dotFileOpt
       vis a b = Command Visual $ execVisual a b
 
+cmdVisualWeb :: Mod CommandFields Command
+cmdVisualWeb =
+    command "visual-web" $ info (helper <*> cmd) $ progDesc "Generate D3-Web Visual from dar" <> fullDesc
+    where
+      cmd = vis <$> inputDarOpt <*> htmlOutFile <*> openBrowser
+      vis a b browser = Command Visual $ execVisualHtml a b browser
 
 cmdBuild :: Int -> Mod CommandFields Command
 cmdBuild numProcessors =
@@ -926,6 +932,7 @@ options numProcessors =
       <> cmdTest numProcessors
       <> Damldoc.cmd numProcessors (\cli -> Command DamlDoc $ Damldoc.exec cli)
       <> cmdVisual
+      <> cmdVisualWeb
       <> cmdInspectDar
       <> cmdDocTest numProcessors
       <> cmdLint numProcessors
@@ -934,6 +941,7 @@ options numProcessors =
       (internal -- internal commands
         <> cmdInspect
         <> cmdVisual
+        <> cmdVisualWeb
         <> cmdMigrate numProcessors
         <> cmdMergeDars
         <> cmdInit
