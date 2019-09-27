@@ -50,12 +50,12 @@ lookupString strIdW = do
 -- Decodings of things related to string interning
 ------------------------------------------------------------------------
 
--- | Encode of a string that cannot be interned, e.g, the entries of the
+-- | Decode of a string that cannot be interned, e.g, the entries of the
 -- interning table itself.
 decodeString :: TL.Text -> T.Text
 decodeString = TL.toStrict
 
--- | Encode a string that will be interned in DAML-LF 1.7 and onwards.
+-- | Decode a string that will be interned in DAML-LF 1.7 and onwards.
 decodeInternableString :: TL.Text -> Decode T.Text
 decodeInternableString = pure . decodeString
 
