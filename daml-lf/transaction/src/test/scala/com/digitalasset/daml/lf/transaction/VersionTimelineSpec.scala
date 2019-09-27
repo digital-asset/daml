@@ -14,7 +14,7 @@ import scalaz.syntax.foldable._
 import org.scalacheck.Gen
 import org.scalatest.{Inside, Matchers, WordSpec}
 import org.scalatest.prop.PropertyChecks
-import scalaz.\&/.{Both, That}
+import scalaz.\&/.That
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 class VersionTimelineSpec extends WordSpec with Matchers with PropertyChecks with Inside {
@@ -64,8 +64,7 @@ class VersionTimelineSpec extends WordSpec with Matchers with PropertyChecks wit
 
     "end with a dev version" in {
       inside(inAscendingOrder.last) {
-        case That(LanguageVersion(_, LanguageMinorVersion.Dev)) |
-            Both(_, LanguageVersion(_, LanguageMinorVersion.Dev)) =>
+        case That(LanguageVersion(_, LanguageMinorVersion.Dev)) =>
       }
     }
 
