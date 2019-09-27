@@ -496,7 +496,7 @@ convertTypeDef env (ATyCon t)
   , getOccFS t `elementOfUniqSet` internalTypes
   = pure []
 convertTypeDef env (ATyCon t)
-    -- NOTE(MH): We detect type synonyms produced by the desugring
+    -- NOTE(MH): We detect type synonyms produced by the desugaring
     -- of `template instance` declarations and inline the record definition
     -- of the generic template.
     | Just ([], TypeCon tpl args) <- synTyConDefn_maybe t
