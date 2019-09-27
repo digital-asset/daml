@@ -14,6 +14,7 @@ import           DA.Daml.LF.Proto3.Error
 import Control.Monad
 import Control.Monad.Except
 import Control.Monad.Reader
+import Data.Word
 import Text.Read
 import           Data.List
 import           DA.Daml.LF.Mangling
@@ -35,24 +36,99 @@ newtype Decode a = Decode{unDecode :: ReaderT DecodeEnv (Except Error) a}
 runDecode :: DecodeEnv -> Decode a -> Either Error a
 runDecode env act = runExcept $ runReaderT (unDecode act) env
 
-decodeVersion :: TL.Text -> Either Error Version
+lookupString :: Word64 -> Decode T.Text
+lookupString strIdW = do
+    let strIdI = toInteger strIdW
+    when (strIdI > toInteger (maxBound :: Int)) $
+        throwError $ MissingPackageRefId strIdW
+    DecodeEnv{internedStrings} <- ask
+    case internedStrings V.!? fromInteger strIdI of
+          Nothing -> throwError $ MissingPackageRefId strIdW
+          Just str -> pure str
+
+------------------------------------------------------------------------
+-- Decodings of things related to string interning
+------------------------------------------------------------------------
+
+-- | Encode of a string that cannot be interned, e.g, the entries of the
+-- interning table itself.
+decodeString :: TL.Text -> T.Text
+decodeString = TL.toStrict
+
+-- | Encode a string that will be interned in DAML-LF 1.7 and onwards.
+decodeInternableString :: TL.Text -> Decode T.Text
+decodeInternableString = pure . decodeString
+
+-- | Decode the name of a syntactic object, e.g., a variable or a data
+-- constructor. These strings are mangled to escape special characters. All
+-- names will be interned in DAML-LF 1.7 and onwards.
+decodeName :: (T.Text -> a) -> TL.Text -> Decode a
+decodeName wrapName mangled = do
+    mangled <- decodeInternableString mangled
+    case unmangleIdentifier mangled of
+        Left err -> throwError $ ParseError $ "Could not unmangle name " ++ show mangled ++ ": " ++ err
+        Right unmangled -> pure $ wrapName unmangled
+
+-- | Decode the multi-component name of a syntactic object, e.g., a type
+-- constructor. All compononents are mangled. Dotted names will be interned
+-- in DAML-LF 1.7 and onwards.
+decodeDottedName :: ([T.Text] -> a) -> LF1.DottedName -> Decode a
+decodeDottedName wrapDottedName (LF1.DottedName mangled) = do
+    wrapDottedName <$> mapM (decodeName id) (V.toList mangled)
+
+-- | Decode the name of a top-level value. The name is mangled and will be
+-- interned in DAML-LF 1.7 and onwards.
+decodeValueName :: String -> V.Vector TL.Text -> Decode ExprValName
+decodeValueName ident mangledV = case V.length mangledV of
+    0 -> throwError $ MissingField ident
+    1 -> do
+        mangled <- decodeInternableString $ V.head mangledV
+        case unmangleIdentifier mangled of
+            Right unmangled -> pure $ ExprValName unmangled
+            -- NOTE(MH): This is an ugly hack to keep backwards compatibility.
+            -- We need to fix this in DAML-LF 2.
+            Left _ -> pure $ ExprValName mangled
+    _ -> throwError $ ParseError $ "Unexpected multi-segment def name: " ++ show mangledV
+
+-- | Decode a reference to a top-level value. The name is mangled and will be
+-- interned in DAML-LF 1.7 and onwards.
+decodeValName :: LF1.ValName -> Decode (Qualified ExprValName)
+decodeValName LF1.ValName{..} = do
+  (pref, mname) <- mayDecode "valNameModule" valNameModule decodeModuleRef
+  name <- decodeValueName "valNameName" valNameName
+  pure $ Qualified pref mname name
+
+-- | Decode a reference to a package. Package names are not mangled. Package
+-- name are interned since DAML-LF 1.6.
+decodePackageRef :: LF1.PackageRef -> Decode PackageRef
+decodePackageRef (LF1.PackageRef pref) =
+    mayDecode "packageRefSum" pref $ \case
+        LF1.PackageRefSumSelf _ -> pure PRSelf
+        LF1.PackageRefSumPackageId pkgId -> pure $ PRImport $ PackageId $ decodeString pkgId
+        LF1.PackageRefSumInternedId strId -> PRImport . PackageId <$> lookupString strId
+
+------------------------------------------------------------------------
+-- Decodings of everything else
+------------------------------------------------------------------------
+
+decodeVersion :: T.Text -> Either Error Version
 decodeVersion minorText = do
-  let unsupported = throwError (UnsupportedMinorVersion (TL.toStrict minorText))
+  let unsupported = throwError (UnsupportedMinorVersion minorText)
   -- we translate "no version" to minor version 0, since we introduced
   -- minor versions once DAML-LF v1 was already out, and we want to be
   -- able to parse packages that were compiled before minor versions
   -- were a thing. DO NOT replicate this code bejond major version 1!
   minor <- if
-    | TL.null minorText -> pure $ LF.PointStable 0
-    | Just minor <- LF.parseMinorVersion (TL.unpack minorText) -> pure minor
+    | T.null minorText -> pure $ LF.PointStable 0
+    | Just minor <- LF.parseMinorVersion (T.unpack minorText) -> pure minor
     | otherwise -> unsupported
   let version = V1 minor
   if version `elem` LF.supportedInputVersions then pure version else unsupported
 
 decodePackage :: TL.Text -> LF1.Package -> Either Error Package
 decodePackage minorText (LF1.Package mods internedList) = do
-  version <- decodeVersion minorText
-  let internedStrings = V.map TL.toStrict internedList
+  version <- decodeVersion (decodeString minorText)
+  let internedStrings = V.map decodeString internedList
   let env = DecodeEnv{internedStrings}
   runDecode env $
     Package version <$> decodeNM DuplicateModule decodeModule mods
@@ -513,16 +589,22 @@ decodeVarWithType LF1.VarWithType{..} =
 decodePrimLit :: LF1.PrimLit -> Decode BuiltinExpr
 decodePrimLit (LF1.PrimLit mbSum) = mayDecode "primLitSum" mbSum $ \case
   LF1.PrimLitSumInt64 sInt -> pure $ BEInt64 sInt
-  LF1.PrimLitSumDecimal sDec -> case readMaybe (TL.unpack sDec) of
-    Nothing -> throwError $ ParseError ("bad fixed while decoding Decimal: '" <> TL.unpack sDec <> "'")
-    Just dec -> return (BEDecimal dec)
-  LF1.PrimLitSumNumeric sNum -> case readMaybe (TL.unpack sNum) of
-    Nothing -> throwError $ ParseError ("bad Numeric literal: '" <> TL.unpack sNum <> "'")
-    Just n -> return (BENumeric n)
+  LF1.PrimLitSumDecimal sDec -> decodeInternableString sDec >>= decodeDecimalLit
+  LF1.PrimLitSumNumeric sNum -> decodeInternableString sNum >>= decodeNumericLit
   LF1.PrimLitSumTimestamp sTime -> pure $ BETimestamp sTime
-  LF1.PrimLitSumText x           -> pure $ BEText $ TL.toStrict x
-  LF1.PrimLitSumParty p          -> pure $ BEParty $ PartyLiteral $ TL.toStrict p
+  LF1.PrimLitSumText x -> BEText <$> decodeInternableString x
+  LF1.PrimLitSumParty p -> BEParty . PartyLiteral <$> decodeInternableString p
   LF1.PrimLitSumDate days -> pure $ BEDate days
+
+decodeDecimalLit :: T.Text -> Decode BuiltinExpr
+decodeDecimalLit (T.unpack -> str) = case readMaybe str of
+    Nothing -> throwError $ ParseError $ "bad fixed while decoding Decimal: " ++ show str
+    Just dec -> pure $ BEDecimal dec
+
+decodeNumericLit :: T.Text -> Decode BuiltinExpr
+decodeNumericLit (T.unpack -> str) = case readMaybe str of
+    Nothing -> throwError $ ParseError $ "bad Numeric literal: " ++ show str
+    Just n -> pure $ BENumeric n
 
 decodeKind :: LF1.Kind -> Decode Kind
 decodeKind LF1.Kind{..} = mayDecode "kindSum" kindSum $ \case
@@ -603,51 +685,11 @@ decodeTypeConName LF1.TypeConName{..} = do
   con <- mayDecode "typeConNameName" typeConNameName (decodeDottedName TypeConName)
   pure $ Qualified pref mname con
 
-decodePackageId :: TL.Text -> PackageId
-decodePackageId = PackageId . TL.toStrict
-
-decodePackageRef :: LF1.PackageRef -> Decode PackageRef
-decodePackageRef (LF1.PackageRef pref) =
-  mayDecode "packageRefSum" pref $ \case
-    LF1.PackageRefSumSelf _          -> pure PRSelf
-    LF1.PackageRefSumPackageId pkgId -> pure $ PRImport $ decodePackageId pkgId
-    LF1.PackageRefSumInternedId ix0 -> do
-      let ix1 = toInteger ix0
-      when (ix1 > toInteger (maxBound :: Int)) $
-        throwError $ MissingPackageRefId ix0
-      let ix2 :: Int
-          ix2 = fromInteger ix1
-      DecodeEnv{internedStrings} <- ask
-      case internedStrings V.!? ix2 of
-          Nothing -> throwError $ MissingPackageRefId ix0
-          Just pkgId -> pure $ PRImport $ PackageId pkgId
-
 decodeModuleRef :: LF1.ModuleRef -> Decode (PackageRef, ModuleName)
 decodeModuleRef LF1.ModuleRef{..} =
   (,)
     <$> mayDecode "moduleRefPackageRef" moduleRefPackageRef decodePackageRef
     <*> mayDecode "moduleRefModuleName" moduleRefModuleName (decodeDottedName ModuleName)
-
-
-decodeValName :: LF1.ValName -> Decode (Qualified ExprValName)
-decodeValName LF1.ValName{..} = do
-  (pref, mname) <- mayDecode "valNameModule" valNameModule decodeModuleRef
-  name <- decodeValueName "valNameName" valNameName
-  pure $ Qualified pref mname name
-
-decodeDottedName :: ([T.Text] -> a) -> LF1.DottedName -> Decode a
-decodeDottedName wrapDottedName (LF1.DottedName parts) = do
-  unmangledParts <- forM (V.toList parts) $ \part ->
-    case unmangleIdentifier (TL.toStrict part) of
-      Left err -> throwError (ParseError ("Could not unmangle part " ++ show part ++ ": " ++ err))
-      Right unmangled -> pure unmangled
-  pure (wrapDottedName unmangledParts)
-
-decodeName :: (T.Text -> a) -> TL.Text -> Decode a
-decodeName wrapName segment =
-  case unmangleIdentifier (TL.toStrict segment) of
-    Left err -> throwError (ParseError ("Could not unmangle part " ++ show segment ++ ": " ++ err))
-    Right unmangled -> pure (wrapName unmangled)
 
 ------------------------------------------------------------------------
 -- Helpers
@@ -665,13 +707,3 @@ decodeNM
 decodeNM mkDuplicateError decode1 xs = do
   ys <- traverse decode1 (V.toList xs)
   either (throwError . mkDuplicateError) pure $ NM.fromListEither ys
-
-decodeValueName :: String -> V.Vector TL.Text -> Decode ExprValName
-decodeValueName ident xs = fmap ExprValName $ if
-  | V.length xs == 1 -> case unmangleIdentifier (TL.toStrict (xs V.! 0)) of
-      Right name -> pure name
-      Left _err -> do
-        -- as a ugly hack to keep backwards compat, let these through for DAML-LF 1 only
-        pure (TL.toStrict (xs V.! 0))
-  | V.length xs == 0 -> throwError (MissingField ident)
-  | otherwise -> throwError (ParseError ("Unexpected multi-segment def name: " ++ show xs))
