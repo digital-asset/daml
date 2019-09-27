@@ -6,12 +6,8 @@ package com.daml.ledger.api.testtool.tests
 import ai.x.diff.conversions._
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
 import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTest, LedgerTestSuite}
+import com.digitalasset.ledger.api.v1.value.{Record, RecordField, Value}
 import com.digitalasset.ledger.client.binding.Primitive
-import com.digitalasset.ledger.api.v1.value.{Optional, Record, RecordField, Value}
-import com.digitalasset.ledger.test.DA.Types.{Tuple2 => DamlTuple2}
-import com.digitalasset.ledger.test.SemanticTests.AccountInvitation._
-import com.digitalasset.ledger.test.SemanticTests.AccountFetchByKey._
-import com.digitalasset.ledger.test.SemanticTests.AccountLookupByKey._
 import com.digitalasset.ledger.test.SemanticTests.Delegation._
 import com.digitalasset.ledger.test.SemanticTests.FetchIou._
 import com.digitalasset.ledger.test.SemanticTests.FetchPaintAgree._
@@ -322,54 +318,6 @@ final class SemanticTests(session: LedgerSession) extends LedgerTestSuite(sessio
       }
     }
 
-  /*
-   * Contract keys
-   */
-
-  private[this] val contractKeys =
-    LedgerTest("SemanticContractKeys", "Perform correctly operations based on contract keys") {
-      context =>
-        for {
-          Vector(alpha, beta) <- context.participants(2)
-          bank <- alpha.allocateParty()
-          accountHolder <- beta.allocateParty()
-          accountTemplate = Account(bank, accountHolder, DamlTuple2("CH", 123))
-          // Replicating the logic with which we compute the contract key, which in DAML is the following:
-          // key (bank, accountNumber._1 <> show (this.accountNumber._2)) : (Party, Text)
-          accountKey = DamlTuple2(bank, "CH123") //
-          invitation <- alpha.create(bank, AccountInvitation(accountTemplate))
-          account <- eventually {
-            beta.exerciseAndGetContract[Account](accountHolder, invitation.exerciseAccept)
-          }
-          toLookup <- alpha.create(bank, AccountLookupByKey(bank, accountKey))
-          lookup <- alpha.exercise(bank, toLookup.exerciseAccountLookupByKey_Execute)
-          toFetch <- alpha.create(bank, AccountFetchByKey(bank, accountKey))
-          fetch <- alpha.exercise(bank, toFetch.exerciseAccountFetchByKey_Execute)
-        } yield {
-
-          val lookupEvent = assertSingleton("Lookup", exercisedEvents(lookup))
-          assertEquals(
-            "The contract that has been looked up is wrong",
-            lookupEvent.getExerciseResult,
-            Value(
-              Value.Sum.Optional(Optional(Some(Value(Value.Sum.ContractId(Tag.unwrap(account)))))))
-          )
-
-          val fetchEvent = assertSingleton("Fetch", exercisedEvents(fetch))
-          val fetchedFields = fetchEvent.getExerciseResult.getRecord.fields
-
-          val id = assertSingleton("Fetched contract identifier", fetchedFields.collect {
-            case RecordField("_1", Some(value)) => value.getContractId
-          })
-          assertEquals("Fetched contract identifier", id, Tag.unwrap(account))
-
-          val contract = assertSingleton("Fetched contract", fetchedFields.collect {
-            case RecordField("_2", Some(value)) => value.getRecord
-          })
-          assertEquals("The fetched contract is wrong", contract, accountTemplate.arguments)
-        }
-    }
-
   override val tests: Vector[LedgerTest] = Vector(
     doubleSpendAcrossTwoTransactions,
     doubleSpendInTransaction,
@@ -379,7 +327,6 @@ final class SemanticTests(session: LedgerSession) extends LedgerTestSuite(sessio
     partialSignatories,
     acceptOnBehalf,
     privacyProjections,
-    divulgence,
-    contractKeys
+    divulgence
   )
 }
