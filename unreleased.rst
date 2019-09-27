@@ -24,3 +24,4 @@ HEAD — ongoing
 + [DAML Ledger Integration Kit] The transaction service is now fully tested.
 - [DAML Compiler] Fix a problem where constraints of the form `Template (Foo t)` caused the compiler to suggest enabling the `UndecidableInstances` language extension.
 - [Security] Document how to verify the signature on release tarballs.
++ [DAML Ledger Integration Kit] The TTL for commands is now read from the configuration service.
