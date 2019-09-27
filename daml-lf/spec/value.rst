@@ -273,7 +273,7 @@ It may seem strange that the value specification uses ``string`` here
 rather than a protobuf-supported numeric type; however, none of
 protobuf's numeric types have the proper precision for this field.
 
-Note the field was nammed `decimal` in SDK 0.13.26 or earlier.
+Note the field was named `decimal` in SDK 0.13.26 or earlier.
 
 *since version 6*
 
