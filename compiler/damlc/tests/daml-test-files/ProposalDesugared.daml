@@ -176,7 +176,7 @@ instance IouInstance where
 
 
 -- The instantiation of the generic `Proposal a` template for `a = Iou`
--- in its deugared form.
+-- in its desugared form.
 type ProposalIou = Proposal Iou -- ^ TEMPLATE_INSTANCE
 
 instance ProposalInstance Iou where

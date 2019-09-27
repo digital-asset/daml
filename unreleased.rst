@@ -24,7 +24,11 @@ HEAD — ongoing
 - [DAML Tool - Visual]
   Adding `daml damlc visual-web` command. visual-command generates webpage with `d3 <https://d3js.org>`_ network.
 + [DAML Ledger Integration Kit] The transaction service is now fully tested.
-- [DAML Compiler] Fix a problem where constraints of the form `Template (Foo t)` caused the compiler to suggest enabling the `UndecidableInstances` language extension.
+- [DAML Compiler] Fix a problem where constraints of the form ``Template (Foo t)`` caused the compiler to suggest enabling the ``UndecidableInstances`` language extension.
 - [Security] Document how to verify the signature on release tarballs.
 + [DAML Ledger Integration Kit] The TTL for commands is now read from the configuration service.
 + [DAML Ledger Integration Kit] The contract key tests now live under a single test suite and are multi-node aware.
+- [DAML Compiler] **BREAKING CHANGE** Desugar template instances to ``type`` synonyms instead of ``newtype``s.
+  This type definition is easier to use in the surface DAML and consistent with the types translated to DAML LF.
+  The only change to user DAML is that uses of the ``TI`` ``newtype`` generated from
+  ``template instance TI = T A1 .. AN`` should be simplified to use the type synonym ``type TI = T A1 .. AN``.
