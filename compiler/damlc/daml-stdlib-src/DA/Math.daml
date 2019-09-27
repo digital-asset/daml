@@ -2,6 +2,9 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 daml 1.2
+
+{-# LANGUAGE CPP #-}
+
 -- | Math - Utility Math functions for `Decimal`
 -- The this library is designed to give good precision, typically giving 9 correct decimal places.
 -- The numerical algorithms run with many iterations to achieve that precision and are interpreted
@@ -125,7 +128,13 @@ tan x = s / c
     (c, s) = cordic 34 x
 
 -- | The number Pi
-pi = 3.1415926536
+#ifdef DAML_NUMERIC
+pi : Numeric n
+pi = 3.14159_26535_89793_23846_26433_83279_50288_41
+#else
+pi : Decimal
+pi = 3.14159_26536
+#endif
 
 -- | `cordic` is an implementation of the CORDIC algorithm.
 -- See https://en.wikipedia.org/wiki/CORDIC
