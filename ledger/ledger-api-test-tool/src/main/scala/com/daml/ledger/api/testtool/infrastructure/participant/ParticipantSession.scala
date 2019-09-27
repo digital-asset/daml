@@ -17,7 +17,7 @@ import io.grpc.ManagedChannel
 import io.netty.channel.nio.NioEventLoopGroup
 import org.slf4j.LoggerFactory
 
-import scala.concurrent.duration.DurationInt
+import scala.concurrent.duration.{Duration, DurationInt, DurationLong}
 import scala.concurrent.{ExecutionContext, Future}
 
 private[participant] final class ParticipantSession(
@@ -48,7 +48,7 @@ private[participant] final class ParticipantSession(
   // ledger configuration across tests may have wildly unexpected consequences. In general the
   // test tool is designed to have tests work in isolation and tests addressing changes to the
   // global state of the ledger should be isolated in their own test runs.
-  private[this] val ttlNanosF: Future[Long] =
+  private[this] val ttlF: Future[Duration] =
     ledgerIdF
       .flatMap { id =>
         SingleItemObserver
@@ -58,10 +58,10 @@ private[participant] final class ParticipantSession(
       }
       .map { configuration =>
         val factor = config.commandTtlFactor
-        val min = (configuration.getMinTtl.seconds * 1E9) + configuration.getMinTtl.nanos.toDouble
-        val max = (configuration.getMaxTtl.seconds * 1E9) + configuration.getMaxTtl.nanos.toDouble
-        val ttl = (max * factor).min(max).max(min).toLong
-        logger.info(s"Command TTL is ${ttl} ns (min: ${min}, max: ${max}, factor: ${factor})")
+        val min = configuration.getMinTtl.seconds.seconds + configuration.getMinTtl.nanos.nanos
+        val max = configuration.getMaxTtl.seconds.seconds + configuration.getMaxTtl.nanos.nanos
+        val ttl = (max * factor).min(max).max(min)
+        logger.info(s"Command TTL is $ttl (min: $min, max: $max, factor: $factor)")
         ttl
       }
 
@@ -71,7 +71,7 @@ private[participant] final class ParticipantSession(
       identifierSuffix: String): Future[ParticipantTestContext] =
     for {
       ledgerId <- ledgerIdF
-      ttlNanos <- ttlNanosF
+      ttl <- ttlF
       end <- services.transaction.getLedgerEnd(new GetLedgerEndRequest(ledgerId)).map(_.getOffset)
     } yield
       new ParticipantTestContext(
@@ -81,7 +81,7 @@ private[participant] final class ParticipantSession(
         identifierSuffix,
         end,
         services,
-        ttlNanos)
+        ttl)
 
   private[testtool] def close(): Unit = {
     logger.info(s"Disconnecting from participant at ${config.host}:${config.port}...")

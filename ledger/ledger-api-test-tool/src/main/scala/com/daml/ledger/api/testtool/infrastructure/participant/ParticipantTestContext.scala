@@ -94,7 +94,7 @@ private[testtool] final class ParticipantTestContext private[participant] (
     val identifierSuffix: String,
     referenceOffset: LedgerOffset,
     services: LedgerServices,
-    ttlNanos: Long)(implicit ec: ExecutionContext) {
+    ttl: Duration)(implicit ec: ExecutionContext) {
 
   import ParticipantTestContext._
 
@@ -443,7 +443,7 @@ private[testtool] final class ParticipantTestContext private[participant] (
             commandId = nextCommandId(),
             party = party.unwrap,
             ledgerEffectiveTime = timestamp(let),
-            maximumRecordTime = timestamp(let.plusNanos(ttlNanos)),
+            maximumRecordTime = timestamp(let.plusNanos(ttl.toNanos)),
             commands = commands
           ))))
 
