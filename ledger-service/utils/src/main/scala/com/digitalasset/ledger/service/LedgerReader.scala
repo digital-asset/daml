@@ -22,23 +22,44 @@ import Scalaz._
 
 object LedgerReader {
 
+  // TODO(Leo): need something stronger
+  type Error = String
+
+  // PackageId -> Interface
   type PackageStore = Map[String, Interface]
+
+  val UpToDate: Future[Error \/ Option[PackageStore]] =
+    Future.successful(\/-(None))
 
   import scala.concurrent.ExecutionContext.Implicits.global
 
-  def createPackageStore(packageClient: PackageClient): Future[String \/ PackageStore] = {
+  def createPackageStore(packageClient: PackageClient): Future[Error \/ PackageStore] =
+    reloadPackageStore(packageClient)(Set.empty).map(x => x.map(_.getOrElse(Map.empty)))
+
+  /**
+    * @return [[UpToDate]] if packages did not change
+    */
+  def reloadPackageStore(client: PackageClient)(
+      prevPackageIds: Set[String]): Future[Error \/ Option[PackageStore]] = {
     for {
-      packageIds <- packageClient.listPackages().map(_.packageIds)
-      packageResponses <- Future
-        .sequence(packageIds.map(packageClient.getPackage))
-        .map(_.toList)
-    } yield {
-      createPackageStoreFromArchives(packageResponses)
-    }
+      newPackageIds <- client.listPackages().map(_.packageIds.toList)
+      result <- loadIfChanged(client)(prevPackageIds, newPackageIds)
+    } yield result
+  }
+
+  private def loadIfChanged(client: PackageClient)(
+      prevIds: Set[String],
+      newIds: List[String]): Future[Error \/ Option[PackageStore]] = {
+    if (prevIds =/= newIds.toSet)
+      newIds
+        .traverse(id => client.getPackage(id))
+        .map(as => createPackageStoreFromArchives(as).map(Some(_)))
+    else
+      UpToDate
   }
 
   private def createPackageStoreFromArchives(
-      packageResponses: List[GetPackageResponse]): String \/ PackageStore = {
+      packageResponses: List[GetPackageResponse]): Error \/ PackageStore = {
     packageResponses
       .traverseU { packageResponse: GetPackageResponse =>
         decodeInterfaceFromPackageResponse(packageResponse).map { interface =>
@@ -53,7 +74,7 @@ object LedgerReader {
   }
 
   def decodeInterfaceFromPackageResponse(
-      packageResponse: GetPackageResponse): String \/ Interface = {
+      packageResponse: GetPackageResponse): Error \/ Interface = {
     import packageResponse._
     \/.fromTryCatchNonFatal {
       val cos = Reader.damlLfCodedInputStream(archivePayload.newInput)
@@ -65,9 +86,9 @@ object LedgerReader {
     }.leftMap(_.getLocalizedMessage).join
   }
 
-  def damlLfTypeLookup(packageStore: PackageStore)(id: Identifier): Option[DefDataType.FWT] =
+  def damlLfTypeLookup(packageStore: () => PackageStore)(id: Identifier): Option[DefDataType.FWT] =
     for {
-      iface <- packageStore.get(id.packageId.toString)
+      iface <- packageStore().get(id.packageId.toString)
       ifaceType <- iface.typeDecls.get(id.qualifiedName)
     } yield ifaceType.`type`
 }

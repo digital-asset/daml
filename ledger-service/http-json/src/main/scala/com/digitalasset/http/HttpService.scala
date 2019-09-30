@@ -3,22 +3,21 @@
 
 package com.digitalasset.http
 
-import akka.actor.ActorSystem
+import akka.actor.{ActorSystem, Cancellable}
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.Http.ServerBinding
 import akka.stream.Materializer
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
-import com.digitalasset.http.PackageService.TemplateIdMap
 import com.digitalasset.http.json.{
   ApiValueToJsValueConverter,
   DomainJsonDecoder,
   DomainJsonEncoder,
   JsValueToApiValueConverter
 }
-import com.digitalasset.http.util.FutureUtil.liftET
+import com.digitalasset.http.util.ApiValueToLfValueConverter
+import com.digitalasset.http.util.FutureUtil._
 import com.digitalasset.http.util.IdentifierConverters.apiLedgerId
-import com.digitalasset.http.util.{ApiValueToLfValueConverter, FutureUtil}
 import com.digitalasset.jwt.JwtDecoder
 import com.digitalasset.ledger.api.refinements.ApiTypes.ApplicationId
 import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
@@ -28,17 +27,19 @@ import com.digitalasset.ledger.client.configuration.{
   LedgerClientConfiguration,
   LedgerIdRequirement
 }
+import com.digitalasset.ledger.client.services.pkg.PackageClient
 import com.digitalasset.ledger.service.LedgerReader
-import com.digitalasset.ledger.service.LedgerReader.PackageStore
 import com.typesafe.scalalogging.StrictLogging
 import scalaz.Scalaz._
 import scalaz._
 
+import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
 import scala.{util => u}
 
 object HttpService extends StrictLogging {
 
+  val DefaultPackageReloadInterval: FiniteDuration = FiniteDuration(5, "s")
   val DefaultMaxInboundMessageSize: Int = 4194304
 
   private type ET[A] = EitherT[Future, Error, A]
@@ -50,6 +51,7 @@ object HttpService extends StrictLogging {
       ledgerPort: Int,
       applicationId: ApplicationId,
       httpPort: Int,
+      packageReloadInterval: FiniteDuration = DefaultPackageReloadInterval,
       maxInboundMessageSize: Int = DefaultMaxInboundMessageSize,
       validateJwt: Endpoints.ValidateJwt = decodeJwt)(
       implicit asys: ActorSystem,
@@ -66,36 +68,36 @@ object HttpService extends StrictLogging {
     )
 
     val bindingEt: EitherT[Future, Error, ServerBinding] = for {
-      clientChannel <- FutureUtil
-        .either(LedgerClientJwt
+      clientChannel <- either(
+        LedgerClientJwt
           .singleHostChannel(ledgerHost, ledgerPort, clientConfig, maxInboundMessageSize)(ec, aesf))
         .leftMap(e => Error(e.getMessage)): ET[io.grpc.Channel]
 
-      client <- FutureUtil
-        .rightT(LedgerClient.forChannel(clientConfig, clientChannel)): ET[LedgerClient]
+      client <- rightT(LedgerClient.forChannel(clientConfig, clientChannel)): ET[LedgerClient]
 
       ledgerId = apiLedgerId(client.ledgerId): lar.LedgerId
 
       _ = logger.info(s"Connected to Ledger: ${ledgerId: lar.LedgerId}")
 
-      packageStore <- FutureUtil
-        .eitherT(LedgerReader.createPackageStore(client.packageClient))
-        .leftMap(e => Error(e))
+      packageService = new PackageService(reloadPackageStore(client.packageClient))
 
-      templateIdMap = PackageService.getTemplateIdMap(packageStore)
+      // load all packages right away
+      _ <- eitherT(packageService.reload).leftMap(e => Error(e.shows)): ET[Unit]
+
+      _ = schedulePackageReload(packageService, packageReloadInterval)
 
       commandService = new CommandService(
-        PackageService.resolveTemplateId(templateIdMap),
+        packageService.resolveTemplateId,
         LedgerClientJwt.submitAndWaitForTransaction(clientConfig, clientChannel),
         TimeProvider.UTC)
 
       contractsService = new ContractsService(
-        PackageService.resolveTemplateIds(templateIdMap),
+        packageService.resolveTemplateIds,
         LedgerClientJwt.getActiveContracts(clientConfig, clientChannel),
-        LedgerReader.damlLfTypeLookup(packageStore)
+        LedgerReader.damlLfTypeLookup(packageService.packageStore _)
       )
 
-      (encoder, decoder) = buildJsonCodecs(ledgerId, packageStore, templateIdMap)
+      (encoder, decoder) = buildJsonCodecs(ledgerId, packageService)
 
       endpoints = new Endpoints(
         ledgerId,
@@ -121,6 +123,13 @@ object HttpService extends StrictLogging {
     bindingF
   }
 
+  private[http] def reloadPackageStore(packageClient: PackageClient)(
+      implicit ec: ExecutionContext): PackageService.ReloadPackageStore =
+    (ids: Set[String]) =>
+      LedgerReader
+        .reloadPackageStore(packageClient)(ids)
+        .map(_.leftMap(e => PackageService.ServerError(e)))
+
   def stop(f: Future[Error \/ ServerBinding])(implicit ec: ExecutionContext): Future[Unit] = {
     logger.info("Stopping server...")
     f.collect { case \/-(a) => a.unbind().void }.join
@@ -132,11 +141,9 @@ object HttpService extends StrictLogging {
 
   private[http] def buildJsonCodecs(
       ledgerId: lar.LedgerId,
-      packageStore: PackageStore,
-      templateIdMap: TemplateIdMap): (DomainJsonEncoder, DomainJsonDecoder) = {
+      packageService: PackageService): (DomainJsonEncoder, DomainJsonDecoder) = {
 
-    val resolveTemplateId = PackageService.resolveTemplateId(templateIdMap) _
-    val lfTypeLookup = LedgerReader.damlLfTypeLookup(packageStore) _
+    val lfTypeLookup = LedgerReader.damlLfTypeLookup(packageService.packageStore _) _
     val jsValueToApiValueConverter = new JsValueToApiValueConverter(lfTypeLookup)
     val jsObjectToApiRecord = jsValueToApiValueConverter.jsObjectToApiRecord _
     val jsValueToApiValue = jsValueToApiValueConverter.jsValueToApiValue _
@@ -146,8 +153,23 @@ object HttpService extends StrictLogging {
     val apiRecordToJsObject = apiValueToJsValueConverter.apiRecordToJsObject _
 
     val encoder = new DomainJsonEncoder(apiRecordToJsObject, apiValueToJsValue)
-    val decoder = new DomainJsonDecoder(resolveTemplateId, jsObjectToApiRecord, jsValueToApiValue)
+    val decoder = new DomainJsonDecoder(
+      packageService.resolveTemplateId,
+      jsObjectToApiRecord,
+      jsValueToApiValue)
 
     (encoder, decoder)
   }
+
+  private def schedulePackageReload(packageService: PackageService, pollInterval: FiniteDuration)(
+      implicit asys: ActorSystem,
+      ec: ExecutionContext): Cancellable =
+    asys.scheduler.schedule(pollInterval, pollInterval) {
+      val f: Future[PackageService.Error \/ Unit] = packageService.reload
+      f.onComplete {
+        case scala.util.Failure(e) => logger.error("Package reload failed", e)
+        case scala.util.Success(-\/(e)) => logger.error("Package reload failed: " + e.shows)
+        case scala.util.Success(\/-(_)) =>
+      }
+    }
 }

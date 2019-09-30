@@ -5,9 +5,50 @@ package com.digitalasset.http
 
 import com.digitalasset.http.domain.TemplateId
 import com.digitalasset.ledger.service.LedgerReader.PackageStore
-import com.digitalasset.ledger.service.TemplateIds
+import com.digitalasset.ledger.service.{LedgerReader, TemplateIds}
+import com.typesafe.scalalogging.StrictLogging
 import scalaz.Scalaz._
 import scalaz._
+
+import scala.concurrent.{ExecutionContext, Future}
+
+private class PackageService(reloadPackageStoreIfChanged: PackageService.ReloadPackageStore)
+    extends StrictLogging {
+
+  import PackageService._
+
+  private case class State(
+      packageIds: Set[String],
+      templateIdMap: TemplateIdMap,
+      packageStore: PackageStore)
+
+  @volatile private var state: State = State(Set.empty, TemplateIdMap.Empty, Map.empty)
+
+  def reload(implicit ec: ExecutionContext): Future[Error \/ Unit] = {
+    reloadPackageStoreIfChanged(state.packageIds).map {
+      _.map {
+        case Some(map) =>
+          val packageIds = map.keySet
+          val newState = State(packageIds, getTemplateIdMap(map), map)
+          this.state = newState
+          logger.info(s"loaded package IDs: ${packageIds.mkString(", ")}")
+          ()
+        case None =>
+          logger.debug(s"package IDs did not change")
+          ()
+      }
+    }
+  }
+
+  def packageStore: PackageStore = state.packageStore
+
+  def resolveTemplateId: ResolveTemplateId =
+    PackageService.resolveTemplateId(state.templateIdMap)
+
+  def resolveTemplateIds: ResolveTemplateIds =
+    PackageService.resolveTemplateIds(state.templateIdMap)
+
+}
 
 object PackageService {
   sealed trait Error
@@ -21,11 +62,22 @@ object PackageService {
     }
   }
 
+  type ReloadPackageStore =
+    Set[String] => Future[PackageService.Error \/ Option[LedgerReader.PackageStore]]
+
   type ResolveTemplateIds =
     Set[domain.TemplateId.OptionalPkg] => Error \/ List[TemplateId.RequiredPkg]
 
   type ResolveTemplateId =
     domain.TemplateId.OptionalPkg => Error \/ TemplateId.RequiredPkg
+
+  case class TemplateIdMap(
+      all: Set[TemplateId.RequiredPkg],
+      unique: Map[TemplateId.NoPkg, TemplateId.RequiredPkg])
+
+  object TemplateIdMap {
+    val Empty: TemplateIdMap = TemplateIdMap(Set.empty, Map.empty)
+  }
 
   def getTemplateIdMap(packageStore: PackageStore): TemplateIdMap =
     buildTemplateIdMap(collectTemplateIds(packageStore))
@@ -34,10 +86,6 @@ object PackageService {
     TemplateIds
       .getTemplateIds(packageStore.values.toSet)
       .map(x => TemplateId(x.packageId, x.moduleName, x.entityName))
-
-  case class TemplateIdMap(
-      all: Set[TemplateId.RequiredPkg],
-      unique: Map[TemplateId.NoPkg, TemplateId.RequiredPkg])
 
   def buildTemplateIdMap(ids: Set[TemplateId.RequiredPkg]): TemplateIdMap = {
     val all: Set[TemplateId.RequiredPkg] = ids

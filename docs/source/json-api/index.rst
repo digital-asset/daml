@@ -53,8 +53,26 @@ Start HTTP service from a DAML project directory
 
 ::
 
+    $ daml json-api --help
+    HTTP JSON API daemon
+    Usage: http-json-binary [options]
+
+      --help                   Print this usage text
+      --ledger-host <value>    Ledger host name or IP address
+      --ledger-port <value>    Ledger port number
+      --http-port <value>      HTTP JSON API service port number
+      --application-id <value>
+                               Optional application ID to use for ledger registration. Defaults to HTTP-JSON-API-Gateway
+      --package-reload-interval <value>
+                               Optional interval to poll for package updates. Examples: 500ms, 5s, 10min, 1h, 1d. Defaults to 5 seconds
+      --max-inbound-message-size <value>
+                               Optional max inbound message size in bytes. Defaults to 4194304
+
+::
+
     $ daml json-api --ledger-host localhost --ledger-port 6865 \
-        --http-port 7575 --max-inbound-message-size 4194304 --application-id HTTP-JSON-API-Gateway
+        --http-port 7575 --max-inbound-message-size 4194304 --package-reload-interval 5s \\
+        --application-id HTTP-JSON-API-Gateway
 
 Where:
 
