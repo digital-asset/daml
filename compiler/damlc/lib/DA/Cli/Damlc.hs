@@ -11,7 +11,7 @@ module DA.Cli.Damlc (main) where
 import qualified "zip-archive" Codec.Archive.Zip as ZipArchive
 import qualified "zip" Codec.Archive.Zip as Zip
 import Control.Exception
-import Control.Exception.Safe (catchIO)
+import Control.Exception.Safe (catchIO, handleIO)
 import Control.Monad.Except
 import Control.Monad.Extra (whenM)
 import DA.Bazel.Runfiles
@@ -486,7 +486,22 @@ createProjectPackageDb ::
 createProjectPackageDb (AllowDifferentSdkVersions allowDiffSdkVersions) lfVersion fps = do
     let dbPath = projectPackageDatabase </> lfVersionString lfVersion
     createDirectoryIfMissing True $ dbPath </> "package.conf.d"
-    let fps0 = filter (`notElem` basePackages) fps
+    -- Expand SDK package dependencies using the SDK root path.
+    -- E.g. `daml-trigger` --> `$DAML_SDK/daml-libs/daml-trigger.dar`
+    -- Or, fail if not run from DAML assistant.
+    mbSdkPath <- handleIO (\_ -> pure Nothing) $ Just <$> getSdkPath
+    let isSdkPackage fp = takeExtension fp /= ".dar"
+        handleSdkPackages :: [FilePath] -> IO [FilePath]
+        handleSdkPackages =
+          let expand fp
+                | isSdkPackage fp
+                = case mbSdkPath of
+                    Just sdkPath -> pure $! sdkPath </> "daml-libs" </> fp <.> "dar"
+                    Nothing -> fail $ "Cannot resolve SDK dependency '" ++ fp ++ "'. Use daml-assistant."
+                | otherwise
+                = pure fp
+          in mapM expand
+    fps0 <- handleSdkPackages $ filter (`notElem` basePackages) fps
     sdkVersions <-
         forM fps0 $ \fp -> do
             bs <- BSL.readFile fp

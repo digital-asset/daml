@@ -5,9 +5,9 @@
 # daml_compile instead of a genrule.
 
 genrule(
-    name = "trigger",
+    name = "daml-trigger",
     srcs = glob(["**/*.daml"]),
-    outs = ["trigger.dar"],
+    outs = ["daml-trigger.dar"],
     cmd = """
       set -eou pipefail
       TMP_DIR=$$(mktemp -d)
@@ -15,14 +15,14 @@ genrule(
       cp -L $(location Daml/Trigger.daml) $$TMP_DIR/daml/Daml
       cat << EOF > $$TMP_DIR/daml.yaml
 sdk-version: 0.0.0
-name: trigger
+name: daml-trigger
 source: daml
 version: 0.0.1
 dependencies:
   - daml-stdlib
   - daml-prim
 EOF
-      $(location //compiler/damlc) build --target=1.dev --project-root=$$TMP_DIR -o $$PWD/$(location trigger.dar)
+      $(location //compiler/damlc) build --target=1.dev --project-root=$$TMP_DIR -o $$PWD/$(location daml-trigger.dar)
       rm -rf $$TMP_DIR
     """,
     tools = ["//compiler/damlc"],

@@ -14,7 +14,7 @@ genrule(
     name = "acs",
     srcs =
         glob(["**/*.daml"]) + [
-            "//triggers/daml:trigger.dar",
+            "//triggers/daml:daml-trigger.dar",
         ],
     outs = ["acs.dar"],
     cmd = """
@@ -22,7 +22,7 @@ genrule(
       TMP_DIR=$$(mktemp -d)
       mkdir -p $$TMP_DIR/daml
       cp -L $(location :daml/ACS.daml) $$TMP_DIR/daml
-      cp -L $(location //triggers/daml:trigger.dar) $$TMP_DIR/
+      cp -L $(location //triggers/daml:daml-trigger.dar) $$TMP_DIR/
       cat << EOF > $$TMP_DIR/daml.yaml
 sdk-version: 0.0.0
 name: acs
@@ -31,7 +31,7 @@ version: 0.0.1
 dependencies:
   - daml-stdlib
   - daml-prim
-  - trigger.dar
+  - daml-trigger.dar
 EOF
       $(location //compiler/damlc) build --target=1.dev --project-root=$$TMP_DIR -o $$PWD/$(location acs.dar)
       rm -rf $$TMP_DIR
