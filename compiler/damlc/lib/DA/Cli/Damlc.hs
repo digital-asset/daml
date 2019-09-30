@@ -492,21 +492,15 @@ createProjectPackageDb (AllowDifferentSdkVersions allowDiffSdkVersions) lfVersio
     mbSdkPath <- handleIO (\_ -> pure Nothing) $ Just <$> getSdkPath
     let isSdkPackage fp = takeExtension fp /= ".dar"
         handleSdkPackages :: [FilePath] -> IO [FilePath]
-        handleSdkPackages = case mbSdkPath of
-          Just sdkPath ->
-            let expand fp
-                  | isSdkPackage fp
-                  = sdkPath </> "daml-libs" </> fp <.> "dar"
-                  | otherwise
-                  = fp
-            in pure . map expand
-          Nothing ->
-            let expand fp
-                  | isSdkPackage fp
-                  = fail $ "Cannot resolve SDK dependency '" ++ fp ++ "'. Use daml-assistant."
-                  | otherwise
-                  = pure fp
-            in mapM expand
+        handleSdkPackages =
+          let expand fp
+                | isSdkPackage fp
+                = case mbSdkPath of
+                    Just sdkPath -> pure $! sdkPath </> "daml-libs" </> fp <.> "dar"
+                    Nothing -> fail $ "Cannot resolve SDK dependency '" ++ fp ++ "'. Use daml-assistant."
+                | otherwise
+                = pure fp
+          in mapM expand
     fps0 <- handleSdkPackages $ filter (`notElem` basePackages) fps
     sdkVersions <-
         forM fps0 $ \fp -> do
