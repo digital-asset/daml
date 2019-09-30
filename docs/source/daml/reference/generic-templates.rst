@@ -48,7 +48,7 @@ We would like to model an issuing party (e.g. a bank) proposing a coin contract 
    :start-after: -- start instance
    :end-before: -- end instance
 
-Note that we must choose a name, here ``CoinProposal``, for creating contracts of this template in some client languages (for example when using the Java ledger bindings).
+Note that we must choose a name, here ``CoinProposal``, for the template instance. It serves two purposes. First, it provides a type synonym for the underlying type, here ``Proposal Coin``. Second, it must be used to create contracts of this template in some client languages (for example when using the Java ledger bindings).
 
 With a template instance in place, we can create and exercise choices on contracts of this type.
 
