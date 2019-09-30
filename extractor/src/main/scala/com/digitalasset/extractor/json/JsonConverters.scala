@@ -12,6 +12,7 @@ import com.digitalasset.daml.lf.data.{
   Numeric => LfNumeric
 }
 import com.digitalasset.daml.lf.value.{Value => V}
+import com.digitalasset.daml.lf.value.json.ApiCodecCompressed
 import com.digitalasset.extractor.ledger.types.{Identifier, LedgerValue}
 import com.digitalasset.extractor.ledger.types.LedgerValue._
 import com.digitalasset.extractor.writers.postgresql.DataFormatState.MultiTableState
@@ -22,6 +23,17 @@ import io.circe.syntax._
 import scalaz.@@
 
 object JsonConverters {
+  private[this] object LfValueSprayEnc
+      extends ApiCodecCompressed[String](
+        encodeDecimalAsString = false,
+        encodeInt64AsString = true
+      ) {
+    import spray.json._, ApiCodecCompressed.JsonImplicits.StringJsonFormat
+    override protected[this] def apiContractIdToJsValue(v: String): JsValue = JsString(v)
+    override protected[this] def jsValueToApiContractId(value: JsValue): String =
+      value.convertTo[String]
+  }
+
   def toJsonString[A: Encoder](a: A): String = {
     a.asJson.noSpaces
   }
