@@ -72,7 +72,7 @@ decodeInternableStrings :: V.Vector TL.Text -> Word64 -> Decode [T.Text]
 decodeInternableStrings strs id
     | V.null strs = lookupStringList id
     | id == 0 = pure $ map decodeString (V.toList strs)
-    | otherwise = throwError $ ParseError $ "items and interned id both set for string list"
+    | otherwise = throwError $ ParseError "items and interned id both set for string list"
 
 -- | Decode the name of a syntactic object, e.g., a variable or a data
 -- constructor. These strings are mangled to escape special characters. All
@@ -204,7 +204,7 @@ decodeDataCons = \case
     mangled <- if
       | V.null cIds -> pure $ map decodeString (V.toList cs)
       | V.null cs -> mapM lookupString (V.toList cIds)
-      | otherwise -> throwError $ ParseError $ "strings and interned string ids both set for enum constructor"
+      | otherwise -> throwError $ ParseError "strings and interned string ids both set for enum constructor"
     DataEnum <$> mapM (decodeNameString VariantConName) mangled
 
 decodeDefValueNameWithType :: LF1.DefValue_NameWithType -> Decode (ExprValName, Type)

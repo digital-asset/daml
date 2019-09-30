@@ -36,6 +36,7 @@
 //        2019-07-29: Add nat kind and Nat types, Numeric types and Numeric builtins
 //        2019-09-17: Add Any type and, To_Any and From_Any builtins
 //        2019-09-17: Drop support for Decimal
+//        2019-09-30: Add interning of strings and dotted names
 
 syntax = "proto3";
 package daml_lf_1;
@@ -116,8 +117,8 @@ message FieldWithType {
   // Name of the field .
   // *Must be a valid identifier*
   oneof field {
-    string name = 1;
-    uint64 interned_id = 3; // *Available in versions >= 1.dev*
+    string field_name = 1;
+    uint64 field_interned_id = 3; // *Available in versions >= 1.dev*
   }
 
   // Type associated
@@ -156,8 +157,8 @@ message FieldWithExpr {
   // Name of the field
   // *Must be a valid identifier*
   oneof field {
-    string name = 1;
-    uint64 interned_id = 3; // *Available in versions >= 1.dev*
+    string field_name = 1;
+    uint64 field_interned_id = 3; // *Available in versions >= 1.dev*
   }
 
   // Value of the field
@@ -268,8 +269,8 @@ message Type {
     // Name of the variable.
     // *Must be a valid identifier*
     oneof var {
-      string name = 1;
-      uint64 interned_id = 3; // *Available in versions >= 1.dev*
+      string var_name = 1;
+      uint64 var_interned_id = 3; // *Available in versions >= 1.dev*
     }
 
     // Types to which the variable is applied
@@ -887,15 +888,15 @@ message CaseAlt {
     // name of the variant constructor
     // *Must be a valid identifier*
     oneof variant {
-      string name = 2;
-      uint64 interned_id = 4; // *Available in versions >= 1.dev*
+      string variant_name = 2;
+      uint64 variant_interned_id = 4; // *Available in versions >= 1.dev*
     }
 
     // name of the variant binder
     // *Must be a valid identifier*
     oneof binder {
-      string name = 3;
-      uint64 interned_id = 5; // *Available in versions >= 1.dev*
+      string binder_name = 3;
+      uint64 binder_interned_id = 5; // *Available in versions >= 1.dev*
     }
   }
 
@@ -919,15 +920,15 @@ message CaseAlt {
     // name of the binder for the head
     // *Must be a valid identifier*
     oneof var_head {
-      string name = 1;
-      uint64 interned_id = 3; // *Available in versions >= 1.dev*
+      string var_head_name = 1;
+      uint64 var_head_interned_id = 3; // *Available in versions >= 1.dev*
     }
 
     // name of the binder for the tail
     // *Must be a valid identifier*
     oneof var_tail {
-      string name = 2;
-      uint64 interned_id = 4; // *Available in versions >= 1.dev*
+      string var_tail_name = 2;
+      uint64 var_tail_interned_id = 4; // *Available in versions >= 1.dev*
     }
   }
 
@@ -1011,7 +1012,7 @@ message Update {
     reserved 3; // was actor, we thought we'd need this, but we don't
   }
 
-  // Embeded Exression Update
+  // Embedded Expression Update
   message EmbedExpr {
     // Expression type
     Type type = 1;
@@ -1084,8 +1085,8 @@ message TemplateChoice {
 
   // *Must be a valid identifier*
   oneof name {
-    string name = 1;
-    uint64 interned_id = 9; // *Available in versions >= 1.dev*
+    string choice_name = 1;
+    uint64 choice_interned_id = 9; // *Available in versions >= 1.dev*
   }
 
   // Choice type
@@ -1109,8 +1110,8 @@ message TemplateChoice {
 
   // Name to bind the ContractId of the contract this choice is exercised on to.
   oneof self_binder {
-    string name = 7;
-    uint64 interned_id = 10; // *Available in versions >= 1.dev*
+    string self_binder_name = 7;
+    uint64 self_binder_interned_id = 10; // *Available in versions >= 1.dev*
   }
 
   Location location = 8;
@@ -1121,8 +1122,8 @@ message KeyExpr {
     message Projection {
         Type.Con tycon = 1; // Always fully applied
         oneof field {
-            string name = 2;
-            uint64 interned_id = 3; // *Available in versions >= 1.dev*
+            string field_name = 2;
+            uint64 field_interned_id = 3; // *Available in versions >= 1.dev*
         }
     }
 
@@ -1133,8 +1134,8 @@ message KeyExpr {
 
     message RecordField {
         oneof field {
-            string name = 1;
-            uint64 interned_id = 3; // *Available in versions >= 1.dev*
+            string field_name = 1;
+            uint64 field_interned_id = 3; // *Available in versions >= 1.dev*
         }
         KeyExpr expr = 2;
     }
@@ -1171,8 +1172,8 @@ message DefTemplate {
 
   // Name to which the template argument is bound.
   oneof param {
-    string name = 2;
-    uint64 interned_id = 11; // *Available in versions >= 1.dev*
+    string param_name = 2;
+    uint64 param_interned_id = 11; // *Available in versions >= 1.dev*
   }
 
   // NOTE(MH): The new runtime authorization check for DAML 1.0 does not rely

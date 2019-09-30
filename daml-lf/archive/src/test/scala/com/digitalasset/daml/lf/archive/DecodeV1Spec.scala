@@ -49,6 +49,7 @@ class DecodeV1Spec
       .ModuleDecoder(
         Ref.PackageId.assertFromString("noPkgId"),
         ImmArray.empty.toSeq,
+        ImmArray.empty.toSeq,
         dummyModule,
         onlySerializableDataDefs = false)
 
@@ -508,7 +509,7 @@ class DecodeV1Spec
             pr.getInternedId
         }
         .value
-      dalf1.getInternedPackageIdsList.asScala.lift(iix.toInt).value
+      dalf1.getInternedStringsList.asScala.lift(iix.toInt).value
     }
 
     "take a dalf with interned IDs" in {
