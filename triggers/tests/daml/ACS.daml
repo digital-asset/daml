@@ -32,12 +32,12 @@ test = Trigger
   , update = update
   }
   where
-    update : Message -> TriggerState -> (TriggerState, Optional Commands,  Text)
+    update : Message -> TriggerState -> (TriggerState, [Commands],  Text)
     update (MTransaction t) (TriggerState acs nextId party) = case foldl updateEvent ([], acs) (events t) of
-      ([], acs) -> (TriggerState acs nextId  party, None, "No command")
+      ([], acs) -> (TriggerState acs nextId  party, [], "No command")
       (cmds, acs) ->
         ( TriggerState acs (nextId + 1) party
-        , Some $ Commands ("command_" <> show nextId) cmds
+        , [Commands ("command_" <> show nextId) cmds]
         , "Submitted " <> show (length cmds) <> " commands"
         )
       where
