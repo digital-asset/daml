@@ -58,10 +58,10 @@ object JsonConverters {
     case V.ValueUnit => emptyRecord
   }
 
-  implicit def frontStackEncoder[A: Encoder]: Encoder[FrontStack[A]] =
+  private implicit def frontStackEncoder[A: Encoder]: Encoder[FrontStack[A]] =
     _.toImmArray.map(_.asJson).toSeq.asJson
 
-  implicit val variantEncoder: Encoder[OfCid[V.ValueVariant]] = {
+  private implicit val variantEncoder: Encoder[OfCid[V.ValueVariant]] = {
     case V.ValueVariant(tycon @ _, ctor, value) =>
       JsonObject(
         ctor -> value.asJson
@@ -82,13 +82,13 @@ object JsonConverters {
           .fromIterable(m.toImmArray.map { case (k, v) => k -> v.asJson }.toSeq)
           .asJson).asJson
 
-  implicit val idKeyEncoder: KeyEncoder[Identifier] = id => s"${id.packageId}@${id.name}"
-  implicit val idKeyDecoder: KeyDecoder[Identifier] = StringEncodedIdentifier.unapply
+  private implicit val idKeyEncoder: KeyEncoder[Identifier] = id => s"${id.packageId}@${id.name}"
+  private implicit val idKeyDecoder: KeyDecoder[Identifier] = StringEncodedIdentifier.unapply
 
-  implicit val idEncoder: Encoder[Identifier] = deriveEncoder[Identifier]
-  implicit val idDecoder: Decoder[Identifier] = deriveDecoder[Identifier]
+  private implicit val idEncoder: Encoder[Identifier] = deriveEncoder[Identifier]
+  private implicit val idDecoder: Decoder[Identifier] = deriveDecoder[Identifier]
 
-  object StringEncodedIdentifier {
+  private object StringEncodedIdentifier {
     private val idPattern = raw"(\w*)@(.*)".r
 
     def unapply(str: String): Option[Identifier] = str match {
@@ -97,19 +97,19 @@ object JsonConverters {
     }
   }
 
-  implicit def taggedEncoder[A: Encoder, T]: Encoder[A @@ T] =
+  private implicit def taggedEncoder[A: Encoder, T]: Encoder[A @@ T] =
     scalaz.Tag.subst(Encoder[A])
-  implicit def taggedDecoder[A: Decoder, T]: Decoder[A @@ T] =
+  private implicit def taggedDecoder[A: Decoder, T]: Decoder[A @@ T] =
     scalaz.Tag.subst(Decoder[A])
 
-  implicit val nameEncoder: Encoder[Ref.Name] =
+  private implicit val nameEncoder: Encoder[Ref.Name] =
     Encoder[String].contramap(identity)
-  implicit val partyEncoder: Encoder[Ref.Party] =
+  private implicit val partyEncoder: Encoder[Ref.Party] =
     Encoder[String].contramap(identity)
 
-  implicit val lfDateEncoder: Encoder[Time.Date] =
+  private implicit val lfDateEncoder: Encoder[Time.Date] =
     Encoder[String].contramap(_.toString)
-  implicit val lfTimestampEncoder: Encoder[Time.Timestamp] =
+  private implicit val lfTimestampEncoder: Encoder[Time.Timestamp] =
     Encoder[String].contramap(_.toString)
 
   implicit val multiTableStateEncoder: Encoder[MultiTableState] = deriveEncoder[MultiTableState]
