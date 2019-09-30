@@ -276,10 +276,12 @@ In the context of the templates ``Iou`` and ``Proposal`` above, the generic temp
    :start-after: -- start code snippet: generic template instantiation
    :end-before: -- end code snippet: generic template instantiation
 
-which does not produce a DAML data definition but only the DAML-LF record declaration:
+does not produce a DAML data definition but only the DAML-LF record declaration:
 
 .. code-block:: none
 
 	record IouProposal ↦ { proposal: Iou; proposers: List Party; receivers: List Party }
 
 Note that ``IouProposal`` is a copy of ``Proposal`` with the type variable ``a`` replaced by ``Iou`` on the right hand side.
+
+In DAML, ``IouProposal`` can also be used as a type synonym for ``Proposal Iou``.
