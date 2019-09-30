@@ -45,4 +45,4 @@ HEAD — ongoing
   This type definition is easier to use in the surface DAML and consistent with the types translated to DAML LF.
   The only change to user DAML is that uses of the ``TI`` ``newtype`` generated from
   ``template instance TI = T A1 .. AN`` should be simplified to use the type synonym ``type TI = T A1 .. AN``.
-+ [Scala Bindings] Fixed a bug in the retry logic of ``LedgerClientBinding#retryingConfirmedCommands``. Commands are now only retried when the server responds with status RESOURCE_EXHAUSTED.
++ [Scala Bindings] Fixed a bug in the retry logic of ``LedgerClientBinding#retryingConfirmedCommands``. Commands are now only retried when the server responds with status ``RESOURCE_EXHAUSTED`` or ``UNAVAILABLE``.

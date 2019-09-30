@@ -95,9 +95,13 @@ class CommandRetryFlowUT extends AsyncWordSpec with Matchers with AkkaTest {
       }
     }
 
-    "fail on all codes but RESOURCE_EXHAUSTED status" in {
+    "fail on all codes but RESOURCE_EXHAUSTED and UNAVAILABLE status" in {
       val codesToFail =
-        Code.values().toList.filterNot(c => c == Code.RESOURCE_EXHAUSTED || c == Code.UNRECOGNIZED)
+        Code
+          .values()
+          .toList
+          .filterNot(c =>
+            c == Code.UNRECOGNIZED || CommandRetryFlow.RETRYABLE_ERROR_CODES.contains(c.getNumber))
       val failedSubmissions = codesToFail.map { code =>
         submitRequest(code.getNumber, Instant.ofEpochSecond(45)) map { result =>
           result.size shouldBe 1
@@ -110,6 +114,14 @@ class CommandRetryFlowUT extends AsyncWordSpec with Matchers with AkkaTest {
 
     "retry RESOURCE_EXHAUSTED status" in {
       submitRequest(Code.RESOURCE_EXHAUSTED_VALUE, Instant.ofEpochSecond(45)) map { result =>
+        result.size shouldBe 1
+        result.head.context.nrOfRetries shouldBe 1
+        result.head.value.status.get.code shouldBe Code.OK_VALUE
+      }
+    }
+
+    "retry UNAVAILABLE status" in {
+      submitRequest(Code.UNAVAILABLE_VALUE, Instant.ofEpochSecond(45)) map { result =>
         result.size shouldBe 1
         result.head.context.nrOfRetries shouldBe 1
         result.head.value.status.get.code shouldBe Code.OK_VALUE

@@ -97,7 +97,8 @@ object CommandRetryFlow {
         FlowShape(merge.in(PROPAGATE_PORT), retryDecider.out(PROPAGATE_PORT))
       })
 
-  private val RETRYABLE_ERROR_CODES = Set(Code.RESOURCE_EXHAUSTED_VALUE)
+  private[retrying] val RETRYABLE_ERROR_CODES =
+    Set(Code.RESOURCE_EXHAUSTED_VALUE, Code.UNAVAILABLE_VALUE)
 
   private def statusNotFoundError(commandId: String): Int =
     throw new RuntimeException(s"Status for command $commandId is missing.")
