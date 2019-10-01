@@ -10,9 +10,9 @@ if [ "$#" -ne 1 ]; then
     exit 1
 fi
 
-cd "$(dirname ${BASH_SOURCE[0]})"
+TARGET_DIR=$(realpath $1)
 
-TARGET_DIR=$1
+cd "$(dirname ${BASH_SOURCE[0]})"
 
 bazel build //ledger-api/grpc-definitions:all-ledger-api-haskellpb-sources
 
