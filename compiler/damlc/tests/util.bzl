@@ -86,7 +86,7 @@ def damlc_integration_test(name, main_function):
             "//libs-haskell/test-utils",
         ],
         hackage_deps = [
-            "aeson",
+            "aeson-pretty",
             "base",
             "bytestring",
             "containers",
@@ -98,8 +98,6 @@ def damlc_integration_test(name, main_function):
             "ghc-lib",
             "ghc-lib-parser",
             "ghcide",
-            "lens",
-            "lens-aeson",
             "optparse-applicative",
             "process",
             "proto3-suite",

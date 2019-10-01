@@ -21,7 +21,6 @@ import           DA.Daml.LF.Ast as LF hiding (IsTest)
 import           "ghc-lib-parser" UniqSupply
 import           "ghc-lib-parser" Unique
 
-import           Control.Lens.Plated (transformOn)
 import           Control.Concurrent.Extra
 import           Control.DeepSeq
 import           Control.Exception.Extra
@@ -34,9 +33,8 @@ import qualified DA.Service.Logger.Impl.Pure as Logger
 import qualified Development.IDE.Types.Logger as IdeLogger
 import Development.IDE.Types.Location
 import Development.IDE.Types.Options(IdeReportProgress(..))
-import qualified Data.Aeson as A
-import qualified Data.Aeson.Lens as A
-import           Data.ByteString.Lazy.Char8 (unpack)
+import qualified Data.Aeson.Encode.Pretty as A
+import qualified Data.ByteString.Lazy.Char8 as BSL
 import           Data.Char
 import qualified Data.DList as DList
 import Data.Foldable
@@ -175,7 +173,7 @@ testCase args version getService outdir registerTODO (name, file) = singleTest n
       for_ [file ++ ", " ++ x | Todo x <- anns] (registerTODO . TODO)
       resDiag <- checkDiagnostics log [fields | DiagnosticFields fields <- anns] $
         [ideErrorText "" $ T.pack $ show e | Left e <- [ex], not $ "_IGNORE_" `isInfixOf` show e] ++ diags
-      resQueries <- runJqQuery log [(pkg, q) | Right pkg <- [ex], QueryLF q <- anns]
+      resQueries <- runJqQuery log outdir file [q | QueryLF q <- anns]
       let failures = catMaybes $ resDiag : resQueries
       case failures of
         err : _others -> pure $ testFailed err
@@ -187,22 +185,17 @@ testCase args version getService outdir registerTODO (name, file) = singleTest n
       UntilLF maxVersion -> version > maxVersion
       _ -> False
 
-runJqQuery :: (String -> IO ()) -> [(LF.Package, String)] -> IO [Maybe String]
-runJqQuery log qs = do
-  forM qs $ \(pkg, q) -> do
+runJqQuery :: (String -> IO ()) -> FilePath -> FilePath -> [String] -> IO [Maybe String]
+runJqQuery log outdir file qs = do
+  let proj = takeBaseName file
+  forM qs $ \q -> do
     log $ "running jq query: " ++ q
-    let json = unpack $ A.encode $ transformOn A._Value numToString $ JSONPB.toJSONPB (encodePackage pkg) JSONPB.jsonPBOptions
     let jqKey = "external" </> "jq_dev_env" </> "bin" </> if isWindows then "jq.exe" else "jq"
     jq <- locateRunfiles $ mainWorkspace </> jqKey
-    out <- readProcess jq [q] json
+    out <- readProcess jq [q, outdir </> proj <.> "json"] ""
     case trim out of
       "true" -> pure Nothing
       other -> pure $ Just $ "jq query failed: got " ++ other
-  where
-    numToString :: A.Value -> A.Value
-    numToString = \case
-      A.Number x -> A.String $ T.pack $ show x
-      other -> other
 
 
 data DiagnosticField
@@ -312,12 +305,14 @@ parseRange s =
 
 mainProj :: TestArguments -> IdeState -> FilePath -> (String -> IO ()) -> NormalizedFilePath -> IO LF.Package
 mainProj TestArguments{..} service outdir log file = do
-    writeFile <- return $ \a b -> length b `seq` writeFile a b
     let proj = takeBaseName (fromNormalizedFilePath file)
 
     let corePrettyPrint = timed log "Core pretty-printing" . liftIO . writeFile (outdir </> proj <.> "core") . unlines . map prettyPrint
     let lfSave = timed log "LF saving" . liftIO . writeFileLf (outdir </> proj <.> "dalf")
     let lfPrettyPrint = timed log "LF pretty-printing" . liftIO . writeFile (outdir </> proj <.> "pdalf") . renderPretty
+    let jsonSave pkg =
+            let json = A.encodePretty $ JSONPB.toJSONPB (encodePackage pkg) JSONPB.jsonPBOptions
+            in timed log "JSON saving" . liftIO . BSL.writeFile (outdir </> proj <.> "json") $ json
 
     setFilesOfInterest service (Set.singleton file)
     runActionSync service $ do
@@ -329,6 +324,7 @@ mainProj TestArguments{..} service outdir log file = do
             lf <- lfTypeCheck log file
             lfSave lf
             lfRunScenarios log file
+            jsonSave lf
             pure lf
 
 unjust :: Action (Maybe b) -> Action b
