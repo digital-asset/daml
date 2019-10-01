@@ -147,7 +147,6 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
     // -----------------------------------------------------------------------
 
     private[this] def getInternedString(id: Long): String = {
-      assertSince(LV.Features.internedStrings, "interned strings table")
       def outOfRange = ParseError(s"invalid string table index $id")
       val iid = id.toInt
       if (iid != iid.toLong) throw outOfRange
@@ -155,8 +154,6 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
     }
 
     private[this] def getInternedDottedName(id: Long): DottedName = {
-      assertSince(LV.Features.internedDottedNames, "interned dotted name")
-
       def outOfRange = ParseError(s"invalid dotted name table index $id")
       val iid = id.toInt
       if (iid != iid.toLong) throw outOfRange
@@ -1021,23 +1018,26 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
       }
   }
 
-  private def versionIsOlderThan(minVersion: LV): Boolean =
-    LV.ordering.lt(languageVersion, minVersion)
+  var memoVersionIsOlderThan = mutable.HashMap.empty[LV, Boolean]
 
-  private def assertUntil(maxVersion: LV, description: String): Unit =
+  private def versionIsOlderThan(minVersion: LV): Boolean =
+    // FIXME(JM): Memoizing the comparison speeds the decoding by 6x. Figure out what's wrong
+    // with the version comparison and remove the memoization.
+    memoVersionIsOlderThan.getOrElseUpdate(minVersion, LV.ordering.lt(languageVersion, minVersion))
+
+  private def assertUntil(maxVersion: LV, description: => String): Unit =
     if (!versionIsOlderThan(maxVersion))
       throw ParseError(s"$description is not supported by DAML-LF 1.$minor")
 
-  private def assertSince(minVersion: LV, description: String): Unit =
+  private def assertSince(minVersion: LV, description: => String): Unit =
     if (versionIsOlderThan(minVersion))
       throw ParseError(s"$description is not supported by DAML-LF 1.$minor")
 
-  private def assertNonEmpty(s: Seq[_], description: String): Unit =
+  private def assertNonEmpty(s: Seq[_], description: => String): Unit =
     if (s.isEmpty) throw ParseError(s"Unexpected empty $description")
 
-  private def assertEmpty(s: Seq[_], description: String): Unit =
+  private def assertEmpty(s: Seq[_], description: => String): Unit =
     if (s.nonEmpty) throw ParseError(s"Unexpected non-empty $description")
-
 }
 
 private[lf] object DecodeV1 {
