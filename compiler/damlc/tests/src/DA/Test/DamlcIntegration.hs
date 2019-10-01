@@ -21,7 +21,6 @@ import           DA.Daml.LF.Ast as LF hiding (IsTest)
 import           "ghc-lib-parser" UniqSupply
 import           "ghc-lib-parser" Unique
 
-import           Control.Lens.Plated (transformOn)
 import           Control.Concurrent.Extra
 import           Control.DeepSeq
 import           Control.Exception.Extra
@@ -34,8 +33,6 @@ import qualified DA.Service.Logger.Impl.Pure as Logger
 import qualified Development.IDE.Types.Logger as IdeLogger
 import Development.IDE.Types.Location
 import Development.IDE.Types.Options(IdeReportProgress(..))
-import qualified Data.Aeson as A
-import qualified Data.Aeson.Lens as A
 import qualified Data.Aeson.Encode.Pretty as A
 import qualified Data.ByteString.Lazy.Char8 as BSL
 import           Data.Char
@@ -314,11 +311,7 @@ mainProj TestArguments{..} service outdir log file = do
     let lfSave = timed log "LF saving" . liftIO . writeFileLf (outdir </> proj <.> "dalf")
     let lfPrettyPrint = timed log "LF pretty-printing" . liftIO . writeFile (outdir </> proj <.> "pdalf") . renderPretty
     let jsonSave pkg =
-            let numToString :: A.Value -> A.Value
-                numToString = \case
-                  A.Number x -> A.String $ T.pack $ show x
-                  other -> other
-                json = A.encodePretty $ transformOn A._Value numToString $ JSONPB.toJSONPB (encodePackage pkg) JSONPB.jsonPBOptions
+            let json = A.encodePretty $ JSONPB.toJSONPB (encodePackage pkg) JSONPB.jsonPBOptions
             in timed log "JSON saving" . liftIO . BSL.writeFile (outdir </> proj <.> "json") $ json
 
     setFilesOfInterest service (Set.singleton file)
