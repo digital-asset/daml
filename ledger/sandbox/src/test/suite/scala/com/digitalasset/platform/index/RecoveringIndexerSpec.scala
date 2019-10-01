@@ -7,6 +7,7 @@ import java.util.concurrent.ConcurrentLinkedQueue
 
 import akka.actor.ActorSystem
 import akka.pattern.after
+import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.common.util.{DirectExecutionContext => DEC}
 import org.scalatest.{AsyncWordSpec, Matchers}
 
@@ -86,11 +87,13 @@ class RecoveringIndexerIT extends AsyncWordSpec with Matchers {
   private[this] implicit val ec: ExecutionContext = DEC
   private[this] val actorSystem = ActorSystem("RecoveringIndexerIT")
   private[this] val scheduler = actorSystem.scheduler
+  private[this] val loggerFactory = NamedLoggerFactory(RecoveringIndexerIT.super.getClass)
 
   "RecoveringIndexer" should {
 
     "work when the stream completes" in {
-      val recoveringIndexer = new RecoveringIndexer(actorSystem.scheduler, 10.millis, 1.second)
+      val recoveringIndexer =
+        new RecoveringIndexer(actorSystem.scheduler, 10.millis, 1.second, loggerFactory)
       val testIndexer = new TestIndexer(
         List(
           SubscribeResult("A", 10.millis, true, 10.millis, true)
@@ -108,7 +111,8 @@ class RecoveringIndexerIT extends AsyncWordSpec with Matchers {
     }
 
     "work when the stream is stopped" in {
-      val recoveringIndexer = new RecoveringIndexer(actorSystem.scheduler, 10.millis, 1.second)
+      val recoveringIndexer =
+        new RecoveringIndexer(actorSystem.scheduler, 10.millis, 1.second, loggerFactory)
       // Stream completes after 10sec, but stop() is called before
       val testIndexer = new TestIndexer(
         List(
@@ -129,7 +133,8 @@ class RecoveringIndexerIT extends AsyncWordSpec with Matchers {
     }
 
     "recover failures" in {
-      val recoveringIndexer = new RecoveringIndexer(actorSystem.scheduler, 10.millis, 1.second)
+      val recoveringIndexer =
+        new RecoveringIndexer(actorSystem.scheduler, 10.millis, 1.second, loggerFactory)
       // Subscribe fails, then the stream fails, then the stream completes without errors.
       val testIndexer = new TestIndexer(
         List(
@@ -156,7 +161,8 @@ class RecoveringIndexerIT extends AsyncWordSpec with Matchers {
     }
 
     "respect restart delay" in {
-      val recoveringIndexer = new RecoveringIndexer(actorSystem.scheduler, 500.millis, 1.second)
+      val recoveringIndexer =
+        new RecoveringIndexer(actorSystem.scheduler, 500.millis, 1.second, loggerFactory)
       // Subscribe fails, then the stream completes without errors. Note the restart delay of 500ms.
       val testIndexer = new TestIndexer(
         List(

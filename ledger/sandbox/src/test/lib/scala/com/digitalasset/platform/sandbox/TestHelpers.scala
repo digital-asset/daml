@@ -13,6 +13,7 @@ import com.digitalasset.daml.lf.archive.DarReader
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.engine.Engine
 import com.digitalasset.ledger.api.domain.LedgerId
+import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.sandbox.metrics.MetricsManager
 import com.digitalasset.platform.sandbox.services.ApiSubmissionService
 import com.digitalasset.platform.sandbox.stores.ledger.CommandExecutorImpl
@@ -71,7 +72,8 @@ trait TestHelpers {
       indexAndWriteService.writeService,
       TimeModel.reasonableDefault,
       timeProvider,
-      new CommandExecutorImpl(Engine(), packageStore.getLfPackage)
+      new CommandExecutorImpl(Engine(), packageStore.getLfPackage),
+      NamedLoggerFactory.forParticipant(participantId)
     )(ec, mat)
   }
 

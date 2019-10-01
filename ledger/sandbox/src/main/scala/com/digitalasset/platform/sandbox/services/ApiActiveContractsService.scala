@@ -17,11 +17,12 @@ import com.digitalasset.ledger.api.v1.active_contracts_service._
 import com.digitalasset.ledger.api.v1.event.CreatedEvent
 import com.digitalasset.ledger.api.validation.TransactionFilterValidator
 import com.digitalasset.platform.api.grpc.GrpcApiService
+import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.common.util.DirectExecutionContext
 import com.digitalasset.platform.participant.util.LfEngineToApi
 import com.digitalasset.platform.server.api.validation.ActiveContractsServiceValidation
+
 import io.grpc.{BindableService, ServerServiceDefinition}
-import org.slf4j.LoggerFactory
 
 import scala.concurrent.ExecutionContext
 
@@ -29,14 +30,16 @@ import scalaz.syntax.tag._
 
 class ApiActiveContractsService private (
     backend: ACSBackend,
-    parallelism: Int = Runtime.getRuntime.availableProcessors)(
+    parallelism: Int = Runtime.getRuntime.availableProcessors,
+    loggerFactory: NamedLoggerFactory)(
     implicit executionContext: ExecutionContext,
     protected val mat: Materializer,
     protected val esf: ExecutionSequencerFactory)
     extends ActiveContractsServiceAkkaGrpc
     with GrpcApiService {
 
-  private val logger = LoggerFactory.getLogger(this.getClass)
+  private val logger = loggerFactory.getLogger(this.getClass)
+
   @SuppressWarnings(Array("org.wartremover.warts.Option2Iterable"))
   override protected def getActiveContractsSource(
       request: GetActiveContractsRequest): Source[GetActiveContractsResponse, NotUsed] = {
@@ -95,13 +98,13 @@ object ApiActiveContractsService {
   type TransactionId = String
   type WorkflowId = String
 
-  def create(ledgerId: LedgerId, backend: ACSBackend)(
+  def create(ledgerId: LedgerId, backend: ACSBackend, loggerFactory: NamedLoggerFactory)(
       implicit ec: ExecutionContext,
       mat: Materializer,
       esf: ExecutionSequencerFactory)
     : ActiveContractsService with BindableService with ActiveContractsServiceLogging =
     new ActiveContractsServiceValidation(
-      new ApiActiveContractsService(backend)(ec, mat, esf),
+      new ApiActiveContractsService(backend, loggerFactory = loggerFactory)(ec, mat, esf),
       ledgerId
     ) with BindableService with ActiveContractsServiceLogging {
       override def bindService(): ServerServiceDefinition =

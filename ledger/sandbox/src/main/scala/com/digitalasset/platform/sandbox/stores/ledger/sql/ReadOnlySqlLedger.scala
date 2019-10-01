@@ -7,6 +7,7 @@ import akka.NotUsed
 import akka.stream._
 import akka.stream.scaladsl.{Keep, RestartSource, Sink, Source}
 import com.digitalasset.ledger.api.domain.LedgerId
+import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.common.util.{DirectExecutionContext => DEC}
 import com.digitalasset.platform.sandbox.metrics.MetricsManager
 import com.digitalasset.platform.sandbox.stores.ledger.ReadOnlyLedger
@@ -23,7 +24,6 @@ import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{
   ValueSerializer
 }
 import com.digitalasset.platform.sandbox.stores.ledger.sql.util.DbDispatcher
-import org.slf4j.LoggerFactory
 import scalaz.syntax.tag._
 
 import scala.concurrent.duration._
@@ -35,14 +35,14 @@ object ReadOnlySqlLedger {
   val noOfStreamingConnections = 2
 
   //jdbcUrl must have the user/password encoded in form of: "jdbc:postgresql://localhost/test?user=fred&password=secret"
-  def apply(jdbcUrl: String, ledgerId: Option[LedgerId])(
+  def apply(jdbcUrl: String, ledgerId: Option[LedgerId], loggerFactory: NamedLoggerFactory)(
       implicit mat: Materializer,
       mm: MetricsManager): Future[ReadOnlyLedger] = {
     implicit val ec: ExecutionContext = DEC
 
     val dbType = DbType.jdbcType(jdbcUrl)
     val dbDispatcher =
-      DbDispatcher(jdbcUrl, noOfShortLivedConnections, noOfStreamingConnections)
+      DbDispatcher(jdbcUrl, noOfShortLivedConnections, noOfStreamingConnections, loggerFactory)
     val ledgerReadDao = LedgerDao.meteredRead(
       JdbcLedgerDao(
         dbDispatcher,
@@ -50,9 +50,10 @@ object ReadOnlySqlLedger {
         TransactionSerializer,
         ValueSerializer,
         KeyHasher,
-        dbType))
+        dbType,
+        loggerFactory))
 
-    ReadOnlySqlLedgerFactory(ledgerReadDao).createReadOnlySqlLedger(ledgerId)
+    ReadOnlySqlLedgerFactory(ledgerReadDao, loggerFactory).createReadOnlySqlLedger(ledgerId)
   }
 }
 
@@ -84,9 +85,11 @@ private class ReadOnlySqlLedger(
   }
 }
 
-private class ReadOnlySqlLedgerFactory(ledgerDao: LedgerReadDao) {
+private class ReadOnlySqlLedgerFactory(
+    ledgerDao: LedgerReadDao,
+    loggerFactory: NamedLoggerFactory) {
 
-  private val logger = LoggerFactory.getLogger(getClass)
+  private val logger = loggerFactory.getLogger(getClass)
 
   /** *
     * Creates a DB backed Ledger implementation.
@@ -149,6 +152,6 @@ private class ReadOnlySqlLedgerFactory(ledgerDao: LedgerReadDao) {
 }
 
 private object ReadOnlySqlLedgerFactory {
-  def apply(ledgerDao: LedgerReadDao): ReadOnlySqlLedgerFactory =
-    new ReadOnlySqlLedgerFactory(ledgerDao)
+  def apply(ledgerDao: LedgerReadDao, loggerFactory: NamedLoggerFactory): ReadOnlySqlLedgerFactory =
+    new ReadOnlySqlLedgerFactory(ledgerDao, loggerFactory)
 }

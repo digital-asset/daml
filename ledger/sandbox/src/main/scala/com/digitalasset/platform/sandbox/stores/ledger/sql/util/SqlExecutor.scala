@@ -5,16 +5,16 @@ package com.digitalasset.platform.sandbox.stores.ledger.sql.util
 
 import java.util.concurrent.{Executors, TimeUnit}
 
+import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.google.common.util.concurrent.ThreadFactoryBuilder
-import org.slf4j.LoggerFactory
 
 import scala.concurrent.{Future, Promise}
 import scala.util.control.NonFatal
 
 /** A dedicated executor for blocking sql queries. */
-class SqlExecutor(noOfThread: Int) extends AutoCloseable {
+class SqlExecutor(noOfThread: Int, loggerFactory: NamedLoggerFactory) extends AutoCloseable {
 
-  private val logger = LoggerFactory.getLogger(getClass)
+  private val logger = loggerFactory.getLogger(getClass)
 
   private lazy val executor =
     Executors.newFixedThreadPool(
@@ -60,5 +60,6 @@ class SqlExecutor(noOfThread: Int) extends AutoCloseable {
 }
 
 object SqlExecutor {
-  def apply(noOfThread: Int): SqlExecutor = new SqlExecutor(noOfThread)
+  def apply(noOfThread: Int, loggerFactory: NamedLoggerFactory): SqlExecutor =
+    new SqlExecutor(noOfThread, loggerFactory)
 }
