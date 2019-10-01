@@ -87,6 +87,7 @@ def damlc_integration_test(name, main_function):
         ],
         hackage_deps = [
             "aeson",
+            "aeson-pretty",
             "base",
             "bytestring",
             "containers",
