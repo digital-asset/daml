@@ -7,6 +7,10 @@ import java.io.File
 import java.time.Instant
 import java.util
 
+import com.google.rpc.status.Status
+import io.grpc.{StatusRuntimeException}
+
+import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.stream._
 import akka.stream.scaladsl._
@@ -22,12 +26,14 @@ import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.refinements.ApiTypes.{ApplicationId}
 import com.digitalasset.ledger.api.validation.ValueValidator
 
+import com.digitalasset.ledger.api.v1.completion.Completion
 import com.digitalasset.ledger.api.v1.command_submission_service.SubmitRequest
 import com.digitalasset.api.util.TimestampConversion.fromInstant
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
 import com.digitalasset.ledger.api.v1.event._
 import com.digitalasset.ledger.api.v1.event.Event.Event.{Archived, Created}
 import com.digitalasset.ledger.api.v1.transaction.Transaction
+import com.digitalasset.ledger.client.services.commands.CompletionStreamElement._
 import com.digitalasset.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
 import com.digitalasset.ledger.api.v1.value
 import com.digitalasset.ledger.api.refinements.ApiTypes.{ApplicationId}
@@ -112,6 +118,7 @@ object RunnerConfig {
 // Convert from a Ledger API transaction to an SValue corresponding to a Message from the Daml.Trigger module
 case class Converter(
     fromTransaction: Transaction => SValue,
+    fromCompletion: Completion => SValue,
     fromACS: Seq[CreatedEvent] => SValue,
     toCommands: SValue => Either[String, (String, Seq[Command])]
 )
@@ -257,6 +264,38 @@ object Converter {
     )
   }
 
+  private def fromCompletion(triggerIds: TriggerIds, c: Completion): SValue = {
+    val messageTy = triggerIds.getId("Message")
+    val completionTy = triggerIds.getId("Completion")
+    val status: SValue = if (c.getStatus.code == 0) {
+      SVariant(
+        triggerIds.getId("CompletionStatus"),
+        Name.assertFromString("Succeeded"),
+        record(
+          triggerIds.getId("CompletionStatus.Succeeded"),
+          ("transactionId", SText(c.transactionId)))
+      )
+    } else {
+      SVariant(
+        triggerIds.getId("CompletionStatus"),
+        Name.assertFromString("Failed"),
+        record(
+          triggerIds.getId("CompletionStatus.Failed"),
+          ("status", SInt64(c.getStatus.code.asInstanceOf[Long])),
+          ("message", SText(c.getStatus.message)))
+      )
+    }
+    SVariant(
+      messageTy,
+      Name.assertFromString("MCompletion"),
+      record(
+        completionTy,
+        ("commandId", SText(c.commandId)),
+        ("status", status)
+      )
+    )
+  }
+
   private def toText(v: SValue): Either[String, String] = {
     v match {
       case SText(t) => Right(t)
@@ -387,11 +426,16 @@ object Converter {
     val triggerIds = TriggerIds.fromDar(dar)
     Converter(
       fromTransaction(triggerIds, _),
+      fromCompletion(triggerIds, _),
       fromACS(triggerIds, _),
       toCommands(triggerIds, _)
     )
   }
 }
+
+sealed trait TriggerMsg
+final case class CompletionMsg(c: Completion) extends TriggerMsg
+final case class TransactionMsg(t: Transaction) extends TriggerMsg
 
 class Runner(
     ledgerId: LedgerId,
@@ -420,7 +464,7 @@ class Runner(
 
   def getTriggerSink(
       triggerId: Identifier,
-      acs: Seq[CreatedEvent]): Sink[Transaction, Future[SExpr]] = {
+      acs: Seq[CreatedEvent]): Sink[TriggerMsg, Future[SExpr]] = {
     val triggerExpr = EVal(triggerId)
     val (tyCon: TypeConName, stateTy) =
       dar.main._2.lookupIdentifier(triggerId.qualifiedName).toOption match {
@@ -453,9 +497,16 @@ class Runner(
     }
     val evaluatedInitialState = machine.toSValue
     println(s"Initial state: $evaluatedInitialState")
-    Sink.fold[SExpr, Transaction](SEValue(evaluatedInitialState))((state, transaction) => {
-      val message = converter.fromTransaction(transaction)
-      machine.ctrl = Speedy.CtrlExpr(SEApp(update, Array(SEValue(message), state)))
+    Sink.fold[SExpr, TriggerMsg](SEValue(evaluatedInitialState))((state, message) => {
+      val messageVal = message match {
+        case TransactionMsg(transaction) => {
+          converter.fromTransaction(transaction)
+        }
+        case CompletionMsg(completion) => {
+          converter.fromCompletion(completion)
+        }
+      }
+      machine.ctrl = Speedy.CtrlExpr(SEApp(update, Array(SEValue(messageVal), state)))
       while (!machine.isFinal) {
         machine.step() match {
           case SResultContinue => ()
@@ -474,7 +525,7 @@ class Runner(
                 DottedName.assertFromString("DA.Types"),
                 DottedName.assertFromString("Tuple3")) => {
           val newState = values.get(0)
-          val commandOpt = values.get(1)
+          val commandVal = values.get(1)
           val logMessage = values.get(2) match {
             case SText(t) => t
             case _ =>
@@ -482,7 +533,7 @@ class Runner(
           }
           println(s"New state: $newState")
           println(s"Emitted log message: ${logMessage}")
-          commandOpt match {
+          commandVal match {
             case SList(transactions) =>
               // Each transaction is a list of commands
               for (commands <- transactions) {
@@ -511,6 +562,41 @@ class Runner(
         }
       }
     })
+  }
+}
+
+object Runner {
+  def msgSource(client: LedgerClient, offset: LedgerOffset, party: String)(
+      implicit materializer: Materializer)
+    : (Source[TriggerMsg, NotUsed], (String, StatusRuntimeException) => Unit) = {
+    // We use the queue to post failures that occur directly on command submission as opposed to
+    // appearing asynchronously on the completion stream
+    val (completionQueue, completionQueueSource) =
+      Source.queue[Completion](10, OverflowStrategy.backpressure).preMaterialize()
+    val transactionSource =
+      client.transactionClient
+        .getTransactions(
+          offset,
+          None,
+          TransactionFilter(List((party, Filters.defaultInstance)).toMap),
+          verbose = true)
+        .map[TriggerMsg](TransactionMsg)
+    val completionSource =
+      client.commandClient
+        .completionSource(List(party), offset)
+        .mapConcat({
+          case CheckpointElement(_) => List()
+          case CompletionElement(c) => List(c)
+        })
+        .merge(completionQueueSource)
+        .map[TriggerMsg](CompletionMsg)
+    def postSubmitFailure(commandId: String, s: StatusRuntimeException) = {
+      val _ = completionQueue.offer(
+        Completion(
+          commandId,
+          Some(Status(s.getStatus().getCode().value(), s.getStatus().getDescription()))))
+    }
+    (transactionSource.merge(completionSource), postSubmitFailure)
   }
 }
 
@@ -549,11 +635,6 @@ object RunnerMain {
           client <- LedgerClient.singleHost(config.ledgerHost, config.ledgerPort, clientConfig)(
             ec,
             sequencer)
-          runner <- Future {
-            new Runner(client.ledgerId, applicationId, config.ledgerParty, dar, submitRequest => {
-              val _ = client.commandClient.submitSingleCommand(submitRequest)
-            })
-          }
           acsResponses <- client.activeContractSetClient
             .getActiveContracts(filter, verbose = true)
             .runWith(Sink.seq)
@@ -563,14 +644,27 @@ object RunnerMain {
               .fold(LedgerOffset().withBoundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN))(resp =>
                 LedgerOffset().withAbsolute(resp.offset))
           }
-
-          _ <- client.transactionClient
-            .getTransactions(
-              offset,
-              None,
-              TransactionFilter(List((config.ledgerParty, Filters.defaultInstance)).toMap),
-              verbose = true)
-            .runWith(runner.getTriggerSink(triggerId, acsResponses.flatMap(x => x.activeContracts)))
+          (msgSource, postSubmitFailure) <- Future {
+            Runner.msgSource(client, offset, config.ledgerParty)
+          }
+          runner <- Future {
+            new Runner(
+              client.ledgerId,
+              applicationId,
+              config.ledgerParty,
+              dar,
+              submitRequest => {
+                val f = client.commandClient.submitSingleCommand(submitRequest)
+                f.failed.foreach({
+                  case s: StatusRuntimeException =>
+                    postSubmitFailure(submitRequest.getCommands.commandId, s)
+                  case e => println(s"ERROR: Unexpected exception: $e")
+                })
+              }
+            )
+          }
+          _ <- msgSource.runWith(
+            runner.getTriggerSink(triggerId, acsResponses.flatMap(x => x.activeContracts)))
         } yield ()
 
         flow.onComplete(_ => system.terminate())

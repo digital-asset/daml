@@ -11,12 +11,20 @@ import Daml.Trigger
 
 data TriggerState = TriggerState
   { activeAssets : TextMap Identifier
+  , successfulCompletions : Int
+  , failedCompletions : Int
   , nextCommandId : Int
   , party : Party
   }
 
 initState : Party -> ActiveContracts -> TriggerState
-initState party (ActiveContracts events) = TriggerState (foldl updateAcs TM.empty events) 0 party
+initState party (ActiveContracts events) = TriggerState
+  { activeAssets = (foldl updateAcs TM.empty events)
+  , nextCommandId = 0
+  , party = party
+  , successfulCompletions = 0
+  , failedCompletions = 0
+  }
   where
     updateAcs : TextMap Identifier -> Created -> TextMap Identifier
     updateAcs acs (Created _ cId argument)
@@ -33,11 +41,16 @@ test = Trigger
   }
   where
     update : Message -> TriggerState -> (TriggerState, [Commands],  Text)
-    update (MTransaction t) (TriggerState acs nextId party) = case foldl updateEvent ([], acs) (events t) of
-      ([], acs) -> (TriggerState acs nextId  party, [], "No command")
+    update (MCompletion c) state =
+      let state' = case c.status of
+            Failed {} -> state { failedCompletions = state.failedCompletions + 1 }
+            Succeeded {} -> state { successfulCompletions = state.successfulCompletions + 1 }
+      in (state', [], show c)
+    update (MTransaction t) state = case foldl updateEvent ([], state.activeAssets) (events t) of
+      ([], acs) -> (state { activeAssets = acs }, [], "No command")
       (cmds, acs) ->
-        ( TriggerState acs (nextId + 1) party
-        , [Commands ("command_" <> show nextId) cmds]
+        ( state { activeAssets = acs, nextCommandId = state.nextCommandId + 1 }
+        , [Commands ("command_" <> show state.nextCommandId) cmds]
         , "Submitted " <> show (length cmds) <> " commands"
         )
       where

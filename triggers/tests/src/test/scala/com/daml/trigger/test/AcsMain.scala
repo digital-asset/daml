@@ -6,6 +6,8 @@ package com.daml.trigger.test
 import java.io.File
 import java.time.Instant
 
+import io.grpc.{StatusRuntimeException}
+
 import akka.actor.ActorSystem
 import akka.stream._
 import akka.stream.scaladsl.Sink
@@ -67,7 +69,9 @@ object AcsMain {
   private val applicationId = ApplicationId("AscMain test")
 
   case class ActiveAssetMirrors(num: Int)
-  case class NumTransactions(num: Long)
+  case class NumMessages(num: Long)
+  case class SuccessfulCompletions(num: Int)
+  case class FailedCompletions(num: Int)
 
   def main(args: Array[String]): Unit = {
     configParser.parse(args, Config(0, null)) match {
@@ -197,7 +201,9 @@ object AcsMain {
         }
 
         def test(
-            transactions: NumTransactions,
+            numMessages: NumMessages,
+            numSuccCompletions: SuccessfulCompletions,
+            numFailedCompletions: FailedCompletions,
             commands: (LedgerClient, String) => Future[(Set[String], ActiveAssetMirrors)]) = {
           val party = getNewParty()
           val clientF =
@@ -214,14 +220,27 @@ object AcsMain {
                 .fold(LedgerOffset().withBoundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN))(resp =>
                   LedgerOffset().withAbsolute(resp.offset))
             }
-            runner <- Future {
-              new Runner(client.ledgerId, applicationId, party, dar, submitRequest => {
-                val _ = client.commandClient.submitSingleCommand(submitRequest)
-              })
+            (msgSource, postSubmitFailure) <- Future {
+              Runner.msgSource(client, offset, party)
             }
-            finalState <- client.transactionClient
-              .getTransactions(offset, None, filter, verbose = true)
-              .take(transactions.num)
+            runner <- Future {
+              new Runner(
+                client.ledgerId,
+                applicationId,
+                party,
+                dar,
+                submitRequest => {
+                  val f = client.commandClient.submitSingleCommand(submitRequest)
+                  f.failed.foreach({
+                    case s: StatusRuntimeException =>
+                      postSubmitFailure(submitRequest.getCommands.commandId, s)
+                    case e => println(s"ERROR: Unexpected exception: $e")
+                  })
+                }
+              )
+            }
+            finalState <- msgSource
+              .take(numMessages.num)
               .runWith(
                 runner.getTriggerSink(triggerId, acsResponses.flatMap(x => x.activeContracts)))
           } yield finalState
@@ -264,10 +283,18 @@ object AcsMain {
 
           r._1 match {
             case SEValue(SRecord(_, _, vals)) => {
-              assert(vals.size == 3, s"Expected record with 3 fields but got ${r._1}")
+              assert(vals.size == 5, s"Expected record with 5 fields but got ${r._1}")
               val activeAssets = vals.get(0) match {
                 case SMap(v) => v.keySet
                 case _ => throw new RuntimeException(s"Expected a map but got ${vals.get(0)}")
+              }
+              val successfulCompletions = vals.get(1) match {
+                case SInt64(i) => i
+                case _ => throw new RuntimeException(s"Expected an Int64 but got ${vals.get(1)}")
+              }
+              val failedCompletions = vals.get(2) match {
+                case SInt64(i) => i
+                case _ => throw new RuntimeException(s"Expected an Int64 but got ${vals.get(2)}")
               }
               assert(activeAssets == r._2._1, s"Expected ${r._2._1} but got $activeAssets")
               val activeMirrorContractsF: Future[Int] = for {
@@ -285,6 +312,12 @@ object AcsMain {
               assert(
                 activeMirrorContracts == r._2._2.num,
                 s"Expected  ${r._2._2.num} but  got $activeMirrorContracts")
+              assert(
+                numSuccCompletions.num == successfulCompletions,
+                s"Expected ${numSuccCompletions.num} successful completions but got $successfulCompletions")
+              assert(
+                numFailedCompletions.num == failedCompletions,
+                s"Expected ${numFailedCompletions.num} failed completions but got $failedCompletions")
             }
             case _ => assert(false, "Expected a map but got ${r._1.toString}")
           }
@@ -292,14 +325,31 @@ object AcsMain {
 
         try {
 
-          test(NumTransactions(3), (client, party) => {
-            for {
-              contractId <- create(client, party, "1.0")
-            } yield (Set(contractId), ActiveAssetMirrors(1))
-          })
+          test(
+            // 1 for the create from the test
+            // 1 for the completion from the test
+            // 1 for the create in the trigger
+            // 1 for the exercise in the trigger
+            // 2 completions for the trigger
+            NumMessages(6),
+            SuccessfulCompletions(3),
+            FailedCompletions(0),
+            (client, party) => {
+              for {
+                contractId <- create(client, party, "1.0")
+              } yield (Set(contractId), ActiveAssetMirrors(1))
+            }
+          )
 
           test(
-            NumTransactions(6),
+            // 2 for the creates from the test
+            // 2 completions for the test
+            // 2 for the creates in the trigger
+            // 2 for the exercises in the trigger
+            // 4 completions for the trigger
+            NumMessages(12),
+            SuccessfulCompletions(6),
+            FailedCompletions(0),
             (client, party) => {
               for {
                 contractId1 <- create(client, party, "2.0")
@@ -309,7 +359,15 @@ object AcsMain {
           )
 
           test(
-            NumTransactions(8),
+            // 2 for the creates from the test
+            // 2 for the archives from the test
+            // 4 for the completions from the test
+            // 2 for the creates in the trigger
+            // 2 for the exercises in the trigger
+            // 4 for the completions in the trigger
+            NumMessages(16),
+            SuccessfulCompletions(8),
+            FailedCompletions(0),
             (client, party) => {
               for {
                 contractId1 <- create(client, party, "3.0")

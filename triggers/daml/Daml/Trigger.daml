@@ -4,6 +4,8 @@
 daml 1.2
 module Daml.Trigger
   ( Message(..)
+  , Completion(..)
+  , CompletionStatus(..)
   , Transaction(..)
   , Identifier(..)
   , AnyContractId(..)
@@ -52,6 +54,17 @@ data Archived = Archived
 
 data Message
   = MTransaction Transaction
+  | MCompletion Completion
+
+data Completion = Completion
+  { commandId : Text
+  , status : CompletionStatus
+  } deriving Show
+
+data CompletionStatus
+  = Failed { status : Int, message : Text }
+  | Succeeded { transactionId : Text }
+  deriving Show
 
 data ActiveContracts = ActiveContracts { activeContracts : [Created] }
 
