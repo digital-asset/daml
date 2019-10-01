@@ -1,8 +1,8 @@
 -- Copyright (c) 2019, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
--- @QUERY-LF .modules[] | .templates[] | select(.tycon.segments == ["A"]) | .location.range | (.start_line == 8 and .start_col == 9)
--- @QUERY-LF .modules[] | .templates[] | select(.tycon.segments == ["TA"]) | .location.range | (.start_line == 19 and .start_col == 18)
+-- @QUERY-LF .modules[] | .templates[] | select(.tycon | lf::get_dotted_name($pkg) == ["A"]) | .location.range | (.start_line == 8 and .start_col == 9)
+-- @QUERY-LF .modules[] | .templates[] | select(.tycon | lf::get_dotted_name($pkg) == ["TA"]) | .location.range | (.start_line == 19 and .start_col == 18)
 daml 1.2
 module Locations where
 
