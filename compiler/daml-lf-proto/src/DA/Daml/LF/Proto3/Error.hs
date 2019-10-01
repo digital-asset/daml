@@ -7,7 +7,6 @@ module DA.Daml.LF.Proto3.Error
 
 import qualified Data.Text as T
 import Data.Int (Int32)
-import Data.Word (Word64)
 
 import DA.Daml.LF.Ast
 
@@ -21,7 +20,7 @@ data Error
   | EDuplicateTemplate TypeConName
   | DuplicateChoice ChoiceName
   | UnsupportedMinorVersion T.Text
-  | BadStringId Word64
-  | BadDottedNameId Word64
+  | BadStringId Int32
+  | BadDottedNameId Int32
   | ExpectedTCon Type
   deriving (Show, Eq)

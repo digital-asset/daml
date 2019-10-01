@@ -72,7 +72,7 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
     if (internedList.nonEmpty)
       assertSince(LV.Features.internedDottedNames, "interned dotted names table")
 
-    def outOfRange(id: Long) =
+    def outOfRange(id: Int) =
       ParseError(s"invalid string table index $id")
 
     internedList
@@ -80,7 +80,7 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
         idn =>
           decodeSegments(
             idn.getSegmentIdsList.asScala
-              .map(id => internedStrings.lift(id.toInt).getOrElse(throw outOfRange(id)))(breakOut))
+              .map(id => internedStrings.lift(id).getOrElse(throw outOfRange(id)))(breakOut))
       )(breakOut)
   }
 
@@ -146,18 +146,14 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
 
     // -----------------------------------------------------------------------
 
-    private[this] def getInternedString(id: Long): String = {
+    private[this] def getInternedString(id: Int): String = {
       def outOfRange = ParseError(s"invalid string table index $id")
-      val iid = id.toInt
-      if (iid != iid.toLong) throw outOfRange
-      internedStrings.lift(iid).getOrElse(throw outOfRange)
+      internedStrings.lift(id).getOrElse(throw outOfRange)
     }
 
-    private[this] def getInternedDottedName(id: Long): DottedName = {
+    private[this] def getInternedDottedName(id: Int): DottedName = {
       def outOfRange = ParseError(s"invalid dotted name table index $id")
-      val iid = id.toInt
-      if (iid != iid.toLong) throw outOfRange
-      internedDottedNames.lift(iid).getOrElse(throw outOfRange)
+      internedDottedNames.lift(id).getOrElse(throw outOfRange)
     }
 
     private[this] def decodeDottedName(name: PLF.DottedName): DottedName =

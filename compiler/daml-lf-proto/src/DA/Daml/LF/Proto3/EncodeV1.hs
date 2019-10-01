@@ -20,7 +20,7 @@ import qualified Data.NameMap as NM
 import qualified Data.Text           as T
 import qualified Data.Text.Lazy      as TL
 import qualified Data.Vector         as V
-import           Data.Word
+import           Data.Int
 
 import           DA.Pretty
 import           DA.Daml.LF.Ast
@@ -42,8 +42,8 @@ newtype WithInterning = WithInterning{getWithInterning :: Bool}
 data EncodeEnv = EncodeEnv
     { version :: !Version
     , withInterning :: !WithInterning
-    , internedStrings :: !(HMS.HashMap T.Text Word64)
-    , internedDottedNames :: !(HMS.HashMap [Word64] Word64)
+    , internedStrings :: !(HMS.HashMap T.Text Int32)
+    , internedDottedNames :: !(HMS.HashMap [Int32] Int32)
     }
 
 initEncodeEnv :: Version -> WithInterning -> EncodeEnv
@@ -52,25 +52,29 @@ initEncodeEnv version withInterning =
 
 -- | Find or allocate a string in the interning table. Return the index of
 -- the string in the resulting interning table.
-allocString :: T.Text -> Encode Word64
+allocString :: T.Text -> Encode Int32
 allocString t = do
     env@EncodeEnv{internedStrings} <- get
     case t `HMS.lookup` internedStrings of
         Just n -> pure n
         Nothing -> do
-            -- NOTE(MH): We assumie that the number of interned strings fits
-            -- in a `Word64`. (More than that would require A LOT of memory.)
-            let n = fromIntegral (HMS.size internedStrings)
+            let m = HMS.size internedStrings
+            when (m > fromIntegral (maxBound :: Int32)) $
+                error "String interning table grew too large"
+            let n = fromIntegral m :: Int32
             put $! env{internedStrings = HMS.insert t n internedStrings}
             pure n
 
-allocList :: [Word64] -> Encode Word64
+allocList :: [Int32] -> Encode Int32
 allocList ids = do
-    env@EncodeEnv{..} <- get
+    env@EncodeEnv{internedDottedNames} <- get
     case ids `HMS.lookup` internedDottedNames of
         Just n -> pure n
         Nothing -> do
-            let n = fromIntegral (HMS.size internedDottedNames)
+            let m = HMS.size internedDottedNames
+            when (m > fromIntegral (maxBound :: Int32)) $
+                error "Dotted name interning table grew too large"
+            let n = fromIntegral m :: Int32
             put $! env{internedDottedNames = HMS.insert ids n internedDottedNames}
             pure n
 
@@ -84,11 +88,11 @@ encodeString :: T.Text -> TL.Text
 encodeString = TL.fromStrict
 
 -- | Encode a string that will be interned in DAML-LF 1.7 and onwards.
-encodeInternableString :: T.Text -> Encode (Either TL.Text Word64)
+encodeInternableString :: T.Text -> Encode (Either TL.Text Int32)
 encodeInternableString = coerce (encodeInternableStrings @Identity)
 
 -- | Encode a string that will be interned in DAML-LF 1.7 and onwards.
-encodeInternableStrings :: Traversable t => t T.Text -> Encode (Either (t TL.Text) (t Word64))
+encodeInternableStrings :: Traversable t => t T.Text -> Encode (Either (t TL.Text) (t Int32))
 encodeInternableStrings strs = do
     EncodeEnv{..} <- get
     if getWithInterning withInterning && version `supports` featureStringInterning
@@ -99,17 +103,17 @@ encodeInternableStrings strs = do
 -- constructor. These strings are mangled to escape special characters. All
 -- names will be interned in DAML-LF 1.7 and onwards.
 encodeName
-    :: Util.EitherLike m1 m2 m3 m4 m5 TL.Text Word64 e
+    :: Util.EitherLike m1 m2 m3 m4 m5 TL.Text Int32 e
     => (a -> T.Text) -> a -> Encode (Just e)
 encodeName unwrapName = fmap Just . encodeName' unwrapName
 
 encodeName'
-    :: Util.EitherLike m1 m2 m3 m4 m5 TL.Text Word64 e
+    :: Util.EitherLike m1 m2 m3 m4 m5 TL.Text Int32 e
     => (a -> T.Text) -> a -> Encode e
 encodeName' unwrapName (unwrapName -> unmangled) =
    Util.fromEither <$> coerce (encodeNames @Identity) unmangled
 
-encodeNames :: Traversable t => t T.Text -> Encode (Either (t TL.Text) (t Word64))
+encodeNames :: Traversable t => t T.Text -> Encode (Either (t TL.Text) (t Int32))
 encodeNames = encodeInternableStrings . fmap mangleName
     where
         mangleName :: T.Text -> T.Text
@@ -124,7 +128,7 @@ encodeDottedName :: (a -> [T.Text]) -> a -> Encode (Just P.DottedName)
 encodeDottedName unwrapDottedName (unwrapDottedName -> unmangled) =
     Just . uncurry P.DottedName <$> encodeDottedName' unmangled
 
-encodeDottedName' :: [T.Text] -> Encode (V.Vector TL.Text, Word64)
+encodeDottedName' :: [T.Text] -> Encode (V.Vector TL.Text, Int32)
 encodeDottedName' unmangled = do
     mangledAndInterned <- encodeNames unmangled
     case mangledAndInterned of
@@ -141,7 +145,7 @@ encodeDottedName' unmangled = do
 -- because currently GenDALF generates weird names like `.` that we'd
 -- have to handle separatedly. So for now, considering that we do not
 -- use values in codegen, just mangle the entire thing.
-encodeValueName :: ExprValName -> Encode (V.Vector TL.Text, Word64)
+encodeValueName :: ExprValName -> Encode (V.Vector TL.Text, Int32)
 encodeValueName valName = encodeDottedName' [unExprValName valName]
 
 -- | Encode a reference to a package. Package names are not mangled. Package

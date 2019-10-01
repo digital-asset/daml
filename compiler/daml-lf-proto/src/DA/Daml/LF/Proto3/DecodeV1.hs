@@ -16,7 +16,7 @@ import qualified DA.Daml.LF.Proto3.Util as Util
 import Control.Monad
 import Control.Monad.Except
 import Control.Monad.Reader
-import Data.Word
+import Data.Int
 import Text.Read
 import           Data.List
 import           DA.Daml.LF.Mangling
@@ -39,21 +39,18 @@ newtype Decode a = Decode{unDecode :: ReaderT DecodeEnv (Except Error) a}
 runDecode :: DecodeEnv -> Decode a -> Either Error a
 runDecode env act = runExcept $ runReaderT (unDecode act) env
 
-lookupInterned :: V.Vector a -> (Word64 -> Error) -> Word64 -> Decode a
-lookupInterned interned mkError idW = do
-    let idI = toInteger idW
-    when (idI > toInteger (maxBound :: Int)) $
-        throwError $ mkError idW
-    case interned V.!? fromInteger idI of
-          Nothing -> throwError $ mkError idW
+lookupInterned :: V.Vector a -> (Int32 -> Error) -> Int32 -> Decode a
+lookupInterned interned mkError id = do
+    case interned V.!? fromIntegral id of
+          Nothing -> throwError $ mkError id
           Just x -> pure x
 
-lookupString :: Word64 -> Decode T.Text
+lookupString :: Int32 -> Decode T.Text
 lookupString strId = do
     DecodeEnv{internedStrings} <- ask
     lookupInterned internedStrings BadStringId strId
 
-lookupStringList :: Word64 -> Decode [T.Text]
+lookupStringList :: Int32 -> Decode [T.Text]
 lookupStringList id = do
     DecodeEnv{internedDottedNames} <- ask
     lookupInterned internedDottedNames BadDottedNameId id
@@ -68,7 +65,7 @@ decodeString :: TL.Text -> T.Text
 decodeString = TL.toStrict
 
 -- | Decode a string that will be interned in DAML-LF 1.7 and onwards.
-decodeInternableStrings :: V.Vector TL.Text -> Word64 -> Decode [T.Text]
+decodeInternableStrings :: V.Vector TL.Text -> Int32 -> Decode [T.Text]
 decodeInternableStrings strs id
     | V.null strs = lookupStringList id
     | id == 0 = pure $ map decodeString (V.toList strs)
@@ -78,7 +75,7 @@ decodeInternableStrings strs id
 -- constructor. These strings are mangled to escape special characters. All
 -- names will be interned in DAML-LF 1.7 and onwards.
 decodeName
-    :: Util.EitherLike m1 m2 m3 m4 m5 TL.Text Word64 e
+    :: Util.EitherLike m1 m2 m3 m4 m5 TL.Text Int32 e
     => (T.Text -> a) -> Maybe e -> Decode a
 decodeName wrapName mbStrOrId = mayDecode "name" mbStrOrId $ \strOrId -> do
     mangled <- case Util.toEither strOrId of
@@ -101,7 +98,7 @@ decodeDottedName wrapDottedName (LF1.DottedName mangled dnId) =
 
 -- | Decode the name of a top-level value. The name is mangled and will be
 -- interned in DAML-LF 1.7 and onwards.
-decodeValueName :: String -> V.Vector TL.Text -> Word64 -> Decode ExprValName
+decodeValueName :: String -> V.Vector TL.Text -> Int32 -> Decode ExprValName
 decodeValueName ident mangledV dnId = do
     mangled <- decodeInternableStrings mangledV dnId
     case mangled of
@@ -113,7 +110,7 @@ decodeValueName ident mangledV dnId = do
                 -- NOTE(MH): This is an ugly hack to keep backwards compatibility.
                 -- We need to fix this in DAML-LF 2.
                 Left _ -> pure $ ExprValName mangled
-        _ -> throwError $ ParseError $ "Unexpected multi-segment def name: " ++ show mangledV
+        _ -> throwError $ ParseError $ "Unexpected multi-segment def name: " ++ show mangledV ++ "//" ++ show mangled
 
 -- | Decode a reference to a top-level value. The name is mangled and will be
 -- interned in DAML-LF 1.7 and onwards.
