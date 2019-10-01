@@ -191,7 +191,7 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
           case PLF.DefDataType.DataConsCase.ENUM =>
             assertSince(LV.Features.enum, "DefDataType.DataCons.Enum")
             assertEmpty(params.toSeq, "params")
-            DataEnum(decodeEnumCons(ImmArray(lfDataType.getEnum.getConstructorsList.asScala)))
+            DataEnum(decodeEnumCon(lfDataType.getEnum))
           case PLF.DefDataType.DataConsCase.DATACONS_NOT_SET =>
             throw ParseError("DefDataType.DATACONS_NOT_SET")
 
@@ -206,7 +206,6 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
           getInternedString(lfFieldWithType.getFieldInternedId)
         case PLF.FieldWithType.FieldCase.FIELD_NOT_SET =>
           throw ParseError("FieldWithType.FIELD_NOT_SET")
-
       }) -> decodeType(lfFieldWithType.getType)
 
     private[this] def decodeFields(lfFields: ImmArray[PLF.FieldWithType]): ImmArray[(Name, Type)] =
@@ -221,11 +220,15 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
           getInternedString(lfFieldWithExpr.getFieldInternedId)
         case PLF.FieldWithExpr.FieldCase.FIELD_NOT_SET =>
           throw ParseError("FieldWithExpr.FIELD_NOT_SET")
-
       }) -> decodeExpr(lfFieldWithExpr.getExpr, definition)
 
-    private[this] def decodeEnumCons(cons: ImmArray[String]): ImmArray[EnumConName] =
-      cons.map(name)
+    private[this] def decodeEnumCon(
+        enumCon: PLF.DefDataType.EnumConstructors): ImmArray[EnumConName] =
+      if (enumCon.getConstructorsCount == 0)
+        enumCon.getConstructorsInternedIdsList.asScala
+          .map(id => name(getInternedString(id)))(breakOut)
+      else
+        enumCon.getConstructorsList.asScala.map(name)(breakOut)
 
     private[this] def decodeDefValue(lfValue: PLF.DefValue): DValue = {
       val nameWithType = lfValue.getNameWithType
@@ -325,7 +328,7 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
     }
 
     private[this] def decodeTemplate(lfTempl: PLF.DefTemplate): Template = {
-      val tpl = lfTempl.getTycon.getSegmentsList.asScala.mkString(".")
+      val tpl = decodeDottedName(lfTempl.getTycon).segments.toSeq.mkString(".")
       val paramName = name(lfTempl.getParamCase match {
         case PLF.DefTemplate.ParamCase.PARAM_NAME => lfTempl.getParamName
         case PLF.DefTemplate.ParamCase.PARAM_INTERNED_ID =>
@@ -1018,12 +1021,8 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
       }
   }
 
-  var memoVersionIsOlderThan = mutable.HashMap.empty[LV, Boolean]
-
   private def versionIsOlderThan(minVersion: LV): Boolean =
-    // FIXME(JM): Memoizing the comparison speeds the decoding by 6x. Figure out what's wrong
-    // with the version comparison and remove the memoization.
-    memoVersionIsOlderThan.getOrElseUpdate(minVersion, LV.ordering.lt(languageVersion, minVersion))
+    LV.ordering.lt(languageVersion, minVersion)
 
   private def assertUntil(maxVersion: LV, description: => String): Unit =
     if (!versionIsOlderThan(maxVersion))

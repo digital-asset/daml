@@ -23,10 +23,10 @@ object LanguageVersion {
   private[lf] def apply(major: LanguageMajorVersion, minor: String): LanguageVersion =
     apply(major, Minor fromProtoIdentifier minor)
 
-  def default: LanguageVersion =
+  val default: LanguageVersion =
     defaultV1
 
-  def ordering: Ordering[LanguageVersion] =
+  final val ordering: Ordering[LanguageVersion] =
     (left, right) =>
       (left, right) match {
         case (LanguageVersion(leftMajor, leftMinor), LanguageVersion(rightMajor, rightMinor))
