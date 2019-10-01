@@ -192,7 +192,8 @@ runJqQuery log outdir file qs = do
     log $ "running jq query: " ++ q
     let jqKey = "external" </> "jq_dev_env" </> "bin" </> if isWindows then "jq.exe" else "jq"
     jq <- locateRunfiles $ mainWorkspace </> jqKey
-    out <- readProcess jq [q, outdir </> proj <.> "json"] ""
+    queryLfLib <- locateRunfiles $ mainWorkspace </> "compiler/damlc/tests/src"
+    out <- readProcess jq ["-L", queryLfLib, "import \"./query-lf-non-interned\" as lf; . as $pkg | " ++ q, outdir </> proj <.> "json"] ""
     case trim out of
       "true" -> pure Nothing
       other -> pure $ Just $ "jq query failed: got " ++ other

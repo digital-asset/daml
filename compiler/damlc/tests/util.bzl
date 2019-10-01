@@ -71,6 +71,7 @@ def damlc_integration_test(name, main_function):
             "@jq_dev_env//:jq",
             ":daml-test-files",
             ":bond-trading",
+            ":query-lf-lib",
         ],
         deps = [
             "//compiler/daml-lf-ast",
