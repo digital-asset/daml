@@ -566,6 +566,43 @@ class Runner(
 }
 
 object Runner {
+  def run(
+      dar: Dar[(PackageId, Package)],
+      triggerId: Identifier,
+      client: LedgerClient,
+      applicationId: ApplicationId,
+      party: String,
+      msgFlow: Flow[TriggerMsg, TriggerMsg, NotUsed] = Flow[TriggerMsg])(
+      implicit materializer: Materializer,
+      executionContext: ExecutionContext): Future[SExpr] = {
+    val filter = TransactionFilter(List((party, Filters.defaultInstance)).toMap)
+    for {
+      acsResponses <- client.activeContractSetClient
+        .getActiveContracts(filter, verbose = true)
+        .runWith(Sink.seq)
+      offset = Array(acsResponses: _*).lastOption
+        .fold(LedgerOffset().withBoundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN))(resp =>
+          LedgerOffset().withAbsolute(resp.offset))
+      (msgSource, postFailure) = Runner.msgSource(client, offset, party)
+      runner = new Runner(
+        client.ledgerId,
+        applicationId,
+        party,
+        dar,
+        submitRequest => {
+          val f = client.commandClient.submitSingleCommand(submitRequest)
+          f.failed.foreach({
+            case s: StatusRuntimeException =>
+              postFailure(submitRequest.getCommands.commandId, s)
+            case e => println(s"ERROR: Unexpected exception: $e")
+          })
+        }
+      )
+      finalState <- msgSource
+        .via(msgFlow)
+        .runWith(runner.getTriggerSink(triggerId, acsResponses.flatMap(x => x.activeContracts)))
+    } yield finalState
+  }
   def msgSource(client: LedgerClient, offset: LedgerOffset, party: String)(
       implicit materializer: Materializer)
     : (Source[TriggerMsg, NotUsed], (String, StatusRuntimeException) => Unit) = {
@@ -629,42 +666,11 @@ object RunnerMain {
           sslContext = None
         )
 
-        val filter = TransactionFilter(List((config.ledgerParty, Filters.defaultInstance)).toMap)
-
         val flow: Future[Unit] = for {
           client <- LedgerClient.singleHost(config.ledgerHost, config.ledgerPort, clientConfig)(
             ec,
             sequencer)
-          acsResponses <- client.activeContractSetClient
-            .getActiveContracts(filter, verbose = true)
-            .runWith(Sink.seq)
-
-          offset <- Future {
-            Array(acsResponses: _*).lastOption
-              .fold(LedgerOffset().withBoundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN))(resp =>
-                LedgerOffset().withAbsolute(resp.offset))
-          }
-          (msgSource, postSubmitFailure) <- Future {
-            Runner.msgSource(client, offset, config.ledgerParty)
-          }
-          runner <- Future {
-            new Runner(
-              client.ledgerId,
-              applicationId,
-              config.ledgerParty,
-              dar,
-              submitRequest => {
-                val f = client.commandClient.submitSingleCommand(submitRequest)
-                f.failed.foreach({
-                  case s: StatusRuntimeException =>
-                    postSubmitFailure(submitRequest.getCommands.commandId, s)
-                  case e => println(s"ERROR: Unexpected exception: $e")
-                })
-              }
-            )
-          }
-          _ <- msgSource.runWith(
-            runner.getTriggerSink(triggerId, acsResponses.flatMap(x => x.activeContracts)))
+          _ <- Runner.run(dar, triggerId, client, applicationId, config.ledgerParty)
         } yield ()
 
         flow.onComplete(_ => system.terminate())

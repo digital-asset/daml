@@ -6,11 +6,9 @@ package com.daml.trigger.test
 import java.io.File
 import java.time.Instant
 
-import io.grpc.{StatusRuntimeException}
-
 import akka.actor.ActorSystem
 import akka.stream._
-import akka.stream.scaladsl.Sink
+import akka.stream.scaladsl.{Sink, Flow}
 import scala.concurrent.{Await, ExecutionContext, Future, Promise}
 import scala.concurrent.duration.Duration
 import scala.util.{Success, Failure}
@@ -29,7 +27,6 @@ import com.digitalasset.ledger.api.v1.command_submission_service._
 import com.digitalasset.ledger.api.v1.commands._
 import com.digitalasset.ledger.api.v1.value
 import com.digitalasset.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
-import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
 import com.digitalasset.daml.lf.archive.DarReader
 import com.digitalasset.daml.lf.archive.Dar
 import com.digitalasset.daml.lf.language.Ast._
@@ -41,7 +38,7 @@ import com.digitalasset.daml.lf.speedy.SExpr
 import com.digitalasset.daml.lf.speedy.SExpr._
 import com.digitalasset.daml.lf.speedy.SValue._
 
-import com.daml.trigger.Runner
+import com.daml.trigger.{Runner, TriggerMsg}
 
 case class Config(ledgerPort: Int, darPath: File)
 
@@ -211,38 +208,13 @@ object AcsMain {
           val filter = TransactionFilter(List((party, Filters.defaultInstance)).toMap)
           val triggerFlow: Future[SExpr] = for {
             client <- clientF
-            acsResponses <- client.activeContractSetClient
-              .getActiveContracts(filter, verbose = true)
-              .runWith(Sink.seq)
-
-            offset <- Future {
-              Array(acsResponses: _*).lastOption
-                .fold(LedgerOffset().withBoundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN))(resp =>
-                  LedgerOffset().withAbsolute(resp.offset))
-            }
-            (msgSource, postSubmitFailure) <- Future {
-              Runner.msgSource(client, offset, party)
-            }
-            runner <- Future {
-              new Runner(
-                client.ledgerId,
-                applicationId,
-                party,
-                dar,
-                submitRequest => {
-                  val f = client.commandClient.submitSingleCommand(submitRequest)
-                  f.failed.foreach({
-                    case s: StatusRuntimeException =>
-                      postSubmitFailure(submitRequest.getCommands.commandId, s)
-                    case e => println(s"ERROR: Unexpected exception: $e")
-                  })
-                }
-              )
-            }
-            finalState <- msgSource
-              .take(numMessages.num)
-              .runWith(
-                runner.getTriggerSink(triggerId, acsResponses.flatMap(x => x.activeContracts)))
+            finalState <- Runner.run(
+              dar,
+              triggerId,
+              client,
+              applicationId,
+              party,
+              msgFlow = Flow[TriggerMsg].take(numMessages.num))
           } yield finalState
           val commandsFlow: Future[(Set[String], ActiveAssetMirrors)] = for {
             client <- clientF
