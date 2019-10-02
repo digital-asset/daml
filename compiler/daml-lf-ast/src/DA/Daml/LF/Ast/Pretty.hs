@@ -208,6 +208,8 @@ instance Pretty BuiltinExpr where
     BEMulNumeric -> "MUL_NUMERIC"
     BEDivNumeric -> "DIV_NUMERIC"
     BERoundNumeric -> "ROUND_NUMERIC"
+    BECastNumeric -> "CAST_NUMERIC"
+    BEShiftNumeric -> "SHIFT_NUMERIC"
     BEInt64ToNumeric -> "INT64_TO_NUMERIC"
     BENumericToInt64 -> "NUMERIC_TO_INT64"
     BEEqualNumeric -> "EQUAL_NUMERIC"

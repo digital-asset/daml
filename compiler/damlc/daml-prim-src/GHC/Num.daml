@@ -112,19 +112,21 @@ instance Signed Int where
 
 #ifdef DAML_NUMERIC
 #define IF_NUMERIC(a,b) a
+#define NUMERIC_LIT(n) (primitive @"BECastNumeric" ((n) : Numeric 10))
 #else
 #define IF_NUMERIC(a,b) b
+#define NUMERIC_LIT(n) n
 #endif
 
 instance Additive IF_NUMERIC((Numeric n), Decimal) where
     (+) = primitive @IF_NUMERIC("BEAddNumeric", "BEAddDecimal")
     (-) = primitive @IF_NUMERIC("BESubNumeric", "BESubDecimal")
     negate x = aunit - x
-    aunit = IF_NUMERIC(primitive @"BEInt64ToNumeric" 0, 0.0)
+    aunit = NUMERIC_LIT(0.0)
 
 instance Multiplicative IF_NUMERIC((Numeric n), Decimal) where
     (*) = primitive @IF_NUMERIC("BEMulNumeric", "BEMulDecimal")
-    munit = IF_NUMERIC(primitive @"BEInt64ToNumeric" 1, 1.0)
+    munit = NUMERIC_LIT(1.0)
     x ^ n
         | n == 0 = munit
         | n == 2 = x * x
