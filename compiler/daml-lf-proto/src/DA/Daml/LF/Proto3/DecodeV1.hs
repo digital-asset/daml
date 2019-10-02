@@ -50,8 +50,8 @@ lookupString strId = do
     DecodeEnv{internedStrings} <- ask
     lookupInterned internedStrings BadStringId strId
 
-lookupStringList :: Int32 -> Decode [T.Text]
-lookupStringList id = do
+lookupDottedName :: Int32 -> Decode [T.Text]
+lookupDottedName id = do
     DecodeEnv{internedDottedNames} <- ask
     lookupInterned internedDottedNames BadDottedNameId id
 
@@ -65,9 +65,13 @@ decodeString :: TL.Text -> T.Text
 decodeString = TL.toStrict
 
 -- | Decode a string that will be interned in DAML-LF 1.7 and onwards.
+-- At the protobuf level, we represent internable non-empty lists of strings
+-- by a repeatable string and a number. If there's at least one string,
+-- then the number must not be set, i.e. zero. If there are no strings,
+-- then the number is treated as an index into the interning table.
 decodeInternableStrings :: V.Vector TL.Text -> Int32 -> Decode [T.Text]
 decodeInternableStrings strs id
-    | V.null strs = lookupStringList id
+    | V.null strs = lookupDottedName id
     | id == 0 = pure $ map decodeString (V.toList strs)
     | otherwise = throwError $ ParseError "items and interned id both set for string list"
 
@@ -75,7 +79,7 @@ decodeInternableStrings strs id
 -- constructor. These strings are mangled to escape special characters. All
 -- names will be interned in DAML-LF 1.7 and onwards.
 decodeName
-    :: Util.EitherLike m1 m2 m3 m4 m5 TL.Text Int32 e
+    :: Util.EitherLike TL.Text Int32 e
     => (T.Text -> a) -> Maybe e -> Decode a
 decodeName wrapName mbStrOrId = mayDecode "name" mbStrOrId $ \strOrId -> do
     mangled <- case Util.toEither strOrId of

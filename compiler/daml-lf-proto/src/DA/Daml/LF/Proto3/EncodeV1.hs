@@ -1,6 +1,7 @@
 -- Copyright (c) 2019 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeFamilies #-}
 -- | Encoding of the LF package into LF version 1 format.
 module DA.Daml.LF.Proto3.EncodeV1
@@ -43,39 +44,51 @@ data EncodeEnv = EncodeEnv
     { version :: !Version
     , withInterning :: !WithInterning
     , internedStrings :: !(HMS.HashMap T.Text Int32)
+    , nextInternedStringId :: !Int32
+      -- ^ We track the size of `internedStrings` explicitly since `HMS.size` is `O(n)`.
     , internedDottedNames :: !(HMS.HashMap [Int32] Int32)
+    , nextInternedDottedNameId :: !Int32
+      -- ^ We track the size of `internedDottedNames` explicitly since `HMS.size` is `O(n)`.
     }
 
 initEncodeEnv :: Version -> WithInterning -> EncodeEnv
 initEncodeEnv version withInterning =
-    EncodeEnv{internedStrings = HMS.empty, internedDottedNames = HMS.empty, ..}
+    EncodeEnv
+    { nextInternedStringId = 0
+    , internedStrings = HMS.empty
+    , internedDottedNames = HMS.empty
+    , nextInternedDottedNameId = 0
+    , ..
+    }
 
 -- | Find or allocate a string in the interning table. Return the index of
 -- the string in the resulting interning table.
 allocString :: T.Text -> Encode Int32
 allocString t = do
-    env@EncodeEnv{internedStrings} <- get
+    env@EncodeEnv{internedStrings, nextInternedStringId = n} <- get
     case t `HMS.lookup` internedStrings of
         Just n -> pure n
         Nothing -> do
-            let m = HMS.size internedStrings
-            when (m > fromIntegral (maxBound :: Int32)) $
+            when (n == maxBound) $
                 error "String interning table grew too large"
-            let n = fromIntegral m :: Int32
-            put $! env{internedStrings = HMS.insert t n internedStrings}
+            put $! env
+                { internedStrings = HMS.insert t n internedStrings
+                , nextInternedStringId = n + 1
+                }
             pure n
 
-allocList :: [Int32] -> Encode Int32
-allocList ids = do
-    env@EncodeEnv{internedDottedNames} <- get
+allocDottedName :: [Int32] -> Encode Int32
+allocDottedName ids = do
+    env@EncodeEnv{internedDottedNames, nextInternedDottedNameId = n} <- get
     case ids `HMS.lookup` internedDottedNames of
         Just n -> pure n
         Nothing -> do
-            let m = HMS.size internedDottedNames
-            when (m > fromIntegral (maxBound :: Int32)) $
+            when (n == maxBound) $
                 error "Dotted name interning table grew too large"
-            let n = fromIntegral m :: Int32
-            put $! env{internedDottedNames = HMS.insert ids n internedDottedNames}
+            put $! env
+                { internedDottedNames = HMS.insert ids n internedDottedNames
+                , nextInternedDottedNameId = n + 1
+                }
             pure n
 
 ------------------------------------------------------------------------
@@ -103,15 +116,15 @@ encodeInternableStrings strs = do
 -- constructor. These strings are mangled to escape special characters. All
 -- names will be interned in DAML-LF 1.7 and onwards.
 encodeName
-    :: Util.EitherLike m1 m2 m3 m4 m5 TL.Text Int32 e
+    :: Util.EitherLike TL.Text Int32 e
     => (a -> T.Text) -> a -> Encode (Just e)
 encodeName unwrapName = fmap Just . encodeName' unwrapName
 
 encodeName'
-    :: Util.EitherLike m1 m2 m3 m4 m5 TL.Text Int32 e
+    :: Util.EitherLike TL.Text Int32 e
     => (a -> T.Text) -> a -> Encode e
-encodeName' unwrapName (unwrapName -> unmangled) =
-   Util.fromEither <$> coerce (encodeNames @Identity) unmangled
+encodeName' unwrapName (unwrapName -> unmangled) = do
+    Util.fromEither @TL.Text @Int32 <$> coerce (encodeNames @Identity) unmangled
 
 encodeNames :: Traversable t => t T.Text -> Encode (Either (t TL.Text) (t Int32))
 encodeNames = encodeInternableStrings . fmap mangleName
@@ -134,7 +147,7 @@ encodeDottedName' unmangled = do
     case mangledAndInterned of
         Left mangled -> pure (V.fromList mangled, 0)
         Right ids -> do
-            id <- allocList ids
+            id <- allocDottedName ids
             pure (V.empty, id)
 
 -- | Encode the name of a top-level value. The name is mangled and will be
