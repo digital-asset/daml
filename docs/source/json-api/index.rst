@@ -54,7 +54,7 @@ Start HTTP service from a DAML project directory
 ::
 
     $ daml json-api --ledger-host localhost --ledger-port 6865 \
-        --http-port 7575 --max-inbound-message-size 4194304 --package-reload-interval 5s \\
+        --http-port 7575 --max-inbound-message-size 4194304 --package-reload-interval 5s \
         --application-id HTTP-JSON-API-Gateway
 
 ::
