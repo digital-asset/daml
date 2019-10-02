@@ -35,4 +35,4 @@ bazel query 'deps(//...)' > /dev/null
 da-ghci --data yes //:repl -e '()'
 # Check that our IDE works on our codebase
 ./compiler/ghcide-daml.sh compiler/damlc/exe/Main.hs 2>&1 | tee ide-log
-grep -q "Files that failed: 0" ide-log
+grep -q "1 file worked, 0 files failed" ide-log
