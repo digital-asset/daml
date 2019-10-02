@@ -514,7 +514,7 @@ snd (_, x) = x
 
 #ifdef DAML_NUMERIC
 #define IF_NUMERIC(a,b) a
-#define NUMERIC_LIT(n) (primitive @"BECastNumeric" ((n) : Numeric 10))
+#define NUMERIC_LIT(n) (primitive @"BEMulNumeric" (1.0 : Numeric 0) ((n) : Numeric 10))
 #else
 #define IF_NUMERIC(a,b) b
 #define NUMERIC_LIT(n) n
