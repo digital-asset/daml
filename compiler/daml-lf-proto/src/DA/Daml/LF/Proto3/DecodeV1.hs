@@ -314,8 +314,8 @@ decodeBuiltinFunction = pure . \case
   LF1.BuiltinFunctionMUL_NUMERIC   -> BEMulNumeric
   LF1.BuiltinFunctionDIV_NUMERIC   -> BEDivNumeric
   LF1.BuiltinFunctionROUND_NUMERIC -> BERoundNumeric
-  LF1.BuiltinFunctionCAST_NUMERIC  -> error "CAST_NUMERIC not implemented"
-  LF1.BuiltinFunctionSHIFT_NUMERIC -> error "SHIFT_DECIMAL not implemented"
+  LF1.BuiltinFunctionCAST_NUMERIC  -> BECastNumeric
+  LF1.BuiltinFunctionSHIFT_NUMERIC -> BEShiftNumeric
 
   LF1.BuiltinFunctionADD_INT64 -> BEAddInt64
   LF1.BuiltinFunctionSUB_INT64 -> BESubInt64

@@ -341,6 +341,8 @@ encodeBuiltinExpr = \case
     BEMulNumeric -> builtin P.BuiltinFunctionMUL_NUMERIC
     BEDivNumeric -> builtin P.BuiltinFunctionDIV_NUMERIC
     BERoundNumeric -> builtin P.BuiltinFunctionROUND_NUMERIC
+    BECastNumeric -> builtin P.BuiltinFunctionCAST_NUMERIC
+    BEShiftNumeric -> builtin P.BuiltinFunctionSHIFT_NUMERIC
 
     BEAddInt64 -> builtin P.BuiltinFunctionADD_INT64
     BESubInt64 -> builtin P.BuiltinFunctionSUB_INT64

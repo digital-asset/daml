@@ -140,6 +140,8 @@ safetyStep = \case
       BENumericFromText   -> Safe 1
       BEToTextNumeric     -> Safe 1
       BERoundNumeric      -> Safe 1
+      BECastNumeric       -> Safe 0
+      BEShiftNumeric      -> Safe 1
       BEAddInt64          -> Safe 1
       BESubInt64          -> Safe 1
       BEMulInt64          -> Safe 1

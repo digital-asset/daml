@@ -199,6 +199,10 @@ convertPrim _ "BEDivNumeric" (TNumeric n1 :-> TNumeric n2 :-> TNumeric n3) =
     EBuiltin BEDivNumeric `ETyApp` n1 `ETyApp` n2 `ETyApp` n3
 convertPrim _ "BERoundNumeric" (TInt64 :-> TNumeric n1 :-> TNumeric n2) | n1 == n2 =
     ETyApp (EBuiltin BERoundNumeric) n1
+convertPrim _ "BECastNumeric" (TNumeric n1 :-> TNumeric n2) =
+    EBuiltin BECastNumeric `ETyApp` n1 `ETyApp` n2
+convertPrim _ "BEShiftNumeric" (TNumeric n1 :-> TNumeric n2) =
+    EBuiltin BEShiftNumeric `ETyApp` n1 `ETyApp` n2
 convertPrim _ "BEEqualNumeric" (TNumeric n1 :-> TNumeric n2 :-> TBool) | n1 == n2 =
     ETyApp (EBuiltin BEEqualNumeric) n1
 convertPrim _ "BELessNumeric" (TNumeric n1 :-> TNumeric n2 :-> TBool) | n1 == n2 =
