@@ -536,7 +536,8 @@ Then we can define our kinds, types, and expressions::
        |  'Map'                                     -- BTMap
        |  'Update'                                  -- BTyUpdate
        |  'ContractId'                              -- BTyContractId
-       |  'AnyTemplate'                             –- BTyAnyTemplate
+       |  'AnyTemplate'                             -- BTyAnyTemplate
+       |  'Eq'                                      -- BTEq
 
   Types (mnemonic: tau for type)
     τ, σ
@@ -583,6 +584,7 @@ Then we can define our kinds, types, and expressions::
        |  u                                         -- ExpUpdate: Update expression
        | 'to_any_template' @Mod:T t                 -- ExpToAnyTemplate: Wrap a template in AnyTemplate
        | 'from_any_template' @Mod:T t               -- ExpToAnyTemplate: Extract the given template from AnyTemplate or return None
+       | 'eq' @τ
 
   Patterns
     p
@@ -814,6 +816,39 @@ First, we formally defined *well-formed types*. ::
       Γ  ⊢  τ₁  :  ⋆    …    Γ  ⊢  τₙ  :  ⋆
     ————————————————————————————————————————————— TyTuple
       Γ  ⊢  ⟨ f₁: τ₁, …, fₙ: τₙ ⟩  :  ⋆
+
+    ————————————————————————————————————————————— TyTuple
+      Γ  ⊢ 'eq' @'Unit' : 'EQ' 'Unit'
+
+    ————————————————————————————————————————————— TyTuple
+      Γ  ⊢ 'eq' @'Bool' : 'EQ' 'Bool'
+
+    ————————————————————————————————————————————— TyTuple
+      Γ  ⊢ 'eq' @'Int64' : 'EQ' 'Int64'
+
+    ————————————————————————————————————————————— TyTuple
+      Γ  ⊢ 'eq' @'Numeric' :  ∀ (α:'nat'). 'EQ' ('Numeric' n)
+
+    ————————————————————————————————————————————— TyTuple
+      Γ  ⊢ 'eq' @'Date' : 'EQ' 'Date'
+
+    ————————————————————————————————————————————— TyTuple
+      Γ  ⊢ 'eq' @'Timestamp' : 'EQ' 'Timestamp'
+
+    ————————————————————————————————————————————— TyTuple
+      Γ  ⊢ 'eq' @'Party' : 'EQ' 'Party'
+
+  ————————————————————————————————————————————— TyTuple
+     Γ  ⊢ 'eq' @'ContractId'
+             : ∀ (α:k) . 'EQ' ('ContractId' α)
+
+  ————————————————————————————————————————————— TyTuple
+     Γ  ⊢ 'eq' @'Optional'
+             : ∀ (α:k) . 'EQ' α → 'EQ' ('ContractId' α)
+
+  ————————————————————————————————————————————— TyTuple
+     Γ  ⊢ 'eq' @'List'
+             : ∀ (α:k) . 'EQ' α  → 'EQ' ('ContractId' α)
 
 
 Well-formed expression
@@ -1490,10 +1525,12 @@ need to be evaluated further. ::
    ——————————————————————————————————————————————————— ValExpTupleCon
      ⊢ᵥ  ⟨ f₁ = e₁, …, fₘ = eₘ ⟩
 
-
      ⊢ᵥ  e
    ——————————————————————————————————————————————————— ValExpToAnyTemplate
      ⊢ᵥ  'to_any_template' @Mod:T e
+
+   ——————————————————————————————————————————————————— ValEq
+     ⊢ᵥ  'eq' @τ
 
      ⊢ᵥ  e
    ——————————————————————————————————————————————————— ValExpUpdPure
@@ -2580,6 +2617,15 @@ Conversions functions
 * ``UNIX_DAYS_TO_DATE : 'Int64' → 'Date'``
 
   Converts the integer in date. Throws an error in case of overflow.
+
+Generic Equality
+~~~~~~~~~~~~~~~~
+
+* ``EQUAL: ∀ (α : ⋆) . 'Eq' α → α → α → Boolean``
+
+  Returns ``'True'`` if the second and third argument are syntactically
+  equal, ``False`` otherwise.
+
 
 Error functions
 ~~~~~~~~~~~~~~~
