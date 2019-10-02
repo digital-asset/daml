@@ -117,8 +117,8 @@ message FieldWithType {
   // Name of the field .
   // *Must be a valid identifier*
   oneof field {
-    string field_name = 1;
-    int32 field_interned_id = 3; // *Available in versions >= 1.dev*
+    string name = 1;
+    int32 interned_id = 3; // *Available in versions >= 1.dev*
   }
 
   // Type associated
@@ -157,8 +157,8 @@ message FieldWithExpr {
   // Name of the field
   // *Must be a valid identifier*
   oneof field {
-    string field_name = 1;
-    int32 field_interned_id = 3; // *Available in versions >= 1.dev*
+    string name = 1;
+    int32 interned_id = 3; // *Available in versions >= 1.dev*
   }
 
   // Value of the field
@@ -1122,8 +1122,8 @@ message KeyExpr {
     message Projection {
         Type.Con tycon = 1; // Always fully applied
         oneof field {
-            string field_name = 2;
-            int32 field_interned_id = 3; // *Available in versions >= 1.dev*
+            string name = 2;
+            int32 interned_id = 3; // *Available in versions >= 1.dev*
         }
     }
 
@@ -1134,8 +1134,8 @@ message KeyExpr {
 
     message RecordField {
         oneof field {
-            string field_name = 1;
-            int32 field_interned_id = 3; // *Available in versions >= 1.dev*
+            string name = 1;
+            int32 interned_id = 3; // *Available in versions >= 1.dev*
         }
         KeyExpr expr = 2;
     }

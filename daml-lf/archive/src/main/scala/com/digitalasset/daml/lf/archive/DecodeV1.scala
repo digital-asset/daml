@@ -197,9 +197,9 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
 
     private[this] def decodeFieldWithType(lfFieldWithType: PLF.FieldWithType): (Name, Type) =
       name(lfFieldWithType.getFieldCase match {
-        case PLF.FieldWithType.FieldCase.FIELD_NAME => lfFieldWithType.getFieldName
-        case PLF.FieldWithType.FieldCase.FIELD_INTERNED_ID =>
-          getInternedString(lfFieldWithType.getFieldInternedId)
+        case PLF.FieldWithType.FieldCase.NAME => lfFieldWithType.getName
+        case PLF.FieldWithType.FieldCase.INTERNED_ID =>
+          getInternedString(lfFieldWithType.getInternedId)
         case PLF.FieldWithType.FieldCase.FIELD_NOT_SET =>
           throw ParseError("FieldWithType.FIELD_NOT_SET")
       }) -> decodeType(lfFieldWithType.getType)
@@ -211,9 +211,9 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
         lfFieldWithExpr: PLF.FieldWithExpr,
         definition: String): (Name, Expr) =
       name(lfFieldWithExpr.getFieldCase match {
-        case PLF.FieldWithExpr.FieldCase.FIELD_NAME => lfFieldWithExpr.getFieldName
-        case PLF.FieldWithExpr.FieldCase.FIELD_INTERNED_ID =>
-          getInternedString(lfFieldWithExpr.getFieldInternedId)
+        case PLF.FieldWithExpr.FieldCase.NAME => lfFieldWithExpr.getName
+        case PLF.FieldWithExpr.FieldCase.INTERNED_ID =>
+          getInternedString(lfFieldWithExpr.getInternedId)
         case PLF.FieldWithExpr.FieldCase.FIELD_NOT_SET =>
           throw ParseError("FieldWithExpr.FIELD_NOT_SET")
       }) -> decodeExpr(lfFieldWithExpr.getExpr, definition)
@@ -292,10 +292,10 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
             tycon = decodeTypeConApp(recCon.getTycon),
             fields = ImmArray(recCon.getFieldsList.asScala).map(field =>
               name(field.getFieldCase match {
-                case PLF.KeyExpr.RecordField.FieldCase.FIELD_NAME =>
-                  field.getFieldName
-                case PLF.KeyExpr.RecordField.FieldCase.FIELD_INTERNED_ID =>
-                  getInternedString(field.getFieldInternedId)
+                case PLF.KeyExpr.RecordField.FieldCase.NAME =>
+                  field.getName
+                case PLF.KeyExpr.RecordField.FieldCase.INTERNED_ID =>
+                  getInternedString(field.getInternedId)
                 case PLF.KeyExpr.RecordField.FieldCase.FIELD_NOT_SET =>
                   throw ParseError("KeyExpr.Record.Field.FIELD_NOT_SET")
 
@@ -309,9 +309,9 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
               ERecProj(
                 decodeTypeConApp(lfProj.getTycon),
                 name(lfProj.getFieldCase match {
-                  case PLF.KeyExpr.Projection.FieldCase.FIELD_NAME => lfProj.getFieldName
-                  case PLF.KeyExpr.Projection.FieldCase.FIELD_INTERNED_ID =>
-                    getInternedString(lfProj.getFieldInternedId)
+                  case PLF.KeyExpr.Projection.FieldCase.NAME => lfProj.getName
+                  case PLF.KeyExpr.Projection.FieldCase.INTERNED_ID =>
+                    getInternedString(lfProj.getInternedId)
                   case PLF.KeyExpr.Projection.FieldCase.FIELD_NOT_SET =>
                     throw ParseError("KeyExpr.Projection.Field.FIELD_NOT_SET")
                 }),
