@@ -9,6 +9,9 @@ module Daml.Trigger
   , Transaction(..)
   , Identifier(..)
   , AnyContractId(..)
+  , TransactionId(..)
+  , EventId(..)
+  , CommandId(..)
   , Event(..)
   , Created(..)
   , Archived(..)
@@ -32,8 +35,17 @@ data AnyContractId = AnyContractId
   , contractId : Text
   } deriving (Show, Eq)
 
+newtype TransactionId = TransactionId Text
+  deriving (Show, Eq)
+
+newtype EventId = EventId Text
+  deriving (Show, Eq)
+
+newtype CommandId = CommandId Text
+  deriving (Show, Eq)
+
 data Transaction = Transaction
- { transactionId : Text
+ { transactionId : TransactionId
  , events : [Event]
  }
 
@@ -42,13 +54,13 @@ data Event
   | ArchivedEvent Archived
 
 data Created = Created
-  { eventId : Text
+  { eventId : EventId
   , contractId : AnyContractId
   , argument : AnyTemplate
   }
 
 data Archived = Archived
-  { eventId : Text
+  { eventId : EventId
   , contractId : AnyContractId
   } deriving (Show, Eq)
 
@@ -57,13 +69,13 @@ data Message
   | MCompletion Completion
 
 data Completion = Completion
-  { commandId : Text
+  { commandId : CommandId
   , status : CompletionStatus
   } deriving Show
 
 data CompletionStatus
   = Failed { status : Int, message : Text }
-  | Succeeded { transactionId : Text }
+  | Succeeded { transactionId : TransactionId }
   deriving Show
 
 data ActiveContracts = ActiveContracts { activeContracts : [Created] }
@@ -113,6 +125,6 @@ exerciseCmd contractId choiceArg =
   ExerciseCommand contractId (toLedgerValue choiceArg)
 
 data Commands = Commands
-  { commandId : Text
+  { commandId : CommandId
   , commands : [Command]
   }

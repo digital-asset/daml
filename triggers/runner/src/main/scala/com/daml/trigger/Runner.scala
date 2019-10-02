@@ -187,6 +187,21 @@ object Converter {
       ("name", SText(id.entityName)))
   }
 
+  private def fromTransactionId(triggerIds: TriggerIds, transactionId: String): SValue = {
+    val transactionIdTy = triggerIds.getId("TransactionId")
+    record(transactionIdTy, ("unpack", SText(transactionId)))
+  }
+
+  private def fromEventId(triggerIds: TriggerIds, eventId: String): SValue = {
+    val eventIdTy = triggerIds.getId("EventId")
+    record(eventIdTy, ("unpack", SText(eventId)))
+  }
+
+  private def fromCommandId(triggerIds: TriggerIds, commandId: String): SValue = {
+    val commandIdTy = triggerIds.getId("CommandId")
+    record(commandIdTy, ("unpack", SText(commandId)))
+  }
+
   private def fromAnyContractId(
       triggerIds: TriggerIds,
       templateId: value.Identifier,
@@ -203,7 +218,7 @@ object Converter {
     val archivedTy = triggerIds.getId("Archived")
     record(
       archivedTy,
-      ("eventId", SText(archived.eventId)),
+      ("eventId", fromEventId(triggerIds, archived.eventId)),
       ("contractId", fromAnyContractId(triggerIds, archived.getTemplateId, archived.contractId))
     )
   }
@@ -216,7 +231,7 @@ object Converter {
           case r @ SRecord(_, _, _) =>
             record(
               createdTy,
-              ("eventId", SText(created.eventId)),
+              ("eventId", fromEventId(triggerIds, created.eventId)),
               (
                 "contractId",
                 fromAnyContractId(triggerIds, created.getTemplateId, created.contractId)),
@@ -259,8 +274,9 @@ object Converter {
       Name.assertFromString("MTransaction"),
       record(
         transactionTy,
-        ("transactionId", SText(t.transactionId)),
-        ("events", SList(FrontStack(t.events.map(ev => fromEvent(triggerIds, ev))))))
+        ("transactionId", fromTransactionId(triggerIds, t.transactionId)),
+        ("events", SList(FrontStack(t.events.map(ev => fromEvent(triggerIds, ev)))))
+      )
     )
   }
 
@@ -273,7 +289,7 @@ object Converter {
         Name.assertFromString("Succeeded"),
         record(
           triggerIds.getId("CompletionStatus.Succeeded"),
-          ("transactionId", SText(c.transactionId)))
+          ("transactionId", fromTransactionId(triggerIds, c.transactionId)))
       )
     } else {
       SVariant(
@@ -290,7 +306,7 @@ object Converter {
       Name.assertFromString("MCompletion"),
       record(
         completionTy,
-        ("commandId", SText(c.commandId)),
+        ("commandId", fromCommandId(triggerIds, c.commandId)),
         ("status", status)
       )
     )
@@ -300,6 +316,13 @@ object Converter {
     v match {
       case SText(t) => Right(t)
       case _ => Left(s"Expected Text but got $v")
+    }
+  }
+
+  private def toCommandId(v: SValue): Either[String, String] = {
+    v match {
+      case SRecord(_, _, vals) if vals.size == 1 => toText(vals.get(0))
+      case _ => Left(s"Expected CommandId but got $v")
     }
   }
 
@@ -404,7 +427,7 @@ object Converter {
       case SRecord(_, _, vals) => {
         assert(vals.size == 2)
         for {
-          commandId <- toText(vals.get(0))
+          commandId <- toCommandId(vals.get(0))
           commands <- vals.get(1) match {
             case SList(cmdValues) => cmdValues.traverseU(v => toCommand(triggerIds, v))
             case _ => Left("Expected List but got ${vals.get(1)}")

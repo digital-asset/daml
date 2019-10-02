@@ -50,7 +50,7 @@ test = Trigger
       ([], acs) -> (state { activeAssets = acs }, [], "No command")
       (cmds, acs) ->
         ( state { activeAssets = acs, nextCommandId = state.nextCommandId + 1 }
-        , [Commands ("command_" <> show state.nextCommandId) cmds]
+        , [Commands (CommandId $ "command_" <> show state.nextCommandId) cmds]
         , "Submitted " <> show (length cmds) <> " commands"
         )
       where
