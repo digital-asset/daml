@@ -12,9 +12,9 @@ import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.engine.Engine
 import com.digitalasset.daml.lf.transaction.TransactionOuterClass
 import com.digitalasset.daml_lf.DamlLf
+import com.digitalasset.platform.common.metrics.VarGauge
 import com.google.protobuf.ByteString
 import org.slf4j.LoggerFactory
-
 import scala.collection.JavaConverters._
 
 object KeyValueCommitting {
@@ -66,9 +66,9 @@ object KeyValueCommitting {
       inputState: Map[DamlStateKey, Option[DamlStateValue]],
   ): (DamlLogEntry, Map[DamlStateKey, DamlStateValue]) = {
     Metrics.processing.inc()
-    Metrics.lastRecordTime = recordTime
-    Metrics.lastEntryId = Pretty.prettyEntryId(entryId)
-    Metrics.lastParticipantId = participantId
+    Metrics.lastRecordTimeGauge.updateValue(recordTime.toString)
+    Metrics.lastEntryIdGauge.updateValue(Pretty.prettyEntryId(entryId))
+    Metrics.lastParticipantIdGauge.updateValue(participantId)
     val ctx = Metrics.runTimer.time()
     try {
       submission.getPayloadCase match {
@@ -117,8 +117,9 @@ object KeyValueCommitting {
     } catch {
       case scala.util.control.NonFatal(e) =>
         logger.warn(s"Exception: $e")
-        Metrics.lastException =
-          Pretty.prettyEntryId(entryId) + s"[${submission.getPayloadCase}]: " + e.toString()
+        Metrics.lastExceptionGauge.updateValue(
+          Pretty.prettyEntryId(entryId) + s"[${submission.getPayloadCase}]: " + e.toString
+        )
         throw e
     } finally {
       val _ = ctx.stop()
@@ -230,23 +231,17 @@ object KeyValueCommitting {
     // Counter to monitor how many at a time and when kvutils is processing a submission.
     val processing: metrics.Counter = registry.counter(s"$prefix.processing")
 
-    var lastRecordTime: Timestamp = Timestamp.Epoch
-    registry.register(s"$prefix.last.record-time", new metrics.Gauge[String] {
-      override def getValue: String = lastRecordTime.toString
-    })
-    var lastEntryId: String = "<none>"
-    registry.register(s"$prefix.last.entry-id", new metrics.Gauge[String] {
-      override def getValue: String = lastEntryId
-    })
-    var lastParticipantId: String = "<none>"
-    registry.register(s"$prefix.last.participant-id", new metrics.Gauge[String] {
-      override def getValue: String = lastParticipantId
-    })
-    var lastException: String = "<none>"
-    registry.register(s"$prefix.last.exception", new metrics.Gauge[String] {
-      override def getValue: String = lastException
-    })
+    val lastRecordTimeGauge = new VarGauge[String]("<none>")
+    registry.register(s"$prefix.last.record-time", lastRecordTimeGauge)
 
+    val lastEntryIdGauge = new VarGauge[String]("<none>")
+    registry.register(s"$prefix.last.entry-id", lastEntryIdGauge)
+
+    val lastParticipantIdGauge = new VarGauge[String]("<none>")
+    registry.register(s"$prefix.last.participant-id", lastParticipantIdGauge)
+
+    val lastExceptionGauge = new VarGauge[String]("<none>")
+    registry.register(s"$prefix.last.exception", lastExceptionGauge)
   }
 
 }

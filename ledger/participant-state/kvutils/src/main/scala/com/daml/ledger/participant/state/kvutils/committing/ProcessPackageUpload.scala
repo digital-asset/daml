@@ -18,7 +18,7 @@ import com.digitalasset.daml.lf.language.Ast
 import org.slf4j.LoggerFactory
 
 import scala.collection.JavaConverters._
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 private[kvutils] case class ProcessPackageUpload(
     engine: Engine,
@@ -59,7 +59,10 @@ private[kvutils] case class ProcessPackageUpload(
               .getOrElse(stateKey, throw Err.MissingInputState(stateKey))
               .isEmpty
           }
-        preload()
+
+        // Queue the preloading of the package to the engine.
+        serialContext.execute(preload)
+
         logger.trace(s"Packages committed: ${filteredArchives.map(_.getHash).mkString(", ")}")
         (
           DamlLogEntry.newBuilder
@@ -105,44 +108,41 @@ private[kvutils] case class ProcessPackageUpload(
     )
   }
 
-  private def preload(): Future[Unit] =
-    Future {
-      val ctx = Metrics.preloadTimer.time()
-      try {
-        logger.trace("Preloading engine...")
-        val loadedPackages = engine.compiledPackages().packageIds
-        val packages: Map[Ref.PackageId, Ast.Package] = Metrics.decodeTimer.time { () =>
-          archives
-            .filterNot(
-              a =>
-                Ref.PackageId
-                  .fromString(a.getHash)
-                  .fold(_ => false, loadedPackages.contains))
-            .map { archive =>
-              Decode.readArchiveAndVersion(archive)._1
-            }
-            .toMap
-        }
-        packages.headOption.foreach {
-          case (pkgId, pkg) =>
-            engine
-              .preloadPackage(pkgId, pkg)
-              .consume(
-                _ => sys.error("Unexpected request to PCS in preloadPackage"),
-                pkgId => packages.get(pkgId),
-                _ => sys.error("Unexpected request to keys in preloadPackage")
-              )
-            Metrics.loadedPackages.inc()
-        }
-        logger.trace(s"Preload complete.")
-      } catch {
-        case scala.util.control.NonFatal(e) =>
-          logger.error("preload exception: $err")
-      } finally {
-        val _ = ctx.stop()
+  private val preload: Runnable = () => {
+    val ctx = Metrics.preloadTimer.time()
+    try {
+      logger.trace("Preloading engine...")
+      val loadedPackages = engine.compiledPackages().packageIds
+      val packages: Map[Ref.PackageId, Ast.Package] = Metrics.decodeTimer.time { () =>
+        archives
+          .filterNot(
+            a =>
+              Ref.PackageId
+                .fromString(a.getHash)
+                .fold(_ => false, loadedPackages.contains))
+          .map { archive =>
+            Decode.readArchiveAndVersion(archive)._1
+          }
+          .toMap
       }
-    }(serialContext)
-
+      packages.headOption.foreach {
+        case (pkgId, pkg) =>
+          engine
+            .preloadPackage(pkgId, pkg)
+            .consume(
+              _ => sys.error("Unexpected request to PCS in preloadPackage"),
+              pkgId => packages.get(pkgId),
+              _ => sys.error("Unexpected request to keys in preloadPackage")
+            )
+      }
+      logger.trace(s"Preload complete.")
+    } catch {
+      case scala.util.control.NonFatal(e) =>
+        logger.error("preload exception: $err")
+    } finally {
+      val _ = ctx.stop()
+    }
+  }
 }
 
 private[kvutils] object ProcessPackageUpload {
@@ -156,10 +156,5 @@ private[kvutils] object ProcessPackageUpload {
     val preloadTimer: Timer = registry.timer(s"$prefix.preload-timer")
     val decodeTimer: Timer = registry.timer(s"$prefix.decode-timer")
     val accepts: Counter = registry.counter(s"$prefix.accepts")
-
-    // FIXME(JM): This isn't entirely accurate. Convert this to a gauge once kvutils refactored use have engine
-    // and registry passed through to a singleton submission processors.
-    val loadedPackages: Counter = registry.counter(s"$prefix.loaded-packages")
-
   }
 }

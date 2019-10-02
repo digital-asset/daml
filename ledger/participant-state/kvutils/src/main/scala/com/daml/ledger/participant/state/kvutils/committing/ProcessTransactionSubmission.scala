@@ -4,6 +4,7 @@
 package com.daml.ledger.participant.state.kvutils.committing
 
 import com.codahale.metrics
+import com.codahale.metrics.{Counter, Timer}
 import com.daml.ledger.participant.state.backport.TimeModelChecker
 import com.daml.ledger.participant.state.kvutils.Conversions.{buildTimestamp, commandDedupKey, _}
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
@@ -417,10 +418,10 @@ object ProcessTransactionSubmission {
   private[committing] object Metrics {
     private val registry = metrics.SharedMetricRegistries.getOrCreate("kvutils")
     private val prefix = "kvutils.committing.transaction"
-    val runTimer = registry.timer(s"$prefix.run-timer")
-    val interpretTimer = registry.timer(s"$prefix.interpret-timer")
-    val accepts = registry.counter(s"$prefix.accepts")
-    val rejections =
+    val runTimer: Timer = registry.timer(s"$prefix.run-timer")
+    val interpretTimer: Timer = registry.timer(s"$prefix.interpret-timer")
+    val accepts: Counter = registry.counter(s"$prefix.accepts")
+    val rejections: Map[Int, Counter] =
       DamlTransactionRejectionEntry.ReasonCase.values
         .map(v => v.getNumber -> registry.counter(s"$prefix.rejections_${v.name}"))
         .toMap

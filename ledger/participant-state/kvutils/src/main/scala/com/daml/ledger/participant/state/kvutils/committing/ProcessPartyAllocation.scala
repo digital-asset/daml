@@ -4,6 +4,7 @@
 package com.daml.ledger.participant.state.kvutils.committing
 
 import com.codahale.metrics
+import com.codahale.metrics.{Counter, Timer}
 import com.daml.ledger.participant.state.kvutils.Conversions.buildTimestamp
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.Pretty
@@ -122,8 +123,8 @@ private[kvutils] object ProcessPartyAllocation {
   private[committing] object Metrics {
     private val registry = metrics.SharedMetricRegistries.getOrCreate("kvutils")
     private val prefix = "kvutils.committing.party"
-    val runTimer = registry.timer(s"$prefix.run-timer")
-    val accepts = registry.counter(s"$prefix.accepts")
-    val rejections = registry.counter(s"$prefix.rejections")
+    val runTimer: Timer = registry.timer(s"$prefix.run-timer")
+    val accepts: Counter = registry.counter(s"$prefix.accepts")
+    val rejections: Counter = registry.counter(s"$prefix.rejections")
   }
 }
