@@ -151,7 +151,7 @@ private[digitalasset] class EncodeV1(val minor: LV.Minor) {
     @inline
     private implicit def encodeFieldWithType(nameWithType: (String, Type)): PLF.FieldWithType = {
       val (name, typ) = nameWithType
-      PLF.FieldWithType.newBuilder().setFieldName(name).setType(typ).build()
+      PLF.FieldWithType.newBuilder().setName(name).setType(typ).build()
     }
 
     private val TForalls = RightRecMatcher[(TypeVarName, Kind), Type]({
@@ -240,7 +240,7 @@ private[digitalasset] class EncodeV1(val minor: LV.Minor) {
     @inline
     private implicit def encodeFieldWithExpr(fieldWithExpr: (Name, Expr)): PLF.FieldWithExpr = {
       val (name, expr) = fieldWithExpr
-      PLF.FieldWithExpr.newBuilder().setFieldName(name).setExpr(expr).build()
+      PLF.FieldWithExpr.newBuilder().setName(name).setExpr(expr).build()
     }
 
     @inline
