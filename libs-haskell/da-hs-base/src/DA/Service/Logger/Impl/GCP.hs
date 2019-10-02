@@ -189,14 +189,16 @@ withGcpLogger p hnd f = do
               logGCP gcp priority js (pure ())
 
 data LogEntry = LogEntry
-    { severity :: !Lgr.Priority
+    { machineId :: !UUID
+    , severity :: !Lgr.Priority
     , timeStamp :: !UTCTime
     , message :: !(WithSession Value)
     }
 
 instance ToJSON LogEntry where
     toJSON LogEntry{..} = Object $ HM.fromList
-        [ priorityToGCP severity
+        [ ("machineId", toJSON machineId)
+        , ("severity", priorityToGCP severity)
         , ("timestamp", toJSON timeStamp)
         , ("jsonPayload", toJSON message)
         ]
@@ -240,9 +242,10 @@ instance ToJSON a => ToJSON (WithSession a) where
             toJSON wsContents
 
 toLogEntry :: Aeson.ToJSON a => GCPState -> Lgr.Priority -> a -> IO LogEntry
-toLogEntry GCPState{gcpSessionID} severity m = do
-    let message = WithSession gcpSessionID $ toJSON m
+toLogEntry gcp@GCPState{gcpSessionID} severity m = do
+    machineId <- fetchMachineID gcp
     timeStamp <- getCurrentTime
+    let message = WithSession gcpSessionID $ toJSON m
     pure LogEntry{..}
 
 -- | This will turn non objects into objects with a key of their type
@@ -263,14 +266,8 @@ toJsonObject v = either (\k -> HM.singleton k v) id $ objectOrKey v where
     Aeson.Bool _ -> Left "Bool"
     Aeson.Null -> Left "Null"
 
-priorityToGCP :: Lgr.Priority -> (T.Text, Value)
-priorityToGCP prio = ("severity",prio')
-    where
-        prio' = case prio of
-            Lgr.Error -> "ERROR"
-            Lgr.Warning -> "WARNING"
-            Lgr.Info -> "INFO"
-            Lgr.Debug -> "DEBUG"
+priorityToGCP :: Lgr.Priority -> Value
+priorityToGCP = toJSON . T.toUpper . T.pack . show
 
 -- | Add something to the log queue.
 logGCP
