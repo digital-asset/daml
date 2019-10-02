@@ -34,3 +34,5 @@ HEAD — ongoing
 + [DAML Ledger Integration Kit] The TTL for commands is now read from the configuration service.
 + [DAML Ledger Integration Kit] The contract key tests now live under a single test suite and are multi-node aware.
 - [DAML Compiler] Generic template instantiations like ``template instance IouProposal = Proposal Iou`` now generate a type synonym ``type IouProposal = Proposal Iou`` that can be used in DAML. Before, they generated a ``newtype``, which cannot be used anymore.
+- [DAML Compiler] Fixed a bug where ``damlc build`` sometimes did not find modules during typechecking
+  even if they were present during parallel compilations.
