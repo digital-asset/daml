@@ -225,7 +225,7 @@ getMetaData gcp = do
             Just vs -> Just $ T.pack vs
     pure MetaData
         { machineID
-        , operatingSystem=T.pack os
+        , operatingSystem = T.pack os
         , version
         }
 
@@ -293,7 +293,7 @@ sendLogs gcp (unzip -> (entries, finalizers)) = unless (null entries) $ do
         Nothing -> Lgr.logJson (gcpFallbackLogger gcp) Lgr.Info ("Timeout while sending log request" :: T.Text)
         Just (HttpError e) -> logException gcp e
         Just ReachedDataLimit -> pure ()
-        Just SendSuccess -> sequence_ (map (void . tryAny) finalizers)
+        Just SendSuccess -> sequence_ $ map (void . tryAny) finalizers
 
 logsHost :: BS.ByteString
 logsHost = "logs.daml.com"
@@ -321,9 +321,9 @@ fetchMachineID :: GCPState -> IO UUID
 fetchMachineID gcp = do
     let fp = machineIDFile gcp
     let generateID = do
-        mID <- randomIO
-        T.writeFileUtf8 fp $ UUID.toText mID
-        pure mID
+            mID <- randomIO
+            T.writeFileUtf8 fp $ UUID.toText mID
+            pure mID
     exists <- doesFileExist fp
     if exists
        then do

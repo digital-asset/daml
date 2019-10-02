@@ -357,7 +357,7 @@ execIde telemetry (Debug debug) enableScenarioService ghcOpts mbProfileDir (from
                       f loggerH
                   Undecided -> f loggerH
           initPackageDb lfVersion (InitPkgDb True) (AllowDifferentSdkVersions False)
-          dlintDataDir <-locateRunfiles $ mainWorkspace </> "compiler/damlc/daml-ide-core"
+          dlintDataDir <- locateRunfiles $ mainWorkspace </> "compiler/damlc/daml-ide-core"
           opts <- defaultOptionsIO (Just lfVersion)
           opts <- pure $ opts
               { optScenarioService = enableScenarioService
