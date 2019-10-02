@@ -119,24 +119,24 @@ instance Signed Int where
 instance Additive IF_NUMERIC((Numeric n), Decimal) where
     (+) = primitive @IF_NUMERIC("BEAddNumeric", "BEAddDecimal")
     (-) = primitive @IF_NUMERIC("BESubNumeric", "BESubDecimal")
-    negate x = 0.0 - x
-    aunit = 0.0
+    negate x = aunit - x
+    aunit = IF_NUMERIC(primitive @"BEInt64ToNumeric" 0, 0.0)
 
 instance Multiplicative IF_NUMERIC((Numeric n), Decimal) where
     (*) = primitive @IF_NUMERIC("BEMulNumeric", "BEMulDecimal")
-    munit = 1.0
+    munit = IF_NUMERIC(primitive @"BEInt64ToNumeric" 1, 1.0)
     x ^ n
-        | n == 0 = 1.0
+        | n == 0 = munit
         | n == 2 = x * x
-        | n < 0 = 1.0 / x ^ (negate n)
+        | n < 0 = munit / x ^ (negate n)
         | n % 2 == 0 = (x ^ (n / 2)) ^ 2
         | otherwise = x * x ^ (n - 1)
 
 instance Number IF_NUMERIC((Numeric n), Decimal)
 
 instance Signed IF_NUMERIC((Numeric n), Decimal) where
-    signum x = if x == 0.0 then 0.0 else if x <= 0.0 then (-1.0) else 1.0
-    abs x = if x <= 0.0 then negate x else x
+    signum x = if x == aunit then aunit else if x <= aunit then negate munit else munit
+    abs x = if x <= aunit then negate x else x
 
 -- | Use the `Divisible` class for types that can be divided.
 -- Instances should respect that division is the inverse of
