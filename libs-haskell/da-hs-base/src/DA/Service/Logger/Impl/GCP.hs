@@ -206,7 +206,7 @@ instance ToJSON LogEntry where
 -- | this stores information about the users machine and is transmitted at the
 --   start of every session
 data MetaData = MetaData
-    { machineID :: !UUID
+    { machineId :: !UUID
     , operatingSystem :: !T.Text
     , version :: !(Maybe T.Text)
     } deriving Generic
@@ -219,14 +219,14 @@ logMetaData gcpState = do
 
 getMetaData :: GCPState -> IO MetaData
 getMetaData gcp = do
-    machineID <- fetchMachineID gcp
+    machineId <- fetchMachineID gcp
     v <- lookupEnv sdkVersionEnvVar
     let version = case v of
             Nothing -> Nothing
             Just "" -> Nothing
             Just vs -> Just $ T.pack vs
     pure MetaData
-        { machineID
+        { machineId
         , operatingSystem = T.pack os
         , version
         }
