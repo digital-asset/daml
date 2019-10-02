@@ -189,7 +189,7 @@ withGcpLogger p hnd f = do
               logGCP gcp priority js (pure ())
 
 data LogEntry = LogEntry
-    { machineId :: !UUID
+    { leMachineId :: !UUID
     , severity :: !Lgr.Priority
     , timeStamp :: !UTCTime
     , message :: !(WithSession Value)
@@ -197,7 +197,7 @@ data LogEntry = LogEntry
 
 instance ToJSON LogEntry where
     toJSON LogEntry{..} = Object $ HM.fromList
-        [ ("machineId", toJSON machineId)
+        [ ("machineId", toJSON leMachineId)
         , ("severity", priorityToGCP severity)
         , ("timestamp", toJSON timeStamp)
         , ("jsonPayload", toJSON message)
@@ -243,7 +243,7 @@ instance ToJSON a => ToJSON (WithSession a) where
 
 toLogEntry :: Aeson.ToJSON a => GCPState -> Lgr.Priority -> a -> IO LogEntry
 toLogEntry gcp@GCPState{gcpSessionID} severity m = do
-    machineId <- fetchMachineID gcp
+    leMachineId <- fetchMachineID gcp
     timeStamp <- getCurrentTime
     let message = WithSession gcpSessionID $ toJSON m
     pure LogEntry{..}
