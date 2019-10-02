@@ -266,35 +266,6 @@ convertRationalNumericMono env scale num denom
         double = (fromInteger num / fromInteger denom) :: Double
         maxPower = fromIntegral numericMaxPrecision - scale
 
--- | Convert a rational number into a variable scale Numeric literal. We check that
--- the number can be represented at *some* Numeric scale without overflow or
--- loss of precision, and then we round and cast (with a multi-scale MUL_NUMERIC)
--- to the required scale. This means, for example, that a polymorphic literal like
--- "3.141592... : Numeric n" will be correctly rounded for all scales.
-convertRationalNumericPoly :: Env -> LF.Type -> Integer -> Integer -> ConvertM LF.Expr
-convertRationalNumericPoly env outputScale num denom =
-    case numericFromRational (num % denom) of
-        Left NEScaleTooLarge ->
-            unsupported
-                ("Rational is out of bounds: " ++ show double ++ ". Numeric can only represent " ++ show numericMaxScale ++ " digits after the decimal point")
-                (num, denom)
-
-        Left NEMantissaTooLarge ->
-            unsupported
-                ("Rational is out of bounds: " ++ show double ++ ". Numeric can only represent " ++ show numericMaxPrecision ++ " digits of precision")
-                (num, denom)
-
-        Right inputNumeric ->
-            pure $
-                EBuiltin BEMulNumeric
-                `ETyApp` TNat (numericScale inputNumeric)
-                `ETyApp` TNat 0
-                `ETyApp` outputScale
-                `ETmApp` EBuiltin (BENumeric inputNumeric)
-                `ETmApp` EBuiltin (BENumeric $ numeric 0 1)
-    where
-        double = (fromInteger num / fromInteger denom) :: Double
-
 convertModule :: LF.Version -> MS.Map UnitId T.Text -> NormalizedFilePath -> CoreModule -> Either FileDiagnostic LF.Module
 convertModule lfVersion pkgMap file x = runConvertM (ConversionEnv file Nothing) $ do
     definitions <- concatMapM (convertBind env) binds
@@ -687,11 +658,7 @@ convertExpr env0 e = do
     go env (VarIs "fromRational") (LType (isNumLitTy -> Just n) : LExpr (VarIs ":%" `App` tyInteger `App` Lit (LitNumber _ top _) `App` Lit (LitNumber _ bot _)) : args)
         = fmap (, args) $ convertRationalNumericMono env n top bot
     go env (VarIs "fromRational") (LType scaleTyCoRep : LExpr (VarIs ":%" `App` tyInteger `App` Lit (LitNumber _ top _) `App` Lit (LitNumber _ bot _)) : args)
-        = do
-            scaleType <- convertType env scaleTyCoRep
-            fmap (, args) $ convertRationalNumericPoly env scaleType top bot
-
-
+        = unsupported "Polymorphic numeric literal. Specify a fixed scale by giving the type, e.g. (1.2345 : Numeric 10)" ()
     go env (VarIs "negate") (tyInt : LExpr (VarIs "$fAdditiveInt") : LExpr (untick -> VarIs "fromInteger" `App` Lit (LitNumber _ x _)) : args)
         = fmap (, args) $ convertInt64 (negate x)
     go env (VarIs "fromInteger") (LExpr (Lit (LitNumber _ x _)) : args)

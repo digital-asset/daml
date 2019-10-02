@@ -514,8 +514,10 @@ snd (_, x) = x
 
 #ifdef DAML_NUMERIC
 #define IF_NUMERIC(a,b) a
+#define NUMERIC_LIT(n) (primitive @"BECastNumeric" ((n) : Numeric 10))
 #else
 #define IF_NUMERIC(a,b) b
+#define NUMERIC_LIT(n) n
 #endif
 
 -- | `truncate x` rounds `x` toward zero.
@@ -546,9 +548,9 @@ roundCommercial d x =
 
 -- | Round a `Decimal` to the nearest integer, where a `.5` is rounded away from zero.
 round : IF_NUMERIC(Numeric n, Decimal) -> Int
-round x = if x > 0.0
-    then truncate (x + 0.5)
-    else truncate (x - 0.5)
+round x = if x > NUMERIC_LIT(0.0)
+    then truncate (x + NUMERIC_LIT(0.5))
+    else truncate (x - NUMERIC_LIT(0.5))
 
 -- | Round a `Decimal` down to the nearest integer.
 floor : IF_NUMERIC(Numeric n, Decimal) -> Int
