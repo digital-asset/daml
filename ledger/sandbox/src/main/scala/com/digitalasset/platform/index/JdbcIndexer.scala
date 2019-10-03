@@ -19,6 +19,7 @@ import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractId}
 import com.digitalasset.daml_lf.DamlLf
 import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.domain.LedgerId
+import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.common.util.{DirectExecutionContext => DEC}
 import com.digitalasset.platform.sandbox.metrics.MetricsManager
 import com.digitalasset.platform.sandbox.services.transaction.SandboxEventIdFormatter
@@ -41,7 +42,6 @@ import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{
   ValueSerializer
 }
 import com.digitalasset.platform.sandbox.stores.ledger.sql.util.DbDispatcher
-import org.slf4j.LoggerFactory
 import scalaz.syntax.tag._
 
 import scala.concurrent.duration._
@@ -52,22 +52,23 @@ final abstract class Initialized extends InitStatus
 final abstract class Uninitialized extends InitStatus
 
 object JdbcIndexerFactory {
-  def apply(): JdbcIndexerFactory[Uninitialized] = new JdbcIndexerFactory[Uninitialized]()
+  def apply(loggerFactory: NamedLoggerFactory): JdbcIndexerFactory[Uninitialized] =
+    new JdbcIndexerFactory[Uninitialized](loggerFactory)
 }
 
-class JdbcIndexerFactory[Status <: InitStatus] private () {
-  private val logger = LoggerFactory.getLogger(classOf[JdbcIndexer])
+class JdbcIndexerFactory[Status <: InitStatus] private (loggerFactory: NamedLoggerFactory) {
+  private val logger = loggerFactory.getLogger(classOf[JdbcIndexer])
   private[index] val asyncTolerance = 30.seconds
 
   def validateSchema(jdbcUrl: String)(
       implicit x: Status =:= Uninitialized): JdbcIndexerFactory[Initialized] = {
-    FlywayMigrations(jdbcUrl).validate()
+    FlywayMigrations(jdbcUrl, loggerFactory).validate()
     this.asInstanceOf[JdbcIndexerFactory[Initialized]]
   }
 
   def migrateSchema(jdbcUrl: String)(
       implicit x: Status =:= Uninitialized): JdbcIndexerFactory[Initialized] = {
-    FlywayMigrations(jdbcUrl).migrate()
+    FlywayMigrations(jdbcUrl, loggerFactory).migrate()
     this.asInstanceOf[JdbcIndexerFactory[Initialized]]
   }
 
@@ -107,7 +108,8 @@ class JdbcIndexerFactory[Status <: InitStatus] private () {
       DbDispatcher(
         jdbcUrl,
         if (dbType.supportsParallelWrites) defaultNumberOfShortLivedConnections else 1,
-        defaultNumberOfStreamingConnections)
+        defaultNumberOfStreamingConnections,
+        loggerFactory)
     val ledgerDao = LedgerDao.metered(
       JdbcLedgerDao(
         dbDispatcher,
@@ -115,7 +117,8 @@ class JdbcIndexerFactory[Status <: InitStatus] private () {
         TransactionSerializer,
         ValueSerializer,
         KeyHasher,
-        dbType))(mm)
+        dbType,
+        loggerFactory))(mm)
     ledgerDao
   }
 

@@ -5,6 +5,7 @@ package com.digitalasset.platform.index
 
 import akka.actor.ActorSystem
 import com.daml.ledger.participant.state.v1.ReadService
+import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.common.util.{DirectExecutionContext => DEC}
 import com.digitalasset.platform.index.config.{Config, StartupMode}
 
@@ -15,11 +16,18 @@ import scala.concurrent.duration._
 object StandaloneIndexerServer {
   private[this] val actorSystem = ActorSystem("StandaloneIndexerServer")
 
-  def apply(readService: ReadService, config: Config): AutoCloseable = {
+  def apply(
+      readService: ReadService,
+      config: Config,
+      loggerFactory: NamedLoggerFactory): AutoCloseable = {
 
-    val indexerFactory = JdbcIndexerFactory()
+    val indexerFactory = JdbcIndexerFactory(loggerFactory)
     val indexer =
-      RecoveringIndexer(actorSystem.scheduler, 10.seconds, indexerFactory.asyncTolerance)
+      RecoveringIndexer(
+        actorSystem.scheduler,
+        10.seconds,
+        indexerFactory.asyncTolerance,
+        loggerFactory)
 
     config.startupMode match {
       case StartupMode.MigrateOnly =>

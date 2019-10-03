@@ -12,6 +12,7 @@ import com.daml.ledger.participant.state.kvutils.InMemoryKVParticipantState
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.digitalasset.daml.lf.archive.DarReader
 import com.digitalasset.daml_lf.DamlLf.Archive
+import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.index.{StandaloneIndexServer, StandaloneIndexerServer}
 import org.slf4j.LoggerFactory
 
@@ -54,8 +55,10 @@ object ReferenceServer extends App {
     } yield ledger.uploadPackages(dar.all, None)
   }
 
-  val indexerServer = StandaloneIndexerServer(readService, config)
-  val indexServer = StandaloneIndexServer(config, readService, writeService).start()
+  val participantLoggerFactory = NamedLoggerFactory.forParticipant(participantId)
+  val indexerServer = StandaloneIndexerServer(readService, config, participantLoggerFactory)
+  val indexServer =
+    StandaloneIndexServer(config, readService, writeService, participantLoggerFactory).start()
 
   val extraParticipants =
     for {
@@ -66,11 +69,15 @@ object ReferenceServer extends App {
         participantId = participantId,
         jdbcUrl = jdbcUrl
       )
-      val extraIndexer = StandaloneIndexerServer(readService, participantConfig)
+      val participantLoggerFactory =
+        NamedLoggerFactory.forParticipant(participantConfig.participantId)
+      val extraIndexer =
+        StandaloneIndexerServer(readService, participantConfig, participantLoggerFactory)
       val extraLedgerApiServer = StandaloneIndexServer(
         participantConfig,
         readService,
-        writeService
+        writeService,
+        participantLoggerFactory
       )
       (extraIndexer, extraLedgerApiServer.start())
     }

@@ -11,18 +11,20 @@ import com.google.protobuf.empty.Empty
 import io.grpc._
 import io.grpc.ServerCall.Listener
 import java.util.concurrent.atomic.AtomicBoolean
-import org.slf4j.LoggerFactory
+
+import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import scala.concurrent.{ExecutionContext, Future, Promise}
 
 class SandboxResetService(
     ledgerId: LedgerId,
     getEc: () => ExecutionContext,
-    resetAndRestartServer: () => Future[Unit])
+    resetAndRestartServer: () => Future[Unit],
+    loggerFactory: NamedLoggerFactory)
     extends ResetServiceGrpc.ResetService
     with BindableService
     with ServerInterceptor {
 
-  private val logger = LoggerFactory.getLogger(this.getClass)
+  private val logger = loggerFactory.getLogger(this.getClass)
 
   private val resetInitialized = new AtomicBoolean(false)
 

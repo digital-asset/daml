@@ -8,8 +8,9 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.daml.ledger.participant.state.index.v2
 import com.daml.ledger.participant.state.index.v2.IndexService
-import com.daml.ledger.participant.state.v1.{ReadService, ParticipantId}
+import com.daml.ledger.participant.state.v1.{ParticipantId, ReadService}
 import com.digitalasset.ledger.api.domain.{ParticipantId => _, _}
+import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.common.util.{DirectExecutionContext => DEC}
 import com.digitalasset.platform.sandbox.metrics.MetricsManager
 import com.digitalasset.platform.sandbox.stores.LedgerBackedIndexService
@@ -26,11 +27,12 @@ object JdbcIndex {
       readService: ReadService,
       ledgerId: LedgerId,
       participantId: ParticipantId,
-      jdbcUrl: String)(
+      jdbcUrl: String,
+      loggerFactory: NamedLoggerFactory)(
       implicit mat: Materializer,
       mm: MetricsManager): Future[IndexService with AutoCloseable] =
     Ledger
-      .jdbcBackedReadOnly(jdbcUrl, ledgerId)
+      .jdbcBackedReadOnly(jdbcUrl, ledgerId, loggerFactory)
       .map { ledger =>
         val contractStore = new SandboxContractStore(ledger)
         new LedgerBackedIndexService(MeteredReadOnlyLedger(ledger), contractStore, participantId) {
