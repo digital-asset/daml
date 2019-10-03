@@ -257,7 +257,6 @@ generateRawPackageRule options =
         fs <- transitiveModuleDeps <$> use_ GetDependencies file
         files <- discardInternalModules (fs ++ [file])
         dalfs <- uses_ GenerateRawDalf files
-
         -- build package
         let pkg = buildPackage (optMbPackageName options) lfVersion dalfs
         return ([], Just $ WhnfPackage pkg)
