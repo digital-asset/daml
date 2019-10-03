@@ -37,3 +37,4 @@ HEAD — ongoing
 - [DAML Compiler] Fixed a bug where ``damlc build`` sometimes did not find modules during typechecking
   even if they were present during parallel compilations.
 - [Ledger] Enhance logging to correlate log messages with the associated participant id in multi-participant node tests and environments
+- [Ledger] Ledger api server indexer closes akka system on shutdown.
