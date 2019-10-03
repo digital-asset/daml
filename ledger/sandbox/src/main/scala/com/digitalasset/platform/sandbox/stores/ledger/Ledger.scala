@@ -19,6 +19,7 @@ import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 import com.digitalasset.daml_lf.DamlLf.Archive
 import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails}
+import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilter
 import com.digitalasset.platform.sandbox.metrics.MetricsManager
 import com.digitalasset.platform.sandbox.stores.ActiveLedgerState.Contract
@@ -125,7 +126,8 @@ object Ledger {
       packages: InMemoryPackageStore,
       ledgerEntries: ImmArray[LedgerEntryOrBump],
       queueDepth: Int,
-      startMode: SqlStartMode
+      startMode: SqlStartMode,
+      loggerFactory: NamedLoggerFactory
   )(implicit mat: Materializer, mm: MetricsManager): Future[Ledger] =
     SqlLedger(
       jdbcUrl,
@@ -135,7 +137,8 @@ object Ledger {
       packages,
       ledgerEntries,
       queueDepth,
-      startMode)
+      startMode,
+      loggerFactory)
 
   /**
     * Creates a JDBC backed read only ledger
@@ -148,8 +151,9 @@ object Ledger {
   def jdbcBackedReadOnly(
       jdbcUrl: String,
       ledgerId: LedgerId,
+      loggerFactory: NamedLoggerFactory
   )(implicit mat: Materializer, mm: MetricsManager): Future[ReadOnlyLedger] =
-    ReadOnlySqlLedger(jdbcUrl, Some(ledgerId))
+    ReadOnlySqlLedger(jdbcUrl, Some(ledgerId), loggerFactory)
 
   /** Wraps the given Ledger adding metrics around important calls */
   def metered(ledger: Ledger)(implicit mm: MetricsManager): Ledger = MeteredLedger(ledger)

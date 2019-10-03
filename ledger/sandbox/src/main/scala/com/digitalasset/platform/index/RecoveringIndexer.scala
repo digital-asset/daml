@@ -7,8 +7,8 @@ import java.util.concurrent.atomic.{AtomicBoolean, AtomicReference}
 
 import akka.actor.Scheduler
 import akka.pattern.after
+import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.common.util.{DirectExecutionContext => DEC}
-import org.slf4j.LoggerFactory
 
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -18,8 +18,9 @@ object RecoveringIndexer {
   def apply(
       scheduler: Scheduler,
       restartDelay: FiniteDuration,
-      asyncTolerance: FiniteDuration): RecoveringIndexer =
-    new RecoveringIndexer(scheduler, restartDelay, asyncTolerance)
+      asyncTolerance: FiniteDuration,
+      loggerFactory: NamedLoggerFactory): RecoveringIndexer =
+    new RecoveringIndexer(scheduler, restartDelay, asyncTolerance, loggerFactory)
 }
 
 /**
@@ -31,9 +32,10 @@ object RecoveringIndexer {
 class RecoveringIndexer(
     scheduler: Scheduler,
     restartDelay: FiniteDuration,
-    asyncTolerance: FiniteDuration)
+    asyncTolerance: FiniteDuration,
+    loggerFactory: NamedLoggerFactory)
     extends AutoCloseable {
-  private val logger = LoggerFactory.getLogger(this.getClass)
+  private val logger = loggerFactory.getLogger(this.getClass)
 
   val closed = new AtomicBoolean(false)
   val lastHandle = new AtomicReference[Option[IndexFeedHandle]](None)

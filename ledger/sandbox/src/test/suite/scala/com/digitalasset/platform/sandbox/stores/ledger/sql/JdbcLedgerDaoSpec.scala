@@ -39,6 +39,7 @@ import com.digitalasset.ledger.api.domain.{
   TransactionFilter
 }
 import com.digitalasset.ledger.api.testing.utils.AkkaBeforeAndAfterAll
+import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.participant.util.EventFilter
 import com.digitalasset.platform.sandbox.persistence.PostgresAroundAll
 import com.digitalasset.platform.sandbox.stores.ActiveLedgerState.ActiveContract
@@ -80,15 +81,17 @@ class JdbcLedgerDaoSpec
 
   override def beforeAll(): Unit = {
     super.beforeAll()
-    FlywayMigrations(postgresFixture.jdbcUrl).migrate()
-    dbDispatcher = DbDispatcher(postgresFixture.jdbcUrl, 4, 4)
+    val loggerFactory = NamedLoggerFactory(JdbcLedgerDaoSpec.getClass)
+    FlywayMigrations(postgresFixture.jdbcUrl, loggerFactory).migrate()
+    dbDispatcher = DbDispatcher(postgresFixture.jdbcUrl, 4, 4, loggerFactory)
     ledgerDao = JdbcLedgerDao(
       dbDispatcher,
       ContractSerializer,
       TransactionSerializer,
       ValueSerializer,
       KeyHasher,
-      DbType.Postgres)
+      DbType.Postgres,
+      loggerFactory)
     Await.result(ledgerDao.initializeLedger(LedgerId("test-ledger"), 0), 10.seconds)
   }
 

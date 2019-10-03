@@ -32,6 +32,7 @@ import com.digitalasset.ledger.api.domain.CompletionEvent.{
   CommandRejected
 }
 import com.digitalasset.ledger.api.domain.{ParticipantId => _, _}
+import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.common.util.{DirectExecutionContext => DEC}
 import com.digitalasset.platform.participant.util.EventFilter
 import com.digitalasset.platform.sandbox.metrics.MetricsManager
@@ -70,7 +71,8 @@ object SandboxIndexAndWriteService {
       ledgerEntries: ImmArray[LedgerEntryOrBump],
       startMode: SqlStartMode,
       queueDepth: Int,
-      templateStore: InMemoryPackageStore)(
+      templateStore: InMemoryPackageStore,
+      loggerFactory: NamedLoggerFactory)(
       implicit mat: Materializer,
       mm: MetricsManager): Future[IndexAndWriteService] =
     Ledger
@@ -82,7 +84,8 @@ object SandboxIndexAndWriteService {
         templateStore,
         ledgerEntries,
         queueDepth,
-        startMode
+        startMode,
+        loggerFactory
       )
       .map(ledger =>
         createInstance(Ledger.metered(ledger), participantId, timeModel, timeProvider))(DEC)

@@ -15,6 +15,7 @@ import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSeque
 import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.v1.command_completion_service.CompletionEndRequest
 import com.digitalasset.ledger.client.services.commands.CommandSubmissionFlow
+import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.server.services.command.ApiCommandService
 import com.digitalasset.platform.server.services.identity.ApiLedgerIdentityService
 import io.grpc.BindableService
@@ -24,13 +25,11 @@ import io.netty.channel.nio.NioEventLoopGroup
 import io.netty.channel.socket.nio.NioServerSocketChannel
 import io.netty.handler.ssl.SslContext
 import io.netty.util.concurrent.DefaultThreadFactory
-import org.slf4j.LoggerFactory
 
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration._
 
 object Server {
-  private val logger = LoggerFactory.getLogger(this.getClass)
 
   def apply(
       serverPort: Int,
@@ -48,15 +47,22 @@ object Server {
         Runtime.getRuntime.availableProcessors() * 8
       )(materializer.system)
 
+    // Named logger includes participant identifier in every log message which helps debug multi-node scenarios
+    val loggerFactory = NamedLoggerFactory.forParticipant(s"ParticipantWithPort$serverPort")
+
     new Server(
       serverEsf,
       serverPort,
       sslContext,
-      createServices(indexService, writeService),
-    )
+      createServices(indexService, writeService, loggerFactory),
+      loggerFactory
+    ),
   }
 
-  private def createServices(indexService: IndexService, writeService: WriteService)(
+  private def createServices(
+      indexService: IndexService,
+      writeService: WriteService,
+      loggerFactory: NamedLoggerFactory)(
       implicit mat: ActorMaterializer,
       serverEsf: ExecutionSequencerFactory
   ): List[BindableService] = {
@@ -68,7 +74,7 @@ object Server {
       10.seconds
     )
     val engine = Engine()
-    logger.info(EngineInfo.show)
+    loggerFactory.getLogger(this.getClass).info(EngineInfo.show)
 
     val submissionService =
       DamlOnXSubmissionService.create(ledgerId, indexService, writeService, engine)
@@ -83,7 +89,9 @@ object Server {
       DamlOnXTransactionService.create(ledgerId, indexService)
 
     val identityService =
-      ApiLedgerIdentityService.create(() => Future.successful(domain.LedgerId(ledgerId)))
+      ApiLedgerIdentityService.create(
+        () => Future.successful(domain.LedgerId(ledgerId)),
+        loggerFactory)
 
     // FIXME(JM): hard-coded values copied from SandboxConfig.
     val commandService = ApiCommandService.create(
@@ -109,7 +117,8 @@ object Server {
         () => commandCompletionService.completionEnd(CompletionEndRequest(ledgerId)),
         transactionService.getTransactionById,
         transactionService.getFlatTransactionById
-      )
+      ),
+      loggerFactory
     )
 
     val packageService = DamlOnXPackageService(indexService, ledgerId)
@@ -145,9 +154,10 @@ final class Server private (
     serverEsf: AkkaExecutionSequencerPool,
     serverPort: Int,
     sslContext: Option[SslContext],
-    services: Iterable[BindableService])(implicit materializer: ActorMaterializer)
+    services: Iterable[BindableService],
+    loggerFactory: NamedLoggerFactory)(implicit materializer: ActorMaterializer)
     extends AutoCloseable {
-  private val logger = LoggerFactory.getLogger(this.getClass)
+  private val logger = loggerFactory.getLogger(this.getClass)
 
   private val workerEventLoopGroup: NioEventLoopGroup = {
     val parallelism = Runtime.getRuntime.availableProcessors

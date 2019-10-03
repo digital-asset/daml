@@ -36,4 +36,5 @@ HEAD — ongoing
 - [DAML Compiler] Generic template instantiations like ``template instance IouProposal = Proposal Iou`` now generate a type synonym ``type IouProposal = Proposal Iou`` that can be used in DAML. Before, they generated a ``newtype``, which cannot be used anymore.
 - [DAML Compiler] Fixed a bug where ``damlc build`` sometimes did not find modules during typechecking
   even if they were present during parallel compilations.
+- [Ledger] Enhance logging to correlate log messages with the associated participant id in multi-participant node tests and environments
 - [Ledger] Ledger api server indexer closes akka system on shutdown.

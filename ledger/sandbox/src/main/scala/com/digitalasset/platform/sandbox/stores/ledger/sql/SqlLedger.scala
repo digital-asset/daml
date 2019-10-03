@@ -19,6 +19,7 @@ import com.digitalasset.daml.lf.engine.Blinding
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractId}
 import com.digitalasset.daml_lf.DamlLf.Archive
 import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails, RejectionReason}
+import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.common.util.{DirectExecutionContext => DEC}
 import com.digitalasset.platform.sandbox.LedgerIdGenerator
 import com.digitalasset.platform.sandbox.metrics.MetricsManager
@@ -39,7 +40,6 @@ import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{
 import com.digitalasset.platform.sandbox.stores.ledger.sql.util.DbDispatcher
 import com.digitalasset.platform.sandbox.stores.ledger.{Ledger, LedgerEntry}
 import com.digitalasset.platform.sandbox.stores.{InMemoryActiveLedgerState, InMemoryPackageStore}
-import org.slf4j.LoggerFactory
 import scalaz.syntax.tag._
 
 import scala.collection.immutable
@@ -73,18 +73,23 @@ object SqlLedger {
       packages: InMemoryPackageStore,
       initialLedgerEntries: ImmArray[LedgerEntryOrBump],
       queueDepth: Int,
-      startMode: SqlStartMode = SqlStartMode.ContinueIfExists)(
+      startMode: SqlStartMode = SqlStartMode.ContinueIfExists,
+      loggerFactory: NamedLoggerFactory)(
       implicit mat: Materializer,
       mm: MetricsManager): Future[Ledger] = {
     implicit val ec: ExecutionContext = DEC
 
-    new FlywayMigrations(jdbcUrl).migrate()
+    new FlywayMigrations(jdbcUrl, loggerFactory).migrate()
 
     val dbType = DbType.jdbcType(jdbcUrl)
     val noOfShortLivedConnections =
       if (dbType.supportsParallelWrites) defaultNumberOfShortLivedConnections else 1
     val dbDispatcher =
-      DbDispatcher(jdbcUrl, noOfShortLivedConnections, defaultNumberOfStreamingConnections)
+      DbDispatcher(
+        jdbcUrl,
+        noOfShortLivedConnections,
+        defaultNumberOfStreamingConnections,
+        loggerFactory)
 
     val ledgerDao = LedgerDao.metered(
       JdbcLedgerDao(
@@ -93,9 +98,10 @@ object SqlLedger {
         TransactionSerializer,
         ValueSerializer,
         KeyHasher,
-        dbType))
+        dbType,
+        loggerFactory))
 
-    val sqlLedgerFactory = SqlLedgerFactory(ledgerDao)
+    val sqlLedgerFactory = SqlLedgerFactory(ledgerDao, loggerFactory)
 
     sqlLedgerFactory.createSqlLedger(
       ledgerId,
@@ -119,11 +125,12 @@ private class SqlLedger(
     timeProvider: TimeProvider,
     packages: InMemoryPackageStore,
     queueDepth: Int,
-    maxBatchSize: Int)(implicit mat: Materializer)
+    maxBatchSize: Int,
+    loggerFactory: NamedLoggerFactory)(implicit mat: Materializer)
     extends BaseLedger(ledgerId, headAtInitialization, ledgerDao)
     with Ledger {
 
-  private val logger = LoggerFactory.getLogger(getClass)
+  private val logger = loggerFactory.getLogger(getClass)
 
   // the reason for modelling persistence as a reactive pipeline is to avoid having race-conditions between the
   // moving ledger-end, the async persistence operation and the dispatcher head notification
@@ -323,9 +330,9 @@ private class SqlLedger(
   }
 }
 
-private class SqlLedgerFactory(ledgerDao: LedgerDao) {
+private class SqlLedgerFactory(ledgerDao: LedgerDao, loggerFactory: NamedLoggerFactory) {
 
-  private val logger = LoggerFactory.getLogger(getClass)
+  private val logger = loggerFactory.getLogger(getClass)
 
   /** *
     * Creates a DB backed Ledger implementation.
@@ -376,7 +383,8 @@ private class SqlLedgerFactory(ledgerDao: LedgerDao) {
         timeProvider,
         packages,
         queueDepth,
-        maxBatchSize)
+        maxBatchSize,
+        loggerFactory)
   }
 
   private def reset(): Future[Unit] =
@@ -491,5 +499,6 @@ private class SqlLedgerFactory(ledgerDao: LedgerDao) {
 }
 
 private object SqlLedgerFactory {
-  def apply(ledgerDao: LedgerDao): SqlLedgerFactory = new SqlLedgerFactory(ledgerDao)
+  def apply(ledgerDao: LedgerDao, loggerFactory: NamedLoggerFactory): SqlLedgerFactory =
+    new SqlLedgerFactory(ledgerDao, loggerFactory)
 }

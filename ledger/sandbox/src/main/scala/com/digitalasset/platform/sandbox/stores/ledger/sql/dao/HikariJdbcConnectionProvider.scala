@@ -5,8 +5,8 @@ package com.digitalasset.platform.sandbox.stores.ledger.sql.dao
 
 import java.sql.Connection
 
+import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.zaxxer.hikari.{HikariConfig, HikariDataSource}
-import org.slf4j.LoggerFactory
 
 import scala.concurrent.duration.{FiniteDuration, _}
 import scala.util.control.NonFatal
@@ -52,10 +52,11 @@ object HikariConnection {
 class HikariJdbcConnectionProvider(
     jdbcUrl: String,
     noOfShortLivedConnections: Int,
-    noOfStreamingConnections: Int)
+    noOfStreamingConnections: Int,
+    loggerFactory: NamedLoggerFactory)
     extends JdbcConnectionProvider {
 
-  private val logger = LoggerFactory.getLogger(getClass)
+  private val logger = loggerFactory.getLogger(getClass)
   // these connections should never timeout as we have exactly the same number of threads using them as many connections we have
   private val shortLivedDataSource =
     HikariConnection.createDataSource(
@@ -106,6 +107,11 @@ object HikariJdbcConnectionProvider {
   def apply(
       jdbcUrl: String,
       noOfShortLivedConnections: Int,
-      noOfStreamingConnections: Int): JdbcConnectionProvider =
-    new HikariJdbcConnectionProvider(jdbcUrl, noOfShortLivedConnections, noOfStreamingConnections)
+      noOfStreamingConnections: Int,
+      loggerFactory: NamedLoggerFactory): JdbcConnectionProvider =
+    new HikariJdbcConnectionProvider(
+      jdbcUrl,
+      noOfShortLivedConnections,
+      noOfStreamingConnections,
+      loggerFactory)
 }
