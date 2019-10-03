@@ -427,6 +427,16 @@ template Delegated
         create this
         return ()
 
+      -- Non-consuming choice to test that contract keys created and archived
+      -- by transient contracts are properly handled.
+    controller owner can
+      nonconsuming CreateAnotherAndArchive: ()
+        with
+          k2: Text
+        do
+          cid <- create Delegated with owner = owner, k = k2
+          exercise cid Archive
+
 template Delegation
   with
     owner : Party
