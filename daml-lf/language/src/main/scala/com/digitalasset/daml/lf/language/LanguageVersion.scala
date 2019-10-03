@@ -54,7 +54,8 @@ object LanguageVersion {
     val coerceContractId = v1_5
     val textPacking = v1_6
     val enum = v1_6
-    val internedStrings = v1_6
+    val internedPackageId = v1_6
+    val internedStrings = v1_dev
     val internedDottedNames = v1_dev
     val numeric = v1_dev
     val anyTemplate = v1_dev

@@ -24,8 +24,6 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
 
   private val languageVersion = LV(LV.Major.V1, minor)
 
-  private def name(s: String): Name = eitherToParseError(Name.fromString(s))
-
   override def decodePackage(
       packageId: PackageId,
       lfPackage: PLF.Package,
@@ -34,7 +32,7 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
     val internedStrings: ImmArraySeq[String] = ImmArraySeq(
       lfPackage.getInternedStringsList.asScala: _*)
     if (internedStrings.nonEmpty)
-      assertSince(LV.Features.internedStrings, "interned strings table")
+      assertSince(LV.Features.internedPackageId, "interned strings table")
 
     val internedDottedNames: ImmArraySeq[DottedName] =
       decodeInternedDottedNames(lfPackage.getInternedDottedNamesList.asScala, internedStrings)
@@ -62,9 +60,6 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
       ImmArraySeq.empty,
       lfModule,
       onlySerializableDataDefs = false).decode()
-
-  private[this] def eitherToParseError[A](x: Either[String, A]): A =
-    x.fold(err => throw new ParseError(err), identity)
 
   private[this] def decodeInternedDottedNames(
       internedList: Seq[PLF.InternedDottedName],
@@ -145,16 +140,46 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
     }
 
     // -----------------------------------------------------------------------
+    private[this] def getInternedString(id: Int) =
+      internedStrings.lift(id).getOrElse {
+        throw ParseError(s"invalid internedString table index $id")
+      }
 
-    private[this] def getInternedString(id: Int): String = {
-      def outOfRange = ParseError(s"invalid string table index $id")
-      internedStrings.lift(id).getOrElse(throw outOfRange)
+    private[this] def getInternedPackageId(id: Int): PackageId = {
+      assertSince(LV.Features.internedPackageId, "interned PackageId")
+      toPackageId(getInternedString(id))
     }
 
-    private[this] def getInternedDottedName(id: Int): DottedName = {
-      def outOfRange = ParseError(s"invalid dotted name table index $id")
-      internedDottedNames.lift(id).getOrElse(throw outOfRange)
+    private[this] def getInternedName(id: Int): Name = {
+      assertSince(LV.Features.internedStrings, "interned Name")
+      toName(getInternedString(id))
     }
+
+    private[this] def getInternedText(id: Int): PLText = {
+      assertSince(LV.Features.internedStrings, "interned Text")
+      PLText(getInternedString(id))
+    }
+
+    private[this] def getInternedNumeric(id: Int): PrimLit = {
+      assertSince(LV.Features.internedStrings, "interned Numeric")
+      toNumericLiteral(getInternedString(id))
+    }
+
+    private[this] def getInternedDecimal(id: Int): PLNumeric = {
+      assertSince(LV.Features.internedStrings, "interned Decimal")
+      toDecimalLiteral(getInternedString(id))
+    }
+
+    private[this] def getInternedParty(id: Int): PLParty = {
+      assertSince(LV.Features.internedStrings, "interned Party")
+      toPartyLiteral(getInternedString(id))
+    }
+
+    private[this] def getInternedDottedName(id: Int): DottedName =
+      internedDottedNames.lift(id).getOrElse {
+        assertSince(LV.Features.internedDottedNames, "interned DottedNames")
+        throw ParseError(s"invalid dotted name table index $id")
+      }
 
     private[this] def decodeDottedName(name: PLF.DottedName): DottedName =
       if (name.getSegmentsCount == 0) {
@@ -196,10 +221,11 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
     }
 
     private[this] def decodeFieldWithType(lfFieldWithType: PLF.FieldWithType): (Name, Type) =
-      name(lfFieldWithType.getFieldCase match {
-        case PLF.FieldWithType.FieldCase.NAME => lfFieldWithType.getName
+      (lfFieldWithType.getFieldCase match {
+        case PLF.FieldWithType.FieldCase.NAME =>
+          toName(lfFieldWithType.getName)
         case PLF.FieldWithType.FieldCase.INTERNED_ID =>
-          getInternedString(lfFieldWithType.getInternedId)
+          getInternedName(lfFieldWithType.getInternedId)
         case PLF.FieldWithType.FieldCase.FIELD_NOT_SET =>
           throw ParseError("FieldWithType.FIELD_NOT_SET")
       }) -> decodeType(lfFieldWithType.getType)
@@ -209,11 +235,12 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
 
     private[this] def decodeFieldWithExpr(
         lfFieldWithExpr: PLF.FieldWithExpr,
-        definition: String): (Name, Expr) =
-      name(lfFieldWithExpr.getFieldCase match {
-        case PLF.FieldWithExpr.FieldCase.NAME => lfFieldWithExpr.getName
+        definition: String
+    ): (Name, Expr) =
+      (lfFieldWithExpr.getFieldCase match {
+        case PLF.FieldWithExpr.FieldCase.NAME => toName(lfFieldWithExpr.getName)
         case PLF.FieldWithExpr.FieldCase.INTERNED_ID =>
-          getInternedString(lfFieldWithExpr.getInternedId)
+          getInternedName(lfFieldWithExpr.getInternedId)
         case PLF.FieldWithExpr.FieldCase.FIELD_NOT_SET =>
           throw ParseError("FieldWithExpr.FIELD_NOT_SET")
       }) -> decodeExpr(lfFieldWithExpr.getExpr, definition)
@@ -222,9 +249,9 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
         enumCon: PLF.DefDataType.EnumConstructors): ImmArray[EnumConName] =
       if (enumCon.getConstructorsCount == 0)
         enumCon.getConstructorsInternedIdsList.asScala
-          .map(id => name(getInternedString(id)))(breakOut)
+          .map(id => getInternedName(id))(breakOut)
       else
-        enumCon.getConstructorsList.asScala.map(name)(breakOut)
+        enumCon.getConstructorsList.asScala.map(toName)(breakOut)
 
     private[this] def decodeDefValue(lfValue: PLF.DefValue): DValue = {
       val nameWithType = lfValue.getNameWithType
@@ -263,7 +290,7 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
       }
 
     private[this] def decodeTemplateKey(
-        tpl: String,
+        tpl: DottedName,
         key: PLF.DefTemplate.DefKey,
         tplVar: ExprVarName): TemplateKey = {
       assertSince(LV.Features.contractKeys, "DefTemplate.DefKey")
@@ -291,11 +318,11 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
           ERecCon(
             tycon = decodeTypeConApp(recCon.getTycon),
             fields = ImmArray(recCon.getFieldsList.asScala).map(field =>
-              name(field.getFieldCase match {
+              (field.getFieldCase match {
                 case PLF.KeyExpr.RecordField.FieldCase.NAME =>
-                  field.getName
+                  toName(field.getName)
                 case PLF.KeyExpr.RecordField.FieldCase.INTERNED_ID =>
-                  getInternedString(field.getInternedId)
+                  getInternedName(field.getInternedId)
                 case PLF.KeyExpr.RecordField.FieldCase.FIELD_NOT_SET =>
                   throw ParseError("KeyExpr.Record.Field.FIELD_NOT_SET")
 
@@ -308,13 +335,13 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
             (acc, lfProj) =>
               ERecProj(
                 decodeTypeConApp(lfProj.getTycon),
-                name(lfProj.getFieldCase match {
-                  case PLF.KeyExpr.Projection.FieldCase.NAME => lfProj.getName
+                lfProj.getFieldCase match {
+                  case PLF.KeyExpr.Projection.FieldCase.NAME => toName(lfProj.getName)
                   case PLF.KeyExpr.Projection.FieldCase.INTERNED_ID =>
-                    getInternedString(lfProj.getInternedId)
+                    getInternedName(lfProj.getInternedId)
                   case PLF.KeyExpr.Projection.FieldCase.FIELD_NOT_SET =>
                     throw ParseError("KeyExpr.Projection.Field.FIELD_NOT_SET")
-                }),
+                },
                 acc
             ))
 
@@ -324,14 +351,15 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
     }
 
     private[this] def decodeTemplate(lfTempl: PLF.DefTemplate): Template = {
-      val tpl = decodeDottedName(lfTempl.getTycon).segments.toSeq.mkString(".")
-      val paramName = name(lfTempl.getParamCase match {
-        case PLF.DefTemplate.ParamCase.PARAM_NAME => lfTempl.getParamName
+      val tpl = decodeDottedName(lfTempl.getTycon)
+      val paramName = lfTempl.getParamCase match {
+        case PLF.DefTemplate.ParamCase.PARAM_NAME =>
+          toName(lfTempl.getParamName)
         case PLF.DefTemplate.ParamCase.PARAM_INTERNED_ID =>
-          getInternedString(lfTempl.getParamInternedId)
+          getInternedName(lfTempl.getParamInternedId)
         case PLF.DefTemplate.ParamCase.PARAM_NOT_SET =>
           throw ParseError("DefTemplate.PARAM_NOT_SET")
-      })
+      }
       Template(
         param = paramName,
         precond = if (lfTempl.hasPrecond) decodeExpr(lfTempl.getPrecond, s"$tpl:ensure") else ETrue,
@@ -347,31 +375,33 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
       )
     }
 
-    private[this] def decodeChoice(tpl: String, lfChoice: PLF.TemplateChoice): TemplateChoice = {
+    private[this] def decodeChoice(
+        tpl: DottedName,
+        lfChoice: PLF.TemplateChoice): TemplateChoice = {
       val (v, t) = decodeBinder(lfChoice.getArgBinder)
-      val chName: String = lfChoice.getNameCase match {
+      val chName: Name = lfChoice.getNameCase match {
         case PLF.TemplateChoice.NameCase.CHOICE_NAME =>
-          lfChoice.getChoiceName
+          toName(lfChoice.getChoiceName)
         case PLF.TemplateChoice.NameCase.CHOICE_INTERNED_ID =>
-          getInternedString(lfChoice.getChoiceInternedId)
+          getInternedName(lfChoice.getChoiceInternedId)
         case PLF.TemplateChoice.NameCase.NAME_NOT_SET =>
           throw ParseError("TemplateChoice.NAME_NOT_SET")
 
       }
-      val selfBinder: String = lfChoice.getSelfBinderCase match {
+      val selfBinder: Name = lfChoice.getSelfBinderCase match {
         case PLF.TemplateChoice.SelfBinderCase.SELF_BINDER_NAME =>
-          lfChoice.getSelfBinderName
+          toName(lfChoice.getSelfBinderName)
         case PLF.TemplateChoice.SelfBinderCase.SELF_BINDER_INTERNED_ID =>
-          getInternedString(lfChoice.getSelfBinderInternedId)
+          getInternedName(lfChoice.getSelfBinderInternedId)
         case PLF.TemplateChoice.SelfBinderCase.SELFBINDER_NOT_SET =>
           throw ParseError("TemplateChoice.SELFBINDER_NOT_SET")
       }
 
       TemplateChoice(
-        name = name(chName),
+        name = chName,
         consuming = lfChoice.getConsuming,
         controllers = decodeExpr(lfChoice.getControllers, s"$tpl:$chName:controller"),
-        selfBinder = name(selfBinder),
+        selfBinder = selfBinder,
         argBinder = Some(v) -> t,
         returnType = decodeType(lfChoice.getRetType),
         update = decodeExpr(lfChoice.getUpdate, s"$tpl:$chName:choice")
@@ -397,14 +427,14 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
       lfType.getSumCase match {
         case PLF.Type.SumCase.VAR =>
           val tvar = lfType.getVar
-          val varName = name(tvar.getVarCase match {
-            case PLF.Type.Var.VarCase.VAR_NAME => tvar.getVarName
+          val varName = tvar.getVarCase match {
+            case PLF.Type.Var.VarCase.VAR_NAME =>
+              toName(tvar.getVarName)
             case PLF.Type.Var.VarCase.VAR_INTERNED_ID =>
-              getInternedString(tvar.getVarInternedId)
+              getInternedName(tvar.getVarInternedId)
             case PLF.Type.Var.VarCase.VAR_NOT_SET =>
               throw ParseError("Type.VAR_NOT_SET")
-
-          })
+          }
           tvar.getArgsList.asScala
             .foldLeft[Type](TVar(varName))((typ, arg) => TApp(typ, decodeType(arg)))
         case PLF.Type.SumCase.NAT =>
@@ -459,18 +489,13 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
       val modName = decodeDottedName(lfRef.getModuleName)
       import PLF.PackageRef.{SumCase => SC}
 
-      def toPackageId(rawPid: String): PackageId =
-        PackageId
-          .fromString(rawPid)
-          .getOrElse(throw ParseError(s"invalid packageId '$rawPid'"))
-
       val pkgId = lfRef.getPackageRef.getSumCase match {
         case SC.SELF =>
           this.packageId
         case SC.PACKAGE_ID =>
           toPackageId(lfRef.getPackageRef.getPackageId)
         case SC.INTERNED_ID =>
-          toPackageId(getInternedString(lfRef.getPackageRef.getInternedId))
+          getInternedPackageId(lfRef.getPackageRef.getInternedId)
         case SC.SUM_NOT_SET =>
           throw ParseError("PackageRef.SUM_NOT_SET")
       }
@@ -509,10 +534,10 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
     private[this] def decodeExprBody(lfExpr: PLF.Expr, definition: String): Expr =
       lfExpr.getSumCase match {
         case PLF.Expr.SumCase.VAR =>
-          EVar(name(lfExpr.getVar))
+          EVar(toName(lfExpr.getVar))
 
         case PLF.Expr.SumCase.VAR_INTERNED_ID =>
-          EVar(name(getInternedString(lfExpr.getVarInternedId)))
+          EVar(getInternedName(lfExpr.getVarInternedId))
 
         case PLF.Expr.SumCase.VAL =>
           EVal(decodeValName(lfExpr.getVal))
@@ -549,13 +574,14 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
           val recProj = lfExpr.getRecProj
           ERecProj(
             tycon = decodeTypeConApp(recProj.getTycon),
-            field = name(recProj.getFieldCase match {
-              case PLF.Expr.RecProj.FieldCase.NAME => recProj.getName
+            field = recProj.getFieldCase match {
+              case PLF.Expr.RecProj.FieldCase.NAME =>
+                toName(recProj.getName)
               case PLF.Expr.RecProj.FieldCase.INTERNED_ID =>
-                getInternedString(recProj.getInternedId)
+                getInternedName(recProj.getInternedId)
               case PLF.Expr.RecProj.FieldCase.FIELD_NOT_SET =>
                 throw ParseError("Expr.RecProj.FIELD_NOT_SET")
-            }),
+            },
             record = decodeExpr(recProj.getRecord, definition)
           )
 
@@ -563,10 +589,11 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
           val recUpd = lfExpr.getRecUpd
           ERecUpd(
             tycon = decodeTypeConApp(recUpd.getTycon),
-            field = name(recUpd.getFieldCase match {
-              case PLF.Expr.RecUpd.FieldCase.NAME => recUpd.getName
+            field = (recUpd.getFieldCase match {
+              case PLF.Expr.RecUpd.FieldCase.NAME =>
+                toName(recUpd.getName)
               case PLF.Expr.RecUpd.FieldCase.INTERNED_ID =>
-                getInternedString(recUpd.getInternedId)
+                getInternedName(recUpd.getInternedId)
               case PLF.Expr.RecUpd.FieldCase.FIELD_NOT_SET =>
                 throw ParseError("Expr.RecUpd.FIELD_NOT_SET")
             }),
@@ -578,13 +605,14 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
           val varCon = lfExpr.getVariantCon
           EVariantCon(
             decodeTypeConApp(varCon.getTycon),
-            name(varCon.getVariantConCase match {
-              case PLF.Expr.VariantCon.VariantConCase.NAME => varCon.getName
+            varCon.getVariantConCase match {
+              case PLF.Expr.VariantCon.VariantConCase.NAME =>
+                toName(varCon.getName)
               case PLF.Expr.VariantCon.VariantConCase.INTERNED_ID =>
-                getInternedString(varCon.getInternedId)
+                getInternedName(varCon.getInternedId)
               case PLF.Expr.VariantCon.VariantConCase.VARIANTCON_NOT_SET =>
                 throw ParseError("Expr.VariantCon.VARIANTCON_NOT_SET")
-            }),
+            },
             decodeExpr(varCon.getVariantArg, definition)
           )
 
@@ -593,13 +621,14 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
           val enumCon = lfExpr.getEnumCon
           EEnumCon(
             decodeTypeConName(enumCon.getTycon),
-            name(enumCon.getEnumConCase match {
-              case PLF.Expr.EnumCon.EnumConCase.NAME => enumCon.getName
+            enumCon.getEnumConCase match {
+              case PLF.Expr.EnumCon.EnumConCase.NAME =>
+                toName(enumCon.getName)
               case PLF.Expr.EnumCon.EnumConCase.INTERNED_ID =>
-                getInternedString(enumCon.getInternedId)
+                getInternedName(enumCon.getInternedId)
               case PLF.Expr.EnumCon.EnumConCase.ENUMCON_NOT_SET =>
                 throw ParseError("Expr.EnumCon.ENUMCON_NOT_SET")
-            })
+            }
           )
 
         case PLF.Expr.SumCase.TUPLE_CON =>
@@ -611,26 +640,28 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
         case PLF.Expr.SumCase.TUPLE_PROJ =>
           val tupleProj = lfExpr.getTupleProj
           ETupleProj(
-            name(tupleProj.getFieldCase match {
-              case PLF.Expr.TupleProj.FieldCase.NAME => tupleProj.getName
+            tupleProj.getFieldCase match {
+              case PLF.Expr.TupleProj.FieldCase.NAME =>
+                toName(tupleProj.getName)
               case PLF.Expr.TupleProj.FieldCase.INTERNED_ID =>
-                getInternedString(tupleProj.getInternedId)
+                getInternedName(tupleProj.getInternedId)
               case PLF.Expr.TupleProj.FieldCase.FIELD_NOT_SET =>
                 throw ParseError("Expr.TupleProj.FIELD_NOT_SET")
-            }),
+            },
             decodeExpr(tupleProj.getTuple, definition)
           )
 
         case PLF.Expr.SumCase.TUPLE_UPD =>
           val tupleUpd = lfExpr.getTupleUpd
           ETupleUpd(
-            field = name(tupleUpd.getFieldCase match {
-              case PLF.Expr.TupleUpd.FieldCase.NAME => tupleUpd.getName
+            field = tupleUpd.getFieldCase match {
+              case PLF.Expr.TupleUpd.FieldCase.NAME =>
+                toName(tupleUpd.getName)
               case PLF.Expr.TupleUpd.FieldCase.INTERNED_ID =>
-                getInternedString(tupleUpd.getInternedId)
+                getInternedName(tupleUpd.getInternedId)
               case PLF.Expr.TupleUpd.FieldCase.FIELD_NOT_SET =>
                 throw ParseError("Expr.TupleUpd.FIELD_NOT_SET")
-            }),
+            },
             tuple = decodeExpr(tupleUpd.getTuple, definition),
             update = decodeExpr(tupleUpd.getUpdate, definition)
           )
@@ -738,35 +769,36 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
           val variant = lfCaseAlt.getVariant
           CPVariant(
             decodeTypeConName(variant.getCon),
-            name(variant.getVariantCase match {
+            variant.getVariantCase match {
               case PLF.CaseAlt.Variant.VariantCase.VARIANT_NAME =>
-                variant.getVariantName
+                toName(variant.getVariantName)
               case PLF.CaseAlt.Variant.VariantCase.VARIANT_INTERNED_ID =>
-                getInternedString(variant.getVariantInternedId)
+                getInternedName(variant.getVariantInternedId)
               case PLF.CaseAlt.Variant.VariantCase.VARIANT_NOT_SET =>
                 throw ParseError("CaseAlt.Variant.VARIANT_NOT_SET")
-            }),
-            name(variant.getBinderCase match {
+            },
+            variant.getBinderCase match {
               case PLF.CaseAlt.Variant.BinderCase.BINDER_NAME =>
-                variant.getBinderName
+                toName(variant.getBinderName)
               case PLF.CaseAlt.Variant.BinderCase.BINDER_INTERNED_ID =>
-                getInternedString(variant.getBinderInternedId)
+                getInternedName(variant.getBinderInternedId)
               case PLF.CaseAlt.Variant.BinderCase.BINDER_NOT_SET =>
                 throw ParseError("CaseAlt.Variant.BINDER_NOT_SET")
-            })
+            }
           )
         case PLF.CaseAlt.SumCase.ENUM =>
           assertSince(LV.Features.enum, "CaseAlt.Enum")
           val enum = lfCaseAlt.getEnum
           CPEnum(
             decodeTypeConName(enum.getCon),
-            name(enum.getConstructorCase match {
-              case PLF.CaseAlt.Enum.ConstructorCase.NAME => enum.getName
+            enum.getConstructorCase match {
+              case PLF.CaseAlt.Enum.ConstructorCase.NAME =>
+                toName(enum.getName)
               case PLF.CaseAlt.Enum.ConstructorCase.INTERNED_ID =>
-                getInternedString(enum.getInternedId)
+                getInternedName(enum.getInternedId)
               case PLF.CaseAlt.Enum.ConstructorCase.CONSTRUCTOR_NOT_SET =>
                 throw ParseError("CaseAlt.Enum.CONSTRUCTOR_NOT_SET")
-            })
+            }
           )
         case PLF.CaseAlt.SumCase.PRIM_CON =>
           CPPrimCon(decodePrimCon(lfCaseAlt.getPrimCon))
@@ -775,20 +807,22 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
         case PLF.CaseAlt.SumCase.CONS =>
           val cons = lfCaseAlt.getCons
           CPCons(
-            name(cons.getVarHeadCase match {
-              case PLF.CaseAlt.Cons.VarHeadCase.VAR_HEAD_NAME => cons.getVarHeadName
+            cons.getVarHeadCase match {
+              case PLF.CaseAlt.Cons.VarHeadCase.VAR_HEAD_NAME =>
+                toName(cons.getVarHeadName)
               case PLF.CaseAlt.Cons.VarHeadCase.VAR_HEAD_INTERNED_ID =>
-                getInternedString(cons.getVarHeadInternedId)
+                getInternedName(cons.getVarHeadInternedId)
               case PLF.CaseAlt.Cons.VarHeadCase.VARHEAD_NOT_SET =>
                 throw ParseError("CaseAlt.Cons.VARHEAD_NOT_SET")
-            }),
-            name(cons.getVarTailCase match {
-              case PLF.CaseAlt.Cons.VarTailCase.VAR_TAIL_NAME => cons.getVarTailName
+            },
+            cons.getVarTailCase match {
+              case PLF.CaseAlt.Cons.VarTailCase.VAR_TAIL_NAME =>
+                toName(cons.getVarTailName)
               case PLF.CaseAlt.Cons.VarTailCase.VAR_TAIL_INTERNED_ID =>
-                getInternedString(cons.getVarTailInternedId)
+                getInternedName(cons.getVarTailInternedId)
               case PLF.CaseAlt.Cons.VarTailCase.VARTAIL_NOT_SET =>
                 throw ParseError("CaseAlt.Cons.VARTAIL_NOT_SET")
-            })
+            }
           )
 
         case PLF.CaseAlt.SumCase.OPTIONAL_NONE =>
@@ -797,13 +831,14 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
 
         case PLF.CaseAlt.SumCase.OPTIONAL_SOME =>
           assertSince(LV.Features.optional, "CaseAlt.OptionalSome")
-          CPSome(name(lfCaseAlt.getOptionalSome.getVarBodyCase match {
-            case PLF.CaseAlt.OptionalSome.VarBodyCase.NAME => lfCaseAlt.getOptionalSome.getName
+          CPSome(lfCaseAlt.getOptionalSome.getVarBodyCase match {
+            case PLF.CaseAlt.OptionalSome.VarBodyCase.NAME =>
+              toName(lfCaseAlt.getOptionalSome.getName)
             case PLF.CaseAlt.OptionalSome.VarBodyCase.INTERNED_ID =>
-              getInternedString(lfCaseAlt.getOptionalSome.getInternedId)
+              getInternedName(lfCaseAlt.getOptionalSome.getInternedId)
             case PLF.CaseAlt.OptionalSome.VarBodyCase.VARBODY_NOT_SET =>
               throw ParseError("CaseAlt.OptionalSome.VARBODY_NOT_SET")
-          }))
+          })
 
         case PLF.CaseAlt.SumCase.SUM_NOT_SET =>
           throw ParseError("CaseAlt.SUM_NOT_SET")
@@ -843,13 +878,14 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
           val exercise = lfUpdate.getExercise
           UpdateExercise(
             templateId = decodeTypeConName(exercise.getTemplate),
-            choice = name(exercise.getChoiceCase match {
-              case PLF.Update.Exercise.ChoiceCase.NAME => exercise.getName
+            choice = exercise.getChoiceCase match {
+              case PLF.Update.Exercise.ChoiceCase.NAME =>
+                toName(exercise.getName)
               case PLF.Update.Exercise.ChoiceCase.INTERNED_ID =>
-                getInternedString(exercise.getInternedId)
+                getInternedName(exercise.getInternedId)
               case PLF.Update.Exercise.ChoiceCase.CHOICE_NOT_SET =>
                 throw ParseError("Update.Exercise.CHOICE_NOT_SET")
-            }),
+            },
             cidE = decodeExpr(exercise.getCid, definition),
             actorsE =
               if (exercise.hasActor)
@@ -933,10 +969,11 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
 
     private[this] def decodeTypeVarWithKind(
         lfTypeVarWithKind: PLF.TypeVarWithKind): (TypeVarName, Kind) =
-      name(lfTypeVarWithKind.getVarCase match {
-        case PLF.TypeVarWithKind.VarCase.NAME => lfTypeVarWithKind.getName
+      (lfTypeVarWithKind.getVarCase match {
+        case PLF.TypeVarWithKind.VarCase.NAME =>
+          toName(lfTypeVarWithKind.getName)
         case PLF.TypeVarWithKind.VarCase.INTERNED_ID =>
-          getInternedString(lfTypeVarWithKind.getInternedId)
+          getInternedName(lfTypeVarWithKind.getInternedId)
         case PLF.TypeVarWithKind.VarCase.VAR_NOT_SET =>
           throw ParseError("TypeVarWithKind.VAR_NOT_SET")
 
@@ -948,9 +985,11 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
     }
 
     private[this] def decodeBinder(lfBinder: PLF.VarWithType): (ExprVarName, Type) =
-      name(lfBinder.getVarCase match {
-        case PLF.VarWithType.VarCase.NAME => lfBinder.getName
-        case PLF.VarWithType.VarCase.INTERNED_ID => getInternedString(lfBinder.getInternedId)
+      (lfBinder.getVarCase match {
+        case PLF.VarWithType.VarCase.NAME =>
+          toName(lfBinder.getName)
+        case PLF.VarWithType.VarCase.INTERNED_ID =>
+          getInternedName(lfBinder.getInternedId)
         case PLF.VarWithType.VarCase.VAR_NOT_SET =>
           throw ParseError("VarWithType.VAR_NOT_SET")
       }) -> decodeType(lfBinder.getType)
@@ -972,22 +1011,14 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
           PLInt64(lfPrimLit.getInt64)
         case PLF.PrimLit.SumCase.DECIMAL =>
           assertUntil(LV.Features.numeric, "PrimLit.decimal")
-          Decimal
-            .fromString(lfPrimLit.getDecimal)
-            .flatMap(Numeric.fromBigDecimal(Decimal.scale, _))
-            .fold(e => throw ParseError("error parsing decimal: " + e), PLNumeric)
+          toDecimalLiteral(lfPrimLit.getDecimal)
         case PLF.PrimLit.SumCase.NUMERIC =>
           assertSince(LV.Features.numeric, "PrimLit.numeric")
-          Numeric
-            .fromString(lfPrimLit.getNumeric)
-            .fold(e => throw ParseError("error parsing numeric: " + e), PLNumeric)
+          toNumericLiteral(lfPrimLit.getNumeric)
         case PLF.PrimLit.SumCase.TEXT =>
           PLText(lfPrimLit.getText)
         case PLF.PrimLit.SumCase.PARTY =>
-          val p = Party
-            .fromString(lfPrimLit.getParty)
-            .getOrElse(throw ParseError(s"invalid party '${lfPrimLit.getParty}'"))
-          PLParty(p)
+          toPartyLiteral(lfPrimLit.getParty)
         case PLF.PrimLit.SumCase.TIMESTAMP =>
           val t = Time.Timestamp.fromLong(lfPrimLit.getTimestamp)
           t.fold(e => throw ParseError("error decoding timestamp: " + e), PLTimestamp)
@@ -995,23 +1026,15 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
           val d = Time.Date.fromDaysSinceEpoch(lfPrimLit.getDate)
           d.fold(e => throw ParseError("error decoding date: " + e), PLDate)
         case PLF.PrimLit.SumCase.TEXT_INTERNED_ID =>
-          PLText(getInternedString(lfPrimLit.getTextInternedId))
+          getInternedText(lfPrimLit.getTextInternedId)
         case PLF.PrimLit.SumCase.DECIMAL_INTERNED_ID =>
           assertUntil(LV.Features.numeric, "PrimLit.decimal")
-          Decimal
-            .fromString(getInternedString(lfPrimLit.getDecimalInternedId))
-            .flatMap(Numeric.fromBigDecimal(Decimal.scale, _))
-            .fold(e => throw ParseError("error parsing decimal: " + e), PLNumeric)
+          getInternedDecimal(lfPrimLit.getDecimalInternedId)
         case PLF.PrimLit.SumCase.NUMERIC_INTERNED_ID =>
           assertSince(LV.Features.numeric, "PrimLit.numeric")
-          Numeric
-            .fromString(getInternedString(lfPrimLit.getNumericInternedId))
-            .fold(e => throw ParseError("error parsing numeric: " + e), PLNumeric)
+          getInternedNumeric(lfPrimLit.getNumericInternedId)
         case PLF.PrimLit.SumCase.PARTY_INTERNED_ID =>
-          val p = Party
-            .fromString(getInternedString(lfPrimLit.getPartyInternedId))
-            .getOrElse(throw ParseError(s"invalid party '${lfPrimLit.getParty}'"))
-          PLParty(p)
+          getInternedParty(lfPrimLit.getPartyInternedId)
         case PLF.PrimLit.SumCase.SUM_NOT_SET =>
           throw ParseError("PrimLit.SUM_NOT_SET")
       }
@@ -1040,6 +1063,22 @@ private[lf] object DecodeV1 {
   @tailrec
   private def ntimes[A](n: Int, f: A => A, a: A): A =
     if (n == 0) a else ntimes(n - 1, f, f(a))
+
+  private def eitherToParseError[A](x: Either[String, A]): A =
+    x.fold(err => throw new ParseError(err), identity)
+
+  private def toName(s: String): Name = eitherToParseError(Name.fromString(s))
+
+  private def toPackageId(s: String): PackageId = eitherToParseError(PackageId.fromString(s))
+
+  private def toNumericLiteral(s: String): PrimLit =
+    PLNumeric(eitherToParseError(Numeric.fromString(s)))
+
+  private def toDecimalLiteral(s: String): PLNumeric =
+    PLNumeric(eitherToParseError(Decimal.fromString(s)))
+
+  private def toPartyLiteral(s: String): PLParty =
+    PLParty(eitherToParseError(Party.fromString(s)))
 
   case class BuiltinTypeInfo(
       proto: PLF.PrimType,
