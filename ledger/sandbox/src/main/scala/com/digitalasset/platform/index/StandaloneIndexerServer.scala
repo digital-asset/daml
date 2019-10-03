@@ -8,18 +8,20 @@ import com.daml.ledger.participant.state.v1.ReadService
 import com.digitalasset.platform.common.util.{DirectExecutionContext => DEC}
 import com.digitalasset.platform.index.config.{Config, StartupMode}
 
+import scala.concurrent.Await
 import scala.concurrent.duration._
 
 // Main entry point to start an indexer server.
 // See v2.ReferenceServer for the usage
 object StandaloneIndexerServer {
-  private[this] val actorSystem = ActorSystem("StandaloneIndexerServer")
 
   def apply(readService: ReadService, config: Config): AutoCloseable = {
 
+    val actorSystem = ActorSystem(config.participantId)
+    val asyncTolerance: FiniteDuration = 10.seconds
     val indexerFactory = JdbcIndexerFactory()
     val indexer =
-      RecoveringIndexer(actorSystem.scheduler, 10.seconds, indexerFactory.asyncTolerance)
+      RecoveringIndexer(actorSystem.scheduler, asyncTolerance, indexerFactory.asyncTolerance)
 
     config.startupMode match {
       case StartupMode.MigrateOnly =>
@@ -42,6 +44,11 @@ object StandaloneIndexerServer {
         }
     }
 
-    indexer
+    new AutoCloseable {
+      override def close(): Unit = {
+        indexer.close()
+        val _ = Await.result(actorSystem.terminate(), asyncTolerance)
+      }
+    }
   }
 }
