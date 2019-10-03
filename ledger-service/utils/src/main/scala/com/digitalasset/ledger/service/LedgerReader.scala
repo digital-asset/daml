@@ -22,7 +22,6 @@ import Scalaz._
 
 object LedgerReader {
 
-  // TODO(Leo): need something stronger
   type Error = String
 
   // PackageId -> Interface
