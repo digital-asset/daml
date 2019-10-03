@@ -222,7 +222,7 @@ generateGenericInstanceFor genClass name@(L loc _n) pkgName modName tyVars dataD
     mkS mLbl a = mkHsAppTys s1 [metaSelTy mLbl a, a]
     sumP :: [LConDecl GhcPs] -> LHsType GhcPs
     sumP [] = v1
-    sumP cs = foldBal mkSum' $ map mkC cs
+    sumP cs = foldr1 mkSum' $ map mkC cs
     mkSum' :: LHsType GhcPs -> LHsType GhcPs -> LHsType GhcPs
     mkSum' a b = mkHsAppTys plus [a, b]
     mkProd :: LHsType GhcPs -> LHsType GhcPs -> LHsType GhcPs
@@ -234,10 +234,10 @@ generateGenericInstanceFor genClass name@(L loc _n) pkgName modName tyVars dataD
     prod :: HsConDeclDetails GhcPs -> LHsType GhcPs
     prod (PrefixCon as)
         | null as = u1
-        | otherwise = foldBal mkProd [mkS Nothing $ mkRec0 a | a <- as]
+        | otherwise = foldr1 mkProd [mkS Nothing $ mkRec0 a | a <- as]
     prod (RecCon (L _ fs)) | null fs = u1
     prod (RecCon (L _ fs)) =
-        foldBal mkProd
+        foldr1 mkProd
         [ mkS (Just cd_fld_names) $ mkRec0 cd_fld_type
         | L _ ConDeclField {..} <- fs
         ]
@@ -516,7 +516,7 @@ mkProd_E :: GenericKind_DC    -- Generic or Generic1?
                        -- List of variables matched on the lhs and their types
          -> LHsExpr GhcPs   -- Resulting product expression
 mkProd_E _   _ []     = mkM1_E (nlHsVar u1DataCon_RDR)
-mkProd_E gk_ _ varTys = mkM1_E (foldBal prod appVars)
+mkProd_E gk_ _ varTys = mkM1_E (foldr1 prod appVars)
                      -- These M1s are meta-information for the constructor
   where
     appVars = map (wrapArg_E gk_) varTys
@@ -545,7 +545,7 @@ mkProd_P :: GenericKind       -- Gen0 or Gen1
                               --   along with their types
          -> LPat GhcPs      -- Resulting product pattern
 mkProd_P _  _ []     = mkM1_P (nlNullaryConPat u1DataCon_RDR)
-mkProd_P gk _ varTys = mkM1_P (foldBal prod appVars)
+mkProd_P gk _ varTys = mkM1_P (foldr1 prod appVars)
                      -- These M1s are meta-information for the constructor
   where
     appVars = unzipWith (wrapArg_P gk) varTys
@@ -578,11 +578,11 @@ _nlHsCompose :: LHsExpr GhcPs -> LHsExpr GhcPs -> LHsExpr GhcPs
 _nlHsCompose x y = compose_RDR `nlHsApps` [x, y]
 
 -- | Variant of foldr1 for producing balanced lists
-foldBal :: (a -> a -> a) -> [a] -> a
-foldBal op = foldBal' op (error "foldBal: empty list")
+--foldBal :: (a -> a -> a) -> [a] -> a
+--foldBal op = foldBal' op (error "foldBal: empty list")
 
-foldBal' :: (a -> a -> a) -> a -> [a] -> a
-foldBal' _  x []  = x
-foldBal' _  _ [y] = y
-foldBal' op x l   = let (a,b) = splitAt (length l `div` 2) l
-                    in foldBal' op x a `op` foldBal' op x b
+--foldBal' :: (a -> a -> a) -> a -> [a] -> a
+--foldBal' _  x []  = x
+--foldBal' _  _ [y] = y
+--foldBal' op x l   = let (a,b) = splitAt (length l `div` 2) l
+                    --in foldBal' op x a `op` foldBal' op x b

@@ -3,7 +3,7 @@
 
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE OverlappingInstances #-}
+{-# LANGUAGE IncoherentInstances #-}
 
 daml 1.2
 
@@ -89,13 +89,19 @@ instance (GenConvertible a1 a2, GenConvertible b1 b2) => GenConvertible (a1 :*: 
   cv ~(P1 a b) = P1 (cv a) (cv b)
 
 -- product embeddings
-instance (GenConvertible a1 a2) => GenConvertible a1 (a2 :*: Opt b s) where
+instance {-# OVERLAPPING #-} (GenConvertible a1 a2) => GenConvertible a1 (a2 :*: Opt b s) where
   cv a = P1 (cv a) genNone
 
+instance {-# OVERLAPPABLE #-} (GenConvertible b1 b2) => GenConvertible b1 (Opt a s :*: b2) where
+  cv b = P1 genNone (cv b)
+
 -- product projections
-instance GenConvertible a1 a2 => GenConvertible (a1 :*: Opt b1 s) a2 where
+instance {-# OVERLAPPING #-} GenConvertible a1 a2 => GenConvertible (a1 :*: Opt b1 s) a2 where
   cv ~(P1 a (M1 (K1 {unK1 = None}))) = cv a
   -- cv ~(P1 a (M1 (K1 {unK1 = Some _b}))) = error "This conversion would have introduced data loss"
+
+instance {-# OVERLAPPABLE #-} GenConvertible b1 b2 => GenConvertible (Opt a1 s :*: b1) b2 where
+  cv ~(P1 (M1 (K1 {unK1 = None})) b) = cv b
 
 -- sums
 instance (GenConvertible a1 a2, GenConvertible b1 b2) => GenConvertible (a1 :+: b1) (a2 :+: b2) where
