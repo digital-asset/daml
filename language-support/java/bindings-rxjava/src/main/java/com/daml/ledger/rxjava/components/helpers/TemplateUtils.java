@@ -22,7 +22,7 @@ public class TemplateUtils {
      *     templates
      */
 
-    public static Function<CreatedContract, Template> contractTransformator(
+    public static Function<CreatedContract, Template> contractTransformer(
             Class<? extends Template>... allowedTemplates) {
         return createdContract -> {
             Record args = createdContract.getCreateArguments();
