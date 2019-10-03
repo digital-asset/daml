@@ -193,14 +193,32 @@ private class JdbcLedgerDao(
     """insert into contracts(id, transaction_id, workflow_id, package_id, name, create_offset, key)
       |values({id}, {transaction_id}, {workflow_id}, {package_id}, {name}, {create_offset}, {key})""".stripMargin
 
-  private val SQL_INSERT_CONTRACT_DATA =
-    "insert into contract_data(id, contract) values({id}, {contract})"
-
   private val SQL_INSERT_CONTRACT_WITNESS =
     "insert into contract_witnesses(contract_id, witness) values({contract_id}, {witness})"
 
   private val SQL_INSERT_CONTRACT_KEY_MAINTAINERS =
     "insert into contract_key_maintainers(contract_id, maintainer) values({contract_id}, {maintainer})"
+
+  private def storeContractData(contracts: Seq[(AbsoluteContractId, AbsoluteContractInst)])(
+      implicit connection: Connection): Unit = {
+    val namedContractDataParams = contracts
+      .map {
+        case (cid, contract) =>
+          Seq[NamedParameter](
+            "id" -> cid.coid,
+            "contract" -> contractSerializer
+              .serializeContractInstance(contract)
+              .getOrElse(sys.error(s"failed to serialize contract! cid:${cid.coid}"))
+          )
+      }
+
+    if (namedContractDataParams.nonEmpty) {
+      val _ = executeBatchSql(
+        queries.SQL_INSERT_CONTRACT_DATA,
+        namedContractDataParams
+      )
+    }
+  }
 
   private def storeContracts(offset: Long, contracts: immutable.Seq[ActiveContract])(
       implicit connection: Connection): Unit = {
@@ -235,21 +253,7 @@ private class JdbcLedgerDao(
         namedContractParams
       )
 
-      val namedContractDataParams = contracts
-        .map(
-          c =>
-            Seq[NamedParameter](
-              "id" -> c.id.coid,
-              "contract" -> contractSerializer
-                .serializeContractInstance(c.contract)
-                .getOrElse(sys.error(s"failed to serialize contract! cid:${c.id.coid}"))
-          )
-        )
-
-      executeBatchSql(
-        SQL_INSERT_CONTRACT_DATA,
-        namedContractDataParams
-      )
+      storeContractData(contracts.map(c => (c.id, c.contract)))
 
       // Part 2: insert witnesses into the 'contract_witnesses' table
       val namedWitnessesParams = contracts
@@ -559,6 +563,9 @@ private class JdbcLedgerDao(
             divulgedContracts) =>
           Try {
             storeTransaction(offset, tx)
+
+            // Ensure divulged contracts are known about before they are referred to.
+            storeContractData(divulgedContracts)
 
             updateActiveContractSet(
               offset,
@@ -1259,6 +1266,7 @@ object JdbcLedgerDao {
   sealed trait Queries {
 
     // SQL statements using the proprietary Postgres on conflict .. do nothing clause
+    protected[JdbcLedgerDao] def SQL_INSERT_CONTRACT_DATA: String
     protected[JdbcLedgerDao] def SQL_INSERT_PACKAGE: String
     protected[JdbcLedgerDao] def SQL_IMPLICITLY_INSERT_PARTIES: String
 
@@ -1275,6 +1283,10 @@ object JdbcLedgerDao {
   }
 
   object PostgresQueries extends Queries {
+
+    override protected[JdbcLedgerDao] val SQL_INSERT_CONTRACT_DATA: String =
+      """insert into contract_data(id, contract) values({id}, {contract})
+        |on conflict (id) do nothing""".stripMargin
 
     override protected[JdbcLedgerDao] val SQL_INSERT_PACKAGE: String =
       """insert into packages(package_id, upload_id, source_description, size, known_since, ledger_offset, package)
@@ -1303,6 +1315,10 @@ object JdbcLedgerDao {
   }
 
   object H2DatabaseQueries extends Queries {
+
+    override protected[JdbcLedgerDao] val SQL_INSERT_CONTRACT_DATA: String =
+      """merge into contract_data using dual on id = {id}
+        |when not matched then insert (id, contract) values ({id}, {contract})""".stripMargin
 
     override protected[JdbcLedgerDao] val SQL_INSERT_PACKAGE: String =
       """merge into packages using dual on package_id = {package_id}
