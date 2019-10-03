@@ -26,7 +26,7 @@ public class TemplateUtils {
             Class<? extends Template>... allowedTemplates) {
         return createdContract -> {
             Record args = createdContract.getCreateArguments();
-            for (Class template : allowedTemplates) {
+            for (Class<? extends Template> template : allowedTemplates) {
                 try {
                     Identifier templateId = (Identifier) template.getField("TEMPLATE_ID").get(null);
                     if (createdContract.getTemplateId().equals(templateId)) {
