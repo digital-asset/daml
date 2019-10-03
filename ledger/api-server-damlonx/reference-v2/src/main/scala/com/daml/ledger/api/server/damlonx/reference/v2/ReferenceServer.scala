@@ -14,6 +14,7 @@ import com.digitalasset.daml.lf.archive.DarReader
 import com.digitalasset.daml_lf.DamlLf.Archive
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.index.{StandaloneIndexServer, StandaloneIndexerServer}
+import com.digitalasset.platform.server.api.authorization.auth.AuthServiceWildcard
 import org.slf4j.LoggerFactory
 
 import scala.util.Try
@@ -47,6 +48,7 @@ object ReferenceServer extends App {
 
   val readService = ledger
   val writeService = ledger
+  val authService = AuthServiceWildcard()
 
   config.archiveFiles.foreach { file =>
     for {
@@ -58,7 +60,8 @@ object ReferenceServer extends App {
   val participantLoggerFactory = NamedLoggerFactory.forParticipant(participantId)
   val indexerServer = StandaloneIndexerServer(readService, config, participantLoggerFactory)
   val indexServer =
-    StandaloneIndexServer(config, readService, writeService, participantLoggerFactory).start()
+    StandaloneIndexServer(config, readService, writeService, authService, participantLoggerFactory)
+      .start()
 
   val extraParticipants =
     for {
@@ -77,6 +80,7 @@ object ReferenceServer extends App {
         participantConfig,
         readService,
         writeService,
+        authService,
         participantLoggerFactory
       )
       (extraIndexer, extraLedgerApiServer.start())

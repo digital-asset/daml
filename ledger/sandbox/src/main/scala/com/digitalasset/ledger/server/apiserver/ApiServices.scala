@@ -11,14 +11,14 @@ import com.daml.ledger.participant.state.index.v2.{
   IndexPackagesService,
   _
 }
-import com.daml.ledger.participant.state.v1.WriteService
-import com.daml.ledger.participant.state.v1.TimeModel
+import com.daml.ledger.participant.state.v1.{AuthService, TimeModel, WriteService}
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.engine._
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.ledger.api.v1.command_completion_service.CompletionEndRequest
 import com.digitalasset.ledger.client.services.commands.CommandSubmissionFlow
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
+import com.digitalasset.platform.server.api.authorization.services._
 import com.digitalasset.platform.sandbox.config.CommandConfiguration
 import com.digitalasset.platform.sandbox.services._
 import com.digitalasset.platform.sandbox.services.admin.ApiPackageManagementService
@@ -60,6 +60,7 @@ object ApiServices {
   def create(
       writeService: WriteService,
       indexService: IndexService,
+      authService: AuthService,
       engine: Engine,
       timeProvider: TimeProvider,
       timeModel: TimeModel,
@@ -152,20 +153,22 @@ object ApiServices {
       val apiPackageManagementService =
         ApiPackageManagementService.createApiService(indexService, writeService, loggerFactory)
 
+      // Note: the command service uses the command submission, command completion, and transaction services internally.
+      // These connections do not use authorization, authorization wrappers are only added here to all exposed services.
       new ApiServicesBundle(
         apiTimeServiceOpt.toList :::
           List(
-          apiLedgerIdentityService,
-          apiPackageService,
-          apiConfigurationService,
-          apiSubmissionService,
-          apiTransactionService,
-          apiCompletionService,
-          apiCommandService,
-          apiActiveContractsService,
+          new LedgerIdentityServiceAuthorization(apiLedgerIdentityService, authService),
+          new PackageServiceAuthorization(apiPackageService, authService),
+          new LedgerConfigurationServiceAuthorization(apiConfigurationService, authService),
+          new CommandSubmissionServiceAuthorization(apiSubmissionService, authService),
+          new TransactionServiceAuthorization(apiTransactionService, authService),
+          new CommandCompletionServiceAuthorization(apiCompletionService, authService),
+          new CommandServiceAuthorization(apiCommandService, authService),
+          new ActiveContractsServiceAuthorization(apiActiveContractsService, authService),
           apiReflectionService,
-          apiPartyManagementService,
-          apiPackageManagementService
+          new PartyManagementServiceAuthorization(apiPartyManagementService, authService),
+          new PackageManagementServiceAuthorization(apiPackageManagementService, authService),
         ))
     }
   }

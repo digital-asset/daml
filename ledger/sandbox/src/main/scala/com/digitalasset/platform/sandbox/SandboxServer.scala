@@ -8,7 +8,7 @@ import java.time.Instant
 
 import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
-import com.daml.ledger.participant.state.v1.ParticipantId
+import com.daml.ledger.participant.state.v1.{AuthService, ParticipantId}
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.engine.Engine
@@ -30,6 +30,8 @@ import com.digitalasset.platform.sandbox.stores.{
   InMemoryPackageStore,
   SandboxIndexAndWriteService
 }
+import com.digitalasset.platform.server.api.authorization.AuthorizationInterceptor
+import com.digitalasset.platform.server.api.authorization.auth.AuthServiceWildcard
 import com.digitalasset.platform.server.services.testing.TimeServiceBackend
 import com.digitalasset.platform.services.time.TimeProviderType
 import org.slf4j.LoggerFactory
@@ -87,6 +89,8 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
   // Name of this participant
   // TODO: Pass this info in command-line (See issue #2025)
   val participantId: ParticipantId = Ref.LedgerString.assertFromString("sandbox-participant")
+
+  private val authService: AuthService = AuthServiceWildcard()
 
   case class ApiServerState(
       ledgerId: LedgerId,
@@ -158,6 +162,7 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
       ledgerId,
       () => sandboxState.infra.executionContext,
       () => sandboxState.resetAndRestartServer(),
+      authService,
       loggerFactory
     )
 
@@ -234,6 +239,7 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
             .create(
               indexAndWriteService.writeService,
               indexAndWriteService.indexService,
+              authService,
               SandboxServer.engine,
               timeProvider,
               config.timeModel,
@@ -253,7 +259,10 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
         config.address,
         loggerFactory,
         config.tlsConfig.flatMap(_.server),
-        List(resetService(ledgerId, loggerFactory))
+        List(
+          AuthorizationInterceptor(authService, ec),
+          resetService(ledgerId, loggerFactory)
+        ),
       ),
       asyncTolerance
     )
