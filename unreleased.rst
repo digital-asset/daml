@@ -36,4 +36,4 @@ HEAD — ongoing
 - [DAML Compiler] Generic template instantiations like ``template instance IouProposal = Proposal Iou`` now generate a type synonym ``type IouProposal = Proposal Iou`` that can be used in DAML. Before, they generated a ``newtype``, which cannot be used anymore.
 - [DAML Compiler] Fixed a bug where ``damlc build`` sometimes did not find modules during typechecking
   even if they were present during parallel compilations.
-+ [Java Bindings] Add helper to prepare transformator for ``Bot.wire``. See `issue #3097 <https://github.com/digital-asset/daml/issues/3097>`_.
++ [Java Bindings] Add helper to prepare transformer for ``Bot.wire``. See `issue #3097 <https://github.com/digital-asset/daml/issues/3097>`_.
