@@ -122,7 +122,8 @@ object ApiPackageManagementService {
   def createApiService(
       readBackend: IndexPackagesService,
       writeBackend: WritePackagesService,
-      loggerFactory: NamedLoggerFactory)(implicit mat: ActorMaterializer): GrpcApiService =
+      loggerFactory: NamedLoggerFactory)(implicit mat: ActorMaterializer)
+    : PackageManagementServiceGrpc.PackageManagementService with GrpcApiService =
     new ApiPackageManagementService(readBackend, writeBackend, mat.system.scheduler, loggerFactory)
     with PackageManagementServiceLogging
 }
