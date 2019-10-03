@@ -38,7 +38,7 @@ public class TemplateUtils {
                         | InvocationTargetException
                         | NoSuchMethodException e) {
                     throw new RuntimeException(
-                            "Argument class " + template + " should be derived from Template");
+                            "Argument class " + template + " should be derived from Template", e);
                         }
             }
             throw new IllegalStateException(
