@@ -22,7 +22,7 @@ let
       installPhase = ''
         mkdir -p $out
         PREFIX=$out make install
-        wrapProgram $out/bin/pg_tmp --prefix PATH : ${pkgs.postgresql}/bin:$out/bin
+        wrapProgram $out/bin/pg_tmp --prefix PATH : ${pkgs.postgresql_9_6}/bin:$out/bin
       '';
     });
     haskellPackages = pkgs.haskellPackages.override {

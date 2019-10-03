@@ -17,8 +17,8 @@ let shared = rec {
     jq
     nodejs
     patchelf
-    postgresql
-    protobuf3_5
+    postgresql_9_6
+    protobuf3_8
     python3
     zip
     ;
