@@ -10,6 +10,7 @@ package com.daml.ledger.participant.state.kvutils
   * [since 100.13.26]:
   * - Added metrics to track submission processing.
   * - Use InsertOrdMap to store resulting state in kvutils for deterministic ordering of state key-values.
+  * - Fix bug with transient contract keys, e.g. keys created and archived in same transaction.
   *
   * [since 100.13.21]:
   * - Added 'Envelope' for compressing and versioning kvutils messages that are transmitted
