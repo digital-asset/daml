@@ -73,13 +73,22 @@ object KeyValueCommitting {
     try {
       val (logEntry, outputState) = submission.getPayloadCase match {
         case DamlSubmission.PayloadCase.PACKAGE_UPLOAD_ENTRY =>
-          ProcessPackageUpload(
+          val (logEntry, outputs) = PackageCommitter(engine).run(
+            entryId,
+            recordTime,
+            submission.getPackageUploadEntry,
+            participantId,
+            inputState.collect { case (k, Some(v)) => k -> v }
+          )
+          logEntry -> outputs.toMap
+
+        /*ProcessPackageUpload(
             engine,
             entryId,
             recordTime,
             submission.getPackageUploadEntry,
             inputState
-          ).run
+          ).run*/
 
         case DamlSubmission.PayloadCase.PARTY_ALLOCATION_ENTRY =>
           ProcessPartyAllocation(
