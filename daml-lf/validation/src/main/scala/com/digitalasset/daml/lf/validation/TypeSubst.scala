@@ -163,6 +163,8 @@ private[validation] case class TypeSubst(map: Map[TypeVarName, Type], private va
       EToAnyTemplate(tmplId, apply(body))
     case EFromAnyTemplate(tmplId, body) =>
       EFromAnyTemplate(tmplId, apply(body))
+    case ETyCon(tyCon) =>
+      ETyCon(tyCon)
 
   }
 

@@ -161,6 +161,19 @@ class SpeedyTest extends WordSpec with Matchers {
     }
   }
 
+  "ty_con" should {
+
+    "equal for equal types" in {
+      eval(e"""EQUAL_TEXT (ty_con @Test:T1) (ty_con @Test:T1)""", anyTemplatePkgs) shouldBe Right(
+        SBool(true))
+    }
+
+    "different for different types" in {
+      eval(e"""EQUAL_TEXT (ty_con @Test:T1) (ty_con @Test:T2)""", anyTemplatePkgs) shouldBe Right(
+        SBool(false))
+    }
+
+  }
 }
 
 object SpeedyTest {

@@ -1277,6 +1277,15 @@ object SBuiltin {
     }
   }
 
+  /** $ty_con
+    *     :: Text
+    */
+  final case class SBTyCon(tyCon: TypeConName) extends SBuiltin(0) {
+    def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
+      machine.ctrl = CtrlValue(SText(tyCon.toString()))
+    }
+  }
+
   // Helpers
   //
 

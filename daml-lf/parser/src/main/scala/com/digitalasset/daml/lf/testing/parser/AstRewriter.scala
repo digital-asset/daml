@@ -125,6 +125,8 @@ private[digitalasset] class AstRewriter(
           EToAnyTemplate(tmplId, apply(body))
         case EFromAnyTemplate(tmplId, body) =>
           EFromAnyTemplate(tmplId, apply(body))
+        case ETyCon(tyCon) =>
+          ETyCon(tyCon)
       }
 
   def apply(x: TypeConApp): TypeConApp = x match {

@@ -171,6 +171,9 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
         // ExpFromAnyTemplate
         E"""λ (t: AnyTemplate) -> (( from_any_template @Mod:T t ))""" ->
           T"AnyTemplate → Option Mod:T",
+        // ExpTyCon
+        E"""(( ty_con @Mod:T ))""" ->
+          T"Text",
       )
 
       forEvery(testCases) { (exp: Expr, expectedType: Type) =>
@@ -350,6 +353,8 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
         E"λ (t: AnyTemplate) -> from_any_template @Mod:Tree t",
         E"λ (t: AnyTemplate) -> from_any_template @Mod:Color t",
         E"λ (t: Mod:T) -> from_any_template @Mod:T t",
+        // ExpTyCon
+        E"ty_con @Mod:NoSuchType",
         // ScnPure
         E"Λ (τ : ⋆ → ⋆). λ (e: τ) → (( spure @τ e ))",
         E"Λ (τ : ⋆) (σ : ⋆). λ (e: τ) → (( spure @σ e ))",

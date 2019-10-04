@@ -594,6 +594,12 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
 
       case EFromAnyTemplate(tmplId, e) =>
         SEApp(SEBuiltin(SBFromAnyTemplate(tmplId)), Array(translate(e)))
+
+      case ETyCon(tyCon) =>
+        // Ensure that the type is known.
+        lookupDefinition(tyCon)
+          .getOrElse(throw CompileError(s"type $tyCon not found"))
+        SEBuiltin(SBTyCon(tyCon))
     }
 
   @tailrec
