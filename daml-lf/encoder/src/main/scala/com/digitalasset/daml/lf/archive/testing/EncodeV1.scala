@@ -141,17 +141,13 @@ private[digitalasset] class EncodeV1(val minor: LV.Minor) {
     @inline
     private implicit def encodeTypeBinder(binder: (String, Kind)): PLF.TypeVarWithKind = {
       val (varName, kind) = binder
-      PLF.TypeVarWithKind
-        .newBuilder()
-        .setName(varName)
-        .setKind(kind)
-        .build()
+      PLF.TypeVarWithKind.newBuilder().setVar(varName).setKind(kind).build()
     }
 
     @inline
     private implicit def encodeFieldWithType(nameWithType: (String, Type)): PLF.FieldWithType = {
       val (name, typ) = nameWithType
-      PLF.FieldWithType.newBuilder().setName(name).setType(typ).build()
+      PLF.FieldWithType.newBuilder().setField(name).setType(typ).build()
     }
 
     private val TForalls = RightRecMatcher[(TypeVarName, Kind), Type]({
@@ -181,7 +177,7 @@ private[digitalasset] class EncodeV1(val minor: LV.Minor) {
       typ match {
         case TVar(varName) =>
           builder.setVar(
-            PLF.Type.Var.newBuilder().setVarName(varName).accumulateLeft(args)(_ addArgs _))
+            PLF.Type.Var.newBuilder().setVar(varName).accumulateLeft(args)(_ addArgs _))
         case TNat(n) =>
           assertSince(LV.Features.numeric, "Type.TNat")
           builder.setNat(n.toLong)
@@ -240,13 +236,13 @@ private[digitalasset] class EncodeV1(val minor: LV.Minor) {
     @inline
     private implicit def encodeFieldWithExpr(fieldWithExpr: (Name, Expr)): PLF.FieldWithExpr = {
       val (name, expr) = fieldWithExpr
-      PLF.FieldWithExpr.newBuilder().setName(name).setExpr(expr).build()
+      PLF.FieldWithExpr.newBuilder().setField(name).setExpr(expr).build()
     }
 
     @inline
     private implicit def encodeExprBinder(binder: (String, Type)): PLF.VarWithType = {
       val (varName, typ) = binder
-      PLF.VarWithType.newBuilder().setName(varName).setType(typ).build()
+      PLF.VarWithType.newBuilder().setVar(varName).setType(typ).build()
     }
 
     private implicit def encodeLocation(loc: Location): PLF.Location = {
@@ -298,7 +294,7 @@ private[digitalasset] class EncodeV1(val minor: LV.Minor) {
             PLF.Update.Exercise
               .newBuilder()
               .setTemplate(templateId)
-              .setName(choice)
+              .setChoice(choice)
               .setCid(cid)
               .accumulateLeft(actors)(_ setActor _)
               .setArg(arg)
@@ -373,26 +369,22 @@ private[digitalasset] class EncodeV1(val minor: LV.Minor) {
       alt.pattern match {
         case CPVariant(tyCon, variant, binder) =>
           builder.setVariant(
-            PLF.CaseAlt.Variant
-              .newBuilder()
-              .setCon(tyCon)
-              .setVariantName(variant)
-              .setBinderName(binder))
+            PLF.CaseAlt.Variant.newBuilder().setCon(tyCon).setVariant(variant).setBinder(binder))
         case CPEnum(tyCon, con) =>
           assertSince(LV.Features.enum, "CaseAlt.Enum")
-          builder.setEnum(PLF.CaseAlt.Enum.newBuilder().setCon(tyCon).setName(con))
+          builder.setEnum(PLF.CaseAlt.Enum.newBuilder().setCon(tyCon).setConstructor(con))
         case CPPrimCon(primCon) =>
           builder.setPrimCon(primCon)
         case CPNil =>
           builder.setNil(unit)
         case CPCons(head, tail) =>
-          builder.setCons(PLF.CaseAlt.Cons.newBuilder().setVarHeadName(head).setVarTailName(tail))
+          builder.setCons(PLF.CaseAlt.Cons.newBuilder().setVarHead(head).setVarTail(tail))
         case CPNone =>
           assertSince(LV.Features.optional, "CaseAlt.OptionalNone")
           builder.setOptionalNone(unit)
         case CPSome(x) =>
           assertSince(LV.Features.optional, "CaseAlt.OptionalSome")
-          builder.setOptionalSome(PLF.CaseAlt.OptionalSome.newBuilder().setName(x))
+          builder.setOptionalSome(PLF.CaseAlt.OptionalSome.newBuilder().setVarBody(x))
         case CPDefault =>
           builder.setDefault(unit)
       }
@@ -437,13 +429,13 @@ private[digitalasset] class EncodeV1(val minor: LV.Minor) {
             PLF.Expr.RecCon.newBuilder().setTycon(tyCon).accumulateLeft(fields)(_ addFields _))
         case ERecProj(tycon, field, expr) =>
           newBuilder.setRecProj(
-            PLF.Expr.RecProj.newBuilder().setTycon(tycon).setName(field).setRecord(expr))
+            PLF.Expr.RecProj.newBuilder().setTycon(tycon).setField(field).setRecord(expr))
         case ERecUpd(tyCon, field, expr, update) =>
           newBuilder.setRecUpd(
             PLF.Expr.RecUpd
               .newBuilder()
               .setTycon(tyCon)
-              .setName(field)
+              .setField(field)
               .setRecord(expr)
               .setUpdate(update))
         case EVariantCon(tycon, variant, arg) =>
@@ -451,19 +443,19 @@ private[digitalasset] class EncodeV1(val minor: LV.Minor) {
             PLF.Expr.VariantCon
               .newBuilder()
               .setTycon(tycon)
-              .setName(variant)
+              .setVariantCon(variant)
               .setVariantArg(arg))
         case EEnumCon(tyCon, con) =>
           assertSince(LV.Features.enum, "Expr.Enum")
-          newBuilder.setEnumCon(PLF.Expr.EnumCon.newBuilder().setTycon(tyCon).setName(con))
+          newBuilder.setEnumCon(PLF.Expr.EnumCon.newBuilder().setTycon(tyCon).setEnumCon(con))
         case ETupleCon(fields) =>
           newBuilder.setTupleCon(
             PLF.Expr.TupleCon.newBuilder().accumulateLeft(fields)(_ addFields _))
         case ETupleProj(field, expr) =>
-          newBuilder.setTupleProj(PLF.Expr.TupleProj.newBuilder().setName(field).setTuple(expr))
+          newBuilder.setTupleProj(PLF.Expr.TupleProj.newBuilder().setField(field).setTuple(expr))
         case ETupleUpd(field, tuple, update) =>
           newBuilder.setTupleUpd(
-            PLF.Expr.TupleUpd.newBuilder().setName(field).setTuple(tuple).setUpdate(update))
+            PLF.Expr.TupleUpd.newBuilder().setField(field).setTuple(tuple).setUpdate(update))
         case EApps(fun, args) =>
           newBuilder.setApp(PLF.Expr.App.newBuilder().setFun(fun).accumulateLeft(args)(_ addArgs _))
         case ETyApps(expr, typs1) =>
@@ -559,13 +551,13 @@ private[digitalasset] class EncodeV1(val minor: LV.Minor) {
       val (name, choice) = nameWithChoice
       PLF.TemplateChoice
         .newBuilder()
-        .setChoiceName(name)
+        .setName(name)
         .setConsuming(choice.consuming)
         .setControllers(choice.controllers)
         .setArgBinder(choice.argBinder._1.getOrElse("") -> choice.argBinder._2)
         .setRetType(choice.returnType)
         .setUpdate(choice.update)
-        .setSelfBinderName(choice.selfBinder)
+        .setSelfBinder(choice.selfBinder)
         .build()
     }
 
@@ -583,7 +575,7 @@ private[digitalasset] class EncodeV1(val minor: LV.Minor) {
       PLF.DefTemplate
         .newBuilder()
         .setTycon(name)
-        .setParamName(template.param)
+        .setParam(template.param)
         .setPrecond(template.precond)
         .setSignatories(template.signatories)
         .setAgreement(template.agreementText)
