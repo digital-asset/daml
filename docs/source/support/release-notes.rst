@@ -6,6 +6,13 @@ Release notes
 
 This page contains release notes for the SDK.
 
+.. _release-0-13-29:
+
+0.13.29 - 2019-10-04
+--------------------
+
+- Rerelease of 0.13.28 since that failed due to CI issues.
+
 .. _release-0-13-28:
 
 0.13.28 - 2019-10-04
