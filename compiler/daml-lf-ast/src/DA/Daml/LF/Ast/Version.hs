@@ -67,10 +67,18 @@ featureAnyTemplate = Feature
    , featureCppFlag = "DAML_ANY_TEMPLATE"
    }
 
+featureStringInterning :: Feature
+featureStringInterning = Feature
+    { featureName = "String interning"
+    , featureMinVersion = version1_7
+    , featureCppFlag = "DAML_STRING_INTERNING"
+    }
+
 allFeatures :: [Feature]
 allFeatures =
     [ featureNumeric
     , featureAnyTemplate
+    , featureStringInterning
     ]
 
 allFeaturesForVersion :: Version -> [Feature]
