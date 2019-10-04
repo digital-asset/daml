@@ -8,10 +8,10 @@ import java.util.concurrent.Executors
 
 import akka.stream.scaladsl.Source
 import akka.{Done, NotUsed}
+import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.common.util.DirectExecutionContext
 import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.HikariJdbcConnectionProvider
 import com.google.common.util.concurrent.ThreadFactoryBuilder
-import org.slf4j.LoggerFactory
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -43,13 +43,18 @@ trait DbDispatcher extends AutoCloseable {
 private class DbDispatcherImpl(
     jdbcUrl: String,
     val noOfShortLivedConnections: Int,
-    noOfStreamingConnections: Int)
+    noOfStreamingConnections: Int,
+    loggerFactory: NamedLoggerFactory)
     extends DbDispatcher {
 
-  private val logger = LoggerFactory.getLogger(getClass)
+  private val logger = loggerFactory.getLogger(getClass)
   private val connectionProvider =
-    HikariJdbcConnectionProvider(jdbcUrl, noOfShortLivedConnections, noOfStreamingConnections)
-  private val sqlExecutor = SqlExecutor(noOfShortLivedConnections)
+    HikariJdbcConnectionProvider(
+      jdbcUrl,
+      noOfShortLivedConnections,
+      noOfStreamingConnections,
+      loggerFactory)
+  private val sqlExecutor = SqlExecutor(noOfShortLivedConnections, loggerFactory)
 
   private val connectionGettingThreadPool = ExecutionContext.fromExecutorService(
     Executors.newSingleThreadExecutor(
@@ -97,6 +102,11 @@ object DbDispatcher {
   def apply(
       jdbcUrl: String,
       noOfShortLivedConnections: Int,
-      noOfStreamingConnections: Int): DbDispatcher =
-    new DbDispatcherImpl(jdbcUrl, noOfShortLivedConnections, noOfStreamingConnections)
+      noOfStreamingConnections: Int,
+      loggerFactory: NamedLoggerFactory): DbDispatcher =
+    new DbDispatcherImpl(
+      jdbcUrl,
+      noOfShortLivedConnections,
+      noOfStreamingConnections,
+      loggerFactory)
 }

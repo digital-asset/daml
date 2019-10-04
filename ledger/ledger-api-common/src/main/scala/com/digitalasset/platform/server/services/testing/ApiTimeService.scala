@@ -15,11 +15,13 @@ import com.digitalasset.ledger.api.v1.testing.time_service.TimeServiceGrpc.TimeS
 import com.digitalasset.ledger.api.v1.testing.time_service._
 import com.digitalasset.platform.akkastreams.dispatcher.SignalDispatcher
 import com.digitalasset.platform.api.grpc.GrpcApiService
+import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.common.util.DirectExecutionContext
 import com.digitalasset.platform.server.api.validation.FieldValidations
 import com.google.protobuf.empty.Empty
+
 import io.grpc.{BindableService, ServerServiceDefinition, Status, StatusRuntimeException}
-import org.slf4j.LoggerFactory
+import org.slf4j.Logger
 import scalaz.syntax.tag._
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -27,7 +29,8 @@ import scala.util.control.NoStackTrace
 
 class ApiTimeService private (
     val ledgerId: LedgerId,
-    backend: TimeServiceBackend
+    backend: TimeServiceBackend,
+    protected val logger: Logger
 )(
     implicit grpcExecutionContext: ExecutionContext,
     protected val mat: Materializer,
@@ -35,8 +38,6 @@ class ApiTimeService private (
     extends TimeServiceAkkaGrpc
     with FieldValidations
     with GrpcApiService {
-
-  protected val logger = LoggerFactory.getLogger(TimeServiceGrpc.TimeService.getClass)
 
   logger.debug(
     "{} initialized with ledger ID {}, start time {}",
@@ -128,9 +129,13 @@ class ApiTimeService private (
 }
 
 object ApiTimeService {
-  def create(ledgerId: LedgerId, backend: TimeServiceBackend)(
+  def create(ledgerId: LedgerId, backend: TimeServiceBackend, loggerFactory: NamedLoggerFactory)(
       implicit grpcExecutionContext: ExecutionContext,
       mat: Materializer,
-      esf: ExecutionSequencerFactory): TimeService with BindableService with TimeServiceLogging =
-    new ApiTimeService(ledgerId, backend) with TimeServiceLogging
+      esf: ExecutionSequencerFactory): TimeService with BindableService with TimeServiceLogging = {
+    val loggerOverride = loggerFactory.getLogger(TimeServiceGrpc.TimeService.getClass)
+    new ApiTimeService(ledgerId, backend, loggerOverride) with TimeServiceLogging {
+      override protected val logger = loggerOverride
+    }
+  }
 }

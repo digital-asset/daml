@@ -16,11 +16,13 @@ import com.digitalasset.ledger.api.v1.package_service.{
 import com.digitalasset.platform.api.grpc.GrpcApiService
 import com.digitalasset.platform.common.util.{DirectExecutionContext => DEC}
 import com.digitalasset.platform.server.api.validation.PackageServiceValidation
+
 import io.grpc.{BindableService, ServerServiceDefinition, Status}
 import com.digitalasset.ledger.api.v1.package_service.HashFunction.{
   SHA256 => APISHA256,
   Unrecognized => APIUnrecognized
 }
+import com.digitalasset.platform.common.logging.NamedLoggerFactory
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -85,10 +87,12 @@ class ApiPackageService private (backend: IndexPackagesService)
 }
 
 object ApiPackageService {
-  def create(ledgerId: LedgerId, backend: IndexPackagesService)(implicit ec: ExecutionContext)
+  def create(ledgerId: LedgerId, backend: IndexPackagesService, loggerFactory: NamedLoggerFactory)(
+      implicit ec: ExecutionContext)
     : PackageService with BindableService with PackageServiceLogging =
     new PackageServiceValidation(new ApiPackageService(backend), ledgerId) with BindableService
     with PackageServiceLogging {
+      override protected val logger = loggerFactory.getLogger(PackageService.getClass)
       override def bindService(): ServerServiceDefinition =
         PackageServiceGrpc.bindService(this, DEC)
     }

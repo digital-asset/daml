@@ -7,10 +7,10 @@ import java.util.concurrent.atomic.AtomicReference
 
 import com.digitalasset.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.digitalasset.ledger.api.v1.completion.Completion
+import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.common.util.DirectExecutionContext
 import com.digitalasset.platform.server.services.command.TrackerMap.{AsyncResource, Key}
 import com.github.ghik.silencer.silent
-import com.typesafe.scalalogging.LazyLogging
 
 import scala.collection.immutable.HashMap
 import scala.concurrent.duration.{FiniteDuration, _}
@@ -21,7 +21,10 @@ import scala.util.{Failure, Success}
   * A map for [[Tracker]]s with thread-safe tracking methods and automatic cleanup. A tracker tracker, if you will.
   * @param retentionPeriod The minimum finite duration for which to retain idle trackers.
   */
-class TrackerMap(retentionPeriod: FiniteDuration) extends AutoCloseable with LazyLogging {
+class TrackerMap(retentionPeriod: FiniteDuration, loggerFactory: NamedLoggerFactory)
+    extends AutoCloseable {
+
+  private val logger = loggerFactory.getLogger(this.getClass)
 
   private val lock = new Object()
 
@@ -44,7 +47,7 @@ class TrackerMap(retentionPeriod: FiniteDuration) extends AutoCloseable with Laz
             trackerResource.ifPresent(tracker =>
               if (nanoTime - tracker.getLastSubmission > retentionNanos) {
                 logger.info(
-                  s"Shutting down tracker for $submitter after inactivity of $retentionPeriod")
+                  s"Shutting down tracker for ${submitter.toString} after inactivity of ${retentionPeriod.toString}")
                 remove(submitter)
                 tracker.close()
             })
@@ -65,7 +68,7 @@ class TrackerMap(retentionPeriod: FiniteDuration) extends AutoCloseable with Laz
               val r = new AsyncResource(newTracker.map { t =>
                 logger.info("Registered tracker for submitter {}", submitter)
                 Tracker.WithLastSubmission(t)
-              })
+              }, loggerFactory)
 
               trackerBySubmitter += submitter -> r
 
@@ -96,7 +99,8 @@ object TrackerMap {
     * A holder for an AutoCloseable that can be opened and closed async.
     * If closed before the underlying Future completes, will close the resource on completion.
     */
-  class AsyncResource[T <: AutoCloseable](future: Future[T]) extends LazyLogging {
+  class AsyncResource[T <: AutoCloseable](future: Future[T], loggerFactory: NamedLoggerFactory) {
+    private val logger = loggerFactory.getLogger(this.getClass)
     sealed trait AsnycResourceState
     final case object Waiting extends AsnycResourceState
     // the following silent is due to
@@ -146,5 +150,6 @@ object TrackerMap {
     }
   }
 
-  def apply(retentionPeriod: FiniteDuration): TrackerMap = new TrackerMap(retentionPeriod)
+  def apply(retentionPeriod: FiniteDuration, loggerFactory: NamedLoggerFactory): TrackerMap =
+    new TrackerMap(retentionPeriod, loggerFactory)
 }

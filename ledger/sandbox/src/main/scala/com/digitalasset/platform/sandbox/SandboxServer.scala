@@ -16,6 +16,7 @@ import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.server.apiserver.{ApiServer, ApiServices, LedgerApiServer}
 import com.digitalasset.platform.common.LedgerIdMode
+import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.sandbox.SandboxServer.{asyncTolerance, createInitialState, logger}
 import com.digitalasset.platform.sandbox.banner.Banner
 import com.digitalasset.platform.sandbox.config.SandboxConfig
@@ -150,11 +151,15 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
   def port: Int = sandboxState.apiServerState.port
 
   /** the reset service is special, since it triggers a server shutdown */
-  private def resetService(ledgerId: LedgerId): SandboxResetService = new SandboxResetService(
-    ledgerId,
-    () => sandboxState.infra.executionContext,
-    () => sandboxState.resetAndRestartServer()
-  )
+  private def resetService(
+      ledgerId: LedgerId,
+      loggerFactory: NamedLoggerFactory): SandboxResetService =
+    new SandboxResetService(
+      ledgerId,
+      () => sandboxState.infra.executionContext,
+      () => sandboxState.resetAndRestartServer(),
+      loggerFactory
+    )
 
   sandboxState = start()
 
@@ -184,6 +189,8 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
           (ts, Some(ts))
       }
 
+    val loggerFactory = NamedLoggerFactory.forParticipant(participantId)
+
     val (ledgerType, indexAndWriteServiceF) = config.jdbcUrl match {
       case Some(jdbcUrl) =>
         "postgres" -> SandboxIndexAndWriteService.postgres(
@@ -196,7 +203,8 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
           ledgerEntries,
           startMode,
           config.commandConfig.maxCommandsInFlight * 2, // we can get commands directly as well on the submission service
-          packageStore
+          packageStore,
+          loggerFactory
         )
 
       case None =>
@@ -235,15 +243,17 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
                   TimeServiceBackend.withObserver(
                     _,
                     indexAndWriteService.publishHeartbeat
-                  ))
+                  )),
+              loggerFactory
             )(am, esf)
-            .map(_.withServices(List(resetService(ledgerId)))),
+            .map(_.withServices(List(resetService(ledgerId, loggerFactory)))),
         // NOTE(JM): Re-use the same port after reset.
         Option(sandboxState).fold(config.port)(_.apiServerState.port),
         config.maxInboundMessageSize,
         config.address,
+        loggerFactory,
         config.tlsConfig.flatMap(_.server),
-        List(resetService(ledgerId))
+        List(resetService(ledgerId, loggerFactory))
       ),
       asyncTolerance
     )

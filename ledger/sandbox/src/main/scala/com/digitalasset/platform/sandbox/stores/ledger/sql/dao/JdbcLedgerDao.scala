@@ -25,6 +25,7 @@ import com.digitalasset.daml_lf.DamlLf.Archive
 import com.digitalasset.ledger._
 import com.digitalasset.ledger.api.domain.RejectionReason._
 import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails, RejectionReason}
+import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.common.util.DirectExecutionContext
 import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilter
 import com.digitalasset.platform.sandbox.stores.ActiveLedgerState.{
@@ -48,7 +49,6 @@ import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{
 import com.digitalasset.platform.sandbox.stores.ledger.sql.util.Conversions._
 import com.digitalasset.platform.sandbox.stores.ledger.sql.util.DbDispatcher
 import com.google.common.io.ByteStreams
-import org.slf4j.LoggerFactory
 import scalaz.syntax.tag._
 
 import scala.collection.immutable
@@ -62,14 +62,15 @@ private class JdbcLedgerDao(
     transactionSerializer: TransactionSerializer,
     valueSerializer: ValueSerializer,
     keyHasher: KeyHasher,
-    dbType: DbType)
+    dbType: DbType,
+    loggerFactory: NamedLoggerFactory)
     extends LedgerDao {
 
   private val queries = dbType match {
     case DbType.Postgres => PostgresQueries
     case DbType.H2Database => H2DatabaseQueries
   }
-  private val logger = LoggerFactory.getLogger(getClass)
+  private val logger = loggerFactory.getLogger(getClass)
 
   private val SQL_SELECT_LEDGER_ID = SQL("select ledger_id from parameters")
 
@@ -1254,14 +1255,16 @@ object JdbcLedgerDao {
       transactionSerializer: TransactionSerializer,
       valueSerializer: ValueSerializer,
       keyHasher: KeyHasher,
-      dbType: DbType): LedgerDao =
+      dbType: DbType,
+      loggerFactory: NamedLoggerFactory): LedgerDao =
     new JdbcLedgerDao(
       dbDispatcher,
       contractSerializer,
       transactionSerializer,
       valueSerializer,
       keyHasher,
-      dbType)
+      dbType,
+      loggerFactory)
 
   sealed trait Queries {
 

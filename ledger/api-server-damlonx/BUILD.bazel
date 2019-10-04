@@ -18,6 +18,7 @@ da_scala_library(
     deps = [
         "//3rdparty/jvm/com/google/protobuf:protobuf_java",
         "//3rdparty/jvm/com/typesafe/akka:akka_stream",
+        "//3rdparty/jvm/com/typesafe/scala_logging",
         "//3rdparty/jvm/io/grpc:grpc_netty",
         "//3rdparty/jvm/io/grpc:grpc_services",
         "//3rdparty/jvm/io/netty:netty_handler",

@@ -54,7 +54,7 @@ dependencies:
   com.typesafe.scala-logging:
     scala-logging:
       lang: scala
-      version: "3.5.0"
+      version: "3.9.2"
 
   org.scalaz:
     scalaz-core:
@@ -94,10 +94,10 @@ dependencies:
   org.slf4j:
     slf4j-api:
       lang: java
-      version: "1.7.25"
+      version: "1.7.26"
     slf4j-simple:
       lang: java
-      version: "1.7.25"
+      version: "1.7.26"
 
   commons-io:
     commons-io:
