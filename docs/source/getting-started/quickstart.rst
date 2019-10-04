@@ -45,8 +45,8 @@ The project contains the following files:
   │   ├── IouTrade.daml
   │   ├── Main.daml
   │   └── Tests
-  │       ├── IouTest.daml
-  │       └── TradeTest.daml
+  │       ├── Iou.daml
+  │       └── Trade.daml
   ├── daml.yaml
   ├── frontend-config.js
   ├── pom.xml
@@ -338,13 +338,13 @@ You can check the correct authorization and privacy of a contract model using *s
 
 Scenarios are a linear sequence of transactions that is evaluated using the same consistency, conformance and authorization rules as it would be on the full ledger server or the sandbox ledger. They are integrated into DAML Studio, which can show you the resulting transaction graph, making them a powerful tool to test and troubleshoot the contract model.
 
-To take a look at the scenarios in the quickstart application, open ``daml/Tests/TradeTest.daml`` in DAML Studio.
+To take a look at the scenarios in the quickstart application, open ``daml/Tests/Trade.daml`` in DAML Studio.
 
 A scenario test is defined with ``trade_test = scenario do``. The ``submit`` function takes a submitting party and a transaction, which is specified the same way as in contract choices.
 
 The following block, for example, issues an ``Iou`` and transfers it to Alice:
 
-.. literalinclude:: quickstart/template-root/daml/Tests/TradeTest.daml
+.. literalinclude:: quickstart/template-root/daml/Tests/Trade.daml
   :language: daml
   :lines: 19-27
 
@@ -445,7 +445,7 @@ In the transaction view, transaction ``#6`` is of particular interest, as it sho
               with
                 issuer = 'EUR_Bank'; owner = 'Bob'; currency = "EUR"; amount = 100.0; observers = []
 
-The ``submit`` function used in this scenario tries to perform a transaction and fails if any of the ledger integrity rules are violated. There is also a ``submitMustFail`` function, which checks that certain transactions are not possible. This is used in ``daml/Tests/IouTest.daml``, for example, to confirm that the ledger model prevents double spends.
+The ``submit`` function used in this scenario tries to perform a transaction and fails if any of the ledger integrity rules are violated. There is also a ``submitMustFail`` function, which checks that certain transactions are not possible. This is used in ``daml/Tests/Iou.daml``, for example, to confirm that the ledger model prevents double spends.
 
 ..  Interact with the ledger through the command line
     *************************************************
