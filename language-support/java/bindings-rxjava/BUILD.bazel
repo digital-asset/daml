@@ -82,6 +82,9 @@ da_java_library(
     srcs = glob(
         ["src/test/**/*.java"],
     ),
+    tags = [
+        "maven_coordinates=com.daml.ledger:bindings-rxjava:__VERSION__",
+    ],
     visibility = [
         "//visibility:private",
     ],
