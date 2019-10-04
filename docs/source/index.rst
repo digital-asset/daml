@@ -94,7 +94,7 @@ DAML SDK documentation
    :caption: Experimental features
 
    experimental/warning
-   daml-integration-kit/index
+   tools/ledger-api-test-tool/index
    migrate/index
    json-api/index
 

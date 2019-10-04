@@ -1547,7 +1547,7 @@ SQL Extractor
 - **Java Bindings**: ``CreateAndExerciseCommand`` is now properly converted in the Java Bindings data layer.
 
   See `issue #979 <https://github.com/digital-asset/daml/pull/979>`__ for details.
-- **DAML Integration Kit**: Alpha release of the kit for integrating your own ledger with DAML. See the :doc:`DAML Integration Kit docs </daml-integration-kit/index>` for how to try it out.
+- **DAML Integration Kit**: Alpha release of the kit for integrating your own ledger with DAML. See the DAML Integration Kit docs for how to try it out.
 - **DAML Assistant**: Added a ``quickstart-scala`` DAML Assistant project template.
 - **DAML-LF Engine**: If all labels in a record are set, fields no longer need to be ordered.
 
@@ -1613,7 +1613,7 @@ SQL Extractor
 --------------------
 
 - **Sandbox**: Added support for using a Postgres database as a back end for the Sandbox, which gives you persistent data storage. To try it out, see :doc:`/tools/sandbox`.
-- **DAML Integration Kit**: Added documentation for :doc:`/daml-integration-kit/index`. The docs explain what the DAML Integration Kit is, what state it is in, and how it is going to evolve.
+- **DAML Integration Kit**: Added documentation for the DAML Integration Kit. The docs explain what the DAML Integration Kit is, what state it is in, and how it is going to evolve.
 - **DAML Integration Kit**: Released the Ledger API Test Tool. To try it out, see :doc:`/tools/ledger-api-test-tool/index`.
 - **DAML-LF**: Removed DAML-LF Dev major version, ``--target dev`` option, and sandbox ``--allow-dev`` option.
 

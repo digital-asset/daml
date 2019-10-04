@@ -11,7 +11,7 @@ will show you if there are consistency or conformance problem with your
 implementation.
 
 Its intended audience are developers of DAML ledgers, who are using the
-:doc:`DAML Ledger Implementation Kit </daml-integration-kit/index>` to develop
+DAML Ledger Implementation Kit to develop
 a DAML ledger on top of their distributed-ledger or database of choice.
 
 Use this tool to verify if your Ledger API endpoint conforms to the :doc:`DA
