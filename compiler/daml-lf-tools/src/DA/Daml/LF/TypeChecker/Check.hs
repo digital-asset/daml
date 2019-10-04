@@ -508,6 +508,10 @@ typeOf = \case
     _ :: Template <- inWorld (lookupTemplate tpl)
     checkExpr bodyExpr (TBuiltin BTAnyTemplate)
     pure $ TOptional (TCon tpl)
+  EToTextTemplateId tpl -> do
+    -- Ensure that the type is known.
+    _ :: Template <- inWorld (lookupTemplate tpl)
+    pure $ TBuiltin BTText
   EUpdate upd -> typeOfUpdate upd
   EScenario scen -> typeOfScenario scen
   ELocation _ expr -> typeOf expr
