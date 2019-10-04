@@ -425,7 +425,7 @@ DAML ledgers provide various guarantees about what you can expect from it, all l
 
 When you're developing, you'll use `Sandbox <#sandbox>`__ as your ledger.
 
-If you want to run DAML on a storage mechanism of your choice, you can use one of the `supported platforms <https://daml.com>`__.
+If you would like to integrate DAML with a storage infrastructure not already in development (see `daml.com <https://daml.com>`__), please get in touch on `Slack <https://damldriven.slack.com/sso/saml/start>`__ in the channel ``#daml-contributors``.
 
 .. _trust-domain:
 
