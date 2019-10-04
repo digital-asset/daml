@@ -11,10 +11,11 @@ import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.ledger.api.v1.admin.party_management_service.PartyManagementServiceGrpc.PartyManagementService
 import com.digitalasset.ledger.api.v1.admin.party_management_service._
 import com.digitalasset.platform.api.grpc.GrpcApiService
+import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.common.util.{DirectExecutionContext => DE}
 import com.digitalasset.platform.server.api.validation.ErrorFactories
+
 import io.grpc.ServerServiceDefinition
-import org.slf4j.LoggerFactory
 
 import scala.compat.java8.FutureConverters
 import scala.concurrent.duration.DurationInt
@@ -23,11 +24,12 @@ import scala.concurrent.{ExecutionContext, Future}
 class ApiPartyManagementService private (
     partyManagementService: IndexPartyManagementService,
     writeService: WritePartyService,
-    scheduler: Scheduler
+    scheduler: Scheduler,
+    loggerFactory: NamedLoggerFactory
 ) extends PartyManagementService
     with GrpcApiService {
 
-  protected val logger = LoggerFactory.getLogger(this.getClass)
+  protected val logger = loggerFactory.getLogger(this.getClass)
 
   override def close(): Unit = ()
 
@@ -70,7 +72,8 @@ class ApiPartyManagementService private (
         50.milliseconds,
         500.milliseconds,
         d => d * 2,
-        scheduler)
+        scheduler,
+        loggerFactory)
       .map { numberOfAttempts =>
         logger.debug(s"Party $newParty available, read after $numberOfAttempts attempt(s)")
         result
@@ -102,11 +105,14 @@ class ApiPartyManagementService private (
 }
 
 object ApiPartyManagementService {
-  def createApiService(readBackend: IndexPartyManagementService, writeBackend: WritePartyService)(
+  def createApiService(
+      readBackend: IndexPartyManagementService,
+      writeBackend: WritePartyService,
+      loggerFactory: NamedLoggerFactory)(
       implicit ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: ActorMaterializer): GrpcApiService =
-    new ApiPartyManagementService(readBackend, writeBackend, mat.system.scheduler)
+    new ApiPartyManagementService(readBackend, writeBackend, mat.system.scheduler, loggerFactory)
     with PartyManagementServiceLogging
 
 }

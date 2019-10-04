@@ -15,6 +15,7 @@ import org.scalatest.{AsyncWordSpec, Matchers}
 
 import scala.concurrent.duration._
 import com.digitalasset.ledger.api.domain.LedgerId
+import com.digitalasset.platform.common.logging.NamedLoggerFactory
 
 class SqlLedgerSpec
     extends AsyncWordSpec
@@ -31,6 +32,8 @@ class SqlLedgerSpec
 
   private val ledgerId: LedgerId = LedgerId(Ref.LedgerString.assertFromString("TheLedger"))
 
+  private val loggerFactory = NamedLoggerFactory(this.getClass)
+
   "SQL Ledger" should {
     "be able to be created from scratch with a random ledger id" in {
       val ledgerF = SqlLedger(
@@ -40,7 +43,9 @@ class SqlLedgerSpec
         acs = InMemoryActiveLedgerState.empty,
         packages = InMemoryPackageStore.empty,
         initialLedgerEntries = ImmArray.empty,
-        queueDepth
+        queueDepth,
+        startMode = SqlStartMode.ContinueIfExists,
+        loggerFactory
       )
 
       ledgerF.map { ledger =>
@@ -56,7 +61,9 @@ class SqlLedgerSpec
         acs = InMemoryActiveLedgerState.empty,
         packages = InMemoryPackageStore.empty,
         initialLedgerEntries = ImmArray.empty,
-        queueDepth
+        queueDepth,
+        startMode = SqlStartMode.ContinueIfExists,
+        loggerFactory
       )
 
       ledgerF.map { ledger =>
@@ -74,7 +81,9 @@ class SqlLedgerSpec
           acs = InMemoryActiveLedgerState.empty,
           packages = InMemoryPackageStore.empty,
           initialLedgerEntries = ImmArray.empty,
-          queueDepth
+          queueDepth,
+          startMode = SqlStartMode.ContinueIfExists,
+          loggerFactory
         )
 
         ledger2 <- SqlLedger(
@@ -84,7 +93,9 @@ class SqlLedgerSpec
           acs = InMemoryActiveLedgerState.empty,
           packages = InMemoryPackageStore.empty,
           initialLedgerEntries = ImmArray.empty,
-          queueDepth
+          queueDepth,
+          startMode = SqlStartMode.ContinueIfExists,
+          loggerFactory
         )
 
         ledger3 <- SqlLedger(
@@ -94,7 +105,9 @@ class SqlLedgerSpec
           acs = InMemoryActiveLedgerState.empty,
           packages = InMemoryPackageStore.empty,
           initialLedgerEntries = ImmArray.empty,
-          queueDepth
+          queueDepth,
+          startMode = SqlStartMode.ContinueIfExists,
+          loggerFactory
         )
 
       } yield {
@@ -114,7 +127,9 @@ class SqlLedgerSpec
           acs = InMemoryActiveLedgerState.empty,
           packages = InMemoryPackageStore.empty,
           initialLedgerEntries = ImmArray.empty,
-          queueDepth
+          queueDepth,
+          startMode = SqlStartMode.ContinueIfExists,
+          loggerFactory
         )
         _ <- SqlLedger(
           jdbcUrl = postgresFixture.jdbcUrl,
@@ -123,7 +138,9 @@ class SqlLedgerSpec
           acs = InMemoryActiveLedgerState.empty,
           packages = InMemoryPackageStore.empty,
           initialLedgerEntries = ImmArray.empty,
-          queueDepth
+          queueDepth,
+          startMode = SqlStartMode.ContinueIfExists,
+          loggerFactory
         )
       } yield (())
 

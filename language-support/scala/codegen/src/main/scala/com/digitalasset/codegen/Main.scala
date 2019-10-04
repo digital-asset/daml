@@ -40,9 +40,9 @@ object Main extends StrictLogging {
     LoggerFactory.getLogger(Logger.ROOT_LOGGER_NAME) match {
       case a: ch.qos.logback.classic.Logger =>
         a.setLevel(verbosity)
-        logger.info(s"${codegenId: String} verbosity: $verbosity")
+        logger.info(s"${codegenId: String} verbosity: ${verbosity.toString}")
       case _ =>
-        logger.warn(s"${codegenId: String} cannot set requested verbosity: $verbosity")
+        logger.warn(s"${codegenId: String} cannot set requested verbosity: ${verbosity.toString}")
     }
   }
 

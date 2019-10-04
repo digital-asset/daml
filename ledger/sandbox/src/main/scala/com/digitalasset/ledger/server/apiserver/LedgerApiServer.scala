@@ -10,13 +10,13 @@ import java.util.concurrent.TimeUnit
 
 import akka.stream.ActorMaterializer
 import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
+import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import io.grpc.netty.NettyServerBuilder
 import io.grpc.ServerInterceptor
 import io.netty.channel.nio.NioEventLoopGroup
 import io.netty.handler.ssl.SslContext
 import io.netty.util.concurrent.DefaultThreadFactory
 import io.netty.channel.socket.nio.NioServerSocketChannel
-import org.slf4j.LoggerFactory
 
 import scala.concurrent.{Future, Promise}
 import scala.util.control.NoStackTrace
@@ -37,6 +37,7 @@ object LedgerApiServer {
       desiredPort: Int,
       maxInboundMessageSize: Int,
       address: Option[String],
+      loggerFactory: NamedLoggerFactory,
       sslContext: Option[SslContext] = None,
       interceptors: List[ServerInterceptor] = List.empty)(
       implicit mat: ActorMaterializer): Future[ApiServer] = {
@@ -58,6 +59,7 @@ object LedgerApiServer {
           desiredPort,
           maxInboundMessageSize,
           address,
+          loggerFactory,
           sslContext,
           interceptors
         )
@@ -83,11 +85,12 @@ private class LedgerApiServer(
     desiredPort: Int,
     maxInboundMessageSize: Int,
     address: Option[String],
+    loggerFactory: NamedLoggerFactory,
     sslContext: Option[SslContext] = None,
     interceptors: List[ServerInterceptor] = List.empty)(implicit mat: ActorMaterializer)
     extends ApiServer {
 
-  private val logger = LoggerFactory.getLogger(this.getClass)
+  private val logger = loggerFactory.getLogger(this.getClass)
 
   class UnableToBind(port: Int, cause: Throwable)
       extends RuntimeException(

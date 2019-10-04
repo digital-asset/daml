@@ -1,0 +1,83 @@
+-- Copyright (c) 2019 The DAML Authors. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+module DA.Test.GenerateSimpleDalf (main) where
+
+import qualified Data.ByteString.Lazy as BSL
+import qualified Data.NameMap as NM
+import qualified Data.Text.IO as T
+import System.Environment
+
+import DA.Daml.LF.Ast.Base
+import DA.Daml.LF.Ast.Util
+import DA.Daml.LF.Ast.Version
+import DA.Daml.LF.Ast.World
+import DA.Daml.LF.Proto3.Archive
+import DA.Daml.LF.TypeChecker
+import DA.Pretty
+
+-- | This tool generates a simple DALF file and writes it to the first
+-- argument given on the command line. This DALF is intended to be used
+-- as a test case for the plain DALF import feature.
+main :: IO ()
+main = do
+    [file] <- getArgs
+    let version = V1 (PointStable 6)
+    let modName = ModuleName ["Module"]
+    let modRef = Qualified PRSelf modName
+    let tplFields = map FieldName ["this", "arg"]
+    let tplRec = DefDataType
+            { dataLocation = Nothing
+            , dataTypeCon = TypeConName ["Template"]
+            , dataSerializable = IsSerializable True
+            , dataParams = []
+            , dataCons = DataRecord $ map (, TParty) tplFields
+            }
+    let tplParam = ExprVarName "arg"
+    let tplParties =
+            let cons f = ECons TParty (ERecProj (TypeConApp (modRef (dataTypeCon tplRec)) []) f (EVar tplParam))
+            in foldr cons (ENil TParty) tplFields
+    let chcArg = DefDataType
+            { dataLocation = Nothing
+            , dataTypeCon = TypeConName ["Choice"]
+            , dataSerializable = IsSerializable True
+            , dataParams = []
+            , dataCons = DataVariant [(VariantConName "Choice", TUnit)]
+            }
+    let chc = TemplateChoice
+            { chcLocation = Nothing
+            , chcName = ChoiceName "NotChoice"
+            , chcConsuming = True
+            , chcControllers = tplParties
+            , chcSelfBinder = ExprVarName "this"
+            , chcArgBinder = (ExprVarName "self", TCon (modRef (dataTypeCon chcArg)))
+            , chcReturnType = TUnit
+            , chcUpdate = EUpdate $ UPure TUnit EUnit
+            }
+    let tpl = Template
+            { tplLocation = Nothing
+            , tplTypeCon = TypeConName ["Template"]
+            , tplParam = tplParam
+            , tplPrecondition = mkBool True
+            , tplSignatories = tplParties
+            , tplObservers = ENil TParty
+            , tplAgreement = mkEmptyText
+            , tplChoices = NM.fromList [chc]
+            , tplKey = Nothing
+            }
+    let mod = Module
+            { moduleName = ModuleName ["Module"]
+            , moduleSource = Nothing
+            , moduleFeatureFlags = FeatureFlags{forbidPartyLiterals = True}
+            , moduleDataTypes = NM.fromList [tplRec, chcArg]
+            , moduleValues = NM.empty
+            , moduleTemplates = NM.fromList [tpl]
+            }
+    either (error . renderPretty) pure $ checkModule (initWorld [] version) version mod
+    let pkg = Package
+            { packageLfVersion = version
+            , packageModules = NM.fromList [mod]
+            }
+    let (bytes, hash) = encodeArchiveAndHash pkg
+    BSL.writeFile file bytes
+    T.putStrLn hash
+    pure ()

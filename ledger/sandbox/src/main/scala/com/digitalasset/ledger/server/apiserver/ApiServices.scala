@@ -18,6 +18,7 @@ import com.digitalasset.daml.lf.engine._
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.ledger.api.v1.command_completion_service.CompletionEndRequest
 import com.digitalasset.ledger.client.services.commands.CommandSubmissionFlow
+import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.sandbox.config.CommandConfiguration
 import com.digitalasset.platform.sandbox.services._
 import com.digitalasset.platform.sandbox.services.admin.ApiPackageManagementService
@@ -27,9 +28,9 @@ import com.digitalasset.platform.sandbox.stores.ledger.CommandExecutorImpl
 import com.digitalasset.platform.server.services.command.ApiCommandService
 import com.digitalasset.platform.server.services.identity.ApiLedgerIdentityService
 import com.digitalasset.platform.server.services.testing.{ApiTimeService, TimeServiceBackend}
+
 import io.grpc.BindableService
 import io.grpc.protobuf.services.ProtoReflectionService
-import org.slf4j.LoggerFactory
 import scalaz.syntax.tag._
 
 import scala.collection.immutable
@@ -56,8 +57,6 @@ private case class ApiServicesBundle(services: immutable.Seq[BindableService]) e
 
 object ApiServices {
 
-  private val logger = LoggerFactory.getLogger(this.getClass)
-
   def create(
       writeService: WriteService,
       indexService: IndexService,
@@ -65,7 +64,8 @@ object ApiServices {
       timeProvider: TimeProvider,
       timeModel: TimeModel,
       commandConfig: CommandConfiguration,
-      optTimeServiceBackend: Option[TimeServiceBackend])(
+      optTimeServiceBackend: Option[TimeServiceBackend],
+      loggerFactory: NamedLoggerFactory)(
       implicit mat: ActorMaterializer,
       esf: ExecutionSequencerFactory): Future[ApiServices] = {
     implicit val ec: ExecutionContext = mat.system.dispatcher
@@ -88,25 +88,26 @@ object ApiServices {
           writeService,
           timeModel,
           timeProvider,
-          new CommandExecutorImpl(engine, packagesService.getLfPackage)
+          new CommandExecutorImpl(engine, packagesService.getLfPackage),
+          loggerFactory
         )
 
-      logger.info(EngineInfo.show)
+      loggerFactory.getLogger(this.getClass).info(EngineInfo.show)
 
       val apiTransactionService =
-        ApiTransactionService.create(ledgerId, transactionsService)
+        ApiTransactionService.create(ledgerId, transactionsService, loggerFactory)
 
       val apiLedgerIdentityService =
-        ApiLedgerIdentityService.create(() => identityService.getLedgerId())
+        ApiLedgerIdentityService.create(() => identityService.getLedgerId(), loggerFactory)
 
-      val apiPackageService = ApiPackageService.create(ledgerId, packagesService)
+      val apiPackageService = ApiPackageService.create(ledgerId, packagesService, loggerFactory)
 
       val apiConfigurationService =
-        ApiLedgerConfigurationService.create(ledgerId, configurationService)
+        ApiLedgerConfigurationService.create(ledgerId, configurationService, loggerFactory)
 
       val apiCompletionService =
         ApiCommandCompletionService
-          .create(ledgerId, completionsService)
+          .create(ledgerId, completionsService, loggerFactory)
 
       val apiCommandService = ApiCommandService.create(
         ApiCommandService.Configuration(
@@ -126,11 +127,12 @@ object ApiServices {
           () => apiCompletionService.completionEnd(CompletionEndRequest(ledgerId.unwrap)),
           apiTransactionService.getTransactionById,
           apiTransactionService.getFlatTransactionById
-        )
+        ),
+        loggerFactory
       )
 
       val apiActiveContractsService =
-        ApiActiveContractsService.create(ledgerId, activeContractsService)
+        ApiActiveContractsService.create(ledgerId, activeContractsService, loggerFactory)
 
       val apiReflectionService = ProtoReflectionService.newInstance()
 
@@ -138,16 +140,17 @@ object ApiServices {
         optTimeServiceBackend.map { tsb =>
           ApiTimeService.create(
             ledgerId,
-            tsb
+            tsb,
+            loggerFactory
           )
         }
 
       val apiPartyManagementService =
         ApiPartyManagementService
-          .createApiService(partyManagementService, writeService)
+          .createApiService(partyManagementService, writeService, loggerFactory)
 
       val apiPackageManagementService =
-        ApiPackageManagementService.createApiService(indexService, writeService)
+        ApiPackageManagementService.createApiService(indexService, writeService, loggerFactory)
 
       new ApiServicesBundle(
         apiTimeServiceOpt.toList :::

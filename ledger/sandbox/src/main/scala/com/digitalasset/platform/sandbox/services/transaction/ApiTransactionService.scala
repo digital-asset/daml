@@ -18,22 +18,26 @@ import com.digitalasset.platform.sandbox.services.transaction.SandboxEventIdForm
 import com.digitalasset.platform.server.api.services.domain.TransactionService
 import com.digitalasset.platform.server.api.services.grpc.GrpcTransactionService
 import com.digitalasset.platform.server.api.validation.ErrorFactories
+
 import io.grpc._
-import org.slf4j.LoggerFactory
 import scalaz.syntax.tag._
-import com.digitalasset.ledger.api.v1.transaction_service.{TransactionServiceLogging}
+import com.digitalasset.ledger.api.v1.transaction_service.TransactionServiceLogging
+import com.digitalasset.platform.common.logging.NamedLoggerFactory
 
 import scala.concurrent.{ExecutionContext, Future}
 
 object ApiTransactionService {
 
-  def create(ledgerId: LedgerId, transactionsService: IndexTransactionsService)(
+  def create(
+      ledgerId: LedgerId,
+      transactionsService: IndexTransactionsService,
+      loggerFactory: NamedLoggerFactory)(
       implicit ec: ExecutionContext,
       mat: Materializer,
       esf: ExecutionSequencerFactory)
     : GrpcTransactionService with BindableService with TransactionServiceLogging =
     new GrpcTransactionService(
-      new ApiTransactionService(transactionsService),
+      new ApiTransactionService(transactionsService, loggerFactory),
       ledgerId,
       PartyNameChecker.AllowAllParties
     ) with TransactionServiceLogging
@@ -41,6 +45,7 @@ object ApiTransactionService {
 
 class ApiTransactionService private (
     transactionsService: IndexTransactionsService,
+    loggerFactory: NamedLoggerFactory,
     parallelism: Int = 4)(
     implicit executionContext: ExecutionContext,
     materializer: Materializer,
@@ -48,7 +53,7 @@ class ApiTransactionService private (
     extends TransactionService
     with ErrorFactories {
 
-  private val logger = LoggerFactory.getLogger(this.getClass)
+  private val logger = loggerFactory.getLogger(this.getClass)
 
   private val subscriptionIdCounter = new AtomicLong()
 

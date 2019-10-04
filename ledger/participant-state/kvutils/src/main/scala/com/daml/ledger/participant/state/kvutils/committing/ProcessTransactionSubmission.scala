@@ -3,6 +3,8 @@
 
 package com.daml.ledger.participant.state.kvutils.committing
 
+import com.codahale.metrics
+import com.codahale.metrics.{Counter, Timer}
 import com.daml.ledger.participant.state.backport.TimeModelChecker
 import com.daml.ledger.participant.state.kvutils.Conversions.{buildTimestamp, commandDedupKey, _}
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
@@ -31,24 +33,25 @@ private[kvutils] case class ProcessTransactionSubmission(
     // state should be used.
     inputState: Map[DamlStateKey, Option[DamlStateValue]]) {
 
+  import ProcessTransactionSubmission._
+  import Common._
+  import Commit._
   private val commandId = txEntry.getSubmitterInfo.getCommandId
   private implicit val logger =
     LoggerFactory.getLogger(
       s"ProcessTransactionSubmission[entryId=${Pretty.prettyEntryId(entryId)}, cmdId=$commandId]")
 
-  import Common._
-  import Commit._
-
-  def run: (DamlLogEntry, Map[DamlStateKey, DamlStateValue]) =
+  def run: (DamlLogEntry, Map[DamlStateKey, DamlStateValue]) = Metrics.runTimer.time { () =>
     runSequence(
       inputState = inputState.collect { case (k, Some(x)) => k -> x },
       "Authorize submitter" -> authorizeSubmitter,
       "Deduplicate" -> deduplicateCommand,
       "Validate LET/TTL" -> validateLetAndTtl,
       "Validate Contract Key Uniqueness" -> validateContractKeyUniqueness,
-      "Validate Model Conformance" -> validateModelConformance,
+      "Validate Model Conformance" -> timed(Metrics.interpretTimer, validateModelConformance),
       "Authorize and build result" -> authorizeAndBlind.flatMap(buildFinalResult)
     )
+  }
 
   // -------------------------------------------------------------------------------
 
@@ -141,10 +144,15 @@ private[kvutils] case class ProcessTransactionSubmission(
 
   /** Validate the submission's conformance to the DAML model */
   private def validateModelConformance: Commit[Unit] = delay {
-    engine
-      .validate(relTx, txLet)
-      .consume(lookupContract, lookupPackage, lookupKey)
-      .fold(err => reject(RejectionReason.Disputed(err.msg)), _ => pass)
+    val ctx = Metrics.interpretTimer.time()
+    try {
+      engine
+        .validate(relTx, txLet)
+        .consume(lookupContract, lookupPackage, lookupKey)
+        .fold(err => reject(RejectionReason.Disputed(err.msg)), _ => pass)
+    } finally {
+      val _ = ctx.stop()
+    }
   }
 
   /** Validate the submission's conformance to the DAML model */
@@ -206,17 +214,6 @@ private[kvutils] case class ProcessTransactionSubmission(
       }
 
     sequence2(
-      // Update contract state entries to mark contracts as consumed (checked by 'validateModelConformance')
-      sequence2(effects.consumedContracts.map { key =>
-        for {
-          cs <- getContractState(key).map { cs =>
-            cs.toBuilder
-              .setArchivedAt(buildTimestamp(txLet))
-              .setArchivedByEntry(entryId)
-          }
-          r <- set(key -> DamlStateValue.newBuilder.setContractState(cs).build)
-        } yield r
-      }: _*),
       // Add contract state entries to mark contract activeness (checked by 'validateModelConformance')
       set(effects.createdContracts.map {
         case (key, createNode) =>
@@ -241,6 +238,17 @@ private[kvutils] case class ProcessTransactionSubmission(
           }
           key -> DamlStateValue.newBuilder.setContractState(cs).build
       }),
+      // Update contract state entries to mark contracts as consumed (checked by 'validateModelConformance')
+      sequence2(effects.consumedContracts.map { key =>
+        for {
+          cs <- getContractState(key).map { cs =>
+            cs.toBuilder
+              .setArchivedAt(buildTimestamp(txLet))
+              .setArchivedByEntry(entryId)
+          }
+          r <- set(key -> DamlStateValue.newBuilder.setContractState(cs).build)
+        } yield r
+      }: _*),
       // Update contract state of divulged contracts
       sequence2(blindingInfo.globalDivulgence.map {
         case (absCoid, parties) =>
@@ -264,12 +272,15 @@ private[kvutils] case class ProcessTransactionSubmission(
             .setContractKeyState(contractKeyState)
             .build
       }),
-      done(
-        DamlLogEntry.newBuilder
-          .setRecordTime(buildTimestamp(recordTime))
-          .setTransactionEntry(txEntry)
-          .build
-      )
+      delay {
+        Metrics.accepts.inc()
+        done(
+          DamlLogEntry.newBuilder
+            .setRecordTime(buildTimestamp(recordTime))
+            .setTransactionEntry(txEntry)
+            .build
+        )
+      }
     )
   }
 
@@ -392,6 +403,8 @@ private[kvutils] case class ProcessTransactionSubmission(
       builder
     }
 
+    Metrics.rejections(rejectionEntry.getReasonCase.getNumber).inc()
+
     Commit.done(
       DamlLogEntry.newBuilder
         .setRecordTime(buildTimestamp(recordTime))
@@ -399,5 +412,18 @@ private[kvutils] case class ProcessTransactionSubmission(
         .build,
     )
   }
+}
 
+object ProcessTransactionSubmission {
+  private[committing] object Metrics {
+    private val registry = metrics.SharedMetricRegistries.getOrCreate("kvutils")
+    private val prefix = "kvutils.committing.transaction"
+    val runTimer: Timer = registry.timer(s"$prefix.run-timer")
+    val interpretTimer: Timer = registry.timer(s"$prefix.interpret-timer")
+    val accepts: Counter = registry.counter(s"$prefix.accepts")
+    val rejections: Map[Int, Counter] =
+      DamlTransactionRejectionEntry.ReasonCase.values
+        .map(v => v.getNumber -> registry.counter(s"$prefix.rejections_${v.name}"))
+        .toMap
+  }
 }

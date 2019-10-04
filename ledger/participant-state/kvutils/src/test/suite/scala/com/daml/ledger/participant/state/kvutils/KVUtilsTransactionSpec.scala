@@ -3,13 +3,19 @@
 
 package com.daml.ledger.participant.state.kvutils
 
+import com.codahale.metrics
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlLogEntry,
   DamlTransactionRejectionEntry
 }
 import com.daml.ledger.participant.state.kvutils.TestHelpers._
 import com.daml.ledger.participant.state.v1.Update
-import com.digitalasset.daml.lf.command.{Command, CreateCommand, ExerciseCommand}
+import com.digitalasset.daml.lf.command.{
+  Command,
+  CreateAndExerciseCommand,
+  CreateCommand,
+  ExerciseCommand
+}
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.transaction.Node.NodeCreate
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ValueUnit}
@@ -30,6 +36,11 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
         Ref.ContractIdString.assertFromString(coid),
         simpleConsumeChoiceid,
         ValueUnit)
+    val simpleCreateAndExerciseCmd: Command = CreateAndExerciseCommand(
+      simpleTemplateId,
+      mkSimpleTemplateArg("Alice"),
+      simpleConsumeChoiceid,
+      ValueUnit)
 
     val p0 = mkParticipantId(0)
     val p1 = mkParticipantId(1)
@@ -140,9 +151,47 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
         txEntry <- submitTransaction(submitter = bob, tx = createTx).map(_._2)
       } yield {
         txEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.TRANSACTION_REJECTION_ENTRY
-        txEntry.getTransactionRejectionEntry.getReasonCase shouldEqual DamlTransactionRejectionEntry.ReasonCase.DISPUTED
+        val disputed = DamlTransactionRejectionEntry.ReasonCase.DISPUTED
+        txEntry.getTransactionRejectionEntry.getReasonCase shouldEqual disputed
+
+        // Check that we're updating the metrics (assuming this test at least has been run)
+        val reg = metrics.SharedMetricRegistries.getOrCreate("kvutils")
+        reg.counter("kvutils.committing.transaction.accepts").getCount should be >= 1L
+        reg
+          .counter(s"kvutils.committing.transaction.rejections_${disputed.name}")
+          .getCount should be >= 1L
+        reg.timer("kvutils.committing.transaction.run-timer").getCount should be >= 1L
       }
     }
 
+    "transient contracts and keys are properly archived" in KVTest.runTestWithSimplePackage {
+      for {
+        tx1 <- runCommand(alice, simpleCreateAndExerciseCmd)
+        createAndExerciseTx1 <- submitTransaction(alice, tx1).map(_._2)
+        tx2 <- runCommand(alice, simpleCreateAndExerciseCmd)
+        createAndExerciseTx2 <- submitTransaction(alice, tx2).map(_._2)
+        finalState <- scalaz.State.get[KVTestState]
+      } yield {
+        createAndExerciseTx1.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.TRANSACTION_ENTRY
+        createAndExerciseTx2.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.TRANSACTION_ENTRY
+
+        // Check that all contracts and keys are in the archived state.
+        finalState.damlState.foreach {
+          case (_, v) =>
+            v.getValueCase match {
+              case DamlKvutils.DamlStateValue.ValueCase.CONTRACT_KEY_STATE =>
+                val cks = v.getContractKeyState
+                cks.hasContractId shouldBe false
+
+              case DamlKvutils.DamlStateValue.ValueCase.CONTRACT_STATE =>
+                val cs = v.getContractState
+                cs.hasArchivedAt shouldBe true
+
+              case _ =>
+                succeed
+            }
+        }
+      }
+    }
   }
 }

@@ -31,7 +31,8 @@ object TestHelpers {
           agreement "",
           choices {
             choice Consume (x: Unit) : Unit by Cons @Party [Simple:SimpleTemplate {owner} this] (Nil @Party) to upure @Unit ()
-          }
+          },
+          key @Party (Simple:SimpleTemplate {owner} this) (\ (p: Party) -> Cons @Party [p] (Nil @Party))
         } ;
       }
     """
