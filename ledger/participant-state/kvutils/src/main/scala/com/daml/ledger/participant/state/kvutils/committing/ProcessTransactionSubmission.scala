@@ -214,17 +214,6 @@ private[kvutils] case class ProcessTransactionSubmission(
       }
 
     sequence2(
-      // Update contract state entries to mark contracts as consumed (checked by 'validateModelConformance')
-      sequence2(effects.consumedContracts.map { key =>
-        for {
-          cs <- getContractState(key).map { cs =>
-            cs.toBuilder
-              .setArchivedAt(buildTimestamp(txLet))
-              .setArchivedByEntry(entryId)
-          }
-          r <- set(key -> DamlStateValue.newBuilder.setContractState(cs).build)
-        } yield r
-      }: _*),
       // Add contract state entries to mark contract activeness (checked by 'validateModelConformance')
       set(effects.createdContracts.map {
         case (key, createNode) =>
@@ -249,6 +238,17 @@ private[kvutils] case class ProcessTransactionSubmission(
           }
           key -> DamlStateValue.newBuilder.setContractState(cs).build
       }),
+      // Update contract state entries to mark contracts as consumed (checked by 'validateModelConformance')
+      sequence2(effects.consumedContracts.map { key =>
+        for {
+          cs <- getContractState(key).map { cs =>
+            cs.toBuilder
+              .setArchivedAt(buildTimestamp(txLet))
+              .setArchivedByEntry(entryId)
+          }
+          r <- set(key -> DamlStateValue.newBuilder.setContractState(cs).build)
+        } yield r
+      }: _*),
       // Update contract state of divulged contracts
       sequence2(blindingInfo.globalDivulgence.map {
         case (absCoid, parties) =>
