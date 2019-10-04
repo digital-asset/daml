@@ -183,7 +183,7 @@ getSrcRoot fileOrDir = do
       then pure fileOrDir'
       else do
           pm <- useE GetParsedModule fileOrDir'
-          Just root <- pure $ moduleImportPath pm
+          Just root <- pure $ moduleImportPath fileOrDir' pm
           pure $ toNormalizedFilePath root
 
 -- | Merge several packages into one.

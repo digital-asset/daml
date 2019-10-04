@@ -28,6 +28,8 @@ import qualified Language.Haskell.LSP.Test as LspTest
 import Language.Haskell.LSP.Types
 import Language.Haskell.LSP.Types.Lens as Lsp
 import Network.URI
+import System.Directory
+import System.FilePath
 import System.IO.Extra
 import Test.Tasty.HUnit
 
@@ -50,6 +52,7 @@ openDocs languageId files = do
     files' <- forM files $ \(file, contents) -> do
         uri <- getDocUri file
         Just path <- pure $ uriToFilePath uri
+        liftIO $ createDirectoryIfMissing True (takeDirectory path)
         liftIO $ writeFileUTF8 path $ T.unpack contents
         let item = TextDocumentItem uri (T.pack languageId) 0 contents
         pure (TextDocumentIdentifier uri, item)
