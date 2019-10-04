@@ -36,7 +36,6 @@
 //        2019-07-29: Add nat kind and Nat types, Numeric types and Numeric builtins
 //        2019-09-17: Add Any type and, To_Any and From_Any builtins
 //        2019-09-17: Drop support for Decimal
-//        2019-09-30: Add interning of strings and dotted names
 
 syntax = "proto3";
 package daml_lf_1;
@@ -63,17 +62,16 @@ message PackageRef {
 
     // An index into `interned_package_ids` of the Package containing
     // this reference.
-    int32 interned_id = 3; // *Available in versions >= 1.6*
+    uint64 interned_id = 3; // *Available in versions >= 1.6*
   }
 }
 
 // A `name`, e.g. Util.Either.isLeft
 message DottedName {
-  // *Must be a non-empty list of a valid identifiers unless `segments_interned_id` is set.*
+
+  // *Must be a non-empty list of a valid identifiers*
   repeated string segments = 1;
 
-  // *Must be set if and only if `segments` is an empty list.*
-  int32 segments_interned_id = 2; // *Available in versions >= 1.dev*
 }
 
 // A fully qualified module reference
@@ -104,11 +102,8 @@ message ValName {
   // Module where the value is defined
   ModuleRef module = 1;
 
-  // *Must be a non-empty list of a valid identifiers unless `interned_id` is set.*
+  // value name.
   repeated string name = 2;
-
-  // *Must be set if and only if `segments` is an empty list.*
-  int32 name_interned_id = 3; // *Available in versions >= 1.dev*
 }
 
 // A field name definition in a record or a variant associated with a type.
@@ -116,10 +111,7 @@ message FieldWithType {
 
   // Name of the field .
   // *Must be a valid identifier*
-  oneof field {
-    string name = 1;
-    int32 interned_id = 3; // *Available in versions >= 1.dev*
-  }
+  string field = 1;
 
   // Type associated
   Type type = 2;
@@ -130,10 +122,7 @@ message VarWithType {
 
   // Name of the bound expression variable.
   // *Must be a valid identifier*
-  oneof var {
-    string name = 1;
-    int32 interned_id = 3; // *Available in versions >= 1.dev*
-  }
+  string var = 1;
 
   // Type of the bound variable
   Type type = 2;
@@ -143,11 +132,7 @@ message VarWithType {
 message TypeVarWithKind {
   // Name of the bound expression variable
   // *Must be a valid identifier*
-  oneof var {
-    string name = 1;
-    int32 interned_id = 3; // *Available in versions >= 1.dev*
-  }
-
+  string var = 1;
   // Kind of the bound variable
   Kind kind = 2;
 }
@@ -156,11 +141,7 @@ message TypeVarWithKind {
 message FieldWithExpr {
   // Name of the field
   // *Must be a valid identifier*
-  oneof field {
-    string name = 1;
-    int32 interned_id = 3; // *Available in versions >= 1.dev*
-  }
-
+  string field = 1;
   // Value of the field
   Expr expr  = 2;
 }
@@ -268,10 +249,7 @@ message Type {
 
     // Name of the variable.
     // *Must be a valid identifier*
-    oneof var {
-      string var_name = 1;
-      int32 var_interned_id = 3; // *Available in versions >= 1.dev*
-    }
+    string var = 1;
 
     // Types to which the variable is applied
     repeated Type args = 2;
@@ -495,11 +473,9 @@ message PrimLit {
     // one. so, string it is. note that we can't store the whole and
     // decimal part in two numbers either, because 10^28 > 2^63.
     string decimal = 2; // *Available in versions < 1.dev*
-    int32 decimal_interned_id = 10; // *Available in versions >= 1.dev*
 
     // Unicode string literal ('LitText')
     string text = 4;
-    int32 text_interned_id = 11; // *Available in versions >= 1.dev*
 
     // UTC timestamp literal ('LitTimestamp')
     //
@@ -516,7 +492,6 @@ message PrimLit {
     // Party literal ('LitParty')
     // *Must be a PartyId string*
     string party = 7;
-    int32 party_interned_id = 12; // *Available in versions >= 1.dev*
 
     // Date literal ('Date')
     // Serialization of the number of days since the unix epoch. can go backwards.
@@ -533,7 +508,6 @@ message PrimLit {
     //
     // The number of decimal digits indicate the scale of the number.
     string numeric = 9; // *Available in versions >= 1.dev*
-    int32 numeric_interned_id = 13; // *Available in versions >= 1.dev*
   }
 
   reserved 3; // This was char.
@@ -577,10 +551,7 @@ message Expr {
 
     // Name of the record field to be projected on.
     // *must be a valid Identifier*
-    oneof field {
-      string name = 2;
-      int32 interned_id = 4; // *Available in versions >= 1.dev*
-    }
+    string field = 2;
 
     // projected expression
     Expr record = 3;
@@ -594,10 +565,7 @@ message Expr {
 
     // Name of the updated field.
     // *must be a valid identifier*
-    oneof field {
-      string name = 2;
-      int32 interned_id = 5; // *Available in versions >= 1.dev*
-    }
+    string field = 2;
 
     // Actual record being updated
     Expr record = 3;
@@ -614,10 +582,7 @@ message Expr {
 
     // name of the variant constructor
     // *Must be a valid identifier*
-    oneof variant_con {
-      string name = 2;
-      int32 interned_id = 4; // *Available in versions >= 1.dev*
-    }
+    string variant_con = 2;
 
     // Argument of the variant.
     Expr variant_arg = 3;
@@ -632,10 +597,7 @@ message Expr {
 
      // name of the enum constructor
      // *Must be a valid identifier*
-     oneof enum_con {
-       string name = 2;
-       int32 interned_id = 3; // *Available in versions >= 1.dev*
-     }
+     string enum_con = 2;
    }
 
   // Tuple Construction ('ExpTupleCon')
@@ -649,10 +611,7 @@ message Expr {
 
     // Name of the field to be projected on.
     // *Must be a valid Identifier*
-    oneof field {
-      string name = 1;
-      int32 interned_id = 3; // *Available in versions >= 1.dev*
-    }
+    string field = 1;
 
     // tuple to be projected.
     Expr tuple = 2;
@@ -663,10 +622,7 @@ message Expr {
 
     // Name of the updated field.
     // *must be a valid identifier*.
-    oneof field {
-      string name = 1;
-      int32 interned_id = 4; // *Available in versions >= 1.dev*
-    }
+    string field = 1;
 
     // Actual tuple being updated.
     Expr tuple = 2;
@@ -787,7 +743,6 @@ message Expr {
     // Expression variable ('ExpVar')
     // *must be a valid identifier*
     string var = 1;
-    int32 var_interned_id = 31; // *Available in versions >= 1.dev*
 
     // Defined value ('ExpVal')
     ValName val = 2;
@@ -887,17 +842,11 @@ message CaseAlt {
 
     // name of the variant constructor
     // *Must be a valid identifier*
-    oneof variant {
-      string variant_name = 2;
-      int32 variant_interned_id = 4; // *Available in versions >= 1.dev*
-    }
+    string variant = 2;
 
     // name of the variant binder
     // *Must be a valid identifier*
-    oneof binder {
-      string binder_name = 3;
-      int32 binder_interned_id = 5; // *Available in versions >= 1.dev*
-    }
+    string binder = 3;
   }
 
   // Enum pattern
@@ -909,36 +858,24 @@ message CaseAlt {
 
     // name of the variant constructor
     // *Must be a valid identifier*
-    oneof constructor {
-      string name = 2;
-      int32 interned_id = 3; // *Available in versions >= 1.dev*
-    }
+    string constructor = 2;
   }
 
   // Non empty list pattern
   message Cons {
     // name of the binder for the head
     // *Must be a valid identifier*
-    oneof var_head {
-      string var_head_name = 1;
-      int32 var_head_interned_id = 3; // *Available in versions >= 1.dev*
-    }
+    string var_head = 1;
 
     // name of the binder for the tail
     // *Must be a valid identifier*
-    oneof var_tail {
-      string var_tail_name = 2;
-      int32 var_tail_interned_id = 4; // *Available in versions >= 1.dev*
-    }
+    string var_tail = 2;
   }
 
   // Non empty option patterm
   // *Available in versions >= 1.1*
   message OptionalSome {
-    oneof var_body {
-      string name = 1;
-      int32 interned_id = 2; // *Available in versions >= 1.dev*
-    }
+    string var_body = 1;
   }
 
   oneof Sum {
@@ -990,10 +927,7 @@ message Update {
     // Template type
     TypeConName template = 1;
     // name of the exercised template choice
-    oneof choice {
-      string name = 2;
-      int32 interned_id = 6; // *Available in versions >= 1.dev*
-    }
+    string choice = 2;
     // contract id
     Expr cid = 3;
     // actors
@@ -1012,7 +946,7 @@ message Update {
     reserved 3; // was actor, we thought we'd need this, but we don't
   }
 
-  // Embedded Expression Update
+  // Embeded Exression Update
   message EmbedExpr {
     // Expression type
     Type type = 1;
@@ -1084,10 +1018,7 @@ message Scenario {
 message TemplateChoice {
 
   // *Must be a valid identifier*
-  oneof name {
-    string choice_name = 1;
-    int32 choice_interned_id = 9; // *Available in versions >= 1.dev*
-  }
+  string name = 1;
 
   // Choice type
   bool consuming = 2;
@@ -1109,10 +1040,7 @@ message TemplateChoice {
   Expr update = 6;
 
   // Name to bind the ContractId of the contract this choice is exercised on to.
-  oneof self_binder {
-    string self_binder_name = 7;
-    int32 self_binder_interned_id = 10; // *Available in versions >= 1.dev*
-  }
+  string self_binder = 7;
 
   Location location = 8;
 }
@@ -1121,10 +1049,7 @@ message TemplateChoice {
 message KeyExpr {
     message Projection {
         Type.Con tycon = 1; // Always fully applied
-        oneof field {
-            string name = 2;
-            int32 interned_id = 3; // *Available in versions >= 1.dev*
-        }
+        string field = 2;
     }
 
     // note that the projection is always referring to the template parameter.
@@ -1133,10 +1058,7 @@ message KeyExpr {
     }
 
     message RecordField {
-        oneof field {
-            string name = 1;
-            int32 interned_id = 3; // *Available in versions >= 1.dev*
-        }
+        string field = 1;
         KeyExpr expr = 2;
     }
 
@@ -1171,10 +1093,7 @@ message DefTemplate {
   DottedName tycon = 1;
 
   // Name to which the template argument is bound.
-  oneof param {
-    string param_name = 2;
-    int32 param_interned_id = 11; // *Available in versions >= 1.dev*
-  }
+  string param = 2;
 
   // NOTE(MH): The new runtime authorization check for DAML 1.0 does not rely
   // on the stakeholder signatures produced by the obligables computation
@@ -1218,7 +1137,6 @@ message DefDataType {
   // *Available in versions >= 1.6*
   message EnumConstructors {
     repeated string constructors = 1;
-    repeated int32 constructors_interned_ids = 2; // *Available in versions >= 1.dev*
   }
 
   // name of the defined data type
@@ -1255,9 +1173,7 @@ message DefValue {
 
     // Name of the value
     // *each element of name must be a valid identifier*
-    // `name` can be empty if and only if `name_interned_id` is set.
     repeated string name = 1;
-    int32 name_interned_id = 6; // *Available in versions >= 1.dev*
 
     // Type of the value
     Type type = 2;
@@ -1298,12 +1214,7 @@ message Module {
   repeated DefTemplate templates = 7;
 }
 
-message InternedDottedName {
-  repeated int32 segment_ids = 1; // *Available in versions >= 1.dev*
-}
-
 message Package {
   repeated Module modules = 1;
-  repeated string interned_strings = 2; // *Available in versions >= 1.6*
-  repeated InternedDottedName interned_dotted_names = 3; // *Available in versions >= 1.dev*
+  repeated string interned_package_ids = 2; // *Available in versions >= 1.6*
 }
