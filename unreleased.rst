@@ -38,6 +38,7 @@ HEAD — ongoing
   even if they were present during parallel compilations.
 - [Ledger] Enhance logging to correlate log messages with the associated participant id in multi-participant node tests and environments
 - [Ledger] Ledger api server indexer closes akka system on shutdown.
+- [Ledger] The ledger api server now stores divulged, otherwise unknown contracts.
 - [DAML Studio] Fix a bug where the same module was imported twice
   under different file paths breaking causing module name
   collisions. See `issue #3099 <https://github.com/digital-asset/daml/issues/3099>`_.
