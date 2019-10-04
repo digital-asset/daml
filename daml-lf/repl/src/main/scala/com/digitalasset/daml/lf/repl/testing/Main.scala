@@ -22,7 +22,6 @@ import com.digitalasset.daml.lf.transaction.VersionTimeline
 import java.io.{File, PrintWriter, StringWriter}
 import java.nio.file.{Path, Paths}
 import java.io.PrintStream
-import java.util.concurrent.TimeUnit
 
 import org.jline.builtins.Completers
 import org.jline.reader.{History, LineReader, LineReaderBuilder}
@@ -133,9 +132,7 @@ object Repl {
   }
 
   def cmdValidate(state: State): (Boolean, State) = {
-    val (validationResults, validationTime) =
-      timed(state.packages.keys.map(Validation.checkPackage(state.packages, _)))
-    println(s"validation performed in $validationTime ms.")
+    val validationResults = state.packages.keys.map(Validation.checkPackage(state.packages, _))
     validationResults collectFirst {
       case Left(e) =>
         println(s"Context: ${e.context}")
@@ -326,19 +323,17 @@ object Repl {
   def load(darFile: String): State = {
     val state = initialState()
     try {
-      val (packages, parseTime) = timed(
+      val packages =
         UniversalArchiveReader().readFile(new File(darFile)).get
-      )
-      val npkgs = packages.all.size
-      println(s"$npkgs package(s) parsed in $parseTime ms.")
-
-      val (packagesMap, decodeTime) = timed(Map(packages.all.map {
+      val packagesMap = Map(packages.all.map {
         case (pkgId, pkgArchive) => Decode.readArchivePayloadAndVersion(pkgId, pkgArchive)._1
-      }: _*))
-
+      }: _*)
+      val (mainPkgId, mainPkgArchive) = packages.main
+      val mainPkg = Decode.readArchivePayloadAndVersion(mainPkgId, mainPkgArchive)._1._2
+      val npkgs = packagesMap.size
       val ndefs =
         packagesMap.flatMap(_._2.modules.values.map(_.definitions.size)).sum
-      println(s"$ndefs definitions loaded in $decodeTime ms.")
+      println(s"$ndefs definitions from $npkgs package(s) loaded.")
 
       rebuildReader(
         state.copy(
@@ -584,12 +579,4 @@ object Repl {
       err => throw ParseError(err),
       identity
     )
-
-  private def timed[R](block: => R): (R, Long) = {
-    val t0 = System.nanoTime()
-    val result = block
-    val t1 = System.nanoTime()
-    result -> TimeUnit.NANOSECONDS.toMillis(t1 - t0)
-  }
-
 }
