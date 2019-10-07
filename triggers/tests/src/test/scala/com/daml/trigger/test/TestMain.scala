@@ -34,11 +34,13 @@ import com.digitalasset.daml.lf.archive.Decode
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml_lf.DamlLf
 import com.digitalasset.daml.lf.value.{Value => Lf}
+
 import com.digitalasset.grpc.adapter.AkkaExecutionSequencerPool
 import com.digitalasset.daml.lf.speedy.SExpr
 import com.digitalasset.daml.lf.speedy.SExpr._
 import com.digitalasset.daml.lf.speedy.SValue._
 import com.digitalasset.ledger.api.validation.ValueValidator
+import com.digitalasset.platform.participant.util.LfEngineToApi.{toApiIdentifier}
 import com.digitalasset.platform.server.api.validation.FieldValidations.{validateIdentifier}
 
 import com.daml.trigger.{Runner, TriggerMsg}
@@ -51,11 +53,11 @@ case class Config(ledgerPort: Int, darPath: File)
 case class NumMessages(num: Long)
 
 object TestRunner {
-  def assertEqual[A](actual: A, expected: A) = {
+  def assertEqual[A](actual: A, expected: A, note: String) = {
     if (actual == expected) {
       Right(())
     } else {
-      Left(s"Expected $actual but got $expected")
+      Left(s"$note: Expected $expected but got $actual")
     }
   }
   def findStdlibPackageId(dar: Dar[(PackageId, Package)]) =
@@ -199,7 +201,7 @@ case class AcsTests(dar: Dar[(PackageId, Package)], runner: TestRunner) {
       finalState match {
         case SEValue(SRecord(_, _, vals)) =>
           for {
-            _ <- TestRunner.assertEqual(vals.size, 5)
+            _ <- TestRunner.assertEqual(vals.size, 5, "number of record fields")
             activeAssets <- vals.get(0) match {
               case SMap(v) => Right(v.keySet)
               case _ => Left(s"Expected a map but got ${vals.get(0)}")
@@ -212,9 +214,15 @@ case class AcsTests(dar: Dar[(PackageId, Package)], runner: TestRunner) {
               case SInt64(i) => Right(i)
               case _ => Left(s"Expected an Int64 but got ${vals.get(2)}")
             }
-            _ <- TestRunner.assertEqual(activeAssets, commandsR._1)
-            _ <- TestRunner.assertEqual(successfulCompletions, numSuccCompletions.num)
-            _ <- TestRunner.assertEqual(failedCompletions, numFailedCompletions.num)
+            _ <- TestRunner.assertEqual(activeAssets, commandsR._1, "activeAssets")
+            _ <- TestRunner.assertEqual(
+              successfulCompletions,
+              numSuccCompletions.num,
+              "successfulCompletions")
+            _ <- TestRunner.assertEqual(
+              failedCompletions,
+              numFailedCompletions.num,
+              "failedCompletions")
           } yield ()
         case _ => Left(s"Expected a map but got $finalState")
       }
@@ -224,7 +232,7 @@ case class AcsTests(dar: Dar[(PackageId, Package)], runner: TestRunner) {
         commandsR: (Set[String], ActiveAssetMirrors)) = {
       val activeMirrorContracts = acs(
         Identifier(dar.main._1, QualifiedName.assertFromString("ACS:AssetMirror"))).size
-      TestRunner.assertEqual(activeMirrorContracts, commandsR._2.num)
+      TestRunner.assertEqual(activeMirrorContracts, commandsR._2.num, "activeMirrorContracts")
     }
     runner.genericTest(
       name,
@@ -383,6 +391,175 @@ case class AcsTests(dar: Dar[(PackageId, Package)], runner: TestRunner) {
   }
 }
 
+case class CopyTests(dar: Dar[(PackageId, Package)], runner: TestRunner) {
+
+  val triggerId: Identifier =
+    Identifier(dar.main._1, QualifiedName.assertFromString("Copy:copyTrigger"))
+
+  val masterId = Identifier(dar.main._1, QualifiedName.assertFromString("Copy:Master"))
+
+  val copyId = Identifier(dar.main._1, QualifiedName.assertFromString("Copy:Copy"))
+
+  val subscriberId = Identifier(dar.main._1, QualifiedName.assertFromString("Copy:Subscriber"))
+
+  def test(
+      name: String,
+      numMessages: NumMessages,
+      numMasters: Int,
+      numSubscribers: Int,
+      numCopies: Int,
+      commands: (LedgerClient, String) => ExecutionContext => ActorMaterializer => Future[Unit]) = {
+    def assertFinalState(finalState: SExpr, commandsR: Unit) = Right(())
+    def assertFinalACS(
+        acs: Map[Identifier, Seq[(String, Lf.ValueRecord[Lf.AbsoluteContractId])]],
+        commandsR: Unit) = {
+      println(acs)
+      for {
+        _ <- TestRunner.assertEqual(
+          acs.get(masterId).fold(0)(_.size),
+          numMasters,
+          "number of Master contracts")
+        _ <- TestRunner.assertEqual(
+          acs.get(subscriberId).fold(0)(_.size),
+          numSubscribers,
+          "number of Subscriber contracts")
+        _ <- TestRunner.assertEqual(
+          acs.get(copyId).fold(0)(_.size),
+          numCopies,
+          "number of Copies contracts")
+      } yield ()
+    }
+    runner.genericTest(
+      name,
+      dar,
+      triggerId,
+      commands,
+      numMessages,
+      assertFinalState,
+      assertFinalACS)
+  }
+
+  def createMaster(client: LedgerClient, owner: String, name: String, commandId: String)(
+      implicit ec: ExecutionContext,
+      mat: ActorMaterializer): Future[Unit] = {
+    val commands = Seq(
+      Command().withCreate(CreateCommand(
+        templateId = Some(toApiIdentifier(masterId)),
+        createArguments = Some(value.Record(
+          recordId = Some(toApiIdentifier(masterId)),
+          fields = Seq(
+            value.RecordField("owner", Some(value.Value().withParty(owner))),
+            value.RecordField("name", Some(value.Value().withText(name))),
+            value.RecordField("info", Some(value.Value().withText("")))
+          )
+        ))
+      )))
+
+    for {
+      _ <- client.commandClient.trackSingleCommand(
+        SubmitRequest(
+          commands = Some(Commands(
+            ledgerId = client.ledgerId.unwrap,
+            applicationId = runner.applicationId.unwrap,
+            commandId = commandId,
+            party = owner,
+            ledgerEffectiveTime = Some(fromInstant(Instant.EPOCH)),
+            maximumRecordTime = Some(fromInstant(Instant.EPOCH.plusSeconds(5))),
+            commands = commands
+          ))))
+    } yield ()
+  }
+
+  def createSubscriber(client: LedgerClient, owner: String, obs: String, commandId: String)(
+      implicit ec: ExecutionContext,
+      mat: ActorMaterializer): Future[Unit] = {
+    val commands = Seq(
+      Command().withCreate(CreateCommand(
+        templateId = Some(toApiIdentifier(subscriberId)),
+        createArguments = Some(value.Record(
+          recordId = Some(toApiIdentifier(subscriberId)),
+          fields = Seq(
+            value.RecordField("owner", Some(value.Value().withParty(owner))),
+            value.RecordField("obs", Some(value.Value().withParty(obs))))
+        ))
+      )))
+
+    for {
+      _ <- client.commandClient.trackSingleCommand(
+        SubmitRequest(
+          commands = Some(Commands(
+            ledgerId = client.ledgerId.unwrap,
+            applicationId = runner.applicationId.unwrap,
+            commandId = commandId,
+            party = obs,
+            ledgerEffectiveTime = Some(fromInstant(Instant.EPOCH)),
+            maximumRecordTime = Some(fromInstant(Instant.EPOCH.plusSeconds(5))),
+            commands = commands
+          ))))
+    } yield ()
+  }
+
+  def runTests() = {
+    test(
+      "1 master, 0 subscriber",
+      // 1 for create of master
+      // 1 for corresponding completion
+      NumMessages(2),
+      numMasters = 1,
+      numSubscribers = 0,
+      numCopies = 0,
+      (client, party) => { implicit ec: ExecutionContext => implicit mat: ActorMaterializer =>
+        {
+          for {
+            _ <- createMaster(client, owner = party, name = "master0", "0.0")
+          } yield ()
+        }
+      }
+    )
+    test(
+      "1 master, 1 subscriber",
+      // 1 for create of master
+      // 1 for create of subscriber
+      // 2 for corresponding completions
+      // 1 for create of copy
+      // 1 for corresponding completion
+      NumMessages(6),
+      numMasters = 1,
+      numSubscribers = 1,
+      numCopies = 1,
+      (client, party) => { implicit ec: ExecutionContext => implicit mat: ActorMaterializer =>
+        {
+          for {
+            _ <- createMaster(client, owner = party, name = "master0", "1.0")
+            _ <- createSubscriber(client, owner = party, obs = party, "1.1")
+          } yield ()
+        }
+      }
+    )
+    test(
+      "2 master, 1 subscriber",
+      // 2 for create of master
+      // 1 for create of subscriber
+      // 3 for corresponding completions
+      // 2 for create of copy
+      // 2 for corresponding completion
+      NumMessages(10),
+      numMasters = 2,
+      numSubscribers = 1,
+      numCopies = 2,
+      (client, party) => { implicit ec: ExecutionContext => implicit mat: ActorMaterializer =>
+        {
+          for {
+            _ <- createMaster(client, owner = party, name = "master0", "2.0")
+            _ <- createMaster(client, owner = party, name = "master1", "2.1")
+            _ <- createSubscriber(client, owner = party, obs = party, "2.2")
+          } yield ()
+        }
+      }
+    )
+  }
+}
+
 object TestMain {
 
   private val configParser = new scopt.OptionParser[Config]("acs_test") {
@@ -415,7 +592,8 @@ object TestMain {
           case (pkgId, pkgArchive) => Decode.readArchivePayload(pkgId, pkgArchive)
         }
         val runner = new TestRunner(config.ledgerPort)
-        AcsTests(dar, runner).runTests()
+        // AcsTests(dar, runner).runTests()
+        CopyTests(dar, runner).runTests()
     }
   }
 }

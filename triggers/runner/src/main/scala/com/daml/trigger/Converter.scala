@@ -47,7 +47,7 @@ case class TriggerIds(
 
 object TriggerIds {
   def fromDar(dar: Dar[(PackageId, Package)]): TriggerIds = {
-    val triggerModuleName = DottedName.assertFromString("Daml.Trigger")
+    val triggerModuleName = DottedName.assertFromString("Daml.Trigger.LowLevel")
     // We might want to just fix this at compile time at some point
     // once we ship the trigger lib with the SDK.
     val triggerPackageId: PackageId = dar.all
@@ -112,7 +112,11 @@ object Converter {
 
   private def fromCommandId(triggerIds: TriggerIds, commandId: String): SValue = {
     val commandIdTy = triggerIds.getId("CommandId")
-    record(commandIdTy, ("unpack", SText(commandId)))
+    if (commandId.isEmpty) {
+      SOptional(None)
+    } else {
+      SOptional(Some(record(commandIdTy, ("unpack", SText(commandId)))))
+    }
   }
 
   private def fromAnyContractId(
@@ -188,6 +192,7 @@ object Converter {
       record(
         transactionTy,
         ("transactionId", fromTransactionId(triggerIds, t.transactionId)),
+        ("commandId", fromCommandId(triggerIds, t.commandId)),
         ("events", SList(FrontStack(t.events.map(ev => fromEvent(triggerIds, ev)))))
       )
     )

@@ -1,130 +1,164 @@
 -- Copyright (c) 2019 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
-{-# LANGUAGE AllowAmbiguousTypes #-}
+
 daml 1.2
 module Daml.Trigger
-  ( Message(..)
-  , Completion(..)
-  , CompletionStatus(..)
-  , Transaction(..)
-  , Identifier(..)
-  , AnyContractId(..)
-  , TransactionId(..)
-  , EventId(..)
-  , CommandId(..)
-  , Event(..)
-  , Created(..)
-  , Archived(..)
-  , Trigger(..)
-  , ActiveContracts(..)
-  , Commands(..)
-  , TemplateId(..)
-  , Command
-  , exerciseCmd
-  , createCmd
-  ) where
+ ( ACS
+ , getTemplates
+ , Trigger(..)
+ , TriggerA
+ , emitCommands
+ , runTrigger
+ , CommandId
+ , Command(..)
+ , AnyContractId(..)
+ , exerciseCmd
+ , createCmd
+ ) where
 
-data Identifier = Identifier
-  { packageId : Text
-  , moduleName : Text
-  , entityName : Text
-  } deriving (Show, Eq)
+import DA.Next.Map (Map)
+import qualified DA.Next.Map as Map
+import DA.Optional
 
-data AnyContractId = AnyContractId
-  { templateId : Identifier
-  , contractId : Text
-  } deriving (Show, Eq)
+import Daml.Trigger.LowLevel hiding (Trigger)
+import qualified Daml.Trigger.LowLevel as LowLevel
 
-newtype TransactionId = TransactionId Text
-  deriving (Show, Eq)
+-- public API
 
-newtype EventId = EventId Text
-  deriving (Show, Eq)
+newtype ACS = ACS [(AnyContractId, AnyTemplate)]
 
-newtype CommandId = CommandId Text
-  deriving (Show, Eq)
+getTemplates : Template a => ACS -> [(AnyContractId, a)]
+getTemplates (ACS tpls) = mapOptional (\(cid, tpl) -> (cid,) <$> fromAnyTemplate tpl) tpls
 
-data Transaction = Transaction
- { transactionId : TransactionId
- , events : [Event]
- }
-
-data Event
-  = CreatedEvent Created
-  | ArchivedEvent Archived
-
-data Created = Created
-  { eventId : EventId
-  , contractId : AnyContractId
-  , argument : AnyTemplate
-  }
-
-data Archived = Archived
-  { eventId : EventId
-  , contractId : AnyContractId
-  } deriving (Show, Eq)
-
-data Message
-  = MTransaction Transaction
-  | MCompletion Completion
-
-data Completion = Completion
-  { commandId : CommandId
-  , status : CompletionStatus
-  } deriving Show
-
-data CompletionStatus
-  = Failed { status : Int, message : Text }
-  | Succeeded { transactionId : TransactionId }
-  deriving Show
-
-data ActiveContracts = ActiveContracts { activeContracts : [Created] }
-
--- | Trigger is (approximately) a left-fold over `Message` with
--- an accumulator of type `s`.
 data Trigger s = Trigger
-  { initialState : Party -> ActiveContracts -> s
-  , update : Message -> s -> (s, [Commands], Text)
+  { initialize : ACS -> s
+  -- The ACS already includes the updates from the Message
+  , updateState : ACS -> Message -> s -> s
+  , rule : Party -> ACS -> Map CommandId [Command] -> s -> TriggerA ()
   }
 
--- | We implicitly assume that the package id corresponds to the package the trigger is part of.
--- This type is temporary until we have a builtin in LF for identifiers.
-data TemplateId = TemplateId
-  { moduleName : Text
-  , entityName : Text
+newtype TriggerA a = TriggerA (State TriggerAState a)
+  deriving (Functor, Applicative, Action)
+
+emitCommands : [Command] -> TriggerA CommandId
+emitCommands cmds = do
+  state <- TriggerA get
+  let id = CommandId $ show $ state.nextCommandId
+  let commands = Commands id cmds
+  TriggerA $ modify $ \s -> s { emittedCommands = commands :: s.emittedCommands, nextCommandId = s.nextCommandId + 1 }
+  pure id
+
+runTrigger : Trigger s -> LowLevel.Trigger (TriggerState s)
+runTrigger userTrigger = LowLevel.Trigger
+  { initialState = initialState
+  , update = update
+  }
+  where
+    initialState party (ActiveContracts createdEvents) =
+      let acs = foldl (\acs created -> applyEvent (CreatedEvent created) acs) (ACS []) createdEvents
+          userState = userTrigger.initialize acs
+      in TriggerState
+           { acs = acs
+           , party = party
+           , userState = userState
+           , commandsInFlight = Map.empty
+           , nextCommandId = 0
+           }
+    update msg state =
+      case msg of
+        MCompletion completion ->
+          let userState = userTrigger.updateState state.acs (MCompletion completion) state.userState
+              commandsInFlight = case completion.status of
+                Failed {} -> Map.delete completion.commandId state.commandsInFlight
+                -- We delete successful completions when we receive the corresponding transaction
+                -- to avoid removing a command from commandsInFlight before we have modified the ACS.
+                Succeeded {} -> state.commandsInFlight
+              -- TODO:We should trigger rules on failures
+          in (state { userState, commandsInFlight }, [], "")
+        MTransaction transaction ->
+          let acs = applyTransaction transaction state.acs
+              userState = userTrigger.updateState acs (MTransaction transaction) state.userState
+              -- See the comment above for why we delete this here instead of when we receive the completion.
+              inFlight = case transaction.commandId of
+                None -> state.commandsInFlight
+                Some commandId -> Map.delete commandId state.commandsInFlight
+              (_, TriggerAState commands nextCommandId) = runTriggerA (userTrigger.rule state.party acs inFlight userState) (TriggerAState [] state.nextCommandId)
+              commandsInFlight = foldl addCommands state.commandsInFlight commands
+          in (state { acs, userState, nextCommandId, commandsInFlight}, commands, show ("transaction", sum $ map numCreates commands, sum $ map numExercises commands))
+
+numCreates : Commands -> Int
+numCreates (Commands _ cmds) = length $ filter (\x -> case x of CreateCommand {} -> True; _ -> False) cmds
+
+numExercises : Commands -> Int
+numExercises (Commands _ cmds) = length $ filter (\x -> case x of ExerciseCommand {} -> True; _ -> False) cmds
+
+-- Internal API
+
+addCommands : Map CommandId [Command] -> Commands -> Map CommandId [Command]
+addCommands m (Commands cid cmds) = Map.insert cid cmds m
+
+insertTpl : AnyContractId -> AnyTemplate -> ACS -> ACS
+insertTpl cid tpl (ACS acs) = ACS ((cid, tpl) :: acs)
+
+deleteTpl : AnyContractId -> ACS -> ACS
+deleteTpl cid (ACS acs) = ACS (filter (\(cid', _) -> cid /= cid') acs)
+
+lookupTpl : Template a => AnyContractId -> ACS -> Optional a
+lookupTpl cid (ACS acs) = do
+  (_, tpl) <- find ((cid ==) . fst) acs
+  fromAnyTemplate tpl
+
+applyEvent : Event -> ACS -> ACS
+applyEvent ev acs = case ev of
+  CreatedEvent (Created _ cid tpl) -> insertTpl cid tpl acs
+  ArchivedEvent (Archived _ cid) -> deleteTpl cid acs
+
+applyTransaction : Transaction -> ACS -> ACS
+applyTransaction (Transaction _ _ evs) acs = foldl (flip applyEvent) acs evs
+
+runTriggerA : TriggerA a -> TriggerAState -> (a, TriggerAState)
+runTriggerA (TriggerA f) s = runState f s
+
+data TriggerAState = TriggerAState
+  { emittedCommands : [Commands]
+  -- ^ commands in reverse because I can’t be bothered to implement a dlist
+  , nextCommandId : Int
   }
 
--- | This is an internal hack until we have this as a builtin in DAML-LF.
-
--- You can think of this as an existential `data Dynamic = forall a. Dynamic a`
--- that you can’t convert back from.
-data LedgerValue = LedgerValue {}
-
--- | At runtime we turn this into the identity function
--- and convert the result to ledger values.
-toLedgerValue : a -> LedgerValue
-toLedgerValue = error "toLedgerValue should be removed."
-
-data Command
-  = CreateCommand
-      { templateArg : AnyTemplate
-      -- This needs to be AnyTemplate instead of LedgerValue
-      -- to handle generic templates.
-      }
-  | ExerciseCommand
-      { contractId : AnyContractId
-      , choiceArg : LedgerValue
-      }
-
-createCmd : Template t => t -> Command
-createCmd templateArg =
-  CreateCommand (toAnyTemplate templateArg)
-
-exerciseCmd : Choice t c r => AnyContractId -> c -> Command
-exerciseCmd contractId choiceArg =
-  ExerciseCommand contractId (toLedgerValue choiceArg)
-
-data Commands = Commands
-  { commandId : CommandId
-  , commands : [Command]
+data TriggerState s = TriggerState
+  { acs : ACS
+  , party : Party
+  , userState : s
+  , commandsInFlight : Map CommandId [Command]
+  , nextCommandId : Int
   }
+
+-- monad state stuff
+
+newtype State s a = State { runState : s -> (a, s) }
+  deriving Functor
+
+instance Applicative (State s) where
+  pure a = State (\s -> (a, s))
+  State f <*> State x =
+    State $ \s ->
+      let (f', s') = f s
+          (x', s'') = x s'
+      in (f' x', s'')
+  a *> b =
+    a >>= \_ -> b
+
+instance Action (State s) where
+  State x >>= f = State $ \s ->
+    let (x', s') = x s
+    in runState (f x') s'
+
+get : State s s
+get = State (\s -> (s, s))
+
+put : s -> State s ()
+put s = State (\_ -> ((), s))
+
+modify : (s -> s) -> State s ()
+modify f = State (\s -> ((), f s))
+
