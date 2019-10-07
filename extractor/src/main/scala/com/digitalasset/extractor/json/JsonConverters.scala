@@ -18,8 +18,8 @@ import scalaz.@@
 object JsonConverters {
   private[this] object LfValueSprayEnc
       extends ApiCodecCompressed[String](
-        encodeDecimalAsString = false,
-        encodeInt64AsString = true
+        encodeDecimalAsString = true,
+        encodeInt64AsString = false
       ) {
     import spray.json._, ApiCodecCompressed.JsonImplicits.StringJsonFormat
     override protected[this] def apiContractIdToJsValue(v: String): JsValue = JsString(v)
