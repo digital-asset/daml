@@ -16,11 +16,12 @@ import com.digitalasset.ledger.api.messages.command.completion.CompletionStreamR
 import com.digitalasset.ledger.api.v1.command_completion_service._
 import com.digitalasset.ledger.api.validation.PartyNameChecker
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
+import com.digitalasset.platform.api.grpc.GrpcApiService
 import com.digitalasset.platform.common.util.DirectExecutionContext
 import com.digitalasset.platform.participant.util.Slf4JLog
 import com.digitalasset.platform.server.api.services.domain.CommandCompletionService
 import com.digitalasset.platform.server.api.services.grpc.GrpcCommandCompletionService
-import io.grpc.{BindableService, ServerServiceDefinition}
+import io.grpc.ServerServiceDefinition
 import org.slf4j.Logger
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -65,15 +66,13 @@ object ApiCommandCompletionService {
       loggerFactory: NamedLoggerFactory)(
       implicit ec: ExecutionContext,
       mat: Materializer,
-      esf: ExecutionSequencerFactory): GrpcCommandCompletionService
-    with BindableService
-    with AutoCloseable
-    with CommandCompletionServiceLogging = {
+      esf: ExecutionSequencerFactory)
+    : GrpcCommandCompletionService with GrpcApiService with CommandCompletionServiceLogging = {
     val impl: CommandCompletionService =
       new ApiCommandCompletionService(completionsService, loggerFactory)
 
     new GrpcCommandCompletionService(ledgerId, impl, PartyNameChecker.AllowAllParties)
-    with BindableService with CommandCompletionServiceLogging {
+    with GrpcApiService with CommandCompletionServiceLogging {
       override val logger: Logger = loggerFactory.getLogger(impl.getClass)
       override def bindService(): ServerServiceDefinition =
         CommandCompletionServiceGrpc.bindService(this, DirectExecutionContext)

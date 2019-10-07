@@ -102,7 +102,7 @@ object ApiActiveContractsService {
       implicit ec: ExecutionContext,
       mat: Materializer,
       esf: ExecutionSequencerFactory)
-    : ActiveContractsService with BindableService with ActiveContractsServiceLogging =
+    : ActiveContractsService with GrpcApiService with ActiveContractsServiceLogging =
     new ActiveContractsServiceValidation(
       new ApiActiveContractsService(backend, loggerFactory = loggerFactory)(ec, mat, esf),
       ledgerId

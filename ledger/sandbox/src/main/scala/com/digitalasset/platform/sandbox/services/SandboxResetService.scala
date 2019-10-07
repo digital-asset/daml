@@ -13,12 +13,16 @@ import io.grpc.ServerCall.Listener
 import java.util.concurrent.atomic.AtomicBoolean
 
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
+import com.daml.ledger.participant.state.v1.AuthService
+import com.digitalasset.platform.server.api.authorization.ApiServiceAuthorization
+
 import scala.concurrent.{ExecutionContext, Future, Promise}
 
 class SandboxResetService(
     ledgerId: LedgerId,
     getEc: () => ExecutionContext,
     resetAndRestartServer: () => Future[Unit],
+    authService: AuthService,
     loggerFactory: NamedLoggerFactory)
     extends ResetServiceGrpc.ResetService
     with BindableService
@@ -39,11 +43,15 @@ class SandboxResetService(
     // * serve the response to the reset request;
     // * then, close all the services so hopefully the graceful shutdown will terminate quickly...
     // * ...but not before serving the request to the reset request itself, which we've already done.
-    Either
-      .cond(
-        ledgerId == LedgerId(request.ledgerId),
-        request.ledgerId,
-        ErrorFactories.ledgerIdMismatch(ledgerId, LedgerId(request.ledgerId)))
+    ApiServiceAuthorization
+      .requireAdminClaims()
+      .flatMap(
+        _ =>
+          Either
+            .cond(
+              ledgerId == LedgerId(request.ledgerId),
+              request.ledgerId,
+              ErrorFactories.ledgerIdMismatch(ledgerId, LedgerId(request.ledgerId))))
       .fold(Future.failed[Empty], { _ =>
         actuallyReset().map(_ => Empty())(DE)
       })

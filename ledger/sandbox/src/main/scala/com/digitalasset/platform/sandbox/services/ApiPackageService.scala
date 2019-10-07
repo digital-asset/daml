@@ -89,7 +89,7 @@ class ApiPackageService private (backend: IndexPackagesService)
 object ApiPackageService {
   def create(ledgerId: LedgerId, backend: IndexPackagesService, loggerFactory: NamedLoggerFactory)(
       implicit ec: ExecutionContext)
-    : PackageService with BindableService with PackageServiceLogging =
+    : PackageService with GrpcApiService with PackageServiceLogging =
     new PackageServiceValidation(new ApiPackageService(backend), ledgerId) with BindableService
     with PackageServiceLogging {
       override protected val logger = loggerFactory.getLogger(PackageService.getClass)

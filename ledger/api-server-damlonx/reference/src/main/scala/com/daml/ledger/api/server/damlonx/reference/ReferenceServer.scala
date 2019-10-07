@@ -18,6 +18,7 @@ import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.transaction.GenTransaction
 import com.digitalasset.daml_lf.DamlLf.Archive
 import com.digitalasset.platform.common.util.DirectExecutionContext
+import com.digitalasset.platform.server.api.authorization.auth.AuthServiceWildcard
 import org.slf4j.LoggerFactory
 
 import scala.util.Try
@@ -73,11 +74,14 @@ object ReferenceServer extends App {
         participantId = participantId
       )
 
+      val authService = AuthServiceWildcard
+
       val server = Server(
         serverPort = config.port,
         sslContext = config.tlsConfig.flatMap(_.server),
         indexService = indexService,
         writeService = ledger,
+        authService = authService
       )
 
       // If port file was provided, write out the allocated server port to it.

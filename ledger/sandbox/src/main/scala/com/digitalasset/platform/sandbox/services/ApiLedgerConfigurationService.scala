@@ -50,8 +50,9 @@ object ApiLedgerConfigurationService {
       loggerFactory: NamedLoggerFactory)(
       implicit ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
-      mat: Materializer)
-    : GrpcApiService with BindableService with LedgerConfigurationServiceLogging =
+      mat: Materializer): LedgerConfigurationServiceGrpc.LedgerConfigurationService
+    with GrpcApiService
+    with LedgerConfigurationServiceLogging =
     new LedgerConfigurationServiceValidation(
       new ApiLedgerConfigurationService(configurationService),
       ledgerId) with BindableService with LedgerConfigurationServiceLogging {

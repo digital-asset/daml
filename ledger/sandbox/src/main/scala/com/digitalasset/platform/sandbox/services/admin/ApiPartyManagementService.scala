@@ -111,7 +111,8 @@ object ApiPartyManagementService {
       loggerFactory: NamedLoggerFactory)(
       implicit ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
-      mat: ActorMaterializer): GrpcApiService =
+      mat: ActorMaterializer)
+    : PartyManagementServiceGrpc.PartyManagementService with GrpcApiService =
     new ApiPartyManagementService(readBackend, writeBackend, mat.system.scheduler, loggerFactory)
     with PartyManagementServiceLogging
 

@@ -9,7 +9,7 @@ import java.util.concurrent.TimeUnit
 import akka.stream.ActorMaterializer
 import com.daml.ledger.api.server.damlonx.services._
 import com.daml.ledger.participant.state.index.v1.IndexService
-import com.daml.ledger.participant.state.v1.WriteService
+import com.daml.ledger.participant.state.v1.{AuthService, WriteService}
 import com.digitalasset.daml.lf.engine.{Engine, EngineInfo}
 import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.digitalasset.ledger.api.domain
@@ -35,7 +35,8 @@ object Server {
       serverPort: Int,
       sslContext: Option[SslContext],
       indexService: IndexService,
-      writeService: WriteService)(implicit materializer: ActorMaterializer): Server = {
+      writeService: WriteService,
+      authService: AuthService)(implicit materializer: ActorMaterializer): Server = {
     implicit val serverEsf: AkkaExecutionSequencerPool =
       new AkkaExecutionSequencerPool(
         // NOTE(JM): Pick a unique pool name as we want to allow multiple ledger api server
@@ -54,7 +55,7 @@ object Server {
       serverEsf,
       serverPort,
       sslContext,
-      createServices(indexService, writeService, loggerFactory),
+      createServices(indexService, writeService, authService, loggerFactory),
       loggerFactory
     ),
   }
@@ -62,6 +63,7 @@ object Server {
   private def createServices(
       indexService: IndexService,
       writeService: WriteService,
+      authService: AuthService,
       loggerFactory: NamedLoggerFactory)(
       implicit mat: ActorMaterializer,
       serverEsf: ExecutionSequencerFactory

@@ -9,7 +9,7 @@ import java.time.Instant
 import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.Sink
-import com.daml.ledger.participant.state.v1.{ParticipantId, ReadService, WriteService}
+import com.daml.ledger.participant.state.v1.{AuthService, ParticipantId, ReadService, WriteService}
 import com.digitalasset.daml.lf.engine.Engine
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.ledger.api.domain
@@ -22,6 +22,7 @@ import com.digitalasset.platform.sandbox.BuildInfo
 import com.digitalasset.platform.sandbox.config.SandboxConfig
 import com.digitalasset.platform.sandbox.metrics.MetricsManager
 import com.digitalasset.platform.sandbox.stores.InMemoryPackageStore
+import com.digitalasset.platform.server.api.authorization.AuthorizationInterceptor
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext}
@@ -36,12 +37,14 @@ object StandaloneIndexServer {
       config: Config,
       readService: ReadService,
       writeService: WriteService,
+      authService: AuthService,
       loggerFactory: NamedLoggerFactory): StandaloneIndexServer =
     new StandaloneIndexServer(
       "index",
       config,
       readService,
       writeService,
+      authService,
       loggerFactory
     )
 
@@ -74,6 +77,7 @@ class StandaloneIndexServer(
     config: Config,
     readService: ReadService,
     writeService: WriteService,
+    authService: AuthService,
     loggerFactory: NamedLoggerFactory) {
   private val logger = loggerFactory.getLogger(this.getClass)
 
@@ -158,17 +162,20 @@ class StandaloneIndexServer(
             .create(
               writeService,
               indexService,
+              authService,
               StandaloneIndexServer.engine,
               config.timeProvider,
               timeModel,
               SandboxConfig.defaultCommandConfig,
               None,
-              loggerFactory)(am, esf),
+              loggerFactory
+            )(am, esf),
         config.port,
         config.maxInboundMessageSize,
         None,
         loggerFactory,
-        config.tlsConfig.flatMap(_.server)
+        config.tlsConfig.flatMap(_.server),
+        List(AuthorizationInterceptor(authService, ec))
       ),
       asyncTolerance
     )

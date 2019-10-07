@@ -27,6 +27,7 @@ import com.digitalasset.ledger.client.services.commands.{
   CommandTrackerFlow
 }
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
+import com.digitalasset.platform.api.grpc.GrpcApiService
 import com.digitalasset.platform.server.api.ApiException
 import com.digitalasset.platform.server.api.services.grpc.GrpcCommandService
 import com.digitalasset.platform.server.services.command.ApiCommandService.LowLevelCommandServiceAccess
@@ -185,7 +186,7 @@ object ApiCommandService {
       implicit grpcExecutionContext: ExecutionContext,
       actorMaterializer: ActorMaterializer,
       esf: ExecutionSequencerFactory
-  ): CommandServiceGrpc.CommandService with BindableService with CommandServiceLogging =
+  ): CommandServiceGrpc.CommandService with GrpcApiService with CommandServiceLogging =
     new GrpcCommandService(
       new ApiCommandService(svcAccess, configuration, loggerFactory),
       configuration.ledgerId

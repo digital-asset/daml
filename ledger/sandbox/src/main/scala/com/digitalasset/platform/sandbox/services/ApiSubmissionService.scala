@@ -25,13 +25,14 @@ import com.digitalasset.grpc.adapter.utils.DirectExecutionContext
 import com.digitalasset.ledger.api.domain.{LedgerId, Commands => ApiCommands}
 import com.digitalasset.ledger.api.messages.command.submission.SubmitRequest
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
+import com.digitalasset.platform.api.grpc.GrpcApiService
 import com.digitalasset.platform.sandbox.stores.ledger.{CommandExecutor, ErrorCause}
 import com.digitalasset.platform.server.api.services.domain.CommandSubmissionService
 import com.digitalasset.platform.server.api.services.grpc.GrpcCommandSubmissionService
 import com.digitalasset.platform.server.api.validation.ErrorFactories
 import com.digitalasset.platform.server.services.command.time.TimeModelValidator
 
-import io.grpc.{BindableService, Status}
+import io.grpc.Status
 import scalaz.syntax.tag._
 
 import scala.compat.java8.FutureConverters
@@ -50,7 +51,7 @@ object ApiSubmissionService {
       timeProvider: TimeProvider,
       commandExecutor: CommandExecutor,
       loggerFactory: NamedLoggerFactory)(implicit ec: ExecutionContext, mat: ActorMaterializer)
-    : GrpcCommandSubmissionService with BindableService with CommandSubmissionServiceLogging =
+    : GrpcCommandSubmissionService with GrpcApiService with CommandSubmissionServiceLogging =
     new GrpcCommandSubmissionService(
       new ApiSubmissionService(
         contractStore,
