@@ -19,18 +19,7 @@ final case class NotAuthorized(reason: String = "You are not authorized to use t
   */
 object ApiServiceAuthorization {
 
-  protected val logger: Logger = LoggerFactory.getLogger(ApiServiceAuthorization.getClass)
-
-  private[this] def getStackTrace(t: Throwable): String = {
-    import java.io.PrintWriter
-    import java.io.StringWriter
-    val sw = new StringWriter
-    val pw = new PrintWriter(sw, true)
-    t.printStackTrace(pw)
-    pw.flush()
-    sw.flush()
-    sw.toString
-  }
+  private[this] val logger: Logger = LoggerFactory.getLogger(ApiServiceAuthorization.getClass)
 
   /** Checks whether the given claims give access to the request.
     *
@@ -48,8 +37,7 @@ object ApiServiceAuthorization {
       // - The API server does not use the [[AuthorizationInterceptor]] which is responsible for creating the context
       // - This function is called from a thread different from the one used to handle the gRPC call,
       //   such as during a `Future.map`. See also [[ApiServiceAuthorization.withContext]].
-      logger.error(s"No context key at: ${getStackTrace(new Exception)}")
-      Left(internal("Context.key.get returned no valid Claims."))
+      Left(internal("Cannot retrieve claims from context."))
     } else {
       check(claims) match {
         case Authorized =>
@@ -90,11 +78,17 @@ object ApiServiceAuthorization {
     requireClaims(claims => if (claims.isAdmin) Authorized else NotAuthorized())
   }
 
+  /** Checks whether the current Claims authorize to act as all parties of the given set.
+    * Note: An empty set does NOT result in an authorization error.
+    */
   def requireClaimsForAllParties(parties: Set[String]): Either[StatusRuntimeException, Unit] = {
     requireClaims(
       claims => if (parties.forall(p => claims.canActAs(p))) Authorized else NotAuthorized())
   }
 
+  /** Checks whether the current Claims authorize to act as the given party, if any.
+    * Note: An missing party does NOT result in an authorization error.
+    */
   def requireClaimsForParty(party: Option[String]): Either[StatusRuntimeException, Unit] = {
     requireClaims(
       claims => if (party.forall(p => claims.canActAs(p))) Authorized else NotAuthorized())

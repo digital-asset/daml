@@ -74,7 +74,7 @@ object ReferenceServer extends App {
         participantId = participantId
       )
 
-      val authService = AuthServiceWildcard()
+      val authService = AuthServiceWildcard
 
       val server = Server(
         serverPort = config.port,

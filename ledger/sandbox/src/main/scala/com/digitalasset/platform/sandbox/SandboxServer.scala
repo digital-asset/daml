@@ -90,7 +90,7 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
   // TODO: Pass this info in command-line (See issue #2025)
   val participantId: ParticipantId = Ref.LedgerString.assertFromString("sandbox-participant")
 
-  private val authService: AuthService = AuthServiceWildcard()
+  private val authService: AuthService = AuthServiceWildcard
 
   case class ApiServerState(
       ledgerId: LedgerId,

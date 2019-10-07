@@ -48,7 +48,7 @@ object ReferenceServer extends App {
 
   val readService = ledger
   val writeService = ledger
-  val authService = AuthServiceWildcard()
+  val authService = AuthServiceWildcard
 
   config.archiveFiles.foreach { file =>
     for {

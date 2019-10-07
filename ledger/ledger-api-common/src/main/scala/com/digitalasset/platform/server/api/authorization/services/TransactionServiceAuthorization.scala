@@ -37,7 +37,7 @@ class TransactionServiceAuthorization(
   override def getTransactions(
       request: transaction_service.GetTransactionsRequest,
       responseObserver: StreamObserver[GetTransactionsResponse]): Unit =
-    // TODO(RC): To implement claims expiration, get the expiration date here and create a
+    // TODO(RA): To implement claims expiration, get the expiration date here and create a
     // wrapping StreamObserver that checks the expiration date on each callback.
     // OR: overwrite getTransactionsSource from [[GrpcTransactionService]] and kill the source
     // as soon as the claims expire.
