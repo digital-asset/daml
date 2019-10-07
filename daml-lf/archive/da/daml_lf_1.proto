@@ -734,6 +734,13 @@ message Expr {
     Expr expr = 2;
   }
 
+  // Obtain a unique textual representation of a template Id
+  // *Available in versions >= 1.dev*
+  message ToTextTemplateId {
+    // type to convert to text. Must be a TypeConName.
+    Type type = 1;
+  }
+
   // Location of the expression in the DAML code source.
   // Optional
   Location location = 25;
@@ -825,6 +832,10 @@ message Expr {
     // Extract the given type from Any or return None on type-mismatch ('ExpFromAny')
     // *Available in versions >= 1.dev*
     FromAny from_any = 30;
+
+    // Obtain a unique textual representation of a template Id
+    // *Available in versions >= 1.dev*
+    ToTextTemplateId to_text_template_id = 31;
   }
 
   reserved 19; // This was equals. Removed in favour of BuiltinFunction.EQUAL_*

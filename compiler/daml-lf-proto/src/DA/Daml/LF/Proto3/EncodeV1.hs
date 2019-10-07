@@ -494,6 +494,9 @@ encodeExpr' = \case
         expr_FromAnyType <- encodeType (TCon tpl)
         expr_FromAnyExpr <- encodeExpr body
         pureExpr $ P.ExprSumFromAny P.Expr_FromAny{..}
+    EToTextTemplateId tpl -> do
+        expr_ToTextTemplateIdType <- encodeType (TCon tpl)
+        pureExpr $ P.ExprSumToTextTemplateId P.Expr_ToTextTemplateId{..}
   where
     expr = P.Expr Nothing . Just
     pureExpr = pure . expr
