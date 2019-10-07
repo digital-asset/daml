@@ -20,7 +20,7 @@ import com.digitalasset.platform.common.util.DirectExecutionContext
 import com.digitalasset.platform.server.api.validation.FieldValidations
 import com.google.protobuf.empty.Empty
 
-import io.grpc.{BindableService, ServerServiceDefinition, Status, StatusRuntimeException}
+import io.grpc.{ServerServiceDefinition, Status, StatusRuntimeException}
 import org.slf4j.Logger
 import scalaz.syntax.tag._
 
@@ -132,7 +132,7 @@ object ApiTimeService {
   def create(ledgerId: LedgerId, backend: TimeServiceBackend, loggerFactory: NamedLoggerFactory)(
       implicit grpcExecutionContext: ExecutionContext,
       mat: Materializer,
-      esf: ExecutionSequencerFactory): TimeService with BindableService with TimeServiceLogging = {
+      esf: ExecutionSequencerFactory): TimeService with GrpcApiService with TimeServiceLogging = {
     val loggerOverride = loggerFactory.getLogger(TimeServiceGrpc.TimeService.getClass)
     new ApiTimeService(ledgerId, backend, loggerOverride) with TimeServiceLogging {
       override protected val logger = loggerOverride

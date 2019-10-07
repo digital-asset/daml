@@ -58,7 +58,7 @@ final case class ClaimActAsParty(name: Ref.Party) extends Claim
   * | PackageManagementService            | *                          | isAdmin                                  |
   * | PartyManagementService              | *                          | isAdmin                                  |
   * | ResetService                        | *                          | isAdmin                                  |
-  * | TimeService                         | *                          | ???                                      |
+  * | TimeService                         | *                          | isAdmin                                  |
   * | TransactionService                  | LedgerEnd                  | isPublic                                 |
   * | TransactionService                  | *                          | for each requested party p: canActAs(p)  |
   * +-------------------------------------+----------------------------+------------------------------------------+

@@ -139,10 +139,13 @@ object ApiServices {
 
       val apiTimeServiceOpt =
         optTimeServiceBackend.map { tsb =>
-          ApiTimeService.create(
-            ledgerId,
-            tsb,
-            loggerFactory
+          new TimeServiceAuthorization(
+            ApiTimeService.create(
+              ledgerId,
+              tsb,
+              loggerFactory
+            ),
+            authService
           )
         }
 
