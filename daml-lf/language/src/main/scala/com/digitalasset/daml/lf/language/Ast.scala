@@ -151,8 +151,8 @@ object Ast {
   /** Extract the underlying template if it matches the tmplId **/
   final case class EFromAnyTemplate(tmplId: TypeConName, body: Expr) extends Expr
 
-  /** Textual type representation **/
-  final case class ETyCon(tyCon: TypeConName) extends Expr
+  /** Unique textual representation of template Id **/
+  final case class EToTextTemplateId(tmplId: TypeConName) extends Expr
 
   //
   // Kinds

@@ -738,8 +738,8 @@ private[validation] object Typing {
       TOptional(TTyCon(tpl))
     }
 
-    private def typeOfTyCon(tyCon: TypeConName): Type = {
-      lookupDataType(ctx, tyCon)
+    private def typeOfToTextTemplateId(tpl: TypeConName): Type = {
+      lookupTemplate(ctx, tpl)
       TText
     }
 
@@ -810,8 +810,8 @@ private[validation] object Typing {
         typeOfToAnyTemplate(tmplId, body)
       case EFromAnyTemplate(tmplId, body) =>
         typeOfFromAnyTemplate(tmplId, body)
-      case ETyCon(tyCon) =>
-        typeOfTyCon(tyCon)
+      case EToTextTemplateId(tmplId) =>
+        typeOfToTextTemplateId(tmplId)
     }
 
     def checkExpr(expr: Expr, typ: Type): Type = {

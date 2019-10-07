@@ -1277,12 +1277,12 @@ object SBuiltin {
     }
   }
 
-  /** $ty_con
+  /** $to_text_template_id
     *     :: Text
     */
-  final case class SBTyCon(tyCon: TypeConName) extends SBuiltin(0) {
+  final case class SBToTextTemplateId(tmplId: TypeConName) extends SBuiltin(0) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
-      machine.ctrl = CtrlValue(SText(tyCon.toString()))
+      machine.ctrl = CtrlValue(SText(tmplId.toString()))
     }
   }
 
