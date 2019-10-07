@@ -1,0 +1,27 @@
+# Copyright (c) 2019 The DAML Authors. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load("//bazel_tools:haskell.bzl", "da_haskell_binary")
+
+da_haskell_binary(
+    name = "cron",
+    srcs = glob(["src/**/*.hs"]),
+    hackage_deps = [
+        "aeson",
+        "base",
+        "containers",
+        "extra",
+        "http-client",
+        "http-client-tls",
+        "http-types",
+        "MissingH",
+        "process",
+        "split",
+        "text",
+        "unordered-containers",
+        "utf8-string",
+    ],
+    src_strip_prefix = "src",
+    visibility = ["//visibility:public"],
+    deps = [],
+)
