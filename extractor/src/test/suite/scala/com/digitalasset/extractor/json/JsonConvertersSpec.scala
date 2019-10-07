@@ -30,8 +30,8 @@ class JsonConvertersSpec extends WordSpec with Matchers {
       Right(sampleRecord.asJson) shouldBe parse("""{"foo": "bar", "baz": 1253049}""")
     }
 
-    "encode to list of pairs if some label absent" in {
-      Right(oneMissingLabel.asJson) shouldBe parse("""[[null, "bar"], ["baz", 1253049]]""")
+    "encode to list of values if some label absent" in {
+      Right(oneMissingLabel.asJson) shouldBe parse("""["bar", 1253049]""")
     }
   }
 }
