@@ -179,6 +179,7 @@ final class ContractKeys(session: LedgerSession) extends LedgerTestSuite(session
       for {
         ledger <- context.participant()
         owner <- ledger.allocateParty()
+
         delegated1TxTree <- ledger
           .submitAndWaitRequest(owner, Delegated(owner, key).create.command)
           .flatMap(ledger.submitAndWaitForTransactionTree)
@@ -199,11 +200,39 @@ final class ContractKeys(session: LedgerSession) extends LedgerTestSuite(session
       }
     }
 
+  val transientContractsArchiveKeys =
+    LedgerTest("CKTransients", "Contract keys created by transient contracts are properly archived") {
+      context =>
+        val key = s"${UUID.randomUUID.toString}-key"
+        val key2 = s"${UUID.randomUUID.toString}-key"
+
+        for {
+          ledger <- context.participant()
+          owner <- ledger.allocateParty()
+          delegation <- ledger.create(owner, Delegation(owner, owner))
+          delegated <- ledger.create(owner, Delegated(owner, key))
+
+          failedFetch <- ledger
+            .exercise(owner, delegation.exerciseFetchByKeyDelegated(_, owner, key2, None))
+            .failed
+
+          // Create a transient contract with a key that is created and archived in same transaction.
+          _ <- ledger.exercise(owner, delegated.exerciseCreateAnotherAndArchive(_, key2))
+
+          // Try it again, expecting it to succeed.
+          _ <- ledger.exercise(owner, delegated.exerciseCreateAnotherAndArchive(_, key2))
+
+        } yield {
+          assertGrpcError(failedFetch, Status.Code.INVALID_ARGUMENT, "couldn't find key")
+        }
+    }
+
   override val tests: Vector[LedgerTest] = Vector(
     fetchDivulgedContract,
     rejectFetchingUndisclosedContract,
     processContractKeys,
-    recreateContractKeys
+    recreateContractKeys,
+    transientContractsArchiveKeys
   )
 
 }

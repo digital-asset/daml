@@ -3,6 +3,7 @@
 
 package com.daml.ledger.participant.state.kvutils.committing
 
+import com.codahale.metrics
 import com.daml.ledger.participant.state.kvutils.Pretty
 import com.daml.ledger.participant.state.kvutils.Conversions._
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
@@ -20,6 +21,7 @@ private[kvutils] case class ProcessConfigSubmission(
 
   import Common._
   import Commit._
+  import ProcessConfigSubmission._
 
   private implicit val logger =
     LoggerFactory.getLogger(
@@ -29,7 +31,7 @@ private[kvutils] case class ProcessConfigSubmission(
 
   private val newConfig = configSubmission.getConfiguration
 
-  def run: (DamlLogEntry, Map[DamlStateKey, DamlStateValue]) =
+  def run: (DamlLogEntry, Map[DamlStateKey, DamlStateValue]) = Metrics.runTimer.time { () =>
     runSequence(
       inputState = Map.empty,
       "Check TTL" -> checkTtl,
@@ -37,6 +39,7 @@ private[kvutils] case class ProcessConfigSubmission(
       "Validate" -> validateSubmission,
       "Build" -> buildLogEntry
     )
+  }
 
   private def checkTtl(): Commit[Unit] = delay {
     // Check the maximum record time against the record time of the commit.
@@ -81,6 +84,7 @@ private[kvutils] case class ProcessConfigSubmission(
 
   private def buildLogEntry(): Commit[Unit] = sequence2(
     delay {
+      Metrics.accepts.inc()
       logger.trace(s"New configuration with generation ${newConfig.getGeneration} accepted.")
       set(
         configurationStateKey ->
@@ -97,7 +101,8 @@ private[kvutils] case class ProcessConfigSubmission(
         .build)
   )
 
-  private def rejectGenerationMismatch(expected: Long): Commit[Unit] =
+  private def rejectGenerationMismatch(expected: Long): Commit[Unit] = {
+    Metrics.rejections.inc()
     done(
       DamlLogEntry.newBuilder
         .setConfigurationRejectionEntry(
@@ -111,8 +116,10 @@ private[kvutils] case class ProcessConfigSubmission(
         )
         .build
     )
+  }
 
-  private def rejectInvalidConfiguration(error: String): Commit[Configuration] =
+  private def rejectInvalidConfiguration(error: String): Commit[Configuration] = {
+    Metrics.rejections.inc()
     done(
       DamlLogEntry.newBuilder
         .setConfigurationRejectionEntry(
@@ -126,8 +133,10 @@ private[kvutils] case class ProcessConfigSubmission(
         )
         .build
     )
+  }
 
-  private def rejectParticipantNotAuthorized[A]: Commit[A] =
+  private def rejectParticipantNotAuthorized[A]: Commit[A] = {
+    Metrics.rejections.inc()
     done(
       DamlLogEntry.newBuilder
         .setConfigurationRejectionEntry(
@@ -144,8 +153,10 @@ private[kvutils] case class ProcessConfigSubmission(
         )
         .build
     )
+  }
 
-  private def rejectTimedOut[A]: Commit[A] =
+  private def rejectTimedOut[A]: Commit[A] = {
+    Metrics.rejections.inc()
     done(
       DamlLogEntry.newBuilder
         .setConfigurationRejectionEntry(
@@ -159,5 +170,15 @@ private[kvutils] case class ProcessConfigSubmission(
         )
         .build
     )
+  }
+}
 
+private[kvutils] object ProcessConfigSubmission {
+  private[committing] object Metrics {
+    private val registry = metrics.SharedMetricRegistries.getOrCreate("kvutils")
+    private val prefix = "kvutils.committing.config"
+    val runTimer = registry.timer("run-timer")
+    val accepts = registry.counter("accepts")
+    val rejections = registry.counter("rejections")
+  }
 }

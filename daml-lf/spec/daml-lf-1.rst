@@ -241,6 +241,9 @@ Version: 1.dev
     ``from_any_template`` and ``to_any_template`` functions to convert from/to
     an arbitrary template to ``AnyTemplate``.
 
+  * **Add** ``to_text_template_id`` to generate a unique textual representation
+    of a template Id.
+
 Abstract syntax
 ^^^^^^^^^^^^^^^
 
@@ -583,6 +586,7 @@ Then we can define our kinds, types, and expressions::
        |  u                                         -- ExpUpdate: Update expression
        | 'to_any_template' @Mod:T t                 -- ExpToAnyTemplate: Wrap a template in AnyTemplate
        | 'from_any_template' @Mod:T t               -- ExpToAnyTemplate: Extract the given template from AnyTemplate or return None
+       | 'to_text_template_id' @Mod:T               -- ExpToTextTemplateId: Generate a unique textual representation of the given TypeConName
 
   Patterns
     p
@@ -882,6 +886,10 @@ Then we define *well-formed expressions*. ::
       'tpl' (x : T) ↦ …  ∈  〚Ξ〛Mod       Γ  ⊢  e  : AnyTemplate
     ——————————————————————————————————————————————————————————————— ExpFromAnyTemplate
       Γ  ⊢  'from_any_template' @Mod:T e  :  'Optional' Mod:T
+
+      'tpl' (x : T) ↦ …  ∈  〚Ξ〛Mod
+    ——————————————————————————————————————————————————————————————— ExpToTextTemplateId
+      Γ  ⊢  'to_text_template_id' @Mod:T  :  'Text'
 
     ——————————————————————————————————————————————————————————————— ExpBuiltin
       Γ  ⊢  F : 𝕋(F)
@@ -1665,6 +1673,9 @@ exact output.
     —————————————————————————————————————————————————————————————————————— EvExpFromAnyTemplateFail
       'from_any_template' @Mod₁:T₁ e ‖ E₀  ⇓  'None' ‖ E₁
 
+
+    —————————————————————————————————————————————————————————————————————— EvExpToTextTemplateId
+      'to_text_template_id' @Mod:T ‖ E₀  ⇓  "Mod:T" ‖ E₀
 
       e₁ ‖ E₀  ⇓  Ok v₁ ‖ E₁
       v 'matches' p₁  ⇝  Succ (x₁ ↦ v₁ · … · xₘ ↦ vₘ · ε)

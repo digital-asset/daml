@@ -311,7 +311,7 @@ abstract class NumericModule {
 
     val MaxValue: Scale
 
-    val Values: Vector[Scale] = Vector.range(MinValue, MaxValue + 1).map(cast)
+    val values: Vector[Scale] = Vector.range(MinValue, MaxValue + 1).map(cast)
 
     /**
       * Cast the Int `x` to a `Scale`.

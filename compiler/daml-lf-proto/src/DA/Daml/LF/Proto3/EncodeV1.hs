@@ -341,6 +341,8 @@ encodeBuiltinExpr = \case
     BEMulNumeric -> builtin P.BuiltinFunctionMUL_NUMERIC
     BEDivNumeric -> builtin P.BuiltinFunctionDIV_NUMERIC
     BERoundNumeric -> builtin P.BuiltinFunctionROUND_NUMERIC
+    BECastNumeric -> builtin P.BuiltinFunctionCAST_NUMERIC
+    BEShiftNumeric -> builtin P.BuiltinFunctionSHIFT_NUMERIC
 
     BEAddInt64 -> builtin P.BuiltinFunctionADD_INT64
     BESubInt64 -> builtin P.BuiltinFunctionSUB_INT64
@@ -492,6 +494,9 @@ encodeExpr' = \case
         expr_FromAnyType <- encodeType (TCon tpl)
         expr_FromAnyExpr <- encodeExpr body
         pureExpr $ P.ExprSumFromAny P.Expr_FromAny{..}
+    EToTextTemplateId tpl -> do
+        expr_ToTextTemplateIdType <- encodeType (TCon tpl)
+        pureExpr $ P.ExprSumToTextTemplateId P.Expr_ToTextTemplateId{..}
   where
     expr = P.Expr Nothing . Just
     pureExpr = pure . expr

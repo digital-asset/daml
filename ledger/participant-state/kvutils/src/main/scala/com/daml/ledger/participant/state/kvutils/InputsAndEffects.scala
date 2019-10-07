@@ -37,10 +37,10 @@ private[kvutils] object InputsAndEffects {
         */
       createdContracts: List[(DamlStateKey, NodeCreate[ContractId, VersionedValue[ContractId]])],
       /** The contract keys created or updated as part of the transaction. */
-      updatedContractKeys: List[(DamlStateKey, DamlContractKeyState)]
+      updatedContractKeys: Map[DamlStateKey, DamlContractKeyState]
   )
   object Effects {
-    val empty = Effects(List.empty, List.empty, List.empty)
+    val empty = Effects(List.empty, List.empty, Map.empty)
   }
 
   /** Compute the inputs to a DAML transaction, that is, the referenced contracts, keys
@@ -83,6 +83,8 @@ private[kvutils] object InputsAndEffects {
 
   /** Compute the effects of a DAML transaction, that is, the created and consumed contracts. */
   def computeEffects(entryId: DamlLogEntryId, tx: SubmittedTransaction): Effects = {
+    // TODO(JM): Skip transient contracts in createdContracts/updateContractKeys. E.g. rewrite this to
+    // fold bottom up (with reversed roots!) and skip creates of archived contracts.
     tx.fold(GenTransaction.TopDown, Effects.empty) {
       case (effects, (nodeId, node)) =>
         node match {
@@ -96,33 +98,37 @@ private[kvutils] object InputsAndEffects {
               updatedContractKeys = create.key
                 .fold(effects.updatedContractKeys)(
                   keyWithMaintainers =>
-                    contractKeyToStateKey(
-                      GlobalKey(
-                        create.coinst.template,
-                        forceAbsoluteContractIds(keyWithMaintainers.key))) ->
-                      DamlContractKeyState.newBuilder
-                        .setContractId(encodeRelativeContractId(
-                          entryId,
-                          create.coid.asInstanceOf[RelativeContractId]))
-                        .build
-                      :: effects.updatedContractKeys)
+                    effects.updatedContractKeys +
+                      (contractKeyToStateKey(
+                        GlobalKey(
+                          create.coinst.template,
+                          forceAbsoluteContractIds(keyWithMaintainers.key))) ->
+                        DamlContractKeyState.newBuilder
+                          .setContractId(encodeRelativeContractId(
+                            entryId,
+                            create.coid.asInstanceOf[RelativeContractId]))
+                          .build))
             )
+
           case exe: NodeExercises[_, ContractId, VersionedValue[ContractId]] =>
             if (exe.consuming) {
-              exe.targetCoid match {
+              val stateKey = exe.targetCoid match {
                 case acoid: AbsoluteContractId =>
-                  effects.copy(
-                    consumedContracts = absoluteContractIdToStateKey(acoid) :: effects.consumedContracts,
-                    updatedContractKeys = exe.key
-                      .fold(effects.updatedContractKeys)(
-                        key =>
-                          contractKeyToStateKey(
-                            GlobalKey(exe.templateId, forceAbsoluteContractIds(key))) ->
-                            DamlContractKeyState.newBuilder.build :: effects.updatedContractKeys)
-                  )
-                case _ =>
-                  effects
+                  absoluteContractIdToStateKey(acoid)
+                case rcoid: RelativeContractId =>
+                  relativeContractIdToStateKey(entryId, rcoid)
               }
+              effects.copy(
+                consumedContracts = stateKey :: effects.consumedContracts,
+                updatedContractKeys = exe.key
+                  .fold(effects.updatedContractKeys)(
+                    key =>
+                      effects.updatedContractKeys +
+                        (contractKeyToStateKey(
+                          GlobalKey(exe.templateId, forceAbsoluteContractIds(key))) ->
+                          DamlContractKeyState.newBuilder.build)
+                  )
+              )
             } else {
               effects
             }

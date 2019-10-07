@@ -476,9 +476,9 @@ load("@bazel_skylib//lib:dicts.bzl", "dicts")
 # For the time being we build with GMP. See https://github.com/digital-asset/daml/issues/106
 use_integer_simple = not is_windows
 
-HASKELL_LSP_COMMIT = "bfbd8630504ebc57b70948689c37b85cfbe589da"
+HASKELL_LSP_COMMIT = "5d1dfe82c9955d81cc0e0bb7a3e8bf6d2c4c42e4"
 
-HASKELL_LSP_HASH = "9a5c2871333a5e7e82abdf0bd8c3ab52a130d03832a899aee68bea993cdead1b"
+HASKELL_LSP_HASH = "c8b93dc2692bca5162278c783d8cc5011a118a726e7df3f2632f3f0d480455c1"
 
 GRPC_HASKELL_COMMIT = "11681ec6b99add18a8d1315f202634aea343d146"
 
@@ -687,7 +687,7 @@ hazel_custom_package_github(
     strip_prefix = "wai-app-static",
 )
 
-GHCIDE_REV = "dcd7cb499e33273e1d5835ea1e69907e8224e483"
+GHCIDE_REV = "2a67821e608a95a660af7414fdcfa8cd907576e8"
 
 # We need a custom build file to depend on ghc-lib and ghc-lib-parser
 hazel_custom_package_github(

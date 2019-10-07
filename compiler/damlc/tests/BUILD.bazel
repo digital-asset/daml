@@ -257,6 +257,15 @@ filegroup(
     ],
 )
 
+filegroup(
+    name = "query-lf-lib",
+    srcs = glob(["src/*.jq"]),
+    visibility = [
+        "__pkg__",
+        "//daml-foundations/integration-tests:__pkg__",
+    ],
+)
+
 # Check that DAML compilation is deterministic.
 
 sh_test(
@@ -274,5 +283,25 @@ sh_test(
     ],
     deps = [
         "@bazel_tools//tools/bash/runfiles",
+    ],
+)
+
+# Generate a simple DALF for plain DALF import testing
+
+da_haskell_binary(
+    name = "generate-simple-dalf",
+    srcs = ["src/DA/Test/GenerateSimpleDalf.hs"],
+    hackage_deps = [
+        "base",
+        "bytestring",
+        "text",
+    ],
+    main_function = "DA.Test.GenerateSimpleDalf.main",
+    src_strip_prefix = "src",
+    deps = [
+        "//compiler/daml-lf-ast",
+        "//compiler/daml-lf-proto",
+        "//compiler/daml-lf-tools",
+        "//libs-haskell/da-hs-base",
     ],
 )

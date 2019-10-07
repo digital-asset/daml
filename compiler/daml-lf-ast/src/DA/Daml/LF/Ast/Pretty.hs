@@ -208,6 +208,8 @@ instance Pretty BuiltinExpr where
     BEMulNumeric -> "MUL_NUMERIC"
     BEDivNumeric -> "DIV_NUMERIC"
     BERoundNumeric -> "ROUND_NUMERIC"
+    BECastNumeric -> "CAST_NUMERIC"
+    BEShiftNumeric -> "SHIFT_NUMERIC"
     BEInt64ToNumeric -> "INT64_TO_NUMERIC"
     BENumericToInt64 -> "NUMERIC_TO_INT64"
     BEEqualNumeric -> "EQUAL_NUMERIC"
@@ -446,6 +448,7 @@ instance Pretty Expr where
     ENone typ -> prettyAppKeyword lvl prec "none" [TyArg typ]
     EToAnyTemplate tpl body -> prettyAppKeyword lvl prec "to_any_template" [tplArg tpl, TmArg body]
     EFromAnyTemplate tpl body -> prettyAppKeyword lvl prec "from_any_template" [tplArg tpl, TmArg body]
+    EToTextTemplateId tpl -> prettyAppKeyword lvl prec "to_text_template_id" [tplArg tpl]
 
 instance Pretty DefDataType where
   pPrintPrec lvl _prec (DefDataType mbLoc tcon (IsSerializable serializable) params dataCons) =

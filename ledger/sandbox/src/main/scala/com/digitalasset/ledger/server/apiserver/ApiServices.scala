@@ -11,13 +11,14 @@ import com.daml.ledger.participant.state.index.v2.{
   IndexPackagesService,
   _
 }
-import com.daml.ledger.participant.state.v1.WriteService
-import com.daml.ledger.participant.state.v1.TimeModel
+import com.daml.ledger.participant.state.v1.{AuthService, TimeModel, WriteService}
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.engine._
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.ledger.api.v1.command_completion_service.CompletionEndRequest
 import com.digitalasset.ledger.client.services.commands.CommandSubmissionFlow
+import com.digitalasset.platform.common.logging.NamedLoggerFactory
+import com.digitalasset.platform.server.api.authorization.services._
 import com.digitalasset.platform.sandbox.config.CommandConfiguration
 import com.digitalasset.platform.sandbox.services._
 import com.digitalasset.platform.sandbox.services.admin.ApiPackageManagementService
@@ -27,9 +28,9 @@ import com.digitalasset.platform.sandbox.stores.ledger.CommandExecutorImpl
 import com.digitalasset.platform.server.services.command.ApiCommandService
 import com.digitalasset.platform.server.services.identity.ApiLedgerIdentityService
 import com.digitalasset.platform.server.services.testing.{ApiTimeService, TimeServiceBackend}
+
 import io.grpc.BindableService
 import io.grpc.protobuf.services.ProtoReflectionService
-import org.slf4j.LoggerFactory
 import scalaz.syntax.tag._
 
 import scala.collection.immutable
@@ -56,16 +57,16 @@ private case class ApiServicesBundle(services: immutable.Seq[BindableService]) e
 
 object ApiServices {
 
-  private val logger = LoggerFactory.getLogger(this.getClass)
-
   def create(
       writeService: WriteService,
       indexService: IndexService,
+      authService: AuthService,
       engine: Engine,
       timeProvider: TimeProvider,
       timeModel: TimeModel,
       commandConfig: CommandConfiguration,
-      optTimeServiceBackend: Option[TimeServiceBackend])(
+      optTimeServiceBackend: Option[TimeServiceBackend],
+      loggerFactory: NamedLoggerFactory)(
       implicit mat: ActorMaterializer,
       esf: ExecutionSequencerFactory): Future[ApiServices] = {
     implicit val ec: ExecutionContext = mat.system.dispatcher
@@ -88,25 +89,26 @@ object ApiServices {
           writeService,
           timeModel,
           timeProvider,
-          new CommandExecutorImpl(engine, packagesService.getLfPackage)
+          new CommandExecutorImpl(engine, packagesService.getLfPackage),
+          loggerFactory
         )
 
-      logger.info(EngineInfo.show)
+      loggerFactory.getLogger(this.getClass).info(EngineInfo.show)
 
       val apiTransactionService =
-        ApiTransactionService.create(ledgerId, transactionsService)
+        ApiTransactionService.create(ledgerId, transactionsService, loggerFactory)
 
       val apiLedgerIdentityService =
-        ApiLedgerIdentityService.create(() => identityService.getLedgerId())
+        ApiLedgerIdentityService.create(() => identityService.getLedgerId(), loggerFactory)
 
-      val apiPackageService = ApiPackageService.create(ledgerId, packagesService)
+      val apiPackageService = ApiPackageService.create(ledgerId, packagesService, loggerFactory)
 
       val apiConfigurationService =
-        ApiLedgerConfigurationService.create(ledgerId, configurationService)
+        ApiLedgerConfigurationService.create(ledgerId, configurationService, loggerFactory)
 
       val apiCompletionService =
         ApiCommandCompletionService
-          .create(ledgerId, completionsService)
+          .create(ledgerId, completionsService, loggerFactory)
 
       val apiCommandService = ApiCommandService.create(
         ApiCommandService.Configuration(
@@ -126,43 +128,50 @@ object ApiServices {
           () => apiCompletionService.completionEnd(CompletionEndRequest(ledgerId.unwrap)),
           apiTransactionService.getTransactionById,
           apiTransactionService.getFlatTransactionById
-        )
+        ),
+        loggerFactory
       )
 
       val apiActiveContractsService =
-        ApiActiveContractsService.create(ledgerId, activeContractsService)
+        ApiActiveContractsService.create(ledgerId, activeContractsService, loggerFactory)
 
       val apiReflectionService = ProtoReflectionService.newInstance()
 
       val apiTimeServiceOpt =
         optTimeServiceBackend.map { tsb =>
-          ApiTimeService.create(
-            ledgerId,
-            tsb
+          new TimeServiceAuthorization(
+            ApiTimeService.create(
+              ledgerId,
+              tsb,
+              loggerFactory
+            ),
+            authService
           )
         }
 
       val apiPartyManagementService =
         ApiPartyManagementService
-          .createApiService(partyManagementService, writeService)
+          .createApiService(partyManagementService, writeService, loggerFactory)
 
       val apiPackageManagementService =
-        ApiPackageManagementService.createApiService(indexService, writeService)
+        ApiPackageManagementService.createApiService(indexService, writeService, loggerFactory)
 
+      // Note: the command service uses the command submission, command completion, and transaction services internally.
+      // These connections do not use authorization, authorization wrappers are only added here to all exposed services.
       new ApiServicesBundle(
         apiTimeServiceOpt.toList :::
           List(
-          apiLedgerIdentityService,
-          apiPackageService,
-          apiConfigurationService,
-          apiSubmissionService,
-          apiTransactionService,
-          apiCompletionService,
-          apiCommandService,
-          apiActiveContractsService,
+          new LedgerIdentityServiceAuthorization(apiLedgerIdentityService, authService),
+          new PackageServiceAuthorization(apiPackageService, authService),
+          new LedgerConfigurationServiceAuthorization(apiConfigurationService, authService),
+          new CommandSubmissionServiceAuthorization(apiSubmissionService, authService),
+          new TransactionServiceAuthorization(apiTransactionService, authService),
+          new CommandCompletionServiceAuthorization(apiCompletionService, authService),
+          new CommandServiceAuthorization(apiCommandService, authService),
+          new ActiveContractsServiceAuthorization(apiActiveContractsService, authService),
           apiReflectionService,
-          apiPartyManagementService,
-          apiPackageManagementService
+          new PartyManagementServiceAuthorization(apiPartyManagementService, authService),
+          new PackageManagementServiceAuthorization(apiPackageManagementService, authService),
         ))
     }
   }

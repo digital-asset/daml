@@ -115,9 +115,6 @@ object ValueCoder {
     * of builders.
     */
   private[lf] implicit final class codecContractId[A](private val self: A) extends AnyVal {
-    private[this] def useOldStringField(sv: SpecifiedVersion): Boolean =
-      sv precedes ValueVersions.minContractIdStruct
-
     def setContractIdOrStruct[Cid, Z](
         encodeCid: EncodeCid[Cid],
         version: SpecifiedVersion,
@@ -289,8 +286,12 @@ object ValueCoder {
             ValueBool(protoValue.getBool)
           case proto.Value.SumCase.UNIT =>
             ValueUnit
-          case proto.Value.SumCase.DECIMAL =>
-            val d = Decimal.fromString(protoValue.getDecimal)
+          case proto.Value.SumCase.NUMERIC =>
+            val d =
+              if (useLegacyDecimal(valueVersion))
+                Decimal.fromString(protoValue.getNumeric)
+              else
+                Numeric.fromString(protoValue.getNumeric)
             d.fold(e => throw Err("error decoding decimal: " + e), ValueNumeric)
           case proto.Value.SumCase.INT64 =>
             ValueInt64(protoValue.getInt64)
@@ -372,7 +373,7 @@ object ValueCoder {
 
           case proto.Value.SumCase.MAP =>
             val entries = ImmArray(protoValue.getMap.getEntriesList.asScala.map(entry =>
-              (entry.getKey) -> go(newNesting, entry.getValue)))
+              entry.getKey -> go(newNesting, entry.getValue)))
 
             val map = SortedLookupList
               .fromImmArray(entries)
@@ -427,7 +428,10 @@ object ValueCoder {
           case ValueInt64(i) =>
             builder.setInt64(i).build()
           case ValueNumeric(d) =>
-            builder.setDecimal(Numeric.toUnscaledString(d)).build()
+            if (useLegacyDecimal(valueVersion))
+              builder.setNumeric(Numeric.toUnscaledString(d)).build()
+            else
+              builder.setNumeric(Numeric.toString(d)).build()
           case ValueText(t) =>
             builder.setText(t).build()
           case ValueParty(p) =>
@@ -470,11 +474,11 @@ object ValueCoder {
               .setRecord(recordBuilder)
               .build()
 
-          case ValueVariant(id, con, v) =>
+          case ValueVariant(id, con, arg) =>
             val protoVar = proto.Variant
               .newBuilder()
               .setConstructor(con)
-              .setValue(go(newNesting, v))
+              .setValue(go(newNesting, arg))
             id.foreach(i => protoVar.setVariantId(encodeIdentifier(i)))
             builder.setVariant(protoVar).build()
 
@@ -533,4 +537,10 @@ object ValueCoder {
       bytes: Array[Byte]): Either[DecodeError, Value[Cid]] = {
     decodeValue(decodeCid, proto.VersionedValue.parseFrom(bytes))
   }
+
+  private[this] def useOldStringField(sv: SpecifiedVersion): Boolean =
+    sv precedes ValueVersions.minContractIdStruct
+
+  private[this] def useLegacyDecimal(sv: SpecifiedVersion): Boolean =
+    sv precedes ValueVersions.minNumeric
 }

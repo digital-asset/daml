@@ -41,9 +41,9 @@ EOF
 )
 
 da_scala_binary(
-    name = "acs_test_client",
+    name = "test_client",
     srcs = glob(["src/**/*.scala"]),
-    main_class = "com.daml.trigger.test.AcsMain",
+    main_class = "com.daml.trigger.test.TestMain",
     deps = [
         "//3rdparty/jvm/com/github/scopt",
         "//3rdparty/jvm/com/typesafe/akka:akka_stream",
@@ -57,17 +57,16 @@ da_scala_binary(
         "//language-support/scala/bindings",
         "//language-support/scala/bindings-akka",
         "//ledger-api/rs-grpc-bridge",
+        "//ledger/ledger-api-common",
         "//triggers/runner:trigger-runner-lib",
     ],
 )
 
 client_server_test(
-    name = "acs_test",
-    client = ":acs_test_client",
+    name = "test",
+    client = ":test_client",
     client_files = ["$(rootpath :acs.dar)"],
     data = [":acs.dar"],
-    # See https://github.com/digital-asset/daml/issues/2881
-    flaky = True,
     server = "//ledger/sandbox:sandbox-binary",
     server_files = ["$(rootpath :acs.dar)"],
 )

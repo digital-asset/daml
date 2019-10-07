@@ -5,15 +5,13 @@ package com.digitalasset.platform.sandbox.services.admin
 
 import akka.actor.Scheduler
 import akka.pattern.after
+import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.common.util.{DirectExecutionContext => DE}
-import org.slf4j.{Logger, LoggerFactory}
 
 import scala.concurrent.Future
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 
 object PollingUtils {
-
-  private val logger: Logger = LoggerFactory.getLogger(PollingUtils.getClass)
 
   /**
     * Continuously polls the given service to check if the given item has been persisted.
@@ -41,7 +39,11 @@ object PollingUtils {
       minWait: FiniteDuration,
       maxWait: FiniteDuration,
       backoffProgression: FiniteDuration => FiniteDuration,
-      scheduler: Scheduler): Future[Int] = {
+      scheduler: Scheduler,
+      loggerFactory: NamedLoggerFactory): Future[Int] = {
+
+    val logger = loggerFactory.getLogger(this.getClass)
+
     def go(attempt: Int, waitTime: FiniteDuration): Future[Int] = {
       logger.debug(s"Polling for '$description' being persisted (attempt #$attempt)...")
       poll()

@@ -9,9 +9,7 @@ daml 1.2
 
 module NumericLit where
 
--- Polymorphic pi
-pi : Numeric n
-pi = 3.14159_26535_89793_23846_26433_83279_50288_41
+import DA.Numeric (pi)
 
 pi0 : Numeric 0
 pi0 = 3.0

@@ -214,11 +214,7 @@ object SValue {
         SList(vs.map[SValue](fromValue))
       case V.ValueContractId(coid) => SContractId(coid)
       case V.ValueInt64(x) => SInt64(x)
-      case V.ValueNumeric(x) =>
-        // FixMe: https://github.com/digital-asset/daml/issues/2289
-        //   drop this when numerics can be  persisted
-        assert(x.scale == Decimal.scale)
-        SNumeric(x)
+      case V.ValueNumeric(x) => SNumeric(x)
       case V.ValueText(t) => SText(t)
       case V.ValueTimestamp(t) => STimestamp(t)
       case V.ValueParty(p) => SParty(p)

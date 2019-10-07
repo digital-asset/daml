@@ -7,12 +7,13 @@ import java.io.File
 import java.time.Instant
 
 import akka.stream.ActorMaterializer
-import com.daml.ledger.participant.state.v1.ParticipantId
+import com.daml.ledger.participant.state.v1.{AuthService, ParticipantId}
 import com.digitalasset.api.util.{TimeProvider, ToleranceWindow}
 import com.digitalasset.daml.lf.archive.DarReader
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.engine.Engine
 import com.digitalasset.ledger.api.domain.LedgerId
+import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.sandbox.metrics.MetricsManager
 import com.digitalasset.platform.sandbox.services.ApiSubmissionService
 import com.digitalasset.platform.sandbox.stores.ledger.CommandExecutorImpl
@@ -45,9 +46,10 @@ trait TestHelpers {
   }
 
   // TODO: change damle flag to LF once finished implementation
-  protected def submissionService(timeProvider: TimeProvider, toleranceWindow: ToleranceWindow)(
-      implicit ec: ExecutionContext,
-      mat: ActorMaterializer) = {
+  protected def submissionService(
+      timeProvider: TimeProvider,
+      toleranceWindow: ToleranceWindow,
+      authService: AuthService)(implicit ec: ExecutionContext, mat: ActorMaterializer) = {
 
     implicit val mm: MetricsManager = MetricsManager()
 
@@ -71,7 +73,8 @@ trait TestHelpers {
       indexAndWriteService.writeService,
       TimeModel.reasonableDefault,
       timeProvider,
-      new CommandExecutorImpl(Engine(), packageStore.getLfPackage)
+      new CommandExecutorImpl(Engine(), packageStore.getLfPackage),
+      NamedLoggerFactory.forParticipant(participantId)
     )(ec, mat)
   }
 

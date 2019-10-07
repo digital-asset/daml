@@ -13,7 +13,9 @@ import com.digitalasset.platform.sandbox.stores.ledger.sql.SqlStartMode
 import com.digitalasset.platform.sandbox.stores.ledger.Ledger
 import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.ledger.api.domain.LedgerId
+import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
+import scalaz.Tag
 
 import scala.concurrent.{Await, Future}
 import scala.concurrent.duration._
@@ -72,7 +74,9 @@ object LedgerResource {
               packages,
               ImmArray.empty,
               128,
-              SqlStartMode.AlwaysReset))
+              SqlStartMode.AlwaysReset,
+              NamedLoggerFactory(Tag.unwrap(ledgerId))
+          ))
         ledger.setup()
       }
 

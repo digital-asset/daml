@@ -35,6 +35,7 @@ import DA.Monoid
 import DA.Next.Map
 import DA.Next.Set
 import DA.NonEmpty
+import DA.Numeric
 import DA.Optional.Total
 import DA.Optional
 import DA.Random

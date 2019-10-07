@@ -9,23 +9,20 @@ import java.time.Instant
 import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.Sink
-import com.daml.ledger.participant.state.v1.{ParticipantId, ReadService, WriteService}
+import com.daml.ledger.participant.state.v1.{AuthService, ParticipantId, ReadService, WriteService}
 import com.digitalasset.daml.lf.engine.Engine
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.server.apiserver.{ApiServer, ApiServices, LedgerApiServer}
-import com.digitalasset.platform.index.StandaloneIndexServer.{
-  asyncTolerance,
-  logger,
-  preloadPackages
-}
+import com.digitalasset.platform.common.logging.NamedLoggerFactory
+import com.digitalasset.platform.index.StandaloneIndexServer.{asyncTolerance, preloadPackages}
 import com.digitalasset.platform.index.config.Config
 import com.digitalasset.platform.sandbox.BuildInfo
 import com.digitalasset.platform.sandbox.config.SandboxConfig
 import com.digitalasset.platform.sandbox.metrics.MetricsManager
 import com.digitalasset.platform.sandbox.stores.InMemoryPackageStore
-import org.slf4j.LoggerFactory
+import com.digitalasset.platform.server.api.authorization.AuthorizationInterceptor
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext}
@@ -34,18 +31,21 @@ import scala.util.Try
 // Main entry point to start an index server that also hosts the ledger API.
 // See v2.ReferenceServer on how it is used.
 object StandaloneIndexServer {
-  private val logger = LoggerFactory.getLogger(this.getClass)
   private val asyncTolerance = 30.seconds
 
   def apply(
       config: Config,
       readService: ReadService,
-      writeService: WriteService): StandaloneIndexServer =
+      writeService: WriteService,
+      authService: AuthService,
+      loggerFactory: NamedLoggerFactory): StandaloneIndexServer =
     new StandaloneIndexServer(
       "index",
       config,
       readService,
-      writeService
+      writeService,
+      authService,
+      loggerFactory
     )
 
   private val engine = Engine()
@@ -76,7 +76,10 @@ class StandaloneIndexServer(
     actorSystemName: String,
     config: Config,
     readService: ReadService,
-    writeService: WriteService) {
+    writeService: WriteService,
+    authService: AuthService,
+    loggerFactory: NamedLoggerFactory) {
+  private val logger = loggerFactory.getLogger(this.getClass)
 
   // Name of this participant,
   val participantId: ParticipantId = config.participantId
@@ -141,7 +144,8 @@ class StandaloneIndexServer(
         readService,
         domain.LedgerId(cond.ledgerId),
         participantId,
-        config.jdbcUrl)
+        config.jdbcUrl,
+        loggerFactory)
     } yield (cond.ledgerId, cond.config.timeModel, indexService)
 
     val (actualLedgerId, timeModel, indexService) = Try(Await.result(initF, asyncTolerance))
@@ -158,15 +162,20 @@ class StandaloneIndexServer(
             .create(
               writeService,
               indexService,
+              authService,
               StandaloneIndexServer.engine,
               config.timeProvider,
               timeModel,
               SandboxConfig.defaultCommandConfig,
-              None)(am, esf),
+              None,
+              loggerFactory
+            )(am, esf),
         config.port,
         config.maxInboundMessageSize,
         None,
-        config.tlsConfig.flatMap(_.server)
+        loggerFactory,
+        config.tlsConfig.flatMap(_.server),
+        List(AuthorizationInterceptor(authService, ec))
       ),
       asyncTolerance
     )
