@@ -448,6 +448,9 @@ data Expr
     { fromAnyTemplateTemplate :: !(Qualified TypeConName)
     , fromAnyTemplateBody :: !Expr
     }
+  | EToTextTemplateId
+    { toTextTemplateIdTemplate :: !(Qualified TypeConName)
+    }
   -- | Update expression.
   | EUpdate !Update
   -- | Scenario expression.

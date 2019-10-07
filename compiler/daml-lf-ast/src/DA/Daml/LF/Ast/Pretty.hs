@@ -448,6 +448,7 @@ instance Pretty Expr where
     ENone typ -> prettyAppKeyword lvl prec "none" [TyArg typ]
     EToAnyTemplate tpl body -> prettyAppKeyword lvl prec "to_any_template" [tplArg tpl, TmArg body]
     EFromAnyTemplate tpl body -> prettyAppKeyword lvl prec "from_any_template" [tplArg tpl, TmArg body]
+    EToTextTemplateId tpl -> prettyAppKeyword lvl prec "to_text_template_id" [tplArg tpl]
 
 instance Pretty DefDataType where
   pPrintPrec lvl _prec (DefDataType mbLoc tcon (IsSerializable serializable) params dataCons) =

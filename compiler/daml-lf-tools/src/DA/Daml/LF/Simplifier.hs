@@ -59,6 +59,7 @@ freeVarsStep = \case
   ESomeF _ s -> s
   EToAnyTemplateF _ s -> s
   EFromAnyTemplateF _ s -> s
+  EToTextTemplateIdF _ -> mempty
   EUpdateF u ->
     case u of
       UPureF _ s -> s
@@ -216,6 +217,7 @@ safetyStep = \case
   EFromAnyTemplateF _ s
     | Safe _ <- s -> Safe 0
     | otherwise -> Unsafe
+  EToTextTemplateIdF _ -> Safe 0
 
 
 infoStep :: ExprF Info -> Info
