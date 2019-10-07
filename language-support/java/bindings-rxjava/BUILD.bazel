@@ -8,6 +8,18 @@ load(
 )
 load("//bazel_tools:pom_file.bzl", "pom_file")
 load("//bazel_tools:java.bzl", "da_java_library")
+load(
+    "//rules_daml:daml.bzl",
+    "daml_compile",
+)
+load(
+    "//language-support/java/codegen:codegen.bzl",
+    "dar_to_java",
+)
+load(
+    "//daml-lf/language:daml-lf.bzl",
+    "lf_latest_version",
+)
 
 da_java_library(
     name = "bindings-rxjava",
@@ -71,24 +83,24 @@ da_scala_test_suite(
         "src/test/**/*Spec.scala",
         "src/test/**/*Test.scala",
     ]),
+    data = [
+        ":bindings-integration-tests-model-latest.dar",
+    ],
     deps = [
         ":bindings-java-tests-lib",
-        ":bindings-java-tests-generated-lib",
+        ":bindings-integration-tests-model-latest.jar",
     ] + testDependencies,
 )
 
-da_java_library(
-    name = "bindings-java-tests-generated-lib",
-    srcs = glob(
-        ["src/test/**/*.java"],
-    ),
-    tags = [
-        "maven_coordinates=com.daml.ledger:bindings-rxjava:__VERSION__",
-    ],
-    visibility = [
-        "//visibility:private",
-    ],
-    deps = testDependencies,
+daml_compile(
+    name = "bindings-integration-tests-model-latest",
+    main_src = "src/main/daml/TemplateUtils.daml",
+    target = lf_latest_version,
+)
+
+dar_to_java(
+    name = "bindings-integration-tests-model-latest",
+    src = ":bindings-integration-tests-model-latest.dar",
 )
 
 filegroup(

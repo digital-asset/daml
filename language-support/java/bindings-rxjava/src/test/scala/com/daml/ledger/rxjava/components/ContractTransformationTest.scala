@@ -4,11 +4,13 @@
 package com.daml.ledger.rxjava.components
 
 import com.daml.ledger.javaapi.data.Identifier
+import com.daml.ledger.javaapi.data.Party
 import com.daml.ledger.javaapi.data.Record
 import com.daml.ledger.javaapi.data.Text
 import com.daml.ledger.rxjava.components.helpers.CreatedContract
 import com.daml.ledger.rxjava.components.helpers.CreatedContractContext
 import com.daml.ledger.rxjava.components.helpers.TemplateUtils
+import templateutils.{TemplateA, TemplateB, TemplateC}
 import org.scalatest.{FlatSpec, Matchers}
 
 class TestContext extends CreatedContractContext {
@@ -19,7 +21,9 @@ class TestContext extends CreatedContractContext {
 class ContractTransformationTest extends FlatSpec with Matchers {
 
   private def createCreatedContract(identifier: Identifier, argument: String): CreatedContract = {
-    val arguments = new Record(new Record.Field("argument", new Text(argument)))
+    val arguments = new Record(
+      new Record.Field("argument", new Text(argument)),
+      new Record.Field("owner", new Party("party")))
     new CreatedContract(identifier, arguments, new TestContext())
   }
 
