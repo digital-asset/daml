@@ -3,14 +3,7 @@
 
 package com.digitalasset.extractor.json
 
-import com.digitalasset.daml.lf.data.{
-  FrontStack,
-  ImmArray,
-  Ref,
-  SortedLookupList,
-  Time,
-  Numeric => LfNumeric
-}
+import com.digitalasset.daml.lf.data.{FrontStack, ImmArray, Ref, SortedLookupList, Time}
 import com.digitalasset.daml.lf.value.{Value => V}
 import com.digitalasset.daml.lf.value.json.ApiCodecCompressed
 import com.digitalasset.extractor.ledger.types.{Identifier, LedgerValue}
@@ -34,6 +27,18 @@ object JsonConverters {
       value.convertTo[String]
   }
 
+  private[this] def sprayToCirce(s: spray.json.JsValue): Json = {
+    import spray.{json => sj}
+    s match {
+      case sj.JsString(v) => Json fromString v
+      case sj.JsNumber(v) => Json fromBigDecimal v
+      case sj.JsBoolean(v) => Json fromBoolean v
+      case sj.JsObject(v) => Json fromFields (v transform ((_, e) => sprayToCirce(e)))
+      case sj.JsArray(v) => Json fromValues (v map sprayToCirce)
+      case sj.JsNull => Json.Null
+    }
+  }
+
   def toJsonString[A: Encoder](a: A): String = {
     a.asJson.noSpaces
   }
@@ -52,23 +57,8 @@ object JsonConverters {
   private val emptyRecord = V.ValueRecord(None, ImmArray.empty).asJson
 
   // TODO it might be much more performant if exploded into separate vals
-  implicit def valueEncoder[T <: LedgerValue]: Encoder[T] = {
-    case r @ V.ValueRecord(_, _) => r.asJson
-    case v @ V.ValueVariant(_, _, _) => v.asJson
-    case V.ValueEnum(_, constructor) => constructor.asJson
-    case V.ValueList(value) => value.asJson
-    case V.ValueOptional(value) => value.asJson
-    case V.ValueMap(value) => value.asJson
-    case V.ValueBool(value) => value.asJson
-    case V.ValueContractId(value) => value.asJson
-    case V.ValueInt64(value) => value.asJson
-    case V.ValueNumeric(value) => LfNumeric.toUnscaledString(value).asJson
-    case V.ValueText(value) => value.asJson
-    case V.ValueTimestamp(value) => value.asJson
-    case V.ValueParty(value) => value.asJson
-    case V.ValueDate(value) => value.asJson
-    case V.ValueUnit => emptyRecord
-  }
+  implicit def valueEncoder[T <: LedgerValue]: Encoder[T] =
+    t => sprayToCirce(LfValueSprayEnc.apiValueToJsValue(t))
 
   private implicit def frontStackEncoder[A: Encoder]: Encoder[FrontStack[A]] =
     _.toImmArray.map(_.asJson).toSeq.asJson
