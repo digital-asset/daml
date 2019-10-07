@@ -594,6 +594,9 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
 
       case EFromAnyTemplate(tmplId, e) =>
         SEApp(SEBuiltin(SBFromAnyTemplate(tmplId)), Array(translate(e)))
+
+      case EToTextTemplateId(tmplId) =>
+        SEBuiltin(SBToTextTemplateId(tmplId))
     }
 
   @tailrec

@@ -62,6 +62,7 @@ private[validation] object ExprTraversable {
         f(body)
       case EFromAnyTemplate(tmplId @ _, body) =>
         f(body)
+      case EToTextTemplateId(tmplId @ _) =>
     }
     ()
   }

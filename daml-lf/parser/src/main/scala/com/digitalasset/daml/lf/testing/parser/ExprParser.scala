@@ -34,6 +34,7 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
       eLet |
       eToAnyTemplate |
       eFromAnyTemplate |
+      eToTextTemplateId |
       contractId |
       fullIdentifier ^^ EVal |
       (id ^? builtinFunctions) ^^ EBuiltin |
@@ -184,6 +185,11 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
   private lazy val eFromAnyTemplate: Parser[Expr] =
     `from_any_template` ~>! `@` ~> fullIdentifier ~ expr0 ^^ {
       case tyCon ~ e => EFromAnyTemplate(tyCon, e)
+    }
+
+  private lazy val eToTextTemplateId: Parser[Expr] =
+    `to_text_template_id` ~>! `@` ~> fullIdentifier ^^ {
+      case tyCon => EToTextTemplateId(tyCon)
     }
 
   private lazy val pattern: Parser[CasePat] =
