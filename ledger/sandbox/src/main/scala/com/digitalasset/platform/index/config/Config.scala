@@ -26,7 +26,7 @@ final case class Config(
     jdbcUrl: String,
     tlsConfig: Option[TlsConfiguration],
     participantId: ParticipantId,
-    extraPartipants: Vector[(ParticipantId, Int, String)],
+    extraParticipants: Vector[(ParticipantId, Int, String)],
     startupMode: StartupMode
 )
 
