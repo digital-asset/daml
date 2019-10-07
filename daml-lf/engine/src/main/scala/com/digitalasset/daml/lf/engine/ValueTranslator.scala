@@ -123,8 +123,8 @@ private[engine] class ValueTranslator(compiledPackages: CompiledPackages) {
             ResultDone(SDate(t))
           case (TText, ValueText(t)) =>
             ResultDone(SText(t))
-          case (TNumeric(TNat(10)), ValueNumeric(d)) =>
-            Numeric.fromBigDecimal(Decimal.scale, d).fold(fail, d => ResultDone(SNumeric(d)))
+          case (TNumeric(TNat(s)), ValueNumeric(d)) =>
+            Numeric.fromBigDecimal(s, d).fold(fail, d => ResultDone(SNumeric(d)))
           case (TParty, ValueParty(p)) =>
             ResultDone(SParty(p))
           case (TContractId(typ), ValueContractId(c)) =>

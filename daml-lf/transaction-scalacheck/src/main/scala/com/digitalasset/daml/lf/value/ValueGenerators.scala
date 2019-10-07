@@ -93,7 +93,7 @@ object ValueGenerators {
   }
 
   def unscaledNumGen: Gen[Numeric] =
-    Gen.oneOf(Numeric.Scale.Values).flatMap(numGen)
+    Gen.oneOf(Numeric.Scale.values).flatMap(numGen)
 
   val moduleSegmentGen: Gen[String] = for {
     n <- Gen.choose(1, 100)
@@ -432,5 +432,6 @@ object ValueGenerators {
     implicit val vdateArb: Arbitrary[Time.Date] = Arbitrary(dateGen)
     implicit val vtimestampArb: Arbitrary[Time.Timestamp] = Arbitrary(timestampGen)
     implicit val vpartyArb: Arbitrary[Ref.Party] = Arbitrary(party)
+    implicit val scaleArb: Arbitrary[Numeric.Scale] = Arbitrary(Gen.oneOf(Numeric.Scale.values))
   }
 }

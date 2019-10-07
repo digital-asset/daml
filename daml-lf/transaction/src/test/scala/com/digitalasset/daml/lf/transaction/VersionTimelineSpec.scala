@@ -41,12 +41,14 @@ class VersionTimelineSpec extends WordSpec with Matchers with PropertyChecks wit
       )
 
     "match each language major series in order" in forEvery(languageMajorSeries) { major =>
-      inAscendingOrder foldMap {
+      val minorInAscendingOrder = inAscendingOrder foldMap {
         foldRelease(_)(constNil, constNil, {
           case LanguageVersion(`major`, minor) => List(minor)
           case _ => Nil
         })
-      } shouldBe major.acceptedVersions
+      }
+
+      unique(minorInAscendingOrder) shouldBe major.acceptedVersions
     }
 
     "be inlined with LanguageVersion.ordering" in {
@@ -198,4 +200,11 @@ object VersionTimelineSpec {
 
   private val genSpecifiedVersion: Gen[SpecifiedVersion] =
     oneOf(varieties map { case vt: Variety[a] => vt.gen map vt.sv.inject })
+
+  // remove duplicate in an ordered list
+  private def unique[X](l: List[X]) =
+    l match {
+      case Nil => Nil
+      case h :: t => h :: ((l zip t) filterNot { case (x, y) => x == y } map (_._2))
+    }
 }
