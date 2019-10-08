@@ -222,10 +222,7 @@ object ValueGenerators {
       val flat = List(
         (sz + 1, dateGen.map(ValueDate)),
         (sz + 1, Gen.alphaStr.map(ValueText)),
-        // FixMe: https://github.com/digital-asset/daml/issues/2289
-        //  once arbirtary Numeric can be encoded as value, replace the
-        //  following line by:
-        //    (sz + 1, unscaledNumGen.map(ValueNumeric)),
+        (sz + 1, unscaledNumGen.map(ValueNumeric)),
         (sz + 1, numGen(Decimal.scale).map(ValueNumeric)),
         (sz + 1, Arbitrary.arbLong.arbitrary.map(ValueInt64)),
         (sz + 1, Gen.alphaStr.map(ValueText)),
