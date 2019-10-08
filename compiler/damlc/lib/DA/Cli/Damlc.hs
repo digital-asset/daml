@@ -941,7 +941,7 @@ execGenerateSrc dalfFp = Command GenerateSrc effect
                 forM_ genSrcs $ \(path, src) -> do
                     let fp = fromNormalizedFilePath path
                     createDirectoryIfMissing True $ takeDirectory fp
-                    writeFile fp src
+                    writeFileUTF8 fp src
 
 execDocTest :: Options -> [FilePath] -> Command
 execDocTest opts files =
