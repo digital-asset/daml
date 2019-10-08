@@ -19,9 +19,8 @@ import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.speedy.Compiler
-import com.digitalasset.daml.lf.speedy.SExpr
+import com.digitalasset.daml.lf.speedy.{SExpr, Speedy, SValue}
 import com.digitalasset.daml.lf.speedy.SExpr._
-import com.digitalasset.daml.lf.speedy.Speedy
 import com.digitalasset.daml.lf.speedy.SResult._
 import com.digitalasset.daml.lf.speedy.SValue._
 import com.digitalasset.ledger.api.domain.LedgerId
@@ -65,6 +64,54 @@ class Runner(
         SEMakeClo(Array(), 1, SEVar(1)))
   private val compiledPackages = PureCompiledPackages(darMap, definitionMap).right.get
 
+  // Handles the result of initialState or update, i.e., (s, [Commands], Text)
+  // by submitting the commands, printing the log message and returning
+  // the new state
+  def handleStepResult(v: SValue): SValue =
+    v match {
+      case SRecord(recordId, _, values)
+          if recordId.qualifiedName ==
+            QualifiedName(
+              DottedName.assertFromString("DA.Types"),
+              DottedName.assertFromString("Tuple3")) => {
+        val newState = values.get(0)
+        val commandVal = values.get(1)
+        val logMessage = values.get(2) match {
+          case SText(t) => t
+          case _ =>
+            throw new RuntimeException(s"Log message should be text but was ${values.get(2)}")
+        }
+        println(s"New state: $newState")
+        println(s"Emitted log message: ${logMessage}")
+        commandVal match {
+          case SList(transactions) =>
+            // Each transaction is a list of commands
+            for (commands <- transactions) {
+              converter.toCommands(commands) match {
+                case Left(err) => throw new RuntimeException(err)
+                case Right((commandId, commands)) => {
+                  val commandsArg = Commands(
+                    ledgerId = ledgerId.unwrap,
+                    applicationId = applicationId.unwrap,
+                    commandId = commandId,
+                    party = party,
+                    ledgerEffectiveTime = Some(fromInstant(Instant.EPOCH)),
+                    maximumRecordTime = Some(fromInstant(Instant.EPOCH.plusSeconds(5))),
+                    commands = commands
+                  )
+                  submit(SubmitRequest(commands = Some(commandsArg)))
+                }
+              }
+            }
+          case _ => {}
+        }
+        newState
+      }
+      case v => {
+        throw new RuntimeException(s"Expected Tuple3 but got $v")
+      }
+    }
+
   def getTriggerSink(
       triggerId: Identifier,
       acs: Seq[CreatedEvent]): Sink[TriggerMsg, Future[SExpr]] = {
@@ -98,7 +145,7 @@ class Runner(
         }
       }
     }
-    val evaluatedInitialState = machine.toSValue
+    val evaluatedInitialState = handleStepResult(machine.toSValue)
     println(s"Initial state: $evaluatedInitialState")
     Sink.fold[SExpr, TriggerMsg](SEValue(evaluatedInitialState))((state, message) => {
       val messageVal = message match {
@@ -121,49 +168,8 @@ class Runner(
           }
         }
       }
-      machine.toSValue match {
-        case SRecord(recordId, _, values)
-            if recordId.qualifiedName ==
-              QualifiedName(
-                DottedName.assertFromString("DA.Types"),
-                DottedName.assertFromString("Tuple3")) => {
-          val newState = values.get(0)
-          val commandVal = values.get(1)
-          val logMessage = values.get(2) match {
-            case SText(t) => t
-            case _ =>
-              throw new RuntimeException(s"Log message should be text but was ${values.get(2)}")
-          }
-          println(s"New state: $newState")
-          println(s"Emitted log message: ${logMessage}")
-          commandVal match {
-            case SList(transactions) =>
-              // Each transaction is a list of commands
-              for (commands <- transactions) {
-                converter.toCommands(commands) match {
-                  case Left(err) => throw new RuntimeException(err)
-                  case Right((commandId, commands)) => {
-                    val commandsArg = Commands(
-                      ledgerId = ledgerId.unwrap,
-                      applicationId = applicationId.unwrap,
-                      commandId = commandId,
-                      party = party,
-                      ledgerEffectiveTime = Some(fromInstant(Instant.EPOCH)),
-                      maximumRecordTime = Some(fromInstant(Instant.EPOCH.plusSeconds(5))),
-                      commands = commands
-                    )
-                    submit(SubmitRequest(commands = Some(commandsArg)))
-                  }
-                }
-              }
-            case _ => {}
-          }
-          SEValue(newState)
-        }
-        case v => {
-          throw new RuntimeException(s"Expected Tuple3 but got $v")
-        }
-      }
+      val newState = handleStepResult(machine.toSValue)
+      SEValue(newState)
     })
   }
 }
