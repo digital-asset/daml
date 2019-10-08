@@ -25,8 +25,7 @@ import com.digitalasset.platform.sandbox.stores.InMemoryPackageStore
 import com.digitalasset.platform.server.api.authorization.AuthorizationInterceptor
 
 import scala.concurrent.duration._
-import scala.concurrent.{Await, ExecutionContext}
-import scala.util.Try
+import scala.concurrent.{Await, ExecutionContext, Future}
 
 // Main entry point to start an index server that also hosts the ledger API.
 // See v2.ReferenceServer on how it is used.
@@ -130,15 +129,15 @@ class StandaloneIndexServer(
   }
 
   @SuppressWarnings(Array("org.wartremover.warts.ExplicitImplicitTypes"))
-  private def buildAndStartApiServer(infra: Infrastructure): ApiServerState = {
+  private def buildAndStartApiServer(infra: Infrastructure)(
+      implicit ec: ExecutionContext): Future[ApiServerState] = {
     implicit val mat = infra.materializer
-    implicit val ec: ExecutionContext = infra.executionContext
     implicit val mm: MetricsManager = infra.metricsManager
 
     val packageStore = loadDamlPackages()
     preloadPackages(packageStore)
 
-    val initF = for {
+    for {
       cond <- readService.getLedgerInitialConditions().runWith(Sink.head)
       indexService <- JdbcIndex(
         readService,
@@ -146,17 +145,7 @@ class StandaloneIndexServer(
         participantId,
         config.jdbcUrl,
         loggerFactory)
-    } yield (cond.ledgerId, cond.config.timeModel, indexService)
-
-    val (actualLedgerId, timeModel, indexService) = Try(Await.result(initF, asyncTolerance))
-      .fold(t => {
-        val msg = "Could not create SandboxIndexAndWriteService"
-        logger.error(msg, t)
-        sys.error(msg)
-      }, identity)
-
-    val apiServer = Await.result(
-      LedgerApiServer.create(
+      apiServer <- LedgerApiServer.create(
         (am: ActorMaterializer, esf: ExecutionSequencerFactory) =>
           ApiServices
             .create(
@@ -165,7 +154,7 @@ class StandaloneIndexServer(
               authService,
               StandaloneIndexServer.engine,
               config.timeProvider,
-              timeModel,
+              cond.config.timeModel,
               SandboxConfig.defaultCommandConfig,
               None,
               loggerFactory
@@ -176,38 +165,34 @@ class StandaloneIndexServer(
         loggerFactory,
         config.tlsConfig.flatMap(_.server),
         List(AuthorizationInterceptor(authService, ec))
-      ),
-      asyncTolerance
-    )
+      )
+      apiServerState = ApiServerState(
+        domain.LedgerId(cond.ledgerId),
+        apiServer,
+        indexService
+      )
+      _ = logger.info(
+        "Initialized index server version {} with ledger-id = {}, port = {}, dar file = {}",
+        BuildInfo.Version,
+        cond.ledgerId,
+        apiServerState.port.toString,
+        config.archiveFiles
+      )
 
-    val newState = ApiServerState(
-      domain.LedgerId(actualLedgerId),
-      apiServer,
-      indexService
-    )
-
-    logger.info(
-      "Initialized index server version {} with ledger-id = {}, port = {}, dar file = {}",
-      BuildInfo.Version,
-      actualLedgerId,
-      newState.port.toString,
-      config.archiveFiles
-    )
-
-    writePortFile(newState.port)
-
-    newState
+      _ = writePortFile(apiServerState.port)
+    } yield apiServerState
   }
 
-  def start(): SandboxState = {
+  def start(): Future[SandboxState] = {
     val actorSystem = ActorSystem(actorSystemName)
     val infrastructure =
       Infrastructure(actorSystem, ActorMaterializer()(actorSystem), MetricsManager(false))
+    implicit val ec: ExecutionContext = infrastructure.executionContext
     val apiState = buildAndStartApiServer(infrastructure)
 
     logger.info("Started Index Server")
 
-    SandboxState(apiState, infrastructure)
+    apiState.map(SandboxState(_, infrastructure))
   }
 
   private def writePortFile(port: Int): Unit = {
