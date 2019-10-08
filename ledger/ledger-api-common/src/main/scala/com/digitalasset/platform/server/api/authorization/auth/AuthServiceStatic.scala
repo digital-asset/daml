@@ -13,10 +13,10 @@ import io.grpc.Metadata
   *
   * Note: This AuthService is meant to be used for testing purposes only.
   */
-class AuthServiceStaticMap(claims: PartialFunction[String, Claims]) extends AuthService {
+class AuthServiceStatic(claims: PartialFunction[String, Claims]) extends AuthService {
   override def decodeMetadata(headers: Metadata): CompletionStage[Claims] = {
-    if (headers.containsKey(AuthServiceStaticMap.AUTHORIZATION_KEY)) {
-      val authorizationValue = headers.get(AuthServiceStaticMap.AUTHORIZATION_KEY)
+    if (headers.containsKey(AuthServiceStatic.AUTHORIZATION_KEY)) {
+      val authorizationValue = headers.get(AuthServiceStatic.AUTHORIZATION_KEY)
       CompletableFuture.completedFuture(claims.lift(authorizationValue).getOrElse(Claims.empty))
     } else {
       CompletableFuture.completedFuture(Claims.empty)
@@ -24,9 +24,9 @@ class AuthServiceStaticMap(claims: PartialFunction[String, Claims]) extends Auth
   }
 }
 
-object AuthServiceStaticMap {
+object AuthServiceStatic {
   private val AUTHORIZATION_KEY: Metadata.Key[String] =
     Metadata.Key.of("Authorization", Metadata.ASCII_STRING_MARSHALLER)
 
-  def apply(claims: PartialFunction[String, Claims]) = new AuthServiceStaticMap(claims)
+  def apply(claims: PartialFunction[String, Claims]) = new AuthServiceStatic(claims)
 }
