@@ -68,8 +68,43 @@ To generate such a decoder class, provide the command line parameter ``-d`` or `
 .. code-block:: none
   
   java -jar java-codegen.jar -o target/generated-sources/daml \
-      -d com.myproject.DamModelDecoder daml/my-project.dar
-      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+      -d com.myproject.DamlModelDecoder daml/my-project.dar
+      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Running this command will generate ``DamlModelDecoder.java`` in the ``com.myproject`` package.
+
+You can call the static method ``fromCreatedEvent`` to decode a Ledger API ``CreatedEvent`` into a ``Contract`` instance.
+
+The decoder class is aware of all generated classes that extend ``Contract`` and will delegate its creation to the proper ``Contract`` generated instance method.
+
+The decoder class is unable to return the exact type of the returned contract, so you will have to cast it to the expected type. You are advised to check for ``ClassCastException`` to handle the error in a meaningful fashion.
+
+The following represents a usage example that uses a made up template ``MyDamlTemplate`` for illustrative purposes:
+
+.. code-block:: java
+
+  try {
+      MyDamlTemplate contract = (MyDamlTemplate) DamlModelDecoder.fromCreatedEvent(event);
+  } catch (ClassCastException e) {
+      logger.error("Unexpected contract type", e);
+  }
+
+For more fine grained interactions, you can also retrieve the decoder for a specific template: the decoder has a static ``getDecoder`` method that takes an ``Identifier`` and returns an ``Optional<Function<CreatedEvent, Contract>>``.
+
+The following example shows how to use this function for the aforementioned ``MyDamlTemplate`` class:
+
+.. code-block:: java
+
+  Function<CreatedEvent, Contract> myDamlTemplateDecoder =
+      DamlModelDecoder.getDecoder(myDamlTemplateIdentifier).orElseThrow(() ->
+          new RuntimeException("Could not find decoder for MyDamlTemplate");
+      );
+
+  try {
+      MyDamlTemplate contract = (MyDamlTemplate) myDamlTemplateDecoder.apply(event);
+  } catch (ClassCastException e) {
+      logger.error("Unexpected contract type", e);
+  }
 
 Receive feedback
 ----------------
