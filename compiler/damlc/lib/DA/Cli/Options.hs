@@ -403,6 +403,7 @@ optionsParser numProcessors enableScenarioService parsePkgName = Options
     <*> pure (optSkipScenarioValidation $ defaultOptions Nothing)
     <*> dlintUsageOpt
     <*> optIsGenerated
+    <*> optAllowDifferentSdks
     <*> optNoDflagCheck
     <*> pure False
     <*> pure (Haddock False)
@@ -486,6 +487,13 @@ optionsParser numProcessors enableScenarioService parsePkgName = Options
         <> long "cpp"
         <> help "Set path to CPP."
         <> internal
+
+    optAllowDifferentSdks :: Parser Bool
+    optAllowDifferentSdks =
+        switch $
+        help "Allow the import of packages compiled with different SDKs." <>
+        long "allow-different-sdks" <>
+        internal
 
 optGhcCustomOptions :: Parser [String]
 optGhcCustomOptions =

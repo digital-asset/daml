@@ -632,7 +632,6 @@ runMigrate targetFolder pkgPath1 pkgPath2
         , "daml"
         , "--project-root"
         , targetFolder
-        , "upgrade-pkg"
         , pkgPath1
         , pkgPath2
         ]
