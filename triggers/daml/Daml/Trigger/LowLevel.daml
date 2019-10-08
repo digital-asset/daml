@@ -1,0 +1,135 @@
+-- Copyright (c) 2019 The DAML Authors. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+{-# LANGUAGE AllowAmbiguousTypes #-}
+daml 1.2
+module Daml.Trigger.LowLevel
+  ( Message(..)
+  , Completion(..)
+  , CompletionStatus(..)
+  , Transaction(..)
+  , Identifier(..)
+  , AnyContractId(..)
+  , TransactionId(..)
+  , EventId(..)
+  , CommandId(..)
+  , Event(..)
+  , Created(..)
+  , Archived(..)
+  , Trigger(..)
+  , ActiveContracts(..)
+  , Commands(..)
+  , TemplateId(..)
+  , Command(..)
+  , exerciseCmd
+  , createCmd
+  ) where
+
+import DA.Next.Map (MapKey(..))
+
+data Identifier = Identifier
+  { packageId : Text
+  , moduleName : Text
+  , entityName : Text
+  } deriving (Show, Eq, Ord)
+
+data AnyContractId = AnyContractId
+  { templateId : Identifier
+  , contractId : Text
+  } deriving (Show, Eq, Ord)
+
+newtype TransactionId = TransactionId Text
+  deriving (Show, Eq)
+
+newtype EventId = EventId Text
+  deriving (Show, Eq)
+
+newtype CommandId = CommandId Text
+  deriving (Show, Eq, MapKey)
+
+data Transaction = Transaction
+ { transactionId : TransactionId
+ , commandId : Optional CommandId
+ , events : [Event]
+ }
+
+data Event
+  = CreatedEvent Created
+  | ArchivedEvent Archived
+
+data Created = Created
+  { eventId : EventId
+  , contractId : AnyContractId
+  , argument : AnyTemplate
+  }
+
+data Archived = Archived
+  { eventId : EventId
+  , contractId : AnyContractId
+  } deriving (Show, Eq)
+
+data Message
+  = MTransaction Transaction
+  | MCompletion Completion
+
+data Completion = Completion
+  { commandId : CommandId
+  , status : CompletionStatus
+  } deriving Show
+
+data CompletionStatus
+  = Failed { status : Int, message : Text }
+  | Succeeded { transactionId : TransactionId }
+  deriving Show
+
+data ActiveContracts = ActiveContracts { activeContracts : [Created] }
+
+-- | Trigger is (approximately) a left-fold over `Message` with
+-- an accumulator of type `s`.
+data Trigger s = Trigger
+  { initialState : Party -> ActiveContracts -> s
+  , update : Message -> s -> (s, [Commands], Text)
+  }
+
+-- | We implicitly assume that the package id corresponds to the package the trigger is part of.
+-- This type is temporary until we have a builtin in LF for identifiers.
+data TemplateId = TemplateId
+  { moduleName : Text
+  , entityName : Text
+  }
+
+-- | This is an internal hack until we have this as a builtin in DAML-LF.
+
+-- You can think of this as an existential `data Dynamic = forall a. Dynamic a`
+-- that you can’t convert back from.
+data LedgerValue = LedgerValue {}
+
+-- | At runtime we turn this into the identity function
+-- and convert the result to ledger values.
+toLedgerValue : a -> LedgerValue
+toLedgerValue = error "toLedgerValue should be removed."
+
+data Command
+  = CreateCommand
+      { templateArg : AnyTemplate
+      -- This needs to be AnyTemplate instead of LedgerValue
+      -- to handle generic templates.
+      }
+  | ExerciseCommand
+      { contractId : AnyContractId
+      , choiceArg : LedgerValue
+      -- TODO We might want/need to extend AnyTemplate to be able to handle choice arguments
+      -- since this is required to allow users to check pending commands.
+      }
+
+createCmd : Template t => t -> Command
+createCmd templateArg =
+  CreateCommand (toAnyTemplate templateArg)
+
+exerciseCmd : Choice t c r => AnyContractId -> c -> Command
+exerciseCmd contractId choiceArg =
+  ExerciseCommand contractId (toLedgerValue choiceArg)
+
+data Commands = Commands
+  { commandId : CommandId
+  , commands : [Command]
+  }

@@ -7,7 +7,7 @@ module ACS where
 import DA.TextMap (TextMap)
 import qualified DA.TextMap as TM
 
-import Daml.Trigger
+import Daml.Trigger.LowLevel
 
 data TriggerState = TriggerState
   { activeAssets : TextMap Identifier
