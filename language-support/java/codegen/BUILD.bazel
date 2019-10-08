@@ -20,8 +20,8 @@ load(
 )
 load(
     "//daml-lf/language:daml-lf.bzl",
-    "lf_latest_version",
     "lf_dev_version",
+    "lf_latest_version",
 )
 load(
     "@com_github_johnynek_bazel_jar_jar//:jar_jar.bzl",
@@ -166,9 +166,9 @@ test_daml_lf_target_versions = [
 ########################################################
 
 it_daml_lf_target_versions = [
-#    "1.0",
-#    "1.1",
-#    "1.5",
+    #    "1.0",
+    #    "1.1",
+    #    "1.5",
     "latest",
 ]
 
