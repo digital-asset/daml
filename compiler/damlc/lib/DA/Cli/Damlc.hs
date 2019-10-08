@@ -209,7 +209,7 @@ cmdInspect =
     detailOpt =
         fmap (maybe DA.Pretty.prettyNormal DA.Pretty.PrettyLevel) $
             optional $ option auto $ long "detail" <> metavar "LEVEL" <> help "Detail level of the pretty printed output (default: 0)"
-    cmd = execInspect <$> inputDalfOpt <*> outputFileOpt <*> jsonOpt <*> detailOpt
+    cmd = execInspect <$> inputFileOptWithExt ".dalf or .dar" <*> outputFileOpt <*> jsonOpt <*> detailOpt
 
 cmdVisual :: Mod CommandFields Command
 cmdVisual =
