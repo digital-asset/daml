@@ -101,6 +101,7 @@ data CommandName =
   | Compile
   | DamlDoc
   | DocTest
+  | GenerateSrc
   | Ide
   | Init
   | Inspect
@@ -208,7 +209,7 @@ cmdInspect =
     detailOpt =
         fmap (maybe DA.Pretty.prettyNormal DA.Pretty.PrettyLevel) $
             optional $ option auto $ long "detail" <> metavar "LEVEL" <> help "Detail level of the pretty printed output (default: 0)"
-    cmd = execInspect <$> inputFileOpt <*> outputFileOpt <*> jsonOpt <*> detailOpt
+    cmd = execInspect <$> inputDalfOpt <*> outputFileOpt <*> jsonOpt <*> detailOpt
 
 cmdVisual :: Mod CommandFields Command
 cmdVisual =
@@ -302,6 +303,14 @@ cmdMergeDars =
     info (helper <*> cmd) $ progDesc "Merge two dar archives into one" <> fullDesc
   where
     cmd = execMergeDars <$> inputDarOpt <*> inputDarOpt <*> targetFileNameOpt
+
+cmdGenerateSrc :: Mod CommandFields Command
+cmdGenerateSrc =
+    command "generate-src" $
+    info (helper <*> cmd) $
+    progDesc "Generate DAML source code from a dalf package" <> fullDesc
+  where
+    cmd = execGenerateSrc <$> inputDalfOpt
 
 cmdDocTest :: Int -> Mod CommandFields Command
 cmdDocTest numProcessors =
@@ -913,6 +922,27 @@ execMergeDars darFp1 darFp2 mbOutFp =
         pure $ ZipArchive.toEntry manifestPath 0 $ BSLC.unlines $
             map (\(k, v) -> breakAt72Bytes $ BSL.fromStrict $ k <> ": " <> v) attrs1
 
+-- | Generate daml source files from a dalf package.
+execGenerateSrc :: FilePath -> Command
+execGenerateSrc dalfFp = Command GenerateSrc effect
+  where
+    effect = do
+        bytes <- B.readFile dalfFp
+        case Archive.decodeArchive bytes of
+            Left err -> fail $ DA.Pretty.renderPretty err
+            Right (pkgId, pkg) -> do
+                let genSrcs =
+                        generateSrcPkgFromLf
+                            pkgId
+                            (MS.singleton
+                                 (stringToUnitId $ takeBaseName dalfFp)
+                                 pkgId)
+                            pkg
+                forM_ genSrcs $ \(path, src) -> do
+                    let fp = fromNormalizedFilePath path
+                    createDirectoryIfMissing True $ takeDirectory fp
+                    writeFile fp src
+
 execDocTest :: Options -> [FilePath] -> Command
 execDocTest opts files =
   Command DocTest effect
@@ -962,6 +992,7 @@ options numProcessors =
         <> cmdInit
         <> cmdCompile numProcessors
         <> cmdClean
+        <> cmdGenerateSrc
       )
 
 parserInfo :: Int -> ParserInfo Command
