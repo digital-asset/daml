@@ -87,6 +87,29 @@ da_scala_library(
     deps = compileDependencies + ["//ledger/test-common"],
 )
 
+da_scala_library(
+    name = "ledger-api-server",
+    srcs = glob(["src/main/scala/**/*.scala"]),
+    resources =
+        glob(
+            ["src/main/resources/**/*"],
+            # Do not include logback.xml into the library: let the user
+            # of the sandbox-as-a-library decide how to log.
+            exclude = ["src/main/resources/logback.xml"],
+        ) + [
+            "//:COMPONENT-VERSION",
+        ],
+    tags = ["maven_coordinates=com.daml.ledger:ledger-api-server:__VERSION__"],
+    visibility = [
+        "//visibility:public",
+    ],
+    runtime_deps = [
+        "//3rdparty/jvm/ch/qos/logback:logback_classic",
+        "//3rdparty/jvm/ch/qos/logback:logback_core",
+    ],
+    deps = compileDependencies + ["//ledger/test-common"],
+)
+
 da_scala_binary(
     name = "sandbox-binary",
     main_class = "com.digitalasset.platform.sandbox.SandboxMain",

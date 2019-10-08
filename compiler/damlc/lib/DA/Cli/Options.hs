@@ -39,20 +39,16 @@ render s d = resolve s d
       Plain   -> Pretty.renderPlain
       Colored -> Pretty.renderColored
 
-inputFileOpt :: Parser FilePath
-inputFileOpt = argument str $
+inputFileOptWithExt :: String -> Parser FilePath
+inputFileOptWithExt extension = argument str $
        metavar "FILE"
-    <> help "Input .daml file whose contents are read"
+    <> help ("Input " <> extension <> " file whose contents are read")
 
-inputDarOpt :: Parser FilePath
-inputDarOpt = argument str $
-       metavar "FILE"
-    <> help "Input .dar file whose contents are read"
-
-inputFileRstOpt :: Parser FilePath
-inputFileRstOpt = argument str $
-       metavar "FILE"
-    <> help "Input .rst file whose contents are read"
+inputFileOpt, inputDarOpt, inputFileRstOpt, inputDalfOpt :: Parser FilePath
+inputFileOpt = inputFileOptWithExt ".daml"
+inputDarOpt = inputFileOptWithExt ".dar"
+inputDalfOpt = inputFileOptWithExt ".dalf"
+inputFileRstOpt = inputFileOptWithExt ".rst"
 
 inputDamlPackageOpt :: Parser FilePath
 inputDamlPackageOpt = argument str $
@@ -406,7 +402,7 @@ optionsParser numProcessors enableScenarioService parsePkgName = Options
     <*> pure enableScenarioService
     <*> pure (optSkipScenarioValidation $ defaultOptions Nothing)
     <*> dlintUsageOpt
-    <*> pure False
+    <*> optIsGenerated
     <*> optNoDflagCheck
     <*> pure False
     <*> pure (Haddock False)
@@ -446,6 +442,13 @@ optionsParser numProcessors enableScenarioService parsePkgName = Options
       help "hide all packages, use -package for explicit import" <>
       long "hide-all-packages" <>
       internal
+
+    optIsGenerated :: Parser Bool
+    optIsGenerated =
+        switch $
+        help "Tell the compiler that the source was generated." <>
+        long "generated-src" <>
+        internal
 
     -- optparse-applicative does not provide a nice way
     -- to make the argument for -j optional, see
