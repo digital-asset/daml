@@ -12,7 +12,7 @@ import com.digitalasset.daml.lf.transaction.Node.GlobalKey
 import com.digitalasset.daml.lf.transaction.GenTransaction
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
-import com.digitalasset.ledger.WorkflowId
+import com.digitalasset.ledger.{EventId, WorkflowId}
 import com.digitalasset.ledger.api.domain.PartyDetails
 import com.digitalasset.platform.sandbox.stores.ActiveLedgerState._
 import com.digitalasset.platform.sandbox.stores.ledger.SequencingError
@@ -130,13 +130,13 @@ case class InMemoryActiveLedgerState(
   /** adds a transaction to the ActiveContracts, make sure that there are no double spends or
     * timing errors. this check is leveraged to achieve higher concurrency, see LedgerState
     */
-  def addTransaction[Nid](
+  def addTransaction(
       let: Instant,
       transactionId: TransactionIdString,
       workflowId: Option[WorkflowId],
-      transaction: GenTransaction.WithTxValue[Nid, AbsoluteContractId],
-      disclosure: Relation[Nid, Party],
-      localDivulgence: Relation[Nid, Party],
+      transaction: GenTransaction.WithTxValue[EventId, AbsoluteContractId],
+      disclosure: Relation[EventId, Party],
+      localDivulgence: Relation[EventId, Party],
       glovalDivulgence: Relation[AbsoluteContractId, Party],
       referencedContracts: List[(Value.AbsoluteContractId, AbsoluteContractInst)]
   ): Either[Set[SequencingError], InMemoryActiveLedgerState] =

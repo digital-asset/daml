@@ -396,7 +396,7 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
 
       // Note: ACS is typed as Unit here, as the ACS is given implicitly by the current database state
       // within the current SQL transaction. All of the given functions perform side effects to update the database.
-      val atr = acsManager.addTransaction[EventId](
+      val atr = acsManager.addTransaction(
         ledgerEffectiveTime,
         transactionId,
         workflowId,

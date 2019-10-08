@@ -147,7 +147,6 @@ object Ledger {
     *
     * @param jdbcUrl       the jdbc url string containing the username and password as well
     * @param ledgerId      the id to be used for the ledger
-    * @param timeProvider  the provider of time
     * @return a jdbc backed Ledger
     */
   def jdbcBackedReadOnly(

@@ -245,7 +245,7 @@ object ScenarioLoader {
         val globalizedImplicitDisclosure = richTransaction.implicitDisclosure mapKeys { nid =>
           absCidWithHash(AbsoluteContractId(nid))
         }
-        acs.addTransaction[L.ScenarioNodeId](
+        acs.addTransaction(
           time.toInstant,
           transactionId,
           workflowId,
