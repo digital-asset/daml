@@ -1,0 +1,46 @@
+-- Copyright (c) 2019, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- @SINCE-LF 1.dev
+daml 1.2 module TemplateTypeRep where
+
+import DA.Action
+
+template T1
+  with
+    x : Int
+    p : Party
+  where
+    signatory p
+
+template T2
+  with
+    y : Text
+    p : Party
+  where
+    signatory p
+
+template Template t => GenericT t
+  with
+    wrapped : t
+    p : Party
+  where
+    signatory p
+
+template instance GT1 = GenericT T1
+template instance GT2 = GenericT T2
+
+main = scenario do
+  unless (templateTypeRep @T1 == templateTypeRep @T1) $
+    abort "templateTypeRep T1 /= templateTypeRep T1"
+  unless (templateTypeRep @T2 == templateTypeRep @T2) $
+    abort "templateTypeRep T2 /= templateTypeRep T2"
+  unless (templateTypeRep @GT1 == templateTypeRep @GT1) $
+    abort "templateTypeRep GT1 /= templateTypeRep GT1"
+  unless (templateTypeRep @GT2 == templateTypeRep @GT2) $
+    abort "templateTypeRep GT2 /= templateTypeRep GT2"
+
+  unless (templateTypeRep @T1 /= templateTypeRep @T2) $
+    abort "templateTypeRep T1 == templateTypeRep T2"
+  unless (templateTypeRep @GT1 /= templateTypeRep @GT2) $
+    abort "templateTypeRep GT1 == templateTypeRep GT2"

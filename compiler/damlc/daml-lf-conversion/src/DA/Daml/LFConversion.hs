@@ -317,7 +317,7 @@ convertGenericTemplate env x
     , Just dictCon <- isDataConId_maybe dictCon
     , (tyArgs, args) <- span isTypeArg args
     , Just tyArgs <- mapM isType_maybe tyArgs
-    , Just (superClassDicts, signatories : observers : ensure : agreement : create : _fetch : archive : _toAnyTemplate : _fromAnyTemplate : keyAndChoices) <- span isSuperClassDict <$> mapM isVar_maybe args
+    , Just (superClassDicts, signatories : observers : ensure : agreement : create : _fetch : archive : _toAnyTemplate : _fromAnyTemplate : _templateTypeRep : keyAndChoices) <- span isSuperClassDict <$> mapM isVar_maybe args
     , Just (polyType@(TypeCon polyTyCon _), _) <- splitFunTy_maybe (varType create)
     , Just monoTyCon <- findMonoTyp polyType
     = do
@@ -452,9 +452,19 @@ convertGenericTemplate env x
                              , CaseAlternative (CPSome self) $ ESome polyType $ unwrapTpl $ EVar self
                              ]
                     else EBuiltin BEError `ETyApp` (typeConAppToType anyTemplateTy :-> TOptional polyType) `ETmApp` EBuiltin (BEText "fromAnyTemplate is not supported in this DAML-LF version")
+        let templateTypeRep =
+                let proxyName = mkTypeVar "proxy"
+                    argType = TVar proxyName `TApp` polyType
+                    resType = TypeConApp (Qualified stdlibRef (mkModName ["DA", "Internal", "LF"]) (mkTypeCon ["TemplateTypeRep"])) []
+                    resField = mkField "getTemplateTypeRep"
+                in
+                ETyLam (proxyName, KStar `KArrow` KStar) $!
+                    if envLfVersion env `supports` featureTemplateTypeRep
+                        then ETmLam (arg, argType) $ ERecCon resType [(resField, EToTextTemplateId monoTyCon)]
+                        else EBuiltin BEError `ETyApp` (argType :-> typeConAppToType resType) `ETmApp` EBuiltin (BEText "templateTypeRep is not supported in this DAML-LF version")
         tyArgs <- mapM (convertType env) tyArgs
         -- NOTE(MH): The additional lambda is DICTIONARY SANITIZATION step (3).
-        let tmArgs = map (ETmLam (mkVar "_", TUnit)) $ superClassDicts ++ [signatories, observers, ensure, agreement, create, fetch, archive, toAnyTemplate, fromAnyTemplate] ++ key ++ concat choices
+        let tmArgs = map (ETmLam (mkVar "_", TUnit)) $ superClassDicts ++ [signatories, observers, ensure, agreement, create, fetch, archive, toAnyTemplate, fromAnyTemplate, templateTypeRep] ++ key ++ concat choices
         qTCon <- qualify env m  $ mkTypeCon [getOccText $ dataConTyCon dictCon]
         let tcon = TypeConApp qTCon tyArgs
         Ctor _ fldNames _ <- toCtor env dictCon
@@ -574,7 +584,7 @@ convertBind env (name, x)
     --
     -- TODO(MH): The check is an approximation which will fail when users
     -- start the name of their own methods with, say, `_exercise`.
-    | any (`T.isPrefixOf` getOccText name) [ "$" <> prefix <> "_" <> method | prefix <- ["dm", "c"], method <- ["create", "fetch", "exercise", "toAnyTemplate", "fromAnyTemplate", "fetchByKey", "lookupByKey", "toAnyChoice", "fromAnyChoice"] ]
+    | any (`T.isPrefixOf` getOccText name) [ "$" <> prefix <> "_" <> method | prefix <- ["dm", "c"], method <- ["create", "fetch", "exercise", "toAnyTemplate", "fromAnyTemplate", "_templateTypeRep", "fetchByKey", "lookupByKey", "toAnyChoice", "fromAnyChoice"] ]
     = pure []
     -- NOTE(MH): Our inline return type syntax produces a local letrec for
     -- recursive functions. We currently don't support local letrecs.

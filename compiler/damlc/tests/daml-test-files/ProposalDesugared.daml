@@ -32,6 +32,7 @@ instance ProposalInstance t => Template (Proposal t) where
     archive = _archiveProposal
     toAnyTemplate = _toAnyTemplateProposal
     fromAnyTemplate = _fromAnyTemplateProposal
+    _templateTypeRep = __templateTypeRepProposal
 
 instance ProposalInstance t => TemplateKey (Proposal t) ([Party], Text) where
     key = _keyProposal
@@ -75,6 +76,8 @@ class Template t => ProposalInstance t where
     _toAnyTemplateProposal = error "code will be injected by the compiler"
     _fromAnyTemplateProposal : AnyTemplate -> Optional (Proposal t)
     _fromAnyTemplateProposal = error "code will be injected by the compiler"
+    __templateTypeRepProposal : proxy (Proposal t) -> TemplateTypeRep
+    __templateTypeRepProposal proxy = error "code will be injected by the compiler"
 
     _hasKeyProposal : HasKey (Proposal t)
     _hasKeyProposal = HasKey
@@ -133,6 +136,7 @@ instance IouInstance => Template Iou where
   archive = _archiveIou
   toAnyTemplate = _toAnyTemplateIou
   fromAnyTemplate = _fromAnyTemplateIou
+  _templateTypeRep = __templateTypeRepIou
 
 data Burn = Burn{}
   deriving (Eq, Show)
@@ -167,6 +171,8 @@ class IouInstance where
   _toAnyTemplateIou = error "code will be injected by the compiler"
   _fromAnyTemplateIou : AnyTemplate -> Optional Iou
   _fromAnyTemplateIou = error "code will be injected by the compiler"
+  __templateTypeRepIou : proxy Iou -> TemplateTypeRep
+  __templateTypeRepIou proxy = error "code will be injected by the compiler"
 
   _consumptionIouArchive : PreConsuming Iou
   _consumptionIouArchive = PreConsuming

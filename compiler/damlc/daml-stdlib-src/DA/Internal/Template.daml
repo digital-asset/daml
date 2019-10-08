@@ -44,6 +44,13 @@ class Template t where
   -- or return `None`.
   fromAnyTemplate : AnyTemplate -> Optional t
 
+  -- | Generate a unique textual representation of the template Id.
+  _templateTypeRep : proxy t -> TemplateTypeRep
+
+-- | Generate a unique textual representation of the template Id.
+templateTypeRep : forall t. Template t => TemplateTypeRep
+templateTypeRep = _templateTypeRep ([] : [t])
+
 -- | The stakeholders of a contract: its signatories and observers.
 stakeholder : Template t => t -> [Party]
 stakeholder t = signatory t ++ observer t
