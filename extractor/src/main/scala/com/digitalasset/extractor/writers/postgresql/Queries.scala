@@ -287,7 +287,7 @@ object Queries {
             toJsonString(v)
           )
 
-        case e @ V.ValueEnum(_, constructor) =>
+        case V.ValueEnum(_, constructor) =>
           Fragment("?", constructor: String)
 
         case o @ V.ValueOptional(_) =>
