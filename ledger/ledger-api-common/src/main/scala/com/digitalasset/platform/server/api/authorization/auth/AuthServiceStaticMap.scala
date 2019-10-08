@@ -1,0 +1,30 @@
+// Copyright (c) 2019 The DAML Authors. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+package com.digitalasset.platform.server.api.authorization.auth
+
+import java.util.concurrent.{CompletableFuture, CompletionStage}
+
+import com.daml.ledger.participant.state.v1.{AuthService, Claims}
+import io.grpc.Metadata
+
+/** An AuthService that matches the value of the `Authorization` HTTP header against
+  * a static map of header values to [[Claims]].
+  *
+  * Note: This AuthService is meant to be used for testing purposes only.
+  */
+class AuthServiceStaticMap(claims: Map[String, Claims]) extends AuthService {
+  override def decodeMetadata(headers: Metadata): CompletionStage[Claims] = {
+    if (headers.containsKey(AuthServiceStaticMap.AUTHORIZATION_KEY)) {
+      val authorizationValue = headers.get(AuthServiceStaticMap.AUTHORIZATION_KEY)
+      CompletableFuture.completedFuture(claims.getOrElse(authorizationValue, Claims.empty))
+    } else {
+      CompletableFuture.completedFuture(Claims.empty)
+    }
+  }
+}
+
+object AuthServiceStaticMap {
+  val AUTHORIZATION_KEY: Metadata.Key[String] =
+    Metadata.Key.of("Authorization", Metadata.ASCII_STRING_MARSHALLER)
+}
