@@ -43,32 +43,15 @@ object JsonConverters {
     a.asJson.noSpaces
   }
 
-  implicit val recordEncoder: Encoder[OfCid[V.ValueRecord]] = record =>
-    if (record.fields.toSeq.forall(_._1.isDefined))
-      JsonObject(
-        record.fields.toSeq
-          .collect {
-            case (Some(label), value) =>
-              label -> value.asJson
-          }: _*
-      ).asJson
-    else record.fields.toSeq.map(_.asJson).asJson
+  implicit val recordEncoder: Encoder[OfCid[V.ValueRecord]] = valueEncoder
 
-  private val emptyRecord = V.ValueRecord(None, ImmArray.empty).asJson
-
-  // TODO it might be much more performant if exploded into separate vals
   implicit def valueEncoder[T <: LedgerValue]: Encoder[T] =
     t => sprayToCirce(LfValueSprayEnc.apiValueToJsValue(t))
 
   private implicit def frontStackEncoder[A: Encoder]: Encoder[FrontStack[A]] =
     _.toImmArray.map(_.asJson).toSeq.asJson
 
-  private implicit val variantEncoder: Encoder[OfCid[V.ValueVariant]] = {
-    case V.ValueVariant(tycon @ _, ctor, value) =>
-      JsonObject(
-        ctor -> value.asJson
-      ).asJson
-  }
+  implicit val variantEncoder: Encoder[OfCid[V.ValueVariant]] = valueEncoder
 
   implicit val scalaOptionEncoder: Encoder[Option[LedgerValue]] = _ match {
     case None =>
@@ -77,12 +60,8 @@ object JsonConverters {
       JsonObject("Some" -> value.asJson).asJson
   }
 
-  implicit val mapEncoder: Encoder[SortedLookupList[LedgerValue]] = m =>
-    JsonObject(
-      "Map" ->
-        JsonObject
-          .fromIterable(m.toImmArray.map { case (k, v) => k -> v.asJson }.toSeq)
-          .asJson).asJson
+  implicit val mapEncoder: Encoder[SortedLookupList[LedgerValue]] =
+    valueEncoder.contramap(V.ValueMap(_))
 
   private implicit val idKeyEncoder: KeyEncoder[Identifier] = id => s"${id.packageId}@${id.name}"
   private implicit val idKeyDecoder: KeyDecoder[Identifier] = StringEncodedIdentifier.unapply
