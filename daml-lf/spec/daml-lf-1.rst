@@ -2617,7 +2617,7 @@ DAML-LF programs are serialized using `Protocol Buffers
 <https://developers.google.com/protocol-buffers/>`_.  The
 machine-readable definition of the serialization for DAML-LF major
 version 1 can be found in the `daml_lf_1.proto
-<../archive/src/main/protobuf/com/digitalasset/daml_lf_dev>`_ file.
+<../archive/src/main/protobuf/com/digitalasset/daml_lf_dev/daml_lf_1.proto>`_ file.
 
 For the sake of brevity, we do no exhaustively describe how DAML-LF
 programs are (un)serialized into protocol buffer. In the rest of this
