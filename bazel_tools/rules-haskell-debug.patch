@@ -1,0 +1,22 @@
+diff --git a/haskell/private/ls_modules.py b/haskell/private/ls_modules.py
+index bb4d616..cfbd41b 100755
+--- a/haskell/private/ls_modules.py
++++ b/haskell/private/ls_modules.py
+@@ -26,6 +26,8 @@ hidden_modules_file = sys.argv[4]
+ reexported_modules_file = sys.argv[5]
+ results_file = sys.argv[6]
+ 
++print("ARGS: {}".format(sys.argv))
++
+ with io.open(global_pkg_db_dump, "r", encoding='utf8') as f:
+     names = [line.split()[1] for line in f if line.startswith("name:")]
+     f.seek(0)
+@@ -91,6 +93,8 @@ interface_files = (
+     for f in fnmatch.filter(files, '*.p_hi' if with_profiling else '*.hi')
+ )
+ 
++print("MODULES: {}".format(interface_files))
++
+ modules = (
+     # replace directory separators by . to generate module names
+     # / and \ are respectively the separators for unix (linux / darwin) and windows systems
