@@ -57,13 +57,10 @@ runTrigger userTrigger = LowLevel.Trigger
     initialState party (ActiveContracts createdEvents) =
       let acs = foldl (\acs created -> applyEvent (CreatedEvent created) acs) (ACS []) createdEvents
           userState = userTrigger.initialize acs
-      in TriggerState
-           { acs = acs
-           , party = party
-           , userState = userState
-           , commandsInFlight = Map.empty
-           , nextCommandId = 0
-           }
+          (_, TriggerAState commands nextCommandId) = runTriggerA (userTrigger.rule party acs Map.empty userState) (TriggerAState [] 0)
+          commandsInFlight = foldl addCommands Map.empty commands
+          state = TriggerState {acs, party, userState, commandsInFlight, nextCommandId}
+      in (state, commands, "")
     update msg state =
       case msg of
         MCompletion completion ->

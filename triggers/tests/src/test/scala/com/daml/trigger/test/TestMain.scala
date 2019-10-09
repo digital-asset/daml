@@ -592,7 +592,7 @@ object TestMain {
           case (pkgId, pkgArchive) => Decode.readArchivePayload(pkgId, pkgArchive)
         }
         val runner = new TestRunner(config.ledgerPort)
-        // AcsTests(dar, runner).runTests()
+        AcsTests(dar, runner).runTests()
         CopyTests(dar, runner).runTests()
     }
   }

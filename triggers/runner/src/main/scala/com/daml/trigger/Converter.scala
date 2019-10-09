@@ -112,10 +112,14 @@ object Converter {
 
   private def fromCommandId(triggerIds: TriggerIds, commandId: String): SValue = {
     val commandIdTy = triggerIds.getId("CommandId")
+    record(commandIdTy, ("unpack", SText(commandId)))
+  }
+
+  private def fromOptionalCommandId(triggerIds: TriggerIds, commandId: String): SValue = {
     if (commandId.isEmpty) {
       SOptional(None)
     } else {
-      SOptional(Some(record(commandIdTy, ("unpack", SText(commandId)))))
+      SOptional(Some(fromCommandId(triggerIds, commandId)))
     }
   }
 
@@ -192,7 +196,7 @@ object Converter {
       record(
         transactionTy,
         ("transactionId", fromTransactionId(triggerIds, t.transactionId)),
-        ("commandId", fromCommandId(triggerIds, t.commandId)),
+        ("commandId", fromOptionalCommandId(triggerIds, t.commandId)),
         ("events", SList(FrontStack(t.events.map(ev => fromEvent(triggerIds, ev)))))
       )
     )
