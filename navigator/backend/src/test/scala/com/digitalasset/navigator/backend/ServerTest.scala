@@ -55,7 +55,7 @@ class ServerTest
   def route(requirePassword: Boolean): Route =
     NavigatorBackend.getRoute(
       system = ActorSystem("da-ui-backend-test"),
-      arguments = (new Arguments).copy(requirePassword = requirePassword),
+      arguments = Arguments.default,
       config = new Config(users = Map(userId -> userConfig)),
       graphQL = DefaultGraphQLHandler(Set.empty, None),
       info = TestInfoHandler
@@ -114,30 +114,12 @@ class ServerTest
     }
   }
 
-  "PasswordMode GET /api/session/" should "respond SignIn with method SignInPassword" in withCleanSessions {
-    Get("/api/session/") ~> passwordRoute ~> check {
-      responseAs[SignIn] shouldEqual SignIn(method = SignInPassword)
-    }
-  }
-
   "PasswordMode POST /api/session/" should "allow to SignIn with an existing user and the right password" in withCleanSessions {
     Post("/api/session/", LoginRequest(userId, Some(password))) ~> passwordRoute ~> check {
       Unmarshal(response.entity).to[String].value.map(_.map(_.parseJson)) shouldEqual Some(
         Success((sessionJson)))
       val sessionId = sessionCookie()
       Session.current(sessionId).value shouldEqual Session(user)
-    }
-  }
-
-  it should "forbid to SignIn with a non existing user" in withCleanSessions {
-    Post("/api/session/", LoginRequest(userId + " ", None)) ~> passwordRoute ~> check {
-      responseAs[SignIn] shouldEqual SignIn(method = SignInPassword, invalidCredentials = true)
-    }
-  }
-
-  it should "forbid to SignIn with an existing user but wrong password" in withCleanSessions {
-    Post("/api/session/", LoginRequest(userId, Some(password + " "))) ~> passwordRoute ~> check {
-      responseAs[SignIn] shouldEqual SignIn(method = SignInPassword, invalidCredentials = true)
     }
   }
 }

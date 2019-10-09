@@ -59,7 +59,6 @@ class PlatformSubscriber(
   // Global immutable state - mutable state is stored in parameters of the receive methods
   // ----------------------------------------------------------------------------------------------
   private val system = context.system
-  private val packagesActor = context.actorSelection("../packages")
   private val killSwitch = KillSwitches.shared("platform-subscriber")
 
   import system.dispatcher
@@ -74,9 +73,9 @@ class PlatformSubscriber(
     log.debug("Starting actor for '{}'", party.name)
 
     val started = for {
-      packages <- fetchPackages(ledgerClient)
+      _ <- fetchPackages(ledgerClient)
       tracker <- startTrackingCommands()
-      txStream <- startStreamingTransactions()
+      _ <- startStreamingTransactions()
     } yield {
       Started(tracker)
     }

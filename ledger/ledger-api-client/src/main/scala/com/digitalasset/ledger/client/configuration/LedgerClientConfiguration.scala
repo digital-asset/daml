@@ -9,4 +9,5 @@ final case class LedgerClientConfiguration(
     applicationId: String,
     ledgerIdRequirement: LedgerIdRequirement,
     commandClient: CommandClientConfiguration,
-    sslContext: Option[SslContext])
+    sslContext: Option[SslContext],
+    accessToken: Option[String] = None)
