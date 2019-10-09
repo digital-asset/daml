@@ -30,6 +30,8 @@ function bazel() {
 # which is a workaround for this problem.
 bazel shutdown
 
+bazel clean --expunge
+
 bazel build //compiler/daml-lf-ast:daml-lf-ast
 
 cat bazel-bin/compiler/daml-lf-ast/compilerZSdaml-lf-astZSdaml-lf-ast/compilerZSdaml-lf-astZSdaml-lf-ast.conf
