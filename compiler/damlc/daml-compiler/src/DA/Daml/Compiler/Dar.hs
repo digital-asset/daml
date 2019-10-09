@@ -214,9 +214,13 @@ getDamlFiles srcRoot = do
 -- | Return all daml files in the given directory.
 damlFilesInDir :: FilePath -> IO [NormalizedFilePath]
 damlFilesInDir srcRoot = do
-    fs <- listFilesRecursive srcRoot
-    pure $
-        map toNormalizedFilePath $ filter (".daml" `isExtensionOf`) fs
+    -- don't recurse into hidden directories (for example the .daml dir).
+    fs <-
+        listFilesInside
+            (\fp ->
+                 return $ fp == "." || (not $ isPrefixOf "." $ takeFileName fp))
+            srcRoot
+    pure $ map toNormalizedFilePath $ filter (".daml" `isExtensionOf`) fs
 
 -- | Find all DAML files below a given source root. If the source root is a file we interpret it as
 -- main and return only that file. This is different from getDamlFiles which also returns
