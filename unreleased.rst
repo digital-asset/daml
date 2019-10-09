@@ -13,3 +13,8 @@ HEAD — ongoing
 [Ledger] The ledger api index server starts only after the indexer has finished initializing the database.
 + [DAML Standard Library] Add ``DA.Action.State`` module containing a ``State`` action that
   can be used for computations that modify a state variable.
++ [DAML Compiler] Fixed the location of interface files when the
+  ``source`` field in ``daml.yaml`` points to a file. This is mainly
+  important for when you want to use the created ``.dar`` in the
+  ``dependencies`` field of another package.
+  See `issue #3135 <https://github.com/digital-asset/daml/issues/3135>`_.
