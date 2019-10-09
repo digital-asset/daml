@@ -10,6 +10,7 @@ module DA.Daml.Compiler.Dar
     , getDamlFiles
     , getDamlRootFiles
     , writeIfacesAndHie
+    , mkConfFile
     ) where
 
 import qualified "zip" Codec.Archive.Zip as Zip
