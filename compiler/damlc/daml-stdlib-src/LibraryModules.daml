@@ -9,6 +9,7 @@ daml 1.2
 module LibraryModules where
 
 import DA.Action
+import DA.Action.State
 import DA.Assert
 import DA.Bifunctor
 import DA.Date
