@@ -68,7 +68,7 @@ object Ledger {
 
   case class ScenarioTransactionId(index: Int) extends Ordered[ScenarioTransactionId] {
     def next: ScenarioTransactionId = ScenarioTransactionId(index + 1)
-    val id: TransactionIdString = TransactionIdString.assertFromString(index.toString)
+    val id: TransactionIdString = TransactionIdString.fromLong(index.toLong)
     override def compare(that: ScenarioTransactionId): Int = index compare that.index
     def makeCommitPrefix: LedgerString = LedgerString.concat(id, `:`)
   }
@@ -123,10 +123,11 @@ object Ledger {
       roots: ImmArray[ScenarioNodeId],
       nodes: Map[ScenarioNodeId, Node],
       explicitDisclosure: Relation[ScenarioNodeId, Party],
-      implicitDisclosure: Relation[ScenarioNodeId, Party],
+      localImplicitDisclosure: Relation[ScenarioNodeId, Party],
+      globalImplicitDisclosure: Relation[AbsoluteContractId, Party],
       failedAuthorizations: FailedAuthorizations
   ) {
-    def disclosures = Relation.union(explicitDisclosure, implicitDisclosure)
+    def disclosures = Relation.union(explicitDisclosure, localImplicitDisclosure)
   }
 
   final case class EnrichedTransaction(
@@ -157,34 +158,25 @@ object Ledger {
       commitPrefix: LedgerString,
       committer: Party,
       effectiveAt: Time.Timestamp,
-      enrichedTx: EnrichedTransaction): RichTransaction = {
-    RichTransaction(
-      committer = committer,
-      effectiveAt = effectiveAt,
-      roots = enrichedTx.roots.map(ScenarioNodeId(commitPrefix, _)),
-      nodes = enrichedTx.nodes.map {
-        case (nodeId, node) =>
-          (ScenarioNodeId(commitPrefix, nodeId), translateNode(commitPrefix, node))
-      },
-      explicitDisclosure = enrichedTx.explicitDisclosure.map {
-        case (nodeId, ps) =>
-          (ScenarioNodeId(commitPrefix, nodeId), ps)
-      },
-      implicitDisclosure = {
-        val localDiv: Relation[ScenarioNodeId, Party] =
-          enrichedTx.localImplicitDisclosure.map {
-            case (nodeId, ps) =>
-              (ScenarioNodeId(commitPrefix, nodeId), ps)
-          }
-        val globalDiv: Relation[ScenarioNodeId, Party] =
-          enrichedTx.globalImplicitDisclosure.map {
-            case (absCoid, ps) => (ScenarioNodeId(absCoid), ps)
-          }
-        Relation.union(localDiv, globalDiv)
-      },
-      failedAuthorizations = enrichedTx.failedAuthorizations
-    )
-  }
+      enrichedTx: EnrichedTransaction): RichTransaction = RichTransaction(
+    committer = committer,
+    effectiveAt = effectiveAt,
+    roots = enrichedTx.roots.map(ScenarioNodeId(commitPrefix, _)),
+    nodes = enrichedTx.nodes.map {
+      case (nodeId, node) =>
+        (ScenarioNodeId(commitPrefix, nodeId), translateNode(commitPrefix, node))
+    },
+    explicitDisclosure = enrichedTx.explicitDisclosure.map {
+      case (nodeId, ps) =>
+        (ScenarioNodeId(commitPrefix, nodeId), ps)
+    },
+    localImplicitDisclosure = enrichedTx.localImplicitDisclosure.map {
+      case (nodeId, ps) =>
+        (ScenarioNodeId(commitPrefix, nodeId), ps)
+    },
+    globalImplicitDisclosure = enrichedTx.globalImplicitDisclosure,
+    failedAuthorizations = enrichedTx.failedAuthorizations
+  )
 
   /**
     * Translate a node of the update interpreter transaction to a node of the sandbox ledger
@@ -1190,7 +1182,7 @@ object Ledger {
     mbCacheAfterProcess.map(
       cacheAfterProcess =>
         Relation
-          .union(richTr.implicitDisclosure, richTr.explicitDisclosure)
+          .union(richTr.localImplicitDisclosure, richTr.explicitDisclosure)
           .foldLeft(cacheAfterProcess) {
             case (cacheP, (nodeId, witnesses)) =>
               cacheP.updateNodeInfo(nodeId)(_.addObservers(witnesses.map(_ -> trId).toMap))

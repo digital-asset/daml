@@ -22,7 +22,6 @@ import com.digitalasset.daml.lf.transaction.VersionTimeline
 
 import scala.collection.breakOut
 import scala.collection.mutable.ArrayBuffer
-import scalaz.syntax.std.map._
 
 import scala.annotation.tailrec
 
@@ -232,34 +231,32 @@ object ScenarioLoader {
             }
         }
 
-        val transactionId = Ref.LedgerString.concat(transactionIdPrefix, txId.id)
+        val transactionId = txId.id
         val workflowId =
           Some(Ref.LedgerString.concat(workflowIdPrefix, Ref.LedgerString.fromInt(stepId)))
-        // note that it's important that we keep the event ids in line with the contract ids, since
-        // the sandbox code assumes that in TransactionConversion.
         val txNoHash = GenTransaction(richTransaction.nodes, richTransaction.roots, Set.empty)
-        val tx = txNoHash.mapContractIdAndValue(absCidWithHash, _.mapContractId(absCidWithHash))
-        import richTransaction.{explicitDisclosure, implicitDisclosure}
+        val tx = txNoHash
+          .mapContractIdAndValue(absCidWithHash, _.mapContractId(absCidWithHash))
+          .mapNodeId(nodeIdWithHash)
+        val mappedExplicitDisclosure = richTransaction.explicitDisclosure.map {
+          case (nid, parties) => nodeIdWithHash(nid) -> parties
+        }
+        val mappedLocalImplicitDisclosure = richTransaction.localImplicitDisclosure.map {
+          case (nid, parties) => nodeIdWithHash(nid) -> parties
+        }
         // copies non-absolute-able node IDs, but IDs that don't match
         // get intersected away later
-        val globalizedImplicitDisclosure = richTransaction.implicitDisclosure mapKeys { nid =>
-          absCidWithHash(AbsoluteContractId(nid))
-        }
         acs.addTransaction(
           time.toInstant,
           transactionId,
           workflowId,
           tx,
-          explicitDisclosure,
-          implicitDisclosure,
-          globalizedImplicitDisclosure,
-          List.empty) match {
+          mappedExplicitDisclosure,
+          mappedLocalImplicitDisclosure,
+          richTransaction.globalImplicitDisclosure,
+          List.empty
+        ) match {
           case Right(newAcs) =>
-            val recordTx = tx.mapNodeId(nodeIdWithHash)
-            val recordDisclosure = explicitDisclosure.map {
-              case (nid, parties) => (nodeIdWithHash(nid), parties)
-            }
-
             ledger +=
               (
                 (
@@ -272,8 +269,8 @@ object ScenarioLoader {
                     workflowId,
                     time.toInstant,
                     time.toInstant,
-                    recordTx,
-                    recordDisclosure
+                    tx,
+                    mappedExplicitDisclosure
                   )))
             (newAcs, time, Some(txId))
           case Left(err) =>
