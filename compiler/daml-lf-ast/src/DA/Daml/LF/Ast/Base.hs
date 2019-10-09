@@ -13,7 +13,6 @@ module DA.Daml.LF.Ast.Base(
 
 import Data.Hashable
 import Data.Data
-import Numeric.Natural
 import GHC.Generics(Generic)
 import Data.Int
 import           Control.DeepSeq
@@ -26,6 +25,7 @@ import qualified Control.Lens.TH as Lens.TH
 
 import DA.Daml.LF.Ast.Version
 import DA.Daml.LF.Ast.Numeric
+import DA.Daml.LF.Ast.TypeLevelNat
 
 infixr 1 `KArrow`
 
@@ -179,7 +179,7 @@ data Type
   -- fields and their types.
   | TTuple      ![(FieldName, Type)]
   -- | Type-level natural numbers
-  | TNat !Natural
+  | TNat !TypeLevelNat
   deriving (Eq, Data, Generic, NFData, Ord, Show)
 
 -- | Fully applied qualified type constructor.

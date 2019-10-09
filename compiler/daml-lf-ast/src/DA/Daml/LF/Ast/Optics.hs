@@ -18,7 +18,6 @@ module DA.Daml.LF.Ast.Optics(
     builtinType
     ) where
 
-import Numeric.Natural
 import Control.Lens
 import Control.Lens.Ast
 import Control.Lens.MonoTraversal
@@ -26,6 +25,7 @@ import Data.Functor.Foldable (cata, embed)
 import qualified Data.NameMap as NM
 
 import DA.Daml.LF.Ast.Base
+import DA.Daml.LF.Ast.TypeLevelNat
 import DA.Daml.LF.Ast.Recursive
 import DA.Daml.LF.Ast.Version (Version)
 
@@ -140,7 +140,7 @@ instance MonoTraversable ModuleRef BuiltinExpr where monoTraverse _ = pure
 -- discussion
 instance MonoTraversable ModuleRef SourceLoc where monoTraverse _ = pure
 
-instance MonoTraversable ModuleRef Natural where monoTraverse _ = pure
+instance MonoTraversable ModuleRef TypeLevelNat where monoTraverse _ = pure
 
 instance MonoTraversable ModuleRef TypeConApp
 instance MonoTraversable ModuleRef Type

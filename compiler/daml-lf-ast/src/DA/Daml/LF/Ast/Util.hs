@@ -15,6 +15,7 @@ import           Data.List.Extra (nubSort)
 import qualified Data.NameMap as NM
 
 import DA.Daml.LF.Ast.Base
+import DA.Daml.LF.Ast.TypeLevelNat
 import DA.Daml.LF.Ast.Optics
 import DA.Daml.LF.Ast.Recursive
 
@@ -153,12 +154,13 @@ infixr 1 :->
 pattern (:->) :: Type -> Type -> Type
 pattern a :-> b = TArrow `TApp` a `TApp` b
 
-pattern TUnit, TBool, TInt64, TDecimal, TText, TTimestamp, TParty, TDate, TArrow, TNumeric10, TAny :: Type
+pattern TUnit, TBool, TInt64, TDecimal, TText, TTimestamp, TParty, TDate, TArrow, TNumeric10, TAny, TNat10 :: Type
 pattern TUnit       = TBuiltin BTUnit
 pattern TBool       = TBuiltin BTBool
 pattern TInt64      = TBuiltin BTInt64
 pattern TDecimal    = TBuiltin BTDecimal -- legacy decimal (LF version <= 1.6)
-pattern TNumeric10  = TNumeric (TNat 10) -- new decimal
+pattern TNumeric10  = TNumeric TNat10 -- new decimal
+pattern TNat10      = TNat TypeLevelNat10
 pattern TText       = TBuiltin BTText
 pattern TTimestamp  = TBuiltin BTTimestamp
 pattern TParty      = TBuiltin BTParty

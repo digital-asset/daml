@@ -223,8 +223,7 @@ encodeType' typ = fmap (P.Type . Just) $ case typ ^. _TApps of
         pure $ P.TypeSumTuple P.Type_Tuple{..}
 
     (TNat n, _) ->
-        pure $ P.TypeSumNat (fromIntegral n)
-        -- TODO (#2289): determine if some bounds check should be made here
+        pure $ P.TypeSumNat (fromTypeLevelNat n)
 
     (TApp{}, _) -> error "TApp after unwinding TApp"
     -- NOTE(MH): The following case is ill-kinded.
