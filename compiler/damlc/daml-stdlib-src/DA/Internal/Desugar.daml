@@ -11,7 +11,7 @@ module DA.Internal.Desugar (
     Eq(..), Show(..),
     Bool(..), Text, Optional,
     concat, magic,
-    Party, ContractId, Update, AnyTemplate
+    Party, ContractId, Update, AnyTemplate, AnyChoice
 ) where
 
 import DA.Internal.Prelude

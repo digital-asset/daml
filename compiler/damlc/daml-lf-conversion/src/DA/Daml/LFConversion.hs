@@ -338,6 +338,7 @@ convertGenericTemplate env x
                     , ETmApp $ mkETyApps (EBuiltin BECoerceContractId) [monoType, polyType]
                     , ETmApp $ mkETyApps (EBuiltin BECoerceContractId) [polyType, monoType]
                     )
+        stdlibRef <- packageNameToPkgRef env damlStdlib
         let tplTypeCon = qualObject monoTyCon
         let tplParam = this
         let applyThis e = ETmApp e $ unwrapTpl $ EVar this
@@ -374,7 +375,7 @@ convertGenericTemplate env x
                         pure (Just $ TemplateKey keyType (applyThis key) (ETmApp maintainers hasKey), [hasKey, key, maintainers, fetchByKey, lookupByKey], choices)
                 choices -> pure (Nothing, [], choices)
         let convertGenericChoice :: [Var] -> ConvertM (TemplateChoice, [LF.Expr])
-            convertGenericChoice [consumption, controllers, action, _exercise] = do
+            convertGenericChoice [consumption, controllers, action, _exercise, _toAnyChoice, _fromAnyChoice] = do
                 (argType, argTCon, resType) <- convertType env (varType action) >>= \case
                     TContractId _ :-> _ :-> argType@(TConApp argTCon _) :-> TUpdate resType -> pure (argType, argTCon, resType)
                     t -> unhandled "Choice action type" (varType action)
@@ -405,9 +406,31 @@ convertGenericTemplate env x
                 let exercise =
                         mkETmLams [(self, TContractId polyType), (arg, argType)] $
                           EUpdate $ UExercise monoTyCon chcName (wrapCid $ EVar self) Nothing (EVar arg)
-                pure (TemplateChoice{..}, [consumption, controllers, action, exercise])
+                let anyChoiceTy = TypeConApp (Qualified stdlibRef (mkModName ["DA", "Internal", "LF"]) (mkTypeCon ["AnyChoice"])) []
+                let anyChoiceField = mkField "getAnyChoice"
+                let toAnyChoice =
+                        if envLfVersion env `supports` featureAnyType
+                          then ETyLam
+                                 (mkTypeVar "proxy", KArrow KStar KStar)
+                                 (ETmLam
+                                    (mkVar "_", TApp (TVar $ mkTypeVar "proxy") polyType)
+                                    (ETmLam chcArgBinder $ ERecCon anyChoiceTy [(anyChoiceField, EToAny argType $ EVar arg)]))
+                          else EBuiltin BEError `ETyApp`
+                               (TForall (mkTypeVar "proxy", KArrow KStar KStar) (TApp (TVar $ mkTypeVar "proxy") polyType :-> argType :-> typeConAppToType anyChoiceTy)) `ETmApp`
+                               EBuiltin (BEText "toAnyChoice is not supported in this DAML-LF version")
+                let fromAnyChoice =
+                        if envLfVersion env `supports` featureAnyType
+                          then ETyLam
+                                 (mkTypeVar "proxy", KArrow KStar KStar)
+                                 (ETmLam
+                                    (mkVar "_", TApp (TVar $ mkTypeVar "proxy") polyType)
+                                    (ETmLam (mkVar "any", typeConAppToType anyChoiceTy) $ EFromAny argType $ ERecProj anyChoiceTy anyChoiceField $ EVar $ mkVar "any"))
+                          else EBuiltin BEError `ETyApp`
+                               (TForall (mkTypeVar "proxy", KArrow KStar KStar) (TApp (TVar $ mkTypeVar "proxy") polyType :-> typeConAppToType anyChoiceTy :-> TOptional argType)) `ETmApp`
+                               EBuiltin (BEText "toAnyChoice is not supported in this DAML-LF version")
+                pure (TemplateChoice{..}, [consumption, controllers, action, exercise, toAnyChoice, fromAnyChoice])
             convertGenericChoice es = unhandled "generic choice" es
-        (tplChoices, choices) <- first NM.fromList . unzip <$> mapM convertGenericChoice (chunksOf 4 choices)
+        (tplChoices, choices) <- first NM.fromList . unzip <$> mapM convertGenericChoice (chunksOf 6 choices)
         superClassDicts <- mapM (convertExpr env . Var) superClassDicts
         signatories <- convertExpr env (Var signatories)
         observers <- convertExpr env (Var observers)
@@ -415,18 +438,20 @@ convertGenericTemplate env x
         agreement <- convertExpr env (Var agreement)
         let create = ETmLam (this, polyType) $ EUpdate $ UBind (Binding (self, TContractId monoType) $ EUpdate $ UCreate monoTyCon $ wrapTpl $ EVar this) $ EUpdate $ UPure (TContractId polyType) $ unwrapCid $ EVar self
         let fetch = ETmLam (self, TContractId polyType) $ EUpdate $ UBind (Binding (this, monoType) $ EUpdate $ UFetch monoTyCon $ wrapCid $ EVar self) $ EUpdate $ UPure polyType $ unwrapTpl $ EVar this
+        let anyTemplateTy = TypeConApp (Qualified stdlibRef (mkModName ["DA", "Internal", "LF"]) (mkTypeCon ["AnyTemplate"])) []
+        let anyTemplateField = mkField "getAnyTemplate"
         let toAnyTemplate =
                 if envLfVersion env `supports` featureAnyType
-                  then ETmLam (this, polyType) $ EToAny (TCon monoTyCon) (wrapTpl $ EVar this)
-                  else EBuiltin BEError `ETyApp` (polyType :-> TUnit) `ETmApp` EBuiltin (BEText "toAnyTemplate is not supported in this DAML-LF version")
+                  then ETmLam (this, polyType) $ ERecCon anyTemplateTy [(anyTemplateField, EToAny (TCon monoTyCon) (wrapTpl $ EVar this))]
+                  else EBuiltin BEError `ETyApp` (polyType :-> typeConAppToType anyTemplateTy) `ETmApp` EBuiltin (BEText "toAnyTemplate is not supported in this DAML-LF version")
         let fromAnyTemplate =
                 if envLfVersion env `supports` featureAnyType
-                    then ETmLam (anyTpl, TAny) $
-                         ECase (EFromAny (TCon monoTyCon) (EVar anyTpl))
+                    then ETmLam (anyTpl, typeConAppToType anyTemplateTy) $
+                         ECase (EFromAny (TCon monoTyCon) (ERecProj anyTemplateTy anyTemplateField (EVar anyTpl)))
                              [ CaseAlternative CPNone $ ENone polyType
                              , CaseAlternative (CPSome self) $ ESome polyType $ unwrapTpl $ EVar self
                              ]
-                    else EBuiltin BEError `ETyApp` (TUnit :-> TOptional polyType) `ETmApp` EBuiltin (BEText "fromAnyTemplate is not supported in this DAML-LF version")
+                    else EBuiltin BEError `ETyApp` (typeConAppToType anyTemplateTy :-> TOptional polyType) `ETmApp` EBuiltin (BEText "fromAnyTemplate is not supported in this DAML-LF version")
         tyArgs <- mapM (convertType env) tyArgs
         -- NOTE(MH): The additional lambda is DICTIONARY SANITIZATION step (3).
         let tmArgs = map (ETmLam (mkVar "_", TUnit)) $ superClassDicts ++ [signatories, observers, ensure, agreement, create, fetch, archive, toAnyTemplate, fromAnyTemplate] ++ key ++ concat choices
@@ -549,7 +574,7 @@ convertBind env (name, x)
     --
     -- TODO(MH): The check is an approximation which will fail when users
     -- start the name of their own methods with, say, `_exercise`.
-    | any (`T.isPrefixOf` getOccText name) [ "$" <> prefix <> "_" <> method | prefix <- ["dm", "c"], method <- ["create", "fetch", "exercise", "toAnyTemplate", "fromAnyTemplate", "fetchByKey", "lookupByKey"] ]
+    | any (`T.isPrefixOf` getOccText name) [ "$" <> prefix <> "_" <> method | prefix <- ["dm", "c"], method <- ["create", "fetch", "exercise", "toAnyTemplate", "fromAnyTemplate", "fetchByKey", "lookupByKey", "toAnyChoice", "fromAnyChoice"] ]
     = pure []
     -- NOTE(MH): Our inline return type syntax produces a local letrec for
     -- recursive functions. We currently don't support local letrecs.
@@ -584,7 +609,7 @@ convertBind env (name, x)
 -- during conversion to DAML-LF together with their constructors since we
 -- deliberately remove 'GHC.Types.Opaque' as well.
 internalTypes :: UniqSet FastString
-internalTypes = mkUniqSet ["Scenario","Update","ContractId","Time","Date","Party","Pair", "TextMap", "AnyTemplate"]
+internalTypes = mkUniqSet ["Scenario","Update","ContractId","Time","Date","Party","Pair", "TextMap", "Any"]
 
 internalFunctions :: UniqFM (UniqSet FastString)
 internalFunctions = listToUFM $ map (bimap mkModuleNameFS mkUniqSet)
@@ -1205,7 +1230,7 @@ convertTyCon env t
             "Date" -> pure TDate
             "Time" -> pure TTimestamp
             "TextMap" -> pure (TBuiltin BTMap)
-            "AnyTemplate" ->
+            "Any" ->
                 -- We just translate this to TUnit when it is not supported.
                 -- We can’t get rid of it completely since the template desugaring uses
                 -- this and we do not want to make that dependent on the DAML-LF version.

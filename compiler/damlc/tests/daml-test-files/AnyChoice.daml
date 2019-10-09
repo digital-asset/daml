@@ -1,0 +1,60 @@
+-- Copyright (c) 2019, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- @SINCE-LF 1.7
+daml 1.2 module AnyTemplate where
+
+import DA.Assert
+
+template T1
+  with
+    x : Int
+    p : Party
+  where
+    signatory p
+    choice C1 : ()
+      controller p
+      do pure ()
+    choice C1' : ()
+      controller p
+      do pure ()
+
+template T2
+  with
+    y : Text
+    p : Party
+  where
+    signatory p
+    choice C2 : ()
+      controller p
+      do pure ()
+
+template Template t => GenericT t
+  with
+    wrapped : t
+    p : Party
+  where
+    signatory p
+    choice CT : ()
+      with v : t
+      controller p
+      do pure ()
+
+template instance GT1 = GenericT T1
+template instance GT2 = GenericT T2
+
+main = scenario do
+  p <- getParty "alice"
+  let c1 = C1
+  let c1' = C1'
+  let c2 = C2
+  let ct1 = CT (T1 0 p)
+  let ct2 = CT (T2 "" p)
+  x <- pure $ toAnyChoice @T1 @C1 c1
+  fromAnyChoice @T1 @C1 (toAnyChoice @T1 c1) === Some c1
+  fromAnyChoice @T1 @C1' (toAnyChoice @T1 c1) === None
+  fromAnyChoice @T2 @C2 (toAnyChoice @T2 c2) === Some c2
+  fromAnyChoice @GT1 @(CT T1) (toAnyChoice @GT1 ct1) === Some ct1
+  fromAnyChoice @GT2 @(CT T2) (toAnyChoice @GT1 ct1) === None
+  fromAnyChoice @GT2 @(CT T2) (toAnyChoice @GT2 ct2) === Some ct2
+  fromAnyChoice @GT1 @(CT T1) (toAnyChoice @GT2 ct2) === None

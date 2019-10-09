@@ -3,6 +3,7 @@
 
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 daml 1.2
 -- | MOVE Prelude DAML-LF primitives, just templates/contracts
@@ -50,6 +51,14 @@ stakeholder t = signatory t ++ observer t
 class Template t => Choice t c r | t c -> r where
   -- | Exercise a choice on the contract with the given contract ID.
   exercise : ContractId t -> c -> Update r
+  _toAnyChoice : proxy t -> c -> AnyChoice
+  _fromAnyChoice : proxy t -> AnyChoice -> Optional c
+
+toAnyChoice : forall t c r. Choice t c r => c -> AnyChoice
+toAnyChoice = _toAnyChoice ([] : [t])
+
+fromAnyChoice : forall t c r. Choice t c r => AnyChoice -> Optional c
+fromAnyChoice = _fromAnyChoice ([] : [t])
 
 class Template t => TemplateKey t k | t -> k where
   -- | The key of a contract.
