@@ -52,7 +52,6 @@ def daml_deps():
                 "@com_github_digital_asset_daml//bazel_tools:haskell_public_ghci_repl_wrapper.patch",
                 "@com_github_digital_asset_daml//bazel_tools:haskell-no-isystem.patch",
                 "@com_github_digital_asset_daml//bazel_tools:haskell-opt.patch",
-                "@com_github_digital_asset_daml//bazel_tools:rules-haskell-debug.patch",
             ],
             patch_args = ["-p1"],
             sha256 = rules_haskell_sha256,
