@@ -724,9 +724,6 @@ built-in function ``F`` comes with a fixed type, which we will denote
 as ``𝕋(F)``. See the `Built-in functions`_ section for the complete
 list of built-in functions and their respective types.
 
-Equality on types is defined as structural equality and is only defined on
-ground-types, i.e., well-formed types in the type context ``ε``.
-
 
 Well-formed types
 .................
