@@ -33,6 +33,22 @@ object DefDataType {
 
   implicit val `DDT bitraverse`: Bitraverse[DefDataType] =
     new Bitraverse[DefDataType] {
+
+//      @tailrec
+//      private def bitraverseLoop[G[_]: Applicative, A, B, C, D](
+//          fab: DefDataType[A, B],
+//          f: A => G[C],
+//          g: B => G[D],
+//          acc: G[DefDataType[C, D]]): G[DefDataType[C, D]] = fab.dataType match {
+//
+//
+//      }
+
+
+      override def bimap[A, B, C, D](fab: DefDataType[A, B])(f: A => C, g: B => D): DefDataType[C, D] = {
+        DefDataType(fab.typeVars, Bifunctor[DataType].bimap(fab.dataType)(f,g))
+      }
+
       override def bitraverseImpl[G[_]: Applicative, A, B, C, D](
           fab: DefDataType[A, B])(f: A => G[C], g: B => G[D]): G[DefDataType[C, D]] = {
         Applicative[G].map(Bitraverse[DataType].bitraverse(fab.dataType)(f)(g))(dataTyp =>
@@ -59,6 +75,16 @@ object DataType {
   // no risk of confusion.
   implicit val `DT bitraverse`: Bitraverse[DataType] =
     new Bitraverse[DataType] {
+
+      override def bimap[A, B, C, D](fab: DataType[A, B])(f: A => C, g: B => D): DataType[C, D] = fab match {
+        case r @ Record(_) =>
+          Functor[Record].map(r)(f).widen
+        case v @ Variant(_) =>
+          Functor[Variant].map(v)(g).widen
+        case e @ Enum(_) =>
+          e
+      }
+
       override def bitraverseImpl[G[_]: Applicative, A, B, C, D](
           fab: DataType[A, B])(f: A => G[C], g: B => G[D]): G[DataType[C, D]] =
         fab match {
@@ -89,6 +115,10 @@ final case class Record[+RT](fields: ImmArraySeq[(Ref.Name, RT)])
 object Record extends FWTLike[Record] {
   implicit val `R traverse`: Traverse[Record] =
     new Traverse[Record] {
+
+      override def map[A, B](fa: Record[A])(f: A => B): Record[B] =
+        Record(fa.fields map (_ map f))
+
       override def traverseImpl[G[_]: Applicative, A, B](fa: Record[A])(
           f: A => G[B]): G[Record[B]] =
         Applicative[G].map(fa.fields traverse (_ traverse f))(bs => fa.copy(fields = bs))
@@ -107,6 +137,10 @@ final case class Variant[+VT](fields: ImmArraySeq[(Ref.Name, VT)])
 object Variant extends FWTLike[Variant] {
   implicit val `V traverse`: Traverse[Variant] =
     new Traverse[Variant] {
+
+      override def map[A, B](fa: Variant[A])(f: A => B): Variant[B] =
+        Variant(fa.fields map (_ map f))
+
       override def traverseImpl[G[_]: Applicative, A, B](fa: Variant[A])(
           f: A => G[B]): G[Variant[B]] =
         Applicative[G].map(fa.fields traverse (_ traverse f))(bs => fa.copy(fields = bs))
