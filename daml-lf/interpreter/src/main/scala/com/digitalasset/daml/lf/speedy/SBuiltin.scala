@@ -1250,29 +1250,26 @@ object SBuiltin {
       throw DamlEUserError(args.get(0).asInstanceOf[SText].value)
   }
 
-  /** $to_any_template
-    *    :: arg (template argument)
-    *    -> AnyTemplate
+  /** $to_any
+    *    :: t
+    *    -> Any (where t = ty)
     */
-  final case object SBToAnyTemplate extends SBuiltin(1) {
+  final case class SBToAny(ty: Type) extends SBuiltin(1) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
-      machine.ctrl = CtrlValue(args.get(0) match {
-        case r @ SRecord(_, _, _) => SAnyTemplate(r)
-        case v => crash(s"ToAnyTemplate on non-record: $v")
-      })
+      machine.ctrl = CtrlValue(SAny(ty, args.get(0)))
     }
   }
 
-  /** $from_any_template
-    *    :: AnyTemplate
-    *    -> Optional t (where t = TTyCon(expectedTemplateId))
+  /** $from_any
+    *    :: Any
+    *    -> Optional t (where t = expectedType)
     */
-  final case class SBFromAnyTemplate(expectedTemplateId: TypeConName) extends SBuiltin(1) {
+  final case class SBFromAny(expectedTy: Type) extends SBuiltin(1) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       machine.ctrl = CtrlValue(args.get(0) match {
-        case SAnyTemplate(r @ SRecord(actualTemplateId, _, _)) =>
-          SOptional(if (actualTemplateId == expectedTemplateId) Some(r) else None)
-        case v => crash(s"FromAnyTemplate applied to non-AnyTemplate: $v")
+        case SAny(actualTy, v) =>
+          SOptional(if (actualTy == expectedTy) Some(v) else None)
+        case v => crash(s"FromAny applied to non-Any: $v")
       })
     }
   }

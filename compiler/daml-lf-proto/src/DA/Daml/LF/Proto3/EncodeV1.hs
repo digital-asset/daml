@@ -197,7 +197,7 @@ encodeBuiltinType = P.Enumerated . Right . \case
     BTMap -> P.PrimTypeMAP
     BTArrow -> P.PrimTypeARROW
     BTNumeric -> P.PrimTypeNUMERIC
-    BTAnyTemplate -> P.PrimTypeANY
+    BTAny -> P.PrimTypeANY
 
 encodeType' :: Type -> Encode P.Type
 encodeType' typ = fmap (P.Type . Just) $ case typ ^. _TApps of
@@ -486,12 +486,12 @@ encodeExpr' = \case
         expr_OptionalSomeType <- encodeType typ
         expr_OptionalSomeBody <- encodeExpr body
         pureExpr $ P.ExprSumOptionalSome P.Expr_OptionalSome{..}
-    EToAnyTemplate tpl body -> do
-        expr_ToAnyType <- encodeType (TCon tpl)
+    EToAny ty body -> do
+        expr_ToAnyType <- encodeType ty
         expr_ToAnyExpr <- encodeExpr body
         pureExpr $ P.ExprSumToAny P.Expr_ToAny{..}
-    EFromAnyTemplate tpl body -> do
-        expr_FromAnyType <- encodeType (TCon tpl)
+    EFromAny ty body -> do
+        expr_FromAnyType <- encodeType ty
         expr_FromAnyExpr <- encodeExpr body
         pureExpr $ P.ExprSumFromAny P.Expr_FromAny{..}
     EToTextTemplateId tpl -> do

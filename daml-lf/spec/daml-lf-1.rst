@@ -237,9 +237,9 @@ Version: 1.dev
 
   * **Drop** support for Decimal type. Use Numeric of scale 10 instead.
 
-  * **Add** existential ``AnyTemplate`` type and
-    ``from_any_template`` and ``to_any_template`` functions to convert from/to
-    an arbitrary template to ``AnyTemplate``.
+  * **Add** existential ``Any`` type and
+    ``from_any`` and ``to_any`` functions to convert from/to
+    an arbitrary ground type (i.e. a type with no free type variables) to ``Any``.
 
   * **Add** ``to_text_template_id`` to generate a unique textual representation
     of a template Id.
@@ -539,7 +539,7 @@ Then we can define our kinds, types, and expressions::
        |  'Map'                                     -- BTMap
        |  'Update'                                  -- BTyUpdate
        |  'ContractId'                              -- BTyContractId
-       |  'AnyTemplate'                             –- BTyAnyTemplate
+       |  'Any'                                     –- BTyAny
 
   Types (mnemonic: tau for type)
     τ, σ
@@ -584,8 +584,8 @@ Then we can define our kinds, types, and expressions::
        |  e.f                                       -- ExpTupleProj: Tuple projection
        |  ⟨ e₁ 'with' f = e₂ ⟩                      -- ExpTupleUpdate: Tuple update
        |  u                                         -- ExpUpdate: Update expression
-       | 'to_any_template' @Mod:T t                 -- ExpToAnyTemplate: Wrap a template in AnyTemplate
-       | 'from_any_template' @Mod:T t               -- ExpToAnyTemplate: Extract the given template from AnyTemplate or return None
+       | 'to_any' @τ t                              -- ExpToAny: Wrap a value of the given type in Any
+       | 'from_any' @τ t                            -- ExpToAny: Extract a value of the given from Any or return None
        | 'to_text_template_id' @Mod:T               -- ExpToTextTemplateId: Generate a unique textual representation of the given TypeConName
 
   Patterns
@@ -724,6 +724,9 @@ built-in function ``F`` comes with a fixed type, which we will denote
 as ``𝕋(F)``. See the `Built-in functions`_ section for the complete
 list of built-in functions and their respective types.
 
+Equality on types is defined as structural equalityt and is only defined on
+ground-types, i.e., well-formed types in the type context ``ε``.
+
 
 Well-formed types
 .................
@@ -800,8 +803,8 @@ First, we formally defined *well-formed types*. ::
     ————————————————————————————————————————————— TyContractId
       Γ  ⊢  'ContractId' : ⋆  → ⋆
 
-    ————————————————————————————————————————————— TyAnyTemplate
-      Γ  ⊢  'AnyTemplate' : ⋆
+    ————————————————————————————————————————————— TyAny
+      Γ  ⊢  'Any' : ⋆
 
       'record' T (α₁:k₁) … (αₙ:kₙ) ↦ … ∈ 〚Ξ〛Mod
     ————————————————————————————————————————————— TyRecordCon
@@ -879,13 +882,13 @@ Then we define *well-formed expressions*. ::
     ——————————————————————————————————————————————————————————————— ExpOptionSome
       Γ  ⊢  'Some' @τ e  :  'Option' τ
 
-      'tpl' (x : T) ↦ …  ∈  〚Ξ〛Mod       Γ  ⊢  e  : Mod:T
-    ——————————————————————————————————————————————————————————————— ExpToAnyTemplate
-      Γ  ⊢  'to_any_template' @Mod:T e  :  'AnyTemplate'
+      ε ⊢ τ : *     Γ  ⊢  e  : τ
+    ——————————————————————————————————————————————————————————————— ExpToAny
+      Γ  ⊢  'to_any' @τ e  :  'Any'
 
-      'tpl' (x : T) ↦ …  ∈  〚Ξ〛Mod       Γ  ⊢  e  : AnyTemplate
-    ——————————————————————————————————————————————————————————————— ExpFromAnyTemplate
-      Γ  ⊢  'from_any_template' @Mod:T e  :  'Optional' Mod:T
+      ε ⊢ τ : *     Γ  ⊢  e  : Any
+    ——————————————————————————————————————————————————————————————— ExpFromAny
+      Γ  ⊢  'from_any' @τ e  :  'Optional' τ
 
       'tpl' (x : T) ↦ …  ∈  〚Ξ〛Mod
     ——————————————————————————————————————————————————————————————— ExpToTextTemplateId
@@ -1500,8 +1503,8 @@ need to be evaluated further. ::
 
 
      ⊢ᵥ  e
-   ——————————————————————————————————————————————————— ValExpToAnyTemplate
-     ⊢ᵥ  'to_any_template' @Mod:T e
+   ——————————————————————————————————————————————————— ValExpToAny
+     ⊢ᵥ  'to_any' @τ e
 
      ⊢ᵥ  e
    ——————————————————————————————————————————————————— ValExpUpdPure
@@ -1662,16 +1665,16 @@ exact output.
       'let' x : τ = e₁ 'in' e₂ ‖ E₀  ⇓  r ‖ E₂
 
       e ‖ E₀  ⇓  Ok v ‖ E₁
-    —————————————————————————————————————————————————————————————————————— EvExpToAnyTemplate
-      'to_any_template' @Mod:T e ‖ E₀  ⇓  Ok('to_any_template' @Mod:T v) ‖ E₁
+    —————————————————————————————————————————————————————————————————————— EvExpToAny
+      'to_any' @τ e ‖ E₀  ⇓  Ok('to_any' @τ v) ‖ E₁
 
-      e ‖ E₀  ⇓  Ok ('to_any_template' @Mod:T v) ‖ E₁
-    —————————————————————————————————————————————————————————————————————— EvExpFromAnyTemplateSucc
-      'from_any_template' @Mod:T e ‖ E₀  ⇓  'Some' @Mod:T v ‖ E₁
+      e ‖ E₀  ⇓  Ok ('to_any' @τ v) ‖ E₁
+    —————————————————————————————————————————————————————————————————————— EvExpFromAnySucc
+      'from_any' @τ e ‖ E₀  ⇓  'Some' @τ v ‖ E₁
 
-      e ‖ E₀  ⇓  Ok ('to_any_template' @Mod₂:T₂ v) ‖ E₁     Mod₁:T₁ ≠ Mod₂:T₂
-    —————————————————————————————————————————————————————————————————————— EvExpFromAnyTemplateFail
-      'from_any_template' @Mod₁:T₁ e ‖ E₀  ⇓  'None' ‖ E₁
+      e ‖ E₀  ⇓  Ok ('to_any' @τ₁ v) ‖ E₁     τ₁ ≠ τ₂
+    —————————————————————————————————————————————————————————————————————— EvExpFromAnyFail
+      'from_any' @τ₂ e ‖ E₀  ⇓  'None' ‖ E₁
 
 
     —————————————————————————————————————————————————————————————————————— EvExpToTextTemplateId

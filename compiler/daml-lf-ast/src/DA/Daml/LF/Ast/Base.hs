@@ -154,7 +154,7 @@ data BuiltinType
   | BTOptional
   | BTMap
   | BTArrow
-  | BTAnyTemplate
+  | BTAny
   deriving (Eq, Data, Generic, NFData, Ord, Show)
 
 -- | Type as used in typed binders.
@@ -440,13 +440,13 @@ data Expr
   | ENone
     { noneType :: !Type
     }
-  | EToAnyTemplate
-    { toAnyTemplateTemplate :: !(Qualified TypeConName)
-    , toAnyTemplateBody :: !Expr
+  | EToAny
+    { toAnyType :: !Type
+    , toAnyBody :: !Expr
     }
-  | EFromAnyTemplate
-    { fromAnyTemplateTemplate :: !(Qualified TypeConName)
-    , fromAnyTemplateBody :: !Expr
+  | EFromAny
+    { fromAnyType :: !Type
+    , fromAnyBody :: !Expr
     }
   | EToTextTemplateId
     { toTextTemplateIdTemplate :: !(Qualified TypeConName)

@@ -43,8 +43,8 @@ data ExprF expr
   | ELocationF   !SourceLoc !expr
   | ENoneF       !Type
   | ESomeF       !Type !expr
-  | EToAnyTemplateF !(Qualified TypeConName) !expr
-  | EFromAnyTemplateF !(Qualified TypeConName) !expr
+  | EToAnyF !Type !expr
+  | EFromAnyF !Type !expr
   | EToTextTemplateIdF !(Qualified TypeConName)
   deriving (Foldable, Functor, Traversable)
 
@@ -175,8 +175,8 @@ instance Recursive Expr where
     ELocation   a b   -> ELocationF     a b
     ENone       a     -> ENoneF         a
     ESome       a b   -> ESomeF         a b
-    EToAnyTemplate a b  -> EToAnyTemplateF a b
-    EFromAnyTemplate a b -> EFromAnyTemplateF a b
+    EToAny a b  -> EToAnyF a b
+    EFromAny a b -> EFromAnyF a b
     EToTextTemplateId a -> EToTextTemplateIdF a
 
 instance Corecursive Expr where
@@ -205,6 +205,6 @@ instance Corecursive Expr where
     ELocationF   a b   -> ELocation a b
     ENoneF       a     -> ENone a
     ESomeF       a b   -> ESome a b
-    EToAnyTemplateF a b  -> EToAnyTemplate a b
-    EFromAnyTemplateF a b -> EFromAnyTemplate a b
+    EToAnyF a b  -> EToAny a b
+    EFromAnyF a b -> EFromAny a b
     EToTextTemplateIdF a -> EToTextTemplateId a

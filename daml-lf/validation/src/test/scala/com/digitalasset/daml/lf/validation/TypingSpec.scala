@@ -32,7 +32,7 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
         BTDate -> k"*",
         BTContractId -> k"* -> *",
         BTArrow -> k"* -> * -> *",
-        BTAnyTemplate -> k"*",
+        BTAny -> k"*",
       )
 
       forEvery(testCases) { (bType: BuiltinType, expectedKind: Kind) =>
@@ -165,12 +165,24 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
         // ExpDefault
         E"Λ (τ : ⋆) (σ : ⋆). λ (e₁ : τ) (e₂: σ) → (( case e₁ of _ → e₂ ))" ->
           T"∀ (τ : ⋆) (σ : ⋆). τ → σ → (( σ ))",
-        // ExpToAnyTemplate
-        E"""λ (t : Mod:T) -> (( to_any_template @Mod:T t ))""" ->
-          T"Mod:T -> AnyTemplate",
-        // ExpFromAnyTemplate
-        E"""λ (t: AnyTemplate) -> (( from_any_template @Mod:T t ))""" ->
-          T"AnyTemplate → Option Mod:T",
+        // ExpToAny
+        E"""λ (t : Mod:T) -> (( to_any @Mod:T t ))""" ->
+          T"Mod:T -> Any",
+        E"""λ (t : Mod:R Text) -> (( to_any @(Mod:R Text) t ))""" ->
+          T"Mod:R Text -> Any",
+        E"""λ (t : Text) -> (( to_any @Text t ))""" ->
+          T"Text -> Any",
+        E"""λ (t : Int64) -> (( to_any @Int64 t ))""" ->
+          T"Int64 -> Any",
+        // ExpFromAny
+        E"""λ (t: Any) -> (( from_any @Mod:T t ))""" ->
+          T"Any → Option Mod:T",
+        E"""λ (t: Any) -> (( from_any @(Mod:R Text) t ))""" ->
+          T"Any → Option (Mod:R Text)",
+        E"""λ (t: Any) -> (( from_any @Text t ))""" ->
+          T"Any → Option Text",
+        E"""λ (t: Any) -> (( from_any @Int64 t ))""" ->
+          T"Any → Option Int64",
         // ExpToTextTemplateId
         E"""(( to_text_template_id @Mod:T ))""" ->
           T"Text",
@@ -344,15 +356,17 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
         E"Λ (τ : ⋆). λ (e : τ) → (( case e of () → () ))",
         // ExpCaseOr
         E"Λ (τ : ⋆). λ (e : τ) → (( case e of  ))",
-        // ExpToAnyTemplate
-        E"Λ (τ : *). λ (r: Mod:R τ) -> to_any_template @Mod:R r",
-        E"Λ (τ : *). λ (t: Mod:Tree τ) -> to_any_template @Mod:Tree t",
-        E"λ (c: Color) -> to_any_template @Mod:Color c",
-        // ExpFromAnyTemplate
-        E"λ (t: AnyTemplate) -> from_any_template @Mod:R t",
-        E"λ (t: AnyTemplate) -> from_any_template @Mod:Tree t",
-        E"λ (t: AnyTemplate) -> from_any_template @Mod:Color t",
-        E"λ (t: Mod:T) -> from_any_template @Mod:T t",
+        // ExpToAny
+        E"Λ (τ : *). λ (r: Mod:R τ) -> to_any @Mod:R r",
+        E"Λ (τ : *). λ (r: Mod:R τ) -> to_any @(Mod:R τ) r",
+        E"Λ (τ : *). λ (t: Mod:Tree τ) -> to_any @Mod:Tree t",
+        E"Λ (τ : *). λ (t: Mod:Tree τ) -> to_any @(Mod:Tree τ) t",
+        // ExpFromAny
+        E"λ (t: Any) -> from_any @Mod:R t",
+        E"Λ (τ : *). λ (t: Any) -> from_any @(Mod:R τ) t",
+        E"λ (t: Any) -> from_any @Mod:Tree t",
+        E"Λ (τ : *). λ (t: Any) -> from_any @(Mod:Tree τ) t",
+        E"λ (t: Mod:T) -> from_any @Mod:T t",
         // ExpToTextTemplateId
         E"to_text_template_id @Mod:NoSuchType",
         // ScnPure

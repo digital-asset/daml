@@ -23,7 +23,7 @@ private[validation] object Typing {
   }
 
   private def kindOfBuiltin(bType: BuiltinType): Kind = bType match {
-    case BTInt64 | BTText | BTTimestamp | BTParty | BTBool | BTDate | BTUnit | BTAnyTemplate =>
+    case BTInt64 | BTText | BTTimestamp | BTParty | BTBool | BTDate | BTUnit | BTAny =>
       KStar
     case BTNumeric => KArrow(KNat, KStar)
     case BTList | BTUpdate | BTScenario | BTContractId | BTOptional | BTMap => KArrow(KStar, KStar)
@@ -726,16 +726,20 @@ private[validation] object Typing {
         checkExpr(exp, TScenario(typ))
     }
 
-    private def typeOfToAnyTemplate(tpl: TypeConName, body: Expr): Type = {
-      lookupTemplate(ctx, tpl)
-      checkExpr(body, TTyCon(tpl))
-      TAnyTemplate
+    private def typeOfToAny(ty: Type, body: Expr): Type = {
+      // We clear the environment to check that there are no free type variables.
+      val env = copy(tVars = Map.empty)
+      env.checkType(ty, KStar)
+      checkExpr(body, ty)
+      TAny
     }
 
-    private def typeOfFromAnyTemplate(tpl: TypeConName, body: Expr): Type = {
-      lookupTemplate(ctx, tpl)
-      checkExpr(body, TAnyTemplate)
-      TOptional(TTyCon(tpl))
+    private def typeOfFromAny(ty: Type, body: Expr): Type = {
+      // We clear the environment to check that there are no free type variables.
+      val env = copy(tVars = Map.empty)
+      env.checkType(ty, KStar)
+      checkExpr(body, TAny)
+      TOptional(ty)
     }
 
     private def typeOfToTextTemplateId(tpl: TypeConName): Type = {
@@ -806,10 +810,10 @@ private[validation] object Typing {
         checkType(typ, KStar)
         val _ = checkExpr(body, typ)
         TOptional(typ)
-      case EToAnyTemplate(tmplId, body) =>
-        typeOfToAnyTemplate(tmplId, body)
-      case EFromAnyTemplate(tmplId, body) =>
-        typeOfFromAnyTemplate(tmplId, body)
+      case EToAny(ty, body) =>
+        typeOfToAny(ty, body)
+      case EFromAny(ty, body) =>
+        typeOfFromAny(ty, body)
       case EToTextTemplateId(tmplId) =>
         typeOfToTextTemplateId(tmplId)
     }

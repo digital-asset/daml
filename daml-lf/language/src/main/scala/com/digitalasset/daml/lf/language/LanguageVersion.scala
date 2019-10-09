@@ -56,7 +56,7 @@ object LanguageVersion {
     val enum = v1_6
     val internedIds = v1_6
     val numeric = v1_dev
-    val anyTemplate = v1_dev
+    val anyType = v1_dev
     val toTextTemplateId = v1_dev
 
     /** See <https://github.com/digital-asset/daml/issues/1866>. To not break backwards
