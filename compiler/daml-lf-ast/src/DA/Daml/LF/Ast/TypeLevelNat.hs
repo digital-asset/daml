@@ -44,7 +44,7 @@ fromTypeLevelNat = fromIntegral . unTypeLevelNat
 -- | Construct a type-level natural in a safe way.
 typeLevelNatE :: Integral a => a -> Either TypeLevelNatError TypeLevelNat
 typeLevelNatE n'
-    | n < 0 || n > fromTypeLevelNat maxBound = Left TLNEOutOfBounds
+    | n < fromTypeLevelNat minBound || n > fromTypeLevelNat maxBound = Left TLNEOutOfBounds
     | otherwise = Right $ TypeLevelNat (fromIntegral n)
   where
     n = fromIntegral n' :: Integer
