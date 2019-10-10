@@ -27,7 +27,7 @@ private final case class LFDependencyGraph(private val util: lf.LFUtil)
     : OrderedDependencies[Identifier, TypeDeclOrTemplateWrapper[DefTemplateWithRecord.FWT]] = {
     val EnvironmentInterface(decls) = library
     // invariant: no type decl name equals any template alias
-    val typeDeclNodes = decls.collect {
+    val typeDeclNodes = decls.toStream.collect {
       case (qualName, InterfaceType.Normal(typeDecl)) =>
         (
           qualName,
@@ -36,7 +36,7 @@ private final case class LFDependencyGraph(private val util: lf.LFUtil)
             symmGenTypeDependencies(typeDecl),
             collectDepError = false))
     }
-    val templateNodes = decls.collect {
+    val templateNodes = decls.toStream.collect {
       case (qualName, InterfaceType.Template(typ, tpl)) =>
         val recDeps = typ.foldMap(Util.genTypeTopLevelDeclNames)
         val choiceDeps = tpl.foldMap(Util.genTypeTopLevelDeclNames)
