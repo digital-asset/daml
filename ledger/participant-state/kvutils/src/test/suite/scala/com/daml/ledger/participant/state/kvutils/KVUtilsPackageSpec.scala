@@ -62,7 +62,6 @@ class KVUtilsPackageSpec extends WordSpec with Matchers with BazelRunfiles {
       } yield {
         logEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.PACKAGE_UPLOAD_REJECTION_ENTRY
       }
-
     }
 
   }

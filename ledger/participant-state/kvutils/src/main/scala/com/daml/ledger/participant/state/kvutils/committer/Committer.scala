@@ -1,3 +1,6 @@
+// Copyright (c) 2019 The DAML Authors. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 package com.daml.ledger.participant.state.kvutils.committer
 
 import com.codahale.metrics
@@ -12,27 +15,49 @@ import com.daml.ledger.participant.state.v1.ParticipantId
 import com.digitalasset.daml.lf.data.Time
 import org.slf4j.{Logger, LoggerFactory}
 
-trait Committer[Submission, PartialResult] {
+/** A committer processes a submission, with its inputs into an ordered set of output state and a log entry.
+  * It is parametrized by the submission type `Submission` (e.g. PackageUploadEntry) and a committer's partial result
+  * `PartialResult`.
+  *
+  * A committer implementation defines an initial partial result with `init` and `steps` to process the submission
+  * into a set of DAML state outputs and a log entry. The main rational behind this abstraction is to provide uniform
+  * approach to implementing a kvutils committer that shares the handling of input and output DAML state, rejecting
+  * a submission, logging and metrics.
+  *
+  * Each step is invoked with [[CommitContext]], that allows it to [[CommitContext.get]] and [[CommitContext.set]] daml state, and the
+  * partial result from previous step.
+  *
+  * The result from a step is either [[StepContinue]] to continue to next step with new partial result, or [[StepStop]]
+  * to finish the commit. A committer must produce a [[StepStop]] from one of the steps.
+  *
+  * Each committer is assigned its own logger (according to class name) and a set of metrics under
+  * e.g. `kvutils.PackageCommitter`. An overall run time is measured in `kvutils.PackageCommitter.run-timer`,
+  * and each step is measured separately under `step-timers.<step>`, e.g. `kvutils.PackageCommitter.step-timers.validateEntry`.
+  */
+private[kvutils] trait Committer[Submission, PartialResult] {
+  type StepInfo = String
+  type Step = (CommitContext, PartialResult) => StepResult[PartialResult]
+  def steps: Iterable[(StepInfo, Step)]
 
-  /** A kvutils committer is composed of individual commit steps which:
-    *  - carry a partial result from one step to another
-    *  - can access daml state via [[Context.get]]
-    *  - can update daml state via [[Context.set]]
-    *  - can end the commit via [[Context.done]], which skips the rest of the remaining steps
-    */
-  type Step = (Context, PartialResult) => PartialResult
-  def steps: Iterable[Step]
-
-  /** The initial partial result passed to first step. */
+  /** The initial internal state passed to first step. */
   def init(subm: Submission): PartialResult
 
   val logger: Logger = LoggerFactory.getLogger(this.getClass)
+
+  /** Metrics for this committer. */
   val metricsRegistry: metrics.MetricRegistry =
     metrics.SharedMetricRegistries.getOrCreate("kvutils")
-  def metricsName(metric: String): String = metrics.MetricRegistry.name(this.getClass, metric)
+  def metricsName(metric: String): String =
+    metrics.MetricRegistry.name(this.getClass.getSimpleName, metric)
   private val runTimer: Timer = metricsRegistry.timer(metricsName("run-timer"))
+  private lazy val stepTimers: Map[StepInfo, Timer] =
+    steps.map {
+      case (info, _) =>
+        info -> metricsRegistry.timer(metricsName(s"step-timers.${info}"))
+    }.toMap
 
   /** A committer can `run` a submission and produce a log entry and output states. */
+  @SuppressWarnings(Array("org.wartremover.warts.Return"))
   def run(
       entryId: DamlLogEntryId,
       recordTime: Time.Timestamp,
@@ -40,27 +65,21 @@ trait Committer[Submission, PartialResult] {
       participantId: ParticipantId,
       inputState: DamlStateMap): (DamlLogEntry, Iterable[(DamlStateKey, DamlStateValue)]) =
     runTimer.time { () =>
-      var result: Option[DamlLogEntry] = None
-      val ctx = new Context {
+      val ctx = new CommitContext {
         override def getRecordTime: Time.Timestamp = recordTime
         override def getParticipantId: ParticipantId = participantId
         override def inputs: DamlStateMap = inputState
-        override def done[Void](logEntry: DamlLogEntry): Void = {
-          result = Some(logEntry)
-          // Return "null", giving us the assertion and a compiler warning if the committer
-          // implementation tries to do anything following a `done` in the same function.
-          null.asInstanceOf[Void]
+      }
+      var cstate = init(submission)
+      for ((info, step) <- steps) {
+        val result: StepResult[PartialResult] =
+          stepTimers(info).time(() => step(ctx, cstate))
+        result match {
+          case StepContinue(newCState) => cstate = newCState
+          case StepStop(logEntry) =>
+            return logEntry -> ctx.getOutputs
         }
       }
-
-      val stepIter = steps.iterator
-      var partialResult = init(submission)
-
-      while (result.isEmpty && stepIter.hasNext) {
-        partialResult = stepIter.next()(ctx, partialResult)
-      }
-      assert(result.isDefined, s"${this.getClass} did not produce a log entry!")
-
-      result.get -> ctx.getOutputs
+      sys.error(s"Internal error: Committer ${this.getClass} did not produce a result!")
     }
 }
