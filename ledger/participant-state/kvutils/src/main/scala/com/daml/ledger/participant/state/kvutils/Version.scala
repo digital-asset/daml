@@ -7,6 +7,10 @@ package com.daml.ledger.participant.state.kvutils
   * and the changelog of kvutils.
   *
   * Changes:
+  * [since 100.13.29]:
+  * - Add support for ledger dumps via environment variable: "KVUTILS_LEDGER_DUMP=/tmp/ledger.dump".
+  * - Add integrity checker tool to verify ledger dumps for validating compatibility of new versions.
+  *
   * [since 100.13.26]:
   * - Added metrics to track submission processing.
   * - Use InsertOrdMap to store resulting state in kvutils for deterministic ordering of state key-values.

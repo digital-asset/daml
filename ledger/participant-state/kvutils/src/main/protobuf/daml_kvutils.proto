@@ -489,3 +489,28 @@ message DamlContractKeyState {
   // If unset the key is inactive.
   DamlContractId contract_id = 1;
 }
+
+// A dump of a "kvutils" ledger, including submissions. Used by the integrity checker to test
+// that a new version of kvutils can process older submissions and ledgers.
+message LedgerDumpEntry {
+  message StatePair {
+    DamlStateKey state_key = 1;
+    bytes state_value = 2; // wrapped in envelope.
+  }
+
+  // The submission to the ledger, wrapped in envelope. Optional, if unset the
+  // submission is synthesized from the log entry if possible.
+  bytes submission = 1;
+
+  // The participant that submitted it.
+  string participant_id = 2;
+
+  // The assigned entry id.
+  DamlLogEntryId entry_id = 3;
+
+  // The resulting log entry, wrapped in envelope.
+  bytes log_entry = 4;
+
+  // The resulting output state.
+  repeated StatePair output_state = 5;
+}

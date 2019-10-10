@@ -87,6 +87,24 @@ object Envelope {
       }
     } yield message
 
+  def openLogEntry(envelopeBytes: ByteString): Either[String, Proto.DamlLogEntry] =
+    open(envelopeBytes).flatMap {
+      case LogEntryMessage(entry) => Right(entry)
+      case msg => Left(s"Expected log entry, got ${msg.getClass}")
+    }
+
+  def openSubmission(envelopeBytes: ByteString): Either[String, Proto.DamlSubmission] =
+    open(envelopeBytes).flatMap {
+      case SubmissionMessage(entry) => Right(entry)
+      case msg => Left(s"Expected submission, got ${msg.getClass}")
+    }
+
+  def openStateValue(envelopeBytes: ByteString): Either[String, Proto.DamlStateValue] =
+    open(envelopeBytes).flatMap {
+      case StateValueMessage(entry) => Right(entry)
+      case msg => Left(s"Expected state value, got ${msg.getClass}")
+    }
+
   private def compress(payload: ByteString): ByteString = {
     val out = ByteString.newOutput
     val gzipOut = new GZIPOutputStream(out)
