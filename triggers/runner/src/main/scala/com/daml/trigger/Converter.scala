@@ -40,6 +40,7 @@ case class Converter(
 case class TriggerIds(
     triggerPackageId: PackageId,
     triggerModuleName: ModuleName,
+    stdlibPackageId: PackageId,
     mainPackageId: PackageId) {
   def getId(n: String): Identifier =
     Identifier(triggerPackageId, QualifiedName(triggerModuleName, DottedName.assertFromString(n)))
@@ -56,7 +57,15 @@ object TriggerIds {
       }
       .get
       ._1
-    TriggerIds(triggerPackageId, triggerModuleName, dar.main._1)
+    val stdlibPackageId =
+      dar.all
+        .find {
+          case (pkgId, pkg) =>
+            pkg.modules.contains(DottedName.assertFromString("DA.Internal.LF"))
+        }
+        .get
+        ._1
+    TriggerIds(triggerPackageId, triggerModuleName, stdlibPackageId, dar.main._1)
   }
 }
 
@@ -146,6 +155,12 @@ object Converter {
 
   private def fromCreatedEvent(triggerIds: TriggerIds, created: CreatedEvent): SValue = {
     val createdTy = triggerIds.getId("Created")
+    val anyTemplateTyCon =
+      Identifier(
+        triggerIds.stdlibPackageId,
+        QualifiedName(
+          DottedName.assertFromString("DA.Internal.LF"),
+          DottedName.assertFromString("AnyTemplate")))
     ValueValidator.validateRecord(created.getCreateArguments) match {
       case Right(createArguments) =>
         SValue.fromValue(createArguments) match {
@@ -156,7 +171,7 @@ object Converter {
               (
                 "contractId",
                 fromAnyContractId(triggerIds, created.getTemplateId, created.contractId)),
-              ("argument", SAny(TTyCon(tyCon), r))
+              ("argument", record(anyTemplateTyCon, ("getAnyTemplate", SAny(TTyCon(tyCon), r))))
             )
           case v => throw new RuntimeException(s"Expected record but got $v")
         }
@@ -296,12 +311,17 @@ object Converter {
       case SRecord(_, _, vals) => {
         assert(vals.size == 1)
         vals.get(0) match {
-          case SAny(_, tpl) =>
-            for {
-              templateId <- extractTemplateId(tpl)
-              templateArg <- toLedgerRecord(tpl)
-            } yield CreateCommand(Some(toApiIdentifier(templateId)), Some(templateArg))
-          case v => Left(s"Expected Any but got $v")
+          case SRecord(_, _, vals) =>
+            assert(vals.size == 1)
+            vals.get(0) match {
+              case SAny(_, tpl) =>
+                for {
+                  templateId <- extractTemplateId(tpl)
+                  templateArg <- toLedgerRecord(tpl)
+                } yield CreateCommand(Some(toApiIdentifier(templateId)), Some(templateArg))
+              case v => Left(s"Expected Any but got $v")
+            }
+          case v => Left(s"Expected AnyTemplate but got $v")
         }
       }
       case _ => Left(s"Expected CreateCommand but got $v")
