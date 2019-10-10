@@ -7,7 +7,7 @@ import scalaz.std.map._
 import scalaz.std.tuple._
 import scalaz.syntax.applicative.^
 import scalaz.syntax.traverse._
-import scalaz.{Applicative, Bifunctor, Bitraverse, Foldable, Functor, Monoid, Traverse}
+import scalaz.{Applicative, Bifunctor, Bitraverse, Bifoldable, Foldable, Functor, Monoid, Traverse}
 import java.{util => j}
 
 import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
@@ -32,11 +32,15 @@ object DefDataType {
   type FWT = DefDataType[Type, Type]
 
   implicit val `DDT bitraverse`: Bitraverse[DefDataType] =
-    new Bitraverse[DefDataType] {
+    new Bitraverse[DefDataType] with Bifoldable.FromBifoldMap[DefDataType] {
 
       override def bimap[A, B, C, D](
           fab: DefDataType[A, B])(f: A => C, g: B => D): DefDataType[C, D] = {
         DefDataType(fab.typeVars, Bifunctor[DataType].bimap(fab.dataType)(f, g))
+      }
+
+      override def bifoldMap[A, B, M: Monoid](fab: DefDataType[A, B])(f: A => M)(g: B => M): M = {
+        Bifoldable[DataType].bifoldMap(fab.dataType)(f)(g)
       }
 
       override def bitraverseImpl[G[_]: Applicative, A, B, C, D](
@@ -64,7 +68,7 @@ object DataType {
   // naturality holds with respect to those instances and this one, so there is
   // no risk of confusion.
   implicit val `DT bitraverse`: Bitraverse[DataType] =
-    new Bitraverse[DataType] {
+    new Bitraverse[DataType] with Bifoldable.FromBifoldMap[DataType] {
 
       override def bimap[A, B, C, D](fab: DataType[A, B])(f: A => C, g: B => D): DataType[C, D] =
         fab match {
@@ -74,6 +78,18 @@ object DataType {
             Functor[Variant].map(v)(g).widen
           case e @ Enum(_) =>
             e
+        }
+
+      override def bifoldMap[A, B, M: Monoid](fab: DataType[A, B])(f: A => M)(g: B => M): M =
+        fab match {
+          case r @ Record(_) =>
+            Foldable[Record].foldMap(r)(f)
+          case v @ Variant(_) =>
+            Foldable[Variant].foldMap(v)(g)
+          case Enum(_) => {
+            val m = implicitly[Monoid[M]]
+            m.zero
+          }
         }
 
       override def bitraverseImpl[G[_]: Applicative, A, B, C, D](
