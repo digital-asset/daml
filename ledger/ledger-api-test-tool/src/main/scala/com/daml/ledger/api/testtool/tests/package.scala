@@ -32,7 +32,8 @@ package object tests {
     "TimeIT" -> (new Time(_)),
     "TransactionServiceIT" -> (new TransactionService(_)),
     "WitnessesIT" -> (new Witnesses(_)),
-    "WronglyTypedContractIdIT" -> (new WronglyTypedContractId(_))
+    "WronglyTypedContractIdIT" -> (new WronglyTypedContractId(_)),
+    "CommandSubmissionLetIT" -> (new CommandSubmissionLet(_))
   )
 
   val all = default ++ optional
