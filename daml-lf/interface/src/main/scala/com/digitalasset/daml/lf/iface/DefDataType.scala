@@ -7,7 +7,7 @@ import scalaz.std.map._
 import scalaz.std.tuple._
 import scalaz.syntax.applicative.^
 import scalaz.syntax.traverse._
-import scalaz.{Applicative, Bifunctor, Bitraverse, Functor, Traverse}
+import scalaz.{Applicative, Bifunctor, Bitraverse, Foldable, Functor, Monoid, Traverse}
 import java.{util => j}
 
 import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
@@ -105,10 +105,13 @@ final case class Record[+RT](fields: ImmArraySeq[(Ref.Name, RT)])
 
 object Record extends FWTLike[Record] {
   implicit val `R traverse`: Traverse[Record] =
-    new Traverse[Record] {
+    new Traverse[Record] with Foldable.FromFoldMap[Record] {
 
       override def map[A, B](fa: Record[A])(f: A => B): Record[B] =
         Record(fa.fields map (_ map f))
+
+      override def foldMap[A, B: Monoid](fa: Record[A])(f: A => B): B =
+        fa.fields foldMap { case (_, a) => f(a) }
 
       override def traverseImpl[G[_]: Applicative, A, B](fa: Record[A])(
           f: A => G[B]): G[Record[B]] =
@@ -127,10 +130,13 @@ final case class Variant[+VT](fields: ImmArraySeq[(Ref.Name, VT)])
 
 object Variant extends FWTLike[Variant] {
   implicit val `V traverse`: Traverse[Variant] =
-    new Traverse[Variant] {
+    new Traverse[Variant] with Foldable.FromFoldMap[Variant] {
 
       override def map[A, B](fa: Variant[A])(f: A => B): Variant[B] =
         Variant(fa.fields map (_ map f))
+
+      override def foldMap[A, B: Monoid](fa: Variant[A])(f: A => B): B =
+        fa.fields foldMap { case (_, a) => f(a) }
 
       override def traverseImpl[G[_]: Applicative, A, B](fa: Variant[A])(
           f: A => G[B]): G[Variant[B]] =
@@ -158,7 +164,10 @@ object DefTemplate {
   type FWT = DefTemplate[Type]
 
   implicit val `TemplateDecl traverse`: Traverse[DefTemplate] =
-    new Traverse[DefTemplate] {
+    new Traverse[DefTemplate] with Foldable.FromFoldMap[DefTemplate] {
+      override def foldMap[A, B: Monoid](fa: DefTemplate[A])(f: A => B): B =
+        fa.choices foldMap (_ foldMap f)
+
       override def traverseImpl[G[_]: Applicative, A, B](fab: DefTemplate[A])(
           f: A => G[B]): G[DefTemplate[B]] = {
         Applicative[G].map(fab.choices traverse (_ traverse f))(choices =>
