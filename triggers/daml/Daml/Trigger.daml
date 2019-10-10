@@ -16,6 +16,7 @@ module Daml.Trigger
  , createCmd
  ) where
 
+import DA.Action.State
 import DA.Next.Map (Map)
 import qualified DA.Next.Map as Map
 import DA.Optional
@@ -57,13 +58,10 @@ runTrigger userTrigger = LowLevel.Trigger
     initialState party (ActiveContracts createdEvents) =
       let acs = foldl (\acs created -> applyEvent (CreatedEvent created) acs) (ACS []) createdEvents
           userState = userTrigger.initialize acs
-      in TriggerState
-           { acs = acs
-           , party = party
-           , userState = userState
-           , commandsInFlight = Map.empty
-           , nextCommandId = 0
-           }
+          (_, TriggerAState commands nextCommandId) = runTriggerA (userTrigger.rule party acs Map.empty userState) (TriggerAState [] 0)
+          commandsInFlight = foldl addCommands Map.empty commands
+          state = TriggerState {acs, party, userState, commandsInFlight, nextCommandId}
+      in (state, commands, "")
     update msg state =
       case msg of
         MCompletion completion ->
@@ -132,33 +130,3 @@ data TriggerState s = TriggerState
   , commandsInFlight : Map CommandId [Command]
   , nextCommandId : Int
   }
-
--- monad state stuff
-
-newtype State s a = State { runState : s -> (a, s) }
-  deriving Functor
-
-instance Applicative (State s) where
-  pure a = State (\s -> (a, s))
-  State f <*> State x =
-    State $ \s ->
-      let (f', s') = f s
-          (x', s'') = x s'
-      in (f' x', s'')
-  a *> b =
-    a >>= \_ -> b
-
-instance Action (State s) where
-  State x >>= f = State $ \s ->
-    let (x', s') = x s
-    in runState (f x') s'
-
-get : State s s
-get = State (\s -> (s, s))
-
-put : s -> State s ()
-put s = State (\_ -> ((), s))
-
-modify : (s -> s) -> State s ()
-modify f = State (\s -> ((), f s))
-

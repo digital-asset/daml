@@ -240,7 +240,7 @@ object InterfaceReader {
           unserializableDataType(
             ctx,
             s"Unserializable primitive type: $a must be applied to one and only one TNat")
-        case Ast.BTUpdate | Ast.BTScenario | Ast.BTArrow | Ast.BTAnyTemplate =>
+        case Ast.BTUpdate | Ast.BTScenario | Ast.BTArrow | Ast.BTAny =>
           unserializableDataType(ctx, s"Unserializable primitive type: $a")
       }
       (arity, primType) = ab

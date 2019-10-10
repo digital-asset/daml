@@ -457,18 +457,12 @@ decodeExprSum exprSum = mayDecode "exprSum" exprSum $ \case
     return (ESome bodyType bodyExpr)
   LF1.ExprSumToAny (LF1.Expr_ToAny mbType mbExpr) -> do
     type' <- mayDecode "expr_ToAnyType" mbType decodeType
-    case type' of
-        TCon con -> do
-            expr <- mayDecode "expr_ToAnyExpr" mbExpr decodeExpr
-            return (EToAnyTemplate con expr)
-        _ -> throwError (ExpectedTCon type')
+    body <- mayDecode "expr_toAnyExpr" mbExpr decodeExpr
+    return (EToAny type' body)
   LF1.ExprSumFromAny (LF1.Expr_FromAny mbType mbExpr) -> do
     type' <- mayDecode "expr_FromAnyType" mbType decodeType
-    case type' of
-        TCon con -> do
-            expr <- mayDecode "expr_FromAnyExpr" mbExpr decodeExpr
-            return (EFromAnyTemplate con expr)
-        _ -> throwError (ExpectedTCon type')
+    expr <- mayDecode "expr_FromAnyExpr" mbExpr decodeExpr
+    return (EFromAny type' expr)
   LF1.ExprSumToTextTemplateId (LF1.Expr_ToTextTemplateId mbType) -> do
     type' <- mayDecode "expr_ToTextTemplateIdType" mbType decodeType
     case type' of
@@ -638,7 +632,7 @@ decodePrim = pure . \case
   LF1.PrimTypeOPTIONAL -> BTOptional
   LF1.PrimTypeMAP -> BTMap
   LF1.PrimTypeARROW -> BTArrow
-  LF1.PrimTypeANY -> BTAnyTemplate
+  LF1.PrimTypeANY -> BTAny
 
 decodeType :: LF1.Type -> Decode Type
 decodeType LF1.Type{..} = mayDecode "typeSum" typeSum $ \case

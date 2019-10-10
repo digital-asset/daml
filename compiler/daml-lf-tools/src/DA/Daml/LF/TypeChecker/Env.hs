@@ -14,6 +14,7 @@ module DA.Daml.LF.TypeChecker.Env(
     match,
     lookupTypeVar,
     introTypeVar,
+    clearTypeVars,
     introExprVar,
     lookupExprVar,
     withContext,
@@ -26,6 +27,7 @@ import           Control.Lens hiding (Context)
 import           Control.Monad.Error.Class (MonadError (..))
 import           Control.Monad.Reader
 import           Data.HashMap.Strict (HashMap)
+import qualified Data.HashMap.Strict as HM
 
 import           DA.Daml.LF.Ast
 import           DA.Daml.LF.TypeChecker.Error
@@ -89,6 +91,10 @@ introExprVar x t = local (evars . at x ?~ t)
 lookupTypeVar :: MonadGamma m => TypeVarName -> m Kind
 lookupTypeVar v =
   view (tvars . at v) >>= match _Just (EUnknownTypeVar v)
+
+-- | Clear type variables, this is useful to ensure that a type contains no free type variables.
+clearTypeVars :: MonadGamma m => m a -> m a
+clearTypeVars = local (set tvars HM.empty)
 
 -- | Lookup a term variable in the current environment and return its type. Fails
 -- with 'EUnknownExprVar' if the variables does not exist.

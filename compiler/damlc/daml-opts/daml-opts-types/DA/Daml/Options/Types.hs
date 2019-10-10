@@ -62,6 +62,8 @@ data Options = Options
   -- ^ Information about dlint usage.
   , optIsGenerated :: Bool
     -- ^ Whether we're compiling generated code. Then we allow internal imports.
+  , optAllowDifferentSdks :: Bool
+    -- ^ Whether we're allowing imports from packages compiled with different SDK's.
   , optDflagCheck :: Bool
     -- ^ Whether to check dflags. In some cases we want to turn this check of. For example when
     -- migrating or running the daml doc test.
@@ -161,6 +163,7 @@ defaultOptions mbVersion =
         , optSkipScenarioValidation = SkipScenarioValidation False
         , optDlintUsage = DlintDisabled
         , optIsGenerated = False
+        , optAllowDifferentSdks = False
         , optDflagCheck = True
         , optCoreLinting = False
         , optHaddock = Haddock False

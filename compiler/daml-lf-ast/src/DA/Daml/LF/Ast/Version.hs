@@ -60,17 +60,17 @@ featureNumeric = Feature
     , featureCppFlag = "DAML_NUMERIC"
     }
 
-featureAnyTemplate :: Feature
-featureAnyTemplate = Feature
-   { featureName = "AnyTemplate type"
+featureAnyType :: Feature
+featureAnyType = Feature
+   { featureName = "Any type"
    , featureMinVersion = version1_7
-   , featureCppFlag = "DAML_ANY_TEMPLATE"
+   , featureCppFlag = "DAML_ANY_TYPE"
    }
 
 allFeatures :: [Feature]
 allFeatures =
     [ featureNumeric
-    , featureAnyTemplate
+    , featureAnyType
     ]
 
 allFeaturesForVersion :: Version -> [Feature]

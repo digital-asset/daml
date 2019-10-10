@@ -416,13 +416,13 @@ convertGenericTemplate env x
         let create = ETmLam (this, polyType) $ EUpdate $ UBind (Binding (self, TContractId monoType) $ EUpdate $ UCreate monoTyCon $ wrapTpl $ EVar this) $ EUpdate $ UPure (TContractId polyType) $ unwrapCid $ EVar self
         let fetch = ETmLam (self, TContractId polyType) $ EUpdate $ UBind (Binding (this, monoType) $ EUpdate $ UFetch monoTyCon $ wrapCid $ EVar self) $ EUpdate $ UPure polyType $ unwrapTpl $ EVar this
         let toAnyTemplate =
-                if envLfVersion env `supports` featureAnyTemplate
-                  then ETmLam (this, polyType) $ EToAnyTemplate monoTyCon (wrapTpl $ EVar this)
+                if envLfVersion env `supports` featureAnyType
+                  then ETmLam (this, polyType) $ EToAny (TCon monoTyCon) (wrapTpl $ EVar this)
                   else EBuiltin BEError `ETyApp` (polyType :-> TUnit) `ETmApp` EBuiltin (BEText "toAnyTemplate is not supported in this DAML-LF version")
         let fromAnyTemplate =
-                if envLfVersion env `supports` featureAnyTemplate
-                    then ETmLam (anyTpl, TAnyTemplate) $
-                         ECase (EFromAnyTemplate monoTyCon (EVar anyTpl))
+                if envLfVersion env `supports` featureAnyType
+                    then ETmLam (anyTpl, TAny) $
+                         ECase (EFromAny (TCon monoTyCon) (EVar anyTpl))
                              [ CaseAlternative CPNone $ ENone polyType
                              , CaseAlternative (CPSome self) $ ESome polyType $ unwrapTpl $ EVar self
                              ]
@@ -925,7 +925,7 @@ convertExpr env0 e = do
           TContractId{} -> asLet
           TUpdate{} -> asLet
           TScenario{} -> asLet
-          TAnyTemplate{} -> asLet
+          TAny{} -> asLet
           tcon -> do
               ctor@(Ctor _ fldNames fldTys) <- toCtor env con
               if not (isRecordCtor ctor)
@@ -1209,8 +1209,8 @@ convertTyCon env t
                 -- We just translate this to TUnit when it is not supported.
                 -- We can’t get rid of it completely since the template desugaring uses
                 -- this and we do not want to make that dependent on the DAML-LF version.
-                pure $ if envLfVersion env `supports` featureAnyTemplate
-                    then TAnyTemplate
+                pure $ if envLfVersion env `supports` featureAnyType
+                    then TAny
                     else TUnit
             _ -> defaultTyCon
     | isBuiltinName "Optional" t = pure (TBuiltin BTOptional)

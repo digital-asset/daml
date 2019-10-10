@@ -73,7 +73,7 @@ tests damlDir tmpDir = testGroup "Integration tests"
     , testCase "daml --help" $ callCommandQuiet "daml --help"
     , testCase "daml new --list" $ callCommandQuiet "daml new --list"
     , noassistantTests damlDir
-    , packagingTests tmpDir
+    , packagingTests
     , quickstartTests quickstartDir mvnDir
     , cleanTests cleanDir
     , deployTest deployDir
@@ -86,6 +86,16 @@ tests damlDir tmpDir = testGroup "Integration tests"
 
 throwError :: MonadFail m => T.Text -> T.Text -> m ()
 throwError msg e = fail (T.unpack $ msg <> " " <> e)
+
+-- | Check that the given file exists in the dar in the given directory.
+--
+-- This function automatically strips away the root directory e.g.
+-- foobar-0.0.1-b2d63d90f3cb73434ae005ee1c9762166bb84563ac9d108a606c8384803f09f2
+-- so to check that foobar-0.0.1-b2d63d90f3cb73434ae005ee1c9762166bb84563ac9d108a606c8384803f09f2/A/B.daml
+-- exists use checkDarFile darFiles "A" "B.daml"
+checkDarFile :: [FilePath] -> FilePath -> FilePath -> IO ()
+checkDarFile darFiles dir file = assertBool (dir </> file <> " not in " <> show darFiles) $
+              any (\f -> normalise (dropDirectory1 f) == normalise (dir </> file)) darFiles
 
 -- | These tests check that it is possible to invoke (a subset) of damlc
 -- commands outside of the assistant.
@@ -128,9 +138,9 @@ noassistantTests damlDir = testGroup "no assistant"
               callProcess damlcPath ["build", "--project-root", "foobar", "--init-package-db", "yes"]
     ]
 
-packagingTests :: FilePath -> TestTree
-packagingTests tmpDir = testGroup "packaging"
-    [ testCaseSteps "Build package with dependency" $ \step -> do
+packagingTests :: TestTree
+packagingTests = testGroup "packaging"
+    [ testCaseSteps "Build package with dependency" $ \step -> withTempDir $ \tmpDir -> do
         let projectA = tmpDir </> "a"
         let projectB = tmpDir </> "b"
         let aDar = projectA </> ".daml" </> "dist" </> "a-1.0.dar"
@@ -187,7 +197,51 @@ packagingTests tmpDir = testGroup "packaging"
             ]
         withCurrentDirectory projectB $ callCommandQuiet "daml build"
         assertBool "b.dar was not created." =<< doesFileExist bDar
-    , testCase "Build package with SDK dependency" $ do
+    , testCaseSteps "Dependency on a package with source: A.daml" $ \step -> withTempDir $ \tmpDir -> do
+        let projectA = tmpDir </> "a"
+        let projectB = tmpDir </> "b"
+        let aDar = projectA </> ".daml" </> "dist" </> "a-1.0.dar"
+        let bDar = projectB </> ".daml" </> "dist" </> "b-1.0.dar"
+        step "Creating project a..."
+        createDirectoryIfMissing True projectA
+        writeFileUTF8 (projectA </> "A.daml") $ unlines
+            [ "daml 1.2"
+            , "module A () where"
+            ]
+        writeFileUTF8 (projectA </> "daml.yaml") $ unlines
+            [ "sdk-version: " <> sdkVersion
+            , "name: a"
+            , "version: \"1.0\""
+            , "source: A.daml"
+            , "dependencies:"
+            , "  - daml-prim"
+            , "  - daml-stdlib"
+            ]
+        withCurrentDirectory projectA $ callCommandQuiet "daml build"
+        assertBool "a-1.0.dar was not created." =<< doesFileExist aDar
+        step "Creating project b..."
+        createDirectoryIfMissing True projectB
+        writeFileUTF8 (projectB </> "B.daml") $ unlines
+            [ "daml 1.2"
+            , "module B where"
+            , "import A ()"
+            ]
+        writeFileUTF8 (projectB </> "daml.yaml") $ unlines
+            [ "sdk-version: " <> sdkVersion
+            , "version: \"1.0\""
+            , "name: b"
+            , "source: ."
+            , "dependencies:"
+            , "  - daml-prim"
+            , "  - daml-stdlib"
+            , "  - " <> aDar
+            ]
+        withCurrentDirectory projectB $ callCommandQuiet "daml build"
+        assertBool "b.dar was not created." =<< doesFileExist bDar
+        darFiles <- Zip.filesInArchive . Zip.toArchive <$> BSL.readFile bDar
+        assertBool "b.dar contains source file from package database" $
+            not $ any ("A.daml" `isSuffixOf`) darFiles
+    , testCase "Build package with SDK dependency" $ withTempDir $ \tmpDir -> do
         let project = tmpDir </> "project"
         let dar = project </> ".daml" </> "dist" </> "project-1.0.dar"
         createDirectoryIfMissing True (project </> "daml")
@@ -210,7 +264,7 @@ packagingTests tmpDir = testGroup "packaging"
             ]
         withCurrentDirectory project $ callCommandQuiet "daml build"
         assertBool "project-1.0.dar was not created." =<< doesFileExist dar
-    , testCase "Top-level source files" $ do
+    , testCase "Top-level source files" $ withTempDir $ \tmpDir -> do
         -- Test that a source file in the project root will be included in the
         -- DAR file. Regression test for #1048.
         let projDir = tmpDir </> "proj"
@@ -242,7 +296,7 @@ packagingTests tmpDir = testGroup "packaging"
         writeFileUTF8 (projDir </> "A.daml") $ unlines
           [ "daml 1.2"
           , "module A where"
-          , "import B"
+          , "import B ()"
           ]
         writeFileUTF8 (projDir </> "B.daml") $ unlines
           [ "daml 1.2"
@@ -259,12 +313,7 @@ packagingTests tmpDir = testGroup "packaging"
         let dar = projDir </> ".daml/dist/proj-0.1.0.dar"
         assertBool "proj-0.1.0.dar was not created." =<< doesFileExist dar
         darFiles <- Zip.filesInArchive . Zip.toArchive <$> BSL.readFile dar
-        assertBool "A.daml missing" (any (\f -> takeFileName f == "A.daml") darFiles)
-        assertBool "A.hi missing" (any (\f -> takeFileName f == "A.hi") darFiles)
-        assertBool "A.hie missing" (any (\f -> takeFileName f == "A.hie") darFiles)
-        assertBool "B.daml missing" (any (\f -> takeFileName f == "B.daml") darFiles)
-        assertBool "B.hi missing" (any (\f -> takeFileName f == "B.hi") darFiles)
-        assertBool "B.hie missing" (any (\f -> takeFileName f == "B.hie") darFiles)
+        forM_ ["A.daml", "A.hi", "A.hie", "B.daml", "B.hi", "B.hie"] $ checkDarFile darFiles "."
 
     , testCase "Root source file in subdir" $ withTempDir $ \projDir -> do
         -- Test that the daml source files get included properly if "source" points to a file
@@ -291,15 +340,12 @@ packagingTests tmpDir = testGroup "packaging"
         let dar = projDir </> ".daml/dist/proj-0.1.0.dar"
         assertBool "proj-0.1.0.dar was not created." =<< doesFileExist dar
         darFiles <- Zip.filesInArchive . Zip.toArchive <$> BSL.readFile dar
-        let checkSource dir file =
-              assertBool (dir </> file <> " missing") $
-              any (\f -> normalise (dropDirectory1 f) == dir </> file) darFiles
-        checkSource "A" "B.daml"
-        checkSource "A" "B.hi"
-        checkSource "A" "B.hie"
-        checkSource "B" "C.daml"
-        checkSource "B" "C.hi"
-        checkSource "B" "C.hie"
+        checkDarFile darFiles "A" "B.daml"
+        checkDarFile darFiles "A" "B.hi"
+        checkDarFile darFiles "A" "B.hie"
+        checkDarFile darFiles "B" "C.daml"
+        checkDarFile darFiles "B" "C.hi"
+        checkDarFile darFiles "B" "C.hie"
 
     , testCase "Imports from differen directories" $ withTempDir $ \projDir -> do
         -- Regression test for #2929
@@ -343,7 +389,7 @@ packagingTests tmpDir = testGroup "packaging"
             , "dependencies: [daml-prim, daml-stdlib]"
             ]
         withCurrentDirectory projDir $ callCommandQuiet "daml build"
-    , testCaseSteps "Build migration package" $ \step -> do
+    , testCaseSteps "Build migration package" $ \step -> withTempDir $ \tmpDir -> do
         -- it's important that we have fresh empty directories here!
         let projectA = tmpDir </> "a-1.0"
         let projectB = tmpDir </> "a-2.0"
@@ -416,11 +462,11 @@ packagingTests tmpDir = testGroup "packaging"
         callCommandQuiet $ unwords ["daml", "migrate", projectRollback, bDar, aDar]
         step "Build migration project"
         withCurrentDirectory projectUpgrade $
-            callCommand "daml build"
+            callCommandQuiet "daml build"
         assertBool "upgrade-0.0.1.dar was not created" =<< doesFileExist upgradeDar
         step "Build rollback project"
         withCurrentDirectory projectRollback $
-            callCommand "daml build"
+            callCommandQuiet "daml build"
         assertBool "rollback-0.0.1.dar was not created" =<< doesFileExist rollbackDar
         step "Merging upgrade dar"
         callCommandQuiet $
