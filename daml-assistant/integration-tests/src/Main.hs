@@ -240,7 +240,7 @@ packagingTests = testGroup "packaging"
         assertBool "b.dar was not created." =<< doesFileExist bDar
         darFiles <- Zip.filesInArchive . Zip.toArchive <$> BSL.readFile bDar
         assertBool "b.dar contains source file from package database" $
-            all (not . ("A.daml" `isSuffixOf`)) darFiles
+            not $ any ("A.daml" `isSuffixOf`) darFiles
     , testCase "Build package with SDK dependency" $ withTempDir $ \tmpDir -> do
         let project = tmpDir </> "project"
         let dar = project </> ".daml" </> "dist" </> "project-1.0.dar"
