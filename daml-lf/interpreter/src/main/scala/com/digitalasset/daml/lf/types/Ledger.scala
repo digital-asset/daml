@@ -284,13 +284,13 @@ object Ledger {
       observingSince: Map[Party, ScenarioTransactionId],
       referencedBy: Set[ScenarioNodeId],
       consumedBy: Option[ScenarioNodeId],
-      parent: Option[ScenarioNodeId],
+      parent: Option[ScenarioNodeId]
   ) {
 
     /** 'True' if the given 'View' contains the given 'Node'. */
     def visibleIn(view: View): Boolean = view match {
       case OperatorView => true
-      case ParticipantView(party) => observingSince.contains(party)
+      case ParticipantView(party) => observingSince contains party
     }
 
     def addObservers(witnesses: Map[Party, ScenarioTransactionId]): NodeInfo = {
@@ -1065,17 +1065,21 @@ object Ledger {
           .map(ni => nodeInfos.updated(nodeId, f(ni)))
           .getOrElse(nodeInfos))
 
-    def markAsActive(nodeId: AbsoluteContractId): LedgerData =
-      copy(activeContracts = activeContracts + nodeId)
+    def markAsActive(coid: AbsoluteContractId): LedgerData =
+      copy(activeContracts = activeContracts + coid)
 
-    def markAsInactive(nid: AbsoluteContractId): LedgerData =
-      copy(activeContracts = activeContracts - nid)
+    def markAsInactive(coid: AbsoluteContractId): LedgerData =
+      copy(activeContracts = activeContracts - coid)
+
+    def createdIn(coid: AbsoluteContractId, nodeId: ScenarioNodeId): LedgerData =
+      copy(coidToNodeId = coidToNodeId + (coid -> nodeId))
 
     def addKey(key: GlobalKey, acoid: AbsoluteContractId): LedgerData =
       copy(activeKeys = activeKeys + (key -> acoid))
 
     def removeKey(key: GlobalKey): LedgerData =
       copy(activeKeys = activeKeys - key)
+
   }
 
   case class UniqueKeyViolation(gk: GlobalKey)
@@ -1108,7 +1112,7 @@ object Ledger {
                     observingSince = Map.empty,
                     referencedBy = Set.empty,
                     consumedBy = None,
-                    parent = mbParentId,
+                    parent = mbParentId
                   )
                   val newCache = cache0.copy(nodeInfos = cache0.nodeInfos + (nodeId -> newNodeInfo))
                   val idsToProcess = (mbParentId -> restOfNodeIds) :: restENPs
@@ -1118,9 +1122,7 @@ object Ledger {
                       val newCache1 =
                         newCache
                           .markAsActive(nc.coid)
-                          .copy(
-                            coidToNodeId = newCache.coidToNodeId + (nc.coid -> nodeId)
-                          )
+                          .createdIn(nc.coid, nodeId)
                       val mbNewCache2 = nc.key match {
                         case None => Right(newCache1)
                         case Some(keyWithMaintainers) =>
