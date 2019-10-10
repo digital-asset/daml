@@ -30,23 +30,19 @@ final class CommandSubmissionLet(session: LedgerSession) extends LedgerTestSuite
     LedgerTest(
       "CSLSuccessIfLetRight",
       "SubmitAndWait returns OK if LET is within the accepted interval") { context =>
-      // A time skew where the client time runs `maxTtl` behind the ledger time,
-      // plus some small delay to account for actual network delays.
-      def maxAcceptableSkew(maxTtl: Duration) = {
-        Duration
-          .ofSeconds(0)
-          .minus(maxTtl)
-          .plus(Duration.ofSeconds(1L))
-      }
+
+      // The maximum accepted clock skew depends on the ledger and is not exposed through the LedgerConfigurationService,
+      // and there might be an actual clock skew between the devices running the test and the ledger.
+      // This test therefore does not attempt to simulate any clock skew
+      // but simply checks whether basic command submission with an unmodified LET works.
+      val maxAcceptableSkew = Duration.ofMillis(0L)
 
       for {
         ledger <- context.participant()
         alice <- ledger.allocateParty()
-        maxTtl <- ledger.latestMaxTtl()
-        skew = maxAcceptableSkew(maxTtl)
         request <- ledger
           .submitAndWaitRequest(alice, Dummy(alice).create.command)
-          .map(ledger.moveRequestTime(_, skew))
+          .map(ledger.moveRequestTime(_, maxAcceptableSkew))
         _ <- ledger.submitAndWait(request)
       } yield {
         // No assertions to make, since the command went through as expected
