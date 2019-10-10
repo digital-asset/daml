@@ -285,7 +285,7 @@ object Ledger {
       referencedBy: Set[ScenarioNodeId],
       consumedBy: Option[ScenarioNodeId],
       parent: Option[ScenarioNodeId],
-      divulgedTo: Set[Party]
+      divulgedTo: Map[Party, ScenarioTransactionId]
   ) {
 
     /** 'True' if the given 'View' contains the given 'Node'. */
@@ -294,8 +294,9 @@ object Ledger {
       case ParticipantView(party) => observingSince.contains(party) || divulgedTo.contains(party)
     }
 
-    def divulgeTo(parties: Set[Party]): NodeInfo = {
-      copy(divulgedTo = divulgedTo ++ parties)
+    def divulgeTo(parties: Set[Party], since: ScenarioTransactionId): NodeInfo = {
+      val divulgedSince = parties.map(_ -> since).toMap
+      copy(divulgedTo = divulgedSince ++ divulgedTo)
     }
 
     def addObservers(witnesses: Map[Party, ScenarioTransactionId]): NodeInfo = {
@@ -1114,7 +1115,7 @@ object Ledger {
                     referencedBy = Set.empty,
                     consumedBy = None,
                     parent = mbParentId,
-                    divulgedTo = Set.empty
+                    divulgedTo = Map.empty
                   )
                   val newCache = cache0.copy(nodeInfos = cache0.nodeInfos + (nodeId -> newNodeInfo))
                   val idsToProcess = (mbParentId -> restOfNodeIds) :: restENPs
@@ -1204,7 +1205,7 @@ object Ledger {
       val updatedDivulgences = richTr.globalImplicitDisclosure
         .foldLeft(updatedDisclosures) {
           case (cacheP, (coId, divulgees)) =>
-            cacheP.updateNodeInfo(coId)(_.divulgeTo(divulgees))
+            cacheP.updateNodeInfo(coId)(_.divulgeTo(divulgees, trId))
         }
       updatedDivulgences
     }

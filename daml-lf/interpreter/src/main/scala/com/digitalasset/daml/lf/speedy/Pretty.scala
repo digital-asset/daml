@@ -275,12 +275,12 @@ object Pretty {
     }
 
     val ppDisclosedTo =
-      if (ni.observingSince.nonEmpty)
+      if (ni.observingSince.nonEmpty || ni.divulgedTo.nonEmpty)
         meta(
           text("known to (since):") &
             intercalate(
               comma + space,
-              ni.observingSince.toSeq
+              (ni.observingSince.toSeq ++ ni.divulgedTo.toSeq)
                 .sortWith {
                   case ((p1, id1), (p2, id2)) =>
                     id1 <= id2 && p1 < p2
