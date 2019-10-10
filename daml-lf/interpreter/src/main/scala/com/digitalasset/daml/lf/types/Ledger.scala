@@ -285,18 +285,12 @@ object Ledger {
       referencedBy: Set[ScenarioNodeId],
       consumedBy: Option[ScenarioNodeId],
       parent: Option[ScenarioNodeId],
-      divulgedTo: Map[Party, ScenarioTransactionId]
   ) {
 
     /** 'True' if the given 'View' contains the given 'Node'. */
     def visibleIn(view: View): Boolean = view match {
       case OperatorView => true
-      case ParticipantView(party) => observingSince.contains(party) || divulgedTo.contains(party)
-    }
-
-    def divulgeTo(parties: Set[Party], since: ScenarioTransactionId): NodeInfo = {
-      val divulgedSince = parties.map(_ -> since).toMap
-      copy(divulgedTo = divulgedSince ++ divulgedTo)
+      case ParticipantView(party) => observingSince.contains(party)
     }
 
     def addObservers(witnesses: Map[Party, ScenarioTransactionId]): NodeInfo = {
@@ -1115,7 +1109,6 @@ object Ledger {
                     referencedBy = Set.empty,
                     consumedBy = None,
                     parent = mbParentId,
-                    divulgedTo = Map.empty
                   )
                   val newCache = cache0.copy(nodeInfos = cache0.nodeInfos + (nodeId -> newNodeInfo))
                   val idsToProcess = (mbParentId -> restOfNodeIds) :: restENPs
@@ -1196,18 +1189,18 @@ object Ledger {
       processNodes(Right(ledgerData), List(None -> richTr.roots.toList))
 
     mbCacheAfterProcess.map { cacheAfterProcess =>
-      val updatedDisclosures = Relation
-        .union(richTr.localImplicitDisclosure, richTr.explicitDisclosure)
+      val globalImplicitDisclosure = richTr.globalImplicitDisclosure.map {
+        case (cid, parties) => ledgerData.coidToNodeId(cid) -> parties
+      }
+      Relation
+        .union(
+          Relation
+            .union(richTr.localImplicitDisclosure, richTr.explicitDisclosure),
+          globalImplicitDisclosure)
         .foldLeft(cacheAfterProcess) {
           case (cacheP, (nodeId, witnesses)) =>
             cacheP.updateNodeInfo(nodeId)(_.addObservers(witnesses.map(_ -> trId).toMap))
         }
-      val updatedDivulgences = richTr.globalImplicitDisclosure
-        .foldLeft(updatedDisclosures) {
-          case (cacheP, (coId, divulgees)) =>
-            cacheP.updateNodeInfo(coId)(_.divulgeTo(divulgees, trId))
-        }
-      updatedDivulgences
     }
   }
 }
