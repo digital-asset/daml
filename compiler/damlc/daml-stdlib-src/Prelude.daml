@@ -14,7 +14,7 @@ import DA.Internal.LF as X hiding (Pair(..), TextMap, unpackPair)
 #ifdef DAML_ANY_TYPE
 import DA.Internal.Template as X
 #else
-import DA.Internal.Template as X hiding (fromAnyTemplate, toAnyTemplate)
+import DA.Internal.Template as X hiding (fromAnyTemplate, toAnyTemplate, fromAnyChoice, toAnyChoice, _fromAnyChoice, _toAnyChoice)
 #endif
 import DA.Internal.Compatible as X
 import DA.Internal.Assert as X

@@ -43,9 +43,13 @@ data Accept = Accept{}
 
 instance ProposalInstance t => Choice (Proposal t) Accept (ContractId t) where
     exercise = _exerciseProposalAccept
+    _toAnyChoice = _toAnyChoiceProposalAccept
+    _fromAnyChoice = _fromAnyChoiceProposalAccept
 
 instance ProposalInstance t => Choice (Proposal t) Archive () where
     exercise = _exerciseProposalArchive
+    _toAnyChoice = _toAnyChoiceProposalArchive
+    _fromAnyChoice = _fromAnyChoiceProposalArchive
 
 class Template t => ProposalInstance t where
     _signatoryProposal : Proposal t -> [Party]
@@ -92,6 +96,10 @@ class Template t => ProposalInstance t where
         pure ()
     _exerciseProposalArchive : ContractId (Proposal t) -> Archive -> Update ()
     _exerciseProposalArchive = error "code will be injected by the compiler"
+    _toAnyChoiceProposalArchive : proxy (Proposal t) -> Archive -> AnyChoice
+    _toAnyChoiceProposalArchive = error "code will be injected by the compiler"
+    _fromAnyChoiceProposalArchive : proxy (Proposal t) -> AnyChoice -> Optional Archive
+    _fromAnyChoiceProposalArchive = error "code will be injected by the compiler"
 
     _consumptionProposalAccept : PreConsuming (Proposal t)
     _consumptionProposalAccept = PreConsuming
@@ -102,6 +110,10 @@ class Template t => ProposalInstance t where
         create asset
     _exerciseProposalAccept : ContractId (Proposal t) -> Accept -> Update (ContractId t)
     _exerciseProposalAccept = error "code will be injected by the compiler"
+    _toAnyChoiceProposalAccept : proxy (Proposal t) -> Accept -> AnyChoice
+    _toAnyChoiceProposalAccept = error "code will be injected by the compiler"
+    _fromAnyChoiceProposalAccept : proxy (Proposal t) -> AnyChoice -> Optional Accept
+    _fromAnyChoiceProposalAccept = error "code will be injected by the compiler"
 
 
 -- The `Iou` template in its desugared form.
@@ -127,9 +139,13 @@ data Burn = Burn{}
 
 instance IouInstance => Choice Iou Burn () where
   exercise = _exerciseIouBurn
+  _toAnyChoice = _toAnyChoiceIouBurn
+  _fromAnyChoice = _fromAnyChoiceIouBurn
 
 instance IouInstance => Choice Iou Archive () where
   exercise = _exerciseIouArchive
+  _toAnyChoice = _toAnyChoiceIouArchive
+  _fromAnyChoice = _fromAnyChoiceIouArchive
 
 class IouInstance where
   _signatoryIou : Iou -> [Party]
@@ -161,6 +177,10 @@ class IouInstance where
     pure ()
   _exerciseIouArchive : ContractId Iou -> Archive -> Update ()
   _exerciseIouArchive = error "code will be injected by the compiler"
+  _toAnyChoiceIouArchive : proxy Iou -> Archive -> AnyChoice
+  _toAnyChoiceIouArchive = error "code will be injected by the compiler"
+  _fromAnyChoiceIouArchive : proxy Iou -> AnyChoice -> Optional Archive
+  _fromAnyChoiceIouArchive = error "code will be injected by the compiler"
 
   _consumptionIouBurn : PreConsuming Iou
   _consumptionIouBurn = PreConsuming
@@ -171,6 +191,10 @@ class IouInstance where
     pure ()
   _exerciseIouBurn : ContractId Iou -> Burn -> Update ()
   _exerciseIouBurn = error "code will be injected by the compiler"
+  _toAnyChoiceIouBurn : proxy Iou -> Burn -> AnyChoice
+  _toAnyChoiceIouBurn = error "code will be injected by the compiler"
+  _fromAnyChoiceIouBurn : proxy Iou -> AnyChoice -> Optional Burn
+  _fromAnyChoiceIouBurn = error "code will be injected by the compiler"
 
 instance IouInstance where
 

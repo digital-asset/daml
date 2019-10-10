@@ -38,6 +38,7 @@ module DA.Internal.LF
   , unpackPair
 
   , AnyTemplate
+  , AnyChoice
   ) where
 
 import GHC.Types (Opaque, Symbol)
@@ -206,7 +207,12 @@ data Pair (f1 : Symbol) (f2 : Symbol) a1 a2 = Pair Opaque
 unpackPair : forall f1 f2 a1 a2. Pair f1 f2 a1 a2 -> (a1, a2)
 unpackPair = magic @"unpackPair"
 
+-- | Existential type that can wrap an arbitrary type.
+-- We do not expose this directly and instead only expose AnyTemplate and AnyChoice.
+data Any = Any Opaque
+
 -- | Existential template type that can wrap an arbitrary template.
-data AnyTemplate =
-  AnyTemplate Opaque
--- We need the constructor to avoid GHC warning about impossible pattern matches.
+newtype AnyTemplate = AnyTemplate { getAnyTemplate : Any }
+
+-- | Existential choice type that can wrap an arbitrary chice.
+newtype AnyChoice = AnyChoice { getAnyChoice : Any }
