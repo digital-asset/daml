@@ -89,9 +89,6 @@ private[testtool] object ParticipantTestContext {
   private def timestamp(i: Instant): Some[Timestamp] =
     Some(new Timestamp(i.getEpochSecond, i.getNano))
 
-  private def instant(t: Timestamp): Instant =
-    Instant.ofEpochSecond(t.seconds, t.nanos.toLong)
-
 }
 
 private[testtool] final class ParticipantTestContext private[participant] (
@@ -466,20 +463,6 @@ private[testtool] final class ParticipantTestContext private[participant] (
   def submitAndWaitForTransactionTree(request: SubmitAndWaitRequest): Future[TransactionTree] =
     services.command.submitAndWaitForTransactionTree(request).map(_.getTransaction)
 
-  /** Moves all time values in the request (the LET and MRT) by the specified amount.
-    * This simulates a request from a client with a skewed clock. */
-  def moveRequestTime(
-      request: SubmitAndWaitRequest,
-      offset: java.time.Duration): SubmitAndWaitRequest =
-    request.copy(
-      commands = request.commands.map(command =>
-        command.copy(
-          ledgerEffectiveTime = command.ledgerEffectiveTime.flatMap(let =>
-            timestamp(instant(let).plus(offset))),
-          maximumRecordTime = command.maximumRecordTime.flatMap(mrt =>
-            timestamp(instant(mrt).plus(offset)))
-      )))
-
   private def configurations[Res](
       request: GetLedgerConfigurationRequest,
       service: (GetLedgerConfigurationRequest, StreamObserver[Res]) => Unit): Future[Option[Res]] =
@@ -495,12 +478,11 @@ private[testtool] final class ParticipantTestContext private[participant] (
   def latestMaxTtl(): Future[java.time.Duration] =
     latestConfiguration()
       .map(
-        oc =>
-          oc.maxTtl
-            .map(
-              t =>
-                java.time.Duration
-                  .ofSeconds(t.seconds)
-                  .plus(java.time.Duration.ofNanos(t.nanos.toLong)))
-            .getOrElse(sys.error("Ledger configuration has no maxTtl duration.")))
+        _.maxTtl
+          .map(
+            t =>
+              java.time.Duration
+                .ofSeconds(t.seconds)
+                .plus(java.time.Duration.ofNanos(t.nanos.toLong)))
+          .getOrElse(sys.error("Ledger configuration has no maxTtl duration.")))
 }
