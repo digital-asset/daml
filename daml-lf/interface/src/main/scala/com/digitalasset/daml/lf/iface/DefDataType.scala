@@ -34,19 +34,9 @@ object DefDataType {
   implicit val `DDT bitraverse`: Bitraverse[DefDataType] =
     new Bitraverse[DefDataType] {
 
-//      @tailrec
-//      private def bitraverseLoop[G[_]: Applicative, A, B, C, D](
-//          fab: DefDataType[A, B],
-//          f: A => G[C],
-//          g: B => G[D],
-//          acc: G[DefDataType[C, D]]): G[DefDataType[C, D]] = fab.dataType match {
-//
-//
-//      }
-
-
-      override def bimap[A, B, C, D](fab: DefDataType[A, B])(f: A => C, g: B => D): DefDataType[C, D] = {
-        DefDataType(fab.typeVars, Bifunctor[DataType].bimap(fab.dataType)(f,g))
+      override def bimap[A, B, C, D](
+          fab: DefDataType[A, B])(f: A => C, g: B => D): DefDataType[C, D] = {
+        DefDataType(fab.typeVars, Bifunctor[DataType].bimap(fab.dataType)(f, g))
       }
 
       override def bitraverseImpl[G[_]: Applicative, A, B, C, D](
@@ -76,14 +66,15 @@ object DataType {
   implicit val `DT bitraverse`: Bitraverse[DataType] =
     new Bitraverse[DataType] {
 
-      override def bimap[A, B, C, D](fab: DataType[A, B])(f: A => C, g: B => D): DataType[C, D] = fab match {
-        case r @ Record(_) =>
-          Functor[Record].map(r)(f).widen
-        case v @ Variant(_) =>
-          Functor[Variant].map(v)(g).widen
-        case e @ Enum(_) =>
-          e
-      }
+      override def bimap[A, B, C, D](fab: DataType[A, B])(f: A => C, g: B => D): DataType[C, D] =
+        fab match {
+          case r @ Record(_) =>
+            Functor[Record].map(r)(f).widen
+          case v @ Variant(_) =>
+            Functor[Variant].map(v)(g).widen
+          case e @ Enum(_) =>
+            e
+        }
 
       override def bitraverseImpl[G[_]: Applicative, A, B, C, D](
           fab: DataType[A, B])(f: A => G[C], g: B => G[D]): G[DataType[C, D]] =
