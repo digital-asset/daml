@@ -1192,7 +1192,7 @@ convertTyCon env t
             "Numeric" -> pure (TBuiltin BTNumeric)
             "Decimal" ->
                 if envLfVersion env `supports` featureNumeric
-                    then pure (TNumeric (TNat 10))
+                    then pure TNumeric10
                     else pure TDecimal
             _ -> defaultTyCon
     -- TODO(DEL-6953): We need to add a condition on the package name as well.
@@ -1246,8 +1246,12 @@ convertType env t | Just t' <- getTyVar_maybe t
   = TVar . fst <$> convTypeVar t'
 convertType env t | Just s <- isStrLitTy t
   = pure TUnit
-convertType env t | Just n <- isNumLitTy t, n >= 0
-  = pure (TNat (fromIntegral n))
+convertType env t | Just m <- isNumLitTy t
+  = case typeLevelNatE m of
+        Left TLNEOutOfBounds ->
+            unsupported "type-level natural outside of supported range [0, 37]" m
+        Right n ->
+            pure (TNat n)
 convertType env t | Just (a,b) <- splitAppTy_maybe t
   = TApp <$> convertType env a <*> convertType env b
 convertType env x

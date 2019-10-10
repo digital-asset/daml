@@ -55,8 +55,8 @@ serializabilityConditionsType world0 _version mbModNameTpls vars = go
       TOptional typ -> go typ
       TMap typ -> go typ
       TNumeric (TNat n)
-          | n <= numericMaxScale -> noConditions
-          | otherwise -> Left (URNumericOutOfRange n)
+          | fromTypeLevelNat n <= numericMaxScale -> noConditions
+          | otherwise -> Left (URNumericOutOfRange (fromTypeLevelNat n))
       TNumeric _ -> Left URNumericNotFixed
           -- We statically enforce bounds check for Numeric type,
           -- requiring 0 <= n <= 'numericMaxScale' for the argument

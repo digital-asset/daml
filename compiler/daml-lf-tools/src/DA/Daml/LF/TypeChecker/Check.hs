@@ -145,7 +145,7 @@ typeOfBuiltin :: MonadGamma m => BuiltinExpr -> m Type
 typeOfBuiltin = \case
   BEInt64 _          -> pure TInt64
   BEDecimal _        -> pure TDecimal
-  BENumeric n        -> pure (TNumeric (TNat (numericScale n)))
+  BENumeric n        -> pure (TNumeric (TNat (typeLevelNat (numericScale n))))
   BEText    _        -> pure TText
   BETimestamp _      -> pure TTimestamp
   BEParty   _        -> pure TParty

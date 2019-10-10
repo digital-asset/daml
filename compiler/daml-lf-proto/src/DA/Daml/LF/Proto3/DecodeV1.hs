@@ -606,6 +606,7 @@ decodeNumericLit (T.unpack -> str) = case readMaybe str of
     Nothing -> throwError $ ParseError $ "bad Numeric literal: " ++ show str
     Just n -> pure $ BENumeric n
 
+
 decodeKind :: LF1.Kind -> Decode Kind
 decodeKind LF1.Kind{..} = mayDecode "kindSum" kindSum $ \case
   LF1.KindSumStar LF1.Unit -> pure KStar
@@ -634,13 +635,19 @@ decodePrim = pure . \case
   LF1.PrimTypeARROW -> BTArrow
   LF1.PrimTypeANY -> BTAny
 
+decodeTypeLevelNat :: Integer -> Decode TypeLevelNat
+decodeTypeLevelNat m =
+    case typeLevelNatE m of
+        Left TLNEOutOfBounds ->
+            throwError $ ParseError $ "bad type-level nat: " <> show m <> " is out of bounds"
+        Right n ->
+            pure n
+
 decodeType :: LF1.Type -> Decode Type
 decodeType LF1.Type{..} = mayDecode "typeSum" typeSum $ \case
   LF1.TypeSumVar (LF1.Type_Var var args) ->
     decodeWithArgs args $ TVar <$> decodeName TypeVarName var
-  LF1.TypeSumNat n ->
-    pure $ TNat (fromIntegral n)
-    -- TODO (#2289): determine if some bounds check should be made here.
+  LF1.TypeSumNat n -> TNat <$> decodeTypeLevelNat (fromIntegral n)
   LF1.TypeSumCon (LF1.Type_Con mbCon args) ->
     decodeWithArgs args $ TCon <$> mayDecode "type_ConTycon" mbCon decodeTypeConName
   LF1.TypeSumPrim (LF1.Type_Prim (Proto.Enumerated (Right prim)) args) -> do

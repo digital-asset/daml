@@ -19,6 +19,7 @@ import qualified Data.Time.Format           as Time.Format
 import           Data.Foldable (toList)
 
 import           DA.Daml.LF.Ast.Base hiding (dataCons)
+import           DA.Daml.LF.Ast.TypeLevelNat
 import           DA.Daml.LF.Ast.Util
 import           DA.Daml.LF.Ast.Optics
 import           DA.Pretty hiding (keyword_, type_)
@@ -166,7 +167,7 @@ instance Pretty Type where
             (prettyForall <-> hsep (map (prettyAndKind lvl) vs) <> "."
              <-> pPrintPrec lvl precTForall t1)
     TTuple fields -> prettyTuple lvl prettyHasType fields
-    TNat n -> integer (fromIntegral n)
+    TNat n -> integer (fromTypeLevelNat n)
 
 precEApp, precEAbs :: Rational
 precEApp = 2
