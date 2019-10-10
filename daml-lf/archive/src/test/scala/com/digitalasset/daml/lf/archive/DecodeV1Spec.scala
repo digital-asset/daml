@@ -64,14 +64,14 @@ class DecodeV1Spec
     LV.Minor.Dev
   )
 
-  private val preAnyTemplateVersions = Table(
+  private val preAnyTypeVersions = Table(
     "minVersion",
     List(1, 4, 6).map(i => LV.Minor.Stable(i.toString)): _*
   )
 
   // FixMe: https://github.com/digital-asset/daml/issues/2876
-  //        add stable version when AnyTemplate is released
-  private val postAnyTemplateVersions = Table(
+  //        add stable version when Any is released
+  private val postAnyTypeVersions = Table(
     "minVersion",
     LV.Minor.Dev
   )
@@ -198,17 +198,17 @@ class DecodeV1Spec
       }
     }
 
-    "reject AnyTemplate if version < 1.dev" in {
-      forEvery(preAnyTemplateVersions) { version =>
+    "reject Any if version < 1.dev" in {
+      forEvery(preAnyTypeVersions) { version =>
         val decoder = moduleDecoder(version)
         a[ParseError] shouldBe thrownBy(decoder.decodeType(buildPrimType(ANY)))
       }
     }
 
-    "accept AnyTemplate if version >= 1.dev" in {
-      forEvery(postAnyTemplateVersions) { minVersion =>
+    "accept Any if version >= 1.dev" in {
+      forEvery(postAnyTypeVersions) { minVersion =>
         val decoder = moduleDecoder(minVersion)
-        decoder.decodeType(buildPrimType(ANY)) shouldBe TAnyTemplate
+        decoder.decodeType(buildPrimType(ANY)) shouldBe TAny
       }
     }
   }

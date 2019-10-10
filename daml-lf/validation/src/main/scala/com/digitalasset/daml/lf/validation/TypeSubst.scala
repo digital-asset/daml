@@ -159,10 +159,10 @@ private[validation] case class TypeSubst(map: Map[TypeVarName, Type], private va
       ENone(apply(typ))
     case ESome(typ, body) =>
       ESome(apply(typ), apply(body))
-    case EToAnyTemplate(tmplId, body) =>
-      EToAnyTemplate(tmplId, apply(body))
-    case EFromAnyTemplate(tmplId, body) =>
-      EFromAnyTemplate(tmplId, apply(body))
+    case EToAny(ty, body) =>
+      EToAny(apply(ty), apply(body))
+    case EFromAny(ty, body) =>
+      EFromAny(apply(ty), apply(body))
     case EToTextTemplateId(tmplId) =>
       EToTextTemplateId(tmplId)
 

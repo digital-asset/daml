@@ -21,7 +21,7 @@ HEAD — ongoing
 
   + for more details refer to DAML-LF specification
 
-* Add AnyTemplate
+* Add ``Any`` type
 
   + protobuf archive:
     - add `ANY` primitive type

@@ -32,8 +32,8 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
       eAbs |
       eTyAbs |
       eLet |
-      eToAnyTemplate |
-      eFromAnyTemplate |
+      eToAny |
+      eFromAny |
       eToTextTemplateId |
       contractId |
       fullIdentifier ^^ EVal |
@@ -177,14 +177,14 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
       case b ~ body => ELet(b, body)
     }
 
-  private lazy val eToAnyTemplate: Parser[Expr] =
-    `to_any_template` ~>! `@` ~> fullIdentifier ~ expr0 ^^ {
-      case tyCon ~ e => EToAnyTemplate(tyCon, e)
+  private lazy val eToAny: Parser[Expr] =
+    `to_any` ~>! argTyp ~ expr0 ^^ {
+      case ty ~ e => EToAny(ty, e)
     }
 
-  private lazy val eFromAnyTemplate: Parser[Expr] =
-    `from_any_template` ~>! `@` ~> fullIdentifier ~ expr0 ^^ {
-      case tyCon ~ e => EFromAnyTemplate(tyCon, e)
+  private lazy val eFromAny: Parser[Expr] =
+    `from_any` ~>! argTyp ~ expr0 ^^ {
+      case ty ~ e => EFromAny(ty, e)
     }
 
   private lazy val eToTextTemplateId: Parser[Expr] =

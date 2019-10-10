@@ -57,8 +57,8 @@ freeVarsStep = \case
   EConsF _ s1 s2 -> s1 <> s2
   ENoneF _ -> mempty
   ESomeF _ s -> s
-  EToAnyTemplateF _ s -> s
-  EFromAnyTemplateF _ s -> s
+  EToAnyF _ s -> s
+  EFromAnyF _ s -> s
   EToTextTemplateIdF _ -> mempty
   EUpdateF u ->
     case u of
@@ -211,10 +211,10 @@ safetyStep = \case
   ESomeF _ s
     | Safe _ <- s -> Safe 0
     | otherwise   -> Unsafe
-  EToAnyTemplateF _ s
+  EToAnyF _ s
     | Safe _ <- s -> Safe 0
     | otherwise -> Unsafe
-  EFromAnyTemplateF _ s
+  EFromAnyF _ s
     | Safe _ <- s -> Safe 0
     | otherwise -> Unsafe
   EToTextTemplateIdF _ -> Safe 0

@@ -536,23 +536,16 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
           ESome(decodeType(some.getType), decodeExpr(some.getBody, definition))
 
         case PLF.Expr.SumCase.TO_ANY =>
-          assertSince(LV.Features.anyTemplate, "Expr.ToAnyTemplate")
-          decodeType(lfExpr.getToAny.getType) match {
-            case TTyCon(tmplId) =>
-              EToAnyTemplate(
-                tmplId = tmplId,
-                body = decodeExpr(lfExpr.getToAny.getExpr, definition))
-            case ty => throw ParseError(s"TO_ANY must be applied to a template type but got $ty")
-          }
+          assertSince(LV.Features.anyType, "Expr.ToAny")
+          EToAny(
+            decodeType(lfExpr.getToAny.getType),
+            decodeExpr(lfExpr.getToAny.getExpr, definition))
 
         case PLF.Expr.SumCase.FROM_ANY =>
-          assertSince(LV.Features.anyTemplate, "Expr.FromAnyTemplate")
-          val fromAny = lfExpr.getFromAny
-          decodeType(fromAny.getType) match {
-            case TTyCon(tmplId) =>
-              EFromAnyTemplate(tmplId = tmplId, body = decodeExpr(fromAny.getExpr, definition))
-            case ty => throw ParseError(s"FROM_ANY must be applied to a template type but got $ty")
-          }
+          assertSince(LV.Features.anyType, "Expr.FromAny")
+          EFromAny(
+            decodeType(lfExpr.getFromAny.getType),
+            decodeExpr(lfExpr.getFromAny.getExpr, definition))
 
         case PLF.Expr.SumCase.TO_TEXT_TEMPLATE_ID =>
           assertSince(LV.Features.toTextTemplateId, "Expr.ToTextTemplateId")
@@ -824,7 +817,7 @@ private[lf] object DecodeV1 {
       BuiltinTypeInfo(MAP, BTMap, minVersion = optional),
       BuiltinTypeInfo(ARROW, BTArrow, minVersion = arrowType),
       BuiltinTypeInfo(NUMERIC, BTNumeric, minVersion = numeric),
-      BuiltinTypeInfo(ANY, BTAnyTemplate, minVersion = anyTemplate)
+      BuiltinTypeInfo(ANY, BTAny, minVersion = anyType)
     )
   }
 

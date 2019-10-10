@@ -121,10 +121,10 @@ private[digitalasset] class AstRewriter(
           ENone(apply(typ))
         case ESome(typ, body) =>
           ESome(apply(typ), apply(body))
-        case EToAnyTemplate(tmplId, body) =>
-          EToAnyTemplate(tmplId, apply(body))
-        case EFromAnyTemplate(tmplId, body) =>
-          EFromAnyTemplate(tmplId, apply(body))
+        case EToAny(ty, body) =>
+          EToAny(ty, apply(body))
+        case EFromAny(ty, body) =>
+          EFromAny(ty, apply(body))
         case EToTextTemplateId(tmplId) =>
           EToTextTemplateId(tmplId)
       }

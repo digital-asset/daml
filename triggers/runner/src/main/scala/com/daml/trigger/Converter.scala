@@ -149,14 +149,14 @@ object Converter {
     ValueValidator.validateRecord(created.getCreateArguments) match {
       case Right(createArguments) =>
         SValue.fromValue(createArguments) match {
-          case r @ SRecord(_, _, _) =>
+          case r @ SRecord(tyCon, _, _) =>
             record(
               createdTy,
               ("eventId", fromEventId(triggerIds, created.eventId)),
               (
                 "contractId",
                 fromAnyContractId(triggerIds, created.getTemplateId, created.contractId)),
-              ("argument", SAnyTemplate(r))
+              ("argument", SAny(TTyCon(tyCon), r))
             )
           case v => throw new RuntimeException(s"Expected record but got $v")
         }
@@ -296,12 +296,12 @@ object Converter {
       case SRecord(_, _, vals) => {
         assert(vals.size == 1)
         vals.get(0) match {
-          case SAnyTemplate(tpl) =>
+          case SAny(_, tpl) =>
             for {
               templateId <- extractTemplateId(tpl)
               templateArg <- toLedgerRecord(tpl)
             } yield CreateCommand(Some(toApiIdentifier(templateId)), Some(templateArg))
-          case v => Left(s"Expected AnyTemplate but got $v")
+          case v => Left(s"Expected Any but got $v")
         }
       }
       case _ => Left(s"Expected CreateCommand but got $v")

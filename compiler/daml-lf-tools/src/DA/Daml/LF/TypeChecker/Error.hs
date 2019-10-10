@@ -61,7 +61,7 @@ data UnserializabilityReason
   | URNumericNotFixed
   | URNumericOutOfRange !Natural
   | URTypeLevelNat
-  | URAnyTemplate -- ^ It contains a value of type AnyTemplate.
+  | URAny -- ^ It contains a value of type Any.
 
 data Error
   = EUnknownTypeVar        !TypeVarName
@@ -95,7 +95,6 @@ data Error
   | EExpectedOptionalType  !Type
   | EEmptyCase
   | EExpectedTemplatableType !TypeConName
-  | EExpectedTemplateType !Type
   | EImportCycle           ![ModuleName]
   | EDataTypeCycle         ![TypeConName]
   | EValueCycle            ![ExprValName]
@@ -167,7 +166,7 @@ instance Pretty UnserializabilityReason where
     URNumericNotFixed -> "Numeric scale is not fixed"
     URNumericOutOfRange n -> "Numeric scale " <> integer (fromIntegral n) <> " is out of range (needs to be between 0 and 38)"
     URTypeLevelNat -> "type-level nat"
-    URAnyTemplate -> "AnyTemplate"
+    URAny -> "Any"
 
 instance Pretty Error where
   pPrint = \case
@@ -248,9 +247,6 @@ instance Pretty Error where
     EExpectedTemplatableType tpl ->
       "expected monomorphic record type in template definition, but found:"
       <-> pretty tpl
-    EExpectedTemplateType ty ->
-      "expected template type as argument to to_any_template, but got:"
-      <-> pretty ty
     EImportCycle mods ->
       "found import cycle:" $$ vcat (map (\m -> "*" <-> pretty m) mods)
     EDataTypeCycle tycons ->

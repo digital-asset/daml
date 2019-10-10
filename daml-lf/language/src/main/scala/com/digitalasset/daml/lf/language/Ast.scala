@@ -145,11 +145,11 @@ object Ast {
 
   final case class ESome(typ: Type, body: Expr) extends Expr
 
-  /** AnyTemplate constructor **/
-  final case class EToAnyTemplate(tmplId: TypeConName, body: Expr) extends Expr
+  /** Any constructor **/
+  final case class EToAny(ty: Type, body: Expr) extends Expr
 
-  /** Extract the underlying template if it matches the tmplId **/
-  final case class EFromAnyTemplate(tmplId: TypeConName, body: Expr) extends Expr
+  /** Extract the underlying value if it matches the ty **/
+  final case class EFromAny(ty: Type, body: Expr) extends Expr
 
   /** Unique textual representation of template Id **/
   final case class EToTextTemplateId(tmplId: TypeConName) extends Expr
@@ -187,6 +187,9 @@ object Ast {
   //
   // Types
   //
+
+  // Note that we rely on the equality of Type so this must stay sealed
+  // and all inhabitants should be case classes or case objects.
 
   sealed abstract class Type extends Product with Serializable {
     def pretty: String = Type.prettyType(this)
@@ -279,7 +282,7 @@ object Ast {
   case object BTDate extends BuiltinType
   case object BTContractId extends BuiltinType
   case object BTArrow extends BuiltinType
-  case object BTAnyTemplate extends BuiltinType
+  case object BTAny extends BuiltinType
 
   //
   // Primitive literals
