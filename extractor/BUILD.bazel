@@ -25,6 +25,7 @@ compileDependencies = [
     "//ledger/ledger-api-common",
     "//ledger/ledger-api-domain",
     "//ledger-service/utils",
+    "//ledger-service/lf-value-json",
     "//3rdparty/jvm/io/netty:netty_tcnative_boringssl_static",
     "//3rdparty/jvm/com/chuusai:shapeless",
     "//3rdparty/jvm/org/spire_math:kind_projector",
@@ -39,6 +40,7 @@ compileDependencies = [
     "//3rdparty/jvm/io/circe:circe_core",
     "//3rdparty/jvm/io/circe:circe_generic",
     "//3rdparty/jvm/io/circe:circe_parser",
+    "//3rdparty/jvm/io/spray:spray_json",
     "//3rdparty/jvm/io/grpc:grpc_netty",
 ]
 

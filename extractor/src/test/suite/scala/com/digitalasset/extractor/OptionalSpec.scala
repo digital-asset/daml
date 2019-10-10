@@ -43,40 +43,24 @@ class OptionalSpec
       """
         {
           "reference" : "Nones",
-          "optional" : {
-            "None" : {}
-          },
-          "deep_optional" : {
-            "None" : {}
-          },
+          "optional" : null,
+          "deep_optional" : null,
           "party" : "Bob"
         }
       """,
       """
         {
           "reference" : "Somes",
-          "optional" : {
-            "Some" : "foo"
-          },
-          "deep_optional" : {
-            "Some" : {
-              "Some" : "foo"
-            }
-          },
+          "optional" : "foo",
+          "deep_optional" : ["foo"],
           "party" : "Bob"
         }
       """,
       """
         {
           "reference" : "Some None",
-          "optional" : {
-            "Some" : "foo"
-          },
-          "deep_optional" : {
-            "Some" : {
-              "None" : {}
-            }
-          },
+          "optional" : "foo",
+          "deep_optional" : [],
           "party" : "Bob"
         }
       """
