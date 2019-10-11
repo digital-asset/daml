@@ -492,7 +492,7 @@ createProjectPackageDb opts fps = do
     -- E.g. `daml-trigger` --> `$DAML_SDK/daml-libs/daml-trigger.dar`
     -- Or, fail if not run from DAML assistant.
     mbSdkPath <- handleIO (\_ -> pure Nothing) $ Just <$> getSdkPath
-    let isSdkPackage fp = takeExtension fp /= ".dar"
+    let isSdkPackage fp = takeExtension fp `notElem` [".dar", ".dalf"]
         handleSdkPackages :: [FilePath] -> IO [FilePath]
         handleSdkPackages =
           let expand fp
@@ -504,8 +504,9 @@ createProjectPackageDb opts fps = do
                 = pure fp
           in mapM expand
     fps0 <- handleSdkPackages $ filter (`notElem` basePackages) fps
+    let (fpDars, fpDalfs) = partition ((== ".dar") . takeExtension) fps0
     (sdkVersions, confFiles, dalfs, srcs) <-
-        fmap mconcat $ forM fps0 $ \fp -> do
+        fmap mconcat $ forM fpDars $ \fp -> do
             bs <- BSL.readFile fp
             let archive = ZipArchive.toArchive bs
             manifest <- getEntry manifestPath archive
@@ -531,72 +532,51 @@ createProjectPackageDb opts fps = do
                           [".daml", ".hie", ".hi"]
                     ]
             pure ([sdkVersion], confFiles, dalfs, srcs)
+
     let uniqSdkVersions = nubSort sdkVersions
-    if | length uniqSdkVersions <= 1 ->
-           do forM_ dalfs $ \dalf -> do
-                  let path = dbPath </> ZipArchive.eRelativePath dalf
-                  createDirectoryIfMissing True (takeDirectory path)
-                  BSL.writeFile path (ZipArchive.fromEntry dalf)
-              forM_ confFiles $ \conf ->
-                  BSL.writeFile
-                      (dbPath </> "package.conf.d" </>
-                       (takeFileName $ ZipArchive.eRelativePath conf))
-                      (ZipArchive.fromEntry conf)
-              forM_ srcs $ \src -> do
-                  let path = dbPath </> ZipArchive.eRelativePath src
-                  write path (ZipArchive.fromEntry src)
-              ghcPkgPath <- getGhcPkgPath
-              callProcess
-                  (ghcPkgPath </> exe "ghc-pkg")
-                  [ "recache"
-                  -- ghc-pkg insists on using a global package db and will try
-                  -- to find one automatically if we don’t specify it here.
-                  , "--global-package-db=" ++ (dbPath </> "package.conf.d")
-                  , "--expand-pkgroot"
-                  ]
-       | length uniqSdkVersions > 1 && optAllowDifferentSdks opts ->
-            -- when we compile packages with different sdk versions, we need to generate the interface files
+    if | length uniqSdkVersions > 1 && optAllowDifferentSdks opts || not (null fpDalfs) ->
+            -- when we compile packages with different sdk versions or with dalf dependencies, we
+            -- need to generate the interface files
            do loggerH <- getLogger opts "generate interface files"
+              let dalfsFromDars =
+                      [ ( dropExtension $ takeFileName $ ZipArchive.eRelativePath e
+                        , BSL.toStrict $ ZipArchive.fromEntry e)
+                      | e <- dalfs
+                      ]
+              dalfsFromFps <-
+                  forM fpDalfs $ \fp -> do
+                      bs <- B.readFile fp
+                      pure (dropExtension $ takeFileName fp, bs)
+              let allDalfs = dalfsFromDars ++ dalfsFromFps
               pkgs <-
-                  forM dalfs $ \dalf -> do
-                      let dalfBS = BSL.toStrict $ ZipArchive.fromEntry dalf
+                  forM allDalfs $ \(name, dalf) -> do
                       (pkgId, package) <-
                           either (fail . DA.Pretty.renderPretty) pure $
-                          Archive.decodeArchive dalfBS
-                      pure
-                          ( LF.rewriteSelfReferences pkgId package
-                          , stringToUnitId $
-                            dropExtension $
-                            takeFileName $ ZipArchive.eRelativePath dalf)
+                          Archive.decodeArchive dalf
+                      pure (pkgId, package, dalf, stringToUnitId name)
               let pkgMap =
-                      MS.fromList
-                          [ (pkgId, unitId)
-                          | (LF.ExternalPackage pkgId _pkg, unitId) <- pkgs
-                          ]
+                      MS.fromList [(pkgId, unitId) | (pkgId, _pkg, _bs, unitId) <- pkgs]
               -- order the packages in topological order
               let (depGraph, vertexToNode, _keyToVertex) =
                       graphFromEdges $ do
-                          (LF.ExternalPackage pkgId dalf, unitId) <- pkgs
+                          (pkgId, dalf, bs, unitId) <- pkgs
                           let pkgRefs =
-                                  [ pid
-                                  | LF.PRImport pid <- toListOf packageRefs dalf
-                                  ]
+                                  [pid | LF.PRImport pid <- toListOf packageRefs dalf]
                           let src = generateSrcPkgFromLf pkgId pkgMap dalf
-                          pure ((src, unitId, dalf), pkgId, pkgRefs)
+                          pure ((src, unitId, dalf, bs), pkgId, pkgRefs)
               let pkgIdsTopoSorted = reverse $ topSort depGraph
               ghcPkgPath <- getGhcPkgPath
               dbPathAbs <- makeAbsolute dbPath
               projectPackageDatabaseAbs <- makeAbsolute projectPackageDatabase
               forM_ pkgIdsTopoSorted $ \vertex -> do
-                  let ((src, uid, dalf), pkgId, _) = vertexToNode vertex
+                  let ((src, uid, dalf, bs), pkgId, _) = vertexToNode vertex
                   when (uid /= primUnitId) $ do
                       let unitIdStr = unitIdString uid
                       let pkgIdStr = T.unpack $ LF.unPackageId pkgId
                       let workDir = dbPath </> unitIdStr <> "-" <> pkgIdStr
                       createDirectoryIfMissing True workDir
                       -- write the dalf package
-                      B.writeFile (workDir </> unitIdStr <.> "dalf") $
-                          Archive.encodeArchive dalf
+                      B.writeFile (workDir </> unitIdStr <.> "dalf") bs
                       -- we change the working dir so that we get correct file paths for the
                       -- interface files.
                       withCurrentDirectory workDir $
@@ -611,8 +591,7 @@ createProjectPackageDb opts fps = do
                               opts
                                   { optWriteInterface = True
                                   , optPackageDbs =
-                                        projectPackageDatabaseAbs :
-                                        optPackageDbs opts
+                                        projectPackageDatabaseAbs : optPackageDbs opts
                                   , optIfaceDir = Just "./"
                                   , optIsGenerated = True
                                   , optDflagCheck = False
@@ -628,7 +607,7 @@ createProjectPackageDb opts fps = do
                                   [fp | (fp, _content) <- src]
                       let deps =
                               [ unitIdString uId <.> "dalf"
-                              | ((_src, uId, _dalf), pId, _) <-
+                              | ((_src, uId, _dalf, _bs), pId, _) <-
                                     map vertexToNode $ reachable depGraph vertex
                               , pkgId /= pId
                               ]
@@ -654,10 +633,31 @@ createProjectPackageDb opts fps = do
                           [ "recache"
                           -- ghc-pkg insists on using a global package db and will try
                           -- to find one automatically if we don’t specify it here.
-                          , "--global-package-db=" ++
-                            (dbPathAbs </> "package.conf.d")
+                          , "--global-package-db=" ++ (dbPathAbs </> "package.conf.d")
                           , "--expand-pkgroot"
                           ]
+       | length uniqSdkVersions <= 1 ->
+           do forM_ dalfs $ \dalf -> do
+                  let path = dbPath </> ZipArchive.eRelativePath dalf
+                  createDirectoryIfMissing True (takeDirectory path)
+                  BSL.writeFile path (ZipArchive.fromEntry dalf)
+              forM_ confFiles $ \conf ->
+                  BSL.writeFile
+                      (dbPath </> "package.conf.d" </>
+                       (takeFileName $ ZipArchive.eRelativePath conf))
+                      (ZipArchive.fromEntry conf)
+              forM_ srcs $ \src -> do
+                  let path = dbPath </> ZipArchive.eRelativePath src
+                  write path (ZipArchive.fromEntry src)
+              ghcPkgPath <- getGhcPkgPath
+              callProcess
+                  (ghcPkgPath </> exe "ghc-pkg")
+                  [ "recache"
+                  -- ghc-pkg insists on using a global package db and will try
+                  -- to find one automatically if we don’t specify it here.
+                  , "--global-package-db=" ++ (dbPath </> "package.conf.d")
+                  , "--expand-pkgroot"
+                  ]
        | otherwise ->
            fail $
            "Package dependencies from different SDK versions: " ++

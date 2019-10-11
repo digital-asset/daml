@@ -389,6 +389,48 @@ packagingTests = testGroup "packaging"
             , "dependencies: [daml-prim, daml-stdlib]"
             ]
         withCurrentDirectory projDir $ callCommandQuiet "daml build"
+    , testCase "Dalf imports" $ withTempDir $ \projDir -> do
+        let genSimpleDalfExe
+              | isWindows = "generate-simple-dalf.exe"
+              | otherwise = "generate-simple-dalf"
+        genSimpleDalf <-
+            locateRunfiles
+            (mainWorkspace </> "compiler" </> "damlc" </> "tests" </> genSimpleDalfExe)
+        writeFileUTF8 (projDir </> "daml.yaml") $ unlines
+          [ "sdk-version: " <> sdkVersion
+          , "name: proj"
+          , "version: 0.1.0"
+          , "source: ."
+          , "dependencies: [daml-prim, daml-stdlib, simple-dalf-0.0.0.dalf]"
+          ]
+        writeFileUTF8 (projDir </> "A.daml") $ unlines
+            [ "daml 1.2"
+            , "module A where"
+            , "import qualified \"simple-dalf\" Module"
+            , "newTemplate : Party -> Party -> Module.Template"
+            , "newTemplate p1 p2 = Module.Template with Module.this = p1, Module.arg = p2"
+            , "newChoice : Module.Choice"
+            , "newChoice = Module.Choice ()"
+            --, "createTemplate : Party -> Party -> Update (ContractId Module.Template)"
+            --, "createTemplate p1 p2 = create $ newTemplate p1 p2"
+            --, "fetchTemplate : ContractId Module.Template -> Update Module.Template"
+            --, "fetchTemplate = fetch"
+            --, "archiveTemplate : ContractId Module.Template -> Update ()"
+            --, "archiveTemplate = archive"
+            --, "signatoriesTemplate : Module.Template -> [Party]"
+            --, "signatoriesTemplate = signatory"
+            --, "observersTemplate : Module.Template -> [Party]"
+            --, "observersTemplate = observer"
+            --, "ensureTemplate : Module.Template -> Bool"
+            --, "ensureTemplate = ensure"
+            --, "agreementTemplate : Module.Template -> Text"
+            --, "agreementTemplate = agreement"
+            ]
+        withCurrentDirectory projDir $ callCommandQuiet $ genSimpleDalf <> " simple-dalf-0.0.0.dalf"
+        withCurrentDirectory projDir $ callCommandQuiet "daml build"
+        let dar = projDir </> ".daml/dist/proj-0.1.0.dar"
+        assertBool "proj-0.1.0.dar was not created." =<< doesFileExist dar
+
     , testCaseSteps "Build migration package" $ \step -> withTempDir $ \tmpDir -> do
         -- it's important that we have fresh empty directories here!
         let projectA = tmpDir </> "a-1.0"

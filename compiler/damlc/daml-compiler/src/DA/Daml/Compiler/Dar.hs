@@ -234,10 +234,14 @@ getDamlRootFiles srcRoot = do
         else pure [toNormalizedFilePath srcRoot]
 
 fullPkgName :: String -> String -> String -> String
-fullPkgName n v h = intercalate "-" [n, v, h]
+fullPkgName n v h
+    | null v = n <> "-" <> h
+    | otherwise = n <> "-" <> v <> "-" <> h
 
 pkgNameVersion :: String -> String -> String
-pkgNameVersion n v = n ++ "-" ++ v
+pkgNameVersion n v
+    | null v = n
+    | otherwise = n ++ "-" ++ v
 
 mkConfFile ::
        PackageConfigFields -> [String] -> String -> (String, BS.ByteString)
