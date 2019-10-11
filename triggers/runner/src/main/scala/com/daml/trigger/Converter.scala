@@ -334,8 +334,17 @@ object Converter {
         assert(vals.size == 2)
         for {
           anyContractId <- toAnyContractId(vals.get(0))
-          choiceName <- extractChoiceName(vals.get(1))
-          choiceArg <- toLedgerValue(vals.get(1))
+          choiceVal <- vals.get(1) match {
+            case SRecord(_, _, vals) =>
+              assert(vals.size == 1)
+              vals.get(0) match {
+                case SAny(_, choiceVal) => Right(choiceVal)
+                case v => Left(s"Expected Any but got $v")
+              }
+            case v => Left(s"Expected Any but got $v")
+          }
+          choiceName <- extractChoiceName(choiceVal)
+          choiceArg <- toLedgerValue(choiceVal)
         } yield {
           ExerciseCommand(
             Some(toApiIdentifier(anyContractId.templateId)),

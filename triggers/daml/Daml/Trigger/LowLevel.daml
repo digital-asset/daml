@@ -97,37 +97,22 @@ data TemplateId = TemplateId
   , entityName : Text
   }
 
--- | This is an internal hack until we have this as a builtin in DAML-LF.
-
--- You can think of this as an existential `data Dynamic = forall a. Dynamic a`
--- that you can’t convert back from.
-data LedgerValue = LedgerValue {}
-
--- | At runtime we turn this into the identity function
--- and convert the result to ledger values.
-toLedgerValue : a -> LedgerValue
-toLedgerValue = error "toLedgerValue should be removed."
-
 data Command
   = CreateCommand
       { templateArg : AnyTemplate
-      -- This needs to be AnyTemplate instead of LedgerValue
-      -- to handle generic templates.
       }
   | ExerciseCommand
       { contractId : AnyContractId
-      , choiceArg : LedgerValue
-      -- TODO We might want/need to extend AnyTemplate to be able to handle choice arguments
-      -- since this is required to allow users to check pending commands.
+      , choiceArg : AnyChoice
       }
 
 createCmd : Template t => t -> Command
 createCmd templateArg =
   CreateCommand (toAnyTemplate templateArg)
 
-exerciseCmd : Choice t c r => AnyContractId -> c -> Command
+exerciseCmd : forall t c r. Choice t c r => AnyContractId -> c -> Command
 exerciseCmd contractId choiceArg =
-  ExerciseCommand contractId (toLedgerValue choiceArg)
+  ExerciseCommand contractId (toAnyChoice @t choiceArg)
 
 data Commands = Commands
   { commandId : CommandId
