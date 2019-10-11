@@ -9,7 +9,6 @@ import Data.Char
 import qualified Data.Set as Set
 import qualified Data.Text as T
 import qualified Data.Text.Internal as T (text)
-import qualified Data.Text.Lazy as TL
 import qualified Data.Text.Array as TA
 import Data.Word
 
@@ -37,7 +36,7 @@ import Data.Word
 -- and, value reference names are non-empty sequences of
 -- identifiers. Such sequence of identifier are called *dotted name*
 -- in the proto encoding/decoding code.
--- 
+--
 -- IMPORTANT: keep in sync with
 -- `com.digitalasset.daml.lf.data.Ref.DottedName.fromSegments`
 
@@ -64,12 +63,12 @@ ord' = fromIntegral . ord
 -- can avoid allocating new `Text`s and we optimize the case where we do have to
 -- mangle by preallocating the array of the right size and writing the characters
 -- directly to that.
-mangleIdentifier :: T.Text -> Either String TL.Text
+mangleIdentifier :: T.Text -> Either String T.Text
 mangleIdentifier txt = case T.foldl' f (MangledSize 0 0) txt of
     MangledSize 0 _ -> Left "Empty identifier"
     MangledSize chars word16s
-      | chars == word16s -> Right $! TL.fromStrict txt
-      | otherwise -> Right $! TL.fromStrict $
+      | chars == word16s -> Right txt
+      | otherwise -> Right $!
         let !arr = TA.run $ do
             a <- TA.new word16s
             let poke !j !minj !x

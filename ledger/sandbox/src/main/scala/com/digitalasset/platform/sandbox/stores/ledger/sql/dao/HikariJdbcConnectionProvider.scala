@@ -5,9 +5,8 @@ package com.digitalasset.platform.sandbox.stores.ledger.sql.dao
 
 import java.sql.Connection
 
-import com.digitalasset.platform.sandbox.stores.ledger.sql.migration.FlywayMigrations
+import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.zaxxer.hikari.{HikariConfig, HikariDataSource}
-import org.slf4j.LoggerFactory
 
 import scala.concurrent.duration.{FiniteDuration, _}
 import scala.util.control.NonFatal
@@ -25,29 +24,16 @@ trait JdbcConnectionProvider extends AutoCloseable {
   def getStreamingConnection(): Connection
 }
 
-class HikariJdbcConnectionProvider(
-    jdbcUrl: String,
-    dbType: JdbcLedgerDao.DbType,
-    noOfShortLivedConnections: Int,
-    noOfStreamingConnections: Int)
-    extends JdbcConnectionProvider {
-
-  private val logger = LoggerFactory.getLogger(getClass)
-  // these connections should never timeout as we have exactly the same number of threads using them as many connections we have
-  private val shortLivedDataSource =
-    createDataSource(noOfShortLivedConnections, noOfShortLivedConnections, 250.millis)
-
-  // this a dynamic pool as it's used for serving ACS snapshot requests, which we don't expect to get a lot
-  private val streamingDataSource =
-    createDataSource(1, noOfStreamingConnections, 60.seconds)
-
-  private def createDataSource(
+object HikariConnection {
+  def createDataSource(
+      jdbcUrl: String,
+      poolName: String,
       minimumIdle: Int,
       maxPoolSize: Int,
-      connectionTimeout: FiniteDuration) = {
+      connectionTimeout: FiniteDuration): HikariDataSource = {
     val config = new HikariConfig
     config.setJdbcUrl(jdbcUrl)
-    //TODO put these defaults out to a config file
+    config.setDriverClassName(DbType.jdbcType(jdbcUrl).driver)
     config.addDataSourceProperty("cachePrepStmts", "true")
     config.addDataSourceProperty("prepStmtCacheSize", "128")
     config.addDataSourceProperty("prepStmtCacheSqlLimit", "2048")
@@ -55,14 +41,39 @@ class HikariJdbcConnectionProvider(
     config.setMaximumPoolSize(maxPoolSize)
     config.setMinimumIdle(minimumIdle)
     config.setConnectionTimeout(connectionTimeout.toMillis)
+    config.setPoolName(poolName)
 
     //note that Hikari uses auto-commit by default.
     //in `runSql` below, the `.close()` will automatically trigger a commit.
     new HikariDataSource(config)
   }
+}
 
-  private val flyway = FlywayMigrations(shortLivedDataSource, dbType)
-  flyway.migrate()
+class HikariJdbcConnectionProvider(
+    jdbcUrl: String,
+    noOfShortLivedConnections: Int,
+    noOfStreamingConnections: Int,
+    loggerFactory: NamedLoggerFactory)
+    extends JdbcConnectionProvider {
+
+  private val logger = loggerFactory.getLogger(getClass)
+  // these connections should never timeout as we have exactly the same number of threads using them as many connections we have
+  private val shortLivedDataSource =
+    HikariConnection.createDataSource(
+      jdbcUrl,
+      "Short-Lived-Connections",
+      noOfShortLivedConnections,
+      noOfShortLivedConnections,
+      250.millis)
+
+  // this a dynamic pool as it's used for serving ACS snapshot requests, which we don't expect to get a lot
+  private val streamingDataSource =
+    HikariConnection.createDataSource(
+      jdbcUrl,
+      "Streaming-Connections",
+      1,
+      noOfStreamingConnections,
+      60.seconds)
 
   override def runSQL[T](block: Connection => T): T = {
     val conn = shortLivedDataSource.getConnection()
@@ -90,18 +101,17 @@ class HikariJdbcConnectionProvider(
     shortLivedDataSource.close()
     streamingDataSource.close()
   }
-
 }
 
 object HikariJdbcConnectionProvider {
   def apply(
       jdbcUrl: String,
-      dbType: JdbcLedgerDao.DbType,
       noOfShortLivedConnections: Int,
-      noOfStreamingConnections: Int): JdbcConnectionProvider =
+      noOfStreamingConnections: Int,
+      loggerFactory: NamedLoggerFactory): JdbcConnectionProvider =
     new HikariJdbcConnectionProvider(
       jdbcUrl,
-      dbType,
       noOfShortLivedConnections,
-      noOfStreamingConnections)
+      noOfStreamingConnections,
+      loggerFactory)
 }

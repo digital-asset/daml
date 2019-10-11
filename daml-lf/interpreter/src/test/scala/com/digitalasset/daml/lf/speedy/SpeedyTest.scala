@@ -5,10 +5,11 @@ package com.digitalasset.daml.lf.speedy
 
 import java.util
 
+import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.PureCompiledPackages
 import com.digitalasset.daml.lf.data.{FrontStack, Ref}
 import com.digitalasset.daml.lf.language.Ast
-import com.digitalasset.daml.lf.language.Ast.Expr
+import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.speedy.SError.SError
 import com.digitalasset.daml.lf.speedy.SResult.{SResultContinue, SResultError}
 import com.digitalasset.daml.lf.speedy.SValue._
@@ -19,6 +20,7 @@ import org.scalatest.{Matchers, WordSpec}
 class SpeedyTest extends WordSpec with Matchers {
 
   import SpeedyTest._
+  import defaultParserParameters.{defaultPackageId => pkgId}
 
   "pattern matching" should {
 
@@ -91,6 +93,128 @@ class SpeedyTest extends WordSpec with Matchers {
 
   }
 
+  val anyPkg =
+    p"""
+      module Test {
+        record @serializable T1 = { party: Party } ;
+        template (record : T1) = {
+          precondition True,
+          signatories Cons @Party [(Test:T1 {party} record)] (Nil @Party),
+          observers Nil @Party,
+          agreement "Agreement",
+          choices {
+          }
+        } ;
+        record @serializable T2 = { party: Party } ;
+        template (record : T2) = {
+          precondition True,
+          signatories Cons @Party [(Test:T2 {party} record)] (Nil @Party),
+          observers Nil @Party,
+          agreement "Agreement",
+          choices {
+          }
+        } ;
+        record T3 (a: *) = { party: Party } ;
+     }
+    """
+
+  val anyPkgs = typeAndCompile(anyPkg)
+
+  "to_any" should {
+
+    "succeed on Int64" in {
+      eval(e"""to_any @Int64 1""", anyPkgs) shouldBe Right(SAny(TBuiltin(BTInt64), SInt64(1)))
+    }
+    "succeed on record type without parameters" in {
+      eval(e"""to_any @Test:T1 (Test:T1 {party = 'Alice'})""", anyPkgs) shouldBe
+        Right(
+          SAny(
+            Ast.TTyCon(Identifier(pkgId, QualifiedName.assertFromString("Test:T1"))),
+            SRecord(
+              Identifier(pkgId, QualifiedName.assertFromString("Test:T1")),
+              Name.Array(Name.assertFromString("party")),
+              ArrayList(SParty(Party.assertFromString("Alice")))
+            )
+          ))
+    }
+    "succeed on record type with parameters" in {
+      eval(e"""to_any @(Test:T3 Int64) (Test:T3 @Int64 {party = 'Alice'})""", anyPkgs) shouldBe
+        Right(
+          SAny(
+            TApp(
+              TTyCon(Identifier(pkgId, QualifiedName.assertFromString("Test:T3"))),
+              TBuiltin(BTInt64)),
+            SRecord(
+              Identifier(pkgId, QualifiedName.assertFromString("Test:T3")),
+              Name.Array(Name.assertFromString("party")),
+              ArrayList(SParty(Party.assertFromString("Alice")))
+            )
+          ))
+      eval(e"""to_any @(Test:T3 Text) (Test:T3 @Text {party = 'Alice'})""", anyPkgs) shouldBe
+        Right(
+          SAny(
+            TApp(
+              TTyCon(Identifier(pkgId, QualifiedName.assertFromString("Test:T3"))),
+              TBuiltin(BTText)),
+            SRecord(
+              Identifier(pkgId, QualifiedName.assertFromString("Test:T3")),
+              Name.Array(Name.assertFromString("party")),
+              ArrayList(SParty(Party.assertFromString("Alice")))
+            )
+          ))
+    }
+  }
+
+  "from_any" should {
+
+    "throw an exception on Int64" in {
+      eval(e"""from_any @Test:T1 1""", anyPkgs) shouldBe 'left
+    }
+
+    "return Some(tpl) if template type matches" in {
+      eval(e"""from_any @Test:T1 (to_any @Test:T1 (Test:T1 {party = 'Alice'}))""", anyPkgs) shouldBe
+        Right(
+          SOptional(Some(SRecord(
+            Identifier(pkgId, QualifiedName.assertFromString("Test:T1")),
+            Name.Array(Name.assertFromString("party")),
+            ArrayList(SParty(Party.assertFromString("Alice")))
+          ))))
+    }
+
+    "return None if template type does not match" in {
+      eval(e"""from_any @Test:T2 (to_any @Test:T1 (Test:T1 {party = 'Alice'}))""", anyPkgs) shouldBe Right(
+        SOptional(None))
+    }
+    "return Some(v) if type parameter is the same" in {
+      eval(
+        e"""from_any @(Test:T3 Int64) (to_any @(Test:T3 Int64) (Test:T3 @Int64 {party = 'Alice'}))""",
+        anyPkgs) shouldBe Right(
+        SOptional(Some(SRecord(
+          Identifier(pkgId, QualifiedName.assertFromString("Test:T3")),
+          Name.Array(Name.assertFromString("party")),
+          ArrayList(SParty(Party.assertFromString("Alice")))
+        ))))
+    }
+    "return None if type parameter is different" in {
+      eval(
+        e"""from_any @(Test:T3 Int64) (to_any @(Test:T3 Text) (Test:T3 @Int64 {party = 'Alice'}))""",
+        anyPkgs) shouldBe Right(SOptional(None))
+    }
+  }
+
+  "to_text_template_id" should {
+
+    "equal for equal types" in {
+      eval(e"""EQUAL_TEXT (to_text_template_id @Test:T1) (to_text_template_id @Test:T1)""", anyPkgs) shouldBe Right(
+        SBool(true))
+    }
+
+    "different for different types" in {
+      eval(e"""EQUAL_TEXT (to_text_template_id @Test:T1) (to_text_template_id @Test:T2)""", anyPkgs) shouldBe Right(
+        SBool(false))
+    }
+
+  }
 }
 
 object SpeedyTest {

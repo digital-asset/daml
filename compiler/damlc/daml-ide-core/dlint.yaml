@@ -980,4 +980,10 @@
 # --
 # DAML specific
 
+# Not popular or useful
+- ignore: {name: Use camelCase}
+# Not relevant to DAML
 - ignore: {name: Use newtype instead of data}
+# Don't warn on redundant parens or $
+- ignore: {name: Redundant bracket}
+- ignore: {name: Redundant $}

@@ -31,18 +31,14 @@ For example, to create a migration project from ``foo-1.0.0`` to ``foo-2.0.0`` r
 
 .. code-block:: none
 
-  daml migrate foo-upgrade-2.0.0 daml/Foo.daml foo-1.0.0/.daml/dist/foo-1.0.0.dar foo-2.0.0/.daml/dist/foo-2.0.0.dar
+  daml migrate foo-upgrade-2.0.0 foo-1.0.0/.daml/dist/foo-1.0.0.dar foo-2.0.0/.daml/dist/foo-2.0.0.dar
 
 This generates a migration project in the directory ``foo-upgrade-2.0.0``. To build it, change
 directory to ``foo-upgrade-2.0.0`` and run
 
 .. code-block:: none
 
-  ./build.sh
-
-respectively ``.\build.cmd`` if your on a Windows system.  Note that you can **not** use the usual
-``daml build`` command to build the migration project. The `migrate` command will setup the project
-and initializes a suitable package database, while ``daml build`` would overwrite this setup again.
+  daml build
 
 How migrations work and when it is necessary to write code manually
 -------------------------------------------------------------------
@@ -129,7 +125,7 @@ package has been extended to
   :language: daml
   :lines: 6-15
 
-Here is typical error message in this case of an invocation of ``build.sh``:
+Here is typical error message in this case of an invocation of ``daml build``:
 
 .. code-block:: none
 

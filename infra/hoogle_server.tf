@@ -32,6 +32,7 @@ resource "google_compute_instance_template" "hoogle" {
 
   metadata_startup_script = <<STARTUP
 #! /bin/bash
+set -euo pipefail
 apt-get update
 apt-get -y upgrade
 ### stackdriver
@@ -58,7 +59,7 @@ http {
   server {
     listen 8081 default_server;
     server_name _;
-    return 307 https://hoogle.daml.com$request_uri;
+    return 307 https://hoogle.daml.com\$request_uri;
   }
 }
 NGINX
@@ -73,7 +74,7 @@ curl -sSL https://get.haskellstack.org/ | sh
 runuser -u hoogle bash <<HOOGLE_SETUP
 git clone https://github.com/ndmitchell/hoogle.git
 cd hoogle
-stack init --resolver=nightly
+stack init --resolver=lts-14.7
 stack build
 stack install
 export PATH=/home/hoogle/.local/bin:$PATH

@@ -3,22 +3,18 @@
 
 package com.daml.ledger.participant.state.kvutils
 
+import com.codahale.metrics
 import com.daml.ledger.participant.state.kvutils.Conversions._
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
-import com.daml.ledger.participant.state.kvutils.committing.{
-  ProcessConfigSubmission,
-  ProcessPackageUpload,
-  ProcessPartyAllocation,
-  ProcessTransactionSubmission
-}
+import com.daml.ledger.participant.state.kvutils.committing._
 import com.daml.ledger.participant.state.v1.{Configuration, ParticipantId}
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.engine.Engine
 import com.digitalasset.daml.lf.transaction.TransactionOuterClass
 import com.digitalasset.daml_lf.DamlLf
+import com.digitalasset.platform.common.metrics.VarGauge
 import com.google.protobuf.ByteString
 import org.slf4j.LoggerFactory
-
 import scala.collection.JavaConverters._
 
 object KeyValueCommitting {
@@ -48,7 +44,6 @@ object KeyValueCommitting {
     * existing entries in the key-value store. The concrete key for DAML state entry is obtained by applying
     * [[packDamlStateKey]] to [[DamlStateKey]].
     *
-    * @param engine: DAML Engine. This instance should be persistent as it caches package compilation.
     * @param entryId: Log entry id to which this submission is committed.
     * @param recordTime: Record time at which this log entry is committed.
     * @param defaultConfig: The default configuration that is to be used if no configuration has been committed to state.
@@ -68,51 +63,67 @@ object KeyValueCommitting {
       defaultConfig: Configuration,
       submission: DamlSubmission,
       participantId: ParticipantId,
-      inputState: Map[DamlStateKey, Option[DamlStateValue]]
+      inputState: Map[DamlStateKey, Option[DamlStateValue]],
   ): (DamlLogEntry, Map[DamlStateKey, DamlStateValue]) = {
+    Metrics.processing.inc()
+    Metrics.lastRecordTimeGauge.updateValue(recordTime.toString)
+    Metrics.lastEntryIdGauge.updateValue(Pretty.prettyEntryId(entryId))
+    Metrics.lastParticipantIdGauge.updateValue(participantId)
+    val ctx = Metrics.runTimer.time()
+    try {
+      submission.getPayloadCase match {
+        case DamlSubmission.PayloadCase.PACKAGE_UPLOAD_ENTRY =>
+          ProcessPackageUpload(
+            engine,
+            entryId,
+            recordTime,
+            submission.getPackageUploadEntry,
+            inputState
+          ).run
 
-    // Look at what kind of submission this is...
-    submission.getPayloadCase match {
-      case DamlSubmission.PayloadCase.PACKAGE_UPLOAD_ENTRY =>
-        ProcessPackageUpload(
-          entryId,
-          recordTime,
-          submission.getPackageUploadEntry,
-          inputState
-        ).run
+        case DamlSubmission.PayloadCase.PARTY_ALLOCATION_ENTRY =>
+          ProcessPartyAllocation(
+            entryId,
+            recordTime,
+            participantId,
+            submission.getPartyAllocationEntry,
+            inputState
+          ).run
 
-      case DamlSubmission.PayloadCase.PARTY_ALLOCATION_ENTRY =>
-        ProcessPartyAllocation(
-          entryId,
-          recordTime,
-          participantId,
-          submission.getPartyAllocationEntry,
-          inputState
-        ).run
+        case DamlSubmission.PayloadCase.CONFIGURATION_SUBMISSION =>
+          ProcessConfigSubmission(
+            entryId,
+            recordTime,
+            defaultConfig,
+            participantId,
+            submission.getConfigurationSubmission,
+            inputState
+          ).run
 
-      case DamlSubmission.PayloadCase.CONFIGURATION_SUBMISSION =>
-        ProcessConfigSubmission(
-          entryId,
-          recordTime,
-          defaultConfig,
-          participantId,
-          submission.getConfigurationSubmission,
-          inputState
-        ).run
+        case DamlSubmission.PayloadCase.TRANSACTION_ENTRY =>
+          ProcessTransactionSubmission(
+            engine,
+            entryId,
+            recordTime,
+            defaultConfig,
+            participantId,
+            submission.getTransactionEntry,
+            inputState
+          ).run
 
-      case DamlSubmission.PayloadCase.TRANSACTION_ENTRY =>
-        ProcessTransactionSubmission(
-          engine,
-          entryId,
-          recordTime,
-          defaultConfig,
-          participantId,
-          submission.getTransactionEntry,
-          inputState
-        ).run
-
-      case DamlSubmission.PayloadCase.PAYLOAD_NOT_SET =>
-        throw Err.InvalidSubmission("DamlSubmission.payload not set.")
+        case DamlSubmission.PayloadCase.PAYLOAD_NOT_SET =>
+          throw Err.InvalidSubmission("DamlSubmission.payload not set.")
+      }
+    } catch {
+      case scala.util.control.NonFatal(e) =>
+        logger.warn(s"Exception: $e")
+        Metrics.lastExceptionGauge.updateValue(
+          Pretty.prettyEntryId(entryId) + s"[${submission.getPayloadCase}]: " + e.toString
+        )
+        throw e
+    } finally {
+      val _ = ctx.stop()
+      Metrics.processing.dec()
     }
   }
 
@@ -206,4 +217,31 @@ object KeyValueCommitting {
 
     }
   }
+
+  private object Metrics {
+    private val registry = metrics.SharedMetricRegistries.getOrCreate("kvutils")
+    private val prefix = "kvutils.committing"
+
+    // Timer (and count) of how fast submissions have been processed.
+    val runTimer: metrics.Timer = registry.timer(s"$prefix.run-timer")
+
+    // Number of exceptions seen.
+    val exceptions: metrics.Counter = registry.counter(s"$prefix.exceptions")
+
+    // Counter to monitor how many at a time and when kvutils is processing a submission.
+    val processing: metrics.Counter = registry.counter(s"$prefix.processing")
+
+    val lastRecordTimeGauge = new VarGauge[String]("<none>")
+    registry.register(s"$prefix.last.record-time", lastRecordTimeGauge)
+
+    val lastEntryIdGauge = new VarGauge[String]("<none>")
+    registry.register(s"$prefix.last.entry-id", lastEntryIdGauge)
+
+    val lastParticipantIdGauge = new VarGauge[String]("<none>")
+    registry.register(s"$prefix.last.participant-id", lastParticipantIdGauge)
+
+    val lastExceptionGauge = new VarGauge[String]("<none>")
+    registry.register(s"$prefix.last.exception", lastExceptionGauge)
+  }
+
 }

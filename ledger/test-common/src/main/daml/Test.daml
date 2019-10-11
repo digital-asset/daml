@@ -13,7 +13,7 @@ template Dummy
   where
     signatory operator
 
-    agreement (show operator <> "operates a dummy.")
+    agreement (show operator <> " operates a dummy.")
 
     controller operator can
       DummyChoice1 : ()
@@ -422,6 +422,21 @@ template Delegated
     key (owner, k) : (Party, Text)
     maintainer key._1
 
+    controller owner can
+      Recreate: () do
+        create this
+        return ()
+
+      -- Non-consuming choice to test that contract keys created and archived
+      -- by transient contracts are properly handled.
+    controller owner can
+      nonconsuming CreateAnotherAndArchive: ()
+        with
+          k2: Text
+        do
+          cid <- create Delegated with owner = owner, k = k2
+          exercise cid Archive
+
 template Delegation
   with
     owner : Party
@@ -454,6 +469,7 @@ template Delegation
         do
           actual <- lookupByKey @Delegated (p, k)
           assertMsg "lookup matches" (expected == actual)
+
 
 template ShowDelegated
   with

@@ -122,7 +122,7 @@ lowerValue = LL.Value . Just . \case
     VContract c -> (LL.ValueSumContractId . unContractId) c
     VList vs -> (LL.ValueSumList . LL.List . Vector.fromList . map lowerValue) vs
     VInt i -> (LL.ValueSumInt64 . fromIntegral) i
-    VDecimal t -> LL.ValueSumDecimal $ Text.pack $ show t
+    VDecimal t -> LL.ValueSumNumeric $ Text.pack $ show t
     VText t -> LL.ValueSumText t
     VTime x -> (LL.ValueSumTimestamp . fromIntegral . unMicroSecondsSinceEpoch) x
     VParty p -> (LL.ValueSumParty . unParty) p
@@ -355,7 +355,7 @@ raiseValue = \case
         LL.ValueSumContractId c -> (return . VContract . ContractId) c
         LL.ValueSumList vs -> (fmap VList . raiseList raiseValue . LL.listElements) vs
         LL.ValueSumInt64 i -> (return . VInt . fromIntegral) i
-        LL.ValueSumDecimal t -> (return . VDecimal . read . Text.unpack) t
+        LL.ValueSumNumeric t -> (return . VDecimal . read . Text.unpack) t
         LL.ValueSumText t -> (return . VText) t
         LL.ValueSumTimestamp x -> (return . VTime . MicroSecondsSinceEpoch . fromIntegral) x
         LL.ValueSumParty p -> (return . VParty . Party) p

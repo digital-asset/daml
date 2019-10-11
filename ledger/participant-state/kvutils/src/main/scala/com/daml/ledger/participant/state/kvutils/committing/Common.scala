@@ -3,6 +3,9 @@
 
 package com.daml.ledger.participant.state.kvutils.committing
 
+import java.util.concurrent.TimeUnit
+
+import com.codahale.metrics
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlLogEntry,
   DamlStateKey,
@@ -10,14 +13,15 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
 }
 import com.daml.ledger.participant.state.kvutils.{Conversions, Err}
 import com.daml.ledger.participant.state.v1.Configuration
+import com.digitalasset.daml.lf.data.InsertOrdMap
 import org.slf4j.Logger
 
 import scala.annotation.tailrec
 
-object Common {
+private[kvutils] object Common {
   type DamlStateMap = Map[DamlStateKey, DamlStateValue]
 
-  final case class CommitContext(
+  final case class CommitContext private (
       /* The input state as declared by the submission. */
       inputState: DamlStateMap,
       /* The intermediate and final state that is committed. */
@@ -52,14 +56,25 @@ object Common {
 
   object Commit {
 
-    def sequence(acts: Iterable[Commit[Unit]]): Commit[Unit] = {
+    def sequence(acts: Iterable[(String, Commit[Unit])])(implicit logger: Logger): Commit[Unit] = {
       @tailrec
       def go(
           state: CommitContext,
-          act: Commit[Unit],
-          rest: Iterable[Commit[Unit]]
+          act: (String, Commit[Unit]),
+          rest: Iterable[(String, Commit[Unit])]
       ): Either[CommitDone, (Unit, CommitContext)] = {
-        act.run(state) match {
+        val result =
+          if (act._1.isEmpty || !logger.isTraceEnabled)
+            act._2.run(state)
+          else {
+            val t0 = System.nanoTime()
+            val r = act._2.run(state)
+            val t1 = System.nanoTime()
+            if (!act._1.isEmpty)
+              logger.trace(s"${act._1}: ${TimeUnit.NANOSECONDS.toMillis(t1 - t0)}ms")
+            r
+          }
+        result match {
           case Left(done) =>
             Left(done)
           case Right(((), state2)) =>
@@ -78,12 +93,19 @@ object Common {
     }
 
     /** Sequence commit actions which produces no intermediate values. */
-    def sequence(acts: Commit[Unit]*): Commit[Unit] =
+    def sequence(acts: (String, Commit[Unit])*)(implicit logger: Logger): Commit[Unit] =
       sequence(acts)
 
+    /** Sequence commit actions which produces no intermediate values. */
+    def sequence2(acts: Commit[Unit]*)(implicit logger: Logger): Commit[Unit] =
+      sequence(acts.map { act =>
+        "" -> act
+      })
+
     /** Run a sequence of commit computations, producing a log entry and the state. */
-    def runSequence(inputState: DamlStateMap, acts: Commit[Unit]*): (DamlLogEntry, DamlStateMap) =
-      sequence(acts).run(CommitContext(inputState, Map.empty)) match {
+    def runSequence(inputState: DamlStateMap, acts: (String, Commit[Unit])*)(
+        implicit logger: Logger): (DamlLogEntry, DamlStateMap) =
+      sequence(acts).run(CommitContext(inputState, InsertOrdMap.empty)) match {
         case Left(done) => done.logEntry -> done.state
         case Right(_) =>
           throw Err.InternalError("Commit.runSequence: The commit processing did not terminate!")
@@ -109,6 +131,13 @@ object Common {
       Commit { state =>
         act.run(state)
       }
+
+    /** Time a commit */
+    def timed[A](timer: metrics.Timer, act: Commit[A]): Commit[A] = Commit { state =>
+      timer.time { () =>
+        act.run(state)
+      }
+    }
 
     /** Set value(s) in the state. */
     def set(additionalState: (DamlStateKey, DamlStateValue)*): Commit[Unit] =
@@ -157,5 +186,4 @@ object Common {
           }, Some(_))
       }
       .getOrElse(defaultConfig)
-
 }

@@ -15,6 +15,7 @@ import           Data.List.Extra (nubSort)
 import qualified Data.NameMap as NM
 
 import DA.Daml.LF.Ast.Base
+import DA.Daml.LF.Ast.TypeLevelNat
 import DA.Daml.LF.Ast.Optics
 import DA.Daml.LF.Ast.Recursive
 
@@ -134,15 +135,17 @@ mkAnds [x] = x
 mkAnds (x:xs) = mkAnd x $ mkAnds xs
 
 
-alpha, beta :: TypeVarName
+alpha, beta, gamma :: TypeVarName
 -- NOTE(MH): We want to avoid shadowing variables in the environment. That's
 -- what the weird names are for.
 alpha = TypeVarName "::alpha::"
 beta  = TypeVarName "::beta::"
+gamma = TypeVarName "::gamma::"
 
-tAlpha, tBeta :: Type
+tAlpha, tBeta, tGamma :: Type
 tAlpha = TVar alpha
 tBeta  = TVar beta
+tGamma = TVar gamma
 
 
 infixr 1 :->
@@ -151,16 +154,19 @@ infixr 1 :->
 pattern (:->) :: Type -> Type -> Type
 pattern a :-> b = TArrow `TApp` a `TApp` b
 
-pattern TUnit, TBool, TInt64, TDecimal, TText, TTimestamp, TParty, TDate, TArrow :: Type
+pattern TUnit, TBool, TInt64, TDecimal, TText, TTimestamp, TParty, TDate, TArrow, TNumeric10, TAny, TNat10 :: Type
 pattern TUnit       = TBuiltin BTUnit
 pattern TBool       = TBuiltin BTBool
 pattern TInt64      = TBuiltin BTInt64
-pattern TDecimal    = TBuiltin BTDecimal
+pattern TDecimal    = TBuiltin BTDecimal -- legacy decimal (LF version <= 1.6)
+pattern TNumeric10  = TNumeric TNat10 -- new decimal
+pattern TNat10      = TNat TypeLevelNat10
 pattern TText       = TBuiltin BTText
 pattern TTimestamp  = TBuiltin BTTimestamp
 pattern TParty      = TBuiltin BTParty
 pattern TDate       = TBuiltin BTDate
 pattern TArrow      = TBuiltin BTArrow
+pattern TAny        = TBuiltin BTAny
 
 pattern TList, TOptional, TMap, TUpdate, TScenario, TContractId, TNumeric :: Type -> Type
 pattern TList typ = TApp (TBuiltin BTList) typ

@@ -143,16 +143,16 @@ data DalfDependency = DalfDependency
     -- ^ The absolute path to the dalf file.
   }
 
-getDlintIdeas :: NormalizedFilePath -> Action ()
-getDlintIdeas f = use_ GetDlintDiagnostics f
+getDlintIdeas :: NormalizedFilePath -> Action (Maybe ())
+getDlintIdeas f = runMaybeT $ useE GetDlintDiagnostics f
 
 ideErrorPretty :: Pretty.Pretty e => NormalizedFilePath -> e -> FileDiagnostic
 ideErrorPretty fp = ideErrorText fp . T.pack . HughesPJPretty.prettyShow
 
 
-getDalfDependencies :: NormalizedFilePath -> MaybeT Action (Map.Map UnitId DalfPackage)
-getDalfDependencies file = do
-    unitIds <- transitivePkgDeps <$> useE GetDependencies file
+getDalfDependencies :: [NormalizedFilePath] -> MaybeT Action (Map.Map UnitId DalfPackage)
+getDalfDependencies files = do
+    unitIds <- concatMap transitivePkgDeps <$> usesE GetDependencies files
     pkgMap <- useNoFileE GeneratePackageMap
     pure $ Map.restrictKeys pkgMap (Set.fromList $ map (DefiniteUnitId . DefUnitId) unitIds)
 
@@ -257,7 +257,6 @@ generateRawPackageRule options =
         fs <- transitiveModuleDeps <$> use_ GetDependencies file
         files <- discardInternalModules (fs ++ [file])
         dalfs <- uses_ GenerateRawDalf files
-
         -- build package
         let pkg = buildPackage (optMbPackageName options) lfVersion dalfs
         return ([], Just $ WhnfPackage pkg)
@@ -286,9 +285,7 @@ contextForFile file = do
         { ctxModules = Map.fromList encodedModules
         , ctxPackages = [(dalfPackageId pkg, dalfPackageBytes pkg) | pkg <- Map.elems pkgMap]
         , ctxDamlLfVersion = lfVersion
-        , ctxLightValidation = case envScenarioValidation of
-              ScenarioValidationFull -> SS.LightValidation False
-              ScenarioValidationLight -> SS.LightValidation True
+        , ctxSkipValidation = SS.SkipValidation (getSkipScenarioValidation envSkipScenarioValidation)
         }
 
 worldForFile :: NormalizedFilePath -> Action LF.World
@@ -328,9 +325,10 @@ createScenarioContextRule =
 dalfForScenario :: NormalizedFilePath -> Action LF.Module
 dalfForScenario file = do
     DamlEnv{..} <- getDamlServiceEnv
-    case envScenarioValidation of
-        ScenarioValidationLight -> use_ GenerateRawDalf file
-        ScenarioValidationFull -> use_ GenerateDalf file
+    if getSkipScenarioValidation envSkipScenarioValidation then
+        use_ GenerateRawDalf file
+    else
+        use_ GenerateDalf file
 
 runScenariosRule :: Rules ()
 runScenariosRule =

@@ -3,18 +3,22 @@
 
 package com.daml.ledger.participant.state.kvutils
 
-import java.time.Duration
-
+import com.codahale.metrics
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlLogEntry,
   DamlTransactionRejectionEntry
 }
 import com.daml.ledger.participant.state.kvutils.TestHelpers._
 import com.daml.ledger.participant.state.v1.Update
-import com.digitalasset.daml.lf.command.{Command, CreateCommand, ExerciseCommand}
+import com.digitalasset.daml.lf.command.{
+  Command,
+  CreateAndExerciseCommand,
+  CreateCommand,
+  ExerciseCommand
+}
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.transaction.Node.NodeCreate
-import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
+import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ValueUnit}
 import org.scalatest.{Matchers, WordSpec}
 
 class KVUtilsTransactionSpec extends WordSpec with Matchers {
@@ -31,12 +35,17 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
         simpleTemplateId,
         Ref.ContractIdString.assertFromString(coid),
         simpleConsumeChoiceid,
-        mkUnitValue)
+        ValueUnit)
+    val simpleCreateAndExerciseCmd: Command = CreateAndExerciseCommand(
+      simpleTemplateId,
+      mkSimpleTemplateArg("Alice"),
+      simpleConsumeChoiceid,
+      ValueUnit)
 
     val p0 = mkParticipantId(0)
     val p1 = mkParticipantId(1)
 
-    "be able to submit transaction" in KVTest.runTest(
+    "be able to submit transaction" in KVTest.runTestWithSimplePackage(
       for {
         tx <- runCommand(alice, simpleCreateCmd)
         logEntry <- submitTransaction(submitter = alice, tx = tx).map(_._2)
@@ -45,7 +54,8 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
       }
     )
 
-    "reject transaction with elapsed max record time" in KVTest.runTest(
+    /* Disabled while we rework the time model.
+    "reject transaction with elapsed max record time" in KVTest.runTestWithSimplePackage(
       for {
         tx <- runCommand(alice, simpleCreateCmd)
         logEntry <- submitTransaction(submitter = alice, tx = tx, mrtDelta = Duration.ZERO)
@@ -55,8 +65,9 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
         logEntry.getTransactionRejectionEntry.getReasonCase shouldEqual DamlTransactionRejectionEntry.ReasonCase.MAXIMUM_RECORD_TIME_EXCEEDED
       }
     )
+     */
 
-    "reject transaction with out of bounds LET" in KVTest.runTest(
+    "reject transaction with out of bounds LET" in KVTest.runTestWithSimplePackage(
       for {
         tx <- runCommand(alice, simpleCreateCmd)
         conf <- getDefaultConfiguration
@@ -69,7 +80,7 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
       }
     )
 
-    "be able to exercise and rejects double spends" in KVTest.runTest {
+    "be able to exercise and rejects double spends" in KVTest.runTestWithSimplePackage {
       for {
         createTx <- runCommand(alice, simpleCreateCmd)
         result <- submitTransaction(submitter = alice, tx = createTx)
@@ -97,7 +108,7 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
       }
     }
 
-    "reject transactions for unallocated parties" in KVTest.runTest {
+    "reject transactions for unallocated parties" in KVTest.runTestWithSimplePackage {
       for {
         configEntry <- submitConfig { c =>
           c.copy(generation = c.generation + 1, openWorld = false)
@@ -111,7 +122,7 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
       }
     }
 
-    "reject transactions for unhosted parties" in KVTest.runTest {
+    "reject transactions for unhosted parties" in KVTest.runTestWithSimplePackage {
       for {
         configEntry <- submitConfig { c =>
           c.copy(generation = c.generation + 1, openWorld = false)
@@ -132,7 +143,7 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
 
       }
     }
-    "reject unauthorized transactions " in KVTest.runTest {
+    "reject unauthorized transactions " in KVTest.runTestWithSimplePackage {
       for {
         // Submit a creation of a contract with owner 'Alice', but submit it as 'Bob'.
         createTx <- runCommand(alice, simpleCreateCmd)
@@ -140,9 +151,47 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
         txEntry <- submitTransaction(submitter = bob, tx = createTx).map(_._2)
       } yield {
         txEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.TRANSACTION_REJECTION_ENTRY
-        txEntry.getTransactionRejectionEntry.getReasonCase shouldEqual DamlTransactionRejectionEntry.ReasonCase.DISPUTED
+        val disputed = DamlTransactionRejectionEntry.ReasonCase.DISPUTED
+        txEntry.getTransactionRejectionEntry.getReasonCase shouldEqual disputed
+
+        // Check that we're updating the metrics (assuming this test at least has been run)
+        val reg = metrics.SharedMetricRegistries.getOrCreate("kvutils")
+        reg.counter("kvutils.committing.transaction.accepts").getCount should be >= 1L
+        reg
+          .counter(s"kvutils.committing.transaction.rejections_${disputed.name}")
+          .getCount should be >= 1L
+        reg.timer("kvutils.committing.transaction.run-timer").getCount should be >= 1L
       }
     }
 
+    "transient contracts and keys are properly archived" in KVTest.runTestWithSimplePackage {
+      for {
+        tx1 <- runCommand(alice, simpleCreateAndExerciseCmd)
+        createAndExerciseTx1 <- submitTransaction(alice, tx1).map(_._2)
+        tx2 <- runCommand(alice, simpleCreateAndExerciseCmd)
+        createAndExerciseTx2 <- submitTransaction(alice, tx2).map(_._2)
+        finalState <- scalaz.State.get[KVTestState]
+      } yield {
+        createAndExerciseTx1.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.TRANSACTION_ENTRY
+        createAndExerciseTx2.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.TRANSACTION_ENTRY
+
+        // Check that all contracts and keys are in the archived state.
+        finalState.damlState.foreach {
+          case (_, v) =>
+            v.getValueCase match {
+              case DamlKvutils.DamlStateValue.ValueCase.CONTRACT_KEY_STATE =>
+                val cks = v.getContractKeyState
+                cks.hasContractId shouldBe false
+
+              case DamlKvutils.DamlStateValue.ValueCase.CONTRACT_STATE =>
+                val cs = v.getContractState
+                cs.hasArchivedAt shouldBe true
+
+              case _ =>
+                succeed
+            }
+        }
+      }
+    }
   }
 }

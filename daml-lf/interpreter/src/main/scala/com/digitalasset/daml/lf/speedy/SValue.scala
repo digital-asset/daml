@@ -66,6 +66,8 @@ sealed trait SValue {
         V.ValueMap(SortedLookupList(mVal).mapValue(_.toValue))
       case SContractId(coid) =>
         V.ValueContractId(coid)
+      case SAny(_, _) =>
+        throw SErrorCrash("SValue.toValue: unexpected SAny")
       case STNat(_) =>
         throw SErrorCrash("SValue.toValue: unexpected STNat")
       case _: SPAP =>
@@ -109,7 +111,8 @@ sealed trait SValue {
       case SContractId(coid) =>
         SContractId(f(coid))
       case SEnum(_, _) | _: SPrimLit | SToken | STNat(_) => this
-
+      case SAny(ty, value) =>
+        SAny(ty, value)
     }
 
   def equalTo(v2: SValue): Boolean = {
@@ -181,18 +184,18 @@ object SValue {
 
   final case class SMap(value: HashMap[String, SValue]) extends SValue
 
+  final case class SAny(ty: Type, value: SValue) extends SValue
+
   // Corresponds to a DAML-LF Nat type reified as a Speedy value.
   // It is currently used to track at runtime the scale of the
   // Numeric builtin's arguments/output. Should never be translated
   // back to DAML-LF expressions / values.
-  final case class STNat(n: Int) extends SValue
+  final case class STNat(n: Numeric.Scale) extends SValue
 
   // NOTE(JM): We are redefining PrimLit here so it can be unified
   // with SValue and we can remove one layer of indirection.
   sealed trait SPrimLit extends SValue with Equals
   final case class SInt64(value: Long) extends SPrimLit
-  // FixMe: https://github.com/digital-asset/daml/issues/2289
-  //   SNumeric currently hold only (Numeric 10) aka Decimal
   final case class SNumeric(value: Numeric) extends SPrimLit
   final case class SText(value: String) extends SPrimLit
   final case class STimestamp(value: Time.Timestamp) extends SPrimLit
@@ -211,11 +214,7 @@ object SValue {
         SList(vs.map[SValue](fromValue))
       case V.ValueContractId(coid) => SContractId(coid)
       case V.ValueInt64(x) => SInt64(x)
-      case V.ValueNumeric(x) =>
-        // FixMe: https://github.com/digital-asset/daml/issues/2289
-        //   drop this double check
-        assert(x.scale == Decimal.scale)
-        SNumeric(x)
+      case V.ValueNumeric(x) => SNumeric(x)
       case V.ValueText(t) => SText(t)
       case V.ValueTimestamp(t) => STimestamp(t)
       case V.ValueParty(p) => SParty(p)

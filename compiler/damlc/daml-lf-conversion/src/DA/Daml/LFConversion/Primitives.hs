@@ -155,6 +155,74 @@ convertPrim _ "BEMapSize" (TMap a :-> TInt64) =
 convertPrim _ "BECoerceContractId" (TContractId a :-> TContractId b) =
     EBuiltin BECoerceContractId `ETyApp` a `ETyApp` b
 
+-- Decimal->Numeric compatibility. These will only be invoked when
+-- Numeric is available as a feature (otherwise it would not appear
+-- in the type) but Decimal primitives are still used (from the
+-- stdlib). Eventually the Decimal primitives will be phased out.
+convertPrim _ "BEAddDecimal" (TNumeric10 :-> TNumeric10 :-> TNumeric10) =
+    ETyApp (EBuiltin BEAddNumeric) TNat10
+convertPrim _ "BESubDecimal" (TNumeric10 :-> TNumeric10 :-> TNumeric10) =
+    ETyApp (EBuiltin BESubNumeric) TNat10
+convertPrim _ "BEMulDecimal" (TNumeric10 :-> TNumeric10 :-> TNumeric10) =
+    EBuiltin BEMulNumeric `ETyApp` TNat10 `ETyApp` TNat10 `ETyApp` TNat10
+convertPrim _ "BEDivDecimal" (TNumeric10 :-> TNumeric10 :-> TNumeric10) =
+    EBuiltin BEDivNumeric `ETyApp` TNat10 `ETyApp` TNat10 `ETyApp` TNat10
+convertPrim _ "BERoundDecimal" (TInt64 :-> TNumeric10 :-> TNumeric10) =
+    ETyApp (EBuiltin BERoundNumeric) TNat10
+convertPrim _ "BEEqual" (TNumeric10 :-> TNumeric10 :-> TBool) =
+    ETyApp (EBuiltin BEEqualNumeric) TNat10
+convertPrim _ "BELess" (TNumeric10 :-> TNumeric10 :-> TBool) =
+    ETyApp (EBuiltin BELessNumeric) TNat10
+convertPrim _ "BELessEq" (TNumeric10 :-> TNumeric10 :-> TBool) =
+    ETyApp (EBuiltin BELessEqNumeric) TNat10
+convertPrim _ "BEGreaterEq" (TNumeric10 :-> TNumeric10 :-> TBool) =
+    ETyApp (EBuiltin BEGreaterEqNumeric) TNat10
+convertPrim _ "BEGreater" (TNumeric10 :-> TNumeric10 :-> TBool) =
+    ETyApp (EBuiltin BEGreaterNumeric) TNat10
+convertPrim _ "BEInt64ToDecimal" (TInt64 :-> TNumeric10) =
+    ETyApp (EBuiltin BEInt64ToNumeric) TNat10
+convertPrim _ "BEDecimalToInt64" (TNumeric10 :-> TInt64) =
+    ETyApp (EBuiltin BENumericToInt64) TNat10
+convertPrim _ "BEToText" (TNumeric10 :-> TText) =
+    ETyApp (EBuiltin BEToTextNumeric) TNat10
+convertPrim _ "BEDecimalFromText" (TText :-> TOptional TNumeric10) =
+    ETyApp (EBuiltin BENumericFromText) TNat10
+
+-- Numeric primitives. These are polymorphic in the scale.
+convertPrim _ "BEAddNumeric" (TNumeric n1 :-> TNumeric n2 :-> TNumeric n3) | n1 == n2, n1 == n3 =
+    ETyApp (EBuiltin BEAddNumeric) n1
+convertPrim _ "BESubNumeric" (TNumeric n1 :-> TNumeric n2 :-> TNumeric n3) | n1 == n2, n1 == n3 =
+    ETyApp (EBuiltin BESubNumeric) n1
+convertPrim _ "BEMulNumeric" (TNumeric n1 :-> TNumeric n2 :-> TNumeric n3) =
+    EBuiltin BEMulNumeric `ETyApp` n1 `ETyApp` n2 `ETyApp` n3
+convertPrim _ "BEDivNumeric" (TNumeric n1 :-> TNumeric n2 :-> TNumeric n3) =
+    EBuiltin BEDivNumeric `ETyApp` n1 `ETyApp` n2 `ETyApp` n3
+convertPrim _ "BERoundNumeric" (TInt64 :-> TNumeric n1 :-> TNumeric n2) | n1 == n2 =
+    ETyApp (EBuiltin BERoundNumeric) n1
+convertPrim _ "BECastNumeric" (TNumeric n1 :-> TNumeric n2) =
+    EBuiltin BECastNumeric `ETyApp` n1 `ETyApp` n2
+convertPrim _ "BEShiftNumeric" (TNumeric n1 :-> TNumeric n2) =
+    EBuiltin BEShiftNumeric `ETyApp` n1 `ETyApp` n2
+convertPrim _ "BEEqualNumeric" (TNumeric n1 :-> TNumeric n2 :-> TBool) | n1 == n2 =
+    ETyApp (EBuiltin BEEqualNumeric) n1
+convertPrim _ "BELessNumeric" (TNumeric n1 :-> TNumeric n2 :-> TBool) | n1 == n2 =
+    ETyApp (EBuiltin BELessNumeric) n1
+convertPrim _ "BELessEqNumeric" (TNumeric n1 :-> TNumeric n2 :-> TBool) | n1 == n2 =
+    ETyApp (EBuiltin BELessEqNumeric) n1
+convertPrim _ "BEGreaterEqNumeric" (TNumeric n1 :-> TNumeric n2 :-> TBool) | n1 == n2 =
+    ETyApp (EBuiltin BEGreaterEqNumeric) n1
+convertPrim _ "BEGreaterNumeric" (TNumeric n1 :-> TNumeric n2 :-> TBool) | n1 == n2 =
+    ETyApp (EBuiltin BEGreaterNumeric) n1
+convertPrim _ "BEInt64ToNumeric" (TInt64 :-> TNumeric n) =
+    ETyApp (EBuiltin BEInt64ToNumeric) n
+convertPrim _ "BENumericToInt64" (TNumeric n :-> TInt64) =
+    ETyApp (EBuiltin BENumericToInt64) n
+convertPrim _ "BEToTextNumeric" (TNumeric n :-> TText) =
+    ETyApp (EBuiltin BEToTextNumeric) n
+convertPrim _ "BENumericFromText" (TText :-> TOptional (TNumeric n)) =
+    ETyApp (EBuiltin BENumericFromText) n
+
+
 convertPrim _ x ty = error $ "Unknown primitive " ++ show x ++ " at type " ++ renderPretty ty
 
 -- | Some builtins are only supported in specific versions of DAML-LF.
@@ -166,7 +234,7 @@ _whenRuntimeSupports version feature t e
     | otherwise = runtimeUnsupported feature t
 
 runtimeUnsupported :: Feature -> Type -> Expr
-runtimeUnsupported (Feature name version) t =
+runtimeUnsupported (Feature name version _) t =
   ETmApp
   (ETyApp (EBuiltin BEError) t)
   (EBuiltin (BEText (name <> " only supported when compiling to DAML-LF " <> T.pack (renderVersion version) <> " or later")))

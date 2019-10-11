@@ -159,6 +159,13 @@ private[validation] case class TypeSubst(map: Map[TypeVarName, Type], private va
       ENone(apply(typ))
     case ESome(typ, body) =>
       ESome(apply(typ), apply(body))
+    case EToAny(ty, body) =>
+      EToAny(apply(ty), apply(body))
+    case EFromAny(ty, body) =>
+      EFromAny(apply(ty), apply(body))
+    case EToTextTemplateId(tmplId) =>
+      EToTextTemplateId(tmplId)
+
   }
 
   def apply(choice: TemplateChoice): TemplateChoice = choice match {

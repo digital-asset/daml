@@ -16,11 +16,15 @@ load("@os_info//:os_info.bzl", "is_windows")
 
 da_scala_binary(
     name = "codegen-main",
-    srcs = ["src/main/scala/CodegenMain.scala"],
+    srcs = glob(["src/main/**/*.scala"]),
     main_class = "com.digitalasset.codegen.CodegenMain",
     visibility = ["//visibility:public"],
     deps = [
+        "//3rdparty/jvm/ch/qos/logback:logback_classic",
+        "//3rdparty/jvm/com/github/scopt",
         "//3rdparty/jvm/com/typesafe/scala_logging",
+        "//daml-assistant/scala-daml-project-config",
+        "//language-support/codegen-common",
         "//language-support/java/codegen:lib",
         "//language-support/scala/codegen:codegen-main",
     ],

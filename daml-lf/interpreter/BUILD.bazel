@@ -18,9 +18,11 @@ da_scala_library(
         "//compiler/scenario-service:__subpackages__",
         "//daml-lf:__subpackages__",
         "//ledger:__subpackages__",
+        "//triggers:__subpackages__",
     ],
     deps = [
         "//3rdparty/jvm/org/scalaz:scalaz_core",
+        "//3rdparty/jvm/org/slf4j:slf4j_api",
         "//3rdparty/jvm/org/typelevel:paiges_core",
         "//daml-lf/data",
         "//daml-lf/language",

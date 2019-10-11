@@ -102,29 +102,37 @@ def _daml_package_rule_impl(ctx):
     ctx.actions.run_shell(
         outputs = [dalf, iface_dir],
         inputs = ctx.files.srcs + [package_db_dir, pkg_name_version],
-        tools = [ctx.executable.damlc_bootstrap],
+        tools = [ctx.executable.damlc_bootstrap, ctx.executable.cpp],
         progress_message = "Compiling " + name + ".daml to daml-lf " + ctx.attr.daml_lf_version,
         command = """
       set -eou pipefail
       PKG_NAME=`cat {pkg_name_version_file}`
+
+      # We use a temp directory here to avoid issues due to the lack of sandboxing
+      # on Windows.
+      IFACE_DIR=$(mktemp -d)
 
       # Compile the dalf file
       {damlc_bootstrap} compile \
         --package-name $PKG_NAME \
         --package-db {package_db_dir} \
         --write-iface \
+        --iface-dir $IFACE_DIR \
         --target {daml_lf_version} \
+        --cpp {cpp} \
         -o {dalf_file} \
         {main}
 
       cp -a {pkg_root}/* {iface_dir}
-      cp -a .daml/interfaces/{pkg_root}/* {iface_dir}
+      cp -a $IFACE_DIR/{pkg_root}/* {iface_dir}
+      rm -rf $IFACE_DIR
     """.format(
             main = modules[ctx.attr.main],
             pkg_name_version_file = pkg_name_version.path,
             package_db_dir = package_db_dir.path,
             damlc_bootstrap = ctx.executable.damlc_bootstrap.path,
             dalf_file = dalf.path,
+            cpp = ctx.executable.cpp.path,
             daml_lf_version = ctx.attr.daml_lf_version,
             iface_dir = iface_dir.path,
             pkg_root = ctx.attr.pkg_root,
@@ -160,6 +168,11 @@ daml_package_rule = rule(
         "dependencies": attr.label_list(allow_files = False),
         "damlc_bootstrap": attr.label(
             default = Label("//compiler/damlc:damlc-bootstrap"),
+            executable = True,
+            cfg = "host",
+        ),
+        "cpp": attr.label(
+            default = Label("@haskell_hpp//:bin"),
             executable = True,
             cfg = "host",
         ),

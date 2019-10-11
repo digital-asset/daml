@@ -118,41 +118,6 @@ jobs:
       - template: ci/tell-slack-failed.yml
       - template: ci/report-end.yml
 
-  - job: hie_core_stack_86
-    timeoutInMinutes: 60
-    pool:
-      vmImage: 'ubuntu-latest'
-    steps:
-      - template: ci/report-start.yml
-      - checkout: self
-      - task: CacheBeta@0
-        inputs:
-          key: stack-cache-v1 | $(Agent.OS) | $(Build.SourcesDirectory)/compiler/hie-core/stack.yaml | $(Build.SourcesDirectory)/compiler/hie-core/hie-core.cabal
-          path: .azure-cache
-          cacheHitVar: CACHE_RESTORED
-        displayName: "Cache stack artifacts"
-      - bash: |
-          mkdir -p ~/.stack
-          tar xzf .azure-cache/stack-root.tar.gz -C $HOME
-        displayName: "Unpack cache"
-        condition: eq(variables.CACHE_RESTORED, 'true')
-      - bash: |
-          sudo apt-get install -y g++ gcc libc6-dev libffi-dev libgmp-dev make zlib1g-dev
-          curl -sSL https://get.haskellstack.org/ | sh
-        displayName: 'Install Stack'
-      - bash: (cd compiler/hie-core; stack setup)
-        displayName: 'stack setup'
-      - bash: (cd compiler/hie-core; stack build --only-dependencies)
-        displayName: 'stack build --only-dependencies --test'
-      - bash: (cd compiler/hie-core; stack test || stack test || stack test)
-        # hie-core stack tests are flaky, see https://github.com/digital-asset/daml/issues/2606.
-        displayName: 'stack test'
-      - bash: |
-          mkdir -p .azure-cache
-          tar czf .azure-cache/stack-root.tar.gz -C $HOME .stack
-        displayName: "Pack cache"
-      - template: ci/tell-slack-failed.yml
-      - template: ci/report-end.yml
   - job: Windows_signing
     # Signing is a separate job so that we can make sure that we only sign on releases.
     # Since the release check is run on Linux, we do not have access to that information
@@ -176,6 +141,10 @@ jobs:
           INSTALLER=daml-sdk-$(cat VERSION)-windows.exe
           mv "$(Build.StagingDirectory)/$(unsigned-installer)" "$(Build.StagingDirectory)/$INSTALLER"
           chmod +x "$(Build.StagingDirectory)/$INSTALLER"
+          cleanup () {
+              rm -f signing_key.pfx
+          }
+          trap cleanup EXIT
           echo "$SIGNING_KEY" | base64 -d > signing_key.pfx
           MSYS_NO_PATHCONV=1 signtool.exe sign '/f' signing_key.pfx '/fd' sha256 '/tr' "http://timestamp.digicert.com" '/v' "$(Build.StagingDirectory)/$INSTALLER"
           rm signing_key.pfx
@@ -197,8 +166,9 @@ jobs:
       vmImage: "Ubuntu-16.04"
     condition: and(succeeded(),
                    eq( dependencies.Linux.outputs['release.has_released'], 'true' ),
-                   eq( dependencies.macOS.outputs['release.has_released'], 'true' ),
-                   eq( dependencies.Windows.outputs['release.has_released'], 'true' ))
+                   eq( dependencies.Windows.outputs['release.has_released'], 'true' ),
+                   eq( dependencies.Windows_signing.outputs['signing.has_released'], 'true' ),
+                   eq( dependencies.macOS.outputs['release.has_released'], 'true' ))
     variables:
       artifact-linux: $[ dependencies.Linux.outputs['publish.artifact'] ]
       artifact-macos: $[ dependencies.macOS.outputs['publish.artifact'] ]
@@ -210,25 +180,50 @@ jobs:
         persistCredentials: true
       - bash: |
           set -euxo pipefail
-          git tag v$(cat VERSION)
-          git push origin v$(cat VERSION)
-          mkdir $(Build.StagingDirectory)/release
+          if git tag v$(cat VERSION); then
+            git push origin v$(cat VERSION)
+            mkdir $(Build.StagingDirectory)/release
+          else
+            echo "##vso[task.setvariable variable=skip-github]TRUE"
+          fi
       - task: DownloadPipelineArtifact@0
         inputs:
           artifactName: $(artifact-linux)
           targetPath: $(Build.StagingDirectory)/release
+        condition: not(eq(variables['skip-github'], 'TRUE'))
       - task: DownloadPipelineArtifact@0
         inputs:
           artifactName: $(artifact-macos)
           targetPath: $(Build.StagingDirectory)/release
+        condition: not(eq(variables['skip-github'], 'TRUE'))
       - task: DownloadPipelineArtifact@0
         inputs:
           artifactName: $(artifact-windows)
           targetPath: $(Build.StagingDirectory)/release
+        condition: not(eq(variables['skip-github'], 'TRUE'))
       - task: DownloadPipelineArtifact@0
         inputs:
           artifactName: $(artifact-windows-installer)
           targetPath: $(Build.StagingDirectory)/release
+        condition: not(eq(variables['skip-github'], 'TRUE'))
+      - bash: |
+          set -euo pipefail
+          KEY_FILE=$(mktemp)
+          GPG_DIR=$(mktemp -d)
+          cleanup() {
+              rm -rf $KEY_FILE $GPG_DIR
+          }
+          trap cleanup EXIT
+          echo "$GPG_KEY" | base64 -d > $KEY_FILE
+          gpg --homedir $GPG_DIR --no-tty --quiet --import $KEY_FILE
+          cd $(Build.StagingDirectory)/release
+          # Note: relies on our release artifacts not having spaces in their
+          # names. Creates a ${f}.asc with the signature for each $f.
+          for f in *; do
+              gpg --homedir $GPG_DIR -ab $f
+          done
+        env:
+          GPG_KEY: $(gpg-code-signing)
       - task: GitHubRelease@0
         inputs:
           gitHubConnection: 'garyverhaegen-da'
@@ -240,12 +235,13 @@ jobs:
           assetUploadMode: 'replace'
           addChangeLog: false
           isPrerelease: true
+        condition: not(eq(variables['skip-github'], 'TRUE'))
       - template: ci/tell-slack-failed.yml
       - template: ci/report-end.yml
 
   - job: collect_build_data
     condition: always()
-    dependsOn: ["Linux", "macOS", "Windows", "Windows_signing", "perf", "release", "hie_core_stack_86"]
+    dependsOn: ["Linux", "macOS", "Windows", "Windows_signing", "perf", "release"]
     pool:
       name: "linux-pool"
     variables:
@@ -273,14 +269,17 @@ jobs:
       release.machine: $[ dependencies.release.outputs['start.machine'] ]
       release.end: $[ dependencies.release.outputs['end.time'] ]
       release.status: $[ dependencies.release.result ]
-      hie_core_stack_86.start: $[ dependencies.hie_core_stack_86.outputs['start.time'] ]
-      hie_core_stack_86.machine: $[ dependencies.hie_core_stack_86.outputs['start.machine'] ]
-      hie_core_stack_86.end: $[ dependencies.hie_core_stack_86.outputs['end.time'] ]
-      hie_core_stack_86.status: $[ dependencies.hie_core_stack_86.result ]
+      # Using expression syntax so we get an empty string if not set, rather
+      # than the raw $(VarName) string. Expression syntax works on the
+      # variables key, but not on the env one, so we need an extra indirection.
+      # Note: These Azure variables are only set for PR builds.
+      pr.num: $[ variables['System.PullRequest.PullRequestNumber'] ]
+      pr.branch: $[ variables['System.PullRequest.SourceBranch'] ]
     steps:
       - checkout: self
       - bash: |
           set -euo pipefail
+          eval "$(./dev-env/bin/dade-assist)"
 
           REPORT=$(mktemp)
           cat >$REPORT <<END
@@ -307,11 +306,7 @@ jobs:
                     "release": {"start": "$(release.start)",
                                 "machine": "$(release.machine)",
                                 "end": "$(release.end)",
-                                "status": "$(release.status)"},
-                    "hie_core_stack_86": {"start": "$(hie_core_stack_86.start)",
-                                          "machine": "$(hie_core_stack_86.machine)",
-                                          "end": "$(hie_core_stack_86.end)",
-                                          "status": "$(hie_core_stack_86.status)"}},
+                                "status": "$(release.status)"}},
            "id": "$(Build.BuildId)",
            "url": "https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)",
            "name": "$(Build.DefinitionName)",
@@ -320,15 +315,21 @@ jobs:
            "reason": "$(Build.Reason)",
            "branch": "$(Build.SourceBranch)",
            "commit_sha": "$(Build.SourceVersion)",
-           "commit_message": "$(Build.SourceVersionMessage)",
+           "commit_message": $(echo -n "$COMMIT_MSG" | jq -sR),
            "is_fork": "$(System.PullRequest.IsFork)",
-           "pr": "$(System.PullRequest.PullRequestNumber)",
-           "pr_url": "https://github.com/digital-asset/daml/pull/$(System.PullRequest.PullRequestNumber)",
-           "pr_source_branch": "$(System.PullRequest.SourceBranch)"}
+           "pr": "$PR_NUM",
+           "pr_url": "https://github.com/digital-asset/daml/pull/$PR_NUM",
+           "pr_source_branch": "$PR_BRANCH"}
           END
+          # Test above JSON is well formed
+          cat $REPORT | jq '.'
           REPORT_GZ=$(mktemp)
           cat $REPORT | gzip -9 > $REPORT_GZ
           GCS_KEY=$(mktemp)
+          cleanup() {
+              rm -rf $GCS_KEY
+          }
+          trap cleanup EXIT
           # Application credentials will not be set for forks. We give up on
           # tracking those for now. "Not set" in Azure world means set to the
           # expression Azure would otherwise substitute, i.e. the literal value
@@ -351,3 +352,10 @@ jobs:
           fi
         env:
           GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
+          # Commit message is always set
+          COMMIT_MSG: $(Build.SourceVersionMessage)
+          # Because these variables are always set (in the variables block),
+          # hopefully these should be set as expected (i.e. either correct
+          # value or empty string, but not $(Azure.Variable.Name)).
+          PR_NUM: $(pr.num)
+          PR_BRANCH: $(pr.branch)

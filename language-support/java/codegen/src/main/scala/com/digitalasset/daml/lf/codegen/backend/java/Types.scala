@@ -11,7 +11,7 @@ object Types {
   // ContractId is missing from the mapping because it's always used in its boxed form
   val apiBoolean = ClassName.get(classOf[javaapi.data.Bool])
   val apiInt64 = ClassName.get(classOf[javaapi.data.Int64])
-  val apiDecimal = ClassName.get(classOf[javaapi.data.Decimal])
+  val apiNumeric = ClassName.get(classOf[javaapi.data.Numeric])
   val apiText = ClassName.get(classOf[javaapi.data.Text])
   val apiTimestamp = ClassName.get(classOf[javaapi.data.Timestamp])
   val apiParty = ClassName.get(classOf[javaapi.data.Party])

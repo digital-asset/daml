@@ -58,6 +58,7 @@ DAML SDK documentation
    tools/sandbox
    tools/visual
    tools/navigator/index
+   tools/codegen
 
 .. toctree::
    :titlesonly:
@@ -93,8 +94,9 @@ DAML SDK documentation
    :caption: Experimental features
 
    experimental/warning
-   daml-integration-kit/index
+   tools/ledger-api-test-tool/index
    migrate/index
+   json-api/index
 
 .. toctree::
    :titlesonly:

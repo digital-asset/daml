@@ -1,5 +1,5 @@
 project:
-  source: daml/Main.daml
+  source: daml
   scenario: Main:setup
   parties:
     - Alice

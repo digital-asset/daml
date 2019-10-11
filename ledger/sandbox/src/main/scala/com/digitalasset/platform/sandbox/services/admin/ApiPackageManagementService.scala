@@ -15,11 +15,13 @@ import com.digitalasset.daml_lf.DamlLf.Archive
 import com.digitalasset.ledger.api.v1.admin.package_management_service.PackageManagementServiceGrpc.PackageManagementService
 import com.digitalasset.ledger.api.v1.admin.package_management_service._
 import com.digitalasset.platform.api.grpc.GrpcApiService
+import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.common.util.{DirectExecutionContext => DE}
 import com.digitalasset.platform.server.api.validation.ErrorFactories
 import com.google.protobuf.timestamp.Timestamp
+
 import io.grpc.ServerServiceDefinition
-import org.slf4j.{Logger, LoggerFactory}
+import org.slf4j.Logger
 
 import scala.compat.java8.FutureConverters
 import scala.concurrent.Future
@@ -29,11 +31,12 @@ import scala.util.Try
 class ApiPackageManagementService(
     packagesIndex: IndexPackagesService,
     packagesWrite: WritePackagesService,
-    scheduler: Scheduler)
+    scheduler: Scheduler,
+    loggerFactory: NamedLoggerFactory)
     extends PackageManagementService
     with GrpcApiService {
 
-  protected val logger: Logger = LoggerFactory.getLogger(PackageManagementService.getClass)
+  protected val logger: Logger = loggerFactory.getLogger(PackageManagementService.getClass)
 
   override def close(): Unit = ()
 
@@ -105,7 +108,8 @@ class ApiPackageManagementService(
         50.milliseconds,
         500.milliseconds,
         d => d * 2,
-        scheduler)
+        scheduler,
+        loggerFactory)
       .map { numberOfAttempts =>
         logger.debug(
           s"All ${ids.length} packages available, read after $numberOfAttempts attempt(s)")
@@ -115,8 +119,11 @@ class ApiPackageManagementService(
 }
 
 object ApiPackageManagementService {
-  def createApiService(readBackend: IndexPackagesService, writeBackend: WritePackagesService)(
-      implicit mat: ActorMaterializer): GrpcApiService =
-    new ApiPackageManagementService(readBackend, writeBackend, mat.system.scheduler)
+  def createApiService(
+      readBackend: IndexPackagesService,
+      writeBackend: WritePackagesService,
+      loggerFactory: NamedLoggerFactory)(implicit mat: ActorMaterializer)
+    : PackageManagementServiceGrpc.PackageManagementService with GrpcApiService =
+    new ApiPackageManagementService(readBackend, writeBackend, mat.system.scheduler, loggerFactory)
     with PackageManagementServiceLogging
 }

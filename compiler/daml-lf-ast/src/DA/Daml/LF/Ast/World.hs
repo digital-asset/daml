@@ -5,6 +5,7 @@
 
 module DA.Daml.LF.Ast.World(
     World,
+    getWorldSelf,
     initWorld,
     initWorldSelf,
     extendWorldSelf,
@@ -39,6 +40,9 @@ data World = World
   { _worldImported :: HMS.HashMap PackageId Package
   , _worldSelf :: Package
   }
+
+getWorldSelf :: World -> Package
+getWorldSelf = _worldSelf
 
 makeLensesFor [("_worldSelf","worldSelf")] ''World
 

@@ -3,6 +3,7 @@
 
 package com.digitalasset.daml.lf.testing.parser
 
+import com.digitalasset.daml.lf.data
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.language.Util._
@@ -27,6 +28,7 @@ private[parser] class TypeParser[P](parameters: ParserParameters[P]) {
     "ContractId" -> BTContractId,
     "Arrow" -> BTArrow,
     "Map" -> BTMap,
+    "Any" -> BTAny,
   )
 
   private[parser] def fullIdentifier: Parser[Ref.Identifier] =
@@ -42,7 +44,9 @@ private[parser] class TypeParser[P](parameters: ParserParameters[P]) {
       id ^^ (_ -> KStar)
 
   private[parser] def tNat: Parser[TNat] =
-    accept("Number", { case Number(l) if l.toInt == l => TNat(l.toInt) })
+    accept("Number", {
+      case Number(l) if l.toInt == l => TNat(data.Numeric.Scale.assertFromLong(l))
+    })
 
   private lazy val tForall: Parser[Type] =
     `forall` ~>! rep1(typeBinder) ~ `.` ~ typ ^^ { case bs ~ _ ~ t => (bs :\ t)(TForall) }

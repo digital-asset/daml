@@ -5,6 +5,7 @@ module Main (main) where
 import qualified Codec.Archive.Zip as Zip
 import Conduit hiding (connect)
 import qualified Data.Conduit.Zlib as Zlib
+import Data.Conduit.Tar.Extra (dropDirectory1)
 import qualified Data.Conduit.Tar.Extra as Tar.Conduit.Extra
 import Control.Concurrent
 import Control.Concurrent.Async
@@ -72,7 +73,7 @@ tests damlDir tmpDir = testGroup "Integration tests"
     , testCase "daml --help" $ callCommandQuiet "daml --help"
     , testCase "daml new --list" $ callCommandQuiet "daml new --list"
     , noassistantTests damlDir
-    , packagingTests tmpDir
+    , packagingTests
     , quickstartTests quickstartDir mvnDir
     , cleanTests cleanDir
     , deployTest deployDir
@@ -85,6 +86,16 @@ tests damlDir tmpDir = testGroup "Integration tests"
 
 throwError :: MonadFail m => T.Text -> T.Text -> m ()
 throwError msg e = fail (T.unpack $ msg <> " " <> e)
+
+-- | Check that the given file exists in the dar in the given directory.
+--
+-- This function automatically strips away the root directory e.g.
+-- foobar-0.0.1-b2d63d90f3cb73434ae005ee1c9762166bb84563ac9d108a606c8384803f09f2
+-- so to check that foobar-0.0.1-b2d63d90f3cb73434ae005ee1c9762166bb84563ac9d108a606c8384803f09f2/A/B.daml
+-- exists use checkDarFile darFiles "A" "B.daml"
+checkDarFile :: [FilePath] -> FilePath -> FilePath -> IO ()
+checkDarFile darFiles dir file = assertBool (dir </> file <> " not in " <> show darFiles) $
+              any (\f -> normalise (dropDirectory1 f) == normalise (dir </> file)) darFiles
 
 -- | These tests check that it is possible to invoke (a subset) of damlc
 -- commands outside of the assistant.
@@ -127,9 +138,9 @@ noassistantTests damlDir = testGroup "no assistant"
               callProcess damlcPath ["build", "--project-root", "foobar", "--init-package-db", "yes"]
     ]
 
-packagingTests :: FilePath -> TestTree
-packagingTests tmpDir = testGroup "packaging"
-    [ testCaseSteps "Build package with dependency" $ \step -> do
+packagingTests :: TestTree
+packagingTests = testGroup "packaging"
+    [ testCaseSteps "Build package with dependency" $ \step -> withTempDir $ \tmpDir -> do
         let projectA = tmpDir </> "a"
         let projectB = tmpDir </> "b"
         let aDar = projectA </> ".daml" </> "dist" </> "a-1.0.dar"
@@ -153,7 +164,7 @@ packagingTests tmpDir = testGroup "packaging"
             [ "sdk-version: " <> sdkVersion
             , "name: a"
             , "version: \"1.0\""
-            , "source: daml/Foo/Bar/Baz.daml"
+            , "source: daml"
             , "exposed-modules: [A, Foo.Bar.Baz]"
             , "dependencies:"
             , "  - daml-prim"
@@ -177,7 +188,7 @@ packagingTests tmpDir = testGroup "packaging"
             [ "sdk-version: " <> sdkVersion
             , "version: \"1.0\""
             , "name: b"
-            , "source: daml/B.daml"
+            , "source: daml"
             , "exposed-modules: [B]"
             , "dependencies:"
             , "  - daml-prim"
@@ -186,7 +197,74 @@ packagingTests tmpDir = testGroup "packaging"
             ]
         withCurrentDirectory projectB $ callCommandQuiet "daml build"
         assertBool "b.dar was not created." =<< doesFileExist bDar
-    , testCase "Top-level source files" $ do
+    , testCaseSteps "Dependency on a package with source: A.daml" $ \step -> withTempDir $ \tmpDir -> do
+        let projectA = tmpDir </> "a"
+        let projectB = tmpDir </> "b"
+        let aDar = projectA </> ".daml" </> "dist" </> "a-1.0.dar"
+        let bDar = projectB </> ".daml" </> "dist" </> "b-1.0.dar"
+        step "Creating project a..."
+        createDirectoryIfMissing True projectA
+        writeFileUTF8 (projectA </> "A.daml") $ unlines
+            [ "daml 1.2"
+            , "module A () where"
+            ]
+        writeFileUTF8 (projectA </> "daml.yaml") $ unlines
+            [ "sdk-version: " <> sdkVersion
+            , "name: a"
+            , "version: \"1.0\""
+            , "source: A.daml"
+            , "dependencies:"
+            , "  - daml-prim"
+            , "  - daml-stdlib"
+            ]
+        withCurrentDirectory projectA $ callCommandQuiet "daml build"
+        assertBool "a-1.0.dar was not created." =<< doesFileExist aDar
+        step "Creating project b..."
+        createDirectoryIfMissing True projectB
+        writeFileUTF8 (projectB </> "B.daml") $ unlines
+            [ "daml 1.2"
+            , "module B where"
+            , "import A ()"
+            ]
+        writeFileUTF8 (projectB </> "daml.yaml") $ unlines
+            [ "sdk-version: " <> sdkVersion
+            , "version: \"1.0\""
+            , "name: b"
+            , "source: ."
+            , "dependencies:"
+            , "  - daml-prim"
+            , "  - daml-stdlib"
+            , "  - " <> aDar
+            ]
+        withCurrentDirectory projectB $ callCommandQuiet "daml build"
+        assertBool "b.dar was not created." =<< doesFileExist bDar
+        darFiles <- Zip.filesInArchive . Zip.toArchive <$> BSL.readFile bDar
+        assertBool "b.dar contains source file from package database" $
+            not $ any ("A.daml" `isSuffixOf`) darFiles
+    , testCase "Build package with SDK dependency" $ withTempDir $ \tmpDir -> do
+        let project = tmpDir </> "project"
+        let dar = project </> ".daml" </> "dist" </> "project-1.0.dar"
+        createDirectoryIfMissing True (project </> "daml")
+        writeFileUTF8 (project </> "daml" </> "Project.daml") $ unlines
+            [ "daml 1.2"
+            , "module Project (foo) where"
+            , "foo : ()"
+            , "foo = ()"
+            ]
+        writeFileUTF8 (project </> "daml.yaml") $ unlines
+            [ "sdk-version: " <> sdkVersion
+            , "name: project"
+            , "version: \"1.0\""
+            , "source: daml"
+            , "exposed-modules: [Project]"
+            , "dependencies:"
+            , "  - daml-prim"
+            , "  - daml-stdlib"
+            , "  - daml-trigger"  -- SDK dependency
+            ]
+        withCurrentDirectory project $ callCommandQuiet "daml build"
+        assertBool "project-1.0.dar was not created." =<< doesFileExist dar
+    , testCase "Top-level source files" $ withTempDir $ \tmpDir -> do
         -- Test that a source file in the project root will be included in the
         -- DAR file. Regression test for #1048.
         let projDir = tmpDir </> "proj"
@@ -201,7 +279,7 @@ packagingTests tmpDir = testGroup "packaging"
           [ "sdk-version: " <> sdkVersion
           , "name: proj"
           , "version: \"1.0\""
-          , "source: A.daml"
+          , "source: ."
           , "exposed-modules: [A]"
           , "dependencies:"
           , "  - daml-prim"
@@ -212,6 +290,89 @@ packagingTests tmpDir = testGroup "packaging"
         assertBool "proj.dar was not created." =<< doesFileExist dar
         darFiles <- Zip.filesInArchive . Zip.toArchive <$> BSL.readFile dar
         assertBool "A.daml is missing" (any (\f -> takeFileName f == "A.daml") darFiles)
+    , testCase "Non-root sources files" $ withTempDir $ \projDir -> do
+        -- Test that all daml source files get included in the dar if "source" points to a file
+        -- rather than a directory
+        writeFileUTF8 (projDir </> "A.daml") $ unlines
+          [ "daml 1.2"
+          , "module A where"
+          , "import B ()"
+          ]
+        writeFileUTF8 (projDir </> "B.daml") $ unlines
+          [ "daml 1.2"
+          , "module B where"
+          ]
+        writeFileUTF8 (projDir </> "daml.yaml") $ unlines
+          [ "sdk-version: " <> sdkVersion
+          , "name: proj"
+          , "version: 0.1.0"
+          , "source: A.daml"
+          , "dependencies: [daml-prim, daml-stdlib]"
+          ]
+        withCurrentDirectory projDir $ callCommandQuiet "daml build"
+        let dar = projDir </> ".daml/dist/proj-0.1.0.dar"
+        assertBool "proj-0.1.0.dar was not created." =<< doesFileExist dar
+        darFiles <- Zip.filesInArchive . Zip.toArchive <$> BSL.readFile dar
+        forM_ ["A.daml", "A.hi", "A.hie", "B.daml", "B.hi", "B.hie"] $ checkDarFile darFiles "."
+
+    , testCase "Root source file in subdir" $ withTempDir $ \projDir -> do
+        -- Test that the daml source files get included properly if "source" points to a file
+        -- in a subdirectory.
+        createDirectoryIfMissing True (projDir </> "A")
+        createDirectoryIfMissing True (projDir </> "B")
+        writeFileUTF8 (projDir </> "A/B.daml") $ unlines
+          [ "daml 1.2"
+          , "module A.B where"
+          , "import B.C ()"
+          ]
+        writeFileUTF8 (projDir </> "B/C.daml") $ unlines
+          [ "daml 1.2"
+          , "module B.C where"
+          ]
+        writeFileUTF8 (projDir </> "daml.yaml") $ unlines
+          [ "sdk-version: " <> sdkVersion
+          , "name: proj"
+          , "version: 0.1.0"
+          , "source: A/B.daml"
+          , "dependencies: [daml-prim, daml-stdlib]"
+          ]
+        withCurrentDirectory projDir $ callCommandQuiet "daml build"
+        let dar = projDir </> ".daml/dist/proj-0.1.0.dar"
+        assertBool "proj-0.1.0.dar was not created." =<< doesFileExist dar
+        darFiles <- Zip.filesInArchive . Zip.toArchive <$> BSL.readFile dar
+        checkDarFile darFiles "A" "B.daml"
+        checkDarFile darFiles "A" "B.hi"
+        checkDarFile darFiles "A" "B.hie"
+        checkDarFile darFiles "B" "C.daml"
+        checkDarFile darFiles "B" "C.hi"
+        checkDarFile darFiles "B" "C.hie"
+
+    , testCase "Imports from differen directories" $ withTempDir $ \projDir -> do
+        -- Regression test for #2929
+        createDirectory (projDir </> "A")
+        writeFileUTF8 (projDir </> "A.daml") $ unlines
+          [ "daml 1.2"
+          , "module A where"
+          , "import A.B ()"
+          , "import A.C ()"
+          ]
+        writeFileUTF8 (projDir </> "A/B.daml") $ unlines
+          [ "daml 1.2"
+          , "module A.B where"
+          , "import A.C ()"
+          ]
+        writeFileUTF8 (projDir </> "A/C.daml") $ unlines
+          [ "daml 1.2"
+          , "module A.C where"
+          ]
+        writeFileUTF8 (projDir </> "daml.yaml") $ unlines
+          [ "sdk-version: " <> sdkVersion
+          , "name: proj"
+          , "version: 0.1.0"
+          , "source: ."
+          , "dependencies: [daml-prim, daml-stdlib]"
+          ]
+        withCurrentDirectory projDir $ callCommandQuiet "daml build"
 
     , testCase "Project without exposed modules" $ withTempDir $ \projDir -> do
         writeFileUTF8 (projDir </> "A.daml") $ unlines
@@ -228,13 +389,16 @@ packagingTests tmpDir = testGroup "packaging"
             , "dependencies: [daml-prim, daml-stdlib]"
             ]
         withCurrentDirectory projDir $ callCommandQuiet "daml build"
-    , testCaseSteps "Build migration package" $ \step -> do
-        let projectA = tmpDir </> "a"
-        let projectB = tmpDir </> "b"
+    , testCaseSteps "Build migration package" $ \step -> withTempDir $ \tmpDir -> do
+        -- it's important that we have fresh empty directories here!
+        let projectA = tmpDir </> "a-1.0"
+        let projectB = tmpDir </> "a-2.0"
         let projectUpgrade = tmpDir </> "upgrade"
-        let aDar = projectA </> distDir </> "a-1.0.dar"
-        let bDar = projectB </> distDir </> "a-2.0.dar"
+        let projectRollback = tmpDir </> "rollback"
+        let aDar = projectA </> "projecta.dar"
+        let bDar = projectB </> "projectb.dar"
         let upgradeDar = projectUpgrade </> distDir </> "upgrade-0.0.1.dar"
+        let rollbackDar= projectRollback </> distDir </> "rollback-0.0.1.dar"
         let bWithUpgradesDar = "a-2.0-with-upgrades.dar"
         step "Creating project a-1.0 ..."
         createDirectoryIfMissing True (projectA </> "daml")
@@ -255,13 +419,14 @@ packagingTests tmpDir = testGroup "packaging"
             [ "sdk-version: " <> sdkVersion
             , "name: a"
             , "version: \"1.0\""
-            , "source: daml/Main.daml"
+            , "source: daml"
             , "exposed-modules: [Main]"
             , "dependencies:"
             , "  - daml-prim"
             , "  - daml-stdlib"
             ]
-        withCurrentDirectory projectA $ callCommandQuiet "daml build"
+        -- We use -o to test that we do not depend on the name of the dar
+        withCurrentDirectory projectA $ callCommandQuiet $ "daml build -o " <> aDar
         assertBool "a-1.0.dar was not created." =<< doesFileExist aDar
         step "Creating project a-2.0 ..."
         createDirectoryIfMissing True (projectB </> "daml")
@@ -274,29 +439,35 @@ packagingTests tmpDir = testGroup "packaging"
             , "  with"
             , "    a : Int"
             , "    p : Party"
+            , "    new : Optional Text"
             , "  where"
             , "    signatory p"
             ]
         writeFileUTF8 (projectB </> "daml.yaml") $ unlines
             [ "sdk-version: " <> sdkVersion
-            , "version: \"2.0\""
             , "name: a"
-            , "source: daml/Main.daml"
+            , "version: \"2.0\""
+            , "source: daml"
             , "exposed-modules: [Main]"
             , "dependencies:"
             , "  - daml-prim"
             , "  - daml-stdlib"
             ]
-        withCurrentDirectory projectB $ callCommandQuiet "daml build"
+        -- We use -o to test that we do not depend on the name of the dar
+        withCurrentDirectory projectB $ callCommandQuiet $ "daml build -o " <> bDar
         assertBool "a-2.0.dar was not created." =<< doesFileExist bDar
-        step "Creating upgrade project"
-        callCommandQuiet $ unwords ["daml", "migrate", projectUpgrade, "daml/Main.daml", aDar, bDar]
+        step "Creating upgrade/rollback project"
+        -- We use -o to verify that we do not depend on the
+        callCommandQuiet $ unwords ["daml", "migrate", projectUpgrade, aDar, bDar]
+        callCommandQuiet $ unwords ["daml", "migrate", projectRollback, bDar, aDar]
         step "Build migration project"
         withCurrentDirectory projectUpgrade $
-            if isWindows
-                then callCommandQuiet ".\\build.cmd"
-                else callCommandQuiet "./build.sh"
-        assertBool "upgrade-0.0.1.dar was not created" =<< doesFileExist  upgradeDar
+            callCommandQuiet "daml build"
+        assertBool "upgrade-0.0.1.dar was not created" =<< doesFileExist upgradeDar
+        step "Build rollback project"
+        withCurrentDirectory projectRollback $
+            callCommandQuiet "daml build"
+        assertBool "rollback-0.0.1.dar was not created" =<< doesFileExist rollbackDar
         step "Merging upgrade dar"
         callCommandQuiet $
           unwords
@@ -319,6 +490,8 @@ quickstartTests quickstartDir mvnDir = testGroup "quickstart"
           callCommandQuiet "daml test"
     , testCase "daml damlc test --files" $ withCurrentDirectory quickstartDir $
           callCommandQuiet "daml damlc test --files daml/Main.daml"
+    , testCase "daml damlc visual-web" $ withCurrentDirectory quickstartDir $
+          callCommandQuiet $ unwords ["daml damlc visual-web .daml/dist/quickstart-0.0.1.dar -o visual.html -b"]
     , testCase "sandbox startup" $
       withCurrentDirectory quickstartDir $
       withDevNull $ \devNull -> do
@@ -337,6 +510,30 @@ quickstartTests quickstartDir mvnDir = testGroup "quickstart"
                   (\s -> connect s (addrAddress addr))
               -- waitForProcess' will block on Windows so we explicitly kill the process.
               terminateProcess ph
+    , testCase "JSON API startup" $
+      withCurrentDirectory quickstartDir $
+      withDevNull $ \devNull1 -> do
+      withDevNull $ \devNull2 -> do
+          sandboxPort :: Int <- fromIntegral <$> getFreePort
+          let sandboxProc = (shell $ unwords ["daml", "sandbox", "--port", show sandboxPort, ".daml/dist/quickstart-0.0.1.dar"]) { std_out = UseHandle devNull1 }
+          withCreateProcess sandboxProc  $ \_ _ _ sandboxPh -> race_ (waitForProcess' sandboxProc sandboxPh) $ do
+              waitForConnectionOnPort (threadDelay 100000) sandboxPort
+              jsonApiPort :: Int <- fromIntegral <$> getFreePort
+              let jsonApiProc = (shell $ unwords ["daml", "json-api", "--ledger-host", "localhost", "--ledger-port", show sandboxPort, "--http-port", show jsonApiPort]) { std_out = UseHandle devNull2 }
+              withCreateProcess jsonApiProc $ \_ _ _ jsonApiPh -> race_ (waitForProcess' jsonApiProc jsonApiPh) $ do
+                  let headers =
+                          [ ("Authorization", "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJsZWRnZXJJZCI6Ik15TGVkZ2VyIiwiYXBwbGljYXRpb25JZCI6ImZvb2JhciIsInBhcnR5IjoiQWxpY2UifQ.4HYfzjlYr1ApUDot0a6a4zB49zS_jrwRUOCkAiPMqo0")
+                          ] :: RequestHeaders
+                  waitForHttpServer (threadDelay 100000) ("http://localhost:" <> show jsonApiPort <> "/contracts/search") headers
+                  req <- parseRequest $ "http://localhost:" <> show jsonApiPort <> "/contracts/search"
+                  req <- pure req { requestHeaders = headers }
+                  manager <- newManager defaultManagerSettings
+                  resp <- httpLbs req manager
+                  responseBody resp @?=
+                      "{\"status\":200,\"result\":[]}"
+                  -- waitForProcess' will block on Windows so we explicitly kill the process.
+                  terminateProcess jsonApiPh
+              terminateProcess sandboxPh
     , testCase "mvn compile" $
       withCurrentDirectory quickstartDir $ do
           mvnDbTarball <- locateRunfiles (mainWorkspace </> "daml-assistant" </> "integration-tests" </> "integration-tests-mvn.tar")
@@ -358,14 +555,14 @@ quickstartTests quickstartDir mvnDir = testGroup "quickstart"
               withCreateProcess mavenProc $
                   \_ _ _ ph -> race_ (waitForProcess' mavenProc ph) $ do
                   let url = "http://localhost:" <> show restPort <> "/iou"
-                  waitForHttpServer (threadDelay 1000000) url
+                  waitForHttpServer (threadDelay 1000000) url []
                   threadDelay 5000000
                   manager <- newManager defaultManagerSettings
                   req <- parseRequest url
                   req <- pure req { requestHeaders = [(hContentType, "application/json")] }
                   resp <- httpLbs req manager
                   responseBody resp @?=
-                      "{\"0\":{\"issuer\":\"EUR_Bank\",\"owner\":\"Alice\",\"currency\":\"EUR\",\"amount\":100.0,\"observers\":[]}}"
+                      "{\"0\":{\"issuer\":\"EUR_Bank\",\"owner\":\"Alice\",\"currency\":\"EUR\",\"amount\":100.0000000000,\"observers\":[]}}"
                   -- waitForProcess' will block on Windows so we explicitly kill the process.
                   terminateProcess ph
               -- waitForProcess' will block on Windows so we explicitly kill the process.

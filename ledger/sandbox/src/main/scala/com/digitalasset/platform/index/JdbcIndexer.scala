@@ -19,19 +19,22 @@ import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractId}
 import com.digitalasset.daml_lf.DamlLf
 import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.domain.LedgerId
+import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.common.util.{DirectExecutionContext => DEC}
 import com.digitalasset.platform.sandbox.metrics.MetricsManager
 import com.digitalasset.platform.sandbox.services.transaction.SandboxEventIdFormatter
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry
 import com.digitalasset.platform.sandbox.stores.ledger.sql.SqlLedger.{
-  noOfShortLivedConnections,
-  noOfStreamingConnections
+  defaultNumberOfShortLivedConnections,
+  defaultNumberOfStreamingConnections
 }
 import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.{
+  DbType,
+  JdbcLedgerDao,
   LedgerDao,
-  PersistenceEntry,
-  JdbcLedgerDao
+  PersistenceEntry
 }
+import com.digitalasset.platform.sandbox.stores.ledger.sql.migration.FlywayMigrations
 import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{
   ContractSerializer,
   KeyHasher,
@@ -39,20 +42,38 @@ import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{
   ValueSerializer
 }
 import com.digitalasset.platform.sandbox.stores.ledger.sql.util.DbDispatcher
-import org.slf4j.LoggerFactory
 import scalaz.syntax.tag._
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
-import scala.util.control.NonFatal
-import scala.util.{Failure, Success}
 
-object JdbcIndexer {
-  private val logger = LoggerFactory.getLogger(classOf[JdbcIndexer])
+sealed trait InitStatus
+final abstract class Initialized extends InitStatus
+final abstract class Uninitialized extends InitStatus
+
+object JdbcIndexerFactory {
+  def apply(loggerFactory: NamedLoggerFactory): JdbcIndexerFactory[Uninitialized] =
+    new JdbcIndexerFactory[Uninitialized](loggerFactory)
+}
+
+class JdbcIndexerFactory[Status <: InitStatus] private (loggerFactory: NamedLoggerFactory) {
+  private val logger = loggerFactory.getLogger(classOf[JdbcIndexer])
   private[index] val asyncTolerance = 30.seconds
 
-  def create(readService: ReadService, jdbcUrl: String): Future[JdbcIndexer] = {
-    val actorSystem = ActorSystem("postgres-indexer")
+  def validateSchema(jdbcUrl: String)(
+      implicit x: Status =:= Uninitialized): JdbcIndexerFactory[Initialized] = {
+    FlywayMigrations(jdbcUrl, loggerFactory).validate()
+    this.asInstanceOf[JdbcIndexerFactory[Initialized]]
+  }
+
+  def migrateSchema(jdbcUrl: String)(
+      implicit x: Status =:= Uninitialized): JdbcIndexerFactory[Initialized] = {
+    FlywayMigrations(jdbcUrl, loggerFactory).migrate()
+    this.asInstanceOf[JdbcIndexerFactory[Initialized]]
+  }
+
+  def create(actorSystem: ActorSystem, readService: ReadService, jdbcUrl: String)(
+      implicit x: Status =:= Initialized): Future[JdbcIndexer] = {
     val materializer: ActorMaterializer = ActorMaterializer()(actorSystem)
     val metricsManager = MetricsManager(false)
 
@@ -82,9 +103,13 @@ object JdbcIndexer {
   }
 
   private def initializeDao(jdbcUrl: String, mm: MetricsManager) = {
-    val dbType = JdbcLedgerDao.jdbcType(jdbcUrl)
+    val dbType = DbType.jdbcType(jdbcUrl)
     val dbDispatcher =
-      DbDispatcher(jdbcUrl, dbType, noOfShortLivedConnections, noOfStreamingConnections)
+      DbDispatcher(
+        jdbcUrl,
+        if (dbType.supportsParallelWrites) defaultNumberOfShortLivedConnections else 1,
+        defaultNumberOfStreamingConnections,
+        loggerFactory)
     val ledgerDao = LedgerDao.metered(
       JdbcLedgerDao(
         dbDispatcher,
@@ -92,7 +117,8 @@ object JdbcIndexer {
         TransactionSerializer,
         ValueSerializer,
         KeyHasher,
-        dbType))(mm)
+        dbType,
+        loggerFactory))(mm)
     ledgerDao
   }
 
@@ -126,7 +152,7 @@ object JdbcIndexer {
   * @param beginAfterExternalOffset The last offset received from the read service.
   *                                 This offset has inclusive semantics,
   */
-class JdbcIndexer private (
+class JdbcIndexer private[index] (
     initialInternalOffset: Long,
     beginAfterExternalOffset: Option[LedgerString],
     ledgerDao: LedgerDao)(implicit mat: Materializer)
@@ -140,41 +166,33 @@ class JdbcIndexer private (
     * Subscribes to an instance of ReadService.
     *
     * @param readService the ReadService to subscribe to
-    * @param onError     callback to signal error during feed processing
-    * @param onComplete  callback fired only once at normal feed termination.
     * @return a handle of IndexFeedHandle or a failed Future
     */
-  override def subscribe(
-      readService: ReadService,
-      onError: Throwable => Unit,
-      onComplete: () => Unit): Future[IndexFeedHandle] = {
+  override def subscribe(readService: ReadService): Future[IndexFeedHandle] = {
     val (killSwitch, completionFuture) = readService
       .stateUpdates(beginAfterExternalOffset.map(Offset.assertFromString))
       .viaMat(KillSwitches.single)(Keep.right[NotUsed, UniqueKillSwitch])
       .mapAsync(1)((handleStateUpdate _).tupled)
       .toMat(Sink.ignore)(Keep.both)
       .run()
-    completionFuture.onComplete {
-      case Failure(NonFatal(t)) => onError(t)
-      case Success(_) => onComplete()
-    }(DEC)
 
     Future.successful(indexHandleFromKillSwitch(killSwitch, completionFuture))
   }
 
   private def handleStateUpdate(offset: Offset, update: Update): Future[Unit] = {
+    val externalOffset = Some(offset.toLedgerString)
     update match {
       case Heartbeat(recordTime) =>
         ledgerDao
           .storeLedgerEntry(
             headRef,
             headRef + 1,
-            Some(offset.toLedgerString),
+            externalOffset,
             PersistenceEntry.Checkpoint(LedgerEntry.Checkpoint(recordTime.toInstant)))
           .map(_ => headRef = headRef + 1)(DEC)
 
       case PartyAddedToParticipant(party, displayName, _, _) =>
-        ledgerDao.storeParty(party, Some(displayName)).map(_ => ())(DEC)
+        ledgerDao.storeParty(party, Some(displayName), externalOffset).map(_ => ())(DEC)
 
       case PublicPackageUploaded(archive, sourceDescription, _, _) =>
         val uploadId = UUID.randomUUID().toString
@@ -186,7 +204,7 @@ class JdbcIndexer private (
             sourceDescription = sourceDescription
           )
         )
-        ledgerDao.uploadLfPackages(uploadId, packages).map(_ => ())(DEC)
+        ledgerDao.uploadLfPackages(uploadId, packages, externalOffset).map(_ => ())(DEC)
 
       case TransactionAccepted(
           optSubmitterInfo,
@@ -194,21 +212,23 @@ class JdbcIndexer private (
           transaction,
           transactionId,
           recordTime,
-          referencedContracts) =>
+          divulgedContracts) =>
         val toAbsCoid: ContractId => AbsoluteContractId =
           SandboxEventIdFormatter.makeAbsCoid(transactionId)
 
         val blindingInfo = Blinding.blind(transaction.mapContractId(cid => cid: ContractId))
 
-        val mappedDisclosure = blindingInfo.explicitDisclosure.map {
+        val mappedDisclosure = blindingInfo.disclosure.map {
           case (nodeId, parties) =>
             SandboxEventIdFormatter.fromTransactionId(transactionId, nodeId) -> parties
         }
 
-        val mappedLocalImplicitDisclosure = blindingInfo.localImplicitDisclosure.map {
+        val mappedLocalDivulgence = blindingInfo.localDivulgence.map {
           case (nodeId, parties) =>
             SandboxEventIdFormatter.fromTransactionId(transactionId, nodeId) -> parties
         }
+
+        assert(blindingInfo.localDivulgence.isEmpty)
 
         val pt = PersistenceEntry.Transaction(
           LedgerEntry.Transaction(
@@ -224,11 +244,12 @@ class JdbcIndexer private (
               .mapNodeId(SandboxEventIdFormatter.fromTransactionId(transactionId, _)),
             mappedDisclosure
           ),
-          mappedLocalImplicitDisclosure,
-          blindingInfo.globalImplicitDisclosure
+          mappedLocalDivulgence,
+          blindingInfo.globalDivulgence,
+          divulgedContracts.map(c => c.contractId -> c.contractInst)
         )
         ledgerDao
-          .storeLedgerEntry(headRef, headRef + 1, Some(offset.toLedgerString), pt)
+          .storeLedgerEntry(headRef, headRef + 1, externalOffset, pt)
           .map(_ => headRef = headRef + 1)(DEC)
 
       case _: ConfigurationChanged =>
@@ -237,6 +258,9 @@ class JdbcIndexer private (
 
       case _: ConfigurationChangeRejected =>
         // TODO(JM) implement configuration rejections
+        Future.successful(())
+
+      case CommandRejected(submitterInfo, RejectionReason.DuplicateCommand) =>
         Future.successful(())
 
       case CommandRejected(submitterInfo, reason) =>
@@ -250,7 +274,7 @@ class JdbcIndexer private (
           )
         )
         ledgerDao
-          .storeLedgerEntry(headRef, headRef + 1, Some(offset.toLedgerString), rejection)
+          .storeLedgerEntry(headRef, headRef + 1, externalOffset, rejection)
           .map(_ => ())(DEC)
           .map(_ => headRef = headRef + 1)(DEC)
     }
@@ -278,6 +302,10 @@ class JdbcIndexer private (
       completionFuture: Future[Done]): IndexFeedHandle = new IndexFeedHandle {
     override def stop(): Future[akka.Done] = {
       ks.shutdown()
+      completionFuture
+    }
+
+    override def completed(): Future[akka.Done] = {
       completionFuture
     }
   }

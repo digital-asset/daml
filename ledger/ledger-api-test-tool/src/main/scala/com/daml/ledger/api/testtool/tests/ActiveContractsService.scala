@@ -3,12 +3,8 @@
 
 package com.daml.ledger.api.testtool.tests
 
-import com.daml.ledger.api.testtool.infrastructure.{
-  LedgerSession,
-  LedgerTest,
-  LedgerTestContext,
-  LedgerTestSuite
-}
+import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
+import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTest, LedgerTestSuite}
 import com.digitalasset.ledger.api.v1.event.Event.Event.Created
 import com.digitalasset.ledger.api.v1.event.{CreatedEvent, Event}
 import com.digitalasset.ledger.client.binding.Primitive.{Party, TemplateId}
@@ -22,9 +18,10 @@ class ActiveContractsService(session: LedgerSession) extends LedgerTestSuite(ses
     LedgerTest(
       "ACSinvalidLedgerId",
       "The ActiveContractService should fail for requests with an invalid ledger identifier") {
-      ledger =>
+      context =>
         val invalidLedgerId = "ACSinvalidLedgerId"
         for {
+          ledger <- context.participant()
           party <- ledger.allocateParty()
           invalidRequest = ledger
             .activeContractsRequest(Seq(party))
@@ -38,8 +35,9 @@ class ActiveContractsService(session: LedgerSession) extends LedgerTestSuite(ses
   private val emptyResponse = LedgerTest(
     "ACSemptyResponse",
     "The ActiveContractService should succeed with an empty response if no contracts have been created for a party") {
-    ledger =>
+    context =>
       for {
+        ledger <- context.participant()
         party <- ledger.allocateParty()
         activeContracts <- ledger.activeContracts(party)
       } yield {
@@ -49,7 +47,7 @@ class ActiveContractsService(session: LedgerSession) extends LedgerTestSuite(ses
       }
   }
 
-  private def createDummyContracts(party: Party, ledger: LedgerTestContext) = {
+  private def createDummyContracts(party: Party, ledger: ParticipantTestContext) = {
     for {
       dummy <- ledger.create(party, Dummy(party))
       dummyWithParam <- ledger.create(party, DummyWithParam(party))
@@ -59,8 +57,9 @@ class ActiveContractsService(session: LedgerSession) extends LedgerTestSuite(ses
 
   private val returnAllContracts =
     LedgerTest("ACSallContracts", "The ActiveContractService should return all active contracts") {
-      ledger =>
+      context =>
         for {
+          ledger <- context.participant()
           party <- ledger.allocateParty()
           (dummy, dummyWithParam, dummyFactory) <- createDummyContracts(party, ledger)
           activeContracts <- ledger.activeContracts(party)
@@ -91,8 +90,9 @@ class ActiveContractsService(session: LedgerSession) extends LedgerTestSuite(ses
   private val filterContracts =
     LedgerTest(
       "ACSfilterContracts",
-      "The ActiveContractService should return contracts filtered by templateId") { ledger =>
+      "The ActiveContractService should return contracts filtered by templateId") { context =>
       for {
+        ledger <- context.participant()
         party <- ledger.allocateParty()
         (dummy, _, _) <- createDummyContracts(party, ledger)
         activeContracts <- ledger.activeContractsByTemplateId(Seq(Dummy.id.unwrap), party)
@@ -114,10 +114,11 @@ class ActiveContractsService(session: LedgerSession) extends LedgerTestSuite(ses
   private val excludeArchivedContracts =
     LedgerTest(
       "ACSarchivedContracts",
-      "The ActiveContractService does not return archived contracts") { ledger =>
+      "The ActiveContractService does not return archived contracts") { context =>
       for {
+        ledger <- context.participant()
         party <- ledger.allocateParty()
-        (dummy, dummyWithParam, dummyFactory) <- createDummyContracts(party, ledger)
+        (dummy, _, _) <- createDummyContracts(party, ledger)
         contractsBeforeExercise <- ledger.activeContracts(party)
         _ <- ledger.exercise(party, dummy.exerciseDummyChoice1)
         contractsAfterExercise <- ledger.activeContracts(party)
@@ -149,14 +150,17 @@ class ActiveContractsService(session: LedgerSession) extends LedgerTestSuite(ses
   private val usableOffset = LedgerTest(
     "ACSusableOffset",
     "The ActiveContractService should return a usable offset to resume streaming transactions") {
-    ledger =>
+    context =>
       for {
+        ledger <- context.participant()
         party <- ledger.allocateParty()
         dummy <- ledger.create(party, Dummy(party))
         (Some(offset), onlyDummy) <- ledger.activeContracts(
           ledger.activeContractsRequest(Seq(party)))
         dummyWithParam <- ledger.create(party, DummyWithParam(party))
-        transactions <- ledger.flatTransactionsFromOffset(offset, Seq(party))
+        request = ledger.getTransactionsRequest(Seq(party))
+        fromOffset = request.update(_.begin := offset)
+        transactions <- ledger.flatTransactions(fromOffset)
       } yield {
         assert(onlyDummy.size == 1)
         assert(
@@ -185,8 +189,9 @@ class ActiveContractsService(session: LedgerSession) extends LedgerTestSuite(ses
   private val verbosityFlag = LedgerTest(
     "ACSverbosity",
     "The ActiveContractService should emit field names only if the verbose flag is set to true") {
-    ledger =>
+    context =>
       for {
+        ledger <- context.participant()
         party <- ledger.allocateParty()
         _ <- ledger.create(party, Dummy(party))
         verboseRequest = ledger.activeContractsRequest(Seq(party)).update(_.verbose := true)
@@ -219,8 +224,9 @@ class ActiveContractsService(session: LedgerSession) extends LedgerTestSuite(ses
 
   private val multiPartyRequests = LedgerTest(
     "ACSmultiParty",
-    "The ActiveContractsService should return contracts for the requesting parties") { ledger =>
+    "The ActiveContractsService should return contracts for the requesting parties") { context =>
     for {
+      ledger <- context.participant()
       Vector(alice, bob) <- ledger.allocateParties(2)
       _ <- createDummyContracts(alice, ledger)
       _ <- createDummyContracts(bob, ledger)
@@ -269,8 +275,9 @@ class ActiveContractsService(session: LedgerSession) extends LedgerTestSuite(ses
   private val agreementText =
     LedgerTest(
       "ACSagreementText",
-      "The ActiveContractService should properly fill the agreementText field") { ledger =>
+      "The ActiveContractService should properly fill the agreementText field") { context =>
       for {
+        ledger <- context.participant()
         party <- ledger.allocateParty()
         dummyCid <- ledger.create(party, Dummy(party))
         dummyWithParamCid <- ledger.create(party, DummyWithParam(party))

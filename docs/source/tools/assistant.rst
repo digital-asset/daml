@@ -17,10 +17,15 @@ DAML Assistant (``daml``)
 - Launch the tools in the SDK:
 
   - Launch :doc:`DAML Studio </daml/daml-studio>`: ``daml studio``
-  - Launch :doc:`Sandbox </tools/sandbox>` and :doc:`Navigator </tools/navigator/index>` together: ``daml start``
+  - Launch :doc:`Sandbox </tools/sandbox>`, :doc:`Navigator </tools/navigator/index>` and the :doc:`/json-api/index`: ``daml start``
+    You can disable the HTTP JSON API by passing ``--json-api-port none`` to ``daml start``.
+    To specify additional options for sandbox/navigator/the HTTP JSON API you can use
+    ``--sandbox-option=opt``, ``--navigator-option=opt`` and ``--json-api-option=opt``.
   - Launch Sandbox: ``daml sandbox``
   - Launch Navigator: ``daml navigator``
   - Launch :doc:`Extractor </tools/extractor>`: ``daml extractor``
+  - Launch the :doc:`/json-api/index`: ``daml json-api``
+  - Run :doc:`DAML codegen </tools/codegen>`: ``daml codegen``
 
 - Install new SDK versions manually: ``daml install <version>``
 
@@ -82,7 +87,7 @@ The existence of a ``daml.yaml`` file is what tells ``daml`` that this directory
 
     sdk-version: __VERSION__
     name: __PROJECT_NAME__
-    source: daml/Main.daml
+    source: daml
     scenario: Main:setup
     parties:
       - Alice
@@ -96,6 +101,8 @@ The existence of a ``daml.yaml`` file is what tells ``daml`` that this directory
     scenario-service:
       grpc-max-message-size: 134217728
       grpc-timeout: 60
+    build-options: ["--ghc-option", "-Werror",
+                    "--ghc-option", "-v"]
 
 
 Here is what each field means:
@@ -106,7 +113,7 @@ Here is what each field means:
 
    The assistant will warn you when it is time to update this setting (see the ``update-check`` setting in the global config  to control how often it checks, or to disable this check entirely).
 - ``name``: the name of the project. This determines the filename of the ``.dar`` file compiled by ``daml build``.
-- ``source``: the location of your main DAML source code file, relative to the project root.
+- ``source``: the root folder of your DAML source code files relative to the project root.
 - ``scenario``: the name of the scenario to run when using ``daml start``.
 - ``parties``: the parties to display in the Navigator when using ``daml start``.
 - ``version``: the project version.
@@ -121,6 +128,8 @@ Here is what each field means:
   - ``grpc-timeout``: This option controls the timeout used for communicating
     with the scenario service. If unspecified this defaults to 60s. Unless you get
     errors, there should be no reason to modify this.
+
+- ``build-options``: a list of tokens that will be appended to some invocations of ``damlc`` (currently `build` and `ide`). Note that there is no further shell parsing applied.
 
 ..  TODO (@robin-da) document the dependency syntax
 

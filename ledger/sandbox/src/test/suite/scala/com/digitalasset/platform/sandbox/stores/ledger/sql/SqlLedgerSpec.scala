@@ -8,13 +8,14 @@ import com.digitalasset.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.digitalasset.platform.sandbox.MetricsAround
 import com.digitalasset.platform.sandbox.persistence.PostgresAroundEach
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
-import com.digitalasset.platform.sandbox.stores.{InMemoryActiveContracts, InMemoryPackageStore}
+import com.digitalasset.platform.sandbox.stores.{InMemoryActiveLedgerState, InMemoryPackageStore}
 import org.scalatest.concurrent.{AsyncTimeLimitedTests, ScaledTimeSpans}
 import org.scalatest.time.Span
 import org.scalatest.{AsyncWordSpec, Matchers}
 
 import scala.concurrent.duration._
 import com.digitalasset.ledger.api.domain.LedgerId
+import com.digitalasset.platform.common.logging.NamedLoggerFactory
 
 class SqlLedgerSpec
     extends AsyncWordSpec
@@ -31,16 +32,20 @@ class SqlLedgerSpec
 
   private val ledgerId: LedgerId = LedgerId(Ref.LedgerString.assertFromString("TheLedger"))
 
+  private val loggerFactory = NamedLoggerFactory(this.getClass)
+
   "SQL Ledger" should {
     "be able to be created from scratch with a random ledger id" in {
       val ledgerF = SqlLedger(
         jdbcUrl = postgresFixture.jdbcUrl,
         ledgerId = None,
         timeProvider = TimeProvider.UTC,
-        acs = InMemoryActiveContracts.empty,
+        acs = InMemoryActiveLedgerState.empty,
         packages = InMemoryPackageStore.empty,
         initialLedgerEntries = ImmArray.empty,
-        queueDepth
+        queueDepth,
+        startMode = SqlStartMode.ContinueIfExists,
+        loggerFactory
       )
 
       ledgerF.map { ledger =>
@@ -53,10 +58,12 @@ class SqlLedgerSpec
         jdbcUrl = postgresFixture.jdbcUrl,
         ledgerId = Some(ledgerId),
         timeProvider = TimeProvider.UTC,
-        acs = InMemoryActiveContracts.empty,
+        acs = InMemoryActiveLedgerState.empty,
         packages = InMemoryPackageStore.empty,
         initialLedgerEntries = ImmArray.empty,
-        queueDepth
+        queueDepth,
+        startMode = SqlStartMode.ContinueIfExists,
+        loggerFactory
       )
 
       ledgerF.map { ledger =>
@@ -71,30 +78,36 @@ class SqlLedgerSpec
           jdbcUrl = postgresFixture.jdbcUrl,
           ledgerId = Some(ledgerId),
           timeProvider = TimeProvider.UTC,
-          acs = InMemoryActiveContracts.empty,
+          acs = InMemoryActiveLedgerState.empty,
           packages = InMemoryPackageStore.empty,
           initialLedgerEntries = ImmArray.empty,
-          queueDepth
+          queueDepth,
+          startMode = SqlStartMode.ContinueIfExists,
+          loggerFactory
         )
 
         ledger2 <- SqlLedger(
           jdbcUrl = postgresFixture.jdbcUrl,
           ledgerId = Some(ledgerId),
           timeProvider = TimeProvider.UTC,
-          acs = InMemoryActiveContracts.empty,
+          acs = InMemoryActiveLedgerState.empty,
           packages = InMemoryPackageStore.empty,
           initialLedgerEntries = ImmArray.empty,
-          queueDepth
+          queueDepth,
+          startMode = SqlStartMode.ContinueIfExists,
+          loggerFactory
         )
 
         ledger3 <- SqlLedger(
           jdbcUrl = postgresFixture.jdbcUrl,
           ledgerId = None,
           timeProvider = TimeProvider.UTC,
-          acs = InMemoryActiveContracts.empty,
+          acs = InMemoryActiveLedgerState.empty,
           packages = InMemoryPackageStore.empty,
           initialLedgerEntries = ImmArray.empty,
-          queueDepth
+          queueDepth,
+          startMode = SqlStartMode.ContinueIfExists,
+          loggerFactory
         )
 
       } yield {
@@ -111,19 +124,23 @@ class SqlLedgerSpec
           jdbcUrl = postgresFixture.jdbcUrl,
           ledgerId = Some(LedgerId(Ref.LedgerString.assertFromString("TheLedger"))),
           timeProvider = TimeProvider.UTC,
-          acs = InMemoryActiveContracts.empty,
+          acs = InMemoryActiveLedgerState.empty,
           packages = InMemoryPackageStore.empty,
           initialLedgerEntries = ImmArray.empty,
-          queueDepth
+          queueDepth,
+          startMode = SqlStartMode.ContinueIfExists,
+          loggerFactory
         )
         _ <- SqlLedger(
           jdbcUrl = postgresFixture.jdbcUrl,
           ledgerId = Some(LedgerId(Ref.LedgerString.assertFromString("AnotherLedger"))),
           timeProvider = TimeProvider.UTC,
-          acs = InMemoryActiveContracts.empty,
+          acs = InMemoryActiveLedgerState.empty,
           packages = InMemoryPackageStore.empty,
           initialLedgerEntries = ImmArray.empty,
-          queueDepth
+          queueDepth,
+          startMode = SqlStartMode.ContinueIfExists,
+          loggerFactory
         )
       } yield (())
 

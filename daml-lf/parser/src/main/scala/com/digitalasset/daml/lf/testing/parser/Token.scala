@@ -51,6 +51,9 @@ private[parser] object Token {
   case object `lookup_by_key` extends Token
   case object `by` extends Token
   case object `to` extends Token
+  case object `to_any` extends Token
+  case object `from_any` extends Token
+  case object `to_text_template_id` extends Token
 
   final case class Id(s: String) extends Token
   final case class ContractId(s: String) extends Token

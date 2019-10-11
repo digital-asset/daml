@@ -27,6 +27,11 @@ load("@rules_haskell//haskell:repositories.bzl", "rules_haskell_dependencies")
 
 rules_haskell_dependencies()
 
+load("@rules_haskell//tools:repositories.bzl", "rules_haskell_worker_dependencies")
+
+# We don't use the worker mode, but this is required for bazel query to function.
+rules_haskell_worker_dependencies()
+
 register_toolchains(
     "//:c2hs-toolchain",
 )
@@ -471,20 +476,20 @@ load("@bazel_skylib//lib:dicts.bzl", "dicts")
 # For the time being we build with GMP. See https://github.com/digital-asset/daml/issues/106
 use_integer_simple = not is_windows
 
-HASKELL_LSP_COMMIT = "bfbd8630504ebc57b70948689c37b85cfbe589da"
+HASKELL_LSP_COMMIT = "5d1dfe82c9955d81cc0e0bb7a3e8bf6d2c4c42e4"
 
-HASKELL_LSP_HASH = "9a5c2871333a5e7e82abdf0bd8c3ab52a130d03832a899aee68bea993cdead1b"
+HASKELL_LSP_HASH = "c8b93dc2692bca5162278c783d8cc5011a118a726e7df3f2632f3f0d480455c1"
 
 GRPC_HASKELL_COMMIT = "11681ec6b99add18a8d1315f202634aea343d146"
 
 GRPC_HASKELL_HASH = "c6201f4e2fd39f25ca1d47b1dac4efdf151de88a2eb58254d61abc2760e58fda"
 
-GHC_LIB_VERSION = "8.8.1.20190828.1"
+GHC_LIB_VERSION = "8.8.1.20191010"
 
 http_archive(
     name = "haskell_ghc__lib__parser",
     build_file = "//3rdparty/haskell:BUILD.ghc-lib-parser",
-    sha256 = "67dc90575bc5289e8fd58d92ba4ec079cbdf56fd958fe435a724e462682d9c24",
+    sha256 = "5f1226f407ddc728a17bbafbf97c5b908ce88f19856ae32819a8a0a589558a2b",
     strip_prefix = "ghc-lib-parser-{}".format(GHC_LIB_VERSION),
     urls = ["https://digitalassetsdk.bintray.com/ghc-lib/ghc-lib-parser-{}.tar.gz".format(GHC_LIB_VERSION)],
 )
@@ -509,6 +514,15 @@ http_archive(
     urls = ["https://github.com/awakesecurity/gRPC-haskell/archive/{}.tar.gz".format(GRPC_HASKELL_COMMIT)],
 )
 
+http_archive(
+    name = "static_asset_d3plus",
+    build_file_content = 'exports_files(["js/d3.min.js", "js/d3plus.min.js"])',
+    sha256 = "7d31a500a4850364a966ac938eea7f2fa5ce1334966b52729079490636e7049a",
+    strip_prefix = "d3plus.v1.9.8",
+    type = "zip",
+    urls = ["https://github.com/alexandersimoes/d3plus/releases/download/v1.9.8/d3plus.zip"],
+)
+
 hazel_repositories(
     core_packages = dicts.add(
         core_packages,
@@ -523,6 +537,7 @@ hazel_repositories(
         # Excluded since we build it via the http_archive line above.
         "ghc-lib-parser",
         "ghc-paths",
+        "ghcide",
         "grpc-haskell",
         "grpc-haskell-core",
         "streaming-commons",
@@ -536,12 +551,12 @@ hazel_repositories(
         "integer-logarithms": {"integer-gmp": not use_integer_simple},
         "text": {"integer-simple": use_integer_simple},
         "scientific": {"integer-simple": use_integer_simple},
+        "hlint": {"ghc-lib": True},  # Force dependency on ghc-lib-parser (don't use the ghc package).
     },
     extra_libs = dicts.add(
         hazel_default_extra_libs,
         {
             "z": "@com_github_madler_zlib//:z",
-            "ffi": "" if is_windows else "@libffi_nix//:ffi",
             "bz2": "@bzip2//:bz2",
         },
     ),
@@ -556,8 +571,8 @@ hazel_repositories(
 
             # Read [Working on ghc-lib] for ghc-lib update instructions at
             # https://github.com/digital-asset/daml/blob/master/ghc-lib/working-on-ghc-lib.md.
-            hazel_ghclibs(GHC_LIB_VERSION, "67dc90575bc5289e8fd58d92ba4ec079cbdf56fd958fe435a724e462682d9c24", "050771795e125605ffd55ced3e90d9dbc440b823faa3c818adc2cf4158dbb4a8") +
-            hazel_github_external("digital-asset", "hlint", "783df11bb08d88f069cc22a698d7bc38323bd32d", "10ec5ba641eca0505ed2aa3367221c9ec4bc7467bbb3f41668407fd337d5c30e") +
+            hazel_ghclibs(GHC_LIB_VERSION, "5f1226f407ddc728a17bbafbf97c5b908ce88f19856ae32819a8a0a589558a2b", "fbc246d396db5dd3d1608f992b4efed86151d0e66f9fd13c83286e4f7273e8ea") +
+            hazel_github_external("digital-asset", "hlint", "193b3eb89d186ae901ff6d95a70653258ed5eed9", "4f99badd7058b10f89207622bc719bd22b65ad401bf21cf8b33a7d79bbc000f6") +
             hazel_github_external("awakesecurity", "proto3-wire", "4f355bbac895d577d8a28f567ab4380f042ccc24", "031e05d523a887fbc546096618bc11dceabae224462a6cdd6aab11c1658e17a3") +
             hazel_github_external(
                 "awakesecurity",
@@ -601,8 +616,8 @@ hazel_repositories(
             ) + hazel_github_external(
                 "mpickering",
                 "hie-bios",
-                "7a75f520b2e7a482440edd023be8e267a0fa153f",
-                "782469b30bb06cf26873e1c84bd58c8427020ff5777f4ef9d84c75cd26e3ea23",
+                "68c662ea1d0e7095ccf2a4e3d393fc524e769bfe",
+                "065e54a01103c79c20a7e9ac3967cda9bdc027579bf1d0ca9a9d8023ff46dfb9",
                 patch_args = ["-p1"],
                 patches = ["@com_github_digital_asset_daml//bazel_tools:haskell-hie-bios.patch"],
             ) +
@@ -618,6 +633,10 @@ hazel_repositories(
                 "eb2c732b3d4ab5f7b367c51eef845e597ade19da52c03ee11954d35b6cfc4128",
                 patch_args = ["-p1"],
                 patches = ["@com_github_digital_asset_daml//3rdparty/haskell:bzlib-conduit.patch"],
+            ) + hazel_hackage(
+                "hpp",
+                "0.6.1",
+                "d1a843f4383223f85de4d91759545966f33a139d0019ab30a2f766bf9a7d62bf",
             ),
         pkgs = packages,
     ),
@@ -668,6 +687,17 @@ hazel_custom_package_github(
     strip_prefix = "wai-app-static",
 )
 
+GHCIDE_REV = "2a67821e608a95a660af7414fdcfa8cd907576e8"
+
+# We need a custom build file to depend on ghc-lib and ghc-lib-parser
+hazel_custom_package_github(
+    package_name = "ghcide",
+    build_file = "//3rdparty/haskell:BUILD.ghcide",
+    github_repo = "ghcide",
+    github_user = "digital-asset",
+    repo_sha = GHCIDE_REV,
+)
+
 load("//bazel_tools:java.bzl", "java_home_runtime")
 
 java_home_runtime(name = "java_home")
@@ -685,28 +715,6 @@ nixpkgs_package(
         visibility = ["//visibility:public"],
     )
     """,
-    nix_file = "//nix:bazel.nix",
-    nix_file_deps = common_nix_file_deps,
-    repositories = dev_env_nix_repos,
-)
-
-nixpkgs_package(
-    name = "libffi_nix",
-    attribute_path = "libffi.dev",
-    build_file_content = """
-package(default_visibility = ["//visibility:public"])
-
-filegroup(
-    name = "include",
-    srcs = glob(["include/**/*.h"]),
-)
-
-cc_library(
-    name = "ffi",
-    hdrs = [":include"],
-    strip_include_prefix = "include",
-)
-""",
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
     repositories = dev_env_nix_repos,

@@ -10,43 +10,84 @@ import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.http.util.IdentifierConverters
 import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
 import com.digitalasset.ledger.api.{v1 => lav1}
-import scalaz.std.list._
 import scalaz.std.option._
 import scalaz.std.tuple._
-import scalaz.std.vector._
 import scalaz.syntax.std.option._
 import scalaz.syntax.traverse._
-import scalaz.{-\/, Applicative, Traverse, \/, \/-}
+import scalaz.{-\/, Applicative, Show, Traverse, \/, \/-}
+import spray.json.JsValue
 
 import scala.language.higherKinds
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 object domain {
-  type Error = String
 
-  case class JwtPayload(ledgerId: lar.LedgerId, applicationId: lar.ApplicationId, party: lar.Party)
+  case class Error(id: Symbol, message: String)
+
+  object Error {
+    implicit val errorShow: Show[Error] = Show shows { e =>
+      s"domain.Error, ${e.id: Symbol}: ${e.message: String}"
+    }
+  }
+
+  case class JwtPayload(ledgerId: lar.LedgerId, applicationId: lar.ApplicationId, party: Party)
 
   case class TemplateId[+PkgId](packageId: PkgId, moduleName: String, entityName: String)
 
+  case class Contract[+LfV](value: ArchivedContract \/ ActiveContract[LfV])
+
   type InputContractRef[+LfV] =
-    (TemplateId.OptionalPkg, LfV) \/ (Option[TemplateId.OptionalPkg], lar.ContractId)
+    (TemplateId.OptionalPkg, LfV) \/ (Option[TemplateId.OptionalPkg], ContractId)
 
   case class ActiveContract[+LfV](
-      contractId: String,
+      workflowId: Option[WorkflowId],
+      contractId: ContractId,
       templateId: TemplateId.RequiredPkg,
       key: Option[LfV],
       argument: LfV,
-      witnessParties: Seq[String],
+      witnessParties: Seq[Party],
+      signatories: Seq[Party],
+      observers: Seq[Party],
       agreementText: String)
 
-  case class ContractLookupRequest[+LfV](ledgerId: Option[String], id: InputContractRef[LfV])
+  case class ArchivedContract(
+      workflowId: Option[WorkflowId],
+      contractId: ContractId,
+      templateId: TemplateId.RequiredPkg,
+      witnessParties: Seq[Party])
 
-  case class GetActiveContractsRequest(templateIds: Set[TemplateId.OptionalPkg])
+  case class ContractLookupRequest[+LfV](
+      ledgerId: Option[String],
+      id: InputContractRef[LfV])
 
-  case class GetActiveContractsResponse[+LfV](
-      offset: String,
-      workflowId: Option[String],
-      activeContracts: Seq[ActiveContract[LfV]])
+  case class GetActiveContractsRequest(
+      templateIds: Set[TemplateId.OptionalPkg],
+      query: Map[String, JsValue])
+
+  type WorkflowIdTag = lar.WorkflowIdTag
+  type WorkflowId = lar.WorkflowId
+
+  type ContractIdTag = lar.ContractIdTag
+  type ContractId = lar.ContractId
+  val ContractId = lar.ContractId
+
+  type PartyTag = lar.PartyTag
+  type Party = lar.Party
+  val Party = lar.Party
+
+  object WorkflowId {
+
+    def apply(s: String): WorkflowId = lar.WorkflowId(s)
+
+    def unwrap(x: WorkflowId): String = lar.WorkflowId.unwrap(x)
+
+    def fromLedgerApi(
+        gacr: lav1.active_contracts_service.GetActiveContractsResponse): Option[WorkflowId] =
+      Option(gacr.workflowId).filter(_.nonEmpty).map(x => WorkflowId(x))
+
+    def fromLedgerApi(tx: lav1.transaction.Transaction): Option[WorkflowId] =
+      Option(tx.workflowId).filter(_.nonEmpty).map(x => WorkflowId(x))
+  }
 
   object TemplateId {
     type OptionalPkg = TemplateId[Option[String]]
@@ -57,19 +98,52 @@ object domain {
       TemplateId(in.packageId, in.moduleName, in.entityName)
   }
 
+  object Contract {
+    def fromLedgerApi(workflowId: Option[WorkflowId])(
+        event: lav1.event.Event): Error \/ Contract[lav1.value.Value] = event.event match {
+      case lav1.event.Event.Event.Created(created) =>
+        ActiveContract.fromLedgerApi(workflowId)(created).map(a => Contract(\/-(a)))
+      case lav1.event.Event.Event.Archived(archived) =>
+        ArchivedContract.fromLedgerApi(workflowId)(archived).map(a => Contract(-\/(a)))
+      case lav1.event.Event.Event.Empty =>
+        val errorMsg = s"Expected either Created or Archived event, got: Empty"
+        -\/(Error('Contract_fromLedgerApi, errorMsg))
+    }
+
+    implicit val covariant: Traverse[Contract] = new Traverse[Contract] {
+
+      override def map[A, B](fa: Contract[A])(f: A => B): Contract[B] = {
+        val valueB: ArchivedContract \/ ActiveContract[B] = fa.value.map(a => a.map(f))
+        Contract(valueB)
+      }
+
+      override def traverseImpl[G[_]: Applicative, A, B](fa: Contract[A])(
+          f: A => G[B]): G[Contract[B]] = {
+        val valueB: G[ArchivedContract \/ ActiveContract[B]] = fa.value.traverse(a => a.traverse(f))
+        valueB.map(x => Contract[B](x))
+      }
+    }
+  }
+
+  def boxedRecord(a: lav1.value.Record): lav1.value.Value =
+    lav1.value.Value(lav1.value.Value.Sum.Record(a))
+
   object ActiveContract {
-    def fromLedgerApi(in: lav1.event.CreatedEvent): Error \/ ActiveContract[lav1.value.Value] =
+    def fromLedgerApi(workflowId: Option[WorkflowId])(
+        in: lav1.event.CreatedEvent): Error \/ ActiveContract[lav1.value.Value] =
       for {
         templateId <- in.templateId required "templateId"
         argument <- in.createArguments required "createArguments"
-        boxedArgument = lav1.value.Value(lav1.value.Value.Sum.Record(argument))
       } yield
         ActiveContract(
-          contractId = in.contractId,
+          workflowId = workflowId,
+          contractId = ContractId(in.contractId),
           templateId = TemplateId fromLedgerApi templateId,
           key = in.contractKey,
-          argument = boxedArgument,
-          witnessParties = in.witnessParties,
+          argument = boxedRecord(argument),
+          witnessParties = Party.subst(in.witnessParties),
+          signatories = Party.subst(in.signatories),
+          observers = Party.subst(in.observers),
           agreementText = in.agreementText getOrElse ""
         )
 
@@ -99,6 +173,20 @@ object domain {
           templateId: TemplateId.RequiredPkg): lf.data.Ref.Identifier =
         IdentifierConverters.lfIdentifier(templateId)
     }
+  }
+
+  object ArchivedContract {
+    def fromLedgerApi(workflowId: Option[WorkflowId])(
+        in: lav1.event.ArchivedEvent): Error \/ ArchivedContract =
+      for {
+        templateId <- in.templateId required "templateId"
+      } yield
+        ArchivedContract(
+          workflowId = workflowId,
+          contractId = ContractId(in.contractId),
+          templateId = TemplateId fromLedgerApi templateId,
+          witnessParties = Party.subst(in.witnessParties)
+        )
   }
 
   object ContractLookupRequest {
@@ -135,35 +223,13 @@ object domain {
       }
   }
 
-  object GetActiveContractsResponse {
-    def fromLedgerApi(in: lav1.active_contracts_service.GetActiveContractsResponse)
-      : Error \/ GetActiveContractsResponse[lav1.value.Value] =
-      for {
-        activeContracts <- in.activeContracts.toVector traverse (ActiveContract.fromLedgerApi(_))
-      } yield
-        GetActiveContractsResponse(
-          offset = in.offset,
-          workflowId = Some(in.workflowId) filter (_.nonEmpty),
-          activeContracts = activeContracts)
-
-    implicit val covariant: Traverse[GetActiveContractsResponse] =
-      new Traverse[GetActiveContractsResponse] {
-        override def traverseImpl[G[_]: Applicative, A, B](fa: GetActiveContractsResponse[A])(
-            f: A => G[B]): G[GetActiveContractsResponse[B]] = {
-
-          val gas: G[List[ActiveContract[B]]] =
-            fa.activeContracts.toList.traverse(a => a.traverse(f))
-          gas.map(as => fa.copy(activeContracts = as))
-        }
-      }
-  }
-
   private[this] implicit final class ErrorOps[A](private val o: Option[A]) extends AnyVal {
-    def required(label: String): Error \/ A = o toRightDisjunction s"Missing required field $label"
+    def required(label: String): Error \/ A =
+      o toRightDisjunction Error('ErrorOps_required, s"Missing required field $label")
   }
 
   final case class CommandMeta(
-      workflowId: Option[lar.WorkflowId],
+      workflowId: Option[WorkflowId],
       commandId: Option[lar.CommandId],
       ledgerEffectiveTime: Option[Instant],
       maximumRecordTime: Option[Instant])

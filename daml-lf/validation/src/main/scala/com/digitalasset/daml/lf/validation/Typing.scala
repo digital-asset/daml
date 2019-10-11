@@ -3,7 +3,7 @@
 
 package com.digitalasset.daml.lf.validation
 
-import com.digitalasset.daml.lf.data.ImmArray
+import com.digitalasset.daml.lf.data.{ImmArray, Numeric}
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.language.Util._
@@ -23,7 +23,8 @@ private[validation] object Typing {
   }
 
   private def kindOfBuiltin(bType: BuiltinType): Kind = bType match {
-    case BTInt64 | BTText | BTTimestamp | BTParty | BTBool | BTDate | BTUnit => KStar
+    case BTInt64 | BTText | BTTimestamp | BTParty | BTBool | BTDate | BTUnit | BTAny =>
+      KStar
     case BTNumeric => KArrow(KNat, KStar)
     case BTList | BTUpdate | BTScenario | BTContractId | BTOptional | BTMap => KArrow(KStar, KStar)
     case BTArrow => KArrow(KStar, KArrow(KStar, KStar))
@@ -31,7 +32,7 @@ private[validation] object Typing {
 
   private def typeOfPrimLit(lit: PrimLit): Type = lit match {
     case PLInt64(_) => TInt64
-    case PLNumeric(s) => TNumeric(TNat(s.scale))
+    case PLNumeric(s) => TNumeric(TNat(Numeric.scale(s)))
     case PLText(_) => TText
     case PLTimestamp(_) => TTimestamp
     case PLParty(_) => TParty
@@ -41,19 +42,30 @@ private[validation] object Typing {
   protected[validation] lazy val typeOfBuiltinFunction = {
     val alpha = TVar(Name.assertFromString("$alpha$"))
     val beta = TVar(Name.assertFromString("$beta$"))
+    val gamma = TVar(Name.assertFromString("$gamma$"))
     def tBinop(typ: Type): Type = typ ->: typ ->: typ
-    def tNumBinop = TForall(alpha.name -> KNat, tBinop(TNumeric(alpha)))
+    val tNumBinop = TForall(alpha.name -> KNat, tBinop(TNumeric(alpha)))
+    val tMultiNumBinop =
+      TForall(
+        alpha.name -> KNat,
+        TForall(
+          beta.name -> KNat,
+          TForall(gamma.name -> KNat, TNumeric(alpha) ->: TNumeric(beta) ->: TNumeric(gamma))))
+    val tNumConversion =
+      TForall(alpha.name -> KNat, TForall(beta.name -> KNat, TNumeric(alpha) ->: TNumeric(beta)))
     def tComparison(bType: BuiltinType): Type = TBuiltin(bType) ->: TBuiltin(bType) ->: TBool
-    def tNumComparison = TForall(alpha.name -> KNat, TNumeric(alpha) ->: TNumeric(alpha) ->: TBool)
+    val tNumComparison = TForall(alpha.name -> KNat, TNumeric(alpha) ->: TNumeric(alpha) ->: TBool)
 
     Map[BuiltinFunction, Type](
       BTrace -> TForall(alpha.name -> KStar, TText ->: alpha ->: alpha),
       // Numeric arithmetic
       BAddNumeric -> tNumBinop,
       BSubNumeric -> tNumBinop,
-      BMulNumeric -> tNumBinop,
-      BDivNumeric -> tNumBinop,
+      BMulNumeric -> tMultiNumBinop,
+      BDivNumeric -> tMultiNumBinop,
       BRoundNumeric -> TForall(alpha.name -> KNat, TInt64 ->: TNumeric(alpha) ->: TNumeric(alpha)),
+      BCastNumeric -> tNumConversion,
+      BShiftNumeric -> tNumConversion,
       // Int64 arithmetic
       BAddInt64 -> tBinop(TInt64),
       BSubInt64 -> tBinop(TInt64),
@@ -714,6 +726,27 @@ private[validation] object Typing {
         checkExpr(exp, TScenario(typ))
     }
 
+    private def typeOfToAny(ty: Type, body: Expr): Type = {
+      // We clear the environment to check that there are no free type variables.
+      val env = copy(tVars = Map.empty)
+      env.checkType(ty, KStar)
+      checkExpr(body, ty)
+      TAny
+    }
+
+    private def typeOfFromAny(ty: Type, body: Expr): Type = {
+      // We clear the environment to check that there are no free type variables.
+      val env = copy(tVars = Map.empty)
+      env.checkType(ty, KStar)
+      checkExpr(body, TAny)
+      TOptional(ty)
+    }
+
+    private def typeOfToTextTemplateId(tpl: TypeConName): Type = {
+      lookupTemplate(ctx, tpl)
+      TText
+    }
+
     def typeOf(expr0: Expr): Type = expr0 match {
       case EVar(name) =>
         lookupExpVar(name)
@@ -777,6 +810,12 @@ private[validation] object Typing {
         checkType(typ, KStar)
         val _ = checkExpr(body, typ)
         TOptional(typ)
+      case EToAny(ty, body) =>
+        typeOfToAny(ty, body)
+      case EFromAny(ty, body) =>
+        typeOfFromAny(ty, body)
+      case EToTextTemplateId(tmplId) =>
+        typeOfToTextTemplateId(tmplId)
     }
 
     def checkExpr(expr: Expr, typ: Type): Type = {

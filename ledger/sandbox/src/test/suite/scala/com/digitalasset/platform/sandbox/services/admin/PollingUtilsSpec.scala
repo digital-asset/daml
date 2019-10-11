@@ -5,6 +5,7 @@ package com.digitalasset.platform.sandbox.services.admin
 
 import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
+import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import org.scalatest.{AsyncFlatSpec, Matchers}
 
 import scala.concurrent.Future
@@ -15,6 +16,7 @@ final class PollingUtilsSpec extends AsyncFlatSpec with Matchers {
   private[this] val actorSystem = ActorSystem("PollingUtilsSpec")
   private[this] val materializer = ActorMaterializer()(actorSystem)
   private[this] val scheduler = materializer.system.scheduler
+  private[this] val loggerFactory = NamedLoggerFactory(this.getClass)
 
   behavior of "pollUntilPersisted"
 
@@ -25,7 +27,8 @@ final class PollingUtilsSpec extends AsyncFlatSpec with Matchers {
       0.millis,
       0.millis,
       identity,
-      scheduler) map { attempts =>
+      scheduler,
+      loggerFactory) map { attempts =>
       assert(attempts == 1)
     }
   }
@@ -38,7 +41,8 @@ final class PollingUtilsSpec extends AsyncFlatSpec with Matchers {
       0.millis,
       0.millis,
       identity,
-      scheduler) map { attempts =>
+      scheduler,
+      loggerFactory) map { attempts =>
       assert(attempts == 4)
     }
   }
@@ -51,7 +55,8 @@ final class PollingUtilsSpec extends AsyncFlatSpec with Matchers {
       0.millis,
       0.millis,
       identity,
-      scheduler) map { attempts =>
+      scheduler,
+      loggerFactory) map { attempts =>
       assert(attempts == 4)
     }
   }
@@ -65,7 +70,8 @@ final class PollingUtilsSpec extends AsyncFlatSpec with Matchers {
       100.millis,
       100.millis,
       identity,
-      scheduler) map { attempts =>
+      scheduler,
+      loggerFactory) map { attempts =>
       assert(attempts < 11)
     }
   }
@@ -81,7 +87,8 @@ final class PollingUtilsSpec extends AsyncFlatSpec with Matchers {
       100.millis,
       1000.millis,
       d => d * 2,
-      scheduler) map { attempts =>
+      scheduler,
+      loggerFactory) map { attempts =>
       assert(attempts < 6)
     }
   }

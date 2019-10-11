@@ -28,11 +28,16 @@ module DA.Daml.Helper.Run
 
     , NavigatorPort(..)
     , SandboxPort(..)
+    , JsonApiPort(..)
+    , JsonApiConfig(..)
     , ReplaceExtension(..)
     , OpenBrowser(..)
     , StartNavigator(..)
     , WaitForSignal(..)
     , DamlHelperError(..)
+    , SandboxOptions(..)
+    , NavigatorOptions(..)
+    , JsonApiOptions(..)
     ) where
 
 import Control.Concurrent
@@ -41,6 +46,7 @@ import Control.Exception.Safe
 import Control.Monad
 import Control.Monad.Extra hiding (fromMaybeM)
 import Control.Monad.Loops (untilJust)
+import Data.Foldable
 import Data.Maybe
 import Data.List.Extra
 import qualified Data.ByteString as BS
@@ -300,14 +306,23 @@ installBundledExtension pathToVsix = do
            , "https://github.com/digital-asset/daml/issues/new?template=bug_report.md"
            ]
 
-runJar :: FilePath -> [String] -> IO ()
-runJar jarPath remainingArguments = withJar jarPath remainingArguments (const $ pure ())
+runJar :: FilePath -> Maybe FilePath -> [String] -> IO ()
+runJar jarPath mbLogbackPath remainingArgs = do
+    mbLogbackArg <- traverse getLogbackArg mbLogbackPath
+    withJar jarPath (toList mbLogbackArg) remainingArgs (const $ pure ())
 
-withJar :: FilePath -> [String] -> (Process () () () -> IO a) -> IO a
-withJar jarPath args a = do
+getLogbackArg :: FilePath -> IO String
+getLogbackArg relPath = do
+    sdkPath <- getSdkPath
+    let logbackPath = sdkPath </> relPath
+    pure $ "-Dlogback.configurationFile=" <> logbackPath
+
+-- The first set of arguments is passed before -jar, the other after the jar path.
+withJar :: FilePath -> [String] -> [String] -> (Process () () () -> IO a) -> IO a
+withJar jarPath jvmArgs jarArgs a = do
     sdkPath <- getSdkPath
     let absJarPath = sdkPath </> jarPath
-    withProcessWait_ (proc "java" ("-jar" : absJarPath : args)) a `catchIO`
+    withProcessWait_ (proc "java" (jvmArgs ++ ["-jar", absJarPath] ++ jarArgs)) a `catchIO`
         (\e -> hPutStrLn stderr "Failed to start java. Make sure it is installed and in the PATH." *> throwIO e)
 
 getTemplatesFolder :: IO FilePath
@@ -510,8 +525,8 @@ runInit targetFolderM = do
 -- * Creation of a project in existing folder (suggest daml init instead).
 -- * Creation of a project inside another project.
 --
-runNew :: FilePath -> Maybe String -> Maybe FilePath -> [String] -> IO ()
-runNew targetFolder templateNameM mbMain pkgDeps = do
+runNew :: FilePath -> Maybe String -> [String] -> IO ()
+runNew targetFolder templateNameM pkgDeps = do
     templatesFolder <- getTemplatesFolder
     let templateName = fromMaybe defaultProjectTemplate templateNameM
         templateFolder = templatesFolder </> templateName
@@ -591,7 +606,6 @@ runNew targetFolder templateNameM mbMain pkgDeps = do
         let config = replace "__VERSION__"  sdkVersion
                    . replace "__PROJECT_NAME__" projectName
                    . replace "__DEPENDENCIES__" (unlines ["  - " <> dep | dep <- pkgDeps])
-                   . maybe id (replace "__MAIN__") mbMain
                    $ configTemplate
         writeFileUTF8 configPath config
         removeFile configTemplatePath
@@ -602,13 +616,13 @@ runNew targetFolder templateNameM mbMain pkgDeps = do
         "\" based on the template \"" <> templateName <> "\"."
 
 -- | Create a project containing code to migrate a running system between two given packages.
-runMigrate :: FilePath -> FilePath -> FilePath -> FilePath -> IO ()
-runMigrate targetFolder main pkgPath1 pkgPath2
+runMigrate :: FilePath -> FilePath -> FilePath -> IO ()
+runMigrate targetFolder pkgPath1 pkgPath2
  = do
     pkgPath1Abs <- makeAbsolute pkgPath1
     pkgPath2Abs <- makeAbsolute pkgPath2
     -- Create a new project
-    runNew targetFolder (Just "migrate") (Just main) [pkgPath1Abs, pkgPath2Abs]
+    runNew targetFolder (Just "migrate") [pkgPath1Abs, pkgPath2Abs]
 
     -- Call damlc to create the upgrade source files.
     procConfig <- toAssistantCommand
@@ -618,7 +632,6 @@ runMigrate targetFolder main pkgPath1 pkgPath2
         , "daml"
         , "--project-root"
         , targetFolder
-        , "upgrade-pkg"
         , pkgPath1
         , pkgPath2
         ]
@@ -659,6 +672,7 @@ runListTemplates = do
 
 newtype SandboxPort = SandboxPort Int
 newtype NavigatorPort = NavigatorPort Int
+newtype JsonApiPort = JsonApiPort Int
 
 navigatorPortNavigatorArgs :: NavigatorPort -> [String]
 navigatorPortNavigatorArgs (NavigatorPort p) = ["--port", show p]
@@ -668,7 +682,7 @@ navigatorURL (NavigatorPort p) = "http://localhost:" <> show p
 
 withSandbox :: SandboxPort -> [String] -> (Process () () () -> IO a) -> IO a
 withSandbox (SandboxPort port) args a = do
-    withJar sandboxPath (["--port", show port] ++ args) $ \ph -> do
+    withJar sandboxPath [] (["--port", show port] ++ args) $ \ph -> do
         putStrLn "Waiting for sandbox to start: "
         -- TODO We need to figure out what a sane timeout for this step.
         waitForConnectionOnPort (putStr "." *> threadDelay 500000) port
@@ -681,10 +695,26 @@ withNavigator (SandboxPort sandboxPort) navigatorPort args a = do
             , navigatorPortNavigatorArgs navigatorPort
             , args
             ]
-    withJar navigatorPath navigatorArgs $ \ph -> do
+    withJar navigatorPath [] navigatorArgs $ \ph -> do
         putStrLn "Waiting for navigator to start: "
         -- TODO We need to figure out a sane timeout for this step.
-        waitForHttpServer (putStr "." *> threadDelay 500000) (navigatorURL navigatorPort)
+        waitForHttpServer (putStr "." *> threadDelay 500000) (navigatorURL navigatorPort) []
+        a ph
+
+withJsonApi :: SandboxPort -> JsonApiPort -> [String] -> (Process () () () -> IO a) -> IO a
+withJsonApi (SandboxPort sandboxPort) (JsonApiPort jsonApiPort) args a = do
+    logbackArg <- getLogbackArg ("json-api" </> "json-api-logback.xml")
+    let jsonApiArgs =
+            ["--ledger-host", "localhost", "--ledger-port", show sandboxPort, "--http-port", show jsonApiPort] <> args
+    withJar jsonApiPath [logbackArg] jsonApiArgs $ \ph -> do
+        putStrLn "Waiting for JSON API to start: "
+        -- For now, we have a dummy authorization header here to wait for startup since we cannot get a 200
+        -- response otherwise. We probably want to add some method to detect successful startup without
+        -- any authorization
+        let headers =
+                [ ("Authorization", "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJsZWRnZXJJZCI6Ik15TGVkZ2VyIiwiYXBwbGljYXRpb25JZCI6ImZvb2JhciIsInBhcnR5IjoiQWxpY2UifQ.4HYfzjlYr1ApUDot0a6a4zB49zS_jrwRUOCkAiPMqo0")
+                ] :: HTTP.RequestHeaders
+        waitForHttpServer (putStr "." *> threadDelay 500000) ("http://localhost:" <> show jsonApiPort <> "/contracts/search") headers
         a ph
 
 -- | Whether `daml start` should open a browser automatically.
@@ -693,11 +723,39 @@ newtype OpenBrowser = OpenBrowser Bool
 -- | Whether `daml start` should start the navigator automatically.
 newtype StartNavigator = StartNavigator Bool
 
+data JsonApiConfig = JsonApiConfig
+  { mbJsonApiPort :: Maybe JsonApiPort -- If Nothing, don’t start the JSON API
+  }
+
 -- | Whether `daml start` should wait for Ctrl+C or interrupt after starting servers.
 newtype WaitForSignal = WaitForSignal Bool
 
-runStart :: Maybe SandboxPort -> StartNavigator -> OpenBrowser -> Maybe String -> WaitForSignal -> IO ()
-runStart sandboxPortM (StartNavigator shouldStartNavigator) (OpenBrowser shouldOpenBrowser) onStartM (WaitForSignal shouldWaitForSignal) = withProjectRoot Nothing (ProjectCheck "daml start" True) $ \_ _ -> do
+newtype SandboxOptions = SandboxOptions [String]
+newtype NavigatorOptions = NavigatorOptions [String]
+newtype JsonApiOptions = JsonApiOptions [String]
+
+runStart
+    :: Maybe SandboxPort
+    -> StartNavigator
+    -> JsonApiConfig
+    -> OpenBrowser
+    -> Maybe String
+    -> WaitForSignal
+    -> SandboxOptions
+    -> NavigatorOptions
+    -> JsonApiOptions
+    -> IO ()
+runStart
+  sandboxPortM
+  (StartNavigator shouldStartNavigator)
+  (JsonApiConfig mbJsonApiPort)
+  (OpenBrowser shouldOpenBrowser)
+  onStartM
+  (WaitForSignal shouldWaitForSignal)
+  (SandboxOptions sandboxOpts)
+  (NavigatorOptions navigatorOpts)
+  (JsonApiOptions jsonApiOpts)
+  = withProjectRoot Nothing (ProjectCheck "daml start" True) $ \_ _ -> do
     let sandboxPort = fromMaybe defaultSandboxPort sandboxPortM
     projectConfig <- getProjectConfig
     darPath <- getDarPath
@@ -706,13 +764,14 @@ runStart sandboxPortM (StartNavigator shouldStartNavigator) (OpenBrowser shouldO
         queryProjectConfig ["scenario"] projectConfig
     doBuild
     let scenarioArgs = maybe [] (\scenario -> ["--scenario", scenario]) mbScenario
-    withSandbox sandboxPort (darPath : scenarioArgs) $ \sandboxPh -> do
-        withNavigator' sandboxPh sandboxPort navigatorPort [] $ \navigatorPh -> do
+    withSandbox sandboxPort (darPath : scenarioArgs ++ sandboxOpts) $ \sandboxPh -> do
+        withNavigator' sandboxPh sandboxPort navigatorPort navigatorOpts $ \navigatorPh -> do
             whenJust onStartM $ \onStart -> runProcess_ (shell onStart)
             when (shouldStartNavigator && shouldOpenBrowser) $
                 void $ openBrowser (navigatorURL navigatorPort)
-            when shouldWaitForSignal $
-                void $ race (waitExitCode navigatorPh) (waitExitCode sandboxPh)
+            withJsonApi' sandboxPh sandboxPort jsonApiOpts $ \jsonApiPh -> do
+                when shouldWaitForSignal $
+                  void $ waitAnyCancel =<< mapM (async . waitExitCode) [navigatorPh,sandboxPh,jsonApiPh]
 
     where
         navigatorPort = NavigatorPort 7500
@@ -721,6 +780,10 @@ runStart sandboxPortM (StartNavigator shouldStartNavigator) (OpenBrowser shouldO
             if shouldStartNavigator
                 then withNavigator
                 else (\_ _ _ f -> f sandboxPh)
+        withJsonApi' sandboxPh sandboxPort args f =
+            case mbJsonApiPort of
+                Nothing -> f sandboxPh
+                Just jsonApiPort -> withJsonApi sandboxPort jsonApiPort args f
 
 data HostAndPortFlags = HostAndPortFlags { hostM :: Maybe String, portM :: Maybe Int }
 
@@ -817,7 +880,7 @@ runLedgerNavigator flags remainingArguments = do
         writeFileUTF8 navigatorConfPath (T.unpack $ navigatorConfig partyDetails)
         unsetEnv "DAML_PROJECT" -- necessary to prevent config contamination
         withCurrentDirectory confDir $ do
-            withJar navigatorPath navigatorArgs $ \ph -> do
+            withJar navigatorPath [] navigatorArgs $ \ph -> do
                 exitCode <- waitExitCode ph
                 exitWith exitCode
 
@@ -907,10 +970,11 @@ waitForConnectionOnPort sleep port = do
 
 -- | `waitForHttpServer sleep url` keeps trying to establish an HTTP connection on the given URL.
 -- Between each connection request it calls `sleep`.
-waitForHttpServer :: IO () -> String -> IO ()
-waitForHttpServer sleep url = do
+waitForHttpServer :: IO () -> String -> HTTP.RequestHeaders -> IO ()
+waitForHttpServer sleep url headers = do
     manager <- HTTP.newManager HTTP.defaultManagerSettings
     request <- HTTP.parseRequest $ "HEAD " <> url
+    request <- pure request { HTTP.requestHeaders = headers }
     untilJust $ do
         r <- tryJust (\e -> guard (isIOException e || isHttpException e)) $ HTTP.httpNoBody request manager
         case r of
@@ -925,3 +989,6 @@ sandboxPath = "sandbox/sandbox.jar"
 
 navigatorPath :: FilePath
 navigatorPath = "navigator/navigator.jar"
+
+jsonApiPath :: FilePath
+jsonApiPath = "json-api/json-api.jar"

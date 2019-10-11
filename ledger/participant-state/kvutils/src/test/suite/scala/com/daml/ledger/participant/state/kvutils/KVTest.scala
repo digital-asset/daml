@@ -31,7 +31,7 @@ object KVTest {
 
   type KVTest[A] = State[KVTestState, A]
 
-  val initialTestState: KVTestState =
+  def initialTestState: KVTestState =
     KVTestState(
       engine = Engine(),
       participantId = mkParticipantId(0),
@@ -42,13 +42,19 @@ object KVTest {
     )
 
   def runTest[A](test: KVTest[A]): A =
+    test.eval(initialTestState)
+
+  def runTestWithSimplePackage[A](test: KVTest[A]): A =
     (for {
-      // Upload the default archive.
-      // FIXME(JM): Perhaps separate this into "runTestWithSimpleArchive" ?
-      archiveLogEntry <- submitArchives(simpleArchive).map(_._2)
-      _ = assert(archiveLogEntry.getPayloadCase == DamlLogEntry.PayloadCase.PACKAGE_UPLOAD_ENTRY)
+      _ <- uploadSimpleArchive
       r <- test
     } yield r).eval(initialTestState)
+
+  def uploadSimpleArchive: KVTest[Unit] =
+    for {
+      archiveLogEntry <- submitArchives("simple-archive-submission", simpleArchive).map(_._2)
+      _ = assert(archiveLogEntry.getPayloadCase == DamlLogEntry.PayloadCase.PACKAGE_UPLOAD_ENTRY)
+    } yield ()
 
   def freshEntryId: KVTest.KVTest[DamlLogEntryId] =
     for {
@@ -118,11 +124,14 @@ object KVTest {
       entryId -> logEntry
     }
 
-  def submitArchives(archives: DamlLf.Archive*): KVTest[(DamlLogEntryId, DamlLogEntry)] =
+  def submitArchives(
+      submissionId: String,
+      archives: DamlLf.Archive*
+  ): KVTest[(DamlLogEntryId, DamlLogEntry)] =
     get.flatMap { testState =>
       submit(
         KeyValueSubmission.archivesToSubmission(
-          submissionId = "subm-id", // FIXME(JM): set unique?
+          submissionId = submissionId,
           archives = archives.toList,
           sourceDescription = "description",
           participantId = testState.participantId
@@ -132,14 +141,14 @@ object KVTest {
 
   val minMRTDelta: Duration = theDefaultConfig.timeModel.minTtl
 
-  def runCommand(submitter: Party, cmd: Command): KVTest[SubmittedTransaction] =
+  def runCommand(submitter: Party, cmds: Command*): KVTest[SubmittedTransaction] =
     for {
       s <- get[KVTestState]
       tx = s.engine
         .submit(
           Commands(
             submitter = submitter,
-            commands = ImmArray(cmd),
+            commands = ImmArray(cmds),
             ledgerEffectiveTime = s.recordTime,
             commandsReference = "cmds-ref"
           )

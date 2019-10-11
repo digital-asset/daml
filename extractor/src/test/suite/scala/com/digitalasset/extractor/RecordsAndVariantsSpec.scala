@@ -51,11 +51,11 @@ class RecordsAndVariantsSpec
                 "foo" : "foo"
               },
               "foo" : [
-                { "Some" : [1, 2, 3] },
-                { "None" : {} },
-                { "Some" : [4, 5, 6] },
-                { "None" : {} },
-                { "Some" : [7, 8, 9] }
+                [1, 2, 3],
+                null,
+                [4, 5, 6],
+                null,
+                [7, 8, 9]
               ]
             }
           },

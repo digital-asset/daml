@@ -62,7 +62,7 @@ object ValueSpec {
 
   private[this] object TautologicalValueChecks extends ValuePrimitiveEncoding[ValueCheck] {
     override val valueInt64 = ValueCheck[P.Int64]("Int64")
-    override val valueDecimal = ValueCheck[P.Decimal]("Decimal")
+    override val valueNumeric = ValueCheck[P.Numeric]("Numeric")
     override val valueParty = {
       implicit val PA: Arbitrary[P.Party] = Arbitrary(GenEncoding.primitive.valueParty)
       ValueCheck[P.Party]("Party")

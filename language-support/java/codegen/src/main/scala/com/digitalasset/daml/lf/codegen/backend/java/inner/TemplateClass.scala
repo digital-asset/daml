@@ -320,6 +320,7 @@ private[inner] object TemplateClass extends StrictLogging {
       for (record <- choice.param.fold(
           getRecord(_, typeDeclarations, packageId),
           _ => None,
+          _ => None,
           _ => None)) {
         val splatted = generateFlattenedExerciseMethod(
           choiceName,
@@ -363,15 +364,16 @@ private[inner] object TemplateClass extends StrictLogging {
           templateClassName,
           packagePrefixes)
         val flattened = for (record <- choice.param
-            .fold(getRecord(_, typeDeclarations, packageId), _ => None, _ => None)) yield {
-          generateFlattenedStaticExerciseByKeyMethod(
-            choiceName,
-            choice,
-            key,
-            templateClassName,
-            getFieldsWithTypes(record.fields, packagePrefixes),
-            packagePrefixes)
-        }
+            .fold(getRecord(_, typeDeclarations, packageId), _ => None, _ => None, _ => None))
+          yield {
+            generateFlattenedStaticExerciseByKeyMethod(
+              choiceName,
+              choice,
+              key,
+              templateClassName,
+              getFieldsWithTypes(record.fields, packagePrefixes),
+              packagePrefixes)
+          }
         raw :: flattened.toList
       }
       methods.flatten.asJava
@@ -393,8 +395,7 @@ private[inner] object TemplateClass extends StrictLogging {
     exerciseByKeyBuilder.addParameter(choiceJavaType, "arg")
     val choiceArgument = choice.param match {
       case TypeCon(_, _) => "arg.toValue()"
-      case TypePrim(_, _) => "arg"
-      case TypeVar(_) => "arg"
+      case TypePrim(_, _) | TypeVar(_) | TypeNumeric(_) => "arg"
     }
     exerciseByKeyBuilder.addStatement(
       "return new $T($T.TEMPLATE_ID, $L, $S, $L)",
@@ -445,7 +446,7 @@ private[inner] object TemplateClass extends StrictLogging {
       val createAndExerciseChoiceMethod =
         generateCreateAndExerciseMethod(choiceName, choice, templateClassName, packagePrefixes)
       val splatted = for (record <- choice.param
-          .fold(getRecord(_, typeDeclarations, packageId), _ => None, _ => None)) yield {
+          .fold(getRecord(_, typeDeclarations, packageId), _ => None, _ => None, _ => None)) yield {
         generateFlattenedCreateAndExerciseMethod(
           choiceName,
           choice,
@@ -471,8 +472,7 @@ private[inner] object TemplateClass extends StrictLogging {
     createAndExerciseChoiceBuilder.addParameter(javaType, "arg")
     val choiceArgument = choice.param match {
       case TypeCon(_, _) => "arg.toValue()"
-      case TypePrim(_, _) => "arg"
-      case TypeVar(_) => "arg"
+      case TypePrim(_, _) | TypeVar(_) | TypeNumeric(_) => "arg"
     }
     createAndExerciseChoiceBuilder.addStatement(
       "return new $T($T.TEMPLATE_ID, this.toValue(), $S, $L)",
@@ -519,8 +519,7 @@ private[inner] object TemplateClass extends StrictLogging {
     exerciseChoiceBuilder.addParameter(javaType, "arg")
     val choiceArgument = choice.param match {
       case TypeCon(_, _) => "arg.toValue()"
-      case TypePrim(_, _) => "arg"
-      case TypeVar(_) => "arg"
+      case TypePrim(_, _) | TypeVar(_) | TypeNumeric(_) => "arg"
     }
     exerciseChoiceBuilder.addStatement(
       "return new $T($T.TEMPLATE_ID, this.contractId, $S, $L)",

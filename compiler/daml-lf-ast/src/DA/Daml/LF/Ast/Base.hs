@@ -13,7 +13,6 @@ module DA.Daml.LF.Ast.Base(
 
 import Data.Hashable
 import Data.Data
-import Numeric.Natural
 import GHC.Generics(Generic)
 import Data.Int
 import           Control.DeepSeq
@@ -24,7 +23,9 @@ import Data.Fixed
 import qualified "template-haskell" Language.Haskell.TH as TH
 import qualified Control.Lens.TH as Lens.TH
 
-import           DA.Daml.LF.Ast.Version
+import DA.Daml.LF.Ast.Version
+import DA.Daml.LF.Ast.Numeric
+import DA.Daml.LF.Ast.TypeLevelNat
 
 infixr 1 `KArrow`
 
@@ -153,6 +154,7 @@ data BuiltinType
   | BTOptional
   | BTMap
   | BTArrow
+  | BTAny
   deriving (Eq, Data, Generic, NFData, Ord, Show)
 
 -- | Type as used in typed binders.
@@ -177,7 +179,7 @@ data Type
   -- fields and their types.
   | TTuple      ![(FieldName, Type)]
   -- | Type-level natural numbers
-  | TNat !Natural
+  | TNat !TypeLevelNat
   deriving (Eq, Data, Generic, NFData, Ord, Show)
 
 -- | Fully applied qualified type constructor.
@@ -189,16 +191,12 @@ data TypeConApp = TypeConApp
   }
   deriving (Eq, Data, Generic, NFData, Ord, Show)
 
-data E10
-instance HasResolution E10 where
-  resolution _ = 10000000000 -- 10^-10 resolution
-
 -- | Builtin operation or literal.
 data BuiltinExpr
   -- Literals
   = BEInt64      !Int64          -- :: Int64
   | BEDecimal    !(Fixed E10)    -- :: Decimal, precision 38, scale 10
-  -- TODO (#2289): add numeric literals
+  | BENumeric    !Numeric        -- :: Numeric, precision 38, scale 0 through 37
   | BEText       !T.Text         -- :: Text
   | BETimestamp  !Int64          -- :: Timestamp, microseconds since unix epoch
   | BEParty      !PartyLiteral   -- :: Party
@@ -232,9 +230,11 @@ data BuiltinExpr
   | BEToTextNumeric              -- :: ∀(s:nat). Numeric s -> Text
   | BEAddNumeric                 -- :: ∀(s:nat). Numeric s -> Numeric s -> Numeric s, crashes on overflow
   | BESubNumeric                 -- :: ∀(s:nat). Numeric s -> Numeric s -> Numeric s, crashes on overflow
-  | BEMulNumeric                 -- :: ∀(s:nat). Numeric s -> Numeric s -> Numeric s, crashes on overflow and underflow, automatically rounds to even (see <https://en.wikipedia.org/wiki/Rounding#Round_half_to_even>)
-  | BEDivNumeric                 -- :: ∀(s:nat). Numeric s -> Numeric s -> Numeric s, automatically rounds to even, crashes on divisor = 0 and on overflow
-  | BERoundNumeric              -- :: ∀(s:nat). Int64 -> Numeric s -> Numeric s, the Int64 is the required scale. Note that this doesn't modify the scale of the type itself, it just zeroes things outside that scale out. Can be negative. Crashes if the scale is > 10 or < -27.
+  | BEMulNumeric                 -- :: ∀(s1:nat). ∀(s2:nat). ∀(s3:nat). Numeric s1 -> Numeric s2 -> Numeric s3, crashes on overflow and underflow, automatically rounds to even (see <https://en.wikipedia.org/wiki/Rounding#Round_half_to_even>)
+  | BEDivNumeric                 -- :: ∀(s1:nat). ∀(s2:nat). ∀(s3:nat). Numeric s1 -> Numeric s2 -> Numeric s3, automatically rounds to even, crashes on divisor = 0 and on overflow
+  | BERoundNumeric               -- :: ∀(s:nat). Int64 -> Numeric s -> Numeric s, the Int64 is the required scale. Note that this doesn't modify the scale of the type itself, it just zeroes things outside that scale out. Can be negative. Crashes if the scale is > 10 or < -27.
+  | BECastNumeric                -- :: ∀(s1:nat). ∀(s2:nat). Numeric s1 -> Numeric s2
+  | BEShiftNumeric               -- :: ∀(s1:nat). ∀(s2:nat). Numeric s1 -> Numeric s2
 
   -- Integer arithmetic
   | BEAddInt64                 -- :: Int64 -> Int64 -> Int64, crashes on overflow
@@ -439,6 +439,17 @@ data Expr
     }
   | ENone
     { noneType :: !Type
+    }
+  | EToAny
+    { toAnyType :: !Type
+    , toAnyBody :: !Expr
+    }
+  | EFromAny
+    { fromAnyType :: !Type
+    , fromAnyBody :: !Expr
+    }
+  | EToTextTemplateId
+    { toTextTemplateIdTemplate :: !(Qualified TypeConName)
     }
   -- | Update expression.
   | EUpdate !Update

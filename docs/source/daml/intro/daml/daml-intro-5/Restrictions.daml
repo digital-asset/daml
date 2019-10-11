@@ -273,3 +273,38 @@ instance Action CoinGame where
           ng = f rx
         in ng.play nc1
       )
+
+-- NON_PERFORMED_ABORT_BEGIN
+nonPerformedAbort = scenario do
+  let abortScenario = False
+  let failingAction : Scenario () = abort "Foo"
+  let successfulAction : Scenario () = return ()
+  if abortScenario then failingAction else successfulAction
+-- NON_PERFORMED_ABORT_END
+
+-- OPTIONAL_POW_BEGIN
+optPow : Int -> Int -> Optional Int
+optPow x y 
+ | y == 0 = Some 1
+ | y > 0 = let Some z = optPow x (y - 1)
+           in Some (y * z)
+ | otherwise = None
+-- OPTIONAL_POW_END
+
+-- ERROR_POW_BEGIN
+errPow : Int -> Int -> Int
+errPow x y 
+ | y == 0 = 1
+ | y > 0 = y * errPow x (y - 1)
+ | otherwise = error "Negative exponent not supported"
+-- ERROR_POW_END
+
+{-
+-- NON_PERFORMED_ERROR_BEGIN
+nonPerformedError = scenario do
+  let causeError = False
+  let failingComputation = errPow 1 (-1)
+  let successfulComputation = errPow 1 1
+  return if causeError then failingComputation else successfulComputation
+-- NON_PERFORMED_ERROR_END
+-}

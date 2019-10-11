@@ -145,6 +145,15 @@ object Ast {
 
   final case class ESome(typ: Type, body: Expr) extends Expr
 
+  /** Any constructor **/
+  final case class EToAny(ty: Type, body: Expr) extends Expr
+
+  /** Extract the underlying value if it matches the ty **/
+  final case class EFromAny(ty: Type, body: Expr) extends Expr
+
+  /** Unique textual representation of template Id **/
+  final case class EToTextTemplateId(tmplId: TypeConName) extends Expr
+
   //
   // Kinds
   //
@@ -178,6 +187,9 @@ object Ast {
   //
   // Types
   //
+
+  // Note that we rely on the equality of Type so this must stay sealed
+  // and all inhabitants should be case classes or case objects.
 
   sealed abstract class Type extends Product with Serializable {
     def pretty: String = Type.prettyType(this)
@@ -229,7 +241,8 @@ object Ast {
   final case class TVar(name: TypeVarName) extends Type
 
   /** nat type */
-  final case class TNat(n: Int) extends Type
+  // for now it can contains only a Numeric Scale
+  final case class TNat(n: Numeric.Scale) extends Type
 
   /** Reference to a type constructor. */
   final case class TTyCon(tycon: TypeConName) extends Type
@@ -269,6 +282,7 @@ object Ast {
   case object BTDate extends BuiltinType
   case object BTContractId extends BuiltinType
   case object BTArrow extends BuiltinType
+  case object BTAny extends BuiltinType
 
   //
   // Primitive literals
@@ -307,9 +321,11 @@ object Ast {
   // Numeric arithmetic
   final case object BAddNumeric extends BuiltinFunction(2) // :  ∀s. Numeric s → Numeric s → Numeric s
   final case object BSubNumeric extends BuiltinFunction(2) // :  ∀s. Numeric s → Numeric s → Numeric s
-  final case object BMulNumeric extends BuiltinFunction(2) // :  ∀s. Numeric s → Numeric s → Numeric s
-  final case object BDivNumeric extends BuiltinFunction(2) // :  ∀s. Numeric s → Numeric s → Numeric s
+  final case object BMulNumeric extends BuiltinFunction(2) // :  ∀s1 s2 s. Numeric s1 → Numeric s2 → Numeric s
+  final case object BDivNumeric extends BuiltinFunction(2) // :  ∀s1 s2 s. Numeric s1 → Numeric s2 → Numeric s
   final case object BRoundNumeric extends BuiltinFunction(2) // :  ∀s. Integer → Numeric s → Numeric s
+  final case object BCastNumeric extends BuiltinFunction(1) // : ∀s1 s2. Numeric s1 → Numeric s2
+  final case object BShiftNumeric extends BuiltinFunction(1) // : ∀s1 s2. Numeric s1 → Numeric s2
 
   // Int64 arithmetic
   final case object BAddInt64 extends BuiltinFunction(2) // : Int64 → Int64 → Int64

@@ -14,7 +14,7 @@ import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.testing.parser.Implicits._
-import com.digitalasset.daml.lf.value.{Value, ValueVersions}
+import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml_lf.DamlLf
 import com.google.protobuf.ByteString
 
@@ -31,7 +31,8 @@ object TestHelpers {
           agreement "",
           choices {
             choice Consume (x: Unit) : Unit by Cons @Party [Simple:SimpleTemplate {owner} this] (Nil @Party) to upure @Unit ()
-          }
+          },
+          key @Party (Simple:SimpleTemplate {owner} this) (\ (p: Party) -> Cons @Party [p] (Nil @Party))
         } ;
       }
     """
@@ -43,16 +44,6 @@ object TestHelpers {
   val simpleDecodedPackage =
     Decode.decodeArchive(simpleArchive)._2
 
-  val emptyPackage: Ast.Package =
-    p"""
-      module Empty { }
-    """
-  val emptyArchive: DamlLf.Archive =
-    Encode.encodeArchive(
-      defaultParserParameters.defaultPackageId -> emptyPackage,
-      defaultParserParameters.languageVersion)
-  val emptyPackageId: Ref.PackageId = Ref.PackageId.assertFromString(emptyArchive.getHash)
-
   val badArchive: DamlLf.Archive =
     DamlLf.Archive.newBuilder
       .setHash("blablabla")
@@ -61,20 +52,13 @@ object TestHelpers {
   val simpleConsumeChoiceid: Ref.ChoiceName =
     Ref.ChoiceName.assertFromString("Consume")
 
-  def mkSimpleTemplateArg(party: String): Value.VersionedValue[Value.AbsoluteContractId] =
-    ValueVersions
-      .asVersionedValue(
-        Value.ValueRecord(
-          Some(simpleTemplateId),
-          ImmArray(
-            Some(Ref.Name.assertFromString("owner")) -> Value.ValueParty(
-              Ref.Party.assertFromString(party)))
-        )
-      )
-      .getOrElse(sys.error("mkPartyValue fail"))
-
-  def mkUnitValue: Value.VersionedValue[Value.AbsoluteContractId] =
-    ValueVersions.asVersionedValue(Value.ValueUnit).getOrElse(sys.error("mkUnitValue"))
+  def mkSimpleTemplateArg(party: String): Value[Value.AbsoluteContractId] =
+    Value.ValueRecord(
+      Some(simpleTemplateId),
+      ImmArray(
+        Some(Ref.Name.assertFromString("owner")) -> Value.ValueParty(
+          Ref.Party.assertFromString(party)))
+    )
 
   val simpleTemplateId: Ref.Identifier =
     Ref.Identifier(

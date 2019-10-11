@@ -12,7 +12,7 @@ da_haskell_library(
     name = "daml-ide-core",
     srcs = glob(["src/**/*.hs"]),
     data = [":dlint.yaml"],
-    hazel_deps = [
+    hackage_deps = [
         "aeson",
         "base",
         "binary",
@@ -24,6 +24,7 @@ da_haskell_library(
         "filepath",
         "ghc-lib-parser",
         "ghc-lib",
+        "ghcide",
         "hashable",
         "haskell-lsp",
         "haskell-lsp-types",
@@ -53,7 +54,6 @@ da_haskell_library(
         "//compiler/damlc/daml-lf-conversion",
         "//compiler/damlc/daml-opts:daml-opts-types",
         "//compiler/damlc/daml-visual",
-        "//compiler/hie-core",
         "//compiler/scenario-service/client",
         "//libs-haskell/da-hs-base",
     ],
@@ -62,13 +62,14 @@ da_haskell_library(
 da_haskell_library(
     name = "ide-testing",
     srcs = glob(["test/**/*.hs"]),
-    hazel_deps = [
+    hackage_deps = [
         "aeson",
         "base",
         "containers",
         "directory",
         "extra",
         "filepath",
+        "ghcide",
         "haskell-lsp",
         "haskell-lsp-types",
         "mtl",
@@ -91,7 +92,6 @@ da_haskell_library(
         "//compiler/damlc/daml-opts",
         "//compiler/damlc/daml-opts:daml-opts-types",
         "//compiler/damlc/daml-visual",
-        "//compiler/hie-core",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
         "//libs-haskell/test-utils",

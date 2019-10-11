@@ -31,10 +31,13 @@ final class PackageManagement(session: LedgerSession) extends LedgerTestSuite(se
     LedgerTest(
       "PackageManagementEmptyUpload",
       "An attempt at uploading an empty payload should fail"
-    ) {
-      _.uploadDarFile(ByteString.EMPTY).failed.map {
+    ) { context =>
+      for {
+        ledger <- context.participant()
+        failure <- ledger.uploadDarFile(ByteString.EMPTY).failed
+      } yield {
         assertGrpcError(
-          _,
+          failure,
           Status.Code.INVALID_ARGUMENT,
           "Invalid argument: Invalid DAR: package-upload")
       }
@@ -44,8 +47,9 @@ final class PackageManagement(session: LedgerSession) extends LedgerTestSuite(se
     LedgerTest(
       "PackageManagementLoad",
       "Concurrent uploads of the same package should be idempotent and result in the package being available for use") {
-      ledger =>
+      context =>
         for {
+          ledger <- context.participant()
           testPackage <- loadTestPackage()
           _ <- Future.sequence(Vector.fill(8)(ledger.uploadDarFile(testPackage)))
           knownPackages <- ledger.listKnownPackages()

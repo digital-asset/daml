@@ -22,9 +22,9 @@ import qualified Development.IDE.Core.Service     as Service
 import qualified Development.IDE.Core.Rules     as Service
 import qualified Development.IDE.Core.RuleTypes as Service
 import qualified Development.IDE.Core.OfInterest as Service
-import           Development.IDE.Types.Diagnostics
 import Development.IDE.Types.Logger
 import Development.IDE.Types.Location
+import qualified Language.Haskell.LSP.Messages as LSP
 
 import           "ghc-lib" GHC
 import           "ghc-lib-parser" Module
@@ -44,7 +44,7 @@ import qualified "ghc-lib-parser" Outputable                      as Out
 import qualified "ghc-lib-parser" DynFlags                        as DF
 import           "ghc-lib-parser" Bag (bagToList)
 
-import           Control.Monad.Except             as Ex
+import Control.Monad
 import Control.Monad.Trans.Maybe
 import           Data.Char (isSpace)
 import           Data.List.Extra
@@ -79,11 +79,12 @@ defaultExtractOptions = ExtractOptions
 -- | Extract documentation in a dependency graph of modules.
 extractDocs ::
     ExtractOptions
+    -> (LSP.FromServerMessage -> IO ())
     -> IdeOptions
     -> [NormalizedFilePath]
-    -> Ex.ExceptT [FileDiagnostic] IO [ModuleDoc]
-extractDocs extractOpts ideOpts fp = do
-    modules <- haddockParse ideOpts fp
+    -> MaybeT IO [ModuleDoc]
+extractDocs extractOpts diagsLogger ideOpts fp = do
+    modules <- haddockParse diagsLogger ideOpts fp
     pure $ map mkModuleDocs modules
 
   where
@@ -113,12 +114,14 @@ extractDocs extractOpts ideOpts fp = do
             md_functions = mapMaybe (getFctDocs ctx) dc_decls
             md_instances = map (getInstanceDocs ctx) dc_insts
 
-            filteredAdts -- all ADT docs without templates or choices
+            -- Type constructor docs without data types corresponding to
+            -- templates and choices
+            filteredTyCons
                 = MS.elems . MS.withoutKeys typeMap . Set.unions
                 $ dc_templates : MS.elems dc_choices
 
             (md_adts, md_templateInstances) =
-                partitionEithers . flip map filteredAdts $ \adt ->
+                partitionEithers . flip map filteredTyCons $ \adt ->
                     case getTemplateInstanceDoc adt of
                         Nothing -> Left adt
                         Just ti -> Right ti
@@ -179,16 +182,17 @@ data DeclData = DeclData
 
 buildDocCtx :: ExtractOptions -> TypecheckedModule -> DocCtx
 buildDocCtx dc_extractOptions dc_tcmod  =
-    let dc_ghcMod = ms_mod . pm_mod_summary . tm_parsed_module $ dc_tcmod
+    let parsedMod = tm_parsed_module dc_tcmod
+        checkedModInfo = tm_checked_module_info dc_tcmod
+        dc_ghcMod = ms_mod $ pm_mod_summary parsedMod
         dc_modname = getModulename dc_ghcMod
         dc_decls
             = map (uncurry DeclData) . collectDocs . hsmodDecls . unLoc
-            . pm_parsed_source . tm_parsed_module $ dc_tcmod
-        (dc_templates, dc_choices)
-            = getTemplateData . tm_parsed_module $ dc_tcmod
+            . pm_parsed_source $ parsedMod
+        (dc_templates, dc_choices) = getTemplateData parsedMod
 
-        tythings = modInfoTyThings . tm_checked_module_info $ dc_tcmod
-        dc_insts = modInfoInstances . tm_checked_module_info $ dc_tcmod
+        tythings = modInfoTyThings checkedModInfo
+        dc_insts = modInfoInstances checkedModInfo
 
         dc_tycons = MS.fromList
             [ (typename, tycon)
@@ -208,7 +212,7 @@ buildDocCtx dc_extractOptions dc_tcmod  =
             , let fieldname = Fieldname . packId $ id
             ]
 
-        dc_exports = extractExports . tm_parsed_module $ dc_tcmod
+        dc_exports = extractExports parsedMod
 
     in DocCtx {..}
 
@@ -220,20 +224,19 @@ buildDocCtx dc_extractOptions dc_tcmod  =
 --
 --   Not using the cached file store, as it is expected to run stand-alone
 --   invoked by a CLI tool.
-haddockParse :: IdeOptions ->
+haddockParse :: (LSP.FromServerMessage -> IO ()) ->
+                IdeOptions ->
                 [NormalizedFilePath] ->
-                Ex.ExceptT [FileDiagnostic] IO [Service.TcModuleResult]
-haddockParse opts f = ExceptT $ do
+                MaybeT IO [Service.TcModuleResult]
+haddockParse diagsLogger opts f = MaybeT $ do
   vfs <- makeVFSHandle
-  service <- Service.initialise Service.mainRule (const $ pure ()) noLogging opts vfs
+  service <- Service.initialise Service.mainRule diagsLogger noLogging opts vfs
   Service.setFilesOfInterest service (Set.fromList f)
-  parsed  <- Service.runAction service $
+  Service.runAction service $
              runMaybeT $
              do deps <- Service.usesE Service.GetDependencies f
                 Service.usesE Service.TypeCheck $ nubOrd $ f ++ concatMap Service.transitiveModuleDeps deps
                 -- The DAML compiler always parses with Opt_Haddock on
-  diags <- Service.getDiagnostics service
-  pure (maybe (Left diags) Right parsed)
 
 ------------------------------------------------------------
 
@@ -497,28 +500,29 @@ getTemplateDocs DocCtx{..} typeMap templateInstanceMap =
                       [] -> [] -- catching the dummy case here, see above
                       _other -> error "getFields: found multiple constructors"
 
--- | A template instance is desugared into a newtype with a docs marker.
+-- | A template instance is desugared to a type synonym with a doc marker.
+--
 -- For example,
 --
 -- @template instance ProposalIou = Proposal Iou@
 --
--- becomes
+-- leads to the `type` declaration
 --
--- @newtype ProposalIou = ProposalIou (Proposal Iou) -- ^ TEMPLATE_INSTANCE@
+-- @--| TEMPLATE_INSTANCE@
+-- @type ProposalIou = Proposal Iou@
 --
--- So the goal of this function is to extract the template instance doc
--- from the newtype doc if it exists.
+-- This function looks for the "TEMPLATE_INSTANCE" doc marker around a type
+-- synonym and, if it finds it, creates the relevant doc structure.
 getTemplateInstanceDoc :: ADTDoc -> Maybe TemplateInstanceDoc
-getTemplateInstanceDoc adt
-    | ADTDoc{..} <- adt
-    , [PrefixC{..}] <- ad_constrs
-    , Just (DocText "TEMPLATE_INSTANCE") <- ac_descr
-    , [argType] <- ac_args
+getTemplateInstanceDoc tyConDoc
+    | TypeSynDoc{..} <- tyConDoc
+    , Just (DocText doc) <- ad_descr
+    , Just realDoc <- T.stripSuffix "TEMPLATE_INSTANCE" doc
     = Just TemplateInstanceDoc
         { ti_name = ad_name
         , ti_anchor = ad_anchor
-        , ti_descr = ad_descr
-        , ti_rhs = argType
+        , ti_descr = Just (DocText realDoc)
+        , ti_rhs = ad_rhs
         }
 
     | otherwise

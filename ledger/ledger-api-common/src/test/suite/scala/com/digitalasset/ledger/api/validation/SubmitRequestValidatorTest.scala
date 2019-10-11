@@ -26,7 +26,6 @@ import io.grpc.Status.Code.INVALID_ARGUMENT
 import org.scalatest.WordSpec
 import org.scalatest.prop.TableDrivenPropertyChecks
 import scalaz.syntax.tag._
-
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 class SubmitRequestValidatorTest
     extends WordSpec
@@ -178,45 +177,48 @@ class SubmitRequestValidatorTest
         val signs = Table("signs", "", "+", "-")
         val absoluteValues =
           Table(
-            "absolute values",
-            "0",
-            "0.0",
-            "3.1415926536",
-            "1" + "0" * 27,
-            "1" + "0" * 27 + "." + "0" * 9 + "1",
-            "0." + "0" * 9 + "1"
+            "absolute values" -> "scale",
+            "0" -> 0,
+            "0.0" -> 0,
+            "1.0000" -> 0,
+            "3.1415926536" -> 10,
+            "1" + "0" * 27 -> 0,
+            "1" + "0" * 27 + "." + "0" * 9 + "1" -> 10,
+            "0." + "0" * 9 + "1" -> 10,
+            "0." -> 0,
           )
 
         forEvery(signs) { sign =>
-          forEvery(absoluteValues) { absoluteValue =>
+          forEvery(absoluteValues) { (absoluteValue, expectedScale) =>
             val s = sign + absoluteValue
-            val input = Value(Sum.Decimal(s))
-            val expected = Lf.ValueNumeric(Decimal.fromString(s).getOrElse(unexpectedError))
+            val input = Value(Sum.Numeric(s))
+            val expected =
+              Lf.ValueNumeric(Numeric
+                .assertFromBigDecimal(Numeric.Scale.assertFromInt(expectedScale), BigDecimal(s)))
             validateValue(input) shouldEqual Right(expected)
           }
         }
+
       }
 
       "reject out-of-bound decimals" in {
         val signs = Table("signs", "", "+", "-")
         val absoluteValues =
           Table(
-            "absolute values",
-            "1" + "0" * 28,
-            "1" + "0" * 28 + "." + "0" * 9 + "1",
-            "1" + "0" * 28 + "." + "0" * 10 + "1",
-            "1" + "0" * 27 + "." + "0" * 10 + "1",
-            "0." + "0" * 10 + "1",
+            "absolute values" -> "scale",
+            "1" + "0" * 38 -> 0,
+            "1" + "0" * 28 + "." + "0" * 10 + "1" -> 11,
+            "1" + "0" * 27 + "." + "0" * 11 + "1" -> 12
           )
 
         forEvery(signs) { sign =>
-          forEvery(absoluteValues) { absoluteValue =>
+          forEvery(absoluteValues) { (absoluteValue, scale) =>
             val s = sign + absoluteValue
-            val input = Value(Sum.Decimal(s))
+            val input = Value(Sum.Numeric(s))
             requestMustFailWith(
               validateValue(input),
               INVALID_ARGUMENT,
-              s"""Invalid argument: Could not read Decimal string "$s""""
+              s"""Invalid argument: Could not read Numeric string "$s""""
             )
           }
         }
@@ -234,18 +236,18 @@ class SubmitRequestValidatorTest
             "0x01",
             ".",
             "",
-            "0.",
             ".0",
+            "0." + "0" * 37 + "1",
           )
 
         forEvery(signs) { sign =>
           forEvery(absoluteValues) { absoluteValue =>
             val s = sign + absoluteValue
-            val input = Value(Sum.Decimal(s))
+            val input = Value(Sum.Numeric(s))
             requestMustFailWith(
               validateValue(input),
               INVALID_ARGUMENT,
-              s"""Invalid argument: Could not read Decimal string "$s""""
+              s"""Invalid argument: Could not read Numeric string "$s""""
             )
           }
         }

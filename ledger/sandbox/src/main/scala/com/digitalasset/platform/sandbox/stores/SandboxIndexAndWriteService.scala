@@ -32,6 +32,7 @@ import com.digitalasset.ledger.api.domain.CompletionEvent.{
   CommandRejected
 }
 import com.digitalasset.ledger.api.domain.{ParticipantId => _, _}
+import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.common.util.{DirectExecutionContext => DEC}
 import com.digitalasset.platform.participant.util.EventFilter
 import com.digitalasset.platform.sandbox.metrics.MetricsManager
@@ -66,11 +67,12 @@ object SandboxIndexAndWriteService {
       jdbcUrl: String,
       timeModel: TimeModel,
       timeProvider: TimeProvider,
-      acs: InMemoryActiveContracts,
+      acs: InMemoryActiveLedgerState,
       ledgerEntries: ImmArray[LedgerEntryOrBump],
       startMode: SqlStartMode,
       queueDepth: Int,
-      templateStore: InMemoryPackageStore)(
+      templateStore: InMemoryPackageStore,
+      loggerFactory: NamedLoggerFactory)(
       implicit mat: Materializer,
       mm: MetricsManager): Future[IndexAndWriteService] =
     Ledger
@@ -82,7 +84,8 @@ object SandboxIndexAndWriteService {
         templateStore,
         ledgerEntries,
         queueDepth,
-        startMode
+        startMode,
+        loggerFactory
       )
       .map(ledger =>
         createInstance(Ledger.metered(ledger), participantId, timeModel, timeProvider))(DEC)
@@ -92,7 +95,7 @@ object SandboxIndexAndWriteService {
       participantId: ParticipantId,
       timeModel: TimeModel,
       timeProvider: TimeProvider,
-      acs: InMemoryActiveContracts,
+      acs: InMemoryActiveLedgerState,
       ledgerEntries: ImmArray[LedgerEntryOrBump],
       templateStore: InMemoryPackageStore)(
       implicit mat: Materializer,
@@ -163,29 +166,29 @@ abstract class LedgerBackedIndexService(
   override def getLedgerId(): Future[LedgerId] = Future.successful(ledger.ledgerId)
 
   override def getActiveContractSetSnapshot(
-      filter: TransactionFilter): Future[ActiveContractSetSnapshot] =
+      txFilter: TransactionFilter): Future[ActiveContractSetSnapshot] = {
+    val filter = EventFilter.byTemplates(txFilter)
     ledger
-      .snapshot()
+      .snapshot(filter)
       .map {
         case LedgerSnapshot(offset, acsStream) =>
           ActiveContractSetSnapshot(
             LedgerOffset.Absolute(LedgerString.fromLong(offset)),
             acsStream
-              .mapConcat {
-                case (cId, ac) =>
-                  val create = toUpdateEvent(cId, ac)
-                  EventFilter
-                    .byTemplates(filter)
-                    .filterActiveContractWitnesses(create)
-                    .map(create => ac.workflowId.map(domain.WorkflowId(_)) -> create)
-                    .toList
+              .mapConcat { ac =>
+                val create = toUpdateEvent(ac.id, ac)
+                EventFilter
+                  .filterActiveContractWitnesses(filter, create)
+                  .map(create => ac.workflowId.map(domain.WorkflowId(_)) -> create)
+                  .toList
               }
           )
       }(mat.executionContext)
+  }
 
   private def toUpdateEvent(
       cId: Value.AbsoluteContractId,
-      ac: ActiveContracts.ActiveContract): AcsUpdateEvent.Create =
+      ac: ActiveLedgerState.ActiveContract): AcsUpdateEvent.Create =
     AcsUpdateEvent.Create(
       // we use absolute contract ids as event ids throughout the sandbox
       domain.TransactionId(ac.transactionId),

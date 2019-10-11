@@ -6,6 +6,7 @@ package com.digitalasset.http.util
 import java.time.Instant
 
 import com.digitalasset.api.util.TimestampConversion.fromInstant
+import com.digitalasset.http.domain
 import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
 import com.digitalasset.ledger.api.{v1 => lav1}
 
@@ -52,16 +53,18 @@ object Commands {
   def submitAndWaitRequest(
       ledgerId: lar.LedgerId,
       applicationId: lar.ApplicationId,
-      workflowId: lar.WorkflowId,
+      workflowId: Option[domain.WorkflowId],
       commandId: lar.CommandId,
       ledgerEffectiveTime: Instant,
       maximumRecordTime: Instant,
       party: lar.Party,
       command: lav1.commands.Command.Command): lav1.command_service.SubmitAndWaitRequest = {
 
+    val workflowIdStr: String = workflowId.map(domain.WorkflowId.unwrap).getOrElse("")
+
     val commands = lav1.commands.Commands(
       ledgerId = lar.LedgerId.unwrap(ledgerId),
-      workflowId = lar.WorkflowId.unwrap(workflowId),
+      workflowId = workflowIdStr,
       applicationId = lar.ApplicationId.unwrap(applicationId),
       commandId = lar.CommandId.unwrap(commandId),
       party = lar.Party.unwrap(party),

@@ -3,6 +3,7 @@
 
 package com.daml.ledger.api.testtool.infrastructure
 
+import java.time.Duration
 import java.util.concurrent.{ExecutionException, Executors, TimeoutException}
 import java.util.{Timer, TimerTask}
 
@@ -12,12 +13,12 @@ import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuiteRunner.{
   logger,
   timer
 }
+import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantSessionManager
 import org.slf4j.LoggerFactory
 
-import scala.annotation.tailrec
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService, Future, Promise}
+import scala.util.{Failure, Try}
 import scala.util.control.NonFatal
-import scala.util.{Failure, Success, Try}
 
 object LedgerTestSuiteRunner {
 
@@ -25,16 +26,11 @@ object LedgerTestSuiteRunner {
 
   private val logger = LoggerFactory.getLogger(classOf[LedgerTestSuiteRunner])
 
-  final class TestTimeout(
-      testPromise: Promise[_],
-      testDescription: String,
-      testTimeoutMs: Long,
-      sessionConfig: LedgerSessionConfiguration)
+  final class TestTimeout(testPromise: Promise[_], testDescription: String, testTimeoutMs: Long)
       extends TimerTask {
     override def run(): Unit = {
       if (testPromise.tryFailure(new TimeoutException())) {
-        val LedgerSessionConfiguration(host, port, _, _) = sessionConfig
-        logger.error(s"Timeout of $testTimeoutMs ms for '$testDescription' hit ($host:$port)")
+        logger.error(s"Timeout of $testTimeoutMs ms for '$testDescription' hit")
       }
     }
   }
@@ -48,49 +44,42 @@ object LedgerTestSuiteRunner {
 }
 
 final class LedgerTestSuiteRunner(
-    endpoints: Vector[LedgerSessionConfiguration],
+    config: LedgerSessionConfiguration,
     suiteConstructors: Vector[LedgerSession => LedgerTestSuite],
-    timeoutScaleFactor: Double) {
+    timeoutScaleFactor: Double,
+    identifierSuffix: String) {
 
-  private def initSessions()(implicit ec: ExecutionContext): Try[Vector[LedgerSession]] = {
-    @tailrec
-    def go(
-        conf: Vector[LedgerSessionConfiguration],
-        result: Try[Vector[LedgerSession]]): Try[Vector[LedgerSession]] = {
-      (conf, result) match {
-        case (remaining, result) if remaining.isEmpty || result.isFailure => result
-        case (endpoint +: remaining, Success(sessions)) =>
-          val newSession = LedgerSession.getOrCreate(endpoint)
-          val newResult = newSession.map(sessions :+ _)
-          go(remaining, newResult)
-      }
+  private[this] val verifyRequirements: Try[Unit] =
+    Try {
+      require(timeoutScaleFactor > 0, "The timeout scale factor must be strictly positive")
+      require(identifierSuffix.nonEmpty, "The identifier suffix cannot be an empty string")
     }
-    go(endpoints, Try(Vector.empty))
-  }
-
-  private def initTestSuites(sessions: Vector[LedgerSession]): Vector[LedgerTestSuite] =
-    for (session <- sessions; suiteConstructor <- suiteConstructors)
-      yield suiteConstructor(session)
 
   private def start(test: LedgerTest, session: LedgerSession)(
-      implicit ec: ExecutionContext): Future[Unit] = {
-    val execution = Promise[Unit]
+      implicit ec: ExecutionContext): Future[Duration] = {
+    val execution = Promise[Duration]
     val scaledTimeout = math.floor(test.timeout * timeoutScaleFactor).toLong
-    val testTimeout = new TestTimeout(execution, test.description, scaledTimeout, session.config)
+    val testTimeout = new TestTimeout(execution, test.description, scaledTimeout)
+    val startedTest =
+      session
+        .createTestContext(test.shortIdentifier, identifierSuffix)
+        .flatMap { context =>
+          val start = System.nanoTime()
+          val result = test(context).map(_ => Duration.ofNanos(System.nanoTime() - start))
+          logger.info(s"Started '${test.description}' with a ${scaledTimeout} ms timeout!")
+          result
+        }
     timer.schedule(testTimeout, scaledTimeout)
-    logger.info(s"Started ${scaledTimeout} ms timeout for '${test.description}'...")
-    val startedTest = session.createTestContext(test.shortIdentifier).flatMap(test)
-    logger.info(s"Started '${test.description}'!")
     startedTest.onComplete { _ =>
       testTimeout.cancel()
-      logger.info(s"Finished '${test.description}")
+      logger.info(s"Finished '${test.description}'")
     }
     execution.completeWith(startedTest).future
   }
 
-  private def result(startedTest: Future[Unit])(implicit ec: ExecutionContext): Future[Result] =
+  private def result(startedTest: Future[Duration])(implicit ec: ExecutionContext): Future[Result] =
     startedTest
-      .map[Result](_ => Result.Succeeded)
+      .map[Result](Result.Succeeded)
       .recover[Result] {
         case SkipTestException(reason) =>
           Result.Skipped(reason)
@@ -121,31 +110,28 @@ final class LedgerTestSuiteRunner(
       implicit ec: ExecutionContext): Vector[Future[LedgerTestSummary]] =
     suite.tests.map(test => summarize(suite, test, run(test, suite.session)))
 
-  def run(completionCallback: Try[Vector[LedgerTestSummary]] => Unit): Unit = {
-
+  private def run(completionCallback: Try[Vector[LedgerTestSummary]] => Unit): Unit = {
     implicit val ec: ExecutionContextExecutorService =
       ExecutionContext.fromExecutorService(
-        Executors.newFixedThreadPool(Runtime.getRuntime.availableProcessors()))
+        Executors.newSingleThreadExecutor(new Thread(_, s"test-tool-dispatcher")))
+    val participantSessionManager = new ParticipantSessionManager
+    Future {
+      val ledgerSession = new LedgerSession(config, participantSessionManager)
+      suiteConstructors.map(constructor => constructor(ledgerSession))
+    }.flatMap(suites => Future.sequence(suites.flatMap(run)))
+      .recover { case NonFatal(e) => throw LedgerTestSuiteRunner.UncaughtExceptionError(e) }
+      .onComplete { result =>
+        participantSessionManager.closeAll()
+        completionCallback(result)
+        ec.shutdown()
+      }
+  }
 
-    def cleanUpAndComplete(result: Try[Vector[LedgerTestSummary]]): Unit = {
-      ec.shutdown()
-      endpoints.foreach(LedgerSession.close)
-      completionCallback(result)
-    }
-
-    initSessions() match {
-
-      case Failure(exception) =>
-        cleanUpAndComplete(Failure(exception))
-
-      case Success(sessions) =>
-        Future
-          .sequence(initTestSuites(sessions).flatMap(run))
-          .recover { case NonFatal(e) => throw LedgerTestSuiteRunner.UncaughtExceptionError(e) }
-          .onComplete(cleanUpAndComplete)
-
-    }
-
+  def verifyRequirementsAndRun(completionCallback: Try[Vector[LedgerTestSummary]] => Unit): Unit = {
+    verifyRequirements.fold(
+      throwable => completionCallback(Failure(throwable)),
+      _ => run(completionCallback)
+    )
   }
 
 }

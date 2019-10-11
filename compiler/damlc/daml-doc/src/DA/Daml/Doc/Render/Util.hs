@@ -10,6 +10,7 @@ module DA.Daml.Doc.Render.Util
   , bold
   , inParens
   , wrapOp
+  , escapeText
   ) where
 
 import qualified Data.Text as T
@@ -52,3 +53,11 @@ wrapOp t =
     isIdChar c = ('A' <= c && c <= 'Z')
               || ('a' <= c && c <= 'z')
               || ('_' == c)
+
+-- | Add backslashes before each character that passes the predicate.
+escapeText :: (Char -> Bool) -> T.Text -> T.Text
+escapeText p = T.pack . concatMap escapeChar . T.unpack
+  where
+    escapeChar c
+      | p c = ['\\', c]
+      | otherwise = [c]

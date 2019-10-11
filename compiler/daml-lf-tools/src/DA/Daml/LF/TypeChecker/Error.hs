@@ -60,6 +60,8 @@ data UnserializabilityReason
   | URNumeric -- ^ It contains an unapplied Numeric type constructor.
   | URNumericNotFixed
   | URNumericOutOfRange !Natural
+  | URTypeLevelNat
+  | URAny -- ^ It contains a value of type Any.
 
 data Error
   = EUnknownTypeVar        !TypeVarName
@@ -101,6 +103,7 @@ data Error
   | EContext               !Context !Error
   | EKeyOperationOnTemplateWithNoKey !(Qualified TypeConName)
   | EUnsupportedFeature !Feature
+  | EForbiddenNameCollision !T.Text ![T.Text]
 
 contextLocation :: Context -> Maybe SourceLoc
 contextLocation = \case
@@ -162,6 +165,8 @@ instance Pretty UnserializabilityReason where
     URNumeric -> "unapplied Numeric"
     URNumericNotFixed -> "Numeric scale is not fixed"
     URNumericOutOfRange n -> "Numeric scale " <> integer (fromIntegral n) <> " is out of range (needs to be between 0 and 38)"
+    URTypeLevelNat -> "type-level nat"
+    URAny -> "Any"
 
 instance Pretty Error where
   pPrint = \case
@@ -279,6 +284,8 @@ instance Pretty Error where
     EUnsupportedFeature Feature{..} ->
       "unsupported feature:" <-> pretty featureName
       <-> "only supported in DAML-LF version" <-> pretty featureMinVersion <-> "and later"
+    EForbiddenNameCollision name names ->
+      "name collision between " <-> pretty name <-> " and " <-> pretty (T.intercalate ", " names)
 
 instance Pretty Context where
   pPrint = \case

@@ -21,7 +21,7 @@ import com.digitalasset.ledger.client.binding.{Primitive => P}
 trait ValuePrimitiveEncoding[TC[_]] {
   implicit def valueInt64: TC[P.Int64]
 
-  implicit def valueDecimal: TC[P.Decimal]
+  implicit def valueNumeric: TC[P.Numeric]
 
   implicit def valueParty: TC[P.Party]
 
@@ -56,7 +56,7 @@ object ValuePrimitiveEncoding {
       // if you remove a case here, also delete the member referenced on the RHS
       // from `trait ValuePrimitiveEncoding`, and all its implementations
       case Int64(_) => Some(valueInt64)
-      case Decimal(_) => Some(valueDecimal)
+      case Numeric(_) => Some(valueNumeric)
       case Party(_) => Some(valueParty)
       case Text(_) => Some(valueText)
       case Date(_) => Some(valueDate)
@@ -76,7 +76,7 @@ object ValuePrimitiveEncoding {
     import te._
     Seq(
       valueInt64,
-      valueDecimal,
+      valueNumeric,
       valueParty,
       valueText,
       valueDate,
@@ -94,7 +94,7 @@ object ValuePrimitiveEncoding {
     new ValuePrimitiveEncoding[Lambda[a => (F[a], G[a])]] {
       override def valueInt64 = (vpef.valueInt64, vpeg.valueInt64)
 
-      override def valueDecimal = (vpef.valueDecimal, vpeg.valueDecimal)
+      override def valueNumeric = (vpef.valueNumeric, vpeg.valueNumeric)
 
       override def valueParty = (vpef.valueParty, vpeg.valueParty)
 
@@ -130,7 +130,7 @@ object ValuePrimitiveEncoding {
 
     override final def valueInt64: G[P.Int64] = fgAxiom(underlyingVpe.valueInt64)
 
-    override final def valueDecimal: G[P.Decimal] = fgAxiom(underlyingVpe.valueDecimal)
+    override final def valueNumeric: G[P.Numeric] = fgAxiom(underlyingVpe.valueNumeric)
 
     override final def valueParty: G[P.Party] = fgAxiom(underlyingVpe.valueParty)
 

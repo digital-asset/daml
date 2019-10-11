@@ -43,6 +43,7 @@ import           Safe.Exact (zipExactMay)
 import           DA.Daml.LF.Ast
 import           DA.Daml.LF.Ast.Optics (dataConsType)
 import           DA.Daml.LF.Ast.Type
+import           DA.Daml.LF.Ast.Numeric
 import           DA.Daml.LF.TypeChecker.Env
 import           DA.Daml.LF.TypeChecker.Error
 
@@ -118,6 +119,7 @@ kindOfBuiltin = \case
   BTOptional -> KStar `KArrow` KStar
   BTMap -> KStar `KArrow` KStar
   BTArrow -> KStar `KArrow` KStar `KArrow` KStar
+  BTAny -> KStar
 
 kindOf :: MonadGamma m => Type -> m Kind
 kindOf = \case
@@ -143,6 +145,7 @@ typeOfBuiltin :: MonadGamma m => BuiltinExpr -> m Type
 typeOfBuiltin = \case
   BEInt64 _          -> pure TInt64
   BEDecimal _        -> pure TDecimal
+  BENumeric n        -> pure (TNumeric (TNat (typeLevelNat (numericScale n))))
   BEText    _        -> pure TText
   BETimestamp _      -> pure TTimestamp
   BEParty   _        -> pure TParty
@@ -174,9 +177,11 @@ typeOfBuiltin = \case
   BEGreaterEqNumeric -> pure $ TForall (alpha, KNat) $ TNumeric tAlpha :-> TNumeric tAlpha :-> TBool
   BEAddNumeric -> pure $ TForall (alpha, KNat) $ TNumeric tAlpha :-> TNumeric tAlpha :-> TNumeric tAlpha
   BESubNumeric -> pure $ TForall (alpha, KNat) $ TNumeric tAlpha :-> TNumeric tAlpha :-> TNumeric tAlpha
-  BEMulNumeric -> pure $ TForall (alpha, KNat) $ TNumeric tAlpha :-> TNumeric tAlpha :-> TNumeric tAlpha
-  BEDivNumeric -> pure $ TForall (alpha, KNat) $ TNumeric tAlpha :-> TNumeric tAlpha :-> TNumeric tAlpha
+  BEMulNumeric -> pure $ TForall (alpha, KNat) $ TForall (beta, KNat) $ TForall (gamma, KNat) $ TNumeric tAlpha :-> TNumeric tBeta :-> TNumeric tGamma
+  BEDivNumeric -> pure $ TForall (alpha, KNat) $ TForall (beta, KNat) $ TForall (gamma, KNat) $ TNumeric tAlpha :-> TNumeric tBeta :-> TNumeric tGamma
   BERoundNumeric -> pure $ TForall (alpha, KNat) $ TInt64 :-> TNumeric tAlpha :-> TNumeric tAlpha
+  BECastNumeric -> pure $ TForall (alpha, KNat) $ TForall (beta, KNat) $ TNumeric tAlpha :-> TNumeric tBeta
+  BEShiftNumeric -> pure $ TForall (alpha, KNat) $ TForall (beta, KNat) $ TNumeric tAlpha :-> TNumeric tBeta
   BEInt64ToNumeric -> pure $ TForall (alpha, KNat) $ TInt64 :-> TNumeric tAlpha
   BENumericToInt64 -> pure $ TForall (alpha, KNat) $ TNumeric tAlpha :-> TInt64
   BEToTextNumeric -> pure $ TForall (alpha, KNat) $ TNumeric tAlpha :-> TText
@@ -495,6 +500,20 @@ typeOf = \case
   ECons elemType headExpr tailExpr -> checkCons elemType headExpr tailExpr $> TList elemType
   ESome bodyType bodyExpr -> checkSome bodyType bodyExpr $> TOptional bodyType
   ENone bodyType -> checkType bodyType KStar $> TOptional bodyType
+  EToAny ty bodyExpr -> do
+    -- We clear the environment to make sure that there are no free type variables in ty
+    clearTypeVars $ checkType ty KStar
+    checkExpr bodyExpr ty
+    pure $ TBuiltin BTAny
+  EFromAny ty bodyExpr -> do
+    -- We clear the environment to make sure that there are no free type variables in ty
+    clearTypeVars $ checkType ty KStar
+    checkExpr bodyExpr (TBuiltin BTAny)
+    pure $ TOptional ty
+  EToTextTemplateId tpl -> do
+    -- Ensure that the type is known.
+    _ :: Template <- inWorld (lookupTemplate tpl)
+    pure $ TBuiltin BTText
   EUpdate upd -> typeOfUpdate upd
   EScenario scen -> typeOfScenario scen
   ELocation _ expr -> typeOf expr

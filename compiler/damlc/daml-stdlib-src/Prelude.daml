@@ -1,6 +1,6 @@
 -- Copyright (c) 2019 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
-
+{-# LANGUAGE CPP #-}
 
 daml 1.2
 -- | The pieces that make up the DAML language.
@@ -8,6 +8,13 @@ module Prelude (module X) where
 
 import DA.Internal.Prelude as X hiding (magic)
 import DA.Internal.LF as X hiding (Pair(..), TextMap, unpackPair)
+-- Template desugaring uses fromAnyTemplate and toAnyTemplate so we
+-- can’t remove them from the typeclass for older LF versions
+-- but we can hide them.
+#ifdef DAML_ANY_TYPE
 import DA.Internal.Template as X
+#else
+import DA.Internal.Template as X hiding (fromAnyTemplate, toAnyTemplate, fromAnyChoice, toAnyChoice, _fromAnyChoice, _toAnyChoice)
+#endif
 import DA.Internal.Compatible as X
 import DA.Internal.Assert as X

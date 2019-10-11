@@ -11,7 +11,7 @@ load(
 da_haskell_library(
     name = "daml-doc",
     srcs = glob(["src/**/*.hs"]),
-    hazel_deps = [
+    hackage_deps = [
         "aeson-pretty",
         "aeson",
         "base",
@@ -25,7 +25,9 @@ da_haskell_library(
         "filepattern",
         "ghc-lib-parser",
         "ghc-lib",
+        "ghcide",
         "hashable",
+        "haskell-lsp",
         "mtl",
         "network-uri",
         "prettyprinter",
@@ -36,7 +38,6 @@ da_haskell_library(
     src_strip_prefix = "src",
     visibility = ["//visibility:public"],
     deps = [
-        "//compiler/hie-core",
         "//libs-haskell/da-hs-base",
     ],
 )
@@ -44,17 +45,20 @@ da_haskell_library(
 da_haskell_library(
     name = "daml-doc-testing",
     srcs = glob(["test/**/*.hs"]),
-    hazel_deps = [
+    hackage_deps = [
         "aeson-pretty",
         "base",
         "bytestring",
         "directory",
         "extra",
         "filepath",
+        "ghcide",
+        "haskell-lsp",
         "mtl",
         "tasty-hunit",
         "tasty-golden",
         "text",
+        "transformers",
     ],
     src_strip_prefix = "test",
     visibility = ["//visibility:public"],
@@ -62,7 +66,6 @@ da_haskell_library(
         "//compiler/damlc/daml-doc",
         "//compiler/damlc/daml-opts",
         "//compiler/damlc/daml-opts:daml-opts-types",
-        "//compiler/hie-core",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
         "//libs-haskell/test-utils",

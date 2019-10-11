@@ -6,7 +6,7 @@ load("//bazel_tools:haskell.bzl", "da_haskell_binary")
 da_haskell_binary(
     name = "release",
     srcs = glob(["src/**/*.hs"]),
-    hazel_deps = [
+    hackage_deps = [
         "aeson",
         "async",
         "ansi-terminal",
@@ -60,6 +60,7 @@ genrule(
         ":sdk-config.yaml.tmpl",
         ":install.sh",
         ":install.bat",
+        "//ledger-service/http-json:release/json-api-logback.xml",
         "//:NOTICES",
         "//:VERSION",
         "//daml-assistant:daml-dist",
@@ -69,7 +70,11 @@ genrule(
         "//ledger/sandbox:sandbox-binary_deploy.jar",
         "//navigator/backend:navigator-binary_deploy.jar",
         "//extractor:extractor-binary_deploy.jar",
+        "//ledger-service/http-json:http-json-binary_deploy.jar",
+        "//language-support/codegen-main:codegen-main_deploy.jar",
         "//templates:templates-tarball.tar.gz",
+        "//triggers/daml:daml-trigger.dar",
+        "//triggers/runner:trigger-runner_deploy.jar",
     ],
     outs = ["sdk-release-tarball.tar.gz"],
     cmd = """
@@ -92,6 +97,9 @@ genrule(
       mkdir -p $$OUT/damlc
       tar xf $(location //compiler/damlc:damlc-dist) --strip-components=1 -C $$OUT/damlc
 
+      mkdir -p $$OUT/daml-libs
+      cp -t $$OUT/daml-libs $(location //triggers/daml:daml-trigger.dar)
+
       mkdir -p $$OUT/daml-helper
       tar xf $(location //daml-assistant/daml-helper:daml-helper-dist) --strip-components=1 -C $$OUT/daml-helper
 
@@ -107,8 +115,18 @@ genrule(
       mkdir -p $$OUT/extractor
       cp $(location //extractor:extractor-binary_deploy.jar) $$OUT/extractor/extractor.jar
 
+      mkdir -p $$OUT/json-api
+      cp $(location //ledger-service/http-json:http-json-binary_deploy.jar) $$OUT/json-api/json-api.jar
+      cp -L $(location //ledger-service/http-json:release/json-api-logback.xml) $$OUT/json-api/
+
+      mkdir -p $$OUT/codegen
+      cp $(location //language-support/codegen-main:codegen-main_deploy.jar) $$OUT/codegen/codegen.jar
+
       mkdir -p $$OUT/templates
       tar xf $(location //templates:templates-tarball.tar.gz) --strip-components=1 -C $$OUT/templates
+
+      mkdir -p $$OUT/daml-trigger
+      cp $(location //triggers/runner:trigger-runner_deploy.jar) $$OUT/daml-trigger/daml-trigger.jar
 
       tar zcf $(location sdk-release-tarball.tar.gz) --format=ustar $$OUT
     """,

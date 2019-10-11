@@ -32,14 +32,16 @@ import com.digitalasset.ledger.api.domain.{
   PartyDetails,
   RejectionReason
 }
+import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilter
 import com.digitalasset.platform.sandbox.services.transaction.SandboxEventIdFormatter
+import com.digitalasset.platform.sandbox.stores.ActiveLedgerState.ActiveContract
 import com.digitalasset.platform.sandbox.stores.deduplicator.Deduplicator
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry.{Checkpoint, Rejection}
 import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
 import com.digitalasset.platform.sandbox.stores.ledger.{Ledger, LedgerEntry, LedgerSnapshot}
 import com.digitalasset.platform.sandbox.stores.{
-  ActiveContracts,
-  InMemoryActiveContracts,
+  ActiveLedgerState,
+  InMemoryActiveLedgerState,
   InMemoryPackageStore
 }
 import org.slf4j.LoggerFactory
@@ -53,7 +55,7 @@ import scala.util.{Failure, Success, Try}
 class InMemoryLedger(
     val ledgerId: LedgerId,
     timeProvider: TimeProvider,
-    acs0: InMemoryActiveContracts,
+    acs0: InMemoryActiveLedgerState,
     packageStoreInit: InMemoryPackageStore,
     ledgerEntries: ImmArray[LedgerEntryOrBump])
     extends Ledger {
@@ -85,15 +87,17 @@ class InMemoryLedger(
   override def ledgerEnd: Long = entries.ledgerEnd
 
   // need to take the lock to make sure the two pieces of data are consistent.
-  override def snapshot(): Future[LedgerSnapshot] =
+  override def snapshot(filter: TemplateAwareFilter): Future[LedgerSnapshot] =
     Future.successful(this.synchronized {
-      LedgerSnapshot(entries.ledgerEnd, Source(acs.contracts))
+      LedgerSnapshot(
+        entries.ledgerEnd,
+        Source.fromIterator[ActiveContract](() => acs.activeContracts.valuesIterator))
     })
 
   override def lookupContract(
-      contractId: AbsoluteContractId): Future[Option[ActiveContracts.ActiveContract]] =
+      contractId: AbsoluteContractId): Future[Option[ActiveLedgerState.Contract]] =
     Future.successful(this.synchronized {
-      acs.contracts.get(contractId)
+      acs.activeContracts.get(contractId)
     })
 
   override def lookupKey(key: Node.GlobalKey): Future[Option[AbsoluteContractId]] =
@@ -115,6 +119,7 @@ class InMemoryLedger(
       this.synchronized[SubmissionResult] {
         val (newDeduplicator, isDuplicate) =
           deduplicator.checkAndAdd(
+            submitterInfo.submitter,
             ApplicationId(submitterInfo.applicationId),
             CommandId(submitterInfo.commandId))
         deduplicator = newDeduplicator
@@ -158,9 +163,10 @@ class InMemoryLedger(
         trId,
         transactionMeta.workflowId,
         mappedTx,
-        blindingInfo.explicitDisclosure,
-        blindingInfo.localImplicitDisclosure,
-        blindingInfo.globalImplicitDisclosure,
+        blindingInfo.disclosure,
+        blindingInfo.localDivulgence,
+        blindingInfo.globalDivulgence,
+        List.empty
       )
       acsRes match {
         case Left(err) =>
@@ -172,7 +178,7 @@ class InMemoryLedger(
           val recordTx = mappedTx
             .mapNodeId(SandboxEventIdFormatter.fromTransactionId(trId, _))
           val recordBlinding =
-            blindingInfo.explicitDisclosure.map {
+            blindingInfo.disclosure.map {
               case (nid, parties) =>
                 (SandboxEventIdFormatter.fromTransactionId(trId, nid), parties)
             }

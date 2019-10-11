@@ -6,8 +6,26 @@ package com.daml.ledger.api.testtool
 import java.io.File
 
 import com.digitalasset.ledger.api.tls.TlsConfiguration
+import scopt.Read
+import scopt.Read.{intRead, stringRead}
 
 object Cli {
+
+  private def endpointRead: Read[(String, Int)] = new Read[(String, Int)] {
+    val arity = 2
+    val reads = { (s: String) =>
+      splitAddress(s) match {
+        case (k, v) => stringRead.reads(k) -> intRead.reads(v)
+      }
+    }
+  }
+
+  private def splitAddress(s: String): (String, String) =
+    s.indexOf(':') match {
+      case -1 =>
+        throw new IllegalArgumentException("Addresses should be specified as `<host>:<port>`")
+      case n: Int => (s.slice(0, n), s.slice(n + 1, s.length))
+    }
 
   private val pemConfig = (path: String, config: Config) =>
     config.copy(
@@ -31,29 +49,30 @@ object Cli {
     head("""The Ledger API Test Tool is a command line tool for testing the correctness of
         |ledger implementations based on DAML and Ledger API.""".stripMargin)
 
-    help("help").text("prints this usage text")
+    arg[(String, Int)]("[endpoints...]")(endpointRead)
+      .action((address, config) => config.copy(participants = config.participants :+ address))
+      .unbounded()
+      .optional()
+      .text("""Addresses of the participants to test, specified as `<host>:<port>`.""")
 
-    opt[Int]('p', "target-port")
-      .action((x, c) => c.copy(port = x))
-      .text("Server port of the Ledger API endpoint to test. Defaults to 6865.")
-
-    opt[String]('h', "host")
-      .action((x, c) => c.copy(host = x))
-      .text("Server host of the Ledger API endpoint to test. Defaults to localhost.")
+    // FIXME Make client_server_test more flexible and remove this deprecated option
+    opt[String]("target-port")
+      .optional()
+      .text("DEPRECATED: this option is no longer used and has no effect")
 
     opt[String]("pem")
       .optional()
-      .text("TLS: The pem file to be used as the private key.")
+      .text("TLS: The pem file to be used as the private key. Applied to all endpoints.")
       .action(pemConfig)
 
     opt[String]("crt")
       .optional()
-      .text("TLS: The crt file to be used as the cert chain. Required if any other TLS parameters are set.")
+      .text("TLS: The crt file to be used as the cert chain. Required if any other TLS parameters are set. Applied to all endpoints.")
       .action(crtConfig)
 
     opt[String]("cacrt")
       .optional()
-      .text("TLS: The crt file to be used as the the trusted root CA.")
+      .text("TLS: The crt file to be used as the the trusted root CA. Applied to all endpoints.")
       .action(cacrtConfig)
 
     opt[Double](name = "command-submission-ttl-scale-factor")
@@ -61,10 +80,10 @@ object Cli {
       .action((v, c) => c.copy(commandSubmissionTtlScaleFactor = v))
       .text("""Scale factor for time-to-live of commands sent for ledger processing
               |(captured as Maximum Record Time in submitted transactions) for
-              |"SemanticTests" suite. Useful to tune Maximum Record Time depending on
-              |the environment and the Ledger implementation under test. Defaults to
-              |1.0. Use numbers higher than 1.0 to make timeouts more lax, use
-              |numbers lower than 1.0 to make timeouts more strict.""".stripMargin)
+              |all test suites. Regardless the output of multiplying by this factor
+              |the TTL will always be clipped by the minimum and maximum value as defined
+              |by the LedgerConfigurationService, with the maximum being the default
+              |(which means that any value above 1.0 won't have any effect.""".stripMargin)
 
     opt[Double](name = "timeout-scale-factor")
       .optional()
@@ -108,6 +127,8 @@ object Cli {
     opt[Unit]("list")
       .action((_, c) => c.copy(listTests = true))
       .text("""Lists all available tests that can be used in the include and exclude options.""")
+
+    help("help").text("Prints this usage text")
 
   }
 

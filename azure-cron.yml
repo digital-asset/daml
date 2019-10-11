@@ -33,11 +33,6 @@ jobs:
       - checkout: self
       - bash: ci/dev-env-install.sh
         displayName: 'Build/Install the Developer Environment'
-      - bash: ci/configure-bazel.sh
-        displayName: 'Configure Bazel'
-        env:
-          IS_FORK: $(System.PullRequest.IsFork)
-          GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
       - bash: |
           set -euo pipefail
 
@@ -103,6 +98,16 @@ jobs:
           done
 
           git checkout $CUR_SHA
+
+          echo "Done building docs bundle. Checking versions again to avoid race condition..."
+          S3_VERSIONS=$(mktemp)
+          aws s3 cp s3://docs-daml-com/versions.json $S3_VERSIONS
+          if diff $S3_VERSIONS $DOCDIR/versions.json; then
+            echo "No more new version, another process must have pushed already."
+            exit 0
+          fi
+          echo "Pushing new versions file first..."
+          aws s3 cp $DOCDIR/versions.json s3://docs-daml-com/versions.json --acl public-read
           echo "Pushing to S3 bucket..."
           aws s3 sync $DOCDIR \
                       s3://docs-daml-com/ \
@@ -242,6 +247,10 @@ jobs:
           curl https://api.github.com/repos/digital-asset/daml/releases -s | gzip -9 > $STATS
 
           GCS_KEY=$(mktemp)
+          cleanup () {
+              rm -f $GCS_KEY
+          }
+          trap cleanup EXIT
           echo "$GOOGLE_APPLICATION_CREDENTIALS_CONTENT" > $GCS_KEY
           gcloud auth activate-service-account --key-file=$GCS_KEY
           BOTO_CONFIG=/dev/null gsutil cp $STATS gs://daml-data/downloads/$(date -u +%Y%m%d_%H%M%SZ).json.gz

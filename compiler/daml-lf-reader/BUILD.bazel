@@ -6,13 +6,13 @@ load("//bazel_tools:haskell.bzl", "da_haskell_library")
 da_haskell_library(
     name = "daml-lf-reader",
     srcs = glob(["src/**/*.hs"]),
-    hazel_deps = [
+    hackage_deps = [
         "base",
         "bytestring",
         "extra",
         "filepath",
+        "megaparsec",
         "safe",
-        "unordered-containers",
         "utf8-string",
         "zip-archive",
     ],

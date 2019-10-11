@@ -3,7 +3,8 @@
 
 package com.digitalasset.http
 
-import akka.stream.scaladsl.{Keep, Source}
+import akka.NotUsed
+import akka.stream.scaladsl.Source
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.http.util.FutureUtil.toFuture
 import com.digitalasset.jwt.domain.Jwt
@@ -15,7 +16,6 @@ import com.digitalasset.ledger.api.v1.command_service.{
 import com.digitalasset.ledger.api.v1.transaction_filter.TransactionFilter
 import com.digitalasset.ledger.client.LedgerClient
 import com.digitalasset.ledger.client.configuration.LedgerClientConfiguration
-import com.digitalasset.util.akkastreams.ExtractMaterializedValue
 import io.grpc.netty.{NegotiationType, NettyChannelBuilder}
 import io.grpc.stub.MetadataUtils
 import io.grpc.{Channel, ClientInterceptors, Metadata}
@@ -29,14 +29,19 @@ object LedgerClientJwt {
     (Jwt, SubmitAndWaitRequest) => Future[SubmitAndWaitForTransactionResponse]
 
   type GetActiveContracts =
-    (Jwt, TransactionFilter, Boolean) => Source[GetActiveContractsResponse, Future[String]]
+    (Jwt, TransactionFilter, Boolean) => Source[GetActiveContractsResponse, NotUsed]
 
-  def singleHostChannel(hostIp: String, port: Int, configuration: LedgerClientConfiguration)(
+  def singleHostChannel(
+      hostIp: String,
+      port: Int,
+      configuration: LedgerClientConfiguration,
+      maxInboundMessageSize: Int)(
       implicit ec: ExecutionContext,
       esf: ExecutionSequencerFactory): Throwable \/ Channel = \/.fromTryCatchNonFatal {
 
     val builder: NettyChannelBuilder = NettyChannelBuilder
       .forAddress(hostIp, port)
+      .maxInboundMessageSize(maxInboundMessageSize)
 
     configuration.sslContext
       .fold {
@@ -79,9 +84,6 @@ object LedgerClientJwt {
     (jwt, req) =>
       forChannel(jwt, config, channel)
         .flatMap(_.commandServiceClient.submitAndWaitForTransaction(req))
-
-  private val exMat = new ExtractMaterializedValue((_: LedgerClient) => None: Option[String])
-
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def getActiveContracts(config: LedgerClientConfiguration, channel: io.grpc.Channel)(
       implicit ec: ExecutionContext,
@@ -89,6 +91,5 @@ object LedgerClientJwt {
     (jwt, filter, flag) =>
       Source
         .fromFuture(forChannel(jwt, config, channel))
-        .viaMat(exMat)(Keep.right)
         .flatMapConcat(client => client.activeContractSetClient.getActiveContracts(filter, flag))
 }

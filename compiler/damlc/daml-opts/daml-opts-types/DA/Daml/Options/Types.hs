@@ -4,7 +4,7 @@
 module DA.Daml.Options.Types
     ( Options(..)
     , EnableScenarioService(..)
-    , ScenarioValidation(..)
+    , SkipScenarioValidation(..)
     , DlintUsage(..)
     , Haddock(..)
     , defaultOptionsIO
@@ -55,18 +55,27 @@ data Options = Options
     -- ^ custom options, parsed by GHC option parser, overriding DynFlags
   , optScenarioService :: EnableScenarioService
     -- ^ Controls whether the scenario service is started.
-  , optScenarioValidation :: ScenarioValidation
-    -- ^ Controls whether the scenario service server runs all checks
-    -- or only a subset of them. This is mostly used to run additional
-    -- checks on CI while keeping the IDE fast.
+  , optSkipScenarioValidation :: SkipScenarioValidation
+    -- ^ Controls whether the scenario service server run package validations.
+    -- This is mostly used to run additional checks on CI while keeping the IDE fast.
   , optDlintUsage :: DlintUsage
   -- ^ Information about dlint usage.
   , optIsGenerated :: Bool
     -- ^ Whether we're compiling generated code. Then we allow internal imports.
+  , optAllowDifferentSdks :: Bool
+    -- ^ Whether we're allowing imports from packages compiled with different SDK's.
+  , optDflagCheck :: Bool
+    -- ^ Whether to check dflags. In some cases we want to turn this check of. For example when
+    -- migrating or running the daml doc test.
   , optCoreLinting :: Bool
     -- ^ Whether to enable linting of the generated GHC Core. (Used in testing.)
   , optHaddock :: Haddock
     -- ^ Whether to enable lexer option `Opt_Haddock` (default is `Haddock False`).
+  , optCppPath :: Maybe FilePath
+    -- ^ Enable CPP, by giving filepath to the executable.
+  , optGhcVersionFile :: Maybe FilePath
+    -- ^ Path to "ghcversion.h". Needed for running CPP. We ship this
+    -- as part of our runfiles. This is set by 'mkOptions'.
   } deriving Show
 
 newtype Haddock = Haddock Bool
@@ -77,10 +86,8 @@ data DlintUsage
   | DlintDisabled
   deriving Show
 
-data ScenarioValidation
-    = ScenarioValidationLight
-    | ScenarioValidationFull
-    deriving Show
+newtype SkipScenarioValidation = SkipScenarioValidation { getSkipScenarioValidation :: Bool }
+  deriving Show
 
 newtype EnableScenarioService = EnableScenarioService { getEnableScenarioService :: Bool }
     deriving Show
@@ -116,7 +123,13 @@ mkOptions opts@Options {..} = do
     case optDlintUsage of
       DlintEnabled dir _ -> checkDirExists dir
       DlintDisabled -> return ()
-    pure opts {optPackageDbs = map (</> versionSuffix) $ pkgDbs ++ optPackageDbs}
+
+    ghcVersionFile <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "ghcversion.h")
+
+    pure opts {
+        optPackageDbs = map (</> versionSuffix) $ pkgDbs ++ optPackageDbs,
+        optGhcVersionFile = Just ghcVersionFile
+    }
   where checkDirExists f =
           Dir.doesDirectoryExist f >>= \ok ->
           unless ok $ fail $ "Required directory does not exist: " <> f
@@ -147,11 +160,15 @@ defaultOptions mbVersion =
         , optDebug = False
         , optGhcCustomOpts = []
         , optScenarioService = EnableScenarioService True
-        , optScenarioValidation = ScenarioValidationFull
+        , optSkipScenarioValidation = SkipScenarioValidation False
         , optDlintUsage = DlintDisabled
         , optIsGenerated = False
+        , optAllowDifferentSdks = False
+        , optDflagCheck = True
         , optCoreLinting = False
         , optHaddock = Haddock False
+        , optCppPath = Nothing
+        , optGhcVersionFile = Nothing
         }
 
 getBaseDir :: IO FilePath

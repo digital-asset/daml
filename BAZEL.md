@@ -527,7 +527,7 @@ for building test-suites. The `da_*` rules are DA specific overrides
 of the upstream `rules_haskell` rules. Their API docs can be found in
 `//bazel_tools/haskell.bzl`, or by executing the `bazel-api-docs` tool
 from `dev-env`. They mostly behave like the upstream rules, just
-adding some defaults, and adding a `hazel_deps` attribute (more on
+adding some defaults, and adding a `hackage_deps` attribute (more on
 this below) for convenience.
 
 ### Library : `da_haskell_library`
@@ -546,7 +546,7 @@ da_haskell_library(
         "//compiler/daml-lf-proto",
         ...
     ],
-    hazel_deps = [
+    hackage_deps = [
         "base",
         "bytestring",
         ...
@@ -573,7 +573,7 @@ Let's break this definition down:
 - `deps`:
     A list of in-house Haskell or C library dependencies to be linked
     into the target;
-- `hazel_deps`:
+- `hackage_deps`:
     A list of external Haskell (Hackage) libraries to be linked into
     the target;
 - `visibility`:
@@ -602,7 +602,7 @@ for
 `//nix/third-party/proto3-suite:proto3-suite` defined in the file
 `nix/third-party/proto3-suite/BUILD.bazel`.
 
-The `hazel_deps` argument details those Haskell packages (from
+The `hackage_deps` argument details those Haskell packages (from
 Hackage) that the `daml-ghc-compiler` target depends upon. In this case
 that is `base`, `bytestring` and some other packages not
 shown. Finally, `visibility` is set to public so no errors will result
@@ -622,7 +622,7 @@ da_haskell_binary (
   srcs = glob (["src/DA/Cli/**/*.hs", "src/DA/Test/**/*.hs"])
   src_strip_prefix = "DA",
   main_function = "DA.Cli.GHC.Run.main",
-  hazel_deps = [ "base", "time", ...],
+  hackage_deps = [ "base", "time", ...],
   data = [
     "//compiler/damlc/pkg-db"
     , ...
@@ -1017,3 +1017,8 @@ Unfortunately, [GHC builds are not deterministic](https://gitlab.haskell.org/ghc
     rm -r .bazel-cache    # clean the local cache
 
 This will also mean that changes made locally will need to be rebuilt, but it's likely that this will still result in a net positive gain on your build time.
+
+### Working in environments with low or intermittent connectivity
+
+Bazel tries to leverage the remote cache to speed up the build process but this can turn out to work against you if you are working in an environment with low or intermittent connectivity. To disable fetching from the remote cache in such scenario, you can use the `--noremote_accept_cached` option.
+

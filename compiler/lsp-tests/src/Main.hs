@@ -10,13 +10,16 @@ import Control.Monad
 import Control.Monad.IO.Class
 import DA.Bazel.Runfiles
 import Data.Aeson (toJSON)
+import Data.Char (toLower)
 import Data.Foldable (toList)
 import Data.List.Extra
 import qualified Data.Text as T
+import qualified Language.Haskell.LSP.Test as LspTest
 import Language.Haskell.LSP.Types
 import Language.Haskell.LSP.Types.Capabilities
 import Language.Haskell.LSP.Types.Lens
 import Network.URI
+import System.Directory
 import System.Environment.Blank
 import System.FilePath
 import System.Info.Extra
@@ -76,6 +79,41 @@ diagnosticTests run runScenarios = testGroup "diagnostics"
               ]
           expectDiagnostics [("Test.daml", [])]
           closeDoc test
+    , testCase "lower-case drive" $ run $ do
+          let aContent = T.unlines
+                [ "daml 1.2"
+                , "module A.A where"
+                , "import A.B ()"
+                ]
+              bContent = T.unlines
+                [ "daml 1.2"
+                , "module A.B where"
+                , "import DA.List"
+                ]
+          uriB <- getDocUri "A/B.daml"
+          Just pathB <- pure $ uriToFilePath uriB
+          uriB <- pure $
+              let (drive, suffix) = splitDrive pathB
+              in filePathToUri (joinDrive (map toLower drive ) suffix)
+          liftIO $ createDirectoryIfMissing True (takeDirectory pathB)
+          liftIO $ writeFileUTF8 pathB $ T.unpack bContent
+          uriA <- getDocUri "A/A.daml"
+          Just pathA <- pure $ uriToFilePath uriA
+          uriA <- pure $
+              let (drive, suffix) = splitDrive pathA
+              in filePathToUri (joinDrive (map toLower drive ) suffix)
+          let itemA = TextDocumentItem uriA "daml" 0 aContent
+          let a = TextDocumentIdentifier uriA
+          sendNotification TextDocumentDidOpen (DidOpenTextDocumentParams itemA)
+          diagsNot <- skipManyTill anyMessage LspTest.message :: Session PublishDiagnosticsNotification
+          let fileUri = diagsNot ^. params . uri
+          -- Check that if we put a lower-case drive in for A.A
+          -- the diagnostics for A.B will also be lower-case.
+          liftIO $ fileUri @?= uriB
+          let msg = diagsNot ^?! params . diagnostics . to (\(List xs) -> xs) . _head . message
+          liftIO $ unless ("redundant" `T.isInfixOf` msg) $
+              assertFailure ("Expected redundant import but got " <> T.unpack msg)
+          closeDoc a
     , testCase "diagnostics appear after introducing an error" $ run $ do
           test <- openDoc' "Test.daml" damlId $ T.unlines
               [ "daml 1.2"
@@ -435,7 +473,7 @@ executeCommandTests run _ = testGroup "execute command"
         Just escapedFp <- pure $ uriToFilePath (main' ^. uri)
         actualDotString :: ExecuteCommandResponse <- LSP.request WorkspaceExecuteCommand $ ExecuteCommandParams
            "daml/damlVisualize"  (Just (List [Aeson.String $ T.pack escapedFp]))
-        let expectedDotString = "digraph G {\ncompound=true;\nrankdir=LR;\nsubgraph cluster_Coin{\nn0[label=Create][color=green]; \nn1[label=Archive][color=red]; \nn2[label=Delete][color=red]; \nlabel=Coin;color=blue\n}\n}\n"
+        let expectedDotString = "digraph G {\ncompound=true;\nrankdir=LR;\nsubgraph cluster_Coin{\nn0[label=Create][color=green]; \nn1[label=Archive][color=red]; \nn2[label=Delete][color=red]; \nlabel=<<table align = \"left\" border=\"0\" cellborder=\"0\" cellspacing=\"1\">\n<tr><td align=\"center\"><b>Coin</b></td></tr><tr><td align=\"left\">owner</td></tr> \n</table>>;color=blue\n}\n}\n"
         liftIO $ assertEqual "Visulization command" (Just expectedDotString) (_result actualDotString)
         closeDoc main'
     , testCase "Invalid commands result in empty response"  $ run $ do

@@ -21,7 +21,6 @@ import           DA.Daml.LF.Ast as LF hiding (IsTest)
 import           "ghc-lib-parser" UniqSupply
 import           "ghc-lib-parser" Unique
 
-import           Control.Lens.Plated (transformOn)
 import           Control.Concurrent.Extra
 import           Control.DeepSeq
 import           Control.Exception.Extra
@@ -34,9 +33,8 @@ import qualified DA.Service.Logger.Impl.Pure as Logger
 import qualified Development.IDE.Types.Logger as IdeLogger
 import Development.IDE.Types.Location
 import Development.IDE.Types.Options(IdeReportProgress(..))
-import qualified Data.Aeson as A
-import qualified Data.Aeson.Lens as A
-import           Data.ByteString.Lazy.Char8 (unpack)
+import qualified Data.Aeson.Encode.Pretty as A
+import qualified Data.ByteString.Lazy.Char8 as BSL
 import           Data.Char
 import qualified Data.DList as DList
 import Data.Foldable
@@ -115,10 +113,12 @@ getIntegrationTests registerTODO scenarioService version = do
 
     -- test files are declared as data in BUILD.bazel
     testsLocation <- locateRunfiles $ mainWorkspace </> "compiler/damlc/tests/daml-test-files"
-    damlTestFiles <- filter (".daml" `isExtensionOf`) <$> listFiles testsLocation
+    damlTestFiles <-
+        map (\f -> (makeRelative testsLocation f, f)) .
+        filter (".daml" `isExtensionOf`) <$> listFiles testsLocation
     -- only run Test.daml (see https://github.com/digital-asset/daml/issues/726)
     bondTradingLocation <- locateRunfiles $ mainWorkspace </> "compiler/damlc/tests/bond-trading"
-    let allTestFiles = damlTestFiles ++ [bondTradingLocation </> "Test.daml"]
+    let allTestFiles = damlTestFiles ++ [("bond-trading/Test.daml", bondTradingLocation </> "Test.daml")]
 
     let outdir = "compiler/damlc/output"
     createDirectoryIfMissing True outdir
@@ -126,7 +126,7 @@ getIntegrationTests registerTODO scenarioService version = do
     opts <- defaultOptionsIO (Just version)
     opts <- pure $ opts
         { optThreads = 0
-        , optScenarioValidation = ScenarioValidationFull
+        , optSkipScenarioValidation = SkipScenarioValidation False
         , optCoreLinting = True
         }
 
@@ -154,8 +154,8 @@ instance IsTest TestCase where
     pure $ res { resultDescription = desc }
   testOptions = Tagged []
 
-testCase :: TestArguments -> LF.Version -> IO IdeState -> FilePath -> (TODO -> IO ()) -> FilePath -> TestTree
-testCase args version getService outdir registerTODO file = singleTest file . TestCase $ \log -> do
+testCase :: TestArguments -> LF.Version -> IO IdeState -> FilePath -> (TODO -> IO ()) -> (String, FilePath) -> TestTree
+testCase args version getService outdir registerTODO (name, file) = singleTest name . TestCase $ \log -> do
   service <- getService
   anns <- readFileAnns file
   if any (ignoreVersion version) anns
@@ -173,7 +173,7 @@ testCase args version getService outdir registerTODO file = singleTest file . Te
       for_ [file ++ ", " ++ x | Todo x <- anns] (registerTODO . TODO)
       resDiag <- checkDiagnostics log [fields | DiagnosticFields fields <- anns] $
         [ideErrorText "" $ T.pack $ show e | Left e <- [ex], not $ "_IGNORE_" `isInfixOf` show e] ++ diags
-      resQueries <- runJqQuery log [(pkg, q) | Right pkg <- [ex], QueryLF q <- anns]
+      resQueries <- runJqQuery log outdir file [q | QueryLF q <- anns]
       let failures = catMaybes $ resDiag : resQueries
       case failures of
         err : _others -> pure $ testFailed err
@@ -185,22 +185,18 @@ testCase args version getService outdir registerTODO file = singleTest file . Te
       UntilLF maxVersion -> version > maxVersion
       _ -> False
 
-runJqQuery :: (String -> IO ()) -> [(LF.Package, String)] -> IO [Maybe String]
-runJqQuery log qs = do
-  forM qs $ \(pkg, q) -> do
+runJqQuery :: (String -> IO ()) -> FilePath -> FilePath -> [String] -> IO [Maybe String]
+runJqQuery log outdir file qs = do
+  let proj = takeBaseName file
+  forM qs $ \q -> do
     log $ "running jq query: " ++ q
-    let json = unpack $ A.encode $ transformOn A._Value numToString $ JSONPB.toJSONPB (encodePackage pkg) JSONPB.jsonPBOptions
     let jqKey = "external" </> "jq_dev_env" </> "bin" </> if isWindows then "jq.exe" else "jq"
     jq <- locateRunfiles $ mainWorkspace </> jqKey
-    out <- readProcess jq [q] json
+    queryLfLib <- locateRunfiles $ mainWorkspace </> "compiler/damlc/tests/src"
+    out <- readProcess jq ["-L", queryLfLib, "import \"./query-lf-non-interned\" as lf; . as $pkg | " ++ q, outdir </> proj <.> "json"] ""
     case trim out of
       "true" -> pure Nothing
       other -> pure $ Just $ "jq query failed: got " ++ other
-  where
-    numToString :: A.Value -> A.Value
-    numToString = \case
-      A.Number x -> A.String $ T.pack $ show x
-      other -> other
 
 
 data DiagnosticField
@@ -310,15 +306,18 @@ parseRange s =
 
 mainProj :: TestArguments -> IdeState -> FilePath -> (String -> IO ()) -> NormalizedFilePath -> IO LF.Package
 mainProj TestArguments{..} service outdir log file = do
-    writeFile <- return $ \a b -> length b `seq` writeFile a b
     let proj = takeBaseName (fromNormalizedFilePath file)
 
     let corePrettyPrint = timed log "Core pretty-printing" . liftIO . writeFile (outdir </> proj <.> "core") . unlines . map prettyPrint
     let lfSave = timed log "LF saving" . liftIO . writeFileLf (outdir </> proj <.> "dalf")
     let lfPrettyPrint = timed log "LF pretty-printing" . liftIO . writeFile (outdir </> proj <.> "pdalf") . renderPretty
+    let jsonSave pkg =
+            let json = A.encodePretty $ JSONPB.toJSONPB (encodePackage pkg) JSONPB.jsonPBOptions
+            in timed log "JSON saving" . liftIO . BSL.writeFile (outdir </> proj <.> "json") $ json
 
     setFilesOfInterest service (Set.singleton file)
     runActionSync service $ do
+            dlint log file
             cores <- ghcCompile log file
             corePrettyPrint cores
             lf <- lfConvert log file
@@ -326,6 +325,7 @@ mainProj TestArguments{..} service outdir log file = do
             lf <- lfTypeCheck log file
             lfSave lf
             lfRunScenarios log file
+            jsonSave lf
             pure lf
 
 unjust :: Action (Maybe b) -> Action b
@@ -334,6 +334,9 @@ unjust act = do
     case res of
       Nothing -> fail "_IGNORE_"
       Just v -> return v
+
+dlint :: (String -> IO ()) -> NormalizedFilePath -> Action ()
+dlint log file = timed log "DLint" $ unjust $ getDlintIdeas file
 
 ghcCompile :: (String -> IO ()) -> NormalizedFilePath -> Action [GHC.CoreModule]
 ghcCompile log file = timed log "GHC compile" $ unjust $ getGhcCore file

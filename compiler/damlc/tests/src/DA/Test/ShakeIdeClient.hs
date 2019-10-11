@@ -16,7 +16,6 @@ import qualified Test.Tasty.HUnit    as Tasty
 import qualified Data.Text.Extended  as T
 
 import Data.Either
-import qualified Data.Set as Set
 import System.Directory
 import System.Environment.Blank (setEnv)
 import Control.Monad.IO.Class
@@ -280,17 +279,18 @@ dlintSmokeTests mbScenarioService = Tasty.testGroup "Dlint smoke tests"
             setFilesOfInterest [foo]
             expectNoErrors
             expectDiagnostic DsInfo (foo, 2, 0) "Warning: Use fewer imports"
-    ,  testCase' "Suggest use camelCase" $ do
-            foo <- makeFile "Foo.daml" $ T.unlines
-                [ "daml 1.2"
-                , "module Foo where"
-                , "my_fact (n : Int) : Int"
-                , "  | n <= 1    = 1"
-                , "  | otherwise = n * my_fact (n - 1)"
-                ]
-            setFilesOfInterest [foo]
-            expectNoErrors
-            expectDiagnostic DsInfo (foo, 2, 0) "Suggestion: Use camelCase"
+    -- Now disabled by default.
+    -- ,  testCase' "Suggest use camelCase" $ do
+    --         foo <- makeFile "Foo.daml" $ T.unlines
+    --             [ "daml 1.2"
+    --             , "module Foo where"
+    --             , "my_fact (n : Int) : Int"
+    --             , "  | n <= 1    = 1"
+    --             , "  | otherwise = n * my_fact (n - 1)"
+    --             ]
+    --         setFilesOfInterest [foo]
+    --         expectNoErrors
+    --         expectDiagnostic DsInfo (foo, 2, 0) "Suggestion: Use camelCase"
     ,  testCase' "Suggest reduce duplication" $ do
             foo <- makeFile "Foo.daml" $ T.unlines
                 [ "daml 1.2"
@@ -353,7 +353,63 @@ dlintSmokeTests mbScenarioService = Tasty.testGroup "Dlint smoke tests"
             setFilesOfInterest [foo]
             expectNoErrors
             expectDiagnostic DsInfo (foo, 3, 0) "Suggestion: Use foldr"
-  ]
+    ,  testCase' "Short-circuited list comprehension" $ do
+            foo <- makeFile "Foo.daml" $ T.unlines
+                [ "daml 1.2"
+                , "module Foo where"
+                , "foo = [x | False, x <- [1..10]]" ]
+            setFilesOfInterest [foo]
+            expectNoErrors
+            expectDiagnostic DsInfo (foo, 2, 6) "Suggestion: Short-circuited list comprehension"
+    ,  testCase' "Redundant true guards" $ do
+            foo <- makeFile "Foo.daml" $ T.unlines
+                [ "daml 1.2"
+                , "module Foo where"
+                , "foo = [x | True, x <- [1..10]]" ]
+            setFilesOfInterest [foo]
+            expectNoErrors
+            expectDiagnostic DsInfo (foo, 2, 6) "Suggestion: Redundant True guards"
+    ,  testCase' "Move guards forward" $ do
+            foo <- makeFile "Foo.daml" $ T.unlines
+                [ "daml 1.2"
+                , "module Foo where"
+                , "foo feature = [x | x <- [1..10], feature]" ]
+            setFilesOfInterest [foo]
+            expectNoErrors
+            expectDiagnostic DsInfo (foo, 2, 14) "Suggestion: Move guards forward"
+    ,  testCase' "Move map inside list comprehension" $ do
+            foo <- makeFile "Foo.daml" $ T.unlines
+                [ "daml 1.2"
+                , "module Foo where"
+                , "foo = map f [x | x <- [1..10]] where f x = x * x" ]
+            setFilesOfInterest [foo]
+            expectNoErrors
+            expectDiagnostic DsInfo (foo, 2, 6) "Suggestion: Move map inside list comprehension"
+    ,  testCase' "Use list literal" $ do
+            foo <- makeFile "Foo.daml" $ T.unlines
+                [ "daml 1.2"
+                , "module Foo where"
+                , "foo = 1 :: 2 :: []" ]
+            setFilesOfInterest [foo]
+            expectNoErrors
+            expectDiagnostic DsInfo (foo, 2, 6) "Suggestion: Use list literal"
+    ,  testCase' "Use list literal pattern" $ do
+            foo <- makeFile "Foo.daml" $ T.unlines
+                [ "daml 1.2"
+                , "module Foo where"
+                , "foo (1 :: 2 :: []) = 1" ]
+            setFilesOfInterest [foo]
+            expectNoErrors
+            expectDiagnostic DsInfo (foo, 2, 4) "Suggestion: Use list literal pattern"
+    ,  testCase' "Use '::'" $ do
+            foo <- makeFile "Foo.daml" $ T.unlines
+                [ "daml 1.2"
+                , "module Foo where"
+                , "foo x xs = [x] ++ xs" ]
+            setFilesOfInterest [foo]
+            expectNoErrors
+            expectDiagnostic DsInfo (foo, 2, 11) "Suggestion: Use ::"
+    ]
   where
       testCase' = testCase mbScenarioService
 
@@ -955,14 +1011,13 @@ visualDamlTests = Tasty.testGroup "Visual Tests"
                 , "        do return ()"
                 ]
             setFilesOfInterest [foo]
-            expectedTemplatePoperties foo $ Set.fromList
-                [TemplateProp "Coin"
-                    (Set.fromList
-                        [ExpectedChoice "Archive" True Set.empty,
-                         ExpectedChoice "Delete" True Set.empty
-                        ]
-                    )
-                ]
+            expectedGraph foo (
+                ExpectedGraph {expectedSubgraphs =
+                                [ExpectedSubGraph {expectedNodes = ["Create","Archive","Delete"]
+                                      , expectedTplFields = ["owner"]
+                                      , expectedTemplate = "Coin"}
+                                ]
+                                , expectedEdges = []})
         , testCase' "Fetch shoud not be an create action" $ do
             fetchTest <- makeModule "F"
                 [ "template Coin"
@@ -980,13 +1035,11 @@ visualDamlTests = Tasty.testGroup "Visual Tests"
                 ]
             setFilesOfInterest [fetchTest]
             expectNoErrors
-            expectedTemplatePoperties fetchTest $ Set.fromList
-                [TemplateProp "Coin"
-                    (Set.fromList
-                    [   ExpectedChoice "Archive" True Set.empty,
-                        ExpectedChoice "ReducedCoin" False Set.empty
-                    ])
-                ]
+            expectedGraph fetchTest ( ExpectedGraph {expectedSubgraphs =
+                                        [ExpectedSubGraph {expectedNodes = ["Create","Archive","ReducedCoin"]
+                                            , expectedTplFields = ["owner","amount"]
+                                            , expectedTemplate = "Coin"}]
+                              , expectedEdges = []})
         , testCase' "Exercise should add an edge" $ do
             exerciseTest <- makeModule "F"
                 [ "template TT"
@@ -1009,18 +1062,20 @@ visualDamlTests = Tasty.testGroup "Visual Tests"
                 ]
             setFilesOfInterest [exerciseTest]
             expectNoErrors
-            expectedTemplatePoperties exerciseTest $ Set.fromList
-                [TemplateProp "Coin"
-                    (Set.fromList
-                    [   ExpectedChoice "Archive" True Set.empty,
-                        ExpectedChoice "Delete" True Set.empty
-                    ])
-                , TemplateProp "TT"
-                    (Set.fromList
-                    [   ExpectedChoice "Consume" True (Set.fromList [Exercise "F:Coin" "Delete"]),
-                        ExpectedChoice "Archive" True Set.empty
-                    ])
-                ]
+            expectedGraph exerciseTest (ExpectedGraph
+                [ ExpectedSubGraph { expectedNodes = ["Create", "Archive", "Delete"]
+                                   , expectedTplFields = ["owner"]
+                                   , expectedTemplate = "Coin"
+                                    }
+                , ExpectedSubGraph { expectedNodes = ["Create", "Archive", "Consume"]
+                                   , expectedTplFields = ["owner"]
+                                   , expectedTemplate = "TT"}]
+
+                [(ExpectedChoiceDetails {expectedConsuming = True
+                                        , expectedName = "Consume"},
+                  ExpectedChoiceDetails {expectedConsuming = True
+                                        , expectedName = "Delete"})
+                ])
         , testCase' "Create on other template should be edge" $ do
             createTest <- makeModule "F"
                 [ "template TT"
@@ -1039,16 +1094,16 @@ visualDamlTests = Tasty.testGroup "Visual Tests"
                 ]
             setFilesOfInterest [createTest]
             expectNoErrors
-            expectedTemplatePoperties createTest $ Set.fromList
-                [TemplateProp "Coin"
-                    (Set.fromList
-                    [ExpectedChoice "Archive" True Set.empty])
-                , TemplateProp "TT"
-                    (Set.fromList
-                    [   ExpectedChoice "CreateCoin" True (Set.fromList [Create "F:Coin"]),
-                        ExpectedChoice "Archive" True Set.empty
-                    ])
-                ]
+            expectedGraph createTest (ExpectedGraph
+                {expectedSubgraphs = [ExpectedSubGraph {expectedNodes = ["Create","Archive"]
+                                                       , expectedTplFields = ["owner"]
+                                                       , expectedTemplate = "Coin"}
+                                     , ExpectedSubGraph {expectedNodes = ["Create","Archive","CreateCoin"]
+                                                        , expectedTplFields = ["owner"]
+                                                        , expectedTemplate = "TT"}]
+                , expectedEdges = [(ExpectedChoiceDetails {expectedConsuming = True, expectedName = "CreateCoin"}
+                                   ,ExpectedChoiceDetails {expectedConsuming = False, expectedName = "Create"})]})
+
     ]
     where
         testCase' = testCase Nothing

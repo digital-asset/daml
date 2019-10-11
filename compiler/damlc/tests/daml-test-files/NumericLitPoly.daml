@@ -1,0 +1,15 @@
+-- Copyright (c) 2019, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- Test numeric literal errors.
+--
+-- @SINCE-LF 1.dev
+-- @ERROR Polymorphic numeric literal
+
+daml 1.2
+
+module NumericLitPoly where
+
+-- Polymorphic numeric literals are not allowed.
+polyLit : Numeric n
+polyLit = 1.2345

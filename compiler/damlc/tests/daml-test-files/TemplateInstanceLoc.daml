@@ -1,0 +1,16 @@
+-- Copyright (c) 2019 The DAML Authors. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+--
+-- @ERROR range=16:26-16:30; Not in scope: type constructor or class ‘Foo2Instance’ Perhaps you meant ‘FooInstance’ (line 10)
+daml 1.2
+module TemplateInstanceLoc where
+
+data D = D {}
+
+template Foo a
+  with
+    p : Party
+  where
+    signatory p
+
+template instance FooD = Foo2 D

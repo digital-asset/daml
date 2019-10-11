@@ -9,6 +9,7 @@ daml 1.2
 module LibraryModules where
 
 import DA.Action
+import DA.Action.State
 import DA.Assert
 import DA.Bifunctor
 import DA.Date
@@ -35,6 +36,7 @@ import DA.Monoid
 import DA.Next.Map
 import DA.Next.Set
 import DA.NonEmpty
+import DA.Numeric
 import DA.Optional.Total
 import DA.Optional
 import DA.Random

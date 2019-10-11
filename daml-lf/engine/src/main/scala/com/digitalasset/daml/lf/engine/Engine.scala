@@ -14,7 +14,7 @@ import com.digitalasset.daml.lf.speedy.Speedy.Machine
 import com.digitalasset.daml.lf.speedy.SResult._
 import com.digitalasset.daml.lf.transaction.{GenTransaction, Transaction}
 import com.digitalasset.daml.lf.transaction.Node._
-import com.digitalasset.daml.lf.value.Value._
+import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.speedy.{Command => SpeedyCommand}
 
 /**
@@ -45,7 +45,7 @@ import com.digitalasset.daml.lf.speedy.{Command => SpeedyCommand}
   */
 final class Engine {
   private[this] val _compiledPackages = ConcurrentCompiledPackages()
-  private[this] val _commandTranslation = CommandPreprocessor(_compiledPackages)
+  private[this] val _commandTranslation = new CommandPreprocessor(_compiledPackages)
 
   /**
     * Executes commands `cmds` under the authority of `cmds.submitter` and returns one of the following:
@@ -104,7 +104,7 @@ final class Engine {
     */
   def reinterpret(
       submitters: Set[Party],
-      nodes: Seq[GenNode.WithTxValue[NodeId, ContractId]],
+      nodes: Seq[GenNode.WithTxValue[Value.NodeId, Value.ContractId]],
       ledgerEffectiveTime: Time.Timestamp
   ): Result[Transaction.Transaction] = {
     for {
@@ -190,35 +190,36 @@ final class Engine {
   // A safe cast of a value to a value which uses only absolute contract IDs.
   // In particular, the cast will succeed for all values contained in the root nodes of a Transaction produced by submit
   private[this] def asValueWithAbsoluteContractIds[Cid](
-      v: VersionedValue[Cid]): Result[VersionedValue[AbsoluteContractId]] =
+      v: Value[Cid]): Result[Value[Value.AbsoluteContractId]] =
     try {
       ResultDone(
         v.mapContractId {
-          case rcoid: RelativeContractId =>
+          case rcoid: Value.RelativeContractId =>
             throw ValidationError(s"unexpected relative contract id $rcoid")
-          case acoid: AbsoluteContractId => acoid
+          case acoid: Value.AbsoluteContractId => acoid
         }
       )
     } catch {
       case err: ValidationError => ResultError(err)
     }
 
-  private[this] def asAbsoluteContractId(coid: ContractId): Result[AbsoluteContractId] =
+  private[this] def asAbsoluteContractId(coid: Value.ContractId): Result[Value.AbsoluteContractId] =
     coid match {
-      case rcoid: RelativeContractId =>
+      case rcoid: Value.RelativeContractId =>
         ResultError(ValidationError(s"not an absolute contract ID: $rcoid"))
-      case acoid: AbsoluteContractId =>
+      case acoid: Value.AbsoluteContractId =>
         ResultDone(acoid)
     }
 
   // Translate a GenNode into an expression re-interpretable by the interpreter
-  private[this] def translateNode[Cid <: ContractId](commandPreprocessor: CommandPreprocessor)(
+  private[this] def translateNode[Cid <: Value.ContractId](
+      commandPreprocessor: CommandPreprocessor)(
       node: GenNode.WithTxValue[Transaction.NodeId, Cid]): Result[(Type, SpeedyCommand)] = {
 
     node match {
       case NodeCreate(coid @ _, coinst, optLoc @ _, sigs @ _, stks @ _, key @ _) =>
         val identifier = coinst.template
-        asValueWithAbsoluteContractIds(coinst.arg).flatMap(
+        asValueWithAbsoluteContractIds(coinst.arg.value).flatMap(
           absArg => commandPreprocessor.preprocessCreate(identifier, absArg)
         )
 
@@ -237,7 +238,7 @@ final class Engine {
           exerciseResult @ _,
           key @ _) =>
         val templateId = template
-        asValueWithAbsoluteContractIds(chosenVal).flatMap(
+        asValueWithAbsoluteContractIds(chosenVal.value).flatMap(
           absChosenVal =>
             commandPreprocessor
               .preprocessExercise(templateId, coid, choice, absChosenVal))
@@ -251,7 +252,7 @@ final class Engine {
     }
   }
 
-  private[this] def translateTransactionRoots[Cid <: ContractId](
+  private[this] def translateTransactionRoots[Cid <: Value.ContractId](
       commandPreprocessor: CommandPreprocessor,
       tx: GenTransaction.WithTxValue[Transaction.NodeId, Cid]
   ): Result[ImmArray[(Transaction.NodeId, (Type, SpeedyCommand))]] = {

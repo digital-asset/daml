@@ -21,7 +21,6 @@ import qualified Data.Map.Strict as MS
 import Data.Maybe
 import qualified Data.NameMap as NM
 import qualified Data.Text as T
-import Data.Tuple
 import Development.IDE.GHC.Util
 import Development.IDE.Types.Location
 import "ghc-lib" GHC
@@ -92,15 +91,16 @@ generateUpgradeModule templateNames modName qualA qualB =
 
 upgradeTemplates :: String -> [String]
 upgradeTemplates n =
-    [ "type " <> n <> "Upgrade = Upgrade A." <> n <> " B." <> n
-    , "type " <> n <> "Rollback = Rollback A." <> n <> " B." <> n
+    [ "template instance " <> n <> "Upgrade = Upgrade A." <> n <> " B." <> n
+    , "template instance " <> n <> "Rollback = Rollback A." <> n <> " B." <> n
     , "instance Convertible A." <> n <> " B." <> n
+    , "instance Convertible B." <> n <> " A." <> n
     ]
 
 -- | Generate the full source for a daml-lf package.
 generateSrcPkgFromLf ::
        LF.PackageId
-    -> MS.Map GHC.UnitId LF.PackageId
+    -> MS.Map LF.PackageId GHC.UnitId
     -> LF.Package
     -> [(NormalizedFilePath, String)]
 generateSrcPkgFromLf thisPkgId pkgMap pkg = do
@@ -188,18 +188,17 @@ newtype Qualify = Qualify Bool
 generateSrcFromLf ::
        Qualify
     -> LF.PackageId
-    -> MS.Map GHC.UnitId LF.PackageId
+    -> MS.Map LF.PackageId GHC.UnitId
     -> LF.Module
     -> ParsedSource
 generateSrcFromLf (Qualify qualify) thisPkgId pkgMap m = noLoc mod
   where
-    pkgMapInv = MS.fromList $ map swap $ MS.toList pkgMap
     getUnitId :: LF.PackageRef -> UnitId
     getUnitId pkgRef =
         fromMaybe (error $ "Unknown package: " <> show pkgRef) $
         case pkgRef of
-            LF.PRSelf -> MS.lookup thisPkgId pkgMapInv
-            LF.PRImport pkgId -> MS.lookup pkgId pkgMapInv
+            LF.PRSelf -> MS.lookup thisPkgId pkgMap
+            LF.PRImport pkgId -> MS.lookup pkgId pkgMap
     -- TODO (drsk) how come those '#' appear in daml-lf names?
     sanitize = T.dropWhileEnd (== '#')
     mod =
@@ -242,6 +241,8 @@ generateSrcFromLf (Qualify qualify) thisPkgId pkgMap m = noLoc mod
             , "ensure"
             , "create"
             , "archive"
+            , "toAnyTemplate"
+            , "fromAnyTemplate"
             ]
     classMethodStub :: Located RdrName -> LHsBindLR GhcPs GhcPs
     classMethodStub funName =
@@ -532,6 +533,8 @@ generateSrcFromLf (Qualify qualify) thisPkgId pkgMap m = noLoc mod
             LF.BTArrow -> mkTyConTypeUnqual funTyCon
             -- TODO (#2289): Add support for Numeric types.
             LF.BTNumeric -> error "Numeric type not yet supported in upgrades"
+            -- TODO see https://github.com/digital-asset/daml/issues/2876
+            LF.BTAny -> error "Any type not yet supported in upgrades"
     mkGhcType =
         HsTyVar noExt NotPromoted .
         noLoc . mkOrig gHC_TYPES . mkOccName varName
@@ -636,6 +639,8 @@ generateSrcFromLf (Qualify qualify) thisPkgId pkgMap m = noLoc mod
             LF.BTArrow -> (primUnitId, translateModName funTyCon)
             -- TODO (#2289): Add support for Numeric types.
             LF.BTNumeric -> error "Numeric type not yet supported in upgrades"
+            -- TODO: see https://github.com/digital-asset/daml/issues/2876
+            LF.BTAny -> error "Any type not yet supported in upgrades"
 
     translateModName ::
            forall a. NamedThing a

@@ -6,14 +6,21 @@ load("//bazel_tools:haskell.bzl", "da_haskell_library")
 da_haskell_library(
     name = "daml-visual",
     srcs = glob(["src/**/*.hs"]),
-    hazel_deps = [
+    data = [
+        "@static_asset_d3plus//:js/d3.min.js",
+        "@static_asset_d3plus//:js/d3plus.min.js",
+    ],
+    hackage_deps = [
+        "aeson",
         "base",
         "bytestring",
         "containers",
         "extra",
         "filepath",
+        "open-browser",
         "text",
         "safe",
+        "stache",
         "unordered-containers",
         "utf8-string",
         "zip-archive",
@@ -26,6 +33,7 @@ da_haskell_library(
         "//compiler/daml-lf-proto",
         "//compiler/daml-lf-reader",
         "//compiler/daml-lf-tools",
+        "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
     ],
 )

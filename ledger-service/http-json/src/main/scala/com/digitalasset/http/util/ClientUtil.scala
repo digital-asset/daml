@@ -9,12 +9,7 @@ import akka.stream.scaladsl.{Sink, Source}
 import akka.{Done, NotUsed}
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.http.util.FutureUtil.toFuture
-import com.digitalasset.ledger.api.refinements.ApiTypes.{
-  ApplicationId,
-  CommandId,
-  Party,
-  WorkflowId
-}
+import com.digitalasset.ledger.api.refinements.ApiTypes.{ApplicationId, CommandId, Party}
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
 import com.digitalasset.ledger.api.v1.transaction.Transaction
 import com.digitalasset.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
@@ -63,9 +58,6 @@ object ClientUtil {
     TransactionFilter(Party.unsubst(ps).map((_, Filters.defaultInstance)).toMap)
 
   def uniqueId(): String = UUID.randomUUID.toString
-
-  def workflowIdFromParty(p: Party): WorkflowId =
-    WorkflowId(s"${Party.unwrap(p)} Workflow")
 
   def uniqueCommandId(): CommandId = CommandId(uniqueId())
 }

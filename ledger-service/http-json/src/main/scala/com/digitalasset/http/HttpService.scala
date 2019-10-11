@@ -39,6 +39,8 @@ import scala.{util => u}
 
 object HttpService extends StrictLogging {
 
+  val DefaultMaxInboundMessageSize: Int = 4194304
+
   private type ET[A] = EitherT[Future, Error, A]
 
   final case class Error(message: String)
@@ -48,6 +50,7 @@ object HttpService extends StrictLogging {
       ledgerPort: Int,
       applicationId: ApplicationId,
       httpPort: Int,
+      maxInboundMessageSize: Int = DefaultMaxInboundMessageSize,
       validateJwt: Endpoints.ValidateJwt = decodeJwt)(
       implicit asys: ActorSystem,
       mat: Materializer,
@@ -64,7 +67,8 @@ object HttpService extends StrictLogging {
 
     val bindingEt: EitherT[Future, Error, ServerBinding] = for {
       clientChannel <- FutureUtil
-        .either(LedgerClientJwt.singleHostChannel(ledgerHost, ledgerPort, clientConfig)(ec, aesf))
+        .either(LedgerClientJwt
+          .singleHostChannel(ledgerHost, ledgerPort, clientConfig, maxInboundMessageSize)(ec, aesf))
         .leftMap(e => Error(e.getMessage)): ET[io.grpc.Channel]
 
       client <- FutureUtil
@@ -87,7 +91,9 @@ object HttpService extends StrictLogging {
 
       contractsService = new ContractsService(
         PackageService.resolveTemplateIds(templateIdMap),
-        LedgerClientJwt.getActiveContracts(clientConfig, clientChannel))
+        LedgerClientJwt.getActiveContracts(clientConfig, clientChannel),
+        LedgerReader.damlLfTypeLookup(packageStore)
+      )
 
       (encoder, decoder) = buildJsonCodecs(ledgerId, packageStore, templateIdMap)
 

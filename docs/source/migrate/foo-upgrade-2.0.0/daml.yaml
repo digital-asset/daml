@@ -1,6 +1,6 @@
 sdk-version: 0.0.0
 name: foo-upgrade-2.0.0
-source: daml/Foo.daml
+source: daml
 parties:
   - Alice
   - Bob

@@ -43,20 +43,20 @@ class MapsSpec
       """
         {
           "reference" : "Empty maps",
-          "map" : { "Map" : {} },
-          "deep_map" : { "Map" : {} },
+          "map" : {},
+          "deep_map" : {},
           "party" : "Bob"
         }
       """,
       """
         {
          "reference" : "Non-empty maps",
-         "map" : { "Map" :   { "1" : 1 ,
-                               "2" : 2 ,
-                               "3" : 3 ,
-                               "4" : 4 ,
-                               "5" : 5 } },
-         "deep_map" : { "Map" : {} },
+         "map" : { "1" : 1 ,
+                   "2" : 2 ,
+                   "3" : 3 ,
+                   "4" : 4 ,
+                   "5" : 5 },
+         "deep_map" : {},
          "party" : "Bob"
         }
       """

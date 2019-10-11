@@ -6,7 +6,7 @@ package com.digitalasset.daml.lf.iface
 import java.{util => j}
 
 import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
-import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.{Numeric, Ref}
 import com.digitalasset.daml.lf.data.Ref.Identifier
 import scalaz.Monoid
 import scalaz.syntax.foldable._
@@ -49,11 +49,16 @@ sealed abstract class Type extends Product with Serializable {
     *       `Z`, but we have not done that for closer analogy to pattern
     *       matching.
     */
-  def fold[Z](typeCon: TypeCon => Z, typePrim: TypePrim => Z, typeVar: TypeVar => Z): Z =
+  def fold[Z](
+      typeCon: TypeCon => Z,
+      typePrim: TypePrim => Z,
+      typeVar: TypeVar => Z,
+      typeNum: TypeNumeric => Z): Z =
     this match {
       case t @ TypeCon(_, _) => typeCon(t)
       case t @ TypePrim(_, _) => typePrim(t)
       case t @ TypeVar(_) => typeVar(t)
+      case t @ TypeNumeric(_) => typeNum(t)
     }
 
   /** Map all type variables that occur anywhere within this type */
@@ -62,6 +67,7 @@ sealed abstract class Type extends Product with Serializable {
       case t @ TypeVar(_) => f(t)
       case t @ TypeCon(_, _) => TypeCon(t.name, t.typArgs.map(_.mapTypeVars(f)))
       case t @ TypePrim(_, _) => TypePrim(t.typ, t.typArgs.map(_.mapTypeVars(f)))
+      case t @ TypeNumeric(_) => t
     }
 
   /** Fold over the [[TypeConNameOrPrimType]]s therein. */
@@ -70,7 +76,7 @@ sealed abstract class Type extends Product with Serializable {
       f(typ) |+| typArgs.foldMap(_.foldMapConsPrims(f))
     case TypePrim(typ, typArgs) =>
       f(typ) |+| typArgs.foldMap(_.foldMapConsPrims(f))
-    case TypeVar(_) => mzero[Z]
+    case TypeVar(_) | TypeNumeric(_) => mzero[Z]
   }
 }
 
@@ -93,6 +99,8 @@ final case class TypeCon(name: TypeConName, typArgs: ImmArraySeq[Type])
       }
     }
 }
+
+final case class TypeNumeric(scale: Numeric.Scale) extends Type
 
 final case class TypePrim(typ: PrimType, typArgs: ImmArraySeq[Type])
     extends Type
@@ -125,7 +133,6 @@ sealed abstract class PrimType extends TypeConNameOrPrimType {
     this match {
       case Bool => bool
       case Int64 => int64
-      case Decimal => decimal
       case Text => text
       case Date => date
       case Timestamp => timestamp
@@ -142,7 +149,6 @@ sealed abstract class PrimType extends TypeConNameOrPrimType {
 object PrimType {
   final val Bool = PrimTypeBool
   final val Int64 = PrimTypeInt64
-  final val Decimal = PrimTypeDecimal
   final val Text = PrimTypeText
   final val Date = PrimTypeDate
   final val Timestamp = PrimTypeTimestamp
@@ -156,7 +162,6 @@ object PrimType {
 
 case object PrimTypeBool extends PrimType
 case object PrimTypeInt64 extends PrimType
-case object PrimTypeDecimal extends PrimType
 case object PrimTypeText extends PrimType
 case object PrimTypeDate extends PrimType
 case object PrimTypeTimestamp extends PrimType
@@ -170,7 +175,6 @@ case object PrimTypeMap extends PrimType
 trait PrimTypeVisitor[+Z] {
   def bool: Z
   def int64: Z
-  def decimal: Z
   def text: Z
   def date: Z
   def timestamp: Z

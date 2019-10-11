@@ -14,6 +14,7 @@ import com.digitalasset.daml.lf.language.{LanguageVersion => LV}
 import com.digitalasset.daml_lf.{DamlLf1 => PLF}
 import com.google.protobuf.CodedInputStream
 
+import scala.annotation.tailrec
 import scala.collection.JavaConverters._
 import scala.collection.{breakOut, mutable}
 
@@ -278,11 +279,14 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
             .foldLeft[Type](TVar(name(tvar.getVar)))((typ, arg) => TApp(typ, decodeType(arg)))
         case PLF.Type.SumCase.NAT =>
           assertSince(LV.Features.numeric, "Type.NAT")
-          if (0 <= lfType.getNat && lfType.getNat <= Numeric.maxPrecision)
-            TNat(lfType.getNat.toInt)
-          else
-            throw ParseError(
-              s"TNat must be between 0 and ${Numeric.maxPrecision}, found ${lfType.getNat}")
+          Numeric.Scale
+            .fromLong(lfType.getNat)
+            .fold[TNat](
+              _ =>
+                throw ParseError(
+                  s"TNat must be between ${Numeric.Scale.MinValue} and ${Numeric.Scale.MaxValue}, found ${lfType.getNat}"),
+              TNat
+            )
         case PLF.Type.SumCase.CON =>
           val tcon = lfType.getCon
           (TTyCon(decodeTypeConName(tcon.getTycon)) /: [Type] tcon.getArgsList.asScala)(
@@ -291,9 +295,7 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
           val prim = lfType.getPrim
           val baseType =
             if (prim.getPrim == PLF.PrimType.DECIMAL) {
-              // FixMe: https://github.com/digital-asset/daml/issues/2289
-              //   enable the check once the compiler produces proper DAML-LF 1.dev
-              // assertUntil(LV.Features.numeric, "PrimType.DECIMAL")
+              assertUntil(LV.Features.numeric, "PrimType.DECIMAL")
               TDecimal
             } else {
               val info = builtinTypeInfoMap(prim.getPrim)
@@ -398,17 +400,11 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
         case PLF.Expr.SumCase.BUILTIN =>
           val info = DecodeV1.builtinInfoMap(lfExpr.getBuiltin)
           assertSince(info.minVersion, lfExpr.getBuiltin.getValueDescriptor.getFullName)
-
-          if (info.handleLegacyDecimal) {
-            // FixMe: https://github.com/digital-asset/daml/issues/2289
-            //   enable the check once the compiler produces proper DAML-LF 1.dev
-            // info.maxVersion.foreach(assertUntil(_, lfExpr.getBuiltin.getValueDescriptor.getFullName))
-            ETyApp(EBuiltin(info.builtin), TDecimalScale)
-          } else {
-            info.maxVersion.foreach(
-              assertUntil(_, lfExpr.getBuiltin.getValueDescriptor.getFullName))
-            EBuiltin(info.builtin)
-          }
+          info.maxVersion.foreach(assertUntil(_, lfExpr.getBuiltin.getValueDescriptor.getFullName))
+          ntimes[Expr](
+            info.implicitDecimalScaleParameters,
+            ETyApp(_, TDecimalScale),
+            EBuiltin(info.builtin))
 
         case PLF.Expr.SumCase.REC_CON =>
           val recCon = lfExpr.getRecCon
@@ -538,6 +534,28 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
           assertSince(LV.Features.optional, "Expr.OptionalSome")
           val some = lfExpr.getOptionalSome
           ESome(decodeType(some.getType), decodeExpr(some.getBody, definition))
+
+        case PLF.Expr.SumCase.TO_ANY =>
+          assertSince(LV.Features.anyType, "Expr.ToAny")
+          EToAny(
+            decodeType(lfExpr.getToAny.getType),
+            decodeExpr(lfExpr.getToAny.getExpr, definition))
+
+        case PLF.Expr.SumCase.FROM_ANY =>
+          assertSince(LV.Features.anyType, "Expr.FromAny")
+          EFromAny(
+            decodeType(lfExpr.getFromAny.getType),
+            decodeExpr(lfExpr.getFromAny.getExpr, definition))
+
+        case PLF.Expr.SumCase.TO_TEXT_TEMPLATE_ID =>
+          assertSince(LV.Features.toTextTemplateId, "Expr.ToTextTemplateId")
+          decodeType(lfExpr.getToTextTemplateId.getType) match {
+            case TTyCon(tmplId) =>
+              EToTextTemplateId(tmplId = tmplId)
+            case ty =>
+              throw ParseError(
+                s"TO_TEXT_TEMPLATE_ID must be applied to a template type but got $ty")
+          }
 
         case PLF.Expr.SumCase.SUM_NOT_SET =>
           throw ParseError("Expr.SUM_NOT_SET")
@@ -721,9 +739,7 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
         case PLF.PrimLit.SumCase.INT64 =>
           PLInt64(lfPrimLit.getInt64)
         case PLF.PrimLit.SumCase.DECIMAL =>
-          // FixMe: https://github.com/digital-asset/daml/issues/2289
-          //   enable the check once the compiler produces proper DAML-LF 1.dev
-          // assertUntil(LV.Features.numeric, "PrimLit.decimal")
+          assertUntil(LV.Features.numeric, "PrimLit.decimal")
           Decimal
             .fromString(lfPrimLit.getDecimal)
             .flatMap(Numeric.fromBigDecimal(Decimal.scale, _))
@@ -772,6 +788,10 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
 
 private[lf] object DecodeV1 {
 
+  @tailrec
+  private def ntimes[A](n: Int, f: A => A, a: A): A =
+    if (n == 0) a else ntimes(n - 1, f, f(a))
+
   case class BuiltinTypeInfo(
       proto: PLF.PrimType,
       bTyp: BuiltinType,
@@ -796,7 +816,8 @@ private[lf] object DecodeV1 {
       BuiltinTypeInfo(OPTIONAL, BTOptional, minVersion = optional),
       BuiltinTypeInfo(MAP, BTMap, minVersion = optional),
       BuiltinTypeInfo(ARROW, BTArrow, minVersion = arrowType),
-      BuiltinTypeInfo(NUMERIC, BTNumeric, minVersion = numeric)
+      BuiltinTypeInfo(NUMERIC, BTNumeric, minVersion = numeric),
+      BuiltinTypeInfo(ANY, BTAny, minVersion = anyType)
     )
   }
 
@@ -810,7 +831,7 @@ private[lf] object DecodeV1 {
       builtin: BuiltinFunction,
       minVersion: LV = LV.Features.default, // first version that does support the builtin
       maxVersion: Option[LV] = None, // first version that does not support the builtin
-      handleLegacyDecimal: Boolean = false
+      implicitDecimalScaleParameters: Int = 0
   )
 
   val builtinFunctionInfos: List[BuiltinFunctionInfo] = {
@@ -820,32 +841,39 @@ private[lf] object DecodeV1 {
         ADD_DECIMAL,
         BAddNumeric,
         maxVersion = Some(numeric),
-        handleLegacyDecimal = true),
+        implicitDecimalScaleParameters = 1
+      ),
       BuiltinFunctionInfo(
         SUB_DECIMAL,
         BSubNumeric,
         maxVersion = Some(numeric),
-        handleLegacyDecimal = true),
+        implicitDecimalScaleParameters = 1
+      ),
       BuiltinFunctionInfo(
         MUL_DECIMAL,
         BMulNumeric,
         maxVersion = Some(numeric),
-        handleLegacyDecimal = true),
+        implicitDecimalScaleParameters = 3
+      ),
       BuiltinFunctionInfo(
         DIV_DECIMAL,
         BDivNumeric,
         maxVersion = Some(numeric),
-        handleLegacyDecimal = true),
+        implicitDecimalScaleParameters = 3
+      ),
       BuiltinFunctionInfo(
         ROUND_DECIMAL,
         BRoundNumeric,
         maxVersion = Some(numeric),
-        handleLegacyDecimal = true),
+        implicitDecimalScaleParameters = 1
+      ),
       BuiltinFunctionInfo(ADD_NUMERIC, BAddNumeric, minVersion = numeric),
       BuiltinFunctionInfo(SUB_NUMERIC, BSubNumeric, minVersion = numeric),
       BuiltinFunctionInfo(MUL_NUMERIC, BMulNumeric, minVersion = numeric),
       BuiltinFunctionInfo(DIV_NUMERIC, BDivNumeric, minVersion = numeric),
       BuiltinFunctionInfo(ROUND_NUMERIC, BRoundNumeric, minVersion = numeric),
+      BuiltinFunctionInfo(CAST_NUMERIC, BCastNumeric, minVersion = numeric),
+      BuiltinFunctionInfo(SHIFT_NUMERIC, BShiftNumeric, minVersion = numeric),
       BuiltinFunctionInfo(ADD_INT64, BAddInt64),
       BuiltinFunctionInfo(SUB_INT64, BSubInt64),
       BuiltinFunctionInfo(MUL_INT64, BMulInt64),
@@ -856,12 +884,14 @@ private[lf] object DecodeV1 {
         INT64_TO_DECIMAL,
         BInt64ToNumeric,
         maxVersion = Some(numeric),
-        handleLegacyDecimal = true),
+        implicitDecimalScaleParameters = 1
+      ),
       BuiltinFunctionInfo(
         DECIMAL_TO_INT64,
         BNumericToInt64,
         maxVersion = Some(numeric),
-        handleLegacyDecimal = true),
+        implicitDecimalScaleParameters = 1
+      ),
       BuiltinFunctionInfo(INT64_TO_NUMERIC, BInt64ToNumeric, minVersion = numeric),
       BuiltinFunctionInfo(NUMERIC_TO_INT64, BNumericToInt64, minVersion = numeric),
       BuiltinFunctionInfo(FOLDL, BFoldl),
@@ -879,7 +909,8 @@ private[lf] object DecodeV1 {
         LEQ_DECIMAL,
         BLessEqNumeric,
         maxVersion = Some(numeric),
-        handleLegacyDecimal = true),
+        implicitDecimalScaleParameters = 1
+      ),
       BuiltinFunctionInfo(LEQ_NUMERIC, BLessEqNumeric, minVersion = numeric),
       BuiltinFunctionInfo(LEQ_TEXT, BLessEqText),
       BuiltinFunctionInfo(LEQ_TIMESTAMP, BLessEqTimestamp),
@@ -889,7 +920,8 @@ private[lf] object DecodeV1 {
         GEQ_DECIMAL,
         BGreaterEqNumeric,
         maxVersion = Some(numeric),
-        handleLegacyDecimal = true),
+        implicitDecimalScaleParameters = 1
+      ),
       BuiltinFunctionInfo(GEQ_NUMERIC, BGreaterEqNumeric, minVersion = numeric),
       BuiltinFunctionInfo(GEQ_TEXT, BGreaterEqText),
       BuiltinFunctionInfo(GEQ_TIMESTAMP, BGreaterEqTimestamp),
@@ -899,7 +931,8 @@ private[lf] object DecodeV1 {
         LESS_DECIMAL,
         BLessNumeric,
         maxVersion = Some(numeric),
-        handleLegacyDecimal = true),
+        implicitDecimalScaleParameters = 1
+      ),
       BuiltinFunctionInfo(LESS_NUMERIC, BLessNumeric, minVersion = numeric),
       BuiltinFunctionInfo(LESS_TEXT, BLessText),
       BuiltinFunctionInfo(LESS_TIMESTAMP, BLessTimestamp),
@@ -909,7 +942,8 @@ private[lf] object DecodeV1 {
         GREATER_DECIMAL,
         BGreaterNumeric,
         maxVersion = Some(numeric),
-        handleLegacyDecimal = true),
+        implicitDecimalScaleParameters = 1
+      ),
       BuiltinFunctionInfo(GREATER_NUMERIC, BGreaterNumeric, minVersion = numeric),
       BuiltinFunctionInfo(GREATER_TEXT, BGreaterText),
       BuiltinFunctionInfo(GREATER_TIMESTAMP, BGreaterTimestamp),
@@ -919,7 +953,8 @@ private[lf] object DecodeV1 {
         TO_TEXT_DECIMAL,
         BToTextNumeric,
         maxVersion = Some(numeric),
-        handleLegacyDecimal = true),
+        implicitDecimalScaleParameters = 1
+      ),
       BuiltinFunctionInfo(TO_TEXT_NUMERIC, BToTextNumeric, minVersion = numeric),
       BuiltinFunctionInfo(TO_TEXT_TIMESTAMP, BToTextTimestamp),
       BuiltinFunctionInfo(TO_TEXT_PARTY, BToTextParty, minVersion = partyTextConversions),
@@ -931,7 +966,7 @@ private[lf] object DecodeV1 {
       BuiltinFunctionInfo(
         FROM_TEXT_DECIMAL,
         BFromTextNumeric,
-        handleLegacyDecimal = true,
+        implicitDecimalScaleParameters = 1,
         minVersion = numberParsing,
         maxVersion = Some(numeric)),
       BuiltinFunctionInfo(FROM_TEXT_NUMERIC, BFromTextNumeric, minVersion = numeric),
@@ -953,7 +988,8 @@ private[lf] object DecodeV1 {
         EQUAL_DECIMAL,
         BEqualNumeric,
         maxVersion = Some(numeric),
-        handleLegacyDecimal = true),
+        implicitDecimalScaleParameters = 1
+      ),
       BuiltinFunctionInfo(EQUAL_NUMERIC, BEqualNumeric, minVersion = numeric),
       BuiltinFunctionInfo(EQUAL_TEXT, BEqualText),
       BuiltinFunctionInfo(EQUAL_TIMESTAMP, BEqualTimestamp),

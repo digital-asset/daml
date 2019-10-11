@@ -13,8 +13,9 @@ final class Divulgence(session: LedgerSession) extends LedgerTestSuite(session) 
   private val transactionServiceDivulgence =
     LedgerTest(
       "DivulgenceTx",
-      "Divulged contracts should not be exposed by the transaction service") { ledger =>
+      "Divulged contracts should not be exposed by the transaction service") { context =>
       for {
+        ledger <- context.participant()
         Vector(alice, bob) <- ledger.allocateParties(2)
         divulgence1 <- ledger.create(alice, Divulgence1(alice))
         divulgence2 <- ledger.create(bob, Divulgence2(bob, alice))
@@ -146,8 +147,9 @@ final class Divulgence(session: LedgerSession) extends LedgerTestSuite(session) 
   private val activeContractServiceDivulgence = {
     LedgerTest(
       "DivulgenceAcs",
-      "Divulged contracts should not be exposed by the active contract service") { ledger =>
+      "Divulged contracts should not be exposed by the active contract service") { context =>
       for {
+        ledger <- context.participant()
         Vector(alice, bob) <- ledger.allocateParties(2)
         divulgence1 <- ledger.create(alice, Divulgence1(alice))
         divulgence2 <- ledger.create(bob, Divulgence2(bob, alice))

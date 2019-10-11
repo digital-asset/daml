@@ -4,7 +4,7 @@
 package com.digitalasset.daml.lf.speedy
 
 import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.data.{FrontStack, ImmArray, Ref}
+import com.digitalasset.daml.lf.data.{FrontStack, ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.speedy.Compiler.{CompileError, PackageNotFound}
 import com.digitalasset.daml.lf.speedy.SBuiltin._
@@ -17,6 +17,7 @@ import com.digitalasset.daml.lf.validation.{
   ValidationError
 }
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
+import org.slf4j.LoggerFactory
 
 import scala.annotation.tailrec
 import scala.collection.mutable
@@ -38,6 +39,7 @@ object Compiler {
 }
 
 final case class Compiler(packages: PackageId PartialFunction Package) {
+  private val logger = LoggerFactory.getLogger(this.getClass)
 
   private abstract class VarRef { def name: Ref.Name }
   // corresponds to DAML-LF expression variable.
@@ -123,22 +125,31 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
   @throws(classOf[PackageNotFound])
   @throws(classOf[ValidationError])
   def compilePackage(pkgId: PackageId): Iterable[(SDefinitionRef, SExpr)] = {
+    logger.trace(s"compilePackage: Compiling $pkgId...")
 
+    val t0 = Time.Timestamp.now()
     Validation.checkPackage(packages, pkgId).left.foreach {
       case EUnknownDefinition(_, LEPackage(pkgId_)) =>
+        logger.trace(s"compilePackage: Missing $pkgId_, requesting it...")
         throw PackageNotFound(pkgId_)
       case e =>
         throw e
     }
+    val t1 = Time.Timestamp.now()
 
-    for {
+    val defns = for {
       module <- lookupPackage(pkgId).modules.values
       defnWithId <- module.definitions
       (defnId, defn) = defnWithId
       fullId = Identifier(pkgId, QualifiedName(module.name, defnId))
       exprWithId <- compileDefn(fullId, defn)
     } yield exprWithId
+    val t2 = Time.Timestamp.now()
 
+    logger.trace(
+      s"compilePackage: $pkgId ready, typecheck=${(t1.micros - t0.micros) / 1000}ms, compile=${(t2.micros - t1.micros) / 1000}ms")
+
+    defns
   }
 
   /** Validates and Compiles all the definitions in the packages provided. Returns them in a Map.
@@ -199,6 +210,8 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
               case BMulNumeric => SBMulNumeric
               case BDivNumeric => SBDivNumeric
               case BRoundNumeric => SBRoundNumeric
+              case BCastNumeric => SBCastNumeric
+              case BShiftNumeric => SBShiftNumeric
 
               // Int64 arithmetic
               case BAddInt64 => SBAddInt64
@@ -575,6 +588,15 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
 
       case ELocation(loc, e) =>
         SELocation(loc, translate(e))
+
+      case EToAny(ty, e) =>
+        SEApp(SEBuiltin(SBToAny(ty)), Array(translate(e)))
+
+      case EFromAny(ty, e) =>
+        SEApp(SEBuiltin(SBFromAny(ty)), Array(translate(e)))
+
+      case EToTextTemplateId(tmplId) =>
+        SEBuiltin(SBToTextTemplateId(tmplId))
     }
 
   @tailrec
@@ -1019,6 +1041,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
         case SRecord(_, _, args) => args.forEach(goV)
         case SVariant(_, _, value) => goV(value)
         case SEnum(_, _) => ()
+        case SAny(_, v) => goV(v)
         case _: SPAP | SToken | STuple(_, _) =>
           throw CompileError("validate: unexpected SEValue")
       }

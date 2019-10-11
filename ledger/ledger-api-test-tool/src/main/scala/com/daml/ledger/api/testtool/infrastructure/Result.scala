@@ -3,13 +3,15 @@
 
 package com.daml.ledger.api.testtool.infrastructure
 
+import java.time.Duration
+
 private[testtool] sealed trait Result {
   def failure: Boolean
 }
 
 private[testtool] object Result {
 
-  case object Succeeded extends Result {
+  final case class Succeeded(duration: Duration) extends Result {
     val failure: Boolean = false
   }
 

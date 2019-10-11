@@ -8,7 +8,8 @@ import FooB qualified as B
 import FooAInstances()
 import FooBInstances()
 import DA.Upgrade
-type FooUpgrade = Upgrade A.Foo B.Foo
-type FooRollback = Rollback A.Foo B.Foo
+template instance FooUpgrade = Upgrade A.Foo B.Foo
+template instance FooRollback = Rollback A.Foo B.Foo
 instance Convertible A.Foo B.Foo
+instance Convertible B.Foo A.Foo
 

@@ -19,6 +19,7 @@ import qualified Data.Time.Format           as Time.Format
 import           Data.Foldable (toList)
 
 import           DA.Daml.LF.Ast.Base hiding (dataCons)
+import           DA.Daml.LF.Ast.TypeLevelNat
 import           DA.Daml.LF.Ast.Util
 import           DA.Daml.LF.Ast.Optics
 import           DA.Pretty hiding (keyword_, type_)
@@ -133,6 +134,7 @@ instance Pretty BuiltinType where
     BTOptional -> "Optional"
     BTMap -> "Map"
     BTArrow -> "(->)"
+    BTAny -> "Any"
 
 prettyRecord :: (Pretty a) =>
   PrettyLevel -> Doc ann -> [(FieldName, a)] -> Doc ann
@@ -165,7 +167,7 @@ instance Pretty Type where
             (prettyForall <-> hsep (map (prettyAndKind lvl) vs) <> "."
              <-> pPrintPrec lvl precTForall t1)
     TTuple fields -> prettyTuple lvl prettyHasType fields
-    TNat n -> integer (fromIntegral n)
+    TNat n -> integer (fromTypeLevelNat n)
 
 precEApp, precEAbs :: Rational
 precEApp = 2
@@ -185,6 +187,7 @@ instance Pretty BuiltinExpr where
   pPrintPrec lvl prec = \case
     BEInt64 n -> pretty (toInteger n)
     BEDecimal dec -> string (show dec)
+    BENumeric n -> string (show n)
     BEText t -> string (show t) -- includes the double quotes, and escapes characters
     BEParty p -> pretty p
     BEUnit -> keyword_ "unit"
@@ -206,6 +209,8 @@ instance Pretty BuiltinExpr where
     BEMulNumeric -> "MUL_NUMERIC"
     BEDivNumeric -> "DIV_NUMERIC"
     BERoundNumeric -> "ROUND_NUMERIC"
+    BECastNumeric -> "CAST_NUMERIC"
+    BEShiftNumeric -> "SHIFT_NUMERIC"
     BEInt64ToNumeric -> "INT64_TO_NUMERIC"
     BENumericToInt64 -> "NUMERIC_TO_INT64"
     BEEqualNumeric -> "EQUAL_NUMERIC"
@@ -442,6 +447,9 @@ instance Pretty Expr where
         | otherwise -> pPrintPrec lvl prec x
     ESome typ body -> prettyAppKeyword lvl prec "some" [TyArg typ, TmArg body]
     ENone typ -> prettyAppKeyword lvl prec "none" [TyArg typ]
+    EToAny ty body -> prettyAppKeyword lvl prec "to_any" [TyArg ty, TmArg body]
+    EFromAny ty body -> prettyAppKeyword lvl prec "from_any" [TyArg ty, TmArg body]
+    EToTextTemplateId tpl -> prettyAppKeyword lvl prec "to_text_template_id" [tplArg tpl]
 
 instance Pretty DefDataType where
   pPrintPrec lvl _prec (DefDataType mbLoc tcon (IsSerializable serializable) params dataCons) =

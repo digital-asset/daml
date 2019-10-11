@@ -1,0 +1,82 @@
+-- Copyright (c) 2019 The DAML Authors. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+--
+-- @INFO Reduce duplication
+daml 1.2
+module Cash where
+
+import Asset
+import Fungible
+import Transferrable
+import Swappable
+
+template Cash
+  with
+    issuer: Party
+    owner: Party
+    amount: Decimal
+    currency: Text
+  where
+    signatory issuer, owner
+
+-- Specify all the properties of Cash
+instance Asset Cash
+instance Quantity Cash
+template instance FungibleCash = Fungible Cash
+template instance CashTransferrable = Transferrable Cash
+template instance CashTransferProposal = TransferProposal Cash
+template instance CashSwappable = Swappable Cash
+template instance CashSwapProposal = SwapProposal Cash
+
+fungibleTest = scenario do
+  rohan <- getParty "Rohan"
+  -- Cash is self-issued to simplify the workflow
+  let rohans50Data = Fungible Cash with issuer = rohan; owner = rohan; amount = 50.0; currency = "USD"
+      rohans25Data = Fungible Cash with issuer = rohan; owner = rohan; amount = 25.0; currency = "USD"
+  rohans50 <- rohan `submit` create rohans50Data
+  rohans25 <- rohan `submit` create rohans25Data
+  rohans75 <- rohan `submit` exercise rohans50 Merge with other = rohans25
+  (rohans40, rohans35) <- rohan `submit` exercise rohans75 Split with splitAmount = 40.0
+  return ()
+
+transferTest = scenario do
+  rohan <- getParty "Rohan"
+  martin <- getParty "Martin"
+  -- Cash is self-issued to simplify the workflow
+  let rohans50 = Transferrable Cash with issuer = rohan; owner = rohan; amount = 50.0; currency = "USD"
+      martins50 = Transferrable Cash with issuer = martin; owner = martin; amount = 50.0; currency = "CHF"
+  -- Create the Transferrable contracts
+  rohans50Cid <- rohan `submit` create rohans50
+  martins50Cid <- martin `submit` create martins50
+  -- Martin proposes to transfer his $50 to Rohan, which Rohan gladly accepts
+  martinsTransferProposal <- martin `submit` exercise martins50Cid ProposeTransfer with newOwner = rohan
+  rohansNewCashCid <- rohan `submit` exercise martinsTransferProposal AcceptTransfer
+  -- Rohan returns the favour by initiating a transfer in the other direction
+  rohansTransferProposal <- rohan `submit` exercise rohans50Cid ProposeTransfer with newOwner = martin
+  martinsNewCashCid <- martin `submit` exercise rohansTransferProposal AcceptTransfer
+  -- Check that the transfers were successful
+  martinsNewCash <- martin `submit` fetch martinsNewCashCid
+  assert $ martinsNewCash.asset.currency == "USD"
+  rohansNewCash <- rohan `submit` fetch rohansNewCashCid
+  assert $ rohansNewCash.asset.currency == "CHF"
+  return ()
+
+swapTest = scenario do
+  rohan <- getParty "Rohan"
+  martin <- getParty "Martin"
+  -- Cash is self-issued to simplify the workflow
+  let rohansCash = Swappable Cash with issuer = rohan; owner = rohan; amount = 50.0; currency = "USD"
+      martinsCash = Swappable Cash with issuer = martin; owner = martin; amount = 50.0; currency = "CHF"
+  -- Create the Swappable contracts
+  rohansCashCid <- rohan `submit` create rohansCash
+  martinsCashCid <- martin `submit` create martinsCash
+  -- Martin initiates a swap with Rohan
+  martinsSwapProposal <- martin `submit` exercise martinsCashCid (ProposeSwap rohansCash)
+  -- Rohan accepts, resulting in the two assets with new owners
+  (martinsNewCashCid, rohansNewCashCid) <- rohan `submit` exercise martinsSwapProposal (AcceptSwap rohansCashCid)
+  -- Some checks that the swap was successful
+  martinsNewCash <- martin `submit` fetch martinsNewCashCid
+  assert $ martinsNewCash.asset.currency == "USD"
+  rohansNewCash <- rohan `submit` fetch rohansNewCashCid
+  assert $ rohansNewCash.asset.currency == "CHF"
+  return ()

@@ -6,11 +6,17 @@ module DA.Daml.Compiler.Dar
     , breakAt72Bytes
     , PackageConfigFields(..)
     , pkgNameVersion
+    , getSrcRoot
+    , getDamlFiles
+    , getDamlRootFiles
+    , writeIfacesAndHie
+    , mkConfFile
     ) where
 
 import qualified "zip" Codec.Archive.Zip as Zip
 import Control.Monad.Extra
 import Control.Monad.IO.Class
+import Control.Monad.Trans.Class
 import Control.Monad.Trans.Maybe
 import qualified DA.Daml.LF.Ast as LF
 import DA.Daml.LF.Proto3.Archive (encodeArchiveAndHash)
@@ -23,17 +29,25 @@ import Data.Conduit.Combinators (sourceFile, sourceLazy)
 import Data.List.Extra
 import qualified Data.Map.Strict as Map
 import Data.Maybe
+import qualified Data.NameMap as NM
 import qualified Data.Set as S
 import qualified Data.Text as T
 import Development.IDE.Core.API
 import Development.IDE.Core.RuleTypes.Daml
 import Development.IDE.Core.Rules.Daml
+import Development.IDE.Core.Shake
+import Development.IDE.GHC.Compat
 import Development.IDE.GHC.Util
 import Development.IDE.Types.Location
 import qualified Development.IDE.Types.Logger as IdeLogger
-import Module
 import SdkVersion
+import System.Directory.Extra
 import System.FilePath
+
+import GHC
+import MkIface
+import Module
+import HscTypes
 
 ------------------------------------------------------------------------------
 {- | Builds a dar file.
@@ -45,16 +59,16 @@ A (fat) dar file is a zip file containing
 * all source files to that library
      - a dependency tree of imports
      - starting from the given top-level DAML 'file'
-     - all these files _must_ reside in the same directory 'topdir'
-     - the 'topdir' in the absolute path is replaced by 'name'
+     - all these files _must_ reside in the same “source root” directory
+     - the “source root” in the absolute path is replaced by 'name-hash'
 * all dalf dependencies
 * additional data files under the data/ directory.
 
-'topdir' is the path prefix of the top module that is _not_ part of the
-qualified module name.
+“source root” corresponds to the import directory for a module,
+i.e., the path prefix that is not part of the module name.
 Example:  'file' = "/home/dude/work/solution-xy/daml/XY/Main/LibraryModules.daml"
 contains "daml-1.2 module XY.Main.LibraryModules"
-so 'topdir' is "/home/dude/work/solution-xy/daml"
+so “source root” is "/home/dude/work/solution-xy/daml"
 
 The dar archive should stay independent of the dependency resolution tool. Therefore the pom file is
 gernerated separately.
@@ -68,11 +82,12 @@ newtype FromDalf = FromDalf
 -- | daml.yaml config fields specific to packaging.
 data PackageConfigFields = PackageConfigFields
     { pName :: String
-    , pMain :: String
+    , pSrc :: String
     , pExposedModules :: Maybe [String]
     , pVersion :: String
     , pDependencies :: [String]
     , pSdkVersion :: String
+    , cliOpts :: Maybe [String]
     }
 
 buildDar ::
@@ -84,19 +99,17 @@ buildDar ::
 buildDar service pkgConf@PackageConfigFields {..} ifDir dalfInput = do
     liftIO $
         IdeLogger.logDebug (ideLogger service) $
-        "Creating dar: " <> T.pack pMain
+        "Creating dar: " <> T.pack pSrc
     if unFromDalf dalfInput
         then do
-            bytes <- BSL.readFile pMain
+            bytes <- BSL.readFile pSrc
+            -- in the dalfInput case we interpret pSrc as the filepath pointing to the dalf.
             pure $ Just $ createArchive pkgConf "" bytes [] (toNormalizedFilePath ".") [] [] []
         else runAction service $
              runMaybeT $ do
-                 WhnfPackage pkg <- useE GeneratePackage file
-                 parsedMain <- useE GetParsedModule file
-                 let srcRoot =
-                         toNormalizedFilePath $
-                         fromMaybe (error "Cannot determine source root") $
-                         moduleImportPaths parsedMain
+                 files <- getDamlFiles pSrc
+                 pkgs <- usesE GeneratePackage files
+                 let pkg = mergePkgs pkgs
                  let pkgModuleNames = map T.unpack $ LF.packageModuleNames pkg
                  let missingExposed =
                          S.fromList (fromMaybe [] pExposedModules) S.\\
@@ -108,17 +121,15 @@ buildDar service pkgConf@PackageConfigFields {..} ifDir dalfInput = do
                      show (S.toList missingExposed)
                  let (dalf, pkgId) = encodeArchiveAndHash pkg
                  -- create the interface files
-                 ifaces <- MaybeT $ writeIfacesAndHie ifDir file
+                 ifaces <- MaybeT $ writeIfacesAndHie ifDir files
                  -- get all dalf dependencies.
-                 dalfDependencies0 <- getDalfDependencies file
+                 dalfDependencies0 <- getDalfDependencies files
                  let dalfDependencies =
                          [ (T.pack $ unitIdString unitId, dalfPackageBytes pkg)
                          | (unitId, pkg) <- Map.toList dalfDependencies0
                          ]
-                 -- get all file dependencies
-                 fileDependencies <- MaybeT $ getDependencies file
-                 let dataFiles =
-                         [mkConfFile pkgConf pkgModuleNames (T.unpack pkgId)]
+                 let dataFiles = [mkConfFile pkgConf pkgModuleNames (T.unpack pkgId)]
+                 srcRoot <- getSrcRoot pSrc
                  pure $
                      createArchive
                          pkgConf
@@ -126,11 +137,101 @@ buildDar service pkgConf@PackageConfigFields {..} ifDir dalfInput = do
                          dalf
                          dalfDependencies
                          srcRoot
-                         (file : fileDependencies)
+                         files
                          dataFiles
                          ifaces
+
+-- | Write interface files and hie files to the location specified by the given options.
+writeIfacesAndHie ::
+       NormalizedFilePath -> [NormalizedFilePath] -> Action (Maybe [NormalizedFilePath])
+writeIfacesAndHie ifDir files =
+    runMaybeT $ do
+        tcms <- usesE TypeCheck files
+        fmap concat $ forM (zip files tcms) $ \(file, tcm) -> do
+            session <- lift $ hscEnv <$> use_ GhcSession file
+            liftIO $ writeTcm session tcm
   where
-    file = toNormalizedFilePath pMain
+    writeTcm session tcm =
+        do
+            let fp =
+                    fromNormalizedFilePath ifDir </>
+                    (ms_hspp_file $
+                     pm_mod_summary $ tm_parsed_module $ tmrModule tcm)
+            createDirectoryIfMissing True (takeDirectory fp)
+            let ifaceFp = replaceExtension fp ".hi"
+            let hieFp = replaceExtension fp ".hie"
+            writeIfaceFile
+                (hsc_dflags session)
+                ifaceFp
+                (hm_iface $ tmrModInfo tcm)
+            hieFile <-
+                liftIO $
+                runHsc session $
+                mkHieFile
+                    (pm_mod_summary $ tm_parsed_module $ tmrModule tcm)
+                    (fst $ tm_internals_ $ tmrModule tcm)
+                    (fromJust $ tm_renamed_source $ tmrModule tcm)
+            writeHieFile hieFp hieFile
+            pure [toNormalizedFilePath ifaceFp, toNormalizedFilePath hieFp]
+
+-- For backwards compatibility we allow both a file or a directory in "source".
+-- For a file we use the import path as the src root.
+getSrcRoot :: FilePath -> MaybeT Action NormalizedFilePath
+getSrcRoot fileOrDir = do
+  let fileOrDir' = toNormalizedFilePath fileOrDir
+  isDir <- liftIO $ doesDirectoryExist fileOrDir
+  if isDir
+      then pure fileOrDir'
+      else do
+          pm <- useE GetParsedModule fileOrDir'
+          Just root <- pure $ moduleImportPath fileOrDir' pm
+          pure $ toNormalizedFilePath root
+
+-- | Merge several packages into one.
+mergePkgs :: [WhnfPackage] -> LF.Package
+mergePkgs [] = error "No package build when building dar"
+mergePkgs (WhnfPackage pkg0:pkgs) =
+    foldl
+        (\pkg1 (WhnfPackage pkg2) ->
+             LF.Package
+                 { LF.packageLfVersion = LF.packageLfVersion pkg2
+                 , LF.packageModules = LF.packageModules pkg1 `NM.union` LF.packageModules pkg2
+                 })
+        pkg0
+        pkgs
+
+-- | Find all DAML files below a given source root. If the source root is a file we interpret it as
+-- main and return that file and all dependencies.
+getDamlFiles :: FilePath -> MaybeT Action [NormalizedFilePath]
+getDamlFiles srcRoot = do
+    isDir <- liftIO $ doesDirectoryExist srcRoot
+    if isDir
+        then liftIO $ damlFilesInDir srcRoot
+        else do
+            let normalizedSrcRoot = toNormalizedFilePath srcRoot
+            deps <- MaybeT $ getDependencies normalizedSrcRoot
+            pure (normalizedSrcRoot : deps)
+
+-- | Return all daml files in the given directory.
+damlFilesInDir :: FilePath -> IO [NormalizedFilePath]
+damlFilesInDir srcRoot = do
+    -- don't recurse into hidden directories (for example the .daml dir).
+    fs <-
+        listFilesInside
+            (\fp ->
+                 return $ fp == "." || (not $ isPrefixOf "." $ takeFileName fp))
+            srcRoot
+    pure $ map toNormalizedFilePath $ filter (".daml" `isExtensionOf`) fs
+
+-- | Find all DAML files below a given source root. If the source root is a file we interpret it as
+-- main and return only that file. This is different from getDamlFiles which also returns
+-- all dependencies.
+getDamlRootFiles :: FilePath -> IO [NormalizedFilePath]
+getDamlRootFiles srcRoot = do
+    isDir <- liftIO $ doesDirectoryExist srcRoot
+    if isDir
+        then liftIO $ damlFilesInDir srcRoot
+        else pure [toNormalizedFilePath srcRoot]
 
 fullPkgName :: String -> String -> String -> String
 fullPkgName n v h = intercalate "-" [n, v, h]
@@ -249,4 +350,6 @@ breakAt72Bytes s =
 makeRelative' :: NormalizedFilePath -> NormalizedFilePath -> NormalizedFilePath
 makeRelative' a b =
     toNormalizedFilePath $
-    makeRelative (fromNormalizedFilePath a) (fromNormalizedFilePath b)
+    -- Note that NormalizedFilePath only takes care of normalizing slashes.
+    -- Here we also want to normalise things like ./a to a
+    makeRelative (normalise $ fromNormalizedFilePath a) (normalise $ fromNormalizedFilePath b)

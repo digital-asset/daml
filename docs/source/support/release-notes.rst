@@ -6,6 +6,303 @@ Release notes
 
 This page contains release notes for the SDK.
 
+.. _release-0-13-29:
+
+0.13.29 - 2019-10-04
+--------------------
+
+- Rerelease of 0.13.28 since that failed due to CI issues.
+
+.. _release-0-13-28:
+
+0.13.28 - 2019-10-04
+--------------------
+
+JSON API - Experimental
+~~~~~~~~~~~~~~~~~~~~~~~
+
+- Returning archived and active/created contracts from ``/command/exercise``
+  endpoint. See `issue #2925 <https://github.com/digital-asset/daml/issues/2925>`_.
+- Flattening the output of the ``/contracts/search`` endpoint.
+  The endpoint returns ``ActiveContract`` objects without ``GetActiveContractsResponse`` wrappers.
+  See `issue #2987 <https://github.com/digital-asset/daml/pull/2987>`_.
+
+SDK
+~~~
+
+- Bundle the ``daml-trigger`` package. Note, this package is experimental and will change.
+- Releases can now bundle additional libraries with the SDK in ``$DAML_SDK/daml-libs``. You
+  can refer to them in your ``daml.yaml`` file by listing the package name without ``.dar``
+  extension. See `issue #2979 <https://github.com/digital-asset/daml/issues/2979>`_.
+
+DAML Studio
+~~~~~~~~~~~
+
+- ``damlc ide`` now also supports a ``--target`` option.
+  The easiest way to specify this is the ``build-options`` field in ``daml.yaml``.
+- Fix a bug where the same module was imported twice
+  under different file paths caused module name
+  collisions. See `issue #3099 <https://github.com/digital-asset/daml/issues/3099>`_.
+
+Ledger
+~~~~~~
+
+- Improve SQL backend performance by eliminating extra queries to the database.
+- Enhance logging to correlate log messages with the associated participant id in multi-participant node tests and environments
+- Ledger api server indexer closes akka system on shutdown.
+- The ledger api server now stores divulged, otherwise unknown contracts.
+
+DAML Visualization
+~~~~~~~~~~~~~~~~~~
+
+- Adding `daml damlc visual-web` command. visual-command generates webpage with `d3 <https://d3js.org>`_ network.
+
+DAML Ledger Integration Kit
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- The transaction service is now fully tested.
+- The TTL for commands is now read from the configuration service.
+- The contract key tests now live under a single test suite and are multi-node aware.
+
+DAML Compiler
+~~~~~~~~~~~~~
+
+- Fix a problem where constraints of the form ``Template (Foo t)`` caused the compiler to suggest enabling the ``UndecidableInstances`` language extension.
+- Generic template instantiations like ``template instance IouProposal = Proposal Iou`` now generate a type synonym ``type IouProposal = Proposal Iou`` that can be used in DAML. Before, they generated a ``newtype``, which cannot be used anymore.
+- Fixed a bug where ``damlc build`` sometimes did not find modules during typechecking
+  even if they were present during parallel compilations.
+
+Security
+~~~~~~~~
+
+- Document how to verify the signature on release tarballs.
+
+.. _release-0-13-27:
+
+0.13.27 - 2019-09-25
+--------------------
+
+DAML Assistant
+~~~~~~~~~~~~~~
+
+- ``daml start`` now supports ``--sandbox-option=opt``, ``--navigator-option=opt``
+  and ``--json-api-option=opt`` to pass additional option to sandbox/navigator/json-api.
+  These flags can be specified multiple times.
+
+DAML Compiler
+~~~~~~~~~~~~~
+
+- Fix a bug where generic templates could crash the compiler.
+
+Security
+~~~~~~~~
+
+- Fix signing process.
+
+.. _release-0-13-26:
+
+0.13.26 - 2019-09-24
+--------------------
+
+JSON API
+~~~~~~~~
+
+- ``/contracts/search`` now supports a query language for filtering the
+  contracts returned by matching fields.  See `issue 2778
+  <https://github.com/digital-asset/daml/issues/2778>`_.
+
+DAML Compiler
+~~~~~~~~~~~~~
+
+- Fix a bug where ``.dar`` files produced by ``daml build`` were missing
+  all ``.daml`` files except for the one that ``source`` pointed to.
+- Fix a bug where importing the same module from different directories
+  resulted in an error in ``daml build``.
+- ``damlc migrate`` now produces a project that can be built with ``daml build`` as opposed to
+  having to use the special ``build.sh`` and ``build.cmd`` scripts.
+
+DAML Integration Toolkit
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+- 30 more test cases have been added to the transaction service test suite.
+
+Security
+~~~~~~~~
+
+- Starting with this one, releases are now signed on GitHub.
+
+.. _release-0-13-25:
+
+0.13.25 - 2019-09-18
+--------------------
+
+Documentation
+~~~~~~~~~~~~~
+
+- Suppress instance documentation when `--data-only` mode is requested.
+
+DAML-LF
+~~~~~~~
+
+- Add CAST_NUMERIC and SHIFT_NUMERIC in DAML-LF 1.dev.
+- Change signature of MUL_NUMERIC and DIV_NUMERIC.
+
+DAML Integration Kit
+~~~~~~~~~~~~~~~~~~~~
+
+- Fix contract key uniqueness check in kvutils.
+
+- Preload packages in a background thread in kvutils.
+
+Ledger
+~~~~~~
+
+- ActiveContractsService now specifies to always return at least one message with the offset. This removes a special case where clients would need to check if the stream was empty or not.
+
+- Dramatically increased performance of the ActiveContractService by only loading the contracts that the parties in the transaction filter are allowed to see.
+
+.. _release-0-13-24:
+
+0.13.24 - 2019-09-16
+--------------------
+
+Java codegen
+~~~~~~~~~~~~
+
+- If the DAR source cannot be read, the application crashes and prints an error report.
+
+DAML Assistant
+~~~~~~~~~~~~~~
+
+- Java and Scala codegen is now integrated with the
+  assistant and distributed with the SDK. It can be run via ``daml codegen``.
+  You can find more information in the `DAML Assistant documentation <https://docs.daml.com/tools/assistant.html>`_.
+
+DAML Compiler
+~~~~~~~~~~~~~
+
+- Fix bug with qualified imports of generic templates.
+
+Ledger
+~~~~~~
+
+- Upgraded ledger-api server H2 Database version to 1.4.199 with stability fixes including one to the ``merge`` statement.
+
+DAML Integration Kit
+~~~~~~~~~~~~~~~~~~~~
+
+- One more test case added. Transaction service tests are not multi-node aware.
+- Semantic tests now ensure synchronization across participants when running in a multi-node setup.
+
+.. _release-0-13-23:
+
+0.13.23 - 2019-09-11
+--------------------
+
+DAML Integration Kit
+~~~~~~~~~~~~~~~~~~~~
+
+- The reference implementation can now spin up multiple nodes, either scaling
+  a single participant horizontally or adding new participants. Check the CLI ``--help`` option.
+- The test tool now runs the double spend test on a shared contract in a
+  multi-node setup (as well as single-node).
+- The test tool can now run all semantic test in a multi-node setup.
+
+DAML Standard Library
+~~~~~~~~~~~~~~~~~~~~~
+
+- **BREAKING CHANGE** The ``(/)`` operator was moved out of the ``Fractional`` typeclass into a separate ``Divisible`` typeclass, which is now the parent class of ``Fractional``. The ``Int`` instance of ``Fractional`` is discontinued, but there is an ``Int`` instance of ``Divisible``. This change will break projects that rely on the ``Fractional Int`` instance. To fix that, change the code to rely on ``Divisible Int`` instead. This change will also break projects where a ``Fractional`` instance is defined. To fix that, add a ``Divisible`` instance and move the definition of ``(/)`` there.
+
+DAML Assistant
+~~~~~~~~~~~~~~
+
+- The HTTP JSON API is now integrated with the
+  assistant and distributed with the SDK. It can either be launched
+  via ``daml json-api`` or via ``daml start``. You can find more information in the
+  `README <https://github.com/digital-asset/daml/blob/master/ledger-service/http-json/README.md>`_.
+- The `daml.yaml` file now supports an additional field
+  `build-options`, which you can use to list cli options you want added to
+  invocations of `daml build` and `daml ide`.
+
+JSON API
+~~~~~~~~
+
+- **BREAKING CHANGE** The ``/contracts/search`` request payload must use
+  ``"%templates"`` in place of ``"templateIds"`` to select which templates' contracts are
+  returned.  See `issue #2777 <https://github.com/digital-asset/daml/issues/2777>`_.
+
+DAML Compiler
+~~~~~~~~~~~~~
+
+- **BREAKING CHANGE** Move the DAML-LF produced by generic template instantiations closer to the surface syntax. See the documentation on `How DAML types are translated to DAML-LF <https://docs.daml.com/app-dev/daml-lf-translation.html#template-types>`__ for details.
+
+.. _release-0-13-22:
+
+0.13.22 - 2019-09-04
+--------------------
+
+DAML Assistant
+~~~~~~~~~~~~~~
+
+- **BREAKING CHANGE** Changed the meaning of the ``source`` field in the daml.yaml
+  file to be a pointer to the source directory of the DAML code contained in a project relative to
+  the project root. This is breaking projects, where the ``source`` field of the project is pointing
+  to a non-toplevel location in the source code directory structure.
+
+DAML Integration Kit
+~~~~~~~~~~~~~~~~~~~~
+
+- Introduced initial support for multi-node testing. Note that for the time
+  being no test actually uses more than one node.
+- **BREAKING CHANGE** The ``-p`` / ``--target-port`` and ``-h`` / ``--host``
+  flags have been discontinued. Pass one (or more) endpoints to test as command line arguments in the
+  ``<host>:<port>`` form.
+
+Documentation
+~~~~~~~~~~~~~
+
+- Basic explanation of generic templates.
+
+Ledger API
+~~~~~~~~~~
+
+- **BREAKING CHANGE** In Protobuf ``Value`` message, rename ``decimal` field to ``numeric``.
+
+Sandbox
+~~~~~~~
+
+- Updated the PostgreSQL JDBC driver to version 42.2.6.
+- Added TRACE level debugging for database operations.
+- Fixed a bug that could lead to an inconsistent snapshot of active contracts being served
+  by the ActiveContractsService under high load.
+- Commands are now deduplicated based on ``(submitter, application_id, command_id)``.
+
+.. _release-0-13-21:
+
+0.13.21 - 2019-08-29
+--------------------
+
+DAML Compiler
+~~~~~~~~~~~~~
+
+- Enable the language extension ``FlexibleContexts`` by default.
+- **BREAKING CHANGE** Enable the language extension ``MonoLocalBinds`` by default. ``let`` and ``where`` bindings introducing polymorphic functions that are used at different types now need an explicit type annotation. Without the type annotation the type of the first use site will be inferred and use sites at different types will fail with a type mismatch error.
+
+Java Codegen
+~~~~~~~~~~~~
+
+- Fix bug that caused the generation of duplicate methods that affected sources with data constructors with type parameters that are either non-unique or not presented in the same order as in the corresponding data type declaration. See `#2367 <https://github.com/digital-asset/daml/issues/2367>`__.
+
+Ledger
+~~~~~~
+
+- H2 Database support in the Ledger API Server.
+
+Sandbox
+~~~~~~~
+
+- The sandbox now properly sets the connection pool properties ``minimumIdle``, ``maximumPoolSize``, and ``connectionTimeout``.
+
 .. _release-0-13-20:
 
 0.13.20 - 2019-08-22
@@ -1250,7 +1547,7 @@ SQL Extractor
 - **Java Bindings**: ``CreateAndExerciseCommand`` is now properly converted in the Java Bindings data layer.
 
   See `issue #979 <https://github.com/digital-asset/daml/pull/979>`__ for details.
-- **DAML Integration Kit**: Alpha release of the kit for integrating your own ledger with DAML. See the :doc:`DAML Integration Kit docs </daml-integration-kit/index>` for how to try it out.
+- **DAML Integration Kit**: Alpha release of the kit for integrating your own ledger with DAML. See the DAML Integration Kit docs for how to try it out.
 - **DAML Assistant**: Added a ``quickstart-scala`` DAML Assistant project template.
 - **DAML-LF Engine**: If all labels in a record are set, fields no longer need to be ordered.
 
@@ -1316,7 +1613,7 @@ SQL Extractor
 --------------------
 
 - **Sandbox**: Added support for using a Postgres database as a back end for the Sandbox, which gives you persistent data storage. To try it out, see :doc:`/tools/sandbox`.
-- **DAML Integration Kit**: Added documentation for :doc:`/daml-integration-kit/index`. The docs explain what the DAML Integration Kit is, what state it is in, and how it is going to evolve.
+- **DAML Integration Kit**: Added documentation for the DAML Integration Kit. The docs explain what the DAML Integration Kit is, what state it is in, and how it is going to evolve.
 - **DAML Integration Kit**: Released the Ledger API Test Tool. To try it out, see :doc:`/tools/ledger-api-test-tool/index`.
 - **DAML-LF**: Removed DAML-LF Dev major version, ``--target dev`` option, and sandbox ``--allow-dev`` option.
 

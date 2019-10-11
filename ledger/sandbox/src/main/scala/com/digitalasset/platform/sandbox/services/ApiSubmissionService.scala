@@ -24,13 +24,15 @@ import com.digitalasset.daml.lf.transaction.Transaction.Transaction
 import com.digitalasset.grpc.adapter.utils.DirectExecutionContext
 import com.digitalasset.ledger.api.domain.{LedgerId, Commands => ApiCommands}
 import com.digitalasset.ledger.api.messages.command.submission.SubmitRequest
+import com.digitalasset.platform.common.logging.NamedLoggerFactory
+import com.digitalasset.platform.api.grpc.GrpcApiService
 import com.digitalasset.platform.sandbox.stores.ledger.{CommandExecutor, ErrorCause}
 import com.digitalasset.platform.server.api.services.domain.CommandSubmissionService
 import com.digitalasset.platform.server.api.services.grpc.GrpcCommandSubmissionService
 import com.digitalasset.platform.server.api.validation.ErrorFactories
 import com.digitalasset.platform.server.services.command.time.TimeModelValidator
-import io.grpc.{BindableService, Status}
-import org.slf4j.LoggerFactory
+
+import io.grpc.Status
 import scalaz.syntax.tag._
 
 import scala.compat.java8.FutureConverters
@@ -47,15 +49,17 @@ object ApiSubmissionService {
       writeService: WriteService,
       timeModel: TimeModel,
       timeProvider: TimeProvider,
-      commandExecutor: CommandExecutor)(implicit ec: ExecutionContext, mat: ActorMaterializer)
-    : GrpcCommandSubmissionService with BindableService with CommandSubmissionServiceLogging =
+      commandExecutor: CommandExecutor,
+      loggerFactory: NamedLoggerFactory)(implicit ec: ExecutionContext, mat: ActorMaterializer)
+    : GrpcCommandSubmissionService with GrpcApiService with CommandSubmissionServiceLogging =
     new GrpcCommandSubmissionService(
       new ApiSubmissionService(
         contractStore,
         writeService,
         timeModel,
         timeProvider,
-        commandExecutor),
+        commandExecutor,
+        loggerFactory),
       ledgerId
     ) with CommandSubmissionServiceLogging
 
@@ -70,12 +74,13 @@ class ApiSubmissionService private (
     writeService: WriteService,
     timeModel: TimeModel,
     timeProvider: TimeProvider,
-    commandExecutor: CommandExecutor)(implicit ec: ExecutionContext, mat: ActorMaterializer)
+    commandExecutor: CommandExecutor,
+    loggerFactory: NamedLoggerFactory)(implicit ec: ExecutionContext, mat: ActorMaterializer)
     extends CommandSubmissionService
     with ErrorFactories
     with AutoCloseable {
 
-  private val logger = LoggerFactory.getLogger(this.getClass)
+  private val logger = loggerFactory.getLogger(this.getClass)
   private val validator = TimeModelValidator(timeModel)
 
   override def submit(request: SubmitRequest): Future[Unit] = {

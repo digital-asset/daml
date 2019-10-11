@@ -71,11 +71,11 @@ def damlc_integration_test(name, main_function):
             "@jq_dev_env//:jq",
             ":daml-test-files",
             ":bond-trading",
+            ":query-lf-lib",
         ],
         deps = [
             "//compiler/daml-lf-ast",
             "//compiler/daml-lf-proto",
-            "//compiler/hie-core",
             "//compiler/damlc/daml-compiler",
             "//compiler/damlc/daml-ide-core",
             "//compiler/damlc/daml-lf-conversion",
@@ -86,8 +86,8 @@ def damlc_integration_test(name, main_function):
             "//libs-haskell/da-hs-base",
             "//libs-haskell/test-utils",
         ],
-        hazel_deps = [
-            "aeson",
+        hackage_deps = [
+            "aeson-pretty",
             "base",
             "bytestring",
             "containers",
@@ -98,8 +98,7 @@ def damlc_integration_test(name, main_function):
             "filepath",
             "ghc-lib",
             "ghc-lib-parser",
-            "lens",
-            "lens-aeson",
+            "ghcide",
             "optparse-applicative",
             "process",
             "proto3-suite",

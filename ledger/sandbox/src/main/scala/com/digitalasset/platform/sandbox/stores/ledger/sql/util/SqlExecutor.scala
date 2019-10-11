@@ -3,18 +3,18 @@
 
 package com.digitalasset.platform.sandbox.stores.ledger.sql.util
 
-import java.util.concurrent.Executors
+import java.util.concurrent.{Executors, TimeUnit}
 
+import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.google.common.util.concurrent.ThreadFactoryBuilder
-import org.slf4j.LoggerFactory
 
 import scala.concurrent.{Future, Promise}
 import scala.util.control.NonFatal
 
 /** A dedicated executor for blocking sql queries. */
-class SqlExecutor(noOfThread: Int) extends AutoCloseable {
+class SqlExecutor(noOfThread: Int, loggerFactory: NamedLoggerFactory) extends AutoCloseable {
 
-  private val logger = LoggerFactory.getLogger(getClass)
+  private val logger = loggerFactory.getLogger(getClass)
 
   private lazy val executor =
     Executors.newFixedThreadPool(
@@ -28,11 +28,22 @@ class SqlExecutor(noOfThread: Int) extends AutoCloseable {
         .build()
     )
 
-  def runQuery[A](block: () => A): Future[A] = {
+  def runQuery[A](description: => String, block: () => A): Future[A] = {
     val promise = Promise[A]
+    val startWait = System.nanoTime()
     executor.execute(() => {
       try {
-        promise.success(block())
+        val elapsedWait = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startWait)
+        val start = System.nanoTime()
+        val res = block()
+        val elapsed = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - start)
+
+        if (logger.isTraceEnabled) {
+          logger.trace(
+            s"""DB Operation "$description": wait time ${elapsedWait}ms, execution time ${elapsed}ms""")
+        }
+
+        promise.success(res)
       } catch {
         case NonFatal(e) =>
           promise.failure(e)
@@ -49,5 +60,6 @@ class SqlExecutor(noOfThread: Int) extends AutoCloseable {
 }
 
 object SqlExecutor {
-  def apply(noOfThread: Int): SqlExecutor = new SqlExecutor(noOfThread)
+  def apply(noOfThread: Int, loggerFactory: NamedLoggerFactory): SqlExecutor =
+    new SqlExecutor(noOfThread, loggerFactory)
 }

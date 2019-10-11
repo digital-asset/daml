@@ -9,6 +9,7 @@
 // * 2: new message Optional, incorporated into Value sum
 // * 3: new message ContractId, replaces string contract_id in Value sum
 // * 4: new message Map, incorporated into Value sum
+// * 5: new message Enum, incorporated into Value sum
 syntax = "proto3";
 
 package com.digitalasset.daml.lf.value;
@@ -36,11 +37,16 @@ message Value {
 
         sint64 int64 = 5;
 
-        // A decimal value with precision 38 (38 decimal digits), of which
-        // 10 after the comma / period. in other words a decimal is a number
-        // of the form `x / 10^10` where `|x| < 10^38`.
-        // The number can start with a leading sign [+-] followed by digits
-        string decimal = 6;
+        // Between v1 and v5 this field expressed a number in base-10 with up
+        // to 28 digits before the decimal point and up to 10 after the decimal
+        // point.
+        //
+        // Starting from v5 this field expressed a number in base-10 with at most
+        // 38 digits from which at most 37 can be used in the right hand side
+        // of the decimal point.
+        //
+        // See value.rst for the exact syntaxes.
+        string numeric = 6; // the field was named decimal in SDK 0.13.26 or earlier
 
         string text = 8;
 
@@ -63,13 +69,13 @@ message Value {
         // https://www.ietf.org/rfc/rfc3339.txt
         int32 date = 13;
 
-        Optional optional = 14;
+        Optional optional = 14; // *since v2*
 
         ContractId contract_id_struct = 15;
 
-        Map map = 16;
+        Map map = 16; // *since v4*
 
-        Enum enum = 17;
+        Enum enum = 17; // *since v5*
     }
 }
 // architecture-handbook-entry-end: Value

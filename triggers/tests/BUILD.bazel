@@ -1,0 +1,73 @@
+# Copyright (c) 2019 The DAML Authors. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+    "//bazel_tools:scala.bzl",
+    "da_scala_binary",
+)
+load(
+    "//bazel_tools/client_server_test:client_server_test.bzl",
+    "client_server_test",
+)
+
+genrule(
+    name = "acs",
+    srcs =
+        glob(["**/*.daml"]) + [
+            "//triggers/daml:daml-trigger.dar",
+        ],
+    outs = ["acs.dar"],
+    cmd = """
+      set -eou pipefail
+      TMP_DIR=$$(mktemp -d)
+      mkdir -p $$TMP_DIR/daml
+      cp -L $(location :daml/ACS.daml) $$TMP_DIR/daml
+      cp -L $(location :daml/Copy.daml) $$TMP_DIR/daml
+      cp -L $(location //triggers/daml:daml-trigger.dar) $$TMP_DIR/
+      cat << EOF > $$TMP_DIR/daml.yaml
+sdk-version: 0.0.0
+name: acs
+source: daml
+version: 0.0.1
+dependencies:
+  - daml-stdlib
+  - daml-prim
+  - daml-trigger.dar
+EOF
+      $(location //compiler/damlc) build --target=1.dev --project-root=$$TMP_DIR -o $$PWD/$(location acs.dar)
+      rm -rf $$TMP_DIR
+    """,
+    tools = ["//compiler/damlc"],
+    visibility = ["//visibility:public"],
+)
+
+da_scala_binary(
+    name = "test_client",
+    srcs = glob(["src/**/*.scala"]),
+    main_class = "com.daml.trigger.test.TestMain",
+    deps = [
+        "//3rdparty/jvm/com/github/scopt",
+        "//3rdparty/jvm/com/typesafe/akka:akka_stream",
+        "//3rdparty/jvm/org/scalaz:scalaz_core",
+        "//daml-lf/archive:daml_lf_archive_scala",
+        "//daml-lf/archive:daml_lf_java_proto",
+        "//daml-lf/data",
+        "//daml-lf/interpreter",
+        "//daml-lf/language",
+        "//daml-lf/transaction",
+        "//language-support/scala/bindings",
+        "//language-support/scala/bindings-akka",
+        "//ledger-api/rs-grpc-bridge",
+        "//ledger/ledger-api-common",
+        "//triggers/runner:trigger-runner-lib",
+    ],
+)
+
+client_server_test(
+    name = "test",
+    client = ":test_client",
+    client_files = ["$(rootpath :acs.dar)"],
+    data = [":acs.dar"],
+    server = "//ledger/sandbox:sandbox-binary",
+    server_files = ["$(rootpath :acs.dar)"],
+)

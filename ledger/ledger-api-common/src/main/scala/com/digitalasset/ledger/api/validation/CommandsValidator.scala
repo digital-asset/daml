@@ -17,7 +17,6 @@ import com.digitalasset.ledger.api.v1.commands.Command.Command.{
 import com.digitalasset.ledger.api.v1.commands.{Command => ProtoCommand, Commands => ProtoCommands}
 import com.digitalasset.daml.lf.value.{Value => Lf}
 import com.digitalasset.ledger.api.domain.LedgerId
-import com.digitalasset.platform.common.PlatformTypes.asVersionedValueOrThrow
 import com.digitalasset.platform.server.api.validation.ErrorFactories._
 import com.digitalasset.platform.server.api.validation.FieldValidations.{requirePresence, _}
 import io.grpc.StatusRuntimeException
@@ -88,7 +87,7 @@ final class CommandsValidator(ledgerId: LedgerId) {
         } yield
           CreateCommand(
             templateId = validatedTemplateId,
-            argument = asVersionedValueOrThrow(Lf.ValueRecord(recordId, validatedRecordField)))
+            argument = Lf.ValueRecord(recordId, validatedRecordField))
 
       case e: ProtoExercise =>
         for {
@@ -103,7 +102,7 @@ final class CommandsValidator(ledgerId: LedgerId) {
             templateId = validatedTemplateId,
             contractId = contractId,
             choiceId = choice,
-            argument = asVersionedValueOrThrow(validatedValue))
+            argument = validatedValue)
 
       case ek: ProtoExerciseByKey =>
         for {
@@ -117,9 +116,9 @@ final class CommandsValidator(ledgerId: LedgerId) {
         } yield
           ExerciseByKeyCommand(
             templateId = validatedTemplateId,
-            contractKey = asVersionedValueOrThrow(validatedContractKey),
+            contractKey = validatedContractKey,
             choiceId = choice,
-            argument = asVersionedValueOrThrow(validatedValue)
+            argument = validatedValue
           )
 
       case ce: ProtoCreateAndExercise =>
@@ -135,9 +134,9 @@ final class CommandsValidator(ledgerId: LedgerId) {
         } yield
           CreateAndExerciseCommand(
             templateId = validatedTemplateId,
-            createArgument = asVersionedValueOrThrow(Lf.ValueRecord(recordId, validatedRecordField)),
+            createArgument = Lf.ValueRecord(recordId, validatedRecordField),
             choiceId = choice,
-            choiceArgument = asVersionedValueOrThrow(validatedChoiceArgument)
+            choiceArgument = validatedChoiceArgument
           )
       case ProtoEmpty =>
         Left(missingField("command"))

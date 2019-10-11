@@ -57,6 +57,9 @@ freeVarsStep = \case
   EConsF _ s1 s2 -> s1 <> s2
   ENoneF _ -> mempty
   ESomeF _ s -> s
+  EToAnyF _ s -> s
+  EFromAnyF _ s -> s
+  EToTextTemplateIdF _ -> mempty
   EUpdateF u ->
     case u of
       UPureF _ s -> s
@@ -104,6 +107,7 @@ safetyStep = \case
     case b of
       BEInt64 _           -> Safe 0
       BEDecimal _         -> Safe 0
+      BENumeric _         -> Safe 0
       BEText _            -> Safe 0
       BETimestamp _       -> Safe 0
       BEParty _           -> Safe 0
@@ -137,6 +141,8 @@ safetyStep = \case
       BENumericFromText   -> Safe 1
       BEToTextNumeric     -> Safe 1
       BERoundNumeric      -> Safe 1
+      BECastNumeric       -> Safe 0
+      BEShiftNumeric      -> Safe 1
       BEAddInt64          -> Safe 1
       BESubInt64          -> Safe 1
       BEMulInt64          -> Safe 1
@@ -205,6 +211,14 @@ safetyStep = \case
   ESomeF _ s
     | Safe _ <- s -> Safe 0
     | otherwise   -> Unsafe
+  EToAnyF _ s
+    | Safe _ <- s -> Safe 0
+    | otherwise -> Unsafe
+  EFromAnyF _ s
+    | Safe _ <- s -> Safe 0
+    | otherwise -> Unsafe
+  EToTextTemplateIdF _ -> Safe 0
+
 
 infoStep :: ExprF Info -> Info
 infoStep e = Info (freeVarsStep (fmap freeVars e)) (safetyStep (fmap safety e))

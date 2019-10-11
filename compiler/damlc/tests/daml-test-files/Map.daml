@@ -14,7 +14,7 @@ testEmpty = scenario do
 
 testSize = scenario do
   0 === size (fromList ([] : [(Int, Decimal)]))
-  3 === size (fromList [(1, 2.0), (2, 9.0), (3, 2.2)])
+  3 === size (fromList ([(1, 2.0), (2, 9.0), (3, 2.2)] : [(Int, Decimal)]))
 
 testToList = scenario do
   [(1, "c"), (2, "a"), (5, "b")] === toList (fromList [(2, "a"), (5, "b"), (1, "c")])
@@ -29,13 +29,13 @@ testFromListWith = scenario do
   fromListWith (<>) [] === (M.empty : Map Int Text)
 
 testMember = scenario do
-  False === member "a" (fromList [("", 1.0), ("b", 2.0), ("c", 3.0)])
-  True === member "" (fromList [("", 1.0), ("b", 2.0), ("c", 3.0)])
+  False === member "a" (fromList ([("", 1.0), ("b", 2.0), ("c", 3.0)] : [(Text, Decimal)]))
+  True === member "" (fromList ([("", 1.0), ("b", 2.0), ("c", 3.0)] : [(Text, Decimal)]))
   False === member 2 (fromList [])
 
 testLookup = scenario do
-  None === M.lookup "a" (fromList [("", 1.0), ("b", 2.0), ("c", 3.0)])
-  Some 1.0 === M.lookup "" (fromList [("", 1.0), ("b", 2.0), ("c", 3.0)])
+  None === M.lookup "a" (fromList ([("", 1.0), ("b", 2.0), ("c", 3.0)] : [(Text, Decimal)]))
+  Some 1.0 === M.lookup "" (fromList ([("", 1.0), ("b", 2.0), ("c", 3.0)] : [(Text, Decimal)]))
   None === M.lookup 2 (fromList ([] : [(Int, Text)]))
 
 testNull = scenario do
@@ -46,7 +46,7 @@ testNull = scenario do
 
 testInsert = scenario do
   [(1, True), (2, False), (3, True), (4, False), (5, False)] === toList
-    (foldl (\a b -> (uncurry insert) b a) M.empty [(3, True), (1, False), (4, False), (2, True), (5, False), (2, False), (1, True)])
+    (foldl (\a b -> uncurry insert b a) M.empty [(3, True), (1, False), (4, False), (2, True), (5, False), (2, False), (1, True)])
 
 testFilterWithKey = scenario do
   [(1, True), (2, False), (3, True)] === toList (M.filterWithKey (\k v -> k < 3 || v) (fromList [(3, True), (1, False), (4, False), (2, True), (5, False), (2, False), (1, True)]))

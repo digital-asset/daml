@@ -138,6 +138,9 @@ final case class URHigherKinded(varName: TypeVarName, kind: Kind) extends Unseri
 case object URUninhabitatedType extends UnserializabilityReason {
   def pretty: String = "variant type without constructors"
 }
+case object URAny extends UnserializabilityReason {
+  def pretty: String = "Any"
+}
 
 abstract class ValidationError extends java.lang.RuntimeException with Product with Serializable {
   def context: Context

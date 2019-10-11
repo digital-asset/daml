@@ -40,8 +40,8 @@ The ``ensure`` keyword takes a single expression of type ``Bool``. If you want t
   :end-before: -- RESTRICTIONS_TEST_END
 
 
-Assertions and errors
----------------------
+Assertions
+----------
 
 A second common kind of restriction is one on data transformations.
 
@@ -216,6 +216,41 @@ More generally, if you want to learn more about Actions (aka Monads), we recomme
 - `Learn You a Haskell for Great Good! (Miran Lipovača) <http://learnyouahaskell.com/>`__
 - `Programming in Haskell (Graham Hutton) <http://www.cs.nott.ac.uk/~pszgmh/pih.html>`__
 - `Real World Haskell (Bryan O'Sullivan, Don Stewart, John Goerzen) <http://book.realworldhaskell.org/>`__
+
+Errors
+------
+
+Above, you've learnt about ``assertMsg`` and ``abort``, which represent (potentially) failing actions. Actions only have an effect when they are performed, so the following scenario succeeds or fails depending on the value of ``abortScenario``:
+
+.. literalinclude:: daml/daml-intro-5/Restrictions.daml
+  :language: daml
+  :start-after: -- NON_PERFORMED_ABORT_BEGIN
+  :end-before: -- NON_PERFORMED_ABORT_END
+
+However, what about errors in contexts other than actions? Suppose we wanted to implement a function ``pow`` that takes an integer to the power of another positive integer. How do we handle that the second parameter has to be positive?
+
+One option is to make the function explicitly partial by returning an ``Optional``:
+
+.. literalinclude:: daml/daml-intro-5/Restrictions.daml
+  :language: daml
+  :start-after: -- OPTIONAL_POW_BEGIN
+  :end-before: -- OPTIONAL_POW_END
+
+This is a useful pattern if we need to be able to handle the error case, but is also forces us to always handle it as we need to extract the result from an ``Optional``. We can see the impact on conveneience in the definition of the above function.  In cases, like division by zero or the above function, it can therefore be preferrable to fail catastrophically instead:
+
+.. literalinclude:: daml/daml-intro-5/Restrictions.daml
+  :language: daml
+  :start-after: -- ERROR_POW_BEGIN
+  :end-before: -- ERROR_POW_END
+
+The big downside to this is that even unused errors cause failures. The following scenario will fail, because ``failingComputation`` is evaluated:
+
+.. literalinclude:: daml/daml-intro-5/Restrictions.daml
+  :language: daml
+  :start-after: -- NON_PERFORMED_ERROR_BEGIN
+  :end-before: -- NON_PERFORMED_ERROR_END
+
+``error`` should therefore only be used in cases where the error case is unlikely to be encountered, and where explicit partiality would unduly impact usability of the function.
 
 Next up
 -------

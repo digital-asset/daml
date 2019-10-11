@@ -1,0 +1,132 @@
+-- Copyright (c) 2019 The DAML Authors. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+daml 1.2
+module Daml.Trigger
+ ( ACS
+ , getTemplates
+ , Trigger(..)
+ , TriggerA
+ , emitCommands
+ , runTrigger
+ , CommandId
+ , Command(..)
+ , AnyContractId(..)
+ , exerciseCmd
+ , createCmd
+ ) where
+
+import DA.Action.State
+import DA.Next.Map (Map)
+import qualified DA.Next.Map as Map
+import DA.Optional
+
+import Daml.Trigger.LowLevel hiding (Trigger)
+import qualified Daml.Trigger.LowLevel as LowLevel
+
+-- public API
+
+newtype ACS = ACS [(AnyContractId, AnyTemplate)]
+
+getTemplates : Template a => ACS -> [(AnyContractId, a)]
+getTemplates (ACS tpls) = mapOptional (\(cid, tpl) -> (cid,) <$> fromAnyTemplate tpl) tpls
+
+data Trigger s = Trigger
+  { initialize : ACS -> s
+  -- The ACS already includes the updates from the Message
+  , updateState : ACS -> Message -> s -> s
+  , rule : Party -> ACS -> Map CommandId [Command] -> s -> TriggerA ()
+  }
+
+newtype TriggerA a = TriggerA (State TriggerAState a)
+  deriving (Functor, Applicative, Action)
+
+emitCommands : [Command] -> TriggerA CommandId
+emitCommands cmds = do
+  state <- TriggerA get
+  let id = CommandId $ show $ state.nextCommandId
+  let commands = Commands id cmds
+  TriggerA $ modify $ \s -> s { emittedCommands = commands :: s.emittedCommands, nextCommandId = s.nextCommandId + 1 }
+  pure id
+
+runTrigger : Trigger s -> LowLevel.Trigger (TriggerState s)
+runTrigger userTrigger = LowLevel.Trigger
+  { initialState = initialState
+  , update = update
+  }
+  where
+    initialState party (ActiveContracts createdEvents) =
+      let acs = foldl (\acs created -> applyEvent (CreatedEvent created) acs) (ACS []) createdEvents
+          userState = userTrigger.initialize acs
+          (_, TriggerAState commands nextCommandId) = runTriggerA (userTrigger.rule party acs Map.empty userState) (TriggerAState [] 0)
+          commandsInFlight = foldl addCommands Map.empty commands
+          state = TriggerState {acs, party, userState, commandsInFlight, nextCommandId}
+      in (state, commands, "")
+    update msg state =
+      case msg of
+        MCompletion completion ->
+          let userState = userTrigger.updateState state.acs (MCompletion completion) state.userState
+              commandsInFlight = case completion.status of
+                Failed {} -> Map.delete completion.commandId state.commandsInFlight
+                -- We delete successful completions when we receive the corresponding transaction
+                -- to avoid removing a command from commandsInFlight before we have modified the ACS.
+                Succeeded {} -> state.commandsInFlight
+              -- TODO:We should trigger rules on failures
+          in (state { userState, commandsInFlight }, [], "")
+        MTransaction transaction ->
+          let acs = applyTransaction transaction state.acs
+              userState = userTrigger.updateState acs (MTransaction transaction) state.userState
+              -- See the comment above for why we delete this here instead of when we receive the completion.
+              inFlight = case transaction.commandId of
+                None -> state.commandsInFlight
+                Some commandId -> Map.delete commandId state.commandsInFlight
+              (_, TriggerAState commands nextCommandId) = runTriggerA (userTrigger.rule state.party acs inFlight userState) (TriggerAState [] state.nextCommandId)
+              commandsInFlight = foldl addCommands state.commandsInFlight commands
+          in (state { acs, userState, nextCommandId, commandsInFlight}, commands, show ("transaction", sum $ map numCreates commands, sum $ map numExercises commands))
+
+numCreates : Commands -> Int
+numCreates (Commands _ cmds) = length $ filter (\x -> case x of CreateCommand {} -> True; _ -> False) cmds
+
+numExercises : Commands -> Int
+numExercises (Commands _ cmds) = length $ filter (\x -> case x of ExerciseCommand {} -> True; _ -> False) cmds
+
+-- Internal API
+
+addCommands : Map CommandId [Command] -> Commands -> Map CommandId [Command]
+addCommands m (Commands cid cmds) = Map.insert cid cmds m
+
+insertTpl : AnyContractId -> AnyTemplate -> ACS -> ACS
+insertTpl cid tpl (ACS acs) = ACS ((cid, tpl) :: acs)
+
+deleteTpl : AnyContractId -> ACS -> ACS
+deleteTpl cid (ACS acs) = ACS (filter (\(cid', _) -> cid /= cid') acs)
+
+lookupTpl : Template a => AnyContractId -> ACS -> Optional a
+lookupTpl cid (ACS acs) = do
+  (_, tpl) <- find ((cid ==) . fst) acs
+  fromAnyTemplate tpl
+
+applyEvent : Event -> ACS -> ACS
+applyEvent ev acs = case ev of
+  CreatedEvent (Created _ cid tpl) -> insertTpl cid tpl acs
+  ArchivedEvent (Archived _ cid) -> deleteTpl cid acs
+
+applyTransaction : Transaction -> ACS -> ACS
+applyTransaction (Transaction _ _ evs) acs = foldl (flip applyEvent) acs evs
+
+runTriggerA : TriggerA a -> TriggerAState -> (a, TriggerAState)
+runTriggerA (TriggerA f) s = runState f s
+
+data TriggerAState = TriggerAState
+  { emittedCommands : [Commands]
+  -- ^ commands in reverse because I can’t be bothered to implement a dlist
+  , nextCommandId : Int
+  }
+
+data TriggerState s = TriggerState
+  { acs : ACS
+  , party : Party
+  , userState : s
+  , commandsInFlight : Map CommandId [Command]
+  , nextCommandId : Int
+  }

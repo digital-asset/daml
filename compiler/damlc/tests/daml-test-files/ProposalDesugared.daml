@@ -3,7 +3,8 @@
 
 -- This test demonstrates how the desugared form of the generical proposal
 -- workflow and its instantiation for an IOU look like.
--- @SINCE-LF 1.5
+-- Limited to 1.dev since we do not expose toAnyTemplate/fromAnyTemplate for older LF versions
+-- @SINCE-LF 1.7
 daml 1.2
 module ProposalDesugared
   ( main
@@ -29,6 +30,8 @@ instance ProposalInstance t => Template (Proposal t) where
     create = _createProposal
     fetch = _fetchProposal
     archive = _archiveProposal
+    toAnyTemplate = _toAnyTemplateProposal
+    fromAnyTemplate = _fromAnyTemplateProposal
 
 instance ProposalInstance t => TemplateKey (Proposal t) ([Party], Text) where
     key = _keyProposal
@@ -40,9 +43,13 @@ data Accept = Accept{}
 
 instance ProposalInstance t => Choice (Proposal t) Accept (ContractId t) where
     exercise = _exerciseProposalAccept
+    _toAnyChoice = _toAnyChoiceProposalAccept
+    _fromAnyChoice = _fromAnyChoiceProposalAccept
 
 instance ProposalInstance t => Choice (Proposal t) Archive () where
     exercise = _exerciseProposalArchive
+    _toAnyChoice = _toAnyChoiceProposalArchive
+    _fromAnyChoice = _fromAnyChoiceProposalArchive
 
 class Template t => ProposalInstance t where
     _signatoryProposal : Proposal t -> [Party]
@@ -64,6 +71,10 @@ class Template t => ProposalInstance t where
     _fetchProposal = error "code will be injected by the compiler"
     _archiveProposal : ContractId (Proposal t) -> Update ()
     _archiveProposal cid = _exerciseProposalArchive cid Archive
+    _toAnyTemplateProposal : Proposal t -> AnyTemplate
+    _toAnyTemplateProposal = error "code will be injected by the compiler"
+    _fromAnyTemplateProposal : AnyTemplate -> Optional (Proposal t)
+    _fromAnyTemplateProposal = error "code will be injected by the compiler"
 
     _hasKeyProposal : HasKey (Proposal t)
     _hasKeyProposal = HasKey
@@ -85,6 +96,10 @@ class Template t => ProposalInstance t where
         pure ()
     _exerciseProposalArchive : ContractId (Proposal t) -> Archive -> Update ()
     _exerciseProposalArchive = error "code will be injected by the compiler"
+    _toAnyChoiceProposalArchive : proxy (Proposal t) -> Archive -> AnyChoice
+    _toAnyChoiceProposalArchive = error "code will be injected by the compiler"
+    _fromAnyChoiceProposalArchive : proxy (Proposal t) -> AnyChoice -> Optional Archive
+    _fromAnyChoiceProposalArchive = error "code will be injected by the compiler"
 
     _consumptionProposalAccept : PreConsuming (Proposal t)
     _consumptionProposalAccept = PreConsuming
@@ -95,6 +110,10 @@ class Template t => ProposalInstance t where
         create asset
     _exerciseProposalAccept : ContractId (Proposal t) -> Accept -> Update (ContractId t)
     _exerciseProposalAccept = error "code will be injected by the compiler"
+    _toAnyChoiceProposalAccept : proxy (Proposal t) -> Accept -> AnyChoice
+    _toAnyChoiceProposalAccept = error "code will be injected by the compiler"
+    _fromAnyChoiceProposalAccept : proxy (Proposal t) -> AnyChoice -> Optional Accept
+    _fromAnyChoiceProposalAccept = error "code will be injected by the compiler"
 
 
 -- The `Iou` template in its desugared form.
@@ -112,15 +131,21 @@ instance IouInstance => Template Iou where
   create = _createIou
   fetch = _fetchIou
   archive = _archiveIou
+  toAnyTemplate = _toAnyTemplateIou
+  fromAnyTemplate = _fromAnyTemplateIou
 
 data Burn = Burn{}
   deriving (Eq, Show)
 
 instance IouInstance => Choice Iou Burn () where
   exercise = _exerciseIouBurn
+  _toAnyChoice = _toAnyChoiceIouBurn
+  _fromAnyChoice = _fromAnyChoiceIouBurn
 
 instance IouInstance => Choice Iou Archive () where
   exercise = _exerciseIouArchive
+  _toAnyChoice = _toAnyChoiceIouArchive
+  _fromAnyChoice = _fromAnyChoiceIouArchive
 
 class IouInstance where
   _signatoryIou : Iou -> [Party]
@@ -138,6 +163,10 @@ class IouInstance where
   _fetchIou = error "code will be injected by the compiler"
   _archiveIou : ContractId Iou -> Update ()
   _archiveIou cid = _exerciseIouArchive cid Archive
+  _toAnyTemplateIou : Iou -> AnyTemplate
+  _toAnyTemplateIou = error "code will be injected by the compiler"
+  _fromAnyTemplateIou : AnyTemplate -> Optional Iou
+  _fromAnyTemplateIou = error "code will be injected by the compiler"
 
   _consumptionIouArchive : PreConsuming Iou
   _consumptionIouArchive = PreConsuming
@@ -148,6 +177,10 @@ class IouInstance where
     pure ()
   _exerciseIouArchive : ContractId Iou -> Archive -> Update ()
   _exerciseIouArchive = error "code will be injected by the compiler"
+  _toAnyChoiceIouArchive : proxy Iou -> Archive -> AnyChoice
+  _toAnyChoiceIouArchive = error "code will be injected by the compiler"
+  _fromAnyChoiceIouArchive : proxy Iou -> AnyChoice -> Optional Archive
+  _fromAnyChoiceIouArchive = error "code will be injected by the compiler"
 
   _consumptionIouBurn : PreConsuming Iou
   _consumptionIouBurn = PreConsuming
@@ -158,13 +191,17 @@ class IouInstance where
     pure ()
   _exerciseIouBurn : ContractId Iou -> Burn -> Update ()
   _exerciseIouBurn = error "code will be injected by the compiler"
+  _toAnyChoiceIouBurn : proxy Iou -> Burn -> AnyChoice
+  _toAnyChoiceIouBurn = error "code will be injected by the compiler"
+  _fromAnyChoiceIouBurn : proxy Iou -> AnyChoice -> Optional Burn
+  _fromAnyChoiceIouBurn = error "code will be injected by the compiler"
 
 instance IouInstance where
 
 
 -- The instantiation of the generic `Proposal a` template for `a = Iou`
--- in its deugared form.
-newtype ProposalIou = MkProposalIou with unProposalIou : Proposal Iou -- ^ TEMPLATE_INSTANCE
+-- in its desugared form.
+type ProposalIou = Proposal Iou -- ^ TEMPLATE_INSTANCE
 
 instance ProposalInstance Iou where
 

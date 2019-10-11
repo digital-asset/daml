@@ -90,7 +90,7 @@ object ShrinkEncoding extends ShrinkEncoding {
   class primitiveImpl extends ValuePrimitiveEncoding[Out] {
     override val valueInt64: Out[P.Int64] = shrinkIntegral
 
-    override val valueDecimal: Out[P.Decimal] = shrinkFractional
+    override val valueNumeric: Out[P.Numeric] = shrinkFractional
 
     override val valueParty: Out[P.Party] = P.Party.subst(myShrinkString)
 

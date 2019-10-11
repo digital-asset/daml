@@ -90,7 +90,7 @@ expectRst =
             [ ".. _type-typedef-t:"
             , ""
             , "**type** `T <type-typedef-t_>`_ a"
-            , "  = TT TTT"
+            , "  \\= TT TTT"
             , "  "
             , "  T descr"
             ] []
@@ -99,7 +99,7 @@ expectRst =
             [ ".. _type-twotypes-t:"
             , ""
             , "**type** `T <type-twotypes-t_>`_ a"
-            , "  = TT"
+            , "  \\= TT"
             , "  "
             , "  T descr"
             , ""
@@ -118,7 +118,7 @@ expectRst =
             [ ".. _function-function1-f:"
             , ""
             , "`f <function-function1-f_>`_"
-            , "  : TheType"
+            , "  \\: TheType"
             , "  "
             , "  the doc"
             ]
@@ -126,7 +126,7 @@ expectRst =
             [ ".. _function-function3-f:"
             , ""
             , "`f <function-function3-f_>`_"
-            , "  : TheType"
+            , "  \\: TheType"
             ]
         , mkExpectRst "module-onlyclass" "OnlyClass" ""
             []
@@ -137,7 +137,7 @@ expectRst =
             , "  .. _function-onlyclass-member:"
             , "  "
             , "  `member <function-onlyclass-member_>`_"
-            , "    : a"
+            , "    \\: a"
             ]
             []
             []
@@ -168,7 +168,7 @@ expectRst =
             [ ".. _function-g:"
             , ""
             , "`g <function-g_>`_"
-            , "  : Eq t => t -> Bool"
+            , "  \\: Eq t \\=\\> t \\-\\> Bool"
             , "  "
             , "  function with context"
             ]

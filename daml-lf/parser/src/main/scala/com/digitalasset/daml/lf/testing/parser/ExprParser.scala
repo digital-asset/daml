@@ -32,6 +32,9 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
       eAbs |
       eTyAbs |
       eLet |
+      eToAny |
+      eFromAny |
+      eToTextTemplateId |
       contractId |
       fullIdentifier ^^ EVal |
       (id ^? builtinFunctions) ^^ EBuiltin |
@@ -174,6 +177,21 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
       case b ~ body => ELet(b, body)
     }
 
+  private lazy val eToAny: Parser[Expr] =
+    `to_any` ~>! argTyp ~ expr0 ^^ {
+      case ty ~ e => EToAny(ty, e)
+    }
+
+  private lazy val eFromAny: Parser[Expr] =
+    `from_any` ~>! argTyp ~ expr0 ^^ {
+      case ty ~ e => EFromAny(ty, e)
+    }
+
+  private lazy val eToTextTemplateId: Parser[Expr] =
+    `to_text_template_id` ~>! `@` ~> fullIdentifier ^^ {
+      case tyCon => EToTextTemplateId(tyCon)
+    }
+
   private lazy val pattern: Parser[CasePat] =
     primCon ^^ CPPrimCon |
       `nil` ^^^ CPNil |
@@ -205,6 +223,8 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
     "MUL_NUMERIC" -> BMulNumeric,
     "DIV_NUMERIC" -> BDivNumeric,
     "ROUND_NUMERIC" -> BRoundNumeric,
+    "CAST_NUMERIC" -> BCastNumeric,
+    "SHIFT_NUMERIC" -> BShiftNumeric,
     "ADD_INT64" -> BAddInt64,
     "SUB_INT64" -> BSubInt64,
     "MUL_INT64" -> BMulInt64,

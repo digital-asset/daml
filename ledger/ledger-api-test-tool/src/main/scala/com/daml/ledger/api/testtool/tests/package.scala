@@ -14,23 +14,25 @@ package object tests {
   /*
    * TODO
    *
-   * - TransactionServiceIT
    * - TransactionBackpressureIT
    * - CommandTransactionChecksHighLevelIT
    * - CommandTransactionChecksLowLevelIT
    * - CommandSubmissionTtlIT
    */
   val optional: Map[String, LedgerSession => LedgerTestSuite] = Map(
+    "ActiveContractsServiceIT" -> (new ActiveContractsService(_)),
+    "CommandServiceIT" -> (new CommandService(_)),
+    "ContractKeysIT" -> (new ContractKeys(_)),
+    "ContractKeysSubmitterIsMaintainerIT" -> (new ContractKeysSubmitterIsMaintainer(_)),
     "DivulgenceIT" -> (new Divulgence(_)),
     "IdentityIT" -> (new Identity(_)),
-    "TimeIT" -> (new Time(_)),
-    "ContractKeysSubmitterIsMaintainerIT" -> (new ContractKeysSubmitterIsMaintainer(_)),
-    "ContractKeysIT" -> (new ContractKeys(_)),
-    "WitnessesIT" -> (new Witnesses(_)),
-    "CommandServiceIT" -> (new CommandService(_)),
-    "ActiveContractsServiceIT" -> (new ActiveContractsService(_)),
+    "PackageServiceIT" -> (new Packages(_)),
+    "PackageManagementServiceIT" -> (new PackageManagement(_)),
     "PartyManagementServiceIT" -> (new PartyManagement(_)),
-    "PackageManagementServiceIT" -> (new PackageManagement(_))
+    "TimeIT" -> (new Time(_)),
+    "TransactionServiceIT" -> (new TransactionService(_)),
+    "WitnessesIT" -> (new Witnesses(_)),
+    "WronglyTypedContractIdIT" -> (new WronglyTypedContractId(_))
   )
 
   val all = default ++ optional

@@ -6,7 +6,6 @@ package com.daml.ledger.api.testtool.infrastructure
 import com.digitalasset.ledger.api.tls.TlsConfiguration
 
 private[testtool] final case class LedgerSessionConfiguration(
-    host: String,
-    port: Int,
+    participants: Vector[(String, Int)],
     ssl: Option[TlsConfiguration],
     commandTtlFactor: Double)

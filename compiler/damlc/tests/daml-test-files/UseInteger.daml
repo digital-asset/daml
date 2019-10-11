@@ -1,11 +1,11 @@
 -- Copyright (c) 2019, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
--- Test that foo is not overflowed
--- @ QUERY-LF .modules[] | .values[] | select(.name_with_type.name == ["foo"]) | .expr.prim_lit.int64 == "1"
+-- Test that foo does not overflow
+-- @ QUERY-LF .modules[] | .values[] | select(.name_with_type | lf::get_value_name($pkg) == ["foo"]) | .expr.prim_lit | lf::get_int64($pkg) == "1"
 
--- Test that we daml-lf can hold maxBound :: Int64
--- @ QUERY-LF .modules[] | .values[] | select(.name_with_type.name == ["bar"]) | .expr.prim_lit.int64 == "9223372036854775807"
+-- Test that DAML-LF can hold maxBound :: Int64
+-- @ QUERY-LF .modules[] | .values[] | select(.name_with_type | lf::get_value_name($pkg) == ["bar"]) | .expr.prim_lit | lf::get_int64($pkg) == "9223372036854775807"
 
 daml 1.2 module UseInteger where
 

@@ -3,6 +3,7 @@
 
 -- An IOU to be proposed using the generic proposal workflow.
 -- @SINCE-LF 1.5
+-- @QUERY-LF [.modules[] | .data_types[] | select(.name | lf::get_dotted_name($pkg) == ["ProposalIou"]) | .record | .fields[] | lf::get_field($pkg)] == ["asset", "receivers", "name"]
 daml 1.2
 module ProposalIou where
 
@@ -35,11 +36,11 @@ test = scenario do
   propId <- submit bank do
     create prop
   (propId', prop') <- submit bank do
-    fetchByKey @(Proposal Iou) ([bank], "present")
+    fetchByKey @ProposalIou ([bank], "present")
   propId' === propId
   prop' === prop
   mbPropId <- submit bank do
-    lookupByKey @(Proposal Iou) ([bank], "present")
+    lookupByKey @ProposalIou ([bank], "present")
   mbPropId === Some propId
   iouId <- submit alice do
     exercise propId Accept
