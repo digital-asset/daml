@@ -14,7 +14,7 @@ import scalaz.std.option._
 import scalaz.std.tuple._
 import scalaz.syntax.std.option._
 import scalaz.syntax.traverse._
-import scalaz.{-\/, Applicative, Show, Traverse, \/, \/-}
+import scalaz.{-\/, Applicative, Functor, Show, Traverse, \/, \/-}
 import spray.json.JsValue
 
 import scala.language.higherKinds
@@ -94,6 +94,10 @@ object domain {
 
     def fromLedgerApi(in: lav1.value.Identifier): TemplateId.RequiredPkg =
       TemplateId(in.packageId, in.moduleName, in.entityName)
+
+    implicit val covariant: Functor[TemplateId] = new Functor[TemplateId] {
+      override def map[A, B](fa: TemplateId[A])(f: A => B) = fa copy (packageId = f(fa.packageId))
+    }
   }
 
   object Contract {
