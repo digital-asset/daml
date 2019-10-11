@@ -50,19 +50,8 @@ class Runner(
   private val triggerIds = TriggerIds.fromDar(dar)
   private val darMap: Map[PackageId, Package] = dar.all.toMap
   private val compiler = Compiler(darMap)
-  // We overwrite the definition of toLedgerValue with an identity function.
-  // This is a type error but Speedy doesn’t care about the types and the only thing we do
-  // with the result is convert it to ledger values/record so this is safe.
-  private val definitionMap =
-    compiler.compilePackages(darMap.keys) +
-      (LfDefRef(
-        Identifier(
-          triggerIds.triggerPackageId,
-          QualifiedName(
-            triggerIds.triggerModuleName,
-            DottedName.assertFromString("toLedgerValue")))) ->
-        SEMakeClo(Array(), 1, SEVar(1)))
-  private val compiledPackages = PureCompiledPackages(darMap, definitionMap).right.get
+  private val compiledPackages =
+    PureCompiledPackages(darMap, compiler.compilePackages(darMap.keys)).right.get
 
   // Handles the result of initialState or update, i.e., (s, [Commands], Text)
   // by submitting the commands, printing the log message and returning
