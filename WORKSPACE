@@ -380,9 +380,7 @@ nixpkgs_package(
     name = "sphinx_nix",
     attribute_path = "sphinx183",
     nix_file = "//nix:bazel.nix",
-    nix_file_deps = common_nix_file_deps + [
-        "//nix:tools/sphinx183/default.nix",
-    ],
+    nix_file_deps = common_nix_file_deps,
     repositories = dev_env_nix_repos,
 )
 
