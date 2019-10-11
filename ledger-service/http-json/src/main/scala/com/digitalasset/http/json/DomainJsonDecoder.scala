@@ -5,6 +5,7 @@ package com.digitalasset.http.json
 
 import com.digitalasset.daml.lf
 import com.digitalasset.http.domain.HasTemplateId
+import com.digitalasset.http.util.IdentifierConverters
 import com.digitalasset.http.{PackageService, domain}
 import com.digitalasset.ledger.api.{v1 => lav1}
 import scalaz.syntax.show._
@@ -73,6 +74,20 @@ class DomainJsonDecoder(
       apiValue <- fa.traverse(jsValue => jsValueToApiValue(damlLfId, jsValue))
     } yield apiValue
   }
+
+  def foobar(icr: domain.InputContractRef[JsValue])
+    : JsonError \/ domain.InputContractRef[lav1.value.Value] =
+    icr.swap
+      .traverse {
+        case (tido, key) =>
+          resolveTemplateId(tido)
+            .leftMap(e => JsonError("foobar: " + e.shows))
+            .flatMap { tidr =>
+              jsValueToApiValue(IdentifierConverters.lfIdentifier(tidr), key) strengthL (tidr map (Some(
+                _)))
+            }
+      }
+      .map(_.swap)
 
   private def lookupLfIdentifier[F[_]: domain.HasTemplateId](
       fa: F[_]): JsonError \/ lf.data.Ref.Identifier = {
