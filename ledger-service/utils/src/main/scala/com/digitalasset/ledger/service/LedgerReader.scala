@@ -33,29 +33,30 @@ object LedgerReader {
   import scala.concurrent.ExecutionContext.Implicits.global
 
   def createPackageStore(packageClient: PackageClient): Future[Error \/ PackageStore] =
-    reloadPackageStore(packageClient)(Set.empty).map(x => x.map(_.getOrElse(Map.empty)))
+    loadPackageStoreUpdates(packageClient)(Set.empty).map(x => x.map(_.getOrElse(Map.empty)))
 
   /**
     * @return [[UpToDate]] if packages did not change
     */
-  def reloadPackageStore(client: PackageClient)(
-      prevPackageIds: Set[String]): Future[Error \/ Option[PackageStore]] = {
+  def loadPackageStoreUpdates(client: PackageClient)(
+      loadedPackageIds: Set[String]): Future[Error \/ Option[PackageStore]] =
     for {
       newPackageIds <- client.listPackages().map(_.packageIds.toList)
-      result <- loadIfChanged(client)(prevPackageIds, newPackageIds)
+      diffIds = diff(newPackageIds, loadedPackageIds): List[String] // keeping the order
+      result <- if (diffIds.isEmpty) UpToDate else load(client, diffIds).map(somePackageStore)
     } yield result
-  }
 
-  private def loadIfChanged(client: PackageClient)(
-      prevIds: Set[String],
-      newIds: List[String]): Future[Error \/ Option[PackageStore]] = {
-    if (prevIds =/= newIds.toSet)
-      newIds
-        .traverse(id => client.getPackage(id))
-        .map(as => createPackageStoreFromArchives(as).map(Some(_)))
-    else
-      UpToDate
-  }
+  // List.diff requires a Seq, I have got a Set
+  private def diff[A](xs: List[A], ys: Set[A]): List[A] =
+    xs.filter(x => !ys(x))
+
+  private def somePackageStore(x: Error \/ PackageStore): Error \/ Option[PackageStore] =
+    x.map(Some(_))
+
+  private def load(client: PackageClient, packageIds: List[String]): Future[Error \/ PackageStore] =
+    packageIds
+      .traverse(client.getPackage)
+      .map(createPackageStoreFromArchives)
 
   private def createPackageStoreFromArchives(
       packageResponses: List[GetPackageResponse]): Error \/ PackageStore = {

@@ -20,21 +20,28 @@ private class PackageService(reloadPackageStoreIfChanged: PackageService.ReloadP
   private case class State(
       packageIds: Set[String],
       templateIdMap: TemplateIdMap,
-      packageStore: PackageStore)
+      packageStore: PackageStore) {
 
+    def append(diff: PackageStore): State = {
+      val newPackageStore = this.packageStore ++ diff
+      State(newPackageStore.keySet, getTemplateIdMap(newPackageStore), newPackageStore)
+    }
+  }
+
+  // volatile, reading threads don't need synchronization
   @volatile private var state: State = State(Set.empty, TemplateIdMap.Empty, Map.empty)
 
-  def reload(implicit ec: ExecutionContext): Future[Error \/ Unit] = {
+  // synchronized, so two threads cannot reload it concurrently
+  def reload(implicit ec: ExecutionContext): Future[Error \/ Unit] = synchronized {
     reloadPackageStoreIfChanged(state.packageIds).map {
       _.map {
-        case Some(map) =>
-          val packageIds = map.keySet
-          val newState = State(packageIds, getTemplateIdMap(map), map)
-          this.state = newState
-          logger.info(s"loaded package IDs: ${packageIds.mkString(", ")}")
+        case Some(diff) =>
+          this.state = this.state.append(diff)
+          logger.info(s"new package IDs loaded: ${diff.keySet.mkString(", ")}")
+          logger.debug(s"loaded diff: $diff")
           ()
         case None =>
-          logger.debug(s"package IDs did not change")
+          logger.debug(s"new package IDs not found")
           ()
       }
     }
