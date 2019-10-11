@@ -24,3 +24,5 @@ HEAD — ongoing
 + [Scala Codegen] Fixes for StackOverflowErrors in reading large LF archives. See `issue #3104 <https://github.com/digital-asset/daml/issues/3104>`_.
 + [Scala Bindings] Fixed a bug in the retry logic of ``LedgerClientBinding#retryingConfirmedCommands``. Commands are now only retried when the server responds with status ``RESOURCE_EXHAUSTED`` or ``UNAVAILABLE``.
 
++ [DAML-SDK Docker Image] The image now contains a ``daml`` user and the SDK is installed to ``/home/daml/.daml``.
+  ``/home/daml/.daml/bin`` is automatically added to ``PATH``.
