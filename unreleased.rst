@@ -22,3 +22,5 @@ HEAD — ongoing
   as JSON has been replaced with :doc:`/json-api/lf-value-specification`.  See `issue
   #3066 <https://github.com/digital-asset/daml/issues/3066>`_ for specifics.
 + [Scala Codegen] Fixes for StackOverflowErrors in reading large LF archives. See `issue #3104 <https://github.com/digital-asset/daml/issues/3104>`_.
++ [Scala Bindings] Fixed a bug in the retry logic of ``LedgerClientBinding#retryingConfirmedCommands``. Commands are now only retried when the server responds with status ``RESOURCE_EXHAUSTED`` or ``UNAVAILABLE``.
+
