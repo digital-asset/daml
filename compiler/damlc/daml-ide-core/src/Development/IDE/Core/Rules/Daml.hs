@@ -150,7 +150,7 @@ ideErrorPretty :: Pretty.Pretty e => NormalizedFilePath -> e -> FileDiagnostic
 ideErrorPretty fp = ideErrorText fp . T.pack . HughesPJPretty.prettyShow
 
 
-getDalfDependencies :: [NormalizedFilePath] -> MaybeT Action (Map.Map UnitId DalfPackage)
+getDalfDependencies :: [NormalizedFilePath] -> MaybeT Action (Map.Map UnitId LF.DalfPackage)
 getDalfDependencies files = do
     unitIds <- concatMap transitivePkgDeps <$> usesE GetDependencies files
     pkgMap <- useNoFileE GeneratePackageMap
@@ -181,9 +181,8 @@ generateRawDalfRule =
                     setPriority priorityGenerateDalf
                     -- Generate the map from package names to package hashes
                     pkgMap <- useNoFile_ GeneratePackageMap
-                    let pkgMap0 = Map.map (LF.unPackageId . dalfPackageId) pkgMap
                     -- GHC Core to DAML LF
-                    case convertModule lfVersion pkgMap0 file core of
+                    case convertModule lfVersion pkgMap file core of
                         Left e -> return ([e], Nothing)
                         Right v -> return ([], Just $ LF.simplifyModule v)
 
@@ -194,7 +193,7 @@ generateDalfRule =
         lfVersion <- getDamlLfVersion
         WhnfPackage pkg <- use_ GeneratePackageDeps file
         pkgMap <- useNoFile_ GeneratePackageMap
-        let pkgs = map dalfPackagePkg $ Map.elems pkgMap
+        let pkgs = map LF.dalfPackagePkg $ Map.elems pkgMap
         let world = LF.initWorldSelf pkgs pkg
         rawDalf <- use_ GenerateRawDalf file
         setPriority priorityGenerateDalf
@@ -216,7 +215,7 @@ generateDocTestModuleRule =
 -- filename to match the package name.
 -- TODO (drsk): We might want to change this to load only needed packages in the future.
 generatePackageMap ::
-     [FilePath] -> IO ([FileDiagnostic], Map.Map UnitId DalfPackage)
+     [FilePath] -> IO ([FileDiagnostic], Map.Map UnitId LF.DalfPackage)
 generatePackageMap fps = do
   (diags, pkgs) <-
     fmap (partitionEithers . concat) $
@@ -230,7 +229,7 @@ generatePackageMap fps = do
             mapLeft (ideErrorPretty $ toNormalizedFilePath dalf) $
             Archive.decodeArchive dalfBS
           let unitId = stringToUnitId $ dropExtension $ takeFileName dalf
-          Right (unitId, DalfPackage pkgId (LF.rewriteSelfReferences pkgId package) dalfBS)
+          Right (unitId, LF.DalfPackage pkgId (LF.rewriteSelfReferences pkgId package) dalfBS)
   return (diags, Map.fromList pkgs)
 
 generatePackageMapRule :: Options -> Rules ()
@@ -287,7 +286,7 @@ contextForFile file = do
     DamlEnv{..} <- getDamlServiceEnv
     pure SS.Context
         { ctxModules = Map.fromList encodedModules
-        , ctxPackages = [(dalfPackageId pkg, dalfPackageBytes pkg) | pkg <- Map.elems pkgMap]
+        , ctxPackages = [(LF.dalfPackageId pkg, LF.dalfPackageBytes pkg) | pkg <- Map.elems pkgMap]
         , ctxDamlLfVersion = lfVersion
         , ctxSkipValidation = SS.SkipValidation (getSkipScenarioValidation envSkipScenarioValidation)
         }
@@ -296,7 +295,7 @@ worldForFile :: NormalizedFilePath -> Action LF.World
 worldForFile file = do
     WhnfPackage pkg <- use_ GeneratePackage file
     pkgMap <- useNoFile_ GeneratePackageMap
-    let pkgs = map dalfPackagePkg $ Map.elems pkgMap
+    let pkgs = map LF.dalfPackagePkg $ Map.elems pkgMap
     pure $ LF.initWorldSelf pkgs pkg
 
 data ScenarioBackendException = ScenarioBackendException

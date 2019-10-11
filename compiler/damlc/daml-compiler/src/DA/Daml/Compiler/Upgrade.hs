@@ -7,6 +7,7 @@ module DA.Daml.Compiler.Upgrade
     , generateTemplateInstance
     , generateSrcFromLf
     , generateSrcPkgFromLf
+    , generateInstancesPkgFromLf
     , generateGenInstancesPkgFromLf
     , Env(..)
     , DiffSdkVers(..)
@@ -85,6 +86,64 @@ upgradeTemplates n =
     , "    convert B." <> n <> "{..} = A." <> n <> " {..}"
     ]
 
+-- | Generate the source for a package containing template instances for all templates defined in a
+-- package.
+generateInstancesPkgFromLf ::
+       (LF.PackageRef -> UnitId)
+    -> LF.PackageId
+    -> LF.Package
+    -> [(NormalizedFilePath, String)]
+generateInstancesPkgFromLf getUnitId pkgId pkg =
+    catMaybes
+        [ generateInstanceModule
+            Env
+                { envGetUnitId = getUnitId
+                , envQualify = False
+                , envMod = mod
+                }
+            pkgId
+        | mod <- NM.toList $ LF.packageModules pkg
+        ]
+
+-- | Generate a module containing template/generic instances for all the contained templates.
+generateInstanceModule ::
+       Env -> LF.PackageId -> Maybe (NormalizedFilePath, String)
+generateInstanceModule env externPkgId
+    | not $ null instances =
+        Just
+            ( toNormalizedFilePath modFilePath
+            , unlines $
+              header ++
+              nubSort imports ++
+              map (showSDocForUser fakeDynFlags alwaysQualify . ppr) instances)
+    | otherwise = Nothing
+  where
+    instances = templInstances
+    templInstances = templateInstances env externPkgId
+
+    mod = envMod env
+    modFilePath = (joinPath $ splitOn "." modName) ++ "Instances" ++ ".daml"
+    modName = T.unpack $ LF.moduleNameString $ LF.moduleName mod
+    header =
+        [ "{-# LANGUAGE NoDamlSyntax #-}"
+        , "{-# LANGUAGE EmptyCase #-}"
+        , "module " <> modName <> "Instances" <> " where"
+        ]
+    imports =
+        [ "import qualified " <> modName
+        , "import qualified DA.Internal.Template"
+        , "import qualified GHC.Types"
+        ]
+
+templateInstances :: Env -> LF.PackageId -> [HsDecl GhcPs]
+templateInstances env externPkgId =
+    [ generateTemplateInstance env dataTypeCon dataParams externPkgId
+    | LF.DefDataType {..} <- NM.toList $ LF.moduleDataTypes mod
+    , dataTypeCon `elem` (NM.names $ LF.moduleTemplates mod)
+    ]
+  where
+    mod = envMod env
+
 generateGenInstancesPkgFromLf ::
        (LF.PackageRef -> UnitId)
     -> LF.PackageId
@@ -128,6 +187,7 @@ generateGenInstanceModule env externPkgId qual
     genInstances = snd genImportsAndInstances
 
     mod = envMod env
+
     modFilePath = (joinPath $ splitOn "." modName) ++ qual ++ "GenInstances" ++ ".daml"
     modName = T.unpack $ LF.moduleNameString $ LF.moduleName mod
     modNameQual = modName <> qual
@@ -295,7 +355,6 @@ generateTemplateInstance env typeCon typeParams externPkgId =
             , fun_co_fn = WpHole
             , fun_tick = []
             }
-
 
 -- | Generate the full source for a daml-lf package.
 generateSrcPkgFromLf ::

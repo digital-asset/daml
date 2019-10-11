@@ -22,7 +22,7 @@ module GHC.Types (
         Text, Decimal,
         Opaque,
         ifThenElse,
-        primitive, magic,
+        primitive, magic, external
         DamlEnum,
 
 #ifdef DAML_NUMERIC
@@ -136,6 +136,10 @@ data TyCon = TyCon Word# Word#           -- Fingerprint
                    Int#                  -- How many kind variables do we accept?
                    KindRep               -- A representation of the type's kind
 
+
+-- | HIDE A DAML-LF call to an external package
+external : forall (f : Symbol) b. b
+external = external --deleted by the compiler
 
 -- | HIDE A DAML-LF primitive
 primitive : forall (f : Symbol) b. b

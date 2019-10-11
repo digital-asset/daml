@@ -139,7 +139,7 @@ unsupported typ x = conversionError errMsg
              typ ++ ".\n" ++
              prettyPrint x
 
-unknown :: HasCallStack => GHC.UnitId -> MS.Map GHC.UnitId T.Text -> ConvertM e
+unknown :: HasCallStack => GHC.UnitId -> MS.Map GHC.UnitId DalfPackage -> ConvertM e
 unknown unitId pkgMap = conversionError errMsg
     where errMsg =
               "Unknown package: " ++ GHC.unitIdString unitId
@@ -156,7 +156,7 @@ data Env = Env
     ,envGHCModuleName :: GHC.ModuleName
     ,envModuleUnitId :: GHC.UnitId
     ,envAliases :: MS.Map Var LF.Expr
-    ,envPkgMap :: MS.Map GHC.UnitId T.Text
+    ,envPkgMap :: MS.Map GHC.UnitId LF.DalfPackage
     ,envLfVersion :: LF.Version
     ,envTypeSynonyms :: [(GHC.Type, TyCon)]
     ,envInstances :: [(TyCon, [GHC.Type])]
@@ -266,7 +266,12 @@ convertRationalNumericMono env scale num denom
         double = (fromInteger num / fromInteger denom) :: Double
         maxPower = fromIntegral numericMaxPrecision - scale
 
-convertModule :: LF.Version -> MS.Map UnitId T.Text -> NormalizedFilePath -> CoreModule -> Either FileDiagnostic LF.Module
+convertModule
+    :: LF.Version
+    -> MS.Map UnitId DalfPackage
+    -> NormalizedFilePath
+    -> CoreModule
+    -> Either FileDiagnostic LF.Module
 convertModule lfVersion pkgMap file x = runConvertM (ConversionEnv file Nothing) $ do
     definitions <- concatMapM (convertBind env) binds
     types <- concatMapM (convertTypeDef env) (eltsUFM (cm_types x))
@@ -751,6 +756,9 @@ convertExpr env0 e = do
             mkFieldProj i (name, _typ) = (mkField ("_" <> T.pack (show i)), ETupleProj name (EVar varV1))
     go env (VarIs "primitive") (LType (isStrLitTy -> Just y) : LType t : args)
         = fmap (, args) $ convertPrim (envLfVersion env) (unpackFS y) <$> convertType env t
+    go env (VarIs "external") (LType (isStrLitTy -> Just y) : LType t : args) = do
+        stdlibRef <- packageNameToPkgRef env damlStdlib
+        fmap (, args) $ convertExternal env stdlibRef (unpackFS y) <$> convertType env t
     go env (VarIs "getFieldPrim") (LType (isStrLitTy -> Just name) : LType record : LType _field : args) = do
         record' <- convertType env record
         withTmArg env (varV1, record') args $ \x args ->
@@ -1169,12 +1177,12 @@ convertLet env binder bound mkBody = do
             pure $ ELet (Binding binder bound) body
 
 -- | Convert ghc package unit id's to LF package references.
-convertUnitId :: GHC.UnitId -> MS.Map GHC.UnitId T.Text -> UnitId -> ConvertM LF.PackageRef
+convertUnitId :: GHC.UnitId -> MS.Map GHC.UnitId DalfPackage -> UnitId -> ConvertM LF.PackageRef
 convertUnitId thisUnitId _pkgMap unitId | unitId == thisUnitId = pure LF.PRSelf
 convertUnitId _thisUnitId pkgMap unitId = case unitId of
   IndefiniteUnitId x -> unsupported "Indefinite unit id's" x
   DefiniteUnitId _ -> case MS.lookup unitId pkgMap of
-    Just hash -> pure $ LF.PRImport $ PackageId hash
+    Just DalfPackage{..} -> pure $ LF.PRImport dalfPackageId
     Nothing -> unknown unitId pkgMap
 
 convertAlt :: Env -> LF.Type -> Alt Var -> ConvertM CaseAlternative
@@ -1528,6 +1536,162 @@ toCtor env con =
         | otherwise = ty
   in Ctor (getName con) (ctorLabels con) <$> mapM (fmap sanitize . convertType env) (thetas ++ tys)
 
+------------------------------------------------------------------------------
+-- EXTERNAL PACKAGES
+
+-- External instance methods
+convertExternal :: Env -> LF.PackageRef -> String -> LF.Type -> LF.Expr
+convertExternal env stdlibRef primId lfType
+    | [pkgId, modStr, templName, method] <- splitOn ":" primId
+    , Just LF.Template {..} <- lookup pkgId modStr templName =
+        let pkgRef = PRImport $ PackageId $ T.pack pkgId
+            mod = ModuleName $ map T.pack $ splitOn "." modStr
+            qualify tconName =
+                Qualified
+                    { qualPackage = pkgRef
+                    , qualModule = mod
+                    , qualObject = tconName
+                    }
+            templateDataType = TCon . qualify
+         in case method of
+                "signatory" ->
+                    ETmLam
+                        (tplParam, templateDataType tplTypeCon)
+                        tplSignatories
+                "observer" ->
+                    ETmLam (tplParam, templateDataType tplTypeCon) tplObservers
+                "agreement" ->
+                    ETmLam (tplParam, templateDataType tplTypeCon) tplAgreement
+                "ensure" ->
+                    ETmLam
+                        (tplParam, templateDataType tplTypeCon)
+                        tplPrecondition
+                "create" ->
+                    ETmLam
+                        (tplParam, templateDataType tplTypeCon)
+                        (EUpdate $ UCreate (qualify tplTypeCon) (EVar tplParam))
+                "fetch" ->
+                    let coid = mkVar "$coid"
+                     in ETmLam
+                            ( coid
+                            , TApp
+                                  (TBuiltin BTContractId)
+                                  (templateDataType tplTypeCon))
+                            (EUpdate $ UFetch (qualify tplTypeCon) (EVar coid))
+                "archive" ->
+                    let archiveChoice = ChoiceName "Archive"
+                     in case NM.lookup archiveChoice tplChoices of
+                            Nothing -> errorExpr "archive"
+                            Just TemplateChoice {..} ->
+                                case chcArgBinder of
+                                    (_, LF.TCon tcon) ->
+                                        let coid = mkVar "$coid"
+                                            archiveChoiceArg =
+                                                LF.ERecCon
+                                                    { LF.recTypeCon =
+                                                          LF.TypeConApp tcon []
+                                                    , LF.recFields = []
+                                                    }
+                                         in ETmLam
+                                                ( coid
+                                                , TApp
+                                                      (TBuiltin BTContractId)
+                                                      (templateDataType
+                                                           tplTypeCon))
+                                                (EUpdate $
+                                                 UExercise
+                                                     (qualify tplTypeCon)
+                                                     archiveChoice
+                                                     (EVar coid)
+                                                     Nothing
+                                                     archiveChoiceArg)
+                                    otherwise ->
+                                        error
+                                            "convertExternal: Archive choice exists but has the wrong type."
+                "toAnyTemplate"
+                    | envLfVersion env `supports` featureAnyType ->
+                        ETmLam (tplParam, templateDataType tplTypeCon) $
+                        ERecCon
+                            anyTemplateTy
+                            [ ( anyTemplateField
+                              , EToAny
+                                    (templateDataType tplTypeCon)
+                                    (EVar tplParam))
+                            ]
+                "toAnyTemplate"
+                    | otherwise ->
+                        EBuiltin BEError `ETyApp` lfType `ETmApp`
+                        EBuiltin
+                            (BEText
+                                 "toAnyTemplate is not supported in this DAML-LF version")
+                "fromAnyTemplate"
+                    | envLfVersion env `supports` featureAnyType ->
+                        ETmLam (anyTpl, typeConAppToType anyTemplateTy) $
+                        ECase
+                            (EFromAny
+                                 (templateDataType tplTypeCon)
+                                 (ERecProj
+                                      anyTemplateTy
+                                      anyTemplateField
+                                      (EVar anyTpl)))
+                            [ CaseAlternative CPNone $
+                              ENone $ templateDataType tplTypeCon
+                            , CaseAlternative (CPSome tplParam) $
+                              ESome (templateDataType tplTypeCon) $
+                              EVar tplParam
+                            ]
+                    | otherwise ->
+                        EBuiltin BEError `ETyApp` lfType `ETmApp`
+                        EBuiltin
+                            (BEText
+                                 "fromAnyTemplate is not supported in this DAML-LF version")
+                "_templateTypeRep"
+                    | envLfVersion env `supports` featureTypeRep ->
+                        let resType =
+                                TypeConApp
+                                    (Qualified
+                                         stdlibRef
+                                         (mkModName ["DA", "Internal", "LF"])
+                                         (mkTypeCon ["TemplateTypeRep"]))
+                                    []
+                            resField = mkField "getTemplateTypeRep"
+                         in ERecCon
+                                resType
+                                [ ( resField
+                                  , ETypeRep $ templateDataType tplTypeCon)
+                                ]
+                    | otherwise ->
+                        EBuiltin BEError `ETyApp` lfType `ETmApp`
+                        EBuiltin
+                            (BEText
+                                 "templateTypeRep is not supported in this DAML-LF version")
+                other -> error "convertExternal: Unknown external method"
+    | otherwise = error $ "convertExternal: Unable to inline call to external method: " <> primId
+  where
+    errorExpr s =
+        EBuiltin BEError `ETyApp` lfType `ETmApp`
+        EBuiltin
+            (BEText $ "convertExternal: method " <> s <> " not implemented")
+    lookup pId modName temName = do
+        mods <- MS.lookup pId pkgIdToModules
+        mod <- NM.lookup (LF.ModuleName $ map T.pack $ splitOn "." modName) mods
+        NM.lookup (LF.TypeConName [T.pack temName]) $ LF.moduleTemplates mod
+    pkgIdToModules =
+        MS.fromList
+            [ (T.unpack $ LF.unPackageId dalfPackageId, LF.packageModules pkg)
+            | (_uId, DalfPackage {..}) <- MS.toList $ envPkgMap env
+            , let ExternalPackage _pid pkg = dalfPackagePkg
+            ]
+    anyTemplateTy =
+        TypeConApp
+            (Qualified
+                 stdlibRef
+                 (mkModName ["DA", "Internal", "LF"])
+                 (mkTypeCon ["AnyTemplate"]))
+            []
+    anyTemplateField = mkField "getAnyTemplate"
+    anyTpl = mkVar "anyTpl"
+
 ---------------------------------------------------------------------
 -- SIMPLE WRAPPERS
 
@@ -1547,7 +1711,6 @@ convVar = mkVar . varPrettyPrint
 
 convVarWithType :: Env -> Var -> ConvertM (ExprVarName, LF.Type)
 convVarWithType env v = (convVar v,) <$> convertType env (varType v)
-
 convVal :: Var -> ExprValName
 convVal = mkVal . varPrettyPrint
 

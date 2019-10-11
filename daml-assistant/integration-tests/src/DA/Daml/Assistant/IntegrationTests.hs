@@ -140,7 +140,7 @@ noassistantTests damlDir = testGroup "no assistant"
 
 packagingTests :: TestTree
 packagingTests = testGroup "packaging"
-    [ testCaseSteps "Build package with dependency" $ \step -> withTempDir $ \tmpDir -> do
+    ([ testCaseSteps "Build package with dependency" $ \step -> withTempDir $ \tmpDir -> do
         let projectA = tmpDir </> "a"
         let projectB = tmpDir </> "b"
         let aDar = projectA </> ".daml" </> "dist" </> "a-1.0.dar"
@@ -399,7 +399,10 @@ packagingTests = testGroup "packaging"
             , "dependencies: [daml-prim, daml-stdlib]"
             ]
         withCurrentDirectory projDir $ callCommandQuiet "daml build"
-    , testCase "Dalf imports" $ withTempDir $ \projDir -> do
+
+    ] <> do
+      withArchiveChoice <- [False,True] -- run two variations of the test
+      return $ testCase ("Dalf imports (withArchiveChoice=" <> show withArchiveChoice <> ")") $ withTempDir $ \projDir -> do
         let genSimpleDalfExe
               | isWindows = "generate-simple-dalf.exe"
               | otherwise = "generate-simple-dalf"
@@ -412,36 +415,63 @@ packagingTests = testGroup "packaging"
           , "version: 0.1.0"
           , "source: ."
           , "dependencies: [daml-prim, daml-stdlib, simple-dalf-0.0.0.dalf]"
+          , "build-options:"
+          , "- --generated-src"
           ]
         writeFileUTF8 (projDir </> "A.daml") $ unlines
             [ "daml 1.2"
             , "module A where"
-            , "import qualified \"simple-dalf\" Module"
+            , "import qualified Module"
+            , "import qualified ModuleInstances"
+            , "import DA.Internal.Template (toAnyTemplate, fromAnyTemplate)"
             , "newTemplate : Party -> Party -> Module.Template"
             , "newTemplate p1 p2 = Module.Template with Module.this = p1, Module.arg = p2"
             , "newChoice : Module.Choice"
             , "newChoice = Module.Choice ()"
-            --, "createTemplate : Party -> Party -> Update (ContractId Module.Template)"
-            --, "createTemplate p1 p2 = create $ newTemplate p1 p2"
-            --, "fetchTemplate : ContractId Module.Template -> Update Module.Template"
-            --, "fetchTemplate = fetch"
-            --, "archiveTemplate : ContractId Module.Template -> Update ()"
-            --, "archiveTemplate = archive"
-            --, "signatoriesTemplate : Module.Template -> [Party]"
-            --, "signatoriesTemplate = signatory"
-            --, "observersTemplate : Module.Template -> [Party]"
-            --, "observersTemplate = observer"
-            --, "ensureTemplate : Module.Template -> Bool"
-            --, "ensureTemplate = ensure"
-            --, "agreementTemplate : Module.Template -> Text"
-            --, "agreementTemplate = agreement"
+            , "createTemplate : Party -> Party -> Update (ContractId Module.Template)"
+            , "createTemplate p1 p2 = create $ newTemplate p1 p2"
+            , "fetchTemplate : ContractId Module.Template -> Update Module.Template"
+            , "fetchTemplate = fetch"
+            , "archiveTemplate : ContractId Module.Template -> Update ()"
+            , "archiveTemplate = archive"
+            , "signatoriesTemplate : Module.Template -> [Party]"
+            , "signatoriesTemplate = signatory"
+            , "observersTemplate : Module.Template -> [Party]"
+            , "observersTemplate = observer"
+            , "ensureTemplate : Module.Template -> Bool"
+            , "ensureTemplate = ensure"
+            , "agreementTemplate : Module.Template -> Text"
+            , "agreementTemplate = agreement"
+            , "toAnyTemplateTemplate : Module.Template -> AnyTemplate"
+            , "toAnyTemplateTemplate = toAnyTemplate"
+            , "fromAnyTemplateTemplate : AnyTemplate -> Optional Module.Template"
+            , "fromAnyTemplateTemplate = fromAnyTemplate"
+            , "test_methods = scenario do"
+            , "  alice <- getParty \"Alice\""
+            , "  bob <- getParty \"Bob\""
+            , "  let t = newTemplate alice bob"
+            , "  assert $ signatory t == [alice, bob]"
+            , "  assert $ observer t == []"
+            , "  assert $ ensure t"
+            , "  assert $ agreement t == \"\""
+            , "  coid <- submit alice $ createTemplate alice alice"
+            , "  " <> (if withArchiveChoice then "submit" else "submitMustFail") <> " alice $ archive coid"
+            , "  coid1 <- submit bob $ createTemplate bob bob"
+            , "  t1 <- submit bob $ fetch coid1"
+            , "  assert $ signatory t1 == [bob, bob]"
+            , "  let anyTemplate = toAnyTemplate t1"
+            , "  let (Some t2 : Optional Module.Template) = fromAnyTemplate anyTemplate"
+            , "  pure ()"
             ]
-        withCurrentDirectory projDir $ callCommandQuiet $ genSimpleDalf <> " simple-dalf-0.0.0.dalf"
-        withCurrentDirectory projDir $ callCommandQuiet "daml build"
+        withCurrentDirectory projDir $ callCommandQuiet $ genSimpleDalf
+            <> (if withArchiveChoice then " --with-archive-choice" else "")
+            <> " simple-dalf-0.0.0.dalf"
+        withCurrentDirectory projDir $ callCommandQuiet "daml build --target 1.dev"
         let dar = projDir </> ".daml/dist/proj-0.1.0.dar"
         assertBool "proj-0.1.0.dar was not created." =<< doesFileExist dar
+        withCurrentDirectory projDir $ callCommandQuiet "daml test --target 1.dev"
 
-    , testCaseSteps "Build migration package" $ \step -> withTempDir $ \tmpDir -> do
+    <> [ testCaseSteps "Build migration package" $ \step -> withTempDir $ \tmpDir -> do
         -- it's important that we have fresh empty directories here!
         let projectA = tmpDir </> "a-1.0"
         let projectB = tmpDir </> "a-2.0"
@@ -724,7 +754,7 @@ packagingTests = testGroup "packaging"
               , bWithUpgradesDar
               ]
         assertBool "a-0.2-with-upgrades.dar was not created." =<< doesFileExist bWithUpgradesDar
-    ]
+    ])
 
 quickstartTests :: FilePath -> FilePath -> TestTree
 quickstartTests quickstartDir mvnDir = testGroup "quickstart"

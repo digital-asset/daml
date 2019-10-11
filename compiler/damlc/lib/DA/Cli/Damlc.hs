@@ -563,18 +563,24 @@ createProjectPackageDb opts fps = do
                                   ]
                           let getUid = getUnitId unitId pkgMap
                           let src = generateSrcPkgFromLf getUid pkgId dalf
+                          let templInstSrc =
+                                  generateInstancesPkgFromLf
+                                      getUid
+                                      pkgId
+                                      dalf
                           pure
-                              ( (src, unitId, dalf, bs)
+                              ( (src, templInstSrc, unitId, dalf, bs)
                               , pkgId
                               , pkgRefs)
               let pkgIdsTopoSorted = reverse $ topSort depGraph
               dbPathAbs <- makeAbsolute dbPath
               projectPackageDatabaseAbs <- makeAbsolute projectPackageDatabase
               forM_ pkgIdsTopoSorted $ \vertex -> do
-                  let ((src, uid, dalf, bs), pkgId, _) =
+                  let ((src, templInstSrc, uid, dalf, bs), pkgId, _) =
                           vertexToNode vertex
                   when (uid /= primUnitId) $ do
                       let unitIdStr = unitIdString uid
+                      let instancesUnitIdStr = "instances-" <> unitIdStr
                       let pkgIdStr = T.unpack $ LF.unPackageId pkgId
                       let (pkgName, mbPkgVersion) =
                               fromMaybe (unitIdStr, Nothing) $ do
@@ -583,7 +589,7 @@ createProjectPackageDb opts fps = do
                                   Just (uId, Just ver)
                       let deps =
                               [ unitIdString uId <.> "dalf"
-                              | ((_src, uId, _dalf, _bs), pId, _) <-
+                              | ((_src, _templSrc, uId, _dalf, _bs), pId, _) <-
                                     map vertexToNode $ reachable depGraph vertex
                               , pkgId /= pId
                               ]
@@ -602,6 +608,18 @@ createProjectPackageDb opts fps = do
                               projectPackageDatabaseAbs
                               unitIdStr
                               pkgIdStr
+                              pkgName
+                              mbPkgVersion
+                              deps
+
+                      unless (null templInstSrc) $
+                          generateAndInstallInstancesPkg
+                              templInstSrc
+                              opts
+                              dbPathAbs
+                              projectPackageDatabaseAbs
+                              unitIdStr
+                              instancesUnitIdStr
                               pkgName
                               mbPkgVersion
                               deps
@@ -671,6 +689,62 @@ createProjectPackageDb opts fps = do
             , "--global-package-db=" ++ (dbPathAbs </> "package.conf.d")
             , "--expand-pkgroot"
             ]
+
+    -- generate a package containing template instances and install it in the package database
+    generateAndInstallInstancesPkg ::
+           [(NormalizedFilePath, String)]
+        -> Options
+        -> FilePath
+        -> FilePath
+        -> String
+        -> String
+        -> String
+        -> Maybe String
+        -> [String]
+        -> IO ()
+    generateAndInstallInstancesPkg templInstSrc opts dbPathAbs projectPackageDatabaseAbs unitIdStr instancesUnitIdStr pkgName mbPkgVersion deps =
+        withTempDir $ \tempDir ->
+            withCurrentDirectory tempDir $ do
+                loggerH <- getLogger opts "generate instances package"
+                mapM_ writeSrc templInstSrc
+                sdkVersion <- getSdkVersion
+                let pkgConfig =
+                        PackageConfigFields
+                            { pName = "instances-" <> pkgName
+                            , pSrc = "."
+                            , pExposedModules = Nothing
+                            , pVersion = mbPkgVersion
+                            , pDependencies = (unitIdStr <.> "dalf") : deps
+                            , pSdkVersion = sdkVersion
+                            , cliOpts = Nothing
+                            }
+                opts' <-
+                    mkOptions $
+                    opts
+                        { optWriteInterface = True
+                        , optPackageDbs = projectPackageDatabaseAbs : optPackageDbs opts
+                        , optIfaceDir = Just "./"
+                        , optIsGenerated = True
+                        , optDflagCheck = False
+                        , optMbPackageName = Just instancesUnitIdStr
+                        , optHideAllPkgs = False
+                        , optPackageImports = [(unitIdStr, []) | pkgName /= "daml-stdlib"]
+                        }
+                mbDar <-
+                    withDamlIdeState opts' loggerH diagnosticsLogger $ \ide ->
+                        buildDar
+                            ide
+                            pkgConfig
+                            (toNormalizedFilePath $
+                             fromMaybe ifaceDir $ optIfaceDir opts')
+                            (FromDalf False)
+                dar <- mbErr "ERROR: Creation of instances DAR file failed." mbDar
+              -- TODO (drsk) switch to different zip library so we don't have to write
+              -- the dar.
+                let darFp = instancesUnitIdStr <.> "dar"
+                Zip.createArchive darFp dar
+                ExtractedDar{..} <- extractDar darFp
+                installDar dbPathAbs edConfFiles edDalfs edSrcs
 
 -- | Write generated source files
 writeSrc :: (NormalizedFilePath, String) -> IO ()

@@ -8,6 +8,7 @@ da_haskell_library(
     srcs = glob(["src/**/*.hs"]),
     hackage_deps = [
         "base",
+        "bytestring",
         "containers",
         "deepseq",
         "Decimal",

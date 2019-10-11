@@ -5,6 +5,7 @@
 
 module DA.Daml.LF.Ast.World(
     World,
+    DalfPackage(..),
     getWorldSelf,
     initWorld,
     initWorldSelf,
@@ -23,6 +24,7 @@ import DA.Pretty
 
 import Control.DeepSeq
 import Control.Lens
+import qualified Data.ByteString as BS
 import qualified Data.HashMap.Strict as HMS
 import Data.List
 import qualified Data.NameMap as NM
@@ -52,6 +54,14 @@ data ExternalPackage = ExternalPackage PackageId Package
     deriving (Show, Eq, Generic)
 
 instance NFData ExternalPackage
+
+data DalfPackage = DalfPackage
+    { dalfPackageId :: PackageId
+    , dalfPackagePkg :: ExternalPackage
+    , dalfPackageBytes :: BS.ByteString
+    } deriving (Show, Eq, Generic)
+
+instance NFData DalfPackage
 
 -- | Rewrite all `PRSelf` references to `PRImport` references.
 rewriteSelfReferences :: PackageId -> Package -> ExternalPackage
