@@ -42,12 +42,14 @@ private class PackageService(reloadPackageStoreIfChanged: PackageService.ReloadP
 
   def packageStore: PackageStore = state.packageStore
 
+  // Do not reduce it to something like `PackageService.resolveTemplateId(state.templateIdMap)`
+  // `state.templateIdMap` will be cached in this case. Don't know why, `state` is volatile.
   def resolveTemplateId: ResolveTemplateId =
-    PackageService.resolveTemplateId(state.templateIdMap)
+    x => PackageService.resolveTemplateId(state.templateIdMap)(x)
 
+  // See the above comment
   def resolveTemplateIds: ResolveTemplateIds =
-    PackageService.resolveTemplateIds(state.templateIdMap)
-
+    x => PackageService.resolveTemplateIds(state.templateIdMap)(x)
 }
 
 object PackageService {
