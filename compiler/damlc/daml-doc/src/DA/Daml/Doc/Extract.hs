@@ -120,11 +120,13 @@ extractDocs extractOpts diagsLogger ideOpts fp = do
                 = MS.elems . MS.withoutKeys typeMap . Set.unions
                 $ dc_templates : MS.elems dc_choices
 
-            (md_adts, md_templateInstances) =
+            (adts, md_templateInstances) =
                 partitionEithers . flip map filteredTyCons $ \adt ->
                     case getTemplateInstanceDoc adt of
                         Nothing -> Left adt
                         Just ti -> Right ti
+
+            md_adts = mapMaybe (filterTypeByExports ctx) adts
 
         in ModuleDoc {..}
 
@@ -396,7 +398,6 @@ getTypeDocs ctx@DocCtx{..} (DeclData (L _ (TyClD _ decl)) doc)
                 rhs <- synTyConRhs_maybe tycon
                 Just (typeToType ctx rhs)
             ad_instances = Nothing -- filled out later in 'distributeInstanceDocs'
-        guard (exportsType dc_exports ad_name)
         Just (ad_name, TypeSynDoc {..})
 
     | DataDecl{..} <- decl = do
@@ -404,13 +405,12 @@ getTypeDocs ctx@DocCtx{..} (DeclData (L _ (TyClD _ decl)) doc)
             ad_descr = doc
             ad_args = map (tyVarText . unLoc) $ hsq_explicit tcdTyVars
             ad_anchor = Just $ typeAnchor dc_modname ad_name
-            ad_constrs = mapMaybe (constrDoc ad_name) . dd_cons $ tcdDataDefn
+            ad_constrs = map constrDoc . dd_cons $ tcdDataDefn
             ad_instances = Nothing -- filled out later in 'distributeInstanceDocs'
-        guard (exportsType dc_exports ad_name)
         Just (ad_name, ADTDoc {..})
   where
-    constrDoc :: Typename -> LConDecl GhcPs -> Maybe ADTConstr
-    constrDoc ad_name (L _ con) = do
+    constrDoc :: LConDecl GhcPs -> ADTConstr
+    constrDoc (L _ con) =
         let ac_name = Typename . packRdrName . unLoc $ con_name con
             ac_anchor = Just $ constrAnchor dc_modname ac_name
             ac_descr = fmap (docToText . unLoc) $ con_doc con
@@ -423,25 +423,43 @@ getTypeDocs ctx@DocCtx{..} (DeclData (L _ (TyClD _ decl)) doc)
                             unknownType
                     Just datacon ->
                         map (typeToType ctx) (dataConOrigArgTys datacon)
-
-        guard (exportsConstr dc_exports ad_name ac_name)
-        Just $ case con_args con of
+        in case con_args con of
             PrefixCon _ -> PrefixC {..}
             InfixCon _ _ -> PrefixC {..} -- FIXME: should probably change this!
             RecCon (L _ fs) ->
-              let ac_fields = mapMaybe (fieldDoc ad_name) (zip ac_args fs)
-              in RecordC {..}
+                let ac_fields = mapMaybe fieldDoc (zip ac_args fs)
+                in RecordC {..}
 
-    fieldDoc :: Typename -> (DDoc.Type, LConDeclField GhcPs) -> Maybe FieldDoc
-    fieldDoc ad_name (fd_type, L _ ConDeclField{..}) = do
+    fieldDoc :: (DDoc.Type, LConDeclField GhcPs) -> Maybe FieldDoc
+    fieldDoc (fd_type, L _ ConDeclField{..}) = do
         let fd_name = Fieldname . T.concat . map (toText . unLoc) $ cd_fld_names
             fd_anchor = Just $ functionAnchor dc_modname fd_name
             fd_descr = fmap (docToText . unLoc) cd_fld_doc
-        guard (exportsField dc_exports ad_name fd_name)
         Just FieldDoc{..}
-    fieldDoc _ (_, L _ XConDeclField{}) = Nothing
+    fieldDoc (_, L _ XConDeclField{}) = Nothing
 
 getTypeDocs _ _other = Nothing
+
+filterTypeByExports :: DocCtx -> ADTDoc -> Maybe ADTDoc
+filterTypeByExports DocCtx{..} ad = do
+    guard (exportsType dc_exports (ad_name ad))
+    case ad of
+        TypeSynDoc{} -> Just ad
+        ADTDoc{..} -> Just (ad { ad_constrs = mapMaybe filterConstr ad_constrs })
+
+  where
+
+    filterConstr :: ADTConstr -> Maybe ADTConstr
+    filterConstr ac = do
+        guard (exportsConstr dc_exports (ad_name ad) (ac_name ac))
+        case ac of
+            PrefixC{} -> Just ac
+            RecordC{..} -> Just ac { ac_fields = mapMaybe filterFields ac_fields }
+
+    filterFields :: FieldDoc -> Maybe FieldDoc
+    filterFields fd@FieldDoc{..} = do
+        guard (exportsField dc_exports (ad_name ad) fd_name)
+        Just fd
 
 -- | Build template docs up from ADT and class docs.
 getTemplateDocs ::

@@ -11,6 +11,9 @@ module ExportList
     , Class2 ()
     , Class3 (member3)
     , Class4 (..)
+    , Template1
+    , Template2 (tfield2)
+    , Template3 (..)
     ) where
 
 function0 : Int
@@ -73,3 +76,36 @@ class Class3 t where
 class Class4 t where
     member4 : t
     member4' : t
+
+template Template1
+    with
+        tfield1 : Party
+        tfield1' : Party
+    where
+        signatory tfield1
+        controller tfield1 can
+            Choice1 : ()
+              do
+                pure ()
+
+template Template2
+    with
+        tfield2 : Party
+        tfield2' : Party
+    where
+        signatory tfield2
+        controller tfield2 can
+            Choice2 : ()
+              do
+                pure ()
+
+template Template3
+    with
+        tfield3 : Party
+        tfield3' : Party
+    where
+        signatory tfield3
+        controller tfield3 can
+            Choice3 : ()
+              do
+                pure ()
