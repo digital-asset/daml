@@ -83,8 +83,9 @@ class DomainJsonDecoder(
           resolveTemplateId(tido)
             .leftMap(e => JsonError("foobar: " + e.shows))
             .flatMap { tidr =>
-              jsValueToApiValue(IdentifierConverters.lfIdentifier(tidr), key) strengthL (tidr map (Some(
-                _)))
+              val tidLfId = IdentifierConverters.lfIdentifier(tidr)
+              // the tidLfId is not the key type, which is what we need
+              jsValueToApiValue(???, key) strengthL (tidr map (Some(_)))
             }
       }
       .map(_.swap)
