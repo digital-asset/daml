@@ -56,9 +56,7 @@ object domain {
       templateId: TemplateId.RequiredPkg,
       witnessParties: Seq[Party])
 
-  case class ContractLookupRequest[+LfV](
-      ledgerId: Option[String],
-      id: InputContractRef[LfV])
+  case class ContractLookupRequest[+LfV](ledgerId: Option[String], id: InputContractRef[LfV])
 
   case class GetActiveContractsRequest(
       templateIds: Set[TemplateId.OptionalPkg],
