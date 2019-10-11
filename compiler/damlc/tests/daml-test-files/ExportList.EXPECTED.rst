@@ -6,6 +6,30 @@ Module ExportList
 Templates
 ^^^^^^^^^
 
+.. _type-exportlist-template0-22237:
+
+**template** `Template0 <type-exportlist-template0-22237_>`_
+
+  .. list-table::
+     :widths: 15 10 30
+     :header-rows: 1
+  
+     * - Field
+       - Type
+       - Description
+     * - tfield0
+       - Party
+       - 
+     * - tfield0'
+       - Party
+       - 
+  
+  + **Choice External\:Archive**
+    
+  
+  + **Choice Choice0**
+    
+
 .. _type-exportlist-template1-34256:
 
 **template** `Template1 <type-exportlist-template1-34256_>`_

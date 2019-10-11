@@ -2,6 +2,21 @@
 
 ## Templates
 
+<a name="type-exportlist-template0-22237"></a>**template** [Template0](#type-exportlist-template0-22237)
+
+> | Field    | Type     | Description |
+> | :------- | :------- | :---------- |
+> | tfield0  | Party    |  |
+> | tfield0' | Party    |  |
+> 
+> * **Choice External:Archive**
+>   
+>   (no fields)
+> 
+> * **Choice Choice0**
+>   
+>   (no fields)
+
 <a name="type-exportlist-template1-34256"></a>**template** [Template1](#type-exportlist-template1-34256)
 
 > | Field    | Type     | Description |

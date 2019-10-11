@@ -77,6 +77,17 @@ class Class4 t where
     member4 : t
     member4' : t
 
+template Template0
+    with
+        tfield0 : Party
+        tfield0' : Party
+    where
+        signatory tfield0
+        controller tfield0 can
+            Choice0 : ()
+              do
+                pure ()
+
 template Template1
     with
         tfield1 : Party
