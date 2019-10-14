@@ -23,7 +23,6 @@ import com.digitalasset.ledger.client.configuration.{
   LedgerClientConfiguration,
   LedgerIdRequirement
 }
-import com.digitalasset.ledger.service.LedgerReader
 import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.sandbox.SandboxServer
 import com.digitalasset.platform.sandbox.config.SandboxConfig
@@ -127,13 +126,13 @@ object HttpServiceTestFixture {
 
   def jsonCodecs(client: LedgerClient)(
       implicit ec: ExecutionContext): Future[(DomainJsonEncoder, DomainJsonDecoder)] = {
-    import scalaz.std.string._
     val ledgerId = apiLedgerId(client.ledgerId)
-    for {
-      packageStore <- FutureUtil.stripLeft(LedgerReader.createPackageStore(client.packageClient))
-      templateIdMap = PackageService.getTemplateIdMap(packageStore)
-      codecs = HttpService.buildJsonCodecs(ledgerId, packageStore, templateIdMap)
-    } yield codecs
+    val packageService = new PackageService(
+      HttpService.loadPackageStoreUpdates(client.packageClient))
+    packageService
+      .reload(ec)
+      .flatMap(x => FutureUtil.toFuture(x))
+      .map(_ => HttpService.buildJsonCodecs(ledgerId, packageService))
   }
 
   private def stripLeft(fa: Future[HttpService.Error \/ ServerBinding])(

@@ -28,6 +28,7 @@ object Main extends StrictLogging {
       ledgerPort: Int,
       httpPort: Int,
       applicationId: ApplicationId = ApplicationId("HTTP-JSON-API-Gateway"),
+      packageReloadInterval: FiniteDuration = HttpService.DefaultPackageReloadInterval,
       maxInboundMessageSize: Int = HttpService.DefaultMaxInboundMessageSize,
   )
 
@@ -46,6 +47,7 @@ object Main extends StrictLogging {
     logger.info(
       s"Config(ledgerHost=${config.ledgerHost: String}, ledgerPort=${config.ledgerPort: Int}" +
         s", httpPort=${config.httpPort: Int}, applicationId=${config.applicationId.unwrap: String}" +
+        s", packageReloadInterval=${config.packageReloadInterval.toString}" +
         s", maxInboundMessageSize=${config.maxInboundMessageSize: Int})")
 
     implicit val asys: ActorSystem = ActorSystem("http-json-ledger-api")
@@ -60,6 +62,7 @@ object Main extends StrictLogging {
         config.ledgerPort,
         config.applicationId,
         config.httpPort,
+        config.packageReloadInterval,
         config.maxInboundMessageSize)
 
     sys.addShutdownHook {
@@ -114,6 +117,12 @@ object Main extends StrictLogging {
       .optional()
       .text(
         s"Optional application ID to use for ledger registration. Defaults to ${EmptyConfig.applicationId.unwrap: String}")
+
+    opt[Duration]("package-reload-interval")
+      .action((x, c) => c.copy(packageReloadInterval = FiniteDuration(x.length, x.unit)))
+      .optional()
+      .text(s"Optional interval to poll for package updates. Examples: 500ms, 5s, 10min, 1h, 1d. " +
+        s"Defaults to ${EmptyConfig.packageReloadInterval.toString}")
 
     opt[Int]("max-inbound-message-size")
       .action((x, c) => c.copy(maxInboundMessageSize = x))
