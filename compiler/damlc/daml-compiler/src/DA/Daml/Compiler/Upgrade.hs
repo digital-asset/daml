@@ -364,8 +364,8 @@ generateSrcFromLf (Qualify qualify) thisPkgId pkgMap m = noLoc mod
                             , cid_datafam_insts = []
                             , cid_overlap_mode = Nothing
                             }
-            let templateDataCons = NM.names $ LF.moduleTemplates m
             pure $ dataDecl : [templInstDecl | dataTypeCon `elem` templateDataCons]
+    templateDataCons = NM.names $ LF.moduleTemplates m
     convDataCons :: T.Text -> LF.DataCons -> [LConDecl GhcPs]
     convDataCons dataTypeCon0 =
         \case
@@ -416,14 +416,10 @@ generateSrcFromLf (Qualify qualify) thisPkgId pkgMap m = noLoc mod
                     , con_ex_tvs = []
                     , con_mb_cxt = Nothing
                     , con_doc = Nothing
-                    , con_args =
-                          case ty of
-                              LF.TBuiltin LF.BTUnit -> PrefixCon []
-                              otherTy ->
-                                  let t = convType otherTy
-                                   in case (t :: HsType GhcPs) of
-                                          HsRecTy _ext fs -> RecCon $ noLoc fs
-                                          _other -> PrefixCon [noLoc t]
+                    , con_args = let t = convType ty
+                                 in case (t :: HsType GhcPs) of
+                                        HsRecTy _ext fs -> RecCon $ noLoc fs
+                                        _other -> PrefixCon [noLoc t]
                     }
                 | (conName, ty) <- cons
                 ]
@@ -591,6 +587,9 @@ generateSrcFromLf (Qualify qualify) thisPkgId pkgMap m = noLoc mod
             , mkImport
                   ((LF.unModuleName $ LF.moduleName m) /= ["GHC", "Types"])
                   "GHC.Types"
+            , mkImport
+                  (not $ null templateDataCons)
+                  "DA.Internal.Template"
             ]
     -- imports needed by the module declarations
     declImports
