@@ -7,8 +7,8 @@ package daml_lf;
 option java_package = "com.digitalasset.daml_lf";
 option csharp_namespace = "Com.DigitalAsset.Daml_lf.DamlLf";
 
-import "da/daml_lf_0.proto";
-import "da/daml_lf_1.proto";
+import "com/digitalasset/daml_lf/daml_lf_0.proto";
+import "com/digitalasset/daml_lf/daml_lf_1.proto";
 
 message ArchivePayload {
   // this is number 3 for historical reasons -- we had

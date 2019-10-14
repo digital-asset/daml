@@ -25,18 +25,19 @@ LF_MAJOR_VERSIONS = [
 
 filegroup(
     name = "daml-lf-archive-srcs",
-    srcs = ["da/daml_lf.proto"] + ["da/daml_lf_%s.proto" % v for v in LF_MAJOR_VERSIONS],
+    srcs = ["src/main/protobuf/com/digitalasset/daml_lf/daml_lf.proto"] +
+           ["src/main/protobuf/com/digitalasset/daml_lf/daml_lf_%s.proto" % v for v in LF_MAJOR_VERSIONS],
     visibility = ["//visibility:public"],
 )
 
 exports_files(
-    ["da/daml_lf_%s.proto" % v for v in LF_MAJOR_VERSIONS],
+    ["com/digitalasset/daml_lf/daml_lf_%s.proto" % v for v in LF_MAJOR_VERSIONS],
 )
 
 proto_library(
     name = "daml_lf_proto",
     srcs = [":daml-lf-archive-srcs"],
-    proto_source_root = "daml-lf/archive",
+    strip_import_prefix = "src/main/protobuf/",
     visibility = ["//:__subpackages__"],
 )
 
@@ -58,13 +59,18 @@ java_library(
 # FIXME(JM): Clean this up
 genrule(
     name = "daml_lf_haskell_proto_src",
-    srcs = glob(["da/*.proto"]),
-    outs = ["Da/DamlLf.hs"] + ["Da/DamlLf%s.hs" % v.title() for v in LF_MAJOR_VERSIONS],
+    srcs = ["daml-lf-archive-srcs"],
+    outs = ["Com/Digitalasset/DamlLf/DamlLf.hs"] +
+           ["Com/Digitalasset/DamlLf/DamlLf%s.hs" % v.title() for v in LF_MAJOR_VERSIONS],
     cmd =
-        "ORIGPWD=`pwd`\ncd daml-lf/archive\n" +
         "\n".join(
             [
-                "$$ORIGPWD/$(location @haskell_proto3__suite//:compile-proto-file) --proto da/daml_lf%s.proto --out $$ORIGPWD/$(@D)" % vx
+                """
+                   $(location @haskell_proto3__suite//:compile-proto-file)  \
+                     --includeDir daml-lf/archive/src/main/protobuf/        \
+                     --proto com/digitalasset/daml_lf/daml_lf%s.proto   \
+                     --out $(@D)
+                 """ % vx
                 for vx in [""] + ["_%s" % v for v in LF_MAJOR_VERSIONS]
             ],
         ),
@@ -92,7 +98,7 @@ da_haskell_library(
 
 da_scala_library(
     name = "daml_lf_archive_scala",
-    srcs = glob(["src/main/**/*.scala"]),
+    srcs = glob(["src/main/scala/**/*.scala"]),
     scalacopts = lf_scalacopts,
     tags = ["maven_coordinates=com.digitalasset:daml-lf-archive-scala:__VERSION__"],
     visibility = ["//visibility:public"],
@@ -139,13 +145,14 @@ daml_compile(
 
 filegroup(
     name = "proto_srcs",
-    srcs = ["da/daml_lf.proto"] + ["da/daml_lf_%s.proto" % v for v in LF_MAJOR_VERSIONS],
+    srcs = ["src/main/protobuf/com/digitalasset/daml_lf/daml_lf.proto"] +
+           ["src/main/protobuf/com/digitalasset/daml_lf/daml_lf_%s.proto" % v for v in LF_MAJOR_VERSIONS],
 )
 
 proto_library(
     name = "daml_lf_proto_lib",
     srcs = [":proto_srcs"],
-    proto_source_root = "daml-lf/archive",
+    strip_import_prefix = "src/main/protobuf/",
 )
 
 java_proto_library(
