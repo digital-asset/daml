@@ -503,12 +503,16 @@ getTemplateDocs DocCtx{..} typeMap templateInstanceMap =
     -- (possible if choice instances are defined directly outside the template).
     -- This wouldn't be necessary if we used the type-checked AST.
       where dummyDT = ADTDoc { ad_anchor = Nothing
-                             , ad_name    = Typename $ "External:" <> unTypename n
-                             , ad_descr   = Nothing
+                             , ad_name = dummyName n
+                             , ad_descr = Nothing
                              , ad_args = []
                              , ad_constrs = []
                              , ad_instances = Nothing
                              }
+
+            dummyName (Typename "Archive") = Typename "Archive"
+            dummyName (Typename t) = Typename $ "External:" <> t
+
     -- Assuming one constructor (record or prefix), extract the fields, if any.
     -- For choices without arguments, GHC returns a prefix constructor, so we
     -- need to cater for this case specially.

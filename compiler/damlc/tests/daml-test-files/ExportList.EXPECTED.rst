@@ -24,7 +24,7 @@ Templates
        - Party
        - 
   
-  + **Choice External\:Archive**
+  + **Choice Archive**
     
   
   + **Choice Choice0**
@@ -48,7 +48,7 @@ Templates
        - Party
        - 
   
-  + **Choice External\:Archive**
+  + **Choice Archive**
     
   
   + **Choice Choice1**
@@ -72,7 +72,7 @@ Templates
        - Party
        - 
   
-  + **Choice External\:Archive**
+  + **Choice Archive**
     
   
   + **Choice Choice2**
@@ -96,7 +96,7 @@ Templates
        - Party
        - 
   
-  + **Choice External\:Archive**
+  + **Choice Archive**
     
   
   + **Choice Choice3**
