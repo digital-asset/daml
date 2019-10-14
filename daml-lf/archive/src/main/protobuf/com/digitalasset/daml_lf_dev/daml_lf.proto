@@ -2,13 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
 syntax = "proto3";
-package daml_lf;
+package daml_lf_dev;
 
-option java_package = "com.digitalasset.daml_lf";
-option csharp_namespace = "Com.DigitalAsset.Daml_lf.DamlLf";
+option java_package = "com.digitalasset.daml_lf_dev";
+option csharp_namespace = "Com.DigitalAsset.Daml_Lf_Dev.DamlLf";
 
-import "com/digitalasset/daml_lf/daml_lf_0.proto";
-import "com/digitalasset/daml_lf/daml_lf_1.proto";
+import "com/digitalasset/daml_lf_dev/daml_lf_0.proto";
+import "com/digitalasset/daml_lf_dev/daml_lf_1.proto";
 
 message ArchivePayload {
   // this is number 3 for historical reasons -- we had

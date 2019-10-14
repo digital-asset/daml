@@ -10,8 +10,8 @@ import com.digitalasset.daml.lf.data.Ref.{PackageId, Identifier}
 import com.digitalasset.daml.lf.iface.reader.InterfaceReader
 import com.digitalasset.daml.lf.iface.{Interface, DefDataType}
 import com.digitalasset.daml.lf.archive.Reader
-import com.digitalasset.daml_lf.DamlLf
-import com.digitalasset.daml_lf.DamlLf.Archive
+import com.digitalasset.daml_lf_dev.DamlLf
+import com.digitalasset.daml_lf_dev.DamlLf.Archive
 import com.digitalasset.ledger.api.v1.package_service.GetPackageResponse
 import com.digitalasset.ledger.client.services.pkg.PackageClient
 

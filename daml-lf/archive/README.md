@@ -25,7 +25,7 @@ definition, a Haskell one and a Java one:
 
 ```
 $ bazel build //daml-lf/archive:daml_lf_archive_haskell_proto
-$ bazel build //daml-lf/archive:daml_lf_archive_java_proto
+$ bazel build //daml-lf/archive:daml_lf_dev_archive_java_proto
 ```
 
 ## Editing the `.proto` definitions

@@ -6,7 +6,7 @@ package com.digitalasset.daml.lf.iface.reader
 import java.io.BufferedInputStream
 import java.nio.file.Files
 
-import com.digitalasset.daml_lf.DamlLf
+import com.digitalasset.daml_lf_dev.DamlLf
 
 object InterfaceReaderMain extends App {
 

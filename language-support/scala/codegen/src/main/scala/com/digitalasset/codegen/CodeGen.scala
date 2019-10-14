@@ -16,7 +16,7 @@ import com.digitalasset.codegen.exception.PackageInterfaceException
 import lf.{DefTemplateWithRecord, LFUtil, ScopedDataType}
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.iface.reader.Errors.ErrorLoc
-import com.digitalasset.daml_lf.DamlLf
+import com.digitalasset.daml_lf_dev.DamlLf
 import com.typesafe.scalalogging.Logger
 import scalaz.{Enum => _, _}
 import scalaz.std.tuple._

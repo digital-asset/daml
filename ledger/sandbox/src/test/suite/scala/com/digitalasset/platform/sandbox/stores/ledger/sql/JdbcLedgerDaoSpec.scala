@@ -29,7 +29,7 @@ import com.digitalasset.daml.lf.value.Value.{
   VersionedValue
 }
 import com.digitalasset.daml.lf.value.ValueVersions
-import com.digitalasset.daml_lf.DamlLf
+import com.digitalasset.daml_lf_dev.DamlLf
 import com.digitalasset.ledger.EventId
 import com.digitalasset.ledger.api.domain.{
   Filters,

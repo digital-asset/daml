@@ -4,7 +4,7 @@
 package com.daml.ledger.participant.state.index.v2
 
 import com.digitalasset.daml.lf.data.Ref.PackageId
-import com.digitalasset.daml_lf.DamlLf.Archive
+import com.digitalasset.daml_lf_dev.DamlLf.Archive
 import com.digitalasset.daml.lf.language.Ast.Package
 
 import scala.concurrent.Future

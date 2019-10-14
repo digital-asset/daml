@@ -8,7 +8,7 @@ import java.io.File
 import com.digitalasset.daml.bazeltools.BazelRunfiles
 import com.digitalasset.daml.lf.archive.{Dar, UniversalArchiveReader}
 import com.digitalasset.daml.lf.data.Ref.{DottedName, PackageId}
-import com.digitalasset.daml_lf.DamlLf
+import com.digitalasset.daml_lf_dev.DamlLf
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.{Matchers, WordSpec}
 

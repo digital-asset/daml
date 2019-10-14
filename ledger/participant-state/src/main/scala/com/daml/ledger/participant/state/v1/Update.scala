@@ -5,7 +5,7 @@ package com.daml.ledger
 package participant.state.v1
 
 import com.digitalasset.daml.lf.data.Time.Timestamp
-import com.digitalasset.daml_lf.DamlLf
+import com.digitalasset.daml_lf_dev.DamlLf
 
 /** An update to the (abstract) participant state.
   *

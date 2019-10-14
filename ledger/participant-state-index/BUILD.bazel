@@ -9,7 +9,7 @@ load(
 
 compileDependencies = [
     "//3rdparty/jvm/com/typesafe/akka:akka_stream",
-    "//daml-lf/archive:daml_lf_archive_java_proto",
+    "//daml-lf/archive:daml_lf_dev_archive_java_proto",
     "//daml-lf/data",
     "//daml-lf/language",
     "//daml-lf/transaction",

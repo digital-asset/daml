@@ -8,7 +8,7 @@ import java.security.MessageDigest
 import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.daml.lf.language.Ast.Package
 import com.digitalasset.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
-import com.digitalasset.daml_lf.{DamlLf => PLF}
+import com.digitalasset.daml_lf_dev.{DamlLf => PLF}
 
 // Important: do not use this in production code. It is designed for testing only.
 object Encode {

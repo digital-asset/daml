@@ -5,7 +5,7 @@ package com.digitalasset.platform.sandbox.services
 
 import com.daml.ledger.participant.state.index.v2.IndexPackagesService
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml_lf.DamlLf.{Archive, HashFunction}
+import com.digitalasset.daml_lf_dev.DamlLf.{Archive, HashFunction}
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.v1.package_service.PackageServiceGrpc.PackageService
 import com.digitalasset.ledger.api.v1.package_service.{

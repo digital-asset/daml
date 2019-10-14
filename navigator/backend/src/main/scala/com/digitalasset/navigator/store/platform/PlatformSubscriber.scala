@@ -8,7 +8,7 @@ import akka.NotUsed
 import akka.actor.{Actor, ActorLogging, ActorRef, Props, Stash}
 import akka.stream._
 import akka.stream.scaladsl.{Sink, Source, SourceQueueWithComplete}
-import com.digitalasset.daml_lf.DamlLf
+import com.digitalasset.daml_lf_dev.DamlLf
 import com.digitalasset.daml.lf.data.{Ref => DamlLfRef}
 import com.digitalasset.daml.lf.archive.Reader
 import com.digitalasset.daml.lf.iface.reader.{Errors, InterfaceReader}

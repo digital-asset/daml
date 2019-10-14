@@ -32,7 +32,7 @@ import com.digitalasset.daml.lf.archive.Dar
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.archive.Decode
 import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml_lf.DamlLf
+import com.digitalasset.daml_lf_dev.DamlLf
 import com.digitalasset.daml.lf.value.{Value => Lf}
 
 import com.digitalasset.grpc.adapter.AkkaExecutionSequencerPool

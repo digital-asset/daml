@@ -13,7 +13,7 @@ import com.digitalasset.daml.lf.archive.{Dar, DarReader}
 import com.digitalasset.daml.lf.archive.Decode
 import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
 import com.digitalasset.daml.lf.language.Ast.Package
-import com.digitalasset.daml_lf.DamlLf
+import com.digitalasset.daml_lf_dev.DamlLf
 import com.digitalasset.grpc.adapter.AkkaExecutionSequencerPool
 import com.digitalasset.ledger.api.refinements.ApiTypes.ApplicationId
 import com.digitalasset.ledger.client.LedgerClient

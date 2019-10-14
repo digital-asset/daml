@@ -8,7 +8,7 @@ import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.language.{LanguageVersion => LV}
-import com.digitalasset.daml_lf.{DamlLf1 => PLF}
+import com.digitalasset.daml_lf_dev.{DamlLf1 => PLF}
 
 import scala.annotation.tailrec
 import scala.language.implicitConversions

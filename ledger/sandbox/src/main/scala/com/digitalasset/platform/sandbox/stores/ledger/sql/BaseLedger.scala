@@ -12,7 +12,7 @@ import com.digitalasset.daml.lf.data.Ref.{PackageId, TransactionIdString}
 import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
-import com.digitalasset.daml_lf.DamlLf
+import com.digitalasset.daml_lf_dev.DamlLf
 import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.platform.akkastreams.dispatcher.Dispatcher

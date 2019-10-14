@@ -10,7 +10,7 @@ import com.daml.ledger.participant.state.v1.{
   SubmitterInfo,
   TransactionMeta
 }
-import com.digitalasset.daml_lf.DamlLf.Archive
+import com.digitalasset.daml_lf_dev.DamlLf.Archive
 import com.google.protobuf.ByteString
 import Conversions._
 import com.digitalasset.daml.lf.data.Time.Timestamp
