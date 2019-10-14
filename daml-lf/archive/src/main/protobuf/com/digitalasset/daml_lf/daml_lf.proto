@@ -5,7 +5,7 @@ syntax = "proto3";
 package daml_lf;
 
 option java_package = "com.digitalasset.daml_lf";
-option csharp_namespace = "Com.DigitalAsset.Daml_lf.DamlLfDev";
+option csharp_namespace = "Com.DigitalAsset.Daml_lf.DamlLf";
 
 import "com/digitalasset/daml_lf/daml_lf_0.proto";
 import "com/digitalasset/daml_lf/daml_lf_1.proto";
