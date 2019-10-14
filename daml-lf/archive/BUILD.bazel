@@ -146,7 +146,7 @@ daml_compile(
 filegroup(
     name = "proto_srcs",
     srcs = ["src/main/protobuf/com/digitalasset/daml_lf/daml_lf.proto"] +
-              ["src/main/protobuf/com/digitalasset/daml_lf/daml_lf_%s.proto" % v for v in LF_MAJOR_VERSIONS],
+           ["src/main/protobuf/com/digitalasset/daml_lf/daml_lf_%s.proto" % v for v in LF_MAJOR_VERSIONS],
 )
 
 proto_library(
