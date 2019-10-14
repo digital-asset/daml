@@ -9,7 +9,7 @@
 > | tfield0  | Party    |  |
 > | tfield0' | Party    |  |
 > 
-> * **Choice External:Archive**
+> * **Choice Archive**
 >   
 >   (no fields)
 > 
@@ -24,7 +24,7 @@
 > | tfield1  | Party    |  |
 > | tfield1' | Party    |  |
 > 
-> * **Choice External:Archive**
+> * **Choice Archive**
 >   
 >   (no fields)
 > 
@@ -39,7 +39,7 @@
 > | tfield2  | Party    |  |
 > | tfield2' | Party    |  |
 > 
-> * **Choice External:Archive**
+> * **Choice Archive**
 >   
 >   (no fields)
 > 
@@ -54,7 +54,7 @@
 > | tfield3  | Party    |  |
 > | tfield3' | Party    |  |
 > 
-> * **Choice External:Archive**
+> * **Choice Archive**
 >   
 >   (no fields)
 > 

@@ -12,7 +12,7 @@
 > | amount                                                                                 | [Decimal](https://docs.daml.com/daml/reference/base.html#type-ghc-types-decimal-54602) | must be positive |
 > | regulators                                                                             | \[Party\]                                                                              | `regulators` may observe any use of the `Iou` |
 > 
-> * **Choice External:Archive**
+> * **Choice Archive**
 >   
 >   (no fields)
 > 

@@ -30,5 +30,5 @@ Templates
   + **Choice Accept**
     
   
-  + **Choice External\:Archive**
+  + **Choice Archive**
     

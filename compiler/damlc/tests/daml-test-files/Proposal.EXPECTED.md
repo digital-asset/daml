@@ -14,6 +14,6 @@
 >   
 >   (no fields)
 > 
-> * **Choice External:Archive**
+> * **Choice Archive**
 >   
 >   (no fields)

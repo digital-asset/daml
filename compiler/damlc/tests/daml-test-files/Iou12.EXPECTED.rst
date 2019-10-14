@@ -33,7 +33,7 @@ Templates
        - \[Party\]
        - ``regulators`` may observe any use of the ``Iou``
   
-  + **Choice External\:Archive**
+  + **Choice Archive**
     
   
   + **Choice DoNothing**
