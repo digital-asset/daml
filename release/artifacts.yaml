@@ -8,7 +8,7 @@
 - target: //compiler/damlc/jar:damlc_jar
   type: jar-deploy
   platformDependent: True
-- target: //daml-lf/archive:daml_lf_archive_scala
+- target: //daml-lf/archive:daml_lf_archive_reader
   type: jar-scala
 - target: //daml-lf/archive:daml_lf_archive_protos_zip
   type: zip
