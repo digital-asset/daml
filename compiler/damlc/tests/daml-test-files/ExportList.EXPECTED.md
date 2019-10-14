@@ -1,5 +1,67 @@
 # <a name="module-exportlist-81980"></a>Module ExportList
 
+## Templates
+
+<a name="type-exportlist-template0-22237"></a>**template** [Template0](#type-exportlist-template0-22237)
+
+> | Field    | Type     | Description |
+> | :------- | :------- | :---------- |
+> | tfield0  | Party    |  |
+> | tfield0' | Party    |  |
+> 
+> * **Choice External:Archive**
+>   
+>   (no fields)
+> 
+> * **Choice Choice0**
+>   
+>   (no fields)
+
+<a name="type-exportlist-template1-34256"></a>**template** [Template1](#type-exportlist-template1-34256)
+
+> | Field    | Type     | Description |
+> | :------- | :------- | :---------- |
+> | tfield1  | Party    |  |
+> | tfield1' | Party    |  |
+> 
+> * **Choice External:Archive**
+>   
+>   (no fields)
+> 
+> * **Choice Choice1**
+>   
+>   (no fields)
+
+<a name="type-exportlist-template2-3915"></a>**template** [Template2](#type-exportlist-template2-3915)
+
+> | Field    | Type     | Description |
+> | :------- | :------- | :---------- |
+> | tfield2  | Party    |  |
+> | tfield2' | Party    |  |
+> 
+> * **Choice External:Archive**
+>   
+>   (no fields)
+> 
+> * **Choice Choice2**
+>   
+>   (no fields)
+
+<a name="type-exportlist-template3-57838"></a>**template** [Template3](#type-exportlist-template3-57838)
+
+> | Field    | Type     | Description |
+> | :------- | :------- | :---------- |
+> | tfield3  | Party    |  |
+> | tfield3' | Party    |  |
+> 
+> * **Choice External:Archive**
+>   
+>   (no fields)
+> 
+> * **Choice Choice3**
+>   
+>   (no fields)
+
 ## Typeclasses
 
 <a name="class-exportlist-class1-82332"></a>**class** [Class1](#class-exportlist-class1-82332) t **where**

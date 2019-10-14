@@ -3,6 +3,105 @@
 Module ExportList
 -----------------
 
+Templates
+^^^^^^^^^
+
+.. _type-exportlist-template0-22237:
+
+**template** `Template0 <type-exportlist-template0-22237_>`_
+
+  .. list-table::
+     :widths: 15 10 30
+     :header-rows: 1
+  
+     * - Field
+       - Type
+       - Description
+     * - tfield0
+       - Party
+       - 
+     * - tfield0'
+       - Party
+       - 
+  
+  + **Choice External\:Archive**
+    
+  
+  + **Choice Choice0**
+    
+
+.. _type-exportlist-template1-34256:
+
+**template** `Template1 <type-exportlist-template1-34256_>`_
+
+  .. list-table::
+     :widths: 15 10 30
+     :header-rows: 1
+  
+     * - Field
+       - Type
+       - Description
+     * - tfield1
+       - Party
+       - 
+     * - tfield1'
+       - Party
+       - 
+  
+  + **Choice External\:Archive**
+    
+  
+  + **Choice Choice1**
+    
+
+.. _type-exportlist-template2-3915:
+
+**template** `Template2 <type-exportlist-template2-3915_>`_
+
+  .. list-table::
+     :widths: 15 10 30
+     :header-rows: 1
+  
+     * - Field
+       - Type
+       - Description
+     * - tfield2
+       - Party
+       - 
+     * - tfield2'
+       - Party
+       - 
+  
+  + **Choice External\:Archive**
+    
+  
+  + **Choice Choice2**
+    
+
+.. _type-exportlist-template3-57838:
+
+**template** `Template3 <type-exportlist-template3-57838_>`_
+
+  .. list-table::
+     :widths: 15 10 30
+     :header-rows: 1
+  
+     * - Field
+       - Type
+       - Description
+     * - tfield3
+       - Party
+       - 
+     * - tfield3'
+       - Party
+       - 
+  
+  + **Choice External\:Archive**
+    
+  
+  + **Choice Choice3**
+    
+
 Typeclasses
 ^^^^^^^^^^^
 
