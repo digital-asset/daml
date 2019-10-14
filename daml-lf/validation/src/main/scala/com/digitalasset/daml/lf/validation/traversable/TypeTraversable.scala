@@ -29,7 +29,6 @@ private[validation] object TypeTraversable {
 
   private[validation] def foreach[U](expr0: Expr, f: Type => U): Unit = {
     expr0 match {
-      case EVar(_) | EVal(_) | EBuiltin(_) | EPrimCon(_) | EPrimLit(_) =>
       case EContractId(_, typeConName) =>
         f(TTyCon(typeConName))
       case ERecCon(tycon, fields @ _) =>
@@ -79,8 +78,8 @@ private[validation] object TypeTraversable {
         foreach(u, f)
       case EScenario(s) =>
         foreach(s, f)
-      case EApp(_, _) | ECase(_, _) | ELocation(_, _) | ETupleCon(_) | ETupleProj(_, _) |
-          ETupleUpd(_, _, _) | ETyAbs(_, _) =>
+      case EVar(_) | EVal(_) | EBuiltin(_) | EPrimCon(_) | EPrimLit(_) | EApp(_, _) | ECase(_, _) |
+          ELocation(_, _) | ETupleCon(_) | ETupleProj(_, _) | ETupleUpd(_, _, _) | ETyAbs(_, _) =>
         ExprTraversable.foreach(expr0, foreach(_, f))
     }
     ()
@@ -88,7 +87,6 @@ private[validation] object TypeTraversable {
 
   private[validation] def foreach[U](update: Update, f: Type => U): Unit =
     update match {
-      case UpdateGetTime =>
       case UpdatePure(typ, expr) =>
         f(typ)
         foreach(expr, f)
@@ -109,7 +107,7 @@ private[validation] object TypeTraversable {
       case UpdateEmbedExpr(typ, body) =>
         f(typ)
         foreach(body, f)
-      case UpdateFetchByKey(_) | UpdateLookupByKey(_) =>
+      case UpdateGetTime | UpdateFetchByKey(_) | UpdateLookupByKey(_) =>
         ExprTraversable.foreach(update, foreach(_, f))
     }
 
@@ -122,7 +120,6 @@ private[validation] object TypeTraversable {
 
   private[validation] def foreach[U](scenario: Scenario, f: Type => U): Unit =
     scenario match {
-      case ScenarioGetTime =>
       case ScenarioPure(typ, expr) =>
         f(typ)
         foreach(expr, f)
@@ -142,7 +139,7 @@ private[validation] object TypeTraversable {
       case ScenarioEmbedExpr(typ, body) =>
         f(typ)
         foreach(body, f)
-      case ScenarioPass(_) | ScenarioGetParty(_) =>
+      case ScenarioGetTime | ScenarioPass(_) | ScenarioGetParty(_) =>
         ExprTraversable.foreach(scenario, foreach(_, f))
     }
 
