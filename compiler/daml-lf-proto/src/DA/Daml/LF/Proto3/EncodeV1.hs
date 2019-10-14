@@ -23,7 +23,7 @@ import           Data.Word
 import           DA.Pretty
 import           DA.Daml.LF.Ast
 import           DA.Daml.LF.Mangling
-import qualified Da.DamlLf1 as P
+import qualified Com.Digitalasset.DamlLf.DamlLf1 as P
 
 import qualified Proto3.Suite as P (Enumerated (..))
 
