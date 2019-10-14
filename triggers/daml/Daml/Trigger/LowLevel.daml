@@ -71,6 +71,7 @@ data Message
   = MTransaction Transaction
   | MCompletion Completion
 
+-- | Note that you will only get completions for commands emitted from the trigger.
 data Completion = Completion
   { commandId : CommandId
   , status : CompletionStatus

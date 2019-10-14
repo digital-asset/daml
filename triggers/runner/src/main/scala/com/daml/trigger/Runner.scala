@@ -9,6 +9,7 @@ import akka.stream.scaladsl._
 import com.google.rpc.status.Status
 import io.grpc.StatusRuntimeException
 import java.time.Instant
+import java.util.UUID
 import scalaz.syntax.tag._
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -52,6 +53,12 @@ class Runner(
   private val compiler = Compiler(darMap)
   private val compiledPackages =
     PureCompiledPackages(darMap, compiler.compilePackages(darMap.keys)).right.get
+  // This is a map from the command ids used on the ledger API to the command ids used internally
+  // in the trigger which are just incremented at each step.
+  private var commandIdMap: Map[UUID, String] = Map.empty
+  // This is the set of command ids emitted by the trigger.
+  // We track this to detect collisions.
+  private var usedCommandIds: Set[String] = Set.empty
 
   // Handles the result of initialState or update, i.e., (s, [Commands], Text)
   // by submitting the commands, printing the log message and returning
@@ -79,10 +86,16 @@ class Runner(
               converter.toCommands(commands) match {
                 case Left(err) => throw new RuntimeException(err)
                 case Right((commandId, commands)) => {
+                  if (usedCommandIds.contains(commandId)) {
+                    throw new RuntimeException(s"Duplicate command id: $commandId")
+                  }
+                  usedCommandIds += commandId
+                  val commandUUID = UUID.randomUUID
+                  commandIdMap += (commandUUID -> commandId)
                   val commandsArg = Commands(
                     ledgerId = ledgerId.unwrap,
                     applicationId = applicationId.unwrap,
-                    commandId = commandId,
+                    commandId = commandUUID.toString,
                     party = party,
                     ledgerEffectiveTime = Some(fromInstant(Instant.EPOCH)),
                     maximumRecordTime = Some(fromInstant(Instant.EPOCH.plusSeconds(5))),
@@ -136,30 +149,45 @@ class Runner(
     }
     val evaluatedInitialState = handleStepResult(machine.toSValue)
     println(s"Initial state: $evaluatedInitialState")
-    Sink.fold[SExpr, TriggerMsg](SEValue(evaluatedInitialState))((state, message) => {
-      val messageVal = message match {
-        case TransactionMsg(transaction) => {
-          converter.fromTransaction(transaction)
-        }
-        case CompletionMsg(completion) => {
-          converter.fromCompletion(completion)
-        }
-      }
-      machine.ctrl = Speedy.CtrlExpr(SEApp(update, Array(SEValue(messageVal), state)))
-      while (!machine.isFinal) {
-        machine.step() match {
-          case SResultContinue => ()
-          case SResultError(err) => {
-            throw new RuntimeException(err)
+    Flow[TriggerMsg]
+      .mapConcat[TriggerMsg]({
+        case CompletionMsg(c) =>
+          try {
+            commandIdMap.get(UUID.fromString(c.commandId)) match {
+              case None => List()
+              case Some(internalCommandId) =>
+                List(CompletionMsg(c.copy(commandId = internalCommandId)))
+            }
+          } catch {
+            // This happens for invalid UUIDs which we might get for completions not emitted by the trigger.
+            case e: IllegalArgumentException => List()
           }
-          case res => {
-            throw new RuntimeException(s"Unexpected speed result $res")
+        case msg @ TransactionMsg(_) => List(msg)
+      })
+      .toMat(Sink.fold[SExpr, TriggerMsg](SEValue(evaluatedInitialState))((state, message) => {
+        val messageVal = message match {
+          case TransactionMsg(transaction) => {
+            converter.fromTransaction(transaction)
+          }
+          case CompletionMsg(completion) => {
+            converter.fromCompletion(completion)
           }
         }
-      }
-      val newState = handleStepResult(machine.toSValue)
-      SEValue(newState)
-    })
+        machine.ctrl = Speedy.CtrlExpr(SEApp(update, Array(SEValue(messageVal), state)))
+        while (!machine.isFinal) {
+          machine.step() match {
+            case SResultContinue => ()
+            case SResultError(err) => {
+              throw new RuntimeException(err)
+            }
+            case res => {
+              throw new RuntimeException(s"Unexpected speed result $res")
+            }
+          }
+        }
+        val newState = handleStepResult(machine.toSValue)
+        SEValue(newState)
+      }))(Keep.right[NotUsed, Future[SExpr]])
   }
 }
 
