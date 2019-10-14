@@ -17,7 +17,7 @@ option csharp_namespace = "Com.Daml.Ledger.Participant.State.KVUtils";
 import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/duration.proto";
-import "da/daml_lf.proto";
+import "com/digitalasset/daml_lf/daml_lf.proto";
 import "daml-lf/transaction/src/main/protobuf/transaction.proto";
 import "daml-lf/transaction/src/main/protobuf/com/digitalasset/daml/lf/value.proto";
 
