@@ -335,7 +335,7 @@ case class AcsTests(dar: Dar[(PackageId, Package)], runner: TestRunner) {
       // 1 for the exercise in the trigger
       // 2 completions for the trigger
       NumMessages(6),
-      SuccessfulCompletions(3),
+      SuccessfulCompletions(2),
       FailedCompletions(0),
       (client, party) => { implicit ec: ExecutionContext => implicit mat: ActorMaterializer =>
         {
@@ -354,7 +354,7 @@ case class AcsTests(dar: Dar[(PackageId, Package)], runner: TestRunner) {
       // 2 for the exercises in the trigger
       // 4 completions for the trigger
       NumMessages(12),
-      SuccessfulCompletions(6),
+      SuccessfulCompletions(4),
       FailedCompletions(0),
       (client, party) => { implicit ec: ExecutionContext => implicit mat: ActorMaterializer =>
         {
@@ -375,7 +375,7 @@ case class AcsTests(dar: Dar[(PackageId, Package)], runner: TestRunner) {
       // 2 for the exercises in the trigger
       // 4 for the completions in the trigger
       NumMessages(16),
-      SuccessfulCompletions(8),
+      SuccessfulCompletions(4),
       FailedCompletions(0),
       (client, party) => { implicit ec: ExecutionContext => implicit mat: ActorMaterializer =>
         {
