@@ -17,8 +17,8 @@ let shared = rec {
     jq
     nodejs
     patchelf
-    postgresql
-    protobuf3_5
+    postgresql_9_6
+    protobuf3_8
     python3
     zip
     ;
@@ -51,10 +51,7 @@ let shared = rec {
   # created with bundix.
   sass = pkgs.callPackage ./overrides/sass {};
 
-  sphinx183 = import ./tools/sphinx183 {
-    inherit pkgs;
-    pythonPackages = pkgs.python37Packages;
-  };
+  sphinx183 = pkgs.python3Packages.sphinx;
 
   # Custom combination of latex packages for our latex needs
   texlive = pkgs.texlive.combine {
