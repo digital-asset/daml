@@ -213,7 +213,7 @@ unitTests =
         check False = Nothing
 
         td_choicesWithoutArchive :: TemplateDoc -> [ChoiceDoc]
-        td_choicesWithoutArchive = filter (\ch -> cd_name ch /= "External:Archive") . td_choices
+        td_choicesWithoutArchive = filter (\ch -> cd_name ch /= "Archive") . td_choices
 
 
 testModule :: String
