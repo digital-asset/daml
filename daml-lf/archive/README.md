@@ -24,8 +24,8 @@ It produces two libraries containing code to encode / decode such
 definition, a Haskell one and a Java one:
 
 ```
-$ bazel build //daml-lf/archive:daml_lf_haskell_proto
-$ bazel build //daml-lf/archive:daml_lf_java_proto
+$ bazel build //daml-lf/archive:daml_lf_archive_haskell_proto
+$ bazel build //daml-lf/archive:daml_lf_archive_java_proto
 ```
 
 ## Editing the `.proto` definitions
