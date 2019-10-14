@@ -97,10 +97,10 @@ da_haskell_library(
 )
 
 da_scala_library(
-    name = "daml_lf_archive_scala",
+    name = "daml_lf_archive_reader",
     srcs = glob(["src/main/scala/**/*.scala"]),
     scalacopts = lf_scalacopts,
-    tags = ["maven_coordinates=com.digitalasset:daml-lf-archive-scala:__VERSION__"],
+    tags = ["maven_coordinates=com.digitalasset:daml-lf-archive-reader:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
         ":daml_lf_java_proto",
@@ -113,16 +113,16 @@ da_scala_library(
 )
 
 da_scala_test_suite(
-    name = "daml_lf_archive_scala_tests",
+    name = "daml_lf_archive_reader_tests",
     size = "small",
-    srcs = glob(["src/test/**/*.scala"]),
+    srcs = glob(["src/test/scala/**/*.scala"]),
     data = [
         ":DarReaderTest.dalf",
         ":DarReaderTest.dar",
     ],
     scalacopts = lf_scalacopts,
     deps = [
-        ":daml_lf_archive_scala",
+        ":daml_lf_archive_reader",
         ":daml_lf_java_proto",
         "//3rdparty/jvm/com/google/protobuf:protobuf_java",
         "//3rdparty/jvm/org/scalacheck",

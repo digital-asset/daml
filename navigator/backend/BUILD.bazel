@@ -71,7 +71,7 @@ java_library(
 )
 
 compileDependencies = [
-    "//daml-lf/archive:daml_lf_archive_scala",
+    "//daml-lf/archive:daml_lf_archive_reader",
     "//daml-lf/archive:daml_lf_java_proto",
     "//daml-lf/data",
     "//daml-lf/transaction",
