@@ -53,6 +53,16 @@ private[validation] object TypeTraversable {
       case ELet(binding, body) =>
         foreach(binding, f)
         foreach(body, f)
+      case EEnumCon(tyConName, _) =>
+        f(TTyCon(tyConName))
+      case EToAny(typ, expr) =>
+        f(typ)
+        foreach(expr, f)
+      case EFromAny(typ, expr) =>
+        f(typ)
+        foreach(expr, f)
+      case EToTextTemplateId(templateId) =>
+        f(TTyCon(templateId))
       case ENil(typ) =>
         f(typ)
       case ECons(typ, front, tail) =>
@@ -68,8 +78,9 @@ private[validation] object TypeTraversable {
         foreach(u, f)
       case EScenario(s) =>
         foreach(s, f)
-      case otherwise =>
-        ExprTraversable.foreach(otherwise, foreach(_, f))
+      case EVar(_) | EVal(_) | EBuiltin(_) | EPrimCon(_) | EPrimLit(_) | EApp(_, _) | ECase(_, _) |
+          ELocation(_, _) | ETupleCon(_) | ETupleProj(_, _) | ETupleUpd(_, _, _) | ETyAbs(_, _) =>
+        ExprTraversable.foreach(expr0, foreach(_, f))
     }
     ()
   }
@@ -96,8 +107,8 @@ private[validation] object TypeTraversable {
       case UpdateEmbedExpr(typ, body) =>
         f(typ)
         foreach(body, f)
-      case otherwise =>
-        ExprTraversable.foreach(otherwise, foreach(_, f))
+      case UpdateGetTime | UpdateFetchByKey(_) | UpdateLookupByKey(_) =>
+        ExprTraversable.foreach(update, foreach(_, f))
     }
 
   private[validation] def foreach[U](binding: Binding, f: Type => U): Unit =
@@ -128,8 +139,8 @@ private[validation] object TypeTraversable {
       case ScenarioEmbedExpr(typ, body) =>
         f(typ)
         foreach(body, f)
-      case otherwise @ _ =>
-        ExprTraversable.foreach(otherwise, foreach(_, f))
+      case ScenarioGetTime | ScenarioPass(_) | ScenarioGetParty(_) =>
+        ExprTraversable.foreach(scenario, foreach(_, f))
     }
 
   private[validation] def foreach[U](defn: Definition, f: Type => U): Unit =
