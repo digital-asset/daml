@@ -46,6 +46,8 @@ class Template t where
   create : t -> Update (ContractId t)
   fetch : ContractId t -> Update t
   archive : ContractId t -> Update ()
+  toAnyTemplate : t -> AnyTemplate
+  fromAnyTemplate : AnyTemplate -> Optional t
 ```
 
 In this example, `t` is identified with `Iou`. The rest of this section shows you how desugaring proceeds.
@@ -71,50 +73,64 @@ Next we have a `class IouInstance` with the bulk of the definitions we will need
 
 ```haskell
 class IouInstance where
-  signatoryIou : Iou -> [Party]
-  signatoryIou this@Iou{..} = [issuer, owner]
-  observerIou : Iou -> [Party]
-  observerIou this@Iou{..} = regulators
-  ensureIou : Iou -> Bool
-  ensureIou this@Iou{..} = amount > 0.0
-  agreementIou : Iou -> Text
-  agreementIou this@Iou{..} = show issuer <> " will pay " <> show owner <> " " <> show amount
-  createIou : Iou -> Update (ContractId Iou)
-  createIou = magic @"create"
-  fetchIou : ContractId Iou -> Update Iou
-  fetchIou = magic @"fetch"
-  archiveIou : ContractId Iou -> Update ()
-  archiveIou cid = exerciseIouArchive cid Archive
+  _signatoryIou : Iou -> [Party]
+  _signatoryIou this@Iou{..} = [issuer, owner]
+  _observerIou : Iou -> [Party]
+  _observerIou this@Iou{..} = regulators
+  _ensureIou : Iou -> Bool
+  _ensureIou this@Iou{..} = amount > 0.0
+  _agreementIou : Iou -> Text
+  _agreementIou this@Iou{..} = show issuer <> " will pay " <> show owner <> " " <> show amount
+  _createIou : Iou -> Update (ContractId Iou)
+  _createIou = magic @"create"
+  _fetchIou : ContractId Iou -> Update Iou
+  _fetchIou = magic @"fetch"
+  _archiveIou : ContractId Iou -> Update ()
+  _archiveIou cid = exerciseIouArchive cid Archive
+  _toAnyTemplateIou : Iou -> AnyTemplate
+  _toAnyTemplateIou = magic @"toAnyTemplate"
+  _fromAnyTemplateIou : AnyTemplate -> Optional Iou
+  _fromAnyTemplateIou = magic @"fromAnyTemplate"
 
-  consumptionIouArchive : PreConsuming Iou
-  consumptionIouArchive = PreConsuming
-  controllerIouArchive : Iou -> Archive -> [Party]
-  controllerIouArchive this@Iou{..} arg@Archive = signatoryIou this
-  actionIouArchive : ContractId Iou -> Iou -> Archive -> Update ()
-  actionIouArchive self this@Iou{..} arg@Archive = pure ()
-  exerciseIouArchive : ContractId Iou -> Archive -> Update ()
-  exerciseIouArchive = magic @"archive"
+  _consumptionIouArchive : PreConsuming Iou
+  _consumptionIouArchive = PreConsuming
+  _controllerIouArchive : Iou -> Archive -> [Party]
+  _controllerIouArchive this@Iou{..} arg@Archive = signatoryIou this
+  _actionIouArchive : ContractId Iou -> Iou -> Archive -> Update ()
+  _actionIouArchive self this@Iou{..} arg@Archive = pure ()
+  _exerciseIouArchive : ContractId Iou -> Archive -> Update ()
+  _exerciseIouArchive = magic @"archive"
+  _toAnyChoiceIouArchive : proxy Iou -> Archive -> AnyChoice
+  _toAnyChoiceIouArchive = magic @"toAnyChoice"
+  _fromAnyChoiceIouArchive : proxy Iou -> AnyChoice -> Optional Archive
+  _fromAnyChoiceIouArchive = magic @"fromAnyChoice"
 
-  consumptionIouTransfer : PreConsuming Iou
-  consumptionIouTransfer = PreConsuming
-  controllerIouTransfer : Iou -> Transfer -> [Party]
-  controllerIouTransfer this@Iou{..} arg@Transfer{..} = [owner]
-  actionIouTransfer : ContractId Iou -> Iou -> Transfer -> Update (ContractId Iou)
-  actionIouTransfer self this@Iou{..} arg@Transfer{..} = create this with owner = newOwner
-  exerciseIouTransfer : ContractId Iou -> Transfer -> Update (ContractId Iou)
-  exerciseIouTransfer = magic @"exercise"
+  _consumptionIouTransfer : PreConsuming Iou
+  _consumptionIouTransfer = PreConsuming
+  _controllerIouTransfer : Iou -> Transfer -> [Party]
+  _controllerIouTransfer this@Iou{..} arg@Transfer{..} = [owner]
+  _actionIouTransfer : ContractId Iou -> Iou -> Transfer -> Update (ContractId Iou)
+  _actionIouTransfer self this@Iou{..} arg@Transfer{..} = create this with owner = newOwner
+  _exerciseIouTransfer : ContractId Iou -> Transfer -> Update (ContractId Iou)
+  _exerciseIouTransfer = magic @"exercise"
+  _toAnyChoiceIouTransfer : proxy Iou -> Transfer -> AnyChoice
+  _toAnyChoiceIouTransfer = magic @"toAnyChoice"
+  _fromAnyChoiceIouTransfer : proxy Iou -> AnyChoice -> Optional Transfer
+  _fromAnyChoiceIouTransfer = magic @"fromAnyChoice"
 ```
 
 With that class defined, we can define an `instance` declaration for `Iou` to declare its membership in `Template`:
 ```haskell
 instance IouInstance => Template Iou where
-  signatory = signatoryIou
-  observer = observerIou
-  ensure = ensureIou
-  agreement = agreementIou
-  create = createIou
-  fetch = fetchIou
-  archive = archiveIou
+  signatory = _signatoryIou
+  observer = _observerIou
+  ensure = _ensureIou
+  agreement = _agreementIou
+  create = _createIou
+  fetch = _fetchIou
+  archive = _archiveIou
+  toAnyTemplate = _toAnyTemplate
+  fromAnyTemplate = _fromAnyTemplate
 
 instance IouInstance
 ```
@@ -124,6 +140,8 @@ When a type `t` is a `Template` instance, `class Choice` (defined by the DAML st
 ```haskell
 class Template t => Choice t c r | t c -> r where
   exercise : ContractId t -> c -> Update r
+  _toAnyChoice : proxy t -> c -> AnyChoice
+  _fromAnyChoice : proxy t -> AnyChoice -> Optional c
 ```
 
 In this example, `c` is identified with `Transfer` and `r` with `ContractId Iou`.
@@ -132,7 +150,9 @@ The `instance` declaration establishes the triple `(Iou, Transfer, ContractId Io
 
 ```haskell
 instance Choice Iou Transfer (ContractId Iou) where
-  exercise = exerciseIouTransfer
+  exercise = _exerciseIouTransfer
+  _toAnyChoice = _toAnyChoiceIouTransfer
+  _fromAnyChoice = _fromAnyChoiceIouTransfer
 ```
 
 ### Example (2)
@@ -181,51 +201,61 @@ data Enrollment =
   deriving (Show, Eq)
 
 class EnrollmentInstance where
-  signatoryEnrollment : Enrollment -> [Party]
-  signatoryEnrollment this@Enrollment{..} = [reg.student, reg.course.institution]
-  observerEnrollment : Enrollment -> [Party]
-  observerEnrollment this@Enrollment{..} = []
-  ensureEnrollment : Enrollment -> Bool
-  ensureEnrollment this@Enrollment{..} = True
-  agreementEnrollment : Enrollment -> Text
-  agreementEnrollment this@Enrollment{..} = ""
-  createEnrollment : Enrollment -> Update (ContractId Enrollment)
-  createEnrollment = magic @"create"
-  fetchEnrollment : ContractId Enrollment -> Update Enrollment
-  fetchEnrollment = magic @"fetch"
-  archiveEnrollment : ContractId Enrollment -> Update ()
-  archiveEnrollment cid = exerciseEnrollmentArchive cid Archive
+  _signatoryEnrollment : Enrollment -> [Party]
+  _signatoryEnrollment this@Enrollment{..} = [reg.student, reg.course.institution]
+  _observerEnrollment : Enrollment -> [Party]
+  _observerEnrollment this@Enrollment{..} = []
+  _ensureEnrollment : Enrollment -> Bool
+  _ensureEnrollment this@Enrollment{..} = True
+  _agreementEnrollment : Enrollment -> Text
+  _agreementEnrollment this@Enrollment{..} = ""
+  _createEnrollment : Enrollment -> Update (ContractId Enrollment)
+  _createEnrollment = magic @"create"
+  _fetchEnrollment : ContractId Enrollment -> Update Enrollment
+  _fetchEnrollment = magic @"fetch"
+  _archiveEnrollment : ContractId Enrollment -> Update ()
+  _archiveEnrollment cid = exerciseEnrollmentArchive cid Archive
+  _toAnyTemplateEnrollment : Enrollment -> AnyTemplate
+  _toAnyTemplateEnrollment = magic @"toAnyTemplate"
+  _fromAnyTemplateEnrollment : AnyTemplate -> Optional Enrollment
+  _fromAnyTemplateEnrollment = magic @"fromAnyTemplate"
 
-  hasKeyEnrollment : HasKey Enrollment
-  hasKeyEnrollment = HasKey
-  keyEnrollment : Enrollment -> Registration
-  keyEnrollment this@Enrollment{..} = reg
-  maintainerEnrollment : HasKey Enrollment -> Registration -> [Party]
-  maintainerEnrollment HasKey key = [key.course.institution]
-  fetchByKeyEnrollment : Registration -> Update (ContractId Enrollment, Enrollment)
-  fetchByKeyEnrollment = magic @"fetchByKey"
-  lookupByKeyEnrollment : Registration -> Update (Optional (ContractId Enrollment))
-  lookupByKeyEnrollment = magic @"lookupByKey"
+  _hasKeyEnrollment : HasKey Enrollment
+  _hasKeyEnrollment = HasKey
+  _keyEnrollment : Enrollment -> Registration
+  _keyEnrollment this@Enrollment{..} = reg
+  _maintainerEnrollment : HasKey Enrollment -> Registration -> [Party]
+  _maintainerEnrollment HasKey key = [key.course.institution]
+  _fetchByKeyEnrollment : Registration -> Update (ContractId Enrollment, Enrollment)
+  _fetchByKeyEnrollment = magic @"fetchByKey"
+  _lookupByKeyEnrollment : Registration -> Update (Optional (ContractId Enrollment))
+  _lookupByKeyEnrollment = magic @"lookupByKey"
 
-  consumptionEnrollmentArchive : PreConsuming Enrollment
-  consumptionEnrollmentArchive = PreConsuming
-  controllerEnrollmentArchive : Enrollment -> Archive -> [Party]
-  controllerEnrollmentArchive this@Enrollment{..} arg@Archive = signatoryEnrollment this
-  actionEnrollmentArchive : ContractId Enrollment -> Enrollment -> Archive -> Update ()
-  actionEnrollmentArchive self this@Enrollment{..} arg@Archive = pure ()
-  exerciseEnrollmentArchive : ContractId Enrollment -> Archive -> Update ()
-  exerciseEnrollmentArchive = magic @"archive"
+  _consumptionEnrollmentArchive : PreConsuming Enrollment
+  _consumptionEnrollmentArchive = PreConsuming
+  _controllerEnrollmentArchive : Enrollment -> Archive -> [Party]
+  _controllerEnrollmentArchive this@Enrollment{..} arg@Archive = signatoryEnrollment this
+  _actionEnrollmentArchive : ContractId Enrollment -> Enrollment -> Archive -> Update ()
+  _actionEnrollmentArchive self this@Enrollment{..} arg@Archive = pure ()
+  _exerciseEnrollmentArchive : ContractId Enrollment -> Archive -> Update ()
+  _exerciseEnrollmentArchive = magic @"archive"
+  _toAnyChoiceEnrollmentArchive : proxy Enrollment -> Archive -> AnyChoice
+  _toAnyChoiceEnrollmentArchive = magic @"toAnyChoice"
+  _fromAnyChoiceEnrollmentArchive : proxy Enrollment -> AnyChoice -> Optional Archive
+  _fromAnyChoiceEnrollmentArchive = magic @"fromAnyChoice"
 
 instance EnrollmentInstance
 
 instance EnrollmentInstance => Template Enrollment where
-  signatory = signatoryEnrollment
-  observer = observerEnrollment
-  ensure = ensureEnrollment
-  agreement = agreementEnrollment
-  create = createEnrollment
-  fetch = fetchEnrollment
-  archive = archiveEnrollment
+  signatory = _signatoryEnrollment
+  observer = _observerEnrollment
+  ensure = _ensureEnrollment
+  agreement = _agreementEnrollment
+  create = _createEnrollment
+  fetch = _fetchEnrollment
+  archive = _archiveEnrollment
+  toAnyTemplate = _toAnyTemplateEnrollment
+  fromAnyTemplate = _fromAnyTemplateEnrollment
 
 instance TemplateKey Enrollment Registration where
   key = keyEnrollment
@@ -268,75 +298,93 @@ data Accept = Accept with
   deriving (Eq, Show)
 
 class Template t => ProposalInstance t where
-    signatoryProposal : Proposal t -> [Party]
-    signatoryProposal this@Proposal{..} = signatory asset \\ receivers
-    observerProposal : Proposal t -> [Party]
-    observerProposal this@Proposal{..} = receivers
-    ensureProposal : Proposal t -> Bool
-    ensureProposal this@Proposal{..} = True
-    agreementProposal : Proposal t -> Text
-    agreementProposal this@Proposal{..} = implode
+    _signatoryProposal : Proposal t -> [Party]
+    _signatoryProposal this@Proposal{..} = signatory asset \\ receivers
+    _observerProposal : Proposal t -> [Party]
+    _observerProposal this@Proposal{..} = receivers
+    _ensureProposal : Proposal t -> Bool
+    _ensureProposal this@Proposal{..} = True
+    _agreementProposal : Proposal t -> Text
+    _agreementProposal this@Proposal{..} = implode
         [ "Proposal:\n"
         , "* proposers: " <> show (signatory this) <> "\n"
         , "* receivers: " <> show receivers <> "\n"
         , "* agreement: " <> agreement asset
         ]
-    createProposal : Proposal t -> Update (ContractId (Proposal t))
-    createProposal = magic @"create"
-    fetchProposal : ContractId (Proposal t) -> Update (Proposal t)
-    fetchProposal = magic @"fetch"
-    archiveProposal : ContractId (Proposal t) -> Update ()
-    archiveProposal cid = exerciseProposalArchive cid Archive
+    _createProposal : Proposal t -> Update (ContractId (Proposal t))
+    _createProposal = magic @"create"
+    _fetchProposal : ContractId (Proposal t) -> Update (Proposal t)
+    _fetchProposal = magic @"fetch"
+    _archiveProposal : ContractId (Proposal t) -> Update ()
+    _archiveProposal cid = exerciseProposalArchive cid Archive
+    _toAnyTemplateProposal : Proposal t -> AnyTemplate
+    _toAnyTemplateProposal = magic @"toAnyTemplate"
+    _fromAnyTemplateProposal : AnyTemplate -> Optional (Proposal t)
+    _fromAnyTemplateProposal = magic @"fromAnyTemplate"
 
-    hasKeyProposal : HasKey (Proposal t)
-    hasKeyProposal = HasKey
-    keyProposal : Proposal t -> ([Party], Text)
-    keyProposal this@Proposal{..} = (signatory this, name)
-    maintainerProposal : HasKey (Proposal t) -> ([Party], Text) -> [Party]
-    maintainerProposal HasKey key = fst key
-    fetchByKeyProposal : ([Party], Text) -> Update (ContractId (Proposal t), Proposal t)
-    fetchByKeyProposal = magic @"fetchByKey"
-    lookupByKeyProposal : ([Party], Text) -> Update (Optional (ContractId (Proposal t)))
-    lookupByKeyProposal = magic @"lookupByKey"
+    _hasKeyProposal : HasKey (Proposal t)
+    _hasKeyProposal = HasKey
+    _keyProposal : Proposal t -> ([Party], Text)
+    _keyProposal this@Proposal{..} = (signatory this, name)
+    _maintainerProposal : HasKey (Proposal t) -> ([Party], Text) -> [Party]
+    _maintainerProposal HasKey key = fst key
+    _fetchByKeyProposal : ([Party], Text) -> Update (ContractId (Proposal t), Proposal t)
+    _fetchByKeyProposal = magic @"fetchByKey"
+    _lookupByKeyProposal : ([Party], Text) -> Update (Optional (ContractId (Proposal t)))
+    _lookupByKeyProposal = magic @"lookupByKey"
 
-    consumptionProposalArchive : PreConsuming (Proposal t)
-    consumptionProposalArchive = PreConsuming
-    controllerProposalArchive : Proposal t -> Archive -> [Party]
-    controllerProposalArchive this@Proposal{..} arg@Archive = signatoryProposal this
-    actionProposalArchive : ContractId (Proposal t) -> Proposal t -> Archive -> Update ()
-    actionProposalArchive self this@Proposal{..} arg@Archive = pure ()
-    exerciseProposalArchive : ContractId (Proposal t) -> Archive -> Update ()
-    exerciseProposalArchive = magic @"archive"
+    _consumptionProposalArchive : PreConsuming (Proposal t)
+    _consumptionProposalArchive = PreConsuming
+    _controllerProposalArchive : Proposal t -> Archive -> [Party]
+    _controllerProposalArchive this@Proposal{..} arg@Archive = signatoryProposal this
+    _actionProposalArchive : ContractId (Proposal t) -> Proposal t -> Archive -> Update ()
+    _actionProposalArchive self this@Proposal{..} arg@Archive = pure ()
+    _exerciseProposalArchive : ContractId (Proposal t) -> Archive -> Update ()
+    _exerciseProposalArchive = magic @"archive"
+    _toAnyChoiceProposalArchive : proxy (Proposal t) -> Archive -> AnyChoice
+    _toAnyChoiceProposalArchive = magic @"toAnyChoice"
+    _fromAnyChoiceProposalArchive : proxy (Proposal t) -> AnyChoice -> Optional Archive
+    _fromAnyChoiceProposalArchive = magic @"fromAnyChoice"
 
-    consumptionProposalAccept : PreConsuming (Proposal t)
-    consumptionProposalAccept = PreConsuming
-    controllerProposalAccept : Proposal t -> Accept -> [Party]
-    controllerProposalAccept this@Proposal{..} arg@Accept = receivers
-    actionProposalAccept : ContractId (Proposal t) -> Proposal t -> Accept -> Update (ContractId t)
-    actionProposalAccept self this@Proposal{..} arg@Accept = do
+    _consumptionProposalAccept : PreConsuming (Proposal t)
+    _consumptionProposalAccept = PreConsuming
+    _controllerProposalAccept : Proposal t -> Accept -> [Party]
+    _controllerProposalAccept this@Proposal{..} arg@Accept = receivers
+    _actionProposalAccept : ContractId (Proposal t) -> Proposal t -> Accept -> Update (ContractId t)
+    _actionProposalAccept self this@Proposal{..} arg@Accept = do
         create asset
-    exerciseProposalAccept : ContractId (Proposal t) -> Accept -> Update (ContractId t)
-    exerciseProposalAccept = magic @"exercise"
+    _exerciseProposalAccept : ContractId (Proposal t) -> Accept -> Update (ContractId t)
+    _exerciseProposalAccept = magic @"exercise"
+    _toAnyChoiceProposalAccept : proxy (Proposal t) -> Accept -> AnyChoice
+    _toAnyChoiceProposalAccept = magic @"toAnyChoice"
+    _fromAnyChoiceProposalAccept : proxy (Proposal t) -> AnyChoice -> Optional Accept
+    _fromAnyChoiceProposalAccept = magic @"fromAnyChoice"
 
 instance ProposalInstance t => Template (Proposal t) where
-    signatory = signatoryProposal
-    observer = observerProposal
-    ensure = ensureProposal
-    agreement = agreementProposal
-    create = createProposal
-    fetch = fetchProposal
-    archive = archiveProposal
+    signatory = _signatoryProposal
+    observer = _observerProposal
+    ensure = _ensureProposal
+    agreement = _agreementProposal
+    create = _createProposal
+    fetch = _fetchProposal
+    archive = _archiveProposal
+    toAnyTemplate = _toAnyTemplate
+    fromAnyTemplate = _fromAnyTemplate
 
 instance ProposalInstance t => TemplateKey (Proposal t) ([Party], Text) where
-    key = keyProposal
-    fetchByKey = fetchByKeyProposal
-    lookupByKey = lookupByKeyProposal
+    key = _keyProposal
+    fetchByKey = _fetchByKeyProposal
+    lookupByKey = _lookupByKeyProposal
 
 instance ProposalInstance t => Choice (Proposal t) Accept (ContractId t) where
-    exercise = exerciseProposalAccept
+    exercise = _exerciseProposalAccept
+    _toAnyChoice = _toAnyChoiceProposalAccept
+    _fromAnyChoice = _fromAnyChoiceProposalAccept
 
 instance ProposalInstance t => Choice (Proposal t) Archive () where
     exercise = exerciseProposalArchive
+    _toAnyChoice = _toAnyChoiceProposalArchive
+    _fromAnyChoice = _fromAnyChoiceProposalArchive
 ```
 
 ### Example (3)(cont)
