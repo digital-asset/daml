@@ -67,6 +67,13 @@ featureAnyType = Feature
    , featureCppFlag = "DAML_ANY_TYPE"
    }
 
+featureTemplateTypeRep :: Feature
+featureTemplateTypeRep = Feature
+    { featureName = "templateTypeRep builtin"
+    , featureMinVersion = versionDev
+    , featureCppFlag = "DAML_TEMPLATE_TYPE_REP"
+    }
+
 allFeatures :: [Feature]
 allFeatures =
     [ featureNumeric

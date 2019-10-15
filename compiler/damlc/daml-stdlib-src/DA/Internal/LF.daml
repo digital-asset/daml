@@ -39,6 +39,7 @@ module DA.Internal.LF
 
   , AnyTemplate
   , AnyChoice
+  , TemplateTypeRep
   ) where
 
 import GHC.Types (Opaque, Symbol)
@@ -216,3 +217,7 @@ newtype AnyTemplate = AnyTemplate { getAnyTemplate : Any }
 
 -- | Existential choice type that can wrap an arbitrary chice.
 newtype AnyChoice = AnyChoice { getAnyChoice : Any }
+
+-- | Unique textual representation of a template Id.
+newtype TemplateTypeRep = TemplateTypeRep { getTemplateTypeRep : Text }
+  deriving (Eq, Ord, Show)

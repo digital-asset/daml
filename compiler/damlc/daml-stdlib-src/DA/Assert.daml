@@ -11,6 +11,7 @@ module DA.Assert
   ) where
 
 infix 4 ===
+infix 4 =/=
 
 -- | Check two values for equality. If they're not equal,
 -- fail with a message.
@@ -20,6 +21,13 @@ infix 4 ===
 (===) x y
   | x == y = return ()
   | otherwise = abort ("Failure, expected " <> show x <> " === " <> show y)
+
+-- | Check two values for inequality. If they're equal,
+-- fail with a message.
+(=/=) : (CanAbort m, Show a, Eq a) => a -> a -> m ()
+(=/=) x y
+  | x /= y = return ()
+  | otherwise = abort ("Failure, expected " <> show x <> " =/= " <> show y)
 
 -- | Check whether the given time is in the future. If it's not,
 -- abort with a message.
