@@ -108,5 +108,4 @@ copyRule party acs commandsInFlight () = do
 toCreateCopy : Command -> Optional Copy
 toCreateCopy (CreateCommand tpl) = fromAnyTemplate tpl
 toCreateCopy (ExerciseCommand _ _) = None
--- TO_CREATE_COPY_BEGIN
-
+-- TO_CREATE_COPY_END
