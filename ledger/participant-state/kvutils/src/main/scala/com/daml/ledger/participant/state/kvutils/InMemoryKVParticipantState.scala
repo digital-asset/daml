@@ -21,7 +21,7 @@ import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.{LedgerString, Party}
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.engine.Engine
-import com.digitalasset.daml_lf.DamlLf.Archive
+import com.digitalasset.daml_lf_dev.DamlLf.Archive
 import com.digitalasset.platform.akkastreams.dispatcher.Dispatcher
 import com.digitalasset.platform.akkastreams.dispatcher.SubSource.OneAfterAnother
 import com.google.protobuf.ByteString

@@ -15,7 +15,7 @@ import com.digitalasset.daml.lf.archive.DarReader
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.transaction.Transaction.PartialTransaction
-import com.digitalasset.daml_lf.DamlLf
+import com.digitalasset.daml_lf_dev.DamlLf
 import com.digitalasset.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import org.scalatest.{Assertion, AsyncWordSpec}
 

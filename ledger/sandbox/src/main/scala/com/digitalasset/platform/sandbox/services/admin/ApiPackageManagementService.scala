@@ -11,7 +11,7 @@ import akka.stream.ActorMaterializer
 import com.daml.ledger.participant.state.index.v2.IndexPackagesService
 import com.daml.ledger.participant.state.v1.{UploadPackagesResult, WritePackagesService}
 import com.digitalasset.daml.lf.archive.DarReader
-import com.digitalasset.daml_lf.DamlLf.Archive
+import com.digitalasset.daml_lf_dev.DamlLf.Archive
 import com.digitalasset.ledger.api.v1.admin.package_management_service.PackageManagementServiceGrpc.PackageManagementService
 import com.digitalasset.ledger.api.v1.admin.package_management_service._
 import com.digitalasset.platform.api.grpc.GrpcApiService

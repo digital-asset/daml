@@ -16,7 +16,7 @@ import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.daml.lf.iface.reader.{Errors, InterfaceReader}
 import com.digitalasset.daml.lf.iface.{Type => _, _}
-import com.digitalasset.daml_lf.DamlLf
+import com.digitalasset.daml_lf_dev.DamlLf
 import com.typesafe.scalalogging.StrictLogging
 import org.slf4j.{Logger, LoggerFactory}
 

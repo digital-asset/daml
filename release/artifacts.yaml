@@ -1,19 +1,19 @@
 - target: //daml-lf/data:data
   type: jar-scala
-- target: //daml-lf/archive:daml_lf_archive_java_proto
+- target: //daml-lf/archive:daml_lf_dev_archive_java_proto
   type: jar-lib
-  javadoc-jar: daml_lf_archive_java_proto_javadoc.jar
+  javadoc-jar: daml_lf_dev_archive_java_proto_javadoc.jar
   mavenUpload: True
-- target: //daml-lf/archive:daml_lf_archive_proto_zip
+- target: //daml-lf/archive:daml_lf_dev_archive_proto_zip
   type: zip
   location:
     groupId: com.digitalasset
-    artifactId: daml-lf-archive-proto
-- target: //daml-lf/archive:daml_lf_archive_proto_tarball
+    artifactId: daml-lf-dev-archive-proto
+- target: //daml-lf/archive:daml_lf_dev_archive_proto_tarball
   type: targz
   location:
     groupId: com.digitalasset
-    artifactId: daml-lf-archive-proto
+    artifactId: daml-lf-dev-archive-proto
 - target: //daml-lf/archive:daml_lf_archive_reader
   type: jar-scala
 - target: //compiler/damlc/jar:damlc_jar

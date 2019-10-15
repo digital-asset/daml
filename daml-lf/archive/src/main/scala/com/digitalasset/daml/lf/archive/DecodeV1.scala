@@ -11,7 +11,7 @@ import ImmArray.ImmArraySeq
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.language.Util._
 import com.digitalasset.daml.lf.language.{LanguageVersion => LV}
-import com.digitalasset.daml_lf.{DamlLf1 => PLF}
+import com.digitalasset.daml_lf_dev.{DamlLf1 => PLF}
 import com.google.protobuf.CodedInputStream
 
 import scala.annotation.tailrec

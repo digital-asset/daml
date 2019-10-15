@@ -11,7 +11,7 @@ import com.daml.ledger.participant.state.v1.{Configuration, ParticipantId}
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.engine.Engine
 import com.digitalasset.daml.lf.transaction.TransactionOuterClass
-import com.digitalasset.daml_lf.DamlLf
+import com.digitalasset.daml_lf_dev.DamlLf
 import com.digitalasset.platform.common.metrics.VarGauge
 import com.google.protobuf.ByteString
 import org.slf4j.LoggerFactory

@@ -10,7 +10,7 @@ import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.language.LanguageMajorVersion._
 import com.digitalasset.daml.lf.language.LanguageVersion
-import com.digitalasset.daml_lf.DamlLf
+import com.digitalasset.daml_lf_dev.DamlLf
 import com.google.protobuf.CodedInputStream
 
 sealed class Decode(onlySerializableDataDefs: Boolean)

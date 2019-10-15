@@ -8,7 +8,7 @@ import java.io.File
 import com.digitalasset.daml.bazeltools.BazelRunfiles
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.language.LanguageMajorVersion
-import com.digitalasset.daml_lf.{DamlLf, DamlLf1}
+import com.digitalasset.daml_lf_dev.{DamlLf, DamlLf1}
 import org.scalatest.{Inside, Matchers, WordSpec}
 
 import scala.collection.JavaConverters._

@@ -10,8 +10,8 @@
 syntax = "proto3";
 package daml_lf_0;
 
-option java_package = "com.digitalasset.daml_lf";
-option csharp_namespace = "Com.DigitalAsset.Daml_Lf.DamlLf0";
+option java_package = "com.digitalasset.daml_lf_dev";
+option csharp_namespace = "Com.DigitalAsset.Daml_Lf_Dev.DamlLf0";
 
 message Package {
 }

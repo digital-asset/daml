@@ -6,7 +6,7 @@ module DA.Daml.LF.Proto3.Decode
   , decodePayload
   ) where
 
-import Com.Digitalasset.DamlLf.DamlLf (ArchivePayload(..), ArchivePayloadSum(..))
+import Com.Digitalasset.DamlLfDev.DamlLf (ArchivePayload(..), ArchivePayloadSum(..))
 import DA.Daml.LF.Ast (Package)
 import DA.Daml.LF.Proto3.Error
 import qualified DA.Daml.LF.Proto3.DecodeV1 as DecodeV1

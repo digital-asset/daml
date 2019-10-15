@@ -29,7 +29,7 @@ dependencies = [
     "//3rdparty/jvm/org/slf4j:slf4j_api",
     "//bazel_tools/runfiles:scala_runfiles",
     "//daml-lf/archive:daml_lf_archive_reader",
-    "//daml-lf/archive:daml_lf_archive_java_proto",
+    "//daml-lf/archive:daml_lf_dev_archive_java_proto",
     "//daml-lf/data",
     "//daml-lf/engine",
     "//daml-lf/interpreter",

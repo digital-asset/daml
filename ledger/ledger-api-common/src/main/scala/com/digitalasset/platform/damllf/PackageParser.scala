@@ -9,7 +9,7 @@ import java.util.zip.{ZipEntry, ZipInputStream}
 import com.digitalasset.daml.lf.archive.Decode
 import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.daml.lf.language.Ast
-import com.digitalasset.daml_lf.DamlLf.Archive
+import com.digitalasset.daml_lf_dev.DamlLf.Archive
 import com.typesafe.scalalogging.Logger
 
 import scala.annotation.tailrec

@@ -12,7 +12,7 @@ import com.digitalasset.daml.lf.data.{Decimal, ImmArray, Numeric, Ref}
 import com.digitalasset.daml.lf.language.Util._
 import com.digitalasset.daml.lf.language.{Ast, LanguageMinorVersion, LanguageVersion => LV}
 import LanguageMinorVersion.Implicits._
-import com.digitalasset.daml_lf.DamlLf1
+import com.digitalasset.daml_lf_dev.DamlLf1
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.{Inside, Matchers, OptionValues, WordSpec}
 

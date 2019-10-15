@@ -11,7 +11,7 @@ load(
 utils_deps = [
     "//3rdparty/jvm/org/scalaz:scalaz_core",
     "//daml-lf/data",
-    "//daml-lf/archive:daml_lf_archive_java_proto",
+    "//daml-lf/archive:daml_lf_dev_archive_java_proto",
     "//daml-lf/archive:daml_lf_archive_reader",
     "//daml-lf/transaction",
     "//daml-lf/interface",

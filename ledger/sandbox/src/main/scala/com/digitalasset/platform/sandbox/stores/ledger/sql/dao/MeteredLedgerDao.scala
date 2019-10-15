@@ -11,7 +11,7 @@ import com.digitalasset.daml.lf.data.Ref.{LedgerString, PackageId, Party}
 import com.daml.ledger.participant.state.index.v2.PackageDetails
 import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.daml_lf.DamlLf.Archive
+import com.digitalasset.daml_lf_dev.DamlLf.Archive
 import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails}
 import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilter
 import com.digitalasset.platform.sandbox.metrics.MetricsManager

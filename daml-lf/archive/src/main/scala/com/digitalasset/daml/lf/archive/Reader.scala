@@ -9,7 +9,7 @@ import java.security.MessageDigest
 
 import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
-import com.digitalasset.daml_lf.DamlLf
+import com.digitalasset.daml_lf_dev.DamlLf
 import com.google.protobuf.CodedInputStream
 
 abstract class Reader[+Pkg] {

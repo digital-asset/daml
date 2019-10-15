@@ -12,7 +12,7 @@ import com.digitalasset.daml.lf.command.{Command, Commands}
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.engine.Engine
-import com.digitalasset.daml_lf.DamlLf
+import com.digitalasset.daml_lf_dev.DamlLf
 import scalaz.State
 
 import scala.collection.JavaConverters._

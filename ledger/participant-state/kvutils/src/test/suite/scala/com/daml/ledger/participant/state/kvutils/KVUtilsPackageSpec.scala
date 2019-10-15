@@ -8,7 +8,7 @@ import java.io.File
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlLogEntry
 import com.digitalasset.daml.bazeltools.BazelRunfiles
 import com.digitalasset.daml.lf.archive.DarReader
-import com.digitalasset.daml_lf.DamlLf
+import com.digitalasset.daml_lf_dev.DamlLf
 import org.scalatest.{Matchers, WordSpec}
 
 import scala.util.Try

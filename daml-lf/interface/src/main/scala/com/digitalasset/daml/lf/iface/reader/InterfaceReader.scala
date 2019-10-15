@@ -5,7 +5,7 @@ package com.digitalasset.daml.lf
 package iface
 package reader
 
-import com.digitalasset.daml_lf.DamlLf
+import com.digitalasset.daml_lf_dev.DamlLf
 import scalaz.{Enum => _, _}
 import scalaz.syntax.monoid._
 import scalaz.syntax.traverse._

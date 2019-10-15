@@ -17,7 +17,7 @@ option csharp_namespace = "Com.Daml.Ledger.Participant.State.KVUtils";
 import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/duration.proto";
-import "com/digitalasset/daml_lf/daml_lf.proto";
+import "com/digitalasset/daml_lf_dev/daml_lf.proto";
 import "daml-lf/transaction/src/main/protobuf/transaction.proto";
 import "daml-lf/transaction/src/main/protobuf/com/digitalasset/daml/lf/value.proto";
 
@@ -204,7 +204,7 @@ message DamlPackageUploadEntry {
   string submission_id = 1;
 
   // List of archives to be uploaded.
-  repeated daml_lf.Archive archives = 2;
+  repeated daml_lf_dev.Archive archives = 2;
 
   // Description provided by the backing participant describing where it got
   // the package from, e.g., when, where, or by whom the packages were
@@ -409,7 +409,7 @@ message DamlStateKey {
 message DamlStateValue {
   oneof value {
     // NOTE(JM): Match field numbers with `DamlStateKey`
-    daml_lf.Archive archive = 1;
+    daml_lf_dev.Archive archive = 1;
     DamlContractState contract_state = 2;
     DamlCommandDedupValue command_dedup = 3;
     DamlPartyAllocation party = 4;

@@ -11,7 +11,7 @@ import com.digitalasset.daml.lf.archive.Reader.ParseError
 import com.digitalasset.daml.lf.archive.{DarReader, Decode}
 import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.daml.lf.language.Ast
-import com.digitalasset.daml_lf.DamlLf.Archive
+import com.digitalasset.daml_lf_dev.DamlLf.Archive
 import org.slf4j.LoggerFactory
 
 import scalaz.std.list._
