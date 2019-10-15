@@ -1,0 +1,41 @@
+# Copyright (c) 2019 The DAML Authors. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+    "//bazel_tools:scala.bzl",
+    "da_scala_library",
+    "da_scala_test",
+)
+
+db_backend_deps = [
+    "//3rdparty/jvm/org/scalaz:scalaz_core",
+    "//3rdparty/jvm/io/spray:spray_json",
+    "//daml-lf/data",
+    "//daml-lf/interface",
+    "//daml-lf/transaction",
+]
+
+da_scala_library(
+    name = "db-backend",
+    srcs = glob(["src/main/scala/**/*.scala"]),
+    scalacopts = ["-Xsource:2.13"],
+    tags = ["maven_coordinates=com.digitalasset.ledger-service:db-backend:__VERSION__"],
+    visibility = [
+        "//visibility:public",
+    ],
+    deps = db_backend_deps,
+)
+
+da_scala_test(
+    name = "tests",
+    size = "medium",
+    srcs = glob(["src/test/scala/**/*.scala"]),
+    # data = ["//docs:quickstart-model.dar"],
+    deps = [
+        ":db-backend",
+        "//3rdparty/jvm/org/scalacheck",
+        "//3rdparty/jvm/org/scalaz:scalaz_scalacheck_binding",
+        "//3rdparty/jvm/org/scalatest",
+        "//daml-lf/transaction-scalacheck",
+    ] + db_backend_deps,
+)
