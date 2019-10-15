@@ -69,7 +69,7 @@ copyRule party acs commandsInFlight () = do
 -- ACS_QUERY_END
 
 -- ACS_FILTER_BEGIN
-  let ownedSubscribers = filter (\(_, s) -> s.owner == party) subscribers
+  let ownedSubscribers = filter (\(_, s) -> s.subscribedTo == party) subscribers
   let ownedOriginals = filter (\(_, o) -> o.owner == party) originals
   let ownedCopies = filter (\(_, c) -> c.original.owner == party) copies
 -- ACS_FILTER_END
@@ -80,14 +80,14 @@ copyRule party acs commandsInFlight () = do
 
 -- GROUP_COPIES_BEGIN
   let groupedCopies : [[(AnyContractId, Copy)]]
-  let groupedCopies = groupOn snd $ sortOn snd $ ownedCopies
+      groupedCopies = groupOn snd $ sortOn snd $ ownedCopies
   let copiesToKeep = map head groupedCopies
   let archiveDuplicateCopies = concatMap tail groupedCopies
 -- GROUP_COPIES_END
 
 -- ARCHIVE_COPIES_BEGIN
-  let archiveMissingOriginal = filter (\(_, c) -> c.original `notElem` map snd ownedOriginals) uniqueCopies
-  let archiveMissingSubscriber = filter (\(_, c) -> c.subscriber `notElem` subscribingParties) uniqueCopies
+  let archiveMissingOriginal = filter (\(_, c) -> c.original `notElem` map snd ownedOriginals) copiesToKeep
+  let archiveMissingSubscriber = filter (\(_, c) -> c.subscriber `notElem` subscribingParties) copiesToKeep
   let archiveCopies = dedup $ map fst $ archiveDuplicateCopies <> archiveMissingOriginal <> archiveMissingSubscriber
 -- ARCHIVE_COPIES_END
 
