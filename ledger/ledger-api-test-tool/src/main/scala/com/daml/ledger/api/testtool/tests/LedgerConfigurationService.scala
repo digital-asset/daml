@@ -66,9 +66,9 @@ class LedgerConfigurationService(session: LedgerSession) extends LedgerTestSuite
         let = request.getCommands.getLedgerEffectiveTime
         adjustedRequest = request.update(
           _.commands.maximumRecordTime := offset(sum(let, minTtl), -1))
-        _ <- ledger.submitAndWait(adjustedRequest)
+        failure <- ledger.submitAndWait(adjustedRequest).failed
       } yield {
-        // Nothing to do, success is enough
+        assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "out of bounds")
       }
     }
 
@@ -97,9 +97,9 @@ class LedgerConfigurationService(session: LedgerSession) extends LedgerTestSuite
         let = request.getCommands.getLedgerEffectiveTime
         adjustedRequest = request.update(
           _.commands.maximumRecordTime := offset(sum(let, maxTtl), 1))
-        _ <- ledger.submitAndWait(adjustedRequest)
+        failure <- ledger.submitAndWait(adjustedRequest).failed
       } yield {
-        // Nothing to do, success is enough
+        assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "out of bounds")
       }
     }
 
