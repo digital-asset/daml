@@ -4,7 +4,7 @@
 -- @SINCE-LF 1.dev
 daml 1.2 module TemplateTypeRep where
 
-import DA.Action
+import DA.Assert
 
 template T1
   with
@@ -31,16 +31,10 @@ template instance GT1 = GenericT T1
 template instance GT2 = GenericT T2
 
 main = scenario do
-  unless (templateTypeRep @T1 == templateTypeRep @T1) $
-    abort "templateTypeRep T1 /= templateTypeRep T1"
-  unless (templateTypeRep @T2 == templateTypeRep @T2) $
-    abort "templateTypeRep T2 /= templateTypeRep T2"
-  unless (templateTypeRep @GT1 == templateTypeRep @GT1) $
-    abort "templateTypeRep GT1 /= templateTypeRep GT1"
-  unless (templateTypeRep @GT2 == templateTypeRep @GT2) $
-    abort "templateTypeRep GT2 /= templateTypeRep GT2"
+  templateTypeRep @T1 === templateTypeRep @T1
+  templateTypeRep @T2 === templateTypeRep @T2
+  templateTypeRep @GT1 === templateTypeRep @GT1
+  templateTypeRep @GT2 === templateTypeRep @GT2
 
-  unless (templateTypeRep @T1 /= templateTypeRep @T2) $
-    abort "templateTypeRep T1 == templateTypeRep T2"
-  unless (templateTypeRep @GT1 /= templateTypeRep @GT2) $
-    abort "templateTypeRep GT1 == templateTypeRep GT2"
+  templateTypeRep @T1 =/= templateTypeRep @T2
+  templateTypeRep @GT1 =/= templateTypeRep @GT2

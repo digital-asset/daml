@@ -220,4 +220,4 @@ newtype AnyChoice = AnyChoice { getAnyChoice : Any }
 
 -- | Unique textual representation of a template Id.
 newtype TemplateTypeRep = TemplateTypeRep { getTemplateTypeRep : Text }
-  deriving (Eq, Ord)
+  deriving (Eq, Ord, Show)
