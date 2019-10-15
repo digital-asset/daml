@@ -397,3 +397,13 @@ pkg_tar(
     strip_prefix = "source/daml/intro/daml",
     visibility = ["//visibility:public"],
 )
+
+pkg_tar(
+    name = "copy-trigger-template",
+    srcs = glob(
+        ["source/triggers/template-root/**"],
+        exclude = ["**/*~"],
+    ),
+    strip_prefix = "source/triggers/template-root",
+    visibility = ["//visibility:public"],
+)

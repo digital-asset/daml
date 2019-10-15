@@ -97,6 +97,7 @@ DAML SDK documentation
    tools/ledger-api-test-tool/index
    migrate/index
    json-api/index
+   DAML Triggers <triggers/index>
 
 .. toctree::
    :titlesonly:
