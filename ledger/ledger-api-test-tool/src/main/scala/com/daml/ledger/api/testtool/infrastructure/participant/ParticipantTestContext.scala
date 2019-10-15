@@ -26,6 +26,7 @@ import com.digitalasset.ledger.api.v1.admin.party_management_service.{
   GetParticipantIdRequest
 }
 import com.digitalasset.ledger.api.v1.command_service.SubmitAndWaitRequest
+import com.digitalasset.ledger.api.v1.command_submission_service.SubmitRequest
 import com.digitalasset.ledger.api.v1.commands.{Command, Commands}
 import com.digitalasset.ledger.api.v1.event.Event.Event.Created
 import com.digitalasset.ledger.api.v1.event.{CreatedEvent, Event}
@@ -438,6 +439,20 @@ private[testtool] final class ParticipantTestContext private[participant] (
       .flatMap(submitAndWaitForTransaction)
       .map(extractContracts)
 
+  def submitRequest(party: Party, commands: Command*): Future[SubmitRequest] =
+    time().map(
+      let =>
+        new SubmitRequest(
+          Some(new Commands(
+            ledgerId = ledgerId,
+            applicationId = applicationId,
+            commandId = nextCommandId(),
+            party = party.unwrap,
+            ledgerEffectiveTime = timestamp(let),
+            maximumRecordTime = timestamp(let.plusNanos(ttl.toNanos)),
+            commands = commands
+          ))))
+
   def submitAndWaitRequest(party: Party, commands: Command*): Future[SubmitAndWaitRequest] =
     time().map(
       let =>
@@ -451,6 +466,9 @@ private[testtool] final class ParticipantTestContext private[participant] (
             maximumRecordTime = timestamp(let.plusNanos(ttl.toNanos)),
             commands = commands
           ))))
+
+  def submit(request: SubmitRequest): Future[Unit] =
+    services.commandSubmission.submit(request).map(_ => ())
 
   def submitAndWait(request: SubmitAndWaitRequest): Future[Unit] =
     services.command.submitAndWait(request).map(_ => ())

@@ -47,10 +47,10 @@ class LedgerConfigurationService(session: LedgerSession) extends LedgerTestSuite
         ledger <- context.participant()
         party <- ledger.allocateParty()
         LedgerConfiguration(Some(minTtl), _) <- ledger.configuration()
-        request <- ledger.submitAndWaitRequest(party, Dummy(party).create.command)
+        request <- ledger.submitRequest(party, Dummy(party).create.command)
         let = request.getCommands.getLedgerEffectiveTime
         adjustedRequest = request.update(_.commands.maximumRecordTime := sum(let, minTtl))
-        _ <- ledger.submitAndWait(adjustedRequest)
+        _ <- ledger.submit(adjustedRequest)
       } yield {
         // Nothing to do, success is enough
       }
@@ -62,11 +62,11 @@ class LedgerConfigurationService(session: LedgerSession) extends LedgerTestSuite
         ledger <- context.participant()
         party <- ledger.allocateParty()
         LedgerConfiguration(Some(minTtl), _) <- ledger.configuration()
-        request <- ledger.submitAndWaitRequest(party, Dummy(party).create.command)
+        request <- ledger.submitRequest(party, Dummy(party).create.command)
         let = request.getCommands.getLedgerEffectiveTime
         adjustedRequest = request.update(
           _.commands.maximumRecordTime := offset(sum(let, minTtl), -1))
-        failure <- ledger.submitAndWait(adjustedRequest).failed
+        failure <- ledger.submit(adjustedRequest).failed
       } yield {
         assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "out of bounds")
       }
@@ -78,10 +78,10 @@ class LedgerConfigurationService(session: LedgerSession) extends LedgerTestSuite
         ledger <- context.participant()
         party <- ledger.allocateParty()
         LedgerConfiguration(_, Some(maxTtl)) <- ledger.configuration()
-        request <- ledger.submitAndWaitRequest(party, Dummy(party).create.command)
+        request <- ledger.submitRequest(party, Dummy(party).create.command)
         let = request.getCommands.getLedgerEffectiveTime
         adjustedRequest = request.update(_.commands.maximumRecordTime := sum(let, maxTtl))
-        _ <- ledger.submitAndWait(adjustedRequest)
+        _ <- ledger.submit(adjustedRequest)
       } yield {
         // Nothing to do, success is enough
       }
@@ -93,11 +93,11 @@ class LedgerConfigurationService(session: LedgerSession) extends LedgerTestSuite
         ledger <- context.participant()
         party <- ledger.allocateParty()
         LedgerConfiguration(_, Some(maxTtl)) <- ledger.configuration()
-        request <- ledger.submitAndWaitRequest(party, Dummy(party).create.command)
+        request <- ledger.submitRequest(party, Dummy(party).create.command)
         let = request.getCommands.getLedgerEffectiveTime
         adjustedRequest = request.update(
           _.commands.maximumRecordTime := offset(sum(let, maxTtl), 1))
-        failure <- ledger.submitAndWait(adjustedRequest).failed
+        failure <- ledger.submit(adjustedRequest).failed
       } yield {
         assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "out of bounds")
       }
