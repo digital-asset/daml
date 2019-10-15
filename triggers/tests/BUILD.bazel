@@ -64,10 +64,25 @@ da_scala_binary(
 )
 
 client_server_test(
-    name = "test",
+    name = "test_static_time",
     client = ":test_client",
     client_files = ["$(rootpath :acs.dar)"],
     data = [":acs.dar"],
     server = "//ledger/sandbox:sandbox-binary",
+    server_args = ["--port=0"],
+    server_files = ["$(rootpath :acs.dar)"],
+)
+
+client_server_test(
+    name = "test_wallclock_time",
+    client = ":test_client",
+    client_args = ["-w"],
+    client_files = ["$(rootpath :acs.dar)"],
+    data = [":acs.dar"],
+    server = "//ledger/sandbox:sandbox-binary",
+    server_args = [
+        "-w",
+        "--port=0",
+    ],
     server_files = ["$(rootpath :acs.dar)"],
 )

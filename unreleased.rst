@@ -34,8 +34,12 @@ HEAD — ongoing
    - `com.digitalasset.daml-lf-proto` becomes `com.digitalasset.daml-lf-dev-archive-proto`
    - `com.digitalasset.daml-lf-archive` becomes `com.digitalasset:daml-lf-dev-archive-java-proto`
    - `com.digitalasset.daml-lf-archive-scala` becomes `com.digitalasset.daml-lf-archive-reader`
--[Sandbox] Filter contracts or contracts keys in the database query for parties that cannot see them.
++ [Sandbox] Filter contracts or contracts keys in the database query for parties that cannot see them.
 + [DAML Standard Library] Add ``createAndExercise``
++ [DAML Triggers] This release contains a first version of an
+  experimental DAML triggers feature that allows you to implement
+  off-ledger automation in DAML.
++ [JSON API - Experimental] Add ``--address`` CLI option. IP address that HTTP JSON API service listens on. Defaults to 0.0.0.0.
 + [DAML-LF] Add immutable bintray/maven packages for handling DAML-LF archive up to version 1.6 in a stable way:
    - `com.digitalasset.daml-lf-1.6-archive-proto`
 

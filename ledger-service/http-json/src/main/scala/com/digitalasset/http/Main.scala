@@ -26,13 +26,14 @@ object Main extends StrictLogging {
   private final case class Config(
       ledgerHost: String,
       ledgerPort: Int,
+      address: String = "0.0.0.0",
       httpPort: Int,
       applicationId: ApplicationId = ApplicationId("HTTP-JSON-API-Gateway"),
       packageReloadInterval: FiniteDuration = HttpService.DefaultPackageReloadInterval,
       maxInboundMessageSize: Int = HttpService.DefaultMaxInboundMessageSize,
   )
 
-  private val EmptyConfig = Config("", -1, -1)
+  private val EmptyConfig = Config(ledgerHost = "", ledgerPort = -1, httpPort = -1)
 
   def main(args: Array[String]): Unit =
     parseConfig(args) match {
@@ -46,7 +47,8 @@ object Main extends StrictLogging {
   private def main(config: Config): Unit = {
     logger.info(
       s"Config(ledgerHost=${config.ledgerHost: String}, ledgerPort=${config.ledgerPort: Int}" +
-        s", httpPort=${config.httpPort: Int}, applicationId=${config.applicationId.unwrap: String}" +
+        s", address=${config.address: String}, httpPort=${config.httpPort: Int}" +
+        s", applicationId=${config.applicationId.unwrap: String}" +
         s", packageReloadInterval=${config.packageReloadInterval.toString}" +
         s", maxInboundMessageSize=${config.maxInboundMessageSize: Int})")
 
@@ -61,6 +63,7 @@ object Main extends StrictLogging {
         config.ledgerHost,
         config.ledgerPort,
         config.applicationId,
+        config.address,
         config.httpPort,
         config.packageReloadInterval,
         config.maxInboundMessageSize)
@@ -106,6 +109,12 @@ object Main extends StrictLogging {
       .action((x, c) => c.copy(ledgerPort = x))
       .required()
       .text("Ledger port number")
+
+    opt[String]("address")
+      .action((x, c) => c.copy(address = x))
+      .optional()
+      .text(
+        s"IP address that HTTP JSON API service listens on. Defaults to ${EmptyConfig.address: String}.")
 
     opt[Int]("http-port")
       .action((x, c) => c.copy(httpPort = x))

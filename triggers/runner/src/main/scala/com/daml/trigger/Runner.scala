@@ -13,7 +13,7 @@ import java.util.UUID
 import scalaz.syntax.tag._
 import scala.concurrent.{ExecutionContext, Future}
 
-import com.digitalasset.api.util.TimestampConversion.fromInstant
+import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.PureCompiledPackages
 import com.digitalasset.daml.lf.archive.Dar
 import com.digitalasset.daml.lf.data.ImmArray
@@ -35,6 +35,7 @@ import com.digitalasset.ledger.api.v1.transaction.Transaction
 import com.digitalasset.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
 import com.digitalasset.ledger.client.LedgerClient
 import com.digitalasset.ledger.client.services.commands.CompletionStreamElement._
+import com.digitalasset.platform.services.time.TimeProviderType
 
 sealed trait TriggerMsg
 final case class CompletionMsg(c: Completion) extends TriggerMsg
@@ -97,8 +98,6 @@ class Runner(
                     applicationId = applicationId.unwrap,
                     commandId = commandUUID.toString,
                     party = party,
-                    ledgerEffectiveTime = Some(fromInstant(Instant.EPOCH)),
-                    maximumRecordTime = Some(fromInstant(Instant.EPOCH.plusSeconds(5))),
                     commands = commands
                   )
                   submit(SubmitRequest(commands = Some(commandsArg)))
@@ -192,10 +191,18 @@ class Runner(
 }
 
 object Runner {
+  def getTimeProvider(ty: TimeProviderType): TimeProvider = {
+    ty match {
+      case TimeProviderType.Static => TimeProvider.Constant(Instant.EPOCH)
+      case TimeProviderType.WallClock => TimeProvider.UTC
+      case _ => throw new RuntimeException(s"Unexpected TimeProviderType: $ty")
+    }
+  }
   def run(
       dar: Dar[(PackageId, Package)],
       triggerId: Identifier,
       client: LedgerClient,
+      timeProviderType: TimeProviderType,
       applicationId: ApplicationId,
       party: String,
       msgFlow: Flow[TriggerMsg, TriggerMsg, NotUsed] = Flow[TriggerMsg])(
@@ -216,7 +223,9 @@ object Runner {
         party,
         dar,
         submitRequest => {
-          val f = client.commandClient.submitSingleCommand(submitRequest)
+          val f = client.commandClient
+            .withTimeProvider(Some(getTimeProvider(timeProviderType)))
+            .submitSingleCommand(submitRequest)
           f.failed.foreach({
             case s: StatusRuntimeException =>
               postFailure(submitRequest.getCommands.commandId, s)
