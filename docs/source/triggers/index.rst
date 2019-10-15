@@ -78,7 +78,7 @@ project that you can build using ``daml build``. To get access to the
 API used to build a trigger, you need to add the ``daml-triggers``
 library to the ``dependencies`` field in ``daml.yaml``.
 
-.. literalinclude:: ./template-root/daml.yaml
+.. literalinclude:: ./template-root/daml.yaml.template
    :start-after: # trigger-dependencies-begin
    :end-before: # trigger-dependencies-end
 
