@@ -28,3 +28,4 @@ HEAD — ongoing
   ``/home/daml/.daml/bin`` is automatically added to ``PATH``.
 + [JSON API - Experimental] Support for automatic package reload
   See `issue #2906 <https://github.com/digital-asset/daml/issues/2906>`_.
++ [DAML-LF] maven package `com.digitalasset.daml-lf-archive-scala` is renamed `com.digitalasset.daml-lf-archive-reader`
