@@ -51,7 +51,8 @@ object HttpServiceTestFixture {
     val httpServiceF: Future[(ServerBinding, Int)] = for {
       (_, ledgerPort) <- ledgerF
       httpPort <- toFuture(findOpenPort())
-      httpService <- stripLeft(HttpService.start("localhost", ledgerPort, applicationId, httpPort))
+      httpService <- stripLeft(
+        HttpService.start("localhost", ledgerPort, applicationId, "localhost", httpPort))
     } yield (httpService, httpPort)
 
     val clientF: Future[LedgerClient] = for {

@@ -38,3 +38,4 @@ HEAD — ongoing
 + [DAML Triggers] This release contains a first version of an
   experimental DAML triggers feature that allows you to implement
   off-ledger automation in DAML.
++ [JSON API - Experimental] Add ``--address`` CLI option. IP address that HTTP JSON API service listens on. Defaults to 0.0.0.0.
