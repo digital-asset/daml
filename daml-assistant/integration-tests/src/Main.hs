@@ -264,6 +264,12 @@ packagingTests = testGroup "packaging"
             ]
         withCurrentDirectory project $ callCommandQuiet "daml build"
         assertBool "project-1.0.dar was not created." =<< doesFileExist dar
+    , testCase "Build copy trigger" $ withTempDir $ \tmpDir -> do
+        let projDir = tmpDir </> "copy-trigger"
+        callCommandQuiet $ unwords ["daml", "new", projDir, "copy-trigger"]
+        withCurrentDirectory projDir $ callCommandQuiet "daml build"
+        let dar = projDir </> ".daml" </> "dist" </> "copy-trigger-0.0.1.dar"
+        assertBool "copy-trigger-0.1.0.dar was not created." =<< doesFileExist dar
     , testCase "Top-level source files" $ withTempDir $ \tmpDir -> do
         -- Test that a source file in the project root will be included in the
         -- DAR file. Regression test for #1048.

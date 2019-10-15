@@ -14,7 +14,7 @@ import Daml.Trigger
 -- The goal of this trigger is to ensure that for every pair of Master/Subscriber there exists exactly one copy.
 
 copyTrigger = runTrigger $ Trigger
-  { initialize = const ()
+  { initialize = \_ -> ()
   , updateState = \_ _ s -> s
   , rule = copyRule
   }
