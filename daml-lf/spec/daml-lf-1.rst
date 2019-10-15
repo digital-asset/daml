@@ -539,14 +539,19 @@ Then we can define our kinds, types, and expressions::
        |  'Map'                                     -- BTMap
        |  'Update'                                  -- BTyUpdate
        |  'ContractId'                              -- BTyContractId
-       |  'Any'                                     –- BTyAny
+       |  'Any'                                     -- BTyAny
 
+  Type csontratins
+    K ::= ε                                         -- ConstraintTrivial
+       |  Eq α, K                         
+       |  Serial α, K
+       
   Types (mnemonic: tau for type)
     τ, σ
       ::= α                                         -- TyVar: Type variable
        |  n                                         -- TyNat: Nat Type
        |  τ σ                                       -- TyApp: Type application
-       |  ∀ α : k . τ                               -- TyForall: Universal quantification
+       |  ∀ α : k . K ⇒ τ                          -- TyForall: Universal quantification
        |  BuiltinType                               -- TyBuiltin: Builtin type
        |  Mod:T                                     -- TyCon: type constructor
        |  ⟨ f₁: τ₁, …, fₘ: τₘ ⟩                     -- TyTuple: Tuple type
@@ -825,13 +830,19 @@ Well-formed expression
 
 Then we define *well-formed expressions*. ::
 
-                          ┌───────────────┐
-  Well-formed expressions │ Γ  ⊢  e  :  τ │
-                          └───────────────┘
+  Constraint store:
+
+   K ::= ε                                 -- StoreTrivial
+      |  'Eq' α, K                         -- StoreEq
+      |  'Serial' α, K                     -- StoreSerial
+
+                          ┌───────────────────┐
+  Well-formed expressions │ Γ ; K  ⊢  e  :  τ │
+                          └───────────────────┘
 
       x : τ  ∈  Γ
     ——————————————————————————————————————————————————————————————— ExpDefVar
-      Γ  ⊢  x  :  τ
+      Γ; K  ⊢  x  :  τ
 
       Γ  ⊢  e₁  :  τ₁ → τ₂      Γ  ⊢  e₂  :  τ₁
     ——————————————————————————————————————————————————————————————— ExpApp

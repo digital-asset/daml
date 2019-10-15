@@ -55,8 +55,10 @@ class ProtoTest extends WordSpec with Matchers with TableDrivenPropertyChecks {
     // Do not change thiss test.
     // The test checks the snapshot of the proto definition are not modified.
 
-    def dir =
-      resource(rlocation("daml-lf/archive/src/main/protobuf/com/digitalasset/daml_lf_1_6/"))
+    val rootDir = "daml-lf/archive/src/main/protobuf/com/digitalasset/daml_lf_1_6"
+
+    def resolve(file: String) =
+      resource(rlocation(s"$rootDir/$file"))
 
     "not be modified" in {
 
@@ -69,7 +71,7 @@ class ProtoTest extends WordSpec with Matchers with TableDrivenPropertyChecks {
 
       forEvery(files) {
         case (fileName, hash) =>
-          hashFile(dir.resolve(fileName)) shouldBe hash
+          hashFile(resolve(fileName)) shouldBe hash
       }
     }
   }
