@@ -4,6 +4,10 @@
 package com.daml.ledger.api.testtool.tests
 
 import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTest, LedgerTestSuite}
+import com.digitalasset.ledger.api.v1.ledger_configuration_service.LedgerConfiguration
+import com.digitalasset.ledger.test_stable.Test.Dummy
+import com.google.protobuf.duration.Duration
+import com.google.protobuf.timestamp.Timestamp
 import io.grpc.Status
 
 class LedgerConfigurationService(session: LedgerSession) extends LedgerTestSuite(session) {
@@ -30,8 +34,81 @@ class LedgerConfigurationService(session: LedgerSession) extends LedgerTestSuite
       }
     }
 
+  private def sum(t: Timestamp, d: Duration): Timestamp =
+    t.withSeconds(t.seconds + d.seconds + (t.nanos + d.nanos / 1E9).toLong)
+      .withNanos(((t.nanos + d.nanos) % 1E9).toInt)
+
+  private def offset(t: Timestamp, s: Long): Timestamp =
+    Timestamp(t.seconds + s, t.nanos)
+
+  private[this] val configJustMinTtl =
+    LedgerTest("ConfigJustMinTtl", "LET+minTTL should be an acceptable MRT") { context =>
+      for {
+        ledger <- context.participant()
+        party <- ledger.allocateParty()
+        LedgerConfiguration(Some(minTtl), _) <- ledger.configuration()
+        request <- ledger.submitAndWaitRequest(party, Dummy(party).create.command)
+        let = request.getCommands.getLedgerEffectiveTime
+        adjustedRequest = request.update(_.commands.maximumRecordTime := sum(let, minTtl))
+        _ <- ledger.submitAndWait(adjustedRequest)
+      } yield {
+        // Nothing to do, success is enough
+      }
+    }
+
+  private[this] val configUnderflowMinTtl =
+    LedgerTest("ConfigUnderflowMinTtl", "LET+minTTL-1 should NOT be an acceptable MRT") { context =>
+      for {
+        ledger <- context.participant()
+        party <- ledger.allocateParty()
+        LedgerConfiguration(Some(minTtl), _) <- ledger.configuration()
+        request <- ledger.submitAndWaitRequest(party, Dummy(party).create.command)
+        let = request.getCommands.getLedgerEffectiveTime
+        adjustedRequest = request.update(
+          _.commands.maximumRecordTime := offset(sum(let, minTtl), -1))
+        _ <- ledger.submitAndWait(adjustedRequest)
+      } yield {
+        // Nothing to do, success is enough
+      }
+    }
+
+  private[this] val configJustMaxTtl =
+    LedgerTest("ConfigJustMaxTtl", "LET+maxTTL should be an acceptable MRT") { context =>
+      for {
+        ledger <- context.participant()
+        party <- ledger.allocateParty()
+        LedgerConfiguration(_, Some(maxTtl)) <- ledger.configuration()
+        request <- ledger.submitAndWaitRequest(party, Dummy(party).create.command)
+        let = request.getCommands.getLedgerEffectiveTime
+        adjustedRequest = request.update(_.commands.maximumRecordTime := sum(let, maxTtl))
+        _ <- ledger.submitAndWait(adjustedRequest)
+      } yield {
+        // Nothing to do, success is enough
+      }
+    }
+
+  private[this] val configOverflowMaxTtl =
+    LedgerTest("ConfigOverflowMaxTtl", "LET+maxTTL+1 should NOT be an acceptable MRT") { context =>
+      for {
+        ledger <- context.participant()
+        party <- ledger.allocateParty()
+        LedgerConfiguration(_, Some(maxTtl)) <- ledger.configuration()
+        request <- ledger.submitAndWaitRequest(party, Dummy(party).create.command)
+        let = request.getCommands.getLedgerEffectiveTime
+        adjustedRequest = request.update(
+          _.commands.maximumRecordTime := offset(sum(let, maxTtl), 1))
+        _ <- ledger.submitAndWait(adjustedRequest)
+      } yield {
+        // Nothing to do, success is enough
+      }
+    }
+
   override val tests: Vector[LedgerTest] = Vector(
     configSucceeds,
-    configLedgerId
+    configLedgerId,
+    configJustMinTtl,
+    configUnderflowMinTtl,
+    configJustMaxTtl,
+    configOverflowMaxTtl
   )
 }
