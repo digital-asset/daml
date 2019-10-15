@@ -1,7 +1,7 @@
 // Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalaset.http.dbbackend
+package com.digitalasset.http.dbbackend
 
 import doobie._
 import doobie.implicits._
@@ -9,6 +9,15 @@ import spray.json._
 
 object Queries {
   import Implicits._
+
+  // NB: #, order of arguments must match createContractsTable
+  final case class DBContract[CA, WP](
+      contractId: String,
+      packageId: String,
+      templateModuleName: String,
+      templateEntityName: String,
+      createArguments: CA,
+      witnessParties: WP)
 
   val createContractsTable: Fragment = sql"""
       CREATE TABLE
@@ -22,24 +31,14 @@ object Queries {
         )
     """
 
-  def insertContract[CA: JsonWriter, WP: JsonWriter](
-      contractId: String,
-      packageId: String,
-      moduleName: String,
-      entityName: String,
-      createArguments: CA,
-      witnessParties: WP): Fragment =
-    sql"""
+  def insertContract[CA: JsonWriter, WP: JsonWriter](dbc: DBContract[CA, WP]): Fragment =
+    Update[DBContract[JsValue, JsValue]]("""
         INSERT INTO contract
-        VALUES (
-          $contractId,
-          $packageId,
-          $moduleName,
-          $entityName,
-          ${createArguments.toJson}::jsonb,
-          ${witnessParties.toJson}::jsonb
-        )
-      """
+        VALUES (?, ?, ?, ?, ?::jsonb, ?::jsonb)
+      """).toFragment(
+      dbc.copy(
+        createArguments = dbc.createArguments.toJson,
+        witnessParties = dbc.witnessParties.toJson))
 
   object Implicits {
     implicit val `JsValue put`: Put[JsValue] =
