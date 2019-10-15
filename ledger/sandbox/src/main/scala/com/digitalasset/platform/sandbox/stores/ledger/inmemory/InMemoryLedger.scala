@@ -95,14 +95,20 @@ class InMemoryLedger(
     })
 
   override def lookupContract(
-      contractId: AbsoluteContractId): Future[Option[ActiveLedgerState.Contract]] =
+      contractId: AbsoluteContractId,
+      forParty: Party): Future[Option[ActiveLedgerState.Contract]] =
     Future.successful(this.synchronized {
-      acs.activeContracts.get(contractId)
+      acs.activeContracts.get(contractId).filter(ac => isVisibleFor(ac.id, forParty))
     })
 
-  override def lookupKey(key: Node.GlobalKey): Future[Option[AbsoluteContractId]] =
+  private def isVisibleFor(contractId: AbsoluteContractId, forParty: Party): Boolean =
+    acs.activeContracts
+      .get(contractId)
+      .exists(ac => ac.witnesses.contains(forParty) || ac.divulgences.contains(forParty))
+
+  override def lookupKey(key: Node.GlobalKey, forParty: Party): Future[Option[AbsoluteContractId]] =
     Future.successful(this.synchronized {
-      acs.keys.get(key)
+      acs.keys.get(key).filter(isVisibleFor(_, forParty))
     })
 
   override def publishHeartbeat(time: Instant): Future[Unit] =

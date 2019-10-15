@@ -66,9 +66,11 @@ trait ReadOnlyLedger extends AutoCloseable {
 
   def snapshot(filter: TemplateAwareFilter): Future[LedgerSnapshot]
 
-  def lookupContract(contractId: Value.AbsoluteContractId): Future[Option[Contract]]
+  def lookupContract(
+      contractId: Value.AbsoluteContractId,
+      forParty: Party): Future[Option[Contract]]
 
-  def lookupKey(key: GlobalKey): Future[Option[AbsoluteContractId]]
+  def lookupKey(key: GlobalKey, forParty: Party): Future[Option[AbsoluteContractId]]
 
   def lookupTransaction(
       transactionId: TransactionIdString): Future[Option[(Long, LedgerEntry.Transaction)]]

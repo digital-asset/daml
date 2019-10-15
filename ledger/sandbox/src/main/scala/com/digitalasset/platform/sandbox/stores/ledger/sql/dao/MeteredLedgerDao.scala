@@ -34,10 +34,11 @@ private class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, mm: MetricsManager)
     mm.timedFuture("LedgerDao:lookupExternalLedgerEnd", ledgerDao.lookupExternalLedgerEnd())
 
   override def lookupActiveOrDivulgedContract(
-      contractId: Value.AbsoluteContractId): Future[Option[Contract]] =
+      contractId: Value.AbsoluteContractId,
+      forParty: Party): Future[Option[Contract]] =
     mm.timedFuture(
       "LedgerDao:lookupActiveContract",
-      ledgerDao.lookupActiveOrDivulgedContract(contractId))
+      ledgerDao.lookupActiveOrDivulgedContract(contractId, forParty))
 
   override def lookupLedgerEntry(offset: Long): Future[Option[LedgerEntry]] =
     mm.timedFuture("LedgerDao:lookupLedgerEntry", ledgerDao.lookupLedgerEntry(offset))
@@ -46,8 +47,10 @@ private class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, mm: MetricsManager)
       transactionId: TransactionId): Future[Option[(LedgerOffset, LedgerEntry.Transaction)]] =
     mm.timedFuture("LedgerDao:lookupTransaction", ledgerDao.lookupTransaction(transactionId))
 
-  override def lookupKey(key: Node.GlobalKey): Future[Option[Value.AbsoluteContractId]] =
-    mm.timedFuture("LedgerDao:lookupKey", ledgerDao.lookupKey(key))
+  override def lookupKey(
+      key: Node.GlobalKey,
+      forParty: Party): Future[Option[Value.AbsoluteContractId]] =
+    mm.timedFuture("LedgerDao:lookupKey", ledgerDao.lookupKey(key, forParty))
 
   override def getActiveContractSnapshot(untilExclusive: LedgerOffset, filter: TemplateAwareFilter)(
       implicit mat: Materializer): Future[LedgerSnapshot] =
