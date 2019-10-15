@@ -10,7 +10,7 @@ request and response elements demonstrated below or otherwise
 implemented by the API.  We welcome feedback about the API on `our issue
 tracker
 <https://github.com/digital-asset/daml/issues/new?milestone=HTTP+JSON+API+Maintenance>`_
-or `on Slack <https://damldriven.slack.com/>`_.
+or `on Slack <https://hub.daml.com/slack/>`_.
 
 The JSON API provides a significantly simpler way than :doc:`the Ledger
 API </app-dev/index>` to access *basic active contract set
