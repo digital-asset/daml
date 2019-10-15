@@ -8,7 +8,7 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.daml.ledger.participant.state.index.v2
 import com.digitalasset.daml.lf.archive.Decode
-import com.digitalasset.daml.lf.data.Ref.{PackageId, TransactionIdString}
+import com.digitalasset.daml.lf.data.Ref.{PackageId, Party, TransactionIdString}
 import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
@@ -37,8 +37,8 @@ class BaseLedger(val ledgerId: LedgerId, headAtInitialization: Long, ledgerDao: 
     headAtInitialization
   )
 
-  override def lookupKey(key: Node.GlobalKey): Future[Option[AbsoluteContractId]] =
-    ledgerDao.lookupKey(key)
+  override def lookupKey(key: Node.GlobalKey, forParty: Party): Future[Option[AbsoluteContractId]] =
+    ledgerDao.lookupKey(key, forParty)
 
   override def ledgerEntries(offset: Option[Long]): Source[(Long, LedgerEntry), NotUsed] =
     dispatcher.startingAt(offset.getOrElse(0), RangeSource(ledgerDao.getLedgerEntries(_, _)))
@@ -59,9 +59,10 @@ class BaseLedger(val ledgerId: LedgerId, headAtInitialization: Long, ledgerDao: 
       .map(s => LedgerSnapshot(s.offset, s.acs))(DEC)
 
   override def lookupContract(
-      contractId: AbsoluteContractId): Future[Option[ActiveLedgerState.Contract]] =
+      contractId: AbsoluteContractId,
+      forParty: Party): Future[Option[ActiveLedgerState.Contract]] =
     ledgerDao
-      .lookupActiveOrDivulgedContract(contractId)
+      .lookupActiveOrDivulgedContract(contractId, forParty)
 
   override def lookupTransaction(
       transactionId: TransactionIdString): Future[Option[(Long, LedgerEntry.Transaction)]] =

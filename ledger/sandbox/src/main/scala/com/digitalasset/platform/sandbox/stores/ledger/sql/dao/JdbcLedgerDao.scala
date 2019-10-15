@@ -142,6 +142,18 @@ private class JdbcLedgerDao(
     SQL(
       "select contract_id from contract_keys where package_id={package_id} and name={name} and value_hash={value_hash}")
 
+  private val SQL_SELECT_CONTRACT_KEY_FOR_PARTY =
+    SQL(
+      """select ck.contract_id from contract_keys ck
+        |left join contract_witnesses cowi on ck.contract_id = cowi.contract_id and cowi.witness = {party}
+        |left join contract_divulgences codi on ck.contract_id = codi.contract_id and codi.party = {party}
+        |where
+        |  ck.package_id={package_id} and
+        |  ck.name={name} and
+        |  ck.value_hash={value_hash} and
+        |  (cowi.witness is not null or codi.party is not null)
+        |""".stripMargin)
+
   private val SQL_REMOVE_CONTRACT_KEY =
     SQL("delete from contract_keys where contract_id={contract_id}")
 
@@ -175,8 +187,18 @@ private class JdbcLedgerDao(
       .as(ledgerString("contract_id").singleOpt)
       .map(AbsoluteContractId)
 
-  override def lookupKey(key: Node.GlobalKey): Future[Option[AbsoluteContractId]] =
-    dbDispatcher.executeSql("lookup contract by key")(implicit conn => selectContractKey(key))
+  override def lookupKey(key: Node.GlobalKey, forParty: Party): Future[Option[AbsoluteContractId]] =
+    dbDispatcher.executeSql("lookup contract by key")(
+      implicit conn =>
+        SQL_SELECT_CONTRACT_KEY_FOR_PARTY
+          .on(
+            "package_id" -> key.templateId.packageId,
+            "name" -> key.templateId.qualifiedName.toString,
+            "value_hash" -> keyHasher.hashKeyString(key),
+            "party" -> forParty
+          )
+          .as(ledgerString("contract_id").singleOpt)
+          .map(AbsoluteContractId))
 
   private def storeContract(offset: Long, contract: ActiveContract)(
       implicit connection: Connection): Unit = storeContracts(offset, List(contract))
@@ -834,7 +856,13 @@ private class JdbcLedgerDao(
         |from contract_data cd
         |left join contracts c on cd.id=c.id
         |left join ledger_entries le on c.transaction_id = le.transaction_id
-        |where cd.id={contract_id} and c.archive_offset is null""".stripMargin)
+        |left join contract_witnesses cowi on cowi.contract_id = c.id and witness = {party}
+        |left join contract_divulgences codi on codi.contract_id = c.id and party = {party}
+        |where
+        |  cd.id={contract_id} and
+        |  c.archive_offset is null and
+        |  (cowi.witness is not null or codi.party is not null)
+        |""".stripMargin)
 
   private val SQL_SELECT_CONTRACT_LET =
     SQL("""
@@ -857,10 +885,13 @@ private class JdbcLedgerDao(
   private val SQL_SELECT_KEY_MAINTAINERS =
     SQL("select maintainer from contract_key_maintainers where contract_id={contract_id}")
 
-  private def lookupContractSync(contractId: AbsoluteContractId)(
+  private def lookupContractSync(contractId: AbsoluteContractId, forParty: Party)(
       implicit conn: Connection): Option[Contract] =
     SQL_SELECT_CONTRACT
-      .on("contract_id" -> contractId.coid)
+      .on(
+        "contract_id" -> contractId.coid,
+        "party" -> forParty
+      )
       .as(ContractDataParser.singleOpt)
       .map(mapContractDetails)
 
@@ -875,9 +906,10 @@ private class JdbcLedgerDao(
       }
 
   override def lookupActiveOrDivulgedContract(
-      contractId: AbsoluteContractId): Future[Option[Contract]] =
+      contractId: AbsoluteContractId,
+      forParty: Party): Future[Option[Contract]] =
     dbDispatcher.executeSql(s"lookup active contract [${contractId.coid}]") { implicit conn =>
-      lookupContractSync(contractId)
+      lookupContractSync(contractId, forParty)
     }
 
   private def mapContractDetails(

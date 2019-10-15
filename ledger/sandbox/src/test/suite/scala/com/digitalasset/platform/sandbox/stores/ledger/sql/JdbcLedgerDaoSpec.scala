@@ -170,7 +170,7 @@ class JdbcLedgerDaoSpec
         Map(event1 -> Set[Party]("Alice", "Bob"), event2 -> Set[Party]("Alice", "In", "Chains"))
       )
       for {
-        result1 <- ledgerDao.lookupActiveOrDivulgedContract(absCid)
+        result1 <- ledgerDao.lookupActiveOrDivulgedContract(absCid, alice)
         _ <- ledgerDao.storeLedgerEntry(
           offset,
           offset + 1,
@@ -185,7 +185,7 @@ class JdbcLedgerDaoSpec
             List.empty
           )
         )
-        result2 <- ledgerDao.lookupActiveOrDivulgedContract(absCid)
+        result2 <- ledgerDao.lookupActiveOrDivulgedContract(absCid, alice)
         externalLedgerEnd <- ledgerDao.lookupExternalLedgerEnd()
       } yield {
         result1 shouldEqual None

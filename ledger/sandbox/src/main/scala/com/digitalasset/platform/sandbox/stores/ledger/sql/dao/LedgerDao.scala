@@ -71,8 +71,10 @@ trait LedgerReadDao extends AutoCloseable {
   /** Looks up the current external ledger end offset*/
   def lookupExternalLedgerEnd(): Future[Option[LedgerString]]
 
-  /** Looks up an active or divulged contract. Archived contracts must not be returned by this method */
-  def lookupActiveOrDivulgedContract(contractId: AbsoluteContractId): Future[Option[Contract]]
+  /** Looks up an active or divulged contract if it is visible for the given party. Archived contracts must not be returned by this method */
+  def lookupActiveOrDivulgedContract(
+      contractId: AbsoluteContractId,
+      forParty: Party): Future[Option[Contract]]
 
   /**
     * Looks up a LedgerEntry at a given offset
@@ -102,12 +104,13 @@ trait LedgerReadDao extends AutoCloseable {
   }
 
   /**
-    * Looks up a Contract given a contract key
+    * Looks up a Contract given a contract key and a party
     *
     * @param key the contract key to query
+    * @param forParty the party for which the contract must be visible
     * @return the optional AbsoluteContractId
     */
-  def lookupKey(key: Node.GlobalKey): Future[Option[AbsoluteContractId]]
+  def lookupKey(key: Node.GlobalKey, forParty: Party): Future[Option[AbsoluteContractId]]
 
   /**
     * Returns a stream of ledger entries

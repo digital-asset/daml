@@ -34,11 +34,13 @@ private class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, mm: MetricsManager)
   override def snapshot(filter: TemplateAwareFilter): Future[LedgerSnapshot] =
     ledger.snapshot(filter)
 
-  override def lookupContract(contractId: Value.AbsoluteContractId): Future[Option[Contract]] =
-    mm.timedFuture("Ledger:lookupContract", ledger.lookupContract(contractId))
+  override def lookupContract(
+      contractId: Value.AbsoluteContractId,
+      forParty: Party): Future[Option[Contract]] =
+    mm.timedFuture("Ledger:lookupContract", ledger.lookupContract(contractId, forParty))
 
-  override def lookupKey(key: GlobalKey): Future[Option[AbsoluteContractId]] =
-    mm.timedFuture("Ledger:lookupKey", ledger.lookupKey(key))
+  override def lookupKey(key: GlobalKey, forParty: Party): Future[Option[AbsoluteContractId]] =
+    mm.timedFuture("Ledger:lookupKey", ledger.lookupKey(key, forParty))
 
   override def lookupTransaction(
       transactionId: TransactionIdString): Future[Option[(Long, LedgerEntry.Transaction)]] =
