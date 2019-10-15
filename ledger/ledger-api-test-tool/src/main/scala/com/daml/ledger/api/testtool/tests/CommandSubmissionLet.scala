@@ -34,8 +34,8 @@ final class CommandSubmissionLet(session: LedgerSession) extends LedgerTestSuite
       for {
         ledger <- context.participant()
         alice <- ledger.allocateParty()
-        request <- ledger.submitAndWaitRequest(alice, Dummy(alice).create.command)
-        _ <- ledger.submitAndWait(request)
+        request <- ledger.submitRequest(alice, Dummy(alice).create.command)
+        _ <- ledger.submit(request)
       } yield {
         // No assertions to make, since the command went through as expected
       }
@@ -47,11 +47,11 @@ final class CommandSubmissionLet(session: LedgerSession) extends LedgerTestSuite
         ledger <- context.participant()
         alice <- ledger.allocateParty()
         LedgerConfiguration(_, Some(maxTtl)) <- ledger.configuration()
-        request <- ledger.submitAndWaitRequest(alice, Dummy(alice).create.command)
+        request <- ledger.submitRequest(alice, Dummy(alice).create.command)
         invalidRequest = request
           .update(_.commands.ledgerEffectiveTime.modify(overflow(maxTtl)))
           .update(_.commands.maximumRecordTime.modify(overflow(maxTtl)))
-        failure <- ledger.submitAndWait(invalidRequest).failed
+        failure <- ledger.submit(invalidRequest).failed
       } yield {
         assertGrpcError(failure, Status.Code.ABORTED, "TRANSACTION_OUT_OF_TIME_WINDOW: ")
       }
@@ -63,11 +63,11 @@ final class CommandSubmissionLet(session: LedgerSession) extends LedgerTestSuite
         ledger <- context.participant()
         alice <- ledger.allocateParty()
         LedgerConfiguration(_, Some(maxTtl)) <- ledger.configuration()
-        request <- ledger.submitAndWaitRequest(alice, Dummy(alice).create.command)
+        request <- ledger.submitRequest(alice, Dummy(alice).create.command)
         invalidRequest = request
           .update(_.commands.ledgerEffectiveTime.modify(underflow(maxTtl)))
           .update(_.commands.maximumRecordTime.modify(underflow(maxTtl)))
-        failure <- ledger.submitAndWait(invalidRequest).failed
+        failure <- ledger.submit(invalidRequest).failed
       } yield {
         // In this case, the ledger's response races with the client's timeout detection.
         // So we can't be sure what the error message will be.
