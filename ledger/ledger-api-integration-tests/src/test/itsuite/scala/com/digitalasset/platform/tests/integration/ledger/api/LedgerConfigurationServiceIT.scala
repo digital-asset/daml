@@ -49,17 +49,6 @@ class LedgerConfigurationServiceIT
         }
       }
 
-      "fail with the expected status on a ledger Id mismatch" in allFixtures { context =>
-        new LedgerConfigurationClient(
-          domain.LedgerId("not" + context.ledgerId.unwrap),
-          context.ledgerConfigurationService).getLedgerConfiguration
-          .runWith(Sink.head)(materializer)
-          .failed map { ex =>
-          IsStatusException(Status.NOT_FOUND.getCode)(ex)
-        }
-
-      }
-
     }
 
   }
