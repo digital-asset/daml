@@ -13,14 +13,10 @@ object Queries {
   val createContractsTable: Fragment = sql"""
       CREATE TABLE
         contract
-        (event_id TEXT PRIMARY KEY NOT NULL
-        ,archived_by_event_id TEXT DEFAULT NULL
-        ,contract_id TEXT NOT NULL
-        ,transaction_id TEXT NOT NULL
-        ,archived_by_transaction_id TEXT DEFAULT NULL
-        ,is_root_event BOOLEAN NOT NULL
+        (contract_id TEXT PRIMARY KEY NOT NULL
         ,package_id TEXT NOT NULL
-        ,template TEXT NOT NULL
+        ,template_module_name TEXT NOT NULL
+        ,template_entity_name TEXT NOT NULL
         ,create_arguments JSONB NOT NULL
         ,witness_parties JSONB NOT NULL
         )
@@ -36,9 +32,7 @@ object Queries {
     sql"""
         INSERT INTO contract
         VALUES (
-          DEFAULT, -- archived_by_event_id
           $contractId,
-          DEFAULT, -- archived_by_transaction_id
           $packageId,
           $moduleName,
           $entityName,
