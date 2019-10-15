@@ -1,25 +1,24 @@
-- target: //daml-lf/archive:daml_lf_archive_java
-  type: jar
-  javadoc-jar: daml_lf_archive_java_javadoc.jar
-  src-jar: daml_lf_archive_java_srcjar.jar
-  mavenUpload: True
 - target: //daml-lf/data:data
+  type: jar-scala
+- target: //daml-lf/archive:daml_lf_archive_java_proto
+  type: jar-lib
+  javadoc-jar: daml_lf_archive_java_proto_javadoc.jar
+  mavenUpload: True
+- target: //daml-lf/archive:daml_lf_archive_proto_zip
+  type: zip
+  location:
+    groupId: com.digitalasset
+    artifactId: daml-lf-archive-proto
+- target: //daml-lf/archive:daml_lf_archive_proto_tarball
+  type: targz
+  location:
+    groupId: com.digitalasset
+    artifactId: daml-lf-archive-proto
+- target: //daml-lf/archive:daml_lf_archive_reader
   type: jar-scala
 - target: //compiler/damlc/jar:damlc_jar
   type: jar-deploy
   platformDependent: True
-- target: //daml-lf/archive:daml_lf_archive_reader
-  type: jar-scala
-- target: //daml-lf/archive:daml_lf_archive_protos_zip
-  type: zip
-  location:
-    groupId: com.digitalasset
-    artifactId: daml-lf-archive-protos
-- target: //daml-lf/archive:daml_lf_archive_protos_tarball
-  type: targz
-  location:
-    groupId: com.digitalasset
-    artifactId: daml-lf-archive-protos
 - target: //daml-lf/transaction/src/main/protobuf:value_java_proto
   type: jar-proto
 - target: //daml-lf/transaction/src/main/protobuf:transaction_java_proto

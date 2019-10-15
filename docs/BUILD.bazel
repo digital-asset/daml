@@ -319,7 +319,7 @@ java_binary(
         "//3rdparty/jvm/com/google/protobuf:protobuf_java",
         "//3rdparty/jvm/com/sparkjava:spark_core",
         "//3rdparty/jvm/io/reactivex/rxjava2:rxjava",
-        "//daml-lf/archive:daml_lf_java_proto",
+        "//daml-lf/archive:daml_lf_archive_java_proto",
         "//language-support/java/bindings:bindings-java",
         "//language-support/java/bindings-rxjava",
     ],

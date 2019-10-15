@@ -81,7 +81,7 @@ def damlc_integration_test(name, main_function):
             "//compiler/damlc/daml-lf-conversion",
             "//compiler/damlc/daml-opts:daml-opts-types",
             "//compiler/damlc/daml-opts",
-            "//daml-lf/archive:daml_lf_haskell_proto",
+            "//daml-lf/archive:daml_lf_archive_haskell_proto",
             "//libs-haskell/bazel-runfiles",
             "//libs-haskell/da-hs-base",
             "//libs-haskell/test-utils",

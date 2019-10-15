@@ -26,7 +26,7 @@ compileDependencies = [
     "//daml-lf/engine",
     "//daml-lf/data",
     "//daml-lf/language",
-    "//daml-lf/archive:daml_lf_java_proto",
+    "//daml-lf/archive:daml_lf_archive_java_proto",
     "//daml-lf/archive:daml_lf_archive_reader",
     "//daml-lf/interpreter",
     "//daml-lf/transaction/src/main/protobuf:value_java_proto",
