@@ -66,6 +66,7 @@ Start HTTP service from a DAML project directory
       --help                   Print this usage text
       --ledger-host <value>    Ledger host name or IP address
       --ledger-port <value>    Ledger port number
+      --address <value>        IP address that HTTP JSON API service listens on. Defaults to 0.0.0.0.
       --http-port <value>      HTTP JSON API service port number
       --application-id <value>
                                Optional application ID to use for ledger registration. Defaults to HTTP-JSON-API-Gateway
