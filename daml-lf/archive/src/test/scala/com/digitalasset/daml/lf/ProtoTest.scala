@@ -63,15 +63,24 @@ class ProtoTest extends WordSpec with Matchers with TableDrivenPropertyChecks {
     "not be modified" in {
 
       val files = Table(
-        "file" -> "hash",
-        "daml_lf_0.proto" -> "1554427a861be3fb00a2445711fffe3c54bf0e541be6e748d0a18c5fe01afc03",
-        "daml_lf_1.proto" -> "711b129f810248d20526144d2d56c85fc486b14ba1eb2ab6b13a659a710ad5d2",
-        "daml_lf.proto" -> "4064870ecefaa3b727d67f0b8fa31590c17c7b11ad9ca7c73f2925013edf410e",
+        ("file", "Linux hash", "windows hash"),
+        (
+          "daml_lf_0.proto",
+          "1554427a861be3fb00a2445711fffe3c54bf0e541be6e748d0a18c5fe01afc03",
+          "e79a319ed16dd7cd533d252c2884241759bd9af72f83a4516ff937db53cbcbf8"),
+        (
+          "daml_lf_1.proto",
+          "711b129f810248d20526144d2d56c85fc486b14ba1eb2ab6b13a659a710ad5d2",
+          "d75b661509079c12327e18296350aeffb77ca88f8ee110fd1c774ce8c0cb16f0"),
+        (
+          "daml_lf.proto",
+          "4064870ecefaa3b727d67f0b8fa31590c17c7b11ad9ca7c73f2925013edf410e",
+          "6b5990fe8ed2de64e3ec56a0d1d0d852983832c805cf1c3f931a0dae5b8e5ae2")
       )
 
       forEvery(files) {
-        case (fileName, hash) =>
-          hashFile(resolve(fileName)) shouldBe hash
+        case (fileName, linuxHash, windowsHash) =>
+          List(linuxHash, windowsHash) should contain(hashFile(resolve(fileName)))
       }
     }
   }
