@@ -53,12 +53,6 @@ object RunnerConfig {
       }
       .text("Use wall clock time (UTC). When not provided, static time is used.")
 
-    opt[Unit]('w', "wall-clock-time")
-      .action { (t, c) =>
-        c.copy(timeProviderType = TimeProviderType.WallClock)
-      }
-      .text("Use wall clock time (UTC). When not provided, static time is used.")
-
     opt[Long]("ttl")
       .action { (t, c) =>
         c.copy(commandTtl = Duration.ofSeconds(t))
