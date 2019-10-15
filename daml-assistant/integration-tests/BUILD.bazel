@@ -70,7 +70,7 @@ da_haskell_test(
         ":integration-tests-mvn",
         "//release:sdk-release-tarball",
         "@local_jdk//:bin/java.exe" if is_windows else "@local_jdk//:bin/java",
-        "//compiler/damlc/tests:generate-simple-dalf",
+        "//compiler/damlc/tests:simple-dalf.dalf",
         "@mvn_dev_env//:mvn",
         "@tar_dev_env//:tar",
     ],

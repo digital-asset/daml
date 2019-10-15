@@ -554,6 +554,8 @@ createProjectPackageDb opts fps = do
                           either (fail . DA.Pretty.renderPretty) pure $
                           Archive.decodeArchive dalf
                       pure (pkgId, package, dalf, stringToUnitId name)
+              -- mapping from package id's to unit id's. if the same package is imported with
+              -- different unit id's, we would loose a unit id here.
               let pkgMap =
                       MS.fromList [(pkgId, unitId) | (pkgId, _pkg, _bs, unitId) <- pkgs]
               -- order the packages in topological order
@@ -613,7 +615,11 @@ createProjectPackageDb opts fps = do
                               ]
                       -- write the conf file and refresh the package cache
                       let (pkgName, pkgVersion) =
-                              fromMaybe (unitIdStr, "") $ stripInfixEnd "-" unitIdStr
+                            fromMaybe (unitIdStr, Nothing) $
+                                do
+                                  (uId, ver) <- stripInfixEnd "-" unitIdStr
+                                  guard $ all (`elem` '.':['0' .. '9']) ver
+                                  Just (uId, Just ver)
                       let (cfPath, cfBs) =
                               mkConfFile
                                   PackageConfigFields
@@ -744,7 +750,7 @@ execPackage projectOpts filePath opts mbOutFile dalfInput =
                               { pName = fromMaybe (takeBaseName filePath) $ optMbPackageName opts
                               , pSrc = filePath
                               , pExposedModules = Nothing
-                              , pVersion = ""
+                              , pVersion = Nothing
                               , pDependencies = []
                               , pSdkVersion = ""
                               , cliOpts = Nothing

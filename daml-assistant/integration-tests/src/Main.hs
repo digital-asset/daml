@@ -390,18 +390,15 @@ packagingTests = testGroup "packaging"
             ]
         withCurrentDirectory projDir $ callCommandQuiet "daml build"
     , testCase "Dalf imports" $ withTempDir $ \projDir -> do
-        let genSimpleDalfExe
-              | isWindows = "generate-simple-dalf.exe"
-              | otherwise = "generate-simple-dalf"
-        genSimpleDalf <-
+        simpleDalf <-
             locateRunfiles
-            (mainWorkspace </> "compiler" </> "damlc" </> "tests" </> genSimpleDalfExe)
+            (mainWorkspace </> "compiler" </> "damlc" </> "tests" </> "simple-dalf.dalf")
         writeFileUTF8 (projDir </> "daml.yaml") $ unlines
           [ "sdk-version: " <> sdkVersion
           , "name: proj"
           , "version: 0.1.0"
           , "source: ."
-          , "dependencies: [daml-prim, daml-stdlib, simple-dalf-0.0.0.dalf]"
+          , "dependencies: [daml-prim, daml-stdlib, " ++ simpleDalf ++ "]"
           ]
         writeFileUTF8 (projDir </> "A.daml") $ unlines
             [ "daml 1.2"
@@ -426,7 +423,6 @@ packagingTests = testGroup "packaging"
             --, "agreementTemplate : Module.Template -> Text"
             --, "agreementTemplate = agreement"
             ]
-        withCurrentDirectory projDir $ callCommandQuiet $ genSimpleDalf <> " simple-dalf-0.0.0.dalf"
         withCurrentDirectory projDir $ callCommandQuiet "daml build"
         let dar = projDir </> ".daml/dist/proj-0.1.0.dar"
         assertBool "proj-0.1.0.dar was not created." =<< doesFileExist dar
