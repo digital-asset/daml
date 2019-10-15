@@ -14,12 +14,12 @@ final class CommandSubmissionLet(session: LedgerSession) extends LedgerTestSuite
 
   // Adds (maxTTL+1) seconds to a Timestamp
   private def overflow(maxTtl: Duration)(t: Timestamp): Timestamp =
-    t.withSeconds(t.seconds + maxTtl.seconds + (t.nanos + maxTtl.nanos / 1E9).toLong + 1L)
+    t.withSeconds(t.seconds + maxTtl.seconds + ((t.nanos + maxTtl.nanos) / 1E9).toLong + 1L)
       .withNanos(((t.nanos + maxTtl.nanos) % 1E9).toInt)
 
   // Subtracts (maxTTL+1) seconds from a Timestamp
   private def underflow(maxTtl: Duration)(t: Timestamp): Timestamp =
-    t.withSeconds(t.seconds - maxTtl.seconds + (t.nanos - maxTtl.nanos / 1E9).toLong - 1L)
+    t.withSeconds(t.seconds - maxTtl.seconds + ((t.nanos - maxTtl.nanos) / 1E9).toLong - 1L)
       .withNanos(((t.nanos - maxTtl.nanos) % 1E9).toInt)
 
   private[this] val submitAndWaitSuccessIfLetRight =

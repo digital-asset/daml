@@ -35,7 +35,7 @@ class LedgerConfigurationService(session: LedgerSession) extends LedgerTestSuite
     }
 
   private def sum(t: Timestamp, d: Duration): Timestamp =
-    t.withSeconds(t.seconds + d.seconds + (t.nanos + d.nanos / 1E9).toLong)
+    t.withSeconds(t.seconds + d.seconds + ((t.nanos + d.nanos) / 1E9).toLong)
       .withNanos(((t.nanos + d.nanos) % 1E9).toInt)
 
   private def offset(t: Timestamp, s: Long): Timestamp =
