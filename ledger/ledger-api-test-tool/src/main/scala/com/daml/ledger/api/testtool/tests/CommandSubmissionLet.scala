@@ -72,7 +72,7 @@ final class CommandSubmissionLet(session: LedgerSession) extends LedgerTestSuite
         // In this case, the ledger's response races with the client's timeout detection.
         // So we can't be sure what the error message will be.
         failure match {
-          case _: StatusRuntimeException | StatusException => ()
+          case _: StatusRuntimeException | _: StatusException => ()
           case _ => fail("Submission should have failed with gRPC exception")
         }
       }
