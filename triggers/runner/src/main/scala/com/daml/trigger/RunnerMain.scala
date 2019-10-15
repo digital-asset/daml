@@ -48,7 +48,7 @@ object RunnerMain {
         val clientConfig = LedgerClientConfiguration(
           applicationId = ApplicationId.unwrap(applicationId),
           ledgerIdRequirement = LedgerIdRequirement("", enabled = false),
-          commandClient = CommandClientConfiguration.default,
+          commandClient = CommandClientConfiguration.default.copy(ttl = config.commandTtl),
           sslContext = None
         )
 
@@ -56,7 +56,13 @@ object RunnerMain {
           client <- LedgerClient.singleHost(config.ledgerHost, config.ledgerPort, clientConfig)(
             ec,
             sequencer)
-          _ <- Runner.run(dar, triggerId, client, applicationId, config.ledgerParty)
+          _ <- Runner.run(
+            dar,
+            triggerId,
+            client,
+            config.timeProviderType,
+            applicationId,
+            config.ledgerParty)
         } yield ()
 
         flow.onComplete(_ => system.terminate())

@@ -4,13 +4,19 @@
 package com.daml.trigger
 
 import java.io.File
+import java.time.Duration
+
+import com.digitalasset.platform.services.time.TimeProviderType
 
 case class RunnerConfig(
     darPath: File,
     triggerIdentifier: String,
     ledgerHost: String,
     ledgerPort: Int,
-    ledgerParty: String)
+    ledgerParty: String,
+    timeProviderType: TimeProviderType,
+    commandTtl: Duration,
+)
 
 object RunnerConfig {
   private val parser = new scopt.OptionParser[RunnerConfig]("trigger-runner") {
@@ -40,6 +46,18 @@ object RunnerConfig {
       .required()
       .action((t, c) => c.copy(ledgerParty = t))
       .text("Ledger party")
+
+    opt[Unit]('w', "wall-clock-time")
+      .action { (t, c) =>
+        c.copy(timeProviderType = TimeProviderType.WallClock)
+      }
+      .text("Use wall clock time (UTC). When not provided, static time is used.")
+
+    opt[Long]("ttl")
+      .action { (t, c) =>
+        c.copy(commandTtl = Duration.ofSeconds(t))
+      }
+      .text("TTL in seconds used for commands emitted by the trigger. Defaults to 30s.")
   }
   def parse(args: Array[String]): Option[RunnerConfig] =
     parser.parse(
@@ -49,5 +67,9 @@ object RunnerConfig {
         triggerIdentifier = null,
         ledgerHost = "",
         ledgerPort = 0,
-        ledgerParty = ""))
+        ledgerParty = "",
+        timeProviderType = TimeProviderType.Static,
+        commandTtl = Duration.ofSeconds(30L),
+      )
+    )
 }
