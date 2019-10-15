@@ -84,7 +84,7 @@ data PackageConfigFields = PackageConfigFields
     { pName :: String
     , pSrc :: String
     , pExposedModules :: Maybe [String]
-    , pVersion :: String
+    , pVersion :: Maybe String
     , pDependencies :: [String]
     , pSdkVersion :: String
     , cliOpts :: Maybe [String]
@@ -233,11 +233,17 @@ getDamlRootFiles srcRoot = do
         then liftIO $ damlFilesInDir srcRoot
         else pure [toNormalizedFilePath srcRoot]
 
-fullPkgName :: String -> String -> String -> String
-fullPkgName n v h = intercalate "-" [n, v, h]
+fullPkgName :: String -> Maybe String -> String -> String
+fullPkgName n mbV h =
+    case mbV of
+        Nothing -> n <> "-" <> h
+        Just v -> n <> "-" <> v <> "-" <> h
 
-pkgNameVersion :: String -> String -> String
-pkgNameVersion n v = n ++ "-" ++ v
+pkgNameVersion :: String -> Maybe String -> String
+pkgNameVersion n mbV =
+    case mbV of
+        Nothing -> n
+        Just v -> n ++ "-" ++ v
 
 mkConfFile ::
        PackageConfigFields -> [String] -> String -> (String, BS.ByteString)
@@ -250,12 +256,14 @@ mkConfFile PackageConfigFields {..} pkgModuleNames pkgId = (confName, bs)
     bs =
         BSC.toStrict $
         BSC.pack $
-        unlines
+        unlines $
             [ "name: " ++ pName
             , "id: " ++ pkgNameVersion pName pVersion
             , "key: " ++ pkgNameVersion pName pVersion
-            , "version: " ++ pVersion
-            , "exposed: True"
+            ]
+            ++ ["version: " ++ v | Just v <- [pVersion] ]
+            ++
+            [ "exposed: True"
             , "exposed-modules: " ++
               unwords (fromMaybe pkgModuleNames pExposedModules)
             , "import-dirs: ${pkgroot}" ++ "/" ++ key -- we really want '/' here
