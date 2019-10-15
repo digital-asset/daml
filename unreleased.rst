@@ -34,3 +34,4 @@ HEAD — ongoing
    - `com.digitalasset.daml-lf-archive` becomes `com.digitalasset:daml-lf-dev-archive-java-proto`
    - `com.digitalasset.daml-lf-archive-scala` becomes `com.digitalasset.daml-lf-archive-reader`
 -[Sandbox] Filter contracts or contracts keys in the database query for parties that cannot see them.
++ [DAML Standard Library] Add ``createAndExercise``

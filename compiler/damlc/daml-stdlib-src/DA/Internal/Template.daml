@@ -110,6 +110,12 @@ exerciseByKey k c = do
     (cid, _) <- fetchByKey @t k
     exercise cid c
 
+-- | Create a contract and exercise the choice on the newly created contract.
+createAndExercise : forall t k c r. Choice t c r => t -> c -> Update r
+createAndExercise t c = do
+    cid <- create t
+    exercise cid c
+
 data NonConsuming t = NonConsuming {}
 data PreConsuming t = PreConsuming {}
 data PostConsuming t = PostConsuming {}
