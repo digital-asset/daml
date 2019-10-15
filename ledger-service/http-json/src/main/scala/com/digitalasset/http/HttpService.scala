@@ -50,6 +50,7 @@ object HttpService extends StrictLogging {
       ledgerHost: String,
       ledgerPort: Int,
       applicationId: ApplicationId,
+      address: String,
       httpPort: Int,
       packageReloadInterval: FiniteDuration = DefaultPackageReloadInterval,
       maxInboundMessageSize: Int = DefaultMaxInboundMessageSize,
@@ -108,7 +109,7 @@ object HttpService extends StrictLogging {
         decoder,
       )
 
-      binding <- liftET[Error](Http().bindAndHandleAsync(endpoints.all, "localhost", httpPort))
+      binding <- liftET[Error](Http().bindAndHandleAsync(endpoints.all, address, httpPort))
 
     } yield binding
 
