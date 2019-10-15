@@ -111,7 +111,7 @@ not have any interesting user-defined state, we will not go into
 details here.
 
 Finally, the ``rule`` function is the core of a DAML trigger. It
-defines which commands need to be send to the ledger based on the
+defines which commands need to be sent to the ledger based on the
 party the trigger is executed at, the current state of the ACS, the
 commands in flight and the user defined state. The type ``TriggerA``
 allows you to emit commands that are then sent to the ledger. Like
