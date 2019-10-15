@@ -42,10 +42,11 @@ import com.digitalasset.daml.lf.speedy.SValue._
 import com.digitalasset.ledger.api.validation.ValueValidator
 import com.digitalasset.platform.participant.util.LfEngineToApi.{toApiIdentifier}
 import com.digitalasset.platform.server.api.validation.FieldValidations.{validateIdentifier}
+import com.digitalasset.platform.services.time.TimeProviderType
 
 import com.daml.trigger.{Runner, TriggerMsg}
 
-case class Config(ledgerPort: Int, darPath: File)
+case class Config(ledgerPort: Int, darPath: File, timeProviderType: TimeProviderType)
 
 // We do not use scalatest here since that doesn’t work nicely with
 // the client_server_test macro.
@@ -70,7 +71,7 @@ object TestRunner {
       ._1
 }
 
-class TestRunner(ledgerPort: Int) {
+class TestRunner(val config: Config) {
   var partyCount = 0
 
   val applicationId = ApplicationId("Trigger Test Runner")
@@ -114,13 +115,15 @@ class TestRunner(ledgerPort: Int) {
     implicit val ec: ExecutionContext = system.dispatcher
 
     val party = getNewParty()
-    val clientF = LedgerClient.singleHost("localhost", ledgerPort, clientConfig)(ec, sequencer)
+    val clientF =
+      LedgerClient.singleHost("localhost", config.ledgerPort, clientConfig)(ec, sequencer)
     val triggerFlow: Future[SExpr] = for {
       client <- clientF
       finalState <- Runner.run(
         dar,
         triggerId,
         client,
+        config.timeProviderType,
         applicationId,
         party,
         msgFlow = Flow[TriggerMsg].take(numMessages.num)
@@ -263,17 +266,17 @@ case class AcsTests(dar: Dar[(PackageId, Package)], runner: TestRunner) {
           )),
       )))
     for {
-      r <- client.commandClient.trackSingleCommand(
-        SubmitRequest(
-          commands = Some(Commands(
-            ledgerId = client.ledgerId.unwrap,
-            applicationId = runner.applicationId.unwrap,
-            commandId = commandId,
-            party = party,
-            ledgerEffectiveTime = Some(fromInstant(Instant.EPOCH)),
-            maximumRecordTime = Some(fromInstant(Instant.EPOCH.plusSeconds(5))),
-            commands = commands
-          ))))
+      r <- client.commandClient
+        .withTimeProvider(Some(Runner.getTimeProvider(runner.config.timeProviderType)))
+        .trackSingleCommand(SubmitRequest(commands = Some(Commands(
+          ledgerId = client.ledgerId.unwrap,
+          applicationId = runner.applicationId.unwrap,
+          commandId = commandId,
+          party = party,
+          ledgerEffectiveTime = Some(fromInstant(Instant.EPOCH)),
+          maximumRecordTime = Some(fromInstant(Instant.EPOCH.plusSeconds(5))),
+          commands = commands
+        ))))
       t <- client.transactionClient.getFlatTransactionById(r.transactionId, Seq(party))
     } yield t.transaction.get.events.head.getCreated.contractId
   }
@@ -307,17 +310,17 @@ case class AcsTests(dar: Dar[(PackageId, Package)], runner: TestRunner) {
         choiceArgument = archiveVal,
       )))
     for {
-      comp <- client.commandClient.trackSingleCommand(
-        SubmitRequest(
-          commands = Some(Commands(
-            ledgerId = client.ledgerId.unwrap,
-            applicationId = runner.applicationId.unwrap,
-            commandId = commandId,
-            party = party,
-            ledgerEffectiveTime = Some(fromInstant(Instant.EPOCH)),
-            maximumRecordTime = Some(fromInstant(Instant.EPOCH.plusSeconds(5))),
-            commands = commands
-          ))))
+      comp <- client.commandClient
+        .withTimeProvider(Some(Runner.getTimeProvider(runner.config.timeProviderType)))
+        .trackSingleCommand(SubmitRequest(commands = Some(Commands(
+          ledgerId = client.ledgerId.unwrap,
+          applicationId = runner.applicationId.unwrap,
+          commandId = commandId,
+          party = party,
+          ledgerEffectiveTime = Some(fromInstant(Instant.EPOCH)),
+          maximumRecordTime = Some(fromInstant(Instant.EPOCH.plusSeconds(5))),
+          commands = commands
+        ))))
       _ <- Future {
         if (comp.getStatus.code != 0) {
           throw new RuntimeException("archive failed")
@@ -456,17 +459,17 @@ case class CopyTests(dar: Dar[(PackageId, Package)], runner: TestRunner) {
       )))
 
     for {
-      _ <- client.commandClient.trackSingleCommand(
-        SubmitRequest(
-          commands = Some(Commands(
-            ledgerId = client.ledgerId.unwrap,
-            applicationId = runner.applicationId.unwrap,
-            commandId = commandId,
-            party = owner,
-            ledgerEffectiveTime = Some(fromInstant(Instant.EPOCH)),
-            maximumRecordTime = Some(fromInstant(Instant.EPOCH.plusSeconds(5))),
-            commands = commands
-          ))))
+      _ <- client.commandClient
+        .withTimeProvider(Some(Runner.getTimeProvider(runner.config.timeProviderType)))
+        .trackSingleCommand(SubmitRequest(commands = Some(Commands(
+          ledgerId = client.ledgerId.unwrap,
+          applicationId = runner.applicationId.unwrap,
+          commandId = commandId,
+          party = owner,
+          ledgerEffectiveTime = Some(fromInstant(Instant.EPOCH)),
+          maximumRecordTime = Some(fromInstant(Instant.EPOCH.plusSeconds(5))),
+          commands = commands
+        ))))
     } yield ()
   }
 
@@ -485,17 +488,17 @@ case class CopyTests(dar: Dar[(PackageId, Package)], runner: TestRunner) {
       )))
 
     for {
-      _ <- client.commandClient.trackSingleCommand(
-        SubmitRequest(
-          commands = Some(Commands(
-            ledgerId = client.ledgerId.unwrap,
-            applicationId = runner.applicationId.unwrap,
-            commandId = commandId,
-            party = obs,
-            ledgerEffectiveTime = Some(fromInstant(Instant.EPOCH)),
-            maximumRecordTime = Some(fromInstant(Instant.EPOCH.plusSeconds(5))),
-            commands = commands
-          ))))
+      _ <- client.commandClient
+        .withTimeProvider(Some(Runner.getTimeProvider(runner.config.timeProviderType)))
+        .trackSingleCommand(SubmitRequest(commands = Some(Commands(
+          ledgerId = client.ledgerId.unwrap,
+          applicationId = runner.applicationId.unwrap,
+          commandId = commandId,
+          party = obs,
+          ledgerEffectiveTime = Some(fromInstant(Instant.EPOCH)),
+          maximumRecordTime = Some(fromInstant(Instant.EPOCH.plusSeconds(5))),
+          commands = commands
+        ))))
     } yield ()
   }
 
@@ -572,6 +575,12 @@ object TestMain {
     arg[File]("<dar>")
       .required()
       .action((d, c) => c.copy(darPath = d))
+
+    opt[Unit]('w', "wall-clock-time")
+      .action { (t, c) =>
+        c.copy(timeProviderType = TimeProviderType.WallClock)
+      }
+      .text("Use wall clock time (UTC). When not provided, static time is used.")
   }
 
   private val applicationId = ApplicationId("AscMain test")
@@ -582,7 +591,7 @@ object TestMain {
   case class FailedCompletions(num: Long)
 
   def main(args: Array[String]): Unit = {
-    configParser.parse(args, Config(0, null)) match {
+    configParser.parse(args, Config(0, null, TimeProviderType.Static)) match {
       case None =>
         sys.exit(1)
       case Some(config) =>
@@ -591,7 +600,7 @@ object TestMain {
         val dar: Dar[(PackageId, Package)] = encodedDar.map {
           case (pkgId, pkgArchive) => Decode.readArchivePayload(pkgId, pkgArchive)
         }
-        val runner = new TestRunner(config.ledgerPort)
+        val runner = new TestRunner(config)
         AcsTests(dar, runner).runTests()
         CopyTests(dar, runner).runTests()
     }
