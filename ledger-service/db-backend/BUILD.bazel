@@ -5,11 +5,14 @@ load(
     "//bazel_tools:scala.bzl",
     "da_scala_library",
     "da_scala_test",
+    "lf_scalacopts",
 )
 
 db_backend_deps = [
     "//3rdparty/jvm/org/scalaz:scalaz_core",
     "//3rdparty/jvm/io/spray:spray_json",
+    "//3rdparty/jvm/org/tpolecat:doobie_core",
+    "//3rdparty/jvm/org/tpolecat:doobie_postgres",
     "//daml-lf/data",
     "//daml-lf/interface",
     "//daml-lf/transaction",
@@ -18,7 +21,7 @@ db_backend_deps = [
 da_scala_library(
     name = "db-backend",
     srcs = glob(["src/main/scala/**/*.scala"]),
-    scalacopts = ["-Xsource:2.13"],
+    scalacopts = ["-Xsource:2.13"] + lf_scalacopts,
     tags = ["maven_coordinates=com.digitalasset.ledger-service:db-backend:__VERSION__"],
     visibility = [
         "//visibility:public",
