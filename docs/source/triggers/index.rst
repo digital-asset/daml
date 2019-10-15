@@ -246,7 +246,7 @@ Now we are ready to run the trigger using ``daml trigger``:
 The first argument specifies the ``.dar`` file that we have just
 built. The second argument specifies the identifier of the trigger
 using the syntax ``ModuleName:identifier``. Finally, we need to
-specify the ledger host, port and the party that our bot is executed
+specify the ledger host, port and the party that our trigger is executed
 as.
 
 Now open Navigator at `http://localhost:7500/ <http://localhost:7500/>`.
