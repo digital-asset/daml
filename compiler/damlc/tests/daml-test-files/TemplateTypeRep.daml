@@ -5,6 +5,7 @@
 daml 1.2 module TemplateTypeRep where
 
 import DA.Assert
+import qualified TemplateTypeRep2
 
 template T1
   with
@@ -38,3 +39,4 @@ main = scenario do
 
   templateTypeRep @T1 =/= templateTypeRep @T2
   templateTypeRep @GT1 =/= templateTypeRep @GT2
+  templateTypeRep @T1 =/= templateTypeRep @TemplateTypeRep2.T1
