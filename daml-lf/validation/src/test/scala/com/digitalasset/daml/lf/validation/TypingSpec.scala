@@ -357,16 +357,20 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
         // ExpCaseOr
         E"Λ (τ : ⋆). λ (e : τ) → (( case e of  ))",
         // ExpToAny
-        E"Λ (τ : *). λ (r: Mod:R τ) -> to_any @Mod:R r",
-        E"Λ (τ : *). λ (r: Mod:R τ) -> to_any @(Mod:R τ) r",
-        E"Λ (τ : *). λ (t: Mod:Tree τ) -> to_any @Mod:Tree t",
-        E"Λ (τ : *). λ (t: Mod:Tree τ) -> to_any @(Mod:Tree τ) t",
+        E"Λ (τ : *). λ (r: Mod:R τ) → (( to_any @Mod:R r ))",
+        E"Λ (τ : *). λ (r: Mod:R τ) → (( to_any @(Mod:R τ) r ))",
+        E"Λ (τ : *). λ (t: Mod:Tree τ) → (( to_any @Mod:Tree t ))",
+        E"Λ (τ : *). λ (t: Mod:Tree τ) → (( to_any @(Mod:Tree τ) t ))",
+        E"Λ (τ : *). λ (t: ∀ (α : ⋆). Int64) → (( to_any @(∀ (α : ⋆). Int64) t ))",
+        E"Λ (τ : *). λ (t: List (Optional (∀ (α : ⋆). Int64))) → (( to_any @(List (Optional (∀ (α : ⋆). Int64))) t ))",
         // ExpFromAny
-        E"λ (t: Any) -> from_any @Mod:R t",
-        E"Λ (τ : *). λ (t: Any) -> from_any @(Mod:R τ) t",
-        E"λ (t: Any) -> from_any @Mod:Tree t",
-        E"Λ (τ : *). λ (t: Any) -> from_any @(Mod:Tree τ) t",
-        E"λ (t: Mod:T) -> from_any @Mod:T t",
+        E"λ (t: Any) → (( from_any @Mod:R t ))",
+        E"Λ (τ : *). λ (t: Any) → (( from_any @(Mod:R τ) t ))",
+        E"λ (t: Any) → (( from_any @Mod:Tree t ))",
+        E"Λ (τ : *). λ (t: Any) → (( from_any @(Mod:Tree τ) t ))",
+        E"λ (t: Mod:T) → (( from_any @Mod:T t ))",
+        E"Λ (τ : *). λ (t: Any) → (( to_any @(∀ (α : ⋆). Int64) t ))",
+        E"Λ (τ : *). λ (t: Any) → (( to_any @(List (Optional (∀ (α : ⋆). Int64))) t ))",
         // ExpToTextTemplateId
         E"to_text_template_id @Mod:NoSuchType",
         // ScnPure

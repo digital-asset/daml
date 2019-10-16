@@ -6,6 +6,127 @@ Release notes
 
 This page contains release notes for the SDK.
 
+.. _release-0-13-30:
+
+0.13.30 - 2019-10-15
+--------------------
+
+DAML Standard Library
+~~~~~~~~~~~~~~~~~~~~~
+
+- Add ``DA.Action.State`` module containing a ``State`` action that
+  can be used for computations that modify a state variable.
+
+- Add ``createAndExercise``.
+  
+DAML Compiler
+~~~~~~~~~~~~~
+
+- Fixed the location of interface files when the
+  ``source`` field in ``daml.yaml`` points to a file. This is mainly
+  important for when you want to use the created ``.dar`` in the
+  ``dependencies`` field of another package.
+  See `issue #3135 <https://github.com/digital-asset/daml/issues/3135>`_.
+
+DAML-LF
+~~~~~~~
+
+- **Breaking** Rename DAML-LF Archive protobuf package from
+  `com.digitalasset.daml_lf` to `com.digitalasset.daml_lf_dev`. This
+  will only affect you do not use the DAML-LF Archive reader provided
+  with the SDK but a custom one based on code generation by protoc.
+
+- **Breaking** Some bintray/maven packages are renamed:
+   + `com.digitalasset.daml-lf-proto` becomes
+     `com.digitalasset.daml-lf-dev-archive-proto`
+   + `com.digitalasset.daml-lf-archive` becomes
+     `com.digitalasset:daml-lf-dev-archive-java-proto`
+   + `com.digitalasset.daml-lf-archive-scala` becomes
+     `com.digitalasset.daml-lf-archive-reader`
+
+- Add immutable bintray/maven packages for handling DAML-LF archive up to version 1.6 in a stable way:
+   + `com.digitalasset.daml-lf-1.6-archive-proto`
+
+     This package contains the archive protobuf definitions as they
+     were introduced when 1.6 was frozen.  These definitions can be
+     used to read DAML-LF archives up to version 1.6.
+
+     The main advantage of this package over the `dev` version
+     (`com.digitalasset.daml-lf-dev-archive-proto`) is that it is
+     immutable (it is guaranteed to never changed once introduced
+     in the SDK). In other words one can used it without suffering
+     frequent breaking changes introduced in the `dev` version.
+
+     Going forward the SKD will contain a similar immutable package
+     containning the proto definition for at least each DAML-LF
+     version the compiler supports.
+
+     We strongly advise anyone reading DAML-LF Archive directly to use
+     this package (or the
+     `com.digitalasset:daml-lf-1.6-archive-java-proto` package
+     described below).  Breaking changes to the `dev` version may be
+     introduced frequently and without further notice in the release
+     notes.
+
+   + `com.digitalasset:daml-lf-1.6-archive-java-proto`
+
+     This package contains the java classes generated from the package
+     `com.digitalasset.daml-lf-1.6-archive-proto`
+
+     
+DAML Triggers
+~~~~~~~~~~~~~
+
+- This release contains a first version of an experimental DAML
+  triggers feature that allows you to implement off-ledger automation
+  in DAML.
+
+
+DAML-SDK Docker Image
+~~~~~~~~~~~~~~~~~~~~~
+
+- The image now contains a ``daml`` user and the SDK is installed to ``/home/daml/.daml``.
+  ``/home/daml/.daml/bin`` is automatically added to ``PATH``.
+
+JSON API - Experimental
+~~~~~~~~~~~~~~~~~~~~~~~
+
+- Support for automatic package reload
+  See `issue #2906 <https://github.com/digital-asset/daml/issues/2906>`_.
+
+
+Java Bindings
+~~~~~~~~~~~~~
+
+- Add helper to prepare transformer for ``Bot.wire``. See `issue #3097 <https://github.com/digital-asset/daml/issues/3097>`_.
+
+Ledger
+~~~~~~
+
+- The ledger api index server starts only after the indexer has finished initializing the database.
+
+Sandbox
+~~~~~~~
+
+- Filter contracts or contracts keys in the database query for parties that cannot see them.
+
+Scala Bindings
+~~~~~~~~~~~~~~
+
+- Fixed a bug in the retry logic of ``LedgerClientBinding#retryingConfirmedCommands``. Commands are now only retried when the server responds with status ``RESOURCE_EXHAUSTED`` or ``UNAVAILABLE``.
+
+Scala Codegen
+~~~~~~~~~~~~~
+
+- Fixes for StackOverflowErrors in reading large LF archives. See `issue #3104 <https://github.com/digital-asset/daml/issues/3104>`_.
+
+SQL Extractor
+~~~~~~~~~~~~~
+
+- The format used for storing Optional and Map values found in contracts
+  as JSON has been replaced with :doc:`/json-api/lf-value-specification`.  See `issue
+  #3066 <https://github.com/digital-asset/daml/issues/3066>`_ for specifics.
+
 .. _release-0-13-29:
 
 0.13.29 - 2019-10-04

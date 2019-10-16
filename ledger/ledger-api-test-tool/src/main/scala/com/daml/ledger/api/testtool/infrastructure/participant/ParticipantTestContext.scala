@@ -26,11 +26,13 @@ import com.digitalasset.ledger.api.v1.admin.party_management_service.{
   GetParticipantIdRequest
 }
 import com.digitalasset.ledger.api.v1.command_service.SubmitAndWaitRequest
+import com.digitalasset.ledger.api.v1.command_submission_service.SubmitRequest
 import com.digitalasset.ledger.api.v1.commands.{Command, Commands}
 import com.digitalasset.ledger.api.v1.event.Event.Event.Created
 import com.digitalasset.ledger.api.v1.event.{CreatedEvent, Event}
 import com.digitalasset.ledger.api.v1.ledger_configuration_service.{
   GetLedgerConfigurationRequest,
+  GetLedgerConfigurationResponse,
   LedgerConfiguration
 }
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
@@ -437,6 +439,20 @@ private[testtool] final class ParticipantTestContext private[participant] (
       .flatMap(submitAndWaitForTransaction)
       .map(extractContracts)
 
+  def submitRequest(party: Party, commands: Command*): Future[SubmitRequest] =
+    time().map(
+      let =>
+        new SubmitRequest(
+          Some(new Commands(
+            ledgerId = ledgerId,
+            applicationId = applicationId,
+            commandId = nextCommandId(),
+            party = party.unwrap,
+            ledgerEffectiveTime = timestamp(let),
+            maximumRecordTime = timestamp(let.plusNanos(ttl.toNanos)),
+            commands = commands
+          ))))
+
   def submitAndWaitRequest(party: Party, commands: Command*): Future[SubmitAndWaitRequest] =
     time().map(
       let =>
@@ -451,6 +467,9 @@ private[testtool] final class ParticipantTestContext private[participant] (
             commands = commands
           ))))
 
+  def submit(request: SubmitRequest): Future[Unit] =
+    services.commandSubmission.submit(request).map(_ => ())
+
   def submitAndWait(request: SubmitAndWaitRequest): Future[Unit] =
     services.command.submitAndWait(request).map(_ => ())
 
@@ -463,26 +482,13 @@ private[testtool] final class ParticipantTestContext private[participant] (
   def submitAndWaitForTransactionTree(request: SubmitAndWaitRequest): Future[TransactionTree] =
     services.command.submitAndWaitForTransactionTree(request).map(_.getTransaction)
 
-  private def configurations[Res](
-      request: GetLedgerConfigurationRequest,
-      service: (GetLedgerConfigurationRequest, StreamObserver[Res]) => Unit): Future[Option[Res]] =
-    SingleItemObserver.first[Res](service(request, _))
+  def configuration(overrideLedgerId: Option[String] = None): Future[LedgerConfiguration] =
+    SingleItemObserver
+      .first[GetLedgerConfigurationResponse](
+        services.configuration
+          .getLedgerConfiguration(
+            new GetLedgerConfigurationRequest(overrideLedgerId.getOrElse(ledgerId)),
+            _))
+      .map(_.fold(sys.error("No ledger configuration available."))(_.getLedgerConfiguration))
 
-  def latestConfiguration(): Future[LedgerConfiguration] =
-    configurations(
-      new GetLedgerConfigurationRequest(ledgerId),
-      services.configuration.getLedgerConfiguration)
-      .map(
-        _.flatMap(_.ledgerConfiguration).getOrElse(sys.error("No ledger configuration available.")))
-
-  def latestMaxTtl(): Future[java.time.Duration] =
-    latestConfiguration()
-      .map(
-        _.maxTtl
-          .map(
-            t =>
-              java.time.Duration
-                .ofSeconds(t.seconds)
-                .plus(java.time.Duration.ofNanos(t.nanos.toLong)))
-          .getOrElse(sys.error("Ledger configuration has no maxTtl duration.")))
 }

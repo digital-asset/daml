@@ -295,3 +295,18 @@ output::
             }
         ]
     }
+
+GET http://localhost:7575/parties
+=================================
+
+output::
+
+    {
+        "status": 200,
+        "result": [
+            {
+                "party": "Alice",
+                "isLocal": true
+            }
+        ]
+    }

@@ -173,7 +173,7 @@ testCase args version getService outdir registerTODO (name, file) = singleTest n
       for_ [file ++ ", " ++ x | Todo x <- anns] (registerTODO . TODO)
       resDiag <- checkDiagnostics log [fields | DiagnosticFields fields <- anns] $
         [ideErrorText "" $ T.pack $ show e | Left e <- [ex], not $ "_IGNORE_" `isInfixOf` show e] ++ diags
-      resQueries <- runJqQuery log outdir file [q | QueryLF q <- anns]
+      resQueries <- runJqQuery log version outdir file [q | QueryLF q <- anns]
       let failures = catMaybes $ resDiag : resQueries
       case failures of
         err : _others -> pure $ testFailed err
@@ -185,15 +185,19 @@ testCase args version getService outdir registerTODO (name, file) = singleTest n
       UntilLF maxVersion -> version > maxVersion
       _ -> False
 
-runJqQuery :: (String -> IO ()) -> FilePath -> FilePath -> [String] -> IO [Maybe String]
-runJqQuery log outdir file qs = do
+runJqQuery :: (String -> IO ()) -> LF.Version -> FilePath -> FilePath -> [String] -> IO [Maybe String]
+runJqQuery log version outdir file qs = do
   let proj = takeBaseName file
   forM qs $ \q -> do
     log $ "running jq query: " ++ q
     let jqKey = "external" </> "jq_dev_env" </> "bin" </> if isWindows then "jq.exe" else "jq"
     jq <- locateRunfiles $ mainWorkspace </> jqKey
-    queryLfLib <- locateRunfiles $ mainWorkspace </> "compiler/damlc/tests/src"
-    out <- readProcess jq ["-L", queryLfLib, "import \"./query-lf-non-interned\" as lf; . as $pkg | " ++ q, outdir </> proj <.> "json"] ""
+    queryLfDir <- locateRunfiles $ mainWorkspace </> "compiler/damlc/tests/src"
+    let queryLfMod
+            | version `supports` featureStringInterning = "query-lf-interned"
+            | otherwise = "query-lf-non-interned"
+    let fullQuery = "import \"./" ++ queryLfMod ++ "\" as lf; . as $pkg | " ++ q
+    out <- readProcess jq ["-L", queryLfDir, fullQuery, outdir </> proj <.> "json"] ""
     case trim out of
       "true" -> pure Nothing
       other -> pure $ Just $ "jq query failed: got " ++ other

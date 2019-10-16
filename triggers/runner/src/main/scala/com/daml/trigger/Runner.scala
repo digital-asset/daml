@@ -198,16 +198,9 @@ object Runner {
       case _ => throw new RuntimeException(s"Unexpected TimeProviderType: $ty")
     }
   }
-  def run(
-      dar: Dar[(PackageId, Package)],
-      triggerId: Identifier,
-      client: LedgerClient,
-      timeProviderType: TimeProviderType,
-      applicationId: ApplicationId,
-      party: String,
-      msgFlow: Flow[TriggerMsg, TriggerMsg, NotUsed] = Flow[TriggerMsg])(
+  def queryACS(client: LedgerClient, party: String)(
       implicit materializer: Materializer,
-      executionContext: ExecutionContext): Future[SExpr] = {
+      executionContext: ExecutionContext) = {
     val filter = TransactionFilter(List((party, Filters.defaultInstance)).toMap)
     for {
       acsResponses <- client.activeContractSetClient
@@ -216,27 +209,63 @@ object Runner {
       offset = Array(acsResponses: _*).lastOption
         .fold(LedgerOffset().withBoundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN))(resp =>
           LedgerOffset().withAbsolute(resp.offset))
-      (msgSource, postFailure) = Runner.msgSource(client, offset, party)
-      runner = new Runner(
-        client.ledgerId,
+    } yield (acsResponses.flatMap(x => x.activeContracts), offset)
+  }
+  def run(
+      dar: Dar[(PackageId, Package)],
+      triggerId: Identifier,
+      client: LedgerClient,
+      timeProviderType: TimeProviderType,
+      applicationId: ApplicationId,
+      party: String,
+      msgFlow: Flow[TriggerMsg, TriggerMsg, NotUsed] = Flow[TriggerMsg],
+  )(implicit materializer: Materializer, executionContext: ExecutionContext): Future[SExpr] = {
+    val filter = TransactionFilter(List((party, Filters.defaultInstance)).toMap)
+    for {
+      (acs, offset) <- Runner.queryACS(client, party)
+      finalState <- Runner.runWithACS(
+        dar,
+        triggerId,
+        client,
+        timeProviderType,
         applicationId,
         party,
-        dar,
-        submitRequest => {
-          val f = client.commandClient
-            .withTimeProvider(Some(getTimeProvider(timeProviderType)))
-            .submitSingleCommand(submitRequest)
-          f.failed.foreach({
-            case s: StatusRuntimeException =>
-              postFailure(submitRequest.getCommands.commandId, s)
-            case e => println(s"ERROR: Unexpected exception: $e")
-          })
-        }
-      )
-      finalState <- msgSource
-        .via(msgFlow)
-        .runWith(runner.getTriggerSink(triggerId, acsResponses.flatMap(x => x.activeContracts)))
+        acs,
+        offset)
     } yield finalState
+  }
+  def runWithACS(
+      dar: Dar[(PackageId, Package)],
+      triggerId: Identifier,
+      client: LedgerClient,
+      timeProviderType: TimeProviderType,
+      applicationId: ApplicationId,
+      party: String,
+      acs: Seq[CreatedEvent],
+      offset: LedgerOffset,
+      msgFlow: Flow[TriggerMsg, TriggerMsg, NotUsed] = Flow[TriggerMsg],
+  )(implicit materializer: Materializer, executionContext: ExecutionContext): Future[SExpr] = {
+    val filter = TransactionFilter(List((party, Filters.defaultInstance)).toMap)
+    val (msgSource, postFailure) = Runner.msgSource(client, offset, party)
+    val runner = new Runner(
+      client.ledgerId,
+      applicationId,
+      party,
+      dar,
+      submitRequest => {
+        val f = client.commandClient
+          .withTimeProvider(Some(getTimeProvider(timeProviderType)))
+          .submitSingleCommand(submitRequest)
+        f.failed.foreach({
+          case s: StatusRuntimeException =>
+            postFailure(submitRequest.getCommands.commandId, s)
+          case e => println(s"ERROR: Unexpected exception: $e")
+        })
+      }
+    )
+    msgSource
+      .via(msgFlow)
+      .runWith(runner.getTriggerSink(triggerId, acs))
   }
   def msgSource(client: LedgerClient, offset: LedgerOffset, party: String)(
       implicit materializer: Materializer)
