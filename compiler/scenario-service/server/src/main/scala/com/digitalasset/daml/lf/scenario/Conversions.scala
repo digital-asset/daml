@@ -4,15 +4,16 @@
 package com.digitalasset.daml.lf.scenario
 
 import scala.collection.JavaConverters._
-
 import com.digitalasset.daml.lf.data.{Numeric, Ref}
 import com.digitalasset.daml.lf.scenario.api.v1
 import com.digitalasset.daml.lf.scenario.api.v1.{List => _, _}
 import com.digitalasset.daml.lf.speedy.SError
 import com.digitalasset.daml.lf.speedy.Speedy
 import com.digitalasset.daml.lf.speedy.SValue
-import com.digitalasset.daml.lf.transaction.{Transaction => Tx, Node => N}
+import com.digitalasset.daml.lf.transaction.{Node => N, Transaction => Tx}
 import com.digitalasset.daml.lf.types.Ledger
+import com.digitalasset.daml.lf.types.Ledger.ScenarioNodeId
+import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 import com.digitalasset.daml.lf.value.{Value => V}
 
 case class Conversions(homePackageId: Ref.PackageId) {
@@ -180,7 +181,9 @@ case class Conversions(homePackageId: Ref.PackageId) {
       ledger.ledgerData.nodeInfos.map(Function.tupled(convertNode))
       // NOTE(JM): Iteration over IntMap is in key-order. The IntMap's Int is IntMapUtils.Int for some reason.
       ,
-      ledger.scenarioSteps.map { case (idx, step) => convertScenarioStep(idx.toInt, step) })
+      ledger.scenarioSteps.map {
+        case (idx, step) => convertScenarioStep(idx.toInt, step, ledger.ledgerData.coidToNodeId)
+      })
 
   def convertFailedAuthorizations(fas: Ledger.FailedAuthorizations): FailedAuthorizations = {
     val builder = FailedAuthorizations.newBuilder
@@ -304,7 +307,10 @@ case class Conversions(homePackageId: Ref.PackageId) {
       case V.RelativeContractId(txnid) => txnid.index.toString
     }
 
-  def convertScenarioStep(stepId: Int, step: Ledger.ScenarioStep): ScenarioStep = {
+  def convertScenarioStep(
+      stepId: Int,
+      step: Ledger.ScenarioStep,
+      coidToNodeId: AbsoluteContractId => ScenarioNodeId): ScenarioStep = {
     val builder = ScenarioStep.newBuilder
     builder.setStepId(stepId)
     step match {
@@ -316,7 +322,7 @@ case class Conversions(homePackageId: Ref.PackageId) {
         builder.setCommit(
           commitBuilder
             .setTxId(txId.index)
-            .setTx(convertTransaction(rtx))
+            .setTx(convertTransaction(rtx, coidToNodeId))
             .build)
       case Ledger.PassTime(dt) =>
         builder.setPassTime(dt)
@@ -336,13 +342,20 @@ case class Conversions(homePackageId: Ref.PackageId) {
     builder.build
   }
 
-  def convertTransaction(rtx: Ledger.RichTransaction): Transaction =
+  def convertTransaction(
+      rtx: Ledger.RichTransaction,
+      coidToNodeId: AbsoluteContractId => ScenarioNodeId): Transaction = {
+    val convertedGlobalImplicitDisclosure = rtx.globalImplicitDisclosure.map {
+      case (coid, parties) => coidToNodeId(coid) -> parties
+    }
     Transaction.newBuilder
       .setCommitter(convertParty(rtx.committer))
       .setEffectiveAt(rtx.effectiveAt.micros)
       .addAllRoots(rtx.roots.map(convertNodeId).toSeq.asJava)
       .addAllNodes(rtx.nodes.keys.map(convertNodeId).asJava)
-      .addAllDisclosures(rtx.disclosures.toSeq.map {
+      // previously rtx.disclosures returned both global and local implicit disclosures, but this is not the case anymore
+      // therefore we need to explicitly add the contracts that are divulged directly (via ContractId rather than ScenarioNodeId)
+      .addAllDisclosures((rtx.disclosures ++ convertedGlobalImplicitDisclosure).toSeq.map {
         case (nodeId, parties) =>
           NodeAndParties.newBuilder
             .setNodeId(convertNodeId(nodeId))
@@ -351,6 +364,7 @@ case class Conversions(homePackageId: Ref.PackageId) {
       }.asJava)
       .setFailedAuthorizations(convertFailedAuthorizations(rtx.failedAuthorizations))
       .build
+  }
 
   def convertPartialTransaction(ptx: Tx.PartialTransaction): PartialTransaction = {
     val builder = PartialTransaction.newBuilder

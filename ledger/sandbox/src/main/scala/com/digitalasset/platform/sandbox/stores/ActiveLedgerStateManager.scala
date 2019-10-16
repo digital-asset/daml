@@ -12,7 +12,7 @@ import com.digitalasset.daml.lf.transaction.Node.GlobalKey
 import com.digitalasset.daml.lf.transaction.{GenTransaction, Node => N}
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
-import com.digitalasset.ledger.WorkflowId
+import com.digitalasset.ledger.{EventId, WorkflowId}
 import com.digitalasset.platform.sandbox.services.transaction.SandboxEventIdFormatter
 import com.digitalasset.platform.sandbox.stores.ActiveLedgerState._
 import com.digitalasset.platform.sandbox.stores.ledger.SequencingError
@@ -69,13 +69,13 @@ class ActiveLedgerStateManager[ALS](initialState: => ALS)(
     * A higher order function to update an abstract active ledger state (ALS) with the effects of the given transaction.
     * Makes sure that there are no double spends or timing errors.
     */
-  def addTransaction[Nid](
+  def addTransaction(
       let: Instant,
       transactionId: TransactionIdString,
       workflowId: Option[WorkflowId],
-      transaction: GenTransaction.WithTxValue[Nid, AbsoluteContractId],
-      disclosure: Relation[Nid, Party],
-      localDivulgence: Relation[Nid, Party],
+      transaction: GenTransaction.WithTxValue[EventId, AbsoluteContractId],
+      disclosure: Relation[EventId, Party],
+      localDivulgence: Relation[EventId, Party],
       globalDivulgence: Relation[AbsoluteContractId, Party],
       divulgedContracts: List[(Value.AbsoluteContractId, AbsoluteContractInst)])
     : Either[Set[SequencingError], ALS] = {
@@ -147,6 +147,7 @@ class ActiveLedgerStateManager[ALS](initialState: => ALS)(
                   id = absCoid,
                   let = let,
                   transactionId = transactionId,
+                  eventId = nodeId,
                   workflowId = workflowId,
                   contract = nc.coinst.mapValue(
                     _.mapContractId(SandboxEventIdFormatter.makeAbsCoid(transactionId))),
@@ -182,7 +183,7 @@ class ActiveLedgerStateManager[ALS](initialState: => ALS)(
                       )
                     }
                 }
-              case ne: N.NodeExercises.WithTxValue[Nid, AbsoluteContractId] =>
+              case ne: N.NodeExercises.WithTxValue[EventId, AbsoluteContractId] =>
                 val nodeParties = ne.signatories
                   .union(ne.stakeholders)
                   .union(ne.actingParties)
