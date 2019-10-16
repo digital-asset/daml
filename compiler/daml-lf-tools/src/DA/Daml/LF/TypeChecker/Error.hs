@@ -89,6 +89,7 @@ data Error
   | EExpectedUpdateType    !Type
   | EExpectedScenarioType  !Type
   | EExpectedSerializableType !SerializabilityRequirement !Type !UnserializabilityReason
+  | EExpectedAnyType !Type
   | ETypeConMismatch       !(Qualified TypeConName) !(Qualified TypeConName)
   | EExpectedDataType      !Type
   | EExpectedListType      !Type
@@ -261,6 +262,8 @@ instance Pretty Error where
       , "* problem:"
       , nest 4 (pretty info)
       ]
+    EExpectedAnyType foundType ->
+      "expected a type containing neither type variables nor quantifiers, but found: " <> pretty foundType
     EImpredicativePolymorphism typ ->
       vcat
       [ "impredicative polymorphism is not supported:"
