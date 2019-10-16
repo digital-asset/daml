@@ -10,6 +10,7 @@ import com.digitalasset.daml.lf.language.Util._
 import com.digitalasset.daml.lf.language.{LanguageVersion, LanguageMajorVersion => LMV}
 import com.digitalasset.daml.lf.validation.AlphaEquiv._
 import com.digitalasset.daml.lf.validation.Util._
+import com.digitalasset.daml.lf.validation.traversable.TypeTraversable
 
 import scala.annotation.tailrec
 
@@ -726,18 +727,27 @@ private[validation] object Typing {
         checkExpr(exp, TScenario(typ))
     }
 
+    private def checkAnyType(typ: Type): Unit = {
+      // we check that typ contains neither variables nor quantifiers
+      TypeTraversable(typ)
+      typ match {
+        case TVar(_) | TForall(_, _) =>
+          throw EExpectedAnyType(ctx, typ)
+        case _ =>
+          TypeTraversable(typ).foreach(checkAnyType)
+      }
+    }
+
     private def typeOfToAny(ty: Type, body: Expr): Type = {
-      // We clear the environment to check that there are no free type variables.
-      val env = copy(tVars = Map.empty)
-      env.checkType(ty, KStar)
+      checkAnyType(ty)
+      checkType(ty, KStar)
       checkExpr(body, ty)
       TAny
     }
 
     private def typeOfFromAny(ty: Type, body: Expr): Type = {
-      // We clear the environment to check that there are no free type variables.
-      val env = copy(tVars = Map.empty)
-      env.checkType(ty, KStar)
+      checkAnyType(ty)
+      checkType(ty, KStar)
       checkExpr(body, TAny)
       TOptional(ty)
     }
