@@ -20,10 +20,10 @@ object ValueVersions
       _.protoValue) {
 
   private[this] val minVersion = ValueVersion("1")
-  private[this] val minOptional = ValueVersion("2")
+  private[value] val minOptional = ValueVersion("2")
   private[value] val minContractIdStruct = ValueVersion("3")
-  private[this] val minMap = ValueVersion("4")
-  private[this] val minEnum = ValueVersion("5")
+  private[value] val minMap = ValueVersion("4")
+  private[value] val minEnum = ValueVersion("5")
   private[value] val minNumeric = ValueVersion("6")
 
   def assignVersion[Cid](v0: Value[Cid]): Either[String, ValueVersion] = {

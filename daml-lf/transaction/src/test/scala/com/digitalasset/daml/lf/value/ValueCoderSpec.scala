@@ -187,9 +187,13 @@ class ValueCoderSpec extends WordSpec with Matchers with EitherAssertions with P
         ValueCoder.decodeIdentifier(ei) shouldEqual Right(i)
     }
 
+    import com.digitalasset.daml.lf.transaction.VersionTimeline.Implicits._
+
     "do versioned value with supported override version" in forAll(valueGen, valueVersionGen) {
       (value: Value[ContractId], version: ValueVersion) =>
-        testRoundTripWithVersion(value, version)
+        whenever(!(version precedes ValueVersions.assertAssignVersion(value))) {
+          testRoundTripWithVersion(value, version)
+        }
     }
 
     "do versioned value with assigned version" in forAll(valueGen) { v: Value[ContractId] =>
