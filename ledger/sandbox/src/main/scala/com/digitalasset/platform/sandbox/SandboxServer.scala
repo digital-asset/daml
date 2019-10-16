@@ -275,7 +275,7 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
 
     Banner.show(Console.out)
     logger.info(
-      "Initialized sandbox version {} with ledger-id = {}, port = {}, dar file = {}, time mode = {}, ledger = {}, daml-engine = {}, auth-service = {}",
+      "Initialized sandbox version {} with ledger-id = {}, port = {}, dar file = {}, time mode = {}, ledger = {}, auth-service = {}",
       BuildInfo.Version,
       ledgerId,
       newState.port.toString,
