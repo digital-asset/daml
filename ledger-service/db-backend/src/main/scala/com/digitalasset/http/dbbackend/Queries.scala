@@ -5,7 +5,9 @@ package com.digitalasset.http.dbbackend
 
 import doobie._
 import doobie.implicits._
+import scalaz.syntax.std.option._
 import spray.json._
+import cats.syntax.applicative._
 
 object Queries {
   import Implicits._
@@ -57,6 +59,21 @@ object Queries {
         ,UNIQUE (package_id, template_module_name, template_entity_name)
         )
     """
+
+  def surrogateTemplateId(packageId: String, moduleName: String, entityName: String)(
+      implicit log: LogHandler): ConnectionIO[SurrogateTpId] =
+    sql"""SELECT tpid FROM template_id
+          WHERE (package_id = $packageId AND template_module_name = $moduleName
+                 AND template_entity_name = $entityName)"""
+      .query[SurrogateTpId]
+      .option flatMap {
+      _.cata(
+        _.pure[ConnectionIO],
+        sql"""INSERT INTO template_id (package_id, template_module_name, entity_name)
+              VALUES ($packageId, $moduleName, $entityName)""".update
+          .withUniqueGeneratedKeys[SurrogateTpId]("tpid")
+      )
+    }
 
   def insertContract[CA: JsonWriter, WP: JsonWriter](
       dbc: DBContract[SurrogateTpId, CA, WP]): Fragment =
