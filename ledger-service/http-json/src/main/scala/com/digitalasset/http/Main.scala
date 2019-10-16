@@ -31,6 +31,7 @@ object Main extends StrictLogging {
       applicationId: ApplicationId = ApplicationId("HTTP-JSON-API-Gateway"),
       packageReloadInterval: FiniteDuration = HttpService.DefaultPackageReloadInterval,
       maxInboundMessageSize: Int = HttpService.DefaultMaxInboundMessageSize,
+      queryStoreJdbcUrl: Option[String] = None
   )
 
   private val EmptyConfig = Config(ledgerHost = "", ledgerPort = -1, httpPort = -1)
@@ -50,7 +51,8 @@ object Main extends StrictLogging {
         s", address=${config.address: String}, httpPort=${config.httpPort: Int}" +
         s", applicationId=${config.applicationId.unwrap: String}" +
         s", packageReloadInterval=${config.packageReloadInterval.toString}" +
-        s", maxInboundMessageSize=${config.maxInboundMessageSize: Int})")
+        s", maxInboundMessageSize=${config.maxInboundMessageSize: Int})" +
+        s", queryStoreJdbcUrl=${config.queryStoreJdbcUrl.toString}")
 
     implicit val asys: ActorSystem = ActorSystem("http-json-ledger-api")
     implicit val mat: ActorMaterializer = ActorMaterializer()
@@ -138,5 +140,10 @@ object Main extends StrictLogging {
       .optional()
       .text(
         s"Optional max inbound message size in bytes. Defaults to ${EmptyConfig.maxInboundMessageSize: Int}")
+
+    opt[String]("query-store-jdbc-url")
+      .action((x, c) => c.copy(queryStoreJdbcUrl = Some(x)))
+      .optional()
+      .text(s"Optional query store JDBC URL")
   }
 }
