@@ -13,11 +13,9 @@ object Queries {
   def dropTableIfExists(table: String): Fragment = Fragment.const(s"DROP TABLE IF EXISTS ${table}")
 
   // NB: #, order of arguments must match createContractsTable
-  final case class DBContract[CA, WP](
+  final case class DBContract[+TpId, +CA, +WP](
       contractId: String,
-      packageId: String,
-      templateModuleName: String,
-      templateEntityName: String,
+      templateId: TpId,
       createArguments: CA,
       witnessParties: WP)
 
@@ -25,9 +23,7 @@ object Queries {
       CREATE TABLE
         contract
         (contract_id TEXT PRIMARY KEY NOT NULL
-        ,package_id TEXT NOT NULL
-        ,template_module_name TEXT NOT NULL
-        ,template_entity_name TEXT NOT NULL
+        ,tpid BIGINT NOT NULL REFERENCES template_id (tpid)
         ,create_arguments JSONB NOT NULL
         ,witness_parties JSONB NOT NULL
         )
@@ -37,28 +33,36 @@ object Queries {
       CREATE INDEX ON contract (package_id, template_module_name, template_entity_name)
     """
 
-  final case class DBOffset(
-      party: String,
-      packageId: String,
-      templateModuleName: String,
-      templateEntityName: String,
-      lastOffset: String)
+  final case class DBOffset[+TpId](party: String, templateId: TpId, lastOffset: String)
 
   val createOffsetTable: Fragment = sql"""
       CREATE TABLE
-        ledger_offsets
+        ledger_offset
         (party TEXT NOT NULL
-        ,package_id TEXT NOT NULL
-        ,template_module_name TEXT NOT NULL
-        ,template_entity_name TEXT NOT NULL
+        ,tpid BIGINT NOT NULL REFERENCES template_id (tpid)
         ,last_offset TEXT NOT NULL
+        ,PRIMARY KEY (party, tpid)
         )
     """
 
-  def insertContract[CA: JsonWriter, WP: JsonWriter](dbc: DBContract[CA, WP]): Fragment =
-    Update[DBContract[JsValue, JsValue]]("""
+  type SurrogateTpId = Long // matches tpid (BIGINT) below
+
+  val createTemplateIdsTable: Fragment = sql"""
+      CREATE TABLE
+        template_id
+        (tpid BIGSERIAL PRIMARY KEY NOT NULL
+        ,package_id TEXT NOT NULL
+        ,template_module_name TEXT NOT NULL
+        ,template_entity_name TEXT NOT NULL
+        ,UNIQUE (package_id, template_module_name, template_entity_name)
+        )
+    """
+
+  def insertContract[CA: JsonWriter, WP: JsonWriter](
+      dbc: DBContract[SurrogateTpId, CA, WP]): Fragment =
+    Update[DBContract[SurrogateTpId, JsValue, JsValue]]("""
         INSERT INTO contract
-        VALUES (?, ?, ?, ?, ?::jsonb, ?::jsonb)
+        VALUES (?, ?, ?::jsonb, ?::jsonb)
       """).toFragment(
       dbc.copy(
         createArguments = dbc.createArguments.toJson,
