@@ -86,6 +86,17 @@ object Queries {
       )
     }
 
+  def lastOffset(party: String, tpid: SurrogateTpId)(
+      implicit log: LogHandler): ConnectionIO[Option[String]] =
+    sql"""SELECT last_offset FROM ledger_offset WHERE (party = $party AND tpid = $tpid)"""
+      .query[String]
+      .option
+
+  def updateOffset(party: String, tpid: SurrogateTpId, newOffset: String)(
+      implicit log: LogHandler): ConnectionIO[Unit] =
+    sql"""INSERT INTO last_offset ($party, $tpid, $newOffset)
+          ON CONFLICT (party, tpid) DO UPDATE (last_offset = $newOffset)""".update.run.void
+
   def insertContract[CA: JsonWriter, WP: JsonWriter](
       dbc: DBContract[SurrogateTpId, CA, WP]): Fragment =
     Update[DBContract[SurrogateTpId, JsValue, JsValue]]("""
