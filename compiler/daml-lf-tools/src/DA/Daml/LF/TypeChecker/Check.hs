@@ -32,10 +32,11 @@ module DA.Daml.LF.TypeChecker.Check(
     ) where
 
 import Data.Hashable
-import           Control.Lens hiding (Context)
+import           Control.Lens hiding (Context, para)
 import           Control.Monad.Extra
 import           Data.Foldable
 import           Data.Functor
+import Data.Generics.Uniplate.Data (para)
 import qualified Data.HashSet as HS
 import qualified Data.Map.Strict as Map
 import           Safe.Exact (zipExactMay)
@@ -501,13 +502,11 @@ typeOf = \case
   ESome bodyType bodyExpr -> checkSome bodyType bodyExpr $> TOptional bodyType
   ENone bodyType -> checkType bodyType KStar $> TOptional bodyType
   EToAny ty bodyExpr -> do
-    -- We clear the environment to make sure that there are no free type variables in ty
-    clearTypeVars $ checkType ty KStar
+    checkAnyType ty
     checkExpr bodyExpr ty
     pure $ TBuiltin BTAny
   EFromAny ty bodyExpr -> do
-    -- We clear the environment to make sure that there are no free type variables in ty
-    clearTypeVars $ checkType ty KStar
+    checkAnyType ty
     checkExpr bodyExpr (TBuiltin BTAny)
     pure $ TOptional ty
   EToTextTemplateId tpl -> do
@@ -517,6 +516,14 @@ typeOf = \case
   EUpdate upd -> typeOfUpdate upd
   EScenario scen -> typeOfScenario scen
   ELocation _ expr -> typeOf expr
+
+-- Check that the type contains no type variables or quantifiers
+checkAnyType :: MonadGamma m => Type -> m ()
+checkAnyType ty =
+    when (para (\t children -> or (isForbidden t : children)) ty) $ throwWithContext $ EExpectedAnyType ty
+  where isForbidden (TVar _) = True
+        isForbidden (TForall _ _) = True
+        isForbidden _ = False
 
 checkExpr' :: MonadGamma m => Expr -> Type -> m Type
 checkExpr' expr typ = do

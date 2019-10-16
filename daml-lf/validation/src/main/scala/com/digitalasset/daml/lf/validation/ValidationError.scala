@@ -235,7 +235,7 @@ final case class ETypeMismatch(
 }
 final case class EExpectedAnyType(context: Context, typ: Type) extends ValidationError {
   protected def prettyInternal: String =
-    s"expected a type containing neither variable nor quantifier, but found: ${typ.pretty}"
+    s"expected a type containing neither type variables nor quantifiers, but found: ${typ.pretty}"
 }
 final case class EExpectedHigherKind(context: Context, kind: Kind) extends ValidationError {
   protected def prettyInternal: String = s"expected higher kinded type, but found: ${kind.pretty}"
