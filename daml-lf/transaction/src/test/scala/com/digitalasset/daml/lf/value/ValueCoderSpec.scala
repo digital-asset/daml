@@ -122,7 +122,7 @@ class ValueCoderSpec extends WordSpec with Matchers with EitherAssertions with P
       }
     }
 
-    "do ContractId in any ValueVersion" in forAll(coidValueGen, valueVersionGen)(
+    "do ContractId in any ValueVersion" in forAll(coidValueGen, valueVersionGen())(
       testRoundTripWithVersion)
 
     "do lists" in {
@@ -180,20 +180,15 @@ class ValueCoderSpec extends WordSpec with Matchers with EitherAssertions with P
       }
     }
 
-    "do identifier with supported override version" in forAll(idGen, valueVersionGen) {
+    "do identifier with supported override version" in forAll(idGen, valueVersionGen()) {
       (i, version) =>
         val (v2, ei) = ValueCoder.encodeIdentifier(i, Some(version))
         v2 shouldEqual version
         ValueCoder.decodeIdentifier(ei) shouldEqual Right(i)
     }
 
-    import com.digitalasset.daml.lf.transaction.VersionTimeline.Implicits._
-
-    "do versioned value with supported override version" in forAll(valueGen, valueVersionGen) {
-      (value: Value[ContractId], version: ValueVersion) =>
-        whenever(!(version precedes ValueVersions.assertAssignVersion(value))) {
-          testRoundTripWithVersion(value, version)
-        }
+    "do versioned value with supported override version" in forAll(versionedValueGen) {
+      case VersionedValue(version, value) => testRoundTripWithVersion(value, version)
     }
 
     "do versioned value with assigned version" in forAll(valueGen) { v: Value[ContractId] =>

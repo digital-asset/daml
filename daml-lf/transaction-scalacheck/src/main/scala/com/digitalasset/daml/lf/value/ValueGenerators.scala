@@ -11,6 +11,7 @@ import com.digitalasset.daml.lf.transaction.Node.{
   NodeExercises,
   NodeFetch
 }
+import com.digitalasset.daml.lf.transaction.VersionTimeline.Implicits._
 import com.digitalasset.daml.lf.transaction.{Transaction => Tx}
 import com.digitalasset.daml.lf.transaction._
 import com.digitalasset.daml.lf.value.Value._
@@ -259,8 +260,9 @@ object ValueGenerators {
 
   def versionedValueGen: Gen[VersionedValue[ContractId]] =
     for {
-      version <- valueVersionGen
       value <- valueGen
+      minVersion = ValueVersions.assertAssignVersion(value)
+      version <- valueVersionGen(minVersion)
     } yield VersionedValue(version, value)
 
   private[lf] val genMaybeEmptyParties: Gen[Set[Party]] = Gen.listOf(party).map(_.toSet)
@@ -415,7 +417,8 @@ object ValueGenerators {
     Gen.frequency((1, Gen.const("")), (10, g))
   }
 
-  def valueVersionGen: Gen[ValueVersion] = Gen.oneOf(ValueVersions.acceptedVersions.toSeq)
+  def valueVersionGen(minVersion: ValueVersion = ValueVersions.minVersion): Gen[ValueVersion] =
+    Gen.oneOf(ValueVersions.acceptedVersions.filterNot(_ precedes minVersion).toSeq)
 
   def unsupportedValueVersionGen: Gen[ValueVersion] =
     stringVersionGen.map(ValueVersion).filter(x => !ValueVersions.acceptedVersions.contains(x))

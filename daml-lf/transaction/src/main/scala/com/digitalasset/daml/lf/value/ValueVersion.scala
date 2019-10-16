@@ -19,7 +19,7 @@ object ValueVersions
     extends LfVersions(versionsAscending = VersionTimeline.ascendingVersions[ValueVersion])(
       _.protoValue) {
 
-  private[this] val minVersion = ValueVersion("1")
+  private[value] val minVersion = ValueVersion("1")
   private[value] val minOptional = ValueVersion("2")
   private[value] val minContractIdStruct = ValueVersion("3")
   private[value] val minMap = ValueVersion("4")
