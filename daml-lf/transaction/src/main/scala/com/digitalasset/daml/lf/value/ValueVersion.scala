@@ -5,7 +5,7 @@ package com.digitalasset.daml.lf.value
 
 import com.digitalasset.daml.lf.value.Value._
 import com.digitalasset.daml.lf.LfVersions
-import com.digitalasset.daml.lf.data.{FrontStack, FrontStackCons, ImmArray}
+import com.digitalasset.daml.lf.data.{Decimal, FrontStack, FrontStackCons, ImmArray}
 import com.digitalasset.daml.lf.transaction.VersionTimeline
 
 import scala.annotation.tailrec
@@ -44,10 +44,14 @@ object ValueVersions
               case ValueRecord(_, fs) => go(currentVersion, fs.map(v => v._2) ++: values)
               case ValueVariant(_, _, arg) => go(currentVersion, arg +: values)
               case ValueList(vs) => go(currentVersion, vs.toImmArray ++: values)
-              case ValueContractId(_) | ValueInt64(_) | ValueNumeric(_) | ValueText(_) |
-                  ValueTimestamp(_) | ValueParty(_) | ValueBool(_) | ValueDate(_) | ValueUnit =>
+              case ValueContractId(_) | ValueInt64(_) | ValueText(_) | ValueTimestamp(_) |
+                  ValueParty(_) | ValueBool(_) | ValueDate(_) | ValueUnit =>
+                go(currentVersion, values)
+              case ValueNumeric(x) if x.scale == Decimal.scale =>
                 go(currentVersion, values)
               // for things added after version 1, we raise the minimum if present
+              case ValueNumeric(_) =>
+                go(maxVV(minNumeric, currentVersion), values)
               case ValueOptional(x) =>
                 go(maxVV(minOptional, currentVersion), ImmArray(x.toList) ++: values)
               case ValueMap(map) =>
