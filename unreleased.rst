@@ -8,3 +8,4 @@ This page contains release notes for the SDK.
 
 HEAD — ongoing
 --------------
+- [DAML Ledger Integration Kit] Skew/LET/MRT/Config tests consolidated in a single suite.

@@ -4,22 +4,18 @@
 package com.digitalasset.platform.tests.integration.ledger.api
 
 import akka.stream.scaladsl.Sink
-import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.testing.utils.{
   AkkaBeforeAndAfterAll,
-  IsStatusException,
   SuiteResourceManagementAroundAll
 }
 import com.digitalasset.ledger.client.services.configuration.LedgerConfigurationClient
 import com.digitalasset.platform.api.grpc.GrpcApiUtil
 import com.digitalasset.platform.apitesting.{LedgerContext, MultiLedgerFixture}
 import com.digitalasset.platform.esf.TestExecutionSequencerFactory
-import io.grpc.Status
 import org.scalatest.concurrent.AsyncTimeLimitedTests
 import org.scalatest.time.Span
 import org.scalatest.time.SpanSugar._
 import org.scalatest.{AsyncWordSpec, Matchers, OptionValues}
-import scalaz.syntax.tag._
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 class LedgerConfigurationServiceIT
@@ -47,17 +43,6 @@ class LedgerConfigurationServiceIT
           lc.minTtl.value shouldEqual GrpcApiUtil.durationToProto(config.timeModel.minTtl)
           lc.maxTtl.value shouldEqual GrpcApiUtil.durationToProto(config.timeModel.maxTtl)
         }
-      }
-
-      "fail with the expected status on a ledger Id mismatch" in allFixtures { context =>
-        new LedgerConfigurationClient(
-          domain.LedgerId("not" + context.ledgerId.unwrap),
-          context.ledgerConfigurationService).getLedgerConfiguration
-          .runWith(Sink.head)(materializer)
-          .failed map { ex =>
-          IsStatusException(Status.NOT_FOUND.getCode)(ex)
-        }
-
       }
 
     }

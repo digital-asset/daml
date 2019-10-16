@@ -199,9 +199,9 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
     for {
       ledger <- context.participant()
       alice <- ledger.allocateParty()
-      request <- ledger.submitAndWaitRequest(alice, Dummy(alice).create.command)
+      request <- ledger.submitRequest(alice, Dummy(alice).create.command)
       badLedgerId = request.update(_.commands.ledgerId := invalidLedgerId)
-      failure <- ledger.submitAndWait(badLedgerId).failed
+      failure <- ledger.submit(badLedgerId).failed
     } yield
       assertGrpcError(failure, Status.Code.NOT_FOUND, s"Ledger ID '$invalidLedgerId' not found.")
   }
