@@ -17,6 +17,8 @@ DAML Standard Library
 - Add ``DA.Action.State`` module containing a ``State`` action that
   can be used for computations that modify a state variable.
 
+- Add ``createAndExercise``.
+  
 DAML Compiler
 ~~~~~~~~~~~~~
 
@@ -70,6 +72,14 @@ DAML-LF
 
      This package contains the java classes generated from the package
      `com.digitalasset.daml-lf-1.6-archive-proto`
+
+     
+DAML Triggers
+~~~~~~~~~~~~~
+
+- This release contains a first version of an experimental DAML
+  triggers feature that allows you to implement off-ledger automation
+  in DAML.
 
 
 DAML-SDK Docker Image
