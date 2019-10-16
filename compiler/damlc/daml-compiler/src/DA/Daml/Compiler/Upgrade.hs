@@ -159,8 +159,16 @@ generateSrcPkgFromLf thisPkgId pkgMap pkg = do
             , "data Text = Text Opaque"
             , "type TextLit = [Char]"
             , "data Word"
-            , "data Decimal = Decimal Opaque"
-            , "data Module = Module TrName TrName"
+            ]
+            ++ if LF.packageLfVersion pkg `LF.supports` LF.featureNumeric then
+                    [ "data Nat"
+                    , "data Numeric (n: Nat) = Numeric Opaque"
+                    , "type Decimal = Numeric 10"
+                    ]
+                else
+                    [ "data Decimal = Decimal Opaque" ]
+            ++
+            [ "data Module = Module TrName TrName"
             , "data TrName = TrNameS Addr# | TrNameD [Char]"
             , "data KindBndr = Int"
             , "data RuntimeRep"
