@@ -9,7 +9,7 @@ import java.time.Instant
 import akka.actor.ActorSystem
 import akka.stream._
 import akka.stream.scaladsl.{Sink, Flow}
-import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.concurrent.{Await, ExecutionContext, Future, Promise}
 import scala.concurrent.duration.Duration
 import scala.util.{Success, Failure}
 import scalaz.syntax.tag._
@@ -117,20 +117,31 @@ class TestRunner(val config: Config) {
     val party = getNewParty()
     val clientF =
       LedgerClient.singleHost("localhost", config.ledgerPort, clientConfig)(ec, sequencer)
+
+    // We resolve this promise once we have queried the ACS to initialize the trigger.
+    // This ensures that the commands will only be executed afterwards.
+    val acsPromise = Promise[Unit]()
+
     val triggerFlow: Future[SExpr] = for {
       client <- clientF
-      finalState <- Runner.run(
+      (acs, offset) <- Runner.queryACS(client, party)
+      _ = acsPromise.success(())
+      finalState <- Runner.runWithACS(
         dar,
         triggerId,
         client,
         config.timeProviderType,
         applicationId,
         party,
+        acs,
+        offset,
         msgFlow = Flow[TriggerMsg].take(numMessages.num)
       )
     } yield finalState
-    val commandsFlow: Future[A] =
-      clientF.flatMap(client => commands(client, party)(ec)(materializer))
+    val commandsFlow: Future[A] = for {
+      _ <- acsPromise.future
+      r <- clientF.flatMap(client => commands(client, party)(ec)(materializer))
+    } yield r
     triggerFlow.failed.foreach(_ => system.terminate)
     commandsFlow.failed.foreach(_ => system.terminate)
     val filter = TransactionFilter(List((party, Filters.defaultInstance)).toMap)
