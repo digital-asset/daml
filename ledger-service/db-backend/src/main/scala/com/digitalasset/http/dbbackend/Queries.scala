@@ -5,6 +5,7 @@ package com.digitalasset.http.dbbackend
 
 import doobie._
 import doobie.implicits._
+import scalaz.{@@, Tag}
 import scalaz.syntax.std.option._
 import spray.json._
 import cats.syntax.applicative._
@@ -49,7 +50,9 @@ object Queries {
         )
     """
 
-  type SurrogateTpId = Long // matches tpid (BIGINT) below
+  sealed trait SurrogateTpIdTag
+  val SurrogateTpId = Tag.of[SurrogateTpIdTag]
+  type SurrogateTpId = Long @@ SurrogateTpIdTag // matches tpid (BIGINT) below
 
   val createTemplateIdsTable: Fragment = sql"""
       CREATE TABLE
@@ -96,5 +99,8 @@ object Queries {
   object Implicits {
     implicit val `JsValue put`: Put[JsValue] =
       Put[String].tcontramap(_.compactPrint)
+
+    implicit val `SurrogateTpId meta`: Meta[SurrogateTpId] =
+      SurrogateTpId subst Meta[Long]
   }
 }
