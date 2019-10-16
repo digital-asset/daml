@@ -274,6 +274,10 @@ object ValueCoder {
           identity
         )
 
+    def assertSince(minVersion: ValueVersion, description: => String) =
+      if (valueVersion precedes minVersion)
+        throw Err(s"$description is not supported by value version $valueVersion")
+
     def go(nesting: Int, protoValue: proto.Value): Value[Cid] = {
       if (nesting > MAXIMUM_NESTING) {
         throw Err(
@@ -331,6 +335,7 @@ object ValueCoder {
             ValueVariant(id, identifier(variant.getConstructor), go(newNesting, variant.getValue))
 
           case proto.Value.SumCase.ENUM =>
+            assertSince(ValueVersions.minEnum, "Value.SumCase.ENUM")
             val enum = protoValue.getEnum
             val id =
               if (enum.getEnumId == ValueOuterClass.Identifier.getDefaultInstance) None
@@ -365,6 +370,7 @@ object ValueCoder {
             )
 
           case proto.Value.SumCase.OPTIONAL =>
+            assertSince(ValueVersions.minOptional, "Value.SumCase.OPTIONAL")
             val option = protoValue.getOptional
             val mbV =
               if (option.getValue == ValueOuterClass.Value.getDefaultInstance) None
@@ -372,6 +378,7 @@ object ValueCoder {
             ValueOptional(mbV)
 
           case proto.Value.SumCase.MAP =>
+            assertSince(ValueVersions.minMap, "Value.SumCase.MAP")
             val entries = ImmArray(protoValue.getMap.getEntriesList.asScala.map(entry =>
               entry.getKey -> go(newNesting, entry.getValue)))
 

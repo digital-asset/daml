@@ -4,7 +4,7 @@
 package com.digitalasset.daml.lf.transaction
 
 import com.digitalasset.daml.lf.EitherAssertions
-import com.digitalasset.daml.lf.data.{ImmArray}
+import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId, Party, QualifiedName}
 import com.digitalasset.daml.lf.transaction.Node.{GenNode, NodeCreate, NodeExercises, NodeFetch}
 import com.digitalasset.daml.lf.transaction.{Transaction => Tx, TransactionOuterClass => proto}
@@ -42,7 +42,7 @@ class TransactionCoderSpec
     }
 
     "do NodeCreate" in {
-      forAll(malformedCreateNodeGen, valueVersionGen) {
+      forAll(malformedCreateNodeGen, valueVersionGen()) {
         (node: NodeCreate[Tx.TContractId, Tx.Value[Tx.TContractId]], valVer: ValueVersion) =>
           Right((Tx.NodeId.unsafeFromIndex(0), node)) shouldEqual TransactionCoder.decodeNode(
             defaultNidDecode,
@@ -64,23 +64,24 @@ class TransactionCoderSpec
     }
 
     "do NodeFetch" in {
-      forAll(fetchNodeGen, valueVersionGen) { (node: NodeFetch[ContractId], valVer: ValueVersion) =>
-        Right((Tx.NodeId.unsafeFromIndex(0), node)) shouldEqual TransactionCoder.decodeNode(
-          defaultNidDecode,
-          defaultCidDecode,
-          defaultValDecode,
-          defaultTransactionVersion,
-          TransactionCoder
-            .encodeNode(
-              defaultNidEncode,
-              defaultCidEncode,
-              defaultValEncode,
-              defaultTransactionVersion,
-              Tx.NodeId.unsafeFromIndex(0),
-              node)
-            .toOption
-            .get
-        )
+      forAll(fetchNodeGen, valueVersionGen()) {
+        (node: NodeFetch[ContractId], valVer: ValueVersion) =>
+          Right((Tx.NodeId.unsafeFromIndex(0), node)) shouldEqual TransactionCoder.decodeNode(
+            defaultNidDecode,
+            defaultCidDecode,
+            defaultValDecode,
+            defaultTransactionVersion,
+            TransactionCoder
+              .encodeNode(
+                defaultNidEncode,
+                defaultCidEncode,
+                defaultValEncode,
+                defaultTransactionVersion,
+                Tx.NodeId.unsafeFromIndex(0),
+                node)
+              .toOption
+              .get
+          )
       }
     }
 
