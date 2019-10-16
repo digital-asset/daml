@@ -61,6 +61,13 @@ object domain {
       templateIds: Set[TemplateId.OptionalPkg],
       query: Map[String, JsValue])
 
+  case class PartyDetails(party: Party, displayName: Option[String], isLocal: Boolean)
+
+  object PartyDetails {
+    def fromLedgerApi(p: com.digitalasset.ledger.api.domain.PartyDetails): PartyDetails =
+      PartyDetails(Party(p.party), p.displayName, p.isLocal)
+  }
+
   type WorkflowIdTag = lar.WorkflowIdTag
   type WorkflowId = lar.WorkflowId
 

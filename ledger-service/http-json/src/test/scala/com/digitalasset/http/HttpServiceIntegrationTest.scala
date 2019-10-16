@@ -27,9 +27,11 @@ import org.scalatest._
 import scalaz.std.list._
 import scalaz.syntax.show._
 import scalaz.syntax.traverse._
+import scalaz.syntax.tag._
 import scalaz.{\/, \/-}
 import spray.json._
 
+import scala.collection.breakOut
 import scala.concurrent.{ExecutionContext, Future}
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
@@ -397,6 +399,35 @@ class HttpServiceIntegrationTest
             status shouldBe StatusCodes.NotFound
             assertStatus(output, StatusCodes.NotFound)
             expectedOneErrorMessage(output) shouldBe s"${HttpMethods.GET: HttpMethod}, uri: ${badUri: Uri}"
+        }: Future[Assertion]
+  }
+
+  "parties endpoint should return all known parties" in withHttpService(dar, testId) {
+    (uri, encoder, _) =>
+      val create: domain.CreateCommand[v.Record] = iouCreateCommand()
+      postCreateCommand(create, encoder, uri)
+        .flatMap {
+          case (createStatus, createOutput) =>
+            createStatus shouldBe StatusCodes.OK
+            assertStatus(createOutput, StatusCodes.OK)
+            getRequest(uri = uri.withPath(Uri.Path("/parties")))
+              .flatMap {
+                case (status, output) =>
+                  status shouldBe StatusCodes.OK
+                  assertStatus(output, StatusCodes.OK)
+                  inside(output) {
+                    case JsObject(fields) =>
+                      inside(fields.get("result")) {
+                        case Some(jsArray) =>
+                          inside(SprayJson.decode[List[domain.PartyDetails]](jsArray)) {
+                            case \/-(partyDetails) =>
+                              val partyNames: Set[String] =
+                                partyDetails.map(_.party.unwrap)(breakOut)
+                              partyNames should contain("Alice")
+                          }
+                      }
+                  }
+              }
         }: Future[Assertion]
   }
 

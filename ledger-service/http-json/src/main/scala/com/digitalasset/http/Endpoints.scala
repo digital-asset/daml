@@ -37,6 +37,7 @@ class Endpoints(
     decodeJwt: Endpoints.ValidateJwt,
     commandService: CommandService,
     contractsService: ContractsService,
+    partiesService: PartiesService,
     encoder: DomainJsonEncoder,
     decoder: DomainJsonDecoder,
     maxTimeToCollectRequest: FiniteDuration = FiniteDuration(5, "seconds"))(
@@ -48,7 +49,7 @@ class Endpoints(
   import json.JsonProtocol._
 
   lazy val all: PartialFunction[HttpRequest, Future[HttpResponse]] =
-    command orElse contracts orElse notFound
+    command orElse contracts orElse parties orElse notFound
 
   lazy val command: PartialFunction[HttpRequest, Future[HttpResponse]] = {
     case req @ HttpRequest(POST, Uri.Path("/command/create"), _, _, _) =>
@@ -198,6 +199,17 @@ class Endpoints(
         j <- either(SprayJson.encode(js).leftMap(e => ServerError(e.shows))): ET[JsValue]
 
       } yield j
+
+      httpResponse(et)
+  }
+
+  lazy val parties: PartialFunction[HttpRequest, Future[HttpResponse]] = {
+    case req @ HttpRequest(GET, Uri.Path("/parties"), _, _, _) =>
+      val et: ET[JsValue] = for {
+        _ <- FutureUtil.eitherT(input(req)): ET[(Jwt, JwtPayload, String)]
+        ps <- FutureUtil.rightT(partiesService.allParties()): ET[List[domain.PartyDetails]]
+        jsVal <- either(SprayJson.encode(ps)).leftMap(e => ServerError(e.shows)): ET[JsValue]
+      } yield jsVal
 
       httpResponse(et)
   }

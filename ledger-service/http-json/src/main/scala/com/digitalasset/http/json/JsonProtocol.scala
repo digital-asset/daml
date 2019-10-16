@@ -35,6 +35,9 @@ object JsonProtocol extends DefaultJsonProtocol {
   implicit val ContractIdFormat: JsonFormat[domain.ContractId] =
     taggedJsonFormat[String, domain.ContractIdTag]
 
+  implicit val PartyDetails: JsonFormat[domain.PartyDetails] =
+    jsonFormat3(domain.PartyDetails.apply)
+
   object LfValueCodec
       extends ApiCodecCompressed[AbsoluteContractId](
         encodeDecimalAsString = true,

@@ -21,12 +21,14 @@ import com.digitalasset.http.util.IdentifierConverters.apiLedgerId
 import com.digitalasset.jwt.JwtDecoder
 import com.digitalasset.ledger.api.refinements.ApiTypes.ApplicationId
 import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
+import com.digitalasset.ledger.api.v1.admin.party_management_service.PartyManagementServiceGrpc
 import com.digitalasset.ledger.client.LedgerClient
 import com.digitalasset.ledger.client.configuration.{
   CommandClientConfiguration,
   LedgerClientConfiguration,
   LedgerIdRequirement
 }
+import com.digitalasset.ledger.client.services.admin.PartyManagementClient
 import com.digitalasset.ledger.client.services.pkg.PackageClient
 import com.digitalasset.ledger.service.LedgerReader
 import com.typesafe.scalalogging.StrictLogging
@@ -70,9 +72,8 @@ object HttpService extends StrictLogging {
 
     val bindingEt: EitherT[Future, Error, ServerBinding] = for {
       clientChannel <- either(
-        LedgerClientJwt
-          .singleHostChannel(ledgerHost, ledgerPort, clientConfig, maxInboundMessageSize)(ec, aesf))
-        .leftMap(e => Error(e.getMessage)): ET[io.grpc.Channel]
+        clientChannel(ledgerHost, ledgerPort, clientConfig, maxInboundMessageSize)
+      ): ET[io.grpc.Channel]
 
       client <- rightT(LedgerClient.forChannel(clientConfig, clientChannel)): ET[LedgerClient]
 
@@ -81,6 +82,8 @@ object HttpService extends StrictLogging {
       _ = logger.info(s"Connected to Ledger: ${ledgerId: lar.LedgerId}")
 
       packageService = new PackageService(loadPackageStoreUpdates(client.packageClient))
+
+      partyManagement <- either(partyManagementClient(clientChannel)): ET[PartyManagementClient]
 
       // load all packages right away
       _ <- eitherT(packageService.reload).leftMap(e => Error(e.shows)): ET[Unit]
@@ -98,6 +101,8 @@ object HttpService extends StrictLogging {
         LedgerReader.damlLfTypeLookup(packageService.packageStore _)
       )
 
+      partiesService = new PartiesService(() => partyManagement.listKnownParties())
+
       (encoder, decoder) = buildJsonCodecs(ledgerId, packageService)
 
       endpoints = new Endpoints(
@@ -105,6 +110,7 @@ object HttpService extends StrictLogging {
         validateJwt,
         commandService,
         contractsService,
+        partiesService,
         encoder,
         decoder,
       )
@@ -173,4 +179,21 @@ object HttpService extends StrictLogging {
         case scala.util.Success(\/-(_)) =>
       }
     }
+
+  private def clientChannel(
+      ledgerHost: String,
+      ledgerPort: Int,
+      clientConfig: LedgerClientConfiguration,
+      maxInboundMessageSize: Int)(
+      implicit ec: ExecutionContext,
+      aesf: ExecutionSequencerFactory): Error \/ io.grpc.Channel =
+    LedgerClientJwt
+      .singleHostChannel(ledgerHost, ledgerPort, clientConfig, maxInboundMessageSize)(ec, aesf)
+      .leftMap(e => Error(s"Cannot connect to the ledger server, error: ${e.getMessage}"))
+
+  private def partyManagementClient(channel: io.grpc.Channel)(
+      implicit ec: ExecutionContext): Error \/ PartyManagementClient =
+    \/.fromTryCatchNonFatal(new PartyManagementClient(PartyManagementServiceGrpc.stub(channel)))
+      .leftMap(e =>
+        Error(s"Cannot create an instance of PartyManagementClient, error: ${e.getMessage}"))
 }

@@ -164,7 +164,9 @@ class ActiveLedgerStateManager[ALS](initialState: => ALS)(
                 )
                 activeContract.key match {
                   case None =>
-                    ats.copy(acc = Some(acc.addContract(activeContract, None)))
+                    ats.copy(
+                      acc = Some(acc.addContract(activeContract, None)),
+                      parties = parties.union(nodeParties))
                   case Some(key) =>
                     val gk = GlobalKey(activeContract.contract.template, key.key)
                     if (acc keyExists gk) {
