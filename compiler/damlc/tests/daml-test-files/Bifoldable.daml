@@ -1,0 +1,31 @@
+-- Copyright (c) 2019 The DAML Authors. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+daml 1.2
+module Bifoldable where
+
+import DA.Assert
+import DA.Bifoldable
+
+tuple_tests : Scenario ()
+tuple_tests = do
+    [1,2] === bifoldr (::) (::) [] (1, 2)
+    [2,1] === bifoldl (flip (::)) (flip (::)) [] (1, 2)
+
+    [1,2,3,4] === bifold ([1,2], [3,4])
+
+either_tests : Scenario ()
+either_tests = do
+    6 === bifoldr (*) (+) 2 (Left 3)
+    5 === bifoldr (*) (+) 2 (Right 3)
+
+bifoldMap_tests : Scenario ()
+bifoldMap_tests = do
+    [1,2] === bifoldMap (\a -> [a]) (\b -> [b]) (1, 2)
+
+bitraverse_tests : Scenario ()
+bitraverse_tests = do
+    Some () === bitraverse_ Some (const None) (Left 0)
+    Some () === bitraverse_ (const None) Some (Right 0)
+    None === bitraverse_ (const None) Some (Left 0)
+    None === bitraverse_ Some (const None) (Right 0)

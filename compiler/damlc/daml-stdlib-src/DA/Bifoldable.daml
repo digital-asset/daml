@@ -1,0 +1,50 @@
+-- Copyright (c) 2019 The DAML Authors. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+daml 1.2
+
+module DA.Bifoldable where
+
+import DA.Monoid
+
+-- | 'Bifoldable' identifies foldable structures with two different varieties of
+-- elements (as opposed to 'Foldable', which has one variety of element). Common
+-- examples are 'Either' and '(,)'.
+class Bifoldable p where
+
+    {-# MINIMAL bifoldr | bifoldMap #-}
+
+    -- | Combines the elements of a structure, given ways of mapping them to a
+    -- common monoid.
+    bifoldMap : Monoid m => (a -> m) -> (b -> m) -> p a b -> m
+    bifoldMap f g = bifoldr ((<>) . f) ((<>) . g) mempty
+
+    -- | Combines the elements of a structure in a right associative manner.
+    bifoldr : (a -> c -> c) -> (b -> c -> c) -> c -> p a b -> c
+    bifoldr f g z t = let endoA = (Endo . f)
+                          endoB = (Endo . g)
+                      in  appEndo (bifoldMap endoA endoB t) z
+
+    -- | Combines the elements of a structure in a left associative manner.
+    bifoldl : (c -> a -> c) -> (c -> b -> c) -> c -> p a b -> c
+    bifoldl f g z t = let endoA = (Endo . flip f)
+                          endoB = (Endo . flip g)
+                      in  appEndo (bifoldMap endoA endoB t) z
+
+    -- | Combines the elements of a structure using a monoid.
+    bifold : Monoid m => p m m -> m
+    bifold = bifoldMap identity identity
+
+
+instance Bifoldable (,) where
+    bifoldr f g z (a, b) = f a (g b z)
+    bifoldl f g z (a, b) = g (f z a) b
+
+instance Bifoldable Either where
+    bifoldr f _ z (Left a)  = f a z
+    bifoldr _ g z (Right b) = g b z
+
+-- | Map each element of a structure using one of two actions, evaluate these
+-- actions from left to right, and ignore the results.
+bitraverse_ : (Bifoldable t, Applicative f) => (a -> f c) -> (b -> f d) -> t a b -> f ()
+bitraverse_ f g = bifoldr ((*>) . f) ((*>) . g) (pure ())
