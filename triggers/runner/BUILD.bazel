@@ -10,6 +10,7 @@ load(
 da_scala_library(
     name = "trigger-runner-lib",
     srcs = glob(["src/main/scala/**/*.scala"]),
+    resources = glob(["src/main/resources/**/*"]),
     visibility = ["//visibility:public"],
     deps = [
         "//3rdparty/jvm/com/github/scopt",
