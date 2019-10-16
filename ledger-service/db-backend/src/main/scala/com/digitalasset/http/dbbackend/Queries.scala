@@ -27,6 +27,9 @@ object Queries {
       createArguments: CA,
       witnessParties: WP)
 
+  /** for use when generating predicates */
+  private[http] val contractColumnName: Fragment = sql"create_arguments"
+
   val createContractsTable: Fragment = sql"""
       CREATE TABLE
         contract
