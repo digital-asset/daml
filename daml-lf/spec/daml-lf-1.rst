@@ -890,11 +890,13 @@ Then we define *well-formed expressions*. ::
     ——————————————————————————————————————————————————————————————— ExpOptionSome
       Γ  ⊢  'Some' @τ e  :  'Option' τ
 
-      ε ⊢ τ : *     Γ  ⊢  e  : τ
+      τ contains neither variables nor quantifiers
+      Γ  ⊢  τ : *     Γ  ⊢  e  : τ
     ——————————————————————————————————————————————————————————————— ExpToAny
       Γ  ⊢  'to_any' @τ e  :  'Any'
 
-      ε ⊢ τ : *     Γ  ⊢  e  : Any
+      τ contains neither variables nor quantifiers
+      Γ  ⊢  τ : *     Γ  ⊢  e  : Any
     ——————————————————————————————————————————————————————————————— ExpFromAny
       Γ  ⊢  'from_any' @τ e  :  'Optional' τ
 
