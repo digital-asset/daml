@@ -62,7 +62,7 @@ object Queries {
         )
     """
 
-  val initDatabase: ConnectionIO[Unit] =
+  def initDatabase(implicit log: LogHandler): ConnectionIO[Unit] =
     (createTemplateIdsTable.update.run
       *> createOffsetTable.update.run
       *> createContractsTable.update.run
