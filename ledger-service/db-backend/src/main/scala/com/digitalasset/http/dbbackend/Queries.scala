@@ -65,7 +65,7 @@ object Queries {
         )
     """
 
-  def initDatabase(implicit log: LogHandler): ConnectionIO[Unit] =
+  private[http] def initDatabase(implicit log: LogHandler): ConnectionIO[Unit] =
     (createTemplateIdsTable.update.run
       *> createOffsetTable.update.run
       *> createContractsTable.update.run
@@ -92,9 +92,9 @@ object Queries {
       .query[String]
       .option
 
-  def updateOffset(party: String, tpid: SurrogateTpId, newOffset: String)(
+  private[http] def updateOffset(party: String, tpid: SurrogateTpId, newOffset: String)(
       implicit log: LogHandler): ConnectionIO[Unit] =
-    sql"""INSERT INTO last_offset ($party, $tpid, $newOffset)
+    sql"""INSERT INTO last_offset VALUES ($party, $tpid, $newOffset)
           ON CONFLICT (party, tpid) DO UPDATE (last_offset = $newOffset)""".update.run.void
 
   def insertContract[CA: JsonWriter, WP: JsonWriter](
