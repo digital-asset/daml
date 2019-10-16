@@ -6,6 +6,7 @@ load("//bazel_tools:pkg.bzl", "pkg_tar")
 load("//bazel_tools:proto.bzl", "proto_gen")
 load(
     "//bazel_tools:scala.bzl",
+    "da_scala_binary",
     "da_scala_library",
     "da_scala_test_suite",
     "lf_scalacopts",
@@ -177,4 +178,18 @@ da_scala_test_suite(
 daml_compile(
     name = "DarReaderTest",
     main_src = "src/test/daml/DarReaderTest.daml",
+)
+
+# An ad-hoc tool for testing, benchmarking and profiling package decoding performance in isolation.
+da_scala_binary(
+    name = "decode-tester",
+    srcs = ["src/test/scala/com/digitalasset/daml/lf/archive/DecodeMain.scala"],
+    main_class = "com.digitalasset.daml.lf.archive.DecodeMain",
+    deps = [
+        ":daml_lf_archive_reader",
+        ":daml_lf_dev_archive_java_proto",
+        "//3rdparty/jvm/com/google/protobuf:protobuf_java",
+        "//daml-lf/data",
+        "//daml-lf/language",
+    ],
 )
