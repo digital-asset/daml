@@ -8,6 +8,8 @@ import doobie.implicits._
 import scalaz.syntax.std.option._
 import spray.json._
 import cats.syntax.applicative._
+import cats.syntax.apply._
+import cats.syntax.functor._
 
 object Queries {
   import Implicits._
@@ -32,7 +34,7 @@ object Queries {
     """
 
   val indexContractsTable: Fragment = sql"""
-      CREATE INDEX ON contract (package_id, template_module_name, template_entity_name)
+      CREATE INDEX ON contract (tpid)
     """
 
   final case class DBOffset[+TpId](party: String, templateId: TpId, lastOffset: String)
@@ -59,6 +61,12 @@ object Queries {
         ,UNIQUE (package_id, template_module_name, template_entity_name)
         )
     """
+
+  val initDatabase: ConnectionIO[Unit] =
+    (createTemplateIdsTable.update.run
+      *> createOffsetTable.update.run
+      *> createContractsTable.update.run
+      *> indexContractsTable.update.run).void
 
   def surrogateTemplateId(packageId: String, moduleName: String, entityName: String)(
       implicit log: LogHandler): ConnectionIO[SurrogateTpId] =
