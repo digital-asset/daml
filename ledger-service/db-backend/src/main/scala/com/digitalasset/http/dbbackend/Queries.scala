@@ -3,9 +3,12 @@
 
 package com.digitalasset.http.dbbackend
 
+import scala.language.higherKinds
+
 import doobie._
 import doobie.implicits._
-import scalaz.{@@, Tag}
+import scalaz.{@@, Functor, Tag}
+import scalaz.syntax.functor._
 import scalaz.syntax.std.option._
 import spray.json._
 import cats.syntax.applicative._
@@ -97,19 +100,33 @@ object Queries {
     sql"""INSERT INTO last_offset VALUES ($party, $tpid, $newOffset)
           ON CONFLICT (party, tpid) DO UPDATE (last_offset = $newOffset)""".update.run.void
 
-  def insertContract[CA: JsonWriter, WP: JsonWriter](
-      dbc: DBContract[SurrogateTpId, CA, WP]): Fragment =
+  def insertContracts[F[_]: cats.Foldable: Functor, CA: JsonWriter, WP: JsonWriter](
+      dbcs: F[DBContract[SurrogateTpId, CA, WP]]): ConnectionIO[Int] =
     Update[DBContract[SurrogateTpId, JsValue, JsValue]]("""
         INSERT INTO contract
         VALUES (?, ?, ?::jsonb, ?::jsonb)
-      """).toFragment(
-      dbc.copy(
-        createArguments = dbc.createArguments.toJson,
-        witnessParties = dbc.witnessParties.toJson))
+        ON CONFLICT (contract_id) DO NOTHING
+      """).updateMany(
+      dbcs.map(
+        dbc =>
+          dbc.copy(
+            createArguments = dbc.createArguments.toJson,
+            witnessParties = dbc.witnessParties.toJson)))
+
+  private[http] def selectContracts(
+      tpid: SurrogateTpId,
+      predicate: Fragment): Query0[DBContract[SurrogateTpId, JsValue, JsValue]] = {
+    val q = sql"""SELECT (contract_id, create_arguments, witness_parties)
+                  FROM contract
+                  WHERE tpid = $tpid AND (""" ++ predicate ++ sql")"
+    q.query[(String, JsValue, JsValue)].map {
+      case (cid, ca, wp) => DBContract(cid, tpid, ca, wp)
+    }
+  }
 
   object Implicits {
-    implicit val `JsValue put`: Put[JsValue] =
-      Put[String].tcontramap(_.compactPrint)
+    implicit val `JsValue put`: Meta[JsValue] =
+      Meta[String].timap(_.parseJson)(_.compactPrint)
 
     implicit val `SurrogateTpId meta`: Meta[SurrogateTpId] =
       SurrogateTpId subst Meta[Long]
