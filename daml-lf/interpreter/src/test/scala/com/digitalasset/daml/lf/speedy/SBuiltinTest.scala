@@ -1130,7 +1130,7 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
           "1" -> SInt64(1),
           "1.00" -> SNumeric(n(2, 1)),
           "True" -> SBool(true),
-          "()" -> SUnit(()),
+          "()" -> SUnit,
           """ "text" """ -> SText("text"),
           " 'party' " -> SParty(Ref.Party.assertFromString("party")),
           intList(1, 2, 3) -> SList(FrontStack(SInt64(1), SInt64(2), SInt64(3))),

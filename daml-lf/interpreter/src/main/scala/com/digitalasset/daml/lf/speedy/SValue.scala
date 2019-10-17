@@ -35,7 +35,7 @@ sealed trait SValue {
       case STimestamp(x) => V.ValueTimestamp(x)
       case SParty(x) => V.ValueParty(x)
       case SBool(x) => V.ValueBool(x)
-      case SUnit(_) => V.ValueUnit
+      case SUnit => V.ValueUnit
       case SDate(x) => V.ValueDate(x)
       case STuple(fields, svalues) =>
         V.ValueTuple(
@@ -201,12 +201,31 @@ object SValue {
   final case class STimestamp(value: Time.Timestamp) extends SPrimLit
   final case class SParty(value: Party) extends SPrimLit
   final case class SBool(value: Boolean) extends SPrimLit
-  final case class SUnit(value: Unit) extends SPrimLit
+  final case object SUnit extends SPrimLit
   final case class SDate(value: Time.Date) extends SPrimLit
   final case class SContractId(value: V.ContractId) extends SPrimLit
-
   // The "effect" token for update or scenario builtin functions.
   final case object SToken extends SValue
+
+  object SValue {
+    val Unit = SUnit
+    val True = SBool(true)
+    val False = SBool(false)
+    val EmptyList = SList(FrontStack.empty)
+    val None = SOptional(Option.empty)
+    val Token = SToken
+  }
+
+  abstract class SValueContainer[X] {
+    def apply(value: SValue): X
+    val Unit: X = apply(SValue.Unit)
+    val True: X = apply(SValue.True)
+    val False: X = apply(SValue.False)
+    val EmptyList: X = apply(SValue.EmptyList)
+    val None: X = apply(SValue.None)
+    val Token: X = apply(SValue.Token)
+    def bool(b: Boolean) = if (b) True else False
+  }
 
   def fromValue(value0: V[V.ContractId]): SValue = {
     value0 match {
@@ -220,7 +239,7 @@ object SValue {
       case V.ValueParty(p) => SParty(p)
       case V.ValueBool(b) => SBool(b)
       case V.ValueDate(x) => SDate(x)
-      case V.ValueUnit => SUnit(())
+      case V.ValueUnit => SUnit
 
       case V.ValueRecord(Some(id), fs) =>
         val fields = Name.Array.ofDim(fs.length)

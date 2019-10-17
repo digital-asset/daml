@@ -4,7 +4,7 @@
 package com.digitalasset.daml.lf.speedy
 
 import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.data.{FrontStack, ImmArray, Ref, Time}
+import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.speedy.Compiler.{CompileError, PackageNotFound}
 import com.digitalasset.daml.lf.speedy.SBuiltin._
@@ -312,9 +312,9 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
 
       case EPrimCon(con) =>
         con match {
-          case PCTrue => SEValue(SBool(true))
-          case PCFalse => SEValue(SBool(false))
-          case PCUnit => SEValue(SUnit(()))
+          case PCTrue => SEValue.True
+          case PCFalse => SEValue.False
+          case PCUnit => SEValue.Unit
         }
       case EPrimLit(lit) =>
         SEValue(lit match {
@@ -405,7 +405,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
           }.toArray
         )
 
-      case ENil(_) => SEValue(SList(FrontStack.empty))
+      case ENil(_) => SEValue.EmptyList
       case ECons(_, front, tail) =>
         // TODO(JM): Consider emitting SEValue(SList(...)) for
         // constant lists?
@@ -414,8 +414,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
           front.iterator.map(translate).toArray :+ translate(tail),
         )
 
-      case ENone(_) =>
-        SEValue(SOptional(None))
+      case ENone(_) => SEValue.None
 
       case ESome(_, body) =>
         SEApp(
@@ -684,7 +683,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
           SEAbs(1) {
             SELet(
               SBSBeginCommit(optLoc)(party, SEVar(1)),
-              SECatch(SEApp(update, Array(SEVar(2))), SEValue(SBool(true)), SEValue(SBool(false)))
+              SECatch(SEApp(update, Array(SEVar(2))), SEValue.True, SEValue.False)
             ) in SBSEndCommit(true)(SEVar(1), SEVar(3))
           }
         }
@@ -800,7 +799,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
           env = env.addExprVar(choice.argBinder._1, choiceArgumentPos)
           val controllers = translate(choice.controllers)
           val mbKey: SExpr = tmpl.key match {
-            case None => SEValue(SOptional(None))
+            case None => SEValue.None
             case Some(k) =>
               SEApp(
                 SEBuiltin(SBSome),
@@ -1139,7 +1138,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
       env = env.addExprVar(tmpl.param) // argument
 
       val key = tmpl.key match {
-        case None => SEValue(SOptional(None))
+        case None => SEValue.None
         case Some(tmplKey) =>
           SELet(translate(tmplKey.body)) in
             SBSome(
@@ -1189,7 +1188,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
     // SomeTemplate$SomeChoice <actorsE> <cidE> <argE>
     withEnv { _ =>
       val actors: SExpr = optActors match {
-        case None => SEValue(SOptional(None))
+        case None => SEValue.None
         case Some(actors) => SEApp(SEBuiltin(SBSome), Array(actors))
       }
       SEApp(SEVal(ChoiceDefRef(tmplId, choiceId), None), Array(actors, contractId, argument))

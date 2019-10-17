@@ -75,7 +75,7 @@ object Speedy {
         // NOTE(MH): If the top of the continuation stack is the monadic token,
         // we push location information under it to account for the implicit
         // lambda binding the token.
-        case Some(KArg(Array(SEValue(SToken)))) => kont.add(last_index, KLocation(loc))
+        case Some(KArg(Array(SEValue.Token))) => kont.add(last_index, KLocation(loc))
         // NOTE(MH): When we use a cached top level value, we need to put the
         // stack trace it produced back on the continuation stack to get
         // complete stack trace at the use site. Thus, we store the stack traces
@@ -250,7 +250,7 @@ object Speedy {
       val compiler = Compiler(compiledPackages.packages)
       Right({ (checkSubmitterInMaintainers: Boolean, expr: Expr) =>
         fromSExpr(
-          SEApp(compiler.compile(expr), Array(SEValue(SToken))),
+          SEApp(compiler.compile(expr), Array(SEValue.Token)),
           checkSubmitterInMaintainers,
           compiledPackages)
       })
@@ -260,7 +260,7 @@ object Speedy {
         checkSubmitterInMaintainers: Boolean,
         sexpr: SExpr,
         compiledPackages: CompiledPackages): Machine =
-      fromSExpr(SEApp(sexpr, Array(SEValue(SToken))), checkSubmitterInMaintainers, compiledPackages)
+      fromSExpr(SEApp(sexpr, Array(SEValue.Token)), checkSubmitterInMaintainers, compiledPackages)
 
     // Used from repl.
     def fromExpr(
@@ -271,7 +271,7 @@ object Speedy {
       val compiler = Compiler(compiledPackages.packages)
       val sexpr =
         if (scenario)
-          SEApp(compiler.compile(expr), Array(SEValue(SToken)))
+          SEApp(compiler.compile(expr), Array(SEValue.Token))
         else
           compiler.compile(expr)
 
@@ -344,6 +344,8 @@ object Speedy {
         machine.kontPop.execute(value, machine)
     }
   }
+
+  object CtrlValue extends SValueContainer[CtrlValue]
 
   /** When we fetch a contract id from upstream we cannot crash in the
     * that upstream calls. Rather, we set the control to this and then crash
@@ -481,7 +483,7 @@ object Speedy {
               case _ => false
             }
           }
-        case _: SUnit =>
+        case SUnit =>
           alts.find { alt =>
             alt.pattern match {
               case SCPPrimCon(PCUnit) => true
