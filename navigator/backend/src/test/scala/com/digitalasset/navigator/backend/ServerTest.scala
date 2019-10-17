@@ -5,26 +5,24 @@ package com.digitalasset.navigator
 
 import akka.actor.ActorSystem
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport._
-import akka.http.scaladsl.model.headers.Cookie
-import akka.http.scaladsl.model.headers.`Set-Cookie`
+import akka.http.scaladsl.model.headers.{Cookie, `Set-Cookie`}
 import akka.http.scaladsl.server.Route
 import akka.http.scaladsl.testkit.ScalatestRouteTest
 import akka.http.scaladsl.unmarshalling.Unmarshal
 import com.digitalasset.api.util.TimeProvider.UTC
-import com.digitalasset.navigator.config.{Arguments, Config, UserConfig}
 import com.digitalasset.ledger.api.refinements.ApiTypes
-import org.scalatest.{FlatSpec, Matchers, OptionValues}
 import com.digitalasset.navigator.SessionJsonProtocol._
+import com.digitalasset.navigator.config.{Arguments, Config, UserConfig}
 import com.digitalasset.navigator.model.PartyState
-import com.digitalasset.navigator.store.Store.{ApplicationStateConnected, ApplicationStateInfo}
+import com.digitalasset.navigator.store.Store.ApplicationStateConnected
 import com.digitalasset.navigator.time.TimeProviderType.Static
 import com.digitalasset.navigator.time.TimeProviderWithType
 import com.typesafe.scalalogging.LazyLogging
+import org.scalatest.{FlatSpec, Matchers, OptionValues}
+import scalaz.syntax.tag._
+import spray.json._
 
 import scala.concurrent.Future
-import spray.json._
-import scalaz.syntax.tag._
-
 import scala.util.Success
 
 class ServerTest
