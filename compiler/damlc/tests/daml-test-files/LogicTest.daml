@@ -14,7 +14,10 @@ propositionTest = scenario do
     r = Proposition 3
     f : Formula Int = false
     t : Formula Int = true
-    truth i = if i == 1 then Some True else if i == 2 then Some False else None
+    truth i
+      | i == 1 = Some True
+      | i == 2 = Some False
+      | otherwise = None
   neg p === Negation (Proposition 1)
   (p &&& q) === Conjunction [Proposition 1, Proposition 2]
   disj [p, q] === Disjunction [Proposition 1, Proposition 2]
