@@ -2,9 +2,10 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 ---------------------------------------------------------------------------------------------------
--- V10: Extract event data
+-- V5.0: Extract event data
 --
--- This schema version extracts signatories, observers, and event_id from the events so that it can be easily retrieved later.
+-- This schema version adds the tables contract_signatories and contract_observers, and the column contracts_create_event_id
+-- to store event related data so that it can be easily retrieved later.
 
 ALTER TABLE contracts ADD create_event_id varchar;
 

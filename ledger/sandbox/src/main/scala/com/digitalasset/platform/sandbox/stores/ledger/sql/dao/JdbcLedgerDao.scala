@@ -213,8 +213,8 @@ private class JdbcLedgerDao(
       .execute()
 
   private val SQL_INSERT_CONTRACT =
-    """insert into contracts(id, transaction_id, workflow_id, package_id, name, create_offset, key)
-      |values({id}, {transaction_id}, {workflow_id}, {package_id}, {name}, {create_offset}, {key})""".stripMargin
+    """insert into contracts(id, transaction_id, create_event_id, workflow_id, package_id, name, create_offset, key)
+      |values({id}, {transaction_id}, {create_event_id}, {workflow_id}, {package_id}, {name}, {create_offset}, {key})""".stripMargin
 
   private val SQL_INSERT_CONTRACT_WITNESS =
     "insert into contract_witnesses(contract_id, witness) values({contract_id}, {witness})"
@@ -263,6 +263,7 @@ private class JdbcLedgerDao(
             Seq[NamedParameter](
               "id" -> c.id.coid,
               "transaction_id" -> c.transactionId,
+              "create_event_id" -> c.eventId,
               "workflow_id" -> c.workflowId,
               "package_id" -> c.contract.template.packageId,
               "name" -> c.contract.template.qualifiedName.toString,
@@ -1402,7 +1403,7 @@ object JdbcLedgerDao {
          |  cd.id={contract_id} and
          |  c.archive_offset is null and
          |  (cowi.witness is not null or codi.party is not null)
-         |group by cd.id, cd.contract, c.transaction_id, c.workflow_id, c.key, le.effective_at
+         |group by cd.id, cd.contract, c.transaction_id, c.create_event_id, c.workflow_id, c.key, le.effective_at
          |""".stripMargin
 
     override protected[JdbcLedgerDao] def SQL_SELECT_ACTIVE_CONTRACTS: String =
@@ -1429,7 +1430,7 @@ object JdbcLedgerDao {
          |     concat(c.name,'&',w.witness) in ({template_parties})
          |     OR w.witness in ({wildcard_parties})
          |    )
-         |group by cd.id, cd.contract, c.transaction_id, c.workflow_id, c.key, le.effective_at
+         |group by cd.id, cd.contract, c.transaction_id, c.create_event_id, c.workflow_id, c.key, le.effective_at
          |""".stripMargin
   }
 
@@ -1488,7 +1489,7 @@ object JdbcLedgerDao {
          |  cd.id={contract_id} and
          |  c.archive_offset is null and
          |  (cowi.witness is not null or codi.party is not null)
-         |group by cd.id, cd.contract, c.transaction_id, c.workflow_id, c.key, le.effective_at
+         |group by cd.id, cd.contract, c.transaction_id, c.create_event_id, c.workflow_id, c.key, le.effective_at
          |""".stripMargin
 
     override protected[JdbcLedgerDao] def SQL_SELECT_ACTIVE_CONTRACTS: String =
@@ -1515,7 +1516,7 @@ object JdbcLedgerDao {
          |     concat(c.name,'&',w.witness) in ({template_parties})
          |     OR w.witness in ({wildcard_parties})
          |    )
-         |group by cd.id, cd.contract, c.transaction_id, c.workflow_id, c.key, le.effective_at
+         |group by cd.id, cd.contract, c.transaction_id, c.create_event_id, c.workflow_id, c.key, le.effective_at
          |""".stripMargin
 
   }

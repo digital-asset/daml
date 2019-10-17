@@ -9,9 +9,9 @@ import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 import com.digitalasset.ledger.EventId
 import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.TransactionSerializer
 import com.digitalasset.platform.sandbox.stores.ledger.sql.util.Conversions._
-import org.flywaydb.core.api.migration.Context
+import org.flywaydb.core.api.migration.{BaseJavaMigration, Context}
 
-class V5_1__Populate_Event_Data {
+class V5_1__Populate_Event_Data extends BaseJavaMigration {
 
   private type Transaction = GenTransaction.WithTxValue[EventId, AbsoluteContractId]
 
