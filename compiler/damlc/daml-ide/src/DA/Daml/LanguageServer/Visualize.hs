@@ -32,7 +32,7 @@ onCommand
     -> ExecuteCommandParams
     -> IO Aeson.Value
 onCommand ide execParsms = case execParsms of
-    ExecuteCommandParams "daml/damlVisualize" (Just _arguments) -> do
+    ExecuteCommandParams "daml/damlVisualize" (Just _arguments) _ -> do
         case collectTexts _arguments of
             Just mod -> do
                     logInfo (ideLogger ide) "Generating visualization for current daml project"
@@ -46,7 +46,7 @@ onCommand ide execParsms = case execParsms of
             Nothing     -> do
                 logError (ideLogger ide) "Expected a single module to visualize, got multiple module"
                 return $ Aeson.String "Expected a single module to visualize, got multiple module"
-    ExecuteCommandParams  command args -> do
+    ExecuteCommandParams command args _ -> do
         logError (ideLogger ide) $ T.pack ("Unsupported command " ++ show command ++ "with args " ++ show args)
         return Aeson.Null
 
