@@ -40,9 +40,7 @@ DAML-LF
    + `com.digitalasset.daml-lf-proto` becomes
      `com.digitalasset.daml-lf-dev-archive-proto`
    + `com.digitalasset.daml-lf-archive` becomes
-     `com.digitalasset:daml-lf-dev-archive-java-proto`
-   + `com.digitalasset.daml-lf-archive-scala` becomes
-     `com.digitalasset.daml-lf-archive-reader`
+     `com.digitalasset:daml-lf-dev-archive-java-proto``
 
 - Add immutable bintray/maven packages for handling DAML-LF archive up to version 1.6 in a stable way:
    + `com.digitalasset.daml-lf-1.6-archive-proto`
