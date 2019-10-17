@@ -9,6 +9,7 @@ import java.time.Instant
 import akka.actor.ActorSystem
 import akka.stream._
 import akka.stream.scaladsl.{Sink, Flow}
+import com.typesafe.scalalogging.StrictLogging
 import scala.concurrent.{Await, ExecutionContext, Future, Promise}
 import scala.concurrent.duration.Duration
 import scala.util.{Success, Failure}
@@ -71,7 +72,7 @@ object TestRunner {
       ._1
 }
 
-class TestRunner(val config: Config) {
+class TestRunner(val config: Config) extends StrictLogging {
   var partyCount = 0
 
   val applicationId = ApplicationId("Trigger Test Runner")
@@ -142,8 +143,14 @@ class TestRunner(val config: Config) {
       _ <- acsPromise.future
       r <- clientF.flatMap(client => commands(client, party)(ec)(materializer))
     } yield r
-    triggerFlow.failed.foreach(_ => system.terminate)
-    commandsFlow.failed.foreach(_ => system.terminate)
+    triggerFlow.failed.foreach(err => {
+      logger.error("Trigger flow failed", err)
+      system.terminate
+    })
+    commandsFlow.failed.foreach(err => {
+      logger.error("Commands flow failed", err)
+      system.terminate
+    })
     val filter = TransactionFilter(List((party, Filters.defaultInstance)).toMap)
     val testFlow: Future[Unit] = for {
       client <- clientF
@@ -180,7 +187,6 @@ class TestRunner(val config: Config) {
         println(s"Test $name succeeded")
       }
       case Failure(err) => {
-        system.terminate
         println(s"Test $name failed: $err")
         sys.exit(1)
       }
