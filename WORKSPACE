@@ -570,7 +570,7 @@ hazel_repositories(
             # Read [Working on ghc-lib] for ghc-lib update instructions at
             # https://github.com/digital-asset/daml/blob/master/ghc-lib/working-on-ghc-lib.md.
             hazel_ghclibs(GHC_LIB_VERSION, "0000000000000000000000000000000000000000000000000000000000000000", "237246bf2b473f370470fa7949582ba381884979876535573b9212cf4dd0b856") +
-            hazel_github_external("digital-asset", "hlint", "193b3eb89d186ae901ff6d95a70653258ed5eed9", "4f99badd7058b10f89207622bc719bd22b65ad401bf21cf8b33a7d79bbc000f6") +
+            hazel_github_external("digital-asset", "hlint", "3dcb5921a802d7a37dc35debd075c7f1c9a8b8f6", "2e1cdce326b680b65a7808e91690d4bb8d4e0e48b359a3cdc6add70e3f983c83") +
             hazel_github_external("awakesecurity", "proto3-wire", "4f355bbac895d577d8a28f567ab4380f042ccc24", "031e05d523a887fbc546096618bc11dceabae224462a6cdd6aab11c1658e17a3") +
             hazel_github_external(
                 "awakesecurity",
