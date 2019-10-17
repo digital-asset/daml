@@ -10,11 +10,15 @@ import akka.http.scaladsl.model.headers.`Set-Cookie`
 import akka.http.scaladsl.server.Route
 import akka.http.scaladsl.testkit.ScalatestRouteTest
 import akka.http.scaladsl.unmarshalling.Unmarshal
+import com.digitalasset.api.util.TimeProvider.UTC
 import com.digitalasset.navigator.config.{Arguments, Config, UserConfig}
 import com.digitalasset.ledger.api.refinements.ApiTypes
 import org.scalatest.{FlatSpec, Matchers, OptionValues}
 import com.digitalasset.navigator.SessionJsonProtocol._
 import com.digitalasset.navigator.model.PartyState
+import com.digitalasset.navigator.store.Store.{ApplicationStateConnected, ApplicationStateInfo}
+import com.digitalasset.navigator.time.TimeProviderType.Static
+import com.digitalasset.navigator.time.TimeProviderWithType
 import com.typesafe.scalalogging.LazyLogging
 
 import scala.concurrent.Future
@@ -52,16 +56,24 @@ class ServerTest
     override def getInfo: Future[JsValue] = Future.successful(JsString("test"))
   }
 
-  def route(requirePassword: Boolean): Route =
+  private[this] val route: Route =
     NavigatorBackend.getRoute(
       system = ActorSystem("da-ui-backend-test"),
       arguments = Arguments.default,
       config = new Config(users = Map(userId -> userConfig)),
       graphQL = DefaultGraphQLHandler(Set.empty, None),
-      info = TestInfoHandler
+      info = TestInfoHandler,
+      getAppState = () =>
+        Future.successful(
+          ApplicationStateConnected(
+            "localhost",
+            6865,
+            true,
+            "n/a",
+            "0",
+            TimeProviderWithType(UTC, Static),
+            List.empty))
     )
-  def passwordRoute = route(true)
-  def selectRoute = route(false)
 
   def sessionCookie(): String = {
     val cookies = headers.collect { case `Set-Cookie`(x) if x.name == "session-id" => x }
@@ -75,7 +87,7 @@ class ServerTest
   }
 
   "SelectMode GET /api/session/" should "respond SignIn with method SignInSelect with the available users" in withCleanSessions {
-    Get("/api/session/") ~> selectRoute ~> check {
+    Get("/api/session/") ~> route ~> check {
       responseAs[SignIn] shouldEqual SignIn(method = SignInSelect(userIds = Set(userId)))
     }
   }
@@ -83,14 +95,14 @@ class ServerTest
   it should "respond with the Session when already signed-in" in withCleanSessions {
     val sessionId = "session-id-value"
     Session.open(sessionId, userId, userConfig)
-    Get("/api/session/") ~> Cookie("session-id" -> sessionId) ~> selectRoute ~> check {
+    Get("/api/session/") ~> Cookie("session-id" -> sessionId) ~> route ~> check {
       Unmarshal(response.entity).to[String].value.map(_.map(_.parseJson)) shouldEqual Some(
         Success((sessionJson)))
     }
   }
 
   "SelectMode POST /api/session/" should "allow to SignIn with an existing user" in withCleanSessions {
-    Post("/api/session/", LoginRequest(userId, None)) ~> selectRoute ~> check {
+    Post("/api/session/", LoginRequest(userId, None)) ~> route ~> check {
       Unmarshal(response.entity).to[String].value.map(_.map(_.parseJson)) shouldEqual Some(
         Success((sessionJson)))
       val sessionId = sessionCookie()
@@ -99,27 +111,18 @@ class ServerTest
   }
 
   it should "forbid to SignIn with a non existing user" in withCleanSessions {
-    Post("/api/session/", LoginRequest(userId + " ", None)) ~> selectRoute ~> check {
+    Post("/api/session/", LoginRequest(userId + " ", None)) ~> route ~> check {
       responseAs[SignIn] shouldEqual SignIn(
         method = SignInSelect(userIds = Set(userId)),
-        invalidCredentials = true)
+        Some(InvalidCredentials))
     }
   }
 
   "SelectMode DELETE /api/session/" should "delete a given Session when signed-in" in withCleanSessions {
     val sessionId = "session-id-value-2"
     Session.open(sessionId, userId, userConfig)
-    Delete("/api/session/") ~> Cookie("session-id", sessionId) ~> selectRoute ~> check {
+    Delete("/api/session/") ~> Cookie("session-id", sessionId) ~> route ~> check {
       Session.current(sessionId) shouldBe None
-    }
-  }
-
-  "PasswordMode POST /api/session/" should "allow to SignIn with an existing user and the right password" in withCleanSessions {
-    Post("/api/session/", LoginRequest(userId, Some(password))) ~> passwordRoute ~> check {
-      Unmarshal(response.entity).to[String].value.map(_.map(_.parseJson)) shouldEqual Some(
-        Success((sessionJson)))
-      val sessionId = sessionCookie()
-      Session.current(sessionId).value shouldEqual Session(user)
     }
   }
 }

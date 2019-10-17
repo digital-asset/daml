@@ -38,7 +38,7 @@ import org.slf4j.LoggerFactory
 import sangria.schema._
 import spray.json._
 
-import scala.concurrent.{Await, ExecutionContext}
+import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration._
 import scala.util.{Failure, Success, Try}
 
@@ -87,7 +87,7 @@ abstract class UIBackend extends LazyLogging with ApplicationInfoJsonSupport {
       config: Config,
       graphQL: GraphQLHandler,
       info: InfoHandler,
-      store: ActorRef): Route = {
+      getAppState: () => Future[ApplicationStateInfo]): Route = {
 
     def openSession(userId: String, userConfig: UserConfig): Route = {
       val sessionId = UUID.randomUUID().toString
@@ -149,10 +149,9 @@ abstract class UIBackend extends LazyLogging with ApplicationInfoJsonSupport {
                             s"Attempt to signin with non-existent user ${request.userId}")
                           complete(signIn(Some(InvalidCredentials)))
                         case Some(userConfig) =>
-                          implicit val actorTimeout: Timeout = Timeout(5, TimeUnit.SECONDS)
                           import system.dispatcher
                           Await.result(
-                            (store ? GetApplicationStateInfo).mapTo[ApplicationStateInfo].collect {
+                            getAppState().collect {
                               case ApplicationStateFailed(_, _, _, _, error: StatusException)
                                   if error.getStatus.getCode == io.grpc.Status.Code.PERMISSION_DENIED =>
                                 logger.warn("Attempt to sign in without valid token")
@@ -168,7 +167,7 @@ abstract class UIBackend extends LazyLogging with ApplicationInfoJsonSupport {
                               case _ =>
                                 openSession(request.userId, userConfig)
                             },
-                            actorTimeout.duration
+                            Duration(5, TimeUnit.SECONDS)
                           )
                       }
                     }
@@ -258,10 +257,14 @@ abstract class UIBackend extends LazyLogging with ApplicationInfoJsonSupport {
 
     def graphQL: GraphQLHandler = DefaultGraphQLHandler(customEndpoints, Some(store))
     def info: InfoHandler = DefaultInfoHandler(arguments, store)
+    val getAppState: () => Future[ApplicationStateInfo] = () => {
+      implicit val actorTimeout: Timeout = Timeout(5, TimeUnit.SECONDS)
+      (store ? GetApplicationStateInfo).mapTo[ApplicationStateInfo]
+    }
 
     val stopServer = if (arguments.startWebServer) {
       val binding = Http().bindAndHandle(
-        getRoute(system, arguments, config, graphQL, info, store),
+        getRoute(system, arguments, config, graphQL, info, getAppState),
         "0.0.0.0",
         arguments.port)
       logger.info(s"DA UI backend server listening on port ${arguments.port}")
