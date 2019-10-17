@@ -14,3 +14,5 @@ HEAD — ongoing
 + [Ledger] Fixed a bug where ``CreatedEvent#event_id`` field is not properly filled by ``ActiveContractsService``.
   See `issue #65 <https://github.com/digital-asset/daml/issues/65>`__.
 + [DAML-LF (Internal)] Change the name of the bintray/maven ``com.digitalasset.daml-lf-archive-scala`` to ``com.digitalasset.daml-lf-archive-reader``
++ [DAML Triggers -Experimental] The trigger runner now logs output from ``trace``, ``error`` and
+  failed command completions and hides internal debugging output.

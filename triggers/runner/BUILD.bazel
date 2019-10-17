@@ -16,6 +16,7 @@ da_scala_library(
         "//3rdparty/jvm/com/github/scopt",
         "//3rdparty/jvm/com/typesafe/akka:akka_stream",
         "//3rdparty/jvm/org/scalaz:scalaz_core",
+        "//3rdparty/jvm/org/typelevel:paiges_core",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/archive:daml_lf_dev_archive_java_proto",
         "//daml-lf/data",
