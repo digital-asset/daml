@@ -15,6 +15,7 @@ genrule(
     srcs =
         glob(["**/*.daml"]) + [
             "//triggers/daml:daml-trigger.dar",
+            "//docs:source/triggers/template-root/src/CopyTrigger.daml",
         ],
     outs = ["acs.dar"],
     cmd = """
@@ -22,7 +23,7 @@ genrule(
       TMP_DIR=$$(mktemp -d)
       mkdir -p $$TMP_DIR/daml
       cp -L $(location :daml/ACS.daml) $$TMP_DIR/daml
-      cp -L $(location :daml/Copy.daml) $$TMP_DIR/daml
+      cp -L $(location //docs:source/triggers/template-root/src/CopyTrigger.daml) $$TMP_DIR/daml
       cp -L $(location //triggers/daml:daml-trigger.dar) $$TMP_DIR/
       cat << EOF > $$TMP_DIR/daml.yaml
 sdk-version: 0.0.0
