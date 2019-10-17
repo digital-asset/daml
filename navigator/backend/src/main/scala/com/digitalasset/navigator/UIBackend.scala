@@ -33,7 +33,7 @@ import com.digitalasset.navigator.store.Store.{
 }
 import com.digitalasset.navigator.store.platform.PlatformStore
 import com.typesafe.scalalogging.LazyLogging
-import io.grpc.{Status, StatusException, StatusRuntimeException}
+import io.grpc.{StatusException, StatusRuntimeException}
 import org.slf4j.LoggerFactory
 import sangria.schema._
 import spray.json._
@@ -154,11 +154,11 @@ abstract class UIBackend extends LazyLogging with ApplicationInfoJsonSupport {
                           Await.result(
                             (store ? GetApplicationStateInfo).mapTo[ApplicationStateInfo].collect {
                               case ApplicationStateFailed(_, _, _, _, error: StatusException)
-                                  if error.getStatus.getCode == Status.Code.PERMISSION_DENIED =>
+                                  if error.getStatus.getCode == io.grpc.Status.Code.PERMISSION_DENIED =>
                                 logger.warn("Attempt to sign in without valid token")
                                 complete(signIn(Some(InvalidCredentials)))
                               case ApplicationStateFailed(_, _, _, _, error: StatusRuntimeException)
-                                  if error.getStatus.getCode == Status.Code.PERMISSION_DENIED =>
+                                  if error.getStatus.getCode == io.grpc.Status.Code.PERMISSION_DENIED =>
                                 logger.warn("Attempt to sign in without valid token")
                                 complete(signIn(Some(InvalidCredentials)))
                               case _: ApplicationStateFailed =>
