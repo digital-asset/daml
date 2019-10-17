@@ -7,12 +7,12 @@ import java.nio.file.{Path, Paths}
 import java.util.UUID
 import java.util.concurrent.TimeUnit
 
-import akka.actor.{ActorRef, ActorSystem}
+import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
-import akka.http.scaladsl.model.StatusCodes._
-import akka.http.scaladsl.model.headers.{Cookie, EntityTag, HttpCookie, `Cache-Control`}
-import akka.http.scaladsl.model.headers.CacheDirectives.{`max-age`, `no-cache`, immutableDirective}
 import akka.http.scaladsl.model.HttpHeader
+import akka.http.scaladsl.model.StatusCodes._
+import akka.http.scaladsl.model.headers.CacheDirectives.{`max-age`, `no-cache`, immutableDirective}
+import akka.http.scaladsl.model.headers.{Cookie, EntityTag, HttpCookie, `Cache-Control`}
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.Route
 import akka.http.scaladsl.settings.RoutingSettings
@@ -24,13 +24,7 @@ import com.digitalasset.navigator.config._
 import com.digitalasset.navigator.graphql.GraphQLContext
 import com.digitalasset.navigator.graphqless.GraphQLObject
 import com.digitalasset.navigator.model.{Ledger, PackageRegistry}
-import com.digitalasset.navigator.store.Store.{
-  ApplicationStateConnecting,
-  ApplicationStateFailed,
-  ApplicationStateInfo,
-  GetApplicationStateInfo,
-  Subscribe
-}
+import com.digitalasset.navigator.store.Store._
 import com.digitalasset.navigator.store.platform.PlatformStore
 import com.typesafe.scalalogging.LazyLogging
 import io.grpc.{StatusException, StatusRuntimeException}
@@ -38,8 +32,8 @@ import org.slf4j.LoggerFactory
 import sangria.schema._
 import spray.json._
 
-import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration._
+import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
 /**
