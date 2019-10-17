@@ -474,9 +474,9 @@ load("@bazel_skylib//lib:dicts.bzl", "dicts")
 # For the time being we build with GMP. See https://github.com/digital-asset/daml/issues/106
 use_integer_simple = not is_windows
 
-HASKELL_LSP_COMMIT = "5d1dfe82c9955d81cc0e0bb7a3e8bf6d2c4c42e4"
+HASKELL_LSP_COMMIT = "fefcae8b44aaf7658e0f90d5530832efe0b32053"
 
-HASKELL_LSP_HASH = "c8b93dc2692bca5162278c783d8cc5011a118a726e7df3f2632f3f0d480455c1"
+HASKELL_LSP_HASH = "410af26154494735694ae323b3431d6a6ccb49ab6f028b56656039b5662de7d6"
 
 GRPC_HASKELL_COMMIT = "11681ec6b99add18a8d1315f202634aea343d146"
 
@@ -605,10 +605,10 @@ hazel_repositories(
             # Hazel does not handle that for now, so we patch the cabal file
             # to add an explicit dependency on haskell-lsp-types.
             hazel_github_external(
-                "bubba",
+                "digital-asset",
                 "lsp-test",
-                "d126623dc6895d325e3d204d74e2a22d4f515587",
-                "214848612d319bbded67341c51fd151d65cc80264b9cfe70755ef6941b450ec9",
+                "40da0529edb687864acf2716dff310d38b0641c6",
+                "b72566fe58906ca9bf35ad340db46f0ad140e502352af028ed8a1e39a5047823",
                 patch_args = ["-p1"],
                 patches = ["@com_github_digital_asset_daml//bazel_tools:haskell-lsp-test-no-reexport.patch"],
             ) + hazel_github_external(
@@ -685,7 +685,7 @@ hazel_custom_package_github(
     strip_prefix = "wai-app-static",
 )
 
-GHCIDE_REV = "2a67821e608a95a660af7414fdcfa8cd907576e8"
+GHCIDE_REV = "5febbcbc48c7d7d4fdc8902718cecf0a2c49cc8e"
 
 # We need a custom build file to depend on ghc-lib and ghc-lib-parser
 hazel_custom_package_github(

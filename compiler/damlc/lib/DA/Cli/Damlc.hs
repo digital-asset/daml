@@ -377,8 +377,8 @@ execIde telemetry (Debug debug) enableScenarioService ghcOpts mbProfileDir (from
               withScenarioService' enableScenarioService loggerH scenarioServiceConfig $ \mbScenarioService -> do
                   sdkVersion <- getSdkVersion `catchIO` const (pure "Unknown (not started via the assistant)")
                   Logger.logInfo loggerH (T.pack $ "SDK version: " <> sdkVersion)
-                  runLanguageServer $ \sendMsg vfs caps ->
-                      getDamlIdeState opts mbScenarioService loggerH sendMsg vfs (clientSupportsProgress caps)
+                  runLanguageServer $ \getLspId sendMsg vfs caps ->
+                      getDamlIdeState opts mbScenarioService loggerH getLspId sendMsg vfs (clientSupportsProgress caps)
 
 
 execCompile :: FilePath -> FilePath -> Options -> Maybe FilePath -> Command

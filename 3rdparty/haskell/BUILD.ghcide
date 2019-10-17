@@ -162,6 +162,7 @@ haskell_binary(
         hazel_library("ghc-paths"),
         hazel_library("ghc"),
         hazel_library("haskell-lsp"),
+        hazel_library("haskell-lsp-types"),
         hazel_library("hie-bios"),
         hazel_library("optparse-applicative"),
         hazel_library("shake"),

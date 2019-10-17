@@ -179,7 +179,7 @@ runShakeTest mbScenarioService (ShakeTest m) = do
         eventLogger _ = pure ()
     vfs <- API.makeVFSHandle
     damlEnv <- mkDamlEnv options mbScenarioService
-    service <- API.initialise (mainRule options) (atomically . eventLogger) noLogging damlEnv (toCompileOpts options (IdeReportProgress False)) vfs
+    service <- API.initialise (mainRule options) (pure $ IdInt 0) (atomically . eventLogger) noLogging damlEnv (toCompileOpts options (IdeReportProgress False)) vfs
     result <- withSystemTempDirectory "shake-api-test" $ \testDirPath -> do
         let ste = ShakeTestEnv
                 { steService = service
