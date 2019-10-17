@@ -194,6 +194,12 @@ object Value {
   final case class ValueDate(value: Time.Date) extends ValueCidlessLeaf
   final case class ValueParty(value: Ref.Party) extends ValueCidlessLeaf
   final case class ValueBool(value: Boolean) extends ValueCidlessLeaf
+  object ValueBool {
+    val True = new ValueBool(true)
+    val Fasle = new ValueBool(false)
+    def apply(value: Boolean): ValueBool =
+      if (value) ValueTrue else ValueFalse
+  }
   case object ValueUnit extends ValueCidlessLeaf
   final case class ValueOptional[+Cid](value: Option[Value[Cid]]) extends Value[Cid]
   final case class ValueMap[+Cid](value: SortedLookupList[Value[Cid]]) extends Value[Cid]
@@ -311,4 +317,9 @@ object Value {
 
   /*** Keys cannot contain contract ids */
   type Key = Value[Nothing]
+
+  val ValueTrue: ValueBool = ValueBool.True
+  val ValueFalse: ValueBool = ValueBool.Fasle
+  val ValueNil: ValueList[Nothing] = ValueList(FrontStack.empty)
+  val ValueNone: ValueOptional[Nothing] = ValueOptional(None)
 }

@@ -62,7 +62,7 @@ object TypedValueGenerators {
     val unit = noCid(PT.Unit, (_: Unit) => ValueUnit) { case ValueUnit => () }
     val date = noCid(PT.Date, ValueDate) { case ValueDate(d) => d }
     val timestamp = noCid(PT.Timestamp, ValueTimestamp) { case ValueTimestamp(t) => t }
-    val bool = noCid(PT.Bool, ValueBool) { case ValueBool(b) => b }
+    val bool = noCid(PT.Bool, ValueBool(_)) { case ValueBool(b) => b }
     val party = noCid(PT.Party, ValueParty) { case ValueParty(p) => p }
 
     def numeric(scale: Numeric.Scale): NoCid[Numeric] = new ValueAddend {

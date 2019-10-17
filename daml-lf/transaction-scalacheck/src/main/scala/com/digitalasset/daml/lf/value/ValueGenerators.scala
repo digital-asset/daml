@@ -229,7 +229,7 @@ object ValueGenerators {
         (sz + 1, timestampGen.map(ValueTimestamp)),
         (sz + 1, coidValueGen),
         (sz + 1, party.map(ValueParty)),
-        (sz + 1, Gen.oneOf(true, false).map(ValueBool))
+        (sz + 1, Gen.oneOf(ValueTrue, ValueFalse)),
       )
       val all =
         if (nesting >= MAXIMUM_NESTING) { List() } else { nested } ++

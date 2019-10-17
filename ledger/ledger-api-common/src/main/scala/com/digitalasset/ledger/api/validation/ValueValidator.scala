@@ -98,7 +98,7 @@ object ValueValidator {
         .map(elements => Lf.ValueList(FrontStack(elements.toImmArray)))
     case _: Sum.Unit => Right(ValueUnit)
     case Sum.Optional(o) =>
-      o.value.fold[Either[StatusRuntimeException, domain.Value]](Right(Lf.ValueOptional(None)))(
+      o.value.fold[Either[StatusRuntimeException, domain.Value]](Right(Lf.ValueNone))(
         validateValue(_).map(v => Lf.ValueOptional(Some(v))))
     case Sum.Map(m) =>
       val entries = m.entries

@@ -6,6 +6,7 @@ package com.digitalasset.daml.lf.speedy
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.language.Ast._
+import com.digitalasset.daml.lf.language.Util._
 import com.digitalasset.daml.lf.speedy.Compiler.{CompileError, PackageNotFound}
 import com.digitalasset.daml.lf.speedy.SBuiltin._
 import com.digitalasset.daml.lf.speedy.SExpr._
@@ -189,6 +190,9 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
     case _: SCPVariant | SCPSome => 1
     case SCPCons => 2
   }
+
+  private val compileGetTime: SExpr =
+    SEAbs(1) { SBGetTime(SEVar(1)) }
 
   private def translate(expr0: Expr): SExpr =
     expr0 match {
@@ -485,7 +489,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
             compileExercise(tmplId, translate(cidE), chId, actorsE.map(translate), translate(argE))
 
           case UpdateGetTime =>
-            SEAbs(1) { SBGetTime(SEVar(1)) }
+            compileGetTime
 
           case UpdateLookupByKey(retrieveByKey) =>
             // Translates 'lookupByKey Foo <key>' into:
@@ -689,7 +693,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
         }
 
       case ScenarioGetTime =>
-        SEAbs(1) { SBGetTime(SEVar(1)) }
+        compileGetTime
 
       case ScenarioGetParty(e) =>
         withEnv { _ =>
@@ -723,12 +727,13 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
     }
   }
 
-  private def translatePure(body: Expr): SExpr = {
+  private val SEDropSecondArgument = SEAbs(2, SEVar(2))
+
+  private def translatePure(body: Expr): SExpr =
     // pure <E>
     // =>
     // ((\x token -> x) <E>)
-    SEApp(SEAbs(2, SEVar(2)), Array(translate(body)))
-  }
+    SEApp(SEDropSecondArgument, Array(translate(body)))
 
   private def translateBlock(bindings: ImmArray[Binding], body: Expr): SExpr = {
     // do
@@ -1269,10 +1274,13 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
       )
   }
 
+  private val SEUpdatePureUnit = translate(EUpdate(UpdatePure(TUnit, EUnit)))
+  private val appBoundHead = SEApp(SEVar(2), Array(SEVar(1)))
+
   private def translateCommands(bindings: ImmArray[Command]): SExpr = {
 
     if (bindings.isEmpty)
-      translate(EUpdate(UpdatePure(TBuiltin(BTUnit), EPrimCon(PCUnit))))
+      SEUpdatePureUnit
     else
       withEnv { _ =>
         val boundHead = translateCommand(bindings.head)
@@ -1282,7 +1290,6 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
         env = env.incrPos // token
 
         // add the first binding into the environment
-        val appBoundHead = SEApp(SEVar(2), Array(SEVar(1)))
         env = env.incrPos
 
         // and then the rest
@@ -1295,9 +1302,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
         SELet(boundHead) in
           SEAbs(1) {
             SELet(allBounds: _*) in
-              SEApp(
-                translate(EUpdate(UpdatePure(TBuiltin(BTUnit), EPrimCon(PCUnit)))),
-                Array(SEVar(env.position - tokenPosition)))
+              SEApp(SEUpdatePureUnit, Array(SEVar(env.position - tokenPosition)))
           }
       }
   }
