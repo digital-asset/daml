@@ -407,3 +407,5 @@ pkg_tar(
     strip_prefix = "source/triggers/template-root",
     visibility = ["//visibility:public"],
 )
+
+exports_files(["source/triggers/template-root/src/CopyTrigger.daml"])

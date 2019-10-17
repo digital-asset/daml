@@ -408,18 +408,19 @@ case class AcsTests(dar: Dar[(PackageId, Package)], runner: TestRunner) {
 case class CopyTests(dar: Dar[(PackageId, Package)], runner: TestRunner) {
 
   val triggerId: Identifier =
-    Identifier(dar.main._1, QualifiedName.assertFromString("Copy:copyTrigger"))
+    Identifier(dar.main._1, QualifiedName.assertFromString("CopyTrigger:copyTrigger"))
 
-  val masterId = Identifier(dar.main._1, QualifiedName.assertFromString("Copy:Master"))
+  val originalId = Identifier(dar.main._1, QualifiedName.assertFromString("CopyTrigger:Original"))
 
-  val copyId = Identifier(dar.main._1, QualifiedName.assertFromString("Copy:Copy"))
+  val copyId = Identifier(dar.main._1, QualifiedName.assertFromString("CopyTrigger:Copy"))
 
-  val subscriberId = Identifier(dar.main._1, QualifiedName.assertFromString("Copy:Subscriber"))
+  val subscriberId =
+    Identifier(dar.main._1, QualifiedName.assertFromString("CopyTrigger:Subscriber"))
 
   def test(
       name: String,
       numMessages: NumMessages,
-      numMasters: Int,
+      numOriginals: Int,
       numSubscribers: Int,
       numCopies: Int,
       commands: (LedgerClient, String) => ExecutionContext => ActorMaterializer => Future[Unit]) = {
@@ -430,9 +431,9 @@ case class CopyTests(dar: Dar[(PackageId, Package)], runner: TestRunner) {
       println(acs)
       for {
         _ <- TestRunner.assertEqual(
-          acs.get(masterId).fold(0)(_.size),
-          numMasters,
-          "number of Master contracts")
+          acs.get(originalId).fold(0)(_.size),
+          numOriginals,
+          "number of Original contracts")
         _ <- TestRunner.assertEqual(
           acs.get(subscriberId).fold(0)(_.size),
           numSubscribers,
@@ -453,18 +454,18 @@ case class CopyTests(dar: Dar[(PackageId, Package)], runner: TestRunner) {
       assertFinalACS)
   }
 
-  def createMaster(client: LedgerClient, owner: String, name: String, commandId: String)(
+  def createOriginal(client: LedgerClient, owner: String, name: String, commandId: String)(
       implicit ec: ExecutionContext,
       mat: ActorMaterializer): Future[Unit] = {
     val commands = Seq(
       Command().withCreate(CreateCommand(
-        templateId = Some(toApiIdentifier(masterId)),
+        templateId = Some(toApiIdentifier(originalId)),
         createArguments = Some(value.Record(
-          recordId = Some(toApiIdentifier(masterId)),
+          recordId = Some(toApiIdentifier(originalId)),
           fields = Seq(
             value.RecordField("owner", Some(value.Value().withParty(owner))),
             value.RecordField("name", Some(value.Value().withText(name))),
-            value.RecordField("info", Some(value.Value().withText("")))
+            value.RecordField("textdata", Some(value.Value().withText("")))
           )
         ))
       )))
@@ -484,17 +485,20 @@ case class CopyTests(dar: Dar[(PackageId, Package)], runner: TestRunner) {
     } yield ()
   }
 
-  def createSubscriber(client: LedgerClient, owner: String, obs: String, commandId: String)(
-      implicit ec: ExecutionContext,
-      mat: ActorMaterializer): Future[Unit] = {
+  def createSubscriber(
+      client: LedgerClient,
+      subscriber: String,
+      subscribedTo: String,
+      commandId: String)(implicit ec: ExecutionContext, mat: ActorMaterializer): Future[Unit] = {
     val commands = Seq(
       Command().withCreate(CreateCommand(
         templateId = Some(toApiIdentifier(subscriberId)),
         createArguments = Some(value.Record(
           recordId = Some(toApiIdentifier(subscriberId)),
           fields = Seq(
-            value.RecordField("owner", Some(value.Value().withParty(owner))),
-            value.RecordField("obs", Some(value.Value().withParty(obs))))
+            value.RecordField("subscriber", Some(value.Value().withParty(subscriber))),
+            value.RecordField("subscribedTo", Some(value.Value().withParty(subscribedTo)))
+          )
         ))
       )))
 
@@ -505,7 +509,7 @@ case class CopyTests(dar: Dar[(PackageId, Package)], runner: TestRunner) {
           ledgerId = client.ledgerId.unwrap,
           applicationId = runner.applicationId.unwrap,
           commandId = commandId,
-          party = obs,
+          party = subscriber,
           ledgerEffectiveTime = Some(fromInstant(Instant.EPOCH)),
           maximumRecordTime = Some(fromInstant(Instant.EPOCH.plusSeconds(5))),
           commands = commands
@@ -515,58 +519,58 @@ case class CopyTests(dar: Dar[(PackageId, Package)], runner: TestRunner) {
 
   def runTests() = {
     test(
-      "1 master, 0 subscriber",
-      // 1 for create of master
+      "1 original, 0 subscriber",
+      // 1 for create of original
       // 1 for corresponding completion
       NumMessages(2),
-      numMasters = 1,
+      numOriginals = 1,
       numSubscribers = 0,
       numCopies = 0,
       (client, party) => { implicit ec: ExecutionContext => implicit mat: ActorMaterializer =>
         {
           for {
-            _ <- createMaster(client, owner = party, name = "master0", "0.0")
+            _ <- createOriginal(client, owner = party, name = "original0", "0.0")
           } yield ()
         }
       }
     )
     test(
-      "1 master, 1 subscriber",
-      // 1 for create of master
+      "1 original, 1 subscriber",
+      // 1 for create of original
       // 1 for create of subscriber
       // 2 for corresponding completions
       // 1 for create of copy
       // 1 for corresponding completion
       NumMessages(6),
-      numMasters = 1,
+      numOriginals = 1,
       numSubscribers = 1,
       numCopies = 1,
       (client, party) => { implicit ec: ExecutionContext => implicit mat: ActorMaterializer =>
         {
           for {
-            _ <- createMaster(client, owner = party, name = "master0", "1.0")
-            _ <- createSubscriber(client, owner = party, obs = party, "1.1")
+            _ <- createOriginal(client, owner = party, name = "original0", "1.0")
+            _ <- createSubscriber(client, subscriber = party, subscribedTo = party, "1.1")
           } yield ()
         }
       }
     )
     test(
-      "2 master, 1 subscriber",
-      // 2 for create of master
+      "2 original, 1 subscriber",
+      // 2 for create of original
       // 1 for create of subscriber
       // 3 for corresponding completions
       // 2 for create of copy
       // 2 for corresponding completion
       NumMessages(10),
-      numMasters = 2,
+      numOriginals = 2,
       numSubscribers = 1,
       numCopies = 2,
       (client, party) => { implicit ec: ExecutionContext => implicit mat: ActorMaterializer =>
         {
           for {
-            _ <- createMaster(client, owner = party, name = "master0", "2.0")
-            _ <- createMaster(client, owner = party, name = "master1", "2.1")
-            _ <- createSubscriber(client, owner = party, obs = party, "2.2")
+            _ <- createOriginal(client, owner = party, name = "original0", "2.0")
+            _ <- createOriginal(client, owner = party, name = "original1", "2.1")
+            _ <- createSubscriber(client, subscriber = party, subscribedTo = party, "2.2")
           } yield ()
         }
       }
