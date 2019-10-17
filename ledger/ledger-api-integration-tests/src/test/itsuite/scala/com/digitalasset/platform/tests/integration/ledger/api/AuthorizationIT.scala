@@ -86,16 +86,20 @@ class AuthorizationIT
   private val alice = testIdsGenerator.testPartyName("Alice")
   private val bob = testIdsGenerator.testPartyName("Bob")
 
+  private val operatorHeader = s"Bearer $operator"
+  private val aliceHeader = s"Bearer $alice"
+  private val bobHeader = s"Bearer $bob"
+
   private val testApplicationId = "AuthorizationIT"
 
   override protected def config: Config =
     Config.default
       .withAuthService(AuthServiceStatic({
-        case `alice` =>
+        case `aliceHeader` =>
           Claims(List[Claim](ClaimPublic, ClaimActAsParty(Ref.Party.assertFromString(alice))))
-        case `bob` =>
+        case `bobHeader` =>
           Claims(List[Claim](ClaimPublic, ClaimActAsParty(Ref.Party.assertFromString(bob))))
-        case `operator` =>
+        case `operatorHeader` =>
           Claims(
             List[Claim](
               ClaimPublic,
@@ -107,8 +111,8 @@ class AuthorizationIT
     "getActiveContracts" should {
       "work only when authorized" in allFixtures { ctxNone =>
         val ledgerId = ctxNone.ledgerId.unwrap
-        val ctxAlice = ctxNone.withAuthorizationHeader(alice)
-        val ctxBob = ctxNone.withAuthorizationHeader(bob)
+        val ctxAlice = ctxNone.withAuthorizationHeader(aliceHeader)
+        val ctxBob = ctxNone.withAuthorizationHeader(bobHeader)
 
         def call(ctx: LedgerContext, party: String) =
           streamResult[GetActiveContractsResponse](
@@ -132,7 +136,7 @@ class AuthorizationIT
     "completionEnd" should {
       "work only when authorized" in allFixtures { ctxNone =>
         val ledgerId = ctxNone.ledgerId.unwrap
-        val ctxAlice = ctxNone.withAuthorizationHeader(alice)
+        val ctxAlice = ctxNone.withAuthorizationHeader(aliceHeader)
 
         def call(ctx: LedgerContext) =
           ctx.commandCompletionService.completionEnd(new CompletionEndRequest(ledgerId))
@@ -148,8 +152,8 @@ class AuthorizationIT
     "completionStream" should {
       "work only when authorized" in allFixtures { ctxNone =>
         val ledgerId = ctxNone.ledgerId
-        val ctxAlice = ctxNone.withAuthorizationHeader(alice)
-        val ctxBob = ctxNone.withAuthorizationHeader(bob)
+        val ctxAlice = ctxNone.withAuthorizationHeader(aliceHeader)
+        val ctxBob = ctxNone.withAuthorizationHeader(bobHeader)
 
         def call(ctx: LedgerContext, party: String) =
           streamResult[CompletionStreamResponse](
@@ -180,8 +184,8 @@ class AuthorizationIT
     "submitAndWait" should {
       "work only when authorized" in allFixtures { ctxNone =>
         val ledgerId = ctxNone.ledgerId
-        val ctxAlice = ctxNone.withAuthorizationHeader(alice)
-        val ctxBob = ctxNone.withAuthorizationHeader(bob)
+        val ctxAlice = ctxNone.withAuthorizationHeader(aliceHeader)
+        val ctxBob = ctxNone.withAuthorizationHeader(bobHeader)
 
         def call(ctx: LedgerContext, party: String) =
           ctx.commandService.submitAndWait(dummySubmitAndWaitRequest(ledgerId, party))
@@ -198,8 +202,8 @@ class AuthorizationIT
     "submitAndWaitForTransaction" should {
       "work only when authorized" in allFixtures { ctxNone =>
         val ledgerId = ctxNone.ledgerId
-        val ctxAlice = ctxNone.withAuthorizationHeader(alice)
-        val ctxBob = ctxNone.withAuthorizationHeader(bob)
+        val ctxAlice = ctxNone.withAuthorizationHeader(aliceHeader)
+        val ctxBob = ctxNone.withAuthorizationHeader(bobHeader)
 
         def call(ctx: LedgerContext, party: String) =
           ctx.commandService.submitAndWaitForTransaction(dummySubmitAndWaitRequest(ledgerId, party))
@@ -216,8 +220,8 @@ class AuthorizationIT
     "submitAndWaitForTransactionId" should {
       "work only when authorized" in allFixtures { ctxNone =>
         val ledgerId = ctxNone.ledgerId
-        val ctxAlice = ctxNone.withAuthorizationHeader(alice)
-        val ctxBob = ctxNone.withAuthorizationHeader(bob)
+        val ctxAlice = ctxNone.withAuthorizationHeader(aliceHeader)
+        val ctxBob = ctxNone.withAuthorizationHeader(bobHeader)
 
         def call(ctx: LedgerContext, party: String) =
           ctx.commandService.submitAndWaitForTransactionId(
@@ -235,8 +239,8 @@ class AuthorizationIT
     "submitAndWaitForTransactionTree" should {
       "work only when authorized" in allFixtures { ctxNone =>
         val ledgerId = ctxNone.ledgerId
-        val ctxAlice = ctxNone.withAuthorizationHeader(alice)
-        val ctxBob = ctxNone.withAuthorizationHeader(bob)
+        val ctxAlice = ctxNone.withAuthorizationHeader(aliceHeader)
+        val ctxBob = ctxNone.withAuthorizationHeader(bobHeader)
 
         def call(ctx: LedgerContext, party: String) =
           ctx.commandService.submitAndWaitForTransactionTree(
@@ -257,8 +261,8 @@ class AuthorizationIT
     "submit" should {
       "work only when authorized" in allFixtures { ctxNone =>
         val ledgerId = ctxNone.ledgerId
-        val ctxAlice = ctxNone.withAuthorizationHeader(alice)
-        val ctxBob = ctxNone.withAuthorizationHeader(bob)
+        val ctxAlice = ctxNone.withAuthorizationHeader(aliceHeader)
+        val ctxBob = ctxNone.withAuthorizationHeader(bobHeader)
 
         def call(ctx: LedgerContext, party: String) =
           ctx.commandSubmissionService.submit(dummyCommandRequest(ledgerId, party))
@@ -278,7 +282,7 @@ class AuthorizationIT
     "getLedgerConfiguration" should {
       "work only when authorized" in allFixtures { ctxNone =>
         val ledgerId = ctxNone.ledgerId.unwrap
-        val ctxAlice = ctxNone.withAuthorizationHeader(alice)
+        val ctxAlice = ctxNone.withAuthorizationHeader(aliceHeader)
 
         def call(ctx: LedgerContext) =
           streamResult[GetLedgerConfigurationResponse](
@@ -300,7 +304,7 @@ class AuthorizationIT
   "LedgerIdentityService" when {
     "getLedgerIdentity" should {
       "work only when authorized" in allFixtures { ctxNone =>
-        val ctxAlice = ctxNone.withAuthorizationHeader(alice)
+        val ctxAlice = ctxNone.withAuthorizationHeader(aliceHeader)
 
         def call(ctx: LedgerContext) =
           ctx.ledgerIdentityService.getLedgerIdentity(new GetLedgerIdentityRequest())
@@ -318,8 +322,8 @@ class AuthorizationIT
   "PackageManagementService" when {
     "listKnownPackages" should {
       "work only when authorized" in allFixtures { ctxNone =>
-        val ctxAlice = ctxNone.withAuthorizationHeader(alice)
-        val ctxAdmin = ctxNone.withAuthorizationHeader(operator)
+        val ctxAlice = ctxNone.withAuthorizationHeader(aliceHeader)
+        val ctxAdmin = ctxNone.withAuthorizationHeader(operatorHeader)
 
         def call(ctx: LedgerContext) =
           ctx.packageManagementService.listKnownPackages(new ListKnownPackagesRequest())
@@ -338,8 +342,8 @@ class AuthorizationIT
         val darFile =
           Files.readAllBytes(new File(rlocation("ledger/test-common/Test-stable.dar")).toPath)
 
-        val ctxAlice = ctxNone.withAuthorizationHeader(alice)
-        val ctxAdmin = ctxNone.withAuthorizationHeader(operator)
+        val ctxAlice = ctxNone.withAuthorizationHeader(aliceHeader)
+        val ctxAdmin = ctxNone.withAuthorizationHeader(operatorHeader)
 
         def call(ctx: LedgerContext) =
           ctx.packageManagementService.uploadDarFile(
@@ -359,8 +363,8 @@ class AuthorizationIT
   "PartyManagementService" when {
     "listKnownParties" should {
       "work only when authorized" in allFixtures { ctxNone =>
-        val ctxAlice = ctxNone.withAuthorizationHeader(alice)
-        val ctxAdmin = ctxNone.withAuthorizationHeader(operator)
+        val ctxAlice = ctxNone.withAuthorizationHeader(aliceHeader)
+        val ctxAdmin = ctxNone.withAuthorizationHeader(operatorHeader)
 
         def call(ctx: LedgerContext) =
           ctx.partyManagementService.listKnownParties(new ListKnownPartiesRequest())
@@ -376,8 +380,8 @@ class AuthorizationIT
     }
     "allocateParty" should {
       "work only when authorized" in allFixtures { ctxNone =>
-        val ctxAlice = ctxNone.withAuthorizationHeader(alice)
-        val ctxAdmin = ctxNone.withAuthorizationHeader(operator)
+        val ctxAlice = ctxNone.withAuthorizationHeader(aliceHeader)
+        val ctxAdmin = ctxNone.withAuthorizationHeader(operatorHeader)
 
         def call(ctx: LedgerContext) =
           ctx.partyManagementService.allocateParty(new AllocatePartyRequest("AuthorizationIT"))
@@ -397,8 +401,8 @@ class AuthorizationIT
     "getTime" should {
       "work only when authorized" in allFixtures { ctxNone =>
         val ledgerId = ctxNone.ledgerId.unwrap
-        val ctxAlice = ctxNone.withAuthorizationHeader(alice)
-        val ctxAdmin = ctxNone.withAuthorizationHeader(operator)
+        val ctxAlice = ctxNone.withAuthorizationHeader(aliceHeader)
+        val ctxAdmin = ctxNone.withAuthorizationHeader(operatorHeader)
 
         def call(ctx: LedgerContext) =
           streamResult[GetTimeResponse](observer =>
@@ -419,8 +423,8 @@ class AuthorizationIT
     "getLedgerEnd" should {
       "work only when authorized" in allFixtures { ctxNone =>
         val ledgerId = ctxNone.ledgerId.unwrap
-        val ctxAlice = ctxNone.withAuthorizationHeader(alice)
-        val ctxAdmin = ctxNone.withAuthorizationHeader(operator)
+        val ctxAlice = ctxNone.withAuthorizationHeader(aliceHeader)
+        val ctxAdmin = ctxNone.withAuthorizationHeader(operatorHeader)
         def call(ctx: LedgerContext) =
           ctx.transactionService.getLedgerEnd(new GetLedgerEndRequest(ledgerId))
 
@@ -436,8 +440,8 @@ class AuthorizationIT
     "getTransactions" should {
       "work only when authorized" in allFixtures { ctxNone =>
         val ledgerId = ctxNone.ledgerId.unwrap
-        val ctxAlice = ctxNone.withAuthorizationHeader(alice)
-        val ctxBob = ctxNone.withAuthorizationHeader(bob)
+        val ctxAlice = ctxNone.withAuthorizationHeader(aliceHeader)
+        val ctxBob = ctxNone.withAuthorizationHeader(bobHeader)
         def call(ctx: LedgerContext, party: String) =
           streamResult[GetTransactionsResponse](
             observer =>
@@ -457,8 +461,8 @@ class AuthorizationIT
     "getTransactionTrees" should {
       "work only when authorized" in allFixtures { ctxNone =>
         val ledgerId = ctxNone.ledgerId.unwrap
-        val ctxAlice = ctxNone.withAuthorizationHeader(alice)
-        val ctxBob = ctxNone.withAuthorizationHeader(bob)
+        val ctxAlice = ctxNone.withAuthorizationHeader(aliceHeader)
+        val ctxBob = ctxNone.withAuthorizationHeader(bobHeader)
         def call(ctx: LedgerContext, party: String) =
           streamResult[GetTransactionTreesResponse](
             observer =>
@@ -478,8 +482,8 @@ class AuthorizationIT
     "getTransactionById" should {
       "work only when authorized" in allFixtures { ctxNone =>
         val ledgerId = ctxNone.ledgerId.unwrap
-        val ctxAlice = ctxNone.withAuthorizationHeader(alice)
-        val ctxBob = ctxNone.withAuthorizationHeader(bob)
+        val ctxAlice = ctxNone.withAuthorizationHeader(aliceHeader)
+        val ctxBob = ctxNone.withAuthorizationHeader(bobHeader)
         def call(ctx: LedgerContext, party: String) =
           ctx.transactionService.getTransactionById(
             new GetTransactionByIdRequest(ledgerId, "does-not-exist", List(party)))
@@ -496,8 +500,8 @@ class AuthorizationIT
     "getTransactionByEventId" should {
       "work only when authorized" in allFixtures { ctxNone =>
         val ledgerId = ctxNone.ledgerId.unwrap
-        val ctxAlice = ctxNone.withAuthorizationHeader(alice)
-        val ctxBob = ctxNone.withAuthorizationHeader(bob)
+        val ctxAlice = ctxNone.withAuthorizationHeader(aliceHeader)
+        val ctxBob = ctxNone.withAuthorizationHeader(bobHeader)
         def call(ctx: LedgerContext, party: String) =
           ctx.transactionService.getTransactionByEventId(
             new GetTransactionByEventIdRequest(ledgerId, "does-not-exist", List(party)))
@@ -514,8 +518,8 @@ class AuthorizationIT
     "getFlatTransactionById" should {
       "work only when authorized" in allFixtures { ctxNone =>
         val ledgerId = ctxNone.ledgerId.unwrap
-        val ctxAlice = ctxNone.withAuthorizationHeader(alice)
-        val ctxBob = ctxNone.withAuthorizationHeader(bob)
+        val ctxAlice = ctxNone.withAuthorizationHeader(aliceHeader)
+        val ctxBob = ctxNone.withAuthorizationHeader(bobHeader)
         def call(ctx: LedgerContext, party: String) =
           ctx.transactionService.getFlatTransactionById(
             new GetTransactionByIdRequest(ledgerId, "does-not-exist", List(party)))
@@ -532,8 +536,8 @@ class AuthorizationIT
     "getFlatTransactionByEventId" should {
       "work only when authorized" in allFixtures { ctxNone =>
         val ledgerId = ctxNone.ledgerId.unwrap
-        val ctxAlice = ctxNone.withAuthorizationHeader(alice)
-        val ctxBob = ctxNone.withAuthorizationHeader(bob)
+        val ctxAlice = ctxNone.withAuthorizationHeader(aliceHeader)
+        val ctxBob = ctxNone.withAuthorizationHeader(bobHeader)
         def call(ctx: LedgerContext, party: String) =
           ctx.transactionService.getFlatTransactionByEventId(
             new GetTransactionByEventIdRequest(ledgerId, "does-not-exist", List(party)))
