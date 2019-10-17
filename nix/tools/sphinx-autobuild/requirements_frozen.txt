@@ -5,7 +5,7 @@ packaging==16.8
 pathtools==0.1.2
 port-for==0.3.1
 pyparsing==2.2.0
-PyYAML==3.12
+PyYAML==5.1
 six==1.11.0
 sphinx-autobuild==0.7.1
 tornado==4.5.2
