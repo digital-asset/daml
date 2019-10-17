@@ -44,6 +44,7 @@ import Data.Proxy
 import           Development.IDE.Types.Diagnostics
 import           Data.Maybe
 import           Development.Shake hiding (cmd, withResource)
+import qualified Language.Haskell.LSP.Types as LSP
 import           System.Directory.Extra
 import           System.Environment.Blank (setEnv)
 import           System.FilePath
@@ -135,7 +136,7 @@ getIntegrationTests registerTODO scenarioService version = do
     damlEnv <- mkDamlEnv opts (Just scenarioService)
     pure $
       withResource
-      (initialise (mainRule opts) (const $ pure ()) IdeLogger.noLogging damlEnv (toCompileOpts opts (IdeReportProgress False)) vfs)
+      (initialise (mainRule opts) (pure $ LSP.IdInt 0) (const $ pure ()) IdeLogger.noLogging damlEnv (toCompileOpts opts (IdeReportProgress False)) vfs)
       shutdown $ \service ->
       withTestArguments $ \args -> testGroup ("Tests for DAML-LF " ++ renderPretty version) $
         map (testCase args version service outdir registerTODO) allTestFiles
