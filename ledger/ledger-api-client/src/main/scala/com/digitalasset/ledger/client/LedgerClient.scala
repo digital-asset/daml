@@ -90,7 +90,8 @@ object LedgerClient {
       port: Int,
       configuration: LedgerClientConfiguration): Channel = {
     val builder: NettyChannelBuilder = NettyChannelBuilder.forAddress(hostIp, port)
-    configuration.sslContext.foreach(builder.sslContext(_).negotiationType(NegotiationType.TLS))
+    configuration.sslContext.fold(builder.usePlaintext())(
+      builder.sslContext(_).negotiationType(NegotiationType.TLS))
     val channel = builder.build()
     val _ = sys.addShutdownHook { val _ = channel.shutdownNow() }
     channel
