@@ -69,7 +69,7 @@ abstract class UIBackend extends LazyLogging with ApplicationInfoJsonSupport {
     sys.env
       .get("DAML_HOME")
       .fold(if (sys.props("os.name").toLowerCase.startsWith("win")) {
-        Paths.get(sys.env("APPDATA"), "daml")
+        Paths.get(Option(System.getenv("APPDATA")).getOrElse("."), "daml")
       } else {
         Paths.get(sys.props("user.home"), ".daml")
       })(Paths.get(_))
