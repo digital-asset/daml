@@ -633,6 +633,17 @@ internalFunctions = listToUFM $ map (bimap mkModuleNameFS mkUniqSet)
         ])
     ]
 
+nameInModule :: NamedThing a => GHC.ModuleName -> a -> Maybe FastString
+nameInModule mod a
+  | Just m <- nameModule_maybe (getName a)
+  , GHC.moduleName m == mod = Just $ getOccFS a
+  | otherwise = Nothing
+
+pattern IsInInternalLF :: NamedThing a => FastString -> a
+pattern IsInInternalLF x <- (nameInModule (mkModuleName "DA.Internal.LF") -> Just x)
+
+pattern VarIsInInternalLF :: FastString -> GHC.Expr Var
+pattern VarIsInInternalLF x <- Var (IsInInternalLF x)
 
 convertExpr :: Env -> GHC.Expr Var -> ConvertM LF.Expr
 convertExpr env0 e = do
@@ -658,7 +669,7 @@ convertExpr env0 e = do
     go env (VarIs "$") (LType _ : LType _ : LExpr x : y : args)
         = go env x (y : args)
 
-    go env (VarIs "unpackPair") (LType (StrLitTy f1) : LType (StrLitTy f2) : LType t1 : LType t2 : args)
+    go env (VarIsInInternalLF "unpackPair") (LType (StrLitTy f1) : LType (StrLitTy f2) : LType t1 : LType t2 : args)
         = fmap (, args) $ do
             t1 <- convertType env t1
             t2 <- convertType env t2
@@ -767,13 +778,13 @@ convertExpr env0 e = do
         = fmap (, args) $ mkIf <$> convertExpr env x <*> convertExpr env y <*> mkPure env monad dict TUnit EUnit
     go env (VarIs "unless") (LType monad : LExpr dict : LExpr x : LExpr y : args)
         = fmap (, args) $ mkIf <$> convertExpr env x <*> mkPure env monad dict TUnit EUnit <*> convertExpr env y
-    go env (VarIs "submit") (LType typ : LExpr pty : LExpr upd : args) = fmap (, args) $ do
+    go env (VarIsInInternalLF "submit") (LType typ : LExpr pty : LExpr upd : args) = fmap (, args) $ do
         pty' <- convertExpr env pty
         upd' <- convertExpr env upd
         typ' <- convertType env typ
         pure $
           EScenario (SCommit typ' pty' (EUpdate (UEmbedExpr typ' upd')))
-    go env (VarIs "submitMustFail") (LType typ : LExpr pty : LExpr upd : args) = fmap (, args) $ do
+    go env (VarIsInInternalLF "submitMustFail") (LType typ : LExpr pty : LExpr upd : args) = fmap (, args) $ do
         pty' <- convertExpr env pty
         upd' <- convertExpr env upd
         typ' <- convertType env typ
