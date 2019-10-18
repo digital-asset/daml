@@ -11,6 +11,7 @@ import           DA.Daml.Preprocessor.Records
 import           DA.Daml.Preprocessor.Generics
 import           DA.Daml.Preprocessor.TemplateConstraint
 
+import Development.IDE.Types.Options
 import qualified "ghc-lib" GHC
 import Outputable
 
@@ -37,15 +38,25 @@ mayImportInternal =
         ]
 
 -- | Apply all necessary preprocessors
-damlPreprocessor :: Maybe String -> GHC.ParsedSource -> ([(GHC.SrcSpan, String)], GHC.ParsedSource)
+damlPreprocessor :: Maybe String -> GHC.ParsedSource -> IdePreprocessedSource
 damlPreprocessor mbPkgName x
-    | maybe False (isInternal ||^ (`elem` mayImportInternal)) name = ([], x)
-    | otherwise = (checkImports x ++ checkDataTypes x ++ checkModuleDefinition x, recordDotPreprocessor $ importDamlPreprocessor $ genericsPreprocessor mbPkgName $ templateConstraintPreprocessor x)
-    where name = fmap GHC.unLoc $ GHC.hsmodName $ GHC.unLoc x
+    | maybe False (isInternal ||^ (`elem` mayImportInternal)) name = noPreprocessor x
+    | otherwise = IdePreprocessedSource
+        { preprocWarnings = []
+        , preprocErrors = checkImports x ++ checkDataTypes x ++ checkModuleDefinition x
+        , preprocSource = recordDotPreprocessor $ importDamlPreprocessor $ genericsPreprocessor mbPkgName $ templateConstraintPreprocessor x
+        }
+    where
+      name = fmap GHC.unLoc $ GHC.hsmodName $ GHC.unLoc x
 
 -- | No preprocessing. Used for generated code.
-noPreprocessor :: GHC.ParsedSource -> ([(GHC.SrcSpan, String)], GHC.ParsedSource)
-noPreprocessor x = ([], x)
+noPreprocessor :: GHC.ParsedSource -> IdePreprocessedSource
+noPreprocessor x =
+    IdePreprocessedSource
+      { preprocWarnings = []
+      , preprocErrors = []
+      , preprocSource = x
+      }
 
 
 -- With RebindableSyntax any missing DAML import results in pretty much nothing
