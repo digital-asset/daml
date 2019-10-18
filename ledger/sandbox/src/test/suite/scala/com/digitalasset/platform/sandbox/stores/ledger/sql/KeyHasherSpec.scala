@@ -29,8 +29,8 @@ class KeyHasherSpec extends WordSpec with Matchers {
     builder += None -> ValueInt64(-1)
     builder += None -> ValueNumeric(decimal(0))
     builder += None -> ValueNumeric(decimal(BigDecimal("0.3333333333")))
-    builder += None -> ValueBool(true)
-    builder += None -> ValueBool(false)
+    builder += None -> ValueTrue
+    builder += None -> ValueFalse
     builder += None -> ValueDate(Time.Date.assertFromDaysSinceEpoch(0))
     builder += None -> ValueDate(Time.Date.assertFromDaysSinceEpoch(123456))
     builder += None -> ValueTimestamp(Time.Timestamp.assertFromLong(0))
@@ -39,7 +39,7 @@ class KeyHasherSpec extends WordSpec with Matchers {
     builder += None -> ValueText("abcd-äöü€")
     builder += None -> ValueParty(Party.assertFromString("Alice"))
     builder += None -> ValueUnit
-    builder += None -> ValueOptional(None)
+    builder += None -> ValueNone
     builder += None -> ValueOptional(Some(ValueText("Some")))
     builder += None -> ValueList(FrontStack(ValueText("A"), ValueText("B"), ValueText("C")))
     builder += None -> ValueVariant(None, Name.assertFromString("Variant"), ValueInt64(0))
@@ -251,8 +251,8 @@ class KeyHasherSpec extends WordSpec with Matchers {
     }
 
     "not produce collision in Bool" in {
-      val value1 = VersionedValue(ValueVersion("4"), ValueBool(true))
-      val value2 = VersionedValue(ValueVersion("4"), ValueBool(false))
+      val value1 = VersionedValue(ValueVersion("4"), ValueTrue)
+      val value2 = VersionedValue(ValueVersion("4"), ValueFalse)
 
       val tid = templateId("module", "name")
 
@@ -315,7 +315,7 @@ class KeyHasherSpec extends WordSpec with Matchers {
     }
 
     "not produce collision in Optional" in {
-      val value1 = VersionedValue(ValueVersion("4"), ValueOptional(None))
+      val value1 = VersionedValue(ValueVersion("4"), ValueNone)
       val value2 = VersionedValue(ValueVersion("4"), ValueOptional(Some(ValueUnit)))
 
       val tid = templateId("module", "name")

@@ -293,7 +293,7 @@ object SBuiltin {
         case STimestamp(t) => t.toString
         case SText(t) => t
         case SParty(p) => p
-        case SUnit(_) => s"<unit>"
+        case SUnit => s"<unit>"
         case SDate(date) => date.toString
         case SContractId(_) | SNumeric(_) => crash("litToText: literal not supported")
       })
@@ -328,11 +328,10 @@ object SBuiltin {
   final case object SBFromTextParty extends SBuiltin(1) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       val v = args.get(0).asInstanceOf[SText]
-      val mbParty = Party.fromString(v.value) match {
-        case Left(_) => None
-        case Right(p) => Some(SParty(p))
+      machine.ctrl = Party.fromString(v.value) match {
+        case Left(_) => CtrlValue.None
+        case Right(p) => CtrlValue(SOptional(Some(SParty(p))))
       }
-      machine.ctrl = CtrlValue(SOptional(mbParty))
     }
   }
 
@@ -341,16 +340,15 @@ object SBuiltin {
 
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       val s = args.get(0).asInstanceOf[SText].value
-      val int64 =
+      machine.ctrl =
         if (pattern.matcher(s).matches())
           try {
-            Some(SInt64(java.lang.Long.parseLong(s)))
+            CtrlValue(SOptional(Some(SInt64(java.lang.Long.parseLong(s)))))
           } catch {
             case _: NumberFormatException =>
-              None
+              CtrlValue.None
           } else
-          None
-      machine.ctrl = CtrlValue(SOptional(int64))
+          CtrlValue.None
     }
   }
 
@@ -365,7 +363,7 @@ object SBuiltin {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       val scale = args.get(0).asInstanceOf[STNat].n
       val string = args.get(1).asInstanceOf[SText].value
-      val result = string match {
+      machine.ctrl = string match {
         case validFormat(signPart, intPart, _, decPartOrNull) =>
           val decPart = Option(decPartOrNull).filterNot(_ == "0").getOrElse("")
           // First, we count the number of significant digits to avoid the conversion attempts that
@@ -377,14 +375,14 @@ object SBuiltin {
             // potentially very costly String to BigDecimal conversions. Take for example the String
             // "1." followed by millions of '0's
             val newString = s"$signPart$intPart.${Option(decPartOrNull).getOrElse("")}"
-            Some(SNumeric(Numeric.assertFromBigDecimal(scale, BigDecimal(newString))))
+            CtrlValue(
+              SOptional(Some(SNumeric(Numeric.assertFromBigDecimal(scale, BigDecimal(newString))))))
           } else {
-            None
+            CtrlValue.None
           }
         case _ =>
-          None
+          CtrlValue.None
       }
-      machine.ctrl = CtrlValue(SOptional(result))
     }
   }
 
@@ -585,14 +583,14 @@ object SBuiltin {
   //
   final case object SBEqual extends SBuiltin(2) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
-      machine.ctrl = CtrlValue(
-        SBool(args.get(0).asInstanceOf[SPrimLit].equalTo(args.get(1).asInstanceOf[SPrimLit])))
+      machine.ctrl = CtrlValue.bool(
+        args.get(0).asInstanceOf[SPrimLit].equalTo(args.get(1).asInstanceOf[SPrimLit]))
     }
   }
 
   sealed abstract class SBCompare(pred: Int => Boolean) extends SBuiltin(2) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
-      machine.ctrl = CtrlValue(SBool((args.get(0), args.get(1)) match {
+      val result = (args.get(0), args.get(1)) match {
         case (SInt64(a), SInt64(b)) => pred(a compareTo b)
         case (STimestamp(a), STimestamp(b)) => pred(a compareTo b)
         case (SText(a), SText(b)) => pred(Utf8.Ordering.compare(a, b))
@@ -600,7 +598,8 @@ object SBuiltin {
         case (SParty(a), SParty(b)) => pred(a compareTo b)
         case _ =>
           crash(s"type mismatch ${getClass.getSimpleName}: $args")
-      }))
+      }
+      machine.ctrl = CtrlValue.bool(result)
     }
   }
 
@@ -612,7 +611,7 @@ object SBuiltin {
       // FixMe: https://github.com/digital-asset/daml/issues/2289
       //   drop this double check
       assert(a.scale == scale && b.scale == scale)
-      machine.ctrl = CtrlValue(SBool(pred(Numeric.compareTo(a, b))))
+      machine.ctrl = CtrlValue.bool(pred(Numeric.compareTo(a, b)))
     }
   }
 
@@ -749,7 +748,7 @@ object SBuiltin {
         case v =>
           crash(s"PrecondCheck on non-boolean: $v")
       }
-      machine.ctrl = CtrlValue(SUnit(()))
+      machine.ctrl = CtrlValue.Unit
     }
   }
 
@@ -866,7 +865,7 @@ object SBuiltin {
         )
         .fold(err => throw DamlETransactionError(err), identity)
       checkAborted(machine.ptx)
-      machine.ctrl = CtrlValue(SUnit(()))
+      machine.ctrl = CtrlValue.Unit
     }
   }
 
@@ -885,7 +884,7 @@ object SBuiltin {
           case Right(x) => x
         })
         ._2
-      machine.ctrl = CtrlValue(SUnit(()))
+      machine.ctrl = CtrlValue.Unit
       checkAborted(machine.ptx)
     }
   }
@@ -975,7 +974,7 @@ object SBuiltin {
         contextActors intersect stakeholders,
         signatories,
         stakeholders)
-      machine.ctrl = CtrlValue(SUnit(()))
+      machine.ctrl = CtrlValue.Unit
       checkAborted(machine.ptx)
     }
   }
@@ -1013,7 +1012,7 @@ object SBuiltin {
               machine.committers,
               cbMissing = _ => {
                 machine.ptx = machine.ptx.copy(keys = machine.ptx.keys + (gkey -> None))
-                machine.ctrl = CtrlValue(SOptional(None))
+                machine.ctrl = CtrlValue.None
                 true
               },
               cbPresent = { contractId =>
@@ -1058,7 +1057,7 @@ object SBuiltin {
         machine.lastLocation,
         KeyWithMaintainers(key = key, maintainers = maintainers),
         mbCoid)
-      machine.ctrl = CtrlValue(SUnit(()))
+      machine.ctrl = CtrlValue.Unit
       checkAborted(machine.ptx)
     }
   }
@@ -1123,7 +1122,7 @@ object SBuiltin {
       checkToken(args.get(1))
       machine.committers = extractParties(args.get(0))
       machine.commitLocation = optLocation
-      machine.ctrl = CtrlValue(SUnit(()))
+      machine.ctrl = CtrlValue.Unit
     }
   }
 
@@ -1155,19 +1154,19 @@ object SBuiltin {
           // update expression threw an exception. we're
           // now done.
           clearCommit
-          machine.ctrl = CtrlValue(SUnit(()))
+          machine.ctrl = CtrlValue.Unit
           throw SpeedyHungry(SResultScenarioInsertMustFail(committerOld, commitLocationOld))
 
         case SBool(false) =>
           ptxOld.finish match {
             case Left(_) =>
-              machine.ctrl = CtrlValue(SUnit(()))
+              machine.ctrl = CtrlValue.Unit
               clearCommit
             case Right(tx) =>
               // Transaction finished successfully. It might still
               // fail when committed, so tell the scenario runner to
               // do that.
-              machine.ctrl = CtrlValue(SUnit(()))
+              machine.ctrl = CtrlValue.Unit
               throw SpeedyHungry(SResultScenarioMustFail(tx, committerOld, _ => clearCommit))
           }
         case v =>

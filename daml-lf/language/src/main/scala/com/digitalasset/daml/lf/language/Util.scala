@@ -58,14 +58,18 @@ object Util {
   val TScenario = new ParametricType1(BTScenario)
   val TContractId = new ParametricType1(BTContractId)
 
+  val TParties = TList(TParty)
+  val TDecimalScale = TNat(Decimal.scale)
+  val TDecimal = TNumeric(TDecimalScale)
+
   val EUnit = EPrimCon(PCUnit)
   val ETrue = EPrimCon(PCTrue)
   val EFalse = EPrimCon(PCFalse)
 
   def EBool(b: Boolean): EPrimCon = if (b) ETrue else EFalse
 
-  val TParties = TList(TParty)
-  val TDecimalScale = TNat(Decimal.scale)
-  val TDecimal = TNumeric(TDecimalScale)
+  val CPUnit = CPPrimCon(PCUnit)
+  val CPTrue = CPPrimCon(PCTrue)
+  val CPFalse = CPPrimCon(PCFalse)
 
 }

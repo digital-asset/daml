@@ -7,6 +7,7 @@ package testing.parser
 import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.data.Ref.{ChoiceName, DottedName, Name}
 import com.digitalasset.daml.lf.language.Ast._
+import com.digitalasset.daml.lf.language.Util._
 import com.digitalasset.daml.lf.testing.parser.Parsers._
 import com.digitalasset.daml.lf.testing.parser.Token._
 
@@ -118,7 +119,7 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
 
   private lazy val choiceParam: Parser[(Option[Name], Type)] =
     `(` ~> id ~ `:` ~ typ <~ `)` ^^ { case name ~ _ ~ typ => Some(name) -> typ } |
-      success(None -> TBuiltin(BTUnit))
+      success(None -> TUnit)
 
   private lazy val templateChoice: Parser[ExprVarName => (ChoiceName, TemplateChoice)] =
     Id("choice") ~> tags(templateChoiceTags) ~ id ~ choiceParam ~ `:` ~ typ ~ `by` ~ expr ~ `to` ~ expr ^^ {

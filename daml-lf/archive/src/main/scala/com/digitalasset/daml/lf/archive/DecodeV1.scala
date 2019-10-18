@@ -445,7 +445,7 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
               _ =>
                 throw ParseError(
                   s"TNat must be between ${Numeric.Scale.MinValue} and ${Numeric.Scale.MaxValue}, found ${lfType.getNat}"),
-              TNat
+              TNat(_)
             )
         case PLF.Type.SumCase.CON =>
           val tcon = lfType.getCon
@@ -460,7 +460,7 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
             } else {
               val info = builtinTypeInfoMap(prim.getPrim)
               assertSince(info.minVersion, prim.getPrim.getValueDescriptor.getFullName)
-              TBuiltin(info.bTyp)
+              info.typ
             }
           (baseType /: [Type] prim.getArgsList.asScala)((typ, arg) => TApp(typ, decodeType(arg)))
         case PLF.Type.SumCase.FUN =>
@@ -804,7 +804,7 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
             }
           )
         case PLF.CaseAlt.SumCase.PRIM_CON =>
-          CPPrimCon(decodePrimCon(lfCaseAlt.getPrimCon))
+          decodePrimCon(lfCaseAlt.getPrimCon)
         case PLF.CaseAlt.SumCase.NIL =>
           CPNil
         case PLF.CaseAlt.SumCase.CONS =>
@@ -997,14 +997,14 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
           throw ParseError("VarWithType.VAR_NOT_SET")
       }) -> decodeType(lfBinder.getType)
 
-    private[this] def decodePrimCon(lfPrimCon: PLF.PrimCon): PrimCon =
+    private[this] def decodePrimCon(lfPrimCon: PLF.PrimCon): CPPrimCon =
       lfPrimCon match {
         case PLF.PrimCon.CON_UNIT =>
-          PCUnit
+          CPUnit
         case PLF.PrimCon.CON_FALSE =>
-          PCFalse
+          CPFalse
         case PLF.PrimCon.CON_TRUE =>
-          PCTrue
+          CPTrue
         case _ => throw ParseError("Unknown PrimCon: " + lfPrimCon.toString)
       }
 
@@ -1087,7 +1087,9 @@ private[lf] object DecodeV1 {
       proto: PLF.PrimType,
       bTyp: BuiltinType,
       minVersion: LV = LV.Features.default
-  )
+  ) {
+    val typ = TBuiltin(bTyp)
+  }
 
   val builtinTypeInfos: List[BuiltinTypeInfo] = {
     import PLF.PrimType._, LV.Features._

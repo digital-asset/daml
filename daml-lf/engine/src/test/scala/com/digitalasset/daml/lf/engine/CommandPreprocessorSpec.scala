@@ -45,7 +45,7 @@ class CommandPreprocessorSpec extends WordSpec with Matchers with TableDrivenPro
       TUnit ->
         ValueUnit,
       TBool ->
-        ValueBool(true),
+        ValueTrue,
       TInt64 ->
         ValueInt64(42),
       TTimestamp ->
@@ -65,7 +65,7 @@ class CommandPreprocessorSpec extends WordSpec with Matchers with TableDrivenPro
       TList(TText) ->
         ValueList(FrontStack(ValueText("a"), ValueText("b"))),
       TMap(TBool) ->
-        ValueMap(SortedLookupList(Map("0" -> ValueBool(true), "1" -> ValueBool(false)))),
+        ValueMap(SortedLookupList(Map("0" -> ValueTrue, "1" -> ValueFalse))),
       TOptional(TText) ->
         ValueOptional(Some(ValueText("text"))),
       TTyCon(recordCon) ->

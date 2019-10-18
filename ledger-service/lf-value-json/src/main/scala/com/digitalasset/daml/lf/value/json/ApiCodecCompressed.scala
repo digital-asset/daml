@@ -130,10 +130,10 @@ abstract class ApiCodecCompressed[Cid](
         val typArg = prim.typArgs.head
         val useArray = nestsOptional(prim);
         {
-          case JsNull => V.ValueOptional(None)
+          case JsNull => V.ValueNone
           case JsArray(ov) if useArray =>
             ov match {
-              case Seq() => V.ValueOptional(Some(V.ValueOptional(None)))
+              case Seq() => V.ValueOptional(Some(V.ValueNone))
               case Seq(v) => V.ValueOptional(Some(jsValueToApiValue(v, typArg, defs)))
               case _ =>
                 deserializationError(s"Can't read ${value.prettyPrint} as Optional of Optional")
@@ -171,7 +171,7 @@ abstract class ApiCodecCompressed[Cid](
                   .get(fName)
                   .map(jsValueToApiValue(_, fTy, defs))
                   .getOrElse(fTy match {
-                    case iface.TypePrim(iface.PrimType.Optional, _) => V.ValueOptional(None)
+                    case iface.TypePrim(iface.PrimType.Optional, _) => V.ValueNone
                     case _ =>
                       deserializationError(
                         s"Can't read ${value.prettyPrint} as DamlLfRecord $id, missing field '$fName'")
