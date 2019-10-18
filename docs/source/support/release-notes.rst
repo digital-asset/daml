@@ -6,6 +6,51 @@ Release notes
 
 This page contains release notes for the SDK.
 
+.. _release-0-13-31:
+
+0.13.31 - 2019-10-18
+--------------------
+
+Sandbox
+~~~~~~~
+
+- Party management fix, see `issue #3177 <https://github.com/digital-asset/daml/issues/3177>`_.
+- The maximum allowed TTL for commands is now configurable via the ``--max-ttl-seconds`` parameter, for example: ``daml sandbox --max-ttl-seconds 300``.
+- Fixed a bug where ``CreatedEvent#event_id`` field is not properly filled by ``ActiveContractsService``.
+  See `issue #65 <https://github.com/digital-asset/daml/issues/65>`__.
+
+DAML SDK
+~~~~~~~~
+
+- Shrink docker image containing the full DAML SDK from 2.8 GB to 1.2 GB.
+
+Navigator
+~~~~~~~~~
+
+- Accept and use an access token to be used against Ledger API servers that require authentication, see `issue #3156 <https://github.com/digital-asset/daml/issues/3156>`_.
+- Demo-oriented password workflow has been removed.
+
+Ledger Client
+~~~~~~~~~~~~~
+
+- Expose new method to construct channels for more granular control overy the client creation process.
+
+JSON API - Experimental
+~~~~~~~~~~~~~~~~~~~~~~~
+
+-  Add ``/parties`` endpoint.
+
+DAML Triggers - Experimental
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- The trigger runner now logs output from ``trace``, ``error`` and
+  failed command completions and hides internal debugging output.
+
+DAML-LF - Internal
+~~~~~~~~~~~~~~~~~~
+
+- Changed the name of the bintray/maven package from ``com.digitalasset.daml-lf-archive-scala`` to ``com.digitalasset.daml-lf-archive-reader``
+
 .. _release-0-13-30:
 
 0.13.30 - 2019-10-15
