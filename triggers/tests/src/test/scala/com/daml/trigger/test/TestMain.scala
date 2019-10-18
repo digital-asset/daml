@@ -434,7 +434,6 @@ case class CopyTests(dar: Dar[(PackageId, Package)], runner: TestRunner) {
     def assertFinalACS(
         acs: Map[Identifier, Seq[(String, Lf.ValueRecord[Lf.AbsoluteContractId])]],
         commandsR: Unit) = {
-      println(acs)
       for {
         _ <- TestRunner.assertEqual(
           acs.get(originalId).fold(0)(_.size),
@@ -584,6 +583,50 @@ case class CopyTests(dar: Dar[(PackageId, Package)], runner: TestRunner) {
   }
 }
 
+case class RetryTests(dar: Dar[(PackageId, Package)], runner: TestRunner) {
+
+  val triggerId: Identifier =
+    Identifier(dar.main._1, QualifiedName.assertFromString("Retry:retryTrigger"))
+
+  val tId = Identifier(dar.main._1, QualifiedName.assertFromString("Retry:T"))
+
+  val doneId = Identifier(dar.main._1, QualifiedName.assertFromString("Retry:Done"))
+
+  def test(name: String, numMessages: NumMessages, numT: Int, numDone: Int) = {
+    def assertFinalState(finalState: SExpr, commandsR: Unit) = Right(())
+    def assertFinalACS(
+        acs: Map[Identifier, Seq[(String, Lf.ValueRecord[Lf.AbsoluteContractId])]],
+        commandsR: Unit) = {
+      for {
+        _ <- TestRunner.assertEqual(acs.get(tId).fold(0)(_.size), numT, "number of T contracts")
+        _ <- TestRunner.assertEqual(
+          acs.get(doneId).fold(0)(_.size),
+          numDone,
+          "number of Done contracts")
+      } yield ()
+    }
+    runner.genericTest(name, dar, triggerId, (_, _) => { implicit ec: ExecutionContext =>
+      { implicit mat: ActorMaterializer =>
+        Future {}
+      }
+    }, numMessages, assertFinalState, assertFinalACS)
+  }
+
+  def runTests() = {
+    test(
+      "3 retries",
+      // 1 for create of T
+      // 1 for completion
+      // 3 failed completion for exercises
+      // 1 for create of Done
+      // 1 for corresponding completion
+      NumMessages(7),
+      numT = 1,
+      numDone = 1,
+    )
+  }
+}
+
 object TestMain {
 
   private val configParser = new scopt.OptionParser[Config]("acs_test") {
@@ -624,6 +667,7 @@ object TestMain {
         val runner = new TestRunner(config)
         AcsTests(dar, runner).runTests()
         CopyTests(dar, runner).runTests()
+        RetryTests(dar, runner).runTests()
     }
   }
 }
