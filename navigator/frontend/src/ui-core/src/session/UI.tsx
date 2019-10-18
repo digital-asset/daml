@@ -103,7 +103,7 @@ export default class Component<A extends Action>
     if (failure === 'invalid-credentials') {
       errorEl = (
         <ErrorMessage>
-          <div>You don't have the necessary authorization to access</div>
+          <div>You don't have the necessary authorization to access the ledger</div>
           <div>Make sure to start the Navigator server with a valid access token</div>
         </ErrorMessage>
       );
