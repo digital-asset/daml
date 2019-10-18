@@ -33,7 +33,7 @@ Navigator
 Ledger Client
 ~~~~~~~~~~~~~
 
-- Expose new method to construct channels for more granular control overy the client creation process.
+- Expose new method to construct channels for more granular control over the client creation process.
 
 JSON API - Experimental
 ~~~~~~~~~~~~~~~~~~~~~~~
