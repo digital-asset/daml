@@ -114,7 +114,7 @@ object LedgerClient {
           appExecutor: Executor,
           applier: CallCredentials.MetadataApplier): Unit = {
         val metadata = new Metadata
-        metadata.put(auth, s"Bearer $token")
+        metadata.put(auth, token)
         applier.apply(metadata)
       }
 
