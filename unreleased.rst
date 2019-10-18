@@ -17,3 +17,4 @@ HEAD — ongoing
 + [DAML Triggers -Experimental] The trigger runner now logs output from ``trace``, ``error`` and
   failed command completions and hides internal debugging output.
 + [Sandbox] The maximum allowed TTL for commands is now configurable via the ``--max-ttl-seconds`` parameter, for example: ``daml sandbox --max-ttl-seconds 300``.
++ [DAML SDK] Shrink docker image containing the full DAML SDK from 2.8 GB to 1.2 GB.
