@@ -14,7 +14,12 @@ import com.digitalasset.ledger.api.refinements.ApiTypes
 import com.digitalasset.navigator.SessionJsonProtocol._
 import com.digitalasset.navigator.config.{Arguments, Config, UserConfig}
 import com.digitalasset.navigator.model.PartyState
-import com.digitalasset.navigator.store.Store.ApplicationStateConnected
+import com.digitalasset.navigator.store.Store.{
+  ApplicationStateConnected,
+  ApplicationStateConnecting,
+  ApplicationStateFailed,
+  ApplicationStateInfo
+}
 import com.digitalasset.navigator.time.TimeProviderType.Static
 import com.digitalasset.navigator.time.TimeProviderWithType
 import com.typesafe.scalalogging.LazyLogging
@@ -54,24 +59,55 @@ class ServerTest
     override def getInfo: Future[JsValue] = Future.successful(JsString("test"))
   }
 
-  private[this] val route: Route =
+  private def route(state: ApplicationStateInfo): Route =
     NavigatorBackend.getRoute(
       system = ActorSystem("da-ui-backend-test"),
       arguments = Arguments.default,
       config = new Config(users = Map(userId -> userConfig)),
       graphQL = DefaultGraphQLHandler(Set.empty, None),
       info = TestInfoHandler,
-      getAppState = () =>
-        Future.successful(
-          ApplicationStateConnected(
-            "localhost",
-            6865,
-            true,
-            "n/a",
-            "0",
-            TimeProviderWithType(UTC, Static),
-            List.empty))
+      getAppState = () => Future.successful(state)
     )
+
+  private[this] val connected =
+    route(
+      ApplicationStateConnected(
+        "localhost",
+        6865,
+        true,
+        "n/a",
+        "0",
+        TimeProviderWithType(UTC, Static),
+        List.empty))
+
+  private[this] val unauthorized =
+    route(
+      ApplicationStateFailed(
+        "localhost",
+        6865,
+        true,
+        "n/a",
+        io.grpc.Status.PERMISSION_DENIED.asException
+      ))
+
+  private[this] val failed =
+    route(
+      ApplicationStateFailed(
+        "localhost",
+        6865,
+        true,
+        "n/a",
+        io.grpc.Status.INVALID_ARGUMENT.asException
+      ))
+
+  private[this] val connecting =
+    route(
+      ApplicationStateConnecting(
+        "localhost",
+        6865,
+        true,
+        "n/a"
+      ))
 
   def sessionCookie(): String = {
     val cookies = headers.collect { case `Set-Cookie`(x) if x.name == "session-id" => x }
@@ -85,7 +121,7 @@ class ServerTest
   }
 
   "SelectMode GET /api/session/" should "respond SignIn with method SignInSelect with the available users" in withCleanSessions {
-    Get("/api/session/") ~> route ~> check {
+    Get("/api/session/") ~> connected ~> check {
       responseAs[SignIn] shouldEqual SignIn(method = SignInSelect(userIds = Set(userId)))
     }
   }
@@ -93,14 +129,14 @@ class ServerTest
   it should "respond with the Session when already signed-in" in withCleanSessions {
     val sessionId = "session-id-value"
     Session.open(sessionId, userId, userConfig)
-    Get("/api/session/") ~> Cookie("session-id" -> sessionId) ~> route ~> check {
+    Get("/api/session/") ~> Cookie("session-id" -> sessionId) ~> connected ~> check {
       Unmarshal(response.entity).to[String].value.map(_.map(_.parseJson)) shouldEqual Some(
         Success((sessionJson)))
     }
   }
 
   "SelectMode POST /api/session/" should "allow to SignIn with an existing user" in withCleanSessions {
-    Post("/api/session/", LoginRequest(userId, None)) ~> route ~> check {
+    Post("/api/session/", LoginRequest(userId, None)) ~> connected ~> check {
       Unmarshal(response.entity).to[String].value.map(_.map(_.parseJson)) shouldEqual Some(
         Success((sessionJson)))
       val sessionId = sessionCookie()
@@ -109,17 +145,41 @@ class ServerTest
   }
 
   it should "forbid to SignIn with a non existing user" in withCleanSessions {
-    Post("/api/session/", LoginRequest(userId + " ", None)) ~> route ~> check {
+    Post("/api/session/", LoginRequest(userId + " ", None)) ~> connected ~> check {
       responseAs[SignIn] shouldEqual SignIn(
         method = SignInSelect(userIds = Set(userId)),
         Some(InvalidCredentials))
     }
   }
 
+  it should "forbid to SignIn with when unauthorized and report the error" in withCleanSessions {
+    Post("/api/session/", LoginRequest(userId, None)) ~> unauthorized ~> check {
+      responseAs[SignIn] shouldEqual SignIn(
+        method = SignInSelect(userIds = Set(userId)),
+        Some(InvalidCredentials))
+    }
+  }
+
+  it should "forbid to SignIn with when it's impossible to connect to the ledger" in withCleanSessions {
+    Post("/api/session/", LoginRequest(userId, None)) ~> failed ~> check {
+      responseAs[SignIn] shouldEqual SignIn(
+        method = SignInSelect(userIds = Set(userId)),
+        Some(Unknown))
+    }
+  }
+
+  it should "forbid to SignIn with when still connecting to a ledger" in withCleanSessions {
+    Post("/api/session/", LoginRequest(userId, None)) ~> connecting ~> check {
+      responseAs[SignIn] shouldEqual SignIn(
+        method = SignInSelect(userIds = Set(userId)),
+        Some(NotConnected))
+    }
+  }
+
   "SelectMode DELETE /api/session/" should "delete a given Session when signed-in" in withCleanSessions {
     val sessionId = "session-id-value-2"
     Session.open(sessionId, userId, userConfig)
-    Delete("/api/session/") ~> Cookie("session-id", sessionId) ~> route ~> check {
+    Delete("/api/session/") ~> Cookie("session-id", sessionId) ~> connected ~> check {
       Session.current(sessionId) shouldBe None
     }
   }
