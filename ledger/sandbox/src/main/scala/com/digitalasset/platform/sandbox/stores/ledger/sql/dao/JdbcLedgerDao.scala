@@ -1089,12 +1089,7 @@ private class JdbcLedgerDao(
     )
 
   // this query pre-filters the active contracts. this avoids loading data that anyway will be dismissed later
-  private val SQL_SELECT_ACTIVE_CONTRACTS =
-    SQL(
-      // the distinct keyword is required, because a single contract can be visible by 2 parties,
-      // thus resulting in multiple output rows
-      queries.SQL_SELECT_ACTIVE_CONTRACTS
-    )
+  private val SQL_SELECT_ACTIVE_CONTRACTS = SQL(queries.SQL_SELECT_ACTIVE_CONTRACTS)
 
   override def getActiveContractSnapshot(untilExclusive: LedgerOffset, filter: TemplateAwareFilter)(
       implicit mat: Materializer): Future[LedgerSnapshot] = {
@@ -1407,6 +1402,8 @@ object JdbcLedgerDao {
          |""".stripMargin
 
     override protected[JdbcLedgerDao] def SQL_SELECT_ACTIVE_CONTRACTS: String =
+      // the distinct keyword is required, because a single contract can be visible by 2 parties,
+      // thus resulting in multiple output rows
       s"""
          |select distinct
          |  cd.id,
@@ -1493,6 +1490,8 @@ object JdbcLedgerDao {
          |""".stripMargin
 
     override protected[JdbcLedgerDao] def SQL_SELECT_ACTIVE_CONTRACTS: String =
+      // the distinct keyword is required, because a single contract can be visible by 2 parties,
+      // thus resulting in multiple output rows
       s"""
          |select distinct
          |  cd.id,
