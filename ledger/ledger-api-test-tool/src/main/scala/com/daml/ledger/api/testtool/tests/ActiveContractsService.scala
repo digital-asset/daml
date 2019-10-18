@@ -85,7 +85,7 @@ class ActiveContractsService(session: LedgerSession) extends LedgerTestSuite(ses
 
           val invalidObservers = activeContracts.filterNot(_.observers.isEmpty)
           assert(
-            activeContracts.forall(_.observers.isEmpty),
+            invalidObservers.isEmpty,
             s"Found contracts with non-empty observers: $invalidObservers")
         }
     }
