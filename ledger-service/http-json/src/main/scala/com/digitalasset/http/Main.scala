@@ -31,8 +31,14 @@ object Main extends StrictLogging {
       applicationId: ApplicationId = ApplicationId("HTTP-JSON-API-Gateway"),
       packageReloadInterval: FiniteDuration = HttpService.DefaultPackageReloadInterval,
       maxInboundMessageSize: Int = HttpService.DefaultMaxInboundMessageSize,
-      queryStoreJdbcUrl: Option[String] = None
+      jdbcConfig: Option[JdbcConfig] = None,
   )
+
+  private[http] final case class JdbcConfig(
+      driver: String,
+      url: String,
+      user: String,
+      password: String)
 
   private val EmptyConfig = Config(ledgerHost = "", ledgerPort = -1, httpPort = -1)
 
@@ -52,7 +58,7 @@ object Main extends StrictLogging {
         s", applicationId=${config.applicationId.unwrap: String}" +
         s", packageReloadInterval=${config.packageReloadInterval.toString}" +
         s", maxInboundMessageSize=${config.maxInboundMessageSize: Int})" +
-        s", queryStoreJdbcUrl=${config.queryStoreJdbcUrl.toString}")
+        s", dbConfig=${config.jdbcConfig.map(a => a.driver): Option[String]}")
 
     implicit val asys: ActorSystem = ActorSystem("http-json-ledger-api")
     implicit val mat: ActorMaterializer = ActorMaterializer()
@@ -67,8 +73,10 @@ object Main extends StrictLogging {
         config.applicationId,
         config.address,
         config.httpPort,
+        config.jdbcConfig,
         config.packageReloadInterval,
-        config.maxInboundMessageSize)
+        config.maxInboundMessageSize
+      )
 
     sys.addShutdownHook {
       HttpService
@@ -141,9 +149,38 @@ object Main extends StrictLogging {
       .text(
         s"Optional max inbound message size in bytes. Defaults to ${EmptyConfig.maxInboundMessageSize: Int}")
 
-    opt[String]("query-store-jdbc-url")
-      .action((x, c) => c.copy(queryStoreJdbcUrl = Some(x)))
+    opt[Map[String, String]]("query-store-jdbc-config")
+      .action(
+        (x, c) =>
+          c.copy(
+            jdbcConfig = Some(
+              JdbcConfig(
+                driver = x("driver"),
+                url = x("url"),
+                user = x("user"),
+                password = x("password")))))
+      .validate(x =>
+        if (x.contains("driver") && x.contains("url") && x.contains("user") && x.contains(
+            "password")) Right(())
+        else Left(s"Invalid --query-store-jdbc-config format, expected: $queryStoreHelp"))
       .optional()
-      .text(s"Optional query store JDBC URL")
+      .text(
+        s"Optional query store JDBC configuration: $queryStoreHelp. Example: $queryStoreExample")
+
+    private def queryStoreFormat(
+        driver: String,
+        url: String,
+        user: String,
+        password: String): String = s"driver=$driver,url=$url,user=$user,password=$password"
+
+    lazy private val queryStoreHelp =
+      queryStoreFormat("<JDBC driver class name>", "<JDBC connection url>", "<user>", "<password>")
+
+    lazy private val queryStoreExample =
+      queryStoreFormat(
+        "org.postgresql.Driver",
+        "jdbc:postgresql://localhost:5432/test?&ssl=true",
+        "postgres",
+        "password")
   }
 }

@@ -9,6 +9,8 @@ import akka.http.scaladsl.Http.ServerBinding
 import akka.stream.Materializer
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
+import com.digitalasset.http.Main.JdbcConfig
+import com.digitalasset.http.dbbackend.ContractDao
 import com.digitalasset.http.json.{
   ApiValueToJsValueConverter,
   DomainJsonDecoder,
@@ -54,6 +56,7 @@ object HttpService extends StrictLogging {
       applicationId: ApplicationId,
       address: String,
       httpPort: Int,
+      jdbcConfig: Option[JdbcConfig] = None,
       packageReloadInterval: FiniteDuration = DefaultPackageReloadInterval,
       maxInboundMessageSize: Int = DefaultMaxInboundMessageSize,
       validateJwt: Endpoints.ValidateJwt = decodeJwt)(
@@ -89,6 +92,9 @@ object HttpService extends StrictLogging {
       _ <- eitherT(packageService.reload).leftMap(e => Error(e.shows)): ET[Unit]
 
       _ = schedulePackageReload(packageService, packageReloadInterval)
+
+      contractDao = jdbcConfig.map(c => ContractDao(c.driver, c.url, c.user, c.password))
+      _ <- rightT(initalizeDbIfConfigured(contractDao))
 
       commandService = new CommandService(
         packageService.resolveTemplateId,
@@ -196,4 +202,7 @@ object HttpService extends StrictLogging {
     \/.fromTryCatchNonFatal(new PartyManagementClient(PartyManagementServiceGrpc.stub(channel)))
       .leftMap(e =>
         Error(s"Cannot create an instance of PartyManagementClient, error: ${e.getMessage}"))
+
+  private def initalizeDbIfConfigured(a: Option[ContractDao]): Future[Unit] =
+    a.fold(Future.successful(()))(c => c.initialize.unsafeToFuture)
 }
