@@ -16,3 +16,4 @@ HEAD — ongoing
 + [DAML-LF (Internal)] Change the name of the bintray/maven ``com.digitalasset.daml-lf-archive-scala`` to ``com.digitalasset.daml-lf-archive-reader``
 + [DAML Triggers -Experimental] The trigger runner now logs output from ``trace``, ``error`` and
   failed command completions and hides internal debugging output.
++ [Sandbox] The maximum allowed TTL for commands is now configurable via the ``--max-ttl-seconds`` parameter, for example: ``daml sandbox --max-ttl-seconds 300``.
