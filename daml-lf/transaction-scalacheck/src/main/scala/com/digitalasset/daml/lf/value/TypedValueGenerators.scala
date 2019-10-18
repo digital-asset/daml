@@ -178,7 +178,7 @@ object TypedValueGenerators {
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   val genAddend: Gen[ValueAddend] = Gen.sized { sz =>
     val self = Gen.resize(sz / 2, Gen.lzy(genAddend))
-    val nestSize = sz / 6
+    val nestSize = sz / 3
     Gen.frequency(
       ((sz max 1) * ValueAddend.leafInstances.length, Gen.oneOf(ValueAddend.leafInstances)),
       (sz max 1, Gen.const(ValueAddend.contractId)),
