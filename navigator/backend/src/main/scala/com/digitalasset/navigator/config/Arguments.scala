@@ -85,7 +85,8 @@ object Arguments {
         .action((assets, arguments) => arguments.copy(assets = Some(assets)))
 
       opt[String]('t', "access-token-file")
-        .text(s"set the access token file, default: ${defaultAccessTokenFile}")
+        .text(
+          s"override the path from which the access token will be read, default: ${defaultAccessTokenFile}")
         .action((path, arguments) => arguments.copy(accessTokenFile = Some(Paths.get(path))))
 
       opt[String]('c', "config-file")
