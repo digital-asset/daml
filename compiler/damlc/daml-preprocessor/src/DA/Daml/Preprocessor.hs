@@ -13,11 +13,15 @@ import           DA.Daml.Preprocessor.TemplateConstraint
 
 import Development.IDE.Types.Options
 import qualified "ghc-lib" GHC
+import qualified "ghc-lib-parser" SrcLoc as GHC
+import qualified "ghc-lib-parser" Module as GHC
+import qualified "ghc-lib-parser" FastString as GHC
 import Outputable
 
 import           Control.Monad.Extra
 import           Data.List
 import           Data.Maybe
+import           System.FilePath (splitDirectories)
 
 
 isInternal :: GHC.ModuleName -> Bool
@@ -42,7 +46,7 @@ damlPreprocessor :: Maybe String -> GHC.ParsedSource -> IdePreprocessedSource
 damlPreprocessor mbPkgName x
     | maybe False (isInternal ||^ (`elem` mayImportInternal)) name = noPreprocessor x
     | otherwise = IdePreprocessedSource
-        { preprocWarnings = []
+        { preprocWarnings = checkModuleName x
         , preprocErrors = checkImports x ++ checkDataTypes x ++ checkModuleDefinition x
         , preprocSource = recordDotPreprocessor $ importDamlPreprocessor $ genericsPreprocessor mbPkgName $ templateConstraintPreprocessor x
         }
@@ -72,6 +76,17 @@ importDamlPreprocessor = fmap onModule
           }
         newImport :: Bool -> String -> GHC.Located (GHC.ImportDecl GHC.GhcPs)
         newImport qual = GHC.noLoc . importGenerated qual . mkImport . GHC.noLoc . GHC.mkModuleName
+
+checkModuleName :: GHC.ParsedSource -> [(GHC.SrcSpan, String)]
+checkModuleName (GHC.L _ m)
+    | Just (GHC.L nameLoc modName) <- GHC.hsmodName m
+    , expected <- GHC.moduleNameSlashes modName ++ ".daml"
+    , Just actual <- GHC.unpackFS <$> GHC.srcSpanFileName_maybe nameLoc
+    , not (splitDirectories expected `isSuffixOf` splitDirectories actual)
+    = [(nameLoc, "Module names should always match file names, as per [documentation|https://docs.daml.com/daml/reference/file-structure.html]. This rule will be enforced in a future SDK version. Please change the filename to " ++ expected ++ " in preparation.")]
+
+    | otherwise
+    = []
 
 -- | We ban people from importing modules such
 checkImports :: GHC.ParsedSource -> [(GHC.SrcSpan, String)]
