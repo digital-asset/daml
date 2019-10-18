@@ -143,26 +143,22 @@ abstract class UIBackend extends LazyLogging with ApplicationInfoJsonSupport {
                             s"Attempt to signin with non-existent user ${request.userId}")
                           complete(signIn(Some(InvalidCredentials)))
                         case Some(userConfig) =>
-                          import system.dispatcher
-                          Await.result(
-                            getAppState().collect {
-                              case ApplicationStateFailed(_, _, _, _, error: StatusException)
-                                  if error.getStatus.getCode == io.grpc.Status.Code.PERMISSION_DENIED =>
-                                logger.warn("Attempt to sign in without valid token")
-                                complete(signIn(Some(InvalidCredentials)))
-                              case ApplicationStateFailed(_, _, _, _, error: StatusRuntimeException)
-                                  if error.getStatus.getCode == io.grpc.Status.Code.PERMISSION_DENIED =>
-                                logger.warn("Attempt to sign in without valid token")
-                                complete(signIn(Some(InvalidCredentials)))
-                              case _: ApplicationStateFailed =>
-                                complete(signIn(Some(Unknown)))
-                              case _: ApplicationStateConnecting =>
-                                complete(signIn(Some(NotConnected)))
-                              case _ =>
-                                openSession(request.userId, userConfig)
-                            },
-                            Duration(5, TimeUnit.SECONDS)
-                          )
+                          onSuccess(getAppState()) {
+                            case ApplicationStateFailed(_, _, _, _, error: StatusException)
+                                if error.getStatus.getCode == io.grpc.Status.Code.PERMISSION_DENIED =>
+                              logger.warn("Attempt to sign in without valid token")
+                              complete(signIn(Some(InvalidCredentials)))
+                            case ApplicationStateFailed(_, _, _, _, error: StatusRuntimeException)
+                                if error.getStatus.getCode == io.grpc.Status.Code.PERMISSION_DENIED =>
+                              logger.warn("Attempt to sign in without valid token")
+                              complete(signIn(Some(InvalidCredentials)))
+                            case _: ApplicationStateFailed =>
+                              complete(signIn(Some(Unknown)))
+                            case _: ApplicationStateConnecting =>
+                              complete(signIn(Some(NotConnected)))
+                            case _ =>
+                              openSession(request.userId, userConfig)
+                          }
                       }
                     }
                   } ~
