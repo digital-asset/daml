@@ -76,16 +76,6 @@ sealed trait SValue {
         throw SErrorCrash("SValue.toValue: unexpected SToken")
     }
 
-  private def mapArrayList(
-      as: util.ArrayList[SValue],
-      f: SValue => SValue): util.ArrayList[SValue] = {
-    val bs = new util.ArrayList[SValue](as.size)
-    as.forEach { a =>
-      val _ = bs.add(f(a))
-    }
-    bs
-  }
-
   def mapContractId(f: V.ContractId => V.ContractId): SValue =
     this match {
       case SPAP(prim, args, arity) =>
@@ -112,7 +102,7 @@ sealed trait SValue {
         SContractId(f(coid))
       case SEnum(_, _) | _: SPrimLit | SToken | STNat(_) => this
       case SAny(ty, value) =>
-        SAny(ty, value)
+        SAny(ty, value.mapContractId(f))
     }
 
   def equalTo(v2: SValue): Boolean = {
@@ -272,4 +262,15 @@ object SValue {
   }
 
   private[speedy] val ComparableArray = SomeArrayEquals.ComparableArray
+
+  private def mapArrayList(
+      as: util.ArrayList[SValue],
+      f: SValue => SValue): util.ArrayList[SValue] = {
+    val bs = new util.ArrayList[SValue](as.size)
+    as.forEach { a =>
+      val _ = bs.add(f(a))
+    }
+    bs
+  }
+
 }
