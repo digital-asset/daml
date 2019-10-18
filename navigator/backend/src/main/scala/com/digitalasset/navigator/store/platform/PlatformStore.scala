@@ -5,8 +5,10 @@ package com.digitalasset.navigator.store.platform
 
 import java.time.{Duration, Instant}
 import java.net.URLEncoder
+import java.nio.file.{Files, Path}
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
+import java.util.stream.Collectors
 
 import akka.pattern.ask
 import akka.actor.{Actor, ActorLogging, ActorRef, Props, Scheduler, Stash}
@@ -29,22 +31,24 @@ import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSeque
 import com.digitalasset.ledger.api.v1.testing.time_service.TimeServiceGrpc
 import com.digitalasset.ledger.client.LedgerClient
 import com.digitalasset.navigator.ApplicationInfo
-import io.grpc.netty.{GrpcSslContexts, NettyChannelBuilder}
-import io.grpc.{ManagedChannel, Status}
+import io.grpc.netty.GrpcSslContexts
+import io.grpc.{Channel, Status}
 import io.netty.handler.ssl.SslContext
 import org.slf4j.LoggerFactory
 
 import scala.util.{Failure, Random, Success, Try}
 import scala.concurrent.Future
 import scala.concurrent.duration._
-
 import scalaz.syntax.tag._
+
+import scala.util.control.NonFatal
 
 object PlatformStore {
   def props(
       platformHost: String,
       platformPort: Int,
       tlsConfig: Option[TlsConfiguration],
+      accessTokenFile: Path,
       timeProviderType: TimeProviderType,
       applicationInfo: ApplicationInfo,
       ledgerMaxInbound: Int
@@ -54,6 +58,7 @@ object PlatformStore {
       platformHost,
       platformPort,
       tlsConfig,
+      accessTokenFile,
       timeProviderType,
       applicationInfo,
       ledgerMaxInbound)
@@ -82,6 +87,7 @@ class PlatformStore(
     platformHost: String,
     platformPort: Int,
     tlsConfig: Option[TlsConfiguration],
+    accessTokenFile: Path,
     timeProviderType: TimeProviderType,
     applicationInfo: ApplicationInfo,
     ledgerMaxInbound: Int
@@ -268,11 +274,25 @@ class PlatformStore(
       else None
     }
 
+  private def readAccessToken(): Option[String] =
+    try {
+      Some((Files.readAllLines(accessTokenFile).stream.collect(Collectors.joining("\n"))))
+    } catch {
+      case NonFatal(e) =>
+        log.warning(
+          "Can't read token from {} ({}: {}), calls against an authenticated system will fail",
+          accessTokenFile,
+          e.getClass.getName,
+          e.getMessage)
+        None
+    }
+
   private def connect(): Unit = {
     val retryMaxAttempts = 10
     val retryDelay = 5.seconds
     val maxCommandsInFlight = 10
     val maxParallelSubmissions = 10
+    val accessToken = readAccessToken()
 
     val configuration = LedgerClientConfiguration(
       applicationId,
@@ -282,12 +302,14 @@ class PlatformStore(
         maxParallelSubmissions,
         overrideTtl = false,
         Duration.ofSeconds(30)),
-      sslContext
+      sslContext,
+      accessToken
     )
 
-    val result = RetryHelper.retry(retryMaxAttempts, retryDelay)(RetryHelper.always)(
-      tryConnect(configuration)
-    )
+    val result =
+      RetryHelper.retry(retryMaxAttempts, retryDelay)(RetryHelper.failFastOnPermissionDenied)(
+        tryConnect(configuration)
+      )
 
     result onComplete {
       case Failure(error) =>
@@ -305,37 +327,32 @@ class PlatformStore(
 
   private def tryConnect(configuration: LedgerClientConfiguration): Future[ConnectionResult] = {
 
-    val builder = NettyChannelBuilder
-      .forAddress(platformHost, platformPort)
-      .maxInboundMessageSize(ledgerMaxInbound)
-    configuration.sslContext match {
-      case None => {
-        log.info("Connecting to {}:{}, using a plaintext connection", platformHost, platformPort)
-        builder.usePlaintext()
-      }
-      case Some(ssl) => {
-        log.info("Connecting to {}:{}, using TLS", platformHost, platformPort)
-        builder.useTransportSecurity().sslContext(ssl)
-      }
+    if (configuration.sslContext.isDefined) {
+      log.info("Connecting to {}:{}, using a plaintext connection", platformHost, platformPort)
+    } else {
+      log.info("Connecting to {}:{}, using TLS", platformHost, platformPort)
     }
 
-    val channel = builder.build()
-
-    sys.addShutdownHook({ channel.shutdownNow(); () })
+    val channel = LedgerClient.constructChannel(platformHost, platformPort, configuration)
 
     for {
       ledgerClient <- LedgerClient.forChannel(configuration, channel)
-      staticTime <- getStaticTime(channel, ledgerClient.ledgerId.unwrap)
+      staticTime <- getStaticTime(channel, ledgerClient.ledgerId.unwrap, configuration.accessToken)
       time <- getTimeProvider(staticTime)
     } yield ConnectionResult(ledgerClient, staticTime, time)
   }
 
   private def getStaticTime(
-      channel: ManagedChannel,
-      ledgerId: String): Future[Option[StaticTime]] = {
+      channel: Channel,
+      ledgerId: String,
+      accessToken: Option[String]): Future[Option[StaticTime]] = {
     // Note: StaticTime is a TimeProvider that is automatically updated by push events from the ledger.
     Future
-      .fromTry(Try(TimeServiceGrpc.stub(channel)))
+      .fromTry(
+        Try(
+          TimeServiceGrpc
+            .stub(channel)
+            .withCallCredentials(accessToken.map(LedgerClient.callCredentials).orNull)))
       .flatMap(tp => StaticTime.updatedVia(tp, ledgerId))
       .map(staticTime => {
         log.info(s"Time service is available, platform time is ${staticTime.getCurrentTime}")

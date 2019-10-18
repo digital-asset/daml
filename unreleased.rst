@@ -18,3 +18,6 @@ HEAD — ongoing
   failed command completions and hides internal debugging output.
 + [Sandbox] The maximum allowed TTL for commands is now configurable via the ``--max-ttl-seconds`` parameter, for example: ``daml sandbox --max-ttl-seconds 300``.
 + [DAML SDK] Shrink docker image containing the full DAML SDK from 2.8 GB to 1.2 GB.
++ [Navigator] Accept and use an access token to be used against Ledger API servers that require authentication, see `issue #3156 <https://github.com/digital-asset/daml/issues/3156>`_.
++ [Navigator] Demo-oriented password workflow has been removed.
++ [Ledger Client] Expose new method to construct channels for more granular control overy the client creation process.

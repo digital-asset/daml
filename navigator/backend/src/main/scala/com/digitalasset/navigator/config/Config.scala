@@ -46,7 +46,7 @@ final case class ConfigParseFailed(reason: String) extends ConfigReadError
     "org.wartremover.warts.ExplicitImplicitTypes"))
 object Config {
 
-  private[this] def logger = LoggerFactory.getLogger(this.getClass)
+  private[this] val logger = LoggerFactory.getLogger(this.getClass)
 
   def load(configFile: Path, useDatabase: Boolean): Either[ConfigReadError, Config] = {
     loadSdkConfig(useDatabase).left
