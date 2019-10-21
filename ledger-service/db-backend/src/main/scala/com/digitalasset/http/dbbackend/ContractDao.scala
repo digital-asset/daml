@@ -4,6 +4,7 @@
 package com.digitalasset.http.dbbackend
 
 import cats.effect._
+import cats.syntax.apply._
 import com.typesafe.scalalogging.StrictLogging
 import doobie.implicits._
 
@@ -17,7 +18,8 @@ class ContractDao(xa: DbConnection.T) extends StrictLogging {
   def initialize: IO[Unit] = {
     // TODO(Leo) skip it if tables created
     logger.info(s"Initialzing DB: $xa")
-    Queries.initDatabase.transact(xa)
+    (Queries.dropAllTablesIfExist *>
+      Queries.initDatabase).transact(xa)
   }
 }
 

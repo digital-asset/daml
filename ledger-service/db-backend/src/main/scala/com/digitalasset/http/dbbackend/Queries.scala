@@ -30,6 +30,8 @@ object Queries {
   /** for use when generating predicates */
   private[http] val contractColumnName: Fragment = sql"create_arguments"
 
+  val dropContractsTable: Fragment = dropTableIfExists("contract")
+
   val createContractsTable: Fragment = sql"""
       CREATE TABLE
         contract
@@ -46,6 +48,8 @@ object Queries {
 
   final case class DBOffset[+TpId](party: String, templateId: TpId, lastOffset: String)
 
+  val dropOffsetTable: Fragment = dropTableIfExists("ledger_offset")
+
   val createOffsetTable: Fragment = sql"""
       CREATE TABLE
         ledger_offset
@@ -60,6 +64,8 @@ object Queries {
   val SurrogateTpId = Tag.of[SurrogateTpIdTag]
   type SurrogateTpId = Long @@ SurrogateTpIdTag // matches tpid (BIGINT) below
 
+  val dropTemplateIdsTable: Fragment = dropTableIfExists("template_id")
+
   val createTemplateIdsTable: Fragment = sql"""
       CREATE TABLE
         template_id
@@ -70,6 +76,11 @@ object Queries {
         ,UNIQUE (package_id, template_module_name, template_entity_name)
         )
     """
+
+  private[http] def dropAllTablesIfExist(implicit log: LogHandler): ConnectionIO[Unit] =
+    (dropContractsTable.update.run
+      *> dropOffsetTable.update.run
+      *> dropTemplateIdsTable.update.run).void
 
   private[http] def initDatabase(implicit log: LogHandler): ConnectionIO[Unit] =
     (createTemplateIdsTable.update.run
