@@ -97,7 +97,7 @@ object Queries {
       .option flatMap {
       _.cata(
         _.pure[ConnectionIO],
-        sql"""INSERT INTO template_id (package_id, template_module_name, entity_name)
+        sql"""INSERT INTO template_id (package_id, template_module_name, template_entity_name)
               VALUES ($packageId, $moduleName, $entityName)""".update
           .withUniqueGeneratedKeys[SurrogateTpId]("tpid")
       )
@@ -111,8 +111,8 @@ object Queries {
 
   private[http] def updateOffset(party: String, tpid: SurrogateTpId, newOffset: String)(
       implicit log: LogHandler): ConnectionIO[Unit] =
-    sql"""INSERT INTO last_offset VALUES ($party, $tpid, $newOffset)
-          ON CONFLICT (party, tpid) DO UPDATE (last_offset = $newOffset)""".update.run.void
+    sql"""INSERT INTO ledger_offset VALUES ($party, $tpid, $newOffset)
+          ON CONFLICT (party, tpid) DO UPDATE SET last_offset = $newOffset""".update.run.void
 
   def insertContracts[F[_]: cats.Foldable: Functor, CA: JsonWriter, WP: JsonWriter](
       dbcs: F[DBContract[SurrogateTpId, CA, WP]]): ConnectionIO[Int] =
