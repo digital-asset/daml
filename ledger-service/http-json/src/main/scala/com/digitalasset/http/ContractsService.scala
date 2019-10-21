@@ -16,6 +16,7 @@ import com.digitalasset.ledger.api.{v1 => lav1}
 import scalaz.syntax.show._
 import scalaz.syntax.traverse._
 import scalaz.std.list._
+import scalaz.std.tuple._
 import scalaz.{-\/, Show, \/, \/-}
 import spray.json.JsValue
 
@@ -116,6 +117,23 @@ class ContractsService(
     : Seq[domain.ActiveContract[V[V.AbsoluteContractId]]] = {
     val predFuns = compiledPredicates transform ((_, vp) => vp.toFunPredicate)
     activeContracts.filter(ac => predFuns get ac.templateId forall (_(ac.argument)))
+  }
+
+  @SuppressWarnings(Array("org.wartremover.warts.Any"))
+  /*TODO SC private*/
+  def contractsToOffset: Sink[
+    lav1.active_contracts_service.GetActiveContractsResponse,
+    Future[(Seq[ActiveContract], lav1.ledger_offset.LedgerOffset)]] = {
+    import lav1.ledger_offset.LedgerOffset, LedgerOffset.{LedgerBoundary, Value},
+    Value.{Absolute, Boundary}
+    Sink
+      .fold[
+        (Vector[ActiveContract], Value),
+        lav1.active_contracts_service.GetActiveContractsResponse](
+        (Vector.empty, Boundary(LedgerBoundary.LEDGER_BEGIN))) { (s, gacr) =>
+        (s._1 ++ gacr.activeContracts.map(_ => ???), Absolute(gacr.offset))
+      }
+      .mapMaterializedValue(_ map (_ map LedgerOffset.apply))
   }
 
   private def valuePredicate(
