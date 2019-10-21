@@ -40,20 +40,26 @@ case class Converter(
 case class TriggerIds(
     triggerPackageId: PackageId,
     triggerModuleName: ModuleName,
+    highlevelModuleName: ModuleName,
     stdlibPackageId: PackageId,
     mainPackageId: PackageId) {
   def getId(n: String): Identifier =
     Identifier(triggerPackageId, QualifiedName(triggerModuleName, DottedName.assertFromString(n)))
+  def getHighlevelId(n: String): Identifier =
+    Identifier(triggerPackageId, QualifiedName(highlevelModuleName, DottedName.assertFromString(n)))
 }
 
 object TriggerIds {
   def fromDar(dar: Dar[(PackageId, Package)]): TriggerIds = {
     val triggerModuleName = DottedName.assertFromString("Daml.Trigger.LowLevel")
+    val highlevelModuleName = DottedName.assertFromString("Daml.Trigger")
     // We might want to just fix this at compile time at some point
     // once we ship the trigger lib with the SDK.
     val triggerPackageId: PackageId = dar.all
       .find {
-        case (pkgId, pkg) => pkg.modules.contains(triggerModuleName)
+        case (pkgId, pkg) =>
+          pkg.modules.contains(triggerModuleName) &&
+          pkg.modules.contains(highlevelModuleName)
       }
       .get
       ._1
@@ -65,7 +71,7 @@ object TriggerIds {
         }
         .get
         ._1
-    TriggerIds(triggerPackageId, triggerModuleName, stdlibPackageId, dar.main._1)
+    TriggerIds(triggerPackageId, triggerModuleName, highlevelModuleName, stdlibPackageId, dar.main._1)
   }
 }
 
