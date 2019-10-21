@@ -449,7 +449,7 @@ dlintSmokeTests mbScenarioService = Tasty.testGroup "Dlint smoke tests"
             foo <- makeFile "Foo.daml" $ T.unlines
                 [ "daml 1.2"
                 , "module Foo where"
-                , "data Foo = Foo {a : Int, b : Int, c : Int, d : Int}"
+                , "data Foo = Foo with a : Int, b : Int, c : Int, d : Int"
                 , "foo (Foo _ _ _ _) = True"
                 ]
             setFilesOfInterest [foo]
