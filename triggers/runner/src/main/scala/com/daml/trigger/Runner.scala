@@ -137,11 +137,7 @@ class Runner(
     logTraces(machine)
   }
 
-  def getTriggerSink(
-      triggerId: Identifier,
-      acs: Seq[CreatedEvent]): Sink[TriggerMsg, Future[SExpr]] = {
-    logger.info(s"Trigger is running as ${party}")
-    val triggerExpr = EVal(triggerId)
+  def getTrigger(triggerId: Identifier): (Expr, TypeConApp) = {
     val (tyCon: TypeConName, stateTy) =
       dar.main._2.lookupIdentifier(triggerId.qualifiedName).toOption match {
         case Some(DValue(TApp(TTyCon(tcon), stateTy), _, _, _)) => (tcon, stateTy)
@@ -150,7 +146,25 @@ class Runner(
           throw new RuntimeException(errMsg)
         }
       }
-    val triggerTy: TypeConApp = TypeConApp(tyCon, ImmArray(stateTy))
+    if (tyCon == triggerIds.getId("Trigger")) {
+      logger.debug("Running low-level trigger")
+      val triggerVal = EVal(triggerId)
+      val triggerTy = TypeConApp(tyCon, ImmArray(stateTy))
+      (triggerVal, triggerTy)
+    } else if (tyCon == triggerIds.getHighlevelId("Trigger")) {
+      logger.debug("Running high-level trigger")
+      throw new RuntimeException("NOT IMPLEMENTED")
+    } else {
+      val errMsg = s"Identifier ${triggerId.qualifiedName} does not point to a trigger. Its type must be Daml.Trigger.Trigger or Daml.Trigger.LowLevel.Trigger."
+      throw new RuntimeException(errMsg)
+    }
+  }
+
+  def getTriggerSink(
+      triggerId: Identifier,
+      acs: Seq[CreatedEvent]): Sink[TriggerMsg, Future[SExpr]] = {
+    logger.info(s"Trigger is running as ${party}")
+    val (triggerExpr, triggerTy) = getTrigger(triggerId)
     val update = compiler.compile(ERecProj(triggerTy, Name.assertFromString("update"), triggerExpr))
     val getInitialState =
       compiler.compile(ERecProj(triggerTy, Name.assertFromString("initialState"), triggerExpr))
