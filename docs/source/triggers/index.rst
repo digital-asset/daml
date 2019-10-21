@@ -118,8 +118,7 @@ allows you to emit commands that are then sent to the ledger. Like
 ``Scenario`` or ``Update``, you can use ``do`` notation with
 ``TriggerA``.
 
-Once you have defined the trigger, you have to pass it to ``runTrigger``. For our DAML trigger,
-this looks as follows:
+For our DAML trigger, the definition looks as follows:
 
 .. literalinclude:: ./template-root/src/CopyTrigger.daml
    :language: daml
