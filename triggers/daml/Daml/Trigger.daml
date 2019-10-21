@@ -14,6 +14,10 @@ module Daml.Trigger
  , AnyContractId(..)
  , exerciseCmd
  , createCmd
+ , Message(..)
+ , Completion(..)
+ , Transaction(..)
+ , CompletionStatus(..)
  ) where
 
 import DA.Action.State
@@ -61,18 +65,20 @@ runTrigger userTrigger = LowLevel.Trigger
           (_, TriggerAState commands nextCommandId) = runTriggerA (userTrigger.rule party acs Map.empty userState) (TriggerAState [] 0)
           commandsInFlight = foldl addCommands Map.empty commands
           state = TriggerState {acs, party, userState, commandsInFlight, nextCommandId}
-      in (state, commands, "")
+      in (state, commands)
     update msg state =
       case msg of
         MCompletion completion ->
           let userState = userTrigger.updateState state.acs (MCompletion completion) state.userState
-              commandsInFlight = case completion.status of
-                Failed {} -> Map.delete completion.commandId state.commandsInFlight
-                -- We delete successful completions when we receive the corresponding transaction
-                -- to avoid removing a command from commandsInFlight before we have modified the ACS.
-                Succeeded {} -> state.commandsInFlight
-              -- TODO:We should trigger rules on failures
-          in (state { userState, commandsInFlight }, [], "")
+          in case completion.status of
+            Succeeded {} ->
+              -- We delete successful completions when we receive the corresponding transaction
+              -- to avoid removing a command from commandsInFlight before we have modified the ACS.
+              (state { userState }, [] )
+            Failed {} ->
+                let commandsInFlight = Map.delete completion.commandId state.commandsInFlight
+                    (_, TriggerAState commands nextCommandId) = runTriggerA (userTrigger.rule state.party state.acs commandsInFlight userState) (TriggerAState [] state.nextCommandId)
+                in (state { userState, nextCommandId, commandsInFlight }, commands)
         MTransaction transaction ->
           let acs = applyTransaction transaction state.acs
               userState = userTrigger.updateState acs (MTransaction transaction) state.userState
@@ -82,7 +88,7 @@ runTrigger userTrigger = LowLevel.Trigger
                 Some commandId -> Map.delete commandId state.commandsInFlight
               (_, TriggerAState commands nextCommandId) = runTriggerA (userTrigger.rule state.party acs inFlight userState) (TriggerAState [] state.nextCommandId)
               commandsInFlight = foldl addCommands state.commandsInFlight commands
-          in (state { acs, userState, nextCommandId, commandsInFlight}, commands, show ("transaction", sum $ map numCreates commands, sum $ map numExercises commands))
+          in (state { acs, userState, nextCommandId, commandsInFlight}, commands)
 
 numCreates : Commands -> Int
 numCreates (Commands _ cmds) = length $ filter (\x -> case x of CreateCommand {} -> True; _ -> False) cmds

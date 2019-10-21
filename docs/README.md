@@ -33,7 +33,7 @@ To live-preview the docs, run `scripts/live-preview.sh`. The script accepts two 
 - `--pdf` includes the PDF documentation
 - `--gen` includes the generated documentation
 
-Note that neither PDF, not generated docs will benefit from live updates. To update generated docs or PDF docs, quit the preview script with CTRL+C and start it again.
+Note that neither PDF, nor generated docs will benefit from live updates. To update generated docs or PDF docs, quit the preview script with CTRL+C and start it again.
 
 ### Style conventions
 

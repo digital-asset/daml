@@ -300,6 +300,24 @@ class ActiveContractsService(session: LedgerSession) extends LedgerTestSuite(ses
       }
     }
 
+  private val eventId =
+    LedgerTest("ACSeventId", "The ActiveContractService should properly fill the eventId field") {
+      context =>
+        for {
+          ledger <- context.participant()
+          party <- ledger.allocateParty()
+          _ <- ledger.create(party, Dummy(party))
+          Vector(dummyEvent) <- ledger.activeContracts(party)
+          flatTransaction <- ledger.flatTransactionByEventId(dummyEvent.eventId, party)
+          transactionTree <- ledger.transactionTreeByEventId(dummyEvent.eventId, party)
+        } yield {
+          assert(
+            flatTransaction.transactionId == transactionTree.transactionId,
+            s"EventId ${dummyEvent.eventId} did not resolve to the same flat transaction (${flatTransaction.transactionId}) and transaction tree (${transactionTree.transactionId})."
+          )
+        }
+    }
+
   override val tests: Vector[LedgerTest] = Vector(
     invalidLedgerId,
     emptyResponse,
@@ -309,6 +327,7 @@ class ActiveContractsService(session: LedgerSession) extends LedgerTestSuite(ses
     usableOffset,
     verbosityFlag,
     multiPartyRequests,
-    agreementText
+    agreementText,
+    eventId
   )
 }

@@ -99,6 +99,7 @@ def damlc_integration_test(name, main_function):
             "ghc-lib",
             "ghc-lib-parser",
             "ghcide",
+            "haskell-lsp-types",
             "optparse-applicative",
             "process",
             "proto3-suite",

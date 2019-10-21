@@ -37,7 +37,6 @@ case class DefaultInfoHandler(arguments: Arguments, platformStore: ActorRef)(
       "port" -> obj.port.toJson,
       "assets" -> obj.assets.toJson,
       "time" -> TimeProviderType.write(obj.time).toJson,
-      "requirePassword" -> obj.requirePassword.toJson,
       "configFile" -> obj.configFile.map(p => p.toString).toJson,
       "startConsole" -> obj.startConsole.toJson,
       "tlsConfig" -> obj.tlsConfig
@@ -54,10 +53,10 @@ case class DefaultInfoHandler(arguments: Arguments, platformStore: ActorRef)(
   }
   private implicit object actorInfoWriter extends RootJsonWriter[PartyActorInfo] {
     override def write(obj: PartyActorInfo): JsValue = obj match {
-      case info: PartyActorStarting => JsString("Starting")
-      case info: PartyActorStarted => JsString("Started")
+      case _: PartyActorStarting => JsString("Starting")
+      case _: PartyActorStarted => JsString("Started")
       case info: PartyActorFailed => JsString(s"Failed: ${info.error.getMessage}")
-      case info: PartyActorUnresponsive => JsString("Unresponsive")
+      case _: PartyActorUnresponsive => JsString("Unresponsive")
     }
   }
   private implicit object appInfoWriter extends RootJsonWriter[ApplicationStateInfo] {

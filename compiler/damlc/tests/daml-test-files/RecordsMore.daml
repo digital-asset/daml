@@ -2,7 +2,7 @@
 -- All rights reserved.
 
 daml 1.2
-module Records_more where
+module RecordsMore where
 
 -- Tests for 'HasField' record preprocessor rewrites.
 

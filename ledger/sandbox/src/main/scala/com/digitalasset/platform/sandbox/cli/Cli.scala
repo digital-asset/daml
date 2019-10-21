@@ -147,6 +147,12 @@ object Cli {
         .text("Whether to load all the packages in the .dar files provided eagerly, rather than when needed as the commands come.")
         .action( (_, config) => config.copy(eagerPackageLoading = true))
 
+    opt[Long]("max-ttl-seconds")
+        .optional()
+        .validate(v => Either.cond(v > 0, (), "Max TTL must be a positive number"))
+        .text("The maximum TTL allowed for commands in seconds")
+        .action( (maxTtl, config) => config.copy(timeModel = config.timeModel.copy(maxTtl = Duration.ofSeconds(maxTtl))))
+
     help("help").text("Print the usage text")
 
     checkConfig(c => {

@@ -64,4 +64,4 @@ Command-line reference
 
 To start Sandbox, run: ``sandbox [options] <archive>...``
 
-To see all the available options, run ``da run sandbox -- --help``
+To see all the available options, run ``daml sandbox --help``

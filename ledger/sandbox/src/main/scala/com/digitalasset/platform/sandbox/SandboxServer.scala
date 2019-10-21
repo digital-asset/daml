@@ -90,7 +90,7 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
   // TODO: Pass this info in command-line (See issue #2025)
   val participantId: ParticipantId = Ref.LedgerString.assertFromString("sandbox-participant")
 
-  private val authService: AuthService = AuthServiceWildcard
+  private val authService: AuthService = config.authService.getOrElse(AuthServiceWildcard)
 
   case class ApiServerState(
       ledgerId: LedgerId,
@@ -275,13 +275,14 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
 
     Banner.show(Console.out)
     logger.info(
-      "Initialized sandbox version {} with ledger-id = {}, port = {}, dar file = {}, time mode = {}, ledger = {}, daml-engine = {}",
+      "Initialized sandbox version {} with ledger-id = {}, port = {}, dar file = {}, time mode = {}, ledger = {}, auth-service = {}",
       BuildInfo.Version,
       ledgerId,
       newState.port.toString,
       config.damlPackages,
       config.timeProviderType,
-      ledgerType
+      ledgerType,
+      authService.getClass.getSimpleName
     )
 
     writePortFile(newState.port)

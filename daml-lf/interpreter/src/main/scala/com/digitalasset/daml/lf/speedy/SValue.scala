@@ -35,7 +35,7 @@ sealed trait SValue {
       case STimestamp(x) => V.ValueTimestamp(x)
       case SParty(x) => V.ValueParty(x)
       case SBool(x) => V.ValueBool(x)
-      case SUnit(_) => V.ValueUnit
+      case SUnit => V.ValueUnit
       case SDate(x) => V.ValueDate(x)
       case STuple(fields, svalues) =>
         V.ValueTuple(
@@ -76,16 +76,6 @@ sealed trait SValue {
         throw SErrorCrash("SValue.toValue: unexpected SToken")
     }
 
-  private def mapArrayList(
-      as: util.ArrayList[SValue],
-      f: SValue => SValue): util.ArrayList[SValue] = {
-    val bs = new util.ArrayList[SValue](as.size)
-    as.forEach { a =>
-      val _ = bs.add(f(a))
-    }
-    bs
-  }
-
   def mapContractId(f: V.ContractId => V.ContractId): SValue =
     this match {
       case SPAP(prim, args, arity) =>
@@ -112,7 +102,7 @@ sealed trait SValue {
         SContractId(f(coid))
       case SEnum(_, _) | _: SPrimLit | SToken | STNat(_) => this
       case SAny(ty, value) =>
-        SAny(ty, value)
+        SAny(ty, value.mapContractId(f))
     }
 
   def equalTo(v2: SValue): Boolean = {
@@ -201,12 +191,31 @@ object SValue {
   final case class STimestamp(value: Time.Timestamp) extends SPrimLit
   final case class SParty(value: Party) extends SPrimLit
   final case class SBool(value: Boolean) extends SPrimLit
-  final case class SUnit(value: Unit) extends SPrimLit
+  final case object SUnit extends SPrimLit
   final case class SDate(value: Time.Date) extends SPrimLit
   final case class SContractId(value: V.ContractId) extends SPrimLit
-
   // The "effect" token for update or scenario builtin functions.
   final case object SToken extends SValue
+
+  object SValue {
+    val Unit = SUnit
+    val True = SBool(true)
+    val False = SBool(false)
+    val EmptyList = SList(FrontStack.empty)
+    val None = SOptional(Option.empty)
+    val Token = SToken
+  }
+
+  abstract class SValueContainer[X] {
+    def apply(value: SValue): X
+    val Unit: X = apply(SValue.Unit)
+    val True: X = apply(SValue.True)
+    val False: X = apply(SValue.False)
+    val EmptyList: X = apply(SValue.EmptyList)
+    val None: X = apply(SValue.None)
+    val Token: X = apply(SValue.Token)
+    def bool(b: Boolean) = if (b) True else False
+  }
 
   def fromValue(value0: V[V.ContractId]): SValue = {
     value0 match {
@@ -220,7 +229,7 @@ object SValue {
       case V.ValueParty(p) => SParty(p)
       case V.ValueBool(b) => SBool(b)
       case V.ValueDate(x) => SDate(x)
-      case V.ValueUnit => SUnit(())
+      case V.ValueUnit => SUnit
 
       case V.ValueRecord(Some(id), fs) =>
         val fields = Name.Array.ofDim(fs.length)
@@ -272,4 +281,15 @@ object SValue {
   }
 
   private[speedy] val ComparableArray = SomeArrayEquals.ComparableArray
+
+  private def mapArrayList(
+      as: util.ArrayList[SValue],
+      f: SValue => SValue): util.ArrayList[SValue] = {
+    val bs = new util.ArrayList[SValue](as.size)
+    as.forEach { a =>
+      val _ = bs.add(f(a))
+    }
+    bs
+  }
+
 }

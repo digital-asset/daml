@@ -25,6 +25,7 @@ import qualified Development.IDE.Core.OfInterest as Service
 import Development.IDE.Types.Logger
 import Development.IDE.Types.Location
 import qualified Language.Haskell.LSP.Messages as LSP
+import qualified Language.Haskell.LSP.Types as LSP
 
 import           "ghc-lib" GHC
 import           "ghc-lib-parser" Module
@@ -232,7 +233,7 @@ haddockParse :: (LSP.FromServerMessage -> IO ()) ->
                 MaybeT IO [Service.TcModuleResult]
 haddockParse diagsLogger opts f = MaybeT $ do
   vfs <- makeVFSHandle
-  service <- Service.initialise Service.mainRule diagsLogger noLogging opts vfs
+  service <- Service.initialise Service.mainRule (pure $ LSP.IdInt 0) diagsLogger noLogging opts vfs
   Service.setFilesOfInterest service (Set.fromList f)
   Service.runAction service $
              runMaybeT $

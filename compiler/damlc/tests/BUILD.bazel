@@ -105,6 +105,7 @@ da_haskell_test(
         "base",
         "extra",
         "ghcide",
+        "haskell-lsp-types",
         "tasty",
         "tasty-hunit",
         "text",

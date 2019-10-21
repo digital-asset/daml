@@ -6,6 +6,7 @@ package com.digitalasset.platform.sandbox.config
 import java.io.File
 
 import ch.qos.logback.classic.Level
+import com.daml.ledger.participant.state.v1.AuthService
 import com.digitalasset.ledger.api.tls.TlsConfiguration
 import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.services.time.{TimeModel, TimeProviderType}
@@ -35,7 +36,8 @@ final case class SandboxConfig(
     maxInboundMessageSize: Int,
     jdbcUrl: Option[String],
     eagerPackageLoading: Boolean,
-    logLevel: Level
+    logLevel: Level,
+    authService: Option[AuthService]
 )
 
 final case class CommandConfiguration(
@@ -67,7 +69,8 @@ object SandboxConfig {
       jdbcUrl = None,
       maxInboundMessageSize = DefaultMaxInboundMessageSize,
       eagerPackageLoading = false,
-      logLevel = Level.INFO
+      logLevel = Level.INFO,
+      authService = None,
     )
 
   lazy val defaultCommandConfig =

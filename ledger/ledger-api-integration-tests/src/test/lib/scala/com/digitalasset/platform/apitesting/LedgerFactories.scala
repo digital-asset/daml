@@ -65,7 +65,7 @@ object LedgerFactories {
     RemoteServerResource(endpoint.host, endpoint.port, endpoint.tlsConfig)
       .map {
         case PlatformChannels(channel) =>
-          LedgerContext.SingleChannelContext(channel, config.ledgerId, packageIds)
+          LedgerContext.SingleChannelContext(channel, None, config.ledgerId, packageIds)
       }
   }
 
@@ -76,7 +76,7 @@ object LedgerFactories {
     def createResource(sandboxConfig: SandboxConfig) =
       SandboxServerResource(sandboxConfig).map {
         case PlatformChannels(channel) =>
-          LedgerContext.SingleChannelContext(channel, config.ledgerId, packageIds)
+          LedgerContext.SingleChannelContext(channel, None, config.ledgerId, packageIds)
       }
 
     store match {

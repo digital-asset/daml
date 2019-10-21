@@ -228,7 +228,7 @@ case object DamlConstants {
     Some(complexRecordId),
     ImmArray(
       ("fText", simpleTextV),
-      ("fBool", V.ValueBool(true)),
+      ("fBool", V.ValueTrue),
       ("fDecimal", simpleDecimalV),
       ("fUnit", V.ValueUnit),
       ("fInt64", simpleInt64V),
@@ -238,7 +238,7 @@ case object DamlConstants {
       ("fListOfUnit", V.ValueList(FrontStack(V.ValueUnit, V.ValueUnit))),
       ("fDate", simpleDateV),
       ("fTimestamp", simpleTimestampV),
-      ("fOptionalText", V.ValueOptional(None)),
+      ("fOptionalText", V.ValueNone),
       ("fOptionalUnit", V.ValueOptional(Some(V.ValueUnit))),
       ("fOptOptText", V.ValueOptional(Some(V.ValueOptional(Some(V.ValueText("foo")))))),
       (

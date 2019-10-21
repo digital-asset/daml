@@ -10,6 +10,7 @@ import Tests.RecordTest()
 import Tests.OptionalTest()
 import Tests.ListTest()
 import Tests.VariantTest()
+import Tests.NumericTest()
 
 import Tests.Import()
 import Tests.Escape()

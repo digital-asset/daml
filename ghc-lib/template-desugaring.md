@@ -58,9 +58,7 @@ First we have data type definitions for the `Iou` template and the `Transfer` ch
 data Iou = Iou with
     issuer : Party
     owner : Party
-    currency : Party
     amount : Decimal
-    account : Party
     regulators : [Party]
   deriving (Eq, Show)
 
@@ -258,9 +256,9 @@ instance EnrollmentInstance => Template Enrollment where
   fromAnyTemplate = _fromAnyTemplateEnrollment
 
 instance TemplateKey Enrollment Registration where
-  key = keyEnrollment
-  fetchByKey = fetchByKeyEnrollment
-  lookupByKey = lookupByKeyEnrollment
+  key = _keyEnrollment
+  fetchByKey = _fetchByKeyEnrollment
+  lookupByKey = _lookupByKeyEnrollment
 ```
 
 ### Example (3)
@@ -305,12 +303,7 @@ class Template t => ProposalInstance t where
     _ensureProposal : Proposal t -> Bool
     _ensureProposal this@Proposal{..} = True
     _agreementProposal : Proposal t -> Text
-    _agreementProposal this@Proposal{..} = implode
-        [ "Proposal:\n"
-        , "* proposers: " <> show (signatory this) <> "\n"
-        , "* receivers: " <> show receivers <> "\n"
-        , "* agreement: " <> agreement asset
-        ]
+    _agreementProposal this@Proposal{..} = ""
     _createProposal : Proposal t -> Update (ContractId (Proposal t))
     _createProposal = magic @"create"
     _fetchProposal : ContractId (Proposal t) -> Update (Proposal t)

@@ -342,8 +342,8 @@ class SubmitRequestValidatorTest
 
     "validating boolean values" should {
       "accept any of them" in {
-        validateValue(Value(Sum.Bool(true))) shouldEqual Right(Lf.ValueBool(true))
-        validateValue(Value(Sum.Bool(false))) shouldEqual Right(Lf.ValueBool(false))
+        validateValue(Value(Sum.Bool(true))) shouldEqual Right(Lf.ValueTrue)
+        validateValue(Value(Sum.Bool(false))) shouldEqual Right(Lf.ValueFalse)
       }
     }
 
@@ -426,7 +426,7 @@ class SubmitRequestValidatorTest
       "convert empty lists" in {
         val input = Value(Sum.List(ApiList(List.empty)))
         val expected =
-          Lf.ValueList(FrontStack.empty)
+          Lf.ValueNil
 
         validateValue(input) shouldEqual Right(expected)
       }
@@ -452,7 +452,7 @@ class SubmitRequestValidatorTest
     "validating optional values" should {
       "convert empty optionals" in {
         val input = Value(Sum.Optional(ApiOptional(None)))
-        val expected = Lf.ValueOptional(None)
+        val expected = Lf.ValueNone
 
         validateValue(input) shouldEqual Right(expected)
       }

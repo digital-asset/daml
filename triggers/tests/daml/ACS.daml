@@ -36,22 +36,21 @@ initState party (ActiveContracts events) = TriggerState
 -- and we create a new AssetMirror contract whenever an Asset contract is created (but we do not archive them).
 test : Trigger TriggerState
 test = Trigger
-  { initialState = \party acs -> (initState party acs, [], "")
+  { initialState = \party acs -> (initState party acs, [])
   , update = update
   }
   where
-    update : Message -> TriggerState -> (TriggerState, [Commands],  Text)
+    update : Message -> TriggerState -> (TriggerState, [Commands])
     update (MCompletion c) state =
       let state' = case c.status of
             Failed {} -> state { failedCompletions = state.failedCompletions + 1 }
             Succeeded {} -> state { successfulCompletions = state.successfulCompletions + 1 }
-      in (state', [], show c)
+      in (state', [])
     update (MTransaction t) state = case foldl updateEvent ([], state.activeAssets) (events t) of
-      ([], acs) -> (state { activeAssets = acs }, [], "No command")
+      ([], acs) -> (state { activeAssets = acs }, [])
       (cmds, acs) ->
         ( state { activeAssets = acs, nextCommandId = state.nextCommandId + 1 }
         , [Commands (CommandId $ "command_" <> show state.nextCommandId) cmds]
-        , "Submitted " <> show (length cmds) <> " commands"
         )
       where
         updateEvent : ([Command], TextMap Identifier) -> Event -> ([Command], TextMap Identifier)

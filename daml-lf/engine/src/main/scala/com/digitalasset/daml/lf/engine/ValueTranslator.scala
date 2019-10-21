@@ -11,6 +11,7 @@ import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.language.Util._
 import com.digitalasset.daml.lf.speedy.SValue
+import com.digitalasset.daml.lf.speedy.SValue.SValueContainer
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value._
 
@@ -87,6 +88,10 @@ private[engine] class ValueTranslator(compiledPackages: CompiledPackages) {
     go(fields, Map.empty)
   }
 
+  private object SValueResultDone extends SValueContainer[ResultDone[SValue]] {
+    override def apply(value: SValue): ResultDone[SValue] = ResultDone(value)
+  }
+
   // since we get these values from third-party users of the library, check the recursion limit
   // here, too.
   private[engine] def translateValue(ty0: Type, v0: Value[AbsoluteContractId]): Result[SValue] = {
@@ -112,9 +117,9 @@ private[engine] class ValueTranslator(compiledPackages: CompiledPackages) {
         (ty, value) match {
           // simple values
           case (TUnit, ValueUnit) =>
-            ResultDone(SUnit(()))
+            SValueResultDone.Unit
           case (TBool, ValueBool(b)) =>
-            ResultDone(SBool(b))
+            SValueResultDone.bool(b)
           case (TInt64, ValueInt64(i)) =>
             ResultDone(SInt64(i))
           case (TTimestamp, ValueTimestamp(t)) =>

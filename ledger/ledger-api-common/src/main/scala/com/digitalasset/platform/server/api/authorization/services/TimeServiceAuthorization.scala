@@ -30,7 +30,7 @@ class TimeServiceAuthorization(
       request: GetTimeRequest,
       responseObserver: StreamObserver[GetTimeResponse]): Unit =
     ApiServiceAuthorization
-      .requireAdminClaims()
+      .requirePublicClaims()
       .fold(responseObserver.onError, _ => service.getTime(request, responseObserver))
 
   override def setTime(request: SetTimeRequest): Future[Empty] =

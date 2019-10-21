@@ -4,8 +4,9 @@
 package com.digitalasset.daml.lf.speedy
 
 import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.data.{FrontStack, ImmArray, Ref, Time}
+import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.language.Ast._
+import com.digitalasset.daml.lf.language.Util._
 import com.digitalasset.daml.lf.speedy.Compiler.{CompileError, PackageNotFound}
 import com.digitalasset.daml.lf.speedy.SBuiltin._
 import com.digitalasset.daml.lf.speedy.SExpr._
@@ -190,6 +191,9 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
     case SCPCons => 2
   }
 
+  private val compileGetTime: SExpr =
+    SEAbs(1) { SBGetTime(SEVar(1)) }
+
   private def translate(expr0: Expr): SExpr =
     expr0 match {
       case EVar(name) => SEVar(env.lookUpExprVar(name))
@@ -312,9 +316,9 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
 
       case EPrimCon(con) =>
         con match {
-          case PCTrue => SEValue(SBool(true))
-          case PCFalse => SEValue(SBool(false))
-          case PCUnit => SEValue(SUnit(()))
+          case PCTrue => SEValue.True
+          case PCFalse => SEValue.False
+          case PCUnit => SEValue.Unit
         }
       case EPrimLit(lit) =>
         SEValue(lit match {
@@ -405,7 +409,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
           }.toArray
         )
 
-      case ENil(_) => SEValue(SList(FrontStack.empty))
+      case ENil(_) => SEValue.EmptyList
       case ECons(_, front, tail) =>
         // TODO(JM): Consider emitting SEValue(SList(...)) for
         // constant lists?
@@ -414,8 +418,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
           front.iterator.map(translate).toArray :+ translate(tail),
         )
 
-      case ENone(_) =>
-        SEValue(SOptional(None))
+      case ENone(_) => SEValue.None
 
       case ESome(_, body) =>
         SEApp(
@@ -486,7 +489,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
             compileExercise(tmplId, translate(cidE), chId, actorsE.map(translate), translate(argE))
 
           case UpdateGetTime =>
-            SEAbs(1) { SBGetTime(SEVar(1)) }
+            compileGetTime
 
           case UpdateLookupByKey(retrieveByKey) =>
             // Translates 'lookupByKey Foo <key>' into:
@@ -684,13 +687,13 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
           SEAbs(1) {
             SELet(
               SBSBeginCommit(optLoc)(party, SEVar(1)),
-              SECatch(SEApp(update, Array(SEVar(2))), SEValue(SBool(true)), SEValue(SBool(false)))
+              SECatch(SEApp(update, Array(SEVar(2))), SEValue.True, SEValue.False)
             ) in SBSEndCommit(true)(SEVar(1), SEVar(3))
           }
         }
 
       case ScenarioGetTime =>
-        SEAbs(1) { SBGetTime(SEVar(1)) }
+        compileGetTime
 
       case ScenarioGetParty(e) =>
         withEnv { _ =>
@@ -724,12 +727,13 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
     }
   }
 
-  private def translatePure(body: Expr): SExpr = {
+  private val SEDropSecondArgument = SEAbs(2, SEVar(2))
+
+  private def translatePure(body: Expr): SExpr =
     // pure <E>
     // =>
     // ((\x token -> x) <E>)
-    SEApp(SEAbs(2, SEVar(2)), Array(translate(body)))
-  }
+    SEApp(SEDropSecondArgument, Array(translate(body)))
 
   private def translateBlock(bindings: ImmArray[Binding], body: Expr): SExpr = {
     // do
@@ -800,7 +804,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
           env = env.addExprVar(choice.argBinder._1, choiceArgumentPos)
           val controllers = translate(choice.controllers)
           val mbKey: SExpr = tmpl.key match {
-            case None => SEValue(SOptional(None))
+            case None => SEValue.None
             case Some(k) =>
               SEApp(
                 SEBuiltin(SBSome),
@@ -1139,7 +1143,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
       env = env.addExprVar(tmpl.param) // argument
 
       val key = tmpl.key match {
-        case None => SEValue(SOptional(None))
+        case None => SEValue.None
         case Some(tmplKey) =>
           SELet(translate(tmplKey.body)) in
             SBSome(
@@ -1189,7 +1193,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
     // SomeTemplate$SomeChoice <actorsE> <cidE> <argE>
     withEnv { _ =>
       val actors: SExpr = optActors match {
-        case None => SEValue(SOptional(None))
+        case None => SEValue.None
         case Some(actors) => SEApp(SEBuiltin(SBSome), Array(actors))
       }
       SEApp(SEVal(ChoiceDefRef(tmplId, choiceId), None), Array(actors, contractId, argument))
@@ -1270,10 +1274,13 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
       )
   }
 
+  private val SEUpdatePureUnit = translate(EUpdate(UpdatePure(TUnit, EUnit)))
+  private val appBoundHead = SEApp(SEVar(2), Array(SEVar(1)))
+
   private def translateCommands(bindings: ImmArray[Command]): SExpr = {
 
     if (bindings.isEmpty)
-      translate(EUpdate(UpdatePure(TBuiltin(BTUnit), EPrimCon(PCUnit))))
+      SEUpdatePureUnit
     else
       withEnv { _ =>
         val boundHead = translateCommand(bindings.head)
@@ -1283,7 +1290,6 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
         env = env.incrPos // token
 
         // add the first binding into the environment
-        val appBoundHead = SEApp(SEVar(2), Array(SEVar(1)))
         env = env.incrPos
 
         // and then the rest
@@ -1296,9 +1302,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
         SELet(boundHead) in
           SEAbs(1) {
             SELet(allBounds: _*) in
-              SEApp(
-                translate(EUpdate(UpdatePure(TBuiltin(BTUnit), EPrimCon(PCUnit)))),
-                Array(SEVar(env.position - tokenPosition)))
+              SEApp(SEUpdatePureUnit, Array(SEVar(env.position - tokenPosition)))
           }
       }
   }

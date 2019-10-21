@@ -472,7 +472,7 @@ executeCommandTests run _ = testGroup "execute command"
             ]
         Just escapedFp <- pure $ uriToFilePath (main' ^. uri)
         actualDotString :: ExecuteCommandResponse <- LSP.request WorkspaceExecuteCommand $ ExecuteCommandParams
-           "daml/damlVisualize"  (Just (List [Aeson.String $ T.pack escapedFp]))
+           "daml/damlVisualize"  (Just (List [Aeson.String $ T.pack escapedFp])) Nothing
         let expectedDotString = "digraph G {\ncompound=true;\nrankdir=LR;\nsubgraph cluster_Coin{\nn0[label=Create][color=green]; \nn1[label=Archive][color=red]; \nn2[label=Delete][color=red]; \nlabel=<<table align = \"left\" border=\"0\" cellborder=\"0\" cellspacing=\"1\">\n<tr><td align=\"center\"><b>Coin</b></td></tr><tr><td align=\"left\">owner</td></tr> \n</table>>;color=blue\n}\n}\n"
         liftIO $ assertEqual "Visulization command" (Just expectedDotString) (_result actualDotString)
         closeDoc main'
@@ -483,13 +483,13 @@ executeCommandTests run _ = testGroup "execute command"
             ]
         Just escapedFp <- pure $ uriToFilePath (main' ^. uri)
         actualDotString :: ExecuteCommandResponse <- LSP.request WorkspaceExecuteCommand $ ExecuteCommandParams
-           "daml/NoCommand"  (Just (List [Aeson.String $ T.pack escapedFp]))
+           "daml/NoCommand"  (Just (List [Aeson.String $ T.pack escapedFp])) Nothing
         let expectedNull = Just Aeson.Null
         liftIO $ assertEqual "Invlalid command" expectedNull (_result actualDotString)
         closeDoc main'
     , testCase "Visualization command with no arguments" $ run $ do
         actualDotString :: ExecuteCommandResponse <- LSP.request WorkspaceExecuteCommand $ ExecuteCommandParams
-           "daml/damlVisualize"  Nothing
+           "daml/damlVisualize"  Nothing Nothing
         let expectedNull = Just Aeson.Null
         liftIO $ assertEqual "Invlalid command" expectedNull (_result actualDotString)
     ]

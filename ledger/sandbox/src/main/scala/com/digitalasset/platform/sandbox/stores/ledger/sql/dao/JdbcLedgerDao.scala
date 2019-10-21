@@ -481,7 +481,7 @@ private class JdbcLedgerDao(
 
       // Note: ACS is typed as Unit here, as the ACS is given implicitly by the current database state
       // within the current SQL transaction. All of the given functions perform side effects to update the database.
-      val atr = acsManager.addTransaction[EventId](
+      val atr = acsManager.addTransaction(
         ledgerEffectiveTime,
         transactionId,
         workflowId,
@@ -949,21 +949,22 @@ private class JdbcLedgerDao(
           .deserializeContractInstance(ByteStreams.toByteArray(contractStream))
           .getOrElse(sys.error(s"failed to deserialize contract! cid:$coid"))
 
-        val (signatories, observers) =
+        val (signatories, observers, eventId) =
           transactionSerializer
             .deserializeTransaction(ByteStreams.toByteArray(tx))
             .getOrElse(sys.error(s"failed to deserialize transaction! cid:$coid"))
             .nodes
             .collectFirst {
-              case (_, NodeCreate(coid, _, _, signatories, stakeholders, _))
+              case (eventId, NodeCreate(coid, _, _, signatories, stakeholders, _))
                   if coid == absoluteCoid =>
-                (signatories, stakeholders diff signatories)
+                (signatories, stakeholders diff signatories, eventId)
             } getOrElse sys.error(s"no create node in contract creating transaction! cid:$coid")
 
         ActiveContract(
           absoluteCoid,
           ledgerEffectiveTime.toInstant,
           transactionId,
+          eventId,
           workflowId,
           contractInstance,
           witnesses,
@@ -1075,7 +1076,7 @@ private class JdbcLedgerDao(
 
     def orEmptyStringList(xs: Seq[String]) = if (xs.nonEmpty) xs else List("")
 
-    def contractStream(conn: Connection, offset: Long) = {
+    def contractStream(conn: Connection, offset: Long): Source[ActiveContract, Future[Done]] = {
       //TODO: investigate where Akka Streams is actually iterating on the JDBC ResultSet (because, that is blocking IO!)
       AkkaStream
         .source(

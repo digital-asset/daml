@@ -74,11 +74,7 @@ object SExpr {
     def execute(machine: Machine): Ctrl = CtrlValue(v)
   }
 
-  object SEValue {
-    val True = SEValue(SBool(true))
-    val False = SEValue(SBool(false))
-    val Unit = SEValue(SUnit(()))
-  }
+  object SEValue extends SValueContainer[SEValue]
 
   /** Function application. Apply 'args' to function 'fun', where 'fun'
     * evaluates to a builtin or a closure.

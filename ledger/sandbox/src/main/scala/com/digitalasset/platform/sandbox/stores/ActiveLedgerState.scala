@@ -11,7 +11,7 @@ import com.digitalasset.daml.lf.data.Relation.Relation
 import com.digitalasset.daml.lf.transaction.Node.{GlobalKey, KeyWithMaintainers}
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst, VersionedValue}
-import com.digitalasset.ledger.WorkflowId
+import com.digitalasset.ledger.{EventId, WorkflowId}
 import com.digitalasset.platform.sandbox.stores.ActiveLedgerState._
 
 sealed abstract class LetLookup
@@ -110,6 +110,7 @@ object ActiveLedgerState {
       id: Value.AbsoluteContractId,
       let: Instant, // time when the contract was committed
       transactionId: TransactionIdString, // transaction id where the contract originates
+      eventId: EventId,
       workflowId: Option[WorkflowId], // workflow id from where the contract originates
       contract: ContractInst[VersionedValue[AbsoluteContractId]],
       witnesses: Set[Party],

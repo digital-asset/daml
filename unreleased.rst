@@ -8,6 +8,4 @@ This page contains release notes for the SDK.
 
 HEAD — ongoing
 --------------
-- [DAML Ledger Integration Kit] Skew/LET/MRT/Config tests consolidated in a single suite.
-- [JSON API - Experimental] Add ``/parties`` endpoint.
-- [Sandbox] Party management fix, see `issue #3177 <https://github.com/digital-asset/daml/issues/3177>`_.
+- [DAML Triggers] The trigger runner now supports triggers using the high-level API directly. These no longer need to be converted to low-level Triggers using ``runTrigger``. Triggers using the low-level API are still supported.

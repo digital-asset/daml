@@ -7,6 +7,7 @@ import akka.NotUsed
 import akka.stream._
 import akka.stream.scaladsl._
 import com.google.rpc.status.Status
+import com.typesafe.scalalogging.StrictLogging
 import io.grpc.StatusRuntimeException
 import java.time.Instant
 import java.util.UUID
@@ -20,6 +21,7 @@ import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.speedy.Compiler
+import com.digitalasset.daml.lf.speedy.Pretty
 import com.digitalasset.daml.lf.speedy.{SExpr, Speedy, SValue}
 import com.digitalasset.daml.lf.speedy.SExpr._
 import com.digitalasset.daml.lf.speedy.SResult._
@@ -46,7 +48,8 @@ class Runner(
     applicationId: ApplicationId,
     party: String,
     dar: Dar[(PackageId, Package)],
-    submit: SubmitRequest => Unit) {
+    submit: SubmitRequest => Unit)
+    extends StrictLogging {
 
   private val converter = Converter.fromDar(dar)
   private val triggerIds = TriggerIds.fromDar(dar)
@@ -70,16 +73,10 @@ class Runner(
           if recordId.qualifiedName ==
             QualifiedName(
               DottedName.assertFromString("DA.Types"),
-              DottedName.assertFromString("Tuple3")) => {
+              DottedName.assertFromString("Tuple2")) => {
         val newState = values.get(0)
         val commandVal = values.get(1)
-        val logMessage = values.get(2) match {
-          case SText(t) => t
-          case _ =>
-            throw new RuntimeException(s"Log message should be text but was ${values.get(2)}")
-        }
-        println(s"New state: $newState")
-        println(s"Emitted log message: ${logMessage}")
+        logger.debug(s"New state: $newState")
         commandVal match {
           case SList(transactions) =>
             // Each transaction is a list of commands
@@ -109,23 +106,69 @@ class Runner(
         newState
       }
       case v => {
-        throw new RuntimeException(s"Expected Tuple3 but got $v")
+        throw new RuntimeException(s"Expected Tuple2 but got $v")
       }
     }
 
-  def getTriggerSink(
-      triggerId: Identifier,
-      acs: Seq[CreatedEvent]): Sink[TriggerMsg, Future[SExpr]] = {
-    val triggerExpr = EVal(triggerId)
+  def logTraces(machine: Speedy.Machine) = {
+    machine.traceLog.iterator.foreach {
+      case (msg, optLoc) =>
+        logger.info(s"TRACE ${Pretty.prettyLoc(optLoc).render(80)}: $msg")
+    }
+  }
+
+  def stepToValue(machine: Speedy.Machine) = {
+    while (!machine.isFinal) {
+      machine.step() match {
+        case SResultContinue => ()
+        case SResultError(err) => {
+          logTraces(machine)
+          logger.error(Pretty.prettyError(err, machine.ptx).render(80))
+          throw err
+        }
+        case res => {
+          logTraces(machine)
+          val errMsg = s"Unexpected speedy result: $res"
+          logger.error(errMsg)
+          throw new RuntimeException(errMsg)
+        }
+      }
+    }
+    logTraces(machine)
+  }
+
+  def getTrigger(triggerId: Identifier): (Expr, TypeConApp) = {
     val (tyCon: TypeConName, stateTy) =
       dar.main._2.lookupIdentifier(triggerId.qualifiedName).toOption match {
         case Some(DValue(TApp(TTyCon(tcon), stateTy), _, _, _)) => (tcon, stateTy)
         case _ => {
-          throw new RuntimeException(
-            s"Identifier ${triggerId.qualifiedName} does not point to trigger")
+          val errMsg = s"Identifier ${triggerId.qualifiedName} does not point to a trigger"
+          throw new RuntimeException(errMsg)
         }
       }
-    val triggerTy: TypeConApp = TypeConApp(tyCon, ImmArray(stateTy))
+    if (tyCon == triggerIds.getId("Trigger")) {
+      logger.debug("Running low-level trigger")
+      val triggerVal = EVal(triggerId)
+      val triggerTy = TypeConApp(tyCon, ImmArray(stateTy))
+      (triggerVal, triggerTy)
+    } else if (tyCon == triggerIds.getHighlevelId("Trigger")) {
+      logger.debug("Running high-level trigger")
+      val lowTriggerVal = EApp(EVal(triggerIds.getHighlevelId("runTrigger")), EVal(triggerId))
+      val lowStateTy = TApp(TTyCon(triggerIds.getHighlevelId("TriggerState")), stateTy)
+      val lowTriggerTy = TypeConApp(triggerIds.getId("Trigger"), ImmArray(lowStateTy))
+      (lowTriggerVal, lowTriggerTy)
+    } else {
+      val errMsg =
+        s"Identifier ${triggerId.qualifiedName} does not point to a trigger. Its type must be Daml.Trigger.Trigger or Daml.Trigger.LowLevel.Trigger."
+      throw new RuntimeException(errMsg)
+    }
+  }
+
+  def getTriggerSink(
+      triggerId: Identifier,
+      acs: Seq[CreatedEvent]): Sink[TriggerMsg, Future[SExpr]] = {
+    logger.info(s"Trigger is running as ${party}")
+    val (triggerExpr, triggerTy) = getTrigger(triggerId)
     val update = compiler.compile(ERecProj(triggerTy, Name.assertFromString("update"), triggerExpr))
     val getInitialState =
       compiler.compile(ERecProj(triggerTy, Name.assertFromString("initialState"), triggerExpr))
@@ -135,19 +178,9 @@ class Runner(
     val initialState =
       SEApp(getInitialState, Array(SEValue(SParty(Party.assertFromString(party))), createdExpr))
     machine.ctrl = Speedy.CtrlExpr(initialState)
-    while (!machine.isFinal) {
-      machine.step() match {
-        case SResultContinue => ()
-        case SResultError(err) => {
-          throw new RuntimeException(err)
-        }
-        case res => {
-          throw new RuntimeException(s"Unexpected speedy result $res")
-        }
-      }
-    }
+    stepToValue(machine)
     val evaluatedInitialState = handleStepResult(machine.toSValue)
-    println(s"Initial state: $evaluatedInitialState")
+    logger.debug(s"Initial state: $evaluatedInitialState")
     Flow[TriggerMsg]
       .mapConcat[TriggerMsg]({
         case CompletionMsg(c) =>
@@ -169,28 +202,22 @@ class Runner(
             converter.fromTransaction(transaction)
           }
           case CompletionMsg(completion) => {
+            val status = completion.getStatus
+            if (status.code != 0) {
+              logger.warn(s"Command failed: ${status.message}, code: ${status.code}")
+            }
             converter.fromCompletion(completion)
           }
         }
         machine.ctrl = Speedy.CtrlExpr(SEApp(update, Array(SEValue(messageVal), state)))
-        while (!machine.isFinal) {
-          machine.step() match {
-            case SResultContinue => ()
-            case SResultError(err) => {
-              throw new RuntimeException(err)
-            }
-            case res => {
-              throw new RuntimeException(s"Unexpected speed result $res")
-            }
-          }
-        }
+        stepToValue(machine)
         val newState = handleStepResult(machine.toSValue)
         SEValue(newState)
       }))(Keep.right[NotUsed, Future[SExpr]])
   }
 }
 
-object Runner {
+object Runner extends StrictLogging {
   def getTimeProvider(ty: TimeProviderType): TimeProvider = {
     ty match {
       case TimeProviderType.Static => TimeProvider.Constant(Instant.EPOCH)
@@ -259,7 +286,7 @@ object Runner {
         f.failed.foreach({
           case s: StatusRuntimeException =>
             postFailure(submitRequest.getCommands.commandId, s)
-          case e => println(s"ERROR: Unexpected exception: $e")
+          case e => logger.error(s"Unexpected exception: $e")
         })
       }
     )
