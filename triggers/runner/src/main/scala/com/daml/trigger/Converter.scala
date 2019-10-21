@@ -59,7 +59,7 @@ object TriggerIds {
       .find {
         case (pkgId, pkg) =>
           pkg.modules.contains(triggerModuleName) &&
-          pkg.modules.contains(highlevelModuleName)
+            pkg.modules.contains(highlevelModuleName)
       }
       .get
       ._1
@@ -71,7 +71,12 @@ object TriggerIds {
         }
         .get
         ._1
-    TriggerIds(triggerPackageId, triggerModuleName, highlevelModuleName, stdlibPackageId, dar.main._1)
+    TriggerIds(
+      triggerPackageId,
+      triggerModuleName,
+      highlevelModuleName,
+      stdlibPackageId,
+      dar.main._1)
   }
 }
 

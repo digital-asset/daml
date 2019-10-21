@@ -158,7 +158,8 @@ class Runner(
       val lowTriggerTy = TypeConApp(triggerIds.getId("Trigger"), ImmArray(lowStateTy))
       (lowTriggerVal, lowTriggerTy)
     } else {
-      val errMsg = s"Identifier ${triggerId.qualifiedName} does not point to a trigger. Its type must be Daml.Trigger.Trigger or Daml.Trigger.LowLevel.Trigger."
+      val errMsg =
+        s"Identifier ${triggerId.qualifiedName} does not point to a trigger. Its type must be Daml.Trigger.Trigger or Daml.Trigger.LowLevel.Trigger."
       throw new RuntimeException(errMsg)
     }
   }
