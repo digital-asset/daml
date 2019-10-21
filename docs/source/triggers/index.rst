@@ -248,7 +248,7 @@ using the syntax ``ModuleName:identifier``. Finally, we need to
 specify the ledger host, port and the party that our trigger is executed
 as.
 
-Now open Navigator at `http://localhost:7500/ <http://localhost:7500/>`.
+Now open Navigator at http://localhost:7500/.
 
 First, login as ``Alice`` and create an ``Original`` contract with
 ``party`` set to ``Alice``.  Now, logout and login as ``Bob`` and
