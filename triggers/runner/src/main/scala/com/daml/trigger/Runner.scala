@@ -153,7 +153,10 @@ class Runner(
       (triggerVal, triggerTy)
     } else if (tyCon == triggerIds.getHighlevelId("Trigger")) {
       logger.debug("Running high-level trigger")
-      throw new RuntimeException("NOT IMPLEMENTED")
+      val lowTriggerVal = EApp(EVal(triggerIds.getHighlevelId("runTrigger")), EVal(triggerId))
+      val lowStateTy = TApp(TTyCon(triggerIds.getHighlevelId("TriggerState")), stateTy)
+      val lowTriggerTy = TypeConApp(triggerIds.getId("Trigger"), ImmArray(lowStateTy))
+      (lowTriggerVal, lowTriggerTy)
     } else {
       val errMsg = s"Identifier ${triggerId.qualifiedName} does not point to a trigger. Its type must be Daml.Trigger.Trigger or Daml.Trigger.LowLevel.Trigger."
       throw new RuntimeException(errMsg)
