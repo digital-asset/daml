@@ -487,6 +487,12 @@ createProjectPackageDb ::
        Options -> [FilePath] -> IO ()
 createProjectPackageDb opts fps = do
     let dbPath = projectPackageDatabase </> (lfVersionString $ optDamlLfVersion opts)
+    let
+    -- Since we reinitialize the whole package db anyway,
+    -- during `daml init`, we clear the package db before to avoid
+    -- issues during SDk upgrades. Once we have a more clever mechanism than
+    -- reinitializing everything, we probably want to change this.
+    removePathForcibly dbPath
     createDirectoryIfMissing True $ dbPath </> "package.conf.d"
     -- Expand SDK package dependencies using the SDK root path.
     -- E.g. `daml-trigger` --> `$DAML_SDK/daml-libs/daml-trigger.dar`
