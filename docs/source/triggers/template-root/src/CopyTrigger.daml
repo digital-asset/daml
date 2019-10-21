@@ -51,7 +51,8 @@ template Copy
 deriving instance Ord Copy
 
 -- TRIGGER_BEGIN
-copyTrigger = runTrigger $ Trigger
+copyTrigger : Trigger ()
+copyTrigger = Trigger
   { initialize = \_acs -> ()
   , updateState = \_acs _message () -> ()
   , rule = copyRule
