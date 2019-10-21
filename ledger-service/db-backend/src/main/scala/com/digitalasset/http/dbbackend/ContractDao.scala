@@ -16,7 +16,6 @@ class ContractDao(xa: DbConnection.T) extends StrictLogging {
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def initialize: IO[Unit] = {
-    // TODO(Leo) skip it if tables created
     logger.info(s"Initialzing DB: $xa")
     (Queries.dropAllTablesIfExist *>
       Queries.initDatabase).transact(xa)

@@ -9,7 +9,6 @@ import akka.http.scaladsl.Http.ServerBinding
 import akka.stream.Materializer
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
-import com.digitalasset.http.Main.JdbcConfig
 import com.digitalasset.http.dbbackend.ContractDao
 import com.digitalasset.http.json.{
   ApiValueToJsValueConverter,
@@ -94,7 +93,10 @@ object HttpService extends StrictLogging {
       _ = schedulePackageReload(packageService, packageReloadInterval)
 
       contractDao = jdbcConfig.map(c => ContractDao(c.driver, c.url, c.user, c.password))
-      _ <- rightT(initalizeDbIfConfigured(contractDao))
+      createSchema = jdbcConfig.map(c => c.createSchema)
+      _ = logger.info(
+        s"contractDao: ${contractDao.toString}, createSchema: ${createSchema.toString}")
+      _ <- rightT(initalizeDbIfConfigured(contractDao, createSchema))
 
       commandService = new CommandService(
         packageService.resolveTemplateId,
@@ -203,6 +205,17 @@ object HttpService extends StrictLogging {
       .leftMap(e =>
         Error(s"Cannot create an instance of PartyManagementClient, error: ${e.getMessage}"))
 
-  private def initalizeDbIfConfigured(a: Option[ContractDao]): Future[Unit] =
-    a.fold(Future.successful(()))(c => c.initialize.unsafeToFuture)
+  private def initalizeDbIfConfigured(
+      dao: Option[ContractDao],
+      createSchema: Option[Boolean]): Future[Unit] = {
+    import scalaz.syntax.applicative._
+    ^(dao, createSchema)((a, b) => initalizeDbIfConfigured(a, b)) getOrElse Noop
+  }
+
+  private def initalizeDbIfConfigured(dao: ContractDao, createSchema: Boolean): Future[Unit] = {
+    if (createSchema) dao.initialize.unsafeToFuture()
+    else Noop
+  }
+
+  private val Noop: Future[Unit] = Future.successful(())
 }
