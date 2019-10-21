@@ -139,7 +139,8 @@ object Main extends StrictLogging {
         .action((x, c) => c.copy(jdbcConfig = Some(JdbcConfig.createUnsafe(x))))
         .validate(JdbcConfig.validate)
         .optional()
-        .text(
-          s"Optional query store JDBC configuration: ${JdbcConfig.help}. Example: ${JdbcConfig.example}")
+        .text(s"Optional query store JDBC configuration string, "
+          + s"contains key-value pairs in the format: ${JdbcConfig.help}. "
+          + s"Example: ${JdbcConfig.example}")
     }
 }
