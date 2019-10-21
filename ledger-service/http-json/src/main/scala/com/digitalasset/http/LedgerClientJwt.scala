@@ -13,6 +13,8 @@ import com.digitalasset.ledger.api.v1.command_service.{
   SubmitAndWaitForTransactionResponse,
   SubmitAndWaitRequest
 }
+import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
+import com.digitalasset.ledger.api.v1.transaction.Transaction
 import com.digitalasset.ledger.api.v1.transaction_filter.TransactionFilter
 import com.digitalasset.ledger.client.LedgerClient
 import com.digitalasset.ledger.client.configuration.LedgerClientConfiguration
@@ -30,6 +32,9 @@ object LedgerClientJwt {
 
   type GetActiveContracts =
     (Jwt, TransactionFilter, Boolean) => Source[GetActiveContractsResponse, NotUsed]
+
+  type GetCreatesAndArchivesSince =
+    (Jwt, TransactionFilter, LedgerOffset) => Source[Transaction, NotUsed]
 
   def singleHostChannel(
       hostIp: String,
@@ -92,4 +97,23 @@ object LedgerClientJwt {
       Source
         .fromFuture(forChannel(jwt, config, channel))
         .flatMapConcat(client => client.activeContractSetClient.getActiveContracts(filter, flag))
+
+  def getCreatesAndArchivesSince(config: LedgerClientConfiguration, channel: io.grpc.Channel)(
+      implicit ec: ExecutionContext,
+      esf: ExecutionSequencerFactory): GetCreatesAndArchivesSince =
+    (jwt, filter, offset) =>
+      Source
+        .fromFuture(for {
+          client <- forChannel(jwt, config, channel)
+          es <- client.transactionClient.getLedgerEnd
+        } yield (client, es.offset getOrElse sys.error("bad response from getLedgerEnd")))
+        .flatMapConcat {
+          case (client, end) =>
+            client.transactionClient.getTransactions(
+              start = offset,
+              end = Some(end),
+              filter,
+              verbose = true)
+      }
+
 }
