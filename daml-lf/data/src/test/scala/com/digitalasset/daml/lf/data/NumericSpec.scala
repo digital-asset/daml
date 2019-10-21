@@ -18,6 +18,12 @@ class NumericSpec
 
   private implicit def toScale(i: Int): Numeric.Scale = Numeric.Scale.assertFromInt(i)
 
+  "Numeric.Scale.values" should {
+    "be " in {
+      Numeric.Scale.values shouldBe Vector.range(0, 38)
+    }
+  }
+
   "fromBigDecimal" should {
 
     implicit def toBigDecimal(s: String): BigDecimal = new BigDecimal(s)

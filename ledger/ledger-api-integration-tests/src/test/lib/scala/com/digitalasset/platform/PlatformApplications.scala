@@ -8,6 +8,7 @@ import java.nio.file.Path
 import java.time.Duration
 
 import ch.qos.logback.classic.Level
+import com.daml.ledger.participant.state.v1.AuthService
 import com.digitalasset.daml.bazeltools.BazelRunfiles._
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.ledger.api.tls.TlsConfiguration
@@ -43,7 +44,8 @@ object PlatformApplications {
       commandConfiguration: CommandConfiguration = SandboxConfig.defaultCommandConfig,
       uniqueCommandIdentifiers: Boolean = true,
       uniquePartyIdentifiers: Boolean = true,
-      remoteApiEndpoint: Option[RemoteApiEndpoint] = None) {
+      remoteApiEndpoint: Option[RemoteApiEndpoint] = None,
+      authService: Option[AuthService] = None) {
     require(
       Duration.ofSeconds(timeModel.minTtl.getSeconds) == timeModel.minTtl &&
         Duration.ofSeconds(timeModel.maxTtl.getSeconds) == timeModel.maxTtl,
@@ -81,6 +83,9 @@ object PlatformApplications {
 
     def withRemoteApiEndpoint(endpoint: RemoteApiEndpoint) =
       copy(remoteApiEndpoint = Some(endpoint))
+
+    def withAuthService(authService: AuthService) =
+      copy(authService = Some(authService))
   }
 
   final case class RemoteApiEndpoint(
@@ -132,7 +137,8 @@ object PlatformApplications {
       maxInboundMessageSize = SandboxConfig.DefaultMaxInboundMessageSize,
       jdbcUrl = jdbcUrl,
       eagerPackageLoading = false,
-      logLevel = Level.INFO
+      logLevel = Level.INFO,
+      authService = config.authService,
     )
   }
 }

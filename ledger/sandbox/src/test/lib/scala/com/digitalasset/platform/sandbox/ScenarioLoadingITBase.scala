@@ -27,11 +27,14 @@ import com.digitalasset.ledger.api.v1.value.Identifier
 import com.digitalasset.ledger.client.services.acs.ActiveContractSetClient
 import com.digitalasset.ledger.client.services.commands.SynchronousCommandClient
 import com.digitalasset.ledger.client.services.transactions.TransactionClient
+import com.digitalasset.platform.common.util.DirectExecutionContext
 import com.digitalasset.platform.sandbox.services.{SandboxFixture, TestCommands}
 import com.google.protobuf.timestamp.Timestamp
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.time.{Millis, Span}
 import org.scalatest.{Matchers, Suite, WordSpec}
+
+import scala.concurrent.Future
 
 @SuppressWarnings(
   Array(
@@ -107,6 +110,8 @@ abstract class ScenarioLoadingITBase
     )
   }
 
+  implicit val ec = DirectExecutionContext
+
   "ScenarioLoading" when {
 
     "contracts have been created" should {
@@ -163,13 +168,20 @@ abstract class ScenarioLoadingITBase
         }
       }
 
-      "event ids are the same as contract ids (ACS)" in {
+      "event ids can be used to load transactions (ACS)" in {
+        val client = newTransactionClient(ledgerIdOnServer)
         whenReady(submitRequest(SubmitAndWaitRequest(commands = dummyRequest.commands))) { _ =>
           whenReady(getSnapshot()) { resp =>
             val responses = resp.init // last response is just ledger offset
-            val events = responses.flatMap(extractEvents)
-            events.foreach { event =>
-              event.eventId shouldBe event.contractId
+            val eventIds = responses.flatMap(_.activeContracts).map(_.eventId)
+            val txByEventIdF = Future
+              .sequence(eventIds.map(evId =>
+                client.getFlatTransactionByEventId(evId, Seq(M.party)).map(evId -> _)))
+              .map(_.toMap)
+            whenReady(txByEventIdF) { txByEventId =>
+              eventIds.foreach { evId =>
+                txByEventId.keySet should contain(evId)
+              }
             }
           }
         }
@@ -178,18 +190,31 @@ abstract class ScenarioLoadingITBase
       "event ids are the same as contract ids (transaction service)" in {
         val beginOffset =
           LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN))
-        val resultsF =
-          newTransactionClient(ledgerIdOnServer)
-            .getTransactions(beginOffset, None, transactionFilter)
-            .take(4)
-            .runWith(Sink.seq)
+        val client = newTransactionClient(ledgerIdOnServer)
+        val resultsF = client
+          .getTransactions(beginOffset, None, transactionFilter)
+          .take(4)
+          .runWith(Sink.seq)
 
         whenReady(resultsF) { txs =>
           val events = txs.flatMap(_.events).map(_.getCreated)
           events.length shouldBe 4
-          events.foreach { event =>
-            event.eventId shouldBe event.contractId
+
+          val txByEventIdF = Future
+            .sequence(
+              events.map(e =>
+                client
+                  .getFlatTransactionByEventId(e.eventId, Seq(M.party))
+                  .map(e.eventId -> _)))
+            .map(_.toMap)
+
+          whenReady(txByEventIdF) { txByEventId =>
+            events.foreach { event =>
+              txByEventId.keys should contain(event.eventId)
+            }
+
           }
+
         }
       }
     }

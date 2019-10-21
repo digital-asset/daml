@@ -244,6 +244,12 @@ object Ast {
   // for now it can contains only a Numeric Scale
   final case class TNat(n: Numeric.Scale) extends Type
 
+  object TNat {
+    // works because Numeric.Scale.MinValue = 0
+    val values = Numeric.Scale.values.map(new TNat(_))
+    def apply(n: Numeric.Scale): TNat = values(n)
+  }
+
   /** Reference to a type constructor. */
   final case class TTyCon(tycon: TypeConName) extends Type
 

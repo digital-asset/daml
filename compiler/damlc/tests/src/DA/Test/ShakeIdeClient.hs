@@ -409,6 +409,107 @@ dlintSmokeTests mbScenarioService = Tasty.testGroup "Dlint smoke tests"
             setFilesOfInterest [foo]
             expectNoErrors
             expectDiagnostic DsInfo (foo, 2, 11) "Suggestion: Use ::"
+    ,  testCase' "Use guards" $ do
+            foo <- makeFile "Foo.daml" $ T.unlines
+                [ "daml 1.2"
+                , "module Foo where"
+                , "truth i = if i == 1 then Some True else if i == 2 then Some False else None"
+                ]
+            setFilesOfInterest [foo]
+            expectNoErrors
+            expectDiagnostic DsInfo (foo, 2, 0) "Suggestion: Use guards"
+    ,  testCase' "Redundant guard" $ do
+            foo <- makeFile "Foo.daml" $ T.unlines
+                [ "daml 1.2"
+                , "module Foo where"
+                , "foo i | otherwise = True"
+                ]
+            setFilesOfInterest [foo]
+            expectNoErrors
+            expectDiagnostic DsInfo (foo, 2, 0) "Suggestion: Redundant guard"
+    ,  testCase' "Redundant where" $ do
+            foo <- makeFile "Foo.daml" $ T.unlines
+                [ "daml 1.2"
+                , "module Foo where"
+                , "foo i = i where"
+                ]
+            setFilesOfInterest [foo]
+            expectNoErrors
+            expectDiagnostic DsInfo (foo, 2, 0) "Suggestion: Redundant where"
+    ,  testCase' "Use otherwise" $ do
+            foo <- makeFile "Foo.daml" $ T.unlines
+                [ "daml 1.2"
+                , "module Foo where"
+                , "foo i | i == 1 = True | True = False"
+                ]
+            setFilesOfInterest [foo]
+            expectNoErrors
+            expectDiagnostic DsInfo (foo, 2, 0) "Suggestion: Use otherwise"
+    ,  testCase' "Use record patterns" $ do
+            foo <- makeFile "Foo.daml" $ T.unlines
+                [ "daml 1.2"
+                , "module Foo where"
+                , "data Foo = Foo with a : Int, b : Int, c : Int, d : Int"
+                , "foo (Foo _ _ _ _) = True"
+                ]
+            setFilesOfInterest [foo]
+            expectNoErrors
+            expectDiagnostic DsInfo (foo, 3, 5) "Suggestion: Use record patterns"
+    ,  testCase' "Used otherwise as a pattern" $ do
+            foo <- makeFile "Foo.daml" $ T.unlines
+                [ "daml 1.2"
+                , "module Foo where"
+                , "foo otherwise = 1"
+                ]
+            setFilesOfInterest [foo]
+            expectNoErrors
+            expectDiagnostic DsInfo (foo, 2, 4) "Warning: Used otherwise as a pattern"
+    ,  testCase' "Redundant bang pattern" $ do
+            foo <- makeFile "Foo.daml" $ T.unlines
+                [ "{-# LANGUAGE BangPatterns #-}"
+                , "daml 1.2"
+                , "module Foo where"
+                , "foo !True = 1"
+                ]
+            setFilesOfInterest [foo]
+            expectNoErrors
+            expectDiagnostic DsInfo (foo, 3, 4) "Warning: Redundant bang pattern"
+    ,  testCase' "Redundant irrefutable pattern" $ do
+            foo <- makeFile "Foo.daml" $ T.unlines
+                [ "daml 1.2"
+                , "module Foo where"
+                , "foo y = let ~x = 1 in y"
+                ]
+            setFilesOfInterest [foo]
+            expectNoErrors
+            expectDiagnostic DsInfo (foo, 2, 12) "Warning: Redundant irrefutable pattern"
+    ,  testCase' "Redundant as-pattern" $ do
+            foo <- makeFile "Foo.daml" $ T.unlines
+                [ "daml 1.2"
+                , "module Foo where"
+                , "foo y@_ = True"
+                ]
+            setFilesOfInterest [foo]
+            expectNoErrors
+            expectDiagnostic DsInfo (foo, 2, 4) "Warning: Redundant as-pattern"
+    ,  testCase' "Redundant case (1)" $ do
+            foo <- makeFile "Foo.daml" $ T.unlines
+                [ "daml 1.2"
+                , "module Foo where"
+                , "foo i = case i of _ -> i"
+                ]
+            setFilesOfInterest [foo]
+            expectNoErrors
+            expectDiagnostic DsInfo (foo, 2, 8) "Suggestion: Redundant case"
+    ,  testCase' "Redundant case (2)" $ do
+            foo <- makeFile "Foo.daml" $ T.unlines
+                [ "daml 1.2"
+                , "module Foo where"
+                , "foo i = case i of i -> i"
+                ]
+            setFilesOfInterest [foo]
+            expectNoErrors
+            expectDiagnostic DsInfo (foo, 2, 8) "Suggestion: Redundant case"
     ]
   where
       testCase' = testCase mbScenarioService

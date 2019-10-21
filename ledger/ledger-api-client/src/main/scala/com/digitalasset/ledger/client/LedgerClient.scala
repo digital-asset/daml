@@ -3,6 +3,8 @@
 
 package com.digitalasset.ledger.client
 
+import java.util.concurrent.Executor
+
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.v1.active_contracts_service.ActiveContractsServiceGrpc
@@ -26,7 +28,7 @@ import com.digitalasset.ledger.client.services.commands.{CommandClient, Synchron
 import com.digitalasset.ledger.client.services.identity.LedgerIdentityClient
 import com.digitalasset.ledger.client.services.pkg.PackageClient
 import com.digitalasset.ledger.client.services.transactions.TransactionClient
-import io.grpc.Channel
+import io.grpc.{CallCredentials, Channel, Metadata}
 import io.grpc.netty.{NegotiationType, NettyChannelBuilder}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -77,38 +79,61 @@ object LedgerClient {
     }
   }
 
+  /**
+    * Constructs a [[Channel]], ensuring that the [[LedgerClientConfiguration]] is picked up and valid
+    *
+    * You'll generally want to use [[singleHost]], use this only if you need a higher level of control
+    * over your [[Channel]].
+    */
+  def constructChannel(
+      hostIp: String,
+      port: Int,
+      configuration: LedgerClientConfiguration): Channel = {
+    val builder: NettyChannelBuilder = NettyChannelBuilder.forAddress(hostIp, port)
+    configuration.sslContext.fold(builder.usePlaintext())(
+      builder.sslContext(_).negotiationType(NegotiationType.TLS))
+    val channel = builder.build()
+    val _ = sys.addShutdownHook { val _ = channel.shutdownNow() }
+    channel
+  }
+
+  /**
+    * A convenient shortcut to build a [[LedgerClient]]
+    */
   def singleHost(hostIp: String, port: Int, configuration: LedgerClientConfiguration)(
       implicit ec: ExecutionContext,
-      esf: ExecutionSequencerFactory): Future[LedgerClient] = {
+      esf: ExecutionSequencerFactory): Future[LedgerClient] =
+    forChannel(configuration, constructChannel(hostIp, port, configuration))
 
-    val builder: NettyChannelBuilder = NettyChannelBuilder
-      .forAddress(hostIp, port)
+  private[this] val auth = Metadata.Key.of("Authorization", Metadata.ASCII_STRING_MARSHALLER)
 
-    configuration.sslContext
-      .fold {
-        builder.usePlaintext()
-      } { sslContext =>
-        builder.sslContext(sslContext).negotiationType(NegotiationType.TLS)
+  def callCredentials(token: String): CallCredentials =
+    new CallCredentials {
+      override def applyRequestMetadata(
+          requestInfo: CallCredentials.RequestInfo,
+          appExecutor: Executor,
+          applier: CallCredentials.MetadataApplier): Unit = {
+        val metadata = new Metadata
+        metadata.put(auth, token)
+        applier.apply(metadata)
       }
 
-    val channel = builder.build()
+      // Should be a noop but never called; tries to make it clearer to implementors that they may break in the future.
+      override def thisUsesUnstableApi(): Unit = ()
+    }
 
-    val _ = sys.addShutdownHook { val _ = channel.shutdownNow() }
-
-    forChannel(configuration, channel)
-
-  }
   def forChannel(configuration: LedgerClientConfiguration, channel: Channel)(
       implicit ec: ExecutionContext,
       esf: ExecutionSequencerFactory): Future[LedgerClient] = {
+    val creds = configuration.accessToken.map(callCredentials).orNull
     apply(
-      LedgerIdentityServiceGrpc.stub(channel),
-      TransactionServiceGrpc.stub(channel),
-      ActiveContractsServiceGrpc.stub(channel),
-      CommandSubmissionServiceGrpc.stub(channel),
-      CommandCompletionServiceGrpc.stub(channel),
-      CommandServiceGrpc.stub(channel),
-      PackageServiceGrpc.stub(channel),
+      LedgerIdentityServiceGrpc.stub(channel).withCallCredentials(creds),
+      TransactionServiceGrpc.stub(channel).withCallCredentials(creds),
+      ActiveContractsServiceGrpc.stub(channel).withCallCredentials(creds),
+      CommandSubmissionServiceGrpc.stub(channel).withCallCredentials(creds),
+      CommandCompletionServiceGrpc.stub(channel).withCallCredentials(creds),
+      CommandServiceGrpc.stub(channel).withCallCredentials(creds),
+      PackageServiceGrpc.stub(channel).withCallCredentials(creds),
       configuration
     )
   }

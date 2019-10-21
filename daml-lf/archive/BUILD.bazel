@@ -135,7 +135,7 @@ da_scala_library(
     name = "daml_lf_archive_reader",
     srcs = glob(["src/main/scala/**/*.scala"]),
     scalacopts = lf_scalacopts,
-    tags = ["maven_coordinates=com.digitalasset:daml-lf-archive-scala:__VERSION__"],
+    tags = ["maven_coordinates=com.digitalasset:daml-lf-archive-reader:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
         ":daml_lf_dev_archive_java_proto",

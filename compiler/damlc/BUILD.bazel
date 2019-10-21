@@ -125,6 +125,7 @@ da_haskell_library(
         "ghcide",
         "gitrev",
         "haskell-lsp",
+        "haskell-lsp-types",
         "lens-aeson",
         "lens",
         "memory",

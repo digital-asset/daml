@@ -12,9 +12,8 @@ module DA.Daml.Compiler.Upgrade
 
 import "ghc-lib-parser" BasicTypes
 import Control.Lens (toListOf)
-import qualified DA.Daml.LF.Ast.Base as LF
+import qualified DA.Daml.LF.Ast as LF
 import DA.Daml.LF.Ast.Optics
-import qualified DA.Daml.LF.Ast.Util as LF
 import DA.Daml.Preprocessor.Generics
 import Data.List.Extra
 import qualified Data.Map.Strict as MS
@@ -160,8 +159,16 @@ generateSrcPkgFromLf thisPkgId pkgMap pkg = do
             , "data Text = Text Opaque"
             , "type TextLit = [Char]"
             , "data Word"
-            , "data Decimal = Decimal Opaque"
-            , "data Module = Module TrName TrName"
+            ]
+            ++ if LF.packageLfVersion pkg `LF.supports` LF.featureNumeric then
+                    [ "data Nat"
+                    , "data Numeric (n: Nat) = Numeric Opaque"
+                    , "type Decimal = Numeric 10"
+                    ]
+                else
+                    [ "data Decimal = Decimal Opaque" ]
+            ++
+            [ "data Module = Module TrName TrName"
             , "data TrName = TrNameS Addr# | TrNameD [Char]"
             , "data KindBndr = Int"
             , "data RuntimeRep"
@@ -507,8 +514,8 @@ generateSrcFromLf (Qualify qualify) thisPkgId pkgMap m = noLoc mod
                     noExt
                     HsBoxedTuple
                     [noLoc $ convType ty | (_fldName, ty) <- fls]
-            -- TODO (#2289): Add support for nat kind.
-            LF.TNat _ -> error "nat kind not yet suppported in upgrades"
+            LF.TNat n ->
+                HsTyLit noExt (HsNumTy NoSourceText (LF.fromTypeLevelNat n))
 
     convBuiltInTy :: LF.BuiltinType -> HsType GhcPs
     convBuiltInTy =
@@ -528,8 +535,7 @@ generateSrcFromLf (Qualify qualify) thisPkgId pkgMap m = noLoc mod
             LF.BTOptional -> mkLfInternalPrelude "Optional"
             LF.BTMap -> mkLfInternalType "TextMap"
             LF.BTArrow -> mkTyConTypeUnqual funTyCon
-            -- TODO (#2289): Add support for Numeric types.
-            LF.BTNumeric -> error "Numeric type not yet supported in upgrades"
+            LF.BTNumeric -> mkGhcType "Numeric"
             -- TODO see https://github.com/digital-asset/daml/issues/2876
             LF.BTAny -> error "Any type not yet supported in upgrades"
     mkGhcType =
@@ -637,8 +643,7 @@ generateSrcFromLf (Qualify qualify) thisPkgId pkgMap m = noLoc mod
             LF.BTOptional -> (damlStdlibUnitId, LF.ModuleName ["DA", "Internal", "Prelude"])
             LF.BTMap -> (damlStdlibUnitId, LF.ModuleName ["DA", "Internal", "LF"])
             LF.BTArrow -> (primUnitId, translateModName funTyCon)
-            -- TODO (#2289): Add support for Numeric types.
-            LF.BTNumeric -> error "Numeric type not yet supported in upgrades"
+            LF.BTNumeric -> (primUnitId, LF.ModuleName ["GHC", "Types"])
             -- TODO: see https://github.com/digital-asset/daml/issues/2876
             LF.BTAny -> error "Any type not yet supported in upgrades"
 

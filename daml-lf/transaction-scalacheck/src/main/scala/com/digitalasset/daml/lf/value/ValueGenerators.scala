@@ -11,6 +11,7 @@ import com.digitalasset.daml.lf.transaction.Node.{
   NodeExercises,
   NodeFetch
 }
+import com.digitalasset.daml.lf.transaction.VersionTimeline.Implicits._
 import com.digitalasset.daml.lf.transaction.{Transaction => Tx}
 import com.digitalasset.daml.lf.transaction._
 import com.digitalasset.daml.lf.value.Value._
@@ -221,17 +222,14 @@ object ValueGenerators {
       val flat = List(
         (sz + 1, dateGen.map(ValueDate)),
         (sz + 1, Gen.alphaStr.map(ValueText)),
-        // FixMe: https://github.com/digital-asset/daml/issues/2289
-        //  once arbirtary Numeric can be encoded as value, replace the
-        //  following line by:
-        //    (sz + 1, unscaledNumGen.map(ValueNumeric)),
+        (sz + 1, unscaledNumGen.map(ValueNumeric)),
         (sz + 1, numGen(Decimal.scale).map(ValueNumeric)),
         (sz + 1, Arbitrary.arbLong.arbitrary.map(ValueInt64)),
         (sz + 1, Gen.alphaStr.map(ValueText)),
         (sz + 1, timestampGen.map(ValueTimestamp)),
         (sz + 1, coidValueGen),
         (sz + 1, party.map(ValueParty)),
-        (sz + 1, Gen.oneOf(true, false).map(ValueBool))
+        (sz + 1, Gen.oneOf(ValueTrue, ValueFalse)),
       )
       val all =
         if (nesting >= MAXIMUM_NESTING) { List() } else { nested } ++
@@ -259,8 +257,9 @@ object ValueGenerators {
 
   def versionedValueGen: Gen[VersionedValue[ContractId]] =
     for {
-      version <- valueVersionGen
       value <- valueGen
+      minVersion = ValueVersions.assertAssignVersion(value)
+      version <- valueVersionGen(minVersion)
     } yield VersionedValue(version, value)
 
   private[lf] val genMaybeEmptyParties: Gen[Set[Party]] = Gen.listOf(party).map(_.toSet)
@@ -415,7 +414,8 @@ object ValueGenerators {
     Gen.frequency((1, Gen.const("")), (10, g))
   }
 
-  def valueVersionGen: Gen[ValueVersion] = Gen.oneOf(ValueVersions.acceptedVersions.toSeq)
+  def valueVersionGen(minVersion: ValueVersion = ValueVersions.minVersion): Gen[ValueVersion] =
+    Gen.oneOf(ValueVersions.acceptedVersions.filterNot(_ precedes minVersion).toSeq)
 
   def unsupportedValueVersionGen: Gen[ValueVersion] =
     stringVersionGen.map(ValueVersion).filter(x => !ValueVersions.acceptedVersions.contains(x))

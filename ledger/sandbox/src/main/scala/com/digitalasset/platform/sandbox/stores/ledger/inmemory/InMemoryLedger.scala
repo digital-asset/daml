@@ -160,8 +160,17 @@ class InMemoryLedger(
         SandboxEventIdFormatter.makeAbsCoid(trId)
 
       val blindingInfo = Blinding.blind(transaction)
+      val mappedDisclosure = blindingInfo.disclosure.map {
+        case (nodeId, v) => SandboxEventIdFormatter.fromTransactionId(trId, nodeId) -> v
+      }
+      val mappedLocalDivulgence = blindingInfo.localDivulgence.map {
+        case (nodeId, v) => SandboxEventIdFormatter.fromTransactionId(trId, nodeId) -> v
+      }
+      val mappedGlobalDivulgence = blindingInfo.globalDivulgence
 
-      val mappedTx = transaction.mapContractIdAndValue(toAbsCoid, _.mapContractId(toAbsCoid))
+      val mappedTx = transaction
+        .mapContractIdAndValue(toAbsCoid, _.mapContractId(toAbsCoid))
+        .mapNodeId(SandboxEventIdFormatter.fromTransactionId(trId, _))
       // 5b. modify the ActiveContracts, while checking that we do not have double
       // spends or timing issues
       val acsRes = acs.addTransaction(
@@ -169,9 +178,9 @@ class InMemoryLedger(
         trId,
         transactionMeta.workflowId,
         mappedTx,
-        blindingInfo.disclosure,
-        blindingInfo.localDivulgence,
-        blindingInfo.globalDivulgence,
+        mappedDisclosure,
+        mappedLocalDivulgence,
+        mappedGlobalDivulgence,
         List.empty
       )
       acsRes match {
@@ -181,8 +190,6 @@ class InMemoryLedger(
             RejectionReason.Inconsistent(s"Reason: ${err.mkString("[", ", ", "]")}"))
         case Right(newAcs) =>
           acs = newAcs
-          val recordTx = mappedTx
-            .mapNodeId(SandboxEventIdFormatter.fromTransactionId(trId, _))
           val recordBlinding =
             blindingInfo.disclosure.map {
               case (nid, parties) =>
@@ -197,7 +204,7 @@ class InMemoryLedger(
               transactionMeta.workflowId,
               transactionMeta.ledgerEffectiveTime.toInstant,
               recordTime,
-              recordTx,
+              mappedTx,
               recordBlinding
             )
           entries.publish(entry)

@@ -32,6 +32,7 @@ import qualified Network.URI                               as URI
 
 import Language.Haskell.LSP.Messages
 import qualified Language.Haskell.LSP.Core as LSP
+import qualified Language.Haskell.LSP.Types as LSP
 
 
 textShow :: Show a => a -> T.Text
@@ -99,7 +100,7 @@ withUriDaml _ _ = return ()
 ------------------------------------------------------------------------
 
 runLanguageServer
-    :: ((FromServerMessage -> IO ()) -> VFSHandle -> ClientCapabilities -> IO IdeState)
+    :: (IO LSP.LspId -> (FromServerMessage -> IO ()) -> VFSHandle -> ClientCapabilities -> IO IdeState)
     -> IO ()
 runLanguageServer getIdeState = do
     let handlers = setHandlersKeepAlive <> setHandlersVirtualResource <> setHandlersCodeLens <> setIgnoreOptionalHandlers <> setCommandHandler

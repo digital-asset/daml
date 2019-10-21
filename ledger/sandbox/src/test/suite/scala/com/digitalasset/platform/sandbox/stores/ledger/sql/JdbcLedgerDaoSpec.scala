@@ -136,6 +136,7 @@ class JdbcLedgerDaoSpec
         absCid,
         let,
         txId,
+        event1,
         Some(workflowId),
         contractInstance,
         Set(alice, bob),

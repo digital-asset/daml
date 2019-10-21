@@ -46,7 +46,7 @@ private[digitalasset] object DamlLfEncoder extends App {
       case e: EncodeError =>
         error(s"Encoding error: ${e.message}")
       case NonFatal(e) =>
-        error(s"error: ${e.getMessage}")
+        error(s"error: $e")
     }
 
   private def readSources(files: Seq[String]): String =

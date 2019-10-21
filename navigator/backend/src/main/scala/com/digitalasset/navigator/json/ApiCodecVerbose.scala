@@ -157,7 +157,7 @@ object ApiCodecVerbose {
       case `tagUnit` => V.ValueUnit
       case `tagOptional` =>
         anyField(value, propValue, "ApiOptional") match {
-          case JsNull => V.ValueOptional(None)
+          case JsNull => V.ValueNone
           case v => V.ValueOptional(Some(jsValueToApiValue(v)))
         }
       case `tagMap` =>

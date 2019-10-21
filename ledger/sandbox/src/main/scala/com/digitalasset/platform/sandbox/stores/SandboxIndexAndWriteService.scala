@@ -192,7 +192,7 @@ abstract class LedgerBackedIndexService(
     AcsUpdateEvent.Create(
       // we use absolute contract ids as event ids throughout the sandbox
       domain.TransactionId(ac.transactionId),
-      EventId(cId.coid),
+      domain.EventId(ac.eventId),
       cId,
       ac.contract.template,
       ac.contract.arg,

@@ -687,7 +687,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
 
   "translate list value" should {
     "translate empty list" in {
-      val list = ValueList(FrontStack.empty[Value[AbsoluteContractId]])
+      val list = ValueNil
       val res = commandTranslator
         .translateValue(TList(TBuiltin(BTInt64)), list)
         .consume(lookupContract, lookupPackage, lookupKey)

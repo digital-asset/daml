@@ -87,8 +87,8 @@ data ActiveContracts = ActiveContracts { activeContracts : [Created] }
 -- | Trigger is (approximately) a left-fold over `Message` with
 -- an accumulator of type `s`.
 data Trigger s = Trigger
-  { initialState : Party -> ActiveContracts -> (s, [Commands], Text)
-  , update : Message -> s -> (s, [Commands], Text)
+  { initialState : Party -> ActiveContracts -> (s, [Commands])
+  , update : Message -> s -> (s, [Commands])
   }
 
 -- | We implicitly assume that the package id corresponds to the package the trigger is part of.

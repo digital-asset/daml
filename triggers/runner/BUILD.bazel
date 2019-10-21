@@ -10,11 +10,13 @@ load(
 da_scala_library(
     name = "trigger-runner-lib",
     srcs = glob(["src/main/scala/**/*.scala"]),
+    resources = glob(["src/main/resources/**/*"]),
     visibility = ["//visibility:public"],
     deps = [
         "//3rdparty/jvm/com/github/scopt",
         "//3rdparty/jvm/com/typesafe/akka:akka_stream",
         "//3rdparty/jvm/org/scalaz:scalaz_core",
+        "//3rdparty/jvm/org/typelevel:paiges_core",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/archive:daml_lf_dev_archive_java_proto",
         "//daml-lf/data",
