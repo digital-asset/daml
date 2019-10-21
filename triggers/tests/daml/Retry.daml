@@ -11,7 +11,8 @@ import DA.Optional
 
 import Daml.Trigger
 
-retryTrigger = runTrigger Trigger
+retryTrigger : Trigger Int
+retryTrigger = Trigger
   { initialize = \_acs -> 3
   , updateState = \_acs msg allowedFail -> case msg of
       MCompletion c
