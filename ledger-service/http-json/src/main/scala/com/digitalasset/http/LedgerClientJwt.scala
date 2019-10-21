@@ -89,6 +89,7 @@ object LedgerClientJwt {
     (jwt, req) =>
       forChannel(jwt, config, channel)
         .flatMap(_.commandServiceClient.submitAndWaitForTransaction(req))
+
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def getActiveContracts(config: LedgerClientConfiguration, channel: io.grpc.Channel)(
       implicit ec: ExecutionContext,
