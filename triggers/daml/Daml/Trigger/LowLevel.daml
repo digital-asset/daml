@@ -33,7 +33,11 @@ data Identifier = Identifier
   } deriving (Show, Eq, Ord)
 
 data AnyContractId = AnyContractId
-  { templateId : Identifier
+  { typeRep : TemplateTypeRep
+    -- XXX: Currently we need the Identifier for exercise and create commands.
+    --   This information is redundant with TemplateTypeRep, but, currently
+    --   there is no way to convert from TemplateTypeRep back to Identifier.
+  , templateId : Identifier
   , contractId : Text
   } deriving (Show, Eq, Ord)
 

@@ -80,7 +80,7 @@ object TriggerIds {
   }
 }
 
-case class AnyContractId(templateId: Identifier, contractId: String)
+case class AnyContractId(typeRep: String, templateId: Identifier, contractId: String)
 
 object Converter {
   // Helper to make constructing an SRecord more convenient
@@ -143,6 +143,20 @@ object Converter {
     }
   }
 
+  private def fromTemplateTypeRep(triggerIds: TriggerIds, templateId: value.Identifier): SValue = {
+    val templateTypeRepTy = Identifier(triggerIds.stdlibPackageId,
+      QualifiedName(
+        DottedName.assertFromString("DA.Internal.LF"),
+        DottedName.assertFromString("TemplateTypeRep")))
+    // XXX: Deduplicate with SBToTextTemplateId.
+    val typeRep = SText(Identifier(
+      PackageId.assertFromString(templateId.packageId),
+      QualifiedName(
+        DottedName.assertFromString(templateId.moduleName),
+        DottedName.assertFromString(templateId.entityName))).toString())
+    record(templateTypeRepTy, ("getTemplateTypeRep", typeRep))
+  }
+
   private def fromAnyContractId(
       triggerIds: TriggerIds,
       templateId: value.Identifier,
@@ -150,6 +164,7 @@ object Converter {
     val contractIdTy = triggerIds.getId("AnyContractId")
     record(
       contractIdTy,
+      ("typeRep", fromTemplateTypeRep(triggerIds, templateId)),
       ("templateId", fromIdentifier(triggerIds, templateId)),
       ("contractId", SText(contractId))
     )
@@ -295,14 +310,25 @@ object Converter {
     }
   }
 
+  private def toTemplateTypeRep(v: SValue): Either[String, String] = {
+    v match {
+      case SRecord(_, _, vals) => {
+        assert(vals.size == 1)
+        toText(vals.get(0))
+      }
+      case _ => Left(s"Expected TemplateTypeRep but got $v")
+    }
+  }
+
   private def toAnyContractId(v: SValue): Either[String, AnyContractId] = {
     v match {
       case SRecord(_, _, vals) => {
-        assert(vals.size == 2)
+        assert(vals.size == 3)
         for {
-          templateId <- toIdentifier(vals.get(0))
-          contractId <- toText(vals.get(1))
-        } yield AnyContractId(templateId, contractId)
+          typeRep <- toTemplateTypeRep(vals.get(0))
+          templateId <- toIdentifier(vals.get(1))
+          contractId <- toText(vals.get(2))
+        } yield AnyContractId(typeRep, templateId, contractId)
       }
       case _ => Left(s"Expected AnyContractId but got $v")
     }
