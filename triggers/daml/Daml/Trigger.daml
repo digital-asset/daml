@@ -33,11 +33,12 @@ import qualified Daml.Trigger.LowLevel as LowLevel
 
 -- public API
 
-newtype ACS = ACS [(AnyContractId, AnyTemplate)]
+newtype ACS = ACS (Map TemplateTypeRep [(AnyContractId, AnyTemplate)])
 
-getTemplates : Template a => ACS -> [(TheContractId a, a)]
-getTemplates (ACS tpls) =
-  mapOptional (\(cid, tpl) -> (,) <$> fromAnyContractId cid <*> fromAnyTemplate tpl) tpls
+getTemplates : forall a. Template a => ACS -> [(TheContractId a, a)]
+getTemplates (ACS tpls) = map fromAny $ fromOptional [] $ Map.lookup (templateTypeRep @a) tpls
+  where
+    fromAny (cid, tpl) = (fromSome (fromAnyContractId cid), fromSome (fromAnyTemplate tpl))
 
 data Trigger s = Trigger
   { initialize : ACS -> s
@@ -64,7 +65,7 @@ runTrigger userTrigger = LowLevel.Trigger
   }
   where
     initialState party (ActiveContracts createdEvents) =
-      let acs = foldl (\acs created -> applyEvent (CreatedEvent created) acs) (ACS []) createdEvents
+      let acs = foldl (\acs created -> applyEvent (CreatedEvent created) acs) (ACS Map.empty) createdEvents
           userState = userTrigger.initialize acs
           (_, TriggerAState commands nextCommandId) = runTriggerA (userTrigger.rule party acs Map.empty userState) (TriggerAState [] 0)
           commandsInFlight = foldl addCommands Map.empty commands
@@ -106,14 +107,21 @@ addCommands : Map CommandId [Command] -> Commands -> Map CommandId [Command]
 addCommands m (Commands cid cmds) = Map.insert cid cmds m
 
 insertTpl : AnyContractId -> AnyTemplate -> ACS -> ACS
-insertTpl cid tpl (ACS acs) = ACS ((cid, tpl) :: acs)
+insertTpl cid tpl (ACS acs) =
+  case Map.lookup cid.typeRep acs of
+    None -> ACS (Map.insert cid.typeRep [(cid, tpl)] acs)
+    Some items -> ACS (Map.insert cid.typeRep ((cid, tpl) :: items) acs)
 
 deleteTpl : AnyContractId -> ACS -> ACS
-deleteTpl cid (ACS acs) = ACS (filter (\(cid', _) -> cid /= cid') acs)
+deleteTpl cid (ACS acs) =
+  case Map.lookup cid.typeRep acs of
+    None -> ACS acs
+    Some items -> ACS (Map.insert cid.typeRep (filter (\(cid', _) -> cid /= cid') items) acs)
 
 lookupTpl : Template a => AnyContractId -> ACS -> Optional a
 lookupTpl cid (ACS acs) = do
-  (_, tpl) <- find ((cid ==) . fst) acs
+  items <- Map.lookup cid.typeRep acs
+  (_, tpl) <- find ((cid ==) . fst) items
   fromAnyTemplate tpl
 
 applyEvent : Event -> ACS -> ACS
