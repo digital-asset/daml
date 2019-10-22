@@ -17,7 +17,9 @@ module Daml.Trigger.LowLevel
   , CommandId(..)
   , Event(..)
   , Created(..)
+  , fromCreated
   , Archived(..)
+  , fromArchived
   , Trigger(..)
   , ActiveContracts(..)
   , Commands(..)
@@ -94,10 +96,25 @@ data Created = Created
   , argument : AnyTemplate
   }
 
+fromCreated : Template t => Created -> Optional (EventId, TheContractId t, t)
+fromCreated Created {eventId, contractId, argument}
+  | Some contractId' <- fromAnyContractId contractId
+  , Some argument' <- fromAnyTemplate argument
+  = Some (eventId, contractId', argument')
+  | otherwise
+  = None
+
 data Archived = Archived
   { eventId : EventId
   , contractId : AnyContractId
   } deriving (Show, Eq)
+
+fromArchived : Template t => Archived -> Optional (EventId, TheContractId t)
+fromArchived Archived {eventId, contractId}
+  | Some contractId' <- fromAnyContractId contractId
+  = Some (eventId, contractId')
+  | otherwise
+  = None
 
 data Message
   = MTransaction Transaction

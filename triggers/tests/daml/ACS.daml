@@ -55,17 +55,14 @@ test = Trigger
       where
         updateEvent : ([Command], TextMap Identifier) -> Event -> ([Command], TextMap Identifier)
         updateEvent (cmds, acs) ev = case ev of
-          CreatedEvent (Created _ cId argument)
-            | Some assetId <- fromAnyContractId @(Asset ()) cId
-            , Some (Asset {issuer}) <- fromAnyTemplate @(Asset ()) argument ->
+          CreatedEvent (fromCreated -> Some (_, assetId, Asset {issuer} : Asset ())) ->
             let proposeMirror : Command = createCmd (AssetMirrorProposal { issuer })
             in (proposeMirror :: cmds, TM.insert assetId.contractId assetId.templateId acs)
-            | Some proposalId <- fromAnyContractId @AssetMirrorProposal cId
-            , Some (AssetMirrorProposal {}) <- fromAnyTemplate argument ->
+          CreatedEvent (fromCreated -> Some (_, proposalId, AssetMirrorProposal {})) ->
             let accept : Command = exerciseCmd proposalId Accept
             in (accept :: cmds, acs)
-          ArchivedEvent (Archived _ cId)
-            | Some assetId <- fromAnyContractId @(Asset ()) cId -> (cmds, TM.delete assetId.contractId acs)
+          ArchivedEvent (fromArchived @(Asset ()) -> Some (_, assetId)) ->
+            (cmds, TM.delete assetId.contractId acs)
           _ -> (cmds, acs)
 
 -- This is only a generic template to test that we do the conversion properly.
