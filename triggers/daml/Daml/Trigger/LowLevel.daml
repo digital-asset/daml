@@ -9,6 +9,9 @@ module Daml.Trigger.LowLevel
   , Transaction(..)
   , Identifier(..)
   , AnyContractId(..)
+  , TheContractId(..)
+  , toAnyContractId
+  , fromAnyContractId
   , TransactionId(..)
   , EventId(..)
   , CommandId(..)
@@ -40,6 +43,31 @@ data AnyContractId = AnyContractId
   , templateId : Identifier
   , contractId : Text
   } deriving (Show, Eq, Ord)
+
+-- XXX: The name ContractId clashes with Prelude.ContractId.
+--   Find a better name than TheContractId.
+data TheContractId t = TheContractId
+  { -- XXX: Currently we need the Identifier for exercise and create commands.
+    --   This information is redundant with TemplateTypeRep, but, currently
+    --   there is no way to convert from TemplateTypeRep back to Identifier.
+    templateId : Identifier
+  , contractId : Text
+  } deriving (Show, Eq, Ord)
+
+toAnyContractId : forall t. Template t => TheContractId t -> AnyContractId
+toAnyContractId cid = AnyContractId
+  { typeRep = templateTypeRep @t
+  , templateId = cid.templateId
+  , contractId = cid.contractId
+  }
+
+fromAnyContractId : forall t. Template t => AnyContractId -> Optional (TheContractId t)
+fromAnyContractId cid
+  | cid.typeRep == templateTypeRep @t = Some TheContractId
+      { templateId = cid.templateId
+      , contractId = cid.contractId
+      }
+  | otherwise = None
 
 newtype TransactionId = TransactionId Text
   deriving (Show, Eq)
