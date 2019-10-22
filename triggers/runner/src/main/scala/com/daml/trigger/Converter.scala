@@ -144,16 +144,19 @@ object Converter {
   }
 
   private def fromTemplateTypeRep(triggerIds: TriggerIds, templateId: value.Identifier): SValue = {
-    val templateTypeRepTy = Identifier(triggerIds.stdlibPackageId,
+    val templateTypeRepTy = Identifier(
+      triggerIds.stdlibPackageId,
       QualifiedName(
         DottedName.assertFromString("DA.Internal.LF"),
         DottedName.assertFromString("TemplateTypeRep")))
     // XXX: Deduplicate with SBToTextTemplateId.
-    val typeRep = SText(Identifier(
-      PackageId.assertFromString(templateId.packageId),
-      QualifiedName(
-        DottedName.assertFromString(templateId.moduleName),
-        DottedName.assertFromString(templateId.entityName))).toString())
+    val typeRep = SText(
+      Identifier(
+        PackageId.assertFromString(templateId.packageId),
+        QualifiedName(
+          DottedName.assertFromString(templateId.moduleName),
+          DottedName.assertFromString(templateId.entityName))
+      ).toString())
     record(templateTypeRepTy, ("getTemplateTypeRep", typeRep))
   }
 
