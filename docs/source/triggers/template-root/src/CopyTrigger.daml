@@ -64,9 +64,9 @@ copyRule : Party -> ACS -> Map CommandId [Command] -> () -> TriggerA ()
 copyRule party acs commandsInFlight () = do
 -- RULE_SIGNATURE_END
 -- ACS_QUERY_BEGIN
-  let subscribers : [(AnyContractId, Subscriber)] = getTemplates @Subscriber acs
-  let originals : [(AnyContractId, Original)] = getTemplates @Original acs
-  let copies : [(AnyContractId, Copy)] = getTemplates @Copy acs
+  let subscribers : [(TheContractId Subscriber, Subscriber)] = getTemplates @Subscriber acs
+  let originals : [(TheContractId Original, Original)] = getTemplates @Original acs
+  let copies : [(TheContractId Copy, Copy)] = getTemplates @Copy acs
 -- ACS_QUERY_END
 
 -- ACS_FILTER_BEGIN
@@ -80,7 +80,7 @@ copyRule party acs commandsInFlight () = do
 -- SUBSCRIBING_PARTIES_END
 
 -- GROUP_COPIES_BEGIN
-  let groupedCopies : [[(AnyContractId, Copy)]]
+  let groupedCopies : [[(TheContractId Copy, Copy)]]
       groupedCopies = groupOn snd $ sortOn snd $ ownedCopies
   let copiesToKeep = map head groupedCopies
   let archiveDuplicateCopies = concatMap tail groupedCopies

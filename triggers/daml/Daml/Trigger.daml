@@ -12,6 +12,9 @@ module Daml.Trigger
  , CommandId
  , Command(..)
  , AnyContractId(..)
+ , TheContractId(..)
+ , toAnyContractId
+ , fromAnyContractId
  , exerciseCmd
  , createCmd
  , Message(..)
@@ -32,8 +35,9 @@ import qualified Daml.Trigger.LowLevel as LowLevel
 
 newtype ACS = ACS [(AnyContractId, AnyTemplate)]
 
-getTemplates : Template a => ACS -> [(AnyContractId, a)]
-getTemplates (ACS tpls) = mapOptional (\(cid, tpl) -> (cid,) <$> fromAnyTemplate tpl) tpls
+getTemplates : Template a => ACS -> [(TheContractId a, a)]
+getTemplates (ACS tpls) =
+  mapOptional (\(cid, tpl) -> (,) <$> fromAnyContractId cid <*> fromAnyTemplate tpl) tpls
 
 data Trigger s = Trigger
   { initialize : ACS -> s

@@ -143,9 +143,9 @@ createCmd : Template t => t -> Command
 createCmd templateArg =
   CreateCommand (toAnyTemplate templateArg)
 
-exerciseCmd : forall t c r. Choice t c r => AnyContractId -> c -> Command
+exerciseCmd : forall t c r. Choice t c r => TheContractId t -> c -> Command
 exerciseCmd contractId choiceArg =
-  ExerciseCommand contractId (toAnyChoice @t choiceArg)
+  ExerciseCommand (toAnyContractId contractId) (toAnyChoice @t choiceArg)
 
 data Commands = Commands
   { commandId : CommandId
