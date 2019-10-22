@@ -7,7 +7,6 @@ module Daml.Trigger.LowLevel
   , Completion(..)
   , CompletionStatus(..)
   , Transaction(..)
-  , Identifier(..)
   , AnyContractId(..)
   , TheContractId(..)
   , toAnyContractId
@@ -31,44 +30,25 @@ module Daml.Trigger.LowLevel
 
 import DA.Next.Map (MapKey(..))
 
-data Identifier = Identifier
-  { packageId : Text
-  , moduleName : Text
-  , entityName : Text
-  } deriving (Show, Eq, Ord)
-
 data AnyContractId = AnyContractId
-  { typeRep : TemplateTypeRep
-    -- XXX: Currently we need the Identifier for exercise and create commands.
-    --   This information is redundant with TemplateTypeRep, but, currently
-    --   there is no way to convert from TemplateTypeRep back to Identifier.
-  , templateId : Identifier
+  { templateId : TemplateTypeRep
   , contractId : Text
   } deriving (Show, Eq, Ord)
 
 -- XXX: The name ContractId clashes with Prelude.ContractId.
 --   Find a better name than TheContractId.
-data TheContractId t = TheContractId
-  { -- XXX: Currently we need the Identifier for exercise and create commands.
-    --   This information is redundant with TemplateTypeRep, but, currently
-    --   there is no way to convert from TemplateTypeRep back to Identifier.
-    templateId : Identifier
-  , contractId : Text
-  } deriving (Show, Eq, Ord)
+newtype TheContractId t = TheContractId { contractId : Text }
+  deriving (Show, Eq, Ord)
 
 toAnyContractId : forall t. Template t => TheContractId t -> AnyContractId
-toAnyContractId cid = AnyContractId
-  { typeRep = templateTypeRep @t
-  , templateId = cid.templateId
-  , contractId = cid.contractId
+toAnyContractId (TheContractId contractId) = AnyContractId
+  { templateId = templateTypeRep @t
+  , contractId = contractId
   }
 
 fromAnyContractId : forall t. Template t => AnyContractId -> Optional (TheContractId t)
 fromAnyContractId cid
-  | cid.typeRep == templateTypeRep @t = Some TheContractId
-      { templateId = cid.templateId
-      , contractId = cid.contractId
-      }
+  | cid.templateId == templateTypeRep @t = Some (TheContractId cid.contractId)
   | otherwise = None
 
 newtype TransactionId = TransactionId Text

@@ -108,19 +108,19 @@ addCommands m (Commands cid cmds) = Map.insert cid cmds m
 
 insertTpl : AnyContractId -> AnyTemplate -> ACS -> ACS
 insertTpl cid tpl (ACS acs) =
-  case Map.lookup cid.typeRep acs of
-    None -> ACS (Map.insert cid.typeRep [(cid, tpl)] acs)
-    Some items -> ACS (Map.insert cid.typeRep ((cid, tpl) :: items) acs)
+  case Map.lookup cid.templateId acs of
+    None -> ACS (Map.insert cid.templateId [(cid, tpl)] acs)
+    Some items -> ACS (Map.insert cid.templateId ((cid, tpl) :: items) acs)
 
 deleteTpl : AnyContractId -> ACS -> ACS
 deleteTpl cid (ACS acs) =
-  case Map.lookup cid.typeRep acs of
+  case Map.lookup cid.templateId acs of
     None -> ACS acs
-    Some items -> ACS (Map.insert cid.typeRep (filter (\(cid', _) -> cid /= cid') items) acs)
+    Some items -> ACS (Map.insert cid.templateId (filter (\(cid', _) -> cid /= cid') items) acs)
 
 lookupTpl : Template a => AnyContractId -> ACS -> Optional a
 lookupTpl cid (ACS acs) = do
-  items <- Map.lookup cid.typeRep acs
+  items <- Map.lookup cid.templateId acs
   (_, tpl) <- find ((cid ==) . fst) items
   fromAnyTemplate tpl
 

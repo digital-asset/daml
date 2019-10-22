@@ -10,7 +10,7 @@ import qualified DA.TextMap as TM
 import Daml.Trigger.LowLevel
 
 data TriggerState = TriggerState
-  { activeAssets : TextMap Identifier
+  { activeAssets : TextMap TemplateTypeRep
   , successfulCompletions : Int
   , failedCompletions : Int
   , nextCommandId : Int
@@ -26,7 +26,7 @@ initState party (ActiveContracts events) = TriggerState
   , failedCompletions = 0
   }
   where
-    updateAcs : TextMap Identifier -> Created -> TextMap Identifier
+    updateAcs : TextMap TemplateTypeRep -> Created -> TextMap TemplateTypeRep
     updateAcs acs (Created _ cId argument)
       | Some Asset{} <- fromAnyTemplate @(Asset ()) argument = TM.insert cId.contractId cId.templateId acs
       | otherwise = acs
@@ -53,11 +53,11 @@ test = Trigger
         , [Commands (CommandId $ "command_" <> show state.nextCommandId) cmds]
         )
       where
-        updateEvent : ([Command], TextMap Identifier) -> Event -> ([Command], TextMap Identifier)
+        updateEvent : ([Command], TextMap TemplateTypeRep) -> Event -> ([Command], TextMap TemplateTypeRep)
         updateEvent (cmds, acs) ev = case ev of
           CreatedEvent (fromCreated -> Some (_, assetId, Asset {issuer} : Asset ())) ->
             let proposeMirror : Command = createCmd (AssetMirrorProposal { issuer })
-            in (proposeMirror :: cmds, TM.insert assetId.contractId assetId.templateId acs)
+            in (proposeMirror :: cmds, TM.insert assetId.contractId (templateTypeRep @(Asset ())) acs)
           CreatedEvent (fromCreated -> Some (_, proposalId, AssetMirrorProposal {})) ->
             let accept : Command = exerciseCmd proposalId Accept
             in (accept :: cmds, acs)

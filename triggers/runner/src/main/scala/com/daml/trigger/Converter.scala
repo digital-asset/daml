@@ -80,7 +80,7 @@ object TriggerIds {
   }
 }
 
-case class AnyContractId(typeRep: String, templateId: Identifier, contractId: String)
+case class AnyContractId(templateId: Identifier, contractId: String)
 
 object Converter {
   // Helper to make constructing an SRecord more convenient
@@ -111,13 +111,13 @@ object Converter {
     )
   }
 
-  private def fromIdentifier(triggerIds: TriggerIds, id: value.Identifier): SValue = {
-    val identifierTy = triggerIds.getId("Identifier")
-    record(
-      identifierTy,
-      ("packageId", SText(id.packageId)),
-      ("moduleName", SText(id.moduleName)),
-      ("name", SText(id.entityName)))
+  private def fromIdentifier(id: value.Identifier): SValue = {
+    SText(
+      Identifier(
+        PackageId.assertFromString(id.packageId),
+        QualifiedName(
+          DottedName.assertFromString(id.moduleName),
+          DottedName.assertFromString(id.entityName))).toString())
   }
 
   private def fromTransactionId(triggerIds: TriggerIds, transactionId: String): SValue = {
@@ -149,15 +149,7 @@ object Converter {
       QualifiedName(
         DottedName.assertFromString("DA.Internal.LF"),
         DottedName.assertFromString("TemplateTypeRep")))
-    // XXX: Deduplicate with SBToTextTemplateId.
-    val typeRep = SText(
-      Identifier(
-        PackageId.assertFromString(templateId.packageId),
-        QualifiedName(
-          DottedName.assertFromString(templateId.moduleName),
-          DottedName.assertFromString(templateId.entityName))
-      ).toString())
-    record(templateTypeRepTy, ("getTemplateTypeRep", typeRep))
+    record(templateTypeRepTy, ("getTemplateTypeRep", fromIdentifier(templateId)))
   }
 
   private def fromAnyContractId(
@@ -167,8 +159,7 @@ object Converter {
     val contractIdTy = triggerIds.getId("AnyContractId")
     record(
       contractIdTy,
-      ("typeRep", fromTemplateTypeRep(triggerIds, templateId)),
-      ("templateId", fromIdentifier(triggerIds, templateId)),
+      ("templateId", fromTemplateTypeRep(triggerIds, templateId)),
       ("contractId", SText(contractId))
     )
   }
@@ -294,14 +285,7 @@ object Converter {
 
   private def toIdentifier(v: SValue): Either[String, Identifier] = {
     v match {
-      case SRecord(_, _, vals) => {
-        assert(vals.size == 3)
-        for {
-          packageId <- toText(vals.get(0)).flatMap(PackageId.fromString)
-          moduleName <- toText(vals.get(1)).flatMap(DottedName.fromString)
-          entityName <- toText(vals.get(2)).flatMap(DottedName.fromString)
-        } yield Identifier(packageId, QualifiedName(moduleName, entityName))
-      }
+      case SText(s) => Identifier.fromString(s)
       case _ => Left(s"Expected Identifier but got $v")
     }
   }
@@ -313,11 +297,11 @@ object Converter {
     }
   }
 
-  private def toTemplateTypeRep(v: SValue): Either[String, String] = {
+  private def toTemplateTypeRep(v: SValue): Either[String, Identifier] = {
     v match {
       case SRecord(_, _, vals) => {
         assert(vals.size == 1)
-        toText(vals.get(0))
+        toIdentifier(vals.get(0))
       }
       case _ => Left(s"Expected TemplateTypeRep but got $v")
     }
@@ -326,12 +310,11 @@ object Converter {
   private def toAnyContractId(v: SValue): Either[String, AnyContractId] = {
     v match {
       case SRecord(_, _, vals) => {
-        assert(vals.size == 3)
+        assert(vals.size == 2)
         for {
-          typeRep <- toTemplateTypeRep(vals.get(0))
-          templateId <- toIdentifier(vals.get(1))
-          contractId <- toText(vals.get(2))
-        } yield AnyContractId(typeRep, templateId, contractId)
+          templateId <- toTemplateTypeRep(vals.get(0))
+          contractId <- toText(vals.get(1))
+        } yield AnyContractId(templateId, contractId)
       }
       case _ => Left(s"Expected AnyContractId but got $v")
     }
