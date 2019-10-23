@@ -850,7 +850,7 @@ convertExpr env0 e = do
         | getOccFS x == "()" = fmap (, args) $ pure EUnit
         | getOccFS x == "True" = fmap (, args) $ pure $ mkBool True
         | getOccFS x == "False" = fmap (, args) $ pure $ mkBool False
-        | getOccFS x == "I#" = fmap (, args) $ pure $ mkIdentity TInt64 -- we pretend Int and Int# are the same thingß
+        | getOccFS x == "I#" = fmap (, args) $ pure $ mkIdentity TInt64 -- we pretend Int and Int# are the same thing
         | Just m <- nameModule_maybe $ varName x
         , Just con <- isDataConId_maybe x
         = convertDataCon env m con args
