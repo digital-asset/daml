@@ -853,7 +853,7 @@ convertExpr env0 e = do
         | getOccFS x == "I#" = fmap (, args) $ pure $ mkIdentity TInt64 -- we pretend Int and Int# are the same thingß
         | Just m <- nameModule_maybe $ varName x
         , Just con <- isDataConId_maybe x
-        = applyDataCon env x args m con
+        = convertDataCon env x m con args
         | Just m <- nameModule_maybe $ varName x = fmap (, args) $
             fmap EVal $ qualify env m $ convVal x
         | isGlobalId x = fmap (, args) $ do
@@ -944,14 +944,8 @@ convertExpr env0 e = do
 -- NOTE(MH): Handle data constructors. Fully applied record
 -- constructors are inlined. This is required for contract keys to
 -- work. Constructor workers are not handled (yet).
-applyDataCon :: Env -> Var -> [LArg Var] -> GHC.Module -> DataCon -> ConvertM (LF.Expr, [LArg Var])
-applyDataCon env x args m con = do
-    let qual :: (T.Text -> n) -> T.Text -> ConvertM (Qualified n)
-        qual f t
-            | Just xs <- T.stripPrefix "(," t
-            , T.dropWhile (== ',') xs == ")" = qDA_Types env $ f $ "Tuple" <> T.pack (show $ T.length xs + 1)
-            | Just t' <- T.stripPrefix "$W" t = qualify env m $ f t'
-            | otherwise = qualify env m $ f t
+convertDataCon :: Env -> Var -> GHC.Module -> DataCon -> [LArg Var] -> ConvertM (LF.Expr, [LArg Var])
+convertDataCon env x m con args = do
     ctor@(Ctor _ fldNames fldTys) <- toCtor env con
     let tycon = dataConTyCon con
     if  -- Fully applied record constructor:
@@ -1017,6 +1011,13 @@ applyDataCon env x args m con = do
         -- Partially applied variant constructor:
         | otherwise
         -> fmap (, args) $ fmap EVal $ qual (\x -> mkVal $ "$W" <> x) $ getOccText x
+    where
+        qual :: (T.Text -> n) -> T.Text -> ConvertM (Qualified n)
+        qual f t
+            | Just xs <- T.stripPrefix "(," t
+            , T.dropWhile (== ',') xs == ")" = qDA_Types env $ f $ "Tuple" <> T.pack (show $ T.length xs + 1)
+            | Just t' <- T.stripPrefix "$W" t = qualify env m $ f t'
+            | otherwise = qualify env m $ f t
 
 
 convertArg :: Env -> GHC.Arg Var -> ConvertM LF.Arg
