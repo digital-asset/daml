@@ -8,7 +8,7 @@ module Daml.Trigger.LowLevel
   , CompletionStatus(..)
   , Transaction(..)
   , AnyContractId(..)
-  , TheContractId(..)
+  , AbsoluteContractId(..)
   , toAnyContractId
   , fromAnyContractId
   , TransactionId(..)
@@ -35,20 +35,18 @@ data AnyContractId = AnyContractId
   , contractId : Text
   } deriving (Show, Eq, Ord)
 
--- XXX: The name ContractId clashes with Prelude.ContractId.
---   Find a better name than TheContractId.
-newtype TheContractId t = TheContractId { contractId : Text }
+newtype AbsoluteContractId t = AbsoluteContractId { contractId : Text }
   deriving (Show, Eq, Ord)
 
-toAnyContractId : forall t. Template t => TheContractId t -> AnyContractId
-toAnyContractId (TheContractId contractId) = AnyContractId
+toAnyContractId : forall t. Template t => AbsoluteContractId t -> AnyContractId
+toAnyContractId (AbsoluteContractId contractId) = AnyContractId
   { templateId = templateTypeRep @t
   , contractId = contractId
   }
 
-fromAnyContractId : forall t. Template t => AnyContractId -> Optional (TheContractId t)
+fromAnyContractId : forall t. Template t => AnyContractId -> Optional (AbsoluteContractId t)
 fromAnyContractId cid
-  | cid.templateId == templateTypeRep @t = Some (TheContractId cid.contractId)
+  | cid.templateId == templateTypeRep @t = Some (AbsoluteContractId cid.contractId)
   | otherwise = None
 
 newtype TransactionId = TransactionId Text
@@ -76,7 +74,7 @@ data Created = Created
   , argument : AnyTemplate
   }
 
-fromCreated : Template t => Created -> Optional (EventId, TheContractId t, t)
+fromCreated : Template t => Created -> Optional (EventId, AbsoluteContractId t, t)
 fromCreated Created {eventId, contractId, argument}
   | Some contractId' <- fromAnyContractId contractId
   , Some argument' <- fromAnyTemplate argument
@@ -89,7 +87,7 @@ data Archived = Archived
   , contractId : AnyContractId
   } deriving (Show, Eq)
 
-fromArchived : Template t => Archived -> Optional (EventId, TheContractId t)
+fromArchived : Template t => Archived -> Optional (EventId, AbsoluteContractId t)
 fromArchived Archived {eventId, contractId}
   | Some contractId' <- fromAnyContractId contractId
   = Some (eventId, contractId')
@@ -140,7 +138,7 @@ createCmd : Template t => t -> Command
 createCmd templateArg =
   CreateCommand (toAnyTemplate templateArg)
 
-exerciseCmd : forall t c r. Choice t c r => TheContractId t -> c -> Command
+exerciseCmd : forall t c r. Choice t c r => AbsoluteContractId t -> c -> Command
 exerciseCmd contractId choiceArg =
   ExerciseCommand (toAnyContractId contractId) (toAnyChoice @t choiceArg)
 

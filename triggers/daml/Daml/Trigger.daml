@@ -12,7 +12,7 @@ module Daml.Trigger
  , CommandId
  , Command(..)
  , AnyContractId(..)
- , TheContractId(..)
+ , AbsoluteContractId(..)
  , toAnyContractId
  , fromAnyContractId
  , exerciseCmd
@@ -35,7 +35,7 @@ import qualified Daml.Trigger.LowLevel as LowLevel
 
 newtype ACS = ACS (Map TemplateTypeRep [(AnyContractId, AnyTemplate)])
 
-getTemplates : forall a. Template a => ACS -> [(TheContractId a, a)]
+getTemplates : forall a. Template a => ACS -> [(AbsoluteContractId a, a)]
 getTemplates (ACS tpls) = map fromAny $ fromOptional [] $ Map.lookup (templateTypeRep @a) tpls
   where
     fromAny (cid, tpl) = (fromSome (fromAnyContractId cid), fromSome (fromAnyTemplate tpl))
