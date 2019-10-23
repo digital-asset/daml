@@ -36,8 +36,8 @@ def get_plugin_runfiles(tool, plugin_runfiles):
     return files
 
 def _proto_gen_impl(ctx):
-    src_descs = [src.proto.direct_descriptor_set for src in ctx.attr.srcs]
-    dep_descs = [dep.proto.direct_descriptor_set for dep in ctx.attr.deps]
+    src_descs = [src[ProtoInfo].direct_descriptor_set for src in ctx.attr.srcs]
+    dep_descs = [dep[ProtoInfo].direct_descriptor_set for dep in ctx.attr.deps]
     descriptors = src_descs + dep_descs
 
     sources_out = ctx.actions.declare_directory(ctx.attr.name + "-sources")
@@ -63,8 +63,8 @@ def _proto_gen_impl(ctx):
     inputs = []
 
     for src in ctx.attr.srcs:
-        src_root = src.proto.proto_source_root
-        for direct_source in src.proto.direct_sources:
+        src_root = src[ProtoInfo].proto_source_root
+        for direct_source in src[ProtoInfo].direct_sources:
             path = ""
 
             # in some cases the paths of src_root and direct_source are only partially
