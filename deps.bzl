@@ -41,6 +41,8 @@ def daml_deps():
             strip_prefix = "rules_haskell-%s" % rules_haskell_version,
             urls = ["https://github.com/tweag/rules_haskell/archive/%s.tar.gz" % rules_haskell_version],
             patches = [
+                # Bazel 1.1.0 compatibility. Remove once rules_haskell has been updated.
+                "@com_github_digital_asset_daml//bazel_tools:haskell-bazel-1.1.0.patch",
                 # Remove once https://github.com/tweag/rules_haskell/pull/1039 is merged.
                 "@com_github_digital_asset_daml//bazel_tools:haskell-cc-wrapper.patch",
                 # Upstream once https://github.com/tweag/rules_haskell/pull/1039 is merged.
