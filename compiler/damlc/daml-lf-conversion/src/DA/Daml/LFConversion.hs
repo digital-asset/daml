@@ -850,84 +850,10 @@ convertExpr env0 e = do
         | getOccFS x == "()" = fmap (, args) $ pure EUnit
         | getOccFS x == "True" = fmap (, args) $ pure $ mkBool True
         | getOccFS x == "False" = fmap (, args) $ pure $ mkBool False
-        | getOccFS x == "I#" = fmap (, args) $ pure $ mkIdentity TInt64 -- we pretend Int and Int# are the same thing
-        -- NOTE(MH): Handle data constructors. Fully applied record
-        -- constructors are inlined. This is required for contract keys to
-        -- work. Constructor workers are not handled (yet).
+        | getOccFS x == "I#" = fmap (, args) $ pure $ mkIdentity TInt64 -- we pretend Int and Int# are the same thingß
         | Just m <- nameModule_maybe $ varName x
         , Just con <- isDataConId_maybe x
-        = do
-            let qual :: (T.Text -> n) -> T.Text -> ConvertM (Qualified n)
-                qual f t
-                    | Just xs <- T.stripPrefix "(," t
-                    , T.dropWhile (== ',') xs == ")" = qDA_Types env $ f $ "Tuple" <> T.pack (show $ T.length xs + 1)
-                    | Just t' <- T.stripPrefix "$W" t = qualify env m $ f t'
-                    | otherwise = qualify env m $ f t
-            ctor@(Ctor _ fldNames fldTys) <- toCtor env con
-            let tycon = dataConTyCon con
-            if  -- Fully applied record constructor:
-                | isRecordCtor ctor && isSingleConType tycon
-                , let n = length (dataConUnivTyVars con)
-                , let (tyArgs, tmArgs) = splitAt n (map snd args)
-                , length tyArgs == n && length tmArgs == length fldTys
-                , Just tyArgs <- mapM isType_maybe tyArgs
-                , all (isNothing . isType_maybe) tmArgs
-                -> fmap (, []) $ do
-                    tyArgs <- mapM (convertType env) tyArgs
-                    tmArgs <- mapM (convertExpr env) tmArgs
-                    qTCon <- qual (mkTypeCon . pure) $ getOccText (dataConTyCon con)
-                    let tcon = TypeConApp qTCon tyArgs
-                    pure $ ERecCon tcon (zipExact fldNames tmArgs)
-                -- Partially aplied record constructor:
-                | isRecordCtor ctor && isSingleConType tycon
-                -> fmap (, args) $ fmap EVal $ qual (\x -> mkVal $ "$W" <> x) $ getOccText x
-                -- Enum constructor (necessarily fully applied):
-                | isEnumerationTyCon tycon && tyConArity tycon == 0
-                -> fmap (, []) $ do
-                    unless (null args) $ unhandled "enum constructor with args" (x, args)
-                    tcon <- qualify env m $ mkTypeCon [getOccText tycon]
-                    pure $ EEnumCon tcon $ mkVariantCon $ getOccText x
-                -- Variant constructor without payload (necessarily fully applied):
-                | null fldTys
-                , Just tyArgs <- mapM (isType_maybe . snd) args
-                -> fmap (, []) $ do
-                    lfTyArgs <- mapM (convertType env) tyArgs
-                    qTCon <- qual (mkTypeCon . pure) $ getOccText (dataConTyCon con)
-                    let tcon = TypeConApp qTCon lfTyArgs
-                    let ctorName = mkVariantCon (getOccText con)
-                    pure $ EVariantCon tcon ctorName EUnit
-                -- Fully applied variant constructor with non-record payload:
-                | null fldNames
-                , [_] <- fldTys
-                , let n = length (dataConUnivTyVars con)
-                , (tyArgs, [tmArg]) <- splitAt n (map snd args)
-                , Just tyArgs <- mapM isType_maybe tyArgs
-                -> fmap (, []) $ do
-                    lfTmArg <- convertExpr env tmArg
-                    lfTyArgs <- mapM (convertType env) tyArgs
-                    qTCon <- qual (mkTypeCon . pure) $ getOccText (dataConTyCon con)
-                    let tcon = TypeConApp qTCon lfTyArgs
-                    let ctorName = mkVariantCon (getOccText con)
-                    pure $ EVariantCon tcon ctorName lfTmArg
-                -- Fully applied variant constructor with record payload:
-                | isRecordCtor ctor
-                , let n = length (dataConUnivTyVars con)
-                , let (tyArgs, tmArgs) = splitAt n (map snd args)
-                , length tyArgs == n && length tmArgs == length fldTys
-                , Just tyArgs <- mapM isType_maybe tyArgs
-                , all (isNothing . isType_maybe) tmArgs
-                -> fmap (, []) $ do
-                    lfTyArgs <- mapM (convertType env) tyArgs
-                    lfTmArgs <- mapM (convertExpr env) tmArgs
-                    let ctorName = mkVariantCon (getOccText con)
-                    varTCon <- qual (mkTypeCon . pure) $ getOccText (dataConTyCon con)
-                    let recTCon = fmap (synthesizeVariantRecord ctorName) varTCon
-                    pure $
-                        EVariantCon (TypeConApp varTCon lfTyArgs) ctorName $
-                        ERecCon (TypeConApp recTCon lfTyArgs) (zipExact fldNames lfTmArgs)
-                -- Partially applied variant constructor:
-                | otherwise
-                -> fmap (, args) $ fmap EVal $ qual (\x -> mkVal $ "$W" <> x) $ getOccText x
+        = applyDataCon env x args m con
         | Just m <- nameModule_maybe $ varName x = fmap (, args) $
             fmap EVal $ qualify env m $ convVal x
         | isGlobalId x = fmap (, args) $ do
@@ -1014,6 +940,84 @@ convertExpr env0 e = do
     go env (Let (Rec xs) _) args = unsupported "Local variables defined recursively - recursion can only happen at the top level" $ map fst xs
     go env o@(Coercion _) args = unhandled "Coercion" o
     go _ x args = unhandled "Expression" x
+
+-- NOTE(MH): Handle data constructors. Fully applied record
+-- constructors are inlined. This is required for contract keys to
+-- work. Constructor workers are not handled (yet).
+applyDataCon :: Env -> Var -> [LArg Var] -> GHC.Module -> DataCon -> ConvertM (LF.Expr, [LArg Var])
+applyDataCon env x args m con = do
+    let qual :: (T.Text -> n) -> T.Text -> ConvertM (Qualified n)
+        qual f t
+            | Just xs <- T.stripPrefix "(," t
+            , T.dropWhile (== ',') xs == ")" = qDA_Types env $ f $ "Tuple" <> T.pack (show $ T.length xs + 1)
+            | Just t' <- T.stripPrefix "$W" t = qualify env m $ f t'
+            | otherwise = qualify env m $ f t
+    ctor@(Ctor _ fldNames fldTys) <- toCtor env con
+    let tycon = dataConTyCon con
+    if  -- Fully applied record constructor:
+        | isRecordCtor ctor && isSingleConType tycon
+        , let n = length (dataConUnivTyVars con)
+        , let (tyArgs, tmArgs) = splitAt n (map snd args)
+        , length tyArgs == n && length tmArgs == length fldTys
+        , Just tyArgs <- mapM isType_maybe tyArgs
+        , all (isNothing . isType_maybe) tmArgs
+        -> fmap (, []) $ do
+            tyArgs <- mapM (convertType env) tyArgs
+            tmArgs <- mapM (convertExpr env) tmArgs
+            qTCon <- qual (mkTypeCon . pure) $ getOccText (dataConTyCon con)
+            let tcon = TypeConApp qTCon tyArgs
+            pure $ ERecCon tcon (zipExact fldNames tmArgs)
+        -- Partially aplied record constructor:
+        | isRecordCtor ctor && isSingleConType tycon
+        -> fmap (, args) $ fmap EVal $ qual (\x -> mkVal $ "$W" <> x) $ getOccText x
+        -- Enum constructor (necessarily fully applied):
+        | isEnumerationTyCon tycon && tyConArity tycon == 0
+        -> fmap (, []) $ do
+            unless (null args) $ unhandled "enum constructor with args" (x, args)
+            tcon <- qualify env m $ mkTypeCon [getOccText tycon]
+            pure $ EEnumCon tcon $ mkVariantCon $ getOccText x
+        -- Variant constructor without payload (necessarily fully applied):
+        | null fldTys
+        , Just tyArgs <- mapM (isType_maybe . snd) args
+        -> fmap (, []) $ do
+            lfTyArgs <- mapM (convertType env) tyArgs
+            qTCon <- qual (mkTypeCon . pure) $ getOccText (dataConTyCon con)
+            let tcon = TypeConApp qTCon lfTyArgs
+            let ctorName = mkVariantCon (getOccText con)
+            pure $ EVariantCon tcon ctorName EUnit
+        -- Fully applied variant constructor with non-record payload:
+        | null fldNames
+        , [_] <- fldTys
+        , let n = length (dataConUnivTyVars con)
+        , (tyArgs, [tmArg]) <- splitAt n (map snd args)
+        , Just tyArgs <- mapM isType_maybe tyArgs
+        -> fmap (, []) $ do
+            lfTmArg <- convertExpr env tmArg
+            lfTyArgs <- mapM (convertType env) tyArgs
+            qTCon <- qual (mkTypeCon . pure) $ getOccText (dataConTyCon con)
+            let tcon = TypeConApp qTCon lfTyArgs
+            let ctorName = mkVariantCon (getOccText con)
+            pure $ EVariantCon tcon ctorName lfTmArg
+        -- Fully applied variant constructor with record payload:
+        | isRecordCtor ctor
+        , let n = length (dataConUnivTyVars con)
+        , let (tyArgs, tmArgs) = splitAt n (map snd args)
+        , length tyArgs == n && length tmArgs == length fldTys
+        , Just tyArgs <- mapM isType_maybe tyArgs
+        , all (isNothing . isType_maybe) tmArgs
+        -> fmap (, []) $ do
+            lfTyArgs <- mapM (convertType env) tyArgs
+            lfTmArgs <- mapM (convertExpr env) tmArgs
+            let ctorName = mkVariantCon (getOccText con)
+            varTCon <- qual (mkTypeCon . pure) $ getOccText (dataConTyCon con)
+            let recTCon = fmap (synthesizeVariantRecord ctorName) varTCon
+            pure $
+                EVariantCon (TypeConApp varTCon lfTyArgs) ctorName $
+                ERecCon (TypeConApp recTCon lfTyArgs) (zipExact fldNames lfTmArgs)
+        -- Partially applied variant constructor:
+        | otherwise
+        -> fmap (, args) $ fmap EVal $ qual (\x -> mkVal $ "$W" <> x) $ getOccText x
+
 
 convertArg :: Env -> GHC.Arg Var -> ConvertM LF.Arg
 convertArg env = \case
