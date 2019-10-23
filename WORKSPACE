@@ -889,6 +889,7 @@ buildifier_dependencies()
 nixpkgs_package(
     name = "python3_nix",
     attribute_path = "python3",
+    nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
     repositories = dev_env_nix_repos,
 )
