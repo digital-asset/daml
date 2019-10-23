@@ -32,7 +32,7 @@ load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
 rules_scala_version = "8092d5f6165a8d9c4797d5f089c1ba4eee3326b1"
 rules_haskell_version = "74d91c116c59f0a3ad41e376d3307d85ddcc3253"
 rules_haskell_sha256 = "5f2423d4707c5601f465d7343c68ff4e8f271c1269e79af4dc2d156cb8a0c17d"
-rules_nixpkgs_version = "5ffb8a4ee9a52bc6bc12f95cd64ecbd82a79bc82"
+rules_nixpkgs_version = "2980a2f75a178bb3c521d46380a52fe72c656239"
 
 def daml_deps():
     if "rules_haskell" not in native.existing_rules():
@@ -62,7 +62,7 @@ def daml_deps():
             name = "io_tweag_rules_nixpkgs",
             strip_prefix = "rules_nixpkgs-%s" % rules_nixpkgs_version,
             urls = ["https://github.com/tweag/rules_nixpkgs/archive/%s.tar.gz" % rules_nixpkgs_version],
-            sha256 = "085d480232c0bada20c0d0b8b1b4ba8c62fcc006d9dc826aa0e4205e4dca6cb3",
+            sha256 = "a37917d9cb535466d94cbedab5a3d7365fc333843b2265cfb0a5211647769b88",
         )
 
     if "ai_formation_hazel" not in native.existing_rules():
