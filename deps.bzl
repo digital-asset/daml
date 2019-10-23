@@ -234,7 +234,7 @@ java_import(
     if "com_github_google_bazel_common" not in native.existing_rules():
         http_archive(
             name = "com_github_google_bazel_common",
-            sha256 = "ccdd09559b49c7efd9e4b0b617b18e2a4bbdb2142fc30dfd3501eb5fa1294dcc",
-            strip_prefix = "bazel-common-f3dc1a775d21f74fc6f4bbcf076b8af2f6261a69",
-            urls = ["https://github.com/google/bazel-common/archive/f3dc1a775d21f74fc6f4bbcf076b8af2f6261a69.zip"],
+            sha256 = "48a209fed9575c9d108eaf11fb77f7fe6178a90135e4d60cac6f70c2603aa53a",
+            strip_prefix = "bazel-common-9e3880428c1837db9fb13335ed390b7e33e346a7",
+            urls = ["https://github.com/google/bazel-common/archive/9e3880428c1837db9fb13335ed390b7e33e346a7.zip"],
         )
