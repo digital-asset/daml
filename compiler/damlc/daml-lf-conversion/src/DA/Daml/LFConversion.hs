@@ -2,7 +2,8 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE MultiWayIf #-}
-{-# LANGUAGE PatternSynonyms     #-}
+{-# LANGUAGE PatternSynonyms #-}
+{-# LANGUAGE MonoLocalBinds #-}
 {-# OPTIONS_GHC -Wno-unused-matches #-}
 {-# OPTIONS_GHC -Wno-incomplete-patterns #-}
 {-# OPTIONS_GHC -Wno-overlapping-patterns #-} -- Because the pattern match checker is garbage
@@ -805,6 +806,7 @@ convertExpr env0 e = do
           TBuiltin BTScenario -> mkBind EScenario SBind
           _ -> fmap (, allArgs) $ convertExpr env bind
         where
+          mkBind :: (m -> LF.Expr) -> (Binding -> LF.Expr -> m) -> ConvertM (LF.Expr, [LArg Var])
           mkBind inj bind = fmap (, args) $ do
               x' <- convertExpr env x
               y' <- convertExpr env y
@@ -817,6 +819,7 @@ convertExpr env0 e = do
           TBuiltin BTScenario -> mkSeq EScenario SBind
           _ -> fmap (, allArgs) $ convertExpr env semi
         where
+          mkSeq :: (m -> LF.Expr) -> (Binding -> LF.Expr -> m) -> ConvertM (LF.Expr, [LArg Var])
           mkSeq inj bind = fmap (, args) $ do
               t' <- convertType env t
               x' <- convertExpr env x
@@ -854,7 +857,8 @@ convertExpr env0 e = do
         | Just m <- nameModule_maybe $ varName x
         , Just con <- isDataConId_maybe x
         = do
-            let qual f t
+            let qual :: (T.Text -> n) -> T.Text -> ConvertM (Qualified n)
+                qual f t
                     | Just xs <- T.stripPrefix "(," t
                     , T.dropWhile (== ',') xs == ")" = qDA_Types env $ f $ "Tuple" <> T.pack (show $ T.length xs + 1)
                     | Just t' <- T.stripPrefix "$W" t = qualify env m $ f t'
