@@ -108,7 +108,7 @@ import qualified Data.Text as T
 import           Data.Tuple.Extra
 import           Data.Ratio
 import           "ghc-lib" GHC
-import           "ghc-lib" GhcPlugins as GHC hiding ((<>))
+import           "ghc-lib" GhcPlugins as GHC hiding ((<>), notNull)
 import           "ghc-lib-parser" Pair hiding (swap)
 import           "ghc-lib-parser" PrelNames
 import           "ghc-lib-parser" TysPrim
@@ -853,7 +853,7 @@ convertExpr env0 e = do
         | getOccFS x == "I#" = fmap (, args) $ pure $ mkIdentity TInt64 -- we pretend Int and Int# are the same thingß
         | Just m <- nameModule_maybe $ varName x
         , Just con <- isDataConId_maybe x
-        = convertDataCon env x m con args
+        = convertDataCon env m con args
         | Just m <- nameModule_maybe $ varName x = fmap (, args) $
             fmap EVal $ qualify env m $ convVal x
         | isGlobalId x = fmap (, args) $ do
@@ -941,77 +941,105 @@ convertExpr env0 e = do
     go env o@(Coercion _) args = unhandled "Coercion" o
     go _ x args = unhandled "Expression" x
 
+-- | Is this an enum type?
+isEnumTyCon :: TyCon -> Bool
+isEnumTyCon tycon = and
+    [ isEnumerationTyCon tycon
+    , tyConArity tycon == 0
+    , not (isSingleConType tycon)
+    ]
+
+conIsSingle :: DataCon -> Bool
+conIsSingle = isSingleConType . dataConTyCon
+
+conHasNoArgs :: DataCon -> Bool
+conHasNoArgs = null . dataConOrigArgTys
+
+conHasLabels :: DataCon -> Bool
+conHasLabels = notNull . ctorLabels
+
+isEnumCon :: DataCon -> Bool
+isEnumCon = isEnumTyCon . dataConTyCon
+
+isSimpleRecordCon :: DataCon -> Bool
+isSimpleRecordCon con = (conHasLabels con || conHasNoArgs con) && conIsSingle con
+
+isVariantRecordCon :: DataCon -> Bool
+isVariantRecordCon con = conHasLabels con && not (conIsSingle con)
+
+-- | The different classes of data cons with respect to LF conversion.
+data DataConClass
+    = EnumCon -- ^ constructor for an enum type
+    | SimpleRecordCon -- ^ constructor for a record type
+    | SimpleVariantCon -- ^ constructor for a variant type with no synthetic record type
+    | VariantRecordCon -- ^ constructor for a variant type with a synthetic record type
+    deriving (Eq, Show)
+
+classifyDataCon :: DataCon -> DataConClass
+classifyDataCon con
+    | isEnumCon con = EnumCon
+    | isSimpleRecordCon con = SimpleRecordCon
+    | isVariantRecordCon con = VariantRecordCon
+    | otherwise = SimpleVariantCon
+        -- in which case, daml-preprocessor ensures that the
+        -- constructor cannot have more than two unlabeled arguments
+
+-- | Split args into type args and non-type args of the expected length
+-- for a particular DataCon.
+splitConArgs_maybe :: DataCon -> [LArg Var] -> Maybe ([GHC.Type], [GHC.Arg Var])
+splitConArgs_maybe con args = do
+    let (conTypes, conTheta, conArgs, _) = dataConSig con
+        numTypes = length conTypes
+        numVals = length conTheta + length conArgs
+        (typeArgs, valArgs) = splitAt numTypes (map snd args)
+    guard (length typeArgs == numTypes)
+    guard (length valArgs == numVals)
+    typeArgs <- mapM (isType_maybe) typeArgs
+    guard (all (isNothing . isType_maybe) valArgs)
+    Just (typeArgs, valArgs)
+
 -- NOTE(MH): Handle data constructors. Fully applied record
 -- constructors are inlined. This is required for contract keys to
 -- work. Constructor workers are not handled (yet).
-convertDataCon :: Env -> Var -> GHC.Module -> DataCon -> [LArg Var] -> ConvertM (LF.Expr, [LArg Var])
-convertDataCon env x m con args = do
-    ctor@(Ctor _ fldNames fldTys) <- toCtor env con
-    let tycon = dataConTyCon con
-    if  -- Fully applied record constructor:
-        | isRecordCtor ctor && isSingleConType tycon
-        , let n = length (dataConUnivTyVars con)
-        , let (tyArgs, tmArgs) = splitAt n (map snd args)
-        , length tyArgs == n && length tmArgs == length fldTys
-        , Just tyArgs <- mapM isType_maybe tyArgs
-        , all (isNothing . isType_maybe) tmArgs
-        -> fmap (, []) $ do
-            tyArgs <- mapM (convertType env) tyArgs
-            tmArgs <- mapM (convertExpr env) tmArgs
-            qTCon <- qual (mkTypeCon . pure) $ getOccText (dataConTyCon con)
-            let tcon = TypeConApp qTCon tyArgs
-            pure $ ERecCon tcon (zipExact fldNames tmArgs)
-        -- Partially aplied record constructor:
-        | isRecordCtor ctor && isSingleConType tycon
-        -> fmap (, args) $ fmap EVal $ qual (\x -> mkVal $ "$W" <> x) $ getOccText x
-        -- Enum constructor (necessarily fully applied):
-        | isEnumerationTyCon tycon && tyConArity tycon == 0
-        -> fmap (, []) $ do
-            unless (null args) $ unhandled "enum constructor with args" (x, args)
-            tcon <- qualify env m $ mkTypeCon [getOccText tycon]
-            pure $ EEnumCon tcon $ mkVariantCon $ getOccText x
-        -- Variant constructor without payload (necessarily fully applied):
-        | null fldTys
-        , Just tyArgs <- mapM (isType_maybe . snd) args
-        -> fmap (, []) $ do
-            lfTyArgs <- mapM (convertType env) tyArgs
-            qTCon <- qual (mkTypeCon . pure) $ getOccText (dataConTyCon con)
-            let tcon = TypeConApp qTCon lfTyArgs
-            let ctorName = mkVariantCon (getOccText con)
-            pure $ EVariantCon tcon ctorName EUnit
-        -- Fully applied variant constructor with non-record payload:
-        | null fldNames
-        , [_] <- fldTys
-        , let n = length (dataConUnivTyVars con)
-        , (tyArgs, [tmArg]) <- splitAt n (map snd args)
-        , Just tyArgs <- mapM isType_maybe tyArgs
-        -> fmap (, []) $ do
-            lfTmArg <- convertExpr env tmArg
-            lfTyArgs <- mapM (convertType env) tyArgs
-            qTCon <- qual (mkTypeCon . pure) $ getOccText (dataConTyCon con)
-            let tcon = TypeConApp qTCon lfTyArgs
-            let ctorName = mkVariantCon (getOccText con)
-            pure $ EVariantCon tcon ctorName lfTmArg
-        -- Fully applied variant constructor with record payload:
-        | isRecordCtor ctor
-        , let n = length (dataConUnivTyVars con)
-        , let (tyArgs, tmArgs) = splitAt n (map snd args)
-        , length tyArgs == n && length tmArgs == length fldTys
-        , Just tyArgs <- mapM isType_maybe tyArgs
-        , all (isNothing . isType_maybe) tmArgs
-        -> fmap (, []) $ do
-            lfTyArgs <- mapM (convertType env) tyArgs
-            lfTmArgs <- mapM (convertExpr env) tmArgs
-            let ctorName = mkVariantCon (getOccText con)
-            varTCon <- qual (mkTypeCon . pure) $ getOccText (dataConTyCon con)
-            let recTCon = fmap (synthesizeVariantRecord ctorName) varTCon
-            pure $
-                EVariantCon (TypeConApp varTCon lfTyArgs) ctorName $
-                ERecCon (TypeConApp recTCon lfTyArgs) (zipExact fldNames lfTmArgs)
-        -- Partially applied variant constructor:
-        | otherwise
-        -> fmap (, args) $ fmap EVal $ qual (\x -> mkVal $ "$W" <> x) $ getOccText x
+convertDataCon :: Env -> GHC.Module -> DataCon -> [LArg Var] -> ConvertM (LF.Expr, [LArg Var])
+convertDataCon env m con args
+    -- Fully applied
+    | Just (tyArgs, tmArgs) <- splitConArgs_maybe con args = do
+        tyArgs <- mapM (convertType env) tyArgs
+        tmArgs <- mapM (convertExpr env) tmArgs
+        let tycon = dataConTyCon con
+        qTCon <- qual (mkTypeCon . pure) $ getOccText tycon
+        let tcon = TypeConApp qTCon tyArgs
+            ctorName = mkVariantCon (getOccText con)
+            fldNames = ctorLabels con
+            xargs = (dataConName con, args)
+
+        fmap (, []) $ case classifyDataCon con of
+            EnumCon -> do
+                unless (null args) $ unhandled "enum constructor with arguments" xargs
+                pure $ EEnumCon qTCon ctorName
+
+            SimpleVariantCon ->
+                fmap (EVariantCon tcon ctorName) $ case tmArgs of
+                    [] -> pure EUnit
+                    [tmArg] -> pure tmArg
+                    _ -> unhandled "constructor with more than two unnamed arguments" xargs
+
+            SimpleRecordCon ->
+                pure $ ERecCon tcon (zipExact fldNames tmArgs)
+
+            VariantRecordCon -> do
+                let recTCon = fmap (synthesizeVariantRecord ctorName) qTCon
+                pure $
+                    EVariantCon tcon ctorName $
+                    ERecCon (TypeConApp recTCon tyArgs) (zipExact fldNames tmArgs)
+
+    -- Partially applied
+    | otherwise = do
+        fmap (, args) $ fmap EVal $ qual (\x -> mkVal $ "$W" <> x) $ getOccText con
+
     where
+
         qual :: (T.Text -> n) -> T.Text -> ConvertM (Qualified n)
         qual f t
             | Just xs <- T.stripPrefix "(," t
@@ -1434,7 +1462,10 @@ convFieldName = mkField . fsToText . flLabel
 convTypeVar :: Var -> ConvertM (TypeVarName, LF.Kind)
 convTypeVar t = do
     k <- convertKind $ tyVarKind t
-    pure (mkTypeVar $ T.pack $ show (varUnique t), k)
+    pure (convTypeVarName t, k)
+
+convTypeVarName :: Var -> TypeVarName
+convTypeVarName = mkTypeVar . T.pack . show . varUnique
 
 convVar :: Var -> ExprVarName
 convVar = mkVar . varPrettyPrint
