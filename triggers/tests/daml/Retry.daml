@@ -45,9 +45,10 @@ toCreate : Template t => Command -> Optional t
 toCreate (CreateCommand t) = fromAnyTemplate t
 toCreate ExerciseCommand {} = None
 
-toExercise : Command -> Optional (AnyContractId, C)
+toExercise : Command -> Optional (AbsoluteContractId T, C)
 toExercise CreateCommand {} = None
-toExercise (ExerciseCommand cid choice) = fmap (cid,) $ fromAnyChoice @T choice
+toExercise (ExerciseCommand cid choice) =
+  liftA2 (,) (fromAnyContractId cid) (fromAnyChoice @T choice)
 
 template T
   with
