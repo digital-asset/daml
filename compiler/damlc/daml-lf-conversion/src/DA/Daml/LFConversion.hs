@@ -130,7 +130,7 @@ conversionError msg = do
       , _message = T.pack msg
       , _code = Nothing
       , _relatedInformation = Nothing
-      } where
+      }
 
 unsupported :: (HasCallStack, Outputable a) => String -> a -> ConvertM e
 unsupported typ x = conversionError errMsg
@@ -417,7 +417,7 @@ convertGenericTemplate env x
                                     (mkVar "_", TApp (TVar $ mkTypeVar "proxy") polyType)
                                     (ETmLam chcArgBinder $ ERecCon anyChoiceTy [(anyChoiceField, EToAny argType $ EVar arg)]))
                           else EBuiltin BEError `ETyApp`
-                               (TForall (mkTypeVar "proxy", KArrow KStar KStar) (TApp (TVar $ mkTypeVar "proxy") polyType :-> argType :-> typeConAppToType anyChoiceTy)) `ETmApp`
+                               TForall (mkTypeVar "proxy", KArrow KStar KStar) (TApp (TVar $ mkTypeVar "proxy") polyType :-> argType :-> typeConAppToType anyChoiceTy) `ETmApp`
                                EBuiltin (BEText "toAnyChoice is not supported in this DAML-LF version")
                 let fromAnyChoice =
                         if envLfVersion env `supports` featureAnyType
@@ -427,7 +427,7 @@ convertGenericTemplate env x
                                     (mkVar "_", TApp (TVar $ mkTypeVar "proxy") polyType)
                                     (ETmLam (mkVar "any", typeConAppToType anyChoiceTy) $ EFromAny argType $ ERecProj anyChoiceTy anyChoiceField $ EVar $ mkVar "any"))
                           else EBuiltin BEError `ETyApp`
-                               (TForall (mkTypeVar "proxy", KArrow KStar KStar) (TApp (TVar $ mkTypeVar "proxy") polyType :-> typeConAppToType anyChoiceTy :-> TOptional argType)) `ETmApp`
+                               TForall (mkTypeVar "proxy", KArrow KStar KStar) (TApp (TVar $ mkTypeVar "proxy") polyType :-> typeConAppToType anyChoiceTy :-> TOptional argType) `ETmApp`
                                EBuiltin (BEText "toAnyChoice is not supported in this DAML-LF version")
                 pure (TemplateChoice{..}, [consumption, controllers, action, exercise, toAnyChoice, fromAnyChoice])
             convertGenericChoice es = unhandled "generic choice" es
@@ -854,8 +854,8 @@ convertExpr env0 e = do
         | Just m <- nameModule_maybe $ varName x
         , Just con <- isDataConId_maybe x
         = convertDataCon env m con args
-        | Just m <- nameModule_maybe $ varName x = fmap (, args) $
-            fmap EVal $ qualify env m $ convVal x
+        | Just m <- nameModule_maybe $ varName x =
+            fmap ((, args) . EVal) $ qualify env m $ convVal x
         | isGlobalId x = fmap (, args) $ do
             pkgRef <- nameToPkgRef env $ varName x
             pure $ EVal $ Qualified pkgRef (envLFModuleName env) $ convVal x
@@ -915,8 +915,7 @@ convertExpr env0 e = do
                     Just vsFlds -> convertLet env bind scrutinee $ \env -> do
                         bindRef <- convertExpr env (Var bind)
                         x' <- convertExpr env x
-                        projBinds <- mkProjBindings env bindRef (fromTCon tcon) vsFlds x'
-                        pure projBinds
+                        mkProjBindings env bindRef (fromTCon tcon) vsFlds x'
       where
         asLet = convertLet env bind scrutinee $ \env -> convertExpr env x
     go env (Case scrutinee bind typ []) args = fmap (, args) $ do
@@ -943,11 +942,10 @@ convertExpr env0 e = do
 
 -- | Is this an enum type?
 isEnumTyCon :: TyCon -> Bool
-isEnumTyCon tycon = and
-    [ isEnumerationTyCon tycon
-    , tyConArity tycon == 0
-    , not (isSingleConType tycon)
-    ]
+isEnumTyCon tycon =
+    isEnumerationTyCon tycon
+    && (tyConArity tycon == 0)
+    && not (isSingleConType tycon)
 
 conIsSingle :: DataCon -> Bool
 conIsSingle = isSingleConType . dataConTyCon
@@ -994,7 +992,7 @@ splitConArgs_maybe con args = do
         (typeArgs, valArgs) = splitAt numTypes (map snd args)
     guard (length typeArgs == numTypes)
     guard (length valArgs == numVals)
-    typeArgs <- mapM (isType_maybe) typeArgs
+    typeArgs <- mapM isType_maybe typeArgs
     guard (all (isNothing . isType_maybe) valArgs)
     Just (typeArgs, valArgs)
 
@@ -1036,7 +1034,7 @@ convertDataCon env m con args
 
     -- Partially applied
     | otherwise = do
-        fmap (, args) $ fmap EVal $ qual (\x -> mkVal $ "$W" <> x) $ getOccText con
+        fmap ((, args) . EVal) $ qual (\x -> mkVal $ "$W" <> x) $ getOccText con
 
     where
 
