@@ -16,7 +16,7 @@ template Template t => Proposal t
     receivers : [Party]
     name : Text
   where
-    signatory (signatory asset \\ receivers)
+    signatory receivers, signatory asset
     observer receivers
     agreement implode
         [ "Proposal:\n"

@@ -271,7 +271,7 @@ template Template t => Proposal t with
     receivers : [Party]
     name : Text
   where
-    signatory (signatory asset \\ receivers)
+    signatory receivers, signatory asset
     observer receivers
     key (signatory this, name)
     maintainer (fst key)
