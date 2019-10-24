@@ -498,33 +498,128 @@ data Consuming = PreConsuming
                deriving (Eq)
 
 convertTypeDef :: Env -> TyThing -> ConvertM [Definition]
-convertTypeDef env (ATyCon t)
-  | GHC.moduleNameFS (GHC.moduleName (nameModule (getName t))) == "DA.Internal.LF"
-  , getOccFS t `elementOfUniqSet` internalTypes
-  = pure []
-convertTypeDef env (ATyCon t)
+convertTypeDef env o@(ATyCon t) = withRange (convNameLoc t) $ if
+    -- Internal types (i.e. already defined in LF)
+    | GHC.moduleNameFS (GHC.moduleName (nameModule (getName t))) == "DA.Internal.LF"
+    , getOccFS t `elementOfUniqSet` internalTypes
+    -> pure []
+
     -- NOTE(MH): We detect type synonyms produced by the desugaring
     -- of `template instance` declarations and inline the record definition
     -- of the generic template.
+    --
+    -- TODO(FM): Precompute a map of possible template instances in Env
+    -- instead of checking every closed type synonym against every class
+    -- instance (or improve this some other way to subquadratic time).
     | Just ([], TypeCon tpl args) <- synTyConDefn_maybe t
     , any (\(c, args') -> getOccFS c == getOccFS tpl <> "Instance" && eqTypes args args') $ envInstances env
-    = do
-        ctors0 <- toCtors env tpl
-        args <- mapM (convertType env) args
-        let subst = MS.fromList $ zipExact (map fst (_cParams ctors0)) args
-        let ctors1 = ctors0
-                { _cTypeName = getName t
-                , _cParams = []
-                , _cCtors = map (\(Ctor n fs ts) -> Ctor n fs $ map (LF.substitute subst) ts) (_cCtors ctors0)
-                }
-        convertCtors env ctors1
-convertTypeDef env o@(ATyCon t) = withRange (convNameLoc t) $
-    case tyConFlavour t of
-      fl | fl `elem` [ClassFlavour,DataTypeFlavour,NewtypeFlavour] -> convertCtors env =<< toCtors env t
-      TypeSynonymFlavour -> pure []
-      _ -> unsupported ("Data definition, of type " ++ prettyPrint (tyConFlavour t)) o
+    -> convertTemplateInstanceDef env (getName t) tpl args
+
+    -- Type synonyms get expanded out during conversion (see 'convertType').
+    | isTypeSynonymTyCon t
+    -> pure []
+
+    -- Enum types. These are algebraic types without any type arguments,
+    -- with two or more constructors that have no arguments.
+    | isEnumTyCon t
+    -> convertEnumDef env t
+
+    -- Simple record types. This includes newtypes, typeclasses, and
+    -- single constructor algebraic types with no fields or with
+    -- labelled fields.
+    | isSimpleRecordTyCon t
+    -> convertSimpleRecordDef env t
+
+    -- Variants are algebraic types that are not enums and not simple
+    -- record types. This includes most 'data' types.
+    | isVariantTyCon t
+    -> convertVariantDef env t
+
+    | otherwise
+    -> unsupported ("Data definition, of type " ++ prettyPrint (tyConFlavour t)) o
+
 convertTypeDef env x = pure []
 
+convertEnumDef :: Env -> TyCon -> ConvertM [Definition]
+convertEnumDef env t =
+    pure [defDataType tconName [] $ DataEnum ctorNames]
+  where
+    tconName = mkTypeCon [getOccText t]
+    ctorNames = map (mkVariantCon . getOccText) (tyConDataCons t)
+
+convertSimpleRecordDef :: Env -> TyCon -> ConvertM [Definition]
+convertSimpleRecordDef env tycon = do
+    let con = tyConSingleDataCon tycon
+    tyVars <- mapM convTypeVar (tyConTyVars tycon)
+    rawFields <- convertRecordFields env con
+    let flavour = tyConFlavour tycon
+        fields -- DICTIONARY SANITIZATION step (1)
+            | flavour == ClassFlavour = map (second (TUnit :->)) rawFields
+            | otherwise = rawFields
+        tconName = mkTypeCon [getOccText tycon]
+        tcon = TypeConApp
+            (Qualified PRSelf (envLFModuleName env) tconName)
+            (map (TVar . fst) tyVars)
+        typeDef = defDataType tconName tyVars (DataRecord fields)
+        workerDef = defValue tycon
+            (mkVal $ "$W" <> getOccText con,
+            mkTForalls tyVars $ mkTFuns (map snd fields) $ typeConAppToType tcon)
+            (mkETyLams tyVars $ mkETmLams (map (first fieldToVar) fields) $
+            ERecCon tcon [(label, EVar $ fieldToVar label) | (label,_) <- fields])
+    pure $ [typeDef] ++ [workerDef | flavour == NewtypeFlavour]
+
+convertRecordFields :: Env -> DataCon -> ConvertM [(FieldName, LF.Type)]
+convertRecordFields env con = do
+    let labels = ctorLabels con
+        (_, theta, args, _) = dataConSig con
+    types <- mapM (convertType env) (theta ++ args)
+    pure $ zipExact labels types
+
+convertVariantDef :: Env -> TyCon -> ConvertM [Definition]
+convertVariantDef env tycon = do
+    tyVars <- mapM convTypeVar (tyConTyVars tycon)
+    (constrs, moreDefs) <- mapAndUnzipM
+        (convertVariantConDef env tycon tyVars)
+        (tyConDataCons tycon)
+    let tconName = mkTypeCon [getOccText tycon]
+        typeDef = defDataType tconName tyVars (DataVariant constrs)
+    pure $ [typeDef] ++ concat moreDefs
+
+convertVariantConDef :: Env -> TyCon -> [(TypeVarName, LF.Kind)] -> DataCon -> ConvertM ((VariantConName, LF.Type), [Definition])
+convertVariantConDef env tycon tyVars con =
+    case (ctorLabels con, dataConOrigArgTys con) of
+        ([], []) ->
+            pure ((ctorName, TUnit), [])
+        ([], [argTy]) -> do
+            argTy' <- convertType env argTy
+            pure ((ctorName, argTy'), [])
+        ([], _:_:_) ->
+            unsupported "Data constructor with multiple unnamed fields" (prettyPrint (getName tycon))
+        (labels, args) -> do
+            fields <- zipExact labels <$> mapM (convertType env) args
+            let recName = synthesizeVariantRecord ctorName tconName
+                recDef = defDataType recName tyVars (DataRecord fields)
+                recType = TConApp
+                    (Qualified PRSelf (envLFModuleName env) recName)
+                    (map (TVar . fst) tyVars)
+            pure ((ctorName, recType), [recDef])
+    where
+        tconName = mkTypeCon [getOccText tycon]
+        ctorName = mkVariantCon (getOccText con)
+
+-- | Instantiate and inline the generic template record definition
+-- for a template instance.
+convertTemplateInstanceDef :: Env -> Name -> TyCon -> [GHC.Type] -> ConvertM [Definition]
+convertTemplateInstanceDef env tname tpl args = do
+    ctors0 <- toCtors env tpl
+    args <- mapM (convertType env) args
+    let subst = MS.fromList $ zipExact (map fst (_cParams ctors0)) args
+    let ctors1 = ctors0
+            { _cTypeName = tname
+            , _cParams = []
+            , _cCtors = map (\(Ctor n fs ts) -> Ctor n fs $ map (LF.substitute subst) ts) (_cCtors ctors0)
+            }
+    convertCtors env ctors1
 
 convertCtors :: Env -> Ctors -> ConvertM [Definition]
 convertCtors env (Ctors name flavour tys [o@(Ctor ctor fldNames fldTys)])
@@ -945,7 +1040,19 @@ isEnumTyCon :: TyCon -> Bool
 isEnumTyCon tycon =
     isEnumerationTyCon tycon
     && (tyConArity tycon == 0)
-    && not (isSingleConType tycon)
+    && (length (tyConDataCons tycon) >= 2)
+
+-- | Is this a simple record type?
+isSimpleRecordTyCon :: TyCon -> Bool
+isSimpleRecordTyCon tycon =
+    maybe False isSimpleRecordCon (tyConSingleDataCon_maybe tycon)
+
+-- | Is this a variant type?
+isVariantTyCon :: TyCon -> Bool
+isVariantTyCon tycon =
+    (tyConFlavour tycon == DataTypeFlavour)
+    && not (isEnumTyCon tycon)
+    && not (isSimpleRecordTyCon tycon)
 
 conIsSingle :: DataCon -> Bool
 conIsSingle = isSingleConType . dataConTyCon
