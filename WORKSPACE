@@ -642,6 +642,7 @@ hazel_repositories(
 hazel_custom_package_hackage(
     package_name = "ghc-paths",
     build_file = "@ai_formation_hazel//third_party/haskell:BUILD.ghc-paths",
+    sha256 = "afa68fb86123004c37c1dc354286af2d87a9dcfb12ddcb80e8bd0cd55bc87945",
     version = "0.1.0.9",
 )
 
