@@ -756,6 +756,10 @@ go_repository(
     importpath = "github.com/pseudomuto/protokit",
 )
 
+load("//:bazel-java-deps.bzl", "install_java_deps")
+
+install_java_deps()
+
 load(
     "@io_bazel_rules_scala//scala:scala.bzl",
     "scala_repositories",

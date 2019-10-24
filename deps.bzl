@@ -98,6 +98,14 @@ def daml_deps():
             sha256 = "f04d2373bcaf8aa09bccb08a98a57e721306c8f6043a2a0ee610fd6853dcde3d",
         )
 
+    if "rules_jvm_external" not in native.existing_rules():
+        http_archive(
+            name = "rules_jvm_external",
+            strip_prefix = "rules_jvm_external-2.8",
+            sha256 = "79c9850690d7614ecdb72d68394f994fef7534b292c4867ce5e7dec0aa7bdfad",
+            url = "https://github.com/bazelbuild/rules_jvm_external/archive/2.8.zip",
+        )
+
     if "io_bazel_rules_scala" not in native.existing_rules():
         http_archive(
             name = "io_bazel_rules_scala",
