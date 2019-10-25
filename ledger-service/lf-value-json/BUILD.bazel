@@ -8,8 +8,8 @@ load(
 )
 
 lf_value_json_deps = [
-    "//3rdparty/jvm/org/scalaz:scalaz_core",
-    "//3rdparty/jvm/io/spray:spray_json",
+    "@maven//:org_scalaz_scalaz_core_2_12",
+    "@maven//:io_spray_spray_json_2_12",
     "//daml-lf/data",
     "//daml-lf/interface",
     "//daml-lf/transaction",
@@ -33,9 +33,9 @@ da_scala_test(
     # data = ["//docs:quickstart-model.dar"],
     deps = [
         ":lf-value-json",
-        "//3rdparty/jvm/org/scalacheck",
-        "//3rdparty/jvm/org/scalaz:scalaz_scalacheck_binding",
-        "//3rdparty/jvm/org/scalatest",
+        "@maven//:org_scalacheck_scalacheck_2_12",
+        "@maven//:org_scalaz_scalaz_scalacheck_binding_2_12",
+        "@maven//:org_scalatest_scalatest_2_12",
         "//daml-lf/transaction-scalacheck",
     ] + lf_value_json_deps,
 )

@@ -13,11 +13,6 @@ da_scala_binary(
     tags = ["maven_coordinates=com.digitalasset:daml-lf-repl:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
-        "//3rdparty/jvm/com/google/protobuf:protobuf_java",
-        "//3rdparty/jvm/org/jline",
-        "//3rdparty/jvm/org/scala_lang/modules:scala_parser_combinators",
-        "//3rdparty/jvm/org/scalaz:scalaz_core",
-        "//3rdparty/jvm/org/typelevel:paiges_core",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/archive:daml_lf_dev_archive_java_proto",
         "//daml-lf/data",
@@ -27,5 +22,10 @@ da_scala_binary(
         "//daml-lf/scenario-interpreter",
         "//daml-lf/transaction",
         "//daml-lf/validation",
+        "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:org_jline_jline",
+        "@maven//:org_scala_lang_modules_scala_parser_combinators_2_12",
+        "@maven//:org_scalaz_scalaz_core_2_12",
+        "@maven//:org_typelevel_paiges_core_2_12",
     ],
 )

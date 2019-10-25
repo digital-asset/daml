@@ -56,11 +56,11 @@ common_scalacopts = [
 ]
 
 plugin_deps = [
-    "//3rdparty/jvm/org/wartremover:wartremover",
+    "@maven//:org_wartremover_wartremover_2_12",
 ]
 
 common_plugins = [
-    "//external:jar/org/wartremover/wartremover_2_12",
+    "@maven//:org_wartremover_wartremover_2_12",
 ]
 
 plugin_scalacopts = [

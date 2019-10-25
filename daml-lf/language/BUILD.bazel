@@ -15,8 +15,8 @@ da_scala_library(
     tags = ["maven_coordinates=com.digitalasset:daml-lf-language:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
-        "//3rdparty/jvm/org/scalaz:scalaz_core",
         "//daml-lf/data",
+        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )
 
@@ -27,8 +27,8 @@ da_scala_test(
     scalacopts = lf_scalacopts,
     deps = [
         ":language",
-        "//3rdparty/jvm/org/scalacheck",
-        "//3rdparty/jvm/org/scalaz:scalaz_core",
         "//daml-lf/data",
+        "@maven//:org_scalacheck_scalacheck_2_12",
+        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )

@@ -8,9 +8,9 @@ load(
 )
 
 bindings_scala_deps = [
-    "//3rdparty/jvm/com/github/ghik:silencer_lib",
-    "//3rdparty/jvm/io/grpc:grpc_core",
-    "//3rdparty/jvm/org/scalaz:scalaz_core",
+    "@maven//:com_github_ghik_silencer_lib_2_12",
+    "@maven//:io_grpc_grpc_core",
+    "@maven//:org_scalaz_scalaz_core_2_12",
     "//ledger-api/grpc-definitions:ledger-api-scalapb",
 ]
 
@@ -18,8 +18,8 @@ da_scala_library(
     name = "bindings",
     srcs = glob(["src/main/**/*.scala"]),
     plugins = [
-        "//external:jar/org/spire_math/kind_projector_2_12",
-        "//external:jar/com/github/ghik/silencer_plugin_2_12",
+        "@maven//:org_spire_math_kind_projector_2_12",
+        "@maven//:com_github_ghik_silencer_plugin_2_12",
     ],
     scalacopts = [
         "-Xsource:2.13",
@@ -37,16 +37,16 @@ da_scala_test_suite(
     size = "small",
     srcs = glob(["src/test/**/*.scala"]),
     plugins = [
-        "//external:jar/org/spire_math/kind_projector_2_12",
+        "@maven//:org_spire_math_kind_projector_2_12",
     ],
     scalacopts = [
         "-Xsource:2.13",
     ],
     deps = [
         ":bindings",
-        "//3rdparty/jvm/com/chuusai:shapeless",
-        "//3rdparty/jvm/org/scalacheck",
-        "//3rdparty/jvm/org/scalatest",
-        "//3rdparty/jvm/org/scalaz:scalaz_core",
+        "@maven//:com_chuusai_shapeless_2_12",
+        "@maven//:org_scalacheck_scalacheck_2_12",
+        "@maven//:org_scalatest_scalatest_2_12",
+        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )

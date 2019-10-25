@@ -14,10 +14,10 @@ da_scala_library(
         "//visibility:public",
     ],
     deps = [
-        "//3rdparty/jvm/io/zipkin/brave",
-        "//3rdparty/jvm/org/scalaz:scalaz_core",
         "//daml-lf/data",
         "//daml-lf/transaction",
+        "@maven//:io_zipkin_brave_brave",
+        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )
 
@@ -35,7 +35,7 @@ da_scala_library(
     ],
     deps = [
         ":ledger-api-domain",
-        "//3rdparty/jvm/org/scalaz:scalaz_core",
         "//daml-lf/data",
+        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )

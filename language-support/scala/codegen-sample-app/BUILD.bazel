@@ -40,7 +40,7 @@ da_scala_library(
     srcs = [":MyMain.srcjar"] + glob(["src/main/**/*.scala"]),
     plugins = [
         # Plugins have to be specified as JARs.
-        "//external:jar/org/spire_math/kind_projector_2_12",
+        "@maven//:org_spire_math_kind_projector_2_12",
     ],
     # Bump stack size to avoid stack overflow in reflection.
     scalac_jvm_flags = [
@@ -53,14 +53,14 @@ da_scala_library(
     exports = [],
     runtime_deps = [],
     deps = [
-        "//3rdparty/jvm/ch/qos/logback:logback_classic",
-        "//3rdparty/jvm/com/typesafe/scala_logging",
-        "//3rdparty/jvm/org/scalaz:scalaz_core",
-        "//3rdparty/jvm/org/slf4j:slf4j_api",
         "//language-support/scala/bindings",
         "//language-support/scala/bindings-akka",
         "//language-support/scala/codegen-testing",
         "//ledger/ledger-api-client",
+        "@maven//:ch_qos_logback_logback_classic",
+        "@maven//:com_typesafe_scala_logging_scala_logging_2_12",
+        "@maven//:org_scalaz_scalaz_core_2_12",
+        "@maven//:org_slf4j_slf4j_api",
     ],
 )
 
@@ -80,19 +80,19 @@ da_scala_library(
     scalacopts = ["-Xsource:2.13"],
     deps = [
         ":daml-lf-codegen-sample-app",
-        "//3rdparty/jvm/org/scalacheck",
-        "//3rdparty/jvm/org/scalatest",
-        "//3rdparty/jvm/org/scalaz:scalaz_core",
         "//bazel_tools/runfiles:scala_runfiles",
         "//language-support/scala/bindings",
         "//language-support/scala/bindings-akka",
+        "@maven//:org_scalacheck_scalacheck_2_12",
+        "@maven//:org_scalatest_scalatest_2_12",
+        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )
 
 test_dependencies = [
-    "//3rdparty/jvm/io/spray:spray_json",
-    "//3rdparty/jvm/org/scalacheck:scalacheck",
-    "//3rdparty/jvm/org/scalaz:scalaz_core",
+    "@maven//:io_spray_spray_json_2_12",
+    "@maven//:org_scalacheck_scalacheck_2_12",
+    "@maven//:org_scalaz_scalaz_core_2_12",
     "//bazel_tools/runfiles:scala_runfiles",
     "//language-support/scala/codegen-testing",
     "//language-support/scala/bindings",
@@ -135,7 +135,7 @@ da_scala_test(
     scalacopts = ["-Xsource:2.13"],
     deps = test_dependencies + [
         "//daml-lf/data",
-        "//3rdparty/jvm/com/typesafe/akka:akka_stream_testkit",
+        "@maven//:com_typesafe_akka_akka_stream_testkit_2_12",
         "//language-support/scala/bindings-akka",
         "//ledger-api/rs-grpc-bridge:rs-grpc-bridge",
         "//ledger-api/rs-grpc-akka",

@@ -38,10 +38,12 @@ java_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
-        "//3rdparty/jvm/com/google/protobuf:protobuf_java",
-        "//3rdparty/jvm/io/grpc:grpc_core",
-        "//3rdparty/jvm/io/grpc:grpc_protobuf",
-        "//3rdparty/jvm/io/grpc:grpc_stub",
+        "@maven//:com_google_guava_guava",
+        "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:io_grpc_grpc_api",
+        "@maven//:io_grpc_grpc_core",
+        "@maven//:io_grpc_grpc_protobuf",
+        "@maven//:io_grpc_grpc_stub",
     ],
 )
 

@@ -23,7 +23,7 @@ da_scala_binary(
     srcs = ["server.scala"],
     main_class = "com.digitalasset.bazeltools.clientservertest.tests.Main",
     deps = [
-        "//3rdparty/jvm/com/github/scopt",
+        "@maven//:com_github_scopt_scopt_2_12",
     ],
 )
 
