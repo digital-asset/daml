@@ -821,16 +821,17 @@ convertExpr env0 e = do
         pure $ EBuiltin (BEEqual BTInt64) `ETmApp` EBuiltin (BEInt64 1) `ETmApp` x'
     go env (VarIs "tagToEnum#") (LType tt@(TypeCon t _) : LExpr x : args) = fmap (, args) $ do
         -- FIXME: Should generate a binary tree of eq and compare
-        ctors@(Ctors _ _ _ cs@(c1:_)) <- toCtors env t
         tt' <- convertType env tt
         x' <- convertExpr env x
-        let mkCtor (Ctor c _ _)
+        let cs = tyConDataCons t
+            c1 = head cs -- FIXME: handle the empty variant more gracefully.
+            mkCtor con
               -- Note that tagToEnum# can also be used on non-enum types, i.e.,
               -- types where not all constructors are nullary.
-              | isEnumCtors ctors
-              = EEnumCon (tcaTypeCon (fromTCon tt')) (mkVariantCon (getOccText c))
+              | isEnumTyCon t
+              = EEnumCon (tcaTypeCon (fromTCon tt')) (mkVariantCon (getOccText con))
               | otherwise
-              = EVariantCon (fromTCon tt') (mkVariantCon (getOccText c)) EUnit
+              = EVariantCon (fromTCon tt') (mkVariantCon (getOccText con)) EUnit
             mkEqInt i = EBuiltin (BEEqual BTInt64) `ETmApp` x' `ETmApp` EBuiltin (BEInt64 i)
         pure (foldr ($) (mkCtor c1) [mkIf (mkEqInt i) (mkCtor c) | (i,c) <- zipFrom 0 cs])
 
