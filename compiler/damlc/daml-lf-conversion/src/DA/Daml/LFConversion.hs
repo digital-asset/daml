@@ -561,9 +561,6 @@ convertSimpleRecordDef env tycon = do
         workerDef = defNewtypeWorker env tycon tconName con tyVars fields
     pure $ [typeDef] ++ [workerDef | flavour == NewtypeFlavour]
 
-mkWorkerName :: T.Text -> ExprValName
-mkWorkerName name = mkVal ("$W" <> name)
-
 defNewtypeWorker :: NamedThing a => Env -> a -> TypeConName -> DataCon
     -> [(TypeVarName, LF.Kind)] -> [(FieldName, LF.Type)] -> Definition
 defNewtypeWorker env loc tconName con tyVars fields =
