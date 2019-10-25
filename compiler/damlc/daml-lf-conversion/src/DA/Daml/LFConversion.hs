@@ -557,16 +557,24 @@ convertSimpleRecordDef env tycon = do
     tyVars <- mapM convTypeVar (tyConTyVars tycon)
     fields <- convertRecordFields env con sanitize
     let tconName = mkTypeCon [getOccText tycon]
-        tcon = TypeConApp
+        typeDef = defDataType tconName tyVars (DataRecord fields)
+        workerDef = defNewtypeWorker env tycon tconName con tyVars fields
+    pure $ [typeDef] ++ [workerDef | flavour == NewtypeFlavour]
+
+mkWorkerName :: T.Text -> ExprValName
+mkWorkerName name = mkVal ("$W" <> name)
+
+defNewtypeWorker :: NamedThing a => Env -> a -> TypeConName -> DataCon
+    -> [(TypeVarName, LF.Kind)] -> [(FieldName, LF.Type)] -> Definition
+defNewtypeWorker env loc tconName con tyVars fields =
+    let tcon = TypeConApp
             (Qualified PRSelf (envLFModuleName env) tconName)
             (map (TVar . fst) tyVars)
-        typeDef = defDataType tconName tyVars (DataRecord fields)
-        workerDef = defValue tycon
-            (mkVal $ "$W" <> getOccText con,
-            mkTForalls tyVars $ mkTFuns (map snd fields) $ typeConAppToType tcon)
-            (mkETyLams tyVars $ mkETmLams (map (first fieldToVar) fields) $
-            ERecCon tcon [(label, EVar $ fieldToVar label) | (label,_) <- fields])
-    pure $ [typeDef] ++ [workerDef | flavour == NewtypeFlavour]
+        workerName = mkWorkerName (getOccText con)
+        workerType = mkTForalls tyVars $ mkTFuns (map snd fields) $ typeConAppToType tcon
+        workerBody = mkETyLams tyVars $ mkETmLams (map (first fieldToVar) fields) $
+            ERecCon tcon [(label, EVar (fieldToVar label)) | (label,_) <- fields]
+    in defValue loc (workerName, workerType) workerBody
 
 convertRecordFields :: Env -> DataCon -> (LF.Type -> t) -> ConvertM [(FieldName, t)]
 convertRecordFields env con wrap = do
@@ -1078,7 +1086,7 @@ convertDataCon env m con args
         tyArgs <- mapM (convertType env) tyArgs
         tmArgs <- mapM (convertExpr env) tmArgs
         let tycon = dataConTyCon con
-        qTCon <- qual (mkTypeCon . pure) $ getOccText tycon
+        qTCon <- qual (\x -> mkTypeCon [x]) (getOccText tycon)
         let tcon = TypeConApp qTCon tyArgs
             ctorName = mkVariantCon (getOccText con)
             fldNames = ctorLabels con
@@ -1106,7 +1114,7 @@ convertDataCon env m con args
 
     -- Partially applied
     | otherwise = do
-        fmap ((, args) . EVal) $ qual (\x -> mkVal $ "$W" <> x) $ getOccText con
+        fmap (\op -> (EVal op, args)) (qual mkWorkerName (getOccText con))
 
     where
 
