@@ -136,6 +136,10 @@ def install_java_deps():
             "org.xerial:sqlite-jdbc:3.25.2",
             "uk.co.datumedge:hamcrest-json:0.2",
         ],
+        # Update by executing
+        # $ bazel run @unpinned_maven//:pin
+        # See https://github.com/bazelbuild/rules_jvm_external#updating-maven_installjson
+        maven_install_json = "@com_github_digital_asset_daml//:maven_install.json",
         override_targets = {
             # Replacements for core Scala libraries.
             # These libraries must be provided by the Scala toolchain.

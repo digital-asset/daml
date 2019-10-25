@@ -760,6 +760,10 @@ load("//:bazel-java-deps.bzl", "install_java_deps")
 
 install_java_deps()
 
+load("@maven//:defs.bzl", "pinned_maven_install")
+
+pinned_maven_install()
+
 load(
     "@io_bazel_rules_scala//scala:scala.bzl",
     "scala_repositories",
