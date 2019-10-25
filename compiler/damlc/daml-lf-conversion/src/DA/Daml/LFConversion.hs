@@ -794,17 +794,18 @@ convertExpr env0 e = do
 
     -- conversion of bodies of $con2tag functions
     go env (VarIs "getTag") (LType (TypeCon t _) : LExpr x : args) = fmap (, args) $ do
-        ctors@(Ctors _ _ _ cs) <- toCtors env t
         x' <- convertExpr env x
         t' <- convertQualified env t
         let mkCasePattern con
                 -- Note that tagToEnum# can also be used on non-enum types, i.e.,
                 -- types where not all constructors are nullary.
-                | isEnumCtors ctors = CPEnum t' con
+                | isEnumTyCon t = CPEnum t' con
                 | otherwise = CPVariant t' con (mkVar "_")
         pure $ ECase x'
-            [ CaseAlternative (mkCasePattern (mkVariantCon (getOccText variantName))) (EBuiltin $ BEInt64 i)
-            | (Ctor variantName _ _, i) <- zip cs [0..]
+            [ CaseAlternative
+                (mkCasePattern (mkVariantCon (getOccText con)))
+                (EBuiltin $ BEInt64 i)
+            | (con, i) <- zip (tyConDataCons t) [0..]
             ]
     go env (VarIs "tagToEnum#") (LType (TypeCon (Is "Bool") []) : LExpr (op0 `App` x `App` y) : args)
         | VarIs "==#" <- op0 = go BEEqual
