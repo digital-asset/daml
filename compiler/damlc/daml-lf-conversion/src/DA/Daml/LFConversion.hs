@@ -323,7 +323,7 @@ convertGenericTemplate env x
     , Just monoTyCon <- findMonoTyp polyType
     = do
         let tplLocation = convNameLoc monoTyCon
-        Ctors{_cCtors = [Ctor _ fields _]} <- toCtors env polyTyCon
+            fields = ctorLabels (tyConSingleDataCon polyTyCon)
         polyType@(TConApp polyTyCon polyTyArgs) <- convertType env polyType
         let polyTCA = TypeConApp polyTyCon polyTyArgs
         monoType@(TCon monoTyCon) <- convertTyCon env monoTyCon
@@ -1180,11 +1180,10 @@ convertAlt env ty (DataAlt con, [a], x)
     | isBuiltinName "Some" con
     = CaseAlternative (CPSome (convVar a)) <$> convertExpr env x
 convertAlt env (TConApp tcon targs) alt@(DataAlt con, vs, x) = do
-    ctors <- toCtors env $ dataConTyCon con
     Ctor (mkVariantCon . getOccText -> variantName) fldNames fldTys <- toCtor env con
     let patVariant = variantName
     if
-      | isEnumCtors ctors ->
+      | isEnumCon con ->
         CaseAlternative (CPEnum patTypeCon patVariant) <$> convertExpr env x
       | null fldNames ->
         case zipExactMay vs fldTys of
@@ -1466,22 +1465,6 @@ defValue loc binder@(name, lftype) body =
 ---------------------------------------------------------------------
 -- UNPACK CONSTRUCTORS
 
-data Ctors = Ctors
-    { _cTypeName :: Name
-    , _cFlavour :: TyConFlavour
-    , _cParams :: [(TypeVarName, LF.Kind)]
-    , _cCtors :: [Ctor]
-    }
-data Ctor = Ctor Name [FieldName] [LF.Type]
-
-toCtors :: Env -> GHC.TyCon -> ConvertM Ctors
-toCtors env t = Ctors (getName t) (tyConFlavour t) <$> mapM convTypeVar (tyConTyVars t) <*> cs
-    where
-        cs = case algTyConRhs t of
-                DataTyCon cs' _ _ -> mapM (toCtor env) cs'
-                NewTyCon{..} -> sequence [toCtor env data_con]
-                x -> unsupported "Data definition, with unexpected RHS" t
-
 -- NOTE(MH):
 --
 -- * Dictionary types contain multiple unnamed fields in general. Thus, it is
@@ -1514,6 +1497,8 @@ ctorLabels con =
   flv = tyConFlavour (dataConTyCon con)
   lbls = dataConFieldLabels con
 
+data Ctor = Ctor Name [FieldName] [LF.Type]
+
 toCtor :: Env -> DataCon -> ConvertM Ctor
 toCtor env con =
   let (_, thetas, tys,_) = dataConSig con
@@ -1526,9 +1511,6 @@ toCtor env con =
 
 isRecordCtor :: Ctor -> Bool
 isRecordCtor (Ctor _ fldNames fldTys) = not (null fldNames) || null fldTys
-
-isEnumCtors :: Ctors -> Bool
-isEnumCtors (Ctors _ _ params ctors) = null params && all (\(Ctor _ _ tys) -> null tys) ctors
 
 ---------------------------------------------------------------------
 -- SIMPLE WRAPPERS
