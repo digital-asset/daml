@@ -550,13 +550,13 @@ convertEnumDef env t =
 convertSimpleRecordDef :: Env -> TyCon -> ConvertM [Definition]
 convertSimpleRecordDef env tycon = do
     let con = tyConSingleDataCon tycon
+        flavour = tyConFlavour tycon
+        sanitize -- DICTIONARY SANITIZATION step (1)
+            | flavour == ClassFlavour = (TUnit :->)
+            | otherwise = id
     tyVars <- mapM convTypeVar (tyConTyVars tycon)
-    rawFields <- convertRecordFields env con
-    let flavour = tyConFlavour tycon
-        fields -- DICTIONARY SANITIZATION step (1)
-            | flavour == ClassFlavour = map (second (TUnit :->)) rawFields
-            | otherwise = rawFields
-        tconName = mkTypeCon [getOccText tycon]
+    fields <- convertRecordFields env con sanitize
+    let tconName = mkTypeCon [getOccText tycon]
         tcon = TypeConApp
             (Qualified PRSelf (envLFModuleName env) tconName)
             (map (TVar . fst) tyVars)
@@ -568,12 +568,12 @@ convertSimpleRecordDef env tycon = do
             ERecCon tcon [(label, EVar $ fieldToVar label) | (label,_) <- fields])
     pure $ [typeDef] ++ [workerDef | flavour == NewtypeFlavour]
 
-convertRecordFields :: Env -> DataCon -> ConvertM [(FieldName, LF.Type)]
-convertRecordFields env con = do
+convertRecordFields :: Env -> DataCon -> (LF.Type -> t) -> ConvertM [(FieldName, t)]
+convertRecordFields env con wrap = do
     let labels = ctorLabels con
         (_, theta, args, _) = dataConSig con
     types <- mapM (convertType env) (theta ++ args)
-    pure $ zipExact labels types
+    pure $ zipExact labels (map wrap types)
 
 convertVariantDef :: Env -> TyCon -> ConvertM [Definition]
 convertVariantDef env tycon = do
@@ -614,13 +614,12 @@ convertTemplateInstanceDef env tname templateTyCon args = do
     when (tyConFlavour templateTyCon /= DataTypeFlavour) $
         unhandled "template type with unexpected flavour"
             (prettyPrint $ tyConFlavour templateTyCon)
-    let templateCon = tyConSingleDataCon templateTyCon
-    rawFields <- convertRecordFields env templateCon
     lfArgs <- mapM (convertType env) args
-    let tyVarNames = map convTypeVarName (tyConTyVars templateTyCon)
+    let templateCon = tyConSingleDataCon templateTyCon
+        tyVarNames = map convTypeVarName (tyConTyVars templateTyCon)
         subst = MS.fromList (zipExact tyVarNames lfArgs)
-        fields = map (second (LF.substitute subst)) rawFields
-        tconName = mkTypeCon [getOccText tname]
+    fields <- convertRecordFields env templateCon (LF.substitute subst)
+    let tconName = mkTypeCon [getOccText tname]
         typeDef = defDataType tconName [] (DataRecord fields)
     pure [typeDef]
 
