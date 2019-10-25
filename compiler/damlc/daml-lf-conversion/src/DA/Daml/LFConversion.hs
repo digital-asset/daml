@@ -610,53 +610,19 @@ convertVariantConDef env tycon tyVars con =
 -- | Instantiate and inline the generic template record definition
 -- for a template instance.
 convertTemplateInstanceDef :: Env -> Name -> TyCon -> [GHC.Type] -> ConvertM [Definition]
-convertTemplateInstanceDef env tname tpl args = do
-    ctors0 <- toCtors env tpl
-    args <- mapM (convertType env) args
-    let subst = MS.fromList $ zipExact (map fst (_cParams ctors0)) args
-    let ctors1 = ctors0
-            { _cTypeName = tname
-            , _cParams = []
-            , _cCtors = map (\(Ctor n fs ts) -> Ctor n fs $ map (LF.substitute subst) ts) (_cCtors ctors0)
-            }
-    convertCtors env ctors1
-
-convertCtors :: Env -> Ctors -> ConvertM [Definition]
-convertCtors env (Ctors name flavour tys [o@(Ctor ctor fldNames fldTys)])
-  | isRecordCtor o
-  = pure $ [defDataType tconName tys $ DataRecord flds] ++
-      [ defValue name (mkVal $ "$W" <> getOccText ctor, mkTForalls tys $ mkTFuns fldTys (typeConAppToType tcon)) expr
-      | flavour == NewtypeFlavour
-      ]
-    where
-        flds = zipExact fldNames fldTys
-        tconName = mkTypeCon [getOccText name]
-        tcon = TypeConApp (Qualified PRSelf (envLFModuleName env) tconName) $ map (TVar . fst) tys
-        expr = mkETyLams tys $ mkETmLams (map (first fieldToVar ) flds) $ ERecCon tcon [(l, EVar $ fieldToVar l) | l <- fldNames]
-convertCtors env o@(Ctors name _ _ cs) | isEnumCtors o = do
-    let ctorNames = map (\(Ctor ctor _ _) -> mkVariantCon $ getOccText ctor) cs
-    pure [defDataType tconName [] $ DataEnum ctorNames]
-  where
-    tconName = mkTypeCon [getOccText name]
-convertCtors env (Ctors name _ tys cs) = do
-    (constrs, funs) <- mapAndUnzipM convertCtor cs
-    pure $ [defDataType tconName tys $ DataVariant constrs] ++ concat funs
-    where
-      tconName = mkTypeCon [getOccText name]
-      convertCtor :: Ctor -> ConvertM ((VariantConName, LF.Type), [Definition])
-      convertCtor o@(Ctor ctor fldNames fldTys) =
-        case (fldNames, fldTys) of
-          ([], []) -> pure ((ctorName, TUnit), [])
-          ([], [typ]) -> pure ((ctorName, typ), [])
-          ([], _:_:_) -> unsupported "Data constructor with multiple unnamed fields" (prettyPrint name)
-          (_:_, _) ->
-            let recName = synthesizeVariantRecord ctorName tconName
-                recData = defDataType recName tys $ DataRecord (zipExact fldNames fldTys)
-                recTCon = TypeConApp (Qualified PRSelf (envLFModuleName env) recName) $ map (TVar . fst) tys
-            in  pure ((ctorName, typeConAppToType recTCon), [recData])
-          where
-            ctorName = mkVariantCon (getOccText ctor)
-
+convertTemplateInstanceDef env tname templateTyCon args = do
+    when (tyConFlavour templateTyCon /= DataTypeFlavour) $
+        unhandled "template type with unexpected flavour"
+            (prettyPrint $ tyConFlavour templateTyCon)
+    let templateCon = tyConSingleDataCon templateTyCon
+    rawFields <- convertRecordFields env templateCon
+    lfArgs <- mapM (convertType env) args
+    let tyVarNames = map convTypeVarName (tyConTyVars templateTyCon)
+        subst = MS.fromList (zipExact tyVarNames lfArgs)
+        fields = map (second (LF.substitute subst)) rawFields
+        tconName = mkTypeCon [getOccText tname]
+        typeDef = defDataType tconName [] (DataRecord fields)
+    pure [typeDef]
 
 convertBind :: Env -> (Var, GHC.Expr Var) -> ConvertM [Definition]
 convertBind env (name, x)
