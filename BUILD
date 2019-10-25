@@ -205,8 +205,6 @@ load("@com_github_bazelbuild_buildtools//buildifier:def.bzl", "buildifier")
 buildifier_excluded_patterns = [
     "./3rdparty/haskell/c2hs-package.bzl",
     "./3rdparty/haskell/network-package.bzl",
-    "./3rdparty/jvm/*",
-    "./3rdparty/workspace.bzl",
     "./hazel/packages.bzl",
     "./node_modules/*",
 ]
