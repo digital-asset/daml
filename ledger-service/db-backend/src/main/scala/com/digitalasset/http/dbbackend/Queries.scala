@@ -7,7 +7,8 @@ import scala.language.higherKinds
 
 import doobie._
 import doobie.implicits._
-import scalaz.{@@, Functor, Tag}
+import scalaz.{@@, Foldable1, Functor, Tag}
+import scalaz.syntax.foldable1._
 import scalaz.syntax.functor._
 import scalaz.syntax.std.option._
 import spray.json._
@@ -126,6 +127,11 @@ object Queries {
           dbc.copy(
             createArguments = dbc.createArguments.toJson,
             witnessParties = dbc.witnessParties.toJson)))
+
+  // XXX SC there's probably a better approach than this direct fold
+  def deleteContracts[F[_]: Foldable1](cids: F[String]): Fragment =
+    sql"DELETE FROM contract WHERE contract_id IN (" ++ cids.foldMapLeft1(cid => sql"$cid")(
+      (fm, cid) => fm ++ sql", $cid") ++ sql")"
 
   private[http] def selectContracts(
       tpid: SurrogateTpId,
