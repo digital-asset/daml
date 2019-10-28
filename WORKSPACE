@@ -756,6 +756,14 @@ go_repository(
     importpath = "github.com/pseudomuto/protokit",
 )
 
+load("//:bazel-java-deps.bzl", "install_java_deps")
+
+install_java_deps()
+
+load("@maven//:defs.bzl", "pinned_maven_install")
+
+pinned_maven_install()
+
 load(
     "@io_bazel_rules_scala//scala:scala.bzl",
     "scala_repositories",
@@ -830,10 +838,6 @@ rules_sass_dependencies()
 load("@io_bazel_rules_sass//:defs.bzl", "sass_repositories")
 
 sass_repositories()
-
-load("//3rdparty:workspace.bzl", "maven_dependencies")
-
-maven_dependencies()
 
 load("@io_bazel_skydoc//skylark:skylark.bzl", "skydoc_repositories")
 

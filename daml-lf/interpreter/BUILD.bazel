@@ -21,13 +21,13 @@ da_scala_library(
         "//triggers:__subpackages__",
     ],
     deps = [
-        "//3rdparty/jvm/org/scalaz:scalaz_core",
-        "//3rdparty/jvm/org/slf4j:slf4j_api",
-        "//3rdparty/jvm/org/typelevel:paiges_core",
         "//daml-lf/data",
         "//daml-lf/language",
         "//daml-lf/transaction",
         "//daml-lf/validation",
+        "@maven//:org_scalaz_scalaz_core_2_12",
+        "@maven//:org_slf4j_slf4j_api",
+        "@maven//:org_typelevel_paiges_core_2_12",
     ],
 )
 
@@ -38,14 +38,14 @@ da_scala_test_suite(
     scalacopts = lf_scalacopts,
     deps = [
         ":interpreter",
-        "//3rdparty/jvm/org/scalacheck",
-        "//3rdparty/jvm/org/scalatest",
-        "//3rdparty/jvm/org/scalaz:scalaz_core",
         "//daml-lf/data",
         "//daml-lf/language",
         "//daml-lf/parser",
         "//daml-lf/transaction",
         "//daml-lf/validation",
+        "@maven//:org_scalacheck_scalacheck_2_12",
+        "@maven//:org_scalatest_scalatest_2_12",
+        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )
 

@@ -48,9 +48,6 @@ da_scala_binary(
     srcs = glob(["src/**/*.scala"]),
     main_class = "com.daml.trigger.test.TestMain",
     deps = [
-        "//3rdparty/jvm/com/github/scopt",
-        "//3rdparty/jvm/com/typesafe/akka:akka_stream",
-        "//3rdparty/jvm/org/scalaz:scalaz_core",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/archive:daml_lf_dev_archive_java_proto",
         "//daml-lf/data",
@@ -62,6 +59,9 @@ da_scala_binary(
         "//ledger-api/rs-grpc-bridge",
         "//ledger/ledger-api-common",
         "//triggers/runner:trigger-runner-lib",
+        "@maven//:com_github_scopt_scopt_2_12",
+        "@maven//:com_typesafe_akka_akka_stream_2_12",
+        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )
 

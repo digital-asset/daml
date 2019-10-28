@@ -12,9 +12,9 @@ da_scala_binary(
         "@com_github_scalapb_scalapb//:scala-library",
     ],
     deps = [
-        "//3rdparty/jvm/com/google/protobuf:protobuf_java",
-        "//3rdparty/jvm/com/thesamet/scalapb:compilerplugin",
-        "//3rdparty/jvm/com/thesamet/scalapb:protoc_bridge",
+        "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:com_thesamet_scalapb_compilerplugin_2_12",
+        "@maven//:com_thesamet_scalapb_protoc_bridge_2_12",
     ],
 )
 
@@ -26,9 +26,10 @@ da_scala_library(
         "//visibility:public",
     ],
     deps = [
-        "//3rdparty/jvm/io/grpc:grpc_core",
-        "//3rdparty/jvm/io/grpc:grpc_stub",
-        "//3rdparty/jvm/org/slf4j:slf4j_api",
+        "@maven//:io_grpc_grpc_api",
+        "@maven//:io_grpc_grpc_core",
+        "@maven//:io_grpc_grpc_stub",
+        "@maven//:org_slf4j_slf4j_api",
     ],
 )
 

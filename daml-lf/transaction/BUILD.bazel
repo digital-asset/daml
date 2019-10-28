@@ -15,13 +15,13 @@ da_scala_library(
     tags = ["maven_coordinates=com.digitalasset:daml-lf-transaction:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
-        "//3rdparty/jvm/com/google/protobuf:protobuf_java",
-        "//3rdparty/jvm/org/scalaz:scalaz_core",
         "//daml-lf/data",
         "//daml-lf/language",
         "//daml-lf/transaction/src/main/protobuf:blindinginfo_java_proto",
         "//daml-lf/transaction/src/main/protobuf:transaction_java_proto",
         "//daml-lf/transaction/src/main/protobuf:value_java_proto",
+        "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )
 
@@ -32,10 +32,6 @@ da_scala_test(
     scalacopts = lf_scalacopts,
     deps = [
         ":transaction",
-        "//3rdparty/jvm/com/google/protobuf:protobuf_java",
-        "//3rdparty/jvm/org/scalacheck",
-        "//3rdparty/jvm/org/scalaz:scalaz_core",
-        "//3rdparty/jvm/org/scalaz:scalaz_scalacheck_binding",
         "//daml-lf/data",
         "//daml-lf/data-scalacheck",
         "//daml-lf/language",
@@ -43,5 +39,9 @@ da_scala_test(
         "//daml-lf/transaction/src/main/protobuf:blindinginfo_java_proto",
         "//daml-lf/transaction/src/main/protobuf:transaction_java_proto",
         "//daml-lf/transaction/src/main/protobuf:value_java_proto",
+        "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:org_scalacheck_scalacheck_2_12",
+        "@maven//:org_scalaz_scalaz_core_2_12",
+        "@maven//:org_scalaz_scalaz_scalacheck_binding_2_12",
     ],
 )

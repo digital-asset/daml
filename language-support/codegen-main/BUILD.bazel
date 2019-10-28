@@ -20,13 +20,13 @@ da_scala_binary(
     main_class = "com.digitalasset.codegen.CodegenMain",
     visibility = ["//visibility:public"],
     deps = [
-        "//3rdparty/jvm/ch/qos/logback:logback_classic",
-        "//3rdparty/jvm/com/github/scopt",
-        "//3rdparty/jvm/com/typesafe/scala_logging",
         "//daml-assistant/scala-daml-project-config",
         "//language-support/codegen-common",
         "//language-support/java/codegen:lib",
         "//language-support/scala/codegen:codegen-main",
+        "@maven//:ch_qos_logback_logback_classic",
+        "@maven//:com_github_scopt_scopt_2_12",
+        "@maven//:com_typesafe_scala_logging_scala_logging_2_12",
     ],
 )
 

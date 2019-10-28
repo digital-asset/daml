@@ -963,21 +963,15 @@ dependencies are introduced implicitly through direct dependencies, most
 commonly on another dependency's `exports` attribute.
 
 All direct Scala and Java dependencies are listed explicitly in the file
-`dependencies.yaml`. Each dependency is defined through its Maven group id,
-artifact id, version, and language. The external tool `bazel-deps` takes this
-file as an input and uses Coursier to perform transitive dependency resolution.
+`bazel-java-deps.bzl`. Each dependency is defined by its Maven coordinates. The
+`maven_install` repository rule calls Coursier to perform transitive dependency
+resolution and import the required artifacts into the Bazel build.
 
-After resolution all direct and transitive dependencies are pinned in the file
-`3rdparty/workspace.bzl` with their version and hash. Additionally, Bazel
-targets are defined for these dependencies and their transitive dependencies
-under the `3rdparty` subtree. For example, the package
-`org.scalaz.scalaz-scalacheck-binding` is available as
-`//3rdparty/jvm/org/scalaz:scalaz_scalacheck_binding`, which also includes
-`//3rdparty/jvm/org/scalaz:scalaz_core` (among others) as transitive
-dependencies.
+The resolved versions are pinned in the file `maven_install.json`. Execute
+`bazel run @unpinned_maven//:pin` when you wish to update or add a new
+dependency. See [`rules_jvm_external`][rules_jvm_external] for details.
 
-In order to update or add external Java or Scala dependencies follow the
-instructions at the top of the file `dependencies.yaml`.
+[rules_jvm_external]: https://github.com/bazelbuild/rules_jvm_external#updating-maven_installjson
 
 ## Typescript in Bazel
 

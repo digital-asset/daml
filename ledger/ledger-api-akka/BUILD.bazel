@@ -28,10 +28,11 @@ da_scala_library(
         "//visibility:public",
     ],
     deps = [
-        "//3rdparty/jvm/com/typesafe/akka:akka_stream",
-        "//3rdparty/jvm/io/grpc:grpc_stub",
         "//ledger-api/grpc-definitions:ledger-api-scalapb",
         "//ledger-api/rs-grpc-akka",
         "//ledger-api/rs-grpc-bridge",
+        "@maven//:com_typesafe_akka_akka_actor_2_12",
+        "@maven//:com_typesafe_akka_akka_stream_2_12",
+        "@maven//:io_grpc_grpc_stub",
     ],
 )
