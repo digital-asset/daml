@@ -6,6 +6,6 @@
 DAML Trigger Library
 ====================
 
-The DAML Trigger library defines the API used to declare a DAML trigger. See foobar for more information on DAML triggers.
+The DAML Trigger library defines the API used to declare a DAML trigger. See :doc:`index`:: for more information on DAML triggers.
 
 {{{body}}}
