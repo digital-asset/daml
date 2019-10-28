@@ -4,6 +4,11 @@
 DAML Triggers - Off-Ledger Automation in DAML
 #############################################
 
+.. toctree::
+   :hidden:
+
+   trigger-docs
+
 **WARNING:** DAML Triggers are an experimental feature that is actively
 being designed and is *subject to breaking changes*.
 We welcome feedback about DAML triggers on

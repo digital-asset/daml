@@ -29,3 +29,21 @@ EOF
     tools = ["//compiler/damlc"],
     visibility = ["//visibility:public"],
 )
+
+genrule(
+    name = "daml-trigger-rst-docs",
+    srcs = glob(["**/*.daml"]) + [":daml-trigger-rst-template.rst"],
+    outs = ["daml-trigger.rst"],
+    cmd = """
+        $(location //compiler/damlc) -- docs \
+            --combine \
+            --output=$(location :daml-trigger.rst) \
+            --format=Rst \
+            --template=$(location :daml-trigger-rst-template.rst) \
+            --target=1.dev \
+            $(location Daml/Trigger.daml) \
+            $(location Daml/Trigger/LowLevel.daml)
+    """,
+    tools = ["//compiler/damlc"],
+    visibility = ["//visibility:public"],
+)
