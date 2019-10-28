@@ -12,8 +12,10 @@ import qualified Data.ByteString.Lazy.UTF8 as LBS
 import qualified Data.Foldable as Foldable
 import qualified Data.HashMap.Strict as H
 import qualified Data.List as List
+import qualified Data.List.Extra as List
 import qualified Data.List.Utils as List
 import qualified Data.List.Split as Split
+import qualified Data.Ord as Ord
 import qualified Data.Set as Set
 import qualified Data.Text as Text
 import qualified Network.HTTP.Client as HTTP
@@ -106,11 +108,13 @@ docs_versions :: H.HashMap String String -> Set.Set String
 docs_versions json =
     Set.fromList $ H.keys json
 
-compare_versions :: GitHubVersion -> GitHubVersion -> Ordering
-compare_versions v1 v2 =
-    let t :: GitHubVersion -> [Integer]
-        t v = map read $ Split.splitOn "." $ name v
-    in compare (t v1) (t v2)
+newtype Version = Version (Int, Int, Int)
+  deriving (Eq, Ord)
+
+to_v :: String -> Version
+to_v s = case map read $ Split.splitOn "." s of
+    [major, minor, patch] -> Version (major, minor, patch)
+    _ -> error $ "Invalid data, needs manual repair. Got this for a version string: " <> s
 
 build_docs_folder :: String -> [String] -> IO ()
 build_docs_folder path versions = do
@@ -234,7 +238,7 @@ main = do
     else do
         Temp.withTempDir $ \docs_folder -> do
             putStrLn "Building docs listing"
-            build_docs_folder docs_folder $ gh_resp & List.sortBy compare_versions & reverse & map name
+            build_docs_folder docs_folder $ List.sortOn (Ord.Down . to_v) $ map name gh_resp
             putStrLn "Done building docs bundle. Checking versions again to avoid race condition..."
             s3_matches <- check_s3_versions (github_versions gh_resp)
             if s3_matches
@@ -243,5 +247,11 @@ main = do
                 Exit.exitSuccess
             else do
                 push_to_s3 docs_folder
-                let latest = Foldable.maximumBy compare_versions gh_resp
-                tell_hubspot latest
+                let gh_latest = List.maximumOn (to_v . name) gh_resp
+                let docs_latest = List.maximumOn to_v $ Set.toList docs_resp
+                if to_v (name gh_latest) > to_v docs_latest
+                then do
+                    putStrLn "New version detected, telling HubSpot"
+                    tell_hubspot gh_latest
+                else
+                    putStrLn "Not a new release, not telling HubSpot."
