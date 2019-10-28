@@ -28,8 +28,8 @@ class TransactionBackpressureIT
     with Matchers
     with ScalaFutures
     with AkkaBeforeAndAfterAll
-    with SuiteResourceManagementAroundAll
-    with MultiLedgerFixture {
+    with MultiLedgerFixture
+    with SuiteResourceManagementAroundAll {
 
   protected val testCommands = new TestCommands(config)
   protected val testIdsGenerator = new TestIdsGenerator(config)
