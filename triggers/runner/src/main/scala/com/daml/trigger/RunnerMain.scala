@@ -5,6 +5,7 @@ package com.daml.trigger
 
 import akka.actor.ActorSystem
 import akka.stream._
+import java.io.File
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration.Duration
 import scalaz.syntax.traverse._
@@ -12,7 +13,7 @@ import scalaz.syntax.traverse._
 import com.digitalasset.daml.lf.archive.{Dar, DarReader}
 import com.digitalasset.daml.lf.archive.Decode
 import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
-import com.digitalasset.daml.lf.language.Ast.Package
+import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml_lf_dev.DamlLf
 import com.digitalasset.grpc.adapter.AkkaExecutionSequencerPool
 import com.digitalasset.ledger.api.refinements.ApiTypes.ApplicationId
@@ -25,6 +26,24 @@ import com.digitalasset.ledger.client.configuration.{
 
 object RunnerMain {
 
+  def listTriggers(darPath: File, dar: Dar[(PackageId, Package)]) = {
+    val triggerIds = TriggerIds.fromDar(dar)
+    println(s"Listing triggers in $darPath:")
+    for ((modName, mod) <- dar.main._2.modules) {
+      for ((defName, defVal) <- mod.definitions) {
+        defVal match {
+          case DValue(TApp(TTyCon(tcon), _), _, _, _) => {
+            if (tcon == triggerIds.getHighlevelId("Trigger")
+              || tcon == triggerIds.getId("Trigger")) {
+              println(s"  $modName:$defName")
+            }
+          }
+          case _ => {}
+        }
+      }
+    }
+  }
+
   def main(args: Array[String]): Unit = {
 
     RunnerConfig.parse(args) match {
@@ -34,6 +53,11 @@ object RunnerMain {
           DarReader().readArchiveFromFile(config.darPath).get
         val dar: Dar[(PackageId, Package)] = encodedDar.map {
           case (pkgId, pkgArchive) => Decode.readArchivePayload(pkgId, pkgArchive)
+        }
+
+        if (config.listTriggers) {
+          listTriggers(config.darPath, dar)
+          sys.exit(0)
         }
 
         val triggerId: Identifier =
