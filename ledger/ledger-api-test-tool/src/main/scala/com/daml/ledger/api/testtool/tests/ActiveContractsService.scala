@@ -78,12 +78,15 @@ class ActiveContractsService(session: LedgerSession) extends LedgerTestSuite(ses
             activeContracts.exists(_.contractId == dummyFactory),
             s"Didn't find DummyFactory contract with contractId ${dummy}.")
 
+          val invalidSignatories = activeContracts.filterNot(_.signatories == Seq(party.unwrap))
           assert(
-            activeContracts.forall(_.signatories == Seq(party.unwrap)),
-            s"Found contracts with signatories other than ${party}.")
+            invalidSignatories.isEmpty,
+            s"Found contracts with signatories other than ${party}: $invalidSignatories")
+
+          val invalidObservers = activeContracts.filterNot(_.observers.isEmpty)
           assert(
-            activeContracts.forall(_.observers.isEmpty),
-            s"Found contracts with signatories other than ${party}.")
+            invalidObservers.isEmpty,
+            s"Found contracts with non-empty observers: $invalidObservers")
         }
     }
 
