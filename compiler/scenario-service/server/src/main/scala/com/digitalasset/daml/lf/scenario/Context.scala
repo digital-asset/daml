@@ -73,15 +73,14 @@ class Context(val contextId: Context.ContextId) {
   private def decodeModule(
       major: LanguageVersion.Major,
       minor: String,
-      bytes: ByteString): Ast.Module = {
+      bytes: ByteString
+  ): List[Ast.Module] = {
     val lfVer = LanguageVersion(major, LanguageVersion.Minor fromProtoIdentifier minor)
     val dop: Decode.OfPackage[_] = Decode.decoders
       .lift(lfVer)
       .getOrElse(throw Context.ContextException(s"No decode support for LF ${lfVer.pretty}"))
       .decoder
-    val lfMod = dop.protoModule(
-      Decode.damlLfCodedInputStream(bytes.newInput)
-    )
+    val lfMod = dop.protoModule(Decode.damlLfCodedInputStream(bytes.newInput))
     dop.decodeScenarioModule(homePackageId, lfMod)
   }
 
@@ -123,11 +122,11 @@ class Context(val contextId: Context.ContextId) {
     }
 
     // And now the new modules can be loaded.
-    val lfModules = loadModules.map(module =>
+    val lfModules = loadModules.flatMap(module =>
       module.getModuleCase match {
         case ProtoModule.ModuleCase.DAML_LF_1 =>
           decodeModule(LanguageVersion.Major.V1, module.getMinor, module.getDamlLf1)
-        case ProtoModule.ModuleCase.DAML_LF_DEV | ProtoModule.ModuleCase.MODULE_NOT_SET =>
+        case ProtoModule.ModuleCase.MODULE_NOT_SET =>
           throw Context.ContextException("Module.MODULE_NOT_SET")
     })
     modules ++= lfModules.map(m => m.name -> m)

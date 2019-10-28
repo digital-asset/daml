@@ -48,18 +48,27 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
             onlySerializableDataDefs).decode))
   }
 
-  type ProtoModule = PLF.Module
+  type ProtoModule = PLF.Package
 
   override def protoModule(cis: CodedInputStream): ProtoModule =
-    PLF.Module.parser().parseFrom(cis)
+    PLF.Package.parser().parseFrom(cis)
 
-  override def decodeScenarioModule(packageId: PackageId, lfModule: ProtoModule): Module =
-    ModuleDecoder(
-      packageId,
-      ImmArraySeq.empty,
-      ImmArraySeq.empty,
-      lfModule,
-      onlySerializableDataDefs = false).decode()
+  override def decodeScenarioModule(packageId: PackageId, lfModule: ProtoModule): List[Module] = {
+    val internedStrings = ImmArray(lfModule.getInternedStringsList.asScala).toSeq
+    val internedDottedNames =
+      decodeInternedDottedNames(lfModule.getInternedDottedNamesList.asScala, internedStrings)
+
+    lfModule.getModulesList.asScala.toList.map(
+      ModuleDecoder(
+        packageId,
+        internedStrings,
+        internedDottedNames,
+        _,
+        onlySerializableDataDefs = false
+      ).decode()
+    )
+
+  }
 
   private[this] def decodeInternedDottedNames(
       internedList: Seq[PLF.InternedDottedName],

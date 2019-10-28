@@ -74,7 +74,7 @@ object Decode extends Decode(onlySerializableDataDefs = false) {
         lfPackage: Pkg,
         onlySerializableDataDefs: Boolean = false): Package
     @throws[ParseError]
-    def decodeScenarioModule(packageId: PackageId, lfModule: ProtoModule): Module
+    def decodeScenarioModule(packageId: PackageId, lfModule: ProtoModule): List[Module]
   }
 
   private def identifierStart(c: Char) =

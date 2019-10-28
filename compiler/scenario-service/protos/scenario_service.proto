@@ -330,7 +330,6 @@ message Map {
 message Module {
   oneof module {
     bytes daml_lf_1 = 2;
-    bytes daml_lf_dev = 3;
   }
 
   // for daml_lf_dev the minor version is ignored by the scenario service.
