@@ -31,7 +31,8 @@ import GHC.Stack
 data Priority
 -- Don't change the ordering of this Sum type or you will mess up the Ord
 -- instance
-    = Debug -- ^ Verbose debug logging.
+    = Telemetry -- ^ Events that are interesting for user metrics.
+    | Debug -- ^ Verbose debug logging.
     | Info  -- ^ Useful information in case an error has to be understood.
     | Warning
       -- ^ These error messages should not occur in a expected usage, and
