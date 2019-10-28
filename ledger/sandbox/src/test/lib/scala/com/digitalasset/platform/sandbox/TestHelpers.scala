@@ -7,11 +7,12 @@ import java.io.File
 import java.time.Instant
 
 import akka.stream.ActorMaterializer
-import com.daml.ledger.participant.state.v1.{AuthService, ParticipantId}
+import com.daml.ledger.participant.state.v1.ParticipantId
 import com.digitalasset.api.util.{TimeProvider, ToleranceWindow}
 import com.digitalasset.daml.lf.archive.DarReader
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.engine.Engine
+import com.digitalasset.ledger.api.auth.AuthService
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.sandbox.metrics.MetricsManager

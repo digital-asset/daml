@@ -6,7 +6,7 @@ package com.digitalasset.platform.sandbox.config
 import java.io.File
 
 import ch.qos.logback.classic.Level
-import com.daml.ledger.participant.state.v1.AuthService
+import com.digitalasset.ledger.api.auth.AuthService
 import com.digitalasset.ledger.api.tls.TlsConfiguration
 import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.services.time.{TimeModel, TimeProviderType}

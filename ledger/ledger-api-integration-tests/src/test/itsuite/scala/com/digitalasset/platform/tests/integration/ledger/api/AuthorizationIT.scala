@@ -7,15 +7,9 @@ import java.io.File
 import java.nio.file.Files
 import java.util.UUID
 
-import com.daml.ledger.participant.state.v1.{
-  Claim,
-  ClaimActAsParty,
-  ClaimAdmin,
-  ClaimPublic,
-  Claims
-}
 import com.digitalasset.daml.bazeltools.BazelRunfiles.rlocation
 import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.ledger.api.auth.{Claim, ClaimActAsParty, ClaimAdmin, ClaimPublic, Claims}
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.testing.utils.{
   AkkaBeforeAndAfterAll,

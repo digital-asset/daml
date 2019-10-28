@@ -8,7 +8,8 @@ import java.time.Instant
 
 import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
-import com.daml.ledger.participant.state.v1.{AuthService, ParticipantId}
+import com.daml.ledger.participant.state.v1.ParticipantId
+import com.digitalasset.ledger.api.auth.AuthService
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.engine.Engine

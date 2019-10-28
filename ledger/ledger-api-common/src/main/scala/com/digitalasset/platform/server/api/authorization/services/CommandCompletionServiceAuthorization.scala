@@ -4,7 +4,7 @@
 package com.digitalasset.platform.server.api.authorization.services
 
 import akka.stream.scaladsl.Source
-import com.daml.ledger.participant.state.v1.AuthService
+import com.digitalasset.ledger.api.auth.AuthService
 import com.digitalasset.grpc.adapter.utils.DirectExecutionContext
 import com.digitalasset.ledger.api.v1.command_completion_service.CommandCompletionServiceGrpc.CommandCompletionService
 import com.digitalasset.ledger.api.v1.command_completion_service._

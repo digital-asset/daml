@@ -3,7 +3,7 @@
 
 package com.digitalasset.platform.server.api.authorization
 
-import com.daml.ledger.participant.state.v1.Claims
+import com.digitalasset.ledger.api.auth.Claims
 import com.digitalasset.ledger.api.v1.transaction_filter.TransactionFilter
 import com.digitalasset.platform.server.api.validation.ErrorFactories._
 import io.grpc.{Context, StatusRuntimeException}

@@ -3,7 +3,7 @@
 
 package com.digitalasset.platform.server.api.authorization
 
-import com.daml.ledger.participant.state.v1.{AuthService, Claims}
+import com.digitalasset.ledger.api.auth.{AuthService, Claims}
 import io.grpc.{
   Context,
   Contexts,

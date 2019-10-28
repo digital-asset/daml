@@ -9,9 +9,10 @@ import java.time.Instant
 import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.Sink
-import com.daml.ledger.participant.state.v1.{AuthService, ParticipantId, ReadService, WriteService}
+import com.daml.ledger.participant.state.v1.{ParticipantId, ReadService, WriteService}
 import com.digitalasset.daml.lf.engine.Engine
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
+import com.digitalasset.ledger.api.auth.AuthService
 import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.server.apiserver.{ApiServer, ApiServices, LedgerApiServer}

@@ -28,6 +28,7 @@ da_scala_binary(
         "//daml-lf/language",
         "//daml-lf/transaction",
         "//language-support/scala/bindings",
+        "//ledger/ledger-api-auth",
         "//ledger/ledger-api-client",
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-domain",

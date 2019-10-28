@@ -11,7 +11,8 @@ import com.daml.ledger.participant.state.index.v2.{
   IndexPackagesService,
   _
 }
-import com.daml.ledger.participant.state.v1.{AuthService, TimeModel, WriteService}
+import com.daml.ledger.participant.state.v1.{TimeModel, WriteService}
+import com.digitalasset.ledger.api.auth.AuthService
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.engine._
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory

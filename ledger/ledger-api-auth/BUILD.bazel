@@ -1,0 +1,34 @@
+# Copyright (c) 2019 The DAML Authors. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+    "//bazel_tools:scala.bzl",
+    "da_scala_library",
+    "da_scala_test_suite",
+)
+
+da_scala_library(
+    name = "ledger-api-auth",
+    srcs = glob(["src/main/scala/com/digitalasset/ledger/api/auth/**/*.scala"]),
+    resources = glob(["src/main/resources/**/*"]),
+    tags = ["maven_coordinates=com.digitalasset.ledger:ledger-api-auth:__VERSION__"],
+    visibility = [
+        "//visibility:public",
+    ],
+    runtime_deps = [],
+    deps = [
+        "//daml-lf/archive:daml_lf_dev_archive_java_proto",
+        "//daml-lf/data",
+        "//daml-lf/transaction",
+        "//daml-lf/transaction/src/main/protobuf:transaction_java_proto",
+        "//daml-lf/transaction/src/main/protobuf:value_java_proto",
+        "//ledger/ledger-api-domain",
+        "@maven//:com_google_guava_guava",
+        "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:com_typesafe_akka_akka_actor_2_12",
+        "@maven//:com_typesafe_akka_akka_stream_2_12",
+        "@maven//:io_grpc_grpc_api",
+        "@maven//:io_grpc_grpc_core",
+        "@maven//:io_grpc_grpc_services",
+    ],
+)

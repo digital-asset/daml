@@ -8,9 +8,9 @@ import java.nio.file.Path
 import java.time.Duration
 
 import ch.qos.logback.classic.Level
-import com.daml.ledger.participant.state.v1.AuthService
 import com.digitalasset.daml.bazeltools.BazelRunfiles._
 import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.ledger.api.auth.AuthService
 import com.digitalasset.ledger.api.tls.TlsConfiguration
 import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.sandbox.config.{CommandConfiguration, SandboxConfig}

@@ -5,7 +5,7 @@ package com.digitalasset.platform.server.api.authorization.auth
 
 import java.util.concurrent.{CompletableFuture, CompletionStage}
 
-import com.daml.ledger.participant.state.v1.{AuthService, Claims}
+import com.digitalasset.ledger.api.auth.{AuthService, Claims}
 import io.grpc.Metadata
 
 /** An AuthService that matches the value of the `Authorization` HTTP header against
