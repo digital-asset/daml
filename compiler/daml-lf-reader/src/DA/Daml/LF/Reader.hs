@@ -84,6 +84,7 @@ data DalfManifest = DalfManifest
     { mainDalfPath :: FilePath
     , dalfPaths :: [FilePath]
     -- ^ Includes the mainDalf.
+    , sdkVersion :: String
     } deriving (Show)
 
 -- | The dalfs stored in the DAR.
@@ -96,11 +97,16 @@ data Dalfs = Dalfs
 readDalfManifest :: Archive -> Either String DalfManifest
 readDalfManifest dar = do
     attrs <- readManifest dar
-    mainDalf <- maybe (Left "No Main-Dalf attribute in manifest") pure $ lookup "Main-Dalf" attrs
-    let mainDalfPath = BSUTF8.toString mainDalf
-    dalfsValue <- maybe (Left "No Dalfs attribute in manifest") pure $ lookup "Dalfs" attrs
-    let dalfPaths = splitOn ", " $ BSUTF8.toString dalfsValue
-    pure $ DalfManifest mainDalfPath dalfPaths
+    mainDalf <- getAttr "Main-Dalf" attrs
+    dalfPaths <- splitOn ", " <$> getAttr "Dalfs" attrs
+    sdkVersion <- getAttr "Sdk-Version" attrs
+    pure $ DalfManifest mainDalf dalfPaths sdkVersion
+  where
+    getAttr :: ByteString -> [(ByteString, ByteString)] -> Either String String
+    getAttr attrName attrs =
+        maybe (missingAttr attrName) (Right . BSUTF8.toString) $
+        lookup attrName attrs
+    missingAttr attrName = Left $ "No " <> BSUTF8.toString attrName <> " attribute in manifest."
 
 readDalfs :: Archive -> Either String Dalfs
 readDalfs dar = do
