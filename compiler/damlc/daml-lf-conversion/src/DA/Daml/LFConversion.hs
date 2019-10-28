@@ -3,7 +3,6 @@
 
 {-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE PatternSynonyms #-}
-{-# LANGUAGE MonoLocalBinds #-}
 {-# OPTIONS_GHC -Wno-unused-matches #-}
 {-# OPTIONS_GHC -Wno-incomplete-patterns #-}
 {-# OPTIONS_GHC -Wno-overlapping-patterns #-} -- Because the pattern match checker is garbage
@@ -559,7 +558,7 @@ convertSimpleRecordDef env tycon = do
     let tconName = mkTypeCon [getOccText tycon]
         typeDef = defDataType tconName tyVars (DataRecord fields)
         workerDef = defNewtypeWorker env tycon tconName con tyVars fields
-    pure $ [typeDef] ++ [workerDef | flavour == NewtypeFlavour]
+    pure $ typeDef : [workerDef | flavour == NewtypeFlavour]
 
 defNewtypeWorker :: NamedThing a => Env -> a -> TypeConName -> DataCon
     -> [(TypeVarName, LF.Kind)] -> [(FieldName, LF.Type)] -> Definition
@@ -1059,7 +1058,7 @@ classifyDataCon con
     | isVariantRecordCon con = VariantRecordCon
     | otherwise = SimpleVariantCon
         -- in which case, daml-preprocessor ensures that the
-        -- constructor cannot have more than two unlabeled arguments
+        -- constructor cannot have more than one argument
 
 -- | Split args into type args and non-type args of the expected length
 -- for a particular DataCon.
