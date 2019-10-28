@@ -12,6 +12,7 @@
 module DA.Service.Logger
   ( Handle(..)
   , Priority(..)
+  , logTelemetry
   , logDebug
   , logInfo
   , logWarning
@@ -72,3 +73,6 @@ logInfo h = logJson h Info
 
 logDebug :: HasCallStack => Handle m -> T.Text -> m ()
 logDebug h = logJson h Debug
+
+logTelemetry :: HasCallStack => Handle m -> T.Text -> m ()
+logTelemetry h = logJson h Telemetry
