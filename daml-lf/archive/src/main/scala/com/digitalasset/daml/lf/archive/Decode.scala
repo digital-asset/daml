@@ -66,15 +66,15 @@ object Decode extends Decode(onlySerializableDataDefs = false) {
   }
 
   private[lf] trait OfPackage[-Pkg] {
-    type ProtoModule
-    def protoModule(cis: CodedInputStream): ProtoModule
+    type ProtoScenarioModule
+    def protoScenarioModule(cis: CodedInputStream): ProtoScenarioModule
     @throws[ParseError]
     def decodePackage(
         packageId: PackageId,
         lfPackage: Pkg,
         onlySerializableDataDefs: Boolean = false): Package
     @throws[ParseError]
-    def decodeScenarioModule(packageId: PackageId, lfModule: ProtoModule): List[Module]
+    def decodeScenarioModule(packageId: PackageId, lfModuleForScenario: ProtoScenarioModule): Module
   }
 
   private def identifierStart(c: Char) =

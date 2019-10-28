@@ -79,7 +79,7 @@ message UpdateContextRequest {
   message UpdateModules {
     // Modules to load in to the context.
     // Existing modules with the same name are replaced.
-    repeated Module load_modules = 2;
+    repeated ScenarioModule load_modules = 2;
 
     // Modules to remove.
     repeated string unload_modules = 3;
@@ -327,9 +327,9 @@ message Map {
 // Modules that can be loaded. The actual message types are not
 // used here as LF modules can have deep nesting depth and it is
 // not easy to change the recursion depth limit in gRPC.
-message Module {
+message ScenarioModule {
   oneof module {
-    bytes daml_lf_1 = 2;
+    bytes daml_lf_1 = 2;  // each LF v1 module is wrapped in a proto package
   }
 
   // for daml_lf_dev the minor version is ignored by the scenario service.
