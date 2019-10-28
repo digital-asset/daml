@@ -53,8 +53,6 @@ object TriggerIds {
   def fromDar(dar: Dar[(PackageId, Package)]): TriggerIds = {
     val triggerModuleName = DottedName.assertFromString("Daml.Trigger.LowLevel")
     val highlevelModuleName = DottedName.assertFromString("Daml.Trigger")
-    // We might want to just fix this at compile time at some point
-    // once we ship the trigger lib with the SDK.
     val triggerPackageId: PackageId = dar.all
       .find {
         case (pkgId, pkg) =>
