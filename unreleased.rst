@@ -8,3 +8,5 @@ This page contains release notes for the SDK.
 
 HEAD — ongoing
 --------------
+
+- [DAML Compiler] Reduce the memory footprint of the IDE and the command line tools (ca. 18% in our experiments).

@@ -173,15 +173,19 @@ generateRawDalfRule :: Rules ()
 generateRawDalfRule =
     define $ \GenerateRawDalf file -> do
         lfVersion <- getDamlLfVersion
-        core <- use_ GenerateCore file
-        setPriority priorityGenerateDalf
-        -- Generate the map from package names to package hashes
-        pkgMap <- useNoFile_ GeneratePackageMap
-        let pkgMap0 = Map.map (LF.unPackageId . dalfPackageId) pkgMap
-        -- GHC Core to DAML LF
-        case convertModule lfVersion pkgMap0 file core of
-            Left e -> return ([e], Nothing)
-            Right v -> return ([], Just $ LF.simplifyModule v)
+        (coreDiags, mbCore) <- generateCore file
+        fmap (first (coreDiags ++)) $
+            case mbCore of
+                Nothing -> return ([], Nothing)
+                Just core -> do
+                    setPriority priorityGenerateDalf
+                    -- Generate the map from package names to package hashes
+                    pkgMap <- useNoFile_ GeneratePackageMap
+                    let pkgMap0 = Map.map (LF.unPackageId . dalfPackageId) pkgMap
+                    -- GHC Core to DAML LF
+                    case convertModule lfVersion pkgMap0 file core of
+                        Left e -> return ([e], Nothing)
+                        Right v -> return ([], Just $ LF.simplifyModule v)
 
 -- Generates and type checks the DALF for a module.
 generateDalfRule :: Rules ()
