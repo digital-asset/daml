@@ -30,8 +30,8 @@ load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive", "http_file"
 load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
 
 rules_scala_version = "0f89c210ade8f4320017daf718a61de3c1ac4773"
-rules_haskell_version = "74d91c116c59f0a3ad41e376d3307d85ddcc3253"
-rules_haskell_sha256 = "5f2423d4707c5601f465d7343c68ff4e8f271c1269e79af4dc2d156cb8a0c17d"
+rules_haskell_version = "f1323829e7e7cc1ea71013efe22466a6298a59b2"
+rules_haskell_sha256 = "addd6b4d8d63fd5c3ed1a4a2a72f071397203474dbb9a9fe0487c917ac219d55"
 rules_nixpkgs_version = "2980a2f75a178bb3c521d46380a52fe72c656239"
 
 def daml_deps():
@@ -41,18 +41,18 @@ def daml_deps():
             strip_prefix = "rules_haskell-%s" % rules_haskell_version,
             urls = ["https://github.com/tweag/rules_haskell/archive/%s.tar.gz" % rules_haskell_version],
             patches = [
-                # Bazel 1.1.0 compatibility. Remove once rules_haskell has been updated.
-                "@com_github_digital_asset_daml//bazel_tools:haskell-bazel-1.1.0.patch",
-                # Remove once https://github.com/tweag/rules_haskell/pull/1039 is merged.
-                "@com_github_digital_asset_daml//bazel_tools:haskell-cc-wrapper.patch",
-                # Upstream once https://github.com/tweag/rules_haskell/pull/1039 is merged.
-                # Used to work around https://github.com/tweag/rules_haskell/issues/1062.
-                "@com_github_digital_asset_daml//bazel_tools:haskell-cc-wrapper-include-dirs.patch",
-                "@com_github_digital_asset_daml//bazel_tools:haskell-cc-wrapper-globbing.patch",
+                # This is a daml specific patch and not upstreamable.
                 "@com_github_digital_asset_daml//bazel_tools:haskell-windows-extra-libraries.patch",
+                # This is a daml specific patch and not upstreamable.
                 "@com_github_digital_asset_daml//bazel_tools:haskell-ghci-grpc.patch",
+                # rules_haskell should have builtin support for hie-bios.
+                # Remove this patch once that's available.
                 "@com_github_digital_asset_daml//bazel_tools:haskell_public_ghci_repl_wrapper.patch",
+                # This fixes a ghc-lib specific build issue and is not upstreamable.
+                # This might also be fixed by using `stack_snapshot` in the future.
                 "@com_github_digital_asset_daml//bazel_tools:haskell-no-isystem.patch",
+                # This should be made configurable in rules_haskell.
+                # Remove this patch once that's available.
                 "@com_github_digital_asset_daml//bazel_tools:haskell-opt.patch",
             ],
             patch_args = ["-p1"],
