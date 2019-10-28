@@ -354,7 +354,9 @@ execIde telemetry (Debug debug) enableScenarioService ghcOpts mbProfileDir (from
             threshold
             "LanguageServer"
           let withLogger f = case telemetry of
-                  OptedIn -> Logger.GCP.withGcpLogger (>= Logger.Warning) loggerH $ \gcpState loggerH' -> do
+                  OptedIn ->
+                    let logOfInterest prio = prio `elem` [Logger.Telemetry, Logger.Warning, Logger.Error] in
+                    Logger.GCP.withGcpLogger logOfInterest loggerH $ \gcpState loggerH' -> do
                       Logger.GCP.logMetaData gcpState
                       f loggerH'
                   OptedOut -> Logger.GCP.withGcpLogger (const False) loggerH $ \gcpState loggerH -> do

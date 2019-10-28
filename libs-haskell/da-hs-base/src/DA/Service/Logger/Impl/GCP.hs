@@ -31,8 +31,9 @@ module DA.Service.Logger.Impl.GCP
 
 import GHC.Generics(Generic)
 import Data.Int
-import Text.Read(readMaybe)
+import Text.Read (readMaybe)
 import Data.Aeson as Aeson
+import Data.Char (toUpper)
 import Control.Monad
 import Control.Monad.Loops
 import GHC.Stack
@@ -264,13 +265,8 @@ toJsonObject v = either (\k -> HM.singleton k v) id $ objectOrKey v where
     Aeson.Null -> Left "Null"
 
 priorityToGCP :: Lgr.Priority -> (T.Text, Value)
-priorityToGCP prio = ("severity",prio')
-    where
-        prio' = case prio of
-            Lgr.Error -> "ERROR"
-            Lgr.Warning -> "WARNING"
-            Lgr.Info -> "INFO"
-            Lgr.Debug -> "DEBUG"
+priorityToGCP prio = ("severity", prio')
+    where prio' = toJSON $ map toUpper $ show prio
 
 -- | Add something to the log queue.
 logGCP

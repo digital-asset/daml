@@ -60,3 +60,4 @@ toIdeLogger h = IdeLogger.Logger $ \case
     IdeLogger.Warning -> Logger.logWarning h
     IdeLogger.Info -> Logger.logInfo h
     IdeLogger.Debug -> Logger.logDebug h
+    IdeLogger.Telemetry -> Logger.logTelemetry h

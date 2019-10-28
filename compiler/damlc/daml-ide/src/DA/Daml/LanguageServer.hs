@@ -76,6 +76,7 @@ setHandlersVirtualResource = PartialHandlers $ \WithMessage{..} x -> return x
         \_ ide (DidOpenTextDocumentParams TextDocumentItem{_uri}) ->
             withUriDaml _uri $ \vr -> do
                 logInfo (ideLogger ide) $ "Opened virtual resource: " <> textShow vr
+                logTelemetry (ideLogger ide) "Viewed scenario results"
                 modifyOpenVirtualResources ide (S.insert vr)
 
     ,LSP.didCloseTextDocumentNotificationHandler = withNotification (LSP.didCloseTextDocumentNotificationHandler x) $
