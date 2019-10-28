@@ -83,6 +83,7 @@ testDependencies = [
 da_scala_library(
     name = "ledger-api-common-scala-tests-lib",
     srcs = glob(["src/test/lib/**/*.scala"]),
+    visibility = ["//ledger:__subpackages__"],
     deps = testDependencies,
 )
 

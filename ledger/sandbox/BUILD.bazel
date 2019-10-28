@@ -164,6 +164,7 @@ alias(
 
 testDependencies = [
     ":sandbox",
+    "//ledger/ledger-api-common:ledger-api-common-scala-tests-lib",
     "//ledger/test-common:test-common",
     "//ledger-api/testing-utils",
     "@maven//:org_scalatest_scalatest_2_12",
