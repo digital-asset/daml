@@ -313,7 +313,7 @@ mainProj :: TestArguments -> IdeState -> FilePath -> (String -> IO ()) -> Normal
 mainProj TestArguments{..} service outdir log file = do
     let proj = takeBaseName (fromNormalizedFilePath file)
 
-    let corePrettyPrint = timed log "Core pretty-printing" . liftIO . writeFile (outdir </> proj <.> "core") . unlines . map prettyPrint
+    let corePrettyPrint = timed log "Core pretty-printing" . liftIO . writeFile (outdir </> proj <.> "core") . prettyPrint
     let lfSave = timed log "LF saving" . liftIO . writeFileLf (outdir </> proj <.> "dalf")
     let lfPrettyPrint = timed log "LF pretty-printing" . liftIO . writeFile (outdir </> proj <.> "pdalf") . renderPretty
     let jsonSave pkg =
@@ -323,8 +323,8 @@ mainProj TestArguments{..} service outdir log file = do
     setFilesOfInterest service (Set.singleton file)
     runActionSync service $ do
             dlint log file
-            cores <- ghcCompile log file
-            corePrettyPrint cores
+            core <- ghcCompile log file
+            corePrettyPrint core
             lf <- lfConvert log file
             lfPrettyPrint lf
             lf <- lfTypeCheck log file
@@ -343,8 +343,8 @@ unjust act = do
 dlint :: (String -> IO ()) -> NormalizedFilePath -> Action ()
 dlint log file = timed log "DLint" $ unjust $ getDlintIdeas file
 
-ghcCompile :: (String -> IO ()) -> NormalizedFilePath -> Action [GHC.CoreModule]
-ghcCompile log file = timed log "GHC compile" $ unjust $ getGhcCore file
+ghcCompile :: (String -> IO ()) -> NormalizedFilePath -> Action GHC.CoreModule
+ghcCompile log file = timed log "GHC compile" $ unjust $ fmap snd $ generateCore file
 
 lfConvert :: (String -> IO ()) -> NormalizedFilePath -> Action LF.Package
 lfConvert log file = timed log "LF convert" $ unjust $ getRawDalf file
