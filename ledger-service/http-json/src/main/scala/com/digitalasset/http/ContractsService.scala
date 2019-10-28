@@ -25,7 +25,9 @@ import scala.concurrent.{ExecutionContext, Future}
 class ContractsService(
     resolveTemplateIds: PackageService.ResolveTemplateIds,
     getActiveContracts: LedgerClientJwt.GetActiveContracts,
+    getCreatesAndArchivesSince: LedgerClientJwt.GetCreatesAndArchivesSince,
     lookupType: query.ValuePredicate.TypeLookup,
+    contractDao: Option[dbbackend.ContractDao],
     parallelism: Int = 8)(implicit ec: ExecutionContext, mat: Materializer) {
 
   import ContractsService._
@@ -96,6 +98,13 @@ class ContractsService(
         .map(_.flatten): Future[Seq[ActiveContract]]
       predicates = templateIds.iterator.map(a => (a, valuePredicate(a, queryParams))).toMap
     } yield (allActiveContracts, predicates)
+
+  private def fetchActiveContractsFromOffset(
+      party: domain.Party,
+      templateId: domain.TemplateId.RequiredPkg): cats.effect.IO[Seq[ActiveContract]] = {
+
+    ???
+  }
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private def activeContracts(gacr: lav1.active_contracts_service.GetActiveContractsResponse)

@@ -106,7 +106,9 @@ object HttpService extends StrictLogging {
       contractsService = new ContractsService(
         packageService.resolveTemplateIds,
         LedgerClientJwt.getActiveContracts(clientConfig, clientChannel),
-        LedgerReader.damlLfTypeLookup(packageService.packageStore _)
+        LedgerClientJwt.getCreatesAndArchivesSince(clientConfig, clientChannel),
+        LedgerReader.damlLfTypeLookup(packageService.packageStore _),
+        contractDao,
       )
 
       partiesService = new PartiesService(() => partyManagement.listKnownParties())
