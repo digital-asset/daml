@@ -33,23 +33,38 @@ import qualified Daml.Trigger.LowLevel as LowLevel
 
 -- public API
 
+-- | Active contract set, you can use `getTemplates` to access the templates of
+-- a given type.
 newtype ACS = ACS (Map TemplateTypeRep [(AnyContractId, AnyTemplate)])
 
+-- | Extract the templates of a given type from the ACS.
 getTemplates : forall a. Template a => ACS -> [(AbsoluteContractId a, a)]
 getTemplates (ACS tpls) = map fromAny $ fromOptional [] $ Map.lookup (templateTypeRep @a) tpls
   where
     fromAny (cid, tpl) = (fromSome (fromAnyContractId cid), fromSome (fromAnyTemplate tpl))
 
+-- | This is the type of your trigger. `s` is the user-defined state type which
+-- you can often leave at `()`.
 data Trigger s = Trigger
   { initialize : ACS -> s
-  -- The ACS already includes the updates from the Message
+  -- ^ Initialize the user-defined state based on the ACS.
   , updateState : ACS -> Message -> s -> s
+  -- ^ Update the user-defined state based on the ACS and a transaction or
+  -- completion message.
   , rule : Party -> ACS -> Map CommandId [Command] -> s -> TriggerA ()
+  -- ^ The rule defines the main logic of your trigger.
+  -- Given the party your trigger is running as, the ACS, the commands in flight
+  -- and the user-defined state, you can send commands to the ledger using
+  -- `emitCommands` to change the ACS.
   }
 
+-- | TriggerA is the type used in the `rule` of a DAML trigger.
+-- Its main feature is that you can call `emitCommands` to
+-- send commands to the ledger.
 newtype TriggerA a = TriggerA (State TriggerAState a)
   deriving (Functor, Applicative, Action)
 
+-- | Send a transaction consisting of the given commands to the ledger.
 emitCommands : [Command] -> TriggerA CommandId
 emitCommands cmds = do
   state <- TriggerA get
@@ -58,6 +73,7 @@ emitCommands cmds = do
   TriggerA $ modify $ \s -> s { emittedCommands = commands :: s.emittedCommands, nextCommandId = s.nextCommandId + 1 }
   pure id
 
+-- | Transform the high-level trigger type into the one from `Daml.Trigger.LowLevel`.
 runTrigger : Trigger s -> LowLevel.Trigger (TriggerState s)
 runTrigger userTrigger = LowLevel.Trigger
   { initialState = initialState

@@ -30,20 +30,30 @@ module Daml.Trigger.LowLevel
 
 import DA.Next.Map (MapKey(..))
 
+-- | This type represents the contract id of an unknown template.
+-- You can use `fromAnyContractId` to check which template it corresponds to.
 data AnyContractId = AnyContractId
   { templateId : TemplateTypeRep
   , contractId : Text
   } deriving (Show, Eq, Ord)
 
+-- | An absolute contract id on the ledger.
+-- Contrary to the `ContractId` type which is used
+-- while building up a transaction in DAML, `AbsoluteContractId`
+-- represents the id of a contract that has been committed to the ledger.
+-- This allows us to get more instances, in particular `MapKey`.
 newtype AbsoluteContractId t = AbsoluteContractId { contractId : Text }
   deriving (Show, Eq, Ord)
 
+-- | Wrap an `AbsoluteContractId t` in `AnyContractId`.
 toAnyContractId : forall t. Template t => AbsoluteContractId t -> AnyContractId
 toAnyContractId (AbsoluteContractId contractId) = AnyContractId
   { templateId = templateTypeRep @t
   , contractId = contractId
   }
 
+-- | Check if a `AnyContractId` corresponds to the given template or return
+-- `None` otherwise.
 fromAnyContractId : forall t. Template t => AnyContractId -> Optional (AbsoluteContractId t)
 fromAnyContractId cid
   | cid.templateId == templateTypeRep @t = Some (AbsoluteContractId cid.contractId)
@@ -64,16 +74,19 @@ data Transaction = Transaction
  , events : [Event]
  }
 
+-- | An event in a transaction.
 data Event
   = CreatedEvent Created
   | ArchivedEvent Archived
 
+-- | The data in a `Created` event.
 data Created = Created
   { eventId : EventId
   , contractId : AnyContractId
   , argument : AnyTemplate
   }
 
+-- | Check if a `Created` event corresponds to the given template.
 fromCreated : Template t => Created -> Optional (EventId, AbsoluteContractId t, t)
 fromCreated Created {eventId, contractId, argument}
   | Some contractId' <- fromAnyContractId contractId
@@ -82,11 +95,13 @@ fromCreated Created {eventId, contractId, argument}
   | otherwise
   = None
 
+-- | The data in an `Archived` event.
 data Archived = Archived
   { eventId : EventId
   , contractId : AnyContractId
   } deriving (Show, Eq)
 
+-- | Check if an `Archived` event corresponds to the given template.
 fromArchived : Template t => Archived -> Optional (EventId, AbsoluteContractId t)
 fromArchived Archived {eventId, contractId}
   | Some contractId' <- fromAnyContractId contractId
@@ -94,11 +109,15 @@ fromArchived Archived {eventId, contractId}
   | otherwise
   = None
 
+-- | Either a transaction or a completion.
 data Message
   = MTransaction Transaction
   | MCompletion Completion
 
--- | Note that you will only get completions for commands emitted from the trigger.
+-- | A completion message.
+-- Note that you will only get completions for commands emitted from the trigger.
+-- Contrary to the ledger API completion stream, this also includes
+-- synchronous failures.
 data Completion = Completion
   { commandId : CommandId
   , status : CompletionStatus
@@ -125,6 +144,7 @@ data TemplateId = TemplateId
   , entityName : Text
   }
 
+-- | A ledger API command. To construct a command use `createCmd` and `exerciseCmd`.
 data Command
   = CreateCommand
       { templateArg : AnyTemplate
@@ -134,14 +154,17 @@ data Command
       , choiceArg : AnyChoice
       }
 
+-- | Create a contract of the given template.
 createCmd : Template t => t -> Command
 createCmd templateArg =
   CreateCommand (toAnyTemplate templateArg)
 
+-- | Exercise the given choice.
 exerciseCmd : forall t c r. Choice t c r => AbsoluteContractId t -> c -> Command
 exerciseCmd contractId choiceArg =
   ExerciseCommand (toAnyContractId contractId) (toAnyChoice @t choiceArg)
 
+-- | A set of commands that are submitted as a single transaction.
 data Commands = Commands
   { commandId : CommandId
   , commands : [Command]
