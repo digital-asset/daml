@@ -133,6 +133,8 @@ maven_install(
         "org.scalaz:scalaz-core_2.12:7.2.24",
         ...
     ],
+    ...
+)
 ```
 
 Dependencies are defined using their Maven coordinates. Note that Scala
