@@ -5,6 +5,7 @@ package com.digitalasset.http
 
 import akka.stream.Materializer
 import akka.stream.scaladsl.Sink
+import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
 import com.digitalasset.daml.lf.value.{Value => V}
 import com.digitalasset.http.domain.{GetActiveContractsRequest, JwtPayload, TemplateId}
 import com.digitalasset.http.query.ValuePredicate
@@ -143,6 +144,22 @@ class ContractsService(
         (s._1 ++ gacr.activeContracts.map(_ => ???), Absolute(gacr.offset))
       }
       .mapMaterializedValue(_ map (_ map LedgerOffset.apply))
+  }
+
+  /** Plan inserts, deletes from an in-order batch of create/archive events. */
+  /*TODO SC private*/
+  def partitionInsertsDeletes(
+      txes: Traversable[lav1.event.Event]): (ImmArraySeq[lav1.event.CreatedEvent], Set[String]) = {
+    val csb = ImmArraySeq.newBuilder[lav1.event.CreatedEvent]
+    val asb = Set.newBuilder[String]
+    import lav1.event.Event, Event.Event._
+    txes foreach {
+      case Event(Created(c)) => csb += c; ()
+      case Event(Archived(a)) => asb += a.contractId; ()
+      case Event(Empty) => () // nonsense
+    }
+    val as = asb.result()
+    (csb.result() filter (ce => !as.contains(ce.contractId)), as)
   }
 
   private def valuePredicate(
