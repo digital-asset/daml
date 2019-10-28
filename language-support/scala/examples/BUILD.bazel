@@ -62,10 +62,10 @@ da_scala_binary(
     scalacopts = ["-Xsource:2.13"],
     deps = [
         ":quickstart-scala-codegen-lib",
-        "//3rdparty/jvm/com/typesafe/akka:akka_slf4j",
         "//language-support/scala/bindings",
         "//language-support/scala/bindings-akka",
         "//ledger-api/rs-grpc-bridge",
+        "@maven//:com_typesafe_akka_akka_slf4j_2_12",
     ],
 )
 

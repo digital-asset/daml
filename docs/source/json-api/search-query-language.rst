@@ -82,7 +82,7 @@ is no way that the above query could be written to match ``A`` but never
 
 For these reasons, as with LF value input via JSON, queries written in
 JSON are also always interpreted with respect to some specified LF types
-(e.g. template IDs). As #2777 implies, for example::
+(e.g. template IDs). For example::
 
   {"%templates": [{"moduleName": "Foo", "entityName": "A"},
                   {"moduleName": "Foo", "entityName": "B"},

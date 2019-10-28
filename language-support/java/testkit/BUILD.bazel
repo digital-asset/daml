@@ -13,9 +13,9 @@ da_scala_library(
         "//visibility:public",
     ],
     deps = [
-        "//3rdparty/jvm/com/google/code/findbugs:jsr305",
-        "//3rdparty/jvm/io/reactivex/rxjava2:rxjava",
         "//ledger-api/grpc-definitions:ledger-api-scalapb",
         "//ledger-api/rs-grpc-bridge",
+        "@maven//:com_google_code_findbugs_jsr305",
+        "@maven//:io_reactivex_rxjava2_rxjava",
     ],
 )

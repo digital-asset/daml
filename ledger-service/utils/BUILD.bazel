@@ -9,7 +9,7 @@ load(
 )
 
 utils_deps = [
-    "//3rdparty/jvm/org/scalaz:scalaz_core",
+    "@maven//:org_scalaz_scalaz_core_2_12",
     "//daml-lf/data",
     "//daml-lf/archive:daml_lf_dev_archive_java_proto",
     "//daml-lf/archive:daml_lf_archive_reader",

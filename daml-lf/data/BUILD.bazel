@@ -17,8 +17,8 @@ da_scala_library(
         "//visibility:public",
     ],
     deps = [
-        "//3rdparty/jvm/com/google/protobuf:protobuf_java",
-        "//3rdparty/jvm/org/scalaz:scalaz_core",
+        "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )
 
@@ -29,9 +29,9 @@ da_scala_test(
     scalacopts = lf_scalacopts,
     deps = [
         ":data",
-        "//3rdparty/jvm/org/scalacheck",
-        "//3rdparty/jvm/org/scalaz:scalaz_core",
-        "//3rdparty/jvm/org/scalaz:scalaz_scalacheck_binding",
         "//daml-lf/data-scalacheck",
+        "@maven//:org_scalacheck_scalacheck_2_12",
+        "@maven//:org_scalaz_scalaz_core_2_12",
+        "@maven//:org_scalaz_scalaz_scalacheck_binding_2_12",
     ],
 )

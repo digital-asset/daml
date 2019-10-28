@@ -15,10 +15,11 @@ da_java_library(
         "//visibility:public",
     ],
     deps = [
-        "//3rdparty/jvm/com/google/code/findbugs:jsr305",
-        "//3rdparty/jvm/io/grpc:grpc_stub",
-        "//3rdparty/jvm/org/reactivestreams:reactive_streams",
-        "//3rdparty/jvm/org/slf4j:slf4j_api",
+        "@maven//:com_google_code_findbugs_jsr305",
+        "@maven//:io_grpc_grpc_api",
+        "@maven//:io_grpc_grpc_stub",
+        "@maven//:org_reactivestreams_reactive_streams",
+        "@maven//:org_slf4j_slf4j_api",
     ],
 )
 
@@ -35,11 +36,14 @@ da_scala_library(
     ],
     deps = [
         ":rs-grpc-bridge",
-        "//3rdparty/jvm/com/google/code/findbugs:jsr305",
-        "//3rdparty/jvm/io/grpc:grpc_stub",
-        "//3rdparty/jvm/org/reactivestreams:reactive_streams",
-        "//3rdparty/jvm/org/reactivestreams:reactive_streams_tck",
-        "//3rdparty/jvm/org/scalatest",
-        "//3rdparty/jvm/org/slf4j:slf4j_api",
+        "@maven//:com_google_code_findbugs_jsr305",
+        "@maven//:io_grpc_grpc_stub",
+        "@maven//:org_reactivestreams_reactive_streams",
+        "@maven//:org_reactivestreams_reactive_streams_examples",
+        "@maven//:org_reactivestreams_reactive_streams_tck",
+        "@maven//:org_scalactic_scalactic_2_12",
+        "@maven//:org_scalatest_scalatest_2_12",
+        "@maven//:org_slf4j_slf4j_api",
+        "@maven//:org_testng_testng",
     ],
 )

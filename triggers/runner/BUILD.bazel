@@ -13,10 +13,6 @@ da_scala_library(
     resources = glob(["src/main/resources/**/*"]),
     visibility = ["//visibility:public"],
     deps = [
-        "//3rdparty/jvm/com/github/scopt",
-        "//3rdparty/jvm/com/typesafe/akka:akka_stream",
-        "//3rdparty/jvm/org/scalaz:scalaz_core",
-        "//3rdparty/jvm/org/typelevel:paiges_core",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/archive:daml_lf_dev_archive_java_proto",
         "//daml-lf/data",
@@ -27,12 +23,17 @@ da_scala_library(
         "//language-support/scala/bindings-akka",
         "//ledger-api/rs-grpc-bridge",
         "//ledger/ledger-api-common",
+        "@maven//:com_github_scopt_scopt_2_12",
+        "@maven//:com_typesafe_akka_akka_stream_2_12",
+        "@maven//:org_scalaz_scalaz_core_2_12",
+        "@maven//:org_typelevel_paiges_core_2_12",
     ],
 )
 
 da_scala_binary(
     name = "trigger-runner",
     main_class = "com.daml.trigger.RunnerMain",
+    tags = ["maven_coordinates=com.daml.triggers:runner:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [":trigger-runner-lib"],
 )

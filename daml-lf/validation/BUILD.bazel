@@ -18,9 +18,9 @@ da_scala_library(
         "//daml-lf:__subpackages__",
     ],
     deps = [
-        "//3rdparty/jvm/org/scalaz:scalaz_core",
         "//daml-lf/data",
         "//daml-lf/language",
+        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )
 
@@ -31,9 +31,9 @@ da_scala_test(
     scalacopts = lf_scalacopts,
     deps = [
         ":validation",
-        "//3rdparty/jvm/org/scalaz:scalaz_core",
         "//daml-lf/data",
         "//daml-lf/language",
         "//daml-lf/parser",
+        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )

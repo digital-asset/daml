@@ -7,8 +7,8 @@ DAML Triggers - Off-Ledger Automation in DAML
 **WARNING:** DAML Triggers are an experimental feature that is actively
 being designed and is *subject to breaking changes*.
 We welcome feedback about DAML triggers on
-`our issue tracker <https://github.com/digital-asset/daml/issues/new?milestone=HTTP+JSON+API+Maintenance>`_
-or `on Slack <https://damldriven.slack.com/>`_.
+`our issue tracker <https://github.com/digital-asset/daml/issues/new?milestone=DAML+Triggers>`_
+or `on Slack <https://hub.daml.com/slack/>`_.
 
 In addition to the actual DAML logic which is uploaded to the Ledger
 and the UI, DAML applications often need to automate certain
@@ -248,7 +248,7 @@ using the syntax ``ModuleName:identifier``. Finally, we need to
 specify the ledger host, port and the party that our trigger is executed
 as.
 
-Now open Navigator at `http://localhost:7500/ <http://localhost:7500/>`.
+Now open Navigator at http://localhost:7500/.
 
 First, login as ``Alice`` and create an ``Original`` contract with
 ``party`` set to ``Alice``.  Now, logout and login as ``Bob`` and

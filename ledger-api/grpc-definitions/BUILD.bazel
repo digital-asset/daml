@@ -282,12 +282,14 @@ da_haskell_library(
 )
 
 scalapb_deps = [
-    "//3rdparty/jvm/com/thesamet/scalapb:scalapb_runtime",
-    "//3rdparty/jvm/com/thesamet/scalapb:scalapb_runtime_grpc",
-    "//3rdparty/jvm/com/thesamet/scalapb:lenses",
-    "//3rdparty/jvm/com/google/protobuf:protobuf_java",
-    "//3rdparty/jvm/io/grpc:grpc_stub",
-    "//3rdparty/jvm/io/grpc:grpc_protobuf",
+    "@maven//:com_thesamet_scalapb_scalapb_runtime_2_12",
+    "@maven//:com_thesamet_scalapb_scalapb_runtime_grpc_2_12",
+    "@maven//:com_thesamet_scalapb_lenses_2_12",
+    "@maven//:com_google_protobuf_protobuf_java",
+    "@maven//:io_grpc_grpc_core",
+    "@maven//:io_grpc_grpc_api",
+    "@maven//:io_grpc_grpc_stub",
+    "@maven//:io_grpc_grpc_protobuf",
 ]
 
 scala_library(

@@ -39,7 +39,10 @@ module DA.Internal.LF
 
   , AnyTemplate
   , AnyChoice
+
   , TemplateTypeRep
+  , templateTypeRepToText
+  , templateTypeRepFromText
   ) where
 
 import GHC.Types (Opaque, Symbol)
@@ -221,3 +224,9 @@ newtype AnyChoice = AnyChoice { getAnyChoice : Any }
 -- | Unique textual representation of a template Id.
 newtype TemplateTypeRep = TemplateTypeRep { getTemplateTypeRep : Text }
   deriving (Eq, Ord, Show)
+
+templateTypeRepToText : TemplateTypeRep -> Text
+templateTypeRepToText = getTemplateTypeRep
+
+templateTypeRepFromText : Text -> Optional TemplateTypeRep
+templateTypeRepFromText = Some . TemplateTypeRep

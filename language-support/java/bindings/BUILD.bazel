@@ -60,18 +60,24 @@ da_java_library(
         "//visibility:public",
     ],
     deps = [
-        "//3rdparty/jvm/io/grpc:grpc_netty",
-        "//3rdparty/jvm/io/grpc:grpc_protobuf",
-        "//3rdparty/jvm/io/grpc:grpc_stub",
-        "//3rdparty/jvm/org/checkerframework:checker",
+        "@maven//:com_google_api_grpc_proto_google_common_protos",
+        "@maven//:com_google_code_findbugs_jsr305",
+        "@maven//:com_google_guava_guava",
+        "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:io_grpc_grpc_api",
+        "@maven//:io_grpc_grpc_core",
+        "@maven//:io_grpc_grpc_netty",
+        "@maven//:io_grpc_grpc_protobuf",
+        "@maven//:io_grpc_grpc_stub",
+        "@maven//:org_checkerframework_checker",
     ],
 )
 
 testDependencies = [
     ":bindings-java",
-    "//3rdparty/jvm/org/scalatest:scalatest",
-    "//3rdparty/jvm/com/google/protobuf:protobuf_java",
-    "//3rdparty/jvm/org/scalacheck:scalacheck",
+    "@maven//:org_scalatest_scalatest_2_12",
+    "@maven//:com_google_protobuf_protobuf_java",
+    "@maven//:org_scalacheck_scalacheck_2_12",
 ]
 
 da_scala_library(
