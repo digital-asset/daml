@@ -6,7 +6,7 @@ package com.digitalasset.http.dbbackend
 import cats.effect.{ContextShift, IO}
 import doobie._
 
-object DbConnection {
+object Connection {
 
   type T = Transactor.Aux[IO, Unit]
 
