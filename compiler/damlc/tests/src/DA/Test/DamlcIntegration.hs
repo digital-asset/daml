@@ -323,10 +323,10 @@ mainProj TestArguments{..} service outdir log file = do
     setFilesOfInterest service (Set.singleton file)
     runActionSync service $ do
             dlint log file
-            core <- ghcCompile log file
-            corePrettyPrint core
             lf <- lfConvert log file
             lfPrettyPrint lf
+            core <- ghcCompile log file
+            corePrettyPrint core
             lf <- lfTypeCheck log file
             lfSave lf
             lfRunScenarios log file
