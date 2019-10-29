@@ -48,9 +48,6 @@ class CommandClientIT
     with TryValues
     with MultiLedgerCommandUtils {
 
-  protected val testTemplateIds = new TestTemplateIds(config)
-  protected val templateIds = testTemplateIds.templateIds
-
   private val submittingParty: String = submitRequest.getCommands.party
   private val submittingPartyList = List(submittingParty)
   private val LedgerBegin = LedgerOffset(Boundary(LEDGER_BEGIN))
