@@ -99,7 +99,6 @@ class ContractsService(
       predicates = templateIds.iterator.map(a => (a, valuePredicate(a, queryParams))).toMap
     } yield (allActiveContracts, predicates)
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private def activeContracts(gacr: lav1.active_contracts_service.GetActiveContractsResponse)
     : Error \/ List[ActiveContract] =
     domain.ActiveContract.fromLedgerApi(gacr).leftMap(e => Error('activeContracts, e.shows))
