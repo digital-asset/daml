@@ -136,6 +136,7 @@ def install_java_deps():
             "org.xerial:sqlite-jdbc:3.25.2",
             "uk.co.datumedge:hamcrest-json:0.2",
         ],
+        fetch_sources = True,
         # Update by executing
         # $ bazel run @unpinned_maven//:pin
         # See https://github.com/bazelbuild/rules_jvm_external#updating-maven_installjson
