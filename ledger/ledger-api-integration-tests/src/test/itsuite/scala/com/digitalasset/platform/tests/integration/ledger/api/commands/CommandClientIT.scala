@@ -21,7 +21,7 @@ import com.digitalasset.ledger.api.v1.transaction_filter.{Filters, TransactionFi
 import com.digitalasset.ledger.api.v1.value.{Record, RecordField, Value}
 import com.digitalasset.ledger.client.services.commands.{CommandClient, CompletionStreamElement}
 import com.digitalasset.platform.apitesting.LedgerContextExtensions._
-import com.digitalasset.platform.apitesting.{LedgerContext, TestTemplateIds}
+import com.digitalasset.platform.apitesting.LedgerContext
 import com.digitalasset.platform.esf.TestExecutionSequencerFactory
 import com.digitalasset.platform.participant.util.ValueConversions._
 import com.digitalasset.platform.tests.integration.ledger.api.ParameterShowcaseTesting
