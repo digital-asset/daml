@@ -114,6 +114,10 @@ object domain {
         .traverse(fromLedgerApi(workflowId)(_))
     }
 
+    def fromLedgerApi(gacr: lav1.active_contracts_service.GetActiveContractsResponse)
+      : Error \/ List[Contract[lav1.value.Value]] =
+      ActiveContract.fromLedgerApi(gacr).map(_.map(a => domain.Contract(\/-(a))))
+
     def fromLedgerApi(workflowId: Option[WorkflowId])(
         event: lav1.event.Event): Error \/ Contract[lav1.value.Value] = event.event match {
       case lav1.event.Event.Event.Created(created) =>
