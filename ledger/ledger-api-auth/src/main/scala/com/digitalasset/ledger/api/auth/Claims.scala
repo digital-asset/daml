@@ -88,8 +88,8 @@ case class Claims(claims: Seq[Claim]) {
 object Claims {
 
   /** A set of [[Claims]] that does not have any authorization */
-  def empty = Claims(List.empty[Claim])
+  val empty = Claims(List.empty[Claim])
 
   /** A set of [[Claims]] that has all possible authorizations */
-  def wildcard = Claims(List[Claim](ClaimPublic, ClaimAdmin, ClaimActAsAnyParty))
+  val wildcard = Claims(List[Claim](ClaimPublic, ClaimAdmin, ClaimActAsAnyParty))
 }
