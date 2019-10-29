@@ -893,7 +893,8 @@ private class JdbcLedgerDao(
     ~ binaryStream("contract")
     ~ binaryStream("key").?
     ~ str("signatories").?
-    ~ str("observers").? map (flatten))
+    ~ str("observers").?
+    ~ str("witnesses").? map (flatten))
 
   private val ContractLetParser = (ledgerString("id")
     ~ date("effective_at").? map (flatten))
@@ -907,9 +908,6 @@ private class JdbcLedgerDao(
         |from contracts c
         |left join ledger_entries le on c.transaction_id = le.transaction_id
         |where c.id={contract_id} and c.archive_offset is null""".stripMargin)
-
-  private val SQL_SELECT_WITNESS =
-    SQL("select witness from contract_witnesses where contract_id={contract_id}")
 
   private val DivulgenceParser = (party("party")
     ~ long("ledger_offset")
@@ -959,9 +957,10 @@ private class JdbcLedgerDao(
           InputStream,
           Option[InputStream],
           Option[String],
+          Option[String],
           Option[String]))(implicit conn: Connection): Contract =
     contractResult match {
-      case (coid, None, None, None, None, contractStream, None, None, None) =>
+      case (coid, None, None, None, None, contractStream, None, None, None, None) =>
         val divulgences = lookupDivulgences(coid)
         val absoluteCoid = AbsoluteContractId(coid)
 
@@ -982,8 +981,8 @@ private class JdbcLedgerDao(
           contractStream,
           keyStreamO,
           Some(signatoriesRaw),
-          observersRaw) =>
-        val witnesses = lookupWitnesses(coid)
+          observersRaw,
+          witnessesRaw) =>
         val divulgences = lookupDivulgences(coid)
         val absoluteCoid = AbsoluteContractId(coid)
         val contractInstance = contractSerializer
@@ -993,6 +992,10 @@ private class JdbcLedgerDao(
         val signatories =
           signatoriesRaw.split(JdbcLedgerDao.PARTY_SEPARATOR).toSet.map(Party.assertFromString)
         val observers = observersRaw
+          .map(_.split(JdbcLedgerDao.PARTY_SEPARATOR).toSet.map(Party.assertFromString))
+          .getOrElse(Set.empty)
+
+        val witnesses = witnessesRaw
           .map(_.split(JdbcLedgerDao.PARTY_SEPARATOR).toSet.map(Party.assertFromString))
           .getOrElse(Set.empty)
 
@@ -1017,16 +1020,10 @@ private class JdbcLedgerDao(
           contractInstance.agreementText
         )
 
-      case (_, _, _, _, _, _, _, _, _) =>
+      case (_, _, _, _, _, _, _, _, _, _) =>
         sys.error(
           "mapContractDetails called with partial data, can not map to either active or divulged contract")
     }
-
-  private def lookupWitnesses(coid: String)(implicit conn: Connection): Set[Party] =
-    SQL_SELECT_WITNESS
-      .on("contract_id" -> coid)
-      .as(party("witness").*)
-      .toSet
 
   private def lookupDivulgences(coid: String)(
       implicit conn: Connection): Map[Party, TransactionIdString] =
@@ -1385,7 +1382,8 @@ object JdbcLedgerDao {
          |  c.key,
          |  le.effective_at,
          |  string_agg(distinct sigs.signatory, '$PARTY_SEPARATOR') as signatories,
-         |  string_agg(distinct obs.observer, '$PARTY_SEPARATOR') as observers
+         |  string_agg(distinct obs.observer, '$PARTY_SEPARATOR') as observers,
+         |  string_agg(distinct wit.witness, '$PARTY_SEPARATOR') as witnesses
          |from contract_data cd
          |left join contracts c on cd.id=c.id
          |left join ledger_entries le on c.transaction_id = le.transaction_id
@@ -1393,7 +1391,7 @@ object JdbcLedgerDao {
          |left join contract_divulgences codi on codi.contract_id = c.id and party = {party}
          |left join contract_signatories sigs on sigs.contract_id = c.id
          |left join contract_observers obs on obs.contract_id = c.id
-         |
+         |left join contract_witnesses wit on wit.contract_id = c.id
          |where
          |  cd.id={contract_id} and
          |  c.archive_offset is null and
@@ -1414,13 +1412,15 @@ object JdbcLedgerDao {
          |  c.key,
          |  le.effective_at,
          |  string_agg(distinct sigs.signatory, '$PARTY_SEPARATOR') as signatories,
-         |  string_agg(distinct obs.observer, '$PARTY_SEPARATOR') as observers
+         |  string_agg(distinct obs.observer, '$PARTY_SEPARATOR') as observers,
+         |  string_agg(distinct wit.witness, '$PARTY_SEPARATOR') as witnesses
          |from contracts c
          |inner join contract_data cd on c.id = cd.id
          |inner join ledger_entries le on c.transaction_id = le.transaction_id
          |inner join contract_witnesses w on c.id = w.contract_id
          |left join contract_signatories sigs on sigs.contract_id = c.id
          |left join contract_observers obs on obs.contract_id = c.id
+         |left join contract_witnesses wit on wit.contract_id = c.id
          |where create_offset <= {offset} and (archive_offset is null or archive_offset > {offset})
          |and
          |   (
@@ -1473,7 +1473,8 @@ object JdbcLedgerDao {
          |  c.key,
          |  le.effective_at,
          |  listagg(distinct sigs.signatory, '$PARTY_SEPARATOR') as signatories,
-         |  listagg(distinct obs.observer, '$PARTY_SEPARATOR') as observers
+         |  listagg(distinct obs.observer, '$PARTY_SEPARATOR') as observers,
+         |  listagg(distinct wit.witness, '$PARTY_SEPARATOR') as witnesses
          |from contract_data cd
          |left join contracts c on cd.id=c.id
          |left join ledger_entries le on c.transaction_id = le.transaction_id
@@ -1481,7 +1482,7 @@ object JdbcLedgerDao {
          |left join contract_divulgences codi on codi.contract_id = c.id and party = {party}
          |left join contract_signatories sigs on sigs.contract_id = c.id
          |left join contract_observers obs on obs.contract_id = c.id
-         |
+         |left join contract_witnesses wit on wit.contract_id = c.id
          |where
          |  cd.id={contract_id} and
          |  c.archive_offset is null and
@@ -1502,13 +1503,15 @@ object JdbcLedgerDao {
          |  c.key,
          |  le.effective_at,
          |  listagg(distinct sigs.signatory, '$PARTY_SEPARATOR') as signatories,
-         |  listagg(distinct obs.observer, '$PARTY_SEPARATOR') as observers
+         |  listagg(distinct obs.observer, '$PARTY_SEPARATOR') as observers,
+         |  listagg(distinct wit.witness, '$PARTY_SEPARATOR') as witnesses
          |from contracts c
          |inner join contract_data cd on c.id = cd.id
          |inner join ledger_entries le on c.transaction_id = le.transaction_id
          |inner join contract_witnesses w on c.id = w.contract_id
          |left join contract_signatories sigs on sigs.contract_id = c.id
          |left join contract_observers obs on obs.contract_id = c.id
+         |left join contract_witnesses wit on wit.contract_id = c.id
          |where create_offset <= {offset} and (archive_offset is null or archive_offset > {offset})
          |and
          |   (
