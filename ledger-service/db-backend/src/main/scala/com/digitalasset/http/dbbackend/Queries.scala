@@ -7,8 +7,8 @@ import scala.language.higherKinds
 
 import doobie._
 import doobie.implicits._
-import scalaz.{@@, Foldable1, Functor, Tag}
-import scalaz.syntax.foldable1._
+import scalaz.{@@, Foldable, Functor, OneAnd, Tag}
+import scalaz.syntax.foldable._
 import scalaz.syntax.functor._
 import scalaz.syntax.std.option._
 import spray.json._
@@ -128,10 +128,30 @@ object Queries {
             createArguments = dbc.createArguments.toJson,
             witnessParties = dbc.witnessParties.toJson)))
 
-  // XXX SC there's probably a better approach than this direct fold
-  def deleteContracts[F[_]: Foldable1](cids: F[String]): Fragment =
-    sql"DELETE FROM contract WHERE contract_id IN (" ++ cids.foldMapLeft1(cid => sql"$cid")(
-      (fm, cid) => fm ++ sql", $cid") ++ sql")"
+  @SuppressWarnings(Array("org.wartremover.warts.Any"))
+  def deleteContracts[F[_]: Foldable](cids: F[String])(implicit log: LogHandler): ConnectionIO[Int] = {
+    cids.toVector match {
+      case Vector(hd, tl@_*) =>
+        (sql"DELETE FROM contract WHERE contract_id IN ("
+          ++ concatFragment(OneAnd(sql"$hd", tl.toIndexedSeq map (cid => sql", $cid")))
+          ++ sql")").update.run
+      case _ => free.connection.pure(0)
+    }
+  }
+
+  def concatFragment[F[X] <: IndexedSeq[X]](xs: OneAnd[F, Fragment]): Fragment = {
+    val OneAnd(hd, tl) = xs
+    def go(s: Int, e: Int): Fragment =
+      (e - s: @annotation.switch) match {
+        case 0 => sql""
+        case 1 => tl(s)
+        case 2 => tl(s) ++ tl(s + 1)
+        case n =>
+          val pivot = s + n / 2
+          go(s, pivot) ++ go(pivot, e)
+      }
+    hd ++ go(0, tl.size)
+  }
 
   private[http] def selectContracts(
       tpid: SurrogateTpId,
