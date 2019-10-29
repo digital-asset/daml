@@ -56,6 +56,7 @@ toCompileOpts options@Options{..} reportProgress =
           }
       , optExtensions = ["daml"]
       , optThreads = optThreads
+      , optShakeFiles = if getIncrementalBuild optIncrementalBuild then Just ".daml/build/shake" else Nothing
       , optShakeProfiling = optShakeProfiling
       , optReportProgress = reportProgress
       , optLanguageSyntax = "daml"

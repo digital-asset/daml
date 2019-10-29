@@ -33,12 +33,14 @@ import qualified Data.NameMap as NM
 import qualified Data.Set as S
 import qualified Data.Text as T
 import Development.IDE.Core.API
+import Development.IDE.Core.Service (getIdeOptions)
 import Development.IDE.Core.RuleTypes.Daml
 import Development.IDE.Core.Rules.Daml
 import Development.IDE.Core.Shake
 import Development.IDE.GHC.Compat
 import Development.IDE.GHC.Util
 import Development.IDE.Types.Location
+import Development.IDE.Types.Options
 import qualified Development.IDE.Types.Logger as IdeLogger
 import SdkVersion
 import System.Directory.Extra
@@ -108,8 +110,10 @@ buildDar service pkgConf@PackageConfigFields {..} ifDir dalfInput = do
         else runAction service $
              runMaybeT $ do
                  files <- getDamlFiles pSrc
-                 pkgs <- usesE GeneratePackage files
-                 let pkg = mergePkgs pkgs
+                 opts <- lift getIdeOptions
+                 pkg <- case optShakeFiles opts of
+                     Nothing -> mergePkgs <$> usesE GeneratePackage files
+                     Just _ -> generateSerializedPackage pName files
                  let pkgModuleNames = map T.unpack $ LF.packageModuleNames pkg
                  let missingExposed =
                          S.fromList (fromMaybe [] pExposedModules) S.\\
@@ -120,8 +124,14 @@ buildDar service pkgConf@PackageConfigFields {..} ifDir dalfInput = do
                      "The following modules are declared in exposed-modules but are not part of the DALF: " <>
                      show (S.toList missingExposed)
                  let (dalf, pkgId) = encodeArchiveAndHash pkg
-                 -- create the interface files
-                 ifaces <- MaybeT $ writeIfacesAndHie ifDir files
+                 -- For now, we don’t include ifaces and hie files in incremental mode.
+                 -- The main reason for this is that writeIfacesAndHie is not yet ported to incremental mode
+                 -- but it also makes creation of the archive slightly faster and those files are only required
+                 -- for packaging. This definitely needs to be fixed before we can make incremental mode the default.
+                 ifaces <-
+                     MaybeT $ case optShakeFiles opts of
+                         Nothing -> writeIfacesAndHie ifDir files
+                         Just _ -> pure $ Just []
                  -- get all dalf dependencies.
                  dalfDependencies0 <- getDalfDependencies files
                  let dalfDependencies =
