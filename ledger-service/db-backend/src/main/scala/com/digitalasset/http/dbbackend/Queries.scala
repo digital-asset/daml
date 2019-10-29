@@ -116,12 +116,14 @@ object Queries {
           ON CONFLICT (party, tpid) DO UPDATE SET last_offset = $newOffset""".update.run.void
 
   def insertContracts[F[_]: cats.Foldable: Functor, CA: JsonWriter, WP: JsonWriter](
-      dbcs: F[DBContract[SurrogateTpId, CA, WP]]): ConnectionIO[Int] =
-    Update[DBContract[SurrogateTpId, JsValue, JsValue]]("""
+      dbcs: F[DBContract[SurrogateTpId, CA, WP]])(implicit log: LogHandler): ConnectionIO[Int] =
+    Update[DBContract[SurrogateTpId, JsValue, JsValue]](
+      """
         INSERT INTO contract
         VALUES (?, ?, ?::jsonb, ?::jsonb)
         ON CONFLICT (contract_id) DO NOTHING
-      """).updateMany(
+      """,
+      logHandler0 = log).updateMany(
       dbcs.map(
         dbc =>
           dbc.copy(
@@ -129,9 +131,10 @@ object Queries {
             witnessParties = dbc.witnessParties.toJson)))
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
-  def deleteContracts[F[_]: Foldable](cids: F[String])(implicit log: LogHandler): ConnectionIO[Int] = {
+  def deleteContracts[F[_]: Foldable](cids: F[String])(
+      implicit log: LogHandler): ConnectionIO[Int] = {
     cids.toVector match {
-      case Vector(hd, tl@_*) =>
+      case Vector(hd, tl @ _*) =>
         (sql"DELETE FROM contract WHERE contract_id IN ("
           ++ concatFragment(OneAnd(sql"$hd", tl.toIndexedSeq map (cid => sql", $cid")))
           ++ sql")").update.run
