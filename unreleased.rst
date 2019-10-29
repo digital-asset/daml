@@ -10,4 +10,6 @@ HEAD — ongoing
 --------------
 
 - [DAML Compiler] Reduce the memory footprint of the IDE and the command line tools (ca. 18% in our experiments).
+- [DAML Triggers] Add ``dedupCreate`` and ``dedupExercise`` helpers that will only send
+  commands if they are not already in flight.
 - [Ledger API] Disallow empty commands. See `issue #592 <https://github.com/digital-asset/daml/issues/592>`__.

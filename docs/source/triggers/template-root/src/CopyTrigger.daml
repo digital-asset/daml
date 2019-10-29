@@ -6,8 +6,6 @@ module CopyTrigger where
 
 import DA.List
 import DA.Next.Map (Map)
-import qualified DA.Next.Map as Map
-import DA.Optional
 
 import Daml.Trigger
 
@@ -97,16 +95,8 @@ copyRule party acs commandsInFlight () = do
 -- ARCHIVE_COMMAND_END
 
 -- CREATE_COPIES_BEGIN
-  let pendingCopies = concatMap (mapOptional toCreateCopy . snd) $ Map.toList commandsInFlight
-  let eventualCopies = pendingCopies <> map snd copiesToKeep
   let neededCopies = [Copy m o | (_, m) <- ownedOriginals, o <- subscribingParties]
-  let createCopies = filter (\c -> c `notElem` eventualCopies) neededCopies
-  forA createCopies $ \copy -> emitCommands [createCmd copy]
+  let createCopies = filter (\c -> c `notElem` map snd copiesToKeep) neededCopies
+  mapA dedupCreate createCopies
 -- CREATE_COPIES_END
   pure ()
-
--- TO_CREATE_COPY_BEGIN
-toCreateCopy : Command -> Optional Copy
-toCreateCopy (CreateCommand tpl) = fromAnyTemplate tpl
-toCreateCopy (ExerciseCommand _ _) = None
--- TO_CREATE_COPY_END
