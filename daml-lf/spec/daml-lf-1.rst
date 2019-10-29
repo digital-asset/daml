@@ -546,7 +546,7 @@ Then we can define our kinds, types, and expressions::
       ::= α                                         -- TyVar: Type variable
        |  n                                         -- TyNat: Nat Type
        |  τ σ                                       -- TyApp: Type application
-       |  ∀ α : k . K ⇒ τ                          -- TyForall: Universal quantification
+       |  ∀ α : k . τ                               -- TyForall: Universal quantification
        |  BuiltinType                               -- TyBuiltin: Builtin type
        |  Mod:T                                     -- TyCon: type constructor
        |  ⟨ f₁: τ₁, …, fₘ: τₘ ⟩                     -- TyTuple: Tuple type
