@@ -154,13 +154,8 @@ class CommandService(
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private def contracts(
-      tx: lav1.transaction.Transaction): Error \/ ImmArraySeq[Contract[lav1.value.Value]] = {
-    val workflowId = domain.WorkflowId.fromLedgerApi(tx)
-    tx.events.iterator
-      .to[ImmArraySeq]
-      .traverse(Contract.fromLedgerApi(workflowId)(_))
-      .leftMap(e => Error('contracts, e.shows))
-  }
+      tx: lav1.transaction.Transaction): Error \/ ImmArraySeq[Contract[lav1.value.Value]] =
+    Contract.fromLedgerApi(tx).leftMap(e => Error('contracts, e.shows))
 }
 
 object CommandService {

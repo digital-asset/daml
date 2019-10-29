@@ -6,10 +6,12 @@ package com.digitalasset.http
 import java.time.Instant
 
 import com.digitalasset.daml.lf
+import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.http.util.IdentifierConverters
 import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
 import com.digitalasset.ledger.api.{v1 => lav1}
+import scalaz.std.list._
 import scalaz.std.option._
 import scalaz.std.tuple._
 import scalaz.syntax.std.option._
@@ -103,6 +105,15 @@ object domain {
   }
 
   object Contract {
+
+    def fromLedgerApi(
+        tx: lav1.transaction.Transaction): Error \/ ImmArraySeq[Contract[lav1.value.Value]] = {
+      val workflowId = domain.WorkflowId.fromLedgerApi(tx)
+      tx.events.iterator
+        .to[ImmArraySeq]
+        .traverse(fromLedgerApi(workflowId)(_))
+    }
+
     def fromLedgerApi(workflowId: Option[WorkflowId])(
         event: lav1.event.Event): Error \/ Contract[lav1.value.Value] = event.event match {
       case lav1.event.Event.Event.Created(created) =>
@@ -133,6 +144,12 @@ object domain {
     lav1.value.Value(lav1.value.Value.Sum.Record(a))
 
   object ActiveContract {
+    def fromLedgerApi(gacr: lav1.active_contracts_service.GetActiveContractsResponse)
+      : Error \/ List[ActiveContract[lav1.value.Value]] = {
+      val workflowId = domain.WorkflowId.fromLedgerApi(gacr)
+      gacr.activeContracts.toList.traverse(fromLedgerApi(workflowId)(_))
+    }
+
     def fromLedgerApi(workflowId: Option[WorkflowId])(
         in: lav1.event.CreatedEvent): Error \/ ActiveContract[lav1.value.Value] =
       for {

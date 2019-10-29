@@ -16,7 +16,6 @@ import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
 import com.digitalasset.ledger.api.{v1 => lav1}
 import scalaz.syntax.show._
 import scalaz.syntax.traverse._
-import scalaz.std.list._
 import scalaz.std.tuple._
 import scalaz.{-\/, Show, \/, \/-}
 import spray.json.JsValue
@@ -100,26 +99,10 @@ class ContractsService(
       predicates = templateIds.iterator.map(a => (a, valuePredicate(a, queryParams))).toMap
     } yield (allActiveContracts, predicates)
 
-  private def fetchActiveContractsFromOffset(
-      party: domain.Party,
-      templateId: domain.TemplateId.RequiredPkg): cats.effect.IO[Seq[ActiveContract]] = {
-
-    ???
-  }
-
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private def activeContracts(gacr: lav1.active_contracts_service.GetActiveContractsResponse)
-    : Error \/ List[ActiveContract] = {
-
-    val workflowId = domain.WorkflowId.fromLedgerApi(gacr)
-
-    val toAc: lav1.event.CreatedEvent => domain.Error \/ ActiveContract =
-      domain.ActiveContract.fromLedgerApi(workflowId)
-
-    gacr.activeContracts.toList
-      .traverse(toAc)
-      .leftMap(e => Error('activeContracts, e.shows))
-  }
+    : Error \/ List[ActiveContract] =
+    domain.ActiveContract.fromLedgerApi(gacr).leftMap(e => Error('activeContracts, e.shows))
 
   def filterSearch(
       compiledPredicates: CompiledPredicates,
