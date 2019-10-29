@@ -6,14 +6,14 @@ package com.digitalasset.ledger.api.validation
 import java.time.Instant
 
 import com.digitalasset.api.util.TimestampConversion
-import com.digitalasset.daml.lf.command.{Commands => LfCommands}
+import com.digitalasset.daml.lf.command.{Commands => LfCommands, CreateCommand => LfCreateCommand}
 import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.value.Value.ValueRecord
 import com.digitalasset.daml.lf.value.{Value => Lf}
 import com.digitalasset.ledger.api.DomainMocks
 import com.digitalasset.ledger.api.DomainMocks.{applicationId, commandId, workflowId}
 import com.digitalasset.ledger.api.domain.{LedgerId, Commands => ApiCommands}
-import com.digitalasset.ledger.api.v1.commands.Commands
+import com.digitalasset.ledger.api.v1.commands.{Command, Commands, CreateCommand}
 import com.digitalasset.ledger.api.v1.value.Value.Sum
 import com.digitalasset.ledger.api.v1.value.{
   List => ApiList,
@@ -45,6 +45,14 @@ class SubmitRequestValidatorTest
     val submitter = "party"
     val let = TimestampConversion.fromInstant(Instant.now)
     val mrt = TimestampConversion.fromInstant(Instant.now)
+    val command =
+      Command(
+        Command.Command.Create(CreateCommand(
+          Some(Identifier("package", moduleName = "module", entityName = "entity")),
+          Some(Record(
+            Some(Identifier("package", moduleName = "module", entityName = "entity")),
+            Seq(RecordField("something", Some(Value(Value.Sum.Bool(true)))))))
+        )))
 
     val commands = Commands(
       ledgerId.unwrap,
@@ -54,7 +62,7 @@ class SubmitRequestValidatorTest
       submitter,
       Some(let),
       Some(mrt),
-      Seq.empty
+      Seq(command)
     )
   }
 
@@ -73,7 +81,23 @@ class SubmitRequestValidatorTest
       mrt,
       LfCommands(
         DomainMocks.party,
-        ImmArray.empty,
+        ImmArray(
+          LfCreateCommand(
+            Ref.Identifier(
+              Ref.PackageId.assertFromString("package"),
+              Ref.QualifiedName(
+                Ref.ModuleName.assertFromString("module"),
+                Ref.DottedName.assertFromString("entity"))),
+            Lf.ValueRecord(
+              Option(
+                Ref.Identifier(
+                  Ref.PackageId.assertFromString("package"),
+                  Ref.QualifiedName(
+                    Ref.ModuleName.assertFromString("module"),
+                    Ref.DottedName.assertFromString("entity")))),
+              ImmArray((Option(Ref.Name.assertFromString("something")), Lf.ValueTrue))
+            )
+          )),
         Time.Timestamp.assertFromInstant(let),
         workflowId.unwrap
       )
@@ -89,8 +113,11 @@ class SubmitRequestValidatorTest
 
   "CommandSubmissionRequestValidator" when {
     "validating command submission requests" should {
-      "convert valid requests with empty commands" in {
-        commandsValidator.validateCommands(api.commands) shouldEqual Right(internal.emptyCommands)
+      "reject requests with empty commands" in {
+        requestMustFailWith(
+          commandsValidator.validateCommands(api.commands.withCommands(Seq.empty)),
+          INVALID_ARGUMENT,
+          "Missing field: commands")
       }
 
       "not allow missing ledgerId" in {
