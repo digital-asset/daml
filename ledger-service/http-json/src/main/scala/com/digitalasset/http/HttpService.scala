@@ -96,7 +96,7 @@ object HttpService extends StrictLogging {
       createSchema = jdbcConfig.map(c => c.createSchema)
       _ = logger.info(
         s"contractDao: ${contractDao.toString}, createSchema: ${createSchema.toString}")
-      _ <- rightT(initalizeDbIfConfigured(contractDao, createSchema))
+      _ <- rightT(initDbIfConfigured(contractDao, createSchema))
 
       commandService = new CommandService(
         packageService.resolveTemplateId,
@@ -207,14 +207,14 @@ object HttpService extends StrictLogging {
       .leftMap(e =>
         Error(s"Cannot create an instance of PartyManagementClient, error: ${e.getMessage}"))
 
-  private def initalizeDbIfConfigured(
+  private def initDbIfConfigured(
       dao: Option[ContractDao],
       createSchema: Option[Boolean]): Future[Unit] = {
     import scalaz.syntax.applicative._
-    ^(dao, createSchema)((a, b) => initalizeDbIfConfigured(a, b)) getOrElse Noop
+    ^(dao, createSchema)((a, b) => initDbIfConfigured(a, b)) getOrElse Noop
   }
 
-  private def initalizeDbIfConfigured(dao: ContractDao, createSchema: Boolean): Future[Unit] = {
+  private def initDbIfConfigured(dao: ContractDao, createSchema: Boolean): Future[Unit] = {
     if (createSchema) dao.transact(dao.initialize).unsafeToFuture()
     else Noop
   }
