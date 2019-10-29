@@ -43,9 +43,9 @@ class CommandStaticTimeIT
     extends AsyncWordSpec
     with Matchers
     with AkkaBeforeAndAfterAll
+    with MultiLedgerCommandUtils
     with ScalaFutures
     with SuiteResourceManagementAroundAll
-    with MultiLedgerCommandUtils
     with OptionValues {
 
   protected val testTemplateIds = new TestTemplateIds(config)

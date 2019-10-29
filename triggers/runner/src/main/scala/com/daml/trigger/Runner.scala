@@ -53,6 +53,10 @@ class Runner(
 
   private val converter = Converter.fromDar(dar)
   private val triggerIds = TriggerIds.fromDar(dar)
+  if (triggerIds.triggerPackageId != EXPECTED_TRIGGER_PACKAGE_ID) {
+    logger.warn(
+      s"Unexpected package id for daml-trigger library: ${triggerIds.triggerPackageId}, expected ${EXPECTED_TRIGGER_PACKAGE_ID.toString}. This is most likely caused by a mismatch between the SDK version used to build your trigger and the trigger runner.")
+  }
   private val darMap: Map[PackageId, Package] = dar.all.toMap
   private val compiler = Compiler(darMap)
   private val compiledPackages =

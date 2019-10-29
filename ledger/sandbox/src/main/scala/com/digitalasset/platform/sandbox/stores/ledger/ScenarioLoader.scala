@@ -244,6 +244,9 @@ object ScenarioLoader {
         val mappedLocalImplicitDisclosure = richTransaction.localImplicitDisclosure.map {
           case (nid, parties) => nodeIdWithHash(nid) -> parties
         }
+        val mappedGlobalImplicitDisclosure = richTransaction.globalImplicitDisclosure.map {
+          case (k, v) => absCidWithHash(k) -> v
+        }
         // copies non-absolute-able node IDs, but IDs that don't match
         // get intersected away later
         acs.addTransaction(
@@ -253,7 +256,7 @@ object ScenarioLoader {
           tx,
           mappedExplicitDisclosure,
           mappedLocalImplicitDisclosure,
-          richTransaction.globalImplicitDisclosure,
+          mappedGlobalImplicitDisclosure,
           List.empty
         ) match {
           case Right(newAcs) =>

@@ -13,6 +13,7 @@ da_scala_library(
     resources = glob(["src/main/resources/**/*"]),
     visibility = ["//visibility:public"],
     deps = [
+        ":trigger-package-id-lib",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/archive:daml_lf_dev_archive_java_proto",
         "//daml-lf/data",
@@ -28,6 +29,35 @@ da_scala_library(
         "@maven//:org_scalaz_scalaz_core_2_12",
         "@maven//:org_typelevel_paiges_core_2_12",
     ],
+)
+
+da_scala_library(
+    name = "trigger-package-id-lib",
+    srcs = [":trigger-package-id"],
+    deps = ["//daml-lf/data"],
+)
+
+# This genrule generates a Scala file containing the package id of the trigger library
+# at build time. We use that to detect mismatches and warn the user about it.
+genrule(
+    name = "trigger-package-id",
+    srcs = [
+        "//triggers/daml:daml-trigger.dar",
+        "//compiler/damlc",
+    ],
+    outs = ["com/daml/trigger/TriggerPackageIds.scala"],
+    cmd = """
+      PACKAGE_ID=$$($(location //compiler/damlc) inspect-dar $(location //triggers/daml:daml-trigger.dar) | awk '/daml-trigger-0.0.1 / {print $$2}')
+      cat << EOF > $(location com/daml/trigger/TriggerPackageIds.scala)
+package com.daml
+
+import com.digitalasset.daml.lf.data.Ref.PackageId
+
+package object trigger {
+  val EXPECTED_TRIGGER_PACKAGE_ID = PackageId.assertFromString($$PACKAGE_ID)
+}
+EOF
+    """,
 )
 
 da_scala_binary(

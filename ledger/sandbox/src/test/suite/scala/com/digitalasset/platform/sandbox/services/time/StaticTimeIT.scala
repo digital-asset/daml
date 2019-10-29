@@ -15,13 +15,13 @@ import com.digitalasset.ledger.api.testing.utils.{
 }
 import com.digitalasset.ledger.api.v1.testing.time_service.TimeServiceGrpc
 import com.digitalasset.ledger.client.services.testing.time.StaticTime
-import com.digitalasset.platform.sandbox.TestExecutionSequencerFactory
+import com.digitalasset.platform.esf.TestExecutionSequencerFactory
 import com.digitalasset.platform.sandbox.services.SandboxFixture
 import io.grpc.Status
 import org.awaitility.Awaitility
 import org.scalatest.{Matchers, WordSpec}
-
 import scalaz.syntax.tag._
+
 import scala.concurrent.Await
 import scala.concurrent.duration._
 

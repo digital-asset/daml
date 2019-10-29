@@ -17,12 +17,15 @@ module Daml.Trigger
  , fromAnyContractId
  , exerciseCmd
  , createCmd
+ , dedupExercise
+ , dedupCreate
  , Message(..)
  , Completion(..)
  , Transaction(..)
  , CompletionStatus(..)
  ) where
 
+import DA.Action
 import DA.Action.State
 import DA.Next.Map (Map)
 import qualified DA.Next.Map as Map
@@ -33,23 +36,38 @@ import qualified Daml.Trigger.LowLevel as LowLevel
 
 -- public API
 
+-- | Active contract set, you can use `getTemplates` to access the templates of
+-- a given type.
 newtype ACS = ACS (Map TemplateTypeRep [(AnyContractId, AnyTemplate)])
 
+-- | Extract the templates of a given type from the ACS.
 getTemplates : forall a. Template a => ACS -> [(AbsoluteContractId a, a)]
 getTemplates (ACS tpls) = map fromAny $ fromOptional [] $ Map.lookup (templateTypeRep @a) tpls
   where
     fromAny (cid, tpl) = (fromSome (fromAnyContractId cid), fromSome (fromAnyTemplate tpl))
 
+-- | This is the type of your trigger. `s` is the user-defined state type which
+-- you can often leave at `()`.
 data Trigger s = Trigger
   { initialize : ACS -> s
-  -- The ACS already includes the updates from the Message
+  -- ^ Initialize the user-defined state based on the ACS.
   , updateState : ACS -> Message -> s -> s
+  -- ^ Update the user-defined state based on the ACS and a transaction or
+  -- completion message.
   , rule : Party -> ACS -> Map CommandId [Command] -> s -> TriggerA ()
+  -- ^ The rule defines the main logic of your trigger.
+  -- Given the party your trigger is running as, the ACS, the commands in flight
+  -- and the user-defined state, you can send commands to the ledger using
+  -- `emitCommands` to change the ACS.
   }
 
+-- | TriggerA is the type used in the `rule` of a DAML trigger.
+-- Its main feature is that you can call `emitCommands` to
+-- send commands to the ledger.
 newtype TriggerA a = TriggerA (State TriggerAState a)
   deriving (Functor, Applicative, Action)
 
+-- | Send a transaction consisting of the given commands to the ledger.
 emitCommands : [Command] -> TriggerA CommandId
 emitCommands cmds = do
   state <- TriggerA get
@@ -58,6 +76,39 @@ emitCommands cmds = do
   TriggerA $ modify $ \s -> s { emittedCommands = commands :: s.emittedCommands, nextCommandId = s.nextCommandId + 1 }
   pure id
 
+-- | Create the template if it’s not already in the list of commands
+-- in flight (it will still be created if it is in the ACS).
+--
+-- Note that this will send the create as a single-command transaction.
+-- If you need to send multiple commands in one transaction, use
+-- `emitCommands` with `createCmd` and handle filtering yourself.
+dedupCreate : (Eq t, Template t) => t -> TriggerA ()
+dedupCreate t = do
+  aState <- TriggerA get
+  -- This is a very naive approach that is linear in the number of commands in flight.
+  -- We probably want to change this to express the commands in flight as some kind of
+  -- map to make these lookups cheaper.
+  let cmds = concat $ map snd (Map.toList aState.commandsInFlight) <> map commands aState.emittedCommands
+  unless (any ((Some t ==) . fromCreate) cmds) $
+    void $ emitCommands [createCmd t]
+
+-- | Exercise the choice on the given contract if it is not already
+-- in flight.
+--
+-- Note that this will send the exercise as a single-command transaction.
+-- If you need to send multiple commands in one transaction, use
+-- `emitCommands` with `exerciseCmd` and handle filtering yourself.
+dedupExercise : (Eq c, Choice t c r) => AbsoluteContractId t -> c -> TriggerA ()
+dedupExercise cid c = do
+  aState <- TriggerA get
+  -- This is a very naive approach that is linear in the number of commands in flight.
+  -- We probably want to change this to express the commands in flight as some kind of
+  -- map to make these lookups cheaper.
+  let cmds = concat $ map snd (Map.toList aState.commandsInFlight) <> map commands aState.emittedCommands
+  unless (any ((Some (cid, c) ==) . fromExercise) cmds) $
+    void $ emitCommands [exerciseCmd cid c]
+
+-- | Transform the high-level trigger type into the one from `Daml.Trigger.LowLevel`.
 runTrigger : Trigger s -> LowLevel.Trigger (TriggerState s)
 runTrigger userTrigger = LowLevel.Trigger
   { initialState = initialState
@@ -67,10 +118,8 @@ runTrigger userTrigger = LowLevel.Trigger
     initialState party (ActiveContracts createdEvents) =
       let acs = foldl (\acs created -> applyEvent (CreatedEvent created) acs) (ACS Map.empty) createdEvents
           userState = userTrigger.initialize acs
-          (_, TriggerAState commands nextCommandId) = runTriggerA (userTrigger.rule party acs Map.empty userState) (TriggerAState [] 0)
-          commandsInFlight = foldl addCommands Map.empty commands
-          state = TriggerState {acs, party, userState, commandsInFlight, nextCommandId}
-      in (state, commands)
+          state = TriggerState acs party userState Map.empty 0
+      in runRule userTrigger.rule state
     update msg state =
       case msg of
         MCompletion completion ->
@@ -82,24 +131,17 @@ runTrigger userTrigger = LowLevel.Trigger
               (state { userState }, [] )
             Failed {} ->
                 let commandsInFlight = Map.delete completion.commandId state.commandsInFlight
-                    (_, TriggerAState commands nextCommandId) = runTriggerA (userTrigger.rule state.party state.acs commandsInFlight userState) (TriggerAState [] state.nextCommandId)
-                in (state { userState, nextCommandId, commandsInFlight }, commands)
+                    state' = state { commandsInFlight, userState }
+                in runRule userTrigger.rule state'
         MTransaction transaction ->
           let acs = applyTransaction transaction state.acs
               userState = userTrigger.updateState acs (MTransaction transaction) state.userState
               -- See the comment above for why we delete this here instead of when we receive the completion.
-              inFlight = case transaction.commandId of
+              commandsInFlight = case transaction.commandId of
                 None -> state.commandsInFlight
                 Some commandId -> Map.delete commandId state.commandsInFlight
-              (_, TriggerAState commands nextCommandId) = runTriggerA (userTrigger.rule state.party acs inFlight userState) (TriggerAState [] state.nextCommandId)
-              commandsInFlight = foldl addCommands state.commandsInFlight commands
-          in (state { acs, userState, nextCommandId, commandsInFlight}, commands)
-
-numCreates : Commands -> Int
-numCreates (Commands _ cmds) = length $ filter (\x -> case x of CreateCommand {} -> True; _ -> False) cmds
-
-numExercises : Commands -> Int
-numExercises (Commands _ cmds) = length $ filter (\x -> case x of ExerciseCommand {} -> True; _ -> False) cmds
+              state' = state { acs, userState, commandsInFlight }
+          in runRule userTrigger.rule state'
 
 -- Internal API
 
@@ -132,12 +174,31 @@ applyEvent ev acs = case ev of
 applyTransaction : Transaction -> ACS -> ACS
 applyTransaction (Transaction _ _ evs) acs = foldl (flip applyEvent) acs evs
 
+runRule
+  : (Party -> ACS -> Map CommandId [Command] -> s -> TriggerA ())
+  -> TriggerState s
+  -> (TriggerState s, [Commands])
+runRule rule state =
+  let (_, aState) =
+        runTriggerA
+          (rule state.party state.acs state.commandsInFlight state.userState)
+          (TriggerAState state.commandsInFlight [] state.nextCommandId)
+      commandsInFlight = foldl addCommands state.commandsInFlight aState.emittedCommands
+  in (state { nextCommandId = aState.nextCommandId, commandsInFlight }, aState.emittedCommands)
+
 runTriggerA : TriggerA a -> TriggerAState -> (a, TriggerAState)
-runTriggerA (TriggerA f) s = runState f s
+runTriggerA (TriggerA f) s =
+  let (a, s') = runState f s
+  in (a, s' { emittedCommands = reverse s'.emittedCommands })
 
 data TriggerAState = TriggerAState
-  { emittedCommands : [Commands]
-  -- ^ commands in reverse because I can’t be bothered to implement a dlist
+  { commandsInFlight : Map CommandId [Command]
+  -- This is not modified during a run (new commands end up in emittedCommands)
+  -- but for simplicity we keep it in TriggerAState instead of layering a
+  -- Reader on top of it.
+  -- This will be used for dedupCreateCmd/dedupExerciseCmd helpers.
+  , emittedCommands : [Commands]
+  -- ^ Emitted commands in reverse because I can’t be bothered to implement a dlist.
   , nextCommandId : Int
   }
 

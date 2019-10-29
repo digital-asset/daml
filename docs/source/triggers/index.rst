@@ -4,6 +4,11 @@
 DAML Triggers - Off-Ledger Automation in DAML
 #############################################
 
+.. toctree::
+   :hidden:
+
+   trigger-docs
+
 **WARNING:** DAML Triggers are an experimental feature that is actively
 being designed and is *subject to breaking changes*.
 We welcome feedback about DAML triggers on
@@ -202,26 +207,8 @@ created using ``exerciseCmd`` and ``createCmd``.
 
 Finally, we also need to create copies that do not already exists. We
 want to avoid creating copies for which there is already a command in
-flight. To find these, we first need a helper function that given a
-``Command`` returns ``Some copy`` if the ``Command`` corresponds to
-the creation of ``copy`` or ``None`` otherwise. For that, we pattern
-match on the ``Command`` and if it was a ``CreateCommand``, we call
-the ``fromAnyTemplate`` function which will return ``Some tpl`` if the
-template is of the given type (``Copy`` in this example) and ``None``
-otherwise.
-
-.. literalinclude:: ./template-root/src/CopyTrigger.daml
-   :language: daml
-   :start-after: -- TO_CREATE_COPY_BEGIN
-   :end-before: -- TO_CREATE_COPY_END
-
-Equipped with ``toCreateCopy``, we can define the set of
-``pendingCopies`` by filtering the commands in flight and the set of
-``eventualCopies``, i.e., either pending copies or copies that already
-exist.  The copies that we need to create are then the set of
-``neeedCopies`` that are not already in ``pendingCopies``. Similar to
-archiving, we use ``emitCommands`` to actually create them, this time
-with ``createCmd`` instead of ``exerciseCmd``.
+flight. The DAML Trigger API provides a ``dedupCreate`` helper for this
+which only sends the commands if it is not already in flight.
 
 .. literalinclude:: ./template-root/src/CopyTrigger.daml
    :language: daml

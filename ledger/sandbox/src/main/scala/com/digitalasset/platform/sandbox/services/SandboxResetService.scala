@@ -3,6 +3,7 @@
 
 package com.digitalasset.platform.sandbox.services
 
+import com.digitalasset.ledger.api.auth.AuthService
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.v1.testing.reset_service.{ResetRequest, ResetServiceGrpc}
 import com.digitalasset.platform.common.util.{DirectExecutionContext => DE}
@@ -12,9 +13,8 @@ import io.grpc._
 import io.grpc.ServerCall.Listener
 import java.util.concurrent.atomic.AtomicBoolean
 
+import com.digitalasset.ledger.api.auth.services.ApiServiceAuthorization
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
-import com.daml.ledger.participant.state.v1.AuthService
-import com.digitalasset.platform.server.api.authorization.ApiServiceAuthorization
 
 import scala.concurrent.{ExecutionContext, Future, Promise}
 

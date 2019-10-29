@@ -88,3 +88,19 @@ client_server_test(
     ],
     server_files = ["$(rootpath :acs.dar)"],
 )
+
+sh_test(
+    name = "list-triggers",
+    srcs = ["list-triggers.sh"],
+    args = [
+        "$(location //triggers/runner:trigger-runner)",
+        "$(location :acs.dar)",
+    ],
+    data = [
+        ":acs.dar",
+        "//triggers/runner:trigger-runner",
+    ],
+    deps = [
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+)
