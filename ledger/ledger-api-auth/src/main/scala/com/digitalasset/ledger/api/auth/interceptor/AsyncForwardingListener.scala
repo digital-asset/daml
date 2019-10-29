@@ -1,7 +1,7 @@
 // Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.server.api.authorization
+package com.digitalasset.ledger.api.auth.interceptor
 
 import io.grpc.ServerCall
 

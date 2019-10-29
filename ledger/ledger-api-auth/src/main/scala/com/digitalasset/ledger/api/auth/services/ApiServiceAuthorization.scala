@@ -1,9 +1,10 @@
 // Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.server.api.authorization
+package com.digitalasset.ledger.api.auth.services
 
-import com.daml.ledger.participant.state.v1.Claims
+import com.digitalasset.ledger.api.auth.Claims
+import com.digitalasset.ledger.api.auth.interceptor.AuthorizationInterceptor
 import com.digitalasset.ledger.api.v1.transaction_filter.TransactionFilter
 import com.digitalasset.platform.server.api.validation.ErrorFactories._
 import io.grpc.{Context, StatusRuntimeException}

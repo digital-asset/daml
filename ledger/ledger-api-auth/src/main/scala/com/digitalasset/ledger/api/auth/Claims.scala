@@ -1,7 +1,7 @@
 // Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.ledger.participant.state.v1
+package com.digitalasset.ledger.api.auth
 
 import com.digitalasset.daml.lf.data.Ref
 
@@ -88,8 +88,8 @@ case class Claims(claims: Seq[Claim]) {
 object Claims {
 
   /** A set of [[Claims]] that does not have any authorization */
-  def empty: Claims = Claims(List.empty[Claim])
+  val empty = Claims(List.empty[Claim])
 
   /** A set of [[Claims]] that has all possible authorizations */
-  def wildcard: Claims = Claims(List[Claim](ClaimPublic, ClaimAdmin, ClaimActAsAnyParty))
+  val wildcard = Claims(List[Claim](ClaimPublic, ClaimAdmin, ClaimActAsAnyParty))
 }

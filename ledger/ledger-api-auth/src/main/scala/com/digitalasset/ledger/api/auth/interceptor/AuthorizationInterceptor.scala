@@ -1,9 +1,9 @@
 // Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.server.api.authorization
+package com.digitalasset.ledger.api.auth.interceptor
 
-import com.daml.ledger.participant.state.v1.{AuthService, Claims}
+import com.digitalasset.ledger.api.auth.{AuthService, Claims}
 import io.grpc.{
   Context,
   Contexts,
@@ -23,7 +23,7 @@ import scala.util.{Failure, Success}
   * This interceptor uses the given [[AuthService]] to get [[Claims]] for the current request,
   * and then stores them in the current [[Context]].
   *
-  * Use [[ApiServiceAuthorization]] to read the claims from the context.
+  * Use [[com.digitalasset.ledger.api.auth.services.ApiServiceAuthorization]] to read the claims from the context.
   * */
 class AuthorizationInterceptor(protected val authService: AuthService, ec: ExecutionContext)
     extends ServerInterceptor {

@@ -1,24 +1,15 @@
 // Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.server.api.authorization.services
+package com.digitalasset.ledger.api.auth.services
 
-import com.daml.ledger.participant.state.v1.AuthService
 import com.digitalasset.grpc.adapter.utils.DirectExecutionContext
+import com.digitalasset.ledger.api.auth.AuthService
 import com.digitalasset.ledger.api.v1.transaction_service
-import com.digitalasset.ledger.api.v1.transaction_service.{
-  GetFlatTransactionResponse,
-  GetLedgerEndRequest,
-  GetLedgerEndResponse,
-  GetTransactionResponse,
-  GetTransactionTreesResponse,
-  GetTransactionsResponse,
-  TransactionServiceGrpc
-}
 import com.digitalasset.ledger.api.v1.transaction_service.TransactionServiceGrpc.TransactionService
+import com.digitalasset.ledger.api.v1.transaction_service._
 import com.digitalasset.platform.api.grpc.GrpcApiService
 import com.digitalasset.platform.server.api.ProxyCloseable
-import com.digitalasset.platform.server.api.authorization.ApiServiceAuthorization
 import io.grpc.ServerServiceDefinition
 import io.grpc.stub.StreamObserver
 import org.slf4j.{Logger, LoggerFactory}
