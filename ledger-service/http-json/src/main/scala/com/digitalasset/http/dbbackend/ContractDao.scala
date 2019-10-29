@@ -17,40 +17,35 @@ class ContractDao(xa: Connection.T) {
 
   private implicit val lh: log.LogHandler = doobie.util.log.LogHandler.jdkLogHandler
 
-  def initialize: IO[Unit] =
-    transact(
-      Queries.dropAllTablesIfExist *>
-        Queries.initDatabase: ConnectionIO[Unit]
-    )
+  def initialize: ConnectionIO[Unit] =
+    Queries.dropAllTablesIfExist *> Queries.initDatabase
 
   def lastOffset(
       party: domain.Party,
-      templateId: domain.TemplateId.RequiredPkg): IO[Option[String]] =
-    transact(
-      Queries.surrogateTemplateId(
+      templateId: domain.TemplateId.RequiredPkg): ConnectionIO[Option[String]] =
+    for {
+      tpId <- Queries.surrogateTemplateId(
         templateId.packageId,
         templateId.moduleName,
-        templateId.entityName) flatMap { surrogateTpId =>
-        Queries.lastOffset(party.unwrap, surrogateTpId)
-      }: ConnectionIO[Option[String]]
-    )
+        templateId.entityName)
+      offset <- Queries.lastOffset(party.unwrap, tpId)
+    } yield offset
 
   def updateOffset(
       party: domain.Party,
       templateId: domain.TemplateId.RequiredPkg,
-      newOffset: String): IO[Unit] =
-    transact(
-      Queries.surrogateTemplateId(
+      newOffset: String): ConnectionIO[Unit] =
+    for {
+      tpId <- Queries.surrogateTemplateId(
         templateId.packageId,
         templateId.moduleName,
-        templateId.entityName) flatMap { surrogateTpId =>
-        Queries.updateOffset(party.unwrap, surrogateTpId, newOffset)
-      }: ConnectionIO[Unit]
-    )
+        templateId.entityName)
+      _ <- Queries.updateOffset(party.unwrap, tpId, newOffset)
+    } yield ()
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
-  private def transact[A](c: ConnectionIO[A]): IO[A] =
-    c.transact(xa)
+  def transact[A](query: ConnectionIO[A]): IO[A] =
+    query.transact(xa)
 }
 
 object ContractDao {

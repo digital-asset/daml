@@ -215,7 +215,7 @@ object HttpService extends StrictLogging {
   }
 
   private def initalizeDbIfConfigured(dao: ContractDao, createSchema: Boolean): Future[Unit] = {
-    if (createSchema) dao.initialize.unsafeToFuture()
+    if (createSchema) dao.transact(dao.initialize).unsafeToFuture()
     else Noop
   }
 
