@@ -9,11 +9,12 @@ import com.digitalasset.http.ContractsService.ActiveContract
 import akka.NotUsed
 import akka.stream.scaladsl.{Flow, GraphDSL, Partition, Sink, Source}
 import cats.effect.{ContextShift, IO}
+import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
 import com.digitalasset.jwt.domain.Jwt
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
-import com.digitalasset.ledger.api.v1.transaction.Transaction
 import com.digitalasset.ledger.api.v1.transaction_filter.TransactionFilter
 import com.digitalasset.ledger.api.{v1 => lav1}
+import scalaz.{-\/, \/, \/-}
 
 import akka.stream.{FanOutShape2, Graph}
 import scalaz.{-\/, \/, \/-}
@@ -31,20 +32,26 @@ private class ContractsFetch(
   def fetchActiveContractsFromOffset(
       dao: Option[dbbackend.ContractDao],
       party: domain.Party,
-      templateId: domain.TemplateId.RequiredPkg)(
-      implicit cs: ContextShift[IO]): IO[Seq[Contract]] =
+      templateId: domain.TemplateId.RequiredPkg)(implicit cs: ContextShift[IO]): IO[Seq[Contract]] =
     for {
       _ <- IO.shift(cs)
 //      a <- dao
 //      x = fetchActiveContractsFromOffset(???, party, templateId)
     } yield ???
 
-
   private def fetchActiveContractsFromOffset(
       jwt: Jwt,
       txFilter: TransactionFilter,
-      offsetSource: Source[LedgerOffset, NotUsed]): Source[Transaction, NotUsed] =
-    offsetSource.flatMapConcat(offset => getCreatesAndArchivesSince(jwt, txFilter, offset))
+      offsetSource: Source[LedgerOffset, NotUsed]): Source[domain.Error \/ Contract, NotUsed] =
+    offsetSource
+      .flatMapConcat(offset => getCreatesAndArchivesSince(jwt, txFilter, offset))
+      .mapConcat(tx => unsequence(domain.Contract.fromLedgerApi(tx)).toList)
+
+  private def unsequence[A, B](as: A \/ ImmArraySeq[B]): ImmArraySeq[A \/ B] =
+    as.fold(
+      a => ImmArraySeq(-\/(a)),
+      bs => bs.map(b => \/-(b))
+    )
 
   private def ioToSource[Out](io: IO[Out]): Source[Out, NotUsed] =
     Source.fromFuture(io.unsafeToFuture())
