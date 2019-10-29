@@ -142,7 +142,7 @@ object Queries {
     }
   }
 
-  def concatFragment[F[X] <: IndexedSeq[X]](xs: OneAnd[F, Fragment]): Fragment = {
+  private def concatFragment[F[X] <: IndexedSeq[X]](xs: OneAnd[F, Fragment]): Fragment = {
     val OneAnd(hd, tl) = xs
     def go(s: Int, e: Int): Fragment =
       (e - s: @annotation.switch) match {
