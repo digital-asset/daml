@@ -541,11 +541,6 @@ Then we can define our kinds, types, and expressions::
        |  'ContractId'                              -- BTyContractId
        |  'Any'                                     -- BTyAny
 
-  Type csontratins
-    K ::= ε                                         -- ConstraintTrivial
-       |  Eq α, K                         
-       |  Serial α, K
-       
   Types (mnemonic: tau for type)
     τ, σ
       ::= α                                         -- TyVar: Type variable
@@ -830,19 +825,13 @@ Well-formed expression
 
 Then we define *well-formed expressions*. ::
 
-  Constraint store:
-
-   K ::= ε                                 -- StoreTrivial
-      |  'Eq' α, K                         -- StoreEq
-      |  'Serial' α, K                     -- StoreSerial
-
-                          ┌───────────────────┐
-  Well-formed expressions │ Γ ; K  ⊢  e  :  τ │
-                          └───────────────────┘
+                          ┌───────────────┐
+  Well-formed expressions │ Γ  ⊢  e  :  τ │
+                          └───────────────┘
 
       x : τ  ∈  Γ
     ——————————————————————————————————————————————————————————————— ExpDefVar
-      Γ; K  ⊢  x  :  τ
+      Γ  ⊢  x  :  τ
 
       Γ  ⊢  e₁  :  τ₁ → τ₂      Γ  ⊢  e₂  :  τ₁
     ——————————————————————————————————————————————————————————————— ExpApp
