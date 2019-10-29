@@ -16,10 +16,22 @@ import com.digitalasset.ledger.api.auth.AuthService
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.engine._
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
+import com.digitalasset.ledger.api.auth.services.{
+  ActiveContractsServiceAuthorization,
+  CommandCompletionServiceAuthorization,
+  CommandServiceAuthorization,
+  CommandSubmissionServiceAuthorization,
+  LedgerConfigurationServiceAuthorization,
+  LedgerIdentityServiceAuthorization,
+  PackageManagementServiceAuthorization,
+  PackageServiceAuthorization,
+  PartyManagementServiceAuthorization,
+  TimeServiceAuthorization,
+  TransactionServiceAuthorization
+}
 import com.digitalasset.ledger.api.v1.command_completion_service.CompletionEndRequest
 import com.digitalasset.ledger.client.services.commands.CommandSubmissionFlow
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
-import com.digitalasset.platform.server.api.authorization.services._
 import com.digitalasset.platform.sandbox.config.CommandConfiguration
 import com.digitalasset.platform.sandbox.services._
 import com.digitalasset.platform.sandbox.services.admin.ApiPackageManagementService
@@ -29,7 +41,6 @@ import com.digitalasset.platform.sandbox.stores.ledger.CommandExecutorImpl
 import com.digitalasset.platform.server.services.command.ApiCommandService
 import com.digitalasset.platform.server.services.identity.ApiLedgerIdentityService
 import com.digitalasset.platform.server.services.testing.{ApiTimeService, TimeServiceBackend}
-
 import io.grpc.BindableService
 import io.grpc.protobuf.services.ProtoReflectionService
 import scalaz.syntax.tag._

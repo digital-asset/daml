@@ -1,11 +1,10 @@
 // Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.server.api.authorization.auth
+package com.digitalasset.ledger.api.auth
 
 import java.util.concurrent.{CompletableFuture, CompletionStage}
 
-import com.digitalasset.ledger.api.auth.{AuthService, Claims}
 import io.grpc.Metadata
 
 /** An AuthService that matches the value of the `Authorization` HTTP header against

@@ -13,8 +13,8 @@ import io.grpc._
 import io.grpc.ServerCall.Listener
 import java.util.concurrent.atomic.AtomicBoolean
 
+import com.digitalasset.ledger.api.auth.services.ApiServiceAuthorization
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
-import com.digitalasset.platform.server.api.authorization.ApiServiceAuthorization
 
 import scala.concurrent.{ExecutionContext, Future, Promise}
 

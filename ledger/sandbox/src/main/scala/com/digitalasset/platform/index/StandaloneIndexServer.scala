@@ -13,6 +13,7 @@ import com.daml.ledger.participant.state.v1.{ParticipantId, ReadService, WriteSe
 import com.digitalasset.daml.lf.engine.Engine
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.ledger.api.auth.AuthService
+import com.digitalasset.ledger.api.auth.interceptor.AuthorizationInterceptor
 import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.server.apiserver.{ApiServer, ApiServices, LedgerApiServer}
@@ -23,7 +24,6 @@ import com.digitalasset.platform.sandbox.BuildInfo
 import com.digitalasset.platform.sandbox.config.SandboxConfig
 import com.digitalasset.platform.sandbox.metrics.MetricsManager
 import com.digitalasset.platform.sandbox.stores.InMemoryPackageStore
-import com.digitalasset.platform.server.api.authorization.AuthorizationInterceptor
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}

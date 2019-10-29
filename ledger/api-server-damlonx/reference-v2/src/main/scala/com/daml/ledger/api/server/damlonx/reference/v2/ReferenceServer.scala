@@ -12,9 +12,9 @@ import com.daml.ledger.participant.state.kvutils.InMemoryKVParticipantState
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.digitalasset.daml.lf.archive.DarReader
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
+import com.digitalasset.ledger.api.auth.AuthServiceWildcard
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.index.{StandaloneIndexServer, StandaloneIndexerServer}
-import com.digitalasset.platform.server.api.authorization.auth.AuthServiceWildcard
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.{ExecutionContext, Future}
