@@ -4,7 +4,7 @@
 package com.digitalasset.http
 
 import akka.NotUsed
-import akka.stream.scaladsl.{Flow, GraphDSL, Partition, Sink, Source}
+import akka.stream.scaladsl.{Broadcast, Flow, GraphDSL, Partition, Sink, Source}
 import akka.stream.{FanOutShape2, Graph}
 import cats.effect.{ContextShift, IO}
 import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
@@ -81,9 +81,8 @@ private object ContractsFetch {
       }))
       val as = b.add(Flow[A \/ B].collect { case -\/(a) => a })
       val bs = b.add(Flow[A \/ B].collect { case \/-(b) => b })
-      val Seq(pas, pbs) = split.outlets
-      pas ~> as
-      pbs ~> bs
+      split ~> as
+      split ~> bs
       new FanOutShape2(split.in, as.out, bs.out)
     }
 
@@ -121,6 +120,32 @@ private object ContractsFetch {
       }
       .mapMaterializedValue(_ map (_ map LedgerOffset.apply))
   }
+
+  /** Split a series of ACS responses into two channels: one with  */
+  private def acsAndBoundary: Graph[
+    FanOutShape2[
+      lav1.active_contracts_service.GetActiveContractsResponse,
+      Seq[lav1.event.CreatedEvent],
+      lav1.ledger_offset.LedgerOffset],
+    NotUsed] =
+    GraphDSL.create() { implicit b =>
+      import GraphDSL.Implicits._
+      import lav1.active_contracts_service.{GetActiveContractsResponse => GACR}
+      import lav1.ledger_offset.LedgerOffset
+      import LedgerOffset.{LedgerBoundary, Value}
+      import Value.{Absolute, Boundary}
+      val dup = b add Broadcast[GACR](2)
+      val acs = b add (Flow fromFunction ((_: GACR).activeContracts))
+      val off = b add Flow[GACR]
+        .collect { case gacr if gacr.offset.nonEmpty => gacr.offset }
+        .map(Absolute)
+        .prepend(Source single (Boundary(LedgerBoundary.LEDGER_BEGIN): Value))
+        .conflate((_, later) => later)
+        .map(LedgerOffset.apply)
+      dup ~> acs
+      dup ~> off
+      new FanOutShape2(dup.in, acs.out, off.out)
+    }
 
   final case class InsertDeleteStep[+C](inserts: ImmArraySeq[C], deletes: Set[String]) {
     def append[CC >: C](o: InsertDeleteStep[CC])(cid: CC => String): InsertDeleteStep[CC] =
