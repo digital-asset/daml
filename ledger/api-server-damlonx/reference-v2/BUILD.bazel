@@ -18,7 +18,7 @@ load(
     "//ledger/participant-state/kvutils/tools:integrity_test.bzl",
     "integrity_test",
 )
-load("@os_info//:os_info.bzl", "is_windows")
+load("@os_info//:os_info.bzl", "is_linux")
 
 da_scala_binary(
     name = "reference-v2",
@@ -102,9 +102,8 @@ client_server_build(
     name = "reference-ledger-dump",
     client = "//ledger/ledger-api-test-tool",
     client_args = [
-        "--all-tests",
-        "--exclude TimeIT",
-        "--timeout-scale-factor=10",
+        "--include=SemanticTests,ContractKeysIT,TransactionServiceIT",
+        "--timeout-scale-factor=20",
         "localhost:6865",
     ],
     data = [
@@ -119,17 +118,14 @@ client_server_build(
     server_files = [
         "//ledger/test-common:dar-files",
     ],
-    tags = [
-        "dont-run-on-darwin",
-        "exclusive",
-    ],
-) if not is_windows else None
+    testonly = True, # only test targets can depend on this.
+) if is_linux else None
 
 # Test for checking the integrity of the ledger dump produces above.
 integrity_test(
     name = "reference-ledger-dump-integrity-test",
     dump = ":reference-ledger-dump",
-)
+) if is_linux else None
 
 server_conformance_test(
     name = "conformance-test",
