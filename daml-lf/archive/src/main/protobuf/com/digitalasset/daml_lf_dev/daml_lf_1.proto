@@ -871,9 +871,9 @@ message Expr {
     // *Available in versions >= 1.dev*
     FromAny from_any = 31;
 
-    // Obtain a unique textual representation of a template Id
+    // Obtain a unique textual representation of a type constructor
     // *Available in versions >= 1.dev*
-    TypeConName to_text_template_id = 32;
+    TypeConName to_text_type_con_name = 32;
   }
 
   reserved 19; // This was equals. Removed in favour of BuiltinFunction.EQUAL_*

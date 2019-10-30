@@ -125,8 +125,8 @@ private[digitalasset] class AstRewriter(
           EToAny(ty, apply(body))
         case EFromAny(ty, body) =>
           EFromAny(ty, apply(body))
-        case EToTextTemplateId(tmplId) =>
-          EToTextTemplateId(tmplId)
+        case EToTextTypeConName(tmplId) =>
+          EToTextTypeConName(tmplId)
       }
 
   def apply(x: TypeConApp): TypeConApp = x match {

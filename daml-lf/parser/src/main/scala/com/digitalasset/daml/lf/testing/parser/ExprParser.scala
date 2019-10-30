@@ -189,7 +189,7 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
 
   private lazy val eToTextTemplateId: Parser[Expr] =
     `to_text_template_id` ~>! `@` ~> fullIdentifier ^^ {
-      case tyCon => EToTextTemplateId(tyCon)
+      case tyCon => EToTextTypeConName(tyCon)
     }
 
   private lazy val pattern: Parser[CasePat] =

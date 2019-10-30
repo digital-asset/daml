@@ -753,7 +753,7 @@ private[validation] object Typing {
     }
 
     private def typeOfToTextTemplateId(tpl: TypeConName): Type = {
-      lookupTemplate(ctx, tpl)
+      lookupDataType(ctx, tpl)
       TText
     }
 
@@ -824,7 +824,7 @@ private[validation] object Typing {
         typeOfToAny(ty, body)
       case EFromAny(ty, body) =>
         typeOfFromAny(ty, body)
-      case EToTextTemplateId(tmplId) =>
+      case EToTextTypeConName(tmplId) =>
         typeOfToTextTemplateId(tmplId)
     }
 

@@ -568,8 +568,8 @@ encodeExpr' = \case
         expr_FromAnyType <- encodeType ty
         expr_FromAnyExpr <- encodeExpr body
         pureExpr $ P.ExprSumFromAny P.Expr_FromAny{..}
-    EToTextTemplateId tpl -> do
-        expr . P.ExprSumToTextTemplateId <$> encodeQualTypeConName' tpl
+    EToTextTypeConName tycon -> do
+        expr . P.ExprSumToTextTypeConName <$> encodeQualTypeConName' tycon
   where
     expr = P.Expr Nothing . Just
     pureExpr = pure . expr
