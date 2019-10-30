@@ -162,7 +162,7 @@ gcCtxs Handle{..} ctxIds = withLock hContextLock $ withSem hConcurrencySem $
 
 encodeModule :: LF.Version -> LF.Module -> (Hash, BS.ByteString)
 encodeModule v m = (Hash $ hash m', m')
-  where m' = LowLevel.encodeModule v m
+  where m' = LowLevel.encodeScenarioModule v m
 
 runScenario :: Handle -> LowLevel.ContextId -> LF.ValueRef -> IO (Either LowLevel.Error LowLevel.ScenarioResult)
 runScenario Handle{..} ctxId name = do

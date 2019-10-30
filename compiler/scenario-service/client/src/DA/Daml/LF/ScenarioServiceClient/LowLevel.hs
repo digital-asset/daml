@@ -22,7 +22,7 @@ module DA.Daml.LF.ScenarioServiceClient.LowLevel
   , updateCtx
   , runScenario
   , SS.ScenarioResult(..)
-  , encodeModule
+  , encodeScenarioModule
   , ScenarioServiceException(..)
   ) where
 
@@ -94,9 +94,9 @@ data ContextUpdate = ContextUpdate
   , updSkipValidation :: SkipValidation
   }
 
-encodeModule :: LF.Version -> LF.Module -> BS.ByteString
-encodeModule version m = case version of
-    LF.V1{} -> BSL.toStrict (Proto.toLazyByteString (EncodeV1.encodeModuleWithoutInterning version m))
+encodeScenarioModule :: LF.Version -> LF.Module -> BS.ByteString
+encodeScenarioModule version m = case version of
+    LF.V1{} -> BSL.toStrict (Proto.toLazyByteString (EncodeV1.encodeScenarioModule version m))
 
 data BackendError
   = BErrorClient ClientError
@@ -306,10 +306,10 @@ updateCtx Handle{..} (ContextId ctxId) ContextUpdate{..} = do
         (V.fromList (map snd updLoadPackages))
         (V.fromList (map (TL.fromStrict . LF.unPackageId) updUnloadPackages))
     encodeName = TL.fromStrict . T.intercalate "." . LF.unModuleName
-    convModule :: (LF.ModuleName, BS.ByteString) -> SS.Module
+    convModule :: (LF.ModuleName, BS.ByteString) -> SS.ScenarioModule
     convModule (_, bytes) =
         case updDamlLfVersion of
-            LF.V1 minor -> SS.Module (Just (SS.ModuleModuleDamlLf1 bytes)) (TL.pack $ LF.renderMinorVersion minor)
+            LF.V1 minor -> SS.ScenarioModule bytes (TL.pack $ LF.renderMinorVersion minor)
 
 runScenario :: Handle -> ContextId -> LF.ValueRef -> IO (Either Error SS.ScenarioResult)
 runScenario Handle{..} (ContextId ctxId) name = do

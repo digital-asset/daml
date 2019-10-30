@@ -5,7 +5,7 @@
 {-# LANGUAGE TypeFamilies #-}
 -- | Encoding of the LF package into LF version 1 format.
 module DA.Daml.LF.Proto3.EncodeV1
-  ( encodeModuleWithoutInterning
+  ( encodeScenarioModule
   , encodePackage
   ) where
 
@@ -757,11 +757,10 @@ encodeFeatureFlags FeatureFlags{..} = Just P.FeatureFlags
     , P.featureFlagsDontDiscloseNonConsumingChoicesToObservers = True
     }
 
-encodeModuleWithoutInterning :: Version -> Module -> P.Module
-encodeModuleWithoutInterning version mod =
-    let env = initEncodeEnv version (WithInterning False)
-    in
-    evalState (encodeModule mod) env
+-- each scenario module is wrapped in a proto package
+encodeScenarioModule :: Version -> Module -> P.Package
+encodeScenarioModule version mod =
+    encodePackage (Package version $ NM.insert mod NM.empty)
 
 encodeModule :: Module -> Encode P.Module
 encodeModule Module{..} = do

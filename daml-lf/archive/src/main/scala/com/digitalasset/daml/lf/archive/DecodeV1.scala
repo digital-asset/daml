@@ -48,18 +48,36 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
             onlySerializableDataDefs).decode))
   }
 
-  type ProtoModule = PLF.Module
+  // each LF scenario module is wrapped in a distinct proto package
+  type ProtoScenarioModule = PLF.Package
 
-  override def protoModule(cis: CodedInputStream): ProtoModule =
-    PLF.Module.parser().parseFrom(cis)
+  override def protoScenarioModule(cis: CodedInputStream): ProtoScenarioModule =
+    PLF.Package.parser().parseFrom(cis)
 
-  override def decodeScenarioModule(packageId: PackageId, lfModule: ProtoModule): Module =
+  override def decodeScenarioModule(
+      packageId: PackageId,
+      lfScenarioModule: ProtoScenarioModule): Module = {
+
+    val internedStrings =
+      ImmArray(lfScenarioModule.getInternedStringsList.asScala).toSeq
+    val internedDottedNames =
+      decodeInternedDottedNames(
+        lfScenarioModule.getInternedDottedNamesList.asScala,
+        internedStrings)
+
+    if (lfScenarioModule.getModulesCount != 1)
+      throw ParseError(
+        s"expected exactly one module in proto package, found ${lfScenarioModule.getModulesCount} modules")
+
     ModuleDecoder(
       packageId,
-      ImmArraySeq.empty,
-      ImmArraySeq.empty,
-      lfModule,
-      onlySerializableDataDefs = false).decode()
+      internedStrings,
+      internedDottedNames,
+      lfScenarioModule.getModules(0),
+      onlySerializableDataDefs = false
+    ).decode()
+
+  }
 
   private[this] def decodeInternedDottedNames(
       internedList: Seq[PLF.InternedDottedName],
