@@ -49,9 +49,13 @@ private class ContractsFetch(
       txFilter: TransactionFilter,
       offset: domain.Offset): Source[domain.Error \/ (Contract, domain.Offset), NotUsed] =
     getCreatesAndArchivesSince(jwt, txFilter, domain.Offset.toLedgerApi(offset))
+
+  private def transactionContracts
+    : Flow[lav1.transaction.Transaction, domain.Error \/ (Contract, domain.Offset), NotUsed] =
+    Flow[lav1.transaction.Transaction]
       .mapConcat { tx =>
         val offset = domain.Offset.fromLedgerApi(tx)
-        unsequence(offset)(domain.Contract.fromLedgerApi(tx)).toList
+        unsequence(offset)(domain.Contract.fromLedgerApi(tx))
       }
 
   private def unsequence[A, B, C](c: C)(as: A \/ List[B]): List[A \/ (B, C)] =
