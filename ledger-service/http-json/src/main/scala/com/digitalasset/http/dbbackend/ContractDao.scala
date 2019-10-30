@@ -22,25 +22,25 @@ class ContractDao(xa: Connection.T) {
 
   def lastOffset(
       party: domain.Party,
-      templateId: domain.TemplateId.RequiredPkg): ConnectionIO[Option[String]] =
+      templateId: domain.TemplateId.RequiredPkg): ConnectionIO[Option[domain.Offset]] =
     for {
       tpId <- Queries.surrogateTemplateId(
         templateId.packageId,
         templateId.moduleName,
         templateId.entityName)
-      offset <- Queries.lastOffset(party.unwrap, tpId)
+      offset <- Queries.lastOffset(party.unwrap, tpId).map(_.map(domain.Offset(_)))
     } yield offset
 
   def updateOffset(
       party: domain.Party,
       templateId: domain.TemplateId.RequiredPkg,
-      newOffset: String): ConnectionIO[Unit] =
+      newOffset: domain.Offset): ConnectionIO[Unit] =
     for {
       tpId <- Queries.surrogateTemplateId(
         templateId.packageId,
         templateId.moduleName,
         templateId.entityName)
-      _ <- Queries.updateOffset(party.unwrap, tpId, newOffset)
+      _ <- Queries.updateOffset(party.unwrap, tpId, newOffset.unwrap)
     } yield ()
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
