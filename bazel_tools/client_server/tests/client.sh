@@ -27,6 +27,12 @@ if [[ -z "$port" || -z "$inputFile" ]]; then
   exit 1
 fi
 
+
 exec 5<> /dev/tcp/localhost/$port
 cat $inputFile >&5
 cat <&5
+
+# Write the output file for testing client_server_build.
+if [ -n "${CS_OUT-}" ]; then
+  echo "hello" > $CS_OUT
+fi

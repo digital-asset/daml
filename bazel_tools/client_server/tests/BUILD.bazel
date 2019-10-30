@@ -2,8 +2,12 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load(
-    "//bazel_tools/client_server_test:client_server_test.bzl",
+    "//bazel_tools/client_server:client_server_test.bzl",
     "client_server_test",
+)
+load(
+    "//bazel_tools/client_server:client_server_build.bzl",
+    "client_server_build",
 )
 load(
     "//bazel_tools:scala.bzl",
@@ -41,5 +45,22 @@ client_server_test(
     data = [
         ":client_input_file",
     ],
+    server = ":server",
+)
+
+client_server_build(
+    name = "build",
+    client = ":client",
+    client_args = [
+        "--foobar",
+    ],
+    client_files = [
+        ":client_input_file",
+    ],
+    # Data files available to both client and server.
+    data = [
+        ":client_input_file",
+    ],
+    output_env = "CS_OUT",
     server = ":server",
 )

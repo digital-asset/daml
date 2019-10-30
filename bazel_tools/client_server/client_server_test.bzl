@@ -62,7 +62,7 @@ client_server_test = rule(
             cfg = "host",
             allow_single_file = True,
             executable = True,
-            default = Label("@//bazel_tools/client_server_test/runner:runner"),
+            default = Label("@//bazel_tools/client_server/runner:runner"),
         ),
         "client": attr.label(
             cfg = "target",

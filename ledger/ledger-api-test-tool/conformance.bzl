@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load(
-    "//bazel_tools/client_server_test:client_server_test.bzl",
+    "//bazel_tools/client_server:client_server_test.bzl",
     "client_server_test",
 )
 load("@os_info//:os_info.bzl", "is_windows")
