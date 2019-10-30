@@ -4,7 +4,15 @@
 package com.digitalasset.http
 
 import akka.NotUsed
-import akka.stream.scaladsl.{Broadcast, Flow, GraphDSL, Partition, Sink, Source}
+import akka.stream.scaladsl.{
+  Broadcast,
+  Flow,
+  GraphDSL,
+  Partition,
+  Sink,
+  SinkQueueWithCancel,
+  Source
+}
 import akka.stream.{FanOutShape2, Graph}
 import cats.effect.{ContextShift, IO}
 import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
@@ -14,6 +22,7 @@ import com.digitalasset.ledger.api.v1.transaction_filter.TransactionFilter
 import com.digitalasset.ledger.api.{v1 => lav1}
 import scalaz.std.tuple._
 import scalaz.syntax.functor._
+import scalaz.syntax.std.option._
 import scalaz.{-\/, \/, \/-}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -147,6 +156,21 @@ private object ContractsFetch {
       dup ~> off
       new FanOutShape2(dup.in, acs.out, off.out)
     }
+
+  private def sinkCioSequence_[Ign](f: SinkQueueWithCancel[doobie.ConnectionIO[Ign]])(
+      implicit ec: ExecutionContext): doobie.ConnectionIO[Unit] = {
+    import doobie.ConnectionIO, doobie.free.{connection => fconn}
+    def go(): ConnectionIO[Unit] = {
+      val next = f.pull()
+      connectionIOFuture(next)
+        .flatMap(_.cata(cio => cio flatMap (_ => go()), fconn.pure(())))
+    }
+    go()
+  }
+
+  private def connectionIOFuture[A](fa: Future[A])(
+      implicit ec: ExecutionContext): doobie.ConnectionIO[A] =
+    doobie.free.connection.async[A](k => fa.onComplete(ta => k(ta.toEither)))
 
   final case class InsertDeleteStep[+C](inserts: ImmArraySeq[C], deletes: Set[String]) {
     def append[CC >: C](o: InsertDeleteStep[CC])(cid: CC => String): InsertDeleteStep[CC] =
