@@ -73,7 +73,7 @@ object AuthServiceJWTCodec {
   private[this] final val propAdmin: String = "admin"
   private[this] final val propActAs: String = "actAs"
   private[this] final val propReadAs: String = "readAs"
-  private[this] final val propExp: String = "readAs"
+  private[this] final val propExp: String = "exp"
 
   // ------------------------------------------------------------------------------------------------------------------
   // Encoding
@@ -87,6 +87,9 @@ object AuthServiceJWTCodec {
     propActAs -> writeStringList(v.actAs),
     propReadAs -> writeStringList(v.readAs)
   )
+
+  /** Writes the given payload to a compact JSON string */
+  def compactPrint(v: AuthServiceJWTPayload): String = writePayload(v).compactPrint
 
   private[this] def writeOptionalString(value: Option[String]): JsValue =
     value.fold[JsValue](JsNull)(JsString(_))
