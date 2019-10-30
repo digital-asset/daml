@@ -108,6 +108,9 @@ trait LedgerContext {
     withCallCredentials(callCredentials)
   }
 
+  def withAuthorizationHeader(headerValue: Header): LedgerContext =
+    withAuthorizationHeader(headerValue.toString)
+
   def packageIds: Iterable[Ref.PackageId]
   def ledgerIdentityService: LedgerIdentityService
   def ledgerConfigurationService: LedgerConfigurationService

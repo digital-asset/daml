@@ -71,7 +71,7 @@ final case class Claims(claims: Seq[Claim], expiration: Option[Instant] = None) 
 
   /** Returns false if the expiration timestamp exists and is greather than or equal to the current time */
   def notExpired(now: Instant): Boolean =
-    expiration.forall(_.isBefore(now))
+    expiration.forall(now.isBefore)
 
   /** Returns true if the set of claims authorizes the user to use admin services, unless the claims expired */
   def isAdmin(now: Instant): Boolean =
@@ -88,12 +88,13 @@ final case class Claims(claims: Seq[Claim], expiration: Option[Instant] = None) 
     }
 
   /** Returns true if the set of claims authorizes the user to act as the given party, unless the claims expired */
-  def canActAs(party: String, now: Instant): Boolean =
+  def canActAs(party: String, now: Instant): Boolean = {
     notExpired(now) && claims.exists {
       case ClaimActAsAnyParty => true
-      case ClaimActAsParty(p) => p == party
+      case ClaimActAsParty(p) if p == party => true
       case _ => false
     }
+  }
 }
 
 object Claims {

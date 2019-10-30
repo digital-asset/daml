@@ -34,8 +34,8 @@ final class OngoingAuthorizationObserver[A](
   override def setMessageCompression(b: Boolean): Unit = wrapped.setMessageCompression(b)
 
   override def onNext(v: A): Unit =
-    if (authorized(claims)) observer.onError(throwOnFailure)
-    else observer.onNext(v)
+    if (authorized(claims)) observer.onNext(v)
+    else observer.onError(throwOnFailure)
 
   override def onError(throwable: Throwable): Unit = observer.onError(throwable)
 
