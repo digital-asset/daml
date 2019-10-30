@@ -10,7 +10,6 @@ import cats.effect.{ContextShift, IO}
 import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
 import com.digitalasset.http.ContractsService.ActiveContract
 import com.digitalasset.jwt.domain.Jwt
-import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
 import com.digitalasset.ledger.api.v1.transaction_filter.TransactionFilter
 import com.digitalasset.ledger.api.{v1 => lav1}
 import scalaz.std.tuple._
@@ -48,10 +47,8 @@ private class ContractsFetch(
   private def fetchActiveContractsFromOffset(
       jwt: Jwt,
       txFilter: TransactionFilter,
-      offsetSource: Source[LedgerOffset, NotUsed])
-    : Source[domain.Error \/ (Contract, domain.Offset), NotUsed] =
-    offsetSource
-      .flatMapConcat(offset => getCreatesAndArchivesSince(jwt, txFilter, offset))
+      offset: domain.Offset): Source[domain.Error \/ (Contract, domain.Offset), NotUsed] =
+    getCreatesAndArchivesSince(jwt, txFilter, domain.Offset.toLedgerApi(offset))
       .mapConcat { tx =>
         val offset = domain.Offset.fromLedgerApi(tx)
         unsequence(offset)(domain.Contract.fromLedgerApi(tx)).toList
@@ -65,9 +62,6 @@ private class ContractsFetch(
 
   private def ioToSource[Out](io: IO[Out]): Source[Out, NotUsed] =
     Source.fromFuture(io.unsafeToFuture())
-
-  private def ledgerOffset(offset: String): LedgerOffset =
-    LedgerOffset(LedgerOffset.Value.Absolute(offset))
 }
 
 private object ContractsFetch {
