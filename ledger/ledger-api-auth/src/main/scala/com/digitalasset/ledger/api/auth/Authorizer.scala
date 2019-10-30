@@ -3,7 +3,7 @@
 
 package com.digitalasset.ledger.api.auth
 
-import java.time.Clock
+import java.time.Instant
 
 import com.digitalasset.ledger.api.auth.interceptor.AuthorizationInterceptor
 import com.digitalasset.ledger.api.v1.transaction_filter.TransactionFilter
@@ -21,30 +21,30 @@ object Authorizer {
 /** A simple helper that allows services to use authorization claims
   * that have been stored by [[AuthorizationInterceptor]].
   */
-final class Authorizer(clock: Clock) {
+final class Authorizer(now: () => Instant) {
 
   import Authorizer.authError
 
   def requirePublicClaimsOnStream[Req, Res](
       call: (Req, StreamObserver[Res]) => Unit): (Req, StreamObserver[Res]) => Unit =
-    wrapStream(_.isPublic(clock), call)
+    wrapStream(_.isPublic(now()), call)
 
   def requirePublicClaims[Req, Res](call: Req => Future[Res]): Req => Future[Res] =
-    wrapSingleCall(_.isPublic(clock), call)
+    wrapSingleCall(_.isPublic(now()), call)
 
   def requireAdminClaimsOnStream[Req, Res](
       call: (Req, StreamObserver[Res]) => Unit): (Req, StreamObserver[Res]) => Unit =
-    wrapStream(_.isAdmin(clock), call)
+    wrapStream(_.isAdmin(now()), call)
 
   def requireAdminClaims[Req, Res](call: Req => Future[Res]): Req => Future[Res] =
-    wrapSingleCall(_.isAdmin(clock), call)
+    wrapSingleCall(_.isAdmin(now()), call)
 
   def requireNotExpiredOnStream[Req, Res](
       call: (Req, StreamObserver[Res]) => Unit): (Req, StreamObserver[Res]) => Unit =
-    wrapStream(_.notExpired(clock), call)
+    wrapStream(_.notExpired(now()), call)
 
   def requireNotExpired[Req, Res](call: Req => Future[Res]): Req => Future[Res] =
-    wrapSingleCall(_.notExpired(clock), call)
+    wrapSingleCall(_.notExpired(now()), call)
 
   /** Wraps a streaming call to verify whether some Claims authorize to act as all parties
     * of the given set. Authorization is always granted for an empty collection of parties.
@@ -52,7 +52,7 @@ final class Authorizer(clock: Clock) {
   def requireClaimsForAllPartiesOnStream[Req, Res](
       parties: Iterable[String],
       call: (Req, StreamObserver[Res]) => Unit): (Req, StreamObserver[Res]) => Unit =
-    wrapStream(claims => parties.forall(p => claims.canActAs(p, clock)), call)
+    wrapStream(claims => parties.forall(p => claims.canActAs(p, now())), call)
 
   /** Wraps a single call to verify whether some Claims authorize to act as all parties
     * of the given set. Authorization is always granted for an empty collection of parties.
@@ -60,7 +60,7 @@ final class Authorizer(clock: Clock) {
   def requireClaimsForAllParties[Req, Res](
       parties: Iterable[String],
       call: Req => Future[Res]): Req => Future[Res] =
-    wrapSingleCall(claims => parties.forall(p => claims.canActAs(p, clock)), call)
+    wrapSingleCall(claims => parties.forall(p => claims.canActAs(p, now())), call)
 
   /** Checks whether the current Claims authorize to act as the given party, if any.
     * Note: An missing party does NOT result in an authorization error.
@@ -105,7 +105,7 @@ final class Authorizer(clock: Clock) {
               call(
                 request,
                 if (claims.expiration.isDefined)
-                  new OngoingAuthorizationObserver(observer, claims, _.notExpired(clock), authError)
+                  new OngoingAuthorizationObserver(observer, claims, _.notExpired(now()), authError)
                 else observer
               )
             else observer.onError(authError)

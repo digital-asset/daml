@@ -4,7 +4,7 @@
 package com.digitalasset.ledger.api.auth.services
 
 import com.digitalasset.grpc.adapter.utils.DirectExecutionContext
-import com.digitalasset.ledger.api.auth.{AuthService, Authorizer}
+import com.digitalasset.ledger.api.auth.Authorizer
 import com.digitalasset.ledger.api.v1.testing.time_service.TimeServiceGrpc.TimeService
 import com.digitalasset.ledger.api.v1.testing.time_service._
 import com.digitalasset.platform.api.grpc.GrpcApiService
@@ -17,8 +17,7 @@ import scala.concurrent.Future
 
 final class TimeServiceAuthorization(
     protected val service: TimeService with AutoCloseable,
-    private val authorizer: Authorizer,
-    private val authService: AuthService)
+    private val authorizer: Authorizer)
     extends TimeService
     with ProxyCloseable
     with GrpcApiService {

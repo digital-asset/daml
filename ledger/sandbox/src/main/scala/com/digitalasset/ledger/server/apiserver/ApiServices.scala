@@ -139,7 +139,7 @@ object ApiServices {
 
       val apiReflectionService = ProtoReflectionService.newInstance()
 
-      val authorizer = new Authorizer(TimeProvider.clock(timeProvider))
+      val authorizer = new Authorizer(() => java.time.Clock.systemUTC.instant())
 
       val apiTimeServiceOpt =
         optTimeServiceBackend.map { tsb =>
@@ -149,8 +149,7 @@ object ApiServices {
               tsb,
               loggerFactory
             ),
-            authorizer,
-            authService
+            authorizer
           )
         }
 
@@ -166,29 +165,17 @@ object ApiServices {
       new ApiServicesBundle(
         apiTimeServiceOpt.toList :::
           List(
-          new LedgerIdentityServiceAuthorization(apiLedgerIdentityService, authorizer, authService),
-          new PackageServiceAuthorization(apiPackageService, authorizer, authService),
-          new LedgerConfigurationServiceAuthorization(
-            apiConfigurationService,
-            authorizer,
-            authService),
-          new CommandSubmissionServiceAuthorization(apiSubmissionService, authorizer, authService),
-          new TransactionServiceAuthorization(apiTransactionService, authorizer, authService),
-          new CommandCompletionServiceAuthorization(apiCompletionService, authorizer, authService),
-          new CommandServiceAuthorization(apiCommandService, authorizer, authService),
-          new ActiveContractsServiceAuthorization(
-            apiActiveContractsService,
-            authorizer,
-            authService),
+          new LedgerIdentityServiceAuthorization(apiLedgerIdentityService, authorizer),
+          new PackageServiceAuthorization(apiPackageService, authorizer),
+          new LedgerConfigurationServiceAuthorization(apiConfigurationService, authorizer),
+          new CommandSubmissionServiceAuthorization(apiSubmissionService, authorizer),
+          new TransactionServiceAuthorization(apiTransactionService, authorizer),
+          new CommandCompletionServiceAuthorization(apiCompletionService, authorizer),
+          new CommandServiceAuthorization(apiCommandService, authorizer),
+          new ActiveContractsServiceAuthorization(apiActiveContractsService, authorizer),
           apiReflectionService,
-          new PartyManagementServiceAuthorization(
-            apiPartyManagementService,
-            authorizer,
-            authService),
-          new PackageManagementServiceAuthorization(
-            apiPackageManagementService,
-            authorizer,
-            authService),
+          new PartyManagementServiceAuthorization(apiPartyManagementService, authorizer),
+          new PackageManagementServiceAuthorization(apiPackageManagementService, authorizer),
         ))
     }
   }

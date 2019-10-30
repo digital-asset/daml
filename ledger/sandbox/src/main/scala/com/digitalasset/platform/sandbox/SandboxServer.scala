@@ -164,7 +164,6 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
       () => sandboxState.infra.executionContext,
       () => sandboxState.resetAndRestartServer(),
       authorizer,
-      authService,
       loggerFactory
     )
 
@@ -234,7 +233,7 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
         sys.error(msg)
       }, identity)
 
-    val authorizer = new Authorizer(TimeProvider.clock(timeProvider))
+    val authorizer = new Authorizer(() => java.time.Clock.systemUTC.instant())
 
     val apiServer = Await.result(
       LedgerApiServer.create(

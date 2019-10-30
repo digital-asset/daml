@@ -5,7 +5,7 @@ package com.digitalasset.ledger.api.auth.services
 
 import akka.stream.scaladsl.Source
 import com.digitalasset.grpc.adapter.utils.DirectExecutionContext
-import com.digitalasset.ledger.api.auth.{AuthService, Authorizer}
+import com.digitalasset.ledger.api.auth.Authorizer
 import com.digitalasset.ledger.api.v1.command_completion_service.CommandCompletionServiceGrpc.CommandCompletionService
 import com.digitalasset.ledger.api.v1.command_completion_service._
 import com.digitalasset.platform.api.grpc.GrpcApiService
@@ -18,8 +18,7 @@ import scala.concurrent.Future
 
 final class CommandCompletionServiceAuthorization(
     protected val service: GrpcCommandCompletionService with AutoCloseable,
-    private val authorizer: Authorizer,
-    private val authService: AuthService)
+    private val authorizer: Authorizer)
     extends CommandCompletionService
     with ProxyCloseable
     with GrpcApiService {

@@ -4,7 +4,7 @@
 package com.digitalasset.ledger.api.auth.services
 
 import com.digitalasset.grpc.adapter.utils.DirectExecutionContext
-import com.digitalasset.ledger.api.auth.{AuthService, Authorizer}
+import com.digitalasset.ledger.api.auth.Authorizer
 import com.digitalasset.ledger.api.v1.admin.party_management_service.PartyManagementServiceGrpc.PartyManagementService
 import com.digitalasset.ledger.api.v1.admin.party_management_service._
 import com.digitalasset.platform.api.grpc.GrpcApiService
@@ -15,8 +15,7 @@ import scala.concurrent.Future
 
 final class PartyManagementServiceAuthorization(
     protected val service: PartyManagementService with AutoCloseable,
-    private val authorizer: Authorizer,
-    private val authService: AuthService)
+    private val authorizer: Authorizer)
     extends PartyManagementService
     with ProxyCloseable
     with GrpcApiService {

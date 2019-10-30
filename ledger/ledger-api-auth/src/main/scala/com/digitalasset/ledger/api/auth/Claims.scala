@@ -3,7 +3,7 @@
 
 package com.digitalasset.ledger.api.auth
 
-import java.time.Clock
+import java.time.Instant
 
 import com.digitalasset.daml.lf.data.Ref
 
@@ -67,29 +67,29 @@ final case class ClaimActAsParty(name: Ref.Party) extends Claim
   * | TransactionService                  | *                          | for each requested party p: canActAs(p)  |
   * +-------------------------------------+----------------------------+------------------------------------------+
   */
-final case class Claims(claims: Seq[Claim], expiration: Option[Long] = None) {
+final case class Claims(claims: Seq[Claim], expiration: Option[Instant] = None) {
 
-  /** Returns true if the expiration timestamp exists and is strictly less than the current time according to the [[Clock]] */
-  def notExpired(clock: Clock): Boolean =
-    expiration.forall(_ < clock.millis())
+  /** Returns false if the expiration timestamp exists and is greather than or equal to the current time */
+  def notExpired(now: Instant): Boolean =
+    expiration.forall(_.isBefore(now))
 
   /** Returns true if the set of claims authorizes the user to use admin services, unless the claims expired */
-  def isAdmin(clock: Clock): Boolean =
-    notExpired(clock) && claims.exists {
+  def isAdmin(now: Instant): Boolean =
+    notExpired(now) && claims.exists {
       case ClaimAdmin => true
       case _ => false
     }
 
   /** Returns true if the set of claims authorizes the user to use public services, unless the claims expired */
-  def isPublic(clock: Clock): Boolean =
-    notExpired(clock) && claims.exists {
+  def isPublic(now: Instant): Boolean =
+    notExpired(now) && claims.exists {
       case ClaimPublic => true
       case _ => false
     }
 
   /** Returns true if the set of claims authorizes the user to act as the given party, unless the claims expired */
-  def canActAs(party: String, clock: Clock): Boolean =
-    notExpired(clock) && claims.exists {
+  def canActAs(party: String, now: Instant): Boolean =
+    notExpired(now) && claims.exists {
       case ClaimActAsAnyParty => true
       case ClaimActAsParty(p) => p == party
       case _ => false

@@ -4,7 +4,7 @@
 package com.digitalasset.ledger.api.auth.services
 
 import com.digitalasset.grpc.adapter.utils.DirectExecutionContext
-import com.digitalasset.ledger.api.auth.{AuthService, Authorizer}
+import com.digitalasset.ledger.api.auth.Authorizer
 import com.digitalasset.ledger.api.v1.active_contracts_service.ActiveContractsServiceGrpc.ActiveContractsService
 import com.digitalasset.ledger.api.v1.active_contracts_service.{
   ActiveContractsServiceGrpc,
@@ -18,8 +18,7 @@ import io.grpc.stub.StreamObserver
 
 final class ActiveContractsServiceAuthorization(
     protected val service: ActiveContractsService with AutoCloseable,
-    private val authorizer: Authorizer,
-    private val authService: AuthService)
+    private val authorizer: Authorizer)
     extends ActiveContractsService
     with ProxyCloseable
     with GrpcApiService {

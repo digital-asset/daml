@@ -4,7 +4,7 @@
 package com.digitalasset.ledger.api.auth.services
 
 import com.digitalasset.grpc.adapter.utils.DirectExecutionContext
-import com.digitalasset.ledger.api.auth.{AuthService, Authorizer}
+import com.digitalasset.ledger.api.auth.Authorizer
 import com.digitalasset.ledger.api.v1.ledger_identity_service.{
   GetLedgerIdentityRequest,
   GetLedgerIdentityResponse,
@@ -18,8 +18,7 @@ import scala.concurrent.Future
 
 final class LedgerIdentityServiceAuthorization(
     protected val service: LedgerIdentityServiceGrpc.LedgerIdentityService with AutoCloseable,
-    private val authorizer: Authorizer,
-    private val authService: AuthService)
+    private val authorizer: Authorizer)
     extends LedgerIdentityServiceGrpc.LedgerIdentityService
     with ProxyCloseable
     with GrpcApiService {
