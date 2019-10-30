@@ -49,7 +49,7 @@ build --host_java_toolchain=@bazel_tools//tools/jdk:toolchain_hostjdk8
 build --distinct_host_configuration=false
 
 # Propagate locales and the java home to the test environment.
-test --test_env=LANG=en_US.utf8 --test_env=LOCALE_ARCHIVE --test_env=JAVA_HOME
+build --test_env=LANG=en_US.utf8 --test_env=LOCALE_ARCHIVE --test_env=JAVA_HOME
 
 # Disable c-ares support in grpc. We don't need a faster DNS library
 # since we're only connecting to localhost.
