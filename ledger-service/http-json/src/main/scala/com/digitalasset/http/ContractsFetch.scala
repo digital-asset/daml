@@ -62,27 +62,33 @@ private class ContractsFetch(
       templateId: domain.TemplateId.RequiredPkg
   )(
       implicit ec: ExecutionContext,
-      mat: Materializer): ConnectionIO[(Seq[ActiveContract], lav1.ledger_offset.LedgerOffset)] = {
+      mat: Materializer): ConnectionIO[lav1.ledger_offset.LedgerOffset] = {
 
-    val graph = RunnableGraph.fromGraph(GraphDSL.create() {
-      implicit builder: GraphDSL.Builder[NotUsed] =>
+    val graph = RunnableGraph.fromGraph(
+      GraphDSL.create(
+        Sink.queue[Seq[lav1.event.CreatedEvent]](),
+        Sink.last[lav1.ledger_offset.LedgerOffset]
+      )((a, b) => (a, b)) { implicit builder => (acsSink, offsetSink) =>
         import GraphDSL.Implicits._
 
         val source = getActiveContracts(jwt, transactionFilter(party, List(templateId)), true)
-        val acsSink = Sink.queue[Seq[lav1.event.CreatedEvent]]()
-        val offsetSink = Sink.queue[lav1.ledger_offset.LedgerOffset]()
         val stage = builder.add(acsAndBoundary)
 
-        val x = stage.out0 ~> acsSink
-        val y = stage.out1 ~> offsetSink
+        // TODO add a stage to persist ACS
+        stage.out0 ~> acsSink
+        stage.out1 ~> offsetSink
 
         ClosedShape
-    })
+      })
 
-    graph.run()
+    val (acsQueue, lastOffsetFuture) = graph.run()
+
+//    for {
+//      _ <- sinkCioSequence_(acsQueue)
+//      offset <- connectionIOFuture(lastOffsetFuture)
+//    } yield offset
 
     ???
-
   }
 
   private def readLastOffsetFromDb(
