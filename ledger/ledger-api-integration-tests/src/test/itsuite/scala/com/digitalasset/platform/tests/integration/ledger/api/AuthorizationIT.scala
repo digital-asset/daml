@@ -8,8 +8,9 @@ import java.nio.file.Files
 import java.util.{Timer, TimerTask, UUID}
 
 import com.digitalasset.daml.bazeltools.BazelRunfiles.rlocation
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.ledger.api.auth._
+import com.digitalasset.jwt.{HMAC256Verifier, JwtSigner}
+import com.digitalasset.jwt.domain.DecodedJwt
+import com.digitalasset.ledger.api.auth.{AuthServiceJWT, AuthServiceJWTCodec, AuthServiceJWTPayload}
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.digitalasset.ledger.api.v1.active_contracts_service.{
@@ -63,23 +64,71 @@ class AuthorizationIT
   private val alice = testIdsGenerator.testPartyName("Alice")
   private val bob = testIdsGenerator.testPartyName("Bob")
 
+  private val operatorPayload = AuthServiceJWTPayload(
+    ledgerId = None,
+    participantId = None,
+    applicationId = None,
+    exp = None,
+    admin = true,
+    actAs = List(operator),
+    readAs = List(operator)
+  )
+
+  private val alicePayload = AuthServiceJWTPayload(
+    ledgerId = None,
+    participantId = None,
+    applicationId = None,
+    exp = None,
+    admin = false,
+    actAs = List(alice),
+    readAs = List(alice)
+  )
+
+  private val bobPayload = AuthServiceJWTPayload(
+    ledgerId = None,
+    participantId = None,
+    applicationId = None,
+    exp = None,
+    admin = false,
+    actAs = List(bob),
+    readAs = List(bob)
+  )
+
+  private val jwtHeader = """{"alg": "HS256", "typ": "JWT"}"""
+  private def jwtSecret = "AuthorizationIT"
+
+  private val operatorToken = JwtSigner.HMAC256
+    .sign(DecodedJwt(jwtHeader, AuthServiceJWTCodec.compactPrint(operatorPayload)), jwtSecret)
+    .getOrElse(sys.error("Failed to generate token"))
+    .value
+  private val aliceToken = JwtSigner.HMAC256
+    .sign(DecodedJwt(jwtHeader, AuthServiceJWTCodec.compactPrint(alicePayload)), jwtSecret)
+    .getOrElse(sys.error("Failed to generate token"))
+    .value
+  private val bobToken = JwtSigner.HMAC256
+    .sign(DecodedJwt(jwtHeader, AuthServiceJWTCodec.compactPrint(bobPayload)), jwtSecret)
+    .getOrElse(sys.error("Failed to generate token"))
+    .value
+  private val invalidSignatureToken = JwtSigner.HMAC256
+    .sign(
+      DecodedJwt(jwtHeader, AuthServiceJWTCodec.compactPrint(operatorPayload)),
+      "invalid secret")
+    .getOrElse(sys.error("Failed to generate token"))
+    .value
+
+  private val operatorHeader = s"Bearer $operatorToken"
+  private val aliceHeader = s"Bearer $aliceToken"
+  private val bobHeader = s"Bearer $bobToken"
+  private val invalidSignatureHeader = s"Bearer $invalidSignatureToken"
+
   private val testApplicationId = "AuthorizationIT"
 
   override protected def config: Config =
     Config.default
-      .withAuthService(AuthServiceStatic({
-        case Header(party, expiration) if party == alice || party == bob =>
-          Claims(
-            List[Claim](ClaimPublic, ClaimActAsParty(Ref.Party.assertFromString(party))),
-            expiration)
-        case Header(party, expiration) if party == operator =>
-          Claims(
-            List[Claim](
-              ClaimPublic,
-              ClaimAdmin,
-              ClaimActAsParty(Ref.Party.assertFromString(operator))),
-            expiration)
-      }))
+      .withAuthService(
+        AuthServiceJWT(
+          HMAC256Verifier(jwtSecret)
+            .getOrElse(sys.error("Failed to create HMAC256 verifier"))))
 
   "ActiveContractsService" when {
     "getActiveContracts" should {
@@ -338,12 +387,14 @@ class AuthorizationIT
         val ctxAlice = ctxNone.withAuthorizationHeader(Header(alice))
         val ctxAliceExpired = ctxNone.withAuthorizationHeader(Header(alice).expired)
         val ctxAliceValid = ctxNone.withAuthorizationHeader(Header(alice).expiresTomorrow)
+        val ctxAliceInvalidSignature = ctxNone.withAuthorizationHeader(Header(invalidSignatureHeader))
 
         def call(ctx: LedgerContext) =
           ctx.ledgerIdentityService.getLedgerIdentity(new GetLedgerIdentityRequest())
 
         for {
           _ <- mustBeDenied(call(ctxNone)) // Reading the ledger ID without authorization
+          _ <- mustBeDenied(call(ctxAliceInvalidSignature)) // Reading the ledger ID with an invalid token
           _ <- call(ctxAlice) // Reading the ledger ID with authorization
           _ <- mustBeDenied(call(ctxAliceExpired))
           _ <- call(ctxAliceValid)
