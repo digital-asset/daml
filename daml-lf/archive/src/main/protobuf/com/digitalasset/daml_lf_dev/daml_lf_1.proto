@@ -778,13 +778,6 @@ message Expr {
     Expr expr = 2;
   }
 
-  // Obtain a unique textual representation of a template Id
-  // *Available in versions >= 1.dev*
-  message ToTextTemplateId {
-    // type to convert to text. Must be a TypeConName.
-    Type type = 1;
-  }
-
   // Location of the expression in the DAML code source.
   // Optional
   Location location = 25;
@@ -880,7 +873,7 @@ message Expr {
 
     // Obtain a unique textual representation of a template Id
     // *Available in versions >= 1.dev*
-    ToTextTemplateId to_text_template_id = 32;
+    TypeConName to_text_template_id = 32;
   }
 
   reserved 19; // This was equals. Removed in favour of BuiltinFunction.EQUAL_*

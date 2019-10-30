@@ -182,11 +182,15 @@ encodeList encodeElem = fmap V.fromList . mapM encodeElem
 encodeNameMap :: NM.Named a => (a -> Encode b) -> NM.NameMap a -> Encode (V.Vector b)
 encodeNameMap encodeElem = fmap V.fromList . mapM encodeElem . NM.toList
 
-encodeQualTypeConName :: Qualified TypeConName -> Encode (Just P.TypeConName)
-encodeQualTypeConName (Qualified pref mname con) = do
+encodeQualTypeConName' :: Qualified TypeConName -> Encode (P.TypeConName)
+encodeQualTypeConName' (Qualified pref mname con) = do
     typeConNameModule <- encodeModuleRef pref mname
     typeConNameName <- encodeDottedName unTypeConName con
-    pure $ Just P.TypeConName{..}
+    pure $ P.TypeConName{..}
+
+encodeQualTypeConName :: Qualified TypeConName -> Encode (Just P.TypeConName)
+encodeQualTypeConName tycon = Just <$> encodeQualTypeConName' tycon
+
 
 encodeSourceLoc :: SourceLoc -> Encode P.Location
 encodeSourceLoc SourceLoc{..} = do
@@ -565,8 +569,7 @@ encodeExpr' = \case
         expr_FromAnyExpr <- encodeExpr body
         pureExpr $ P.ExprSumFromAny P.Expr_FromAny{..}
     EToTextTemplateId tpl -> do
-        expr_ToTextTemplateIdType <- encodeType (TCon tpl)
-        pureExpr $ P.ExprSumToTextTemplateId P.Expr_ToTextTemplateId{..}
+        expr . P.ExprSumToTextTemplateId <$> encodeQualTypeConName' tpl
   where
     expr = P.Expr Nothing . Just
     pureExpr = pure . expr
