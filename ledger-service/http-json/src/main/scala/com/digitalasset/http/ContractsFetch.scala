@@ -121,7 +121,9 @@ private object ContractsFetch {
       .mapMaterializedValue(_ map (_ map LedgerOffset.apply))
   }
 
-  /** Split a series of ACS responses into two channels: one with  */
+  /** Split a series of ACS responses into two channels: one with contracts, the
+    * other with one or more offsets, of which all but the last should be ignored.
+    */
   private def acsAndBoundary: Graph[
     FanOutShape2[
       lav1.active_contracts_service.GetActiveContractsResponse,
