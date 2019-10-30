@@ -12,3 +12,4 @@ HEAD — ongoing
 - [DAML Compiler] Reduce the memory footprint of the IDE and the command line tools (ca. 18% in our experiments).
 - [DAML Triggers] Add ``dedupCreate`` and ``dedupExercise`` helpers that will only send
   commands if they are not already in flight.
+- [Sandbox] Fixed a bug a database migration script for Sandbox on Postgres introduced in SDK 0.13.32. See `issue #3284 <https://github.com/digital-asset/daml/issues/3284>`__.
