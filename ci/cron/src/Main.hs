@@ -201,7 +201,7 @@ tell_hubspot latest = do
     let summary = "Release notes for version " <> name latest <> "."
     token <- Env.getEnv "HUBSPOT_TOKEN"
     submit_blog <- http_post ("https://api.hubapi.com/content/api/v2/blog-posts?hapikey=" <> token)
-                             [("Content-Type", "application.json")]
+                             [("Content-Type", "application/json")]
                              $ JSON.encode $ SubmitBlog { body = LBS.toString desc,
                                                           date,
                                                           summary,
@@ -210,7 +210,7 @@ tell_hubspot latest = do
       Nothing -> Exit.die $ "No blog id from HubSpot: \n" <> LBS.toString submit_blog
       Just BlogId { blog_id } -> do
           _ <- http_post ("https://api.hubapi.com/content/api/v2/blog-posts/" <> show blog_id <> "/publish-action?hapikey=" <> token)
-                         [("Content-Type", "application.json")]
+                         [("Content-Type", "application/json")]
                          (JSON.encode $ JSON.object [("action", "schedule-publish")])
           return ()
 
