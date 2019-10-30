@@ -139,9 +139,8 @@ private object ContractsFetch {
       val dup = b add Broadcast[GACR](2)
       val acs = b add (Flow fromFunction ((_: GACR).activeContracts))
       val off = b add Flow[GACR]
-        .collect { case gacr if gacr.offset.nonEmpty => gacr.offset }
-        .map(Absolute)
-        .prepend(Source single (Boundary(LedgerBoundary.LEDGER_BEGIN): Value))
+        .collect { case gacr if gacr.offset.nonEmpty => Absolute(gacr.offset): Value }
+        .prepend(Source single Boundary(LedgerBoundary.LEDGER_BEGIN))
         .conflate((_, later) => later)
         .map(LedgerOffset.apply)
       dup ~> acs
