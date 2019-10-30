@@ -42,7 +42,7 @@ private[parser] object Lexer extends RegexParsers {
     "to" -> `to`,
     "to_any" -> `to_any`,
     "from_any" -> `from_any`,
-    "to_text_template_id" -> `to_text_template_id`
+    "to_text_type_con_name" -> `to_text_type_con_name`
   )
 
   val token: Parser[Token] =

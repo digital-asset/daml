@@ -184,7 +184,13 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
         E"""λ (t: Any) -> (( from_any @Int64 t ))""" ->
           T"Any → Option Int64",
         // ExpToTextTemplateId
-        E"""(( to_text_template_id @Mod:T ))""" ->
+        E"""(( to_text_type_con_name @Mod:T ))""" ->
+          T"Text",
+        E"""(( to_text_type_con_name @Mod:R ))""" ->
+          T"Text",
+        E"""(( to_text_type_con_name @Mod:Tree ))""" ->
+          T"Text",
+        E"""(( to_text_type_con_name @Mod:Color ))""" ->
           T"Text",
       )
 
@@ -372,7 +378,7 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
         E"Λ (τ : *). λ (t: Any) → (( to_any @(∀ (α : ⋆). Int64) t ))",
         E"Λ (τ : *). λ (t: Any) → (( to_any @(List (Optional (∀ (α : ⋆). Int64))) t ))",
         // ExpToTextTemplateId
-        E"to_text_template_id @Mod:NoSuchType",
+        E"to_text_type_con_name @Mod:NoSuchType",
         // ScnPure
         E"Λ (τ : ⋆ → ⋆). λ (e: τ) → (( spure @τ e ))",
         E"Λ (τ : ⋆) (σ : ⋆). λ (e: τ) → (( spure @σ e ))",
