@@ -211,7 +211,7 @@ tell_hubspot latest = do
     putStrLn "Fetching hs token from env"
     token <- Env.getEnv "HUBSPOT_TOKEN"
     submit_blog <- http_post ("https://api.hubapi.com/content/api/v2/blog-posts?hapikey=" <> token)
-                             [("Content-Type", "application.json")]
+                             [("Content-Type", "application/json")]
                              $ JSON.encode $ SubmitBlog { body = LBS.toString desc,
                                                           date,
                                                           summary,
@@ -225,7 +225,7 @@ tell_hubspot latest = do
           -- DEBUG
           putStrLn $ "Parsed blog ID as " <> show blog_id
           _ <- http_post ("https://api.hubapi.com/content/api/v2/blog-posts/" <> show blog_id <> "/publish-action?hapikey=" <> token)
-                         [("Content-Type", "application.json")]
+                         [("Content-Type", "application/json")]
                          (JSON.encode $ JSON.object [("action", "schedule-publish")])
           return ()
 
