@@ -13,3 +13,4 @@ HEAD — ongoing
 - [DAML Triggers] Add ``dedupCreate`` and ``dedupExercise`` helpers that will only send
   commands if they are not already in flight.
 - [Sandbox] Fixed a bug a database migration script for Sandbox on Postgres introduced in SDK 0.13.32. See `issue #3284 <https://github.com/digital-asset/daml/issues/3284>`__.
+- [DAML Integration Kit] Revive integration kit documentations (albeit in an out-of-date form for now).
