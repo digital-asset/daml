@@ -123,12 +123,8 @@ class Context(val contextId: Context.ContextId) {
 
     // And now the new modules can be loaded.
     val lfModules = loadModules.map(module =>
-      module.getModuleCase match {
-        case ProtoScenarioModule.ModuleCase.DAML_LF_1 =>
-          decodeModule(LanguageVersion.Major.V1, module.getMinor, module.getDamlLf1)
-        case ProtoScenarioModule.ModuleCase.MODULE_NOT_SET =>
-          throw Context.ContextException("Module.MODULE_NOT_SET")
-    })
+      decodeModule(LanguageVersion.Major.V1, module.getMinor, module.getDamlLf1))
+
     modules ++= lfModules.map(m => m.name -> m)
     if (!forScenarioService)
       validate(newPackages.keys ++ Iterable(homePackageId))

@@ -328,9 +328,8 @@ message Map {
 // used here as LF modules can have deep nesting depth and it is
 // not easy to change the recursion depth limit in gRPC.
 message ScenarioModule {
-  oneof module {
-    bytes daml_lf_1 = 2;  // each LF v1 module is wrapped in a proto package
-  }
+  // each LF v1 module is wrapped in a proto package
+  bytes daml_lf_1 = 2;
 
   // for daml_lf_dev the minor version is ignored by the scenario service.
   string minor = 1;

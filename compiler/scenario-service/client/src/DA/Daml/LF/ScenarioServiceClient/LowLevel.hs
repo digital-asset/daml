@@ -309,7 +309,7 @@ updateCtx Handle{..} (ContextId ctxId) ContextUpdate{..} = do
     convModule :: (LF.ModuleName, BS.ByteString) -> SS.ScenarioModule
     convModule (_, bytes) =
         case updDamlLfVersion of
-            LF.V1 minor -> SS.ScenarioModule (Just (SS.ScenarioModuleModuleDamlLf1 bytes)) (TL.pack $ LF.renderMinorVersion minor)
+            LF.V1 minor -> SS.ScenarioModule bytes (TL.pack $ LF.renderMinorVersion minor)
 
 runScenario :: Handle -> ContextId -> LF.ValueRef -> IO (Either Error SS.ScenarioResult)
 runScenario Handle{..} (ContextId ctxId) name = do

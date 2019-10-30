@@ -48,8 +48,7 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
             onlySerializableDataDefs).decode))
   }
 
-  // LF scenario modules are wrapped in a distinct proto package
-  // LF scenario modules are wrapped in a distinct proto package
+  // each LF scenario module is wrapped in a distinct proto package
   type ProtoScenarioModule = PLF.Package
 
   override def protoScenarioModule(cis: CodedInputStream): ProtoScenarioModule =
