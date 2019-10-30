@@ -40,3 +40,15 @@ da_scala_library(
         "@maven//:org_slf4j_slf4j_api",
     ],
 )
+
+da_scala_test_suite(
+    name = "ledger-api-auth-scala-tests",
+    srcs = glob(["src/test/suite/**/*.scala"]),
+    deps = [
+        ":ledger-api-auth",
+        "@maven//:io_spray_spray_json_2_12",
+        "@maven//:org_scalacheck_scalacheck_2_12",
+        "@maven//:org_scalatest_scalatest_2_12",
+        "@maven//:org_scalaz_scalaz_scalacheck_binding_2_12",
+    ],
+)
