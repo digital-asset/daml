@@ -243,7 +243,9 @@ in rec {
     gsutil = gcloud;
     # used to set up the webide CI pipeline in azure-cron.yml
     docker-credential-gcr = pkgs.docker-credential-gcr;
-    terraform = pkgs.terraform.withPlugins (p: with p; [
+    # Note: we need to pin Terraform to 0.11 until nixpkgs includes a version
+    # of the secret provider that is compatiblz with Terraform 0.12 (1.1.0+)
+    terraform = pkgs.terraform_0_11.withPlugins (p: with p; [
       google
       google-beta
       random
