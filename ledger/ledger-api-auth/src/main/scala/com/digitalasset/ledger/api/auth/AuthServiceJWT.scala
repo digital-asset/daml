@@ -25,7 +25,7 @@ class AuthServiceJWT(verifier: JwtVerifier) extends AuthService {
   override def decodeMetadata(headers: Metadata): CompletionStage[Claims] = {
     decodeAndParse(headers).fold(
       error => {
-        logger.warn("Authorization error:", error)
+        logger.warn("Authorization error: " + error.message)
         CompletableFuture.completedFuture(Claims.empty)
       },
       token => CompletableFuture.completedFuture(payloadToClaims(token))
@@ -46,7 +46,8 @@ class AuthServiceJWT(verifier: JwtVerifier) extends AuthService {
         .apply(headers.get(AuthServiceJWT.AUTHORIZATION_KEY))
         .toRight(Error("Authorization header not found"))
       token <- bearerTokenRegex
-        .findFirstIn(headerValue)
+        .findFirstMatchIn(headerValue)
+        .map(_.group(1))
         .toRight(Error("Authorization header does not use Bearer format"))
       decoded <- verifier
         .verify(com.digitalasset.jwt.domain.Jwt(token))
@@ -81,4 +82,7 @@ object AuthServiceJWT {
 
   def apply(verifier: com.auth0.jwt.interfaces.JWTVerifier) =
     new AuthServiceJWT(new JwtVerifier(verifier))
+
+  def apply(verifier: JwtVerifier) =
+    new AuthServiceJWT(verifier)
 }
