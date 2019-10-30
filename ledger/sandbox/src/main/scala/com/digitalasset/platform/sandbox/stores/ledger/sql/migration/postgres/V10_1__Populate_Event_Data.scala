@@ -85,14 +85,15 @@ class V10_1__Populate_Event_Data extends BaseJavaMigration {
           observers.map(observer =>
             Seq[NamedParameter]("contract_id" -> cid.coid, "party" -> observer))
       }
-      BatchSql(
-        "INSERT INTO contract_observers VALUES ({contract_id}, {party})",
-        observers.head,
-        observers.tail: _*
-      ).execute()(conn)
-
+      if (observers.nonEmpty) {
+        BatchSql(
+          "INSERT INTO contract_observers VALUES ({contract_id}, {party})",
+          observers.head,
+          observers.tail: _*
+        ).execute()(conn)
+      }
+      ()
     }
-
     ()
   }
 }

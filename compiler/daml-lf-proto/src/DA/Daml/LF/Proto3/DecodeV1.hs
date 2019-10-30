@@ -502,12 +502,9 @@ decodeExprSum exprSum = mayDecode "exprSum" exprSum $ \case
     type' <- mayDecode "expr_FromAnyType" mbType decodeType
     expr <- mayDecode "expr_FromAnyExpr" mbExpr decodeExpr
     return (EFromAny type' expr)
-  LF1.ExprSumToTextTemplateId (LF1.Expr_ToTextTemplateId mbType) -> do
-    type' <- mayDecode "expr_ToTextTemplateIdType" mbType decodeType
-    case type' of
-        TCon con ->
-            return (EToTextTemplateId con)
-        _ -> throwError (ExpectedTCon type')
+  LF1.ExprSumToTextTypeConName tycon -> do
+    con <- decodeTypeConName tycon
+    return (EToTextTypeConName con)
 
 decodeUpdate :: LF1.Update -> Decode Expr
 decodeUpdate LF1.Update{..} = mayDecode "updateSum" updateSum $ \case

@@ -460,7 +460,7 @@ convertGenericTemplate env x
                 in
                 ETyLam (proxyName, KStar `KArrow` KStar) $!
                     if envLfVersion env `supports` featureTemplateTypeRep
-                        then ETmLam (arg, argType) $ ERecCon resType [(resField, EToTextTemplateId monoTyCon)]
+                        then ETmLam (arg, argType) $ ERecCon resType [(resField, EToTextTypeConName monoTyCon)]
                         else EBuiltin BEError `ETyApp` (argType :-> typeConAppToType resType) `ETmApp` EBuiltin (BEText "templateTypeRep is not supported in this DAML-LF version")
         tyArgs <- mapM (convertType env) tyArgs
         -- NOTE(MH): The additional lambda is DICTIONARY SANITIZATION step (3).

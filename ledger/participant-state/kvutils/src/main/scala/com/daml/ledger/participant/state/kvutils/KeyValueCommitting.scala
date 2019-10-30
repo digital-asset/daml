@@ -71,7 +71,7 @@ object KeyValueCommitting {
     Metrics.lastParticipantIdGauge.updateValue(participantId)
     val ctx = Metrics.runTimer.time()
     try {
-      submission.getPayloadCase match {
+      val (logEntry, outputState) = submission.getPayloadCase match {
         case DamlSubmission.PayloadCase.PACKAGE_UPLOAD_ENTRY =>
           ProcessPackageUpload(
             engine,
@@ -114,6 +114,11 @@ object KeyValueCommitting {
         case DamlSubmission.PayloadCase.PAYLOAD_NOT_SET =>
           throw Err.InvalidSubmission("DamlSubmission.payload not set.")
       }
+
+      // Dump ledger entry to disk if ledger dumping is enabled.
+      Debug.dumpLedgerEntry(submission, participantId, entryId, logEntry, outputState)
+
+      (logEntry, outputState)
     } catch {
       case scala.util.control.NonFatal(e) =>
         logger.warn(s"Exception: $e")

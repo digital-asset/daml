@@ -1273,15 +1273,6 @@ object SBuiltin {
     }
   }
 
-  /** $to_text_template_id
-    *     :: Text
-    */
-  final case class SBToTextTemplateId(tmplId: TypeConName) extends SBuiltin(0) {
-    def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
-      machine.ctrl = CtrlValue(SText(tmplId.toString()))
-    }
-  }
-
   // Helpers
   //
 

@@ -241,8 +241,8 @@ Version: 1.dev
     ``from_any`` and ``to_any`` functions to convert from/to
     an arbitrary ground type (i.e. a type with no free type variables) to ``Any``.
 
-  * **Add** ``to_text_template_id`` to generate a unique textual representation
-    of a template Id.
+  * **Add** ``to_text_type_con_name`` to generate a unique textual representation
+    of a type constructor.
 
 Abstract syntax
 ^^^^^^^^^^^^^^^
@@ -586,7 +586,7 @@ Then we can define our kinds, types, and expressions::
        |  u                                         -- ExpUpdate: Update expression
        | 'to_any' @τ t                              -- ExpToAny: Wrap a value of the given type in Any
        | 'from_any' @τ t                            -- ExpToAny: Extract a value of the given from Any or return None
-       | 'to_text_template_id' @Mod:T               -- ExpToTextTemplateId: Generate a unique textual representation of the given TypeConName
+       | 'to_text_type_con_name' @Mod:T             -- ExpToTextTypeConName: Generate a unique textual representation of the given TypeConName
 
   Patterns
     p
@@ -889,9 +889,17 @@ Then we define *well-formed expressions*. ::
     ——————————————————————————————————————————————————————————————— ExpFromAny
       Γ  ⊢  'from_any' @τ e  :  'Optional' τ
 
-      'tpl' (x : T) ↦ …  ∈  〚Ξ〛Mod
-    ——————————————————————————————————————————————————————————————— ExpToTextTemplateId
-      Γ  ⊢  'to_text_template_id' @Mod:T  :  'Text'
+      'record' (x : T) ↦ …  ∈  〚Ξ〛Mod
+    ——————————————————————————————————————————————————————————————— ExpToTextTypeConNameRecord
+      Γ  ⊢  'to_text_type_con_name' @Mod:T  :  'Text'
+
+      'variant' (x : T) ↦ …  ∈  〚Ξ〛Mod
+    ——————————————————————————————————————————————————————————————— ExpToTextTypeConNameVariant
+      Γ  ⊢  'to_text_type_con_name' @Mod:T  :  'Text'
+
+      'enum' (x : T) ↦ …  ∈  〚Ξ〛Mod
+    ——————————————————————————————————————————————————————————————— ExpToTextTypeConNameEnum
+      Γ  ⊢  'to_text_type_con_name' @Mod:T  :  'Text'
 
     ——————————————————————————————————————————————————————————————— ExpBuiltin
       Γ  ⊢  F : 𝕋(F)
@@ -1672,8 +1680,8 @@ exact output.
       'from_any' @τ₂ e ‖ E₀  ⇓  'None' ‖ E₁
 
 
-    —————————————————————————————————————————————————————————————————————— EvExpToTextTemplateId
-      'to_text_template_id' @Mod:T ‖ E₀  ⇓  "Mod:T" ‖ E₀
+    —————————————————————————————————————————————————————————————————————— EvExpToTextTypeConName
+      'to_text_type_con_name' @Mod:T ‖ E₀  ⇓  "Mod:T" ‖ E₀
 
       e₁ ‖ E₀  ⇓  Ok v₁ ‖ E₁
       v 'matches' p₁  ⇝  Succ (x₁ ↦ v₁ · … · xₘ ↦ vₘ · ε)
