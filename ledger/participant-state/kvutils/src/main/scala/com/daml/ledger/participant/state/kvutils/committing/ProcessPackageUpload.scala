@@ -3,7 +3,7 @@
 
 package com.daml.ledger.participant.state.kvutils.committing
 
-import java.util.concurrent.Executors
+import java.util.concurrent.{Executors, ThreadFactory}
 
 import com.codahale.metrics
 import com.codahale.metrics.{Counter, Timer}
@@ -18,7 +18,6 @@ import com.digitalasset.daml.lf.language.Ast
 import org.slf4j.LoggerFactory
 
 import scala.collection.JavaConverters._
-import scala.concurrent.ExecutionContext
 
 private[kvutils] case class ProcessPackageUpload(
     engine: Engine,
@@ -146,8 +145,16 @@ private[kvutils] case class ProcessPackageUpload(
 }
 
 private[kvutils] object ProcessPackageUpload {
-  private[committing] val serialContext =
-    ExecutionContext.fromExecutor(Executors.newSingleThreadExecutor())
+  private[committing] val serialContext = {
+    Executors.newSingleThreadExecutor(new ThreadFactory {
+      // Use a custom thread factory that creates daemon threads to avoid blocking the JVM from exiting.
+      override def newThread(runnable: Runnable): Thread = {
+        val t = new Thread(runnable)
+        t.setDaemon(true)
+        t
+      }
+    })
+  }
 
   private[committing] object Metrics {
     private val registry = metrics.SharedMetricRegistries.getOrCreate("kvutils")

@@ -62,6 +62,7 @@ def install_java_deps():
             "io.circe:circe-yaml_2.12:0.10.0",
             "io.dropwizard.metrics:metrics-core:4.0.0",
             "io.dropwizard.metrics:metrics-jmx:4.0.0",
+            "io.dropwizard.metrics:metrics-jvm:4.0.0",
             "io.grpc:grpc-api:1.22.1",
             "io.grpc:grpc-core:1.22.1",
             "io.grpc:grpc-netty:1.22.1",
