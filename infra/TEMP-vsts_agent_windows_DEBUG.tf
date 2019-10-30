@@ -13,7 +13,7 @@ resource "google_compute_region_instance_group_manager" "vsts-agent-windows-TEMP
 
   # keep the name short. windows hostnames are limited to 12(?) chars.
   # -5 for the random postfix:
-  base_instance_name = "windebbug"
+  base_instance_name = "windebug"
 
   region      = "${local.region}"
   target_size = 1
