@@ -41,6 +41,27 @@ case class AuthServiceJWTPayload(
     readAs: List[String]
 )
 
+/**
+  * Codec for writing and reading [[AuthServiceJWTPayload]] to and from JSON.
+  *
+  * In general:
+  * - All fields are optional in JSON for forward/backward compatibility reasons.
+  * - Extra JSON fields are ignored when reading.
+  * - Null values and missing JSON fields map to None or a safe default value (if there is one).
+  *
+  * Example:
+  * ```
+  * {
+  *   "ledgerId": "aaaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+  *   "participantId": null,
+  *   "applicationId": null,
+  *   "exp": "2019-10-30T14:11:28Z",
+  *   "admin": true,
+  *   "actAs": ["Alice"],
+  *   "readAs": ["Alice", "Bob"],
+  * }
+  * ```
+  */
 object AuthServiceJWTCodec {
 
   // ------------------------------------------------------------------------------------------------------------------
