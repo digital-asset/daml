@@ -92,8 +92,12 @@ http_post url headers body = do
     let request = request' { HTTP.requestHeaders = ("User-Agent", "DAML cron (team-daml-language@digitalasset.com)") : headers,
                              HTTP.method = "POST",
                              HTTP.requestBody = HTTP.RequestBodyBS $ BS.fromString $ LBS.toString body }
+    -- DEBUG
+    putStrLn $ "About to POST to " <> url <> "\n" <> show body
     response <- HTTP.httpLbs request manager
     let status = Status.statusCode $ HTTP.responseStatus response
+    -- DEBUG
+    putStrLn $ "Received " <> show status <> " with:\n" <> show (HTTP.responseBody response)
     case status `quot` 100 of
       2 -> return $ HTTP.responseBody response
       _ -> Exit.die $ "POST " <> url <> " failed with " <> show status <> "."
@@ -197,8 +201,14 @@ tell_hubspot :: GitHubVersion -> IO ()
 tell_hubspot latest = do
     putStrLn $ "Publishing "<> name latest <> " to Hubspot..."
     desc <- http_post "https://api.github.com/markdown/raw" [("Content-Type", "text/plain")] (LBS.fromString $ notes latest)
+    -- DEBUG
+    putStrLn $ "About to read date " <> (show $ published_at latest) <> " to epoch ms"
     date <- (read <$> (<> "000")) . init <$> (shell $ "date -d " <> published_at latest <> " +%s")
+    -- DEBUG
+    putStrLn $ "date read as " <> show date
     let summary = "Release notes for version " <> name latest <> "."
+    -- DEBUG
+    putStrLn "Fetching hs token from env"
     token <- Env.getEnv "HUBSPOT_TOKEN"
     submit_blog <- http_post ("https://api.hubapi.com/content/api/v2/blog-posts?hapikey=" <> token)
                              [("Content-Type", "application.json")]
@@ -207,8 +217,13 @@ tell_hubspot latest = do
                                                           summary,
                                                           version = name latest }
     case JSON.decode submit_blog of
-      Nothing -> Exit.die $ "No blog id from HubSpot: \n" <> LBS.toString submit_blog
+      Nothing -> do
+          -- DEBUG
+          putStrLn "About to die because blog id could not be parsed"
+          Exit.die $ "No blog id from HubSpot: \n" <> LBS.toString submit_blog
       Just BlogId { blog_id } -> do
+          -- DEBUG
+          putStrLn $ "Parsed blog ID as " <> show blog_id
           _ <- http_post ("https://api.hubapi.com/content/api/v2/blog-posts/" <> show blog_id <> "/publish-action?hapikey=" <> token)
                          [("Content-Type", "application.json")]
                          (JSON.encode $ JSON.object [("action", "schedule-publish")])
