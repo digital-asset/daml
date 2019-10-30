@@ -13,7 +13,11 @@ def _client_server_build_impl(ctx):
         use_default_shell_env = True,
         command = """
         export {output_env}="{output_path}"
-        {runner} "{client}" "{client_args} {client_files}" "{server}" "{server_args} {server_files}"
+        {runner} "{client}" "{client_args} {client_files}" "{server}" "{server_args} {server_files}" &> runner.log
+        if [ "$?" -ne 0 ]; then
+          cat runner.log
+          exit 1
+        fi
       """.format(
             output_env = ctx.attr.output_env,
             output_path = ctx.outputs.out.path,
