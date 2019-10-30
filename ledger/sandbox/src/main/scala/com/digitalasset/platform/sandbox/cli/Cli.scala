@@ -8,6 +8,8 @@ import java.time.Duration
 
 import ch.qos.logback.classic.Level
 import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.jwt.HMAC256Verifier
+import com.digitalasset.ledger.api.auth.AuthServiceJWT
 import com.digitalasset.ledger.api.tls.TlsConfiguration
 import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.sandbox.BuildInfo
@@ -152,6 +154,12 @@ object Cli {
         .validate(v => Either.cond(v > 0, (), "Max TTL must be a positive number"))
         .text("The maximum TTL allowed for commands in seconds")
         .action( (maxTtl, config) => config.copy(timeModel = config.timeModel.copy(maxTtl = Duration.ofSeconds(maxTtl))))
+
+    opt[String]("auth-jwt-hs256")
+      .optional()
+      .validate(v => Either.cond(v.length > 0, (), "HMAC secret must be a non-empty string"))
+      .text("Enables JWT-based authorization, where the JWT is signed by HMAC256 with the given secret")
+      .action( (secret, config) => config.copy(authService = Some(AuthServiceJWT(HMAC256Verifier(secret).getOrElse(sys.error("Failed to create HMAC256 verifier"))))))
 
     help("help").text("Print the usage text")
 
