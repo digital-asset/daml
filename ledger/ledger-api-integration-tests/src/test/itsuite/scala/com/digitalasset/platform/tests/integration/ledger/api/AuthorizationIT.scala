@@ -5,7 +5,7 @@ package com.digitalasset.platform.tests.integration.ledger.api
 
 import java.io.File
 import java.nio.file.Files
-import java.util.UUID
+import java.util.{Timer, TimerTask, UUID}
 
 import com.digitalasset.daml.bazeltools.BazelRunfiles.rlocation
 import com.digitalasset.daml.lf.data.Ref
@@ -172,6 +172,26 @@ class AuthorizationIT
                   Some(ledgerBegin)),
                 observer))
 
+        def callAndExpectExpiration(ctx: LedgerContext, party: String) =
+          expectExpiration[CompletionStreamResponse](
+            observer =>
+              ctx.commandCompletionService.completionStream(
+                new CompletionStreamRequest(
+                  ledgerId.unwrap,
+                  testApplicationId,
+                  List(party),
+                  Some(ledgerBegin)),
+                observer))
+
+        def scheduleCommandInMillis(millis: Long): Unit = {
+          val timer = new Timer(true)
+          timer.schedule(new TimerTask {
+            override def run(): Unit = {
+              val _ = ctxAlice.commandSubmissionService.submit(dummyCommandRequest(ledgerId, alice))
+            }
+          }, millis)
+        }
+
         for {
           // Create some commands so that the completion stream is not empty
           _ <- ctxAlice.commandSubmissionService.submit(dummyCommandRequest(ledgerId, alice))
@@ -181,6 +201,9 @@ class AuthorizationIT
           _ <- call(ctxAlice, alice) // Reading completions for Alice as Alice
           _ <- mustBeDenied(call(ctxAliceExpired, alice)) // Reading completions for Alice as Alice after expiration
           _ <- call(ctxAliceValid, alice) // Reading completions for Alice as Alice before expiration
+          _ = scheduleCommandInMillis(1100)
+          ctxAliceAboutToExpire = ctxNone.withAuthorizationHeader(Header(alice).expiresInOneSecond)
+          _ <- callAndExpectExpiration(ctxAliceAboutToExpire, alice)
         } yield {
           succeed
         }
@@ -666,7 +689,7 @@ class AuthorizationIT
   /** Returns a future that fails iff the given stream immediately fails. */
   private def streamResult[T](fn: StreamObserver[T] => Unit): Future[Unit] = {
     val promise = Promise[Unit]()
-    object observer extends StreamObserver[T] {
+    fn(new StreamObserver[T] {
       def onNext(value: T): Unit = {
         val _ = promise.trySuccess(())
       }
@@ -676,8 +699,33 @@ class AuthorizationIT
       def onCompleted(): Unit = {
         val _ = promise.trySuccess(())
       }
-    }
-    fn(observer)
+    })
+    promise.future
+  }
+
+  private def expectExpiration[T](fn: StreamObserver[T] => Unit): Future[Unit] = {
+    val promise = Promise[Unit]()
+    fn(new StreamObserver[T] {
+      @volatile private[this] var gotSomething = false
+      def onNext(value: T): Unit = {
+        gotSomething = true
+      }
+      def onError(t: Throwable): Unit = {
+        t match {
+          case e: StatusException
+              if e.getStatus.getCode == Status.Code.PERMISSION_DENIED && gotSomething =>
+            val _ = promise.trySuccess(())
+          case e: StatusRuntimeException
+              if e.getStatus.getCode == Status.Code.PERMISSION_DENIED && gotSomething =>
+            val _ = promise.trySuccess(())
+          case _ =>
+            val _ = promise.tryFailure(t)
+        }
+      }
+      def onCompleted(): Unit = {
+        val _ = promise.tryFailure(new RuntimeException("stream completed before token expiration"))
+      }
+    })
     promise.future
   }
 

@@ -23,6 +23,7 @@ object Header {
 final case class Header private (party: String, expiration: Option[Instant]) {
   override val toString = s"Bearer $party${expiration.fold("")(t => s" ${t.toEpochMilli}")}"
   def expiresIn(t: java.time.Duration): Header = copy(expiration = Some(Instant.now.plus(t)))
+  def expiresInOneSecond: Header = expiresIn(Duration.ofSeconds(1))
   def expiresTomorrow: Header = expiresIn(Duration.ofDays(1))
   def expired: Header = expiresIn(Duration.ofDays(-1))
 }
