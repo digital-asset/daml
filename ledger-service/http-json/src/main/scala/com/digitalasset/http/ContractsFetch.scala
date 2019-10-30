@@ -9,17 +9,21 @@ import akka.stream.scaladsl.{
   Flow,
   GraphDSL,
   Partition,
+  RunnableGraph,
   Sink,
   SinkQueueWithCancel,
   Source
 }
-import akka.stream.{FanOutShape2, Graph}
+import akka.stream.{ClosedShape, FanOutShape2, Graph, Materializer}
 import cats.effect.{ContextShift, IO}
 import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
 import com.digitalasset.http.ContractsService.ActiveContract
+import com.digitalasset.http.domain.TemplateId
+import com.digitalasset.http.util.IdentifierConverters.apiIdentifier
 import com.digitalasset.jwt.domain.Jwt
-import com.digitalasset.ledger.api.v1.transaction_filter.TransactionFilter
 import com.digitalasset.ledger.api.{v1 => lav1}
+import doobie.free.connection
+import doobie.free.connection.ConnectionIO
 import scalaz.std.tuple._
 import scalaz.syntax.functor._
 import scalaz.syntax.std.option._
@@ -39,43 +43,97 @@ private class ContractsFetch(
   def fetchActiveContractsFromOffset(
       dao: Option[dbbackend.ContractDao],
       party: domain.Party,
-      templateId: domain.TemplateId.RequiredPkg)(implicit cs: ContextShift[IO]) =
-    for {
-      _ <- IO.shift(cs)
-//      a <- dao
-//      x = fetchActiveContractsFromOffset(???, party, templateId)
+      templateId: domain.TemplateId.RequiredPkg)(implicit cs: ContextShift[IO]) = {
+
+    val statement: ConnectionIO[Unit] = for {
+      offset <- readLastOffsetFromDb(party, templateId)
+
     } yield ???
 
-  private def fetchInitialActiveContractSet(jwt: Jwt, txFilter: TransactionFilter)
-    : Source[domain.Error \/ (Contract, Option[domain.Offset]), NotUsed] =
-    getActiveContracts(jwt, txFilter, true).mapConcat { gacr =>
+    dao.map(x => x.transact(statement)) match {
+      case Some(x) => x.map(Some(_))
+      case None => IO.pure(None)
+    }
+  }
+
+  private def contractsToOffsetIo(
+      jwt: Jwt,
+      party: domain.Party,
+      templateId: domain.TemplateId.RequiredPkg
+  )(
+      implicit ec: ExecutionContext,
+      mat: Materializer): ConnectionIO[(Seq[ActiveContract], lav1.ledger_offset.LedgerOffset)] = {
+
+    val graph = RunnableGraph.fromGraph(GraphDSL.create() {
+      implicit builder: GraphDSL.Builder[NotUsed] =>
+        import GraphDSL.Implicits._
+
+        val source = getActiveContracts(jwt, transactionFilter(party, List(templateId)), true)
+        val acsSink = Sink.queue[Seq[lav1.event.CreatedEvent]]()
+        val offsetSink = Sink.queue[lav1.ledger_offset.LedgerOffset]()
+        val stage = builder.add(acsAndBoundary)
+
+        val x = stage.out0 ~> acsSink
+        val y = stage.out1 ~> offsetSink
+
+        ClosedShape
+    })
+
+    graph.run()
+
+    ???
+
+  }
+
+  private def readLastOffsetFromDb(
+      party: domain.Party,
+      templateId: domain.TemplateId.RequiredPkg): ConnectionIO[Option[domain.Offset]] =
+    contractDao match {
+      case Some(dao) => dao.lastOffset(party, templateId)
+      case None => connection.pure(None)
+    }
+
+  private val initialActiveContracts: Flow[
+    lav1.active_contracts_service.GetActiveContractsResponse,
+    domain.Error \/ (Contract, Option[domain.Offset]),
+    NotUsed
+  ] =
+    Flow[lav1.active_contracts_service.GetActiveContractsResponse].mapConcat { gacr =>
       val offset = domain.Offset.fromLedgerApi(gacr)
       unsequence(offset)(domain.Contract.fromLedgerApi(gacr))
     }
 
-  private def fetchActiveContractsFromOffset(
-      jwt: Jwt,
-      txFilter: TransactionFilter,
-      offset: domain.Offset): Source[domain.Error \/ (Contract, domain.Offset), NotUsed] =
-    getCreatesAndArchivesSince(jwt, txFilter, domain.Offset.toLedgerApi(offset))
-      .via(transactionContracts)
-
-  private def transactionContracts
-    : Flow[lav1.transaction.Transaction, domain.Error \/ (Contract, domain.Offset), NotUsed] =
+  private val transactionContracts: Flow[
+    lav1.transaction.Transaction,
+    domain.Error \/ (Contract, domain.Offset),
+    NotUsed
+  ] =
     Flow[lav1.transaction.Transaction]
       .mapConcat { tx =>
         val offset = domain.Offset.fromLedgerApi(tx)
         unsequence(offset)(domain.Contract.fromLedgerApi(tx))
       }
 
-  private def unsequence[A, B, C](c: C)(as: A \/ List[B]): List[A \/ (B, C)] =
-    as.fold(
+  private def unsequence[A, B, C](c: C)(fbs: A \/ List[B]): List[A \/ (B, C)] =
+    fbs.fold(
       a => List(-\/(a)),
       bs => bs.map(b => \/-((b, c)))
     )
 
   private def ioToSource[Out](io: IO[Out]): Source[Out, NotUsed] =
     Source.fromFuture(io.unsafeToFuture())
+
+  private def transactionFilter(
+      party: domain.Party,
+      templateIds: List[TemplateId.RequiredPkg]): lav1.transaction_filter.TransactionFilter = {
+    import lav1.transaction_filter._
+
+    val filters =
+      if (templateIds.isEmpty) Filters.defaultInstance
+      else Filters(Some(lav1.transaction_filter.InclusiveFilters(templateIds.map(apiIdentifier))))
+
+    TransactionFilter(Map(domain.Party.unwrap(party) -> filters))
+  }
 }
 
 private object ContractsFetch {
@@ -159,7 +217,8 @@ private object ContractsFetch {
 
   private def sinkCioSequence_[Ign](f: SinkQueueWithCancel[doobie.ConnectionIO[Ign]])(
       implicit ec: ExecutionContext): doobie.ConnectionIO[Unit] = {
-    import doobie.ConnectionIO, doobie.free.{connection => fconn}
+    import doobie.ConnectionIO
+    import doobie.free.{connection => fconn}
     def go(): ConnectionIO[Unit] = {
       val next = f.pull()
       connectionIOFuture(next)
