@@ -203,7 +203,7 @@ Version: 1.5
     ``ContractId a`` is serializable whenever ``a`` is so. This is more
     relaxed than the previous condition.
 
-  * **Add** ``COERCE_CONTRACT_ID`` primitive for coercing ``ContractId``s.
+  * **Add** ``COERCE_CONTRACT_ID`` primitive for coercing ``ContractId`` s.
 
   * **Change** ``Update.Exercise`` such that ``actor`` is now optional.
 
@@ -2674,22 +2674,13 @@ message::
     oneof Sum {
       Unit self = 1;
       string package_id = 2;
-      uint32 interned_id = 3;
     }
   }
 
 One should use either the field ``self`` to refer the current package or
-one of ``interned_id`` [Available in versions >= 1.6] or ``package_id``
-to refer to an external package. During deserialization ``self``
-references are replaced by the actual digest of the package in which it
-appears.
-
-[*Available in versions >= 1.6*]
-
-``Package.interned_package_ids`` is a list of package IDs.
-``interned_id``, if used, must be a valid zero-based index into this
-list in the ``Package`` that contains the ``PackageRef`` in question;
-such a ``PackageRef`` refers to the external package ID at that index.
+``package_id`` to refer to an external package. During deserialization
+``self`` references are replaced by the actual digest of the package in
+which it appears.
 
 
 Template precondition
@@ -2903,15 +2894,54 @@ program using the field ``enum`` in ``DefDataType`` messages, the
 field ``enum`` in  ``CaseAlt`` messages, or the field ``enum_con``
 in ``Expr`` messages.
 
-intern package IDs
-..................
+Interned String
+...............
 
 [*Available in versions >= 1.6*]
 
-In ``PackageRef``, the alternative ``interned_id`` may be used in place
-of ``package_id``, in which case the package ID will be that at the
-given index into ``Package.interned_package_ids``.
-See `Package reference`_.
+``Package.interned_strings`` is a list of strings. A so-called
+``interned string`` is a valid zero-based index of this list.
+``interned string`` are interpreted as the string its indexes in
+``Package.interned_strings``.
+
++ An `interned package id` is an `interned string` that can be interpreted as a valid `PackageId string`.
++ An `interned party` is an `interned string` that can be interpreted as a valid `Party string`.
++ An `interned numeric id` is an `interned string` that can be interpreted as a valid `numeric` literal.
++ An `interned text` is an `interned string` interpreted as a text literal
++ An `interned identifier` is an `interned string` that can be interpreted as a valid `identifier`
+
+Starting from DAML-LF 1.6, the field ``PackageRef.package_id_interned_string``
+[*Available in versions >= 1.6*] maybe be used instead ``PackageRef.package_id``.
+If such case it must be a valid *interned packageId*.
+
+Starting from DAML-LF 1.dev, ``Package.interned_strings`` is the only field of type
+``string`` (or ``repeated string``) allowed in an archive.
+The deserialization process will reject any DAML-LF 1.dev (or latter)
+that that does not comply this restriction.
+Those fields are identified with the suffix ``_str``
+
+Alternative fields of type ``int32`` (or ``repeated int32``) with
+the suffix ``_interned_str`` must be used instead.
+Such field must be a valid ``internal string``.
+
+Interned DottedNames
+....................
+
+[*Available in versions >= 1.dev*]
+
+``InternedDottedName`` is a non-empty list of valid `interned identifiers`.
+A so-called `interned name` is a valid zero-based index of this list.
+*interned names* are interpreted as the name built form the identifiers it
+indexes.
+
+Starting from DAML-LF 1.dev, the field fields of type ``DottedName`` are forbidden.
+The deserialization process will reject any DAML-LF 1.dev (or latter)
+that that does not comply this restriction. Those fields are identified with the
+suffix ``_dname``.
+
+Alternative fields of type ``int32`` with the suffix ``interned_dname``
+must be used instead. In such case the field  must be a valid
+``interned name``.
 
 Nat kind and Nat types
 ......................
@@ -2998,6 +3028,20 @@ On the other hand, starting from DAML-LF 1.dev:
   containing ``DECIMAL`` in their name are forbidden). The
   deserialization process will reject any DAML-LF 1.dev (or latter)
   that does not comply those restrictions.
+
+Any template
+............
+
+[*Available in versions >= 1.dev*]
+
+This is an experimental feature used in DAML Triggers.
+More details will be provided in a near future.
+
+The curious reader can temporaly refer to the following PRs for more details:
+ * https://github.com/digital-asset/daml/issues/2876
+ * https://github.com/digital-asset/daml/issues/3072
+
+
 
 .. Local Variables:
 .. eval: (flyspell-mode 1)

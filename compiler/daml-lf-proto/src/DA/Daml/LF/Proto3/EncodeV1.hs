@@ -13,6 +13,7 @@ import           Control.Lens ((^.), matching)
 import           Control.Lens.Ast (rightSpine)
 import           Control.Monad.State.Strict
 
+import qualified Data.Bifunctor as Bf
 import           Data.Coerce
 import           Data.Functor.Identity
 import qualified Data.HashMap.Strict as HMS
@@ -134,21 +135,26 @@ encodeNames = encodeInternableStrings . fmap mangleName
            Left err -> error $ "IMPOSSIBLE: could not mangle name " ++ show unmangled ++ ": " ++ err
            Right mangled -> mangled
 
+
 -- | Encode the multi-component name of a syntactic object, e.g., a type
 -- constructor. All compononents are mangled. Dotted names will be interned
 -- in DAML-LF 1.7 and onwards.
-encodeDottedName :: (a -> [T.Text]) -> a -> Encode (Just P.DottedName)
+encodeDottedName :: Util.EitherLike P.DottedName Int32 e
+                 => (a -> [T.Text]) -> a -> Encode (Just e)
 encodeDottedName unwrapDottedName (unwrapDottedName -> unmangled) =
-    Just . uncurry P.DottedName <$> encodeDottedName' unmangled
+    Just <$>
+      Util.fromEither @P.DottedName @Int32 <$>
+      Bf.first P.DottedName <$>
+      encodeDottedName' unmangled
 
-encodeDottedName' :: [T.Text] -> Encode (V.Vector TL.Text, Int32)
+encodeDottedName' :: [T.Text] -> Encode (Either (V.Vector TL.Text) Int32)
 encodeDottedName' unmangled = do
     mangledAndInterned <- encodeNames unmangled
     case mangledAndInterned of
-        Left mangled -> pure (V.fromList mangled, 0)
+        Left mangled -> pure $ Left (V.fromList mangled)
         Right ids -> do
             id <- allocDottedName ids
-            pure (V.empty, id)
+            pure $ Right id
 
 -- | Encode the name of a top-level value. The name is mangled and will be
 -- interned in DAML-LF 1.7 and onwards.
@@ -159,7 +165,11 @@ encodeDottedName' unmangled = do
 -- have to handle separatedly. So for now, considering that we do not
 -- use values in codegen, just mangle the entire thing.
 encodeValueName :: ExprValName -> Encode (V.Vector TL.Text, Int32)
-encodeValueName valName = encodeDottedName' [unExprValName valName]
+encodeValueName valName = do
+    either <- encodeDottedName' [unExprValName valName]
+    case either of
+        Left mangled -> pure (mangled, 0)
+        Right id -> pure (V.empty, id)
 
 -- | Encode a reference to a package. Package names are not mangled. Package
 -- name are interned since DAML-LF 1.6.
@@ -169,8 +179,9 @@ encodePackageRef = fmap (Just . P.PackageRef . Just) . \case
     PRImport (PackageId pkgId) -> do
         EncodeEnv{..} <- get
         if getWithInterning withInterning
-            then P.PackageRefSumInternedId <$> allocString pkgId
-            else pure $ P.PackageRefSumPackageId $ encodeString pkgId
+            then P.PackageRefSumPackageIdInternedStr <$> allocString pkgId
+            else pure $ P.PackageRefSumPackageIdStr $ encodeString pkgId
+
 
 ------------------------------------------------------------------------
 -- Simple encodings
@@ -316,17 +327,17 @@ encodeBuiltinExpr :: BuiltinExpr -> Encode P.ExprSum
 encodeBuiltinExpr = \case
     BEInt64 x -> pureLit $ P.PrimLitSumInt64 x
     BEDecimal dec ->
-        lit . either P.PrimLitSumDecimal P.PrimLitSumDecimalInternedId
+        lit . either P.PrimLitSumDecimalStr P.PrimLitSumDecimalInternedStr
         <$> encodeInternableString (T.pack (show dec))
     BENumeric n ->
-        lit . either P.PrimLitSumNumeric P.PrimLitSumNumericInternedId
+        lit . either P.PrimLitSumNumericStr P.PrimLitSumNumericInternedStr
         <$> encodeInternableString (T.pack (show n))
     BEText x ->
-        lit . either P.PrimLitSumText P.PrimLitSumTextInternedId
+        lit . either P.PrimLitSumTextStr P.PrimLitSumTextInternedStr
         <$> encodeInternableString x
     BETimestamp x -> pureLit $ P.PrimLitSumTimestamp x
     BEParty x ->
-        lit . either P.PrimLitSumParty P.PrimLitSumPartyInternedId
+        lit . either P.PrimLitSumPartyStr P.PrimLitSumPartyInternedStr
         <$> encodeInternableString (unPartyLiteral x)
     BEDate x -> pureLit $ P.PrimLitSumDate x
 
@@ -464,10 +475,10 @@ encodeBuiltinExpr = \case
 
 encodeExpr' :: Expr -> Encode P.Expr
 encodeExpr' = \case
-    EVar v -> expr . either P.ExprSumVar P.ExprSumVarInternedId <$> encodeName' unExprVarName v
+    EVar v -> expr . either P.ExprSumVarStr P.ExprSumVarInternedStr <$> encodeName' unExprVarName v
     EVal (Qualified pkgRef modName val) -> do
         valNameModule <- encodeModuleRef pkgRef modName
-        (valNameName, valNameNameInternedId) <- encodeValueName val
+        (valNameName, valNameNameInternedDname) <- encodeValueName val
         pureExpr $ P.ExprSumVal P.ValName{..}
     EBuiltin bi -> expr <$> encodeBuiltinExpr bi
     ERecCon{..} -> do
@@ -700,7 +711,7 @@ encodeDefDataType DefDataType{..} = do
             pure $ P.DefDataTypeDataConsVariant P.DefDataType_Fields{..}
         DataEnum cs -> do
             mangledAndInterned <- encodeNames (map unVariantConName cs)
-            let (defDataType_EnumConstructorsConstructors, defDataType_EnumConstructorsConstructorsInternedIds) = case mangledAndInterned of
+            let (defDataType_EnumConstructorsConstructorsStr, defDataType_EnumConstructorsConstructorsInternedStr) = case mangledAndInterned of
                     Left mangled -> (V.fromList mangled, V.empty)
                     Right mangledIds -> (V.empty, V.fromList mangledIds)
             pure $ P.DefDataTypeDataConsEnum P.DefDataType_EnumConstructors{..}
@@ -710,7 +721,7 @@ encodeDefDataType DefDataType{..} = do
 
 encodeDefValue :: DefValue -> Encode P.DefValue
 encodeDefValue DefValue{..} = do
-    (defValue_NameWithTypeName, defValue_NameWithTypeNameInternedId) <- encodeValueName (fst dvalBinder)
+    (defValue_NameWithTypeName, defValue_NameWithTypeNameInternedDname) <- encodeValueName (fst dvalBinder)
     defValue_NameWithTypeType <- encodeType (snd dvalBinder)
     let defValueNameWithType = Just P.DefValue_NameWithType{..}
     defValueExpr <- encodeExpr dvalBody

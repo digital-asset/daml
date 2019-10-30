@@ -61,3 +61,9 @@ instance EitherLike TL.Text Int32 P.Type_VarVar
 instance EitherLike TL.Text Int32 P.TypeVarWithKindVar
 instance EitherLike TL.Text Int32 P.Update_ExerciseChoice
 instance EitherLike TL.Text Int32 P.VarWithTypeVar
+
+instance EitherLike P.DottedName Int32 P.ModuleRefModuleName
+instance EitherLike P.DottedName Int32 P.TypeConNameName
+instance EitherLike P.DottedName Int32 P.DefTemplateTycon
+instance EitherLike P.DottedName Int32 P.DefDataTypeName
+instance EitherLike P.DottedName Int32 P.ModuleName

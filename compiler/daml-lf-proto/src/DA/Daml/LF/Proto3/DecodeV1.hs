@@ -96,9 +96,13 @@ decodeNameString wrapName mangled =
 -- | Decode the multi-component name of a syntactic object, e.g., a type
 -- constructor. All compononents are mangled. Dotted names will be interned
 -- in DAML-LF 1.7 and onwards.
-decodeDottedName :: ([T.Text] -> a) -> LF1.DottedName -> Decode a
-decodeDottedName wrapDottedName (LF1.DottedName mangled dnId) =
-    wrapDottedName <$> (decodeInternableStrings mangled dnId >>= mapM (decodeNameString id))
+decodeDottedName :: Util.EitherLike LF1.DottedName Int32 e
+                 => ([T.Text] -> a) -> Maybe e -> Decode a
+decodeDottedName wrapDottedName mbDottedNameOrId = mayDecode "dottedName" mbDottedNameOrId $ \dottedNameOrId -> do
+    mangled <- case Util.toEither dottedNameOrId of
+        Left (LF1.DottedName mangledV) -> decodeInternableStrings mangledV 0
+        Right dnId -> decodeInternableStrings V.empty dnId
+    wrapDottedName <$> mapM (decodeNameString id) mangled
 
 -- | Decode the name of a top-level value. The name is mangled and will be
 -- interned in DAML-LF 1.7 and onwards.
@@ -121,7 +125,7 @@ decodeValueName ident mangledV dnId = do
 decodeValName :: LF1.ValName -> Decode (Qualified ExprValName)
 decodeValName LF1.ValName{..} = do
   (pref, mname) <- mayDecode "valNameModule" valNameModule decodeModuleRef
-  name <- decodeValueName "valNameName" valNameName valNameNameInternedId
+  name <- decodeValueName "valNameName" valNameName valNameNameInternedDname
   pure $ Qualified pref mname name
 
 -- | Decode a reference to a package. Package names are not mangled. Package
@@ -130,8 +134,8 @@ decodePackageRef :: LF1.PackageRef -> Decode PackageRef
 decodePackageRef (LF1.PackageRef pref) =
     mayDecode "packageRefSum" pref $ \case
         LF1.PackageRefSumSelf _ -> pure PRSelf
-        LF1.PackageRefSumPackageId pkgId -> pure $ PRImport $ PackageId $ decodeString pkgId
-        LF1.PackageRefSumInternedId strId -> PRImport . PackageId <$> lookupString strId
+        LF1.PackageRefSumPackageIdStr pkgId -> pure $ PRImport $ PackageId $ decodeString pkgId
+        LF1.PackageRefSumPackageIdInternedStr strId -> PRImport . PackageId <$> lookupString strId
 
 ------------------------------------------------------------------------
 -- Decodings of everything else
@@ -170,7 +174,7 @@ decodePackage minorText (LF1.Package mods internedStringsV internedDottedNamesV)
 decodeModule :: LF1.Module -> Decode Module
 decodeModule (LF1.Module name flags dataTypes values templates) =
   Module
-    <$> mayDecode "moduleName" name (decodeDottedName ModuleName)
+    <$> decodeDottedName ModuleName name
     <*> pure Nothing
     <*> mayDecode "flags" flags decodeFeatureFlags
     <*> decodeNM DuplicateDataType decodeDefDataType dataTypes
@@ -190,7 +194,7 @@ decodeDefDataType :: LF1.DefDataType -> Decode DefDataType
 decodeDefDataType LF1.DefDataType{..} =
   DefDataType
     <$> traverse decodeLocation defDataTypeLocation
-    <*> mayDecode "dataTypeName" defDataTypeName (decodeDottedName TypeConName)
+    <*> decodeDottedName TypeConName defDataTypeName
     <*> pure (IsSerializable defDataTypeSerializable)
     <*> traverse decodeTypeVarWithKind (V.toList defDataTypeParams)
     <*> mayDecode "dataTypeDataCons" defDataTypeDataCons decodeDataCons
@@ -210,7 +214,7 @@ decodeDataCons = \case
 
 decodeDefValueNameWithType :: LF1.DefValue_NameWithType -> Decode (ExprValName, Type)
 decodeDefValueNameWithType LF1.DefValue_NameWithType{..} = (,)
-  <$> decodeValueName "defValueName" defValue_NameWithTypeName defValue_NameWithTypeNameInternedId
+  <$> decodeValueName "defValueName" defValue_NameWithTypeName defValue_NameWithTypeNameInternedDname
   <*> mayDecode "defValueType" defValue_NameWithTypeType decodeType
 
 decodeDefValue :: LF1.DefValue -> Decode DefValue
@@ -227,7 +231,7 @@ decodeDefTemplate LF1.DefTemplate{..} = do
   tplParam <- decodeName ExprVarName defTemplateParam
   Template
     <$> traverse decodeLocation defTemplateLocation
-    <*> mayDecode "defTemplateTycon" defTemplateTycon (decodeDottedName TypeConName)
+    <*> decodeDottedName TypeConName defTemplateTycon
     <*> pure tplParam
     <*> mayDecode "defTemplatePrecond" defTemplatePrecond decodeExpr
     <*> mayDecode "defTemplateSignatories" defTemplateSignatories decodeExpr
@@ -409,8 +413,8 @@ decodeExpr (LF1.Expr mbLoc exprSum) = case mbLoc of
 
 decodeExprSum :: Maybe LF1.ExprSum -> Decode Expr
 decodeExprSum exprSum = mayDecode "exprSum" exprSum $ \case
-  LF1.ExprSumVar var -> EVar <$> decodeNameString ExprVarName (decodeString var)
-  LF1.ExprSumVarInternedId strId -> EVar <$> (lookupString strId >>= decodeNameString ExprVarName)
+  LF1.ExprSumVarStr var -> EVar <$> decodeNameString ExprVarName (decodeString var)
+  LF1.ExprSumVarInternedStr strId -> EVar <$> (lookupString strId >>= decodeNameString ExprVarName)
   LF1.ExprSumVal val -> EVal <$> decodeValName val
   LF1.ExprSumBuiltin (Proto.Enumerated (Right bi)) -> EBuiltin <$> decodeBuiltinFunction bi
   LF1.ExprSumBuiltin (Proto.Enumerated (Left num)) -> throwError (UnknownEnum "ExprSumBuiltin" num)
@@ -625,15 +629,15 @@ decodeVarWithType LF1.VarWithType{..} =
 decodePrimLit :: LF1.PrimLit -> Decode BuiltinExpr
 decodePrimLit (LF1.PrimLit mbSum) = mayDecode "primLitSum" mbSum $ \case
   LF1.PrimLitSumInt64 sInt -> pure $ BEInt64 sInt
-  LF1.PrimLitSumDecimal sDec -> decodeDecimalLit $ decodeString sDec
-  LF1.PrimLitSumDecimalInternedId strId -> lookupString strId >>= decodeDecimalLit
-  LF1.PrimLitSumNumeric sNum -> decodeNumericLit $ decodeString sNum
-  LF1.PrimLitSumNumericInternedId strId -> lookupString strId >>= decodeNumericLit
+  LF1.PrimLitSumDecimalStr sDec -> decodeDecimalLit $ decodeString sDec
+  LF1.PrimLitSumDecimalInternedStr strId -> lookupString strId >>= decodeDecimalLit
+  LF1.PrimLitSumNumericStr sNum -> decodeNumericLit $ decodeString sNum
+  LF1.PrimLitSumNumericInternedStr strId -> lookupString strId >>= decodeNumericLit
   LF1.PrimLitSumTimestamp sTime -> pure $ BETimestamp sTime
-  LF1.PrimLitSumText x -> pure $ BEText $ decodeString x
-  LF1.PrimLitSumTextInternedId strId ->  BEText <$> lookupString strId
-  LF1.PrimLitSumParty p -> pure $ BEParty $ PartyLiteral $ decodeString p
-  LF1.PrimLitSumPartyInternedId strId -> BEParty . PartyLiteral <$> lookupString strId
+  LF1.PrimLitSumTextStr x -> pure $ BEText $ decodeString x
+  LF1.PrimLitSumTextInternedStr strId ->  BEText <$> lookupString strId
+  LF1.PrimLitSumPartyStr p -> pure $ BEParty $ PartyLiteral $ decodeString p
+  LF1.PrimLitSumPartyInternedStr strId -> BEParty . PartyLiteral <$> lookupString strId
   LF1.PrimLitSumDate days -> pure $ BEDate days
 
 decodeDecimalLit :: T.Text -> Decode BuiltinExpr
@@ -729,14 +733,14 @@ decodeTypeConApp LF1.Type_Con{..} =
 decodeTypeConName :: LF1.TypeConName -> Decode (Qualified TypeConName)
 decodeTypeConName LF1.TypeConName{..} = do
   (pref, mname) <- mayDecode "typeConNameModule" typeConNameModule decodeModuleRef
-  con <- mayDecode "typeConNameName" typeConNameName (decodeDottedName TypeConName)
+  con <- decodeDottedName TypeConName typeConNameName
   pure $ Qualified pref mname con
 
 decodeModuleRef :: LF1.ModuleRef -> Decode (PackageRef, ModuleName)
 decodeModuleRef LF1.ModuleRef{..} =
   (,)
     <$> mayDecode "moduleRefPackageRef" moduleRefPackageRef decodePackageRef
-    <*> mayDecode "moduleRefModuleName" moduleRefModuleName (decodeDottedName ModuleName)
+    <*> decodeDottedName ModuleName moduleRefModuleName
 
 ------------------------------------------------------------------------
 -- Helpers

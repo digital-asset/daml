@@ -56,24 +56,20 @@ message PackageRef {
     // belongs.
     Unit self = 1;
 
-    // A `Package identifier` for an imported Package.
-    // A ascii7 lowercase hex-encoded package identifier. This refers
-    // to the DAML LF Archive Hash.
-    string package_id = 2;
+    // *Must be a list of valid packageId string*
+    string package_id_str = 2; // *Available in versions < 1.dev*
 
-    // An index into `interned_package_ids` of the Package containing
-    // this reference.
-    int32 interned_id = 3; // *Available in versions >= 1.6*
+    // *Must be  valid interned package Id string*
+    int32 package_id_interned_str = 3; // *Available in versions >= 1.6*
   }
 }
 
-// A `name`, e.g. Util.Either.isLeft
+// *Available in version < 1.dev*
 message DottedName {
-  // *Must be a non-empty list of a valid identifiers unless `segments_interned_id` is set.*
+
+  // *Must be a non-empty list of a valid identifiers*
   repeated string segments = 1;
 
-  // *Must be set if and only if `segments` is an empty list.*
-  int32 segments_interned_id = 2; // *Available in versions >= 1.dev*
 }
 
 // A fully qualified module reference
@@ -82,8 +78,12 @@ message ModuleRef {
   // package where the module is defined.
   PackageRef package_ref = 1;
 
-  // module name
-  DottedName module_name = 2;
+  oneof module_name {
+    // module name
+    DottedName module_name_dname = 2; // *Available in version < 1.dev*
+
+    int32 module_name_interned_dname = 3; // *Available in version >= 1.dev*
+  }
 
 }
 
@@ -93,9 +93,13 @@ message TypeConName {
   // Module where the type is defined.
   ModuleRef module = 1;
 
-  // type constructor name.
-  DottedName name = 2;
+  oneof name {
+    // type constructor name.
+    DottedName name_dname = 2;
 
+    // *Must be a valid interned name*
+    int32 name_interned_dname = 3; // *Available in versions >= 1.dev*
+  }
 }
 
 // A fully qualified reference to a value definition.
@@ -104,21 +108,22 @@ message ValName {
   // Module where the value is defined
   ModuleRef module = 1;
 
-  // *Must be a non-empty list of a valid identifiers unless `interned_id` is set.*
-  repeated string name = 2;
+  // *Must be a non-empty list of valid identifier*
+  repeated string name = 2; // *Available in version < 1.dev*
 
-  // *Must be set if and only if `segments` is an empty list.*
-  int32 name_interned_id = 3; // *Available in versions >= 1.dev*
+  // *Must be a valid interned name*
+  int32 name_interned_dname = 3; // *Available in versions >= 1.dev*
 }
 
 // A field name definition in a record or a variant associated with a type.
 message FieldWithType {
 
-  // Name of the field .
-  // *Must be a valid identifier*
   oneof field {
-    string name = 1;
-    int32 interned_id = 3; // *Available in versions >= 1.dev*
+      // *Must be a valid identifier*
+      string field_str = 1; // *Available in version < 1.dev*
+
+      // *Must a valid interned identifier*
+      int32 field_interned_str = 3; // *Available in versions >= 1.dev*
   }
 
   // Type associated
@@ -129,10 +134,12 @@ message FieldWithType {
 message VarWithType {
 
   // Name of the bound expression variable.
-  // *Must be a valid identifier*
   oneof var {
-    string name = 1;
-    int32 interned_id = 3; // *Available in versions >= 1.dev*
+    // *Must be a valid identifier*
+    string var_str = 1; // *Available in version < 1.dev*
+
+    // *Must be a valid interned identifier*
+    int32 var_interned_str = 3; // *Available in versions >= 1.dev*
   }
 
   // Type of the bound variable
@@ -141,11 +148,14 @@ message VarWithType {
 
 // Type binder associated with a kind.
 message TypeVarWithKind {
+
   // Name of the bound expression variable
-  // *Must be a valid identifier*
   oneof var {
-    string name = 1;
-    int32 interned_id = 3; // *Available in versions >= 1.dev*
+    // *Must be a valid identifier*
+    string var_str = 1; // *Available in version < 1.dev*
+
+    // *Must be a valid interned identifier*
+    int32 var_interned_str = 3; // *Available in versions >= 1.dev*
   }
 
   // Kind of the bound variable
@@ -154,15 +164,17 @@ message TypeVarWithKind {
 
 // A field in a record with its value.
 message FieldWithExpr {
-  // Name of the field
-  // *Must be a valid identifier*
+
   oneof field {
-    string name = 1;
-    int32 interned_id = 3; // *Available in versions >= 1.dev*
+    // *Must be a valid identifier*
+    string field_str = 1; // *Available in version < 1.dev*
+
+    // *Must be a valid interned identifier*
+    int32 field_interned_str = 3; // *Available in versions >= 1.dev*
   }
 
   // Value of the field
-  Expr expr  = 2;
+  Expr expr = 2;
 }
 
 // A binding of a typed binder to an expression
@@ -267,10 +279,12 @@ message Type {
   message Var {
 
     // Name of the variable.
-    // *Must be a valid identifier*
     oneof var {
-      string var_name = 1;
-      int32 var_interned_id = 3; // *Available in versions >= 1.dev*
+      // *Must be a valid identifier*
+      string var_str = 1; // *Available in version < 1.dev*
+
+      // *Must be a valid interned identifier*
+      int32 var_interned_str = 3; // *Available in versions >= 1.dev*
     }
 
     // Types to which the variable is applied
@@ -318,7 +332,7 @@ message Type {
   }
 
   // Tuple type
-  message Tuple{
+  message Tuple {
     // name of the field with their types.
     repeated FieldWithType fields = 1;
   }
@@ -365,13 +379,13 @@ enum BuiltinFunction {
   DIV_DECIMAL = 3; // *Available in versions < 1.dev*
   ROUND_DECIMAL = 6; // *Available in versions < 1.dev*
 
-  ADD_NUMERIC = 107;    // *Available in versions >= 1.dev*
-  SUB_NUMERIC = 108;    // *Available in versions >= 1.dev*
-  MUL_NUMERIC = 109;    // *Available in versions >= 1.dev*
-  DIV_NUMERIC = 110;    // *Available in versions >= 1.dev*
-  ROUND_NUMERIC = 111;  // *Available in versions >= 1.dev*
-  CAST_NUMERIC = 121;   // *Available in versions >= 1.dev*
-  SHIFT_NUMERIC = 122;  // *Available in versions >= 1.dev*
+  ADD_NUMERIC = 107; // *Available in versions >= 1.dev*
+  SUB_NUMERIC = 108; // *Available in versions >= 1.dev*
+  MUL_NUMERIC = 109; // *Available in versions >= 1.dev*
+  DIV_NUMERIC = 110; // *Available in versions >= 1.dev*
+  ROUND_NUMERIC = 111; // *Available in versions >= 1.dev*
+  CAST_NUMERIC = 121; // *Available in versions >= 1.dev*
+  SHIFT_NUMERIC = 122; // *Available in versions >= 1.dev*
 
   ADD_INT64 = 7;
   SUB_INT64 = 8;
@@ -396,40 +410,40 @@ enum BuiltinFunction {
   ERROR = 25;
 
   LEQ_INT64 = 33;
-  LEQ_DECIMAL = 34;  // *Available in versions < 1.dev*
-  LEQ_NUMERIC = 112;  // *Available in versions >= 1.dev*
+  LEQ_DECIMAL = 34; // *Available in versions < 1.dev*
+  LEQ_NUMERIC = 112; // *Available in versions >= 1.dev*
   LEQ_TEXT = 36;
   LEQ_TIMESTAMP = 37;
   LEQ_DATE = 67;
   LEQ_PARTY = 89; // *Available in versions >= 1.1*
 
   LESS_INT64 = 39;
-  LESS_DECIMAL = 40;  // *Available in versions < 1.dev*
-  LESS_NUMERIC = 113;  // *Available in versions >= 1.dev*
+  LESS_DECIMAL = 40; // *Available in versions < 1.dev*
+  LESS_NUMERIC = 113; // *Available in versions >= 1.dev*
   LESS_TEXT = 42;
   LESS_TIMESTAMP = 43;
   LESS_DATE = 68;
   LESS_PARTY = 90; // *Available in versions >= 1.1*
 
   GEQ_INT64 = 45;
-  GEQ_DECIMAL = 46;  // *Available in versions < 1.dev*
-  GEQ_NUMERIC = 114;  // *Available in versions >= 1.dev*
+  GEQ_DECIMAL = 46; // *Available in versions < 1.dev*
+  GEQ_NUMERIC = 114; // *Available in versions >= 1.dev*
   GEQ_TEXT = 48;
   GEQ_TIMESTAMP = 49;
   GEQ_DATE = 69;
   GEQ_PARTY = 91; // *Available in versions >= 1.1*
 
   GREATER_INT64 = 51;
-  GREATER_DECIMAL = 52;  // *Available in versions < 1.dev*
-  GREATER_NUMERIC = 115;  // *Available in versions >= 1.dev*
+  GREATER_DECIMAL = 52; // *Available in versions < 1.dev*
+  GREATER_NUMERIC = 115; // *Available in versions >= 1.dev*
   GREATER_TEXT = 54;
   GREATER_TIMESTAMP = 55;
   GREATER_DATE = 70;
   GREATER_PARTY = 92; // *Available in versions >= 1.1*
 
   TO_TEXT_INT64 = 57;
-  TO_TEXT_DECIMAL = 58;  // *Available in versions < 1.dev*
-  TO_TEXT_NUMERIC = 116;  // *Available in versions >= 1.dev*
+  TO_TEXT_DECIMAL = 58; // *Available in versions < 1.dev*
+  TO_TEXT_NUMERIC = 116; // *Available in versions >= 1.dev*
   TO_TEXT_TEXT = 60;
   TO_TEXT_TIMESTAMP = 61;
   TO_TEXT_DATE = 71;
@@ -438,7 +452,7 @@ enum BuiltinFunction {
   FROM_TEXT_PARTY = 95; // *Available in versions >= 1.2*, was named FROM_TEXT_PARTY in 1.2, 1.3 and 1.4
   FROM_TEXT_INT64 = 103; // *Available in versions >= 1.5*
   FROM_TEXT_DECIMAL = 104; // *Available in versions 1.5 and 1.6
-  FROM_TEXT_NUMERIC = 117;  // *Available in versions >= 1.dev*
+  FROM_TEXT_NUMERIC = 117; // *Available in versions >= 1.dev*
   SHA256_TEXT = 93; // *Available in versions >= 1.2*
 
   DATE_TO_UNIX_DAYS = 72; // Date -> Int64
@@ -447,17 +461,17 @@ enum BuiltinFunction {
   TIMESTAMP_TO_UNIX_MICROSECONDS = 74; // Timestamp -> Int64
   UNIX_MICROSECONDS_TO_TIMESTAMP = 75; // Int64 -> Timestamp
 
-  INT64_TO_DECIMAL = 76;  // *Available in versions < 1.dev*
-  DECIMAL_TO_INT64 = 77;  // *Available in versions < 1.dev*
+  INT64_TO_DECIMAL = 76; // *Available in versions < 1.dev*
+  DECIMAL_TO_INT64 = 77; // *Available in versions < 1.dev*
 
-  INT64_TO_NUMERIC = 118;  // *Available in versions >= 1.dev*
-  NUMERIC_TO_INT64 = 119;  // *Available in versions >= 1.dev*
+  INT64_TO_NUMERIC = 118; // *Available in versions >= 1.dev*
+  NUMERIC_TO_INT64 = 119; // *Available in versions >= 1.dev*
 
   IMPLODE_TEXT = 78;
 
   EQUAL_INT64 = 79;
-  EQUAL_DECIMAL = 80;  // *Available in versions < 1.dev*
-  EQUAL_NUMERIC = 120;  // *Available in versions >= 1.dev*
+  EQUAL_DECIMAL = 80; // *Available in versions < 1.dev*
+  EQUAL_NUMERIC = 120; // *Available in versions >= 1.dev*
   EQUAL_TEXT = 81;
   EQUAL_TIMESTAMP = 82;
   EQUAL_DATE = 83;
@@ -470,7 +484,7 @@ enum BuiltinFunction {
 
   COERCE_CONTRACT_ID = 102;
 
-  TEXT_FROM_CODE_POINTS = 105;  // *Available in versions >= 1.6*
+  TEXT_FROM_CODE_POINTS = 105; // *Available in versions >= 1.6*
   TEXT_TO_CODE_POINTS = 106; // *Available in versions >= 1.6*
   // Next id is 123. 122 is SHIFT_NUMERIC.
 }
@@ -483,57 +497,34 @@ message PrimLit {
     //  64-bit integer literal ('LitInt64')
     sint64 int64 = 1;
 
-    // Legacy Decimal literal ('LitDecimal')
-    //
-    // Serialization of number in ``[-1E28, 1E28]``
-    // with at most 10 digits of decimal precision.
-    //
-    // *Must be a string that matched
-    //        `[+-]*[0-9]{0,28}(\.[0-9]{0,10})*`*
-    //
-    // It would fit in an int128, but sadly protobuf does not have
-    // one. so, string it is. note that we can't store the whole and
-    // decimal part in two numbers either, because 10^28 > 2^63.
-    string decimal = 2; // *Available in versions < 1.dev*
-    int32 decimal_interned_id = 10; // *Available in versions >= 1.dev*
+    // *Must be a valid representation of decimal*
+    string decimal_str = 2; // *Available in versions < 1.dev*
 
-    // Unicode string literal ('LitText')
-    string text = 4;
-    int32 text_interned_id = 11; // *Available in versions >= 1.dev*
+    // *Must be a valid interned decimal*
+    int32 decimal_interned_str = 10; // *Available in versions >= 1.dev* // *Available in version < 1.dev*
 
-    // UTC timestamp literal ('LitTimestamp')
-    //
-    // Microseconds since the UNIX epoch. can go backwards.
-    //
-    // *Must be in range 001-01-01T00:00:00Z to
-    // 9999-12-31T23:59:59.999999Z
+    string text_str = 4; // *Available in version < 1.dev*
 
-    // sfixed since the vast majority of values will be greater than
-    // 2^28, since currently the number of microseconds since the
-    // epoch is greater than that.
+    // *Must be a valid interned text*
+    int32 text_interned_str = 11; // *Available in versions >= 1.dev*
+
+    // *Must be a valid timestamp*
     sfixed64 timestamp = 5;
 
-    // Party literal ('LitParty')
-    // *Must be a PartyId string*
-    string party = 7;
-    int32 party_interned_id = 12; // *Available in versions >= 1.dev*
+    // *Must be a valid PartyId string*
+    string party_str = 7; // *Available in version < 1.dev*
 
-    // Date literal ('Date')
-    // Serialization of the number of days since the unix epoch. can go backwards.
-    //
-    // *Must be in range '0001-01-01' to '9999-12-31'*
+    // *Must be a valid interned PartyId string*
+    int32 party_interned_str = 12; // *Available in versions >= 1.dev*
+
+    // *Must be a valid date*
     int32 date = 8;
 
-    // Numeric literal ('LitNumeric')
-    //
-    // Serialization of number with precision 38 and scale between 0 and 37
-    //
-    // *Must be a string that matched
-    //        `-?([0-1]\d*|0)\.(\d*)
-    //
-    // The number of decimal digits indicate the scale of the number.
-    string numeric = 9; // *Available in versions >= 1.dev*
-    int32 numeric_interned_id = 13; // *Available in versions >= 1.dev*
+    // *Must be a valid numeric */
+    string numeric_str = 9; // *Available in versions >= 1.dev* // *Available in version < 1.dev*
+
+    // *Must be a valid interned numeric */
+    int32 numeric_interned_str = 13; // *Available in versions >= 1.dev*
   }
 
   reserved 3; // This was char.
@@ -576,10 +567,12 @@ message Expr {
     Type.Con tycon = 1;
 
     // Name of the record field to be projected on.
-    // *must be a valid Identifier*
     oneof field {
-      string name = 2;
-      int32 interned_id = 4; // *Available in versions >= 1.dev*
+      // *Must be a valid identifier*
+      string field_str = 2; // *Available in version < 1.dev*
+
+      // *Must be a valid interned identifier*
+      int32 field_interned_str = 4; // *Available in versions >= 1.dev*
     }
 
     // projected expression
@@ -593,10 +586,12 @@ message Expr {
     Type.Con tycon = 1;
 
     // Name of the updated field.
-    // *must be a valid identifier*
     oneof field {
-      string name = 2;
-      int32 interned_id = 5; // *Available in versions >= 1.dev*
+      // *Must be a valid identifier*
+      string field_str = 2; // *Available in version < 1.dev*
+
+      // *Must be a valid interned identifier*
+      int32 field_interned_str = 5; // *Available in versions >= 1.dev*
     }
 
     // Actual record being updated
@@ -613,30 +608,34 @@ message Expr {
     Type.Con tycon = 1;
 
     // name of the variant constructor
-    // *Must be a valid identifier*
     oneof variant_con {
-      string name = 2;
-      int32 interned_id = 4; // *Available in versions >= 1.dev*
+      // *Must be a valid identifier*
+      string variant_con_str = 2; // *Available in version < 1.dev*
+
+      // *Must be a valid interned identifier*
+      int32 variant_con_interned_str = 4; // *Available in versions >= 1.dev*
     }
 
     // Argument of the variant.
     Expr variant_arg = 3;
   }
 
-   // Enum construction ('ExpEnumCon')
-   // *Available in versions >= 1.6*
-   message EnumCon {
+  // Enum construction ('ExpEnumCon')
+  // *Available in versions >= 1.6*
+  message EnumCon {
 
-     // Name of the type constructor name
-     TypeConName tycon = 1;
+    // Name of the type constructor name
+    TypeConName tycon = 1;
 
-     // name of the enum constructor
-     // *Must be a valid identifier*
-     oneof enum_con {
-       string name = 2;
-       int32 interned_id = 3; // *Available in versions >= 1.dev*
-     }
-   }
+    // name of the enum constructor
+    oneof enum_con {
+      // *Must be a valid identifier*
+      string enum_con_str = 2; // *Available in version < 1.dev*
+
+      // *Must be a valid interned identifier*
+      int32 enum_con_interned_str = 3; // *Available in versions >= 1.dev*
+    }
+  }
 
   // Tuple Construction ('ExpTupleCon')
   message TupleCon {
@@ -648,10 +647,12 @@ message Expr {
   message TupleProj {
 
     // Name of the field to be projected on.
-    // *Must be a valid Identifier*
     oneof field {
-      string name = 1;
-      int32 interned_id = 3; // *Available in versions >= 1.dev*
+      // *Must be a valid Identifier*
+      string field_str = 1; // *Available in version < 1.dev*
+
+      // *Must be a valid interned identifier*
+      int32 field_interned_str = 3; // *Available in versions >= 1.dev*
     }
 
     // tuple to be projected.
@@ -662,10 +663,12 @@ message Expr {
   message TupleUpd {
 
     // Name of the updated field.
-    // *must be a valid identifier*.
     oneof field {
-      string name = 1;
-      int32 interned_id = 4; // *Available in versions >= 1.dev*
+      // *Must be a valid identifier*.
+      string field_str = 1; // *Available in version < 1.dev*
+
+      // *Must be a valid interned identifier*
+      int32 field_interned_str = 4; // *Available in versions >= 1.dev*
     }
 
     // Actual tuple being updated.
@@ -674,7 +677,6 @@ message Expr {
     // Value to which the record is udpated.
     Expr update = 3;
   }
-
 
   // Application ('ExpApp')
   message App {
@@ -706,7 +708,7 @@ message Expr {
     repeated VarWithType param = 1;
 
     // Abstracted value
-    Expr body  = 2;
+    Expr body = 2;
   }
 
   message TyAbs {
@@ -761,7 +763,7 @@ message Expr {
   }
 
   // Wrap a value in Any
- // *Available in versions >= 1.dev*
+  // *Available in versions >= 1.dev*
   message ToAny {
     // type of argument. Must be the TypeConName of a template.
     Type type = 1;
@@ -770,7 +772,7 @@ message Expr {
   }
 
   // Extract the given type from Any or return None on type-mismatch
- // *Available in versions >= 1.dev*
+  // *Available in versions >= 1.dev*
   message FromAny {
     // type that should be extracted. Must be the TypeConName of a template.
     Type type = 1;
@@ -784,10 +786,11 @@ message Expr {
 
   oneof Sum {
 
-    // Expression variable ('ExpVar')
-    // *must be a valid identifier*
-    string var = 1;
-    int32 var_interned_id = 29; // *Available in versions >= 1.dev*
+    // *Must be a valid identifier*
+    string var_str = 1; // *Available in version < 1.dev*
+
+    // *Must be a valid interned identifier*
+    int32 var_interned_str = 29; // *Available in versions >= 1.dev*
 
     // Defined value ('ExpVal')
     ValName val = 2;
@@ -814,7 +817,7 @@ message Expr {
     VariantCon variant_con = 8;
 
     // Enum construction ('ExpEnumCon')
-    EnumCon enum_con = 28;  // *Available in versions >= 1.6*
+    EnumCon enum_con = 28; // *Available in versions >= 1.6*
 
     // Tuple construction ('ExpTupleCon')
     TupleCon tuple_con = 9;
@@ -829,7 +832,7 @@ message Expr {
     App app = 11;
 
     // Type Application ('ExpTyApp')
-    TyApp ty_app =  12;
+    TyApp ty_app = 12;
 
     // Abstraction ('ExpAbs')
     Abs abs = 13;
@@ -890,17 +893,21 @@ message CaseAlt {
     TypeConName con = 1;
 
     // name of the variant constructor
-    // *Must be a valid identifier*
     oneof variant {
-      string variant_name = 2;
-      int32 variant_interned_id = 4; // *Available in versions >= 1.dev*
+      // *Must be a valid identifier*
+      string variant_str = 2; // *Available in version < 1.dev*
+
+      // *Must be a valid interned identifier*
+      int32 variant_interned_str = 4; // *Available in versions >= 1.dev*
     }
 
     // name of the variant binder
-    // *Must be a valid identifier*
     oneof binder {
-      string binder_name = 3;
-      int32 binder_interned_id = 5; // *Available in versions >= 1.dev*
+      // *Must be a valid identifier*
+      string binder_str = 3; // *Available in version < 1.dev*
+
+      // *Must be a valid interned identifier*
+      int32 binder_interned_str = 5; // *Available in versions >= 1.dev*
     }
   }
 
@@ -914,34 +921,46 @@ message CaseAlt {
     // name of the variant constructor
     // *Must be a valid identifier*
     oneof constructor {
-      string name = 2;
-      int32 interned_id = 3; // *Available in versions >= 1.dev*
+      // *Must be a valid identifier*
+      string constructor_str = 2; // *Available in version < 1.dev*
+
+      // *Must be a valid interned identifier*
+      int32 constructor_interned_str = 3; // *Available in versions >= 1.dev*
     }
   }
 
   // Non empty list pattern
   message Cons {
+
     // name of the binder for the head
-    // *Must be a valid identifier*
     oneof var_head {
-      string var_head_name = 1;
-      int32 var_head_interned_id = 3; // *Available in versions >= 1.dev*
+      // *Must be a valid identifier*
+      string var_head_str = 1; // *Available in version < 1.dev*
+
+      // *Must be a valid interned identifier*
+      int32 var_head_interned_str = 3; // *Available in versions >= 1.dev*
     }
 
-    // name of the binder for the tail
-    // *Must be a valid identifier*
+
     oneof var_tail {
-      string var_tail_name = 2;
-      int32 var_tail_interned_id = 4; // *Available in versions >= 1.dev*
+      // *Must be a valid identifier*
+      string var_tail_str = 2; // *Available in version < 1.dev*
+
+      // *Must be a valid interned identifier*
+      int32 var_tail_interned_str = 4; // *Available in versions >= 1.dev*
     }
   }
 
   // Non empty option patterm
   // *Available in versions >= 1.1*
   message OptionalSome {
+
     oneof var_body {
-      string name = 1;
-      int32 interned_id = 2; // *Available in versions >= 1.dev*
+      // *Must be a valid identifier*
+      string var_body_str = 1; // *Available in version < 1.dev*
+
+      // *Must be a valid interned identifier*
+      int32 var_body_interned_str = 2; // *Available in versions >= 1.dev*
     }
   }
 
@@ -993,11 +1012,16 @@ message Update {
   message Exercise {
     // Template type
     TypeConName template = 1;
+
     // name of the exercised template choice
     oneof choice {
-      string name = 2;
-      int32 interned_id = 6; // *Available in versions >= 1.dev*
+        // *Must be a valid identifier*
+        string choice_str = 2; // *Available in version < 1.dev*
+
+        // *Must be a valid interned identifier*
+        int32 choice_interned_str = 6; // *Available in versions >= 1.dev*
     }
+
     // contract id
     Expr cid = 3;
     // actors
@@ -1089,8 +1113,10 @@ message TemplateChoice {
 
   // *Must be a valid identifier*
   oneof name {
-    string choice_name = 1;
-    int32 choice_interned_id = 9; // *Available in versions >= 1.dev*
+    string name_str = 1; // *Available in version < 1.dev*
+
+    // *Must be a valid interned identifier*
+    int32 name_interned_str = 9; // *Available in versions >= 1.dev*
   }
 
   // Choice type
@@ -1114,8 +1140,11 @@ message TemplateChoice {
 
   // Name to bind the ContractId of the contract this choice is exercised on to.
   oneof self_binder {
-    string self_binder_name = 7;
-    int32 self_binder_interned_id = 10; // *Available in versions >= 1.dev*
+    // *Must be a valid identifier*
+    string self_binder_str = 7; // *Available in version < 1.dev*
+
+    // *Must be a valid interned identifier*
+    int32 self_binder_interned_str = 10; // *Available in versions >= 1.dev*
   }
 
   Location location = 8;
@@ -1123,61 +1152,76 @@ message TemplateChoice {
 
 // we restrict key expressions to records of projections, much like SQL
 message KeyExpr {
-    message Projection {
-        Type.Con tycon = 1; // Always fully applied
-        oneof field {
-            string name = 2;
-            int32 interned_id = 3; // *Available in versions >= 1.dev*
-        }
-    }
+  message Projection {
+    Type.Con tycon = 1; // Always fully applied
 
-    // note that the projection is always referring to the template parameter.
-    message Projections {
-        repeated Projection projections = 2;
-    }
+    oneof field {
+      // *Must be a valid identifier*
+      string field_str = 2; // *Available in version < 1.dev*
 
-    message RecordField {
-        oneof field {
-            string name = 1;
-            int32 interned_id = 3; // *Available in versions >= 1.dev*
-        }
-        KeyExpr expr = 2;
+      // *Must be a valid interned identifier*
+      int32 field_interned_str = 3; // *Available in versions >= 1.dev*
     }
+  }
 
-    message Record {
-        Type.Con tycon = 1; // Always fully applied
-        repeated RecordField fields = 2;
-    }
+  // note that the projection is always referring to the template parameter.
+  message Projections {
+    repeated Projection projections = 2;
+  }
 
-    oneof Sum {
-        Projections projections = 1;
-        Record record = 2;
+  message RecordField {
+    oneof field {
+      // *Must be a valid identifier*
+      string field_str = 1; // *Available in version < 1.dev*
+
+      // *Must be a valid identifier*
+      int32 field_interned_str = 3; // *Available in versions >= 1.dev*
     }
+    KeyExpr expr = 2;
+  }
+
+  message Record {
+    Type.Con tycon = 1; // Always fully applied
+    repeated RecordField fields = 2;
+  }
+
+  oneof Sum {
+    Projections projections = 1;
+    Record record = 2;
+  }
 }
 
 // Contract template definition
 message DefTemplate {
 
   message DefKey {
-      Type type = 1;
-      // NOTE(MH): The first version of contract keys had syntactic
-      // restrictions that key expression had to be "simple". We lifted these
-      // restrictions later and allowed arbitrarily complext key expressions.
-      oneof key_expr {
-          KeyExpr key = 2;
-          Expr complex_key = 4;
-      }
-      Expr maintainers = 3; // a function from the key type to [Party]
+    Type type = 1;
+    // NOTE(MH): The first version of contract keys had syntactic
+    // restrictions that key expression had to be "simple". We lifted these
+    // restrictions later and allowed arbitrarily complext key expressions.
+    oneof key_expr {
+      KeyExpr key = 2;
+      Expr complex_key = 4;
+    }
+    Expr maintainers = 3; // a function from the key type to [Party]
   }
 
-    // The type constructor for the template, acting as both
+  // The type constructor for the template, acting as both
   // the name of the template and the type of the template argument.
-  DottedName tycon = 1;
+  oneof tycon {
+    DottedName tycon_dname = 1;
+
+    // *Must be a valid interned name*
+    int32 tycon_interned_dname = 12; // *Available in versions >= 1.dev*
+  }
 
   // Name to which the template argument is bound.
   oneof param {
-    string param_name = 2;
-    int32 param_interned_id = 11; // *Available in versions >= 1.dev*
+    // *Must be a valid identifier*
+    string param_str = 2; // *Available in version < 1.dev*
+
+    // *Must be a valid interned identifier*
+    int32 param_interned_str = 11; // *Available in versions >= 1.dev*
   }
 
   // NOTE(MH): The new runtime authorization check for DAML 1.0 does not rely
@@ -1221,12 +1265,21 @@ message DefDataType {
 
   // *Available in versions >= 1.6*
   message EnumConstructors {
-    repeated string constructors = 1;
-    repeated int32 constructors_interned_ids = 2; // *Available in versions >= 1.dev*
+
+    // *Must be a list of valid identifiers*
+    repeated string constructors_str = 1; // *Available in version < 1.dev*
+
+    // *Must be a list of valid interned identifiers*
+    repeated int32 constructors_interned_str = 2; // *Available in versions >= 1.dev*
   }
 
   // name of the defined data type
-  DottedName name = 1;
+  oneof name {
+    DottedName name_dname = 1;
+
+    // *Must be a valid interned name*
+    int32 name_interned_dname = 8; // *Available in versions >= 1.dev*
+  }
 
   // type parameters
   // *Must be empty if enum field is set*
@@ -1257,11 +1310,11 @@ message DefValue {
   // want to be binary-compatible with it.
   message NameWithType {
 
-    // Name of the value
-    // *each element of name must be a valid identifier*
-    // `name` can be empty if and only if `name_interned_id` is set.
-    repeated string name = 1;
-    int32 name_interned_id = 6; // *Available in versions >= 1.dev*
+    // *Must a non-empty list a valid identifier*
+    repeated string name = 1; // *Available in version < 1.dev*
+
+    // *Must be a valid interned name*
+    int32 name_interned_dname = 6; // *Available in versions >= 1.dev*
 
     // Type of the value
     Type type = 2;
@@ -1291,7 +1344,11 @@ message FeatureFlags {
 }
 
 message Module {
-  DottedName name = 1;
+
+  oneof name {
+    DottedName name_dname = 1;
+    int32 name_interned_dname = 8; // *Available in versions >= 1.dev*
+  }
   // repeated Definition definitions = 2; // Removed in favour of data_types, values and templates.
   reserved 2;
   // repeated string scenario_tests = 3; // Removed in favour of DefValue.is_test.
