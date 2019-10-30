@@ -15,26 +15,6 @@ import spray.json._
 import scala.collection.mutable.ListBuffer
 import scala.util.Try
 
-/** The JWT token payload used in [[AuthServiceJWT]]
-  *
-  * For forward/backward compatibility reasons, all fields are optional.
-  *
-  * The information in this token may be used to fill in missing data in gRPC ledger API requests.
-  */
-case class AuthServiceJWTPayload(
-    ledgerId: Option[String],
-    participantId: Option[String],
-    applicationId: Option[String],
-    exp: Option[String],
-    admin: Option[Boolean],
-    actAs: Option[List[String]],
-    readAs: Option[List[String]]
-)
-
-object AuthServiceJWTProtocol extends DefaultJsonProtocol {
-  implicit val jwtPayloadFormat = jsonFormat7(AuthServiceJWTPayload.apply)
-}
-
 /** An AuthService that reads a JWT token from a `Authorization: Bearer` HTTP header.
   * The token is expected to use the format as defined in [[AuthServiceJWTPayload]]:
   */
@@ -53,13 +33,13 @@ class AuthServiceJWT(verifier: JwtVerifier) extends AuthService {
   }
 
   private[this] def parsePayload(jwtPayload: String): Either[Error, AuthServiceJWTPayload] = {
-    import AuthServiceJWTProtocol._
+    import AuthServiceJWTCodec.JsonImplicits._
     Try(JsonParser(jwtPayload).convertTo[AuthServiceJWTPayload]).toEither.left.map(t =>
       Error("Could not parse JWT token: " + t.getMessage))
   }
 
   private[this] def decodeAndParse(headers: Metadata): Either[Error, AuthServiceJWTPayload] = {
-    val bearerTokenRegex = "[Bb]earer: (.*)".r
+    val bearerTokenRegex = "Bearer (.*)".r
 
     for {
       headerValue <- Option
@@ -83,12 +63,12 @@ class AuthServiceJWT(verifier: JwtVerifier) extends AuthService {
     // Any valid token authorizes the user to use public services
     claims.append(ClaimPublic)
 
-    if (payload.admin.getOrElse(false))
+    if (payload.admin)
       claims.append(ClaimAdmin)
 
     payload.actAs
-      .getOrElse(List.empty)
       .foreach(party => claims.append(ClaimActAsParty(Ref.Party.assertFromString(party))))
+
     Claims(claims.toList)
   }
 }
