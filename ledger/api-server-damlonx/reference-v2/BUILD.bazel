@@ -100,6 +100,7 @@ SERVERS = {
 # in-memory ledger.
 client_server_build(
     name = "reference-ledger-dump",
+    testonly = True,  # only test targets can depend on this.
     client = "//ledger/ledger-api-test-tool",
     client_args = [
         "--include=SemanticTests,ContractKeysIT,TransactionServiceIT",
@@ -118,7 +119,6 @@ client_server_build(
     server_files = [
         "//ledger/test-common:dar-files",
     ],
-    testonly = True, # only test targets can depend on this.
 ) if is_linux else None
 
 # Test for checking the integrity of the ledger dump produces above.
