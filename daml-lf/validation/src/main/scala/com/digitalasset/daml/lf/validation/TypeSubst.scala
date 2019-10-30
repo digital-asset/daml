@@ -163,8 +163,8 @@ private[validation] case class TypeSubst(map: Map[TypeVarName, Type], private va
       EToAny(apply(ty), apply(body))
     case EFromAny(ty, body) =>
       EFromAny(apply(ty), apply(body))
-    case EToTextTypeConName(tmplId) =>
-      EToTextTypeConName(tmplId)
+    case EToTextTypeConName(tyCon) =>
+      EToTextTypeConName(tyCon)
 
   }
 
