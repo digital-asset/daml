@@ -49,6 +49,7 @@ private class ContractsFetch(
       txFilter: TransactionFilter,
       offset: domain.Offset): Source[domain.Error \/ (Contract, domain.Offset), NotUsed] =
     getCreatesAndArchivesSince(jwt, txFilter, domain.Offset.toLedgerApi(offset))
+      .via(transactionContracts)
 
   private def transactionContracts
     : Flow[lav1.transaction.Transaction, domain.Error \/ (Contract, domain.Offset), NotUsed] =
