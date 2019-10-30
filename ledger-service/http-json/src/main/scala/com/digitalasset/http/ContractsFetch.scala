@@ -165,7 +165,10 @@ private object ContractsFetch {
       connectionIOFuture(next)
         .flatMap(_.cata(cio => cio flatMap (_ => go()), fconn.pure(())))
     }
-    go()
+    fconn.handleErrorWith(go(), t => {
+      f.cancel()
+      fconn.raiseError(t)
+    })
   }
 
   private def connectionIOFuture[A](fa: Future[A])(
