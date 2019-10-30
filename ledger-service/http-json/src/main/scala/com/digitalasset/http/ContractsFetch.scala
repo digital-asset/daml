@@ -3,28 +3,27 @@
 
 package com.digitalasset.http
 
-import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
-import com.digitalasset.http.ContractsService.ActiveContract
-
 import akka.NotUsed
 import akka.stream.scaladsl.{Flow, GraphDSL, Partition, Sink, Source}
+import akka.stream.{FanOutShape2, Graph}
 import cats.effect.{ContextShift, IO}
 import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
+import com.digitalasset.http.ContractsService.ActiveContract
 import com.digitalasset.jwt.domain.Jwt
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
 import com.digitalasset.ledger.api.v1.transaction_filter.TransactionFilter
 import com.digitalasset.ledger.api.{v1 => lav1}
-import scalaz.{-\/, \/, \/-}
-
-import akka.stream.{FanOutShape2, Graph}
-import scalaz.{-\/, \/, \/-}
 import scalaz.std.tuple._
 import scalaz.syntax.functor._
+import scalaz.{-\/, \/, \/-}
 
 import scala.concurrent.{ExecutionContext, Future}
 
 private class ContractsFetch(
+    getActiveContracts: LedgerClientJwt.GetActiveContracts,
     getCreatesAndArchivesSince: LedgerClientJwt.GetCreatesAndArchivesSince,
+    lookupType: query.ValuePredicate.TypeLookup,
+    contractDao: Option[dbbackend.ContractDao],
 ) {
 
   import ContractsFetch._
@@ -32,25 +31,36 @@ private class ContractsFetch(
   def fetchActiveContractsFromOffset(
       dao: Option[dbbackend.ContractDao],
       party: domain.Party,
-      templateId: domain.TemplateId.RequiredPkg)(implicit cs: ContextShift[IO]): IO[Seq[Contract]] =
+      templateId: domain.TemplateId.RequiredPkg)(implicit cs: ContextShift[IO]) =
     for {
       _ <- IO.shift(cs)
 //      a <- dao
 //      x = fetchActiveContractsFromOffset(???, party, templateId)
     } yield ???
 
+  private def fetchInitialActiveContractSet(jwt: Jwt, txFilter: TransactionFilter)
+    : Source[domain.Error \/ (Contract, Option[domain.Offset]), NotUsed] =
+    getActiveContracts(jwt, txFilter, true).mapConcat { gacr =>
+      val offset = domain.Offset.fromLedgerApi(gacr)
+      unsequence(offset)(domain.Contract.fromLedgerApi(gacr))
+    }
+
   private def fetchActiveContractsFromOffset(
       jwt: Jwt,
       txFilter: TransactionFilter,
-      offsetSource: Source[LedgerOffset, NotUsed]): Source[domain.Error \/ Contract, NotUsed] =
+      offsetSource: Source[LedgerOffset, NotUsed])
+    : Source[domain.Error \/ (Contract, domain.Offset), NotUsed] =
     offsetSource
       .flatMapConcat(offset => getCreatesAndArchivesSince(jwt, txFilter, offset))
-      .mapConcat(tx => unsequence(domain.Contract.fromLedgerApi(tx)).toList)
+      .mapConcat { tx =>
+        val offset = domain.Offset.fromLedgerApi(tx)
+        unsequence(offset)(domain.Contract.fromLedgerApi(tx)).toList
+      }
 
-  private def unsequence[A, B](as: A \/ ImmArraySeq[B]): ImmArraySeq[A \/ B] =
+  private def unsequence[A, B, C](c: C)(as: A \/ List[B]): List[A \/ (B, C)] =
     as.fold(
-      a => ImmArraySeq(-\/(a)),
-      bs => bs.map(b => \/-(b))
+      a => List(-\/(a)),
+      bs => bs.map(b => \/-((b, c)))
     )
 
   private def ioToSource[Out](io: IO[Out]): Source[Out, NotUsed] =
@@ -84,7 +94,8 @@ private object ContractsFetch {
       txes: Traversable[lav1.event.Event]): InsertDeleteStep[lav1.event.CreatedEvent] = {
     val csb = ImmArraySeq.newBuilder[lav1.event.CreatedEvent]
     val asb = Set.newBuilder[String]
-    import lav1.event.Event, Event.Event._
+    import lav1.event.Event
+    import Event.Event._
     txes foreach {
       case Event(Created(c)) => csb += c; ()
       case Event(Archived(a)) => asb += a.contractId; ()
@@ -99,8 +110,9 @@ private object ContractsFetch {
   def contractsToOffset(implicit ec: ExecutionContext): Sink[
     lav1.active_contracts_service.GetActiveContractsResponse,
     Future[(Seq[ActiveContract], lav1.ledger_offset.LedgerOffset)]] = {
-    import lav1.ledger_offset.LedgerOffset, LedgerOffset.{LedgerBoundary, Value},
-    Value.{Absolute, Boundary}
+    import lav1.ledger_offset.LedgerOffset
+    import LedgerOffset.{LedgerBoundary, Value}
+    import Value.{Absolute, Boundary}
     Sink
       .fold[
         (Vector[ActiveContract], Value),

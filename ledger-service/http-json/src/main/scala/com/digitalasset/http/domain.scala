@@ -6,7 +6,6 @@ package com.digitalasset.http
 import java.time.Instant
 
 import com.digitalasset.daml.lf
-import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.http.util.IdentifierConverters
 import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
@@ -16,7 +15,7 @@ import scalaz.std.option._
 import scalaz.std.tuple._
 import scalaz.syntax.std.option._
 import scalaz.syntax.traverse._
-import scalaz.{-\/, Applicative, Show, Traverse, \/, \/-}
+import scalaz.{-\/, @@, Applicative, Show, Tag, Traverse, \/, \/-}
 import spray.json.JsValue
 
 import scala.language.higherKinds
@@ -70,6 +69,25 @@ object domain {
       PartyDetails(Party(p.party), p.displayName, p.isLocal)
   }
 
+  sealed trait OffsetTag
+  type Offset = String @@ OffsetTag
+  object Offset {
+    private val tag = Tag.of[OffsetTag]
+
+    def apply(s: String): Offset = tag(s)
+
+    def unwrap(x: Offset): String = tag.unwrap(x)
+
+    def fromLedgerApi(
+        gacr: lav1.active_contracts_service.GetActiveContractsResponse): Option[Offset] =
+      Option(gacr.offset).filter(_.nonEmpty).map(x => Offset(x))
+
+    def fromLedgerApi(tx: lav1.transaction.Transaction): Offset = Offset(tx.offset)
+
+    def toLedgerApi(o: Offset): lav1.ledger_offset.LedgerOffset =
+      lav1.ledger_offset.LedgerOffset(lav1.ledger_offset.LedgerOffset.Value.Absolute(unwrap(o)))
+  }
+
   type WorkflowIdTag = lar.WorkflowIdTag
   type WorkflowId = lar.WorkflowId
 
@@ -107,11 +125,9 @@ object domain {
   object Contract {
 
     def fromLedgerApi(
-        tx: lav1.transaction.Transaction): Error \/ ImmArraySeq[Contract[lav1.value.Value]] = {
+        tx: lav1.transaction.Transaction): Error \/ List[Contract[lav1.value.Value]] = {
       val workflowId = domain.WorkflowId.fromLedgerApi(tx)
-      tx.events.iterator
-        .to[ImmArraySeq]
-        .traverse(fromLedgerApi(workflowId)(_))
+      tx.events.toList.traverse(fromLedgerApi(workflowId)(_))
     }
 
     def fromLedgerApi(gacr: lav1.active_contracts_service.GetActiveContractsResponse)

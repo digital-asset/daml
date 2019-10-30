@@ -57,9 +57,9 @@ class CommandService(
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def exercise(jwt: Jwt, jwtPayload: JwtPayload, input: ExerciseCommand[lav1.value.Record])
-    : Future[Error \/ ImmArraySeq[Contract[lav1.value.Value]]] = {
+    : Future[Error \/ List[Contract[lav1.value.Value]]] = {
 
-    val et: EitherT[Future, Error, ImmArraySeq[Contract[lav1.value.Value]]] = for {
+    val et: EitherT[Future, Error, List[Contract[lav1.value.Value]]] = for {
       command <- EitherT.either(exerciseCommand(input))
       request = submitAndWaitRequest(jwtPayload, input.meta, command)
       response <- liftET(logResult('exercise, submitAndWaitForTransaction(jwt, request)))
@@ -147,14 +147,14 @@ class CommandService(
   }
 
   private def contracts(response: lav1.command_service.SubmitAndWaitForTransactionResponse)
-    : Error \/ ImmArraySeq[Contract[lav1.value.Value]] =
+    : Error \/ List[Contract[lav1.value.Value]] =
     response.transaction
       .toRightDisjunction(Error('contracts, s"Received response without transaction: $response"))
       .flatMap(contracts)
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private def contracts(
-      tx: lav1.transaction.Transaction): Error \/ ImmArraySeq[Contract[lav1.value.Value]] =
+      tx: lav1.transaction.Transaction): Error \/ List[Contract[lav1.value.Value]] =
     Contract.fromLedgerApi(tx).leftMap(e => Error('contracts, e.shows))
 }
 

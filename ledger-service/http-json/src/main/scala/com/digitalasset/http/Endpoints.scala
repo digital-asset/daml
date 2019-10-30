@@ -9,7 +9,6 @@ import akka.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
 import akka.stream.Materializer
 import akka.util.ByteString
 import com.digitalasset.daml.lf
-import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
 import com.digitalasset.http.domain.JwtPayload
 import com.digitalasset.http.json.ResponseFormats._
 import com.digitalasset.http.json.{DomainJsonDecoder, DomainJsonEncoder, SprayJson}
@@ -88,7 +87,7 @@ class Endpoints(
 
         cs <- eitherT(
           handleFutureFailure(commandService.exercise(jwt, jwtPayload, cmd))
-        ): ET[ImmArraySeq[domain.Contract[lav1.value.Value]]]
+        ): ET[List[domain.Contract[lav1.value.Value]]]
 
         jsVal <- either(
           cs.traverse(a => encoder.encodeV(a))
