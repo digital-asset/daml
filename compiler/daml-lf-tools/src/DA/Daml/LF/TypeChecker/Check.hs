@@ -509,9 +509,9 @@ typeOf = \case
     checkAnyType ty
     checkExpr bodyExpr (TBuiltin BTAny)
     pure $ TOptional ty
-  EToTextTemplateId tpl -> do
-    -- Ensure that the type is known and a template type.
-    _ :: Template <- inWorld (lookupTemplate tpl)
+  EToTextTypeConName tycon -> do
+    -- Ensure that the type is known.
+    _ <- inWorld (lookupDataType tycon)
     pure $ TBuiltin BTText
   EUpdate upd -> typeOfUpdate upd
   EScenario scen -> typeOfScenario scen

@@ -768,15 +768,9 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
             decodeType(lfExpr.getFromAny.getType),
             decodeExpr(lfExpr.getFromAny.getExpr, definition))
 
-        case PLF.Expr.SumCase.TO_TEXT_TEMPLATE_ID =>
-          assertSince(LV.Features.toTextTemplateId, "Expr.ToTextTemplateId")
-          decodeType(lfExpr.getToTextTemplateId.getType) match {
-            case TTyCon(tmplId) =>
-              EToTextTemplateId(tmplId = tmplId)
-            case ty =>
-              throw ParseError(
-                s"TO_TEXT_TEMPLATE_ID must be applied to a template type but got $ty")
-          }
+        case PLF.Expr.SumCase.TO_TEXT_TYPE_CON_NAME =>
+          assertSince(LV.Features.toTextTypeConName, "Expr.ToTextTypeConName")
+          EToTextTypeConName(decodeTypeConName(lfExpr.getToTextTypeConName))
 
         case PLF.Expr.SumCase.SUM_NOT_SET =>
           throw ParseError("Expr.SUM_NOT_SET")

@@ -598,8 +598,8 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
       case EFromAny(ty, e) =>
         SEApp(SEBuiltin(SBFromAny(ty)), Array(translate(e)))
 
-      case EToTextTemplateId(tmplId) =>
-        SEBuiltin(SBToTextTemplateId(tmplId))
+      case EToTextTypeConName(tyCon) =>
+        SEValue(SText(tyCon.toString))
     }
 
   @tailrec

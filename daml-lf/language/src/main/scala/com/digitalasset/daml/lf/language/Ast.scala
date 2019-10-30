@@ -152,7 +152,7 @@ object Ast {
   final case class EFromAny(ty: Type, body: Expr) extends Expr
 
   /** Unique textual representation of template Id **/
-  final case class EToTextTemplateId(tmplId: TypeConName) extends Expr
+  final case class EToTextTypeConName(tyCon: TypeConName) extends Expr
 
   //
   // Kinds

@@ -202,16 +202,11 @@ class SpeedyTest extends WordSpec with Matchers {
     }
   }
 
-  "to_text_template_id" should {
+  "to_text_type_con_name" should {
 
-    "equal for equal types" in {
-      eval(e"""EQUAL_TEXT (to_text_template_id @Test:T1) (to_text_template_id @Test:T1)""", anyPkgs) shouldBe Right(
-        SBool(true))
-    }
-
-    "different for different types" in {
-      eval(e"""EQUAL_TEXT (to_text_template_id @Test:T1) (to_text_template_id @Test:T2)""", anyPkgs) shouldBe Right(
-        SBool(false))
+    "produces expected output" in {
+      eval(e"""to_text_type_con_name @Test:T1""", anyPkgs) shouldBe Right(SText("-pkgId-:Test:T1"))
+      eval(e"""to_text_type_con_name @Test:T2""", anyPkgs) shouldBe Right(SText("-pkgId-:Test:T2"))
     }
 
   }
