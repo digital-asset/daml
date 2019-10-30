@@ -26,16 +26,15 @@ package object tests {
     "ContractKeysSubmitterIsMaintainerIT" -> (new ContractKeysSubmitterIsMaintainer(_)),
     "DivulgenceIT" -> (new Divulgence(_)),
     "IdentityIT" -> (new Identity(_)),
-    "PackageServiceIT" -> (new Packages(_)),
+    "LedgerConfigurationServiceIT" -> (new LedgerConfigurationService(_)),
     "PackageManagementServiceIT" -> (new PackageManagement(_)),
+    "PackageServiceIT" -> (new Packages(_)),
     "PartyManagementServiceIT" -> (new PartyManagement(_)),
     "TimeIT" -> (new Time(_)),
     "TransactionServiceIT" -> (new TransactionService(_)),
     "WitnessesIT" -> (new Witnesses(_)),
-    "WronglyTypedContractIdIT" -> (new WronglyTypedContractId(_)),
-    "LedgerConfigurationServiceIT" -> (new LedgerConfigurationService(_))
+    "WronglyTypedContractIdIT" -> (new WronglyTypedContractId(_))
   )
 
   val all = default ++ optional
-
 }
