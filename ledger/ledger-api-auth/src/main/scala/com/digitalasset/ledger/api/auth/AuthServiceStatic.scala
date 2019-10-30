@@ -12,7 +12,7 @@ import io.grpc.Metadata
   *
   * Note: This AuthService is meant to be used for testing purposes only.
   */
-class AuthServiceStatic(claims: PartialFunction[String, Claims]) extends AuthService {
+final class AuthServiceStatic(claims: PartialFunction[String, Claims]) extends AuthService {
   override def decodeMetadata(headers: Metadata): CompletionStage[Claims] = {
     if (headers.containsKey(AuthServiceStatic.AUTHORIZATION_KEY)) {
       val authorizationValue = headers.get(AuthServiceStatic.AUTHORIZATION_KEY)

@@ -4,7 +4,7 @@
 package com.digitalasset.ledger.api.auth.services
 
 import com.digitalasset.grpc.adapter.utils.DirectExecutionContext
-import com.digitalasset.ledger.api.auth.AuthService
+import com.digitalasset.ledger.api.auth.{AuthService, Authorizer}
 import com.digitalasset.ledger.api.v1.testing.time_service.TimeServiceGrpc.TimeService
 import com.digitalasset.ledger.api.v1.testing.time_service._
 import com.digitalasset.platform.api.grpc.GrpcApiService
@@ -12,30 +12,24 @@ import com.digitalasset.platform.server.api.ProxyCloseable
 import com.google.protobuf.empty.Empty
 import io.grpc.ServerServiceDefinition
 import io.grpc.stub.StreamObserver
-import org.slf4j.{Logger, LoggerFactory}
 
 import scala.concurrent.Future
 
-class TimeServiceAuthorization(
+final class TimeServiceAuthorization(
     protected val service: TimeService with AutoCloseable,
-    protected val authService: AuthService)
+    private val authorizer: Authorizer,
+    private val authService: AuthService)
     extends TimeService
     with ProxyCloseable
     with GrpcApiService {
 
-  protected val logger: Logger = LoggerFactory.getLogger(TimeService.getClass)
-
   override def getTime(
       request: GetTimeRequest,
       responseObserver: StreamObserver[GetTimeResponse]): Unit =
-    ApiServiceAuthorization
-      .requirePublicClaims()
-      .fold(responseObserver.onError, _ => service.getTime(request, responseObserver))
+    authorizer.requirePublicClaimsOnStream(service.getTime)(request, responseObserver)
 
   override def setTime(request: SetTimeRequest): Future[Empty] =
-    ApiServiceAuthorization
-      .requireAdminClaims()
-      .fold(Future.failed(_), _ => service.setTime(request))
+    authorizer.requireAdminClaims(service.setTime)(request)
 
   override def bindService(): ServerServiceDefinition =
     TimeServiceGrpc.bindService(this, DirectExecutionContext)

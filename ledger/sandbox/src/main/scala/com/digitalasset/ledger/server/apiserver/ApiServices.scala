@@ -12,31 +12,21 @@ import com.daml.ledger.participant.state.index.v2.{
   _
 }
 import com.daml.ledger.participant.state.v1.{TimeModel, WriteService}
-import com.digitalasset.ledger.api.auth.AuthService
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.engine._
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
-import com.digitalasset.ledger.api.auth.services.{
-  ActiveContractsServiceAuthorization,
-  CommandCompletionServiceAuthorization,
-  CommandServiceAuthorization,
-  CommandSubmissionServiceAuthorization,
-  LedgerConfigurationServiceAuthorization,
-  LedgerIdentityServiceAuthorization,
-  PackageManagementServiceAuthorization,
-  PackageServiceAuthorization,
-  PartyManagementServiceAuthorization,
-  TimeServiceAuthorization,
-  TransactionServiceAuthorization
-}
+import com.digitalasset.ledger.api.auth.services._
+import com.digitalasset.ledger.api.auth.{AuthService, Authorizer}
 import com.digitalasset.ledger.api.v1.command_completion_service.CompletionEndRequest
 import com.digitalasset.ledger.client.services.commands.CommandSubmissionFlow
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.sandbox.config.CommandConfiguration
 import com.digitalasset.platform.sandbox.services._
-import com.digitalasset.platform.sandbox.services.admin.ApiPackageManagementService
+import com.digitalasset.platform.sandbox.services.admin.{
+  ApiPackageManagementService,
+  ApiPartyManagementService
+}
 import com.digitalasset.platform.sandbox.services.transaction.ApiTransactionService
-import com.digitalasset.platform.sandbox.services.admin.ApiPartyManagementService
 import com.digitalasset.platform.sandbox.stores.ledger.CommandExecutorImpl
 import com.digitalasset.platform.server.services.command.ApiCommandService
 import com.digitalasset.platform.server.services.identity.ApiLedgerIdentityService
@@ -149,6 +139,8 @@ object ApiServices {
 
       val apiReflectionService = ProtoReflectionService.newInstance()
 
+      val authorizer = new Authorizer(TimeProvider.clock(timeProvider))
+
       val apiTimeServiceOpt =
         optTimeServiceBackend.map { tsb =>
           new TimeServiceAuthorization(
@@ -157,6 +149,7 @@ object ApiServices {
               tsb,
               loggerFactory
             ),
+            authorizer,
             authService
           )
         }
@@ -173,17 +166,29 @@ object ApiServices {
       new ApiServicesBundle(
         apiTimeServiceOpt.toList :::
           List(
-          new LedgerIdentityServiceAuthorization(apiLedgerIdentityService, authService),
-          new PackageServiceAuthorization(apiPackageService, authService),
-          new LedgerConfigurationServiceAuthorization(apiConfigurationService, authService),
-          new CommandSubmissionServiceAuthorization(apiSubmissionService, authService),
-          new TransactionServiceAuthorization(apiTransactionService, authService),
-          new CommandCompletionServiceAuthorization(apiCompletionService, authService),
-          new CommandServiceAuthorization(apiCommandService, authService),
-          new ActiveContractsServiceAuthorization(apiActiveContractsService, authService),
+          new LedgerIdentityServiceAuthorization(apiLedgerIdentityService, authorizer, authService),
+          new PackageServiceAuthorization(apiPackageService, authorizer, authService),
+          new LedgerConfigurationServiceAuthorization(
+            apiConfigurationService,
+            authorizer,
+            authService),
+          new CommandSubmissionServiceAuthorization(apiSubmissionService, authorizer, authService),
+          new TransactionServiceAuthorization(apiTransactionService, authorizer, authService),
+          new CommandCompletionServiceAuthorization(apiCompletionService, authorizer, authService),
+          new CommandServiceAuthorization(apiCommandService, authorizer, authService),
+          new ActiveContractsServiceAuthorization(
+            apiActiveContractsService,
+            authorizer,
+            authService),
           apiReflectionService,
-          new PartyManagementServiceAuthorization(apiPartyManagementService, authService),
-          new PackageManagementServiceAuthorization(apiPackageManagementService, authService),
+          new PartyManagementServiceAuthorization(
+            apiPartyManagementService,
+            authorizer,
+            authService),
+          new PackageManagementServiceAuthorization(
+            apiPackageManagementService,
+            authorizer,
+            authService),
         ))
     }
   }

@@ -4,51 +4,47 @@
 package com.digitalasset.ledger.api.auth.services
 
 import com.digitalasset.grpc.adapter.utils.DirectExecutionContext
-import com.digitalasset.ledger.api.auth.AuthService
+import com.digitalasset.ledger.api.auth.{AuthService, Authorizer}
 import com.digitalasset.ledger.api.v1.command_service.CommandServiceGrpc.CommandService
 import com.digitalasset.ledger.api.v1.command_service._
 import com.digitalasset.platform.api.grpc.GrpcApiService
 import com.digitalasset.platform.server.api.ProxyCloseable
 import com.google.protobuf.empty.Empty
 import io.grpc.ServerServiceDefinition
-import org.slf4j.{Logger, LoggerFactory}
 
 import scala.concurrent.Future
 
 /** Note: the command service internally uses calls to the CommandSubmissionService and CommandCompletionService.
   * These calls already require authentication, but it is better to check authorization here as well.
   */
-class CommandServiceAuthorization(
+final class CommandServiceAuthorization(
     protected val service: CommandService with AutoCloseable,
-    protected val authService: AuthService)
+    private val authorizer: Authorizer,
+    private val authService: AuthService)
     extends CommandService
     with ProxyCloseable
     with GrpcApiService {
 
-  protected val logger: Logger = LoggerFactory.getLogger(CommandService.getClass)
-
   override def submitAndWait(request: SubmitAndWaitRequest): Future[Empty] =
-    ApiServiceAuthorization
-      .requireClaimsForParty(request.commands.map(_.party))
-      .fold(Future.failed(_), _ => service.submitAndWait(request))
+    authorizer.requireClaimsForParty(request.commands.map(_.party), service.submitAndWait)(request)
 
   override def submitAndWaitForTransaction(
       request: SubmitAndWaitRequest): Future[SubmitAndWaitForTransactionResponse] =
-    ApiServiceAuthorization
-      .requireClaimsForParty(request.commands.map(_.party))
-      .fold(Future.failed(_), _ => service.submitAndWaitForTransaction(request))
+    authorizer.requireClaimsForParty(
+      request.commands.map(_.party),
+      service.submitAndWaitForTransaction)(request)
 
   override def submitAndWaitForTransactionId(
       request: SubmitAndWaitRequest): Future[SubmitAndWaitForTransactionIdResponse] =
-    ApiServiceAuthorization
-      .requireClaimsForParty(request.commands.map(_.party))
-      .fold(Future.failed(_), _ => service.submitAndWaitForTransactionId(request))
+    authorizer.requireClaimsForParty(
+      request.commands.map(_.party),
+      service.submitAndWaitForTransactionId)(request)
 
   override def submitAndWaitForTransactionTree(
       request: SubmitAndWaitRequest): Future[SubmitAndWaitForTransactionTreeResponse] =
-    ApiServiceAuthorization
-      .requireClaimsForParty(request.commands.map(_.party))
-      .fold(Future.failed(_), _ => service.submitAndWaitForTransactionTree(request))
+    authorizer.requireClaimsForParty(
+      request.commands.map(_.party),
+      service.submitAndWaitForTransactionTree)(request)
 
   override def bindService(): ServerServiceDefinition =
     CommandServiceGrpc.bindService(this, DirectExecutionContext)

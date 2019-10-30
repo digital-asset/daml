@@ -3,7 +3,7 @@
 
 package com.digitalasset.api.util
 
-import java.time.{Clock, Instant}
+import java.time.{Clock, Instant, ZoneId}
 
 import com.digitalasset.api.util.TimeProvider.MappedTimeProvider
 
@@ -28,4 +28,13 @@ object TimeProvider {
 
     override def getCurrentTime: Instant = utcClock.instant()
   }
+
+  final class TimeProviderClock(tp: TimeProvider) extends Clock {
+    override def getZone: ZoneId = ZoneId.of("UTC")
+    override def withZone(zoneId: ZoneId): Clock = throw new UnsupportedOperationException
+    override def instant(): Instant = tp.getCurrentTime
+  }
+
+  def clock(tp: TimeProvider): Clock = new TimeProviderClock(tp)
+
 }

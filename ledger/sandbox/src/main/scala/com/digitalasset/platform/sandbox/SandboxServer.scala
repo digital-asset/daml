@@ -9,12 +9,12 @@ import java.time.Instant
 import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
 import com.daml.ledger.participant.state.v1.ParticipantId
-import com.digitalasset.ledger.api.auth.{AuthService, AuthServiceWildcard}
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.engine.Engine
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.ledger.api.auth.interceptor.AuthorizationInterceptor
+import com.digitalasset.ledger.api.auth.{AuthService, AuthServiceWildcard, Authorizer}
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.server.apiserver.{ApiServer, ApiServices, LedgerApiServer}
 import com.digitalasset.platform.common.LedgerIdMode
@@ -157,11 +157,13 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
   /** the reset service is special, since it triggers a server shutdown */
   private def resetService(
       ledgerId: LedgerId,
+      authorizer: Authorizer,
       loggerFactory: NamedLoggerFactory): SandboxResetService =
     new SandboxResetService(
       ledgerId,
       () => sandboxState.infra.executionContext,
       () => sandboxState.resetAndRestartServer(),
+      authorizer,
       authService,
       loggerFactory
     )
@@ -232,6 +234,8 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
         sys.error(msg)
       }, identity)
 
+    val authorizer = new Authorizer(TimeProvider.clock(timeProvider))
+
     val apiServer = Await.result(
       LedgerApiServer.create(
         (am: ActorMaterializer, esf: ExecutionSequencerFactory) =>
@@ -252,7 +256,7 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
                   )),
               loggerFactory
             )(am, esf)
-            .map(_.withServices(List(resetService(ledgerId, loggerFactory)))),
+            .map(_.withServices(List(resetService(ledgerId, authorizer, loggerFactory)))),
         // NOTE(JM): Re-use the same port after reset.
         Option(sandboxState).fold(config.port)(_.apiServerState.port),
         config.maxInboundMessageSize,
@@ -261,7 +265,7 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
         config.tlsConfig.flatMap(_.server),
         List(
           AuthorizationInterceptor(authService, ec),
-          resetService(ledgerId, loggerFactory)
+          resetService(ledgerId, authorizer, loggerFactory)
         ),
       ),
       asyncTolerance
