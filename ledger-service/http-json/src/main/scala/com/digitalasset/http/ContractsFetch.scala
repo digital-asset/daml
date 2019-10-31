@@ -18,16 +18,27 @@ import akka.stream.{ClosedShape, FanOutShape2, Graph, Materializer}
 import cats.effect.{ContextShift, IO}
 import com.digitalasset.http.ContractsService.ActiveContract
 import com.digitalasset.http.Statement.discard
+import com.digitalasset.http.dbbackend.{ContractDao, Queries}
+import com.digitalasset.http.dbbackend.Queries.{DBContract, SurrogateTpId}
 import com.digitalasset.http.domain.TemplateId
+import com.digitalasset.http.util.ApiValueToLfValueConverter.apiValueToLfValue
+import com.digitalasset.http.json.JsonProtocol.LfValueDatabaseCodec.{
+  apiValueToJsValue => lfValueToDbJsValue
+}
 import com.digitalasset.http.util.IdentifierConverters.apiIdentifier
 import com.digitalasset.jwt.domain.Jwt
 import com.digitalasset.ledger.api.{v1 => lav1}
+
 import doobie.free.connection
 import doobie.free.connection.ConnectionIO
 import scalaz.std.tuple._
+import scalaz.std.vector._
+import scalaz.syntax.show._
+import scalaz.syntax.tag._
 import scalaz.syntax.functor._
 import scalaz.syntax.std.option._
 import scalaz.{-\/, \/, \/-}
+import spray.json.JsValue
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -36,7 +47,7 @@ private class ContractsFetch(
     getCreatesAndArchivesSince: LedgerClientJwt.GetCreatesAndArchivesSince,
     lookupType: query.ValuePredicate.TypeLookup,
     contractDao: Option[dbbackend.ContractDao],
-) {
+)(implicit dblog: doobie.LogHandler) {
 
   import ContractsFetch._
 
@@ -154,6 +165,8 @@ private class ContractsFetch(
 private object ContractsFetch {
   type Contract = domain.Contract[lav1.value.Value]
 
+  type PreInsertContract = DBContract[TemplateId.RequiredPkg, JsValue, Seq[domain.Party]]
+
   def partition[A, B]: Graph[FanOutShape2[A \/ B, A, B], NotUsed] =
     GraphDSL.create() { implicit b =>
       import GraphDSL.Implicits._
@@ -170,7 +183,7 @@ private object ContractsFetch {
 
   /** Plan inserts from an ACS response. */
   private def planAcsBlockInserts(
-      gacrs: Traversable[lav1.event.CreatedEvent]): InsertDeleteStep[lav1.event.CreatedEvent] =
+      gacrs: Traversable[PreInsertContract]): InsertDeleteStep[PreInsertContract] =
     InsertDeleteStep(gacrs.toVector, Set.empty)
 
   /** Plan inserts, deletes from an in-order batch of create/archive events. */
@@ -234,6 +247,16 @@ private object ContractsFetch {
       new FanOutShape2(dup.in, acs.out, off.out)
     }
 
+  private def surrogateTemplateIds[K <: TemplateId.RequiredPkg](ids: Set[K])(
+      implicit log: doobie.LogHandler): ConnectionIO[Map[K, SurrogateTpId]] = {
+    import doobie.implicits._, cats.instances.vector._, cats.syntax.functor._,
+    cats.syntax.traverse._
+    ids.toVector
+      .traverse(k =>
+        Queries.surrogateTemplateId(k.packageId, k.moduleName, k.entityName) tupleLeft k)
+      .map(_.toMap)
+  }
+
   private def sinkCioSequence_[Ign](f: SinkQueueWithCancel[doobie.ConnectionIO[Ign]])(
       implicit ec: ExecutionContext): doobie.ConnectionIO[Unit] = {
     import doobie.ConnectionIO
@@ -252,6 +275,20 @@ private object ContractsFetch {
   private def connectionIOFuture[A](fa: Future[A])(
       implicit ec: ExecutionContext): doobie.ConnectionIO[A] =
     doobie.free.connection.async[A](k => fa.onComplete(ta => k(ta.toEither)))
+
+  @SuppressWarnings(Array("org.wartremover.warts.Any"))
+  private def insertAndDelete(step: InsertDeleteStep[PreInsertContract])(
+      implicit log: doobie.LogHandler): ConnectionIO[Unit] = {
+    import doobie.implicits._, cats.syntax.functor._
+    surrogateTemplateIds(step.inserts.iterator.map(_.templateId).toSet).flatMap { stidMap =>
+      import cats.syntax.apply._, cats.instances.vector._, scalaz.std.set._
+      import json.JsonProtocol._
+      (Queries.deleteContracts(step.deletes) *>
+        Queries.insertContracts(step.inserts map (dbc =>
+          dbc copy (templateId = stidMap getOrElse (dbc.templateId, throw new IllegalStateException(
+            "template ID missing from prior retrieval; impossible"))))))
+    }.void
+  }
 
   final case class InsertDeleteStep[+C](inserts: Vector[C], deletes: Set[String]) {
     def append[CC >: C](o: InsertDeleteStep[CC])(cid: CC => String): InsertDeleteStep[CC] =
