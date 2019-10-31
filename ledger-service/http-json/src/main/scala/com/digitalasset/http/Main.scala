@@ -7,6 +7,7 @@ import akka.actor.ActorSystem
 import akka.http.scaladsl.Http.ServerBinding
 import akka.stream.ActorMaterializer
 import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
+import com.digitalasset.http.Statement.discard
 import com.digitalasset.ledger.api.refinements.ApiTypes.ApplicationId
 import com.typesafe.scalalogging.StrictLogging
 import scalaz.\/
@@ -62,21 +63,22 @@ object Main extends StrictLogging {
         config.maxInboundMessageSize
       )
 
-    sys.addShutdownHook {
-      HttpService
-        .stop(serviceF)
-        .onComplete { fa =>
-          logFailure("Shutdown error", fa)
-          asys.terminate()
-          ()
-        }
+    discard {
+      sys.addShutdownHook {
+        HttpService
+          .stop(serviceF)
+          .onComplete { fa =>
+            logFailure("Shutdown error", fa)
+            discard { asys.terminate() }
+          }
+      }
     }
 
     serviceF.onComplete {
       case Success(_) =>
       case Failure(_) =>
         // no reason to log this failure, HttpService.start supposed to report it
-        Await.result(asys.terminate(), 10.seconds)
+        discard { Await.result(asys.terminate(), 10.seconds) }
         System.exit(ErrorCodes.StartupError)
     }
   }
@@ -89,6 +91,7 @@ object Main extends StrictLogging {
   private def parseConfig(args: Seq[String]): Option[Config] =
     configParser.parse(args, Config.Empty)
 
+  @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
   private val configParser: scopt.OptionParser[Config] =
     new scopt.OptionParser[Config]("http-json-binary") {
       head("HTTP JSON API daemon")

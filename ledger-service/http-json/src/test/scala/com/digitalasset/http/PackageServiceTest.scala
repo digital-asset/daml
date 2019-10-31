@@ -16,6 +16,7 @@ import org.scalatest.prop.GeneratorDrivenPropertyChecks
 import org.scalatest.{FreeSpec, Inside, Matchers}
 import scalaz.{-\/, \/-}
 
+@SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
 class PackageServiceTest
     extends FreeSpec
     with Matchers

@@ -9,6 +9,7 @@ import akka.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
 import akka.stream.Materializer
 import akka.util.ByteString
 import com.digitalasset.daml.lf
+import com.digitalasset.http.Statement.discard
 import com.digitalasset.http.domain.JwtPayload
 import com.digitalasset.http.json.ResponseFormats._
 import com.digitalasset.http.json.{DomainJsonDecoder, DomainJsonEncoder, SprayJson}
@@ -261,7 +262,7 @@ class Endpoints(
   private[http] def input(req: HttpRequest): Future[Unauthorized \/ (Jwt, JwtPayload, String)] = {
     findJwt(req).flatMap(decodeAndParsePayload) match {
       case e @ -\/(_) =>
-        req.entity.discardBytes(mat)
+        discard { req.entity.discardBytes(mat) }
         Future.successful(e)
       case \/-((j, p)) =>
         req.entity

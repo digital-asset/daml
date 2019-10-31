@@ -34,7 +34,7 @@ import spray.json._
 import scala.collection.breakOut
 import scala.concurrent.{ExecutionContext, Future}
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
+@SuppressWarnings(Array("org.wartremover.warts.Any", "org.wartremover.warts.NonUnitStatements"))
 class HttpServiceIntegrationTest
     extends AsyncFreeSpec
     with Matchers

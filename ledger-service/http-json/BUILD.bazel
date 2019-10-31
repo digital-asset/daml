@@ -9,6 +9,7 @@ load(
 )
 
 hj_scalacopts = [
+    "-P:wartremover:traverser:org.wartremover.warts.NonUnitStatements",
     "-Ypartial-unification",
     "-Xsource:2.13",
 ]

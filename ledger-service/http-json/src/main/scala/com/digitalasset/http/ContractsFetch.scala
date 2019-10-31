@@ -18,6 +18,7 @@ import akka.stream.{ClosedShape, FanOutShape2, Graph, Materializer}
 import cats.effect.{ContextShift, IO}
 import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
 import com.digitalasset.http.ContractsService.ActiveContract
+import com.digitalasset.http.Statement.discard
 import com.digitalasset.http.domain.TemplateId
 import com.digitalasset.http.util.IdentifierConverters.apiIdentifier
 import com.digitalasset.jwt.domain.Jwt
@@ -71,15 +72,18 @@ private class ContractsFetch(
       )((a, b) => (a, b)) { implicit builder => (acsSink, offsetSink) =>
         import GraphDSL.Implicits._
 
-        val source = getActiveContracts(jwt, transactionFilter(party, List(templateId)), true)
-        val stage = builder add acsAndBoundary
+        val initialAcsSource =
+          getActiveContracts(jwt, transactionFilter(party, List(templateId)), true)
+        val acsAndOffset = builder add acsAndBoundary
+//        val persistInitialAcs = builder add persistInitialActiveContracts
 
         // TODO add a stage to persist ACS
         // convert to DBContract (with proper JSON createargs), make InsertDeleteStep,
         // conflate ++, InsertDeleteStep => ConIO
-        source ~> stage.in
-        stage.out0 ~> acsSink
-        stage.out1 ~> offsetSink
+        initialAcsSource ~> acsAndOffset.in
+//        acsAndOffset.out0 ~> persistInitialAcs ~> acsSink
+        acsAndOffset.out0 ~> acsSink
+        acsAndOffset.out1 ~> offsetSink
 
         ClosedShape
       })
@@ -93,6 +97,9 @@ private class ContractsFetch(
 
     ???
   }
+
+//  private def persistInitialActiveContracts: Flow[Seq[lav1.event.CreatedEvent], ConnectionIO[Int], NotUsed] =
+//    ???
 
   private def readLastOffsetFromDb(
       party: domain.Party,
@@ -157,8 +164,8 @@ private object ContractsFetch {
       }))
       val as = b.add(Flow[A \/ B].collect { case -\/(a) => a })
       val bs = b.add(Flow[A \/ B].collect { case \/-(b) => b })
-      split ~> as
-      split ~> bs
+      discard { split ~> as }
+      discard { split ~> bs }
       new FanOutShape2(split.in, as.out, bs.out)
     }
 
@@ -171,8 +178,8 @@ private object ContractsFetch {
     import lav1.event.Event
     import Event.Event._
     txes foreach {
-      case Event(Created(c)) => csb += c; ()
-      case Event(Archived(a)) => asb += a.contractId; ()
+      case Event(Created(c)) => discard { csb += c }
+      case Event(Archived(a)) => discard { asb += a.contractId }
       case Event(Empty) => () // nonsense
     }
     val as = asb.result()
@@ -218,8 +225,8 @@ private object ContractsFetch {
         .collect { case gacr if gacr.offset.nonEmpty => Absolute(gacr.offset) }
         .fold(Boundary(LedgerBoundary.LEDGER_BEGIN): Value)((_, later) => later)
         .map(LedgerOffset.apply)
-      dup ~> acs
-      dup ~> off
+      discard { dup ~> acs }
+      discard { dup ~> off }
       new FanOutShape2(dup.in, acs.out, off.out)
     }
 

@@ -156,7 +156,7 @@ class CommandService(
 }
 
 object CommandService {
-  case class Error(id: Symbol, message: String)
+  final case class Error(id: Symbol, message: String)
 
   object Error {
     implicit val errorShow: Show[Error] = Show shows { e =>

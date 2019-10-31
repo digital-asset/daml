@@ -7,6 +7,7 @@ import com.digitalasset.http.Generators.genDuplicateApiIdentifiers
 import org.scalatest.prop.GeneratorDrivenPropertyChecks
 import org.scalatest.{FlatSpec, Matchers}
 
+@SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
 class GeneratorsTest extends FlatSpec with Matchers with GeneratorDrivenPropertyChecks {
   implicit override val generatorDrivenConfig: PropertyCheckConfiguration =
     PropertyCheckConfiguration(minSuccessful = 10000)
