@@ -17,6 +17,7 @@ module DA.Next.Map
   , null
   , lookup
   , member
+  , filter
   , filterWithKey
   , delete
   , insert
@@ -24,7 +25,7 @@ module DA.Next.Map
   , merge
   ) where
 
-import Prelude hiding (lookup, null, empty)
+import Prelude hiding (lookup, null, filter, empty)
 import DA.Foldable qualified as Foldable
 import DA.Optional
 import DA.Text
@@ -117,7 +118,13 @@ lookup k (Map t) = TextMap.lookup (keyToText k) t
 member : MapKey k => k -> Map k v -> Bool
 member k (Map t) = TextMap.member (keyToText k) t
 
--- | Filter all values that satisfy some predicate.
+-- | Filter the `Map` using a predicate: keep only the entries where the
+-- value satisfies the predicate.
+filter : MapKey k => (v -> Bool) -> Map k v -> Map k v
+filter p = filterWithKey (const p)
+
+-- | Filter the `Map` using a predicate: keep only the entries which
+-- satisfy the predicate.
 filterWithKey : MapKey k => (k -> v -> Bool) -> Map k v -> Map k v
 filterWithKey p (Map t) = Map $ TextMap.filterWithKey (p . keyFromText) t
 
