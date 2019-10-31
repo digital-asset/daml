@@ -13,6 +13,8 @@ import * as tmp from 'tmp';
 import { LanguageClient, LanguageClientOptions, RequestType, NotificationType, TextDocumentIdentifier, TextDocument, ExecuteCommandRequest } from 'vscode-languageclient';
 import { Uri, Event, TextDocumentContentProvider, ViewColumn, EventEmitter, window, QuickPickOptions, ExtensionContext, env, WorkspaceConfiguration } from 'vscode'
 import * as which from 'which';
+import * as util from 'util';
+
 
 let damlRoot: string = path.join(os.homedir(), '.daml');
 
@@ -98,11 +100,11 @@ export async function activate(context: vscode.ExtensionContext) {
 // This will be used to show release notes when the version has changed.
 async function checkVersion(context: ExtensionContext) {
     let packageFile = path.join(context.extensionPath, 'package.json');
-    let data = fs.readFileSync(packageFile, "utf8");
-    let extensionVersion = JSON.parse(data).version;
+    let packageData = await util.promisify(fs.readFile)(packageFile, "utf8");
+    let extensionVersion = JSON.parse(packageData).version;
     let recordedVersion = context.globalState.get(versionContextKey);
     if (!recordedVersion || recordedVersion != extensionVersion ) {
-        context.globalState.update(versionContextKey, extensionVersion);
+        await context.globalState.update(versionContextKey, extensionVersion);
     }
 }
 
