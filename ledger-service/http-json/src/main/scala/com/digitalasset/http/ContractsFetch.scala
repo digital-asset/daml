@@ -16,7 +16,6 @@ import akka.stream.scaladsl.{
 }
 import akka.stream.{ClosedShape, FanOutShape2, Graph, Materializer}
 import cats.effect.{ContextShift, IO}
-import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
 import com.digitalasset.http.ContractsService.ActiveContract
 import com.digitalasset.http.Statement.discard
 import com.digitalasset.http.domain.TemplateId
@@ -169,11 +168,16 @@ private object ContractsFetch {
       new FanOutShape2(split.in, as.out, bs.out)
     }
 
+  /** Plan inserts from an ACS response. */
+  private def planAcsBlockInserts(
+      gacrs: Traversable[lav1.event.CreatedEvent]): InsertDeleteStep[lav1.event.CreatedEvent] =
+    InsertDeleteStep(gacrs.toVector, Set.empty)
+
   /** Plan inserts, deletes from an in-order batch of create/archive events. */
   /*TODO SC private*/
   def partitionInsertsDeletes(
       txes: Traversable[lav1.event.Event]): InsertDeleteStep[lav1.event.CreatedEvent] = {
-    val csb = ImmArraySeq.newBuilder[lav1.event.CreatedEvent]
+    val csb = Vector.newBuilder[lav1.event.CreatedEvent]
     val asb = Set.newBuilder[String]
     import lav1.event.Event
     import Event.Event._
@@ -249,10 +253,11 @@ private object ContractsFetch {
       implicit ec: ExecutionContext): doobie.ConnectionIO[A] =
     doobie.free.connection.async[A](k => fa.onComplete(ta => k(ta.toEither)))
 
-  final case class InsertDeleteStep[+C](inserts: ImmArraySeq[C], deletes: Set[String]) {
+  final case class InsertDeleteStep[+C](inserts: Vector[C], deletes: Set[String]) {
     def append[CC >: C](o: InsertDeleteStep[CC])(cid: CC => String): InsertDeleteStep[CC] =
       InsertDeleteStep(
-        inserts.filter(c => !o.deletes.contains(cid(c))) ++ o.inserts,
+        (if (o.deletes.isEmpty) inserts
+         else inserts.filter(c => !o.deletes.contains(cid(c)))) ++ o.inserts,
         deletes union o.deletes)
   }
 
