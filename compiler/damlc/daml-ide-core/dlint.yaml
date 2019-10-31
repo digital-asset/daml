@@ -987,3 +987,5 @@
 # Don't warn on redundant parens or $
 - ignore: {name: Redundant bracket}
 - ignore: {name: Redundant $}
+# Don't warn on redundant do (DAML choice syntax *mandates* 'do'!)
+- ignore: {name: Redundant do}

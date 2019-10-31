@@ -38,20 +38,17 @@ template Bar
       nonconsuming DelegatedCall1 : Int
         with cid : ContractId Foo
         do
-          r <- exercise cid Call1
-          return r
+          exercise cid Call1
 
       nonconsuming DelegatedCall2 : Int
         with cid : ContractId Foo
         do
-          r <- exercise cid Call2
-          return r
+          exercise cid Call2
 
       DelegatedCall3 : Int
         with cid : ContractId Foo
         do
-          r <- exercise cid Call3
-          return r
+          exercise cid Call3
 
 main = scenario do
 
