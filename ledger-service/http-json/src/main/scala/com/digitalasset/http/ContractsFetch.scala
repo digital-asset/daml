@@ -77,7 +77,7 @@ private class ContractsFetch(
 
     val graph = RunnableGraph.fromGraph(
       GraphDSL.create(
-        Sink.queue[Seq[lav1.event.CreatedEvent]](),
+        Sink.queue[ConnectionIO[Unit]](),
         Sink.last[lav1.ledger_offset.LedgerOffset]
       )((a, b) => (a, b)) { implicit builder => (acsSink, offsetSink) =>
         import GraphDSL.Implicits._
@@ -85,14 +85,12 @@ private class ContractsFetch(
         val initialAcsSource =
           getActiveContracts(jwt, transactionFilter(party, List(templateId)), true)
         val acsAndOffset = builder add acsAndBoundary
-//        val persistInitialAcs = builder add persistInitialActiveContracts
 
         // TODO add a stage to persist ACS
         // convert to DBContract (with proper JSON createargs), make InsertDeleteStep,
         // conflate ++, InsertDeleteStep => ConIO
-        initialAcsSource ~> acsAndOffset.in
-//        acsAndOffset.out0 ~> persistInitialAcs ~> acsSink
-        acsAndOffset.out0 ~> acsSink
+        acsAndOffset.in <~ initialAcsSource
+        acsAndOffset.out0 ~> jsonifyCreates ~> persistInitialActiveContracts ~> acsSink
         acsAndOffset.out1 ~> offsetSink
 
         ClosedShape
@@ -100,16 +98,44 @@ private class ContractsFetch(
 
     val (acsQueue, lastOffsetFuture) = graph.run()
 
-//    for {
-//      _ <- sinkCioSequence_(acsQueue)
-//      offset <- connectionIOFuture(lastOffsetFuture)
-//    } yield offset
-
-    ???
+    import lav1.ledger_offset.LedgerOffset, LedgerOffset.Value.Absolute
+    for {
+      _ <- sinkCioSequence_(acsQueue)
+      offset <- connectionIOFuture(lastOffsetFuture)
+      _ <- offset match {
+        case LedgerOffset(Absolute(off)) =>
+          (??? : ContractDao).updateOffset(party, templateId, domain.Offset(off))
+        case _ => doobie.free.connection.pure(())
+      }
+    } yield offset
   }
 
-//  private def persistInitialActiveContracts: Flow[Seq[lav1.event.CreatedEvent], ConnectionIO[Int], NotUsed] =
-//    ???
+  private def prepareCreatedEventStorage(
+      ce: lav1.event.CreatedEvent): Exception \/ PreInsertContract =
+    for {
+      ac <- domain.ActiveContract fromLedgerApi ce leftMap (de =>
+        new IllegalArgumentException(s"contract ${ce.contractId}: ${de.shows}"))
+      lfArg <- apiValueToLfValue(ac.argument) leftMap (_.cause)
+    } yield
+      DBContract(
+        contractId = ac.contractId.unwrap,
+        templateId = ac.templateId,
+        createArguments = lfValueToDbJsValue(lfArg),
+        witnessParties = ac.witnessParties)
+
+  @SuppressWarnings(Array("org.wartremover.warts.Any"))
+  private def jsonifyCreates
+    : Flow[Seq[lav1.event.CreatedEvent], Vector[PreInsertContract], NotUsed] = {
+    import scalaz.syntax.traverse._
+    Flow fromFunction (_.toVector traverse prepareCreatedEventStorage fold (e => throw e, identity))
+  }
+
+  private def persistInitialActiveContracts
+    : Flow[Vector[PreInsertContract], ConnectionIO[Unit], NotUsed] =
+    Flow[Vector[PreInsertContract]]
+      .map(planAcsBlockInserts)
+      .conflate(_.append(_)(_.contractId))
+      .map(insertAndDelete)
 
   private def readLastOffsetFromDb(
       party: domain.Party,
