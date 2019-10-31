@@ -46,7 +46,9 @@ import scalaz.syntax.tag._
 import scala.concurrent.Future
 import scala.concurrent.duration._
 import com.digitalasset.platform.apitesting.TestParties._
+import com.digitalasset.platform.participant.util.ValueConversions._
 import com.digitalasset.platform.testing.SingleItemObserver
+
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 class CommandCompletionServiceIT
     extends AsyncWordSpec
@@ -75,7 +77,21 @@ class CommandCompletionServiceIT
         for {
           commandClient <- ctx.commandClient(ctx.ledgerId)
           tracker <- commandClient.trackCommands[String](configuredParties)
-          commands = configuredParties.map(p => Ctx(p, ctx.command(p, p, Nil)))
+          commands = configuredParties.map(
+            p =>
+              Ctx(
+                p,
+                ctx.command(
+                  p,
+                  p,
+                  List(
+                    ProtoCreateCommand(
+                      Some(templateIds.dummy),
+                      Some(Record(
+                        Some(templateIds.dummy),
+                        Seq(RecordField("operator", Option(Value(Value.Sum.Party(p)))))))).wrap)
+                )
+            ))
           result <- Source(commands).via(tracker).runWith(Sink.seq)
         } yield {
           val expected = configuredParties.map(p => (p, 0))
@@ -132,7 +148,17 @@ class CommandCompletionServiceIT
             startingOffset = startingOffsetResponse.getOffset
             commandClient <- ctx.commandClient(ctx.ledgerId)
             commands = configuredParties
-              .map(p => ctx.command(p, p, Nil))
+              .map(p =>
+                ctx.command(
+                  p,
+                  p,
+                  List(
+                    ProtoCreateCommand(
+                      Some(templateIds.dummy),
+                      Some(Record(
+                        Some(templateIds.dummy),
+                        Seq(RecordField("operator", Option(Value(Value.Sum.Party(p)))))))).wrap)
+              ))
               .zipWithIndex
               .map { case (req, i) => req.update(_.commands.commandId := s"command-id-$i") }
             _ <- Future.sequence(

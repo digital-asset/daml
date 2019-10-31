@@ -12,7 +12,10 @@ import com.digitalasset.ledger.api.testing.utils.{
   MockMessages,
   SuiteResourceManagementAroundAll
 }
-import com.digitalasset.platform.apitesting.{LedgerContext, MultiLedgerFixture}
+import com.digitalasset.ledger.api.v1.commands.CreateCommand
+import com.digitalasset.ledger.api.v1.value.{Record, RecordField, Value}
+import com.digitalasset.platform.apitesting.{LedgerContext, MultiLedgerFixture, TestTemplateIds}
+import com.digitalasset.platform.participant.util.ValueConversions._
 import com.digitalasset.platform.sandbox.config.SandboxConfig
 import com.google.protobuf.empty.Empty
 import io.grpc.Status
@@ -32,19 +35,46 @@ class CommandServiceBackPressureIT
     with MultiLedgerFixture
     with SuiteResourceManagementAroundAll {
 
+  private[this] val testTemplateIds = new TestTemplateIds(config)
+  private[this] val templateIds = testTemplateIds.templateIds
+
   private def submitAndWaitRequest(ctx: LedgerContext, id: String = UUID.randomUUID().toString) =
     MockMessages.submitAndWaitRequest
       .update(
+        _.commands.commands := List(
+          CreateCommand(
+            Some(templateIds.dummy),
+            Some(
+              Record(
+                Some(templateIds.dummy),
+                Seq(
+                  RecordField(
+                    "operator",
+                    Option(Value(
+                      Value.Sum.Party(MockMessages.submitAndWaitRequest.commands.get.party)))))))
+          ).wrap),
         _.commands.ledgerId := ctx.ledgerId.unwrap,
         _.commands.commandId := id,
-        _.optionalTraceContext := None)
+        _.optionalTraceContext := None
+      )
 
   private def submitRequest(ctx: LedgerContext, id: String = UUID.randomUUID().toString) =
     MockMessages.submitRequest
       .update(
+        _.commands.commands := List(
+          CreateCommand(
+            Some(templateIds.dummy),
+            Some(
+              Record(
+                Some(templateIds.dummy),
+                Seq(RecordField(
+                  "operator",
+                  Option(Value(Value.Sum.Party(MockMessages.submitRequest.commands.get.party)))))))
+          ).wrap),
         _.commands.ledgerId := ctx.ledgerId.unwrap,
         _.commands.commandId := id,
-        _.optionalTraceContext := None)
+        _.optionalTraceContext := None
+      )
 
   "Commands Submission Service" when {
     "overloaded with commands" should {

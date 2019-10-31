@@ -248,6 +248,20 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
       assertGrpcError(failure, Status.Code.NOT_FOUND, s"Ledger ID '$invalidLedgerId' not found.")
   }
 
+  private[this] val disallowEmptyCommandSubmission = LedgerTest(
+    "CSDisallowEmptyTransactionsSubmission",
+    "The submission of an empty command should be rejected with INVALID_ARGUMENT"
+  ) { context =>
+    for {
+      ledger <- context.participant()
+      party <- ledger.allocateParty()
+      emptyRequest <- ledger.submitRequest(party)
+      failure <- ledger.submit(emptyRequest).failed
+    } yield {
+      assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "Missing field: commands")
+    }
+  }
+
   override val tests: Vector[LedgerTest] = Vector(
     submitAndWaitTest,
     submitAndWaitForTransactionTest,
@@ -260,6 +274,7 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
     submitAndWaitWithInvalidLedgerIdTest,
     submitAndWaitForTransactionIdWithInvalidLedgerIdTest,
     submitAndWaitForTransactionWithInvalidLedgerIdTest,
-    submitAndWaitForTransactionTreeWithInvalidLedgerIdTest
+    submitAndWaitForTransactionTreeWithInvalidLedgerIdTest,
+    disallowEmptyCommandSubmission
   )
 }

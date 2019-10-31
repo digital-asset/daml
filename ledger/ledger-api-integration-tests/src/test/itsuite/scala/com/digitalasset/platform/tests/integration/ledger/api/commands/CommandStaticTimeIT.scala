@@ -26,7 +26,7 @@ import com.digitalasset.ledger.api.v1.value.Value.Sum
 import com.digitalasset.ledger.api.v1.value.Value.Sum.Party
 import com.digitalasset.ledger.api.v1.value.{Identifier, Record, RecordField, Value}
 import com.digitalasset.ledger.client.services.commands.CommandClient
-import com.digitalasset.platform.apitesting.{LedgerContext, TestTemplateIds}
+import com.digitalasset.platform.apitesting.LedgerContext
 import io.grpc.Status
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.time.Span
@@ -47,9 +47,6 @@ class CommandStaticTimeIT
     with ScalaFutures
     with SuiteResourceManagementAroundAll
     with OptionValues {
-
-  protected val testTemplateIds = new TestTemplateIds(config)
-  protected val templateIds = testTemplateIds.templateIds
 
   override def timeLimit: Span = scaled(15.seconds)
 
