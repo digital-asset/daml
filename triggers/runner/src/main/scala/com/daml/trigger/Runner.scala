@@ -178,7 +178,10 @@ class Runner(
       compiler.compile(ERecProj(triggerTy, Name.assertFromString("initialState"), triggerExpr))
 
     val machine = Speedy.Machine.fromSExpr(null, false, compiledPackages)
-    val createdExpr: SExpr = SEValue(converter.fromACS(acs))
+    val createdExpr: SExpr = SEValue(converter.fromACS(acs) match {
+      case Left(err) => throw new RuntimeException(err)
+      case Right(x) => x
+    })
     val initialState =
       SEApp(getInitialState, Array(SEValue(SParty(Party.assertFromString(party))), createdExpr))
     machine.ctrl = Speedy.CtrlExpr(initialState)
@@ -203,14 +206,20 @@ class Runner(
       .toMat(Sink.fold[SExpr, TriggerMsg](SEValue(evaluatedInitialState))((state, message) => {
         val messageVal = message match {
           case TransactionMsg(transaction) => {
-            converter.fromTransaction(transaction)
+            converter.fromTransaction(transaction) match {
+              case Left(err) => throw new RuntimeException(err)
+              case Right(x) => x
+            }
           }
           case CompletionMsg(completion) => {
             val status = completion.getStatus
             if (status.code != 0) {
               logger.warn(s"Command failed: ${status.message}, code: ${status.code}")
             }
-            converter.fromCompletion(completion)
+            converter.fromCompletion(completion) match {
+              case Left(err) => throw new RuntimeException(err)
+              case Right(x) => x
+            }
           }
         }
         machine.ctrl = Speedy.CtrlExpr(SEApp(update, Array(SEValue(messageVal), state)))
