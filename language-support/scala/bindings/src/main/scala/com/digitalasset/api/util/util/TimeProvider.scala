@@ -28,4 +28,5 @@ object TimeProvider {
 
     override def getCurrentTime: Instant = utcClock.instant()
   }
+
 }

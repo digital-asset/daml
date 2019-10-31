@@ -4,30 +4,25 @@
 package com.digitalasset.ledger.api.auth.services
 
 import com.digitalasset.grpc.adapter.utils.DirectExecutionContext
-import com.digitalasset.ledger.api.auth.AuthService
+import com.digitalasset.ledger.api.auth.Authorizer
 import com.digitalasset.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc.CommandSubmissionService
 import com.digitalasset.ledger.api.v1.command_submission_service._
 import com.digitalasset.platform.api.grpc.GrpcApiService
 import com.digitalasset.platform.server.api.ProxyCloseable
 import com.google.protobuf.empty.Empty
 import io.grpc.ServerServiceDefinition
-import org.slf4j.{Logger, LoggerFactory}
 
 import scala.concurrent.Future
 
-class CommandSubmissionServiceAuthorization(
+final class CommandSubmissionServiceAuthorization(
     protected val service: CommandSubmissionService with AutoCloseable,
-    protected val authService: AuthService)
+    private val authorizer: Authorizer)
     extends CommandSubmissionService
     with ProxyCloseable
     with GrpcApiService {
 
-  protected val logger: Logger = LoggerFactory.getLogger(CommandSubmissionService.getClass)
-
   override def submit(request: SubmitRequest): Future[Empty] =
-    ApiServiceAuthorization
-      .requireClaimsForParty(request.commands.map(_.party))
-      .fold(Future.failed(_), _ => service.submit(request))
+    authorizer.requireClaimsForParty(request.commands.map(_.party), service.submit)(request)
 
   override def bindService(): ServerServiceDefinition =
     CommandSubmissionServiceGrpc.bindService(this, DirectExecutionContext)

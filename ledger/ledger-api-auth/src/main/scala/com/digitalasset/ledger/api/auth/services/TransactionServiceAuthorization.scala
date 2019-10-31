@@ -4,7 +4,7 @@
 package com.digitalasset.ledger.api.auth.services
 
 import com.digitalasset.grpc.adapter.utils.DirectExecutionContext
-import com.digitalasset.ledger.api.auth.AuthService
+import com.digitalasset.ledger.api.auth.Authorizer
 import com.digitalasset.ledger.api.v1.transaction_service
 import com.digitalasset.ledger.api.v1.transaction_service.TransactionServiceGrpc.TransactionService
 import com.digitalasset.ledger.api.v1.transaction_service._
@@ -12,68 +12,56 @@ import com.digitalasset.platform.api.grpc.GrpcApiService
 import com.digitalasset.platform.server.api.ProxyCloseable
 import io.grpc.ServerServiceDefinition
 import io.grpc.stub.StreamObserver
-import org.slf4j.{Logger, LoggerFactory}
 
 import scala.concurrent.Future
 
-class TransactionServiceAuthorization(
+final class TransactionServiceAuthorization(
     protected val service: TransactionService with AutoCloseable,
-    protected val authService: AuthService)
+    private val authorizer: Authorizer)
     extends TransactionService
     with ProxyCloseable
     with GrpcApiService {
 
-  protected val logger: Logger = LoggerFactory.getLogger(TransactionService.getClass)
-
   override def getTransactions(
       request: transaction_service.GetTransactionsRequest,
       responseObserver: StreamObserver[GetTransactionsResponse]): Unit =
-    // TODO(RA): To implement claims expiration, get the expiration date here and create a
-    // wrapping StreamObserver that checks the expiration date on each callback.
-    // OR: overwrite getTransactionsSource from [[GrpcTransactionService]] and kill the source
-    // as soon as the claims expire.
-    ApiServiceAuthorization
-      .requireClaimsForTransactionFilter(request.filter)
-      .fold(responseObserver.onError(_), _ => service.getTransactions(request, responseObserver))
+    authorizer.requireClaimsForTransactionFilterOnStream(request.filter, service.getTransactions)(
+      request,
+      responseObserver)
 
   override def getTransactionTrees(
       request: transaction_service.GetTransactionsRequest,
       responseObserver: StreamObserver[GetTransactionTreesResponse]): Unit =
-    ApiServiceAuthorization
-      .requireClaimsForTransactionFilter(request.filter)
-      .fold(
-        responseObserver.onError(_),
-        _ => service.getTransactionTrees(request, responseObserver))
+    authorizer.requireClaimsForTransactionFilterOnStream(
+      request.filter,
+      service.getTransactionTrees)(request, responseObserver)
 
   override def getTransactionByEventId(
       request: transaction_service.GetTransactionByEventIdRequest): Future[GetTransactionResponse] =
-    ApiServiceAuthorization
-      .requireClaimsForAllParties(request.requestingParties.toSet)
-      .fold(Future.failed(_), _ => service.getTransactionByEventId(request))
+    authorizer.requireClaimsForAllParties(
+      request.requestingParties,
+      service.getTransactionByEventId)(request)
 
   override def getTransactionById(
       request: transaction_service.GetTransactionByIdRequest): Future[GetTransactionResponse] =
-    ApiServiceAuthorization
-      .requireClaimsForAllParties(request.requestingParties.toSet)
-      .fold(Future.failed(_), _ => service.getTransactionById(request))
+    authorizer.requireClaimsForAllParties(request.requestingParties, service.getTransactionById)(
+      request)
 
   override def getFlatTransactionByEventId(
       request: transaction_service.GetTransactionByEventIdRequest)
     : Future[GetFlatTransactionResponse] =
-    ApiServiceAuthorization
-      .requireClaimsForAllParties(request.requestingParties.toSet)
-      .fold(Future.failed(_), _ => service.getFlatTransactionByEventId(request))
+    authorizer.requireClaimsForAllParties(
+      request.requestingParties,
+      service.getFlatTransactionByEventId)(request)
 
   override def getFlatTransactionById(
       request: transaction_service.GetTransactionByIdRequest): Future[GetFlatTransactionResponse] =
-    ApiServiceAuthorization
-      .requireClaimsForAllParties(request.requestingParties.toSet)
-      .fold(Future.failed(_), _ => service.getFlatTransactionById(request))
+    authorizer.requireClaimsForAllParties(
+      request.requestingParties,
+      service.getFlatTransactionById)(request)
 
   override def getLedgerEnd(request: GetLedgerEndRequest): Future[GetLedgerEndResponse] =
-    ApiServiceAuthorization
-      .requirePublicClaims()
-      .fold(Future.failed(_), _ => service.getLedgerEnd(request))
+    authorizer.requirePublicClaims(service.getLedgerEnd)(request)
 
   override def bindService(): ServerServiceDefinition =
     TransactionServiceGrpc.bindService(this, DirectExecutionContext)

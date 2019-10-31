@@ -4,35 +4,28 @@
 package com.digitalasset.ledger.api.auth.services
 
 import com.digitalasset.grpc.adapter.utils.DirectExecutionContext
-import com.digitalasset.ledger.api.auth.AuthService
+import com.digitalasset.ledger.api.auth.Authorizer
 import com.digitalasset.ledger.api.v1.admin.package_management_service.PackageManagementServiceGrpc.PackageManagementService
 import com.digitalasset.ledger.api.v1.admin.package_management_service._
 import com.digitalasset.platform.api.grpc.GrpcApiService
 import com.digitalasset.platform.server.api.ProxyCloseable
 import io.grpc.ServerServiceDefinition
-import org.slf4j.{Logger, LoggerFactory}
 
 import scala.concurrent.Future
 
-class PackageManagementServiceAuthorization(
+final class PackageManagementServiceAuthorization(
     protected val service: PackageManagementService with AutoCloseable,
-    protected val authService: AuthService)
+    private val authorizer: Authorizer)
     extends PackageManagementService
     with ProxyCloseable
     with GrpcApiService {
 
-  protected val logger: Logger = LoggerFactory.getLogger(PackageManagementService.getClass)
-
   override def listKnownPackages(
       request: ListKnownPackagesRequest): Future[ListKnownPackagesResponse] =
-    ApiServiceAuthorization
-      .requireAdminClaims()
-      .fold(Future.failed(_), _ => service.listKnownPackages(request))
+    authorizer.requireAdminClaims(service.listKnownPackages)(request)
 
   override def uploadDarFile(request: UploadDarFileRequest): Future[UploadDarFileResponse] =
-    ApiServiceAuthorization
-      .requireAdminClaims()
-      .fold(Future.failed(_), _ => service.uploadDarFile(request))
+    authorizer.requireAdminClaims(service.uploadDarFile)(request)
 
   override def bindService(): ServerServiceDefinition =
     PackageManagementServiceGrpc.bindService(this, DirectExecutionContext)
