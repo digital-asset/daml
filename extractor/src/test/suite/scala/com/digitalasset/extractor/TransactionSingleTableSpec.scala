@@ -33,8 +33,6 @@ abstract class TransactionSingleTableSpec
 
   override def scenario: Option[String] = Some("TransactionExample:example")
 
-  override protected def outputFormat: String = "single-table"
-
   "Transactions" should "be extracted" in {
     getTransactions should have length 2
   }

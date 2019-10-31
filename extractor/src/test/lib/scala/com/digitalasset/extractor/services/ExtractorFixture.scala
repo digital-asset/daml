@@ -41,7 +41,7 @@ trait ExtractorFixture extends SandboxFixture with PostgresAround with Types {
     ),
   )
 
-  protected def outputFormat: String
+  protected def outputFormat: String = "single-table"
 
   protected def configureExtractor(ec: ExtractorConfig): ExtractorConfig = ec
 
