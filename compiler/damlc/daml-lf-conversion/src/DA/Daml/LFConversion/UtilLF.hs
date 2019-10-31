@@ -25,6 +25,9 @@ mkVar = ExprVarName
 mkVal :: T.Text -> ExprValName
 mkVal = ExprValName
 
+mkWorkerName :: T.Text -> ExprValName
+mkWorkerName name = ExprValName ("$W" <> name)
+
 mkTypeVar :: T.Text -> TypeVarName
 mkTypeVar = TypeVarName
 
