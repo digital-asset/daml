@@ -3,35 +3,30 @@
 
 package com.digitalasset.ledger.api.auth
 
-import io.grpc.stub.{ServerCallStreamObserver, StreamObserver}
+import io.grpc.stub.ServerCallStreamObserver
 
 final class OngoingAuthorizationObserver[A](
-    observer: StreamObserver[A],
+    observer: ServerCallStreamObserver[A],
     claims: Claims,
     authorized: Claims => Boolean,
     throwOnFailure: => Throwable)
     extends ServerCallStreamObserver[A] {
 
-  private[this] val wrapped = observer match {
-    case scso: ServerCallStreamObserver[_] => scso
-    case _ => throw new IllegalArgumentException
-  }
+  override def isCancelled: Boolean = observer.isCancelled
 
-  override def isCancelled: Boolean = wrapped.isCancelled
+  override def setOnCancelHandler(runnable: Runnable): Unit = observer.setOnCancelHandler(runnable)
 
-  override def setOnCancelHandler(runnable: Runnable): Unit = wrapped.setOnCancelHandler(runnable)
+  override def setCompression(s: String): Unit = observer.setCompression(s)
 
-  override def setCompression(s: String): Unit = wrapped.setCompression(s)
+  override def isReady: Boolean = observer.isReady
 
-  override def isReady: Boolean = wrapped.isReady
+  override def setOnReadyHandler(runnable: Runnable): Unit = observer.setOnReadyHandler(runnable)
 
-  override def setOnReadyHandler(runnable: Runnable): Unit = wrapped.setOnReadyHandler(runnable)
+  override def disableAutoInboundFlowControl(): Unit = observer.disableAutoInboundFlowControl()
 
-  override def disableAutoInboundFlowControl(): Unit = wrapped.disableAutoInboundFlowControl()
+  override def request(i: Int): Unit = observer.request(i)
 
-  override def request(i: Int): Unit = wrapped.request(i)
-
-  override def setMessageCompression(b: Boolean): Unit = wrapped.setMessageCompression(b)
+  override def setMessageCompression(b: Boolean): Unit = observer.setMessageCompression(b)
 
   override def onNext(v: A): Unit =
     if (authorized(claims)) observer.onNext(v)

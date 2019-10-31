@@ -8,13 +8,13 @@ import java.time.Instant
 import com.digitalasset.ledger.api.auth.interceptor.AuthorizationInterceptor
 import com.digitalasset.ledger.api.v1.transaction_filter.TransactionFilter
 import com.digitalasset.platform.server.api.validation.ErrorFactories.permissionDenied
-import io.grpc.stub.StreamObserver
+import io.grpc.stub.{ServerCallStreamObserver, StreamObserver}
 
 import scala.concurrent.Future
 
 object Authorizer {
 
-  private def authError = permissionDenied("You are not authorized to use this resource")
+  private def exception = permissionDenied("You are not authorized to use this resource")
 
 }
 
@@ -23,21 +23,19 @@ object Authorizer {
   */
 final class Authorizer(now: () => Instant) {
 
-  import Authorizer.authError
-
   def requirePublicClaimsOnStream[Req, Res](
       call: (Req, StreamObserver[Res]) => Unit): (Req, StreamObserver[Res]) => Unit =
-    wrapStream(_.isPublic(now()), call)
+    wrapStream(c => c.notExpired(now()) && c.isPublic, call)
 
   def requirePublicClaims[Req, Res](call: Req => Future[Res]): Req => Future[Res] =
-    wrapSingleCall(_.isPublic(now()), call)
+    wrapSingleCall(c => c.notExpired(now()) && c.isPublic, call)
 
   def requireAdminClaimsOnStream[Req, Res](
       call: (Req, StreamObserver[Res]) => Unit): (Req, StreamObserver[Res]) => Unit =
-    wrapStream(_.isAdmin(now()), call)
+    wrapStream(c => c.notExpired(now()) && c.isAdmin, call)
 
   def requireAdminClaims[Req, Res](call: Req => Future[Res]): Req => Future[Res] =
-    wrapSingleCall(_.isAdmin(now()), call)
+    wrapSingleCall(c => c.notExpired(now()) && c.isAdmin, call)
 
   def requireNotExpiredOnStream[Req, Res](
       call: (Req, StreamObserver[Res]) => Unit): (Req, StreamObserver[Res]) => Unit =
@@ -52,7 +50,7 @@ final class Authorizer(now: () => Instant) {
   def requireClaimsForAllPartiesOnStream[Req, Res](
       parties: Iterable[String],
       call: (Req, StreamObserver[Res]) => Unit): (Req, StreamObserver[Res]) => Unit =
-    wrapStream(claims => parties.forall(p => claims.canActAs(p, now())), call)
+    wrapStream(c => c.notExpired(now()) && parties.forall(p => c.canActAs(p)), call)
 
   /** Wraps a single call to verify whether some Claims authorize to act as all parties
     * of the given set. Authorization is always granted for an empty collection of parties.
@@ -60,7 +58,7 @@ final class Authorizer(now: () => Instant) {
   def requireClaimsForAllParties[Req, Res](
       parties: Iterable[String],
       call: Req => Future[Res]): Req => Future[Res] =
-    wrapSingleCall(claims => parties.forall(p => claims.canActAs(p, now())), call)
+    wrapSingleCall(c => c.notExpired(now()) && parties.forall(p => c.canActAs(p)), call)
 
   /** Checks whether the current Claims authorize to act as the given party, if any.
     * Note: An missing party does NOT result in an authorization error.
@@ -92,10 +90,23 @@ final class Authorizer(now: () => Instant) {
       call: Req => Future[Res]): Req => Future[Res] =
     requireClaimsForAllParties(filter.map(_.filtersByParty).fold(Set.empty[String])(_.keySet), call)
 
+  private def assertServerCall[A](observer: StreamObserver[A]): ServerCallStreamObserver[A] =
+    observer match {
+      case _: ServerCallStreamObserver[_] =>
+        observer.asInstanceOf[ServerCallStreamObserver[A]]
+      case _ =>
+        throw new IllegalArgumentException(
+          s"The wrapped stream MUST be a ${classOf[ServerCallStreamObserver[_]].getName}")
+    }
+
+  private def ongoingAuthorization[Res](scso: ServerCallStreamObserver[Res], claims: Claims) =
+    new OngoingAuthorizationObserver[Res](scso, claims, _.notExpired(now()), Authorizer.exception)
+
   private def wrapStream[Req, Res](
       authorized: Claims => Boolean,
-      call: (Req, StreamObserver[Res]) => Unit): (Req, StreamObserver[Res]) => Unit =
+      call: (Req, ServerCallStreamObserver[Res]) => Unit): (Req, StreamObserver[Res]) => Unit =
     (request, observer) => {
+      val scso = assertServerCall(observer)
       AuthorizationInterceptor
         .extractClaimsFromContext()
         .fold(
@@ -105,10 +116,11 @@ final class Authorizer(now: () => Instant) {
               call(
                 request,
                 if (claims.expiration.isDefined)
-                  new OngoingAuthorizationObserver(observer, claims, _.notExpired(now()), authError)
-                else observer
+                  ongoingAuthorization(scso, claims)
+                else
+                  scso
               )
-            else observer.onError(authError)
+            else observer.onError(Authorizer.exception)
         )
     }
 
@@ -122,7 +134,7 @@ final class Authorizer(now: () => Instant) {
           Future.failed,
           claims =>
             if (authorized(claims)) call(request)
-            else Future.failed(authError)
+            else Future.failed(Authorizer.exception)
       )
 
 }

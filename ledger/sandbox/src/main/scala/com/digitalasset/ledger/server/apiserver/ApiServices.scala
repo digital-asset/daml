@@ -16,7 +16,7 @@ import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.engine._
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.ledger.api.auth.services._
-import com.digitalasset.ledger.api.auth.{AuthService, Authorizer}
+import com.digitalasset.ledger.api.auth.Authorizer
 import com.digitalasset.ledger.api.v1.command_completion_service.CompletionEndRequest
 import com.digitalasset.ledger.client.services.commands.CommandSubmissionFlow
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
@@ -62,7 +62,7 @@ object ApiServices {
   def create(
       writeService: WriteService,
       indexService: IndexService,
-      authService: AuthService,
+      authorizer: Authorizer,
       engine: Engine,
       timeProvider: TimeProvider,
       timeModel: TimeModel,
@@ -138,8 +138,6 @@ object ApiServices {
         ApiActiveContractsService.create(ledgerId, activeContractsService, loggerFactory)
 
       val apiReflectionService = ProtoReflectionService.newInstance()
-
-      val authorizer = new Authorizer(() => java.time.Clock.systemUTC.instant())
 
       val apiTimeServiceOpt =
         optTimeServiceBackend.map { tsb =>

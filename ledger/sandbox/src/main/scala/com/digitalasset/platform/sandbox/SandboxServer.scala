@@ -242,7 +242,7 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
             .create(
               indexAndWriteService.writeService,
               indexAndWriteService.indexService,
-              authService,
+              authorizer,
               SandboxServer.engine,
               timeProvider,
               config.timeModel,
