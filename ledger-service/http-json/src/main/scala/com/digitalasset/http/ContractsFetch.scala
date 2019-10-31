@@ -72,11 +72,12 @@ private class ContractsFetch(
         import GraphDSL.Implicits._
 
         val source = getActiveContracts(jwt, transactionFilter(party, List(templateId)), true)
-        val stage = builder.add(acsAndBoundary)
+        val stage = builder add acsAndBoundary
 
         // TODO add a stage to persist ACS
         // convert to DBContract (with proper JSON createargs), make InsertDeleteStep,
         // conflate ++, InsertDeleteStep => ConIO
+        source ~> stage.in
         stage.out0 ~> acsSink
         stage.out1 ~> offsetSink
 
