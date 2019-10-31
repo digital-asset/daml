@@ -4,12 +4,12 @@
 locals {
   DEBUG_vsts_token   = "${secret_resource.vsts-token.value}"
   DEBUG_vsts_account = "digitalasset"
-  DEBUG_vsts_pool    = "windows-pool-DEBUG"
+  DEBUG_vsts_pool    = "windows-pool-debug"
 }
 
 resource "google_compute_region_instance_group_manager" "vsts-agent-windows-TEMP_DEBUG" {
   provider = "google-beta"
-  name     = "vsts-agent-windows-TEMP_DEBUG"
+  name     = "windows-debug"
 
   # keep the name short. windows hostnames are limited to 12(?) chars.
   # -5 for the random postfix:
@@ -19,7 +19,7 @@ resource "google_compute_region_instance_group_manager" "vsts-agent-windows-TEMP
   target_size = 1
 
   version {
-    name              = "vsts-agent-windows-DEBUG"
+    name              = "windows-debug"
     instance_template = "${google_compute_instance_template.vsts-agent-windows-DEBUG.self_link}"
   }
 
@@ -49,14 +49,14 @@ resource "google_compute_firewall" "allow-rdp" {
     ports = ["3389"]
   }
 
-  target_tags = ["DEBUG-RDP"]
+  target_tags = ["debugrdp"]
 }
 
 resource "google_compute_instance_template" "vsts-agent-windows-DEBUG" {
-  name_prefix  = "vsts-agent-windows-DEBUG-"
+  name_prefix  = "windows-debug-"
   machine_type = "n1-standard-8"
   labels       = "${local.labels}"
-  tags = ["DEBUG-RDP"]
+  tags = ["debugrdp"]
 
   disk {
     disk_size_gb = 200
