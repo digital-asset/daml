@@ -227,7 +227,7 @@ trait LedgerDao extends LedgerReadDao with LedgerWriteDao {
 object LedgerDao {
 
   /** Wraps the given LedgerDao adding metrics around important calls */
-  def metered(dao: LedgerDao)(implicit mm: MetricsManager): LedgerDao = MeteredLedgerDao(dao)
-  def meteredRead(dao: LedgerReadDao)(implicit mm: MetricsManager): LedgerReadDao =
+  def metered(dao: LedgerDao, mm: MetricsManager): LedgerDao = MeteredLedgerDao(dao, mm)
+  def meteredRead(dao: LedgerReadDao, mm: MetricsManager): LedgerReadDao =
     new MeteredLedgerReadDao(dao, mm)
 }

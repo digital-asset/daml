@@ -35,6 +35,8 @@ final class MetricsManager(enableJmxReporter: Boolean) extends AutoCloseable {
 
   if (enableJmxReporter) jmxReporter.start()
 
+  def unmanagedTimer(name: String) = metrics.timer(name)
+
   def timedFuture[T](timerName: String, f: => Future[T]) = {
     val timer = metrics.timer(timerName)
     val ctx = timer.time()

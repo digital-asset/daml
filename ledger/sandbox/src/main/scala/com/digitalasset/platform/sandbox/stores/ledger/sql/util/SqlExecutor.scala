@@ -3,18 +3,20 @@
 
 package com.digitalasset.platform.sandbox.stores.ledger.sql.util
 
-import java.util.concurrent.{Executors, TimeUnit}
+import java.util.concurrent.Executors
 
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
+import com.digitalasset.platform.sandbox.metrics.MetricsManager
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 
 import scala.concurrent.{Future, Promise}
 import scala.util.control.NonFatal
 
 /** A dedicated executor for blocking sql queries. */
-class SqlExecutor(noOfThread: Int, loggerFactory: NamedLoggerFactory) extends AutoCloseable {
+final class SqlExecutor(noOfThread: Int, loggerFactory: NamedLoggerFactory, mm: MetricsManager)
+    extends AutoCloseable {
 
-  private val logger = loggerFactory.getLogger(getClass)
+  private[this] val logger = loggerFactory.getLogger(getClass)
 
   private lazy val executor =
     Executors.newFixedThreadPool(
@@ -30,19 +32,17 @@ class SqlExecutor(noOfThread: Int, loggerFactory: NamedLoggerFactory) extends Au
 
   def runQuery[A](description: => String, block: () => A): Future[A] = {
     val promise = Promise[A]
-    val startWait = System.nanoTime()
+    val waitTimer = mm.unmanagedTimer(s"sql_${description}_wait")
+    val waitAllTimer = mm.unmanagedTimer("sql_all_wait")
     executor.execute(() => {
+      waitTimer.time()
+      waitAllTimer.time()
       try {
-        val elapsedWait = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startWait)
-        val start = System.nanoTime()
+        val execTimer = mm.unmanagedTimer(s"sql_${description}_exec")
+        val execAllTimer = mm.unmanagedTimer("sql_all_exec")
         val res = block()
-        val elapsed = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - start)
-
-        if (logger.isTraceEnabled) {
-          logger.trace(
-            s"""DB Operation "$description": wait time ${elapsedWait}ms, execution time ${elapsed}ms""")
-        }
-
+        execTimer.time()
+        execAllTimer.time()
         promise.success(res)
       } catch {
         case NonFatal(e) =>
@@ -60,6 +60,6 @@ class SqlExecutor(noOfThread: Int, loggerFactory: NamedLoggerFactory) extends Au
 }
 
 object SqlExecutor {
-  def apply(noOfThread: Int, loggerFactory: NamedLoggerFactory): SqlExecutor =
-    new SqlExecutor(noOfThread, loggerFactory)
+  def apply(noOfThread: Int, loggerFactory: NamedLoggerFactory, mm: MetricsManager): SqlExecutor =
+    new SqlExecutor(noOfThread, loggerFactory, mm)
 }

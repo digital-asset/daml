@@ -74,9 +74,8 @@ object SqlLedger {
       initialLedgerEntries: ImmArray[LedgerEntryOrBump],
       queueDepth: Int,
       startMode: SqlStartMode = SqlStartMode.ContinueIfExists,
-      loggerFactory: NamedLoggerFactory)(
-      implicit mat: Materializer,
-      mm: MetricsManager): Future[Ledger] = {
+      loggerFactory: NamedLoggerFactory,
+      mm: MetricsManager)(implicit mat: Materializer): Future[Ledger] = {
     implicit val ec: ExecutionContext = DEC
 
     new FlywayMigrations(jdbcUrl, loggerFactory).migrate()
@@ -99,7 +98,8 @@ object SqlLedger {
         ValueSerializer,
         KeyHasher,
         dbType,
-        loggerFactory))
+        loggerFactory),
+      mm)
 
     val sqlLedgerFactory = SqlLedgerFactory(ledgerDao, loggerFactory)
 

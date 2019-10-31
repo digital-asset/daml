@@ -10,6 +10,7 @@ import akka.stream.scaladsl.Source
 import akka.{Done, NotUsed}
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.common.util.DirectExecutionContext
+import com.digitalasset.platform.sandbox.metrics.MetricsManager
 import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.HikariJdbcConnectionProvider
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 
@@ -44,7 +45,8 @@ private class DbDispatcherImpl(
     jdbcUrl: String,
     val noOfShortLivedConnections: Int,
     noOfStreamingConnections: Int,
-    loggerFactory: NamedLoggerFactory)
+    loggerFactory: NamedLoggerFactory,
+    mm: MetricsManager)
     extends DbDispatcher {
 
   private val logger = loggerFactory.getLogger(getClass)
@@ -54,7 +56,7 @@ private class DbDispatcherImpl(
       noOfShortLivedConnections,
       noOfStreamingConnections,
       loggerFactory)
-  private val sqlExecutor = SqlExecutor(noOfShortLivedConnections, loggerFactory)
+  private val sqlExecutor = SqlExecutor(noOfShortLivedConnections, loggerFactory, mm)
 
   private val connectionGettingThreadPool = ExecutionContext.fromExecutorService(
     Executors.newSingleThreadExecutor(
@@ -103,10 +105,13 @@ object DbDispatcher {
       jdbcUrl: String,
       noOfShortLivedConnections: Int,
       noOfStreamingConnections: Int,
-      loggerFactory: NamedLoggerFactory): DbDispatcher =
+      loggerFactory: NamedLoggerFactory,
+      mm: MetricsManager): DbDispatcher =
     new DbDispatcherImpl(
       jdbcUrl,
       noOfShortLivedConnections,
       noOfStreamingConnections,
-      loggerFactory)
+      loggerFactory,
+      mm
+    )
 }
