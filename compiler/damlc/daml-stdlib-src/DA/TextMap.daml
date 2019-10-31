@@ -15,6 +15,7 @@ module DA.TextMap
   , null
   , lookup
   , member
+  , filter
   , filterWithKey
   , delete
   , insert
@@ -73,7 +74,13 @@ lookup = primitive @"BEMapLookup"
 member : Text -> TextMap v -> Bool
 member x m = isSome $ lookup x m
 
--- | Filter all values that satisfy some predicate.
+-- | Filter the `TextMap` using a predicate: keep only the entries where the
+-- value satisfies the predicate.
+filter : (v -> Bool) -> TextMap v -> TextMap v
+filter p = filterWithKey (const p)
+
+-- | Filter the `TextMap` using a predicate: keep only the entries which
+-- satisfy the predicate.
 filterWithKey : (Text -> v -> Bool) -> TextMap v -> TextMap v
 filterWithKey p m = fromList $ List.filter (uncurry p) (toList m)
 
