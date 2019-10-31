@@ -9,6 +9,7 @@ This page contains release notes for the SDK.
 HEAD — ongoing
 --------------
 
+- [Navigator] Fixed regression in Navigator to properly respect the CLI option ``--ledger-api-inbound-message-size-max`` again. See `issue #3301 <https://github.com/digital-asset/daml/issues/3301>`__.
 - [DAML Compiler] Reduce the memory footprint of the IDE and the command line tools (ca. 18% in our experiments).
 - [DAML Triggers] Add ``dedupCreate`` and ``dedupExercise`` helpers that will only send
   commands if they are not already in flight.

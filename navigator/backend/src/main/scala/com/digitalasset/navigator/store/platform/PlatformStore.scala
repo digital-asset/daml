@@ -328,12 +328,17 @@ class PlatformStore(
   private def tryConnect(configuration: LedgerClientConfiguration): Future[ConnectionResult] = {
 
     if (configuration.sslContext.isDefined) {
-      log.info("Connecting to {}:{}, using a plaintext connection", platformHost, platformPort)
-    } else {
       log.info("Connecting to {}:{}, using TLS", platformHost, platformPort)
+    } else {
+      log.info("Connecting to {}:{}, using a plaintext connection", platformHost, platformPort)
     }
 
-    val channel = LedgerClient.constructChannel(platformHost, platformPort, configuration)
+    val channel = LedgerClient
+      .constructChannel(platformHost, platformPort, configuration)
+      .maxInboundMessageSize(ledgerMaxInbound)
+      .build
+
+    val _ = sys.addShutdownHook { val _ = channel.shutdownNow() }
 
     for {
       ledgerClient <- LedgerClient.forChannel(configuration, channel)
