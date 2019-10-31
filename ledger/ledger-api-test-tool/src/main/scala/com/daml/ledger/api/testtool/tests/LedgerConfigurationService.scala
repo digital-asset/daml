@@ -3,15 +3,14 @@
 
 package com.daml.ledger.api.testtool.tests
 
+import com.daml.ledger.api.testtool.infrastructure.ProtobufConverters._
 import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTest, LedgerTestSuite}
 import com.digitalasset.ledger.api.v1.ledger_configuration_service.LedgerConfiguration
 import com.digitalasset.ledger.test_stable.Test.Dummy
-import com.google.protobuf.duration.Duration
-import com.google.protobuf.timestamp.Timestamp
+import com.google.protobuf
 import io.grpc.{Status, StatusException, StatusRuntimeException}
 
 class LedgerConfigurationService(session: LedgerSession) extends LedgerTestSuite(session) {
-
   private[this] val configSucceeds =
     LedgerTest("ConfigSucceeds", "Return a valid configuration for a valid request") { context =>
       for {
@@ -34,13 +33,6 @@ class LedgerConfigurationService(session: LedgerSession) extends LedgerTestSuite
       }
     }
 
-  private def sum(t: Timestamp, d: Duration): Timestamp =
-    t.withSeconds(t.seconds + d.seconds + ((t.nanos + d.nanos) / 1E9).toLong)
-      .withNanos(((t.nanos + d.nanos) % 1E9).toInt)
-
-  private def offset(t: Timestamp, s: Long): Timestamp =
-    Timestamp(t.seconds + s, t.nanos)
-
   private[this] val configJustMinTtl =
     LedgerTest("ConfigJustMinTtl", "LET+minTTL should be an acceptable MRT") { context =>
       for {
@@ -49,7 +41,8 @@ class LedgerConfigurationService(session: LedgerSession) extends LedgerTestSuite
         LedgerConfiguration(Some(minTtl), _) <- ledger.configuration()
         request <- ledger.submitRequest(party, Dummy(party).create.command)
         let = request.getCommands.getLedgerEffectiveTime
-        adjustedRequest = request.update(_.commands.maximumRecordTime := sum(let, minTtl))
+        mrt = let.asJava.plus(minTtl.asJava).asProtobuf
+        adjustedRequest = request.update(_.commands.maximumRecordTime := mrt)
         _ <- ledger.submit(adjustedRequest)
       } yield {
         // Nothing to do, success is enough
@@ -64,8 +57,8 @@ class LedgerConfigurationService(session: LedgerSession) extends LedgerTestSuite
         LedgerConfiguration(Some(minTtl), _) <- ledger.configuration()
         request <- ledger.submitRequest(party, Dummy(party).create.command)
         let = request.getCommands.getLedgerEffectiveTime
-        adjustedRequest = request.update(
-          _.commands.maximumRecordTime := offset(sum(let, minTtl), -1))
+        mrt = let.asJava.plus(minTtl.asJava).minusSeconds(1).asProtobuf
+        adjustedRequest = request.update(_.commands.maximumRecordTime := mrt)
         failure <- ledger.submit(adjustedRequest).failed
       } yield {
         assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "out of bounds")
@@ -80,7 +73,8 @@ class LedgerConfigurationService(session: LedgerSession) extends LedgerTestSuite
         LedgerConfiguration(_, Some(maxTtl)) <- ledger.configuration()
         request <- ledger.submitRequest(party, Dummy(party).create.command)
         let = request.getCommands.getLedgerEffectiveTime
-        adjustedRequest = request.update(_.commands.maximumRecordTime := sum(let, maxTtl))
+        mrt = let.asJava.plus(maxTtl.asJava).asProtobuf
+        adjustedRequest = request.update(_.commands.maximumRecordTime := mrt)
         _ <- ledger.submit(adjustedRequest)
       } yield {
         // Nothing to do, success is enough
@@ -95,23 +89,13 @@ class LedgerConfigurationService(session: LedgerSession) extends LedgerTestSuite
         LedgerConfiguration(_, Some(maxTtl)) <- ledger.configuration()
         request <- ledger.submitRequest(party, Dummy(party).create.command)
         let = request.getCommands.getLedgerEffectiveTime
-        adjustedRequest = request.update(
-          _.commands.maximumRecordTime := offset(sum(let, maxTtl), 1))
+        mrt = let.asJava.plus(maxTtl.asJava).plusSeconds(1).asProtobuf
+        adjustedRequest = request.update(_.commands.maximumRecordTime := mrt)
         failure <- ledger.submit(adjustedRequest).failed
       } yield {
         assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "out of bounds")
       }
     }
-
-  // Adds (maxTTL+1) seconds to a Timestamp
-  private def overflow(maxTtl: Duration)(t: Timestamp): Timestamp =
-    t.withSeconds(t.seconds + maxTtl.seconds + ((t.nanos + maxTtl.nanos) / 1E9).toLong + 1L)
-      .withNanos(((t.nanos + maxTtl.nanos) % 1E9).toInt)
-
-  // Subtracts (maxTTL+1) seconds from a Timestamp
-  private def underflow(maxTtl: Duration)(t: Timestamp): Timestamp =
-    t.withSeconds(t.seconds - maxTtl.seconds + ((t.nanos + maxTtl.nanos) / 1E9).toLong - 1L)
-      .withNanos(((t.nanos - maxTtl.nanos) % 1E9).toInt)
 
   private[this] val submitSuccessIfLetRight =
     LedgerTest(
@@ -168,6 +152,14 @@ class LedgerConfigurationService(session: LedgerSession) extends LedgerTestSuite
         }
       }
     }
+
+  private def overflow(ttl: protobuf.duration.Duration)(
+      t: protobuf.timestamp.Timestamp): protobuf.timestamp.Timestamp =
+    t.asJava.plus(ttl.asJava).plusSeconds(1).asProtobuf
+
+  private def underflow(ttl: protobuf.duration.Duration)(
+      t: protobuf.timestamp.Timestamp): protobuf.timestamp.Timestamp =
+    t.asJava.minus(ttl.asJava).minusSeconds(1).asProtobuf
 
   override val tests: Vector[LedgerTest] = Vector(
     configSucceeds,
