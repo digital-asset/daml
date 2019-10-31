@@ -6,10 +6,7 @@ package com.digitalasset.platform.tests.integration.ledger.api
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.Sink
 import com.digitalasset.ledger.api.testing.utils.{MockMessages => M}
-import com.digitalasset.ledger.api.v1.command_service.{
-  SubmitAndWaitForTransactionIdResponse,
-  SubmitAndWaitRequest
-}
+import com.digitalasset.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.digitalasset.ledger.api.v1.command_submission_service.SubmitRequest
 import com.digitalasset.ledger.api.v1.commands.{
   CreateCommand,
@@ -18,7 +15,7 @@ import com.digitalasset.ledger.api.v1.commands.{
 }
 import com.digitalasset.ledger.api.v1.completion.Completion
 import com.digitalasset.ledger.api.v1.event.Event.Event.{Archived, Created}
-import com.digitalasset.ledger.api.v1.event.{ArchivedEvent, CreatedEvent, Event, ExercisedEvent}
+import com.digitalasset.ledger.api.v1.event.{ArchivedEvent, CreatedEvent, ExercisedEvent}
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
 import com.digitalasset.ledger.api.v1.transaction.{Transaction, TransactionTree, TreeEvent}
 import com.digitalasset.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
@@ -27,15 +24,13 @@ import com.digitalasset.ledger.client.services.commands.CompletionStreamElement
 import com.digitalasset.platform.apitesting.LedgerContext
 import com.digitalasset.platform.participant.util.ValueConversions._
 import com.google.rpc.code.Code
-import com.google.rpc.status.Status
-import io.grpc.StatusRuntimeException
 import org.scalatest.concurrent.Waiters
 import org.scalatest.{Assertion, Inside, Matchers, OptionValues}
 import scalaz.syntax.tag._
 
 import scala.collection.{breakOut, immutable}
 import scala.concurrent.duration._
-import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, Future}
+import scala.concurrent.{ExecutionContextExecutor, Future}
 import scala.language.implicitConversions
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
@@ -62,8 +57,6 @@ class LedgerTestingHelpers(
   def assertCompletionIsSuccessful(completion: Completion): Assertion = {
     inside(completion) { case c => c.getStatus should have('code (0)) }
   }
-
-  def getAllContracts(parties: Seq[String]) = TransactionFilter(parties.map(_ -> Filters()).toMap)
 
   def assertCommandFailsWithCode(
       submitRequest: SubmitRequest,
@@ -93,7 +86,7 @@ class LedgerTestingHelpers(
     }
   }
 
-  def expectTransaction(
+  private def expectTransaction(
       transactionFilter: TransactionFilter,
       transactionId: String,
       txEndOffset: LedgerOffset,
@@ -140,7 +133,7 @@ class LedgerTestingHelpers(
   /** Submit the command, then listen as the submitter for the transactionID, such that test code can run assertions
     * on the presence and contents of that transaction as other parties.
     */
-  def submitAndReturnOffsetAndTransactionId(
+  private def submitAndReturnOffsetAndTransactionId(
       submitRequest: SubmitRequest): Future[(LedgerOffset, String)] =
     for {
       offsetBeforeSubmission <- timeout(
@@ -181,31 +174,7 @@ class LedgerTestingHelpers(
     }
   }
 
-  def submitAndListenForResultsOfCommand(
-      submitRequest: SubmitRequest,
-      transactionFilter: TransactionFilter,
-      filterCid: Boolean = true,
-      verbose: Boolean = false): Future[immutable.Seq[Transaction]] = {
-    val commandId = submitRequest.getCommands.commandId
-    for {
-      txEndOffset <- timeout(
-        submitSuccessfullyAndReturnOffset(submitRequest),
-        s"Submitting command ${submitRequest.getCommands.commandId} as party ${submitRequest.getCommands.party}"
-      )(mat.system)
-      transactions <- timeout(
-        listenForResultOfCommand(
-          transactionFilter,
-          if (filterCid) Some(commandId) else None,
-          txEndOffset,
-          verbose),
-        s"Reading result of command ${submitRequest.getCommands.commandId} as submitter ${submitRequest.getCommands.commandId}"
-      )(mat.system)
-    } yield {
-      transactions
-    }
-  }
-
-  def submitAndListenForAllResultsOfCommand(
+  private def submitAndListenForAllResultsOfCommand(
       submitRequest: SubmitRequest,
       transactionFilter: TransactionFilter,
       filterCid: Boolean = true,
@@ -235,12 +204,11 @@ class LedgerTestingHelpers(
     }
   }
 
-  def listenForResultOfCommand(
+  private def listenForResultOfCommand(
       transactionFilter: TransactionFilter,
       commandId: Option[String],
       txEndOffset: LedgerOffset,
-      verbose: Boolean = false): Future[immutable.Seq[Transaction]] = {
-
+      verbose: Boolean = false): Future[immutable.Seq[Transaction]] =
     transactionClient
       .getTransactions(
         txEndOffset,
@@ -248,20 +216,19 @@ class LedgerTestingHelpers(
         transactionFilter,
         verbose
       )
-      .filter(x => commandId.fold(true)(cid => x.commandId == cid))
+      .filter(x => commandId.contains(x.commandId))
       .take(1)
       .takeWithin(scaled(15.seconds))
       .runWith(Sink.seq)
-  }
 
   /**
     * This is meant to be ran from [timeout] block, as it has no timeout mechanism of its own.
     */
-  def listenForTreeResultOfCommand(
+  private def listenForTreeResultOfCommand(
       transactionFilter: TransactionFilter,
       commandId: Option[String],
       txEndOffset: LedgerOffset,
-      verbose: Boolean = false): Future[immutable.Seq[TransactionTree]] = {
+      verbose: Boolean = false): Future[immutable.Seq[TransactionTree]] =
     transactionClient
       .getTransactionTrees(
         txEndOffset,
@@ -269,10 +236,9 @@ class LedgerTestingHelpers(
         transactionFilter,
         verbose
       )
-      .filter(x => commandId.fold(true)(cid => x.commandId == cid))
+      .filter(x => commandId.contains(x.commandId))
       .take(1)
       .runWith(Sink.seq)
-  }
 
   def createdEventsIn(transaction: Transaction): Seq[CreatedEvent] =
     transaction.events.map(_.event).collect {
@@ -283,11 +249,6 @@ class LedgerTestingHelpers(
   //TODO this class contains a lot of duplicate code.
   def topLevelExercisedIn(transaction: TransactionTree): Seq[ExercisedEvent] =
     exercisedEventsInNodes(transaction.rootEventIds.map(evId => transaction.eventsById(evId)))
-
-  def createdEventsInNodes(nodes: Seq[Event]): Seq[CreatedEvent] =
-    nodes.map(_.event).collect {
-      case Created(createdEvent) => createdEvent
-    }
 
   def createdEventsInTreeNodes(nodes: Seq[TreeEvent]): Seq[CreatedEvent] =
     nodes.map(_.kind).collect {
@@ -310,7 +271,8 @@ class LedgerTestingHelpers(
     * @return A LedgerOffset before the result transaction. If the ledger under test is used concurrently, the returned
     *         offset can be arbitrary distanced from the submitted command.
     */
-  def submitSuccessfullyAndReturnOffset(submitRequest: SubmitRequest): Future[LedgerOffset] = {
+  private def submitSuccessfullyAndReturnOffset(
+      submitRequest: SubmitRequest): Future[LedgerOffset] = {
     for {
       txEndOffset <- transactionClient.getLedgerEnd.map(_.getOffset)
       _ <- submitSuccessfully(submitRequest)
@@ -331,19 +293,11 @@ class LedgerTestingHelpers(
     elements.headOption.value
   }
 
-  def getField(record: Record, fieldName: String): Value = {
-    val presentFieldNames: Set[String] = record.fields.map(_.label)(breakOut)
-    presentFieldNames should contain(fieldName) // This check is duplicate, but offers better scalatest error message
-
-    getHead(record.fields.collect {
-      case RecordField(`fieldName`, fieldValue) => fieldValue
-    }).value
-  }
-
   def recordWithArgument(original: Record, fieldToInclude: RecordField): Record = {
     original.update(_.fields.modify(recordFieldsWithArgument(_, fieldToInclude)))
   }
-  def recordFieldsWithArgument(
+
+  private def recordFieldsWithArgument(
       originalFields: Seq[RecordField],
       fieldToInclude: RecordField): Seq[RecordField] = {
     var replacedAnElement: Boolean = false
@@ -427,7 +381,7 @@ class LedgerTestingHelpers(
   }
 
   // Exercise a choice by key and return all resulting create events.
-  def simpleExerciseByKeyWithListener(
+  private def simpleExerciseByKeyWithListener(
       commandId: String,
       submitter: String,
       listener: String,
@@ -447,28 +401,7 @@ class LedgerTestingHelpers(
     )
   }
 
-  def simpleCreateWithListenerForTransactions(
-      commandId: String,
-      submitter: String,
-      listener: String,
-      template: Identifier,
-      arg: Record
-  ): Future[CreatedEvent] = {
-    for {
-      tx <- submitAndListenForSingleResultOfCommand(
-        submitRequestWithId(commandId, submitter)
-          .update(
-            _.commands.commands :=
-              List(CreateCommand(Some(template), Some(arg)).wrap)
-          ),
-        TransactionFilter(Map(listener -> Filters.defaultInstance))
-      )
-    } yield {
-      getHead(createdEventsIn(tx))
-    }
-  }
-
-  def submitAndListenForTransactionResultOfCommand(
+  private def submitAndListenForTransactionResultOfCommand(
       command: SubmitRequest,
       transactionFilter: TransactionFilter,
       filterCid: Boolean = true): Future[Seq[Transaction]] = {
@@ -507,7 +440,7 @@ class LedgerTestingHelpers(
       .runWith(Sink.seq)
   }
 
-  def simpleExerciseWithListenerForTransactions(
+  private def simpleExerciseWithListenerForTransactions(
       commandId: String,
       submitter: String,
       listener: String,
@@ -548,20 +481,10 @@ class LedgerTestingHelpers(
       expectedErrorCode: Code,
       expectedMessageSubString: String): Future[Assertion] = {
     for {
-      ledgerEnd <- transactionClient.getLedgerEnd
       completion <- submitCommand(submitRequest)
-      // TODO(FM) in the contract keys test this hangs forever after expecting a failedExercise.
-      // Could it be that the ACS behaves like that sometimes? In that case that'd be a bug. We must investigate
-      /*
-      txs <- listenForResultOfCommand(
-        getAllContracts(List(submitRequest.getCommands.party)),
-        Some(submitRequest.getCommands.commandId),
-        ledgerEnd.getOffset)
-     */
     } yield {
       completion.getStatus should have('code (expectedErrorCode.value))
       completion.getStatus.message should include(expectedMessageSubString)
-      // txs shouldBe empty
     }
   }
 
@@ -662,47 +585,4 @@ class LedgerTestingHelpers(
   }
 
   override def spanScaleFactor: Double = timeoutScaleFactor
-}
-
-object LedgerTestingHelpers extends OptionValues {
-
-  def sync(
-      submitCommand: SubmitAndWaitRequest => Future[SubmitAndWaitForTransactionIdResponse],
-      context: LedgerContext,
-      timeoutScaleFactor: Double = 1.0)(
-      implicit ec: ExecutionContext,
-      mat: ActorMaterializer): LedgerTestingHelpers =
-    async(helper(submitCommand), context, timeoutScaleFactor = timeoutScaleFactor)
-
-  def async(
-      submitCommand: SubmitRequest => Future[Completion],
-      context: LedgerContext,
-      timeoutScaleFactor: Double = 1.0)(
-      implicit ec: ExecutionContext,
-      mat: ActorMaterializer): LedgerTestingHelpers =
-    new LedgerTestingHelpers(submitCommand, context, timeoutScaleFactor)
-
-  def responseToCompletion(commandId: String, respF: Future[SubmitAndWaitForTransactionIdResponse])(
-      implicit ec: ExecutionContext): Future[Completion] =
-    respF
-      .map(
-        tx =>
-          Completion(
-            commandId,
-            Some(Status(io.grpc.Status.OK.getCode.value(), "")),
-            tx.transactionId))
-      .recover {
-        case sre: StatusRuntimeException =>
-          Completion(
-            commandId,
-            Some(Status(sre.getStatus.getCode.value(), sre.getStatus.getDescription)))
-      }
-
-  private def helper(
-      submitCommand: SubmitAndWaitRequest => Future[SubmitAndWaitForTransactionIdResponse])(
-      implicit ec: ExecutionContext) = { req: SubmitRequest =>
-    responseToCompletion(
-      req.commands.value.commandId,
-      submitCommand(SubmitAndWaitRequest(req.commands, req.traceContext)))
-  }
 }

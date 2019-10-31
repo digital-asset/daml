@@ -74,8 +74,6 @@ abstract class CommandTransactionChecks
   private val operator = Grace
   private val receiver = Heidi
   private val giver = Alice
-  private val owner = Bob
-  private val delegate = Charlie
   private val observers = List(Eve, Frank)
 
   private val integerListRecordLabel = "integerList"
