@@ -5,6 +5,7 @@ package com.daml.ledger.api.testtool.tests
 
 import com.daml.ledger.api.testtool.infrastructure.ProtobufConverters._
 import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTest, LedgerTestSuite}
+import com.digitalasset.ledger.api.v1.command_submission_service.SubmitRequest
 import com.digitalasset.ledger.api.v1.ledger_configuration_service.LedgerConfiguration
 import com.digitalasset.ledger.test_stable.Test.Dummy
 import com.google.protobuf
@@ -33,6 +34,12 @@ class LedgerConfigurationService(session: LedgerSession) extends LedgerTestSuite
       }
     }
 
+  private def setTtl(request: SubmitRequest, ttl: java.time.Duration): SubmitRequest =
+    request.update(
+      _.commands.modify(commands =>
+        commands.copy(
+          maximumRecordTime = commands.ledgerEffectiveTime.map(_.asJava.plus(ttl).asProtobuf))))
+
   private[this] val configJustMinTtl =
     LedgerTest("ConfigJustMinTtl", "LET+minTTL should be an acceptable MRT") { context =>
       for {
@@ -40,10 +47,7 @@ class LedgerConfigurationService(session: LedgerSession) extends LedgerTestSuite
         party <- ledger.allocateParty()
         LedgerConfiguration(Some(minTtl), _) <- ledger.configuration()
         request <- ledger.submitRequest(party, Dummy(party).create.command)
-        let = request.getCommands.getLedgerEffectiveTime
-        mrt = let.asJava.plus(minTtl.asJava).asProtobuf
-        adjustedRequest = request.update(_.commands.maximumRecordTime := mrt)
-        _ <- ledger.submit(adjustedRequest)
+        _ <- ledger.submit(setTtl(request, minTtl.asJava))
       } yield {
         // Nothing to do, success is enough
       }
@@ -56,10 +60,7 @@ class LedgerConfigurationService(session: LedgerSession) extends LedgerTestSuite
         party <- ledger.allocateParty()
         LedgerConfiguration(Some(minTtl), _) <- ledger.configuration()
         request <- ledger.submitRequest(party, Dummy(party).create.command)
-        let = request.getCommands.getLedgerEffectiveTime
-        mrt = let.asJava.plus(minTtl.asJava).minusSeconds(1).asProtobuf
-        adjustedRequest = request.update(_.commands.maximumRecordTime := mrt)
-        failure <- ledger.submit(adjustedRequest).failed
+        failure <- ledger.submit(setTtl(request, minTtl.asJava.minusSeconds(1))).failed
       } yield {
         assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "out of bounds")
       }
@@ -72,10 +73,7 @@ class LedgerConfigurationService(session: LedgerSession) extends LedgerTestSuite
         party <- ledger.allocateParty()
         LedgerConfiguration(_, Some(maxTtl)) <- ledger.configuration()
         request <- ledger.submitRequest(party, Dummy(party).create.command)
-        let = request.getCommands.getLedgerEffectiveTime
-        mrt = let.asJava.plus(maxTtl.asJava).asProtobuf
-        adjustedRequest = request.update(_.commands.maximumRecordTime := mrt)
-        _ <- ledger.submit(adjustedRequest)
+        _ <- ledger.submit(setTtl(request, maxTtl.asJava.minusSeconds(1)))
       } yield {
         // Nothing to do, success is enough
       }
@@ -88,10 +86,7 @@ class LedgerConfigurationService(session: LedgerSession) extends LedgerTestSuite
         party <- ledger.allocateParty()
         LedgerConfiguration(_, Some(maxTtl)) <- ledger.configuration()
         request <- ledger.submitRequest(party, Dummy(party).create.command)
-        let = request.getCommands.getLedgerEffectiveTime
-        mrt = let.asJava.plus(maxTtl.asJava).plusSeconds(1).asProtobuf
-        adjustedRequest = request.update(_.commands.maximumRecordTime := mrt)
-        failure <- ledger.submit(adjustedRequest).failed
+        failure <- ledger.submit(setTtl(request, maxTtl.asJava.plusSeconds(1))).failed
       } yield {
         assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "out of bounds")
       }
