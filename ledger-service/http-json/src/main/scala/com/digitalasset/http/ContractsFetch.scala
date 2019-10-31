@@ -16,7 +16,6 @@ import akka.stream.scaladsl.{
 }
 import akka.stream.{ClosedShape, FanOutShape2, Graph, Materializer}
 import cats.effect.{ContextShift, IO}
-import com.digitalasset.http.ContractsService.ActiveContract
 import com.digitalasset.http.Statement.discard
 import com.digitalasset.http.dbbackend.{ContractDao, Queries}
 import com.digitalasset.http.dbbackend.Queries.{DBContract, SurrogateTpId}
@@ -31,7 +30,6 @@ import com.digitalasset.ledger.api.{v1 => lav1}
 
 import doobie.free.connection
 import doobie.free.connection.ConnectionIO
-import scalaz.std.tuple._
 import scalaz.std.vector._
 import scalaz.syntax.show._
 import scalaz.syntax.tag._
@@ -86,9 +84,6 @@ private class ContractsFetch(
           getActiveContracts(jwt, transactionFilter(party, List(templateId)), true)
         val acsAndOffset = builder add acsAndBoundary
 
-        // TODO add a stage to persist ACS
-        // convert to DBContract (with proper JSON createargs), make InsertDeleteStep,
-        // conflate ++, InsertDeleteStep => ConIO
         acsAndOffset.in <~ initialAcsSource
         acsAndOffset.out0 ~> jsonifyCreates ~> persistInitialActiveContracts ~> acsSink
         acsAndOffset.out1 ~> offsetSink
@@ -227,24 +222,6 @@ private object ContractsFetch {
     }
     val as = asb.result()
     InsertDeleteStep(csb.result() filter (ce => !as.contains(ce.contractId)), as)
-  }
-
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
-  /*TODO SC private*/
-  def contractsToOffset(implicit ec: ExecutionContext): Sink[
-    lav1.active_contracts_service.GetActiveContractsResponse,
-    Future[(Seq[ActiveContract], lav1.ledger_offset.LedgerOffset)]] = {
-    import lav1.ledger_offset.LedgerOffset
-    import LedgerOffset.{LedgerBoundary, Value}
-    import Value.{Absolute, Boundary}
-    Sink
-      .fold[
-        (Vector[ActiveContract], Value),
-        lav1.active_contracts_service.GetActiveContractsResponse](
-        (Vector.empty, Boundary(LedgerBoundary.LEDGER_BEGIN))) { (s, gacr) =>
-        (s._1 ++ gacr.activeContracts.map(_ => ???), Absolute(gacr.offset))
-      }
-      .mapMaterializedValue(_ map (_ map LedgerOffset.apply))
   }
 
   /** Split a series of ACS responses into two channels: one with contracts, the
