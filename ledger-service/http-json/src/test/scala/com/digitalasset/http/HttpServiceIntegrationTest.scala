@@ -159,24 +159,6 @@ class HttpServiceIntegrationTest
     }
   }
 
-  "contracts/search with query returns workflowID" in withHttpService(dar, testId) {
-    (uri, encoder, _) =>
-      val workflowId = domain.WorkflowId("test-workflow")
-      val meta = domain.CommandMeta(Some(workflowId), None, None, None)
-      val cmd = iouCreateCommand(amount = "444.44", currency = "BTC").copy(meta = Some(meta))
-      searchWithQuery(
-        List(cmd),
-        jsObject(
-          """{"%templates": [{"moduleName": "Iou", "entityName": "Iou"}], "currency": "BTC", "amount": "444.44"}"""),
-        uri,
-        encoder
-      ).map { acl: List[domain.ActiveContract[JsValue]] =>
-        inside(acl) {
-          case List(ac) => ac.workflowId shouldBe Some(workflowId)
-        }
-      }
-  }
-
   private def jsObject(s: String): JsObject = {
     val r: JsonError \/ JsObject = for {
       jsVal <- SprayJson.parse(s).leftMap(e => JsonError(e.shows))

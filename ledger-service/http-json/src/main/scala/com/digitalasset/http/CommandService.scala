@@ -105,13 +105,11 @@ class CommandService(
     val maximumRecordTime: Instant = meta
       .flatMap(_.maximumRecordTime)
       .getOrElse(ledgerEffectiveTime.plusNanos(defaultTimeToLive.toNanos))
-    val workflowId: Option[domain.WorkflowId] = meta.flatMap(_.workflowId)
     val commandId: lar.CommandId = meta.flatMap(_.commandId).getOrElse(uniqueCommandId())
 
     Commands.submitAndWaitRequest(
       jwtPayload.ledgerId,
       jwtPayload.applicationId,
-      workflowId,
       commandId,
       ledgerEffectiveTime,
       maximumRecordTime,
@@ -139,10 +137,9 @@ class CommandService(
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private def activeContracts(
       tx: lav1.transaction.Transaction): Error \/ ImmArraySeq[ActiveContract[lav1.value.Value]] = {
-    val workflowId = domain.WorkflowId.fromLedgerApi(tx)
     Transactions
       .decodeAllCreatedEvents(tx)
-      .traverse(ActiveContract.fromLedgerApi(workflowId)(_))
+      .traverse(ActiveContract.fromLedgerApi(_))
       .leftMap(e => Error('activeContracts, e.shows))
   }
 
