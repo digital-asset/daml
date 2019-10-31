@@ -1089,6 +1089,8 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
     }
 
     "be retained when reinterpreting single fetch nodes" in {
+      val engine = Engine()
+
       val Right(tx) = runExample(fetcher1StrCid, clara)
       val fetchNodes =
         tx.fold(GenTx.TopDown, Seq[(NodeId, GenNode.WithTxValue[NodeId, ContractId])]()) {

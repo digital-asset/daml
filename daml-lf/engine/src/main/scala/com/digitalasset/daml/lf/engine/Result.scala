@@ -105,8 +105,7 @@ object Result {
         ResultNeedPackage(packageId, {
           case None => ResultError(Error(s"Couldn't find package $packageId"))
           case Some(pkg) =>
-            compiledPackages.addPackage(packageId, pkg)
-            resume(pkg)
+            compiledPackages.addPackage(packageId, pkg).flatMap(_ => resume(pkg))
         })
     }
 
