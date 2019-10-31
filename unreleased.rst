@@ -20,3 +20,4 @@ HEAD — ongoing
 - [Extractor - Experimental] Extractor now stores exercise events in the single table data format. See `issue #3274 <https://github.com/digital-asset/daml/issues/3274>`__.
 - [DAML Compiler] Fix compile error caused by instantiating generic
   templates at ``Numeric n``.
+- [Sandbox] Timing about database operations are now exposed over JMX as well as via the logs.
