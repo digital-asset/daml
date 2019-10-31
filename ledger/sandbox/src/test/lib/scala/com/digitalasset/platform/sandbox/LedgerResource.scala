@@ -48,9 +48,8 @@ object LedgerResource {
   def postgres(
       ledgerId: LedgerId,
       timeProvider: TimeProvider,
-      packages: InMemoryPackageStore = InMemoryPackageStore.empty)(
-      implicit mat: Materializer,
-      mm: MetricsManager) = {
+      mm: MetricsManager,
+      packages: InMemoryPackageStore = InMemoryPackageStore.empty)(implicit mat: Materializer) = {
     new Resource[Ledger] {
       @volatile
       private var postgres: Resource[PostgresFixture] = null
@@ -75,7 +74,8 @@ object LedgerResource {
               ImmArray.empty,
               128,
               SqlStartMode.AlwaysReset,
-              NamedLoggerFactory(Tag.unwrap(ledgerId))
+              NamedLoggerFactory(Tag.unwrap(ledgerId)),
+              mm
           ))
         ledger.setup()
       }

@@ -28,14 +28,16 @@ object JdbcIndex {
       ledgerId: LedgerId,
       participantId: ParticipantId,
       jdbcUrl: String,
-      loggerFactory: NamedLoggerFactory)(
-      implicit mat: Materializer,
-      mm: MetricsManager): Future[IndexService with AutoCloseable] =
+      loggerFactory: NamedLoggerFactory,
+      mm: MetricsManager)(implicit mat: Materializer): Future[IndexService with AutoCloseable] =
     Ledger
-      .jdbcBackedReadOnly(jdbcUrl, ledgerId, loggerFactory)
+      .jdbcBackedReadOnly(jdbcUrl, ledgerId, loggerFactory, mm)
       .map { ledger =>
         val contractStore = new SandboxContractStore(ledger)
-        new LedgerBackedIndexService(MeteredReadOnlyLedger(ledger), contractStore, participantId) {
+        new LedgerBackedIndexService(
+          MeteredReadOnlyLedger(ledger, mm),
+          contractStore,
+          participantId) {
           override def getLedgerConfiguration(): Source[v2.LedgerConfiguration, NotUsed] =
             readService.getLedgerInitialConditions().map { cond =>
               v2.LedgerConfiguration(cond.config.timeModel.minTtl, cond.config.timeModel.maxTtl)
