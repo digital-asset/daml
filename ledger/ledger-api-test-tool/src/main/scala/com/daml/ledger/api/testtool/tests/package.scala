@@ -6,8 +6,9 @@ package com.daml.ledger.api.testtool
 import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTestSuite}
 
 package object tests {
+  type Tests = Map[String, LedgerSession => LedgerTestSuite]
 
-  val default: Map[String, LedgerSession => LedgerTestSuite] = Map(
+  val default: Tests = Map(
     "SemanticTests" -> (new SemanticTests(_))
   )
 
@@ -19,23 +20,22 @@ package object tests {
    * - CommandTransactionChecksLowLevelIT
    * - CommandSubmissionTtlIT
    */
-  val optional: Map[String, LedgerSession => LedgerTestSuite] = Map(
+  val optional: Tests = Map(
     "ActiveContractsServiceIT" -> (new ActiveContractsService(_)),
     "CommandServiceIT" -> (new CommandService(_)),
     "ContractKeysIT" -> (new ContractKeys(_)),
     "ContractKeysSubmitterIsMaintainerIT" -> (new ContractKeysSubmitterIsMaintainer(_)),
     "DivulgenceIT" -> (new Divulgence(_)),
     "IdentityIT" -> (new Identity(_)),
-    "PackageServiceIT" -> (new Packages(_)),
+    "LedgerConfigurationServiceIT" -> (new LedgerConfigurationService(_)),
     "PackageManagementServiceIT" -> (new PackageManagement(_)),
+    "PackageServiceIT" -> (new Packages(_)),
     "PartyManagementServiceIT" -> (new PartyManagement(_)),
     "TimeIT" -> (new Time(_)),
     "TransactionServiceIT" -> (new TransactionService(_)),
     "WitnessesIT" -> (new Witnesses(_)),
-    "WronglyTypedContractIdIT" -> (new WronglyTypedContractId(_)),
-    "LedgerConfigurationServiceIT" -> (new LedgerConfigurationService(_))
+    "WronglyTypedContractIdIT" -> (new WronglyTypedContractId(_))
   )
 
-  val all = default ++ optional
-
+  val all: Tests = default ++ optional
 }
