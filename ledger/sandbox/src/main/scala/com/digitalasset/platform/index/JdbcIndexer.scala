@@ -109,7 +109,8 @@ class JdbcIndexerFactory[Status <: InitStatus] private (loggerFactory: NamedLogg
         jdbcUrl,
         if (dbType.supportsParallelWrites) defaultNumberOfShortLivedConnections else 1,
         defaultNumberOfStreamingConnections,
-        loggerFactory)
+        loggerFactory,
+        mm)
     val ledgerDao = LedgerDao.metered(
       JdbcLedgerDao(
         dbDispatcher,
@@ -118,7 +119,8 @@ class JdbcIndexerFactory[Status <: InitStatus] private (loggerFactory: NamedLogg
         ValueSerializer,
         KeyHasher,
         dbType,
-        loggerFactory))(mm)
+        loggerFactory),
+      mm)
     ledgerDao
   }
 

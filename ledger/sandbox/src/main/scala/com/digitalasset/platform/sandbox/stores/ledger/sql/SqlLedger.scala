@@ -88,7 +88,8 @@ object SqlLedger {
         jdbcUrl,
         noOfShortLivedConnections,
         defaultNumberOfStreamingConnections,
-        loggerFactory)
+        loggerFactory,
+        mm)
 
     val ledgerDao = LedgerDao.metered(
       JdbcLedgerDao(
