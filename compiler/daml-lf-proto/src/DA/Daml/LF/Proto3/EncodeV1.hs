@@ -5,7 +5,7 @@
 {-# LANGUAGE TypeFamilies #-}
 -- | Encoding of the LF package into LF version 1 format.
 module DA.Daml.LF.Proto3.EncodeV1
-  ( encodeModuleWithoutInterning
+  ( encodeScenarioModule
   , encodePackage
   ) where
 
@@ -182,11 +182,15 @@ encodeList encodeElem = fmap V.fromList . mapM encodeElem
 encodeNameMap :: NM.Named a => (a -> Encode b) -> NM.NameMap a -> Encode (V.Vector b)
 encodeNameMap encodeElem = fmap V.fromList . mapM encodeElem . NM.toList
 
-encodeQualTypeConName :: Qualified TypeConName -> Encode (Just P.TypeConName)
-encodeQualTypeConName (Qualified pref mname con) = do
+encodeQualTypeConName' :: Qualified TypeConName -> Encode (P.TypeConName)
+encodeQualTypeConName' (Qualified pref mname con) = do
     typeConNameModule <- encodeModuleRef pref mname
     typeConNameName <- encodeDottedName unTypeConName con
-    pure $ Just P.TypeConName{..}
+    pure $ P.TypeConName{..}
+
+encodeQualTypeConName :: Qualified TypeConName -> Encode (Just P.TypeConName)
+encodeQualTypeConName tycon = Just <$> encodeQualTypeConName' tycon
+
 
 encodeSourceLoc :: SourceLoc -> Encode P.Location
 encodeSourceLoc SourceLoc{..} = do
@@ -564,9 +568,8 @@ encodeExpr' = \case
         expr_FromAnyType <- encodeType ty
         expr_FromAnyExpr <- encodeExpr body
         pureExpr $ P.ExprSumFromAny P.Expr_FromAny{..}
-    EToTextTemplateId tpl -> do
-        expr_ToTextTemplateIdType <- encodeType (TCon tpl)
-        pureExpr $ P.ExprSumToTextTemplateId P.Expr_ToTextTemplateId{..}
+    EToTextTypeConName tycon -> do
+        expr . P.ExprSumToTextTypeConName <$> encodeQualTypeConName' tycon
   where
     expr = P.Expr Nothing . Just
     pureExpr = pure . expr
@@ -757,11 +760,10 @@ encodeFeatureFlags FeatureFlags{..} = Just P.FeatureFlags
     , P.featureFlagsDontDiscloseNonConsumingChoicesToObservers = True
     }
 
-encodeModuleWithoutInterning :: Version -> Module -> P.Module
-encodeModuleWithoutInterning version mod =
-    let env = initEncodeEnv version (WithInterning False)
-    in
-    evalState (encodeModule mod) env
+-- each scenario module is wrapped in a proto package
+encodeScenarioModule :: Version -> Module -> P.Package
+encodeScenarioModule version mod =
+    encodePackage (Package version $ NM.insert mod NM.empty)
 
 encodeModule :: Module -> Encode P.Module
 encodeModule Module{..} = do

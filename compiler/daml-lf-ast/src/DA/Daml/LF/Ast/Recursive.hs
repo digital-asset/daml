@@ -45,7 +45,7 @@ data ExprF expr
   | ESomeF       !Type !expr
   | EToAnyF !Type !expr
   | EFromAnyF !Type !expr
-  | EToTextTemplateIdF !(Qualified TypeConName)
+  | EToTextTypeConNameF !(Qualified TypeConName)
   deriving (Foldable, Functor, Traversable)
 
 data BindingF expr = BindingF !(ExprVarName, Type) !expr
@@ -177,7 +177,7 @@ instance Recursive Expr where
     ESome       a b   -> ESomeF         a b
     EToAny a b  -> EToAnyF a b
     EFromAny a b -> EFromAnyF a b
-    EToTextTemplateId a -> EToTextTemplateIdF a
+    EToTextTypeConName a -> EToTextTypeConNameF a
 
 instance Corecursive Expr where
   embed = \case
@@ -207,4 +207,4 @@ instance Corecursive Expr where
     ESomeF       a b   -> ESome a b
     EToAnyF a b  -> EToAny a b
     EFromAnyF a b -> EFromAny a b
-    EToTextTemplateIdF a -> EToTextTemplateId a
+    EToTextTypeConNameF a -> EToTextTypeConName a

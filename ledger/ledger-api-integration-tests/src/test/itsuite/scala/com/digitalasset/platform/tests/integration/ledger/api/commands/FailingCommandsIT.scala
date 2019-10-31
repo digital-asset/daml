@@ -45,8 +45,6 @@ class FailingCommandsIT
 
       "fail with the expected status on a ledger Id mismatch via sync service (multiple reqs)" in allFixtures {
         ctx =>
-          val contexts = 1 to 10
-
           val cmd1 = SubmitAndWaitRequest(
             failingRequest.commands.map(
               _.update(_.ledgerId := testNotLedgerId.unwrap, _.commandId := "sync ledgerId 1")))

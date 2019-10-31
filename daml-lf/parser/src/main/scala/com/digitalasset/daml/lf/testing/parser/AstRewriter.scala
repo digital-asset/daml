@@ -71,7 +71,8 @@ private[digitalasset] class AstRewriter(
       exprRule(x)
     else
       x match {
-        case EVar(_) | EBuiltin(_) | EPrimCon(_) | EPrimLit(_) | EContractId(_, _) =>
+        case EVar(_) | EBuiltin(_) | EPrimCon(_) | EPrimLit(_) | EContractId(_, _) |
+            EToTextTypeConName(_) =>
           x
         case EVal(ref) =>
           EVal(apply(ref))
@@ -125,8 +126,6 @@ private[digitalasset] class AstRewriter(
           EToAny(ty, apply(body))
         case EFromAny(ty, body) =>
           EFromAny(ty, apply(body))
-        case EToTextTemplateId(tmplId) =>
-          EToTextTemplateId(tmplId)
       }
 
   def apply(x: TypeConApp): TypeConApp = x match {

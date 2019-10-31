@@ -88,13 +88,11 @@ object LedgerClient {
   def constructChannel(
       hostIp: String,
       port: Int,
-      configuration: LedgerClientConfiguration): Channel = {
+      configuration: LedgerClientConfiguration): NettyChannelBuilder = {
     val builder: NettyChannelBuilder = NettyChannelBuilder.forAddress(hostIp, port)
     configuration.sslContext.fold(builder.usePlaintext())(
       builder.sslContext(_).negotiationType(NegotiationType.TLS))
-    val channel = builder.build()
-    val _ = sys.addShutdownHook { val _ = channel.shutdownNow() }
-    channel
+    builder
   }
 
   /**
@@ -102,8 +100,11 @@ object LedgerClient {
     */
   def singleHost(hostIp: String, port: Int, configuration: LedgerClientConfiguration)(
       implicit ec: ExecutionContext,
-      esf: ExecutionSequencerFactory): Future[LedgerClient] =
-    forChannel(configuration, constructChannel(hostIp, port, configuration))
+      esf: ExecutionSequencerFactory): Future[LedgerClient] = {
+    val channel = constructChannel(hostIp, port, configuration).build
+    val _ = sys.addShutdownHook { val _ = channel.shutdownNow() }
+    forChannel(configuration, channel)
+  }
 
   private[this] val auth = Metadata.Key.of("Authorization", Metadata.ASCII_STRING_MARSHALLER)
 

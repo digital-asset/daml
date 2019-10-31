@@ -41,7 +41,8 @@ final class CommandsValidator(ledgerId: LedgerId) {
       let <- requirePresence(commands.ledgerEffectiveTime, "ledger_effective_time")
       ledgerEffectiveTime = TimestampConversion.toInstant(let)
       mrt <- requirePresence(commands.maximumRecordTime, "maximum_record_time")
-      validatedCommands <- validateInnerCommands(commands.commands, submitter)
+      commandz <- requireNonEmpty(commands.commands, "commands")
+      validatedCommands <- validateInnerCommands(commandz, submitter)
       ledgerEffectiveTimestamp <- Time.Timestamp
         .fromInstant(ledgerEffectiveTime)
         .left

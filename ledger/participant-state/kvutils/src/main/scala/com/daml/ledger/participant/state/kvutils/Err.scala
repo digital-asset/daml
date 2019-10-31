@@ -12,7 +12,7 @@ import com.daml.ledger.participant.state.v1.PackageId
   * Note that processSubmission can also fail with a protobuf exception,
   * e.g. https://developers.google.com/protocol-buffers/docs/reference/java/com/google/protobuf/InvalidProtocolBufferException.
   */
-sealed trait Err extends RuntimeException with Product with Serializable
+sealed abstract class Err extends RuntimeException with Product with Serializable
 
 object Err {
   final case class InvalidSubmission(message: String) extends Err {

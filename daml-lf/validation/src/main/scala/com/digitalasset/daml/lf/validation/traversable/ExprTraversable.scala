@@ -13,7 +13,7 @@ private[validation] object ExprTraversable {
   private[traversable] def foreach[U](x: Expr, f: Expr => U): Unit = {
     x match {
       case EVar(_) | EBuiltin(_) | EPrimCon(_) | EPrimLit(_) | EVal(_) | EContractId(_, _) |
-          EEnumCon(_, _) =>
+          EEnumCon(_, _) | EToTextTypeConName(_) =>
       case ELocation(_, expr) =>
         f(expr)
       case ERecCon(tycon @ _, fields) =>
@@ -62,7 +62,6 @@ private[validation] object ExprTraversable {
         f(body)
       case EFromAny(ty @ _, body) =>
         f(body)
-      case EToTextTemplateId(tmplId @ _) =>
     }
     ()
   }

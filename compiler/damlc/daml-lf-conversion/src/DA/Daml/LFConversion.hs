@@ -2,7 +2,7 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE MultiWayIf #-}
-{-# LANGUAGE PatternSynonyms     #-}
+{-# LANGUAGE PatternSynonyms #-}
 {-# OPTIONS_GHC -Wno-unused-matches #-}
 {-# OPTIONS_GHC -Wno-incomplete-patterns #-}
 {-# OPTIONS_GHC -Wno-overlapping-patterns #-} -- Because the pattern match checker is garbage
@@ -107,7 +107,7 @@ import qualified Data.Text as T
 import           Data.Tuple.Extra
 import           Data.Ratio
 import           "ghc-lib" GHC
-import           "ghc-lib" GhcPlugins as GHC hiding ((<>))
+import           "ghc-lib" GhcPlugins as GHC hiding ((<>), notNull)
 import           "ghc-lib-parser" Pair hiding (swap)
 import           "ghc-lib-parser" PrelNames
 import           "ghc-lib-parser" TysPrim
@@ -129,7 +129,7 @@ conversionError msg = do
       , _message = T.pack msg
       , _code = Nothing
       , _relatedInformation = Nothing
-      } where
+      }
 
 unsupported :: (HasCallStack, Outputable a) => String -> a -> ConvertM e
 unsupported typ x = conversionError errMsg
@@ -322,7 +322,7 @@ convertGenericTemplate env x
     , Just monoTyCon <- findMonoTyp polyType
     = do
         let tplLocation = convNameLoc monoTyCon
-        Ctors{_cCtors = [Ctor _ fields _]} <- toCtors env polyTyCon
+            fields = ctorLabels (tyConSingleDataCon polyTyCon)
         polyType@(TConApp polyTyCon polyTyArgs) <- convertType env polyType
         let polyTCA = TypeConApp polyTyCon polyTyArgs
         monoType@(TCon monoTyCon) <- convertTyCon env monoTyCon
@@ -416,7 +416,7 @@ convertGenericTemplate env x
                                     (mkVar "_", TApp (TVar $ mkTypeVar "proxy") polyType)
                                     (ETmLam chcArgBinder $ ERecCon anyChoiceTy [(anyChoiceField, EToAny argType $ EVar arg)]))
                           else EBuiltin BEError `ETyApp`
-                               (TForall (mkTypeVar "proxy", KArrow KStar KStar) (TApp (TVar $ mkTypeVar "proxy") polyType :-> argType :-> typeConAppToType anyChoiceTy)) `ETmApp`
+                               TForall (mkTypeVar "proxy", KArrow KStar KStar) (TApp (TVar $ mkTypeVar "proxy") polyType :-> argType :-> typeConAppToType anyChoiceTy) `ETmApp`
                                EBuiltin (BEText "toAnyChoice is not supported in this DAML-LF version")
                 let fromAnyChoice =
                         if envLfVersion env `supports` featureAnyType
@@ -426,7 +426,7 @@ convertGenericTemplate env x
                                     (mkVar "_", TApp (TVar $ mkTypeVar "proxy") polyType)
                                     (ETmLam (mkVar "any", typeConAppToType anyChoiceTy) $ EFromAny argType $ ERecProj anyChoiceTy anyChoiceField $ EVar $ mkVar "any"))
                           else EBuiltin BEError `ETyApp`
-                               (TForall (mkTypeVar "proxy", KArrow KStar KStar) (TApp (TVar $ mkTypeVar "proxy") polyType :-> typeConAppToType anyChoiceTy :-> TOptional argType)) `ETmApp`
+                               TForall (mkTypeVar "proxy", KArrow KStar KStar) (TApp (TVar $ mkTypeVar "proxy") polyType :-> typeConAppToType anyChoiceTy :-> TOptional argType) `ETmApp`
                                EBuiltin (BEText "toAnyChoice is not supported in this DAML-LF version")
                 pure (TemplateChoice{..}, [consumption, controllers, action, exercise, toAnyChoice, fromAnyChoice])
             convertGenericChoice es = unhandled "generic choice" es
@@ -460,7 +460,7 @@ convertGenericTemplate env x
                 in
                 ETyLam (proxyName, KStar `KArrow` KStar) $!
                     if envLfVersion env `supports` featureTemplateTypeRep
-                        then ETmLam (arg, argType) $ ERecCon resType [(resField, EToTextTemplateId monoTyCon)]
+                        then ETmLam (arg, argType) $ ERecCon resType [(resField, EToTextTypeConName monoTyCon)]
                         else EBuiltin BEError `ETyApp` (argType :-> typeConAppToType resType) `ETmApp` EBuiltin (BEText "templateTypeRep is not supported in this DAML-LF version")
         tyArgs <- mapM (convertType env) tyArgs
         -- NOTE(MH): The additional lambda is DICTIONARY SANITIZATION step (3).
@@ -497,70 +497,135 @@ data Consuming = PreConsuming
                deriving (Eq)
 
 convertTypeDef :: Env -> TyThing -> ConvertM [Definition]
-convertTypeDef env (ATyCon t)
-  | GHC.moduleNameFS (GHC.moduleName (nameModule (getName t))) == "DA.Internal.LF"
-  , getOccFS t `elementOfUniqSet` internalTypes
-  = pure []
-convertTypeDef env (ATyCon t)
+convertTypeDef env o@(ATyCon t) = withRange (convNameLoc t) $ if
+    -- Internal types (i.e. already defined in LF)
+    | GHC.moduleNameFS (GHC.moduleName (nameModule (getName t))) == "DA.Internal.LF"
+    , getOccFS t `elementOfUniqSet` internalTypes
+    -> pure []
+
     -- NOTE(MH): We detect type synonyms produced by the desugaring
     -- of `template instance` declarations and inline the record definition
     -- of the generic template.
+    --
+    -- TODO(FM): Precompute a map of possible template instances in Env
+    -- instead of checking every closed type synonym against every class
+    -- instance (or improve this some other way to subquadratic time).
     | Just ([], TypeCon tpl args) <- synTyConDefn_maybe t
     , any (\(c, args') -> getOccFS c == getOccFS tpl <> "Instance" && eqTypes args args') $ envInstances env
-    = do
-        ctors0 <- toCtors env tpl
-        args <- mapM (convertType env) args
-        let subst = MS.fromList $ zipExact (map fst (_cParams ctors0)) args
-        let ctors1 = ctors0
-                { _cTypeName = getName t
-                , _cParams = []
-                , _cCtors = map (\(Ctor n fs ts) -> Ctor n fs $ map (LF.substitute subst) ts) (_cCtors ctors0)
-                }
-        convertCtors env ctors1
-convertTypeDef env o@(ATyCon t) = withRange (convNameLoc t) $
-    case tyConFlavour t of
-      fl | fl `elem` [ClassFlavour,DataTypeFlavour,NewtypeFlavour] -> convertCtors env =<< toCtors env t
-      TypeSynonymFlavour -> pure []
-      _ -> unsupported ("Data definition, of type " ++ prettyPrint (tyConFlavour t)) o
+    -> convertTemplateInstanceDef env (getName t) tpl args
+
+    -- Type synonyms get expanded out during conversion (see 'convertType').
+    | isTypeSynonymTyCon t
+    -> pure []
+
+    -- Enum types. These are algebraic types without any type arguments,
+    -- with two or more constructors that have no arguments.
+    | isEnumTyCon t
+    -> convertEnumDef env t
+
+    -- Simple record types. This includes newtypes, typeclasses, and
+    -- single constructor algebraic types with no fields or with
+    -- labelled fields.
+    | isSimpleRecordTyCon t
+    -> convertSimpleRecordDef env t
+
+    -- Variants are algebraic types that are not enums and not simple
+    -- record types. This includes most 'data' types.
+    | isVariantTyCon t
+    -> convertVariantDef env t
+
+    | otherwise
+    -> unsupported ("Data definition, of type " ++ prettyPrint (tyConFlavour t)) o
+
 convertTypeDef env x = pure []
 
-
-convertCtors :: Env -> Ctors -> ConvertM [Definition]
-convertCtors env (Ctors name flavour tys [o@(Ctor ctor fldNames fldTys)])
-  | isRecordCtor o
-  = pure $ [defDataType tconName tys $ DataRecord flds] ++
-      [ defValue name (mkVal $ "$W" <> getOccText ctor, mkTForalls tys $ mkTFuns fldTys (typeConAppToType tcon)) expr
-      | flavour == NewtypeFlavour
-      ]
-    where
-        flds = zipExact fldNames fldTys
-        tconName = mkTypeCon [getOccText name]
-        tcon = TypeConApp (Qualified PRSelf (envLFModuleName env) tconName) $ map (TVar . fst) tys
-        expr = mkETyLams tys $ mkETmLams (map (first fieldToVar ) flds) $ ERecCon tcon [(l, EVar $ fieldToVar l) | l <- fldNames]
-convertCtors env o@(Ctors name _ _ cs) | isEnumCtors o = do
-    let ctorNames = map (\(Ctor ctor _ _) -> mkVariantCon $ getOccText ctor) cs
+convertEnumDef :: Env -> TyCon -> ConvertM [Definition]
+convertEnumDef env t =
     pure [defDataType tconName [] $ DataEnum ctorNames]
   where
-    tconName = mkTypeCon [getOccText name]
-convertCtors env (Ctors name _ tys cs) = do
-    (constrs, funs) <- mapAndUnzipM convertCtor cs
-    pure $ [defDataType tconName tys $ DataVariant constrs] ++ concat funs
-    where
-      tconName = mkTypeCon [getOccText name]
-      convertCtor :: Ctor -> ConvertM ((VariantConName, LF.Type), [Definition])
-      convertCtor o@(Ctor ctor fldNames fldTys) =
-        case (fldNames, fldTys) of
-          ([], []) -> pure ((ctorName, TUnit), [])
-          ([], [typ]) -> pure ((ctorName, typ), [])
-          ([], _:_:_) -> unsupported "Data constructor with multiple unnamed fields" (prettyPrint name)
-          (_:_, _) ->
-            let recName = synthesizeVariantRecord ctorName tconName
-                recData = defDataType recName tys $ DataRecord (zipExact fldNames fldTys)
-                recTCon = TypeConApp (Qualified PRSelf (envLFModuleName env) recName) $ map (TVar . fst) tys
-            in  pure ((ctorName, typeConAppToType recTCon), [recData])
-          where
-            ctorName = mkVariantCon (getOccText ctor)
+    tconName = mkTypeCon [getOccText t]
+    ctorNames = map (mkVariantCon . getOccText) (tyConDataCons t)
 
+convertSimpleRecordDef :: Env -> TyCon -> ConvertM [Definition]
+convertSimpleRecordDef env tycon = do
+    let con = tyConSingleDataCon tycon
+        flavour = tyConFlavour tycon
+        sanitize -- DICTIONARY SANITIZATION step (1)
+            | flavour == ClassFlavour = (TUnit :->)
+            | otherwise = id
+    tyVars <- mapM convTypeVar (tyConTyVars tycon)
+    fields <- convertRecordFields env con sanitize
+    let tconName = mkTypeCon [getOccText tycon]
+        typeDef = defDataType tconName tyVars (DataRecord fields)
+        workerDef = defNewtypeWorker env tycon tconName con tyVars fields
+    pure $ typeDef : [workerDef | flavour == NewtypeFlavour]
+
+defNewtypeWorker :: NamedThing a => Env -> a -> TypeConName -> DataCon
+    -> [(TypeVarName, LF.Kind)] -> [(FieldName, LF.Type)] -> Definition
+defNewtypeWorker env loc tconName con tyVars fields =
+    let tcon = TypeConApp
+            (Qualified PRSelf (envLFModuleName env) tconName)
+            (map (TVar . fst) tyVars)
+        workerName = mkWorkerName (getOccText con)
+        workerType = mkTForalls tyVars $ mkTFuns (map snd fields) $ typeConAppToType tcon
+        workerBody = mkETyLams tyVars $ mkETmLams (map (first fieldToVar) fields) $
+            ERecCon tcon [(label, EVar (fieldToVar label)) | (label,_) <- fields]
+    in defValue loc (workerName, workerType) workerBody
+
+convertRecordFields :: Env -> DataCon -> (LF.Type -> t) -> ConvertM [(FieldName, t)]
+convertRecordFields env con wrap = do
+    let labels = ctorLabels con
+        (_, theta, args, _) = dataConSig con
+    types <- mapM (convertType env) (theta ++ args)
+    pure $ zipExact labels (map wrap types)
+
+convertVariantDef :: Env -> TyCon -> ConvertM [Definition]
+convertVariantDef env tycon = do
+    tyVars <- mapM convTypeVar (tyConTyVars tycon)
+    (constrs, moreDefs) <- mapAndUnzipM
+        (convertVariantConDef env tycon tyVars)
+        (tyConDataCons tycon)
+    let tconName = mkTypeCon [getOccText tycon]
+        typeDef = defDataType tconName tyVars (DataVariant constrs)
+    pure $ [typeDef] ++ concat moreDefs
+
+convertVariantConDef :: Env -> TyCon -> [(TypeVarName, LF.Kind)] -> DataCon -> ConvertM ((VariantConName, LF.Type), [Definition])
+convertVariantConDef env tycon tyVars con =
+    case (ctorLabels con, dataConOrigArgTys con) of
+        ([], []) ->
+            pure ((ctorName, TUnit), [])
+        ([], [argTy]) -> do
+            argTy' <- convertType env argTy
+            pure ((ctorName, argTy'), [])
+        ([], _:_:_) ->
+            unsupported "Data constructor with multiple unnamed fields" (prettyPrint (getName tycon))
+        (labels, args) -> do
+            fields <- zipExact labels <$> mapM (convertType env) args
+            let recName = synthesizeVariantRecord ctorName tconName
+                recDef = defDataType recName tyVars (DataRecord fields)
+                recType = TConApp
+                    (Qualified PRSelf (envLFModuleName env) recName)
+                    (map (TVar . fst) tyVars)
+            pure ((ctorName, recType), [recDef])
+    where
+        tconName = mkTypeCon [getOccText tycon]
+        ctorName = mkVariantCon (getOccText con)
+
+-- | Instantiate and inline the generic template record definition
+-- for a template instance.
+convertTemplateInstanceDef :: Env -> Name -> TyCon -> [GHC.Type] -> ConvertM [Definition]
+convertTemplateInstanceDef env tname templateTyCon args = do
+    when (tyConFlavour templateTyCon /= DataTypeFlavour) $
+        unhandled "template type with unexpected flavour"
+            (prettyPrint $ tyConFlavour templateTyCon)
+    lfArgs <- mapM (convertType env) args
+    let templateCon = tyConSingleDataCon templateTyCon
+        tyVarNames = map convTypeVarName (tyConTyVars templateTyCon)
+        subst = MS.fromList (zipExact tyVarNames lfArgs)
+    fields <- convertRecordFields env templateCon (LF.substitute subst)
+    let tconName = mkTypeCon [getOccText tname]
+        typeDef = defDataType tconName [] (DataRecord fields)
+    pure [typeDef]
 
 convertBind :: Env -> (Var, GHC.Expr Var) -> ConvertM [Definition]
 convertBind env (name, x)
@@ -728,17 +793,18 @@ convertExpr env0 e = do
 
     -- conversion of bodies of $con2tag functions
     go env (VarIs "getTag") (LType (TypeCon t _) : LExpr x : args) = fmap (, args) $ do
-        ctors@(Ctors _ _ _ cs) <- toCtors env t
         x' <- convertExpr env x
         t' <- convertQualified env t
         let mkCasePattern con
                 -- Note that tagToEnum# can also be used on non-enum types, i.e.,
                 -- types where not all constructors are nullary.
-                | isEnumCtors ctors = CPEnum t' con
+                | isEnumTyCon t = CPEnum t' con
                 | otherwise = CPVariant t' con (mkVar "_")
         pure $ ECase x'
-            [ CaseAlternative (mkCasePattern (mkVariantCon (getOccText variantName))) (EBuiltin $ BEInt64 i)
-            | (Ctor variantName _ _, i) <- zip cs [0..]
+            [ CaseAlternative
+                (mkCasePattern (mkVariantCon (getOccText con)))
+                (EBuiltin $ BEInt64 i)
+            | (con, i) <- zip (tyConDataCons t) [0..]
             ]
     go env (VarIs "tagToEnum#") (LType (TypeCon (Is "Bool") []) : LExpr (op0 `App` x `App` y) : args)
         | VarIs "==#" <- op0 = go BEEqual
@@ -754,16 +820,17 @@ convertExpr env0 e = do
         pure $ EBuiltin (BEEqual BTInt64) `ETmApp` EBuiltin (BEInt64 1) `ETmApp` x'
     go env (VarIs "tagToEnum#") (LType tt@(TypeCon t _) : LExpr x : args) = fmap (, args) $ do
         -- FIXME: Should generate a binary tree of eq and compare
-        ctors@(Ctors _ _ _ cs@(c1:_)) <- toCtors env t
         tt' <- convertType env tt
         x' <- convertExpr env x
-        let mkCtor (Ctor c _ _)
+        let cs = tyConDataCons t
+            c1 = head cs -- FIXME: handle the empty variant more gracefully.
+            mkCtor con
               -- Note that tagToEnum# can also be used on non-enum types, i.e.,
               -- types where not all constructors are nullary.
-              | isEnumCtors ctors
-              = EEnumCon (tcaTypeCon (fromTCon tt')) (mkVariantCon (getOccText c))
+              | isEnumTyCon t
+              = EEnumCon (tcaTypeCon (fromTCon tt')) (mkVariantCon (getOccText con))
               | otherwise
-              = EVariantCon (fromTCon tt') (mkVariantCon (getOccText c)) EUnit
+              = EVariantCon (fromTCon tt') (mkVariantCon (getOccText con)) EUnit
             mkEqInt i = EBuiltin (BEEqual BTInt64) `ETmApp` x' `ETmApp` EBuiltin (BEInt64 i)
         pure (foldr ($) (mkCtor c1) [mkIf (mkEqInt i) (mkCtor c) | (i,c) <- zipFrom 0 cs])
 
@@ -805,6 +872,7 @@ convertExpr env0 e = do
           TBuiltin BTScenario -> mkBind EScenario SBind
           _ -> fmap (, allArgs) $ convertExpr env bind
         where
+          mkBind :: (m -> LF.Expr) -> (Binding -> LF.Expr -> m) -> ConvertM (LF.Expr, [LArg Var])
           mkBind inj bind = fmap (, args) $ do
               x' <- convertExpr env x
               y' <- convertExpr env y
@@ -817,6 +885,7 @@ convertExpr env0 e = do
           TBuiltin BTScenario -> mkSeq EScenario SBind
           _ -> fmap (, allArgs) $ convertExpr env semi
         where
+          mkSeq :: (m -> LF.Expr) -> (Binding -> LF.Expr -> m) -> ConvertM (LF.Expr, [LArg Var])
           mkSeq inj bind = fmap (, args) $ do
               t' <- convertType env t
               x' <- convertExpr env x
@@ -848,84 +917,11 @@ convertExpr env0 e = do
         | getOccFS x == "True" = fmap (, args) $ pure $ mkBool True
         | getOccFS x == "False" = fmap (, args) $ pure $ mkBool False
         | getOccFS x == "I#" = fmap (, args) $ pure $ mkIdentity TInt64 -- we pretend Int and Int# are the same thing
-        -- NOTE(MH): Handle data constructors. Fully applied record
-        -- constructors are inlined. This is required for contract keys to
-        -- work. Constructor workers are not handled (yet).
         | Just m <- nameModule_maybe $ varName x
         , Just con <- isDataConId_maybe x
-        = do
-            let qual f t
-                    | Just xs <- T.stripPrefix "(," t
-                    , T.dropWhile (== ',') xs == ")" = qDA_Types env $ f $ "Tuple" <> T.pack (show $ T.length xs + 1)
-                    | Just t' <- T.stripPrefix "$W" t = qualify env m $ f t'
-                    | otherwise = qualify env m $ f t
-            ctor@(Ctor _ fldNames fldTys) <- toCtor env con
-            let tycon = dataConTyCon con
-            if  -- Fully applied record constructor:
-                | isRecordCtor ctor && isSingleConType tycon
-                , let n = length (dataConUnivTyVars con)
-                , let (tyArgs, tmArgs) = splitAt n (map snd args)
-                , length tyArgs == n && length tmArgs == length fldTys
-                , Just tyArgs <- mapM isType_maybe tyArgs
-                , all (isNothing . isType_maybe) tmArgs
-                -> fmap (, []) $ do
-                    tyArgs <- mapM (convertType env) tyArgs
-                    tmArgs <- mapM (convertExpr env) tmArgs
-                    qTCon <- qual (mkTypeCon . pure) $ getOccText (dataConTyCon con)
-                    let tcon = TypeConApp qTCon tyArgs
-                    pure $ ERecCon tcon (zipExact fldNames tmArgs)
-                -- Partially aplied record constructor:
-                | isRecordCtor ctor && isSingleConType tycon
-                -> fmap (, args) $ fmap EVal $ qual (\x -> mkVal $ "$W" <> x) $ getOccText x
-                -- Enum constructor (necessarily fully applied):
-                | isEnumerationTyCon tycon && tyConArity tycon == 0
-                -> fmap (, []) $ do
-                    unless (null args) $ unhandled "enum constructor with args" (x, args)
-                    tcon <- qualify env m $ mkTypeCon [getOccText tycon]
-                    pure $ EEnumCon tcon $ mkVariantCon $ getOccText x
-                -- Variant constructor without payload (necessarily fully applied):
-                | null fldTys
-                , Just tyArgs <- mapM (isType_maybe . snd) args
-                -> fmap (, []) $ do
-                    lfTyArgs <- mapM (convertType env) tyArgs
-                    qTCon <- qual (mkTypeCon . pure) $ getOccText (dataConTyCon con)
-                    let tcon = TypeConApp qTCon lfTyArgs
-                    let ctorName = mkVariantCon (getOccText con)
-                    pure $ EVariantCon tcon ctorName EUnit
-                -- Fully applied variant constructor with non-record payload:
-                | null fldNames
-                , [_] <- fldTys
-                , let n = length (dataConUnivTyVars con)
-                , (tyArgs, [tmArg]) <- splitAt n (map snd args)
-                , Just tyArgs <- mapM isType_maybe tyArgs
-                -> fmap (, []) $ do
-                    lfTmArg <- convertExpr env tmArg
-                    lfTyArgs <- mapM (convertType env) tyArgs
-                    qTCon <- qual (mkTypeCon . pure) $ getOccText (dataConTyCon con)
-                    let tcon = TypeConApp qTCon lfTyArgs
-                    let ctorName = mkVariantCon (getOccText con)
-                    pure $ EVariantCon tcon ctorName lfTmArg
-                -- Fully applied variant constructor with record payload:
-                | isRecordCtor ctor
-                , let n = length (dataConUnivTyVars con)
-                , let (tyArgs, tmArgs) = splitAt n (map snd args)
-                , length tyArgs == n && length tmArgs == length fldTys
-                , Just tyArgs <- mapM isType_maybe tyArgs
-                , all (isNothing . isType_maybe) tmArgs
-                -> fmap (, []) $ do
-                    lfTyArgs <- mapM (convertType env) tyArgs
-                    lfTmArgs <- mapM (convertExpr env) tmArgs
-                    let ctorName = mkVariantCon (getOccText con)
-                    varTCon <- qual (mkTypeCon . pure) $ getOccText (dataConTyCon con)
-                    let recTCon = fmap (synthesizeVariantRecord ctorName) varTCon
-                    pure $
-                        EVariantCon (TypeConApp varTCon lfTyArgs) ctorName $
-                        ERecCon (TypeConApp recTCon lfTyArgs) (zipExact fldNames lfTmArgs)
-                -- Partially applied variant constructor:
-                | otherwise
-                -> fmap (, args) $ fmap EVal $ qual (\x -> mkVal $ "$W" <> x) $ getOccText x
-        | Just m <- nameModule_maybe $ varName x = fmap (, args) $
-            fmap EVal $ qualify env m $ convVal x
+        = convertDataCon env m con args
+        | Just m <- nameModule_maybe $ varName x =
+            fmap ((, args) . EVal) $ qualify env m $ convVal x
         | isGlobalId x = fmap (, args) $ do
             pkgRef <- nameToPkgRef env $ varName x
             pure $ EVal $ Qualified pkgRef (envLFModuleName env) $ convVal x
@@ -985,8 +981,7 @@ convertExpr env0 e = do
                     Just vsFlds -> convertLet env bind scrutinee $ \env -> do
                         bindRef <- convertExpr env (Var bind)
                         x' <- convertExpr env x
-                        projBinds <- mkProjBindings env bindRef (fromTCon tcon) vsFlds x'
-                        pure projBinds
+                        mkProjBindings env bindRef (fromTCon tcon) vsFlds x'
       where
         asLet = convertLet env bind scrutinee $ \env -> convertExpr env x
     go env (Case scrutinee bind typ []) args = fmap (, args) $ do
@@ -1010,6 +1005,124 @@ convertExpr env0 e = do
     go env (Let (Rec xs) _) args = unsupported "Local variables defined recursively - recursion can only happen at the top level" $ map fst xs
     go env o@(Coercion _) args = unhandled "Coercion" o
     go _ x args = unhandled "Expression" x
+
+-- | Is this an enum type?
+isEnumTyCon :: TyCon -> Bool
+isEnumTyCon tycon =
+    isEnumerationTyCon tycon
+    && (tyConArity tycon == 0)
+    && (length (tyConDataCons tycon) >= 2)
+
+-- | Is this a simple record type?
+isSimpleRecordTyCon :: TyCon -> Bool
+isSimpleRecordTyCon tycon =
+    maybe False isSimpleRecordCon (tyConSingleDataCon_maybe tycon)
+
+-- | Is this a variant type?
+isVariantTyCon :: TyCon -> Bool
+isVariantTyCon tycon =
+    (tyConFlavour tycon == DataTypeFlavour)
+    && not (isEnumTyCon tycon)
+    && not (isSimpleRecordTyCon tycon)
+
+conIsSingle :: DataCon -> Bool
+conIsSingle = isSingleConType . dataConTyCon
+
+conHasNoArgs :: DataCon -> Bool
+conHasNoArgs = null . dataConOrigArgTys
+
+conHasLabels :: DataCon -> Bool
+conHasLabels = notNull . ctorLabels
+
+isEnumCon :: DataCon -> Bool
+isEnumCon = isEnumTyCon . dataConTyCon
+
+isSimpleRecordCon :: DataCon -> Bool
+isSimpleRecordCon con = (conHasLabels con || conHasNoArgs con) && conIsSingle con
+
+isVariantRecordCon :: DataCon -> Bool
+isVariantRecordCon con = conHasLabels con && not (conIsSingle con)
+
+-- | The different classes of data cons with respect to LF conversion.
+data DataConClass
+    = EnumCon -- ^ constructor for an enum type
+    | SimpleRecordCon -- ^ constructor for a record type
+    | SimpleVariantCon -- ^ constructor for a variant type with no synthetic record type
+    | VariantRecordCon -- ^ constructor for a variant type with a synthetic record type
+    deriving (Eq, Show)
+
+classifyDataCon :: DataCon -> DataConClass
+classifyDataCon con
+    | isEnumCon con = EnumCon
+    | isSimpleRecordCon con = SimpleRecordCon
+    | isVariantRecordCon con = VariantRecordCon
+    | otherwise = SimpleVariantCon
+        -- in which case, daml-preprocessor ensures that the
+        -- constructor cannot have more than one argument
+
+-- | Split args into type args and non-type args of the expected length
+-- for a particular DataCon.
+splitConArgs_maybe :: DataCon -> [LArg Var] -> Maybe ([GHC.Type], [GHC.Arg Var])
+splitConArgs_maybe con args = do
+    let (conTypes, conTheta, conArgs, _) = dataConSig con
+        numTypes = length conTypes
+        numVals = length conTheta + length conArgs
+        (typeArgs, valArgs) = splitAt numTypes (map snd args)
+    guard (length typeArgs == numTypes)
+    guard (length valArgs == numVals)
+    typeArgs <- mapM isType_maybe typeArgs
+    guard (all (isNothing . isType_maybe) valArgs)
+    Just (typeArgs, valArgs)
+
+-- NOTE(MH): Handle data constructors. Fully applied record
+-- constructors are inlined. This is required for contract keys to
+-- work. Constructor workers are not handled (yet).
+convertDataCon :: Env -> GHC.Module -> DataCon -> [LArg Var] -> ConvertM (LF.Expr, [LArg Var])
+convertDataCon env m con args
+    -- Fully applied
+    | Just (tyArgs, tmArgs) <- splitConArgs_maybe con args = do
+        tyArgs <- mapM (convertType env) tyArgs
+        tmArgs <- mapM (convertExpr env) tmArgs
+        let tycon = dataConTyCon con
+        qTCon <- qual (\x -> mkTypeCon [x]) (getOccText tycon)
+        let tcon = TypeConApp qTCon tyArgs
+            ctorName = mkVariantCon (getOccText con)
+            fldNames = ctorLabels con
+            xargs = (dataConName con, args)
+
+        fmap (, []) $ case classifyDataCon con of
+            EnumCon -> do
+                unless (null args) $ unhandled "enum constructor with arguments" xargs
+                pure $ EEnumCon qTCon ctorName
+
+            SimpleVariantCon ->
+                fmap (EVariantCon tcon ctorName) $ case tmArgs of
+                    [] -> pure EUnit
+                    [tmArg] -> pure tmArg
+                    _ -> unhandled "constructor with more than two unnamed arguments" xargs
+
+            SimpleRecordCon ->
+                pure $ ERecCon tcon (zipExact fldNames tmArgs)
+
+            VariantRecordCon -> do
+                let recTCon = fmap (synthesizeVariantRecord ctorName) qTCon
+                pure $
+                    EVariantCon tcon ctorName $
+                    ERecCon (TypeConApp recTCon tyArgs) (zipExact fldNames tmArgs)
+
+    -- Partially applied
+    | otherwise = do
+        fmap (\op -> (EVal op, args)) (qual mkWorkerName (getOccText con))
+
+    where
+
+        qual :: (T.Text -> n) -> T.Text -> ConvertM (Qualified n)
+        qual f t
+            | Just xs <- T.stripPrefix "(," t
+            , T.dropWhile (== ',') xs == ")" = qDA_Types env $ f $ "Tuple" <> T.pack (show $ T.length xs + 1)
+            | Just t' <- T.stripPrefix "$W" t = qualify env m $ f t'
+            | otherwise = qualify env m $ f t
+
 
 convertArg :: Env -> GHC.Arg Var -> ConvertM LF.Arg
 convertArg env = \case
@@ -1066,11 +1179,10 @@ convertAlt env ty (DataAlt con, [a], x)
     | isBuiltinName "Some" con
     = CaseAlternative (CPSome (convVar a)) <$> convertExpr env x
 convertAlt env (TConApp tcon targs) alt@(DataAlt con, vs, x) = do
-    ctors <- toCtors env $ dataConTyCon con
     Ctor (mkVariantCon . getOccText -> variantName) fldNames fldTys <- toCtor env con
     let patVariant = variantName
     if
-      | isEnumCtors ctors ->
+      | isEnumCon con ->
         CaseAlternative (CPEnum patTypeCon patVariant) <$> convertExpr env x
       | null fldNames ->
         case zipExactMay vs fldTys of
@@ -1352,22 +1464,6 @@ defValue loc binder@(name, lftype) body =
 ---------------------------------------------------------------------
 -- UNPACK CONSTRUCTORS
 
-data Ctors = Ctors
-    { _cTypeName :: Name
-    , _cFlavour :: TyConFlavour
-    , _cParams :: [(TypeVarName, LF.Kind)]
-    , _cCtors :: [Ctor]
-    }
-data Ctor = Ctor Name [FieldName] [LF.Type]
-
-toCtors :: Env -> GHC.TyCon -> ConvertM Ctors
-toCtors env t = Ctors (getName t) (tyConFlavour t) <$> mapM convTypeVar (tyConTyVars t) <*> cs
-    where
-        cs = case algTyConRhs t of
-                DataTyCon cs' _ _ -> mapM (toCtor env) cs'
-                NewTyCon{..} -> sequence [toCtor env data_con]
-                x -> unsupported "Data definition, with unexpected RHS" t
-
 -- NOTE(MH):
 --
 -- * Dictionary types contain multiple unnamed fields in general. Thus, it is
@@ -1400,6 +1496,8 @@ ctorLabels con =
   flv = tyConFlavour (dataConTyCon con)
   lbls = dataConFieldLabels con
 
+data Ctor = Ctor Name [FieldName] [LF.Type]
+
 toCtor :: Env -> DataCon -> ConvertM Ctor
 toCtor env con =
   let (_, thetas, tys,_) = dataConSig con
@@ -1413,9 +1511,6 @@ toCtor env con =
 isRecordCtor :: Ctor -> Bool
 isRecordCtor (Ctor _ fldNames fldTys) = not (null fldNames) || null fldTys
 
-isEnumCtors :: Ctors -> Bool
-isEnumCtors (Ctors _ _ params ctors) = null params && all (\(Ctor _ _ tys) -> null tys) ctors
-
 ---------------------------------------------------------------------
 -- SIMPLE WRAPPERS
 
@@ -1425,7 +1520,10 @@ convFieldName = mkField . fsToText . flLabel
 convTypeVar :: Var -> ConvertM (TypeVarName, LF.Kind)
 convTypeVar t = do
     k <- convertKind $ tyVarKind t
-    pure (mkTypeVar $ T.pack $ show (varUnique t), k)
+    pure (convTypeVarName t, k)
+
+convTypeVarName :: Var -> TypeVarName
+convTypeVarName = mkTypeVar . T.pack . show . varUnique
 
 convVar :: Var -> ExprVarName
 convVar = mkVar . varPrettyPrint
