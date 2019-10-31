@@ -75,6 +75,8 @@ private class ContractsFetch(
         val stage = builder.add(acsAndBoundary)
 
         // TODO add a stage to persist ACS
+        // convert to DBContract (with proper JSON createargs), make InsertDeleteStep,
+        // conflate ++, InsertDeleteStep => ConIO
         stage.out0 ~> acsSink
         stage.out1 ~> offsetSink
 
@@ -195,7 +197,7 @@ private object ContractsFetch {
   }
 
   /** Split a series of ACS responses into two channels: one with contracts, the
-    * other with one or more offsets, of which all but the last should be ignored.
+    * other with a single result, the last offset.
     */
   private def acsAndBoundary: Graph[
     FanOutShape2[
@@ -212,9 +214,8 @@ private object ContractsFetch {
       val dup = b add Broadcast[GACR](2)
       val acs = b add (Flow fromFunction ((_: GACR).activeContracts))
       val off = b add Flow[GACR]
-        .collect { case gacr if gacr.offset.nonEmpty => Absolute(gacr.offset): Value }
-        .prepend(Source single Boundary(LedgerBoundary.LEDGER_BEGIN))
-        .conflate((_, later) => later)
+        .collect { case gacr if gacr.offset.nonEmpty => Absolute(gacr.offset) }
+        .fold(Boundary(LedgerBoundary.LEDGER_BEGIN): Value)((_, later) => later)
         .map(LedgerOffset.apply)
       dup ~> acs
       dup ~> off
