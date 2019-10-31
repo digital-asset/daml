@@ -5,12 +5,8 @@ package com.daml.ledger.api.testtool.infrastructure.participant
 
 import java.time.{Clock, Instant}
 
-import com.daml.ledger.api.testtool.infrastructure.{
-  Identification,
-  LedgerServices,
-  instantToTimestamp,
-  timestampToInstant
-}
+import com.daml.ledger.api.testtool.infrastructure.ProtobufConverters._
+import com.daml.ledger.api.testtool.infrastructure.{Identification, LedgerServices}
 import com.digitalasset.ledger.api.refinements.ApiTypes.TemplateId
 import com.digitalasset.ledger.api.v1.active_contracts_service.{
   GetActiveContractsRequest,
@@ -69,7 +65,6 @@ import com.digitalasset.platform.testing.{
   SizeBoundObserver
 }
 import com.google.protobuf.ByteString
-import com.google.protobuf.timestamp.Timestamp
 import io.grpc.stub.StreamObserver
 import scalaz.Tag
 import scalaz.syntax.tag._
@@ -87,9 +82,6 @@ private[testtool] object ParticipantTestContext {
       parties: Seq[String],
       templateIds: Seq[Identifier]): Some[TransactionFilter] =
     Some(new TransactionFilter(Map(parties.map(_ -> filter(templateIds)): _*)))
-
-  private def timestamp(i: Instant): Some[Timestamp] =
-    Some(new Timestamp(i.getEpochSecond, i.getNano))
 
 }
 
@@ -138,7 +130,7 @@ private[testtool] final class ParticipantTestContext private[participant] (
   def time(): Future[Instant] =
     SingleItemObserver
       .first[GetTimeResponse](services.time.getTime(new GetTimeRequest(ledgerId), _))
-      .map(_.map(r => timestampToInstant(r.getCurrentTime)).get)
+      .map(_.map(r => r.getCurrentTime.asJava).get)
       .recover {
         case NonFatal(_) => Clock.systemUTC().instant()
       }
@@ -146,8 +138,8 @@ private[testtool] final class ParticipantTestContext private[participant] (
   def passTime(t: Duration): Future[Unit] =
     for {
       currentInstant <- time()
-      currentTime = Some(instantToTimestamp(currentInstant))
-      newTime = Some(instantToTimestamp(currentInstant.plusNanos(t.toNanos)))
+      currentTime = Some(currentInstant.asProtobuf)
+      newTime = Some(currentInstant.plusNanos(t.toNanos).asProtobuf)
       result <- services.time
         .setTime(new SetTimeRequest(ledgerId, currentTime, newTime))
         .map(_ => ())
@@ -448,8 +440,8 @@ private[testtool] final class ParticipantTestContext private[participant] (
             applicationId = applicationId,
             commandId = nextCommandId(),
             party = party.unwrap,
-            ledgerEffectiveTime = timestamp(let),
-            maximumRecordTime = timestamp(let.plusNanos(ttl.toNanos)),
+            ledgerEffectiveTime = Some(let.asProtobuf),
+            maximumRecordTime = Some(let.plusNanos(ttl.toNanos).asProtobuf),
             commands = commands
           ))))
 
@@ -462,8 +454,8 @@ private[testtool] final class ParticipantTestContext private[participant] (
             applicationId = applicationId,
             commandId = nextCommandId(),
             party = party.unwrap,
-            ledgerEffectiveTime = timestamp(let),
-            maximumRecordTime = timestamp(let.plusNanos(ttl.toNanos)),
+            ledgerEffectiveTime = Some(let.asProtobuf),
+            maximumRecordTime = Some(let.plusNanos(ttl.toNanos).asProtobuf),
             commands = commands
           ))))
 
@@ -490,5 +482,4 @@ private[testtool] final class ParticipantTestContext private[participant] (
             new GetLedgerConfigurationRequest(overrideLedgerId.getOrElse(ledgerId)),
             _))
       .map(_.fold(sys.error("No ledger configuration available."))(_.getLedgerConfiguration))
-
 }
