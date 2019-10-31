@@ -17,3 +17,4 @@ HEAD — ongoing
 - [DAML Integration Kit] Re-add :doc:`integration kit documentation </daml-integration-kit/index>` that got accidentally deleted.
 - [Ledger API] Disallow empty commands. See `issue #592 <https://github.com/digital-asset/daml/issues/592>`__.
 - [DAML Stdlib] Add `DA.TextMap.filter` and `DA.Next.Map.filter`.
+- [Extractor - Experimental] Extractor now stores exercise events in the single table data format. See `issue #3274 <https://github.com/digital-asset/daml/issues/3274>`__.
