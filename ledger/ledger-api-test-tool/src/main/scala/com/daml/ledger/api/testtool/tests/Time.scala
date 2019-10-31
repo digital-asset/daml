@@ -7,8 +7,6 @@ import java.time.Duration
 
 import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTest, LedgerTestSuite}
 
-import scala.concurrent.duration.DurationInt
-
 final class Time(session: LedgerSession) extends LedgerTestSuite(session) {
 
   val pass =
@@ -16,7 +14,7 @@ final class Time(session: LedgerSession) extends LedgerTestSuite(session) {
       for {
         ledger <- context.participant()
         t1 <- ledger.time()
-        _ <- ledger.passTime(1.second)
+        _ <- ledger.passTime(Duration.ofSeconds(1))
         t2 <- ledger.time()
         travel = Duration.between(t1, t2)
       } yield

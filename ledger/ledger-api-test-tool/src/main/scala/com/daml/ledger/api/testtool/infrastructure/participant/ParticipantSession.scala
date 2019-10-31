@@ -3,8 +3,9 @@
 
 package com.daml.ledger.api.testtool.infrastructure.participant
 
-import java.util.concurrent.TimeUnit
+import java.time.Duration
 
+import com.daml.ledger.api.testtool.infrastructure.ProtobufConverters._
 import com.daml.ledger.api.testtool.infrastructure.{LedgerServices, RetryStrategy}
 import com.digitalasset.ledger.api.v1.ledger_configuration_service.{
   GetLedgerConfigurationRequest,
@@ -17,7 +18,7 @@ import io.grpc.ManagedChannel
 import io.netty.channel.nio.NioEventLoopGroup
 import org.slf4j.LoggerFactory
 
-import scala.concurrent.duration.{Duration, DurationInt, DurationLong}
+import scala.concurrent.duration.{DurationInt, SECONDS}
 import scala.concurrent.{ExecutionContext, Future}
 
 private[participant] final class ParticipantSession(
@@ -58,11 +59,11 @@ private[participant] final class ParticipantSession(
       }
       .map { configuration =>
         val factor = config.commandTtlFactor
-        val min = configuration.getMinTtl.seconds.seconds + configuration.getMinTtl.nanos.nanos
-        val max = configuration.getMaxTtl.seconds.seconds + configuration.getMaxTtl.nanos.nanos
+        val min = configuration.getMinTtl.asScala
+        val max = configuration.getMaxTtl.asScala
         val ttl = (max * factor).min(max).max(min)
         logger.info(s"Command TTL is $ttl (min: $min, max: $max, factor: $factor)")
-        ttl
+        Duration.ofNanos(ttl.toNanos)
       }
 
   private[testtool] def createTestContext(
@@ -86,16 +87,15 @@ private[participant] final class ParticipantSession(
   private[testtool] def close(): Unit = {
     logger.info(s"Disconnecting from participant at ${config.host}:${config.port}...")
     channel.shutdownNow()
-    if (!channel.awaitTermination(10L, TimeUnit.SECONDS)) {
+    if (!channel.awaitTermination(10L, SECONDS)) {
       sys.error("Channel shutdown stuck. Unable to recover. Terminating.")
     }
     logger.info(s"Connection to participant at ${config.host}:${config.port} shut down.")
     if (!eventLoopGroup
-        .shutdownGracefully(0, 0, TimeUnit.SECONDS)
-        .await(10L, TimeUnit.SECONDS)) {
+        .shutdownGracefully(0, 0, SECONDS)
+        .await(10L, SECONDS)) {
       sys.error("Unable to shutdown event loop. Unable to recover. Terminating.")
     }
     logger.info(s"Connection to participant at ${config.host}:${config.port} closed.")
   }
-
 }

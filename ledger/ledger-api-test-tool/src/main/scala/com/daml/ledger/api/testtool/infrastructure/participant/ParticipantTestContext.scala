@@ -3,7 +3,7 @@
 
 package com.daml.ledger.api.testtool.infrastructure.participant
 
-import java.time.{Clock, Instant}
+import java.time.{Clock, Duration, Instant}
 
 import com.daml.ledger.api.testtool.infrastructure.ProtobufConverters._
 import com.daml.ledger.api.testtool.infrastructure.{Identification, LedgerServices}
@@ -69,7 +69,6 @@ import io.grpc.stub.StreamObserver
 import scalaz.Tag
 import scalaz.syntax.tag._
 
-import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
 
@@ -139,7 +138,7 @@ private[testtool] final class ParticipantTestContext private[participant] (
     for {
       currentInstant <- time()
       currentTime = Some(currentInstant.asProtobuf)
-      newTime = Some(currentInstant.plusNanos(t.toNanos).asProtobuf)
+      newTime = Some(currentInstant.plus(t).asProtobuf)
       result <- services.time
         .setTime(new SetTimeRequest(ledgerId, currentTime, newTime))
         .map(_ => ())
@@ -441,7 +440,7 @@ private[testtool] final class ParticipantTestContext private[participant] (
             commandId = nextCommandId(),
             party = party.unwrap,
             ledgerEffectiveTime = Some(let.asProtobuf),
-            maximumRecordTime = Some(let.plusNanos(ttl.toNanos).asProtobuf),
+            maximumRecordTime = Some(let.plus(ttl).asProtobuf),
             commands = commands
           ))))
 
@@ -455,7 +454,7 @@ private[testtool] final class ParticipantTestContext private[participant] (
             commandId = nextCommandId(),
             party = party.unwrap,
             ledgerEffectiveTime = Some(let.asProtobuf),
-            maximumRecordTime = Some(let.plusNanos(ttl.toNanos).asProtobuf),
+            maximumRecordTime = Some(let.plus(ttl).asProtobuf),
             commands = commands
           ))))
 
