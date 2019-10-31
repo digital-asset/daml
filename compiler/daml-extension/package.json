@@ -135,17 +135,18 @@
         "build": "node ./node_modules/typescript/bin/tsc -p ./"
     },
     "dependencies": {
-        "vscode-languageclient": "6.0.0-next.1",
-        "which": "1.3.1",
-        "tmp": "0.0.29",
         "@types/tmp": "0.0.29",
-        "@types/which": "1.3.1"
+        "@types/which": "1.3.1",
+        "tmp": "0.0.29",
+        "vscode-languageclient": "6.0.0-next.1",
+        "web-request": "^1.0.7",
+        "which": "1.3.1"
     },
     "devDependencies": {
         "@bazel/hide-bazel-files": "0.32.2",
-        "typescript": "3.6.3",
         "@types/node": "12.7.11",
         "@types/vscode": "1.33",
+        "typescript": "3.6.3",
         "vsce": "1.66.0"
     }
 }
