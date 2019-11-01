@@ -480,63 +480,6 @@ abstract class CommandTransactionChecks
           succeed
         }
       }
-
-      "handle exercise by key" in allFixtures { ctx =>
-        val keyPrefix = UUID.randomUUID.toString
-
-        def textKeyRecord(p: String, k: String, disclosedTo: List[String]): Record =
-          Record(
-            fields =
-              List(
-                RecordField(value = p.asParty),
-                RecordField(value = s"$keyPrefix-$k".asText),
-                RecordField(value = disclosedTo.map(_.asParty).asList)))
-
-        val key = "some-key"
-
-        def textKeyKey(p: String, k: String): Value =
-          Value(Value.Sum.Record(Record(fields = List(RecordField(value = p.asParty), RecordField(value = s"$keyPrefix-$k".asText)))))
-
-        for {
-          _ <- ctx.testingHelpers.failingExerciseByKey(
-            testIdsGenerator.testCommandId("EK-test-alice-exercise-before-create"),
-            Alice,
-            templateIds.textKey,
-            textKeyKey(Alice, key),
-            "TextKeyChoice",
-            emptyRecordValue,
-            Code.INVALID_ARGUMENT,
-            "couldn't find key"
-          )
-          _ <- ctx.testingHelpers.simpleCreate(
-            testIdsGenerator.testCommandId("EK-test-cid1"),
-            Alice,
-            templateIds.textKey,
-            textKeyRecord(Alice, key, List(Bob))
-          )
-          // now we exercise by key, thus archiving it, and then verify
-          // that we cannot look it up anymore
-//          _ <- ctx.testingHelpers.simpleExerciseByKey(
-//            testIdsGenerator.testCommandId("EK-test-alice-exercise"),
-//            Alice,
-//            templateIds.textKey,
-//            textKeyKey(Alice, key),
-//            "TextKeyChoice",
-//            emptyRecordValue)
-//          _ <- ctx.testingHelpers.failingExerciseByKey(
-//            testIdsGenerator.testCommandId("EK-test-alice-exercise-consumed"),
-//            Alice,
-//            templateIds.textKey,
-//            textKeyKey(Alice, key),
-//            "TextKeyChoice",
-//            emptyRecordValue,
-//            Code.INVALID_ARGUMENT,
-//            "couldn't find key"
-//          )
-        } yield {
-          succeed
-        }
-      }
     }
 
     "client sends a CreateAndExerciseCommand" should {

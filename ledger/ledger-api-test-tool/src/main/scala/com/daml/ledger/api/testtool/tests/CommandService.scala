@@ -3,9 +3,13 @@
 
 package com.daml.ledger.api.testtool.tests
 
+import java.util.UUID
+
 import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTest, LedgerTestSuite}
-import com.digitalasset.ledger.test_stable.Test.Dummy
+import com.digitalasset.ledger.api.v1.value.{Record, RecordField, Value}
+import com.digitalasset.ledger.client.binding.Primitive
 import com.digitalasset.ledger.test_stable.Test.Dummy._
+import com.digitalasset.ledger.test_stable.Test.{Dummy, TextKey}
 import io.grpc.Status
 import scalaz.syntax.tag._
 
@@ -302,6 +306,58 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
     }
   }
 
+  private[this] val exerciseByKey = LedgerTest(
+    "CSExerciseByKey",
+    "Exercising by key should be possible only when the corresponding contract is available"
+  ) { context =>
+    val keyString = UUID.randomUUID.toString
+    for {
+      ledger <- context.participant()
+      party <- ledger.allocateParty()
+      expectedKey = Value(
+        Value.Sum.Record(
+          Record(
+            fields = Seq(
+              RecordField("_1", Some(Value(Value.Sum.Party(party.unwrap)))),
+              RecordField("_2", Some(Value(Value.Sum.Text(keyString))))
+            ))))
+      failureBeforeCreation <- ledger
+        .exerciseByKey(
+          party,
+          TextKey.id,
+          expectedKey,
+          "TextKeyChoice",
+          Value(Value.Sum.Record(Record())))
+        .failed
+      _ <- ledger.create(party, TextKey(party, keyString, Primitive.List.empty))
+      _ <- ledger.exerciseByKey(
+        party,
+        TextKey.id,
+        expectedKey,
+        "TextKeyChoice",
+        Value(Value.Sum.Record(Record())))
+      failureAfterConsuming <- ledger
+        .exerciseByKey(
+          party,
+          TextKey.id,
+          expectedKey,
+          "TextKeyChoice",
+          Value(Value.Sum.Record(Record())))
+        .failed
+    } yield {
+      assertGrpcError(
+        failureBeforeCreation,
+        Status.Code.INVALID_ARGUMENT,
+        "dependency error: couldn't find key"
+      )
+      assertGrpcError(
+        failureAfterConsuming,
+        Status.Code.INVALID_ARGUMENT,
+        "dependency error: couldn't find key"
+      )
+    }
+  }
+
   override val tests: Vector[LedgerTest] = Vector(
     submitAndWaitTest,
     submitAndWaitForTransactionTest,
@@ -317,6 +373,7 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
     submitAndWaitForTransactionTreeWithInvalidLedgerIdTest,
     disallowEmptyCommandSubmission,
     refuseBadChoice,
-    returnStackTrace
+    returnStackTrace,
+    exerciseByKey
   )
 }

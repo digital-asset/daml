@@ -23,7 +23,7 @@ import com.digitalasset.ledger.api.v1.admin.party_management_service.{
 }
 import com.digitalasset.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.digitalasset.ledger.api.v1.command_submission_service.SubmitRequest
-import com.digitalasset.ledger.api.v1.commands.{Command, Commands}
+import com.digitalasset.ledger.api.v1.commands.{Command, Commands, ExerciseByKeyCommand}
 import com.digitalasset.ledger.api.v1.event.Event.Event.Created
 import com.digitalasset.ledger.api.v1.event.{CreatedEvent, Event}
 import com.digitalasset.ledger.api.v1.ledger_configuration_service.{
@@ -56,7 +56,7 @@ import com.digitalasset.ledger.api.v1.transaction_service.{
   GetTransactionByIdRequest,
   GetTransactionsRequest
 }
-import com.digitalasset.ledger.api.v1.value.Identifier
+import com.digitalasset.ledger.api.v1.value.{Identifier, Value}
 import com.digitalasset.ledger.client.binding.Primitive.Party
 import com.digitalasset.ledger.client.binding.{Primitive, Template}
 import com.digitalasset.platform.testing.{
@@ -429,6 +429,26 @@ private[testtool] final class ParticipantTestContext private[participant] (
     submitAndWaitRequest(party, exercise(party).command)
       .flatMap(submitAndWaitForTransaction)
       .map(extractContracts)
+
+  def exerciseByKey[T](
+      party: Party,
+      template: Primitive.TemplateId[T],
+      key: Value,
+      choice: String,
+      argument: Value): Future[TransactionTree] =
+    submitAndWaitRequest(
+      party,
+      Command(
+        Command.Command.ExerciseByKey(
+          ExerciseByKeyCommand(
+            Some(template.unwrap),
+            Option(key),
+            choice,
+            Option(argument)
+          )
+        )
+      )
+    ).flatMap(submitAndWaitForTransactionTree)
 
   def submitRequest(party: Party, commands: Command*): Future[SubmitRequest] =
     time().map(
