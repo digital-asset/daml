@@ -39,7 +39,7 @@ private[digitalasset] class EncodeV1(val minor: LV.Minor) {
       dottedNameTable.build.foreach { dottedName =>
         val b = PLF.InternedDottedName.newBuilder()
         dottedName.segments.foreach { segment =>
-          b.addSegmentIds(stringsTable.insert(segment))
+          b.addSegmentsInternedStr(stringsTable.insert(segment))
           ()
         }
         builder.addInternedDottedNames(b)
@@ -124,7 +124,7 @@ private[digitalasset] class EncodeV1(val minor: LV.Minor) {
     private implicit def encodeValName(identifier: Identifier): PLF.ValName = {
       val b = PLF.ValName.newBuilder()
       b.setModule(identifier.moduleRef)
-      setDottedName(identifier.name, b.addName, b.setNameInternedDname)
+      setDottedName(identifier.name, b.addNameDname, b.setNameInternedDname)
       b.build()
     }
 
@@ -597,7 +597,7 @@ private[digitalasset] class EncodeV1(val minor: LV.Minor) {
         nameWithType: (DottedName, Type)): PLF.DefValue.NameWithType = {
       val (name, typ) = nameWithType
       val b = PLF.DefValue.NameWithType.newBuilder
-      setDottedName(name, b.addName, b.setNameInternedDname)
+      setDottedName(name, b.addNameDname, b.setNameInternedDname)
       b.setType(typ)
       b.build()
     }
