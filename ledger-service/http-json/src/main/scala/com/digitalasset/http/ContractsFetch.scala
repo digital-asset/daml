@@ -99,7 +99,7 @@ private class ContractsFetch(
       offset <- connectionIOFuture(lastOffsetFuture)
       _ <- offset match {
         case LedgerOffset(Absolute(off)) =>
-          (??? : ContractDao).updateOffset(party, templateId, domain.Offset(off))
+          ContractDao.updateOffset(party, templateId, domain.Offset(off))
         case _ => doobie.free.connection.pure(())
       }
     } yield offset
@@ -136,7 +136,7 @@ private class ContractsFetch(
       party: domain.Party,
       templateId: domain.TemplateId.RequiredPkg): ConnectionIO[Option[domain.Offset]] =
     contractDao match {
-      case Some(dao) => dao.lastOffset(party, templateId)
+      case Some(dao) => ContractDao.lastOffset(party, templateId)
       case None => connection.pure(None)
     }
 

@@ -6,6 +6,7 @@ package com.digitalasset.http.dbbackend
 import cats.effect._
 import cats.syntax.apply._
 import com.digitalasset.http.domain
+import doobie.LogHandler
 import doobie.free.connection.ConnectionIO
 import doobie.implicits._
 import doobie.util.log
@@ -20,29 +21,6 @@ class ContractDao(xa: Connection.T) {
   def initialize: ConnectionIO[Unit] =
     Queries.dropAllTablesIfExist *> Queries.initDatabase
 
-  def lastOffset(
-      party: domain.Party,
-      templateId: domain.TemplateId.RequiredPkg): ConnectionIO[Option[domain.Offset]] =
-    for {
-      tpId <- Queries.surrogateTemplateId(
-        templateId.packageId,
-        templateId.moduleName,
-        templateId.entityName)
-      offset <- Queries.lastOffset(party.unwrap, tpId).map(_.map(domain.Offset(_)))
-    } yield offset
-
-  def updateOffset(
-      party: domain.Party,
-      templateId: domain.TemplateId.RequiredPkg,
-      newOffset: domain.Offset): ConnectionIO[Unit] =
-    for {
-      tpId <- Queries.surrogateTemplateId(
-        templateId.packageId,
-        templateId.moduleName,
-        templateId.entityName)
-      _ <- Queries.updateOffset(party.unwrap, tpId, newOffset.unwrap)
-    } yield ()
-
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def transact[A](query: ConnectionIO[A]): IO[A] =
     query.transact(xa)
@@ -54,4 +32,27 @@ object ContractDao {
     val cs: ContextShift[IO] = IO.contextShift(ec)
     new ContractDao(Connection.connect(jdbcDriver, jdbcUrl, username, password)(cs))
   }
+
+  def lastOffset(party: domain.Party, templateId: domain.TemplateId.RequiredPkg)(
+      implicit log: LogHandler): ConnectionIO[Option[domain.Offset]] =
+    for {
+      tpId <- Queries.surrogateTemplateId(
+        templateId.packageId,
+        templateId.moduleName,
+        templateId.entityName)
+      offset <- Queries.lastOffset(party.unwrap, tpId).map(_.map(domain.Offset(_)))
+    } yield offset
+
+  def updateOffset(
+      party: domain.Party,
+      templateId: domain.TemplateId.RequiredPkg,
+      newOffset: domain.Offset)(implicit log: LogHandler): ConnectionIO[Unit] =
+    for {
+      tpId <- Queries.surrogateTemplateId(
+        templateId.packageId,
+        templateId.moduleName,
+        templateId.entityName)
+      _ <- Queries.updateOffset(party.unwrap, tpId, newOffset.unwrap)
+    } yield ()
+
 }
