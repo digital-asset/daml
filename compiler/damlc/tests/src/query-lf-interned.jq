@@ -1,9 +1,17 @@
-def get_value_name(pkg): pkg.interned_dotted_names[.name_interned_id] | .segment_ids | map(pkg.interned_strings[.]);
-
 def get_int64(pkg): .int64;
 
-def get_dotted_name(pkg): pkg.interned_dotted_names[.segments_interned_id // 0] | .segment_ids | map(pkg.interned_strings[.]);
+def resolve_interned_string(pkg): pkg.interned_strings[.];
 
-def get_field(pkg): pkg.interned_strings[.interned_id];
+def resolve_interned_dname(pkg): pkg.interned_dotted_names[.] | .segments_interned_str | map(resolve_interned_string(pkg));
 
-def get_name(pkg): .name;
+def get_value_name(pkg): .name_interned_dname | resolve_interned_dname(pkg);
+
+def get_template_name(pkg): .tycon_interned_dname | resolve_interned_dname(pkg);
+
+def get_module_name(pkg): .module.module_name_interned_dname // 0 | resolve_interned_dname(pkg);
+
+def get_dotted_name(pkg): .name_interned_dname | resolve_interned_dname(pkg);
+
+def get_field(pkg): .field_interned_str | resolve_interned_string(pkg);
+
+def get_name(pkg): .name_interned_str | resolve_interned_string(pkg);
