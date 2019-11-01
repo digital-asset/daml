@@ -5,6 +5,7 @@ package com.daml.ledger.api.testtool.tests
 
 import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTest, LedgerTestSuite}
 import com.digitalasset.ledger.test_stable.Test.Dummy
+import com.digitalasset.ledger.test_stable.Test.Dummy._
 import io.grpc.Status
 import scalaz.syntax.tag._
 
@@ -262,6 +263,45 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
     }
   }
 
+  private[this] val refuseBadChoice = LedgerTest(
+    "CSRefuseBadChoice",
+    "The submission of an exercise of a choice that does not exist should yield INVALID_ARGUMENT"
+  ) { context =>
+    val badChoice = "THIS_IS_NOT_A_VALID_CHOICE"
+    for {
+      ledger <- context.participant()
+      party <- ledger.allocateParty()
+      dummy <- ledger.create(party, Dummy(party))
+      exercise = dummy.exerciseDummyChoice1(party).command
+      wrongExercise = exercise.update(_.exercise.choice := badChoice)
+      wrongRequest <- ledger.submitRequest(party, wrongExercise)
+      failure <- ledger.submit(wrongRequest).failed
+    } yield {
+      assertGrpcError(
+        failure,
+        Status.Code.INVALID_ARGUMENT,
+        s"Couldn't find requested choice $badChoice")
+    }
+  }
+
+  private[this] val returnStackTrace = LedgerTest(
+    "CSReturnStackTrace",
+    "A submission resulting in an interpretation error should return the stack trace"
+  ) { context =>
+    for {
+      ledger <- context.participant()
+      party <- ledger.allocateParty()
+      dummy <- ledger.create(party, Dummy(party))
+      failure <- ledger.exercise(party, dummy.exerciseFailingClone).failed
+    } yield {
+      assertGrpcError(
+        failure,
+        Status.Code.INVALID_ARGUMENT,
+        "Command interpretation error in LF-DAMLe: Interpretation error: Error: User abort: Assertion failed. Details: Last location: [DA.Internal.Assert:20], partial transaction: root node"
+      )
+    }
+  }
+
   override val tests: Vector[LedgerTest] = Vector(
     submitAndWaitTest,
     submitAndWaitForTransactionTest,
@@ -275,6 +315,8 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
     submitAndWaitForTransactionIdWithInvalidLedgerIdTest,
     submitAndWaitForTransactionWithInvalidLedgerIdTest,
     submitAndWaitForTransactionTreeWithInvalidLedgerIdTest,
-    disallowEmptyCommandSubmission
+    disallowEmptyCommandSubmission,
+    refuseBadChoice,
+    returnStackTrace
   )
 }

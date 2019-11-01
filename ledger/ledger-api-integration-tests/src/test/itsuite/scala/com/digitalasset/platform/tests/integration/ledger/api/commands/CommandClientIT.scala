@@ -12,12 +12,10 @@ import com.digitalasset.ledger.api.testing.utils.{
   SuiteResourceManagementAroundAll
 }
 import com.digitalasset.ledger.api.v1.command_submission_service.SubmitRequest
-import com.digitalasset.ledger.api.v1.commands.Command.Command.Exercise
-import com.digitalasset.ledger.api.v1.commands.{Command, CreateCommand, ExerciseCommand}
+import com.digitalasset.ledger.api.v1.commands.{CreateCommand, ExerciseCommand}
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset.LedgerBoundary.LEDGER_BEGIN
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset.Value.Boundary
-import com.digitalasset.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
 import com.digitalasset.ledger.api.v1.value.{Record, RecordField, Value}
 import com.digitalasset.ledger.client.services.commands.{CommandClient, CompletionStreamElement}
 import com.digitalasset.platform.apitesting.LedgerContext
@@ -275,48 +273,6 @@ class CommandClientIT
         }
       }
 
-      "not accept double spends, return INVALID_ARGUMENT" in allFixtures { c =>
-        for {
-          contract <- c.submitCreate(
-            "Creating_contracts_for_double_spend_test",
-            templateIds.dummyFactory,
-            List("operator" -> submittingParty.asParty).asRecordFields,
-            submittingParty)
-          _ <- c.testingHelpers.submitAndListenForSingleResultOfCommand(
-            c.command(
-              "Double_spend_test_exercise_1",
-              submittingParty,
-              List(
-                Command(
-                  Exercise(
-                    ExerciseCommand(
-                      Some(templateIds.dummyFactory),
-                      contract.contractId,
-                      "DummyFactoryCall",
-                      Some(unit)))))
-            ),
-            TransactionFilter(Map(submittingParty -> Filters.defaultInstance))
-          )
-          assertion <- c.testingHelpers.assertCommandFailsWithCode(
-            c.command(
-              "Double_spend_test_exercise_2",
-              submittingParty,
-              List(
-                ExerciseCommand(
-                  Some(templateIds.dummyFactory),
-                  contract.contractId,
-                  "DummyFactoryCall",
-                  Some(unit)).wrap)
-            ),
-            Code.INVALID_ARGUMENT,
-            "dependency",
-            ignoreCase = true
-          )
-        } yield {
-          assertion
-        }
-      }
-
       "not accept commands with missing args, return INVALID_ARGUMENT" in allFixtures { c =>
         val expectedMessageSubstring =
           "Expecting 1 field for record"
@@ -376,47 +332,6 @@ class CommandClientIT
         )
       }
 
-      "return stack trace in case of interpretation error" in allFixtures { c =>
-        // Note: we only check that the beginning of the error matches otherwise every time the package id
-        // changes this test fails.
-        val expectedMessageSubstring =
-          "Command interpretation error in LF-DAMLe: Interpretation error: Error: User abort: Assertion failed. Details: Last location: [DA.Internal.Assert:20], partial transaction: root node"
-        val command = c.command(
-          "Dummy_for_failing_assert",
-          "party",
-          List(
-            CreateCommand(
-              Some(templateIds.dummy),
-              Some(
-                Record(
-                  Some(templateIds.dummy),
-                  List("operator" -> "party".asParty).asRecordFields))).wrap)
-        )
-        for {
-          tx <- c.testingHelpers.submitAndListenForSingleResultOfCommand(
-            command,
-            TransactionFilter(Map("party" -> Filters.defaultInstance)))
-          create = c.testingHelpers.findCreatedEventIn(tx, templateIds.dummy)
-          res <- c.testingHelpers.assertCommandFailsWithCode(
-            c.command(
-              "Failing_assert",
-              "party",
-              List(
-                Command(
-                  Exercise(
-                    ExerciseCommand(
-                      Some(templateIds.dummy),
-                      create.contractId,
-                      "FailingClone",
-                      Some(Nil.asRecordValue)))))
-            ),
-            Code.INVALID_ARGUMENT,
-            expectedMessageSubstring
-          )
-        } yield res
-
-      }
-
       "not accept commands with malformed decimals, return INVALID_ARGUMENT" in allFixtures { c =>
         val commandId = "Malformed_decimal"
         val expectedMessageSubString =
@@ -472,28 +387,6 @@ class CommandClientIT
           )
 
         c.testingHelpers.assertCommandFailsWithCode(command, Code.INVALID_ARGUMENT, "error")
-      }
-
-      "not accept exercises of bad choices, return INVALID_ARGUMENT" in allFixtures { c =>
-        c.submitCreate(
-            "Creating_contract_for_bad_choice_test",
-            templateIds.dummyFactory,
-            List("operator" -> submittingParty.asParty).asRecordFields,
-            submittingParty)
-          .flatMap(contract =>
-            c.testingHelpers.assertCommandFailsWithCode(
-              c.command(
-                "Bad_choice_test",
-                submittingParty,
-                List(
-                  ExerciseCommand(
-                    Some(templateIds.dummyFactory),
-                    contract.contractId,
-                    "hotdog",
-                    Some(unit)).wrap)),
-              Code.INVALID_ARGUMENT,
-              "Couldn't find requested choice"
-          ))
       }
     }
   }

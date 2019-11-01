@@ -193,13 +193,11 @@ trait LedgerContext {
       _.commands.party := party
     )
 
-  val testingHelpers: LedgerTestingHelpers = {
-    val c = commandClient()
+  val testingHelpers: LedgerTestingHelpers =
     new LedgerTestingHelpers(
-      req => c.flatMap(_.trackSingleCommand(req))(mat.executionContext),
+      req => commandClient().flatMap(_.trackSingleCommand(req))(mat.executionContext),
       this
     )
-  }
 
   import com.digitalasset.platform.participant.util.ValueConversions._
 
