@@ -138,7 +138,7 @@ class CommandService(
   private def activeContracts(
       tx: lav1.transaction.Transaction): Error \/ ImmArraySeq[ActiveContract[lav1.value.Value]] = {
     Transactions
-      .decodeAllCreatedEvents(tx)
+      .allCreatedEvents(tx)
       .traverse(ActiveContract.fromLedgerApi(_))
       .leftMap(e => Error('activeContracts, e.shows))
   }

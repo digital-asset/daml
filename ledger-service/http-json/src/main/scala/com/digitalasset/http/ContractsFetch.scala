@@ -16,6 +16,7 @@ import akka.stream.scaladsl.{
 }
 import akka.stream.{ClosedShape, FanOutShape2, Graph, Materializer}
 import cats.effect.IO
+import doobie.free.connection
 import com.digitalasset.http.Statement.discard
 import com.digitalasset.http.dbbackend.{ContractDao, Queries}
 import com.digitalasset.http.dbbackend.Queries.{DBContract, SurrogateTpId}
@@ -26,8 +27,8 @@ import com.digitalasset.http.json.JsonProtocol.LfValueDatabaseCodec.{
 }
 import com.digitalasset.http.util.IdentifierConverters.apiIdentifier
 import com.digitalasset.jwt.domain.Jwt
+import com.digitalasset.ledger.api.v1.transaction.Transaction
 import com.digitalasset.ledger.api.{v1 => lav1}
-
 import doobie.free.connection
 import doobie.free.connection.ConnectionIO
 import scalaz.std.vector._
@@ -70,7 +71,7 @@ private class ContractsFetch(
     for {
       offsetO <- readLastOffsetFromDb(party, templateId): ConnectionIO[Option[domain.Offset]]
       offsetE <- offsetO.cata(
-        x => doobie.free.connection.pure(\/-(x)),
+        x => connection.pure(\/-(x)),
         contractsToOffsetIo(jwt, party, templateId)
       ): ConnectionIO[domain.Error \/ domain.Offset]
     } yield offsetE
@@ -112,10 +113,8 @@ private class ContractsFetch(
           val offset = domain.Offset(str)
           ContractDao.updateOffset(party, templateId, offset).map(_ => \/-(offset))
         case x @ _ =>
-          doobie.free.connection.pure(
-            -\/(
-              domain
-                .Error('contractsToOffsetIo, s"expected LedgerOffset(Absolute(String)), got: $x")))
+          val errorMsg = s"expected LedgerOffset(Absolute(String)), got: $x"
+          connection.pure(-\/(domain.Error('contractsToOffsetIo, errorMsg)))
       }
     } yield offsetOrError
   }
@@ -140,12 +139,35 @@ private class ContractsFetch(
     Flow fromFunction (_.toVector traverse prepareCreatedEventStorage fold (e => throw e, identity))
   }
 
+  @SuppressWarnings(Array("org.wartremover.warts.Any"))
+  private def jsonifyInsertDeleteStep(
+      a: InsertDeleteStep[lav1.event.CreatedEvent]): InsertDeleteStep[PreInsertContract] = {
+    import scalaz.syntax.traverse._
+    InsertDeleteStep(
+      a.inserts traverse prepareCreatedEventStorage fold (e => throw e, identity),
+      a.deletes
+    )
+  }
+
   private def persistInitialActiveContracts
     : Flow[Vector[PreInsertContract], ConnectionIO[Unit], NotUsed] =
     Flow[Vector[PreInsertContract]]
       .map(planAcsBlockInserts)
       .conflate(_.append(_)(_.contractId))
       .map(insertAndDelete)
+
+  private def aggregate(
+      a: InsertDeleteStep[PreInsertContract],
+      b: InsertDeleteStep[PreInsertContract]): InsertDeleteStep[PreInsertContract] = {
+    def f(x: PreInsertContract): String = x.contractId
+    a.append(b)(f)
+  }
+
+  private def aggregate2(
+      a: (InsertDeleteStep[PreInsertContract], domain.Offset),
+      b: (InsertDeleteStep[PreInsertContract], domain.Offset))
+    : (InsertDeleteStep[PreInsertContract], domain.Offset) =
+    (aggregate(a._1, b._1), b._2)
 
   private def readLastOffsetFromDb(
       party: domain.Party,
@@ -155,32 +177,40 @@ private class ContractsFetch(
       case None => connection.pure(None)
     }
 
-  private val initialActiveContracts: Flow[
-    lav1.active_contracts_service.GetActiveContractsResponse,
-    domain.Error \/ (Contract, Option[domain.Offset]),
-    NotUsed
-  ] =
-    Flow[lav1.active_contracts_service.GetActiveContractsResponse].mapConcat { gacr =>
-      val offset = domain.Offset.fromLedgerApi(gacr)
-      unsequence(offset)(domain.Contract.fromLedgerApi(gacr))
+  private def contractsFromOffset(
+      jwt: Jwt,
+      party: domain.Party,
+      templateId: domain.TemplateId.RequiredPkg,
+      offset: domain.Offset)(
+      implicit ec: ExecutionContext,
+      mat: Materializer): ConnectionIO[Unit] = {
+
+    val txSource: Source[Transaction, NotUsed] = getCreatesAndArchivesSince(
+      jwt,
+      transactionFilter(party, List(templateId)),
+      domain.Offset.toLedgerApi(offset))
+
+    val f = (a: (InsertDeleteStep[lav1.event.CreatedEvent], domain.Offset)) =>
+      (jsonifyInsertDeleteStep(a._1), a._2)
+
+    val g: Transaction => (InsertDeleteStep[PreInsertContract], domain.Offset) =
+      transactionToInsertsAndDeletes _ andThen f
+
+    discard {
+      txSource
+        .map(g)
+        .conflate(aggregate2)
+        .map { case (step, offset) => (insertAndDelete(step), offset) }
     }
 
-  private val transactionContracts: Flow[
-    lav1.transaction.Transaction,
-    domain.Error \/ (Contract, domain.Offset),
-    NotUsed
-  ] =
-    Flow[lav1.transaction.Transaction]
-      .mapConcat { tx =>
-        val offset = domain.Offset.fromLedgerApi(tx)
-        unsequence(offset)(domain.Contract.fromLedgerApi(tx))
-      }
+    ???
+  }
 
-  private def unsequence[A, B, C](c: C)(fbs: A \/ List[B]): List[A \/ (B, C)] =
-    fbs.fold(
-      a => List(-\/(a)),
-      bs => bs.map(b => \/-((b, c)))
-    )
+  private def transactionToInsertsAndDeletes(tx: lav1.transaction.Transaction)
+    : (InsertDeleteStep[lav1.event.CreatedEvent], domain.Offset) = {
+    val offset = domain.Offset.fromLedgerApi(tx)
+    (partitionInsertsDeletes(tx.events), offset)
+  }
 
   private def ioToSource[Out](io: IO[Out]): Source[Out, NotUsed] =
     Source.fromFuture(io.unsafeToFuture())
