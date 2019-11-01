@@ -15,7 +15,6 @@ import akka.stream.scaladsl.{
   Source
 }
 import akka.stream.{ClosedShape, FanOutShape2, Graph, Materializer}
-import cats.effect.IO
 import doobie.free.connection
 import com.digitalasset.http.Statement.discard
 import com.digitalasset.http.dbbackend.{ContractDao, Queries}
@@ -52,37 +51,31 @@ private class ContractsFetch(
 
   def contracts(jwt: Jwt, party: domain.Party, templateId: domain.TemplateId.RequiredPkg)(
       implicit ec: ExecutionContext,
-      mat: Materializer): ConnectionIO[domain.Error \/ Unit] = {
-
-    val statement: ConnectionIO[Unit] = for {
-      offset <- readOffsetFromDbOrFetchFromLedgerAndUpdateDb(jwt, party, templateId)
-    } yield ???
-
-    ???
-
-  }
+      mat: Materializer): ConnectionIO[domain.Offset] =
+    for {
+      offset0 <- readOffsetFromDbOrFetchFromLedgerAndUpdateDb(jwt, party, templateId)
+      offset1 <- contractsFromOffsetIo(jwt, party, templateId, offset0)
+    } yield offset1
 
   private def readOffsetFromDbOrFetchFromLedgerAndUpdateDb(
       jwt: Jwt,
       party: domain.Party,
       templateId: domain.TemplateId.RequiredPkg)(
       implicit ec: ExecutionContext,
-      mat: Materializer): ConnectionIO[domain.Error \/ domain.Offset] =
+      mat: Materializer): ConnectionIO[domain.Offset] =
     for {
       offsetO <- readLastOffsetFromDb(party, templateId): ConnectionIO[Option[domain.Offset]]
-      offsetE <- offsetO.cata(
-        x => connection.pure(\/-(x)),
+      offset <- offsetO.cata(
+        x => connection.pure(x),
         contractsToOffsetIo(jwt, party, templateId)
-      ): ConnectionIO[domain.Error \/ domain.Offset]
-    } yield offsetE
+      ): ConnectionIO[domain.Offset]
+    } yield offset
 
   private def contractsToOffsetIo(
       jwt: Jwt,
       party: domain.Party,
       templateId: domain.TemplateId.RequiredPkg
-  )(
-      implicit ec: ExecutionContext,
-      mat: Materializer): ConnectionIO[domain.Error \/ domain.Offset] = {
+  )(implicit ec: ExecutionContext, mat: Materializer): ConnectionIO[domain.Offset] = {
 
     val graph = RunnableGraph.fromGraph(
       GraphDSL.create(
@@ -111,10 +104,10 @@ private class ContractsFetch(
       offsetOrError <- ledgerOffset match {
         case LedgerOffset(Absolute(str)) =>
           val offset = domain.Offset(str)
-          ContractDao.updateOffset(party, templateId, offset).map(_ => \/-(offset))
+          ContractDao.updateOffset(party, templateId, offset).map(_ => offset)
         case x @ _ =>
           val errorMsg = s"expected LedgerOffset(Absolute(String)), got: $x"
-          connection.pure(-\/(domain.Error('contractsToOffsetIo, errorMsg)))
+          throw new IllegalStateException(errorMsg)
       }
     } yield offsetOrError
   }
@@ -163,12 +156,6 @@ private class ContractsFetch(
     a.append(b)(f)
   }
 
-  private def aggregate2(
-      a: (InsertDeleteStep[PreInsertContract], domain.Offset),
-      b: (InsertDeleteStep[PreInsertContract], domain.Offset))
-    : (InsertDeleteStep[PreInsertContract], domain.Offset) =
-    (aggregate(a._1, b._1), b._2)
-
   private def readLastOffsetFromDb(
       party: domain.Party,
       templateId: domain.TemplateId.RequiredPkg): ConnectionIO[Option[domain.Offset]] =
@@ -177,54 +164,53 @@ private class ContractsFetch(
       case None => connection.pure(None)
     }
 
-  private def contractsFromOffset(
+  private def contractsFromOffsetIo(
       jwt: Jwt,
       party: domain.Party,
       templateId: domain.TemplateId.RequiredPkg,
       offset: domain.Offset)(
       implicit ec: ExecutionContext,
-      mat: Materializer): ConnectionIO[Unit] = {
+      mat: Materializer): ConnectionIO[domain.Offset] = {
 
-    val txSource: Source[Transaction, NotUsed] = getCreatesAndArchivesSince(
-      jwt,
-      transactionFilter(party, List(templateId)),
-      domain.Offset.toLedgerApi(offset))
+    val graph = RunnableGraph.fromGraph(
+      GraphDSL.create(
+        Sink.queue[ConnectionIO[Unit]](),
+        Sink.last[domain.Offset]
+      )((a, b) => (a, b)) { implicit builder => (acsSink, offsetSink) =>
+        import GraphDSL.Implicits._
 
-    val f = (a: (InsertDeleteStep[lav1.event.CreatedEvent], domain.Offset)) =>
-      (jsonifyInsertDeleteStep(a._1), a._2)
+        val txSource: Source[Transaction, NotUsed] = getCreatesAndArchivesSince(
+          jwt,
+          transactionFilter(party, List(templateId)),
+          domain.Offset.toLedgerApi(offset))
 
-    val g: Transaction => (InsertDeleteStep[PreInsertContract], domain.Offset) =
-      transactionToInsertsAndDeletes _ andThen f
+        val broadcast = builder add Broadcast[(
+            InsertDeleteStep[lav1.event.CreatedEvent],
+            domain.Offset)](2)
 
-    discard {
-      txSource
-        .map(g)
-        .conflate(aggregate2)
-        .map { case (step, offset) => (insertAndDelete(step), offset) }
-    }
+        def f(a: (InsertDeleteStep[lav1.event.CreatedEvent], domain.Offset))
+          : InsertDeleteStep[PreInsertContract] = jsonifyInsertDeleteStep(a._1)
 
-    ???
+        txSource.map(transactionToInsertsAndDeletes) ~> broadcast.in
+        broadcast.out(0).map(f).conflate(aggregate).map(insertAndDelete) ~> acsSink
+        broadcast.out(1).map(_._2) ~> offsetSink
+
+        ClosedShape
+      })
+
+    val (acsQueue, lastOffsetFuture) = graph.run()
+
+    for {
+      _ <- sinkCioSequence_(acsQueue)
+      offset <- connectionIOFuture(lastOffsetFuture)
+      _ <- ContractDao.updateOffset(party, templateId, offset)
+    } yield offset
   }
 
   private def transactionToInsertsAndDeletes(tx: lav1.transaction.Transaction)
     : (InsertDeleteStep[lav1.event.CreatedEvent], domain.Offset) = {
     val offset = domain.Offset.fromLedgerApi(tx)
     (partitionInsertsDeletes(tx.events), offset)
-  }
-
-  private def ioToSource[Out](io: IO[Out]): Source[Out, NotUsed] =
-    Source.fromFuture(io.unsafeToFuture())
-
-  private def transactionFilter(
-      party: domain.Party,
-      templateIds: List[TemplateId.RequiredPkg]): lav1.transaction_filter.TransactionFilter = {
-    import lav1.transaction_filter._
-
-    val filters =
-      if (templateIds.isEmpty) Filters.defaultInstance
-      else Filters(Some(lav1.transaction_filter.InclusiveFilters(templateIds.map(apiIdentifier))))
-
-    TransactionFilter(Map(domain.Party.unwrap(party) -> filters))
   }
 }
 
@@ -346,4 +332,15 @@ private object ContractsFetch {
         deletes union o.deletes)
   }
 
+  private def transactionFilter(
+      party: domain.Party,
+      templateIds: List[TemplateId.RequiredPkg]): lav1.transaction_filter.TransactionFilter = {
+    import lav1.transaction_filter._
+
+    val filters =
+      if (templateIds.isEmpty) Filters.defaultInstance
+      else Filters(Some(lav1.transaction_filter.InclusiveFilters(templateIds.map(apiIdentifier))))
+
+    TransactionFilter(Map(domain.Party.unwrap(party) -> filters))
+  }
 }
