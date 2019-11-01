@@ -70,7 +70,7 @@ private class DbDispatcherImpl(
 
   override def executeSql[T](description: String, extraLog: Option[String] = None)(
       sql: Connection => T): Future[T] =
-    sqlExecutor.runQuery(description)(connectionProvider.runSQL(conn => sql(conn)))
+    sqlExecutor.runQuery(description, extraLog)(connectionProvider.runSQL(conn => sql(conn)))
 
   override def runStreamingSql[T](
       sql: Connection => Source[T, Future[Done]]): Source[T, NotUsed] = {

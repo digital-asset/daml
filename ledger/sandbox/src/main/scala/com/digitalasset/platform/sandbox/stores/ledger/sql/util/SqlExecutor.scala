@@ -33,7 +33,7 @@ final class SqlExecutor(noOfThread: Int, loggerFactory: NamedLoggerFactory, mm: 
         .build()
     )
 
-  def runQuery[A](description: String, extraLog: Option[String] = None)(block: => A): Future[A] = {
+  def runQuery[A](description: String, extraLog: Option[String])(block: => A): Future[A] = {
     val promise = Promise[A]
     val waitTimer = mm.metrics.timer(s"sql_${description}_wait")
     val execTimer = mm.metrics.timer(s"sql_${description}_exec")
