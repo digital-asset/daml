@@ -2904,13 +2904,13 @@ String Interning
 
 [*Available in versions >= 1.6*]
 
-To allow string sharing, the so-called *string interning* mechanism,
-allow the strings withing messages to be stored in a global table and
+To provide string sharing, the so-called *string interning* mechanism
+allows the strings within messages to be stored in a global table and
 referenced by their index.
 
 The field ``Package.interned_strings`` is a list of strings. A
 so-called `interned string` is a valid zero-based index of this
-list. An `interned string` is interpreted as the string its points to
+list. An `interned string` is interpreted as the string it points to
 in ``Package.interned_strings``.
 
 + An `interned package id` is an `interned string` that can be
@@ -2926,8 +2926,8 @@ in ``Package.interned_strings``.
 
 Starting from DAML-LF 1.6, the field
 ``PackageRef.package_id_interned_str`` [*Available in versions >=
-1.6*] maybe be used instead ``PackageRef.package_id_str``.  If such
-case it must be a valid *interned packageId*.
+1.6*] may be used instead of ``PackageRef.package_id_str`` and it
+must be a valid *interned packageId*.
 
 Starting from DAML-LF 1.dev, all ``string`` (or ``repeated string``)
 fields with the suffix ``_str`` are forbidden. Alternative fields of
@@ -2936,7 +2936,7 @@ type ``int32`` (or ``repeated int32``) with the suffix
 ``PackageRef.package_id_interned_str`` which is [*Available in
 versions >= 1.6*], all fields with suffix ``_interned_str`` are
 [*Available in versions >= 1.dev*].  The deserialization process will
-reject any DAML-LF 1.dev (or latter) that that does not comply this
+reject any DAML-LF 1.dev (or later) that does not comply with this
 restriction.
 
 Name Interning
@@ -2944,23 +2944,23 @@ Name Interning
 
 [*Available in versions >= 1.dev*]
 
-To allow sharing of `names <Identifiers_>`_, the so-called *name
-interning* mechanism, allows the *names* within messages to be stored
-in a global table and referenced by their index.
+To provide sharing of `names <Identifiers_>`_, the so-called *name
+interning* mechanism allows the *names* within messages to be stored
+in a global table and be referenced by their index.
 
 ``InternedDottedName`` is a non-empty list of valid `interned
 identifiers`. Such message is interpreted as the name built from the
 sequence the interned identifiers it contains.  The field
 ``Package.interned_dotted_names`` is a list of such messages. A
 so-called `interned name` is a valid zero-based index of this list. An
-`interned names` is interpreted as the name built form the `name` it
+`interned name` is interpreted as the name built form the `name` it
 points to in ``Package.interned_dotted_names``.
 
 Starting from DAML-LF 1.dev, all ``DottedName`` (or ``repeated
 string``) fields with the suffix ``_dname`` are forbidden. Alternative
-fields of type ``int32` with the suffix ``_interned_dname``
+fields of type ``int32`` with the suffix ``_interned_dname``
 [*Available in versions >= 1.dev*] must be used instead. The
-deserialization process will reject any DAML-LF 1.dev (or latter) that
+deserialization process will reject any DAML-LF 1.dev (or later) that
 that does not comply this restriction.
 
 Nat kind and Nat types
@@ -3046,7 +3046,7 @@ On the other hand, starting from DAML-LF 1.dev:
   In other words ``decimal`` fields in ``PrimLit`` and ``PrimType``
   messages must remain unset and Decimal ``BuiltinFunction`` (those
   containing ``DECIMAL`` in their name are forbidden). The
-  deserialization process will reject any DAML-LF 1.dev (or latter)
+  deserialization process will reject any DAML-LF 1.dev (or later)
   that does not comply those restrictions.
 
 Any template
@@ -3057,7 +3057,7 @@ Any template
 This is an experimental feature used in DAML Triggers.
 More details will be provided in a near future.
 
-The curious reader can temporaly refer to the following PRs for more details:
+The curious reader can temporarily refer to the following PRs for more details:
  * https://github.com/digital-asset/daml/issues/2876
  * https://github.com/digital-asset/daml/issues/3072
 

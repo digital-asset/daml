@@ -207,7 +207,7 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
         description: => String,
     ): DottedName =
       if (versionIsOlderThan(LV.Features.internedDottedNames)) {
-        assertUndefined(interned_id, "description" + "_interned_id")
+        assertUndefined(interned_id, s"${description}_interned_id")
         decodeSegments(segments)
       } else {
         assertUndefined(segments, description)
