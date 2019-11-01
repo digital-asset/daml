@@ -154,7 +154,7 @@ class InMemoryKVParticipantState(
     initState
   }
 
-  private def updateState(newState: State) = {
+  private def updateState(newState: State): Unit = {
     file.foreach { f =>
       val os = new ObjectOutputStream(new FileOutputStream(f))
       os.writeObject(newState)
@@ -344,8 +344,8 @@ class InMemoryKVParticipantState(
   private val dispatcher: Dispatcher[Int] =
     Dispatcher(zeroIndex = beginning, headAtInitialization = beginning)
 
-  /** Helper for [[dispatcher]] to fetch [[DamlLogEntry]] from the
-    * state and convert it into [[Update]].
+  /** Helper for [[dispatcher]] to fetch [[com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlLogEntry]] from the
+    * state and convert it into [[com.daml.ledger.participant.state.v1.Update]].
     */
   private def getUpdate(idx: Int, state: State): List[Update] = {
     assert(idx >= 0 && idx < state.commitLog.size)
@@ -467,7 +467,7 @@ class InMemoryKVParticipantState(
     val cf = new CompletableFuture[PartyAllocationResult]
     matcherActorRef ! AddPartyAllocationRequest(sId, cf)
     commitActorRef ! CommitSubmission(
-      allocateEntryId(),
+      allocateEntryId,
       Envelope.enclose(
         KeyValueSubmission.partyToSubmission(sId, Some(party), displayName, participantId)
       )
@@ -505,7 +505,7 @@ class InMemoryKVParticipantState(
     Source.single(initialConditions)
 
   /** Shutdown the in-memory participant state. */
-  override def close(): Unit = {
+  override def close: Unit = {
     val _ = Await.ready(gracefulStop(commitActorRef, 5.seconds, PoisonPill), 6.seconds)
   }
 
@@ -533,7 +533,7 @@ class InMemoryKVParticipantState(
           case _ => sys.error(s"getDamlState: Envelope did not contain a state value")
       })
 
-  private def allocateEntryId(): Proto.DamlLogEntryId = {
+  private def allocateEntryId: Proto.DamlLogEntryId = {
     val nonce: Array[Byte] = Array.ofDim(8)
     rng.nextBytes(nonce)
     Proto.DamlLogEntryId.newBuilder
@@ -550,7 +550,7 @@ class InMemoryKVParticipantState(
   /** Get a new record time for the ledger from the system clock.
     * Public for use from integration tests.
     */
-  def getNewRecordTime(): Timestamp =
+  def getNewRecordTime: Timestamp =
     Timestamp.assertFromInstant(Clock.systemUTC().instant())
 
   /** Submit a new configuration to the ledger. */
