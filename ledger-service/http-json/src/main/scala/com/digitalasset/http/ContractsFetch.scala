@@ -49,15 +49,15 @@ private class ContractsFetch(
 
   import ContractsFetch._
 
-  def contracts(jwt: Jwt, party: domain.Party, templateId: domain.TemplateId.RequiredPkg)(
+  def contractsIo(jwt: Jwt, party: domain.Party, templateId: domain.TemplateId.RequiredPkg)(
       implicit ec: ExecutionContext,
       mat: Materializer): ConnectionIO[domain.Offset] =
     for {
-      offset0 <- readOffsetFromDbOrFetchFromLedgerAndUpdateDb(jwt, party, templateId)
+      offset0 <- readOffsetFromDbOrFetchFromLedger(jwt, party, templateId)
       offset1 <- contractsFromOffsetIo(jwt, party, templateId, offset0)
     } yield offset1
 
-  private def readOffsetFromDbOrFetchFromLedgerAndUpdateDb(
+  private def readOffsetFromDbOrFetchFromLedger(
       jwt: Jwt,
       party: domain.Party,
       templateId: domain.TemplateId.RequiredPkg)(
