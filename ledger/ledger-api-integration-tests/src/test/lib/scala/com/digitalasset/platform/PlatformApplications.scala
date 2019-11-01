@@ -11,7 +11,6 @@ import ch.qos.logback.classic.Level
 import com.digitalasset.daml.bazeltools.BazelRunfiles._
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.ledger.api.auth.AuthService
-import com.digitalasset.ledger.api.tls.TlsConfiguration
 import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.sandbox.config.{CommandConfiguration, SandboxConfig}
 import com.digitalasset.platform.services.time.{TimeModel, TimeProviderType}
@@ -44,7 +43,6 @@ object PlatformApplications {
       commandConfiguration: CommandConfiguration = SandboxConfig.defaultCommandConfig,
       uniqueCommandIdentifiers: Boolean = true,
       uniquePartyIdentifiers: Boolean = true,
-      remoteApiEndpoint: Option[RemoteApiEndpoint] = None,
       authService: Option[AuthService] = None) {
     require(
       Duration.ofSeconds(timeModel.minTtl.getSeconds) == timeModel.minTtl &&
@@ -81,24 +79,8 @@ object PlatformApplications {
 
     def withCommandConfiguration(cc: CommandConfiguration) = copy(commandConfiguration = cc)
 
-    def withRemoteApiEndpoint(endpoint: RemoteApiEndpoint) =
-      copy(remoteApiEndpoint = Some(endpoint))
-
     def withAuthService(authService: AuthService) =
       copy(authService = Some(authService))
-  }
-
-  final case class RemoteApiEndpoint(
-      host: String,
-      port: Integer,
-      tlsConfig: Option[TlsConfiguration]) {
-    def withHost(host: String) = copy(host = host)
-    def withPort(port: Int) = copy(port = port)
-    def withTlsConfig(tlsConfig: Option[TlsConfiguration]) = copy(tlsConfig = tlsConfig)
-  }
-
-  object RemoteApiEndpoint {
-    def default: RemoteApiEndpoint = RemoteApiEndpoint("localhost", 6865, None)
   }
 
   object Config {

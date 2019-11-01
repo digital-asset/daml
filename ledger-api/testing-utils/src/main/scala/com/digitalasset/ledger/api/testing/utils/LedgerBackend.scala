@@ -8,5 +8,4 @@ sealed abstract class LedgerBackend extends Product with Serializable
 object LedgerBackend {
   case object SandboxInMemory extends LedgerBackend
   case object SandboxSql extends LedgerBackend
-  case object RemoteApiProxy extends LedgerBackend
 }

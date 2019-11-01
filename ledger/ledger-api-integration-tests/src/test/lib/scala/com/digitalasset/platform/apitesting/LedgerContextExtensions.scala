@@ -14,7 +14,7 @@ import com.digitalasset.ledger.api.v1.transaction_filter.{Filters, TransactionFi
 import com.digitalasset.ledger.api.v1.value.{Identifier, Record, RecordField, Value}
 import com.digitalasset.ledger.client.configuration.CommandClientConfiguration
 import com.digitalasset.platform.tests.integration.ledger.api.LedgerTestingHelpers
-import org.scalatest.{Assertion, Matchers, OptionValues}
+import org.scalatest.{Matchers, OptionValues}
 import scalaz.syntax.tag._
 
 import scala.concurrent.{ExecutionContext, Future}
