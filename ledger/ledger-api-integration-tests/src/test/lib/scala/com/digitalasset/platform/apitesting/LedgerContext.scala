@@ -25,11 +25,11 @@ import com.digitalasset.ledger.api.v1.command_completion_service.CommandCompleti
 import com.digitalasset.ledger.api.v1.command_completion_service.CommandCompletionServiceGrpc.CommandCompletionService
 import com.digitalasset.ledger.api.v1.command_service.CommandServiceGrpc
 import com.digitalasset.ledger.api.v1.command_service.CommandServiceGrpc.CommandService
+import com.digitalasset.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc.CommandSubmissionService
 import com.digitalasset.ledger.api.v1.command_submission_service.{
   CommandSubmissionServiceGrpc,
   SubmitRequest
 }
-import com.digitalasset.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc.CommandSubmissionService
 import com.digitalasset.ledger.api.v1.commands.{Command, CreateCommand}
 import com.digitalasset.ledger.api.v1.event.CreatedEvent
 import com.digitalasset.ledger.api.v1.ledger_configuration_service.LedgerConfigurationServiceGrpc
@@ -193,11 +193,13 @@ trait LedgerContext {
       _.commands.party := party
     )
 
-  val testingHelpers: LedgerTestingHelpers =
+  def testingHelpers: LedgerTestingHelpers = {
+    val c = commandClient()
     new LedgerTestingHelpers(
-      req => commandClient().flatMap(_.trackSingleCommand(req))(mat.executionContext),
+      req => c.flatMap(_.trackSingleCommand(req))(mat.executionContext),
       this
     )
+  }
 
   import com.digitalasset.platform.participant.util.ValueConversions._
 
@@ -222,7 +224,7 @@ trait LedgerContext {
         verbose
       )
     } yield {
-      assert(helper.archivedEventsIn(tx).size == 0)
+      helper.assertNoArchivedEvents(tx)
       helper.getHead(helper.createdEventsIn(tx))
     }
   }

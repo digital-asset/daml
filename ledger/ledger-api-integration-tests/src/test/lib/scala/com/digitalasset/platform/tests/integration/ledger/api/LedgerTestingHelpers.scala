@@ -15,7 +15,7 @@ import com.digitalasset.ledger.api.v1.commands.{
 }
 import com.digitalasset.ledger.api.v1.completion.Completion
 import com.digitalasset.ledger.api.v1.event.Event.Event.{Archived, Created}
-import com.digitalasset.ledger.api.v1.event.{ArchivedEvent, CreatedEvent, ExercisedEvent}
+import com.digitalasset.ledger.api.v1.event.{CreatedEvent, ExercisedEvent}
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
 import com.digitalasset.ledger.api.v1.transaction.{Transaction, TransactionTree, TreeEvent}
 import com.digitalasset.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
@@ -54,24 +54,8 @@ class LedgerTestingHelpers(
   val submitSuccessfully: SubmitRequest => Future[Assertion] =
     submitCommand.andThen(_.map(assertCompletionIsSuccessful))
 
-  def assertCompletionIsSuccessful(completion: Completion): Assertion = {
+  private def assertCompletionIsSuccessful(completion: Completion): Assertion = {
     inside(completion) { case c => c.getStatus should have('code (0)) }
-  }
-
-  def assertCommandFailsWithCode(
-      submitRequest: SubmitRequest,
-      expectedErrorCode: Code,
-      expectedMessageSubString: String,
-      ignoreCase: Boolean = false): Future[Assertion] = {
-    for {
-      completion <- submitCommand(submitRequest)
-    } yield {
-      completion.getStatus should have('code (expectedErrorCode.value))
-      if (ignoreCase)
-        completion.getStatus.message.toLowerCase() should include(
-          expectedMessageSubString.toLowerCase())
-      else completion.getStatus.message should include(expectedMessageSubString)
-    }
   }
 
   def submitAndListenForSingleResultOfCommand(
@@ -104,29 +88,6 @@ class LedgerTestingHelpers(
         .runWith(Sink.head)
     } yield {
       tx
-    }
-  }
-
-  def submitAndVerifyFilterCantSeeResultOf(
-      submitRequest: SubmitRequest,
-      transactionFilter: TransactionFilter): Future[Assertion] = {
-    for {
-      (txEndOffset, transactionId) <- submitAndReturnOffsetAndTransactionId(submitRequest)
-      tx <- transactionClient
-        .getTransactions(
-          txEndOffset,
-          None,
-          transactionFilter
-        )
-        .filter(_.transactionId == transactionId)
-        .take(1)
-        .takeWithin(scaled(5.seconds))
-        .runWith(Sink.headOption)
-    } yield {
-      withClue(
-        s"No transactions are expected to be received as result of command ${submitRequest.commands.map(_.commandId).getOrElse("(empty id)")}") {
-        tx shouldBe empty
-      }
     }
   }
 
@@ -262,11 +223,6 @@ class LedgerTestingHelpers(
         case TreeEvent.Kind.Exercised(exercisedEvent) => exercisedEvent
       }(breakOut)
 
-  def archivedEventsIn(transaction: Transaction): Seq[ArchivedEvent] =
-    transaction.events.map(_.event).collect {
-      case Archived(archivedEvent) => archivedEvent
-    }
-
   /**
     * @return A LedgerOffset before the result transaction. If the ledger under test is used concurrently, the returned
     *         offset can be arbitrary distanced from the submitted command.
@@ -287,6 +243,11 @@ class LedgerTestingHelpers(
       templateToLookFor)
     createdEventsIn(contractCreationTx).find(_.templateId.contains(templateToLookFor)).value
   }
+
+  def assertNoArchivedEvents[T](tx: Transaction) =
+    tx.events.map(_.event).collect {
+      case Archived(archivedEvent) => archivedEvent
+    } shouldBe empty
 
   def getHead[T](elements: Iterable[T]): T = {
     elements should have size 1
