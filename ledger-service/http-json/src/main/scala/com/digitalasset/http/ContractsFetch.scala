@@ -184,9 +184,8 @@ private class ContractsFetch(
           transactionFilter(party, List(templateId)),
           domain.Offset.toLedgerApi(offset))
 
-        val broadcast = builder add Broadcast[(
-            InsertDeleteStep[lav1.event.CreatedEvent],
-            domain.Offset)](2)
+        val broadcast = builder add
+          Broadcast[(InsertDeleteStep[lav1.event.CreatedEvent], domain.Offset)](2)
 
         def f(a: (InsertDeleteStep[lav1.event.CreatedEvent], domain.Offset))
           : InsertDeleteStep[PreInsertContract] = jsonifyInsertDeleteStep(a._1)
