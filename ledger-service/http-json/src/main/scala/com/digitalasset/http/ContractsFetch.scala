@@ -15,7 +15,7 @@ import akka.stream.scaladsl.{
   Source
 }
 import akka.stream.{ClosedShape, FanOutShape2, Graph, Materializer}
-import cats.effect.{ContextShift, IO}
+import cats.effect.IO
 import com.digitalasset.http.Statement.discard
 import com.digitalasset.http.dbbackend.{ContractDao, Queries}
 import com.digitalasset.http.dbbackend.Queries.{DBContract, SurrogateTpId}
@@ -49,21 +49,31 @@ private class ContractsFetch(
 
   import ContractsFetch._
 
-  def fetchActiveContractsFromOffset(
-      dao: Option[dbbackend.ContractDao],
-      party: domain.Party,
-      templateId: domain.TemplateId.RequiredPkg)(implicit cs: ContextShift[IO]) = {
+  def contracts(jwt: Jwt, party: domain.Party, templateId: domain.TemplateId.RequiredPkg)(
+      implicit ec: ExecutionContext,
+      mat: Materializer): ConnectionIO[domain.Error \/ Unit] = {
 
     val statement: ConnectionIO[Unit] = for {
-      offset <- readLastOffsetFromDb(party, templateId)
-
+      offset <- readOffsetFromDbOrFetchFromLedgerAndUpdateDb(jwt, party, templateId)
     } yield ???
 
-    dao.map(x => x.transact(statement)) match {
-      case Some(x) => x.map(Some(_))
-      case None => IO.pure(None)
-    }
+    ???
+
   }
+
+  private def readOffsetFromDbOrFetchFromLedgerAndUpdateDb(
+      jwt: Jwt,
+      party: domain.Party,
+      templateId: domain.TemplateId.RequiredPkg)(
+      implicit ec: ExecutionContext,
+      mat: Materializer): ConnectionIO[domain.Error \/ domain.Offset] =
+    for {
+      offsetO <- readLastOffsetFromDb(party, templateId): ConnectionIO[Option[domain.Offset]]
+      offsetE <- offsetO.cata(
+        x => doobie.free.connection.pure(\/-(x)),
+        contractsToOffsetIo(jwt, party, templateId)
+      ): ConnectionIO[domain.Error \/ domain.Offset]
+    } yield offsetE
 
   private def contractsToOffsetIo(
       jwt: Jwt,
@@ -71,7 +81,7 @@ private class ContractsFetch(
       templateId: domain.TemplateId.RequiredPkg
   )(
       implicit ec: ExecutionContext,
-      mat: Materializer): ConnectionIO[lav1.ledger_offset.LedgerOffset] = {
+      mat: Materializer): ConnectionIO[domain.Error \/ domain.Offset] = {
 
     val graph = RunnableGraph.fromGraph(
       GraphDSL.create(
@@ -96,13 +106,18 @@ private class ContractsFetch(
     import lav1.ledger_offset.LedgerOffset, LedgerOffset.Value.Absolute
     for {
       _ <- sinkCioSequence_(acsQueue)
-      offset <- connectionIOFuture(lastOffsetFuture)
-      _ <- offset match {
-        case LedgerOffset(Absolute(off)) =>
-          ContractDao.updateOffset(party, templateId, domain.Offset(off))
-        case _ => doobie.free.connection.pure(())
+      ledgerOffset <- connectionIOFuture(lastOffsetFuture)
+      offsetOrError <- ledgerOffset match {
+        case LedgerOffset(Absolute(str)) =>
+          val offset = domain.Offset(str)
+          ContractDao.updateOffset(party, templateId, offset).map(_ => \/-(offset))
+        case x @ _ =>
+          doobie.free.connection.pure(
+            -\/(
+              domain
+                .Error('contractsToOffsetIo, s"expected LedgerOffset(Absolute(String)), got: $x")))
       }
-    } yield offset
+    } yield offsetOrError
   }
 
   private def prepareCreatedEventStorage(
