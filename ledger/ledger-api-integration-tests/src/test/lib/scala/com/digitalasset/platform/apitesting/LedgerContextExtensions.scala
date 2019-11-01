@@ -100,7 +100,7 @@ object LedgerContextExtensions extends Matchers with OptionValues {
 
     // Create a template instance and return the resulting create event.
     @SuppressWarnings(Array("org.wartremover.warts.Any"))
-    def submitCreateWithListenerAndReturnEvent(
+    private def submitCreateWithListenerAndReturnEvent(
         commandId: String,
         template: Identifier,
         args: Seq[RecordField],
@@ -127,7 +127,7 @@ object LedgerContextExtensions extends Matchers with OptionValues {
       }
     }
 
-    def submitCreateAndReturnTransaction(
+    private def submitCreateAndReturnTransaction(
         commandId: String,
         template: Identifier,
         args: Seq[RecordField],
@@ -154,26 +154,6 @@ object LedgerContextExtensions extends Matchers with OptionValues {
           commandId,
           submitter,
           List(CreateCommand(Some(template), Some(Record(Some(template), args))).wrap))
-
-    // Create a template instance and verify that the listener can't see it
-    @SuppressWarnings(Array("org.wartremover.warts.Any"))
-    def submitCreateWithListenerAndAssertNotVisible(
-        commandId: String,
-        template: Identifier,
-        args: Seq[RecordField],
-        submitter: String = MockMessages.party,
-        listener: String = MockMessages.party,
-        filters: Filters = Filters.defaultInstance)(
-        implicit mat: ActorMaterializer,
-        ec: ExecutionContext): Future[Assertion] = {
-      withClue(
-        s"Creation of a template instance should not be visible to the listener (for command ${commandId} using template ${template} on behalf of ${submitter})") {
-        testingHelpers.submitAndVerifyFilterCantSeeResultOf(
-          createCommand(commandId, template, args, submitter),
-          TransactionFilter(Map(listener -> filters))
-        )
-      }
-    }
   }
 
 }
