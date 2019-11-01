@@ -2565,7 +2565,7 @@ Map functions
 
 * ``MAP_LOOKUP : ∀ α. 'Text' → 'Map' α → 'Optional' α``
 
-  Lookups the value at a key in the map.
+  Looks up the value at a key in the map.
 
   [*Available in versions >= 1.3*]
 
@@ -2623,7 +2623,7 @@ Generic Map functions
 
 * ``GENMAP_LOOKUP : ∀ α. ∀ β.  α → 'GenMap' α β → 'Optional' α``
 
-  Lookups the value at a key in the map.
+  Looks up the value at a key in the map.
 
   This raises an error if the key is not a valid map key. Keys are
   compared according to the rules listed below.
@@ -2640,10 +2640,19 @@ Generic Map functions
 
   [*Available in versions >= 1.dev*]
 
-* ``GENMAP_LIST : ∀ α. ∀ β.  'GenMap' α β → 'List' ⟨ key: α, value: β ⟩``
+* ``GENMAP_KEYS : ∀ α. ∀ β.  'GenMap' α β → 'List' α``
 
-  Converts to a list of key/value pairs. Unlike ``'MAP_LIST'``, the output
-  list is guaranteed to be in the order that the keys were first inserted.
+  Get the list of keys in the map. The keys are returned by first-insertion
+  order, so if you insert key ``x`` before key ``y``, then ``x`` will appear
+  before ``y`` in the list.
+
+  [*Available in versions >= 1.dev*]
+
+* ``GENMAP_VALUES : ∀ α. ∀ β.  'GenMap' α β → 'List' β``
+
+  Get the list of values in the map. The values are returned in the same
+  order as ``GENMAP_KEYS``, so the ith element of ``GENMAP_KEYS`` maps to
+  the ith element of ``GENMAP_VALUES``.
 
   [*Available in versions >= 1.dev*]
 
@@ -2664,7 +2673,6 @@ Of particular note, the following values are never valid keys:
 * Lambda expressions ``λ x : τ . e``
 * Type abstractions ``Λ α : k . e``
 * (Partially applied) built-in functions
-* (Un-evaluated) Update/Scenario values
 * Any value containing an invalid key
 
 **Comparison of Keys:** We define here the relation ``~ᵥ`` on value
@@ -2673,7 +2681,8 @@ equivalence relation over all values, but a (total) equivalence
 relation over valid keys.
 
 This relation is not exposed as a builtin function, but it coincides
-with the built-in equality for any given type, if that built-in isdefined. ::
+with the builtin equality for any given type, if that builtin is
+defined. ::
 
                                   ┌──────────┐
   Generic Equivalence Relation    │ e₁ ~ᵥ e₂ │
