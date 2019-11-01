@@ -8,21 +8,19 @@ import java.util.concurrent.TimeUnit
 import akka.NotUsed
 import akka.stream.scaladsl.{Sink, Source}
 import com.digitalasset.ledger.api.testing.utils.{
-  AkkaBeforeAndAfterAll,
   IsStatusException,
   SuiteResourceManagementAroundAll
 }
 import com.digitalasset.ledger.api.v1.command_submission_service.SubmitRequest
-import com.digitalasset.ledger.api.v1.commands.{CreateCommand, ExerciseCommand}
+import com.digitalasset.ledger.api.v1.commands.Command.Command.Exercise
+import com.digitalasset.ledger.api.v1.commands.{Command, CreateCommand, ExerciseCommand}
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset.LedgerBoundary.LEDGER_BEGIN
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset.Value.Boundary
 import com.digitalasset.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
 import com.digitalasset.ledger.api.v1.value.{Record, RecordField, Value}
 import com.digitalasset.ledger.client.services.commands.{CommandClient, CompletionStreamElement}
-import com.digitalasset.platform.apitesting.LedgerContextExtensions._
 import com.digitalasset.platform.apitesting.LedgerContext
-import com.digitalasset.platform.esf.TestExecutionSequencerFactory
 import com.digitalasset.platform.participant.util.ValueConversions._
 import com.digitalasset.platform.tests.integration.ledger.api.ParameterShowcaseTesting
 import com.digitalasset.util.Ctx
@@ -40,13 +38,11 @@ import scala.util.Success
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 class CommandClientIT
     extends AsyncWordSpec
-    with AkkaBeforeAndAfterAll
-    with TestExecutionSequencerFactory
+    with MultiLedgerCommandUtils
     with Matchers
     with SuiteResourceManagementAroundAll
     with ParameterShowcaseTesting
-    with TryValues
-    with MultiLedgerCommandUtils {
+    with TryValues {
 
   private val submittingParty: String = submitRequest.getCommands.party
   private val submittingPartyList = List(submittingParty)
@@ -286,13 +282,21 @@ class CommandClientIT
             templateIds.dummyFactory,
             List("operator" -> submittingParty.asParty).asRecordFields,
             submittingParty)
-          _ <- c.submitExercise(
-            "Double_spend_test_exercise_1",
-            templateIds.dummyFactory,
-            unit,
-            "DummyFactoryCall",
-            contract.contractId,
-            submittingParty)
+          _ <- c.testingHelpers.submitAndListenForSingleResultOfCommand(
+            c.command(
+              "Double_spend_test_exercise_1",
+              submittingParty,
+              List(
+                Command(
+                  Exercise(
+                    ExerciseCommand(
+                      Some(templateIds.dummyFactory),
+                      contract.contractId,
+                      "DummyFactoryCall",
+                      Some(unit)))))
+            ),
+            TransactionFilter(Map(submittingParty -> Filters.defaultInstance))
+          )
           assertion <- c.testingHelpers.assertCommandFailsWithCode(
             c.command(
               "Double_spend_test_exercise_2",
@@ -377,24 +381,35 @@ class CommandClientIT
         // changes this test fails.
         val expectedMessageSubstring =
           "Command interpretation error in LF-DAMLe: Interpretation error: Error: User abort: Assertion failed. Details: Last location: [DA.Internal.Assert:20], partial transaction: root node"
-        val command = c.createCommand(
+        val command = c.command(
           "Dummy_for_failing_assert",
-          templateIds.dummy,
-          List("operator" -> "party".asParty).asRecordFields,
-          "party")
+          "party",
+          List(
+            CreateCommand(
+              Some(templateIds.dummy),
+              Some(
+                Record(
+                  Some(templateIds.dummy),
+                  List("operator" -> "party".asParty).asRecordFields))).wrap)
+        )
         for {
           tx <- c.testingHelpers.submitAndListenForSingleResultOfCommand(
             command,
             TransactionFilter(Map("party" -> Filters.defaultInstance)))
           create = c.testingHelpers.findCreatedEventIn(tx, templateIds.dummy)
           res <- c.testingHelpers.assertCommandFailsWithCode(
-            c.exerciseCommand(
+            c.command(
               "Failing_assert",
-              templateIds.dummy,
-              Nil.asRecordValue,
-              "FailingClone",
-              create.contractId,
-              "party"),
+              "party",
+              List(
+                Command(
+                  Exercise(
+                    ExerciseCommand(
+                      Some(templateIds.dummy),
+                      create.contractId,
+                      "FailingClone",
+                      Some(Nil.asRecordValue)))))
+            ),
             Code.INVALID_ARGUMENT,
             expectedMessageSubstring
           )
@@ -460,28 +475,25 @@ class CommandClientIT
       }
 
       "not accept exercises of bad choices, return INVALID_ARGUMENT" in allFixtures { c =>
-        for {
-          contract <- c.submitCreate(
+        c.submitCreate(
             "Creating_contract_for_bad_choice_test",
             templateIds.dummyFactory,
             List("operator" -> submittingParty.asParty).asRecordFields,
             submittingParty)
-          assertion <- c.testingHelpers.assertCommandFailsWithCode(
-            c.command(
-              "Bad_choice_test",
-              submittingParty,
-              List(
-                ExerciseCommand(
-                  Some(templateIds.dummyFactory),
-                  contract.contractId,
-                  "hotdog",
-                  Some(unit)).wrap)),
-            Code.INVALID_ARGUMENT,
-            "Couldn't find requested choice"
-          )
-        } yield {
-          assertion
-        }
+          .flatMap(contract =>
+            c.testingHelpers.assertCommandFailsWithCode(
+              c.command(
+                "Bad_choice_test",
+                submittingParty,
+                List(
+                  ExerciseCommand(
+                    Some(templateIds.dummyFactory),
+                    contract.contractId,
+                    "hotdog",
+                    Some(unit)).wrap)),
+              Code.INVALID_ARGUMENT,
+              "Couldn't find requested choice"
+          ))
       }
     }
   }

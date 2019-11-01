@@ -4,14 +4,10 @@
 package com.digitalasset.platform.tests.integration.ledger.api
 
 import akka.stream.scaladsl.Sink
-import com.digitalasset.ledger.api.testing.utils.{
-  AkkaBeforeAndAfterAll,
-  SuiteResourceManagementAroundAll
-}
+import com.digitalasset.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.digitalasset.ledger.client.services.configuration.LedgerConfigurationClient
 import com.digitalasset.platform.api.grpc.GrpcApiUtil
 import com.digitalasset.platform.apitesting.{LedgerContext, MultiLedgerFixture}
-import com.digitalasset.platform.esf.TestExecutionSequencerFactory
 import org.scalatest.concurrent.AsyncTimeLimitedTests
 import org.scalatest.time.Span
 import org.scalatest.time.SpanSugar._
@@ -20,10 +16,8 @@ import org.scalatest.{AsyncWordSpec, Matchers, OptionValues}
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 class LedgerConfigurationServiceIT
     extends AsyncWordSpec
-    with AkkaBeforeAndAfterAll
     with MultiLedgerFixture
     with SuiteResourceManagementAroundAll
-    with TestExecutionSequencerFactory
     with AsyncTimeLimitedTests
     with Matchers
     with OptionValues {

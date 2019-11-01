@@ -5,6 +5,7 @@ package com.digitalasset.platform.apitesting
 
 import java.nio.file.Path
 
+import akka.stream.ActorMaterializer
 import com.digitalasset.daml.lf.archive.UniversalArchiveReader
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
@@ -36,7 +37,8 @@ object LedgerFactories {
   }
 
   def createSandboxResource(config: PlatformApplications.Config, store: SandboxStore = InMemory)(
-      implicit esf: ExecutionSequencerFactory): Resource[LedgerContext.SingleChannelContext] = {
+      implicit esf: ExecutionSequencerFactory,
+      mat: ActorMaterializer): Resource[LedgerContext.SingleChannelContext] = {
     val packageIds = config.darFiles.map(getPackageIdOrThrow)
 
     def createResource(sandboxConfig: SandboxConfig) =

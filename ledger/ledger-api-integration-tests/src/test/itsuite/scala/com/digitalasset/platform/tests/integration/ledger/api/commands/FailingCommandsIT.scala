@@ -5,7 +5,6 @@ package com.digitalasset.platform.tests.integration.ledger.api.commands
 
 import akka.stream.scaladsl.{Sink, Source}
 import com.digitalasset.ledger.api.testing.utils.{
-  AkkaBeforeAndAfterAll,
   IsStatusException,
   SuiteResourceManagementAroundAll
 }
@@ -15,13 +14,11 @@ import com.digitalasset.platform.apitesting.LedgerContext
 import com.digitalasset.util.Ctx
 import io.grpc.Status
 import org.scalatest.{AsyncWordSpec, Matchers, OptionValues}
-
 import scalaz.syntax.tag._
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 class FailingCommandsIT
     extends AsyncWordSpec
-    with AkkaBeforeAndAfterAll
     with MultiLedgerCommandUtils
     with SuiteResourceManagementAroundAll
     with Matchers

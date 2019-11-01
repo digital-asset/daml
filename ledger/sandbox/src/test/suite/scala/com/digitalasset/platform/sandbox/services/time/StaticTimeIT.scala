@@ -9,13 +9,11 @@ import java.util.concurrent.Callable
 
 import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.testing.utils.{
-  AkkaBeforeAndAfterAll,
   IsStatusException,
   SuiteResourceManagementAroundAll
 }
 import com.digitalasset.ledger.api.v1.testing.time_service.TimeServiceGrpc
 import com.digitalasset.ledger.client.services.testing.time.StaticTime
-import com.digitalasset.platform.esf.TestExecutionSequencerFactory
 import com.digitalasset.platform.sandbox.services.SandboxFixture
 import io.grpc.Status
 import org.awaitility.Awaitility
@@ -29,8 +27,6 @@ class StaticTimeIT
     extends WordSpec
     with LedgerApiITBase
     with SandboxFixture
-    with AkkaBeforeAndAfterAll
-    with TestExecutionSequencerFactory
     with SuiteResourceManagementAroundAll
     with Matchers {
 

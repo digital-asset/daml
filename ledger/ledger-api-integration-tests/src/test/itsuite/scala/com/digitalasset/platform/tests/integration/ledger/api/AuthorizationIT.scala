@@ -9,19 +9,9 @@ import java.util.{Timer, TimerTask, UUID}
 
 import com.digitalasset.daml.bazeltools.BazelRunfiles.rlocation
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.ledger.api.auth.{
-  AuthServiceStatic,
-  Claim,
-  ClaimActAsParty,
-  ClaimAdmin,
-  ClaimPublic,
-  Claims
-}
+import com.digitalasset.ledger.api.auth._
 import com.digitalasset.ledger.api.domain.LedgerId
-import com.digitalasset.ledger.api.testing.utils.{
-  AkkaBeforeAndAfterAll,
-  SuiteResourceManagementAroundAll
-}
+import com.digitalasset.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.digitalasset.ledger.api.v1.active_contracts_service.{
   GetActiveContractsRequest,
   GetActiveContractsResponse
@@ -48,33 +38,19 @@ import com.digitalasset.ledger.api.v1.ledger_identity_service.GetLedgerIdentityR
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
 import com.digitalasset.ledger.api.v1.testing.time_service.{GetTimeRequest, GetTimeResponse}
 import com.digitalasset.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
-import com.digitalasset.ledger.api.v1.transaction_service.{
-  GetLedgerEndRequest,
-  GetTransactionByEventIdRequest,
-  GetTransactionByIdRequest,
-  GetTransactionTreesResponse,
-  GetTransactionsRequest,
-  GetTransactionsResponse
-}
-import com.digitalasset.platform.apitesting.{
-  Header,
-  LedgerContext,
-  MultiLedgerFixture,
-  TestCommands,
-  TestIdsGenerator
-}
+import com.digitalasset.ledger.api.v1.transaction_service._
+import com.digitalasset.platform.apitesting._
 import com.google.protobuf.ByteString
-import io.grpc.{Status, StatusException, StatusRuntimeException}
 import io.grpc.stub.StreamObserver
+import io.grpc.{Status, StatusException, StatusRuntimeException}
 import org.scalatest.concurrent.AsyncTimeLimitedTests
 import org.scalatest.{AsyncWordSpec, Matchers}
+import scalaz.syntax.tag._
 
 import scala.concurrent.{Future, Promise}
-import scalaz.syntax.tag._
 
 class AuthorizationIT
     extends AsyncWordSpec
-    with AkkaBeforeAndAfterAll
     with MultiLedgerFixture
     with SuiteResourceManagementAroundAll
     with AsyncTimeLimitedTests

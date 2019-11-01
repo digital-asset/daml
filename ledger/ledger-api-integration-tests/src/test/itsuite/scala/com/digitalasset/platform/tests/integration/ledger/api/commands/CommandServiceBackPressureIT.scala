@@ -7,7 +7,6 @@ import java.util.UUID
 
 import com.digitalasset.ledger.api.testing.utils.LedgerBackend.SandboxSql
 import com.digitalasset.ledger.api.testing.utils.{
-  AkkaBeforeAndAfterAll,
   IsStatusException,
   MockMessages,
   SuiteResourceManagementAroundAll
@@ -29,7 +28,6 @@ import scala.util.{Failure, Success, Try}
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 class CommandServiceBackPressureIT
     extends AsyncWordSpec
-    with AkkaBeforeAndAfterAll
     with Matchers
     with Inspectors
     with MultiLedgerFixture

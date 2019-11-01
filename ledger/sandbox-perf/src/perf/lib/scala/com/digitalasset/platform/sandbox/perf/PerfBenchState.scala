@@ -32,7 +32,7 @@ class PerfBenchState extends InfiniteRetries {
   def setup(): Unit = {
     akkaState = new AkkaState()
     akkaState.setup()
-    server = LedgerFactories.createSandboxResource(config, SandboxStore(store))(akkaState.esf)
+    server = LedgerFactories.createSandboxResource(config, SandboxStore(store))(akkaState.esf, mat)
     server.setup()
   }
 
@@ -52,7 +52,7 @@ class PerfBenchState extends InfiniteRetries {
       for {
         _ <- server.value.ledgerIdentityService
           .getLedgerIdentity(GetLedgerIdentityRequest())
-        _ <- server.value.reset()(system, mat)
+        _ <- server.value.reset()(system)
         _ <- retry(
           server.value.ledgerIdentityService.getLedgerIdentity(GetLedgerIdentityRequest()))(system)
       } yield (),

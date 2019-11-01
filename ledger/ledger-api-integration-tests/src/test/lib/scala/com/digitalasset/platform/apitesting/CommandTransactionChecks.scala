@@ -8,7 +8,6 @@ import java.util.UUID
 import akka.stream.scaladsl.Sink
 import com.digitalasset.ledger.api.testing.utils.MockMessages.{party, submitRequest}
 import com.digitalasset.ledger.api.testing.utils.{
-  AkkaBeforeAndAfterAll,
   SuiteResourceManagementAroundEach,
   MockMessages => M
 }
@@ -36,7 +35,6 @@ import com.digitalasset.ledger.api.v1.value.{
   Value,
   Variant
 }
-import com.digitalasset.platform.apitesting.LedgerContextExtensions._
 import com.digitalasset.platform.apitesting.TestParties._
 import com.digitalasset.platform.participant.util.ValueConversions._
 import com.google.rpc.code.Code
@@ -47,14 +45,13 @@ import scalaz.syntax.tag._
 
 import scala.collection.immutable
 import scala.concurrent.Future
-import scala.concurrent.duration._
+import scala.concurrent.duration.DurationInt
 
 // scalafmt cannot deal with this file
 // format: off
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 abstract class CommandTransactionChecks
   extends AsyncWordSpec
-    with AkkaBeforeAndAfterAll
     with MultiLedgerFixture
     with SuiteResourceManagementAroundEach
     with ScalaFutures
@@ -412,8 +409,6 @@ abstract class CommandTransactionChecks
 
       "DAML engine returns Unit as argument to Nothing" in allFixtures { ctx =>
         val commandId = testIdsGenerator.testCommandId("Creating_contract_with_a_Nothing_argument")
-
-        val variantId = None
 
         val createArguments = Record(
           Some(templateIds.nothingArgument),

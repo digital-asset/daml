@@ -11,7 +11,6 @@ import akka.stream.scaladsl.Sink
 import com.digitalasset.daml.bazeltools.BazelRunfiles._
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.testing.utils.{
-  AkkaBeforeAndAfterAll,
   IsStatusException,
   SuiteResourceManagementAroundEach,
   MockMessages => M
@@ -43,7 +42,6 @@ class ResetServiceIT
     with Suite
     with InfiniteRetries
     with Matchers
-    with AkkaBeforeAndAfterAll
     with MultiLedgerFixture // TODO: this suite should not be using LedgerContext, as it is smart and hides too much of the reset mechanism
     with ScalaFutures
     with TestCommands
