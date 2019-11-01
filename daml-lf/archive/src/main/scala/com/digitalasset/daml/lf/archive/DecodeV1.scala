@@ -95,7 +95,7 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
       .map(
         idn =>
           decodeSegments(
-            idn.getSegmentIdsList.asScala
+            idn.getSegmentsInternedStrList.asScala
               .map(id => internedStrings.lift(id).getOrElse(throw outOfRange(id)))(breakOut))
       )(breakOut)
   }
@@ -152,7 +152,7 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
         lfModule.getValuesList.asScala.foreach { defn =>
           val nameWithType = defn.getNameWithType
           val defName = handleDottedName(
-            nameWithType.getNameList.asScala,
+            nameWithType.getNameDnameList.asScala,
             nameWithType.getNameInternedDname,
             "NameWithType.name"
           )
@@ -331,7 +331,7 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
 
     private[this] def decodeDefValue(lfValue: PLF.DefValue): DValue = {
       val name = handleDottedName(
-        lfValue.getNameWithType.getNameList.asScala,
+        lfValue.getNameWithType.getNameDnameList.asScala,
         lfValue.getNameWithType.getNameInternedDname,
         "DefValue.NameWithType.name"
       )
@@ -593,7 +593,7 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
     private[this] def decodeValName(lfVal: PLF.ValName): ValueRef = {
       val (packageId, module) = decodeModuleRef(lfVal.getModule)
       val name =
-        handleDottedName(lfVal.getNameList.asScala, lfVal.getNameInternedDname, "ValName.name")
+        handleDottedName(lfVal.getNameDnameList.asScala, lfVal.getNameInternedDname, "ValName.name")
       ValueRef(packageId, QualifiedName(module, name))
     }
 

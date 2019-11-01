@@ -478,7 +478,7 @@ encodeExpr' = \case
     EVar v -> expr . either P.ExprSumVarStr P.ExprSumVarInternedStr <$> encodeName' unExprVarName v
     EVal (Qualified pkgRef modName val) -> do
         valNameModule <- encodeModuleRef pkgRef modName
-        (valNameName, valNameNameInternedDname) <- encodeValueName val
+        (valNameNameDname, valNameNameInternedDname) <- encodeValueName val
         pureExpr $ P.ExprSumVal P.ValName{..}
     EBuiltin bi -> expr <$> encodeBuiltinExpr bi
     ERecCon{..} -> do
@@ -721,7 +721,7 @@ encodeDefDataType DefDataType{..} = do
 
 encodeDefValue :: DefValue -> Encode P.DefValue
 encodeDefValue DefValue{..} = do
-    (defValue_NameWithTypeName, defValue_NameWithTypeNameInternedDname) <- encodeValueName (fst dvalBinder)
+    (defValue_NameWithTypeNameDname, defValue_NameWithTypeNameInternedDname) <- encodeValueName (fst dvalBinder)
     defValue_NameWithTypeType <- encodeType (snd dvalBinder)
     let defValueNameWithType = Just P.DefValue_NameWithType{..}
     defValueExpr <- encodeExpr dvalBody
