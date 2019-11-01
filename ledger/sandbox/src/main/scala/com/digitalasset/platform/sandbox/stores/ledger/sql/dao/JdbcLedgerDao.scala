@@ -685,7 +685,7 @@ private class JdbcLedgerDao(
       }
 
     dbDispatcher
-      .executeSql("store_ledger_entry") { implicit conn =>
+      .executeSql("store_ledger_entry", Some(ledgerEntry.getClass.getSimpleName)) { implicit conn =>
         val resp = insertEntry(ledgerEntry)
         updateLedgerEnd(newLedgerEnd, externalOffset)
         resp
@@ -705,23 +705,26 @@ private class JdbcLedgerDao(
     }.toMap
 
     dbDispatcher
-      .executeSql("store_initial_state_from_scenario") { implicit conn =>
-        // First, store all ledger entries without updating the ACS
-        // We can't use the storeLedgerEntry(), as that one does update the ACS
-        ledgerEntries.foreach {
-          case (i, le) =>
-            le match {
-              case tx: LedgerEntry.Transaction => storeTransaction(i, tx)
-              case rj: LedgerEntry.Rejection => storeRejection(i, rj)
-              case cp: LedgerEntry.Checkpoint => storeCheckpoint(i, cp)
-            }
-        }
+      .executeSql(
+        "store_initial_state_from_scenario",
+        Some(s"active contracts: ${activeContracts.size}, ledger entries: ${ledgerEntries.size}")) {
+        implicit conn =>
+          // First, store all ledger entries without updating the ACS
+          // We can't use the storeLedgerEntry(), as that one does update the ACS
+          ledgerEntries.foreach {
+            case (i, le) =>
+              le match {
+                case tx: LedgerEntry.Transaction => storeTransaction(i, tx)
+                case rj: LedgerEntry.Rejection => storeRejection(i, rj)
+                case cp: LedgerEntry.Checkpoint => storeCheckpoint(i, cp)
+              }
+          }
 
-        // Then, write the given ACS. We trust the caller to supply an ACS that is
-        // consistent with the given list of ledger entries.
-        activeContracts.foreach(c => storeContract(transactionIdMap(c.transactionId), c))
+          // Then, write the given ACS. We trust the caller to supply an ACS that is
+          // consistent with the given list of ledger entries.
+          activeContracts.foreach(c => storeContract(transactionIdMap(c.transactionId), c))
 
-        updateLedgerEnd(newLedgerEnd, None)
+          updateLedgerEnd(newLedgerEnd, None)
       }
   }
 
@@ -861,7 +864,7 @@ private class JdbcLedgerDao(
 
   override def lookupLedgerEntry(offset: Long): Future[Option[LedgerEntry]] = {
     dbDispatcher
-      .executeSql("lookup_ledger_entry_at_offset") { implicit conn =>
+      .executeSql("lookup_ledger_entry_at_offset", Some(s"offset: $offset")) { implicit conn =>
         SQL_SELECT_ENTRY
           .on("ledger_offset" -> offset)
           .as(EntryParser.singleOpt)
@@ -872,7 +875,7 @@ private class JdbcLedgerDao(
 
   override def lookupTransaction(
       transactionId: TransactionId): Future[Option[(LedgerOffset, LedgerEntry.Transaction)]] = {
-    dbDispatcher.executeSql("lookup_transaction") { implicit conn =>
+    dbDispatcher.executeSql("lookup_transaction", Some(s"tx id: $transactionId")) { implicit conn =>
       SQL_SELECT_TRANSACTION
         .on("transaction_id" -> (transactionId: String))
         .as(EntryParser.singleOpt)
@@ -1075,12 +1078,14 @@ private class JdbcLedgerDao(
       PageSize,
       (startI, endE) => {
         Source
-          .fromFuture(dbDispatcher.executeSql(s"load_ledger_entries") { implicit conn =>
-            SQL_GET_LEDGER_ENTRIES
-              .on("startInclusive" -> startI, "endExclusive" -> endE)
-              .as(EntryParser.*)
-              .map(toLedgerEntry)
-          })
+          .fromFuture(
+            dbDispatcher.executeSql(s"load_ledger_entries", Some(s"bounds: [$startI, $endE[")) {
+              implicit conn =>
+                SQL_GET_LEDGER_ENTRIES
+                  .on("startInclusive" -> startI, "endExclusive" -> endE)
+                  .as(EntryParser.*)
+                  .map(toLedgerEntry)
+            })
           .flatMapConcat(Source(_))
       }
     )
@@ -1111,12 +1116,14 @@ private class JdbcLedgerDao(
         .mapAsync(dbDispatcher.noOfShortLivedConnections) { contractResult =>
           // it's ok to not have query isolation as witnesses cannot change once we saved them
           dbDispatcher
-            .executeSql("load_contract_details") { implicit conn =>
-              mapContractDetails(contractResult) match {
-                case ac: ActiveContract => ac
-                case _: DivulgedContract =>
-                  sys.error("Impossible: SQL_SELECT_ACTIVE_CONTRACTS returned a divulged contract")
-              }
+            .executeSql("load_contract_details", Some(s"contract details: ${contractResult._1}")) {
+              implicit conn =>
+                mapContractDetails(contractResult) match {
+                  case ac: ActiveContract => ac
+                  case _: DivulgedContract =>
+                    sys.error(
+                      "Impossible: SQL_SELECT_ACTIVE_CONTRACTS returned a divulged contract")
+                }
             }
         }
     }.mapMaterializedValue(_.map(_ => Done)(DirectExecutionContext))
@@ -1163,7 +1170,7 @@ private class JdbcLedgerDao(
       party: Party,
       displayName: Option[String],
       externalOffset: Option[ExternalOffset]): Future[PersistenceResponse] = {
-    dbDispatcher.executeSql("store_party") { implicit conn =>
+    dbDispatcher.executeSql("store_party", Some(s"party: $party")) { implicit conn =>
       Try {
         SQL_INSERT_PARTY
           .on(
@@ -1221,7 +1228,7 @@ private class JdbcLedgerDao(
     }
 
   override def getLfArchive(packageId: PackageId): Future[Option[Archive]] =
-    dbDispatcher.executeSql("load_archive") { implicit conn =>
+    dbDispatcher.executeSql("load_archive", Some(s"pkg id: $packageId")) { implicit conn =>
       SQL_SELECT_PACKAGE
         .on(
           "package_id" -> packageId
@@ -1241,7 +1248,9 @@ private class JdbcLedgerDao(
     requirements.fold(
       Future.failed,
       _ =>
-        dbDispatcher.executeSql("store_packages") { implicit conn =>
+        dbDispatcher.executeSql(
+          "store_packages",
+          Some(s"packages: ${packages.map(_._1.getHash).mkString(", ")}")) { implicit conn =>
           externalOffset.foreach(updateExternalLedgerEnd)
           val params = packages
             .map(
