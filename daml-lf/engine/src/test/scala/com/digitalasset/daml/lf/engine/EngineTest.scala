@@ -1089,8 +1089,6 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
     }
 
     "be retained when reinterpreting single fetch nodes" in {
-      val engine = Engine()
-
       val Right(tx) = runExample(fetcher1StrCid, clara)
       val fetchNodes =
         tx.fold(GenTx.TopDown, Seq[(NodeId, GenNode.WithTxValue[NodeId, ContractId])]()) {
@@ -1105,8 +1103,58 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
             .consume(lookupContract, lookupPackage, lookupKey)
           (fetchTx isReplayedBy reinterpreted) shouldBe true
       }
-
     }
+  }
+
+  "reinterpreting fetch nodes" should {
+
+    val fetchedCid = AbsoluteContractId("1")
+    val fetchedStrTid = "BasicTests:Fetched"
+    val fetchedTid = Identifier(basicTestsPkgId, fetchedStrTid)
+
+    val fetchedContract = ContractInst(
+      TypeConName(basicTestsPkgId, fetchedStrTid),
+      assertAsVersionedValue(
+        ValueRecord(
+          Some(Identifier(basicTestsPkgId, fetchedStrTid)),
+          ImmArray(
+            (Some[Name]("sig1"), ValueParty(alice)),
+            (Some[Name]("sig2"), ValueParty(bob)),
+            (Some[Name]("obs"), ValueParty(clara))
+          )
+        )),
+      ""
+    )
+
+    def lookupContract(
+        id: AbsoluteContractId): Option[ContractInst[Tx.Value[AbsoluteContractId]]] = {
+      id match {
+        case `fetchedCid` => Some(fetchedContract)
+        case _ => None
+      }
+    }
+
+    "succeed with a fresh engine, correctly compiling packages" in {
+      val engine = Engine()
+
+      val fetchNode = NodeFetch[AbsoluteContractId](
+        coid = fetchedCid,
+        templateId = fetchedTid,
+        optLocation = None,
+        actingParties = None,
+        signatories = Set.empty,
+        stakeholders = Set.empty,
+      )
+
+      val let = Time.Timestamp.now()
+
+      val reinterpreted = engine
+        .reinterpret(Set.empty, Seq(fetchNode), let)
+        .consume(lookupContract, lookupPackage, lookupKey)
+
+      reinterpreted shouldBe 'right
+    }
+
   }
 
 }
