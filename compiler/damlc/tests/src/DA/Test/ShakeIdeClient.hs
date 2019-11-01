@@ -269,7 +269,7 @@ basicTests mbScenarioService = Tasty.testGroup "Basic tests"
 
 dlintSmokeTests :: Maybe SS.Handle -> Tasty.TestTree
 dlintSmokeTests mbScenarioService = Tasty.testGroup "Dlint smoke tests"
-  [    testCase' "Suggest imports can be simplified" $ do
+  [    testCase' "Imports can be simplified" $ do
             foo <- makeFile "Foo.daml" $ T.unlines
                 [ "daml 1.2"
                 , "module Foo where"
@@ -279,19 +279,7 @@ dlintSmokeTests mbScenarioService = Tasty.testGroup "Dlint smoke tests"
             setFilesOfInterest [foo]
             expectNoErrors
             expectDiagnostic DsInfo (foo, 2, 0) "Warning: Use fewer imports"
-    -- Now disabled by default.
-    -- ,  testCase' "Suggest use camelCase" $ do
-    --         foo <- makeFile "Foo.daml" $ T.unlines
-    --             [ "daml 1.2"
-    --             , "module Foo where"
-    --             , "my_fact (n : Int) : Int"
-    --             , "  | n <= 1    = 1"
-    --             , "  | otherwise = n * my_fact (n - 1)"
-    --             ]
-    --         setFilesOfInterest [foo]
-    --         expectNoErrors
-    --         expectDiagnostic DsInfo (foo, 2, 0) "Suggestion: Use camelCase"
-    ,  testCase' "Suggest reduce duplication" $ do
+    ,  testCase' "Reduce duplication" $ do
             foo <- makeFile "Foo.daml" $ T.unlines
                 [ "daml 1.2"
                 , "module Foo where"
@@ -314,7 +302,7 @@ dlintSmokeTests mbScenarioService = Tasty.testGroup "Dlint smoke tests"
             setFilesOfInterest [foo]
             expectNoErrors
             expectDiagnostic DsInfo (foo, 7, 4) "Suggestion: Reduce duplication"
-    ,  testCase' "Suggest use language pragmas" $ do
+    ,  testCase' "Use language pragmas" $ do
             foo <- makeFile "Foo.daml" $ T.unlines
                 [ "{-# OPTIONS_GHC -XDataKinds #-}"
                 , "daml 1.2"
@@ -323,7 +311,7 @@ dlintSmokeTests mbScenarioService = Tasty.testGroup "Dlint smoke tests"
             setFilesOfInterest [foo]
             expectNoErrors
             expectDiagnostic DsInfo (foo, 0, 0) "Warning: Use LANGUAGE pragmas"
-    ,  testCase' "Suggest use fewer pragmas" $ do
+    ,  testCase' "Use fewer pragmas" $ do
             foo <- makeFile "Foo.daml" $ T.unlines
                 [ "{-# LANGUAGE ScopedTypeVariables, DataKinds #-}"
                 , "{-# LANGUAGE ScopedTypeVariables #-}"
@@ -333,7 +321,7 @@ dlintSmokeTests mbScenarioService = Tasty.testGroup "Dlint smoke tests"
             setFilesOfInterest [foo]
             expectNoErrors
             expectDiagnostic DsInfo (foo, 0, 0) "Warning: Use fewer LANGUAGE pragmas"
-    ,  testCase' "Warning use map" $ do
+    ,  testCase' "Use map" $ do
             foo <- makeFile "Foo.daml" $ T.unlines
                 [ "daml 1.2"
                 , "module Foo where"
@@ -343,7 +331,7 @@ dlintSmokeTests mbScenarioService = Tasty.testGroup "Dlint smoke tests"
             setFilesOfInterest [foo]
             expectNoErrors
             expectDiagnostic DsInfo (foo, 3, 0) "Warning: Use map"
-    ,  testCase' "Suggest use foldr" $ do
+    ,  testCase' "Use foldr" $ do
             foo <- makeFile "Foo.daml" $ T.unlines
                 [ "daml 1.2"
                 , "module Foo where"
@@ -510,6 +498,45 @@ dlintSmokeTests mbScenarioService = Tasty.testGroup "Dlint smoke tests"
             setFilesOfInterest [foo]
             expectNoErrors
             expectDiagnostic DsInfo (foo, 2, 8) "Suggestion: Redundant case"
+    ,  testCase' "Use let" $ do
+            foo <- makeFile "Foo.daml" $ T.unlines
+                [ "daml 1.2"
+                , "module Foo where"
+                , "foo g x = do"
+                , "  y <- pure x"
+                , "  g y"
+                ]
+            setFilesOfInterest [foo]
+            expectNoErrors
+            expectDiagnostic DsInfo (foo, 2, 10) "Suggestion: Use let"
+    -- `forA_` and friends not implemented yet : https://github.com/digital-asset/daml/issues/3315
+    -- ,  testCase' "Redundant void" $ do
+    --         foo <- makeFile "Foo.daml" $ T.unlines
+    --             [ "daml 1.2"
+    --             , "module Foo where"
+    --             , "foo g xs = void $ forA_ g xs"
+    --             ]
+    --         setFilesOfInterest [foo]
+    --         expectNoErrors
+    --         expectDiagnostic DsInfo (foo, XX, XX) "Suggestion: Redundant void"
+    ,  testCase' "Use <$>" $ do
+            foo <- makeFile "Foo.daml" $ T.unlines
+                [ "daml 1.2"
+                , "module Foo where"
+                , "foo f g bar = do x <- bar; return (f $ g x)"
+                ]
+            setFilesOfInterest [foo]
+            expectNoErrors
+            expectDiagnostic DsInfo (foo, 2, 14) "Warning: Use <$>"
+    ,  testCase' "Redundant return" $ do
+            foo <- makeFile "Foo.daml" $ T.unlines
+                [ "daml 1.2"
+                , "module Foo where"
+                , "foo bar = do x <- bar; return x"
+                ]
+            setFilesOfInterest [foo]
+            expectNoErrors
+            expectDiagnostic DsInfo (foo, 2, 10) "Warning: Redundant return"
     ]
   where
       testCase' = testCase mbScenarioService
