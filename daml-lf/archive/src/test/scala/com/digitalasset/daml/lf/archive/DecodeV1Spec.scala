@@ -531,7 +531,8 @@ class DecodeV1Spec
         .getValuesList
         .asScala
         .collectFirst {
-          case dv if dv.getNameWithType.getNameDnameList.asScala.lastOption contains "reverseCopy" =>
+          case dv
+              if dv.getNameWithType.getNameDnameList.asScala.lastOption contains "reverseCopy" =>
             val pr = dv.getExpr.getVal.getModule.getPackageRef
             pr.getSumCase shouldBe DamlLf1.PackageRef.SumCase.PACKAGE_ID_INTERNED_STR
             pr.getPackageIdInternedStr
