@@ -176,7 +176,8 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
       startMode: SqlStartMode = SqlStartMode.ContinueIfExists): ApiServerState = {
     implicit val mat = infra.materializer
     implicit val ec: ExecutionContext = infra.executionContext
-    implicit val mm: MetricsManager = infra.metricsManager
+
+    val mm: MetricsManager = infra.metricsManager
 
     val ledgerId = config.ledgerIdMode match {
       case LedgerIdMode.Static(id) => id
@@ -210,7 +211,8 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
           startMode,
           config.commandConfig.maxCommandsInFlight * 2, // we can get commands directly as well on the submission service
           packageStore,
-          loggerFactory
+          loggerFactory,
+          mm
         )
 
       case None =>
@@ -222,7 +224,8 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
             timeProvider,
             acs,
             ledgerEntries,
-            packageStore
+            packageStore,
+            mm
           ))
     }
 

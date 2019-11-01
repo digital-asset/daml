@@ -4,18 +4,18 @@
 package com.digitalasset.platform.sandbox.stores.ledger.sql
 
 import com.digitalasset.api.util.TimeProvider
+import com.digitalasset.daml.lf.data.{ImmArray, Ref}
+import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.testing.utils.AkkaBeforeAndAfterAll
+import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.sandbox.MetricsAround
 import com.digitalasset.platform.sandbox.persistence.PostgresAroundEach
-import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.platform.sandbox.stores.{InMemoryActiveLedgerState, InMemoryPackageStore}
 import org.scalatest.concurrent.{AsyncTimeLimitedTests, ScaledTimeSpans}
 import org.scalatest.time.Span
 import org.scalatest.{AsyncWordSpec, Matchers}
 
 import scala.concurrent.duration._
-import com.digitalasset.ledger.api.domain.LedgerId
-import com.digitalasset.platform.common.logging.NamedLoggerFactory
 
 class SqlLedgerSpec
     extends AsyncWordSpec
@@ -45,7 +45,8 @@ class SqlLedgerSpec
         initialLedgerEntries = ImmArray.empty,
         queueDepth,
         startMode = SqlStartMode.ContinueIfExists,
-        loggerFactory
+        loggerFactory,
+        metricsManager
       )
 
       ledgerF.map { ledger =>
@@ -63,7 +64,8 @@ class SqlLedgerSpec
         initialLedgerEntries = ImmArray.empty,
         queueDepth,
         startMode = SqlStartMode.ContinueIfExists,
-        loggerFactory
+        loggerFactory,
+        metricsManager
       )
 
       ledgerF.map { ledger =>
@@ -83,7 +85,8 @@ class SqlLedgerSpec
           initialLedgerEntries = ImmArray.empty,
           queueDepth,
           startMode = SqlStartMode.ContinueIfExists,
-          loggerFactory
+          loggerFactory,
+          metricsManager
         )
 
         ledger2 <- SqlLedger(
@@ -95,7 +98,8 @@ class SqlLedgerSpec
           initialLedgerEntries = ImmArray.empty,
           queueDepth,
           startMode = SqlStartMode.ContinueIfExists,
-          loggerFactory
+          loggerFactory,
+          metricsManager
         )
 
         ledger3 <- SqlLedger(
@@ -107,7 +111,8 @@ class SqlLedgerSpec
           initialLedgerEntries = ImmArray.empty,
           queueDepth,
           startMode = SqlStartMode.ContinueIfExists,
-          loggerFactory
+          loggerFactory,
+          metricsManager
         )
 
       } yield {
@@ -129,7 +134,8 @@ class SqlLedgerSpec
           initialLedgerEntries = ImmArray.empty,
           queueDepth,
           startMode = SqlStartMode.ContinueIfExists,
-          loggerFactory
+          loggerFactory,
+          metricsManager
         )
         _ <- SqlLedger(
           jdbcUrl = postgresFixture.jdbcUrl,
@@ -140,7 +146,8 @@ class SqlLedgerSpec
           initialLedgerEntries = ImmArray.empty,
           queueDepth,
           startMode = SqlStartMode.ContinueIfExists,
-          loggerFactory
+          loggerFactory,
+          metricsManager
         )
       } yield (())
 

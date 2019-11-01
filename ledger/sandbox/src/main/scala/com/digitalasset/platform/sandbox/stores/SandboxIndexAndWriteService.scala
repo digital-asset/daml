@@ -72,9 +72,8 @@ object SandboxIndexAndWriteService {
       startMode: SqlStartMode,
       queueDepth: Int,
       templateStore: InMemoryPackageStore,
-      loggerFactory: NamedLoggerFactory)(
-      implicit mat: Materializer,
-      mm: MetricsManager): Future[IndexAndWriteService] =
+      loggerFactory: NamedLoggerFactory,
+      mm: MetricsManager)(implicit mat: Materializer): Future[IndexAndWriteService] =
     Ledger
       .jdbcBacked(
         jdbcUrl,
@@ -85,10 +84,11 @@ object SandboxIndexAndWriteService {
         ledgerEntries,
         queueDepth,
         startMode,
-        loggerFactory
+        loggerFactory,
+        mm
       )
       .map(ledger =>
-        createInstance(Ledger.metered(ledger), participantId, timeModel, timeProvider))(DEC)
+        createInstance(Ledger.metered(ledger, mm), participantId, timeModel, timeProvider))(DEC)
 
   def inMemory(
       ledgerId: LedgerId,
@@ -97,11 +97,10 @@ object SandboxIndexAndWriteService {
       timeProvider: TimeProvider,
       acs: InMemoryActiveLedgerState,
       ledgerEntries: ImmArray[LedgerEntryOrBump],
-      templateStore: InMemoryPackageStore)(
-      implicit mat: Materializer,
-      mm: MetricsManager): IndexAndWriteService = {
+      templateStore: InMemoryPackageStore,
+      mm: MetricsManager)(implicit mat: Materializer): IndexAndWriteService = {
     val ledger =
-      Ledger.metered(Ledger.inMemory(ledgerId, timeProvider, acs, templateStore, ledgerEntries))
+      Ledger.metered(Ledger.inMemory(ledgerId, timeProvider, acs, templateStore, ledgerEntries), mm)
     createInstance(ledger, participantId, timeModel, timeProvider)
   }
 

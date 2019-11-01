@@ -65,7 +65,8 @@ trait TestHelpers {
         TimeProvider.Constant(Instant.EPOCH),
         InMemoryActiveLedgerState.empty,
         ImmArray.empty,
-        packageStore
+        packageStore,
+        mm
       )
 
     ApiSubmissionService.create(

@@ -133,7 +133,7 @@ class StandaloneIndexServer(
   private def buildAndStartApiServer(infra: Infrastructure)(
       implicit ec: ExecutionContext): Future[ApiServerState] = {
     implicit val mat = infra.materializer
-    implicit val mm: MetricsManager = infra.metricsManager
+    val mm: MetricsManager = infra.metricsManager
 
     val packageStore = loadDamlPackages()
     preloadPackages(packageStore)
@@ -147,7 +147,8 @@ class StandaloneIndexServer(
         domain.LedgerId(cond.ledgerId),
         participantId,
         config.jdbcUrl,
-        loggerFactory)
+        loggerFactory,
+        mm)
       apiServer <- LedgerApiServer.create(
         (am: ActorMaterializer, esf: ExecutionSequencerFactory) =>
           ApiServices

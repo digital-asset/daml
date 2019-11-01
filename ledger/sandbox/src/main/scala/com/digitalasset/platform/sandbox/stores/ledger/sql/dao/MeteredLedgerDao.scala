@@ -125,9 +125,9 @@ private class MeteredLedgerDao(ledgerDao: LedgerDao, mm: MetricsManager)
 }
 
 object MeteredLedgerDao {
-  def apply(ledgerDao: LedgerDao)(implicit mm: MetricsManager): LedgerDao =
+  def apply(ledgerDao: LedgerDao, mm: MetricsManager): LedgerDao =
     new MeteredLedgerDao(ledgerDao, mm)
 
-  def apply(ledgerDao: LedgerReadDao)(implicit mm: MetricsManager): LedgerReadDao =
+  def apply(ledgerDao: LedgerReadDao, mm: MetricsManager): LedgerReadDao =
     new MeteredLedgerReadDao(ledgerDao, mm)
 }

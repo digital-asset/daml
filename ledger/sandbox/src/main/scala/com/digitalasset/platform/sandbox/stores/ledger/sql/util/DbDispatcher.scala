@@ -10,6 +10,7 @@ import akka.stream.scaladsl.Source
 import akka.{Done, NotUsed}
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.common.util.DirectExecutionContext
+import com.digitalasset.platform.sandbox.metrics.MetricsManager
 import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.HikariJdbcConnectionProvider
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 
@@ -22,7 +23,8 @@ trait DbDispatcher extends AutoCloseable {
     * The isolation level by default is the one defined in the JDBC driver, it can be however overridden per query on
     * the Connection. See further details at: https://docs.oracle.com/cd/E19830-01/819-4721/beamv/index.html
     */
-  def executeSql[T](description: => String)(sql: Connection => T): Future[T]
+  def executeSql[T](description: String, extraLog: Option[String] = None)(
+      sql: Connection => T): Future[T]
 
   /**
     * Creates a lazy Source, which takes care of:
@@ -44,7 +46,8 @@ private class DbDispatcherImpl(
     jdbcUrl: String,
     val noOfShortLivedConnections: Int,
     noOfStreamingConnections: Int,
-    loggerFactory: NamedLoggerFactory)
+    loggerFactory: NamedLoggerFactory,
+    mm: MetricsManager)
     extends DbDispatcher {
 
   private val logger = loggerFactory.getLogger(getClass)
@@ -54,7 +57,7 @@ private class DbDispatcherImpl(
       noOfShortLivedConnections,
       noOfStreamingConnections,
       loggerFactory)
-  private val sqlExecutor = SqlExecutor(noOfShortLivedConnections, loggerFactory)
+  private val sqlExecutor = SqlExecutor(noOfShortLivedConnections, loggerFactory, mm)
 
   private val connectionGettingThreadPool = ExecutionContext.fromExecutorService(
     Executors.newSingleThreadExecutor(
@@ -65,8 +68,9 @@ private class DbDispatcherImpl(
           logger.error(s"got an uncaught exception on thread: ${thread.getName}", t))
         .build()))
 
-  override def executeSql[T](description: => String)(sql: Connection => T): Future[T] =
-    sqlExecutor.runQuery(description, () => connectionProvider.runSQL(conn => sql(conn)))
+  override def executeSql[T](description: String, extraLog: Option[String] = None)(
+      sql: Connection => T): Future[T] =
+    sqlExecutor.runQuery(description, extraLog)(connectionProvider.runSQL(conn => sql(conn)))
 
   override def runStreamingSql[T](
       sql: Connection => Source[T, Future[Done]]): Source[T, NotUsed] = {
@@ -103,10 +107,13 @@ object DbDispatcher {
       jdbcUrl: String,
       noOfShortLivedConnections: Int,
       noOfStreamingConnections: Int,
-      loggerFactory: NamedLoggerFactory): DbDispatcher =
+      loggerFactory: NamedLoggerFactory,
+      mm: MetricsManager): DbDispatcher =
     new DbDispatcherImpl(
       jdbcUrl,
       noOfShortLivedConnections,
       noOfStreamingConnections,
-      loggerFactory)
+      loggerFactory,
+      mm
+    )
 }

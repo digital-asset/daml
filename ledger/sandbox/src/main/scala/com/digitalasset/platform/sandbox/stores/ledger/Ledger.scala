@@ -129,8 +129,9 @@ object Ledger {
       ledgerEntries: ImmArray[LedgerEntryOrBump],
       queueDepth: Int,
       startMode: SqlStartMode,
-      loggerFactory: NamedLoggerFactory
-  )(implicit mat: Materializer, mm: MetricsManager): Future[Ledger] =
+      loggerFactory: NamedLoggerFactory,
+      mm: MetricsManager
+  )(implicit mat: Materializer): Future[Ledger] =
     SqlLedger(
       jdbcUrl,
       Some(ledgerId),
@@ -140,7 +141,8 @@ object Ledger {
       ledgerEntries,
       queueDepth,
       startMode,
-      loggerFactory)
+      loggerFactory,
+      mm)
 
   /**
     * Creates a JDBC backed read only ledger
@@ -152,15 +154,16 @@ object Ledger {
   def jdbcBackedReadOnly(
       jdbcUrl: String,
       ledgerId: LedgerId,
-      loggerFactory: NamedLoggerFactory
-  )(implicit mat: Materializer, mm: MetricsManager): Future[ReadOnlyLedger] =
-    ReadOnlySqlLedger(jdbcUrl, Some(ledgerId), loggerFactory)
+      loggerFactory: NamedLoggerFactory,
+      mm: MetricsManager
+  )(implicit mat: Materializer): Future[ReadOnlyLedger] =
+    ReadOnlySqlLedger(jdbcUrl, Some(ledgerId), loggerFactory, mm)
 
   /** Wraps the given Ledger adding metrics around important calls */
-  def metered(ledger: Ledger)(implicit mm: MetricsManager): Ledger = MeteredLedger(ledger)
+  def metered(ledger: Ledger, mm: MetricsManager): Ledger = MeteredLedger(ledger, mm)
 
   /** Wraps the given Ledger adding metrics around important calls */
-  def meteredReadOnly(ledger: ReadOnlyLedger)(implicit mm: MetricsManager): ReadOnlyLedger =
-    MeteredReadOnlyLedger(ledger)
+  def meteredReadOnly(ledger: ReadOnlyLedger, mm: MetricsManager): ReadOnlyLedger =
+    MeteredReadOnlyLedger(ledger, mm)
 
 }
