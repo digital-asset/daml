@@ -161,6 +161,6 @@ SYSPREP_SPECIALIZE
   scheduling {
     automatic_restart   = false
     on_host_maintenance = "TERMINATE"
-    preemptible         = true
+    preemptible         = false
   }
 }
