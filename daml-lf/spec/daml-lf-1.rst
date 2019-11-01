@@ -203,7 +203,7 @@ Version: 1.5
     ``ContractId a`` is serializable whenever ``a`` is so. This is more
     relaxed than the previous condition.
 
-  * **Add** ``COERCE_CONTRACT_ID`` primitive for coercing ``ContractId`` s.
+  * **Add** ``COERCE_CONTRACT_ID`` primitive for coercing ``ContractId``s.
 
   * **Change** ``Update.Exercise`` such that ``actor`` is now optional.
 
@@ -222,7 +222,7 @@ Version: 1.6
   * **Add** ``TEXT_FROM_CODE_POINTS`` and ``TEXT_TO_CODE_POINTS``
     primitives for (un)packing strings.
 
-  * **Add** intern package IDs in external package references.
+  * **Add** package IDs interning in external package references.
 
 Version: 1.dev
 ..............
@@ -237,6 +237,10 @@ Version: 1.dev
 
   * **Drop** support for Decimal type. Use Numeric of scale 10 instead.
 
+  * **Add** string interning in external package references.
+    
+  * **Add** name interning in external package references.
+    
   * **Add** existential ``Any`` type and
     ``from_any`` and ``to_any`` functions to convert from/to
     an arbitrary ground type (i.e. a type with no free type variables) to ``Any``.
@@ -2673,12 +2677,12 @@ message::
   message PackageRef {
     oneof Sum {
       Unit self = 1;
-      string package_id = 2;
+      string package_id_str = 2;
     }
   }
 
 One should use either the field ``self`` to refer the current package or
-``package_id`` to refer to an external package. During deserialization
+``package_id_str`` to refer to an external package. During deserialization
 ``self`` references are replaced by the actual digest of the package in
 which it appears.
 
@@ -2891,57 +2895,73 @@ Enum
 
 The deserialization process will reject any DAML-LF 1.5 (or earlier)
 program using the field ``enum`` in ``DefDataType`` messages, the
-field ``enum`` in  ``CaseAlt`` messages, or the field ``enum_con``
+field ``enum`` in  ``CaseAlt`` messages, or the field ``enum_con_str``
 in ``Expr`` messages.
 
-Interned String
-...............
+
+String Interning
+................
 
 [*Available in versions >= 1.6*]
 
-``Package.interned_strings`` is a list of strings. A so-called
-``interned string`` is a valid zero-based index of this list.
-``interned string`` are interpreted as the string its indexes in
-``Package.interned_strings``.
+To allow string sharing, the so-called *string interning* mechanism,
+allow the strings withing messages to be stored in a global table and
+referenced by their index.
 
-+ An `interned package id` is an `interned string` that can be interpreted as a valid `PackageId string`.
-+ An `interned party` is an `interned string` that can be interpreted as a valid `Party string`.
-+ An `interned numeric id` is an `interned string` that can be interpreted as a valid `numeric` literal.
-+ An `interned text` is an `interned string` interpreted as a text literal
-+ An `interned identifier` is an `interned string` that can be interpreted as a valid `identifier`
+The field ``Package.interned_strings`` is a list of strings. A
+so-called `interned string` is a valid zero-based index of this
+list. An `interned string` is interpreted as the string its points to
+in ``Package.interned_strings``.
 
-Starting from DAML-LF 1.6, the field ``PackageRef.package_id_interned_string``
-[*Available in versions >= 1.6*] maybe be used instead ``PackageRef.package_id``.
-If such case it must be a valid *interned packageId*.
++ An `interned package id` is an `interned string` that can be
+  interpreted as a valid `PackageId string`.
++ An `interned party` is an `interned string` that can be interpreted
+  as a valid `Party string`.
++ An `interned numeric id` is an `interned string` that can be
+  interpreted as a valid `numeric` literal.
++ An `interned text` is an `interned string` interpreted as a text
+  literal
++ An `interned identifier` is an `interned string` that can be
+  interpreted as a valid `identifier`
 
-Starting from DAML-LF 1.dev, ``Package.interned_strings`` is the only field of type
-``string`` (or ``repeated string``) allowed in an archive.
-The deserialization process will reject any DAML-LF 1.dev (or latter)
-that that does not comply this restriction.
-Those fields are identified with the suffix ``_str``
+Starting from DAML-LF 1.6, the field
+``PackageRef.package_id_interned_str`` [*Available in versions >=
+1.6*] maybe be used instead ``PackageRef.package_id_str``.  If such
+case it must be a valid *interned packageId*.
 
-Alternative fields of type ``int32`` (or ``repeated int32``) with
-the suffix ``_interned_str`` must be used instead.
-Such field must be a valid ``internal string``.
+Starting from DAML-LF 1.dev, all ``string`` (or ``repeated string``)
+fields with the suffix ``_str`` are forbidden. Alternative fields of
+type ``int32`` (or ``repeated int32``) with the suffix
+``_interned_str`` must be used instead.  Except
+``PackageRef.package_id_interned_str`` which is [*Available in
+versions >= 1.6*], all fields with suffix ``_interned_str`` are
+[*Available in versions >= 1.dev*].  The deserialization process will
+reject any DAML-LF 1.dev (or latter) that that does not comply this
+restriction.
 
-Interned DottedNames
-....................
+Name Interning
+..............
 
 [*Available in versions >= 1.dev*]
 
-``InternedDottedName`` is a non-empty list of valid `interned identifiers`.
-A so-called `interned name` is a valid zero-based index of this list.
-*interned names* are interpreted as the name built form the identifiers it
-indexes.
+To allow sharing of `names <Identifiers_>`_, the so-called *name
+interning* mechanism, allows the *names* within messages to be stored
+in a global table and referenced by their index.
 
-Starting from DAML-LF 1.dev, the field fields of type ``DottedName`` are forbidden.
-The deserialization process will reject any DAML-LF 1.dev (or latter)
-that that does not comply this restriction. Those fields are identified with the
-suffix ``_dname``.
+``InternedDottedName`` is a non-empty list of valid `interned
+identifiers`. Such message is interpreted as the name built from the
+sequence the interned identifiers it contains.  The field
+``Package.interned_dotted_names`` is a list of such messages. A
+so-called `interned name` is a valid zero-based index of this list. An
+`interned names` is interpreted as the name built form the `name` it
+points to in ``Package.interned_dotted_names``.
 
-Alternative fields of type ``int32`` with the suffix ``interned_dname``
-must be used instead. In such case the field  must be a valid
-``interned name``.
+Starting from DAML-LF 1.dev, all ``DottedName`` (or ``repeated
+string``) fields with the suffix ``_dname`` are forbidden. Alternative
+fields of type ``int32` with the suffix ``_interned_dname``
+[*Available in versions >= 1.dev*] must be used instead. The
+deserialization process will reject any DAML-LF 1.dev (or latter) that
+that does not comply this restriction.
 
 Nat kind and Nat types
 ......................
