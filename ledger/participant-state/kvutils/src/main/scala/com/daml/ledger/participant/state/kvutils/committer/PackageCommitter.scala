@@ -1,6 +1,9 @@
+// Copyright (c) 2019 The DAML Authors. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 package com.daml.ledger.participant.state.kvutils.committer
 
-import java.util.concurrent.Executors
+import java.util.concurrent.{Executors, ThreadFactory}
 import com.codahale.metrics.{Counter, Gauge, Timer}
 import com.daml.ledger.participant.state.kvutils.Conversions.buildTimestamp
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
@@ -8,13 +11,11 @@ import com.digitalasset.daml.lf.archive.Decode
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.engine.Engine
 import com.digitalasset.daml.lf.language.Ast
-import com.digitalasset.daml_lf.DamlLf.Archive
+import com.digitalasset.daml_lf_dev.DamlLf.Archive
 import scala.collection.JavaConverters._
 
 private[kvutils] case class PackageCommitter(engine: Engine)
     extends Committer[DamlPackageUploadEntry, DamlPackageUploadEntry.Builder] {
-  private val serialExecutor = Executors.newSingleThreadExecutor()
-
   private object Metrics {
     val preloadTimer: Timer = metricsRegistry.timer(metricsName("preload-timer"))
     val decodeTimer: Timer = metricsRegistry.timer(metricsName("decode-timer"))
@@ -55,8 +56,8 @@ private[kvutils] case class PackageCommitter(engine: Engine)
     StepContinue(uploadEntry.clearArchives().addAllArchives(archives.asJava))
   }
 
-  private val queuePreload: Step = (_, uploadEntry) => {
-    serialExecutor.execute(
+  private val enqueuePreload: Step = (_, uploadEntry) => {
+    preloadExecutor.execute(
       preload(uploadEntry.getSubmissionId, uploadEntry.getArchivesList.asScala))
     StepContinue(uploadEntry)
   }
@@ -85,7 +86,7 @@ private[kvutils] case class PackageCommitter(engine: Engine)
   override val steps: Iterable[(StepInfo, Step)] = Iterable(
     "validateEntry" -> validateEntry,
     "filterDuplicates" -> filterDuplicates,
-    "queuePreload" -> queuePreload,
+    "enqueuePreload" -> enqueuePreload,
     "buildLogEntry" -> buildLogEntry
   )
 
@@ -147,6 +148,17 @@ private[kvutils] case class PackageCommitter(engine: Engine)
     } finally {
       val _ = ctx.stop()
     }
+  }
+
+  private val preloadExecutor = {
+    Executors.newSingleThreadExecutor(new ThreadFactory {
+      // Use a custom thread factory that creates daemon threads to avoid blocking the JVM from exiting.
+      override def newThread(runnable: Runnable): Thread = {
+        val t = new Thread(runnable)
+        t.setDaemon(true)
+        t
+      }
+    })
   }
 
 }
