@@ -102,11 +102,13 @@ object Result {
     compiledPackages.getPackage(packageId) match {
       case Some(pkg) => resume(pkg)
       case None =>
-        ResultNeedPackage(packageId, {
-          case None => ResultError(Error(s"Couldn't find package $packageId"))
-          case Some(pkg) =>
-            compiledPackages.addPackage(packageId, pkg).flatMap(_ => resume(pkg))
-        })
+        ResultNeedPackage(
+          packageId, {
+            case None => ResultError(Error(s"Couldn't find package $packageId"))
+            case Some(pkg) =>
+              compiledPackages.addPackage(packageId, pkg).flatMap(_ => resume(pkg))
+          }
+        )
     }
 
   def needDefinition[A](
