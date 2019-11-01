@@ -1,0 +1,15 @@
+-- @SINCE-LF 1.7
+daml 1.2
+module NumericInstance where
+
+template Ord a => FooG a
+  with
+    sig : Party
+    a   : a
+   where
+    signatory sig
+
+-- The Ord constraint on FooG will result in a superclass constraint of the form `dict @10`
+-- so this test checks that we properly handle superclass dicts that are not simple variables.
+
+template instance Test = FooG (Numeric 10)
