@@ -10,7 +10,7 @@ TEST_FILES = \
     [
         "BasicTests",
         "AuthorizedDivulgence",
-        "DontDiscloseNonConsumingChoicesToObservers",
+        "DontDiscloseNonConsumingExercisesToObservers",
         "LargeTransaction",
         "ConjunctionChoices",
     ]
