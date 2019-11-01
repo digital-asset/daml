@@ -33,11 +33,11 @@
 - target: //compiler/damlc/jar:damlc_jar
   type: jar-deploy
   platformDependent: True
-- target: //daml-lf/transaction/src/main/protobuf:value_java_proto
+- target: //daml-lf/transaction:value_java_proto
   type: jar-proto
-- target: //daml-lf/transaction/src/main/protobuf:transaction_java_proto
+- target: //daml-lf/transaction:transaction_java_proto
   type: jar-proto
-- target: //daml-lf/transaction/src/main/protobuf:blindinginfo_java_proto
+- target: //daml-lf/transaction:blindinginfo_java_proto
   type: jar-proto
 - target: //daml-lf/transaction:transaction
   type: jar-scala
