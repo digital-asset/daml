@@ -32,13 +32,7 @@ import com.digitalasset.ledger.api.v1.ledger_configuration_service.{
   LedgerConfiguration
 }
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
-import com.digitalasset.ledger.api.v1.package_service.{
-  GetPackageRequest,
-  GetPackageResponse,
-  GetPackageStatusRequest,
-  ListPackagesRequest,
-  PackageStatus
-}
+import com.digitalasset.ledger.api.v1.package_service._
 import com.digitalasset.ledger.api.v1.testing.time_service.{
   GetTimeRequest,
   GetTimeResponse,

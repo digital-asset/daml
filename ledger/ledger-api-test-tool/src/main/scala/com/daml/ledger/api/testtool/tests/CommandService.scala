@@ -5,11 +5,14 @@ package com.daml.ledger.api.testtool.tests
 
 import java.util.UUID
 
+import ai.x.diff.conversions._
 import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTest, LedgerTestSuite}
 import com.digitalasset.ledger.api.v1.value.{Record, RecordField, Value}
 import com.digitalasset.ledger.client.binding.Primitive
+import com.digitalasset.ledger.client.binding.Value.encode
 import com.digitalasset.ledger.test_stable.Test.Dummy._
-import com.digitalasset.ledger.test_stable.Test.{Dummy, TextKey}
+import com.digitalasset.ledger.test_stable.Test.WithObservers._
+import com.digitalasset.ledger.test_stable.Test.{Dummy, TextKey, WithObservers}
 import io.grpc.Status
 import scalaz.syntax.tag._
 
@@ -358,6 +361,62 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
     }
   }
 
+  private[this] val discloseCreateToObservers =
+    LedgerTest("CSDiscloseCreateToObservers", "Disclose create to observers") { context =>
+      for {
+        Vector(alpha, beta) <- context.participants(2)
+        Vector(giver, observer1) <- alpha.allocateParties(2)
+        observer2 <- beta.allocateParty()
+        template = WithObservers(giver, Primitive.List(observer1, observer2))
+        _ <- alpha.create(giver, template)
+        observer1View <- alpha.transactionTrees(observer1)
+        observer2View <- beta.transactionTrees(observer2)
+      } yield {
+        val observer1Created = assertSingleton(
+          "The first observer should see exactly one creation",
+          observer1View.flatMap(createdEvents))
+        val observer2Created = assertSingleton(
+          "The second observer should see exactly one creation",
+          observer2View.flatMap(createdEvents))
+        assertEquals(
+          "The two observers should see the same creation",
+          observer1Created.getCreateArguments.fields,
+          observer2Created.getCreateArguments.fields)
+        assertEquals(
+          "The observers shouls see the created contract",
+          observer1Created.getCreateArguments.fields,
+          encode(template).getRecord.fields
+        )
+      }
+    }
+
+  private[this] val discloseExerciseToObservers =
+    LedgerTest("CSDiscloseExerciseToObservers", "Diclose exercise to observers") { context =>
+      for {
+        Vector(alpha, beta) <- context.participants(2)
+        Vector(giver, observer1) <- alpha.allocateParties(2)
+        observer2 <- beta.allocateParty()
+        template = WithObservers(giver, Primitive.List(observer1, observer2))
+        withObservers <- alpha.create(giver, template)
+        _ <- alpha.exercise(giver, withObservers.exercisePing)
+        observer1View <- alpha.transactionTrees(observer1)
+        observer2View <- beta.transactionTrees(observer2)
+      } yield {
+        val observer1Exercise = assertSingleton(
+          "The first observer should see exactly one exercise",
+          observer1View.flatMap(exercisedEvents))
+        val observer2Exercise = assertSingleton(
+          "The second observer should see exactly one exercise",
+          observer2View.flatMap(exercisedEvents))
+        assert(
+          observer1Exercise.contractId == observer2Exercise.contractId,
+          "The two observers should see the same exercise")
+        assert(
+          observer1Exercise.contractId == withObservers.unwrap,
+          "The observers shouls see the exercised contract")
+      }
+    }
+
   override val tests: Vector[LedgerTest] = Vector(
     submitAndWaitTest,
     submitAndWaitForTransactionTest,
@@ -374,6 +433,8 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
     disallowEmptyCommandSubmission,
     refuseBadChoice,
     returnStackTrace,
-    exerciseByKey
+    exerciseByKey,
+    discloseCreateToObservers,
+    discloseExerciseToObservers
   )
 }

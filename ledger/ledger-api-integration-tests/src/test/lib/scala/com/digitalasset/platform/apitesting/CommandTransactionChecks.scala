@@ -71,7 +71,6 @@ abstract class CommandTransactionChecks
   private val operator = Grace
   private val receiver = Heidi
   private val giver = Alice
-  private val observers = List(Eve, Frank)
 
   private val integerListRecordLabel = "integerList"
 
@@ -399,56 +398,6 @@ abstract class CommandTransactionChecks
         }
       }
 
-      "disclose create to observers" in allFixtures { ctx =>
-        val withObserversArg = mkWithObserversArg(giver, observers)
-        observers.foldLeft(Future.successful(())) {
-          case (f, observer) =>
-            f flatMap { _ =>
-              for {
-                withObservers <- ctx.testingHelpers.simpleCreateWithListener(
-                  testIdsGenerator.testCommandId(s"Obs1create:$observer"),
-                  giver,
-                  observer,
-                  templateIds.withObservers,
-                  withObserversArg)
-              } yield {
-                val expectedFields =
-                  removeLabels(withObserversArg.fields)
-                withObservers.getCreateArguments.fields shouldEqual expectedFields
-                ()
-              }
-            }
-        }.map(_ => succeed)
-      }
-
-      "disclose exercise to observers" in allFixtures { ctx =>
-        val withObserversArg = mkWithObserversArg(giver, observers)
-        observers.foldLeft(Future.successful(())) {
-          case (f, observer) =>
-            f flatMap { _ =>
-              for {
-                _ <- ctx.testingHelpers.simpleCreate(
-                  testIdsGenerator.testCommandId(s"Obs2create:$observer"),
-                  giver,
-                  templateIds.withObservers,
-                  withObserversArg)
-//                tx <- ctx.testingHelpers.simpleExerciseWithListener(
-//                  testIdsGenerator.testCommandId(s"Obs2exercise:$observer"),
-//                  giver,
-//                  observer,
-//                  templateIds.withObservers,
-//                  withObservers.contractId,
-//                  "Ping",
-//                  emptyRecordValue)
-              } yield {
-//                val withObserversExercised = ctx.testingHelpers.getHead(ctx.testingHelpers.topLevelExercisedIn(tx))
-//                withObserversExercised.contractId shouldBe withObservers.contractId
-//                ()
-              }
-            }
-        }.map(_ => succeed)
-      }
-
       "handle bad Decimals correctly" in allFixtures { ctx =>
         val alice = "Alice"
         for {
@@ -668,18 +617,6 @@ abstract class CommandTransactionChecks
 
   private def mkCidArg(contractId: String): Value =
     List("cid" -> Value(ContractId(contractId))).asRecordValue
-
-  private def mkWithObserversArg(
-                                  giver: String,
-                                  observers: List[String]
-                                ): Record =
-    Record(
-      Some(templateIds.withObservers),
-      Vector(
-        RecordField("giver", giver.asParty),
-        RecordField("observers", observers.map(_.asParty).asList))
-    )
-
 
   private def createParamShowcaseWith(
                                        ctx: LedgerContext,

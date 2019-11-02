@@ -9,6 +9,8 @@ import com.digitalasset.ledger.api.v1.admin.package_management_service.PackageMa
 import com.digitalasset.ledger.api.v1.admin.package_management_service.PackageManagementServiceGrpc.PackageManagementService
 import com.digitalasset.ledger.api.v1.admin.party_management_service.PartyManagementServiceGrpc
 import com.digitalasset.ledger.api.v1.admin.party_management_service.PartyManagementServiceGrpc.PartyManagementService
+import com.digitalasset.ledger.api.v1.command_completion_service.CommandCompletionServiceGrpc
+import com.digitalasset.ledger.api.v1.command_completion_service.CommandCompletionServiceGrpc.CommandCompletionService
 import com.digitalasset.ledger.api.v1.command_service.CommandServiceGrpc
 import com.digitalasset.ledger.api.v1.command_service.CommandServiceGrpc.CommandService
 import com.digitalasset.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc
@@ -28,6 +30,7 @@ import io.grpc.Channel
 private[infrastructure] final class LedgerServices(channel: Channel) {
   val activeContracts: ActiveContractsService = ActiveContractsServiceGrpc.stub(channel)
   val command: CommandService = CommandServiceGrpc.stub(channel)
+  val commandCompletion: CommandCompletionService = CommandCompletionServiceGrpc.stub(channel)
   val commandSubmission: CommandSubmissionService = CommandSubmissionServiceGrpc.stub(channel)
   val configuration: LedgerConfigurationService = LedgerConfigurationServiceGrpc.stub(channel)
   val identity: LedgerIdentityService = LedgerIdentityServiceGrpc.stub(channel)
