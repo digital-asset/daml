@@ -13,6 +13,12 @@ import com.digitalasset.ledger.api.v1.commands.{Command, CreateAndExerciseComman
 import com.digitalasset.ledger.api.v1.completion.Completion
 import com.digitalasset.ledger.api.v1.event.Event.Event.{Archived, Created}
 import com.digitalasset.ledger.api.v1.event.{ArchivedEvent, CreatedEvent}
+import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
+import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset.LedgerBoundary.{
+  LEDGER_BEGIN,
+  LEDGER_END
+}
+import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset.Value.Boundary
 import com.digitalasset.ledger.api.v1.transaction.TreeEvent.Kind
 import com.digitalasset.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
 import com.digitalasset.ledger.api.v1.transaction_service.GetLedgerEndResponse
@@ -59,9 +65,9 @@ abstract class CommandTransactionChecks
       "having many transactions all of them has a unique event id" in allFixtures { ctx =>
         val eventIdsF = ctx.transactionClient
           .getTransactions(
-            LedgerOffsets.LedgerBegin,
-            Some(LedgerOffsets.LedgerEnd),
-            getAllContracts
+            LedgerOffset(Boundary(LEDGER_BEGIN)),
+            Some(LedgerOffset(Boundary(LEDGER_END))),
+            TransactionFilter(config.parties.map(_ -> Filters()).toMap)
           )
           .map(_.events
             .map(_.event)
@@ -209,8 +215,6 @@ abstract class CommandTransactionChecks
       }
     }
   }
-
-  private lazy val getAllContracts = TransactionFilters.allForParties(config.parties.toArray: _*)
 
   private def removeLabels(fields: Seq[RecordField]): Seq[RecordField] = {
     fields.map { f =>

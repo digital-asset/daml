@@ -35,10 +35,10 @@ class TestTemplateIds(config: PlatformApplications.Config) {
 }
 
 class TestCommands(config: PlatformApplications.Config) {
-  protected val testIds = new TestTemplateIds(config)
-  val templateIds = testIds.templateIds
+  private val testIds = new TestTemplateIds(config)
+  private val templateIds = testIds.templateIds
 
-  def buildRequest(
+  private def buildRequest(
       ledgerId: domain.LedgerId,
       commandId: String,
       commands: Seq[Command],
@@ -75,20 +75,20 @@ class TestCommands(config: PlatformApplications.Config) {
       workflowId = workflowId
     )
 
-  def createWithOperator(templateId: Identifier, party: String = "party") =
+  private def createWithOperator(templateId: Identifier, party: String = "party") =
     Command(
       Create(CreateCommand(
         Some(templateId),
         Some(Record(Some(templateId), List(RecordField("operator", Some(Value(Party(party))))))))))
 
-  private lazy val oneKilobyteString: String = {
+  private[this] val oneKilobyteString: String = {
     val numChars = 500 // each char takes 2 bytes for now in Java 8
     val array = new Array[Char](numChars)
     util.Arrays.fill(array, 'a')
     new String(array)
   }
 
-  def oneKbCommand(templateId: Identifier) =
+  private def oneKbCommand(templateId: Identifier) =
     Command(
       Create(
         CreateCommand(
@@ -107,14 +107,5 @@ class TestCommands(config: PlatformApplications.Config) {
       commandId: String,
       party: String = "party"): SubmitRequest =
     buildRequest(ledgerId, commandId, List(oneKbCommand(templateIds.textContainer)), party)
-
-  def exerciseWithUnit(
-      templateId: Identifier,
-      contractId: String,
-      choice: String,
-      args: Option[Value] = Some(Value(Sum.Record(Record.defaultInstance)))) =
-    Command(Exercise(ExerciseCommand(Some(templateId), contractId, choice, args)))
-
-  def toWait(request: SubmitRequest): SubmitAndWaitRequest = SubmitAndWaitRequest(request.commands)
 
 }
