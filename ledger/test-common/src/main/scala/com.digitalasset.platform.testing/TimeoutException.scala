@@ -6,5 +6,5 @@ package com.digitalasset.platform.testing
 import scala.util.control.NoStackTrace
 
 case object TimeoutException extends RuntimeException with NoStackTrace {
-  override val getMessage: String = s"Future could not be completed before"
+  override val getMessage: String = s"Future could not be completed before timeout"
 }
