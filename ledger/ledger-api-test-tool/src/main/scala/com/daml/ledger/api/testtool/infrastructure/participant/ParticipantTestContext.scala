@@ -21,9 +21,14 @@ import com.digitalasset.ledger.api.v1.admin.party_management_service.{
   AllocatePartyRequest,
   GetParticipantIdRequest
 }
+import com.digitalasset.ledger.api.v1.command_completion_service.{
+  CompletionStreamRequest,
+  CompletionStreamResponse
+}
 import com.digitalasset.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.digitalasset.ledger.api.v1.command_submission_service.SubmitRequest
 import com.digitalasset.ledger.api.v1.commands.{Command, Commands, ExerciseByKeyCommand}
+import com.digitalasset.ledger.api.v1.completion.Completion
 import com.digitalasset.ledger.api.v1.event.Event.Event.Created
 import com.digitalasset.ledger.api.v1.event.{CreatedEvent, Event}
 import com.digitalasset.ledger.api.v1.ledger_configuration_service.{
@@ -56,7 +61,8 @@ import com.digitalasset.ledger.client.binding.{Primitive, Template}
 import com.digitalasset.platform.testing.{
   FiniteStreamObserver,
   SingleItemObserver,
-  SizeBoundObserver
+  SizeBoundObserver,
+  WithTimeout
 }
 import com.google.protobuf.ByteString
 import io.grpc.stub.StreamObserver
@@ -64,6 +70,7 @@ import scalaz.Tag
 import scalaz.syntax.tag._
 
 import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.duration.DurationInt
 import scala.util.control.NonFatal
 
 private[testtool] object ParticipantTestContext {
@@ -486,6 +493,23 @@ private[testtool] final class ParticipantTestContext private[participant] (
 
   def submitAndWaitForTransactionTree(request: SubmitAndWaitRequest): Future[TransactionTree] =
     services.command.submitAndWaitForTransactionTree(request).map(_.getTransaction)
+
+  def completionStreamRequest(parties: Party*) =
+    new CompletionStreamRequest(
+      ledgerId,
+      applicationId,
+      parties.map(_.unwrap),
+      Some(referenceOffset))
+
+  def firstCompletions(request: CompletionStreamRequest): Future[Vector[Completion]] =
+    WithTimeout(5.seconds)(
+      SingleItemObserver
+        .find[CompletionStreamResponse](_.completions.nonEmpty)(
+          services.commandCompletion.completionStream(request, _))
+        .map(_.fold(Seq.empty[Completion])(_.completions).toVector))
+
+  def firstCompletions(parties: Party*): Future[Vector[Completion]] =
+    firstCompletions(completionStreamRequest(parties: _*))
 
   def configuration(overrideLedgerId: Option[String] = None): Future[LedgerConfiguration] =
     SingleItemObserver

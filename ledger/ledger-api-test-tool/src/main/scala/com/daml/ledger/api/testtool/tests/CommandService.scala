@@ -15,6 +15,7 @@ import com.digitalasset.ledger.test_stable.Test.Dummy._
 import com.digitalasset.ledger.test_stable.Test.DummyFactory._
 import com.digitalasset.ledger.test_stable.Test.WithObservers._
 import com.digitalasset.ledger.test_stable.Test._
+import com.digitalasset.platform.testing.TimeoutException
 import io.grpc.Status
 import scalaz.syntax.tag._
 
@@ -489,64 +490,64 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
         val _ = assertLength("Two creations should have occured", 2, createdEvents(tree))
       }
     }
-  /*
 
-    "reading completions" should {
-      "return the completion of submitted commands for the submitting application" in allFixtures {
-        ctx =>
-          val commandId = testIdsGenerator.testCommandId("Submitting_application_sees_this")
-          val request = createCommandWithId(ctx, commandId)
+  private[this] val completions =
+    LedgerTest(
+      "CSCompletions",
+      "Read completions correctly with a correct application identifier and reading party") {
+      context =>
+        {
           for {
-            commandClient <- ctx.commandClient()
-            offset <- commandClient.getCompletionEnd.map(_.getOffset)
-            _ <- ctx.testingHelpers.submitSuccessfully(request)
-            completionAfterCheckpoint <- ctx.testingHelpers.listenForCompletionAsApplication(
-              M.applicationId,
-              request.getCommands.party,
-              offset,
-              commandId)
+            ledger <- context.participant()
+            party <- ledger.allocateParty()
+            request <- ledger.submitRequest(party, Dummy(party).create.command)
+            _ <- ledger.submit(request)
+            completions <- ledger.firstCompletions(party)
           } yield {
-            completionAfterCheckpoint.value.status.value should have('code (0))
+            val commandId =
+              assertSingleton("Expected only one completion", completions.map(_.commandId))
+            assert(
+              commandId == request.commands.get.commandId,
+              "Wrong command identifier on completion")
           }
-      }
+        }
+    }
 
-      "not expose completions of submitted commands to other applications" in allFixtures { ctx =>
-        val commandId = testIdsGenerator.testCommandId("The_other_application_does_not_see_this")
-        val request = createCommandWithId(ctx, commandId)
+  private[this] val noCompletionsWithoutRightAppId =
+    LedgerTest(
+      "CSNoCompletionsWithoutRightAppId",
+      "Read no completions without the correct application identifier") { context =>
+      {
         for {
-          commandClient <- ctx.commandClient()
-          offset <- commandClient.getCompletionEnd.map(_.getOffset)
-          _ <- ctx.testingHelpers.submitSuccessfully(request)
-          completionsAfterCheckpoint <- ctx.testingHelpers.listenForCompletionAsApplication(
-            "anotherApplication",
-            request.getCommands.party,
-            offset,
-            commandId)
+          ledger <- context.participant()
+          party <- ledger.allocateParty()
+          request <- ledger.submitRequest(party, Dummy(party).create.command)
+          _ <- ledger.submit(request)
+          invalidRequest = ledger
+            .completionStreamRequest(party)
+            .update(_.applicationId := "invalid-application-id")
+          failed <- ledger.firstCompletions(invalidRequest).failed
         } yield {
-          completionsAfterCheckpoint shouldBe empty
+          assert(failed == TimeoutException, "Timeout expected")
         }
       }
-
-      "not expose completions of submitted commands to the application if it down't include the submitting party" in allFixtures {
-        ctx =>
-          val commandId =
-            testIdsGenerator.testCommandId("The_application_should_subscribe_with_the_submitting_party_to_see_this")
-          val request = createCommandWithId(ctx, commandId)
-          for {
-            commandClient <- ctx.commandClient()
-            offset <- commandClient.getCompletionEnd.map(_.getOffset)
-            _ <- ctx.testingHelpers.submitSuccessfully(request)
-            completionsAfterCheckpoint <- ctx.testingHelpers.listenForCompletionAsApplication(
-              request.getCommands.applicationId,
-              "not " + request.getCommands.party,
-              offset,
-              commandId)
-          } yield {
-            completionsAfterCheckpoint shouldBe empty
-          }
-      }
     }
-   */
+
+  private[this] val noCompletionsWithoutRightParty =
+    LedgerTest("CSNoCompletionsWithoutRightParty", "Read no completions without the correct party") {
+      context =>
+        {
+          for {
+            ledger <- context.participant()
+            Vector(party, notTheSubmittingParty) <- ledger.allocateParties(2)
+            request <- ledger.submitRequest(party, Dummy(party).create.command)
+            _ <- ledger.submit(request)
+            failed <- ledger.firstCompletions(notTheSubmittingParty).failed
+          } yield {
+            assert(failed == TimeoutException, "Timeout expected")
+          }
+        }
+    }
 
   override val tests: Vector[LedgerTest] = Vector(
     submitAndWaitTest,
@@ -570,6 +571,9 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
     hugeCommandSubmission,
     callablePayout,
     unitAsArgumentToNothing,
-    readyForExercise
+    readyForExercise,
+    completions,
+    noCompletionsWithoutRightAppId,
+    noCompletionsWithoutRightParty
   )
 }
