@@ -16,9 +16,18 @@ import com.digitalasset.ledger.api.v1.commands.{CreateCommand, ExerciseCommand}
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset.LedgerBoundary.LEDGER_BEGIN
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset.Value.Boundary
-import com.digitalasset.ledger.api.v1.value.{Record, RecordField, Value}
+import com.digitalasset.ledger.api.v1.value.Value.Sum.{Bool, Text, Timestamp}
+import com.digitalasset.ledger.api.v1.value.{
+  Identifier,
+  Optional,
+  Record,
+  RecordField,
+  Value,
+  Variant
+}
 import com.digitalasset.ledger.client.services.commands.{CommandClient, CompletionStreamElement}
 import com.digitalasset.platform.apitesting.LedgerContext
+import com.digitalasset.platform.apitesting.TestParties.Alice
 import com.digitalasset.platform.participant.util.ValueConversions._
 import com.digitalasset.platform.tests.integration.ledger.api.ParameterShowcaseTesting
 import com.digitalasset.util.Ctx
@@ -39,7 +48,6 @@ class CommandClientIT
     with MultiLedgerCommandUtils
     with Matchers
     with SuiteResourceManagementAroundAll
-    with ParameterShowcaseTesting
     with TryValues {
 
   private val submittingParty: String = submitRequest.getCommands.party
@@ -94,6 +102,27 @@ class CommandClientIT
     readExpectedElements(client.completionSource(submittingPartyList, checkpoint).collect {
       case CompletionStreamElement.CompletionElement(c) => c.commandId
     }, expected, timeLimit)
+
+  private def paramShowcaseArgs(packageId: String): Vector[RecordField] = {
+    val variant = Value(
+      Value.Sum.Variant(
+        Variant(Some(Identifier(packageId, "Test", "OptionalInteger")), "SomeInteger", 1.asInt64)))
+    val nestedVariant = Vector("value" -> variant)
+      .asRecordValueOf(Identifier(packageId, "Test", "NestedOptionalInteger"))
+    val integerList = Vector(1, 2).map(_.toLong.asInt64).asList
+    val optionalText = Optional(Value(Text("foo")))
+    Vector(
+      RecordField("operator", Alice.asParty),
+      RecordField("integer", 1.asInt64),
+      RecordField("decimal", "1.1000000000".asNumeric),
+      RecordField("text", Value(Text("text"))),
+      RecordField("bool", Value(Bool(true))),
+      RecordField("time", Value(Timestamp(0))),
+      RecordField("nestedOptionalInteger", nestedVariant),
+      RecordField("integerList", integerList),
+      RecordField("optionalText", Some(Value(Value.Sum.Optional(optionalText))))
+    )
+  }
 
   "Command Client" when {
     "asked for ledger end" should {

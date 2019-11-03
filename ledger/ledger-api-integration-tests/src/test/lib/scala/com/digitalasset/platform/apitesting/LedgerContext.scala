@@ -30,8 +30,7 @@ import com.digitalasset.ledger.api.v1.command_submission_service.{
   CommandSubmissionServiceGrpc,
   SubmitRequest
 }
-import com.digitalasset.ledger.api.v1.commands.{Command, CreateCommand}
-import com.digitalasset.ledger.api.v1.event.CreatedEvent
+import com.digitalasset.ledger.api.v1.commands.Command
 import com.digitalasset.ledger.api.v1.ledger_configuration_service.LedgerConfigurationServiceGrpc
 import com.digitalasset.ledger.api.v1.ledger_configuration_service.LedgerConfigurationServiceGrpc.LedgerConfigurationService
 import com.digitalasset.ledger.api.v1.ledger_identity_service.LedgerIdentityServiceGrpc.LedgerIdentityService
@@ -45,10 +44,8 @@ import com.digitalasset.ledger.api.v1.testing.reset_service.ResetServiceGrpc.Res
 import com.digitalasset.ledger.api.v1.testing.reset_service.{ResetRequest, ResetServiceGrpc}
 import com.digitalasset.ledger.api.v1.testing.time_service.TimeServiceGrpc
 import com.digitalasset.ledger.api.v1.testing.time_service.TimeServiceGrpc.TimeService
-import com.digitalasset.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
 import com.digitalasset.ledger.api.v1.transaction_service.TransactionServiceGrpc
 import com.digitalasset.ledger.api.v1.transaction_service.TransactionServiceGrpc.TransactionService
-import com.digitalasset.ledger.api.v1.value.{Identifier, Record, RecordField}
 import com.digitalasset.ledger.client.configuration.CommandClientConfiguration
 import com.digitalasset.ledger.client.services.acs.ActiveContractSetClient
 import com.digitalasset.ledger.client.services.commands.CommandClient
@@ -201,33 +198,6 @@ trait LedgerContext {
     )
   }
 
-  import com.digitalasset.platform.participant.util.ValueConversions._
-
-  // Create a template instance and return the resulting create event.
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
-  def submitCreate(
-      commandId: String,
-      template: Identifier,
-      args: Seq[RecordField],
-      submitter: String,
-      verbose: Boolean = false)(
-      implicit mat: ActorMaterializer,
-      ec: ExecutionContext): Future[CreatedEvent] = {
-    val helper = testingHelpers
-    for {
-      tx <- helper.submitAndListenForSingleResultOfCommand(
-        command(
-          commandId,
-          submitter,
-          List(CreateCommand(Some(template), Some(Record(Some(template), args))).wrap)),
-        TransactionFilter(Map(submitter -> Filters.defaultInstance)),
-        verbose
-      )
-    } yield {
-      helper.assertNoArchivedEvents(tx)
-      helper.getHead(helper.createdEventsIn(tx))
-    }
-  }
 }
 
 object LedgerContext {

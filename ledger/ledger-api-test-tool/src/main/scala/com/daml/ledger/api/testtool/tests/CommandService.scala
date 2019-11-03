@@ -10,9 +10,11 @@ import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTest, L
 import com.digitalasset.ledger.api.v1.value.{Record, RecordField, Value}
 import com.digitalasset.ledger.client.binding.Primitive
 import com.digitalasset.ledger.client.binding.Value.encode
+import com.digitalasset.ledger.test_stable.Test.CallablePayout._
 import com.digitalasset.ledger.test_stable.Test.Dummy._
+import com.digitalasset.ledger.test_stable.Test.DummyFactory._
 import com.digitalasset.ledger.test_stable.Test.WithObservers._
-import com.digitalasset.ledger.test_stable.Test.{Dummy, TextKey, WithObservers}
+import com.digitalasset.ledger.test_stable.Test._
 import io.grpc.Status
 import scalaz.syntax.tag._
 
@@ -417,6 +419,77 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
       }
     }
 
+  private[this] val hugeCommandSubmission =
+    LedgerTest("CSHugeCommandSubmittion", "The server should accept a submission with 15 commands") {
+      context =>
+        {
+          val target = 15
+          for {
+            ledger <- context.participant()
+            party <- ledger.allocateParty()
+            commands = Vector.fill(target)(Dummy(party).create.command)
+            request <- ledger.submitAndWaitRequest(party, commands: _*)
+            _ <- ledger.submitAndWait(request)
+            acs <- ledger.activeContracts(party)
+          } yield {
+            assert(
+              acs.size == target,
+              s"Expected $target contracts to be created, got ${acs.size} instead")
+          }
+        }
+    }
+
+  private[this] val callablePayout =
+    LedgerTest("CSCallablePayout", "Run CallablePayout and return the right events") { context =>
+      for {
+        Vector(alpha, beta) <- context.participants(2)
+        Vector(giver, newReceiver) <- alpha.allocateParties(2)
+        receiver <- beta.allocateParty()
+        callablePayout <- alpha.create(giver, CallablePayout(giver, receiver))
+        tree <- beta.exercise(receiver, callablePayout.exerciseTransfer(_, newReceiver))
+      } yield {
+        val created = assertSingleton("There should only be one creation", createdEvents(tree))
+        assertEquals(
+          "The created event should be the expected one",
+          created.getCreateArguments.fields,
+          encode(CallablePayout(giver, newReceiver)).getRecord.fields)
+      }
+    }
+
+  private[this] val unitAsArgumentToNothing =
+    LedgerTest("CSUnitAsArgumentToNothing", "Return Unit as argument to Nothing") { context =>
+      for {
+        ledger <- context.participant()
+        party <- ledger.allocateParty()
+        template = NothingArgument(party, Primitive.Optional.empty)
+        _ <- ledger.create(party, template)
+        acs <- ledger.activeContracts(party)
+      } yield {
+        val contract = assertSingleton("More than one active contract", acs)
+        assertEquals(
+          "Contract mismatch",
+          contract.getCreateArguments.fields,
+          encode(template).getRecord.fields)
+      }
+    }
+
+  private[this] val readyForExercise =
+    LedgerTest(
+      "CSReadyForExercise",
+      "It should be possible to exercise a choice on a created contract") { context =>
+      for {
+        ledger <- context.participant()
+        party <- ledger.allocateParty()
+        factory <- ledger.create(party, DummyFactory(party))
+        tree <- ledger.exercise(party, factory.exerciseDummyFactoryCall)
+      } yield {
+        val exercise = assertSingleton("There should only be one exercise", exercisedEvents(tree))
+        assert(exercise.contractId == factory.unwrap, "Contract identifier mismatch")
+        assert(exercise.consuming, "The choice should have been consuming")
+        val _ = assertLength("Two creations should have occured", 2, createdEvents(tree))
+      }
+    }
+
   override val tests: Vector[LedgerTest] = Vector(
     submitAndWaitTest,
     submitAndWaitForTransactionTest,
@@ -435,6 +508,10 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
     returnStackTrace,
     exerciseByKey,
     discloseCreateToObservers,
-    discloseExerciseToObservers
+    discloseExerciseToObservers,
+    hugeCommandSubmission,
+    callablePayout,
+    unitAsArgumentToNothing,
+    readyForExercise
   )
 }
