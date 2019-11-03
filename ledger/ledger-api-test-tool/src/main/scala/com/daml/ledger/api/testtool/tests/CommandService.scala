@@ -489,6 +489,64 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
         val _ = assertLength("Two creations should have occured", 2, createdEvents(tree))
       }
     }
+  /*
+
+    "reading completions" should {
+      "return the completion of submitted commands for the submitting application" in allFixtures {
+        ctx =>
+          val commandId = testIdsGenerator.testCommandId("Submitting_application_sees_this")
+          val request = createCommandWithId(ctx, commandId)
+          for {
+            commandClient <- ctx.commandClient()
+            offset <- commandClient.getCompletionEnd.map(_.getOffset)
+            _ <- ctx.testingHelpers.submitSuccessfully(request)
+            completionAfterCheckpoint <- ctx.testingHelpers.listenForCompletionAsApplication(
+              M.applicationId,
+              request.getCommands.party,
+              offset,
+              commandId)
+          } yield {
+            completionAfterCheckpoint.value.status.value should have('code (0))
+          }
+      }
+
+      "not expose completions of submitted commands to other applications" in allFixtures { ctx =>
+        val commandId = testIdsGenerator.testCommandId("The_other_application_does_not_see_this")
+        val request = createCommandWithId(ctx, commandId)
+        for {
+          commandClient <- ctx.commandClient()
+          offset <- commandClient.getCompletionEnd.map(_.getOffset)
+          _ <- ctx.testingHelpers.submitSuccessfully(request)
+          completionsAfterCheckpoint <- ctx.testingHelpers.listenForCompletionAsApplication(
+            "anotherApplication",
+            request.getCommands.party,
+            offset,
+            commandId)
+        } yield {
+          completionsAfterCheckpoint shouldBe empty
+        }
+      }
+
+      "not expose completions of submitted commands to the application if it down't include the submitting party" in allFixtures {
+        ctx =>
+          val commandId =
+            testIdsGenerator.testCommandId("The_application_should_subscribe_with_the_submitting_party_to_see_this")
+          val request = createCommandWithId(ctx, commandId)
+          for {
+            commandClient <- ctx.commandClient()
+            offset <- commandClient.getCompletionEnd.map(_.getOffset)
+            _ <- ctx.testingHelpers.submitSuccessfully(request)
+            completionsAfterCheckpoint <- ctx.testingHelpers.listenForCompletionAsApplication(
+              request.getCommands.applicationId,
+              "not " + request.getCommands.party,
+              offset,
+              commandId)
+          } yield {
+            completionsAfterCheckpoint shouldBe empty
+          }
+      }
+    }
+   */
 
   override val tests: Vector[LedgerTest] = Vector(
     submitAndWaitTest,

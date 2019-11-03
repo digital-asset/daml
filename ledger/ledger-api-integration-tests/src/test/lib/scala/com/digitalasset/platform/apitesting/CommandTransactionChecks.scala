@@ -7,21 +7,16 @@ import java.util.UUID
 
 import akka.stream.scaladsl.Sink
 import com.digitalasset.ledger.api.testing.utils.MockMessages.{party, submitRequest}
-import com.digitalasset.ledger.api.testing.utils.{
-  SuiteResourceManagementAroundEach,
-  MockMessages => M
-}
+import com.digitalasset.ledger.api.testing.utils.SuiteResourceManagementAroundEach
 import com.digitalasset.ledger.api.v1.command_submission_service.SubmitRequest
-import com.digitalasset.ledger.api.v1.commands.Command.Command.Create
-import com.digitalasset.ledger.api.v1.commands.{Command, CreateAndExerciseCommand, CreateCommand}
+import com.digitalasset.ledger.api.v1.commands.{Command, CreateAndExerciseCommand}
 import com.digitalasset.ledger.api.v1.completion.Completion
 import com.digitalasset.ledger.api.v1.event.Event.Event.{Archived, Created}
 import com.digitalasset.ledger.api.v1.event.{ArchivedEvent, CreatedEvent}
 import com.digitalasset.ledger.api.v1.transaction.TreeEvent.Kind
 import com.digitalasset.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
 import com.digitalasset.ledger.api.v1.transaction_service.GetLedgerEndResponse
-import com.digitalasset.ledger.api.v1.value.{Identifier, Record, RecordField, Value}
-import com.digitalasset.platform.apitesting.TestParties._
+import com.digitalasset.ledger.api.v1.value.{Record, RecordField, Value}
 import com.digitalasset.platform.participant.util.ValueConversions._
 import com.google.rpc.code.Code
 import org.scalatest.Inside._
@@ -29,7 +24,6 @@ import org.scalatest._
 import org.scalatest.concurrent.{AsyncTimeLimitedTests, ScalaFutures}
 import scalaz.syntax.tag._
 
-import scala.collection.immutable
 import scala.concurrent.Future
 import scala.concurrent.duration.DurationInt
 
@@ -52,9 +46,6 @@ abstract class CommandTransactionChecks
 
   override protected def config: Config = Config.default
 
-  private lazy val dummyTemplates =
-    List(templateIds.dummy, templateIds.dummyFactory, templateIds.dummyWithParam)
-
   def assertCompletionIsSuccessful(completion: Completion): Assertion = {
     inside(completion) {
       case c => c.getStatus should have('code (0))
@@ -62,61 +53,6 @@ abstract class CommandTransactionChecks
   }
 
   s"Command and Transaction Services" when {
-    "reading completions" should {
-      "return the completion of submitted commands for the submitting application" in allFixtures {
-        ctx =>
-          val commandId = testIdsGenerator.testCommandId("Submitting_application_sees_this")
-          val request = createCommandWithId(ctx, commandId)
-          for {
-            commandClient <- ctx.commandClient()
-            offset <- commandClient.getCompletionEnd.map(_.getOffset)
-            _ <- ctx.testingHelpers.submitSuccessfully(request)
-            completionAfterCheckpoint <- ctx.testingHelpers.listenForCompletionAsApplication(
-              M.applicationId,
-              request.getCommands.party,
-              offset,
-              commandId)
-          } yield {
-            completionAfterCheckpoint.value.status.value should have('code (0))
-          }
-      }
-
-      "not expose completions of submitted commands to other applications" in allFixtures { ctx =>
-        val commandId = testIdsGenerator.testCommandId("The_other_application_does_not_see_this")
-        val request = createCommandWithId(ctx, commandId)
-        for {
-          commandClient <- ctx.commandClient()
-          offset <- commandClient.getCompletionEnd.map(_.getOffset)
-          _ <- ctx.testingHelpers.submitSuccessfully(request)
-          completionsAfterCheckpoint <- ctx.testingHelpers.listenForCompletionAsApplication(
-            "anotherApplication",
-            request.getCommands.party,
-            offset,
-            commandId)
-        } yield {
-          completionsAfterCheckpoint shouldBe empty
-        }
-      }
-
-      "not expose completions of submitted commands to the application if it down't include the submitting party" in allFixtures {
-        ctx =>
-          val commandId =
-            testIdsGenerator.testCommandId("The_application_should_subscribe_with_the_submitting_party_to_see_this")
-          val request = createCommandWithId(ctx, commandId)
-          for {
-            commandClient <- ctx.commandClient()
-            offset <- commandClient.getCompletionEnd.map(_.getOffset)
-            _ <- ctx.testingHelpers.submitSuccessfully(request)
-            completionsAfterCheckpoint <- ctx.testingHelpers.listenForCompletionAsApplication(
-              request.getCommands.applicationId,
-              "not " + request.getCommands.party,
-              offset,
-              commandId)
-          } yield {
-            completionsAfterCheckpoint shouldBe empty
-          }
-      }
-    }
 
     "interacting with the ledger" should {
 
@@ -191,7 +127,10 @@ abstract class CommandTransactionChecks
           _.commands.ledgerId := context.ledgerId.unwrap
         )
 
-      def successfulCommands(c: LedgerContext, workflowId: String) = {
+      def submitSuccessfully(c: LedgerContext, r: SubmitRequest): Future[Assertion] =
+        submitCommand(c, r).map(inside(_) { case c => c.getStatus should have('code (0)) })
+
+      def successfulCommands(c: LedgerContext, workflowId: String): Future[Assertion] = {
         val cmdId = testIdsGenerator.testCommandId(s"valid-create-and-exercise-cmd-${UUID.randomUUID()}")
         val request = newRequest(c, validCreateAndExercise)
           .update(_.commands.commandId := cmdId)
@@ -200,7 +139,7 @@ abstract class CommandTransactionChecks
         for {
           GetLedgerEndResponse(Some(currentEnd)) <- c.transactionClient.getLedgerEnd
 
-          _ <- c.testingHelpers.submitSuccessfully(request)
+          _ <- submitSuccessfully(c, request)
 
           txTree <- c.transactionClient
             .getTransactionTrees(currentEnd, None, partyFilter)
@@ -269,20 +208,6 @@ abstract class CommandTransactionChecks
         response.map(_.getStatus should have('code (Code.INVALID_ARGUMENT.value)))
       }
     }
-  }
-
-  private def createCommandWithId(ctx: LedgerContext, commandId: String) = {
-    val reqWithId = ctx.testingHelpers.submitRequestWithId(commandId, Alice)
-    val arguments = List("operator" -> Alice.asParty)
-
-    reqWithId.update(
-      _.commands.party := Alice,
-      _.commands.commands := dummyTemplates.map(i => Command(create(i, arguments)))
-    )
-  }
-
-  private def create(templateId: Identifier, arguments: immutable.Seq[(String, Value)]): Create = {
-    Create(CreateCommand(Some(templateId), Some(arguments.asRecordOf(templateId))))
   }
 
   private lazy val getAllContracts = TransactionFilters.allForParties(config.parties.toArray: _*)

@@ -123,6 +123,24 @@ class CommandClientIT
     )
   }
 
+  private def recordWithArgument(original: Record, fieldToInclude: RecordField): Record =
+    original.update(_.fields.modify(recordFieldsWithArgument(_, fieldToInclude)))
+
+  private def recordFieldsWithArgument(
+      originalFields: Seq[RecordField],
+      fieldToInclude: RecordField): Seq[RecordField] = {
+    var replacedAnElement: Boolean = false
+    val updated = originalFields.map { original =>
+      if (original.label == fieldToInclude.label) {
+        replacedAnElement = true
+        fieldToInclude
+      } else {
+        original
+      }
+    }
+    if (replacedAnElement) updated else originalFields :+ fieldToInclude
+  }
+
   "Command Client" when {
     "asked for ledger end" should {
 
@@ -372,7 +390,7 @@ class CommandClientIT
             CreateCommand(
               Some(templateIds.parameterShowcase),
               Some(
-                c.testingHelpers.recordWithArgument(
+                recordWithArgument(
                   Record(
                     Some(templateIds.parameterShowcase),
                     paramShowcaseArgs(templateIds.testPackageId)),
