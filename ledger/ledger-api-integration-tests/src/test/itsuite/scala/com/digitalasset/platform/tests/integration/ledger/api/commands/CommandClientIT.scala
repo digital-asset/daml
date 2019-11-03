@@ -29,7 +29,6 @@ import com.digitalasset.ledger.client.services.commands.{CommandClient, Completi
 import com.digitalasset.platform.apitesting.LedgerContext
 import com.digitalasset.platform.apitesting.TestParties.Alice
 import com.digitalasset.platform.participant.util.ValueConversions._
-import com.digitalasset.platform.tests.integration.ledger.api.ParameterShowcaseTesting
 import com.digitalasset.util.Ctx
 import com.google.rpc.code.Code
 import io.grpc.{Status, StatusRuntimeException}
