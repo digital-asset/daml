@@ -232,7 +232,7 @@ object LedgerContext {
               .ledgerId)
       }
 
-    override def reset()(implicit system: ActorSystem): Future[LedgerContext] = {
+    override final def reset()(implicit system: ActorSystem): Future[LedgerContext] = {
       implicit val ec: ExecutionContext = mat.executionContext
       def waitForNewLedger(retries: Int): Future[domain.LedgerId] =
         if (retries <= 0)
