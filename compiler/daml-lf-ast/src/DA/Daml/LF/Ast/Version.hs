@@ -85,6 +85,7 @@ allFeatures :: [Feature]
 allFeatures =
     [ featureNumeric
     , featureAnyType
+    , featureTypeRep
     , featureStringInterning
     ]
 
