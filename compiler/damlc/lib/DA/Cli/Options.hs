@@ -263,6 +263,7 @@ optionsParser numProcessors enableScenarioService parsePkgName = do
     let optSkipScenarioValidation = SkipScenarioValidation False
     optDlintUsage <- dlintUsageOpt
     optIsGenerated <- optIsGenerated
+    optRunOptimizer <- optRunOptimizer
     optDflagCheck <- optNoDflagCheck
     let optCoreLinting = False
     let optHaddock = Haddock False
@@ -338,6 +339,13 @@ optionsParser numProcessors enableScenarioService parsePkgName = do
         switch $
         help "Tell the compiler that the source was generated." <>
         long "generated-src" <>
+        internal
+
+    optRunOptimizer :: Parser Bool
+    optRunOptimizer =
+        switch $
+        help "Run the optimizer during DAML compilation (experimental)." <>
+        long "run-optimizer" <>
         internal
 
     -- optparse-applicative does not provide a nice way

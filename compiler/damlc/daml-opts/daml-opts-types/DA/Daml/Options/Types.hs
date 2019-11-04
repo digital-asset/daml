@@ -81,6 +81,8 @@ data Options = Options
   -- ^ Information about dlint usage.
   , optIsGenerated :: Bool
     -- ^ Whether we're compiling generated code. Then we allow internal imports.
+  , optRunOptimizer :: Bool
+    -- ^ Run the optimizer during compiliation.
   , optDflagCheck :: Bool
     -- ^ Whether to check dflags. In some cases we want to turn this check of. For example when
     -- migrating or running the daml doc test.
@@ -170,6 +172,7 @@ defaultOptions mbVersion =
         , optSkipScenarioValidation = SkipScenarioValidation False
         , optDlintUsage = DlintDisabled
         , optIsGenerated = False
+        , optRunOptimizer = False
         , optDflagCheck = True
         , optCoreLinting = False
         , optHaddock = Haddock False

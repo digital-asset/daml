@@ -1,0 +1,115 @@
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+daml 1.2
+
+module Examples where
+
+import qualified DA.List as List
+
+-- Dub example
+
+dub x = x + x + 0
+
+dub_dub_dub x = dub (dub (dub x))
+
+-- Factorial
+
+fact n = if n <= 0 then 1 else n * fact (n-1)
+
+triangle n = if n <= 0 then 0 else n + triangle (n-1)
+
+-- Thrice Thrice example
+
+decrement x = x - 1
+
+thrice f x = f (f (f x))
+
+thrice_decrement = thrice decrement
+
+thrice_thrice_decrement = thrice thrice decrement
+
+-- Built-in lists
+
+makeList3 n = [n,n+1,n+2]
+
+length_list n = length (makeList3 n)
+
+sum_list n = sum (makeList3 n)
+
+makeDecimal acc = \case
+  d::ds -> makeDecimal (acc * 10 + d) ds
+  [] -> acc
+
+run_makeDecimal n = makeDecimal 0 (makeList3 n)
+
+-- Prime numbers
+
+nthPrime n =
+  if n < 1 then 0 else
+    if n == 1 then 2 else
+      search n [2] 3
+
+search n ps i =
+  if isPrime
+  then if length ps == n-1 then i else search n (ps<>[i]) (i+1)
+  else search n ps (i+1)
+  where isPrime = flip List.all ps $ \p -> i % p /= 0
+
+-- Own version of list type
+
+data MyList a = MyNil | MyCons { head : a, tail : MyList a }
+
+ofList : [a] -> MyList a
+ofList = \case
+  [] -> MyNil
+  x::xs -> MyCons x (ofList xs)
+
+mySum = myFoldl (+) 0
+
+myFoldl f b = \case
+  MyNil -> b
+  MyCons x xs -> myFoldl f (f b x) xs
+
+run_sum_myList n = mySum (ofList (makeList3 n))
+
+-- Yet another version of own list type, this time using optional/pair
+
+data MyList2 a = MyList2 (Optional (a,MyList2 a))
+
+ofList2 : [a] -> MyList2 a
+ofList2 = \case
+  [] -> MyList2 None
+  x::xs -> let pair = mkPair x (ofList2 xs) in MyList2 (Some pair)
+
+mkPair a b = (a,b)
+
+mySum2 = myFoldl2 (+) 0
+
+myFoldl2 f b = \case
+  MyList2 None -> b
+  MyList2 (Some pair) ->
+    let (x,xs) = pair in myFoldl2 f (f b x) xs
+
+run_sum_myList2 n = mySum2 (ofList2 (makeList3 n))
+
+-- nfib classic
+
+nfib : Int -> Int
+nfib 0 = 1
+nfib 1 = 1
+nfib n = nfib (n-1) + nfib (n-2) + 1
+
+-- lets
+
+let1 n = let a = 3 in a + n + a
+let2 n = let a = 3+5 in a + n + a
+let3 n = let a = 7+8 in n + 3
+
+-- template (loads of polymorphic generated code comes from a user template definiion!)
+
+template MyTemplate
+  with
+    party : Party
+  where
+    signatory party

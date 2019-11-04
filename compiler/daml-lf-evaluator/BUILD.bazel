@@ -1,0 +1,144 @@
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+# Copyright (c) 2019 The DAML Authors. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_library", "da_haskell_repl", "da_haskell_test")
+load("//rules_daml:daml.bzl", "daml_compile")
+
+da_haskell_library(
+    name = "daml-lf-evaluator",
+    srcs = glob(["src/**/*.hs"]),
+    hackage_deps = [
+        "base",
+        "bytestring",
+        "containers",
+        "extra",
+        "text",
+    ],
+    src_strip_prefix = "src",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//compiler/daml-lf-ast",
+        "//compiler/daml-lf-optimize",
+        "//compiler/daml-lf-proto",
+        "//compiler/daml-lf-reader",
+        "//libs-haskell/da-hs-base",
+    ],
+)
+
+daml_compile(
+    name = "examples",
+    srcs = glob(["test/daml/Examples.daml"]),
+)
+
+daml_compile(
+    name = "examples-opt",
+    srcs = glob(["test/daml/Examples.daml"]),
+    run_optimizer = True,
+)
+
+da_haskell_test(
+    name = "test",
+    srcs = glob(["test/**/*.hs"]),
+    data = [
+        ":examples.dar",
+    ],
+    hackage_deps = [
+        "base",
+        "bytestring",
+        "containers",
+        "tasty",
+        "tasty-hunit",
+        "text",
+        "filepath",
+        "zip-archive",
+    ],
+    main_function = "DA.Daml.LF.Evaluator.Tests.main",
+    src_strip_prefix = "test",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//compiler/daml-lf-ast",
+        "//compiler/daml-lf-evaluator",
+        "//compiler/daml-lf-optimize",
+        "//compiler/daml-lf-reader",
+        "//libs-haskell/bazel-runfiles",
+    ],
+)
+
+da_haskell_binary(
+    name = "Explore",
+    srcs = glob(["exec/Explore.hs"]),
+    data = [
+        ":examples.dar",
+    ],
+    hackage_deps = [
+        "base",
+        "bytestring",
+        "containers",
+        "filepath",
+        "text",
+        "zip-archive",
+    ],
+    main_function = "Explore.main",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//compiler/daml-lf-ast",
+        "//compiler/daml-lf-evaluator",
+        "//compiler/daml-lf-optimize",
+        "//compiler/daml-lf-reader",
+        "//libs-haskell/bazel-runfiles",
+    ],
+)
+
+da_haskell_binary(
+    name = "HaskellSpeed",
+    srcs = glob(["exec/HaskellSpeed.hs"]),
+    hackage_deps = [
+        "base",
+        "time",
+    ],
+    main_function = "HaskellSpeed.main",
+    visibility = ["//visibility:public"],
+)
+
+da_haskell_binary(
+    name = "MyIntSpeed",
+    srcs = glob(["exec/MyIntSpeed.hs"]),
+    data = [
+        ":examples.dar",
+    ],
+    hackage_deps = [
+        "base",
+        "time",
+        "bytestring",
+        "containers",
+        "filepath",
+        "text",
+        "zip-archive",
+    ],
+    main_function = "MyIntSpeed.main",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//compiler/daml-lf-ast",
+        "//compiler/daml-lf-evaluator",
+        "//compiler/daml-lf-optimize",
+        "//compiler/daml-lf-reader",
+        "//libs-haskell/bazel-runfiles",
+    ],
+)
+
+da_haskell_repl(
+    name = "repl",
+    testonly = True,
+    visibility = ["//visibility:public"],
+    deps = [
+        "//compiler/daml-lf-evaluator",
+        "//compiler/daml-lf-evaluator:Explore",
+        "//compiler/daml-lf-evaluator:HaskellSpeed",
+        "//compiler/daml-lf-evaluator:MyIntSpeed",
+        "//compiler/daml-lf-evaluator:test",
+        "//compiler/daml-lf-optimize",
+    ],
+)

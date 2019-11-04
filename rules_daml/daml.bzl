@@ -21,6 +21,7 @@ _zipper = attr.label(
 def _daml_configure_impl(ctx):
     project_name = ctx.attr.project_name
     project_version = ctx.attr.project_version
+    run_optimizer = ctx.attr.run_optimizer
     daml_yaml = ctx.outputs.daml_yaml
     target = ctx.attr.target
     ctx.actions.write(
@@ -31,12 +32,13 @@ def _daml_configure_impl(ctx):
             version: {version}
             source: .
             dependencies: []
-            build-options: [{target}]
+            build-options: [{target} {run_optimizer}]
         """.format(
             sdk = sdk_version,
             name = project_name,
             version = project_version,
             target = "--target=" + target if (target) else "",
+            run_optimizer = "--run-optimizer" if (run_optimizer) else "",
         ),
     )
 
@@ -50,6 +52,10 @@ _daml_configure = rule(
         "project_version": attr.string(
             mandatory = True,
             doc = "Version of the DAML project.",
+        ),
+        "run_optimizer": attr.bool(
+            mandatory = True,
+            doc = "Run the optimizer?",
         ),
         "daml_yaml": attr.output(
             mandatory = True,
@@ -230,6 +236,7 @@ def daml_compile(
         name,
         srcs,
         version = _default_project_version,
+        run_optimizer = False,
         target = None,
         **kwargs):
     "Build a DAML project, with a generated daml.yaml."
@@ -240,6 +247,7 @@ def daml_compile(
         name = name + ".configure",
         project_name = name,
         project_version = version,
+        run_optimizer = run_optimizer,
         daml_yaml = daml_yaml,
         target = target,
         **kwargs

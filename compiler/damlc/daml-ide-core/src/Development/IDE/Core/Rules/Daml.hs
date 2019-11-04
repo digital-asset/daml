@@ -5,6 +5,9 @@ module Development.IDE.Core.Rules.Daml
     , module Development.IDE.Core.Rules.Daml
     ) where
 
+import DA.Daml.LF.Optimize (optimizeModule)
+import qualified DA.Daml.LF.Optimize as Optimize (World(..))
+
 import Outputable (showSDoc)
 import TcIface (typecheckIface)
 import LoadIface (readIface)
@@ -269,7 +272,18 @@ generateDalfRule =
         WhnfPackage pkg <- use_ GeneratePackageDeps file
         pkgs <- getExternalPackages file
         let world = LF.initWorldSelf pkgs pkg
-        rawDalf <- use_ GenerateRawDalf file
+        rawDalf0 <- use_ GenerateRawDalf file
+
+        DamlEnv{envRunOptimizer} <- getDamlServiceEnv
+        rawDalf <- liftIO $ if envRunOptimizer then do
+          putStrLn "**running optimizer..."
+          let packageMap = Map.fromList [ (pkgId,pkg) | LF.ExternalPackage pkgId pkg <- pkgs ]
+          let optWorld = Optimize.World { mainIdM = Nothing , packageMap, mainPackageM = Nothing }
+          optimizeModule optWorld rawDalf0
+        else do
+          -- putStrLn "**NOT running optimizer..."
+          pure rawDalf0
+
         setPriority priorityGenerateDalf
         pure $! case Serializability.inferModule world lfVersion rawDalf of
             Left err -> ([ideErrorPretty file err], Nothing)

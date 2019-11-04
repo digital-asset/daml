@@ -265,6 +265,12 @@ da_haskell_repl(
     deps = [
         ":damlc",
         "//compiler/daml-lf-ast:tests",
+        "//compiler/daml-lf-evaluator",
+        "//compiler/daml-lf-evaluator:Explore",
+        "//compiler/daml-lf-evaluator:HaskellSpeed",
+        "//compiler/daml-lf-evaluator:MyIntSpeed",
+        "//compiler/daml-lf-evaluator:test",
+        "//compiler/daml-lf-optimize",
         "//compiler/damlc/daml-doc:daml-doc-testing",
         "//compiler/damlc/daml-ide-core:ide-testing",
         "//compiler/damlc/stable-packages:generate-stable-package",
