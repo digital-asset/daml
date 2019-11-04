@@ -1103,10 +1103,6 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
           assertUntil(LV.Features.numeric, "PrimLit.decimal")
           assertUntil(LV.Features.internedStrings, "PrimLit.decimal_str")
           toPLDecimal(lfPrimLit.getDecimalStr)
-        case PLF.PrimLit.SumCase.NUMERIC_STR =>
-          assertSince(LV.Features.numeric, "PrimLit.numeric")
-          assertUntil(LV.Features.internedStrings, "PrimLit.numeric_str")
-          toPLNumeric(lfPrimLit.getNumericStr)
         case PLF.PrimLit.SumCase.TEXT_STR =>
           assertUntil(LV.Features.internedStrings, "PrimLit.text_str")
           PLText(lfPrimLit.getTextStr)
@@ -1122,10 +1118,6 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
         case PLF.PrimLit.SumCase.TEXT_INTERNED_STR =>
           assertSince(LV.Features.internedStrings, "PrimLit.text_interned_str")
           PLText(getInternedStr(lfPrimLit.getTextInternedStr))
-        case PLF.PrimLit.SumCase.DECIMAL_INTERNED_STR =>
-          assertUntil(LV.Features.numeric, "PrimLit.decimal_interned_str")
-          assertSince(LV.Features.internedStrings, "PrimLit.decimal_interned_str")
-          toPLDecimal(getInternedStr(lfPrimLit.getDecimalInternedStr))
         case PLF.PrimLit.SumCase.NUMERIC_INTERNED_STR =>
           assertSince(LV.Features.numeric, "PrimLit.numeric")
           assertSince(LV.Features.internedStrings, "PrimLit.decimal_interned_str")
