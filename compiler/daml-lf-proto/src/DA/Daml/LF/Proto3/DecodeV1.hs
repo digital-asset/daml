@@ -298,6 +298,7 @@ decodeBuiltinFunction = pure . \case
   LF1.BuiltinFunctionEQUAL_DATE -> BEEqual BTDate
   LF1.BuiltinFunctionEQUAL_PARTY -> BEEqual BTParty
   LF1.BuiltinFunctionEQUAL_BOOL -> BEEqual BTBool
+  LF1.BuiltinFunctionEQUAL_TYPE_REP -> BEEqual BTTypeRep
 
   LF1.BuiltinFunctionLEQ_INT64 -> BELessEq BTInt64
   LF1.BuiltinFunctionLEQ_DECIMAL -> BELessEq BTDecimal

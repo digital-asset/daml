@@ -1405,6 +1405,7 @@ private[lf] object DecodeV1 {
       BuiltinFunctionInfo(EQUAL_BOOL, BEqualBool),
       BuiltinFunctionInfo(EQUAL_LIST, BEqualList),
       BuiltinFunctionInfo(EQUAL_CONTRACT_ID, BEqualContractId),
+      BuiltinFunctionInfo(EQUAL_TYPE_REP, BEqualTypeRep),
       BuiltinFunctionInfo(TRACE, BTrace),
       BuiltinFunctionInfo(COERCE_CONTRACT_ID, BCoerceContractId, minVersion = coerceContractId)
     )

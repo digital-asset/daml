@@ -423,6 +423,7 @@ object Ast {
   final case object BEqualBool extends BuiltinFunction(2) // : Bool -> Bool -> Bool
   final case object BEqualList extends BuiltinFunction(3) // : ∀a. (a -> a -> Bool) -> List a -> List a -> Bool
   final case object BEqualContractId extends BuiltinFunction(2) // : ∀a. ContractId a -> ContractId a -> Bool
+  final case object BEqualTypeRep extends BuiltinFunction(2) // : TypeRep -> TypeRep -> Bool
   final case object BCoerceContractId extends BuiltinFunction(1) // : ∀a b. ContractId a -> ContractId b
 
   //

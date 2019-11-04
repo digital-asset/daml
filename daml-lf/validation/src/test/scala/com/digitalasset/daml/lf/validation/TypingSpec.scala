@@ -378,9 +378,9 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
         E"Λ (τ : *). λ (t: Any) → (( to_any @(∀ (α : ⋆). Int64) t ))",
         E"Λ (τ : *). λ (t: Any) → (( to_any @(List (Optional (∀ (α : ⋆). Int64))) t ))",
         // ExpToTextTypeConName
-//        E"(( type_rep @Mod:NoSuchType ))",
-//        E"Λ (τ : *). (( type_rep @τ ))",
-//        E"(( type_rep @(Λ (τ : *). Int64) ))",
+        E"(( type_rep @Mod:NoSuchType ))",
+        E"Λ (τ : *). (( type_rep @τ ))",
+        E"(( type_rep @(∀(τ : *) . Int64) ))",
         // ScnPure
         E"Λ (τ : ⋆ → ⋆). λ (e: τ) → (( spure @τ e ))",
         E"Λ (τ : ⋆) (σ : ⋆). λ (e: τ) → (( spure @σ e ))",

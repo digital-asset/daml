@@ -289,6 +289,7 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
     "EQUAL_BOOL" -> BEqualBool,
     "EQUAL_LIST" -> BEqualList,
     "EQUAL_CONTRACT_ID" -> BEqualContractId,
+    "EQUAL_TYPE_REP" -> BEqualTypeRep,
     "COERCE_CONTRACT_ID" -> BCoerceContractId,
   )
 

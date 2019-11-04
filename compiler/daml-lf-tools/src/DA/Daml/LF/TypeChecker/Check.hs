@@ -511,19 +511,24 @@ typeOf = \case
     checkExpr bodyExpr (TBuiltin BTAny)
     pure $ TOptional ty
   ETypeRep ty -> do
-    checkSimpleType ty
+    checkGroundType ty
     pure $ TBuiltin BTTypeRep
   EUpdate upd -> typeOfUpdate upd
   EScenario scen -> typeOfScenario scen
   ELocation _ expr -> typeOf expr
 
 -- Check that the type contains no type variables or quantifiers
-checkGroundType :: MonadGamma m => Type -> m ()
-checkGroundType ty =
+checkGroundType' :: MonadGamma m => Type -> m ()
+checkGroundType' ty =
     when (para (\t children -> or (isForbidden t : children)) ty) $ throwWithContext $ EExpectedAnyType ty
   where isForbidden (TVar _) = True
         isForbidden (TForall _ _) = True
         isForbidden _ = False
+
+checkGroundType :: MonadGamma m => Type -> m ()
+checkGroundType ty = do
+    _ <- checkType ty KStar
+    checkGroundType' ty
 
 checkExpr' :: MonadGamma m => Expr -> Type -> m Type
 checkExpr' expr typ = do

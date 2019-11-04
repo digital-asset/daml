@@ -181,6 +181,7 @@ private[validation] object Typing {
           (alpha ->: alpha ->: TBool) ->: TList(alpha) ->: TList(alpha) ->: TBool),
       BEqualContractId ->
         TForall(alpha.name -> KStar, TContractId(alpha) ->: TContractId(alpha) ->: TBool),
+      BEqualTypeRep -> (TTypeRep ->: TTypeRep ->: TBool),
       BCoerceContractId ->
         TForall(
           alpha.name -> KStar,
@@ -728,17 +729,17 @@ private[validation] object Typing {
     }
 
     // we check that typ contains neither variables nor quantifiers
-    private def checkSimpleType_(typ: Type): Unit = {
+    private def checkGroundType_(typ: Type): Unit = {
       typ match {
         case TVar(_) | TForall(_, _) =>
           throw EExpectedAnyType(ctx, typ)
         case _ =>
-          TypeTraversable(typ).foreach(checkSimpleType_)
+          TypeTraversable(typ).foreach(checkGroundType_)
       }
     }
 
-    private def checkSimpleType(typ:Type): Unit  = {
-      checkSimpleType_(typ)
+    private def checkGroundType(typ:Type): Unit  = {
+      checkGroundType_(typ)
       checkType(typ, KStar)
     }
 
@@ -807,15 +808,15 @@ private[validation] object Typing {
         val _ = checkExpr(body, typ)
         TOptional(typ)
       case EToAny(typ, body) =>
-        checkSimpleType(typ)
+        checkGroundType(typ)
         checkExpr(body, typ)
         TAny
       case EFromAny(typ, body) =>
-        checkSimpleType(typ)
+        checkGroundType(typ)
         checkExpr(body, TAny)
         TOptional(typ)
       case ETypeRep(typ) =>
-        checkSimpleType(typ)
+        checkGroundType(typ)
         TTypeRep
     }
 

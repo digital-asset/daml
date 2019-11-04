@@ -296,6 +296,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
               case BEqualParty => SBEqual
               case BEqualBool => SBEqual
               case BEqualContractId => SBEqual
+              case BEqualTypeRep => SBEqual
 
               // Map
 

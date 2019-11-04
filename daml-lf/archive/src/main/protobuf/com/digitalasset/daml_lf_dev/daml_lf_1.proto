@@ -487,6 +487,8 @@ enum BuiltinFunction {
   EQUAL_BOOL = 85;
   EQUAL_CONTRACT_ID = 86;
   EQUAL_LIST = 87;
+  EQUAL_TYPE_REP = 123;
+
 
   TRACE = 88;
 
@@ -494,7 +496,7 @@ enum BuiltinFunction {
 
   TEXT_FROM_CODE_POINTS = 105;  // *Available in versions >= 1.6*
   TEXT_TO_CODE_POINTS = 106; // *Available in versions >= 1.6*
-  // Next id is 123. 122 is SHIFT_NUMERIC.
+  // Next id is 124. 123 is EQUAL_TYPE_REP.
 }
 
 // Builtin literals

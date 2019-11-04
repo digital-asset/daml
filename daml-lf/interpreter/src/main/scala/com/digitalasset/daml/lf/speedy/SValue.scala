@@ -177,8 +177,6 @@ object SValue {
 
   final case class SAny(ty: Type, value: SValue) extends SValue
 
-  final case class STypeRep(ty: Type) extends SValue
-
   // Corresponds to a DAML-LF Nat type reified as a Speedy value.
   // It is currently used to track at runtime the scale of the
   // Numeric builtin's arguments/output. Should never be translated
@@ -197,6 +195,7 @@ object SValue {
   final case object SUnit extends SPrimLit
   final case class SDate(value: Time.Date) extends SPrimLit
   final case class SContractId(value: V.ContractId) extends SPrimLit
+  final case class STypeRep(ty: Type) extends SPrimLit
   // The "effect" token for update or scenario builtin functions.
   final case object SToken extends SValue
 
