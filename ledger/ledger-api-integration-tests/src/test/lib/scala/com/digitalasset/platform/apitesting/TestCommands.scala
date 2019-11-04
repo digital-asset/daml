@@ -15,11 +15,9 @@ import com.digitalasset.ledger.api.testing.utils.MockMessages.{
   workflowId
 }
 import com.digitalasset.ledger.api.testing.utils.{MockMessages => M}
-import com.digitalasset.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.digitalasset.ledger.api.v1.command_submission_service.SubmitRequest
-import com.digitalasset.ledger.api.v1.commands.Command.Command.{Create, Exercise}
-import com.digitalasset.ledger.api.v1.commands.{Command, CreateCommand, ExerciseCommand}
-import com.digitalasset.ledger.api.v1.value.Value.Sum
+import com.digitalasset.ledger.api.v1.commands.Command.Command.Create
+import com.digitalasset.ledger.api.v1.commands.{Command, CreateCommand}
 import com.digitalasset.ledger.api.v1.value.Value.Sum.{Party, Text}
 import com.digitalasset.ledger.api.v1.value.{Identifier, Record, RecordField, Value}
 import com.digitalasset.platform.PlatformApplications
