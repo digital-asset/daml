@@ -131,18 +131,15 @@ private[testtool] abstract class LedgerTestSuite(val session: LedgerSession) {
       override def show(t: Seq[T]): String = t.toString
 
       override def diff(left: Seq[T], right: Seq[T]): Comparison = {
-        val leftList = left.toList
-        val rightList = right.toList
-        val changed = leftList
-          .zip(rightList)
+        val changed = left.toStream
+          .zip(right.toStream)
           .zipWithIndex
           .map { case ((l, r), index) => index -> diffShowT.diff(l, r) }
-          .filter { case (_, diff) => !diff.isIdentical }
-          .map { case (index, diff) => index.toString -> diff.string }
-        val removed = leftList.zipWithIndex.drop(rightList.length).map {
+          .collect { case (index, diff) if !diff.isIdentical => index.toString -> diff.string }
+        val removed = left.toStream.zipWithIndex.drop(right.length).map {
           case (value, index) => index.toString -> red(diffShowT.show(value))
         }
-        val added = rightList.zipWithIndex.drop(leftList.length).map {
+        val added = right.toStream.zipWithIndex.drop(left.length).map {
           case (value, index) => index.toString -> green(diffShowT.show(value))
         }
 
@@ -155,11 +152,11 @@ private[testtool] abstract class LedgerTestSuite(val session: LedgerSession) {
         } else {
           val changedOption =
             if (changed.isEmpty)
-              List(None)
+              Stream(None)
             else
               changed.map(Some(_))
           val differences = changedOption ++ removed.map(Some(_)) ++ added.map(Some(_))
-          Different(DiffShow.constructorOption("Seq", differences))
+          Different(DiffShow.constructorOption("Seq", differences.toList))
         }
       }
     }
