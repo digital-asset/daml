@@ -71,6 +71,7 @@ class TypeSpec extends WordSpec with Matchers {
           case Pkg.BTOptional => TypePrim(PrimTypeOptional, ImmArraySeq(assertOneArg(args)))
           case Pkg.BTArrow => sys.error("cannot use arrow in interface type")
           case Pkg.BTAny => sys.error("cannot use any in interface type")
+          case Pkg.BTTypeRep => sys.error("cannot use type representation in interface type")
         }
       case Pkg.TTyCon(tycon) => TypeCon(TypeConName(tycon), args.toImmArray.toSeq)
       case Pkg.TNat(_) => sys.error("cannot use nat type in interface type")

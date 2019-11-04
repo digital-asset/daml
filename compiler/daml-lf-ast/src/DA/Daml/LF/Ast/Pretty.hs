@@ -135,6 +135,7 @@ instance Pretty BuiltinType where
     BTMap -> "Map"
     BTArrow -> "(->)"
     BTAny -> "Any"
+    BTTypeRep -> "TypeRep"
 
 prettyRecord :: (Pretty a) =>
   PrettyLevel -> Doc ann -> [(FieldName, a)] -> Doc ann
@@ -449,7 +450,7 @@ instance Pretty Expr where
     ENone typ -> prettyAppKeyword lvl prec "none" [TyArg typ]
     EToAny ty body -> prettyAppKeyword lvl prec "to_any" [TyArg ty, TmArg body]
     EFromAny ty body -> prettyAppKeyword lvl prec "from_any" [TyArg ty, TmArg body]
-    EToTextTypeConName tycon -> prettyAppKeyword lvl prec "to_text_type_con_name" [tplArg tycon]
+    ETypeRep ty -> prettyAppKeyword lvl prec "type_rep" [TyArg ty]
 
 instance Pretty DefDataType where
   pPrintPrec lvl _prec (DefDataType mbLoc tcon (IsSerializable serializable) params dataCons) =

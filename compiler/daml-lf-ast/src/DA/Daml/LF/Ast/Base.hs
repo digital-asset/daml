@@ -155,6 +155,7 @@ data BuiltinType
   | BTMap
   | BTArrow
   | BTAny
+  | BTTypeRep
   deriving (Eq, Data, Generic, NFData, Ord, Show)
 
 -- | Type as used in typed binders.
@@ -448,7 +449,7 @@ data Expr
     { fromAnyType :: !Type
     , fromAnyBody :: !Expr
     }
-  | EToTextTypeConName !(Qualified TypeConName)
+  | ETypeRep !Type
   -- | Update expression.
   | EUpdate !Update
   -- | Scenario expression.

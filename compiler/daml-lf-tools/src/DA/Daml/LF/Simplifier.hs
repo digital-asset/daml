@@ -59,7 +59,7 @@ freeVarsStep = \case
   ESomeF _ s -> s
   EToAnyF _ s -> s
   EFromAnyF _ s -> s
-  EToTextTypeConNameF _ -> mempty
+  ETypeRepF _ -> mempty
   EUpdateF u ->
     case u of
       UPureF _ s -> s
@@ -217,7 +217,7 @@ safetyStep = \case
   EFromAnyF _ s
     | Safe _ <- s -> Safe 0
     | otherwise -> Unsafe
-  EToTextTypeConNameF _ -> Safe 0
+  ETypeRepF _ -> Safe 0
 
 
 infoStep :: ExprF Info -> Info

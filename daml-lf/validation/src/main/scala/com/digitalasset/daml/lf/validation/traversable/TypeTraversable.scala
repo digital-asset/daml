@@ -61,8 +61,8 @@ private[validation] object TypeTraversable {
       case EFromAny(typ, expr) =>
         f(typ)
         foreach(expr, f)
-      case EToTextTypeConName(tyCon) =>
-        f(TTyCon(tyCon))
+      case ETypeRep(tyCon) =>
+        f(tyCon)
       case ENil(typ) =>
         f(typ)
       case ECons(typ, front, tail) =>

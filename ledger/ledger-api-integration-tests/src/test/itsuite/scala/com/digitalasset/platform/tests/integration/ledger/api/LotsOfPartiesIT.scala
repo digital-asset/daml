@@ -4,30 +4,28 @@
 package com.digitalasset.platform.tests.integration.ledger.api
 
 import akka.stream.scaladsl.{Sink, Source}
-import com.digitalasset.ledger.api.testing.utils.{
-  AkkaBeforeAndAfterAll,
-  SuiteResourceManagementAroundAll
-}
+import com.digitalasset.ledger.api.testing.utils.SuiteResourceManagementAroundAll
+import com.digitalasset.ledger.api.v1.commands.CreateCommand
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
 import com.digitalasset.ledger.api.v1.transaction.Transaction
 import com.digitalasset.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
-import com.digitalasset.platform.apitesting.LedgerContextExtensions._
+import com.digitalasset.ledger.api.v1.value.Record
 import com.digitalasset.platform.apitesting.{LedgerContext, MultiLedgerFixture, TestTemplateIds}
 import com.digitalasset.platform.participant.util.ValueConversions._
 import com.digitalasset.util.Ctx
 import org.scalatest.concurrent.AsyncTimeLimitedTests
-import org.scalatest.{Assertion, AsyncWordSpec, Matchers}
+import org.scalatest.{Assertion, AsyncWordSpec, Matchers, OptionValues}
 
 import scala.collection.breakOut
 import scala.concurrent.Future
 
 class LotsOfPartiesIT
     extends AsyncWordSpec
-    with AkkaBeforeAndAfterAll
     with MultiLedgerFixture
     with SuiteResourceManagementAroundAll
     with AsyncTimeLimitedTests
-    with Matchers {
+    with Matchers
+    with OptionValues {
 
   protected lazy val testTemplateIds = new TestTemplateIds(config)
   protected lazy val templateIds = testTemplateIds.templateIds
@@ -46,11 +44,16 @@ class LotsOfPartiesIT
         val giver = "giver" -> submittingParty.asParty
         val observers = "observers" -> observerParties.map(_.asParty).asList
         val cmd =
-          c.createCommand(
+          c.command(
             commandId,
-            templateIds.withObservers,
-            List(giver, observers).asRecordFields,
-            submittingParty)
+            submittingParty,
+            List(
+              CreateCommand(
+                Some(templateIds.withObservers),
+                Some(Record(
+                  Some(templateIds.withObservers),
+                  List(giver, observers).asRecordFields))).wrap)
+          )
         for {
           cc <- c.commandClient()
           tracker <- cc.trackCommands[Unit](List(submittingParty))

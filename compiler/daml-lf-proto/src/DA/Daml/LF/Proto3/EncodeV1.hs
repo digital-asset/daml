@@ -276,6 +276,7 @@ encodeBuiltinType = P.Enumerated . Right . \case
     BTArrow -> P.PrimTypeARROW
     BTNumeric -> P.PrimTypeNUMERIC
     BTAny -> P.PrimTypeANY
+    BTTypeRep -> P.PrimTypeTYPE_REP
 
 encodeType' :: Type -> Encode P.Type
 encodeType' typ = fmap (P.Type . Just) $ case typ ^. _TApps of
@@ -352,6 +353,7 @@ encodeBuiltinExpr = \case
       BTDate -> builtin P.BuiltinFunctionEQUAL_DATE
       BTParty -> builtin P.BuiltinFunctionEQUAL_PARTY
       BTBool -> builtin P.BuiltinFunctionEQUAL_BOOL
+      BTTypeRep -> builtin P.BuiltinFunctionEQUAL_TYPE_REP
       other -> error $ "BEEqual unexpected type " <> show other
 
     BELessEq typ -> case typ of
@@ -577,8 +579,8 @@ encodeExpr' = \case
         expr_FromAnyType <- encodeType ty
         expr_FromAnyExpr <- encodeExpr body
         pureExpr $ P.ExprSumFromAny P.Expr_FromAny{..}
-    EToTextTypeConName tycon -> do
-        expr . P.ExprSumToTextTypeConName <$> encodeQualTypeConName' tycon
+    ETypeRep ty -> do
+        expr . P.ExprSumTypeRep <$> encodeType' ty
   where
     expr = P.Expr Nothing . Just
     pureExpr = pure . expr

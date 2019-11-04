@@ -842,9 +842,9 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
             decodeType(lfExpr.getFromAny.getType),
             decodeExpr(lfExpr.getFromAny.getExpr, definition))
 
-        case PLF.Expr.SumCase.TO_TEXT_TYPE_CON_NAME =>
-          assertSince(LV.Features.toTextTypeConName, "Expr.ToTextTypeConName")
-          EToTextTypeConName(decodeTypeConName(lfExpr.getToTextTypeConName))
+        case PLF.Expr.SumCase.TYPE_REP =>
+          assertSince(LV.Features.typeRep, "Expr.type_rep")
+          ETypeRep(decodeType(lfExpr.getTypeRep))
 
         case PLF.Expr.SumCase.SUM_NOT_SET =>
           throw ParseError("Expr.SUM_NOT_SET")
@@ -1215,7 +1215,8 @@ private[lf] object DecodeV1 {
       BuiltinTypeInfo(MAP, BTMap, minVersion = optional),
       BuiltinTypeInfo(ARROW, BTArrow, minVersion = arrowType),
       BuiltinTypeInfo(NUMERIC, BTNumeric, minVersion = numeric),
-      BuiltinTypeInfo(ANY, BTAny, minVersion = anyType)
+      BuiltinTypeInfo(ANY, BTAny, minVersion = anyType),
+      BuiltinTypeInfo(TYPE_REP, BTTypeRep, minVersion = typeRep)
     )
   }
 
@@ -1396,6 +1397,7 @@ private[lf] object DecodeV1 {
       BuiltinFunctionInfo(EQUAL_BOOL, BEqualBool),
       BuiltinFunctionInfo(EQUAL_LIST, BEqualList),
       BuiltinFunctionInfo(EQUAL_CONTRACT_ID, BEqualContractId),
+      BuiltinFunctionInfo(EQUAL_TYPE_REP, BEqualTypeRep),
       BuiltinFunctionInfo(TRACE, BTrace),
       BuiltinFunctionInfo(COERCE_CONTRACT_ID, BCoerceContractId, minVersion = coerceContractId)
     )

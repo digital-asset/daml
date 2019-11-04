@@ -63,7 +63,7 @@ object LanguageVersion {
     val internedDottedNames = v1_7
     val numeric = v1_7
     val anyType = v1_7
-    val toTextTypeConName = v1_7
+    val typeRep = v1_7
 
     /** See <https://github.com/digital-asset/daml/issues/1866>. To not break backwards
       * compatibility, we introduce a new DAML-LF version where this restriction is in
