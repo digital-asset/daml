@@ -5,16 +5,12 @@ package com.digitalasset.platform.tests.integration.ledger.api.commands
 
 import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.testing.utils.MockMessages
-import com.digitalasset.ledger.api.testing.utils.MockMessages.{applicationId, workflowId}
-import com.digitalasset.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.digitalasset.ledger.api.v1.command_submission_service.SubmitRequest
-import com.digitalasset.ledger.api.v1.commands.{Commands, CreateCommand}
+import com.digitalasset.ledger.api.v1.commands.CreateCommand
 import com.digitalasset.ledger.api.v1.value.{Record, RecordField, Value}
-import com.digitalasset.ledger.client.services.commands.SynchronousCommandClient
-import com.digitalasset.platform.apitesting.{LedgerContext, MultiLedgerFixture, TestTemplateIds}
+import com.digitalasset.platform.apitesting.{MultiLedgerFixture, TestTemplateIds}
 import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.participant.util.ValueConversions._
-import com.digitalasset.platform.tests.integration.ledger.api.TransactionServiceHelpers
 import org.scalatest.AsyncTestSuite
 import scalaz.syntax.tag._
 
@@ -27,11 +23,6 @@ trait MultiLedgerCommandUtils extends MultiLedgerFixture {
 
   protected val testTemplateIds = new TestTemplateIds(config)
   protected val templateIds = testTemplateIds.templateIds
-
-  protected final def newSynchronousCommandClient(ctx: LedgerContext): SynchronousCommandClient =
-    new SynchronousCommandClient(ctx.commandService)
-
-  protected val helpers = new TransactionServiceHelpers(config)
 
   protected val testLedgerId = domain.LedgerId("ledgerId")
   protected val testNotLedgerId = domain.LedgerId("hotdog")
@@ -50,25 +41,6 @@ trait MultiLedgerCommandUtils extends MultiLedgerFixture {
                   Value(Value.Sum.Party(MockMessages.submitAndWaitRequest.commands.get.party)))))))
         ).wrap)
     )
-
-  protected val failingRequest: SubmitRequest =
-    submitRequest.copy(
-      commands = Some(
-        Commands()
-          .withParty("Alice")
-          .withLedgerId(testLedgerId.unwrap)
-          .withCommandId(helpers.failingCommandId)
-          .withWorkflowId(workflowId)
-          .withApplicationId(applicationId)
-          .withCommands(Seq(helpers.wrongCreate))))
-
-  protected val submitAndWaitRequest: SubmitAndWaitRequest =
-    MockMessages.submitAndWaitRequest
-      .update(_.commands.ledgerId := testLedgerId.unwrap)
-      .copy(traceContext = None)
-  protected val failingSubmitAndWaitRequest: SubmitAndWaitRequest = submitAndWaitRequest.copy(
-    commands = MockMessages.submitAndWaitRequest.commands
-      .map(_.copy(commandId = "fails", ledgerId = "not ledger id")))
 
   override protected def config: Config =
     Config.default.withLedgerIdMode(LedgerIdMode.Static(testLedgerId))
