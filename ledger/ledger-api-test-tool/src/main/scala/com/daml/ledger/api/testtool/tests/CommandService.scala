@@ -555,7 +555,6 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
     discloseExerciseToObservers,
     hugeCommandSubmission,
     callablePayout,
-    unitAsArgumentToNothing,
     readyForExercise,
     completions,
     noCompletionsWithoutRightAppId,
