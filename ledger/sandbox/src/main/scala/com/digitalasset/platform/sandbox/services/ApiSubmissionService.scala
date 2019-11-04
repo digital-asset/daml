@@ -8,7 +8,8 @@ import com.daml.ledger.participant.state.index.v2.ContractStore
 import com.daml.ledger.participant.state.v1.SubmissionResult.{
   Acknowledged,
   NotSupported,
-  Overloaded
+  Overloaded,
+  InternalError
 }
 import com.daml.ledger.participant.state.v1.{
   SubmissionResult,
@@ -117,6 +118,10 @@ class ApiSubmissionService private (
           case Success(NotSupported) =>
             logger.debug(s"Submission of command {} was not supported", commands.commandId.unwrap)
             Failure(Status.INVALID_ARGUMENT.asRuntimeException)
+
+          case Success(InternalError(reason)) =>
+            logger.debug(s"Submission of command ${commands.commandId.unwrap} failed, reason=$reason ")
+            Failure(Status.INTERNAL.asRuntimeException)
 
           case Failure(error) =>
             logger.warn(s"Submission of command ${commands.commandId.unwrap} has failed.", error)
