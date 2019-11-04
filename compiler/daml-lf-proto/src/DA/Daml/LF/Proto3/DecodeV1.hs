@@ -630,8 +630,6 @@ decodePrimLit :: LF1.PrimLit -> Decode BuiltinExpr
 decodePrimLit (LF1.PrimLit mbSum) = mayDecode "primLitSum" mbSum $ \case
   LF1.PrimLitSumInt64 sInt -> pure $ BEInt64 sInt
   LF1.PrimLitSumDecimalStr sDec -> decodeDecimalLit $ decodeString sDec
-  LF1.PrimLitSumDecimalInternedStr strId -> lookupString strId >>= decodeDecimalLit
-  LF1.PrimLitSumNumericStr sNum -> decodeNumericLit $ decodeString sNum
   LF1.PrimLitSumNumericInternedStr strId -> lookupString strId >>= decodeNumericLit
   LF1.PrimLitSumTimestamp sTime -> pure $ BETimestamp sTime
   LF1.PrimLitSumTextStr x -> pure $ BEText $ decodeString x

@@ -328,11 +328,9 @@ encodeBuiltinExpr :: BuiltinExpr -> Encode P.ExprSum
 encodeBuiltinExpr = \case
     BEInt64 x -> pureLit $ P.PrimLitSumInt64 x
     BEDecimal dec ->
-        lit . either P.PrimLitSumDecimalStr P.PrimLitSumDecimalInternedStr
-        <$> encodeInternableString (T.pack (show dec))
-    BENumeric n ->
-        lit . either P.PrimLitSumNumericStr P.PrimLitSumNumericInternedStr
-        <$> encodeInternableString (T.pack (show n))
+        pureLit $ P.PrimLitSumDecimalStr $ encodeString (T.pack (show dec))
+    BENumeric num ->
+        lit . P.PrimLitSumNumericInternedStr <$> allocString (T.pack (show num))
     BEText x ->
         lit . either P.PrimLitSumTextStr P.PrimLitSumTextInternedStr
         <$> encodeInternableString x

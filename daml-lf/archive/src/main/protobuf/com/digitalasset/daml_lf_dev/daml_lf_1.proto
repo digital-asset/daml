@@ -510,8 +510,8 @@ message PrimLit {
     // *Must be a valid representation of decimal*
     string decimal_str = 2; // *Available in versions < 1.dev*
 
-    // *Must be a valid interned decimal*
-    int32 decimal_interned_str = 10; // *Available in versions >= 1.dev* // *Available in version < 1.dev*
+    // *Must be a valid interned numeric */
+    int32 numeric_interned_str = 10; // *Available in versions >= 1.dev*
 
     string text_str = 4; // *Available in version < 1.dev*
 
@@ -529,12 +529,6 @@ message PrimLit {
 
     // *Must be a valid date*
     int32 date = 8;
-
-    // *Must be a valid numeric */
-    string numeric_str = 9; // *Available in versions >= 1.dev* // *Available in version < 1.dev*
-
-    // *Must be a valid interned numeric */
-    int32 numeric_interned_str = 13; // *Available in versions >= 1.dev*
   }
 
   reserved 3; // This was char.
