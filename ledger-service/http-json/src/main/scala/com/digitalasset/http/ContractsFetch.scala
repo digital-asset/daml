@@ -53,25 +53,21 @@ private class ContractsFetch(
 
   def contractsIo(jwt: Jwt, party: domain.Party, templateIds: List[domain.TemplateId.RequiredPkg])(
       implicit ec: ExecutionContext,
-      mat: Materializer): ConnectionIO[Unit] = {
-
-    val listOfUnits: ConnectionIO[List[Unit]] =
-      cats.implicits.catsStdInstancesForList.traverse(templateIds) { templateId =>
-        contractsIo(jwt, party, templateId)
-      }(connection.AsyncConnectionIO)
-
-    listOfUnits.map(_ => ())
+      mat: Materializer): ConnectionIO[List[domain.Offset]] = {
+    cats.implicits.catsStdInstancesForList.traverse(templateIds) { templateId =>
+      contractsIo(jwt, party, templateId)
+    }(connection.AsyncConnectionIO)
   }
 
   def contractsIo(jwt: Jwt, party: domain.Party, templateId: domain.TemplateId.RequiredPkg)(
       implicit ec: ExecutionContext,
-      mat: Materializer): ConnectionIO[Unit] =
+      mat: Materializer): ConnectionIO[domain.Offset] =
     for {
       offset0 <- readOffsetFromDbOrFetchFromLedger(jwt, party, templateId)
       _ = logger.debug(s"readOffsetFromDbOrFetchFromLedger($jwt, $party, $templateId): $offset0")
       offset1 <- contractsFromOffsetIo(jwt, party, templateId, offset0)
       _ = logger.debug(s"contractsFromOffsetIo($jwt, $party, $templateId, $offset0): $offset1")
-    } yield ()
+    } yield offset1
 
   private def readOffsetFromDbOrFetchFromLedger(
       jwt: Jwt,
