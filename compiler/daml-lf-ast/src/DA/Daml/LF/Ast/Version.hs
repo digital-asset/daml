@@ -67,11 +67,11 @@ featureAnyType = Feature
    , featureCppFlag = "DAML_ANY_TYPE"
    }
 
-featureTemplateTypeRep :: Feature
-featureTemplateTypeRep = Feature
-    { featureName = "templateTypeRep builtin"
+featureTypeRep :: Feature
+featureTypeRep = Feature
+    { featureName = "TypeRep type"
     , featureMinVersion = versionDev
-    , featureCppFlag = "DAML_TEMPLATE_TYPE_REP"
+    , featureCppFlag = "DAML_TYPE_REP"
     }
 
 featureStringInterning :: Feature

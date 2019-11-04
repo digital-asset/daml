@@ -460,7 +460,7 @@ convertGenericTemplate env x
                     resField = mkField "getTemplateTypeRep"
                 in
                 ETyLam (proxyName, KStar `KArrow` KStar) $!
-                    if envLfVersion env `supports` featureTemplateTypeRep
+                    if envLfVersion env `supports` featureTypeRep
                         then ETmLam (arg, argType) $ ERecCon resType [(resField, ETypeRep (TCon monoTyCon))]
                         else EBuiltin BEError `ETyApp` (argType :-> typeConAppToType resType) `ETmApp` EBuiltin (BEText "templateTypeRep is not supported in this DAML-LF version")
         tyArgs <- mapM (convertType env) tyArgs
@@ -689,7 +689,7 @@ convertBind env (name, x)
 -- during conversion to DAML-LF together with their constructors since we
 -- deliberately remove 'GHC.Types.Opaque' as well.
 internalTypes :: UniqSet FastString
-internalTypes = mkUniqSet ["Scenario","Update","ContractId","Time","Date","Party","Pair", "TextMap", "Any"]
+internalTypes = mkUniqSet ["Scenario","Update","ContractId","Time","Date","Party","Pair", "TextMap", "Any", "TypeRep"]
 
 internalFunctions :: UniqFM (UniqSet FastString)
 internalFunctions = listToUFM $ map (bimap mkModuleNameFS mkUniqSet)
@@ -1374,6 +1374,13 @@ convertTyCon env t
                 -- this and we do not want to make that dependent on the DAML-LF version.
                 pure $ if envLfVersion env `supports` featureAnyType
                     then TAny
+                    else TUnit
+            "TypeRep" ->
+                -- We just translate this to TUnit when it is not supported.
+                -- We can’t get rid of it completely since the template desugaring uses
+                -- this and we do not want to make that dependent on the DAML-LF version.
+                pure $ if envLfVersion env `supports` featureTypeRep
+                    then TTypeRep
                     else TUnit
             _ -> defaultTyCon
     | isBuiltinName "Optional" t = pure (TBuiltin BTOptional)

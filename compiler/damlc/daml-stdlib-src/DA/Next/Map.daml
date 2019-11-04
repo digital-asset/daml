@@ -60,10 +60,6 @@ instance MapKey Party where
   keyToText = partyToText
   keyFromText = fromSome . partyFromText
 
-instance MapKey TemplateTypeRep where
-  keyToText = templateTypeRepToText
-  keyFromText = fromSome . templateTypeRepFromText
-
 instance MapKey Int where
   keyToText = show
   keyFromText = fromSome . parseInt
