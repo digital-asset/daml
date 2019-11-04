@@ -5,10 +5,13 @@ package com.daml.ledger.api.testtool.tests
 
 import java.util.UUID
 
+import com.daml.ledger.api.testtool.infrastructure.Assertions._
+import com.daml.ledger.api.testtool.infrastructure.Eventually.eventually
+import com.daml.ledger.api.testtool.infrastructure.Synchronize.synchronize
 import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTest, LedgerTestSuite}
 import com.digitalasset.ledger.test_stable.DA.Types.Tuple2
-import com.digitalasset.ledger.test_stable.Test.Delegation._
 import com.digitalasset.ledger.test_stable.Test.Delegated._
+import com.digitalasset.ledger.test_stable.Test.Delegation._
 import com.digitalasset.ledger.test_stable.Test.ShowDelegated._
 import com.digitalasset.ledger.test_stable.Test.TextKey._
 import com.digitalasset.ledger.test_stable.Test.TextKeyOperations._
@@ -18,7 +21,7 @@ import scalaz.Tag
 
 final class ContractKeys(session: LedgerSession) extends LedgerTestSuite(session) {
 
-  val fetchDivulgedContract =
+  private val fetchDivulgedContract =
     LedgerTest("CKFetchOrLookup", "Divulged contracts can be fetched or looked up by key") {
       context =>
         val key = s"${UUID.randomUUID.toString}-key"
@@ -55,7 +58,7 @@ final class ContractKeys(session: LedgerSession) extends LedgerTestSuite(session
         }
     }
 
-  val rejectFetchingUndisclosedContract =
+  private val rejectFetchingUndisclosedContract =
     LedgerTest(
       "CKNoFetchUndisclosed",
       "Contract Keys should reject fetching an undisclosed contract") { context =>
@@ -94,7 +97,7 @@ final class ContractKeys(session: LedgerSession) extends LedgerTestSuite(session
       }
     }
 
-  val processContractKeys =
+  private val processContractKeys =
     LedgerTest("CKMaintainerScoped", "Contract keys should be scoped by maintainer") { context =>
       val keyPrefix = UUID.randomUUID.toString
       val key1 = s"$keyPrefix-some-key"
@@ -173,7 +176,7 @@ final class ContractKeys(session: LedgerSession) extends LedgerTestSuite(session
       }
     }
 
-  val recreateContractKeys =
+  private val recreateContractKeys =
     LedgerTest("CKRecreate", "Contract keys can be recreated in single transaction") { context =>
       val key = s"${UUID.randomUUID.toString}-key"
       for {
@@ -200,7 +203,7 @@ final class ContractKeys(session: LedgerSession) extends LedgerTestSuite(session
       }
     }
 
-  val transientContractsArchiveKeys =
+  private val transientContractsArchiveKeys =
     LedgerTest("CKTransients", "Contract keys created by transient contracts are properly archived") {
       context =>
         val key = s"${UUID.randomUUID.toString}-key"
