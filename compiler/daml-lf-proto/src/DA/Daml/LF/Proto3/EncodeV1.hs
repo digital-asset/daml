@@ -355,6 +355,7 @@ encodeBuiltinExpr = \case
       BTDate -> builtin P.BuiltinFunctionEQUAL_DATE
       BTParty -> builtin P.BuiltinFunctionEQUAL_PARTY
       BTBool -> builtin P.BuiltinFunctionEQUAL_BOOL
+      BTTypeRep -> builtin P.BuiltinFunctionEQUAL_TYPE_REP
       other -> error $ "BEEqual unexpected type " <> show other
 
     BELessEq typ -> case typ of

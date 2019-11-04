@@ -110,12 +110,13 @@ object Converter {
   }
 
   private def fromIdentifier(id: value.Identifier): SValue = {
-    SText(
-      Identifier(
-        PackageId.assertFromString(id.packageId),
-        QualifiedName(
-          DottedName.assertFromString(id.moduleName),
-          DottedName.assertFromString(id.entityName))).toString())
+    STypeRep(
+      TTyCon(
+        TypeConName(
+          PackageId.assertFromString(id.packageId),
+          QualifiedName(
+            DottedName.assertFromString(id.moduleName),
+            DottedName.assertFromString(id.entityName)))))
   }
 
   private def fromTransactionId(triggerIds: TriggerIds, transactionId: String): SValue = {
@@ -283,8 +284,8 @@ object Converter {
 
   private def toIdentifier(v: SValue): Either[String, Identifier] = {
     v match {
-      case SText(s) => Identifier.fromString(s)
-      case _ => Left(s"Expected Identifier but got $v")
+      case STypeRep(TTyCon(id)) => Right(id)
+      case _ => Left(s"Expected STypeRep but got $v")
     }
   }
 

@@ -1,6 +1,7 @@
 -- Copyright (c) 2019 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# OPTIONS -Wno-unused-binds #-} -- the opaque constructors are not exported
 
@@ -228,4 +229,8 @@ newtype TemplateTypeRep = TemplateTypeRep { getTemplateTypeRep : TypeRep }
   deriving Eq
 
 instance Eq TypeRep where
-  (==) = error "unimplemented"
+#ifdef DAML_TYPE_REP
+  (==) = primitive @"BEEqual"
+#else
+  (==) = error "TYPE_REP not supported in this version of DAML-LF"
+#endif
