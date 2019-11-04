@@ -61,8 +61,7 @@ import com.digitalasset.ledger.client.binding.{Primitive, Template}
 import com.digitalasset.platform.testing.{
   FiniteStreamObserver,
   SingleItemObserver,
-  SizeBoundObserver,
-  WithTimeout
+  SizeBoundObserver
 }
 import com.google.protobuf.ByteString
 import io.grpc.stub.StreamObserver
@@ -70,7 +69,6 @@ import scalaz.Tag
 import scalaz.syntax.tag._
 
 import scala.concurrent.{ExecutionContext, Future}
-import scala.concurrent.duration.DurationInt
 import scala.util.control.NonFatal
 
 private[testtool] object ParticipantTestContext {
@@ -502,11 +500,10 @@ private[testtool] final class ParticipantTestContext private[participant] (
       Some(referenceOffset))
 
   def firstCompletions(request: CompletionStreamRequest): Future[Vector[Completion]] =
-    WithTimeout(5.seconds)(
-      SingleItemObserver
-        .find[CompletionStreamResponse](_.completions.nonEmpty)(
-          services.commandCompletion.completionStream(request, _))
-        .map(_.fold(Seq.empty[Completion])(_.completions).toVector))
+    SingleItemObserver
+      .find[CompletionStreamResponse](_.completions.nonEmpty)(
+        services.commandCompletion.completionStream(request, _))
+      .map(_.fold(Seq.empty[Completion])(_.completions).toVector)
 
   def firstCompletions(parties: Party*): Future[Vector[Completion]] =
     firstCompletions(completionStreamRequest(parties: _*))

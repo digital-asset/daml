@@ -15,9 +15,11 @@ import com.digitalasset.ledger.test_stable.Test.Dummy._
 import com.digitalasset.ledger.test_stable.Test.DummyFactory._
 import com.digitalasset.ledger.test_stable.Test.WithObservers._
 import com.digitalasset.ledger.test_stable.Test._
-import com.digitalasset.platform.testing.TimeoutException
+import com.digitalasset.platform.testing.{TimeoutException, WithTimeout}
 import io.grpc.Status
 import scalaz.syntax.tag._
+
+import scala.concurrent.duration.DurationInt
 
 final class CommandService(session: LedgerSession) extends LedgerTestSuite(session) {
   private val submitAndWaitTest =
@@ -526,7 +528,7 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
           invalidRequest = ledger
             .completionStreamRequest(party)
             .update(_.applicationId := "invalid-application-id")
-          failed <- ledger.firstCompletions(invalidRequest).failed
+          failed <- WithTimeout(5.seconds)(ledger.firstCompletions(invalidRequest)).failed
         } yield {
           assert(failed == TimeoutException, "Timeout expected")
         }
@@ -542,7 +544,7 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
             Vector(party, notTheSubmittingParty) <- ledger.allocateParties(2)
             request <- ledger.submitRequest(party, Dummy(party).create.command)
             _ <- ledger.submit(request)
-            failed <- ledger.firstCompletions(notTheSubmittingParty).failed
+            failed <- WithTimeout(5.seconds)(ledger.firstCompletions(notTheSubmittingParty)).failed
           } yield {
             assert(failed == TimeoutException, "Timeout expected")
           }
