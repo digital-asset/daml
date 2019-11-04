@@ -62,6 +62,7 @@ data UnserializabilityReason
   | URNumericOutOfRange !Natural
   | URTypeLevelNat
   | URAny -- ^ It contains a value of type Any.
+  | URTypeRep -- ^ It contains a value of type TypeRep.
 
 data Error
   = EUnknownTypeVar        !TypeVarName
@@ -168,6 +169,7 @@ instance Pretty UnserializabilityReason where
     URNumericOutOfRange n -> "Numeric scale " <> integer (fromIntegral n) <> " is out of range (needs to be between 0 and 38)"
     URTypeLevelNat -> "type-level nat"
     URAny -> "Any"
+    URTypeRep -> "TypeRep"
 
 instance Pretty Error where
   pPrint = \case

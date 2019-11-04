@@ -141,23 +141,7 @@ object Ref {
 
   /* A fully-qualified identifier pointing to a definition in the
    * specified package. */
-  case class Identifier(packageId: PackageId, qualifiedName: QualifiedName) {
-    override def toString: String = packageId.toString + ":" + qualifiedName.toString
-  }
-  object Identifier {
-    type T = Identifier
-
-    def fromString(s: String): Either[String, Identifier] = {
-      val segments = split(s, ':')
-      if (segments.length != 3)
-        Left(s"Expecting three segments in $s, but got ${segments.length}")
-      else
-        for {
-          packageId <- PackageId.fromString(segments(0))
-          qualifiedName <- QualifiedName.fromString(segments(1) + ":" + segments(2))
-        } yield Identifier(packageId, qualifiedName)
-    }
-  }
+  case class Identifier(packageId: PackageId, qualifiedName: QualifiedName)
 
   /* Choice name in a template. */
   val ChoiceName: Name.type = Name

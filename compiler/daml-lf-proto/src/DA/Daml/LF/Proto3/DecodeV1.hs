@@ -298,6 +298,7 @@ decodeBuiltinFunction = pure . \case
   LF1.BuiltinFunctionEQUAL_DATE -> BEEqual BTDate
   LF1.BuiltinFunctionEQUAL_PARTY -> BEEqual BTParty
   LF1.BuiltinFunctionEQUAL_BOOL -> BEEqual BTBool
+  LF1.BuiltinFunctionEQUAL_TYPE_REP -> BEEqual BTTypeRep
 
   LF1.BuiltinFunctionLEQ_INT64 -> BELessEq BTInt64
   LF1.BuiltinFunctionLEQ_DECIMAL -> BELessEq BTDecimal
@@ -506,9 +507,8 @@ decodeExprSum exprSum = mayDecode "exprSum" exprSum $ \case
     type' <- mayDecode "expr_FromAnyType" mbType decodeType
     expr <- mayDecode "expr_FromAnyExpr" mbExpr decodeExpr
     return (EFromAny type' expr)
-  LF1.ExprSumToTextTypeConName tycon -> do
-    con <- decodeTypeConName tycon
-    return (EToTextTypeConName con)
+  LF1.ExprSumTypeRep typ ->
+    ETypeRep <$> decodeType typ
 
 decodeUpdate :: LF1.Update -> Decode Expr
 decodeUpdate LF1.Update{..} = mayDecode "updateSum" updateSum $ \case
@@ -678,6 +678,7 @@ decodePrim = pure . \case
   LF1.PrimTypeMAP -> BTMap
   LF1.PrimTypeARROW -> BTArrow
   LF1.PrimTypeANY -> BTAny
+  LF1.PrimTypeTYPE_REP -> BTTypeRep
 
 decodeTypeLevelNat :: Integer -> Decode TypeLevelNat
 decodeTypeLevelNat m =
