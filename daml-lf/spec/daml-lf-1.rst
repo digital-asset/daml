@@ -245,8 +245,7 @@ Version: 1.dev
     ``from_any`` and ``to_any`` functions to convert from/to
     an arbitrary ground type (i.e. a type with no free type variables) to ``Any``.
 
-  * **Add** ``to_text_type_con_name`` to generate a unique textual representation
-    of a type constructor.
+  * **Add** ``type_rep``, a value presenting a type.
 
 Abstract syntax
 ^^^^^^^^^^^^^^^
@@ -544,6 +543,7 @@ Then we can define our kinds, types, and expressions::
        |  'Update'                                  -- BTyUpdate
        |  'ContractId'                              -- BTyContractId
        |  'Any'                                     -- BTyAny
+       |  'TypeRep'                                 -- BTTypeRep
 
   Types (mnemonic: tau for type)
     τ, σ
@@ -590,7 +590,7 @@ Then we can define our kinds, types, and expressions::
        |  u                                         -- ExpUpdate: Update expression
        | 'to_any' @τ t                              -- ExpToAny: Wrap a value of the given type in Any
        | 'from_any' @τ t                            -- ExpToAny: Extract a value of the given from Any or return None
-       | 'to_text_type_con_name' @Mod:T             -- ExpToTextTypeConName: Generate a unique textual representation of the given TypeConName
+       | 'type_rep' @τ                              -- ExpToTypeRep: A type representation
 
   Patterns
     p
@@ -807,6 +807,9 @@ First, we formally defined *well-formed types*. ::
     ————————————————————————————————————————————— TyAny
       Γ  ⊢  'Any' : ⋆
 
+    ————————————————————————————————————————————— TyTypeRep
+      Γ  ⊢  'TypeRep' : ⋆
+
       'record' T (α₁:k₁) … (αₙ:kₙ) ↦ … ∈ 〚Ξ〛Mod
     ————————————————————————————————————————————— TyRecordCon
       Γ  ⊢  Mod:T : k₁ → … → kₙ  → ⋆
@@ -893,17 +896,9 @@ Then we define *well-formed expressions*. ::
     ——————————————————————————————————————————————————————————————— ExpFromAny
       Γ  ⊢  'from_any' @τ e  :  'Optional' τ
 
-      'record' (x : T) ↦ …  ∈  〚Ξ〛Mod
-    ——————————————————————————————————————————————————————————————— ExpToTextTypeConNameRecord
-      Γ  ⊢  'to_text_type_con_name' @Mod:T  :  'Text'
-
-      'variant' (x : T) ↦ …  ∈  〚Ξ〛Mod
-    ——————————————————————————————————————————————————————————————— ExpToTextTypeConNameVariant
-      Γ  ⊢  'to_text_type_con_name' @Mod:T  :  'Text'
-
-      'enum' (x : T) ↦ …  ∈  〚Ξ〛Mod
-    ——————————————————————————————————————————————————————————————— ExpToTextTypeConNameEnum
-      Γ  ⊢  'to_text_type_con_name' @Mod:T  :  'Text'
+      ε  ⊢  τ : *     τ contains no quantifiers
+    ——————————————————————————————————————————————————————————————— ExpTypeRep
+      Γ  ⊢  'type_rep' @τ  :  'TypeRep'
 
     ——————————————————————————————————————————————————————————————— ExpBuiltin
       Γ  ⊢  F : 𝕋(F)
@@ -1508,10 +1503,12 @@ need to be evaluated further. ::
    ——————————————————————————————————————————————————— ValExpTupleCon
      ⊢ᵥ  ⟨ f₁ = e₁, …, fₘ = eₘ ⟩
 
-
      ⊢ᵥ  e
    ——————————————————————————————————————————————————— ValExpToAny
      ⊢ᵥ  'to_any' @τ e
+
+   ——————————————————————————————————————————————————— ValExpTypeRep
+     ⊢ᵥ  'type_rep' @τ
 
      ⊢ᵥ  e
    ——————————————————————————————————————————————————— ValExpUpdPure
@@ -1682,10 +1679,6 @@ exact output.
       e ‖ E₀  ⇓  Ok ('to_any' @τ₁ v) ‖ E₁     τ₁ ≠ τ₂
     —————————————————————————————————————————————————————————————————————— EvExpFromAnyFail
       'from_any' @τ₂ e ‖ E₀  ⇓  'None' ‖ E₁
-
-
-    —————————————————————————————————————————————————————————————————————— EvExpToTextTypeConName
-      'to_text_type_con_name' @Mod:T ‖ E₀  ⇓  "Mod:T" ‖ E₀
 
       e₁ ‖ E₀  ⇓  Ok v₁ ‖ E₁
       v 'matches' p₁  ⇝  Succ (x₁ ↦ v₁ · … · xₘ ↦ vₘ · ε)
@@ -2569,6 +2562,16 @@ Map functions
   Return the number of elements in the map.
 
   [*Available in versions >= 1.3*]
+
+Type Representation function
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+* ``EQUAL_TYPE_REP`` : 'TypeRep' → 'TypeRep' → 'Bool'``
+
+  Returns ``'True'`` if the first type representation is syntactically equal to
+  the second one, ``'False'`` otherwise.
+
+  [*Available in versions >= 1.dev*]
 
 Conversions functions
 ~~~~~~~~~~~~~~~~~~~~~
