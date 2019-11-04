@@ -41,13 +41,15 @@ trait ExtractorFixture extends SandboxFixture with PostgresAround with Types {
     ),
   )
 
+  protected def outputFormat: String = "single-table"
+
   protected def configureExtractor(ec: ExtractorConfig): ExtractorConfig = ec
 
   protected def target: PostgreSQLTarget = PostgreSQLTarget(
     connectUrl = postgresFixture.jdbcUrl,
     user = "test",
     password = "",
-    outputFormat = "combined",
+    outputFormat = outputFormat,
     schemaPerPackage = false,
     mergeIdentical = false,
     stripPrefix = None

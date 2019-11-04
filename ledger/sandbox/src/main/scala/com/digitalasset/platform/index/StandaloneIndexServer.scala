@@ -12,7 +12,7 @@ import akka.stream.scaladsl.Sink
 import com.daml.ledger.participant.state.v1.{ParticipantId, ReadService, WriteService}
 import com.digitalasset.daml.lf.engine.Engine
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
-import com.digitalasset.ledger.api.auth.AuthService
+import com.digitalasset.ledger.api.auth.{AuthService, Authorizer}
 import com.digitalasset.ledger.api.auth.interceptor.AuthorizationInterceptor
 import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.domain.LedgerId
@@ -133,10 +133,12 @@ class StandaloneIndexServer(
   private def buildAndStartApiServer(infra: Infrastructure)(
       implicit ec: ExecutionContext): Future[ApiServerState] = {
     implicit val mat = infra.materializer
-    implicit val mm: MetricsManager = infra.metricsManager
+    val mm: MetricsManager = infra.metricsManager
 
     val packageStore = loadDamlPackages()
     preloadPackages(packageStore)
+
+    val authorizer = new Authorizer(() => java.time.Clock.systemUTC.instant())
 
     for {
       cond <- readService.getLedgerInitialConditions().runWith(Sink.head)
@@ -145,14 +147,15 @@ class StandaloneIndexServer(
         domain.LedgerId(cond.ledgerId),
         participantId,
         config.jdbcUrl,
-        loggerFactory)
+        loggerFactory,
+        mm)
       apiServer <- LedgerApiServer.create(
         (am: ActorMaterializer, esf: ExecutionSequencerFactory) =>
           ApiServices
             .create(
               writeService,
               indexService,
-              authService,
+              authorizer,
               StandaloneIndexServer.engine,
               config.timeProvider,
               cond.config.timeModel,

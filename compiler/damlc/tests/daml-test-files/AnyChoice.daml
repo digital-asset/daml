@@ -50,7 +50,7 @@ main = scenario do
   let c2 = C2
   let ct1 = CT (T1 0 p)
   let ct2 = CT (T2 "" p)
-  x <- pure $ toAnyChoice @T1 @C1 c1
+  let x = toAnyChoice @T1 @C1 c1
   fromAnyChoice @T1 @C1 (toAnyChoice @T1 c1) === Some c1
   fromAnyChoice @T1 @C1' (toAnyChoice @T1 c1) === None
   fromAnyChoice @T2 @C2 (toAnyChoice @T2 c2) === Some c2

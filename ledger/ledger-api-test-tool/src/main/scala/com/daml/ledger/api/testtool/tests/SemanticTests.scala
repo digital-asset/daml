@@ -3,7 +3,6 @@
 
 package com.daml.ledger.api.testtool.tests
 
-import ai.x.diff.conversions._
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
 import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTest, LedgerTestSuite}
 import com.digitalasset.ledger.api.v1.value.{Record, RecordField, Value}

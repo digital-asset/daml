@@ -264,9 +264,15 @@ toJsonObject v = either (\k -> HM.singleton k v) id $ objectOrKey v where
     Aeson.Bool _ -> Left "Bool"
     Aeson.Null -> Left "Null"
 
+-- | Map from our custom severities to Google Cloud Stackdriver's LogSeverity.
+-- Most severity levels are named the same, though we map Telemetry to NOTICE.
+-- This is necessary as a log message is rejected if its severity is not valid.
 priorityToGCP :: Lgr.Priority -> (T.Text, Value)
 priorityToGCP prio = ("severity", prio')
-    where prio' = toJSON $ map toUpper $ show prio
+    where
+      prio' = case prio of
+        Lgr.Telemetry -> "NOTICE"
+        _ -> toJSON $ map toUpper $ show prio
 
 -- | Add something to the log queue.
 logGCP

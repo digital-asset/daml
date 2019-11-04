@@ -4,6 +4,7 @@
 package com.digitalasset.ledger.api.auth.interceptor
 
 import com.digitalasset.ledger.api.auth.{AuthService, Claims}
+import com.digitalasset.platform.server.api.validation.ErrorFactories.internal
 import io.grpc.{
   Context,
   Contexts,
@@ -17,18 +18,18 @@ import org.slf4j.{Logger, LoggerFactory}
 
 import scala.compat.java8.FutureConverters
 import scala.concurrent.ExecutionContext
-import scala.util.{Failure, Success}
+import scala.util.{Failure, Success, Try}
 
 /**
   * This interceptor uses the given [[AuthService]] to get [[Claims]] for the current request,
   * and then stores them in the current [[Context]].
-  *
-  * Use [[com.digitalasset.ledger.api.auth.services.ApiServiceAuthorization]] to read the claims from the context.
-  * */
-class AuthorizationInterceptor(protected val authService: AuthService, ec: ExecutionContext)
+  */
+final class AuthorizationInterceptor(protected val authService: AuthService, ec: ExecutionContext)
     extends ServerInterceptor {
 
-  protected val logger: Logger = LoggerFactory.getLogger(AuthorizationInterceptor.getClass)
+  private[this] val logger: Logger = LoggerFactory.getLogger(AuthorizationInterceptor.getClass)
+
+  import AuthorizationInterceptor.contextKeyClaim
 
   override def interceptCall[ReqT, RespT](
       call: ServerCall[ReqT, RespT],
@@ -47,7 +48,7 @@ class AuthorizationInterceptor(protected val authService: AuthService, ec: Execu
         .toScala(authService.decodeMetadata(headers))
         .onComplete {
           case Success(claims) =>
-            val nextCtx = prevCtx.withValue(AuthorizationInterceptor.contextKeyClaim, claims)
+            val nextCtx = prevCtx.withValue(contextKeyClaim, claims)
             // Contexts.interceptCall() creates a listener that wraps all methods of `nextListener`
             // such that `Context.current` returns `nextCtx`.
             val nextListenerWithContext =
@@ -66,9 +67,15 @@ class AuthorizationInterceptor(protected val authService: AuthService, ec: Execu
 }
 
 object AuthorizationInterceptor {
-  val contextKeyClaim: Context.Key[Claims] = Context.key("AuthServiceDecodedClaim")
 
-  def apply(authService: AuthService, ec: ExecutionContext): AuthorizationInterceptor = {
+  private val contextKeyClaim: Context.Key[Claims] = Context.key("AuthServiceDecodedClaim")
+
+  private[this] val claimNotFound = "Cannot retrieve claims from context"
+
+  def extractClaimsFromContext(): Try[Claims] =
+    Try(Option(contextKeyClaim.get()).getOrElse(throw internal(claimNotFound)))
+
+  def apply(authService: AuthService, ec: ExecutionContext): AuthorizationInterceptor =
     new AuthorizationInterceptor(authService, ec)
-  }
+
 }

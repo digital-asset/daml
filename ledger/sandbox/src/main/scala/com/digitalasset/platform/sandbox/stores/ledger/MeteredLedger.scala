@@ -64,7 +64,7 @@ private class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, mm: MetricsManager)
 }
 
 object MeteredReadOnlyLedger {
-  def apply(ledger: ReadOnlyLedger)(implicit mm: MetricsManager): ReadOnlyLedger =
+  def apply(ledger: ReadOnlyLedger, mm: MetricsManager): ReadOnlyLedger =
     new MeteredReadOnlyLedger(ledger, mm)
 }
 
@@ -102,5 +102,5 @@ private class MeteredLedger(ledger: Ledger, mm: MetricsManager)
 }
 
 object MeteredLedger {
-  def apply(ledger: Ledger)(implicit mm: MetricsManager): Ledger = new MeteredLedger(ledger, mm)
+  def apply(ledger: Ledger, mm: MetricsManager): Ledger = new MeteredLedger(ledger, mm)
 }

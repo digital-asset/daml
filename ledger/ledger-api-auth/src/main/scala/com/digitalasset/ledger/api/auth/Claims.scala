@@ -3,6 +3,8 @@
 
 package com.digitalasset.ledger.api.auth
 
+import java.time.Instant
+
 import com.digitalasset.daml.lf.data.Ref
 
 /**
@@ -40,8 +42,10 @@ case object ClaimActAsAnyParty extends Claim
 final case class ClaimActAsParty(name: Ref.Party) extends Claim
 
 /**
-  * [[Claims]] define what actions an authenticated user can perform on the ledger API.
+  * [[Claims]] define what actions an authenticated user can perform on the Ledger API.
   *
+  * They also optionally specify an expiration epoch time that statically specifies the
+  * time on or after which the token will no longer be considered valid by the Ledger API.
   *
   * The following is a full list of services and the corresponding required claims:
   * +-------------------------------------+----------------------------+------------------------------------------+
@@ -63,25 +67,27 @@ final case class ClaimActAsParty(name: Ref.Party) extends Claim
   * | TransactionService                  | *                          | for each requested party p: canActAs(p)  |
   * +-------------------------------------+----------------------------+------------------------------------------+
   */
-case class Claims(claims: Seq[Claim]) {
+final case class Claims(claims: Seq[Claim], expiration: Option[Instant] = None) {
 
-  /** Returns true if the set of claims authorizes the user to use admin services */
-  def isAdmin: Boolean = claims.exists {
-    case ClaimAdmin => true
-    case _ => false
-  }
+  /** Returns false if the expiration timestamp exists and is greather than or equal to the current time */
+  def notExpired(now: Instant): Boolean =
+    expiration.forall(now.isBefore)
 
-  /** Returns true if the set of claims authorizes the user to use public services */
-  def isPublic: Boolean = claims.exists {
-    case ClaimPublic => true
-    case _ => false
-  }
+  /** Returns true if the set of claims authorizes the user to use admin services, unless the claims expired */
+  def isAdmin: Boolean =
+    claims.contains(ClaimAdmin)
 
-  /** Returns true if the set of claims authorizes the user to act as the given party */
-  def canActAs(party: String): Boolean = claims.exists {
-    case ClaimActAsAnyParty => true
-    case ClaimActAsParty(p) => p == party
-    case _ => false
+  /** Returns true if the set of claims authorizes the user to use public services, unless the claims expired */
+  def isPublic: Boolean =
+    claims.contains(ClaimPublic)
+
+  /** Returns true if the set of claims authorizes the user to act as the given party, unless the claims expired */
+  def canActAs(party: String): Boolean = {
+    claims.exists {
+      case ClaimActAsAnyParty => true
+      case ClaimActAsParty(p) if p == party => true
+      case _ => false
+    }
   }
 }
 
@@ -92,4 +98,5 @@ object Claims {
 
   /** A set of [[Claims]] that has all possible authorizations */
   val wildcard = Claims(List[Claim](ClaimPublic, ClaimAdmin, ClaimActAsAnyParty))
+
 }

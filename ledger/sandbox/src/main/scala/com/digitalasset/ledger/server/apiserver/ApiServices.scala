@@ -12,31 +12,21 @@ import com.daml.ledger.participant.state.index.v2.{
   _
 }
 import com.daml.ledger.participant.state.v1.{TimeModel, WriteService}
-import com.digitalasset.ledger.api.auth.AuthService
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.engine._
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
-import com.digitalasset.ledger.api.auth.services.{
-  ActiveContractsServiceAuthorization,
-  CommandCompletionServiceAuthorization,
-  CommandServiceAuthorization,
-  CommandSubmissionServiceAuthorization,
-  LedgerConfigurationServiceAuthorization,
-  LedgerIdentityServiceAuthorization,
-  PackageManagementServiceAuthorization,
-  PackageServiceAuthorization,
-  PartyManagementServiceAuthorization,
-  TimeServiceAuthorization,
-  TransactionServiceAuthorization
-}
+import com.digitalasset.ledger.api.auth.services._
+import com.digitalasset.ledger.api.auth.Authorizer
 import com.digitalasset.ledger.api.v1.command_completion_service.CompletionEndRequest
 import com.digitalasset.ledger.client.services.commands.CommandSubmissionFlow
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.sandbox.config.CommandConfiguration
 import com.digitalasset.platform.sandbox.services._
-import com.digitalasset.platform.sandbox.services.admin.ApiPackageManagementService
+import com.digitalasset.platform.sandbox.services.admin.{
+  ApiPackageManagementService,
+  ApiPartyManagementService
+}
 import com.digitalasset.platform.sandbox.services.transaction.ApiTransactionService
-import com.digitalasset.platform.sandbox.services.admin.ApiPartyManagementService
 import com.digitalasset.platform.sandbox.stores.ledger.CommandExecutorImpl
 import com.digitalasset.platform.server.services.command.ApiCommandService
 import com.digitalasset.platform.server.services.identity.ApiLedgerIdentityService
@@ -72,7 +62,7 @@ object ApiServices {
   def create(
       writeService: WriteService,
       indexService: IndexService,
-      authService: AuthService,
+      authorizer: Authorizer,
       engine: Engine,
       timeProvider: TimeProvider,
       timeModel: TimeModel,
@@ -157,7 +147,7 @@ object ApiServices {
               tsb,
               loggerFactory
             ),
-            authService
+            authorizer
           )
         }
 
@@ -173,17 +163,17 @@ object ApiServices {
       new ApiServicesBundle(
         apiTimeServiceOpt.toList :::
           List(
-          new LedgerIdentityServiceAuthorization(apiLedgerIdentityService, authService),
-          new PackageServiceAuthorization(apiPackageService, authService),
-          new LedgerConfigurationServiceAuthorization(apiConfigurationService, authService),
-          new CommandSubmissionServiceAuthorization(apiSubmissionService, authService),
-          new TransactionServiceAuthorization(apiTransactionService, authService),
-          new CommandCompletionServiceAuthorization(apiCompletionService, authService),
-          new CommandServiceAuthorization(apiCommandService, authService),
-          new ActiveContractsServiceAuthorization(apiActiveContractsService, authService),
+          new LedgerIdentityServiceAuthorization(apiLedgerIdentityService, authorizer),
+          new PackageServiceAuthorization(apiPackageService, authorizer),
+          new LedgerConfigurationServiceAuthorization(apiConfigurationService, authorizer),
+          new CommandSubmissionServiceAuthorization(apiSubmissionService, authorizer),
+          new TransactionServiceAuthorization(apiTransactionService, authorizer),
+          new CommandCompletionServiceAuthorization(apiCompletionService, authorizer),
+          new CommandServiceAuthorization(apiCommandService, authorizer),
+          new ActiveContractsServiceAuthorization(apiActiveContractsService, authorizer),
           apiReflectionService,
-          new PartyManagementServiceAuthorization(apiPartyManagementService, authService),
-          new PackageManagementServiceAuthorization(apiPackageManagementService, authService),
+          new PartyManagementServiceAuthorization(apiPartyManagementService, authorizer),
+          new PackageManagementServiceAuthorization(apiPackageManagementService, authorizer),
         ))
     }
   }

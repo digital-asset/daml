@@ -76,7 +76,7 @@ private class JdbcLedgerDao(
 
   override def lookupLedgerId(): Future[Option[LedgerId]] =
     dbDispatcher
-      .executeSql("get ledger id") { implicit conn =>
+      .executeSql("get_ledger_id") { implicit conn =>
         SQL_SELECT_LEDGER_ID
           .as(ledgerString("ledger_id").map(id => LedgerId(id.toString)).singleOpt)
       }
@@ -84,7 +84,7 @@ private class JdbcLedgerDao(
   private val SQL_SELECT_LEDGER_END = SQL("select ledger_end from parameters")
 
   override def lookupLedgerEnd(): Future[Long] =
-    dbDispatcher.executeSql("get ledger end") { implicit conn =>
+    dbDispatcher.executeSql("get_ledger_end") { implicit conn =>
       SQL_SELECT_LEDGER_END
         .as(long("ledger_end").single)
     }
@@ -92,7 +92,7 @@ private class JdbcLedgerDao(
   private val SQL_SELECT_EXTERNAL_LEDGER_END = SQL("select external_ledger_end from parameters")
 
   override def lookupExternalLedgerEnd(): Future[Option[LedgerString]] =
-    dbDispatcher.executeSql("get external ledger end") { implicit conn =>
+    dbDispatcher.executeSql("get_external_ledger_end") { implicit conn =>
       SQL_SELECT_EXTERNAL_LEDGER_END
         .as(ledgerString("external_ledger_end").?.single)
     }
@@ -101,7 +101,7 @@ private class JdbcLedgerDao(
     "insert into parameters(ledger_id, ledger_end) VALUES({LedgerId}, {LedgerEnd})")
 
   override def initializeLedger(ledgerId: LedgerId, ledgerEnd: LedgerOffset): Future[Unit] =
-    dbDispatcher.executeSql("initialize ledger parameters") { implicit conn =>
+    dbDispatcher.executeSql("initialize_ledger_parameters") { implicit conn =>
       val _ = SQL_INITIALIZE
         .on("LedgerId" -> ledgerId.unwrap)
         .on("LedgerEnd" -> ledgerEnd)
@@ -188,7 +188,7 @@ private class JdbcLedgerDao(
       .map(AbsoluteContractId)
 
   override def lookupKey(key: Node.GlobalKey, forParty: Party): Future[Option[AbsoluteContractId]] =
-    dbDispatcher.executeSql("lookup contract by key")(
+    dbDispatcher.executeSql("lookup_contract_by_key")(
       implicit conn =>
         SQL_SELECT_CONTRACT_KEY_FOR_PARTY
           .on(
@@ -685,7 +685,7 @@ private class JdbcLedgerDao(
       }
 
     dbDispatcher
-      .executeSql(s"store ledger entry [${ledgerEntry.getClass.getSimpleName}]") { implicit conn =>
+      .executeSql("store_ledger_entry", Some(ledgerEntry.getClass.getSimpleName)) { implicit conn =>
         val resp = insertEntry(ledgerEntry)
         updateLedgerEnd(newLedgerEnd, externalOffset)
         resp
@@ -706,7 +706,8 @@ private class JdbcLedgerDao(
 
     dbDispatcher
       .executeSql(
-        s"store initial state from scenario [${activeContracts.size} contracts, ${ledgerEntries.size} ledger entries") {
+        "store_initial_state_from_scenario",
+        Some(s"active contracts: ${activeContracts.size}, ledger entries: ${ledgerEntries.size}")) {
         implicit conn =>
           // First, store all ledger entries without updating the ACS
           // We can't use the storeLedgerEntry(), as that one does update the ACS
@@ -863,7 +864,7 @@ private class JdbcLedgerDao(
 
   override def lookupLedgerEntry(offset: Long): Future[Option[LedgerEntry]] = {
     dbDispatcher
-      .executeSql(s"lookup ledger entry at offset $offset") { implicit conn =>
+      .executeSql("lookup_ledger_entry_at_offset", Some(s"offset: $offset")) { implicit conn =>
         SQL_SELECT_ENTRY
           .on("ledger_offset" -> offset)
           .as(EntryParser.singleOpt)
@@ -874,7 +875,7 @@ private class JdbcLedgerDao(
 
   override def lookupTransaction(
       transactionId: TransactionId): Future[Option[(LedgerOffset, LedgerEntry.Transaction)]] = {
-    dbDispatcher.executeSql(s"lookup transaction [$transactionId]") { implicit conn =>
+    dbDispatcher.executeSql("lookup_transaction", Some(s"tx id: $transactionId")) { implicit conn =>
       SQL_SELECT_TRANSACTION
         .on("transaction_id" -> (transactionId: String))
         .as(EntryParser.singleOpt)
@@ -945,7 +946,7 @@ private class JdbcLedgerDao(
   override def lookupActiveOrDivulgedContract(
       contractId: AbsoluteContractId,
       forParty: Party): Future[Option[Contract]] =
-    dbDispatcher.executeSql(s"lookup active contract [${contractId.coid}]") { implicit conn =>
+    dbDispatcher.executeSql("lookup_active_contract") { implicit conn =>
       lookupContractSync(contractId, forParty)
     }
 
@@ -1077,13 +1078,14 @@ private class JdbcLedgerDao(
       PageSize,
       (startI, endE) => {
         Source
-          .fromFuture(dbDispatcher.executeSql(s"load ledger entries [$startI, $endE[") {
-            implicit conn =>
-              SQL_GET_LEDGER_ENTRIES
-                .on("startInclusive" -> startI, "endExclusive" -> endE)
-                .as(EntryParser.*)
-                .map(toLedgerEntry)
-          })
+          .fromFuture(
+            dbDispatcher.executeSql(s"load_ledger_entries", Some(s"bounds: [$startI, $endE[")) {
+              implicit conn =>
+                SQL_GET_LEDGER_ENTRIES
+                  .on("startInclusive" -> startI, "endExclusive" -> endE)
+                  .as(EntryParser.*)
+                  .map(toLedgerEntry)
+            })
           .flatMapConcat(Source(_))
       }
     )
@@ -1114,12 +1116,14 @@ private class JdbcLedgerDao(
         .mapAsync(dbDispatcher.noOfShortLivedConnections) { contractResult =>
           // it's ok to not have query isolation as witnesses cannot change once we saved them
           dbDispatcher
-            .executeSql(s"load contract details ${contractResult._1}") { implicit conn =>
-              mapContractDetails(contractResult) match {
-                case ac: ActiveContract => ac
-                case _: DivulgedContract =>
-                  sys.error("Impossible: SQL_SELECT_ACTIVE_CONTRACTS returned a divulged contract")
-              }
+            .executeSql("load_contract_details", Some(s"contract details: ${contractResult._1}")) {
+              implicit conn =>
+                mapContractDetails(contractResult) match {
+                  case ac: ActiveContract => ac
+                  case _: DivulgedContract =>
+                    sys.error(
+                      "Impossible: SQL_SELECT_ACTIVE_CONTRACTS returned a divulged contract")
+                }
             }
         }
     }.mapMaterializedValue(_.map(_ => Done)(DirectExecutionContext))
@@ -1148,7 +1152,7 @@ private class JdbcLedgerDao(
     )
 
   override def getParties: Future[List[PartyDetails]] =
-    dbDispatcher.executeSql("load parties") { implicit conn =>
+    dbDispatcher.executeSql("load_parties") { implicit conn =>
       SQL_SELECT_PARTIES
         .as(PartyDataParser.*)
         // TODO: isLocal should be based on equality of participantId reported in an
@@ -1166,7 +1170,7 @@ private class JdbcLedgerDao(
       party: Party,
       displayName: Option[String],
       externalOffset: Option[ExternalOffset]): Future[PersistenceResponse] = {
-    dbDispatcher.executeSql(s"store party [$party]") { implicit conn =>
+    dbDispatcher.executeSql("store_party", Some(s"party: $party")) { implicit conn =>
       Try {
         SQL_INSERT_PARTY
           .on(
@@ -1211,7 +1215,7 @@ private class JdbcLedgerDao(
     )
 
   override def listLfPackages: Future[Map[PackageId, PackageDetails]] =
-    dbDispatcher.executeSql("load packages") { implicit conn =>
+    dbDispatcher.executeSql("load_packages") { implicit conn =>
       SQL_SELECT_PACKAGES
         .as(PackageDataParser.*)
         .map(
@@ -1224,7 +1228,7 @@ private class JdbcLedgerDao(
     }
 
   override def getLfArchive(packageId: PackageId): Future[Option[Archive]] =
-    dbDispatcher.executeSql(s"load archive [$packageId]") { implicit conn =>
+    dbDispatcher.executeSql("load_archive", Some(s"pkg id: $packageId")) { implicit conn =>
       SQL_SELECT_PACKAGE
         .on(
           "package_id" -> packageId
@@ -1245,29 +1249,29 @@ private class JdbcLedgerDao(
       Future.failed,
       _ =>
         dbDispatcher.executeSql(
-          s"store packages [${packages.map(_._1.getHash).mkString(", ")}] with uploadId [$uploadId]") {
-          implicit conn =>
-            externalOffset.foreach(updateExternalLedgerEnd)
-            val params = packages
-              .map(
-                p =>
-                  Seq[NamedParameter](
-                    "package_id" -> p._1.getHash,
-                    "upload_id" -> uploadId,
-                    "source_description" -> p._2.sourceDescription,
-                    "size" -> p._2.size,
-                    "known_since" -> p._2.knownSince,
-                    "package" -> p._1.toByteArray
-                )
+          "store_packages",
+          Some(s"packages: ${packages.map(_._1.getHash).mkString(", ")}")) { implicit conn =>
+          externalOffset.foreach(updateExternalLedgerEnd)
+          val params = packages
+            .map(
+              p =>
+                Seq[NamedParameter](
+                  "package_id" -> p._1.getHash,
+                  "upload_id" -> uploadId,
+                  "source_description" -> p._2.sourceDescription,
+                  "size" -> p._2.size,
+                  "known_since" -> p._2.knownSince,
+                  "package" -> p._1.toByteArray
               )
-            val updated =
-              executeBatchSql(queries.SQL_INSERT_PACKAGE, params).map(math.max(0, _)).sum
-            val duplicates = packages.length - updated
+            )
+          val updated =
+            executeBatchSql(queries.SQL_INSERT_PACKAGE, params).map(math.max(0, _)).sum
+          val duplicates = packages.length - updated
 
-            Map(
-              PersistenceResponse.Ok -> updated,
-              PersistenceResponse.Duplicate -> duplicates
-            ).filter(_._2 > 0)
+          Map(
+            PersistenceResponse.Ok -> updated,
+            PersistenceResponse.Duplicate -> duplicates
+          ).filter(_._2 > 0)
       }
     )
   }
@@ -1285,7 +1289,7 @@ private class JdbcLedgerDao(
       """.stripMargin)
 
   override def reset(): Future[Unit] =
-    dbDispatcher.executeSql("truncate all tables") { implicit conn =>
+    dbDispatcher.executeSql("truncate_all_tables") { implicit conn =>
       val _ = SQL_TRUNCATE_ALL_TABLES.execute()
       ()
     }

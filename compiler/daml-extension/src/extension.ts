@@ -13,16 +13,26 @@ import * as tmp from 'tmp';
 import { LanguageClient, LanguageClientOptions, RequestType, NotificationType, TextDocumentIdentifier, TextDocument, ExecuteCommandRequest } from 'vscode-languageclient';
 import { Uri, Event, TextDocumentContentProvider, ViewColumn, EventEmitter, window, QuickPickOptions, ExtensionContext, env, WorkspaceConfiguration } from 'vscode'
 import * as which from 'which';
+import * as util from 'util';
+
 
 let damlRoot: string = path.join(os.homedir(), '.daml');
 
+let versionContextKey = 'version'
+
 var damlLanguageClient: LanguageClient;
 // Extension activation
+// Note: You can log debug information by using `console.log()`
+// and then `Toggle Developer Tools` in VSCode. This will show
+// output in the Console tab once the extension is activated.
 export async function activate(context: vscode.ExtensionContext) {
     // Start the language clients
     let config = vscode.workspace.getConfiguration('daml')
     // Get telemetry consent
     const consent = getTelemetryConsent(config, context);
+
+    // Check extension version to publish release notes on updates
+    checkVersion(context);
 
     damlLanguageClient = createLanguageClient(config, await consent);
     damlLanguageClient.registerProposedFeatures();
@@ -86,6 +96,17 @@ export async function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(d1, d2, d3, d4, d5);
 }
 
+// Compare the extension version with the one stored in the global state.
+// This will be used to show release notes when the version has changed.
+async function checkVersion(context: ExtensionContext) {
+    let packageFile = path.join(context.extensionPath, 'package.json');
+    let packageData = await util.promisify(fs.readFile)(packageFile, "utf8");
+    let extensionVersion = JSON.parse(packageData).version;
+    let recordedVersion = context.globalState.get(versionContextKey);
+    if (!recordedVersion || recordedVersion != extensionVersion ) {
+        await context.globalState.update(versionContextKey, extensionVersion);
+    }
+}
 
 function getViewColumnForShowResource(): ViewColumn {
     const active = vscode.window.activeTextEditor;

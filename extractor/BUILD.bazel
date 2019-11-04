@@ -115,6 +115,7 @@ daml_compile(
 
 testDependencies = [
     ":extractor",
+    "//bazel_tools/runfiles:scala_runfiles",
     "//daml-lf/data-scalacheck",
     "//daml-lf/transaction-scalacheck",
     "//ledger/sandbox:sandbox",
@@ -175,6 +176,5 @@ da_scala_test_suite(
     resources = glob(["src/test/resources/**/*"]),
     deps = [
         ":extractor-scala-tests-lib",
-        "//bazel_tools/runfiles:scala_runfiles",
     ] + testDependencies,
 )

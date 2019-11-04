@@ -19,7 +19,7 @@ import scala.concurrent.Future
   * users so they can be safely enabled all the time. */
 final class MetricsManager(enableJmxReporter: Boolean) extends AutoCloseable {
 
-  private val metrics = new MetricRegistry()
+  val metrics = new MetricRegistry()
 
   private lazy val jmxReporter = JmxReporter
     .forRegistry(metrics)

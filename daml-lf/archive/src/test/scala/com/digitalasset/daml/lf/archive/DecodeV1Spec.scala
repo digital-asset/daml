@@ -8,10 +8,12 @@ import java.nio.file.{Files, Paths}
 
 import com.digitalasset.daml.bazeltools.BazelRunfiles._
 import com.digitalasset.daml.lf.archive.Reader.ParseError
-import com.digitalasset.daml.lf.data.{Decimal, ImmArray, Numeric, Ref}
+import com.digitalasset.daml.lf.data.{Decimal, Numeric, Ref}
 import com.digitalasset.daml.lf.language.Util._
 import com.digitalasset.daml.lf.language.{Ast, LanguageMinorVersion, LanguageVersion => LV}
 import LanguageMinorVersion.Implicits._
+import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
+import com.digitalasset.daml.lf.data.Ref.DottedName
 import com.digitalasset.daml_lf_dev.DamlLf1
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.{Inside, Matchers, OptionValues, WordSpec}
@@ -40,18 +42,34 @@ class DecodeV1Spec
       DamlLf1.BuiltinFunction.values().toSet
   }
 
-  private val dummyModule = DamlLf1.Module
-    .newBuilder()
-    .setName(DamlLf1.DottedName.newBuilder().addSegments("dummyModule")) build ()
+  val dummyModuleStr = "dummyModule"
+  val dummyModuleDName = DamlLf1.DottedName.newBuilder().addSegments(dummyModuleStr).build()
+  val dummyModuleName = DottedName.assertFromString(dummyModuleStr)
 
-  private def moduleDecoder(minVersion: LV.Minor) =
+  private def dummyModule(version: LV.Minor, interningIdx: Int) = {
+    val builder = DamlLf1.Module.newBuilder()
+
+    if (LV.ordering.lt(LV(LV.Major.V1, version), LV.Features.internedDottedNames))
+      builder.setNameDname(dummyModuleDName)
+    else
+      builder.setNameInternedDname(interningIdx)
+
+    builder.build()
+  }
+
+  private def moduleDecoder(
+      minVersion: LV.Minor,
+      stringTable: ImmArraySeq[String] = ImmArraySeq.empty,
+      dottedNameTable: ImmArraySeq[DottedName] = ImmArraySeq.empty
+  ) =
     new DecodeV1(minVersion)
       .ModuleDecoder(
         Ref.PackageId.assertFromString("noPkgId"),
-        ImmArray.empty.toSeq,
-        ImmArray.empty.toSeq,
-        dummyModule,
-        onlySerializableDataDefs = false)
+        stringTable,
+        dottedNameTable :+ dummyModuleName,
+        dummyModule(minVersion, dottedNameTable.length),
+        onlySerializableDataDefs = false
+      )
 
   private val preNumericMinVersions = Table(
     "minVersion",
@@ -219,11 +237,17 @@ class DecodeV1Spec
     def toProtoExpr(b: DamlLf1.BuiltinFunction) =
       DamlLf1.Expr.newBuilder().setBuiltin(b).build()
 
-    def toDecimalProto(s: String) =
-      DamlLf1.Expr.newBuilder().setPrimLit(DamlLf1.PrimLit.newBuilder().setDecimal(s)).build()
+    def toDecimalProto(s: String): DamlLf1.Expr =
+      DamlLf1.Expr.newBuilder().setPrimLit(DamlLf1.PrimLit.newBuilder().setDecimalStr(s)).build()
 
-    def toNumericProto(s: String) =
-      DamlLf1.Expr.newBuilder().setPrimLit(DamlLf1.PrimLit.newBuilder().setNumeric(s)).build()
+    //def toNumericProto(s: String): DamlLf1.Expr =
+    //  DamlLf1.Expr.newBuilder().setPrimLit(DamlLf1.PrimLit.newBuilder().setNumeric(s)).build()
+
+    def toNumericProto(id: Int): DamlLf1.Expr =
+      DamlLf1.Expr
+        .newBuilder()
+        .setPrimLit(DamlLf1.PrimLit.newBuilder().setNumericInternedStr(id))
+        .build()
 
     val decimalBuiltinTestCases = Table[DamlLf1.BuiltinFunction, LanguageMinorVersion, Ast.Expr](
       ("decimal builtins", "minVersion", "expected output"),
@@ -421,9 +445,12 @@ class DecodeV1Spec
 
     "reject numeric literal if version < 1.dev" in {
 
+      val decoder = moduleDecoder(LV.Features.numeric.minor, ImmArraySeq("0.0"))
+      decoder.decodeExpr(toNumericProto(0), "test")
+
       forEvery(preNumericMinVersions) { version =>
-        val decoder = moduleDecoder(version)
-        a[ParseError] shouldBe thrownBy(decoder.decodeExpr(toNumericProto("0.0"), "test"))
+        val decoder = moduleDecoder(version, ImmArraySeq("0.0"))
+        a[ParseError] shouldBe thrownBy(decoder.decodeExpr(toNumericProto(0), "test"))
       }
     }
 
@@ -431,21 +458,21 @@ class DecodeV1Spec
 
       val testCases =
         Table(
-          "string",
-          "9999999999999999999999999999.9999999999",
-          "0.0000000000",
-          "1000000000000000000000000000000.",
-          "99999999999999999999999999999999999999.",
-          "-0.0",
-          "0.",
-          "3.1415",
-          "-99999999999999999999.999999999999999999"
+          "id" -> "string",
+          0 -> "9999999999999999999999999999.9999999999",
+          1 -> "0.0000000000",
+          2 -> "1000000000000000000000000000000.",
+          3 -> "99999999999999999999999999999999999999.",
+          4 -> "-0.0",
+          5 -> "0.",
+          6 -> "3.1415",
+          7 -> "-99999999999999999999.999999999999999999"
         )
 
       forEvery(postNumericMinVersions) { version =>
-        val decoder = moduleDecoder(version)
-        forEvery(testCases) { string =>
-          decoder.decodeExpr(toNumericProto(string), "test") match {
+        val decoder = moduleDecoder(version, ImmArraySeq(testCases.map(_._2): _*))
+        forEvery(testCases) { (id, string) =>
+          decoder.decodeExpr(toNumericProto(id), "test") match {
             case Ast.EPrimLit(Ast.PLNumeric(num)) =>
               num shouldBe new BigDecimal(string)
             case _ =>
@@ -459,20 +486,21 @@ class DecodeV1Spec
 
       val testCases =
         Table(
-          "string",
-          "10000000000000000000000000000.0000000000",
-          "-1000000000000000000000000000000000000000.",
-          "0.000000000000000000000000000000000000001",
-          "0000000000000000000000000000.0000000000",
-          "0.0.0",
-          "+0.0",
-          "0"
+          "id" -> "string",
+          1 -> "10000000000000000000000000000.0000000000",
+          2 -> "-1000000000000000000000000000000000000000.",
+          3 -> "0.000000000000000000000000000000000000001",
+          4 -> "0000000000000000000000000000.0000000000",
+          5 -> "0.0.0",
+          6 -> "+0.0",
+          7 -> "0"
         )
 
       forEvery(postNumericMinVersions) { version =>
-        val decoder = moduleDecoder(version)
-        forEvery(testCases) { string =>
-          a[ParseError] shouldBe thrownBy(decoder.decodeExpr(toNumericProto(string), "test"))
+        val decoder = moduleDecoder(version, ImmArraySeq("0." +: testCases.map(_._2): _*))
+        forEvery(testCases) { (id, _) =>
+          decoder.decodeExpr(toNumericProto(0), "test")
+          a[ParseError] shouldBe thrownBy(decoder.decodeExpr(toNumericProto(id), "test"))
         }
       }
     }
@@ -503,10 +531,11 @@ class DecodeV1Spec
         .getValuesList
         .asScala
         .collectFirst {
-          case dv if dv.getNameWithType.getNameList.asScala.lastOption contains "reverseCopy" =>
+          case dv
+              if dv.getNameWithType.getNameDnameList.asScala.lastOption contains "reverseCopy" =>
             val pr = dv.getExpr.getVal.getModule.getPackageRef
-            pr.getSumCase shouldBe DamlLf1.PackageRef.SumCase.INTERNED_ID
-            pr.getInternedId
+            pr.getSumCase shouldBe DamlLf1.PackageRef.SumCase.PACKAGE_ID_INTERNED_STR
+            pr.getPackageIdInternedStr
         }
         .value
       dalf1.getInternedStringsList.asScala.lift(iix.toInt).value

@@ -46,7 +46,7 @@ jobs:
         displayName: nix cache key
       - task: CacheBeta@0
         inputs:
-          key: $(nix-cache-key)
+          key: $(nix-cache-key) | v2
           path: $(nix-cache-path)
       - bash: |
           set -euo pipefail

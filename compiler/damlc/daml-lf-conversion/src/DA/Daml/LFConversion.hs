@@ -317,7 +317,8 @@ convertGenericTemplate env x
     , Just dictCon <- isDataConId_maybe dictCon
     , (tyArgs, args) <- span isTypeArg args
     , Just tyArgs <- mapM isType_maybe tyArgs
-    , Just (superClassDicts, signatories : observers : ensure : agreement : create : _fetch : archive : _toAnyTemplate : _fromAnyTemplate : _templateTypeRep : keyAndChoices) <- span isSuperClassDict <$> mapM isVar_maybe args
+    , (superClassDicts, args) <- span isSuperClassDict args
+    , Just (signatories : observers : ensure : agreement : create : _fetch : archive : _toAnyTemplate : _fromAnyTemplate : _templateTypeRep : keyAndChoices) <- mapM isVar_maybe args
     , Just (polyType@(TypeCon polyTyCon _), _) <- splitFunTy_maybe (varType create)
     , Just monoTyCon <- findMonoTyp polyType
     = do
@@ -431,7 +432,7 @@ convertGenericTemplate env x
                 pure (TemplateChoice{..}, [consumption, controllers, action, exercise, toAnyChoice, fromAnyChoice])
             convertGenericChoice es = unhandled "generic choice" es
         (tplChoices, choices) <- first NM.fromList . unzip <$> mapM convertGenericChoice (chunksOf 6 choices)
-        superClassDicts <- mapM (convertExpr env . Var) superClassDicts
+        superClassDicts <- mapM (convertExpr env) superClassDicts
         signatories <- convertExpr env (Var signatories)
         observers <- convertExpr env (Var observers)
         ensure <- convertExpr env (Var ensure)
@@ -475,10 +476,14 @@ convertGenericTemplate env x
     isVar_maybe = \case
         Var v -> Just v
         _ -> Nothing
-    isSuperClassDict :: Var -> Bool
+    isSuperClassDict :: GHC.Expr Var -> Bool
     -- NOTE(MH): We need the `$f` and `$d` cases since GHC inlines super class
     -- dictionaries without running the simplifier under some circumstances.
-    isSuperClassDict v = any (`T.isPrefixOf` getOccText v) ["$cp", "$f", "$d"]
+    isSuperClassDict (Var v) = any (`T.isPrefixOf` getOccText v) ["$cp", "$f", "$d"]
+    -- For things like Numeric 10 we can end up with superclass dictionaries
+    -- of the form `dict @10`.
+    isSuperClassDict (App t _) = isSuperClassDict t
+    isSuperClassDict _ = False
     findMonoTyp :: GHC.Type -> Maybe TyCon
     findMonoTyp t = case t of
         TypeCon tcon [] -> Just tcon

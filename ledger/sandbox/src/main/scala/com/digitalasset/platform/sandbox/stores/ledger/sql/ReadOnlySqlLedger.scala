@@ -35,14 +35,16 @@ object ReadOnlySqlLedger {
   val noOfStreamingConnections = 2
 
   //jdbcUrl must have the user/password encoded in form of: "jdbc:postgresql://localhost/test?user=fred&password=secret"
-  def apply(jdbcUrl: String, ledgerId: Option[LedgerId], loggerFactory: NamedLoggerFactory)(
-      implicit mat: Materializer,
-      mm: MetricsManager): Future[ReadOnlyLedger] = {
+  def apply(
+      jdbcUrl: String,
+      ledgerId: Option[LedgerId],
+      loggerFactory: NamedLoggerFactory,
+      mm: MetricsManager)(implicit mat: Materializer): Future[ReadOnlyLedger] = {
     implicit val ec: ExecutionContext = DEC
 
     val dbType = DbType.jdbcType(jdbcUrl)
     val dbDispatcher =
-      DbDispatcher(jdbcUrl, noOfShortLivedConnections, noOfStreamingConnections, loggerFactory)
+      DbDispatcher(jdbcUrl, noOfShortLivedConnections, noOfStreamingConnections, loggerFactory, mm)
     val ledgerReadDao = LedgerDao.meteredRead(
       JdbcLedgerDao(
         dbDispatcher,
@@ -51,7 +53,8 @@ object ReadOnlySqlLedger {
         ValueSerializer,
         KeyHasher,
         dbType,
-        loggerFactory))
+        loggerFactory),
+      mm)
 
     ReadOnlySqlLedgerFactory(ledgerReadDao, loggerFactory).createReadOnlySqlLedger(ledgerId)
   }
