@@ -503,11 +503,11 @@ typeOf = \case
   ESome bodyType bodyExpr -> checkSome bodyType bodyExpr $> TOptional bodyType
   ENone bodyType -> checkType bodyType KStar $> TOptional bodyType
   EToAny ty bodyExpr -> do
-    checkSimpleType ty
+    checkGroundType ty
     checkExpr bodyExpr ty
     pure $ TBuiltin BTAny
   EFromAny ty bodyExpr -> do
-    checkSimpleType ty
+    checkGroundType ty
     checkExpr bodyExpr (TBuiltin BTAny)
     pure $ TOptional ty
   ETypeRep ty -> do
@@ -518,8 +518,8 @@ typeOf = \case
   ELocation _ expr -> typeOf expr
 
 -- Check that the type contains no type variables or quantifiers
-checkSimpleType :: MonadGamma m => Type -> m ()
-checkSimpleType ty =
+checkGroundType :: MonadGamma m => Type -> m ()
+checkGroundType ty =
     when (para (\t children -> or (isForbidden t : children)) ty) $ throwWithContext $ EExpectedAnyType ty
   where isForbidden (TVar _) = True
         isForbidden (TForall _ _) = True
