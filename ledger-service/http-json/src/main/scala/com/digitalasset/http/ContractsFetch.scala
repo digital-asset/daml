@@ -67,7 +67,7 @@ private class ContractsFetch(
       _ = logger.debug(s"readOffsetFromDbOrFetchFromLedger($jwt, $party, $templateId): $offset0")
       offset1 <- contractsFromOffsetIo(jwt, party, templateId, offset0)
       _ = logger.debug(s"contractsFromOffsetIo($jwt, $party, $templateId, $offset0): $offset1")
-    } yield offset1
+    } yield offset1.getOrElse(offset0)
 
   private def readOffsetFromDbOrFetchFromLedger(
       jwt: Jwt,
@@ -174,12 +174,12 @@ private class ContractsFetch(
       templateId: domain.TemplateId.RequiredPkg,
       offset: domain.Offset)(
       implicit ec: ExecutionContext,
-      mat: Materializer): ConnectionIO[domain.Offset] = {
+      mat: Materializer): ConnectionIO[Option[domain.Offset]] = {
 
     val graph = RunnableGraph.fromGraph(
       GraphDSL.create(
         Sink.queue[ConnectionIO[Unit]](),
-        Sink.last[domain.Offset]
+        Sink.lastOption[domain.Offset]
       )((a, b) => (a, b)) { implicit builder => (acsSink, offsetSink) =>
         import GraphDSL.Implicits._
 
@@ -203,11 +203,15 @@ private class ContractsFetch(
 
     val (acsQueue, lastOffsetFuture) = graph.run()
 
+    import cats.implicits.catsStdInstancesForOption
+    import connection.AsyncConnectionIO
+    import cats.syntax.traverse._
+
     for {
       _ <- sinkCioSequence_(acsQueue)
-      offset <- connectionIOFuture(lastOffsetFuture)
-      _ <- ContractDao.updateOffset(party, templateId, offset)
-    } yield offset
+      offsetO <- connectionIOFuture(lastOffsetFuture)
+      _ <- offsetO.traverse(offset => ContractDao.updateOffset(party, templateId, offset))
+    } yield offsetO
   }
 
   private def transactionToInsertsAndDeletes(tx: lav1.transaction.Transaction)
