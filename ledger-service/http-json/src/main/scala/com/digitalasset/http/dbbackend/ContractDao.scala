@@ -16,10 +16,7 @@ import scala.concurrent.ExecutionContext
 
 class ContractDao(xa: Connection.T) {
 
-  private implicit val lh: log.LogHandler = doobie.util.log.LogHandler.jdkLogHandler
-
-  def initialize: ConnectionIO[Unit] =
-    Queries.dropAllTablesIfExist *> Queries.initDatabase
+  implicit val logHandler: log.LogHandler = doobie.util.log.LogHandler.jdkLogHandler
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def transact[A](query: ConnectionIO[A]): IO[A] =
@@ -32,6 +29,9 @@ object ContractDao {
     val cs: ContextShift[IO] = IO.contextShift(ec)
     new ContractDao(Connection.connect(jdbcDriver, jdbcUrl, username, password)(cs))
   }
+
+  def initialize(implicit log: LogHandler): ConnectionIO[Unit] =
+    Queries.dropAllTablesIfExist *> Queries.initDatabase
 
   def lastOffset(party: domain.Party, templateId: domain.TemplateId.RequiredPkg)(
       implicit log: LogHandler): ConnectionIO[Option[domain.Offset]] =
@@ -54,5 +54,4 @@ object ContractDao {
         templateId.entityName)
       _ <- Queries.updateOffset(party.unwrap, tpId, newOffset.unwrap)
     } yield ()
-
 }

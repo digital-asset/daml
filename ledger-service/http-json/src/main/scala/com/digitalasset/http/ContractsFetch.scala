@@ -50,7 +50,7 @@ private class ContractsFetch(
 
   import ContractsFetch._
 
-  def contractsIo(jwt: Jwt, party: domain.Party, templateIds: List[domain.TemplateId.RequiredPkg])(
+  def contractsIo2(jwt: Jwt, party: domain.Party, templateIds: List[domain.TemplateId.RequiredPkg])(
       implicit ec: ExecutionContext,
       mat: Materializer): ConnectionIO[List[domain.Offset]] = {
     // TODO(Leo/Stephen): can we run this traverse concurrently?

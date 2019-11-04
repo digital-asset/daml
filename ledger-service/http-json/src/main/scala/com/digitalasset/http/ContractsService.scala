@@ -33,6 +33,10 @@ class ContractsService(
   type Result = (Seq[ActiveContract], CompiledPredicates)
   type CompiledPredicates = Map[domain.TemplateId.RequiredPkg, query.ValuePredicate]
 
+  private val contractsFetch = contractDao.map { dao =>
+    new ContractsFetch(getActiveContracts, getCreatesAndArchivesSince, lookupType)(dao.logHandler)
+  }
+
   def lookup(
       jwt: Jwt,
       jwtPayload: JwtPayload,
@@ -90,12 +94,35 @@ class ContractsService(
       queryParams: Map[String, JsValue]): Future[Result] =
     for {
       templateIds <- toFuture(resolveTemplateIds(templateIds))
+      _ <- fetchAndPersistContracts(jwt, party, templateIds)
       allActiveContracts <- getActiveContracts(jwt, transactionFilter(party, templateIds), true)
         .mapAsyncUnordered(parallelism)(gacr => toFuture(activeContracts(gacr)))
         .runWith(Sink.seq)
         .map(_.flatten): Future[Seq[ActiveContract]]
       predicates = templateIds.iterator.map(a => (a, valuePredicate(a, queryParams))).toMap
     } yield (allActiveContracts, predicates)
+
+  private def fetchAndPersistContracts(
+      jwt: Jwt,
+      party: lar.Party,
+      templateIds: List[domain.TemplateId.RequiredPkg]): Future[Option[Unit]] = {
+
+    import scalaz.syntax.applicative._
+    import scalaz.syntax.traverse._
+    import scalaz.std.option._
+    import scalaz.std.scalaFuture._
+
+    val option: Option[Future[Unit]] = ^(contractDao, contractsFetch)((dao, fetch) =>
+      fetchAndPersistContracts(dao, fetch)(jwt, party, templateIds))
+
+    option.sequence
+  }
+
+  private def fetchAndPersistContracts(dao: dbbackend.ContractDao, fetch: ContractsFetch)(
+      jwt: Jwt,
+      party: domain.Party,
+      templateIds: List[domain.TemplateId.RequiredPkg]): Future[Unit] =
+    dao.transact(fetch.contractsIo2(jwt, party, templateIds)).unsafeToFuture().map(_ => ())
 
   private def activeContracts(gacr: lav1.active_contracts_service.GetActiveContractsResponse)
     : Error \/ List[ActiveContract] =
