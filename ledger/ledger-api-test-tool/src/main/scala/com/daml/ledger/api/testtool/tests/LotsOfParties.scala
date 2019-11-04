@@ -39,7 +39,7 @@ final class LotsOfParties(session: LedgerSession) extends LedgerTestSuite(sessio
       transactionsByParty <- Future
         .sequence(observersWithLedgers.map {
           case (ledger, observer) =>
-            ledger.flatTransactions(observer).map(transactions => observer -> transactions)
+            ledger.flatTransactions(observer).map(observer -> _)
         })
         .map(_.toMap)
     } yield {
@@ -66,7 +66,7 @@ final class LotsOfParties(session: LedgerSession) extends LedgerTestSuite(sessio
       contractId <- giverLedger.create(giver, WithObservers(giver, observers))
       transactionsByLedger <- Future.sequence(partiesByLedger.map {
         case (ledger, parties) =>
-          ledger.flatTransactions(parties: _*).map(transactions => parties -> transactions)
+          ledger.flatTransactions(parties: _*).map(parties -> _)
       })
     } yield {
       transactionsByLedger.foreach {
