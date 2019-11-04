@@ -459,23 +459,6 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
       }
     }
 
-  private[this] val unitAsArgumentToNothing =
-    LedgerTest("CSUnitAsArgumentToNothing", "Return Unit as argument to Nothing") { context =>
-      for {
-        ledger <- context.participant()
-        party <- ledger.allocateParty()
-        template = NothingArgument(party, Primitive.Optional.empty)
-        _ <- ledger.create(party, template)
-        acs <- ledger.activeContracts(party)
-      } yield {
-        val contract = assertSingleton("More than one active contract", acs)
-        assertEquals(
-          "Contract mismatch",
-          contract.getCreateArguments.fields,
-          encode(template).getRecord.fields)
-      }
-    }
-
   private[this] val readyForExercise =
     LedgerTest(
       "CSReadyForExercise",
