@@ -37,6 +37,7 @@ import scalaz.syntax.functor._
 import scalaz.syntax.std.option._
 import scalaz.{-\/, \/, \/-}
 import spray.json.JsValue
+import com.typesafe.scalalogging.StrictLogging
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -45,17 +46,32 @@ private class ContractsFetch(
     getCreatesAndArchivesSince: LedgerClientJwt.GetCreatesAndArchivesSince,
     lookupType: query.ValuePredicate.TypeLookup,
     contractDao: Option[dbbackend.ContractDao],
-)(implicit dblog: doobie.LogHandler) {
+)(implicit dblog: doobie.LogHandler)
+    extends StrictLogging {
 
   import ContractsFetch._
 
+  def contractsIo(jwt: Jwt, party: domain.Party, templateIds: List[domain.TemplateId.RequiredPkg])(
+      implicit ec: ExecutionContext,
+      mat: Materializer): ConnectionIO[Unit] = {
+
+    val listOfUnits: ConnectionIO[List[Unit]] =
+      cats.implicits.catsStdInstancesForList.traverse(templateIds) { templateId =>
+        contractsIo(jwt, party, templateId)
+      }(connection.AsyncConnectionIO)
+
+    listOfUnits.map(_ => ())
+  }
+
   def contractsIo(jwt: Jwt, party: domain.Party, templateId: domain.TemplateId.RequiredPkg)(
       implicit ec: ExecutionContext,
-      mat: Materializer): ConnectionIO[domain.Offset] =
+      mat: Materializer): ConnectionIO[Unit] =
     for {
       offset0 <- readOffsetFromDbOrFetchFromLedger(jwt, party, templateId)
+      _ = logger.debug(s"readOffsetFromDbOrFetchFromLedger($jwt, $party, $templateId): $offset0")
       offset1 <- contractsFromOffsetIo(jwt, party, templateId, offset0)
-    } yield offset1
+      _ = logger.debug(s"contractsFromOffsetIo($jwt, $party, $templateId, $offset0): $offset1")
+    } yield ()
 
   private def readOffsetFromDbOrFetchFromLedger(
       jwt: Jwt,
@@ -107,7 +123,7 @@ private class ContractsFetch(
           ContractDao.updateOffset(party, templateId, offset).map(_ => offset)
         case x @ _ =>
           val errorMsg = s"expected LedgerOffset(Absolute(String)), got: $x"
-          throw new IllegalStateException(errorMsg)
+          connection.raiseError(new IllegalStateException(errorMsg))
       }
     } yield offsetOrError
   }
