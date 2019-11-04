@@ -44,8 +44,7 @@ import scala.concurrent.{ExecutionContext, Future}
 private class ContractsFetch(
     getActiveContracts: LedgerClientJwt.GetActiveContracts,
     getCreatesAndArchivesSince: LedgerClientJwt.GetCreatesAndArchivesSince,
-    lookupType: query.ValuePredicate.TypeLookup,
-    contractDao: Option[dbbackend.ContractDao],
+    lookupType: query.ValuePredicate.TypeLookup
 )(implicit dblog: doobie.LogHandler)
     extends StrictLogging {
 
@@ -54,6 +53,7 @@ private class ContractsFetch(
   def contractsIo(jwt: Jwt, party: domain.Party, templateIds: List[domain.TemplateId.RequiredPkg])(
       implicit ec: ExecutionContext,
       mat: Materializer): ConnectionIO[List[domain.Offset]] = {
+    // TODO(Leo/Stephen): can we run this traverse concurrently?
     cats.implicits.catsStdInstancesForList.traverse(templateIds) { templateId =>
       contractsIo(jwt, party, templateId)
     }(connection.AsyncConnectionIO)
@@ -76,7 +76,7 @@ private class ContractsFetch(
       implicit ec: ExecutionContext,
       mat: Materializer): ConnectionIO[domain.Offset] =
     for {
-      offsetO <- readLastOffsetFromDb(party, templateId): ConnectionIO[Option[domain.Offset]]
+      offsetO <- ContractDao.lastOffset(party, templateId): ConnectionIO[Option[domain.Offset]]
       offset <- offsetO.cata(
         x => connection.pure(x),
         contractsToOffsetIo(jwt, party, templateId)
@@ -167,14 +167,6 @@ private class ContractsFetch(
     def f(x: PreInsertContract): String = x.contractId
     a.append(b)(f)
   }
-
-  private def readLastOffsetFromDb(
-      party: domain.Party,
-      templateId: domain.TemplateId.RequiredPkg): ConnectionIO[Option[domain.Offset]] =
-    contractDao match {
-      case Some(dao) => ContractDao.lastOffset(party, templateId)
-      case None => connection.pure(None)
-    }
 
   private def contractsFromOffsetIo(
       jwt: Jwt,
