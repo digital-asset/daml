@@ -598,8 +598,8 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
       case EFromAny(ty, e) =>
         SEApp(SEBuiltin(SBFromAny(ty)), Array(translate(e)))
 
-      case EToTextTypeConName(tyCon) =>
-        SEValue(SText(tyCon.toString))
+      case ETypeRep(typ) =>
+        SEValue(STypeRep(typ))
     }
 
   @tailrec
@@ -1038,7 +1038,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
 
     def goV(v: SValue): Unit = {
       v match {
-        case _: SPrimLit | STNat(_) =>
+        case _: SPrimLit | STNat(_) | STypeRep(_) =>
         case SList(a) => a.iterator.foreach(goV)
         case SOptional(x) => x.foreach(goV)
         case SMap(map) => map.values.foreach(goV)

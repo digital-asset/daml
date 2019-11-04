@@ -72,7 +72,7 @@ private[digitalasset] class AstRewriter(
     else
       x match {
         case EVar(_) | EBuiltin(_) | EPrimCon(_) | EPrimLit(_) | EContractId(_, _) |
-            EToTextTypeConName(_) =>
+             ETypeRep(_) =>
           x
         case EVal(ref) =>
           EVal(apply(ref))

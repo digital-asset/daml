@@ -68,6 +68,8 @@ sealed trait SValue {
         V.ValueContractId(coid)
       case SAny(_, _) =>
         throw SErrorCrash("SValue.toValue: unexpected SAny")
+      case STypeRep(_) =>
+        throw SErrorCrash("SValue.toValue: unexpected STypeRep")
       case STNat(_) =>
         throw SErrorCrash("SValue.toValue: unexpected STNat")
       case _: SPAP =>
@@ -78,6 +80,8 @@ sealed trait SValue {
 
   def mapContractId(f: V.ContractId => V.ContractId): SValue =
     this match {
+      case SContractId(coid) => SContractId(f(coid))
+      case SEnum(_, _) | _: SPrimLit | SToken | STNat(_) | STypeRep(_) => this
       case SPAP(prim, args, arity) =>
         val prim2 = prim match {
           case PClosure(expr, vars) =>
@@ -98,9 +102,6 @@ sealed trait SValue {
         SOptional(mbV.map(_.mapContractId(f)))
       case SMap(value) =>
         SMap(value.transform((_, v) => v.mapContractId(f)))
-      case SContractId(coid) =>
-        SContractId(f(coid))
-      case SEnum(_, _) | _: SPrimLit | SToken | STNat(_) => this
       case SAny(ty, value) =>
         SAny(ty, value.mapContractId(f))
     }
@@ -175,6 +176,8 @@ object SValue {
   final case class SMap(value: HashMap[String, SValue]) extends SValue
 
   final case class SAny(ty: Type, value: SValue) extends SValue
+
+  final case class STypeRep(ty: Type) extends SValue
 
   // Corresponds to a DAML-LF Nat type reified as a Speedy value.
   // It is currently used to track at runtime the scale of the

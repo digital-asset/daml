@@ -24,7 +24,7 @@ private[validation] object Typing {
   }
 
   private def kindOfBuiltin(bType: BuiltinType): Kind = bType match {
-    case BTInt64 | BTText | BTTimestamp | BTParty | BTBool | BTDate | BTUnit | BTAny =>
+    case BTInt64 | BTText | BTTimestamp | BTParty | BTBool | BTDate | BTUnit | BTAny | BTTypeRep =>
       KStar
     case BTNumeric => KArrow(KNat, KStar)
     case BTList | BTUpdate | BTScenario | BTContractId | BTOptional | BTMap => KArrow(KStar, KStar)
@@ -727,35 +727,21 @@ private[validation] object Typing {
         checkExpr(exp, TScenario(typ))
     }
 
-    private def checkAnyType(typ: Type): Unit = {
-      // we check that typ contains neither variables nor quantifiers
-      TypeTraversable(typ)
+    // we check that typ contains neither variables nor quantifiers
+    private def checkSimpleType_(typ: Type): Unit = {
       typ match {
         case TVar(_) | TForall(_, _) =>
           throw EExpectedAnyType(ctx, typ)
         case _ =>
-          TypeTraversable(typ).foreach(checkAnyType)
+          TypeTraversable(typ).foreach(checkSimpleType_)
       }
     }
 
-    private def typeOfToAny(ty: Type, body: Expr): Type = {
-      checkAnyType(ty)
-      checkType(ty, KStar)
-      checkExpr(body, ty)
-      TAny
+    private def checkSimpleType(typ:Type): Unit  = {
+      checkSimpleType_(typ)
+      checkType(typ, KStar)
     }
 
-    private def typeOfFromAny(ty: Type, body: Expr): Type = {
-      checkAnyType(ty)
-      checkType(ty, KStar)
-      checkExpr(body, TAny)
-      TOptional(ty)
-    }
-
-    private def typeOfToTextTypeConName(tpl: TypeConName): Type = {
-      lookupDataType(ctx, tpl)
-      TText
-    }
 
     def typeOf(expr0: Expr): Type = expr0 match {
       case EVar(name) =>
@@ -820,12 +806,17 @@ private[validation] object Typing {
         checkType(typ, KStar)
         val _ = checkExpr(body, typ)
         TOptional(typ)
-      case EToAny(ty, body) =>
-        typeOfToAny(ty, body)
-      case EFromAny(ty, body) =>
-        typeOfFromAny(ty, body)
-      case EToTextTypeConName(tyCon) =>
-        typeOfToTextTypeConName(tyCon)
+      case EToAny(typ, body) =>
+        checkSimpleType(typ)
+        checkExpr(body, typ)
+        TAny
+      case EFromAny(typ, body) =>
+        checkSimpleType(typ)
+        checkExpr(body, TAny)
+        TOptional(typ)
+      case ETypeRep(typ) =>
+        checkSimpleType(typ)
+        TTypeRep
     }
 
     def checkExpr(expr: Expr, typ: Type): Type = {

@@ -152,7 +152,7 @@ object Ast {
   final case class EFromAny(ty: Type, body: Expr) extends Expr
 
   /** Unique textual representation of template Id **/
-  final case class EToTextTypeConName(tyCon: TypeConName) extends Expr
+  final case class ETypeRep(typ: Type) extends Expr
 
   //
   // Kinds
@@ -289,6 +289,7 @@ object Ast {
   case object BTContractId extends BuiltinType
   case object BTArrow extends BuiltinType
   case object BTAny extends BuiltinType
+  case object BTTypeRep extends BuiltinType
 
   //
   // Primitive literals
