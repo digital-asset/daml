@@ -4,11 +4,13 @@
 package com.digitalasset.platform.sandbox.services
 
 import java.io.File
+import java.util.concurrent.Executors
 
-import akka.stream.Materializer
+import akka.actor.ActorSystem
+import akka.stream.{ActorMaterializer, Materializer}
 import com.digitalasset.daml.bazeltools.BazelRunfiles._
 import com.digitalasset.api.util.TimeProvider
-import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
+import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.testing.utils.{Resource, SuiteResource}
 import com.digitalasset.ledger.api.v1.ledger_identity_service.{
@@ -21,17 +23,46 @@ import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.sandbox.config.SandboxConfig
 import com.digitalasset.platform.services.time.{TimeModel, TimeProviderType}
 import io.grpc.Channel
-import org.scalatest.Suite
-
+import org.scalatest.{BeforeAndAfterAll, Suite}
 import scalaz.syntax.tag._
-import scala.concurrent.Await
+
+import scala.concurrent.{Await, ExecutionContext}
 import scala.concurrent.duration._
 import scala.util.Try
-
 import com.digitalasset.ledger.api.domain.LedgerId
+import com.google.common.util.concurrent.ThreadFactoryBuilder
+import org.slf4j.LoggerFactory
 
-trait SandboxFixture extends SuiteResource[Channel] {
+trait SandboxFixture extends SuiteResource[Channel] with BeforeAndAfterAll {
   self: Suite =>
+
+  private[this] val logger = LoggerFactory.getLogger(getClass)
+
+  private[this] val actorSystemName = this.getClass.getSimpleName
+
+  private lazy val executorContext = ExecutionContext.fromExecutorService(
+    Executors.newSingleThreadExecutor(
+      new ThreadFactoryBuilder()
+        .setDaemon(true)
+        .setNameFormat(s"${actorSystemName}-thread-pool-worker-%d")
+        .setUncaughtExceptionHandler((thread, _) =>
+          logger.error(s"got an uncaught exception on thread: ${thread.getName}"))
+        .build()))
+
+  protected implicit val system: ActorSystem =
+    ActorSystem(actorSystemName, defaultExecutionContext = Some(executorContext))
+
+  protected implicit val materializer: ActorMaterializer = ActorMaterializer()(system)
+
+  protected implicit val executionSequencerFactory: ExecutionSequencerFactory =
+    new AkkaExecutionSequencerPool("esf-" + this.getClass.getSimpleName)(system)
+
+  override protected def afterAll(): Unit = {
+    executionSequencerFactory.close()
+    materializer.shutdown()
+    Await.result(system.terminate(), 30.seconds)
+    super.afterAll()
+  }
 
   protected def darFile = new File(rlocation("ledger/test-common/Test-stable.dar"))
 

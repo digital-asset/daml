@@ -5,11 +5,7 @@ package com.digitalasset.platform.tests.integration.ledger.api.transaction
 
 import akka.stream.ThrottleMode
 import akka.stream.scaladsl.{Sink, Source}
-import com.digitalasset.ledger.api.testing.utils.{
-  AkkaBeforeAndAfterAll,
-  MockMessages,
-  SuiteResourceManagementAroundAll
-}
+import com.digitalasset.ledger.api.testing.utils.{MockMessages, SuiteResourceManagementAroundAll}
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
 import com.digitalasset.platform.apitesting.{MultiLedgerFixture, TestCommands, TestIdsGenerator}
 import org.scalatest._
@@ -27,7 +23,6 @@ class TransactionBackpressureIT
     extends AsyncWordSpec
     with Matchers
     with ScalaFutures
-    with AkkaBeforeAndAfterAll
     with MultiLedgerFixture
     with SuiteResourceManagementAroundAll {
 
