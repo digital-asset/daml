@@ -5,7 +5,7 @@ package com.daml.ledger.api.testtool.tests
 
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
-import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTest, LedgerTestSuite}
+import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTestSuite}
 import com.digitalasset.ledger.api.v1.event.CreatedEvent
 import com.digitalasset.ledger.api.v1.transaction.Transaction
 import com.digitalasset.ledger.client.binding.Primitive.{ContractId, Party}
@@ -19,7 +19,7 @@ final class LotsOfParties(session: LedgerSession) extends LedgerTestSuite(sessio
 
   private val partyCount = 1024
 
-  private[this] val seeTransactionsInMultipleSinglePartySubscriptions = LedgerTest(
+  test(
     "LOPseeTransactionsInMultipleSinglePartySubscriptions",
     "Observers should see transactions in multiple single-party subscriptions"
   ) { context =>
@@ -46,7 +46,7 @@ final class LotsOfParties(session: LedgerSession) extends LedgerTestSuite(sessio
     }
   }
 
-  private[this] val seeTransactionsInSingleMultiPartySubscription = LedgerTest(
+  test(
     "LOPseeTransactionsInSingleMultiPartySubscription",
     "Observers should see transactions in a single multi-party subscription"
   ) { context =>
@@ -73,7 +73,7 @@ final class LotsOfParties(session: LedgerSession) extends LedgerTestSuite(sessio
     }
   }
 
-  private[this] val seeActiveContractsInMultipleSinglePartySubscriptions = LedgerTest(
+  test(
     "LOPseeActiveContractsInMultipleSinglePartySubscriptions",
     "Observers should see active contracts in multiple single-party subscriptions"
   ) { context =>
@@ -100,7 +100,7 @@ final class LotsOfParties(session: LedgerSession) extends LedgerTestSuite(sessio
     }
   }
 
-  private[this] val seeActiveContractsInSingleMultiPartySubscription = LedgerTest(
+  test(
     "LOPseeActiveContractsInSingleMultiPartySubscription",
     "Observers should see active contracts in a single multi-party subscription"
   ) { context =>
@@ -120,14 +120,6 @@ final class LotsOfParties(session: LedgerSession) extends LedgerTestSuite(sessio
       assertWitnessesOfAMultiPartySubscription(betaObservers.toSet, contractId, betaContracts)
     }
   }
-
-  override val tests: Vector[LedgerTest] =
-    Vector(
-      seeTransactionsInMultipleSinglePartySubscriptions,
-      seeTransactionsInSingleMultiPartySubscription,
-      seeActiveContractsInMultipleSinglePartySubscriptions,
-      seeActiveContractsInSingleMultiPartySubscription,
-    )
 
   private def transactionsForEachParty(
       ledger: ParticipantTestContext,

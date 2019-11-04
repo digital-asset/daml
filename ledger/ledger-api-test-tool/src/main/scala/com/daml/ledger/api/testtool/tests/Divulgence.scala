@@ -3,17 +3,14 @@
 
 package com.daml.ledger.api.testtool.tests
 
-import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTest, LedgerTestSuite}
+import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTestSuite}
 import com.digitalasset.ledger.test_stable.Test.Divulgence2._
 import com.digitalasset.ledger.test_stable.Test.{Divulgence1, Divulgence2}
 import scalaz.Tag
 
 final class Divulgence(session: LedgerSession) extends LedgerTestSuite(session) {
-
-  private val transactionServiceDivulgence =
-    LedgerTest(
-      "DivulgenceTx",
-      "Divulged contracts should not be exposed by the transaction service") { context =>
+  test("DivulgenceTx", "Divulged contracts should not be exposed by the transaction service") {
+    context =>
       for {
         ledger <- context.participant()
         Vector(alice, bob) <- ledger.allocateParties(2)
@@ -142,12 +139,10 @@ final class Divulgence(session: LedgerSession) extends LedgerTestSuite(session) 
           s"The creation seen by filtering for both $alice and $bob was expected to be witnessed by $alice but is instead ${firstCreationForBoth.witnessParties}"
         )
       }
-    }
+  }
 
-  private val activeContractServiceDivulgence = {
-    LedgerTest(
-      "DivulgenceAcs",
-      "Divulged contracts should not be exposed by the active contract service") { context =>
+  test("DivulgenceAcs", "Divulged contracts should not be exposed by the active contract service") {
+    context =>
       for {
         ledger <- context.participant()
         Vector(alice, bob) <- ledger.allocateParties(2)
@@ -198,12 +193,5 @@ final class Divulgence(session: LedgerSession) extends LedgerTestSuite(session) 
           s"The witness parties of the second contract should include $alice and $bob but it is instead $divulgence2Witnesses"
         )
       }
-    }
   }
-
-  override val tests: Vector[LedgerTest] = Vector(
-    transactionServiceDivulgence,
-    activeContractServiceDivulgence
-  )
-
 }

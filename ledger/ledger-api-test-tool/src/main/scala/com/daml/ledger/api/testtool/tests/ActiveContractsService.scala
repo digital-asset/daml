@@ -5,7 +5,7 @@ package com.daml.ledger.api.testtool.tests
 
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
-import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTest, LedgerTestSuite}
+import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTestSuite}
 import com.digitalasset.ledger.api.v1.event.Event.Event.Created
 import com.digitalasset.ledger.api.v1.event.{CreatedEvent, Event}
 import com.digitalasset.ledger.client.binding.Primitive.{Party, TemplateId}
@@ -15,25 +15,24 @@ import io.grpc.Status
 import scalaz.syntax.tag._
 
 class ActiveContractsService(session: LedgerSession) extends LedgerTestSuite(session) {
-  private val invalidLedgerId =
-    LedgerTest(
-      "ACSinvalidLedgerId",
-      "The ActiveContractService should fail for requests with an invalid ledger identifier") {
-      context =>
-        val invalidLedgerId = "ACSinvalidLedgerId"
-        for {
-          ledger <- context.participant()
-          party <- ledger.allocateParty()
-          invalidRequest = ledger
-            .activeContractsRequest(Seq(party))
-            .update(_.ledgerId := invalidLedgerId)
-          failure <- ledger.activeContracts(invalidRequest).failed
-        } yield {
-          assertGrpcError(failure, Status.Code.NOT_FOUND, "not found. Actual Ledger ID")
-        }
-    }
+  test(
+    "ACSinvalidLedgerId",
+    "The ActiveContractService should fail for requests with an invalid ledger identifier") {
+    context =>
+      val invalidLedgerId = "ACSinvalidLedgerId"
+      for {
+        ledger <- context.participant()
+        party <- ledger.allocateParty()
+        invalidRequest = ledger
+          .activeContractsRequest(Seq(party))
+          .update(_.ledgerId := invalidLedgerId)
+        failure <- ledger.activeContracts(invalidRequest).failed
+      } yield {
+        assertGrpcError(failure, Status.Code.NOT_FOUND, "not found. Actual Ledger ID")
+      }
+  }
 
-  private val emptyResponse = LedgerTest(
+  test(
     "ACSemptyResponse",
     "The ActiveContractService should succeed with an empty response if no contracts have been created for a party") {
     context =>
@@ -56,69 +55,65 @@ class ActiveContractsService(session: LedgerSession) extends LedgerTestSuite(ses
     } yield (dummy, dummyWithParam, dummyFactory)
   }
 
-  private val returnAllContracts =
-    LedgerTest("ACSallContracts", "The ActiveContractService should return all active contracts") {
-      context =>
-        for {
-          ledger <- context.participant()
-          party <- ledger.allocateParty()
-          (dummy, dummyWithParam, dummyFactory) <- createDummyContracts(party, ledger)
-          activeContracts <- ledger.activeContracts(party)
-        } yield {
-          assert(
-            activeContracts.size == 3,
-            s"Expected 3 contracts, but received ${activeContracts.size}.")
-
-          assert(
-            activeContracts.exists(_.contractId == dummy),
-            s"Didn't find Dummy contract with contractId ${dummy}.")
-          assert(
-            activeContracts.exists(_.contractId == dummyWithParam),
-            s"Didn't find DummyWithParam contract with contractId ${dummy}.")
-          assert(
-            activeContracts.exists(_.contractId == dummyFactory),
-            s"Didn't find DummyFactory contract with contractId ${dummy}.")
-
-          val invalidSignatories = activeContracts.filterNot(_.signatories == Seq(party.unwrap))
-          assert(
-            invalidSignatories.isEmpty,
-            s"Found contracts with signatories other than ${party}: $invalidSignatories")
-
-          val invalidObservers = activeContracts.filterNot(_.observers.isEmpty)
-          assert(
-            invalidObservers.isEmpty,
-            s"Found contracts with non-empty observers: $invalidObservers")
-        }
-    }
-
-  private val filterContracts =
-    LedgerTest(
-      "ACSfilterContracts",
-      "The ActiveContractService should return contracts filtered by templateId") { context =>
+  test("ACSallContracts", "The ActiveContractService should return all active contracts") {
+    context =>
       for {
         ledger <- context.participant()
         party <- ledger.allocateParty()
-        (dummy, _, _) <- createDummyContracts(party, ledger)
-        activeContracts <- ledger.activeContractsByTemplateId(Seq(Dummy.id.unwrap), party)
+        (dummy, dummyWithParam, dummyFactory) <- createDummyContracts(party, ledger)
+        activeContracts <- ledger.activeContracts(party)
       } yield {
         assert(
-          activeContracts.size == 1,
-          s"Expected 1 contract, but received ${activeContracts.size}.")
+          activeContracts.size == 3,
+          s"Expected 3 contracts, but received ${activeContracts.size}.")
 
         assert(
-          activeContracts.head.getTemplateId == Dummy.id.unwrap,
-          s"Received contract is not of type Dummy, but ${activeContracts.head.templateId}.")
+          activeContracts.exists(_.contractId == dummy),
+          s"Didn't find Dummy contract with contractId ${dummy}.")
         assert(
-          activeContracts.head.contractId == dummy,
-          s"Expected contract with contractId ${dummy}, but received ${activeContracts.head.contractId}."
-        )
+          activeContracts.exists(_.contractId == dummyWithParam),
+          s"Didn't find DummyWithParam contract with contractId ${dummy}.")
+        assert(
+          activeContracts.exists(_.contractId == dummyFactory),
+          s"Didn't find DummyFactory contract with contractId ${dummy}.")
+
+        val invalidSignatories = activeContracts.filterNot(_.signatories == Seq(party.unwrap))
+        assert(
+          invalidSignatories.isEmpty,
+          s"Found contracts with signatories other than ${party}: $invalidSignatories")
+
+        val invalidObservers = activeContracts.filterNot(_.observers.isEmpty)
+        assert(
+          invalidObservers.isEmpty,
+          s"Found contracts with non-empty observers: $invalidObservers")
       }
-    }
+  }
 
-  private val excludeArchivedContracts =
-    LedgerTest(
-      "ACSarchivedContracts",
-      "The ActiveContractService does not return archived contracts") { context =>
+  test(
+    "ACSfilterContracts",
+    "The ActiveContractService should return contracts filtered by templateId") { context =>
+    for {
+      ledger <- context.participant()
+      party <- ledger.allocateParty()
+      (dummy, _, _) <- createDummyContracts(party, ledger)
+      activeContracts <- ledger.activeContractsByTemplateId(Seq(Dummy.id.unwrap), party)
+    } yield {
+      assert(
+        activeContracts.size == 1,
+        s"Expected 1 contract, but received ${activeContracts.size}.")
+
+      assert(
+        activeContracts.head.getTemplateId == Dummy.id.unwrap,
+        s"Received contract is not of type Dummy, but ${activeContracts.head.templateId}.")
+      assert(
+        activeContracts.head.contractId == dummy,
+        s"Expected contract with contractId ${dummy}, but received ${activeContracts.head.contractId}."
+      )
+    }
+  }
+
+  test("ACSarchivedContracts", "The ActiveContractService does not return archived contracts") {
+    context =>
       for {
         ledger <- context.participant()
         party <- ledger.allocateParty()
@@ -149,9 +144,9 @@ class ActiveContractsService(session: LedgerSession) extends LedgerTestSuite(ses
           s"Expected to not receive contract with contractId ${dummy}."
         )
       }
-    }
+  }
 
-  private val usableOffset = LedgerTest(
+  test(
     "ACSusableOffset",
     "The ActiveContractService should return a usable offset to resume streaming transactions") {
     context =>
@@ -190,7 +185,7 @@ class ActiveContractsService(session: LedgerSession) extends LedgerTestSuite(ses
       }
   }
 
-  private val verbosityFlag = LedgerTest(
+  test(
     "ACSverbosity",
     "The ActiveContractService should emit field names only if the verbose flag is set to true") {
     context =>
@@ -226,7 +221,7 @@ class ActiveContractsService(session: LedgerSession) extends LedgerTestSuite(ses
       s"${party.mkString(" and ")} expected $count $templateId events, but received $templateEvents.")
   }
 
-  private val multiPartyRequests = LedgerTest(
+  test(
     "ACSmultiParty",
     "The ActiveContractsService should return contracts for the requesting parties") { context =>
     for {
@@ -276,10 +271,8 @@ class ActiveContractsService(session: LedgerSession) extends LedgerTestSuite(ses
     }
   }
 
-  private val agreementText =
-    LedgerTest(
-      "ACSagreementText",
-      "The ActiveContractService should properly fill the agreementText field") { context =>
+  test("ACSagreementText", "The ActiveContractService should properly fill the agreementText field") {
+    context =>
       for {
         ledger <- context.participant()
         party <- ledger.allocateParty()
@@ -302,36 +295,22 @@ class ActiveContractsService(session: LedgerSession) extends LedgerTestSuite(ses
           dummyWithParamAgreementText.exists(_.nonEmpty),
           s"$party expected an empty agreement text, but received $dummyWithParamAgreementText.")
       }
-    }
+  }
 
-  private val eventId =
-    LedgerTest("ACSeventId", "The ActiveContractService should properly fill the eventId field") {
-      context =>
-        for {
-          ledger <- context.participant()
-          party <- ledger.allocateParty()
-          _ <- ledger.create(party, Dummy(party))
-          Vector(dummyEvent) <- ledger.activeContracts(party)
-          flatTransaction <- ledger.flatTransactionByEventId(dummyEvent.eventId, party)
-          transactionTree <- ledger.transactionTreeByEventId(dummyEvent.eventId, party)
-        } yield {
-          assert(
-            flatTransaction.transactionId == transactionTree.transactionId,
-            s"EventId ${dummyEvent.eventId} did not resolve to the same flat transaction (${flatTransaction.transactionId}) and transaction tree (${transactionTree.transactionId})."
-          )
-        }
-    }
-
-  override val tests: Vector[LedgerTest] = Vector(
-    invalidLedgerId,
-    emptyResponse,
-    returnAllContracts,
-    filterContracts,
-    excludeArchivedContracts,
-    usableOffset,
-    verbosityFlag,
-    multiPartyRequests,
-    agreementText,
-    eventId
-  )
+  test("ACSeventId", "The ActiveContractService should properly fill the eventId field") {
+    context =>
+      for {
+        ledger <- context.participant()
+        party <- ledger.allocateParty()
+        _ <- ledger.create(party, Dummy(party))
+        Vector(dummyEvent) <- ledger.activeContracts(party)
+        flatTransaction <- ledger.flatTransactionByEventId(dummyEvent.eventId, party)
+        transactionTree <- ledger.transactionTreeByEventId(dummyEvent.eventId, party)
+      } yield {
+        assert(
+          flatTransaction.transactionId == transactionTree.transactionId,
+          s"EventId ${dummyEvent.eventId} did not resolve to the same flat transaction (${flatTransaction.transactionId}) and transaction tree (${transactionTree.transactionId})."
+        )
+      }
+  }
 }
