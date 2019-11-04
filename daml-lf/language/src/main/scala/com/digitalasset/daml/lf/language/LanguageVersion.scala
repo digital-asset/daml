@@ -40,6 +40,8 @@ object LanguageVersion {
     private val List(v1_0, v1_1, v1_2, v1_3, v1_4, v1_5, v1_6, v1_dev) =
       Major.V1.supportedMinorVersions.map(LanguageVersion(Major.V1, _))
 
+    // FIXME https://github.com/digital-asset/daml/issues/2289
+    // Change the following line LF 1.7 freeze
     val v1_7 = v1_dev
 
     val default = v1_0
