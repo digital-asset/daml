@@ -1133,16 +1133,15 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
     )
 
     "is reflexive" in {
-      forEvery(values)( v => {
+      forEvery(values)(v => {
         val e = e"EQUAL_TYPE_REP $v $v"
         eval(e) shouldBe Right(SBool(true))
       })
     }
 
     "works as expected" in {
-      forEvery(values)(v1 => forEvery(values)(v2 =>
-        eval(e"EQUAL_TYPE_REP $v1 $v2") shouldBe Right(SBool(v1 == v2))
-      ))
+      forEvery(values)(v1 =>
+        forEvery(values)(v2 => eval(e"EQUAL_TYPE_REP $v1 $v2") shouldBe Right(SBool(v1 == v2))))
     }
   }
 

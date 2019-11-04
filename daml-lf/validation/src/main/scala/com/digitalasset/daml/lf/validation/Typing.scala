@@ -738,11 +738,10 @@ private[validation] object Typing {
       }
     }
 
-    private def checkGroundType(typ:Type): Unit  = {
+    private def checkGroundType(typ: Type): Unit = {
       checkGroundType_(typ)
       checkType(typ, KStar)
     }
-
 
     def typeOf(expr0: Expr): Type = expr0 match {
       case EVar(name) =>
