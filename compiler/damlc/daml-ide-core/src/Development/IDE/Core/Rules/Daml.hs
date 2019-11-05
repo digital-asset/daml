@@ -41,7 +41,7 @@ import qualified Network.HTTP.Types as HTTP.Types
 import qualified Network.URI as URI
 
 import Development.IDE.Import.DependencyInformation
-import Development.IDE.Core.Rules hiding (mainRule)
+import Development.IDE.Core.Rules (useE,usesE,useNoFileE,priorityGenerateCore,generateCore,toIdeResult,defineNoFile,priorityFilesOfInterest,fileFromParsedModule,getAtPoint,getDefinition,getDependencies)
 import qualified Development.IDE.Core.Rules as IDE
 import Development.IDE.Core.Service.Daml
 import Development.IDE.Core.Shake

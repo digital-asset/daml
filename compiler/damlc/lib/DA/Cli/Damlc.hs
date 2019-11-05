@@ -70,11 +70,11 @@ import "ghc-lib-parser" DynFlags
 import GHC.Conc
 import "ghc-lib-parser" Module
 import qualified Network.Socket as NS
-import Options.Applicative.Extended
+import Options.Applicative.Extended (Mod,CommandFields,Parser,ParserInfo,command,info,helper,progDesc,fullDesc,optional,long,strOption,metavar,flag',help,many,switch,option,auto,subparser,internal,headerDoc,(<|>),handleParseResult)
 import qualified Proto3.Suite as PS
 import qualified Proto3.Suite.JSONPB as Proto.JSONPB
 import System.Directory.Extra
-import System.Environment
+import System.Environment (getArgs,withProgName)
 import System.Exit
 import System.FilePath
 import System.IO.Extra
