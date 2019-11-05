@@ -205,7 +205,10 @@ da_scala_test_suite(
 sandbox_conformance_test(
     name = "static-time",
     server_args = ["--static-time"],
-    test_tool_args = ["--all-tests", "--exclude=LotsOfPartiesIT"],
+    test_tool_args = [
+        "--all-tests",
+        "--exclude=LotsOfPartiesIT",
+    ],
 )
 
 sandbox_conformance_test(
@@ -217,7 +220,11 @@ sandbox_conformance_test(
 sandbox_conformance_test(
     name = "wall-clock",
     server_args = ["--wall-clock-time"],
-    test_tool_args = ["--all-tests", "--exclude=TimeIT", "--exclude=LotsOfPartiesIT"],
+    test_tool_args = [
+        "--all-tests",
+        "--exclude=TimeIT",
+        "--exclude=LotsOfPartiesIT",
+    ],
 )
 
 sandbox_conformance_test(

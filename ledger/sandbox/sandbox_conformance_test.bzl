@@ -45,4 +45,3 @@ def sandbox_conformance_test(name, server_args, test_tool_args):
         ],
         test_tool_args = default_test_tool_args + test_tool_args,
     )
-
