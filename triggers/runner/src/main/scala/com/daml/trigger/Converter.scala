@@ -78,7 +78,7 @@ object TriggerIds {
   }
 }
 
-case class AnyContractId(templateId: Identifier, contractId: String)
+case class AnyContractId(templateId: Identifier, contractId: AbsoluteContractId)
 
 object Converter {
   // Helper to make constructing an SRecord more convenient
@@ -159,7 +159,7 @@ object Converter {
     record(
       contractIdTy,
       ("templateId", fromTemplateTypeRep(triggerIds, templateId)),
-      ("contractId", SText(contractId))
+      ("contractId", SContractId(AbsoluteContractId(ContractIdString.assertFromString(contractId))))
     )
   }
 
@@ -306,13 +306,20 @@ object Converter {
     }
   }
 
+  private def toAbsoluteContractId(v: SValue): Either[String, AbsoluteContractId] = {
+    v match {
+      case SContractId(cid @ AbsoluteContractId(_)) => Right(cid)
+      case _ => Left(s"Expected AbsoluteContractId but got $v")
+    }
+  }
+
   private def toAnyContractId(v: SValue): Either[String, AnyContractId] = {
     v match {
       case SRecord(_, _, vals) => {
         assert(vals.size == 2)
         for {
           templateId <- toTemplateTypeRep(vals.get(0))
-          contractId <- toText(vals.get(1))
+          contractId <- toAbsoluteContractId(vals.get(1))
         } yield AnyContractId(templateId, contractId)
       }
       case _ => Left(s"Expected AnyContractId but got $v")
@@ -370,7 +377,7 @@ object Converter {
         } yield {
           ExerciseCommand(
             Some(toApiIdentifier(anyContractId.templateId)),
-            anyContractId.contractId,
+            anyContractId.contractId.coid,
             choiceName,
             Some(choiceArg))
         }
