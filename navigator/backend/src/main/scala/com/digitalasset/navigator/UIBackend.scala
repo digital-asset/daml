@@ -19,6 +19,7 @@ import akka.http.scaladsl.settings.RoutingSettings
 import akka.pattern.ask
 import akka.stream.ActorMaterializer
 import akka.util.Timeout
+import com.digitalasset.grpc.{GrpcException, GrpcStatus}
 import com.digitalasset.navigator.SessionJsonProtocol._
 import com.digitalasset.navigator.config._
 import com.digitalasset.navigator.graphql.GraphQLContext
@@ -27,7 +28,7 @@ import com.digitalasset.navigator.model.{Ledger, PackageRegistry}
 import com.digitalasset.navigator.store.Store._
 import com.digitalasset.navigator.store.platform.PlatformStore
 import com.typesafe.scalalogging.LazyLogging
-import io.grpc.{StatusException, StatusRuntimeException}
+import io.grpc.Status.Code.PERMISSION_DENIED
 import org.slf4j.LoggerFactory
 import sangria.schema._
 import spray.json._
@@ -144,12 +145,12 @@ abstract class UIBackend extends LazyLogging with ApplicationInfoJsonSupport {
                           complete(signIn(Some(InvalidCredentials)))
                         case Some(userConfig) =>
                           onSuccess(getAppState()) {
-                            case ApplicationStateFailed(_, _, _, _, error: StatusException)
-                                if error.getStatus.getCode == io.grpc.Status.Code.PERMISSION_DENIED =>
-                              logger.warn("Attempt to sign in without valid token")
-                              complete(signIn(Some(InvalidCredentials)))
-                            case ApplicationStateFailed(_, _, _, _, error: StatusRuntimeException)
-                                if error.getStatus.getCode == io.grpc.Status.Code.PERMISSION_DENIED =>
+                            case ApplicationStateFailed(
+                                _,
+                                _,
+                                _,
+                                _,
+                                GrpcException(GrpcStatus(`PERMISSION_DENIED`, _), _)) =>
                               logger.warn("Attempt to sign in without valid token")
                               complete(signIn(Some(InvalidCredentials)))
                             case _: ApplicationStateFailed =>

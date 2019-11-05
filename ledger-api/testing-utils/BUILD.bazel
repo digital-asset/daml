@@ -19,6 +19,7 @@ da_scala_library(
     deps = [
         "//ledger-api/grpc-definitions:ledger-api-scalapb",
         "//ledger-api/rs-grpc-akka",
+        "//ledger/ledger-api-grpc-utils",
         "@maven//:com_google_guava_guava",
         "@maven//:com_typesafe_akka_akka_actor_2_12",
         "@maven//:com_typesafe_akka_akka_stream_2_12",

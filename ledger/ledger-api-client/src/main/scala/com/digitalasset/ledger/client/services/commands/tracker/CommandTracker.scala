@@ -5,8 +5,8 @@ package com.digitalasset.ledger.client.services.commands.tracker
 
 import akka.stream.stage._
 import akka.stream.{Attributes, Inlet, Outlet}
-import com.digitalasset.api.util.GrpcStatusError
 import com.digitalasset.api.util.TimestampConversion.toInstant
+import com.digitalasset.grpc.{GrpcException, GrpcStatus}
 import com.digitalasset.ledger.api.v1.command_completion_service._
 import com.digitalasset.ledger.api.v1.command_submission_service._
 import com.digitalasset.ledger.api.v1.completion.Completion
@@ -161,19 +161,16 @@ private[commands] class CommandTracker[Context]
         }
       }
 
+      import CommandTracker.nonTerminalCodes
+
       private def handleSubmitResponse(submitResponse: Ctx[(Context, String), Try[Empty]]) = {
         val commandId = submitResponse.context._2
         submitResponse.value.fold(
           {
-            case GrpcStatusError(status)
-                if !CommandTracker.nonTerminalCodes.contains(status.getCode) =>
+            case GrpcException(GrpcStatus(code, description), _) if !nonTerminalCodes(code) =>
               val output = getOutputForTerminalStatusCode(
                 commandId,
-                Status(
-                  status.getCode.value(),
-                  if (status.getDescription == null) ""
-                  else status.getDescription,
-                  Nil))
+                Status(code.value(), description.getOrElse(""), Nil))
               pendingCommands -= commandId
               output
             case throwable =>

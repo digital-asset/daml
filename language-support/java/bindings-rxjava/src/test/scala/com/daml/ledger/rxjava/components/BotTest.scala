@@ -16,6 +16,7 @@ import com.daml.ledger.rxjava.components.tests.helpers.DummyLedgerClient
 import com.daml.ledger.rxjava.grpc.helpers.{DataLayerHelpers, LedgerServices}
 import com.daml.ledger.rxjava.{CommandSubmissionClient, DamlLedgerClient}
 import com.daml.ledger.testkit.services.TransactionServiceImpl
+import com.digitalasset.grpc.{GrpcException, GrpcStatus}
 import com.digitalasset.ledger.api.v1.command_service.{
   SubmitAndWaitForTransactionIdResponse,
   SubmitAndWaitForTransactionResponse,
@@ -26,7 +27,7 @@ import com.google.protobuf.{Empty => JEmpty}
 import com.google.protobuf.empty.Empty
 import com.google.rpc.Status
 import io.grpc.Metadata
-import io.grpc.Status.Code
+import io.grpc.Status.Code.INVALID_ARGUMENT
 import io.reactivex.{Flowable, Observable, Single}
 import org.pcollections.{HashTreePMap, HashTreePSet}
 import org.reactivestreams.{Subscriber, Subscription}
@@ -204,7 +205,7 @@ class BotTest extends FlatSpec with Matchers with DataLayerHelpers {
       }
 
     val counter = new AtomicInteger(0)
-    Bot.wire(appId, ledgerClient, transactionFilter, bot, c => counter)
+    Bot.wire(appId, ledgerClient, transactionFilter, bot, _ => counter)
 
     // when the bot is wired-up, no command should have been submitted to the server
     ledgerClient.submitted.size shouldBe 0
@@ -401,10 +402,9 @@ class BotTest extends FlatSpec with Matchers with DataLayerHelpers {
           new FiltersByParty(Collections.emptyMap()),
           _ => Flowable.empty())
       } catch {
-        case e: io.grpc.StatusRuntimeException
-            if e.getStatus.getCode.equals(Code.INVALID_ARGUMENT) =>
+        case GrpcException(GrpcStatus(`INVALID_ARGUMENT`, _), trailers) =>
           /** the tests relies on specific implementation of the [[TransactionServiceImpl.getTransactions()]]  */
-          fail(e.getTrailers.get(Metadata.Key.of("cause", Metadata.ASCII_STRING_MARSHALLER)))
+          fail(trailers.get(Metadata.Key.of("cause", Metadata.ASCII_STRING_MARSHALLER)))
       }
 
       // test is passed, we wait a bit to avoid issues with gRPC and then close the client. If there is an exception,

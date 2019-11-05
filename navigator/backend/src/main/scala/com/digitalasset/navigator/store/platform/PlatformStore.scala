@@ -3,45 +3,46 @@
 
 package com.digitalasset.navigator.store.platform
 
-import java.time.{Duration, Instant}
 import java.net.URLEncoder
 import java.nio.file.{Files, Path}
+import java.time.{Duration, Instant}
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
 import java.util.stream.Collectors
 
-import akka.pattern.ask
 import akka.actor.{Actor, ActorLogging, ActorRef, Props, Scheduler, Stash}
+import akka.pattern.ask
 import akka.stream.ActorMaterializer
 import akka.util.Timeout
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.navigator.util.RetryHelper
-import com.digitalasset.navigator.model._
-import com.digitalasset.navigator.store.Store._
-import com.digitalasset.navigator.time._
+import com.digitalasset.grpc.{GrpcException, GrpcStatus}
+import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
+import com.digitalasset.ledger.api.refinements.{ApiTypes, IdGenerator}
+import com.digitalasset.ledger.api.tls.TlsConfiguration
+import com.digitalasset.ledger.api.v1.testing.time_service.TimeServiceGrpc
+import com.digitalasset.ledger.client.LedgerClient
 import com.digitalasset.ledger.client.configuration.{
   CommandClientConfiguration,
   LedgerClientConfiguration,
   LedgerIdRequirement
 }
 import com.digitalasset.ledger.client.services.testing.time.StaticTime
-import com.digitalasset.ledger.api.refinements.{ApiTypes, IdGenerator}
-import com.digitalasset.ledger.api.tls.TlsConfiguration
-import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
-import com.digitalasset.ledger.api.v1.testing.time_service.TimeServiceGrpc
-import com.digitalasset.ledger.client.LedgerClient
 import com.digitalasset.navigator.ApplicationInfo
+import com.digitalasset.navigator.model._
+import com.digitalasset.navigator.store.Store._
+import com.digitalasset.navigator.time._
+import com.digitalasset.navigator.util.RetryHelper
+import io.grpc.Channel
+import io.grpc.Status.Code.UNIMPLEMENTED
 import io.grpc.netty.GrpcSslContexts
-import io.grpc.{Channel, Status}
 import io.netty.handler.ssl.SslContext
 import org.slf4j.LoggerFactory
-
-import scala.util.{Failure, Random, Success, Try}
-import scala.concurrent.Future
-import scala.concurrent.duration._
 import scalaz.syntax.tag._
 
+import scala.concurrent.Future
+import scala.concurrent.duration._
 import scala.util.control.NonFatal
+import scala.util.{Failure, Random, Success, Try}
 
 object PlatformStore {
   def props(
@@ -365,8 +366,7 @@ class PlatformStore(
       })
       .recover({
         // If the time service is not implemented, then the ledger uses UTC time.
-        case e: io.grpc.StatusRuntimeException
-            if e.getStatus.getCode == Status.Code.UNIMPLEMENTED => {
+        case GrpcException(GrpcStatus(`UNIMPLEMENTED`, _), _) => {
           log.info("Time service is not implemented")
           None
         }

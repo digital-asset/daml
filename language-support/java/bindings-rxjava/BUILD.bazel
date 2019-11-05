@@ -56,6 +56,7 @@ testDependencies = [
     ":bindings-rxjava",
     "@maven//:org_slf4j_slf4j_api",
     "//ledger-api/grpc-definitions:ledger-api-scalapb",
+    "//ledger/ledger-api-grpc-utils",
     "//language-support/java/testkit:testkit",
     "//ledger-api/rs-grpc-bridge:rs-grpc-bridge",
     "@maven//:org_scalatest_scalatest_2_12",

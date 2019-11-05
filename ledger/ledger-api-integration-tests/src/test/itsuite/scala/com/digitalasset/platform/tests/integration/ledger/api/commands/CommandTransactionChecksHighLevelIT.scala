@@ -4,6 +4,7 @@
 package com.digitalasset.platform.tests.integration.ledger.api.commands
 
 import com.digitalasset.api.util.TimeProvider
+import com.digitalasset.grpc.GrpcException
 import com.digitalasset.ledger.api.v1.command_service.{
   SubmitAndWaitForTransactionIdResponse,
   SubmitAndWaitRequest
@@ -18,7 +19,6 @@ import com.digitalasset.platform.services.time.TimeProviderType.{
   WallClock
 }
 import com.google.rpc.status.Status
-import io.grpc.StatusRuntimeException
 
 import scala.concurrent.Future
 
@@ -34,10 +34,8 @@ class CommandTransactionChecksHighLevelIT extends CommandTransactionChecks {
             Some(Status(io.grpc.Status.OK.getCode.value(), "")),
             tx.transactionId))
       .recover {
-        case sre: StatusRuntimeException =>
-          Completion(
-            commandId,
-            Some(Status(sre.getStatus.getCode.value(), sre.getStatus.getDescription)))
+        case GrpcException(s, _) =>
+          Completion(commandId, Some(Status(s.getCode.value(), s.getDescription)))
       }
 
   def commandUpdater(ctx: LedgerContext) = {
