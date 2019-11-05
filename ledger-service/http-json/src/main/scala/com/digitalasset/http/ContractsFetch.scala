@@ -35,9 +35,10 @@ import scalaz.syntax.show._
 import scalaz.syntax.tag._
 import scalaz.syntax.functor._
 import scalaz.syntax.std.option._
-import scalaz.{-\/, \/, \/-}
+import scalaz.{-\/, Tag, \/, \/-}
 import spray.json.JsValue
 import com.typesafe.scalalogging.StrictLogging
+import scalaz.Liskov.<~<
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -52,7 +53,7 @@ private class ContractsFetch(
 
   def contractsIo2(jwt: Jwt, party: domain.Party, templateIds: List[domain.TemplateId.RequiredPkg])(
       implicit ec: ExecutionContext,
-      mat: Materializer): ConnectionIO[List[domain.Offset]] = {
+      mat: Materializer): ConnectionIO[List[OffsetBookmark[domain.Offset]]] = {
     import cats.instances.list._, cats.syntax.traverse._, doobie.implicits._
     // TODO(Leo/Stephen): can we run this traverse concurrently?
     templateIds.traverse { templateId =>
@@ -62,38 +63,40 @@ private class ContractsFetch(
 
   def contractsIo(jwt: Jwt, party: domain.Party, templateId: domain.TemplateId.RequiredPkg)(
       implicit ec: ExecutionContext,
-      mat: Materializer): ConnectionIO[domain.Offset] =
+      mat: Materializer): ConnectionIO[OffsetBookmark[domain.Offset]] =
     for {
       offset0 <- readOffsetFromDbOrFetchFromLedger(jwt, party, templateId)
       _ = logger.debug(s"readOffsetFromDbOrFetchFromLedger($jwt, $party, $templateId): $offset0")
       offset1 <- contractsFromOffsetIo(jwt, party, templateId, offset0)
       _ = logger.debug(s"contractsFromOffsetIo($jwt, $party, $templateId, $offset0): $offset1")
-    } yield offset1.getOrElse(offset0)
+    } yield offset1.cata(AbsoluteBookmark(_), offset0)
 
   private def readOffsetFromDbOrFetchFromLedger(
       jwt: Jwt,
       party: domain.Party,
       templateId: domain.TemplateId.RequiredPkg)(
       implicit ec: ExecutionContext,
-      mat: Materializer): ConnectionIO[domain.Offset] =
+      mat: Materializer): ConnectionIO[OffsetBookmark[domain.Offset]] =
     for {
       offsetO <- ContractDao.lastOffset(party, templateId): ConnectionIO[Option[domain.Offset]]
       offset <- offsetO.cata(
-        x => connection.pure(x),
+        x => connection.pure(AbsoluteBookmark(x)),
         contractsToOffsetIo(jwt, party, templateId)
-      ): ConnectionIO[domain.Offset]
+      )
     } yield offset
 
   private def contractsToOffsetIo(
       jwt: Jwt,
       party: domain.Party,
       templateId: domain.TemplateId.RequiredPkg
-  )(implicit ec: ExecutionContext, mat: Materializer): ConnectionIO[domain.Offset] = {
+  )(
+      implicit ec: ExecutionContext,
+      mat: Materializer): ConnectionIO[OffsetBookmark[domain.Offset]] = {
 
     val graph = RunnableGraph.fromGraph(
       GraphDSL.create(
         Sink.queue[ConnectionIO[Unit]](),
-        Sink.last[lav1.ledger_offset.LedgerOffset]
+        Sink.last[OffsetBookmark[String]]
       )((a, b) => (a, b)) { implicit builder => (acsSink, offsetSink) =>
         import GraphDSL.Implicits._
 
@@ -110,17 +113,15 @@ private class ContractsFetch(
 
     val (acsQueue, lastOffsetFuture) = graph.run()
 
-    import lav1.ledger_offset.LedgerOffset, LedgerOffset.Value.Absolute
     for {
       _ <- sinkCioSequence_(acsQueue)
       ledgerOffset <- connectionIOFuture(lastOffsetFuture)
       offsetOrError <- ledgerOffset match {
-        case LedgerOffset(Absolute(str)) =>
+        case AbsoluteBookmark(str) =>
           val offset = domain.Offset(str)
-          ContractDao.updateOffset(party, templateId, offset).map(_ => offset)
-        case x @ _ =>
-          val errorMsg = s"expected LedgerOffset(Absolute(String)), got: $x"
-          connection.raiseError(new IllegalStateException(errorMsg))
+          ContractDao.updateOffset(party, templateId, offset).map(_ => AbsoluteBookmark(offset))
+        case LedgerBegin =>
+          connection.pure(LedgerBegin)
       }
     } yield offsetOrError
   }
@@ -166,7 +167,7 @@ private class ContractsFetch(
       jwt: Jwt,
       party: domain.Party,
       templateId: domain.TemplateId.RequiredPkg,
-      offset: domain.Offset)(
+      offset: OffsetBookmark[domain.Offset])(
       implicit ec: ExecutionContext,
       mat: Materializer): ConnectionIO[Option[domain.Offset]] = {
 
@@ -180,7 +181,7 @@ private class ContractsFetch(
         val txSource: Source[Transaction, NotUsed] = getCreatesAndArchivesSince(
           jwt,
           transactionFilter(party, List(templateId)),
-          domain.Offset.toLedgerApi(offset))
+          Tag.unsubst(offset).toLedgerApi)
 
         val untuple = builder add project2[InsertDeleteStep[lav1.event.CreatedEvent], domain.Offset]
         val transactInsertsDeletes = Flow
@@ -219,6 +220,19 @@ private object ContractsFetch {
   type Contract = domain.Contract[lav1.value.Value]
 
   type PreInsertContract = DBContract[TemplateId.RequiredPkg, JsValue, Seq[domain.Party]]
+
+  sealed abstract class OffsetBookmark[+Off] extends Product with Serializable {
+    import lav1.ledger_offset.LedgerOffset
+    import LedgerOffset.{LedgerBoundary, Value}
+    import Value.{Absolute, Boundary}
+    def toLedgerApi(implicit ev: Off <~< String): LedgerOffset =
+      LedgerOffset(this match {
+        case AbsoluteBookmark(offset) => Absolute(ev(offset))
+        case LedgerBegin => Boundary(LedgerBoundary.LEDGER_BEGIN)
+      })
+  }
+  final case class AbsoluteBookmark[+Off](offset: Off) extends OffsetBookmark[Off]
+  case object LedgerBegin extends OffsetBookmark[Nothing]
 
   def partition[A, B]: Graph[FanOutShape2[A \/ B, A, B], NotUsed] =
     GraphDSL.create() { implicit b =>
@@ -274,20 +288,16 @@ private object ContractsFetch {
     FanOutShape2[
       lav1.active_contracts_service.GetActiveContractsResponse,
       Seq[lav1.event.CreatedEvent],
-      lav1.ledger_offset.LedgerOffset],
+      OffsetBookmark[String]],
     NotUsed] =
     GraphDSL.create() { implicit b =>
       import GraphDSL.Implicits._
       import lav1.active_contracts_service.{GetActiveContractsResponse => GACR}
-      import lav1.ledger_offset.LedgerOffset
-      import LedgerOffset.{LedgerBoundary, Value}
-      import Value.{Absolute, Boundary}
       val dup = b add Broadcast[GACR](2)
       val acs = b add (Flow fromFunction ((_: GACR).activeContracts))
       val off = b add Flow[GACR]
-        .collect { case gacr if gacr.offset.nonEmpty => Absolute(gacr.offset) }
-        .fold(Boundary(LedgerBoundary.LEDGER_BEGIN): Value)((_, later) => later)
-        .map(LedgerOffset.apply)
+        .collect { case gacr if gacr.offset.nonEmpty => AbsoluteBookmark(gacr.offset) }
+        .fold(LedgerBegin: OffsetBookmark[String])((_, later) => later)
       discard { dup ~> acs }
       discard { dup ~> off }
       new FanOutShape2(dup.in, acs.out, off.out)
