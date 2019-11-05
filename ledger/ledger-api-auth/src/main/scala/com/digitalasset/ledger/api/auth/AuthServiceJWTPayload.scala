@@ -4,7 +4,6 @@
 package com.digitalasset.ledger.api.auth
 
 import java.time.Instant
-import java.time.format.DateTimeFormatter
 
 import spray.json._
 
@@ -98,7 +97,7 @@ object AuthServiceJWTCodec {
     JsArray(value.map(JsString(_)): _*)
 
   private[this] def writeOptionalInstant(value: Option[Instant]): JsValue =
-    value.fold[JsValue](JsNull)(i => JsString(DateTimeFormatter.ISO_INSTANT.format(i)))
+    value.fold[JsValue](JsNull)(i => JsNumber(i.getEpochSecond))
 
   // ------------------------------------------------------------------------------------------------------------------
   // Decoding
@@ -156,9 +155,9 @@ object AuthServiceJWTCodec {
     fields.get(name) match {
       case None => None
       case Some(JsNull) => None
-      case Some(JsString(value)) => Some(Instant.parse(value))
+      case Some(JsNumber(epochSeconds)) => Some(Instant.ofEpochSecond(epochSeconds.longValue()))
       case Some(value) =>
-        deserializationError(s"Can't read ${value.prettyPrint} as ISO8601 time for $name")
+        deserializationError(s"Can't read ${value.prettyPrint} as epoch seconds for $name")
     }
 
   // ------------------------------------------------------------------------------------------------------------------
