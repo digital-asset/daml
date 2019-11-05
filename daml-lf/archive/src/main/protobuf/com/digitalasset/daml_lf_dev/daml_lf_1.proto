@@ -274,6 +274,10 @@ enum PrimType {
   // Builtin type 'Any'
   // *Available in versions >= 1.dev*
   ANY = 18;
+
+  // Builtin type 'TypeRep'
+  // *Available in versions >= 1.dev*
+  TYPE_REP = 19;
 }
 
 // Types
@@ -483,6 +487,8 @@ enum BuiltinFunction {
   EQUAL_BOOL = 85;
   EQUAL_CONTRACT_ID = 86;
   EQUAL_LIST = 87;
+  EQUAL_TYPE_REP = 123;
+
 
   TRACE = 88;
 
@@ -490,7 +496,7 @@ enum BuiltinFunction {
 
   TEXT_FROM_CODE_POINTS = 105;  // *Available in versions >= 1.6*
   TEXT_TO_CODE_POINTS = 106; // *Available in versions >= 1.6*
-  // Next id is 123. 122 is SHIFT_NUMERIC.
+  // Next id is 124. 123 is EQUAL_TYPE_REP.
 }
 
 // Builtin literals
@@ -504,8 +510,8 @@ message PrimLit {
     // *Must be a valid representation of decimal*
     string decimal_str = 2; // *Available in versions < 1.dev*
 
-    // *Must be a valid interned decimal*
-    int32 decimal_interned_str = 10; // *Available in versions >= 1.dev* // *Available in version < 1.dev*
+    // *Must be a valid interned numeric */
+    int32 numeric_interned_str = 10; // *Available in versions >= 1.dev*
 
     string text_str = 4; // *Available in version < 1.dev*
 
@@ -523,12 +529,6 @@ message PrimLit {
 
     // *Must be a valid date*
     int32 date = 8;
-
-    // *Must be a valid numeric */
-    string numeric_str = 9; // *Available in versions >= 1.dev* // *Available in version < 1.dev*
-
-    // *Must be a valid interned numeric */
-    int32 numeric_interned_str = 13; // *Available in versions >= 1.dev*
   }
 
   reserved 3; // This was char.
@@ -878,9 +878,9 @@ message Expr {
     // *Available in versions >= 1.dev*
     FromAny from_any = 31;
 
-    // Obtain a unique textual representation of a type constructor
+    // A type representation
     // *Available in versions >= 1.dev*
-    TypeConName to_text_type_con_name = 32;
+    Type type_rep = 32;
   }
 
   reserved 19; // This was equals. Removed in favour of BuiltinFunction.EQUAL_*

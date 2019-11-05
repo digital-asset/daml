@@ -37,7 +37,15 @@ import DA.Next.Map (MapKey(..))
 data AnyContractId = AnyContractId
   { templateId : TemplateTypeRep
   , contractId : Text
-  } deriving (Show, Eq, Ord)
+  } deriving Eq
+
+-- We can’t derive the Show instance since TemplateTypeRep does not have a Show instance
+-- but it is useful for debugging so we add one that omits the type.
+instance Show AnyContractId where
+  showsPrec d (AnyContractId _ cid) = showParen (d > app_prec) $
+    showString "AnyContractId " . showsPrec (app_prec +1) cid
+    where app_prec = 10
+
 
 -- | An absolute contract id on the ledger.
 -- Contrary to the `ContractId` type which is used

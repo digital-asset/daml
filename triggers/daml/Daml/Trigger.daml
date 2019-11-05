@@ -38,13 +38,15 @@ import qualified Daml.Trigger.LowLevel as LowLevel
 
 -- | Active contract set, you can use `getTemplates` to access the templates of
 -- a given type.
-newtype ACS = ACS (Map TemplateTypeRep [(AnyContractId, AnyTemplate)])
+
+-- This will change to a Map once we have proper maps in DAML-LF
+newtype ACS = ACS [(AnyContractId, AnyTemplate)]
 
 -- | Extract the templates of a given type from the ACS.
 getTemplates : forall a. Template a => ACS -> [(AbsoluteContractId a, a)]
-getTemplates (ACS tpls) = map fromAny $ fromOptional [] $ Map.lookup (templateTypeRep @a) tpls
+getTemplates (ACS tpls) = mapOptional fromAny tpls
   where
-    fromAny (cid, tpl) = (fromSome (fromAnyContractId cid), fromSome (fromAnyTemplate tpl))
+    fromAny (cid, tpl) = (,) <$> fromAnyContractId cid <*> fromAnyTemplate tpl
 
 -- | This is the type of your trigger. `s` is the user-defined state type which
 -- you can often leave at `()`.
@@ -116,7 +118,7 @@ runTrigger userTrigger = LowLevel.Trigger
   }
   where
     initialState party (ActiveContracts createdEvents) =
-      let acs = foldl (\acs created -> applyEvent (CreatedEvent created) acs) (ACS Map.empty) createdEvents
+      let acs = foldl (\acs created -> applyEvent (CreatedEvent created) acs) (ACS []) createdEvents
           userState = userTrigger.initialize acs
           state = TriggerState acs party userState Map.empty 0
       in runRule userTrigger.rule state
@@ -149,21 +151,14 @@ addCommands : Map CommandId [Command] -> Commands -> Map CommandId [Command]
 addCommands m (Commands cid cmds) = Map.insert cid cmds m
 
 insertTpl : AnyContractId -> AnyTemplate -> ACS -> ACS
-insertTpl cid tpl (ACS acs) =
-  case Map.lookup cid.templateId acs of
-    None -> ACS (Map.insert cid.templateId [(cid, tpl)] acs)
-    Some items -> ACS (Map.insert cid.templateId ((cid, tpl) :: items) acs)
+insertTpl cid tpl (ACS acs) = ACS ((cid, tpl) :: acs)
 
 deleteTpl : AnyContractId -> ACS -> ACS
-deleteTpl cid (ACS acs) =
-  case Map.lookup cid.templateId acs of
-    None -> ACS acs
-    Some items -> ACS (Map.insert cid.templateId (filter (\(cid', _) -> cid /= cid') items) acs)
+deleteTpl cid (ACS acs) = ACS (filter (\(cid', _) -> cid /= cid') acs)
 
 lookupTpl : Template a => AnyContractId -> ACS -> Optional a
 lookupTpl cid (ACS acs) = do
-  items <- Map.lookup cid.templateId acs
-  (_, tpl) <- find ((cid ==) . fst) items
+  (_, tpl) <- find ((cid ==) . fst) acs
   fromAnyTemplate tpl
 
 applyEvent : Event -> ACS -> ACS
