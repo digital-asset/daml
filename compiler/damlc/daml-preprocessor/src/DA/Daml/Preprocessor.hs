@@ -4,6 +4,7 @@
 
 module DA.Daml.Preprocessor
   ( damlPreprocessor
+  , genPreprocessor
   , noPreprocessor
   ) where
 
@@ -54,7 +55,16 @@ damlPreprocessor mbPkgName x
     where
       name = fmap GHC.unLoc $ GHC.hsmodName $ GHC.unLoc x
 
--- | No preprocessing. Used for generated code.
+-- | Preprocessor for generated code.
+genPreprocessor :: GHC.ParsedSource -> IdePreprocessedSource
+genPreprocessor x =
+    IdePreprocessedSource
+      { preprocWarnings = []
+      , preprocErrors = []
+      , preprocSource = enumTypePreprocessor x
+      }
+
+-- | No preprocessing.
 noPreprocessor :: GHC.ParsedSource -> IdePreprocessedSource
 noPreprocessor x =
     IdePreprocessedSource
@@ -62,7 +72,6 @@ noPreprocessor x =
       , preprocErrors = []
       , preprocSource = x
       }
-
 
 -- With RebindableSyntax any missing DAML import results in pretty much nothing
 -- working (literals, if-then-else) so we inject an implicit import DAML for

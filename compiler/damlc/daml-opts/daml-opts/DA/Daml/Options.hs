@@ -41,7 +41,7 @@ import qualified Development.IDE.Types.Options as Ghcide
 toCompileOpts :: Options -> Ghcide.IdeReportProgress -> Ghcide.IdeOptions
 toCompileOpts options@Options{..} reportProgress =
     Ghcide.IdeOptions
-      { optPreprocessor = if optIsGenerated then noPreprocessor else damlPreprocessor optMbPackageName
+      { optPreprocessor = if optIsGenerated then genPreprocessor else damlPreprocessor optMbPackageName
       , optGhcSession = do
             env <- runGhcFast $ do
                 setupDamlGHC options
