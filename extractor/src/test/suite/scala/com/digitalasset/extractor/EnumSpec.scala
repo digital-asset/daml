@@ -25,7 +25,7 @@ class EnumSpec
 
   override protected def darFile = new File(rlocation("daml-lf/encoder/test-1.6.dar"))
 
-  override def scenario: Option[String] = Some("Enum:createContracts")
+  override def scenario: Option[String] = Some("EnumMod:createContracts")
 
   "Enum" should "be extracted" in {
     getContracts should have length 3

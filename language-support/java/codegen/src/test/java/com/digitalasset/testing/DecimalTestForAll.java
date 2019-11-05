@@ -10,7 +10,7 @@ import com.daml.ledger.javaapi.data.Record;
 import org.junit.jupiter.api.Test;
 import org.junit.platform.runner.JUnitPlatform;
 import org.junit.runner.RunWith;
-import test.decimal.Box;
+import test.decimalmod.Box;
 
 import java.math.BigDecimal;
 
