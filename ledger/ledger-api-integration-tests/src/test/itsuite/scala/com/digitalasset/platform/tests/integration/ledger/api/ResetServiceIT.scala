@@ -96,6 +96,9 @@ class ResetServiceIT
       // to complete before the 30 seconds test timeout in normal conditions while
       // still causing the test to fail if something goes wrong
       //
+      // On Windows we use only 4 attempts as 5 attempts would exceed the
+      // overall 30 second timeout.
+      //
       // the 10 seconds timeout built into the context's ledger reset will
       // be hit if something goes horribly wrong, causing an exception to report
       // waitForNewLedger: out of retries
@@ -104,6 +107,7 @@ class ResetServiceIT
 
         val operator = "party"
         val numberOfCommands = 5
+        val numberOfAttempts = if (sys.props("os.name").toLowerCase contains "windows") 4 else 5
 
         final class WaitForNCompletions(threshold: Int)
             extends StreamObserver[CompletionStreamResponse] {
@@ -128,29 +132,30 @@ class ResetServiceIT
           }
         }
 
-        val resets = (1 to 5).foldLeft(Future.successful(Acc(initialCtx, List.empty))) {
-          (eventualAcc, _) =>
-            for {
-              acc <- eventualAcc
-              waitForCompletions = new WaitForNCompletions(numberOfCommands)
-              _ = acc.ctx.commandCompletionService.completionStream(
-                CompletionStreamRequest(
-                  scalaz.Tag.unwrap(acc.ctx.ledgerId),
-                  M.applicationId,
-                  Seq(operator),
-                  Some(M.ledgerBegin)
-                ),
-                waitForCompletions)
-              reqs = Vector.fill(numberOfCommands)(
-                dummyCommands(acc.ctx.ledgerId, UUID.randomUUID.toString))
-              _ <- Future.sequence(reqs.map(acc.ctx.commandSubmissionService.submit))
-              _ <- waitForCompletions.result
-              start = System.nanoTime()
-              nCtx <- acc.ctx.reset()
-              end = System.nanoTime()
-              times = acc.times :+ Duration.fromNanos(end - start).toMillis
-            } yield Acc(nCtx, times)
-        }
+        val resets =
+          (1 to numberOfAttempts).foldLeft(Future.successful(Acc(initialCtx, List.empty))) {
+            (eventualAcc, _) =>
+              for {
+                acc <- eventualAcc
+                waitForCompletions = new WaitForNCompletions(numberOfCommands)
+                _ = acc.ctx.commandCompletionService.completionStream(
+                  CompletionStreamRequest(
+                    scalaz.Tag.unwrap(acc.ctx.ledgerId),
+                    M.applicationId,
+                    Seq(operator),
+                    Some(M.ledgerBegin)
+                  ),
+                  waitForCompletions)
+                reqs = Vector.fill(numberOfCommands)(
+                  dummyCommands(acc.ctx.ledgerId, UUID.randomUUID.toString))
+                _ <- Future.sequence(reqs.map(acc.ctx.commandSubmissionService.submit))
+                _ <- waitForCompletions.result
+                start = System.nanoTime()
+                nCtx <- acc.ctx.reset()
+                end = System.nanoTime()
+                times = acc.times :+ Duration.fromNanos(end - start).toMillis
+              } yield Acc(nCtx, times)
+          }
 
         resets.flatMap { acc =>
           every(acc.times) should be <= 5000L
