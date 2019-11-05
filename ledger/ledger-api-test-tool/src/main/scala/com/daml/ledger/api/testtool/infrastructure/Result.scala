@@ -3,7 +3,7 @@
 
 package com.daml.ledger.api.testtool.infrastructure
 
-import java.time.Duration
+import scala.concurrent.duration.Duration
 
 private[testtool] sealed trait Result {
   def failure: Boolean
