@@ -193,10 +193,10 @@ class JdbcIndexer private[index] (
             PersistenceEntry.Checkpoint(LedgerEntry.Checkpoint(recordTime.toInstant)))
           .map(_ => headRef = headRef + 1)(DEC)
 
-      case PartyAddedToParticipant(party, displayName, _, _, submissionId) =>
+      case PartyAddedToParticipant(party, displayName, _, _, _) =>
         ledgerDao.storeParty(party, Some(displayName), externalOffset).map(_ => ())(DEC)
 
-      case PublicPackageUploaded(archive, sourceDescription, _, _) =>
+      case PublicPackageUploaded(archive, sourceDescription, _, _, _) =>
         val uploadId = UUID.randomUUID().toString
         val uploadInstant = Instant.now() // TODO: use PublicPackageUploaded.recordTime for multi-ledgers (#2635)
         val packages: List[(DamlLf.Archive, v2.PackageDetails)] = List(

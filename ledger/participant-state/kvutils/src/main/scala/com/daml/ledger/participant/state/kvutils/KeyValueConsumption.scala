@@ -51,7 +51,8 @@ object KeyValueConsumption {
               Some(entry.getPackageUploadEntry.getSourceDescription)
             else None,
             Ref.LedgerString.assertFromString(entry.getPackageUploadEntry.getParticipantId),
-            recordTime
+            recordTime,
+            Ref.LedgerString.assertFromString(entry.getPackageUploadEntry.getSubmissionId)
           )
         }(breakOut)
 
@@ -65,7 +66,7 @@ object KeyValueConsumption {
             entry.getPartyAllocationEntry.getDisplayName,
             Ref.LedgerString.assertFromString(entry.getPartyAllocationEntry.getParticipantId),
             recordTime,
-            entry.getPartyAllocationEntry.getSubmissionId
+            Ref.LedgerString.assertFromString(entry.getPartyAllocationEntry.getSubmissionId)
           )
         )
 

@@ -99,12 +99,16 @@ object Update {
     * @param recordTime
     *   The ledger-provided timestamp at which the package was uploaded.
     *
+    * @param submissionId
+    *   submissionId of the package upload command.
+    *
     */
   final case class PublicPackageUploaded(
       archive: DamlLf.Archive,
       sourceDescription: Option[String],
       participantId: ParticipantId,
-      recordTime: Timestamp)
+      recordTime: Timestamp,
+      submissionId: String)
       extends Update {
     override def description: String =
       s"""Public package uploaded: ${archive.getHash}"""
