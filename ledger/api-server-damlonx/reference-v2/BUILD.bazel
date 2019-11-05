@@ -8,6 +8,7 @@ load(
 load(
     "//ledger/ledger-api-test-tool:conformance.bzl",
     "conformance_test",
+    "server_conformance_test",
 )
 
 da_scala_binary(
@@ -62,38 +63,51 @@ da_scala_binary(
     ],
 )
 
-conformance_test(
+SERVERS = {
+    "h2database": {
+        "binary": ":reference-v2",
+        "server_args": [
+            "--port=6865",
+            # "db_close_delay=-1" is needed so that the in-memory database is not closed
+            # (and therefore lost) after the flyway migration
+            "--jdbc-url=jdbc:h2:mem:daml_on_x;db_close_delay=-1;db_close_on_exit=false",
+        ],
+        "test_tool_args": [
+            "--timeout-scale-factor=10",
+        ],
+    },
+    "postgres": {
+        "binary": ":ephemeral-postgres-reference-server",
+        "extra_data": [
+            "@postgresql_dev_env//:all",
+            "@postgresql_dev_env//:createdb",
+            "@postgresql_dev_env//:initdb",
+            "@postgresql_dev_env//:pg_ctl",
+        ],
+        "server_args": [
+            "--port=6865",
+        ],
+        "test_tool_args": [
+            "--timeout-scale-factor=10",
+        ],
+    },
+}
+
+server_conformance_test(
     name = "conformance-test",
-    extra_data = [
-        "@postgresql_dev_env//:all",
-        "@postgresql_dev_env//:createdb",
-        "@postgresql_dev_env//:initdb",
-        "@postgresql_dev_env//:pg_ctl",
-    ],
-    server = ":ephemeral-postgres-reference-server",
-    server_args = [
-        "--port 6865",
-    ],
+    servers = SERVERS,
     test_tool_args = [
         "--all-tests",
-        "--exclude TimeIT",
-        "--timeout-scale-factor=10",
+        "--exclude=LotsOfPartiesIT",
+        "--exclude=TimeIT",
     ],
 )
 
-conformance_test(
-    name = "conformance-test-h2database",
-    server = ":reference-v2",
-    server_args = [
-        "--port 6865",
-        # db_close_delay=-1 is needed so that the in-memory database is not closed (and therefore lost)
-        # after the flyway migration
-        "--jdbc-url jdbc:h2:mem:daml_on_x;db_close_delay=-1;db_close_on_exit=false",
-    ],
+server_conformance_test(
+    name = "conformance-test-lots-of-parties",
+    servers = SERVERS,
     test_tool_args = [
-        "--all-tests",
-        "--exclude TimeIT",
-        "--timeout-scale-factor=10",
+        "--include=LotsOfPartiesIT",
     ],
 )
 
@@ -105,11 +119,11 @@ conformance_test(
     ],
     server = ":reference-v2",
     server_args = [
-        "--port 6865",
-        # db_close_delay=-1 is needed so that the in-memory database is not closed (and therefore lost)
-        # after the flyway migration
-        "--jdbc-url jdbc:h2:mem:daml_on_x;db_close_delay=-1;db_close_on_exit=false",
-        "--extra-participant second-participant,6866,jdbc:h2:mem:daml_on_x2;db_close_delay=-1;db_close_on_exit=false",
+        "--port=6865",
+        # "db_close_delay=-1" is needed so that the in-memory database is not closed
+        # (and therefore lost) after the flyway migration
+        "--jdbc-url=jdbc:h2:mem:daml_on_x;db_close_delay=-1;db_close_on_exit=false",
+        "--extra-participant=second-participant,6866,jdbc:h2:mem:daml_on_x2;db_close_delay=-1;db_close_on_exit=false",
     ],
     test_tool_args = [
         "--include=SemanticTests,TransactionServiceIT",

@@ -1121,6 +1121,30 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
 
   }
 
+  "EQUAL_CONTRACT_ID" - {
+
+    val values = Table(
+      "values",
+      "(type_rep @Mod:T)",
+      "(type_rep @Mod:R)",
+      "(type_rep @Int64)",
+      "(type_rep @(Mod:Tree (List Text)))",
+      "(type_rep @((ContractId Mod:T) -> Mod:Color))",
+    )
+
+    "is reflexive" in {
+      forEvery(values)(v => {
+        val e = e"EQUAL_TYPE_REP $v $v"
+        eval(e) shouldBe Right(SBool(true))
+      })
+    }
+
+    "works as expected" in {
+      forEvery(values)(v1 =>
+        forEvery(values)(v2 => eval(e"EQUAL_TYPE_REP $v1 $v2") shouldBe Right(SBool(v1 == v2))))
+    }
+  }
+
   "Debugging builtins" - {
 
     "TRACE" - {

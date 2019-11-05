@@ -15,19 +15,27 @@ infix 4 =/=
 
 -- | Check two values for equality. If they're not equal,
 -- fail with a message.
-(===) : (CanAbort m, Show a, Eq a) => a -> a -> m ()
--- NOTE(MH): We do not define `(===)` in terms of `assertMsg` to avoid
+assertEq : (CanAbort m, Show a, Eq a) => a -> a -> m ()
+-- NOTE(MH): We do not define `assertEq` in terms of `assertMsg` to avoid
 -- constructing the error message in the successful case.
-(===) x y
+assertEq x y
   | x == y = return ()
-  | otherwise = abort ("Failure, expected " <> show x <> " === " <> show y)
+  | otherwise = abort ("Failure, expected " <> show x <> " == " <> show y)
+
+-- | Infix version of `assertEq`.
+(===) : (CanAbort m, Show a, Eq a) => a -> a -> m ()
+(===) = assertEq
 
 -- | Check two values for inequality. If they're equal,
 -- fail with a message.
-(=/=) : (CanAbort m, Show a, Eq a) => a -> a -> m ()
-(=/=) x y
+assertNotEq : (CanAbort m, Show a, Eq a) => a -> a -> m ()
+assertNotEq x y
   | x /= y = return ()
-  | otherwise = abort ("Failure, expected " <> show x <> " =/= " <> show y)
+  | otherwise = abort ("Failure, expected " <> show x <> " /= " <> show y)
+
+-- | Infix version of `assertNotEq`.
+(=/=) : (CanAbort m, Show a, Eq a) => a -> a -> m ()
+(=/=) = assertNotEq
 
 -- | Check whether the given time is in the future. If it's not,
 -- abort with a message.

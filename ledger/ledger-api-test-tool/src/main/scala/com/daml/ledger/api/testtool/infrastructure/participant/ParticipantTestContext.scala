@@ -21,9 +21,14 @@ import com.digitalasset.ledger.api.v1.admin.party_management_service.{
   AllocatePartyRequest,
   GetParticipantIdRequest
 }
+import com.digitalasset.ledger.api.v1.command_completion_service.{
+  CompletionStreamRequest,
+  CompletionStreamResponse
+}
 import com.digitalasset.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.digitalasset.ledger.api.v1.command_submission_service.SubmitRequest
-import com.digitalasset.ledger.api.v1.commands.{Command, Commands}
+import com.digitalasset.ledger.api.v1.commands.{Command, Commands, ExerciseByKeyCommand}
+import com.digitalasset.ledger.api.v1.completion.Completion
 import com.digitalasset.ledger.api.v1.event.Event.Event.Created
 import com.digitalasset.ledger.api.v1.event.{CreatedEvent, Event}
 import com.digitalasset.ledger.api.v1.ledger_configuration_service.{
@@ -32,13 +37,7 @@ import com.digitalasset.ledger.api.v1.ledger_configuration_service.{
   LedgerConfiguration
 }
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
-import com.digitalasset.ledger.api.v1.package_service.{
-  GetPackageRequest,
-  GetPackageResponse,
-  GetPackageStatusRequest,
-  ListPackagesRequest,
-  PackageStatus
-}
+import com.digitalasset.ledger.api.v1.package_service._
 import com.digitalasset.ledger.api.v1.testing.time_service.{
   GetTimeRequest,
   GetTimeResponse,
@@ -56,7 +55,7 @@ import com.digitalasset.ledger.api.v1.transaction_service.{
   GetTransactionByIdRequest,
   GetTransactionsRequest
 }
-import com.digitalasset.ledger.api.v1.value.Identifier
+import com.digitalasset.ledger.api.v1.value.{Identifier, Value}
 import com.digitalasset.ledger.client.binding.Primitive.Party
 import com.digitalasset.ledger.client.binding.{Primitive, Template}
 import com.digitalasset.platform.testing.{
@@ -430,6 +429,26 @@ private[testtool] final class ParticipantTestContext private[participant] (
       .flatMap(submitAndWaitForTransaction)
       .map(extractContracts)
 
+  def exerciseByKey[T](
+      party: Party,
+      template: Primitive.TemplateId[T],
+      key: Value,
+      choice: String,
+      argument: Value): Future[TransactionTree] =
+    submitAndWaitRequest(
+      party,
+      Command(
+        Command.Command.ExerciseByKey(
+          ExerciseByKeyCommand(
+            Some(template.unwrap),
+            Option(key),
+            choice,
+            Option(argument)
+          )
+        )
+      )
+    ).flatMap(submitAndWaitForTransactionTree)
+
   def submitRequest(party: Party, commands: Command*): Future[SubmitRequest] =
     time().map(
       let =>
@@ -472,6 +491,22 @@ private[testtool] final class ParticipantTestContext private[participant] (
 
   def submitAndWaitForTransactionTree(request: SubmitAndWaitRequest): Future[TransactionTree] =
     services.command.submitAndWaitForTransactionTree(request).map(_.getTransaction)
+
+  def completionStreamRequest(parties: Party*) =
+    new CompletionStreamRequest(
+      ledgerId,
+      applicationId,
+      parties.map(_.unwrap),
+      Some(referenceOffset))
+
+  def firstCompletions(request: CompletionStreamRequest): Future[Vector[Completion]] =
+    SingleItemObserver
+      .find[CompletionStreamResponse](_.completions.nonEmpty)(
+        services.commandCompletion.completionStream(request, _))
+      .map(_.fold(Seq.empty[Completion])(_.completions).toVector)
+
+  def firstCompletions(parties: Party*): Future[Vector[Completion]] =
+    firstCompletions(completionStreamRequest(parties: _*))
 
   def configuration(overrideLedgerId: Option[String] = None): Future[LedgerConfiguration] =
     SingleItemObserver

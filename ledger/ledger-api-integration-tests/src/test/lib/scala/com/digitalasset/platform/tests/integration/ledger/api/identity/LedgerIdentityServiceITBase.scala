@@ -6,10 +6,7 @@ package com.digitalasset.platform.tests.integration.ledger.api.identity
 import java.util.UUID
 
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.ledger.api.testing.utils.{
-  AkkaBeforeAndAfterAll,
-  SuiteResourceManagementAroundEach
-}
+import com.digitalasset.ledger.api.testing.utils.SuiteResourceManagementAroundEach
 import com.digitalasset.ledger.api.v1.ledger_identity_service.LedgerIdentityServiceGrpc.LedgerIdentityService
 import com.digitalasset.ledger.client.services.identity.LedgerIdentityClient
 import com.digitalasset.platform.apitesting.MultiLedgerFixture
@@ -22,7 +19,6 @@ import scala.concurrent.duration._
 
 trait LedgerIdentityServiceITBase
     extends AsyncWordSpec
-    with AkkaBeforeAndAfterAll
     with MultiLedgerFixture
     with SuiteResourceManagementAroundEach
     with AsyncTimeLimitedTests

@@ -6,11 +6,7 @@ package com.digitalasset.platform.sandbox
 import java.io.File
 import java.nio.file.{Files, Path}
 
-import com.digitalasset.ledger.api.testing.utils.{
-  AkkaBeforeAndAfterAll,
-  Resource,
-  SuiteResourceManagementAroundAll
-}
+import com.digitalasset.ledger.api.testing.utils.{Resource, SuiteResourceManagementAroundAll}
 import com.digitalasset.ledger.api.tls.TlsConfiguration
 import com.digitalasset.ledger.client.LedgerClient
 import com.digitalasset.ledger.client.configuration.{
@@ -18,21 +14,15 @@ import com.digitalasset.ledger.client.configuration.{
   LedgerClientConfiguration,
   LedgerIdRequirement
 }
-import com.digitalasset.platform.esf.TestExecutionSequencerFactory
 import com.digitalasset.platform.sandbox.config.SandboxConfig
 import com.digitalasset.platform.sandbox.services.{SandboxFixture, SandboxServerResource}
 import io.grpc.Channel
-import org.scalatest.AsyncWordSpec
 import org.apache.commons.io.FileUtils
+import org.scalatest.AsyncWordSpec
 
 import scala.language.implicitConversions
 
-class TlsIT
-    extends AsyncWordSpec
-    with AkkaBeforeAndAfterAll
-    with TestExecutionSequencerFactory
-    with SandboxFixture
-    with SuiteResourceManagementAroundAll {
+class TlsIT extends AsyncWordSpec with SandboxFixture with SuiteResourceManagementAroundAll {
 
   private def extractCerts: Path = {
     val dir = Files.createTempDirectory("TlsIT").toFile

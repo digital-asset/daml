@@ -6,7 +6,6 @@ package com.digitalasset.platform.sandbox
 import akka.stream.scaladsl.Sink
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.testing.utils.{
-  AkkaBeforeAndAfterAll,
   SuiteResourceManagementAroundEach,
   MockMessages => M
 }
@@ -14,11 +13,10 @@ import com.digitalasset.ledger.api.v1.active_contracts_service.ActiveContractsSe
 import com.digitalasset.ledger.api.v1.transaction_filter._
 import com.digitalasset.ledger.client.services.acs.ActiveContractSetClient
 import com.digitalasset.platform.common.util.DirectExecutionContext
-import com.digitalasset.platform.esf.TestExecutionSequencerFactory
 import com.digitalasset.platform.sandbox.services.{SandboxFixture, TestCommands}
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.time.{Millis, Span}
-import org.scalatest.{Matchers, Suite, WordSpec}
+import org.scalatest.{Matchers, WordSpec}
 
 @SuppressWarnings(
   Array(
@@ -28,10 +26,7 @@ import org.scalatest.{Matchers, Suite, WordSpec}
   ))
 class ScenarioLoadingITDivulgence
     extends WordSpec
-    with Suite
     with Matchers
-    with AkkaBeforeAndAfterAll
-    with TestExecutionSequencerFactory
     with ScalaFutures
     with TestCommands
     with SandboxFixture

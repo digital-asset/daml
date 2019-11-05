@@ -4,28 +4,53 @@
 package com.digitalasset.platform.tests.integration.ledger.api.commands
 
 import akka.stream.scaladsl.{Sink, Source}
+import com.digitalasset.ledger.api.testing.utils.MockMessages.{applicationId, workflowId}
 import com.digitalasset.ledger.api.testing.utils.{
-  AkkaBeforeAndAfterAll,
   IsStatusException,
   SuiteResourceManagementAroundAll
 }
 import com.digitalasset.ledger.api.v1.command_service.SubmitAndWaitRequest
+import com.digitalasset.ledger.api.v1.command_submission_service.SubmitRequest
+import com.digitalasset.ledger.api.v1.commands.{Command, Commands, CreateCommand}
 import com.digitalasset.ledger.api.v1.completion.Completion
+import com.digitalasset.ledger.api.v1.value.{Record, RecordField, Value}
 import com.digitalasset.platform.apitesting.LedgerContext
 import com.digitalasset.util.Ctx
 import io.grpc.Status
 import org.scalatest.{AsyncWordSpec, Matchers, OptionValues}
-
 import scalaz.syntax.tag._
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 class FailingCommandsIT
     extends AsyncWordSpec
-    with AkkaBeforeAndAfterAll
     with MultiLedgerCommandUtils
     with SuiteResourceManagementAroundAll
     with Matchers
     with OptionValues {
+
+  private[this] val failingCommandId: String = "asyncFail"
+
+  private[this] val wrongCreate: Command = Command()
+    .withCreate(
+      CreateCommand()
+        .withTemplateId(templateIds.dummy)
+        .withCreateArguments(
+          Record(
+            None,
+            Seq(
+              RecordField("operator1", Some(Value(Value.Sum.Party("Alice"))))
+            ))))
+
+  private[this] val failingRequest: SubmitRequest =
+    submitRequest.copy(
+      commands = Some(
+        Commands()
+          .withParty("Alice")
+          .withLedgerId(testLedgerId.unwrap)
+          .withCommandId(failingCommandId)
+          .withWorkflowId(workflowId)
+          .withApplicationId(applicationId)
+          .withCommands(Seq(wrongCreate))))
 
   "Command Client" when {
     "provided a failing command" should {
@@ -76,7 +101,7 @@ class FailingCommandsIT
             .runWith(Sink.head)
         } yield {
           result.value should matchPattern {
-            case Completion(helpers.failingCommandId, Some(status), _, _) if status.code == 3 =>
+            case Completion(_, Some(status), _, _) if status.code == 3 =>
           }
         }
       }

@@ -78,7 +78,7 @@ object TriggerIds {
   }
 }
 
-case class AnyContractId(templateId: Identifier, contractId: String)
+case class AnyContractId(templateId: Identifier, contractId: AbsoluteContractId)
 
 object Converter {
   // Helper to make constructing an SRecord more convenient
@@ -110,12 +110,13 @@ object Converter {
   }
 
   private def fromIdentifier(id: value.Identifier): SValue = {
-    SText(
-      Identifier(
-        PackageId.assertFromString(id.packageId),
-        QualifiedName(
-          DottedName.assertFromString(id.moduleName),
-          DottedName.assertFromString(id.entityName))).toString())
+    STypeRep(
+      TTyCon(
+        TypeConName(
+          PackageId.assertFromString(id.packageId),
+          QualifiedName(
+            DottedName.assertFromString(id.moduleName),
+            DottedName.assertFromString(id.entityName)))))
   }
 
   private def fromTransactionId(triggerIds: TriggerIds, transactionId: String): SValue = {
@@ -158,7 +159,7 @@ object Converter {
     record(
       contractIdTy,
       ("templateId", fromTemplateTypeRep(triggerIds, templateId)),
-      ("contractId", SText(contractId))
+      ("contractId", SContractId(AbsoluteContractId(ContractIdString.assertFromString(contractId))))
     )
   }
 
@@ -283,8 +284,8 @@ object Converter {
 
   private def toIdentifier(v: SValue): Either[String, Identifier] = {
     v match {
-      case SText(s) => Identifier.fromString(s)
-      case _ => Left(s"Expected Identifier but got $v")
+      case STypeRep(TTyCon(id)) => Right(id)
+      case _ => Left(s"Expected STypeRep but got $v")
     }
   }
 
@@ -305,13 +306,20 @@ object Converter {
     }
   }
 
+  private def toAbsoluteContractId(v: SValue): Either[String, AbsoluteContractId] = {
+    v match {
+      case SContractId(cid @ AbsoluteContractId(_)) => Right(cid)
+      case _ => Left(s"Expected AbsoluteContractId but got $v")
+    }
+  }
+
   private def toAnyContractId(v: SValue): Either[String, AnyContractId] = {
     v match {
       case SRecord(_, _, vals) => {
         assert(vals.size == 2)
         for {
           templateId <- toTemplateTypeRep(vals.get(0))
-          contractId <- toText(vals.get(1))
+          contractId <- toAbsoluteContractId(vals.get(1))
         } yield AnyContractId(templateId, contractId)
       }
       case _ => Left(s"Expected AnyContractId but got $v")
@@ -369,7 +377,7 @@ object Converter {
         } yield {
           ExerciseCommand(
             Some(toApiIdentifier(anyContractId.templateId)),
-            anyContractId.contractId,
+            anyContractId.contractId.coid,
             choiceName,
             Some(choiceArg))
         }

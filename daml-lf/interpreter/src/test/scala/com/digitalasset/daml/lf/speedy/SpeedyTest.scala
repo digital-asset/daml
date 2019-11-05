@@ -202,11 +202,15 @@ class SpeedyTest extends WordSpec with Matchers {
     }
   }
 
-  "to_text_type_con_name" should {
+  "type_rep" should {
 
     "produces expected output" in {
-      eval(e"""to_text_type_con_name @Test:T1""", anyPkgs) shouldBe Right(SText("-pkgId-:Test:T1"))
-      eval(e"""to_text_type_con_name @Test:T2""", anyPkgs) shouldBe Right(SText("-pkgId-:Test:T2"))
+      eval(e"""type_rep @Test:T1""", anyPkgs) shouldBe Right(STypeRep(t"Test:T1"))
+      eval(e"""type_rep @Test2:T2""", anyPkgs) shouldBe Right(STypeRep(t"Test2:T2"))
+      eval(e"""type_rep @(Mod:Tree (List Text))""", anyPkgs) shouldBe Right(
+        STypeRep(t"Mod:Tree (List Text)"))
+      eval(e"""type_rep @((ContractId Mod:T) -> Mod:Color)""", anyPkgs) shouldBe Right(
+        STypeRep(t"(ContractId Mod:T) -> Mod:Color"))
     }
 
   }

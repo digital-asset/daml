@@ -233,6 +233,7 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
         "EQUAL_BOOL" -> BEqualBool,
         "EQUAL_LIST" -> BEqualList,
         "EQUAL_CONTRACT_ID" -> BEqualContractId,
+        "EQUAL_TYPE_REP" -> BEqualTypeRep,
         "COERCE_CONTRACT_ID" -> BCoerceContractId,
       )
 

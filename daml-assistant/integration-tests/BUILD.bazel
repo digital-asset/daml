@@ -65,7 +65,7 @@ genrule(
 da_haskell_test(
     name = "integration-tests",
     timeout = "long",
-    srcs = ["src/Main.hs"],
+    srcs = glob(["src/**/*.hs"]),
     data = [
         ":integration-tests-mvn",
         "//release:sdk-release-tarball",
@@ -98,6 +98,8 @@ da_haskell_test(
         "text",
         "zip-archive",
     ],
+    main_function = "DA.Daml.Assistant.IntegrationTests.main",
+    visibility = ["//visibility:public"],
     deps = [
         "//:sdk-version-hs-lib",
         "//compiler/damlc/daml-opts:daml-opts-types",

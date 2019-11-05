@@ -141,6 +141,9 @@ case object URUninhabitatedType extends UnserializabilityReason {
 case object URAny extends UnserializabilityReason {
   def pretty: String = "Any"
 }
+case object URTypeRep extends UnserializabilityReason {
+  def pretty: String = "TypeRep"
+}
 
 abstract class ValidationError extends java.lang.RuntimeException with Product with Serializable {
   def context: Context

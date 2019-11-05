@@ -29,6 +29,7 @@ private[parser] class TypeParser[P](parameters: ParserParameters[P]) {
     "Arrow" -> BTArrow,
     "Map" -> BTMap,
     "Any" -> BTAny,
+    "TypeRep" -> BTTypeRep,
   )
 
   private[parser] def fullIdentifier: Parser[Ref.Identifier] =

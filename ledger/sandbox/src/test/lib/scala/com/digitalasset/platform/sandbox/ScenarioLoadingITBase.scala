@@ -10,7 +10,6 @@ import akka.stream.scaladsl.Sink
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.testing.utils.MockMessages.transactionFilter
 import com.digitalasset.ledger.api.testing.utils.{
-  AkkaBeforeAndAfterAll,
   SuiteResourceManagementAroundEach,
   MockMessages => M
 }
@@ -28,7 +27,6 @@ import com.digitalasset.ledger.client.services.acs.ActiveContractSetClient
 import com.digitalasset.ledger.client.services.commands.SynchronousCommandClient
 import com.digitalasset.ledger.client.services.transactions.TransactionClient
 import com.digitalasset.platform.common.util.DirectExecutionContext
-import com.digitalasset.platform.esf.TestExecutionSequencerFactory
 import com.digitalasset.platform.sandbox.services.{SandboxFixture, TestCommands}
 import com.google.protobuf.timestamp.Timestamp
 import org.scalatest.concurrent.ScalaFutures
@@ -47,8 +45,6 @@ abstract class ScenarioLoadingITBase
     extends WordSpec
     with Suite
     with Matchers
-    with AkkaBeforeAndAfterAll
-    with TestExecutionSequencerFactory
     with ScalaFutures
     with TestCommands
     with SandboxFixture

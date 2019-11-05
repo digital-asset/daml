@@ -8,17 +8,13 @@ import java.time.Instant
 import akka.stream.scaladsl.Sink
 import com.digitalasset.api.util.TimestampConversion.{fromInstant, toInstant}
 import com.digitalasset.grpc.adapter.client.akka.ClientAdapter
-import com.digitalasset.ledger.api.testing.utils.{
-  AkkaBeforeAndAfterAll,
-  SuiteResourceManagementAroundAll
-}
+import com.digitalasset.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.digitalasset.ledger.api.v1.testing.time_service.{
   GetTimeRequest,
   GetTimeResponse,
   SetTimeRequest
 }
 import com.digitalasset.platform.apitesting.MultiLedgerFixture
-import com.digitalasset.platform.esf.TestExecutionSequencerFactory
 import org.scalatest._
 import org.scalatest.concurrent.AsyncTimeLimitedTests
 import org.scalatest.time.Span
@@ -33,11 +29,9 @@ import scalaz.syntax.tag._
   ))
 class TimeServiceIT
     extends AsyncWordSpec
-    with AkkaBeforeAndAfterAll
     with MultiLedgerFixture
     with SuiteResourceManagementAroundAll
     with AsyncTimeLimitedTests
-    with TestExecutionSequencerFactory
     with Matchers
     with Inside
     with OptionValues {

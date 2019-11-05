@@ -97,6 +97,8 @@ private[validation] object Serializability {
             unserializable(URFunction)
           case BTAny =>
             unserializable(URAny)
+          case BTTypeRep =>
+            unserializable(URTypeRep)
         }
       case TForall(_, _) =>
         unserializable(URForall)

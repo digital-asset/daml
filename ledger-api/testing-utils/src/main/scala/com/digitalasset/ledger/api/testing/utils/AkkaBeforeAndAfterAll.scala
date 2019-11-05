@@ -12,7 +12,7 @@ import org.scalatest.{BeforeAndAfterAll, Suite}
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.{Await, ExecutionContext}
-import scala.concurrent.duration._
+import scala.concurrent.duration.DurationInt
 
 trait AkkaBeforeAndAfterAll extends BeforeAndAfterAll {
   self: Suite =>

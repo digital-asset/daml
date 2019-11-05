@@ -100,18 +100,35 @@ da_scala_binary(
 ]
 
 [
-    genrule(
-        name = "testing-dar-%s" % target,
-        srcs = [":lf_%s" % target],
-        outs = ["test-%s.dar" % target],
-        cmd = "$(location :encoder_binary) $(SRCS) --output $@ --target %s" % target,
-        tools = [":encoder_binary"],
-        visibility = [
-            "//daml-lf:__subpackages__",
-            "//extractor:__subpackages__",
-            "//language-support:__subpackages__",
-        ],
-    )
+    [
+        genrule(
+            name = "testing-dar-%s" % target,
+            srcs = [":lf_%s" % target],
+            outs = ["test-%s.dar" % target],
+            cmd = "$(location :encoder_binary) $(SRCS) --output $@ --target %s" % target,
+            tools = [":encoder_binary"],
+            visibility = [
+                "//daml-lf:__subpackages__",
+                "//extractor:__subpackages__",
+                "//language-support:__subpackages__",
+            ],
+        ),
+        sh_test(
+            name = "validate-dar-%s" % target,
+            srcs = ["src/validate.sh"],
+            args = [
+                "$(location //daml-lf/repl:repl)",
+                "$(location :testing-dar-%s)" % target,
+            ],
+            data = [
+                "//daml-lf/repl",
+                "testing-dar-%s" % target,
+            ],
+            deps = [
+                "@bazel_tools//tools/bash/runfiles",
+            ],
+        ),
+    ]
     for target in lf_targets
 ]
 

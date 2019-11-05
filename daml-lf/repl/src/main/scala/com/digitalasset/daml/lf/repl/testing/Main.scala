@@ -98,7 +98,7 @@ object Main extends App {
 object Repl {
 
   def repl(): Unit = repl(initialState())
-  def repl(darFile: String): Unit = repl(load(darFile))
+  def repl(darFile: String): Unit = repl(load(darFile) getOrElse initialState())
   def repl(state0: State): Unit = {
     var state = state0
     state.history.load
@@ -114,22 +114,28 @@ object Repl {
     state.history.save
   }
 
-  def testAll(allowDev: Boolean, file: String): (Boolean, State) = {
-    val state = load(file)
-    cmdValidate(state)
-    cmdTestAll(state)
+  private implicit class StateOp(val x: (Boolean, State)) extends AnyVal {
+    def fMap(f: State => (Boolean, State)): (Boolean, State) =
+      x match {
+        case (true, state) => f(state)
+        case _ => x
+      }
+
+    def getOrElse(default: => State) =
+      x match {
+        case (true, state) => state
+        case _ => default
+      }
   }
 
-  def test(allowDev: Boolean, id: String, file: String): (Boolean, State) = {
-    val state = load(file)
-    cmdValidate(state)
-    invokeScenario(state, Seq(id))
-  }
+  def testAll(allowDev: Boolean, file: String): (Boolean, State) =
+    load(file) fMap cmdValidate fMap cmdTestAll
 
-  def validate(allowDev: Boolean, file: String): (Boolean, State) = {
-    val state = load(file)
-    cmdValidate(state)
-  }
+  def test(allowDev: Boolean, id: String, file: String): (Boolean, State) =
+    load(file) fMap cmdValidate fMap (x => invokeScenario(x, Seq(id)))
+
+  def validate(allowDev: Boolean, file: String): (Boolean, State) =
+    load(file) fMap cmdValidate
 
   def cmdValidate(state: State): (Boolean, State) = {
     val validationResults = state.packages.keys.map(Validation.checkPackage(state.packages, _))
@@ -320,7 +326,7 @@ object Repl {
   }
 
   // Load DAML-LF packages from a set of files.
-  def load(darFile: String): State = {
+  def load(darFile: String): (Boolean, State) = {
     val state = initialState()
     try {
       val packages =
@@ -335,7 +341,7 @@ object Repl {
         packagesMap.flatMap(_._2.modules.values.map(_.definitions.size)).sum
       println(s"$ndefs definitions from $npkgs package(s) loaded.")
 
-      rebuildReader(
+      true -> rebuildReader(
         state.copy(
           packages = packagesMap,
           scenarioRunner = ScenarioRunnerHelper(packagesMap)
@@ -345,7 +351,7 @@ object Repl {
         val sw = new StringWriter
         ex.printStackTrace(new PrintWriter(sw))
         println("Failed to load packages: " + ex.toString + ", stack trace: " + sw.toString)
-        state
+        (false, state)
       }
     }
   }

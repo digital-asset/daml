@@ -121,6 +121,7 @@ kindOfBuiltin = \case
   BTMap -> KStar `KArrow` KStar
   BTArrow -> KStar `KArrow` KStar `KArrow` KStar
   BTAny -> KStar
+  BTTypeRep -> KStar
 
 kindOf :: MonadGamma m => Type -> m Kind
 kindOf = \case
@@ -502,28 +503,32 @@ typeOf = \case
   ESome bodyType bodyExpr -> checkSome bodyType bodyExpr $> TOptional bodyType
   ENone bodyType -> checkType bodyType KStar $> TOptional bodyType
   EToAny ty bodyExpr -> do
-    checkAnyType ty
+    checkGroundType ty
     checkExpr bodyExpr ty
     pure $ TBuiltin BTAny
   EFromAny ty bodyExpr -> do
-    checkAnyType ty
+    checkGroundType ty
     checkExpr bodyExpr (TBuiltin BTAny)
     pure $ TOptional ty
-  EToTextTypeConName tycon -> do
-    -- Ensure that the type is known.
-    _ <- inWorld (lookupDataType tycon)
-    pure $ TBuiltin BTText
+  ETypeRep ty -> do
+    checkGroundType ty
+    pure $ TBuiltin BTTypeRep
   EUpdate upd -> typeOfUpdate upd
   EScenario scen -> typeOfScenario scen
   ELocation _ expr -> typeOf expr
 
 -- Check that the type contains no type variables or quantifiers
-checkAnyType :: MonadGamma m => Type -> m ()
-checkAnyType ty =
+checkGroundType' :: MonadGamma m => Type -> m ()
+checkGroundType' ty =
     when (para (\t children -> or (isForbidden t : children)) ty) $ throwWithContext $ EExpectedAnyType ty
   where isForbidden (TVar _) = True
         isForbidden (TForall _ _) = True
         isForbidden _ = False
+
+checkGroundType :: MonadGamma m => Type -> m ()
+checkGroundType ty = do
+    _ <- checkType ty KStar
+    checkGroundType' ty
 
 checkExpr' :: MonadGamma m => Expr -> Type -> m Type
 checkExpr' expr typ = do

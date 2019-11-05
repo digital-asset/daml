@@ -3,10 +3,7 @@
 
 package com.digitalasset.platform.tests.integration.ledger.api
 
-import com.digitalasset.ledger.api.testing.utils.{
-  AkkaBeforeAndAfterAll,
-  SuiteResourceManagementAroundAll
-}
+import com.digitalasset.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.digitalasset.platform.apitesting.{LedgerContext, MultiLedgerFixture}
 import io.grpc.reflection.v1alpha.{ServerReflectionRequest, ServerReflectionResponse}
 import io.grpc.stub.StreamObserver
@@ -18,7 +15,6 @@ import scala.concurrent.{Future, Promise}
 class ReflectionIT
     extends AsyncWordSpec
     with Matchers
-    with AkkaBeforeAndAfterAll
     with MultiLedgerFixture
     with SuiteResourceManagementAroundAll {
   override protected def config: Config = Config.default

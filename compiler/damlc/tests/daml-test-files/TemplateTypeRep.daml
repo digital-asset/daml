@@ -4,7 +4,7 @@
 -- @SINCE-LF 1.dev
 daml 1.2 module TemplateTypeRep where
 
-import DA.Assert
+import DA.Action
 import qualified TemplateTypeRep2
 
 template T1
@@ -31,12 +31,21 @@ template Template t => GenericT t
 template instance GT1 = GenericT T1
 template instance GT2 = GenericT T2
 
-main = scenario do
-  templateTypeRep @T1 === templateTypeRep @T1
-  templateTypeRep @T2 === templateTypeRep @T2
-  templateTypeRep @GT1 === templateTypeRep @GT1
-  templateTypeRep @GT2 === templateTypeRep @GT2
+assertTypeRepEq : CanAbort m => TemplateTypeRep -> TemplateTypeRep -> m ()
+assertTypeRepEq a b =
+  unless (a == b) $ abort "TypeReps are not equal"
 
-  templateTypeRep @T1 =/= templateTypeRep @T2
-  templateTypeRep @GT1 =/= templateTypeRep @GT2
-  templateTypeRep @T1 =/= templateTypeRep @TemplateTypeRep2.T1
+assertTypeRepNeq : CanAbort m => TemplateTypeRep -> TemplateTypeRep -> m ()
+assertTypeRepNeq a b =
+  unless (a /= b) $ abort "TypeReps are equal"
+
+
+main = scenario do
+  assertTypeRepEq (templateTypeRep @T1) (templateTypeRep @T1)
+  assertTypeRepEq (templateTypeRep @T2) (templateTypeRep @T2)
+  assertTypeRepEq (templateTypeRep @GT1) (templateTypeRep @GT1)
+  assertTypeRepEq (templateTypeRep @GT2) (templateTypeRep @GT2)
+
+  assertTypeRepNeq (templateTypeRep @T1) (templateTypeRep @T2)
+  assertTypeRepNeq (templateTypeRep @GT1) (templateTypeRep @GT2)
+  assertTypeRepNeq (templateTypeRep @T1) (templateTypeRep @TemplateTypeRep2.T1)

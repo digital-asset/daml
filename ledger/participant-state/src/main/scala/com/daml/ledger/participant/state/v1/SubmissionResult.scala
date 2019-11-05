@@ -16,4 +16,7 @@ object SubmissionResult {
   /** Submission is not supported */
   final case object NotSupported extends SubmissionResult
 
+  /** Submission ended up with internal error */
+  final case class InternalError(reason: String) extends SubmissionResult
+
 }

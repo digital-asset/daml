@@ -166,32 +166,32 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
         E"Λ (τ : ⋆) (σ : ⋆). λ (e₁ : τ) (e₂: σ) → (( case e₁ of _ → e₂ ))" ->
           T"∀ (τ : ⋆) (σ : ⋆). τ → σ → (( σ ))",
         // ExpToAny
-        E"""λ (t : Mod:T) -> (( to_any @Mod:T t ))""" ->
-          T"Mod:T -> Any",
-        E"""λ (t : Mod:R Text) -> (( to_any @(Mod:R Text) t ))""" ->
-          T"Mod:R Text -> Any",
-        E"""λ (t : Text) -> (( to_any @Text t ))""" ->
-          T"Text -> Any",
-        E"""λ (t : Int64) -> (( to_any @Int64 t ))""" ->
+        E"""λ (t : Mod:T) → (( to_any @Mod:T t ))""" ->
+          T"Mod:T → Any",
+        E"""λ (t : Mod:R Text) → (( to_any @(Mod:R Text) t ))""" ->
+          T"Mod:R Text → Any",
+        E"""λ (t : Text) → (( to_any @Text t ))""" ->
+          T"Text → Any",
+        E"""λ (t : Int64) → (( to_any @Int64 t ))""" ->
           T"Int64 -> Any",
         // ExpFromAny
-        E"""λ (t: Any) -> (( from_any @Mod:T t ))""" ->
+        E"""λ (t: Any) → (( from_any @Mod:T t ))""" ->
           T"Any → Option Mod:T",
-        E"""λ (t: Any) -> (( from_any @(Mod:R Text) t ))""" ->
+        E"""λ (t: Any) → (( from_any @(Mod:R Text) t ))""" ->
           T"Any → Option (Mod:R Text)",
-        E"""λ (t: Any) -> (( from_any @Text t ))""" ->
+        E"""λ (t: Any) → (( from_any @Text t ))""" ->
           T"Any → Option Text",
-        E"""λ (t: Any) -> (( from_any @Int64 t ))""" ->
+        E"""λ (t: Any) → (( from_any @Int64 t ))""" ->
           T"Any → Option Int64",
-        // ExpToTextTypeConName
-        E"""(( to_text_type_con_name @Mod:T ))""" ->
-          T"Text",
-        E"""(( to_text_type_con_name @Mod:R ))""" ->
-          T"Text",
-        E"""(( to_text_type_con_name @Mod:Tree ))""" ->
-          T"Text",
-        E"""(( to_text_type_con_name @Mod:Color ))""" ->
-          T"Text",
+        // ExpTypeRep
+        E"""(( type_rep @Mod:T ))""" ->
+          T"TypeRep",
+        E"""(( type_rep @Int64 ))""" ->
+          T"TypeRep",
+        E"""(( type_rep @(Mod:Tree (List Text)) ))""" ->
+          T"TypeRep",
+        E"""(( type_rep @((ContractId Mod:T) → Mod:Color) ))""" ->
+          T"TypeRep",
       )
 
       forEvery(testCases) { (exp: Expr, expectedType: Type) =>
@@ -377,8 +377,10 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
         E"λ (t: Mod:T) → (( from_any @Mod:T t ))",
         E"Λ (τ : *). λ (t: Any) → (( to_any @(∀ (α : ⋆). Int64) t ))",
         E"Λ (τ : *). λ (t: Any) → (( to_any @(List (Optional (∀ (α : ⋆). Int64))) t ))",
-        // ExpToTextTypeConName
-        E"to_text_type_con_name @Mod:NoSuchType",
+        // ExpTypeRep
+        E"(( type_rep @Mod:NoSuchType ))",
+        E"Λ (τ : *). (( type_rep @τ ))",
+        E"(( type_rep @(∀(τ : *) . Int64) ))",
         // ScnPure
         E"Λ (τ : ⋆ → ⋆). λ (e: τ) → (( spure @τ e ))",
         E"Λ (τ : ⋆) (σ : ⋆). λ (e: τ) → (( spure @σ e ))",

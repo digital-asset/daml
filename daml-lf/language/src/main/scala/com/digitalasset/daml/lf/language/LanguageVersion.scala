@@ -40,6 +40,10 @@ object LanguageVersion {
     private val List(v1_0, v1_1, v1_2, v1_3, v1_4, v1_5, v1_6, v1_dev) =
       Major.V1.supportedMinorVersions.map(LanguageVersion(Major.V1, _))
 
+    // FIXME https://github.com/digital-asset/daml/issues/2289
+    // Change the following line LF 1.7 freeze
+    val v1_7 = v1_dev
+
     val default = v1_0
     val arrowType = v1_1
     val optional = v1_1
@@ -55,11 +59,11 @@ object LanguageVersion {
     val textPacking = v1_6
     val enum = v1_6
     val internedPackageId = v1_6
-    val internedStrings = v1_dev
-    val internedDottedNames = v1_dev
-    val numeric = v1_dev
-    val anyType = v1_dev
-    val toTextTypeConName = v1_dev
+    val internedStrings = v1_7
+    val internedDottedNames = v1_7
+    val numeric = v1_7
+    val anyType = v1_7
+    val typeRep = v1_7
 
     /** See <https://github.com/digital-asset/daml/issues/1866>. To not break backwards
       * compatibility, we introduce a new DAML-LF version where this restriction is in

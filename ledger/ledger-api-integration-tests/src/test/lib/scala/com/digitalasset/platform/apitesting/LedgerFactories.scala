@@ -5,6 +5,7 @@ package com.digitalasset.platform.apitesting
 
 import java.nio.file.Path
 
+import akka.stream.ActorMaterializer
 import com.digitalasset.daml.lf.archive.UniversalArchiveReader
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
@@ -35,21 +36,9 @@ object LedgerFactories {
 
   }
 
-  def createRemoteApiProxyResource(config: PlatformApplications.Config)(
-      implicit esf: ExecutionSequencerFactory): Resource[LedgerContext.SingleChannelContext] = {
-    require(config.remoteApiEndpoint.isDefined, "config.remoteApiEndpoint has to be set")
-    val endpoint = config.remoteApiEndpoint.get
-    val packageIds = config.darFiles.map(getPackageIdOrThrow)
-
-    RemoteServerResource(endpoint.host, endpoint.port, endpoint.tlsConfig)
-      .map {
-        case PlatformChannels(channel) =>
-          LedgerContext.SingleChannelContext(channel, None, config.ledgerId, packageIds)
-      }
-  }
-
   def createSandboxResource(config: PlatformApplications.Config, store: SandboxStore = InMemory)(
-      implicit esf: ExecutionSequencerFactory): Resource[LedgerContext.SingleChannelContext] = {
+      implicit esf: ExecutionSequencerFactory,
+      mat: ActorMaterializer): Resource[LedgerContext.SingleChannelContext] = {
     val packageIds = config.darFiles.map(getPackageIdOrThrow)
 
     def createResource(sandboxConfig: SandboxConfig) =

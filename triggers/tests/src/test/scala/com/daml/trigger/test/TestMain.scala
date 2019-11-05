@@ -223,7 +223,11 @@ case class AcsTests(dar: Dar[(PackageId, Package)], runner: TestRunner) {
           for {
             _ <- TestRunner.assertEqual(vals.size, 5, "number of record fields")
             activeAssets <- vals.get(0) match {
-              case SMap(v) => Right(v.keySet)
+              case SList(v) =>
+                Right(
+                  v.map(x =>
+                      x.asInstanceOf[SContractId].value.asInstanceOf[Lf.AbsoluteContractId].coid)
+                    .toSet)
               case _ => Left(s"Expected a map but got ${vals.get(0)}")
             }
             successfulCompletions <- vals.get(1) match {

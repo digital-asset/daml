@@ -538,6 +538,8 @@ generateSrcFromLf (Qualify qualify) thisPkgId pkgMap m = noLoc mod
             LF.BTNumeric -> mkGhcType "Numeric"
             -- TODO see https://github.com/digital-asset/daml/issues/2876
             LF.BTAny -> error "Any type not yet supported in upgrades"
+            LF.BTTypeRep -> error "TypeRep type not yet supported in upgrades"
+
     mkGhcType =
         HsTyVar noExt NotPromoted .
         noLoc . mkOrig gHC_TYPES . mkOccName varName
@@ -646,6 +648,7 @@ generateSrcFromLf (Qualify qualify) thisPkgId pkgMap m = noLoc mod
             LF.BTNumeric -> (primUnitId, LF.ModuleName ["GHC", "Types"])
             -- TODO: see https://github.com/digital-asset/daml/issues/2876
             LF.BTAny -> error "Any type not yet supported in upgrades"
+            LF.BTTypeRep -> error "TypeRep type not yet supported in upgrades"
 
     translateModName ::
            forall a. NamedThing a

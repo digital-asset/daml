@@ -389,12 +389,9 @@ private[digitalasset] class EncodeV1(val minor: LV.Minor) {
         case PLNumeric(value) =>
           if (versionIsOlderThan(LV.Features.numeric)) {
             assert(value.scale == Decimal.scale)
-            setString(
-              Numeric.toUnscaledString(value),
-              builder.setDecimalStr,
-              builder.setDecimalInternedStr)
+            builder.setDecimalStr(Numeric.toUnscaledString(value))
           } else
-            setString(Numeric.toString(value), builder.setNumericStr, builder.setNumericInternedStr)
+            builder.setNumericInternedStr(stringsTable.insert(Numeric.toString(value)))
         case PLText(value) =>
           setString(value, builder.setTextStr, builder.setTextInternedStr)
         case PLTimestamp(value) =>

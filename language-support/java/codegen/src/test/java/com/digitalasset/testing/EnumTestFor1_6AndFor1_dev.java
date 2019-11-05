@@ -12,9 +12,9 @@ import com.daml.ledger.javaapi.data.Unit;
 import org.junit.jupiter.api.Test;
 import org.junit.platform.runner.JUnitPlatform;
 import org.junit.runner.RunWith;
-import test.enum$.*;
-import test.enum$.optionalcolor.*;
-import test.enum$.coloredtree.*;
+import test.enummod.*;
+import test.enummod.optionalcolor.*;
+import test.enummod.coloredtree.*;
 
 import static org.junit.jupiter.api.Assertions.*;
 

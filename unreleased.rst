@@ -17,6 +17,7 @@ HEAD — ongoing
 - [DAML Integration Kit] Re-add :doc:`integration kit documentation </daml-integration-kit/index>` that got accidentally deleted.
 - [Ledger API] Disallow empty commands. See `issue #592 <https://github.com/digital-asset/daml/issues/592>`__.
 - [DAML Stdlib] Add `DA.TextMap.filter` and `DA.Next.Map.filter`.
+- [DAML Stdlib] Add `assertEq` and `assertNotEq` to `DA.Assert` as synonyms for `===` and `=/=`.
 - [Extractor - Experimental] Extractor now stores exercise events in the single table data format. See `issue #3274 <https://github.com/digital-asset/daml/issues/3274>`__.
 - [DAML Compiler] Fix compile error caused by instantiating generic
   templates at ``Numeric n``.
@@ -25,3 +26,4 @@ HEAD — ongoing
 - [JSON API - Experimental] ``/contracts/search`` endpoint can optionally store searched
   contracts in a Postgres-based cache, by passing the new ``--query-store-jdbc-config`` option.
   See `issue #2781 <https://github.com/digital-asset/daml/issues/2781>`_.
+- [DAML Triggers] Remove the custom ``AbsoluteContractId`` type in favor of the regular ``ContractId`` type used in DAML templates.

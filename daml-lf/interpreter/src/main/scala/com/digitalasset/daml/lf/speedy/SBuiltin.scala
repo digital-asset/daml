@@ -295,7 +295,7 @@ object SBuiltin {
         case SParty(p) => p
         case SUnit => s"<unit>"
         case SDate(date) => date.toString
-        case SContractId(_) | SNumeric(_) => crash("litToText: literal not supported")
+        case SContractId(_) | SNumeric(_) | STypeRep(_) => crash("litToText: literal not supported")
       })
     }
   }

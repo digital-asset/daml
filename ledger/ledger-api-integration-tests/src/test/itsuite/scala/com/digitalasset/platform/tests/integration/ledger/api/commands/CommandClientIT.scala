@@ -8,7 +8,6 @@ import java.util.concurrent.TimeUnit
 import akka.NotUsed
 import akka.stream.scaladsl.{Sink, Source}
 import com.digitalasset.ledger.api.testing.utils.{
-  AkkaBeforeAndAfterAll,
   IsStatusException,
   SuiteResourceManagementAroundAll
 }
@@ -17,14 +16,19 @@ import com.digitalasset.ledger.api.v1.commands.{CreateCommand, ExerciseCommand}
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset.LedgerBoundary.LEDGER_BEGIN
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset.Value.Boundary
-import com.digitalasset.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
-import com.digitalasset.ledger.api.v1.value.{Record, RecordField, Value}
+import com.digitalasset.ledger.api.v1.value.Value.Sum.{Bool, Text, Timestamp}
+import com.digitalasset.ledger.api.v1.value.{
+  Identifier,
+  Optional,
+  Record,
+  RecordField,
+  Value,
+  Variant
+}
 import com.digitalasset.ledger.client.services.commands.{CommandClient, CompletionStreamElement}
-import com.digitalasset.platform.apitesting.LedgerContextExtensions._
 import com.digitalasset.platform.apitesting.LedgerContext
-import com.digitalasset.platform.esf.TestExecutionSequencerFactory
+import com.digitalasset.platform.apitesting.TestParties.Alice
 import com.digitalasset.platform.participant.util.ValueConversions._
-import com.digitalasset.platform.tests.integration.ledger.api.ParameterShowcaseTesting
 import com.digitalasset.util.Ctx
 import com.google.rpc.code.Code
 import io.grpc.{Status, StatusRuntimeException}
@@ -40,13 +44,10 @@ import scala.util.Success
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 class CommandClientIT
     extends AsyncWordSpec
-    with AkkaBeforeAndAfterAll
-    with TestExecutionSequencerFactory
+    with MultiLedgerCommandUtils
     with Matchers
     with SuiteResourceManagementAroundAll
-    with ParameterShowcaseTesting
-    with TryValues
-    with MultiLedgerCommandUtils {
+    with TryValues {
 
   private val submittingParty: String = submitRequest.getCommands.party
   private val submittingPartyList = List(submittingParty)
@@ -100,6 +101,45 @@ class CommandClientIT
     readExpectedElements(client.completionSource(submittingPartyList, checkpoint).collect {
       case CompletionStreamElement.CompletionElement(c) => c.commandId
     }, expected, timeLimit)
+
+  private def paramShowcaseArgs(packageId: String): Vector[RecordField] = {
+    val variant = Value(
+      Value.Sum.Variant(
+        Variant(Some(Identifier(packageId, "Test", "OptionalInteger")), "SomeInteger", 1.asInt64)))
+    val nestedVariant = Vector("value" -> variant)
+      .asRecordValueOf(Identifier(packageId, "Test", "NestedOptionalInteger"))
+    val integerList = Vector(1, 2).map(_.toLong.asInt64).asList
+    val optionalText = Optional(Value(Text("foo")))
+    Vector(
+      RecordField("operator", Alice.asParty),
+      RecordField("integer", 1.asInt64),
+      RecordField("decimal", "1.1000000000".asNumeric),
+      RecordField("text", Value(Text("text"))),
+      RecordField("bool", Value(Bool(true))),
+      RecordField("time", Value(Timestamp(0))),
+      RecordField("nestedOptionalInteger", nestedVariant),
+      RecordField("integerList", integerList),
+      RecordField("optionalText", Some(Value(Value.Sum.Optional(optionalText))))
+    )
+  }
+
+  private def recordWithArgument(original: Record, fieldToInclude: RecordField): Record =
+    original.update(_.fields.modify(recordFieldsWithArgument(_, fieldToInclude)))
+
+  private def recordFieldsWithArgument(
+      originalFields: Seq[RecordField],
+      fieldToInclude: RecordField): Seq[RecordField] = {
+    var replacedAnElement: Boolean = false
+    val updated = originalFields.map { original =>
+      if (original.label == fieldToInclude.label) {
+        replacedAnElement = true
+        fieldToInclude
+      } else {
+        original
+      }
+    }
+    if (replacedAnElement) updated else originalFields :+ fieldToInclude
+  }
 
   "Command Client" when {
     "asked for ledger end" should {
@@ -279,40 +319,6 @@ class CommandClientIT
         }
       }
 
-      "not accept double spends, return INVALID_ARGUMENT" in allFixtures { c =>
-        for {
-          contract <- c.submitCreate(
-            "Creating_contracts_for_double_spend_test",
-            templateIds.dummyFactory,
-            List("operator" -> submittingParty.asParty).asRecordFields,
-            submittingParty)
-          _ <- c.submitExercise(
-            "Double_spend_test_exercise_1",
-            templateIds.dummyFactory,
-            unit,
-            "DummyFactoryCall",
-            contract.contractId,
-            submittingParty)
-          assertion <- c.testingHelpers.assertCommandFailsWithCode(
-            c.command(
-              "Double_spend_test_exercise_2",
-              submittingParty,
-              List(
-                ExerciseCommand(
-                  Some(templateIds.dummyFactory),
-                  contract.contractId,
-                  "DummyFactoryCall",
-                  Some(unit)).wrap)
-            ),
-            Code.INVALID_ARGUMENT,
-            "dependency",
-            ignoreCase = true
-          )
-        } yield {
-          assertion
-        }
-      }
-
       "not accept commands with missing args, return INVALID_ARGUMENT" in allFixtures { c =>
         val expectedMessageSubstring =
           "Expecting 1 field for record"
@@ -372,36 +378,6 @@ class CommandClientIT
         )
       }
 
-      "return stack trace in case of interpretation error" in allFixtures { c =>
-        // Note: we only check that the beginning of the error matches otherwise every time the package id
-        // changes this test fails.
-        val expectedMessageSubstring =
-          "Command interpretation error in LF-DAMLe: Interpretation error: Error: User abort: Assertion failed. Details: Last location: [DA.Internal.Assert:20], partial transaction: root node"
-        val command = c.createCommand(
-          "Dummy_for_failing_assert",
-          templateIds.dummy,
-          List("operator" -> "party".asParty).asRecordFields,
-          "party")
-        for {
-          tx <- c.testingHelpers.submitAndListenForSingleResultOfCommand(
-            command,
-            TransactionFilter(Map("party" -> Filters.defaultInstance)))
-          create = c.testingHelpers.findCreatedEventIn(tx, templateIds.dummy)
-          res <- c.testingHelpers.assertCommandFailsWithCode(
-            c.exerciseCommand(
-              "Failing_assert",
-              templateIds.dummy,
-              Nil.asRecordValue,
-              "FailingClone",
-              create.contractId,
-              "party"),
-            Code.INVALID_ARGUMENT,
-            expectedMessageSubstring
-          )
-        } yield res
-
-      }
-
       "not accept commands with malformed decimals, return INVALID_ARGUMENT" in allFixtures { c =>
         val commandId = "Malformed_decimal"
         val expectedMessageSubString =
@@ -414,7 +390,7 @@ class CommandClientIT
             CreateCommand(
               Some(templateIds.parameterShowcase),
               Some(
-                c.testingHelpers.recordWithArgument(
+                recordWithArgument(
                   Record(
                     Some(templateIds.parameterShowcase),
                     paramShowcaseArgs(templateIds.testPackageId)),
@@ -457,31 +433,6 @@ class CommandClientIT
           )
 
         c.testingHelpers.assertCommandFailsWithCode(command, Code.INVALID_ARGUMENT, "error")
-      }
-
-      "not accept exercises of bad choices, return INVALID_ARGUMENT" in allFixtures { c =>
-        for {
-          contract <- c.submitCreate(
-            "Creating_contract_for_bad_choice_test",
-            templateIds.dummyFactory,
-            List("operator" -> submittingParty.asParty).asRecordFields,
-            submittingParty)
-          assertion <- c.testingHelpers.assertCommandFailsWithCode(
-            c.command(
-              "Bad_choice_test",
-              submittingParty,
-              List(
-                ExerciseCommand(
-                  Some(templateIds.dummyFactory),
-                  contract.contractId,
-                  "hotdog",
-                  Some(unit)).wrap)),
-            Code.INVALID_ARGUMENT,
-            "Couldn't find requested choice"
-          )
-        } yield {
-          assertion
-        }
       }
     }
   }

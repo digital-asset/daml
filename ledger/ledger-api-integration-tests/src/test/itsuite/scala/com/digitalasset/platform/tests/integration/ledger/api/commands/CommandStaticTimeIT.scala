@@ -10,10 +10,7 @@ import java.util.concurrent.atomic.AtomicInteger
 import akka.stream.scaladsl.Sink
 import com.digitalasset.api.util.TimestampConversion._
 import com.digitalasset.grpc.adapter.client.akka.ClientAdapter
-import com.digitalasset.ledger.api.testing.utils.{
-  AkkaBeforeAndAfterAll,
-  SuiteResourceManagementAroundAll
-}
+import com.digitalasset.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.digitalasset.ledger.api.v1.command_submission_service.SubmitRequest
 import com.digitalasset.ledger.api.v1.commands.Command.Command.{Create, Exercise}
 import com.digitalasset.ledger.api.v1.commands.{Command, CreateCommand, ExerciseCommand}
@@ -31,8 +28,8 @@ import io.grpc.Status
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.time.Span
 import org.scalatest.{AsyncWordSpec, Matchers, OptionValues}
-
 import scalaz.syntax.tag._
+
 import scala.concurrent.duration._
 
 @SuppressWarnings(
@@ -42,7 +39,6 @@ import scala.concurrent.duration._
 class CommandStaticTimeIT
     extends AsyncWordSpec
     with Matchers
-    with AkkaBeforeAndAfterAll
     with MultiLedgerCommandUtils
     with ScalaFutures
     with SuiteResourceManagementAroundAll
