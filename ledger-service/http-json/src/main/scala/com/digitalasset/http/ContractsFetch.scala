@@ -160,7 +160,7 @@ private class ContractsFetch(
     : Flow[Vector[PreInsertContract], ConnectionIO[Unit], NotUsed] =
     Flow[Vector[PreInsertContract]]
       .map(planAcsBlockInserts)
-      .conflate(_.append(_)(_.contractId))
+      .conflate(_ append _)
       .map(insertAndDelete)
 
   private def contractsFromOffsetIo(
@@ -186,7 +186,7 @@ private class ContractsFetch(
         val untuple = builder add project2[InsertDeleteStep[lav1.event.CreatedEvent], domain.Offset]
         val transactInsertsDeletes = Flow
           .fromFunction(jsonifyInsertDeleteStep)
-          .conflate(_.append(_)(_.contractId))
+          .conflate(_ append _)
           .map(insertAndDelete)
 
         txSource.map(transactionToInsertsAndDeletes) ~> untuple.in
@@ -265,8 +265,7 @@ private object ContractsFetch {
     InsertDeleteStep(gacrs.toVector, Set.empty)
 
   /** Plan inserts, deletes from an in-order batch of create/archive events. */
-  /*TODO SC private*/
-  def partitionInsertsDeletes(
+  private def partitionInsertsDeletes(
       txes: Traversable[lav1.event.Event]): InsertDeleteStep[lav1.event.CreatedEvent] = {
     val csb = Vector.newBuilder[lav1.event.CreatedEvent]
     val asb = Set.newBuilder[String]
@@ -347,10 +346,11 @@ private object ContractsFetch {
   }
 
   final case class InsertDeleteStep[+C](inserts: Vector[C], deletes: Set[String]) {
-    def append[CC >: C](o: InsertDeleteStep[CC])(cid: CC => String): InsertDeleteStep[CC] =
+    def append[CC >: C](o: InsertDeleteStep[CC])(
+        implicit cid: CC <~< DBContract[Any, Any, Any]): InsertDeleteStep[CC] =
       InsertDeleteStep(
         (if (o.deletes.isEmpty) inserts
-         else inserts.filter(c => !o.deletes.contains(cid(c)))) ++ o.inserts,
+         else inserts.filter(c => !o.deletes.contains(cid(c).contractId))) ++ o.inserts,
         deletes union o.deletes)
   }
 
