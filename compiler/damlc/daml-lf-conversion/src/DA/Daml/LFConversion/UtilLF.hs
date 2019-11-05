@@ -19,7 +19,6 @@ import qualified Data.Text                  as T
 import           GHC.Stack                  (HasCallStack)
 import Language.Haskell.LSP.Types
 import           Outputable (Outputable(..), text)
-import qualified DA.Daml.Preprocessor.EnumType as Preprocessor (enumPrefix)
 
 mkVar :: T.Text -> ExprVarName
 mkVar = ExprVarName
@@ -55,7 +54,7 @@ hasEnumPrefix :: T.Text -> Bool
 hasEnumPrefix = T.isPrefixOf enumPrefix
 
 enumPrefix :: T.Text
-enumPrefix = T.pack Preprocessor.enumPrefix
+enumPrefix = "DamlEnum$"
 
 mkIdentity :: Type -> Expr
 mkIdentity t = ETmLam (varV1, t) $ EVar varV1
