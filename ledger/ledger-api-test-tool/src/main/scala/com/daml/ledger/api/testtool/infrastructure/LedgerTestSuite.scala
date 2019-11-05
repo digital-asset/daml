@@ -4,6 +4,7 @@
 package com.daml.ledger.api.testtool.infrastructure
 
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite.SkipTestException
+import com.digitalasset.daml.lf.data.Ref
 
 import scala.collection.mutable.ListBuffer
 import scala.concurrent.{ExecutionContext, Future}
@@ -19,7 +20,8 @@ private[testtool] abstract class LedgerTestSuite(val session: LedgerSession) {
 
   protected final def test(shortIdentifier: String, description: String, timeout: Long = 30000L)(
       testCase: LedgerTestContext => Future[Unit]): Unit = {
-    testBuffer.append(LedgerTest(shortIdentifier, description, timeout)(testCase))
+    val shortIdentifierRef = Ref.LedgerString.assertFromString(shortIdentifier)
+    testBuffer.append(new LedgerTest(shortIdentifierRef, description, timeout, testCase))
   }
 
   protected final def skip(reason: String): Future[Unit] = Future.failed(SkipTestException(reason))
