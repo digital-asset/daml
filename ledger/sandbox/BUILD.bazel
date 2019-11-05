@@ -209,7 +209,9 @@ SERVERS = {
             "--port=6865",
             "--eager-package-loading",
         ],
-        "test_tool_args": ["--timeout-scale-factor=10"],
+        "test_tool_args": [
+            "--timeout-scale-factor=10",
+        ],
     },
     "h2database": {
         "binary": ":sandbox-binary",
@@ -220,7 +222,9 @@ SERVERS = {
             # (and therefore lost) after the flyway migration
             "--sql-backend-jdbcurl=jdbc:h2:mem:static_time;db_close_delay=-1",
         ],
-        "test_tool_args": ["--timeout-scale-factor=10"],
+        "test_tool_args": [
+            "--timeout-scale-factor=10",
+        ],
     },
     "postgres": {
         "binary": ":sandbox-ephemeral-postgres",
@@ -234,7 +238,9 @@ SERVERS = {
             "--port=6865",
             "--eager-package-loading",
         ],
-        "test_tool_args": ["--timeout-scale-factor=10"],
+        "test_tool_args": [
+            "--timeout-scale-factor=10",
+        ],
     },
 }
 
@@ -256,7 +262,9 @@ server_conformance_test(
         "--static-time",
     ],
     servers = SERVERS,
-    test_tool_args = ["--include=LotsOfPartiesIT"],
+    test_tool_args = [
+        "--include=LotsOfPartiesIT",
+    ],
 )
 
 server_conformance_test(
@@ -267,8 +275,8 @@ server_conformance_test(
     servers = SERVERS,
     test_tool_args = [
         "--all-tests",
-        "--exclude=TimeIT",
         "--exclude=LotsOfPartiesIT",
+        "--exclude=TimeIT",
     ],
 )
 
@@ -278,5 +286,7 @@ server_conformance_test(
         "--wall-clock-time",
     ],
     servers = SERVERS,
-    test_tool_args = ["--include=LotsOfPartiesIT"],
+    test_tool_args = [
+        "--include=LotsOfPartiesIT",
+    ],
 )
