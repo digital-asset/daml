@@ -70,7 +70,7 @@ class AuthServiceJWT(verifier: JwtVerifier) extends AuthService {
     payload.actAs
       .foreach(party => claims.append(ClaimActAsParty(Ref.Party.assertFromString(party))))
 
-    Claims(claims.toList)
+    Claims(claims.toList, payload.exp)
   }
 }
 

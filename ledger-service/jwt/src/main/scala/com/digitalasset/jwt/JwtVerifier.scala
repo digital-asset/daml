@@ -14,6 +14,8 @@ import scalaz.syntax.traverse._
 class JwtVerifier(verifier: com.auth0.jwt.interfaces.JWTVerifier) {
 
   def verify(jwt: domain.Jwt): Error \/ domain.DecodedJwt[String] = {
+    // The auth0 library verification already fails if the token has expired,
+    // but we still need to do manual expiration checks in ongoing streams
     \/.fromTryCatchNonFatal(verifier.verify(jwt.value))
       .bimap(
         e => Error('verify, e.getMessage),
