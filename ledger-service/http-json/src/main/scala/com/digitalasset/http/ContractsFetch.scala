@@ -176,34 +176,29 @@ private class ContractsFetch(
       implicit ec: ExecutionContext,
       mat: Materializer): ConnectionIO[Option[domain.Offset]] = {
 
-    val graph = RunnableGraph.fromGraph(
-      GraphDSL.create(
-        Sink.queue[ConnectionIO[Unit]](),
-        Sink.lastOption[domain.Offset]
-      )((a, b) => (a, b)) { implicit builder => (acsSink, offsetSink) =>
-        import GraphDSL.Implicits._
+    val graph = RunnableGraph.fromGraph(GraphDSL.create(
+      Sink.queue[ConnectionIO[Unit]](),
+      Sink.lastOption[domain.Offset]
+    )((a, b) => (a, b)) { implicit builder => (acsSink, offsetSink) =>
+      import GraphDSL.Implicits._
 
-        val txSource: Source[Transaction, NotUsed] = getCreatesAndArchivesSince(
-          jwt,
-          transactionFilter(party, List(templateId)),
-          domain.Offset.toLedgerApi(offset))
+      val txSource: Source[Transaction, NotUsed] = getCreatesAndArchivesSince(
+        jwt,
+        transactionFilter(party, List(templateId)),
+        domain.Offset.toLedgerApi(offset))
 
-        val broadcast = builder add
-          Broadcast[(InsertDeleteStep[lav1.event.CreatedEvent], domain.Offset)](2)
+      val untuple = builder add project2[InsertDeleteStep[lav1.event.CreatedEvent], domain.Offset]
 
-        def f(a: (InsertDeleteStep[lav1.event.CreatedEvent], domain.Offset))
-          : InsertDeleteStep[PreInsertContract] = jsonifyInsertDeleteStep(a._1)
+      txSource.map(transactionToInsertsAndDeletes) ~> untuple.in
+      untuple.out0.map(jsonifyInsertDeleteStep).conflate(aggregate).map(insertAndDelete) ~> acsSink
+      untuple.out1 ~> offsetSink
 
-        txSource.map(transactionToInsertsAndDeletes) ~> broadcast.in
-        broadcast.out(0).map(f).conflate(aggregate).map(insertAndDelete) ~> acsSink
-        broadcast.out(1).map(_._2) ~> offsetSink
-
-        ClosedShape
-      })
+      ClosedShape
+    })
 
     val (acsQueue, lastOffsetFuture) = graph.run()
 
-    import cats.implicits.catsStdInstancesForOption
+    import cats.instances.option._
     import connection.AsyncConnectionIO
     import cats.syntax.traverse._
 
@@ -238,6 +233,17 @@ private object ContractsFetch {
       discard { split ~> as }
       discard { split ~> bs }
       new FanOutShape2(split.in, as.out, bs.out)
+    }
+
+  def project2[A, B]: Graph[FanOutShape2[(A, B), A, B], NotUsed] =
+    GraphDSL.create() { implicit b =>
+      import GraphDSL.Implicits._
+      val split = b add Broadcast[(A, B)](2)
+      val left = b add Flow.fromFunction((_: (A, B))._1)
+      val right = b add Flow.fromFunction((_: (A, B))._2)
+      discard { split ~> left }
+      discard { split ~> right }
+      new FanOutShape2(split.in, left.out, right.out)
     }
 
   /** Plan inserts from an ACS response. */
