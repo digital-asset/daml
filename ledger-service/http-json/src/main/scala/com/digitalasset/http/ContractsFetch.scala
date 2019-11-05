@@ -35,7 +35,7 @@ import scalaz.syntax.show._
 import scalaz.syntax.tag._
 import scalaz.syntax.functor._
 import scalaz.syntax.std.option._
-import scalaz.{-\/, Tag, \/, \/-}
+import scalaz.{-\/, \/, \/-}
 import spray.json.JsValue
 import com.typesafe.scalalogging.StrictLogging
 import scalaz.Liskov.<~<
@@ -160,7 +160,7 @@ private class ContractsFetch(
     : Flow[Vector[PreInsertContract], ConnectionIO[Unit], NotUsed] =
     Flow[Vector[PreInsertContract]]
       .map(planAcsBlockInserts)
-      .conflate(_.append(_)(_.contractId))
+      .conflate(_ append _)
       .map(insertAndDelete)
 
   private def contractsFromOffsetIo(
@@ -181,12 +181,12 @@ private class ContractsFetch(
         val txSource: Source[Transaction, NotUsed] = getCreatesAndArchivesSince(
           jwt,
           transactionFilter(party, List(templateId)),
-          Tag.unsubst(offset).toLedgerApi)
+          offset.toLedgerApi)
 
         val untuple = builder add project2[InsertDeleteStep[lav1.event.CreatedEvent], domain.Offset]
         val transactInsertsDeletes = Flow
           .fromFunction(jsonifyInsertDeleteStep)
-          .conflate(_.append(_)(_.contractId))
+          .conflate(_ append _)
           .map(insertAndDelete)
 
         txSource.map(transactionToInsertsAndDeletes) ~> untuple.in
@@ -224,12 +224,12 @@ private object ContractsFetch {
   sealed abstract class OffsetBookmark[+Off] extends Product with Serializable {
     import lav1.ledger_offset.LedgerOffset
     import LedgerOffset.{LedgerBoundary, Value}
-    import Value.{Absolute, Boundary}
-    def toLedgerApi(implicit ev: Off <~< String): LedgerOffset =
-      LedgerOffset(this match {
-        case AbsoluteBookmark(offset) => Absolute(ev(offset))
-        case LedgerBegin => Boundary(LedgerBoundary.LEDGER_BEGIN)
-      })
+    import Value.Boundary
+    def toLedgerApi(implicit ev: Off <~< domain.Offset): LedgerOffset =
+      this match {
+        case AbsoluteBookmark(offset) => domain.Offset.toLedgerApi(ev(offset))
+        case LedgerBegin => LedgerOffset(Boundary(LedgerBoundary.LEDGER_BEGIN))
+      }
   }
   final case class AbsoluteBookmark[+Off](offset: Off) extends OffsetBookmark[Off]
   case object LedgerBegin extends OffsetBookmark[Nothing]
@@ -265,8 +265,7 @@ private object ContractsFetch {
     InsertDeleteStep(gacrs.toVector, Set.empty)
 
   /** Plan inserts, deletes from an in-order batch of create/archive events. */
-  /*TODO SC private*/
-  def partitionInsertsDeletes(
+  private def partitionInsertsDeletes(
       txes: Traversable[lav1.event.Event]): InsertDeleteStep[lav1.event.CreatedEvent] = {
     val csb = Vector.newBuilder[lav1.event.CreatedEvent]
     val asb = Set.newBuilder[String]
@@ -347,10 +346,11 @@ private object ContractsFetch {
   }
 
   final case class InsertDeleteStep[+C](inserts: Vector[C], deletes: Set[String]) {
-    def append[CC >: C](o: InsertDeleteStep[CC])(cid: CC => String): InsertDeleteStep[CC] =
+    def append[CC >: C](o: InsertDeleteStep[CC])(
+        implicit cid: CC <~< DBContract[Any, Any, Any]): InsertDeleteStep[CC] =
       InsertDeleteStep(
         (if (o.deletes.isEmpty) inserts
-         else inserts.filter(c => !o.deletes.contains(cid(c)))) ++ o.inserts,
+         else inserts.filter(c => !o.deletes.contains(cid(c).contractId))) ++ o.inserts,
         deletes union o.deletes)
   }
 
