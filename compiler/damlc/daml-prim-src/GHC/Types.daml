@@ -23,6 +23,7 @@ module GHC.Types (
         Opaque,
         ifThenElse,
         primitive, magic,
+        DamlEnum,
 
 #ifdef DAML_NUMERIC
         Nat, Numeric,
@@ -153,6 +154,10 @@ data Text =
   -- | HIDE
   Text Opaque
 
+-- | HIDE Used to tag single-constructor enum types.
+class DamlEnum
+instance DamlEnum
+
 #ifdef DAML_NUMERIC
 
 -- | (Kind) This is the kind of type-level naturals.
@@ -174,5 +179,6 @@ type Decimal = Numeric 10
 data Decimal =
   -- | HIDE
   Decimal Opaque
+
 
 #endif

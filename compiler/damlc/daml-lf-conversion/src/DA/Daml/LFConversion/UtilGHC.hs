@@ -78,6 +78,15 @@ isSingleConType t = case algTyConRhs t of
     TupleTyCon{} -> True
     _ -> False
 
+hasDamlEnumCtx :: TyCon -> Bool
+hasDamlEnumCtx t
+    | [theta] <- tyConStupidTheta t
+    , TypeCon tycon [] <- theta
+    = getOccText tycon == "DamlEnum" -- TODO: check module is GHC.Types also.
+
+    | otherwise
+    = False
+
 -- Pretty printing is very expensive, so clone the logic for when to add unique suffix
 varPrettyPrint :: Var -> T.Text
 varPrettyPrint (varName -> x) = getOccText x <> (if isSystemName x then "_" <> T.pack (show $ nameUnique x) else "")
