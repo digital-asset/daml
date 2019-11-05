@@ -77,8 +77,10 @@ da_scala_test(
         "@maven//:org_scalatest_scalatest_2_12",
         "//daml-lf/transaction-scalacheck",
         "//ledger/sandbox:sandbox",
+        "//ledger/sandbox:sandbox-scala-tests-lib",
         "//ledger/participant-state",
         "//bazel_tools/runfiles:scala_runfiles",
+        "@postgresql_dev_env//:all",
     ] + http_json_deps,
 )
 
