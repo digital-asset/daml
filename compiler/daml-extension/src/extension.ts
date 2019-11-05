@@ -18,7 +18,7 @@ import * as webrequest from 'web-request';
 
 let damlRoot: string = path.join(os.homedir(), '.daml');
 
-let versionContextKey = 'version'
+const versionContextKey = 'version'
 
 var damlLanguageClient: LanguageClient;
 // Extension activation
@@ -102,10 +102,10 @@ export async function activate(context: vscode.ExtensionContext) {
 // This should only occur the first time the user uses the extension after
 // an update.
 async function showReleaseNotesIfNewVersion(context: ExtensionContext) {
-    let packageFile = path.join(context.extensionPath, 'package.json');
-    let packageData = await util.promisify(fs.readFile)(packageFile, "utf8");
-    let extensionVersion = JSON.parse(packageData).version;
-    let recordedVersion = context.globalState.get(versionContextKey);
+    const packageFile = path.join(context.extensionPath, 'package.json');
+    const packageData = await util.promisify(fs.readFile)(packageFile, "utf8");
+    const extensionVersion = JSON.parse(packageData).version;
+    const recordedVersion = context.globalState.get(versionContextKey);
     if (!recordedVersion || recordedVersion != extensionVersion) {
         // We have a new version of the extension so show the release notes
         // and update the current version so we don't show them again until
@@ -118,15 +118,15 @@ async function showReleaseNotesIfNewVersion(context: ExtensionContext) {
 // Show the release notes from the DAML Blog.
 // We display the HTML in a new editor tab using a "webview":
 // https://code.visualstudio.com/api/extension-guides/webview
-async function showReleaseNotes(version: String) {
-    let releaseNotesUrl = 'https://blog.daml.com/release-notes/';
+async function showReleaseNotes(version: string) {
+    const releaseNotesUrl = 'https://blog.daml.com/release-notes/';
     if (version) {
-        let url = releaseNotesUrl + version;
-        var result = await webrequest.get(url);
+        const url = releaseNotesUrl + version;
+        const result = await webrequest.get(url);
         if (result.statusCode === 200) {
             const panel = vscode.window.createWebviewPanel(
                 'releaseNotes', // Identifies the type of the webview. Used internally
-                'Release Notes for ' + version, // Title of the panel displayed to the user
+                `Release Notes for DAML SDK ${version}`, // Title of the panel displayed to the user
                 vscode.ViewColumn.One, // Editor column to show the new webview panel in
                 {} // No webview options for now
             );
