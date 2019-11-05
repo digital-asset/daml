@@ -91,7 +91,6 @@ def install_java_deps():
             "org.freemarker:freemarker-gae:2.3.28",
             "org.gnieh:diffson-spray-json_2.12:3.1.0",
             "org.hamcrest:hamcrest-all:1.3",
-            "org.jboss.logging:jboss-logging:3.3.0.Final",
             "org.jline:jline:3.7.1",
             "org.jline:jline-reader:3.7.1",
             "org.jooq:jool:0.9.11",
