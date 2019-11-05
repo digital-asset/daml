@@ -193,7 +193,7 @@ class JdbcIndexer private[index] (
             PersistenceEntry.Checkpoint(LedgerEntry.Checkpoint(recordTime.toInstant)))
           .map(_ => headRef = headRef + 1)(DEC)
 
-      case PartyAddedToParticipant(party, displayName, _, _) =>
+      case PartyAddedToParticipant(party, displayName, _, _, submissionId) =>
         ledgerDao.storeParty(party, Some(displayName), externalOffset).map(_ => ())(DEC)
 
       case PublicPackageUploaded(archive, sourceDescription, _, _) =>

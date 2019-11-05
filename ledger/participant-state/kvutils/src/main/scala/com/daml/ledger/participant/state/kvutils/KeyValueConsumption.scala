@@ -64,7 +64,8 @@ object KeyValueConsumption {
             Party.assertFromString(entry.getPartyAllocationEntry.getParty),
             entry.getPartyAllocationEntry.getDisplayName,
             Ref.LedgerString.assertFromString(entry.getPartyAllocationEntry.getParticipantId),
-            recordTime
+            recordTime,
+            entry.getPartyAllocationEntry.getSubmissionId
           )
         )
 

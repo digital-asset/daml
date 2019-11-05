@@ -59,12 +59,16 @@ object Update {
     * @param recordTime
     *   The ledger-provided timestamp at which the party was allocated.
     *
+    * @param submissionId
+    *   The submissionId of the command which requested party to be added.
+    *
     */
   final case class PartyAddedToParticipant(
       party: Party,
       displayName: String,
       participantId: ParticipantId,
-      recordTime: Timestamp)
+      recordTime: Timestamp,
+      submissionId: String)
       extends Update {
     override def description: String =
       s"Add party '$party' to participant"
