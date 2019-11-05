@@ -13,8 +13,8 @@ load(
 )
 load("//bazel_tools:pom_file.bzl", "pom_file")
 load(
-    "//ledger/ledger-api-test-tool:conformance.bzl",
-    "conformance_test",
+    ":sandbox_conformance_test.bzl",
+    "sandbox_conformance_test",
 )
 
 compileDependencies = [
@@ -202,107 +202,14 @@ da_scala_test_suite(
     ] + testDependencies,
 )
 
-conformance_test(
-    name = "conformance-test-static-time",
-    server = ":sandbox-binary",
-    server_args = [
-        "--port 6865",
-        "--static-time",
-        "--eager-package-loading",
-    ],
-    test_tool_args = [
-        "--all-tests",
-        "--timeout-scale-factor=10",
-    ],
+sandbox_conformance_test(
+    name = "static-time",
+    server_args = ["--static-time"],
+    test_tool_args = ["--all-tests"],
 )
 
-conformance_test(
-    name = "conformance-test-wall-clock",
-    server = ":sandbox-binary",
-    server_args = [
-        "--port 6865",
-        "--wall-clock-time",
-        "--eager-package-loading",
-    ],
-    test_tool_args = [
-        "--all-tests",
-        "--exclude TimeIT",
-        "--timeout-scale-factor=10",
-    ],
-)
-
-conformance_test(
-    name = "conformance-test-static-time-postgres",
-    extra_data = [
-        "@postgresql_dev_env//:all",
-        "@postgresql_dev_env//:createdb",
-        "@postgresql_dev_env//:initdb",
-        "@postgresql_dev_env//:pg_ctl",
-    ],
-    server = ":sandbox-ephemeral-postgres",
-    server_args = [
-        "--port 6865",
-        "--static-time",
-        "--eager-package-loading",
-    ],
-    test_tool_args = [
-        "--all-tests",
-        "--timeout-scale-factor=10",
-    ],
-)
-
-conformance_test(
-    name = "conformance-test-wall-clock-postgres",
-    extra_data = [
-        "@postgresql_dev_env//:all",
-        "@postgresql_dev_env//:createdb",
-        "@postgresql_dev_env//:initdb",
-        "@postgresql_dev_env//:pg_ctl",
-    ],
-    server = ":sandbox-ephemeral-postgres",
-    server_args = [
-        "--port 6865",
-        "--wall-clock-time",
-        "--eager-package-loading",
-    ],
-    test_tool_args = [
-        "--all-tests",
-        "--exclude TimeIT",
-        "--timeout-scale-factor=10",
-    ],
-)
-
-conformance_test(
-    name = "conformance-test-static-time-h2database",
-    server = ":sandbox-binary",
-    server_args = [
-        "--port 6865",
-        "--static-time",
-        "--eager-package-loading",
-        # db_close_delay=-1 is needed so that the in-memory database is not closed (and therefore lost)
-        # after the flyway migration
-        "--sql-backend-jdbcurl jdbc:h2:mem:static_time;db_close_delay=-1",
-    ],
-    test_tool_args = [
-        "--all-tests",
-        "--timeout-scale-factor=10",
-    ],
-)
-
-conformance_test(
-    name = "conformance-test-wall-clock-h2database",
-    server = ":sandbox-binary",
-    server_args = [
-        "--port 6865",
-        "--wall-clock-time",
-        "--eager-package-loading",
-        # db_close_delay=-1 is needed so that the in-memory database is not closed (and therefore lost)
-        # after the flyway migration
-        "--sql-backend-jdbcurl jdbc:h2:mem:wall_clock_time;db_close_delay=-1",
-    ],
-    test_tool_args = [
-        "--all-tests",
-        "--exclude TimeIT",
-        "--timeout-scale-factor=10",
-    ],
+sandbox_conformance_test(
+    name = "wall-clock",
+    server_args = ["--wall-clock-time"],
+    test_tool_args = ["--all-tests", "--exclude=TimeIT"],
 )
