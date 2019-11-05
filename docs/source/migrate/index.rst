@@ -40,8 +40,8 @@ directory to ``foo-upgrade-2.0.0`` and run
 
   daml build
 
-How migrations work and when it is necessary to write code manually
--------------------------------------------------------------------
+Writing upgrade/rollback contracts
+----------------------------------
 
 It is important to understand that the ``daml migrate`` command will not always succeed in
 generating a migration project that will compile. To understand why, let's assume that the
@@ -66,7 +66,7 @@ added to the ``Foo`` module.
 
 .. literalinclude:: foo-2.0.0/daml/Foo.daml
   :language: daml
-  :lines: 6-21
+  :lines: 6-22
 
 If we generate a migration project with ``daml migrate`` as above, the directory contents of the
 ``foo-2.0.0-upgrade/daml`` directory is
@@ -74,8 +74,6 @@ If we generate a migration project with ``daml migrate`` as above, the directory
 .. code-block:: none
 
   daml
-  ├── FooAInstances.daml
-  ├── FooBInstances.daml
   └── Foo.daml
 
 For every template that was defined in the module ``Foo`` in the ``foo-1.0.0`` package, you will
@@ -85,7 +83,7 @@ an example:
 
 .. literalinclude:: foo-upgrade-2.0.0/daml/Foo.daml
   :language: daml
-  :lines: 4-14
+  :lines: 5-16
 
 The new template types are defined via a type alias and use generic templates to update or rollback
 contract instances defined in the DAML standard library (see `DA.Upgrade
@@ -96,10 +94,43 @@ the reversed workflow.
 
 The last line generates a ``Convertible`` instance for the ``Foo`` template of both packages. This
 is a manifestation that instances of the ``Foo`` template in ``foo-1.0.0`` can be converted to
-instances of the equally named template in ``foo-2.0.0``. The migrate command tries to infer the
-instances of the ``Convertible`` type class automatically via generics and takes care of defining
-generic instances for all relevant data types in the two packages. In our example, you'll find them
-in the files ``FooAInstances.daml`` and ``FooBInstances.daml``.
+instances of the equally named template in ``foo-2.0.0``.
+
+The ``migrate`` command only generates a suggestion for an upgrade/rollback contract of your data
+types.  If your upgrade workflow doesn't match the ``Upgrade`` template provided by the standart
+library you can write your own specification on how contracts from the ``foo-1.0.0`` package are
+converted to contracts of the ``foo-2.0.0`` package.
+
+The suggested ``Convertible`` instances use the shallow copy mechanism ``A.Foo{..} = B.Foo{..}``.
+This will only work for trivial conversions, where the two data types ``A.Foo`` and ``B.Foo`` are
+defined the same in both packages. If they are not isomorphic, the compilation will fail and you
+will have to specify how to convert the data types manually. One possibility is to use ``DA.Generics``
+to avoid boilerplate code. This is described in the section :ref:`using_generics_for_deep_copies`.
+
+Deploying the migration
+-----------------------
+
+Once you've succeeded building the ``foo-upgrade-2.0.0`` package you can deploy it on the ledger
+together with the ``foo-2.0.0`` package. Optionally you can bundle it with the ``foo-2.0.0`` package
+into a single DAML archive by running
+
+.. code-block:: none
+
+  daml damlc merge-dars foo-2.0.0/.daml/dist/foo-2.0.0.dar foo-upgrade-2.0.0/.daml/dist/foo-upgrade-2.0.0.dar --package-name foo-2.0.0-with-upgrades.dar
+
+You find more information on how to deploy DAML archive packages :ref:`here <deploy-ref_index>` .
+After the ``foo-upgrade-2.0.0`` package has been deployed on the ledger, there exists for every
+contract defined in ``foo-1.0.0`` a DAML workflow with a choice to upgrade it to ``foo-2.0.0`` or
+roll it back.
+
+.. _using_generics_for_deep_copies:
+
+Using Generics for deep copies
+------------------------------
+
+When writing ``Convertible`` instances, you will often want to deep copy data types that are
+*esstentially* the same. To avoid boilerplate code, you can use the default methods of the
+``Convertible`` class defined via generic representations of the data types.
 
 Generic representations can be converted when they are *isomorphic*. That means the corresponding
 data types defined in package ``foo-1.0.0`` and ``foo-2.0.0`` have exactly the same shape. For
@@ -117,48 +148,25 @@ while the following data types are not
   data Either a b = Left a | Right b
   data Maybe a = Just a | Nothing
 
-When the package ``foo-2.0.0`` contains an extended data type of the ``Foo`` template that is not
-isomorphic, the build will fail. For example, let's assume the ``Foo`` module in the ``foo-2.0.0``
-package has been extended to
-
-.. literalinclude:: foo-2.0.0/daml/FooEmbedding.daml
-  :language: daml
-  :lines: 6-15
-
-Here is typical error message in this case of an invocation of ``daml build``:
+``damlc`` provides the command ``generate-gen-src`` to generate modules containing ``Generic``
+instances for your data types. For example
 
 .. code-block:: none
 
-  daml/Foo.daml:10:10: error:
-  • No instance for (GenConvertible
-  (DA.Generics.M1
-  DA.Generics.S
-  ('DA.Generics.MetaSel
-  ('DA.Generics.MetaSel0
-  ('Some "p")
-  ...
+  daml damlc generate-gen-src --qualify A --srcdir foo-upgrade-2.0/daml foo-1.0.0/.daml/dist/foo-1.0.0.dar
+  daml damlc generate-gen-src --qualify B --srcdir foo-upgrade-2.0/daml foo-2.0.0/.daml/dist/foo-2.0.0.dar
 
-The important hint is that the compiler is not able to deduce that our data type is an instance of
-the ``DA.Upgrade.GenConvertible`` class and hence not generically convertible. In this case you will
-have to implement a ``convert`` method that describes how to convert a contract of the template in
-question of package ``foo-1.0.0`` to one of ``foo-2.0.0`` and vice versa. For example
+generates two modules ``FooAGenInstances.daml`` and ``FooBGenInstances.daml`` in the
+``foo-upgrade-2.0/daml`` directory. This allows us to just use the default ``Convertible`` instances
+to do the deep copying:
+
+.. literalinclude:: foo-upgrade-2.0.0/daml/FooWithGenerics.daml
+  :language: daml
+  :lines: 6-16
+
+If your data types are not isomorphic and the default methods don't compile you have to specify the
+conversion manually, for example:
 
 .. literalinclude:: foo-upgrade-2.0.0/daml/FooManual.daml
   :language: daml
-  :lines: 4-19
-
-Deploying the migration
------------------------
-
-Once you've succeeded building the ``foo-upgrade-2.0.0`` package you can deploy it on the ledger
-together with the ``foo-2.0.0`` package. Optionally you can bundle it with the ``foo-2.0.0`` package
-into a single DAML archive by running
-
-.. code-block:: none
-
-  daml damlc merge-dars foo-2.0.0/.daml/dist/foo-2.0.0.dar foo-upgrade-2.0.0/.daml/dist/foo-upgrade-2.0.0.dar --package-name foo-2.0.0-with-upgrades.dar
-
-You find more information on how to deploy DAML archive packages :ref:`here <deploy-ref_index>` .
-After the ``foo-upgrade-2.0.0`` package has been deployed on the ledger, there exists for every
-contract defined in ``foo-1.0.0`` a DAML workflow with a choice to upgrade it to ``foo-2.0.0`` or
-roll it back.
+  :lines: 4-17
