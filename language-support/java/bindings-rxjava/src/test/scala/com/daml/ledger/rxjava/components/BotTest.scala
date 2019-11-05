@@ -26,6 +26,7 @@ import com.digitalasset.ledger.api.{v1 => scalaAPI}
 import com.google.protobuf.{Empty => JEmpty}
 import com.google.protobuf.empty.Empty
 import com.google.rpc.Status
+import com.google.rpc.code.Code.OK
 import io.grpc.Metadata
 import io.grpc.Status.Code.INVALID_ARGUMENT
 import io.reactivex.{Flowable, Observable, Single}
@@ -309,7 +310,7 @@ class BotTest extends FlatSpec with Matchers with DataLayerHelpers {
           scalaAPI.CompletionOuterClass.Completion
             .newBuilder()
             .setCommandId("commandId_0")
-            .setStatus(Status.newBuilder().setCode(Code.OK.value()).build())
+            .setStatus(Status.newBuilder().setCode(OK.value).build())
             .build()).asJava
       ))
     Thread.sleep(1l)
