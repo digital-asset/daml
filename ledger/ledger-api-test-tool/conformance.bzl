@@ -27,7 +27,7 @@ def conformance_test(name, server, server_args = [], extra_data = [], ports = [6
         ],
     ) if not is_windows else None
 
-def server_conformance_test(name, servers, server_args, test_tool_args):
+def server_conformance_test(name, servers, server_args = [], test_tool_args = []):
     for server_name, server in servers.items():
         test_name = "-".join([segment for segment in [name, server_name] if segment])
         conformance_test(
