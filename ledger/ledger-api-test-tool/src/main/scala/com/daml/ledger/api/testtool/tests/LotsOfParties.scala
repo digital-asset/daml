@@ -4,13 +4,9 @@
 package com.daml.ledger.api.testtool.tests
 
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
-import com.daml.ledger.api.testtool.infrastructure.{
-  LedgerSession,
-  LedgerTest,
-  LedgerTestContext,
-  LedgerTestSuite
-}
+import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTest, LedgerTestSuite}
 import com.digitalasset.ledger.api.v1.event.CreatedEvent
+import com.digitalasset.ledger.api.v1.transaction.Transaction
 import com.digitalasset.ledger.client.binding.Primitive.{ContractId, Party}
 import com.digitalasset.ledger.test_stable.Test.WithObservers
 
@@ -20,7 +16,6 @@ final class LotsOfParties(session: LedgerSession) extends LedgerTestSuite(sessio
   type Parties = Set[Party]
   type PartyMap[T] = Map[Party, T]
 
-  private val participantCount = 2
   private val partyCount = 1024
 
   private[this] val seeTransactionsInMultipleSinglePartySubscriptions = LedgerTest(
@@ -28,29 +23,25 @@ final class LotsOfParties(session: LedgerSession) extends LedgerTestSuite(sessio
     "Observers should see transactions in multiple single-party subscriptions"
   ) { context =>
     for {
-      partiesByLedger <- allocatePartiesAcrossParticipants(context)
-      parties = partiesByLedger.toVector.flatMap {
-        case (ledger, parties) => parties.map(party => ledger -> party)
-      }
-      (giverLedger, giver) = parties.head
-      observersWithLedgers = parties.drop(1)
-      observers = observersWithLedgers.map(_._2)
-      contractId <- giverLedger.create(giver, WithObservers(giver, observers))
-      transactionsByParty <- Future
-        .sequence(observersWithLedgers.map {
-          case (ledger, observer) =>
-            ledger.flatTransactions(observer).map(observer -> _)
-        })
-        .map(_.toMap)
+      alpha <- context.participant()
+      beta <- context.participant()
+      giver <- alpha.allocateParty()
+      alphaObservers <- alpha.allocateParties(partyCount / 2 - 1)
+      betaObservers <- beta.allocateParties(partyCount / 2)
+      observers = alphaObservers ++ betaObservers
+      alphaParties = giver +: alphaObservers
+      contractId <- alpha.create(giver, WithObservers(giver, observers))
+      alphaTransactionsByParty <- transactionsForEachParty(alpha, alphaParties)
+      betaTransactionsByParty <- transactionsForEachParty(beta, betaObservers)
     } yield {
-      val activeContracts = transactionsByParty.mapValues(_.map(transaction => {
-        val event = assertSingleton(
-          "LOPseeTransactionsInMultipleSinglePartySubscriptions",
-          transaction.events)
-        event.event.created.get
-      }))
-
-      assertWitnessesOfSinglePartySubscriptions(observers.toSet, contractId, activeContracts)
+      assertWitnessesOfSinglePartySubscriptions(
+        alphaParties.toSet,
+        contractId,
+        activeContractsFrom(alphaTransactionsByParty))
+      assertWitnessesOfSinglePartySubscriptions(
+        betaObservers.toSet,
+        contractId,
+        activeContractsFrom(betaTransactionsByParty))
     }
   }
 
@@ -59,29 +50,25 @@ final class LotsOfParties(session: LedgerSession) extends LedgerTestSuite(sessio
     "Observers should see transactions in a single multi-party subscription"
   ) { context =>
     for {
-      partiesByLedger <- allocatePartiesAcrossParticipants(context)
-      giverLedger = partiesByLedger.head._1
-      giver = partiesByLedger(giverLedger).head
-      observers = partiesByLedger.values.flatten.filterNot(_ == giver).toVector
-      contractId <- giverLedger.create(giver, WithObservers(giver, observers))
-      transactionsByLedger <- Future.sequence(partiesByLedger.map {
-        case (ledger, parties) =>
-          ledger.flatTransactions(parties: _*).map(parties -> _)
-      })
+      alpha <- context.participant()
+      beta <- context.participant()
+      giver <- alpha.allocateParty()
+      alphaObservers <- alpha.allocateParties(partyCount / 2 - 1)
+      betaObservers <- beta.allocateParties(partyCount / 2)
+      observers = alphaObservers ++ betaObservers
+      alphaParties = giver +: alphaObservers
+      contractId <- alpha.create(giver, WithObservers(giver, observers))
+      alphaTransactions <- alpha.flatTransactions(alphaParties: _*)
+      betaTransactions <- beta.flatTransactions(betaObservers: _*)
     } yield {
-      transactionsByLedger.foreach {
-        case (parties, transactions) =>
-          val activeContracts =
-            transactions.map(transaction => {
-              val event =
-                assertSingleton(
-                  "LOPseeTransactionsInSingleMultiPartySubscription",
-                  transaction.events)
-              event.event.created.get
-            })
-
-          assertWitnessesOfAMultiPartySubscription(parties.toSet, contractId, activeContracts)
-      }
+      assertWitnessesOfAMultiPartySubscription(
+        alphaParties.toSet,
+        contractId,
+        activeContractsFrom(alphaTransactions))
+      assertWitnessesOfAMultiPartySubscription(
+        betaObservers.toSet,
+        contractId,
+        activeContractsFrom(betaTransactions))
     }
   }
 
@@ -90,22 +77,25 @@ final class LotsOfParties(session: LedgerSession) extends LedgerTestSuite(sessio
     "Observers should see active contracts in multiple single-party subscriptions"
   ) { context =>
     for {
-      partiesByLedger <- allocatePartiesAcrossParticipants(context)
-      parties = partiesByLedger.toVector.flatMap {
-        case (ledger, parties) => parties.map(party => ledger -> party)
-      }
-      (giverLedger, giver) = parties.head
-      observersWithLedgers = parties.drop(1)
-      observers = observersWithLedgers.map(_._2)
-      contractId <- giverLedger.create(giver, WithObservers(giver, observers))
-      activeContracts <- Future
-        .sequence(observersWithLedgers.map {
-          case (ledger, observer) =>
-            ledger.activeContracts(observer).map(observer -> _)
-        })
-        .map(_.toMap)
+      alpha <- context.participant()
+      beta <- context.participant()
+      giver <- alpha.allocateParty()
+      alphaObservers <- alpha.allocateParties(partyCount / 2 - 1)
+      betaObservers <- beta.allocateParties(partyCount / 2)
+      observers = alphaObservers ++ betaObservers
+      alphaParties = giver +: alphaObservers
+      contractId <- alpha.create(giver, WithObservers(giver, observers))
+      alphaContractsByParty <- activeContractsForEachParty(alpha, alphaParties)
+      betaContractsByParty <- activeContractsForEachParty(beta, betaObservers)
     } yield {
-      assertWitnessesOfSinglePartySubscriptions(observers.toSet, contractId, activeContracts)
+      assertWitnessesOfSinglePartySubscriptions(
+        alphaParties.toSet,
+        contractId,
+        alphaContractsByParty)
+      assertWitnessesOfSinglePartySubscriptions(
+        betaObservers.toSet,
+        contractId,
+        betaContractsByParty)
     }
   }
 
@@ -114,20 +104,19 @@ final class LotsOfParties(session: LedgerSession) extends LedgerTestSuite(sessio
     "Observers should see active contracts in a single multi-party subscription"
   ) { context =>
     for {
-      partiesByLedger <- allocatePartiesAcrossParticipants(context)
-      giverLedger = partiesByLedger.head._1
-      giver = partiesByLedger(giverLedger).head
-      observers = partiesByLedger.values.flatten.filterNot(_ == giver).toVector
-      contractId <- giverLedger.create(giver, WithObservers(giver, observers))
-      activeContractsByLedger <- Future.sequence(partiesByLedger.map {
-        case (ledger, parties) =>
-          ledger.activeContracts(parties: _*).map(parties -> _)
-      })
+      alpha <- context.participant()
+      beta <- context.participant()
+      giver <- alpha.allocateParty()
+      alphaObservers <- alpha.allocateParties(partyCount / 2 - 1)
+      betaObservers <- beta.allocateParties(partyCount / 2)
+      observers = alphaObservers ++ betaObservers
+      alphaParties = giver +: alphaObservers
+      contractId <- alpha.create(giver, WithObservers(giver, observers))
+      alphaContracts <- alpha.activeContracts(alphaParties: _*)
+      betaContracts <- beta.activeContracts(betaObservers: _*)
     } yield {
-      activeContractsByLedger.foreach {
-        case (parties, activeContracts) =>
-          assertWitnessesOfAMultiPartySubscription(parties.toSet, contractId, activeContracts)
-      }
+      assertWitnessesOfAMultiPartySubscription(alphaParties.toSet, contractId, alphaContracts)
+      assertWitnessesOfAMultiPartySubscription(betaObservers.toSet, contractId, betaContracts)
     }
   }
 
@@ -139,13 +128,32 @@ final class LotsOfParties(session: LedgerSession) extends LedgerTestSuite(sessio
       seeActiveContractsInSingleMultiPartySubscription,
     )
 
-  private def allocatePartiesAcrossParticipants(
-      context: LedgerTestContext): Future[Map[ParticipantTestContext, Vector[Party]]] = {
-    for {
-      ledgers <- context.participants(participantCount)
-      partiesWithLedgers <- Future.sequence(ledgers.map(ledger =>
-        ledger.allocateParties(partyCount / participantCount).map(parties => ledger -> parties)))
-    } yield partiesWithLedgers.toMap
+  private def transactionsForEachParty(
+      ledger: ParticipantTestContext,
+      observers: Vector[Party]): Future[PartyMap[Vector[Transaction]]] = {
+    Future
+      .sequence(observers.map(observer => ledger.flatTransactions(observer).map(observer -> _)))
+      .map(_.toMap)
+  }
+
+  private def activeContractsForEachParty(
+      ledger: ParticipantTestContext,
+      observers: Vector[Party]): Future[PartyMap[Vector[CreatedEvent]]] = {
+    Future
+      .sequence(observers.map(observer => ledger.activeContracts(observer).map(observer -> _)))
+      .map(_.toMap)
+  }
+
+  private def activeContractsFrom(
+      transactionsByParty: PartyMap[Vector[Transaction]]): PartyMap[Vector[CreatedEvent]] = {
+    transactionsByParty.mapValues(transactions => activeContractsFrom(transactions))
+  }
+
+  private def activeContractsFrom(transactions: Vector[Transaction]): Vector[CreatedEvent] = {
+    transactions.map(transaction => {
+      val event = assertSingleton("single transaction event", transaction.events)
+      event.event.created.get
+    })
   }
 
   private def assertWitnessesOfSinglePartySubscriptions(
