@@ -126,7 +126,7 @@ generateGenInstanceModule env externPkgId qual
     genInstances = snd genImportsAndInstances
 
     mod = envMod env
-    modFilePath = (foldr1 (</>) $ splitOn "." modName) ++ qual ++ "GenInstances" ++ ".daml"
+    modFilePath = (joinPath $ splitOn "." modName) ++ qual ++ "GenInstances" ++ ".daml"
     modName = T.unpack $ LF.moduleNameString $ LF.moduleName mod
     modNameQual = modName <> qual
     header =
