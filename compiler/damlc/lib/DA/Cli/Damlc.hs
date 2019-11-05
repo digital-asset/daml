@@ -525,17 +525,17 @@ createProjectPackageDb opts fps = do
           in mapM expand
     fps0 <- handleSdkPackages $ filter (`notElem` basePackages) fps
     let (fpDars, fpDalfs) = partition ((== ".dar") . takeExtension) fps0
-    ExtractedDar {..}  <-
-        fmap mconcat $ forM fpDars extractDar
-    let uniqSdkVersions = nubSort $ edSdkVersions
+    dars <- mapM extractDar fpDars
+    let uniqSdkVersions = nubSort $ map edSdkVersions dars
     if | (length uniqSdkVersions > 1 && optAllowDifferentSdks opts) || not (null fpDalfs)
         -> do
+              let dalfs = concatMap edDalfs dars
               -- when we compile packages with different sdk versions or with dalf dependencies, we
               -- need to generate the interface files
               let dalfsFromDars =
                       [ ( dropExtension $ takeFileName $ ZipArchive.eRelativePath e
                         , BSL.toStrict $ ZipArchive.fromEntry e)
-                      | e <- edDalfs
+                      | e <- dalfs
                       ]
               dalfsFromFps <-
                   forM fpDalfs $ \fp -> do
@@ -606,7 +606,8 @@ createProjectPackageDb opts fps = do
                               mbPkgVersion
                               deps
 
-       | length uniqSdkVersions <= 1 -> installDar dbPath edConfFiles edDalfs edSrcs
+       | length uniqSdkVersions <= 1 -> forM_ dars $
+            \ExtractedDar{..} -> installDar dbPath edConfFiles edDalfs edSrcs
        | otherwise ->
            fail $
            "Package dependencies from different SDK versions: " ++
@@ -686,25 +687,12 @@ getGhcPkgPath =
         else locateRunfiles "ghc_nix/lib/ghc-8.6.5/bin"
 
 data ExtractedDar = ExtractedDar
-    { edSdkVersions :: [String]
+    { edSdkVersions :: String
     , edMain :: [ZipArchive.Entry]
     , edConfFiles :: [ZipArchive.Entry]
     , edDalfs :: [ZipArchive.Entry]
     , edSrcs :: [ZipArchive.Entry]
     }
-
-instance Semigroup ExtractedDar where
-    (<>) d1 d2 =
-        ExtractedDar
-            { edSdkVersions = edSdkVersions d1 ++ edSdkVersions d2
-            , edMain = edMain d1 ++ edMain d2
-            , edConfFiles = edConfFiles d1 ++ edConfFiles d2
-            , edDalfs = edDalfs d1 ++ edDalfs d2
-            , edSrcs = edSrcs d1 ++ edSrcs d2
-            }
-
-instance Monoid ExtractedDar where
-    mempty = ExtractedDar [] [] [] [] []
 
 -- | Extract a dar archive
 extractDar :: FilePath -> IO ExtractedDar
@@ -733,7 +721,7 @@ extractDar fp = do
                   [".daml", ".hie", ".hi"]
             ]
     dalfs <- forM (dalfPaths dalfManifest) $ \p -> getEntry p archive
-    pure (ExtractedDar [sdkVersion] [mainDalfEntry] confFiles dalfs srcs)
+    pure (ExtractedDar sdkVersion [mainDalfEntry] confFiles dalfs srcs)
 
 -- Install a dar in the package database
 installDar ::
