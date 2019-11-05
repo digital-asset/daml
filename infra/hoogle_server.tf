@@ -74,6 +74,7 @@ curl -sSL https://get.haskellstack.org/ | sh
 runuser -u hoogle bash <<HOOGLE_SETUP
 git clone https://github.com/ndmitchell/hoogle.git
 cd hoogle
+git checkout 73fa6b5c156e0015e135a564e2821719611abe03
 stack init --resolver=lts-14.7
 stack build
 stack install
