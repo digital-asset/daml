@@ -121,7 +121,7 @@ class ApiSubmissionService private (
 
           case Success(InternalError(reason)) =>
             logger.debug(
-              s"Submission of command ${commands.commandId.unwrap} failed, reason=$reason ")
+              s"Submission of command ${commands.commandId.unwrap} failed due to an internal error, reason=$reason ")
             Failure(Status.INTERNAL.asRuntimeException)
 
           case Failure(error) =>
