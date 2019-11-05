@@ -69,7 +69,7 @@ final class Authorizer(now: () => Instant) {
     requireClaimsForAllPartiesOnStream(party.toList, call)
 
   /** Checks whether the current Claims authorize to act as the given party, if any.
-    * Note: An missing party does NOT result in an authorization error.
+    * Note: A missing party does NOT result in an authorization error.
     */
   def requireClaimsForParty[Req, Res](
       party: Option[String],
