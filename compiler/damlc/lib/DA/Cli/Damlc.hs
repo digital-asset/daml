@@ -726,17 +726,13 @@ extractDar fp = do
             | e <- ZipArchive.zEntries archive
             , ".conf" `isExtensionOf` ZipArchive.eRelativePath e
             ]
-    let dalfs =
-            [ e
-            | e <- ZipArchive.zEntries archive
-            , ".dalf" `isExtensionOf` ZipArchive.eRelativePath e
-            ]
     let srcs =
             [ e
             | e <- ZipArchive.zEntries archive
             , takeExtension (ZipArchive.eRelativePath e) `elem`
                   [".daml", ".hie", ".hi"]
             ]
+    dalfs <- forM (dalfPaths dalfManifest) $ \p -> getEntry p archive
     pure (ExtractedDar [sdkVersion] [mainDalfEntry] confFiles dalfs srcs)
 
 -- Install a dar in the package database
