@@ -4,13 +4,10 @@
 daml 1.2
 module ACS where
 
-import DA.TextMap (TextMap)
-import qualified DA.TextMap as TM
-
 import Daml.Trigger.LowLevel
 
 data TriggerState = TriggerState
-  { activeAssets : TextMap TemplateTypeRep
+  { activeAssets : [ContractId (Asset ())]
   , successfulCompletions : Int
   , failedCompletions : Int
   , nextCommandId : Int
@@ -19,20 +16,20 @@ data TriggerState = TriggerState
 
 initState : Party -> ActiveContracts -> TriggerState
 initState party (ActiveContracts events) = TriggerState
-  { activeAssets = (foldl updateAcs TM.empty events)
+  { activeAssets = (foldl updateAcs [] events)
   , nextCommandId = 0
   , party = party
   , successfulCompletions = 0
   , failedCompletions = 0
   }
   where
-    updateAcs : TextMap TemplateTypeRep -> Created -> TextMap TemplateTypeRep
-    updateAcs acs (Created _ cId argument)
-      | Some Asset{} <- fromAnyTemplate @(Asset ()) argument = TM.insert cId.contractId cId.templateId acs
+    updateAcs : [ContractId (Asset ())] -> Created -> [ContractId (Asset ())]
+    updateAcs acs created
+      | Some (_, cid, _) <- fromCreated @(Asset ()) created = cid :: acs
       | otherwise = acs
 
 -- | This is a very silly trigger for testing purposes:
--- We track the active Asset contracts (we make no attempts to distinguish different things called Asset)
+-- We track the active Asset contracts
 -- and we create a new AssetMirror contract whenever an Asset contract is created (but we do not archive them).
 test : Trigger TriggerState
 test = Trigger
@@ -53,16 +50,16 @@ test = Trigger
         , [Commands (CommandId $ "command_" <> show state.nextCommandId) cmds]
         )
       where
-        updateEvent : ([Command], TextMap TemplateTypeRep) -> Event -> ([Command], TextMap TemplateTypeRep)
+        updateEvent : ([Command], [ContractId (Asset ())]) -> Event -> ([Command], [ContractId (Asset ())])
         updateEvent (cmds, acs) ev = case ev of
-          CreatedEvent (fromCreated -> Some (_, assetId, Asset {issuer} : Asset ())) ->
-            let proposeMirror : Command = createCmd (AssetMirrorProposal { issuer })
-            in (proposeMirror :: cmds, TM.insert assetId.contractId (templateTypeRep @(Asset ())) acs)
+          CreatedEvent (fromCreated @(Asset ()) -> Some (_, assetId, asset)) ->
+            let proposeMirror : Command = createCmd (AssetMirrorProposal { issuer = asset.issuer })
+            in (proposeMirror :: cmds, assetId :: acs)
           CreatedEvent (fromCreated -> Some (_, proposalId, AssetMirrorProposal {})) ->
             let accept : Command = exerciseCmd proposalId Accept
             in (accept :: cmds, acs)
           ArchivedEvent (fromArchived @(Asset ()) -> Some (_, assetId)) ->
-            (cmds, TM.delete assetId.contractId acs)
+            (cmds, filter (/= assetId) acs)
           _ -> (cmds, acs)
 
 -- This is only a generic template to test that we do the conversion properly.

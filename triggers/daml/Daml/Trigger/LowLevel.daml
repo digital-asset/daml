@@ -7,8 +7,7 @@ module Daml.Trigger.LowLevel
   , Completion(..)
   , CompletionStatus(..)
   , Transaction(..)
-  , AnyContractId(..)
-  , AbsoluteContractId(..)
+  , AnyContractId
   , toAnyContractId
   , fromAnyContractId
   , TransactionId(..)
@@ -36,7 +35,7 @@ import DA.Next.Map (MapKey(..))
 -- You can use `fromAnyContractId` to check which template it corresponds to.
 data AnyContractId = AnyContractId
   { templateId : TemplateTypeRep
-  , contractId : Text
+  , contractId : ContractId ()
   } deriving Eq
 
 -- We can’t derive the Show instance since TemplateTypeRep does not have a Show instance
@@ -47,26 +46,18 @@ instance Show AnyContractId where
     where app_prec = 10
 
 
--- | An absolute contract id on the ledger.
--- Contrary to the `ContractId` type which is used
--- while building up a transaction in DAML, `AbsoluteContractId`
--- represents the id of a contract that has been committed to the ledger.
--- This allows us to get more instances, in particular `MapKey`.
-newtype AbsoluteContractId t = AbsoluteContractId { contractId : Text }
-  deriving (Show, Eq, Ord)
-
--- | Wrap an `AbsoluteContractId t` in `AnyContractId`.
-toAnyContractId : forall t. Template t => AbsoluteContractId t -> AnyContractId
-toAnyContractId (AbsoluteContractId contractId) = AnyContractId
+-- | Wrap a `ContractId t` in `AnyContractId`.
+toAnyContractId : forall t. Template t => ContractId t -> AnyContractId
+toAnyContractId cid = AnyContractId
   { templateId = templateTypeRep @t
-  , contractId = contractId
+  , contractId = coerceContractId cid
   }
 
 -- | Check if a `AnyContractId` corresponds to the given template or return
 -- `None` otherwise.
-fromAnyContractId : forall t. Template t => AnyContractId -> Optional (AbsoluteContractId t)
+fromAnyContractId : forall t. Template t => AnyContractId -> Optional (ContractId t)
 fromAnyContractId cid
-  | cid.templateId == templateTypeRep @t = Some (AbsoluteContractId cid.contractId)
+  | cid.templateId == templateTypeRep @t = Some (coerceContractId cid.contractId)
   | otherwise = None
 
 newtype TransactionId = TransactionId Text
@@ -97,7 +88,7 @@ data Created = Created
   }
 
 -- | Check if a `Created` event corresponds to the given template.
-fromCreated : Template t => Created -> Optional (EventId, AbsoluteContractId t, t)
+fromCreated : Template t => Created -> Optional (EventId, ContractId t, t)
 fromCreated Created {eventId, contractId, argument}
   | Some contractId' <- fromAnyContractId contractId
   , Some argument' <- fromAnyTemplate argument
@@ -112,7 +103,7 @@ data Archived = Archived
   } deriving (Show, Eq)
 
 -- | Check if an `Archived` event corresponds to the given template.
-fromArchived : Template t => Archived -> Optional (EventId, AbsoluteContractId t)
+fromArchived : Template t => Archived -> Optional (EventId, ContractId t)
 fromArchived Archived {eventId, contractId}
   | Some contractId' <- fromAnyContractId contractId
   = Some (eventId, contractId')
@@ -170,7 +161,7 @@ createCmd templateArg =
   CreateCommand (toAnyTemplate templateArg)
 
 -- | Exercise the given choice.
-exerciseCmd : forall t c r. Choice t c r => AbsoluteContractId t -> c -> Command
+exerciseCmd : forall t c r. Choice t c r => ContractId t -> c -> Command
 exerciseCmd contractId choiceArg =
   ExerciseCommand (toAnyContractId contractId) (toAnyChoice @t choiceArg)
 
@@ -182,7 +173,7 @@ fromCreate _ = None
 
 -- | Check if the command corresponds to an exercise command
 -- for the given template.
-fromExercise : forall t c r. Choice t c r => Command -> Optional (AbsoluteContractId t, c)
+fromExercise : forall t c r. Choice t c r => Command -> Optional (ContractId t, c)
 fromExercise (ExerciseCommand cid c) = (,) <$> fromAnyContractId cid <*> fromAnyChoice @t c
 fromExercise _ = None
 

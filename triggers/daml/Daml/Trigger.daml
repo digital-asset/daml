@@ -11,8 +11,7 @@ module Daml.Trigger
  , runTrigger
  , CommandId
  , Command(..)
- , AnyContractId(..)
- , AbsoluteContractId(..)
+ , AnyContractId
  , toAnyContractId
  , fromAnyContractId
  , exerciseCmd
@@ -43,7 +42,7 @@ import qualified Daml.Trigger.LowLevel as LowLevel
 newtype ACS = ACS [(AnyContractId, AnyTemplate)]
 
 -- | Extract the templates of a given type from the ACS.
-getTemplates : forall a. Template a => ACS -> [(AbsoluteContractId a, a)]
+getTemplates : forall a. Template a => ACS -> [(ContractId a, a)]
 getTemplates (ACS tpls) = mapOptional fromAny tpls
   where
     fromAny (cid, tpl) = (,) <$> fromAnyContractId cid <*> fromAnyTemplate tpl
@@ -100,7 +99,7 @@ dedupCreate t = do
 -- Note that this will send the exercise as a single-command transaction.
 -- If you need to send multiple commands in one transaction, use
 -- `emitCommands` with `exerciseCmd` and handle filtering yourself.
-dedupExercise : (Eq c, Choice t c r) => AbsoluteContractId t -> c -> TriggerA ()
+dedupExercise : (Eq c, Choice t c r) => ContractId t -> c -> TriggerA ()
 dedupExercise cid c = do
   aState <- TriggerA get
   -- This is a very naive approach that is linear in the number of commands in flight.
