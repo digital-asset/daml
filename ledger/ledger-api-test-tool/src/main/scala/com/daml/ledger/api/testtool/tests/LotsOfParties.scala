@@ -16,7 +16,7 @@ final class LotsOfParties(session: LedgerSession) extends LedgerTestSuite(sessio
   type Parties = Set[Party]
   type PartyMap[T] = Map[Party, T]
 
-  private val partyCount = 10
+  private val partyCount = 1024
 
   private[this] val seeTransactionsInMultipleSinglePartySubscriptions = LedgerTest(
     "LOPseeTransactionsInMultipleSinglePartySubscriptions",
