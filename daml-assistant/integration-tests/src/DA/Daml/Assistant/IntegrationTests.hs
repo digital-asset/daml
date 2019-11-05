@@ -590,7 +590,6 @@ packagingTests = testGroup "packaging"
         withCurrentDirectory projectB $ callCommandQuiet $ "daml build -o " <> bDar
         assertBool "a-2.0.dar was not created." =<< doesFileExist bDar
         step "Creating upgrade/rollback project"
-        -- We use -o to verify that we do not depend on the
         callCommandQuiet $ unwords ["daml", "migrate", projectUpgrade, aDar, bDar]
         step "Generate generic instances"
         writeFileUTF8 (projectUpgrade </> "daml" </> "Main.daml") $ unlines
