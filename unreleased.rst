@@ -15,3 +15,9 @@ HEAD — ongoing
    * Add interning of strings and names. This reduces drastically dar file size.
    * Add support for 'Any' type.
    * Add support for type representation values.
+ - [DAML-LF] Add immutable bintray/maven packages for handling DAML-LF archive up to version 1.7:
+   + `com.digitalasset.daml-lf-1.7-archive-proto`
+
+     This package contains the archive protobuf definitions as they
+     were introduced when 1.7 was frozen.  These definitions can be
+     used to read DAML-LF archives up to version 1.7.

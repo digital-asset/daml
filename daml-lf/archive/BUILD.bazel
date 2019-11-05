@@ -26,8 +26,9 @@ LF_MAJOR_VERSIONS = [
 ]
 
 LF_VERSIONS = [
-    "dev",
     "1.6",
+    "1.7",
+    "dev",
 ]
 
 [
@@ -159,6 +160,8 @@ da_scala_test_suite(
     deps = [
         ":daml_lf_1.6_archive_java_proto",
         ":daml_lf_1.6_archive_proto_srcs",
+        ":daml_lf_1.7_archive_java_proto",
+        ":daml_lf_1.7_archive_proto_srcs",
         ":daml_lf_archive_reader",
         ":daml_lf_dev_archive_java_proto",
         "//bazel_tools/runfiles:scala_runfiles",

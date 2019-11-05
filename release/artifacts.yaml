@@ -28,6 +28,16 @@
   location:
     groupId: com.digitalasset
     artifactId: daml-lf-1.6-archive-proto
+- target: //daml-lf/archive:daml_lf_1.7_archive_proto_zip
+  type: zip
+  location:
+    groupId: com.digitalasset
+    artifactId: daml-lf-1.7-archive-proto
+- target: //daml-lf/archive:daml_lf_1.7_archive_proto_tarball
+  type: targz
+  location:
+    groupId: com.digitalasset
+    artifactId: daml-lf-1.7-archive-proto
 - target: //daml-lf/archive:daml_lf_archive_reader
   type: jar-scala
 - target: //compiler/damlc/jar:damlc_jar
