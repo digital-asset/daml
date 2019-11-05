@@ -1,26 +1,23 @@
 
+-- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
 {-# LANGUAGE OverloadedStrings #-}
 
 module DA.Daml.Preprocessor.EnumType
     ( enumTypePreprocessor
     ) where
 
--- import Development.IDE.Types.Options
--- import qualified "ghc-lib-parser" SrcLoc as GHC
--- import qualified "ghc-lib-parser" Module as GHC
--- import qualified "ghc-lib-parser" FastString as GHC
--- import Outputable
-
 import "ghc-lib" GHC
 import "ghc-lib-parser" BasicTypes
 import "ghc-lib-parser" RdrName
 import "ghc-lib-parser" OccName
 
--- import           Control.Monad.Extra
--- import           Data.List
--- import           Data.Maybe
--- import           System.FilePath (splitDirectories)
-
+-- | This preprocessor adds the @DamlEnum@ constraint to every data definition
+-- of the form @data A = B@, so it becomes @data DamlEnum => A = B@, which gets
+-- picked up during LF conversion and turned into an enum definition. This is
+-- distinguishible from @data A = B {}@ at the core level. @DamlEnum@ is a
+-- 0-parameter typeclass defined in GHC.Types and re-exported in Prelude.
 enumTypePreprocessor :: ParsedSource -> ParsedSource
 enumTypePreprocessor (L l src) = L l src
     { hsmodDecls =  map fixEnumTypeDecl (hsmodDecls src) }
@@ -38,4 +35,5 @@ fixEnumTypeDecl ldecl = ldecl
 
 makeEnumCtx :: Located RdrName -> [LHsType GhcPs]
 makeEnumCtx (L loc _) =
-    [L loc (HsTyVar noExt NotPromoted (L loc (mkUnqual tcName "DamlEnum")))] -- TODO: qualify.
+    [L loc (HsTyVar noExt NotPromoted (L loc (mkUnqual tcName "DamlEnum")))]
+        -- TODO: qualify with Prelude.
