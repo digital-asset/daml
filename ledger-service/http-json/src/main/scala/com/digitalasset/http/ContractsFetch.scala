@@ -162,13 +162,6 @@ private class ContractsFetch(
       .conflate(_.append(_)(_.contractId))
       .map(insertAndDelete)
 
-  private def aggregate(
-      a: InsertDeleteStep[PreInsertContract],
-      b: InsertDeleteStep[PreInsertContract]): InsertDeleteStep[PreInsertContract] = {
-    def f(x: PreInsertContract): String = x.contractId
-    a.append(b)(f)
-  }
-
   private def contractsFromOffsetIo(
       jwt: Jwt,
       party: domain.Party,
@@ -177,25 +170,30 @@ private class ContractsFetch(
       implicit ec: ExecutionContext,
       mat: Materializer): ConnectionIO[Option[domain.Offset]] = {
 
-    val graph = RunnableGraph.fromGraph(GraphDSL.create(
-      Sink.queue[ConnectionIO[Unit]](),
-      Sink.lastOption[domain.Offset]
-    )((a, b) => (a, b)) { implicit builder => (acsSink, offsetSink) =>
-      import GraphDSL.Implicits._
+    val graph = RunnableGraph.fromGraph(
+      GraphDSL.create(
+        Sink.queue[ConnectionIO[Unit]](),
+        Sink.lastOption[domain.Offset]
+      )((a, b) => (a, b)) { implicit builder => (acsSink, offsetSink) =>
+        import GraphDSL.Implicits._
 
-      val txSource: Source[Transaction, NotUsed] = getCreatesAndArchivesSince(
-        jwt,
-        transactionFilter(party, List(templateId)),
-        domain.Offset.toLedgerApi(offset))
+        val txSource: Source[Transaction, NotUsed] = getCreatesAndArchivesSince(
+          jwt,
+          transactionFilter(party, List(templateId)),
+          domain.Offset.toLedgerApi(offset))
 
-      val untuple = builder add project2[InsertDeleteStep[lav1.event.CreatedEvent], domain.Offset]
+        val untuple = builder add project2[InsertDeleteStep[lav1.event.CreatedEvent], domain.Offset]
+        val transactInsertsDeletes = Flow
+          .fromFunction(jsonifyInsertDeleteStep)
+          .conflate(_.append(_)(_.contractId))
+          .map(insertAndDelete)
 
-      txSource.map(transactionToInsertsAndDeletes) ~> untuple.in
-      untuple.out0.map(jsonifyInsertDeleteStep).conflate(aggregate).map(insertAndDelete) ~> acsSink
-      untuple.out1 ~> offsetSink
+        txSource.map(transactionToInsertsAndDeletes) ~> untuple.in
+        untuple.out0 ~> transactInsertsDeletes ~> acsSink
+        untuple.out1 ~> offsetSink
 
-      ClosedShape
-    })
+        ClosedShape
+      })
 
     val (acsQueue, lastOffsetFuture) = graph.run()
 
