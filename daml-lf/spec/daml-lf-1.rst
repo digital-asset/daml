@@ -224,28 +224,44 @@ Version: 1.6
 
   * **Add** package IDs interning in external package references.
 
+Version: 1.7
+............
+
+  * **Add** Nat kind and Nat type.
+    - add `nat` kind
+    - add `nat` type
+
+  * **Add** parametrically scaled Numeric type.
+    - add `NUMERIC` primitive type
+    - add `numeric` primitive literal
+    - add numeric builtins, namely  `ADD_NUMERIC`, `SUB_NUMERIC`, `MUL_NUMERIC`, `DIV_NUMERIC`, `ROUND_NUMERIC`, `CAST_NUMERIC`, `SHIFT_NUMERIC`, `LEQ_NUMERIC`, `LESS_NUMERIC`, `GEQ_NUMERIC`, `GREATER_NUMERIC`, `FROM_TEXT_NUMERIC`, `TO_TEXT_NUMERIC`, `INT64_TO_NUMERIC`, `NUMERIC_TO_INT64`, `EQUAL_NUMERIC`
+
+  * **Drop** support for Decimal type. Use Numeric of scale 10 instead.
+    - drop `DECIMAL` primitive type
+    - drop `decimal` primitive literal
+    - drop decimal builtins, namely  `ADD_DECIMAL`, `SUB_DECIMAL`, `MUL_DECIMAL`, `DIV_DECIMAL`, `ROUND_DECIMAL`, `LEQ_DECIMAL`, `LESS_DECIMAL`, `GEQ_DECIMAL`, `GREATER_DECIMAL`, `FROM_TEXT_DECIMAL`, `TO_TEXT_DECIMAL`, `INT64_TO_DECIMAL`, `DECIMAL_TO_INT64`, `EQUAL_DECIMAL`
+
+  * **Add** string interning in external package references.
+    
+  * **Add** name interning in external package references.
+    
+  * **Add** existential ``Any`` type
+    - add `'Any'` primitive type
+    - add `'to_an'y` and `'from_any'` expression to convert from/to
+      an arbitrary ground type (i.e. a type with no free type variables)
+       to ``Any``.
+
+  * **Add** for Type representation.
+    - add `'TypeRep'` primitive type
+    - add `type_rep` expression to reify a arbitrary ground type
+      (i.e. a type with no free type variables) to a value.
+
 Version: 1.dev
 ..............
 
   * **Change** Transaction submitter must be in the contract key
     maintainers when performing lookup or fetches by key. See
     `issue #1866 <https://github.com/digital-asset/daml/issues/1866>`_
-
-  * **Add** Nat kind and Nat type.
-
-  * **Add** parametrically scaled Numeric type.
-
-  * **Drop** support for Decimal type. Use Numeric of scale 10 instead.
-
-  * **Add** string interning in external package references.
-    
-  * **Add** name interning in external package references.
-    
-  * **Add** existential ``Any`` type and
-    ``from_any`` and ``to_any`` functions to convert from/to
-    an arbitrary ground type (i.e. a type with no free type variables) to ``Any``.
-
-  * **Add** ``type_rep``, a value presenting a type.
 
 Abstract syntax
 ^^^^^^^^^^^^^^^
@@ -626,10 +642,6 @@ Then we can define our kinds, types, and expressions::
 In the following, we will use ``τ₁ → τ₂`` as syntactic sugar for the
 type application ``('TArrow' τ₁ τ₂)`` where ``τ₁`` and ``τ₂`` are
 types.
-
-*Note that the type* ``'Option'`` *together with the
-constructors/patterns* ``'None'`` *and* ``'Some'`` *are available
-since version 1.1*.
 
 
 Definitions
@@ -2078,9 +2090,9 @@ straightforward way by following the left-to-right evaluation order.
 Built-in functions
 ^^^^^^^^^^^^^^^^^^
 
-This section lists the built-in functions supported by DAML 1.1 or
-earlier. The functions come with their types and a description of
-their behavior.
+This section lists the built-in functions supported by DAML LF 1.
+The functions come with their types and a description of their
+behavior.
 
 
 Boolean functions
@@ -2571,7 +2583,7 @@ Type Representation function
   Returns ``'True'`` if the first type representation is syntactically equal to
   the second one, ``'False'`` otherwise.
 
-  [*Available in versions >= 1.dev*]
+  [*Available in versions >= 1.7*]
 
 Conversions functions
 ~~~~~~~~~~~~~~~~~~~~~
@@ -2932,20 +2944,20 @@ Starting from DAML-LF 1.6, the field
 1.6*] may be used instead of ``PackageRef.package_id_str`` and it
 must be a valid *interned packageId*.
 
-Starting from DAML-LF 1.dev, all ``string`` (or ``repeated string``)
+Starting from DAML-LF 1.7, all ``string`` (or ``repeated string``)
 fields with the suffix ``_str`` are forbidden. Alternative fields of
 type ``int32`` (or ``repeated int32``) with the suffix
 ``_interned_str`` must be used instead.  Except
 ``PackageRef.package_id_interned_str`` which is [*Available in
 versions >= 1.6*], all fields with suffix ``_interned_str`` are
-[*Available in versions >= 1.dev*].  The deserialization process will
-reject any DAML-LF 1.dev (or later) that does not comply with this
+[*Available in versions >= 1.7*].  The deserialization process will
+reject any DAML-LF 1.7 (or later) that does not comply with this
 restriction.
 
 Name Interning
 ..............
 
-[*Available in versions >= 1.dev*]
+[*Available in versions >= 1.7*]
 
 To provide sharing of `names <Identifiers_>`_, the so-called *name
 interning* mechanism allows the *names* within messages to be stored
@@ -2959,22 +2971,22 @@ so-called `interned name` is a valid zero-based index of this list. An
 `interned name` is interpreted as the name built form the `name` it
 points to in ``Package.interned_dotted_names``.
 
-Starting from DAML-LF 1.dev, all ``DottedName`` (or ``repeated
+Starting from DAML-LF 1.7, all ``DottedName`` (or ``repeated
 string``) fields with the suffix ``_dname`` are forbidden. Alternative
 fields of type ``int32`` with the suffix ``_interned_dname``
-[*Available in versions >= 1.dev*] must be used instead. The
-deserialization process will reject any DAML-LF 1.dev (or later) that
+[*Available in versions >= 1.7*] must be used instead. The
+deserialization process will reject any DAML-LF 1.7 (or later) that
 that does not comply this restriction.
 
 Nat kind and Nat types
 ......................
 
-[*Available in versions >= 1.dev*]
+[*Available in versions >= 1.7*]
 
 The deserialization process will reject any DAML-LF 1.6 (or earlier)
 that uses ``nat`` field in ``Kind`` or ``Type`` messages.
 
-Starting from DAML-LF 1.dev those messages are deserialized to ``nat``
+Starting from DAML-LF 1.7 those messages are deserialized to ``nat``
 kind and ``nat`` type respectively. The field ``nat`` of ``Type``
 message must be a positive integer.
 
@@ -2986,9 +2998,9 @@ section.
 Parametric scaled Decimals
 ..........................
 
-[*Available in versions >= 1.dev*]
+[*Available in versions >= 1.7*]
 
-DAML-LF 1.dev is the first version that supports parametric scaled
+DAML-LF 1.7 is the first version that supports parametric scaled
 decimals. Prior versions have decimal number with a fixed scale of 10
 called Decimal.  Backward compatibility with the current specification
 is achieved as follows:
@@ -3032,7 +3044,7 @@ On the one hand, in case of DAML-LF 1.6 (or earlier) archive:
   deserialization process will reject any DAML-LF 1.6 (or earlier)
   that does not comply those restrictions.
 
-On the other hand, starting from DAML-LF 1.dev:
+On the other hand, starting from DAML-LF 1.7:
 
 - The ``numeric`` field of the ``PrimLit`` message must match the
   regexp:
@@ -3049,20 +3061,17 @@ On the other hand, starting from DAML-LF 1.dev:
   In other words ``decimal`` fields in ``PrimLit`` and ``PrimType``
   messages must remain unset and Decimal ``BuiltinFunction`` (those
   containing ``DECIMAL`` in their name are forbidden). The
-  deserialization process will reject any DAML-LF 1.dev (or later)
+  deserialization process will reject any DAML-LF 1.7 (or later)
   that does not comply those restrictions.
 
-Any template
-............
+Any type and type representation
+................................
 
-[*Available in versions >= 1.dev*]
+DAML-LF 1.7 is the first version that supports any type and
+type representation.
 
-This is an experimental feature used in DAML Triggers.
-More details will be provided in a near future.
-
-The curious reader can temporarily refer to the following PRs for more details:
- * https://github.com/digital-asset/daml/issues/2876
- * https://github.com/digital-asset/daml/issues/3072
+The deserialization process will reject any DAML-LF 1.0 program using
+this data structure.
 
 
 

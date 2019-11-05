@@ -76,28 +76,26 @@ class DecodeV1Spec
     List(1, 4, 6).map(i => LV.Minor.Stable(i.toString)): _*
   )
 
-  // FixMe: https://github.com/digital-asset/daml/issues/2289
-  //        add stable version when numerics are released
   private val postNumericMinVersions = Table(
     "minVersion",
+    LV.Minor.Stable("7"),
     LV.Minor.Dev
   )
 
   private val preAnyTypeVersions = Table(
     "minVersion",
-    List(1, 4, 6).map(i => LV.Minor.Stable(i.toString)): _*
+    List("1", "4", "6").map(LV.Minor.Stable): _*
   )
 
-  // FixMe: https://github.com/digital-asset/daml/issues/2876
-  //        add stable version when Any is released
   private val postAnyTypeVersions = Table(
     "minVersion",
-    LV.Minor.Dev
+    LV.Minor.Stable("7"),
+    LV.Minor.Dev,
   )
 
   "decodeKind" should {
 
-    "reject nat kind if lf version < 1.dev" in {
+    "reject nat kind if lf version < 1.7" in {
 
       val input = DamlLf1.Kind.newBuilder().setNat(DamlLf1.Unit.newBuilder()).build()
 
@@ -106,7 +104,7 @@ class DecodeV1Spec
       }
     }
 
-    "accept nat kind if lf version >= 1.dev" in {
+    "accept nat kind if lf version >= 1.7" in {
       val input = DamlLf1.Kind.newBuilder().setNat(DamlLf1.Unit.newBuilder()).build()
 
       forEvery(postNumericMinVersions) { minVersion =>
@@ -124,7 +122,7 @@ class DecodeV1Spec
     val validNatTypes = List(0, 1, 2, 5, 11, 35, 36, 37)
     val invalidNatTypes = List(Long.MinValue, -100, -2, -1, 38, 39, 200, Long.MaxValue)
 
-    "reject nat type if lf version < 1.dev" in {
+    "reject nat type if lf version < 1.7" in {
 
       val testCases =
         Table("proto nat type", (validNatTypes.map(_.toLong) ++ invalidNatTypes).map(buildNat): _*)
@@ -137,7 +135,7 @@ class DecodeV1Spec
       }
     }
 
-    "accept only valid nat types if lf version >= 1.dev" in {
+    "accept only valid nat types if lf version >= 1.7" in {
       val positiveTestCases =
         Table("proto nat type" -> "nat", validNatTypes.map(v => buildNat(v.toLong) -> v): _*)
       val negativeTestCases = Table("proto nat type", invalidNatTypes.map(buildNat): _*)
@@ -190,7 +188,7 @@ class DecodeV1Spec
       }
     }
 
-    "reject Numeric types if version < 1.dev" in {
+    "reject Numeric types if version < 1.7" in {
       forEvery(preNumericMinVersions) { version =>
         val decoder = moduleDecoder(version)
         forEvery(numericTestCases) { (input, _) =>
@@ -199,7 +197,7 @@ class DecodeV1Spec
       }
     }
 
-    "translate TNumeric as is if version >= 1.dev" in {
+    "translate TNumeric as is if version >= 1.7" in {
       forEvery(postNumericMinVersions) { minVersion =>
         val decoder = moduleDecoder(minVersion)
         forEvery(numericTestCases) { (input, expectedOutput) =>
@@ -208,7 +206,7 @@ class DecodeV1Spec
       }
     }
 
-    "reject Decimal types if version >= 1.dev" in {
+    "reject Decimal types if version >= 1.7" in {
       forEvery(postNumericMinVersions) { version =>
         val decoder = moduleDecoder(version)
         forEvery(decimalTestCases) { (input, _) =>
@@ -217,14 +215,14 @@ class DecodeV1Spec
       }
     }
 
-    "reject Any if version < 1.dev" in {
+    "reject Any if version < 1.7" in {
       forEvery(preAnyTypeVersions) { version =>
         val decoder = moduleDecoder(version)
         a[ParseError] shouldBe thrownBy(decoder.decodeType(buildPrimType(ANY)))
       }
     }
 
-    "accept Any if version >= 1.dev" in {
+    "accept Any if version >= 1.7" in {
       forEvery(postAnyTypeVersions) { minVersion =>
         val decoder = moduleDecoder(minVersion)
         decoder.decodeType(buildPrimType(ANY)) shouldBe TAny
@@ -349,7 +347,7 @@ class DecodeV1Spec
       }
     }
 
-    "transparently apply TNat(10) to Decimal builtins if version < 1.dev" in {
+    "transparently apply TNat(10) to Decimal builtins if version < 1.7" in {
 
       forEvery(preNumericMinVersions) { version =>
         val decoder = moduleDecoder(version)
@@ -361,7 +359,7 @@ class DecodeV1Spec
       }
     }
 
-    "reject Numeric builtins if version < 1.dev" in {
+    "reject Numeric builtins if version < 1.7" in {
 
       forEvery(preNumericMinVersions) { version =>
         val decoder = moduleDecoder(version)
@@ -372,7 +370,7 @@ class DecodeV1Spec
       }
     }
 
-    "translate Numeric builtins as is if version >= 1.dev" in {
+    "translate Numeric builtins as is if version >= 1.7" in {
 
       forEvery(postNumericMinVersions) { version =>
         val decoder = moduleDecoder(version)
@@ -383,7 +381,7 @@ class DecodeV1Spec
       }
     }
 
-    "reject Decimal builtins if version >= 1.dev" in {
+    "reject Decimal builtins if version >= 1.7" in {
 
       forEvery(postNumericMinVersions) { version =>
         val decoder = moduleDecoder(version)
@@ -443,7 +441,7 @@ class DecodeV1Spec
       }
     }
 
-    "reject numeric literal if version < 1.dev" in {
+    "reject numeric literal if version < 1.7" in {
 
       val decoder = moduleDecoder(LV.Features.numeric.minor, ImmArraySeq("0.0"))
       decoder.decodeExpr(toNumericProto(0), "test")

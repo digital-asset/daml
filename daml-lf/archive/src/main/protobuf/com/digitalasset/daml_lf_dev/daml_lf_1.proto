@@ -32,11 +32,13 @@
 //        2019-06-04: Add BuiltinFunction.{TEXT_FROM_CODE_POINTS, TEXT_TO_CODE_POINTS}
 //        2019-06-12: Add Package.interned_package_ids and PackageRef.interned_id
 //        2019-07-04: Transaction submitters must be in contract key maintainers when looking up. See #1866.
-// * dev (special staging area for the next version to be released)
-//        2019-07-29: Add nat kind and Nat types, Numeric types and Numeric builtins
-//        2019-09-17: Add Any type and, To_Any and From_Any builtins
+// * 7 -- 2019-07-29: Add nat kind and Nat types, Numeric types and Numeric builtins
+//        2019-09-17: Add Any type and, `to_any` and `from_any` builtins
 //        2019-09-17: Drop support for Decimal
 //        2019-09-30: Add interning of strings and dotted names
+//        2019-11-04: Add Type representation values
+// * dev (special staging area for the next version to be released)
+//        Still Nothing
 
 syntax = "proto3";
 package daml_lf_1;
@@ -58,7 +60,7 @@ message PackageRef {
 
     // A `Package identifier` for an imported Package.
     // *Must be a list of valid packageId string*
-    string package_id_str = 2; // *Available in versions < 1.dev*
+    string package_id_str = 2; // *Available in versions < 1.7*
 
     // An index into `interned_package_ids` of the Package containing
     // this reference.
@@ -68,7 +70,7 @@ message PackageRef {
 }
 
 // A `name`, e.g. Util.Either.isLeft
-// *Available in version < 1.dev*
+// *Available in version < 1.7*
 message DottedName {
 
   // *Must be a non-empty list of a valid identifiers*
@@ -84,9 +86,9 @@ message ModuleRef {
 
   oneof module_name {
     // module name
-    DottedName module_name_dname = 2; // *Available in version < 1.dev*
+    DottedName module_name_dname = 2; // *Available in version < 1.7*
 
-    int32 module_name_interned_dname = 3; // *Available in version >= 1.dev*
+    int32 module_name_interned_dname = 3; // *Available in version >= 1.7*
   }
 
 }
@@ -102,7 +104,7 @@ message TypeConName {
     DottedName name_dname = 2;
 
     // *Must be a valid interned name*
-    int32 name_interned_dname = 3; // *Available in versions >= 1.dev*
+    int32 name_interned_dname = 3; // *Available in versions >= 1.7*
   }
 }
 
@@ -113,10 +115,10 @@ message ValName {
   ModuleRef module = 1;
 
   // *Must be a non-empty list of valid identifier*
-  repeated string name_dname = 2; // *Available in version < 1.dev*
+  repeated string name_dname = 2; // *Available in version < 1.7*
 
   // *Must be a valid interned name*
-  int32 name_interned_dname = 3; // *Available in versions >= 1.dev*
+  int32 name_interned_dname = 3; // *Available in versions >= 1.7*
 }
 
 // A field name definition in a record or a variant associated with a type.
@@ -124,10 +126,10 @@ message FieldWithType {
 
   oneof field {
       // *Must be a valid identifier*
-      string field_str = 1; // *Available in version < 1.dev*
+      string field_str = 1; // *Available in version < 1.7*
 
       // *Must a valid interned identifier*
-      int32 field_interned_str = 3; // *Available in versions >= 1.dev*
+      int32 field_interned_str = 3; // *Available in versions >= 1.7*
   }
 
   // Type associated
@@ -140,10 +142,10 @@ message VarWithType {
   // Name of the bound expression variable.
   oneof var {
     // *Must be a valid identifier*
-    string var_str = 1; // *Available in version < 1.dev*
+    string var_str = 1; // *Available in version < 1.7*
 
     // *Must be a valid interned identifier*
-    int32 var_interned_str = 3; // *Available in versions >= 1.dev*
+    int32 var_interned_str = 3; // *Available in versions >= 1.7*
   }
 
   // Type of the bound variable
@@ -156,10 +158,10 @@ message TypeVarWithKind {
   // Name of the bound expression variable
   oneof var {
     // *Must be a valid identifier*
-    string var_str = 1; // *Available in version < 1.dev*
+    string var_str = 1; // *Available in version < 1.7*
 
     // *Must be a valid interned identifier*
-    int32 var_interned_str = 3; // *Available in versions >= 1.dev*
+    int32 var_interned_str = 3; // *Available in versions >= 1.7*
   }
 
   // Kind of the bound variable
@@ -171,10 +173,10 @@ message FieldWithExpr {
 
   oneof field {
     // *Must be a valid identifier*
-    string field_str = 1; // *Available in version < 1.dev*
+    string field_str = 1; // *Available in version < 1.7*
 
     // *Must be a valid interned identifier*
-    int32 field_interned_str = 3; // *Available in versions >= 1.dev*
+    int32 field_interned_str = 3; // *Available in versions >= 1.7*
   }
 
   // Value of the field
@@ -206,7 +208,7 @@ message Kind {
     // Kind of polymorphic type.
     Arrow arrow = 2;
     // kind of TNat type;
-    // *Available in versions >= 1.dev*
+    // *Available in versions >= 1.7*
     Unit nat = 3;
   }
 }
@@ -224,7 +226,7 @@ enum PrimType {
 
   // Builtin type for legacy 'Decimal'
   // Alias for (Numeric 10)
-  // *available in version < 1.dev*
+  // *available in version < 1.7*
   DECIMAL = 3;
 
   // CHAR = 4; // we have removed this in favor of TEXT for everything text related.
@@ -268,15 +270,15 @@ enum PrimType {
   MAP = 16;
 
   // Builtin type 'Numeric'
-  // *Available in versions >= 1.dev*
+  // *Available in versions >= 1.7*
   NUMERIC = 17;
 
   // Builtin type 'Any'
-  // *Available in versions >= 1.dev*
+  // *Available in versions >= 1.7*
   ANY = 18;
 
   // Builtin type 'TypeRep'
-  // *Available in versions >= 1.dev*
+  // *Available in versions >= 1.7*
   TYPE_REP = 19;
 }
 
@@ -289,10 +291,10 @@ message Type {
     // Name of the variable.
     oneof var {
       // *Must be a valid identifier*
-      string var_str = 1; // *Available in version < 1.dev*
+      string var_str = 1; // *Available in version < 1.7*
 
       // *Must be a valid interned identifier*
-      int32 var_interned_str = 3; // *Available in versions >= 1.dev*
+      int32 var_interned_str = 3; // *Available in versions >= 1.7*
     }
 
     // Types to which the variable is applied
@@ -352,7 +354,7 @@ message Type {
     Fun fun = 4;
     Forall forall = 5;
     Tuple tuple = 7;
-    // *Available in versions >= 1.dev*
+    // *Available in versions >= 1.7*
     // *Must be between 0 and 37 (bounds inclusive)*
     // use standard signed long for future usage.
     sint64 nat = 11;
@@ -381,19 +383,19 @@ enum PrimCon {
 // Builtin functions
 // Refer to DAML-LF major version 1 specification for types and behavior of those.
 enum BuiltinFunction {
-  ADD_DECIMAL = 0; // *Available in versions < 1.dev*
-  SUB_DECIMAL = 1; // *Available in versions < 1.dev*
-  MUL_DECIMAL = 2; // *Available in versions < 1.dev*
-  DIV_DECIMAL = 3; // *Available in versions < 1.dev*
-  ROUND_DECIMAL = 6; // *Available in versions < 1.dev*
+  ADD_DECIMAL = 0; // *Available in versions < 1.7*
+  SUB_DECIMAL = 1; // *Available in versions < 1.7*
+  MUL_DECIMAL = 2; // *Available in versions < 1.7*
+  DIV_DECIMAL = 3; // *Available in versions < 1.7*
+  ROUND_DECIMAL = 6; // *Available in versions < 1.7*
 
-  ADD_NUMERIC = 107;    // *Available in versions >= 1.dev*
-  SUB_NUMERIC = 108;    // *Available in versions >= 1.dev*
-  MUL_NUMERIC = 109;    // *Available in versions >= 1.dev*
-  DIV_NUMERIC = 110;    // *Available in versions >= 1.dev*
-  ROUND_NUMERIC = 111;  // *Available in versions >= 1.dev*
-  CAST_NUMERIC = 121;   // *Available in versions >= 1.dev*
-  SHIFT_NUMERIC = 122;  // *Available in versions >= 1.dev*
+  ADD_NUMERIC = 107;    // *Available in versions >= 1.7*
+  SUB_NUMERIC = 108;    // *Available in versions >= 1.7*
+  MUL_NUMERIC = 109;    // *Available in versions >= 1.7*
+  DIV_NUMERIC = 110;    // *Available in versions >= 1.7*
+  ROUND_NUMERIC = 111;  // *Available in versions >= 1.7*
+  CAST_NUMERIC = 121;   // *Available in versions >= 1.7*
+  SHIFT_NUMERIC = 122;  // *Available in versions >= 1.7*
 
   ADD_INT64 = 7;
   SUB_INT64 = 8;
@@ -418,40 +420,40 @@ enum BuiltinFunction {
   ERROR = 25;
 
   LEQ_INT64 = 33;
-  LEQ_DECIMAL = 34;  // *Available in versions < 1.dev*
-  LEQ_NUMERIC = 112;  // *Available in versions >= 1.dev*
+  LEQ_DECIMAL = 34;  // *Available in versions < 1.7*
+  LEQ_NUMERIC = 112;  // *Available in versions >= 1.7*
   LEQ_TEXT = 36;
   LEQ_TIMESTAMP = 37;
   LEQ_DATE = 67;
   LEQ_PARTY = 89; // *Available in versions >= 1.1*
 
   LESS_INT64 = 39;
-  LESS_DECIMAL = 40;  // *Available in versions < 1.dev*
-  LESS_NUMERIC = 113;  // *Available in versions >= 1.dev*
+  LESS_DECIMAL = 40;  // *Available in versions < 1.7*
+  LESS_NUMERIC = 113;  // *Available in versions >= 1.7*
   LESS_TEXT = 42;
   LESS_TIMESTAMP = 43;
   LESS_DATE = 68;
   LESS_PARTY = 90; // *Available in versions >= 1.1*
 
   GEQ_INT64 = 45;
-  GEQ_DECIMAL = 46;  // *Available in versions < 1.dev*
-  GEQ_NUMERIC = 114;  // *Available in versions >= 1.dev*
+  GEQ_DECIMAL = 46;  // *Available in versions < 1.7*
+  GEQ_NUMERIC = 114;  // *Available in versions >= 1.7*
   GEQ_TEXT = 48;
   GEQ_TIMESTAMP = 49;
   GEQ_DATE = 69;
   GEQ_PARTY = 91; // *Available in versions >= 1.1*
 
   GREATER_INT64 = 51;
-  GREATER_DECIMAL = 52;  // *Available in versions < 1.dev*
-  GREATER_NUMERIC = 115;  // *Available in versions >= 1.dev*
+  GREATER_DECIMAL = 52;  // *Available in versions < 1.7*
+  GREATER_NUMERIC = 115;  // *Available in versions >= 1.7*
   GREATER_TEXT = 54;
   GREATER_TIMESTAMP = 55;
   GREATER_DATE = 70;
   GREATER_PARTY = 92; // *Available in versions >= 1.1*
 
   TO_TEXT_INT64 = 57;
-  TO_TEXT_DECIMAL = 58;  // *Available in versions < 1.dev*
-  TO_TEXT_NUMERIC = 116;  // *Available in versions >= 1.dev*
+  TO_TEXT_DECIMAL = 58;  // *Available in versions < 1.7*
+  TO_TEXT_NUMERIC = 116;  // *Available in versions >= 1.7*
   TO_TEXT_TEXT = 60;
   TO_TEXT_TIMESTAMP = 61;
   TO_TEXT_DATE = 71;
@@ -460,7 +462,7 @@ enum BuiltinFunction {
   FROM_TEXT_PARTY = 95; // *Available in versions >= 1.2*, was named FROM_TEXT_PARTY in 1.2, 1.3 and 1.4
   FROM_TEXT_INT64 = 103; // *Available in versions >= 1.5*
   FROM_TEXT_DECIMAL = 104; // *Available in versions 1.5 and 1.6
-  FROM_TEXT_NUMERIC = 117;  // *Available in versions >= 1.dev*
+  FROM_TEXT_NUMERIC = 117;  // *Available in versions >= 1.7*
   SHA256_TEXT = 93; // *Available in versions >= 1.2*
 
   DATE_TO_UNIX_DAYS = 72; // Date -> Int64
@@ -469,17 +471,17 @@ enum BuiltinFunction {
   TIMESTAMP_TO_UNIX_MICROSECONDS = 74; // Timestamp -> Int64
   UNIX_MICROSECONDS_TO_TIMESTAMP = 75; // Int64 -> Timestamp
 
-  INT64_TO_DECIMAL = 76;  // *Available in versions < 1.dev*
-  DECIMAL_TO_INT64 = 77;  // *Available in versions < 1.dev*
+  INT64_TO_DECIMAL = 76;  // *Available in versions < 1.7*
+  DECIMAL_TO_INT64 = 77;  // *Available in versions < 1.7*
 
-  INT64_TO_NUMERIC = 118;  // *Available in versions >= 1.dev*
-  NUMERIC_TO_INT64 = 119;  // *Available in versions >= 1.dev*
+  INT64_TO_NUMERIC = 118;  // *Available in versions >= 1.7*
+  NUMERIC_TO_INT64 = 119;  // *Available in versions >= 1.7*
 
   IMPLODE_TEXT = 78;
 
   EQUAL_INT64 = 79;
-  EQUAL_DECIMAL = 80;  // *Available in versions < 1.dev*
-  EQUAL_NUMERIC = 120;  // *Available in versions >= 1.dev*
+  EQUAL_DECIMAL = 80;  // *Available in versions < 1.7*
+  EQUAL_NUMERIC = 120;  // *Available in versions >= 1.7*
   EQUAL_TEXT = 81;
   EQUAL_TIMESTAMP = 82;
   EQUAL_DATE = 83;
@@ -508,24 +510,24 @@ message PrimLit {
     sint64 int64 = 1;
 
     // *Must be a valid representation of decimal*
-    string decimal_str = 2; // *Available in versions < 1.dev*
+    string decimal_str = 2; // *Available in versions < 1.7*
 
     // *Must be a valid interned numeric */
-    int32 numeric_interned_str = 10; // *Available in versions >= 1.dev*
+    int32 numeric_interned_str = 10; // *Available in versions >= 1.7*
 
-    string text_str = 4; // *Available in version < 1.dev*
+    string text_str = 4; // *Available in version < 1.7*
 
     // *Must be a valid interned text*
-    int32 text_interned_str = 11; // *Available in versions >= 1.dev*
+    int32 text_interned_str = 11; // *Available in versions >= 1.7*
 
     // *Must be a valid timestamp*
     sfixed64 timestamp = 5;
 
     // *Must be a valid PartyId string*
-    string party_str = 7; // *Available in version < 1.dev*
+    string party_str = 7; // *Available in version < 1.7*
 
     // *Must be a valid interned PartyId string*
-    int32 party_interned_str = 12; // *Available in versions >= 1.dev*
+    int32 party_interned_str = 12; // *Available in versions >= 1.7*
 
     // *Must be a valid date*
     int32 date = 8;
@@ -573,10 +575,10 @@ message Expr {
     // Name of the record field to be projected on.
     oneof field {
       // *Must be a valid identifier*
-      string field_str = 2; // *Available in version < 1.dev*
+      string field_str = 2; // *Available in version < 1.7*
 
       // *Must be a valid interned identifier*
-      int32 field_interned_str = 4; // *Available in versions >= 1.dev*
+      int32 field_interned_str = 4; // *Available in versions >= 1.7*
     }
 
     // projected expression
@@ -592,10 +594,10 @@ message Expr {
     // Name of the updated field.
     oneof field {
       // *Must be a valid identifier*
-      string field_str = 2; // *Available in version < 1.dev*
+      string field_str = 2; // *Available in version < 1.7*
 
       // *Must be a valid interned identifier*
-      int32 field_interned_str = 5; // *Available in versions >= 1.dev*
+      int32 field_interned_str = 5; // *Available in versions >= 1.7*
     }
 
     // Actual record being updated
@@ -614,10 +616,10 @@ message Expr {
     // name of the variant constructor
     oneof variant_con {
       // *Must be a valid identifier*
-      string variant_con_str = 2; // *Available in version < 1.dev*
+      string variant_con_str = 2; // *Available in version < 1.7*
 
       // *Must be a valid interned identifier*
-      int32 variant_con_interned_str = 4; // *Available in versions >= 1.dev*
+      int32 variant_con_interned_str = 4; // *Available in versions >= 1.7*
     }
 
     // Argument of the variant.
@@ -634,10 +636,10 @@ message Expr {
     // name of the enum constructor
     oneof enum_con {
       // *Must be a valid identifier*
-      string enum_con_str = 2; // *Available in version < 1.dev*
+      string enum_con_str = 2; // *Available in version < 1.7*
 
       // *Must be a valid interned identifier*
-      int32 enum_con_interned_str = 3; // *Available in versions >= 1.dev*
+      int32 enum_con_interned_str = 3; // *Available in versions >= 1.7*
     }
   }
 
@@ -653,10 +655,10 @@ message Expr {
     // Name of the field to be projected on.
     oneof field {
       // *Must be a valid Identifier*
-      string field_str = 1; // *Available in version < 1.dev*
+      string field_str = 1; // *Available in version < 1.7*
 
       // *Must be a valid interned identifier*
-      int32 field_interned_str = 3; // *Available in versions >= 1.dev*
+      int32 field_interned_str = 3; // *Available in versions >= 1.7*
     }
 
     // tuple to be projected.
@@ -669,10 +671,10 @@ message Expr {
     // Name of the updated field.
     oneof field {
       // *Must be a valid identifier*.
-      string field_str = 1; // *Available in version < 1.dev*
+      string field_str = 1; // *Available in version < 1.7*
 
       // *Must be a valid interned identifier*
-      int32 field_interned_str = 4; // *Available in versions >= 1.dev*
+      int32 field_interned_str = 4; // *Available in versions >= 1.7*
     }
 
     // Actual tuple being updated.
@@ -767,7 +769,7 @@ message Expr {
   }
 
   // Wrap a value in Any
-  // *Available in versions >= 1.dev*
+  // *Available in versions >= 1.7*
   message ToAny {
     // type of argument. Must be the TypeConName of a template.
     Type type = 1;
@@ -776,7 +778,7 @@ message Expr {
   }
 
   // Extract the given type from Any or return None on type-mismatch
-  // *Available in versions >= 1.dev*
+  // *Available in versions >= 1.7*
   message FromAny {
     // type that should be extracted. Must be the TypeConName of a template.
     Type type = 1;
@@ -791,10 +793,10 @@ message Expr {
   oneof Sum {
 
     // *Must be a valid identifier*
-    string var_str = 1; // *Available in version < 1.dev*
+    string var_str = 1; // *Available in version < 1.7*
 
     // *Must be a valid interned identifier*
-    int32 var_interned_str = 29; // *Available in versions >= 1.dev*
+    int32 var_interned_str = 29; // *Available in versions >= 1.7*
 
     // Defined value ('ExpVal')
     ValName val = 2;
@@ -871,15 +873,15 @@ message Expr {
     OptionalSome optional_some = 27;
 
     // Wrap an arbitrary value in Any ('ExpToAny')
-    // *Available in versions >= 1.dev*
+    // *Available in versions >= 1.7*
     ToAny to_any = 30;
 
     // Extract the given type from Any or return None on type-mismatch ('ExpFromAny')
-    // *Available in versions >= 1.dev*
+    // *Available in versions >= 1.7*
     FromAny from_any = 31;
 
     // A type representation
-    // *Available in versions >= 1.dev*
+    // *Available in versions >= 1.7*
     Type type_rep = 32;
   }
 
@@ -899,19 +901,19 @@ message CaseAlt {
     // name of the variant constructor
     oneof variant {
       // *Must be a valid identifier*
-      string variant_str = 2; // *Available in version < 1.dev*
+      string variant_str = 2; // *Available in version < 1.7*
 
       // *Must be a valid interned identifier*
-      int32 variant_interned_str = 4; // *Available in versions >= 1.dev*
+      int32 variant_interned_str = 4; // *Available in versions >= 1.7*
     }
 
     // name of the variant binder
     oneof binder {
       // *Must be a valid identifier*
-      string binder_str = 3; // *Available in version < 1.dev*
+      string binder_str = 3; // *Available in version < 1.7*
 
       // *Must be a valid interned identifier*
-      int32 binder_interned_str = 5; // *Available in versions >= 1.dev*
+      int32 binder_interned_str = 5; // *Available in versions >= 1.7*
     }
   }
 
@@ -926,10 +928,10 @@ message CaseAlt {
     // *Must be a valid identifier*
     oneof constructor {
       // *Must be a valid identifier*
-      string constructor_str = 2; // *Available in version < 1.dev*
+      string constructor_str = 2; // *Available in version < 1.7*
 
       // *Must be a valid interned identifier*
-      int32 constructor_interned_str = 3; // *Available in versions >= 1.dev*
+      int32 constructor_interned_str = 3; // *Available in versions >= 1.7*
     }
   }
 
@@ -939,19 +941,19 @@ message CaseAlt {
     // name of the binder for the head
     oneof var_head {
       // *Must be a valid identifier*
-      string var_head_str = 1; // *Available in version < 1.dev*
+      string var_head_str = 1; // *Available in version < 1.7*
 
       // *Must be a valid interned identifier*
-      int32 var_head_interned_str = 3; // *Available in versions >= 1.dev*
+      int32 var_head_interned_str = 3; // *Available in versions >= 1.7*
     }
 
 
     oneof var_tail {
       // *Must be a valid identifier*
-      string var_tail_str = 2; // *Available in version < 1.dev*
+      string var_tail_str = 2; // *Available in version < 1.7*
 
       // *Must be a valid interned identifier*
-      int32 var_tail_interned_str = 4; // *Available in versions >= 1.dev*
+      int32 var_tail_interned_str = 4; // *Available in versions >= 1.7*
     }
   }
 
@@ -961,10 +963,10 @@ message CaseAlt {
 
     oneof var_body {
       // *Must be a valid identifier*
-      string var_body_str = 1; // *Available in version < 1.dev*
+      string var_body_str = 1; // *Available in version < 1.7*
 
       // *Must be a valid interned identifier*
-      int32 var_body_interned_str = 2; // *Available in versions >= 1.dev*
+      int32 var_body_interned_str = 2; // *Available in versions >= 1.7*
     }
   }
 
@@ -1020,10 +1022,10 @@ message Update {
     // name of the exercised template choice
     oneof choice {
       // *Must be a valid identifier*
-      string choice_str = 2; // *Available in version < 1.dev*
+      string choice_str = 2; // *Available in version < 1.7*
 
       // *Must be a valid interned identifier*
-      int32 choice_interned_str = 6; // *Available in versions >= 1.dev*
+      int32 choice_interned_str = 6; // *Available in versions >= 1.7*
     }
 
     // contract id
@@ -1117,10 +1119,10 @@ message TemplateChoice {
 
   // *Must be a valid identifier*
   oneof name {
-    string name_str = 1; // *Available in version < 1.dev*
+    string name_str = 1; // *Available in version < 1.7*
 
     // *Must be a valid interned identifier*
-    int32 name_interned_str = 9; // *Available in versions >= 1.dev*
+    int32 name_interned_str = 9; // *Available in versions >= 1.7*
   }
 
   // Choice type
@@ -1145,10 +1147,10 @@ message TemplateChoice {
   // Name to bind the ContractId of the contract this choice is exercised on to.
   oneof self_binder {
     // *Must be a valid identifier*
-    string self_binder_str = 7; // *Available in version < 1.dev*
+    string self_binder_str = 7; // *Available in version < 1.7*
 
     // *Must be a valid interned identifier*
-    int32 self_binder_interned_str = 10; // *Available in versions >= 1.dev*
+    int32 self_binder_interned_str = 10; // *Available in versions >= 1.7*
   }
 
   Location location = 8;
@@ -1161,10 +1163,10 @@ message KeyExpr {
 
     oneof field {
       // *Must be a valid identifier*
-      string field_str = 2; // *Available in version < 1.dev*
+      string field_str = 2; // *Available in version < 1.7*
 
       // *Must be a valid interned identifier*
-      int32 field_interned_str = 3; // *Available in versions >= 1.dev*
+      int32 field_interned_str = 3; // *Available in versions >= 1.7*
     }
   }
 
@@ -1176,10 +1178,10 @@ message KeyExpr {
   message RecordField {
     oneof field {
       // *Must be a valid identifier*
-      string field_str = 1; // *Available in version < 1.dev*
+      string field_str = 1; // *Available in version < 1.7*
 
       // *Must be a valid identifier*
-      int32 field_interned_str = 3; // *Available in versions >= 1.dev*
+      int32 field_interned_str = 3; // *Available in versions >= 1.7*
     }
     KeyExpr expr = 2;
   }
@@ -1216,16 +1218,16 @@ message DefTemplate {
     DottedName tycon_dname = 1;
 
     // *Must be a valid interned name*
-    int32 tycon_interned_dname = 12; // *Available in versions >= 1.dev*
+    int32 tycon_interned_dname = 12; // *Available in versions >= 1.7*
   }
 
   // Name to which the template argument is bound.
   oneof param {
     // *Must be a valid identifier*
-    string param_str = 2; // *Available in version < 1.dev*
+    string param_str = 2; // *Available in version < 1.7*
 
     // *Must be a valid interned identifier*
-    int32 param_interned_str = 11; // *Available in versions >= 1.dev*
+    int32 param_interned_str = 11; // *Available in versions >= 1.7*
   }
 
   // NOTE(MH): The new runtime authorization check for DAML 1.0 does not rely
@@ -1271,10 +1273,10 @@ message DefDataType {
   message EnumConstructors {
 
     // *Must be a list of valid identifiers*
-    repeated string constructors_str = 1; // *Available in version < 1.dev*
+    repeated string constructors_str = 1; // *Available in version < 1.7*
 
     // *Must be a list of valid interned identifiers*
-    repeated int32 constructors_interned_str = 2; // *Available in versions >= 1.dev*
+    repeated int32 constructors_interned_str = 2; // *Available in versions >= 1.7*
   }
 
   // name of the defined data type
@@ -1282,7 +1284,7 @@ message DefDataType {
     DottedName name_dname = 1;
 
     // *Must be a valid interned name*
-    int32 name_interned_dname = 8; // *Available in versions >= 1.dev*
+    int32 name_interned_dname = 8; // *Available in versions >= 1.7*
   }
 
   // type parameters
@@ -1315,10 +1317,10 @@ message DefValue {
   message NameWithType {
 
     // *Must a non-empty list a valid identifier*
-    repeated string name_dname = 1; // *Available in version < 1.dev*
+    repeated string name_dname = 1; // *Available in version < 1.7*
 
     // *Must be a valid interned name*
-    int32 name_interned_dname = 3; // *Available in versions >= 1.dev*
+    int32 name_interned_dname = 3; // *Available in versions >= 1.7*
 
     // Type of the value
     Type type = 2;
@@ -1351,7 +1353,7 @@ message Module {
 
   oneof name {
     DottedName name_dname = 1;
-    int32 name_interned_dname = 8; // *Available in versions >= 1.dev*
+    int32 name_interned_dname = 8; // *Available in versions >= 1.7*
   }
   // repeated Definition definitions = 2; // Removed in favour of data_types, values and templates.
   reserved 2;
@@ -1364,11 +1366,11 @@ message Module {
 }
 
 message InternedDottedName {
-  repeated int32 segments_interned_str = 1; // *Available in versions >= 1.dev*
+  repeated int32 segments_interned_str = 1; // *Available in versions >= 1.7*
 }
 
 message Package {
   repeated Module modules = 1;
   repeated string interned_strings = 2; // *Available in versions >= 1.6*
-  repeated InternedDottedName interned_dotted_names = 3; // *Available in versions >= 1.dev*
+  repeated InternedDottedName interned_dotted_names = 3; // *Available in versions >= 1.7*
 }

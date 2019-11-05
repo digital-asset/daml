@@ -29,7 +29,7 @@ version1_6 = V1 $ PointStable 6
 
 -- | DAML-LF version 1.7
 version1_7 :: Version
-version1_7 = versionDev -- Update once 1.7 is out.
+version1_7 = V1 $ PointStable 7
 
 -- | The DAML-LF version used by default.
 versionDefault :: Version
@@ -70,7 +70,7 @@ featureAnyType = Feature
 featureTypeRep :: Feature
 featureTypeRep = Feature
     { featureName = "TypeRep type"
-    , featureMinVersion = versionDev
+    , featureMinVersion = version1_7
     , featureCppFlag = "DAML_TYPE_REP"
     }
 
