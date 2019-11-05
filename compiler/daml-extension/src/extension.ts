@@ -11,10 +11,12 @@ import * as os from 'os';
 import * as cp from 'child_process';
 import * as tmp from 'tmp';
 import { LanguageClient, LanguageClientOptions, RequestType, NotificationType, TextDocumentIdentifier, TextDocument, ExecuteCommandRequest } from 'vscode-languageclient';
-import { Uri, Event, TextDocumentContentProvider, ViewColumn, EventEmitter, window, QuickPickOptions, ExtensionContext, env, WorkspaceConfiguration } from 'vscode'
+import { Uri, Event, TextDocumentContentProvider, ViewColumn, EventEmitter, window, QuickPickOptions, ExtensionContext, env, WorkspaceConfiguration } from 'vscode';
 import * as which from 'which';
 import * as util from 'util';
 import * as webrequest from 'web-request';
+import { getOrd } from 'fp-ts/lib/Array';
+import { ordNumber } from 'fp-ts/lib/Ord';
 
 let damlRoot: string = path.join(os.homedir(), '.daml');
 
@@ -105,14 +107,24 @@ async function showReleaseNotesIfNewVersion(context: ExtensionContext) {
     const packageFile = path.join(context.extensionPath, 'package.json');
     const packageData = await util.promisify(fs.readFile)(packageFile, "utf8");
     const extensionVersion = JSON.parse(packageData).version;
-    const recordedVersion = context.globalState.get(versionContextKey);
-    if (!recordedVersion || recordedVersion != extensionVersion) {
+    const recordedVersion = String(context.globalState.get(versionContextKey));
+    if (!recordedVersion || checkVersionUpgrade(recordedVersion, extensionVersion)) {
         // We have a new version of the extension so show the release notes
         // and update the current version so we don't show them again until
         // the next update.
         showReleaseNotes(extensionVersion);
         await context.globalState.update(versionContextKey, extensionVersion);
     }
+}
+
+// Check that `version2` is an upgrade from `version1`,
+// i.e. that the components of the version number have increased
+// (checked from major to minor version numbers).
+function checkVersionUpgrade(version1: string, version2: string) {
+    const comps1 = version1.split(".").map(Number);
+    const comps2 = version2.split(".").map(Number);
+    const o = getOrd(ordNumber);
+    return o.compare(comps2, comps1) > 0;
 }
 
 // Show the release notes from the DAML Blog.
