@@ -148,13 +148,13 @@ while the following data types are not
   data Either a b = Left a | Right b
   data Maybe a = Just a | Nothing
 
-``damlc`` provides the command ``generate-gen-src`` to generate modules containing ``Generic``
+``damlc`` provides the command ``generate-generic-src`` to generate modules containing ``Generic``
 instances for your data types. For example
 
 .. code-block:: none
 
-  daml damlc generate-gen-src --qualify A --srcdir foo-upgrade-2.0/daml foo-1.0.0/.daml/dist/foo-1.0.0.dar
-  daml damlc generate-gen-src --qualify B --srcdir foo-upgrade-2.0/daml foo-2.0.0/.daml/dist/foo-2.0.0.dar
+  daml damlc generate-generic-src --qualify A --srcdir foo-upgrade-2.0/daml foo-1.0.0/.daml/dist/foo-1.0.0.dar
+  daml damlc generate-generic-src --qualify B --srcdir foo-upgrade-2.0/daml foo-2.0.0/.daml/dist/foo-2.0.0.dar
 
 generates two modules ``FooAGenInstances.daml`` and ``FooBGenInstances.daml`` in the
 ``foo-upgrade-2.0/daml`` directory. This allows us to just use the default ``Convertible`` instances
@@ -163,6 +163,12 @@ to do the deep copying:
 .. literalinclude:: foo-upgrade-2.0.0/daml/FooWithGenerics.daml
   :language: daml
   :lines: 6-16
+
+You can build this upgrade project with
+
+.. code-block:: none
+
+  daml build --generated-src
 
 If your data types are not isomorphic and the default methods don't compile you have to specify the
 conversion manually, for example:

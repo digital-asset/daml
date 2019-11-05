@@ -312,7 +312,7 @@ cmdGenerateSrc =
 
 cmdGenerateGenSrc :: Mod CommandFields Command
 cmdGenerateGenSrc =
-    command "generate-gen-src" $
+    command "generate-generic-src" $
     info (helper <*> cmd) $
     progDesc
         "Generate DAML source code containing Generic instances for the data types of a dalf package " <>
