@@ -73,6 +73,7 @@ import qualified Network.Socket as NS
 import Options.Applicative.Extended
 import qualified Proto3.Suite as PS
 import qualified Proto3.Suite.JSONPB as Proto.JSONPB
+import Safe (headNote)
 import System.Directory.Extra
 import System.Environment
 import System.Exit
@@ -102,6 +103,7 @@ data CommandName =
   | DamlDoc
   | DocTest
   | GenerateSrc
+  | GenerateGenerics
   | Ide
   | Init
   | Inspect
@@ -308,6 +310,16 @@ cmdGenerateSrc =
   where
     cmd = execGenerateSrc <$> inputDalfOpt
 
+cmdGenerateGenSrc :: Mod CommandFields Command
+cmdGenerateGenSrc =
+    command "generate-gen-src" $
+    info (helper <*> cmd) $
+    progDesc
+        "Generate DAML source code from a dalf package containing Generic instances" <>
+    fullDesc
+  where
+    cmd = execGenerateGenSrc <$> inputDarOpt <*> qualOpt <*> targetSrcDirOpt
+
 cmdDocTest :: Int -> Mod CommandFields Command
 cmdDocTest numProcessors =
     command "doctest" $
@@ -513,43 +525,17 @@ createProjectPackageDb opts fps = do
           in mapM expand
     fps0 <- handleSdkPackages $ filter (`notElem` basePackages) fps
     let (fpDars, fpDalfs) = partition ((== ".dar") . takeExtension) fps0
-    (sdkVersions, confFiles, dalfs, srcs) <-
-        fmap mconcat $ forM fpDars $ \fp -> do
-            bs <- BSL.readFile fp
-            let archive = ZipArchive.toArchive bs
-            manifest <- getEntry manifestPath archive
-            sdkVersion <- case parseManifestFile $ BSL.toStrict $ ZipArchive.fromEntry manifest of
-                Left err -> fail err
-                Right manifest -> case lookup "Sdk-Version" manifest of
-                    Nothing -> fail "No Sdk-Version entry in manifest"
-                    Just version -> pure $! trim $ BSUTF8.toString version
-            let confFiles =
-                    [ e
-                    | e <- ZipArchive.zEntries archive
-                    , ".conf" `isExtensionOf` ZipArchive.eRelativePath e
-                    ]
-            let dalfs =
-                    [ e
-                    | e <- ZipArchive.zEntries archive
-                    , ".dalf" `isExtensionOf` ZipArchive.eRelativePath e
-                    ]
-            let srcs =
-                    [ e
-                    | e <- ZipArchive.zEntries archive
-                    , takeExtension (ZipArchive.eRelativePath e) `elem`
-                          [".daml", ".hie", ".hi"]
-                    ]
-            pure ([sdkVersion], confFiles, dalfs, srcs)
-
-    let uniqSdkVersions = nubSort sdkVersions
-    if | length uniqSdkVersions > 1 && optAllowDifferentSdks opts || not (null fpDalfs) ->
-            -- when we compile packages with different sdk versions or with dalf dependencies, we
-            -- need to generate the interface files
-           do loggerH <- getLogger opts "generate interface files"
+    ExtractedDar {..}  <-
+        fmap mconcat $ forM fpDars extractDar
+    let uniqSdkVersions = nubSort $ edSdkVersions
+    if | (length uniqSdkVersions > 1 && optAllowDifferentSdks opts) || not (null fpDalfs)
+        -> do
+              -- when we compile packages with different sdk versions or with dalf dependencies, we
+              -- need to generate the interface files
               let dalfsFromDars =
                       [ ( dropExtension $ takeFileName $ ZipArchive.eRelativePath e
                         , BSL.toStrict $ ZipArchive.fromEntry e)
-                      | e <- dalfs
+                      | e <- edDalfs
                       ]
               dalfsFromFps <-
                   forM fpDalfs $ \fp -> do
@@ -565,24 +551,42 @@ createProjectPackageDb opts fps = do
               -- mapping from package id's to unit id's. if the same package is imported with
               -- different unit id's, we would loose a unit id here.
               let pkgMap =
-                      MS.fromList [(pkgId, unitId) | (pkgId, _pkg, _bs, unitId) <- pkgs]
+                      MS.fromList
+                          [(pkgId, unitId) | (pkgId, _pkg, _bs, unitId) <- pkgs]
               -- order the packages in topological order
               let (depGraph, vertexToNode, _keyToVertex) =
                       graphFromEdges $ do
                           (pkgId, dalf, bs, unitId) <- pkgs
                           let pkgRefs =
-                                  [pid | LF.PRImport pid <- toListOf packageRefs dalf]
-                          let src = generateSrcPkgFromLf pkgId pkgMap dalf
-                          pure ((src, unitId, dalf, bs), pkgId, pkgRefs)
+                                  [ pid
+                                  | LF.PRImport pid <- toListOf packageRefs dalf
+                                  ]
+                          let getUid = getUnitId unitId pkgMap
+                          let src = generateSrcPkgFromLf getUid pkgId dalf
+                          pure
+                              ( (src, unitId, dalf, bs)
+                              , pkgId
+                              , pkgRefs)
               let pkgIdsTopoSorted = reverse $ topSort depGraph
-              ghcPkgPath <- getGhcPkgPath
               dbPathAbs <- makeAbsolute dbPath
               projectPackageDatabaseAbs <- makeAbsolute projectPackageDatabase
               forM_ pkgIdsTopoSorted $ \vertex -> do
-                  let ((src, uid, dalf, bs), pkgId, _) = vertexToNode vertex
+                  let ((src, uid, dalf, bs), pkgId, _) =
+                          vertexToNode vertex
                   when (uid /= primUnitId) $ do
                       let unitIdStr = unitIdString uid
                       let pkgIdStr = T.unpack $ LF.unPackageId pkgId
+                      let (pkgName, mbPkgVersion) =
+                              fromMaybe (unitIdStr, Nothing) $ do
+                                  (uId, ver) <- stripInfixEnd "-" unitIdStr
+                                  guard $ all (`elem` '.' : ['0' .. '9']) ver
+                                  Just (uId, Just ver)
+                      let deps =
+                              [ unitIdString uId <.> "dalf"
+                              | ((_src, uId, _dalf, _bs), pId, _) <-
+                                    map vertexToNode $ reachable depGraph vertex
+                              , pkgId /= pId
+                              ]
                       let workDir = dbPath </> unitIdStr <> "-" <> pkgIdStr
                       createDirectoryIfMissing True workDir
                       -- write the dalf package
@@ -590,99 +594,194 @@ createProjectPackageDb opts fps = do
                       -- we change the working dir so that we get correct file paths for the
                       -- interface files.
                       withCurrentDirectory workDir $
-                       -- typecheck and generate interface files
-                       do
-                          forM_ src $ \(fp, content) -> do
-                              let path = fromNormalizedFilePath fp
-                              createDirectoryIfMissing True $ takeDirectory path
-                              writeFileUTF8 path content
-                          opts' <-
-                              mkOptions $
+                          generateAndInstallIfaceFiles
+                              dalf
+                              src
                               opts
-                                  { optWriteInterface = True
-                                  , optPackageDbs =
-                                        projectPackageDatabaseAbs : optPackageDbs opts
-                                  , optIfaceDir = Just "./"
-                                  , optIsGenerated = True
-                                  , optDflagCheck = False
-                                  , optMbPackageName = Just unitIdStr
-                                  , optHideAllPkgs = False
-                                  , optPackageImports = []
-                                  , optGhcCustomOpts = []
-                                  }
-                          withDamlIdeState opts' loggerH diagnosticsLogger $ \ide ->
-                              runAction ide $
-                              writeIfacesAndHie
-                                  (toNormalizedFilePath "./")
-                                  [fp | (fp, _content) <- src]
-                      let deps =
-                              [ unitIdString uId <.> "dalf"
-                              | ((_src, uId, _dalf, _bs), pId, _) <-
-                                    map vertexToNode $ reachable depGraph vertex
-                              , pkgId /= pId
-                              ]
-                      -- write the conf file and refresh the package cache
-                      let (pkgName, pkgVersion) =
-                            fromMaybe (unitIdStr, Nothing) $
-                                do
-                                  (uId, ver) <- stripInfixEnd "-" unitIdStr
-                                  guard $ all (`elem` '.':['0' .. '9']) ver
-                                  Just (uId, Just ver)
-                      let (cfPath, cfBs) =
-                              mkConfFile
-                                  PackageConfigFields
-                                      { pName = pkgName
-                                      , pSrc = "" -- not used
-                                      , pExposedModules = Nothing
-                                      , pVersion = pkgVersion
-                                      , pDependencies = deps
-                                      , pSdkVersion = "unknown"
-                                      , cliOpts = Nothing
-                                      }
-                                  (map T.unpack $ LF.packageModuleNames dalf)
-                                  pkgIdStr
-                      B.writeFile (dbPathAbs </> "package.conf.d" </> cfPath) cfBs
-                      callProcess
-                          (ghcPkgPath </> exe "ghc-pkg")
-                          [ "recache"
-                          -- ghc-pkg insists on using a global package db and will try
-                          -- to find one automatically if we don’t specify it here.
-                          , "--global-package-db=" ++ (dbPathAbs </> "package.conf.d")
-                          , "--expand-pkgroot"
-                          ]
-       | length uniqSdkVersions <= 1 ->
-           do forM_ dalfs $ \dalf -> do
-                  let path = dbPath </> ZipArchive.eRelativePath dalf
-                  createDirectoryIfMissing True (takeDirectory path)
-                  BSL.writeFile path (ZipArchive.fromEntry dalf)
-              forM_ confFiles $ \conf ->
-                  BSL.writeFile
-                      (dbPath </> "package.conf.d" </>
-                       (takeFileName $ ZipArchive.eRelativePath conf))
-                      (ZipArchive.fromEntry conf)
-              forM_ srcs $ \src -> do
-                  let path = dbPath </> ZipArchive.eRelativePath src
-                  write path (ZipArchive.fromEntry src)
-              ghcPkgPath <- getGhcPkgPath
-              callProcess
-                  (ghcPkgPath </> exe "ghc-pkg")
-                  [ "recache"
-                  -- ghc-pkg insists on using a global package db and will try
-                  -- to find one automatically if we don’t specify it here.
-                  , "--global-package-db=" ++ (dbPath </> "package.conf.d")
-                  , "--expand-pkgroot"
-                  ]
+                              dbPathAbs
+                              projectPackageDatabaseAbs
+                              unitIdStr
+                              pkgIdStr
+                              pkgName
+                              mbPkgVersion
+                              deps
+
+       | length uniqSdkVersions <= 1 -> installDar dbPath edConfFiles edDalfs edSrcs
        | otherwise ->
            fail $
            "Package dependencies from different SDK versions: " ++
            intercalate ", " uniqSdkVersions
   where
-    write fp bs = createDirectoryIfMissing True (takeDirectory fp) >> BSL.writeFile fp bs
-    getGhcPkgPath =
-        if isWindows
-            then locateRunfiles "rules_haskell_ghc_windows_amd64/bin"
-            else locateRunfiles "ghc_nix/lib/ghc-8.6.5/bin"
+    -- generate interface files and install them in the package database
+    generateAndInstallIfaceFiles ::
+           LF.Package
+        -> [(NormalizedFilePath, String)]
+        -> Options
+        -> FilePath
+        -> FilePath
+        -> String
+        -> String
+        -> String
+        -> Maybe String
+        -> [String]
+        -> IO ()
+    generateAndInstallIfaceFiles dalf src opts dbPathAbs projectPackageDatabaseAbs unitIdStr pkgIdStr pkgName mbPkgVersion deps = do
+        loggerH <- getLogger opts "generate interface files"
+        mapM_ writeSrc src
+        opts' <-
+            mkOptions $
+            opts
+                { optWriteInterface = True
+                , optPackageDbs = projectPackageDatabaseAbs : optPackageDbs opts
+                , optIfaceDir = Just "./"
+                , optIsGenerated = True
+                , optDflagCheck = False
+                , optMbPackageName = Just unitIdStr
+                , optHideAllPkgs = False
+                , optGhcCustomOpts = []
+                , optPackageImports = []
+                }
+        withDamlIdeState opts' loggerH diagnosticsLogger $ \ide ->
+            runAction ide $
+            writeIfacesAndHie
+                (toNormalizedFilePath "./")
+                [fp | (fp, _content) <- src]
+        -- write the conf file and refresh the package cache
+        let (cfPath, cfBs) =
+                mkConfFile
+                    PackageConfigFields
+                        { pName = pkgName
+                        , pSrc = "" -- not used
+                        , pExposedModules = Nothing
+                        , pVersion = mbPkgVersion
+                        , pDependencies = deps
+                        , pSdkVersion = "unknown"
+                        , cliOpts = Nothing
+                        }
+                    (map T.unpack $ LF.packageModuleNames dalf)
+                    pkgIdStr
+        B.writeFile (dbPathAbs </> "package.conf.d" </> cfPath) cfBs
+        ghcPkgPath <- getGhcPkgPath
+        callProcess
+            (ghcPkgPath </> exe "ghc-pkg")
+            [ "recache"
+            -- ghc-pkg insists on using a global package db and will try
+            -- to find one automatically if we don’t specify it here.
+            , "--global-package-db=" ++ (dbPathAbs </> "package.conf.d")
+            , "--expand-pkgroot"
+            ]
 
+-- | Write generated source files
+writeSrc :: (NormalizedFilePath, String) -> IO ()
+writeSrc (fp, content) = do
+    let path = fromNormalizedFilePath fp
+    createDirectoryIfMissing True $ takeDirectory path
+    writeFileUTF8 path content
+
+-- | Locate ghc-pkg
+getGhcPkgPath :: IO FilePath
+getGhcPkgPath =
+    if isWindows
+        then locateRunfiles "rules_haskell_ghc_windows_amd64/bin"
+        else locateRunfiles "ghc_nix/lib/ghc-8.6.5/bin"
+
+data ExtractedDar = ExtractedDar
+    { edSdkVersions :: [String]
+    , edMain :: [ZipArchive.Entry]
+    , edConfFiles :: [ZipArchive.Entry]
+    , edDalfs :: [ZipArchive.Entry]
+    , edSrcs :: [ZipArchive.Entry]
+    }
+
+instance Semigroup ExtractedDar where
+    (<>) d1 d2 =
+        ExtractedDar
+            { edSdkVersions = edSdkVersions d1 ++ edSdkVersions d2
+            , edMain = edMain d1 ++ edMain d2
+            , edConfFiles = edConfFiles d1 ++ edConfFiles d2
+            , edDalfs = edDalfs d1 ++ edDalfs d2
+            , edSrcs = edSrcs d1 ++ edSrcs d2
+            }
+
+instance Monoid ExtractedDar where
+    mempty = ExtractedDar [] [] [] [] []
+
+-- | Extract a dar archive
+extractDar :: FilePath -> IO ExtractedDar
+extractDar fp = do
+    bs <- BSL.readFile fp
+    let archive = ZipArchive.toArchive bs
+    manifest <- getEntry manifestPath archive
+    dalfManifest <- either fail pure $ readDalfManifest archive
+    mainDalfEntry <- getEntry (mainDalfPath dalfManifest) archive
+    sdkVersion <-
+        case parseManifestFile $ BSL.toStrict $ ZipArchive.fromEntry manifest of
+            Left err -> fail err
+            Right manifest ->
+                case lookup "Sdk-Version" manifest of
+                    Nothing -> fail "No Sdk-Version entry in manifest"
+                    Just version -> pure $! trim $ BSUTF8.toString version
+    let confFiles =
+            [ e
+            | e <- ZipArchive.zEntries archive
+            , ".conf" `isExtensionOf` ZipArchive.eRelativePath e
+            ]
+    let dalfs =
+            [ e
+            | e <- ZipArchive.zEntries archive
+            , ".dalf" `isExtensionOf` ZipArchive.eRelativePath e
+            ]
+    let srcs =
+            [ e
+            | e <- ZipArchive.zEntries archive
+            , takeExtension (ZipArchive.eRelativePath e) `elem`
+                  [".daml", ".hie", ".hi"]
+            ]
+    pure (ExtractedDar [sdkVersion] [mainDalfEntry] confFiles dalfs srcs)
+
+-- Install a dar in the package database
+installDar ::
+       FilePath
+    -> [ZipArchive.Entry]
+    -> [ZipArchive.Entry]
+    -> [ZipArchive.Entry]
+    -> IO ()
+installDar dbPath confFiles dalfs srcs = do
+    forM_ dalfs $ \dalf -> do
+        let path = dbPath </> ZipArchive.eRelativePath dalf
+        createDirectoryIfMissing True (takeDirectory path)
+        BSL.writeFile path (ZipArchive.fromEntry dalf)
+    forM_ confFiles $ \conf ->
+        BSL.writeFile
+            (dbPath </> "package.conf.d" </>
+             (takeFileName $ ZipArchive.eRelativePath conf))
+            (ZipArchive.fromEntry conf)
+    forM_ srcs $ \src -> do
+        let path = dbPath </> ZipArchive.eRelativePath src
+        write path (ZipArchive.fromEntry src)
+    ghcPkgPath <- getGhcPkgPath
+    callProcess
+        (ghcPkgPath </> exe "ghc-pkg")
+        [ "recache"
+              -- ghc-pkg insists on using a global package db and will try
+              -- to find one automatically if we don’t specify it here.
+        , "--global-package-db=" ++ (dbPath </> "package.conf.d")
+        , "--expand-pkgroot"
+        ]
+  where
+    write fp bs =
+        createDirectoryIfMissing True (takeDirectory fp) >> BSL.writeFile fp bs
+
+-- | A helper to construct package ref to unit id maps.
+getUnitId :: UnitId -> MS.Map LF.PackageId UnitId -> (LF.PackageRef -> UnitId)
+getUnitId thisUnitId pkgMap =
+    \case
+        LF.PRSelf -> thisUnitId
+        LF.PRImport pId ->
+            fromMaybe
+                (error $
+                 "Unknown package id: " <> (T.unpack $ LF.unPackageId pId)) $
+            MS.lookup pId pkgMap
 
 -- | Fail with an exit failure and errror message when Nothing is returned.
 mbErr :: String -> Maybe a -> IO a
@@ -861,68 +960,60 @@ execMigrate projectOpts inFile1_ inFile2_ mbDir =
       withProjectRoot' projectOpts $ \_relativize
        -> do
           -- get the package name and the lf-package
-          [(pkgName1, pkgId1, lfPkg1, depMap1), (pkgName2, pkgId2, lfPkg2, depMap2)] <-
+          [(pkgName1, _pkgId1, lfPkg1, sdkVer1), (pkgName2, _pkgId2, lfPkg2, sdkVer2)] <-
               forM [inFile1, inFile2] $ \inFile -> do
                   bytes <- B.readFile inFile
                   let dar = ZipArchive.toArchive $ BSL.fromStrict bytes
                   -- get the main pkg
                   dalfManifest <- either fail pure $ readDalfManifest dar
                   let pkgName = takeBaseName $ mainDalfPath dalfManifest
-                  let dalfs = dalfPaths dalfManifest
-                  deps <-
-                      forM dalfs $ \dalfPath -> do
-                          dalf <- getEntry dalfPath dar
-                          (pkgId, _pkg) <- decode $ BSL.toStrict $ ZipArchive.fromEntry dalf
-                          pure (pkgId, stringToUnitId $ takeBaseName dalfPath)
                   mainDalfEntry <- getEntry (mainDalfPath dalfManifest) dar
                   (mainPkgId, mainLfPkg) <- decode $ BSL.toStrict $ ZipArchive.fromEntry mainDalfEntry
-                  pure (pkgName, mainPkgId, mainLfPkg, MS.fromList deps)
-          let pkgMap = MS.union depMap1 depMap2
+                  pure (pkgName, mainPkgId, mainLfPkg, sdkVersion dalfManifest)
           -- generate upgrade modules and instances modules
           let eqModNames =
                   (NM.names $ LF.packageModules lfPkg1) `intersect`
                   (NM.names $ LF.packageModules lfPkg2)
+          thisSdkVer <- getSdkVersion
+          let differentSdks = (length $ nubSort [sdkVer1, sdkVer2, thisSdkVer]) /= 1
           let eqModNamesStr = map (T.unpack . LF.moduleNameString) eqModNames
-          let buildOptions =
+          let buildOptions0 =
                   [ "--allow-different-sdks"
-                  , "'--package=" <> show (pkgName1, [(m, m ++ "A") | m <- eqModNamesStr]) <> "'"
-                  , "'--package=" <> show (pkgName2, [(m, m ++ "B") | m <- eqModNamesStr]) <> "'"
-                  , "--ghc-option=-Wno-unrecognised-pragmas"
+                  , "'--package=" <> show ("instances-" <> pkgName1
+                                          , [(m', m' ++ "A")
+                                            | m <- eqModNamesStr, let m' = m <> "Instances"
+                                            ]
+                                          ) <> "'"
+                  , "'--package=" <> show ("instances-" <> pkgName2
+                                          , [(m', m' ++ "B")
+                                            | m <- eqModNamesStr, let m' = m <> "Instances"
+                                            ]
+                                          ) <> "'"
                   ]
+          let buildOptions1 =
+                  [ "'--package=" <> show (pkgName1, [(m, m ++ "A") | m <- eqModNamesStr]) <> "'"
+                  , "'--package=" <> show (pkgName2, [(m, m ++ "B") | m <- eqModNamesStr]) <> "'"
+                  ]
+          let buildOptions
+                  | differentSdks = buildOptions0 ++ buildOptions1
+                  | otherwise = buildOptions1
           forM_ eqModNames $ \m@(LF.ModuleName modName) -> do
-              [genSrc1, genSrc2] <-
-                  forM [(pkgId1, lfPkg1), (pkgId2, lfPkg2)] $ \(pkgId, pkg) -> do
-                      generateSrcFromLf (Qualify False) pkgId pkgMap <$> getModule m pkg
               let upgradeModPath =
                       (joinPath $ fromMaybe "" mbDir : map T.unpack modName) <>
                       ".daml"
-              let instancesModPath1 =
-                      replaceBaseName upgradeModPath $
-                      takeBaseName upgradeModPath <> "AInstances"
-              let instancesModPath2 =
-                      replaceBaseName upgradeModPath $
-                      takeBaseName upgradeModPath <> "BInstances"
               templateNames <-
                   map (T.unpack . T.intercalate "." . LF.unTypeConName) .
                   NM.names . LF.moduleTemplates <$>
                   getModule m lfPkg1
               let generatedUpgradeMod =
                       generateUpgradeModule
+                          (DiffSdkVers differentSdks)
                           templateNames
                           (T.unpack $ LF.moduleNameString m)
                           "A"
                           "B"
-              let generatedInstancesMod1 =
-                      generateGenInstancesModule "A" (pkgName1, genSrc1)
-              let generatedInstancesMod2 =
-                      generateGenInstancesModule "B" (pkgName2, genSrc2)
-              forM_
-                  [ (upgradeModPath, generatedUpgradeMod)
-                  , (instancesModPath1, generatedInstancesMod1)
-                  , (instancesModPath2, generatedInstancesMod2)
-                  ] $ \(path, mod) -> do
-                  createDirectoryIfMissing True $ takeDirectory path
-                  writeFile path mod
+              createDirectoryIfMissing True $ takeDirectory upgradeModPath
+              writeFile upgradeModPath generatedUpgradeMod
           oldDamlYaml <- T.readFileUtf8 "daml.yaml"
           let newDamlYaml = T.unlines $
                 T.lines oldDamlYaml ++
@@ -979,6 +1070,7 @@ execMergeDars darFp1 darFp2 mbOutFp =
 execGenerateSrc :: FilePath -> Command
 execGenerateSrc dalfFp = Command GenerateSrc effect
   where
+    unitId = stringToUnitId $ takeBaseName dalfFp
     effect = do
         bytes <- B.readFile dalfFp
         case Archive.decodeArchive bytes of
@@ -986,15 +1078,56 @@ execGenerateSrc dalfFp = Command GenerateSrc effect
             Right (pkgId, pkg) -> do
                 let genSrcs =
                         generateSrcPkgFromLf
+                            (\pkgRef ->
+                                 case pkgRef of
+                                     LF.PRSelf -> unitId
+                                     LF.PRImport pId
+                                         | pkgId == pId -> unitId
+                                         | otherwise ->
+                                             error $
+                                             "Unknown package id: " <> (T.unpack $ LF.unPackageId pkgId))
                             pkgId
-                            (MS.singleton
-                                 pkgId
-                                 (stringToUnitId $ takeBaseName dalfFp))
                             pkg
                 forM_ genSrcs $ \(path, src) -> do
                     let fp = fromNormalizedFilePath path
                     createDirectoryIfMissing True $ takeDirectory fp
                     writeFileUTF8 fp src
+
+-- | Generate daml source files containing generic instances for data types.
+execGenerateGenSrc :: FilePath -> Maybe String -> Maybe FilePath -> Command
+execGenerateGenSrc darFp mbQual outDir = Command GenerateGenerics effect
+  where
+    effect = do
+        ExtractedDar {..} <- extractDar darFp
+        let dalfsFromDar =
+                [ ( dropExtension $ takeFileName $ ZipArchive.eRelativePath e
+                  , BSL.toStrict $ ZipArchive.fromEntry e)
+                | e <- edDalfs
+                ]
+        pkgs <-
+            forM dalfsFromDar $ \(name, dalf) -> do
+                (pkgId, package) <- decode dalf
+                pure (pkgId, package, dalf, stringToUnitId name)
+        let pkgMap =
+                MS.fromList
+                    [(pkgId, unitId) | (pkgId, _pkg, _bs, unitId) <- pkgs]
+        let mainDalfEntry = headNote "Missing main dalf in dar archive." edMain
+        let unitId =
+                stringToUnitId $
+                dropExtension $
+                takeFileName $ ZipArchive.eRelativePath mainDalfEntry
+        (mainPkgId, mainLfPkg) <-
+            decode $ BSL.toStrict $ ZipArchive.fromEntry mainDalfEntry
+        let getUid = getUnitId unitId pkgMap
+        let genSrcs = generateGenInstancesPkgFromLf getUid mainPkgId mainLfPkg (fromMaybe "" mbQual)
+        forM_ genSrcs $ \(path, src) -> do
+            let fp = (fromMaybe "" outDir) </> fromNormalizedFilePath path
+            createDirectoryIfMissing True $ takeDirectory fp
+            writeFileUTF8 fp src
+
+    decode = either (fail . DA.Pretty.renderPretty) pure . Archive.decodeArchive
+
+
 
 execDocTest :: Options -> [FilePath] -> Command
 execDocTest opts files =
@@ -1046,6 +1179,7 @@ options numProcessors =
         <> cmdCompile numProcessors
         <> cmdClean
         <> cmdGenerateSrc
+        <> cmdGenerateGenSrc
       )
 
 parserInfo :: Int -> ParserInfo Command

@@ -4,14 +4,18 @@
 
 module DA.Daml.Compiler.Upgrade
     ( generateUpgradeModule
-    , generateGenInstancesModule
+    , generateTemplateInstance
     , generateSrcFromLf
     , generateSrcPkgFromLf
-    , Qualify(..)
+    , generateGenInstancesPkgFromLf
+    , Env(..)
+    , DiffSdkVers(..)
     ) where
 
+import "ghc-lib-parser" Bag
 import "ghc-lib-parser" BasicTypes
 import Control.Lens (toListOf)
+import Control.Monad
 import qualified DA.Daml.LF.Ast as LF
 import DA.Daml.LF.Ast.Optics
 import DA.Daml.Preprocessor.Generics
@@ -22,87 +26,282 @@ import qualified Data.NameMap as NM
 import qualified Data.Text as T
 import Development.IDE.GHC.Util
 import Development.IDE.Types.Location
+import "ghc-lib-parser" FastString
 import "ghc-lib" GHC
 import "ghc-lib-parser" Module
 import "ghc-lib-parser" Name
-import "ghc-lib-parser" Outputable (ppr, showSDoc, showSDocForUser, alwaysQualify)
+import "ghc-lib-parser" Outputable
+    ( alwaysQualify
+    , ppr
+    , showSDocForUser
+    )
 import "ghc-lib-parser" PrelNames
 import "ghc-lib-parser" RdrName
+import SdkVersion
 import System.FilePath.Posix
+import "ghc-lib-parser" TcEvidence (HsWrapper(..))
 import "ghc-lib-parser" TysPrim
 import "ghc-lib-parser" TysWiredIn
-import "ghc-lib-parser" FastString
-import "ghc-lib-parser" Bag
-import "ghc-lib-parser" TcEvidence (HsWrapper(..))
-import Control.Monad
-import SdkVersion
 
--- | Generate a module containing generic instances for data types that don't have them already.
-generateGenInstancesModule :: String -> (String, ParsedSource) -> String
-generateGenInstancesModule qual (pkg, L _l src) =
-    unlines $ header ++ map (showSDoc fakeDynFlags . ppr) genericInstances
-  where
-    modName =
-        (moduleNameString $
-         unLoc $ fromMaybe (error "missing module name") $ hsmodName src) ++
-        qual
-    header =
-        [ "{-# LANGUAGE EmptyCase #-}"
-        , "{-# LANGUAGE NoDamlSyntax #-}"
-        , "module " <> modName <> "Instances" <> " where"
-        , "import " <> modName
-        , "import DA.Generics"
-        ]
-    genericInstances =
-        [ generateGenericInstanceFor
-            (nameOccName genClassName)
-            tcdLName
-            pkg
-            (fromMaybe (error "Missing module name") $ hsmodName src)
-            tcdTyVars
-            tcdDataDefn
-        | L _ (TyClD _x DataDecl {..}) <- hsmodDecls src
-        , not $ hasGenDerivation tcdDataDefn
-        ]
-    hasGenDerivation :: HsDataDefn GhcPs -> Bool
-    hasGenDerivation HsDataDefn {..} =
-        or [ name `elem` map nameOccName genericClassNames
-            | d <- unLoc dd_derivs
-            , (HsIB _ (L _ (HsTyVar _ _ (L _ (Unqual name))))) <-
-                  unLoc $ deriv_clause_tys $ unLoc d
-            ]
-    hasGenDerivation XHsDataDefn{} = False
+data Env = Env
+    { envGetUnitId :: LF.PackageRef -> UnitId
+    , envQualify :: Bool
+    , envMod :: LF.Module
+    }
+
+newtype DiffSdkVers = DiffSdkVers Bool
 
 -- | Generate non-consuming choices to upgrade all templates defined in the module.
-generateUpgradeModule :: [String] -> String -> String -> String -> String
-generateUpgradeModule templateNames modName qualA qualB =
+generateUpgradeModule :: DiffSdkVers -> [String] -> String -> String -> String -> String
+generateUpgradeModule (DiffSdkVers diffSdks) templateNames modName qualA qualB =
     unlines $ header ++ concatMap upgradeTemplates templateNames
   where
-    header =
+    header
+      | diffSdks = header0 ++ header1 ++ header2
+      | otherwise = header0 ++ header2
+    header0 =
         [ "daml 1.2"
         , "module " <> modName <> " where"
         , "import " <> modName <> qualA <> " qualified as A"
         , "import " <> modName <> qualB <> " qualified as B"
-        , "import " <> modName <> "AInstances()"
-        , "import " <> modName <> "BInstances()"
-        , "import DA.Upgrade"
+        ]
+    header1 =
+        [ "import " <> modName <> "Instances()"
+        , "import " <> modName <> "Instances()"
+        ]
+    header2 = [
+        "import DA.Upgrade"
         ]
 
 upgradeTemplates :: String -> [String]
 upgradeTemplates n =
     [ "template instance " <> n <> "Upgrade = Upgrade A." <> n <> " B." <> n
     , "template instance " <> n <> "Rollback = Rollback A." <> n <> " B." <> n
-    , "instance Convertible A." <> n <> " B." <> n
-    , "instance Convertible B." <> n <> " A." <> n
+    , "instance Convertible A." <> n <> " B." <> n <> " where"
+    , "    convert A." <> n <> "{..} = B." <> n <> " {..}"
+    , "instance Convertible B." <> n <> " A." <> n <> " where"
+    , "    convert B." <> n <> "{..} = A." <> n <> " {..}"
     ]
+
+generateGenInstancesPkgFromLf ::
+       (LF.PackageRef -> UnitId)
+    -> LF.PackageId
+    -> LF.Package
+    -> String
+    -> [(NormalizedFilePath, String)]
+generateGenInstancesPkgFromLf getUnitId pkgId pkg qual =
+    catMaybes
+        [ generateGenInstanceModule
+            Env
+                { envGetUnitId = getUnitId
+                , envQualify = False
+                , envMod = mod
+                }
+            pkgId
+            qual
+        | mod <- NM.toList $ LF.packageModules pkg
+        ]
+
+generateGenInstanceModule ::
+       Env -> LF.PackageId -> String -> Maybe (NormalizedFilePath, String)
+generateGenInstanceModule env externPkgId qual
+    | not $ null instances =
+        Just
+            ( toNormalizedFilePath modFilePath
+            , unlines $
+              header ++
+              nubSort imports ++
+              map (showSDocForUser fakeDynFlags alwaysQualify . ppr) genImports ++
+              [ replace (modName <> ".") (modNameQual <> ".") $
+                 unlines $
+                 map
+                     (showSDocForUser fakeDynFlags alwaysQualify . ppr)
+                     instances
+              ])
+    | otherwise = Nothing
+  where
+    instances = genInstances
+    genImportsAndInstances = genericInstances env externPkgId
+    genImports = [idecl{ideclQualified = True} | idecl <- fst genImportsAndInstances]
+    genInstances = snd genImportsAndInstances
+
+    mod = envMod env
+    modFilePath = (foldr1 (</>) $ splitOn "." modName) ++ qual ++ "GenInstances" ++ ".daml"
+    modName = T.unpack $ LF.moduleNameString $ LF.moduleName mod
+    modNameQual = modName <> qual
+    header =
+        [ "{-# LANGUAGE NoDamlSyntax #-}"
+        , "{-# LANGUAGE EmptyCase #-}"
+        , "module " <> modNameQual <> "GenInstances" <> " where"
+        ]
+    imports =
+        [ "import qualified " <> modNameQual
+        , "import qualified DA.Generics"
+        ]
+
+genericInstances :: Env -> LF.PackageId -> ([ImportDecl GhcPs], [HsDecl GhcPs])
+genericInstances env externPkgId =
+    ( [unLoc imp | imp <- hsmodImports src]
+    , [ unLoc $
+      generateGenericInstanceFor
+          (nameOccName genClassName)
+          tcdLName
+          (T.unpack $ LF.unPackageId externPkgId)
+          (noLoc $
+           mkModuleName $
+           T.unpack $ LF.moduleNameString $ LF.moduleName $ envMod env)
+          tcdTyVars
+          tcdDataDefn
+      | L _ (TyClD _x DataDecl {..}) <- hsmodDecls src
+      ])
+  where
+    src = unLoc $ generateSrcFromLf env externPkgId
+
+-- | Generate a single template instance for a given template data constructor and parameters.
+generateTemplateInstance ::
+       Env
+    -> LF.TypeConName
+    -> [(LF.TypeVarName, LF.Kind)]
+    -> LF.PackageId
+    -> HsDecl GhcPs
+generateTemplateInstance env typeCon typeParams externPkgId =
+    InstD noExt $
+    ClsInstD
+        noExt
+        ClsInstDecl
+            { cid_ext = noExt
+            , cid_poly_ty =
+                  HsIB
+                      { hsib_ext = noExt
+                      , hsib_body =
+                            noLoc $
+                            HsAppTy noExt templateTy $
+                            noLoc $
+                            convType env $ lfTemplateType typeCon typeParams
+                      }
+            , cid_binds = listToBag $ map (classMethodStub typeCon) templateMethodNames
+            , cid_sigs = []
+            , cid_tyfam_insts = []
+            , cid_datafam_insts = []
+            , cid_overlap_mode = Nothing
+            }
+  where
+    moduleNameStr = T.unpack $ LF.moduleNameString $ LF.moduleName $ envMod env
+    moduleName0 =
+        LF.ModuleName $
+        map T.pack $
+        splitOn "." moduleNameStr
+    templateTy =
+        noLoc $
+        HsTyVar noExt NotPromoted $
+        noLoc $
+        mkRdrQual (mkModuleName "DA.Internal.Template") $
+        mkOccName varName "Template" :: LHsType GhcPs
+    lfTemplateType dataTypeCon dataParams =
+        LF.mkTApps
+            (LF.TCon (LF.Qualified LF.PRSelf moduleName0 dataTypeCon))
+            (map (LF.TVar . fst) dataParams)
+    templateMethodNames =
+        [ "signatory"
+        , "observer"
+        , "agreement"
+        , "fetch"
+        , "ensure"
+        , "create"
+        , "archive"
+        , "toAnyTemplate"
+        , "fromAnyTemplate"
+        , "_templateTypeRep"
+        ]
+    classMethodStub :: LF.TypeConName -> T.Text -> LHsBindLR GhcPs GhcPs
+    classMethodStub templName funName =
+        noLoc $
+        FunBind
+            { fun_ext = noExt
+            , fun_id = mkRdrName funName
+            , fun_matches =
+                  MG
+                      { mg_ext = noExt
+                      , mg_alts =
+                            noLoc
+                                [ noLoc $
+                                  Match
+                                      { m_ext = noExt
+                                      , m_ctxt =
+                                            FunRhs
+                                                { mc_fun = mkRdrName funName
+                                                , mc_fixity = Prefix
+                                                , mc_strictness = NoSrcStrict
+                                                }
+                                      , m_pats =
+                                            [ noLoc $
+                                            VarPat noExt (mkRdrName "proxy")
+                                            | funName == "_templateTypeRep"
+                                            ] -- NOTE (drsk): we shouldn't need this pattern, but
+                                              -- somehow ghc insists on it. We want to fix this in ghc.
+                                      , m_rhs_sig = Nothing
+                                      , m_grhss =
+                                            GRHSs
+                                                { grhssExt = noExt
+                                                , grhssGRHSs =
+                                                      [ noLoc $
+                                                        GRHS
+                                                            noExt
+                                                            []
+                                                            (noLoc $
+                                                             HsAppType
+                                                                 noExt
+                                                                 (noLoc $
+                                                                  HsVar
+                                                                      noExt
+                                                                      (noLoc $
+                                                                       mkRdrQual
+                                                                           (mkModuleName
+                                                                                "GHC.Types")
+                                                                           (mkOccName
+                                                                                varName
+                                                                                "external")))
+                                                                 (HsWC
+                                                                      noExt
+                                                                      (noLoc $
+                                                                       HsTyLit noExt $
+                                                                       HsStrTy
+                                                                           NoSourceText $
+                                                                       mkFastString
+                                                                           ((T.unpack $
+                                                                             LF.unPackageId
+                                                                                 externPkgId) <>
+                                                                            ":" <>
+                                                                            moduleNameStr <>
+                                                                            ":" <>
+                                                                            (T.unpack $
+                                                                             T.intercalate
+                                                                                 "." $
+                                                                             LF.unTypeConName
+                                                                                 templName) <>
+                                                                            ":" <>
+                                                                            T.unpack
+                                                                                funName))))
+                                                      ]
+                                                , grhssLocalBinds =
+                                                      noLoc emptyLocalBinds
+                                                }
+                                      }
+                                ]
+                      , mg_origin = Generated
+                      }
+            , fun_co_fn = WpHole
+            , fun_tick = []
+            }
+
 
 -- | Generate the full source for a daml-lf package.
 generateSrcPkgFromLf ::
-       LF.PackageId
-    -> MS.Map LF.PackageId GHC.UnitId
+       (LF.PackageRef -> UnitId)
+    -> LF.PackageId
     -> LF.Package
     -> [(NormalizedFilePath, String)]
-generateSrcPkgFromLf thisPkgId pkgMap pkg = do
+generateSrcPkgFromLf getUnitId thisPkgId pkg = do
     mod <- NM.toList $ LF.packageModules pkg
     guard $ (LF.unModuleName $ LF.moduleName mod) /= ["GHC", "Prim"]
     let fp =
@@ -113,7 +312,7 @@ generateSrcPkgFromLf thisPkgId pkgMap pkg = do
         ( fp
         , unlines (header mod) ++
           (showSDocForUser fakeDynFlags alwaysQualify $
-           ppr $ generateSrcFromLf (Qualify True) thisPkgId pkgMap mod) ++
+           ppr $ generateSrcFromLf (Env getUnitId True mod) thisPkgId) ++
           unlines (builtins mod))
   where
     modName = LF.unModuleName . LF.moduleName
@@ -189,127 +388,33 @@ generateSrcPkgFromLf thisPkgId pkgMap pkg = do
             ]
         | otherwise = []
 
-newtype Qualify = Qualify Bool
-
 -- | Extract all data defintions from a daml-lf module and generate a haskell source file from it.
 generateSrcFromLf ::
-       Qualify
+       Env
     -> LF.PackageId
-    -> MS.Map LF.PackageId GHC.UnitId
-    -> LF.Module
     -> ParsedSource
-generateSrcFromLf (Qualify qualify) thisPkgId pkgMap m = noLoc mod
+generateSrcFromLf env thisPkgId = noLoc mod
   where
-    getUnitId :: LF.PackageRef -> UnitId
-    getUnitId pkgRef =
-        fromMaybe (error $ "Unknown package: " <> show pkgRef) $
-        case pkgRef of
-            LF.PRSelf -> MS.lookup thisPkgId pkgMap
-            LF.PRImport pkgId -> MS.lookup pkgId pkgMap
     -- TODO (drsk) how come those '#' appear in daml-lf names?
     sanitize = T.dropWhileEnd (== '#')
+    modName = mkModuleName $ T.unpack $ LF.moduleNameString $ LF.moduleName $ envMod env
+    unitId = envGetUnitId env LF.PRSelf
+    thisModule = mkModule unitId modName
+    mkConRdr
+        | envQualify env = mkRdrUnqual
+        | otherwise = mkOrig thisModule
     mod =
         HsModule
             { hsmodImports = imports
-            , hsmodName =
-                  Just
-                      (noLoc $
-                       mkModuleName $
-                       T.unpack $ LF.moduleNameString $ LF.moduleName m)
+            , hsmodName = Just (noLoc modName)
             , hsmodDecls = decls
             , hsmodDeprecMessage = Nothing
             , hsmodHaddockModHeader = Nothing
             , hsmodExports = Nothing
             }
-    templateTy =
-        noLoc $
-        HsTyVar noExt NotPromoted $
-        noLoc $
-        mkRdrQual (mkModuleName "DA.Internal.Template") $
-        mkOccName varName "Template" :: LHsType GhcPs
-    errTooManyNameComponents cs =
-        error $
-        "Internal error: Dalf contains type constructors with more than two name components: " <>
-        (T.unpack $ T.intercalate "." cs)
-    sumProdRecords =
-        MS.fromList
-            [ (dataTyCon, fs)
-            | LF.DefDataType {..} <- NM.toList $ LF.moduleDataTypes m
-            , let dataTyCon = LF.unTypeConName dataTypeCon
-            , length dataTyCon == 2
-            , LF.DataRecord fs <- [dataCons]
-            ]
-    templateMethodNames =
-        map mkRdrName
-            [ "signatory"
-            , "observer"
-            , "agreement"
-            , "fetch"
-            , "ensure"
-            , "create"
-            , "archive"
-            , "toAnyTemplate"
-            , "fromAnyTemplate"
-            , "_templateTypeRep"
-            ]
-    classMethodStub :: Located RdrName -> LHsBindLR GhcPs GhcPs
-    classMethodStub funName =
-        noLoc $
-        FunBind
-            { fun_ext = noExt
-            , fun_id = funName
-            , fun_matches =
-                  MG
-                      { mg_ext = noExt
-                      , mg_alts =
-                            noLoc
-                                [ noLoc $
-                                  Match
-                                      { m_ext = noExt
-                                      , m_ctxt =
-                                            FunRhs
-                                                { mc_fun = funName
-                                                , mc_fixity = Prefix
-                                                , mc_strictness = NoSrcStrict
-                                                }
-                                      , m_pats = []
-                                      , m_rhs_sig = Nothing
-                                      , m_grhss =
-                                            GRHSs
-                                                { grhssExt = noExt
-                                                , grhssGRHSs =
-                                                      [ noLoc $
-                                                        GRHS
-                                                            noExt
-                                                            []
-                                                            (noLoc $
-                                                             HsApp
-                                                                 noExt
-                                                                 (noLoc $
-                                                                  HsVar
-                                                                      noExt
-                                                                      (noLoc
-                                                                           error_RDR))
-                                                                 (noLoc $
-                                                                  HsLit noExt $
-                                                                  HsString
-                                                                      NoSourceText $
-                                                                  mkFastString
-                                                                      "undefined template class method in generated code"))
-                                                      ]
-                                                , grhssLocalBinds =
-                                                      noLoc emptyLocalBinds
-                                                }
-                                      }
-                                ]
-                      , mg_origin = Generated
-                      }
-            , fun_co_fn = WpHole
-            , fun_tick = []
-            }
     decls =
         concat $ do
-            LF.DefDataType {..} <- NM.toList $ LF.moduleDataTypes m
+            LF.DefDataType {..} <- NM.toList $ LF.moduleDataTypes $ envMod env
             guard $ LF.getIsSerializable dataSerializable
             let numberOfNameComponents = length (LF.unTypeConName dataTypeCon)
             -- we should never encounter more than two name components in dalfs.
@@ -317,18 +422,13 @@ generateSrcFromLf (Qualify qualify) thisPkgId pkgMap m = noLoc mod
                 errTooManyNameComponents $ LF.unTypeConName dataTypeCon
             -- skip generated data types of sums of products construction in daml-lf
             [dataTypeCon0] <- [LF.unTypeConName dataTypeCon]
-            let templType =
-                    LF.mkTApps
-                        (LF.TCon
-                             (LF.Qualified LF.PRSelf (LF.moduleName m) dataTypeCon))
-                        (map (LF.TVar . fst) dataParams)
             let occName = mkOccName varName $ T.unpack $ sanitize dataTypeCon0
             let dataDecl =
                     noLoc $
                     TyClD noExt $
                     DataDecl
                         { tcdDExt = noExt
-                        , tcdLName = noLoc $ mkRdrUnqual occName
+                        , tcdLName = noLoc $ mkConRdr occName
                         , tcdTyVars =
                               HsQTvs
                                   { hsq_ext = noExt
@@ -349,31 +449,8 @@ generateSrcFromLf (Qualify qualify) thisPkgId pkgMap m = noLoc mod
                                   , dd_derivs = noLoc []
                                   }
                         }
-            -- dummy template instance to make sure we get a template instance in the interface
-            -- file
-            let templInstDecl =
-                    noLoc $
-                    InstD noExt $
-                    ClsInstD
-                        noExt
-                        ClsInstDecl
-                            { cid_ext = noExt
-                            , cid_poly_ty =
-                                  HsIB
-                                      { hsib_ext = noExt
-                                      , hsib_body =
-                                            noLoc $
-                                            HsAppTy noExt templateTy $
-                                            noLoc $ convType templType
-                                      }
-                            , cid_binds = listToBag $ map classMethodStub templateMethodNames
-                            , cid_sigs = []
-                            , cid_tyfam_insts = []
-                            , cid_datafam_insts = []
-                            , cid_overlap_mode = Nothing
-                            }
-            pure $ dataDecl : [templInstDecl | dataTypeCon `elem` templateDataCons]
-    templateDataCons = NM.names $ LF.moduleTemplates m
+            pure [dataDecl]
+
     convDataCons :: T.Text -> LF.DataCons -> [LConDecl GhcPs]
     convDataCons dataTypeCon0 =
         \case
@@ -383,7 +460,7 @@ generateSrcFromLf (Qualify qualify) thisPkgId pkgMap m = noLoc mod
                       { con_ext = noExt
                       , con_name =
                             noLoc $
-                            mkRdrUnqual $
+                            mkConRdr $
                             mkOccName dataName $ T.unpack $ sanitize dataTypeCon0
                       , con_forall = noLoc False
                       , con_ex_tvs = []
@@ -405,7 +482,7 @@ generateSrcFromLf (Qualify qualify) thisPkgId pkgMap m = noLoc mod
                                                       LF.unFieldName fieldName
                                                 }
                                           ]
-                                    , cd_fld_type = noLoc $ convType ty
+                                    , cd_fld_type = noLoc $ convType env ty
                                     }
                                 | (fieldName, ty) <- fields
                                 ]
@@ -417,14 +494,14 @@ generateSrcFromLf (Qualify qualify) thisPkgId pkgMap m = noLoc mod
                     { con_ext = noExt
                     , con_name =
                           noLoc $
-                          mkRdrUnqual $
+                          mkConRdr $
                           mkOccName varName $
                           T.unpack $ sanitize $ LF.unVariantConName conName
                     , con_forall = noLoc False
                     , con_ex_tvs = []
                     , con_mb_cxt = Nothing
                     , con_doc = Nothing
-                    , con_args = let t = convType ty
+                    , con_args = let t = convType env ty
                                  in case (t :: HsType GhcPs) of
                                         HsRecTy _ext fs -> RecCon $ noLoc fs
                                         _other -> PrefixCon [noLoc t]
@@ -437,7 +514,7 @@ generateSrcFromLf (Qualify qualify) thisPkgId pkgMap m = noLoc mod
                     { con_ext = noExt
                     , con_name =
                           noLoc $
-                          mkRdrUnqual $
+                          mkConRdr $
                           mkOccName varName $
                           T.unpack $ sanitize $ LF.unVariantConName conName
                     , con_forall = noLoc False
@@ -448,122 +525,7 @@ generateSrcFromLf (Qualify qualify) thisPkgId pkgMap m = noLoc mod
                     }
                 | conName <- cons
                 ]
-    mkRdrName = noLoc . mkRdrUnqual . mkOccName varName . T.unpack
-    mkUserTyVar :: T.Text -> LHsTyVarBndr GhcPs
-    mkUserTyVar =
-        noLoc .
-        UserTyVar noExt . noLoc . mkRdrUnqual . mkOccName tvName . T.unpack
-    convType :: LF.Type -> HsType GhcPs
-    convType =
-        \case
-            LF.TVar tyVarName ->
-                HsTyVar noExt NotPromoted $ mkRdrName $ LF.unTypeVarName tyVarName
-            LF.TCon LF.Qualified {..} ->
-                case LF.unTypeConName qualObject of
-                    [name] ->
-                        HsTyVar noExt NotPromoted $
-                        noLoc $
-                        mkOrig
-                            (mkModule
-                                 (getUnitId qualPackage)
-                                 (mkModuleName $
-                                  T.unpack $ LF.moduleNameString qualModule))
-                            (mkOccName varName $ T.unpack name)
-                    n@[_name0, _name1] ->
-                        let fs =
-                                MS.findWithDefault
-                                    (error $
-                                     "Internal error: Could not find generated record type: " <>
-                                     (T.unpack $ T.intercalate "." n))
-                                    n
-                                    sumProdRecords
-                         in HsRecTy
-                                noExt
-                                [ noLoc $
-                                ConDeclField
-                                    { cd_fld_ext = noExt
-                                    , cd_fld_names =
-                                          [ noLoc $
-                                            FieldOcc
-                                                { extFieldOcc = noExt
-                                                , rdrNameFieldOcc =
-                                                      mkRdrName $
-                                                      LF.unFieldName fieldName
-                                                }
-                                          ]
-                                    , cd_fld_type = noLoc $ convType fieldTy
-                                    , cd_fld_doc = Nothing
-                                    }
-                                | (fieldName, fieldTy) <- fs
-                                ]
-                    cs -> errTooManyNameComponents cs
-            LF.TApp ty1 ty2 ->
-                HsParTy noExt $
-                noLoc $ HsAppTy noExt (noLoc $ convType ty1) (noLoc $ convType ty2)
-            LF.TBuiltin builtinTy -> convBuiltInTy builtinTy
-            LF.TForall {..} ->
-                HsParTy noExt $
-                noLoc $
-                HsForAllTy
-                    noExt
-                    [mkUserTyVar $ LF.unTypeVarName $ fst forallBinder]
-                    (noLoc $ convType forallBody)
-            -- TODO (drsk): Is this the correct tuple type? What about the field names?
-            LF.TTuple fls ->
-                HsTupleTy
-                    noExt
-                    HsBoxedTuple
-                    [noLoc $ convType ty | (_fldName, ty) <- fls]
-            LF.TNat n ->
-                HsTyLit noExt (HsNumTy NoSourceText (LF.fromTypeLevelNat n))
 
-    convBuiltInTy :: LF.BuiltinType -> HsType GhcPs
-    convBuiltInTy =
-        \case
-            LF.BTInt64 -> mkTyConType intTyCon
-            LF.BTDecimal -> mkGhcType "Decimal"
-            LF.BTText -> mkGhcType "Text"
-            LF.BTTimestamp -> mkLfInternalType "Time"
-            LF.BTDate -> mkLfInternalType "Date"
-            LF.BTParty -> mkLfInternalType "Party"
-            LF.BTUnit -> mkTyConTypeUnqual unitTyCon
-            LF.BTBool -> mkTyConType boolTyCon
-            LF.BTList -> mkTyConTypeUnqual listTyCon
-            LF.BTUpdate -> mkLfInternalType "Update"
-            LF.BTScenario -> mkLfInternalType "Scenario"
-            LF.BTContractId -> mkLfInternalType "ContractId"
-            LF.BTOptional -> mkLfInternalPrelude "Optional"
-            LF.BTMap -> mkLfInternalType "TextMap"
-            LF.BTArrow -> mkTyConTypeUnqual funTyCon
-            LF.BTNumeric -> mkGhcType "Numeric"
-            -- TODO see https://github.com/digital-asset/daml/issues/2876
-            LF.BTAny -> error "Any type not yet supported in upgrades"
-            LF.BTTypeRep -> error "TypeRep type not yet supported in upgrades"
-
-    mkGhcType =
-        HsTyVar noExt NotPromoted .
-        noLoc . mkOrig gHC_TYPES . mkOccName varName
-    damlStdlibUnitId = stringToUnitId damlStdlib
-    mkLfInternalType =
-        HsTyVar noExt NotPromoted .
-        noLoc .
-        mkOrig (mkModule damlStdlibUnitId $ mkModuleName "DA.Internal.LF") .
-        mkOccName varName
-    mkLfInternalPrelude =
-        HsTyVar noExt NotPromoted .
-        noLoc .
-        mkOrig (mkModule damlStdlibUnitId $ mkModuleName "DA.Internal.Prelude") .
-        mkOccName varName
-    mkTyConType = mkTyConType' qualify
-    mkTyConTypeUnqual = mkTyConType' False
-    mkTyConType' :: Bool -> TyCon -> HsType GhcPs
-    mkTyConType' qualify tyCon
-        | qualify =
-            HsTyVar noExt NotPromoted . noLoc $
-            mkRdrQual (moduleName $ nameModule name) (occName name)
-        | otherwise = HsTyVar noExt NotPromoted . noLoc $ mkRdrUnqual (occName name)
-      where
-        name = getName tyCon
     imports = declImports ++ additionalImports
     mkImport :: Bool -> String -> [LImportDecl GhcPs]
     mkImport pred modName = [ noLoc $
@@ -585,20 +547,17 @@ generateSrcFromLf (Qualify qualify) thisPkgId pkgMap m = noLoc mod
     additionalImports =
         concat
             [ mkImport
-                  ((unitIdString $ getUnitId $ LF.PRImport thisPkgId) /= "daml-prim")
+                  ((unitIdString $ envGetUnitId env $ LF.PRImport thisPkgId) /= "daml-prim")
                   "GHC.Err"
             , mkImport
-                  ((unitIdString $ getUnitId $ LF.PRImport thisPkgId) /= "daml-prim")
+                  ((unitIdString $ envGetUnitId env $ LF.PRImport thisPkgId) /= "daml-prim")
                   "GHC.CString"
             , mkImport
-                  ((LF.unModuleName $ LF.moduleName m) == ["GHC", "Types"])
+                  ((LF.unModuleName $ LF.moduleName $ envMod env) == ["GHC", "Types"])
                   "GHC.Prim"
             , mkImport
-                  ((LF.unModuleName $ LF.moduleName m) /= ["GHC", "Types"])
+                  ((LF.unModuleName $ LF.moduleName $ envMod env) /= ["GHC", "Types"])
                   "GHC.Types"
-            , mkImport
-                  (not $ null templateDataCons)
-                  "DA.Internal.Template"
             ]
     -- imports needed by the module declarations
     declImports
@@ -618,16 +577,16 @@ generateSrcFromLf (Qualify qualify) thisPkgId pkgMap m = noLoc mod
             , ideclHiding = Nothing
             } :: LImportDecl GhcPs
         | (_unitId, modRef) <- modRefs
-        , modRef `notElem` [LF.moduleName m, LF.ModuleName ["GHC", "Prim"]]
+        , modRef `notElem` [LF.moduleName $ envMod env, LF.ModuleName ["GHC", "Prim"]]
         ]
     modRefs =
         nubSort $
-        [ (getUnitId pkg, modRef)
-        | (pkg, modRef) <- toListOf moduleModuleRef m
+        [ (envGetUnitId env pkg, modRef)
+        | (pkg, modRef) <- toListOf moduleModuleRef $ envMod env
         ] ++
         (map builtinToModuleRef $
          concat $ do
-             dataTy <- NM.toList $ LF.moduleDataTypes m
+             dataTy <- NM.toList $ LF.moduleDataTypes $ envMod env
              pure $ toListOf (dataConsType . builtinType) $ LF.dataCons dataTy)
     builtinToModuleRef = \case
             LF.BTInt64 -> (primUnitId, translateModName intTyCon)
@@ -657,3 +616,148 @@ generateSrcFromLf (Qualify qualify) thisPkgId pkgMap m = noLoc mod
     translateModName =
         LF.ModuleName .
         map T.pack . split (== '.') . moduleNameString . moduleName . nameModule . getName
+
+convType :: Env -> LF.Type -> HsType GhcPs
+convType env =
+    \case
+        LF.TVar tyVarName ->
+            HsTyVar noExt NotPromoted $ mkRdrName $ LF.unTypeVarName tyVarName
+        LF.TCon LF.Qualified {..} ->
+            case LF.unTypeConName qualObject of
+                [name] ->
+                    HsTyVar noExt NotPromoted $
+                    noLoc $
+                    mkOrig
+                        (mkModule
+                             (envGetUnitId env qualPackage)
+                             (mkModuleName $
+                              T.unpack $ LF.moduleNameString qualModule))
+                        (mkOccName varName $ T.unpack name)
+                n@[_name0, _name1] ->
+                    let fs =
+                            MS.findWithDefault
+                                (error $
+                                 "Internal error: Could not find generated record type: " <>
+                                 (T.unpack $ T.intercalate "." n))
+                                n
+                                (sumProdRecords $ envMod env)
+                     in HsRecTy
+                            noExt
+                            [ noLoc $
+                            ConDeclField
+                                { cd_fld_ext = noExt
+                                , cd_fld_names =
+                                      [ noLoc $
+                                        FieldOcc
+                                            { extFieldOcc = noExt
+                                            , rdrNameFieldOcc =
+                                                  mkRdrName $
+                                                  LF.unFieldName fieldName
+                                            }
+                                      ]
+                                , cd_fld_type = noLoc $ convType env fieldTy
+                                , cd_fld_doc = Nothing
+                                }
+                            | (fieldName, fieldTy) <- fs
+                            ]
+                cs -> errTooManyNameComponents cs
+        LF.TApp ty1 ty2 ->
+            HsParTy noExt $
+            noLoc $ HsAppTy noExt (noLoc $ convType env ty1) (noLoc $ convType env ty2)
+        LF.TBuiltin builtinTy -> convBuiltInTy (envQualify env) builtinTy
+        LF.TForall {..} ->
+            HsParTy noExt $
+            noLoc $
+            HsForAllTy
+                noExt
+                [mkUserTyVar $ LF.unTypeVarName $ fst forallBinder]
+                (noLoc $ convType env forallBody)
+        -- TODO (drsk): Is this the correct tuple type? What about the field names?
+        LF.TTuple fls ->
+            HsTupleTy
+                noExt
+                HsBoxedTuple
+                [noLoc $ convType env ty | (_fldName, ty) <- fls]
+        LF.TNat n ->
+            HsTyLit noExt (HsNumTy NoSourceText (LF.fromTypeLevelNat n))
+
+convBuiltInTy :: Bool -> LF.BuiltinType -> HsType GhcPs
+convBuiltInTy qualify =
+    \case
+        LF.BTInt64 -> mkTyConType qualify intTyCon
+        LF.BTDecimal -> mkGhcType "Decimal"
+        LF.BTText -> mkGhcType "Text"
+        LF.BTTimestamp -> mkLfInternalType "Time"
+        LF.BTDate -> mkLfInternalType "Date"
+        LF.BTParty -> mkLfInternalType "Party"
+        LF.BTUnit -> mkTyConTypeUnqual unitTyCon
+        LF.BTBool -> mkTyConType qualify boolTyCon
+        LF.BTList -> mkTyConTypeUnqual listTyCon
+        LF.BTUpdate -> mkLfInternalType "Update"
+        LF.BTScenario -> mkLfInternalType "Scenario"
+        LF.BTContractId -> mkLfInternalType "ContractId"
+        LF.BTOptional -> mkLfInternalPrelude "Optional"
+        LF.BTMap -> mkLfInternalType "TextMap"
+        LF.BTArrow -> mkTyConTypeUnqual funTyCon
+        LF.BTNumeric -> mkGhcType "Numeric"
+        -- TODO see https://github.com/digital-asset/daml/issues/2876
+        LF.BTAny -> error "Any type not yet supported in upgrades"
+        LF.BTTypeRep -> error "TypeRep type not yet supported in upgrades"
+
+mkLfInternalType :: String -> HsType GhcPs
+mkLfInternalType =
+    HsTyVar noExt NotPromoted .
+    noLoc .
+    mkOrig (mkModule damlStdlibUnitId $ mkModuleName "DA.Internal.LF") .
+    mkOccName varName
+
+mkLfInternalPrelude :: String -> HsType GhcPs
+mkLfInternalPrelude =
+    HsTyVar noExt NotPromoted .
+    noLoc .
+    mkOrig (mkModule damlStdlibUnitId $ mkModuleName "DA.Internal.Prelude") .
+    mkOccName varName
+
+mkRdrName :: T.Text -> Located RdrName
+mkRdrName = noLoc . mkRdrUnqual . mkOccName varName . T.unpack
+
+mkUserTyVar :: T.Text -> LHsTyVarBndr GhcPs
+mkUserTyVar =
+    noLoc .
+    UserTyVar noExt . noLoc . mkRdrUnqual . mkOccName tvName . T.unpack
+
+damlStdlibUnitId :: UnitId
+damlStdlibUnitId = stringToUnitId damlStdlib
+
+mkTyConTypeUnqual :: TyCon -> HsType GhcPs
+mkTyConTypeUnqual = mkTyConType False
+
+mkTyConType :: Bool -> TyCon -> HsType GhcPs
+mkTyConType qualify tyCon
+    | qualify =
+        HsTyVar noExt NotPromoted . noLoc $
+        mkRdrQual (moduleName $ nameModule name) (occName name)
+    | otherwise = HsTyVar noExt NotPromoted . noLoc $ mkRdrUnqual (occName name)
+  where
+    name = getName tyCon
+
+mkGhcType :: String -> HsType GhcPs
+mkGhcType =
+    HsTyVar noExt NotPromoted .
+    noLoc . mkOrig gHC_TYPES . mkOccName varName
+
+errTooManyNameComponents :: [T.Text] -> a
+errTooManyNameComponents cs =
+    error $
+    "Internal error: Dalf contains type constructors with more than two name components: " <>
+    (T.unpack $ T.intercalate "." cs)
+
+sumProdRecords :: LF.Module -> MS.Map [T.Text] [(LF.FieldName, LF.Type)]
+sumProdRecords m =
+    MS.fromList
+        [ (dataTyCon, fs)
+        | LF.DefDataType {..} <- NM.toList $ LF.moduleDataTypes m
+        , let dataTyCon = LF.unTypeConName dataTypeCon
+        , length dataTyCon == 2
+        , LF.DataRecord fs <- [dataCons]
+        ]
