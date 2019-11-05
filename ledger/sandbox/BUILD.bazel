@@ -13,8 +13,8 @@ load(
 )
 load("//bazel_tools:pom_file.bzl", "pom_file")
 load(
-    ":sandbox_conformance_test.bzl",
-    "sandbox_conformance_test",
+    "//ledger/ledger-api-test-tool:conformance.bzl",
+    "server_conformance_test",
 )
 
 compileDependencies = [
@@ -202,24 +202,69 @@ da_scala_test_suite(
     ] + testDependencies,
 )
 
-sandbox_conformance_test(
-    name = "static-time",
-    server_args = ["--static-time"],
+SERVERS = {
+    "memory": {
+        "binary": ":sandbox-binary",
+        "server_args": [
+            "--port=6865",
+            "--eager-package-loading",
+        ],
+        "test_tool_args": ["--timeout-scale-factor=10"],
+    },
+    "h2database": {
+        "binary": ":sandbox-binary",
+        "server_args": [
+            "--port=6865",
+            "--eager-package-loading",
+            # "db_close_delay=-1" is needed so that the in-memory database is not closed
+            # (and therefore lost) after the flyway migration
+            "--sql-backend-jdbcurl=jdbc:h2:mem:static_time;db_close_delay=-1",
+        ],
+        "test_tool_args": ["--timeout-scale-factor=10"],
+    },
+    "postgres": {
+        "binary": ":sandbox-ephemeral-postgres",
+        "extra_data": [
+            "@postgresql_dev_env//:all",
+            "@postgresql_dev_env//:createdb",
+            "@postgresql_dev_env//:initdb",
+            "@postgresql_dev_env//:pg_ctl",
+        ],
+        "server_args": [
+            "--port=6865",
+            "--eager-package-loading",
+        ],
+        "test_tool_args": ["--timeout-scale-factor=10"],
+    },
+}
+
+server_conformance_test(
+    name = "conformance-test-static-time",
+    server_args = [
+        "--static-time",
+    ],
+    servers = SERVERS,
     test_tool_args = [
         "--all-tests",
         "--exclude=LotsOfPartiesIT",
     ],
 )
 
-sandbox_conformance_test(
-    name = "static-time-lots-of-parties",
-    server_args = ["--static-time"],
+server_conformance_test(
+    name = "conformance-test-static-time-lots-of-parties",
+    server_args = [
+        "--static-time",
+    ],
+    servers = SERVERS,
     test_tool_args = ["--include=LotsOfPartiesIT"],
 )
 
-sandbox_conformance_test(
-    name = "wall-clock",
-    server_args = ["--wall-clock-time"],
+server_conformance_test(
+    name = "conformance-test-wall-clock",
+    server_args = [
+        "--wall-clock-time",
+    ],
+    servers = SERVERS,
     test_tool_args = [
         "--all-tests",
         "--exclude=TimeIT",
@@ -227,8 +272,11 @@ sandbox_conformance_test(
     ],
 )
 
-sandbox_conformance_test(
-    name = "wall-clock-lots-of-parties",
-    server_args = ["--wall-clock-time"],
+server_conformance_test(
+    name = "conformance-test-wall-clock-lots-of-parties",
+    server_args = [
+        "--wall-clock-time",
+    ],
+    servers = SERVERS,
     test_tool_args = ["--include=LotsOfPartiesIT"],
 )
