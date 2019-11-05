@@ -48,7 +48,7 @@ object RetryHelper extends LazyLogging {
   }
 
   val failFastOnPermissionDenied: RetryStrategy = {
-    case GrpcException(GrpcStatus(`PERMISSION_DENIED`), _) => false
+    case GrpcException(GrpcStatus(`PERMISSION_DENIED`, _), _) => false
     case NonFatal(_) => true
   }
 
