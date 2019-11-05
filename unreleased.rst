@@ -21,6 +21,7 @@ HEAD — ongoing
 - [DAML Compiler] Fix compile error caused by instantiating generic
   templates at ``Numeric n``.
 - [Sandbox] Timing about database operations are now exposed over JMX as well as via the logs.
+- [JSON API - Experimental] ``workflowId`` no longer included in any responses.
 - [JSON API - Experimental] ``/contracts/search`` endpoint can optionally store searched
   contracts in a Postgres-based cache, by passing the new ``--query-store-jdbc-config`` option.
   See `issue #2781 <https://github.com/digital-asset/daml/issues/2781>`_.
