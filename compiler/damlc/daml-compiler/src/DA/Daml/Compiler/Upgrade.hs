@@ -59,6 +59,8 @@ generateUpgradeModule (DiffSdkVers diffSdks) templateNames modName qualA qualB =
     header
       | diffSdks = header0 ++ header1 ++ header2
       | otherwise = header0 ++ header2
+      -- If we compile with packages from a single sdk version, the instances modules will not be
+      -- there and hence we can not include header1.
     header0 =
         [ "daml 1.2"
         , "module " <> modName <> " where"
