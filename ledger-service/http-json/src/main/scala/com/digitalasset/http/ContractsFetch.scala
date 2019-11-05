@@ -35,7 +35,7 @@ import scalaz.syntax.show._
 import scalaz.syntax.tag._
 import scalaz.syntax.functor._
 import scalaz.syntax.std.option._
-import scalaz.{-\/, Tag, \/, \/-}
+import scalaz.{-\/, \/, \/-}
 import spray.json.JsValue
 import com.typesafe.scalalogging.StrictLogging
 import scalaz.Liskov.<~<
@@ -181,7 +181,7 @@ private class ContractsFetch(
         val txSource: Source[Transaction, NotUsed] = getCreatesAndArchivesSince(
           jwt,
           transactionFilter(party, List(templateId)),
-          Tag.unsubst(offset).toLedgerApi)
+          offset.toLedgerApi)
 
         val untuple = builder add project2[InsertDeleteStep[lav1.event.CreatedEvent], domain.Offset]
         val transactInsertsDeletes = Flow
@@ -224,12 +224,12 @@ private object ContractsFetch {
   sealed abstract class OffsetBookmark[+Off] extends Product with Serializable {
     import lav1.ledger_offset.LedgerOffset
     import LedgerOffset.{LedgerBoundary, Value}
-    import Value.{Absolute, Boundary}
-    def toLedgerApi(implicit ev: Off <~< String): LedgerOffset =
-      LedgerOffset(this match {
-        case AbsoluteBookmark(offset) => Absolute(ev(offset))
-        case LedgerBegin => Boundary(LedgerBoundary.LEDGER_BEGIN)
-      })
+    import Value.Boundary
+    def toLedgerApi(implicit ev: Off <~< domain.Offset): LedgerOffset =
+      this match {
+        case AbsoluteBookmark(offset) => domain.Offset.toLedgerApi(ev(offset))
+        case LedgerBegin => LedgerOffset(Boundary(LedgerBoundary.LEDGER_BEGIN))
+      }
   }
   final case class AbsoluteBookmark[+Off](offset: Off) extends OffsetBookmark[Off]
   case object LedgerBegin extends OffsetBookmark[Nothing]
