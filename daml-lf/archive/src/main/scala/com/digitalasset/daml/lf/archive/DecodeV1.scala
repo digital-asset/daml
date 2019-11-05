@@ -1120,7 +1120,6 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
           PLText(getInternedStr(lfPrimLit.getTextInternedStr))
         case PLF.PrimLit.SumCase.NUMERIC_INTERNED_STR =>
           assertSince(LV.Features.numeric, "PrimLit.numeric")
-          assertSince(LV.Features.internedStrings, "PrimLit.decimal_interned_str")
           toPLNumeric(getInternedStr(lfPrimLit.getNumericInternedStr))
         case PLF.PrimLit.SumCase.PARTY_INTERNED_STR =>
           assertSince(LV.Features.internedStrings, "PrimLit.party_interned_str")
