@@ -53,10 +53,11 @@ private class ContractsFetch(
   def contractsIo2(jwt: Jwt, party: domain.Party, templateIds: List[domain.TemplateId.RequiredPkg])(
       implicit ec: ExecutionContext,
       mat: Materializer): ConnectionIO[List[domain.Offset]] = {
+    import cats.instances.list._, cats.syntax.traverse._, doobie.implicits._
     // TODO(Leo/Stephen): can we run this traverse concurrently?
-    cats.implicits.catsStdInstancesForList.traverse(templateIds) { templateId =>
+    templateIds.traverse { templateId =>
       contractsIo(jwt, party, templateId)
-    }(connection.AsyncConnectionIO)
+    }
   }
 
   def contractsIo(jwt: Jwt, party: domain.Party, templateId: domain.TemplateId.RequiredPkg)(
