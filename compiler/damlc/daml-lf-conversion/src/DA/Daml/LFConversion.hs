@@ -1016,7 +1016,8 @@ isEnumTyCon :: TyCon -> Bool
 isEnumTyCon tycon =
     isEnumerationTyCon tycon
     && (tyConArity tycon == 0)
-    && (length (tyConDataCons tycon) >= 2)
+    && ((length (tyConDataCons tycon) >= 2)
+       || T.isPrefixOf "DamlEnum$" (getOccText tycon))
 
 -- | Is this a simple record type?
 isSimpleRecordTyCon :: TyCon -> Bool
