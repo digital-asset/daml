@@ -315,7 +315,7 @@ cmdGenerateGenSrc =
     command "generate-gen-src" $
     info (helper <*> cmd) $
     progDesc
-        "Generate DAML source code from a dalf package containing Generic instances" <>
+        "Generate DAML source code containing Generic instances for the data types of a dalf package " <>
     fullDesc
   where
     cmd = execGenerateGenSrc <$> inputDarOpt <*> qualOpt <*> targetSrcDirOpt
