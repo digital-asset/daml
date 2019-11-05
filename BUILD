@@ -227,10 +227,12 @@ buildifier(
 # Default target for da-ghci, da-ghcid.
 da_haskell_repl(
     name = "repl",
+    testonly = True,
     visibility = ["//visibility:public"],
     deps = [
         ":damlc",
         "//daml-assistant:daml",
         "//daml-assistant/daml-helper",
+        "//daml-assistant/integration-tests",
     ],
 )

@@ -1,8 +1,8 @@
 -- Copyright (c) 2019 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
-module Main (main) where
+module DA.Daml.Assistant.IntegrationTests (main) where
 
-import qualified Codec.Archive.Zip as Zip
+import qualified "zip-archive" Codec.Archive.Zip as Zip
 import Conduit hiding (connect)
 import qualified Data.Conduit.Zlib as Zlib
 import Data.Conduit.Tar.Extra (dropDirectory1)
