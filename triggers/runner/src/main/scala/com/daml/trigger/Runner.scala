@@ -86,7 +86,7 @@ class Runner(
             // Each transaction is a list of commands
             for (commands <- transactions) {
               converter.toCommands(commands) match {
-                case Left(err) => throw new RuntimeException(err)
+                case Left(err) => throw new ConverterException(err)
                 case Right((commandId, commands)) => {
                   if (usedCommandIds.contains(commandId)) {
                     throw new RuntimeException(s"Duplicate command id: $commandId")
@@ -179,7 +179,7 @@ class Runner(
 
     val machine = Speedy.Machine.fromSExpr(null, false, compiledPackages)
     val createdExpr: SExpr = SEValue(converter.fromACS(acs) match {
-      case Left(err) => throw new RuntimeException(err)
+      case Left(err) => throw new ConverterException(err)
       case Right(x) => x
     })
     val initialState =
@@ -207,7 +207,7 @@ class Runner(
         val messageVal = message match {
           case TransactionMsg(transaction) => {
             converter.fromTransaction(transaction) match {
-              case Left(err) => throw new RuntimeException(err)
+              case Left(err) => throw new ConverterException(err)
               case Right(x) => x
             }
           }
@@ -217,7 +217,7 @@ class Runner(
               logger.warn(s"Command failed: ${status.message}, code: ${status.code}")
             }
             converter.fromCompletion(completion) match {
-              case Left(err) => throw new RuntimeException(err)
+              case Left(err) => throw new ConverterException(err)
               case Right(x) => x
             }
           }
