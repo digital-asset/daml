@@ -28,6 +28,7 @@ package object tests {
     "DivulgenceIT" -> (new Divulgence(_)),
     "IdentityIT" -> (new Identity(_)),
     "LedgerConfigurationServiceIT" -> (new LedgerConfigurationService(_)),
+    "LotsOfPartiesIT" -> (new LotsOfParties(_)),
     "PackageManagementServiceIT" -> (new PackageManagement(_)),
     "PackageServiceIT" -> (new Packages(_)),
     "PartyManagementServiceIT" -> (new PartyManagement(_)),

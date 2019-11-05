@@ -11,6 +11,7 @@ import com.digitalasset.ledger.api.v1.transaction.{Transaction, TransactionTree,
 import com.digitalasset.ledger.test_stable.Test.AgreementFactory
 import com.digitalasset.ledger.test_stable.Test.AgreementFactory._
 import io.grpc.{Status, StatusException, StatusRuntimeException}
+import scalaz.{@@, Tag}
 
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future}
@@ -125,6 +126,14 @@ private[testtool] abstract class LedgerTestSuite(val session: LedgerSession) {
       // point before invoking this method
     }
   }
+
+  implicit def diffShowTag[A, T](implicit diffShowA: DiffShow[A]): DiffShow[A @@ T] =
+    new DiffShow[A @@ T] {
+      override def show(t: A @@ T): String = diffShowA.show(Tag.unwrap(t))
+
+      override def diff(left: A @@ T, right: A @@ T): Comparison =
+        diffShowA.diff(Tag.unwrap(left), Tag.unwrap(right))
+    }
 
   implicit def diffShowSeq[T](implicit diffShowT: DiffShow[T]): DiffShow[Seq[T]] =
     new DiffShow[Seq[T]] {
