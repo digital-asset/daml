@@ -4,7 +4,7 @@
 package com.digitalasset.platform.tests.integration.ledger.api.commands
 
 import com.digitalasset.api.util.TimeProvider
-import com.digitalasset.grpc.GrpcException
+import com.digitalasset.grpc.{GrpcException, GrpcStatus}
 import com.digitalasset.ledger.api.v1.command_service.{
   SubmitAndWaitForTransactionIdResponse,
   SubmitAndWaitRequest
@@ -34,8 +34,8 @@ class CommandTransactionChecksHighLevelIT extends CommandTransactionChecks {
             Some(Status(io.grpc.Status.OK.getCode.value(), "")),
             tx.transactionId))
       .recover {
-        case GrpcException(s, _) =>
-          Completion(commandId, Some(Status(s.getCode.value(), s.getDescription)))
+        case GrpcException(GrpcStatus(code, description), _) =>
+          Completion(commandId, Some(Status(code.value(), description.getOrElse(""))))
       }
 
   def commandUpdater(ctx: LedgerContext) = {
