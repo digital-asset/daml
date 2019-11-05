@@ -67,10 +67,10 @@ abstract class AbstractHttpServiceIntegrationTest
 
   private val headersWithAuth = List(Authorization(OAuth2BearerToken(jwt.value)))
 
-  private def withHttpService[A] =
+  protected def withHttpService[A] =
     HttpServiceTestFixture.withHttpService[A](dar, jdbcConfig, testId) _
 
-  private def withLedger[A] = HttpServiceTestFixture.withLedger[A](dar, testId) _
+  protected def withLedger[A] = HttpServiceTestFixture.withLedger[A](dar, testId) _
 
   "contracts/search without query" in withHttpService { (uri: Uri, _, _) =>
     getRequest(uri = uri.withPath(Uri.Path("/contracts/search")))
@@ -87,7 +87,7 @@ abstract class AbstractHttpServiceIntegrationTest
       }: Future[Assertion]
   }
 
-  private val searchDataSet: List[domain.CreateCommand[v.Record]] = List(
+  protected val searchDataSet: List[domain.CreateCommand[v.Record]] = List(
     iouCreateCommand(amount = "111.11", currency = "EUR"),
     iouCreateCommand(amount = "222.22", currency = "EUR"),
     iouCreateCommand(amount = "333.33", currency = "GBP"),
@@ -170,7 +170,7 @@ abstract class AbstractHttpServiceIntegrationTest
     }
   }
 
-  private def jsObject(s: String): JsObject = {
+  protected def jsObject(s: String): JsObject = {
     val r: JsonError \/ JsObject = for {
       jsVal <- SprayJson.parse(s).leftMap(e => JsonError(e.shows))
       jsObj <- SprayJson.mustBeJsObject(jsVal)
@@ -178,7 +178,7 @@ abstract class AbstractHttpServiceIntegrationTest
     r.valueOr(e => fail(e.shows))
   }
 
-  private def searchWithQuery(
+  protected def searchWithQuery(
       commands: List[domain.CreateCommand[v.Record]],
       query: JsObject,
       uri: Uri,
