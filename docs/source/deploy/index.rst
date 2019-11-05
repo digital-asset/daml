@@ -74,6 +74,11 @@ support for running DAML.
      - Status
      - Developer (Managed Offering)
      - More information
+   * - `project : DABL <https://projectdabl.com>`__
+     - Alpha
+     - `Digital Asset <https://www.digitalasset.com/>`__
+     - `From Concept to Production in under 10 minutes
+       <https://blog.daml.com/daml-driven/from-concept-to-production-in-under-10-minutes-meet-the-dabl-alpha>`__
    * - `VMware Blockchain <https://blogs.vmware.com/blockchain>`__
      - In development
      - `VMware <https://www.vmware.com/>`__
