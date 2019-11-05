@@ -18,9 +18,15 @@ import DA.Pretty
 -- | This tool generates a simple DALF file and writes it to the first
 -- argument given on the command line. This DALF is intended to be used
 -- as a test case for the plain DALF import feature.
+-- If the flag --with-archive-choice is given, The DALF will contain an "Archive" choice.
 main :: IO ()
 main = do
-    [file] <- getArgs
+    args <- getArgs
+    let (file,withArchiveChoice) =
+            case args of
+                [file] -> (file,False)
+                ["--with-archive-choice",file] -> (file,True)
+                _ -> error $ "unexpected command line args: " <> show args
     let version = V1 (PointStable 6)
     let modName = ModuleName ["Module"]
     let modRef = Qualified PRSelf modName
@@ -43,6 +49,13 @@ main = do
             , dataParams = []
             , dataCons = DataVariant [(VariantConName "Choice", TUnit)]
             }
+    let emptyRec = DefDataType
+            { dataLocation = Nothing
+            , dataTypeCon = TypeConName ["EmptyRecord"]
+            , dataSerializable = IsSerializable True
+            , dataParams = []
+            , dataCons = DataRecord []
+            }
     let chc = TemplateChoice
             { chcLocation = Nothing
             , chcName = ChoiceName "NotChoice"
@@ -50,6 +63,16 @@ main = do
             , chcControllers = tplParties
             , chcSelfBinder = ExprVarName "this"
             , chcArgBinder = (ExprVarName "self", TCon (modRef (dataTypeCon chcArg)))
+            , chcReturnType = TUnit
+            , chcUpdate = EUpdate $ UPure TUnit EUnit
+            }
+    let arc = TemplateChoice
+            { chcLocation = Nothing
+            , chcName = ChoiceName "Archive"
+            , chcConsuming = True
+            , chcControllers = tplParties
+            , chcSelfBinder = ExprVarName "this"
+            , chcArgBinder = (ExprVarName "self", TCon (modRef (dataTypeCon emptyRec)))
             , chcReturnType = TUnit
             , chcUpdate = EUpdate $ UPure TUnit EUnit
             }
@@ -61,14 +84,14 @@ main = do
             , tplSignatories = tplParties
             , tplObservers = ENil TParty
             , tplAgreement = mkEmptyText
-            , tplChoices = NM.fromList [chc]
+            , tplChoices = NM.fromList ([chc] <> [arc | withArchiveChoice])
             , tplKey = Nothing
             }
     let mod = Module
             { moduleName = ModuleName ["Module"]
             , moduleSource = Nothing
             , moduleFeatureFlags = FeatureFlags{forbidPartyLiterals = True}
-            , moduleDataTypes = NM.fromList [tplRec, chcArg]
+            , moduleDataTypes = NM.fromList ([tplRec, chcArg] <> [emptyRec | withArchiveChoice])
             , moduleValues = NM.empty
             , moduleTemplates = NM.fromList [tpl]
             }
