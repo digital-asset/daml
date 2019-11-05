@@ -963,30 +963,31 @@ convertExpr env0 e = do
             pure $ ERecProj (fromTCon recTyp) fldName scrutinee' `ETmApp` EUnit
     go env o@(Case scrutinee bind _ [alt@(DataAlt con, vs, x)]) args = fmap (, args) $ do
         convertType env (varType bind) >>= \case
-          TText -> asLet
-          TDecimal -> asLet
-          TNumeric _ -> asLet
-          TParty -> asLet
-          TTimestamp -> asLet
-          TDate -> asLet
-          TContractId{} -> asLet
-          TUpdate{} -> asLet
-          TScenario{} -> asLet
-          TAny{} -> asLet
-          tcon -> do
-              ctor@(Ctor _ fldNames fldTys) <- toCtor env con
-              if not (isRecordCtor ctor)
-                then convertLet env bind scrutinee $ \env -> do
-                  bind' <- convertExpr env (Var bind)
-                  ty <- convertType env $ varType bind
-                  alt' <- convertAlt env ty alt
-                  pure $ ECase bind' [alt']
-                else case zipExactMay vs (zipExact fldNames fldTys) of
+            TText -> asLet
+            TDecimal -> asLet
+            TNumeric _ -> asLet
+            TParty -> asLet
+            TTimestamp -> asLet
+            TDate -> asLet
+            TContractId{} -> asLet
+            TUpdate{} -> asLet
+            TScenario{} -> asLet
+            TAny{} -> asLet
+            tcon | isRecordCon con -> do
+                fields <- convertRecordFields env con id
+                case zipExactMay vs fields of
                     Nothing -> unsupported "Pattern match with existential type" alt
-                    Just vsFlds -> convertLet env bind scrutinee $ \env -> do
+                    Just vsFields -> convertLet env bind scrutinee $ \env -> do
                         bindRef <- convertExpr env (Var bind)
                         x' <- convertExpr env x
-                        mkProjBindings env bindRef (fromTCon tcon) vsFlds x'
+                        mkProjBindings env bindRef (fromTCon tcon) vsFields x'
+            _ ->
+                convertLet env bind scrutinee $ \env -> do
+                    bind' <- convertExpr env (Var bind)
+                    ty <- convertType env $ varType bind
+                    alt' <- convertAlt env ty alt
+                    pure $ ECase bind' [alt']
+
       where
         asLet = convertLet env bind scrutinee $ \env -> convertExpr env x
     go env (Case scrutinee bind typ []) args = fmap (, args) $ do
@@ -1017,7 +1018,7 @@ isEnumTyCon tycon =
     isEnumerationTyCon tycon
     && (tyConArity tycon == 0)
     && ((length (tyConDataCons tycon) >= 2)
-       || T.isPrefixOf "DamlEnum$" (getOccText tycon))
+       || hasEnumPrefix (getOccText tycon))
 
 -- | Is this a simple record type?
 isSimpleRecordTyCon :: TyCon -> Bool
@@ -1044,10 +1045,16 @@ isEnumCon :: DataCon -> Bool
 isEnumCon = isEnumTyCon . dataConTyCon
 
 isSimpleRecordCon :: DataCon -> Bool
-isSimpleRecordCon con = (conHasLabels con || conHasNoArgs con) && conIsSingle con
+isSimpleRecordCon con =
+    (conHasLabels con || conHasNoArgs con)
+    && conIsSingle con
+    && not (isEnumCon con)
 
 isVariantRecordCon :: DataCon -> Bool
 isVariantRecordCon con = conHasLabels con && not (conIsSingle con)
+
+isRecordCon :: DataCon -> Bool
+isRecordCon con = isSimpleRecordCon con || isVariantRecordCon con
 
 -- | The different classes of data cons with respect to LF conversion.
 data DataConClass
@@ -1520,9 +1527,6 @@ toCtor env con =
         | flv == ClassFlavour = TUnit :-> ty
         | otherwise = ty
   in Ctor (getName con) (ctorLabels con) <$> mapM (fmap sanitize . convertType env) (thetas ++ tys)
-
-isRecordCtor :: Ctor -> Bool
-isRecordCtor (Ctor _ fldNames fldTys) = not (null fldNames) || null fldTys
 
 ---------------------------------------------------------------------
 -- SIMPLE WRAPPERS

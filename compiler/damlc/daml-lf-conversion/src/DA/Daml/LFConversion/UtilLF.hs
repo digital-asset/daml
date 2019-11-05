@@ -12,6 +12,7 @@ import           DA.Daml.LF.Ast
 import qualified DA.Daml.LF.Proto3.Archive  as Archive
 import           DA.Pretty (renderPretty)
 
+import Data.Maybe
 import qualified Data.ByteString.Char8      as BS
 import qualified Data.NameMap               as NM
 import qualified Data.Text                  as T
@@ -44,7 +45,16 @@ mkChoiceName :: T.Text -> ChoiceName
 mkChoiceName = ChoiceName
 
 mkTypeCon :: [T.Text] -> TypeConName
-mkTypeCon = TypeConName
+mkTypeCon = TypeConName . map stripEnumPrefix
+
+stripEnumPrefix :: T.Text -> T.Text
+stripEnumPrefix t = fromMaybe t (T.stripPrefix enumPrefix t)
+
+hasEnumPrefix :: T.Text -> Bool
+hasEnumPrefix = T.isPrefixOf enumPrefix
+
+enumPrefix :: T.Text
+enumPrefix = "DamlEnum$"
 
 mkIdentity :: Type -> Expr
 mkIdentity t = ETmLam (varV1, t) $ EVar varV1
