@@ -997,6 +997,9 @@ execMigrate projectOpts inFile1_ inFile2_ mbDir =
           let buildOptions
                   | differentSdks = buildOptions0 ++ buildOptions1
                   | otherwise = buildOptions1
+          --If we have different sdks we need to allow this with the flag --allow-different-sdks and
+          --also import the created instances modules with aliases (their names clash). If not, we
+          --only need aliases for the modules of the two imported packages.
           forM_ eqModNames $ \m@(LF.ModuleName modName) -> do
               let upgradeModPath =
                       (joinPath $ fromMaybe "" mbDir : map T.unpack modName) <>
