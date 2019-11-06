@@ -115,7 +115,6 @@ async function showReleaseNotesIfNewVersion(context: ExtensionContext) {
         showReleaseNotes(extensionVersion);
         await context.globalState.update(versionContextKey, extensionVersion);
     }
-    await context.globalState.update(versionContextKey, extensionVersion);
 }
 
 // Check that `version2` is an upgrade from `version1`,
