@@ -21,7 +21,6 @@ object NavigatorBackend extends UIBackend {
     id = s"Navigator-${UUID.randomUUID().toString}",
     name = "Navigator",
     version = Source.fromResource("COMPONENT-VERSION").mkString("").trim(),
-    revision = Source.fromResource(".git-revision").mkString("").trim()
   )
   override def banner: Option[String] =
     Some(

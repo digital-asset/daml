@@ -25,7 +25,6 @@ export interface BackendVersionInfo {
   id: string;
   name: string;
   version: string;
-  revision: string;
 }
 
 export type BackendVersionInfoResult
@@ -134,7 +133,6 @@ const BackendInfo: React.StatelessComponent<{info: BackendVersionInfoResult}>
     case 'loaded': return (
       <p>
         Version: {info.info.version} <br/>
-        Revision: {info.info.revision} <br/>
         Application ID: {info.info.id}
       </p>
     );

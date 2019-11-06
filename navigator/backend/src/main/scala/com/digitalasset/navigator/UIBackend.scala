@@ -108,9 +108,9 @@ abstract class UIBackend extends LazyLogging with ApplicationInfoJsonSupport {
     // Users can quickly switch between Navigator versions, so we don't want to cache this resource for any amount of time.
     // Note: The server still uses E-Tags, so repeated fetches will complete with a "304: Not Modified".
     def mutableResource = respondWithHeader(`Cache-Control`(`no-cache`))
-    // Add an ETag with value equal to the revision used to build the application.
+    // Add an ETag with value equal to the version used to build the application.
     // Use as a cheap ETag for resources that may change between builds.
-    def revisionETag = conditional(EntityTag(applicationInfo.revision))
+    def versionETag = conditional(EntityTag(applicationInfo.version))
     // A resource that is never going to change. Its path must use some kind of content hash.
     // Such a resource may be cached indefinitely.
     def immutableResource =
@@ -181,7 +181,7 @@ abstract class UIBackend extends LazyLogging with ApplicationInfoJsonSupport {
               } ~
               path("graphql") {
                 get {
-                  revisionETag { mutableResource { getFromResource("graphiql.html") } }
+                  versionETag { mutableResource { getFromResource("graphiql.html") } }
                 } ~
                   post {
                     authorize(session.isDefined) {
@@ -208,7 +208,7 @@ abstract class UIBackend extends LazyLogging with ApplicationInfoJsonSupport {
               } ~
                 // Serve index on root and anything else to allow History API to behave
                 // as expected on reloading.
-                revisionETag {
+                versionETag {
                   mutableResource { withoutFileETag { getFromResource("frontend/index.html") } }
                 }
             case Some(folder) =>

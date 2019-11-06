@@ -37,33 +37,6 @@ java_library(
     ],
 )
 
-# Revision file, as a top level resources.
-java_library(
-    name = "revision-resource",
-    resources = [
-        "//:git-revision",
-    ],
-)
-
-# Fake git revision, using SHA-1 of the empty string
-# Used in tests, to make sure we don't rerun tests on every commit.
-genrule(
-    name = "test-revision",
-    srcs = [],
-    outs = [".git-revision"],
-    cmd = "echo \"da39a3ee5e6b4b0d3255bfef95601890afd80709\" > \"$@\"",
-)
-
-# Fake git revision file, as a top level resource.
-# Used in tests, to make sure we don't rerun tests on every commit.
-java_library(
-    name = "test-revision-resource",
-    resource_strip_prefix = "navigator/backend",
-    resources = [
-        ":test-revision",
-    ],
-)
-
 # Static backend resources.
 java_library(
     name = "backend-resources",
@@ -167,7 +140,6 @@ da_scala_binary(
         ":backend-resources",
         ":frontend-resources",
         ":navigator-library",
-        ":revision-resource",
         ":version-resource",
     ],
 )
@@ -190,6 +162,5 @@ da_scala_test_suite(
         ":navigator-tests-library",
         ":test-resources",
         ":version-resource",
-        ":test-revision-resource",
     ] + testDependencies,
 )
