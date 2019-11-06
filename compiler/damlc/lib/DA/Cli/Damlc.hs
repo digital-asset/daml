@@ -564,7 +564,7 @@ createProjectPackageDb opts fps = do
                           let getUid = getUnitId unitId pkgMap
                           let src = generateSrcPkgFromLf getUid pkgId dalf
                           let templInstSrc =
-                                  generateInstancesPkgFromLf
+                                  generateTemplateInstancesPkgFromLf
                                       getUid
                                       pkgId
                                       dalf

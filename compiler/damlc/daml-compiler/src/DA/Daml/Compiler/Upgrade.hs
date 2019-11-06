@@ -7,7 +7,7 @@ module DA.Daml.Compiler.Upgrade
     , generateTemplateInstance
     , generateSrcFromLf
     , generateSrcPkgFromLf
-    , generateInstancesPkgFromLf
+    , generateTemplateInstancesPkgFromLf
     , generateGenInstancesPkgFromLf
     , Env(..)
     , DiffSdkVers(..)
@@ -90,14 +90,14 @@ upgradeTemplates n =
 -- package. It _only_ contains the instance stubs. The correct implementation happens in the
 -- conversion to daml-lf, where `extenal` calls are inlined to daml-lf contained in the dalf of the
 -- external package.
-generateInstancesPkgFromLf ::
+generateTemplateInstancesPkgFromLf ::
        (LF.PackageRef -> UnitId)
     -> LF.PackageId
     -> LF.Package
     -> [(NormalizedFilePath, String)]
-generateInstancesPkgFromLf getUnitId pkgId pkg =
+generateTemplateInstancesPkgFromLf getUnitId pkgId pkg =
     catMaybes
-        [ generateInstanceModule
+        [ generateTemplateInstanceModule
             Env
                 { envGetUnitId = getUnitId
                 , envQualify = False
@@ -108,9 +108,9 @@ generateInstancesPkgFromLf getUnitId pkgId pkg =
         ]
 
 -- | Generate a module containing template/generic instances for all the contained templates.
-generateInstanceModule ::
+generateTemplateInstanceModule ::
        Env -> LF.PackageId -> Maybe (NormalizedFilePath, String)
-generateInstanceModule env externPkgId
+generateTemplateInstanceModule env externPkgId
     | not $ null instances =
         Just
             ( toNormalizedFilePath modFilePath
