@@ -68,6 +68,14 @@ targetSrcDirOpt =
     <> long "srcdir"
     <> value Nothing
 
+qualOpt :: Parser (Maybe String)
+qualOpt =
+    option (Just <$> str) $
+    metavar "QUALIFICATION" <>
+    help "Optional qualification to append to generated module name." <>
+    long "qualify" <>
+    value Nothing
+
 optionalInputFileOpt :: Parser (Maybe FilePath)
 optionalInputFileOpt = option (Just <$> str) $
        metavar "FILE"
