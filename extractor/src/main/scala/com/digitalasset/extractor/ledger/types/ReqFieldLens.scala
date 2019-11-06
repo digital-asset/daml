@@ -8,7 +8,7 @@ import scalaz.{Lens => _, _}
 import Scalaz._
 
 /** Lens to extract actually required values from `Option`al fields
-  * as in the types like [[com.digitalasset.ledger.api.v1.value.RecordField]],
+  * as in the types like `com.digitalasset.ledger.api.v1.value.RecordField`,
   * and display meaningful information about the field and the container value
   * when it's not possible because of a `None` value.
   *
@@ -20,7 +20,7 @@ import Scalaz._
   *   c: C,
   *   field: String
   * ): String \/ V = {
-  *   optVal.\/>(s"Required field `${field}` is empty in value: ${c}")
+  *   optVal.\/>(s"Required field `\$field` is empty in value: \$c")
   * }
   * }}}
   *
