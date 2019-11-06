@@ -96,10 +96,12 @@ object LedgerApiTestTool {
       LedgerSessionConfiguration(
         config.participants,
         config.tlsConfig,
-        config.commandSubmissionTtlScaleFactor),
+        config.commandSubmissionTtlScaleFactor,
+      ),
       testsToRun.values.toVector,
+      identifierSuffix,
       config.timeoutScaleFactor,
-      identifierSuffix
+      config.concurrentTestRuns,
     )
 
     runner.verifyRequirementsAndRun {

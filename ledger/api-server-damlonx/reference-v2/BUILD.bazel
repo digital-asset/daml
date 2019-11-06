@@ -72,9 +72,6 @@ SERVERS = {
             # (and therefore lost) after the flyway migration
             "--jdbc-url=jdbc:h2:mem:daml_on_x;db_close_delay=-1;db_close_on_exit=false",
         ],
-        "test_tool_args": [
-            "--timeout-scale-factor=10",
-        ],
     },
     "postgres": {
         "binary": ":ephemeral-postgres-reference-server",
@@ -87,9 +84,6 @@ SERVERS = {
         "server_args": [
             "--port=6865",
         ],
-        "test_tool_args": [
-            "--timeout-scale-factor=10",
-        ],
     },
 }
 
@@ -100,14 +94,6 @@ server_conformance_test(
         "--all-tests",
         "--exclude=LotsOfPartiesIT",
         "--exclude=TimeIT",
-    ],
-)
-
-server_conformance_test(
-    name = "conformance-test-lots-of-parties",
-    servers = SERVERS,
-    test_tool_args = [
-        "--include=LotsOfPartiesIT",
     ],
 )
 
@@ -127,6 +113,5 @@ conformance_test(
     ],
     test_tool_args = [
         "--include=SemanticTests,TransactionServiceIT",
-        "--timeout-scale-factor=10",
     ],
 )

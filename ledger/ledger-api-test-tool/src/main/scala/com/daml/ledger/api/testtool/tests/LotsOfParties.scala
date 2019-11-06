@@ -12,6 +12,7 @@ import com.digitalasset.ledger.client.binding.Primitive.{ContractId, Party}
 import com.digitalasset.ledger.test_stable.Test.WithObservers
 
 import scala.concurrent.Future
+import scala.concurrent.duration.DurationInt
 
 final class LotsOfParties(session: LedgerSession) extends LedgerTestSuite(session) {
   type Parties = Set[Party]
@@ -19,9 +20,13 @@ final class LotsOfParties(session: LedgerSession) extends LedgerTestSuite(sessio
 
   private val partyCount = 1024
 
+  // allocating parties seems to be really slow on a real database
+  private val timeout = 120.seconds
+
   test(
     "LOPseeTransactionsInMultipleSinglePartySubscriptions",
-    "Observers should see transactions in multiple single-party subscriptions"
+    "Observers should see transactions in multiple single-party subscriptions",
+    timeout = timeout
   ) { context =>
     for {
       alpha <- context.participant()
@@ -48,7 +53,8 @@ final class LotsOfParties(session: LedgerSession) extends LedgerTestSuite(sessio
 
   test(
     "LOPseeTransactionsInSingleMultiPartySubscription",
-    "Observers should see transactions in a single multi-party subscription"
+    "Observers should see transactions in a single multi-party subscription",
+    timeout = timeout
   ) { context =>
     for {
       alpha <- context.participant()
@@ -75,7 +81,8 @@ final class LotsOfParties(session: LedgerSession) extends LedgerTestSuite(sessio
 
   test(
     "LOPseeActiveContractsInMultipleSinglePartySubscriptions",
-    "Observers should see active contracts in multiple single-party subscriptions"
+    "Observers should see active contracts in multiple single-party subscriptions",
+    timeout = timeout
   ) { context =>
     for {
       alpha <- context.participant()
@@ -102,7 +109,8 @@ final class LotsOfParties(session: LedgerSession) extends LedgerTestSuite(sessio
 
   test(
     "LOPseeActiveContractsInSingleMultiPartySubscription",
-    "Observers should see active contracts in a single multi-party subscription"
+    "Observers should see active contracts in a single multi-party subscription",
+    timeout = timeout
   ) { context =>
     for {
       alpha <- context.participant()

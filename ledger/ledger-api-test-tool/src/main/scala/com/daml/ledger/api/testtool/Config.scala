@@ -14,12 +14,13 @@ final case class Config(
     verbose: Boolean,
     commandSubmissionTtlScaleFactor: Double,
     timeoutScaleFactor: Double,
+    concurrentTestRuns: Int,
     extract: Boolean,
     tlsConfig: Option[TlsConfiguration],
     excluded: Set[String],
     included: Set[String],
     listTests: Boolean,
-    allTests: Boolean
+    allTests: Boolean,
 )
 
 object Config {
@@ -30,11 +31,12 @@ object Config {
     verbose = false,
     commandSubmissionTtlScaleFactor = 1.0,
     timeoutScaleFactor = 1.0,
+    concurrentTestRuns = Runtime.getRuntime.availableProcessors(),
     extract = false,
     tlsConfig = None,
     excluded = Set.empty,
     included = Set.empty,
     listTests = false,
-    allTests = false
+    allTests = false,
   )
 }
