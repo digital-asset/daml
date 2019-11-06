@@ -1586,7 +1586,10 @@ convertExternal env stdlibRef primId lfType
                 "archive" ->
                     let archiveChoice = ChoiceName "Archive"
                      in case NM.lookup archiveChoice tplChoices of
-                            Nothing -> errorExpr "archive"
+                            Nothing ->
+                              EBuiltin BEError `ETyApp` lfType `ETmApp`
+                              EBuiltin
+                                  (BEText $ "convertExternal: archive is not implemented in external package")
                             Just TemplateChoice {..} ->
                                 case chcArgBinder of
                                     (_, LF.TCon tcon) ->
@@ -1673,10 +1676,6 @@ convertExternal env stdlibRef primId lfType
                 other -> error "convertExternal: Unknown external method"
     | otherwise = error $ "convertExternal: Unable to inline call to external method: " <> primId
   where
-    errorExpr s =
-        EBuiltin BEError `ETyApp` lfType `ETmApp`
-        EBuiltin
-            (BEText $ "convertExternal: method " <> s <> " not implemented")
     lookup pId modName temName = do
         mods <- MS.lookup pId pkgIdToModules
         mod <- NM.lookup (LF.ModuleName $ map T.pack $ splitOn "." modName) mods
