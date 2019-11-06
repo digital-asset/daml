@@ -31,5 +31,5 @@ HEAD — ongoing
 - [DAML Triggers] Remove the custom ``AbsoluteContractId`` type in favor of the regular ``ContractId`` type used in DAML templates.
 - [Ledger] Fixed divulged contract visibility in multi-participant environments. See `issue #3351 <https://github.com/digital-asset/daml/issues/3351>`__.
 - [Ledger] Enabled the ability to configure ledger api servers with a time service (for test purposes only).
-- [Ledger] Improved ledger api server error logging to include the sql statement description
 - [Ledger] Allow a ledger api server to share the DAML engine with the DAML-on-X participant node for performance. See `issue #2975 <https://github.com/digital-asset/daml/issues/2975>`__.
+- [Ledger] Allow non-alphanumeric characters in ledger api server participant ids (space, colon, hash, slash, dot).
