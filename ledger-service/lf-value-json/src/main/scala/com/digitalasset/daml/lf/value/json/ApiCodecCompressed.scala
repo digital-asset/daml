@@ -22,7 +22,7 @@ import scalaz.syntax.std.string._
   *
   * Therefore, this JSON format can only decode given a target type.
   *
-  * [[ApiCodecCompressed.apiValueJsonReader]] can create a JSON reader with the necessary type information
+  * `apiValueJsonReader` can create a JSON reader with the necessary type information.
   *
   * @param encodeDecimalAsString Not used yet.
   * @param encodeInt64AsString Not used yet.
@@ -269,11 +269,11 @@ abstract class ApiCodecCompressed[Cid](
     jsValueToApiDataType(value, id, dt, defs)
   }
 
-  /** Creates a [[JsonReader]] for arbitrary [[Model.ApiValue]]s with the relevant type information */
+  /** Creates a JsonReader for Values with the relevant type information */
   def apiValueJsonReader(typ: DamlLfType, defs: DamlLfTypeLookup): JsonReader[V[Cid]] =
     jsValueToApiValue(_, typ, defs)
 
-  /** Creates a [[JsonReader]] for arbitrary [[Model.ApiValue]]s with the relevant type information */
+  /** Creates a JsonReader for Values with the relevant type information */
   def apiValueJsonReader(typ: DamlLfIdentifier, defs: DamlLfTypeLookup): JsonReader[V[Cid]] =
     jsValueToApiValue(_, typ, defs)
 
