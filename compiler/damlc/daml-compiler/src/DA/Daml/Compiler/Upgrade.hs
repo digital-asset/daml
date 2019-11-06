@@ -108,6 +108,7 @@ generateTemplateInstancesPkgFromLf getUnitId pkgId pkg =
         ]
 
 -- | Generate a module containing template/generic instances for all the contained templates.
+-- Return Nothing if there are no instances, so no unnecessary modules are created.
 generateTemplateInstanceModule ::
        Env -> LF.PackageId -> Maybe (NormalizedFilePath, String)
 generateTemplateInstanceModule env externPkgId
