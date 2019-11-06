@@ -34,6 +34,6 @@ def server_conformance_test(name, servers, server_args = [], test_tool_args = []
             name = test_name,
             extra_data = server.get("extra_data", []),
             server = server["binary"],
-            server_args = server["server_args"] + server_args,
-            test_tool_args = server["test_tool_args"] + test_tool_args,
+            server_args = server.get("server_args", []) + server_args,
+            test_tool_args = server.get("test_tool_args", []) + test_tool_args,
         )
