@@ -21,9 +21,6 @@ object JsonProtocol extends DefaultJsonProtocol {
   implicit val ApplicationIdFormat: JsonFormat[lar.ApplicationId] =
     taggedJsonFormat[String, lar.ApplicationIdTag]
 
-  implicit val WorkflowIdFormat: JsonFormat[domain.WorkflowId] =
-    taggedJsonFormat[String, domain.WorkflowIdTag]
-
   implicit val PartyFormat: JsonFormat[domain.Party] =
     taggedJsonFormat[String, domain.PartyTag]
 
@@ -41,9 +38,19 @@ object JsonProtocol extends DefaultJsonProtocol {
   object LfValueCodec
       extends ApiCodecCompressed[AbsoluteContractId](
         encodeDecimalAsString = true,
-        encodeInt64AsString = true) {
-    protected override def apiContractIdToJsValue(obj: AbsoluteContractId) = JsString(obj.coid)
-    protected override def jsValueToApiContractId(json: JsValue) = json match {
+        encodeInt64AsString = true)
+      with CodecAbsoluteContractIds
+
+  object LfValueDatabaseCodec
+      extends ApiCodecCompressed[AbsoluteContractId](
+        encodeDecimalAsString = false,
+        encodeInt64AsString = false)
+      with CodecAbsoluteContractIds
+
+  sealed trait CodecAbsoluteContractIds extends ApiCodecCompressed[AbsoluteContractId] {
+    protected override final def apiContractIdToJsValue(obj: AbsoluteContractId) =
+      JsString(obj.coid)
+    protected override final def jsValueToApiContractId(json: JsValue) = json match {
       case JsString(s) =>
         Ref.ContractIdString fromString s fold (deserializationError(_), AbsoluteContractId)
       case _ => deserializationError("ContractId must be a string")
@@ -111,10 +118,10 @@ object JsonProtocol extends DefaultJsonProtocol {
     }
 
   implicit val ActiveContractFormat: RootJsonFormat[domain.ActiveContract[JsValue]] =
-    jsonFormat9(domain.ActiveContract.apply[JsValue])
+    jsonFormat8(domain.ActiveContract.apply[JsValue])
 
   implicit val ArchivedContractFormat: RootJsonFormat[domain.ArchivedContract] =
-    jsonFormat4(domain.ArchivedContract.apply)
+    jsonFormat3(domain.ArchivedContract.apply)
 
   private val templatesKey = "%templates"
 
@@ -129,7 +136,7 @@ object JsonProtocol extends DefaultJsonProtocol {
     case _ => deserializationError("/contracts/search must receive an object")
   }
 
-  implicit val CommandMetaFormat: RootJsonFormat[domain.CommandMeta] = jsonFormat4(
+  implicit val CommandMetaFormat: RootJsonFormat[domain.CommandMeta] = jsonFormat3(
     domain.CommandMeta)
 
   implicit val CreateCommandFormat: RootJsonFormat[domain.CreateCommand[JsObject]] = jsonFormat3(

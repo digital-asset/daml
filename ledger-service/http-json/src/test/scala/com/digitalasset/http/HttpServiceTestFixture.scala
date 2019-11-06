@@ -29,11 +29,14 @@ import com.digitalasset.platform.sandbox.config.SandboxConfig
 import com.digitalasset.platform.services.time.TimeProviderType
 import scalaz._
 
+import scala.concurrent.duration.{DAYS, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future}
 
 object HttpServiceTestFixture {
 
-  def withHttpService[A](dar: File, testName: String)(
+  private val doNotReloadPackages = FiniteDuration(100, DAYS)
+
+  def withHttpService[A](dar: File, jdbcConfig: Option[JdbcConfig], testName: String)(
       testFn: (Uri, DomainJsonEncoder, DomainJsonDecoder) => Future[A])(
       implicit asys: ActorSystem,
       mat: Materializer,
@@ -52,7 +55,14 @@ object HttpServiceTestFixture {
       (_, ledgerPort) <- ledgerF
       httpPort <- toFuture(findOpenPort())
       httpService <- stripLeft(
-        HttpService.start("localhost", ledgerPort, applicationId, "localhost", httpPort))
+        HttpService.start(
+          "localhost",
+          ledgerPort,
+          applicationId,
+          "localhost",
+          httpPort,
+          jdbcConfig,
+          doNotReloadPackages))
     } yield (httpService, httpPort)
 
     val clientF: Future[LedgerClient] = for {

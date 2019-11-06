@@ -54,7 +54,6 @@ object Generators {
     override def gen: Gen[Option[String]] = Gen.option(RequiredPackageIdGen.gen)
   }
 
-  def workflowIdGen: Gen[domain.WorkflowId] = Gen.identifier.map(domain.WorkflowId(_))
   def contractIdGen: Gen[domain.ContractId] = Gen.identifier.map(domain.ContractId(_))
   def partyGen: Gen[domain.Party] = Gen.identifier.map(domain.Party(_))
 
@@ -66,7 +65,6 @@ object Generators {
 
   def activeContractGen: Gen[domain.ActiveContract[JsValue]] =
     for {
-      workflowId <- Gen.option(workflowIdGen)
       contractId <- contractIdGen
       templateId <- Generators.genDomainTemplateId
       key <- Gen.option(Gen.identifier.map(JsString(_)))
@@ -77,7 +75,6 @@ object Generators {
       agreementText <- Gen.identifier
     } yield
       domain.ActiveContract[JsValue](
-        workflowId = workflowId,
         contractId = contractId,
         templateId = templateId,
         key = key,
@@ -90,13 +87,11 @@ object Generators {
 
   def archivedContractGen: Gen[domain.ArchivedContract] =
     for {
-      workflowId <- Gen.option(workflowIdGen)
       contractId <- contractIdGen
       templateId <- Generators.genDomainTemplateId
       witnessParties <- Gen.listOf(partyGen)
     } yield
       domain.ArchivedContract(
-        workflowId = workflowId,
         contractId = contractId,
         templateId = templateId,
         witnessParties = witnessParties,

@@ -9,6 +9,7 @@ load(
 )
 
 hj_scalacopts = [
+    "-P:wartremover:traverser:org.wartremover.warts.NonUnitStatements",
     "-Ypartial-unification",
     "-Xsource:2.13",
 ]
@@ -23,6 +24,15 @@ http_json_deps = [
     "@maven//:com_typesafe_scala_logging_scala_logging_2_12",
     "@maven//:io_spray_spray_json_2_12",
     "@maven//:org_scalaz_scalaz_core_2_12",
+    "@maven//:org_typelevel_cats_core_2_12",
+    "@maven//:org_typelevel_cats_effect_2_12",
+    "@maven//:org_typelevel_cats_free_2_12",
+    "@maven//:org_typelevel_cats_kernel_2_12",
+    "@maven//:com_lihaoyi_sourcecode_2_12",
+    "@maven//:com_chuusai_shapeless_2_12",
+    "@maven//:org_tpolecat_doobie_core_2_12",
+    "@maven//:org_tpolecat_doobie_free_2_12",
+    "@maven//:org_tpolecat_doobie_postgres_2_12",
     "//daml-lf/interface",
     "//daml-lf/transaction",
     "//language-support/scala/bindings-akka",
@@ -32,6 +42,7 @@ http_json_deps = [
     "//ledger-service/lf-value-json",
     "//ledger-service/utils",
     "//ledger-service/jwt",
+    "//ledger-service/db-backend",
 ]
 
 da_scala_library(
@@ -68,8 +79,13 @@ da_scala_test(
         "@maven//:org_scalatest_scalatest_2_12",
         "//daml-lf/transaction-scalacheck",
         "//ledger/sandbox:sandbox",
+        "//ledger/sandbox:sandbox-scala-tests-lib",
         "//ledger/participant-state",
         "//bazel_tools/runfiles:scala_runfiles",
+        "@postgresql_dev_env//:all",
+        "@postgresql_dev_env//:createdb",
+        "@postgresql_dev_env//:initdb",
+        "@postgresql_dev_env//:pg_ctl",
     ] + http_json_deps,
 )
 

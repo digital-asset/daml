@@ -22,6 +22,10 @@ HEAD — ongoing
 - [DAML Compiler] Fix compile error caused by instantiating generic
   templates at ``Numeric n``.
 - [Sandbox] Timing about database operations are now exposed over JMX as well as via the logs.
+- [JSON API - Experimental] ``workflowId`` no longer included in any responses.
+- [JSON API - Experimental] ``/contracts/search`` endpoint can optionally store searched
+  contracts in a Postgres-based cache, by passing the new ``--query-store-jdbc-config`` option.
+  See `issue #2781 <https://github.com/digital-asset/daml/issues/2781>`_.
 - [DAML Triggers] Remove the custom ``AbsoluteContractId`` type in favor of the regular ``ContractId`` type used in DAML templates.
 - [Sandbox] Added a missing index to the SQL schema for the Postgres Ledger.
 - [DAML Stdlib] Add ``DA.Foldable.mapA_``, ``DA.Foldable.forA_``, ``DA.Foldable.sequence_`` and ``DA.Action.replicateA_``. These functions

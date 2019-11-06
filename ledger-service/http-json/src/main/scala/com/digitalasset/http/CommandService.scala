@@ -57,9 +57,9 @@ class CommandService(
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def exercise(jwt: Jwt, jwtPayload: JwtPayload, input: ExerciseCommand[lav1.value.Record])
-    : Future[Error \/ ImmArraySeq[Contract[lav1.value.Value]]] = {
+    : Future[Error \/ List[Contract[lav1.value.Value]]] = {
 
-    val et: EitherT[Future, Error, ImmArraySeq[Contract[lav1.value.Value]]] = for {
+    val et: EitherT[Future, Error, List[Contract[lav1.value.Value]]] = for {
       command <- EitherT.either(exerciseCommand(input))
       request = submitAndWaitRequest(jwtPayload, input.meta, command)
       response <- liftET(logResult('exercise, submitAndWaitForTransaction(jwt, request)))
@@ -105,13 +105,11 @@ class CommandService(
     val maximumRecordTime: Instant = meta
       .flatMap(_.maximumRecordTime)
       .getOrElse(ledgerEffectiveTime.plusNanos(defaultTimeToLive.toNanos))
-    val workflowId: Option[domain.WorkflowId] = meta.flatMap(_.workflowId)
     val commandId: lar.CommandId = meta.flatMap(_.commandId).getOrElse(uniqueCommandId())
 
     Commands.submitAndWaitRequest(
       jwtPayload.ledgerId,
       jwtPayload.applicationId,
-      workflowId,
       commandId,
       ledgerEffectiveTime,
       maximumRecordTime,
@@ -139,32 +137,26 @@ class CommandService(
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private def activeContracts(
       tx: lav1.transaction.Transaction): Error \/ ImmArraySeq[ActiveContract[lav1.value.Value]] = {
-    val workflowId = domain.WorkflowId.fromLedgerApi(tx)
     Transactions
-      .decodeAllCreatedEvents(tx)
-      .traverse(ActiveContract.fromLedgerApi(workflowId)(_))
+      .allCreatedEvents(tx)
+      .traverse(ActiveContract.fromLedgerApi(_))
       .leftMap(e => Error('activeContracts, e.shows))
   }
 
   private def contracts(response: lav1.command_service.SubmitAndWaitForTransactionResponse)
-    : Error \/ ImmArraySeq[Contract[lav1.value.Value]] =
+    : Error \/ List[Contract[lav1.value.Value]] =
     response.transaction
       .toRightDisjunction(Error('contracts, s"Received response without transaction: $response"))
       .flatMap(contracts)
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private def contracts(
-      tx: lav1.transaction.Transaction): Error \/ ImmArraySeq[Contract[lav1.value.Value]] = {
-    val workflowId = domain.WorkflowId.fromLedgerApi(tx)
-    tx.events.iterator
-      .to[ImmArraySeq]
-      .traverse(Contract.fromLedgerApi(workflowId)(_))
-      .leftMap(e => Error('contracts, e.shows))
-  }
+      tx: lav1.transaction.Transaction): Error \/ List[Contract[lav1.value.Value]] =
+    Contract.fromLedgerApi(tx).leftMap(e => Error('contracts, e.shows))
 }
 
 object CommandService {
-  case class Error(id: Symbol, message: String)
+  final case class Error(id: Symbol, message: String)
 
   object Error {
     implicit val errorShow: Show[Error] = Show shows { e =>

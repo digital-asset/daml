@@ -168,8 +168,7 @@ output, each contract formatted according to :doc:`lf-value-specification`::
                     "amount": "999.99",
                     "currency": "USD",
                     "owner": "Alice"
-                },
-                "workflowId": "Alice Workflow"
+                }
             }
         ]
     }
@@ -220,8 +219,7 @@ output::
                 "amount": "999.99",
                 "currency": "USD",
                 "owner": "Alice"
-            },
-            "workflowId": "Alice Workflow"
+            }
         }
     }
  
@@ -252,7 +250,6 @@ output::
         "result": [
             {
                 "archived": {
-                    "workflowId": "Alice Workflow",
                     "contractId": "#56:0",
                     "templateId": {
                         "packageId": "ac3a64908d9f6b4453329b3d7d8ddea44c83f4f5469de5f7ae19158c69bf8473",
@@ -289,8 +286,7 @@ output::
                             "owner": "Alice"
                         },
                         "newOwner": "Alice"
-                    },
-                    "workflowId": "Alice Workflow"
+                    }
                 }
             }
         ]

@@ -13,9 +13,8 @@ import com.digitalasset.http.util.IdentifierConverters.apiIdentifier
 import com.digitalasset.jwt.domain.Jwt
 import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
 import com.digitalasset.ledger.api.{v1 => lav1}
+
 import scalaz.syntax.show._
-import scalaz.syntax.traverse._
-import scalaz.std.list._
 import scalaz.{-\/, Show, \/, \/-}
 import spray.json.JsValue
 
@@ -24,13 +23,19 @@ import scala.concurrent.{ExecutionContext, Future}
 class ContractsService(
     resolveTemplateIds: PackageService.ResolveTemplateIds,
     getActiveContracts: LedgerClientJwt.GetActiveContracts,
+    getCreatesAndArchivesSince: LedgerClientJwt.GetCreatesAndArchivesSince,
     lookupType: query.ValuePredicate.TypeLookup,
+    contractDao: Option[dbbackend.ContractDao],
     parallelism: Int = 8)(implicit ec: ExecutionContext, mat: Materializer) {
 
   import ContractsService._
 
   type Result = (Seq[ActiveContract], CompiledPredicates)
   type CompiledPredicates = Map[domain.TemplateId.RequiredPkg, query.ValuePredicate]
+
+  private val contractsFetch = contractDao.map { dao =>
+    new ContractsFetch(getActiveContracts, getCreatesAndArchivesSince, lookupType)(dao.logHandler)
+  }
 
   def lookup(
       jwt: Jwt,
@@ -89,6 +94,7 @@ class ContractsService(
       queryParams: Map[String, JsValue]): Future[Result] =
     for {
       templateIds <- toFuture(resolveTemplateIds(templateIds))
+      _ <- fetchAndPersistContracts(jwt, party, templateIds)
       allActiveContracts <- getActiveContracts(jwt, transactionFilter(party, templateIds), true)
         .mapAsyncUnordered(parallelism)(gacr => toFuture(activeContracts(gacr)))
         .runWith(Sink.seq)
@@ -96,19 +102,31 @@ class ContractsService(
       predicates = templateIds.iterator.map(a => (a, valuePredicate(a, queryParams))).toMap
     } yield (allActiveContracts, predicates)
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
-  private def activeContracts(gacr: lav1.active_contracts_service.GetActiveContractsResponse)
-    : Error \/ List[ActiveContract] = {
+  private def fetchAndPersistContracts(
+      jwt: Jwt,
+      party: lar.Party,
+      templateIds: List[domain.TemplateId.RequiredPkg]): Future[Option[Unit]] = {
 
-    val workflowId = domain.WorkflowId.fromLedgerApi(gacr)
+    import scalaz.syntax.applicative._
+    import scalaz.syntax.traverse._
+    import scalaz.std.option._
+    import scalaz.std.scalaFuture._
 
-    val toAc: lav1.event.CreatedEvent => domain.Error \/ ActiveContract =
-      domain.ActiveContract.fromLedgerApi(workflowId)
+    val option: Option[Future[Unit]] = ^(contractDao, contractsFetch)((dao, fetch) =>
+      fetchAndPersistContracts(dao, fetch)(jwt, party, templateIds))
 
-    gacr.activeContracts.toList
-      .traverse(toAc)
-      .leftMap(e => Error('activeContracts, e.shows))
+    option.sequence
   }
+
+  private def fetchAndPersistContracts(dao: dbbackend.ContractDao, fetch: ContractsFetch)(
+      jwt: Jwt,
+      party: domain.Party,
+      templateIds: List[domain.TemplateId.RequiredPkg]): Future[Unit] =
+    dao.transact(fetch.contractsIo2(jwt, party, templateIds)).unsafeToFuture().map(_ => ())
+
+  private def activeContracts(gacr: lav1.active_contracts_service.GetActiveContractsResponse)
+    : Error \/ List[ActiveContract] =
+    domain.ActiveContract.fromLedgerApi(gacr).leftMap(e => Error('activeContracts, e.shows))
 
   def filterSearch(
       compiledPredicates: CompiledPredicates,

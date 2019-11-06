@@ -6,6 +6,7 @@ package com.digitalasset.http
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
+import com.digitalasset.http.Statement.discard
 import com.digitalasset.http.util.FutureUtil.toFuture
 import com.digitalasset.jwt.domain.Jwt
 import com.digitalasset.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
@@ -13,6 +14,8 @@ import com.digitalasset.ledger.api.v1.command_service.{
   SubmitAndWaitForTransactionResponse,
   SubmitAndWaitRequest
 }
+import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
+import com.digitalasset.ledger.api.v1.transaction.Transaction
 import com.digitalasset.ledger.api.v1.transaction_filter.TransactionFilter
 import com.digitalasset.ledger.client.LedgerClient
 import com.digitalasset.ledger.client.configuration.LedgerClientConfiguration
@@ -31,6 +34,9 @@ object LedgerClientJwt {
   type GetActiveContracts =
     (Jwt, TransactionFilter, Boolean) => Source[GetActiveContractsResponse, NotUsed]
 
+  type GetCreatesAndArchivesSince =
+    (Jwt, TransactionFilter, LedgerOffset) => Source[Transaction, NotUsed]
+
   def singleHostChannel(
       hostIp: String,
       port: Int,
@@ -43,12 +49,14 @@ object LedgerClientJwt {
       .forAddress(hostIp, port)
       .maxInboundMessageSize(maxInboundMessageSize)
 
-    configuration.sslContext
-      .fold {
-        builder.usePlaintext()
-      } { sslContext =>
-        builder.sslContext(sslContext).negotiationType(NegotiationType.TLS)
-      }
+    discard {
+      configuration.sslContext
+        .fold {
+          builder.usePlaintext()
+        } { sslContext =>
+          builder.sslContext(sslContext).negotiationType(NegotiationType.TLS)
+        }
+    }
 
     val channel = builder.build()
 
@@ -84,6 +92,7 @@ object LedgerClientJwt {
     (jwt, req) =>
       forChannel(jwt, config, channel)
         .flatMap(_.commandServiceClient.submitAndWaitForTransaction(req))
+
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def getActiveContracts(config: LedgerClientConfiguration, channel: io.grpc.Channel)(
       implicit ec: ExecutionContext,
@@ -92,4 +101,23 @@ object LedgerClientJwt {
       Source
         .fromFuture(forChannel(jwt, config, channel))
         .flatMapConcat(client => client.activeContractSetClient.getActiveContracts(filter, flag))
+
+  def getCreatesAndArchivesSince(config: LedgerClientConfiguration, channel: io.grpc.Channel)(
+      implicit ec: ExecutionContext,
+      esf: ExecutionSequencerFactory): GetCreatesAndArchivesSince =
+    (jwt, filter, offset) =>
+      Source
+        .fromFuture(for {
+          client <- forChannel(jwt, config, channel)
+          es <- client.transactionClient.getLedgerEnd
+        } yield (client, es.offset getOrElse sys.error("bad response from getLedgerEnd")))
+        .flatMapConcat {
+          case (client, end) =>
+            client.transactionClient.getTransactions(
+              start = offset,
+              end = Some(end),
+              filter,
+              verbose = true)
+      }
+
 }

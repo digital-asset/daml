@@ -9,6 +9,7 @@ import akka.http.scaladsl.Http.ServerBinding
 import akka.stream.Materializer
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
+import com.digitalasset.http.dbbackend.ContractDao
 import com.digitalasset.http.json.{
   ApiValueToJsValueConverter,
   DomainJsonDecoder,
@@ -54,6 +55,7 @@ object HttpService extends StrictLogging {
       applicationId: ApplicationId,
       address: String,
       httpPort: Int,
+      jdbcConfig: Option[JdbcConfig] = None,
       packageReloadInterval: FiniteDuration = DefaultPackageReloadInterval,
       maxInboundMessageSize: Int = DefaultMaxInboundMessageSize,
       validateJwt: Endpoints.ValidateJwt = decodeJwt)(
@@ -90,6 +92,12 @@ object HttpService extends StrictLogging {
 
       _ = schedulePackageReload(packageService, packageReloadInterval)
 
+      contractDao = jdbcConfig.map(c => ContractDao(c.driver, c.url, c.user, c.password))
+      createSchema = jdbcConfig.map(c => c.createSchema)
+      _ = logger.info(
+        s"contractDao: ${contractDao.toString}, createSchema: ${createSchema.toString}")
+      _ <- rightT(initDbIfConfigured(contractDao, createSchema))
+
       commandService = new CommandService(
         packageService.resolveTemplateId,
         LedgerClientJwt.submitAndWaitForTransaction(clientConfig, clientChannel),
@@ -98,7 +106,9 @@ object HttpService extends StrictLogging {
       contractsService = new ContractsService(
         packageService.resolveTemplateIds,
         LedgerClientJwt.getActiveContracts(clientConfig, clientChannel),
-        LedgerReader.damlLfTypeLookup(packageService.packageStore _)
+        LedgerClientJwt.getCreatesAndArchivesSince(clientConfig, clientChannel),
+        LedgerReader.damlLfTypeLookup(packageService.packageStore _),
+        contractDao,
       )
 
       partiesService = new PartiesService(() => partyManagement.listKnownParties())
@@ -196,4 +206,18 @@ object HttpService extends StrictLogging {
     \/.fromTryCatchNonFatal(new PartyManagementClient(PartyManagementServiceGrpc.stub(channel)))
       .leftMap(e =>
         Error(s"Cannot create an instance of PartyManagementClient, error: ${e.getMessage}"))
+
+  private def initDbIfConfigured(
+      dao: Option[ContractDao],
+      createSchema: Option[Boolean]): Future[Unit] = {
+    import scalaz.syntax.applicative._
+    ^(dao, createSchema)((a, b) => initDbIfConfigured(a, b)) getOrElse Noop
+  }
+
+  private def initDbIfConfigured(dao: ContractDao, createSchema: Boolean): Future[Unit] = {
+    if (createSchema) dao.transact(ContractDao.initialize(dao.logHandler)).unsafeToFuture()
+    else Noop
+  }
+
+  private val Noop: Future[Unit] = Future.successful(())
 }
