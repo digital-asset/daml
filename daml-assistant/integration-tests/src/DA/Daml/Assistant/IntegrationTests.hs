@@ -177,7 +177,7 @@ packagingTests = testGroup "packaging"
         writeFileUTF8 (projectB </> "daml" </> "B.daml") $ unlines
             [ "daml 1.2"
             , "module B where"
-            , "import A"
+            , "import C"
             , "import Foo.Bar.Baz"
             , "b : ()"
             , "b = a"
@@ -194,7 +194,11 @@ packagingTests = testGroup "packaging"
             , "  - daml-prim"
             , "  - daml-stdlib"
             , "  - " <> aDar
+            , "build-options:"
+            , "- '--package=(\"a-1.0\", [(\"A\", \"C\")])'"
             ]
+            -- the last option checks that module aliases work and modules imported without aliases
+            -- are still exposed.
         withCurrentDirectory projectB $ callCommandQuiet "daml build"
         assertBool "b.dar was not created." =<< doesFileExist bDar
     , testCaseSteps "Dependency on a package with source: A.daml" $ \step -> withTempDir $ \tmpDir -> do
