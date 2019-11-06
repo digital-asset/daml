@@ -12,16 +12,16 @@ import scala.concurrent.{ExecutionContext, Future}
 private[testtool] abstract class LedgerTestSuite(val session: LedgerSession) {
   val name: String = getClass.getSimpleName
 
-  private val testBuffer: ListBuffer[LedgerTest] = ListBuffer()
+  private val testCaseBuffer: ListBuffer[LedgerTestCase] = ListBuffer()
 
-  final lazy val tests: Vector[LedgerTest] = testBuffer.toVector
+  final lazy val tests: Vector[LedgerTestCase] = testCaseBuffer.toVector
 
   protected implicit final val ec: ExecutionContext = session.executionContext
 
   protected final def test(shortIdentifier: String, description: String, timeout: Long = 30000L)(
       testCase: LedgerTestContext => Future[Unit]): Unit = {
     val shortIdentifierRef = Ref.LedgerString.assertFromString(shortIdentifier)
-    testBuffer.append(new LedgerTest(shortIdentifierRef, description, timeout, testCase))
+    testCaseBuffer.append(new LedgerTestCase(shortIdentifierRef, description, timeout, testCase))
   }
 
   protected final def skip(reason: String): Future[Unit] = Future.failed(SkipTestException(reason))

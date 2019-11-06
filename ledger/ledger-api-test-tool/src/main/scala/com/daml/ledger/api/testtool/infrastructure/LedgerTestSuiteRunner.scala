@@ -55,7 +55,7 @@ final class LedgerTestSuiteRunner(
       require(identifierSuffix.nonEmpty, "The identifier suffix cannot be an empty string")
     }
 
-  private def start(test: LedgerTest, session: LedgerSession)(
+  private def start(test: LedgerTestCase, session: LedgerSession)(
       implicit ec: ExecutionContext): Future[Duration] = {
     val execution = Promise[Duration]
     val scaledTimeout = math.floor(test.timeout * timeoutScaleFactor).toLong
@@ -98,11 +98,11 @@ final class LedgerTestSuiteRunner(
           Result.FailedUnexpectedly(exception)
       }
 
-  private def summarize(suite: LedgerTestSuite, test: LedgerTest, result: Future[Result])(
+  private def summarize(suite: LedgerTestSuite, test: LedgerTestCase, result: Future[Result])(
       implicit ec: ExecutionContext): Future[LedgerTestSummary] =
     result.map(LedgerTestSummary(suite.name, test.description, suite.session.config, _))
 
-  private def run(test: LedgerTest, session: LedgerSession)(
+  private def run(test: LedgerTestCase, session: LedgerSession)(
       implicit ec: ExecutionContext): Future[Result] =
     result(start(test, session))
 
