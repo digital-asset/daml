@@ -87,7 +87,9 @@ upgradeTemplates n =
     ]
 
 -- | Generate the source for a package containing template instances for all templates defined in a
--- package.
+-- package. It _only_ contains the instance stubs. The correct implementation happens in the
+-- conversion to daml-lf, where `extenal` calls are inlined to daml-lf contained in the dalf of the
+-- external package.
 generateInstancesPkgFromLf ::
        (LF.PackageRef -> UnitId)
     -> LF.PackageId
