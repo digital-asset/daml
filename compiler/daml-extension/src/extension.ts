@@ -11,14 +11,16 @@ import * as os from 'os';
 import * as cp from 'child_process';
 import * as tmp from 'tmp';
 import { LanguageClient, LanguageClientOptions, RequestType, NotificationType, TextDocumentIdentifier, TextDocument, ExecuteCommandRequest } from 'vscode-languageclient';
-import { Uri, Event, TextDocumentContentProvider, ViewColumn, EventEmitter, window, QuickPickOptions, ExtensionContext, env, WorkspaceConfiguration } from 'vscode'
+import { Uri, Event, TextDocumentContentProvider, ViewColumn, EventEmitter, window, QuickPickOptions, ExtensionContext, env, WorkspaceConfiguration } from 'vscode';
 import * as which from 'which';
 import * as util from 'util';
-
+import fetch, { Response } from 'node-fetch';
+import { getOrd } from 'fp-ts/lib/Array';
+import { ordNumber } from 'fp-ts/lib/Ord';
 
 let damlRoot: string = path.join(os.homedir(), '.daml');
 
-let versionContextKey = 'version'
+const versionContextKey = 'version'
 
 var damlLanguageClient: LanguageClient;
 // Extension activation
@@ -31,8 +33,8 @@ export async function activate(context: vscode.ExtensionContext) {
     // Get telemetry consent
     const consent = getTelemetryConsent(config, context);
 
-    // Check extension version to publish release notes on updates
-    checkVersion(context);
+    // Check extension version to display release notes on updates
+    showReleaseNotesIfNewVersion(context);
 
     damlLanguageClient = createLanguageClient(config, await consent);
     damlLanguageClient.registerProposedFeatures();
@@ -97,14 +99,52 @@ export async function activate(context: vscode.ExtensionContext) {
 }
 
 // Compare the extension version with the one stored in the global state.
-// This will be used to show release notes when the version has changed.
-async function checkVersion(context: ExtensionContext) {
-    let packageFile = path.join(context.extensionPath, 'package.json');
-    let packageData = await util.promisify(fs.readFile)(packageFile, "utf8");
-    let extensionVersion = JSON.parse(packageData).version;
-    let recordedVersion = context.globalState.get(versionContextKey);
-    if (!recordedVersion || recordedVersion != extensionVersion ) {
+// If they are different, we assume the user has updated the extension and
+// we display the release notes for the new SDK release in a new tab.
+// This should only occur the first time the user uses the extension after
+// an update.
+async function showReleaseNotesIfNewVersion(context: ExtensionContext) {
+    const packageFile = path.join(context.extensionPath, 'package.json');
+    const packageData = await util.promisify(fs.readFile)(packageFile, "utf8");
+    const extensionVersion = JSON.parse(packageData).version;
+    const recordedVersion = String(context.globalState.get(versionContextKey));
+    if (!recordedVersion || checkVersionUpgrade(recordedVersion, extensionVersion)) {
+        // We have a new version of the extension so show the release notes
+        // and update the current version so we don't show them again until
+        // the next update.
+        showReleaseNotes(extensionVersion);
         await context.globalState.update(versionContextKey, extensionVersion);
+    }
+}
+
+// Check that `version2` is an upgrade from `version1`,
+// i.e. that the components of the version number have increased
+// (checked from major to minor version numbers).
+function checkVersionUpgrade(version1: string, version2: string) {
+    const comps1 = version1.split(".").map(Number);
+    const comps2 = version2.split(".").map(Number);
+    const o = getOrd(ordNumber);
+    return o.compare(comps2, comps1) > 0;
+}
+
+// Show the release notes from the DAML Blog.
+// We display the HTML in a new editor tab using a "webview":
+// https://code.visualstudio.com/api/extension-guides/webview
+async function showReleaseNotes(version: string) {
+    const releaseNotesUrl = 'https://blog.daml.com/release-notes/';
+    if (version) {
+        const url = releaseNotesUrl + version;
+        fetch(url).then(async (result: Response) => {
+            if (result.ok) {
+                const panel = vscode.window.createWebviewPanel(
+                    'releaseNotes', // Identifies the type of the webview. Used internally
+                    `Release Notes for DAML SDK ${version}`, // Title of the panel displayed to the user
+                    vscode.ViewColumn.One, // Editor column to show the new webview panel in
+                    {} // No webview options for now
+                );
+                panel.webview.html = await result.text();
+            }
+        });
     }
 }
 
