@@ -9,7 +9,7 @@ import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTest, L
 
 final class Time(session: LedgerSession) extends LedgerTestSuite(session) {
 
-  val pass =
+  private val pass =
     LedgerTest("PassTime", "Advancing time should return the new time") { context =>
       for {
         ledger <- context.participant()
