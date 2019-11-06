@@ -142,7 +142,7 @@ templateInstances :: Env -> LF.PackageId -> [HsDecl GhcPs]
 templateInstances env externPkgId =
     [ generateTemplateInstance env dataTypeCon dataParams externPkgId
     | dataTypeCon <- NM.names $ LF.moduleTemplates mod
-    , Just (LF.DefDataType {..}) <-
+    , Just LF.DefDataType {..} <-
           [NM.lookup dataTypeCon (LF.moduleDataTypes mod)]
     ]
   where
