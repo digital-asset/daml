@@ -18,3 +18,4 @@ HEAD — ongoing
 - [DAML Compiler] Support for incremental builds in ``daml build`` using the ``--incremental=yes`` flag.
   This is still experimental and disabled by default but will become enabled by default in the future.
   On large codebases, this can significantly improve compile times and reduce memory usage.
+- [JSON API - Experimental] Fix to support Archive choice. See issue #3219

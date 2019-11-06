@@ -13,6 +13,7 @@ import com.digitalasset.ledger.api.{v1 => lav1}
 import scalaz.std.list._
 import scalaz.std.option._
 import scalaz.std.tuple._
+import scalaz.syntax.show._
 import scalaz.syntax.std.option._
 import scalaz.syntax.traverse._
 import scalaz.{-\/, @@, Applicative, Show, Tag, Traverse, \/, \/-}
@@ -85,6 +86,9 @@ object domain {
     def toLedgerApi(o: Offset): lav1.ledger_offset.LedgerOffset =
       lav1.ledger_offset.LedgerOffset(lav1.ledger_offset.LedgerOffset.Value.Absolute(unwrap(o)))
   }
+
+  type Choice = lar.Choice
+  val Choice = lar.Choice
 
   type ContractIdTag = lar.ContractIdTag
   type ContractId = lar.ContractId
@@ -188,8 +192,9 @@ object domain {
 
       override def lfIdentifier(
           fa: ActiveContract[_],
-          templateId: TemplateId.RequiredPkg): lf.data.Ref.Identifier =
-        IdentifierConverters.lfIdentifier(templateId)
+          templateId: TemplateId.RequiredPkg,
+          f: PackageService.ResolveChoiceRecordId): Error \/ lf.data.Ref.Identifier =
+        \/-(IdentifierConverters.lfIdentifier(templateId))
     }
   }
 
@@ -234,8 +239,9 @@ object domain {
 
         override def lfIdentifier(
             fa: ContractLookupRequest[_],
-            templateId: TemplateId.RequiredPkg): Ref.Identifier =
-          IdentifierConverters.lfIdentifier(templateId)
+            templateId: TemplateId.RequiredPkg,
+            f: PackageService.ResolveChoiceRecordId): Error \/ Ref.Identifier =
+          \/-(IdentifierConverters.lfIdentifier(templateId))
       }
   }
 
@@ -263,7 +269,10 @@ object domain {
 
   trait HasTemplateId[F[_]] {
     def templateId(fa: F[_]): TemplateId.OptionalPkg
-    def lfIdentifier(fa: F[_], templateId: TemplateId.RequiredPkg): lf.data.Ref.Identifier
+    def lfIdentifier(
+        fa: F[_],
+        templateId: TemplateId.RequiredPkg,
+        f: PackageService.ResolveChoiceRecordId): Error \/ lf.data.Ref.Identifier
   }
 
   object CreateCommand {
@@ -278,8 +287,9 @@ object domain {
 
       override def lfIdentifier(
           fa: CreateCommand[_],
-          templateId: TemplateId.RequiredPkg): lf.data.Ref.Identifier =
-        IdentifierConverters.lfIdentifier(templateId)
+          templateId: TemplateId.RequiredPkg,
+          f: PackageService.ResolveChoiceRecordId): Error \/ lf.data.Ref.Identifier =
+        \/-(IdentifierConverters.lfIdentifier(templateId))
     }
   }
 
@@ -295,8 +305,12 @@ object domain {
 
         override def lfIdentifier(
             fa: ExerciseCommand[_],
-            templateId: TemplateId.RequiredPkg): lf.data.Ref.Identifier =
-          IdentifierConverters.lfIdentifier(templateId, fa.choice)
+            templateId: TemplateId.RequiredPkg,
+            f: PackageService.ResolveChoiceRecordId): Error \/ lf.data.Ref.Identifier =
+          for {
+            apiId <- f(templateId, fa.choice)
+              .leftMap(e => Error('ExerciseCommand_hasTemplateId_lfIdentifier, e.shows))
+          } yield IdentifierConverters.lfIdentifier(apiId)
       }
   }
 }
