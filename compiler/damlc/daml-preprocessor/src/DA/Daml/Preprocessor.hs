@@ -4,11 +4,13 @@
 
 module DA.Daml.Preprocessor
   ( damlPreprocessor
+  , generatedPreprocessor
   , noPreprocessor
   ) where
 
 import           DA.Daml.Preprocessor.Records
 import           DA.Daml.Preprocessor.Generics
+import           DA.Daml.Preprocessor.EnumType
 import           DA.Daml.Preprocessor.TemplateConstraint
 
 import Development.IDE.Types.Options
@@ -48,12 +50,21 @@ damlPreprocessor mbPkgName x
     | otherwise = IdePreprocessedSource
         { preprocWarnings = checkModuleName x
         , preprocErrors = checkImports x ++ checkDataTypes x ++ checkModuleDefinition x
-        , preprocSource = recordDotPreprocessor $ importDamlPreprocessor $ genericsPreprocessor mbPkgName $ templateConstraintPreprocessor x
+        , preprocSource = recordDotPreprocessor $ importDamlPreprocessor $ genericsPreprocessor mbPkgName $ templateConstraintPreprocessor $ enumTypePreprocessor x
         }
     where
       name = fmap GHC.unLoc $ GHC.hsmodName $ GHC.unLoc x
 
--- | No preprocessing. Used for generated code.
+-- | Preprocessor for generated code.
+generatedPreprocessor :: GHC.ParsedSource -> IdePreprocessedSource
+generatedPreprocessor x =
+    IdePreprocessedSource
+      { preprocWarnings = []
+      , preprocErrors = []
+      , preprocSource = enumTypePreprocessor x
+      }
+
+-- | No preprocessing.
 noPreprocessor :: GHC.ParsedSource -> IdePreprocessedSource
 noPreprocessor x =
     IdePreprocessedSource
@@ -61,7 +72,6 @@ noPreprocessor x =
       , preprocErrors = []
       , preprocSource = x
       }
-
 
 -- With RebindableSyntax any missing DAML import results in pretty much nothing
 -- working (literals, if-then-else) so we inject an implicit import DAML for
@@ -98,7 +108,6 @@ checkImports x =
 checkDataTypes :: GHC.ParsedSource -> [(GHC.SrcSpan, String)]
 checkDataTypes m = checkAmbiguousDataTypes m ++ checkUnlabelledConArgs m ++ checkThetas m
 
-
 checkAmbiguousDataTypes :: GHC.ParsedSource -> [(GHC.SrcSpan, String)]
 checkAmbiguousDataTypes (GHC.L _ m) =
     mapMaybe getAmbiguousError (GHC.hsmodDecls m)
@@ -106,14 +115,15 @@ checkAmbiguousDataTypes (GHC.L _ m) =
     getAmbiguousError :: GHC.LHsDecl GHC.GhcPs -> Maybe (GHC.SrcSpan, String)
     -- Generate an error if the declaration is a data type with one constructor and zero arguments
     getAmbiguousError (GHC.L ss decl)
-      | GHC.TyClD _ GHC.DataDecl{tcdDataDefn=GHC.HsDataDefn{dd_cons=[con]}} <- decl -- single con data type
-      , GHC.PrefixCon [] <- GHC.con_args (GHC.unLoc con) -- zero arguments
+      | GHC.TyClD _ GHC.DataDecl{tcdTyVars = dtyvars, tcdDataDefn=GHC.HsDataDefn{dd_cons=[con]}} <- decl -- single con data type
+      , GHC.HsQTvs _ (_:_) <- dtyvars -- with at least one type-level arguments
+      , GHC.PrefixCon [] <- GHC.con_args (GHC.unLoc con) -- but zero value arguments
       = Just (ss, message)
       | otherwise
       = Nothing
       where
         message =
-          "Ambiguous data type declaration. Write " ++
+          "Ambiguous data type declaration. Enums cannot have type arguments. Write " ++
           baseDeclStr ++ " {} for a record or " ++
           baseDeclStr ++ " () for a variant."
         baseDeclStr = showSDocUnsafe (ppr decl)
