@@ -444,7 +444,7 @@ convertGenericTemplate env x
         agreement <- convertExpr env (Var agreement)
         let create = ETmLam (this, polyType) $ EUpdate $ UBind (Binding (self, TContractId monoType) $ EUpdate $ UCreate monoTyCon $ wrapTpl $ EVar this) $ EUpdate $ UPure (TContractId polyType) $ unwrapCid $ EVar self
         let fetch = ETmLam (self, TContractId polyType) $ EUpdate $ UBind (Binding (this, monoType) $ EUpdate $ UFetch monoTyCon $ wrapCid $ EVar self) $ EUpdate $ UPure polyType $ unwrapTpl $ EVar this
-        let anyTemplateTy = TypeConApp (Qualified stdlibRef (mkModName ["DA", "Internal", "LF"]) (mkTypeCon ["AnyTemplate"])) []
+        let anyTemplateTy = anyTemplateTyFromStdlib stdlibRef
         let anyTemplateField = mkField "getAnyTemplate"
         let toAnyTemplate =
                 if envLfVersion env `supports` featureAnyType
@@ -498,7 +498,6 @@ convertGenericTemplate env x
     arg = mkVar "arg"
     res = mkVar "res"
     rec = mkVar "rec"
-    anyTpl = mkVar "anyTpl"
 convertGenericTemplate env x = unhandled "generic template" x
 
 data Consuming = PreConsuming
@@ -1676,6 +1675,7 @@ convertExternal env stdlibRef primId lfType
                 other -> error "convertExternal: Unknown external method"
     | otherwise = error $ "convertExternal: Unable to inline call to external method: " <> primId
   where
+    anyTemplateTy = anyTemplateTyFromStdlib stdlibRef
     lookup pId modName temName = do
         mods <- MS.lookup pId pkgIdToModules
         mod <- NM.lookup (LF.ModuleName $ map T.pack $ splitOn "." modName) mods
@@ -1686,15 +1686,23 @@ convertExternal env stdlibRef primId lfType
             | (_uId, DalfPackage {..}) <- MS.toList $ envPkgMap env
             , let ExternalPackage _pid pkg = dalfPackagePkg
             ]
-    anyTemplateTy =
-        TypeConApp
-            (Qualified
-                 stdlibRef
-                 (mkModName ["DA", "Internal", "LF"])
-                 (mkTypeCon ["AnyTemplate"]))
-            []
-    anyTemplateField = mkField "getAnyTemplate"
-    anyTpl = mkVar "anyTpl"
+
+-- AnyTemplate constant names
+-----------------------------
+anyTemplateTyFromStdlib :: PackageRef -> TypeConApp
+anyTemplateTyFromStdlib stdlibRef =
+    TypeConApp
+        (Qualified
+             stdlibRef
+             (mkModName ["DA", "Internal", "LF"])
+             (mkTypeCon ["AnyTemplate"]))
+        []
+
+anyTemplateField :: FieldName
+anyTemplateField = mkField "getAnyTemplate"
+
+anyTpl :: ExprVarName
+anyTpl = mkVar "anyTpl"
 
 ---------------------------------------------------------------------
 -- SIMPLE WRAPPERS
