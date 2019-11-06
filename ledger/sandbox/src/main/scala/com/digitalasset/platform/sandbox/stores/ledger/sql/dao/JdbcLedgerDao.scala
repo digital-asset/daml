@@ -52,7 +52,7 @@ import com.google.common.io.ByteStreams
 import scalaz.syntax.tag._
 
 import scala.collection.immutable
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 import scala.util.control.NonFatal
 
@@ -63,7 +63,8 @@ private class JdbcLedgerDao(
     valueSerializer: ValueSerializer,
     keyHasher: KeyHasher,
     dbType: DbType,
-    loggerFactory: NamedLoggerFactory)
+    loggerFactory: NamedLoggerFactory,
+    executionContext: ExecutionContext)
     extends LedgerDao {
 
   private val queries = dbType match {
@@ -1056,39 +1057,34 @@ private class JdbcLedgerDao(
       startInclusive: Long,
       endExclusive: Long,
       pageSize: Int,
-      queryPage: (Long, Long) => Source[T, NotUsed]): Source[T, NotUsed] =
-    Source
-      .lazily[T, NotUsed] { () =>
-        if (endExclusive - startInclusive <= pageSize)
-          queryPage(startInclusive, endExclusive)
-        else
-          queryPage(startInclusive, startInclusive + pageSize)
-            .concat(paginatingStream(startInclusive + pageSize, endExclusive, pageSize, queryPage))
-      }
-      .mapMaterializedValue(_ => NotUsed)
+      queryPage: (Long, Long) => Future[T]): Source[T, NotUsed] = {
+    Source.unfoldAsync(startInclusive) { start =>
+      queryPage(start, start + pageSize).map { result =>
+        if (start + pageSize >= endExclusive) None
+        else Some(start + pageSize -> result)
+      }(executionContext)
+    }
+  }
 
   private val PageSize = 100
 
   override def getLedgerEntries(
       startInclusive: Long,
       endExclusive: Long): Source[(Long, LedgerEntry), NotUsed] =
-    paginatingStream(
+    paginatingStream[List[(Long, LedgerEntry)]](
       startInclusive,
       endExclusive,
       PageSize,
       (startI, endE) => {
-        Source
-          .fromFuture(
-            dbDispatcher.executeSql(s"load_ledger_entries", Some(s"bounds: [$startI, $endE[")) {
-              implicit conn =>
-                SQL_GET_LEDGER_ENTRIES
-                  .on("startInclusive" -> startI, "endExclusive" -> endE)
-                  .as(EntryParser.*)
-                  .map(toLedgerEntry)
-            })
-          .flatMapConcat(Source(_))
+        dbDispatcher.executeSql(s"load_ledger_entries", Some(s"bounds: [$startI, $endE[")) {
+          implicit conn =>
+            SQL_GET_LEDGER_ENTRIES
+              .on("startInclusive" -> startI, "endExclusive" -> endE)
+              .as(EntryParser.*)
+              .map(toLedgerEntry(_)(conn))
+        }
       }
-    )
+    ).mapConcat(identity)
 
   // this query pre-filters the active contracts. this avoids loading data that anyway will be dismissed later
   private val SQL_SELECT_ACTIVE_CONTRACTS = SQL(queries.SQL_SELECT_ACTIVE_CONTRACTS)
@@ -1313,7 +1309,8 @@ object JdbcLedgerDao {
       valueSerializer: ValueSerializer,
       keyHasher: KeyHasher,
       dbType: DbType,
-      loggerFactory: NamedLoggerFactory): LedgerDao =
+      loggerFactory: NamedLoggerFactory,
+      executionContext: ExecutionContext): LedgerDao =
     new JdbcLedgerDao(
       dbDispatcher,
       contractSerializer,
@@ -1321,7 +1318,8 @@ object JdbcLedgerDao {
       valueSerializer,
       keyHasher,
       dbType,
-      loggerFactory)
+      loggerFactory,
+      executionContext)
 
   private val PARTY_SEPARATOR = '%'
 

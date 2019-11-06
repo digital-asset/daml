@@ -99,7 +99,8 @@ object SqlLedger {
         ValueSerializer,
         KeyHasher,
         dbType,
-        loggerFactory),
+        loggerFactory,
+        mat.executionContext),
       mm)
 
     val sqlLedgerFactory = SqlLedgerFactory(ledgerDao, loggerFactory)
