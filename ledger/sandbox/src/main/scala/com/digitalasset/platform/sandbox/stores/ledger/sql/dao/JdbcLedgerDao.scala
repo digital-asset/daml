@@ -547,7 +547,7 @@ private class JdbcLedgerDao(
       }
   }
 
-  private def storeTransaction(offset: Long, tx: LedgerEntry.Transaction)(
+  private def storeTransaction(offset: Long, tx: LedgerEntry.Transaction, txBytes: Array[Byte])(
       implicit connection: Connection): Unit = {
     SQL_INSERT_TRANSACTION
       .on(
@@ -559,14 +559,7 @@ private class JdbcLedgerDao(
         "workflow_id" -> tx.workflowId.getOrElse(""),
         "effective_at" -> tx.ledgerEffectiveTime,
         "recorded_at" -> tx.recordedAt,
-        "transaction" -> transactionSerializer
-          .serializeTransaction(tx.transaction)
-          .fold(
-            err =>
-              sys.error(
-                s"Failed to serialize transaction! trId: ${tx.transactionId}. Details: ${err.errorMessage}."),
-            identity
-          )
+        "transaction" -> txBytes
       )
       .execute()
 
@@ -617,6 +610,21 @@ private class JdbcLedgerDao(
     ()
   }
 
+  private def serializeTransaction(ledgerEntry: LedgerEntry): Array[Byte] = {
+    ledgerEntry match {
+      case Transaction(transactionId, _, _, _, _, _, _, genTransaction, _) =>
+        transactionSerializer
+          .serializeTransaction(genTransaction)
+          .fold(
+            err =>
+              sys.error(
+                s"Failed to serialize transaction! trId: ${transactionId}. Details: ${err.errorMessage}."),
+            identity
+          )
+      case _: LedgerEntry.Rejection | _: LedgerEntry.Checkpoint => Array.empty[Byte]
+    }
+  }
+
   //TODO: test it for failures..
   override def storeLedgerEntry(
       offset: Long,
@@ -624,6 +632,8 @@ private class JdbcLedgerDao(
       externalOffset: Option[ExternalOffset],
       ledgerEntry: PersistenceEntry): Future[PersistenceResponse] = {
     import PersistenceResponse._
+
+    val txBytes = serializeTransaction(ledgerEntry.entry)
 
     def insertEntry(le: PersistenceEntry)(implicit conn: Connection): PersistenceResponse =
       le match {
@@ -633,7 +643,7 @@ private class JdbcLedgerDao(
             globalDivulgence,
             divulgedContracts) =>
           Try {
-            storeTransaction(offset, tx)
+            storeTransaction(offset, tx, txBytes)
 
             // Ensure divulged contracts are known about before they are referred to.
             storeContractData(divulgedContracts)
@@ -705,6 +715,10 @@ private class JdbcLedgerDao(
       case (i, tx: LedgerEntry.Transaction) => tx.transactionId -> i
     }.toMap
 
+    val transactionBytes = ledgerEntries.collect {
+      case (offset, entry: LedgerEntry.Transaction) => offset -> serializeTransaction(entry)
+    }.toMap
+
     dbDispatcher
       .executeSql(
         "store_initial_state_from_scenario",
@@ -715,7 +729,7 @@ private class JdbcLedgerDao(
           ledgerEntries.foreach {
             case (i, le) =>
               le match {
-                case tx: LedgerEntry.Transaction => storeTransaction(i, tx)
+                case tx: LedgerEntry.Transaction => storeTransaction(i, tx, transactionBytes(i))
                 case rj: LedgerEntry.Rejection => storeRejection(i, rj)
                 case cp: LedgerEntry.Checkpoint => storeCheckpoint(i, cp)
               }
@@ -792,8 +806,9 @@ private class JdbcLedgerDao(
 
   private val DisclosureParser = (ledgerString("event_id") ~ party("party") map (flatten))
 
-  private def toLedgerEntry(parsedEntry: ParsedEntry)(
-      implicit conn: Connection): (Long, LedgerEntry) = parsedEntry match {
+  private def toLedgerEntry(
+      parsedEntry: ParsedEntry,
+      disclosureOpt: Option[Relation[EventId, Party]]): (Long, LedgerEntry) = parsedEntry match {
     case ParsedEntry(
         "transaction",
         Some(transactionId),
@@ -807,12 +822,6 @@ private class JdbcLedgerDao(
         None,
         None,
         offset) =>
-      val disclosure: Relation[EventId, Party] = SQL_SELECT_DISCLOSURE
-        .on("transaction_id" -> transactionId)
-        .as(DisclosureParser.*)
-        .groupBy(_._1)
-        .transform((_, v) => v.map(_._2).toSet)
-
       offset -> LedgerEntry.Transaction(
         commandId,
         transactionId,
@@ -827,7 +836,7 @@ private class JdbcLedgerDao(
             err =>
               sys.error(s"failed to deserialize transaction! trId: $transactionId: error: $err"),
             identity),
-        disclosure
+        disclosureOpt.getOrElse(Map.empty)
       )
     case ParsedEntry(
         "rejection",
@@ -866,25 +875,27 @@ private class JdbcLedgerDao(
   override def lookupLedgerEntry(offset: Long): Future[Option[LedgerEntry]] = {
     dbDispatcher
       .executeSql("lookup_ledger_entry_at_offset", Some(s"offset: $offset")) { implicit conn =>
-        SQL_SELECT_ENTRY
+        val entry = SQL_SELECT_ENTRY
           .on("ledger_offset" -> offset)
           .as(EntryParser.singleOpt)
-          .map(toLedgerEntry)
-          .map(_._2)
+        entry.map(e => e -> loadDisclosureOptForEntry(e))
       }
+      .map(_.map((toLedgerEntry _).tupled(_)._2))(executionContext)
   }
 
   override def lookupTransaction(
       transactionId: TransactionId): Future[Option[(LedgerOffset, LedgerEntry.Transaction)]] = {
-    dbDispatcher.executeSql("lookup_transaction", Some(s"tx id: $transactionId")) { implicit conn =>
-      SQL_SELECT_TRANSACTION
-        .on("transaction_id" -> (transactionId: String))
-        .as(EntryParser.singleOpt)
-        .map(toLedgerEntry)
+    dbDispatcher
+      .executeSql("lookup_transaction", Some(s"tx id: $transactionId")) { implicit conn =>
+        val entry = SQL_SELECT_TRANSACTION
+          .on("transaction_id" -> (transactionId: String))
+          .as(EntryParser.singleOpt)
+        entry.map(e => e -> loadDisclosureOptForEntry(e))
+      }
+      .map(_.map((toLedgerEntry _).tupled)
         .collect {
           case (offset, t: LedgerEntry.Transaction) => offset -> t
-        }
-    }
+        })(executionContext)
   }
 
   private val ContractDataParser = (ledgerString("id")
@@ -1071,20 +1082,32 @@ private class JdbcLedgerDao(
   override def getLedgerEntries(
       startInclusive: Long,
       endExclusive: Long): Source[(Long, LedgerEntry), NotUsed] =
-    paginatingStream[List[(Long, LedgerEntry)]](
+    paginatingStream(
       startInclusive,
       endExclusive,
       PageSize,
       (startI, endE) => {
         dbDispatcher.executeSql(s"load_ledger_entries", Some(s"bounds: [$startI, $endE[")) {
           implicit conn =>
-            SQL_GET_LEDGER_ENTRIES
+            val parsedEntry = SQL_GET_LEDGER_ENTRIES
               .on("startInclusive" -> startI, "endExclusive" -> endE)
               .as(EntryParser.*)
-              .map(toLedgerEntry(_)(conn))
+            parsedEntry.map(entry => entry -> loadDisclosureOptForEntry(entry))
         }
       }
     ).mapConcat(identity)
+      .map((toLedgerEntry _).tupled)
+
+  private def loadDisclosureOptForEntry(parsedEntry: ParsedEntry)(
+      implicit conn: Connection): Option[Relation[EventId, Party]] = {
+    parsedEntry.transactionId.map { transactionId =>
+      SQL_SELECT_DISCLOSURE
+        .on("transaction_id" -> transactionId)
+        .as(DisclosureParser.*)
+        .groupBy(_._1)
+        .transform((_, v) => v.map(_._2).toSet)
+    }
+  }
 
   // this query pre-filters the active contracts. this avoids loading data that anyway will be dismissed later
   private val SQL_SELECT_ACTIVE_CONTRACTS = SQL(queries.SQL_SELECT_ACTIVE_CONTRACTS)
