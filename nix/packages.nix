@@ -127,7 +127,7 @@ in rec {
     chromedriver = pkgs.callPackage ./tools/chromedriver/default.nix {};
 
     # Python development
-    pip3        = python37;
+    pip3        = pkgs.python37Packages.pip;
     python      = python37;
     python3     = python37;
     python37    = pkgs.python37Packages.python;
