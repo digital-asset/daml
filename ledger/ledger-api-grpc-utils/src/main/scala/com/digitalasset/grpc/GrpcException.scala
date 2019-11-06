@@ -7,7 +7,7 @@ import io.grpc.{Metadata, Status, StatusException, StatusRuntimeException}
 
 object GrpcException {
 
-  def unapply(arg: Throwable): Option[(Status, Metadata)] =
+  def unapply(arg: Exception): Option[(Status, Metadata)] =
     arg match {
       case e: StatusRuntimeException => Some((e.getStatus, e.getTrailers))
       case e: StatusException => Some((e.getStatus, e.getTrailers))
