@@ -156,15 +156,6 @@ da_haskell_library(
     visibility = ["//visibility:public"],
 )
 
-genrule(
-    name = "git-revision",
-    outs = [".git-revision"],
-    cmd = """
-        grep '^STABLE_GIT_REVISION ' bazel-out/stable-status.txt | cut -d ' ' -f 2 > $@
-    """,
-    stamp = True,
-)
-
 #
 # Common aliases
 #
