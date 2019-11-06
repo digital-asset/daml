@@ -11,3 +11,6 @@ dependencies:
   - /home/drsk/daml/docs/source/migrate/foo-1.0.0/.daml/dist/foo-1.0.0.dar
   - /home/drsk/daml/docs/source/migrate/foo-2.0.0/.daml/dist/foo-2.0.0.dar
 
+build-options:
+- '--package=("foo-1.0.0",[("Foo","FooA")])'
+- '--package=("foo-2.0.0",[("Foo","FooB")])'
