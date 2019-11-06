@@ -5,6 +5,9 @@ package com.daml.ledger.api.testtool.tests
 
 import java.util.UUID
 
+import com.daml.ledger.api.testtool.infrastructure.Assertions._
+import com.daml.ledger.api.testtool.infrastructure.Eventually.eventually
+import com.daml.ledger.api.testtool.infrastructure.Synchronize.synchronize
 import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTest, LedgerTestSuite}
 import com.digitalasset.ledger.test_dev.DA.Types.{Tuple2 => DamlTuple2}
 import com.digitalasset.ledger.test_dev.Test.Delegation._
@@ -17,7 +20,7 @@ import io.grpc.Status
 final class ContractKeysSubmitterIsMaintainer(session: LedgerSession)
     extends LedgerTestSuite(session) {
 
-  val fetchDivulgedContract =
+  private val fetchDivulgedContract =
     LedgerTest("CKNoFetchOrLookup", "Divulged contracts cannot be fetched or looked up by key") {
       context =>
         val key = s"${UUID.randomUUID.toString}-key"
@@ -65,7 +68,7 @@ final class ContractKeysSubmitterIsMaintainer(session: LedgerSession)
         }
     }
 
-  val rejectFetchingUndisclosedContract =
+  private val rejectFetchingUndisclosedContract =
     LedgerTest(
       "CKSubmitterIsMaintainerNoFetchUndisclosed",
       "Contract Keys should reject fetching an undisclosed contract") { context =>
@@ -120,7 +123,7 @@ final class ContractKeysSubmitterIsMaintainer(session: LedgerSession)
       }
     }
 
-  val processContractKeys =
+  private val processContractKeys =
     LedgerTest(
       "CKSubmitterIsMaintainerMaintainerScoped",
       "Contract keys should be scoped by maintainer") { context =>

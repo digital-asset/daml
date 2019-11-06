@@ -3,10 +3,11 @@
 
 package com.daml.ledger.api.testtool.tests
 
+import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTest, LedgerTestSuite}
 import com.digitalasset.ledger.client.binding.Primitive
-import com.digitalasset.ledger.test_stable.Test.DummyWithParam._
 import com.digitalasset.ledger.test_stable.Test.Delegation._
+import com.digitalasset.ledger.test_stable.Test.DummyWithParam._
 import com.digitalasset.ledger.test_stable.Test.{Delegated, Delegation, Dummy, DummyWithParam}
 import io.grpc.Status.Code
 

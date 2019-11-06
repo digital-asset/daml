@@ -10,6 +10,7 @@ template Foo
   with
     a : Int
     p : Party
+    -- t : Text
   where
     signatory p
 

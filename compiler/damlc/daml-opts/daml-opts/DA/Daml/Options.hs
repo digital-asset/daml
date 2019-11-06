@@ -63,7 +63,7 @@ toCompileOpts options@Options{..} reportProgress =
       , optDefer = Ghcide.IdeDefer False
       }
   where
-    toRenaming aliases = ModRenaming False [(GHC.mkModuleName mod, GHC.mkModuleName alias) | (mod, alias) <- aliases]
+    toRenaming aliases = ModRenaming True [(GHC.mkModuleName mod, GHC.mkModuleName alias) | (mod, alias) <- aliases]
     locateInPkgDb :: String -> PackageConfig -> GHC.Module -> IO (Maybe FilePath)
     locateInPkgDb ext pkgConfig mod
       | (importDir : _) <- importDirs pkgConfig = do

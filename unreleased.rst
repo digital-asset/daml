@@ -27,3 +27,4 @@ HEAD — ongoing
   contracts in a Postgres-based cache, by passing the new ``--query-store-jdbc-config`` option.
   See `issue #2781 <https://github.com/digital-asset/daml/issues/2781>`_.
 - [DAML Triggers] Remove the custom ``AbsoluteContractId`` type in favor of the regular ``ContractId`` type used in DAML templates.
+- [Sandbox] Added a missing index to the SQL schema for the Postgres Ledger.

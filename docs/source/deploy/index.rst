@@ -55,65 +55,75 @@ You can also use the ``daml ledger`` command for more fine-grained deployment op
      upload-dar               Upload DAR file to ledger
      navigator                Launch Navigator on ledger
 
-.. _deploy-ref_in_development:
+.. _deploy-ref_available:
 
-DAML ledgers built or in development
-====================================
+Available DAML Products
+=======================
 
-The following table lists the ledgers that support DAML, or are implementing
-support for running DAML.
-
-.. note: the table renderer fails *silently* if you don't have the right
-   number of columns!
+The following table lists commercially supported DAML ledgers and environments that are available for production use today.
 
 .. list-table::
-   :widths: 25 25 25 25
+   :header-rows: 1
+
+   * - Product
+     - Ledger
+     - Vendor
+   * - `Sextant for DAML <https://blockchaintp.com/sextant/daml/>`__
+     - `Amazon Aurora <https://aws.amazon.com/rds/aurora/>`__
+     - `Blockchain Technology Partners <https://blockchaintp.com/>`__
+   * - `Sextant for DAML <https://blockchaintp.com/sextant/daml/>`__
+     - `Hyperledger Sawtooth <https://sawtooth.hyperledger.org/>`__
+     - `Blockchain Technology Partners <https://blockchaintp.com/>`__
+   * - `project : DABL <https://projectdabl.com/>`__
+     - `Managed cloud enviroment <https://projectdabl.com/>`__
+     - `Digital Asset <https://digitalasset.com/>`__
+
+.. _deploy-ref_open_source:
+
+Open Source Integrations
+========================
+
+The following table lists open source DAML integrations.
+
+.. list-table::
    :header-rows: 1
 
    * - Ledger
-     - Status
-     - Developer (Managed Offering)
-     - More information
-   * - `VMware Blockchain <https://blogs.vmware.com/blockchain>`__
-     - In development
-     - `VMware <https://www.vmware.com/>`__
-     - `press release, April 2019
-       <http://hub.digitalasset.com/press-release/digital-asset-daml-smart-contract-language-now-extended-to-vmware-blockchain>`__
+     - Developer
+     - More Information
    * - `Hyperledger Sawtooth <https://sawtooth.hyperledger.org/>`__
-     - In development
      - `Blockchain Technology Partners <https://blockchaintp.com/>`__
-       (`Sextant <https://blockchaintp.com/sextant/>`__)
-     - `press release, April 2019
-       <https://www.hyperledger.org/blog/2019/04/16/daml-smart-contracts-coming-to-hyperledger-sawtooth>`__
+     - `Github Repo <https://github.com/blockchaintp/daml-on-sawtooth>`__
    * - `Hyperledger Fabric <https://www.hyperledger.org/projects/fabric>`__
-     - In development
-     - `Hacera <https://hacera.com>`__
-       (`Hacera Unbounded Network <https://unbounded.network/>`__)
-     - `press release, June 2019
-       <https://hub.digitalasset.com/press-release/digital-asset-announces-daml-partner-integrations-with-hyperledger-fabric-r3-corda-and-amazon-aurora>`__
-   * - `R3 Corda <https://www.corda.net>`__
-     - In development
+     - `Hacera <https://hacera.com/>`__
+     - `Github Repo <https://github.com/hacera/daml-on-fabric>`__
+   * - `PostgreSQL <https://www.postgresql.org/>`__
      - `Digital Asset <https://digitalasset.com/>`__
-     - `press release, June 2019
-       <https://hub.digitalasset.com/press-release/digital-asset-announces-daml-partner-integrations-with-hyperledger-fabric-r3-corda-and-amazon-aurora>`__
-   * - `Amazon Aurora <https://aws.amazon.com/rds/aurora/>`__
-     - In development
-     - `Blockchain Technology Partners <https://blockchaintp.com/>`__
-       (`Sextant <https://blockchaintp.com/sextant/>`__)
-     - `press release, June 2019
-       <https://hub.digitalasset.com/press-release/digital-asset-announces-daml-partner-integrations-with-hyperledger-fabric-r3-corda-and-amazon-aurora>`__
-   * - :doc:`/tools/sandbox`
-     - Stable
-     - `Digital Asset <https://digitalasset.com/>`__
-     - supports `PostgreSQL <https://www.postgresql.org/>`__,
-       see section on persistence in :doc:`/tools/sandbox` docs
-   * - `Canton <https://www.canton.io>`__
-     - In development
-     - `Digital Asset <https://digitalasset.com/>`__
-     - `www.canton.io <https://www.canton.io>`__, has native support for :doc:`DAML's fine-grained privacy model
-       </concepts/ledger-model/ledger-privacy>`.
+     - `DAML Sandbox Docs <https://docs.daml.com/tools/sandbox.html>`__
+
+.. _deploy-ref_in_development:
+
+DAML ledgers in development
+===========================
+
+The following table lists the ledgers that are implementing support for running DAML.
+
+.. list-table::
+   :header-rows: 1
+
+   * - Ledger
+     - Developer
+     - More Information
+   * - `VMware Blockchain <https://blogs.vmware.com/blockchain>`__
+     - `VMware <https://www.vmware.com/>`__
+     - `Press release, April 2019 <http://hub.digitalasset.com/press-release/digital-asset-daml-smart-contract-language-now-extended-to-vmware-blockchain>`__
+   * - `Corda <https://www.corda.net/>`__
+     - `R3 <https://www.corda.net/>`__
+     - `press release, June 2019 <https://hub.digitalasset.com/press-release/digital-asset-announces-daml-partner-integrations-with-hyperledger-fabric-r3-corda-and-amazon-aurora>`__
    * - `QLDB <https://aws.amazon.com/qldb/>`__
-     - In development
      - `Blockchain Technology Partners <https://blockchaintp.com/>`__
-     - `press release, September 2019
-       <https://blog.daml.com/daml-driven/quantum-daml-amazon-qldb-goes-ga?utm_content=100649987&utm_medium=social&utm_source=twitter&hss_channel=tw-3245509722>`__
+     - `press release, September 2019 <https://blog.daml.com/daml-driven/quantum-daml-amazon-qldb-goes-ga>`__
+   * - `Canton <https://www.canton.io/>`__
+     - `Digital Asset <https://digitalasset.com/>`__ reference implementation
+     - `canton.io <https://www.canton.io/>`__
+
