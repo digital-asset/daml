@@ -6,6 +6,9 @@ package com.daml.ledger.api.testtool.infrastructure
 import java.util.concurrent.{ExecutionException, Executors, TimeoutException}
 import java.util.{Timer, TimerTask}
 
+import akka.actor.ActorSystem
+import akka.stream.ActorMaterializer
+import akka.stream.scaladsl.{Sink, Source}
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite.SkipTestException
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuiteRunner._
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantSessionManager
@@ -91,32 +94,41 @@ final class LedgerTestSuiteRunner(
           Result.FailedUnexpectedly(exception)
       }
 
-  private def summarize(suite: LedgerTestSuite, test: LedgerTestCase, result: Future[Result])(
-      implicit ec: ExecutionContext): Future[LedgerTestSummary] =
-    result.map(LedgerTestSummary(suite.name, test.description, suite.session.config, _))
+  private def summarize(suite: LedgerTestSuite, test: LedgerTestCase, result: Result)(
+      implicit ec: ExecutionContext): LedgerTestSummary =
+    LedgerTestSummary(suite.name, test.description, suite.session.config, result)
 
   private def run(test: LedgerTestCase, session: LedgerSession)(
       implicit ec: ExecutionContext): Future[Result] =
     result(start(test, session))
 
-  private def run(suite: LedgerTestSuite)(
-      implicit ec: ExecutionContext): Vector[Future[LedgerTestSummary]] =
-    suite.tests.map(test => summarize(suite, test, run(test, suite.session)))
-
   private def run(completionCallback: Try[Vector[LedgerTestSummary]] => Unit): Unit = {
-    implicit val ec: ExecutionContextExecutorService =
+    implicit val executionContext: ExecutionContextExecutorService =
       ExecutionContext.fromExecutorService(
         Executors.newSingleThreadExecutor(new Thread(_, s"test-tool-dispatcher")))
+    val system: ActorSystem =
+      ActorSystem(
+        classOf[LedgerTestSuiteRunner].getSimpleName,
+        defaultExecutionContext = Some(executionContext))
+    implicit val materializer: ActorMaterializer = ActorMaterializer()(system)
+
     val participantSessionManager = new ParticipantSessionManager
-    Future {
-      val ledgerSession = new LedgerSession(config, participantSessionManager)
-      suiteConstructors.map(constructor => constructor(ledgerSession))
-    }.flatMap(suites => Future.sequence(suites.flatMap(run)))
+    val ledgerSession = new LedgerSession(config, participantSessionManager)
+    val suites = suiteConstructors.map(constructor => constructor(ledgerSession))
+    val testCount = suites.map(_.tests.size).sum
+
+    logger.info(s"Running $testCount tests.")
+
+    Source(suites.flatMap(suite => suite.tests.map(suite -> _)))
+      .mapAsync(1) { case (suite, test) => run(test, suite.session).map((suite, test, _)) }
+      .map((summarize _).tupled)
+      .runWith(Sink.seq)
+      .map(_.toVector)
       .recover { case NonFatal(e) => throw LedgerTestSuiteRunner.UncaughtExceptionError(e) }
       .onComplete { result =>
         participantSessionManager.closeAll()
         completionCallback(result)
-        ec.shutdown()
+        executionContext.shutdown()
       }
   }
 
