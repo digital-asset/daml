@@ -4,12 +4,17 @@
 package com.daml.ledger.api.testtool.infrastructure
 
 import ai.x.diff.DiffShow
-import io.grpc.{Status, StatusException, StatusRuntimeException}
+import com.digitalasset.grpc.{GrpcException, GrpcStatus}
+import io.grpc.Status
 
 import scala.language.higherKinds
+import scala.util.control.NonFatal
 
 object Assertions extends DiffExtensions {
   def fail(message: => String): Nothing =
+    throw new AssertionError(message)
+
+  def fail(message: => String, e: => Throwable): Nothing =
     throw new AssertionError(message)
 
   def assertLength[A, F[_] <: Seq[_]](context: String, length: Int, as: F[A]): F[A] = {
@@ -28,20 +33,17 @@ object Assertions extends DiffExtensions {
         s"$context: two objects are supposed to be equal but they are not")
   }
 
-  def assertGrpcError(t: Throwable, expectedCode: Status.Code, pattern: String): Unit = {
-
-    val (actualCode, message) = t match {
-      case sre: StatusRuntimeException => (sre.getStatus.getCode, sre.getStatus.getDescription)
-      case se: StatusException => (se.getStatus.getCode, se.getStatus.getDescription)
-      case _ =>
-        throw new AssertionError(
-          "Exception is neither a StatusRuntimeException nor a StatusException")
+  def assertGrpcError(t: Throwable, expectedCode: Status.Code, pattern: String): Unit =
+    t match {
+      case GrpcException(GrpcStatus(`expectedCode`, Some(msg)), _) if msg.contains(pattern) =>
+        ()
+      case GrpcException(GrpcStatus(`expectedCode`, None), _) if pattern.isEmpty =>
+        ()
+      case GrpcException(GrpcStatus(`expectedCode`, description), _) =>
+        fail(s"Error message did not contain [$pattern], but was [$description].")
+      case GrpcException(GrpcStatus(code, _), _) =>
+        fail(s"Expected code [$expectedCode], but got [$code].")
+      case NonFatal(e) =>
+        fail("Exception is neither a StatusRuntimeException nor a StatusException", e)
     }
-    assert(actualCode == expectedCode, s"Expected code [$expectedCode], but got [$actualCode].")
-    // Note: Status.getDescription() is nullable, map missing descriptions to an empty string
-    val nonNullMessage = Option(message).getOrElse("")
-    assert(
-      nonNullMessage.contains(pattern),
-      s"Error message did not contain [$pattern], but was [$nonNullMessage].")
-  }
 }

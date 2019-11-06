@@ -3,16 +3,18 @@
 
 package com.digitalasset.ledger.api.testing.utils
 
-import io.grpc.{Status, StatusException, StatusRuntimeException}
+import com.digitalasset.grpc.{GrpcException, GrpcStatus}
+import io.grpc.Status
 import org.scalatest.{Assertion, Matchers}
+
+import scala.util.control.NonFatal
 
 object IsStatusException extends Matchers {
 
   def apply(expectedStatusCode: Status.Code)(throwable: Throwable): Assertion = {
     throwable match {
-      case s: StatusRuntimeException => s.getStatus.getCode shouldEqual expectedStatusCode
-      case s: StatusException => s.getStatus.getCode shouldEqual expectedStatusCode
-      case other => fail(s"$other is not a gRPC Status exception.")
+      case GrpcException(GrpcStatus(code, _), _) => code shouldEqual expectedStatusCode
+      case NonFatal(other) => fail(s"$other is not a gRPC Status exception.")
     }
   }
 

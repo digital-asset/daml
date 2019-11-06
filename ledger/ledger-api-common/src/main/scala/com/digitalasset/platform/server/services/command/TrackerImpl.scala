@@ -16,6 +16,7 @@ import com.digitalasset.ledger.client.services.commands.CommandTrackerFlow.Mater
 import com.digitalasset.platform.common.util.DirectExecutionContext
 import com.digitalasset.platform.server.api.ApiException
 import com.digitalasset.util.Ctx
+import com.google.rpc.code.Code
 import com.google.rpc.status.Status
 import io.grpc.{Status => GrpcStatus}
 import org.slf4j.LoggerFactory
@@ -98,7 +99,7 @@ object TrackerImpl {
       .toMat(Sink.foreach {
         case Ctx(promise, result) =>
           result match {
-            case compl @ Completion(_, Some(Status(0, _, _)), _, _) =>
+            case compl @ Completion(_, Some(Status(Code.OK.value, _, _)), _, _) =>
               logger.trace("Completing promise with success")
               promise.trySuccess(compl)
             case Completion(_, statusO, _, _) =>

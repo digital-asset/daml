@@ -20,6 +20,7 @@ da_scala_library(
         "//ledger-api/rs-grpc-akka",
         "//ledger-api/rs-grpc-bridge",
         "//ledger/ledger-api-domain",
+        "//ledger/ledger-api-grpc-utils",
         "//ledger/participant-state",
         "@maven//:com_typesafe_akka_akka_actor_2_12",
         "@maven//:com_typesafe_akka_akka_stream_2_12",

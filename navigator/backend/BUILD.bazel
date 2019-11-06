@@ -83,6 +83,7 @@ compileDependencies = [
     "//ledger/ledger-api-common",
     "//ledger/ledger-api-client",
     "//ledger/ledger-api-domain",
+    "//ledger/ledger-api-grpc-utils",
     "//ledger-service/lf-value-json",
     "//daml-assistant/scala-daml-project-config",
     "@maven//:com_chuusai_shapeless_2_12",
