@@ -1070,10 +1070,13 @@ private class JdbcLedgerDao(
       pageSize: Int,
       queryPage: (Long, Long) => Future[T]): Source[T, NotUsed] = {
     Source.unfoldAsync(startInclusive) { start =>
-      queryPage(start, start + pageSize).map { result =>
-        if (start + pageSize >= endExclusive) None
-        else Some(start + pageSize -> result)
-      }(executionContext)
+      if (start >= endExclusive) {
+        Future.successful(None)
+      } else {
+        queryPage(start, start + pageSize).map { result =>
+          Some(start + pageSize -> result)
+        }(executionContext)
+      }
     }
   }
 
@@ -1089,10 +1092,10 @@ private class JdbcLedgerDao(
       (startI, endE) => {
         dbDispatcher.executeSql(s"load_ledger_entries", Some(s"bounds: [$startI, $endE[")) {
           implicit conn =>
-            val parsedEntry = SQL_GET_LEDGER_ENTRIES
+            val parsedEntries = SQL_GET_LEDGER_ENTRIES
               .on("startInclusive" -> startI, "endExclusive" -> endE)
               .as(EntryParser.*)
-            parsedEntry.map(entry => entry -> loadDisclosureOptForEntry(entry))
+            parsedEntries.map(entry => entry -> loadDisclosureOptForEntry(entry))
         }
       }
     ).mapConcat(identity)
