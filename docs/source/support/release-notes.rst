@@ -6,6 +6,65 @@ Release notes
 
 This page contains release notes for the SDK.
 
+.. _release-0-13-33:
+
+0.13.33 - 2019-11-06
+--------------------
+
+Navigator
+~~~~~~~~~
+- Fixed regression in Navigator to properly respect the CLI option ``--ledger-api-inbound-message-size-max`` again. See `issue #3301 <https://github.com/digital-asset/daml/issues/3301>`__.
+
+DAML Compiler
+~~~~~~~~~~~~~
+- Reduce the memory footprint of the IDE and the command line tools (ca. 18% in our experiments).
+- Fix compile error caused by instantiating generic templates at ``Numeric n``.
+- The compiler now accepts single-constructor enum types. For example ``data A = A`` or ``data Foo = Bar``.
+
+DAML Triggers
+~~~~~~~~~~~~~
+- Add ``dedupCreate`` and ``dedupExercise`` helpers that will only send
+  commands if they are not already in flight.
+- Remove the custom ``AbsoluteContractId`` type in favor of the regular ``ContractId`` type used in DAML templates.
+
+Sandbox
+~~~~~~~
+- Fixed a bug a database migration script for Sandbox on Postgres introduced in SDK 0.13.32. See `issue #3284 <https://github.com/digital-asset/daml/issues/3284>`__.
+- Timing about database operations are now exposed over JMX as well as via the logs.
+- Added a missing index to the SQL schema for the Postgres Ledger.
+
+DAML Integration Kit
+~~~~~~~~~~~~~~~~~~~~
+- Re-add :doc:`integration kit documentation </daml-integration-kit/index>` that got accidentally deleted.
+
+Ledger API
+~~~~~~~~~~
+- Disallow empty commands. See `issue #592 <https://github.com/digital-asset/daml/issues/592>`__.
+
+DAML Stdlib
+~~~~~~~~~~~
+- Add `DA.TextMap.filter` and `DA.Next.Map.filter`.
+- Add `assertEq` and `assertNotEq` to `DA.Assert` as synonyms for `===` and `=/=`.
+- Add ``DA.Foldable.mapA_``, ``DA.Foldable.forA_``, ``DA.Foldable.sequence_`` and ``DA.Action.replicateA_``. These functions
+  match the behavior of corresponding functions without the underscore suffix but ignore the result which can be more convenient and
+  efficient.
+
+Extractor - Experimental
+~~~~~~~~~~~~~~~~~~~~~~~~
+- Extractor now stores exercise events in the single table data format. See `issue #3274 <https://github.com/digital-asset/daml/issues/3274>`__.
+
+JSON API - Experimental
+~~~~~~~~~~~~~~~~~~~~~~~
+- ``workflowId`` no longer included in any responses.
+- ``/contracts/search`` endpoint can optionally store searched
+  contracts in a Postgres-based cache, by passing the new ``--query-store-jdbc-config`` option.
+  See `issue #2781 <https://github.com/digital-asset/daml/issues/2781>`_.
+
+DAML SDK
+~~~~~~~~
+- Display release notes in the IDE when the DAML extension is upgraded.
+
+
 .. _release-0-13-32:
 
 0.13.32 - 2019-10-29
