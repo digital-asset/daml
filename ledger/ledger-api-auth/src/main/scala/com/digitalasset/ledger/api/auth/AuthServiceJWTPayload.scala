@@ -54,7 +54,7 @@ case class AuthServiceJWTPayload(
   *   "ledgerId": "aaaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
   *   "participantId": null,
   *   "applicationId": null,
-  *   "exp": "2019-10-30T14:11:28Z",
+  *   "exp": 1300819380,
   *   "admin": true,
   *   "actAs": ["Alice"],
   *   "readAs": ["Alice", "Bob"],
