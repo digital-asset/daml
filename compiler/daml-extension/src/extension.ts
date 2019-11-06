@@ -14,7 +14,7 @@ import { LanguageClient, LanguageClientOptions, RequestType, NotificationType, T
 import { Uri, Event, TextDocumentContentProvider, ViewColumn, EventEmitter, window, QuickPickOptions, ExtensionContext, env, WorkspaceConfiguration } from 'vscode';
 import * as which from 'which';
 import * as util from 'util';
-import * as webrequest from 'web-request';
+import fetch, { Response } from 'node-fetch';
 import { getOrd } from 'fp-ts/lib/Array';
 import { ordNumber } from 'fp-ts/lib/Ord';
 
@@ -115,6 +115,7 @@ async function showReleaseNotesIfNewVersion(context: ExtensionContext) {
         showReleaseNotes(extensionVersion);
         await context.globalState.update(versionContextKey, extensionVersion);
     }
+    await context.globalState.update(versionContextKey, extensionVersion);
 }
 
 // Check that `version2` is an upgrade from `version1`,
@@ -134,16 +135,17 @@ async function showReleaseNotes(version: string) {
     const releaseNotesUrl = 'https://blog.daml.com/release-notes/';
     if (version) {
         const url = releaseNotesUrl + version;
-        const result = await webrequest.get(url);
-        if (result.statusCode === 200) {
-            const panel = vscode.window.createWebviewPanel(
-                'releaseNotes', // Identifies the type of the webview. Used internally
-                `Release Notes for DAML SDK ${version}`, // Title of the panel displayed to the user
-                vscode.ViewColumn.One, // Editor column to show the new webview panel in
-                {} // No webview options for now
-            );
-            panel.webview.html = result.content;
-        }
+        fetch(url).then(async (result: Response) => {
+            if (result.ok) {
+                const panel = vscode.window.createWebviewPanel(
+                    'releaseNotes', // Identifies the type of the webview. Used internally
+                    `Release Notes for DAML SDK ${version}`, // Title of the panel displayed to the user
+                    vscode.ViewColumn.One, // Editor column to show the new webview panel in
+                    {} // No webview options for now
+                );
+                panel.webview.html = await result.text();
+            }
+        });
     }
 }
 
