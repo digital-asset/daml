@@ -107,11 +107,12 @@ async function showReleaseNotesIfNewVersion(context: ExtensionContext) {
     const packageFile = path.join(context.extensionPath, 'package.json');
     const packageData = await util.promisify(fs.readFile)(packageFile, "utf8");
     const extensionVersion = JSON.parse(packageData).version;
-    const recordedVersion = String(context.globalState.get(versionContextKey));
-    if (!recordedVersion || checkVersionUpgrade(recordedVersion, extensionVersion)) {
-        // We have a new version of the extension so show the release notes
-        // and update the current version so we don't show them again until
-        // the next update.
+    const recordedVersion = context.globalState.get(versionContextKey);
+    // Check if we have a new version of the extension and show the release
+    // notes if so. Update the current version so we don't show them again until
+    // the next update.
+    if (typeof extensionVersion === 'string' && extensionVersion !== '' &&
+        (!recordedVersion || typeof recordedVersion === 'string' && checkVersionUpgrade(recordedVersion, extensionVersion))) {
         showReleaseNotes(extensionVersion);
         await context.globalState.update(versionContextKey, extensionVersion);
     }
@@ -132,20 +133,18 @@ function checkVersionUpgrade(version1: string, version2: string) {
 // https://code.visualstudio.com/api/extension-guides/webview
 async function showReleaseNotes(version: string) {
     const releaseNotesUrl = 'https://blog.daml.com/release-notes/';
-    if (version) {
-        const url = releaseNotesUrl + version;
-        fetch(url).then(async (result: Response) => {
-            if (result.ok) {
-                const panel = vscode.window.createWebviewPanel(
-                    'releaseNotes', // Identifies the type of the webview. Used internally
-                    `Release Notes for DAML SDK ${version}`, // Title of the panel displayed to the user
-                    vscode.ViewColumn.One, // Editor column to show the new webview panel in
-                    {} // No webview options for now
-                );
-                panel.webview.html = await result.text();
-            }
-        });
-    }
+    const url = releaseNotesUrl + version;
+    fetch(url).then(async (result: Response) => {
+        if (result.ok) {
+            const panel = vscode.window.createWebviewPanel(
+                'releaseNotes', // Identifies the type of the webview. Used internally
+                `Release Notes for DAML SDK ${version}`, // Title of the panel displayed to the user
+                vscode.ViewColumn.One, // Editor column to show the new webview panel in
+                {} // No webview options for now
+            );
+            panel.webview.html = await result.text();
+        }
+    });
 }
 
 function getViewColumnForShowResource(): ViewColumn {
