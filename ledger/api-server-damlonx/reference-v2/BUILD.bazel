@@ -97,14 +97,6 @@ server_conformance_test(
     ],
 )
 
-server_conformance_test(
-    name = "conformance-test-lots-of-parties",
-    servers = SERVERS,
-    test_tool_args = [
-        "--include=LotsOfPartiesIT",
-    ],
-)
-
 conformance_test(
     name = "conformance-test-h2database-multi-node",
     ports = [

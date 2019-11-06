@@ -248,7 +248,7 @@ server_conformance_test(
 )
 
 server_conformance_test(
-    name = "conformance-test-static-time-lots-of-parties",
+    name = "conformance-test-lots-of-parties",
     server_args = [
         "--static-time",
     ],
@@ -268,16 +268,5 @@ server_conformance_test(
         "--all-tests",
         "--exclude=LotsOfPartiesIT",
         "--exclude=TimeIT",
-    ],
-)
-
-server_conformance_test(
-    name = "conformance-test-wall-clock-lots-of-parties",
-    server_args = [
-        "--wall-clock-time",
-    ],
-    servers = SERVERS,
-    test_tool_args = [
-        "--include=LotsOfPartiesIT",
     ],
 )
