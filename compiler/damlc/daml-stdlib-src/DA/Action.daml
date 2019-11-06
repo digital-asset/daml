@@ -66,3 +66,9 @@ replicateA : (Applicative m) => Int -> m a -> m [a]
 replicateA n x
   | n <= 0 = pure []
   | otherwise = liftA2 (::) x (replicateA (n-1) x)
+
+-- | Like `replicateA`, but discards the result.
+replicateA_ : Applicative m => Int -> m a -> m ()
+replicateA_ n f
+  | n <= 0 = pure ()
+  | otherwise = f *> replicateA_ (n - 1) f
