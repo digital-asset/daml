@@ -8,7 +8,7 @@ import java.util.UUID
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.Eventually.eventually
 import com.daml.ledger.api.testtool.infrastructure.Synchronize.synchronize
-import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTest, LedgerTestSuite}
+import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTestSuite}
 import com.digitalasset.ledger.test_dev.DA.Types.{Tuple2 => DamlTuple2}
 import com.digitalasset.ledger.test_dev.Test.Delegation._
 import com.digitalasset.ledger.test_dev.Test.ShowDelegated._
@@ -19,114 +19,108 @@ import io.grpc.Status
 
 final class ContractKeysSubmitterIsMaintainer(session: LedgerSession)
     extends LedgerTestSuite(session) {
+  test("CKNoFetchOrLookup", "Divulged contracts cannot be fetched or looked up by key") { context =>
+    val key = s"${UUID.randomUUID.toString}-key"
+    for {
+      Vector(alpha, beta) <- context.participants(2)
+      owner <- alpha.allocateParty()
+      delegate <- beta.allocateParty()
 
-  private val fetchDivulgedContract =
-    LedgerTest("CKNoFetchOrLookup", "Divulged contracts cannot be fetched or looked up by key") {
-      context =>
-        val key = s"${UUID.randomUUID.toString}-key"
-        for {
-          Vector(alpha, beta) <- context.participants(2)
-          owner <- alpha.allocateParty()
-          delegate <- beta.allocateParty()
+      // create contracts to work with
+      delegated <- alpha.create(owner, Delegated(owner, key))
+      delegation <- alpha.create(owner, Delegation(owner, delegate))
+      showDelegated <- alpha.create(owner, ShowDelegated(owner, delegate))
 
-          // create contracts to work with
-          delegated <- alpha.create(owner, Delegated(owner, key))
-          delegation <- alpha.create(owner, Delegation(owner, delegate))
-          showDelegated <- alpha.create(owner, ShowDelegated(owner, delegate))
-
-          // divulge the contract
-          _ <- alpha.exercise(owner, showDelegated.exerciseShowIt(_, delegated))
-          // fetch delegated
-          _ <- eventually {
-            beta.exercise(delegate, delegation.exerciseFetchDelegated(_, delegated))
-          }
-
-          // fetch by key delegation is not allowed
-          fetchByKeyFailure <- beta
-            .exercise(
-              delegate,
-              delegation
-                .exerciseFetchByKeyDelegated(_, owner, key, Some(delegated)))
-            .failed
-
-          // lookup by key delegation is not allowed
-          lookupByKeyFailure <- beta
-            .exercise(
-              delegate,
-              delegation
-                .exerciseLookupByKeyDelegated(_, owner, key, Some(delegated)))
-            .failed
-        } yield {
-          assertGrpcError(
-            fetchByKeyFailure,
-            Status.Code.INVALID_ARGUMENT,
-            s"Expected the submitter '$delegate' to be in maintainers '$owner'")
-          assertGrpcError(
-            lookupByKeyFailure,
-            Status.Code.INVALID_ARGUMENT,
-            s"Expected the submitter '$delegate' to be in maintainers '$owner'")
-        }
-    }
-
-  private val rejectFetchingUndisclosedContract =
-    LedgerTest(
-      "CKSubmitterIsMaintainerNoFetchUndisclosed",
-      "Contract Keys should reject fetching an undisclosed contract") { context =>
-      val key = s"${UUID.randomUUID.toString}-key"
-      for {
-        Vector(alpha, beta) <- context.participants(2)
-        owner <- alpha.allocateParty()
-        delegate <- beta.allocateParty()
-
-        // create contracts to work with
-        delegated <- alpha.create(owner, Delegated(owner, key))
-        delegation <- alpha.create(owner, Delegation(owner, delegate))
-
-        _ <- synchronize(alpha, beta)
-
-        // fetch should fail
-        fetchFailure <- beta
-          .exercise(
-            delegate,
-            delegation
-              .exerciseFetchDelegated(_, delegated))
-          .failed
-
-        // fetch by key should fail
-        fetchByKeyFailure <- beta
-          .exercise(
-            delegate,
-            delegation
-              .exerciseFetchByKeyDelegated(_, owner, key, None))
-          .failed
-
-        // lookup by key should fail
-        lookupByKeyFailure <- beta
-          .exercise(
-            delegate,
-            delegation
-              .exerciseLookupByKeyDelegated(_, owner, key, None))
-          .failed
-      } yield {
-        assertGrpcError(
-          fetchFailure,
-          Status.Code.INVALID_ARGUMENT,
-          "dependency error: couldn't find contract")
-        assertGrpcError(
-          fetchByKeyFailure,
-          Status.Code.INVALID_ARGUMENT,
-          s"Expected the submitter '$delegate' to be in maintainers '$owner'")
-        assertGrpcError(
-          lookupByKeyFailure,
-          Status.Code.INVALID_ARGUMENT,
-          s"Expected the submitter '$delegate' to be in maintainers '$owner'")
+      // divulge the contract
+      _ <- alpha.exercise(owner, showDelegated.exerciseShowIt(_, delegated))
+      // fetch delegated
+      _ <- eventually {
+        beta.exercise(delegate, delegation.exerciseFetchDelegated(_, delegated))
       }
-    }
 
-  private val processContractKeys =
-    LedgerTest(
-      "CKSubmitterIsMaintainerMaintainerScoped",
-      "Contract keys should be scoped by maintainer") { context =>
+      // fetch by key delegation is not allowed
+      fetchByKeyFailure <- beta
+        .exercise(
+          delegate,
+          delegation
+            .exerciseFetchByKeyDelegated(_, owner, key, Some(delegated)))
+        .failed
+
+      // lookup by key delegation is not allowed
+      lookupByKeyFailure <- beta
+        .exercise(
+          delegate,
+          delegation
+            .exerciseLookupByKeyDelegated(_, owner, key, Some(delegated)))
+        .failed
+    } yield {
+      assertGrpcError(
+        fetchByKeyFailure,
+        Status.Code.INVALID_ARGUMENT,
+        s"Expected the submitter '$delegate' to be in maintainers '$owner'")
+      assertGrpcError(
+        lookupByKeyFailure,
+        Status.Code.INVALID_ARGUMENT,
+        s"Expected the submitter '$delegate' to be in maintainers '$owner'")
+    }
+  }
+
+  test(
+    "CKSubmitterIsMaintainerNoFetchUndisclosed",
+    "Contract Keys should reject fetching an undisclosed contract") { context =>
+    val key = s"${UUID.randomUUID.toString}-key"
+    for {
+      Vector(alpha, beta) <- context.participants(2)
+      owner <- alpha.allocateParty()
+      delegate <- beta.allocateParty()
+
+      // create contracts to work with
+      delegated <- alpha.create(owner, Delegated(owner, key))
+      delegation <- alpha.create(owner, Delegation(owner, delegate))
+
+      _ <- synchronize(alpha, beta)
+
+      // fetch should fail
+      fetchFailure <- beta
+        .exercise(
+          delegate,
+          delegation
+            .exerciseFetchDelegated(_, delegated))
+        .failed
+
+      // fetch by key should fail
+      fetchByKeyFailure <- beta
+        .exercise(
+          delegate,
+          delegation
+            .exerciseFetchByKeyDelegated(_, owner, key, None))
+        .failed
+
+      // lookup by key should fail
+      lookupByKeyFailure <- beta
+        .exercise(
+          delegate,
+          delegation
+            .exerciseLookupByKeyDelegated(_, owner, key, None))
+        .failed
+    } yield {
+      assertGrpcError(
+        fetchFailure,
+        Status.Code.INVALID_ARGUMENT,
+        "dependency error: couldn't find contract")
+      assertGrpcError(
+        fetchByKeyFailure,
+        Status.Code.INVALID_ARGUMENT,
+        s"Expected the submitter '$delegate' to be in maintainers '$owner'")
+      assertGrpcError(
+        lookupByKeyFailure,
+        Status.Code.INVALID_ARGUMENT,
+        s"Expected the submitter '$delegate' to be in maintainers '$owner'")
+    }
+  }
+
+  test("CKSubmitterIsMaintainerMaintainerScoped", "Contract keys should be scoped by maintainer") {
+    context =>
       val keyPrefix = UUID.randomUUID.toString
       val key1 = s"$keyPrefix-some-key"
       val key2 = s"$keyPrefix-some-other-key"
@@ -213,12 +207,5 @@ final class ContractKeysSubmitterIsMaintainer(session: LedgerSession)
           Status.Code.INVALID_ARGUMENT,
           "are not a subset of the signatories")
       }
-    }
-
-  override val tests: Vector[LedgerTest] = Vector(
-    fetchDivulgedContract,
-    rejectFetchingUndisclosedContract,
-    processContractKeys
-  )
-
+  }
 }

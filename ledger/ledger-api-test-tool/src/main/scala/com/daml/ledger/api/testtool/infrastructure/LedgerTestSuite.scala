@@ -4,20 +4,33 @@
 package com.daml.ledger.api.testtool.infrastructure
 
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite.SkipTestException
+import com.digitalasset.daml.lf.data.Ref
 
+import scala.collection.mutable.ListBuffer
 import scala.concurrent.{ExecutionContext, Future}
 
 private[testtool] abstract class LedgerTestSuite(val session: LedgerSession) {
   val name: String = getClass.getSimpleName
 
-  val tests: Vector[LedgerTest]
+  private val testCaseBuffer: ListBuffer[LedgerTestCase] = ListBuffer()
+
+  final lazy val tests: Vector[LedgerTestCase] = testCaseBuffer.toVector
 
   protected implicit final val ec: ExecutionContext = session.executionContext
 
-  final def skip(reason: String): Future[Unit] = Future.failed(SkipTestException(reason))
+  protected final def test(shortIdentifier: String, description: String, timeout: Long = 30000L)(
+      testCase: LedgerTestContext => Future[Unit]): Unit = {
+    val shortIdentifierRef = Ref.LedgerString.assertFromString(shortIdentifier)
+    testCaseBuffer.append(new LedgerTestCase(shortIdentifierRef, description, timeout, testCase))
+  }
 
-  final def skipIf(reason: String)(p: => Boolean): Future[Unit] =
-    if (p) skip(reason) else Future.successful(())
+  protected final def skip(reason: String): Future[Unit] = Future.failed(SkipTestException(reason))
+
+  protected final def skipIf(reason: String)(p: => Boolean): Future[Unit] =
+    if (p)
+      skip(reason)
+    else
+      Future.successful(())
 }
 
 private[testtool] object LedgerTestSuite {
