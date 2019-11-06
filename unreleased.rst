@@ -30,3 +30,4 @@ HEAD — ongoing
 - [Sandbox] Timing about database operations are now exposed over JMX as well as via the logs.
 - [DAML Triggers] Remove the custom ``AbsoluteContractId`` type in favor of the regular ``ContractId`` type used in DAML templates.
 - [Ledger] Fixed divulged contract visibility in multi-participant environments. See `issue #3351 <https://github.com/digital-asset/daml/issues/3351>`__.
+- [Ledger] Enabled the ability to configure ledger api servers with a time service (for test purposes only).

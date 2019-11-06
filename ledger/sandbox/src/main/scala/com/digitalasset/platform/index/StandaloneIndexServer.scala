@@ -24,6 +24,7 @@ import com.digitalasset.platform.sandbox.BuildInfo
 import com.digitalasset.platform.sandbox.config.SandboxConfig
 import com.digitalasset.platform.sandbox.metrics.MetricsManager
 import com.digitalasset.platform.sandbox.stores.InMemoryPackageStore
+import com.digitalasset.platform.server.services.testing.TimeServiceBackend
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -38,14 +39,16 @@ object StandaloneIndexServer {
       readService: ReadService,
       writeService: WriteService,
       authService: AuthService,
-      loggerFactory: NamedLoggerFactory): StandaloneIndexServer =
+      loggerFactory: NamedLoggerFactory,
+      timeServiceBackendO: Option[TimeServiceBackend] = None): StandaloneIndexServer =
     new StandaloneIndexServer(
       "index",
       config,
       readService,
       writeService,
       authService,
-      loggerFactory
+      loggerFactory,
+      timeServiceBackendO
     )
 
   private val engine = Engine()
@@ -78,7 +81,8 @@ class StandaloneIndexServer(
     readService: ReadService,
     writeService: WriteService,
     authService: AuthService,
-    loggerFactory: NamedLoggerFactory) {
+    loggerFactory: NamedLoggerFactory,
+    timeServiceBackendO: Option[TimeServiceBackend]) {
   private val logger = loggerFactory.getLogger(this.getClass)
 
   // Name of this participant,
@@ -160,7 +164,7 @@ class StandaloneIndexServer(
               config.timeProvider,
               cond.config.timeModel,
               SandboxConfig.defaultCommandConfig,
-              None,
+              timeServiceBackendO,
               loggerFactory
             )(am, esf),
         config.port,
