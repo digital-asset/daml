@@ -81,7 +81,7 @@ final class LedgerTestSuiteRunner(
         case failure: AssertionError =>
           Result.Failed(failure)
         case NonFatal(box: ExecutionException) =>
-          box.getCause() match {
+          box.getCause match {
             case failure: AssertionError =>
               Result.Failed(failure)
             case NonFatal(exception) =>
