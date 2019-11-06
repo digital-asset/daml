@@ -34,8 +34,9 @@ object LedgerTestSuiteRunner {
 final class LedgerTestSuiteRunner(
     config: LedgerSessionConfiguration,
     suiteConstructors: Vector[LedgerSession => LedgerTestSuite],
+    identifierSuffix: String,
     timeoutScaleFactor: Double,
-    identifierSuffix: String) {
+    concurrentTestRuns: Int) {
   private[this] val verifyRequirements: Try[Unit] =
     Try {
       require(timeoutScaleFactor > 0, "The timeout scale factor must be strictly positive")
@@ -104,8 +105,7 @@ final class LedgerTestSuiteRunner(
 
   private def run(completionCallback: Try[Vector[LedgerTestSummary]] => Unit): Unit = {
     implicit val executionContext: ExecutionContextExecutorService =
-      ExecutionContext.fromExecutorService(
-        Executors.newSingleThreadExecutor(new Thread(_, s"test-tool-dispatcher")))
+      ExecutionContext.fromExecutorService(Executors.newCachedThreadPool())
     val system: ActorSystem =
       ActorSystem(
         classOf[LedgerTestSuiteRunner].getSimpleName,
@@ -117,10 +117,12 @@ final class LedgerTestSuiteRunner(
     val suites = suiteConstructors.map(constructor => constructor(ledgerSession))
     val testCount = suites.map(_.tests.size).sum
 
-    logger.info(s"Running $testCount tests.")
+    logger.info(s"Running $testCount tests, ${math.min(testCount, concurrentTestRuns)} at a time.")
 
     Source(suites.flatMap(suite => suite.tests.map(suite -> _)))
-      .mapAsync(1) { case (suite, test) => run(test, suite.session).map((suite, test, _)) }
+      .mapAsync(concurrentTestRuns) {
+        case (suite, test) => run(test, suite.session).map((suite, test, _))
+      }
       .map((summarize _).tupled)
       .runWith(Sink.seq)
       .map(_.toVector)
