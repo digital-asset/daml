@@ -12,9 +12,7 @@ trait Reporter[A] {
 }
 
 object Reporter {
-
   object ColorizedPrintStreamReporter {
-
     private val reset = "\u001b[0m"
 
     private def red(s: String): String = s"\u001b[31m$s$reset"
@@ -38,7 +36,6 @@ object Reporter {
               .filter(classOf[LedgerTestSuite].isAssignableFrom)
               .isSuccess)
         .map(_.getLineNumber)
-
   }
 
   final class ColorizedPrintStreamReporter(s: PrintStream, printStackTraces: Boolean)
@@ -46,13 +43,12 @@ object Reporter {
 
     import ColorizedPrintStreamReporter._
 
-    private def indented(msg: String, n: Int = 2) = {
+    private def indented(msg: String, n: Int = 2): String = {
       val indent = " " * n
       msg.lines.map(l => s"$indent$l").mkString("\n")
     }
 
     override def report(results: Vector[LedgerTestSummary]): Unit = {
-
       s.println()
       s.println(blue("#" * 80))
       s.println(blue("#"))
@@ -66,7 +62,6 @@ object Reporter {
           s.println(cyan(suite))
 
           for (LedgerTestSummary(_, test, _, result) <- summaries) {
-
             s.print(cyan(s"- $test ... "))
             result match {
               case Result.Succeeded(duration) =>
@@ -89,7 +84,7 @@ object Reporter {
                 s.println(red(indented(cause.getMessage)))
                 cause match {
                   case AssertionErrorWithPreformattedMessage(preformattedMessage, _) =>
-                    preformattedMessage.split("\n").map(indented(_)).foreach(s.println(_))
+                    preformattedMessage.split("\n").map(indented(_)).foreach(s.println)
                   case _ => // ignore
                 }
                 if (printStackTraces) {
@@ -110,10 +105,8 @@ object Reporter {
                     s.println(red(indented(renderedStackTraceLine)))
                 }
             }
-
           }
       }
     }
   }
-
 }
