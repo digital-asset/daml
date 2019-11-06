@@ -4,7 +4,7 @@
 
 module DA.Daml.Preprocessor
   ( damlPreprocessor
-  , genPreprocessor
+  , generatedPreprocessor
   , noPreprocessor
   ) where
 
@@ -56,8 +56,8 @@ damlPreprocessor mbPkgName x
       name = fmap GHC.unLoc $ GHC.hsmodName $ GHC.unLoc x
 
 -- | Preprocessor for generated code.
-genPreprocessor :: GHC.ParsedSource -> IdePreprocessedSource
-genPreprocessor x =
+generatedPreprocessor :: GHC.ParsedSource -> IdePreprocessedSource
+generatedPreprocessor x =
     IdePreprocessedSource
       { preprocWarnings = []
       , preprocErrors = []
