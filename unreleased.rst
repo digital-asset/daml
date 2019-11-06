@@ -27,3 +27,4 @@ HEAD — ongoing
 - [DAML Stdlib] Add ``DA.Foldable.mapA_``, ``DA.Foldable.forA_``, ``DA.Foldable.sequence_`` and ``DA.Action.replicateA_``. These functions
   match the behavior of corresponding functions without the underscore suffix but ignore the result which can be more convenient and
   efficient.
+- [DAML Compiler] The compiler now accepts single-constructor enum types. For example ``data A = A`` or ``data Foo = Bar``.
