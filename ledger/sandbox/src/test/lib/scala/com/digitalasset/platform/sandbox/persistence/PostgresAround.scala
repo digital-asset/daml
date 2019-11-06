@@ -104,8 +104,15 @@ trait PostgresAround {
         "trust",
         dataDir.toAbsolutePath.toString.replaceAllLiterally("\\", "/")
       )
-      val initDbProcess = Runtime.getRuntime.exec(command)
-      waitForItOrDie(initDbProcess, command.mkString(" "))
+      try {
+        val initDbProcess = Runtime.getRuntime.exec(command)
+        waitForItOrDie(initDbProcess, command.mkString(" "))
+      } catch {
+        case NonFatal(e) =>
+          throw new IllegalStateException(
+            s"Cannot start Postgres fixture. Failed command: ${command.toString}",
+            e)
+      }
     }
 
     def createConfigFile() = {
