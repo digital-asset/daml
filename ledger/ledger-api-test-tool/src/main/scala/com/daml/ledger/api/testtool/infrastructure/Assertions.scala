@@ -37,10 +37,13 @@ object Assertions extends DiffExtensions {
     t match {
       case GrpcException(GrpcStatus(`expectedCode`, Some(msg)), _) if msg.contains(pattern) =>
         ()
+      case GrpcException(GrpcStatus(`expectedCode`, None), _) if pattern.isEmpty =>
+        ()
       case GrpcException(GrpcStatus(`expectedCode`, description), _) =>
         fail(s"Error message did not contain [$pattern], but was [$description].")
       case GrpcException(GrpcStatus(code, _), _) =>
         fail(s"Expected code [$expectedCode], but got [$code].")
       case NonFatal(e) =>
         fail("Exception is neither a StatusRuntimeException nor a StatusException", e)
+    }
 }

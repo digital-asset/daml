@@ -23,7 +23,7 @@ import org.slf4j.LoggerFactory
 import scala.collection.{breakOut, immutable, mutable}
 import scala.concurrent.{Future, Promise}
 import scala.util.control.NoStackTrace
-import scala.util.{Success, Try}
+import scala.util.{Failure, Success, Try}
 
 /**
   * Implements the logic of command tracking via two streams, a submit request and command completion stream.
@@ -164,26 +164,20 @@ private[commands] class CommandTracker[Context]
       import CommandTracker.nonTerminalCodes
 
       private def handleSubmitResponse(submitResponse: Ctx[(Context, String), Try[Empty]]) = {
-        val commandId = submitResponse.context._2
-        submitResponse.value.fold(
-          {
-            case GrpcException(GrpcStatus(code, description), _) if !nonTerminalCodes(code) =>
-              val output = getOutputForTerminalStatusCode(
-                commandId,
-                Status(code.value(), description.getOrElse(""), Nil))
-              pendingCommands -= commandId
-              output
-            case throwable =>
-              logger.warn(
-                s"Service responded with error for submitting command with context ${submitResponse.context}. Status of command is unknown. watching for completion...",
-                throwable
-              )
-              None
-          }, { _ =>
+        val Ctx((_, commandId), value) = submitResponse
+        value match {
+          case Failure(GrpcException(status @ GrpcStatus(code, _), _)) if !nonTerminalCodes(code) =>
+            getOutputForTerminalStatusCode(commandId, GrpcStatus.toProto(status))
+          case Failure(throwable) =>
+            logger.warn(
+              s"Service responded with error for submitting command with context ${submitResponse.context}. Status of command is unknown. watching for completion...",
+              throwable
+            )
+            None
+          case Success(_) =>
             logger.trace("Received confirmation that command {} was accepted.", commandId)
             None
-          }
-        )
+        }
       }
 
       private def registerSubmission(submitRequest: Ctx[Context, SubmitRequest]): Unit = {
@@ -251,12 +245,9 @@ private[commands] class CommandTracker[Context]
         }
 
         logger.trace("Handling {} {}", errorText, completion.commandId: Any)
-        pendingCommands
-          .get(commandId)
-          .flatMap { trackingData =>
-            pendingCommands -= commandId
-            Some(Ctx(trackingData.context, completion))
-          }
+        pendingCommands.remove(commandId).map { t =>
+          Ctx(t.context, completion)
+        }
       }
 
       private def getOutputForTerminalStatusCode(
@@ -264,16 +255,13 @@ private[commands] class CommandTracker[Context]
           status: Status): Option[Ctx[Context, Completion]] = {
         logger.trace("Handling failure of command {}", commandId)
         pendingCommands
-          .get(commandId)
-          .fold {
+          .remove(commandId)
+          .map { t =>
+            Ctx(t.context, Completion(commandId, Some(status), traceContext = t.traceContext))
+          }
+          .orElse {
             logger.trace("Platform signaled failure for unknown command {}", commandId)
-            Option.empty[Ctx[Context, Completion]]
-          } { trackingData =>
-            pendingCommands -= commandId
-            Some(
-              Ctx(
-                trackingData.context,
-                Completion(commandId, Some(status), traceContext = trackingData.traceContext)))
+            None
           }
       }
 
