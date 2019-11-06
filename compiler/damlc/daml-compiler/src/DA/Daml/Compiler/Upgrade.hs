@@ -7,6 +7,7 @@ module DA.Daml.Compiler.Upgrade
     , generateTemplateInstance
     , generateSrcFromLf
     , generateSrcPkgFromLf
+    , generateTemplateInstancesPkgFromLf
     , generateGenInstancesPkgFromLf
     , Env(..)
     , DiffSdkVers(..)
@@ -85,6 +86,68 @@ upgradeTemplates n =
     , "    convert B." <> n <> "{..} = A." <> n <> " {..}"
     ]
 
+-- | Generate the source for a package containing template instances for all templates defined in a
+-- package. It _only_ contains the instance stubs. The correct implementation happens in the
+-- conversion to daml-lf, where `extenal` calls are inlined to daml-lf contained in the dalf of the
+-- external package.
+generateTemplateInstancesPkgFromLf ::
+       (LF.PackageRef -> UnitId)
+    -> LF.PackageId
+    -> LF.Package
+    -> [(NormalizedFilePath, String)]
+generateTemplateInstancesPkgFromLf getUnitId pkgId pkg =
+    catMaybes
+        [ generateTemplateInstanceModule
+            Env
+                { envGetUnitId = getUnitId
+                , envQualify = False
+                , envMod = mod
+                }
+            pkgId
+        | mod <- NM.toList $ LF.packageModules pkg
+        ]
+
+-- | Generate a module containing template/generic instances for all the contained templates.
+-- Return Nothing if there are no instances, so no unnecessary modules are created.
+generateTemplateInstanceModule ::
+       Env -> LF.PackageId -> Maybe (NormalizedFilePath, String)
+generateTemplateInstanceModule env externPkgId
+    | not $ null instances =
+        Just
+            ( toNormalizedFilePath modFilePath
+            , unlines $
+              header ++
+              nubSort imports ++
+              map (showSDocForUser fakeDynFlags alwaysQualify . ppr) instances)
+    | otherwise = Nothing
+  where
+    instances = templInstances
+    templInstances = templateInstances env externPkgId
+
+    mod = envMod env
+    modFilePath = (joinPath $ splitOn "." modName) ++ "Instances" ++ ".daml"
+    modName = T.unpack $ LF.moduleNameString $ LF.moduleName mod
+    header =
+        [ "{-# LANGUAGE NoDamlSyntax #-}"
+        , "{-# LANGUAGE EmptyCase #-}"
+        , "module " <> modName <> "Instances" <> " where"
+        ]
+    imports =
+        [ "import qualified " <> modName
+        , "import qualified DA.Internal.Template"
+        , "import qualified GHC.Types"
+        ]
+
+templateInstances :: Env -> LF.PackageId -> [HsDecl GhcPs]
+templateInstances env externPkgId =
+    [ generateTemplateInstance env dataTypeCon dataParams externPkgId
+    | dataTypeCon <- NM.names $ LF.moduleTemplates mod
+    , Just LF.DefDataType {..} <-
+          [NM.lookup dataTypeCon (LF.moduleDataTypes mod)]
+    ]
+  where
+    mod = envMod env
+
 generateGenInstancesPkgFromLf ::
        (LF.PackageRef -> UnitId)
     -> LF.PackageId
@@ -128,6 +191,7 @@ generateGenInstanceModule env externPkgId qual
     genInstances = snd genImportsAndInstances
 
     mod = envMod env
+
     modFilePath = (joinPath $ splitOn "." modName) ++ qual ++ "GenInstances" ++ ".daml"
     modName = T.unpack $ LF.moduleNameString $ LF.moduleName mod
     modNameQual = modName <> qual
@@ -295,7 +359,6 @@ generateTemplateInstance env typeCon typeParams externPkgId =
             , fun_co_fn = WpHole
             , fun_tick = []
             }
-
 
 -- | Generate the full source for a daml-lf package.
 generateSrcPkgFromLf ::

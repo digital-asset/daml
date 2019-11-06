@@ -221,8 +221,6 @@ convertPrim _ "BEToTextNumeric" (TNumeric n :-> TText) =
     ETyApp (EBuiltin BEToTextNumeric) n
 convertPrim _ "BENumericFromText" (TText :-> TOptional (TNumeric n)) =
     ETyApp (EBuiltin BENumericFromText) n
-
-
 convertPrim _ x ty = error $ "Unknown primitive " ++ show x ++ " at type " ++ renderPretty ty
 
 -- | Some builtins are only supported in specific versions of DAML-LF.

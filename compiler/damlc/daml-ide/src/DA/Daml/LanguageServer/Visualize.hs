@@ -39,7 +39,7 @@ onCommand ide execParsms = case execParsms of
                     WhnfPackage package <- runAction ide (use_ GeneratePackage mod)
                     pkgMap <- runAction ide (useNoFile_ GeneratePackageMap)
                     let modules = NM.toList $ LF.packageModules package
-                    let extpkgs = map dalfPackagePkg $ Map.elems pkgMap
+                    let extpkgs = map LF.dalfPackagePkg $ Map.elems pkgMap
                     let wrld = LF.initWorldSelf extpkgs package
                     let dots = T.pack $ Visual.dotFileGen modules wrld
                     return $ Aeson.String dots

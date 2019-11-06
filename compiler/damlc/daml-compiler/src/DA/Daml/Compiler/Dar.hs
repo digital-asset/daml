@@ -125,7 +125,7 @@ buildDar service pkgConf@PackageConfigFields {..} ifDir dalfInput = do
                  -- get all dalf dependencies.
                  dalfDependencies0 <- getDalfDependencies files
                  let dalfDependencies =
-                         [ (T.pack $ unitIdString unitId, dalfPackageBytes pkg)
+                         [ (T.pack $ unitIdString unitId, LF.dalfPackageBytes pkg)
                          | (unitId, pkg) <- Map.toList dalfDependencies0
                          ]
                  let dataFiles = [mkConfFile pkgConf pkgModuleNames (T.unpack pkgId)]
