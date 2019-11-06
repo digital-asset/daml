@@ -30,9 +30,9 @@ import com.digitalasset.platform.participant.util.LfEngineToApi.{
 
 // Convert from a Ledger API transaction to an SValue corresponding to a Message from the Daml.Trigger module
 case class Converter(
-    fromTransaction: Transaction => SValue,
-    fromCompletion: Completion => SValue,
-    fromACS: Seq[CreatedEvent] => SValue,
+    fromTransaction: Transaction => Either[String, SValue],
+    fromCompletion: Completion => Either[String, SValue],
+    fromACS: Seq[CreatedEvent] => Either[String, SValue],
     toCommands: SValue => Either[String, (String, Seq[Command])]
 )
 
@@ -80,6 +80,8 @@ object TriggerIds {
 
 case class AnyContractId(templateId: Identifier, contractId: AbsoluteContractId)
 
+class ConverterException(message: String) extends RuntimeException(message)
+
 object Converter {
   // Helper to make constructing an SRecord more convenient
   private def record(ty: Identifier, fields: (String, SValue)*): SValue = {
@@ -88,25 +90,33 @@ object Converter {
     SRecord(ty, fieldNames, args)
   }
 
-  private def toLedgerRecord(v: SValue) = {
-    lfValueToApiRecord(
-      true,
-      v.toValue.mapContractId {
-        case rcoid: RelativeContractId =>
-          throw new RuntimeException(s"Unexpected contract id $rcoid")
-        case acoid: AbsoluteContractId => acoid
-      }
-    )
+  private def toLedgerRecord(v: SValue): Either[String, value.Record] = {
+    try {
+      lfValueToApiRecord(
+        true,
+        v.toValue.mapContractId {
+          case rcoid: RelativeContractId =>
+            throw new ConverterException(s"Unexpected contract id $rcoid")
+          case acoid: AbsoluteContractId => acoid
+        }
+      )
+    } catch {
+      case ex: ConverterException => Left(ex.getMessage())
+    }
   }
   private def toLedgerValue(v: SValue) = {
-    lfValueToApiValue(
-      true,
-      v.toValue.mapContractId {
-        case rcoid: RelativeContractId =>
-          throw new RuntimeException(s"Unexpected contract id $rcoid")
-        case acoid: AbsoluteContractId => acoid
-      }
-    )
+    try {
+      lfValueToApiValue(
+        true,
+        v.toValue.mapContractId {
+          case rcoid: RelativeContractId =>
+            throw new ConverterException(s"Unexpected contract id $rcoid")
+          case acoid: AbsoluteContractId => acoid
+        }
+      )
+    } catch {
+      case ex: ConverterException => Left(ex.getMessage())
+    }
   }
 
   private def fromIdentifier(id: value.Identifier): SValue = {
@@ -172,7 +182,9 @@ object Converter {
     )
   }
 
-  private def fromCreatedEvent(triggerIds: TriggerIds, created: CreatedEvent): SValue = {
+  private def fromCreatedEvent(
+      triggerIds: TriggerIds,
+      created: CreatedEvent): Either[String, SValue] = {
     val createdTy = triggerIds.getId("Created")
     val anyTemplateTyCon =
       Identifier(
@@ -180,63 +192,64 @@ object Converter {
         QualifiedName(
           DottedName.assertFromString("DA.Internal.LF"),
           DottedName.assertFromString("AnyTemplate")))
-    ValueValidator.validateRecord(created.getCreateArguments) match {
-      case Right(createArguments) =>
-        SValue.fromValue(createArguments) match {
-          case r @ SRecord(tyCon, _, _) =>
-            record(
-              createdTy,
-              ("eventId", fromEventId(triggerIds, created.eventId)),
-              (
-                "contractId",
-                fromAnyContractId(triggerIds, created.getTemplateId, created.contractId)),
-              ("argument", record(anyTemplateTyCon, ("getAnyTemplate", SAny(TTyCon(tyCon), r))))
-            )
-          case v => throw new RuntimeException(s"Expected record but got $v")
-        }
-      case Left(err) => throw err
-    }
+    for {
+      createArguments <- ValueValidator
+        .validateRecord(created.getCreateArguments)
+        .left
+        .map(_.getMessage)
+      anyTemplate <- SValue.fromValue(createArguments) match {
+        case r @ SRecord(tyCon, _, _) =>
+          Right(record(anyTemplateTyCon, ("getAnyTemplate", SAny(TTyCon(tyCon), r))))
+        case v => Left(s"Expected record but got $v")
+      }
+    } yield
+      record(
+        createdTy,
+        ("eventId", fromEventId(triggerIds, created.eventId)),
+        ("contractId", fromAnyContractId(triggerIds, created.getTemplateId, created.contractId)),
+        ("argument", anyTemplate)
+      )
   }
 
-  private def fromEvent(triggerIds: TriggerIds, ev: Event): SValue = {
+  private def fromEvent(triggerIds: TriggerIds, ev: Event): Either[String, SValue] = {
     val eventTy = triggerIds.getId("Event")
     ev.event match {
-      case Event.Event.Archived(archivedEvent) => {
-        SVariant(
-          eventTy,
-          Name.assertFromString("ArchivedEvent"),
-          fromArchivedEvent(triggerIds, archivedEvent)
-        )
-      }
-      case Event.Event.Created(createdEvent) => {
-        SVariant(
-          eventTy,
-          Name.assertFromString("CreatedEvent"),
-          fromCreatedEvent(triggerIds, createdEvent)
-        )
-      }
-      case _ => {
-        throw new RuntimeException(s"Expected Archived or Created but got $ev.event")
-      }
+      case Event.Event.Archived(archivedEvent) =>
+        for {
+          variant <- Name.fromString("ArchivedEvent")
+          event = fromArchivedEvent(triggerIds, archivedEvent)
+        } yield SVariant(eventTy, variant, event)
+      case Event.Event.Created(createdEvent) =>
+        for {
+          variant <- Name.fromString("CreatedEvent")
+          event <- fromCreatedEvent(triggerIds, createdEvent)
+        } yield SVariant(eventTy, variant, event)
+      case _ => Left(s"Expected Archived or Created but got ${ev.event}")
     }
   }
 
-  private def fromTransaction(triggerIds: TriggerIds, t: Transaction): SValue = {
+  private def fromTransaction(triggerIds: TriggerIds, t: Transaction): Either[String, SValue] = {
     val messageTy = triggerIds.getId("Message")
     val transactionTy = triggerIds.getId("Transaction")
-    SVariant(
-      messageTy,
-      Name.assertFromString("MTransaction"),
-      record(
-        transactionTy,
-        ("transactionId", fromTransactionId(triggerIds, t.transactionId)),
-        ("commandId", fromOptionalCommandId(triggerIds, t.commandId)),
-        ("events", SList(FrontStack(t.events.map(ev => fromEvent(triggerIds, ev)))))
+    for {
+      name <- Name.fromString("MTransaction")
+      transactionId = fromTransactionId(triggerIds, t.transactionId)
+      commandId = fromOptionalCommandId(triggerIds, t.commandId)
+      events <- FrontStack(t.events).traverseU(fromEvent(triggerIds, _)).map(SList)
+    } yield
+      SVariant(
+        messageTy,
+        name,
+        record(
+          transactionTy,
+          ("transactionId", transactionId),
+          ("commandId", commandId),
+          ("events", events)
+        )
       )
-    )
   }
 
-  private def fromCompletion(triggerIds: TriggerIds, c: Completion): SValue = {
+  private def fromCompletion(triggerIds: TriggerIds, c: Completion): Either[String, SValue] = {
     val messageTy = triggerIds.getId("Message")
     val completionTy = triggerIds.getId("Completion")
     val status: SValue = if (c.getStatus.code == 0) {
@@ -257,15 +270,16 @@ object Converter {
           ("message", SText(c.getStatus.message)))
       )
     }
-    SVariant(
-      messageTy,
-      Name.assertFromString("MCompletion"),
-      record(
-        completionTy,
-        ("commandId", fromCommandId(triggerIds, c.commandId)),
-        ("status", status)
-      )
-    )
+    Right(
+      SVariant(
+        messageTy,
+        Name.assertFromString("MCompletion"),
+        record(
+          completionTy,
+          ("commandId", fromCommandId(triggerIds, c.commandId)),
+          ("status", status)
+        )
+      ))
   }
 
   private def toText(v: SValue): Either[String, String] = {
@@ -298,8 +312,7 @@ object Converter {
 
   private def toTemplateTypeRep(v: SValue): Either[String, Identifier] = {
     v match {
-      case SRecord(_, _, vals) => {
-        assert(vals.size == 1)
+      case SRecord(_, _, vals) if vals.size == 1 => {
         toIdentifier(vals.get(0))
       }
       case _ => Left(s"Expected TemplateTypeRep but got $v")
@@ -315,8 +328,7 @@ object Converter {
 
   private def toAnyContractId(v: SValue): Either[String, AnyContractId] = {
     v match {
-      case SRecord(_, _, vals) => {
-        assert(vals.size == 2)
+      case SRecord(_, _, vals) if vals.size == 2 => {
         for {
           templateId <- toTemplateTypeRep(vals.get(0))
           contractId <- toAbsoluteContractId(vals.get(1))
@@ -337,11 +349,9 @@ object Converter {
 
   private def toCreate(triggerIds: TriggerIds, v: SValue): Either[String, CreateCommand] = {
     v match {
-      case SRecord(_, _, vals) => {
-        assert(vals.size == 1)
+      case SRecord(_, _, vals) if vals.size == 1 => {
         vals.get(0) match {
-          case SRecord(_, _, vals) =>
-            assert(vals.size == 1)
+          case SRecord(_, _, vals) if vals.size == 1 =>
             vals.get(0) match {
               case SAny(_, tpl) =>
                 for {
@@ -359,13 +369,11 @@ object Converter {
 
   private def toExercise(triggerIds: TriggerIds, v: SValue): Either[String, ExerciseCommand] = {
     v match {
-      case SRecord(_, _, vals) => {
-        assert(vals.size == 2)
+      case SRecord(_, _, vals) if vals.size == 2 => {
         for {
           anyContractId <- toAnyContractId(vals.get(0))
           choiceVal <- vals.get(1) match {
-            case SRecord(_, _, vals) =>
-              assert(vals.size == 1)
+            case SRecord(_, _, vals) if vals.size == 1 =>
               vals.get(0) match {
                 case SAny(_, choiceVal) => Right(choiceVal)
                 case v => Left(s"Expected Any but got $v")
@@ -403,26 +411,26 @@ object Converter {
   private def toCommands(
       triggerIds: TriggerIds,
       v: SValue): Either[String, (String, Seq[Command])] = {
-    v match {
-      case SRecord(_, _, vals) => {
-        assert(vals.size == 2)
-        for {
-          commandId <- toCommandId(vals.get(0))
-          commands <- vals.get(1) match {
-            case SList(cmdValues) => cmdValues.traverseU(v => toCommand(triggerIds, v))
-            case _ => Left("Expected List but got ${vals.get(1)}")
-          }
-        } yield (commandId, commands.toImmArray.toSeq)
+    for {
+      values <- v match {
+        case SRecord(_, _, values) if values.size == 2 => Right(values)
+        case _ => Left(s"Expected Commands but got $v")
       }
-      case _ => Left("Expected Commands but got $v")
-    }
+      commandId <- toCommandId(values.get(0))
+      commands <- values.get(1) match {
+        case SList(cmdValues) => cmdValues.traverseU(toCommand(triggerIds, _))
+        case _ => Left(s"Expected List but got ${values.get(1)}")
+      }
+    } yield (commandId, commands.toImmArray.toSeq)
   }
 
-  private def fromACS(triggerIds: TriggerIds, createdEvents: Seq[CreatedEvent]): SValue = {
+  private def fromACS(
+      triggerIds: TriggerIds,
+      createdEvents: Seq[CreatedEvent]): Either[String, SValue] = {
     val activeContractsTy = triggerIds.getId("ActiveContracts")
-    record(
-      activeContractsTy,
-      ("activeContracts", SList(FrontStack(createdEvents.map(fromCreatedEvent(triggerIds, _))))))
+    for {
+      events <- FrontStack(createdEvents).traverseU(fromCreatedEvent(triggerIds, _)).map(SList)
+    } yield record(activeContractsTy, ("activeContracts", events))
   }
 
   def fromDar(dar: Dar[(PackageId, Package)]): Converter = {
