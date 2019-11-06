@@ -24,3 +24,6 @@ HEAD — ongoing
 - [Sandbox] Timing about database operations are now exposed over JMX as well as via the logs.
 - [DAML Triggers] Remove the custom ``AbsoluteContractId`` type in favor of the regular ``ContractId`` type used in DAML templates.
 - [Sandbox] Added a missing index to the SQL schema for the Postgres Ledger.
+- [DAML Stdlib] Add ``DA.Foldable.mapA_``, ``DA.Foldable.forA_``, ``DA.Foldable.sequence_`` and ``DA.Action.replicateA_``. These functions
+  match the behavior of corresponding functions without the underscore suffix but ignore the result which can be more convenient and
+  efficient.

@@ -509,16 +509,17 @@ dlintSmokeTests mbScenarioService = Tasty.testGroup "Dlint smoke tests"
             setFilesOfInterest [foo]
             expectNoErrors
             expectDiagnostic DsInfo (foo, 2, 10) "Suggestion: Use let"
-    -- `forA_` and friends not implemented yet : https://github.com/digital-asset/daml/issues/3315
-    -- ,  testCase' "Redundant void" $ do
-    --         foo <- makeFile "Foo.daml" $ T.unlines
-    --             [ "daml 1.2"
-    --             , "module Foo where"
-    --             , "foo g xs = void $ forA_ g xs"
-    --             ]
-    --         setFilesOfInterest [foo]
-    --         expectNoErrors
-    --         expectDiagnostic DsInfo (foo, XX, XX) "Suggestion: Redundant void"
+    ,  testCase' "Redundant void" $ do
+            foo <- makeFile "Foo.daml" $ T.unlines
+                [ "daml 1.2"
+                , "module Foo where"
+                , "import DA.Action"
+                , "import DA.Foldable"
+                , "foo g xs = void $ forA_ g xs"
+                ]
+            setFilesOfInterest [foo]
+            expectNoErrors
+            expectDiagnostic DsInfo (foo, 4, 11) "Warning: Redundant void"
     ,  testCase' "Use <$>" $ do
             foo <- makeFile "Foo.daml" $ T.unlines
                 [ "daml 1.2"
