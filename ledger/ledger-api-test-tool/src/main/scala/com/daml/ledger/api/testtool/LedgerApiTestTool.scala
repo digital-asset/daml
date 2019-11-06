@@ -101,7 +101,7 @@ object LedgerApiTestTool {
       testsToRun.values.toVector,
       identifierSuffix,
       config.timeoutScaleFactor,
-      config.concurrentTestRuns.getOrElse(Runtime.getRuntime.availableProcessors())
+      config.concurrentTestRuns,
     )
 
     runner.verifyRequirementsAndRun {

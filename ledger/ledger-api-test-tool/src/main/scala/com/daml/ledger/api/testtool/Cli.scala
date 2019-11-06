@@ -95,7 +95,7 @@ object Cli {
 
     opt[Int](name = "concurrent-test-runs")
       .optional()
-      .action((v, c) => c.copy(concurrentTestRuns = Some(v)))
+      .action((v, c) => c.copy(concurrentTestRuns = v))
       .text("""Number of tests to run concurrently. Defaults to the number of available
               |processors.""".stripMargin)
 
