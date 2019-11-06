@@ -756,9 +756,14 @@ convertExpr env0 e = do
             mkFieldProj i (name, _typ) = (mkField ("_" <> T.pack (show i)), ETupleProj name (EVar varV1))
     go env (VarIs "primitive") (LType (isStrLitTy -> Just y) : LType t : args)
         = fmap (, args) $ convertPrim (envLfVersion env) (unpackFS y) <$> convertType env t
-    go env (VarIs "external") (LType (isStrLitTy -> Just y) : LType t : args) = do
-        stdlibRef <- packageNameToPkgRef env damlStdlib
-        fmap (, args) $ convertExternal env stdlibRef (unpackFS y) <$> convertType env t
+    go env var@(Var f) (LType (isStrLitTy -> Just y) : LType t : args)
+        | VarIs "external" <- var
+        , Just m <- nameModule_maybe (getName f)
+        , GHC.moduleNameString (GHC.moduleName m) == "GHC.Types"
+        , GHC.moduleUnitId m == primUnitId
+        = do
+            stdlibRef <- packageNameToPkgRef env damlStdlib
+            fmap (, args) $ convertExternal env stdlibRef (unpackFS y) <$> convertType env t
     go env (VarIs "getFieldPrim") (LType (isStrLitTy -> Just name) : LType record : LType _field : args) = do
         record' <- convertType env record
         withTmArg env (varV1, record') args $ \x args ->
