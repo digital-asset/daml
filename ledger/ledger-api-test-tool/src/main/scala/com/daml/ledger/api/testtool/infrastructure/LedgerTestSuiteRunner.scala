@@ -119,13 +119,19 @@ final class LedgerTestSuiteRunner(
 
     logger.info(s"Running $testCount tests, ${math.min(testCount, concurrentTestRuns)} at a time.")
 
-    Source(suites.flatMap(suite => suite.tests.map(suite -> _)))
-      .mapAsync(concurrentTestRuns) {
-        case (suite, test) => run(test, suite.session).map((suite, test, _))
+    val tests = suites
+      .flatMap(suite => suite.tests.map(suite -> _))
+      .zipWithIndex
+    Source(tests)
+      .mapAsyncUnordered(concurrentTestRuns) {
+        case ((suite, test), index) =>
+          run(test, suite.session).map(testResult => (suite, test, testResult) -> index)
       }
-      .map((summarize _).tupled)
+      .map {
+        case ((suite, test, testResult), index) => summarize(suite, test, testResult) -> index
+      }
       .runWith(Sink.seq)
-      .map(_.toVector)
+      .map(_.toVector.sortBy(_._2).map(_._1))
       .recover { case NonFatal(e) => throw LedgerTestSuiteRunner.UncaughtExceptionError(e) }
       .onComplete { result =>
         participantSessionManager.closeAll()
