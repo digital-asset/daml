@@ -22,7 +22,7 @@ module GHC.Types (
         Text, Decimal,
         Opaque,
         ifThenElse,
-        primitive, magic, external
+        primitive, magic, external,
         DamlEnum,
 
 #ifdef DAML_NUMERIC

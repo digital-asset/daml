@@ -1586,9 +1586,10 @@ convertExternal env stdlibRef primId lfType
                     let archiveChoice = ChoiceName "Archive"
                      in case NM.lookup archiveChoice tplChoices of
                             Nothing ->
-                              EBuiltin BEError `ETyApp` lfType `ETmApp`
-                              EBuiltin
-                                  (BEText $ "convertExternal: archive is not implemented in external package")
+                                EBuiltin BEError `ETyApp` lfType `ETmApp`
+                                EBuiltin
+                                    (BEText $
+                                     "convertExternal: archive is not implemented in external package")
                             Just TemplateChoice {..} ->
                                 case chcArgBinder of
                                     (_, LF.TCon tcon) ->
@@ -1673,7 +1674,11 @@ convertExternal env stdlibRef primId lfType
                             (BEText
                                  "templateTypeRep is not supported in this DAML-LF version")
                 other -> error "convertExternal: Unknown external method"
-    | otherwise = error $ "convertExternal: Unable to inline call to external method: " <> primId
+    | [pkgId, modStr, templName, method] <- splitOn ":" primId
+    , Nothing <- lookup pkgId modStr templName =
+        error $ "convertExternal: external template not found " <> primId
+    | otherwise =
+        error $ "convertExternal: malformed external template string" <> primId
   where
     anyTemplateTy = anyTemplateTyFromStdlib stdlibRef
     lookup pId modName temName = do
@@ -1687,8 +1692,9 @@ convertExternal env stdlibRef primId lfType
             , let ExternalPackage _pid pkg = dalfPackagePkg
             ]
 
--- AnyTemplate constant names
 -----------------------------
+-- AnyTemplate constant names
+
 anyTemplateTyFromStdlib :: PackageRef -> TypeConApp
 anyTemplateTyFromStdlib stdlibRef =
     TypeConApp
