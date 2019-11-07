@@ -699,49 +699,6 @@ internalFunctions = listToUFM $ map (bimap mkModuleNameFS mkUniqSet)
         [ "getTag"
         ])
     ]
-pattern NameIn :: NamedThing a => GHC.Module -> FastString -> a
-pattern NameIn m x <- ((\n -> (nameModule_maybe (getName n), getOccFS n)) -> (Just m, x))
-
-pattern VarIn :: GHC.Module -> FastString -> GHC.Expr Var
-pattern VarIn m x <- Var (NameIn m x)
-
-pattern ModuleIn :: GHC.UnitId -> FastString -> GHC.Module
-pattern ModuleIn u n <- ((\m -> (moduleUnitId m, GHC.moduleNameFS (GHC.moduleName m))) -> (u, n))
-
--- builtin unit id patterns
-pattern DamlPrim, DamlStdlib :: GHC.UnitId
-pattern DamlPrim <- ((== primUnitId) -> True)
-pattern DamlStdlib <- (T.stripPrefix "daml-stdlib-" . fsToText . unitIdFS -> Just _)
-    -- The unit ID for daml-stdlib includes the SDK version.
-    -- This pattern accepts all SDK versions for daml-stdlib.
-
-pattern IgnoreWorkerPrefix :: T.Text -> T.Text
-pattern IgnoreWorkerPrefix n <- ((\w -> fromMaybe w (T.stripPrefix "$W" w)) -> n)
-
-pattern IgnoreWorkerPrefixFS :: T.Text -> FastString
-pattern IgnoreWorkerPrefixFS n <- (fsToText -> IgnoreWorkerPrefix n)
-
--- daml-prim module patterns
-pattern Control_Exception_Base, Data_String, GHC_Base, GHC_Classes, GHC_CString, GHC_Integer_Type, GHC_Num, GHC_Prim, GHC_Real, GHC_Tuple, GHC_Types :: GHC.Module
-pattern Control_Exception_Base <- ModuleIn DamlPrim "Control.Exception.Base"
-pattern Data_String <- ModuleIn DamlPrim "Data.String"
-pattern GHC_Base <- ModuleIn DamlPrim "GHC.Base"
-pattern GHC_Classes <- ModuleIn DamlPrim "GHC.Classes"
-pattern GHC_CString <- ModuleIn DamlPrim "GHC.CString"
-pattern GHC_Integer_Type <- ModuleIn DamlPrim "GHC.Integer.Type"
-pattern GHC_Num <- ModuleIn DamlPrim "GHC.Num"
-pattern GHC_Prim <- ModuleIn DamlPrim "GHC.Prim" -- wired-in by GHC
-pattern GHC_Real <- ModuleIn DamlPrim "GHC.Real"
-pattern GHC_Tuple <- ModuleIn DamlPrim "GHC.Tuple"
-pattern GHC_Types <- ModuleIn DamlPrim "GHC.Types"
-
--- daml-stdlib module patterns
-pattern DA_Action, DA_Generics, DA_Internal_LF, DA_Internal_Prelude, DA_Internal_Record :: GHC.Module
-pattern DA_Action <- ModuleIn DamlStdlib "DA.Action"
-pattern DA_Generics <- ModuleIn DamlStdlib "DA.Generics"
-pattern DA_Internal_LF <- ModuleIn DamlStdlib "DA.Internal.LF"
-pattern DA_Internal_Prelude <- ModuleIn DamlStdlib "DA.Internal.Prelude"
-pattern DA_Internal_Record <- ModuleIn DamlStdlib "DA.Internal.Record"
 
 convertExpr :: Env -> GHC.Expr Var -> ConvertM LF.Expr
 convertExpr env0 e = do
