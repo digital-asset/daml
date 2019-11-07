@@ -33,6 +33,7 @@ class BaseLedger(val ledgerId: LedgerId, headAtInitialization: Long, ledgerDao: 
   implicit private val DEC: ExecutionContext = DirectExecutionContext
 
   protected final val dispatcher: Dispatcher[Long] = Dispatcher[Long](
+    "sql-ledger",
     0l,
     headAtInitialization
   )
