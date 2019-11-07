@@ -237,15 +237,15 @@ ondiskTypeCheck hsc deps pm = do
         let mss = map fst deps
         session <- getSession
         setSession session { hsc_mod_graph = mkModuleGraph mss }
-        let ims  = map (GHC.InstalledModule (thisInstalledUnitId $ hsc_dflags session) . moduleName . ms_mod) mss
-            ifrs = zipWith (\ms im -> InstalledFound (ms_location ms) im) mss ims
+        let installedModules  = map (GHC.InstalledModule (thisInstalledUnitId $ hsc_dflags session) . moduleName . ms_mod) mss
+            installedFindResults = zipWith (\ms im -> InstalledFound (ms_location ms) im) mss installedModules
         -- We have to create a new IORef here instead of modifying the existing IORef as
         -- it is shared between concurrent compilations.
         prevFinderCache <- liftIO $ readIORef $ hsc_FC session
         let newFinderCache =
                 foldl'
                     (\fc (im, ifr) -> GHC.extendInstalledModuleEnv fc im ifr) prevFinderCache
-                    $ zip ims ifrs
+                    $ zip installedModules installedFindResults
         newFinderCacheVar <- liftIO $ newIORef $! newFinderCache
         modifySession $ \s -> s { hsc_FC = newFinderCacheVar }
         -- Currently GetDependencies returns things in topological order so A comes before B if A imports B.
@@ -296,7 +296,8 @@ ondiskDesugar hsc tm =
             return (map snd warnings, core)
 
 -- This rule is for on-disk incremental builds. We cannot use the fine-grained rules that we have for
--- in-memory builds since we need to be able to serialize intermediate results.
+-- in-memory builds since we need to be able to serialize intermediate results. GHC doesn’t provide a way to serialize
+-- TypeCheckedModules or CoreModules. In addition to that, making this too fine-grained would probably also incur a performance penalty.
 -- Therefore we have a single rule that performs the steps parsed module -> typechecked module -> core module -> DAML-LF module.
 -- This rule writes both the .dalf and the .hi files.
 -- We use the ABI hash of the .hi files to detect if we need to recompile dependent files. Note that this is more aggressive
