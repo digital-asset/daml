@@ -525,8 +525,8 @@ runInit targetFolderM = do
 -- * Creation of a project in existing folder (suggest daml init instead).
 -- * Creation of a project inside another project.
 --
-runNew :: FilePath -> Maybe String -> [String] -> IO ()
-runNew targetFolder templateNameM pkgDeps = do
+runNew :: FilePath -> Maybe String -> [String] -> [String] -> IO ()
+runNew targetFolder templateNameM pkgDeps dataImports = do
     templatesFolder <- getTemplatesFolder
     let templateName = fromMaybe defaultProjectTemplate templateNameM
         templateFolder = templatesFolder </> templateName
@@ -606,6 +606,7 @@ runNew targetFolder templateNameM pkgDeps = do
         let config = replace "__VERSION__"  sdkVersion
                    . replace "__PROJECT_NAME__" projectName
                    . replace "__DEPENDENCIES__" (unlines ["  - " <> dep | dep <- pkgDeps])
+                   . replace "__DATAIMPORTS__" (unlines ["  - " <> dep | dep <- dataImports])
                    $ configTemplate
         writeFileUTF8 configPath config
         removeFile configTemplatePath
@@ -622,7 +623,7 @@ runMigrate targetFolder pkgPath1 pkgPath2
     pkgPath1Abs <- makeAbsolute pkgPath1
     pkgPath2Abs <- makeAbsolute pkgPath2
     -- Create a new project
-    runNew targetFolder (Just "migrate") [pkgPath1Abs, pkgPath2Abs]
+    runNew targetFolder (Just "migrate") [] [pkgPath1Abs, pkgPath2Abs]
 
     -- Call damlc to create the upgrade source files.
     procConfig <- toAssistantCommand
