@@ -930,7 +930,7 @@ dev_env_tool(
         "bin/initdb.exe",
         "bin/createdb.exe",
         "bin/pg_ctl.exe",
-        "bin/postgresql.exe",
+        "bin/postgres.exe",
     ],
     win_tool = "msys2",
 )
