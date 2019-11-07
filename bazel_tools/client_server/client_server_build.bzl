@@ -33,7 +33,6 @@ def _client_server_build_impl(ctx):
     return [
         DefaultInfo(
             files = depset([ctx.outputs.out]),
-            runfiles = ctx.runfiles(files = ctx.files.data, collect_data = True),
         ),
     ]
 
