@@ -61,12 +61,6 @@ build --action_env=GIT_SSL_CAINFO
 build:linux --action_env=LOCALE_ARCHIVE
 build:windows --action_env=JAVA_HOME
 
-
-# Pass workspace status for stamped actions
-build:linux --workspace_status_command=bazel_tools/workspace_status.sh
-build:darwin --workspace_status_command=bazel_tools/workspace_status.sh
-build:windows --workspace_status_command=bazel_tools/workspace_status.cmd
-
 # Tell bazel to use the nixpkgs Haskell toolchain on Linux and Darwin
 build:linux --host_platform=@rules_haskell//haskell/platforms:linux_x86_64_nixpkgs
 build:darwin --host_platform=@rules_haskell//haskell/platforms:darwin_x86_64_nixpkgs
