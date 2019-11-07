@@ -19,7 +19,7 @@ import Test.Tasty.HUnit
 main :: IO ()
 main = do
     damlc <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> exe "damlc")
-    repl <- locateRunfiles (mainWorkspace </> "daml-lf" </> "repl" </> "repl")
+    repl <- locateRunfiles (mainWorkspace </> "daml-lf" </> "repl" </> exe "repl")
     defaultMain $ tests damlc repl
 
 tests :: FilePath -> FilePath -> TestTree
