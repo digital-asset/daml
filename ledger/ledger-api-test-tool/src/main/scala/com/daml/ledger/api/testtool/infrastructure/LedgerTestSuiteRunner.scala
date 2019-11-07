@@ -54,13 +54,13 @@ final class LedgerTestSuiteRunner(
         .flatMap { context =>
           val start = System.nanoTime()
           val result = test(context).map(_ => Duration.fromNanos(System.nanoTime() - start))
-          logger.info(s"Started '${test.description}' with a ${scaledTimeout.toMillis}ms timeout.")
+          logger.info(s"Started '${test.description}' with a timeout of $scaledTimeout.")
           result
         }
 
     val testTimeout = new TimerTask {
       override def run(): Unit = {
-        val message = s"Timeout of ${scaledTimeout.toMillis}ms for '${test.description}' hit."
+        val message = s"Timeout of $scaledTimeout for '${test.description}' hit."
         if (execution.tryFailure(new TimeoutException(message))) {
           logger.error(message)
         }
