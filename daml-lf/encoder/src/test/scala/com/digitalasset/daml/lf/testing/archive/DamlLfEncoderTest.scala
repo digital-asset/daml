@@ -40,13 +40,15 @@ class DamlLfEncoderTest
 
       val modules_1_1 = modules_1_0 + "Option"
       val modules_1_3 = modules_1_1 + "Map"
-      val modules_1_dev = modules_1_3 + "Enum"
+      val module_1_7 = modules_1_3 + "Enum"
+      val modules_1_dev = module_1_7
 
       val versions = Table(
         "versions" -> "modues",
         "1.0" -> modules_1_0,
         "1.1" -> modules_1_1,
         "1.3" -> modules_1_3,
+        "1.7" -> module_1_7,
         "1.dev" -> modules_1_dev
       )
 

@@ -7,7 +7,7 @@ load(
 )
 load(
     "//daml-lf/language:daml-lf.bzl",
-    "lf_latest_version",
+    "lf_stable_version",
 )
 load(
     "//bazel_tools:scala.bzl",
@@ -31,7 +31,7 @@ load(
 daml_compile(
     name = "PackageManagementTest",
     main_src = "src/main/daml/PackageManagementTest.daml",
-    target = lf_latest_version,
+    target = lf_stable_version,
 )
 
 dar_to_scala(

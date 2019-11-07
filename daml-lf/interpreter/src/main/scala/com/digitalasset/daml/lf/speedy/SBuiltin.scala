@@ -190,9 +190,6 @@ object SBuiltin {
       val scale = args.get(0).asInstanceOf[STNat].n
       val prec = args.get(1).asInstanceOf[SInt64].value
       val x = args.get(2).asInstanceOf[SNumeric].value
-      // FixMe: https://github.com/digital-asset/daml/issues/2289
-      //   drop this double check
-      assert(x.scale == scale)
       machine.ctrl = CtrlValue(
         SNumeric(
           rightOrArithmeticError(s"Error while rounding (Numeric $scale)", Numeric.round(prec, x)))
@@ -205,9 +202,6 @@ object SBuiltin {
       val inputScale = args.get(0).asInstanceOf[STNat].n
       val outputScale = args.get(1).asInstanceOf[STNat].n
       val x = args.get(2).asInstanceOf[SNumeric].value
-      // FixMe: https://github.com/digital-asset/daml/issues/2289
-      //   drop this double check
-      assert(x.scale == inputScale)
       machine.ctrl = CtrlValue(
         SNumeric(
           rightOrArithmeticError(
@@ -221,9 +215,6 @@ object SBuiltin {
       val inputScale = args.get(0).asInstanceOf[STNat].n
       val outputScale = args.get(1).asInstanceOf[STNat].n
       val x = args.get(2).asInstanceOf[SNumeric].value
-      // FixMe: https://github.com/digital-asset/daml/issues/2289
-      //   drop this double check
-      assert(x.scale == inputScale)
       machine.ctrl = CtrlValue(
         SNumeric(
           rightOrArithmeticError(
@@ -302,11 +293,7 @@ object SBuiltin {
 
   final case object SBToTextNumeric extends SBuiltin(2) {
     override def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
-      val scale = args.get(0).asInstanceOf[STNat].n
       val x = args.get(1).asInstanceOf[SNumeric].value
-      // FixMe: https://github.com/digital-asset/daml/issues/2289
-      //   drop this double check
-      assert(x.scale == scale)
       machine.ctrl = CtrlValue(SText(Numeric.toUnscaledString(x)))
     }
   }
@@ -511,11 +498,7 @@ object SBuiltin {
 
   final case object SBNumericToInt64 extends SBuiltin(2) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
-      val scale = args.get(0).asInstanceOf[STNat].n
       val x = args.get(1).asInstanceOf[SNumeric].value
-      // FixMe: https://github.com/digital-asset/daml/issues/2289
-      //   drop this double check
-      assert(x.scale == scale)
       machine.ctrl = CtrlValue(
         SInt64(
           rightOrArithmeticError(
@@ -605,12 +588,8 @@ object SBuiltin {
 
   sealed abstract class SBCompareNumeric(pred: Int => Boolean) extends SBuiltin(3) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
-      val scale = args.get(0).asInstanceOf[STNat].n
       val a = args.get(1).asInstanceOf[SNumeric].value
       val b = args.get(2).asInstanceOf[SNumeric].value
-      // FixMe: https://github.com/digital-asset/daml/issues/2289
-      //   drop this double check
-      assert(a.scale == scale && b.scale == scale)
       machine.ctrl = CtrlValue.bool(pred(Numeric.compareTo(a, b)))
     }
   }

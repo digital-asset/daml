@@ -23,7 +23,7 @@ class EncodeV1Spec extends WordSpec with Matchers with TableDrivenPropertyChecks
   val defaultParserParameters: ParserParameters[this.type] =
     ParserParameters(
       pkgId,
-      LanguageVersion(V1, "dev")
+      LanguageVersion(V1, "7")
     )
 
   "Encode and Decode" should {
