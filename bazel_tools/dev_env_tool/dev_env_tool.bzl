@@ -5,7 +5,7 @@ load("@bazel_tools//tools/cpp:lib_cc_configure.bzl", "get_cpu_value")
 
 def _create_build_content(rule_name, tools, win_paths, nix_paths):
     content = """
-# DO NOT EDIT: automatically generated BUILD file for dev_env_package.bzl: {rule_name}
+# DO NOT EDIT: automatically generated BUILD file for dev_env_tool.bzl: {rule_name}
 package(default_visibility = ["//visibility:public"])
 
 filegroup(

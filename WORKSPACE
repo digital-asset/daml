@@ -36,8 +36,7 @@ register_toolchains(
     "//:c2hs-toolchain",
 )
 
-load("//bazel_tools/dev_env_package:dev_env_package.bzl", "dev_env_package")
-load("//bazel_tools/dev_env_package:dev_env_tool.bzl", "dev_env_tool")
+load("//bazel_tools/dev_env_tool:dev_env_tool.bzl", "dev_env_tool")
 load(
     "@io_tweag_rules_nixpkgs//nixpkgs:nixpkgs.bzl",
     "nixpkgs_cc_configure",
