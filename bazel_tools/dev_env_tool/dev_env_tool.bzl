@@ -53,22 +53,22 @@ def _dadew_tool_home(dadew, tool):
     return "%s\\scoop\\apps\%s\\current" % (dadew, tool)
 
 def _find_files_recursive(ctx, find, root):
-    find_result = ctx.execute([find, "-L", root, "-type", "f", "-printf", "%P\\0"])
+    find_result = ctx.execute([find, "-L", root, "-type", "f", "-print0"])
 
     if find_result.return_code != 0:
         fail("Failed to list files contained in '%s':\nExit code %d\n%s\n%s." %
              (root, find_result.return_code, find_result.stdout, find_result.stderr))
 
-    return [f for f in find_result.stdout.split("\0") if f]
+    return [
+        f[len(root) + 1:]
+        for f in find_result.stdout.split("\0")
+        if f and f.startswith(root)
+    ]
 
 def _symlink_files_recursive(ctx, find, source, dest):
     files = _find_files_recursive(ctx, find, source)
     for f in files:
         ctx.symlink("%s/%s" % (source, f), "%s/%s" % (dest, f))
-    if not files:
-        # If no files where found source might be an empty directory or a file.
-        # In either case we should symlink it directly to ensure its presence.
-        ctx.symlink(source, dest)
 
 def _dev_env_tool_impl(ctx):
     if get_cpu_value(ctx) == "x64_windows":
