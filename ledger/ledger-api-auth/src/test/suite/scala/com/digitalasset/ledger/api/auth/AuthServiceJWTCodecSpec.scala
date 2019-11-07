@@ -32,10 +32,9 @@ class AuthServiceJWTCodecSpec
   private implicit val arbInstant: Arbitrary[Instant] = {
     Arbitrary {
       for {
-        millis <- Gen.chooseNum(Instant.MIN.getEpochSecond, Instant.MAX.getEpochSecond)
-        nanos <- Gen.chooseNum(Instant.MIN.getNano, Instant.MAX.getNano)
+        seconds <- Gen.chooseNum(Instant.MIN.getEpochSecond, Instant.MAX.getEpochSecond)
       } yield {
-        Instant.ofEpochMilli(millis).plusNanos(nanos.toLong)
+        Instant.ofEpochSecond(seconds)
       }
     }
   }
