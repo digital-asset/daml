@@ -132,9 +132,6 @@ getRawDalf absFile = fmap getWhnfPackage <$> use GenerateRawPackage absFile
 getDalf :: NormalizedFilePath -> Action (Maybe LF.Package)
 getDalf file = fmap getWhnfPackage <$> use GeneratePackage file
 
-getDalfModule :: NormalizedFilePath -> Action (Maybe LF.Module)
-getDalfModule file = use GenerateDalf file
-
 -- | A dependency on a compiled library.
 data DalfDependency = DalfDependency
   { ddName         :: !T.Text
