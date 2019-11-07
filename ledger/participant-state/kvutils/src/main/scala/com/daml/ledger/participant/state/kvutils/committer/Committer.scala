@@ -20,7 +20,7 @@ import org.slf4j.{Logger, LoggerFactory}
   * `PartialResult`.
   *
   * A committer implementation defines an initial partial result with `init` and `steps` to process the submission
-  * into a set of DAML state outputs and a log entry. The main rational behind this abstraction is to provide uniform
+  * into a set of DAML state outputs and a log entry. The main rationale behind this abstraction is to provide uniform
   * approach to implementing a kvutils committer that shares the handling of input and output DAML state, rejecting
   * a submission, logging and metrics.
   *

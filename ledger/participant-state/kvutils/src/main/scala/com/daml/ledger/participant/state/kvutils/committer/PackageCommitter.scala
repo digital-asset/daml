@@ -17,6 +17,7 @@ import scala.collection.JavaConverters._
 private[kvutils] case class PackageCommitter(engine: Engine)
     extends Committer[DamlPackageUploadEntry, DamlPackageUploadEntry.Builder] {
   private object Metrics {
+    // kvutils.PackageCommitter.*
     val preloadTimer: Timer = metricsRegistry.timer(metricsName("preload-timer"))
     val decodeTimer: Timer = metricsRegistry.timer(metricsName("decode-timer"))
     val accepts: Counter = metricsRegistry.counter(metricsName("accepts"))
