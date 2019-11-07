@@ -46,23 +46,29 @@ final class SqlExecutor(noOfThread: Int, loggerFactory: NamedLoggerFactory, mm: 
       waitAllTimer.update(waitNanos, TimeUnit.NANOSECONDS)
       val startExec = System.nanoTime()
       try {
-
         // Actual execution
-        val res = block
+        promise.success(block)
+      } catch {
+        case NonFatal(e) =>
+          logger.error(
+            s"$description: Got an exception while executing a SQL query. Rolled back the transaction.",
+            e)
+          promise.failure(e)
+        case t: Throwable =>
+          logger.error(s"$description: got a fatal error!", t) //fatal errors don't make it for some reason to the setUncaughtExceptionHandler above
+          throw t
+      }
 
+      // decouple metrics updating from sql execution above
+      try {
         val execNanos = System.nanoTime() - startExec
         extraLog.foreach(log =>
           logger.trace(s"$description: $log exec ${(execNanos / 1E6).toLong} ms"))
         execTimer.update(execNanos, TimeUnit.NANOSECONDS)
         execAllTimer.update(execNanos, TimeUnit.NANOSECONDS)
-
-        promise.success(res)
       } catch {
-        case NonFatal(e) =>
-          promise.failure(e)
         case t: Throwable =>
-          logger.error("got a fatal error!", t) //fatal errors don't make it for some reason to the setUncaughtExceptionHandler above
-          throw t
+          logger.error("$description: Got an exception while updating timer metrics. Ignoring.", t)
       }
     })
     promise.future

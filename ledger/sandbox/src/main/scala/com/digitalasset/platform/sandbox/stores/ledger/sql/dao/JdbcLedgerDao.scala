@@ -1394,7 +1394,7 @@ object JdbcLedgerDao {
          |left join contracts c on cd.id=c.id
          |left join ledger_entries le on c.transaction_id = le.transaction_id
          |left join contract_witnesses cowi on cowi.contract_id = c.id and witness = {party}
-         |left join contract_divulgences codi on codi.contract_id = c.id and party = {party}
+         |left join contract_divulgences codi on codi.contract_id = cd.id and party = {party}
          |left join contract_signatories sigs on sigs.contract_id = c.id
          |left join contract_observers obs on obs.contract_id = c.id
          |
@@ -1482,7 +1482,7 @@ object JdbcLedgerDao {
          |left join contracts c on cd.id=c.id
          |left join ledger_entries le on c.transaction_id = le.transaction_id
          |left join contract_witnesses cowi on cowi.contract_id = c.id and witness = {party}
-         |left join contract_divulgences codi on codi.contract_id = c.id and party = {party}
+         |left join contract_divulgences codi on codi.contract_id = cd.id and party = {party}
          |left join contract_signatories sigs on sigs.contract_id = c.id
          |left join contract_observers obs on obs.contract_id = c.id
          |

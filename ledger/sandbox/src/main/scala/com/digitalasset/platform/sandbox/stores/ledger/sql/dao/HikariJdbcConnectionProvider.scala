@@ -5,7 +5,6 @@ package com.digitalasset.platform.sandbox.stores.ledger.sql.dao
 
 import java.sql.Connection
 
-import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.zaxxer.hikari.{HikariConfig, HikariDataSource}
 
 import scala.concurrent.duration.{FiniteDuration, _}
@@ -52,11 +51,9 @@ object HikariConnection {
 class HikariJdbcConnectionProvider(
     jdbcUrl: String,
     noOfShortLivedConnections: Int,
-    noOfStreamingConnections: Int,
-    loggerFactory: NamedLoggerFactory)
+    noOfStreamingConnections: Int)
     extends JdbcConnectionProvider {
 
-  private val logger = loggerFactory.getLogger(getClass)
   // these connections should never timeout as we have exactly the same number of threads using them as many connections we have
   private val shortLivedDataSource =
     HikariConnection.createDataSource(
@@ -84,9 +81,7 @@ class HikariJdbcConnectionProvider(
       res
     } catch {
       case NonFatal(t) =>
-        logger.error(
-          "Got an exception while executing a SQL query. Rolling back the transaction.",
-          t)
+        // Log the error in the caller with access to more logging context (such as the sql statement description)
         conn.rollback()
         throw t
     } finally {
@@ -107,11 +102,6 @@ object HikariJdbcConnectionProvider {
   def apply(
       jdbcUrl: String,
       noOfShortLivedConnections: Int,
-      noOfStreamingConnections: Int,
-      loggerFactory: NamedLoggerFactory): JdbcConnectionProvider =
-    new HikariJdbcConnectionProvider(
-      jdbcUrl,
-      noOfShortLivedConnections,
-      noOfStreamingConnections,
-      loggerFactory)
+      noOfStreamingConnections: Int): JdbcConnectionProvider =
+    new HikariJdbcConnectionProvider(jdbcUrl, noOfShortLivedConnections, noOfStreamingConnections)
 }

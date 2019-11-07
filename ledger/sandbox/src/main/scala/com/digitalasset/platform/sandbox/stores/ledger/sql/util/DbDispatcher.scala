@@ -52,11 +52,7 @@ private class DbDispatcherImpl(
 
   private val logger = loggerFactory.getLogger(getClass)
   private val connectionProvider =
-    HikariJdbcConnectionProvider(
-      jdbcUrl,
-      noOfShortLivedConnections,
-      noOfStreamingConnections,
-      loggerFactory)
+    HikariJdbcConnectionProvider(jdbcUrl, noOfShortLivedConnections, noOfStreamingConnections)
   private val sqlExecutor = SqlExecutor(noOfShortLivedConnections, loggerFactory, mm)
 
   private val connectionGettingThreadPool = ExecutionContext.fromExecutorService(

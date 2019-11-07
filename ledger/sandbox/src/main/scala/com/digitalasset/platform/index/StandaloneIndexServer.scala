@@ -18,12 +18,13 @@ import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.server.apiserver.{ApiServer, ApiServices, LedgerApiServer}
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
-import com.digitalasset.platform.index.StandaloneIndexServer.{asyncTolerance, preloadPackages}
+import com.digitalasset.platform.index.StandaloneIndexServer.asyncTolerance
 import com.digitalasset.platform.index.config.Config
 import com.digitalasset.platform.sandbox.BuildInfo
 import com.digitalasset.platform.sandbox.config.SandboxConfig
 import com.digitalasset.platform.sandbox.metrics.MetricsManager
 import com.digitalasset.platform.sandbox.stores.InMemoryPackageStore
+import com.digitalasset.platform.server.services.testing.TimeServiceBackend
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -38,38 +39,21 @@ object StandaloneIndexServer {
       readService: ReadService,
       writeService: WriteService,
       authService: AuthService,
-      loggerFactory: NamedLoggerFactory): StandaloneIndexServer =
+      loggerFactory: NamedLoggerFactory,
+      engine: Engine = engineSharedAmongIndexServers, // allows sharing DAML engine with DAML-on-X participant
+      timeServiceBackendO: Option[TimeServiceBackend] = None): StandaloneIndexServer =
     new StandaloneIndexServer(
       "index",
       config,
       readService,
       writeService,
       authService,
-      loggerFactory
+      loggerFactory,
+      engine,
+      timeServiceBackendO
     )
 
-  private val engine = Engine()
-
-  // if requested, initialize the ledger state with the given scenario
-  private def preloadPackages(packageContainer: InMemoryPackageStore): Unit = {
-    // [[ScenarioLoader]] needs all the packages to be already compiled --
-    // make sure that that's the case
-    for {
-      (pkgId, _) <- packageContainer.listLfPackagesSync()
-      pkg <- packageContainer.getLfPackageSync(pkgId)
-    } {
-      engine
-        .preloadPackage(pkgId, pkg)
-        .consume(
-          { _ =>
-            sys.error("Unexpected request of contract")
-          },
-          packageContainer.getLfPackageSync, { _ =>
-            sys.error("Unexpected request of contract key")
-          }
-        )
-    }
-  }
+  private val engineSharedAmongIndexServers = Engine()
 }
 
 class StandaloneIndexServer(
@@ -78,7 +62,9 @@ class StandaloneIndexServer(
     readService: ReadService,
     writeService: WriteService,
     authService: AuthService,
-    loggerFactory: NamedLoggerFactory) {
+    loggerFactory: NamedLoggerFactory,
+    engine: Engine,
+    timeServiceBackendO: Option[TimeServiceBackend]) {
   private val logger = loggerFactory.getLogger(this.getClass)
 
   // Name of this participant,
@@ -119,6 +105,27 @@ class StandaloneIndexServer(
     }
   }
 
+  // if requested, initialize the ledger state with the given scenario
+  private def preloadPackages(packageContainer: InMemoryPackageStore): Unit = {
+    // [[ScenarioLoader]] needs all the packages to be already compiled --
+    // make sure that that's the case
+    for {
+      (pkgId, _) <- packageContainer.listLfPackagesSync()
+      pkg <- packageContainer.getLfPackageSync(pkgId)
+    } {
+      engine
+        .preloadPackage(pkgId, pkg)
+        .consume(
+          { _ =>
+            sys.error("Unexpected request of contract")
+          },
+          packageContainer.getLfPackageSync, { _ =>
+            sys.error("Unexpected request of contract key")
+          }
+        )
+    }
+  }
+
   private def loadDamlPackages(): InMemoryPackageStore = {
     // TODO is it sensible to have all the initial packages to be known since the epoch?
     config.archiveFiles
@@ -156,11 +163,11 @@ class StandaloneIndexServer(
               writeService,
               indexService,
               authorizer,
-              StandaloneIndexServer.engine,
+              engine,
               config.timeProvider,
               cond.config.timeModel,
               SandboxConfig.defaultCommandConfig,
-              None,
+              timeServiceBackendO,
               loggerFactory
             )(am, esf),
         config.port,

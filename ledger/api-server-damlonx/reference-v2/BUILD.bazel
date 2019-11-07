@@ -35,6 +35,7 @@ da_scala_binary(
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/archive:daml_lf_dev_archive_java_proto",
         "//daml-lf/data",
+        "//daml-lf/engine",
         "//daml-lf/language",
         "//daml-lf/transaction",
         "//language-support/scala/bindings",
