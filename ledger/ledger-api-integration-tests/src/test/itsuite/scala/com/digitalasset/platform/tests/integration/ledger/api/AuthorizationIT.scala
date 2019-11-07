@@ -227,7 +227,8 @@ class AuthorizationIT
           _ <- call(ctxAlice, alice) // Reading completions for Alice as Alice
           _ <- mustBeDenied(call(ctxAliceExpired, alice)) // Reading completions for Alice as Alice after expiration
           _ <- call(ctxAlice, alice) // Reading completions for Alice as Alice before expiration
-          ctxAliceAboutToExpire = ctxNone.withAuthorizationHeader(alicePayload.expiresInOneSecond.asHeader())
+          ctxAliceAboutToExpire = ctxNone.withAuthorizationHeader(
+            alicePayload.expiresInOneSecond.asHeader())
           _ = scheduleCommandInMillis(1100)
           _ <- callAndExpectExpiration(ctxAliceAboutToExpire, alice)
         } yield {
