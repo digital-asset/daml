@@ -786,10 +786,22 @@ load("@io_bazel_rules_scala//jmh:jmh.bzl", "jmh_repositories")
 
 jmh_repositories()
 
-dev_env_package(
+dev_env_tool(
     name = "nodejs_dev_env",
+    nix_include = [
+        "bin",
+        "include",
+        "lib",
+        "share",
+    ],
     nix_label = "@node_nix",
-    symlink_path = "nodejs_dev_env",
+    nix_paths = [],
+    prefix = "nodejs_dev_env",
+    tools = [],
+    win_include = [
+        ".",
+    ],
+    win_paths = [],
     win_tool = "nodejs-10.12.0",
 )
 
