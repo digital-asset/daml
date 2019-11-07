@@ -42,11 +42,8 @@ depends = [
 ] + ([] if is_windows else [hazel_library("unix")])
 
 hidden = [
-    "Development.IDE.Core.Compile",
     "Development.IDE.GHC.CPP",
-    "Development.IDE.GHC.Error",
     "Development.IDE.GHC.Orphans",
-    "Development.IDE.GHC.Warnings",
     "Development.IDE.Import.FindImports",
     "Development.IDE.LSP.CodeAction",
     "Development.IDE.LSP.Definition",

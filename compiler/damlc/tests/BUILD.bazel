@@ -195,6 +195,30 @@ da_haskell_test(
     visibility = ["//visibility:public"],
 )
 
+# Tests for incremental builds
+da_haskell_test(
+    name = "incremental",
+    srcs = ["src/DA/Test/IncrementalBuilds.hs"],
+    data = [
+        "//compiler/damlc",
+        "//daml-lf/repl",
+    ],
+    hackage_deps = [
+        "base",
+        "containers",
+        "directory",
+        "extra",
+        "filepath",
+        "process",
+        "tasty",
+        "tasty-hunit",
+    ],
+    main_function = "DA.Test.IncrementalBuilds.main",
+    src_strip_prefix = "src",
+    visibility = ["//visibility:public"],
+    deps = ["//libs-haskell/bazel-runfiles"],
+)
+
 # Memory tests
 
 da_haskell_binary(

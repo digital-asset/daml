@@ -238,6 +238,7 @@ cmdBuild numProcessors =
             <$> projectOpts "daml build"
             <*> optionsParser numProcessors (EnableScenarioService False) (pure Nothing)
             <*> optionalOutputFileOpt
+            <*> incrementalBuildOpt
             <*> initPkgDbOpt
 
 cmdClean :: Mod CommandFields Command
@@ -847,8 +848,8 @@ getUnitId thisUnitId pkgMap =
 mbErr :: String -> Maybe a -> IO a
 mbErr err = maybe (hPutStrLn stderr err >> exitFailure) pure
 
-execBuild :: ProjectOpts -> Options -> Maybe FilePath -> InitPkgDb -> Command
-execBuild projectOpts options mbOutFile initPkgDb =
+execBuild :: ProjectOpts -> Options -> Maybe FilePath -> IncrementalBuild -> InitPkgDb -> Command
+execBuild projectOpts options mbOutFile incrementalBuild initPkgDb =
   Command Build effect
   where effect = withProjectRoot' projectOpts $ \_relativize -> do
             initPackageDb options initPkgDb
@@ -857,7 +858,10 @@ execBuild projectOpts options mbOutFile initPkgDb =
                 opts <- mkOptions options
                 loggerH <- getLogger opts "package"
                 withDamlIdeState
-                    opts {optMbPackageName = Just $ pkgNameVersion pName pVersion}
+                    opts
+                      { optMbPackageName = Just $ pkgNameVersion pName pVersion
+                      , optIncrementalBuild = incrementalBuild
+                      }
                     loggerH
                     diagnosticsLogger $ \compilerH -> do
                     mbDar <-
