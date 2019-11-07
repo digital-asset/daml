@@ -77,19 +77,33 @@ def _dev_env_tool_impl(ctx):
         find = _dadew_tool_home(dadew, "msys2") + "\\usr\\bin\\find.exe"
         tool_home = _dadew_tool_home(dadew, ctx.attr.win_tool)
         for i in ctx.attr.win_include:
-            _symlink_files_recursive(ctx, find, "%s\%s" % (tool_home, i), ctx.attr.win_include_as.get(i, i))
+            src = "%s\%s" % (tool_home, i)
+            dst = ctx.attr.win_include_as.get(i, i)
+            if ctx.attr.prefix:
+                dst = "%s\%s" % (ctx.attr.prefix, dst)
+            _symlink_files_recursive(ctx, find, src, dst)
     else:
         find = "find"
         tool_home = "../%s" % ctx.attr.nix_label.name
         for i in ctx.attr.nix_include:
-            _symlink_files_recursive(ctx, find, "%s/%s" % (tool_home, i), i)
+            src = "%s/%s" % (tool_home, i)
+            dst = i
+            if ctx.attr.prefix:
+                dst = "%s/%s" % (ctx.attr.prefix, dst)
+            _symlink_files_recursive(ctx, find, src, dst)
 
     build_path = ctx.path("BUILD")
     build_content = _create_build_content(
         rule_name = ctx.name,
         tools = ctx.attr.tools,
-        win_paths = ctx.attr.win_paths,
-        nix_paths = ctx.attr.nix_paths,
+        win_paths = [
+            "%s/%s" % (ctx.attr.prefix, path)
+            for path in ctx.attr.win_paths
+        ] if ctx.attr.prefix else ctx.attr.win_paths,
+        nix_paths = [
+            "%s/%s" % (ctx.attr.prefix, path)
+            for path in ctx.attr.nix_paths
+        ] if ctx.attr.prefix else ctx.attr.nix_paths,
     )
     ctx.file(build_path, content = build_content, executable = False)
 
@@ -121,5 +135,6 @@ dev_env_tool = repository_rule(
         "nix_paths": attr.string_list(
             mandatory = True,
         ),
+        "prefix": attr.string(),
     },
 )
