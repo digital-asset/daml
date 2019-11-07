@@ -876,7 +876,7 @@ discardInternalModules files =
     pure $ filter (\f -> not $ any (\internalMod -> internalMod `isSuffixOf` fromNormalizedFilePath f) internalModules) files
 
 internalModules :: [FilePath]
-internalModules = map normalise $
+internalModules = map normalise
   [ "Data/String.daml"
   , "GHC/CString.daml"
   , "GHC/Integer/Type.daml"
