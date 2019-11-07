@@ -39,23 +39,50 @@ config_setting(
 
     return content
 
+def _dadew_where(ctx, ps):
+    ps = ctx.which("powershell")
+    ps_result = ctx.execute([ps, "-Command", "dadew enable; dadew where"], quiet = True)
+
+    if ps_result.return_code != 0:
+        fail("Failed to obtain dadew location.\nExit code %d.\n%s\n%s" %
+             (ps_result.return_code, ps_result.stdout, ps_result.stderr))
+
+    return ps_result.stdout.splitlines()[0]
+
+def _dadew_tool_home(dadew, tool):
+    return "%s\\scoop\\apps\%s\\current" % (dadew, tool)
+
+def _find_files_recursive(ctx, find, root):
+    find_result = ctx.execute([find, "-L", root, "-type", "f", "-printf", "%P\\0"])
+
+    if find_result.return_code != 0:
+        fail("Failed to list files contained in '%s':\nExit code %d\n%s\n%s." %
+             (root, find_result.return_code, find_result.stdout, find_result.stderr))
+
+    return [f for f in find_result.stdout.split("\0") if f]
+
+def _symlink_files_recursive(ctx, find, source, dest):
+    files = _find_files_recursive(ctx, find, source)
+    for f in files:
+        ctx.symlink("%s/%s" % (source, f), "%s/%s" % (dest, f))
+    if not files:
+        # If no files where found source might be an empty directory or a file.
+        # In either case we should symlink it directly to ensure its presence.
+        ctx.symlink(source, dest)
+
 def _dev_env_tool_impl(ctx):
     if get_cpu_value(ctx) == "x64_windows":
         ps = ctx.which("powershell")
-        ps_result = ctx.execute([ps, "-Command", "dadew enable; dadew where"], quiet = True)
-        if ps_result.return_code != 0:
-            fail("Failed to obtain dadew location.\n Exit code %d.\n%s\n%s" %
-                 (ps_result.return_code, ps_result.stdout, ps_result.stderr))
-
-        dadew = ps_result.stdout.splitlines(keepends = False)[0]
-        tool_home = "%s\\scoop\\apps\\%s\\current" % (dadew, ctx.attr.win_tool)
+        dadew = _dadew_where(ctx, ps)
+        find = _dadew_tool_home(dadew, "msys2") + "\\usr\\bin\\find.exe"
+        tool_home = _dadew_tool_home(dadew, ctx.attr.win_tool)
         for i in ctx.attr.win_include:
-            ctx.symlink("%s\\%s" % (tool_home, i), "%s\\%s" % (ctx.path(""), ctx.attr.win_include_as.get(i, i)))
-
+            _symlink_files_recursive(ctx, find, "%s\%s" % (tool_home, i), ctx.attr.win_include_as.get(i, i))
     else:
+        find = "find"
         tool_home = "../%s" % ctx.attr.nix_label.name
         for i in ctx.attr.nix_include:
-            ctx.symlink("%s/%s" % (tool_home, i), "%s/%s" % (ctx.path(""), i))
+            _symlink_files_recursive(ctx, find, "%s/%s" % (tool_home, i), i)
 
     build_path = ctx.path("BUILD")
     build_content = _create_build_content(
