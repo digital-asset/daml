@@ -6,6 +6,7 @@ package com.daml.ledger.participant.state.kvutils
 import com.codahale.metrics
 import com.daml.ledger.participant.state.kvutils.Conversions._
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
+import com.daml.ledger.participant.state.kvutils.committer.PackageCommitter
 import com.daml.ledger.participant.state.kvutils.committing._
 import com.daml.ledger.participant.state.v1.{Configuration, ParticipantId}
 import com.digitalasset.daml.lf.data.Time.Timestamp
@@ -15,6 +16,7 @@ import com.digitalasset.daml_lf_dev.DamlLf
 import com.digitalasset.platform.common.metrics.VarGauge
 import com.google.protobuf.ByteString
 import org.slf4j.LoggerFactory
+
 import scala.collection.JavaConverters._
 
 object KeyValueCommitting {
@@ -73,13 +75,14 @@ object KeyValueCommitting {
     try {
       val (logEntry, outputState) = submission.getPayloadCase match {
         case DamlSubmission.PayloadCase.PACKAGE_UPLOAD_ENTRY =>
-          ProcessPackageUpload(
-            engine,
+          val (logEntry, outputs) = PackageCommitter(engine).run(
             entryId,
             recordTime,
             submission.getPackageUploadEntry,
-            inputState
-          ).run
+            participantId,
+            inputState.collect { case (k, Some(v)) => k -> v }
+          )
+          logEntry -> outputs.toMap
 
         case DamlSubmission.PayloadCase.PARTY_ALLOCATION_ENTRY =>
           ProcessPartyAllocation(

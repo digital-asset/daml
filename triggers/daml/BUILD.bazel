@@ -23,7 +23,7 @@ dependencies:
   - daml-stdlib
   - daml-prim
 EOF
-      $(location //compiler/damlc) build --target=1.dev --project-root=$$TMP_DIR -o $$PWD/$(location daml-trigger.dar)
+      $(location //compiler/damlc) build --target=1.7 --project-root=$$TMP_DIR -o $$PWD/$(location daml-trigger.dar)
       rm -rf $$TMP_DIR
     """,
     tools = ["//compiler/damlc"],
@@ -40,7 +40,7 @@ genrule(
             --output=$(location :daml-trigger.rst) \
             --format=Rst \
             --template=$(location :daml-trigger-rst-template.rst) \
-            --target=1.dev \
+            --target=1.7 \
             $(location Daml/Trigger.daml) \
             $(location Daml/Trigger/LowLevel.daml)
     """,

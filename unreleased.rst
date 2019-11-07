@@ -15,22 +15,10 @@ HEAD — ongoing
    * Add interning of strings and names. This reduces drastically dar file size.
    * Add support for 'Any' type.
    * Add support for type representation values.
-- [Navigator] Fixed regression in Navigator to properly respect the CLI option ``--ledger-api-inbound-message-size-max`` again. See `issue #3301 <https://github.com/digital-asset/daml/issues/3301>`__.
-- [DAML Compiler] Reduce the memory footprint of the IDE and the command line tools (ca. 18% in our experiments).
-- [DAML Triggers] Add ``dedupCreate`` and ``dedupExercise`` helpers that will only send
-  commands if they are not already in flight.
-- [Sandbox] Fixed a bug a database migration script for Sandbox on Postgres introduced in SDK 0.13.32. See `issue #3284 <https://github.com/digital-asset/daml/issues/3284>`__.
-- [DAML Integration Kit] Re-add :doc:`integration kit documentation </daml-integration-kit/index>` that got accidentally deleted.
-- [Ledger API] Disallow empty commands. See `issue #592 <https://github.com/digital-asset/daml/issues/592>`__.
-- [DAML Stdlib] Add `DA.TextMap.filter` and `DA.Next.Map.filter`.
-- [DAML Stdlib] Add `assertEq` and `assertNotEq` to `DA.Assert` as synonyms for `===` and `=/=`.
-- [Extractor - Experimental] Extractor now stores exercise events in the single table data format. See `issue #3274 <https://github.com/digital-asset/daml/issues/3274>`__.
-- [DAML Compiler] Fix compile error caused by instantiating generic
-  templates at ``Numeric n``.
-- [Sandbox] Timing about database operations are now exposed over JMX as well as via the logs.
-- [DAML Triggers] Remove the custom ``AbsoluteContractId`` type in favor of the regular ``ContractId`` type used in DAML templates.
-- [Ledger] Fixed divulged contract visibility in multi-participant environments. See `issue #3351 <https://github.com/digital-asset/daml/issues/3351>`__.
-- [Ledger] Enabled the ability to configure ledger api servers with a time service (for test purposes only).
-- [Ledger] Allow a ledger api server to share the DAML engine with the DAML-on-X participant node for performance. See `issue #2975 <https://github.com/digital-asset/daml/issues/2975>`__.
-- [Ledger] Allow non-alphanumeric characters in ledger api server participant ids (space, colon, hash, slash, dot).
-- [Ledger] Include SQL statement type in ledger api server logging of SQL errors.
+- [DAML Triggers] Triggers must now be compiled with ``daml build --target 1.7`` instead of ``1.dev``.
+- [Ledger] Various multi-domain improvements to the ledger api server:
+   * Fix divulged contract visibility in multi-participant environments. See `issue #3351 <https://github.com/digital-asset/daml/issues/3351>`__.
+   * Enable the ability to configure ledger api servers with a time service (for test purposes only).
+   * Allow a ledger api server to share the DAML engine with the DAML-on-X participant node for performance. See `issue #2975 <https://github.com/digital-asset/daml/issues/2975>`__.
+   * Allow non-alphanumeric characters in ledger api server participant ids (space, colon, hash, slash, dot).
+   * Include SQL statement type in ledger api server logging of SQL errors.
