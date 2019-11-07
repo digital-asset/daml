@@ -1073,8 +1073,10 @@ private class JdbcLedgerDao(
       if (start >= endExclusive) {
         Future.successful(None)
       } else {
-        queryPage(start, start + pageSize).map { result =>
-          Some(start + pageSize -> result)
+        val pageEnd =
+          if (endExclusive - startInclusive <= pageSize) endExclusive else start + pageSize
+        queryPage(start, pageEnd).map { result =>
+          Some(pageEnd -> result)
         }(executionContext)
       }
     }
