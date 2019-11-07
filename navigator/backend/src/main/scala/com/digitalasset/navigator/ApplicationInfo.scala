@@ -9,10 +9,9 @@ import spray.json.DefaultJsonProtocol
 case class ApplicationInfo(
     id: String,
     name: String,
-    version: String,
-    revision: String
+    version: String
 )
 
 trait ApplicationInfoJsonSupport extends SprayJsonSupport with DefaultJsonProtocol {
-  implicit val applicationInfoFormat = jsonFormat4(ApplicationInfo)
+  implicit val applicationInfoFormat = jsonFormat3(ApplicationInfo)
 }
