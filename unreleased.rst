@@ -15,3 +15,4 @@ HEAD — ongoing
    * Add interning of strings and names. This reduces drastically dar file size.
    * Add support for 'Any' type.
    * Add support for type representation values.
+- [DAML Triggers] Triggers must now be compiled with ``daml build --target 1.7`` instead of ``1.dev``.
