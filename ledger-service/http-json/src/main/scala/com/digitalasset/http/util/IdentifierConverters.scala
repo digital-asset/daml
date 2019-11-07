@@ -33,18 +33,6 @@ object IdentifierConverters {
     )
   }
 
-  def lfIdentifier(
-      id: http.domain.TemplateId.RequiredPkg,
-      choice: lar.Choice): lf.data.Ref.Identifier = {
-    import lf.data.Ref
-    Ref.Identifier(
-      Ref.PackageId.assertFromString(id.packageId),
-      Ref.QualifiedName(
-        Ref.ModuleName.assertFromString(id.moduleName),
-        Ref.DottedName.assertFromString(lar.Choice.unwrap(choice)))
-    )
-  }
-
   def apiIdentifier(a: lf.data.Ref.Identifier): lav1.value.Identifier =
     lav1.value.Identifier(
       packageId = a.packageId,
