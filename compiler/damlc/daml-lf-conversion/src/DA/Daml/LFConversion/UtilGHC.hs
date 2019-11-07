@@ -54,23 +54,23 @@ pattern StrLitTy :: T.Text -> Type
 pattern StrLitTy x <- (fmap fsToText . isStrLitTy -> Just x)
 
 pattern NameIn :: NamedThing a => GHC.Module -> FastString -> a
-pattern NameIn m x <- ((\n -> (nameModule_maybe (getName n), getOccFS n)) -> (Just m, x))
+pattern NameIn m x <- (\n -> (nameModule_maybe (getName n), getOccFS n) -> (Just m, x))
 
 pattern VarIn :: GHC.Module -> FastString -> GHC.Expr Var
 pattern VarIn m x <- Var (NameIn m x)
 
 pattern ModuleIn :: GHC.UnitId -> FastString -> GHC.Module
-pattern ModuleIn u n <- ((\m -> (moduleUnitId m, GHC.moduleNameFS (GHC.moduleName m))) -> (u, n))
+pattern ModuleIn u n <- (\m -> (moduleUnitId m, GHC.moduleNameFS (GHC.moduleName m)) -> (u, n))
 
 -- builtin unit id patterns
 pattern DamlPrim, DamlStdlib :: GHC.UnitId
 pattern DamlPrim <- ((== primUnitId) -> True)
 pattern DamlStdlib <- (T.stripPrefix "daml-stdlib-" . fsToText . unitIdFS -> Just _)
-    -- The unit ID for daml-stdlib includes the SDK version.
+    -- The unit name for daml-stdlib includes the SDK version.
     -- This pattern accepts all SDK versions for daml-stdlib.
 
 pattern IgnoreWorkerPrefix :: T.Text -> T.Text
-pattern IgnoreWorkerPrefix n <- ((\w -> fromMaybe w (T.stripPrefix "$W" w)) -> n)
+pattern IgnoreWorkerPrefix n <- (\w -> fromMaybe w (T.stripPrefix "$W" w) -> n)
 
 pattern IgnoreWorkerPrefixFS :: T.Text -> FastString
 pattern IgnoreWorkerPrefixFS n <- (fsToText -> IgnoreWorkerPrefix n)
