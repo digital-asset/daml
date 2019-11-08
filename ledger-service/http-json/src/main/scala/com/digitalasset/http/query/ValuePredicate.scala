@@ -251,8 +251,8 @@ object ValuePredicate {
   private[this] final case class RangeExpr[+A](scalar: JsValue PartialFunction A) {
     import RangeExpr._
 
-    private def scalarE(it: JsValue): A =
-      scalar.lift(it) getOrElse predicateParseError(s"invalid boundary $it")
+    private def scalarE(it: JsValue): PredicateParseError \/ A =
+      scalar.lift(it) \/> predicateParseError(s"invalid boundary $it")
 
     @SuppressWarnings(Array("org.wartremover.warts.Any"))
     def unapply(it: JsValue): Option[PredicateParseError \/ ((Inclusive, A) \&/ (Inclusive, A))] =
@@ -260,22 +260,21 @@ object ValuePredicate {
         case JsObject(fields) if fields.keySet exists keys =>
           def badRangeSyntax(s: String): PredicateParseError \/ Nothing =
             predicateParseError(s"Invalid range query, as $s: $it")
+
+          def side(exK: String, inK: String) =
+            (fields get exK, fields get inK) match {
+              case (Some(excl), None) => scalarE(excl) map (a => Some((Exclusive, a)))
+              case (None, Some(incl)) => scalarE(incl) map (a => Some((Inclusive, a)))
+              case (None, None) => \/-(None)
+              case (Some(_), Some(_)) => badRangeSyntax(s"only one of $exK, $inK may be used")
+            }
+
           val strays = fields.keySet diff keys
           Some(
             if (strays.nonEmpty) badRangeSyntax(s"extra invalid keys $strays included")
             else {
-              val left = (fields get "%lt", fields get "%lte") match {
-                case (Some(excl), None) => \/-(Some((Exclusive, scalarE(excl))))
-                case (None, Some(incl)) => \/-(Some((Inclusive, scalarE(incl))))
-                case (None, None) => \/-(None)
-                case (Some(_), Some(_)) => badRangeSyntax("only one of %lt, %lte may be used")
-              }
-              val right = (fields get "%gt", fields get "%gte") match {
-                case (Some(excl), None) => \/-(Some((Exclusive, scalarE(excl))))
-                case (None, Some(incl)) => \/-(Some((Inclusive, scalarE(incl))))
-                case (None, None) => \/-(None)
-                case (Some(_), Some(_)) => badRangeSyntax("only one of %gt, %gte may be used")
-              }
+              val left = side("%lt", "%lte")
+              val right = side("%gt", "%gte")
               import \&/._
               ^(left, right) {
                 case (Some(l), Some(r)) => Both(l, r)
