@@ -17,7 +17,24 @@ private[testtool] final class LedgerTestContext private[infrastructure] (
 
   private[this] val participantsRing = Iterator.continually(participants).flatten
 
-  def provision(allocation: ParticipantAllocation): Future[Participants] =
+  /**
+    * This allocates participants and a specified number of parties for each participant.
+    *
+    * e.g. `allocate(SingleParty, Parties(3), NoParties, TwoParties)` will eventually return:
+    *
+    * {{{
+    * Participants(
+    *   Participant(alpha: ParticipantTestContext, alice: Party),
+    *   Participant(beta: ParticipantTestContext, bob: Party, barbara: Party, bernard: Party),
+    *   Participant(gamma: ParticipantTestContext),
+    *   Participant(delta: ParticipantTestContext, doreen: Party, dan: Party),
+    * )
+    * }}}
+    *
+    * Each test allocates participants, then deconstructs the result and uses the various ledgers
+    * and parties throughout the test.
+    */
+  def allocate(allocation: ParticipantAllocation): Future[Participants] =
     Future
       .sequence(allocation.partyCounts.map(partyCount => {
         val participant = nextParticipant()

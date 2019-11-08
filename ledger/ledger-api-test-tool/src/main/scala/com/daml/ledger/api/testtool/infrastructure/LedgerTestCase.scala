@@ -16,5 +16,5 @@ final class LedgerTestCase(
     participants: ParticipantAllocation,
     runTestCase: Participants => Future[Unit]) {
   def apply(context: LedgerTestContext)(implicit ec: ExecutionContext): Future[Unit] =
-    context.provision(participants).flatMap(runTestCase)
+    context.allocate(participants).flatMap(runTestCase)
 }
