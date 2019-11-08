@@ -42,6 +42,7 @@ compileDependencies = [
     "//ledger/ledger-api-client:ledger-api-client",
     "//ledger/participant-state",
     "//ledger/participant-state-index:participant-state-index",
+    "//ledger-service/jwt",
     "@maven//:ch_qos_logback_logback_core",
     "@maven//:com_typesafe_scala_logging_scala_logging_2_12",
     "@maven//:org_slf4j_slf4j_api",

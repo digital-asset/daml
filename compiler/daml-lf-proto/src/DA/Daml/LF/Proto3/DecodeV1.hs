@@ -7,6 +7,7 @@
 
 module DA.Daml.LF.Proto3.DecodeV1
     ( decodePackage
+    , decodeScenarioModule
     , Error(..)
     ) where
 
@@ -170,6 +171,11 @@ decodePackage minorText (LF1.Package mods internedStringsV internedDottedNamesV)
   let env = DecodeEnv{..}
   runDecode env $ do
     Package version <$> decodeNM DuplicateModule decodeModule mods
+
+decodeScenarioModule :: TL.Text -> LF1.Package -> Either Error Module
+decodeScenarioModule minorText protoPkg = do
+    Package _ modules <- decodePackage minorText protoPkg
+    pure $ head $ NM.toList modules
 
 decodeModule :: LF1.Module -> Decode Module
 decodeModule (LF1.Module name flags dataTypes values templates) =

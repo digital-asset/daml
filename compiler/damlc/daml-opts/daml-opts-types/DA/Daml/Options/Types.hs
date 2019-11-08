@@ -7,6 +7,7 @@ module DA.Daml.Options.Types
     , SkipScenarioValidation(..)
     , DlintUsage(..)
     , Haddock(..)
+    , IncrementalBuild(..)
     , defaultOptionsIO
     , defaultOptions
     , mkOptions
@@ -76,7 +77,12 @@ data Options = Options
   , optGhcVersionFile :: Maybe FilePath
     -- ^ Path to "ghcversion.h". Needed for running CPP. We ship this
     -- as part of our runfiles. This is set by 'mkOptions'.
+  , optIncrementalBuild :: IncrementalBuild
+  -- ^ Whether to do an incremental on-disk build as opposed to keeping everything in memory.
   } deriving Show
+
+newtype IncrementalBuild = IncrementalBuild { getIncrementalBuild :: Bool }
+  deriving Show
 
 newtype Haddock = Haddock Bool
   deriving Show
@@ -169,6 +175,7 @@ defaultOptions mbVersion =
         , optHaddock = Haddock False
         , optCppPath = Nothing
         , optGhcVersionFile = Nothing
+        , optIncrementalBuild = IncrementalBuild False
         }
 
 getBaseDir :: IO FilePath

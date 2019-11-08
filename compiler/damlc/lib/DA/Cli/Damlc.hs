@@ -238,6 +238,7 @@ cmdBuild numProcessors =
             <$> projectOpts "daml build"
             <*> optionsParser numProcessors (EnableScenarioService False) (pure Nothing)
             <*> optionalOutputFileOpt
+            <*> incrementalBuildOpt
             <*> initPkgDbOpt
 
 cmdClean :: Mod CommandFields Command
@@ -597,20 +598,18 @@ createProjectPackageDb opts fps = do
                       createDirectoryIfMissing True workDir
                       -- write the dalf package
                       B.writeFile (workDir </> unitIdStr <.> "dalf") bs
-                      -- we change the working dir so that we get correct file paths for the
-                      -- interface files.
-                      withCurrentDirectory workDir $
-                          generateAndInstallIfaceFiles
-                              dalf
-                              src
-                              opts
-                              dbPathAbs
-                              projectPackageDatabaseAbs
-                              unitIdStr
-                              pkgIdStr
-                              pkgName
-                              mbPkgVersion
-                              deps
+                      generateAndInstallIfaceFiles
+                          dalf
+                          src
+                          opts
+                          workDir
+                          dbPath
+                          projectPackageDatabase
+                          unitIdStr
+                          pkgIdStr
+                          pkgName
+                          mbPkgVersion
+                          deps
 
                       unless (null templInstSrc) $
                           generateAndInstallInstancesPkg
@@ -638,33 +637,37 @@ createProjectPackageDb opts fps = do
         -> Options
         -> FilePath
         -> FilePath
+        -> FilePath
         -> String
         -> String
         -> String
         -> Maybe String
         -> [String]
         -> IO ()
-    generateAndInstallIfaceFiles dalf src opts dbPathAbs projectPackageDatabaseAbs unitIdStr pkgIdStr pkgName mbPkgVersion deps = do
+    generateAndInstallIfaceFiles dalf src opts workDir dbPath projectPackageDatabase unitIdStr pkgIdStr pkgName mbPkgVersion deps = do
         loggerH <- getLogger opts "generate interface files"
-        mapM_ writeSrc src
+        let src' = [ (toNormalizedFilePath $ workDir </> fromNormalizedFilePath nfp, str) | (nfp, str) <- src]
+        mapM_ writeSrc src'
         opts' <-
             mkOptions $
             opts
-                { optWriteInterface = True
-                , optPackageDbs = projectPackageDatabaseAbs : optPackageDbs opts
-                , optIfaceDir = Just "./"
+                { optWriteInterface = False
+                , optPackageDbs = projectPackageDatabase : optPackageDbs opts
+                , optIfaceDir = Nothing
                 , optIsGenerated = True
                 , optDflagCheck = False
                 , optMbPackageName = Just unitIdStr
                 , optHideAllPkgs = False
                 , optGhcCustomOpts = []
                 , optPackageImports = []
+                , optImportPath = workDir : optImportPath opts
                 }
+
         withDamlIdeState opts' loggerH diagnosticsLogger $ \ide ->
             runAction ide $
             writeIfacesAndHie
                 (toNormalizedFilePath "./")
-                [fp | (fp, _content) <- src]
+                [fp | (fp, _content) <- src']
         -- write the conf file and refresh the package cache
         let (cfPath, cfBs) =
                 mkConfFile
@@ -679,14 +682,14 @@ createProjectPackageDb opts fps = do
                         }
                     (map T.unpack $ LF.packageModuleNames dalf)
                     pkgIdStr
-        B.writeFile (dbPathAbs </> "package.conf.d" </> cfPath) cfBs
+        B.writeFile (dbPath </> "package.conf.d" </> cfPath) cfBs
         ghcPkgPath <- getGhcPkgPath
         callProcess
             (ghcPkgPath </> exe "ghc-pkg")
             [ "recache"
             -- ghc-pkg insists on using a global package db and will try
             -- to find one automatically if we don’t specify it here.
-            , "--global-package-db=" ++ (dbPathAbs </> "package.conf.d")
+            , "--global-package-db=" ++ (dbPath </> "package.conf.d")
             , "--expand-pkgroot"
             ]
 
@@ -845,8 +848,8 @@ getUnitId thisUnitId pkgMap =
 mbErr :: String -> Maybe a -> IO a
 mbErr err = maybe (hPutStrLn stderr err >> exitFailure) pure
 
-execBuild :: ProjectOpts -> Options -> Maybe FilePath -> InitPkgDb -> Command
-execBuild projectOpts options mbOutFile initPkgDb =
+execBuild :: ProjectOpts -> Options -> Maybe FilePath -> IncrementalBuild -> InitPkgDb -> Command
+execBuild projectOpts options mbOutFile incrementalBuild initPkgDb =
   Command Build effect
   where effect = withProjectRoot' projectOpts $ \_relativize -> do
             initPackageDb options initPkgDb
@@ -855,7 +858,10 @@ execBuild projectOpts options mbOutFile initPkgDb =
                 opts <- mkOptions options
                 loggerH <- getLogger opts "package"
                 withDamlIdeState
-                    opts {optMbPackageName = Just $ pkgNameVersion pName pVersion}
+                    opts
+                      { optMbPackageName = Just $ pkgNameVersion pName pVersion
+                      , optIncrementalBuild = incrementalBuild
+                      }
                     loggerH
                     diagnosticsLogger $ \compilerH -> do
                     mbDar <-

@@ -123,7 +123,8 @@ class PackageServiceTest
             val templateIdStr: String = templateId.packageId.fold(
               domain.TemplateId((), templateId.moduleName, templateId.entityName).toString)(p =>
               domain.TemplateId(p, templateId.moduleName, templateId.entityName).toString)
-            e shouldBe PackageService.InputError(s"Cannot resolve $templateIdStr")
+            e shouldBe PackageService.InputError(
+              s"Cannot resolve template ID, given: $templateIdStr")
         }
     }
   }

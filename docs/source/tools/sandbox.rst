@@ -59,6 +59,34 @@ Due to possible conflicts between the ``&`` character and various terminal shell
 
 If you're not familiar with JDBC URLs, see the JDBC docs for more information: https://jdbc.postgresql.org/documentation/head/connect.html
 
+Running with authentication
+***************************
+
+By default, Sandbox does not use any authentication and accepts all valid ledger API requests.
+
+To start Sandbox with authentication based on `JWT <https://jwt.io/>`_, run ``daml sandbox --auth-jwt-hs256=<secret>`` where ``<secret>`` is the secret used to sign the token with the HMAC256 algorithm.
+
+The JWT payload has the following schema:
+
+.. code-block:: json
+
+   {
+      "ledgerId": "aaaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+      "participantId": null,
+      "applicationId": null,
+      "exp": 1300819380,
+      "admin": true,
+      "actAs": ["Alice"],
+      "readAs": ["Alice", "Bob"],
+   }
+
+where
+``ledgerId``, ``participantId``, ``applicationId`` restricts the validity of the token to the given ledger, participant, or application;
+``exp`` is the standard JWT expiration date;
+``admin`` determines whether the token bearer is authorized to use admin endpoints of the ledger API;
+``actAs`` lists all DAML parties the token bearer can act as (e.g., as submitter of a command); and
+``readAs`` lists all DAML parties the token bearer can read data for.
+
 Command-line reference
 **********************
 

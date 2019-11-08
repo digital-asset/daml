@@ -417,6 +417,7 @@ optionsParser numProcessors enableScenarioService parsePkgName = Options
     <*> pure (Haddock False)
     <*> optCppPath
     <*> pure Nothing
+    <*> pure (IncrementalBuild False)
   where
     optImportPath :: Parser [FilePath]
     optImportPath =
@@ -516,3 +517,6 @@ shakeProfilingOpt = optional $ strOption $
        metavar "PROFILING-REPORT"
     <> help "Directory for Shake profiling reports"
     <> long "shake-profiling"
+
+incrementalBuildOpt :: Parser IncrementalBuild
+incrementalBuildOpt = IncrementalBuild <$> flagYesNoAuto "incremental" False "Enable incremental builds" idm
