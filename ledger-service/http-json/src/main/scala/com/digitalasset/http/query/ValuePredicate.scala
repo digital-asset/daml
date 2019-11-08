@@ -12,7 +12,9 @@ import com.digitalasset.daml.lf.data.ScalazEqual._
 import com.digitalasset.daml.lf.iface
 import com.digitalasset.daml.lf.value.{Value => V}
 import iface.{Type => Ty}
-import scalaz.\&/
+
+import scalaz.{\&/, \/, \/-}
+import scalaz.syntax.apply._
 import scalaz.syntax.std.option._
 import scalaz.syntax.std.string._
 import spray.json._
@@ -242,9 +244,59 @@ object ValuePredicate {
     }) getOrElse predicateParseError(s"No record type found for $typ")
   }
 
-  private[this] def illTypedQuery(it: JsValue, typ: Any): Nothing =
+  private[this] type Inclusive = Boolean
+  private[this] final val Inclusive = true
+  private[this] final val Exclusive = false
+
+  private[this] final case class RangeExpr[+A](scalar: JsValue PartialFunction A) {
+    import RangeExpr._
+
+    private def scalarE(it: JsValue): A =
+      scalar.lift(it) getOrElse predicateParseError(s"invalid boundary $it")
+
+    @SuppressWarnings(Array("org.wartremover.warts.Any"))
+    def unapply(it: JsValue): Option[PredicateParseError \/ ((Inclusive, A) \&/ (Inclusive, A))] =
+      it match {
+        case JsObject(fields) if fields.keySet exists keys =>
+          def badRangeSyntax(s: String): PredicateParseError \/ Nothing =
+            predicateParseError(s"Invalid range query, as $s: $it")
+          val strays = fields.keySet diff keys
+          Some(
+            if (strays.nonEmpty) badRangeSyntax(s"extra invalid keys $strays included")
+            else {
+              val left = (fields get "%lt", fields get "%lte") match {
+                case (Some(excl), None) => \/-(Some((Exclusive, scalarE(excl))))
+                case (None, Some(incl)) => \/-(Some((Inclusive, scalarE(incl))))
+                case (None, None) => \/-(None)
+                case (Some(_), Some(_)) => badRangeSyntax("only one of %lt, %lte may be used")
+              }
+              val right = (fields get "%gt", fields get "%gte") match {
+                case (Some(excl), None) => \/-(Some((Exclusive, scalarE(excl))))
+                case (None, Some(incl)) => \/-(Some((Inclusive, scalarE(incl))))
+                case (None, None) => \/-(None)
+                case (Some(_), Some(_)) => badRangeSyntax("only one of %gt, %gte may be used")
+              }
+              import \&/._
+              ^(left, right) {
+                case (Some(l), Some(r)) => Both(l, r)
+                case (Some(l), None) => This(l)
+                case (None, Some(r)) => That(r)
+                case (None, None) => sys.error("impossible; denied by 'fields.keySet exists keys'")
+              }
+            })
+        case _ => None
+      }
+  }
+
+  private[this] object RangeExpr {
+    private val keys = Set("%lt", "%lte", "%gt", "%gte")
+  }
+
+  private type PredicateParseError = Nothing
+
+  private[this] def illTypedQuery(it: JsValue, typ: Any): PredicateParseError =
     predicateParseError(s"$it is not a query that can match type $typ")
 
-  private def predicateParseError(s: String): Nothing =
+  private def predicateParseError(s: String): PredicateParseError =
     sys.error(s)
 }
