@@ -20,7 +20,8 @@ private[testtool] final class LedgerTestContext private[infrastructure] (
   /**
     * This allocates participants and a specified number of parties for each participant.
     *
-    * e.g. `allocate(SingleParty, Parties(3), NoParties, TwoParties)` will eventually return:
+    * e.g. `allocate(ParticipantAllocation(SingleParty, Parties(3), NoParties, TwoParties))`
+    * will eventually return:
     *
     * {{{
     * Participants(
