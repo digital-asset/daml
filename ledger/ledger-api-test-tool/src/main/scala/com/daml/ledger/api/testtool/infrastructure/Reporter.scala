@@ -71,7 +71,7 @@ object Reporter {
                   case d if d > 100 => yellow(durationString)
                   case _ => green(durationString)
                 }
-                s.println(green(s"Success ($highlightedDurationString)"))
+                s.println(s"${green("Success")} ($highlightedDurationString)")
               case Result.TimedOut => s.println(red(s"Timeout"))
               case Result.Skipped(reason) =>
                 s.println(yellow(s"Skipped (reason: $reason)"))
