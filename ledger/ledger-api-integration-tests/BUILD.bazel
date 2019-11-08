@@ -56,6 +56,7 @@ dependencies = [
     "//ledger/sandbox:sandbox-scala-tests-lib",
     "//ledger/test-common",
     "//ledger/participant-state",
+    "//ledger-service/jwt",
 ]
 
 da_scala_library(

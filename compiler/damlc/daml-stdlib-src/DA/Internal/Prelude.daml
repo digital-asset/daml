@@ -92,18 +92,18 @@ ap = (<*>)
 -- This is a poor doc string but I don't know what the correct improvement would be.
 -- | Inject a value into the monadic type. For example, for `Update` and a
 -- value of type `a`, `return` would give you an `Update a`.
-return      : Applicative m => a -> m a
-return      = pure
+return : Applicative m => a -> m a
+return = pure
 
 infixl 1 >>=
 class Applicative m => Action m where
     -- | Sequentially compose two actions, passing any value produced
     -- by the first as an argument to the second.
-    (>>=)       : forall a b. m a -> (a -> m b) -> m b
+    (>>=) : forall a b. m a -> (a -> m b) -> m b
 
 -- | Collapses nested actions into a single action.
-join              : (Action m) => m (m a) -> m a
-join x            =  x >>= identity
+join : (Action m) => m (m a) -> m a
+join x = x >>= identity
 
 class Action m => ActionFail m where
     -- | Fail with an error message.

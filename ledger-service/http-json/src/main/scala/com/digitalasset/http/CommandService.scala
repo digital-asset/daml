@@ -34,6 +34,7 @@ import scala.util.{Failure, Success}
 
 class CommandService(
     resolveTemplateId: PackageService.ResolveTemplateId,
+    resolveChoiceRecordId: PackageService.ResolveChoiceRecordId,
     submitAndWaitForTransaction: LedgerClientJwt.SubmitAndWaitForTransaction,
     timeProvider: TimeProvider,
     defaultTimeToLive: Duration = 30.seconds)(implicit ec: ExecutionContext)
@@ -87,13 +88,20 @@ class CommandService(
         x => Commands.create(refApiIdentifier(x), input.argument))
   }
 
-  private def exerciseCommand(input: ExerciseCommand[lav1.value.Record])
-    : Error \/ lav1.commands.Command.Command.Exercise = {
-    resolveTemplateId(input.templateId)
-      .bimap(
-        e => Error('exerciseCommand, e.shows),
-        x => Commands.exercise(refApiIdentifier(x), input.contractId, input.choice, input.argument))
-  }
+  private def exerciseCommand(
+      input: ExerciseCommand[lav1.value.Record]): Error \/ lav1.commands.Command.Command.Exercise =
+    for {
+      templateId <- resolveTemplateId(input.templateId)
+        .leftMap(e => Error('exerciseCommand, e.shows))
+      choiceRecordId <- resolveChoiceRecordId(templateId, input.choice)
+        .leftMap(e => Error('exerciseCommand, e.shows))
+    } yield
+      Commands.exercise(
+        refApiIdentifier(templateId),
+        input.contractId,
+        input.choice,
+        choiceRecordId,
+        input.argument)
 
   private def submitAndWaitRequest(
       jwtPayload: JwtPayload,

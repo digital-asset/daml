@@ -100,8 +100,10 @@ object HttpService extends StrictLogging {
 
       commandService = new CommandService(
         packageService.resolveTemplateId,
+        packageService.resolveChoiceRecordId,
         LedgerClientJwt.submitAndWaitForTransaction(clientConfig, clientChannel),
-        TimeProvider.UTC)
+        TimeProvider.UTC
+      )
 
       contractsService = new ContractsService(
         packageService.resolveTemplateIds,
@@ -172,6 +174,7 @@ object HttpService extends StrictLogging {
     val encoder = new DomainJsonEncoder(apiRecordToJsObject, apiValueToJsValue)
     val decoder = new DomainJsonDecoder(
       packageService.resolveTemplateId,
+      packageService.resolveChoiceRecordId,
       jsObjectToApiRecord,
       jsValueToApiValue)
 

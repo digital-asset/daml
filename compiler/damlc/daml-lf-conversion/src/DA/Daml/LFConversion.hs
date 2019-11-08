@@ -197,13 +197,6 @@ runConvertM s (ConvertM a) = runExcept (runReaderT a s)
 withRange :: Maybe SourceLoc -> ConvertM a -> ConvertM a
 withRange r = local (\s -> s { convRange = r })
 
-isBuiltinName :: NamedThing a => FastString -> a -> Bool
-isBuiltinName expected a
-  | getOccFS a == expected
-  , Just m <- nameModule_maybe (getName a)
-  , GHC.moduleName m == mkModuleName "DA.Internal.Prelude" = True
-  | otherwise = False
-
 convertInt64 :: Integer -> ConvertM LF.Expr
 convertInt64 x
     | toInteger (minBound :: Int64) <= x && x <= toInteger (maxBound :: Int64) =
@@ -508,8 +501,8 @@ data Consuming = PreConsuming
 convertTypeDef :: Env -> TyThing -> ConvertM [Definition]
 convertTypeDef env o@(ATyCon t) = withRange (convNameLoc t) $ if
     -- Internal types (i.e. already defined in LF)
-    | GHC.moduleNameFS (GHC.moduleName (nameModule (getName t))) == "DA.Internal.LF"
-    , getOccFS t `elementOfUniqSet` internalTypes
+    | NameIn DA_Internal_LF n <- t
+    , n `elementOfUniqSet` internalTypes
     -> pure []
 
     -- NOTE(MH): We detect type synonyms produced by the desugaring
@@ -707,18 +700,6 @@ internalFunctions = listToUFM $ map (bimap mkModuleNameFS mkUniqSet)
         ])
     ]
 
-nameInModule :: NamedThing a => GHC.ModuleName -> a -> Maybe FastString
-nameInModule mod a
-  | Just m <- nameModule_maybe (getName a)
-  , GHC.moduleName m == mod = Just $ getOccFS a
-  | otherwise = Nothing
-
-pattern IsInInternalLF :: NamedThing a => FastString -> a
-pattern IsInInternalLF x <- (nameInModule (mkModuleName "DA.Internal.LF") -> Just x)
-
-pattern VarIsInInternalLF :: FastString -> GHC.Expr Var
-pattern VarIsInInternalLF x <- Var (IsInInternalLF x)
-
 convertExpr :: Env -> GHC.Expr Var -> ConvertM LF.Expr
 convertExpr env0 e = do
     (e, args) <- go env0 e []
@@ -740,10 +721,9 @@ convertExpr env0 e = do
     go env (x `App` y) args
         = go env x ((Nothing, y) : args)
     -- see through $ to give better matching power
-    go env (VarIs "$") (LType _ : LType _ : LExpr x : y : args)
+    go env (VarIn DA_Internal_Prelude "$") (LType _ : LType _ : LExpr x : y : args)
         = go env x (y : args)
-
-    go env (VarIsInInternalLF "unpackPair") (LType (StrLitTy f1) : LType (StrLitTy f2) : LType t1 : LType t2 : args)
+    go env (VarIn DA_Internal_LF "unpackPair") (LType (StrLitTy f1) : LType (StrLitTy f2) : LType t1 : LType t2 : args)
         = fmap (, args) $ do
             t1 <- convertType env t1
             t2 <- convertType env t2
@@ -753,13 +733,9 @@ convertExpr env0 e = do
             pure $ ETmLam (varV1, TTuple fields) $ ERecCon tupleType $ zipWithFrom mkFieldProj (1 :: Int) fields
         where
             mkFieldProj i (name, _typ) = (mkField ("_" <> T.pack (show i)), ETupleProj name (EVar varV1))
-    go env (VarIs "primitive") (LType (isStrLitTy -> Just y) : LType t : args)
+    go env (VarIn GHC_Types "primitive") (LType (isStrLitTy -> Just y) : LType t : args)
         = fmap (, args) $ convertPrim (envLfVersion env) (unpackFS y) <$> convertType env t
-    go env var@(Var f) (LType (isStrLitTy -> Just y) : LType t : args)
-        | VarIs "external" <- var
-        , Just m <- nameModule_maybe (getName f)
-        , GHC.moduleNameString (GHC.moduleName m) == "GHC.Types"
-        , GHC.moduleUnitId m == primUnitId
+    go env (VarIn GHC_Types "external") (LType (isStrLitTy -> Just y) : LType t : args)
         = do
             stdlibRef <- packageNameToPkgRef env damlStdlib
             fmap (, args) $ convertExternal env stdlibRef (unpackFS y) <$> convertType env t
@@ -770,38 +746,38 @@ convertExpr env0 e = do
     -- NOTE(MH): We only inline `getField` for record types. This is required
     -- for contract keys. Projections on sum-of-records types have to through
     -- the type class for `getField`.
-    go env (VarIs "getField") (LType (isStrLitTy -> Just name) : LType recordType@(TypeCon recordTyCon _) : LType _fieldType : _dict : LExpr record : args)
+    go env (VarIn DA_Internal_Record "getField") (LType (isStrLitTy -> Just name) : LType recordType@(TypeCon recordTyCon _) : LType _fieldType : _dict : LExpr record : args)
         | isSingleConType recordTyCon = fmap (, args) $ do
             recordType <- convertType env recordType
             record <- convertExpr env record
             pure $ ERecProj (fromTCon recordType) (mkField $ fsToText name) record
-    go env (VarIs "setFieldPrim") (LType (isStrLitTy -> Just name) : LType record : LType field : args) = do
+    go env (VarIn DA_Internal_Record "setFieldPrim") (LType (isStrLitTy -> Just name) : LType record : LType field : args) = do
         record' <- convertType env record
         field' <- convertType env field
         withTmArg env (varV1, field') args $ \x1 args ->
             withTmArg env (varV2, record') args $ \x2 args ->
                 pure (ERecUpd (fromTCon record') (mkField $ fsToText name) x2 x1, args)
-    go env (VarIs "fromRational") (LExpr (VarIs ":%" `App` tyInteger `App` Lit (LitNumber _ top _) `App` Lit (LitNumber _ bot _)) : args)
+    go env (VarIn GHC_Real "fromRational") (LExpr (VarIs ":%" `App` tyInteger `App` Lit (LitNumber _ top _) `App` Lit (LitNumber _ bot _)) : args)
         = fmap (, args) $ convertRationalDecimal env top bot
-    go env (VarIs "fromRational") (LType (isNumLitTy -> Just n) : LExpr (VarIs ":%" `App` tyInteger `App` Lit (LitNumber _ top _) `App` Lit (LitNumber _ bot _)) : args)
+    go env (VarIn GHC_Real "fromRational") (LType (isNumLitTy -> Just n) : LExpr (VarIs ":%" `App` tyInteger `App` Lit (LitNumber _ top _) `App` Lit (LitNumber _ bot _)) : args)
         = fmap (, args) $ convertRationalNumericMono env n top bot
-    go env (VarIs "fromRational") (LType scaleTyCoRep : LExpr (VarIs ":%" `App` tyInteger `App` Lit (LitNumber _ top _) `App` Lit (LitNumber _ bot _)) : args)
+    go env (VarIn GHC_Real "fromRational") (LType scaleTyCoRep : LExpr (VarIs ":%" `App` tyInteger `App` Lit (LitNumber _ top _) `App` Lit (LitNumber _ bot _)) : args)
         = unsupported "Polymorphic numeric literal. Specify a fixed scale by giving the type, e.g. (1.2345 : Numeric 10)" ()
-    go env (VarIs "negate") (tyInt : LExpr (VarIs "$fAdditiveInt") : LExpr (untick -> VarIs "fromInteger" `App` Lit (LitNumber _ x _)) : args)
+    go env (VarIn GHC_Num "negate") (tyInt : LExpr (VarIs "$fAdditiveInt") : LExpr (untick -> VarIs "fromInteger" `App` Lit (LitNumber _ x _)) : args)
         = fmap (, args) $ convertInt64 (negate x)
-    go env (VarIs "fromInteger") (LExpr (Lit (LitNumber _ x _)) : args)
+    go env (VarIn GHC_Integer_Type "fromInteger") (LExpr (Lit (LitNumber _ x _)) : args)
         = fmap (, args) $ convertInt64 x
     go env (Lit (LitNumber LitNumInt x _)) args
         = fmap (, args) $ convertInt64 x
-    go env (VarIs "fromString") (LExpr x : args)
+    go env (VarIn Data_String "fromString") (LExpr x : args) -- referenced by deriving Enum
         = fmap (, args) $ convertExpr env x
-    go env (VarIs "unpackCString#") (LExpr (Lit (LitString x)) : args)
+    go env (VarIn GHC_CString "fromString") (LExpr x : args)
+        = fmap (, args) $ convertExpr env x
+    go env (VarIn GHC_CString "unpackCString#") (LExpr (Lit (LitString x)) : args)
         = fmap (, args) $ pure $ EBuiltin $ BEText $ unpackCString x
-    go env (VarIs "unpackCStringUtf8#") (LExpr (Lit (LitString x)) : args)
+    go env (VarIn GHC_CString "unpackCStringUtf8#") (LExpr (Lit (LitString x)) : args)
         = fmap (, args) $ pure $ EBuiltin $ BEText $ unpackCStringUtf8 x
-    go env x@(Var f) (LType t1 : LType t2 : LExpr (untick -> Lit (LitString s)) : args)
-        | Just m <- nameModule_maybe (getName f)
-        , GHC.moduleNameString (GHC.moduleName m) == "Control.Exception.Base"
+    go env x@(VarIn Control_Exception_Base _) (LType t1 : LType t2 : LExpr (untick -> Lit (LitString s)) : args)
         = fmap (, args) $ do
         x' <- convertExpr env x
         t1' <- convertType env t1
@@ -809,7 +785,7 @@ convertExpr env0 e = do
         pure (x' `ETyApp` t1' `ETyApp` t2' `ETmApp` EBuiltin (BEText (unpackCStringUtf8 s)))
 
     -- conversion of bodies of $con2tag functions
-    go env (VarIs "getTag") (LType (TypeCon t _) : LExpr x : args) = fmap (, args) $ do
+    go env (VarIn GHC_Base "getTag") (LType (TypeCon t _) : LExpr x : args) = fmap (, args) $ do
         x' <- convertExpr env x
         t' <- convertQualified env t
         let mkCasePattern con
@@ -823,19 +799,19 @@ convertExpr env0 e = do
                 (EBuiltin $ BEInt64 i)
             | (con, i) <- zip (tyConDataCons t) [0..]
             ]
-    go env (VarIs "tagToEnum#") (LType (TypeCon (Is "Bool") []) : LExpr (op0 `App` x `App` y) : args)
-        | VarIs "==#" <- op0 = go BEEqual
-        | VarIs "<#"  <- op0 = go BELess
-        | VarIs ">#"  <- op0 = go BEGreater
+    go env (VarIn GHC_Prim "tagToEnum#") (LType (TypeCon (Is "Bool") []) : LExpr (op0 `App` x `App` y) : args)
+        | VarIn GHC_Prim "==#" <- op0 = go BEEqual
+        | VarIn GHC_Prim "<#"  <- op0 = go BELess
+        | VarIn GHC_Prim ">#"  <- op0 = go BEGreater
         where
           go op1 = fmap (, args) $ do
               x' <- convertExpr env x
               y' <- convertExpr env y
               pure (EBuiltin (op1 BTInt64) `ETmApp` x' `ETmApp` y')
-    go env (VarIs "tagToEnum#") (LType (TypeCon (Is "Bool") []) : LExpr x : args) = fmap (, args) $ do
+    go env (VarIn GHC_Prim "tagToEnum#") (LType (TypeCon (Is "Bool") []) : LExpr x : args) = fmap (, args) $ do
         x' <- convertExpr env x
         pure $ EBuiltin (BEEqual BTInt64) `ETmApp` EBuiltin (BEInt64 1) `ETmApp` x'
-    go env (VarIs "tagToEnum#") (LType tt@(TypeCon t _) : LExpr x : args) = fmap (, args) $ do
+    go env (VarIn GHC_Prim "tagToEnum#") (LType tt@(TypeCon t _) : LExpr x : args) = fmap (, args) $ do
         -- FIXME: Should generate a binary tree of eq and compare
         tt' <- convertType env tt
         x' <- convertExpr env x
@@ -852,37 +828,37 @@ convertExpr env0 e = do
         pure (foldr ($) (mkCtor c1) [mkIf (mkEqInt i) (mkCtor c) | (i,c) <- zipFrom 0 cs])
 
     -- built ins because they are lazy
-    go env (VarIs "ifThenElse") (LType tRes : LExpr cond : LExpr true : LExpr false : args)
+    go env (VarIn GHC_Types "ifThenElse") (LType tRes : LExpr cond : LExpr true : LExpr false : args)
         = fmap (, args) $ mkIf <$> convertExpr env cond <*> convertExpr env true <*> convertExpr env false
-    go env (VarIs "||") (LExpr x : LExpr y : args)
+    go env (VarIn GHC_Classes "||") (LExpr x : LExpr y : args)
         = fmap (, args) $ mkIf <$> convertExpr env x <*> pure ETrue <*> convertExpr env y
-    go env (VarIs "&&") (LExpr x : LExpr y : args)
+    go env (VarIn GHC_Classes "&&") (LExpr x : LExpr y : args)
         = fmap (, args) $ mkIf <$> convertExpr env x <*> convertExpr env y <*> pure EFalse
-    go env (VarIs "when") (LType monad : LExpr dict : LExpr x : LExpr y : args)
+    go env (VarIn DA_Action "when") (LType monad : LExpr dict : LExpr x : LExpr y : args)
         = fmap (, args) $ mkIf <$> convertExpr env x <*> convertExpr env y <*> mkPure env monad dict TUnit EUnit
-    go env (VarIs "unless") (LType monad : LExpr dict : LExpr x : LExpr y : args)
+    go env (VarIn DA_Action "unless") (LType monad : LExpr dict : LExpr x : LExpr y : args)
         = fmap (, args) $ mkIf <$> convertExpr env x <*> mkPure env monad dict TUnit EUnit <*> convertExpr env y
-    go env (VarIsInInternalLF "submit") (LType typ : LExpr pty : LExpr upd : args) = fmap (, args) $ do
+    go env (VarIn DA_Internal_LF "submit") (LType typ : LExpr pty : LExpr upd : args) = fmap (, args) $ do
         pty' <- convertExpr env pty
         upd' <- convertExpr env upd
         typ' <- convertType env typ
         pure $
           EScenario (SCommit typ' pty' (EUpdate (UEmbedExpr typ' upd')))
-    go env (VarIsInInternalLF "submitMustFail") (LType typ : LExpr pty : LExpr upd : args) = fmap (, args) $ do
+    go env (VarIn DA_Internal_LF "submitMustFail") (LType typ : LExpr pty : LExpr upd : args) = fmap (, args) $ do
         pty' <- convertExpr env pty
         upd' <- convertExpr env upd
         typ' <- convertType env typ
         pure $ EScenario (SMustFailAt typ' pty' (EUpdate (UEmbedExpr typ' upd')))
 
     -- custom conversion because they correspond to builtins in DAML-LF, so can make the output more readable
-    go env (VarIs "pure") (LType monad : LExpr dict : LType t : LExpr x : args)
+    go env (VarIn DA_Internal_Prelude "pure") (LType monad : LExpr dict : LType t : LExpr x : args)
         -- This is generating the special UPure/SPure nodes when the monad is Update/Scenario.
         = fmap (, args) $ join $ mkPure env monad dict <$> convertType env t <*> convertExpr env x
-    go env (VarIs "return") (LType monad : LType t : LExpr dict : LExpr x : args)
+    go env (VarIn DA_Internal_Prelude "return") (LType monad : LType t : LExpr dict : LExpr x : args)
         -- This is generating the special UPure/SPure nodes when the monad is Update/Scenario.
         -- In all other cases, 'return' is rewritten to 'pure'.
         = fmap (, args) $ join $ mkPure env monad dict <$> convertType env t <*> convertExpr env x
-    go env bind@(VarIs ">>=") allArgs@(LType monad : LExpr dict : LType _ : LType _ : LExpr x : LExpr lam@(Lam b y) : args) = do
+    go env bind@(VarIn DA_Internal_Prelude ">>=") allArgs@(LType monad : LExpr dict : LType _ : LType _ : LExpr x : LExpr lam@(Lam b y) : args) = do
         monad' <- convertType env monad
         case monad' of
           TBuiltin BTUpdate -> mkBind EUpdate UBind
@@ -895,7 +871,7 @@ convertExpr env0 e = do
               y' <- convertExpr env y
               b' <- convVarWithType env b
               pure (inj (bind (Binding b' x') y'))
-    go env semi@(VarIs ">>") allArgs@(LType monad : LType t : LType _ : LExpr _dict : LExpr x : LExpr y : args) = do
+    go env semi@(VarIn DA_Internal_Prelude ">>") allArgs@(LType monad : LType t : LType _ : LExpr _dict : LExpr x : LExpr y : args) = do
         monad' <- convertType env monad
         case monad' of
           TBuiltin BTUpdate -> mkSeq EUpdate UBind
@@ -909,31 +885,36 @@ convertExpr env0 e = do
               y' <- convertExpr env y
               pure $ inj (bind (Binding (mkVar "_", t') x') y')
 
-    go env (VarIs "[]") (LType (TypeCon (Is "Char") []) : args)
+    go env (VarIn GHC_Types "[]") (LType (TypeCon (Is "Char") []) : args)
         = fmap (, args) $ pure $ EBuiltin (BEText T.empty)
-    go env (VarIs "[]") args
+    go env (VarIn GHC_Types "[]") args
         = withTyArg env varT1 args $ \t args -> pure (ENil t, args)
-    go env (VarIs ":") args =
+    go env (VarIn GHC_Types ":") args =
         withTyArg env varT1 args $ \t args ->
         withTmArg env (varV1, t) args $ \x args ->
         withTmArg env (varV2, TList t) args $ \y args ->
           pure (ECons t x y, args)
-    go env (Var v) args
-        | isBuiltinName "None" v || isBuiltinName "$WNone" v
+    go env (VarIn DA_Internal_Prelude (IgnoreWorkerPrefixFS "None")) args
         = withTyArg env varT1 args $ \t args -> pure (ENone t, args)
-    go env (Var v) args
-        | isBuiltinName "Some" v || isBuiltinName "$WSome" v
+    go env (VarIn DA_Internal_Prelude (IgnoreWorkerPrefixFS "Some")) args
         = withTyArg env varT1 args $ \t args ->
           withTmArg env (varV1, t) args $ \x args ->
             pure (ESome t x, args)
+
+    go env (VarIn GHC_Tuple "()") args = fmap (, args) $ pure EUnit
+    go env (VarIn GHC_Types "True") args = fmap (, args) $ pure $ mkBool True
+    go env (VarIn GHC_Types "False") args = fmap (, args) $ pure $ mkBool False
+    go env (VarIn GHC_Types "I#") args = fmap (, args) $ pure $ mkIdentity TInt64
+        -- we pretend Int and Int# are the same thing
+
     go env (Var x) args
         | Just internals <- lookupUFM internalFunctions modName
         , getOccFS x `elementOfUniqSet` internals
         = unsupported "Direct call to internal function" x
-        | getOccFS x == "()" = fmap (, args) $ pure EUnit
-        | getOccFS x == "True" = fmap (, args) $ pure $ mkBool True
-        | getOccFS x == "False" = fmap (, args) $ pure $ mkBool False
-        | getOccFS x == "I#" = fmap (, args) $ pure $ mkIdentity TInt64 -- we pretend Int and Int# are the same thing
+        where
+            modName = maybe (envGHCModuleName env) GHC.moduleName $ nameModule_maybe $ getName x
+
+    go env (Var x) args
         | Just m <- nameModule_maybe $ varName x
         , Just con <- isDataConId_maybe x
         = convertDataCon env m con args
@@ -945,8 +926,6 @@ convertExpr env0 e = do
             -- some things are global, but not with a module name, so give them the current one
         | Just y <- envLookupAlias x env = fmap (, args) $ pure y
         | otherwise = fmap (, args) $ pure $ EVar $ convVar x
-        where
-          modName = maybe (envGHCModuleName env) GHC.moduleName $ nameModule_maybe $ getName x
 
     go env (Lam name x) args
         | isTyVar name = fmap (, args) $ ETyLam <$> convTypeVar name <*> convertExpr env x
@@ -959,7 +938,7 @@ convertExpr env0 e = do
         fmap (, args) $ convertLet env name x (\env -> convertExpr env y)
     go env (Case scrutinee bind _ [(DEFAULT, [], x)]) args =
         go env (Let (NonRec bind scrutinee) x) args
-    go env (Case scrutinee bind t [(DataAlt con, [v], x)]) args | getOccFS con == "I#" = do
+    go env (Case scrutinee bind t [(DataAlt (NameIn GHC_Types "I#"), [v], x)]) args = do
         -- We pretend Int and Int# are the same, so a case-expression becomes a let-expression.
         let letExpr = Let (NonRec bind scrutinee) $ Let (NonRec v (Var bind)) x
         go env letExpr args
@@ -1145,9 +1124,7 @@ convertDataCon env m con args
         qual f t
             | Just xs <- T.stripPrefix "(," t
             , T.dropWhile (== ',') xs == ")" = qDA_Types env $ f $ "Tuple" <> T.pack (show $ T.length xs + 1)
-            | Just t' <- T.stripPrefix "$W" t = qualify env m $ f t'
-            | otherwise = qualify env m $ f t
-
+            | IgnoreWorkerPrefix t' <- t = qualify env m $ f t'
 
 convertArg :: Env -> GHC.Arg Var -> ConvertM LF.Arg
 convertArg env = \case
@@ -1192,16 +1169,16 @@ convertUnitId _thisUnitId pkgMap unitId = case unitId of
 convertAlt :: Env -> LF.Type -> Alt Var -> ConvertM CaseAlternative
 convertAlt env ty (DEFAULT, [], x) = CaseAlternative CPDefault <$> convertExpr env x
 convertAlt env ty (DataAlt con, [], x)
-    | getOccFS con == "True" = CaseAlternative (CPBool True) <$> convertExpr env x
-    | getOccFS con == "False" = CaseAlternative (CPBool False) <$> convertExpr env x
-    | getOccFS con == "[]" = CaseAlternative CPNil <$> convertExpr env x
-    | getOccFS con == "()" = CaseAlternative CPUnit <$> convertExpr env x
-    | isBuiltinName "None" con
+    | NameIn GHC_Types "True" <- con = CaseAlternative (CPBool True) <$> convertExpr env x
+    | NameIn GHC_Types "False" <- con = CaseAlternative (CPBool False) <$> convertExpr env x
+    | NameIn GHC_Types "[]" <- con = CaseAlternative CPNil <$> convertExpr env x
+    | NameIn GHC_Tuple "()" <- con = CaseAlternative CPUnit <$> convertExpr env x
+    | NameIn DA_Internal_Prelude "None" <- con
     = CaseAlternative CPNone <$> convertExpr env x
 convertAlt env ty (DataAlt con, [a,b], x)
-    | getOccFS con == ":" = CaseAlternative (CPCons (convVar a) (convVar b)) <$> convertExpr env x
+    | NameIn GHC_Types ":" <- con = CaseAlternative (CPCons (convVar a) (convVar b)) <$> convertExpr env x
 convertAlt env ty (DataAlt con, [a], x)
-    | isBuiltinName "Some" con
+    | NameIn DA_Internal_Prelude "Some" <- con
     = CaseAlternative (CPSome (convVar a)) <$> convertExpr env x
 convertAlt env (TConApp tcon targs) alt@(DataAlt con, vs, x) = do
     Ctor (mkVariantCon . getOccText -> variantName) fldNames fldTys <- toCtor env con
@@ -1369,8 +1346,8 @@ convertTyCon env t
     | t == charTyCon = unsupported "Type GHC.Types.Char" t
     | t == liftedRepDataConTyCon = pure TUnit
     | t == typeSymbolKindCon = pure TUnit
-    | Just m <- nameModule_maybe (getName t), m == gHC_TYPES =
-        case getOccText t of
+    | NameIn GHC_Types n <- t =
+        case n of
             "Text" -> pure TText
             "Numeric" -> pure (TBuiltin BTNumeric)
             "Decimal" ->
@@ -1379,8 +1356,8 @@ convertTyCon env t
                     else pure TDecimal
             _ -> defaultTyCon
     -- TODO(DEL-6953): We need to add a condition on the package name as well.
-    | Just m <- nameModule_maybe (getName t), GHC.moduleName m == mkModuleName "DA.Internal.LF" =
-        case getOccText t of
+    | NameIn DA_Internal_LF n <- t =
+        case n of
             "Scenario" -> pure (TBuiltin BTScenario)
             "ContractId" -> pure (TBuiltin BTContractId)
             "Update" -> pure (TBuiltin BTUpdate)
@@ -1403,7 +1380,7 @@ convertTyCon env t
                     then TTypeRep
                     else TUnit
             _ -> defaultTyCon
-    | isBuiltinName "Optional" t = pure (TBuiltin BTOptional)
+    | NameIn DA_Internal_Prelude "Optional" <- t = pure (TBuiltin BTOptional)
     | otherwise = defaultTyCon
     where
         arity = tyConArity t
@@ -1415,15 +1392,11 @@ metadataTys = mkUniqSet ["MetaData", "MetaCons", "MetaSel"]
 convertType :: Env -> GHC.Type -> ConvertM LF.Type
 convertType env o@(TypeCon t ts)
     | t == listTyCon, ts `eqTypes` [charTy] = pure TText
-    -- TODO (drsk) we need to check that 'MetaData', 'MetaCons', 'MetaSel' are coming from the
-    -- module GHC.Generics.
-    | getOccFS t `elementOfUniqSet` metadataTys, [_] <- ts = pure TUnit
+    | NameIn DA_Generics n <- t, n `elementOfUniqSet` metadataTys, [_] <- ts = pure TUnit
     | t == anyTyCon, [_] <- ts = pure TUnit -- used for type-zonking
     | t == funTyCon, _:_:ts' <- ts =
         foldl TApp TArrow <$> mapM (convertType env) ts'
-    | Just m <- nameModule_maybe (getName t)
-    , GHC.moduleName m == mkModuleName "DA.Internal.LF"
-    , getOccText t == "Pair"
+    | NameIn DA_Internal_LF "Pair" <- t
     , [StrLitTy f1, StrLitTy f2, t1, t2] <- ts = do
         t1 <- convertType env t1
         t2 <- convertType env t2

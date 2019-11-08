@@ -239,6 +239,40 @@ jobs:
       - template: ci/tell-slack-failed.yml
       - template: ci/report-end.yml
 
+  - job: write_ledger_dump
+    dependsOn: [ "Linux", "macOS", "Windows", "Windows_signing", "perf"]
+    pool:
+      vmImage: "Ubuntu-16.04"
+    condition: and(succeeded(),
+                   eq( dependencies.Linux.outputs['release.has_released'], 'true' ),
+                   eq( dependencies.Windows.outputs['release.has_released'], 'true' ),
+                   eq( dependencies.Windows_signing.outputs['signing.has_released'], 'true' ),
+                   eq( dependencies.macOS.outputs['release.has_released'], 'true' ))
+    steps:
+      - checkout: self
+      - bash: |
+          set -euo pipefail
+
+          sudo mkdir -p /nix
+          sudo chown $USER /nix
+          curl -sfL https://nixos.org/releases/nix/nix-2.2.1/install | bash
+          eval "$(dev-env/bin/dade-assist)"
+          GCS_KEY=$(mktemp)
+          cleanup () {
+              rm -f $GCS_KEY
+          }
+          trap cleanup EXIT
+          echo "$GOOGLE_APPLICATION_CREDENTIALS_CONTENT" > $GCS_KEY
+          gcloud auth activate-service-account --key-file=$GCS_KEY
+          export BOTO_CONFIG=/dev/null
+
+          bazel build //ledger/api-server-damlonx/reference-v2:reference-ledger-dump
+          gsutil cp bazel-bin/ledger/api-server-damlonx/reference-v2/reference-ledger-dump.out \
+                    gs://daml-dumps/release/ledger/api-server-damlonx/reference-v2/reference-ledger-dump-$(cat VERSION)
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
+      - template: ci/tell-slack-failed.yml
+
   - job: collect_build_data
     condition: always()
     dependsOn: ["Linux", "macOS", "Windows", "Windows_signing", "perf", "release"]

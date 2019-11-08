@@ -239,7 +239,7 @@ abstract class AbstractHttpServiceIntegrationTest
           val unknownTemplateId: domain.TemplateId.NoPkg =
             domain.TemplateId((), command.templateId.moduleName, command.templateId.entityName)
           expectedOneErrorMessage(output) should include(
-            s"Cannot resolve ${unknownTemplateId: domain.TemplateId.NoPkg}")
+            s"Cannot resolve template ID, given: ${unknownTemplateId: domain.TemplateId.NoPkg}")
       }: Future[Assertion]
   }
 
@@ -293,6 +293,38 @@ abstract class AbstractHttpServiceIntegrationTest
             expectedOneErrorMessage(output) should include(
               "couldn't find contract AbsoluteContractId(NonExistentContractId)")
         }: Future[Assertion]
+  }
+
+  "command/exercise Archive" in withHttpService { (uri, encoder, decoder) =>
+    val create: domain.CreateCommand[v.Record] = iouCreateCommand()
+    postCreateCommand(create, encoder, uri)
+      .flatMap {
+        case (createStatus, createOutput) =>
+          createStatus shouldBe StatusCodes.OK
+          assertStatus(createOutput, StatusCodes.OK)
+
+          val contractId = getContractId(createOutput)
+          val exercise: domain.ExerciseCommand[v.Record] = iouArchiveCommand(contractId)
+          val exerciseJson: JsObject = encoder.encodeR(exercise).valueOr(e => fail(e.shows))
+
+          postJsonRequest(uri.withPath(Uri.Path("/command/exercise")), exerciseJson)
+            .flatMap {
+              case (exerciseStatus, exerciseOutput) =>
+                exerciseStatus shouldBe StatusCodes.OK
+                assertStatus(exerciseOutput, StatusCodes.OK)
+                println(s"----- exerciseOutput: $exerciseOutput")
+                inside(exerciseOutput) {
+                  case JsObject(fields) =>
+                    inside(fields.get("result")) {
+                      case Some(JsArray(Vector(contract1: JsObject))) =>
+                        inside(contract1.fields.toList) {
+                          case List(("archived", archived: JsObject)) =>
+                            assertArchivedContract(archived, contractId)
+                        }
+                    }
+                }
+            }
+      }: Future[Assertion]
   }
 
   private def assertArchivedContract(
@@ -451,6 +483,13 @@ abstract class AbstractHttpServiceIntegrationTest
     )
     val choice = lar.Choice("Iou_Transfer")
 
+    domain.ExerciseCommand(templateId, contractId, choice, arg, None)
+  }
+
+  private def iouArchiveCommand(contractId: lar.ContractId): domain.ExerciseCommand[v.Record] = {
+    val templateId: OptionalPkg = domain.TemplateId(None, "Iou", "Iou")
+    val arg: Record = v.Record()
+    val choice = lar.Choice("Archive")
     domain.ExerciseCommand(templateId, contractId, choice, arg, None)
   }
 

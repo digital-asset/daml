@@ -15,3 +15,8 @@ HEAD — ongoing
    * Allow a ledger api server to share the DAML engine with the DAML-on-X participant node for performance. See `issue #2975 <https://github.com/digital-asset/daml/issues/2975>`__.
    * Allow non-alphanumeric characters in ledger api server participant ids (space, colon, hash, slash, dot).
    * Include SQL statement type in ledger api server logging of SQL errors.
+- [DAML Compiler] Support for incremental builds in ``daml build`` using the ``--incremental=yes`` flag.
+  This is still experimental and disabled by default but will become enabled by default in the future.
+  On large codebases, this can significantly improve compile times and reduce memory usage.
+- [JSON API - Experimental] Fix to support Archive choice. See issue #3219
+- [Sandbox] Add the option to start the sandbox with JWT based authentication. See `issue #3363 <https://github.com/digital-asset/daml/issues/3363>`__.

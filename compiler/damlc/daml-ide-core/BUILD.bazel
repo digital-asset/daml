@@ -43,6 +43,7 @@ da_haskell_library(
         "transformers",
         "utf8-string",
         "vector",
+        "proto3-suite",
     ],
     src_strip_prefix = "src",
     visibility = ["//visibility:public"],

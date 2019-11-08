@@ -3,7 +3,11 @@
 
 package com.digitalasset.http
 
-import com.digitalasset.http.domain.TemplateId
+import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.iface
+import com.digitalasset.http.domain.{Choice, TemplateId}
+import com.digitalasset.http.util.IdentifierConverters
+import com.digitalasset.ledger.api.v1.value.Identifier
 import com.digitalasset.ledger.service.LedgerReader.PackageStore
 import com.digitalasset.ledger.service.{LedgerReader, TemplateIds}
 import com.typesafe.scalalogging.StrictLogging
@@ -20,16 +24,21 @@ private class PackageService(reloadPackageStoreIfChanged: PackageService.ReloadP
   private case class State(
       packageIds: Set[String],
       templateIdMap: TemplateIdMap,
+      choiceIdMap: ChoiceIdMap,
       packageStore: PackageStore) {
 
     def append(diff: PackageStore): State = {
       val newPackageStore = this.packageStore ++ diff
-      State(newPackageStore.keySet, getTemplateIdMap(newPackageStore), newPackageStore)
+      State(
+        newPackageStore.keySet,
+        getTemplateIdMap(newPackageStore),
+        getChoiceIdMap(newPackageStore),
+        newPackageStore)
     }
   }
 
   // volatile, reading threads don't need synchronization
-  @volatile private var state: State = State(Set.empty, TemplateIdMap.Empty, Map.empty)
+  @volatile private var state: State = State(Set.empty, TemplateIdMap.Empty, Map.empty, Map.empty)
 
   // synchronized, so two threads cannot reload it concurrently
   def reload(implicit ec: ExecutionContext): Future[Error \/ Unit] = synchronized {
@@ -50,13 +59,17 @@ private class PackageService(reloadPackageStoreIfChanged: PackageService.ReloadP
   def packageStore: PackageStore = state.packageStore
 
   // Do not reduce it to something like `PackageService.resolveTemplateId(state.templateIdMap)`
-  // `state.templateIdMap` will be cached in this case. Don't know why, `state` is volatile.
+  // `state.templateIdMap` will be cached in this case.
   def resolveTemplateId: ResolveTemplateId =
     x => PackageService.resolveTemplateId(state.templateIdMap)(x)
 
   // See the above comment
   def resolveTemplateIds: ResolveTemplateIds =
     x => PackageService.resolveTemplateIds(state.templateIdMap)(x)
+
+  // See the above comment
+  def resolveChoiceRecordId: ResolveChoiceRecordId =
+    (x, y) => PackageService.resolveChoiceRecordId(state.choiceIdMap)(x, y)
 }
 
 object PackageService {
@@ -75,10 +88,13 @@ object PackageService {
     Set[String] => Future[PackageService.Error \/ Option[LedgerReader.PackageStore]]
 
   type ResolveTemplateIds =
-    Set[domain.TemplateId.OptionalPkg] => Error \/ List[TemplateId.RequiredPkg]
+    Set[TemplateId.OptionalPkg] => Error \/ List[TemplateId.RequiredPkg]
 
   type ResolveTemplateId =
-    domain.TemplateId.OptionalPkg => Error \/ TemplateId.RequiredPkg
+    TemplateId.OptionalPkg => Error \/ TemplateId.RequiredPkg
+
+  type ResolveChoiceRecordId =
+    (TemplateId.RequiredPkg, Choice) => Error \/ Identifier
 
   case class TemplateIdMap(
       all: Set[TemplateId.RequiredPkg],
@@ -87,6 +103,8 @@ object PackageService {
   object TemplateIdMap {
     val Empty: TemplateIdMap = TemplateIdMap(Set.empty, Map.empty)
   }
+
+  type ChoiceIdMap = Map[(TemplateId.RequiredPkg, Choice), Identifier]
 
   def getTemplateIdMap(packageStore: PackageStore): TemplateIdMap =
     buildTemplateIdMap(collectTemplateIds(packageStore))
@@ -129,11 +147,11 @@ object PackageService {
   private def findTemplateIdByK3(m: Set[TemplateId.RequiredPkg])(
       k: TemplateId.RequiredPkg): Error \/ TemplateId.RequiredPkg =
     if (m.contains(k)) \/-(k)
-    else -\/(InputError(s"Cannot resolve ${k.toString}"))
+    else -\/(InputError(s"Cannot resolve template ID, given: ${k.toString}"))
 
   private def findTemplateIdByK2(m: Map[TemplateId.NoPkg, TemplateId.RequiredPkg])(
       k: TemplateId.NoPkg): Error \/ TemplateId.RequiredPkg =
-    m.get(k).toRightDisjunction(InputError(s"Cannot resolve ${k.toString}"))
+    m.get(k).toRightDisjunction(InputError(s"Cannot resolve template ID, given: ${k.toString}"))
 
   private def validate(
       requested: Set[TemplateId.OptionalPkg],
@@ -144,4 +162,34 @@ object PackageService {
         ServerError(
           s"Template ID resolution error, the sizes of requested and resolved collections should match. " +
             s"requested: $requested, resolved: $resolved"))
+
+  def resolveChoiceRecordId(choiceIdMap: ChoiceIdMap)(
+      templateId: TemplateId.RequiredPkg,
+      choice: Choice): Error \/ Identifier = {
+    val k = (templateId, choice)
+    choiceIdMap
+      .get(k)
+      .toRightDisjunction(InputError(s"Cannot resolve choice record ID, given: ${k.toString}"))
+  }
+
+  def getChoiceIdMap(packageStore: PackageStore): ChoiceIdMap =
+    packageStore.flatMap { case (_, interface) => getChoices(interface) }(collection.breakOut)
+
+  private def getChoices(
+      interface: iface.Interface): Map[(TemplateId.RequiredPkg, Choice), Identifier] =
+    interface.typeDecls.flatMap {
+      case (qn, iface.InterfaceType.Template(_, iface.DefTemplate(choices, _))) =>
+        val templateId = TemplateId(interface.packageId, qn.module.toString, qn.name.toString)
+        getChoices(choices).map { case (choice, id) => ((templateId, choice), id) }
+      case _ => Seq.empty
+    }
+
+  private def getChoices(
+      choices: Map[Ref.Name, iface.TemplateChoice[iface.Type]]): Seq[(Choice, Identifier)] = {
+    import iface._
+    choices.toSeq.collect {
+      case (name, TemplateChoice(TypeCon(typeConName, _), _, _)) =>
+        (Choice(name.toString), IdentifierConverters.apiIdentifier(typeConName.identifier))
+    }
+  }
 }
