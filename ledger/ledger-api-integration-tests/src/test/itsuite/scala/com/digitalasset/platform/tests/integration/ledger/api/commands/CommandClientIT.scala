@@ -147,15 +147,17 @@ class CommandClientIT
       "return it" in allFixtures { ctx =>
         for {
           client <- ctx.commandClient()
-          _ <- client.getCompletionEnd
+          _ <- client.getCompletionEnd()
         } yield {
           succeed
         }
       }
 
       "fail with the expected status on a ledger Id mismatch" in allFixtures { ctx =>
-        ctx.commandClientWithoutTime(testNotLedgerId).getCompletionEnd.failed map IsStatusException(
-          Status.NOT_FOUND)
+        ctx
+          .commandClientWithoutTime(testNotLedgerId)
+          .getCompletionEnd()
+          .failed map IsStatusException(Status.NOT_FOUND)
       }
     }
 
@@ -167,7 +169,7 @@ class CommandClientIT
         for {
           client <- ctx.commandClient()
           result <- Source(contexts.map(i => Ctx(i, submitRequestWithId(i.toString, ctx))))
-            .via(client.submissionFlow)
+            .via(client.submissionFlow())
             .map(_.map(_.isSuccess))
             .runWith(Sink.seq)
         } yield {
@@ -181,7 +183,7 @@ class CommandClientIT
             Ctx(
               1,
               submitRequestWithId("1", ctx).update(_.commands.ledgerId := testNotLedgerId.unwrap)))
-          .via(ctx.commandClientWithoutTime(testNotLedgerId).submissionFlow)
+          .via(ctx.commandClientWithoutTime(testNotLedgerId).submissionFlow())
           .runWith(Sink.head)
           .map(err => IsStatusException(Status.NOT_FOUND)(err.value.failure.exception))
       }
@@ -238,11 +240,11 @@ class CommandClientIT
           // val for type inference
           val resultF = for {
             client <- ctx.commandClient()
-            checkpoint <- client.getCompletionEnd
+            checkpoint <- client.getCompletionEnd()
             submissionResults <- Source(
               commandIds.map(i => Ctx(i, submitRequestWithId(i.toString, ctx))))
               .flatMapMerge(10, randomDelay)
-              .via(client.submissionFlow)
+              .via(client.submissionFlow())
               .map(_.value)
               .runWith(Sink.seq)
             _ = submissionResults.foreach(v => v shouldBe a[Success[_]])
@@ -271,11 +273,11 @@ class CommandClientIT
         // val for type inference
         val resultF = for {
           client <- ctx.commandClient()
-          checkpoint <- client.getCompletionEnd
+          checkpoint <- client.getCompletionEnd()
           result = readExpectedCommandIds(client, checkpoint.getOffset, commandIdStrings)
           _ <- Source(commandIds.map(i => Ctx(i, submitRequestWithId(i.toString, ctx))))
             .flatMapMerge(10, randomDelay)
-            .via(client.submissionFlow)
+            .via(client.submissionFlow())
             .map(_.context)
             .runWith(Sink.ignore)
         } yield {

@@ -3,9 +3,10 @@
 
 package com.digitalasset.navigator
 
-import java.nio.file.{Path, Paths}
+import java.nio.file.{Files, Path, Paths}
 import java.util.UUID
 import java.util.concurrent.TimeUnit
+import java.util.stream.Collectors
 
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
@@ -35,6 +36,7 @@ import spray.json._
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.util.control.NonFatal
 import scala.util.{Failure, Success, Try}
 
 /**
@@ -61,20 +63,6 @@ abstract class UIBackend extends LazyLogging with ApplicationInfoJsonSupport {
     * (supply a default)
     */
   def defaultConfigFile: Path = Paths.get("ui-backend.conf")
-
-  // Uses $DAML_HOME from the SDK Assistant or falls back to its default location:
-  // - on Windows: %APPDATA%/daml
-  // - on Mac and Linux: ~/.daml
-  // The file called `secret` will be looked in the resolved location
-  private[this] val defaultAccessTokenFile: Path =
-    sys.env
-      .get("DAML_HOME")
-      .fold(if (sys.props("os.name").toLowerCase.startsWith("win")) {
-        Paths.get(Option(System.getenv("APPDATA")).getOrElse("."), "daml")
-      } else {
-        Paths.get(sys.props("user.home"), ".daml")
-      })(Paths.get(_))
-      .resolve("secret")
 
   private[navigator] def getRoute(
       system: ActorSystem,
@@ -234,12 +222,23 @@ abstract class UIBackend extends LazyLogging with ApplicationInfoJsonSupport {
 
     import system.dispatcher
 
+    // Read from the access token file or crash
+    val token =
+      arguments.accessTokenFile.map { path =>
+        try {
+          Files.readAllLines(path).stream.collect(Collectors.joining("\n"))
+        } catch {
+          case NonFatal(e) =>
+            throw new RuntimeException(s"Unable to read the access token from $path", e)
+        }
+      }
+
     val store = system.actorOf(
       PlatformStore.props(
         arguments.participantHost,
         arguments.participantPort,
         arguments.tlsConfig,
-        arguments.accessTokenFile.getOrElse(defaultAccessTokenFile),
+        token,
         arguments.time,
         applicationInfo,
         arguments.ledgerInboundMessageSizeMax
@@ -285,14 +284,14 @@ abstract class UIBackend extends LazyLogging with ApplicationInfoJsonSupport {
   }
 
   final def main(rawArgs: Array[String]): Unit =
-    Arguments.parse(rawArgs, defaultConfigFile, defaultAccessTokenFile) foreach run
+    Arguments.parse(rawArgs, defaultConfigFile) foreach run
 
   private def run(args: Arguments): Unit = {
     val navigatorConfigFile = args.configFile.getOrElse(defaultConfigFile)
 
     args.command match {
       case ShowUsage =>
-        Arguments.showUsage(defaultConfigFile, defaultAccessTokenFile)
+        Arguments.showUsage(defaultConfigFile)
       case DumpGraphQLSchema =>
         dumpGraphQLSchema()
       case CreateConfig =>

@@ -32,7 +32,8 @@ class LedgerConfigurationServiceIT
     "asked for ledger configuration" should {
 
       "return expected configuration" in allFixtures { context =>
-        client(context).getLedgerConfiguration
+        client(context)
+          .getLedgerConfiguration()
           .runWith(Sink.head)(materializer) map { lc =>
           lc.minTtl.value shouldEqual GrpcApiUtil.durationToProto(config.timeModel.minTtl)
           lc.maxTtl.value shouldEqual GrpcApiUtil.durationToProto(config.timeModel.maxTtl)
