@@ -53,13 +53,11 @@ data Env = Env
 newtype DiffSdkVers = DiffSdkVers Bool
 
 -- | Generate non-consuming choices to upgrade all templates defined in the module.
-generateUpgradeModule :: DiffSdkVers -> [String] -> String -> String -> String -> String
-generateUpgradeModule (DiffSdkVers diffSdks) templateNames modName qualA qualB =
+generateUpgradeModule :: [String] -> String -> String -> String -> String
+generateUpgradeModule templateNames modName qualA qualB =
     unlines $ header ++ concatMap upgradeTemplates templateNames
   where
-    header
-      | diffSdks = header0 ++ header1 ++ header2
-      | otherwise = header0 ++ header2
+    header = header0 ++ header1 ++ header2
       -- If we compile with packages from a single sdk version, the instances modules will not be
       -- there and hence we can not include header1.
     header0 =
@@ -69,8 +67,8 @@ generateUpgradeModule (DiffSdkVers diffSdks) templateNames modName qualA qualB =
         , "import " <> modName <> qualB <> " qualified as B"
         ]
     header1 =
-        [ "import " <> modName <> "Instances()"
-        , "import " <> modName <> "Instances()"
+        [ "import " <> modName <> qualA <> "Instances()"
+        , "import " <> modName <> qualB <> "Instances()"
         ]
     header2 = [
         "import DA.Upgrade"
