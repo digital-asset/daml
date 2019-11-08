@@ -670,9 +670,8 @@ generateSrcFromLf env thisPkgId = noLoc mod
             LF.BTMap -> (damlStdlibUnitId, LF.ModuleName ["DA", "Internal", "LF"])
             LF.BTArrow -> (primUnitId, translateModName funTyCon)
             LF.BTNumeric -> (primUnitId, LF.ModuleName ["GHC", "Types"])
-            -- TODO: see https://github.com/digital-asset/daml/issues/2876
-            LF.BTAny -> error "Any type not yet supported in upgrades"
-            LF.BTTypeRep -> error "TypeRep type not yet supported in upgrades"
+            LF.BTAny -> (damlStdlibUnitId, LF.ModuleName ["DA", "Internal", "LF"])
+            LF.BTTypeRep -> (damlStdlibUnitId, LF.ModuleName ["DA", "Internal", "LF"])
 
     translateModName ::
            forall a. NamedThing a
@@ -765,9 +764,8 @@ convBuiltInTy qualify =
         LF.BTMap -> mkLfInternalType "TextMap"
         LF.BTArrow -> mkTyConTypeUnqual funTyCon
         LF.BTNumeric -> mkGhcType "Numeric"
-        -- TODO see https://github.com/digital-asset/daml/issues/2876
-        LF.BTAny -> error "Any type not yet supported in upgrades"
-        LF.BTTypeRep -> error "TypeRep type not yet supported in upgrades"
+        LF.BTAny -> mkLfInternalType "Any"
+        LF.BTTypeRep -> mkLfInternalType "TypeRep"
 
 mkLfInternalType :: String -> HsType GhcPs
 mkLfInternalType =
