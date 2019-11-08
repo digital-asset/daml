@@ -76,6 +76,11 @@ def _dev_env_tool_impl(ctx):
         dadew = _dadew_where(ctx, ps)
         find = _dadew_tool_home(dadew, "msys2") + "\\usr\\bin\\find.exe"
         tool_home = _dadew_tool_home(dadew, ctx.attr.win_tool)
+
+        # Copy the manifest to ensure that updates are noticed.
+        ctx.template("bazel-support\\manifest.json", "%s\\manifest.json" % tool_home, executable = False)
+
+        # Link the requested files.
         for i in ctx.attr.win_include:
             src = "%s\%s" % (tool_home, i)
             dst = ctx.attr.win_include_as.get(i, i)
