@@ -3,6 +3,7 @@
 
 package com.daml.ledger.api.testtool.tests
 
+import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
 import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTestSuite}
@@ -17,15 +18,14 @@ import scalaz.syntax.tag._
 class ActiveContractsService(session: LedgerSession) extends LedgerTestSuite(session) {
   test(
     "ACSinvalidLedgerId",
-    "The ActiveContractService should fail for requests with an invalid ledger identifier") {
-    context =>
+    "The ActiveContractService should fail for requests with an invalid ledger identifier",
+    allocate(SingleParty)) {
+    case Participants(Participant(ledger, parties @ _*)) =>
       val invalidLedgerId = "ACSinvalidLedgerId"
+      val invalidRequest = ledger
+        .activeContractsRequest(parties)
+        .update(_.ledgerId := invalidLedgerId)
       for {
-        ledger <- context.participant()
-        party <- ledger.allocateParty()
-        invalidRequest = ledger
-          .activeContractsRequest(Seq(party))
-          .update(_.ledgerId := invalidLedgerId)
         failure <- ledger.activeContracts(invalidRequest).failed
       } yield {
         assertGrpcError(failure, Status.Code.NOT_FOUND, "not found. Actual Ledger ID")
@@ -34,11 +34,11 @@ class ActiveContractsService(session: LedgerSession) extends LedgerTestSuite(ses
 
   test(
     "ACSemptyResponse",
-    "The ActiveContractService should succeed with an empty response if no contracts have been created for a party") {
-    context =>
+    "The ActiveContractService should succeed with an empty response if no contracts have been created for a party",
+    allocate(SingleParty)
+  ) {
+    case Participants(Participant(ledger, party)) =>
       for {
-        ledger <- context.participant()
-        party <- ledger.allocateParty()
         activeContracts <- ledger.activeContracts(party)
       } yield {
         assert(
@@ -47,19 +47,12 @@ class ActiveContractsService(session: LedgerSession) extends LedgerTestSuite(ses
       }
   }
 
-  private def createDummyContracts(party: Party, ledger: ParticipantTestContext) = {
-    for {
-      dummy <- ledger.create(party, Dummy(party))
-      dummyWithParam <- ledger.create(party, DummyWithParam(party))
-      dummyFactory <- ledger.create(party, DummyFactory(party))
-    } yield (dummy, dummyWithParam, dummyFactory)
-  }
-
-  test("ACSallContracts", "The ActiveContractService should return all active contracts") {
-    context =>
+  test(
+    "ACSallContracts",
+    "The ActiveContractService should return all active contracts",
+    allocate(SingleParty)) {
+    case Participants(Participant(ledger, party)) =>
       for {
-        ledger <- context.participant()
-        party <- ledger.allocateParty()
         (dummy, dummyWithParam, dummyFactory) <- createDummyContracts(party, ledger)
         activeContracts <- ledger.activeContracts(party)
       } yield {
@@ -91,32 +84,33 @@ class ActiveContractsService(session: LedgerSession) extends LedgerTestSuite(ses
 
   test(
     "ACSfilterContracts",
-    "The ActiveContractService should return contracts filtered by templateId") { context =>
-    for {
-      ledger <- context.participant()
-      party <- ledger.allocateParty()
-      (dummy, _, _) <- createDummyContracts(party, ledger)
-      activeContracts <- ledger.activeContractsByTemplateId(Seq(Dummy.id.unwrap), party)
-    } yield {
-      assert(
-        activeContracts.size == 1,
-        s"Expected 1 contract, but received ${activeContracts.size}.")
+    "The ActiveContractService should return contracts filtered by templateId",
+    allocate(SingleParty)) {
+    case Participants(Participant(ledger, party)) =>
+      for {
+        (dummy, _, _) <- createDummyContracts(party, ledger)
+        activeContracts <- ledger.activeContractsByTemplateId(Seq(Dummy.id.unwrap), party)
+      } yield {
+        assert(
+          activeContracts.size == 1,
+          s"Expected 1 contract, but received ${activeContracts.size}.")
 
-      assert(
-        activeContracts.head.getTemplateId == Dummy.id.unwrap,
-        s"Received contract is not of type Dummy, but ${activeContracts.head.templateId}.")
-      assert(
-        activeContracts.head.contractId == dummy,
-        s"Expected contract with contractId ${dummy}, but received ${activeContracts.head.contractId}."
-      )
-    }
+        assert(
+          activeContracts.head.getTemplateId == Dummy.id.unwrap,
+          s"Received contract is not of type Dummy, but ${activeContracts.head.templateId}.")
+        assert(
+          activeContracts.head.contractId == dummy,
+          s"Expected contract with contractId ${dummy}, but received ${activeContracts.head.contractId}."
+        )
+      }
   }
 
-  test("ACSarchivedContracts", "The ActiveContractService does not return archived contracts") {
-    context =>
+  test(
+    "ACSarchivedContracts",
+    "The ActiveContractService does not return archived contracts",
+    allocate(SingleParty)) {
+    case Participants(Participant(ledger, party)) =>
       for {
-        ledger <- context.participant()
-        party <- ledger.allocateParty()
         (dummy, _, _) <- createDummyContracts(party, ledger)
         contractsBeforeExercise <- ledger.activeContracts(party)
         _ <- ledger.exercise(party, dummy.exerciseDummyChoice1)
@@ -148,11 +142,10 @@ class ActiveContractsService(session: LedgerSession) extends LedgerTestSuite(ses
 
   test(
     "ACSusableOffset",
-    "The ActiveContractService should return a usable offset to resume streaming transactions") {
-    context =>
+    "The ActiveContractService should return a usable offset to resume streaming transactions",
+    allocate(SingleParty)) {
+    case Participants(Participant(ledger, party)) =>
       for {
-        ledger <- context.participant()
-        party <- ledger.allocateParty()
         dummy <- ledger.create(party, Dummy(party))
         (Some(offset), onlyDummy) <- ledger.activeContracts(
           ledger.activeContractsRequest(Seq(party)))
@@ -187,11 +180,10 @@ class ActiveContractsService(session: LedgerSession) extends LedgerTestSuite(ses
 
   test(
     "ACSverbosity",
-    "The ActiveContractService should emit field names only if the verbose flag is set to true") {
-    context =>
+    "The ActiveContractService should emit field names only if the verbose flag is set to true",
+    allocate(SingleParty)) {
+    case Participants(Participant(ledger, party)) =>
       for {
-        ledger <- context.participant()
-        party <- ledger.allocateParty()
         _ <- ledger.create(party, Dummy(party))
         verboseRequest = ledger.activeContractsRequest(Seq(party)).update(_.verbose := true)
         nonVerboseRequest = verboseRequest.update(_.verbose := false)
@@ -210,72 +202,62 @@ class ActiveContractsService(session: LedgerSession) extends LedgerTestSuite(ses
       }
   }
 
-  private def assertTemplates[A](
-      party: Seq[Party],
-      events: Vector[CreatedEvent],
-      templateId: TemplateId[A],
-      count: Int): Unit = {
-    val templateEvents = events.count(_.getTemplateId == templateId.unwrap)
-    assert(
-      templateEvents == count,
-      s"${party.mkString(" and ")} expected $count $templateId events, but received $templateEvents.")
+  test(
+    "ACSmultiParty",
+    "The ActiveContractsService should return contracts for the requesting parties",
+    allocate(TwoParties)) {
+    case Participants(Participant(ledger, alice, bob)) =>
+      for {
+        _ <- createDummyContracts(alice, ledger)
+        _ <- createDummyContracts(bob, ledger)
+        allContractsForAlice <- ledger.activeContracts(alice)
+        allContractsForBob <- ledger.activeContracts(bob)
+        allContractsForAliceAndBob <- ledger.activeContracts(alice, bob)
+        dummyContractsForAlice <- ledger.activeContractsByTemplateId(Seq(Dummy.id.unwrap), alice)
+        dummyContractsForAliceAndBob <- ledger.activeContractsByTemplateId(
+          Seq(Dummy.id.unwrap),
+          alice,
+          bob)
+      } yield {
+        assert(
+          allContractsForAlice.size == 3,
+          s"$alice expected 3 events, but received ${allContractsForAlice.size}.")
+        assertTemplates(Seq(alice), allContractsForAlice, Dummy.id, 1)
+        assertTemplates(Seq(alice), allContractsForAlice, DummyWithParam.id, 1)
+        assertTemplates(Seq(alice), allContractsForAlice, DummyFactory.id, 1)
+
+        assert(
+          allContractsForBob.size == 3,
+          s"$bob expected 3 events, but received ${allContractsForBob.size}.")
+        assertTemplates(Seq(bob), allContractsForBob, Dummy.id, 1)
+        assertTemplates(Seq(bob), allContractsForBob, DummyWithParam.id, 1)
+        assertTemplates(Seq(bob), allContractsForBob, DummyFactory.id, 1)
+
+        assert(
+          allContractsForAliceAndBob.size == 6,
+          s"$alice and $bob expected 6 events, but received ${allContractsForAliceAndBob.size}.")
+        assertTemplates(Seq(alice, bob), allContractsForAliceAndBob, Dummy.id, 2)
+        assertTemplates(Seq(alice, bob), allContractsForAliceAndBob, DummyWithParam.id, 2)
+        assertTemplates(Seq(alice, bob), allContractsForAliceAndBob, DummyFactory.id, 2)
+
+        assert(
+          dummyContractsForAlice.size == 1,
+          s"$alice expected 1 event, but received ${dummyContractsForAlice.size}.")
+        assertTemplates((Seq(alice)), dummyContractsForAlice, Dummy.id, 1)
+
+        assert(
+          dummyContractsForAliceAndBob.size == 2,
+          s"$alice and $bob expected 2 events, but received ${dummyContractsForAliceAndBob.size}.")
+        assertTemplates((Seq(alice, bob)), dummyContractsForAliceAndBob, Dummy.id, 2)
+      }
   }
 
   test(
-    "ACSmultiParty",
-    "The ActiveContractsService should return contracts for the requesting parties") { context =>
-    for {
-      ledger <- context.participant()
-      Vector(alice, bob) <- ledger.allocateParties(2)
-      _ <- createDummyContracts(alice, ledger)
-      _ <- createDummyContracts(bob, ledger)
-      allContractsForAlice <- ledger.activeContracts(alice)
-      allContractsForBob <- ledger.activeContracts(bob)
-      allContractsForAliceAndBob <- ledger.activeContracts(alice, bob)
-      dummyContractsForAlice <- ledger.activeContractsByTemplateId(Seq(Dummy.id.unwrap), alice)
-      dummyContractsForAliceAndBob <- ledger.activeContractsByTemplateId(
-        Seq(Dummy.id.unwrap),
-        alice,
-        bob)
-    } yield {
-      assert(
-        allContractsForAlice.size == 3,
-        s"$alice expected 3 events, but received ${allContractsForAlice.size}.")
-      assertTemplates(Seq(alice), allContractsForAlice, Dummy.id, 1)
-      assertTemplates(Seq(alice), allContractsForAlice, DummyWithParam.id, 1)
-      assertTemplates(Seq(alice), allContractsForAlice, DummyFactory.id, 1)
-
-      assert(
-        allContractsForBob.size == 3,
-        s"$bob expected 3 events, but received ${allContractsForBob.size}.")
-      assertTemplates(Seq(bob), allContractsForBob, Dummy.id, 1)
-      assertTemplates(Seq(bob), allContractsForBob, DummyWithParam.id, 1)
-      assertTemplates(Seq(bob), allContractsForBob, DummyFactory.id, 1)
-
-      assert(
-        allContractsForAliceAndBob.size == 6,
-        s"$alice and $bob expected 6 events, but received ${allContractsForAliceAndBob.size}.")
-      assertTemplates(Seq(alice, bob), allContractsForAliceAndBob, Dummy.id, 2)
-      assertTemplates(Seq(alice, bob), allContractsForAliceAndBob, DummyWithParam.id, 2)
-      assertTemplates(Seq(alice, bob), allContractsForAliceAndBob, DummyFactory.id, 2)
-
-      assert(
-        dummyContractsForAlice.size == 1,
-        s"$alice expected 1 event, but received ${dummyContractsForAlice.size}.")
-      assertTemplates((Seq(alice)), dummyContractsForAlice, Dummy.id, 1)
-
-      assert(
-        dummyContractsForAliceAndBob.size == 2,
-        s"$alice and $bob expected 2 events, but received ${dummyContractsForAliceAndBob.size}.")
-      assertTemplates((Seq(alice, bob)), dummyContractsForAliceAndBob, Dummy.id, 2)
-    }
-  }
-
-  test("ACSagreementText", "The ActiveContractService should properly fill the agreementText field") {
-    context =>
+    "ACSagreementText",
+    "The ActiveContractService should properly fill the agreementText field",
+    allocate(SingleParty)) {
+    case Participants(Participant(ledger, party)) =>
       for {
-        ledger <- context.participant()
-        party <- ledger.allocateParty()
         dummyCid <- ledger.create(party, Dummy(party))
         dummyWithParamCid <- ledger.create(party, DummyWithParam(party))
         contracts <- ledger.activeContracts(party)
@@ -297,11 +279,12 @@ class ActiveContractsService(session: LedgerSession) extends LedgerTestSuite(ses
       }
   }
 
-  test("ACSeventId", "The ActiveContractService should properly fill the eventId field") {
-    context =>
+  test(
+    "ACSeventId",
+    "The ActiveContractService should properly fill the eventId field",
+    allocate(SingleParty)) {
+    case Participants(Participant(ledger, party)) =>
       for {
-        ledger <- context.participant()
-        party <- ledger.allocateParty()
         _ <- ledger.create(party, Dummy(party))
         Vector(dummyEvent) <- ledger.activeContracts(party)
         flatTransaction <- ledger.flatTransactionByEventId(dummyEvent.eventId, party)
@@ -312,5 +295,24 @@ class ActiveContractsService(session: LedgerSession) extends LedgerTestSuite(ses
           s"EventId ${dummyEvent.eventId} did not resolve to the same flat transaction (${flatTransaction.transactionId}) and transaction tree (${transactionTree.transactionId})."
         )
       }
+  }
+
+  private def createDummyContracts(party: Party, ledger: ParticipantTestContext) = {
+    for {
+      dummy <- ledger.create(party, Dummy(party))
+      dummyWithParam <- ledger.create(party, DummyWithParam(party))
+      dummyFactory <- ledger.create(party, DummyFactory(party))
+    } yield (dummy, dummyWithParam, dummyFactory)
+  }
+
+  private def assertTemplates[A](
+      party: Seq[Party],
+      events: Vector[CreatedEvent],
+      templateId: TemplateId[A],
+      count: Int): Unit = {
+    val templateEvents = events.count(_.getTemplateId == templateId.unwrap)
+    assert(
+      templateEvents == count,
+      s"${party.mkString(" and ")} expected $count $templateId events, but received $templateEvents.")
   }
 }

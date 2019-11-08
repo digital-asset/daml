@@ -3,15 +3,18 @@
 
 package com.daml.ledger.api.testtool.infrastructure
 
+import com.daml.ledger.api.testtool.infrastructure.Allocation.{ParticipantAllocation, Participants}
 import com.digitalasset.daml.lf.data.Ref
 
-import scala.concurrent.Future
 import scala.concurrent.duration.Duration
+import scala.concurrent.{ExecutionContext, Future}
 
 final class LedgerTestCase(
     val shortIdentifier: Ref.LedgerString,
     val description: String,
     val timeout: Duration,
-    runTestCase: LedgerTestContext => Future[Unit]) {
-  def apply(context: LedgerTestContext): Future[Unit] = runTestCase(context)
+    participants: ParticipantAllocation,
+    runTestCase: Participants => Future[Unit]) {
+  def apply(context: LedgerTestContext)(implicit ec: ExecutionContext): Future[Unit] =
+    context.provision(participants).flatMap(runTestCase)
 }
