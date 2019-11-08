@@ -26,33 +26,33 @@ class SignalDispatcherTest
   "SignalDispatcher" should {
 
     "send a signal on subscription if requested" in { sut =>
-      sut.subscribe(true).runWith(Sink.head).map(_ => succeed)
+      sut.subscribe(Some(())).runWith(Sink.head).map(_ => succeed)
     }
 
     "not send a signal on subscription if not requested" in { sut =>
-      val s = sut.subscribe(false).runWith(TestSink.probe[SignalDispatcher.Signal])
+      val s = sut.subscribe(None).runWith(TestSink.probe[Unit])
       s.request(1L)
       s.expectNoMessage(1.second)
       succeed
     }
 
     "output a signal when it arrives" in { sut =>
-      val result = sut.subscribe(false).runWith(Sink.head).map(_ => succeed)
-      sut.signal()
+      val result = sut.subscribe(None).runWith(Sink.head).map(_ => succeed)
+      sut.signal(())
       result
     }
 
     "output multiple signals when they arrive" in { sut =>
       val count = 10
-      val result = sut.subscribe(false).take(count.toLong).runWith(Sink.seq).map(_ => succeed)
-      1.to(count).foreach(_ => sut.signal())
+      val result = sut.subscribe(None).take(count.toLong).runWith(Sink.seq).map(_ => succeed)
+      1.to(count).foreach(_ => sut.signal(()))
       result
     }
 
     "remove queues from its state when the stream terminates behind them" in { sut =>
-      val s = sut.subscribe(true).runWith(TestSink.probe[SignalDispatcher.Signal])
+      val s = sut.subscribe(Some(())).runWith(TestSink.probe[Unit])
       s.request(1L)
-      s.expectNext(SignalDispatcher.Signal)
+      s.expectNext(())
       sut.getRunningState should have size 1L
       s.cancel()
       await("Cancellation handling")
@@ -62,18 +62,19 @@ class SignalDispatcherTest
     }
 
     "remove queues from its state when closed" in { sut =>
-      val s = sut.subscribe(true).runWith(TestSink.probe[SignalDispatcher.Signal])
+      val s = sut.subscribe(Some(())).runWith(TestSink.probe[Unit])
       s.request(1L)
-      s.expectNext(SignalDispatcher.Signal)
+      s.expectNext(())
       sut.getRunningState should have size 1L
       sut.close()
       assertThrows[IllegalStateException](sut.getRunningState)
-      assertThrows[IllegalStateException](sut.signal())
+      assertThrows[IllegalStateException](sut.signal(()))
       s.expectComplete()
       succeed
     }
   }
-  override def withFixture(test: OneArgAsyncTest): FutureOutcome = test.apply(SignalDispatcher())
-  override type FixtureParam = SignalDispatcher
+  override def withFixture(test: OneArgAsyncTest): FutureOutcome =
+    test.apply(SignalDispatcher[Unit]())
+  override type FixtureParam = SignalDispatcher[Unit]
   override def timeLimit: Span = scaled(10.seconds)
 }

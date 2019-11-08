@@ -8,8 +8,8 @@ import java.util.concurrent.atomic.AtomicReference
 import akka.NotUsed
 import akka.stream._
 import akka.stream.scaladsl.{Source, SourceQueueWithComplete}
-import com.digitalasset.platform.akkastreams.dispatcher.SignalDispatcher.Signal
 import com.digitalasset.platform.common.util.DirectExecutionContext
+import org.slf4j.LoggerFactory
 
 /**
   * A fanout signaller that can be subscribed to dynamically.
@@ -17,28 +17,30 @@ import com.digitalasset.platform.common.util.DirectExecutionContext
   * the signal is sent will eventually receive a signal.
   */
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
-class SignalDispatcher private () extends AutoCloseable {
+class SignalDispatcher[T] private () extends AutoCloseable {
 
-  private val runningState: AtomicReference[Option[Set[SourceQueueWithComplete[Signal]]]] =
+  val logger = LoggerFactory.getLogger(getClass)
+
+  private val runningState: AtomicReference[Option[Set[SourceQueueWithComplete[T]]]] =
     new AtomicReference(Some(Set.empty))
 
-  private[akkastreams] def getRunningState: Set[SourceQueueWithComplete[Signal]] =
+  private[akkastreams] def getRunningState: Set[SourceQueueWithComplete[T]] =
     runningState.get.getOrElse(throwClosed())
 
   /**
     * Signal to this Dispatcher that there's a new head `Index`.
     * The Dispatcher will emit values on all streams until the new head is reached.
     */
-  def signal(): Unit = getRunningState.foreach(_.offer(Signal))
+  def signal(t: T): Unit = getRunningState.foreach(_.offer(t))
 
   /**
     * Returns a Source that, when materialized, subscribes to this SignalDispatcher.
     *
     * @param signalOnSubscribe True if you want to send a signal to the new subscription.
     */
-  def subscribe(signalOnSubscribe: Boolean = false): Source[Signal, NotUsed] =
+  def subscribe(signalOnSubscribe: Option[T]): Source[T, NotUsed] =
     Source
-      .queue[Signal](1, OverflowStrategy.dropTail)
+      .queue[T](1, OverflowStrategy.dropTail)
       .mapMaterializedValue { q =>
         // this use of mapMaterializedValue, believe it or not, seems to be kosher
         runningState.updateAndGet { s =>
@@ -46,9 +48,7 @@ class SignalDispatcher private () extends AutoCloseable {
         } match {
           // We do this here, since updateAndGet is not guaranteed once-only.
           case Some(_) =>
-            if (signalOnSubscribe) {
-              q.offer(Signal)
-            }
+            signalOnSubscribe.foreach(q.offer)
           case None =>
             q.complete() // avoid a leak
             throwClosed()
@@ -78,11 +78,6 @@ class SignalDispatcher private () extends AutoCloseable {
 
 object SignalDispatcher {
 
-  sealed abstract class Signal
-
-  /** The signal sent by SignalDispatcher. */
-  final case object Signal extends Signal
-
   /** Construct a new SignalDispatcher. Created Sources will consume Akka resources until closed. */
-  def apply(): SignalDispatcher = new SignalDispatcher()
+  def apply[T](): SignalDispatcher[T] = new SignalDispatcher[T]()
 }

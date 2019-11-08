@@ -92,7 +92,8 @@ class JdbcLedgerDaoSpec
       ValueSerializer,
       KeyHasher,
       DbType.Postgres,
-      loggerFactory)
+      loggerFactory,
+      system.dispatcher)
     Await.result(ledgerDao.initializeLedger(LedgerId("test-ledger"), 0), 10.seconds)
   }
 
