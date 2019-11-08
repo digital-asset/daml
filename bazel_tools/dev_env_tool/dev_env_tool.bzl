@@ -138,4 +138,5 @@ dev_env_tool = repository_rule(
         "prefix": attr.string(),
     },
     configure = True,
+    local = True,
 )
