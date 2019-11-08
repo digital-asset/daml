@@ -794,13 +794,25 @@ dev_env_tool(
         "share",
     ],
     nix_label = "@node_nix",
-    nix_paths = [],
+    nix_paths = [
+        "bin/node",
+        "bin/npm",
+        "bin/npx",
+    ],
     prefix = "nodejs_dev_env",
-    tools = [],
+    tools = [
+        "node",
+        "npm",
+        "npx",
+    ],
     win_include = [
         ".",
     ],
-    win_paths = [],
+    win_paths = [
+        "node.exe",
+        "npm.cmd",
+        "npx.cmd",
+    ],
     win_tool = "nodejs-10.12.0",
 )
 
