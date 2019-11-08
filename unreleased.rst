@@ -20,3 +20,4 @@ HEAD — ongoing
   On large codebases, this can significantly improve compile times and reduce memory usage.
 - [JSON API - Experimental] Fix to support Archive choice. See issue #3219
 - [Sandbox] Add the option to start the sandbox with JWT based authentication. See `issue #3363 <https://github.com/digital-asset/daml/issues/3363>`__.
+- [Sandbox] Fixed a bug in the SQL backend that caused the database to be flooded with requests when streaming out transactions.

@@ -43,6 +43,9 @@ object Dispatcher {
     * @tparam Index The index type
     * @return A new Dispatcher.
     */
-  def apply[Index: Ordering](zeroIndex: Index, headAtInitialization: Index): Dispatcher[Index] =
-    new DispatcherImpl[Index](zeroIndex, headAtInitialization)
+  def apply[Index: Ordering](
+      name: String,
+      zeroIndex: Index,
+      headAtInitialization: Index): Dispatcher[Index] =
+    new DispatcherImpl[Index](name: String, zeroIndex, headAtInitialization)
 }

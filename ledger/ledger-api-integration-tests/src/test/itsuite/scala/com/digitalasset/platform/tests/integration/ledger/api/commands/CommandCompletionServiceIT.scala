@@ -158,7 +158,7 @@ class CommandCompletionServiceIT
               .map { case (req, i) => req.update(_.commands.commandId := s"command-id-$i") }
             _ <- Future.sequence(
               commands
-                .map(commandClient.submitSingleCommand))
+                .map(commandClient.trackSingleCommand))
 
             completions1 <- completionsFrom(startingOffset)
               .take(commands.size.toLong)
