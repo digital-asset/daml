@@ -31,7 +31,9 @@ import scala.concurrent.Future
   * Updating the ACS requires knowledge of blinding info, which is not included in LedgerEntry.Transaction.
   * The SqlLedger persistence queue Transaction elements are therefore enriched with blinding info.
   */
-sealed abstract class PersistenceEntry extends Product with Serializable
+sealed abstract class PersistenceEntry extends Product with Serializable {
+  def entry: LedgerEntry
+}
 
 object PersistenceEntry {
   final case class Rejection(entry: LedgerEntry.Rejection) extends PersistenceEntry

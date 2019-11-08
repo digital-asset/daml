@@ -156,7 +156,7 @@ class DispatcherSpec
   )
 
   def newDispatcher(begin: Index = genesis, end: Index = genesis): Dispatcher[Index] =
-    Dispatcher[Index](begin, end)
+    Dispatcher[Index]("test", begin, end)
 
   private def forAllSteppingModes(
       oneAfterAnother: OneAfterAnother[Index, Value] = oneAfterAnotherSteppingMode,

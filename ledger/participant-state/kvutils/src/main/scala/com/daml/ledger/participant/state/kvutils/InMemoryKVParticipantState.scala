@@ -342,7 +342,10 @@ class InMemoryKVParticipantState(
     * new elements has been added.
     */
   private val dispatcher: Dispatcher[Int] =
-    Dispatcher(zeroIndex = beginning, headAtInitialization = beginning)
+    Dispatcher(
+      "inmemory-kv-participant-state",
+      zeroIndex = beginning,
+      headAtInitialization = beginning)
 
   /** Helper for [[dispatcher]] to fetch [[DamlLogEntry]] from the
     * state and convert it into [[Update]].

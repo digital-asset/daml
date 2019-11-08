@@ -45,7 +45,7 @@ class ApiTimeService private (
     ledgerId.unwrap,
     backend.getCurrentTime)
 
-  private val dispatcher = SignalDispatcher()
+  private val dispatcher = SignalDispatcher[Instant]()
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   override protected def getTimeSource(
@@ -55,7 +55,7 @@ class ApiTimeService private (
       Source.failed, { ledgerId =>
         logger.trace("Request for time with ledger ID {}", ledgerId)
         dispatcher
-          .subscribe()
+          .subscribe(None)
           .map(_ => backend.getCurrentTime)
           .scan[Option[Instant]](Some(backend.getCurrentTime)) {
             case (Some(previousTime), currentTime) if previousTime == currentTime => None
@@ -106,7 +106,7 @@ class ApiTimeService private (
       //_ <- updateTime(expectedTime, requestedTime)
     } yield {
       updateTime(expectedTime, requestedTime).map { _ =>
-        dispatcher.signal()
+        dispatcher.signal(requestedTime)
         Empty()
       }
     }
