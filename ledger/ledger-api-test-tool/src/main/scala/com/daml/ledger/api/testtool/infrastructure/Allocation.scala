@@ -7,10 +7,10 @@ import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestCo
 import com.digitalasset.ledger.client.binding.Primitive.Party
 
 private[testtool] object Allocation {
-  def allocate(partyCounts: PartyCount*): ParticipantAllocation =
-    ParticipantAllocation(partyCounts)
+  def allocate(firstPartyCount: PartyCount, partyCounts: PartyCount*): ParticipantAllocation =
+    ParticipantAllocation(firstPartyCount +: partyCounts)
 
-  final case class ParticipantAllocation(partyCounts: Seq[PartyCount])
+  final case class ParticipantAllocation private (partyCounts: Seq[PartyCount])
 
   sealed trait PartyCount {
     val count: Int
@@ -30,7 +30,9 @@ private[testtool] object Allocation {
 
   final case class Parties(override val count: Int) extends PartyCount
 
-  final case class Participants(participants: Participant*)
+  final case class Participants private[infrastructure] (participants: Participant*)
 
-  final case class Participant(ledger: ParticipantTestContext, parties: Party*)
+  final case class Participant private[infrastructure] (
+      ledger: ParticipantTestContext,
+      parties: Party*)
 }
