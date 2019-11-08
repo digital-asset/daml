@@ -88,6 +88,7 @@ data PackageConfigFields = PackageConfigFields
     , pExposedModules :: Maybe [String]
     , pVersion :: Maybe String
     , pDependencies :: [String]
+    , pDataDependencies :: [String]
     , pSdkVersion :: String
     , cliOpts :: Maybe [String]
     }

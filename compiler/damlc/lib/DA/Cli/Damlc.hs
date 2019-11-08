@@ -464,9 +464,10 @@ parseProjectConfig project = do
     version <- queryProjectConfigRequired ["version"] project
     dependencies <-
         queryProjectConfigRequired ["dependencies"] project
+    dataDeps <- fromMaybe [] <$> queryProjectConfig ["data-dependencies"] project
     sdkVersion <- queryProjectConfigRequired ["sdk-version"] project
     cliOpts <- queryProjectConfig ["build-options"] project
-    Right $ PackageConfigFields name main exposedModules version dependencies sdkVersion cliOpts
+    Right $ PackageConfigFields name main exposedModules version dependencies dataDeps sdkVersion cliOpts
 
 -- | We assume that this is only called within `withProjectRoot`.
 withPackageConfig :: (PackageConfigFields -> IO a) -> IO a
@@ -495,12 +496,12 @@ initPackageDb opts (InitPkgDb shouldInit) =
           case parseProjectConfig project of
               Left err -> throwIO err
               Right PackageConfigFields {..} -> do
-                  createProjectPackageDb opts pDependencies
+                  createProjectPackageDb opts pSdkVersion pDependencies pDataDependencies
 
 -- | Create the project package database containing the given dar packages.
 createProjectPackageDb ::
-       Options -> [FilePath] -> IO ()
-createProjectPackageDb opts fps = do
+       Options -> String -> [FilePath] -> [FilePath] -> IO ()
+createProjectPackageDb opts thisSdkVer deps0 dataDeps = do
     let dbPath = projectPackageDatabase </> (lfVersionString $ optDamlLfVersion opts)
     let
     -- Since we reinitialize the whole package db anyway,
@@ -524,111 +525,114 @@ createProjectPackageDb opts fps = do
                 | otherwise
                 = pure fp
           in mapM expand
-    fps0 <- handleSdkPackages $ filter (`notElem` basePackages) fps
-    let (fpDars, fpDalfs) = partition ((== ".dar") . takeExtension) fps0
-    dars <- mapM extractDar fpDars
-    let uniqSdkVersions = nubSort $ map edSdkVersions dars
-    if | (length uniqSdkVersions > 1 && optAllowDifferentSdks opts) || not (null fpDalfs)
-        -> do
-              let dalfs = concatMap edDalfs dars
-              -- when we compile packages with different sdk versions or with dalf dependencies, we
-              -- need to generate the interface files
-              let dalfsFromDars =
-                      [ ( dropExtension $ takeFileName $ ZipArchive.eRelativePath e
-                        , BSL.toStrict $ ZipArchive.fromEntry e)
-                      | e <- dalfs
-                      ]
-              dalfsFromFps <-
-                  forM fpDalfs $ \fp -> do
-                      bs <- B.readFile fp
-                      pure (dropExtension $ takeFileName fp, bs)
-              let allDalfs = dalfsFromDars ++ dalfsFromFps
-              pkgs <-
-                  forM allDalfs $ \(name, dalf) -> do
-                      (pkgId, package) <-
-                          either (fail . DA.Pretty.renderPretty) pure $
-                          Archive.decodeArchive dalf
-                      pure (pkgId, package, dalf, stringToUnitId name)
-              -- mapping from package id's to unit id's. if the same package is imported with
-              -- different unit id's, we would loose a unit id here.
-              let pkgMap =
-                      MS.fromList
-                          [(pkgId, unitId) | (pkgId, _pkg, _bs, unitId) <- pkgs]
-              -- order the packages in topological order
-              let (depGraph, vertexToNode, _keyToVertex) =
-                      graphFromEdges $ do
-                          (pkgId, dalf, bs, unitId) <- pkgs
-                          let pkgRefs =
-                                  [ pid
-                                  | LF.PRImport pid <- toListOf packageRefs dalf
-                                  ]
-                          let getUid = getUnitId unitId pkgMap
-                          let src = generateSrcPkgFromLf getUid pkgId dalf
-                          let templInstSrc =
-                                  generateTemplateInstancesPkgFromLf
-                                      getUid
-                                      pkgId
-                                      dalf
-                          pure
-                              ( (src, templInstSrc, unitId, dalf, bs)
-                              , pkgId
-                              , pkgRefs)
-              let pkgIdsTopoSorted = reverse $ topSort depGraph
-              dbPathAbs <- makeAbsolute dbPath
-              projectPackageDatabaseAbs <- makeAbsolute projectPackageDatabase
-              forM_ pkgIdsTopoSorted $ \vertex -> do
-                  let ((src, templInstSrc, uid, dalf, bs), pkgId, _) =
-                          vertexToNode vertex
-                  when (uid /= primUnitId) $ do
-                      let unitIdStr = unitIdString uid
-                      let instancesUnitIdStr = "instances-" <> unitIdStr
-                      let pkgIdStr = T.unpack $ LF.unPackageId pkgId
-                      let (pkgName, mbPkgVersion) =
-                              fromMaybe (unitIdStr, Nothing) $ do
-                                  (uId, ver) <- stripInfixEnd "-" unitIdStr
-                                  guard $ all (`elem` '.' : ['0' .. '9']) ver
-                                  Just (uId, Just ver)
-                      let deps =
-                              [ unitIdString uId <.> "dalf"
-                              | ((_src, _templSrc, uId, _dalf, _bs), pId, _) <-
-                                    map vertexToNode $ reachable depGraph vertex
-                              , pkgId /= pId
-                              ]
-                      let workDir = dbPath </> unitIdStr <> "-" <> pkgIdStr
-                      createDirectoryIfMissing True workDir
-                      -- write the dalf package
-                      B.writeFile (workDir </> unitIdStr <.> "dalf") bs
-                      generateAndInstallIfaceFiles
-                          dalf
-                          src
-                          opts
-                          workDir
-                          dbPath
-                          projectPackageDatabase
-                          unitIdStr
-                          pkgIdStr
-                          pkgName
-                          mbPkgVersion
-                          deps
-
-                      unless (null templInstSrc) $
-                          generateAndInstallInstancesPkg
-                              templInstSrc
-                              opts
-                              dbPathAbs
-                              projectPackageDatabaseAbs
-                              unitIdStr
-                              instancesUnitIdStr
-                              pkgName
-                              mbPkgVersion
-                              deps
-
-       | length uniqSdkVersions <= 1 -> forM_ dars $
-            \ExtractedDar{..} -> installDar dbPath edConfFiles edDalfs edSrcs
-       | otherwise ->
+    deps <- handleSdkPackages $ filter (`notElem` basePackages) deps0
+    depsExtracted <- mapM extractDar deps
+    let uniqSdkVersions = nubSort $ filter (/= "0.0.0") $ thisSdkVer : map edSdkVersions depsExtracted
+    -- we filter the 0.0.0 version because otherwise integration tests fail that import SDK packages
+    unless (length uniqSdkVersions <= 1) $
            fail $
            "Package dependencies from different SDK versions: " ++
            intercalate ", " uniqSdkVersions
+
+    -- deal with data imports first
+    let (fpDars, fpDalfs) = partition ((== ".dar") . takeExtension) dataDeps
+    dars <- mapM extractDar fpDars
+    let dalfs = concatMap edDalfs dars
+    -- when we compile packages with different sdk versions or with dalf dependencies, we
+    -- need to generate the interface files
+    let dalfsFromDars =
+            [ ( dropExtension $ takeFileName $ ZipArchive.eRelativePath e
+              , BSL.toStrict $ ZipArchive.fromEntry e)
+            | e <- dalfs
+            ]
+    dalfsFromFps <-
+        forM fpDalfs $ \fp -> do
+            bs <- B.readFile fp
+            pure (dropExtension $ takeFileName fp, bs)
+    let allDalfs = dalfsFromDars ++ dalfsFromFps
+    pkgs <-
+        forM allDalfs $ \(name, dalf) -> do
+            (pkgId, package) <-
+                either (fail . DA.Pretty.renderPretty) pure $
+                Archive.decodeArchive dalf
+            pure (pkgId, package, dalf, stringToUnitId name)
+    -- mapping from package id's to unit id's. if the same package is imported with
+    -- different unit id's, we would loose a unit id here.
+    let pkgMap =
+            MS.fromList
+                [(pkgId, unitId) | (pkgId, _pkg, _bs, unitId) <- pkgs]
+    -- order the packages in topological order
+    let (depGraph, vertexToNode, _keyToVertex) =
+            graphFromEdges $ do
+                (pkgId, dalf, bs, unitId) <- pkgs
+                let pkgRefs =
+                        [ pid
+                        | LF.PRImport pid <- toListOf packageRefs dalf
+                        ]
+                let getUid = getUnitId unitId pkgMap
+                let src = generateSrcPkgFromLf getUid pkgId dalf
+                let templInstSrc =
+                        generateTemplateInstancesPkgFromLf
+                            getUid
+                            pkgId
+                            dalf
+                pure
+                    ( (src, templInstSrc, unitId, dalf, bs)
+                    , pkgId
+                    , pkgRefs)
+    let pkgIdsTopoSorted = reverse $ topSort depGraph
+    dbPathAbs <- makeAbsolute dbPath
+    projectPackageDatabaseAbs <- makeAbsolute projectPackageDatabase
+    forM_ pkgIdsTopoSorted $ \vertex -> do
+        let ((src, templInstSrc, uid, dalf, bs), pkgId, _) =
+                vertexToNode vertex
+        when (uid /= primUnitId) $ do
+            let unitIdStr = unitIdString uid
+            let instancesUnitIdStr = "instances-" <> unitIdStr
+            let pkgIdStr = T.unpack $ LF.unPackageId pkgId
+            let (pkgName, mbPkgVersion) =
+                    fromMaybe (unitIdStr, Nothing) $ do
+                        (uId, ver) <- stripInfixEnd "-" unitIdStr
+                        guard $ all (`elem` '.' : ['0' .. '9']) ver
+                        Just (uId, Just ver)
+            let deps =
+                    [ unitIdString uId <.> "dalf"
+                    | ((_src, _templSrc, uId, _dalf, _bs), pId, _) <-
+                          map vertexToNode $ reachable depGraph vertex
+                    , pkgId /= pId
+                    ]
+            let workDir = dbPath </> unitIdStr <> "-" <> pkgIdStr
+            createDirectoryIfMissing True workDir
+            -- write the dalf package
+            B.writeFile (workDir </> unitIdStr <.> "dalf") bs
+            generateAndInstallIfaceFiles
+                dalf
+                src
+                opts
+                workDir
+                dbPath
+                projectPackageDatabase
+                unitIdStr
+                pkgIdStr
+                pkgName
+                mbPkgVersion
+                deps
+
+            unless (null templInstSrc) $
+                generateAndInstallInstancesPkg
+                    templInstSrc
+                    opts
+                    dbPathAbs
+                    projectPackageDatabaseAbs
+                    unitIdStr
+                    instancesUnitIdStr
+                    pkgName
+                    mbPkgVersion
+                    deps
+
+    -- finally install the dependecies
+    forM_ depsExtracted $
+        \ExtractedDar{..} -> installDar dbPath edConfFiles edDalfs edSrcs
   where
     -- generate interface files and install them in the package database
     generateAndInstallIfaceFiles ::
@@ -677,6 +681,7 @@ createProjectPackageDb opts fps = do
                         , pExposedModules = Nothing
                         , pVersion = mbPkgVersion
                         , pDependencies = deps
+                        , pDataDependencies = []
                         , pSdkVersion = "unknown"
                         , cliOpts = Nothing
                         }
@@ -718,6 +723,7 @@ createProjectPackageDb opts fps = do
                             , pExposedModules = Nothing
                             , pVersion = mbPkgVersion
                             , pDependencies = (unitIdStr <.> "dalf") : deps
+                            , pDataDependencies = []
                             , pSdkVersion = sdkVersion
                             , cliOpts = Nothing
                             }
@@ -923,6 +929,7 @@ execPackage projectOpts filePath opts mbOutFile dalfInput =
                               , pExposedModules = Nothing
                               , pVersion = Nothing
                               , pDependencies = []
+                              , pDataDependencies = []
                               , pSdkVersion = ""
                               , cliOpts = Nothing
                               }
@@ -1024,7 +1031,7 @@ execMigrate projectOpts inFile1_ inFile2_ mbDir =
       withProjectRoot' projectOpts $ \_relativize
        -> do
           -- get the package name and the lf-package
-          [(pkgName1, _pkgId1, lfPkg1, sdkVer1), (pkgName2, _pkgId2, lfPkg2, sdkVer2)] <-
+          [(pkgName1, _pkgId1, lfPkg1), (pkgName2, _pkgId2, lfPkg2)] <-
               forM [inFile1, inFile2] $ \inFile -> do
                   bytes <- B.readFile inFile
                   let dar = ZipArchive.toArchive $ BSL.fromStrict bytes
@@ -1033,37 +1040,30 @@ execMigrate projectOpts inFile1_ inFile2_ mbDir =
                   let pkgName = takeBaseName $ mainDalfPath dalfManifest
                   mainDalfEntry <- getEntry (mainDalfPath dalfManifest) dar
                   (mainPkgId, mainLfPkg) <- decode $ BSL.toStrict $ ZipArchive.fromEntry mainDalfEntry
-                  pure (pkgName, mainPkgId, mainLfPkg, sdkVersion dalfManifest)
+                  pure (pkgName, mainPkgId, mainLfPkg)
           -- generate upgrade modules and instances modules
           let eqModNames =
                   (NM.names $ LF.packageModules lfPkg1) `intersect`
                   (NM.names $ LF.packageModules lfPkg2)
-          thisSdkVer <- getSdkVersion
-          let differentSdks = (length $ nubSort [sdkVer1, sdkVer2, thisSdkVer]) /= 1
           let eqModNamesStr = map (T.unpack . LF.moduleNameString) eqModNames
-          let buildOptions0 =
-                  [ "--allow-different-sdks"
-                  , "'--package=" <> show ("instances-" <> pkgName1
-                                          , [(m', m' ++ "A")
-                                            | m <- eqModNamesStr, let m' = m <> "Instances"
+          let buildOptions =
+                  ["'--package=" <> show ("instances-" <> pkgName1
+                                          , [(m', m'')
+                                            | m <- eqModNamesStr
+                                            , let m' = m <> "Instances"
+                                            , let m'' = m <> "AInstances"
                                             ]
                                           ) <> "'"
                   , "'--package=" <> show ("instances-" <> pkgName2
-                                          , [(m', m' ++ "B")
-                                            | m <- eqModNamesStr, let m' = m <> "Instances"
+                                          , [(m', m'')
+                                            | m <- eqModNamesStr
+                                            , let m' = m <> "Instances"
+                                            , let m'' = m <> "BInstances"
                                             ]
                                           ) <> "'"
-                  ]
-          let buildOptions1 =
-                  [ "'--package=" <> show (pkgName1, [(m, m ++ "A") | m <- eqModNamesStr]) <> "'"
+                  , "'--package=" <> show (pkgName1, [(m, m ++ "A") | m <- eqModNamesStr]) <> "'"
                   , "'--package=" <> show (pkgName2, [(m, m ++ "B") | m <- eqModNamesStr]) <> "'"
                   ]
-          let buildOptions
-                  | differentSdks = buildOptions0 ++ buildOptions1
-                  | otherwise = buildOptions1
-          --If we have different sdks we need to allow this with the flag --allow-different-sdks and
-          --also import the created instances modules with aliases (their names clash). If not, we
-          --only need aliases for the modules of the two imported packages.
           forM_ eqModNames $ \m@(LF.ModuleName modName) -> do
               let upgradeModPath =
                       (joinPath $ fromMaybe "" mbDir : map T.unpack modName) <>
@@ -1074,7 +1074,6 @@ execMigrate projectOpts inFile1_ inFile2_ mbDir =
                   getModule m lfPkg1
               let generatedUpgradeMod =
                       generateUpgradeModule
-                          (DiffSdkVers differentSdks)
                           templateNames
                           (T.unpack $ LF.moduleNameString m)
                           "A"
