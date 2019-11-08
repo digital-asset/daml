@@ -3,17 +3,19 @@
 
 package com.daml.ledger.api.testtool.tests
 
+import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTestSuite}
 import com.digitalasset.ledger.test_stable.Test.Divulgence2._
 import com.digitalasset.ledger.test_stable.Test.{Divulgence1, Divulgence2}
 import scalaz.Tag
 
 final class Divulgence(session: LedgerSession) extends LedgerTestSuite(session) {
-  test("DivulgenceTx", "Divulged contracts should not be exposed by the transaction service") {
-    context =>
+  test(
+    "DivulgenceTx",
+    "Divulged contracts should not be exposed by the transaction service",
+    allocate(TwoParties)) {
+    case Participants(Participant(ledger, alice, bob)) =>
       for {
-        ledger <- context.participant()
-        Vector(alice, bob) <- ledger.allocateParties(2)
         divulgence1 <- ledger.create(alice, Divulgence1(alice))
         divulgence2 <- ledger.create(bob, Divulgence2(bob, alice))
         _ <- ledger.exercise(alice, divulgence2.exerciseDivulgence2Archive(_, divulgence1))
@@ -141,11 +143,12 @@ final class Divulgence(session: LedgerSession) extends LedgerTestSuite(session) 
       }
   }
 
-  test("DivulgenceAcs", "Divulged contracts should not be exposed by the active contract service") {
-    context =>
+  test(
+    "DivulgenceAcs",
+    "Divulged contracts should not be exposed by the active contract service",
+    allocate(TwoParties)) {
+    case Participants(Participant(ledger, alice, bob)) =>
       for {
-        ledger <- context.participant()
-        Vector(alice, bob) <- ledger.allocateParties(2)
         divulgence1 <- ledger.create(alice, Divulgence1(alice))
         divulgence2 <- ledger.create(bob, Divulgence2(bob, alice))
         _ <- ledger.exercise(alice, divulgence2.exerciseDivulgence2Fetch(_, divulgence1))
