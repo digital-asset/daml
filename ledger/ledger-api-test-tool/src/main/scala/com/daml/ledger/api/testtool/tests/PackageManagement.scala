@@ -3,6 +3,7 @@
 
 package com.daml.ledger.api.testtool.tests
 
+import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTestSuite}
 import com.digitalasset.ledger.packagemanagementtest.PackageManagementTest.PackageManagementTestTemplate
@@ -29,33 +30,33 @@ final class PackageManagement(session: LedgerSession) extends LedgerTestSuite(se
 
   test(
     "PackageManagementEmptyUpload",
-    "An attempt at uploading an empty payload should fail"
-  ) { context =>
-    for {
-      ledger <- context.participant()
-      failure <- ledger.uploadDarFile(ByteString.EMPTY).failed
-    } yield {
-      assertGrpcError(
-        failure,
-        Status.Code.INVALID_ARGUMENT,
-        "Invalid argument: Invalid DAR: package-upload")
-    }
+    "An attempt at uploading an empty payload should fail",
+    allocate(NoParties)) {
+    case Participants(Participant(ledger)) =>
+      for {
+        failure <- ledger.uploadDarFile(ByteString.EMPTY).failed
+      } yield {
+        assertGrpcError(
+          failure,
+          Status.Code.INVALID_ARGUMENT,
+          "Invalid argument: Invalid DAR: package-upload")
+      }
   }
 
   test(
     "PackageManagementLoad",
-    "Concurrent uploads of the same package should be idempotent and result in the package being available for use") {
-    context =>
+    "Concurrent uploads of the same package should be idempotent and result in the package being available for use",
+    allocate(SingleParty)
+  ) {
+    case Participants(Participant(ledger, party)) =>
       for {
-        ledger <- context.participant()
         testPackage <- loadTestPackage()
         _ <- Future.sequence(Vector.fill(8)(ledger.uploadDarFile(testPackage)))
         knownPackages <- ledger.listKnownPackages()
-        owner <- ledger.allocateParty()
-        contract <- ledger.create(owner, new PackageManagementTestTemplate(owner))
-        acsBefore <- ledger.activeContracts(owner)
-        _ <- ledger.exercise(owner, contract.exerciseTestChoice)
-        acsAfter <- ledger.activeContracts(owner)
+        contract <- ledger.create(party, new PackageManagementTestTemplate(party))
+        acsBefore <- ledger.activeContracts(party)
+        _ <- ledger.exercise(party, contract.exerciseTestChoice)
+        acsAfter <- ledger.activeContracts(party)
       } yield {
         val duplicatePackageIds =
           knownPackages.groupBy(_.packageId).mapValues(_.size).filter(_._2 > 1)
