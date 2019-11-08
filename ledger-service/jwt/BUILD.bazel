@@ -15,6 +15,8 @@ hj_scalacopts = [
 
 jwt_deps = [
     "@maven//:com_auth0_java_jwt",
+    "@maven//:com_auth0_jwks_rsa",
+    "@maven//:com_google_guava_guava",
     "@maven//:ch_qos_logback_logback_classic",
     "@maven//:com_typesafe_scala_logging_scala_logging_2_12",
     "@maven//:org_scalaz_scalaz_core_2_12",
