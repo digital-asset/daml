@@ -415,7 +415,7 @@ packagingTests = testGroup "packaging"
           , "version: 0.1.0"
           , "source: ."
           , "dependencies: [daml-prim, daml-stdlib]"
-          , "data-imports: [simple-dalf-0.0.0.dalf]"
+          , "data-dependencies: [simple-dalf-0.0.0.dalf]"
           , "build-options:"
           , "- --generated-src"
           ]

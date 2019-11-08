@@ -464,10 +464,10 @@ parseProjectConfig project = do
     version <- queryProjectConfigRequired ["version"] project
     dependencies <-
         queryProjectConfigRequired ["dependencies"] project
-    dataImports <- fromMaybe [] <$> queryProjectConfig ["data-imports"] project
+    dataDeps <- fromMaybe [] <$> queryProjectConfig ["data-dependencies"] project
     sdkVersion <- queryProjectConfigRequired ["sdk-version"] project
     cliOpts <- queryProjectConfig ["build-options"] project
-    Right $ PackageConfigFields name main exposedModules version dependencies dataImports sdkVersion cliOpts
+    Right $ PackageConfigFields name main exposedModules version dependencies dataDeps sdkVersion cliOpts
 
 -- | We assume that this is only called within `withProjectRoot`.
 withPackageConfig :: (PackageConfigFields -> IO a) -> IO a
@@ -496,12 +496,12 @@ initPackageDb opts (InitPkgDb shouldInit) =
           case parseProjectConfig project of
               Left err -> throwIO err
               Right PackageConfigFields {..} -> do
-                  createProjectPackageDb opts pSdkVersion pDependencies pDataImports
+                  createProjectPackageDb opts pSdkVersion pDependencies pDataDependencies
 
 -- | Create the project package database containing the given dar packages.
 createProjectPackageDb ::
        Options -> String -> [FilePath] -> [FilePath] -> IO ()
-createProjectPackageDb opts thisSdkVer deps0 dataImports = do
+createProjectPackageDb opts thisSdkVer deps0 dataDeps = do
     let dbPath = projectPackageDatabase </> (lfVersionString $ optDamlLfVersion opts)
     let
     -- Since we reinitialize the whole package db anyway,
@@ -535,7 +535,7 @@ createProjectPackageDb opts thisSdkVer deps0 dataImports = do
            intercalate ", " uniqSdkVersions
 
     -- deal with data imports first
-    let (fpDars, fpDalfs) = partition ((== ".dar") . takeExtension) dataImports
+    let (fpDars, fpDalfs) = partition ((== ".dar") . takeExtension) dataDeps
     dars <- mapM extractDar fpDars
     let dalfs = concatMap edDalfs dars
     -- when we compile packages with different sdk versions or with dalf dependencies, we
@@ -681,7 +681,7 @@ createProjectPackageDb opts thisSdkVer deps0 dataImports = do
                         , pExposedModules = Nothing
                         , pVersion = mbPkgVersion
                         , pDependencies = deps
-                        , pDataImports = []
+                        , pDataDependencies = []
                         , pSdkVersion = "unknown"
                         , cliOpts = Nothing
                         }
@@ -723,7 +723,7 @@ createProjectPackageDb opts thisSdkVer deps0 dataImports = do
                             , pExposedModules = Nothing
                             , pVersion = mbPkgVersion
                             , pDependencies = (unitIdStr <.> "dalf") : deps
-                            , pDataImports = []
+                            , pDataDependencies = []
                             , pSdkVersion = sdkVersion
                             , cliOpts = Nothing
                             }
@@ -929,7 +929,7 @@ execPackage projectOpts filePath opts mbOutFile dalfInput =
                               , pExposedModules = Nothing
                               , pVersion = Nothing
                               , pDependencies = []
-                              , pDataImports = []
+                              , pDataDependencies = []
                               , pSdkVersion = ""
                               , cliOpts = Nothing
                               }

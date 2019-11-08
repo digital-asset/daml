@@ -526,7 +526,7 @@ runInit targetFolderM = do
 -- * Creation of a project inside another project.
 --
 runNew :: FilePath -> Maybe String -> [String] -> [String] -> IO ()
-runNew targetFolder templateNameM pkgDeps dataImports = do
+runNew targetFolder templateNameM pkgDeps dataDeps = do
     templatesFolder <- getTemplatesFolder
     let templateName = fromMaybe defaultProjectTemplate templateNameM
         templateFolder = templatesFolder </> templateName
@@ -606,7 +606,7 @@ runNew targetFolder templateNameM pkgDeps dataImports = do
         let config = replace "__VERSION__"  sdkVersion
                    . replace "__PROJECT_NAME__" projectName
                    . replace "__DEPENDENCIES__" (unlines ["  - " <> dep | dep <- pkgDeps])
-                   . replace "__DATAIMPORTS__" (unlines ["  - " <> dep | dep <- dataImports])
+                   . replace "__DATA_DEPENDENCIES__" (unlines ["  - " <> dep | dep <- dataDeps])
                    $ configTemplate
         writeFileUTF8 configPath config
         removeFile configTemplatePath

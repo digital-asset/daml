@@ -8,5 +8,5 @@ version: 0.0.1
 dependencies:
   - daml-prim
   - daml-stdlib
-data-imports:
-__DATAIMPORTS__
+data-dependencies:
+__DATA_DEPENDENCIES__
