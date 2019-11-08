@@ -101,6 +101,37 @@ tests damlc repl = testGroup "Incremental builds"
         ]
         ["daml/A.daml", "daml/B.daml"]
         (ShouldSucceed False)
+    , test "Transitive dependencies, no modification"
+      -- This test checks that we setup dependent modules in the right order. Note that just having imports is not sufficient
+      -- to trigger this. The modules actually need to use identifiers from the other modules.
+      [ ("daml/A.daml", unlines
+         [ "daml 1.2 module A where"
+         , "import B"
+         , "test = scenario $ do"
+         , "  p <- getParty \"Alice\""
+         , "  cid <- submit p $ create X with p = p"
+         , "  submit p $ create Y with p = p; cid = cid"
+         ]
+        )
+      , ("daml/B.daml", unlines
+         [ "daml 1.2 module B (module C, Y(..)) where"
+         , "import C"
+         , "template Y"
+         , "  with p : Party; cid : ContractId X"
+         , "  where signatory p"
+         ]
+        )
+      , ("daml/C.daml", unlines
+         [ "daml 1.2 module C where"
+         , "template X"
+         , "  with p : Party"
+         , "  where signatory p"
+         ]
+        )
+      ]
+      []
+      []
+      (ShouldSucceed True)
     ]
   where
       -- ShouldSucceed indicates if scenarios should still succeed after modifications.
