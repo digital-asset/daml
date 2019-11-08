@@ -528,7 +528,7 @@ createProjectPackageDb opts thisSdkVer deps0 dataImports = do
     deps <- handleSdkPackages $ filter (`notElem` basePackages) deps0
     depsExtracted <- mapM extractDar deps
     let uniqSdkVersions = nubSort $ filter (/= "0.0.0") $ thisSdkVer : map edSdkVersions depsExtracted
-    unless (length uniqSdkVersions <= 1 || optAllowDifferentSdks opts) $
+    unless (length uniqSdkVersions <= 1) $
            fail $
            "Package dependencies from different SDK versions: " ++
            intercalate ", " uniqSdkVersions
