@@ -18,6 +18,9 @@ HEAD — ongoing
 - [DAML Compiler] Support for incremental builds in ``daml build`` using the ``--incremental=yes`` flag.
   This is still experimental and disabled by default but will become enabled by default in the future.
   On large codebases, this can significantly improve compile times and reduce memory usage.
+- [DAML Compiler] Support for data dependencies on packages compiled with an older SDK
+  (experimental). To import data dependencies, list the packages under the ``data-dependencies``
+  stanza in the project's daml.yaml file.
 - [JSON API - Experimental] Fix to support Archive choice. See issue #3219
 - [Sandbox] Add the option to start the sandbox with JWT based authentication. See `issue #3363 <https://github.com/digital-asset/daml/issues/3363>`__.
 - [Sandbox] Fixed a bug in the SQL backend that caused the database to be flooded with requests when streaming out transactions.
