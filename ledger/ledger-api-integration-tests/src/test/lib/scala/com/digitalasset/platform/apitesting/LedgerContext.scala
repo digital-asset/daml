@@ -4,7 +4,6 @@
 package com.digitalasset.platform.apitesting
 
 import java.time.Duration
-import java.util.concurrent.Executor
 
 import akka.actor.ActorSystem
 import akka.pattern
@@ -46,6 +45,7 @@ import com.digitalasset.ledger.api.v1.testing.time_service.TimeServiceGrpc
 import com.digitalasset.ledger.api.v1.testing.time_service.TimeServiceGrpc.TimeServiceStub
 import com.digitalasset.ledger.api.v1.transaction_service.TransactionServiceGrpc
 import com.digitalasset.ledger.api.v1.transaction_service.TransactionServiceGrpc.TransactionServiceStub
+import com.digitalasset.ledger.client.auth.LedgerClientCallCredentials
 import com.digitalasset.ledger.client.configuration.CommandClientConfiguration
 import com.digitalasset.ledger.client.services.acs.ActiveContractSetClient
 import com.digitalasset.ledger.client.services.commands.CommandClient
@@ -56,7 +56,7 @@ import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.common.util.DirectExecutionContext
 import com.digitalasset.platform.tests.integration.ledger.api.LedgerTestingHelpers
 import io.grpc.reflection.v1alpha.ServerReflectionGrpc
-import io.grpc.{CallCredentials, Channel, Metadata, StatusRuntimeException}
+import io.grpc.{CallCredentials, Channel, StatusRuntimeException}
 import org.slf4j.LoggerFactory
 import scalaz.syntax.tag._
 
@@ -94,25 +94,8 @@ trait LedgerContext {
     *  Use for tests that need to override call credentials on a per-test basis.
     *  @return the new LedgerContext
     */
-  def withAuthorizationHeader(headerValue: String): LedgerContext = {
-    val auth = Metadata.Key.of("Authorization", Metadata.ASCII_STRING_MARSHALLER)
-
-    val callCredentials = new CallCredentials {
-      override def applyRequestMetadata(
-          requestInfo: CallCredentials.RequestInfo,
-          appExecutor: Executor,
-          applier: CallCredentials.MetadataApplier): Unit = {
-        val metadata = new Metadata
-        metadata.put(auth, headerValue)
-        applier.apply(metadata)
-      }
-
-      // Should be a noop but never called; tries to make it clearer to implementors that they may break in the future.
-      override def thisUsesUnstableApi(): Unit = ()
-    }
-
-    withCallCredentials(callCredentials)
-  }
+  def withAuthorizationHeader(headerValue: String): LedgerContext =
+    withCallCredentials(new LedgerClientCallCredentials(headerValue))
 
   def packageIds: Iterable[Ref.PackageId]
   def ledgerIdentityService: LedgerIdentityServiceStub
@@ -226,6 +209,7 @@ object LedgerContext {
           domain.LedgerId(
             LedgerIdentityServiceGrpc
               .blockingStub(channel)
+              .withCallCredentials(credentials.orNull)
               .getLedgerIdentity(GetLedgerIdentityRequest())
               .ledgerId)
       }
@@ -264,23 +248,23 @@ object LedgerContext {
       SingleChannelContext(channel, Some(newCallCredentials), configuredLedgerId, packageIds)
 
     override def ledgerIdentityService: LedgerIdentityServiceStub =
-      LedgerIdentityServiceGrpc.stub(channel)
+      LedgerIdentityServiceGrpc.stub(channel).withCallCredentials(credentials.orNull)
     override def ledgerConfigurationService: LedgerConfigurationServiceStub =
-      LedgerConfigurationServiceGrpc.stub(channel)
+      LedgerConfigurationServiceGrpc.stub(channel).withCallCredentials(credentials.orNull)
     override def packageService: PackageServiceStub = PackageServiceGrpc.stub(channel)
     override def commandSubmissionService: CommandSubmissionServiceStub =
-      CommandSubmissionServiceGrpc.stub(channel)
+      CommandSubmissionServiceGrpc.stub(channel).withCallCredentials(credentials.orNull)
     override def commandCompletionService: CommandCompletionServiceStub =
-      CommandCompletionServiceGrpc.stub(channel)
+      CommandCompletionServiceGrpc.stub(channel).withCallCredentials(credentials.orNull)
     override def commandService: CommandService =
-      CommandServiceGrpc.stub(channel)
+      CommandServiceGrpc.stub(channel).withCallCredentials(credentials.orNull)
     override def transactionService: TransactionServiceStub =
-      TransactionServiceGrpc.stub(channel)
+      TransactionServiceGrpc.stub(channel).withCallCredentials(credentials.orNull)
     override def timeService: TimeServiceStub =
-      TimeServiceGrpc.stub(channel)
+      TimeServiceGrpc.stub(channel).withCallCredentials(credentials.orNull)
 
     override def acsService: ActiveContractsServiceStub =
-      ActiveContractsServiceGrpc.stub(channel)
+      ActiveContractsServiceGrpc.stub(channel).withCallCredentials(credentials.orNull)
 
     override def transactionClient: TransactionClient =
       new TransactionClient(ledgerId, transactionService)
