@@ -15,7 +15,6 @@ package object tests {
   /*
    * TODO
    *
-   * - TransactionBackpressureIT
    * - CommandTransactionChecksHighLevelIT
    * - CommandTransactionChecksLowLevelIT
    * - CommandSubmissionTtlIT
