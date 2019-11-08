@@ -98,6 +98,8 @@ class Template t => TemplateKey t k | t -> k where
   --    stakeholders of the fetched contract are, which requires
   --    getting the contract instance.
 
+  -- | The list of maintainers of a contract key.
+  maintainer : k -> [Party]
 
 -- | Exercise a choice on the contract associated with the given key.
 --

@@ -38,6 +38,7 @@ instance ProposalInstance t => TemplateKey (Proposal t) ([Party], Text) where
     key = _keyProposal
     fetchByKey = _fetchByKeyProposal
     lookupByKey = _lookupByKeyProposal
+    maintainer = _maintainerProposal (_hasKeyProposal : HasKey (Proposal t))
 
 data Accept = Accept{}
   deriving (Eq, Show)
