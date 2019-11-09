@@ -32,6 +32,7 @@ import qualified Proto3.Suite as Proto
 data DecodeEnv = DecodeEnv
     { internedStrings :: !(V.Vector T.Text)
     , internedDottedNames :: !(V.Vector [T.Text])
+    , selfPackageRef :: PackageRef
     }
 
 newtype Decode a = Decode{unDecode :: ReaderT DecodeEnv (Except Error) a}
@@ -134,7 +135,7 @@ decodeValName LF1.ValName{..} = do
 decodePackageRef :: LF1.PackageRef -> Decode PackageRef
 decodePackageRef (LF1.PackageRef pref) =
     mayDecode "packageRefSum" pref $ \case
-        LF1.PackageRefSumSelf _ -> pure PRSelf
+        LF1.PackageRefSumSelf _ -> asks selfPackageRef
         LF1.PackageRefSumPackageIdStr pkgId -> pure $ PRImport $ PackageId $ decodeString pkgId
         LF1.PackageRefSumPackageIdInternedStr strId -> PRImport . PackageId <$> lookupString strId
 
@@ -161,8 +162,8 @@ decodeInternedDottedName :: LF1.InternedDottedName -> Decode [T.Text]
 decodeInternedDottedName (LF1.InternedDottedName ids) =
     mapM lookupString $ V.toList ids
 
-decodePackage :: TL.Text -> LF1.Package -> Either Error Package
-decodePackage minorText (LF1.Package mods internedStringsV internedDottedNamesV) = do
+decodePackage :: TL.Text -> LF.PackageRef -> LF1.Package -> Either Error Package
+decodePackage minorText selfPackageRef (LF1.Package mods internedStringsV internedDottedNamesV) = do
   version <- decodeVersion (decodeString minorText)
   let internedStrings = V.map decodeString internedStringsV
   let internedDottedNames = V.empty
@@ -174,7 +175,7 @@ decodePackage minorText (LF1.Package mods internedStringsV internedDottedNamesV)
 
 decodeScenarioModule :: TL.Text -> LF1.Package -> Either Error Module
 decodeScenarioModule minorText protoPkg = do
-    Package _ modules <- decodePackage minorText protoPkg
+    Package _ modules <- decodePackage minorText PRSelf protoPkg
     pure $ head $ NM.toList modules
 
 decodeModule :: LF1.Module -> Decode Module
