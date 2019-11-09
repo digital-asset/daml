@@ -11,7 +11,6 @@ module DA.Daml.LF.Ast.World(
     initWorldSelf,
     extendWorldSelf,
     ExternalPackage(..),
-    rewriteSelfReferences,
     LookupError,
     lookupTemplate,
     lookupDataType,
@@ -31,7 +30,6 @@ import qualified Data.NameMap as NM
 import GHC.Generics
 
 import DA.Daml.LF.Ast.Base
-import DA.Daml.LF.Ast.Optics (moduleModuleRef)
 import DA.Daml.LF.Ast.Pretty ()
 import DA.Daml.LF.Ast.Version
 
@@ -62,14 +60,6 @@ data DalfPackage = DalfPackage
     } deriving (Show, Eq, Generic)
 
 instance NFData DalfPackage
-
--- | Rewrite all `PRSelf` references to `PRImport` references.
-rewriteSelfReferences :: PackageId -> Package -> ExternalPackage
-rewriteSelfReferences pkgId = ExternalPackage pkgId . rewrite
-    where
-        rewrite = over (_packageModules . NM.traverse . moduleModuleRef . _1) $ \case
-            PRSelf -> PRImport pkgId
-            ref@PRImport{} -> ref
 
 -- | Construct the 'World' from only the imported packages.
 initWorld :: [ExternalPackage] -> Version -> World
