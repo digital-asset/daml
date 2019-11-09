@@ -209,11 +209,7 @@ object ValuePredicate {
       (typ.typ, it).match2 {
         case Bool => { case JsBoolean(q) => Literal { case V.ValueBool(v) if q == v => } }
         case Int64 => {
-          case JsNumber(q) if q.isValidLong =>
-            val lq = q.toLongExact
-            Literal { case V.ValueInt64(v) if lq == (v: Long) => }
-          case JsString(q) =>
-            val lq: Long = q.parseLong.fold(e => throw e, identity)
+          case Int64RangeExpr.Scalar(lq) =>
             Literal { case V.ValueInt64(v) if lq == (v: Long) => }
         }
         case Text => {
@@ -223,13 +219,11 @@ object ValuePredicate {
             eoIor.map(mkRange(_, { case V.ValueText(v) => v })).merge
         }
         case Date => {
-          case JsString(q) =>
-            val dq = Time.Date fromString q fold (predicateParseError(_), identity)
+          case DateRangeExpr.Scalar(dq) =>
             Literal { case V.ValueDate(v) if dq == v => }
         }
         case Timestamp => {
-          case JsString(q) =>
-            val tq = Time.Timestamp fromString q fold (predicateParseError(_), identity)
+          case TimestampRangeExpr.Scalar(tq) =>
             Literal { case V.ValueTimestamp(v) if tq == v => }
         }
         case Party => {
@@ -267,7 +261,21 @@ object ValuePredicate {
     }) getOrElse predicateParseError(s"No record type found for $typ")
   }
 
+  private[this] val Int64RangeExpr = RangeExpr {
+    case JsNumber(q) if q.isValidLong =>
+      q.toLongExact
+    case JsString(q) =>
+      q.parseLong.fold(e => throw e, identity)
+  }
   private[this] val TextRangeExpr = RangeExpr { case JsString(s) => s }
+  private[this] val DateRangeExpr = RangeExpr {
+    case JsString(q) =>
+      Time.Date fromString q fold (predicateParseError(_), identity)
+  }
+  private[this] val TimestampRangeExpr = RangeExpr {
+    case JsString(q) =>
+      Time.Timestamp fromString q fold (predicateParseError(_), identity)
+  }
 
   private[this] type Inclusive = Boolean
   private[this] final val Inclusive = true
