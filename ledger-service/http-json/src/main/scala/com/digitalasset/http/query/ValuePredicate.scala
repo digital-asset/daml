@@ -13,7 +13,8 @@ import com.digitalasset.daml.lf.iface
 import com.digitalasset.daml.lf.value.{Value => V}
 import iface.{Type => Ty}
 
-import scalaz.{\&/, \/, \/-}
+import scalaz.{Order, \&/, \/, \/-}
+import scalaz.std.string._
 import scalaz.syntax.apply._
 import scalaz.syntax.std.option._
 import scalaz.syntax.std.string._
@@ -69,7 +70,7 @@ sealed abstract class ValuePredicate extends Product with Serializable {
         oq map go cata (csq => { case V.ValueOptional(Some(v)) => csq(v); case _ => false },
         { case V.ValueOptional(None) => true; case _ => false })
 
-      case Range(_, _) => predicateParseError("range not supported yet")
+      case range: Range[a] => predicateParseError("range not supported yet")
     }
     go(this)
   }
@@ -86,8 +87,11 @@ object ValuePredicate {
   final case class ListMatch(elems: Vector[ValuePredicate]) extends ValuePredicate
   final case class VariantMatch(elem: (Ref.Name, ValuePredicate)) extends ValuePredicate
   final case class OptionalMatch(elem: Option[ValuePredicate]) extends ValuePredicate
-  // boolean is whether inclusive (lte vs lt)
-  final case class Range(ltgt: (Boolean, LfV) \&/ (Boolean, LfV), typ: Ty) extends ValuePredicate
+  final case class Range[A](
+      ltgt: (Inclusive, A) \&/ (Inclusive, A),
+      ord: Order[A],
+      project: JsValue PartialFunction A)
+      extends ValuePredicate
 
   private[http] def fromTemplateJsObject(
       it: Map[String, JsValue],
@@ -182,6 +186,8 @@ object ValuePredicate {
         }
       }(fallback = illTypedQuery(it, typ))
 
+    def orElse[R, A](fa: R PartialFunction A, fb: R PartialFunction A) = fa orElse fb
+
     def fromPrim(it: JsValue, typ: iface.TypePrim): Result = {
       import iface.PrimType._
       def soleTypeArg(of: String) = typ.typArgs match {
@@ -198,7 +204,10 @@ object ValuePredicate {
             val lq: Long = q.parseLong.fold(e => throw e, identity)
             Literal { case V.ValueInt64(v) if lq == (v: Long) => }
         }
-        case Text => { case JsString(q) => Literal { case V.ValueText(v) if q == v => } }
+        case Text =>
+          orElse(TextRangeExpr.scalar andThen { q =>
+            Literal { case V.ValueText(v) if q == v => }
+          }, { case TextRangeExpr(eoIor) => eoIor.map(TextRangeExpr.toRange(_)).merge })
         case Date => {
           case JsString(q) =>
             val dq = Time.Date fromString q fold (predicateParseError(_), identity)
@@ -244,11 +253,13 @@ object ValuePredicate {
     }) getOrElse predicateParseError(s"No record type found for $typ")
   }
 
+  private[this] val TextRangeExpr = RangeExpr { case JsString(s) => s }
+
   private[this] type Inclusive = Boolean
   private[this] final val Inclusive = true
   private[this] final val Exclusive = false
 
-  private[this] final case class RangeExpr[+A](scalar: JsValue PartialFunction A) {
+  private[this] final case class RangeExpr[A](scalar: JsValue PartialFunction A) {
     import RangeExpr._
 
     private def scalarE(it: JsValue): PredicateParseError \/ A =
@@ -261,13 +272,15 @@ object ValuePredicate {
           def badRangeSyntax(s: String): PredicateParseError \/ Nothing =
             predicateParseError(s"Invalid range query, as $s: $it")
 
-          def side(exK: String, inK: String) =
+          def side(exK: String, inK: String) = {
+            assert(keys(exK) && keys(inK)) // forgot to update 'keys' when changing the keys
             (fields get exK, fields get inK) match {
               case (Some(excl), None) => scalarE(excl) map (a => Some((Exclusive, a)))
               case (None, Some(incl)) => scalarE(incl) map (a => Some((Inclusive, a)))
               case (None, None) => \/-(None)
               case (Some(_), Some(_)) => badRangeSyntax(s"only one of $exK, $inK may be used")
             }
+          }
 
           val strays = fields.keySet diff keys
           Some(
@@ -285,6 +298,9 @@ object ValuePredicate {
             })
         case _ => None
       }
+
+    def toRange(ltgt: (Inclusive, A) \&/ (Inclusive, A))(implicit ord: Order[A]) =
+      Range(ltgt, ord, scalar)
   }
 
   private[this] object RangeExpr {
