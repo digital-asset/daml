@@ -14,8 +14,12 @@ import com.digitalasset.daml.lf.value.{Value => V}
 import iface.{Type => Ty}
 
 import scalaz.{Order, \&/, \/, \/-}
+import scalaz.Tags.Conjunction
+import scalaz.std.anyVal._
 import scalaz.std.string._
 import scalaz.syntax.apply._
+import scalaz.syntax.order._
+import scalaz.syntax.tag._
 import scalaz.syntax.std.option._
 import scalaz.syntax.std.string._
 import spray.json._
@@ -70,7 +74,13 @@ sealed abstract class ValuePredicate extends Product with Serializable {
         oq map go cata (csq => { case V.ValueOptional(Some(v)) => csq(v); case _ => false },
         { case V.ValueOptional(None) => true; case _ => false })
 
-      case range: Range[a] => predicateParseError("range not supported yet")
+      case range: Range[a] =>
+        implicit val ord: Order[a] = range.ord
+        range.project andThen { a =>
+          range.ltgt.bifoldMap {
+            case (incl, ceil) => Conjunction(if (incl) a <= ceil else a < ceil)
+          } { case (incl, floor) => Conjunction(if (incl) a >= floor else a > floor) }.unwrap
+        } orElse { case _ => false }
     }
     go(this)
   }
@@ -90,7 +100,7 @@ object ValuePredicate {
   final case class Range[A](
       ltgt: (Inclusive, A) \&/ (Inclusive, A),
       ord: Order[A],
-      project: JsValue PartialFunction A)
+      project: LfV PartialFunction A)
       extends ValuePredicate
 
   private[http] def fromTemplateJsObject(
@@ -205,9 +215,14 @@ object ValuePredicate {
             Literal { case V.ValueInt64(v) if lq == (v: Long) => }
         }
         case Text =>
-          orElse(TextRangeExpr.scalar andThen { q =>
-            Literal { case V.ValueText(v) if q == v => }
-          }, { case TextRangeExpr(eoIor) => eoIor.map(TextRangeExpr.toRange(_)).merge })
+          orElse(
+            TextRangeExpr.scalar andThen { q =>
+              Literal { case V.ValueText(v) if q == v => }
+            }, {
+              case TextRangeExpr(eoIor) =>
+                eoIor.map(Range(_, Order[String], { case V.ValueText(v) => v })).merge
+            }
+          )
         case Date => {
           case JsString(q) =>
             val dq = Time.Date fromString q fold (predicateParseError(_), identity)
@@ -259,7 +274,7 @@ object ValuePredicate {
   private[this] final val Inclusive = true
   private[this] final val Exclusive = false
 
-  private[this] final case class RangeExpr[A](scalar: JsValue PartialFunction A) {
+  private[this] final case class RangeExpr[+A](scalar: JsValue PartialFunction A) {
     import RangeExpr._
 
     private def scalarE(it: JsValue): PredicateParseError \/ A =
@@ -298,9 +313,6 @@ object ValuePredicate {
             })
         case _ => None
       }
-
-    def toRange(ltgt: (Inclusive, A) \&/ (Inclusive, A))(implicit ord: Order[A]) =
-      Range(ltgt, ord, scalar)
   }
 
   private[this] object RangeExpr {
