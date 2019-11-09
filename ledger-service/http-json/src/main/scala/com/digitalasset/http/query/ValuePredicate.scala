@@ -103,6 +103,10 @@ object ValuePredicate {
       project: LfV PartialFunction A)
       extends ValuePredicate
 
+  private def mkRange[A](ltgt: (Inclusive, A) \&/ (Inclusive, A), project: LfV PartialFunction A)(
+      implicit ord: Order[A]) =
+    Range(ltgt, ord, project)
+
   private[http] def fromTemplateJsObject(
       it: Map[String, JsValue],
       typ: domain.TemplateId.RequiredPkg,
@@ -196,8 +200,6 @@ object ValuePredicate {
         }
       }(fallback = illTypedQuery(it, typ))
 
-    def orElse[R, A](fa: R PartialFunction A, fb: R PartialFunction A) = fa orElse fb
-
     def fromPrim(it: JsValue, typ: iface.TypePrim): Result = {
       import iface.PrimType._
       def soleTypeArg(of: String) = typ.typArgs match {
@@ -214,15 +216,12 @@ object ValuePredicate {
             val lq: Long = q.parseLong.fold(e => throw e, identity)
             Literal { case V.ValueInt64(v) if lq == (v: Long) => }
         }
-        case Text =>
-          orElse(
-            TextRangeExpr.scalar andThen { q =>
-              Literal { case V.ValueText(v) if q == v => }
-            }, {
-              case TextRangeExpr(eoIor) =>
-                eoIor.map(Range(_, Order[String], { case V.ValueText(v) => v })).merge
-            }
-          )
+        case Text => {
+          case TextRangeExpr.Scalar(q) =>
+            Literal { case V.ValueText(v) if q == v => }
+          case TextRangeExpr(eoIor) =>
+            eoIor.map(mkRange(_, { case V.ValueText(v) => v })).merge
+        }
         case Date => {
           case JsString(q) =>
             val dq = Time.Date fromString q fold (predicateParseError(_), identity)
@@ -279,6 +278,10 @@ object ValuePredicate {
 
     private def scalarE(it: JsValue): PredicateParseError \/ A =
       scalar.lift(it) \/> predicateParseError(s"invalid boundary $it")
+
+    object Scalar {
+      @inline def unapply(it: JsValue): Option[A] = scalar.lift(it)
+    }
 
     @SuppressWarnings(Array("org.wartremover.warts.Any"))
     def unapply(it: JsValue): Option[PredicateParseError \/ ((Inclusive, A) \&/ (Inclusive, A))] =
