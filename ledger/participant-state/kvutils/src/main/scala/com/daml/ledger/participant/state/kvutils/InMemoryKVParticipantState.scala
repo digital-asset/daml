@@ -78,7 +78,7 @@ object InMemoryKVParticipantState {
 
   final case class AddPackageUploadRequest(
       submissionId: String,
-      cf: CompletableFuture[UploadPackagesResult])
+      cf: CompletableFuture[SubmissionResult])
   final case class AddPartyAllocationRequest(
       submissionId: String,
       cf: CompletableFuture[PartyAllocationResult])
@@ -176,8 +176,8 @@ class InMemoryKVParticipantState(
       case AddPartyAllocationRequest(submissionId, cf) =>
         partyRequests += (submissionId -> cf); ()
 
-      case AddPackageUploadRequest(submissionId, cf) =>
-        packageRequests += (submissionId -> cf); ()
+//      case AddPackageUploadRequest(submissionId, cf) =>
+//        packageRequests += (submissionId -> cf); ()
 
       case AddPotentialResponse(idx) =>
         assert(idx >= 0 && idx < stateRef.commitLog.size)
@@ -347,8 +347,8 @@ class InMemoryKVParticipantState(
       zeroIndex = beginning,
       headAtInitialization = beginning)
 
-  /** Helper for [[dispatcher]] to fetch [[DamlLogEntry]] from the
-    * state and convert it into [[Update]].
+  /** Helper for [[dispatcher]] to fetch [[com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlLogEntry]] from the
+    * state and convert it into [[com.daml.ledger.participant.state.v1.Update]].
     */
   private def getUpdate(idx: Int, state: State): List[Update] = {
     assert(idx >= 0 && idx < state.commitLog.size)
@@ -484,10 +484,10 @@ class InMemoryKVParticipantState(
   /** Upload DAML-LF packages to the ledger */
   override def uploadPackages(
       archives: List[Archive],
-      sourceDescription: Option[String]): CompletionStage[UploadPackagesResult] = {
+      sourceDescription: Option[String]): CompletionStage[SubmissionResult] = {
     val sId = submissionIdSource.getAndIncrement().toString
-    val cf = new CompletableFuture[UploadPackagesResult]
-    matcherActorRef ! AddPackageUploadRequest(sId, cf)
+    val cf = new CompletableFuture[SubmissionResult]
+//    matcherActorRef ! AddPackageUploadRequest(sId, cf)
     commitActorRef ! CommitSubmission(
       allocateEntryId,
       Envelope.enclose(

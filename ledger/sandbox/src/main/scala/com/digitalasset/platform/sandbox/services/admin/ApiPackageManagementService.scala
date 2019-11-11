@@ -9,7 +9,7 @@ import java.util.zip.ZipInputStream
 import akka.actor.Scheduler
 import akka.stream.ActorMaterializer
 import com.daml.ledger.participant.state.index.v2.IndexPackagesService
-import com.daml.ledger.participant.state.v1.{UploadPackagesResult, WritePackagesService}
+import com.daml.ledger.participant.state.v1.{SubmissionResult, UploadPackagesResult, WritePackagesService}
 import com.digitalasset.daml.lf.archive.DarReader
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
 import com.digitalasset.ledger.api.v1.admin.package_management_service.PackageManagementServiceGrpc.PackageManagementService
@@ -19,7 +19,6 @@ import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.common.util.{DirectExecutionContext => DE}
 import com.digitalasset.platform.server.api.validation.ErrorFactories
 import com.google.protobuf.timestamp.Timestamp
-
 import io.grpc.ServerServiceDefinition
 import org.slf4j.Logger
 
@@ -74,21 +73,36 @@ class ApiPackageManagementService(
         FutureConverters
           .toScala(res._1)
           .flatMap {
-            case UploadPackagesResult.Ok =>
+
+            //TODO BH: first step to get this to compile -- need to implement properly polling and retrieval of response event
+            case SubmissionResult.Acknowledged =>
               Future.successful(UploadDarFileResponse())
-            case r @ UploadPackagesResult.Overloaded =>
-              Future.failed(ErrorFactories.resourceExhausted(r.description))
-            case r @ UploadPackagesResult.InternalError(_) =>
+            case r @ SubmissionResult.InternalError(_) =>
               Future.failed(ErrorFactories.internal(r.reason))
-            case r @ UploadPackagesResult.InvalidPackage(_) =>
-              Future.failed(ErrorFactories.invalidArgument(r.description))
-            case r @ UploadPackagesResult.ParticipantNotAuthorized =>
-              Future.failed(ErrorFactories.permissionDenied(r.description))
-            case r @ UploadPackagesResult.NotSupported =>
-              Future.failed(ErrorFactories.unimplemented(r.description))
+            case SubmissionResult.NotSupported =>
+              Future.failed(ErrorFactories.unimplemented("not supported"))
+            case SubmissionResult.Overloaded =>
+              Future.failed(ErrorFactories.grpcError(io.grpc.Status.RESOURCE_EXHAUSTED))
           }(DE)
           .flatMap(pollUntilPersisted(res._2, _))(DE)
     )
+  }
+
+  private def prepareUploadPackageResult(result: UploadPackagesResult): Unit = {
+    result match {
+      case UploadPackagesResult.Ok =>
+        Future.successful(UploadDarFileResponse())
+      case r@UploadPackagesResult.Overloaded =>
+        Future.failed(ErrorFactories.resourceExhausted(r.description))
+      case r@UploadPackagesResult.InternalError(_) =>
+        Future.failed(ErrorFactories.internal(r.reason))
+      case r@UploadPackagesResult.InvalidPackage(_) =>
+        Future.failed(ErrorFactories.invalidArgument(r.description))
+      case r@UploadPackagesResult.ParticipantNotAuthorized =>
+        Future.failed(ErrorFactories.permissionDenied(r.description))
+      case r@UploadPackagesResult.NotSupported =>
+        Future.failed(ErrorFactories.unimplemented(r.description))
+    }
   }
 
   /**

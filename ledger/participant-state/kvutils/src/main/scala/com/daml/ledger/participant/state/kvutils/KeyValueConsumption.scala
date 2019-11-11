@@ -42,6 +42,7 @@ object KeyValueConsumption {
 
     val recordTime = parseTimestamp(entry.getRecordTime)
 
+    val participantId = Ref.LedgerString.assertFromString(entry.getPackageUploadEntry.getParticipantId)
     entry.getPayloadCase match {
       case DamlLogEntry.PayloadCase.PACKAGE_UPLOAD_ENTRY =>
         entry.getPackageUploadEntry.getArchivesList.asScala.map { archive =>
@@ -50,13 +51,29 @@ object KeyValueConsumption {
             if (entry.getPackageUploadEntry.getSourceDescription.nonEmpty)
               Some(entry.getPackageUploadEntry.getSourceDescription)
             else None,
-            Ref.LedgerString.assertFromString(entry.getPackageUploadEntry.getParticipantId),
-            recordTime
+            participantId,
+            recordTime,
+            Ref.LedgerString.assertFromString(entry.getPackageUploadEntry.getSubmissionId)
           )
         }(breakOut)
 
       case DamlLogEntry.PayloadCase.PACKAGE_UPLOAD_REJECTION_ENTRY =>
-        List.empty
+        val rejection = entry.getPackageUploadRejectionEntry
+        val proposedPackageUpload = rejection.getInvalidPackage
+        List(
+          Update.PublicPackageRejected(
+            participantId,
+            Ref.LedgerString.assertFromString(entry.getPackageUploadEntry.getSubmissionId),
+          reason = rejection.getReasonCase match{
+            case DamlPackageUploadRejectionEntry.ReasonCase.INVALID_PACKAGE =>
+              s"Package ${proposedPackageUpload.getDetails} rejected as invalid"
+            case DamlPackageUploadRejectionEntry.ReasonCase.REASON_NOT_SET =>
+              s"Package ${proposedPackageUpload.getDetails} upload failed for undetermined reason"
+            case DamlPackageUploadRejectionEntry.ReasonCase.PARTICIPANT_NOT_AUTHORIZED =>
+              s"Participant ${participantId} not authorized to upload package"
+          }
+        )
+        )
 
       case DamlLogEntry.PayloadCase.PARTY_ALLOCATION_ENTRY =>
         List(
@@ -64,11 +81,13 @@ object KeyValueConsumption {
             Party.assertFromString(entry.getPartyAllocationEntry.getParty),
             entry.getPartyAllocationEntry.getDisplayName,
             Ref.LedgerString.assertFromString(entry.getPartyAllocationEntry.getParticipantId),
-            recordTime
+            recordTime,
+            Ref.LedgerString.assertFromString(entry.getPartyAllocationEntry.getSubmissionId)
           )
         )
 
       case DamlLogEntry.PayloadCase.PARTY_ALLOCATION_REJECTION_ENTRY =>
+        //TODO BH: handle party allocation rejection evens
         List.empty
 
       case DamlLogEntry.PayloadCase.TRANSACTION_ENTRY =>

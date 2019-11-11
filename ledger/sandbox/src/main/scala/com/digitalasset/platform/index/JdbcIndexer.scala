@@ -258,10 +258,10 @@ class JdbcIndexer private[index] (
             PersistenceEntry.Checkpoint(LedgerEntry.Checkpoint(recordTime.toInstant)))
           .map(_ => headRef = headRef + 1)(DEC)
 
-      case PartyAddedToParticipant(party, displayName, _, _) =>
+      case PartyAddedToParticipant(party, displayName, _, _, _) =>
         ledgerDao.storeParty(party, Some(displayName), externalOffset).map(_ => ())(DEC)
 
-      case PublicPackageUploaded(archive, sourceDescription, _, _) =>
+      case PublicPackageUploaded(archive, sourceDescription, _, _, _) =>
         val uploadId = UUID.randomUUID().toString
         val uploadInstant = Instant.now() // TODO: use PublicPackageUploaded.recordTime for multi-ledgers (#2635)
         val packages: List[(DamlLf.Archive, v2.PackageDetails)] = List(
@@ -272,6 +272,12 @@ class JdbcIndexer private[index] (
           )
         )
         ledgerDao.uploadLfPackages(uploadId, packages, externalOffset).map(_ => ())(DEC)
+
+        //TODO BH: consider generalization of persistence storage JM has done on configuration branch
+      case PublicPackageRejected(participantId, submissionId, reason) =>
+        ledgerDao
+          .storePackageRejection(participantId, submissionId, reason)
+          .map(_ => ())(DEC)
 
       case TransactionAccepted(
           optSubmitterInfo,
