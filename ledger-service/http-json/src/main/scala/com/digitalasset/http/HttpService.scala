@@ -22,22 +22,22 @@ import com.digitalasset.http.util.IdentifierConverters.apiLedgerId
 import com.digitalasset.jwt.JwtDecoder
 import com.digitalasset.ledger.api.refinements.ApiTypes.ApplicationId
 import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
-import com.digitalasset.ledger.api.v1.admin.party_management_service.PartyManagementServiceGrpc
 import com.digitalasset.ledger.client.LedgerClient
 import com.digitalasset.ledger.client.configuration.{
   CommandClientConfiguration,
   LedgerClientConfiguration,
   LedgerIdRequirement
 }
-import com.digitalasset.ledger.client.services.admin.PartyManagementClient
 import com.digitalasset.ledger.client.services.pkg.PackageClient
 import com.digitalasset.ledger.service.LedgerReader
 import com.typesafe.scalalogging.StrictLogging
+import io.grpc.netty.NettyChannelBuilder
 import scalaz.Scalaz._
 import scalaz._
 
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.control.NonFatal
 import scala.{util => u}
 
 object HttpService extends StrictLogging {
@@ -73,19 +73,14 @@ object HttpService extends StrictLogging {
     )
 
     val bindingEt: EitherT[Future, Error, ServerBinding] = for {
-      clientChannel <- either(
-        clientChannel(ledgerHost, ledgerPort, clientConfig, maxInboundMessageSize)
-      ): ET[io.grpc.Channel]
-
-      client <- rightT(LedgerClient.forChannel(clientConfig, clientChannel)): ET[LedgerClient]
+      client <- eitherT(client(ledgerHost, ledgerPort, clientConfig, maxInboundMessageSize)): ET[
+        LedgerClient]
 
       ledgerId = apiLedgerId(client.ledgerId): lar.LedgerId
 
       _ = logger.info(s"Connected to Ledger: ${ledgerId: lar.LedgerId}")
 
       packageService = new PackageService(loadPackageStoreUpdates(client.packageClient))
-
-      partyManagement <- either(partyManagementClient(clientChannel)): ET[PartyManagementClient]
 
       // load all packages right away
       _ <- eitherT(packageService.reload).leftMap(e => Error(e.shows)): ET[Unit]
@@ -101,19 +96,19 @@ object HttpService extends StrictLogging {
       commandService = new CommandService(
         packageService.resolveTemplateId,
         packageService.resolveChoiceRecordId,
-        LedgerClientJwt.submitAndWaitForTransaction(clientConfig, clientChannel),
+        LedgerClientJwt.submitAndWaitForTransaction(client),
         TimeProvider.UTC
       )
 
       contractsService = new ContractsService(
         packageService.resolveTemplateIds,
-        LedgerClientJwt.getActiveContracts(clientConfig, clientChannel),
-        LedgerClientJwt.getCreatesAndArchivesSince(clientConfig, clientChannel),
+        LedgerClientJwt.getActiveContracts(client),
+        LedgerClientJwt.getCreatesAndArchivesSince(client),
         LedgerReader.damlLfTypeLookup(packageService.packageStore _),
         contractDao,
       )
 
-      partiesService = new PartiesService(() => partyManagement.listKnownParties())
+      partiesService = new PartiesService(() => client.partyManagementClient.listKnownParties())
 
       (encoder, decoder) = buildJsonCodecs(ledgerId, packageService)
 
@@ -193,22 +188,24 @@ object HttpService extends StrictLogging {
       }
     }
 
-  private def clientChannel(
+  private def client(
       ledgerHost: String,
       ledgerPort: Int,
       clientConfig: LedgerClientConfiguration,
       maxInboundMessageSize: Int)(
       implicit ec: ExecutionContext,
-      aesf: ExecutionSequencerFactory): Error \/ io.grpc.Channel =
-    LedgerClientJwt
-      .singleHostChannel(ledgerHost, ledgerPort, clientConfig, maxInboundMessageSize)(ec, aesf)
-      .leftMap(e => Error(s"Cannot connect to the ledger server, error: ${e.getMessage}"))
-
-  private def partyManagementClient(channel: io.grpc.Channel)(
-      implicit ec: ExecutionContext): Error \/ PartyManagementClient =
-    \/.fromTryCatchNonFatal(new PartyManagementClient(PartyManagementServiceGrpc.stub(channel)))
-      .leftMap(e =>
-        Error(s"Cannot create an instance of PartyManagementClient, error: ${e.getMessage}"))
+      aesf: ExecutionSequencerFactory): Future[Error \/ LedgerClient] =
+    LedgerClient
+      .fromBuilder(
+        NettyChannelBuilder
+          .forAddress(ledgerHost, ledgerPort)
+          .maxInboundMessageSize(maxInboundMessageSize),
+        clientConfig)
+      .map(_.right)
+      .recover {
+        case NonFatal(e) =>
+          \/.left(Error(s"Cannot connect to the ledger server, error: ${e.getMessage}"))
+      }
 
   private def initDbIfConfigured(
       dao: Option[ContractDao],
