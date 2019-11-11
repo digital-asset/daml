@@ -67,6 +67,7 @@ da_scala_binary(
 
 client_server_test(
     name = "test_static_time",
+    timeout = "long",
     client = ":test_client",
     client_files = ["$(rootpath :acs.dar)"],
     data = [":acs.dar"],
@@ -77,6 +78,7 @@ client_server_test(
 
 client_server_test(
     name = "test_wallclock_time",
+    timeout = "long",
     client = ":test_client",
     client_args = ["-w"],
     client_files = ["$(rootpath :acs.dar)"],

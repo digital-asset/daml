@@ -347,7 +347,7 @@ convertGenericTemplate env x
         tplAgreement <- applyThis <$> convertExpr env (Var agreement)
         archive <- convertExpr env (Var archive)
         (tplKey, key, choices) <- case keyAndChoices of
-                hasKey : key : maintainers : _fetchByKey : _lookupByKey : choices
+                hasKey : key : maintainers : _fetchByKey : _lookupByKey : _toAnyContractKey : _fromAnyContractKey : choices
                     | TypeCon (Is "HasKey") _ <- varType hasKey -> do
                         _ :-> keyType <- convertType env (varType key)
                         hasKey <- convertExpr env (Var hasKey)
@@ -357,6 +357,8 @@ convertGenericTemplate env x
                         let thisField = FieldName "contract"
                         tupleTyCon <- qDA_Types env $ mkTypeCon ["Tuple2"]
                         let tupleType = TypeConApp tupleTyCon [TContractId polyType, polyType]
+                        let anyContractKeyTy = TypeConApp (Qualified stdlibRef (mkModName ["DA", "Internal", "LF"]) (mkTypeCon ["AnyContractKey"])) []
+                        let anyContractKeyField = mkField "getAnyContractKey"
                         let fetchByKey =
                                 ETmLam (mkVar "key", keyType) $
                                 EUpdate $ UBind (Binding (res, TTuple [(selfField, TContractId monoType), (thisField, monoType)]) $ EUpdate $ UFetchByKey $ RetrieveByKey monoTyCon $ EVar $ mkVar "key") $
@@ -371,7 +373,27 @@ convertGenericTemplate env x
                                     [ CaseAlternative CPNone $ ENone (TContractId polyType)
                                     , CaseAlternative (CPSome self) $ ESome (TContractId polyType) $ unwrapCid $ EVar self
                                     ]
-                        pure (Just $ TemplateKey keyType (applyThis key) (ETmApp maintainers hasKey), [hasKey, key, maintainers, fetchByKey, lookupByKey], choices)
+                        let toAnyContractKey =
+                                if envLfVersion env `supports` featureAnyType
+                                  then ETyLam
+                                         (mkTypeVar "proxy", KArrow KStar KStar)
+                                         (ETmLam
+                                            (mkVar "_", TApp (TVar $ mkTypeVar "proxy") polyType)
+                                            (ETmLam (mkVar "key", keyType) $ ERecCon anyContractKeyTy [(anyContractKeyField, EToAny keyType $ EVar $ mkVar "key")]))
+                                  else EBuiltin BEError `ETyApp`
+                                       TForall (mkTypeVar "proxy", KArrow KStar KStar) (TApp (TVar $ mkTypeVar "proxy") polyType :-> keyType :-> typeConAppToType anyContractKeyTy) `ETmApp`
+                                       EBuiltin (BEText "toAnyChoice is not supported in this DAML-LF version")
+                        let fromAnyContractKey =
+                                if envLfVersion env `supports` featureAnyType
+                                  then ETyLam
+                                         (mkTypeVar "proxy", KArrow KStar KStar)
+                                         (ETmLam
+                                            (mkVar "_", TApp (TVar $ mkTypeVar "proxy") polyType)
+                                            (ETmLam (mkVar "any", typeConAppToType anyContractKeyTy) $ EFromAny keyType $ ERecProj anyContractKeyTy anyContractKeyField $ EVar $ mkVar "any"))
+                                  else EBuiltin BEError `ETyApp`
+                                       TForall (mkTypeVar "proxy", KArrow KStar KStar) (TApp (TVar $ mkTypeVar "proxy") polyType :-> typeConAppToType anyContractKeyTy :-> TOptional keyType) `ETmApp`
+                                       EBuiltin (BEText "toAnyChoice is not supported in this DAML-LF version")
+                        pure (Just $ TemplateKey keyType (applyThis key) (ETmApp maintainers hasKey), [hasKey, key, maintainers, fetchByKey, lookupByKey, toAnyContractKey, fromAnyContractKey], choices)
                 choices -> pure (Nothing, [], choices)
         let convertGenericChoice :: [Var] -> ConvertM (TemplateChoice, [LF.Expr])
             convertGenericChoice [consumption, controllers, action, _exercise, _toAnyChoice, _fromAnyChoice] = do
@@ -651,7 +673,7 @@ convertBind env (name, x)
     --
     -- TODO(MH): The check is an approximation which will fail when users
     -- start the name of their own methods with, say, `_exercise`.
-    | any (`T.isPrefixOf` getOccText name) [ "$" <> prefix <> "_" <> method | prefix <- ["dm", "c"], method <- ["create", "fetch", "exercise", "toAnyTemplate", "fromAnyTemplate", "_templateTypeRep", "fetchByKey", "lookupByKey", "toAnyChoice", "fromAnyChoice"] ]
+    | any (`T.isPrefixOf` getOccText name) [ "$" <> prefix <> "_" <> method | prefix <- ["dm", "c"], method <- ["create", "fetch", "exercise", "toAnyTemplate", "fromAnyTemplate", "_templateTypeRep", "fetchByKey", "lookupByKey", "toAnyChoice", "fromAnyChoice", "toAnyContractKey", "fromAnyContractKey"] ]
     = pure []
     -- NOTE(MH): Our inline return type syntax produces a local letrec for
     -- recursive functions. We currently don't support local letrecs.
