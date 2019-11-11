@@ -41,7 +41,7 @@ config_setting(
 
 def _dadew_where(ctx, ps):
     ps = ctx.which("powershell")
-    ps_result = ctx.execute([ps, "-Command", "dadew enable; dadew where"], quiet = True)
+    ps_result = ctx.execute([ps, "-Command", "dadew where"], quiet = True)
 
     if ps_result.return_code != 0:
         fail("Failed to obtain dadew location.\nExit code %d.\n%s\n%s" %
