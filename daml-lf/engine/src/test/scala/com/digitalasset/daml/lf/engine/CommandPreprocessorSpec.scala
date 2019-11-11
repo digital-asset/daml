@@ -6,7 +6,7 @@ package lf
 package engine
 
 import com.digitalasset.daml.lf.data._
-import com.digitalasset.daml.lf.language.Ast.{TNat, TTyCon}
+import com.digitalasset.daml.lf.language.Ast.{TApp, TNat, TTyCon}
 import com.digitalasset.daml.lf.language.Util._
 import com.digitalasset.daml.lf.testing.parser.Implicits._
 import com.digitalasset.daml.lf.value.Value._
@@ -23,6 +23,7 @@ class CommandPreprocessorSpec extends WordSpec with Matchers with TableDrivenPro
   private implicit def toName(s: String): Ref.Name = Ref.Name.assertFromString(s)
 
   val recordCon = Ref.Identifier(pkgId, Ref.QualifiedName.assertFromString("Module:Record"))
+  val polyRecordCon = Ref.Identifier(pkgId, Ref.QualifiedName.assertFromString("Module:PolyRecord"))
   val variantCon = Ref.Identifier(pkgId, Ref.QualifiedName.assertFromString("Module:Variant"))
   val enumCon = Ref.Identifier(pkgId, Ref.QualifiedName.assertFromString("Module:Enum"))
 
@@ -31,6 +32,7 @@ class CommandPreprocessorSpec extends WordSpec with Matchers with TableDrivenPro
         module Module {
 
           record Record = { field : Int64 };
+          record PolyRecord a = { fieldA : a };
           variant Variant = variant1 : Text | variant2 : Int64 ;
           enum Enum = value1 | value2;
 
@@ -61,6 +63,8 @@ class CommandPreprocessorSpec extends WordSpec with Matchers with TableDrivenPro
       TParty ->
         ValueParty(Ref.Party.assertFromString("Alice")),
       TContractId(TTyCon(recordCon)) ->
+        ValueContractId(AbsoluteContractId(Ref.ContractIdString.assertFromString("contractId"))),
+      TContractId(TApp(TTyCon(polyRecordCon), TUnit)) ->
         ValueContractId(AbsoluteContractId(Ref.ContractIdString.assertFromString("contractId"))),
       TList(TText) ->
         ValueList(FrontStack(ValueText("a"), ValueText("b"))),

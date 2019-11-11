@@ -132,11 +132,8 @@ private[engine] class ValueTranslator(compiledPackages: CompiledPackages) {
             Numeric.fromBigDecimal(s, d).fold(fail, d => ResultDone(SNumeric(d)))
           case (TParty, ValueParty(p)) =>
             ResultDone(SParty(p))
-          case (TContractId(typ), ValueContractId(c)) =>
-            typ match {
-              case TTyCon(_) => ResultDone(SContractId(c))
-              case _ => fail(s"Expected a type constructor but found $typ.")
-            }
+          case (TContractId(_), ValueContractId(c)) =>
+            ResultDone(SContractId(c))
 
           // optional
           case (TOptional(elemType), ValueOptional(mb)) =>
