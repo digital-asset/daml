@@ -28,7 +28,7 @@ final class DispatcherImpl[Index: Ordering](
   )
 
   private sealed abstract class State extends Product with Serializable {
-    def getSignalDispatcher: Option[SignalDispatcher[Index]]
+    def getSignalDispatcher: Option[SignalDispatcher]
 
     def getLastIndex: Index
   }
@@ -36,18 +36,18 @@ final class DispatcherImpl[Index: Ordering](
   // the following silent are due to
   // <https://github.com/scala/bug/issues/4440>
   @silent
-  private final case class Running(lastIndex: Index, signalDispatcher: SignalDispatcher[Index])
+  private final case class Running(lastIndex: Index, signalDispatcher: SignalDispatcher)
       extends State {
     override def getLastIndex: Index = lastIndex
 
-    override def getSignalDispatcher: Option[SignalDispatcher[Index]] = Some(signalDispatcher)
+    override def getSignalDispatcher: Option[SignalDispatcher] = Some(signalDispatcher)
   }
 
   @silent
   private final case class Closed(lastIndex: Index) extends State {
     override def getLastIndex: Index = lastIndex
 
-    override def getSignalDispatcher: Option[SignalDispatcher[Index]] = None
+    override def getSignalDispatcher: Option[SignalDispatcher] = None
   }
 
   // So why not broadcast the actual new index, instead of using a signaller?
@@ -73,7 +73,7 @@ final class DispatcherImpl[Index: Ordering](
         case c: Closed => c
       } match {
       case Running(prev, disp) =>
-        if (Ordering[Index].gt(head, prev)) disp.signal(head)
+        if (Ordering[Index].gt(head, prev)) disp.signal()
       case c: Closed =>
         logger.debug(s"$name: Failed to update Dispatcher HEAD: instance already closed.")
     }
@@ -98,9 +98,10 @@ final class DispatcherImpl[Index: Ordering](
         new IllegalArgumentException(
           s"$name: Invalid start index: '$start' before zero index '$zeroIndex'"))
     else {
-      val s = state.get
-      s.getSignalDispatcher.fold(Source.failed[(Index, T)](closedError))(
-        _.subscribe(signalOnSubscribe = Some(s.getLastIndex))
+      state.get.getSignalDispatcher.fold(Source.failed[(Index, T)](closedError))(
+        _.subscribe(signalOnSubscribe = true)
+        // This needs to call getHead directly, otherwise this subscription might miss a Signal being emitted
+          .map(_ => getHead())
           .statefulMapConcat(() => new ContinuousRangeEmitter(start))
           .flatMapConcat {
             case (previousHead, head) => subsource(previousHead, head)
@@ -131,7 +132,7 @@ final class DispatcherImpl[Index: Ordering](
       case c: Closed => c
     } match {
       case Running(idx, disp) =>
-        disp.signal(idx)
+        disp.signal()
         disp.close()
       case c: Closed => ()
     }
