@@ -106,17 +106,14 @@ genrule(
 
     # Package result (.JAR)
     echo "Packaging result from $$OUT to $(@D)/frontend.jar"
-    $(location @bazel_tools//tools/jdk:jar) c0Mf "$(@D)/frontend.jar" -C $$OUT .
+    $(JAVABASE)/bin/jar c0Mf "$(@D)/frontend.jar" -C $$OUT .
     """.format(
         PATHS_CASE_CHECK = "false" if is_windows else "true",
         WP_IN = "$$(cygpath -w $$IN)" if is_windows else "$$IN",
         WP_OUT = "$$(cygpath -w $$OUT)" if is_windows else "$$OUT",
     ),
     toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
-    tools = [
-        ":webpack",
-        "@bazel_tools//tools/jdk:jar",
-    ],
+    tools = [":webpack"],
     visibility = [
         "//navigator:__subpackages__",
     ],
