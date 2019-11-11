@@ -242,9 +242,9 @@ Version: 1.7
     - drop decimal builtins, namely  `ADD_DECIMAL`, `SUB_DECIMAL`, `MUL_DECIMAL`, `DIV_DECIMAL`, `ROUND_DECIMAL`, `LEQ_DECIMAL`, `LESS_DECIMAL`, `GEQ_DECIMAL`, `GREATER_DECIMAL`, `FROM_TEXT_DECIMAL`, `TO_TEXT_DECIMAL`, `INT64_TO_DECIMAL`, `DECIMAL_TO_INT64`, `EQUAL_DECIMAL`
 
   * **Add** string interning in external package references.
-    
+
   * **Add** name interning in external package references.
-    
+
   * **Add** existential ``Any`` type
     - add `'Any'` primitive type
     - add `'to_an'y` and `'from_any'` expression to convert from/to
@@ -564,14 +564,6 @@ Then we can define our kinds, types, and expressions::
        |  'Any'                                     -- BTyAny
        |  'TypeRep'                                 -- BTTypeRep
 
-<<<<<<< HEAD
-=======
-  Type constraints
-    K ::= ε                                         -- ConstraintTrivial
-       |  Eq α, K
-       |  Serial α, K
-
->>>>>>> Add GenMap to DAML-LF 1.dev
   Types (mnemonic: tau for type)
     τ, σ
       ::= α                                         -- TyVar: Type variable
@@ -2589,7 +2581,6 @@ Map functions
 
   [*Available in versions >= 1.3*]
 
-<<<<<<< HEAD
 Type Representation function
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -2599,7 +2590,6 @@ Type Representation function
   the second one, ``'False'`` otherwise.
 
   [*Available in versions >= 1.7*]
-=======
 
 Generic Map functions
 ~~~~~~~~~~~~~~~~~~~~~
@@ -2752,7 +2742,6 @@ defined. ::
   ——————————————————————————————————————————————————— GenEqTupleCon
   ⟨ f₁ = e₁, …, fₘ = eₘ ⟩ ~ᵥ ⟨ f₁ = e₁', …, fₘ = eₘ' ⟩
 
->>>>>>> Add GenMap to DAML-LF 1.dev
 
 Conversions functions
 ~~~~~~~~~~~~~~~~~~~~~
