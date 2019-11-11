@@ -3,70 +3,86 @@
 
 package com.digitalasset.ledger.client
 
-import java.util.concurrent.Executor
-
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.v1.active_contracts_service.ActiveContractsServiceGrpc
-import com.digitalasset.ledger.api.v1.active_contracts_service.ActiveContractsServiceGrpc.ActiveContractsService
+import com.digitalasset.ledger.api.v1.active_contracts_service.ActiveContractsServiceGrpc.ActiveContractsServiceStub
 import com.digitalasset.ledger.api.v1.command_completion_service.CommandCompletionServiceGrpc
-import com.digitalasset.ledger.api.v1.command_completion_service.CommandCompletionServiceGrpc.CommandCompletionService
+import com.digitalasset.ledger.api.v1.command_completion_service.CommandCompletionServiceGrpc.CommandCompletionServiceStub
 import com.digitalasset.ledger.api.v1.command_service.CommandServiceGrpc
-import com.digitalasset.ledger.api.v1.command_service.CommandServiceGrpc.CommandService
+import com.digitalasset.ledger.api.v1.command_service.CommandServiceGrpc.CommandServiceStub
 import com.digitalasset.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc
-import com.digitalasset.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc.CommandSubmissionService
+import com.digitalasset.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc.CommandSubmissionServiceStub
 import com.digitalasset.ledger.api.v1.ledger_identity_service.LedgerIdentityServiceGrpc
-import com.digitalasset.ledger.api.v1.ledger_identity_service.LedgerIdentityServiceGrpc.LedgerIdentityService
+import com.digitalasset.ledger.api.v1.ledger_identity_service.LedgerIdentityServiceGrpc.LedgerIdentityServiceStub
 import com.digitalasset.ledger.api.v1.package_service.PackageServiceGrpc
-import com.digitalasset.ledger.api.v1.package_service.PackageServiceGrpc.PackageService
+import com.digitalasset.ledger.api.v1.package_service.PackageServiceGrpc.PackageServiceStub
 import com.digitalasset.ledger.api.v1.transaction_service.TransactionServiceGrpc
-import com.digitalasset.ledger.api.v1.transaction_service.TransactionServiceGrpc.TransactionService
+import com.digitalasset.ledger.api.v1.transaction_service.TransactionServiceGrpc.TransactionServiceStub
+import com.digitalasset.ledger.client.auth.LedgerClientCallCredentials.authenticatingStub
 import com.digitalasset.ledger.client.configuration.LedgerClientConfiguration
-import com.digitalasset.ledger.client.impl.LedgerClientImpl
 import com.digitalasset.ledger.client.services.acs.ActiveContractSetClient
 import com.digitalasset.ledger.client.services.commands.{CommandClient, SynchronousCommandClient}
 import com.digitalasset.ledger.client.services.identity.LedgerIdentityClient
 import com.digitalasset.ledger.client.services.pkg.PackageClient
 import com.digitalasset.ledger.client.services.transactions.TransactionClient
-import io.grpc.{CallCredentials, Channel, Metadata}
+import io.grpc.Channel
 import io.grpc.netty.{NegotiationType, NettyChannelBuilder}
+import io.grpc.stub.AbstractStub
 
 import scala.concurrent.{ExecutionContext, Future}
 
-trait LedgerClient {
+final class LedgerClient(
+    transactionService: TransactionServiceStub,
+    activeContractsService: ActiveContractsServiceStub,
+    commandSubmissionService: CommandSubmissionServiceStub,
+    commandCompletionService: CommandCompletionServiceStub,
+    commandService: CommandServiceStub,
+    packageService: PackageServiceStub,
+    ledgerClientConfiguration: LedgerClientConfiguration,
+    val ledgerId: LedgerId
+)(implicit esf: ExecutionSequencerFactory) {
 
-  def ledgerId: LedgerId
+  val activeContractSetClient =
+    new ActiveContractSetClient(ledgerId, activeContractsService)
 
-  def activeContractSetClient: ActiveContractSetClient
+  val commandClient: CommandClient =
+    new CommandClient(
+      commandSubmissionService,
+      commandCompletionService,
+      ledgerId,
+      ledgerClientConfiguration.applicationId,
+      ledgerClientConfiguration.commandClient
+    )
 
-  def commandClient: CommandClient
+  val commandServiceClient: SynchronousCommandClient =
+    new SynchronousCommandClient(commandService)
 
-  def commandServiceClient: SynchronousCommandClient
+  val packageClient: PackageClient =
+    new PackageClient(ledgerId, packageService)
 
-  def packageClient: PackageClient
-
-  def transactionClient: TransactionClient
+  val transactionClient: TransactionClient =
+    new TransactionClient(ledgerId, transactionService)
 
 }
 
 object LedgerClient {
 
   def apply(
-      ledgerIdentityService: LedgerIdentityService,
-      transactionService: TransactionService,
-      activeContractsService: ActiveContractsService,
-      commandSubmissionService: CommandSubmissionService,
-      commandCompletionService: CommandCompletionService,
-      commandService: CommandService,
-      packageService: PackageService,
+      ledgerIdentityService: LedgerIdentityServiceStub,
+      transactionService: TransactionServiceStub,
+      activeContractsService: ActiveContractsServiceStub,
+      commandSubmissionService: CommandSubmissionServiceStub,
+      commandCompletionService: CommandCompletionServiceStub,
+      commandService: CommandServiceStub,
+      packageService: PackageServiceStub,
       ledgerClientConfiguration: LedgerClientConfiguration
   )(implicit ec: ExecutionContext, esf: ExecutionSequencerFactory): Future[LedgerClient] = {
-
     for {
       ledgerId <- new LedgerIdentityClient(ledgerIdentityService)
         .satisfies(ledgerClientConfiguration.ledgerIdRequirement)
     } yield {
-      new LedgerClientImpl(
+      new LedgerClient(
         transactionService,
         activeContractsService,
         commandSubmissionService,
@@ -78,6 +94,9 @@ object LedgerClient {
       )
     }
   }
+
+  private[client] def stub[A <: AbstractStub[A]](stub: A, token: Option[String]): A =
+    token.fold(stub)(authenticatingStub(stub))
 
   /**
     * Constructs a [[Channel]], ensuring that the [[LedgerClientConfiguration]] is picked up and valid
@@ -106,36 +125,18 @@ object LedgerClient {
     forChannel(configuration, channel)
   }
 
-  private[this] val auth = Metadata.Key.of("Authorization", Metadata.ASCII_STRING_MARSHALLER)
-
-  def callCredentials(token: String): CallCredentials =
-    new CallCredentials {
-      override def applyRequestMetadata(
-          requestInfo: CallCredentials.RequestInfo,
-          appExecutor: Executor,
-          applier: CallCredentials.MetadataApplier): Unit = {
-        val metadata = new Metadata
-        metadata.put(auth, token)
-        applier.apply(metadata)
-      }
-
-      // Should be a noop but never called; tries to make it clearer to implementors that they may break in the future.
-      override def thisUsesUnstableApi(): Unit = ()
-    }
-
   def forChannel(configuration: LedgerClientConfiguration, channel: Channel)(
       implicit ec: ExecutionContext,
-      esf: ExecutionSequencerFactory): Future[LedgerClient] = {
-    val creds = configuration.accessToken.map(callCredentials).orNull
+      esf: ExecutionSequencerFactory): Future[LedgerClient] =
     apply(
-      LedgerIdentityServiceGrpc.stub(channel).withCallCredentials(creds),
-      TransactionServiceGrpc.stub(channel).withCallCredentials(creds),
-      ActiveContractsServiceGrpc.stub(channel).withCallCredentials(creds),
-      CommandSubmissionServiceGrpc.stub(channel).withCallCredentials(creds),
-      CommandCompletionServiceGrpc.stub(channel).withCallCredentials(creds),
-      CommandServiceGrpc.stub(channel).withCallCredentials(creds),
-      PackageServiceGrpc.stub(channel).withCallCredentials(creds),
+      LedgerIdentityServiceGrpc.stub(channel),
+      TransactionServiceGrpc.stub(channel),
+      ActiveContractsServiceGrpc.stub(channel),
+      CommandSubmissionServiceGrpc.stub(channel),
+      CommandCompletionServiceGrpc.stub(channel),
+      CommandServiceGrpc.stub(channel),
+      PackageServiceGrpc.stub(channel),
       configuration
     )
-  }
+
 }

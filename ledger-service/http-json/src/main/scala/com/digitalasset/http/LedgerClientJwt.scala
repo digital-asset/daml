@@ -109,7 +109,7 @@ object LedgerClientJwt {
       Source
         .fromFuture(for {
           client <- forChannel(jwt, config, channel)
-          es <- client.transactionClient.getLedgerEnd
+          es <- client.transactionClient.getLedgerEnd()
         } yield (client, es.offset getOrElse sys.error("bad response from getLedgerEnd")))
         .flatMapConcat {
           case (client, end) =>

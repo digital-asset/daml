@@ -40,7 +40,7 @@ class ClientUtil(
     packageClient.listPackages().map(_.packageIds.toSet)
 
   def ledgerEnd(implicit ec: ExecutionContext): Future[LedgerOffset] =
-    transactionClient.getLedgerEnd.flatMap(response => toFuture(response.offset))
+    transactionClient.getLedgerEnd().flatMap(response => toFuture(response.offset))
 
   def submitCommand(party: String, workflowId: WorkflowId, cmd: Command.Command): Future[Empty] = {
     val now = timeProvider.getCurrentTime

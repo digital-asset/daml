@@ -88,17 +88,11 @@ class TlsIT extends AsyncWordSpec with SandboxFixture with SuiteResourceManageme
             sandboxServer.port,
             tlsEnabledConfig.copy(sslContext = None)
           )
-          .flatMap { c =>
-            c.transactionClient.getLedgerEnd
-          }
+          .flatMap(_.transactionClient.getLedgerEnd())
       }
     }
     "serve ledger queries when the client presents a valid certificate" in {
-      clientF
-        .flatMap { c =>
-          c.transactionClient.getLedgerEnd
-        }
-        .map(_ => succeed)
+      clientF.flatMap(_.transactionClient.getLedgerEnd()).map(_ => succeed)
     }
   }
 }

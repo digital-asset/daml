@@ -185,7 +185,7 @@ class CommandStaticTimeIT
             getTimeResponse <- timeSource(ctx).runWith(Sink.head)
             currentTime = getTimeResponse.getCurrentTime
             templateId = templateIds.dummy
-            txEndOffset <- ctx.transactionClient.getLedgerEnd.map(_.getOffset)
+            txEndOffset <- ctx.transactionClient.getLedgerEnd().map(_.getOffset)
             comp <- commandClient.send(dummyCreateRequest(ctx, toInstant(currentTime), templateId))
             _ = comp.getStatus should have('code(0))
             transaction <- ctx.transactionClient.getTransactions(txEndOffset, None, TransactionFilter(Map(submitRequest.commands.value.party -> Filters.defaultInstance)))
