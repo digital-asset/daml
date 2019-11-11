@@ -478,7 +478,7 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     case Participants(Participant(alpha, receiver), Participant(beta, giver)) =>
       for {
         agreementFactory <- beta.create(giver, AgreementFactory(receiver, giver))
-        _ <- alpha.exercise(receiver, agreementFactory.exerciseCreateAgreement)
+        _ <- eventually { alpha.exercise(receiver, agreementFactory.exerciseCreateAgreement) }
         _ <- synchronize(alpha, beta)
         transactions <- alpha.flatTransactions(receiver, giver)
       } yield {
@@ -694,9 +694,11 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     case Participants(Participant(alpha, operator, receiver), Participant(beta, giver)) =>
       for {
         agreementFactory <- beta.create(giver, AgreementFactory(receiver, giver))
-        agreement <- alpha.exerciseAndGetContract[Agreement](
-          receiver,
-          agreementFactory.exerciseAgreementFactoryAccept)
+        agreement <- eventually {
+          alpha.exerciseAndGetContract[Agreement](
+            receiver,
+            agreementFactory.exerciseAgreementFactoryAccept)
+        }
         triProposalTemplate = TriProposal(operator, receiver, giver)
         triProposal <- alpha.create(operator, triProposalTemplate)
         tree <- eventually {
