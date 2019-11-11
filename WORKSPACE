@@ -279,7 +279,7 @@ haskell_register_ghc_nixpkgs(
     # with the GHCi linker to the point where :main takes several minutes rather than several seconds.
     compiler_flags = common_ghc_flags + [
         "-fexternal-dynamic-refs",
-    ] + (["-g3"] if enable_ghc_dwarf else []),
+    ] + (["-g3"] if enable_ghc_dwarf else ["-optl-s"]),
     compiler_flags_select = {
         "@com_github_digital_asset_daml//:profiling_build": ["-fprof-auto"],
         "//conditions:default": [],
