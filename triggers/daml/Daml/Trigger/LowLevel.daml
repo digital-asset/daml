@@ -25,8 +25,10 @@ module Daml.Trigger.LowLevel
   , Command(..)
   , createCmd
   , exerciseCmd
+  , exerciseByKeyCmd
   , fromCreate
   , fromExercise
+  , fromExerciseByKey
   ) where
 
 import DA.Next.Map (MapKey(..))
@@ -154,6 +156,11 @@ data Command
       { contractId : AnyContractId
       , choiceArg : AnyChoice
       }
+  | ExerciseByKeyCommand
+      { tplTypeRep : TemplateTypeRep
+      , contractKey : AnyContractKey
+      , choiceArg : AnyChoice
+      }
 
 -- | Create a contract of the given template.
 createCmd : Template t => t -> Command
@@ -164,6 +171,10 @@ createCmd templateArg =
 exerciseCmd : forall t c r. Choice t c r => ContractId t -> c -> Command
 exerciseCmd contractId choiceArg =
   ExerciseCommand (toAnyContractId contractId) (toAnyChoice @t choiceArg)
+
+exerciseByKeyCmd : forall t c r k. (Choice t c r, TemplateKey t k) => k -> c -> Command
+exerciseByKeyCmd contractKey choiceArg =
+  ExerciseByKeyCommand (templateTypeRep @t) (toAnyContractKey @t contractKey) (toAnyChoice @t choiceArg)
 
 -- | Check if the command corresponds to a create command
 -- for the given template.
@@ -176,6 +187,13 @@ fromCreate _ = None
 fromExercise : forall t c r. Choice t c r => Command -> Optional (ContractId t, c)
 fromExercise (ExerciseCommand cid c) = (,) <$> fromAnyContractId cid <*> fromAnyChoice @t c
 fromExercise _ = None
+
+-- | Check if the command corresponds to an exercise by key command
+-- for the given template.
+fromExerciseByKey : forall t c r k. (Choice t c r, TemplateKey t k) => Command -> Optional (k, c)
+fromExerciseByKey (ExerciseByKeyCommand tyRep k c)
+  | tyRep == templateTypeRep @t = (,) <$> fromAnyContractKey @t k <*> fromAnyChoice @t c
+fromExerciseByKey _ = None
 
 -- | A set of commands that are submitted as a single transaction.
 data Commands = Commands
