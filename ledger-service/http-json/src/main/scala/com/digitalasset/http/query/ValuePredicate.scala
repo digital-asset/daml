@@ -199,16 +199,8 @@ object ValuePredicate {
       }
       (typ.typ, it).match2 {
         case Bool => { case JsBoolean(q) => Literal { case V.ValueBool(v) if q == v => } }
-        case Int64 => {
-          case Int64RangeExpr.Scalar(lq) =>
-            Int64RangeExpr toLiteral lq
-        }
-        case Text => {
-          case TextRangeExpr.Scalar(q) =>
-            TextRangeExpr toLiteral q
-          case TextRangeExpr(eoIor) =>
-            eoIor.map(TextRangeExpr.toRange).merge
-        }
+        case Int64 => Int64RangeExpr.toQueryParser
+        case Text => TextRangeExpr.toQueryParser
         case Date => {
           case DateRangeExpr.Scalar(dq) =>
             DateRangeExpr toLiteral dq
@@ -334,6 +326,15 @@ object ValuePredicate {
     def toLiteral(q: A) = Literal { case v if lfvScalar.lift(v) contains q => }
 
     def toRange(ltgt: Boundaries[A])(implicit A: Order[A]) = Range(ltgt, A, lfvScalar)
+
+    /** Match both the literal and range query cases. */
+    def toQueryParser(implicit A: Order[A]): JsValue PartialFunction ValuePredicate = {
+      val Self = this;
+      {
+        case Scalar(q) => toLiteral(q)
+        case Self(eoIor) => eoIor.map(toRange).merge
+      }
+    }
   }
 
   private[this] object RangeExpr {
