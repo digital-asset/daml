@@ -55,7 +55,7 @@ class ApiTimeService private (
       Source.failed, { ledgerId =>
         logger.trace("Request for time with ledger ID {}", ledgerId)
         dispatcher
-          .subscribe(None)
+          .subscribe()
           .map(_ => backend.getCurrentTime)
           .scan[Option[Instant]](Some(backend.getCurrentTime)) {
             case (Some(previousTime), currentTime) if previousTime == currentTime => None
@@ -106,7 +106,7 @@ class ApiTimeService private (
       //_ <- updateTime(expectedTime, requestedTime)
     } yield {
       updateTime(expectedTime, requestedTime).map { _ =>
-        dispatcher.signal(requestedTime)
+        dispatcher.signal()
         Empty()
       }
     }
