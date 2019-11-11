@@ -230,9 +230,9 @@ abstract class LedgerBackedIndexService(
       }
 
   private class OffsetConverter {
-    lazy val currentEndF = currentLedgerEnd()
+    lazy val currentEndF: Future[LedgerOffset.Absolute] = currentLedgerEnd()
 
-    def toAbsolute(offset: LedgerOffset) = offset match {
+    def toAbsolute(offset: LedgerOffset): Source[LedgerOffset.Absolute, NotUsed] = offset match {
       case LedgerOffset.LedgerBegin =>
         Source.single(LedgerOffset.Absolute(Ref.LedgerString.assertFromString("0")))
       case LedgerOffset.LedgerEnd => Source.fromFuture(currentEndF)

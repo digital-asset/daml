@@ -35,7 +35,7 @@ case class InMemoryActiveLedgerState(
       .map(c => Let(c.let))
       .orElse[LetLookup](divulgedContracts.get(cid).map(_ => LetUnknown))
 
-  override def keyExists(key: GlobalKey) = keys.contains(key)
+  override def keyExists(key: GlobalKey): Boolean = keys.contains(key)
 
   /**
     * Updates divulgence information on the given active contract with information
@@ -68,7 +68,7 @@ case class InMemoryActiveLedgerState(
     }
   }
 
-  override def removeContract(cid: AbsoluteContractId) = {
+  override def removeContract(cid: AbsoluteContractId): InMemoryActiveLedgerState = {
     val (newKeys, newReverseKeys) = reverseKeys.get(cid) match {
       case None => (keys, reverseKeys)
       case Some(key) => (keys - key, reverseKeys - cid)
@@ -82,7 +82,7 @@ case class InMemoryActiveLedgerState(
   }
 
   override def addParties(newParties: Set[Party]): InMemoryActiveLedgerState =
-    copy(parties = newParties.map(p => p -> PartyDetails(p, None, true)).toMap ++ parties)
+    copy(parties = newParties.map(p => p -> PartyDetails(p, None, isLocal = true)).toMap ++ parties)
 
   override def divulgeAlreadyCommittedContracts(
       transactionId: TransactionIdString,
@@ -95,12 +95,14 @@ case class InMemoryActiveLedgerState(
       // - a known active contract, in which case its divulgence info is updated
       // - a previously divulged contract, in which case its divulgence info is updated
       // - an unknown contract, in which case a new divulged contract is created from the corresponding info in `referencedContracts`
-      val updatedAcs = activeContracts.intersectWith(global) { (ac, parties) =>
-        ac copy (divulgences = ac.divulgeTo(parties, transactionId))
-      }
-      val updatedDcs = divulgedContracts.intersectWith(global) { (dc, parties) =>
-        dc copy (divulgences = dc.divulgeTo(parties, transactionId))
-      }
+      val updatedAcs: Map[AbsoluteContractId, ActiveContract] =
+        activeContracts.intersectWith(global) { (ac, parties) =>
+          ac.copy(divulgences = ac.divulgeTo(parties, transactionId))
+        }
+      val updatedDcs: Map[AbsoluteContractId, DivulgedContract] =
+        divulgedContracts.intersectWith(global) { (dc, parties) =>
+          dc.copy(divulgences = dc.divulgeTo(parties, transactionId))
+        }
       val newDcs = global.foldLeft(Map.empty[AbsoluteContractId, DivulgedContract]) {
         case (m, (cid, divulgeTo)) =>
           if (divulgeTo.isEmpty || updatedAcs.contains(cid) || updatedDcs.contains(cid))

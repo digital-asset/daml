@@ -73,7 +73,7 @@ private class DbDispatcherImpl(
     // Getting a connection can block! Presumably, it only blocks if the connection pool has no free connections.
     // getStreamingConnection calls can therefore not be parallelized, and we use a single thread for all of them.
     Source
-      .fromFuture(Future(connectionProvider.getStreamingConnection())(connectionGettingThreadPool))
+      .fromFuture(Future(connectionProvider.getStreamingConnection)(connectionGettingThreadPool))
       .flatMapConcat(conn =>
         sql(conn)
           .mapMaterializedValue { f =>

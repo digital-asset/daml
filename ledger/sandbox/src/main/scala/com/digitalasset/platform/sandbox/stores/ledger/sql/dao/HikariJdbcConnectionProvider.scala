@@ -20,7 +20,7 @@ trait JdbcConnectionProvider extends AutoCloseable {
   def runSQL[T](block: Connection => T): T
 
   /** Returns a connection meant to be used for long running streaming queries. The Connection has to be closed manually! */
-  def getStreamingConnection(): Connection
+  def getStreamingConnection: Connection
 }
 
 object HikariConnection {
@@ -89,7 +89,7 @@ class HikariJdbcConnectionProvider(
     }
   }
 
-  override def getStreamingConnection(): Connection =
+  override def getStreamingConnection: Connection =
     streamingDataSource.getConnection()
 
   override def close(): Unit = {

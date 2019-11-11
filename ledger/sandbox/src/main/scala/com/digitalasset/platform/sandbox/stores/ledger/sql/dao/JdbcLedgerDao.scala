@@ -15,7 +15,13 @@ import anorm.{AkkaStream, BatchSql, Macro, NamedParameter, RowParser, SQL, SqlPa
 import com.daml.ledger.participant.state.index.v2.PackageDetails
 import com.daml.ledger.participant.state.v1.{AbsoluteContractInst, TransactionId}
 import com.digitalasset.daml.lf.archive.Decode
-import com.digitalasset.daml.lf.data.Ref._
+import com.digitalasset.daml.lf.data.Ref.{
+  ContractIdString,
+  LedgerString,
+  PackageId,
+  Party,
+  TransactionIdString
+}
 import com.digitalasset.daml.lf.data.Relation.Relation
 import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.transaction.Node.{GlobalKey, KeyWithMaintainers}
@@ -478,7 +484,7 @@ private class JdbcLedgerDao(
           this
         }
 
-        override def removeContract(cid: AbsoluteContractId) = {
+        override def removeContract(cid: AbsoluteContractId): AcsStoreAcc = {
           archiveContract(offset, cid)
           removeContractKey(cid)
           this
@@ -501,7 +507,8 @@ private class JdbcLedgerDao(
         override def divulgeAlreadyCommittedContracts(
             transactionId: TransactionIdString,
             global: Relation[AbsoluteContractId, Party],
-            divulgedContracts: List[(Value.AbsoluteContractId, AbsoluteContractInst)]) = {
+            divulgedContracts: List[(Value.AbsoluteContractId, AbsoluteContractInst)])
+          : AcsStoreAcc = {
           val divulgenceParams = global
             .flatMap {
               case (cid, parties) =>
@@ -618,7 +625,7 @@ private class JdbcLedgerDao(
           .fold(
             err =>
               sys.error(
-                s"Failed to serialize transaction! trId: ${transactionId}. Details: ${err.errorMessage}."),
+                s"Failed to serialize transaction! trId: $transactionId. Details: ${err.errorMessage}."),
             identity
           )
       case _: LedgerEntry.Rejection | _: LedgerEntry.Checkpoint => Array.empty[Byte]
@@ -802,9 +809,9 @@ private class JdbcLedgerDao(
       str("rejection_type").? ~
       str("rejection_description").? ~
       long("ledger_offset")
-  ) map (flatten) map (ParsedEntry.tupled)
+  ) map flatten map (ParsedEntry.tupled)
 
-  private val DisclosureParser = (ledgerString("event_id") ~ party("party") map (flatten))
+  private val DisclosureParser = ledgerString("event_id") ~ party("party") map flatten
 
   private def toLedgerEntry(
       parsedEntry: ParsedEntry,
@@ -906,10 +913,10 @@ private class JdbcLedgerDao(
     ~ binaryStream("contract")
     ~ binaryStream("key").?
     ~ str("signatories").?
-    ~ str("observers").? map (flatten))
+    ~ str("observers").? map flatten)
 
   private val ContractLetParser = (ledgerString("id")
-    ~ date("effective_at").? map (flatten))
+    ~ date("effective_at").? map flatten)
 
   private val SQL_SELECT_CONTRACT =
     SQL(queries.SQL_SELECT_CONTRACT)
@@ -926,7 +933,7 @@ private class JdbcLedgerDao(
 
   private val DivulgenceParser = (party("party")
     ~ long("ledger_offset")
-    ~ ledgerString("transaction_id") map (flatten))
+    ~ ledgerString("transaction_id") map flatten)
 
   private val SQL_SELECT_DIVULGENCE =
     SQL(
@@ -1131,11 +1138,11 @@ private class JdbcLedgerDao(
             // using '&' as a "separator" for the two columns because it is not allowed in either Party or Identifier strings
             // and querying on tuples is basically impossible to do sensibly.
             "template_parties" -> orEmptyStringList(filter.specificSubscriptions.map {
-              case (ident, party) => (ident.qualifiedName.qualifiedName + "&" + party.toString)
+              case (ident, party) => ident.qualifiedName.qualifiedName + "&" + party.toString
             }),
             "wildcard_parties" -> orEmptyStringList(filter.globalSubscriptions.toList)
           ),
-          ContractDataParser
+          parser = ContractDataParser
         )(mat, conn)
         .mapAsync(dbDispatcher.noOfShortLivedConnections) { contractResult =>
           // it's ok to not have query isolation as witnesses cannot change once we saved them
@@ -1182,7 +1189,7 @@ private class JdbcLedgerDao(
         // TODO: isLocal should be based on equality of participantId reported in an
         // update and the id given to participant in a command-line argument
         // (See issue #2026)
-        .map(d => PartyDetails(Party.assertFromString(d.party), d.displayName, true))
+        .map(d => PartyDetails(Party.assertFromString(d.party), d.displayName, isLocal = true))
     }
 
   private val SQL_INSERT_PARTY =
@@ -1323,7 +1330,7 @@ private class JdbcLedgerDao(
 
   private def executeBatchSql(query: String, params: Iterable[Seq[NamedParameter]])(
       implicit con: Connection) = {
-    require(params.size > 0, "batch sql statement must have at least one set of name parameters")
+    require(params.nonEmpty, "batch sql statement must have at least one set of name parameters")
     BatchSql(query, params.head, params.drop(1).toArray: _*).execute()
   }
 
