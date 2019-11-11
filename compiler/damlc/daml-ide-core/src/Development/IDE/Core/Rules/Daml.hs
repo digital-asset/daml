@@ -409,9 +409,9 @@ generatePackageMap fps = do
         return $ do
           (pkgId, package) <-
             mapLeft (ideErrorPretty $ toNormalizedFilePath dalf) $
-            Archive.decodeArchive dalfBS
+            Archive.decodeArchive Archive.DecodeAsDependency dalfBS
           let unitId = stringToUnitId $ dropExtension $ takeFileName dalf
-          Right (unitId, LF.DalfPackage pkgId (LF.rewriteSelfReferences pkgId package) dalfBS)
+          Right (unitId, LF.DalfPackage pkgId (LF.ExternalPackage pkgId package) dalfBS)
   return (diags, Map.fromList pkgs)
 
 generatePackageMapRule :: Options -> Rules ()
