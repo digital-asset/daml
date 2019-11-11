@@ -101,7 +101,7 @@ class AuthorizationIT
   implicit class AuthServiceJWTPayloadExtensions(payload: AuthServiceJWTPayload) {
     def expiresIn(t: java.time.Duration): AuthServiceJWTPayload =
       payload.copy(exp = Some(Instant.now.plus(t)))
-    def expiresInOneSecond: AuthServiceJWTPayload = expiresIn(Duration.ofSeconds(1))
+    def expiresInFiveSeconds: AuthServiceJWTPayload = expiresIn(Duration.ofSeconds(5))
     def expiresTomorrow: AuthServiceJWTPayload = expiresIn(Duration.ofDays(1))
     def expired: AuthServiceJWTPayload = expiresIn(Duration.ofDays(-1))
 
@@ -209,14 +209,14 @@ class AuthorizationIT
                   Some(ledgerBegin)),
                 observer))
 
-        def scheduleCommandInMillis(millis: Long): Unit = {
+        def scheduleCommand(duration: Duration): Unit = {
           val timer = new Timer(true)
           timer.schedule(new TimerTask {
             override def run(): Unit = {
               val _ =
                 ctxAlice.commandService.submitAndWait(dummySubmitAndWaitRequest(ledgerId, alice))
             }
-          }, millis)
+          }, duration.toMillis)
         }
 
         for {
@@ -228,8 +228,8 @@ class AuthorizationIT
           _ <- mustBeDenied(call(ctxAliceExpired, alice)) // Reading completions for Alice as Alice after expiration
           _ <- call(ctxAlice, alice) // Reading completions for Alice as Alice before expiration
           ctxAliceAboutToExpire = ctxNone.withAuthorizationHeader(
-            alicePayload.expiresInOneSecond.asHeader())
-          _ = scheduleCommandInMillis(1100)
+            alicePayload.expiresInFiveSeconds.asHeader())
+          _ = scheduleCommand(Duration.ofSeconds(10))
           _ <- callAndExpectExpiration(ctxAliceAboutToExpire, alice)
         } yield {
           succeed
