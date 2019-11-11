@@ -43,6 +43,7 @@ da_scala_library(
 
 da_scala_test(
     name = "kvutils-tests",
+    size = "small",
     srcs = glob(["src/test/suite/**/*.scala"]),
     data = [
         "//ledger/test-common:Test-stable.dar",

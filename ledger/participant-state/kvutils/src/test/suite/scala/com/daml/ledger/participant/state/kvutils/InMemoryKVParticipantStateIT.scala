@@ -442,7 +442,7 @@ class InMemoryKVParticipantStateIT
     val rt = ps.getNewRecordTime()
 
     for {
-      lic <- ps.getLedgerInitialConditions.runWith(Sink.head)
+      lic <- ps.getLedgerInitialConditions().runWith(Sink.head)
 
       // Submit a configuration change that flips the "open world" flag.
       _ <- ps
