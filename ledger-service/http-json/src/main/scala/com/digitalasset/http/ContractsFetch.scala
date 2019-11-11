@@ -17,6 +17,7 @@ import akka.stream.scaladsl.{
 import akka.stream.{ClosedShape, FanOutShape2, Graph, Materializer}
 import doobie.free.connection
 import com.digitalasset.http.Statement.discard
+import com.digitalasset.http.dbbackend.ContractDao.StaleOffsetException
 import com.digitalasset.http.dbbackend.{ContractDao, Queries}
 import com.digitalasset.http.dbbackend.Queries.{DBContract, SurrogateTpId}
 import com.digitalasset.http.domain.TemplateId
@@ -30,6 +31,7 @@ import com.digitalasset.ledger.api.v1.transaction.Transaction
 import com.digitalasset.ledger.api.{v1 => lav1}
 import doobie.free.connection
 import doobie.free.connection.ConnectionIO
+import doobie.postgres.sqlstate.{class23 => postgres_class23}
 import scalaz.std.vector._
 import scalaz.syntax.show._
 import scalaz.syntax.tag._
@@ -51,6 +53,11 @@ private class ContractsFetch(
 
   import ContractsFetch._
 
+  private val retrySqlStates: Set[String] = Set(
+    postgres_class23.UNIQUE_VIOLATION.value,
+    StaleOffsetException.SqlState
+  )
+
   def contractsIo2(jwt: Jwt, party: domain.Party, templateIds: List[domain.TemplateId.RequiredPkg])(
       implicit ec: ExecutionContext,
       mat: Materializer): ConnectionIO[List[OffsetBookmark[domain.Offset]]] = {
@@ -65,13 +72,12 @@ private class ContractsFetch(
       implicit ec: ExecutionContext,
       mat: Materializer): ConnectionIO[OffsetBookmark[domain.Offset]] = {
 
-    import doobie.postgres._
     import doobie.implicits._
 
     def loop(maxAttempts: Int): ConnectionIO[OffsetBookmark[domain.Offset]] = {
       logger.debug(s"contractsIo, maxAttempts: $maxAttempts")
       contractsIo_(jwt, party, templateId).exceptSql {
-        case e if maxAttempts > 0 && e.getSQLState == sqlstate.class23.UNIQUE_VIOLATION.value =>
+        case e if maxAttempts > 0 && retrySqlStates(e.getSQLState) =>
           logger.debug(s"contractsIo, exception: ${e.getMessage}, state: ${e.getSQLState}")
           connection.rollback flatMap (_ => loop(maxAttempts - 1))
         case e @ _ =>
@@ -144,7 +150,9 @@ private class ContractsFetch(
       offsetOrError <- ledgerOffset match {
         case AbsoluteBookmark(str) =>
           val offset = domain.Offset(str)
-          ContractDao.updateOffset(party, templateId, offset).map(_ => AbsoluteBookmark(offset))
+          ContractDao
+            .updateOffset(party, templateId, offset, None)
+            .map(_ => AbsoluteBookmark(offset))
         case LedgerBegin =>
           connection.pure(LedgerBegin)
       }
@@ -230,9 +238,16 @@ private class ContractsFetch(
     for {
       _ <- sinkCioSequence_(acsQueue)
       offsetO <- connectionIOFuture(lastOffsetFuture)
-      _ <- offsetO.traverse(offset => ContractDao.updateOffset(party, templateId, offset))
+      _ <- offsetO.traverse(newOffset =>
+        ContractDao.updateOffset(party, templateId, newOffset, offsetFromBookmark(offset)))
     } yield offsetO
   }
+
+  private def offsetFromBookmark(o: OffsetBookmark[domain.Offset]): Option[domain.Offset] =
+    o match {
+      case LedgerBegin => None
+      case AbsoluteBookmark(x) => Some(x)
+    }
 
   private def transactionToInsertsAndDeletes(tx: lav1.transaction.Transaction)
     : (InsertDeleteStep[lav1.event.CreatedEvent], domain.Offset) = {
