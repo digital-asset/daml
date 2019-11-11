@@ -110,7 +110,7 @@ private class MeteredLedger(ledger: Ledger, metrics: MetricRegistry)
   override def uploadPackages(
       knownSince: Instant,
       sourceDescription: Option[String],
-      payload: List[Archive]): Future[UploadPackagesResult] =
+      payload: List[Archive]): Future[SubmissionResult] =
     timedFuture(
       Metrics.uploadPackages,
       ledger.uploadPackages(knownSince, sourceDescription, payload))

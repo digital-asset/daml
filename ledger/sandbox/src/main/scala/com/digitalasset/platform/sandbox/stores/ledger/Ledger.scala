@@ -52,7 +52,7 @@ trait WriteLedger extends AutoCloseable {
   def uploadPackages(
       knownSince: Instant,
       sourceDescription: Option[String],
-      payload: List[Archive]): Future[UploadPackagesResult]
+      payload: List[Archive]): Future[SubmissionResult]
 }
 
 /** Defines all the functionalities a Ledger needs to provide */

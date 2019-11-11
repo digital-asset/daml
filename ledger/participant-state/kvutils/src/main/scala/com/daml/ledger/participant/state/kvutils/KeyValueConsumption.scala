@@ -42,7 +42,8 @@ object KeyValueConsumption {
 
     val recordTime = parseTimestamp(entry.getRecordTime)
 
-    val participantId = Ref.LedgerString.assertFromString(entry.getPackageUploadEntry.getParticipantId)
+    val participantId =
+      Ref.LedgerString.assertFromString(entry.getPackageUploadEntry.getParticipantId)
     entry.getPayloadCase match {
       case DamlLogEntry.PayloadCase.PACKAGE_UPLOAD_ENTRY =>
         entry.getPackageUploadEntry.getArchivesList.asScala.map { archive =>
@@ -60,20 +61,24 @@ object KeyValueConsumption {
       case DamlLogEntry.PayloadCase.PACKAGE_UPLOAD_REJECTION_ENTRY =>
         val rejection = entry.getPackageUploadRejectionEntry
         val proposedPackageUpload = rejection.getInvalidPackage
-        List(
+        entry.getPackageUploadEntry.getArchivesList.asScala.map { archive =>
           Update.PublicPackageRejected(
-            participantId,
+            archive,
+            if (entry.getPackageUploadEntry.getSourceDescription.nonEmpty)
+              Some(entry.getPackageUploadEntry.getSourceDescription)
+            else None,
+            Ref.LedgerString.assertFromString(entry.getPackageUploadEntry.getParticipantId),
             Ref.LedgerString.assertFromString(entry.getPackageUploadEntry.getSubmissionId),
-          reason = rejection.getReasonCase match{
-            case DamlPackageUploadRejectionEntry.ReasonCase.INVALID_PACKAGE =>
-              s"Package ${proposedPackageUpload.getDetails} rejected as invalid"
-            case DamlPackageUploadRejectionEntry.ReasonCase.REASON_NOT_SET =>
-              s"Package ${proposedPackageUpload.getDetails} upload failed for undetermined reason"
-            case DamlPackageUploadRejectionEntry.ReasonCase.PARTICIPANT_NOT_AUTHORIZED =>
-              s"Participant ${participantId} not authorized to upload package"
-          }
-        )
-        )
+            reason = rejection.getReasonCase match {
+              case DamlPackageUploadRejectionEntry.ReasonCase.INVALID_PACKAGE =>
+                s"Package ${proposedPackageUpload.getDetails} rejected as invalid"
+              case DamlPackageUploadRejectionEntry.ReasonCase.REASON_NOT_SET =>
+                s"Package ${proposedPackageUpload.getDetails} upload failed for undetermined reason"
+              case DamlPackageUploadRejectionEntry.ReasonCase.PARTICIPANT_NOT_AUTHORIZED =>
+                s"Participant ${participantId} not authorized to upload package"
+            }
+          )
+        }(breakOut)
 
       case DamlLogEntry.PayloadCase.PARTY_ALLOCATION_ENTRY =>
         List(

@@ -8,7 +8,7 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.index.v2.PackageDetails
-import com.daml.ledger.participant.state.v1.{AbsoluteContractInst, ParticipantId, TransactionId}
+import com.daml.ledger.participant.state.v1.{AbsoluteContractInst, TransactionId}
 import com.digitalasset.daml.lf.data.Ref.{LedgerString, PackageId, Party}
 import com.digitalasset.daml.lf.data.Relation.Relation
 import com.digitalasset.daml.lf.transaction.Node
@@ -214,13 +214,17 @@ trait LedgerWriteDao extends AutoCloseable {
       uploadId: String,
       packages: List[(Archive, PackageDetails)],
       externalOffset: Option[ExternalOffset]
+//      ,
+//      participantId: ParticipantId,
+//      submissionId: String,
+//      reason: String
   ): Future[Map[PersistenceResponse, Int]]
 
-  def storePackageRejection(
-      participantId: ParticipantId,
-      submissionId: String,
-      reason: String
-  ): Future[PersistenceResponse]
+//  def storePackageRejection(
+//      participantId: ParticipantId,
+//      submissionId: String,
+//      reason: String
+//  ): Future[PersistenceResponse]
 
   /** Resets the platform into a state as it was never used before. Meant to be used solely for testing. */
   def reset(): Future[Unit]
