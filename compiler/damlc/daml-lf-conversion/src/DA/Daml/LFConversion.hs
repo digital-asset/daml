@@ -673,7 +673,7 @@ convertBind env (name, x)
     --
     -- TODO(MH): The check is an approximation which will fail when users
     -- start the name of their own methods with, say, `_exercise`.
-    | any (`T.isPrefixOf` getOccText name) [ "$" <> prefix <> "_" <> method | prefix <- ["dm", "c"], method <- ["create", "fetch", "exercise", "toAnyTemplate", "fromAnyTemplate", "_templateTypeRep", "fetchByKey", "lookupByKey", "toAnyChoice", "fromAnyChoice", "_toAnyContractKey", "_fromAnyContractKey", "toAnyContractKey", "fromAnyContractKey"] ]
+    | any (`T.isPrefixOf` getOccText name) [ "$" <> prefix <> "_" <> method | prefix <- ["dm", "c"], method <- ["create", "fetch", "exercise", "toAnyTemplate", "fromAnyTemplate", "_templateTypeRep", "fetchByKey", "lookupByKey", "toAnyChoice", "fromAnyChoice", "toAnyContractKey", "fromAnyContractKey"] ]
     = pure []
     -- NOTE(MH): Our inline return type syntax produces a local letrec for
     -- recursive functions. We currently don't support local letrecs.
