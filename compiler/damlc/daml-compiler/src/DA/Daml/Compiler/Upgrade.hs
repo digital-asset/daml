@@ -53,13 +53,11 @@ data Env = Env
 newtype DiffSdkVers = DiffSdkVers Bool
 
 -- | Generate non-consuming choices to upgrade all templates defined in the module.
-generateUpgradeModule :: DiffSdkVers -> [String] -> String -> String -> String -> String
-generateUpgradeModule (DiffSdkVers diffSdks) templateNames modName qualA qualB =
+generateUpgradeModule :: [String] -> String -> String -> String -> String
+generateUpgradeModule templateNames modName qualA qualB =
     unlines $ header ++ concatMap upgradeTemplates templateNames
   where
-    header
-      | diffSdks = header0 ++ header1 ++ header2
-      | otherwise = header0 ++ header2
+    header = header0 ++ header1 ++ header2
       -- If we compile with packages from a single sdk version, the instances modules will not be
       -- there and hence we can not include header1.
     header0 =
@@ -69,8 +67,8 @@ generateUpgradeModule (DiffSdkVers diffSdks) templateNames modName qualA qualB =
         , "import " <> modName <> qualB <> " qualified as B"
         ]
     header1 =
-        [ "import " <> modName <> "Instances()"
-        , "import " <> modName <> "Instances()"
+        [ "import " <> modName <> qualA <> "Instances()"
+        , "import " <> modName <> qualB <> "Instances()"
         ]
     header2 = [
         "import DA.Upgrade"
@@ -670,9 +668,8 @@ generateSrcFromLf env thisPkgId = noLoc mod
             LF.BTMap -> (damlStdlibUnitId, LF.ModuleName ["DA", "Internal", "LF"])
             LF.BTArrow -> (primUnitId, translateModName funTyCon)
             LF.BTNumeric -> (primUnitId, LF.ModuleName ["GHC", "Types"])
-            -- TODO: see https://github.com/digital-asset/daml/issues/2876
-            LF.BTAny -> error "Any type not yet supported in upgrades"
-            LF.BTTypeRep -> error "TypeRep type not yet supported in upgrades"
+            LF.BTAny -> (damlStdlibUnitId, LF.ModuleName ["DA", "Internal", "LF"])
+            LF.BTTypeRep -> (damlStdlibUnitId, LF.ModuleName ["DA", "Internal", "LF"])
 
     translateModName ::
            forall a. NamedThing a
@@ -765,9 +762,8 @@ convBuiltInTy qualify =
         LF.BTMap -> mkLfInternalType "TextMap"
         LF.BTArrow -> mkTyConTypeUnqual funTyCon
         LF.BTNumeric -> mkGhcType "Numeric"
-        -- TODO see https://github.com/digital-asset/daml/issues/2876
-        LF.BTAny -> error "Any type not yet supported in upgrades"
-        LF.BTTypeRep -> error "TypeRep type not yet supported in upgrades"
+        LF.BTAny -> mkLfInternalType "Any"
+        LF.BTTypeRep -> mkLfInternalType "TypeRep"
 
 mkLfInternalType :: String -> HsType GhcPs
 mkLfInternalType =

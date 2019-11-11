@@ -290,9 +290,9 @@ object ConfigParser {
 
       val tlsConfig = TlsConfiguration(
         enabled = cliParams.tlsPem.isDefined || cliParams.tlsCrt.isDefined || cliParams.tlsCaCrt.isDefined,
-        cliParams.tlsPem.map(new File(_)),
-        cliParams.tlsCrt.map(new File(_)),
-        cliParams.tlsCaCrt.map(new File(_))
+        keyCertChainFile = cliParams.tlsCrt.map(new File(_)),
+        keyFile = cliParams.tlsPem.map(new File(_)),
+        trustCertCollectionFile = cliParams.tlsCaCrt.map(new File(_))
       )
 
       val config = ExtractorConfig(

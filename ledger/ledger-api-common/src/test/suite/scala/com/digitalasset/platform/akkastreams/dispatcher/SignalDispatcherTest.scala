@@ -45,7 +45,7 @@ class SignalDispatcherTest
     "output multiple signals when they arrive" in { sut =>
       val count = 10
       val result = sut.subscribe(false).take(count.toLong).runWith(Sink.seq).map(_ => succeed)
-      1.to(count).foreach(_ => sut.signal())
+      1.to(count).foreach(_ => sut.signal)
       result
     }
 
@@ -73,7 +73,8 @@ class SignalDispatcherTest
       succeed
     }
   }
-  override def withFixture(test: OneArgAsyncTest): FutureOutcome = test.apply(SignalDispatcher())
+  override def withFixture(test: OneArgAsyncTest): FutureOutcome =
+    test.apply(SignalDispatcher())
   override type FixtureParam = SignalDispatcher
   override def timeLimit: Span = scaled(10.seconds)
 }

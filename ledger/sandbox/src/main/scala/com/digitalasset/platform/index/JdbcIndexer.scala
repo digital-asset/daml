@@ -83,7 +83,7 @@ class JdbcIndexerFactory[Status <: InitStatus] private (loggerFactory: NamedLogg
       .getLedgerInitialConditions()
       .runWith(Sink.head)(materializer)
 
-    val ledgerDao: LedgerDao = initializeDao(jdbcUrl, metricsManager)
+    val ledgerDao: LedgerDao = initializeDao(jdbcUrl, metricsManager, actorSystem.dispatcher)
     for {
       LedgerInitialConditions(ledgerIdString, _, _) <- ledgerInit
       ledgerId = domain.LedgerId(ledgerIdString)
@@ -102,7 +102,10 @@ class JdbcIndexerFactory[Status <: InitStatus] private (loggerFactory: NamedLogg
     }
   }
 
-  private def initializeDao(jdbcUrl: String, mm: MetricsManager) = {
+  private def initializeDao(
+      jdbcUrl: String,
+      mm: MetricsManager,
+      executionContext: ExecutionContext) = {
     val dbType = DbType.jdbcType(jdbcUrl)
     val dbDispatcher =
       DbDispatcher(
@@ -119,7 +122,8 @@ class JdbcIndexerFactory[Status <: InitStatus] private (loggerFactory: NamedLogg
         ValueSerializer,
         KeyHasher,
         dbType,
-        loggerFactory),
+        loggerFactory,
+        executionContext),
       mm)
     ledgerDao
   }

@@ -36,8 +36,7 @@ register_toolchains(
     "//:c2hs-toolchain",
 )
 
-load("//bazel_tools/dev_env_package:dev_env_package.bzl", "dev_env_package")
-load("//bazel_tools/dev_env_package:dev_env_tool.bzl", "dev_env_tool")
+load("//bazel_tools/dev_env_tool:dev_env_tool.bzl", "dev_env_tool")
 load(
     "@io_tweag_rules_nixpkgs//nixpkgs:nixpkgs.bzl",
     "nixpkgs_cc_configure",
@@ -482,12 +481,12 @@ GRPC_HASKELL_COMMIT = "11681ec6b99add18a8d1315f202634aea343d146"
 
 GRPC_HASKELL_HASH = "c6201f4e2fd39f25ca1d47b1dac4efdf151de88a2eb58254d61abc2760e58fda"
 
-GHC_LIB_VERSION = "8.8.1.20191015"
+GHC_LIB_VERSION = "8.8.1.20191111"
 
 http_archive(
     name = "haskell_ghc__lib__parser",
     build_file = "//3rdparty/haskell:BUILD.ghc-lib-parser",
-    sha256 = "1f86522a1c554839fa5a5c1a0bc0462c055fb93c925f912689bc7af24c7118c1",
+    sha256 = "2b406c537667e7a802aa1551a9c2b697b47d1b40e3d8d99f9d0711209a6636fd",
     strip_prefix = "ghc-lib-parser-{}".format(GHC_LIB_VERSION),
     urls = ["https://digitalassetsdk.bintray.com/ghc-lib/ghc-lib-parser-{}.tar.gz".format(GHC_LIB_VERSION)],
 )
@@ -569,7 +568,7 @@ hazel_repositories(
 
             # Read [Working on ghc-lib] for ghc-lib update instructions at
             # https://github.com/digital-asset/daml/blob/master/ghc-lib/working-on-ghc-lib.md.
-            hazel_ghclibs(GHC_LIB_VERSION, "0000000000000000000000000000000000000000000000000000000000000000", "237246bf2b473f370470fa7949582ba381884979876535573b9212cf4dd0b856") +
+            hazel_ghclibs(GHC_LIB_VERSION, "0000000000000000000000000000000000000000000000000000000000000000", "89378f66a8283ddb785538e6d94c1a282d27fa2f3658b537ea5d3cee2efa786e") +
             hazel_github_external("digital-asset", "hlint", "951fdb6d28d7eed8ea1c7f3be69da29b61fcbe8f", "f5fb4cf98cde3ecf1209857208369a63ba21b04313d570c41dffe9f9139a1d34") +
             hazel_github_external("awakesecurity", "proto3-wire", "4f355bbac895d577d8a28f567ab4380f042ccc24", "031e05d523a887fbc546096618bc11dceabae224462a6cdd6aab11c1658e17a3") +
             hazel_github_external(
@@ -643,6 +642,7 @@ hazel_repositories(
 hazel_custom_package_hackage(
     package_name = "ghc-paths",
     build_file = "@ai_formation_hazel//third_party/haskell:BUILD.ghc-paths",
+    sha256 = "afa68fb86123004c37c1dc354286af2d87a9dcfb12ddcb80e8bd0cd55bc87945",
     version = "0.1.0.9",
 )
 
@@ -786,10 +786,22 @@ load("@io_bazel_rules_scala//jmh:jmh.bzl", "jmh_repositories")
 
 jmh_repositories()
 
-dev_env_package(
+dev_env_tool(
     name = "nodejs_dev_env",
+    nix_include = [
+        "bin",
+        "include",
+        "lib",
+        "share",
+    ],
     nix_label = "@node_nix",
-    symlink_path = "nodejs_dev_env",
+    nix_paths = [],
+    prefix = "nodejs_dev_env",
+    tools = [],
+    win_include = [
+        ".",
+    ],
+    win_paths = [],
     win_tool = "nodejs-10.12.0",
 )
 
@@ -878,6 +890,7 @@ buildifier_dependencies()
 nixpkgs_package(
     name = "python3_nix",
     attribute_path = "python3",
+    nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
     repositories = dev_env_nix_repos,
 )
@@ -930,7 +943,7 @@ dev_env_tool(
         "bin/initdb.exe",
         "bin/createdb.exe",
         "bin/pg_ctl.exe",
-        "bin/postgresql.exe",
+        "bin/postgres.exe",
     ],
     win_tool = "msys2",
 )

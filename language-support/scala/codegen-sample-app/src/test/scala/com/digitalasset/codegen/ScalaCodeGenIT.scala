@@ -472,7 +472,7 @@ class ScalaCodeGenIT
   private def send[A](input: Ctx[A, SubmitRequest]*)(take: Long): Future[Seq[Ctx[A, Try[Empty]]]] =
     Source
       .fromIterator(() => input.iterator)
-      .via(ledger.commandClient.submissionFlow)
+      .via(ledger.commandClient.submissionFlow())
       .take(take)
       .runWith(Sink.seq)(amat)
 
@@ -482,7 +482,7 @@ class ScalaCodeGenIT
   }
 
   private def ledgerEnd(): Future[LedgerOffset] =
-    ledger.transactionClient.getLedgerEnd.flatMap(response => toFuture(response.offset))
+    ledger.transactionClient.getLedgerEnd().flatMap(response => toFuture(response.offset))
 
   private def aliceCreateCallablePayout(
       contextId: TestContext,

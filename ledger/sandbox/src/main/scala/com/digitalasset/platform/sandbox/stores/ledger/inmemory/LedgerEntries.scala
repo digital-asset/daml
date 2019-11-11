@@ -43,7 +43,7 @@ private[ledger] class LedgerEntries[T](identify: T => String) {
     newOffset
   }
 
-  private val dispatcher = Dispatcher[Long](ledgerBeginning, ledgerEnd)
+  private val dispatcher = Dispatcher[Long]("inmemory-ledger", ledgerBeginning, ledgerEnd)
 
   def getSource(offset: Option[Long]): Source[(Long, T), NotUsed] =
     dispatcher.startingAt(

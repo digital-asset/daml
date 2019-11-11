@@ -38,7 +38,7 @@ class DispatcherTest extends WordSpec with AkkaBeforeAndAfterAll with Matchers w
 
       // compromise between catching flakes and not taking too long
       0 until 25 foreach { _ =>
-        val d = Dispatcher(0, 0)
+        val d = Dispatcher("test", 0, 0)
         head.set(0)
 
         // Verify that the results are what we expected

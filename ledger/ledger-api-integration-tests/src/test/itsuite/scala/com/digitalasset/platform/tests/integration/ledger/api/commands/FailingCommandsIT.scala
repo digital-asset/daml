@@ -59,7 +59,7 @@ class FailingCommandsIT
         val contexts = 1 to 10
 
         val resultsF = Source(contexts.map(i => Ctx(i, failingRequest)))
-          .via(ctx.commandClientWithoutTime(testNotLedgerId).submissionFlow)
+          .via(ctx.commandClientWithoutTime(testNotLedgerId).submissionFlow())
           .runWith(Sink.head)
 
         resultsF.failed map { t =>

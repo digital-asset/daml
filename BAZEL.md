@@ -723,7 +723,7 @@ Attributes:
 
 The output of `da_doc_package` with name `"foo"` is a bundle
 `sources.tar.gzip` in the path
-`//bazel-genfiles/daml-foundations/daml-tools/docs/foo`. The bundle for `"foo"` would be produced with the command:
+`//bazel-bin/daml-foundations/daml-tools/docs/foo`. The bundle for `"foo"` would be produced with the command:
 ```
 bazel build //daml-foundations/daml-tools/docs/foo:foo
 ```

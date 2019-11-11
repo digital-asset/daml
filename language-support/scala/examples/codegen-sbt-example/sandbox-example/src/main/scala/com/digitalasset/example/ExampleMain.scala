@@ -95,7 +95,7 @@ object ExampleMain extends App {
   private def uniqueId = UUID.randomUUID.toString
 
   private def ledgerEnd(transactionClient: TransactionClient): Future[LedgerOffset] =
-    transactionClient.getLedgerEnd.flatMap(response => toFuture(response.offset))
+    transactionClient.getLedgerEnd().flatMap(response => toFuture(response.offset))
 
   private def nextTransaction(transactionClient: TransactionClient)(
       party: P.Party,

@@ -38,6 +38,9 @@ instance ProposalInstance t => TemplateKey (Proposal t) ([Party], Text) where
     key = _keyProposal
     fetchByKey = _fetchByKeyProposal
     lookupByKey = _lookupByKeyProposal
+    maintainer = _maintainerProposal (_hasKeyProposal : HasKey (Proposal t))
+    _toAnyContractKey = _toAnyContractKeyProposal
+    _fromAnyContractKey = _fromAnyContractKeyProposal
 
 data Accept = Accept{}
   deriving (Eq, Show)
@@ -89,6 +92,10 @@ class Template t => ProposalInstance t where
     _fetchByKeyProposal = error "code will be injected by the compiler"
     _lookupByKeyProposal : ([Party], Text) -> Update (Optional (ContractId (Proposal t)))
     _lookupByKeyProposal = error "code will be injected by the compiler"
+    _toAnyContractKeyProposal : proxy (Proposal t) -> ([Party], Text) -> AnyContractKey
+    _toAnyContractKeyProposal = error "code will be injected by the compiler"
+    _fromAnyContractKeyProposal : proxy (Proposal t) -> AnyContractKey -> Optional ([Party], Text)
+    _fromAnyContractKeyProposal = error "code will be injected by the compiler"
 
     _consumptionProposalArchive : PreConsuming (Proposal t)
     _consumptionProposalArchive = PreConsuming

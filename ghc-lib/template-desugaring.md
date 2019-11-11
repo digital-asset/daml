@@ -259,6 +259,7 @@ instance TemplateKey Enrollment Registration where
   key = _keyEnrollment
   fetchByKey = _fetchByKeyEnrollment
   lookupByKey = _lookupByKeyEnrollment
+  maintainer = _maintainerEnrollment (_hasKeyEnrollment : HasKey Enrollment)
 ```
 
 ### Example (3)

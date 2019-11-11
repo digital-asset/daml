@@ -10,6 +10,7 @@ module DA.Daml.LF.Proto3.Archive
   , encodeArchiveAndHash
   , encodePackageHash
   , ArchiveError(..)
+  , DecodingMode(..)
   ) where
 
 import           Control.Lens             (over, _Left)
@@ -36,9 +37,20 @@ data ArchiveError
     | HashMismatch !T.Text !T.Text
   deriving (Eq, Show)
 
+-- | Mode in which to decode the DALF. Currently, this only decides whether
+-- to rewrite occurrences of `PRSelf` with `PRImport packageId`.
+data DecodingMode
+    = DecodeAsMain
+      -- ^ Keep occurrences of `PRSelf` as is.
+    | DecodeAsDependency
+      -- ^ Replace `PRSelf` with `PRImport packageId`, where `packageId` is
+      -- the id of the package being decoded.
+    deriving (Eq, Show)
+
+
 -- | Decode a LF archive header, returing the hash and the payload
-decodeArchive :: BS.ByteString -> Either ArchiveError (LF.PackageId, LF.Package)
-decodeArchive bytes = do
+decodeArchive :: DecodingMode -> BS.ByteString -> Either ArchiveError (LF.PackageId, LF.Package)
+decodeArchive mode bytes = do
     archive <- over _Left (ProtobufError . show) $ Proto.fromByteString bytes
     let payloadBytes = ProtoLF.archivePayload archive
     let archiveHash = TL.toStrict (ProtoLF.archiveHash archive)
@@ -51,10 +63,14 @@ decodeArchive bytes = do
 
     when (computedHash /= archiveHash) $
       Left (HashMismatch archiveHash computedHash)
+    let packageId = LF.PackageId archiveHash
+    let selfPackageRef = case mode of
+            DecodeAsMain -> LF.PRSelf
+            DecodeAsDependency -> LF.PRImport packageId
 
     payload <- over _Left (ProtobufError . show) $ Proto.fromByteString payloadBytes
-    package <- over _Left (ProtobufError. show) $ Decode.decodePayload payload
-    return (LF.PackageId archiveHash, package)
+    package <- over _Left (ProtobufError. show) $ Decode.decodePayload selfPackageRef payload
+    return (packageId, package)
 
 
 -- | Encode a LFv1 package payload into a DAML-LF archive using the default

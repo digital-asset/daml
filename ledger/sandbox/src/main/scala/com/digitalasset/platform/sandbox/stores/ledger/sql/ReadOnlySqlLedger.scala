@@ -53,7 +53,8 @@ object ReadOnlySqlLedger {
         ValueSerializer,
         KeyHasher,
         dbType,
-        loggerFactory),
+        loggerFactory,
+        mat.executionContext),
       mm)
 
     ReadOnlySqlLedgerFactory(ledgerReadDao, loggerFactory).createReadOnlySqlLedger(ledgerId)

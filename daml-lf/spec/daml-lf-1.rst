@@ -242,9 +242,9 @@ Version: 1.7
     - drop decimal builtins, namely  `ADD_DECIMAL`, `SUB_DECIMAL`, `MUL_DECIMAL`, `DIV_DECIMAL`, `ROUND_DECIMAL`, `LEQ_DECIMAL`, `LESS_DECIMAL`, `GEQ_DECIMAL`, `GREATER_DECIMAL`, `FROM_TEXT_DECIMAL`, `TO_TEXT_DECIMAL`, `INT64_TO_DECIMAL`, `DECIMAL_TO_INT64`, `EQUAL_DECIMAL`
 
   * **Add** string interning in external package references.
-    
+
   * **Add** name interning in external package references.
-    
+
   * **Add** existential ``Any`` type
     - add `'Any'` primitive type
     - add `'to_an'y` and `'from_any'` expression to convert from/to
@@ -262,6 +262,8 @@ Version: 1.dev
   * **Change** Transaction submitter must be in the contract key
     maintainers when performing lookup or fetches by key. See
     `issue #1866 <https://github.com/digital-asset/daml/issues/1866>`_
+
+  * **Add** generic map type ``GenMap``.
 
 Abstract syntax
 ^^^^^^^^^^^^^^^
@@ -556,6 +558,7 @@ Then we can define our kinds, types, and expressions::
        |  'List'                                    -- BTyList
        |  'Option'                                  -- BTyOption
        |  'Map'                                     -- BTMap
+       |  'GenMap'                                  -- BTGenMap
        |  'Update'                                  -- BTyUpdate
        |  'ContractId'                              -- BTyContractId
        |  'Any'                                     -- BTyAny
@@ -807,8 +810,11 @@ First, we formally defined *well-formed types*. ::
     ————————————————————————————————————————————— TyOption
       Γ  ⊢  'Option' : ⋆ → ⋆
 
-    ————————————————————————————————————————————— TyOption
+    ————————————————————————————————————————————— TyMap
       Γ  ⊢  'Map' : ⋆ → ⋆
+
+    ————————————————————————————————————————————— TyGenMap
+      Γ  ⊢  'GenMap' : ⋆ → ⋆ → ⋆
 
     ————————————————————————————————————————————— TyUpdate
       Γ  ⊢  'Update' : ⋆ → ⋆
@@ -1482,11 +1488,11 @@ need to be evaluated further. ::
    ——————————————————————————————————————————————————— ValExpListCons
      ⊢ᵥ  'Cons' @τ eₕ eₜ
 
-   ——————————————————————————————————————————————————— ValExpListNil
+   ——————————————————————————————————————————————————— ValExpOptionNone
      ⊢ᵥ  'None' @τ
 
      ⊢ᵥ  e
-   ——————————————————————————————————————————————————— ValExpListCons
+   ——————————————————————————————————————————————————— ValExpOptionSome
      ⊢ᵥ  'Some' @τ e
 
      0 ≤ k < m
@@ -1543,7 +1549,7 @@ need to be evaluated further. ::
      ⊢ᵥ  'exercise_without_actors' Mod:T.Ch e₁ e₂
 
      ⊢ᵥ  e
-   ——————————————————————————————————————————————————— ValExpUpFecthByKey
+   ——————————————————————————————————————————————————— ValExpUpFetchByKey
      ⊢ᵥ  'fetch_by_key' @τ e
 
      ⊢ᵥ  e
@@ -2551,7 +2557,7 @@ Map functions
 
 * ``MAP_LOOKUP : ∀ α. 'Text' → 'Map' α → 'Optional' α``
 
-  Lookups the value at a key in the map.
+  Looks up the value at a key in the map.
 
   [*Available in versions >= 1.3*]
 
@@ -2584,6 +2590,158 @@ Type Representation function
   the second one, ``'False'`` otherwise.
 
   [*Available in versions >= 1.7*]
+
+Generic Map functions
+~~~~~~~~~~~~~~~~~~~~~
+
+* ``GENMAP_EMPTY : ∀ α. ∀ β. 'GenMap' α β``
+
+  Returns the empty generic map.
+
+  [*Available in versions >= 1.dev*]
+
+* ``GENMAP_INSERT : ∀ α. ∀ β.  α → β → 'GenMap' α β → 'GenMap' α β``
+
+  Inserts a new key and value in the map. If the key is already
+  present in the map, the associated value is replaced with the
+  supplied value.
+
+  This raises an error if the key is not a valid map key. Keys are
+  compared according to the rules listed below.
+
+  [*Available in versions >= 1.dev*]
+
+* ``GENMAP_LOOKUP : ∀ α. ∀ β.  α → 'GenMap' α β → 'Optional' α``
+
+  Looks up the value at a key in the map.
+
+  This raises an error if the key is not a valid map key. Keys are
+  compared according to the rules listed below.
+
+  [*Available in versions >= 1.dev*]
+
+* ``GENMAP_DELETE : ∀ α. ∀ β.  α → 'GenMap' α β → 'GenMap' α β``
+
+  Deletes a key and its value from the map. When the key is not a
+  member of the map, the original map is returned.
+
+  This raises an error if the key is not a valid map key. Keys are
+  compared according to the rules listed below.
+
+  [*Available in versions >= 1.dev*]
+
+* ``GENMAP_KEYS : ∀ α. ∀ β.  'GenMap' α β → 'List' α``
+
+  Get the list of keys in the map. The keys are returned by first-insertion
+  order, so if you insert key ``x`` before key ``y``, then ``x`` will appear
+  before ``y`` in the list.
+
+  [*Available in versions >= 1.dev*]
+
+* ``GENMAP_VALUES : ∀ α. ∀ β.  'GenMap' α β → 'List' β``
+
+  Get the list of values in the map. The values are returned in the same
+  order as ``GENMAP_KEYS``, so the ith element of ``GENMAP_KEYS`` maps to
+  the ith element of ``GENMAP_VALUES``.
+
+  [*Available in versions >= 1.dev*]
+
+* ``GENMAP_SIZE : ∀ α. ∀ β.  'GenMap' α β → 'Int64'``
+
+  Return the number of elements in the map.
+
+  [*Available in versions >= 1.dev*]
+
+
+**Validity of Keys:** A key is valid if and only if it is equivalent
+to itself according to the relation ``~ᵥ`` defined below. Attempts to
+use an invalid key in the operations above always result in a runtime
+error.
+
+Of particular note, the following values are never valid keys:
+
+* Lambda expressions ``λ x : τ . e``
+* Type abstractions ``Λ α : k . e``
+* (Partially applied) built-in functions
+* Any value containing an invalid key
+
+**Comparison of Keys:** We define here the relation ``~ᵥ`` on value
+expressions that is used for key comparison. This is a partial
+equivalence relation over all values, but a (total) equivalence
+relation over valid keys.
+
+This relation is not exposed as a builtin function, but it coincides
+with the builtin equality for any given type, if that builtin is
+defined. ::
+
+                                  ┌──────────┐
+  Generic Equivalence Relation    │ e₁ ~ᵥ e₂ │
+                                  └──────────┘
+
+  LitInt64₁ and LitInt64₂ have the same value
+  ——————————————————————————————————————————————————— GenEqLitInt64
+  LitInt64₁ ~ᵥ LitInt64₂
+
+  LitNumeric₁ and LitNumeric₂ have the same scale and value
+  ——————————————————————————————————————————————————— GenEqLitNumeric
+  LitNumeric₁ ~ᵥ LitNumeric₂
+
+  LitText₁ and LitText₂ have the same value
+  ——————————————————————————————————————————————————— GenEqLitText
+  LitText₁ ~ᵥ LitText₂
+
+  LitDate₁ and LitDate₂ have the same value
+  ——————————————————————————————————————————————————— GenEqLitDate
+  LitDate₁ ~ᵥ LitDate₂
+
+  LitTimestamp₁ and LitTimestamp₂ have the same value
+  ——————————————————————————————————————————————————— GenEqLitTimestamp
+  LitTimestamp₁ ~ᵥ LitTimestamp₂
+
+  cid₁ and cid₂ are the same
+  ——————————————————————————————————————————————————— GenEqLitContractId
+  cid₁ ~ᵥ cid₂
+
+  ——————————————————————————————————————————————————— GenEqUnit
+  () ~ᵥ ()
+
+  ——————————————————————————————————————————————————— GenEqTrue
+  'True' ~ᵥ 'True'
+
+  ——————————————————————————————————————————————————— GenEqFalse
+  'False' ~ᵥ 'False'
+
+  ——————————————————————————————————————————————————— GenEqListNil
+  'Nil' @τ₁ ~ᵥ 'Nil' @τ₂
+
+  e₁ ~ᵥ e₁'
+  e₂ ~ᵥ e₂'
+  ——————————————————————————————————————————————————— GenEqListCons
+  'Cons' @τ e₁ e₂  ~ᵥ 'Cons' @τ' e₁' e₂'
+
+  ——————————————————————————————————————————————————— GenEqOptionNone
+  'None' @τ₁ ~ᵥ 'None' @τ₂
+
+  e₁ ~ᵥ e₂
+  ——————————————————————————————————————————————————— GenEqOptionSome
+  'Some' @τ₁ e₁ ~ᵥ 'Some' @τ₂ e₂
+
+  e₁ ~ᵥ e₁'     …       eₙ ~ᵥ eₙ'
+  ——————————————————————————————————————————————————— GenEqRecCon
+  Mod:T @τ₁ … @τₙ { f₁ = e₁, …, fₙ = eₙ }
+    ~ᵥ Mod:T @τ₁' … @τₙ' { f₁ = e₁', …, fₙ = eₙ' }
+
+  e ~ᵥ e'
+  ——————————————————————————————————————————————————— GenEqVariantCon
+  Mod:T:V @τ₁ … @τₙ e ~ᵥ Mod:T:V @τ₁' … @τₙ' e'
+
+  ——————————————————————————————————————————————————— GenEqEnumCon
+  Mod:T:E ~ᵥ Mod:T:E
+
+  e₁ ~ᵥ e₁'     …       eₙ ~ᵥ eₙ'
+  ——————————————————————————————————————————————————— GenEqTupleCon
+  ⟨ f₁ = e₁, …, fₘ = eₘ ⟩ ~ᵥ ⟨ f₁ = e₁', …, fₘ = eₘ' ⟩
+
 
 Conversions functions
 ~~~~~~~~~~~~~~~~~~~~~

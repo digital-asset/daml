@@ -217,7 +217,7 @@ commandParser = subparser $ fold
 runCommand :: Command -> IO ()
 runCommand DamlStudio {..} = runDamlStudio replaceExtension remainingArguments
 runCommand RunJar {..} = runJar jarPath mbLogbackConfig remainingArguments
-runCommand New {..} = runNew targetFolder templateNameM []
+runCommand New {..} = runNew targetFolder templateNameM [] []
 runCommand Migrate {..} = runMigrate targetFolder pkgPathFrom pkgPathTo
 runCommand Init {..} = runInit targetFolderM
 runCommand ListTemplates = runListTemplates

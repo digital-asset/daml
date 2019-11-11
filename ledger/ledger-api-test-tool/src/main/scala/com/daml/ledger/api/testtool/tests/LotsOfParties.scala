@@ -3,6 +3,7 @@
 
 package com.daml.ledger.api.testtool.tests
 
+import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
 import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTestSuite}
@@ -20,113 +21,96 @@ final class LotsOfParties(session: LedgerSession) extends LedgerTestSuite(sessio
 
   private val partyCount = 1024
 
+  private val allocation: ParticipantAllocation =
+    allocate(Parties(partyCount / 2), Parties(partyCount / 2))
+
   // allocating parties seems to be really slow on a real database
   private val timeout = 120.seconds
 
   test(
     "LOPseeTransactionsInMultipleSinglePartySubscriptions",
     "Observers should see transactions in multiple single-party subscriptions",
-    timeout = timeout
-  ) { context =>
-    for {
-      alpha <- context.participant()
-      beta <- context.participant()
-      giver <- alpha.allocateParty()
-      alphaObservers <- alpha.allocateParties(partyCount / 2 - 1)
-      betaObservers <- beta.allocateParties(partyCount / 2)
-      observers = alphaObservers ++ betaObservers
-      alphaParties = giver +: alphaObservers
-      contractId <- alpha.create(giver, WithObservers(giver, observers))
-      alphaTransactionsByParty <- transactionsForEachParty(alpha, alphaParties)
-      betaTransactionsByParty <- transactionsForEachParty(beta, betaObservers)
-    } yield {
-      assertWitnessesOfSinglePartySubscriptions(
-        alphaParties.toSet,
-        contractId,
-        activeContractsFrom(alphaTransactionsByParty))
-      assertWitnessesOfSinglePartySubscriptions(
-        betaObservers.toSet,
-        contractId,
-        activeContractsFrom(betaTransactionsByParty))
-    }
+    allocation,
+    timeout,
+  ) {
+    case TestParticipants(t) =>
+      for {
+        contractId <- t.alpha.create(t.giver, WithObservers(t.giver, t.observers))
+        alphaTransactionsByParty <- transactionsForEachParty(t.alpha, t.alphaParties)
+        betaTransactionsByParty <- transactionsForEachParty(t.beta, t.betaParties)
+      } yield {
+        assertWitnessesOfSinglePartySubscriptions(
+          t.alphaParties.toSet,
+          contractId,
+          activeContractsFrom(alphaTransactionsByParty))
+        assertWitnessesOfSinglePartySubscriptions(
+          t.betaParties.toSet,
+          contractId,
+          activeContractsFrom(betaTransactionsByParty))
+      }
   }
 
   test(
     "LOPseeTransactionsInSingleMultiPartySubscription",
     "Observers should see transactions in a single multi-party subscription",
-    timeout = timeout
-  ) { context =>
-    for {
-      alpha <- context.participant()
-      beta <- context.participant()
-      giver <- alpha.allocateParty()
-      alphaObservers <- alpha.allocateParties(partyCount / 2 - 1)
-      betaObservers <- beta.allocateParties(partyCount / 2)
-      observers = alphaObservers ++ betaObservers
-      alphaParties = giver +: alphaObservers
-      contractId <- alpha.create(giver, WithObservers(giver, observers))
-      alphaTransactions <- alpha.flatTransactions(alphaParties: _*)
-      betaTransactions <- beta.flatTransactions(betaObservers: _*)
-    } yield {
-      assertWitnessesOfAMultiPartySubscription(
-        alphaParties.toSet,
-        contractId,
-        activeContractsFrom(alphaTransactions))
-      assertWitnessesOfAMultiPartySubscription(
-        betaObservers.toSet,
-        contractId,
-        activeContractsFrom(betaTransactions))
-    }
+    allocation,
+    timeout,
+  ) {
+    case TestParticipants(t) =>
+      for {
+        contractId <- t.alpha.create(t.giver, WithObservers(t.giver, t.observers))
+        alphaTransactions <- t.alpha.flatTransactions(t.alphaParties: _*)
+        betaTransactions <- t.beta.flatTransactions(t.betaParties: _*)
+      } yield {
+        assertWitnessesOfAMultiPartySubscription(
+          t.alphaParties.toSet,
+          contractId,
+          activeContractsFrom(alphaTransactions))
+        assertWitnessesOfAMultiPartySubscription(
+          t.betaParties.toSet,
+          contractId,
+          activeContractsFrom(betaTransactions))
+      }
   }
 
   test(
     "LOPseeActiveContractsInMultipleSinglePartySubscriptions",
     "Observers should see active contracts in multiple single-party subscriptions",
-    timeout = timeout
-  ) { context =>
-    for {
-      alpha <- context.participant()
-      beta <- context.participant()
-      giver <- alpha.allocateParty()
-      alphaObservers <- alpha.allocateParties(partyCount / 2 - 1)
-      betaObservers <- beta.allocateParties(partyCount / 2)
-      observers = alphaObservers ++ betaObservers
-      alphaParties = giver +: alphaObservers
-      contractId <- alpha.create(giver, WithObservers(giver, observers))
-      alphaContractsByParty <- activeContractsForEachParty(alpha, alphaParties)
-      betaContractsByParty <- activeContractsForEachParty(beta, betaObservers)
-    } yield {
-      assertWitnessesOfSinglePartySubscriptions(
-        alphaParties.toSet,
-        contractId,
-        alphaContractsByParty)
-      assertWitnessesOfSinglePartySubscriptions(
-        betaObservers.toSet,
-        contractId,
-        betaContractsByParty)
-    }
+    allocation,
+    timeout,
+  ) {
+    case TestParticipants(t) =>
+      for {
+        contractId <- t.alpha.create(t.giver, WithObservers(t.giver, t.observers))
+        alphaContractsByParty <- activeContractsForEachParty(t.alpha, t.alphaParties)
+        betaContractsByParty <- activeContractsForEachParty(t.beta, t.betaParties)
+      } yield {
+        assertWitnessesOfSinglePartySubscriptions(
+          t.alphaParties.toSet,
+          contractId,
+          alphaContractsByParty)
+        assertWitnessesOfSinglePartySubscriptions(
+          t.betaParties.toSet,
+          contractId,
+          betaContractsByParty)
+      }
   }
 
   test(
     "LOPseeActiveContractsInSingleMultiPartySubscription",
     "Observers should see active contracts in a single multi-party subscription",
-    timeout = timeout
-  ) { context =>
-    for {
-      alpha <- context.participant()
-      beta <- context.participant()
-      giver <- alpha.allocateParty()
-      alphaObservers <- alpha.allocateParties(partyCount / 2 - 1)
-      betaObservers <- beta.allocateParties(partyCount / 2)
-      observers = alphaObservers ++ betaObservers
-      alphaParties = giver +: alphaObservers
-      contractId <- alpha.create(giver, WithObservers(giver, observers))
-      alphaContracts <- alpha.activeContracts(alphaParties: _*)
-      betaContracts <- beta.activeContracts(betaObservers: _*)
-    } yield {
-      assertWitnessesOfAMultiPartySubscription(alphaParties.toSet, contractId, alphaContracts)
-      assertWitnessesOfAMultiPartySubscription(betaObservers.toSet, contractId, betaContracts)
-    }
+    allocation,
+    timeout,
+  ) {
+    case TestParticipants(t) =>
+      for {
+        contractId <- t.alpha.create(t.giver, WithObservers(t.giver, t.observers))
+        alphaContracts <- t.alpha.activeContracts(t.alphaParties: _*)
+        betaContracts <- t.beta.activeContracts(t.betaParties: _*)
+      } yield {
+        assertWitnessesOfAMultiPartySubscription(t.alphaParties.toSet, contractId, alphaContracts)
+        assertWitnessesOfAMultiPartySubscription(t.betaParties.toSet, contractId, betaContracts)
+      }
   }
 
   private def transactionsForEachParty(
@@ -191,5 +175,32 @@ final class LotsOfParties(session: LedgerSession) extends LedgerTestSuite(sessio
     val actualWitnesses: Seq[Parties] =
       activeContracts.map(_.witnessParties.map(Party(_)).toSet)
     assertEquals("multi-party witnesses", actualWitnesses, expectedWitnesses)
+  }
+
+  private case class TestParticipants(
+      alpha: ParticipantTestContext,
+      beta: ParticipantTestContext,
+      giver: Party,
+      alphaObservers: Vector[Party],
+      betaObservers: Vector[Party]) {
+    val observers: Vector[Party] = alphaObservers ++ betaObservers
+    val alphaParties: Vector[Party] = giver +: alphaObservers
+    val betaParties: Vector[Party] = betaObservers
+  }
+
+  private object TestParticipants {
+    def unapply(participants: Participants): Option[TestParticipants] = participants match {
+      case Participants(
+          Participant(alpha, giver, alphaObserversSeq @ _*),
+          Participant(beta, betaObserversSeq @ _*)) =>
+        Some(
+          TestParticipants(
+            alpha,
+            beta,
+            giver,
+            alphaObserversSeq.toVector,
+            betaObserversSeq.toVector))
+      case _ => None
+    }
   }
 }

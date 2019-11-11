@@ -45,7 +45,7 @@ class ApiTimeService private (
     ledgerId.unwrap,
     backend.getCurrentTime)
 
-  private val dispatcher = SignalDispatcher()
+  private val dispatcher = SignalDispatcher[Instant]()
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   override protected def getTimeSource(

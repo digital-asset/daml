@@ -98,6 +98,17 @@ class Template t => TemplateKey t k | t -> k where
   --    stakeholders of the fetched contract are, which requires
   --    getting the contract instance.
 
+  -- | The list of maintainers of a contract key.
+  maintainer : k -> [Party]
+
+  _toAnyContractKey : proxy t -> k -> AnyContractKey
+  _fromAnyContractKey : proxy t -> AnyContractKey -> Optional k
+
+toAnyContractKey : forall t k. TemplateKey t k => k -> AnyContractKey
+toAnyContractKey = _toAnyContractKey ([] : [t])
+
+fromAnyContractKey : forall t k. TemplateKey t k => AnyContractKey -> Optional k
+fromAnyContractKey = _fromAnyContractKey ([] : [t])
 
 -- | Exercise a choice on the contract associated with the given key.
 --

@@ -36,12 +36,9 @@ genrule(
     TMP_DIR=damlc-jar-tmp
     rm -rf "$$TMP_DIR"
     mkdir "$$TMP_DIR"
-    $(location @tar_dev_env//:tar) xzf $< -C "$$TMP_DIR"
-    $(location @bazel_tools//tools/jdk:jar) c0Mf $@ -C "$$TMP_DIR" .
+    $(execpath @tar_dev_env//:tar) xzf $< -C "$$TMP_DIR"
+    $(JAVABASE)/bin/jar c0Mf $@ -C "$$TMP_DIR" .
   """,
     toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
-    tools = [
-        "@bazel_tools//tools/jdk:jar",
-        "@tar_dev_env//:tar",
-    ],
+    tools = ["@tar_dev_env//:tar"],
 )

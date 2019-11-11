@@ -75,7 +75,7 @@ trap cleanup EXIT
 # Building here separately so the user can see the build process which could take a while
 bazel build $BAZEL_MODE_FLAG //release:sdk-head-tarball.tar.gz
 
-readonly TARBALL=$(bazel info bazel-genfiles $BAZEL_MODE_FLAG)/release/sdk-head-tarball.tar.gz
+readonly TARBALL=$(bazel info bazel-bin $BAZEL_MODE_FLAG)/release/sdk-head-tarball.tar.gz
 readonly TMPDIR=$(mktemp -d)
 mkdir -p $TMPDIR/sdk-head
 

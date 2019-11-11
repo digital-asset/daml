@@ -72,7 +72,7 @@ object Arguments {
         Some(TlsConfiguration(true, Some(new File(path)), None, None)))(c =>
         Some(c.copy(keyCertChainFile = Some(new File(path))))))
 
-  private def argumentParser(defaultConfigFile: Path, defaultAccessTokenFile: Path) =
+  private def argumentParser(defaultConfigFile: Path) =
     new OptionParser[Arguments]("navigator") with ArgumentsHelper {
       help("help").abbr("h").text("prints this usage text")
 
@@ -84,9 +84,9 @@ object Arguments {
         .text("folder where frontend assets are available")
         .action((assets, arguments) => arguments.copy(assets = Some(assets)))
 
-      opt[String]('t', "access-token-file")
+      opt[String]("access-token-file")
         .text(
-          s"override the path from which the access token will be read, default: ${defaultAccessTokenFile}")
+          s"provide the path from which the access token will be read, required to interact with an authenticated ledger, no default")
         .action((path, arguments) => arguments.copy(accessTokenFile = Some(Paths.get(path))))
 
       opt[String]('c', "config-file")
@@ -172,12 +172,9 @@ object Arguments {
         .action((_, arguments) => arguments.copy(command = CreateConfig))
     }
 
-  def parse(
-      args: Array[String],
-      defaultConfigFile: Path,
-      defaultAccessTokenFile: Path): Option[Arguments] =
-    this.argumentParser(defaultConfigFile, defaultAccessTokenFile).parse(args, Arguments.default)
+  def parse(args: Array[String], defaultConfigFile: Path): Option[Arguments] =
+    this.argumentParser(defaultConfigFile).parse(args, Arguments.default)
 
-  def showUsage(defaultConfigFile: Path, defaultAccessTokenFile: Path): Unit =
-    this.argumentParser(defaultConfigFile, defaultAccessTokenFile).showUsage()
+  def showUsage(defaultConfigFile: Path): Unit =
+    this.argumentParser(defaultConfigFile).showUsage()
 }

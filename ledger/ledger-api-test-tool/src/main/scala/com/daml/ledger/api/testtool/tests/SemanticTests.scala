@@ -3,6 +3,7 @@
 
 package com.daml.ledger.api.testtool.tests
 
+import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.Eventually.eventually
 import com.daml.ledger.api.testtool.infrastructure.Synchronize.synchronize
@@ -40,50 +41,55 @@ final class SemanticTests(session: LedgerSession) extends LedgerTestSuite(sessio
    * 2. `act` does not happen after the contract has been consumend (i.e. no double spending)
    */
 
-  test("SemanticDoubleSpend", "Cannot double spend across transactions") { context =>
-    for {
-      Vector(alpha, beta) <- context.participants(2)
-      Vector(payer, owner) <- alpha.allocateParties(2)
-      Vector(newOwner, leftWithNothing) <- beta.allocateParties(2)
-      iou <- alpha.create(payer, Iou(payer, owner, onePound))
-      _ <- alpha.exercise(owner, iou.exerciseTransfer(_, newOwner))
-      failure <- alpha.exercise(owner, iou.exerciseTransfer(_, leftWithNothing)).failed
-    } yield {
-      assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "couldn't find contract")
-    }
+  test(
+    "SemanticDoubleSpend",
+    "Cannot double spend across transactions",
+    allocate(TwoParties, TwoParties)) {
+    case Participants(
+        Participant(alpha, payer, owner),
+        Participant(_, newOwner, leftWithNothing)) =>
+      for {
+        iou <- alpha.create(payer, Iou(payer, owner, onePound))
+        _ <- alpha.exercise(owner, iou.exerciseTransfer(_, newOwner))
+        failure <- alpha.exercise(owner, iou.exerciseTransfer(_, leftWithNothing)).failed
+      } yield {
+        assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "couldn't find contract")
+      }
   }
 
-  test("SemanticDoubleSpendSameTx", "Cannot double spend within a transaction") { context =>
-    for {
-      Vector(alpha, beta) <- context.participants(2)
-      Vector(payer, owner) <- alpha.allocateParties(2)
-      Vector(newOwner1, newOwner2) <- beta.allocateParties(2)
-      iou <- alpha.create(payer, Iou(payer, owner, onePound))
-      doubleSpend <- alpha.submitAndWaitRequest(
-        owner,
-        iou.exerciseTransfer(owner, newOwner1).command,
-        iou.exerciseTransfer(owner, newOwner2).command)
-      failure <- alpha.submitAndWait(doubleSpend).failed
-    } yield {
-      assertGrpcError(
-        failure,
-        Status.Code.INVALID_ARGUMENT,
-        "Update failed due to fetch of an inactive contract")
-    }
+  test(
+    "SemanticDoubleSpendSameTx",
+    "Cannot double spend within a transaction",
+    allocate(TwoParties, TwoParties)) {
+    case Participants(Participant(alpha, payer, owner), Participant(_, newOwner1, newOwner2)) =>
+      for {
+        iou <- alpha.create(payer, Iou(payer, owner, onePound))
+        doubleSpend <- alpha.submitAndWaitRequest(
+          owner,
+          iou.exerciseTransfer(owner, newOwner1).command,
+          iou.exerciseTransfer(owner, newOwner2).command)
+        failure <- alpha.submitAndWait(doubleSpend).failed
+      } yield {
+        assertGrpcError(
+          failure,
+          Status.Code.INVALID_ARGUMENT,
+          "Update failed due to fetch of an inactive contract")
+      }
   }
 
-  test("SemanticDoubleSpendShared", "Different parties cannot spend the same contract") { context =>
-    for {
-      Vector(alpha, beta) <- context.participants(2)
-      Vector(payer, owner1) <- alpha.allocateParties(2)
-      owner2 <- beta.allocateParty()
-      shared <- alpha.create(payer, SharedContract(payer, owner1, owner2))
-      _ <- alpha.exercise(owner1, shared.exerciseSharedContract_Consume1)
-      _ <- synchronize(alpha, beta)
-      failure <- beta.exercise(owner2, shared.exerciseSharedContract_Consume2).failed
-    } yield {
-      assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "couldn't find contract")
-    }
+  test(
+    "SemanticDoubleSpendShared",
+    "Different parties cannot spend the same contract",
+    allocate(TwoParties, SingleParty)) {
+    case Participants(Participant(alpha, payer, owner1), Participant(beta, owner2)) =>
+      for {
+        shared <- alpha.create(payer, SharedContract(payer, owner1, owner2))
+        _ <- alpha.exercise(owner1, shared.exerciseSharedContract_Consume1)
+        _ <- synchronize(alpha, beta)
+        failure <- beta.exercise(owner2, shared.exerciseSharedContract_Consume2).failed
+      } yield {
+        assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "couldn't find contract")
+      }
   }
 
   /*
@@ -96,38 +102,39 @@ final class SemanticTests(session: LedgerSession) extends LedgerTestSuite(sessio
    * 2. the required authorizers of an Exercise or a Fetch action are its actors
    */
 
-  test("SemanticPaintOffer", "Conduct the paint offer workflow successfully") { context =>
-    for {
-      Vector(alpha, beta) <- context.participants(2)
-      Vector(bank, houseOwner) <- alpha.allocateParties(2)
-      painter <- beta.allocateParty()
-      iou <- alpha.create(bank, Iou(bank, houseOwner, onePound))
-      offer <- beta.create(painter, PaintOffer(painter, houseOwner, bank, onePound))
-      tree <- eventually { alpha.exercise(houseOwner, offer.exercisePaintOffer_Accept(_, iou)) }
-    } yield {
-      val agreement = assertSingleton(
-        "SemanticPaintOffer",
-        createdEvents(tree).filter(_.getTemplateId == Tag.unwrap(PaintAgree.id)))
-      assertEquals(
-        "Paint agreement parameters",
-        agreement.getCreateArguments,
-        Record(
-          recordId = Some(Tag.unwrap(PaintAgree.id)),
-          fields = Seq(
-            RecordField("painter", Some(Value(Value.Sum.Party(Tag.unwrap(painter))))),
-            RecordField("houseOwner", Some(Value(Value.Sum.Party(Tag.unwrap(houseOwner)))))
+  test(
+    "SemanticPaintOffer",
+    "Conduct the paint offer workflow successfully",
+    allocate(TwoParties, SingleParty)) {
+    case Participants(Participant(alpha, bank, houseOwner), Participant(beta, painter)) =>
+      for {
+        iou <- alpha.create(bank, Iou(bank, houseOwner, onePound))
+        offer <- beta.create(painter, PaintOffer(painter, houseOwner, bank, onePound))
+        tree <- eventually { alpha.exercise(houseOwner, offer.exercisePaintOffer_Accept(_, iou)) }
+      } yield {
+        val agreement = assertSingleton(
+          "SemanticPaintOffer",
+          createdEvents(tree).filter(_.getTemplateId == Tag.unwrap(PaintAgree.id)))
+        assertEquals(
+          "Paint agreement parameters",
+          agreement.getCreateArguments,
+          Record(
+            recordId = Some(Tag.unwrap(PaintAgree.id)),
+            fields = Seq(
+              RecordField("painter", Some(Value(Value.Sum.Party(Tag.unwrap(painter))))),
+              RecordField("houseOwner", Some(Value(Value.Sum.Party(Tag.unwrap(houseOwner)))))
+            )
           )
         )
-      )
-    }
+      }
   }
 
-  test("SemanticPaintCounterOffer", "Conduct the paint counter-offer worflow successfully") {
-    context =>
+  test(
+    "SemanticPaintCounterOffer",
+    "Conduct the paint counter-offer worflow successfully",
+    allocate(TwoParties, SingleParty)) {
+    case Participants(Participant(alpha, bank, houseOwner), Participant(beta, painter)) =>
       for {
-        Vector(alpha, beta) <- context.participants(2)
-        Vector(bank, houseOwner) <- alpha.allocateParties(2)
-        painter <- beta.allocateParty()
         iou <- alpha.create(bank, Iou(bank, houseOwner, onePound))
         offer <- beta.create(painter, PaintOffer(painter, houseOwner, bank, twoPounds))
         counter <- eventually {
@@ -156,25 +163,22 @@ final class SemanticTests(session: LedgerSession) extends LedgerTestSuite(sessio
 
   test(
     "SemanticPartialSignatories",
-    "A signatory should not be able to create a contract on behalf of two parties") { context =>
-    for {
-      Vector(alpha, beta) <- context.participants(2)
-      houseOwner <- alpha.allocateParty()
-      painter <- beta.allocateParty()
-      failure <- alpha.create(houseOwner, PaintAgree(painter, houseOwner)).failed
-    } yield {
-      assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "requires authorizers")
-    }
+    "A signatory should not be able to create a contract on behalf of two parties",
+    allocate(SingleParty, SingleParty)) {
+    case Participants(Participant(alpha, houseOwner), Participant(_, painter)) =>
+      for {
+        failure <- alpha.create(houseOwner, PaintAgree(painter, houseOwner)).failed
+      } yield {
+        assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "requires authorizers")
+      }
   }
 
   test(
     "SemanticAcceptOnBehalf",
-    "It should not be possible to exercise a choice without the consent of the controller") {
-    context =>
+    "It should not be possible to exercise a choice without the consent of the controller",
+    allocate(TwoParties, SingleParty)) {
+    case Participants(Participant(alpha, bank, houseOwner), Participant(beta, painter)) =>
       for {
-        Vector(alpha, beta) <- context.participants(2)
-        Vector(bank, houseOwner) <- alpha.allocateParties(2)
-        painter <- beta.allocateParty()
         iou <- beta.create(painter, Iou(painter, houseOwner, onePound))
         offer <- beta.create(painter, PaintOffer(painter, houseOwner, bank, onePound))
         failure <- beta.exercise(painter, offer.exercisePaintOffer_Accept(_, iou)).failed
@@ -193,61 +197,60 @@ final class SemanticTests(session: LedgerSession) extends LedgerTestSuite(sessio
 
   test(
     "SemanticPrivacyProjections",
-    "Test visibility via contract fetches for the paint-offer flow") { context =>
-    for {
-      Vector(alpha, beta) <- context.participants(2)
-      Vector(bank, houseOwner) <- alpha.allocateParties(2)
-      painter <- beta.allocateParty()
-      iou <- alpha.create(bank, Iou(bank, houseOwner, onePound))
-      _ <- synchronize(alpha, beta)
+    "Test visibility via contract fetches for the paint-offer flow",
+    allocate(TwoParties, SingleParty)) {
+    case Participants(Participant(alpha, bank, houseOwner), Participant(beta, painter)) =>
+      for {
+        iou <- alpha.create(bank, Iou(bank, houseOwner, onePound))
+        _ <- synchronize(alpha, beta)
 
-      // The IOU should be visible only to the payer and the owner
-      _ <- fetchIou(alpha, bank, iou)
-      _ <- fetchIou(alpha, houseOwner, iou)
-      iouFetchFailure <- fetchIou(beta, painter, iou).failed
+        // The IOU should be visible only to the payer and the owner
+        _ <- fetchIou(alpha, bank, iou)
+        _ <- fetchIou(alpha, houseOwner, iou)
+        iouFetchFailure <- fetchIou(beta, painter, iou).failed
 
-      offer <- beta.create(painter, PaintOffer(painter, houseOwner, bank, onePound))
-      _ <- synchronize(alpha, beta)
+        offer <- beta.create(painter, PaintOffer(painter, houseOwner, bank, onePound))
+        _ <- synchronize(alpha, beta)
 
-      // The house owner and the painter can see the offer but the bank can't
-      _ <- fetchPaintOffer(alpha, houseOwner, offer)
-      _ <- fetchPaintOffer(beta, painter, offer)
-      paintOfferFetchFailure <- fetchPaintOffer(alpha, bank, offer).failed
+        // The house owner and the painter can see the offer but the bank can't
+        _ <- fetchPaintOffer(alpha, houseOwner, offer)
+        _ <- fetchPaintOffer(beta, painter, offer)
+        paintOfferFetchFailure <- fetchPaintOffer(alpha, bank, offer).failed
 
-      tree <- alpha.exercise(houseOwner, offer.exercisePaintOffer_Accept(_, iou))
-      (newIouEvent +: _, agreementEvent +: _) = createdEvents(tree).partition(
-        _.getTemplateId == Tag.unwrap(Iou.id))
-      newIou = Primitive.ContractId[Iou](newIouEvent.contractId)
-      agreement = Primitive.ContractId[PaintAgree](agreementEvent.contractId)
-      _ <- synchronize(alpha, beta)
+        tree <- alpha.exercise(houseOwner, offer.exercisePaintOffer_Accept(_, iou))
+        (newIouEvent +: _, agreementEvent +: _) = createdEvents(tree).partition(
+          _.getTemplateId == Tag.unwrap(Iou.id))
+        newIou = Primitive.ContractId[Iou](newIouEvent.contractId)
+        agreement = Primitive.ContractId[PaintAgree](agreementEvent.contractId)
+        _ <- synchronize(alpha, beta)
 
-      // The Bank can see the new IOU, but it cannot see the PaintAgree contract
-      _ <- fetchIou(alpha, bank, newIou)
-      paintAgreeFetchFailure <- fetchPaintAgree(alpha, bank, agreement).failed
+        // The Bank can see the new IOU, but it cannot see the PaintAgree contract
+        _ <- fetchIou(alpha, bank, newIou)
+        paintAgreeFetchFailure <- fetchPaintAgree(alpha, bank, agreement).failed
 
-      // The house owner and the painter can see the contract
-      _ <- fetchPaintAgree(beta, painter, agreement)
-      _ <- fetchPaintAgree(alpha, houseOwner, agreement)
+        // The house owner and the painter can see the contract
+        _ <- fetchPaintAgree(beta, painter, agreement)
+        _ <- fetchPaintAgree(alpha, houseOwner, agreement)
 
-      // The painter sees its new IOU but the house owner cannot see it
-      _ <- fetchIou(beta, painter, newIou)
-      secondIouFetchFailure <- fetchIou(alpha, houseOwner, newIou).failed
+        // The painter sees its new IOU but the house owner cannot see it
+        _ <- fetchIou(beta, painter, newIou)
+        secondIouFetchFailure <- fetchIou(alpha, houseOwner, newIou).failed
 
-    } yield {
-      assertGrpcError(iouFetchFailure, Status.Code.INVALID_ARGUMENT, "couldn't find contract")
-      assertGrpcError(
-        paintOfferFetchFailure,
-        Status.Code.INVALID_ARGUMENT,
-        "couldn't find contract")
-      assertGrpcError(
-        paintAgreeFetchFailure,
-        Status.Code.INVALID_ARGUMENT,
-        "couldn't find contract")
-      assertGrpcError(
-        secondIouFetchFailure,
-        Status.Code.INVALID_ARGUMENT,
-        "requires one of the stakeholders")
-    }
+      } yield {
+        assertGrpcError(iouFetchFailure, Status.Code.INVALID_ARGUMENT, "couldn't find contract")
+        assertGrpcError(
+          paintOfferFetchFailure,
+          Status.Code.INVALID_ARGUMENT,
+          "couldn't find contract")
+        assertGrpcError(
+          paintAgreeFetchFailure,
+          Status.Code.INVALID_ARGUMENT,
+          "couldn't find contract")
+        assertGrpcError(
+          secondIouFetchFailure,
+          Status.Code.INVALID_ARGUMENT,
+          "requires one of the stakeholders")
+      }
   }
 
   private def fetchIou(
@@ -283,30 +286,28 @@ final class SemanticTests(session: LedgerSession) extends LedgerTestSuite(sessio
    * Divulgence
    */
 
-  test("SemanticDivulgence", "Respect divulgence rules") { context =>
-    for {
-      Vector(alpha, beta) <- context.participants(2)
-      Vector(issuer, owner) <- alpha.allocateParties(2)
-      delegate <- beta.allocateParty()
-      token <- alpha.create(issuer, Token(issuer, owner, 1))
-      delegation <- alpha.create(owner, Delegation(owner, delegate))
+  test("SemanticDivulgence", "Respect divulgence rules", allocate(TwoParties, SingleParty)) {
+    case Participants(Participant(alpha, issuer, owner), Participant(beta, delegate)) =>
+      for {
+        token <- alpha.create(issuer, Token(issuer, owner, 1))
+        delegation <- alpha.create(owner, Delegation(owner, delegate))
 
-      // The owner tries to divulge with a non-consuming choice, which actually doesn't work
-      noDivulgeToken <- alpha.create(owner, Delegation(owner, delegate))
-      _ <- alpha.exercise(owner, noDivulgeToken.exerciseDelegation_Wrong_Divulge_Token(_, token))
-      _ <- synchronize(alpha, beta)
-      failure <- beta
-        .exercise(delegate, delegation.exerciseDelegation_Token_Consume(_, token))
-        .failed
+        // The owner tries to divulge with a non-consuming choice, which actually doesn't work
+        noDivulgeToken <- alpha.create(owner, Delegation(owner, delegate))
+        _ <- alpha.exercise(owner, noDivulgeToken.exerciseDelegation_Wrong_Divulge_Token(_, token))
+        _ <- synchronize(alpha, beta)
+        failure <- beta
+          .exercise(delegate, delegation.exerciseDelegation_Token_Consume(_, token))
+          .failed
 
-      // Successful divulgence and delegation
-      divulgeToken <- alpha.create(owner, Delegation(owner, delegate))
-      _ <- alpha.exercise(owner, divulgeToken.exerciseDelegation_Divulge_Token(_, token))
-      _ <- eventually {
-        beta.exercise(delegate, delegation.exerciseDelegation_Token_Consume(_, token))
+        // Successful divulgence and delegation
+        divulgeToken <- alpha.create(owner, Delegation(owner, delegate))
+        _ <- alpha.exercise(owner, divulgeToken.exerciseDelegation_Divulge_Token(_, token))
+        _ <- eventually {
+          beta.exercise(delegate, delegation.exerciseDelegation_Token_Consume(_, token))
+        }
+      } yield {
+        assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "couldn't find contract")
       }
-    } yield {
-      assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "couldn't find contract")
-    }
   }
 }

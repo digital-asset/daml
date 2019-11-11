@@ -55,7 +55,7 @@ object LedgerReader {
 
   private def load(client: PackageClient, packageIds: List[String]): Future[Error \/ PackageStore] =
     packageIds
-      .traverse(client.getPackage)
+      .traverse(client.getPackage(_))
       .map(createPackageStoreFromArchives)
 
   private def createPackageStoreFromArchives(

@@ -61,7 +61,7 @@ class Extractor[T](config: ExtractorConfig, target: T)(
 
       _ = logger.info(s"Connected to ledger ${client.ledgerId}\n\n")
 
-      endResponse <- client.transactionClient.getLedgerEnd
+      endResponse <- client.transactionClient.getLedgerEnd()
 
       endOffset = endResponse.offset.getOrElse(
         throw new RuntimeException("Failed to get ledger end: response did not contain an offset.")

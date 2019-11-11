@@ -3,6 +3,7 @@
 
 package com.daml.ledger.api.testtool.infrastructure
 
+import com.daml.ledger.api.testtool.infrastructure.Allocation.{ParticipantAllocation, Participants}
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite._
 import com.digitalasset.daml.lf.data.Ref
 
@@ -22,9 +23,11 @@ private[testtool] abstract class LedgerTestSuite(val session: LedgerSession) {
   protected final def test(
       shortIdentifier: String,
       description: String,
-      timeout: Duration = 30.seconds)(testCase: LedgerTestContext => Future[Unit]): Unit = {
+      participants: ParticipantAllocation,
+      timeout: Duration = 30.seconds)(testCase: Participants => Future[Unit]): Unit = {
     val shortIdentifierRef = Ref.LedgerString.assertFromString(shortIdentifier)
-    testCaseBuffer.append(new LedgerTestCase(shortIdentifierRef, description, timeout, testCase))
+    testCaseBuffer.append(
+      new LedgerTestCase(shortIdentifierRef, description, timeout, participants, testCase))
   }
 
   protected final def skip(reason: String): Future[Unit] = Future.failed(SkipTestException(reason))
