@@ -470,7 +470,7 @@ class InMemoryKVParticipantState(
     val cf = new CompletableFuture[PartyAllocationResult]
     matcherActorRef ! AddPartyAllocationRequest(sId, cf)
     commitActorRef ! CommitSubmission(
-      allocateEntryId(),
+      allocateEntryId,
       Envelope.enclose(
         KeyValueSubmission.partyToSubmission(sId, Some(party), displayName, participantId)
       )
@@ -536,7 +536,7 @@ class InMemoryKVParticipantState(
           case _ => sys.error(s"getDamlState: Envelope did not contain a state value")
       })
 
-  private def allocateEntryId(): Proto.DamlLogEntryId = {
+  private def allocateEntryId: Proto.DamlLogEntryId = {
     val nonce: Array[Byte] = Array.ofDim(8)
     rng.nextBytes(nonce)
     Proto.DamlLogEntryId.newBuilder
