@@ -97,13 +97,10 @@ object ValuePredicate {
   final case class ListMatch(elems: Vector[ValuePredicate]) extends ValuePredicate
   final case class VariantMatch(elem: (Ref.Name, ValuePredicate)) extends ValuePredicate
   final case class OptionalMatch(elem: Option[ValuePredicate]) extends ValuePredicate
-  final case class Range[A](
-      ltgt: (Inclusive, A) \&/ (Inclusive, A),
-      ord: Order[A],
-      project: LfV PartialFunction A)
+  final case class Range[A](ltgt: Boundaries[A], ord: Order[A], project: LfV PartialFunction A)
       extends ValuePredicate
 
-  private def mkRange[A](ltgt: (Inclusive, A) \&/ (Inclusive, A), project: LfV PartialFunction A)(
+  private def mkRange[A](ltgt: Boundaries[A], project: LfV PartialFunction A)(
       implicit ord: Order[A]) =
     Range(ltgt, ord, project)
 
@@ -285,6 +282,8 @@ object ValuePredicate {
   private[this] final val Inclusive = true
   private[this] final val Exclusive = false
 
+  type Boundaries[+A] = (Inclusive, A) \&/ (Inclusive, A)
+
   private[this] final case class RangeExpr[+A](scalar: JsValue PartialFunction A) {
     import RangeExpr._
 
@@ -296,7 +295,7 @@ object ValuePredicate {
     }
 
     @SuppressWarnings(Array("org.wartremover.warts.Any"))
-    def unapply(it: JsValue): Option[PredicateParseError \/ ((Inclusive, A) \&/ (Inclusive, A))] =
+    def unapply(it: JsValue): Option[PredicateParseError \/ Boundaries[A]] =
       it match {
         case JsObject(fields) if fields.keySet exists keys =>
           def badRangeSyntax(s: String): PredicateParseError \/ Nothing =
