@@ -64,7 +64,7 @@
     <logger name="io.grpc.netty" level="warn"/>
     <logger name="io.netty" level="warn"/>
 
-    <root level="INFO">
+    <root level="TRACE">
         <appender-ref ref="STDOUT" />
     </root>
 </configuration>

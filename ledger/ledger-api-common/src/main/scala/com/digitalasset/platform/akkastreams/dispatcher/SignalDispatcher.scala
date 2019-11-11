@@ -8,6 +8,7 @@ import java.util.concurrent.atomic.AtomicReference
 import akka.NotUsed
 import akka.stream._
 import akka.stream.scaladsl.{Source, SourceQueueWithComplete}
+import com.digitalasset.platform.akkastreams.dispatcher.SignalDispatcher.Signal
 import com.digitalasset.platform.common.util.DirectExecutionContext
 import org.slf4j.LoggerFactory
 
@@ -17,30 +18,30 @@ import org.slf4j.LoggerFactory
   * the signal is sent will eventually receive a signal.
   */
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
-class SignalDispatcher[T] private () extends AutoCloseable {
+class SignalDispatcher private () extends AutoCloseable {
 
   val logger = LoggerFactory.getLogger(getClass)
 
-  private val runningState: AtomicReference[Option[Set[SourceQueueWithComplete[T]]]] =
+  private val runningState: AtomicReference[Option[Set[SourceQueueWithComplete[Signal]]]] =
     new AtomicReference(Some(Set.empty))
 
-  private[akkastreams] def getRunningState: Set[SourceQueueWithComplete[T]] =
+  private[akkastreams] def getRunningState: Set[SourceQueueWithComplete[Signal]] =
     runningState.get.getOrElse(throwClosed())
 
   /**
     * Signal to this Dispatcher that there's a new head `Index`.
     * The Dispatcher will emit values on all streams until the new head is reached.
     */
-  def signal(t: T): Unit = getRunningState.foreach(_.offer(t))
+  def signal(): Unit = getRunningState.foreach(_.offer(Signal))
 
   /**
     * Returns a Source that, when materialized, subscribes to this SignalDispatcher.
     *
     * @param signalOnSubscribe True if you want to send a signal to the new subscription.
     */
-  def subscribe(signalOnSubscribe: Option[T]): Source[T, NotUsed] =
+  def subscribe(signalOnSubscribe: Boolean = false): Source[Signal, NotUsed] =
     Source
-      .queue[T](1, OverflowStrategy.dropTail)
+      .queue[Signal](1, OverflowStrategy.dropTail)
       .mapMaterializedValue { q =>
         // this use of mapMaterializedValue, believe it or not, seems to be kosher
         runningState.updateAndGet { s =>
@@ -48,7 +49,7 @@ class SignalDispatcher[T] private () extends AutoCloseable {
         } match {
           // We do this here, since updateAndGet is not guaranteed once-only.
           case Some(_) =>
-            signalOnSubscribe.foreach(q.offer)
+            if (signalOnSubscribe) q.offer(Signal)
           case None =>
             q.complete() // avoid a leak
             throwClosed()
@@ -78,6 +79,11 @@ class SignalDispatcher[T] private () extends AutoCloseable {
 
 object SignalDispatcher {
 
+  sealed abstract class Signal
+
+  /** The signal sent by SignalDispatcher. */
+  final case object Signal extends Signal
+
   /** Construct a new SignalDispatcher. Created Sources will consume Akka resources until closed. */
-  def apply[T](): SignalDispatcher[T] = new SignalDispatcher[T]()
+  def apply[T](): SignalDispatcher = new SignalDispatcher()
 }
