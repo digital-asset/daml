@@ -38,7 +38,7 @@ object Equality {
           case (SVariant(tyCon1, con1, arg1), SVariant(tyCon2, con2, arg2)) =>
             tyCon1 == tyCon2 && con1 == con2 && equality((arg1, arg2) +: stack)
           case (SList(lst1), SList(lst2)) =>
-            lst1.length == lst1.length &&
+            lst1.length == lst2.length &&
               equality(zipAndPush(lst1.iterator, lst2.iterator, stack))
           case (SOptional(opt1), SOptional(opt2)) =>
             (opt1, opt2) match {
