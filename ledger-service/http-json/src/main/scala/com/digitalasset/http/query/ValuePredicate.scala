@@ -124,14 +124,12 @@ object ValuePredicate {
             val ddt = defs(id).getOrElse(predicateParseError(s"Type $id not found"))
             fromCon(it, id, tc instantiate ddt)
         }
-        case iface.TypeNumeric(scale) => {
-          case JsString(q) =>
-            val nq = Numeric checkWithinBoundsAndRound (scale, BigDecimal(q)) fold (predicateParseError, identity)
-            Literal { case V.ValueNumeric(v) if nq == (v setScale scale) => }
-          case JsNumber(q) =>
-            val nq = Numeric checkWithinBoundsAndRound (scale, q) fold (predicateParseError, identity)
-            Literal { case V.ValueNumeric(v) if nq == (v setScale scale) => }
-        }
+        case iface.TypeNumeric(scale) =>
+          val NumericSRangeExpr = numericRangeExpr(scale);
+          {
+            case NumericSRangeExpr.Scalar(nq) =>
+              Literal { case V.ValueNumeric(v) if nq == (v setScale scale) => }
+          }
         case iface.TypeVar(_) => predicateParseError("no vars allowed!")
       }(fallback = illTypedQuery(it, typ))
 
@@ -275,6 +273,12 @@ object ValuePredicate {
   private[this] val TimestampRangeExpr = RangeExpr {
     case JsString(q) =>
       Time.Timestamp fromString q fold (predicateParseError(_), identity)
+  }
+  private[this] def numericRangeExpr(scale: Numeric.Scale) = RangeExpr {
+    case JsString(q) =>
+      Numeric checkWithinBoundsAndRound (scale, BigDecimal(q)) fold (predicateParseError, identity)
+    case JsNumber(q) =>
+      Numeric checkWithinBoundsAndRound (scale, q) fold (predicateParseError, identity)
   }
 
   private[this] type Inclusive = Boolean
