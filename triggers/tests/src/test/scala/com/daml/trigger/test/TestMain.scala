@@ -631,6 +631,49 @@ case class RetryTests(dar: Dar[(PackageId, Package)], runner: TestRunner) {
   }
 }
 
+case class ExerciseByKeyTests(dar: Dar[(PackageId, Package)], runner: TestRunner) {
+
+  val triggerId: Identifier =
+    Identifier(dar.main._1, QualifiedName.assertFromString("ExerciseByKey:exerciseByKeyTrigger"))
+
+  val tId = Identifier(dar.main._1, QualifiedName.assertFromString("ExerciseByKey:T"))
+
+  val tPrimeId = Identifier(dar.main._1, QualifiedName.assertFromString("ExerciseByKey:T_"))
+
+  def test(name: String, numMessages: NumMessages, numT: Int, numTPrime: Int) = {
+    def assertFinalState(finalState: SExpr, commandsR: Unit) = Right(())
+    def assertFinalACS(
+        acs: Map[Identifier, Seq[(String, Lf.ValueRecord[Lf.AbsoluteContractId])]],
+        commandsR: Unit) = {
+      for {
+        _ <- TestRunner.assertEqual(acs.get(tId).fold(0)(_.size), numT, "number of T contracts")
+        _ <- TestRunner.assertEqual(
+          acs.get(tPrimeId).fold(0)(_.size),
+          numTPrime,
+          "number of Done contracts")
+      } yield ()
+    }
+    runner.genericTest(name, dar, triggerId, (_, _) => { implicit ec: ExecutionContext =>
+      { implicit mat: ActorMaterializer =>
+        Future {}
+      }
+    }, numMessages, assertFinalState, assertFinalACS)
+  }
+
+  def runTests() = {
+    test(
+      "1 exerciseByKey",
+      // 1 for create of T
+      // 1 for completion
+      // 1 for exerciseByKey
+      // 1 for corresponding completion
+      NumMessages(4),
+      numT = 0,
+      numTPrime = 1,
+    )
+  }
+}
+
 object TestMain {
 
   private val configParser = new scopt.OptionParser[Config]("acs_test") {
@@ -672,6 +715,7 @@ object TestMain {
         AcsTests(dar, runner).runTests()
         CopyTests(dar, runner).runTests()
         RetryTests(dar, runner).runTests()
+        ExerciseByKeyTests(dar, runner).runTests()
     }
   }
 }
