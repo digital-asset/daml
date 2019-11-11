@@ -197,13 +197,11 @@ resolvePomData BazelLocations{..} sdkVersion sdkComponentVersion art =
 
 data BazelLocations = BazelLocations
     { bazelBin :: !(Path Abs Dir)
-    , bazelGenfiles :: !(Path Abs Dir)
     } deriving Show
 
 getBazelLocations :: IO BazelLocations
 getBazelLocations = do
     bazelBin <- parseAbsDir . T.unpack . T.strip . T.pack =<< System.Process.readProcess "bazel" ["info", "bazel-bin"] ""
-    bazelGenfiles <- parseAbsDir . T.unpack . T.strip . T.pack =<< System.Process.readProcess "bazel" ["info", "bazel-genfiles"] ""
     pure BazelLocations{..}
 
 splitBazelTarget :: BazelTarget -> (Text, Text)
@@ -337,9 +335,7 @@ shouldRelease (AllArtifacts allArtifacts) (PlatformDependent platformDependent) 
 
 copyToReleaseDir :: (MonadLogger m, MonadIO m) => BazelLocations -> Path Abs Dir -> Path Rel File -> Path Rel File -> m ()
 copyToReleaseDir BazelLocations{..} releaseDir inp out = do
-    binExists <- doesFileExist (bazelBin </> inp)
-    let absIn | binExists = bazelBin </> inp
-              | otherwise = bazelGenfiles </> inp
+    let absIn = bazelBin </> inp
     let absOut = releaseDir </> out
     $logInfo ("Copying " <> pathToText absIn <> " to " <> pathToText absOut)
     createDirIfMissing True (parent absOut)

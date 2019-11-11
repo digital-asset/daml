@@ -155,7 +155,7 @@ def _daml_doctest_impl(ctx):
         damlc = ctx.executable.damlc.short_path,
         # we end up with "../haskell_hpp/bin" while we want "external/haskell_hpp/bin"
         # so we just do the replacement ourselves.
-        cpp = ctx.executable.cpp.short_path.replace("..", "external", maxsplit = 1),
+        cpp = ctx.executable.cpp.short_path.replace("..", "external", 1),
         package_name = ctx.attr.package_name,
         flags = " ".join(ctx.attr.flags),
         version_file = ctx.file.version.path,

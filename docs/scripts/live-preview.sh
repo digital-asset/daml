@@ -29,7 +29,7 @@ ln -s ../source $BUILD_DIR
 ln -s ../configs $BUILD_DIR
 mkdir $BUILD_DIR/theme
 bazel build //docs:theme
-tar -zxf ../../bazel-genfiles/docs/da_theme.tar.gz -C $BUILD_DIR/theme
+tar -zxf ../../bazel-bin/docs/da_theme.tar.gz -C $BUILD_DIR/theme
 
 # License and Notices
 cp ../../LICENSE ../source
@@ -41,26 +41,26 @@ do
     if [ "$arg" = "--pdf" ]; then
         bazel build //docs:pdf-docs
         mkdir -p $BUILD_DIR/gen/_downloads
-        cp -L ../../bazel-genfiles/docs/DigitalAssetSDK.pdf $BUILD_DIR/gen/_downloads
+        cp -L ../../bazel-bin/docs/DigitalAssetSDK.pdf $BUILD_DIR/gen/_downloads
     fi
     if [ "$arg" = "--gen" ]; then
         # Hoogle
         bazel build //compiler/damlc:daml-base-hoogle-docs
         mkdir -p $BUILD_DIR/gen/hoogle_db
-        cp -L ../../bazel-genfiles/compiler/damlc/daml-base-hoogle.txt $BUILD_DIR/gen/hoogle_db/base.txt
+        cp -L ../../bazel-bin/compiler/damlc/daml-base-hoogle.txt $BUILD_DIR/gen/hoogle_db/base.txt
 
         # Javadoc
         bazel build //language-support/java:javadocs
         mkdir -p $BUILD_DIR/gen/app-dev/bindings-java
-        tar -zxf ../../bazel-genfiles/language-support/java/javadocs.tar.gz -C $BUILD_DIR/gen/app-dev/bindings-java
+        tar -zxf ../../bazel-bin/language-support/java/javadocs.tar.gz -C $BUILD_DIR/gen/app-dev/bindings-java
 
         # Proto-docs
         bazel build //ledger-api/grpc-definitions:docs
-        cp -L ../../bazel-genfiles/ledger-api/grpc-definitions/proto-docs.rst ../source/app-dev/grpc/
+        cp -L ../../bazel-bin/ledger-api/grpc-definitions/proto-docs.rst ../source/app-dev/grpc/
 
         #StdLib
         bazel build //compiler/damlc:daml-base-rst-docs
-        cp -L ../../bazel-genfiles/compiler/damlc/daml-base.rst ../source/daml/reference/base.rst
+        cp -L ../../bazel-bin/compiler/damlc/daml-base.rst ../source/daml/reference/base.rst
     fi
 done
 

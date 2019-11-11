@@ -130,7 +130,7 @@ build_docs_folder path versions = do
     shell_ $ "git checkout v" <> latest
     robustly_download_nix_packages
     shell_ "bazel build //docs:docs"
-    shell_ $ "tar xzf bazel-genfiles/docs/html.tar.gz --strip-components=1 -C " <> path
+    shell_ $ "tar xzf bazel-bin/docs/html.tar.gz --strip-components=1 -C " <> path
     -- Not going through Aeson because it represents JSON objects as unordered
     -- maps, and here order matters.
     let versions_json = versions
@@ -139,14 +139,14 @@ build_docs_folder path versions = do
                         & \s -> "{" <> s <> "}"
     writeFile (path <> "/versions.json") versions_json
     shell_ $ "mkdir -p  " <> path <> "/" <> latest
-    shell_ $ "tar xzf bazel-genfiles/docs/html.tar.gz --strip-components=1 -C " <> path <> "/" <> latest
+    shell_ $ "tar xzf bazel-bin/docs/html.tar.gz --strip-components=1 -C " <> path <> "/" <> latest
     Foldable.for_ (tail versions) $ \version -> do
         putStrLn $ "Building older docs: " <> version
         shell_ $ "git checkout v" <> version
         robustly_download_nix_packages
         shell_ "bazel build //docs:docs"
         shell_ $ "mkdir -p  " <> path <> "/" <> version
-        shell_ $ "tar xzf bazel-genfiles/docs/html.tar.gz --strip-components=1 -C" <> path <> "/" <> version
+        shell_ $ "tar xzf bazel-bin/docs/html.tar.gz --strip-components=1 -C" <> path <> "/" <> version
     shell_ $ "git checkout " <> cur_sha
 
 check_s3_versions :: Set.Set String -> IO Bool

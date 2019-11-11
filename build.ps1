@@ -30,6 +30,10 @@ function bazel() {
 # which is a workaround for this problem.
 bazel shutdown
 
+# Manually fetch a Windows dev-env tool to avoid the following error:
+#   ERROR loading ~/.scoop: The process cannot access the file 'C:\Users\VssAdministrator\.scoop' because it is being used by another process.
+bazel fetch @makensis_dev_env//...
+
 bazel build `-`-experimental_execution_log_file ${ARTIFACT_DIRS}/build_execution_windows.log //...
 
 bazel shutdown

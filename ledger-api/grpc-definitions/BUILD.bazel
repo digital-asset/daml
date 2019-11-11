@@ -18,7 +18,7 @@ ledger_api_proto_source_root = "ledger-api/grpc-definitions"
 proto_library(
     name = "protos",
     srcs = glob(["**/*.proto"]),
-    proto_source_root = ledger_api_proto_source_root,
+    strip_import_prefix = "/" + ledger_api_proto_source_root,
     visibility = [
         "//visibility:public",
     ],

@@ -95,11 +95,17 @@ genrule(
         "//:VERSION",
     ],
     outs = ["daml-bundled.vsix"],
+    # rm -rf can fail with "directory not empty" on Windows.
+    # As a workaround we add `|| return`.
     cmd = """
         set -euo pipefail
+        TMP_DIR=$$(mktemp -d)
+        cleanup () { rm -rf $$TMP_DIR || return; }
+        trap cleanup EXIT
         DIR=$$PWD
         VERSION=$$(cat $(location //:VERSION))
-        cd compiler/daml-extension
+        cp -r compiler/daml-extension $$TMP_DIR
+        cd $$TMP_DIR/daml-extension
         tar xzf $$DIR/$(location :node_deps_cache)
         sed -i "s/__VERSION__/$$VERSION/" package.json
         sed -i 's/"name": "daml"/"name": "daml-bundled"/' package.json
