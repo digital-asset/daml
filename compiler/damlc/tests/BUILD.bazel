@@ -314,7 +314,7 @@ sh_test(
 # Generate a simple DALF for plain DALF import testing
 
 genrule(
-    name = "simple-dalf.dalf",
+    name = "simple-dalf",
     outs = ["simple-dalf.dalf"],
     cmd = "$(location :generate-simple-dalf) $@",
     tools = [":generate-simple-dalf"],
