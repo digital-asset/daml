@@ -24,6 +24,7 @@ import org.scalatest.{EitherValues, Matchers, WordSpec}
 import scalaz.std.either._
 import scalaz.syntax.apply._
 
+import scala.collection.immutable.TreeMap
 import scala.language.implicitConversions
 
 @SuppressWarnings(
@@ -1097,7 +1098,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
         }
       fetchNodes.foreach {
         case (nid, n) =>
-          val fetchTx = GenTx(Map(nid -> n), ImmArray(nid), Set(basicTestsPkgId))
+          val fetchTx = GenTx(TreeMap(nid -> n), ImmArray(nid), Set(basicTestsPkgId))
           val Right(reinterpreted) = engine
             .reinterpret(n.requiredAuthorizers, Seq(n), let)
             .consume(lookupContract, lookupPackage, lookupKey)

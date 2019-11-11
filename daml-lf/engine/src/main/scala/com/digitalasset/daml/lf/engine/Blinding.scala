@@ -109,7 +109,7 @@ object Blinding {
     * transaction has Nid references that are not present in its nodes. Use `isWellFormed`
     * if you are getting the transaction from a third party.
     */
-  def divulgedTransaction[Nid, Cid, Val](
+  def divulgedTransaction[Nid: Ordering, Cid, Val](
       divulgences: Relation[Nid, Party],
       party: Party,
       tx: GenTransaction[Nid, Cid, Val]): GenTransaction[Nid, Cid, Val] = {

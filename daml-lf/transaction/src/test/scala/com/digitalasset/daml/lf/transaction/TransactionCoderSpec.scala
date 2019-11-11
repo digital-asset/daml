@@ -16,6 +16,8 @@ import com.digitalasset.daml.lf.transaction.VersionTimeline.Implicits._
 import org.scalatest.prop.PropertyChecks
 import org.scalatest.{Inside, Matchers, WordSpec}
 
+import scala.collection.immutable.TreeMap
+
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 class TransactionCoderSpec
     extends WordSpec
@@ -251,7 +253,7 @@ class TransactionCoderSpec
         (nid.toString, node)
       })
       val tx = GenTransaction(
-        nodes = Map(nodes.toSeq: _*),
+        nodes = TreeMap(nodes.toSeq: _*),
         roots = nodes.map(_._1),
         usedPackages = Set.empty
       )
@@ -298,12 +300,12 @@ class TransactionCoderSpec
       case _ => gn
     }
 
-  def transactionWithout[Nid, Cid, Val](
+  def transactionWithout[Nid: Ordering, Cid, Val](
       t: GenTransaction[Nid, Cid, Val],
       f: GenNode[Nid, Cid, Val] => GenNode[Nid, Cid, Val]): GenTransaction[Nid, Cid, Val] =
-    t copy (nodes = t.nodes transform ((_, gn) => f(gn)))
+    t copy (nodes = TreeMap.empty ++ (t.nodes transform ((_, gn) => f(gn))))
 
-  def minimalistTx[Nid, Cid, Val](
+  def minimalistTx[Nid: Ordering, Cid, Val](
       txvMin: TransactionVersion,
       tx: GenTransaction[Nid, Cid, Val]): GenTransaction[Nid, Cid, Val] =
     if (txvMin precedes minExerciseResult)

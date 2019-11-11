@@ -19,6 +19,7 @@ import com.digitalasset.daml.lf.types.Ledger.ScenarioTransactionId
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry.Transaction
 import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.transaction.VersionTimeline
+import com.digitalasset.daml.lf.data.Ref.LedgerString.ordering
 
 import scala.collection.breakOut
 import scala.collection.mutable.ArrayBuffer

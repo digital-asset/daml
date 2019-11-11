@@ -4,9 +4,9 @@
 package com.digitalasset.platform.sandbox.services.transaction
 
 import com.digitalasset.daml.lf.data.Ref.{LedgerString, TransactionIdString}
-import com.digitalasset.daml.lf.value.{Value => Lf}
 import com.digitalasset.daml.lf.transaction.Transaction
 import com.digitalasset.daml.lf.types.Ledger
+import com.digitalasset.daml.lf.value.{Value => Lf}
 
 import scala.util.{Failure, Success, Try}
 

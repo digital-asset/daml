@@ -307,12 +307,18 @@ object Value {
     override def toString = "NodeId(" + index.toString + ")"
 
     val name: LedgerString = LedgerString.assertFromString(index.toString)
+
   }
 
   object NodeId {
     val first = new NodeId(0)
 
     def unsafeFromIndex(i: Int) = new NodeId(i)
+  }
+
+  implicit object NodeIdOrdering extends Ordering[NodeId] {
+    override def compare(x: NodeId, y: NodeId): Int =
+      x.index.compare(y.index)
   }
 
   /*** Keys cannot contain contract ids */

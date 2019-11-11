@@ -17,6 +17,7 @@ import com.digitalasset.daml.lf.transaction._
 import com.digitalasset.daml.lf.value.Value._
 import org.scalacheck.{Arbitrary, Gen}
 import Arbitrary.arbitrary
+import scala.collection.immutable.TreeMap
 import scalaz.syntax.apply._
 import scalaz.scalacheck.ScalaCheckBinding._
 import scalaz.std.string.parseInt
@@ -382,7 +383,7 @@ object ValueGenerators {
     for {
       nodes <- Gen.listOf(danglingRefGenNode)
       roots <- Gen.listOf(Arbitrary.arbInt.arbitrary.map(NodeId.unsafeFromIndex))
-    } yield GenTransaction(nodes.toMap, ImmArray(roots), Set.empty)
+    } yield GenTransaction(TreeMap(nodes: _*), ImmArray(roots), Set.empty)
   }
 
   @deprecated("use malformedGenTransaction instead", since = "100.11.17")
