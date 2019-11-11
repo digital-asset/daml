@@ -32,7 +32,7 @@ import com.digitalasset.navigator.time._
 import com.digitalasset.navigator.util.RetryHelper
 import io.grpc.Channel
 import io.grpc.Status.Code.UNIMPLEMENTED
-import io.grpc.netty.GrpcSslContexts
+import io.grpc.netty.{GrpcSslContexts, NettyChannelBuilder}
 import io.netty.handler.ssl.SslContext
 import org.slf4j.LoggerFactory
 import scalaz.syntax.tag._
@@ -318,16 +318,13 @@ class PlatformStore(
       log.info("Connecting to {}:{}, using a plaintext connection", platformHost, platformPort)
     }
 
-    val channel = LedgerClient
-      .constructChannel(platformHost, platformPort, configuration)
-      .maxInboundMessageSize(ledgerMaxInbound)
-      .build
-
-    val _ = sys.addShutdownHook { val _ = channel.shutdownNow() }
-
     for {
-      ledgerClient <- LedgerClient.forChannel(configuration, channel)
-      staticTime <- getStaticTime(channel, ledgerClient.ledgerId.unwrap)
+      ledgerClient <- LedgerClient.fromBuilder(
+        NettyChannelBuilder
+          .forAddress(platformHost, platformPort)
+          .maxInboundMessageSize(ledgerMaxInbound),
+        configuration)
+      staticTime <- getStaticTime(ledgerClient.channel, ledgerClient.ledgerId.unwrap)
       time <- getTimeProvider(staticTime)
     } yield ConnectionResult(ledgerClient, staticTime, time)
   }
