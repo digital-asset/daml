@@ -13,7 +13,7 @@ import anorm.SqlParser._
 import anorm.ToStatement.optionToStatement
 import anorm.{AkkaStream, BatchSql, Macro, NamedParameter, RowParser, SQL, SqlParser}
 import com.daml.ledger.participant.state.index.v2.PackageDetails
-import com.daml.ledger.participant.state.v1.{AbsoluteContractInst, TransactionId}
+import com.daml.ledger.participant.state.v1.{AbsoluteContractInst, ParticipantId, TransactionId}
 import com.digitalasset.daml.lf.archive.Decode
 import com.digitalasset.daml.lf.data.Ref.{
   ContractIdString,
@@ -1307,6 +1307,33 @@ private class JdbcLedgerDao(
     )
   }
 
+  override def storePackageRejection(
+      participantId: ParticipantId,
+      submissionId: String,
+      reason: String
+  ) = {
+    val prereqs = Try {
+      require(participantId.nonEmpty, "participantId cannot be empty")
+      require(submissionId.nonEmpty, "submissionId cannot be empty")
+    }
+    prereqs.fold(
+      Future.failed,
+      _ =>
+        dbDispatcher.executeSql("store package rejections") { implicit conn =>
+          val sqlupdate = executeBatchSql(
+            queries.SQL_INSERT_PACKAGE_REJECTS,
+            List(
+              Seq[NamedParameter](
+                "participant_id" -> participantId,
+                "submission_id" -> submissionId,
+                "reason" -> reason)))
+          //TODO BH: temporary to get compiling
+          if (sqlupdate.head > 0) PersistenceResponse.Ok
+          else PersistenceResponse.Ok
+      }
+    )
+  }
+
   private val SQL_TRUNCATE_ALL_TABLES =
     SQL("""
         |truncate ledger_entries cascade;
@@ -1363,6 +1390,7 @@ object JdbcLedgerDao {
     // SQL statements using the proprietary Postgres on conflict .. do nothing clause
     protected[JdbcLedgerDao] def SQL_INSERT_CONTRACT_DATA: String
     protected[JdbcLedgerDao] def SQL_INSERT_PACKAGE: String
+    protected[JdbcLedgerDao] def SQL_INSERT_PACKAGE_REJECTS: String
     protected[JdbcLedgerDao] def SQL_IMPLICITLY_INSERT_PARTIES: String
 
     protected[JdbcLedgerDao] def SQL_SELECT_CONTRACT: String
@@ -1389,6 +1417,12 @@ object JdbcLedgerDao {
     override protected[JdbcLedgerDao] val SQL_INSERT_PACKAGE: String =
       """insert into packages(package_id, upload_id, source_description, size, known_since, ledger_offset, package)
         |select {package_id}, {upload_id}, {source_description}, {size}, {known_since}, ledger_end, {package}
+        |from parameters
+        |on conflict (package_id) do nothing""".stripMargin
+
+    override protected[JdbcLedgerDao] val SQL_INSERT_PACKAGE_REJECTS: String =
+      """insert into package_rejects(package_id, participant_id, submission_id, reason)
+        |select {package_id}, {participant_id}, {submission_id}, {reason}
         |from parameters
         |on conflict (package_id) do nothing""".stripMargin
 

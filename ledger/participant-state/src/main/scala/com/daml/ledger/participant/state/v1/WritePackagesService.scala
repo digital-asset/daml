@@ -15,10 +15,9 @@ trait WritePackagesService {
     * This method must be thread-safe, not throw, and not block on IO. It is
     * though allowed to perform significant computation.
     *
-    * The result of the archives upload is communicated synchronously.
-    * TODO: consider also providing an asynchronous response in a similar
-    * manner as it is done for transaction submission. It is possible that
-    * in some implementations, upload will fail due to authorization etc.
+    * The result of the archives upload is communicated via an asynchronous
+    * response in a similar manner as it is done for transaction submission.
+    * It is possible that in some implementations, upload will fail due to authorization etc.
     *
     * Successful archives upload will result in a [[Update.PublicPackageUploaded]]
     * message. See the comments on [[ReadService.stateUpdates]] and [[Update]] for
@@ -44,5 +43,5 @@ trait WritePackagesService {
   def uploadPackages(
       payload: List[Archive],
       sourceDescription: Option[String]
-  ): CompletionStage[UploadPackagesResult]
+  ): CompletionStage[SubmissionResult]
 }

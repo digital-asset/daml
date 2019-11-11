@@ -91,10 +91,10 @@ class InMemoryKVParticipantStateIT
       } yield {
         ps.close()
         result match {
-          case UploadPackagesResult.Ok =>
+          case SubmissionResult.Acknowledged =>
             succeed
           case _ =>
-            fail("unexpected response to party allocation")
+            fail("Unexpected response to package upload.  Error : " + result.toString)
         }
         matchPackageUpload(updateTuple, Offset(Array(0L, 0L)), archives.head, rt)
       }
@@ -112,10 +112,10 @@ class InMemoryKVParticipantStateIT
       } yield {
         ps.close()
         result match {
-          case UploadPackagesResult.Ok =>
+          case SubmissionResult.Acknowledged =>
             succeed
           case _ =>
-            fail("unexpected response to party allocation")
+            fail("Unexpected response to package upload.  Error : " + result.toString)
         }
         matchPackageUpload(updateTuples.head, Offset(Array(0L, 0L)), archives.head, rt)
         matchPackageUpload(updateTuples(1), Offset(Array(0L, 1L)), archives(1), rt)
@@ -140,10 +140,10 @@ class InMemoryKVParticipantStateIT
       } yield {
         ps.close()
         result match {
-          case UploadPackagesResult.Ok =>
+          case SubmissionResult.Acknowledged =>
             succeed
           case _ =>
-            fail("unexpected response to party allocation")
+            fail("Unexpected response to package upload.  Error : " + result.toString)
         }
         // first upload arrives as head update:
         matchPackageUpload(updateTuples.head, Offset(Array(0L, 0L)), archives.head, rt)
@@ -168,11 +168,13 @@ class InMemoryKVParticipantStateIT
       } yield {
         ps.close()
         result match {
-          case UploadPackagesResult.InvalidPackage(_) =>
+          case SubmissionResult.InternalError("Invalid Package") =>
             succeed
           case _ =>
-            fail("unexpected response to package upload")
+            fail("Unexpected response to package upload.  Error : " + result.toString)
         }
+        // TODO BH : will need to match for this in read response stream
+//        case UploadPackagesResult.InvalidPackage(_) =>
       }
     }
 
@@ -196,7 +198,7 @@ class InMemoryKVParticipantStateIT
             assert(partyDetails.displayName == displayName)
             assert(partyDetails.isLocal)
           case _ =>
-            fail("unexpected response to party allocation")
+            fail("unexpected response to party allocation.  Error : " + allocResult.description)
         }
         updateTuple match {
           case (offset: Offset, update: PartyAddedToParticipant) =>
@@ -205,7 +207,7 @@ class InMemoryKVParticipantStateIT
             assert(update.displayName == displayName.get)
             assert(update.participantId == ps.participantId)
             assert(update.recordTime >= rt)
-          case _ => fail("unexpected update message after a party allocation")
+          case _ => fail("unexpected update message after a party allocation.  Error : " + allocResult.description)
         }
       }
     }
@@ -225,17 +227,9 @@ class InMemoryKVParticipantStateIT
           case PartyAllocationResult.Ok(_) =>
             succeed
           case _ =>
-            fail("unexpected response to party allocation")
+            fail("unexpected response to party allocation.  Error : " + result.description)
         }
       }
-//      ps.allocateParty(hint, displayName).thenApply[Assertion]({
-//        case PartyAllocationResult.InvalidName(_) =>
-//          ps.close()
-//          succeed
-//        case _ =>
-//          ps.close()
-//          fail("unexpected response to party allocation")
-//      }).toScala
     }
 
     "reject allocateParty when hint contains invalid string for a party" in {
@@ -253,7 +247,7 @@ class InMemoryKVParticipantStateIT
           case PartyAllocationResult.InvalidName(_) =>
             succeed
           case _ =>
-            fail("unexpected response to party allocation")
+            fail("unexpected response to party allocation.  Error : " + result.description)
         }
       }
     }
@@ -274,14 +268,14 @@ class InMemoryKVParticipantStateIT
           case PartyAllocationResult.Ok(_) =>
             succeed
           case _ =>
-            fail("unexpected response to party allocation")
+            fail("unexpected response to party allocation.  Error : " + result1.description)
         }
 
         result2 match {
           case PartyAllocationResult.AlreadyExists =>
             succeed
           case _ =>
-            fail("unexpected response to party allocation")
+            fail("unexpected response to party allocation.  Error : " + result2.description)
         }
       }
     }
