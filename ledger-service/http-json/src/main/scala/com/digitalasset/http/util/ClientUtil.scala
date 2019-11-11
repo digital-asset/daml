@@ -34,7 +34,7 @@ class ClientUtil(
     packageClient.listPackages().map(_.packageIds.toSet)
 
   def ledgerEnd(implicit ec: ExecutionContext): Future[LedgerOffset] =
-    transactionClient.getLedgerEnd.flatMap(response => toFuture(response.offset))
+    transactionClient.getLedgerEnd().flatMap(response => toFuture(response.offset))
 
   def nextTransaction(party: Party, offset: LedgerOffset)(
       implicit mat: Materializer): Future[Transaction] =

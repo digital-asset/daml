@@ -7,7 +7,7 @@ import java.util.UUID
 
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.ledger.api.testing.utils.SuiteResourceManagementAroundEach
-import com.digitalasset.ledger.api.v1.ledger_identity_service.LedgerIdentityServiceGrpc.LedgerIdentityService
+import com.digitalasset.ledger.api.v1.ledger_identity_service.LedgerIdentityServiceGrpc.LedgerIdentityServiceStub
 import com.digitalasset.ledger.client.services.identity.LedgerIdentityClient
 import com.digitalasset.platform.apitesting.MultiLedgerFixture
 import org.scalatest.concurrent.AsyncTimeLimitedTests
@@ -30,9 +30,9 @@ trait LedgerIdentityServiceITBase
   protected lazy val givenId =
     Ref.LedgerString.assertFromString(s"ledger-${UUID.randomUUID().toString}")
 
-  protected def getLedgerId(ledgerIdentityService: LedgerIdentityService): Future[String] = {
+  protected def getLedgerId(ledgerIdentityService: LedgerIdentityServiceStub): Future[String] = {
     val client = new LedgerIdentityClient(ledgerIdentityService)
-    client getLedgerId ()
+    client.getLedgerId()
   }
 
 }

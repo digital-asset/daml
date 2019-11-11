@@ -4,19 +4,17 @@
 package com.digitalasset.navigator.store.platform
 
 import java.net.URLEncoder
-import java.nio.file.{Files, Path}
 import java.time.{Duration, Instant}
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
-import java.util.stream.Collectors
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Props, Scheduler, Stash}
 import akka.pattern.ask
 import akka.stream.ActorMaterializer
 import akka.util.Timeout
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.grpc.{GrpcException, GrpcStatus}
 import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
+import com.digitalasset.grpc.{GrpcException, GrpcStatus}
 import com.digitalasset.ledger.api.refinements.{ApiTypes, IdGenerator}
 import com.digitalasset.ledger.api.tls.TlsConfiguration
 import com.digitalasset.ledger.api.v1.testing.time_service.TimeServiceGrpc
@@ -41,7 +39,6 @@ import scalaz.syntax.tag._
 
 import scala.concurrent.Future
 import scala.concurrent.duration._
-import scala.util.control.NonFatal
 import scala.util.{Failure, Random, Success, Try}
 
 object PlatformStore {
@@ -49,7 +46,7 @@ object PlatformStore {
       platformHost: String,
       platformPort: Int,
       tlsConfig: Option[TlsConfiguration],
-      accessTokenFile: Path,
+      accessToken: Option[String],
       timeProviderType: TimeProviderType,
       applicationInfo: ApplicationInfo,
       ledgerMaxInbound: Int
@@ -59,7 +56,7 @@ object PlatformStore {
       platformHost,
       platformPort,
       tlsConfig,
-      accessTokenFile,
+      accessToken,
       timeProviderType,
       applicationInfo,
       ledgerMaxInbound)
@@ -88,7 +85,7 @@ class PlatformStore(
     platformHost: String,
     platformPort: Int,
     tlsConfig: Option[TlsConfiguration],
-    accessTokenFile: Path,
+    token: Option[String],
     timeProviderType: TimeProviderType,
     applicationInfo: ApplicationInfo,
     ledgerMaxInbound: Int
@@ -259,7 +256,9 @@ class PlatformStore(
     "party-" + URLEncoder.encode(ApiTypes.Party.unwrap(party.name), "UTF-8")
 
   private def startPartyActor(ledgerClient: LedgerClient, party: PartyState): ActorRef = {
-    context.actorOf(PlatformSubscriber.props(ledgerClient, party, applicationId), childName(party))
+    context.actorOf(
+      PlatformSubscriber.props(ledgerClient, party, applicationId, token),
+      childName(party))
   }
 
   private def sslContext: Option[SslContext] =
@@ -275,25 +274,11 @@ class PlatformStore(
       else None
     }
 
-  private def readAccessToken(): Option[String] =
-    try {
-      Some((Files.readAllLines(accessTokenFile).stream.collect(Collectors.joining("\n"))))
-    } catch {
-      case NonFatal(e) =>
-        log.warning(
-          "Can't read token from {} ({}: {}), calls against an authenticated system will fail",
-          accessTokenFile,
-          e.getClass.getName,
-          e.getMessage)
-        None
-    }
-
   private def connect(): Unit = {
     val retryMaxAttempts = 10
     val retryDelay = 5.seconds
     val maxCommandsInFlight = 10
     val maxParallelSubmissions = 10
-    val accessToken = readAccessToken()
 
     val configuration = LedgerClientConfiguration(
       applicationId,
@@ -303,8 +288,7 @@ class PlatformStore(
         maxParallelSubmissions,
         overrideTtl = false,
         Duration.ofSeconds(30)),
-      sslContext,
-      accessToken
+      sslContext
     )
 
     val result =
@@ -343,23 +327,16 @@ class PlatformStore(
 
     for {
       ledgerClient <- LedgerClient.forChannel(configuration, channel)
-      staticTime <- getStaticTime(channel, ledgerClient.ledgerId.unwrap, configuration.accessToken)
+      staticTime <- getStaticTime(channel, ledgerClient.ledgerId.unwrap)
       time <- getTimeProvider(staticTime)
     } yield ConnectionResult(ledgerClient, staticTime, time)
   }
 
-  private def getStaticTime(
-      channel: Channel,
-      ledgerId: String,
-      accessToken: Option[String]): Future[Option[StaticTime]] = {
+  private def getStaticTime(channel: Channel, ledgerId: String): Future[Option[StaticTime]] = {
     // Note: StaticTime is a TimeProvider that is automatically updated by push events from the ledger.
     Future
-      .fromTry(
-        Try(
-          TimeServiceGrpc
-            .stub(channel)
-            .withCallCredentials(accessToken.map(LedgerClient.callCredentials).orNull)))
-      .flatMap(tp => StaticTime.updatedVia(tp, ledgerId))
+      .fromTry(Try(TimeServiceGrpc.stub(channel)))
+      .flatMap(tp => StaticTime.updatedVia(tp, ledgerId, token))
       .map(staticTime => {
         log.info(s"Time service is available, platform time is ${staticTime.getCurrentTime}")
         Some(staticTime)

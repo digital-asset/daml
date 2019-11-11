@@ -12,20 +12,21 @@ import com.digitalasset.ledger.api.v1.ledger_configuration_service.{
   GetLedgerConfigurationRequest,
   LedgerConfiguration
 }
-import com.digitalasset.ledger.api.v1.ledger_configuration_service.LedgerConfigurationServiceGrpc.LedgerConfigurationService
-
+import com.digitalasset.ledger.api.v1.ledger_configuration_service.LedgerConfigurationServiceGrpc.{
+  LedgerConfigurationServiceStub
+}
+import com.digitalasset.ledger.client.LedgerClient
 import scalaz.syntax.tag._
 
 final class LedgerConfigurationClient(
     ledgerId: domain.LedgerId,
-    ledgerConfigurationService: LedgerConfigurationService)(
-    implicit esf: ExecutionSequencerFactory) {
+    service: LedgerConfigurationServiceStub)(implicit esf: ExecutionSequencerFactory) {
 
-  def getLedgerConfiguration: Source[LedgerConfiguration, NotUsed] =
+  def getLedgerConfiguration(token: Option[String] = None): Source[LedgerConfiguration, NotUsed] =
     ClientAdapter
       .serverStreaming(
         GetLedgerConfigurationRequest(ledgerId.unwrap),
-        ledgerConfigurationService.getLedgerConfiguration)
+        LedgerClient.stub(service, token).getLedgerConfiguration)
       .map(_.ledgerConfiguration.getOrElse(sys.error("No LedgerConfiguration in response.")))
 
 }

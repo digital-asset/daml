@@ -143,7 +143,7 @@ abstract class CommandTransactionChecks
           .update(_.commands.workflowId := workflowId)
 
         for {
-          GetLedgerEndResponse(Some(currentEnd)) <- c.transactionClient.getLedgerEnd
+          GetLedgerEndResponse(Some(currentEnd)) <- c.transactionClient.getLedgerEnd()
 
           _ <- submitSuccessfully(c, request)
 
