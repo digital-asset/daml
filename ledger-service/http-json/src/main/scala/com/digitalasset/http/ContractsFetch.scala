@@ -76,7 +76,7 @@ private class ContractsFetch(
           connection.rollback flatMap (_ => loop(maxAttempts - 1))
         case e @ _ =>
           logger.error(s"contractsIo3 exception: ${e.getMessage}, state: ${e.getSQLState}")
-          throw new IllegalStateException("Cannot perform contractsIo", e)
+          connection.raiseError(e)
       }
     }
 
