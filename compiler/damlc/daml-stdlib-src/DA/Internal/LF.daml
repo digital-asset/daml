@@ -40,6 +40,7 @@ module DA.Internal.LF
 
   , AnyTemplate
   , AnyChoice
+  , AnyContractKey
 
   , TemplateTypeRep
   ) where
@@ -217,8 +218,11 @@ data Any = Any Opaque
 -- | Existential template type that can wrap an arbitrary template.
 newtype AnyTemplate = AnyTemplate { getAnyTemplate : Any }
 
--- | Existential choice type that can wrap an arbitrary chice.
+-- | Existential choice type that can wrap an arbitrary choice.
 newtype AnyChoice = AnyChoice { getAnyChoice : Any }
+
+-- | Existential contract key type that can wrap an arbitrary contract key.
+newtype AnyContractKey = AnyContractKey { getAnyContractKey : Any }
 
 -- | Value-level representation of a type.
 -- We do not expose this directly and instead only expose TemplateTypeRep.
