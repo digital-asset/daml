@@ -73,6 +73,7 @@ client_server_test(
     server = "//ledger/sandbox:sandbox-binary",
     server_args = ["--port=0"],
     server_files = ["$(rootpath :acs.dar)"],
+    timeout = "long",
 )
 
 client_server_test(
@@ -87,6 +88,7 @@ client_server_test(
         "--port=0",
     ],
     server_files = ["$(rootpath :acs.dar)"],
+    timeout = "long",
 )
 
 sh_test(
