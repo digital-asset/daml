@@ -100,10 +100,6 @@ object ValuePredicate {
   final case class Range[A](ltgt: Boundaries[A], ord: Order[A], project: LfV PartialFunction A)
       extends ValuePredicate
 
-  private def mkRange[A](ltgt: Boundaries[A], project: LfV PartialFunction A)(
-      implicit ord: Order[A]) =
-    Range(ltgt, ord, project)
-
   private[http] def fromTemplateJsObject(
       it: Map[String, JsValue],
       typ: domain.TemplateId.RequiredPkg,
@@ -211,7 +207,7 @@ object ValuePredicate {
           case TextRangeExpr.Scalar(q) =>
             TextRangeExpr toLiteral q
           case TextRangeExpr(eoIor) =>
-            eoIor.map(mkRange(_, { case V.ValueText(v) => v })).merge
+            eoIor.map(TextRangeExpr.toRange).merge
         }
         case Date => {
           case DateRangeExpr.Scalar(dq) =>
@@ -336,6 +332,8 @@ object ValuePredicate {
       }
 
     def toLiteral(q: A) = Literal { case v if lfvScalar.lift(v) contains q => }
+
+    def toRange(ltgt: Boundaries[A])(implicit A: Order[A]) = Range(ltgt, A, lfvScalar)
   }
 
   private[this] object RangeExpr {
