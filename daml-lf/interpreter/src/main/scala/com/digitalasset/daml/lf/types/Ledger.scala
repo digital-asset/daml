@@ -14,6 +14,7 @@ import com.digitalasset.daml.lf.data.Relation.Relation
 
 import scala.annotation.tailrec
 import scala.collection.generic.CanBuildFrom
+import scala.collection.breakOut
 import scala.collection.immutable
 import scala.collection.immutable.{SortedMap, TreeMap}
 
@@ -164,10 +165,10 @@ object Ledger {
     committer = committer,
     effectiveAt = effectiveAt,
     roots = enrichedTx.roots.map(ScenarioNodeId(commitPrefix, _)),
-    nodes = TreeMap.empty[ScenarioNodeId, Node] ++ enrichedTx.nodes.map {
+    nodes = enrichedTx.nodes.map {
       case (nodeId, node) =>
         (ScenarioNodeId(commitPrefix, nodeId), translateNode(commitPrefix, node))
-    },
+    }(breakOut),
     explicitDisclosure = enrichedTx.explicitDisclosure.map {
       case (nodeId, ps) =>
         (ScenarioNodeId(commitPrefix, nodeId), ps)
