@@ -486,9 +486,9 @@ GHC_LIB_VERSION = "8.8.1.20191111"
 http_archive(
     name = "haskell_ghc__lib__parser",
     build_file = "//3rdparty/haskell:BUILD.ghc-lib-parser",
-    sha256 = "152a4a8e4fc3944cc7ffd0441dc4515c46e66180a3e149bcbd9c69721e327e78",
+    sha256 = "2b406c537667e7a802aa1551a9c2b697b47d1b40e3d8d99f9d0711209a6636fd",
     strip_prefix = "ghc-lib-parser-{}".format(GHC_LIB_VERSION),
-    urls = ["https://purelyfunctional.org/downloads/ghc-lib-parser-{}.tar.gz".format(GHC_LIB_VERSION)],
+    urls = ["https://digitalassetsdk.bintray.com/ghc-lib/ghc-lib-parser-{}.tar.gz".format(GHC_LIB_VERSION)],
 )
 
 http_archive(
@@ -568,7 +568,7 @@ hazel_repositories(
 
             # Read [Working on ghc-lib] for ghc-lib update instructions at
             # https://github.com/digital-asset/daml/blob/master/ghc-lib/working-on-ghc-lib.md.
-            hazel_ghclibs(GHC_LIB_VERSION, "0000000000000000000000000000000000000000000000000000000000000000", "e47d89b3d65fefc8ba1305807aec52d6696c7fa856eebf42e926e2cd7986140f") +
+            hazel_ghclibs(GHC_LIB_VERSION, "0000000000000000000000000000000000000000000000000000000000000000", "89378f66a8283ddb785538e6d94c1a282d27fa2f3658b537ea5d3cee2efa786e") +
             hazel_github_external("digital-asset", "hlint", "951fdb6d28d7eed8ea1c7f3be69da29b61fcbe8f", "f5fb4cf98cde3ecf1209857208369a63ba21b04313d570c41dffe9f9139a1d34") +
             hazel_github_external("awakesecurity", "proto3-wire", "4f355bbac895d577d8a28f567ab4380f042ccc24", "031e05d523a887fbc546096618bc11dceabae224462a6cdd6aab11c1658e17a3") +
             hazel_github_external(
