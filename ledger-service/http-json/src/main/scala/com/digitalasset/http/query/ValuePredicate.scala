@@ -125,7 +125,7 @@ object ValuePredicate {
           val NumericSRangeExpr = numericRangeExpr(scale);
           {
             case NumericSRangeExpr.Scalar(nq) =>
-              Literal { case V.ValueNumeric(v) if nq == (v setScale scale) => }
+              NumericSRangeExpr toLiteral nq
           }
         case iface.TypeVar(_) => predicateParseError("no vars allowed!")
       }(fallback = illTypedQuery(it, typ))
@@ -205,21 +205,21 @@ object ValuePredicate {
         case Bool => { case JsBoolean(q) => Literal { case V.ValueBool(v) if q == v => } }
         case Int64 => {
           case Int64RangeExpr.Scalar(lq) =>
-            Literal { case V.ValueInt64(v) if lq == (v: Long) => }
+            Int64RangeExpr toLiteral lq
         }
         case Text => {
           case TextRangeExpr.Scalar(q) =>
-            Literal { case V.ValueText(v) if q == v => }
+            TextRangeExpr toLiteral q
           case TextRangeExpr(eoIor) =>
             eoIor.map(mkRange(_, { case V.ValueText(v) => v })).merge
         }
         case Date => {
           case DateRangeExpr.Scalar(dq) =>
-            Literal { case V.ValueDate(v) if dq == v => }
+            DateRangeExpr toLiteral dq
         }
         case Timestamp => {
           case TimestampRangeExpr.Scalar(tq) =>
-            Literal { case V.ValueTimestamp(v) if tq == v => }
+            TimestampRangeExpr toLiteral tq
         }
         case Party => {
           case JsString(q) => Literal { case V.ValueParty(v) if q == (v: String) => }
@@ -256,27 +256,32 @@ object ValuePredicate {
     }) getOrElse predicateParseError(s"No record type found for $typ")
   }
 
-  private[this] val Int64RangeExpr = RangeExpr {
+  private[this] val Int64RangeExpr = RangeExpr({
     case JsNumber(q) if q.isValidLong =>
       q.toLongExact
     case JsString(q) =>
       q.parseLong.fold(e => throw e, identity)
-  }
-  private[this] val TextRangeExpr = RangeExpr { case JsString(s) => s }
-  private[this] val DateRangeExpr = RangeExpr {
+  }, { case V.ValueInt64(v) => v })
+  private[this] val TextRangeExpr = RangeExpr({ case JsString(s) => s }, {
+    case V.ValueText(v) => v
+  })
+  private[this] val DateRangeExpr = RangeExpr({
     case JsString(q) =>
       Time.Date fromString q fold (predicateParseError(_), identity)
-  }
-  private[this] val TimestampRangeExpr = RangeExpr {
+  }, { case V.ValueDate(v) => v })
+  private[this] val TimestampRangeExpr = RangeExpr({
     case JsString(q) =>
       Time.Timestamp fromString q fold (predicateParseError(_), identity)
-  }
-  private[this] def numericRangeExpr(scale: Numeric.Scale) = RangeExpr {
-    case JsString(q) =>
-      Numeric checkWithinBoundsAndRound (scale, BigDecimal(q)) fold (predicateParseError, identity)
-    case JsNumber(q) =>
-      Numeric checkWithinBoundsAndRound (scale, q) fold (predicateParseError, identity)
-  }
+  }, { case V.ValueTimestamp(v) => v })
+  private[this] def numericRangeExpr(scale: Numeric.Scale) =
+    RangeExpr(
+      {
+        case JsString(q) =>
+          Numeric checkWithinBoundsAndRound (scale, BigDecimal(q)) fold (predicateParseError, identity)
+        case JsNumber(q) =>
+          Numeric checkWithinBoundsAndRound (scale, q) fold (predicateParseError, identity)
+      }, { case V.ValueNumeric(v) => v setScale scale }
+    )
 
   private[this] type Inclusive = Boolean
   private[this] final val Inclusive = true
@@ -284,7 +289,9 @@ object ValuePredicate {
 
   type Boundaries[+A] = (Inclusive, A) \&/ (Inclusive, A)
 
-  private[this] final case class RangeExpr[+A](scalar: JsValue PartialFunction A) {
+  private[this] final case class RangeExpr[A](
+      scalar: JsValue PartialFunction A,
+      lfvScalar: LfV PartialFunction A) {
     import RangeExpr._
 
     private def scalarE(it: JsValue): PredicateParseError \/ A =
@@ -327,6 +334,8 @@ object ValuePredicate {
             })
         case _ => None
       }
+
+    def toLiteral(q: A) = Literal { case v if lfvScalar.lift(v) contains q => }
   }
 
   private[this] object RangeExpr {
