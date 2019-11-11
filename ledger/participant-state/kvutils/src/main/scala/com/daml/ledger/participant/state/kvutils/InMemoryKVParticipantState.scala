@@ -154,7 +154,7 @@ class InMemoryKVParticipantState(
     initState
   }
 
-  private def updateState(newState: State) = {
+  private def updateState(newState: State): Unit = {
     file.foreach { f =>
       val os = new ObjectOutputStream(new FileOutputStream(f))
       os.writeObject(newState)
@@ -252,7 +252,7 @@ class InMemoryKVParticipantState(
           case Right(_) => sys.error("Unexpected message in envelope")
         }
         val state = stateRef
-        val newRecordTime = getNewRecordTime
+        val newRecordTime = getNewRecordTime()
 
         if (state.store.contains(entryId.getEntryId)) {
           // The entry identifier already in use, drop the message and let the
@@ -320,7 +320,7 @@ class InMemoryKVParticipantState(
     // This source stops when the actor dies.
     val _ = Source
       .tick(HEARTBEAT_INTERVAL, HEARTBEAT_INTERVAL, ())
-      .map(_ => CommitHeartbeat(getNewRecordTime))
+      .map(_ => CommitHeartbeat(getNewRecordTime()))
       .to(Sink.actorRef(actorRef, onCompleteMessage = ()))
       .run()
 
@@ -548,7 +548,7 @@ class InMemoryKVParticipantState(
     * at which this class has been instantiated.
     */
   private val initialConditions =
-    LedgerInitialConditions(ledgerId, initialLedgerConfig, getNewRecordTime)
+    LedgerInitialConditions(ledgerId, initialLedgerConfig, getNewRecordTime())
 
   /** Get a new record time for the ledger from the system clock.
     * Public for use from integration tests.
