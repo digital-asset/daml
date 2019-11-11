@@ -1357,28 +1357,19 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
   test(
     "TXMultiSubscriptionInOrder",
     "Archives should always come after creations when subscribing as more than on party",
-    allocate(SingleParty, SingleParty)) {
-    case Participants(Participant(alpha, alice), Participant(beta, bob)) =>
+    allocate(TwoParties)) {
+    case Participants(Participant(ledger, alice, bob)) =>
       val contracts = 50
       for {
-        _ <- Future.sequence(
-          Vector.tabulate(contracts)(
-            n =>
-              if (n % 2 == 0)
-                alpha
-                  .create(alice, Dummy(alice))
-                  .flatMap(contract => alpha.exercise(alice, contract.exerciseDummyChoice1))
-              else
-                beta
-                  .create(bob, Dummy(bob))
-                  .flatMap(contract => beta.exercise(bob, contract.exerciseDummyChoice1)))
-        )
-        _ <- synchronize(alpha, beta)
-        aliceView <- alpha.flatTransactions(alice, bob)
-        bobView <- beta.flatTransactions(alice, bob)
+        _ <- Future.sequence(Vector.tabulate(contracts) { n =>
+          val party = if (n % 2 == 0) alice else bob
+          ledger
+            .create(party, Dummy(party))
+            .flatMap(contract => ledger.exercise(party, contract.exerciseDummyChoice1))
+        })
+        transactions <- ledger.flatTransactions(alice, bob)
       } yield {
-        checkTransactionsOrder("Alpha", aliceView, contracts)
-        checkTransactionsOrder("Beta", bobView, contracts)
+        checkTransactionsOrder("Ledger", transactions, contracts)
       }
   }
 
