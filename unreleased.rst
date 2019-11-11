@@ -26,3 +26,6 @@ HEAD — ongoing
 - [Sandbox] Fixed a bug in the SQL backend that caused the database to be flooded with requests when streaming out transactions.
 - [Extractor - Experimental] Fix bug in reading TLS parameters.
 - [DAML Stdlib] Add a ``maintainer`` function that will give you the list of maintainers of a contract key.
+- [DAML Triggers] Added ``exerciseByKeyCmd`` and
+  ``dedupExerciseByKey`` to exercise a choice given the contract key
+  instead of the contract id.

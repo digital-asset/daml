@@ -1,6 +1,6 @@
 -- Copyright (c) 2019 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
-
+{-# LANGUAGE AllowAmbiguousTypes #-}
 daml 1.2
 module Daml.Trigger
  ( ACS
@@ -16,8 +16,10 @@ module Daml.Trigger
  , fromAnyContractId
  , exerciseCmd
  , createCmd
+ , exerciseByKeyCmd
  , dedupExercise
  , dedupCreate
+ , dedupExerciseByKey
  , Message(..)
  , Completion(..)
  , Transaction(..)
@@ -108,6 +110,22 @@ dedupExercise cid c = do
   let cmds = concat $ map snd (Map.toList aState.commandsInFlight) <> map commands aState.emittedCommands
   unless (any ((Some (cid, c) ==) . fromExercise) cmds) $
     void $ emitCommands [exerciseCmd cid c]
+
+-- | Exercise the choice on the given contract if it is not already
+-- in flight.
+--
+-- Note that this will send the exercise as a single-command transaction.
+-- If you need to send multiple commands in one transaction, use
+-- `emitCommands` with `exerciseCmd` and handle filtering yourself.
+dedupExerciseByKey : forall t c r k. (Eq c, Eq k, Choice t c r, TemplateKey t k) => k -> c -> TriggerA ()
+dedupExerciseByKey k c = do
+  aState <- TriggerA get
+  -- This is a very naive approach that is linear in the number of commands in flight.
+  -- We probably want to change this to express the commands in flight as some kind of
+  -- map to make these lookups cheaper.
+  let cmds = concat $ map snd (Map.toList aState.commandsInFlight) <> map commands aState.emittedCommands
+  unless (any ((Some (k, c) ==) . fromExerciseByKey @t) cmds) $
+    void $ emitCommands [exerciseByKeyCmd @t k c]
 
 -- | Transform the high-level trigger type into the one from `Daml.Trigger.LowLevel`.
 runTrigger : Trigger s -> LowLevel.Trigger (TriggerState s)
