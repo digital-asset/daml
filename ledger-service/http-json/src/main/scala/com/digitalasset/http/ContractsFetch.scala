@@ -83,7 +83,10 @@ private class ContractsFetch(
     loop(5)
   }
 
-  def contractsIo_(jwt: Jwt, party: domain.Party, templateId: domain.TemplateId.RequiredPkg)(
+  private def contractsIo_(
+      jwt: Jwt,
+      party: domain.Party,
+      templateId: domain.TemplateId.RequiredPkg)(
       implicit ec: ExecutionContext,
       mat: Materializer): ConnectionIO[OffsetBookmark[domain.Offset]] =
     for {
