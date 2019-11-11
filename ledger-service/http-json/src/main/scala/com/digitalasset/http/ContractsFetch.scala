@@ -63,6 +63,28 @@ private class ContractsFetch(
 
   def contractsIo(jwt: Jwt, party: domain.Party, templateId: domain.TemplateId.RequiredPkg)(
       implicit ec: ExecutionContext,
+      mat: Materializer): ConnectionIO[OffsetBookmark[domain.Offset]] = {
+
+    import doobie.postgres._
+    import doobie.implicits._
+
+    def loop(maxAttempts: Int): ConnectionIO[OffsetBookmark[domain.Offset]] = {
+      logger.debug(s"contractsIo, maxAttempts: $maxAttempts")
+      contractsIo_(jwt, party, templateId).exceptSql {
+        case e if maxAttempts > 0 && e.getSQLState == sqlstate.class23.UNIQUE_VIOLATION.value =>
+          logger.debug(s"contractsIo, exception: ${e.getMessage}, state: ${e.getSQLState}")
+          connection.rollback flatMap (_ => loop(maxAttempts - 1))
+        case e @ _ =>
+          logger.error(s"contractsIo3 exception: ${e.getMessage}, state: ${e.getSQLState}")
+          throw new IllegalStateException("Cannot perform contractsIo", e)
+      }
+    }
+
+    loop(5)
+  }
+
+  def contractsIo_(jwt: Jwt, party: domain.Party, templateId: domain.TemplateId.RequiredPkg)(
+      implicit ec: ExecutionContext,
       mat: Materializer): ConnectionIO[OffsetBookmark[domain.Offset]] =
     for {
       offset0 <- readOffsetFromDbOrFetchFromLedger(jwt, party, templateId)
