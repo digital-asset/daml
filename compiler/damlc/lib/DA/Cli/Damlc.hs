@@ -554,7 +554,6 @@ createProjectPackageDb opts thisSdkVer deps0 dataDeps = do
         forM allDalfs $ \(name, dalf) -> do
             (pkgId, package) <-
                 either (fail . DA.Pretty.renderPretty) pure $
-                -- FIXME(MH): This keeps the old behaviour but seems wrong to me.
                 Archive.decodeArchive Archive.DecodeAsMain dalf
             pure (pkgId, package, dalf, stringToUnitId name)
     -- mapping from package id's to unit id's. if the same package is imported with
