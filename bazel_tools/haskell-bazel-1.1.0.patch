@@ -1,0 +1,13 @@
+diff --git a/haskell/private/path_utils.bzl b/haskell/private/path_utils.bzl
+index 22bd50e8..89d1b52b 100644
+--- a/haskell/private/path_utils.bzl
++++ b/haskell/private/path_utils.bzl
+@@ -580,7 +580,7 @@ def parse_pattern(ctx, pattern_str):
+         pattern_str = "//{package}{target}".format(package = ctx.label.package, target = pattern_str)
+ 
+     # Separate package and target (if present).
+-    package_target = pattern_str[2:].split(":", maxsplit = 2)
++    package_target = pattern_str[2:].split(":", 2)
+     package_str = package_target[0]
+     target_str = None
+     if len(package_target) == 2:
