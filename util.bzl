@@ -20,7 +20,8 @@ def hazel_ghclibs(version, shaParser, shaLibrary):
         (
             "ghc-lib",
             {
-                "url": "https://digitalassetsdk.bintray.com/ghc-lib/ghc-lib-" + version + ".tar.gz",
+                #                "url": "https://digitalassetsdk.bintray.com/ghc-lib/ghc-lib-" + version + ".tar.gz",
+                "url": "https://purelyfunctional.org/downloads/ghc-lib-" + version + ".tar.gz",
                 "stripPrefix": "ghc-lib-" + version,
                 "sha256": shaLibrary,
             },

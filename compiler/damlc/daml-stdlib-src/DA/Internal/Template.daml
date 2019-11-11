@@ -101,6 +101,15 @@ class Template t => TemplateKey t k | t -> k where
   -- | The list of maintainers of a contract key.
   maintainer : k -> [Party]
 
+  _toAnyContractKey : proxy t -> k -> AnyContractKey
+  _fromAnyContractKey : proxy t -> AnyContractKey -> Optional k
+
+toAnyContractKey : forall t k. TemplateKey t k => k -> AnyContractKey
+toAnyContractKey = _toAnyContractKey ([] : [t])
+
+fromAnyContractKey : forall t k. TemplateKey t k => AnyContractKey -> Optional k
+fromAnyContractKey = _fromAnyContractKey ([] : [t])
+
 -- | Exercise a choice on the contract associated with the given key.
 --
 -- You must pass the `t` using an explicit type application. For
