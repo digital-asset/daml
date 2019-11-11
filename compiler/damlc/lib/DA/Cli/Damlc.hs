@@ -554,7 +554,8 @@ createProjectPackageDb opts thisSdkVer deps0 dataDeps = do
         forM allDalfs $ \(name, dalf) -> do
             (pkgId, package) <-
                 either (fail . DA.Pretty.renderPretty) pure $
-                Archive.decodeArchive dalf
+                -- FIXME(MH): This keeps the old behaviour but seems wrong to me.
+                Archive.decodeArchive Archive.DecodeAsMain dalf
             pure (pkgId, package, dalf, stringToUnitId name)
     -- mapping from package id's to unit id's. if the same package is imported with
     -- different unit id's, we would loose a unit id here.
@@ -979,7 +980,7 @@ execInspect inFile outFile jsonOutput lvl =
          $ Proto.JSONPB.toAesonValue archive
       else do
         (pkgId, lfPkg) <- errorOnLeft "Cannot decode package" $
-                   Archive.decodeArchive bytes
+                   Archive.decodeArchive Archive.DecodeAsMain bytes
         writeOutput outFile $ render Plain $
           DA.Pretty.vsep
             [ DA.Pretty.keyword_ "package" DA.Pretty.<-> DA.Pretty.text (LF.unPackageId pkgId) DA.Pretty.<-> DA.Pretty.keyword_ "where"
@@ -1011,7 +1012,7 @@ execInspectDar inFile =
           (pkgId, _lfPkg) <-
               errorOnLeft
                   ("Cannot decode package " <> ZipArchive.eRelativePath dalfEntry)
-                  (Archive.decodeArchive dalf)
+                  (Archive.decodeArchive Archive.DecodeAsMain dalf)
           putStrLn $
               (dropExtension $ takeFileName $ ZipArchive.eRelativePath dalfEntry) <> " " <>
               show (LF.unPackageId pkgId)
@@ -1090,7 +1091,7 @@ execMigrate projectOpts inFile1_ inFile2_ mbDir =
     decode dalf =
         errorOnLeft
             "Cannot decode daml-lf archive"
-            (Archive.decodeArchive dalf)
+            (Archive.decodeArchive Archive.DecodeAsMain dalf)
     getModule modName pkg =
         maybe
             (fail $ T.unpack $ "Can't find module" <> LF.moduleNameString modName)
@@ -1139,7 +1140,7 @@ execGenerateSrc dalfFp = Command GenerateSrc effect
     unitId = stringToUnitId $ takeBaseName dalfFp
     effect = do
         bytes <- B.readFile dalfFp
-        case Archive.decodeArchive bytes of
+        case Archive.decodeArchive Archive.DecodeAsMain bytes of
             Left err -> fail $ DA.Pretty.renderPretty err
             Right (pkgId, pkg) -> do
                 let genSrcs =
@@ -1191,7 +1192,7 @@ execGenerateGenSrc darFp mbQual outDir = Command GenerateGenerics effect
             createDirectoryIfMissing True $ takeDirectory fp
             writeFileUTF8 fp src
 
-    decode = either (fail . DA.Pretty.renderPretty) pure . Archive.decodeArchive
+    decode = either (fail . DA.Pretty.renderPretty) pure . Archive.decodeArchive Archive.DecodeAsMain
 
 
 

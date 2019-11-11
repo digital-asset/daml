@@ -189,12 +189,12 @@ moduleAndTemplates :: LF.World -> LF.Module -> [TemplateChoices]
 moduleAndTemplates world mod = map (\t -> TemplateChoices t (LF.moduleName mod) (templatePossibleUpdates world t)) $ NM.toList $ LF.moduleTemplates mod
 
 dalfBytesToPakage :: BSL.ByteString -> ExternalPackage
-dalfBytesToPakage bytes = case Archive.decodeArchive $ BSL.toStrict bytes of
-    Right (pkgId, pkg) -> rewriteSelfReferences pkgId pkg
+dalfBytesToPakage bytes = case Archive.decodeArchive Archive.DecodeAsDependency $ BSL.toStrict bytes of
+    Right (pkgId, pkg) -> ExternalPackage pkgId pkg
     Left err -> error (show err)
 
 darToWorld :: Dalfs -> LF.World
-darToWorld Dalfs{..} = case Archive.decodeArchive $ BSL.toStrict mainDalf of
+darToWorld Dalfs{..} = case Archive.decodeArchive Archive.DecodeAsMain $ BSL.toStrict mainDalf of
     Right (_, mainPkg) -> AST.initWorldSelf pkgs mainPkg
     Left err -> error (show err)
     where
