@@ -312,7 +312,7 @@ private class SqlLedger(
   override def uploadPackages(
       knownSince: Instant,
       sourceDescription: Option[String],
-      payload: List[Archive]): Future[UploadPackagesResult] = {
+      payload: List[Archive]): Future[SubmissionResult] = {
     val submissionId = UUID.randomUUID().toString
     val packages = payload.map(archive =>
       (archive, PackageDetails(archive.getPayload.size().toLong, knownSince, sourceDescription)))
@@ -328,7 +328,7 @@ private class SqlLedger(
         // Unlike the data access layer, the API has no concept of duplicates, so we
         // discard the information; package upload is idempotent, apart from the fact
         // that we only keep the knownSince and sourceDescription of the first upload.
-        UploadPackagesResult.Ok
+        SubmissionResult.Acknowledged
       }(DEC)
   }
 }

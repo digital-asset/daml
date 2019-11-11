@@ -14,8 +14,7 @@ import com.daml.ledger.participant.state.v1.{
   SubmissionResult,
   SubmittedTransaction,
   SubmitterInfo,
-  TransactionMeta,
-  UploadPackagesResult
+  TransactionMeta
 }
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.ImmArray
@@ -279,15 +278,15 @@ class InMemoryLedger(
   override def uploadPackages(
       knownSince: Instant,
       sourceDescription: Option[String],
-      payload: List[Archive]): Future[UploadPackagesResult] = {
+      payload: List[Archive]): Future[SubmissionResult] = {
     val oldStore = packageStoreRef.get
     oldStore
       .withPackages(knownSince, sourceDescription, payload)
       .fold(
-        err => Future.successful(UploadPackagesResult.InvalidPackage(err)),
+        err => Future.successful(SubmissionResult.InternalError(err)),
         newStore => {
           if (packageStoreRef.compareAndSet(oldStore, newStore))
-            Future.successful(UploadPackagesResult.Ok)
+            Future.successful(SubmissionResult.Acknowledged)
           else uploadPackages(knownSince, sourceDescription, payload)
         }
       )

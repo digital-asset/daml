@@ -115,6 +115,8 @@ object Update {
   }
 
   final case class PublicPackageRejected(
+      archive: DamlLf.Archive,
+      sourceDescription: Option[String],
       participantId: ParticipantId,
       submissionId: String,
       reason: String)

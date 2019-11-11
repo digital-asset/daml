@@ -274,10 +274,17 @@ class JdbcIndexer private[index] (
         ledgerDao.uploadLfPackages(uploadId, packages, externalOffset).map(_ => ())(DEC)
 
         //TODO BH: consider generalization of persistence storage JM has done on configuration branch
-      case PublicPackageRejected(participantId, submissionId, reason) =>
-        ledgerDao
-          .storePackageRejection(participantId, submissionId, reason)
-          .map(_ => ())(DEC)
+      case PublicPackageRejected(archive, sourceDescription, participantId, submissionId, reason) =>
+        val uploadId = UUID.randomUUID().toString
+        val uploadInstant = Instant.now() // TODO: use PublicPackageUploaded.recordTime for multi-ledgers (#2635)
+        val packages: List[(DamlLf.Archive, v2.PackageDetails)] = List(
+          archive -> v2.PackageDetails(
+            size = archive.getPayload.size.toLong,
+            knownSince = uploadInstant,
+            sourceDescription = sourceDescription
+          )
+        )
+        ledgerDao.uploadLfPackages(uploadId, packages, externalOffset).map(_ => ())(DEC)
 
       case TransactionAccepted(
           optSubmitterInfo,
