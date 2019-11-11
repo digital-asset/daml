@@ -14,7 +14,7 @@ import scalaz._
 object Types {
 
   /**
-    * Like [[iface.Type]], without `TypeVar`s
+    * Like `iface.Type`, without `TypeVar`s
     */
   sealed abstract class FullyAppliedType extends Product with Serializable
 
