@@ -964,7 +964,7 @@ convertExpr env0 e = do
             TUpdate{} -> asLet
             TScenario{} -> asLet
             TAny{} -> asLet
-            tcon | isRecordCon con -> do
+            tcon | isSimpleRecordCon con -> do
                 fields <- convertRecordFields env con id
                 case zipExactMay vs fields of
                     Nothing -> unsupported "Pattern match with existential type" alt
@@ -1043,9 +1043,6 @@ isSimpleRecordCon con =
 
 isVariantRecordCon :: DataCon -> Bool
 isVariantRecordCon con = conHasLabels con && not (conIsSingle con)
-
-isRecordCon :: DataCon -> Bool
-isRecordCon con = isSimpleRecordCon con || isVariantRecordCon con
 
 -- | The different classes of data cons with respect to LF conversion.
 data DataConClass
@@ -1200,8 +1197,7 @@ convertAlt env (TConApp tcon targs) alt@(DataAlt con, vs, x) = do
             CaseAlternative CPVariant{..} <$> convertExpr env x
 
         SimpleRecordCon ->
-            unhandled "unreachable case" ()
-                -- TODO refactor alternatives so simple records go through here
+            unhandled "unreachable case -- convertAlt with simple record constructor" ()
 
         VariantRecordCon -> do
             fields <- convertRecordFields env con id
