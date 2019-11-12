@@ -26,7 +26,7 @@ instance Functor f => Action (Free f) where
   Free x >>= f = Free ((>>= f) <$> x)
 
 -- | A free applicative, since we don’t have existentials we have to use the weird RankNTypes encoding, this is isomorphic to
--- forall b. Ap f b (Ap f (b -> a))
+-- forall b. Ap (f b) (Ap f (b -> a))
 data Ap f a
   = PureA a
   | Ap (forall r. (forall b. f b -> Ap f (b -> a) -> r) -> r)
