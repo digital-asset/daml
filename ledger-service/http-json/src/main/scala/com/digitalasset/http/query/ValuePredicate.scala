@@ -6,13 +6,19 @@ package query
 
 import util.IdentifierConverters.lfIdentifier
 
-import com.digitalasset.daml.lf.data.{ImmArray, Numeric, Ref, SortedLookupList, Time}
+import com.digitalasset.daml.lf.data.{ImmArray, Numeric, Ref, SortedLookupList, Time, Utf8}
 import ImmArray.ImmArraySeq
 import com.digitalasset.daml.lf.data.ScalazEqual._
 import com.digitalasset.daml.lf.iface
 import com.digitalasset.daml.lf.value.{Value => V}
 import iface.{Type => Ty}
-import scalaz.\&/
+
+import scalaz.{Order, \&/, \/, \/-}
+import scalaz.Tags.Conjunction
+import scalaz.std.anyVal._
+import scalaz.syntax.apply._
+import scalaz.syntax.order._
+import scalaz.syntax.tag._
 import scalaz.syntax.std.option._
 import scalaz.syntax.std.string._
 import spray.json._
@@ -67,7 +73,13 @@ sealed abstract class ValuePredicate extends Product with Serializable {
         oq map go cata (csq => { case V.ValueOptional(Some(v)) => csq(v); case _ => false },
         { case V.ValueOptional(None) => true; case _ => false })
 
-      case Range(_, _) => predicateParseError("range not supported yet")
+      case range: Range[a] =>
+        implicit val ord: Order[a] = range.ord
+        range.project andThen { a =>
+          range.ltgt.bifoldMap {
+            case (incl, ceil) => Conjunction(if (incl) a <= ceil else a < ceil)
+          } { case (incl, floor) => Conjunction(if (incl) a >= floor else a > floor) }.unwrap
+        } orElse { case _ => false }
     }
     go(this)
   }
@@ -84,8 +96,8 @@ object ValuePredicate {
   final case class ListMatch(elems: Vector[ValuePredicate]) extends ValuePredicate
   final case class VariantMatch(elem: (Ref.Name, ValuePredicate)) extends ValuePredicate
   final case class OptionalMatch(elem: Option[ValuePredicate]) extends ValuePredicate
-  // boolean is whether inclusive (lte vs lt)
-  final case class Range(ltgt: (Boolean, LfV) \&/ (Boolean, LfV), typ: Ty) extends ValuePredicate
+  final case class Range[A](ltgt: Boundaries[A], ord: Order[A], project: LfV PartialFunction A)
+      extends ValuePredicate
 
   private[http] def fromTemplateJsObject(
       it: Map[String, JsValue],
@@ -104,14 +116,8 @@ object ValuePredicate {
             val ddt = defs(id).getOrElse(predicateParseError(s"Type $id not found"))
             fromCon(it, id, tc instantiate ddt)
         }
-        case iface.TypeNumeric(scale) => {
-          case JsString(q) =>
-            val nq = Numeric checkWithinBoundsAndRound (scale, BigDecimal(q)) fold (predicateParseError, identity)
-            Literal { case V.ValueNumeric(v) if nq == (v setScale scale) => }
-          case JsNumber(q) =>
-            val nq = Numeric checkWithinBoundsAndRound (scale, q) fold (predicateParseError, identity)
-            Literal { case V.ValueNumeric(v) if nq == (v setScale scale) => }
-        }
+        case iface.TypeNumeric(scale) =>
+          numericRangeExpr(scale).toQueryParser
         case iface.TypeVar(_) => predicateParseError("no vars allowed!")
       }(fallback = illTypedQuery(it, typ))
 
@@ -188,25 +194,10 @@ object ValuePredicate {
       }
       (typ.typ, it).match2 {
         case Bool => { case JsBoolean(q) => Literal { case V.ValueBool(v) if q == v => } }
-        case Int64 => {
-          case JsNumber(q) if q.isValidLong =>
-            val lq = q.toLongExact
-            Literal { case V.ValueInt64(v) if lq == (v: Long) => }
-          case JsString(q) =>
-            val lq: Long = q.parseLong.fold(e => throw e, identity)
-            Literal { case V.ValueInt64(v) if lq == (v: Long) => }
-        }
-        case Text => { case JsString(q) => Literal { case V.ValueText(v) if q == v => } }
-        case Date => {
-          case JsString(q) =>
-            val dq = Time.Date fromString q fold (predicateParseError(_), identity)
-            Literal { case V.ValueDate(v) if dq == v => }
-        }
-        case Timestamp => {
-          case JsString(q) =>
-            val tq = Time.Timestamp fromString q fold (predicateParseError(_), identity)
-            Literal { case V.ValueTimestamp(v) if tq == v => }
-        }
+        case Int64 => Int64RangeExpr.toQueryParser
+        case Text => TextRangeExpr.toQueryParser(Order fromScalaOrdering Utf8.Ordering)
+        case Date => DateRangeExpr.toQueryParser
+        case Timestamp => TimestampRangeExpr.toQueryParser
         case Party => {
           case JsString(q) => Literal { case V.ValueParty(v) if q == (v: String) => }
         }
@@ -242,9 +233,111 @@ object ValuePredicate {
     }) getOrElse predicateParseError(s"No record type found for $typ")
   }
 
-  private[this] def illTypedQuery(it: JsValue, typ: Any): Nothing =
+  private[this] val Int64RangeExpr = RangeExpr({
+    case JsNumber(q) if q.isValidLong =>
+      q.toLongExact
+    case JsString(q) =>
+      q.parseLong.fold(e => throw e, identity)
+  }, { case V.ValueInt64(v) => v })
+  private[this] val TextRangeExpr = RangeExpr({ case JsString(s) => s }, {
+    case V.ValueText(v) => v
+  })
+  private[this] val DateRangeExpr = RangeExpr({
+    case JsString(q) =>
+      Time.Date fromString q fold (predicateParseError(_), identity)
+  }, { case V.ValueDate(v) => v })
+  private[this] val TimestampRangeExpr = RangeExpr({
+    case JsString(q) =>
+      Time.Timestamp fromString q fold (predicateParseError(_), identity)
+  }, { case V.ValueTimestamp(v) => v })
+  private[this] def numericRangeExpr(scale: Numeric.Scale) =
+    RangeExpr(
+      {
+        case JsString(q) =>
+          Numeric checkWithinBoundsAndRound (scale, BigDecimal(q)) fold (predicateParseError, identity)
+        case JsNumber(q) =>
+          Numeric checkWithinBoundsAndRound (scale, q) fold (predicateParseError, identity)
+      }, { case V.ValueNumeric(v) => v setScale scale }
+    )
+
+  private[this] implicit val `jBD order`: Order[java.math.BigDecimal] =
+    Order.fromScalaOrdering
+
+  private[this] type Inclusive = Boolean
+  private[this] final val Inclusive = true
+  private[this] final val Exclusive = false
+
+  type Boundaries[+A] = (Inclusive, A) \&/ (Inclusive, A)
+
+  private[this] final case class RangeExpr[A](
+      scalar: JsValue PartialFunction A,
+      lfvScalar: LfV PartialFunction A) {
+    import RangeExpr._
+
+    private def scalarE(it: JsValue): PredicateParseError \/ A =
+      scalar.lift(it) \/> predicateParseError(s"invalid boundary $it")
+
+    object Scalar {
+      @inline def unapply(it: JsValue): Option[A] = scalar.lift(it)
+    }
+
+    @SuppressWarnings(Array("org.wartremover.warts.Any"))
+    def unapply(it: JsValue): Option[PredicateParseError \/ Boundaries[A]] =
+      it match {
+        case JsObject(fields) if fields.keySet exists keys =>
+          def badRangeSyntax(s: String): PredicateParseError \/ Nothing =
+            predicateParseError(s"Invalid range query, as $s: $it")
+
+          def side(exK: String, inK: String) = {
+            assert(keys(exK) && keys(inK)) // forgot to update 'keys' when changing the keys
+            (fields get exK, fields get inK) match {
+              case (Some(excl), None) => scalarE(excl) map (a => Some((Exclusive, a)))
+              case (None, Some(incl)) => scalarE(incl) map (a => Some((Inclusive, a)))
+              case (None, None) => \/-(None)
+              case (Some(_), Some(_)) => badRangeSyntax(s"only one of $exK, $inK may be used")
+            }
+          }
+
+          val strays = fields.keySet diff keys
+          Some(
+            if (strays.nonEmpty) badRangeSyntax(s"extra invalid keys $strays included")
+            else {
+              val left = side("%lt", "%lte")
+              val right = side("%gt", "%gte")
+              import \&/._
+              ^(left, right) {
+                case (Some(l), Some(r)) => Both(l, r)
+                case (Some(l), None) => This(l)
+                case (None, Some(r)) => That(r)
+                case (None, None) => sys.error("impossible; denied by 'fields.keySet exists keys'")
+              }
+            })
+        case _ => None
+      }
+
+    def toLiteral(q: A) = Literal { case v if lfvScalar.lift(v) contains q => }
+
+    def toRange(ltgt: Boundaries[A])(implicit A: Order[A]) = Range(ltgt, A, lfvScalar)
+
+    /** Match both the literal and range query cases. */
+    def toQueryParser(implicit A: Order[A]): JsValue PartialFunction ValuePredicate = {
+      val Self = this;
+      {
+        case Scalar(q) => toLiteral(q)
+        case Self(eoIor) => eoIor.map(toRange).merge
+      }
+    }
+  }
+
+  private[this] object RangeExpr {
+    private val keys = Set("%lt", "%lte", "%gt", "%gte")
+  }
+
+  private type PredicateParseError = Nothing
+
+  private[this] def illTypedQuery(it: JsValue, typ: Any): PredicateParseError =
     predicateParseError(s"$it is not a query that can match type $typ")
 
-  private def predicateParseError(s: String): Nothing =
+  private def predicateParseError(s: String): PredicateParseError =
     sys.error(s)
 }
