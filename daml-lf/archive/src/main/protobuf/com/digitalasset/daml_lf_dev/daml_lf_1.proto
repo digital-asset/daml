@@ -38,7 +38,7 @@
 //        2019-09-30: Add interning of strings and dotted names
 //        2019-11-04: Add Type representation values
 // * dev (special staging area for the next version to be released)
-//        Still Nothing
+//        2019-11-12: Add Generic Map
 
 syntax = "proto3";
 package daml_lf_1;
@@ -269,6 +269,10 @@ enum PrimType {
   // *Available in versions >= 1.3*
   MAP = 16;
 
+  // Builtin type 'TGenMap`
+  // *Available in versions >= 1.dev*
+  GENMAP = 20;
+
   // Builtin type 'Numeric'
   // *Available in versions >= 1.7*
   NUMERIC = 17;
@@ -414,6 +418,14 @@ enum BuiltinFunction {
   MAP_TO_LIST = 100;
   MAP_SIZE = 101;
 
+  GENMAP_EMPTY = 124; // *Available in versions >= 1.dev*
+  GENMAP_INSERT = 125; // *Available in versions >= 1.dev*
+  GENMAP_LOOKUP = 126; // *Available in versions >= 1.dev*
+  GENMAP_DELETE = 127; // *Available in versions >= 1.dev*
+  GENMAP_KEYS = 128; // *Available in versions >= 1.dev*
+  GENMAP_VALUES = 129; // *Available in versions >= 1.dev*
+  GENMAP_SIZE = 130; // *Available in versions >= 1.dev*
+
   EXPLODE_TEXT = 23;
   APPEND_TEXT = 24;
 
@@ -498,7 +510,7 @@ enum BuiltinFunction {
 
   TEXT_FROM_CODE_POINTS = 105;  // *Available in versions >= 1.6*
   TEXT_TO_CODE_POINTS = 106; // *Available in versions >= 1.6*
-  // Next id is 124. 123 is EQUAL_TYPE_REP.
+  // Next id is 131. 130 is GENMAP_SIZE.
 }
 
 // Builtin literals

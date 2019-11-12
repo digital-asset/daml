@@ -28,7 +28,7 @@ private[validation] object Typing {
       KStar
     case BTNumeric => KArrow(KNat, KStar)
     case BTList | BTUpdate | BTScenario | BTContractId | BTOptional | BTMap => KArrow(KStar, KStar)
-    case BTArrow => KArrow(KStar, KArrow(KStar, KStar))
+    case BTArrow | BTGenMap => KArrow(KStar, KArrow(KStar, KStar))
   }
 
   private def typeOfPrimLit(lit: PrimLit): Type = lit match {
@@ -125,6 +125,50 @@ private[validation] object Typing {
           alpha.name -> KStar,
           TMap(alpha) ->: TInt64
         ),
+      // GenMaps
+      BGenMapEmpty ->
+        TForall(alpha.name -> KStar, TForall(beta.name -> KStar, TGenMap(alpha, beta))),
+      BGenMapInsert ->
+        TForall(
+          alpha.name -> KStar,
+          TForall(
+            beta.name -> KStar,
+            alpha ->: beta ->: TGenMap(alpha, beta) ->: TGenMap(alpha, beta))),
+      BGenMapLookup ->
+        TForall(
+          alpha.name -> KStar,
+          TForall(
+            beta.name -> KStar,
+            TText ->: TGenMap(alpha, beta) ->: TOptional(beta)
+          )),
+      BGenMapDelete ->
+        TForall(
+          alpha.name -> KStar,
+          TForall(
+            beta.name -> KStar,
+            TText ->: TGenMap(alpha, beta) ->: TGenMap(alpha, beta)
+          )),
+      BGenMapKeys ->
+        TForall(
+          alpha.name -> KStar,
+          TForall(
+            beta.name -> KStar,
+            TGenMap(alpha, beta) ->: TList(alpha)
+          )),
+      BGenMapValues ->
+        TForall(
+          alpha.name -> KStar,
+          TForall(
+            beta.name -> KStar,
+            TGenMap(alpha, beta) ->: TList(beta)
+          )),
+      BGenMapSize ->
+        TForall(
+          alpha.name -> KStar,
+          TForall(
+            beta.name -> KStar,
+            TGenMap(alpha, beta) ->: TInt64
+          )),
       // Text functions
       BExplodeText -> (TText ->: TList(TText)),
       BAppendText -> tBinop(TText),

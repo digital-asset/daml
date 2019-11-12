@@ -41,6 +41,16 @@ object Util {
     }
   }
 
+  class ParametricType2(bType: BuiltinType) {
+    val cons = TBuiltin(bType)
+    def apply(typ1: Type, typ2: Type): Type =
+      TApp(TApp(cons, typ1), typ2)
+    def unapply(typ: TApp): Option[(Type, Type)] = typ match {
+      case TApp(TApp(`cons`, type1), type2) => Some(type1 -> type2)
+      case _ => None
+    }
+  }
+
   val TUnit = TBuiltin(BTUnit)
   val TBool = TBuiltin(BTBool)
   val TInt64 = TBuiltin(BTInt64)
@@ -55,6 +65,7 @@ object Util {
   val TList = new ParametricType1(BTList)
   val TOptional = new ParametricType1(BTOptional)
   val TMap = new ParametricType1(BTMap)
+  val TGenMap = new ParametricType2(BTGenMap)
   val TUpdate = new ParametricType1(BTUpdate)
   val TScenario = new ParametricType1(BTScenario)
   val TContractId = new ParametricType1(BTContractId)
