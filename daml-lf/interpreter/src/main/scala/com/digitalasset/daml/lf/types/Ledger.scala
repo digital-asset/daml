@@ -4,6 +4,7 @@
 package com.digitalasset.daml.lf.types
 
 import com.digitalasset.daml.lf.data.Ref._
+import com.digitalasset.daml.lf.data.Ref.LedgerString.ordering
 import com.digitalasset.daml.lf.data.{ImmArray, Time}
 import com.digitalasset.daml.lf.transaction.Node._
 import com.digitalasset.daml.lf.transaction.Transaction
@@ -13,6 +14,7 @@ import com.digitalasset.daml.lf.data.Relation.Relation
 
 import scala.annotation.tailrec
 import scala.collection.generic.CanBuildFrom
+import scala.collection.breakOut
 import scala.collection.immutable
 
 /** An in-memory representation of a ledger for scenarios */
@@ -121,7 +123,7 @@ object Ledger {
       committer: Party,
       effectiveAt: Time.Timestamp,
       roots: ImmArray[ScenarioNodeId],
-      nodes: Map[ScenarioNodeId, Node],
+      nodes: immutable.SortedMap[ScenarioNodeId, Node],
       explicitDisclosure: Relation[ScenarioNodeId, Party],
       localImplicitDisclosure: Relation[ScenarioNodeId, Party],
       globalImplicitDisclosure: Relation[AbsoluteContractId, Party],
@@ -134,7 +136,7 @@ object Ledger {
       // The transaction root nodes.
       roots: ImmArray[Transaction.NodeId],
       // All nodes of this transaction.
-      nodes: Map[Transaction.NodeId, Transaction.Node],
+      nodes: immutable.SortedMap[Transaction.NodeId, Transaction.Node],
       // A relation between a node id and the parties to which this node gets explicitly disclosed.
       explicitDisclosure: Relation[Transaction.NodeId, Party],
       // A relation between a node id and the parties to which this node get implictly disclosed
@@ -165,7 +167,7 @@ object Ledger {
     nodes = enrichedTx.nodes.map {
       case (nodeId, node) =>
         (ScenarioNodeId(commitPrefix, nodeId), translateNode(commitPrefix, node))
-    },
+    }(breakOut),
     explicitDisclosure = enrichedTx.explicitDisclosure.map {
       case (nodeId, ps) =>
         (ScenarioNodeId(commitPrefix, nodeId), ps)

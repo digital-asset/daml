@@ -31,7 +31,8 @@ OUTPUT="$($TRIGGER_EXE list --dar $DAR | tail -n '+2' | tr -d '\r')"
 EXPECTED="\
   Retry:retryTrigger
   ACS:test
-  CopyTrigger:copyTrigger\
+  CopyTrigger:copyTrigger
+  ExerciseByKey:exerciseByKeyTrigger\
 "
 
 if [ "$OUTPUT" != "$EXPECTED" ]; then

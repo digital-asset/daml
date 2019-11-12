@@ -7,6 +7,7 @@ import com.digitalasset.daml.lf.engine
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, VersionedValue}
 import com.digitalasset.daml.lf.value.{Value => Lf}
 import com.digitalasset.ledger.api.domain
+import com.digitalasset.ledger.api.domain.eventIdOrdering
 import com.digitalasset.ledger.api.domain.Event.{CreateOrArchiveEvent, CreateOrExerciseEvent}
 import com.digitalasset.platform.api.v1.event.EventOps.getEventIndex
 import com.digitalasset.platform.common.{PlatformTypes => P}

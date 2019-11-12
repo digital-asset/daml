@@ -153,8 +153,8 @@ rather than something required for them to function correctly.
 
 First, we get all ``Subscriber``, ``Original`` and ``Copy`` contracts
 from the ACS. For that, the DAML trigger API provides a
-``getTemplates`` function that given the ACS will return a list of all
-contracts of a given type.
+``getContracts`` function that given the ACS will return a list of all
+contracts of a given template.
 
 .. literalinclude:: ./template-root/src/CopyTrigger.daml
    :language: daml

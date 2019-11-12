@@ -1,0 +1,47 @@
+-- Copyright (c) 2019 The DAML Authors. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+daml 1.2
+module ExerciseByKey where
+
+import DA.Next.Map (Map)
+
+import Daml.Trigger
+
+exerciseByKeyTrigger : Trigger Int
+exerciseByKeyTrigger = Trigger
+  { initialize = \_acs -> 3
+  , updateState = \_acs msg allowedFail -> case msg of
+      MCompletion c
+        | Failed {} <- c.status -> allowedFail - 1
+      _ -> allowedFail
+  , rule = retryRule
+  }
+
+-- Create one T template and then call a choice by key to create T_.
+retryRule : Party -> ACS -> Map CommandId [Command] -> Int -> TriggerA ()
+retryRule party acs commandsInFlight allowedRetries
+  | [] <- getContracts @T acs = do
+    dedupCreate T { p = party }
+  | ((_, T { p = party' } ) :: _) <- getContracts @T acs
+  , party == party' =
+    dedupExerciseByKey @T party C
+  | otherwise = pure ()
+
+template T
+  with
+    p : Party
+  where
+    signatory p
+    key p : Party
+    maintainer key
+
+    choice C : ContractId T_
+      controller p
+      do create T_ { p }
+
+template T_
+  with
+    p : Party
+  where
+   signatory p

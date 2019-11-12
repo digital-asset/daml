@@ -76,3 +76,13 @@ older SDK, by listing them under the ``data-dependencies`` stanza:
     - /home/johndoe/bar/.daml/dist/bar.dar
   data-dependencies:
     - /home/jondoe/bar-0.0.0/.daml/dist/bar-0.0.0.dar
+
+Modules from data dependencies can be imported as usual via a ``import Foo`` statement. To have the
+``Template``, ``Choice``, ``TemplateKey``, ``Eq``, ``Show`` and ``HasField`` available of the imported template
+types, also import the generated instances module:
+
+.. code-block:: daml
+
+  import Foo
+  import FooInstances()
+

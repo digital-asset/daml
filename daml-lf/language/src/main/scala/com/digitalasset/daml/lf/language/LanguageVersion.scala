@@ -61,6 +61,7 @@ object LanguageVersion {
     val numeric = v1_7
     val anyType = v1_7
     val typeRep = v1_7
+    val genMap = v1_dev
 
     /** See <https://github.com/digital-asset/daml/issues/1866>. To not break backwards
       * compatibility, we introduce a new DAML-LF version where this restriction is in

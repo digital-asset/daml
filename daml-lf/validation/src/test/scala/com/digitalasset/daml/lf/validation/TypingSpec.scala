@@ -27,6 +27,8 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
         BTUnit -> k"*",
         BTBool -> k"*",
         BTList -> k"* -> *",
+        BTMap -> k"* -> *",
+        BTGenMap -> k"* -> * -> *",
         BTUpdate -> k"* -> *",
         BTScenario -> k"* -> *",
         BTDate -> k"*",
@@ -121,6 +123,8 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
         E"(( 'party' ))" -> T"(( Party ))",
         //Map
         E"Λ (τ : ⋆) . (( MAP_EMPTY @τ ))" -> T"∀ (τ : ⋆) . (( Map τ ))",
+        //GenMap
+        E"Λ (τ : ⋆) (σ : ⋆). (( GENMAP_EMPTY @τ @σ ))" -> T"∀ (τ : ⋆) (σ : ⋆) . (( GenMap τ σ ))",
         //ExpVal
         E"(( Mod:f ))" -> T"(( Int64 →  Bool ))",
         //ExpRecCon

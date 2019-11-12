@@ -8,8 +8,10 @@ import java.time.Instant
 import brave.propagation.TraceContext
 
 import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Ref.LedgerString.ordering
 import com.digitalasset.ledger.api.domain.Event.{CreateOrArchiveEvent, CreateOrExerciseEvent}
 import scalaz.{@@, Tag}
+import scalaz.syntax.tag._
 import com.digitalasset.daml.lf.value.{Value => Lf}
 import com.digitalasset.daml.lf.command.{Commands => LfCommands}
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ValueRecord}
@@ -253,6 +255,7 @@ object domain {
 
   type EventId = Ref.LedgerString @@ EventIdTag
   val EventId: Tag.TagOf[EventIdTag] = Tag.of[EventIdTag]
+  implicit val eventIdOrdering = scala.math.Ordering.by[EventId, Ref.LedgerString](_.unwrap)
 
   sealed trait LedgerIdTag
 

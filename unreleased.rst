@@ -26,3 +26,10 @@ HEAD — ongoing
 - [Sandbox] Fixed a bug in the SQL backend that caused the database to be flooded with requests when streaming out transactions.
 - [Extractor - Experimental] Fix bug in reading TLS parameters.
 - [DAML Stdlib] Add a ``maintainer`` function that will give you the list of maintainers of a contract key.
+- [DAML Triggers] Added ``exerciseByKeyCmd`` and
+  ``dedupExerciseByKey`` to exercise a choice given the contract key
+  instead of the contract id.
+- [DAML Triggers] ``getTemplates`` has been renamed to ``getContracts`` to describe its behavior more accurately.
+  ``getTemplates`` still exists as a compatiblity helper but it is deprecated and will be removed in a future SDK release.
+- [JSON API - Experimental] Fix to support Archive choice. See issue #3219.
+- [JSON API - Experimental] Implement replay on database consistency violation, See issue #3387.

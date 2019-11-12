@@ -8,9 +8,11 @@ import java.nio.file.Files
 import java.time.{Duration, Instant}
 import java.util.{Timer, TimerTask, UUID}
 
+import akka.stream.scaladsl.Sink
 import com.digitalasset.daml.bazeltools.BazelRunfiles.rlocation
-import com.digitalasset.jwt.{HMAC256Verifier, JwtSigner}
+import com.digitalasset.grpc.{GrpcException, GrpcStatus}
 import com.digitalasset.jwt.domain.DecodedJwt
+import com.digitalasset.jwt.{HMAC256Verifier, JwtSigner}
 import com.digitalasset.ledger.api.auth.{AuthServiceJWT, AuthServiceJWTCodec, AuthServiceJWTPayload}
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.testing.utils.SuiteResourceManagementAroundAll
@@ -43,6 +45,7 @@ import com.digitalasset.ledger.api.v1.transaction_filter.{Filters, TransactionFi
 import com.digitalasset.ledger.api.v1.transaction_service._
 import com.digitalasset.platform.apitesting._
 import com.google.protobuf.ByteString
+import io.grpc.Status.Code.PERMISSION_DENIED
 import io.grpc.stub.StreamObserver
 import io.grpc.{Status, StatusException, StatusRuntimeException}
 import org.scalatest.concurrent.AsyncTimeLimitedTests
@@ -101,7 +104,7 @@ class AuthorizationIT
   implicit class AuthServiceJWTPayloadExtensions(payload: AuthServiceJWTPayload) {
     def expiresIn(t: java.time.Duration): AuthServiceJWTPayload =
       payload.copy(exp = Some(Instant.now.plus(t)))
-    def expiresInOneSecond: AuthServiceJWTPayload = expiresIn(Duration.ofSeconds(1))
+    def expiresInFiveSeconds: AuthServiceJWTPayload = expiresIn(Duration.ofSeconds(5))
     def expiresTomorrow: AuthServiceJWTPayload = expiresIn(Duration.ofDays(1))
     def expired: AuthServiceJWTPayload = expiresIn(Duration.ofDays(-1))
 
@@ -148,12 +151,23 @@ class AuthorizationIT
                 new GetActiveContractsRequest(ledgerId, txFilterFor(party)),
                 observer))
 
+        def callViaClient(token: Option[String], party: String) =
+          ctxNone.acsClient
+            .getActiveContracts(txFilterFor(party).get, token = token)
+            .to(Sink.seq)
+            .run()
+
         for {
           _ <- mustBeDenied(call(ctxNone, alice)) // Reading the ACS for Alice without authorization
+          _ <- mustBeDenied(callViaClient(None, alice)) // Reading the ACS for Alice without authorization
           _ <- mustBeDenied(call(ctxBob, alice)) // Reading the ACS for Alice as Bob
+          _ <- mustBeDenied(callViaClient(Some(bobHeader), alice)) // Reading the ACS for Alice as Bob
           _ <- call(ctxAlice, alice) // Reading the ACS for Alice as Alice
+          _ <- callViaClient(Some(aliceHeader), alice) // Reading the ACS for Alice as Alice
           _ <- mustBeDenied(call(ctxAliceExpired, alice)) // Reading the ACS for Alice as Alice after expiration
+          _ <- mustBeDenied(callViaClient(Some(aliceExpiredHeader), alice)) // Reading the ACS for Alice as Alice after expiration
           _ <- call(ctxAliceValid, alice) // Reading the ACS for Alice as Alice before expiration
+          _ <- callViaClient(Some(aliceExpiresTomorrowHeader), alice) // Reading the ACS for Alice as Alice before expiration
         } yield {
           succeed
         }
@@ -171,10 +185,16 @@ class AuthorizationIT
         def call(ctx: LedgerContext) =
           ctx.commandCompletionService.completionEnd(new CompletionEndRequest(ledgerId))
 
+        def callViaClient(token: Option[String]) =
+          ctxNone.commandClient().flatMap(_.getCompletionEnd(token))
+
         for {
           _ <- mustBeDenied(call(ctxNone)) // Reading completion end without authorization
+          _ <- mustBeDenied(callViaClient(None)) // Reading completion end without authorization
           _ <- mustBeDenied(call(ctxAliceExpired)) // Reading completion end with expired authorization
+          _ <- mustBeDenied(callViaClient(Some(aliceExpiredHeader))) // Reading completion end with expired authorization
           _ <- call(ctxAlice) // Reading completion end with authorization
+          _ <- callViaClient(Some(aliceHeader)) // Reading completion end with authorization
         } yield {
           succeed
         }
@@ -209,14 +229,14 @@ class AuthorizationIT
                   Some(ledgerBegin)),
                 observer))
 
-        def scheduleCommandInMillis(millis: Long): Unit = {
+        def scheduleCommand(duration: Duration): Unit = {
           val timer = new Timer(true)
           timer.schedule(new TimerTask {
             override def run(): Unit = {
               val _ =
                 ctxAlice.commandService.submitAndWait(dummySubmitAndWaitRequest(ledgerId, alice))
             }
-          }, millis)
+          }, duration.toMillis)
         }
 
         for {
@@ -228,8 +248,8 @@ class AuthorizationIT
           _ <- mustBeDenied(call(ctxAliceExpired, alice)) // Reading completions for Alice as Alice after expiration
           _ <- call(ctxAlice, alice) // Reading completions for Alice as Alice before expiration
           ctxAliceAboutToExpire = ctxNone.withAuthorizationHeader(
-            alicePayload.expiresInOneSecond.asHeader())
-          _ = scheduleCommandInMillis(1100)
+            alicePayload.expiresInFiveSeconds.asHeader())
+          _ = scheduleCommand(Duration.ofSeconds(10))
           _ <- callAndExpectExpiration(ctxAliceAboutToExpire, alice)
         } yield {
           succeed
@@ -741,11 +761,7 @@ class AuthorizationIT
       }
       def onError(t: Throwable): Unit = {
         t match {
-          case e: StatusException
-              if e.getStatus.getCode == Status.Code.PERMISSION_DENIED && gotSomething =>
-            val _ = promise.trySuccess(())
-          case e: StatusRuntimeException
-              if e.getStatus.getCode == Status.Code.PERMISSION_DENIED && gotSomething =>
+          case GrpcException(GrpcStatus(`PERMISSION_DENIED`, _), _) if gotSomething =>
             val _ = promise.trySuccess(())
           case _ =>
             val _ = promise.tryFailure(t)

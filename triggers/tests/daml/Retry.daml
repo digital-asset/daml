@@ -4,10 +4,7 @@
 daml 1.2
 module Retry where
 
-import DA.Action
 import DA.Next.Map (Map)
-import qualified DA.Next.Map as Map
-import DA.Optional
 
 import Daml.Trigger
 
@@ -25,30 +22,15 @@ retryTrigger = Trigger
 -- finally we create Done
 retryRule : Party -> ACS -> Map CommandId [Command] -> Int -> TriggerA ()
 retryRule party acs commandsInFlight allowedRetries
-  | [] <- getTemplates @T acs = do
-    let create = T { p = party }
-    let pending = concatMap (mapOptional toCreate . snd) $ Map.toList commandsInFlight
-    when (create `notElem` pending) $ void $ emitCommands [createCmd create]
-  | ((cid, _) :: _) <- getTemplates @T acs
+  | [] <- getContracts @T acs = do
+    dedupCreate T { p = party }
+  | ((cid, _) :: _) <- getContracts @T acs
   , allowedRetries > 0 = do
-    let exercise = (cid, C)
-    let pending = concatMap (mapOptional toExercise . snd) $ Map.toList commandsInFlight
-    when (exercise `notElem` pending) $ void $ emitCommands [exerciseCmd @T cid C]
+    dedupExercise cid C
   | allowedRetries == 0
-  , [] <- getTemplates @Done acs = do
-    let create = Done { p = party }
-    let pending = concatMap (mapOptional toCreate . snd) $ Map.toList commandsInFlight
-    when (create `notElem` pending) $ void $ emitCommands [createCmd create]
+  , [] <- getContracts @Done acs = do
+    dedupCreate Done { p = party }
   | otherwise = pure ()
-
-toCreate : Template t => Command -> Optional t
-toCreate (CreateCommand t) = fromAnyTemplate t
-toCreate ExerciseCommand {} = None
-
-toExercise : Command -> Optional (ContractId T, C)
-toExercise CreateCommand {} = None
-toExercise (ExerciseCommand cid choice) =
-  liftA2 (,) (fromAnyContractId cid) (fromAnyChoice @T choice)
 
 template T
   with

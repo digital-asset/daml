@@ -1,9 +1,66 @@
 On MacOS GHCi fails to load grpc fat_cbits statically due to duplicate symbols.
+diff --git a/haskell/private/path_utils.bzl b/haskell/private/path_utils.bzl
+index 3956164a..037cc95a 100644
+--- a/haskell/private/path_utils.bzl
++++ b/haskell/private/path_utils.bzl
+@@ -135,6 +135,44 @@ def make_library_path(hs, libs, prefix = None):
+ 
+     return join_path_list(hs, set.to_list(r))
+ 
++def symlink_dynamic_library(hs, lib, outdir):
++    """Create a symbolic link for a dynamic library and fix the extension.
++
++    This function is used for two reasons:
++
++    1) GHCi expects specific file endings for dynamic libraries depending on
++       the platform: (Linux: .so, macOS: .dylib, Windows: .dll). Bazel does not
++       follow this convention.
++
++    2) macOS applies a strict limit to the MACH-O header size. Many large
++       dynamic loading commands can quickly exceed this limit. To avoid this we
++       place all dynamic libraries into one directory, so that a single RPATH
++       entry is sufficient.
++
++    Args:
++      hs: Haskell context.
++      lib: The dynamic library file.
++      outdir: Output directory for the symbolic link.
++
++    Returns:
++      File, symbolic link to dynamic library.
++    """
++    if hs.toolchain.is_darwin:
++        extension = "dylib"
++    elif hs.toolchain.is_windows:
++        extension = "dll"
++    else:
++        # On Linux we must preserve endings like .so.1.2.3. If those exist then
++        # there will be a matching .so symlink that points to the final
++        # library.
++        extension = get_lib_extension(lib)
++
++    link = hs.actions.declare_file(
++        paths.join(outdir, "lib" + get_lib_name(lib) + "." + extension),
++    )
++    ln(hs, lib, link)
++    return link
++
+ def mangle_static_library(hs, dynamic_lib, static_lib, outdir):
+     """Mangle a static library to match a dynamic library name.
+ 
 diff --git a/haskell/providers.bzl b/haskell/providers.bzl
-index 9c6e1d5..e2952bd 100644
+index 597e2c06..8549aed0 100644
 --- a/haskell/providers.bzl
 +++ b/haskell/providers.bzl
-@@ -264,6 +264,10 @@ def get_extra_libs(hs, cc_info, dynamic = False, pic = None, fixup_dir = "_libs"
+@@ -14,6 +14,7 @@ load(
+     "make_library_path",
+     "mangle_static_library",
+     "rel_to_pkgroot",
++    "symlink_dynamic_library",
+     "target_unique_name",
+ )
+ 
+@@ -275,6 +276,10 @@ def get_extra_libs(hs, cc_info, dynamic = False, pic = None, fixup_dir = "_libs"
  
          static_lib = mangle_static_library(hs, dynamic_lib, static_lib, fixed_lib_dir)
  

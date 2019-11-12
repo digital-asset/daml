@@ -16,14 +16,16 @@ import com.digitalasset.daml.lf.transaction.Node._
 import com.digitalasset.daml.lf.transaction.{GenTransaction => GenTx, Transaction => Tx}
 import com.digitalasset.daml.lf.value.Value
 import Value._
-import com.digitalasset.daml.lf.speedy.SValue
+import com.digitalasset.daml.lf.speedy.{SValue, svalue}
 import com.digitalasset.daml.lf.speedy.SValue._
 import com.digitalasset.daml.lf.command._
 import com.digitalasset.daml.lf.value.ValueVersions.assertAsVersionedValue
+import org.scalactic.Equality
 import org.scalatest.{EitherValues, Matchers, WordSpec}
 import scalaz.std.either._
 import scalaz.syntax.apply._
 
+import scala.collection.immutable.TreeMap
 import scala.language.implicitConversions
 
 @SuppressWarnings(
@@ -401,12 +403,12 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
 
       translator
         .translateValue(typ, someValue)
-        .consume(lookupContract, allOptionalPackages.get, lookupKey) shouldBe
+        .consume(lookupContract, allOptionalPackages.get, lookupKey) shouldEqual
         Right(SRecord(id, Name.Array("recField"), ArrayList(SOptional(Some(SText("foo"))))))
 
       translator
         .translateValue(typ, noneValue)
-        .consume(lookupContract, allOptionalPackages.get, lookupKey) shouldBe
+        .consume(lookupContract, allOptionalPackages.get, lookupKey) shouldEqual
         Right(SRecord(id, Name.Array("recField"), ArrayList(SOptional(None))))
 
     }
@@ -1097,7 +1099,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
         }
       fetchNodes.foreach {
         case (nid, n) =>
-          val fetchTx = GenTx(Map(nid -> n), ImmArray(nid), Set(basicTestsPkgId))
+          val fetchTx = GenTx(TreeMap(nid -> n), ImmArray(nid), Set(basicTestsPkgId))
           val Right(reinterpreted) = engine
             .reinterpret(n.requiredAuthorizers, Seq(n), let)
             .consume(lookupContract, lookupPackage, lookupKey)
@@ -1174,6 +1176,13 @@ object EngineTest {
     val a = new util.ArrayList[X](as.length)
     as.foreach(a.add)
     a
+  }
+
+  @SuppressWarnings(Array("org.wartremover.warts.Any"))
+  private implicit def resultEq: Equality[Either[Error, SValue]] = {
+    case (Right(v1: SValue), Right(v2: SValue)) => svalue.Equality.areEqual(v1, v2)
+    case (Left(e1), Left(e2)) => e1 == e2
+    case _ => false
   }
 
 }

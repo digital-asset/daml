@@ -16,7 +16,12 @@ import com.digitalasset.daml.lf.speedy.SValue
 import com.digitalasset.daml.lf.speedy.SValue._
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, RelativeContractId}
 
-import com.digitalasset.ledger.api.v1.commands.{Command, CreateCommand, ExerciseCommand}
+import com.digitalasset.ledger.api.v1.commands.{
+  Command,
+  CreateCommand,
+  ExerciseCommand,
+  ExerciseByKeyCommand
+}
 import com.digitalasset.ledger.api.v1.completion.Completion
 import com.digitalasset.ledger.api.v1.event.{ArchivedEvent, CreatedEvent, Event}
 import com.digitalasset.ledger.api.v1.transaction.Transaction
@@ -338,6 +343,18 @@ object Converter {
     }
   }
 
+  // Extract the value from a newtype wrapper around Any, e.g., AnyChoice or AnyContractKey
+  private def toAnyWrapper(wrapper: String, v: SValue): Either[String, SValue] = {
+    v match {
+      case SRecord(_, _, vals) if vals.size == 1 =>
+        vals.get(0) match {
+          case SAny(_, v) => Right(v)
+          case v => Left(s"Expected Any but got $v")
+        }
+      case _ => Left(s"Expected $wrapper but got $v")
+    }
+  }
+
   private def extractChoiceName(v: SValue): Either[String, String] = {
     v match {
       case SRecord(ty, _, _) => {
@@ -350,18 +367,11 @@ object Converter {
   private def toCreate(triggerIds: TriggerIds, v: SValue): Either[String, CreateCommand] = {
     v match {
       case SRecord(_, _, vals) if vals.size == 1 => {
-        vals.get(0) match {
-          case SRecord(_, _, vals) if vals.size == 1 =>
-            vals.get(0) match {
-              case SAny(_, tpl) =>
-                for {
-                  templateId <- extractTemplateId(tpl)
-                  templateArg <- toLedgerRecord(tpl)
-                } yield CreateCommand(Some(toApiIdentifier(templateId)), Some(templateArg))
-              case v => Left(s"Expected Any but got $v")
-            }
-          case v => Left(s"Expected AnyTemplate but got $v")
-        }
+        for {
+          tpl <- toAnyWrapper("AnyTemplate", vals.get(0))
+          templateId <- extractTemplateId(tpl)
+          templateArg <- toLedgerRecord(tpl)
+        } yield CreateCommand(Some(toApiIdentifier(templateId)), Some(templateArg))
       }
       case _ => Left(s"Expected CreateCommand but got $v")
     }
@@ -372,14 +382,7 @@ object Converter {
       case SRecord(_, _, vals) if vals.size == 2 => {
         for {
           anyContractId <- toAnyContractId(vals.get(0))
-          choiceVal <- vals.get(1) match {
-            case SRecord(_, _, vals) if vals.size == 1 =>
-              vals.get(0) match {
-                case SAny(_, choiceVal) => Right(choiceVal)
-                case v => Left(s"Expected Any but got $v")
-              }
-            case v => Left(s"Expected Any but got $v")
-          }
+          choiceVal <- toAnyWrapper("AnyChoice", vals.get(1))
           choiceName <- extractChoiceName(choiceVal)
           choiceArg <- toLedgerValue(choiceVal)
         } yield {
@@ -394,6 +397,30 @@ object Converter {
     }
   }
 
+  private def toExerciseByKey(
+      triggerIds: TriggerIds,
+      v: SValue): Either[String, ExerciseByKeyCommand] = {
+    v match {
+      case SRecord(_, _, vals) if vals.size == 3 => {
+        for {
+          tplId <- toTemplateTypeRep(vals.get(0))
+          keyVal <- toAnyWrapper("AnyContractKey", vals.get(1))
+          keyArg <- toLedgerValue(keyVal)
+          choiceVal <- toAnyWrapper("AnyChoice", vals.get(2))
+          choiceName <- extractChoiceName(choiceVal)
+          choiceArg <- toLedgerValue(choiceVal)
+        } yield {
+          ExerciseByKeyCommand(
+            Some(toApiIdentifier(tplId)),
+            Some(keyArg),
+            choiceName,
+            Some(choiceArg)
+          )
+        }
+      }
+    }
+  }
+
   private def toCommand(triggerIds: TriggerIds, v: SValue): Either[String, Command] = {
     v match {
       case SVariant(_, "CreateCommand", createVal) =>
@@ -404,6 +431,10 @@ object Converter {
         for {
           exercise <- toExercise(triggerIds, exerciseVal)
         } yield Command().withExercise(exercise)
+      case SVariant(_, "ExerciseByKeyCommand", exerciseByKeyVal) =>
+        for {
+          exerciseByKey <- toExerciseByKey(triggerIds, exerciseByKeyVal)
+        } yield Command().withExerciseByKey(exerciseByKey)
       case _ => Left("Expected CreateCommand or ExerciseCommand but got $v")
     }
   }
