@@ -1,6 +1,7 @@
 # Copyright (c) 2019 The DAML Authors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+load("@os_info//:os_info.bzl", "is_windows")
 load(
     "//rules_daml:daml.bzl",
     "daml_compile",
@@ -97,6 +98,7 @@ da_scala_test_suite(
         "@postgresql_dev_env//:initdb",
         "@postgresql_dev_env//:pg_ctl",
     ],
+    flaky = is_windows,
     # this test suite is very intensive, long, and relying on timeouts. Moreover,
     # the test suite already parallelizes each scala test, so we'll still be busy
     # only with this one. for the same reason we do not run it on macos -- it takes
