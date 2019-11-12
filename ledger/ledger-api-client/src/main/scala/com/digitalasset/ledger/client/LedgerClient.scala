@@ -71,7 +71,8 @@ object LedgerClient {
       config: LedgerClientConfiguration
   )(implicit ec: ExecutionContext, esf: ExecutionSequencerFactory): Future[LedgerClient] = {
     for {
-      ledgerId <- new LedgerIdentityClient(LedgerIdentityServiceGrpc.stub(channel))
+      ledgerId <- new LedgerIdentityClient(
+        stub(LedgerIdentityServiceGrpc.stub(channel), config.token))
         .satisfies(config.ledgerIdRequirement)
     } yield {
       new LedgerClient(channel, config, ledgerId)
