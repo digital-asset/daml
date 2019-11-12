@@ -16,7 +16,6 @@ import scala.annotation.tailrec
 import scala.collection.generic.CanBuildFrom
 import scala.collection.breakOut
 import scala.collection.immutable
-import scala.collection.immutable.{SortedMap, TreeMap}
 
 /** An in-memory representation of a ledger for scenarios */
 object Ledger {
@@ -124,7 +123,7 @@ object Ledger {
       committer: Party,
       effectiveAt: Time.Timestamp,
       roots: ImmArray[ScenarioNodeId],
-      nodes: SortedMap[ScenarioNodeId, Node],
+      nodes: immutable.SortedMap[ScenarioNodeId, Node],
       explicitDisclosure: Relation[ScenarioNodeId, Party],
       localImplicitDisclosure: Relation[ScenarioNodeId, Party],
       globalImplicitDisclosure: Relation[AbsoluteContractId, Party],
@@ -137,7 +136,7 @@ object Ledger {
       // The transaction root nodes.
       roots: ImmArray[Transaction.NodeId],
       // All nodes of this transaction.
-      nodes: SortedMap[Transaction.NodeId, Transaction.Node],
+      nodes: immutable.SortedMap[Transaction.NodeId, Transaction.Node],
       // A relation between a node id and the parties to which this node gets explicitly disclosed.
       explicitDisclosure: Relation[Transaction.NodeId, Party],
       // A relation between a node id and the parties to which this node get implictly disclosed
