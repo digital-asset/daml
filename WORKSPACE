@@ -116,6 +116,26 @@ nixpkgs_package(
     repositories = dev_env_nix_repos,
 )
 
+# netcat dependency
+nixpkgs_package(
+    name = "netcat_nix",
+    attribute_path = "netcat-gnu",
+    nix_file = "//nix:bazel.nix",
+    nix_file_deps = common_nix_file_deps,
+    repositories = dev_env_nix_repos,
+)
+
+dev_env_tool(
+    name = "netcat_dev_env",
+    nix_include = ["bin/nc"],
+    nix_label = "@netcat_nix",
+    nix_paths = ["bin/nc"],
+    tools = ["nc"],
+    win_include = ["usr/bin/nc.exe"],
+    win_paths = ["usr/bin/nc.exe"],
+    win_tool = "msys2",
+)
+
 # Tar & gzip dependency
 nixpkgs_package(
     name = "tar_nix",
@@ -176,6 +196,22 @@ dev_env_tool(
 nixpkgs_package(
     name = "awk_nix",
     attribute_path = "gawk",
+    nix_file = "//nix:bazel.nix",
+    nix_file_deps = common_nix_file_deps,
+    repositories = dev_env_nix_repos,
+)
+
+nixpkgs_package(
+    name = "coreutils_nix",
+    attribute_path = "coreutils",
+    nix_file = "//nix:bazel.nix",
+    nix_file_deps = common_nix_file_deps,
+    repositories = dev_env_nix_repos,
+)
+
+nixpkgs_package(
+    name = "grpcurl_nix",
+    attribute_path = "grpcurl",
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
     repositories = dev_env_nix_repos,

@@ -42,15 +42,21 @@ $runner "$client" "$client_args" "$server" "$server_args"
         is_executable = True,
     )
 
-    runfiles = ctx.runfiles(files = [wrapper], collect_data = True)
-    runfiles = runfiles.merge(ctx.attr._runner[DefaultInfo].default_runfiles)
-    runfiles = runfiles.merge(ctx.attr.client[DefaultInfo].default_runfiles)
-    runfiles = runfiles.merge(ctx.attr.server[DefaultInfo].default_runfiles)
+    wrapper_runfiles = ctx.runfiles(files = [wrapper], collect_data = True)
+    default_runfiles = wrapper_runfiles \
+        .merge(ctx.attr._runner[DefaultInfo].default_runfiles) \
+        .merge(ctx.attr.client[DefaultInfo].default_runfiles) \
+        .merge(ctx.attr.server[DefaultInfo].default_runfiles)
+    data_runfiles = wrapper_runfiles \
+        .merge(ctx.attr._runner[DefaultInfo].data_runfiles) \
+        .merge(ctx.attr.client[DefaultInfo].data_runfiles) \
+        .merge(ctx.attr.server[DefaultInfo].data_runfiles)
 
     return DefaultInfo(
         executable = wrapper,
         files = depset([wrapper]),
-        runfiles = runfiles,
+        default_runfiles = default_runfiles,
+        data_runfiles = data_runfiles,
     )
 
 client_server_test = rule(

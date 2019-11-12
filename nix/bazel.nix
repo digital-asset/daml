@@ -6,15 +6,18 @@
 }:
 let shared = rec {
   inherit (pkgs)
+    coreutils
     curl
     docker
     gawk
     gnutar
+    grpcurl
     gzip
     hlint
     imagemagick
     jdk8
     jq
+    netcat-gnu
     nodejs
     patchelf
     postgresql_9_6
