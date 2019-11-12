@@ -262,5 +262,4 @@ object SpeedyTest {
     as.foreach(a.add)
     a
   }
-
 }

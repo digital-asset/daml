@@ -15,12 +15,16 @@ import scala.collection.JavaConverters._
 object Equality {
 
   // Equality between two SValues of same type.
+  // Note it is not reflexive, in other words there is some value `v`
+  // such that `areEqual(v, v)` returns `False`).
+  // This follows the equality defined in the daml-lf spec.
   def areEqual(x: SValue, y: SValue): Boolean = equality(FrontStack((x, y)))
 
   private[this] def zipAndPush[X, Y](
       h1: Iterator[X],
       h2: Iterator[Y],
-      stack: FrontStack[(X, Y)]): FrontStack[(X, Y)] =
+      stack: FrontStack[(X, Y)]
+  ): FrontStack[(X, Y)] =
     (stack /: (h1 zip h2))(_.+:(_))
 
   @tailrec
@@ -40,23 +44,18 @@ object Equality {
           case (SList(lst1), SList(lst2)) =>
             lst1.length == lst2.length &&
               equality(zipAndPush(lst1.iterator, lst2.iterator, stack))
-          case (SOptional(opt1), SOptional(opt2)) =>
-            (opt1, opt2) match {
-              case (None, None) => equality(stack)
-              case (Some(v1), Some(v2)) => equality((v1, v2) +: stack)
-              case _ => false
-            }
+          case (SOptional(None), SOptional(None)) =>
+            equality(stack)
+          case (SOptional(Some(v1)), SOptional(Some(v2))) =>
+            equality((v1, v2) +: stack)
           case (SMap(map1), SMap(map2)) =>
             map1.keySet == map2.keySet && {
               val keys = map1.keys
               equality(zipAndPush(keys.iterator.map(map1), keys.iterator.map(map2), stack))
             }
           case (STuple(fields1, args1), STuple(fields2, args2)) =>
-            val map1 = (fields1.iterator zip args1.iterator().asScala).toMap
-            val map2 = (fields2.iterator zip args2.iterator().asScala).toMap
-            val keys = map1.keys
-            fields1.length == map1.size && map1.size == map2.size && map2.size == fields2.length &&
-            equality(zipAndPush(keys.iterator.map(map1), keys.iterator.map(map2), stack))
+            (fields1 sameElements fields2) && equality(
+              zipAndPush(args1.iterator().asScala, args2.iterator().asScala, stack))
           case (SAny(t1, v1), SAny(t2, v2)) =>
             t1 == t2 && equality((v1, v2) +: stack)
           case (STypeRep(t1), STypeRep(t2)) =>
