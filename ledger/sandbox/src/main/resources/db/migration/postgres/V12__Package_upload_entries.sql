@@ -18,12 +18,11 @@ CREATE TABLE package_upload_entries
     upload_id          varchar               not null,
     -- A human readable description of the package source
     source_description varchar,
-    -- The size of the archive payload (i.e., the serialized DAML-LF package), in bytes
+    -- SubmissionId for package to be uploaded
     submission_id    varchar not null,
     -- participant id that initiated the package upload
     participant_id   varchar not null,
-    -- If the type is 'rejection', then the rejection reason is set.
-    -- Rejection reason is a human-readable description why the change was rejected.
+    -- The size of the archive payload (i.e., the serialized DAML-LF package), in bytes
     size               bigint                not null,
     -- The time when the package was added
     known_since        timestamptz           not null,
@@ -32,7 +31,8 @@ CREATE TABLE package_upload_entries
     -- The DAML-LF archive, serialized using the protobuf message `daml_lf.Archive`.
     --  See also `daml-lf/archive/da/daml_lf.proto`.
     package            bytea                 not null,
-    -- SubmissionId for package to be uploaded
+    -- If the type is 'rejection', then the rejection reason is set.
+    -- Rejection reason is a human-readable description why the change was rejected.
     rejection_reason varchar
 )
 
