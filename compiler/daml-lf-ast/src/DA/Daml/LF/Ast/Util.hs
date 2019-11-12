@@ -178,6 +178,9 @@ pattern TScenario typ = TApp (TBuiltin BTScenario) typ
 pattern TContractId typ = TApp (TBuiltin BTContractId) typ
 pattern TNumeric n = TApp (TBuiltin BTNumeric) n
 
+pattern TGenMap :: Type -> Type -> Type
+pattern TGenMap t1 t2 = TApp (TApp (TBuiltin BTGenMap) t1) t2
+
 pattern TMapEntry :: Type -> Type
 pattern TMapEntry a = TTuple [(FieldName "key", TText), (FieldName "value", a)]
 
