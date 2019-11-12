@@ -12,6 +12,7 @@ import com.digitalasset.daml.lf.value.{Value => V}
 import com.digitalasset.daml.lf.value.TypedValueGenerators.{genAddend, ValueAddend => VA}
 
 import org.scalacheck.{Arbitrary, Gen}
+import org.scalactic.source
 import org.scalatest.prop.{GeneratorDrivenPropertyChecks, TableDrivenPropertyChecks}
 import org.scalatest.{Matchers, WordSpec}
 import spray.json._
@@ -42,8 +43,9 @@ class ValuePredicateTest
           .DefDataType(ImmArraySeq.empty, iface.Record(ImmArraySeq((dummyFieldName, ty))))).lift)
 
   "fromJsObject" should {
-    def c(query: String, ty: VA)(expected: ty.Inj[Cid], shouldMatch: Boolean) =
-      (query.parseJson, ty, ty.inj(expected), shouldMatch)
+    def c(query: String, ty: VA)(expected: ty.Inj[Cid], shouldMatch: Boolean)(
+        implicit pos: source.Position) =
+      (pos.lineNumber, query.parseJson, ty, ty.inj(expected), shouldMatch)
 
     object VAs {
       val oi = VA.optional(VA.int64)
@@ -73,7 +75,7 @@ class ValuePredicateTest
     val VAtestNumeric = VA.numeric(Decimal.scale)
 
     val successes = Table(
-      ("query", "type", "expected", "should match?"),
+      ("line#", "query", "type", "expected", "should match?"),
       c("\"foo\"", VA.text)("foo", true),
       c("\"foo\"", VA.text)("bar", false),
       c("42", VA.int64)(42, true),
@@ -117,14 +119,15 @@ class ValuePredicateTest
       vp.toFunPredicate(wrappedExpected) shouldBe true
     }
 
-    "examine simple fields literally" in forAll(successes) { (query, va, expected, shouldMatch) =>
-      val (wrappedExpected, defs) = valueAndTypeInObject(expected, va.t)
-      val vp = ValuePredicate.fromJsObject(
-        Map((dummyFieldName: String) -> query),
-        dummyTypeCon,
-        defs
-      )
-      vp.toFunPredicate(wrappedExpected) shouldBe shouldMatch
+    "examine simple fields literally" in forAll(successes) {
+      (_, query, va, expected, shouldMatch) =>
+        val (wrappedExpected, defs) = valueAndTypeInObject(expected, va.t)
+        val vp = ValuePredicate.fromJsObject(
+          Map((dummyFieldName: String) -> query),
+          dummyTypeCon,
+          defs
+        )
+        vp.toFunPredicate(wrappedExpected) shouldBe shouldMatch
     }
 
     "examine all sorts of primitives literally" in forAll(genAddend, minSuccessful(100)) { va =>
