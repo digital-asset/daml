@@ -29,3 +29,5 @@ HEAD — ongoing
 - [DAML Triggers] Added ``exerciseByKeyCmd`` and
   ``dedupExerciseByKey`` to exercise a choice given the contract key
   instead of the contract id.
+- [DAML Triggers] ``getTemplates`` has been renamed to ``getContracts`` to describe its behavior more accurately.
+  ``getTemplates`` still exists as a compatiblity helper but it is deprecated and will be removed in a future SDK release.
