@@ -236,6 +236,9 @@ object InterfaceReader {
         case Ast.BTList => \/-((1, PrimType.List))
         case Ast.BTOptional => \/-((1, PrimType.Optional))
         case Ast.BTMap => \/-((1, PrimType.Map))
+        case Ast.BTGenMap =>
+          // FIXME https://github.com/digital-asset/daml/issues/2256
+          unserializableDataType(ctx, s"Unsupported primitive type: $a")
         case Ast.BTNumeric =>
           unserializableDataType(
             ctx,
