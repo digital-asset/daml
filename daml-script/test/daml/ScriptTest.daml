@@ -1,0 +1,54 @@
+-- Copyright (c) 2019 The DAML Authors. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+{-# LANGUAGE ApplicativeDo #-}
+daml 1.2
+module ScriptTest where
+
+import Prelude hiding (getParty, submit)
+
+import Daml.Script
+
+template T
+  with
+    p1 : Party
+    p2 : Party
+  where
+    signatory p1, p2
+
+template TProposal
+  with
+    p1 : Party
+    p2 : Party
+  where
+    signatory p1
+    observer p2
+    choice Accept : (ContractId T, Int)
+      controller p2
+      do cid <- create T { p1, p2 }
+         pure (cid, 42)
+
+template C
+  with
+    p : Party
+    v : Int
+  where
+    signatory p
+
+test0 : Script (Party, Party, [T], [TProposal], [C])
+test0 = do
+  alice <- allocateParty "alice"
+  bob <- allocateParty "bob"
+  (cId1, cId2) <- submit alice $ do
+    cid1 <- createCmd (TProposal alice bob)
+    cid2 <- createCmd (TProposal alice bob)
+    pure (cid1, cid2)
+  r <- submit bob $ do
+    ~(_, r) <- exerciseCmd cId1 Accept
+    exerciseCmd cId2 Accept
+    pure r
+  _ <- submit alice $ createCmd (C alice r)
+  ts <- query @T alice
+  tProposals <- query @TProposal alice
+  cs <- query @C alice
+  pure (alice, bob, ts, tProposals, cs)
