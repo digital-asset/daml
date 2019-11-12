@@ -104,6 +104,9 @@ class ValuePredicateTest
       c("""{"%gte": "1980-01-01", "%lt": "2000-01-01"}""", VA.date)(
         Time.Date assertFromString "1986-06-21",
         true),
+      c("""{"%gte": "1980-01-01T00:00:00Z", "%lt": "2000-01-01T00:00:00Z"}""", VA.timestamp)(
+        Time.Timestamp assertFromString "1986-06-21T00:00:00Z",
+        true),
       c("""{"a": 1, "b": 2}""", VA.map(VA.int64))(SortedLookupList(Map("a" -> 1, "b" -> 2)), true),
       c("""{"a": 1, "b": 2}""", VA.map(VA.int64))(SortedLookupList(Map("a" -> 1, "c" -> 2)), false),
       c("""{"a": 1, "b": 2}""", VA.map(VA.int64))(SortedLookupList(Map()), false),
