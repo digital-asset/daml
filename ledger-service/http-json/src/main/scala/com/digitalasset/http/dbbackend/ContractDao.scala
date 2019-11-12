@@ -11,7 +11,7 @@ import doobie.free.connection.ConnectionIO
 import doobie.implicits._
 import doobie.util.log
 import scalaz.syntax.tag._
-
+import doobie.free.{connection => fconn}
 import scala.concurrent.ExecutionContext
 
 class ContractDao(xa: Connection.T) {
@@ -46,12 +46,35 @@ object ContractDao {
   def updateOffset(
       party: domain.Party,
       templateId: domain.TemplateId.RequiredPkg,
-      newOffset: domain.Offset)(implicit log: LogHandler): ConnectionIO[Unit] =
+      newOffset: domain.Offset,
+      lastOffset: Option[domain.Offset])(implicit log: LogHandler): ConnectionIO[Unit] =
     for {
       tpId <- Queries.surrogateTemplateId(
         templateId.packageId,
         templateId.moduleName,
         templateId.entityName)
-      _ <- Queries.updateOffset(party.unwrap, tpId, newOffset.unwrap)
+      rowCount <- Queries.updateOffset(
+        party.unwrap,
+        tpId,
+        newOffset.unwrap,
+        lastOffset.map(_.unwrap))
+      _ <- if (rowCount == 1)
+        fconn.pure(())
+      else
+        fconn.raiseError(StaleOffsetException(party, templateId, newOffset, lastOffset))
     } yield ()
+
+  final case class StaleOffsetException(
+      party: domain.Party,
+      templateId: domain.TemplateId.RequiredPkg,
+      newOffset: domain.Offset,
+      lastOffset: Option[domain.Offset])
+      extends java.sql.SQLException(
+        s"party: $party, templateId: $templateId, newOffset: $newOffset, lastOffset: $lastOffset",
+        StaleOffsetException.SqlState
+      )
+
+  object StaleOffsetException {
+    val SqlState = "STALE_OFFSET_EXCEPTION"
+  }
 }
