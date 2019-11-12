@@ -6,7 +6,7 @@ package query
 
 import util.IdentifierConverters.lfIdentifier
 
-import com.digitalasset.daml.lf.data.{ImmArray, Numeric, Ref, SortedLookupList, Time}
+import com.digitalasset.daml.lf.data.{ImmArray, Numeric, Ref, SortedLookupList, Time, Utf8}
 import ImmArray.ImmArraySeq
 import com.digitalasset.daml.lf.data.ScalazEqual._
 import com.digitalasset.daml.lf.iface
@@ -16,7 +16,6 @@ import iface.{Type => Ty}
 import scalaz.{Order, \&/, \/, \/-}
 import scalaz.Tags.Conjunction
 import scalaz.std.anyVal._
-import scalaz.std.string._
 import scalaz.syntax.apply._
 import scalaz.syntax.order._
 import scalaz.syntax.tag._
@@ -196,7 +195,7 @@ object ValuePredicate {
       (typ.typ, it).match2 {
         case Bool => { case JsBoolean(q) => Literal { case V.ValueBool(v) if q == v => } }
         case Int64 => Int64RangeExpr.toQueryParser
-        case Text => TextRangeExpr.toQueryParser
+        case Text => TextRangeExpr.toQueryParser(Order fromScalaOrdering Utf8.Ordering)
         case Date => DateRangeExpr.toQueryParser
         case Timestamp => TimestampRangeExpr.toQueryParser
         case Party => {
