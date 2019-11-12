@@ -303,13 +303,17 @@ cmdMergeDars =
   where
     cmd = execMergeDars <$> inputDarOpt <*> inputDarOpt <*> targetFileNameOpt
 
-cmdGenerateSrc :: Mod CommandFields Command
-cmdGenerateSrc =
+cmdGenerateSrc :: Int -> Mod CommandFields Command
+cmdGenerateSrc numProcessors =
     command "generate-src" $
     info (helper <*> cmd) $
     progDesc "Generate DAML source code from a dalf package" <> fullDesc
   where
-    cmd = execGenerateSrc <$> inputDalfOpt
+    cmd =
+        execGenerateSrc <$>
+        optionsParser numProcessors (EnableScenarioService False) (pure Nothing) <*>
+        inputDalfOpt <*>
+        targetSrcDirOpt
 
 cmdGenerateGenSrc :: Mod CommandFields Command
 cmdGenerateGenSrc =
@@ -1133,31 +1137,33 @@ execMergeDars darFp1 darFp2 mbOutFp =
             map (\(k, v) -> breakAt72Bytes $ BSL.fromStrict $ k <> ": " <> v) attrs1
 
 -- | Generate daml source files from a dalf package.
-execGenerateSrc :: FilePath -> Command
-execGenerateSrc dalfFp = Command GenerateSrc effect
+execGenerateSrc :: Options -> FilePath -> Maybe FilePath -> Command
+execGenerateSrc opts dalfFp mbOutDir = Command GenerateSrc effect
   where
     unitId = stringToUnitId $ takeBaseName dalfFp
     effect = do
         bytes <- B.readFile dalfFp
-        case Archive.decodeArchive Archive.DecodeAsMain bytes of
-            Left err -> fail $ DA.Pretty.renderPretty err
-            Right (pkgId, pkg) -> do
-                let genSrcs =
-                        generateSrcPkgFromLf
-                            (\pkgRef ->
-                                 case pkgRef of
-                                     LF.PRSelf -> unitId
-                                     LF.PRImport pId
-                                         | pkgId == pId -> unitId
-                                         | otherwise ->
-                                             error $
-                                             "Unknown package id: " <> (T.unpack $ LF.unPackageId pkgId))
-                            pkgId
-                            pkg
-                forM_ genSrcs $ \(path, src) -> do
-                    let fp = fromNormalizedFilePath path
-                    createDirectoryIfMissing True $ takeDirectory fp
-                    writeFileUTF8 fp src
+        (pkgId, pkg) <- decode bytes
+        opts' <- mkOptions opts
+        pkgMap0 <-
+            fmap MS.unions $
+            forM (optPackageDbs opts') $ \dbDir -> do
+                allFiles <- listFilesRecursive dbDir
+                let dalfsFp = filter (".dalf" `isExtensionOf`) allFiles
+                fmap MS.fromList $
+                    forM dalfsFp $ \dalfFp -> do
+                        dalfBS <- B.readFile dalfFp
+                        (pkgId, _pkg) <- decode dalfBS
+                        pure (pkgId, stringToUnitId $ takeFileName dalfFp)
+        let pkgMap = MS.insert pkgId unitId pkgMap0
+        let genSrcs = generateSrcPkgFromLf (getUnitId unitId pkgMap) pkgId pkg
+        forM_ genSrcs $ \(path, src) -> do
+            let fp = (fromMaybe "" mbOutDir) </> fromNormalizedFilePath path
+            createDirectoryIfMissing True $ takeDirectory fp
+            writeFileUTF8 fp src
+        putStrLn "done"
+
+    decode = either (fail . DA.Pretty.renderPretty) pure . Archive.decodeArchive Archive.DecodeAsMain
 
 -- | Generate daml source files containing generic instances for data types.
 execGenerateGenSrc :: FilePath -> Maybe String -> Maybe FilePath -> Command
@@ -1244,7 +1250,7 @@ options numProcessors =
         <> cmdInit numProcessors
         <> cmdCompile numProcessors
         <> cmdClean
-        <> cmdGenerateSrc
+        <> cmdGenerateSrc numProcessors
         <> cmdGenerateGenSrc
       )
 
