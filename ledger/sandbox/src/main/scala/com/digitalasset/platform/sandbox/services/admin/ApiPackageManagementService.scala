@@ -111,7 +111,7 @@ class ApiPackageManagementService(
     * Checks invariants and forwards the original result after all packages are found to be persisted.
     *
     * @param ids The IDs of the uploaded packages
-    * @return The result of the party allocation received originally, wrapped in a [[Future]]
+    * @return The result of the package upload received originally, wrapped in a [[Future]]
     */
   private def pollUntilPersisted(
       ids: List[String],
