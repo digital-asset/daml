@@ -6,15 +6,16 @@ package transaction
 
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data._
-import Node._
-import value.Value
-import Value._
 import com.digitalasset.daml.lf.language.LanguageVersion
+import com.digitalasset.daml.lf.transaction.Node._
+import com.digitalasset.daml.lf.value.Value
+import com.digitalasset.daml.lf.value.Value._
 import scalaz.Equal
 
 import scala.annotation.tailrec
 import scala.annotation.unchecked.uncheckedVariance
 import scala.collection.breakOut
+import scala.collection.immutable.{SortedMap, TreeMap}
 import scala.util.Try
 
 case class VersionedTransaction[Nid, Cid](
@@ -43,7 +44,8 @@ case class VersionedTransaction[Nid, Cid](
     * value, since each value can be typed by different modules.
     */
   def typedBy(languageVersions: LanguageVersion*): VersionedTransaction[Nid, Cid] = {
-    import VersionTimeline._, Implicits._
+    import VersionTimeline._
+    import Implicits._
     copy(
       version = latestWhenAllPresent(version, languageVersions map (a => a: SpecifiedVersion): _*))
   }
@@ -74,8 +76,8 @@ case class VersionedTransaction[Nid, Cid](
   * For performance reasons, users are not required to call `isWellFormed`.
   * Therefore, it is '''forbidden''' to create ill-formed instances, i.e., instances with `!isWellFormed.isEmpty`.
   */
-case class GenTransaction[Nid, Cid, +Val](
-    nodes: Map[Nid, GenNode[Nid, Cid, Val]],
+case class GenTransaction[Nid: Ordering, Cid, +Val](
+    nodes: SortedMap[Nid, GenNode[Nid, Cid, Val]],
     roots: ImmArray[Nid],
     usedPackages: Set[PackageId]) {
   import GenTransaction._
@@ -83,7 +85,7 @@ case class GenTransaction[Nid, Cid, +Val](
   def mapContractIdAndValue[Cid2, Val2](
       f: Cid => Cid2,
       g: Val => Val2): GenTransaction[Nid, Cid2, Val2] = {
-    val nodes2: Map[Nid, GenNode[Nid, Cid2, Val2]] =
+    val nodes2: SortedMap[Nid, GenNode[Nid, Cid2, Val2]] =
       // do NOT use `Map#mapValues`! it applies the function lazily on lookup. see #1861
       nodes.transform { (_, value) =>
         value.mapContractIdAndValue(f, g)
@@ -98,7 +100,7 @@ case class GenTransaction[Nid, Cid, +Val](
   }
 
   /** Note: the provided function must be injective, otherwise the transaction will be corrupted. */
-  def mapNodeId[Nid2](f: Nid => Nid2): GenTransaction[Nid2, Cid, Val] =
+  def mapNodeId[Nid2: Ordering](f: Nid => Nid2): GenTransaction[Nid2, Cid, Val] =
     transaction.GenTransaction(
       roots = roots.map(f),
       nodes = nodes.map {
@@ -497,7 +499,7 @@ object Transaction {
     */
   case class PartialTransaction(
       nextNodeId: NodeId,
-      nodes: Map[NodeId, Node],
+      nodes: SortedMap[NodeId, Node],
       roots: BackStack[NodeId],
       consumedBy: Map[TContractId, NodeId],
       context: Context,
@@ -826,7 +828,7 @@ object Transaction {
       */
     def initial = PartialTransaction(
       nextNodeId = NodeId.first,
-      nodes = Map.empty,
+      nodes = TreeMap.empty[NodeId, Node],
       roots = BackStack.empty,
       consumedBy = Map.empty,
       context = ContextRoot,

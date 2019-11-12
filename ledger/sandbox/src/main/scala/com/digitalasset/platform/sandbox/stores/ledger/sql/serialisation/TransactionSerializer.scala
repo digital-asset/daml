@@ -4,6 +4,7 @@ package com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation
 
 import com.digitalasset.daml.lf.archive.{Decode, Reader}
 import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Ref.LedgerString.ordering
 import com.digitalasset.daml.lf.transaction._
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, VersionedValue}
 import com.digitalasset.daml.lf.value.ValueCoder.{DecodeError, EncodeError}

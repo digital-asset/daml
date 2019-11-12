@@ -23,6 +23,7 @@ import org.scalatest.concurrent.{AsyncTimeLimitedTests, ScalaFutures}
 import org.scalatest.time.Span
 import org.scalatest.{AsyncWordSpec, Matchers}
 
+import scala.collection.immutable.TreeMap
 import scala.concurrent.duration._
 import scala.language.implicitConversions
 
@@ -71,7 +72,7 @@ class TransactionMRTComplianceIT
     "reject transactions with a record time after the MRT" in allFixtures { ledger =>
       val dummyTransaction =
         GenTransaction[NodeId, TContractId, Value[TContractId]](
-          Map.empty,
+          TreeMap.empty,
           ImmArray.empty,
           Set.empty)
 

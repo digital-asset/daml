@@ -31,6 +31,7 @@ import org.scalatest.time.Span
 import org.scalatest.{AsyncWordSpec, Matchers}
 import com.digitalasset.ledger.api.domain.LedgerId
 
+import scala.collection.immutable.TreeMap
 import scala.concurrent.Future
 import scala.concurrent.duration._
 import scala.language.implicitConversions
@@ -92,7 +93,7 @@ class ImplicitPartyAdditionIT
     val event1: NodeId = NodeId.unsafeFromIndex(0)
 
     val transaction = GenTransaction[NodeId, TContractId, Value[TContractId]](
-      Map(event1 -> node),
+      TreeMap(event1 -> node),
       ImmArray(event1),
       Set.empty
     )
