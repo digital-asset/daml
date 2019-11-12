@@ -139,14 +139,14 @@ private[validation] object Typing {
           alpha.name -> KStar,
           TForall(
             beta.name -> KStar,
-            TText ->: TGenMap(alpha, beta) ->: TOptional(beta)
+            alpha ->: TGenMap(alpha, beta) ->: TOptional(beta)
           )),
       BGenMapDelete ->
         TForall(
           alpha.name -> KStar,
           TForall(
             beta.name -> KStar,
-            TText ->: TGenMap(alpha, beta) ->: TGenMap(alpha, beta)
+            alpha ->: TGenMap(alpha, beta) ->: TGenMap(alpha, beta)
           )),
       BGenMapKeys ->
         TForall(
