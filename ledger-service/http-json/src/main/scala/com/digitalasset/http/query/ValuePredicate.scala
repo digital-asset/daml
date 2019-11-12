@@ -118,11 +118,7 @@ object ValuePredicate {
             fromCon(it, id, tc instantiate ddt)
         }
         case iface.TypeNumeric(scale) =>
-          val NumericSRangeExpr = numericRangeExpr(scale);
-          {
-            case NumericSRangeExpr.Scalar(nq) =>
-              NumericSRangeExpr toLiteral nq
-          }
+          numericRangeExpr(scale).toQueryParser
         case iface.TypeVar(_) => predicateParseError("no vars allowed!")
       }(fallback = illTypedQuery(it, typ))
 
@@ -264,6 +260,9 @@ object ValuePredicate {
           Numeric checkWithinBoundsAndRound (scale, q) fold (predicateParseError, identity)
       }, { case V.ValueNumeric(v) => v setScale scale }
     )
+
+  private[this] implicit val `jBD order`: Order[java.math.BigDecimal] =
+    Order.fromScalaOrdering
 
   private[this] type Inclusive = Boolean
   private[this] final val Inclusive = true
