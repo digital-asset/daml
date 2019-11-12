@@ -105,37 +105,6 @@ sealed trait SValue {
       case SAny(ty, value) =>
         SAny(ty, value.mapContractId(f))
     }
-
-  def equalTo(v2: SValue): Boolean = {
-    (this, v2) match {
-      case (_: SPAP, _) => false
-      case (_, _: SPAP) => false
-      case (SRecord(tycon, _, values), SRecord(tycon2, _, values2)) =>
-        tycon == tycon2 &&
-          values.iterator.asScala.zip(values2.iterator.asScala).forall {
-            case (x, y) => x.equalTo(y)
-          }
-      case (STuple(fields, values), STuple(fields2, values2)) =>
-        ComparableArray(fields) == ComparableArray(fields2) &&
-          values.iterator.asScala.zip(values2.iterator.asScala).forall {
-            case (x, y) => x.equalTo(y)
-          }
-      case (SVariant(tycon1, con1, value), SVariant(tycon2, con2, value2)) =>
-        tycon1 == tycon2 && con1 == con2 && value.equalTo(value2)
-      case (SContractId(coid), SContractId(coid2)) =>
-        coid == coid2
-      case (SList(lst), SList(lst2)) =>
-        lst.iterator.zipAll(lst2.iterator, null, null).forall {
-          case (x, y) => x.equalTo(y)
-        }
-      case (x: SPrimLit, y: SPrimLit) =>
-        x == y
-      case (STNat(n1), STNat(n2)) =>
-        n1 == n2
-      case _ =>
-        false
-    }
-  }
 }
 
 object SValue {
@@ -157,13 +126,12 @@ object SValue {
     override def toString: String = s"SPAP($prim, ${args.asScala.mkString("[", ",", "]")}, $arity)"
   }
 
+  @SuppressWarnings(Array("org.wartremover.warts.ArrayEquals"))
   final case class SRecord(id: Identifier, fields: Array[Name], values: util.ArrayList[SValue])
       extends SValue
-      with SomeArrayEquals
 
-  final case class STuple(fields: Array[Name], values: util.ArrayList[SValue])
-      extends SValue
-      with SomeArrayEquals
+  @SuppressWarnings(Array("org.wartremover.warts.ArrayEquals"))
+  final case class STuple(fields: Array[Name], values: util.ArrayList[SValue]) extends SValue
 
   final case class SVariant(id: Identifier, variant: VariantConName, value: SValue) extends SValue
 
@@ -195,7 +163,7 @@ object SValue {
   final case object SUnit extends SPrimLit
   final case class SDate(value: Time.Date) extends SPrimLit
   final case class SContractId(value: V.ContractId) extends SPrimLit
-  final case class STypeRep(ty: Type) extends SPrimLit
+  final case class STypeRep(ty: Type) extends SValue
   // The "effect" token for update or scenario builtin functions.
   final case object SToken extends SValue
 
@@ -281,8 +249,6 @@ object SValue {
         SEnum(id, constructor)
     }
   }
-
-  private[speedy] val ComparableArray = SomeArrayEquals.ComparableArray
 
   private def mapArrayList(
       as: util.ArrayList[SValue],
