@@ -27,7 +27,6 @@ import com.digitalasset.daml.lf.transaction.Node.{GlobalKey, KeyWithMaintainers}
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, RelativeContractId}
 
 import scala.collection.JavaConverters._
-import scala.collection.immutable.HashMap
 
 /** Speedy builtin functions */
 sealed abstract class SBuiltin(val arity: Int) {
@@ -388,13 +387,6 @@ object SBuiltin {
         case _ =>
           throw SErrorCrash(s"type mismatch textSHA256: $args")
       })
-    }
-  }
-
-  final case object SBMapEmpty extends SBuiltin(0) {
-    private val result = CtrlValue(SMap(HashMap.empty))
-    def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
-      machine.ctrl = result
     }
   }
 

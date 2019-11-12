@@ -173,6 +173,7 @@ object SValue {
     val False = SBool(false)
     val EmptyList = SList(FrontStack.empty)
     val None = SOptional(Option.empty)
+    val EmptyMap = SMap(HashMap.empty)
     val Token = SToken
   }
 
@@ -182,6 +183,7 @@ object SValue {
     val True: X = apply(SValue.True)
     val False: X = apply(SValue.False)
     val EmptyList: X = apply(SValue.EmptyList)
+    val EmptyMap: X = apply(SValue.EmptyMap)
     val None: X = apply(SValue.None)
     val Token: X = apply(SValue.Token)
     def bool(b: Boolean) = if (b) True else False
