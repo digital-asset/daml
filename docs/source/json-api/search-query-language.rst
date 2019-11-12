@@ -42,8 +42,32 @@ Example: ``{ favorites: ["vanilla", "chocolate"] }``
 
 A JSON object, when considered with a record type, is always interpreted
 as a field equality query. Its type context is thus mutually exclusive
-with `the forthcoming comparison queries
-<https://github.com/digital-asset/daml/issues/2780>`_.
+with comparison queries.
+
+Comparison query
+****************
+
+Match values on comparison operators for int64, numeric, text, date, and
+time values. Instead of a value, a key can be an object with one or more
+operators: ``{ <op>: value }`` where ``<op>`` can be:
+
+- ``"%lt"`` for less than
+- ``"%gt"`` for greater than
+- ``"%lte"`` for less than or equal to
+- ``"%gte"`` for greater than or equal to
+
+``"%lt"`` and ``"%lte"`` may not be used at the same time, and likewise
+with ``"%lt"`` and ``"%lte"``, but all other combinations are allowed.
+
+Example:  ``{ "person" { "dob": { "%lt": "2000-01-01", "%gte": "1980-01-01" } } }``
+
+- Match: ``{ person: { dob: "1986-06-21" } }``
+- No match: ``{ person: { dob: "1976-06-21" } }``
+- No match: ``{ person: { dob: "2006-06-21" } }``
+
+These operators cannot occur in objects interpreted in a record context,
+nor may other keys than these four operators occur where they are legal,
+so there is no ambiguity with field equality.
 
 Appendix: Type-aware queries
 ****************************

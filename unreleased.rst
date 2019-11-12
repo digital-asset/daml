@@ -31,5 +31,6 @@ HEAD — ongoing
   instead of the contract id.
 - [DAML Triggers] ``getTemplates`` has been renamed to ``getContracts`` to describe its behavior more accurately.
   ``getTemplates`` still exists as a compatiblity helper but it is deprecated and will be removed in a future SDK release.
-- [JSON API - Experimental] Fix to support Archive choice. See issue #3219.
 - [JSON API - Experimental] Implement replay on database consistency violation, See issue #3387.
+- [JSON API - Experimental] Comparison/range queries supported.
+  See `issue #2780 <https://github.com/digital-asset/daml/issues/2780>`__.
