@@ -68,12 +68,21 @@ class ValuePredicateTest
       ("[[42]]", VAs.oooi),
     )
 
+    val excl4143 = """{"%gt": 41, "%lt": 43}"""
+    val incl42 = """{"%gte": 42, "%lte": 42}"""
+
     val successes = Table(
       ("query", "type", "expected", "should match?"),
       c("\"foo\"", VA.text)("foo", true),
       c("\"foo\"", VA.text)("bar", false),
       c("42", VA.int64)(42, true),
       c("42", VA.int64)(43, false),
+      c(excl4143, VA.int64)(42, true),
+      c(excl4143, VA.int64)(41, false),
+      c(excl4143, VA.int64)(43, false),
+      c(incl42, VA.int64)(42, true),
+      c(incl42, VA.int64)(41, false),
+      c(incl42, VA.int64)(43, false),
       c("""{"a": 1, "b": 2}""", VA.map(VA.int64))(SortedLookupList(Map("a" -> 1, "b" -> 2)), true),
       c("""{"a": 1, "b": 2}""", VA.map(VA.int64))(SortedLookupList(Map("a" -> 1, "c" -> 2)), false),
       c("""{"a": 1, "b": 2}""", VA.map(VA.int64))(SortedLookupList(Map()), false),
