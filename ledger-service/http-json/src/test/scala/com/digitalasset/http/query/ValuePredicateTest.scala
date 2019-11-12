@@ -5,7 +5,7 @@ package com.digitalasset.http
 package query
 
 import json.JsonProtocol.LfValueCodec.{apiValueToJsValue, jsValueToApiValue}
-import com.digitalasset.daml.lf.data.{ImmArray, Numeric, Ref, SortedLookupList}
+import com.digitalasset.daml.lf.data.{Decimal, ImmArray, Numeric, Ref, SortedLookupList, Time}
 import ImmArray.ImmArraySeq
 import com.digitalasset.daml.lf.iface
 import com.digitalasset.daml.lf.value.{Value => V}
@@ -70,6 +70,7 @@ class ValuePredicateTest
 
     val excl4143 = """{"%gt": 41, "%lt": 43}"""
     val incl42 = """{"%gte": 42, "%lte": 42}"""
+    val VAtestNumeric = VA.numeric(Decimal.scale)
 
     val successes = Table(
       ("query", "type", "expected", "should match?"),
@@ -83,6 +84,12 @@ class ValuePredicateTest
       c(incl42, VA.int64)(42, true),
       c(incl42, VA.int64)(41, false),
       c(incl42, VA.int64)(43, false),
+      c(excl4143, VAtestNumeric)(Numeric assertFromString "42.", true),
+      c(excl4143, VAtestNumeric)(Numeric assertFromString "41.", false),
+      c(excl4143, VAtestNumeric)(Numeric assertFromString "43.", false),
+      c(incl42, VAtestNumeric)(Numeric assertFromString "42.", true),
+      c(incl42, VAtestNumeric)(Numeric assertFromString "41.", false),
+      c(incl42, VAtestNumeric)(Numeric assertFromString "43.", false),
       c("""{"%lte": 42}""", VA.int64)(42, true),
       c("""{"%lte": 42}""", VA.int64)(43, false),
       c("""{"%gte": 42}""", VA.int64)(42, true),
@@ -91,6 +98,10 @@ class ValuePredicateTest
       c("""{"%lt": 42}""", VA.int64)(42, false),
       c("""{"%gt": 42}""", VA.int64)(43, true),
       c("""{"%gt": 42}""", VA.int64)(42, false),
+      c("""{"%gt": "bar", "%lt": "foo"}""", VA.text)("baz", true),
+      c("""{"%gte": "1980-01-01", "%lt": "2000-01-01"}""", VA.date)(
+        Time.Date assertFromString "1986-06-21",
+        true),
       c("""{"a": 1, "b": 2}""", VA.map(VA.int64))(SortedLookupList(Map("a" -> 1, "b" -> 2)), true),
       c("""{"a": 1, "b": 2}""", VA.map(VA.int64))(SortedLookupList(Map("a" -> 1, "c" -> 2)), false),
       c("""{"a": 1, "b": 2}""", VA.map(VA.int64))(SortedLookupList(Map()), false),
