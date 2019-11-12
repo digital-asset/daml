@@ -14,6 +14,7 @@ import com.daml.ledger.participant.state.v1.Offset
 import com.digitalasset.daml.bazeltools.BazelRunfiles
 import com.digitalasset.daml.lf.archive.DarReader
 import com.digitalasset.daml.lf.data.Ref.{Identifier, LedgerString, Party}
+import com.digitalasset.daml.lf.data.Ref.LedgerString.ordering
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.transaction.GenTransaction
 import com.digitalasset.daml.lf.transaction.Node.{
@@ -56,6 +57,7 @@ import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{
 import com.digitalasset.platform.sandbox.stores.ledger.sql.util.DbDispatcher
 import org.scalatest.{AsyncWordSpec, Matchers, OptionValues}
 
+import scala.collection.immutable.TreeMap
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, Future}
 import scala.language.implicitConversions
@@ -158,7 +160,7 @@ class JdbcLedgerDaoSpec
         let,
         let,
         GenTransaction(
-          Map(
+          TreeMap(
             event1 -> NodeCreate(
               absCid,
               contractInstance,
@@ -349,7 +351,7 @@ class JdbcLedgerDaoSpec
         let,
         let,
         GenTransaction(
-          Map(
+          TreeMap(
             event1 -> NodeCreate(
               absCid,
               contractInstance,
@@ -405,7 +407,7 @@ class JdbcLedgerDaoSpec
         // normally the record time is some time after the ledger effective time
         let.plusMillis(42),
         GenTransaction(
-          Map(
+          TreeMap(
             event1 -> NodeCreate(
               absCid,
               contractInstance,
@@ -470,7 +472,7 @@ class JdbcLedgerDaoSpec
           let,
           let,
           GenTransaction(
-            Map(
+            TreeMap(
               (s"event$id": EventId) -> NodeCreate(
                 absCid,
                 contractInstance,
@@ -498,7 +500,7 @@ class JdbcLedgerDaoSpec
           let,
           let,
           GenTransaction(
-            Map(
+            TreeMap(
               (s"event$id": EventId) -> NodeExercises(
                 targetCid,
                 templateId,
