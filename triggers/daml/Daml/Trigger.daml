@@ -4,6 +4,7 @@
 daml 1.2
 module Daml.Trigger
  ( ACS
+ , getContracts
  , getTemplates
  , Trigger(..)
  , TriggerA
@@ -37,15 +38,19 @@ import qualified Daml.Trigger.LowLevel as LowLevel
 
 -- public API
 
--- | Active contract set, you can use `getTemplates` to access the templates of
+-- | Active contract set, you can use `getContracts` to access the templates of
 -- a given type.
 
 -- This will change to a Map once we have proper maps in DAML-LF
 newtype ACS = ACS [(AnyContractId, AnyTemplate)]
 
--- | Extract the templates of a given type from the ACS.
+{-# DEPRECATED getTemplates "getTemplates is deprecated in favor of getContracts" #-}
 getTemplates : forall a. Template a => ACS -> [(ContractId a, a)]
-getTemplates (ACS tpls) = mapOptional fromAny tpls
+getTemplates = getContracts
+
+-- | Extract the contracts of a given template from the ACS.
+getContracts : forall a. Template a => ACS -> [(ContractId a, a)]
+getContracts (ACS tpls) = mapOptional fromAny tpls
   where
     fromAny (cid, tpl) = (,) <$> fromAnyContractId cid <*> fromAnyTemplate tpl
 

@@ -22,13 +22,13 @@ retryTrigger = Trigger
 -- finally we create Done
 retryRule : Party -> ACS -> Map CommandId [Command] -> Int -> TriggerA ()
 retryRule party acs commandsInFlight allowedRetries
-  | [] <- getTemplates @T acs = do
+  | [] <- getContracts @T acs = do
     dedupCreate T { p = party }
-  | ((cid, _) :: _) <- getTemplates @T acs
+  | ((cid, _) :: _) <- getContracts @T acs
   , allowedRetries > 0 = do
     dedupExercise cid C
   | allowedRetries == 0
-  , [] <- getTemplates @Done acs = do
+  , [] <- getContracts @Done acs = do
     dedupCreate Done { p = party }
   | otherwise = pure ()
 
