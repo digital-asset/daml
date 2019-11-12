@@ -1,6 +1,6 @@
 # Pinned version of nixpkgs that we use for our development and deployment.
 
-{ system ? builtins.currentSystem }:
+{ system ? builtins.currentSystem, ... }:
 
 let
   # See ./nixpkgs/README.md for upgrade instructions.
