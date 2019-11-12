@@ -63,10 +63,15 @@ private[kvutils] case class ProcessTransactionSubmission(
   private val submitter = Party.assertFromString(submitterInfo.getSubmitter)
   private lazy val relTx = Conversions.decodeTransaction(txEntry.getTransaction)
 
-  private def contractVisibleToSubmitter(contractState: DamlContractState): Boolean = {
+  private def contractIsActiveAndVisibleToSubmitter(contractState: DamlContractState): Boolean = {
     val locallyDisclosedTo = contractState.getLocallyDisclosedToList.asScala
     val divulgedTo = contractState.getDivulgedToList.asScala
-    locallyDisclosedTo.contains(submitter) || divulgedTo.contains(submitter)
+    val isVisible = locallyDisclosedTo.contains(submitter) || divulgedTo.contains(submitter)
+    val isActive = {
+      val activeAt = Option(contractState.getActiveAt).map(parseTimestamp)
+      !contractState.hasArchivedAt && activeAt.exists(txLet >= _)
+    }
+    isVisible && isActive
   }
 
   // Pull all keys from referenced contracts. We require this for 'fetchByKey' calls
@@ -77,7 +82,7 @@ private[kvutils] case class ProcessTransactionSubmission(
       case (key, Some(value))
           if value.hasContractState
             && value.getContractState.hasContractKey
-            && contractVisibleToSubmitter(value.getContractState) =>
+            && contractIsActiveAndVisibleToSubmitter(value.getContractState) =>
         Conversions.decodeContractKey(value.getContractState.getContractKey) ->
           Conversions.stateKeyToContractId(key)
     }
@@ -288,21 +293,6 @@ private[kvutils] case class ProcessTransactionSubmission(
   // contract instances here. Since we look up every contract that was
   // an input to a transaction, we do not need to verify the inputs separately.
   private def lookupContract(coid: AbsoluteContractId) = {
-    def isVisibleToSubmitter(cs: DamlContractState): Boolean =
-      cs.getLocallyDisclosedToList.asScala.contains(submitter) || cs.getDivulgedToList.asScala
-        .contains(submitter) || {
-        logger.trace(s"lookupContract($coid): Contract not visible to submitter.")
-        false
-      }
-    def isActive(cs: DamlContractState): Boolean = {
-      val activeAt = Option(cs.getActiveAt).map(parseTimestamp)
-      !cs.hasArchivedAt && activeAt.exists(txLet >= _) || {
-        val activeAtStr = activeAt.fold("<activeAt missing>")(_.toString)
-        logger.trace(
-          s"lookupContract($coid): Contract not active (let=$txLet, activeAt=$activeAtStr).")
-        false
-      }
-    }
     val stateKey = absoluteContractIdToStateKey(coid)
     for {
       // Fetch the state of the contract so that activeness and visibility can be checked.
@@ -310,10 +300,11 @@ private[kvutils] case class ProcessTransactionSubmission(
         logger.trace(s"lookupContract($coid): Contract state not found!")
         throw Err.MissingInputState(stateKey)
       }
-      if isVisibleToSubmitter(contractState) && isActive(contractState)
+      if contractIsActiveAndVisibleToSubmitter(contractState)
       contract = Conversions.decodeContractInstance(contractState.getContractInstance)
     } yield contract
   }
+
   // Helper to lookup package from the state. The package contents
   // are stored in the [[DamlLogEntry]], which we find by looking up
   // the DAML state entry at `DamlStateKey(packageId = pkgId)`.
@@ -344,13 +335,6 @@ private[kvutils] case class ProcessTransactionSubmission(
   }
 
   private def lookupKey(key: GlobalKey): Option[AbsoluteContractId] = {
-    def isVisibleToSubmitter(cs: DamlContractState, coid: AbsoluteContractId): Boolean = {
-      cs.getLocallyDisclosedToList.asScala.contains(submitter) || cs.getDivulgedToList.asScala
-        .contains(submitter) || {
-        logger.trace(s"lookupKey($key): Contract $coid not visible to submitter $submitter.")
-        false
-      }
-    }
     inputState
       .get(Conversions.contractKeyToStateKey(key))
       .flatMap {
@@ -359,7 +343,7 @@ private[kvutils] case class ProcessTransactionSubmission(
             contractId <- Option(value.getContractKeyState.getContractId).map(decodeContractId)
             contractStateKey = absoluteContractIdToStateKey(contractId)
             contractState <- inputState.get(contractStateKey).flatMap(_.map(_.getContractState))
-            if isVisibleToSubmitter(contractState, contractId)
+            if contractIsActiveAndVisibleToSubmitter(contractState)
           } yield contractId
         }
       }
