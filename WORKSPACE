@@ -947,3 +947,14 @@ dev_env_tool(
     ],
     win_tool = "msys2",
 )
+
+http_archive(
+    name = "canton",
+    build_file_content = '''
+package(default_visibility = ["//visibility:public"])
+filegroup(name="jars", srcs=glob(["lib/**"]))
+''',
+    sha256 = "b67215655bdcfaf0f4b271ebd3f9ce8f887c3c81a53351f47165a9bf5b93e435",
+    strip_prefix = "canton-0.3.0",
+    urls = ["https://github.com/digital-asset/canton/releases/download/v0.3.0/canton-0.3.0.tar.gz"],
+)

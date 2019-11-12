@@ -1,0 +1,16 @@
+# Copyright (c) 2019 The DAML Authors. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(":template.bzl", "template")
+load("//ledger/ledger-api-test-tool:conformance.bzl", "conformance_test")
+
+java_import(
+    name = "canton-lib",
+    jars = ["@canton//:jars"],
+)
+
+java_binary(
+    name = "canton",
+    main_class = "com.digitalasset.canton.CantonApp",
+    runtime_deps = [":canton-lib"],
+)
