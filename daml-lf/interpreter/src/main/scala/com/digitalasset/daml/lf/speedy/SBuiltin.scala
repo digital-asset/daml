@@ -286,7 +286,7 @@ object SBuiltin {
         case SParty(p) => p
         case SUnit => s"<unit>"
         case SDate(date) => date.toString
-        case SContractId(_) | SNumeric(_) | STypeRep(_) => crash("litToText: literal not supported")
+        case SContractId(_) | SNumeric(_) => crash("litToText: literal not supported")
       })
     }
   }
@@ -566,8 +566,7 @@ object SBuiltin {
   //
   final case object SBEqual extends SBuiltin(2) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
-      machine.ctrl = CtrlValue.bool(
-        args.get(0).asInstanceOf[SPrimLit].equalTo(args.get(1).asInstanceOf[SPrimLit]))
+      machine.ctrl = CtrlValue.bool(svalue.Equality.areEqual(args.get(0), args.get(1)))
     }
   }
 
