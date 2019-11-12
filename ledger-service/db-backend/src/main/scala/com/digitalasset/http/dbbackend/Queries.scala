@@ -110,10 +110,16 @@ object Queries {
       .query[String]
       .option
 
-  private[http] def updateOffset(party: String, tpid: SurrogateTpId, newOffset: String)(
-      implicit log: LogHandler): ConnectionIO[Unit] =
-    sql"""INSERT INTO ledger_offset VALUES ($party, $tpid, $newOffset)
-          ON CONFLICT (party, tpid) DO UPDATE SET last_offset = $newOffset""".update.run.void
+  private[http] def updateOffset(
+      party: String,
+      tpid: SurrogateTpId,
+      newOffset: String,
+      lastOffsetO: Option[String])(implicit log: LogHandler): ConnectionIO[Int] =
+    lastOffsetO.cata(
+      lastOffset =>
+        sql"""UPDATE ledger_offset SET last_offset = $newOffset where party = $party AND tpid = $tpid AND last_offset = $lastOffset""".update.run,
+      sql"""INSERT INTO ledger_offset VALUES ($party, $tpid, $newOffset)""".update.run
+    )
 
   def insertContracts[F[_]: cats.Foldable: Functor, CA: JsonWriter, WP: JsonWriter](
       dbcs: F[DBContract[SurrogateTpId, CA, WP]])(implicit log: LogHandler): ConnectionIO[Int] =
