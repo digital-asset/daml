@@ -283,6 +283,7 @@ object Ast {
   case object BTList extends BuiltinType
   case object BTOptional extends BuiltinType
   case object BTMap extends BuiltinType
+  case object BTGenMap extends BuiltinType
   case object BTUpdate extends BuiltinType
   case object BTScenario extends BuiltinType
   case object BTDate extends BuiltinType
@@ -359,8 +360,17 @@ object Ast {
   final case object BMapInsert extends BuiltinFunction(3) // : ∀ a. Text -> a -> Map a -> Map a
   final case object BMapLookup extends BuiltinFunction(2) // : ∀ a. Text -> Map a -> Optional a
   final case object BMapDelete extends BuiltinFunction(2) // : ∀ a. Text -> Map a -> Map a
-  final case object BMapToList extends BuiltinFunction(1) // : ∀ a. Map a -> [Text]
+  final case object BMapToList extends BuiltinFunction(1) // : ∀ a. Map a -> [Tuple("key":Text, "value":a)]
   final case object BMapSize extends BuiltinFunction(1) // : ∀ a. Map a -> Int64
+
+  // Generic Maps
+  final case object BGenMapEmpty extends BuiltinFunction(0) // : ∀ a b. GenMap a b
+  final case object BGenMapInsert extends BuiltinFunction(3) // : ∀ a b. a -> b -> GenMap a b -> GenMap a b
+  final case object BGenMapLookup extends BuiltinFunction(2) // : ∀ a b. a -> GenMap a b -> Optional b
+  final case object BGenMapDelete extends BuiltinFunction(2) // : ∀ a b. a -> GenMap a b -> GenMap a b
+  final case object BGenMapKeys extends BuiltinFunction(1) // : ∀ a b. GenMap a b -> [a]
+  final case object BGenMapValues extends BuiltinFunction(1) // : ∀ a b. GenMap a b -> [b]
+  final case object BGenMapSize extends BuiltinFunction(1) // : ∀ a b. GenMap a b -> Int64
 
   // Text functions
   final case object BExplodeText extends BuiltinFunction(1) // : Text → List Char

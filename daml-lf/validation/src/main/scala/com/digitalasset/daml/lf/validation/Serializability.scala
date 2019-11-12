@@ -73,6 +73,9 @@ private[validation] object Serializability {
         checkType(tArg)
       case TMap(tArg) =>
         checkType(tArg)
+      case TGenMap(tKeys, tValues) =>
+        checkType(tKeys)
+        checkType(tValues)
       case TApp(tyfun, targ) =>
         checkType(tyfun)
         checkType(targ)
@@ -87,6 +90,8 @@ private[validation] object Serializability {
             unserializable(UROptional)
           case BTMap =>
             unserializable(URMap)
+          case BTGenMap =>
+            unserializable(URGenMap)
           case BTUpdate =>
             unserializable(URUpdate)
           case BTScenario =>

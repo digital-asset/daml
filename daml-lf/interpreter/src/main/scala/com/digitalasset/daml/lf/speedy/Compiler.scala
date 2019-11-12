@@ -307,6 +307,16 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
               case BMapToList => SBMapToList
               case BMapSize => SBMapSize
 
+              // GenMap
+
+              case BGenMapEmpty => throw new IllegalArgumentException("not supported")
+              case BGenMapInsert => throw new IllegalArgumentException("not supported")
+              case BGenMapLookup => throw new IllegalArgumentException("not supported")
+              case BGenMapDelete => throw new IllegalArgumentException("not supported")
+              case BGenMapKeys => throw new IllegalArgumentException("not supported")
+              case BGenMapValues => throw new IllegalArgumentException("not supported")
+              case BGenMapSize => throw new IllegalArgumentException("not supported")
+
               // Implemented using normal functions
               case BFoldl => throw CompileError(s"unexpected BFoldl")
               case BFoldr => throw CompileError(s"unexpected BFoldr")

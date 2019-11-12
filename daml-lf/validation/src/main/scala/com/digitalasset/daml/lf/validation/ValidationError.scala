@@ -126,6 +126,9 @@ case object UROptional extends UnserializabilityReason {
 case object URMap extends UnserializabilityReason {
   def pretty: String = "unapplied Map"
 }
+case object URGenMap extends UnserializabilityReason {
+  def pretty: String = "unapplied GenMap"
+}
 case object URContractId extends UnserializabilityReason {
   def pretty: String = "ContractId not applied to a template type"
 }
