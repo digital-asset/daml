@@ -3,6 +3,10 @@
 
 package com.digitalasset.daml.lf.data
 
+import scalaz.Order
+import scalaz.std.anyVal._
+import scalaz.syntax.order._
+
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoField
 import java.time.{Instant, LocalDate, ZoneId}
@@ -67,6 +71,12 @@ object Time {
 
     def assertFromDaysSinceEpoch(days: Int): Date =
       assertRight(fromDaysSinceEpoch(days))
+
+    implicit val `Time.Date Order`: Order[Date] = new Order[Date] {
+      override def equalIsNatural = true
+      override def equal(x: Date, y: Date) = x == y
+      override def order(x: Date, y: Date) = x.days ?|? y.days
+    }
 
   }
 
@@ -144,6 +154,11 @@ object Time {
     def assertFromInstant(i: Instant): Timestamp =
       assertFromLong(assertMicrosFromInstant(i))
 
+    implicit val `Time.Timestamp Order`: Order[Timestamp] = new Order[Timestamp] {
+      override def equalIsNatural = true
+      override def equal(x: Timestamp, y: Timestamp) = x == y
+      override def order(x: Timestamp, y: Timestamp) = x.micros ?|? y.micros
+    }
   }
 
 }

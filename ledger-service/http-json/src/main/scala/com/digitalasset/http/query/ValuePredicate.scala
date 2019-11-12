@@ -201,14 +201,8 @@ object ValuePredicate {
         case Bool => { case JsBoolean(q) => Literal { case V.ValueBool(v) if q == v => } }
         case Int64 => Int64RangeExpr.toQueryParser
         case Text => TextRangeExpr.toQueryParser
-        case Date => {
-          case DateRangeExpr.Scalar(dq) =>
-            DateRangeExpr toLiteral dq
-        }
-        case Timestamp => {
-          case TimestampRangeExpr.Scalar(tq) =>
-            TimestampRangeExpr toLiteral tq
-        }
+        case Date => DateRangeExpr.toQueryParser
+        case Timestamp => TimestampRangeExpr.toQueryParser
         case Party => {
           case JsString(q) => Literal { case V.ValueParty(v) if q == (v: String) => }
         }
