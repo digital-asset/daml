@@ -19,18 +19,15 @@ import com.digitalasset.daml.lf.archive.Dar
 import com.digitalasset.daml.lf.data.FrontStack
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.speedy.{Compiler, Pretty, SExpr, Speedy, SValue}
-import com.digitalasset.daml.lf.speedy.SBuiltin._
+import com.digitalasset.daml.lf.speedy.{Compiler, Pretty, Speedy, SValue}
 import com.digitalasset.daml.lf.speedy.SExpr._
 import com.digitalasset.daml.lf.speedy.SResult._
 import com.digitalasset.daml.lf.speedy.SValue._
-import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, RelativeContractId}
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.refinements.ApiTypes.ApplicationId
 import com.digitalasset.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.digitalasset.ledger.api.v1.commands._
 import com.digitalasset.ledger.api.v1.event.{CreatedEvent}
-import com.digitalasset.ledger.api.v1.transaction.TreeEvent
 import com.digitalasset.ledger.api.v1.transaction_filter.{
   Filters,
   TransactionFilter,
@@ -39,11 +36,6 @@ import com.digitalasset.ledger.api.v1.transaction_filter.{
 import com.digitalasset.ledger.api.v1.value.{Identifier => ApiIdentifier}
 import com.digitalasset.ledger.api.validation.ValueValidator
 import com.digitalasset.ledger.client.LedgerClient
-import com.digitalasset.platform.participant.util.LfEngineToApi.{
-  toApiIdentifier,
-  lfValueToApiRecord,
-  lfValueToApiValue
-}
 
 class Runner(dar: Dar[(PackageId, Package)], applicationId: ApplicationId) extends StrictLogging {
 
@@ -77,71 +69,9 @@ class Runner(dar: Dar[(PackageId, Package)], applicationId: ApplicationId) exten
         SEMakeClo(Array(), 1, SEVar(1)))
   val compiledPackages = PureCompiledPackages(darMap, definitionMap).right.get
 
-  def toLedgerRecord(v: SValue) = {
-    lfValueToApiRecord(
-      true,
-      v.toValue.mapContractId {
-        case rcoid: RelativeContractId =>
-          throw new RuntimeException(s"Unexpected contract id $rcoid")
-        case acoid: AbsoluteContractId => acoid
-      }
-    )
-  }
-
-  def toLedgerValue(v: SValue) = {
-    lfValueToApiValue(
-      true,
-      v.toValue.mapContractId {
-        case rcoid: RelativeContractId =>
-          throw new RuntimeException(s"Unexpected contract id $rcoid")
-        case acoid: AbsoluteContractId => acoid
-      }
-    )
-  }
-
-  def getApFields(fun: SValue): (SVariant, SVariant) = {
-    val extractTuple = SEMakeClo(
-      Array(),
-      2,
-      SEApp(
-        SEBuiltin(SBTupleCon(Name.Array(Name.assertFromString("a"), Name.assertFromString("b")))),
-        Array(SEVar(2), SEVar(1))))
-    val machine =
-      Speedy.Machine.fromSExpr(SEApp(SEValue(fun), Array(extractTuple)), false, compiledPackages)
-    while (!machine.isFinal) {
-      machine.step() match {
-        case SResultContinue => ()
-        case res => {
-          throw new RuntimeException(s"Unexpected speedy result $res")
-        }
-      }
-    }
-    val tuple = machine.toSValue.asInstanceOf[STuple]
-    (tuple.values.get(0).asInstanceOf[SVariant], tuple.values.get(1).asInstanceOf[SVariant])
-  }
-
-  def toCreateCommand(v: SRecord): Command = {
-    val anyTemplate = v.values.get(0).asInstanceOf[SRecord].values.get(0).asInstanceOf[SAny]
-    val templateTy = anyTemplate.ty.asInstanceOf[TTyCon].tycon
-    val templateArg = anyTemplate.value
-    Command().withCreate(
-      CreateCommand(Some(toApiIdentifier(templateTy)), Some(toLedgerRecord(templateArg).right.get)))
-  }
-
   def toIdentifier(v: SRecord): ApiIdentifier = {
     val tId = v.values.get(0).asInstanceOf[STypeRep].ty.asInstanceOf[TTyCon].tycon
     ApiIdentifier(tId.packageId, tId.qualifiedName.module.toString, tId.qualifiedName.name.toString)
-  }
-
-  def toExerciseCommand(v: SRecord): Command = {
-    val tplId = toIdentifier(v.values.get(0).asInstanceOf[SRecord])
-    val cId =
-      v.values.get(1).asInstanceOf[SContractId].value.asInstanceOf[AbsoluteContractId].coid
-    val anyChoice = v.values.get(2).asInstanceOf[SRecord].values.get(0).asInstanceOf[SAny]
-    val anyChoiceVal = anyChoice.value
-    val choiceName = anyChoiceVal.asInstanceOf[SRecord].id.qualifiedName.name.toString
-    Command().withExercise(
-      ExerciseCommand(Some(tplId), cId, choiceName, Some(toLedgerValue(anyChoiceVal).right.get)))
   }
 
   def toSubmitRequest(ledgerId: LedgerId, party: SParty, cmds: Seq[Command]) = {
@@ -155,67 +85,6 @@ class Runner(dar: Dar[(PackageId, Package)], applicationId: ApplicationId) exten
       maximumRecordTime = Some(fromInstant(Instant.EPOCH.plusSeconds(5)))
     )
     SubmitAndWaitRequest(Some(commands))
-  }
-
-  // Walk over the free applicative for a submit request and extract the list of commands.
-  def getCommands(initialFreeAp: SVariant): Seq[Command] = {
-    var end = false
-    var commands = Seq[Command]()
-    val pure = Name.assertFromString("PureA")
-    val ap = Name.assertFromString("Ap")
-    var freeAp = initialFreeAp
-    do {
-      freeAp.variant match {
-        case `pure` => {
-          end = true
-        }
-        case `ap` => {
-          val (fa, apfba) = getApFields(freeAp.value)
-          fa.variant match {
-            case "Create" =>
-              commands ++= Seq(toCreateCommand(fa.value.asInstanceOf[SRecord]))
-            case "Exercise" =>
-              commands ++= Seq(toExerciseCommand(fa.value.asInstanceOf[SRecord]))
-            case _ => throw new RuntimeException("Unknown command: ${fa.variant}")
-          }
-          freeAp = apfba
-        }
-      }
-    } while (!end)
-    commands
-  }
-
-  // Given the free applicative for a submit request and the results of that request, we walk over the free applicative and
-  // fill in the values for the continuation.
-  def fillCommandResults(freeAp: SVariant, eventResults: Seq[TreeEvent]): SExpr = {
-    val pure = Name.assertFromString("PureA")
-    val ap = Name.assertFromString("Ap")
-    freeAp.variant match {
-      case `pure` => SEValue(freeAp.value)
-      case `ap` => {
-        val (fa, apfba) = getApFields(freeAp.value)
-        val bValue = fa.variant match {
-          case "Create" => {
-            val continue = fa.value.asInstanceOf[SRecord].values.get(1)
-            val contractIdString = eventResults.head.getCreated.contractId
-            val contractId =
-              SContractId(AbsoluteContractId(ContractIdString.assertFromString(contractIdString)))
-            SEApp(SEValue(continue), Array(SEValue(contractId)))
-          }
-          case "Exercise" => {
-            val continue = fa.value.asInstanceOf[SRecord].values.get(3)
-            val apiExerciseResult = eventResults.head.getExercised.getExerciseResult
-            val exerciseResult =
-              SValue.fromValue(ValueValidator.validateValue(apiExerciseResult).right.get)
-            SEApp(SEValue(continue), Array(SEValue(exerciseResult)))
-          }
-          case _ => throw new RuntimeException("Unknown command: ${fa.variant}")
-        }
-        val fValue = fillCommandResults(apfba, eventResults.tail)
-        SEApp(fValue, Array(bValue))
-      }
-
-    }
   }
 
   def run(client: LedgerClient, scriptId: Identifier)(
@@ -246,11 +115,16 @@ class Runner(dar: Dar[(PackageId, Package)], applicationId: ApplicationId) exten
           v match {
             case SVariant(_, "Submit", v) => {
               v match {
-                case SRecord(_, _, vals) => {
-                  assert(vals.size == 2)
-                  val party = vals.get(0).asInstanceOf[SParty]
-                  val freeAp = vals.get(1).asInstanceOf[SVariant]
-                  val commands = getCommands(freeAp)
+                case SRecord(_, _, vals) if vals.size == 2 => {
+                  val party = vals.get(0) match {
+                    case p @ SParty(_) => p
+                    case v => throw new ConverterException(s"Expected party but got $v")
+                  }
+                  val freeAp = vals.get(1)
+                  val commands = Converter.toCommands(compiledPackages, freeAp) match {
+                    case Left(s) => throw new ConverterException(s)
+                    case Right(r) => r
+                  }
                   val request = toSubmitRequest(client.ledgerId, party, commands)
                   val f =
                     client.commandServiceClient.submitAndWaitForTransactionTree(request)
@@ -258,18 +132,21 @@ class Runner(dar: Dar[(PackageId, Package)], applicationId: ApplicationId) exten
                     val events =
                       transactionTree.getTransaction.rootEventIds.map(evId =>
                         transactionTree.getTransaction.eventsById(evId))
-                    val filled = fillCommandResults(freeAp, events)
+                    val filled =
+                      Converter.fillCommandResults(compiledPackages, freeAp, events) match {
+                        case Left(s) => throw new ConverterException(s)
+                        case Right(r) => r
+                      }
                     machine.ctrl = Speedy.CtrlExpr(filled)
                     go()
                   })
                 }
-                case _ => throw new RuntimeException(s"Expected record but got $v")
+                case _ => throw new RuntimeException(s"Expected record with 2 fields but got $v")
               }
             }
             case SVariant(_, "Query", v) => {
               v match {
-                case SRecord(_, _, vals) => {
-                  assert(vals.size == 3)
+                case SRecord(_, _, vals) if vals.size == 3 => {
                   val party = vals.get(0).asInstanceOf[SParty].value
                   val tplId = toIdentifier(vals.get(1).asInstanceOf[SRecord])
                   val continue = vals.get(2)
@@ -306,13 +183,12 @@ class Runner(dar: Dar[(PackageId, Package)], applicationId: ApplicationId) exten
                     go()
                   })
                 }
-                case _ => throw new RuntimeException(s"Expected record but got $v")
+                case _ => throw new RuntimeException(s"Expected record with 3 fields but got $v")
               }
             }
             case SVariant(_, "AllocParty", v) => {
               v match {
-                case SRecord(_, _, vals) => {
-                  assert(vals.size == 2)
+                case SRecord(_, _, vals) if vals.size == 2 => {
                   val displayName = vals.get(0).asInstanceOf[SText].value
                   val continue = vals.get(1)
                   val f =
@@ -324,7 +200,7 @@ class Runner(dar: Dar[(PackageId, Package)], applicationId: ApplicationId) exten
                     go()
                   })
                 }
-                case _ => throw new RuntimeException(s"Expected record but got $v")
+                case _ => throw new RuntimeException(s"Expected record with 2 fields but got $v")
               }
             }
             case _ =>
