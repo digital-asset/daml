@@ -24,7 +24,7 @@ Where:
 The DAML code for the IOU example is located in the `./daml` folder. Run the following command to build it:
 ```
 $ cd ./quickstart-scala
-$ daml buld
+$ daml build
 ```
 this should output:
 ```
