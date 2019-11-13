@@ -63,6 +63,9 @@ da_scala_binary(
 da_scala_binary(
     name = "ephemeral-postgres-reference-server",
     srcs = glob(["src/test/scala/**/*.scala"]),
+    data = [
+        "@postgresql_dev_env//:all",
+    ],
     main_class = "com.daml.ledger.api.server.damlonx.reference.v2.EphemeralPostgresReferenceServerMain",
     resources = ["src/main/resources/logback.xml"],
     visibility = ["//visibility:public"],
@@ -85,12 +88,6 @@ SERVERS = {
     },
     "postgres": {
         "binary": ":ephemeral-postgres-reference-server",
-        "extra_data": [
-            "@postgresql_dev_env//:all",
-            "@postgresql_dev_env//:createdb",
-            "@postgresql_dev_env//:initdb",
-            "@postgresql_dev_env//:pg_ctl",
-        ],
         "server_args": [
             "--port=6865",
         ],

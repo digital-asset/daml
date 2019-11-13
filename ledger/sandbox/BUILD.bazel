@@ -130,6 +130,9 @@ da_scala_binary(
 
 da_scala_binary(
     name = "sandbox-ephemeral-postgres",
+    data = [
+        "@postgresql_dev_env//:all",
+    ],
     main_class = "com.digitalasset.platform.sandbox.persistence.EphemeralPostgresSandboxMain",
     resources = ["src/main/resources/logback.xml"],
     visibility = ["//visibility:public"],
@@ -193,9 +196,6 @@ da_scala_test_suite(
     data = [
         "//ledger/test-common:Test-stable.dar",
         "@postgresql_dev_env//:all",
-        "@postgresql_dev_env//:createdb",
-        "@postgresql_dev_env//:initdb",
-        "@postgresql_dev_env//:pg_ctl",
     ],
     resources = glob(["src/test/resources/**/*"]),
     deps = [
@@ -223,12 +223,6 @@ SERVERS = {
     },
     "postgres": {
         "binary": ":sandbox-ephemeral-postgres",
-        "extra_data": [
-            "@postgresql_dev_env//:all",
-            "@postgresql_dev_env//:createdb",
-            "@postgresql_dev_env//:initdb",
-            "@postgresql_dev_env//:pg_ctl",
-        ],
         "server_args": [
             "--port=6865",
             "--eager-package-loading",
