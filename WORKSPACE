@@ -477,9 +477,7 @@ HASKELL_LSP_COMMIT = "fefcae8b44aaf7658e0f90d5530832efe0b32053"
 
 HASKELL_LSP_HASH = "410af26154494735694ae323b3431d6a6ccb49ab6f028b56656039b5662de7d6"
 
-GRPC_HASKELL_COMMIT = "11681ec6b99add18a8d1315f202634aea343d146"
-
-GRPC_HASKELL_HASH = "c6201f4e2fd39f25ca1d47b1dac4efdf151de88a2eb58254d61abc2760e58fda"
+GRPC_HASKELL_CORE_VERSION = "0.0.0.0"
 
 GHC_LIB_VERSION = "8.8.1.20191111"
 
@@ -489,6 +487,15 @@ http_archive(
     sha256 = "2b406c537667e7a802aa1551a9c2b697b47d1b40e3d8d99f9d0711209a6636fd",
     strip_prefix = "ghc-lib-parser-{}".format(GHC_LIB_VERSION),
     urls = ["https://digitalassetsdk.bintray.com/ghc-lib/ghc-lib-parser-{}.tar.gz".format(GHC_LIB_VERSION)],
+)
+
+# On Hackage but we need a custom build file to work around linker issues in GHCi.
+http_archive(
+    name = "haskell_grpc__haskell__core",
+    build_file = "//3rdparty/haskell:BUILD.grpc-haskell-core",
+    sha256 = "087527ec3841330b5328d123ca410901905d111529956821b724d92c436e6cdf",
+    strip_prefix = "grpc-haskell-core-{}".format(GRPC_HASKELL_CORE_VERSION),
+    urls = ["https://hackage.haskell.org/package/grpc-haskell-core-{}/grpc-haskell-core-{}.tar.gz".format(GRPC_HASKELL_CORE_VERSION, GRPC_HASKELL_CORE_VERSION)],
 )
 
 http_archive(
@@ -512,6 +519,7 @@ hazel_repositories(
         "bindings-DSL",
         "clock",
         # Excluded since we build it via the http_archive line above.
+        "grpc-haskell-core",
         "ghc-lib-parser",
         "ghc-paths",
         "ghcide",
