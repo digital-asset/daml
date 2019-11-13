@@ -67,9 +67,7 @@ main = do
       -- now we can report all the missing dependencies per artifact
       when (not (null onlyMissing)) $ do
                   $logError ("Some internal dependencies are not published to maven central!")
-                  forM_ onlyMissing $ \pair -> do
-                      let artifact = fst pair
-                          missingDeps = snd pair
+                  forM_ onlyMissing $ \(artifact, missingDeps) -> do
                       $logError (getBazelTarget (artTarget artifact))
                       forM_ missingDeps $ \dep -> $logError ("\t- "# T.pack dep)
                   liftIO exitFailure
