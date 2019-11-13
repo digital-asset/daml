@@ -81,12 +81,20 @@ featureStringInterning = Feature
     , featureCppFlag = "DAML_STRING_INTERNING"
     }
 
+featureGenMap :: Feature
+featureGenMap = Feature
+    { featureName = "Generic map"
+    , featureMinVersion = versionDev
+    , featureCppFlag = "DAML_GENMAP"
+    }
+
 allFeatures :: [Feature]
 allFeatures =
     [ featureNumeric
     , featureAnyType
     , featureTypeRep
     , featureStringInterning
+    , featureGenMap
     ]
 
 allFeaturesForVersion :: Version -> [Feature]

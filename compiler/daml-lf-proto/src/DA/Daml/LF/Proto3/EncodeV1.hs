@@ -273,6 +273,7 @@ encodeBuiltinType = P.Enumerated . Right . \case
     BTContractId -> P.PrimTypeCONTRACT_ID
     BTOptional -> P.PrimTypeOPTIONAL
     BTMap -> P.PrimTypeMAP
+    BTGenMap -> P.PrimTypeGENMAP
     BTArrow -> P.PrimTypeARROW
     BTNumeric -> P.PrimTypeNUMERIC
     BTAny -> P.PrimTypeANY
@@ -457,6 +458,14 @@ encodeBuiltinExpr = \case
     BEMapDelete -> builtin P.BuiltinFunctionMAP_DELETE
     BEMapSize -> builtin P.BuiltinFunctionMAP_SIZE
     BEMapToList -> builtin P.BuiltinFunctionMAP_TO_LIST
+
+    BEGenMapEmpty -> builtin P.BuiltinFunctionGENMAP_EMPTY
+    BEGenMapInsert -> builtin P.BuiltinFunctionGENMAP_INSERT
+    BEGenMapLookup -> builtin P.BuiltinFunctionGENMAP_LOOKUP
+    BEGenMapDelete -> builtin P.BuiltinFunctionGENMAP_DELETE
+    BEGenMapSize -> builtin P.BuiltinFunctionGENMAP_SIZE
+    BEGenMapKeys -> builtin P.BuiltinFunctionGENMAP_KEYS
+    BEGenMapValues -> builtin P.BuiltinFunctionGENMAP_VALUES
 
     BETimestampToUnixMicroseconds -> builtin P.BuiltinFunctionTIMESTAMP_TO_UNIX_MICROSECONDS
     BEUnixMicrosecondsToTimestamp -> builtin P.BuiltinFunctionUNIX_MICROSECONDS_TO_TIMESTAMP

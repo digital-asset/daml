@@ -387,14 +387,13 @@ decodeBuiltinFunction = pure . \case
   LF1.BuiltinFunctionMAP_TO_LIST    -> BEMapToList
   LF1.BuiltinFunctionMAP_SIZE       -> BEMapSize
 
-  -- FIXME https://github.com/digital-asset/daml/issues/2256
-  LF1.BuiltinFunctionGENMAP_EMPTY      -> error "Not supported"
-  LF1.BuiltinFunctionGENMAP_INSERT     -> error "Not supported"
-  LF1.BuiltinFunctionGENMAP_LOOKUP     -> error "Not supported"
-  LF1.BuiltinFunctionGENMAP_DELETE     -> error "Not supported"
-  LF1.BuiltinFunctionGENMAP_KEYS       -> error "Not supported"
-  LF1.BuiltinFunctionGENMAP_VALUES     -> error "Not supported"
-  LF1.BuiltinFunctionGENMAP_SIZE       -> error "Not supported"
+  LF1.BuiltinFunctionGENMAP_EMPTY      -> BEGenMapEmpty
+  LF1.BuiltinFunctionGENMAP_INSERT     -> BEGenMapInsert
+  LF1.BuiltinFunctionGENMAP_LOOKUP     -> BEGenMapLookup
+  LF1.BuiltinFunctionGENMAP_DELETE     -> BEGenMapDelete
+  LF1.BuiltinFunctionGENMAP_KEYS       -> BEGenMapKeys
+  LF1.BuiltinFunctionGENMAP_VALUES     -> BEGenMapValues
+  LF1.BuiltinFunctionGENMAP_SIZE       -> BEGenMapSize
 
   LF1.BuiltinFunctionEXPLODE_TEXT -> BEExplodeText
   LF1.BuiltinFunctionIMPLODE_TEXT -> BEImplodeText
@@ -690,9 +689,7 @@ decodePrim = pure . \case
   LF1.PrimTypeCONTRACT_ID -> BTContractId
   LF1.PrimTypeOPTIONAL -> BTOptional
   LF1.PrimTypeMAP -> BTMap
-  LF1.PrimTypeGENMAP ->
-  -- FIXME https://github.com/digital-asset/daml/issues/2256
-    error "Not supported"
+  LF1.PrimTypeGENMAP -> BTGenMap
   LF1.PrimTypeARROW -> BTArrow
   LF1.PrimTypeANY -> BTAny
   LF1.PrimTypeTYPE_REP -> BTTypeRep

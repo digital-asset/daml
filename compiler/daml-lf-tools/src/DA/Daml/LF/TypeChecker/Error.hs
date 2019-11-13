@@ -53,6 +53,7 @@ data UnserializabilityReason
   | URList  -- ^ It contains an unapplied list type constructor.
   | UROptional  -- ^ It contains an unapplied optional type constructor.
   | URMap  -- ^ It contains an unapplied map type constructor.
+  | URGenMap  -- ^ It contains an unapplied GenMap type constructor.
   | URContractId  -- ^ It contains a ContractId which is not applied to a template type.
   | URDataType !(Qualified TypeConName)  -- ^ It uses a data type which is not serializable.
   | URHigherKinded !TypeVarName !Kind  -- ^ A data type has a higher kinded parameter.
@@ -159,6 +160,7 @@ instance Pretty UnserializabilityReason where
     URList -> "unapplied List"
     UROptional -> "unapplied Optional"
     URMap -> "unapplied Map"
+    URGenMap -> "unapplied GenMap"
     URContractId -> "ContractId not applied to a template type"
     URDataType tcon ->
       "unserializable data type" <-> pretty tcon
