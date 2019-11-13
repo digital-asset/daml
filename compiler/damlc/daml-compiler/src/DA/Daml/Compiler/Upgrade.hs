@@ -667,7 +667,7 @@ generateSrcFromLf env thisPkgId = noLoc mod
             LF.BTOptional -> (damlStdlibUnitId, LF.ModuleName ["DA", "Internal", "Prelude"])
             LF.BTMap -> (damlStdlibUnitId, LF.ModuleName ["DA", "Internal", "LF"])
             LF.BTGenMap -> (damlStdlibUnitId, LF.ModuleName ["DA", "Internal", "LF"])
-                -- GENMAP TODO: Verify module name once GenMap implemented in stdlib.
+                -- GENMAP TODO (#2256): Verify module name once GenMap implemented in stdlib.
             LF.BTArrow -> (primUnitId, translateModName funTyCon)
             LF.BTNumeric -> (primUnitId, LF.ModuleName ["GHC", "Types"])
             LF.BTAny -> (damlStdlibUnitId, LF.ModuleName ["DA", "Internal", "LF"])
@@ -763,7 +763,7 @@ convBuiltInTy qualify =
         LF.BTOptional -> mkLfInternalPrelude "Optional"
         LF.BTMap -> mkLfInternalType "TextMap"
         LF.BTGenMap -> mkLfInternalType "GenMap"
-            -- GENMAP TODO: Verify type name once implemented in stdlib.
+            -- GENMAP TODO  (#2256): Verify type name once implemented in stdlib.
         LF.BTArrow -> mkTyConTypeUnqual funTyCon
         LF.BTNumeric -> mkGhcType "Numeric"
         LF.BTAny -> mkLfInternalType "Any"
