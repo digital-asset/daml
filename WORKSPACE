@@ -573,12 +573,6 @@ hazel_repositories(
             ) +
             # Not in stackage
             hazel_hackage(
-                "grpc-haskell-core",
-                "0.0.0.0",
-                "087527ec3841330b5328d123ca410901905d111529956821b724d92c436e6cdf",
-            ) +
-            # Not in stackage
-            hazel_hackage(
                 "grpc-haskell",
                 "0.0.1.0",
                 "acd048425e1717215db8323188c475c6f14fe2238b7d258b1eb46e8ed01381b2",
