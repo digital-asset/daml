@@ -13,6 +13,7 @@ import scala.collection.immutable.{HashMap, Map, Queue}
   *  get: O(1)
   *  insert: O(1)
   *  remove: O(n)
+  *  in order traversal: O(n)
   */
 final class InsertOrdMap[K, +V] private (
     override val keys: Queue[K],

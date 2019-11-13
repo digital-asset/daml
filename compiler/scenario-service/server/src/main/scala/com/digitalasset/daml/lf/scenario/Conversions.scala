@@ -663,6 +663,9 @@ case class Conversions(homePackageId: Ref.PackageId) {
             ()
         }
         builder.setMap(mapBuilder)
+      case V.ValueGenMap(_) =>
+        // FIXME https://github.com/digital-asset/daml/issues/2256
+        throw new Error("GenMap is not supported")
     }
     builder.build
   }

@@ -77,6 +77,9 @@ object ApiCodecVerbose {
     case V.ValueOptional(Some(v)) =>
       JsObject(propType -> JsString(tagOptional), propValue -> apiValueToJsValue(v))
     case v: Model.ApiMap => apiMapToJsValue(v)
+    case _: Model.ApiGenMap =>
+      // FIXME https://github.com/digital-asset/daml/issues/2256
+      serializationError(s"Gen Map are not supported")
     case _: Model.ApiImpossible => serializationError("impossible! tuples are not serializable")
   }
 

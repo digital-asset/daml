@@ -9,10 +9,11 @@ import com.digitalasset.daml.lf.PureCompiledPackages
 import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.speedy.SError.{DamlEArithmeticError, SError}
+import com.digitalasset.daml.lf.speedy.SError.{DamlEArithmeticError, SError, SErrorCrash}
 import com.digitalasset.daml.lf.speedy.SResult.{SResultContinue, SResultError}
 import com.digitalasset.daml.lf.speedy.SValue._
 import com.digitalasset.daml.lf.testing.parser.Implicits._
+import com.digitalasset.daml.lf.value.Value.{ValueGenMap, ValueInt64, ValueText}
 import org.scalactic.Equality
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.{FreeSpec, Matchers}
@@ -850,6 +851,161 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
       "returns the expected size for non-empty Map" in {
         val map = buildMap("Int64", "a" -> 1, "b" -> 2, "c" -> 3)
         eval(e"MAP_SIZE @Int64 $map") shouldEqual Right(SInt64(3))
+      }
+    }
+
+  }
+
+  // FIXME: https://github.com/digital-asset/daml/pull/3260
+  // test output order of GENMAP_KEYS and GENMAP_VALUES
+  "GenMap operations" - {
+
+    //    implicit def valueToKey(v: SValue): SGenMap.Key = SGenMap.Key(v)
+
+    def buildMap[X](typ: String, l: (String, X)*) =
+      ("GENMAP_EMPTY @Text @Int64" /: l) {
+        case (acc, (k, v)) => s"""(GENMAP_INSERT @Text @$typ "$k" $v $acc)"""
+      }
+
+    "GENMAP_EMPTY" - {
+      "produces an empty GenMap" in {
+        eval(e"GENMAP_EMPTY @Text @Int64") shouldEqual Right(SGenMap(InsertOrdMap.empty))
+      }
+    }
+
+    val map = buildMap("Int64", "a" -> 1, "b" -> 2, "c" -> 3)
+
+    "GENMAP_INSERT" - {
+
+      "inserts as expected" in {
+        val e = e"$map"
+        eval(e) shouldEqual Right(
+          SValue.fromValue(
+            ValueGenMap(
+              ImmArray(
+                ValueText("a") -> ValueInt64(1),
+                ValueText("b") -> ValueInt64(2),
+                ValueText("c") -> ValueInt64(3)))))
+      }
+
+      "replaces already present key" in {
+        eval(e"""GENMAP_INSERT @Text @Int64 "b" 4 $map""") shouldEqual Right(
+          SValue.fromValue(
+            ValueGenMap(
+              ImmArray(
+                ValueText("a") -> ValueInt64(1),
+                ValueText("b") -> ValueInt64(4),
+                ValueText("c") -> ValueInt64(3)))))
+      }
+
+      "crash on non Hashable key" in {
+        val expr =
+          e"""GENMAP_INSERT @(Int64 -> Int64) @Int64 (\(x: Int64) -> x) 1 (GENMAP_EMPTY @(Int64 -> Int64) @Int64)"""
+        eval(expr) shouldBe Left(SErrorCrash("function are not hashable"))
+      }
+    }
+
+    "GENMAP_LOOKUP" - {
+
+      val builtin = "GENMAP_LOOKUP"
+
+      "finds existing key" in {
+        for {
+          x <- List("a" -> 1L, "b" -> 2L, "c" -> 3L)
+          (k, v) = x
+        } eval(e"""$builtin @Text @Int64 "$k" $map""") shouldEqual Right(SOptional(Some(SInt64(v))))
+      }
+      "not finds non-existing key" in {
+        eval(e"""$builtin @Text @Int64 "d" $map""") shouldEqual Right(SOptional(None))
+      }
+
+      "crash on non Hashable key" in {
+        val expr =
+          e"""$builtin @(Int64 -> Int64) @Int64 (\(x: Int64) -> x) (GENMAP_EMPTY @(Int64 -> Int64) @Int64)"""
+        eval(expr) shouldBe Left(SErrorCrash("function are not hashable"))
+      }
+    }
+
+    "GENMAP_DELETE" - {
+
+      val builtin = "GENMAP_DELETE"
+
+      val map = buildMap("Int64", "a" -> 1, "b" -> 2, "c" -> 3)
+
+      "deletes existing key" in {
+        eval(e"""$builtin @Text @Int64 "a" $map""") shouldEqual Right(SValue.fromValue(
+          ValueGenMap(ImmArray(ValueText("b") -> ValueInt64(2), ValueText("c") -> ValueInt64(3)))))
+        eval(e"""$builtin @Text @Int64 "b" $map""") shouldEqual Right(SValue.fromValue(
+          ValueGenMap(ImmArray(ValueText("a") -> ValueInt64(1), ValueText("c") -> ValueInt64(3)))))
+      }
+
+      "does nothing with non-existing key" in {
+        eval(e"""$builtin @Text @Int64 "d" $map""") shouldEqual Right(
+          SValue.fromValue(
+            ValueGenMap(
+              ImmArray(
+                ValueText("a") -> ValueInt64(1),
+                ValueText("b") -> ValueInt64(2),
+                ValueText("c") -> ValueInt64(3)))))
+      }
+
+      "crash on non Hashable key" in {
+        val expr =
+          e"""$builtin @(Int64 -> Int64) @Int64 (\(x: Int64) -> x) (GENMAP_EMPTY @(Int64 -> Int64) @Int64)"""
+        eval(expr) shouldBe Left(SErrorCrash("function are not hashable"))
+      }
+    }
+
+    "GENMAP_KEYS" - {
+
+      "returns the keys in order" in {
+        val words = List(
+          "slant" -> 0,
+          "visit" -> 1,
+          "ranch" -> 2,
+          "first" -> 3,
+          "patch" -> 4,
+          "trend" -> 5,
+          "sweat" -> 6,
+          "enter" -> 7,
+          "cover" -> 8,
+          "favor" -> 9,
+        )
+
+        eval(e"GENMAP_KEYS @Text @Int64 ${buildMap("Int64", words: _*)}") shouldEqual
+          Right(SList(FrontStack(words.map { case (k, _) => SText(k) })))
+      }
+    }
+
+    "GENMAP_VALUES" - {
+
+      "returns the values in order" in {
+        val words = List(
+          "slant" -> 0,
+          "visit" -> 1,
+          "ranch" -> 2,
+          "first" -> 3,
+          "patch" -> 4,
+          "trend" -> 5,
+          "sweat" -> 6,
+          "enter" -> 7,
+          "cover" -> 8,
+          "favor" -> 9,
+        )
+
+        eval(e"GENMAP_VALUES @Text @Int64 ${buildMap("Int64", words: _*)}") shouldEqual
+          Right(SList(FrontStack(words.map { case (_, v) => SInt64(v.toLong) })))
+      }
+    }
+
+    "MAP_SIZE" - {
+      "returns 0 for empty Map" in {
+        eval(e"GENMAP_SIZE @Text @Int64 (GENMAP_EMPTY @Text @Int64)") shouldEqual Right(SInt64(0))
+      }
+
+      "returns the expected size for non-empty Map" in {
+        val map = buildMap("Int64", "a" -> 1, "b" -> 2, "c" -> 3)
+        eval(e"GENMAP_SIZE @Int64 $map") shouldEqual Right(SInt64(3))
       }
     }
 
