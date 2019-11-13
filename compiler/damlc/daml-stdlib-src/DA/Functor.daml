@@ -19,6 +19,10 @@ infixl 1 <&>
 (<&>) : Functor f => f a -> (a -> b) -> f b
 as <&> f = f <$> as
 
+-- | Map a function over a functor. 
+for : Functor f => f a -> (a -> b) -> f b
+for = flip fmap
+
 -- | Replace all the locations in the input with `()`.
 void : Functor f => f a -> f ()
 void x = () <$ x
