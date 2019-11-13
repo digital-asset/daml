@@ -38,6 +38,7 @@ import "ghc-lib-parser" Outputable
     )
 import "ghc-lib-parser" PrelNames
 import "ghc-lib-parser" RdrName
+import Safe
 import SdkVersion
 import System.FilePath.Posix
 import "ghc-lib-parser" TcEvidence (HsWrapper(..))
@@ -57,7 +58,7 @@ generateUpgradeModule :: [String] -> String -> String -> String -> String
 generateUpgradeModule templateNames modName qualA qualB =
     unlines $ header ++ concatMap upgradeTemplates templateNames
   where
-    header = header0 ++ header1 ++ header2
+    header = header0 ++ header2
       -- If we compile with packages from a single sdk version, the instances modules will not be
       -- there and hence we can not include header1.
     header0 =
@@ -65,10 +66,6 @@ generateUpgradeModule templateNames modName qualA qualB =
         , "module " <> modName <> " where"
         , "import " <> modName <> qualA <> " qualified as A"
         , "import " <> modName <> qualB <> " qualified as B"
-        ]
-    header1 =
-        [ "import " <> modName <> qualA <> "Instances()"
-        , "import " <> modName <> qualB <> "Instances()"
         ]
     header2 = [
         "import DA.Upgrade"
@@ -123,15 +120,28 @@ generateTemplateInstanceModule env externPkgId
     templInstances = templateInstances env externPkgId
 
     mod = envMod env
-    modFilePath = (joinPath $ splitOn "." modName) ++ "Instances" ++ ".daml"
+    unitIdStr = unitIdString $ envGetUnitId env LF.PRSelf
+    unitIdChunks = splitOn "-" unitIdStr
+    packageName
+        | all (`elem` '.' : ['0' .. '9']) $ lastDef "" unitIdChunks =
+            intercalate "-" $ init unitIdChunks
+        | otherwise = unitIdStr
+    modFilePath = (joinPath $ splitOn "." modName) ++ ".daml"
     modName = T.unpack $ LF.moduleNameString $ LF.moduleName mod
     header =
         [ "{-# LANGUAGE NoDamlSyntax #-}"
         , "{-# LANGUAGE EmptyCase #-}"
-        , "module " <> modName <> "Instances" <> " where"
+        , "module " <> modName
+        , "   ( module " <> modName
+        , "   , module X"
+        , "   )  where"
         ]
     imports =
-        [ "import qualified " <> modName
+        [ "import qualified \"" <> packageName <>
+          "\" " <>
+          modName <>
+          " as X"
+        , "import \"" <> packageName <> "\" " <> modName
         , "import qualified DA.Internal.Template"
         , "import qualified GHC.Types"
         ]
