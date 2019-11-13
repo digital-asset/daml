@@ -49,11 +49,15 @@ private[kvutils] object InputsAndEffects {
     * and packages.
     */
   def computeInputs(tx: SubmittedTransaction): List[DamlStateKey] = {
-    val packageInputs: InsertOrdSet[DamlStateKey] =
-      InsertOrdSet fromSet
-        tx.usedPackages.map { pkgId =>
-          DamlStateKey.newBuilder.setPackageId(pkgId).build
-        }
+    val packageInputs: InsertOrdSet[DamlStateKey] = {
+      import PackageId.ordering
+      InsertOrdSet.fromSeq(
+        tx.usedPackages.toList.sorted
+          .map { pkgId =>
+            DamlStateKey.newBuilder.setPackageId(pkgId).build
+          }
+      )
+    }
 
     def contractInputs(coid: ContractId): InsertOrdSet[DamlStateKey] =
       coid match {
@@ -63,8 +67,10 @@ private[kvutils] object InputsAndEffects {
           InsertOrdSet.empty
       }
 
-    def partyInputs(parties: Set[Party]): InsertOrdSet[DamlStateKey] =
-      InsertOrdSet fromSet parties.map(partyStateKey)
+    def partyInputs(parties: Set[Party]): InsertOrdSet[DamlStateKey] = {
+      import Party.ordering
+      InsertOrdSet.fromSeq(parties.toList.sorted.map(partyStateKey))
+    }
 
     tx.fold(GenTransaction.TopDown, packageInputs: Set[DamlStateKey]) {
         case (inputs, (nodeId, node)) =>

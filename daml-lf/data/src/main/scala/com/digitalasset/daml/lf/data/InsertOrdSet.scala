@@ -58,12 +58,6 @@ final case class NonEmptyInsertOrdSet[T](
 object InsertOrdSet {
   def empty[T] = EmptyInsertOrdSet.asInstanceOf[InsertOrdSet[T]]
 
-  def fromSet[T](s: Set[T]): InsertOrdSet[T] =
-    NonEmptyInsertOrdSet(
-      s.to[Queue],
-      s.to[HashSet]
-    )
-
   def fromSeq[T](s: Seq[T]): InsertOrdSet[T] =
     NonEmptyInsertOrdSet(Queue(s.reverse: _*), HashSet(s: _*))
 }
