@@ -110,7 +110,7 @@ trait PostgresAround {
       } catch {
         case NonFatal(e) =>
           throw new IllegalStateException(
-            s"Cannot start Postgres fixture. Failed command: ${command.toString}",
+            s"Cannot start Postgres fixture. Failed command: ${command.mkString(" ")}",
             e)
       }
     }

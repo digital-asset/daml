@@ -1,0 +1,7 @@
+all start
+
+all_participants foreach (connect(_, test_domain))
+
+retryUntilTrue() {
+  all_participants forall (participant_is_active(_, test_domain.name))
+}

@@ -9,7 +9,9 @@ import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.Eventually.eventually
 import com.daml.ledger.api.testtool.infrastructure.Synchronize.synchronize
+import com.daml.ledger.api.testtool.infrastructure.TransactionHelpers._
 import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTestSuite}
+import com.digitalasset.ledger.api.v1.value.{Record, RecordField, Value}
 import com.digitalasset.ledger.test_stable.DA.Types.Tuple2
 import com.digitalasset.ledger.test_stable.Test.Delegated._
 import com.digitalasset.ledger.test_stable.Test.Delegation._
@@ -218,6 +220,79 @@ final class ContractKeys(session: LedgerSession) extends LedgerTestSuite(session
 
       } yield {
         assertGrpcError(failedFetch, Status.Code.INVALID_ARGUMENT, "couldn't find key")
+      }
+  }
+
+  test(
+    "CKExposedByTemplate",
+    "The contract key should be exposed if the template specifies one",
+    allocate(SingleParty)) {
+    case Participants(Participant(ledger, party)) =>
+      val expectedKey = "some-fancy-key"
+      for {
+        _ <- ledger.create(party, TextKey(party, expectedKey, List.empty))
+        transactions <- ledger.flatTransactions(party)
+      } yield {
+        val contract = assertSingleton("CKExposedByTemplate", transactions.flatMap(createdEvents))
+        assertEquals(
+          "CKExposedByTemplate",
+          contract.getContractKey.getRecord.fields,
+          Seq(
+            RecordField("_1", Some(Value(Value.Sum.Party(Tag.unwrap(party))))),
+            RecordField("_2", Some(Value(Value.Sum.Text(expectedKey))))
+          )
+        )
+      }
+  }
+
+  test(
+    "CKExerciseByKey",
+    "Exercising by key should be possible only when the corresponding contract is available",
+    allocate(SingleParty)) {
+    case Participants(Participant(ledger, party)) =>
+      val keyString = UUID.randomUUID.toString
+      val expectedKey = Value(
+        Value.Sum.Record(
+          Record(
+            fields = Seq(
+              RecordField("_1", Some(Value(Value.Sum.Party(Tag.unwrap(party))))),
+              RecordField("_2", Some(Value(Value.Sum.Text(keyString))))
+            ))))
+      for {
+        failureBeforeCreation <- ledger
+          .exerciseByKey(
+            party,
+            TextKey.id,
+            expectedKey,
+            "TextKeyChoice",
+            Value(Value.Sum.Record(Record())))
+          .failed
+        _ <- ledger.create(party, TextKey(party, keyString, List.empty))
+        _ <- ledger.exerciseByKey(
+          party,
+          TextKey.id,
+          expectedKey,
+          "TextKeyChoice",
+          Value(Value.Sum.Record(Record())))
+        failureAfterConsuming <- ledger
+          .exerciseByKey(
+            party,
+            TextKey.id,
+            expectedKey,
+            "TextKeyChoice",
+            Value(Value.Sum.Record(Record())))
+          .failed
+      } yield {
+        assertGrpcError(
+          failureBeforeCreation,
+          Status.Code.INVALID_ARGUMENT,
+          "dependency error: couldn't find key"
+        )
+        assertGrpcError(
+          failureAfterConsuming,
+          Status.Code.INVALID_ARGUMENT,
+          "dependency error: couldn't find key"
+        )
       }
   }
 }

@@ -73,6 +73,15 @@ object LedgerApiTestTool {
       sys.exit(0)
     }
 
+    val missingTests = (config.included ++ config.excluded).filterNot(tests.all.contains)
+    if (missingTests.nonEmpty) {
+      println("The following tests could not be found:")
+      missingTests.foreach { testName =>
+        println(s"  - $testName")
+      }
+      sys.exit(2)
+    }
+
     val included =
       if (config.allTests) tests.all.keySet
       else if (config.included.isEmpty) tests.default.keySet

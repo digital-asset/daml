@@ -8,7 +8,9 @@ import com.daml.ledger.api.testtool.infrastructure.Allocation.{
   ParticipantAllocation,
   Participants
 }
+import com.daml.ledger.api.testtool.infrastructure.Eventually.eventually
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
+import com.digitalasset.ledger.client.binding.Primitive.Party
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -39,11 +41,29 @@ private[testtool] final class LedgerTestContext private[infrastructure] (
     Future
       .sequence(allocation.partyCounts.map(partyCount => {
         val participant = nextParticipant()
-        participant
-          .allocateParties(partyCount.count)
-          .map(parties => Participant(participant, parties: _*))
+        for {
+          parties <- participant.allocateParties(partyCount.count)
+          partiesSet = parties.toSet
+          _ <- eventually(waitForParties(participant, partiesSet))
+        } yield Participant(participant, parties: _*)
       }))
       .map(Participants(_: _*))
+
+  private[this] def waitForParties(
+      participant: ParticipantTestContext,
+      expectedParties: Set[Party]): Future[Unit] = {
+    Future
+      .sequence(participants.map(otherParticipant => {
+        otherParticipant
+          .listParties()
+          .map(actualParties => {
+            assert(
+              expectedParties.subsetOf(actualParties),
+              s"Parties from $participant never appeared on $otherParticipant.")
+          })
+      }))
+      .map(_ => ())
+  }
 
   private[this] def nextParticipant(): ParticipantTestContext =
     participantsRing.synchronized {
