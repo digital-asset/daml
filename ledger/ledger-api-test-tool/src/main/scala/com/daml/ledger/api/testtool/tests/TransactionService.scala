@@ -10,7 +10,6 @@ import com.daml.ledger.api.testtool.infrastructure.Synchronize.synchronize
 import com.daml.ledger.api.testtool.infrastructure.TransactionHelpers._
 import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTestSuite}
 import com.digitalasset.ledger.api.v1.transaction.Transaction
-import com.digitalasset.ledger.api.v1.value.{RecordField, Value}
 import com.digitalasset.ledger.client.binding.Primitive
 import com.digitalasset.ledger.client.binding.Value.encode
 import com.digitalasset.ledger.test_dev.Test.TextContainer
@@ -662,28 +661,6 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
         assert(
           contract.getContractKey.sum.isEmpty,
           s"The key is not empty: ${contract.getContractKey}")
-      }
-  }
-
-  test(
-    "TXContractKey",
-    "The contract key should be exposed if the template specifies one",
-    allocate(SingleParty)) {
-    case Participants(Participant(ledger, party)) =>
-      val expectedKey = "some-fancy-key"
-      for {
-        _ <- ledger.create(party, TextKey(party, expectedKey, Primitive.List.empty))
-        transactions <- ledger.flatTransactions(party)
-      } yield {
-        val contract = assertSingleton(s"ContractKey", transactions.flatMap(createdEvents))
-        assertEquals(
-          "ContractKey",
-          contract.getContractKey.getRecord.fields,
-          Seq(
-            RecordField("_1", Some(Value(Value.Sum.Party(Tag.unwrap(party))))),
-            RecordField("_2", Some(Value(Value.Sum.Text(expectedKey))))
-          )
-        )
       }
   }
 

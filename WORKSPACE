@@ -116,6 +116,26 @@ nixpkgs_package(
     repositories = dev_env_nix_repos,
 )
 
+# netcat dependency
+nixpkgs_package(
+    name = "netcat_nix",
+    attribute_path = "netcat-gnu",
+    nix_file = "//nix:bazel.nix",
+    nix_file_deps = common_nix_file_deps,
+    repositories = dev_env_nix_repos,
+)
+
+dev_env_tool(
+    name = "netcat_dev_env",
+    nix_include = ["bin/nc"],
+    nix_label = "@netcat_nix",
+    nix_paths = ["bin/nc"],
+    tools = ["nc"],
+    win_include = ["usr/bin/nc.exe"],
+    win_paths = ["usr/bin/nc.exe"],
+    win_tool = "msys2",
+)
+
 # Tar & gzip dependency
 nixpkgs_package(
     name = "tar_nix",
@@ -176,6 +196,22 @@ dev_env_tool(
 nixpkgs_package(
     name = "awk_nix",
     attribute_path = "gawk",
+    nix_file = "//nix:bazel.nix",
+    nix_file_deps = common_nix_file_deps,
+    repositories = dev_env_nix_repos,
+)
+
+nixpkgs_package(
+    name = "coreutils_nix",
+    attribute_path = "coreutils",
+    nix_file = "//nix:bazel.nix",
+    nix_file_deps = common_nix_file_deps,
+    repositories = dev_env_nix_repos,
+)
+
+nixpkgs_package(
+    name = "grpcurl_nix",
+    attribute_path = "grpcurl",
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
     repositories = dev_env_nix_repos,
@@ -946,4 +982,15 @@ dev_env_tool(
         "bin/postgres.exe",
     ],
     win_tool = "msys2",
+)
+
+http_archive(
+    name = "canton",
+    build_file_content = '''
+package(default_visibility = ["//visibility:public"])
+filegroup(name="jars", srcs=glob(["lib/**"]))
+''',
+    sha256 = "b67215655bdcfaf0f4b271ebd3f9ce8f887c3c81a53351f47165a9bf5b93e435",
+    strip_prefix = "canton-0.3.0",
+    urls = ["https://github.com/digital-asset/canton/releases/download/v0.3.0/canton-0.3.0.tar.gz"],
 )
