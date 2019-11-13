@@ -8,6 +8,7 @@ import Control.Monad.Extra
 import Control.Monad.IO.Class
 import Control.Monad.Logger
 import Data.Yaml
+import qualified Data.Set as Set
 import qualified Data.List as List
 import Path
 import Path.IO
@@ -15,6 +16,7 @@ import Path.IO
 import qualified Data.Text as T
 import qualified Data.Maybe as Maybe
 import qualified System.Directory as Dir
+import System.Exit
 import System.Process
 
 import Options
@@ -47,12 +49,36 @@ main = do
       $logInfo "Reading metadata from pom files"
       artifacts <- liftIO $ mapM (resolvePomData bazelLocations sdkVersion compVersion) artifacts
 
+      let mavenUploadArtifacts = filter (\a -> getMavenUpload $ artMavenUpload a) artifacts
+
+      -- all known targets uploaded to maven
+      let allMavenTargets = Set.fromList $ fmap (T.unpack . getBazelTarget . artTarget) mavenUploadArtifacts
+
+      -- first find out all the missing internal dependencies
+      missingDepsForAllArtifacts <- forM mavenUploadArtifacts $ \a -> do
+          -- run a bazel query to find all internal java and scala library dependencies
+          let bazelQueryCommand = shell $ "bazel query 'kind(\"(scala|java)_library\", deps(" ++ (T.unpack . getBazelTarget . artTarget) a ++ ")) intersect //...'"
+          internalDeps <- liftIO $ lines <$> readCreateProcess bazelQueryCommand ""
+          -- check if a dependency is not already a maven target from artifacts.yaml
+          let missingDeps = filter (`Set.notMember` allMavenTargets) internalDeps
+          return (a, missingDeps)
+
+      let onlyMissing = filter (not . null . snd) missingDepsForAllArtifacts
+      -- now we can report all the missing dependencies per artifact
+      when (not (null onlyMissing)) $ do
+                  $logError ("Some internal dependencies are not published to maven central!")
+                  forM_ onlyMissing $ \pair -> do
+                      let artifact = fst pair
+                          missingDeps = snd pair
+                      $logError (getBazelTarget (artTarget artifact))
+                      forM_ missingDeps $ \dep -> $logError ("\t- "# T.pack dep)
+                  liftIO exitFailure
+
       files <- fmap concat $ forM artifacts $ \a -> do
           fs <- artifactFiles optsAllArtifacts a
           pure $ map (a,) fs
       mapM_ (\(_, (inp, outp)) -> copyToReleaseDir bazelLocations releaseDir inp outp) files
 
-      let mavenUploadArtifacts = filter (\a -> getMavenUpload $ artMavenUpload a) artifacts
       uploadArtifacts <- concatMapM (mavenArtifactCoords optsAllArtifacts) mavenUploadArtifacts
       validateMavenArtifacts releaseDir uploadArtifacts
 
