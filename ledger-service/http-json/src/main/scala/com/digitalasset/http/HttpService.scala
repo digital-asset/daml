@@ -84,7 +84,8 @@ object HttpService extends StrictLogging {
 
       _ = logger.info(s"Connected to Ledger: ${ledgerId: lar.LedgerId}")
 
-      packageService = new PackageService(loadPackageStoreUpdates(client.packageClient))
+      // TODO Pass a token to work against a ledger with authentication
+      packageService = new PackageService(loadPackageStoreUpdates(client.packageClient, None))
 
       // load all packages right away
       _ <- eitherT(packageService.reload).leftMap(e => Error(e.shows)): ET[Unit]
@@ -147,11 +148,11 @@ object HttpService extends StrictLogging {
     bindingF
   }
 
-  private[http] def loadPackageStoreUpdates(packageClient: PackageClient)(
+  private[http] def loadPackageStoreUpdates(packageClient: PackageClient, token: Option[String])(
       implicit ec: ExecutionContext): PackageService.ReloadPackageStore =
     (ids: Set[String]) =>
       LedgerReader
-        .loadPackageStoreUpdates(packageClient)(ids)
+        .loadPackageStoreUpdates(packageClient, token)(ids)
         .map(_.leftMap(e => PackageService.ServerError(e)))
 
   def stop(f: Future[Error \/ ServerBinding])(implicit ec: ExecutionContext): Future[Unit] = {

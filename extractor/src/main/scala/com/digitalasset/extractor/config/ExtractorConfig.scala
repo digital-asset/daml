@@ -3,6 +3,7 @@
 
 package com.digitalasset.extractor.config
 
+import java.nio.file.Path
 import java.util.UUID
 
 import scalaz.{OneAnd, Order}
@@ -30,6 +31,7 @@ final case class ExtractorConfig(
     parties: ExtractorConfig.Parties,
     templateConfigs: Set[TemplateConfig],
     tlsConfig: TlsConfiguration,
+    accessTokenFile: Option[Path],
     appId: String = s"Extractor-${UUID.randomUUID().toString}"
 ) {
   @SuppressWarnings(Array("org.wartremover.warts.Any")) // huh?

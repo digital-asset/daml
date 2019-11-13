@@ -44,6 +44,7 @@ java_library(
 )
 
 compileDependencies = [
+    "//daml-assistant/scala-daml-project-config",
     "//daml-lf/archive:daml_lf_archive_reader",
     "//daml-lf/archive:daml_lf_dev_archive_java_proto",
     "//daml-lf/data",
@@ -56,9 +57,8 @@ compileDependencies = [
     "//ledger/ledger-api-common",
     "//ledger/ledger-api-client",
     "//ledger/ledger-api-domain",
-    "//ledger/ledger-api-grpc-utils",
     "//ledger-service/lf-value-json",
-    "//daml-assistant/scala-daml-project-config",
+    "//libs-scala/grpc-utils",
     "@maven//:com_chuusai_shapeless_2_12",
     "@maven//:com_github_pureconfig_pureconfig_2_12",
     "@maven//:com_github_scopt_scopt_2_12",

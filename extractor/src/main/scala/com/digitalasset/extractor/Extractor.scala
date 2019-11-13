@@ -6,24 +6,28 @@ package com.digitalasset.extractor
 import akka.actor.ActorSystem
 import akka.stream.scaladsl.{RestartSource, Sink}
 import akka.stream.{ActorMaterializer, KillSwitches}
+import com.digitalasset.timer.RetryStrategy
 import com.digitalasset.extractor.Types._
 import com.digitalasset.extractor.config.{ExtractorConfig, SnapshotEndSetting}
 import com.digitalasset.extractor.helpers.FutureUtil.toFuture
-import com.digitalasset.extractor.helpers.{TemplateIds, TransactionTreeTrimmer}
+import com.digitalasset.extractor.helpers.{TemplateIds, TokenHolder, TransactionTreeTrimmer}
 import com.digitalasset.extractor.ledger.types.TransactionTree
 import com.digitalasset.extractor.ledger.types.TransactionTree._
 import com.digitalasset.extractor.writers.Writer
 import com.digitalasset.extractor.writers.Writer.RefreshPackages
+import com.digitalasset.grpc.{GrpcException, GrpcStatus}
 import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
 import com.digitalasset.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
 import com.digitalasset.ledger.api.{v1 => api}
 import com.digitalasset.ledger.client.LedgerClient
 import com.digitalasset.ledger.client.configuration._
+import com.digitalasset.ledger.client.services.pkg.PackageClient
 import com.digitalasset.ledger.service.LedgerReader
 import com.digitalasset.ledger.service.LedgerReader.PackageStore
 import com.typesafe.scalalogging.StrictLogging
 import io.grpc.netty.NettyChannelBuilder
+import io.grpc.Status.Code.PERMISSION_DENIED
 import scalaz.Scalaz._
 import scalaz._
 import scalaz.syntax.tag._
@@ -36,6 +40,8 @@ import scala.util.control.NonFatal
 class Extractor[T](config: ExtractorConfig, target: T)(
     writerSupplier: (ExtractorConfig, T, String) => Writer = Writer.apply _)
     extends StrictLogging {
+
+  private val tokenHolder = new TokenHolder(config.accessTokenFile)
 
   implicit val system: ActorSystem = ActorSystem()
   import system.dispatcher
@@ -60,7 +66,7 @@ class Extractor[T](config: ExtractorConfig, target: T)(
 
       _ = logger.info(s"Connected to ledger ${client.ledgerId}\n\n")
 
-      endResponse <- client.transactionClient.getLedgerEnd()
+      endResponse <- client.transactionClient.getLedgerEnd(tokenHolder.token)
 
       endOffset = endResponse.offset.getOrElse(
         throw new RuntimeException("Failed to get ledger end: response did not contain an offset.")
@@ -78,7 +84,7 @@ class Extractor[T](config: ExtractorConfig, target: T)(
 
       _ = logger.trace("Handling packages...")
 
-      packageStore <- fetchPackages(client, writer)
+      packageStore <- fetchPackages(client, writer, tokenHolder)
       allTemplateIds = TemplateIds.getTemplateIds(packageStore.values.toSet)
       _ = logger.info(s"All available template ids: ${allTemplateIds}")
 
@@ -113,10 +119,28 @@ class Extractor[T](config: ExtractorConfig, target: T)(
     system.terminate().map(_ => killSwitch.shutdown())
   }
 
-  private def fetchPackages(client: LedgerClient, writer: Writer): Future[PackageStore] = {
+  private def keepRetryingOnPermissionDenied[A](f: () => Future[A]): Future[A] =
+    RetryStrategy.constant(1.second) {
+      case GrpcException(GrpcStatus(`PERMISSION_DENIED`, _), _) => true
+    } { (attempt, wait) =>
+      logger.error(s"Failed to authenticate with Ledger API on attempt $attempt, next one in $wait")
+      tokenHolder.refresh()
+      f()
+    }
+
+  private def doFetchPackages(
+      packageClient: PackageClient): Future[LedgerReader.Error \/ Option[PackageStore]] =
+    keepRetryingOnPermissionDenied { () =>
+      LedgerReader.loadPackageStoreUpdates(packageClient, tokenHolder.token)(Set.empty)
+    }
+
+  private def fetchPackages(
+      client: LedgerClient,
+      writer: Writer,
+      tokenHolder: TokenHolder): Future[PackageStore] = {
     for {
-      packageStoreE <- LedgerReader.createPackageStore(client.packageClient): Future[
-        String \/ PackageStore]
+      packageStoreE <- doFetchPackages(client.packageClient)
+        .map(_.map(_.getOrElse(Map.empty))): Future[LedgerReader.Error \/ PackageStore]
       packageStore <- toFuture(packageStoreE): Future[PackageStore]
       _ <- writer.handlePackages(packageStore)
     } yield packageStore
@@ -150,13 +174,15 @@ class Extractor[T](config: ExtractorConfig, target: T)(
         maxBackoff = 30.seconds,
         randomFactor = 0.2 // adds 20% "noise" to vary the intervals slightly
       ) { () =>
+        tokenHolder.refresh()
         logger.info(s"Starting streaming transactions from ${startOffSet}...")
         client.transactionClient
           .getTransactionTrees(
             LedgerOffset(startOffSet),
             streamUntil,
             transactionFilter,
-            verbose = true
+            verbose = true,
+            tokenHolder.token
           )
           .via(killSwitch.flow)
           .map(trim)
@@ -200,7 +226,7 @@ class Extractor[T](config: ExtractorConfig, target: T)(
         s" Refreshing packages..."
     )
     for {
-      _ <- fetchPackages(client, writer)
+      _ <- fetchPackages(client, writer, tokenHolder)
       result <- writer.handleTransaction(t)
       _ <- result.fold(
         // We still don't have all the types available for the transaction.
@@ -231,7 +257,8 @@ class Extractor[T](config: ExtractorConfig, target: T)(
         config.appId,
         LedgerIdRequirement(ledgerId = "", enabled = false),
         CommandClientConfiguration(1, 1, overrideTtl = true, java.time.Duration.ofSeconds(20L)),
-        sslContext = config.tlsConfig.client
+        sslContext = config.tlsConfig.client,
+        tokenHolder.token
       )
     )
 

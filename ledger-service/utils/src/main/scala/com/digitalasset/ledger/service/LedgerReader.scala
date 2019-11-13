@@ -3,22 +3,18 @@
 
 package com.digitalasset.ledger.service
 
-import java.io.File
-import java.nio.file.Files
-
-import com.digitalasset.daml.lf.data.Ref.{PackageId, Identifier}
-import com.digitalasset.daml.lf.iface.reader.InterfaceReader
-import com.digitalasset.daml.lf.iface.{Interface, DefDataType}
 import com.digitalasset.daml.lf.archive.Reader
+import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId}
+import com.digitalasset.daml.lf.iface.reader.InterfaceReader
+import com.digitalasset.daml.lf.iface.{DefDataType, Interface}
 import com.digitalasset.daml_lf_dev.DamlLf
-import com.digitalasset.daml_lf_dev.DamlLf.Archive
 import com.digitalasset.ledger.api.v1.package_service.GetPackageResponse
 import com.digitalasset.ledger.client.services.pkg.PackageClient
-
-import scala.concurrent.Future
-import scala.collection.immutable.Map
+import scalaz.Scalaz._
 import scalaz._
-import Scalaz._
+
+import scala.collection.immutable.Map
+import scala.concurrent.Future
 
 object LedgerReader {
 
@@ -30,33 +26,29 @@ object LedgerReader {
   val UpToDate: Future[Error \/ Option[PackageStore]] =
     Future.successful(\/-(None))
 
+  // FIXME Find a more suitable execution context for these helpers
   import scala.concurrent.ExecutionContext.Implicits.global
-
-  def createPackageStore(packageClient: PackageClient): Future[Error \/ PackageStore] =
-    loadPackageStoreUpdates(packageClient)(Set.empty).map(x => x.map(_.getOrElse(Map.empty)))
 
   /**
     * @return [[UpToDate]] if packages did not change
     */
-  def loadPackageStoreUpdates(client: PackageClient)(
+  def loadPackageStoreUpdates(client: PackageClient, token: Option[String])(
       loadedPackageIds: Set[String]): Future[Error \/ Option[PackageStore]] =
     for {
-      newPackageIds <- client.listPackages().map(_.packageIds.toList)
-      diffIds = diff(newPackageIds, loadedPackageIds): List[String] // keeping the order
-      result <- if (diffIds.isEmpty) UpToDate else load(client, diffIds).map(somePackageStore)
+      newPackageIds <- client.listPackages(token).map(_.packageIds.toList)
+      diffIds = newPackageIds.filterNot(loadedPackageIds): List[String] // keeping the order
+      result <- if (diffIds.isEmpty) UpToDate
+      else load(client, diffIds, token)
     } yield result
 
-  // List.diff requires a Seq, I have got a Set
-  private def diff[A](xs: List[A], ys: Set[A]): List[A] =
-    xs.filter(x => !ys(x))
-
-  private def somePackageStore(x: Error \/ PackageStore): Error \/ Option[PackageStore] =
-    x.map(Some(_))
-
-  private def load(client: PackageClient, packageIds: List[String]): Future[Error \/ PackageStore] =
+  private def load(
+      client: PackageClient,
+      packageIds: List[String],
+      token: Option[String]): Future[Error \/ Some[PackageStore]] =
     packageIds
-      .traverse(client.getPackage(_))
+      .traverse(client.getPackage(_, token))
       .map(createPackageStoreFromArchives)
+      .map(_.map(Some(_)))
 
   private def createPackageStoreFromArchives(
       packageResponses: List[GetPackageResponse]): Error \/ PackageStore = {
@@ -69,11 +61,7 @@ object LedgerReader {
       .map(_.toMap)
   }
 
-  def readArchiveFromFile(file: File): Archive = {
-    DamlLf.Archive.parser().parseFrom(Files.readAllBytes(file.toPath))
-  }
-
-  def decodeInterfaceFromPackageResponse(
+  private def decodeInterfaceFromPackageResponse(
       packageResponse: GetPackageResponse): Error \/ Interface = {
     import packageResponse._
     \/.fromTryCatchNonFatal {

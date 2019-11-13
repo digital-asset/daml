@@ -39,6 +39,7 @@ trait ExtractorFixture extends SandboxFixture with PostgresAround with Types {
       None,
       None,
     ),
+    None,
   )
 
   protected def outputFormat: String = "single-table"

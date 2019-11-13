@@ -247,6 +247,8 @@ To advance time:
   :width: 25%
   :align: center
 
+.. _navigator-authentication:
+
 Authenticating Navigator
 ************************
 
@@ -254,10 +256,7 @@ If you are running Navigator against a Ledger API server that requires authentic
 
 The access token retrieval depends on the specific DAML setup you are working with: please refer to the ledger operator to learn how.
 
-Once you have retrieved your access token, you can provide it to Navigator in two ways:
-
-- store it in the file ``$DAML_HOME/secret``, where ``$DAML_HOME`` is ``$HOME/.daml`` on Linux and MacOS, and ``%APPDATA%/daml`` on Windows, or
-- store it in a different file and provide the path to it using the ``-t`` or ``--access-token-file`` command line option.
+Once you have retrieved your access token, you can provide it to Navigator by storing it in a file and provide the path to it using the ``--access-token-file`` command line option.
 
 If the access token cannot be retrieved, is missing or wrong, you'll be unable to move past the Navigator's frontend login screen and see the following:
 
