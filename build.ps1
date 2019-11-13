@@ -30,6 +30,10 @@ function bazel() {
 # which is a workaround for this problem.
 bazel shutdown
 
+# Prefetch nodejs_dev_env to avoid permission denied errors on external/nodejs_dev_env/nodejs_dev_env/node.exe
+# It isn’t clear where exactly those errors are coming from.
+bazel fetch @nodejs_dev_env//...
+
 bazel build `-`-experimental_execution_log_file ${ARTIFACT_DIRS}/build_execution_windows.log //...
 
 bazel shutdown
