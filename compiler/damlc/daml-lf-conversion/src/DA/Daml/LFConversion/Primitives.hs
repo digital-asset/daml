@@ -152,6 +152,22 @@ convertPrim _ "BEMapToList" (TMap a1 :-> TList (TMapEntry a2)) | a1 == a2  =
 convertPrim _ "BEMapSize" (TMap a :-> TInt64) =
   EBuiltin BEMapSize `ETyApp` a
 
+
+convertPrim _ "BEGenMapEmpty" (TGenMap a b) =
+  EBuiltin BEGenMapEmpty `ETyApp` a `ETyApp` b
+convertPrim _ "BEGenMapInsert"  (a :-> b :-> TGenMap a1 b1 :-> TGenMap a2 b2) | a == a1, a == a2, b == b1, b == b2 =
+  EBuiltin BEGenMapInsert `ETyApp` a `ETyApp` b
+convertPrim _ "BEGenMapLookup" (a1 :-> TGenMap a b :-> TOptional b1) | a == a1, b == b1 =
+  EBuiltin BEGenMapLookup `ETyApp` a `ETyApp` b
+convertPrim _ "BEGenMapDelete" (a2 :-> TGenMap a b :-> TGenMap a1 b1) | a == a1, a == a2, b == b1 =
+  EBuiltin BEGenMapDelete `ETyApp` a `ETyApp` b
+convertPrim _ "BEGenMapKeys" (TGenMap a b :-> TList a1) | a == a1 =
+  EBuiltin BEGenMapKeys `ETyApp` a `ETyApp` b
+convertPrim _ "BEGenMapValues" (TGenMap a b :-> TList b1) | b == b1 =
+  EBuiltin BEGenMapValues `ETyApp` a `ETyApp` b
+convertPrim _ "BEGenMapSize" (TGenMap a b :-> TInt64) =
+  EBuiltin BEGenMapSize `ETyApp` a `ETyApp` b
+
 convertPrim _ "BECoerceContractId" (TContractId a :-> TContractId b) =
     EBuiltin BECoerceContractId `ETyApp` a `ETyApp` b
 

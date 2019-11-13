@@ -119,6 +119,7 @@ kindOfBuiltin = \case
   BTContractId -> KStar `KArrow` KStar
   BTOptional -> KStar `KArrow` KStar
   BTMap -> KStar `KArrow` KStar
+  BTGenMap -> KStar `KArrow` KStar `KArrow` KStar
   BTArrow -> KStar `KArrow` KStar `KArrow` KStar
   BTAny -> KStar
   BTTypeRep -> KStar
@@ -211,6 +212,14 @@ typeOfBuiltin = \case
   BEMapDelete -> pure $ TForall (alpha, KStar) $ TText :-> TMap tAlpha :-> TMap tAlpha
   BEMapToList -> pure $ TForall (alpha, KStar) $ TMap tAlpha :-> TList (TMapEntry tAlpha)
   BEMapSize   -> pure $ TForall (alpha, KStar) $ TMap tAlpha :-> TInt64
+  BEGenMapEmpty -> pure $ TForall (alpha, KStar) $ TForall (beta, KStar) $ TGenMap tAlpha tBeta
+  BEGenMapInsert -> pure $ TForall (alpha, KStar) $ TForall (beta, KStar) $ tAlpha :-> tBeta :-> TGenMap tAlpha tBeta :-> TGenMap tAlpha tBeta
+  BEGenMapLookup -> pure $ TForall (alpha, KStar) $ TForall (beta, KStar) $ tAlpha :-> TGenMap tAlpha tBeta :-> TOptional tBeta
+  BEGenMapDelete -> pure $ TForall (alpha, KStar) $ TForall (beta, KStar) $ tAlpha :-> TGenMap tAlpha tBeta :-> TGenMap tAlpha tBeta
+  BEGenMapKeys -> pure $ TForall (alpha, KStar) $ TForall (beta, KStar) $ TGenMap tAlpha tBeta :-> TList tAlpha
+  BEGenMapValues -> pure $ TForall (alpha, KStar) $ TForall (beta, KStar) $ TGenMap tAlpha tBeta :-> TList tBeta
+  BEGenMapSize -> pure $ TForall (alpha, KStar) $ TForall (beta, KStar) $ TGenMap tAlpha tBeta :-> TInt64
+
   BEEqualList -> pure $
     TForall (alpha, KStar) $
     (tAlpha :-> tAlpha :-> TBool) :-> TList tAlpha :-> TList tAlpha :-> TBool

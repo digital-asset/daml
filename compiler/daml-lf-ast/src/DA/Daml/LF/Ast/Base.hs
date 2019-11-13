@@ -153,6 +153,7 @@ data BuiltinType
   | BTContractId
   | BTOptional
   | BTMap
+  | BTGenMap
   | BTArrow
   | BTAny
   | BTTypeRep
@@ -262,12 +263,22 @@ data BuiltinExpr
   | BEFoldr                      -- :: ∀a b. (a -> b -> b) -> b -> List a -> b
   | BEEqualList                  -- :: ∀a. (a -> a -> Bool) -> List a -> List a -> Bool
 
+  -- Map operations
   | BEMapEmpty                    -- :: ∀ a. Map a
   | BEMapInsert                   -- :: ∀ a. Text -> a -> Map a -> Map a
   | BEMapLookup                   -- :: ∀ a. Text -> Map a -> Optional a
   | BEMapDelete                   -- :: ∀ a. Text -> Map a -> Map a
   | BEMapToList                   -- :: ∀ a. Map a -> List ⟨key: Text, value: a⟩
   | BEMapSize                     -- :: ∀ a. Map a -> Int64
+
+  -- GenMap operations
+  | BEGenMapEmpty                    -- :: ∀ a b. GenMap a b
+  | BEGenMapInsert                   -- :: ∀ a b. a -> b -> GenMap a b -> GenMap a b
+  | BEGenMapLookup                   -- :: ∀ a b. a -> GenMap a b -> Optional b
+  | BEGenMapDelete                   -- :: ∀ a b. a -> GenMap a b -> GenMap a b
+  | BEGenMapKeys                     -- :: ∀ a b. GenMap a b -> List a
+  | BEGenMapValues                   -- :: ∀ a b. GenMap a b -> List b
+  | BEGenMapSize                     -- :: ∀ a b. GenMap a b -> Int64
 
   -- Text operations
   | BEExplodeText                -- :: Text -> List Text
