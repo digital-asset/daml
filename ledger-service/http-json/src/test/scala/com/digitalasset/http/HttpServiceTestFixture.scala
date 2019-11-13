@@ -62,6 +62,7 @@ object HttpServiceTestFixture {
           "localhost",
           httpPort,
           jdbcConfig,
+          None,
           doNotReloadPackages))
     } yield (httpService, httpPort)
 

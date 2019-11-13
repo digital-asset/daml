@@ -6,6 +6,7 @@ package com.digitalasset.http
 import akka.actor.{ActorSystem, Cancellable}
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.Http.ServerBinding
+import akka.http.scaladsl.settings.ServerSettings
 import akka.stream.Materializer
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
@@ -56,6 +57,7 @@ object HttpService extends StrictLogging {
       address: String,
       httpPort: Int,
       jdbcConfig: Option[JdbcConfig] = None,
+      staticContentConfig: Option[StaticContentConfig] = None,
       packageReloadInterval: FiniteDuration = DefaultPackageReloadInterval,
       maxInboundMessageSize: Int = DefaultMaxInboundMessageSize,
       validateJwt: Endpoints.ValidateJwt = decodeJwt)(
@@ -64,6 +66,8 @@ object HttpService extends StrictLogging {
       aesf: ExecutionSequencerFactory,
       ec: ExecutionContext
   ): Future[Error \/ ServerBinding] = {
+
+    implicit val settings: ServerSettings = ServerSettings(asys)
 
     val clientConfig = LedgerClientConfiguration(
       applicationId = ApplicationId.unwrap(applicationId),
@@ -112,7 +116,7 @@ object HttpService extends StrictLogging {
 
       (encoder, decoder) = buildJsonCodecs(ledgerId, packageService)
 
-      endpoints = new Endpoints(
+      jsonEndpoints = new Endpoints(
         ledgerId,
         validateJwt,
         commandService,
@@ -122,7 +126,16 @@ object HttpService extends StrictLogging {
         decoder,
       )
 
-      binding <- liftET[Error](Http().bindAndHandleAsync(endpoints.all, address, httpPort))
+      allEndpoints = staticContentConfig.cata(
+        c => StaticContentEndpoints.all(c) orElse jsonEndpoints.all,
+        jsonEndpoints.all
+      )
+
+      binding <- liftET[Error](
+        Http().bindAndHandleAsync(allEndpoints, address, httpPort, settings = settings))
+
+//      binding <- liftET[Error](
+//        Http().bindAndHandle(allEndpoints, address, httpPort, settings = settings))
 
     } yield binding
 
