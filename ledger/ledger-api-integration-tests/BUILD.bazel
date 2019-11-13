@@ -88,6 +88,11 @@ da_scala_test_suite(
         # the excluded tests are run by the conformance test via the ledger-api-test-tool
         # see //ledger/sandbox:conformance-test-*
         # exclude = ["src/test/itsuite/**/TransactionServiceIT.scala"],
+        exclude = [
+            # XXX: Flaky tests are excluded, see below.
+            "src/test/itsuite/scala/com/digitalasset/platform/tests/integration/ledger/api/commands/CommandServiceBackPressureIT.scala",
+            "src/test/itsuite/scala/com/digitalasset/platform/tests/integration/ledger/api/ResetServiceIT.scala",
+        ],
     ),
     data = [
         "//ledger/sandbox:Test-1.5.dar",
@@ -97,6 +102,39 @@ da_scala_test_suite(
         "@postgresql_dev_env//:initdb",
         "@postgresql_dev_env//:pg_ctl",
     ],
+    # this test suite is very intensive, long, and relying on timeouts. Moreover,
+    # the test suite already parallelizes each scala test, so we'll still be busy
+    # only with this one. for the same reason we do not run it on macos -- it takes
+    # up to 20 minutes on our macOS ci workers.
+    tags = [
+        "dont-run-on-darwin",
+        "exclusive",
+    ],
+    deps = [
+        ":default-it-logback-config",
+        ":ledger-api-integration-tests-lib",
+    ] + dependencies,
+)
+
+# XXX: Some tests have been found to be flaky on Windows and Linux. These are
+# excluded from the main test suite so that they can be marked flaky
+# individually.
+da_scala_test_suite(
+    name = "ledger-api-integration-tests-flaky",
+    size = "large",
+    srcs = [
+        "src/test/itsuite/scala/com/digitalasset/platform/tests/integration/ledger/api/ResetServiceIT.scala",
+        "src/test/itsuite/scala/com/digitalasset/platform/tests/integration/ledger/api/commands/CommandServiceBackPressureIT.scala",
+    ],
+    data = [
+        "//ledger/sandbox:Test-1.5.dar",
+        "//ledger/test-common:Test-stable.dar",
+        "@postgresql_dev_env//:all",
+        "@postgresql_dev_env//:createdb",
+        "@postgresql_dev_env//:initdb",
+        "@postgresql_dev_env//:pg_ctl",
+    ],
+    flaky = True,
     # this test suite is very intensive, long, and relying on timeouts. Moreover,
     # the test suite already parallelizes each scala test, so we'll still be busy
     # only with this one. for the same reason we do not run it on macos -- it takes
