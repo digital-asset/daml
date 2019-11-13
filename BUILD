@@ -176,6 +176,16 @@ alias(
 )
 
 alias(
+    name = "daml2ts",
+    actual = "//language-support/ts/codegen:daml2ts",
+)
+
+alias(
+    name = "daml2ts@ghci",
+    actual = "//language-support/ts/codegen:daml2ts@ghci",
+)
+
+alias(
     name = "daml-lf-repl",
     actual = "//daml-lf/repl:repl",
 )
