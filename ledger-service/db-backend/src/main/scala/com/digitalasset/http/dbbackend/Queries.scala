@@ -4,6 +4,7 @@
 package com.digitalasset.http.dbbackend
 
 import scala.language.higherKinds
+import com.github.ghik.silencer.silent
 
 import doobie._
 import doobie.implicits._
@@ -26,7 +27,11 @@ object Queries {
       contractId: String,
       templateId: TpId,
       createArguments: CA,
-      witnessParties: WP)
+      witnessParties: WP) {
+    def mapTemplateId[B](f: TpId => B): DBContract[B, CA, WP] = copy(templateId = f(templateId))
+    def mapArgsParties[B, C](f: CA => B, g: WP => C): DBContract[TpId, B, C] =
+      copy(createArguments = f(createArguments), witnessParties = g(witnessParties))
+  }
 
   /** for use when generating predicates */
   private[http] val contractColumnName: Fragment = sql"create_arguments"
@@ -39,7 +44,7 @@ object Queries {
         (contract_id TEXT PRIMARY KEY NOT NULL
         ,tpid BIGINT NOT NULL REFERENCES template_id (tpid)
         ,create_arguments JSONB NOT NULL
-        ,witness_parties JSONB NOT NULL
+        ,witness_parties TEXT ARRAY NOT NULL
         )
     """
 
@@ -121,20 +126,18 @@ object Queries {
       sql"""INSERT INTO ledger_offset VALUES ($party, $tpid, $newOffset)""".update.run
     )
 
-  def insertContracts[F[_]: cats.Foldable: Functor, CA: JsonWriter, WP: JsonWriter](
-      dbcs: F[DBContract[SurrogateTpId, CA, WP]])(implicit log: LogHandler): ConnectionIO[Int] =
-    Update[DBContract[SurrogateTpId, JsValue, JsValue]](
+  @silent // pas is demonstrably used; try taking it out
+  def insertContracts[F[_]: cats.Foldable: Functor, CA: JsonWriter](
+      dbcs: F[DBContract[SurrogateTpId, CA, Seq[String]]])(
+      implicit log: LogHandler,
+      pas: Put[Array[String]]): ConnectionIO[Int] =
+    Update[DBContract[SurrogateTpId, JsValue, Array[String]]](
       """
         INSERT INTO contract
-        VALUES (?, ?, ?::jsonb, ?::jsonb)
+        VALUES (?, ?, ?::jsonb, ?)
         ON CONFLICT (contract_id) DO NOTHING
       """,
-      logHandler0 = log).updateMany(
-      dbcs.map(
-        dbc =>
-          dbc.copy(
-            createArguments = dbc.createArguments.toJson,
-            witnessParties = dbc.witnessParties.toJson)))
+      logHandler0 = log).updateMany(dbcs.map(_.mapArgsParties(_.toJson, _.toArray)))
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def deleteContracts[F[_]: Foldable](cids: F[String])(
