@@ -9,10 +9,11 @@ import akka.http.scaladsl.server.{Directives, RoutingLog}
 import akka.http.scaladsl.settings.{ParserSettings, RoutingSettings}
 import akka.stream.Materializer
 import com.typesafe.scalalogging.StrictLogging
+import scalaz.syntax.show._
 
 import scala.concurrent.Future
 
-object StaticContentEndpoints extends StrictLogging {
+object StaticContentEndpoints {
   def all(config: StaticContentConfig)(
       implicit
       routingSettings: RoutingSettings,
@@ -28,9 +29,13 @@ private class StaticContentRouter(config: StaticContentConfig)(
     parserSettings: ParserSettings,
     materializer: Materializer,
     routingLog: RoutingLog)
-    extends PartialFunction[HttpRequest, Future[HttpResponse]] {
+    extends PartialFunction[HttpRequest, Future[HttpResponse]]
+    with StrictLogging {
 
   private val pathPrefix: Uri.Path = Uri.Path("/" + config.prefix)
+
+  logger.warn(s"StaticContentRouter configured: ${config.shows}")
+  logger.warn("DO NOT USE StaticContentRouter IN PRODUCTION, CONSIDER SETTING UP REVERSE PROXY!!!")
 
   private val fn =
     akka.http.scaladsl.server.Route.asyncHandler(
