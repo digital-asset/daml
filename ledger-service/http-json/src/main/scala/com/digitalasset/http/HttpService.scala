@@ -134,9 +134,6 @@ object HttpService extends StrictLogging {
       binding <- liftET[Error](
         Http().bindAndHandleAsync(allEndpoints, address, httpPort, settings = settings))
 
-//      binding <- liftET[Error](
-//        Http().bindAndHandle(allEndpoints, address, httpPort, settings = settings))
-
     } yield binding
 
     val bindingF: Future[Error \/ ServerBinding] = bindingEt.run
