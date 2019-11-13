@@ -29,10 +29,11 @@ TRIGGER_EXE=$(rlocation "$TEST_WORKSPACE/$1")
 DAR=$(rlocation "$TEST_WORKSPACE/$2")
 OUTPUT="$($TRIGGER_EXE list --dar $DAR | tail -n '+2' | tr -d '\r')"
 EXPECTED="\
-  Retry:retryTrigger
-  ACS:test
   CopyTrigger:copyTrigger
-  ExerciseByKey:exerciseByKeyTrigger\
+  ExerciseByKey:exerciseByKeyTrigger
+  Numeric:test
+  Retry:retryTrigger
+  ACS:test\
 "
 
 if [ "$OUTPUT" != "$EXPECTED" ]; then
