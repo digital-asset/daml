@@ -686,25 +686,25 @@ convType env =
             HsTyVar noExt NotPromoted $ mkRdrName $ LF.unTypeVarName tyVarName
         LF.TCon LF.Qualified {..} ->
             case LF.unTypeConName qualObject of
-                ["Tuple2"] -> mkTuple 2
-                ["Tuple3"] -> mkTuple 3
-                ["Tuple4"] -> mkTuple 4
-                ["Tuple5"] -> mkTuple 5
-                ["Tuple6"] -> mkTuple 6
-                ["Tuple7"] -> mkTuple 7
-                ["Tuple8"] -> mkTuple 8
-                ["Tuple9"] -> mkTuple 9
-                ["Tuple10"] -> mkTuple 10
-                ["Tuple11"] -> mkTuple 11
-                ["Tuple12"] -> mkTuple 12
-                ["Tuple13"] -> mkTuple 13
-                ["Tuple14"] -> mkTuple 14
-                ["Tuple15"] -> mkTuple 15
-                ["Tuple16"] -> mkTuple 16
-                ["Tuple17"] -> mkTuple 17
-                ["Tuple18"] -> mkTuple 18
-                ["Tuple19"] -> mkTuple 19
-                ["Tuple20"] -> mkTuple 20
+                ["Tuple2"]  | qualModule == LF.ModuleName ["DA", "Types"] -> mkTuple 2
+                ["Tuple3"]  | qualModule == LF.ModuleName ["DA", "Types"] -> mkTuple 3
+                ["Tuple4"]  | qualModule == LF.ModuleName ["DA", "Types"] -> mkTuple 4
+                ["Tuple5"]  | qualModule == LF.ModuleName ["DA", "Types"] -> mkTuple 5
+                ["Tuple6"]  | qualModule == LF.ModuleName ["DA", "Types"] -> mkTuple 6
+                ["Tuple7"]  | qualModule == LF.ModuleName ["DA", "Types"] -> mkTuple 7
+                ["Tuple8"]  | qualModule == LF.ModuleName ["DA", "Types"] -> mkTuple 8
+                ["Tuple9"]  | qualModule == LF.ModuleName ["DA", "Types"] -> mkTuple 9
+                ["Tuple10"] | qualModule == LF.ModuleName ["DA", "Types"] -> mkTuple 10
+                ["Tuple11"] | qualModule == LF.ModuleName ["DA", "Types"] -> mkTuple 11
+                ["Tuple12"] | qualModule == LF.ModuleName ["DA", "Types"] -> mkTuple 12
+                ["Tuple13"] | qualModule == LF.ModuleName ["DA", "Types"] -> mkTuple 13
+                ["Tuple14"] | qualModule == LF.ModuleName ["DA", "Types"] -> mkTuple 14
+                ["Tuple15"] | qualModule == LF.ModuleName ["DA", "Types"] -> mkTuple 15
+                ["Tuple16"] | qualModule == LF.ModuleName ["DA", "Types"] -> mkTuple 16
+                ["Tuple17"] | qualModule == LF.ModuleName ["DA", "Types"] -> mkTuple 17
+                ["Tuple18"] | qualModule == LF.ModuleName ["DA", "Types"] -> mkTuple 18
+                ["Tuple19"] | qualModule == LF.ModuleName ["DA", "Types"] -> mkTuple 19
+                ["Tuple20"] | qualModule == LF.ModuleName ["DA", "Types"] -> mkTuple 20
                 [name] ->
                     HsTyVar noExt NotPromoted $
                     noLoc $
