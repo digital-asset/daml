@@ -23,7 +23,6 @@ import com.digitalasset.daml.lf.speedy.{Compiler, Pretty, Speedy, SValue}
 import com.digitalasset.daml.lf.speedy.SExpr._
 import com.digitalasset.daml.lf.speedy.SResult._
 import com.digitalasset.daml.lf.speedy.SValue._
-import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, RelativeContractId}
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.refinements.ApiTypes.ApplicationId
 import com.digitalasset.ledger.api.v1.command_service.SubmitAndWaitRequest
@@ -37,10 +36,6 @@ import com.digitalasset.ledger.api.v1.transaction_filter.{
 import com.digitalasset.ledger.api.v1.value.{Identifier => ApiIdentifier}
 import com.digitalasset.ledger.api.validation.ValueValidator
 import com.digitalasset.ledger.client.LedgerClient
-import com.digitalasset.platform.participant.util.LfEngineToApi.{
-  lfValueToApiRecord,
-  lfValueToApiValue
-}
 
 class Runner(dar: Dar[(PackageId, Package)], applicationId: ApplicationId) extends StrictLogging {
 
@@ -73,28 +68,6 @@ class Runner(dar: Dar[(PackageId, Package)], applicationId: ApplicationId) exten
           QualifiedName(scriptModuleName, DottedName.assertFromString("fromLedgerValue")))) ->
         SEMakeClo(Array(), 1, SEVar(1)))
   val compiledPackages = PureCompiledPackages(darMap, definitionMap).right.get
-
-  def toLedgerRecord(v: SValue) = {
-    lfValueToApiRecord(
-      true,
-      v.toValue.mapContractId {
-        case rcoid: RelativeContractId =>
-          throw new RuntimeException(s"Unexpected contract id $rcoid")
-        case acoid: AbsoluteContractId => acoid
-      }
-    )
-  }
-
-  def toLedgerValue(v: SValue) = {
-    lfValueToApiValue(
-      true,
-      v.toValue.mapContractId {
-        case rcoid: RelativeContractId =>
-          throw new RuntimeException(s"Unexpected contract id $rcoid")
-        case acoid: AbsoluteContractId => acoid
-      }
-    )
-  }
 
   def toIdentifier(v: SRecord): ApiIdentifier = {
     val tId = v.values.get(0).asInstanceOf[STypeRep].ty.asInstanceOf[TTyCon].tycon
@@ -168,7 +141,7 @@ class Runner(dar: Dar[(PackageId, Package)], applicationId: ApplicationId) exten
                     go()
                   })
                 }
-                case _ => throw new RuntimeException(s"Expected record but got $v")
+                case _ => throw new RuntimeException(s"Expected record with 2 fields but got $v")
               }
             }
             case SVariant(_, "Query", v) => {
@@ -210,7 +183,7 @@ class Runner(dar: Dar[(PackageId, Package)], applicationId: ApplicationId) exten
                     go()
                   })
                 }
-                case _ => throw new RuntimeException(s"Expected record but got $v")
+                case _ => throw new RuntimeException(s"Expected record with 3 fields but got $v")
               }
             }
             case SVariant(_, "AllocParty", v) => {
@@ -227,7 +200,7 @@ class Runner(dar: Dar[(PackageId, Package)], applicationId: ApplicationId) exten
                     go()
                   })
                 }
-                case _ => throw new RuntimeException(s"Expected record but got $v")
+                case _ => throw new RuntimeException(s"Expected record with 2 fields but got $v")
               }
             }
             case _ =>
