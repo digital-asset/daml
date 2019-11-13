@@ -488,7 +488,7 @@ convertGenericTemplate env x
         let tmArgs = map (ETmLam (mkVar "_", TUnit)) $ superClassDicts ++ [signatories, observers, ensure, agreement, create, fetch, archive, toAnyTemplate, fromAnyTemplate, templateTypeRep] ++ key ++ concat choices
         qTCon <- qualify env m  $ mkTypeCon [getOccText $ dataConTyCon dictCon]
         let tcon = TypeConApp qTCon tyArgs
-        Ctor _ fldNames _ <- toCtor env dictCon
+        let fldNames = ctorLabels dictCon
         let dict = ERecCon tcon (zip fldNames tmArgs)
         pure (Template{..}, dict)
   where
@@ -969,7 +969,7 @@ convertExpr env0 e = do
         | tyConFlavour (dataConTyCon con) == ClassFlavour
         = fmap (, args) $ do
             scrutinee' <- convertExpr env scrutinee
-            Ctor _ fldNames _ <- toCtor env con
+            let fldNames = ctorLabels con
             let fldIndex = fromJust (elemIndex x vs)
             let fldName = fldNames !! fldIndex
             recTyp <- convertType env (varType bind)
@@ -986,7 +986,7 @@ convertExpr env0 e = do
             TUpdate{} -> asLet
             TScenario{} -> asLet
             TAny{} -> asLet
-            tcon | isRecordCon con -> do
+            tcon | isSimpleRecordCon con -> do
                 fields <- convertRecordFields env con id
                 case zipExactMay vs fields of
                     Nothing -> unsupported "Pattern match with existential type" alt
@@ -1065,9 +1065,6 @@ isSimpleRecordCon con =
 
 isVariantRecordCon :: DataCon -> Bool
 isVariantRecordCon con = conHasLabels con && not (conIsSingle con)
-
-isRecordCon :: DataCon -> Bool
-isRecordCon con = isSimpleRecordCon con || isVariantRecordCon con
 
 -- | The different classes of data cons with respect to LF conversion.
 data DataConClass
@@ -1202,35 +1199,38 @@ convertAlt env ty (DataAlt con, [a,b], x)
 convertAlt env ty (DataAlt con, [a], x)
     | NameIn DA_Internal_Prelude "Some" <- con
     = CaseAlternative (CPSome (convVar a)) <$> convertExpr env x
+
 convertAlt env (TConApp tcon targs) alt@(DataAlt con, vs, x) = do
-    Ctor (mkVariantCon . getOccText -> variantName) fldNames fldTys <- toCtor env con
-    let patVariant = variantName
-    if
-      | isEnumCon con ->
-        CaseAlternative (CPEnum patTypeCon patVariant) <$> convertExpr env x
-      | null fldNames ->
-        case zipExactMay vs fldTys of
-          Nothing -> unsupported "Pattern match with existential type" alt
-          Just [] ->
-            let patBinder = vArg
-            in  CaseAlternative CPVariant{..} <$> convertExpr env x
-          Just [(v, _)] ->
-            let patBinder = convVar v
-            in  CaseAlternative CPVariant{..} <$> convertExpr env x
-          Just (_:_:_) -> unsupported "Data constructor with multiple unnamed fields" alt
-      | otherwise ->
-        case zipExactMay vs (zipExact fldNames fldTys) of
-          Nothing -> unsupported "Pattern match with existential type" alt
-          Just vsFlds ->
-            let patBinder = vArg
-            in  do
-              x' <- convertExpr env x
-              projBinds <- mkProjBindings env (EVar vArg) (TypeConApp (synthesizeVariantRecord variantName <$> tcon) targs) vsFlds x'
-              pure $ CaseAlternative CPVariant{..} projBinds
-    where
-        -- TODO(MH): We need to generate fresh names.
+    let patTypeCon = tcon
+        patVariant = mkVariantCon (getOccText con)
         vArg = mkVar "$arg"
-        patTypeCon = tcon
+
+    case classifyDataCon con of
+        EnumCon ->
+            CaseAlternative (CPEnum patTypeCon patVariant) <$> convertExpr env x
+
+        SimpleVariantCon -> do
+            when (length vs /= dataConRepArity con) $
+                unsupported "Pattern match with existential type" alt
+            when (length vs >= 2) $
+                unsupported "Data constructor with multiple unnamed fields" alt
+
+            let patBinder = maybe vArg convVar (listToMaybe vs)
+            CaseAlternative CPVariant{..} <$> convertExpr env x
+
+        SimpleRecordCon ->
+            unhandled "unreachable case -- convertAlt with simple record constructor" ()
+
+        VariantRecordCon -> do
+            fields <- convertRecordFields env con id
+            let patBinder = vArg
+            case zipExactMay vs fields of
+                Nothing -> unsupported "Pattern match with existential type" alt
+                Just vsFlds -> do
+                    x' <- convertExpr env x
+                    projBinds <- mkProjBindings env (EVar vArg) (TypeConApp (synthesizeVariantRecord patVariant <$> tcon) targs) vsFlds x'
+                    pure $ CaseAlternative CPVariant{..} projBinds
+
 convertAlt _ _ x = unsupported "Case alternative of this form" x
 
 mkProjBindings :: Env -> LF.Expr -> TypeConApp -> [(Var, (FieldName, LF.Type))] -> LF.Expr -> ConvertM LF.Expr
@@ -1522,18 +1522,6 @@ ctorLabels con =
     = map convFieldName lbls
   flv = tyConFlavour (dataConTyCon con)
   lbls = dataConFieldLabels con
-
-data Ctor = Ctor Name [FieldName] [LF.Type]
-
-toCtor :: Env -> DataCon -> ConvertM Ctor
-toCtor env con =
-  let (_, thetas, tys,_) = dataConSig con
-      flv = tyConFlavour (dataConTyCon con)
-      sanitize ty
-        -- NOTE(MH): This is DICTIONARY SANITIZATION step (1).
-        | flv == ClassFlavour = TUnit :-> ty
-        | otherwise = ty
-  in Ctor (getName con) (ctorLabels con) <$> mapM (fmap sanitize . convertType env) (thetas ++ tys)
 
 ------------------------------------------------------------------------------
 -- EXTERNAL PACKAGES
