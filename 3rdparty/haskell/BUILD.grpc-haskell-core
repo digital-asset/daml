@@ -61,3 +61,9 @@ fat_cc_library(
     name = "fat_cbits",
     input_lib = ":cbits",
 )
+
+# Empty cc library to make Hazel happy.
+cc_library(
+  name = "grpc-haskell-core-cbits",
+  visibility = ["//visibility:public"],
+)
