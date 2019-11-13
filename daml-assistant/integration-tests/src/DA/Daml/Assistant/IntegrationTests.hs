@@ -489,7 +489,8 @@ packagingTests = testGroup "packaging"
         step "Regenerate source ..."
         callCommandQuiet "daml damlc generate-src Foo.dalf --srcdir gen"
         step "Compile generated source ..."
-        callCommandQuiet "daml damlc compile --generated-src gen/Foo.daml"
+        callCommandQuiet "daml damlc compile --generated-src gen/Foo.daml -o FooGen.dalf"
+        assertBool "FooGen.dalf was not created" =<< doesFileExist "FooGen.dalf"
     ]
 
     <> [ testCaseSteps "Build migration package" $ \step -> withTempDir $ \tmpDir -> do
