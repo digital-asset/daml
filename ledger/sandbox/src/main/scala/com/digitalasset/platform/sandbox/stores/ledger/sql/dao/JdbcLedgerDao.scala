@@ -1231,6 +1231,17 @@ private class JdbcLedgerDao(
           |where package_id = {package_id}
           |""".stripMargin)
 
+  private val SQL_SELECT_PACKAGE_UPLOAD_ENTRIES =
+    SQL("""select submission_id, package_id, participant_id, rejection_reason
+          |from package_upload_entries
+          |""".stripMargin)
+
+  private val SQL_SELECT_PACKAGE_UPLOAD_ENTRY =
+    SQL("""select submission_id, package_id, participant_id, rejection_reason
+          |from package_upload_entries
+          |where package_id = {package_id}
+          |""".stripMargin)
+
   case class ParsedPackageData(
       packageId: String,
       sourceDescription: Option[String],
@@ -1390,7 +1401,7 @@ object JdbcLedgerDao {
     // SQL statements using the proprietary Postgres on conflict .. do nothing clause
     protected[JdbcLedgerDao] def SQL_INSERT_CONTRACT_DATA: String
     protected[JdbcLedgerDao] def SQL_INSERT_PACKAGE: String
-    protected[JdbcLedgerDao] def SQL_INSERT_PACKAGE_REJECTS: String
+    protected[JdbcLedgerDao] def SQL_INSERT_PACKAGE_UPLOAD_ENTRY: String
     protected[JdbcLedgerDao] def SQL_IMPLICITLY_INSERT_PARTIES: String
 
     protected[JdbcLedgerDao] def SQL_SELECT_CONTRACT: String
@@ -1420,11 +1431,11 @@ object JdbcLedgerDao {
         |from parameters
         |on conflict (package_id) do nothing""".stripMargin
 
-    override protected[JdbcLedgerDao] val SQL_INSERT_PACKAGE_REJECTS: String =
-      """insert into package_rejects(package_id, participant_id, submission_id, reason)
+    override protected[JdbcLedgerDao] val SQL_INSERT_PACKAGE_UPLOAD_ENTRY: String =
+      """insert into package_upload_entries(submission_id, package_id, participant_id, reason)
         |select {package_id}, {participant_id}, {submission_id}, {reason}
         |from parameters
-        |on conflict (package_id) do nothing""".stripMargin
+        |on conflict (submission_id) do nothing""".stripMargin
 
     override protected[JdbcLedgerDao] val SQL_IMPLICITLY_INSERT_PARTIES: String =
       """insert into parties(party, explicit, ledger_offset)
@@ -1514,10 +1525,10 @@ object JdbcLedgerDao {
         |select {package_id}, {upload_id}, {source_description}, {size}, {known_since}, ledger_end, {package}
         |from parameters""".stripMargin
 
-    override protected[JdbcLedgerDao] val SQL_INSERT_PACKAGE_REJECTS: String =
-      """merge into package_rejects using dual on package_id = {package_id}
-        |when not matched then insert (package_id, participant_id, submission_id, reason)
-        |select {package_id}, {participant_id}, {submission_id}, {reason}
+    override protected[JdbcLedgerDao] val SQL_INSERT_PACKAGE_UPLOAD_ENTRY: String =
+      """merge into package_upload_entries using dual on submission_id = {submission_id}
+        |when not matched then insert (submission_id, package_id, participant_id, reason)
+        |select {submission_id}, {package_id}, {participant_id}, {reason}
         |from parameters""".stripMargin
 
     override protected[JdbcLedgerDao] val SQL_IMPLICITLY_INSERT_PARTIES: String =
