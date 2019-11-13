@@ -685,7 +685,8 @@ convType env =
           | qualModule == LF.ModuleName ["DA", "Types"]
           , [name] <- LF.unTypeConName qualObject
           , Just n <- stripPrefix "Tuple" $ T.unpack name
-          , Just i <- readMay n -> mkTuple i
+          , Just i <- readMay n
+          , 2 <= i && i <= 20 -> mkTuple i
         LF.TCon LF.Qualified {..} ->
           case LF.unTypeConName qualObject of
                 [name] ->
