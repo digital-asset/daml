@@ -115,6 +115,21 @@ object Queries {
       .query[String]
       .option
 
+  /** Consistency of the whole database mostly pivots around the offset update
+    * check, since an offset read and write bookend the update.
+    *
+    * Considering two concurrent transactions, A and B:
+    *
+    * If both insert, you get a uniqueness violation.
+    * When A updates, the row locks until commit, so B's update waits for that commit.
+    * At that point the result depends on isolation level:
+    *   - read committed: update count 0 (caller must catch this; json-api rolls back on this)
+    *   - repeatable read or serializable: "could not serialize access due to concurrent update"
+    *     error on update
+    *
+    * If A inserts but B updates, the transactions are sufficiently serialized that
+    * there are no logical conflicts.
+    */
   private[http] def updateOffset(
       party: String,
       tpid: SurrogateTpId,
