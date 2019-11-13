@@ -477,9 +477,7 @@ HASKELL_LSP_COMMIT = "fefcae8b44aaf7658e0f90d5530832efe0b32053"
 
 HASKELL_LSP_HASH = "410af26154494735694ae323b3431d6a6ccb49ab6f028b56656039b5662de7d6"
 
-GRPC_HASKELL_COMMIT = "11681ec6b99add18a8d1315f202634aea343d146"
-
-GRPC_HASKELL_HASH = "c6201f4e2fd39f25ca1d47b1dac4efdf151de88a2eb58254d61abc2760e58fda"
+GRPC_HASKELL_CORE_VERSION = "0.0.0.0"
 
 GHC_LIB_VERSION = "8.8.1.20191111"
 
@@ -491,24 +489,13 @@ http_archive(
     urls = ["https://digitalassetsdk.bintray.com/ghc-lib/ghc-lib-parser-{}.tar.gz".format(GHC_LIB_VERSION)],
 )
 
+# On Hackage but we need a custom build file to work around linker issues in GHCi.
 http_archive(
     name = "haskell_grpc__haskell__core",
     build_file = "//3rdparty/haskell:BUILD.grpc-haskell-core",
-    patch_args = ["-p2"],
-    patches = [
-        "@com_github_digital_asset_daml//bazel_tools:grpc-haskell-core-mask-runops.patch",
-    ],
-    sha256 = GRPC_HASKELL_HASH,
-    strip_prefix = "gRPC-haskell-{}/core/".format(GRPC_HASKELL_COMMIT),
-    urls = ["https://github.com/awakesecurity/gRPC-haskell/archive/{}.tar.gz".format(GRPC_HASKELL_COMMIT)],
-)
-
-http_archive(
-    name = "haskell_grpc__haskell",
-    build_file = "//3rdparty/haskell:BUILD.grpc-haskell",
-    sha256 = GRPC_HASKELL_HASH,
-    strip_prefix = "gRPC-haskell-{}".format(GRPC_HASKELL_COMMIT),
-    urls = ["https://github.com/awakesecurity/gRPC-haskell/archive/{}.tar.gz".format(GRPC_HASKELL_COMMIT)],
+    sha256 = "087527ec3841330b5328d123ca410901905d111529956821b724d92c436e6cdf",
+    strip_prefix = "grpc-haskell-core-{}".format(GRPC_HASKELL_CORE_VERSION),
+    urls = ["https://hackage.haskell.org/package/grpc-haskell-core-{}/grpc-haskell-core-{}.tar.gz".format(GRPC_HASKELL_CORE_VERSION, GRPC_HASKELL_CORE_VERSION)],
 )
 
 http_archive(
@@ -532,11 +519,10 @@ hazel_repositories(
         "bindings-DSL",
         "clock",
         # Excluded since we build it via the http_archive line above.
+        "grpc-haskell-core",
         "ghc-lib-parser",
         "ghc-paths",
         "ghcide",
-        "grpc-haskell",
-        "grpc-haskell-core",
         "streaming-commons",
         "wai-app-static",
         "zlib",
@@ -555,6 +541,9 @@ hazel_repositories(
         {
             "z": "@com_github_madler_zlib//:z",
             "bz2": "@bzip2//:bz2",
+            "grpc": "@com_github_grpc_grpc//:grpc",
+            # The Bazel grpc lib seems to include gpr
+            "gpr": "",
         },
     ),
     ghc_workspaces = {
@@ -570,12 +559,23 @@ hazel_repositories(
             # https://github.com/digital-asset/daml/blob/master/ghc-lib/working-on-ghc-lib.md.
             hazel_ghclibs(GHC_LIB_VERSION, "0000000000000000000000000000000000000000000000000000000000000000", "89378f66a8283ddb785538e6d94c1a282d27fa2f3658b537ea5d3cee2efa786e") +
             hazel_github_external("digital-asset", "hlint", "951fdb6d28d7eed8ea1c7f3be69da29b61fcbe8f", "f5fb4cf98cde3ecf1209857208369a63ba21b04313d570c41dffe9f9139a1d34") +
-            hazel_github_external("awakesecurity", "proto3-wire", "4f355bbac895d577d8a28f567ab4380f042ccc24", "031e05d523a887fbc546096618bc11dceabae224462a6cdd6aab11c1658e17a3") +
-            hazel_github_external(
-                "awakesecurity",
+            # Not in stackage
+            hazel_hackage(
+                "proto3-wire",
+                "1.1.0",
+                "af5af81b8ced2cb21e81964ce13891b2474ba628ce343ca53dcd7ced17a51bb9",
+            ) +
+            # Not in stackage
+            hazel_hackage(
                 "proto3-suite",
-                "f5ca2bee361d518de5c60b9d05d0f54c5d2f22af",
-                "6a803b1655824e5bec2c518b39b6def438af26135d631b60c9b70bf3af5f0db2",
+                "0.4.0.0",
+                "216fb8b5d92afc9df70512da2331e098e926239efd55e770802079c2a13bad5e",
+            ) +
+            # Not in stackage
+            hazel_hackage(
+                "grpc-haskell",
+                "0.0.1.0",
+                "acd048425e1717215db8323188c475c6f14fe2238b7d258b1eb46e8ed01381b2",
             ) +
 
             # Not in stackage
