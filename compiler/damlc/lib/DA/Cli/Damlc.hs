@@ -57,6 +57,7 @@ import Data.Maybe
 import qualified Data.NameMap as NM
 import qualified Data.Set as Set
 import qualified Data.Text.Extended as T
+import qualified Data.Text.IO as T
 import Development.IDE.Core.API
 import Development.IDE.Core.RuleTypes.Daml (GetParsedModule(..))
 import Development.IDE.Core.Rules
@@ -100,6 +101,7 @@ data CommandName =
     Build
   | Clean
   | Compile
+  | Daml2ts
   | DamlDoc
   | DocTest
   | GenerateSrc
@@ -212,6 +214,15 @@ cmdInspect =
         fmap (maybe DA.Pretty.prettyNormal DA.Pretty.PrettyLevel) $
             optional $ option auto $ long "detail" <> metavar "LEVEL" <> help "Detail level of the pretty printed output (default: 0)"
     cmd = execInspect <$> inputFileOptWithExt ".dalf or .dar" <*> outputFileOpt <*> jsonOpt <*> detailOpt
+
+cmdDaml2ts :: Mod CommandFields Command
+cmdDaml2ts =
+    command "daml2ts" $ info (helper <*> cmd)
+      $ progDesc "Generate the TypeScript bindings for the main DALF in a DAR or a DALF"
+    <> fullDesc
+  where
+    outputDirOpt = argument str $ metavar "OUTPUT_DIR" <> help "Output directory"
+    cmd = execDaml2ts <$> inputFileOptWithExt ".dalf or .dar" <*> outputDirOpt
 
 cmdVisual :: Mod CommandFields Command
 cmdVisual =
@@ -986,6 +997,23 @@ execInspect inFile outFile jsonOutput lvl =
             , DA.Pretty.nest 2 (DA.Pretty.pPrintPrec lvl 0 lfPkg)
             ]
 
+execDaml2ts :: FilePath -> FilePath -> Command
+execDaml2ts inFile _outDir =
+  Command Daml2ts effect
+  where
+    effect = do
+        bytes <-
+          if "dar" `isExtensionOf` inFile
+              then do
+                  dar <- B.readFile inFile
+                  dalfs <- either fail pure $ readDalfs $ ZipArchive.toArchive $ BSL.fromStrict dar
+                  pure $! BSL.toStrict $ mainDalf dalfs
+              else B.readFile inFile
+
+        (pkgId, pkg) <- errorOnLeft "Cannot decode package" $
+                   Archive.decodeArchive Archive.DecodeAsMain bytes
+        daml2ts pkgId pkg
+
 errorOnLeft :: Show a => String -> Either a b -> IO b
 errorOnLeft desc = \case
   Left err -> ioError $ userError $ unlines [ desc, show err ]
@@ -1246,6 +1274,7 @@ options numProcessors =
         <> cmdClean
         <> cmdGenerateSrc
         <> cmdGenerateGenSrc
+        <> cmdDaml2ts
       )
 
 parserInfo :: Int -> ParserInfo Command
@@ -1294,3 +1323,76 @@ main = do
 withProjectRoot' :: ProjectOpts -> ((FilePath -> IO FilePath) -> IO a) -> IO a
 withProjectRoot' ProjectOpts{..} act =
     withProjectRoot projectRoot projectCheck (const act)
+
+daml2ts :: LF.PackageId -> LF.Package -> IO ()
+daml2ts _pkgId pkg = do
+    forM_ (LF.packageModules pkg) $ \mod -> do
+        T.putStrLn (genModule mod)
+  where
+    genModule :: LF.Module -> T.Text
+    genModule mod = T.unlines $
+        ["// " <> T.intercalate "/" (LF.unModuleName (LF.moduleName mod))]
+        ++ concatMap (genDefDataType (LF.moduleName mod)) (LF.moduleDataTypes mod)
+
+    genDefDataType :: LF.ModuleName -> LF.DefDataType -> [T.Text]
+    genDefDataType curModName def
+        | not (LF.getIsSerializable (LF.dataSerializable def)) = []
+        | otherwise = case LF.unTypeConName (LF.dataTypeCon def) of
+            [] -> error "IMPOSSIBLE: empty type constructor name"
+            _:_:_ -> error "TODO(MH): multi-part type constructor names"
+            [conName] -> case LF.dataCons def of
+                LF.DataVariant{} -> error "TODO(MH): variant types"
+                LF.DataEnum{} -> error "TODO(MH): enum types"
+                LF.DataRecord fields ->
+                    let params
+                          | null (LF.dataParams def) = ""
+                          | otherwise = "<" <> T.intercalate ", " (map (LF.unTypeVarName . fst) (LF.dataParams def)) <> ">"
+                    in
+                    ["type " <> conName <> params <> " = {"]
+                    ++ ["  " <> LF.unFieldName x <> ": " <> genType curModName t <> ";" | (x, t) <- fields]
+                    ++ ["}"]
+
+
+    genType :: LF.ModuleName -> LF.Type -> T.Text
+    genType curModName = go
+      where
+        go = \case
+            LF.TVar v -> LF.unTypeVarName v
+            LF.TUnit -> "{}"
+            LF.TBool -> "boolean"
+            LF.TInt64 -> "daml.Int"
+            LF.TDecimal -> "daml.Decimal"
+            LF.TNumeric _ -> "dalm.Numeric"  -- TODO(MH): Figure out what to do with the scale.
+            LF.TText -> "string"
+            LF.TTimestamp -> "daml.Time"
+            LF.TParty -> "daml.Party"
+            LF.TDate -> "daml.Date"
+            LF.TList t -> go t <> "[]"
+            LF.TOptional (LF.TOptional _) -> error "TODO(MH): nested optionals"
+            LF.TOptional t -> "(" <> go t <> "| null)"
+            LF.TMap t  -> "{ [key: string]: " <> go t <> " }"
+            LF.TUpdate _ -> error "IMPOSSIBLE: Update not serializable"
+            LF.TScenario _ -> error "IMPOSSIBLE: Scenario not serializable"
+            LF.TContractId t -> "daml.ContractId<" <> go t <> ">"
+            LF.TConApp con ts ->
+                let ts' | null ts = ""
+                        | otherwise = "<" <> T.intercalate ", " (map go ts) <> ">"
+                in
+                genTypeCon curModName con <> ts'
+            LF.TCon _ -> error "IMPOSSIBLE: lonely type constructor"
+            t@LF.TApp{} -> error $ "IMPOSSIBLE: type application not serializable - " <> DA.Pretty.renderPretty t
+            LF.TBuiltin t -> error "IMPOSSIBLE: partially applied primitive type not serializable - " <> DA.Pretty.renderPretty t
+            LF.TForall{} -> error "IMPOSSIBLE: universally quantified type not serializable"
+            LF.TTuple{} -> error "IMPOSSIBLE: structur record not serializable"
+            LF.TNat{} -> error "IMPOSSIBLE: standalone type level natural not serializable"
+
+    genTypeCon :: LF.ModuleName -> LF.Qualified LF.TypeConName -> T.Text
+    genTypeCon curModName (LF.Qualified pkgRef modName conParts) = case pkgRef of
+        LF.PRImport _ -> error "TODO(MH): package imports"
+        LF.PRSelf -> case LF.unTypeConName conParts of
+            [] -> error "IMPOSSIBLE: empty type constructor name"
+            _:_:_ -> error "TODO(MH): multi-part type constructor names"
+            [conName]
+                | modName == curModName -> conName
+                | otherwise -> T.intercalate "." (LF.unModuleName modName) <> "." <> conName
+
