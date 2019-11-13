@@ -19,7 +19,8 @@ import com.digitalasset.ledger.api.v1.admin.package_management_service.{
 }
 import com.digitalasset.ledger.api.v1.admin.party_management_service.{
   AllocatePartyRequest,
-  GetParticipantIdRequest
+  GetParticipantIdRequest,
+  ListKnownPartiesRequest
 }
 import com.digitalasset.ledger.api.v1.command_completion_service.{
   CompletionStreamRequest,
@@ -187,6 +188,11 @@ private[testtool] final class ParticipantTestContext private[participant] (
 
   def allocateParties(n: Int): Future[Vector[Party]] =
     Future.sequence(Vector.fill(n)(allocateParty()))
+
+  def listParties(): Future[Set[Party]] =
+    services.partyManagement
+      .listKnownParties(new ListKnownPartiesRequest())
+      .map(_.partyDetails.map(partyDetails => Party(partyDetails.party)).toSet)
 
   def activeContracts(
       request: GetActiveContractsRequest): Future[(Option[LedgerOffset], Vector[CreatedEvent])] =
