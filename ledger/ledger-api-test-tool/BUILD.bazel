@@ -107,16 +107,13 @@ da_scala_binary(
 
 conformance_test(
     name = "test",
-    extra_data = [
-        "@postgresql_dev_env//:all",
-    ],
     server = "//ledger/api-server-damlonx/reference-v2:ephemeral-postgres-reference-server",
     server_args = ["--port 6865"],
 )
 
 conformance_test(
     name = "ssl-test",
-    extra_data = ["@postgresql_dev_env//:all"] + glob(["test/main/resources/*"]),
+    extra_data = glob(["test/main/resources/*"]),
     server = "//ledger/api-server-damlonx/reference-v2:ephemeral-postgres-reference-server",
     server_args = [
         "--port 6865",
