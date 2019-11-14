@@ -17,8 +17,8 @@ import scala.collection.immutable.{HashMap, Map, Queue}
   */
 final class InsertOrdMap[Key, +Value] private (
     override val keys: Queue[Key],
-    hashMap: HashMap[Key, Value])
-    extends Map[Key, Value] {
+    hashMap: HashMap[Key, Value]
+) extends Map[Key, Value] {
 
   override def size: Int = hashMap.size
 
@@ -44,8 +44,7 @@ object InsertOrdMap {
 
   def empty[K, V]: InsertOrdMap[K, V] = Empty.asInstanceOf[InsertOrdMap[K, V]]
 
-  def apply[K, V](entries: (K, V)*): InsertOrdMap[K, V] = {
+  def apply[K, V](entries: (K, V)*): InsertOrdMap[K, V] =
     new InsertOrdMap(entries.map(_._1)(breakOut), HashMap(entries: _*))
-  }
 
 }
