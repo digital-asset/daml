@@ -1,13 +1,15 @@
 // Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.trigger
+package com.digitalasset.daml.lf.engine.trigger
 
+import com.digitalasset.daml.lf.engine.{ResultDone, ValueTranslator}
 import java.util
 import scala.collection.JavaConverters._
 import scalaz.std.either._
 import scalaz.syntax.traverse._
 
+import com.digitalasset.daml.lf.CompiledPackages
 import com.digitalasset.daml.lf.archive.Dar
 import com.digitalasset.daml.lf.data.FrontStack
 import com.digitalasset.daml.lf.data.Ref._
@@ -188,6 +190,7 @@ object Converter {
   }
 
   private def fromCreatedEvent(
+      valueTranslator: ValueTranslator,
       triggerIds: TriggerIds,
       created: CreatedEvent): Either[String, SValue] = {
     val createdTy = triggerIds.getId("Created")
@@ -197,15 +200,22 @@ object Converter {
         QualifiedName(
           DottedName.assertFromString("DA.Internal.LF"),
           DottedName.assertFromString("AnyTemplate")))
+    val templateTy = Identifier(
+      PackageId.assertFromString(created.getTemplateId.packageId),
+      QualifiedName(
+        DottedName.assertFromString(created.getTemplateId.moduleName),
+        DottedName.assertFromString(created.getTemplateId.entityName))
+    )
     for {
       createArguments <- ValueValidator
         .validateRecord(created.getCreateArguments)
         .left
         .map(_.getMessage)
-      anyTemplate <- SValue.fromValue(createArguments) match {
-        case r @ SRecord(tyCon, _, _) =>
+      anyTemplate <- valueTranslator.translateValue(TTyCon(templateTy), createArguments) match {
+        case ResultDone(r @ SRecord(tyCon, _, _)) =>
           Right(record(anyTemplateTyCon, ("getAnyTemplate", SAny(TTyCon(tyCon), r))))
-        case v => Left(s"Expected record but got $v")
+        case ResultDone(v) => Left(s"Expected record but got $v")
+        case res => Left(s"Failure to translate value in create: $res")
       }
     } yield
       record(
@@ -216,7 +226,10 @@ object Converter {
       )
   }
 
-  private def fromEvent(triggerIds: TriggerIds, ev: Event): Either[String, SValue] = {
+  private def fromEvent(
+      valueTranslator: ValueTranslator,
+      triggerIds: TriggerIds,
+      ev: Event): Either[String, SValue] = {
     val eventTy = triggerIds.getId("Event")
     ev.event match {
       case Event.Event.Archived(archivedEvent) =>
@@ -227,20 +240,23 @@ object Converter {
       case Event.Event.Created(createdEvent) =>
         for {
           variant <- Name.fromString("CreatedEvent")
-          event <- fromCreatedEvent(triggerIds, createdEvent)
+          event <- fromCreatedEvent(valueTranslator, triggerIds, createdEvent)
         } yield SVariant(eventTy, variant, event)
       case _ => Left(s"Expected Archived or Created but got ${ev.event}")
     }
   }
 
-  private def fromTransaction(triggerIds: TriggerIds, t: Transaction): Either[String, SValue] = {
+  private def fromTransaction(
+      valueTranslator: ValueTranslator,
+      triggerIds: TriggerIds,
+      t: Transaction): Either[String, SValue] = {
     val messageTy = triggerIds.getId("Message")
     val transactionTy = triggerIds.getId("Transaction")
     for {
       name <- Name.fromString("MTransaction")
       transactionId = fromTransactionId(triggerIds, t.transactionId)
       commandId = fromOptionalCommandId(triggerIds, t.commandId)
-      events <- FrontStack(t.events).traverseU(fromEvent(triggerIds, _)).map(SList)
+      events <- FrontStack(t.events).traverseU(fromEvent(valueTranslator, triggerIds, _)).map(SList)
     } yield
       SVariant(
         messageTy,
@@ -456,20 +472,24 @@ object Converter {
   }
 
   private def fromACS(
+      valueTranslator: ValueTranslator,
       triggerIds: TriggerIds,
       createdEvents: Seq[CreatedEvent]): Either[String, SValue] = {
     val activeContractsTy = triggerIds.getId("ActiveContracts")
     for {
-      events <- FrontStack(createdEvents).traverseU(fromCreatedEvent(triggerIds, _)).map(SList)
+      events <- FrontStack(createdEvents)
+        .traverseU(fromCreatedEvent(valueTranslator, triggerIds, _))
+        .map(SList)
     } yield record(activeContractsTy, ("activeContracts", events))
   }
 
-  def fromDar(dar: Dar[(PackageId, Package)]): Converter = {
+  def fromDar(dar: Dar[(PackageId, Package)], compiledPackages: CompiledPackages): Converter = {
     val triggerIds = TriggerIds.fromDar(dar)
+    val valueTranslator = new ValueTranslator(compiledPackages)
     Converter(
-      fromTransaction(triggerIds, _),
+      fromTransaction(valueTranslator, triggerIds, _),
       fromCompletion(triggerIds, _),
-      fromACS(triggerIds, _),
+      fromACS(valueTranslator, triggerIds, _),
       toCommands(triggerIds, _)
     )
   }

@@ -1,7 +1,7 @@
 // Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.trigger.test
+package com.digitalasset.daml.lf.engine.trigger.test
 
 import java.io.File
 import java.time.Instant
@@ -32,6 +32,7 @@ import com.digitalasset.daml.lf.archive.DarReader
 import com.digitalasset.daml.lf.archive.Dar
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.archive.Decode
+import com.digitalasset.daml.lf.data.Numeric
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml_lf_dev.DamlLf
 import com.digitalasset.daml.lf.value.{Value => Lf}
@@ -45,7 +46,7 @@ import com.digitalasset.platform.participant.util.LfEngineToApi.{toApiIdentifier
 import com.digitalasset.platform.server.api.validation.FieldValidations.{validateIdentifier}
 import com.digitalasset.platform.services.time.TimeProviderType
 
-import com.daml.trigger.{Runner, TriggerMsg}
+import com.digitalasset.daml.lf.engine.trigger.{Runner, TriggerMsg}
 
 case class Config(ledgerPort: Int, darPath: File, timeProviderType: TimeProviderType)
 
@@ -674,6 +675,45 @@ case class ExerciseByKeyTests(dar: Dar[(PackageId, Package)], runner: TestRunner
   }
 }
 
+case class NumericTests(dar: Dar[(PackageId, Package)], runner: TestRunner) {
+
+  val triggerId: Identifier =
+    Identifier(dar.main._1, QualifiedName.assertFromString("Numeric:test"))
+
+  val tId = Identifier(dar.main._1, QualifiedName.assertFromString("Numeric:T"))
+
+  def test(name: String, numMessages: NumMessages, tValues: Set[Numeric]) = {
+    def assertFinalState(finalState: SExpr, commandsR: Unit) = Right(())
+    def assertFinalACS(
+        acs: Map[Identifier, Seq[(String, Lf.ValueRecord[Lf.AbsoluteContractId])]],
+        commandsR: Unit) = {
+      val activeTs = acs(tId)
+      val actualTValues =
+        activeTs.map({ case (_, r) => r.fields(1)._2.asInstanceOf[Lf.ValueNumeric].value }).toSet
+      TestRunner.assertEqual(actualTValues, tValues, "T values")
+    }
+    runner.genericTest(name, dar, triggerId, (_, _) => { implicit ec: ExecutionContext =>
+      { implicit mat: ActorMaterializer =>
+        Future {}
+      }
+    }, numMessages, assertFinalState, assertFinalACS)
+  }
+
+  def runTests() = {
+    test(
+      "numeric",
+      // 1 for create of T
+      // 1 for completion
+      // 1 for exercise on T
+      // 1 for completion
+      NumMessages(4),
+      // We don’t check that we get the right numeric scale here since we only call validateRecord in our
+      // tests and that would only test the ledger API and not triggers.
+      Set(Numeric.assertFromUnscaledBigDecimal(1.06), Numeric.assertFromUnscaledBigDecimal(2.06))
+    )
+  }
+}
+
 object TestMain {
 
   private val configParser = new scopt.OptionParser[Config]("acs_test") {
@@ -716,6 +756,7 @@ object TestMain {
         CopyTests(dar, runner).runTests()
         RetryTests(dar, runner).runTests()
         ExerciseByKeyTests(dar, runner).runTests()
+        NumericTests(dar, runner).runTests()
     }
   }
 }
