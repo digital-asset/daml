@@ -988,7 +988,11 @@ http_archive(
     name = "canton",
     build_file_content = '''
 package(default_visibility = ["//visibility:public"])
-filegroup(name="jars", srcs=glob(["lib/**"]))
+
+java_import(
+    name = "lib",
+    jars = glob(["lib/**"]),
+)
 ''',
     sha256 = "9d0e8fd49410bc7061bdf85a51d0becb46eb9cdaf3bf2162d06285f4861684df",
     strip_prefix = "canton-0.4.0",
