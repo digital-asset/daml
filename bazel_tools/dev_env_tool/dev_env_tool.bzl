@@ -173,7 +173,7 @@ toolchain(
 )
 """.format(
         commands = ",\n    ".join([
-            '{cmd} = r"{path}"'.format(cmd = cmd, path = cmd_path)
+            '{cmd} = r"{path}"'.format(cmd = cmd, path = cmd_path).replace("\\", "/")
             for (cmd, cmd_path) in commands.items()
             if cmd_path
         ]),
