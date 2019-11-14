@@ -382,7 +382,7 @@ convertGenericTemplate env x
                                             (ETmLam (mkVar "key", keyType) $ ERecCon anyContractKeyTy [(anyContractKeyField, EToAny keyType $ EVar $ mkVar "key")]))
                                   else EBuiltin BEError `ETyApp`
                                        TForall (mkTypeVar "proxy", KArrow KStar KStar) (TApp (TVar $ mkTypeVar "proxy") polyType :-> keyType :-> typeConAppToType anyContractKeyTy) `ETmApp`
-                                       EBuiltin (BEText "toAnyChoice is not supported in this DAML-LF version")
+                                       EBuiltin (BEText "toAnyContractKey is not supported in this DAML-LF version")
                         let fromAnyContractKey =
                                 if envLfVersion env `supports` featureAnyType
                                   then ETyLam
@@ -392,7 +392,7 @@ convertGenericTemplate env x
                                             (ETmLam (mkVar "any", typeConAppToType anyContractKeyTy) $ EFromAny keyType $ ERecProj anyContractKeyTy anyContractKeyField $ EVar $ mkVar "any"))
                                   else EBuiltin BEError `ETyApp`
                                        TForall (mkTypeVar "proxy", KArrow KStar KStar) (TApp (TVar $ mkTypeVar "proxy") polyType :-> typeConAppToType anyContractKeyTy :-> TOptional keyType) `ETmApp`
-                                       EBuiltin (BEText "toAnyChoice is not supported in this DAML-LF version")
+                                       EBuiltin (BEText "fromAnyContractKey is not supported in this DAML-LF version")
                         pure (Just $ TemplateKey keyType (applyThis key) (ETmApp maintainers hasKey), [hasKey, key, maintainers, fetchByKey, lookupByKey, toAnyContractKey, fromAnyContractKey], choices)
                 choices -> pure (Nothing, [], choices)
         let convertGenericChoice :: [Var] -> ConvertM (TemplateChoice, [LF.Expr])
@@ -448,7 +448,7 @@ convertGenericTemplate env x
                                     (ETmLam (mkVar "any", typeConAppToType anyChoiceTy) $ EFromAny argType $ ERecProj anyChoiceTy anyChoiceField $ EVar $ mkVar "any"))
                           else EBuiltin BEError `ETyApp`
                                TForall (mkTypeVar "proxy", KArrow KStar KStar) (TApp (TVar $ mkTypeVar "proxy") polyType :-> typeConAppToType anyChoiceTy :-> TOptional argType) `ETmApp`
-                               EBuiltin (BEText "toAnyChoice is not supported in this DAML-LF version")
+                               EBuiltin (BEText "fromAnyChoice is not supported in this DAML-LF version")
                 pure (TemplateChoice{..}, [consumption, controllers, action, exercise, toAnyChoice, fromAnyChoice])
             convertGenericChoice es = unhandled "generic choice" es
         (tplChoices, choices) <- first NM.fromList . unzip <$> mapM convertGenericChoice (chunksOf 6 choices)
@@ -1660,8 +1660,34 @@ convertExternal env stdlibRef primId lfType
     | [pkgId, modStr, templName, method] <- splitOn ":" primId
     , Nothing <- lookup pkgId modStr templName =
         error $ "convertExternal: external template not found " <> primId
+    | [pkgId, modStr, templName, choiceName, method] <- splitOn ":" primId
+    , Just LF.Template {tplTypeCon,tplChoices} <- lookup pkgId modStr templName
+    , choice <- ChoiceName (T.pack choiceName)
+    , Just TemplateChoice {chcSelfBinder,chcArgBinder} <- NM.lookup choice tplChoices = do
+        let pkgRef = PRImport $ PackageId $ T.pack pkgId
+        let mod = ModuleName $ map T.pack $ splitOn "." modStr
+        let qualify tconName = Qualified { qualPackage = pkgRef , qualModule = mod , qualObject = tconName}
+        let templateDataType = TCon . qualify
+        let (choiceArg, choiceArgType) = chcArgBinder
+        case method of
+          "exercise" -> do
+            ETmLam (chcSelfBinder, TApp (TBuiltin BTContractId) (templateDataType tplTypeCon)) $
+              ETmLam (choiceArg, choiceArgType) $
+                EUpdate $ UExercise (qualify tplTypeCon) choice (EVar chcSelfBinder) Nothing (EVar choiceArg)
+          "_toAnyChoice" ->
+            -- TODO: envLfVersion env `supports` featureAnyType
+            EBuiltin BEError `ETyApp` lfType `ETmApp`
+            EBuiltin (BEText "toAnyChoice is not supported in this DAML-LF version")
+          "_fromAnyChoice" ->
+            -- TODO: envLfVersion env `supports` featureAnyType
+            EBuiltin BEError `ETyApp` lfType `ETmApp`
+            EBuiltin (BEText "fromAnyChoice is not supported in this DAML-LF version")
+          _ -> error $ "convertExternal: Unknown external Choice method, " <> method
+    | [pkgId, modStr, templName, choiceName, method] <- splitOn ":" primId
+    , Nothing <- lookup pkgId modStr templName =
+        error $ "convertExternal: external choice not found " <> primId
     | otherwise =
-        error $ "convertExternal: malformed external template string" <> primId
+        error $ "convertExternal: malformed external string" <> primId
   where
     anyTemplateTy = anyTemplateTyFromStdlib stdlibRef
     lookup pId modName temName = do

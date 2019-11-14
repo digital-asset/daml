@@ -47,7 +47,7 @@ main = do
             , dataTypeCon = TypeConName ["Choice"]
             , dataSerializable = IsSerializable True
             , dataParams = []
-            , dataCons = DataVariant [(VariantConName "Choice", TUnit)]
+            , dataCons = DataRecord [ (FieldName "choiceArg", TUnit) ]
             }
     let emptyRec = DefDataType
             { dataLocation = Nothing
@@ -58,7 +58,7 @@ main = do
             }
     let chc = TemplateChoice
             { chcLocation = Nothing
-            , chcName = ChoiceName "NotChoice"
+            , chcName = ChoiceName "Choice"
             , chcConsuming = True
             , chcControllers = tplParties
             , chcSelfBinder = ExprVarName "this"

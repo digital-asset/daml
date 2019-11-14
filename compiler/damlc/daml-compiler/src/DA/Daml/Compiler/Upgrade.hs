@@ -112,8 +112,7 @@ generateTemplateInstanceModule env externPkgId
               map (showSDocForUser fakeDynFlags alwaysQualify . ppr) instances)
     | otherwise = Nothing
   where
-    instances = templInstances
-    templInstances = templateInstances env externPkgId
+    instances = templateInstances env externPkgId ++ choiceInstances env externPkgId
 
     mod = envMod env
     unitIdStr = unitIdString $ envGetUnitId env LF.PRSelf
@@ -138,6 +137,8 @@ generateTemplateInstanceModule env externPkgId
           modName <>
           " as X"
         , "import \"" <> packageName <> "\" " <> modName
+        , "import qualified Sdk.DA.Internal.LF"
+        , "import qualified Sdk.DA.Internal.Prelude"
         , "import qualified Sdk.DA.Internal.Template"
         , "import qualified GHC.Types"
         ]
@@ -151,6 +152,21 @@ templateInstances env externPkgId =
     ]
   where
     mod = envMod env
+
+choiceInstances :: Env -> LF.PackageId -> [HsDecl GhcPs]
+choiceInstances env externPkgId =
+    [ generateChoiceInstance env externPkgId templateDT choice
+    | template <- NM.elems $ LF.moduleTemplates mod
+    , choice <- NM.elems $ LF.tplChoices template
+    , not (specialArchiveChoice choice)
+    , Just templateDT <-
+      [NM.lookup (LF.tplTypeCon template) (LF.moduleDataTypes mod)]
+    ]
+  where
+    mod = envMod env
+    specialArchiveChoice = \case
+      LF.TemplateChoice{chcName=LF.ChoiceName "Archive"} -> True
+      _ -> False
 
 generateGenInstancesPkgFromLf ::
        (LF.PackageRef -> UnitId)
@@ -234,7 +250,7 @@ generateTemplateInstance ::
     -> [(LF.TypeVarName, LF.Kind)]
     -> LF.PackageId
     -> HsDecl GhcPs
-generateTemplateInstance env typeCon typeParams externPkgId =
+generateTemplateInstance env dataTypeCon dataParams externPkgId =
     InstD noExt $
     ClsInstD
         noExt
@@ -247,9 +263,9 @@ generateTemplateInstance env typeCon typeParams externPkgId =
                             noLoc $
                             HsAppTy noExt templateTy $
                             noLoc $
-                            convType env $ lfTemplateType typeCon typeParams
+                            convType env lfTemplateType
                       }
-            , cid_binds = listToBag $ map (classMethodStub typeCon) templateMethodNames
+            , cid_binds = listToBag $ map classMethodStub methodMapping
             , cid_sigs = []
             , cid_tyfam_insts = []
             , cid_datafam_insts = []
@@ -267,11 +283,19 @@ generateTemplateInstance env typeCon typeParams externPkgId =
         noLoc $
         mkRdrQual (mkModuleName "Sdk.DA.Internal.Template") $
         mkOccName varName "Template" :: LHsType GhcPs
-    lfTemplateType dataTypeCon dataParams =
+    lfTemplateType =
         LF.mkTApps
             (LF.TCon (LF.Qualified LF.PRSelf moduleName0 dataTypeCon))
             (map (LF.TVar . fst) dataParams)
-    templateMethodNames =
+    methodMapping =
+        map (\funName -> (funName, mkExternalString funName)) methodNames
+    mkExternalString :: T.Text -> String
+    mkExternalString funName =
+        (T.unpack $ LF.unPackageId externPkgId) <>
+        ":" <> moduleNameStr <>
+        ":" <> (T.unpack $ T.intercalate "." $ LF.unTypeConName dataTypeCon) <>
+        ":" <> T.unpack funName
+    methodNames =
         [ "signatory"
         , "observer"
         , "agreement"
@@ -283,86 +307,156 @@ generateTemplateInstance env typeCon typeParams externPkgId =
         , "fromAnyTemplate"
         , "_templateTypeRep"
         ]
-    classMethodStub :: LF.TypeConName -> T.Text -> LHsBindLR GhcPs GhcPs
-    classMethodStub templName funName =
-        noLoc $
-        FunBind
-            { fun_ext = noExt
-            , fun_id = mkRdrName funName
-            , fun_matches =
-                  MG
-                      { mg_ext = noExt
-                      , mg_alts =
-                            noLoc
-                                [ noLoc $
-                                  Match
-                                      { m_ext = noExt
-                                      , m_ctxt =
-                                            FunRhs
-                                                { mc_fun = mkRdrName funName
-                                                , mc_fixity = Prefix
-                                                , mc_strictness = NoSrcStrict
-                                                }
-                                      , m_pats =
-                                            [ noLoc $
-                                            VarPat noExt (mkRdrName "proxy")
-                                            | funName == "_templateTypeRep"
-                                            ] -- NOTE (drsk): we shouldn't need this pattern, but
-                                              -- somehow ghc insists on it. We want to fix this in ghc.
-                                      , m_rhs_sig = Nothing
-                                      , m_grhss =
-                                            GRHSs
-                                                { grhssExt = noExt
-                                                , grhssGRHSs =
-                                                      [ noLoc $
-                                                        GRHS
-                                                            noExt
-                                                            []
-                                                            (noLoc $
-                                                             HsAppType
-                                                                 noExt
-                                                                 (noLoc $
-                                                                  HsVar
-                                                                      noExt
-                                                                      (noLoc $
-                                                                       mkRdrQual
-                                                                           (mkModuleName
-                                                                                "GHC.Types")
-                                                                           (mkOccName
-                                                                                varName
-                                                                                "external")))
-                                                                 (HsWC
-                                                                      noExt
-                                                                      (noLoc $
-                                                                       HsTyLit noExt $
-                                                                       HsStrTy
-                                                                           NoSourceText $
-                                                                       mkFastString
-                                                                           ((T.unpack $
-                                                                             LF.unPackageId
-                                                                                 externPkgId) <>
-                                                                            ":" <>
-                                                                            moduleNameStr <>
-                                                                            ":" <>
-                                                                            (T.unpack $
-                                                                             T.intercalate
-                                                                                 "." $
-                                                                             LF.unTypeConName
-                                                                                 templName) <>
-                                                                            ":" <>
-                                                                            T.unpack
-                                                                                funName))))
-                                                      ]
-                                                , grhssLocalBinds =
-                                                      noLoc emptyLocalBinds
-                                                }
-                                      }
-                                ]
-                      , mg_origin = Generated
+
+-- | Generate a single choice instance for a given templateDT/choice
+generateChoiceInstance ::
+       Env
+    -> LF.PackageId
+    -> LF.DefDataType
+    -> LF.TemplateChoice
+    -> HsDecl GhcPs
+generateChoiceInstance env externPkgId templateDT choice =
+    InstD noExt $
+    ClsInstD
+        noExt
+        ClsInstDecl
+            { cid_ext = noExt
+            , cid_poly_ty =
+                  HsIB
+                      { hsib_ext = noExt
+                      , hsib_body = body
                       }
-            , fun_co_fn = WpHole
-            , fun_tick = []
+            , cid_binds = listToBag $ map classMethodStub methodMapping
+            , cid_sigs = []
+            , cid_tyfam_insts = []
+            , cid_datafam_insts = []
+            , cid_overlap_mode = Nothing
             }
+  where
+
+    app :: LHsType GhcPs -> LHsType GhcPs -> LHsType GhcPs
+    app t1 t2 = noLoc $ HsAppTy noExt t1 t2
+
+    body :: LHsType GhcPs =
+      choiceClass `app` arg1 `app` arg2 `app` arg3
+
+    choiceClass :: LHsType GhcPs =
+        noLoc $
+        HsTyVar noExt NotPromoted $
+        noLoc $
+        mkRdrQual (mkModuleName "DA.Internal.Template") $
+        mkOccName varName "Choice" :: LHsType GhcPs
+
+    arg1 :: LHsType GhcPs =
+      noLoc $ convType env lfTemplateType
+
+    arg2 :: LHsType GhcPs =
+      noLoc $ convType env lfChoiceType
+
+    arg3 :: LHsType GhcPs =
+      noLoc $ convType env lfChoiceReturnType
+
+    moduleNameStr = T.unpack $ LF.moduleNameString $ LF.moduleName $ envMod env
+    moduleName0 =
+        LF.ModuleName $
+        map T.pack $
+        splitOn "." moduleNameStr
+
+    lfTemplateType :: LF.Type =
+        LF.mkTApps
+          (LF.TCon (LF.Qualified LF.PRSelf moduleName0 dataTypeCon))
+          (map (LF.TVar . fst) dataParams)
+
+    lfChoiceType :: LF.Type =
+        LF.TCon (LF.Qualified LF.PRSelf moduleName0
+                  (LF.TypeConName{unTypeConName=[LF.unChoiceName chcName]}))
+
+    LF.DefDataType{dataTypeCon,dataParams} = templateDT
+    LF.TemplateChoice{chcName,chcReturnType=lfChoiceReturnType} = choice
+
+    methodMapping =
+      map (\funName -> (funName, mkExternalString funName)) methodNames
+
+    mkExternalString :: T.Text -> String
+    mkExternalString funName =
+      (T.unpack $ LF.unPackageId externPkgId) <>
+      ":" <> moduleNameStr <>
+      ":" <> (T.unpack $ T.intercalate "." $ LF.unTypeConName dataTypeCon) <>
+      ":" <> (T.unpack $ LF.unChoiceName chcName) <>
+      ":" <> T.unpack funName
+
+    methodNames =
+        [ "exercise"
+        , "_toAnyChoice"
+        , "_fromAnyChoice"
+        ]
+
+classMethodStub :: (T.Text,String) -> LHsBindLR GhcPs GhcPs
+classMethodStub (funName,xString) =
+    noLoc $
+    FunBind
+        { fun_ext = noExt
+        , fun_id = mkRdrName funName
+        , fun_matches =
+              MG
+                  { mg_ext = noExt
+                  , mg_alts =
+                        noLoc
+                            [ noLoc $
+                              Match
+                                  { m_ext = noExt
+                                  , m_ctxt =
+                                        FunRhs
+                                            { mc_fun = mkRdrName funName
+                                            , mc_fixity = Prefix
+                                            , mc_strictness = NoSrcStrict
+                                            }
+                                  , m_pats =
+                                        [ noLoc $
+                                        VarPat noExt (mkRdrName "proxy")
+                                        | funName == "_templateTypeRep"
+                                        ] -- NOTE (drsk): we shouldn't need this pattern, but
+                                          -- somehow ghc insists on it. We want to fix this in ghc.
+                                  , m_rhs_sig = Nothing
+                                  , m_grhss =
+                                        GRHSs
+                                            { grhssExt = noExt
+                                            , grhssGRHSs =
+                                                  [ noLoc $
+                                                    GRHS
+                                                        noExt
+                                                        []
+                                                        (noLoc $
+                                                         HsAppType
+                                                             noExt
+                                                             (noLoc $
+                                                              HsVar
+                                                                  noExt
+                                                                  (noLoc $
+                                                                   mkRdrQual
+                                                                       (mkModuleName
+                                                                            "GHC.Types")
+                                                                       (mkOccName
+                                                                            varName
+                                                                            "external")))
+                                                             (HsWC
+                                                                  noExt
+                                                                  (noLoc $
+                                                                   HsTyLit noExt $
+                                                                   HsStrTy
+                                                                       NoSourceText $
+                                                                   mkFastString xString)))
+                                                  ]
+                                            , grhssLocalBinds =
+                                                  noLoc emptyLocalBinds
+                                            }
+                                  }
+                            ]
+                  , mg_origin = Generated
+                  }
+        , fun_co_fn = WpHole
+        , fun_tick = []
+        }
 
 -- | Generate the full source for a daml-lf package.
 generateSrcPkgFromLf ::
