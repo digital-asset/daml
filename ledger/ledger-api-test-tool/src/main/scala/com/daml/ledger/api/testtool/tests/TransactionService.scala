@@ -9,7 +9,7 @@ import com.daml.ledger.api.testtool.infrastructure.Eventually.eventually
 import com.daml.ledger.api.testtool.infrastructure.Synchronize.synchronize
 import com.daml.ledger.api.testtool.infrastructure.TransactionHelpers._
 import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTestSuite}
-import com.digitalasset.ledger.api.v1.transaction.Transaction
+import com.digitalasset.ledger.api.v1.transaction.{Transaction, TransactionTree}
 import com.digitalasset.ledger.client.binding.Primitive
 import com.digitalasset.ledger.client.binding.Value.encode
 import com.digitalasset.ledger.test_dev.Test.TextContainer
@@ -811,53 +811,94 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
   test(
     "TXSingleMultiSame",
     "The same transaction should be served regardless of subscribing as one or multiple parties",
-    allocate(SingleParty, SingleParty)) {
-    case Participants(Participant(alpha, alice), Participant(beta, bob)) =>
+    allocate(TwoParties)) {
+    case Participants(Participant(ledger, alice, bob)) =>
       for {
-        _ <- alpha.create(alice, Dummy(alice))
-        _ <- beta.create(bob, Dummy(bob))
-        aliceView <- alpha.flatTransactions(alice)
-        bobView <- beta.flatTransactions(bob)
-        _ <- synchronize(alpha, beta)
-        alphaView <- alpha.flatTransactions(alice, bob)
-        betaView <- beta.flatTransactions(alice, bob)
+        _ <- ledger.create(alice, Dummy(alice))
+        _ <- ledger.create(bob, Dummy(bob))
+        aliceView <- ledger.flatTransactions(alice)
+        bobView <- ledger.flatTransactions(bob)
+        multiSubscriptionView <- ledger.flatTransactions(alice, bob)
       } yield {
         val jointView = aliceView ++ bobView
         assertEquals(
           "Single- and multi-party subscription yield different results",
           jointView,
-          alphaView)
-        assertEquals(
-          "Single- and multi-party subscription yield different results",
-          jointView,
-          betaView)
+          multiSubscriptionView)
       }
   }
 
   test(
     "TXSingleMultiSameTrees",
     "The same transaction trees should be served regardless of subscribing as one or multiple parties",
-    allocate(SingleParty, SingleParty)
+    allocate(TwoParties)
   ) {
-    case Participants(Participant(alpha, alice), Participant(beta, bob)) =>
+    case Participants(Participant(ledger, alice, bob)) =>
       for {
-        _ <- alpha.create(alice, Dummy(alice))
-        _ <- beta.create(bob, Dummy(bob))
-        aliceView <- alpha.transactionTrees(alice)
-        bobView <- beta.transactionTrees(bob)
-        _ <- synchronize(alpha, beta)
-        alphaView <- alpha.transactionTrees(alice, bob)
-        betaView <- beta.transactionTrees(alice, bob)
+        _ <- ledger.create(alice, Dummy(alice))
+        _ <- ledger.create(bob, Dummy(bob))
+        aliceView <- ledger.transactionTrees(alice)
+        bobView <- ledger.transactionTrees(bob)
+        multiSubscriptionView <- ledger.transactionTrees(alice, bob)
       } yield {
         val jointView = aliceView ++ bobView
         assertEquals(
           "Single- and multi-party subscription yield different results",
           jointView,
-          alphaView)
+          multiSubscriptionView)
+      }
+  }
+
+  test(
+    "TXSingleMultiSameStakeholders",
+    "The same transaction should be served to all stakeholders",
+    allocate(SingleParty, SingleParty)) {
+    case Participants(Participant(alpha, alice), Participant(beta, bob)) =>
+      for {
+        _ <- alpha.create(alice, AgreementFactory(bob, alice))
+        _ <- beta.create(bob, AgreementFactory(alice, bob))
+        alphaView <- alpha.flatTransactions(alice, bob)
+        betaView <- beta.flatTransactions(alice, bob)
+      } yield {
+        // Strip command id to yield a transaction comparable across participant
+        def stripCommandId(transactions: Seq[Transaction]): Seq[Transaction] =
+          transactions.map(_.copy(commandId = ""))
+
         assertEquals(
           "Single- and multi-party subscription yield different results",
-          jointView,
-          betaView)
+          stripCommandId(betaView),
+          stripCommandId(alphaView))
+        assertEquals(
+          "Single- and multi-party subscription yield different results",
+          stripCommandId(alphaView),
+          stripCommandId(betaView))
+      }
+  }
+
+  test(
+    "TXSingleMultiSameTreesStakeholders",
+    "The same transaction trees should be served to all stakeholders",
+    allocate(SingleParty, SingleParty)
+  ) {
+    case Participants(Participant(alpha, alice), Participant(beta, bob)) =>
+      for {
+        _ <- alpha.create(alice, AgreementFactory(bob, alice))
+        _ <- beta.create(bob, AgreementFactory(alice, bob))
+        alphaView <- alpha.transactionTrees(alice, bob)
+        betaView <- beta.transactionTrees(alice, bob)
+      } yield {
+        // Strip command id to yield a transaction comparable across participant
+        def stripCommandId(transactionTrees: Seq[TransactionTree]): Seq[TransactionTree] =
+          transactionTrees.map(_.copy(commandId = ""))
+
+        assertEquals(
+          "Single- and multi-party subscription yield different results",
+          stripCommandId(betaView),
+          stripCommandId(alphaView))
+        assertEquals(
+          "Single- and multi-party subscription yield different results",
+          stripCommandId(alphaView),
+          stripCommandId(betaView))
       }
   }
 
