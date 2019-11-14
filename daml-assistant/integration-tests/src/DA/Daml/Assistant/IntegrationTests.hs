@@ -357,7 +357,7 @@ packagingTests = testGroup "packaging"
         checkDarFile darFiles "B" "C.hi"
         checkDarFile darFiles "B" "C.hie"
 
-    , testCase "Imports from differen directories" $ withTempDir $ \projDir -> do
+    , testCase "Imports from different directories" $ withTempDir $ \projDir -> do
         -- Regression test for #2929
         createDirectory (projDir </> "A")
         writeFileUTF8 (projDir </> "A.daml") $ unlines
@@ -470,6 +470,27 @@ packagingTests = testGroup "packaging"
         let dar = projDir </> ".daml/dist/proj-0.1.0.dar"
         assertBool "proj-0.1.0.dar was not created." =<< doesFileExist dar
         withCurrentDirectory projDir $ callCommandQuiet "daml test --target 1.dev"
+
+    <> [ testCaseSteps "Source generation edge cases" $ \step -> withTempDir $ \tmpDir -> do
+      writeFileUTF8 (tmpDir </> "Foo.daml") $ unlines
+        [ "daml 1.2"
+        , "module Foo where"
+        , "template Bar"
+        , "   with"
+        , "     p : Party"
+        , "     t : (Text, Int)" -- check for correct tuple type generation
+        , "   where"
+        , "     signatory p"
+        ]
+      withCurrentDirectory tmpDir $ do
+        step "Compile source to dalf ..."
+        callCommandQuiet "daml damlc compile Foo.daml -o Foo.dalf"
+        step "Regenerate source ..."
+        callCommandQuiet "daml damlc generate-src Foo.dalf --srcdir gen"
+        step "Compile generated source ..."
+        callCommandQuiet "daml damlc compile --generated-src gen/Foo.daml -o FooGen.dalf"
+        assertBool "FooGen.dalf was not created" =<< doesFileExist "FooGen.dalf"
+    ]
 
     <> [ testCaseSteps "Build migration package" $ \step -> withTempDir $ \tmpDir -> do
         -- it's important that we have fresh empty directories here!
