@@ -6,14 +6,12 @@ package com.digitalasset.daml.lf.engine.script
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.Sink
 import com.typesafe.scalalogging.StrictLogging
-import java.time.Instant
 import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
 import scalaz.std.either._
 import scalaz.syntax.tag._
 import scalaz.syntax.traverse._
 
-import com.digitalasset.api.util.TimestampConversion.fromInstant
 import com.digitalasset.daml.lf.PureCompiledPackages
 import com.digitalasset.daml.lf.archive.Dar
 import com.digitalasset.daml.lf.data.FrontStack
@@ -34,8 +32,13 @@ import com.digitalasset.ledger.api.v1.transaction_filter.{
   InclusiveFilters
 }
 import com.digitalasset.ledger.client.LedgerClient
+import com.digitalasset.ledger.client.services.commands.CommandUpdater
 
-class Runner(dar: Dar[(PackageId, Package)], applicationId: ApplicationId) extends StrictLogging {
+class Runner(
+    dar: Dar[(PackageId, Package)],
+    applicationId: ApplicationId,
+    commandUpdater: CommandUpdater)
+    extends StrictLogging {
 
   val darMap: Map[PackageId, Package] = dar.all.toMap
   val compiler = Compiler(darMap)
@@ -97,10 +100,10 @@ class Runner(dar: Dar[(PackageId, Package)], applicationId: ApplicationId) exten
       ledgerId = ledgerId.unwrap,
       applicationId = applicationId.unwrap,
       commandId = UUID.randomUUID.toString,
-      ledgerEffectiveTime = Some(fromInstant(Instant.EPOCH)),
-      maximumRecordTime = Some(fromInstant(Instant.EPOCH.plusSeconds(5)))
+      ledgerEffectiveTime = None,
+      maximumRecordTime = None,
     )
-    SubmitAndWaitRequest(Some(commands))
+    SubmitAndWaitRequest(Some(commandUpdater.applyOverrides(commands)))
   }
 
   def run(client: LedgerClient, scriptId: Identifier)(
