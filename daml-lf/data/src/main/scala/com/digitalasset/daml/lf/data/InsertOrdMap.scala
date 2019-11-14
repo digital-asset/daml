@@ -3,7 +3,6 @@
 
 package com.digitalasset.daml.lf.data
 
-import scala.collection.breakOut
 import scala.collection.immutable.{HashMap, Map, Queue}
 
 /**
@@ -15,25 +14,30 @@ import scala.collection.immutable.{HashMap, Map, Queue}
   *  insert: O(1)
   *  remove: O(n)
   */
-final class InsertOrdMap[Key, +Value] private (
-    override val keys: Queue[Key],
-    hashMap: HashMap[Key, Value]
-) extends Map[Key, Value] {
+final class InsertOrdMap[K, +V] private (
+    override val keys: Queue[K],
+    hashMap: HashMap[K, V]
+) extends Map[K, V] {
 
   override def size: Int = hashMap.size
 
-  override def iterator: Iterator[(Key, Value)] =
+  override def iterator: Iterator[(K, V)] =
     keys.iterator.map(k => (k, hashMap(k)))
 
-  override def get(key: Key): Option[Value] = hashMap.get(key)
+  override def get(key: K): Option[V] = hashMap.get(key)
 
-  override def +[V2 >: Value](kv: (Key, V2)): InsertOrdMap[Key, V2] =
-    if (hashMap.contains(kv._1))
-      new InsertOrdMap(keys, hashMap + kv)
+  override def updated[V1 >: V](key: K, value: V1): InsertOrdMap[K, V1] =
+    if (hashMap.contains(key))
+      new InsertOrdMap(keys, hashMap.updated(key, value))
     else
-      new InsertOrdMap(keys :+ kv._1, hashMap + kv)
+      new InsertOrdMap(keys :+ key, hashMap.updated(key, value))
 
-  override def -(k: Key): InsertOrdMap[Key, Value] =
+  override def +[V1 >: V](kv: (K, V1)): InsertOrdMap[K, V1] = {
+    val (key, value) = kv
+    updated(key, value)
+  }
+
+  override def -(k: K): InsertOrdMap[K, V] =
     new InsertOrdMap(keys.filter(_ != k), hashMap - k)
 
 }
@@ -45,6 +49,6 @@ object InsertOrdMap {
   def empty[K, V]: InsertOrdMap[K, V] = Empty.asInstanceOf[InsertOrdMap[K, V]]
 
   def apply[K, V](entries: (K, V)*): InsertOrdMap[K, V] =
-    new InsertOrdMap(entries.map(_._1)(breakOut), HashMap(entries: _*))
+    entries.foldLeft(empty[K, V])(_ + _)
 
 }
