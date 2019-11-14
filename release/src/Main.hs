@@ -66,7 +66,7 @@ main = do
       let onlyMissing = filter (not . null . snd) missingDepsForAllArtifacts
       -- now we can report all the missing dependencies per artifact
       when (not (null onlyMissing)) $ do
-                  $logError ("Some internal dependencies are not published to maven central!")
+                  $logError "Some internal dependencies are not published to maven central!"
                   forM_ onlyMissing $ \(artifact, missingDeps) -> do
                       $logError (getBazelTarget (artTarget artifact))
                       forM_ missingDeps $ \dep -> $logError ("\t- "# T.pack dep)
