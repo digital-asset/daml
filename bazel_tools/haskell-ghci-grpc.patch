@@ -65,7 +65,7 @@ index c0645cfa..a88bf2d0 100644
          static_lib = mangle_static_library(hs, posix, dynamic_lib, static_lib, fixed_lib_dir)
  
 +        if hs.toolchain.is_darwin and fixup_dir == "_ghci_libs" and dynamic_lib and get_lib_name(dynamic_lib) == "fat_cbits":
-+            dynamic_libs.append(symlink_dynamic_library(hs, dynamic_lib, fixup_dir))
++            dynamic_libs.append(symlink_dynamic_library(hs, posix, dynamic_lib, fixup_dir))
 +            continue
 +
          if static_lib and not (dynamic and dynamic_lib):
