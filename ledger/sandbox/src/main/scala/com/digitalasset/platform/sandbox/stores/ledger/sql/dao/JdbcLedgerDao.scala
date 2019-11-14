@@ -1288,7 +1288,7 @@ private class JdbcLedgerDao(
       require(packages.nonEmpty, "The list of packages to upload cannot be empty")
     }
     requirements.fold(
-      r => Future.failed(new RuntimeException(r.getMessage)),
+      Future.failed,
       _ =>
         dbDispatcher.executeSql(
           "store_packages",
