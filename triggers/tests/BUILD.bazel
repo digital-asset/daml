@@ -25,6 +25,7 @@ genrule(
       cp -L $(location :daml/ACS.daml) $$TMP_DIR/daml
       cp -L $(location :daml/Retry.daml) $$TMP_DIR/daml
       cp -L $(location :daml/ExerciseByKey.daml) $$TMP_DIR/daml
+      cp -L $(location :daml/Numeric.daml) $$TMP_DIR/daml
       cp -L $(location //docs:source/triggers/template-root/src/CopyTrigger.daml) $$TMP_DIR/daml
       cp -L $(location //triggers/daml:daml-trigger.dar) $$TMP_DIR/
       cat << EOF > $$TMP_DIR/daml.yaml
@@ -47,7 +48,7 @@ EOF
 da_scala_binary(
     name = "test_client",
     srcs = glob(["src/**/*.scala"]),
-    main_class = "com.daml.trigger.test.TestMain",
+    main_class = "com.digitalasset.daml.lf.engine.trigger.test.TestMain",
     deps = [
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/archive:daml_lf_dev_archive_java_proto",

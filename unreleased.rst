@@ -34,3 +34,5 @@ HEAD — ongoing
 - [JSON API - Experimental] Implement replay on database consistency violation, See issue #3387.
 - [JSON API - Experimental] Comparison/range queries supported.
   See `issue #2780 <https://github.com/digital-asset/daml/issues/2780>`__.
+- [DAML Triggers] Fix a bug where the use of Numeric caused triggers
+  to crash with an assertion error.

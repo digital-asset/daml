@@ -1,7 +1,7 @@
 // Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.trigger
+package com.digitalasset.daml.lf.engine.trigger
 
 import akka.NotUsed
 import akka.stream._
@@ -51,7 +51,6 @@ class Runner(
     submit: SubmitRequest => Unit)
     extends StrictLogging {
 
-  private val converter = Converter.fromDar(dar)
   private val triggerIds = TriggerIds.fromDar(dar)
   if (triggerIds.triggerPackageId != EXPECTED_TRIGGER_PACKAGE_ID) {
     logger.warn(
@@ -61,6 +60,7 @@ class Runner(
   private val compiler = Compiler(darMap)
   private val compiledPackages =
     PureCompiledPackages(darMap, compiler.compilePackages(darMap.keys)).right.get
+  private val converter = Converter.fromDar(dar, compiledPackages)
   // This is a map from the command ids used on the ledger API to the command ids used internally
   // in the trigger which are just incremented at each step.
   private var commandIdMap: Map[UUID, String] = Map.empty
