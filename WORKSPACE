@@ -728,45 +728,9 @@ hazel_custom_package_github(
     repo_sha = GHCIDE_REV,
 )
 
-http_archive(
-    name = "hpp",
-    build_file_content = """
-load("@rules_haskell//haskell:cabal.bzl", "haskell_cabal_binary")
-haskell_cabal_binary(
-    name = "hpp",
-    srcs = glob(["**"]),
-    deps = [
-        "@stackage//:base",
-        "@stackage//:directory",
-        "@stackage//:filepath",
-        "@stackage//:hpp",
-        "@stackage//:time",
-    ],
-    visibility = ["//visibility:public"],
-)
-    """,
-    sha256 = "d1a843f4383223f85de4d91759545966f33a139d0019ab30a2f766bf9a7d62bf",
-    strip_prefix = "hpp-0.6.1",
-    urls = ["http://hackage.haskell.org/package/hpp-0.6.1/hpp-0.6.1.tar.gz"],
-)
+load("//:bazel-haskell-deps.bzl", "daml_haskell_deps")
 
-load("@rules_haskell//haskell:cabal.bzl", "stack_snapshot")
-
-stack_snapshot(
-    name = "stackage",
-    flags = {
-        "hashable": ["-integer-gmp"],
-        "text": ["integer-simple"],
-    } if not is_windows else {},
-    local_snapshot = "//:stack-snapshot.yaml",
-    packages = [
-        "base",
-        "directory",
-        "filepath",
-        "hpp",
-        "time",
-    ],
-)
+daml_haskell_deps()
 
 load("//bazel_tools:java.bzl", "java_home_runtime")
 
