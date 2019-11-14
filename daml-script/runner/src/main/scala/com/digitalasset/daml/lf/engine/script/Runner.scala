@@ -1,23 +1,24 @@
 // Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.script
+package com.digitalasset.daml.lf.engine.script
 
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.Sink
 import com.typesafe.scalalogging.StrictLogging
 import java.time.Instant
-import java.util
 import java.util.UUID
-import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
+import scalaz.std.either._
 import scalaz.syntax.tag._
+import scalaz.syntax.traverse._
 
 import com.digitalasset.api.util.TimestampConversion.fromInstant
 import com.digitalasset.daml.lf.PureCompiledPackages
 import com.digitalasset.daml.lf.archive.Dar
 import com.digitalasset.daml.lf.data.FrontStack
 import com.digitalasset.daml.lf.data.Ref._
+import com.digitalasset.daml.lf.engine.ValueTranslator
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.speedy.{Compiler, Pretty, Speedy, SValue}
 import com.digitalasset.daml.lf.speedy.SExpr._
@@ -27,14 +28,11 @@ import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.refinements.ApiTypes.ApplicationId
 import com.digitalasset.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.digitalasset.ledger.api.v1.commands._
-import com.digitalasset.ledger.api.v1.event.{CreatedEvent}
 import com.digitalasset.ledger.api.v1.transaction_filter.{
   Filters,
   TransactionFilter,
   InclusiveFilters
 }
-import com.digitalasset.ledger.api.v1.value.{Identifier => ApiIdentifier}
-import com.digitalasset.ledger.api.validation.ValueValidator
 import com.digitalasset.ledger.client.LedgerClient
 
 class Runner(dar: Dar[(PackageId, Package)], applicationId: ApplicationId) extends StrictLogging {
@@ -56,6 +54,28 @@ class Runner(dar: Dar[(PackageId, Package)], applicationId: ApplicationId) exten
       }
       .get
       ._1
+  def lookupChoiceTy(id: Identifier, choice: Name): Either[String, Type] =
+    for {
+      pkg <- darMap
+        .get(id.packageId)
+        .fold[Either[String, Package]](Left(s"Failed to find package ${id.packageId}"))(Right(_))
+      module <- pkg.modules
+        .get(id.qualifiedName.module)
+        .fold[Either[String, Module]](Left(s"Failed to find module ${id.qualifiedName.module}"))(
+          Right(_))
+      definition <- module.definitions
+        .get(id.qualifiedName.name)
+        .fold[Either[String, Definition]](Left(s"Failed to find ${id.qualifiedName.name}"))(
+          Right(_))
+      tpl <- definition match {
+        case DDataType(_, _, DataRecord(_, Some(tpl))) => Right(tpl)
+        case _ => Left(s"Expected template definition but got $definition")
+      }
+      choice <- tpl.choices
+        .get(choice)
+        .fold[Either[String, TemplateChoice]](Left(s"Failed to find choice $choice in $id"))(
+          Right(_))
+    } yield choice.returnType
 
   // We overwrite the definition of toLedgerValue with an identity function.
   // This is a type error but Speedy doesn’t care about the types and the only thing we do
@@ -68,11 +88,7 @@ class Runner(dar: Dar[(PackageId, Package)], applicationId: ApplicationId) exten
           QualifiedName(scriptModuleName, DottedName.assertFromString("fromLedgerValue")))) ->
         SEMakeClo(Array(), 1, SEVar(1)))
   val compiledPackages = PureCompiledPackages(darMap, definitionMap).right.get
-
-  def toIdentifier(v: SRecord): ApiIdentifier = {
-    val tId = v.values.get(0).asInstanceOf[STypeRep].ty.asInstanceOf[TTyCon].tycon
-    ApiIdentifier(tId.packageId, tId.qualifiedName.module.toString, tId.qualifiedName.name.toString)
-  }
+  val valueTranslator = new ValueTranslator(compiledPackages)
 
   def toSubmitRequest(ledgerId: LedgerId, party: SParty, cmds: Seq[Command]) = {
     val commands = Commands(
@@ -116,24 +132,24 @@ class Runner(dar: Dar[(PackageId, Package)], applicationId: ApplicationId) exten
             case SVariant(_, "Submit", v) => {
               v match {
                 case SRecord(_, _, vals) if vals.size == 2 => {
-                  val party = vals.get(0) match {
-                    case p @ SParty(_) => p
-                    case v => throw new ConverterException(s"Expected party but got $v")
-                  }
                   val freeAp = vals.get(1)
-                  val commands = Converter.toCommands(compiledPackages, freeAp) match {
-                    case Left(s) => throw new ConverterException(s)
-                    case Right(r) => r
-                  }
-                  val request = toSubmitRequest(client.ledgerId, party, commands)
-                  val f =
-                    client.commandServiceClient.submitAndWaitForTransactionTree(request)
+                  val requestOrErr = for {
+                    party <- Converter.toParty(vals.get(0))
+                    commands <- Converter.toCommands(compiledPackages, freeAp)
+                  } yield toSubmitRequest(client.ledgerId, party, commands)
+                  val request = requestOrErr.fold(s => throw new ConverterException(s), identity)
+                  val f = client.commandServiceClient.submitAndWaitForTransactionTree(request)
                   f.flatMap(transactionTree => {
                     val events =
                       transactionTree.getTransaction.rootEventIds.map(evId =>
                         transactionTree.getTransaction.eventsById(evId))
                     val filled =
-                      Converter.fillCommandResults(compiledPackages, freeAp, events) match {
+                      Converter.fillCommandResults(
+                        compiledPackages,
+                        lookupChoiceTy,
+                        valueTranslator,
+                        freeAp,
+                        events) match {
                         case Left(s) => throw new ConverterException(s)
                         case Right(r) => r
                       }
@@ -147,39 +163,24 @@ class Runner(dar: Dar[(PackageId, Package)], applicationId: ApplicationId) exten
             case SVariant(_, "Query", v) => {
               v match {
                 case SRecord(_, _, vals) if vals.size == 3 => {
-                  val party = vals.get(0).asInstanceOf[SParty].value
-                  val tplId = toIdentifier(vals.get(1).asInstanceOf[SRecord])
                   val continue = vals.get(2)
-                  val filter = TransactionFilter(
-                    List((party, Filters(Some(InclusiveFilters(Seq(tplId)))))).toMap)
-                  val anyTemplateTyCon =
-                    Identifier(
-                      stdlibPackageId,
-                      QualifiedName(
-                        DottedName.assertFromString("DA.Internal.LF"),
-                        DottedName.assertFromString("AnyTemplate")))
-                  def record(ty: Identifier, fields: (String, SValue)*): SValue = {
-                    val fieldNames = Name.Array(fields.map({
-                      case (n, _) => Name.assertFromString(n)
-                    }): _*)
-                    val args =
-                      new util.ArrayList[SValue](fields.map({ case (_, v) => v }).asJava)
-                    SRecord(ty, fieldNames, args)
-                  }
-                  def fromCreated(created: CreatedEvent) = {
-                    val arg = SValue.fromValue(
-                      ValueValidator.validateRecord(created.getCreateArguments).right.get)
-                    val tyCon = arg.asInstanceOf[SRecord].id
-                    record(anyTemplateTyCon, ("getAnyTemplate", SAny(TTyCon(tyCon), arg)))
-                  }
+                  val filterOrErr = for {
+                    party <- Converter.toParty(vals.get(0))
+                    tplId <- Converter.typeRepToIdentifier(vals.get(1))
+                  } yield
+                    TransactionFilter(
+                      List((party.value, Filters(Some(InclusiveFilters(Seq(tplId)))))).toMap)
+                  val filter = filterOrErr.fold(s => throw new ConverterException(s), identity)
                   val acsResponses = client.activeContractSetClient
                     .getActiveContracts(filter, verbose = true)
                     .runWith(Sink.seq)
                   acsResponses.flatMap(acsPages => {
                     val res =
-                      acsPages.flatMap(page => page.activeContracts).map(fromCreated)
-                    machine.ctrl = Speedy.CtrlExpr(
-                      SEApp(SEValue(continue), Array(SEValue(SList(FrontStack(res))))))
+                      FrontStack(acsPages.flatMap(page => page.activeContracts))
+                        .traverseU(Converter.fromCreated(valueTranslator, stdlibPackageId, _))
+                        .fold(s => throw new ConverterException(s), identity)
+                    machine.ctrl =
+                      Speedy.CtrlExpr(SEApp(SEValue(continue), Array(SEValue(SList(res)))))
                     go()
                   })
                 }
@@ -189,7 +190,10 @@ class Runner(dar: Dar[(PackageId, Package)], applicationId: ApplicationId) exten
             case SVariant(_, "AllocParty", v) => {
               v match {
                 case SRecord(_, _, vals) if vals.size == 2 => {
-                  val displayName = vals.get(0).asInstanceOf[SText].value
+                  val displayName = vals.get(0) match {
+                    case SText(value) => value
+                    case v => throw new ConverterException(s"Expected SText but got $v")
+                  }
                   val continue = vals.get(1)
                   val f =
                     client.partyManagementClient.allocateParty(None, Some(displayName))

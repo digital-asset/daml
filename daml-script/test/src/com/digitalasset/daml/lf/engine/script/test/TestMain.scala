@@ -1,7 +1,7 @@
 // Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.script.test
+package com.digitalasset.daml.lf.engine.script.test
 
 import akka.actor.ActorSystem
 import akka.stream._
@@ -16,7 +16,7 @@ import scalaz.syntax.traverse._
 import com.digitalasset.daml.lf.archive.Dar
 import com.digitalasset.daml.lf.archive.DarReader
 import com.digitalasset.daml.lf.archive.Decode
-import com.digitalasset.daml.lf.data.{FrontStack, FrontStackCons}
+import com.digitalasset.daml.lf.data.{FrontStack, FrontStackCons, Numeric}
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.speedy.SValue
@@ -31,7 +31,7 @@ import com.digitalasset.ledger.client.configuration.{
 }
 import com.digitalasset.ledger.client.LedgerClient
 
-import com.daml.script.Runner
+import com.digitalasset.daml.lf.engine.script.Runner
 
 case class Config(ledgerPort: Int, darPath: File)
 
@@ -175,6 +175,23 @@ case class Test0(dar: Dar[(PackageId, Package)], runner: TestRunner) {
   }
 }
 
+case class Test1(dar: Dar[(PackageId, Package)], runner: TestRunner) {
+  val scriptId = Identifier(dar.main._1, QualifiedName.assertFromString("ScriptTest:test1"))
+  def runTests() = {
+    runner.genericTest(
+      "test1",
+      dar,
+      scriptId,
+      result =>
+        result match {
+          case SNumeric(n) =>
+            TestRunner.assertEqual(n, Numeric.assertFromString("2.12000000000"), "Numeric")
+          case v => Left(s"Expected SNumeric but got $v")
+      }
+    )
+  }
+}
+
 object TestMain {
 
   private val configParser = new scopt.OptionParser[Config]("daml_script_test") {
@@ -204,6 +221,7 @@ object TestMain {
         }
         val runner = new TestRunner(config)
         Test0(dar, runner).runTests()
+        Test1(dar, runner).runTests()
     }
   }
 }

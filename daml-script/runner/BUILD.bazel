@@ -16,6 +16,7 @@ da_scala_library(
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/archive:daml_lf_dev_archive_java_proto",
         "//daml-lf/data",
+        "//daml-lf/engine",
         "//daml-lf/interpreter",
         "//daml-lf/language",
         "//daml-lf/transaction",
@@ -33,7 +34,7 @@ da_scala_library(
 
 da_scala_binary(
     name = "script-runner",
-    main_class = "com.daml.script.RunnerMain",
+    main_class = "com.digitalasset.daml.lf.engine.script.RunnerMain",
     visibility = ["//visibility:public"],
     deps = [":script-runner-lib"],
 )
