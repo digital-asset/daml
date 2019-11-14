@@ -35,6 +35,17 @@ template C
   where
     signatory p
 
+template NumericTpl
+  with
+    p : Party
+    v : Numeric 11
+  where
+    signatory p
+
+    nonconsuming choice GetV : Numeric 11
+      controller p
+      do pure v
+
 test0 : Script (Party, Party, [T], [TProposal], [C])
 test0 = do
   alice <- allocateParty "alice"
@@ -52,3 +63,14 @@ test0 = do
   tProposals <- query @TProposal alice
   cs <- query @C alice
   pure (alice, bob, ts, tProposals, cs)
+
+test1 : Script (Numeric 11)
+test1 = do
+  alice <- allocateParty "alice"
+  cid <- submit alice $ createCmd (NumericTpl alice 1.06)
+  ts <- query @NumericTpl alice
+  let v = case ts of
+        [NumericTpl _ v] -> v
+        _ -> error $ "Expected exactly one NumericTpl but got " <> show ts
+  v' <- submit alice $ exerciseCmd cid GetV
+  pure (v + v')
