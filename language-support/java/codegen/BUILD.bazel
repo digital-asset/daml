@@ -45,6 +45,7 @@ da_scala_library(
         "src/main/resources/logback.xml",
         "//:COMPONENT-VERSION",
     ],
+    tags = ["maven_coordinates=com.daml.java:codegen-lib:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
         "//daml-lf/archive:daml_lf_archive_reader",
