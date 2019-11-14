@@ -17,8 +17,8 @@ object TestUtil {
   }
 
   def requiredFile(fileName: String): Try[File] = {
-    val file = new File(fileName)
-    if (file.exists()) Success(file.getAbsoluteFile)
+    val file = new File(fileName).getAbsoluteFile
+    if (file.exists()) Success(file)
     else
       Failure(new IllegalStateException(s"File doest not exist: $fileName"))
   }

@@ -18,7 +18,7 @@ import scala.io.Source
 class HttpServiceIntegrationTest extends AbstractHttpServiceIntegrationTest {
 
   private val staticContentDir =
-    requiredFile(rlocation("ledger-service/http-json/src/test/resources/static-content-dir"))
+    requiredFile(rlocation("ledger-service/http-json/integration-test-static-content"))
       .fold(e => throw new IllegalStateException(e), identity)
 
   override def jdbcConfig: Option[JdbcConfig] = None

@@ -65,12 +65,22 @@ da_scala_binary(
     deps = [":http-json"] + http_json_deps,
 )
 
+genrule(
+    name = "integration-test-static-content",
+    srcs = ["src/test/integration-test-static-content/dummy.txt"],
+    outs = ["integration-test-static-content"],
+    cmd = """
+    mkdir -p $(location integration-test-static-content)
+    cp -L $(SRCS) $(location integration-test-static-content)
+    """,
+)
+
 da_scala_test(
     name = "tests",
     size = "medium",
     srcs = glob(["src/test/scala/**/*.scala"]),
     data = [
-        "src/test/resources/static-content-dir",
+        ":integration-test-static-content",
         "//docs:quickstart-model.dar",
         "@postgresql_dev_env//:all",
     ],
