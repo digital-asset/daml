@@ -1047,22 +1047,8 @@ execMigrate projectOpts inFile1_ inFile2_ mbDir =
                   (NM.names $ LF.packageModules lfPkg2)
           let eqModNamesStr = map (T.unpack . LF.moduleNameString) eqModNames
           let buildOptions =
-                  ["'--package=" <> show ("instances-" <> pkgName1
-                                          , [(m', m'')
-                                            | m <- eqModNamesStr
-                                            , let m' = m <> "Instances"
-                                            , let m'' = m <> "AInstances"
-                                            ]
-                                          ) <> "'"
-                  , "'--package=" <> show ("instances-" <> pkgName2
-                                          , [(m', m'')
-                                            | m <- eqModNamesStr
-                                            , let m' = m <> "Instances"
-                                            , let m'' = m <> "BInstances"
-                                            ]
-                                          ) <> "'"
-                  , "'--package=" <> show (pkgName1, [(m, m ++ "A") | m <- eqModNamesStr]) <> "'"
-                  , "'--package=" <> show (pkgName2, [(m, m ++ "B") | m <- eqModNamesStr]) <> "'"
+                  [ "'--package=" <> show ("instances-" <> pkgName1, [(m, m ++ "A") | m <- eqModNamesStr]) <> "'"
+                  , "'--package=" <> show ("instances-" <> pkgName2, [(m, m ++ "B") | m <- eqModNamesStr]) <> "'"
                   ]
           forM_ eqModNames $ \m@(LF.ModuleName modName) -> do
               let upgradeModPath =
