@@ -32,7 +32,7 @@ final class InsertOrdMap[K, +V] private (
     else
       new InsertOrdMap(keys :+ key, hashMap.updated(key, value))
 
-  override def +[V >: V](kv: (K, V)): InsertOrdMap[K, V] = {
+  override def +[V1 >: V](kv: (K, V1)): InsertOrdMap[K, V1] = {
     val (key, value) = kv
     updated(key, value)
   }
