@@ -72,4 +72,16 @@ client_server_test(
     server_files = ["$(rootpath :script-test.dar)"],
 )
 
-# TODO Add wallclock time
+client_server_test(
+    name = "test_wallclock_time",
+    client = ":test_client",
+    client_args = ["-w"],
+    client_files = ["$(rootpath :script-test.dar)"],
+    data = [":script-test.dar"],
+    server = "//ledger/sandbox:sandbox-binary",
+    server_args = [
+        "-w",
+        "--port=0",
+    ],
+    server_files = ["$(rootpath :script-test.dar)"],
+)
