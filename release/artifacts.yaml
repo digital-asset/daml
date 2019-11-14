@@ -140,7 +140,8 @@
 - target: //ledger/ledger-api-test-tool:ledger-api-test-tool
   type: jar-deploy
 - target: //language-support/scala/codegen:codegen
-  type: jar
+  type: jar-scala
+  mavenUpload: true
 - target: //language-support/scala/codegen:codegen-main
   type: jar
 - target: //language-support/scala/bindings-akka:bindings-akka
@@ -148,12 +149,18 @@
   mavenUpload: True
 - target: //language-support/java/codegen:shaded_binary
   type: jar-scala
+  mavenUpload: true
+- target: //language-support/java/codegen:lib
+  type: jar-scala
+  mavenUpload: true
 - target: //navigator/backend:navigator-binary
   type: jar-deploy
 - target: //language-support/codegen-common:codegen-common
   type: jar-scala
+  mavenUpload: true
 - target: //language-support/codegen-main:shaded_binary
   type: jar-scala
+  mavenUpload: true
 - target: //ledger/participant-state:participant-state
   type: jar-scala
   mavenUpload: True
@@ -182,3 +189,6 @@
   type: jar-deploy
 - target: //triggers/runner:trigger-runner
   type: jar-deploy
+- target: //daml-assistant/scala-daml-project-config:scala-daml-project-config
+  type: jar-scala
+  mavenUpload: true
