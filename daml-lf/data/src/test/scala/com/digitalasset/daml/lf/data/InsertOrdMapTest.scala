@@ -18,5 +18,8 @@ class InsertOrdMapTest extends WordSpec with Matchers {
       InsertOrdMap(1 -> "a", 2 -> "b").toSeq shouldEqual Seq(1 -> "a", 2 -> "b")
       InsertOrdMap(2 -> "b", 1 -> "a").toSeq shouldEqual Seq(2 -> "b", 1 -> "a")
     }
+    "drop duplicate" in {
+      InsertOrdMap(1 -> "a", 2 -> "b", 1 -> "c").toSeq shouldEqual Seq(1 -> "c", 2 -> "b")
+    }
   }
 }
