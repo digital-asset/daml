@@ -6,9 +6,9 @@ Release notes
 
 This page contains release notes for the SDK.
 
-.. _release-0-13-35:
+.. _release-0-13-36:
 
-0.13.35 - 2019-11-14
+0.13.36 - 2019-11-14
 --------------------
 
 Ledger
