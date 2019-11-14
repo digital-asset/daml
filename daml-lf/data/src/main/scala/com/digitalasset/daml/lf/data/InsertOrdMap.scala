@@ -4,7 +4,7 @@
 package com.digitalasset.daml.lf.data
 
 import scala.collection.breakOut
-import scala.collection.immutable.{HashMap, Queue}
+import scala.collection.immutable.{HashMap, Map, Queue}
 
 /**
   * Insert-ordered Map (like ListMap), but with efficient lookups.
@@ -45,7 +45,7 @@ object InsertOrdMap {
   def empty[K, V]: InsertOrdMap[K, V] = Empty.asInstanceOf[InsertOrdMap[K, V]]
 
   def apply[K, V](entries: (K, V)*): InsertOrdMap[K, V] = {
-    new InsertOrdMap(entries.map(_._1)(breakOut), HashMap.apply(entries: _*))
+    new InsertOrdMap(entries.map(_._1)(breakOut), HashMap(entries: _*))
   }
 
 }
