@@ -4,12 +4,17 @@
 package com.digitalasset.daml.lf.engine.script
 
 import java.io.File
+import java.time.Duration
+
+import com.digitalasset.platform.services.time.TimeProviderType
 
 case class RunnerConfig(
     darPath: File,
     scriptIdentifier: String,
     ledgerHost: String,
     ledgerPort: Int,
+    timeProviderType: TimeProviderType,
+    commandTtl: Duration,
 )
 
 object RunnerConfig {
@@ -35,6 +40,18 @@ object RunnerConfig {
       .required()
       .action((t, c) => c.copy(ledgerPort = t))
       .text("Ledger port")
+
+    opt[Unit]('w', "wall-clock-time")
+      .action { (t, c) =>
+        c.copy(timeProviderType = TimeProviderType.WallClock)
+      }
+      .text("Use wall clock time (UTC). When not provided, static time is used.")
+
+    opt[Long]("ttl")
+      .action { (t, c) =>
+        c.copy(commandTtl = Duration.ofSeconds(t))
+      }
+      .text("TTL in seconds used for commands emitted by the trigger. Defaults to 30s.")
   }
   def parse(args: Array[String]): Option[RunnerConfig] =
     parser.parse(
@@ -44,6 +61,8 @@ object RunnerConfig {
         scriptIdentifier = null,
         ledgerHost = "",
         ledgerPort = 0,
+        timeProviderType = TimeProviderType.Static,
+        commandTtl = Duration.ofSeconds(30L),
       )
     )
 }

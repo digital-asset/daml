@@ -5,10 +5,12 @@ package com.digitalasset.daml.lf.engine.script
 
 import akka.actor.ActorSystem
 import akka.stream._
+import java.time.Instant
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration.Duration
 import scalaz.syntax.traverse._
 
+import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.archive.{Dar, DarReader}
 import com.digitalasset.daml.lf.archive.Decode
 import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
@@ -22,6 +24,8 @@ import com.digitalasset.ledger.client.configuration.{
   LedgerClientConfiguration,
   LedgerIdRequirement
 }
+import com.digitalasset.ledger.client.services.commands.CommandUpdater
+import com.digitalasset.platform.services.time.TimeProviderType
 
 object RunnerMain {
 
@@ -45,6 +49,17 @@ object RunnerMain {
           commandClient = CommandClientConfiguration.default,
           sslContext = None
         )
+        val timeProvider: TimeProvider =
+          config.timeProviderType match {
+            case TimeProviderType.Static => TimeProvider.Constant(Instant.EPOCH)
+            case TimeProviderType.WallClock => TimeProvider.UTC
+            case _ =>
+              throw new RuntimeException(s"Unexpected TimeProviderType: $config.timeProviderType")
+          }
+        val commandUpdater = new CommandUpdater(
+          timeProviderO = Some(timeProvider),
+          ttl = config.commandTtl,
+          overrideTtl = true)
 
         val system: ActorSystem = ActorSystem("ScriptRunner")
         implicit val sequencer: ExecutionSequencerFactory =
@@ -52,7 +67,7 @@ object RunnerMain {
         implicit val ec: ExecutionContext = system.dispatcher
         implicit val materializer: ActorMaterializer = ActorMaterializer()(system)
 
-        val runner = new Runner(dar, applicationId)
+        val runner = new Runner(dar, applicationId, commandUpdater)
         val flow: Future[Unit] = for {
           client <- LedgerClient.singleHost(config.ledgerHost, config.ledgerPort, clientConfig)
           _ <- runner.run(client, scriptId)

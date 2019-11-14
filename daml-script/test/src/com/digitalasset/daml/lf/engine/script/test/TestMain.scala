@@ -7,12 +7,14 @@ import akka.actor.ActorSystem
 import akka.stream._
 import com.typesafe.scalalogging.StrictLogging
 import java.io.File
+import java.time.Instant
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration.Duration
 import scala.util.{Success, Failure}
 import scalaz.syntax.tag._
 import scalaz.syntax.traverse._
 
+import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.archive.Dar
 import com.digitalasset.daml.lf.archive.DarReader
 import com.digitalasset.daml.lf.archive.Decode
@@ -30,10 +32,11 @@ import com.digitalasset.ledger.client.configuration.{
   LedgerIdRequirement
 }
 import com.digitalasset.ledger.client.LedgerClient
+import com.digitalasset.ledger.client.services.commands.CommandUpdater
 
 import com.digitalasset.daml.lf.engine.script.Runner
 
-case class Config(ledgerPort: Int, darPath: File)
+case class Config(ledgerPort: Int, darPath: File, wallclockTime: Boolean)
 
 // We do not use scalatest here since that doesn’t work nicely with
 // the client_server_test macro.
@@ -64,6 +67,15 @@ class TestRunner(val config: Config) extends StrictLogging {
     commandClient = CommandClientConfiguration.default,
     sslContext = None
   )
+  val ttl = java.time.Duration.ofSeconds(30)
+  val commandUpdater = if (config.wallclockTime) {
+    new CommandUpdater(timeProviderO = Some(TimeProvider.UTC), ttl = ttl, overrideTtl = true)
+  } else {
+    new CommandUpdater(
+      timeProviderO = Some(TimeProvider.Constant(Instant.EPOCH)),
+      ttl = ttl,
+      overrideTtl = true)
+  }
 
   def genericTest[A](
       // test name
@@ -84,7 +96,7 @@ class TestRunner(val config: Config) extends StrictLogging {
 
     val clientF = LedgerClient.singleHost("localhost", config.ledgerPort, clientConfig)
 
-    val runner = new Runner(dar, applicationId)
+    val runner = new Runner(dar, applicationId, commandUpdater)
 
     val testFlow: Future[Unit] = for {
       client <- clientF
@@ -205,12 +217,17 @@ object TestMain {
       .required()
       .action((d, c) => c.copy(darPath = d))
 
+    opt[Unit]('w', "wall-clock-time")
+      .action { (t, c) =>
+        c.copy(wallclockTime = true)
+      }
+      .text("Use wall clock time (UTC). When not provided, static time is used.")
   }
 
   private val applicationId = ApplicationId("DAML Script Tests")
 
   def main(args: Array[String]): Unit = {
-    configParser.parse(args, Config(0, null)) match {
+    configParser.parse(args, Config(0, null, false)) match {
       case None =>
         sys.exit(1)
       case Some(config) =>
@@ -219,6 +236,7 @@ object TestMain {
         val dar: Dar[(PackageId, Package)] = encodedDar.map {
           case (pkgId, pkgArchive) => Decode.readArchivePayload(pkgId, pkgArchive)
         }
+
         val runner = new TestRunner(config)
         Test0(dar, runner).runTests()
         Test1(dar, runner).runTests()
