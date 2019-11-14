@@ -49,6 +49,6 @@ object InsertOrdMap {
   def empty[K, V]: InsertOrdMap[K, V] = Empty.asInstanceOf[InsertOrdMap[K, V]]
 
   def apply[K, V](entries: (K, V)*): InsertOrdMap[K, V] =
-    (empty[K, V] /: entries)(_ + _)
+    entries.foldLeft(empty[K, V])(_ + _)
 
 }
