@@ -857,6 +857,7 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
       for {
         _ <- alpha.create(alice, AgreementFactory(bob, alice))
         _ <- beta.create(bob, AgreementFactory(alice, bob))
+        _ <- synchronize(alpha, beta)
         alphaView <- alpha.flatTransactions(alice, bob)
         betaView <- beta.flatTransactions(alice, bob)
       } yield {
@@ -884,6 +885,7 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
       for {
         _ <- alpha.create(alice, AgreementFactory(bob, alice))
         _ <- beta.create(bob, AgreementFactory(alice, bob))
+        _ <- synchronize(alpha, beta)
         alphaView <- alpha.transactionTrees(alice, bob)
         betaView <- beta.transactionTrees(alice, bob)
       } yield {
