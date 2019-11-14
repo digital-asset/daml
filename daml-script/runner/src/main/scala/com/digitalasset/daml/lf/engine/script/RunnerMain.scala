@@ -1,7 +1,7 @@
 // Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.script
+package com.digitalasset.daml.lf.engine.script
 
 import akka.actor.ActorSystem
 import akka.stream._
@@ -35,7 +35,6 @@ object RunnerMain {
         val dar: Dar[(PackageId, Package)] = encodedDar.map {
           case (pkgId, pkgArchive) => Decode.readArchivePayload(pkgId, pkgArchive)
         }
-
         val scriptId: Identifier =
           Identifier(dar.main._1, QualifiedName.assertFromString(config.scriptIdentifier))
 

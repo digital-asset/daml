@@ -1,12 +1,14 @@
 // Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.script
+package com.digitalasset.daml.lf.engine.script
 
+import java.util
 import scala.annotation.tailrec
+import scala.collection.JavaConverters._
 
-import com.digitalasset.daml.lf.archive.Dar
 import com.digitalasset.daml.lf.data.Ref._
+import com.digitalasset.daml.lf.engine.{ResultDone, ValueTranslator}
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.speedy.SBuiltin._
 import com.digitalasset.daml.lf.speedy.SExpr._
@@ -17,6 +19,7 @@ import com.digitalasset.daml.lf.speedy.SValue._
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, RelativeContractId}
 import com.digitalasset.daml.lf.CompiledPackages
 import com.digitalasset.ledger.api.v1.commands.{Command, CreateCommand, ExerciseCommand}
+import com.digitalasset.ledger.api.v1.event.{CreatedEvent}
 import com.digitalasset.ledger.api.v1.transaction.TreeEvent
 import com.digitalasset.ledger.api.v1.value
 import com.digitalasset.ledger.api.validation.ValueValidator
@@ -25,9 +28,6 @@ import com.digitalasset.platform.participant.util.LfEngineToApi.{
   lfValueToApiRecord,
   lfValueToApiValue
 }
-
-case class Converter(
-    )
 
 class ConverterException(message: String) extends RuntimeException(message)
 
@@ -172,9 +172,6 @@ object Converter {
   def toCommands(
       compiledPackages: CompiledPackages,
       freeAp: SValue): Either[String, Seq[Command]] = {
-    // var commands = Seq[Command]()
-    // val pure = Name.assertFromString("PureA")
-    // val ap = Name.assertFromString("Ap")
     @tailrec
     def iter(v: SValue, commands: Seq[Command]): Either[String, Seq[Command]] = {
       v match {
@@ -206,6 +203,8 @@ object Converter {
   // fill in the values for the continuation.
   def fillCommandResults(
       compiledPackages: CompiledPackages,
+      choiceType: (Identifier, Name) => Either[String, Type],
+      translator: ValueTranslator,
       freeAp: SValue,
       eventResults: Seq[TreeEvent]): Either[String, SExpr] =
     freeAp match {
@@ -215,29 +214,84 @@ object Converter {
           apFields <- toApFields(compiledPackages, v)
           (fb, apfba) = apFields
           bValue <- fb match {
+            // We already validate these records during toCommands so we don’t bother doing proper validation again here.
             case SVariant(_, "Create", v) => {
               val continue = v.asInstanceOf[SRecord].values.get(1)
               val contractIdString = eventResults.head.getCreated.contractId
-              val contractId =
-                SContractId(AbsoluteContractId(ContractIdString.assertFromString(contractIdString)))
-              Right(SEApp(SEValue(continue), Array(SEValue(contractId))))
+              for {
+                cid <- ContractIdString.fromString(contractIdString)
+                contractId = SContractId(AbsoluteContractId(cid))
+              } yield SEApp(SEValue(continue), Array(SEValue(contractId)))
             }
             case SVariant(_, "Exercise", v) => {
               val continue = v.asInstanceOf[SRecord].values.get(3)
-              val apiExerciseResult = eventResults.head.getExercised.getExerciseResult
-              val exerciseResult =
-                SValue.fromValue(ValueValidator.validateValue(apiExerciseResult).right.get)
-              Right(SEApp(SEValue(continue), Array(SEValue(exerciseResult))))
+              val exercised = eventResults.head.getExercised
+              val apiExerciseResult = exercised.getExerciseResult
+              for {
+                tplId <- fromApiIdentifier(exercised.templateId.get)
+                choice <- Name.fromString(exercised.choice)
+                resultType <- choiceType(tplId, choice)
+                validated <- ValueValidator.validateValue(apiExerciseResult).left.map(_.toString)
+                translated <- translator.translateValue(resultType, validated) match {
+                  case ResultDone(r) => Right(r)
+                  case err => Left(s"Failed to translate exercise result: $err")
+                }
+              } yield SEApp(SEValue(continue), Array(SEValue(translated)))
             }
             case _ => Left(s"Expected Create or Exercise but got $fb")
           }
-          fValue <- fillCommandResults(compiledPackages, apfba, eventResults.tail)
+          fValue <- fillCommandResults(
+            compiledPackages,
+            choiceType,
+            translator,
+            apfba,
+            eventResults.tail)
         } yield SEApp(fValue, Array(bValue))
       }
       case _ => Left(s"Expected PureA or Ap but got $freeAp")
     }
 
-  def fromDar(dar: Dar[(PackageId, Package)]): Converter = {
-    Converter()
+  def toParty(v: SValue): Either[String, SParty] =
+    v match {
+      case p @ SParty(_) => Right(p)
+      case _ => Left(s"Expected SParty but got $v")
+    }
+
+  // Helper to construct a record
+  def record(ty: Identifier, fields: (String, SValue)*): SValue = {
+    val fieldNames = Name.Array(fields.map({
+      case (n, _) => Name.assertFromString(n)
+    }): _*)
+    val args =
+      new util.ArrayList[SValue](fields.map({ case (_, v) => v }).asJava)
+    SRecord(ty, fieldNames, args)
+  }
+
+  def fromApiIdentifier(id: value.Identifier): Either[String, Identifier] =
+    for {
+      packageId <- PackageId.fromString(id.packageId)
+      moduleName <- DottedName.fromString(id.moduleName)
+      entityName <- DottedName.fromString(id.entityName)
+    } yield Identifier(packageId, QualifiedName(moduleName, entityName))
+
+  // Convert a Created event to an AnyTemplate
+  def fromCreated(
+      translator: ValueTranslator,
+      stdlibPackageId: PackageId,
+      created: CreatedEvent): Either[String, SValue] = {
+    val anyTemplateTyCon =
+      Identifier(stdlibPackageId, QualifiedName.assertFromString("DA.Internal.LF:AnyTemplate"))
+    for {
+      templateId <- created.templateId match {
+        case None => Left(s"Missing field templateId in $created")
+        case Some(templateId) => Right(templateId)
+      }
+      tyCon <- fromApiIdentifier(templateId)
+      arg <- ValueValidator.validateRecord(created.getCreateArguments).left.map(_.toString)
+      argSValue <- translator.translateValue(TTyCon(tyCon), arg) match {
+        case ResultDone(v) => Right(v)
+        case err => Left(s"Failure to translate value in create: $err")
+      }
+    } yield record(anyTemplateTyCon, ("getAnyTemplate", SAny(TTyCon(tyCon), argSValue)))
   }
 }
