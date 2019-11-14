@@ -54,6 +54,11 @@ ghc_dwarf(name = "ghc_dwarf")
 
 load("@ghc_dwarf//:ghc_dwarf.bzl", "enable_ghc_dwarf")
 
+# Configure msys2 POSIX toolchain provided by dadew.
+load("//bazel_tools/dev_env_tool:dev_env_tool.bzl", "dadew_sh_posix_configure")
+
+dadew_sh_posix_configure() if is_windows else None
+
 nixpkgs_local_repository(
     name = "nixpkgs",
     nix_file = "//nix:nixpkgs.nix",
