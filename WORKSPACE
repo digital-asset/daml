@@ -990,7 +990,7 @@ http_archive(
 package(default_visibility = ["//visibility:public"])
 filegroup(name="jars", srcs=glob(["lib/**"]))
 ''',
-    sha256 = "b67215655bdcfaf0f4b271ebd3f9ce8f887c3c81a53351f47165a9bf5b93e435",
-    strip_prefix = "canton-0.3.0",
-    urls = ["https://github.com/digital-asset/canton/releases/download/v0.3.0/canton-0.3.0.tar.gz"],
+    sha256 = "9d0e8fd49410bc7061bdf85a51d0becb46eb9cdaf3bf2162d06285f4861684df",
+    strip_prefix = "canton-0.4.0",
+    urls = ["https://github.com/digital-asset/canton/releases/download/v0.4.0/canton-0.4.0.tar.gz"],
 )
