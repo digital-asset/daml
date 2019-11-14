@@ -31,11 +31,7 @@ import "ghc-lib-parser" FastString
 import "ghc-lib" GHC
 import "ghc-lib-parser" Module
 import "ghc-lib-parser" Name
-import "ghc-lib-parser" Outputable
-    ( alwaysQualify
-    , ppr
-    , showSDocForUser
-    )
+import "ghc-lib-parser" Outputable (alwaysQualify, ppr, showSDocForUser)
 import "ghc-lib-parser" PrelNames
 import "ghc-lib-parser" RdrName
 import Safe
@@ -391,10 +387,11 @@ generateSrcPkgFromLf getUnitId thisPkgId pkg = do
     modName = LF.unModuleName . LF.moduleName
     header m = header0 ++ header1 m
     header0 =
-        ["{-# LANGUAGE NoDamlSyntax #-}", "{-# LANGUAGE NoImplicitPrelude #-}"]
+        ["{-# LANGUAGE NoDamlSyntax #-}"
+        , "{-# LANGUAGE NoImplicitPrelude #-}"
+        , "{-# LANGUAGE TypeOperators #-}"
+        ]
     header1 m
-        | modName m == ["DA", "Generics"] =
-            ["", "{-# LANGUAGE TypeOperators #-}"]
         | modName m == ["GHC", "Types"] = ["", "{-# LANGUAGE MagicHash #-}"]
         | otherwise = []
     --
@@ -525,8 +522,7 @@ generateSrcFromLf env thisPkgId = noLoc mod
             pure [dataDecl]
 
     convDataCons :: T.Text -> LF.DataCons -> [LConDecl GhcPs]
-    convDataCons dataTypeCon0 =
-        \case
+    convDataCons dataTypeCon0 = \case
             LF.DataRecord fields ->
                 [ noLoc $
                   ConDeclH98
@@ -696,8 +692,14 @@ convType env =
     \case
         LF.TVar tyVarName ->
             HsTyVar noExt NotPromoted $ mkRdrName $ LF.unTypeVarName tyVarName
+        LF.TCon LF.Qualified {..}
+          | qualModule == LF.ModuleName ["DA", "Types"]
+          , [name] <- LF.unTypeConName qualObject
+          , Just n <- stripPrefix "Tuple" $ T.unpack name
+          , Just i <- readMay n
+          , 2 <= i && i <= 20 -> mkTuple i
         LF.TCon LF.Qualified {..} ->
-            case LF.unTypeConName qualObject of
+          case LF.unTypeConName qualObject of
                 [name] ->
                     HsTyVar noExt NotPromoted $
                     noLoc $
@@ -754,6 +756,11 @@ convType env =
                 [noLoc $ convType env ty | (_fldName, ty) <- fls]
         LF.TNat n ->
             HsTyLit noExt (HsNumTy NoSourceText (LF.fromTypeLevelNat n))
+  where
+    mkTuple :: Int -> HsType GhcPs
+    mkTuple i =
+        HsTyVar noExt NotPromoted $
+        noLoc $ mkRdrUnqual $ occName $ tupleTyConName BoxedTuple i
 
 convBuiltInTy :: Bool -> LF.BuiltinType -> HsType GhcPs
 convBuiltInTy qualify =
