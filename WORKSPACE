@@ -986,14 +986,14 @@ dev_env_tool(
 
 http_archive(
     name = "canton",
-    build_file_content = '''
+    build_file_content = """
 package(default_visibility = ["//visibility:public"])
 
 java_import(
     name = "lib",
     jars = glob(["lib/**"]),
 )
-''',
+""",
     sha256 = "9d0e8fd49410bc7061bdf85a51d0becb46eb9cdaf3bf2162d06285f4861684df",
     strip_prefix = "canton-0.4.0",
     urls = ["https://github.com/digital-asset/canton/releases/download/v0.4.0/canton-0.4.0.tar.gz"],
