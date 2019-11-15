@@ -248,6 +248,9 @@ object Pretty {
       PrettyObject(map.toImmArray.toList.map {
         case (key, value) => PrettyField(key, argument(arg))
       })
+    case V.ValueGenMap(_) =>
+      // FIXME https://github.com/digital-asset/daml/issues/2256
+      throw sys.error(s"Gen Map are not supported")
     case _: model.ApiImpossible => sys.error("impossible! tuples are not serializable")
   }
 
