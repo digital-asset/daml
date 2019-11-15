@@ -208,7 +208,7 @@ Now everything is running, you can try out the quickstart application:
 
    Go back to *Owned Ious*, open the Iou for €100 and click on the button *Iou_AddObserver*. Submit *Bob* as the *newObserver*.
 
-   Contracts in DAML are immutable, meaning they can not be changed, only created and archived. If you head back to the **Owned Ious** screen, you can see that the Iou now has a new Contract ID `#6:1`.
+   Contracts in DAML are immutable, meaning they cannot be changed, only created and archived. If you head back to the **Owned Ious** screen, you can see that the Iou now has a new Contract ID `#6:1`.
 #. To propose the trade, go to the **Templates** screen. Click on the *IouTrade:IouTrade* template, fill in the form as shown below and submit the transaction.
 
    .. figure:: quickstart/images/tradeProp.png
@@ -502,7 +502,7 @@ The following REST services are included:
   ``curl -X PUT -d '{"issuer":"Alice","owner":"Alice","currency":"AliceCoin","amount":1.0,"observers":[]}' http://localhost:8080/iou``
 - ``POST`` on ``http://localhost:8080/iou/ID/transfer`` transfers the Iou with Id ``ID``.
 
-  Check that the Id of your new *AliceCoin* using step 1.. If you have followed this guide, it will be ``0`` so you can run:
+  Check the Id of your new *AliceCoin* by listing all active Ious. If you have followed this guide, it will be ``0`` so you can run:
 
   ``curl -X POST -d '{ "newOwner":"Bob" }' http://localhost:8080/iou/0/transfer``
 
@@ -523,14 +523,14 @@ It consists of the application in file ``IouMain.java``. It uses the class ``Iou
       :lines: 46-50
       :dedent: 8
 
-#. An in-memory contract-store is initialized. This is intended to provide a live view of all active contracts, with mappings between ledger and external Ids.
+#. An in-memory contract store is initialized. This is intended to provide a live view of all active contracts, with mappings between ledger and external Ids.
 
    .. literalinclude:: quickstart/template-root/src/main/java/com/digitalasset/quickstart/iou/IouMain.java
       :language: java
       :lines: 58-60
       :dedent: 8
 
-#. The Active Contracts Service (ACS) is used to quickly build up the contract-store to a recent state.
+#. The Active Contracts Service (ACS) is used to quickly build up the contract store to a recent state.
 
    .. literalinclude:: quickstart/template-root/src/main/java/com/digitalasset/quickstart/iou/IouMain.java
       :language: java
