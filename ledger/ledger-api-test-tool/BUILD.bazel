@@ -52,46 +52,21 @@ da_scala_library(
     ],
 )
 
-da_scala_binary(
-    name = "ledger-api-test-tool",
+da_scala_library(
+    name = "ledger-api-test-tool-lib",
     srcs = glob([
-        "src/main/scala/com/daml/ledger/api/testtool/**/*.scala",
+        "src/main/scala/com/daml/ledger/api/testtool/infrastructure/**/*.scala",
     ]),
-    main_class = "com.daml.ledger.api.testtool.LedgerApiTestTool",
-    resources = [
-        "src/main/resources/logback.xml",
-        ":PackageManagementTest.dar",
-        "//ledger/test-common:SemanticTests.dar",
-        "//ledger/test-common:dar-files",
-    ],
-    tags = [
-        "maven_coordinates=com.daml.ledger.testtool:ledger-api-test-tool:__VERSION__",
-        # We release this as a fat jar so this tag ensures that the dependencies in the generated
-        # POM file are set correctly.
-        "fat_jar",
-    ],
-    visibility = ["//visibility:public"],
     deps = [
-        ":PackageManagementTest.scala",
-        "//daml-lf/archive:daml_lf_archive_reader",
-        "//daml-lf/archive:daml_lf_dev_archive_java_proto",
         "//daml-lf/data",
-        "//daml-lf/engine",
-        "//daml-lf/interpreter",
-        "//daml-lf/language",
         "//daml-lf/transaction",
         "//language-support/scala/bindings",
         "//ledger/ledger-api-common",
-        "//ledger/ledger-api-domain",
         "//ledger/ledger-api-grpc-utils",
         "//ledger/test-common",
-        "//ledger/test-common:SemanticTests.scala",
-        "//ledger/test-common:Test-dev.scala",
         "//ledger/test-common:Test-stable.scala",
         "@maven//:ai_x_diff_2_12",
-        "@maven//:ch_qos_logback_logback_classic",
         "@maven//:com_chuusai_shapeless_2_12",
-        "@maven//:com_github_scopt_scopt_2_12",
         "@maven//:com_typesafe_akka_akka_actor_2_12",
         "@maven//:com_typesafe_akka_akka_stream_2_12",
         "@maven//:com_typesafe_config",
@@ -101,6 +76,70 @@ da_scala_binary(
         "@maven//:io_netty_netty_tcnative_boringssl_static",
         "@maven//:io_netty_netty_transport",
         "@maven//:org_cvogt_scala_extensions_2_12",
+        "@maven//:org_slf4j_slf4j_api",
+    ],
+)
+
+tests = [(
+    path.replace("/", "_").replace(".", "_"),
+    path,
+) for path in glob([
+    "src/main/scala/com/daml/ledger/api/testtool/tests/**/*.scala",
+])]
+
+[
+    da_scala_library(
+        name = name,
+        srcs = [path],
+        deps = [
+            ":PackageManagementTest.scala",
+            ":ledger-api-test-tool-lib",
+            "//daml-lf/archive:daml_lf_archive_reader",
+            "//daml-lf/archive:daml_lf_dev_archive_java_proto",
+            "//daml-lf/data",
+            "//daml-lf/engine",
+            "//daml-lf/interpreter",
+            "//daml-lf/language",
+            "//daml-lf/transaction",
+            "//language-support/scala/bindings",
+            "//ledger/ledger-api-common",
+            "//ledger/ledger-api-domain",
+            "//ledger/ledger-api-grpc-utils",
+            "//ledger/test-common",
+            "//ledger/test-common:SemanticTests.scala",
+            "//ledger/test-common:Test-dev.scala",
+            "//ledger/test-common:Test-stable.scala",
+            "@maven//:ai_x_diff_2_12",
+            "@maven//:com_chuusai_shapeless_2_12",
+            "@maven//:org_cvogt_scala_extensions_2_12",
+        ],
+    )
+    for name, path in tests
+]
+
+da_scala_binary(
+    name = "ledger-api-test-tool",
+    srcs = glob([
+        "src/main/scala/com/daml/ledger/api/testtool/*.scala",
+    ]),
+    main_class = "com.daml.ledger.api.testtool.LedgerApiTestTool",
+    resources = [
+        "src/main/resources/logback.xml",
+        ":PackageManagementTest",
+        "//ledger/test-common:dar-files",
+    ],
+    tags = [
+        "maven_coordinates=com.daml.ledger.testtool:ledger-api-test-tool:__VERSION__",
+        # We release this as a fat jar so this tag ensures that the dependencies in the generated
+        # POM file are set correctly.
+        "fat_jar",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [name for name, _ in tests] + [
+        ":ledger-api-test-tool-lib",
+        "//ledger/ledger-api-common",
+        "@maven//:ch_qos_logback_logback_classic",
+        "@maven//:com_github_scopt_scopt_2_12",
         "@maven//:org_slf4j_slf4j_api",
     ],
 )
