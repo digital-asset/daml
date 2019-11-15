@@ -13,7 +13,7 @@ setup = scenario do
   usBank <- getParty "USD_Bank"
   eurBank <- getParty "EUR_Bank"
 
-  -- Banks issue Iou transfers
+  -- Banks issue IOU transfers.
   iouTransferAliceCid <- submit eurBank do
     iouCid <- create Iou with
       issuer = eurBank
@@ -32,7 +32,7 @@ setup = scenario do
       observers = []
     exercise iouCid Iou_Transfer with newOwner = bob
 
-  -- Bob and Alice accept
+  -- Bob and Alice accept.
   submit alice do
     exercise iouTransferAliceCid IouTransfer_Accept
   submit bob do
