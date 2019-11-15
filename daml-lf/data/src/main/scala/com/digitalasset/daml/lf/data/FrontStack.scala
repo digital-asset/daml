@@ -199,7 +199,3 @@ object FrontStack {
 object FrontStackCons {
   def unapply[A](xs: FrontStack[A]): Option[(A, FrontStack[A])] = xs.pop
 }
-
-object FrontStackEmpty {
-  def unapply(arg: FrontStack[_]): Boolean = arg.isEmpty
-}
