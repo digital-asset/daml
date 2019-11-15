@@ -219,6 +219,34 @@ da_haskell_test(
     deps = ["//libs-haskell/bazel-runfiles"],
 )
 
+# Tests for packaging
+da_haskell_test(
+    name = "packaging",
+    srcs = ["src/DA/Test/Packaging.hs"],
+    data = [
+        "//compiler/damlc",
+        "//compiler/damlc/tests:generate-simple-dalf",
+    ],
+    hackage_deps = [
+        "base",
+        "bytestring",
+        "extra",
+        "filepath",
+        "process",
+        "tasty",
+        "tasty-hunit",
+        "zip-archive",
+    ],
+    main_function = "DA.Test.Packaging.main",
+    src_strip_prefix = "src",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//:sdk-version-hs-lib",
+        "//libs-haskell/bazel-runfiles",
+        "//libs-haskell/da-hs-base",
+    ],
+)
+
 # Memory tests
 
 da_haskell_binary(
