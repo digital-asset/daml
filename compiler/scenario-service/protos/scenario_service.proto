@@ -305,6 +305,7 @@ message Value {
     Optional optional = 15;
     Map map = 16;
     Enum enum = 17;
+    GenMap gen_map = 18;
 
     // An unserializable value, e.g. closure. Contains a description of the value.
     string unserializable = 14;
@@ -322,6 +323,15 @@ message Map {
     }
 
     repeated Entry entries = 1;
+}
+
+message GenMap{
+  message Entry {
+    Value key = 1;
+    Value value = 2;
+  }
+
+  repeated Entry entries = 1;
 }
 
 // Modules that can be loaded. The actual message types are not

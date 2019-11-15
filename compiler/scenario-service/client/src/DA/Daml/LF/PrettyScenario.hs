@@ -674,6 +674,9 @@ prettyValue' showRecordType prec world (Value (Just vsum)) = case vsum of
   ValueSumOptional (Optional Nothing) -> text "none"
   ValueSumOptional (Optional (Just v)) -> "some " <> prettyValue' True precHighest world v
   ValueSumMap (Map entries) -> "Map" <> brackets (fcommasep (mapV (prettyEntry prec world) entries))
+  ValueSumGenMap (GenMap _) ->
+    -- FIXME https://github.com/digital-asset/daml/issues/2256
+    error "Gen Map are not supported"
   ValueSumUnserializable what -> ltext what
   where
     prettyField (Field label mbValue) =
