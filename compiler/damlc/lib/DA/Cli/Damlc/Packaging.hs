@@ -265,7 +265,6 @@ createProjectPackageDb opts thisSdkVer deps0 dataDeps = do
             withCurrentDirectory tempDir $ do
                 loggerH <- getLogger opts "generate instances package"
                 mapM_ writeSrc templInstSrc
-                sdkVersion <- getSdkVersion
                 let pkgConfig =
                         PackageConfigFields
                             { pName = "instances-" <> pkgName
@@ -274,7 +273,7 @@ createProjectPackageDb opts thisSdkVer deps0 dataDeps = do
                             , pVersion = mbPkgVersion
                             , pDependencies = (unitIdStr <.> "dalf") : deps
                             , pDataDependencies = []
-                            , pSdkVersion = sdkVersion
+                            , pSdkVersion = thisSdkVer
                             , cliOpts = Nothing
                             }
                 opts' <-
