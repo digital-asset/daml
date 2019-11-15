@@ -432,10 +432,7 @@ def da_scala_library_suite(name, **kwargs):
     if "tags" in kwargs:
         for tag in kwargs["tags"]:
             if tag.startswith("maven_coordinates="):
-                pom_file(
-                    name = name + "_pom",
-                    target = ":" + name,
-                )
+                fail("Usage of maven_coordinates in da_scala_library_suite is NOT supported", "tags")
                 break
 
 def da_scala_macro_library(**kwargs):
