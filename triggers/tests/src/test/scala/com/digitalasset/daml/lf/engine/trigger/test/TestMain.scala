@@ -32,6 +32,7 @@ import com.digitalasset.daml.lf.archive.DarReader
 import com.digitalasset.daml.lf.archive.Dar
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.archive.Decode
+import com.digitalasset.daml.lf.data.FrontStack
 import com.digitalasset.daml.lf.data.Numeric
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml_lf_dev.DamlLf
@@ -714,6 +715,41 @@ case class NumericTests(dar: Dar[(PackageId, Package)], runner: TestRunner) {
   }
 }
 
+case class CommandIdTests(dar: Dar[(PackageId, Package)], runner: TestRunner) {
+
+  val triggerId: Identifier =
+    Identifier(dar.main._1, QualifiedName.assertFromString("CommandId:test"))
+
+  val tId = Identifier(dar.main._1, QualifiedName.assertFromString("CommandId:T"))
+
+  def test(name: String, numMessages: NumMessages, cmdIds: List[String]) = {
+    def assertFinalState(finalState: SExpr, commandsR: Unit) = {
+      val expected = SEValue(SList(FrontStack(cmdIds.map(SText))))
+      TestRunner.assertEqual(finalState, expected, "list of command ids")
+    }
+    def assertFinalACS(
+        acs: Map[Identifier, Seq[(String, Lf.ValueRecord[Lf.AbsoluteContractId])]],
+        commandsR: Unit) = Right(())
+    runner.genericTest(name, dar, triggerId, (_, _) => { implicit ec: ExecutionContext =>
+      { implicit mat: ActorMaterializer =>
+        Future {}
+      }
+    }, numMessages, assertFinalState, assertFinalACS)
+  }
+
+  def runTests() = {
+    test(
+      "command-id",
+      // 1 for create of T
+      // 1 for completion
+      // 1 for archive on T
+      // 1 for completion
+      NumMessages(4),
+      List("myexerciseid", "mycreateid")
+    )
+  }
+}
+
 object TestMain {
 
   private val configParser = new scopt.OptionParser[Config]("acs_test") {
@@ -757,6 +793,7 @@ object TestMain {
         RetryTests(dar, runner).runTests()
         ExerciseByKeyTests(dar, runner).runTests()
         NumericTests(dar, runner).runTests()
+        CommandIdTests(dar, runner).runTests()
     }
   }
 }
