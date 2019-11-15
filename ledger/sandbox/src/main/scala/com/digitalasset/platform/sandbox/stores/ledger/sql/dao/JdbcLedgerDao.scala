@@ -13,15 +13,9 @@ import anorm.SqlParser._
 import anorm.ToStatement.optionToStatement
 import anorm.{AkkaStream, BatchSql, Macro, NamedParameter, RowParser, SQL, SqlParser}
 import com.daml.ledger.participant.state.index.v2.PackageDetails
-import com.daml.ledger.participant.state.v1.{AbsoluteContractInst, TransactionId}
+import com.daml.ledger.participant.state.v1.{AbsoluteContractInst, ParticipantId, TransactionId}
 import com.digitalasset.daml.lf.archive.Decode
-import com.digitalasset.daml.lf.data.Ref.{
-  ContractIdString,
-  LedgerString,
-  PackageId,
-  Party,
-  TransactionIdString
-}
+import com.digitalasset.daml.lf.data.Ref.{ContractIdString, LedgerString, PackageId, Party, TransactionIdString}
 import com.digitalasset.daml.lf.data.Relation.Relation
 import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.transaction.Node.{GlobalKey, KeyWithMaintainers}
@@ -34,24 +28,12 @@ import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails, RejectionReas
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.common.util.DirectExecutionContext
 import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilter
-import com.digitalasset.platform.sandbox.stores.ActiveLedgerState.{
-  ActiveContract,
-  Contract,
-  DivulgedContract
-}
+import com.digitalasset.platform.sandbox.stores.ActiveLedgerState.{ActiveContract, Contract, DivulgedContract}
 import com.digitalasset.platform.sandbox.stores._
-import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry
+import com.digitalasset.platform.sandbox.stores.ledger.{LedgerEntry, PackageUploadEntry}
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry._
-import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.JdbcLedgerDao.{
-  H2DatabaseQueries,
-  PostgresQueries
-}
-import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{
-  ContractSerializer,
-  KeyHasher,
-  TransactionSerializer,
-  ValueSerializer
-}
+import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.JdbcLedgerDao.{H2DatabaseQueries, PostgresQueries}
+import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{ContractSerializer, KeyHasher, TransactionSerializer, ValueSerializer}
 import com.digitalasset.platform.sandbox.stores.ledger.sql.util.Conversions._
 import com.digitalasset.platform.sandbox.stores.ledger.sql.util.DbDispatcher
 import com.google.common.io.ByteStreams
@@ -1232,15 +1214,8 @@ private class JdbcLedgerDao(
           |""".stripMargin)
 
   private val SQL_SELECT_PACKAGE_UPLOAD_ENTRIES =
-    SQL("""select submission_id, package_id, participant_id, rejection_reason
-          |from package_upload_entries
-          |""".stripMargin)
-
-  private val SQL_SELECT_PACKAGE_UPLOAD_ENTRY =
-    SQL("""select submission_id, package_id, participant_id, rejection_reason
-          |from package_upload_entries
-          |where package_id = {package_id}
-          |""".stripMargin)
+    SQL(
+      "select * from package_upload_entries where ledger_offset>={startInclusive} and ledger_offset<{endExclusive} order by ledger_offset asc")
 
   case class ParsedPackageData(
       packageId: String,
@@ -1255,6 +1230,40 @@ private class JdbcLedgerDao(
       "size",
       "known_since"
     )
+
+  private val packageUploadEntryParser: RowParser[(Long, PackageUploadEntry)] =
+    (long("ledger_offset") ~
+      str("typ") ~
+      str("submission_id") ~
+      str("participant_id") ~
+      str("rejection_reason")(emptyStringToNullColumn).?)
+      .map(flatten)
+      .map {
+        case (offset, typ, submissionId, participantIdRaw, rejectionReason) =>
+          val participantId = LedgerString
+            .fromString(participantIdRaw)
+            .fold(
+              err => sys.error(s"Failed to decode participant id in package upload entry: $err"),
+              identity)
+
+          offset ->
+            (typ match {
+              case "accept" =>
+                PackageUploadEntry.Accepted(
+                  submissionId = submissionId,
+                  participantId = participantId
+                )
+              case "reject" =>
+                PackageUploadEntry.Rejected(
+                  submissionId = submissionId,
+                  participantId = participantId,
+                  reason = rejectionReason.getOrElse("<missing reason>")
+                )
+
+              case _ =>
+                sys.error(s"packageUploadEntryParser: Unknown configuration entry type: $typ")
+            })
+      }
 
   override def listLfPackages: Future[Map[PackageId, PackageDetails]] =
     dbDispatcher.executeSql("load_packages") { implicit conn =>
@@ -1318,32 +1327,65 @@ private class JdbcLedgerDao(
     )
   }
 
-//  override def storePackageRejection(
-//      participantId: ParticipantId,
-//      submissionId: String,
-//      reason: String
-//  ) = {
-//    val prereqs = Try {
-//      require(participantId.nonEmpty, "participantId cannot be empty")
-//      require(submissionId.nonEmpty, "submissionId cannot be empty")
-//    }
-//    prereqs.fold(
-//      Future.failed,
-//      _ =>
-//        dbDispatcher.executeSql("store package rejections") { implicit conn =>
-//          val sqlupdate = executeBatchSql(
-//            queries.SQL_INSERT_PACKAGE_REJECTS,
-//            List(
-//              Seq[NamedParameter](
-//                "participant_id" -> participantId,
-//                "submission_id" -> submissionId,
-//                "reason" -> reason)))
-//          //TODO BH: temporary to get compiling
-//          if (sqlupdate.head > 0) PersistenceResponse.Ok
-//          else PersistenceResponse.Ok
-//      }
-//    )
-//  }
+  override def getPackageUploadEntries(
+      startInclusive: Long,
+      endExclusive: Long): Source[(Long, PackageUploadEntry), NotUsed] =
+    paginatingStream(
+      startInclusive,
+      endExclusive,
+      PageSize,
+      (startI, endE) => {
+        dbDispatcher.executeSql(s"load package upload entries", Some(s"bounds: [$startI, $endE[")) {
+          implicit conn =>
+            SQL_SELECT_PACKAGE_UPLOAD_ENTRIES
+              .on("startInclusive" -> startI, "endExclusive" -> endE)
+              .as(packageUploadEntryParser.*)
+        }
+      }
+    ).flatMapConcat(Source(_))
+
+  /**
+    * Store a package upload entry confirmation or rejection
+    *
+    * @param participantId
+    * @param submissionId
+    * @param reason
+    * @return
+    */
+  override def storePackageUploadEntry(
+      participantId: ParticipantId,
+      submissionId: String,
+      reason: Option[String]): Future[PersistenceResponse] =
+
+  //TODO BH: implement me
+    Future.successful(PersistenceResponse.Duplicate)
+
+  //  override def storePackageUploadEntry(
+  //      participantId: ParticipantId,
+  //      submissionId: String,
+  //      reason: String
+  //  ) = {
+  //    val prereqs = Try {
+  //      require(participantId.nonEmpty, "participantId cannot be empty")
+  //      require(submissionId.nonEmpty, "submissionId cannot be empty")
+  //    }
+  //    prereqs.fold(
+  //      Future.failed,
+  //      _ =>
+  //        dbDispatcher.executeSql("store package rejections") { implicit conn =>
+  //          val sqlupdate = executeBatchSql(
+  //            queries.SQL_INSERT_PACKAGE_REJECTS,
+  //            List(
+  //              Seq[NamedParameter](
+  //                "participant_id" -> participantId,
+  //                "submission_id" -> submissionId,
+  //                "reason" -> reason)))
+  //          //TODO BH: temporary to get compiling
+  //          if (sqlupdate.head > 0) PersistenceResponse.Ok
+  //          else PersistenceResponse.Ok
+  //      }
+  //    )
+  //  }
 
   private val SQL_TRUNCATE_ALL_TABLES =
     SQL("""
@@ -1371,7 +1413,6 @@ private class JdbcLedgerDao(
     require(params.nonEmpty, "batch sql statement must have at least one set of name parameters")
     BatchSql(query, params.head, params.drop(1).toArray: _*).execute()
   }
-
 }
 
 object JdbcLedgerDao {

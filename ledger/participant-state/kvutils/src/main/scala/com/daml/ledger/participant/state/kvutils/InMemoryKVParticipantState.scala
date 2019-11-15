@@ -76,9 +76,6 @@ object InMemoryKVParticipantState {
 
   sealed trait RequestMatch extends Serializable with Product
 
-  final case class AddPackageUploadRequest(
-      submissionId: String,
-      cf: CompletableFuture[SubmissionResult])
   final case class AddPartyAllocationRequest(
       submissionId: String,
       cf: CompletableFuture[PartyAllocationResult])
