@@ -1212,7 +1212,7 @@ private[lf] object DecodeV1 {
       BuiltinTypeInfo(DATE, BTDate),
       BuiltinTypeInfo(OPTIONAL, BTOptional, minVersion = optional),
       BuiltinTypeInfo(MAP, BTMap, minVersion = optional),
-      BuiltinTypeInfo(GENMAP, BTMap, minVersion = genMap),
+      BuiltinTypeInfo(GENMAP, BTGenMap, minVersion = genMap),
       BuiltinTypeInfo(ARROW, BTArrow, minVersion = arrowType),
       BuiltinTypeInfo(NUMERIC, BTNumeric, minVersion = numeric),
       BuiltinTypeInfo(ANY, BTAny, minVersion = anyType),
