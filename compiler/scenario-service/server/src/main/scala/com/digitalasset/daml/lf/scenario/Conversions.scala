@@ -663,9 +663,15 @@ case class Conversions(homePackageId: Ref.PackageId) {
             ()
         }
         builder.setMap(mapBuilder)
-      case V.ValueGenMap(_) =>
-        // FIXME https://github.com/digital-asset/daml/issues/2256
-        throw new Error("GenMap is not supported")
+      case V.ValueGenMap(entries) =>
+        val mapBuilder = v1.GenMap.newBuilder
+        entries.foreach {
+          case (k, v) =>
+            mapBuilder.addEntries(
+              v1.GenMap.Entry.newBuilder().setKey(convertValue(k)).setValue(convertValue(v)))
+            ()
+        }
+        builder.setGenMap(mapBuilder)
     }
     builder.build
   }
