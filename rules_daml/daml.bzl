@@ -153,9 +153,9 @@ def _daml_doctest_impl(ctx):
       $DAMLC doctest {flags} --cpp $CPP --package-name {package_name}-`cat $(rlocation $TEST_WORKSPACE/{version_file})` $(rlocations "{files}")
     """.format(
         damlc = ctx.executable.damlc.short_path,
-        # we end up with "../haskell_hpp/bin" while we want "external/haskell_hpp/bin"
+        # we end up with "../hpp/hpp" while we want "external/hpp/hpp"
         # so we just do the replacement ourselves.
-        cpp = ctx.executable.cpp.short_path.replace("..", "external", 1),
+        cpp = ctx.executable.cpp.short_path.replace("..", "external"),
         package_name = ctx.attr.package_name,
         flags = " ".join(ctx.attr.flags),
         version_file = ctx.file.version.path,
@@ -199,7 +199,7 @@ daml_doc_test = rule(
             executable = True,
             cfg = "host",
             allow_files = True,
-            default = Label("@haskell_hpp//:bin"),
+            default = Label("@hpp//:hpp"),
         ),
         "flags": attr.string_list(
             default = [],

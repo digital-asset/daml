@@ -215,12 +215,12 @@ genrule(
             --output=$(OUTS) \
             --package-name=daml-prim \
             --format=Json \
-            --cpp $(location @haskell_hpp//:bin) \
+            --cpp $(location @hpp//:hpp) \
             $(locations //compiler/damlc/daml-prim-src)
     """,
     tools = [
         "//compiler/damlc",
-        "@haskell_hpp//:bin",
+        "@hpp",
     ],
     visibility = ["//visibility:public"],
 )
@@ -234,12 +234,12 @@ genrule(
             --output=$(OUTS) \
             --package-name=daml-stdlib \
             --format=Json \
-            --cpp $(location @haskell_hpp//:bin) \
+            --cpp $(location @hpp//:hpp) \
             $(locations //compiler/damlc/daml-stdlib-src)
     """,
     tools = [
         "//compiler/damlc",
-        "@haskell_hpp//:bin",
+        "@hpp",
     ],
     visibility = ["//visibility:public"],
 )
