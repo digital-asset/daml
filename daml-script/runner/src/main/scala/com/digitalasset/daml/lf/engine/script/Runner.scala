@@ -18,7 +18,7 @@ import com.digitalasset.daml.lf.data.FrontStack
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.engine.ValueTranslator
 import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.speedy.{Compiler, Pretty, Speedy, SValue}
+import com.digitalasset.daml.lf.speedy.{Compiler, Pretty, Speedy, SValue, TraceLog}
 import com.digitalasset.daml.lf.speedy.SExpr._
 import com.digitalasset.daml.lf.speedy.SResult._
 import com.digitalasset.daml.lf.speedy.SValue._
@@ -110,10 +110,10 @@ class Runner(
       implicit ec: ExecutionContext,
       mat: ActorMaterializer): Future[SValue] = {
     val scriptExpr = EVal(scriptId)
-    val machine =
+    var machine =
       Speedy.Machine.fromSExpr(compiler.compile(scriptExpr), false, compiledPackages)
 
-    def go(): Future[SValue] = {
+    def stepToValue() = {
       while (!machine.isFinal) {
         machine.step() match {
           case SResultContinue => ()
@@ -125,17 +125,41 @@ class Runner(
           }
         }
       }
+      // TODO Share this logic with the trigger runner
+      var traceEmpty = true
       machine.traceLog.iterator.foreach {
         case (msg, optLoc) =>
+          traceEmpty = false
           println(s"TRACE ${Pretty.prettyLoc(optLoc).render(80)}: $msg")
       }
+      if (!traceEmpty) {
+        machine = machine.copy(traceLog = TraceLog(machine.traceLog.capacity))
+      }
+    }
+
+    stepToValue()
+    machine.toSValue match {
+      // Unwrap Script newtype
+      case SRecord(_, _, vals) if vals.size == 1 => {
+        machine.ctrl = Speedy.CtrlExpr(SEValue(vals.get(0)))
+      }
+      case v => throw new ConverterException(s"Expected record with 1 field but got $v")
+    }
+
+    def go(): Future[SValue] = {
+      stepToValue()
       machine.toSValue match {
         case SVariant(_, "Free", v) => {
           v match {
             case SVariant(_, "Submit", v) => {
               v match {
                 case SRecord(_, _, vals) if vals.size == 2 => {
-                  val freeAp = vals.get(1)
+                  val freeAp = vals.get(1) match {
+                    // Unwrap Commands newtype
+                    case SRecord(_, _, vals) if vals.size == 1 => vals.get(0)
+                    case v =>
+                      throw new ConverterException(s"Expected record with 1 field but got $v")
+                  }
                   val requestOrErr = for {
                     party <- Converter.toParty(vals.get(0))
                     commands <- Converter.toCommands(compiledPackages, freeAp)
