@@ -7,7 +7,14 @@ load(
 )
 load("@os_info//:os_info.bzl", "is_windows")
 
-def conformance_test(name, server, server_args = [], extra_data = [], ports = [6865], test_tool_args = []):
+def conformance_test(
+        name,
+        server,
+        server_args = [],
+        extra_data = [],
+        ports = [6865],
+        test_tool_args = [],
+        tags = []):
     client_server_test(
         name = name,
         timeout = "long",
@@ -24,7 +31,7 @@ def conformance_test(name, server, server_args = [], extra_data = [], ports = [6
         tags = [
             "dont-run-on-darwin",
             "exclusive",
-        ],
+        ] + tags,
     ) if not is_windows else None
 
 def server_conformance_test(name, servers, server_args = [], test_tool_args = []):
