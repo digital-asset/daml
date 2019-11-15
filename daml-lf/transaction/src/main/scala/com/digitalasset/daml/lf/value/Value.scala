@@ -42,6 +42,8 @@ sealed abstract class Value[+Cid] extends Product with Serializable {
         ValueList(vs.map(_.mapContractId(f)))
       case ValueOptional(x) => ValueOptional(x.map(_.mapContractId(f)))
       case ValueMap(x) => ValueMap(x.mapValue(_.mapContractId(f)))
+      case ValueGenMap(x) =>
+        ValueGenMap(x.map { case (k, v) => k.mapContractId(f) -> v.mapContractId(f) })
     }
 
   /** returns a list of validation errors: if the result is non-empty the value is
@@ -125,6 +127,9 @@ sealed abstract class Value[+Cid] extends Product with Serializable {
             } else {
               go(exceededNesting, errs, value.values.map(v => (v, nesting + 1)) ++: vs)
             }
+          case ValueGenMap(_) =>
+            // FIXME https://github.com/digital-asset/daml/issues/2256
+            throw new Error("not implemented")
         }
     }
 
@@ -203,6 +208,7 @@ object Value {
   case object ValueUnit extends ValueCidlessLeaf
   final case class ValueOptional[+Cid](value: Option[Value[Cid]]) extends Value[Cid]
   final case class ValueMap[+Cid](value: SortedLookupList[Value[Cid]]) extends Value[Cid]
+  final case class ValueGenMap[+Cid](value: ImmArray[(Value[Cid], Value[Cid])]) extends Value[Cid]
   // this is present here just because we need it in some internal code --
   // specifically the scenario interpreter converts committed values to values and
   // currently those can be tuples, although we should probably ban that.
@@ -247,6 +253,11 @@ object Value {
         case ValueMap(map1) => {
           case ValueMap(map2) =>
             map1 === map2
+        }
+        case ValueGenMap(_) => {
+          case ValueGenMap(_) =>
+            // FIXME https://github.com/digital-asset/daml/issues/2256
+            throw new Error("not implemented")
         }
       }
     }

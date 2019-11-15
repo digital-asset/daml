@@ -103,6 +103,9 @@ object LfEngineToApi {
             case (left, _) => left
           }
           .map(list => ApiValue(ApiValue.Sum.Map(ApiMap(list))))
+      case Lf.ValueGenMap(_) =>
+        // FIXME https://github.com/digital-asset/daml/issues/2256
+        Left("GenMap are not not supported.")
       case Lf.ValueTuple(_) => Left("tuples not allowed")
       case Lf.ValueList(vs) =>
         vs.toImmArray.toSeq.traverseEitherStrictly(lfValueToApiValue(verbose, _)) map { xs =>

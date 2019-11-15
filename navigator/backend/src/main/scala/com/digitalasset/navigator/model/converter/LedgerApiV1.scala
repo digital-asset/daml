@@ -406,6 +406,9 @@ case object LedgerApiV1 {
       case _: V.ValueCidlessLeaf | _: V.ValueContractId[_] => Right(value)
       case v: Model.ApiOptional => fillInOptionalTI(v, typ, ctx)
       case v: Model.ApiMap => fillInMapTI(v, typ, ctx)
+      case _: Model.ApiGenMap =>
+        // FIXME https://github.com/digital-asset/daml/issues/2256
+        Left(GenericConversionError("GenMap are not supported"))
       case v: Model.ApiList => fillInListTI(v, typ, ctx)
       case v: Model.ApiRecord => fillInRecordTI(v, typ, ctx)
       case v: Model.ApiVariant => fillInVariantTI(v, typ, ctx)

@@ -100,9 +100,12 @@ object KeyHasher extends KeyHasher {
           foldLeft(v._2, zz1, op)
         })
         op(z2, HashTokenCollectionEnd())
+      case ValueGenMap(_) =>
+        // FIXME https://github.com/digital-asset/daml/issues/2256
+        sys.error("Hashing of GenMap values is not not supported.")
 
       // Tuple: should never be encountered
-      case ValueTuple(xs) =>
+      case ValueTuple(_) =>
         sys.error("Hashing of tuple values is not supported")
     }
   }
