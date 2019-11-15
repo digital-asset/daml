@@ -12,6 +12,7 @@ load(
 load(
     "//bazel_tools:scala.bzl",
     "da_scala_library",
+    "da_scala_library_suite",
 )
 load(
     "//language-support/scala/codegen:codegen.bzl",
@@ -80,42 +81,32 @@ da_scala_library(
     ],
 )
 
-tests = [(
-    path.replace("/", "_").replace(".", "_"),
-    path,
-) for path in glob([
-    "src/main/scala/com/daml/ledger/api/testtool/tests/**/*.scala",
-])]
-
-[
-    da_scala_library(
-        name = name,
-        srcs = [path],
-        deps = [
-            ":PackageManagementTest.scala",
-            ":ledger-api-test-tool-lib",
-            "//daml-lf/archive:daml_lf_archive_reader",
-            "//daml-lf/archive:daml_lf_dev_archive_java_proto",
-            "//daml-lf/data",
-            "//daml-lf/engine",
-            "//daml-lf/interpreter",
-            "//daml-lf/language",
-            "//daml-lf/transaction",
-            "//language-support/scala/bindings",
-            "//ledger/ledger-api-common",
-            "//ledger/ledger-api-domain",
-            "//ledger/ledger-api-grpc-utils",
-            "//ledger/test-common",
-            "//ledger/test-common:SemanticTests.scala",
-            "//ledger/test-common:Test-dev.scala",
-            "//ledger/test-common:Test-stable.scala",
-            "@maven//:ai_x_diff_2_12",
-            "@maven//:com_chuusai_shapeless_2_12",
-            "@maven//:org_cvogt_scala_extensions_2_12",
-        ],
-    )
-    for name, path in tests
-]
+da_scala_library_suite(
+    name = "ledger-api-test-tool-tests",
+    srcs = glob(["src/main/scala/com/daml/ledger/api/testtool/tests/**/*.scala"]),
+    deps = [
+        ":PackageManagementTest.scala",
+        ":ledger-api-test-tool-lib",
+        "//daml-lf/archive:daml_lf_archive_reader",
+        "//daml-lf/archive:daml_lf_dev_archive_java_proto",
+        "//daml-lf/data",
+        "//daml-lf/engine",
+        "//daml-lf/interpreter",
+        "//daml-lf/language",
+        "//daml-lf/transaction",
+        "//language-support/scala/bindings",
+        "//ledger/ledger-api-common",
+        "//ledger/ledger-api-domain",
+        "//ledger/ledger-api-grpc-utils",
+        "//ledger/test-common",
+        "//ledger/test-common:SemanticTests.scala",
+        "//ledger/test-common:Test-dev.scala",
+        "//ledger/test-common:Test-stable.scala",
+        "@maven//:ai_x_diff_2_12",
+        "@maven//:com_chuusai_shapeless_2_12",
+        "@maven//:org_cvogt_scala_extensions_2_12",
+    ],
+)
 
 da_scala_binary(
     name = "ledger-api-test-tool",
@@ -135,8 +126,9 @@ da_scala_binary(
         "fat_jar",
     ],
     visibility = ["//visibility:public"],
-    deps = [name for name, _ in tests] + [
+    deps = [
         ":ledger-api-test-tool-lib",
+        ":ledger-api-test-tool-tests",
         "//ledger/ledger-api-common",
         "@maven//:ch_qos_logback_logback_classic",
         "@maven//:com_github_scopt_scopt_2_12",
