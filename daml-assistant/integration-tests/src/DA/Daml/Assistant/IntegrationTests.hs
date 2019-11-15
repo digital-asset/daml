@@ -2,17 +2,14 @@
 -- SPDX-License-Identifier: Apache-2.0
 module DA.Daml.Assistant.IntegrationTests (main) where
 
-import qualified "zip-archive" Codec.Archive.Zip as Zip
 import Conduit hiding (connect)
 import qualified Data.Conduit.Zlib as Zlib
-import Data.Conduit.Tar.Extra (dropDirectory1)
 import qualified Data.Conduit.Tar.Extra as Tar.Conduit.Extra
 import Control.Concurrent
 import Control.Concurrent.Async
 import Control.Exception
 import Control.Monad
 import Control.Monad.Fail (MonadFail)
-import qualified Data.ByteString.Lazy as BSL
 import Data.List.Extra
 import qualified Data.Text as T
 import Data.Typeable
@@ -86,16 +83,6 @@ tests damlDir tmpDir = testGroup "Integration tests"
 
 throwError :: MonadFail m => T.Text -> T.Text -> m ()
 throwError msg e = fail (T.unpack $ msg <> " " <> e)
-
--- | Check that the given file exists in the dar in the given directory.
---
--- This function automatically strips away the root directory e.g.
--- foobar-0.0.1-b2d63d90f3cb73434ae005ee1c9762166bb84563ac9d108a606c8384803f09f2
--- so to check that foobar-0.0.1-b2d63d90f3cb73434ae005ee1c9762166bb84563ac9d108a606c8384803f09f2/A/B.daml
--- exists use checkDarFile darFiles "A" "B.daml"
-checkDarFile :: [FilePath] -> FilePath -> FilePath -> IO ()
-checkDarFile darFiles dir file = assertBool (dir </> file <> " not in " <> show darFiles) $
-              any (\f -> normalise (dropDirectory1 f) == normalise (dir </> file)) darFiles
 
 -- | These tests check that it is possible to invoke (a subset) of damlc
 -- commands outside of the assistant.
