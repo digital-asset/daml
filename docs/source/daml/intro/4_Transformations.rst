@@ -37,7 +37,7 @@ Let's unpack the code snippet above:
 
 There is nothing here explicitly saying that the current ``Contact`` should be archived. That's because choices are *consuming* by default. That means when the above choice is exercised on a contract, that contract is archived.
 
-If you paid a lot of attention in :doc:`3_Data`, you may have noticed that the ``create`` statement returns an ``Update (ContractId Contact)``, not a ``ContractId Contact``. As a ``do`` block always returns the value of the last statement within it, the whole ``do`` block returns an ``Update``, but the return type on the choice is just a ``ContractId Contact``. This is a conveneience. Choices *always* return an ``Update`` so for readability it's omitted on the type declaration of a choice.
+If you paid a lot of attention in :doc:`3_Data`, you may have noticed that the ``create`` statement returns an ``Update (ContractId Contact)``, not a ``ContractId Contact``. As a ``do`` block always returns the value of the last statement within it, the whole ``do`` block returns an ``Update``, but the return type on the choice is just a ``ContractId Contact``. This is a convenience. Choices *always* return an ``Update`` so for readability it's omitted on the type declaration of a choice.
 
 Now to exercise the new choice in a scenario:
 
@@ -145,7 +145,7 @@ The consequences of exercise nodes turn each transaction into an ordered tree of
 
 There are four commits corresponding to the four ``submit`` statements in the scenario. Within each commit, we see that it's actually actions that have IDs of the form ``#commit_number:action_number``. Contract IDs are just the ID of their ``create`` action.
 
-So commits ``#2`` and ``#4`` contain ``exercise`` actions with ids ``#2:0`` and ``#4:0``. The ``create`` actions of the updated, ``Contact`` contracts,  ``#2:1`` and ``#4:1``, are indented and found below a line reading ``children:``, making the tree structure apparent.
+So commits ``#2`` and ``#4`` contain ``exercise`` actions with IDs ``#2:0`` and ``#4:0``. The ``create`` actions of the updated, ``Contact`` contracts,  ``#2:1`` and ``#4:1``, are indented and found below a line reading ``children:``, making the tree structure apparent.
 
 The Archive choice
 ~~~~~~~~~~~~~~~~~~
