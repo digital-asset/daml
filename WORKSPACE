@@ -54,6 +54,11 @@ ghc_dwarf(name = "ghc_dwarf")
 
 load("@ghc_dwarf//:ghc_dwarf.bzl", "enable_ghc_dwarf")
 
+# Configure msys2 POSIX toolchain provided by dadew.
+load("//bazel_tools/dev_env_tool:dev_env_tool.bzl", "dadew_sh_posix_configure")
+
+dadew_sh_posix_configure() if is_windows else None
+
 nixpkgs_local_repository(
     name = "nixpkgs",
     nix_file = "//nix:nixpkgs.nix",
@@ -666,10 +671,6 @@ hazel_repositories(
                 "eb2c732b3d4ab5f7b367c51eef845e597ade19da52c03ee11954d35b6cfc4128",
                 patch_args = ["-p1"],
                 patches = ["@com_github_digital_asset_daml//3rdparty/haskell:bzlib-conduit.patch"],
-            ) + hazel_hackage(
-                "hpp",
-                "0.6.1",
-                "d1a843f4383223f85de4d91759545966f33a139d0019ab30a2f766bf9a7d62bf",
             ),
         pkgs = packages,
     ),
@@ -730,6 +731,46 @@ hazel_custom_package_github(
     github_repo = "ghcide",
     github_user = "digital-asset",
     repo_sha = GHCIDE_REV,
+)
+
+http_archive(
+    name = "hpp",
+    build_file_content = """
+load("@rules_haskell//haskell:cabal.bzl", "haskell_cabal_binary")
+haskell_cabal_binary(
+    name = "hpp",
+    srcs = glob(["**"]),
+    deps = [
+        "@stackage//:base",
+        "@stackage//:directory",
+        "@stackage//:filepath",
+        "@stackage//:hpp",
+        "@stackage//:time",
+    ],
+    visibility = ["//visibility:public"],
+)
+    """,
+    sha256 = "d1a843f4383223f85de4d91759545966f33a139d0019ab30a2f766bf9a7d62bf",
+    strip_prefix = "hpp-0.6.1",
+    urls = ["http://hackage.haskell.org/package/hpp-0.6.1/hpp-0.6.1.tar.gz"],
+)
+
+load("@rules_haskell//haskell:cabal.bzl", "stack_snapshot")
+
+stack_snapshot(
+    name = "stackage",
+    flags = {
+        "hashable": ["-integer-gmp"],
+        "text": ["integer-simple"],
+    } if not is_windows else {},
+    local_snapshot = "//:stack-snapshot.yaml",
+    packages = [
+        "base",
+        "directory",
+        "filepath",
+        "hpp",
+        "time",
+    ],
 )
 
 load("//bazel_tools:java.bzl", "java_home_runtime")
