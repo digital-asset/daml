@@ -212,7 +212,17 @@ class Runner(
             // This happens for invalid UUIDs which we might get for completions not emitted by the trigger.
             case e: IllegalArgumentException => List()
           }
-        case msg @ TransactionMsg(_) => List(msg)
+        case msg @ TransactionMsg(t) =>
+          try {
+            commandIdMap.get(UUID.fromString(t.commandId)) match {
+              case None => List(msg)
+              case Some(internalCommandId) =>
+                List(TransactionMsg(t.copy(commandId = internalCommandId)))
+            }
+          } catch {
+            // This happens for invalid UUIDs which we might get for transactions not emitted by the trigger.
+            case e: IllegalArgumentException => List(msg)
+          }
       })
       .toMat(Sink.fold[SExpr, TriggerMsg](SEValue(evaluatedInitialState))((state, message) => {
         val messageVal = message match {
