@@ -557,19 +557,21 @@ stressTests run _runScenarios = testGroup "Stress tests"
         -- Each FooN has a definition fooN that depends on fooN+1, except Foo100.
         -- But the type of foo0 doesn't match the type of foo100. So we expect a type error.
         -- Then we modify the type of foo0 to clear the type error.
-        foo0 <- makeModule "Foo0"
-            [ "import Foo1"
-            , "foo0 : Int"
-            , "foo0 = foo1"
+        -- To avoid race conditions we send the modules in order 100, 99, … 0 to the
+        -- server to make sure that all previous modules are already known.
+        foo100 <- makeModule "Foo100"
+            [ "foo100 : Bool"
+            , "foo100 = False"
             ]
-        foos <- forM [1 .. 99 :: Int] $ \i ->
+        foos <- forM [99, 98 .. 1 :: Int] $ \i ->
             makeModule ("Foo" ++ show i)
                 [ "import Foo" <> T.pack (show (i+1))
                 , "foo" <> T.pack (show i) <> " = foo" <> T.pack (show (i+1))
                 ]
-        foo100 <- makeModule "Foo100"
-            [ "foo100 : Bool"
-            , "foo100 = False"
+        foo0 <- makeModule "Foo0"
+            [ "import Foo1"
+            , "foo0 : Int"
+            , "foo0 = foo1"
             ]
         withTimeout 90 $ do
             expectDiagnostics [("Foo0.daml", [(DsError, (4, 7), "Couldn't match expected type")])]
@@ -579,7 +581,7 @@ stressTests run _runScenarios = testGroup "Stress tests"
                 , "foo0 = foo1"
                 ]
             expectDiagnostics [("Foo0.daml", [])]
-        mapM_ closeDoc $ foo0:foo100:foos
+        mapM_ closeDoc $ (foo0 : foos) ++ [foo100]
   ]
   where
     moduleContent :: String -> [T.Text] -> T.Text
