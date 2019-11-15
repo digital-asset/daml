@@ -15,6 +15,7 @@ case class RunnerConfig(
     ledgerPort: Int,
     timeProviderType: TimeProviderType,
     commandTtl: Duration,
+    inputFile: Option[File],
 )
 
 object RunnerConfig {
@@ -52,6 +53,12 @@ object RunnerConfig {
         c.copy(commandTtl = Duration.ofSeconds(t))
       }
       .text("TTL in seconds used for commands emitted by the trigger. Defaults to 30s.")
+
+    opt[File]("input-file")
+      .action { (t, c) =>
+        c.copy(inputFile = Some(t))
+      }
+      .text("Path to a file containing the input value for the script in JSON format.")
   }
   def parse(args: Array[String]): Option[RunnerConfig] =
     parser.parse(
@@ -63,6 +70,7 @@ object RunnerConfig {
         ledgerPort = 0,
         timeProviderType = TimeProviderType.Static,
         commandTtl = Duration.ofSeconds(30L),
+        inputFile = None,
       )
     )
 }

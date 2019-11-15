@@ -15,6 +15,7 @@ da_scala_library(
     tags = ["maven_coordinates=com.digitalasset:daml-lf-interface:__VERSION__"],
     visibility = [
         "//daml-lf:__subpackages__",
+        "//daml-script:__subpackages__",
         "//extractor:__subpackages__",
         "//language-support:__subpackages__",
         "//ledger-service:__subpackages__",

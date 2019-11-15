@@ -13,6 +13,7 @@ import scala.concurrent.duration.Duration
 import scala.util.{Success, Failure}
 import scalaz.syntax.tag._
 import scalaz.syntax.traverse._
+import spray.json._
 
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.archive.Dar
@@ -84,6 +85,7 @@ class TestRunner(val config: Config) extends StrictLogging {
       dar: Dar[(PackageId, Package)],
       // Identifier of the script value
       scriptId: Identifier,
+      inputValue: Option[JsValue],
       assertResult: SValue => Either[String, Unit]) = {
 
     println(s"---\n$name:")
@@ -100,7 +102,7 @@ class TestRunner(val config: Config) extends StrictLogging {
 
     val testFlow: Future[Unit] = for {
       client <- clientF
-      result <- runner.run(client, scriptId)
+      result <- runner.run(client, scriptId, inputValue)
       _ <- assertResult(result) match {
         case Left(err) =>
           Future.failed(new RuntimeException(s"Assertion on script result failed: $err"))
@@ -128,6 +130,7 @@ case class Test0(dar: Dar[(PackageId, Package)], runner: TestRunner) {
       "test0",
       dar,
       scriptId,
+      None,
       result =>
         result match {
           case SRecord(_, _, vals) if vals.size == 5 => {
@@ -194,11 +197,29 @@ case class Test1(dar: Dar[(PackageId, Package)], runner: TestRunner) {
       "test1",
       dar,
       scriptId,
+      None,
       result =>
         result match {
           case SNumeric(n) =>
             TestRunner.assertEqual(n, Numeric.assertFromString("2.12000000000"), "Numeric")
           case v => Left(s"Expected SNumeric but got $v")
+      }
+    )
+  }
+}
+
+case class Test2(dar: Dar[(PackageId, Package)], runner: TestRunner) {
+  val scriptId = Identifier(dar.main._1, QualifiedName.assertFromString("ScriptTest:test2"))
+  def runTests() = {
+    runner.genericTest(
+      "test2",
+      dar,
+      scriptId,
+      Some(JsObject(("p", JsString("Alice")), ("v", JsNumber(42)))),
+      result =>
+        result match {
+          case SInt64(i) => TestRunner.assertEqual(i, 42, "Numeric")
+          case v => Left(s"Expected SInt but got $v")
       }
     )
   }
@@ -240,6 +261,7 @@ object TestMain {
         val runner = new TestRunner(config)
         Test0(dar, runner).runTests()
         Test1(dar, runner).runTests()
+        Test2(dar, runner).runTests()
     }
   }
 }
