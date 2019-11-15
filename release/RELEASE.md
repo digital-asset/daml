@@ -87,6 +87,7 @@
    for all releases since the last public release, convert them to
    markdown and insert them in the textbox, then uncheck the `This is
    a pre-release` checkbox at the bottom.
+1. On the release PR, add the `Standard-Change` label.
 1. Leave a comment like "All manual tests have passed" on the release PR on
    GitHub.
 1. Finally, announce the release in the relevant Slack channels.
