@@ -39,8 +39,8 @@ object LedgerApiTestTool {
 
   private def printAvailableTests(): Unit = {
     println("Tests marked with * are run by default.\n")
-    tests.default.keySet.toSeq.sorted.map(_ + " *").foreach(println(_))
-    tests.optional.keySet.toSeq.sorted.foreach(println(_))
+    Tests.default.keySet.toSeq.sorted.map(_ + " *").foreach(println(_))
+    Tests.optional.keySet.toSeq.sorted.foreach(println(_))
   }
 
   private def extractResources(resources: String*): Unit = {
@@ -73,7 +73,7 @@ object LedgerApiTestTool {
       sys.exit(0)
     }
 
-    val missingTests = (config.included ++ config.excluded).filterNot(tests.all.contains)
+    val missingTests = (config.included ++ config.excluded).filterNot(Tests.all.contains)
     if (missingTests.nonEmpty) {
       println("The following tests could not be found:")
       missingTests.foreach { testName =>
@@ -83,11 +83,11 @@ object LedgerApiTestTool {
     }
 
     val included =
-      if (config.allTests) tests.all.keySet
-      else if (config.included.isEmpty) tests.default.keySet
+      if (config.allTests) Tests.all.keySet
+      else if (config.included.isEmpty) Tests.default.keySet
       else config.included
 
-    val testsToRun = tests.all.filterKeys(included -- config.excluded)
+    val testsToRun = Tests.all.filterKeys(included -- config.excluded)
 
     if (testsToRun.isEmpty) {
       println("No tests to run.")

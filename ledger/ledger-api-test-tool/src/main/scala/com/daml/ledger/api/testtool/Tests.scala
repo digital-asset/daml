@@ -4,8 +4,9 @@
 package com.daml.ledger.api.testtool
 
 import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTestSuite}
+import com.daml.ledger.api.testtool.tests._
 
-package object tests {
+object Tests {
   type Tests = Map[String, LedgerSession => LedgerTestSuite]
 
   val default: Tests = Map(
