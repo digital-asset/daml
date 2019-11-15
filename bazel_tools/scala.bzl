@@ -5,6 +5,7 @@ load(
     "@io_bazel_rules_scala//scala:scala.bzl",
     "scala_binary",
     "scala_library",
+    "scala_library_suite",
     "scala_macro_library",
     "scala_test",
     "scala_test_suite",
@@ -397,9 +398,9 @@ def da_scala_library(name, **kwargs):
 
     Applies common Scala options defined in `bazel_tools/scala.bzl`.
     And forwards to `scala_library` from `rules_scala`.
-    Refer to the [`rules_scala` documentation][rules_scala_docs].
+    Refer to the [`rules_scala` documentation][rules_scala_library_docs].
 
-    [rules_scala_docs]: https://github.com/bazelbuild/rules_scala#scala_library
+    [rules_scala_library_docs]: https://github.com/bazelbuild/rules_scala/blob/master/docs/scala_library.md
     """
     _wrap_rule(scala_library, name, **kwargs)
     _create_scala_source_jar(name = name, **kwargs)
@@ -412,6 +413,26 @@ def da_scala_library(name, **kwargs):
                     name = name + "_pom",
                     target = ":" + name,
                 )
+                break
+
+def da_scala_library_suite(name, **kwargs):
+    """
+    Define a suite of Scala libraries as a single target.
+
+    Applies common Scala options defined in `bazel_tools/scala.bzl`.
+    And forwards to `scala_library_suite` from `rules_scala`.
+    Refer to the [`rules_scala` documentation][rules_scala_library_suite_docs].
+
+    [rules_scala_library_suite_docs]: https://github.com/bazelbuild/rules_scala/blob/master/docs/scala_library_suite.md
+    """
+    _wrap_rule(scala_library_suite, name, **kwargs)
+    _create_scala_source_jar(name = name, **kwargs)
+    _create_scaladoc_jar(name = name, **kwargs)
+
+    if "tags" in kwargs:
+        for tag in kwargs["tags"]:
+            if tag.startswith("maven_coordinates="):
+                fail("Usage of maven_coordinates in da_scala_library_suite is NOT supported", "tags")
                 break
 
 def da_scala_macro_library(**kwargs):
