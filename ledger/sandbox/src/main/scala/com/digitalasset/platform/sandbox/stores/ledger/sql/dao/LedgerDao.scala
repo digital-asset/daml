@@ -8,7 +8,7 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.index.v2.PackageDetails
-import com.daml.ledger.participant.state.v1.{AbsoluteContractInst, TransactionId}
+import com.daml.ledger.participant.state.v1.{AbsoluteContractInst, ParticipantId, TransactionId}
 import com.digitalasset.daml.lf.data.Ref.{LedgerString, PackageId, Party}
 import com.digitalasset.daml.lf.data.Relation.Relation
 import com.digitalasset.daml.lf.transaction.Node
@@ -20,7 +20,7 @@ import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails}
 import com.digitalasset.platform.common.util.DirectExecutionContext
 import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilter
 import com.digitalasset.platform.sandbox.stores.ActiveLedgerState.{ActiveContract, Contract}
-import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry
+import com.digitalasset.platform.sandbox.stores.ledger.{LedgerEntry, PackageUploadEntry}
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry.Transaction
 
 import scala.collection.immutable
@@ -214,17 +214,31 @@ trait LedgerWriteDao extends AutoCloseable {
       uploadId: String,
       packages: List[(Archive, PackageDetails)],
       externalOffset: Option[ExternalOffset]
-//      ,
-//      participantId: ParticipantId,
-//      submissionId: String,
-//      reason: String
   ): Future[Map[PersistenceResponse, Int]]
 
-//  def storePackageRejection(
-//      participantId: ParticipantId,
-//      submissionId: String,
-//      reason: String
-//  ): Future[PersistenceResponse]
+  /**
+    * Store a package upload entry confirmation or rejection
+    * @param participantId
+    * @param submissionId
+    * @param reason
+    * @return
+    */
+  def storePackageUploadEntry(
+      participantId: ParticipantId,
+      submissionId: String,
+      reason: Option[String]
+  ): Future[PersistenceResponse]
+
+  /**
+    * Returns a stream of package upload entries
+    *
+    * @param startInclusive starting offset inclusive
+    * @param endExclusive   ending offset exclusive
+    * @return a stream of ledger entries tupled with their offset
+    */
+  def getPackageUploadEntries(
+      startInclusive: LedgerOffset,
+      endExclusive: LedgerOffset): Source[(Long, PackageUploadEntry), NotUsed]
 
   /** Resets the platform into a state as it was never used before. Meant to be used solely for testing. */
   def reset(): Future[Unit]

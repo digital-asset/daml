@@ -261,7 +261,7 @@ class JdbcIndexer private[index] (
       case PartyAddedToParticipant(party, displayName, _, _, _) =>
         ledgerDao.storeParty(party, Some(displayName), externalOffset).map(_ => ())(DEC)
 
-      case PublicPackageUploaded(archive, sourceDescription, _, _, _) =>
+      case PublicPackageUploaded(archive, sourceDescription, participantId, _, submissionId) =>
         val uploadId = UUID.randomUUID().toString
         val uploadInstant = Instant.now() // TODO: use PublicPackageUploaded.recordTime for multi-ledgers (#2635)
         val packages: List[(DamlLf.Archive, v2.PackageDetails)] = List(
@@ -272,19 +272,14 @@ class JdbcIndexer private[index] (
           )
         )
         ledgerDao.uploadLfPackages(uploadId, packages, externalOffset).map(_ => ())(DEC)
+        //TODO BH: probably want to do this as atomic commit
+
+      case PackageUploadEntryAccepted(participantId, submissionId) =>
+        ledgerDao.storePackageUploadEntry(participantId, submissionId, None).map(_ => ())(DEC)
 
         //TODO BH: consider generalization of persistence storage JM has done on configuration branch
-      case PublicPackageRejected(archive, sourceDescription, participantId, submissionId, reason) =>
-        val uploadId = UUID.randomUUID().toString
-        val uploadInstant = Instant.now() // TODO: use PublicPackageUploaded.recordTime for multi-ledgers (#2635)
-        val packages: List[(DamlLf.Archive, v2.PackageDetails)] = List(
-          archive -> v2.PackageDetails(
-            size = archive.getPayload.size.toLong,
-            knownSince = uploadInstant,
-            sourceDescription = sourceDescription
-          )
-        )
-        ledgerDao.uploadLfPackages(uploadId, packages, externalOffset).map(_ => ())(DEC)
+      case PackageUploadEntryRejected(participantId, submissionId, reason) =>
+        ledgerDao.storePackageUploadEntry(participantId, submissionId, Some(reason)).map(_ => ())(DEC)
 
       case TransactionAccepted(
           optSubmitterInfo,

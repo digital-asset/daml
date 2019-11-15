@@ -114,9 +114,51 @@ object Update {
       s"""Public package uploaded: ${archive.getHash}"""
   }
 
-  final case class PublicPackageRejected(
-      archive: DamlLf.Archive,
-      sourceDescription: Option[String],
+  /** Signal that the package upload entry has been Accepted.
+    *
+    * Initially this will be visible to all participants in the current open world,
+    * with a possible need to revisit as part of the per-party package visibility work
+    * https://github.com/digital-asset/daml/issues/311.
+    *
+    * @param participantId
+    *   The participant through which the package was uploaded. This field
+    *   is informative, and can be used by applications to display information
+    *   about the origin of the package.
+    *
+    * @param submissionId
+    *   submissionId of the package upload command.
+    *
+    * Consider whether an enumerated set of reject reasons a la [[RejectionReason]] would be helpful, and whether the same breadth of reject
+    * types needs to be handled for package upload entry rejects
+    */
+  final case class PackageUploadEntryAccepted(participantId: ParticipantId, submissionId: String)
+      extends Update {
+    override def description: String = {
+      s"Accepted package ${submissionId} for participant ${participantId}"
+    }
+  }
+
+  /** Signal that the package upload entry has been Rejected.
+    *
+    * Initially this will be visible to all participants in the current open world,
+    * with a possible need to revisit as part of the per-party package visibility work
+    * https://github.com/digital-asset/daml/issues/311.
+    *
+    * @param participantId
+    *   The participant through which the package was uploaded. This field
+    *   is informative, and can be used by applications to display information
+    *   about the origin of the package.
+    *
+    * @param submissionId
+    *   submissionId of the package upload command.
+    *
+    * @param reason
+    *   reason for rejection of the package upload
+    *
+    * Consider whether an enumerated set of reject reasons a la [[RejectionReason]] would be helpful, and whether the same breadth of reject
+    * types needs to be handled for package upload entry rejects
+    */
+  final case class PackageUploadEntryRejected(
       participantId: ParticipantId,
       submissionId: String,
       reason: String)

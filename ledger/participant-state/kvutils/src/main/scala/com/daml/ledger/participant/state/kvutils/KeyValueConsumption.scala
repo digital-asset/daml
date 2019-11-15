@@ -62,13 +62,9 @@ object KeyValueConsumption {
         val rejection = entry.getPackageUploadRejectionEntry
         val proposedPackageUpload = rejection.getInvalidPackage
         entry.getPackageUploadEntry.getArchivesList.asScala.map { archive =>
-          Update.PublicPackageRejected(
-            archive,
-            if (entry.getPackageUploadEntry.getSourceDescription.nonEmpty)
-              Some(entry.getPackageUploadEntry.getSourceDescription)
-            else None,
-            Ref.LedgerString.assertFromString(entry.getPackageUploadEntry.getParticipantId),
-            Ref.LedgerString.assertFromString(entry.getPackageUploadEntry.getSubmissionId),
+          Update.PackageUploadEntryRejected(
+            Ref.LedgerString.assertFromString(rejection.getParticipantId),
+            Ref.LedgerString.assertFromString(rejection.getSubmissionId),
             reason = rejection.getReasonCase match {
               case DamlPackageUploadRejectionEntry.ReasonCase.INVALID_PACKAGE =>
                 s"Package ${proposedPackageUpload.getDetails} rejected as invalid"
