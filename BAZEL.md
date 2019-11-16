@@ -378,7 +378,7 @@ detailed information.
     ```
     bazel test //ledger-client/ods:tests_test_suite_src_test_scala_com_digitalasset_ods_slick_SqlUtilsTest.scala --test_arg=-z --test_arg="should return true"
     ```
-    For scala tests you can pass through any of the orgs outlined in scalatest document, separating into two instances of the --test-arg parameter http://www.scalatest.org/user_guide/using_the_runner
+    More broadly, for scala tests you can pass through any of the args outlined in scalatest document, separating into two instances of the --test-arg parameter as shown in the two examples above.  See http://www.scalatest.org/user_guide/using_the_runner for a full list of args you can pass through.
 
 ### Running Executables
 
