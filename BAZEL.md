@@ -370,7 +370,7 @@ detailed information.
 - Execute a test with a specific name
 
     ```
-    bazel test//ledger/sandbox:sandbox-scala-tests_test_suite_src_test_suite_scala_com_digitalasset_platform_sandbox_stores_ledger_sql_JdbcLedgerDaoSpec.scala --test_arg=-t "JDBC Ledger DAO should be able to persist and load contracts without external offset"
+    bazel test//ledger/sandbox:sandbox-scala-tests_test_suite_src_test_suite_scala_com_digitalasset_platform_sandbox_stores_ledger_sql_JdbcLedgerDaoSpec.scala --test_arg=-t --test_arg="JDBC Ledger DAO should be able to persist and load contracts without external offset"
     ```    
 
 - Pass an argument to a test case in a Scala test-suite
