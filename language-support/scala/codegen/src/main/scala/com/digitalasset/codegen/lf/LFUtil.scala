@@ -106,7 +106,7 @@ final case class LFUtil(
       case TypePrim(PT.Map, ImmArraySeq(typ)) =>
         val optType = genTypeToScalaType(typ)
         q"$primitiveObject.Map[$optType]"
-      case TypePrim(PT.GenMap, ImmArraySeq(_)) =>
+      case TypePrim(PT.GenMap, ImmArraySeq(_, _)) =>
         throw UnsupportedDamlTypeException("GenMap not supported")
       case TypePrim(refType, ImmArraySeq()) => refTypeToIdent(refType)
       case TypeCon(name, ImmArraySeq()) => refTypeToIdent(name)
