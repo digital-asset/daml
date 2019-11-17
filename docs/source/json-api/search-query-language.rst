@@ -57,7 +57,7 @@ operators: ``{ <op>: value }`` where ``<op>`` can be:
 - ``"%gte"`` for greater than or equal to
 
 ``"%lt"`` and ``"%lte"`` may not be used at the same time, and likewise
-with ``"%lt"`` and ``"%lte"``, but all other combinations are allowed.
+with ``"%gt"`` and ``"%gte"``, but all other combinations are allowed.
 
 Example:  ``{ "person" { "dob": { "%lt": "2000-01-01", "%gte": "1980-01-01" } } }``
 
