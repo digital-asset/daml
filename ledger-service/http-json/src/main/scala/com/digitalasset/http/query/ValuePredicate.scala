@@ -220,6 +220,9 @@ object ValuePredicate {
             val elemTy = soleTypeArg("Map")
             MapMatch(SortedLookupList(q) mapValue (fromValue(_, elemTy)))
         }
+        case GenMap =>
+          // FIXME https://github.com/digital-asset/daml/issues/2256
+          predicateParseError("GenMap not supported")
       }(fallback = illTypedQuery(it, typ))
     }
 

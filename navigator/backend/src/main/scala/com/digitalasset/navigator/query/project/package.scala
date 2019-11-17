@@ -95,6 +95,9 @@ object project {
         case DamlLfTypePrim(DamlLfPrimType.ContractId, _) => Right(StringValue("contractid"))
         case DamlLfTypePrim(DamlLfPrimType.Optional, _) => Right(StringValue("optional"))
         case DamlLfTypePrim(DamlLfPrimType.Map, _) => Right(StringValue("map"))
+        case DamlLfTypePrim(DamlLfPrimType.GenMap, _) =>
+          // FIXME https://github.com/digital-asset/daml/issues/2256
+          sys.error("GenMap not supported")
       }
 
     loop(rootParam, cursor.prev.get, ps)

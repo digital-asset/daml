@@ -9,13 +9,7 @@ import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
 import parent.dependencygraph.DependencyGraph
 import parent.exception.UnsupportedDamlTypeException
 import com.digitalasset.daml.lf.iface
-import iface.{
-  PrimType => PT,
-  PrimTypeMap => PTMap,
-  PrimTypeOptional => PTOptional,
-  Type => IType,
-  _
-}
+import iface.{PrimType => PT, Type => IType, _}
 import com.digitalasset.daml.lf.iface.reader.InterfaceType
 import java.io.File
 
@@ -91,8 +85,7 @@ final case class LFUtil(
         case PT.Date => q"$primitiveObject.Date"
         case PT.Timestamp => q"$primitiveObject.Timestamp"
         case PT.Unit => q"$primitiveObject.Unit"
-        // TODO add PT.Optional alias to iface, use here
-        case PT.List | PT.ContractId | PTOptional | PTMap =>
+        case PT.List | PT.ContractId | PT.Optional | PT.Map | PT.GenMap =>
           throw UnsupportedDamlTypeException(
             s"type $refType should not occur in a Data-kinded position; this is an invalid input LF")
         case TypeConName(tyCon) =>
@@ -107,12 +100,14 @@ final case class LFUtil(
       case TypePrim(PT.ContractId, ImmArraySeq(typ)) =>
         val templateType = genTypeToScalaType(typ)
         q"$primitiveObject.ContractId[$templateType]"
-      case TypePrim(PTOptional, ImmArraySeq(typ)) =>
+      case TypePrim(PT.Optional, ImmArraySeq(typ)) =>
         val optType = genTypeToScalaType(typ)
         q"$primitiveObject.Optional[$optType]"
-      case TypePrim(PTMap, ImmArraySeq(typ)) =>
+      case TypePrim(PT.Map, ImmArraySeq(typ)) =>
         val optType = genTypeToScalaType(typ)
         q"$primitiveObject.Map[$optType]"
+      case TypePrim(PT.GenMap, ImmArraySeq(_, _)) =>
+        throw UnsupportedDamlTypeException("GenMap not supported")
       case TypePrim(refType, ImmArraySeq()) => refTypeToIdent(refType)
       case TypeCon(name, ImmArraySeq()) => refTypeToIdent(name)
       case TypePrim(refType, typeArgs) =>

@@ -149,6 +149,9 @@ abstract class ApiCodecCompressed[Cid](
             jsValueToApiValue(v, prim.typArgs.head, defs)
           }))
       }
+      case Model.DamlLfPrimType.GenMap =>
+        // FIXME https://github.com/digital-asset/daml/issues/2256
+        deserializationError("GenMap not supported")
     }(fallback = deserializationError(s"Can't read ${value.prettyPrint} as $prim"))
   }
 

@@ -142,6 +142,7 @@ sealed abstract class PrimType extends TypeConNameOrPrimType {
       case Unit => unit
       case Optional => optional
       case Map => map
+      case GenMap => genMap
     }
   }
 }
@@ -158,6 +159,7 @@ object PrimType {
   final val Unit = PrimTypeUnit
   final val Optional = PrimTypeOptional
   final val Map = PrimTypeMap
+  final val GenMap = PrimTypeGenMap
 }
 
 case object PrimTypeBool extends PrimType
@@ -171,6 +173,7 @@ case object PrimTypeList extends PrimType
 case object PrimTypeUnit extends PrimType
 case object PrimTypeOptional extends PrimType
 case object PrimTypeMap extends PrimType
+case object PrimTypeGenMap extends PrimType
 
 trait PrimTypeVisitor[+Z] {
   def bool: Z
@@ -184,4 +187,5 @@ trait PrimTypeVisitor[+Z] {
   def unit: Z
   def optional: Z
   def map: Z
+  def genMap: Z
 }

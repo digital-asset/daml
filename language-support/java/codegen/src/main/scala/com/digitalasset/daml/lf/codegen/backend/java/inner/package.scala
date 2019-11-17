@@ -101,8 +101,11 @@ package object inner {
         ClassName.get(classOf[DamlOptional])
       case TypePrim(PrimTypeMap, _) =>
         ClassName.get(classOf[DamlMap])
-      case TypePrim(PrimTypeUnit, _) => ClassName.get(classOf[javaapi.data.Unit])
-
+      case TypePrim(PrimTypeGenMap, _) =>
+        // FIXME https://github.com/digital-asset/daml/issues/2256
+        sys.error("GenMap not supported")
+      case TypePrim(PrimTypeUnit, _) =>
+        ClassName.get(classOf[javaapi.data.Unit])
       case TypeCon(_, _) | TypeVar(_) =>
         sys.error("Assumption error: toAPITypeName should not be called for type constructors!")
     }
