@@ -109,6 +109,4 @@ runLanguageServer getIdeState = do
 
 
 options :: LSP.Options
-options = def
-    { LSP.codeLensProvider = Just $ CodeLensOptions $ Just False
-    }
+options = def { LSP.executeCommandCommands = Just ["daml/damlVisualize"] }
