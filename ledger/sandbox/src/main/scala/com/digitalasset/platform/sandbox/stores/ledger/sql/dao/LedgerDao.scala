@@ -126,6 +126,17 @@ trait LedgerReadDao extends AutoCloseable {
       endExclusive: LedgerOffset): Source[(LedgerOffset, LedgerEntry), NotUsed]
 
   /**
+    * Returns a stream of package upload entries
+    *
+    * @param startInclusive starting offset inclusive
+    * @param endExclusive   ending offset exclusive
+    * @return a stream of ledger entries tupled with their offset
+    */
+  def getPackageUploadEntries(
+      startInclusive: LedgerOffset,
+      endExclusive: LedgerOffset): Source[(Long, PackageUploadEntry), NotUsed]
+
+  /**
     * Returns a snapshot of the ledger.
     * The snapshot consists of an offset, and a stream of contracts that were active at that offset.
     *
@@ -228,17 +239,6 @@ trait LedgerWriteDao extends AutoCloseable {
       submissionId: String,
       reason: Option[String]
   ): Future[PersistenceResponse]
-
-  /**
-    * Returns a stream of package upload entries
-    *
-    * @param startInclusive starting offset inclusive
-    * @param endExclusive   ending offset exclusive
-    * @return a stream of ledger entries tupled with their offset
-    */
-  def getPackageUploadEntries(
-      startInclusive: LedgerOffset,
-      endExclusive: LedgerOffset): Source[(Long, PackageUploadEntry), NotUsed]
 
   /** Resets the platform into a state as it was never used before. Meant to be used solely for testing. */
   def reset(): Future[Unit]
