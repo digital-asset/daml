@@ -58,11 +58,15 @@ object Main extends StrictLogging {
       if (c.createSchema) {
         logger.info("Creating DB schema...")
         initDbSync(c) match {
-          case Success(()) => logger.info("DB schema created. Terminating process...")
-          case Failure(e) => logger.error("Failed creating DB schema", e)
+          case Success(()) =>
+            logger.info("DB schema created. Terminating process...")
+            discard { asys.terminate() }
+            System.exit(ErrorCodes.Ok)
+          case Failure(e) =>
+            logger.error("Failed creating DB schema", e)
+            discard { asys.terminate() }
+            System.exit(ErrorCodes.StartupError)
         }
-        discard { asys.terminate() }
-        System.exit(ErrorCodes.Ok)
       }
     }
 
