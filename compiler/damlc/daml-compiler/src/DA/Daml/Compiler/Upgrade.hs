@@ -267,10 +267,7 @@ generateTemplateInstance env typeCon typeParams externPkgId =
             }
   where
     moduleNameStr = T.unpack $ LF.moduleNameString $ LF.moduleName $ envMod env
-    moduleName0 =
-        LF.ModuleName $
-        map T.pack $
-        splitOn "." moduleNameStr
+    moduleName0 = LF.moduleName $ envMod env
     templateTy =
         noLoc $
         HsTyVar noExt NotPromoted $
@@ -351,10 +348,7 @@ generateChoiceInstance env externPkgId template choice =
       noLoc $ convType env lfChoiceReturnType
 
     moduleNameStr = T.unpack $ LF.moduleNameString $ LF.moduleName $ envMod env
-    moduleName0 =
-        LF.ModuleName $
-        map T.pack $
-        splitOn "." moduleNameStr
+    moduleName0 = LF.moduleName $ envMod env
 
     lfTemplateType :: LF.Type =
         LF.mkTApps
