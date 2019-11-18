@@ -9,7 +9,7 @@ import org.junit.runners.Suite;
 @RunWith(Suite.class)
 @Suite.SuiteClasses({
         DecimalTestForAll.class,
-        EnumTestFor1_6AndFor1_dev.class,
-        NumericTestFor1_dev.class,
+        EnumTestFor1_6AndFor1_7.class,
+        NumericTestFor1_7.class,
 })
-public class AllTestsFor1_dev{ }
+public class AllTestsFor1_7{ }
