@@ -134,6 +134,34 @@ object ToValueGenerator {
           extractor
         )
 
+      case TypePrim(PrimTypeGenMap, ImmArraySeq(keyType, valueType)) =>
+        val arg = args.next()
+        val keyExtractor = CodeBlock.of(
+          "$L -> $L",
+          arg,
+          generateToValueConverter(keyType, CodeBlock.of("$L.getKey()", arg), args, packagePrefixes)
+        )
+        val valueExtractor = CodeBlock.of(
+          "$L -> $L",
+          arg,
+          generateToValueConverter(
+            valueType,
+            CodeBlock.of("$L.getValue()", arg),
+            args,
+            packagePrefixes)
+        )
+        CodeBlock.of(
+          "new $T($L.entrySet().stream().collect($T.<$T<$L,$L>,Value,Value>toMap($L, $L)))",
+          apiGenMap,
+          accessor,
+          classOf[Collectors],
+          classOf[java.util.Map.Entry[_, _]],
+          toJavaTypeName(keyType, packagePrefixes),
+          toJavaTypeName(valueType, packagePrefixes),
+          keyExtractor,
+          valueExtractor
+        )
+
       case TypePrim(PrimTypeContractId, _) | TypeCon(_, Seq()) =>
         CodeBlock.of("$L.toValue()", accessor)
 

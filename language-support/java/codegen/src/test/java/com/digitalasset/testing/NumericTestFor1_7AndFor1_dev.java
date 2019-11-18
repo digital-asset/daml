@@ -17,7 +17,7 @@ import java.math.BigDecimal;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 @RunWith(JUnitPlatform.class)
-public class NumericTestFor1_7 {
+public class NumericTestFor1_7AndFor1_dev {
 
     @Test
     void numeric2Value2Numeric() {
