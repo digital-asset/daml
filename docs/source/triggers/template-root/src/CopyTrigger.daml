@@ -91,7 +91,7 @@ copyRule party acs commandsInFlight () = do
 -- ARCHIVE_COPIES_END
 
 -- ARCHIVE_COMMAND_BEGIN
-  forA archiveCopies $ \cid -> emitCommands [exerciseCmd @Copy cid Archive]
+  forA archiveCopies $ \cid -> dedupExercise cid Archive
 -- ARCHIVE_COMMAND_END
 
 -- CREATE_COPIES_BEGIN
