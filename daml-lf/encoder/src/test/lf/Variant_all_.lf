@@ -31,7 +31,7 @@ module VariantMod {
   val either3:  VariantMod:Either Int64 (Numeric 10) =
     VariantMod:Either:Right @Int64 @(Numeric 10) -2.2222222222;
 
-  val scenario: Scenario Unit =
+  val createContracts: Scenario Unit =
     sbind
         c1 : ContractId VariantMod:Box <- VariantMod:createContract VariantMod:either1 ;
         c2 : ContractId VariantMod:Box <- VariantMod:createContract VariantMod:either2 ;

@@ -42,7 +42,7 @@ module GenMapMod {
   val map3: GenMap (RecordMod:Pair Int64 (Numeric 10)) (VariantMod:Either Int64 (Numeric 10)) =
     GenMapMod:insert RecordMod:pair3 VariantMod:either3 GenMapMod:map2 ;
 
-  val scenario: Scenario Unit =
+  val createContracts: Scenario Unit =
     sbind
         c0 : ContractId GenMapMod:Box <- GenMapMod:createContract GenMapMod:map0 ;
         c1 : ContractId GenMapMod:Box <- GenMapMod:createContract GenMapMod:map1 ;
