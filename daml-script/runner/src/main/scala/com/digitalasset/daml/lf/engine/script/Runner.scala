@@ -160,7 +160,7 @@ class Runner(
         scriptTy match {
           case TApp(TApp(TBuiltin(BTArrow), param), result) => {
             assertScriptTy(result)
-            val paramIface = Converter.toIfaceType(param) match {
+            val paramIface = Converter.toIfaceType(scriptId.qualifiedName, param) match {
               case Left(s) => throw new ConverterException(s"Failed to convert $result: $s")
               case Right(ty) => ty
             }
