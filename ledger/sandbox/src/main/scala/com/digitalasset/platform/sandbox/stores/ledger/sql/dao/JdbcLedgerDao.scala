@@ -809,7 +809,7 @@ private class JdbcLedgerDao(
       str("rejection_type").? ~
       str("rejection_description").? ~
       long("ledger_offset")
-  ) map flatten map (ParsedEntry.tupled)
+  ) map flatten map ParsedEntry.tupled
 
   private val DisclosureParser = ledgerString("event_id") ~ party("party") map flatten
 
@@ -1362,47 +1362,33 @@ private class JdbcLedgerDao(
       }
     ).flatMapConcat(Source(_))
 
-  /**
-    * Store a package upload entry confirmation or rejection
-    *
-    * @param participantId
-    * @param submissionId
-    * @param reason
-    * @return
-    */
   override def storePackageUploadEntry(
       participantId: ParticipantId,
       submissionId: String,
-      reason: Option[String]): Future[PersistenceResponse] =
-    //TODO BH: implement me
-    Future.successful(PersistenceResponse.Duplicate)
+      reason: Option[String]): Future[PersistenceResponse] = {
 
-  //  override def storePackageUploadEntry(
-  //      participantId: ParticipantId,
-  //      submissionId: String,
-  //      reason: String
-  //  ) = {
-  //    val prereqs = Try {
-  //      require(participantId.nonEmpty, "participantId cannot be empty")
-  //      require(submissionId.nonEmpty, "submissionId cannot be empty")
-  //    }
-  //    prereqs.fold(
-  //      Future.failed,
-  //      _ =>
-  //        dbDispatcher.executeSql("store package rejections") { implicit conn =>
-  //          val sqlupdate = executeBatchSql(
-  //            queries.SQL_INSERT_PACKAGE_REJECTS,
-  //            List(
-  //              Seq[NamedParameter](
-  //                "participant_id" -> participantId,
-  //                "submission_id" -> submissionId,
-  //                "reason" -> reason)))
-  //          //TODO BH: temporary to get compiling
-  //          if (sqlupdate.head > 0) PersistenceResponse.Ok
-  //          else PersistenceResponse.Ok
-  //      }
-  //    )
-  //  }
+      val prereqs = Try {
+        require(participantId.nonEmpty, "participantId cannot be empty")
+        require(submissionId.nonEmpty, "submissionId cannot be empty")
+      }
+      prereqs.fold(
+        Future.failed,
+        _ =>
+          dbDispatcher.executeSql("store package rejections") { implicit conn =>
+          //TODO BH : need to move offset
+            val sqlupdate = executeBatchSql(
+              queries.SQL_INSERT_PACKAGE_UPLOAD_ENTRY,
+              List(
+                Seq[NamedParameter](
+                  "participant_id" -> participantId,
+                  "submission_id" -> submissionId,
+                  "reason" -> reason)))
+            //TODO BH: temporary to get compiling
+            if (sqlupdate.head > 0) PersistenceResponse.Ok
+            else PersistenceResponse.Duplicate
+        }
+      )
+    }
 
   private val SQL_TRUNCATE_ALL_TABLES =
     SQL("""
