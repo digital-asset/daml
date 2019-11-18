@@ -197,7 +197,7 @@ object InterfaceReader {
       case (fieldName, typ) => toIfaceType(ctx, typ).map(x => fieldName -> x)
     }
 
-  def toIfaceType(
+  private[lf] def toIfaceType(
       ctx: QualifiedName,
       a: Ast.Type,
       args: FrontStack[Type] = FrontStack.empty
