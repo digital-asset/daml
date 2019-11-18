@@ -84,7 +84,7 @@ tests damlc = testGroup "Packaging"
             , "  - daml-stdlib"
             , "  - " <> aDar
             , "build-options:"
-            , "- '--package=(\"a-1.0\", [(\"A\", \"C\")])'"
+            , "- '--package=(\"a-1.0\", True, [(\"A\", \"C\")])'"
             ]
             -- the last option checks that module aliases work and modules imported without aliases
             -- are still exposed.
@@ -285,7 +285,7 @@ dataDependencyTests damlc = testGroup "Data Dependencies" $
           , "dependencies: [daml-prim, daml-stdlib]"
           , "data-dependencies: [simple-dalf-0.0.0.dalf]"
           , "build-options:"
-          , "- --generated-src"
+          , "- '--package=(\"daml-stdlib-" <> sdkVersion <> "\", True, [])'"
           ]
         writeFileUTF8 (projDir </> "A.daml") $ unlines
             [ "daml 1.2"
@@ -334,7 +334,7 @@ dataDependencyTests damlc = testGroup "Data Dependencies" $
         withCurrentDirectory projDir $
             callProcessSilent genSimpleDalf $
             ["--with-archive-choice" | withArchiveChoice ] <> ["simple-dalf-0.0.0.dalf"]
-        withCurrentDirectory projDir $ callProcessSilent damlc ["build", "--target=1.dev"]
+        withCurrentDirectory projDir $ callProcessSilent damlc ["build", "--target=1.dev", "--generated-src"]
         let dar = projDir </> ".daml/dist/proj-0.1.0.dar"
         assertBool "proj-0.1.0.dar was not created." =<< doesFileExist dar
         callProcessSilent damlc ["test", "--target=1.dev", "--project-root", projDir, "--generated-src"]

@@ -42,8 +42,9 @@ data Options = Options
     -- ^ alternative directory to write interface files to. Default is <current working dir>.daml/interfaces.
   , optHideAllPkgs :: Bool
     -- ^ hide all imported packages
-  , optPackageImports :: [(String, [(String, String)])]
-    -- ^ list of explicit package imports and modules with aliases
+  , optPackageImports :: [(String, Bool, [(String, String)])]
+    -- ^ list of explicit package imports and modules with aliases. The boolean flag controls
+    -- whether modules without given alias are visible.
   , optShakeProfiling :: Maybe FilePath
     -- ^ enable shake profiling
   , optThreads :: Int
