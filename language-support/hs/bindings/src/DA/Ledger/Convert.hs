@@ -364,6 +364,9 @@ raiseValue = \case
         LL.ValueSumDate x -> (return . VDate . DaysSinceEpoch . fromIntegral) x
         LL.ValueSumOptional o -> (fmap VOpt . raiseOptional) o
         LL.ValueSumMap m -> (fmap VMap . raiseTextMap) m
+        LL.ValueSumGenMap _ ->
+          -- FIXME https://github.com/digital-asset/daml/issues/2256
+          error "GenMap not supported"
 
 raiseVariant :: LL.Variant -> Perhaps Variant
 raiseVariant = \case
