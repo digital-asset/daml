@@ -8,7 +8,9 @@ import akka.stream._
 import java.time.Instant
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration.Duration
+import scala.io.Source
 import scalaz.syntax.traverse._
+import spray.json._
 
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.archive.{Dar, DarReader}
@@ -67,10 +69,20 @@ object RunnerMain {
         implicit val ec: ExecutionContext = system.dispatcher
         implicit val materializer: ActorMaterializer = ActorMaterializer()(system)
 
+        val inputValue = config.inputFile.map(file => {
+          val source = Source.fromFile(file)
+          val fileContent = try {
+            source.mkString
+          } finally {
+            source.close()
+          }
+          fileContent.parseJson
+        })
+
         val runner = new Runner(dar, applicationId, commandUpdater)
         val flow: Future[Unit] = for {
           client <- LedgerClient.singleHost(config.ledgerHost, config.ledgerPort, clientConfig)
-          _ <- runner.run(client, scriptId)
+          _ <- runner.run(client, scriptId, inputValue)
         } yield ()
 
         flow.onComplete(_ => system.terminate())
