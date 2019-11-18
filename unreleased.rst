@@ -54,6 +54,7 @@ HEAD — ongoing
 - [JSON API - Experimental] Implement replay on database consistency violation, See issue #3387.
 - [JSON API - Experimental] Comparison/range queries supported.
   See `issue #2780 <https://github.com/digital-asset/daml/issues/2780>`__.
+
 - [JSON API - Experimental] CLI configuration to enable serving static content as part of the JSON API daemon:
   ``--static-content "directory=/full/path,prefix=static"``
   This configuration is NOT recommended for production deployment. See issue #2782.
