@@ -8,6 +8,7 @@ import akka.http.scaladsl.Http.ServerBinding
 import akka.stream.ActorMaterializer
 import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.digitalasset.http.Statement.discard
+import com.digitalasset.http.dbbackend.ContractDao
 import com.digitalasset.ledger.api.refinements.ApiTypes.ApplicationId
 import com.typesafe.scalalogging.StrictLogging
 import scalaz.\/
@@ -22,6 +23,7 @@ import scala.util.{Failure, Success, Try}
 object Main extends StrictLogging {
 
   object ErrorCodes {
+    val Ok = 0
     val InvalidUsage = 100
     val StartupError = 101
   }
@@ -51,6 +53,18 @@ object Main extends StrictLogging {
     implicit val aesf: ExecutionSequencerFactory =
       new AkkaExecutionSequencerPool("clientPool")(asys)
     implicit val ec: ExecutionContext = asys.dispatcher
+
+    config.jdbcConfig.foreach { c =>
+      if (c.createSchema) {
+        logger.info("Creating DB schema...")
+        initDbSync(c) match {
+          case Success(()) => logger.info("DB schema created. Terminating process...")
+          case Failure(e) => logger.error("Failed creating DB schema", e)
+        }
+        discard { asys.terminate() }
+        System.exit(ErrorCodes.Ok)
+      }
+    }
 
     val serviceF: Future[HttpService.Error \/ ServerBinding] =
       HttpService.start(
@@ -156,4 +170,9 @@ object Main extends StrictLogging {
           + s"contains key-value pairs in the format: '${StaticContentConfig.help}'. "
           + s"Example: '${StaticContentConfig.example}'")
     }
+
+  private def initDbSync(c: JdbcConfig)(implicit ec: ExecutionContext): Try[Unit] = Try {
+    val dao = ContractDao(c.driver, c.url, c.user, c.password)
+    dao.transact(ContractDao.initialize(dao.logHandler)).unsafeRunSync()
+  }
 }

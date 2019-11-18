@@ -93,10 +93,7 @@ object HttpService extends StrictLogging {
       _ = schedulePackageReload(packageService, packageReloadInterval)
 
       contractDao = jdbcConfig.map(c => ContractDao(c.driver, c.url, c.user, c.password))
-      createSchema = jdbcConfig.map(c => c.createSchema)
-      _ = logger.info(
-        s"contractDao: ${contractDao.toString}, createSchema: ${createSchema.toString}")
-      _ <- rightT(initDbIfConfigured(contractDao, createSchema))
+      _ = logger.info(s"contractDao: ${contractDao.toString}")
 
       commandService = new CommandService(
         packageService.resolveTemplateId,
@@ -217,18 +214,4 @@ object HttpService extends StrictLogging {
         case NonFatal(e) =>
           \/.left(Error(s"Cannot connect to the ledger server, error: ${e.getMessage}"))
       }
-
-  private def initDbIfConfigured(
-      dao: Option[ContractDao],
-      createSchema: Option[Boolean]): Future[Unit] = {
-    import scalaz.syntax.applicative._
-    ^(dao, createSchema)((a, b) => initDbIfConfigured(a, b)) getOrElse Noop
-  }
-
-  private def initDbIfConfigured(dao: ContractDao, createSchema: Boolean): Future[Unit] = {
-    if (createSchema) dao.transact(ContractDao.initialize(dao.logHandler)).unsafeToFuture()
-    else Noop
-  }
-
-  private val Noop: Future[Unit] = Future.successful(())
 }
