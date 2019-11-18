@@ -225,6 +225,23 @@ case class Test2(dar: Dar[(PackageId, Package)], runner: TestRunner) {
   }
 }
 
+case class Test3(dar: Dar[(PackageId, Package)], runner: TestRunner) {
+  val scriptId = Identifier(dar.main._1, QualifiedName.assertFromString("ScriptTest:test3"))
+  def runTests() = {
+    runner.genericTest(
+      "test3",
+      dar,
+      scriptId,
+      None,
+      result =>
+        result match {
+          case SUnit => Right(())
+          case v => Left(s"Expected SUnit but got $v")
+      }
+    )
+  }
+}
+
 object TestMain {
 
   private val configParser = new scopt.OptionParser[Config]("daml_script_test") {
@@ -262,6 +279,7 @@ object TestMain {
         Test0(dar, runner).runTests()
         Test1(dar, runner).runTests()
         Test2(dar, runner).runTests()
+        Test3(dar, runner).runTests()
     }
   }
 }

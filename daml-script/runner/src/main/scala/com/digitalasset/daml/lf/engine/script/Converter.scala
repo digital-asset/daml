@@ -3,6 +3,7 @@
 
 package com.digitalasset.daml.lf.engine.script
 
+import io.grpc.StatusRuntimeException
 import java.util
 import scala.annotation.tailrec
 import scala.collection.JavaConverters._
@@ -298,6 +299,18 @@ object Converter {
         case err => Left(s"Failure to translate value in create: $err")
       }
     } yield record(anyTemplateTyCon, ("getAnyTemplate", SAny(TTyCon(tyCon), argSValue)))
+  }
+
+  def fromStatusException(
+      scriptPackageId: PackageId,
+      ex: StatusRuntimeException): Either[String, SValue] = {
+    val status = ex.getStatus
+    Right(
+      record(
+        Identifier(scriptPackageId, QualifiedName.assertFromString("Daml.Script:SubmitFailure")),
+        ("status", SInt64(status.getCode.value.asInstanceOf[Long])),
+        ("description", SText(status.getDescription))
+      ))
   }
 
   // TODO This duplicates the type_ method from com.digitalasset.daml.lf.iface.reader.InterfaceReader

@@ -5,7 +5,7 @@
 daml 1.2
 module ScriptTest where
 
-import Prelude hiding (getParty, submit)
+import Prelude hiding (getParty, submit, submitMustFail)
 
 import Daml.Script
 
@@ -34,6 +34,10 @@ template C
     v : Int
   where
     signatory p
+
+    choice ShouldFail : ()
+      controller p
+      do assert False
 
 template NumericTpl
   with
@@ -77,3 +81,10 @@ test1 = do
 
 test2 : C -> Script Int
 test2 (C _ i) = pure i
+
+test3 : Script ()
+test3 = do
+  alice <- allocateParty "alice"
+  cid <- submit alice $ createCmd (C alice 42)
+  submitMustFail alice $ exerciseCmd cid ShouldFail
+  pure ()
