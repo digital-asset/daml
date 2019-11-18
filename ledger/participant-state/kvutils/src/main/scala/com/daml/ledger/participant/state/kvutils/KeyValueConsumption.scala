@@ -42,10 +42,9 @@ object KeyValueConsumption {
 
     val recordTime = parseTimestamp(entry.getRecordTime)
 
-    val participantId =
-      Ref.LedgerString.assertFromString(entry.getPackageUploadEntry.getParticipantId)
     entry.getPayloadCase match {
       case DamlLogEntry.PayloadCase.PACKAGE_UPLOAD_ENTRY =>
+        val participantId = Ref.LedgerString.assertFromString(entry.getPackageUploadEntry.getParticipantId)
         entry.getPackageUploadEntry.getArchivesList.asScala.map { archive =>
           Update.PublicPackageUploaded(
             archive,
@@ -59,6 +58,7 @@ object KeyValueConsumption {
         }(breakOut)
 
       case DamlLogEntry.PayloadCase.PACKAGE_UPLOAD_REJECTION_ENTRY =>
+        val participantId = Ref.LedgerString.assertFromString(entry.getPackageUploadEntry.getParticipantId)
         val rejection = entry.getPackageUploadRejectionEntry
         val proposedPackageUpload = rejection.getInvalidPackage
         entry.getPackageUploadEntry.getArchivesList.asScala.map { archive =>
