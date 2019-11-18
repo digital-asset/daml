@@ -291,7 +291,7 @@ createProjectPackageDb opts thisSdkVer deps0 dataDeps = do
                         , optPackageImports =
                               ("daml-prim", True, []) :
                               (unitIdStr, True, []) :
-                              -- we need the standart library from the current sdk for the
+                              -- we need the standard library from the current sdk for the
                               -- definition of the template class.
                               [ ( damlStdlib
                                 , False
