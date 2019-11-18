@@ -43,6 +43,7 @@ object Main extends StrictLogging {
         s", packageReloadInterval=${config.packageReloadInterval.toString}" +
         s", maxInboundMessageSize=${config.maxInboundMessageSize: Int}" +
         s", jdbcConfig=${config.jdbcConfig.shows}" +
+        s", staticContentConfig=${config.staticContentConfig.shows}" +
         ")")
 
     implicit val asys: ActorSystem = ActorSystem("http-json-ledger-api")
@@ -59,6 +60,7 @@ object Main extends StrictLogging {
         config.address,
         config.httpPort,
         config.jdbcConfig,
+        config.staticContentConfig,
         config.packageReloadInterval,
         config.maxInboundMessageSize
       )
@@ -143,7 +145,15 @@ object Main extends StrictLogging {
         .validate(JdbcConfig.validate)
         .optional()
         .text(s"Optional query store JDBC configuration string, "
-          + s"contains key-value pairs in the format: ${JdbcConfig.help}. "
-          + s"Example: ${JdbcConfig.example}")
+          + s"contains key-value pairs in the format: '${JdbcConfig.help}'. "
+          + s"Example: '${JdbcConfig.example}'")
+
+      opt[Map[String, String]]("static-content")
+        .action((x, c) => c.copy(staticContentConfig = Some(StaticContentConfig.createUnsafe(x))))
+        .validate(StaticContentConfig.validate)
+        .optional()
+        .text(s"Optional static content configuration string, "
+          + s"contains key-value pairs in the format: '${StaticContentConfig.help}'. "
+          + s"Example: '${StaticContentConfig.example}'")
     }
 }

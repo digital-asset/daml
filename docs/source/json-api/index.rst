@@ -74,6 +74,10 @@ Start HTTP service from a DAML project directory
                                Optional interval to poll for package updates. Examples: 500ms, 5s, 10min, 1h, 1d. Defaults to 5 seconds
       --max-inbound-message-size <value>
                                Optional max inbound message size in bytes. Defaults to 4194304
+      --query-store-jdbc-config <value>
+                               Optional query store JDBC configuration string, contains key-value pairs in the format: 'driver=<JDBC driver class name>,url=<JDBC connection url>,user=<user>,password=<password>,createSchema=<true | false>'. Example: 'driver=org.postgresql.Driver,url=jdbc:postgresql://localhost:5432/test?&ssl=true,user=postgres,password=password,createSchema=false'
+      --static-content <value>
+                               Optional static content configuration string, contains key-value pairs in the format: 'prefix=<URI prefix>,directory=<directory containing static content>'. Example: 'prefix=static,directory=./static-content'
 
 Example session
 ***************
@@ -223,7 +227,7 @@ output::
         }
     }
  
-POST http://localhost:44279/command/exercise
+POST http://localhost:7575/command/exercise
 ============================================
 
 Exercise a choice on a contract.

@@ -43,6 +43,8 @@ abstract class AbstractHttpServiceIntegrationTest
 
   def jdbcConfig: Option[JdbcConfig]
 
+  def staticContentConfig: Option[StaticContentConfig]
+
   import json.JsonProtocol._
 
   private val dar = requiredFile(rlocation("docs/quickstart-model.dar"))
@@ -68,7 +70,7 @@ abstract class AbstractHttpServiceIntegrationTest
   private val headersWithAuth = List(Authorization(OAuth2BearerToken(jwt.value)))
 
   protected def withHttpService[A] =
-    HttpServiceTestFixture.withHttpService[A](dar, jdbcConfig, testId) _
+    HttpServiceTestFixture.withHttpService[A](testId, dar, jdbcConfig, staticContentConfig) _
 
   protected def withLedger[A] = HttpServiceTestFixture.withLedger[A](dar, testId) _
 
@@ -447,7 +449,7 @@ abstract class AbstractHttpServiceIntegrationTest
       }: Future[Assertion]
   }
 
-  private def getResponseDataBytes(resp: HttpResponse, debug: Boolean = false): Future[String] = {
+  protected def getResponseDataBytes(resp: HttpResponse, debug: Boolean = false): Future[String] = {
     val fb = resp.entity.dataBytes.runFold(ByteString.empty)((b, a) => b ++ a).map(_.utf8String)
     if (debug) fb.foreach(x => logger.info(s"---- response data: $x"))
     fb
