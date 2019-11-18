@@ -262,3 +262,12 @@ def pkg_tar(**kwargs):
                       "Consider renaming it in your BUILD file.")
                 kwargs["srcs"] = kwargs.pop("files")
     _real_pkg_tar(**kwargs)
+
+def pkg_empty_zip(name, out):
+    native.genrule(
+        name = name,
+        srcs = [],
+        outs = [out],
+        # minimal empty zip file in Base64 encoding
+        cmd = "echo UEsFBgAAAAAAAAAAAAAAAAAAAAAAAA== | base64 -d > $@",
+    )
