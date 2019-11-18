@@ -149,10 +149,12 @@ private class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: MetricRegistry)
   }
 
   override def storePackageUploadEntry(
+      offset: LedgerOffset,
+      newLedgerEnd: LedgerOffset,
       participantId: ParticipantId,
       submissionId: String,
       reason: Option[String]): Future[PersistenceResponse] =
-    ledgerDao.storePackageUploadEntry(participantId, submissionId, reason)
+    ledgerDao.storePackageUploadEntry(offset, newLedgerEnd, participantId, submissionId, reason)
 }
 
 object MeteredLedgerDao {
