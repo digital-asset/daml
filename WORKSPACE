@@ -514,9 +514,9 @@ load("@bazel_skylib//lib:dicts.bzl", "dicts")
 # For the time being we build with GMP. See https://github.com/digital-asset/daml/issues/106
 use_integer_simple = not is_windows
 
-HASKELL_LSP_COMMIT = "fefcae8b44aaf7658e0f90d5530832efe0b32053"
+HASKELL_LSP_COMMIT = "4c4b588c3cb21c0509e2dd590db3f431f33ada11"
 
-HASKELL_LSP_HASH = "410af26154494735694ae323b3431d6a6ccb49ab6f028b56656039b5662de7d6"
+HASKELL_LSP_HASH = "80a3944306fb455fce36f7b3aafb8f0f8f6096a0bd3c46ed25cc0ff288d6413e"
 
 GRPC_HASKELL_CORE_VERSION = "0.0.0.0"
 
@@ -647,8 +647,8 @@ hazel_repositories(
             hazel_github_external(
                 "digital-asset",
                 "lsp-test",
-                "40da0529edb687864acf2716dff310d38b0641c6",
-                "b72566fe58906ca9bf35ad340db46f0ad140e502352af028ed8a1e39a5047823",
+                "95ef237e5b1c60385d20faefb5408f41908ad791",
+                "1bdfb85dd2568025afec2c5565175f9897be1a52128f5470b350c0ddc164447d",
                 patch_args = ["-p1"],
                 patches = ["@com_github_digital_asset_daml//bazel_tools:haskell-lsp-test-no-reexport.patch"],
             ) + hazel_github_external(
@@ -722,7 +722,7 @@ hazel_custom_package_github(
     strip_prefix = "wai-app-static",
 )
 
-GHCIDE_REV = "7a215d22ef22c447a050fbcc63900e9b5405e901"
+GHCIDE_REV = "78aa9745798cfd730861e8c037cc481aa6b0dd43"
 
 # We need a custom build file to depend on ghc-lib and ghc-lib-parser
 hazel_custom_package_github(
