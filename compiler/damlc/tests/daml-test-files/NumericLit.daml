@@ -3,7 +3,7 @@
 
 -- Test numeric literals.
 --
--- @SINCE-LF 1.dev
+-- @SINCE-LF 1.7
 
 daml 1.2
 
