@@ -10,7 +10,7 @@ import akka.http.scaladsl.Http
 import akka.http.scaladsl.model.{HttpMethods, HttpRequest, StatusCodes, Uri}
 import com.digitalasset.http.Statement.discard
 import com.digitalasset.http.util.TestUtil.writeToFile
-import org.scalacheck.{Arbitrary, Gen}
+import org.scalacheck.Gen
 import org.scalatest.{Assertion, BeforeAndAfterAll}
 
 import scala.concurrent.Future
@@ -28,7 +28,7 @@ class HttpServiceIntegrationTest extends AbstractHttpServiceIntegrationTest with
   override def jdbcConfig: Option[JdbcConfig] = None
 
   private val expectedDummyContent: String = Gen
-    .listOfN(100, Arbitrary.arbitrary[String])
+    .listOfN(100, Gen.identifier)
     .map(_.mkString(" "))
     .sample
     .getOrElse(throw new IllegalStateException(s"Cannot create dummy text content"))
