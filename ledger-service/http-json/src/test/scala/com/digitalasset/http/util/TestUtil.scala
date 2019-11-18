@@ -5,6 +5,7 @@ package com.digitalasset.http.util
 
 import java.io.{BufferedWriter, File, FileWriter}
 import java.net.ServerSocket
+
 import com.digitalasset.daml.lf.data.TryOps.Bracket.bracket
 
 import scala.util.{Failure, Success, Try}
@@ -22,13 +23,6 @@ object TestUtil {
     if (file.exists()) Success(file)
     else
       Failure(new IllegalStateException(s"File doest not exist: $fileName"))
-  }
-
-  def createDirectory(path: String): Try[File] = {
-    val file = new File(path)
-    val created = file.mkdirs
-    if (created && file.isDirectory) Success(file)
-    else Failure(new IllegalStateException(s"Cannot create directory: $path"))
   }
 
   def writeToFile(file: File, text: String): Try[File] =

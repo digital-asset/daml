@@ -4,25 +4,28 @@
 package com.digitalasset.http
 
 import java.io.File
+import java.nio.file.Files
 
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model.{HttpMethods, HttpRequest, StatusCodes, Uri}
 import com.digitalasset.http.Statement.discard
-import com.digitalasset.http.util.TestUtil.{createDirectory, writeToFile}
+import com.digitalasset.http.util.TestUtil.writeToFile
 import org.scalacheck.{Arbitrary, Gen}
-import org.scalatest.Assertion
+import org.scalatest.{Assertion, BeforeAndAfterAll}
 
 import scala.concurrent.Future
 
-class HttpServiceIntegrationTest extends AbstractHttpServiceIntegrationTest {
+class HttpServiceIntegrationTest extends AbstractHttpServiceIntegrationTest with BeforeAndAfterAll {
 
-  private val staticContentDir = createDirectory("integration-test-static-content")
-    .fold(e => throw new IllegalStateException(e), identity)
+  private val staticContent: String = "static"
 
-  override def jdbcConfig: Option[JdbcConfig] = None
+  private val staticContentDir: File =
+    Files.createTempDirectory("integration-test-static-content").toFile
 
   override def staticContentConfig: Option[StaticContentConfig] =
-    Some(StaticContentConfig(prefix = "static", directory = staticContentDir))
+    Some(StaticContentConfig(prefix = staticContent, directory = staticContentDir))
+
+  override def jdbcConfig: Option[JdbcConfig] = None
 
   private val expectedDummyContent: String = Gen
     .listOfN(100, Arbitrary.arbitrary[String])
@@ -31,16 +34,22 @@ class HttpServiceIntegrationTest extends AbstractHttpServiceIntegrationTest {
     .getOrElse(throw new IllegalStateException(s"Cannot create dummy text content"))
 
   private val dummyFile: File =
-    writeToFile(new File(staticContentDir, "dummy.txt"), expectedDummyContent)
-      .fold(e => throw new IllegalStateException(e), identity)
+    writeToFile(new File(staticContentDir, "dummy.txt"), expectedDummyContent).get
   require(dummyFile.exists)
+
+  override protected def afterAll(): Unit = {
+    // clean up temp directory
+    discard { dummyFile.delete() }
+    discard { staticContentDir.delete() }
+    super.afterAll()
+  }
 
   "should serve static content from configured directory" in withHttpService { (uri: Uri, _, _) =>
     Http()
       .singleRequest(
         HttpRequest(
           method = HttpMethods.GET,
-          uri = uri.withPath(Uri.Path(s"/static/${dummyFile.getName}"))))
+          uri = uri.withPath(Uri.Path(s"/$staticContent/${dummyFile.getName}"))))
       .flatMap { resp =>
         discard { resp.status shouldBe StatusCodes.OK }
         val bodyF: Future[String] = getResponseDataBytes(resp, debug = false)
