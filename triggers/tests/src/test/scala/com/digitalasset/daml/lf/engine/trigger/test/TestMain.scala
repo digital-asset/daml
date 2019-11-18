@@ -750,6 +750,47 @@ case class CommandIdTests(dar: Dar[(PackageId, Package)], runner: TestRunner) {
   }
 }
 
+case class PendingTests(dar: Dar[(PackageId, Package)], runner: TestRunner) {
+
+  val triggerId: Identifier =
+    Identifier(dar.main._1, QualifiedName.assertFromString("PendingSet:booTrigger"))
+
+  val fooId = Identifier(dar.main._1, QualifiedName.assertFromString("PendingSet:Foo"))
+  val booId = Identifier(dar.main._1, QualifiedName.assertFromString("PendingSet:Boo"))
+  val doneId = Identifier(dar.main._1, QualifiedName.assertFromString("PendingSet:Done"))
+
+  def test(name: String, numMessages: NumMessages, expectedNumFoo: Int, expectedNumBoo: Int) = {
+    def assertFinalState(finalState: SExpr, commandsR: Unit) = Right(())
+    def assertFinalACS(
+        acs: Map[Identifier, Seq[(String, Lf.ValueRecord[Lf.AbsoluteContractId])]],
+        commandsR: Unit) = {
+      val numDone = acs.get(doneId).fold(0)(_.size)
+      val numFoo = acs.get(fooId).fold(0)(_.size)
+      val numBoo = acs.get(booId).fold(0)(_.size)
+      TestRunner.assertEqual(numDone, 1, "active Done")
+      TestRunner.assertEqual(numFoo, expectedNumFoo, "active Foo")
+      TestRunner.assertEqual(numBoo, expectedNumBoo, "active Boo")
+    }
+    runner.genericTest(name, dar, triggerId, (_, _) => {
+      implicit ec: ExecutionContext => implicit mat: ActorMaterializer =>
+        Future.unit
+    }, numMessages, assertFinalState, assertFinalACS)
+  }
+
+  def runTests() = {
+    test(
+      "pending set",
+      // 1 for the creates at startup
+      // 1 for the completion from startup
+      // 1 for the exercise in the trigger
+      // 1 for the completion in the trigger
+      NumMessages(4),
+      expectedNumFoo = 0,
+      expectedNumBoo = 1
+    )
+  }
+}
+
 object TestMain {
 
   private val configParser = new scopt.OptionParser[Config]("acs_test") {
@@ -794,6 +835,7 @@ object TestMain {
         ExerciseByKeyTests(dar, runner).runTests()
         NumericTests(dar, runner).runTests()
         CommandIdTests(dar, runner).runTests()
+        PendingTests(dar, runner).runTests()
     }
   }
 }
