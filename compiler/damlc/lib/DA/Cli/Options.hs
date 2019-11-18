@@ -286,7 +286,7 @@ optionsParser numProcessors enableScenarioService parsePkgName = Options
           help "Whether to write interface files during type checking, required for building a package such as daml-prim" <>
           long "write-iface"
 
-    optPackage :: Parser (String, [(String, String)])
+    optPackage :: Parser (String, Bool, [(String, String)])
     optPackage =
       option auto $
       metavar "PACKAGE" <>

@@ -15,7 +15,6 @@ module DA.Daml.Options
 
 import Control.Monad
 import qualified CmdLineParser as Cmd (warnMsg)
-import Data.Bifunctor
 import Data.IORef
 import Data.List
 import DynFlags (parseDynamicFilePragma)
@@ -46,7 +45,7 @@ toCompileOpts options@Options{..} reportProgress =
             env <- runGhcFast $ do
                 setupDamlGHC options
                 GHC.getSession
-            pkg <- generatePackageState optPackageDbs optHideAllPkgs $ map (second toRenaming) optPackageImports
+            pkg <- generatePackageState optPackageDbs optHideAllPkgs $ map toRenaming optPackageImports
             dflags <- checkDFlags options $ setPackageDynFlags pkg $ hsc_dflags env
             hscenv <- newHscEnvEq env{hsc_dflags = dflags}
             return $ const $ return hscenv
@@ -64,7 +63,13 @@ toCompileOpts options@Options{..} reportProgress =
       , optDefer = Ghcide.IdeDefer False
       }
   where
-    toRenaming aliases = ModRenaming True [(GHC.mkModuleName mod, GHC.mkModuleName alias) | (mod, alias) <- aliases]
+    toRenaming (pkgName, withImplicit, aliases) =
+        ( pkgName
+        , ModRenaming
+              withImplicit
+              [ (GHC.mkModuleName mod, GHC.mkModuleName alias)
+              | (mod, alias) <- aliases
+              ])
     locateInPkgDb :: String -> PackageConfig -> GHC.Module -> IO (Maybe FilePath)
     locateInPkgDb ext pkgConfig mod
       | (importDir : _) <- importDirs pkgConfig = do
