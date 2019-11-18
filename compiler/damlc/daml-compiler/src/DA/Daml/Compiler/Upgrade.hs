@@ -158,15 +158,11 @@ choiceInstances env externPkgId =
     [ generateChoiceInstance env externPkgId templateDT choice
     | template <- NM.elems $ LF.moduleTemplates mod
     , choice <- NM.elems $ LF.tplChoices template
-    , not (specialArchiveChoice choice)
     , Just templateDT <-
       [NM.lookup (LF.tplTypeCon template) (LF.moduleDataTypes mod)]
     ]
   where
     mod = envMod env
-    specialArchiveChoice = \case
-      LF.TemplateChoice{chcName=LF.ChoiceName "Archive"} -> True
-      _ -> False
 
 generateGenInstancesPkgFromLf ::
        (LF.PackageRef -> UnitId)
