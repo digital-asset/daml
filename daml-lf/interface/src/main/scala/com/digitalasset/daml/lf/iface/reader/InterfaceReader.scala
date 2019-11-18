@@ -153,7 +153,7 @@ object InterfaceReader {
       choices <- dfn.choices.toList traverseU {
         case (choiceName, choice) => visitChoice(name, choice) map (x => choiceName -> x)
       }
-      key <- dfn.key traverseU (k => type_(name, k.typ))
+      key <- dfn.key traverseU (k => toIfaceType(name, k.typ))
     } yield name -> iface.InterfaceType.Template(Record(fields), DefTemplate(choices.toMap, key))
 
   private def visitChoice(
@@ -161,8 +161,8 @@ object InterfaceReader {
       choice: Ast.TemplateChoice
   ): InterfaceReaderError \/ TemplateChoice[Type] =
     for {
-      tParam <- type_(ctx, choice.argBinder._2)
-      tReturn <- type_(ctx, choice.returnType)
+      tParam <- toIfaceType(ctx, choice.argBinder._2)
+      tReturn <- toIfaceType(ctx, choice.returnType)
     } yield
       TemplateChoice(
         param = tParam,
@@ -193,9 +193,11 @@ object InterfaceReader {
 
   private[reader] def fieldsOrCons(ctx: QualifiedName, fields: ImmArray[(Ref.Name, Ast.Type)])
     : InterfaceReaderError \/ ImmArraySeq[(Ref.Name, Type)] =
-    fields.toSeq traverseU { case (fieldName, typ) => type_(ctx, typ).map(x => fieldName -> x) }
+    fields.toSeq traverseU {
+      case (fieldName, typ) => toIfaceType(ctx, typ).map(x => fieldName -> x)
+    }
 
-  private def type_(
+  def toIfaceType(
       ctx: QualifiedName,
       a: Ast.Type,
       args: FrontStack[Type] = FrontStack.empty
@@ -213,7 +215,8 @@ object InterfaceReader {
       case Ast.TBuiltin(bt) =>
         primitiveType(ctx, bt, args.toImmArray.toSeq)
       case Ast.TApp(tyfun, arg) =>
-        type_(ctx, arg, FrontStack.empty) flatMap (tArg => type_(ctx, tyfun, tArg +: args))
+        toIfaceType(ctx, arg, FrontStack.empty) flatMap (tArg =>
+          toIfaceType(ctx, tyfun, tArg +: args))
       case Ast.TForall(_, _) | Ast.TTuple(_) | Ast.TNat(_) =>
         unserializableDataType(ctx, s"unserializable data type: ${a.pretty}")
     }
