@@ -275,13 +275,14 @@ class JdbcIndexer private[index] (
       //TODO BH: probably want to do this as atomic commit
 
       case PackageUploadEntryAccepted(participantId, submissionId) =>
-        ledgerDao.storePackageUploadEntry(participantId, submissionId, None).map(_ => ())(DEC)
+        ledgerDao.storePackageUploadEntry(headRef, headRef + 1, participantId, submissionId, None)
+          .map(_ => headRef = headRef + 1)(DEC)
 
       //TODO BH: consider generalization of persistence storage JM has done on configuration branch
       case PackageUploadEntryRejected(participantId, submissionId, reason) =>
         ledgerDao
-          .storePackageUploadEntry(participantId, submissionId, Some(reason))
-          .map(_ => ())(DEC)
+          .storePackageUploadEntry(headRef, headRef + 1, participantId, submissionId, Some(reason))
+          .map(_ => headRef = headRef + 1)(DEC)
 
       case TransactionAccepted(
           optSubmitterInfo,

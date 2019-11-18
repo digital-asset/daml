@@ -1363,32 +1363,34 @@ private class JdbcLedgerDao(
     ).flatMapConcat(Source(_))
 
   override def storePackageUploadEntry(
+      offset: LedgerOffset,
+      newLedgerEnd: LedgerOffset,
       participantId: ParticipantId,
       submissionId: String,
       reason: Option[String]): Future[PersistenceResponse] = {
 
-      val prereqs = Try {
-        require(participantId.nonEmpty, "participantId cannot be empty")
-        require(submissionId.nonEmpty, "submissionId cannot be empty")
-      }
-      prereqs.fold(
-        Future.failed,
-        _ =>
-          dbDispatcher.executeSql("store package rejections") { implicit conn =>
-          //TODO BH : need to move offset
-            val sqlupdate = executeBatchSql(
-              queries.SQL_INSERT_PACKAGE_UPLOAD_ENTRY,
-              List(
-                Seq[NamedParameter](
-                  "participant_id" -> participantId,
-                  "submission_id" -> submissionId,
-                  "reason" -> reason)))
-            //TODO BH: temporary to get compiling
-            if (sqlupdate.head > 0) PersistenceResponse.Ok
-            else PersistenceResponse.Duplicate
-        }
-      )
+    val prereqs = Try {
+      require(participantId.nonEmpty, "participantId cannot be empty")
+      require(submissionId.nonEmpty, "submissionId cannot be empty")
     }
+    prereqs.fold(
+      Future.failed,
+      _ =>
+        dbDispatcher.executeSql("store package rejections") { implicit conn =>
+          val sqlupdate = executeBatchSql(
+            queries.SQL_INSERT_PACKAGE_UPLOAD_ENTRY,
+            List(
+              Seq[NamedParameter](
+                "participant_id" -> participantId,
+                "submission_id" -> submissionId,
+                "reason" -> reason)))
+          //TODO BH: do we require externalLedgerOffset for these entries??
+          updateLedgerEnd(newLedgerEnd, None)
+          if (sqlupdate.head > 0) PersistenceResponse.Ok
+          else PersistenceResponse.Duplicate
+      }
+    )
+  }
 
   private val SQL_TRUNCATE_ALL_TABLES =
     SQL("""
