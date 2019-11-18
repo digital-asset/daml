@@ -59,7 +59,7 @@ For example, the simple Iou in :ref:`simple_iou` allowed the no-op where the ``o
   :start-after: -- TRANSFER_TEST_BEGIN
   :end-before: -- TRANSFER_TEST_END
 
-Similarly, you can write a ``Redeem`` choice, which allows the ``owner`` to redeem an ``Iou`` during business hours on weekdays. The choice doesn't do anything other than archiving the ``SimpleIou``. (This assumes that actual cash changes are handled off-ledger.)
+Similarly, you can write a ``Redeem`` choice, which allows the ``owner`` to redeem an ``Iou`` during business hours on weekdays. The choice doesn't do anything other than archiving the ``SimpleIou``. (This assumes that actual cash changes hands off-ledger.)
 
 .. literalinclude:: daml/daml-intro-5/Restrictions.daml
   :language: daml
