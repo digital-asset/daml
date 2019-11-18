@@ -109,7 +109,7 @@ test_restrictions = scenario do
     exercise iou Transfer with
       newOwner = alice
 
-  -- ...but can transfer to Bob.
+  -- ... but can transfer to Bob.
   iou2 <- submit alice do
     exercise iou Transfer with
       newOwner = bob
