@@ -115,8 +115,8 @@ object ValueValidator {
             for {
               stack <- acc
               key <- requirePresence(key0, "key")
-              validatedKey <- validateValue(key)
               value <- requirePresence(value0, "value")
+              validatedKey <- validateValue(key)
               validatedValue <- validateValue(value)
             } yield stack :+ (validatedKey -> validatedValue)
         }
