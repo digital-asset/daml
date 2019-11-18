@@ -58,7 +58,7 @@ main = do
             }
     let chc = TemplateChoice
             { chcLocation = Nothing
-            , chcName = ChoiceName "Choice"
+            , chcName = ChoiceName "NotChoice"
             , chcConsuming = True
             , chcControllers = tplParties
             , chcSelfBinder = ExprVarName "this"
