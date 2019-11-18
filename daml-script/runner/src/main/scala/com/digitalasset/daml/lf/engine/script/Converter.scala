@@ -7,15 +7,14 @@ import io.grpc.StatusRuntimeException
 import java.util
 import scala.annotation.tailrec
 import scala.collection.JavaConverters._
+import scalaz.{\/-, -\/}
 
-import com.digitalasset.daml.lf.data.{FrontStack}
-import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.engine.{ResultDone, ValueTranslator}
 import com.digitalasset.daml.lf.iface
+import com.digitalasset.daml.lf.iface.reader.InterfaceReader
 import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.language.{Util => AstUtil}
 import com.digitalasset.daml.lf.speedy.SBuiltin._
 import com.digitalasset.daml.lf.speedy.SExpr._
 import com.digitalasset.daml.lf.speedy.Speedy
@@ -313,62 +312,12 @@ object Converter {
       ))
   }
 
-  // TODO This duplicates the type_ method from com.digitalasset.daml.lf.iface.reader.InterfaceReader
-  // since it is not exposed. We should find some place to expose that method or a way to
-  // avoid duplicating this logic.
   def toIfaceType(
-      a: Ast.Type,
-      args: FrontStack[iface.Type] = FrontStack.empty
+      ctx: QualifiedName,
+      astTy: Ast.Type,
   ): Either[String, iface.Type] =
-    a match {
-      case Ast.TVar(x) =>
-        if (args.isEmpty)
-          Right(iface.TypeVar(x))
-        else
-          Left("arguments passed to a type parameter")
-      case Ast.TTyCon(c) =>
-        Right(iface.TypeCon(iface.TypeConName(c), args.toImmArray.toSeq))
-      case AstUtil.TNumeric(Ast.TNat(n)) if args.isEmpty =>
-        Right(iface.TypeNumeric(n))
-      case Ast.TBuiltin(bt) =>
-        primitiveType(bt, args.toImmArray.toSeq)
-      case Ast.TApp(tyfun, arg) =>
-        toIfaceType(arg, FrontStack.empty).flatMap(tArg => toIfaceType(tyfun, tArg +: args))
-      case Ast.TForall(_, _) | Ast.TTuple(_) | Ast.TNat(_) =>
-        Left(s"unserializable data type: ${a.pretty}")
+    InterfaceReader.toIfaceType(ctx, astTy) match {
+      case -\/(e) => Left(e.toString)
+      case \/-(ty) => Right(ty)
     }
-
-  def primitiveType(
-      a: Ast.BuiltinType,
-      args: ImmArraySeq[iface.Type]
-  ): Either[String, iface.TypePrim] =
-    for {
-      ab <- a match {
-        case Ast.BTUnit => Right((0, iface.PrimType.Unit))
-        case Ast.BTBool => Right((0, iface.PrimType.Bool))
-        case Ast.BTInt64 => Right((0, iface.PrimType.Int64))
-        case Ast.BTText => Right((0, iface.PrimType.Text))
-        case Ast.BTDate => Right((0, iface.PrimType.Date))
-        case Ast.BTTimestamp => Right((0, iface.PrimType.Timestamp))
-        case Ast.BTParty => Right((0, iface.PrimType.Party))
-        case Ast.BTContractId => Right((1, iface.PrimType.ContractId))
-        case Ast.BTList => Right((1, iface.PrimType.List))
-        case Ast.BTOptional => Right((1, iface.PrimType.Optional))
-        case Ast.BTMap => Right((1, iface.PrimType.Map))
-        case Ast.BTGenMap =>
-          // FIXME https://github.com/digital-asset/daml/issues/2256
-          Left(s"Unsupported primitive type: $a")
-        case Ast.BTNumeric =>
-          Left(s"Unserializable primitive type: $a must be applied to one and only one TNat")
-        case Ast.BTUpdate | Ast.BTScenario | Ast.BTArrow | Ast.BTAny | Ast.BTTypeRep =>
-          Left(s"Unserializable primitive type: $a")
-      }
-      (arity, primType) = ab
-      typ <- {
-        if (args.length != arity)
-          Left(s"$a requires $arity arguments, but got ${args.length}")
-        else
-          Right(iface.TypePrim(primType, args))
-      }
-    } yield typ
 }
