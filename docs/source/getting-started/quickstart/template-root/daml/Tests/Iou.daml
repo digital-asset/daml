@@ -42,7 +42,7 @@ iou_test = scenario do
   iouBobCid <- submit bob do
     exercise iouTransferBobCid IouTransfer_Accept
 
-  -- Alice transfers part of split IOU to Bob.
+  -- Alice splits the IOU and transfers part of it to Bob.
   split <- submit alice do
     exercise iouAliceCid Iou_Split with splitAmount = 40.0
   iouTransferCid <- submit alice do
