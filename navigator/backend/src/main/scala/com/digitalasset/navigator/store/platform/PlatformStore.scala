@@ -287,7 +287,8 @@ class PlatformStore(
         maxParallelSubmissions,
         overrideTtl = false,
         Duration.ofSeconds(30)),
-      sslContext
+      sslContext,
+      token
     )
 
     val result =
