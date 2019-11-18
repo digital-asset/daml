@@ -6,6 +6,7 @@ package com.digitalasset.daml.lf.engine.script
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.Sink
 import com.typesafe.scalalogging.StrictLogging
+import io.grpc.StatusRuntimeException
 import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
 import scalaz.{\/-}
@@ -181,6 +182,7 @@ class Runner(
         machine.step() match {
           case SResultContinue => ()
           case SResultError(err) => {
+            logger.error(Pretty.prettyError(err, machine.ptx).render(80))
             throw err
           }
           case res => {
@@ -216,7 +218,7 @@ class Runner(
           v match {
             case SVariant(_, "Submit", v) => {
               v match {
-                case SRecord(_, _, vals) if vals.size == 2 => {
+                case SRecord(_, _, vals) if vals.size == 3 => {
                   val freeAp = vals.get(1) match {
                     // Unwrap Commands newtype
                     case SRecord(_, _, vals) if vals.size == 1 => vals.get(0)
@@ -228,23 +230,37 @@ class Runner(
                     commands <- Converter.toCommands(compiledPackages, freeAp)
                   } yield toSubmitRequest(client.ledgerId, party, commands)
                   val request = requestOrErr.fold(s => throw new ConverterException(s), identity)
-                  val f = client.commandServiceClient.submitAndWaitForTransactionTree(request)
-                  f.flatMap(transactionTree => {
-                    val events =
-                      transactionTree.getTransaction.rootEventIds.map(evId =>
-                        transactionTree.getTransaction.eventsById(evId))
-                    val filled =
-                      Converter.fillCommandResults(
-                        compiledPackages,
-                        lookupChoiceTy,
-                        valueTranslator,
-                        freeAp,
-                        events) match {
-                        case Left(s) => throw new ConverterException(s)
-                        case Right(r) => r
-                      }
-                    machine.ctrl = Speedy.CtrlExpr(filled)
-                    go()
+                  val f =
+                    client.commandServiceClient
+                      .submitAndWaitForTransactionTree(request)
+                      .map(Right(_))
+                      .recover({ case s: StatusRuntimeException => Left(s) })
+                  f.flatMap({
+                    case Right(transactionTree) => {
+                      val events =
+                        transactionTree.getTransaction.rootEventIds.map(evId =>
+                          transactionTree.getTransaction.eventsById(evId))
+                      val filled =
+                        Converter.fillCommandResults(
+                          compiledPackages,
+                          lookupChoiceTy,
+                          valueTranslator,
+                          freeAp,
+                          events) match {
+                          case Left(s) => throw new ConverterException(s)
+                          case Right(r) => r
+                        }
+                      machine.ctrl = Speedy.CtrlExpr(filled)
+                      go()
+                    }
+                    case Left(statusEx) => {
+                      val res = Converter
+                        .fromStatusException(scriptPackageId, statusEx)
+                        .fold(s => throw new ConverterException(s), identity)
+                      machine.ctrl =
+                        Speedy.CtrlExpr(SEApp(SEValue(vals.get(2)), Array(SEValue(res))))
+                      go()
+                    }
                   })
                 }
                 case _ => throw new RuntimeException(s"Expected record with 2 fields but got $v")
