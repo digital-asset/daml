@@ -332,7 +332,7 @@ detailed information.
 - Build an individual target
 
     ```
-    bazel build //ledger-client/ods:ods
+    bazel build //ledger/sandbox:sandbox
     ```
 
 ### Running Tests
@@ -346,7 +346,7 @@ detailed information.
 - Execute a test suite
 
     ```
-    bazel test //ledger-client/ods:tests
+    bazel test //ledger/sandbox:tests
     ```
 
 - Show test output
@@ -370,17 +370,17 @@ detailed information.
 - Execute a test with a specific name
 
     ```
-    bazel test 
-    //ledger/sandbox:sandbox-scala-tests_test_suite_src_test_suite_scala_com_digitalasset_platform_sandbox_stores_ledger_sql_JdbcLedgerDaoSpec.scala 
-    --test_arg=-t 
+    bazel test \
+    //ledger/sandbox:sandbox-scala-tests_test_suite_src_test_suite_scala_com_digitalasset_platform_sandbox_stores_ledger_sql_JdbcLedgerDaoSpec.scala \
+    --test_arg=-t \
     --test_arg="JDBC Ledger DAO should be able to persist and load contracts without external offset"
     ```
 
 - Pass an argument to a test case in a Scala test-suite
 
     ```
-    bazel test //ledger-client/ods:tests_test_suite_src_test_scala_com_digitalasset_ods_slick_SqlUtilsTest.scala 
-    --test_arg=-z 
+    bazel test //ledger/sandbox:sandbox-scala-tests_test_suite_src_test_suite_scala_com_digitalasset_platform_sandbox_stores_ledger_sql_JdbcLedgerDaoSpec.scala \
+    --test_arg=-z \
     --test_arg="should return true"
     ```
     
