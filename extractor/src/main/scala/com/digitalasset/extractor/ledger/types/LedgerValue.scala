@@ -36,6 +36,9 @@ object LedgerValue {
       case Sum.Record(apiRecord) => convertRecord(apiRecord)
       case Sum.Optional(apiOptional) => convertOptional(apiOptional)
       case Sum.Map(map) => convertMap(map)
+      case Sum.GenMap(_) =>
+        // FIXME https://github.com/digital-asset/daml/issues/2256
+        -\/("GenMap not supported")
       case Sum.Bool(value) => V.ValueBool(value).right
       case Sum.ContractId(value) => V.ValueContractId(value).right
       case Sum.Int64(value) => V.ValueInt64(value).right
