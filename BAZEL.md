@@ -370,7 +370,7 @@ detailed information.
 - Execute a test with a specific name
 
     ```
-    bazel test//ledger/sandbox:sandbox-scala-tests_test_suite_src_test_suite_scala_com_digitalasset_platform_sandbox_stores_ledger_sql_JdbcLedgerDaoSpec.scala --test_arg=-t --test_arg="JDBC Ledger DAO should be able to persist and load contracts without external offset"
+    bazel test //ledger/sandbox:sandbox-scala-tests_test_suite_src_test_suite_scala_com_digitalasset_platform_sandbox_stores_ledger_sql_JdbcLedgerDaoSpec.scala --test_arg=-t --test_arg="JDBC Ledger DAO should be able to persist and load contracts without external offset"
     ```    
 
 - Pass an argument to a test case in a Scala test-suite
@@ -378,7 +378,8 @@ detailed information.
     ```
     bazel test //ledger-client/ods:tests_test_suite_src_test_scala_com_digitalasset_ods_slick_SqlUtilsTest.scala --test_arg=-z --test_arg="should return true"
     ```
-    More broadly, for scala tests you can pass through any of the args outlined in scalatest document, separating into two instances of the --test-arg parameter as shown in the two examples above.  See http://www.scalatest.org/user_guide/using_the_runner for a full list of args you can pass through.
+    
+    More broadly, for Scala tests you can pass through any of the args outlined in http://www.scalatest.org/user_guide/using_the_runner, separating into two instances of the --test-arg parameter as shown in the two examples above.
 
 ### Running Executables
 
