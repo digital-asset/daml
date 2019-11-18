@@ -24,7 +24,8 @@ retryRule party acs commandsInFlight allowedRetries
   | [] <- getContracts @T acs = do
     dedupCreate T { p = party }
   | ((_, T { p = party' } ) :: _) <- getContracts @T acs
-  , party == party' =
+  , [] <- getContracts @T_ acs
+  , party == party' = do
     dedupExerciseByKey @T party C
   | otherwise = pure ()
 
@@ -36,7 +37,7 @@ template T
     key p : Party
     maintainer key
 
-    choice C : ContractId T_
+    nonconsuming choice C : ContractId T_
       controller p
       do create T_ { p }
 
