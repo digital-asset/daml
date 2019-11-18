@@ -25,6 +25,7 @@ module Util (
     getBazelLocations,
     resolvePomData,
     loggedProcess_,
+    isDeployJar,
   ) where
 
 
@@ -147,9 +148,15 @@ buildTargets art@Artifact{..} =
                (catMaybes
                     [ sourceJarName art
                     , scalaSourceJarName art
+                    , deploySourceJarName art
+                    -- java_proto_library produces the sources as a side-effect, but is not a proper implicit target
+                    -- therefore we cannot add it here as a "required target" to build as with the others
+                    -- , protoSourceJarName art
                     , T.pack . toFilePath <$> artSourceJar
                     , javadocJarName art
                     , scaladocJarName art
+                    , javadocDeployJarName art
+                    , javadocProtoJarName art
                     , T.pack . toFilePath <$> artJavadocJar
                     ])
         Zip -> [artTarget]
@@ -237,6 +244,16 @@ scalaSourceJarName Artifact{..}
   | Jar Scala <- artReleaseType = Just $ snd (splitBazelTarget artTarget) <> "_src.jar"
   | otherwise = Nothing
 
+deploySourceJarName :: Artifact a -> Maybe Text
+deploySourceJarName Artifact{..}
+  | Jar Deploy <- artReleaseType = Just $ snd (splitBazelTarget artTarget) <> "_src.jar"
+  | otherwise = Nothing
+
+protoSourceJarName :: Artifact a -> Maybe Text
+protoSourceJarName Artifact{..}
+  | Jar Proto <- artReleaseType = Just $ T.replace "_java" "" (snd (splitBazelTarget artTarget)) <> "-speed-src.jar"
+  | otherwise = Nothing
+
 customSourceJarName :: Artifact a -> Maybe Text
 customSourceJarName Artifact{..} = T.pack . toFilePath <$> artSourceJar
 
@@ -244,6 +261,16 @@ scaladocJarName :: Artifact a -> Maybe Text
 scaladocJarName Artifact{..}
    | Jar Scala <- artReleaseType = Just $ snd (splitBazelTarget artTarget) <> "_scaladoc.jar"
    | otherwise = Nothing
+
+javadocDeployJarName :: Artifact a -> Maybe Text
+javadocDeployJarName Artifact{..}
+  | Jar Deploy <- artReleaseType = Just $ snd (splitBazelTarget artTarget) <> "_javadoc.jar"
+  | otherwise = Nothing
+
+javadocProtoJarName :: Artifact a -> Maybe Text
+javadocProtoJarName Artifact{..}
+  | Jar Proto <- artReleaseType = Just $ snd (splitBazelTarget artTarget) <> "_javadoc.jar"
+  | otherwise = Nothing
 
 javadocJarName :: Artifact a -> Maybe Text
 javadocJarName Artifact{..}
@@ -272,13 +299,13 @@ artifactFiles allArtifacts art@Artifact{..} = do
     mbSourceJarIn <-
         traverse
             (parseRelFile . unpack)
-            (customSourceJarName art <|> sourceJarName art <|> scalaSourceJarName art)
+            (customSourceJarName art <|> sourceJarName art <|> scalaSourceJarName art <|> deploySourceJarName art <|> protoSourceJarName art)
     sourceJarOut <- releaseSourceJarPath artMetadata
 
     mbJavadocJarIn <-
         traverse
             (parseRelFile . unpack)
-            (customJavadocJarName art <|> javadocJarName art <|> scaladocJarName art)
+            (customJavadocJarName art <|> javadocJarName art <|> scaladocJarName art <|> javadocDeployJarName art <|> javadocProtoJarName art)
     javadocJarOut <- releaseDocJarPath artMetadata
 
     let shouldReleasePlatInd = shouldRelease allArtifacts (PlatformDependent False)
@@ -352,6 +379,12 @@ isJar :: ReleaseType -> Bool
 isJar t =
     case t of
         Jar{} -> True
+        _ -> False
+
+isDeployJar :: ReleaseType -> Bool
+isDeployJar t =
+    case t of
+        Jar Deploy -> True
         _ -> False
 
 bintrayTargetLocation :: BintrayPackage -> TextVersion -> Text

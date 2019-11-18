@@ -16,6 +16,7 @@ load(
 )
 load("//bazel_tools:pom_file.bzl", "pom_file")
 load("@os_info//:os_info.bzl", "is_windows")
+load("//bazel_tools:pkg.bzl", "pkg_empty_zip")
 
 # This file defines common Scala compiler flags and plugins used throughout
 # this repository. The initial set of flags is taken from the ledger-client
@@ -466,6 +467,18 @@ def da_scala_binary(name, **kwargs):
                 pom_file(
                     name = name + "_pom",
                     target = ":" + name,
+                )
+
+                # Create empty Sources JAR for uploading to Maven Central
+                pkg_empty_zip(
+                    name = name + "_src",
+                    out = name + "_src.jar",
+                )
+
+                # Create empty javadoc JAR for uploading deploy jars to Maven Central
+                pkg_empty_zip(
+                    name = name + "_javadoc",
+                    out = name + "_javadoc.jar",
                 )
                 break
 

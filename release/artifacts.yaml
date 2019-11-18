@@ -47,10 +47,13 @@
   platformDependent: True
 - target: //daml-lf/transaction:value_java_proto
   type: jar-proto
+  mavenUpload: true
 - target: //daml-lf/transaction:transaction_java_proto
   type: jar-proto
+  mavenUpload: true
 - target: //daml-lf/transaction:blindinginfo_java_proto
   type: jar-proto
+  mavenUpload: true
 - target: //daml-lf/transaction:transaction
   type: jar-scala
   mavenUpload: True
@@ -139,6 +142,7 @@
   type: jar-scala
 - target: //ledger/ledger-api-test-tool:ledger-api-test-tool
   type: jar-deploy
+  mavenUpload: true
 - target: //language-support/scala/codegen:codegen
   type: jar-scala
   mavenUpload: true
@@ -172,8 +176,10 @@
   mavenUpload: True
 - target: //ledger/participant-state/kvutils:daml_kvutils_java_proto
   type: jar-proto
+  mavenUpload: true
 - target: //ledger/participant-state/kvutils:kvutils
   type: jar-scala
+  mavenUpload: true
 - target: //ledger-service/lf-value-json:lf-value-json
   type: jar-scala
 - target: //ledger-service/utils:utils

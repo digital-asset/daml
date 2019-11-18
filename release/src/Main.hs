@@ -51,11 +51,13 @@ main = do
 
       let mavenUploadArtifacts = filter (\a -> getMavenUpload $ artMavenUpload a) artifacts
 
-      -- all known targets uploaded to maven
+      -- all known targets uploaded to maven, that are not deploy Jars
+      -- we don't check dependencies for deploy jars as they are single-executable-jars
+      let nonDeployJars = filter (not . isDeployJar . artReleaseType) mavenUploadArtifacts
       let allMavenTargets = Set.fromList $ fmap (T.unpack . getBazelTarget . artTarget) mavenUploadArtifacts
 
       -- first find out all the missing internal dependencies
-      missingDepsForAllArtifacts <- forM mavenUploadArtifacts $ \a -> do
+      missingDepsForAllArtifacts <- forM nonDeployJars $ \a -> do
           -- run a bazel query to find all internal java and scala library dependencies
           let bazelQueryCommand = shell $ "bazel query 'kind(\"(scala|java)_library\", deps(" ++ (T.unpack . getBazelTarget . artTarget) a ++ ")) intersect //...'"
           internalDeps <- liftIO $ lines <$> readCreateProcess bazelQueryCommand ""
