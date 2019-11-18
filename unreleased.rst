@@ -15,3 +15,4 @@ HEAD — ongoing
   that allows you to mark contracts as pending. Those contracts will
   be automatically filtered from the result of ``getContracts`` until
   we receive the corresponding completion/transaction.
+- [Navigator] Fixed a bug where Navigator becomes unresponsive if the ledger does not contain any DAML packages.

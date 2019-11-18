@@ -52,12 +52,10 @@ case class PackageRegistry(
       }
 
     val newTemplates = newPackages
-      .map(_._2.templates)
-      .reduce(_ ++ _)
+      .flatMap(_._2.templates)
 
     val newTypeDefs = newPackages
-      .map(_._2.typeDefs)
-      .reduce(_ ++ _)
+      .flatMap(_._2.typeDefs)
 
     copy(
       packages = packages ++ newPackages,
