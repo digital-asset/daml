@@ -18,4 +18,3 @@ object PackageUploadEntry {
       reason: String
   ) extends PackageUploadEntry
 }
-
