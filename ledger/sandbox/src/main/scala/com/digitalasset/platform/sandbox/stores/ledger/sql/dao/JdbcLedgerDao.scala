@@ -15,7 +15,13 @@ import anorm.{AkkaStream, BatchSql, Macro, NamedParameter, RowParser, SQL, SqlPa
 import com.daml.ledger.participant.state.index.v2.PackageDetails
 import com.daml.ledger.participant.state.v1.{AbsoluteContractInst, ParticipantId, TransactionId}
 import com.digitalasset.daml.lf.archive.Decode
-import com.digitalasset.daml.lf.data.Ref.{ContractIdString, LedgerString, PackageId, Party, TransactionIdString}
+import com.digitalasset.daml.lf.data.Ref.{
+  ContractIdString,
+  LedgerString,
+  PackageId,
+  Party,
+  TransactionIdString
+}
 import com.digitalasset.daml.lf.data.Relation.Relation
 import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.transaction.Node.{GlobalKey, KeyWithMaintainers}
@@ -28,12 +34,24 @@ import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails, RejectionReas
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.common.util.DirectExecutionContext
 import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilter
-import com.digitalasset.platform.sandbox.stores.ActiveLedgerState.{ActiveContract, Contract, DivulgedContract}
+import com.digitalasset.platform.sandbox.stores.ActiveLedgerState.{
+  ActiveContract,
+  Contract,
+  DivulgedContract
+}
 import com.digitalasset.platform.sandbox.stores._
 import com.digitalasset.platform.sandbox.stores.ledger.{LedgerEntry, PackageUploadEntry}
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry._
-import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.JdbcLedgerDao.{H2DatabaseQueries, PostgresQueries}
-import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{ContractSerializer, KeyHasher, TransactionSerializer, ValueSerializer}
+import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.JdbcLedgerDao.{
+  H2DatabaseQueries,
+  PostgresQueries
+}
+import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{
+  ContractSerializer,
+  KeyHasher,
+  TransactionSerializer,
+  ValueSerializer
+}
 import com.digitalasset.platform.sandbox.stores.ledger.sql.util.Conversions._
 import com.digitalasset.platform.sandbox.stores.ledger.sql.util.DbDispatcher
 import com.google.common.io.ByteStreams
@@ -1356,8 +1374,7 @@ private class JdbcLedgerDao(
       participantId: ParticipantId,
       submissionId: String,
       reason: Option[String]): Future[PersistenceResponse] =
-
-  //TODO BH: implement me
+    //TODO BH: implement me
     Future.successful(PersistenceResponse.Duplicate)
 
   //  override def storePackageUploadEntry(

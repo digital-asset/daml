@@ -207,7 +207,9 @@ class InMemoryKVParticipantStateIT
             assert(update.displayName == displayName.get)
             assert(update.participantId == ps.participantId)
             assert(update.recordTime >= rt)
-          case _ => fail("unexpected update message after a party allocation.  Error : " + allocResult.description)
+          case _ =>
+            fail(
+              "unexpected update message after a party allocation.  Error : " + allocResult.description)
         }
       }
     }

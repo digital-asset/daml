@@ -73,7 +73,6 @@ class ApiPackageManagementService(
         FutureConverters
           .toScala(res._1)
           .flatMap {
-
             //TODO BH: first step to get this to compile -- need to implement properly polling and retrieval of response event
             case SubmissionResult.Acknowledged =>
               Future.successful(UploadDarFileResponse())

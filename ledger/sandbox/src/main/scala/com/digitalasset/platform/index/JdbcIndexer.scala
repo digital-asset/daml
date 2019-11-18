@@ -272,14 +272,16 @@ class JdbcIndexer private[index] (
           )
         )
         ledgerDao.uploadLfPackages(uploadId, packages, externalOffset).map(_ => ())(DEC)
-        //TODO BH: probably want to do this as atomic commit
+      //TODO BH: probably want to do this as atomic commit
 
       case PackageUploadEntryAccepted(participantId, submissionId) =>
         ledgerDao.storePackageUploadEntry(participantId, submissionId, None).map(_ => ())(DEC)
 
-        //TODO BH: consider generalization of persistence storage JM has done on configuration branch
+      //TODO BH: consider generalization of persistence storage JM has done on configuration branch
       case PackageUploadEntryRejected(participantId, submissionId, reason) =>
-        ledgerDao.storePackageUploadEntry(participantId, submissionId, Some(reason)).map(_ => ())(DEC)
+        ledgerDao
+          .storePackageUploadEntry(participantId, submissionId, Some(reason))
+          .map(_ => ())(DEC)
 
       case TransactionAccepted(
           optSubmitterInfo,
