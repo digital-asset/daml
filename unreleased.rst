@@ -16,6 +16,8 @@ HEAD — ongoing
   be automatically filtered from the result of ``getContracts`` until
   we receive the corresponding completion/transaction.
   
+- [Navigator] Fixed a bug where Navigator becomes unresponsive if the ledger does not contain any DAML packages.
+  
 - [Leger-API] Add field ``gen_map`` in Protobuf definition for ledger
   api values. This field is used to support generic maps, an new
   feature currently in development.  See issue
