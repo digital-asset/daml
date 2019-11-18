@@ -3,8 +3,10 @@
 
 package com.digitalasset.http.util
 
-import java.io.File
+import java.io.{BufferedWriter, File, FileWriter}
 import java.net.ServerSocket
+
+import com.digitalasset.daml.lf.data.TryOps.Bracket.bracket
 
 import scala.util.{Failure, Success, Try}
 
@@ -17,9 +19,17 @@ object TestUtil {
   }
 
   def requiredFile(fileName: String): Try[File] = {
-    val file = new File(fileName)
-    if (file.exists()) Success(file.getAbsoluteFile)
+    val file = new File(fileName).getAbsoluteFile
+    if (file.exists()) Success(file)
     else
       Failure(new IllegalStateException(s"File doest not exist: $fileName"))
   }
+
+  def writeToFile(file: File, text: String): Try[File] =
+    bracket(Try(new BufferedWriter(new FileWriter(file))))(x => Try(x.close())).flatMap { bw =>
+      Try {
+        bw.write(text)
+        file
+      }
+    }
 }

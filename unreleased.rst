@@ -29,3 +29,7 @@ HEAD — ongoing
   field may cause pattern-matching exhaustive warnings in the code of
   ledger API clients. Those warnings can be safely ignored until
   GenMap is made stable in an upcoming version of DAML-LF.
+
+- [JSON API - Experimental] CLI configuration to enable serving static content as part of the JSON API daemon:
+  ``--static-content "directory=/full/path,prefix=static"``
+  This configuration is NOT recommended for production deployment. See issue #2782.
