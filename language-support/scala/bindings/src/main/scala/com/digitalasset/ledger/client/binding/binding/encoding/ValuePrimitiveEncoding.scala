@@ -67,6 +67,9 @@ object ValuePrimitiveEncoding {
       case ContractId(_) => Some(valueContractId)
       case Optional(_) => Some(valueOptional(valueText))
       case Map(_) => Some(valueMap(valueText))
+      case GenMap(_) =>
+        // FIXME https://github.com/digital-asset/daml/issues/2256
+        sys.error("GenMap not supported")
       // types that represent non-primitives only
       case Record(_) | Variant(_) | Enum(_) | Empty => None
     }
