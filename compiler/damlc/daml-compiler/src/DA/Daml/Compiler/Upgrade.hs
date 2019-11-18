@@ -244,7 +244,7 @@ generateTemplateInstance ::
     -> [(LF.TypeVarName, LF.Kind)]
     -> LF.PackageId
     -> HsDecl GhcPs
-generateTemplateInstance env dataTypeCon dataParams externPkgId =
+generateTemplateInstance env typeCon typeParams externPkgId =
     InstD noExt $
     ClsInstD
         noExt
@@ -279,15 +279,15 @@ generateTemplateInstance env dataTypeCon dataParams externPkgId =
         mkOccName varName "Template" :: LHsType GhcPs
     lfTemplateType =
         LF.mkTApps
-            (LF.TCon (LF.Qualified LF.PRSelf moduleName0 dataTypeCon))
-            (map (LF.TVar . fst) dataParams)
+            (LF.TCon (LF.Qualified LF.PRSelf moduleName0 typeCon))
+            (map (LF.TVar . fst) typeParams)
     methodMapping =
         map (\funName -> (funName, mkExternalString funName)) methodNames
     mkExternalString :: T.Text -> String
     mkExternalString funName =
         (T.unpack $ LF.unPackageId externPkgId) <>
         ":" <> moduleNameStr <>
-        ":" <> (T.unpack $ T.intercalate "." $ LF.unTypeConName dataTypeCon) <>
+        ":" <> (T.unpack $ T.intercalate "." $ LF.unTypeConName typeCon) <>
         ":" <> T.unpack funName
     methodNames =
         [ "signatory"
