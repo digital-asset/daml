@@ -138,7 +138,7 @@ generateTemplateInstanceModule env externPkgId
           modName <>
           " as X"
         , "import \"" <> packageName <> "\" " <> modName
-        , "import qualified DA.Internal.TemplateThisSdk"
+        , "import qualified Sdk.DA.Internal.Template"
         , "import qualified GHC.Types"
         ]
 
@@ -265,7 +265,7 @@ generateTemplateInstance env typeCon typeParams externPkgId =
         noLoc $
         HsTyVar noExt NotPromoted $
         noLoc $
-        mkRdrQual (mkModuleName "DA.Internal.TemplateThisSdk") $
+        mkRdrQual (mkModuleName "Sdk.DA.Internal.Template") $
         mkOccName varName "Template" :: LHsType GhcPs
     lfTemplateType dataTypeCon dataParams =
         LF.mkTApps

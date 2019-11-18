@@ -216,7 +216,11 @@ createProjectPackageDb opts thisSdkVer deps0 dataDeps = do
                 , optGhcCustomOpts = []
                 , optPackageImports =
                       ("daml-prim", True, []) :
-                      [(takeBaseName dep, True, []) | dep <- deps] ++ optPackageImports opts
+                      -- the following is for the edge case, when there is no standard library
+                      -- dependency, but the dalf still uses builtins or builtin types like Party.
+                      -- In this case, we use the current daml-stdlib as their origin.
+                      [(damlStdlib, True, []) | not $ hasStdlibDep deps]  ++
+                      [(takeBaseName dep, True, []) | dep <- deps]
                 }
 
         _ <- withDamlIdeState opts' loggerH diagnosticsLogger $ \ide ->
@@ -295,9 +299,14 @@ createProjectPackageDb opts thisSdkVer deps0 dataDeps = do
                               -- definition of the template class.
                               [ ( damlStdlib
                                 , False
-                                , [("DA.Internal.Template", "DA.Internal.TemplateThisSdk")])
+                                , [("DA.Internal.Template", "Sdk.DA.Internal.Template") ])
                               ] ++
-                              [(takeBaseName dep, True, []) | dep <- deps] ++ optPackageImports opts
+                              -- the following is for the edge case, when there is no standard
+                              -- library dependency, but the dalf still uses builtins or builtin
+                              -- types like Party.  In this case, we use the current daml-stdlib as
+                              -- their origin.
+                              [(damlStdlib, True, []) | not $ hasStdlibDep deps] ++
+                              [(takeBaseName dep, True, []) | dep <- deps]
                         }
                 mbDar <-
                     withDamlIdeState opts' loggerH diagnosticsLogger $ \ide ->
@@ -314,6 +323,9 @@ createProjectPackageDb opts thisSdkVer deps0 dataDeps = do
                 Zip.createArchive darFp dar
                 ExtractedDar{..} <- extractDar darFp
                 installDar dbPathAbs edConfFiles edDalfs edSrcs
+
+    hasStdlibDep deps =
+        any (\dep -> isJust $ stripPrefix "daml-stdlib" $ takeBaseName dep) deps
 
 
 data ExtractedDar = ExtractedDar
