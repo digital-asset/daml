@@ -155,11 +155,9 @@ templateInstances env externPkgId =
 
 choiceInstances :: Env -> LF.PackageId -> [HsDecl GhcPs]
 choiceInstances env externPkgId =
-    [ generateChoiceInstance env externPkgId templateDT choice
+    [ generateChoiceInstance env externPkgId template choice
     | template <- NM.elems $ LF.moduleTemplates mod
     , choice <- NM.elems $ LF.tplChoices template
-    , Just templateDT <-
-      [NM.lookup (LF.tplTypeCon template) (LF.moduleDataTypes mod)]
     ]
   where
     mod = envMod env
@@ -304,14 +302,14 @@ generateTemplateInstance env dataTypeCon dataParams externPkgId =
         , "_templateTypeRep"
         ]
 
--- | Generate a single choice instance for a given templateDT/choice
+-- | Generate a single choice instance for a given template/choice
 generateChoiceInstance ::
        Env
     -> LF.PackageId
-    -> LF.DefDataType
+    -> LF.Template
     -> LF.TemplateChoice
     -> HsDecl GhcPs
-generateChoiceInstance env externPkgId templateDT choice =
+generateChoiceInstance env externPkgId template choice =
     InstD noExt $
     ClsInstD
         noExt
@@ -362,6 +360,11 @@ generateChoiceInstance env externPkgId templateDT choice =
         LF.mkTApps
           (LF.TCon (LF.Qualified LF.PRSelf moduleName0 dataTypeCon))
           (map (LF.TVar . fst) dataParams)
+
+    tycon :: LF.TypeConName = LF.tplTypeCon template
+    templateDT = case NM.lookup tycon (LF.moduleDataTypes (envMod env)) of
+      Just x -> x
+      Nothing -> error $ "Internal error: Could not find template definition for: " <> show tycon
 
     LF.DefDataType{dataTypeCon,dataParams} = templateDT
     LF.TemplateChoice{chcArgBinder=(_,lfChoiceType),chcName,chcReturnType=lfChoiceReturnType} = choice
