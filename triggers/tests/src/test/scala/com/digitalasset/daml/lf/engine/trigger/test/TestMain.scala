@@ -670,7 +670,7 @@ case class ExerciseByKeyTests(dar: Dar[(PackageId, Package)], runner: TestRunner
       // 1 for exerciseByKey
       // 1 for corresponding completion
       NumMessages(4),
-      numT = 0,
+      numT = 1,
       numTPrime = 1,
     )
   }
