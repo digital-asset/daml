@@ -74,3 +74,6 @@ test1 = do
         _ -> error $ "Expected exactly one NumericTpl but got " <> show ts
   v' <- submit alice $ exerciseCmd cid GetV
   pure (v + v')
+
+test2 : C -> Script Int
+test2 (C _ i) = pure i

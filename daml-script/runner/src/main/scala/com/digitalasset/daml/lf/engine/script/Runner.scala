@@ -8,20 +8,28 @@ import akka.stream.scaladsl.Sink
 import com.typesafe.scalalogging.StrictLogging
 import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
+import scalaz.{\/-}
 import scalaz.std.either._
 import scalaz.syntax.tag._
 import scalaz.syntax.traverse._
+import spray.json._
 
 import com.digitalasset.daml.lf.PureCompiledPackages
 import com.digitalasset.daml.lf.archive.Dar
 import com.digitalasset.daml.lf.data.FrontStack
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.engine.ValueTranslator
+import com.digitalasset.daml.lf.iface
+import com.digitalasset.daml.lf.iface.EnvironmentInterface
+import com.digitalasset.daml.lf.iface.reader.InterfaceReader
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.speedy.{Compiler, Pretty, Speedy, SValue, TraceLog}
 import com.digitalasset.daml.lf.speedy.SExpr._
 import com.digitalasset.daml.lf.speedy.SResult._
 import com.digitalasset.daml.lf.speedy.SValue._
+import com.digitalasset.daml.lf.value.Value
+import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
+import com.digitalasset.daml.lf.value.json.ApiCodecCompressed
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.refinements.ApiTypes.ApplicationId
 import com.digitalasset.ledger.api.v1.command_service.SubmitAndWaitRequest
@@ -34,11 +42,27 @@ import com.digitalasset.ledger.api.v1.transaction_filter.{
 import com.digitalasset.ledger.client.LedgerClient
 import com.digitalasset.ledger.client.services.commands.CommandUpdater
 
+object LfValueCodec extends ApiCodecCompressed[AbsoluteContractId](false, false) {
+  override final def apiContractIdToJsValue(obj: AbsoluteContractId) =
+    JsString(obj.coid)
+  override final def jsValueToApiContractId(json: JsValue) = json match {
+    case JsString(s) =>
+      ContractIdString.fromString(s).fold(deserializationError(_), AbsoluteContractId)
+    case _ => deserializationError("ContractId must be a string")
+  }
+}
+
 class Runner(
     dar: Dar[(PackageId, Package)],
     applicationId: ApplicationId,
     commandUpdater: CommandUpdater)
     extends StrictLogging {
+
+  val ifaceDar = dar.map(pkg => InterfaceReader.readInterface(() => \/-(pkg))._2)
+
+  val envIface = EnvironmentInterface.fromReaderInterfaces(ifaceDar)
+  def damlLfTypeLookup(id: Identifier): Option[iface.DefDataType.FWT] =
+    envIface.typeDecls.get(id).map(_.`type`)
 
   val darMap: Map[PackageId, Package] = dar.all.toMap
   val compiler = Compiler(darMap)
@@ -49,6 +73,9 @@ class Runner(
     }
     .get
     ._1
+  val scriptTyCon = Identifier(
+    scriptPackageId,
+    QualifiedName(scriptModuleName, DottedName.assertFromString("Script")))
   val stdlibPackageId =
     dar.all
       .find {
@@ -106,12 +133,48 @@ class Runner(
     SubmitAndWaitRequest(Some(commandUpdater.applyOverrides(commands)))
   }
 
-  def run(client: LedgerClient, scriptId: Identifier)(
+  def run(client: LedgerClient, scriptId: Identifier, inputValue: Option[JsValue])(
       implicit ec: ExecutionContext,
       mat: ActorMaterializer): Future[SValue] = {
-    val scriptExpr = EVal(scriptId)
+    val scriptTy = darMap
+      .get(scriptId.packageId)
+      .flatMap(_.lookupIdentifier(scriptId.qualifiedName).toOption) match {
+      case Some(DValue(ty, _, _, _)) => ty
+      case Some(d @ DDataType(_, _, _)) =>
+        throw new RuntimeException(s"Expected DAML script but got datatype $d")
+      case None => throw new RuntimeException(s"Could not find DAML script $scriptId")
+    }
+    def assertScriptTy(ty: Type) = {
+      ty match {
+        case TApp(TTyCon(tyCon), _) if tyCon == scriptTyCon => {}
+        case _ => throw new RuntimeException(s"Expected type 'Script a' but got $ty")
+      }
+    }
+    val scriptExpr = inputValue match {
+      case None => {
+        assertScriptTy(scriptTy)
+        SEVal(LfDefRef(scriptId), None)
+      }
+      case Some(inputJson) =>
+        scriptTy match {
+          case TApp(TApp(TBuiltin(BTArrow), param), result) => {
+            assertScriptTy(result)
+            val paramIface = Converter.toIfaceType(param) match {
+              case Left(s) => throw new ConverterException(s"Failed to convert $result: $s")
+              case Right(ty) => ty
+            }
+            val inputLfVal = inputJson.convertTo[Value[AbsoluteContractId]](
+              LfValueCodec.apiValueJsonReader(paramIface, damlLfTypeLookup(_)))
+            SEApp(SEVal(LfDefRef(scriptId), None), Array(SEValue(SValue.fromValue(inputLfVal))))
+          }
+          case _ =>
+            throw new RuntimeException(
+              s"Expected $scriptId to have function type but got $scriptTy")
+        }
+
+    }
     var machine =
-      Speedy.Machine.fromSExpr(compiler.compile(scriptExpr), false, compiledPackages)
+      Speedy.Machine.fromSExpr(scriptExpr, false, compiledPackages)
 
     def stepToValue() = {
       while (!machine.isFinal) {
