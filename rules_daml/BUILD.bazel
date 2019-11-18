@@ -6,12 +6,3 @@ exports_files(
     ["daml.bzl"],
     visibility = ["//bazel_tools/docs:__pkg__"],
 )
-
-load("@io_bazel_rules_scala//scala:scala.bzl", "scala_binary")
-load("//rules_daml:daml.bzl", "daml_sandbox_version")
-
-alias(
-    name = "codegen",
-    actual = "//language-support/scala/codegen:codegen-main",
-    visibility = ["//visibility:public"],
-)

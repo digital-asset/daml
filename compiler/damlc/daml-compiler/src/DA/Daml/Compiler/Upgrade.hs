@@ -31,13 +31,10 @@ import "ghc-lib-parser" FastString
 import "ghc-lib" GHC
 import "ghc-lib-parser" Module
 import "ghc-lib-parser" Name
-import "ghc-lib-parser" Outputable
-    ( alwaysQualify
-    , ppr
-    , showSDocForUser
-    )
+import "ghc-lib-parser" Outputable (alwaysQualify, ppr, showSDocForUser)
 import "ghc-lib-parser" PrelNames
 import "ghc-lib-parser" RdrName
+import Safe
 import SdkVersion
 import System.FilePath.Posix
 import "ghc-lib-parser" TcEvidence (HsWrapper(..))
@@ -57,7 +54,7 @@ generateUpgradeModule :: [String] -> String -> String -> String -> String
 generateUpgradeModule templateNames modName qualA qualB =
     unlines $ header ++ concatMap upgradeTemplates templateNames
   where
-    header = header0 ++ header1 ++ header2
+    header = header0 ++ header2
       -- If we compile with packages from a single sdk version, the instances modules will not be
       -- there and hence we can not include header1.
     header0 =
@@ -65,10 +62,6 @@ generateUpgradeModule templateNames modName qualA qualB =
         , "module " <> modName <> " where"
         , "import " <> modName <> qualA <> " qualified as A"
         , "import " <> modName <> qualB <> " qualified as B"
-        ]
-    header1 =
-        [ "import " <> modName <> qualA <> "Instances()"
-        , "import " <> modName <> qualB <> "Instances()"
         ]
     header2 = [
         "import DA.Upgrade"
@@ -123,15 +116,28 @@ generateTemplateInstanceModule env externPkgId
     templInstances = templateInstances env externPkgId
 
     mod = envMod env
-    modFilePath = (joinPath $ splitOn "." modName) ++ "Instances" ++ ".daml"
+    unitIdStr = unitIdString $ envGetUnitId env LF.PRSelf
+    unitIdChunks = splitOn "-" unitIdStr
+    packageName
+        | all (`elem` '.' : ['0' .. '9']) $ lastDef "" unitIdChunks =
+            intercalate "-" $ init unitIdChunks
+        | otherwise = unitIdStr
+    modFilePath = (joinPath $ splitOn "." modName) ++ ".daml"
     modName = T.unpack $ LF.moduleNameString $ LF.moduleName mod
     header =
         [ "{-# LANGUAGE NoDamlSyntax #-}"
         , "{-# LANGUAGE EmptyCase #-}"
-        , "module " <> modName <> "Instances" <> " where"
+        , "module " <> modName
+        , "   ( module " <> modName
+        , "   , module X"
+        , "   )  where"
         ]
     imports =
-        [ "import qualified " <> modName
+        [ "import qualified \"" <> packageName <>
+          "\" " <>
+          modName <>
+          " as X"
+        , "import \"" <> packageName <> "\" " <> modName
         , "import qualified DA.Internal.Template"
         , "import qualified GHC.Types"
         ]
@@ -381,10 +387,11 @@ generateSrcPkgFromLf getUnitId thisPkgId pkg = do
     modName = LF.unModuleName . LF.moduleName
     header m = header0 ++ header1 m
     header0 =
-        ["{-# LANGUAGE NoDamlSyntax #-}", "{-# LANGUAGE NoImplicitPrelude #-}"]
+        ["{-# LANGUAGE NoDamlSyntax #-}"
+        , "{-# LANGUAGE NoImplicitPrelude #-}"
+        , "{-# LANGUAGE TypeOperators #-}"
+        ]
     header1 m
-        | modName m == ["DA", "Generics"] =
-            ["", "{-# LANGUAGE TypeOperators #-}"]
         | modName m == ["GHC", "Types"] = ["", "{-# LANGUAGE MagicHash #-}"]
         | otherwise = []
     --
@@ -515,8 +522,7 @@ generateSrcFromLf env thisPkgId = noLoc mod
             pure [dataDecl]
 
     convDataCons :: T.Text -> LF.DataCons -> [LConDecl GhcPs]
-    convDataCons dataTypeCon0 =
-        \case
+    convDataCons dataTypeCon0 = \case
             LF.DataRecord fields ->
                 [ noLoc $
                   ConDeclH98
@@ -686,8 +692,14 @@ convType env =
     \case
         LF.TVar tyVarName ->
             HsTyVar noExt NotPromoted $ mkRdrName $ LF.unTypeVarName tyVarName
+        LF.TCon LF.Qualified {..}
+          | qualModule == LF.ModuleName ["DA", "Types"]
+          , [name] <- LF.unTypeConName qualObject
+          , Just n <- stripPrefix "Tuple" $ T.unpack name
+          , Just i <- readMay n
+          , 2 <= i && i <= 20 -> mkTuple i
         LF.TCon LF.Qualified {..} ->
-            case LF.unTypeConName qualObject of
+          case LF.unTypeConName qualObject of
                 [name] ->
                     HsTyVar noExt NotPromoted $
                     noLoc $
@@ -744,6 +756,11 @@ convType env =
                 [noLoc $ convType env ty | (_fldName, ty) <- fls]
         LF.TNat n ->
             HsTyLit noExt (HsNumTy NoSourceText (LF.fromTypeLevelNat n))
+  where
+    mkTuple :: Int -> HsType GhcPs
+    mkTuple i =
+        HsTyVar noExt NotPromoted $
+        noLoc $ mkRdrUnqual $ occName $ tupleTyConName BoxedTuple i
 
 convBuiltInTy :: Bool -> LF.BuiltinType -> HsType GhcPs
 convBuiltInTy qualify =

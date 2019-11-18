@@ -4,15 +4,10 @@
 load("//ledger/ledger-api-test-tool:conformance.bzl", "conformance_test")
 load("@os_info//:os_info.bzl", "is_windows")
 
-java_import(
-    name = "canton-lib",
-    jars = ["@canton//:jars"],
-)
-
 java_binary(
     name = "canton",
     main_class = "com.digitalasset.canton.CantonApp",
-    runtime_deps = [":canton-lib"],
+    runtime_deps = ["@canton//:lib"],
 )
 
 # Disabled on Windows because `coreutils` and `grpcurl` aren't easily available.
@@ -69,4 +64,5 @@ conformance_test(
         5021,
     ],
     server = ":canton-test-runner-with-dependencies",
+    tags = ["manual"],
 ) if not is_windows else None

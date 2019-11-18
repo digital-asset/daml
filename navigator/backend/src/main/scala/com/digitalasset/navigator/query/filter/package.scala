@@ -86,6 +86,9 @@ package object filter {
           Right(checkContained("optional", expectedValue))
         case DamlLfTypePrim(DamlLfPrimType.Map, _) =>
           Right(checkContained("map", expectedValue))
+        case DamlLfTypePrim(DamlLfPrimType.GenMap, _) =>
+          // FIXME https://github.com/digital-asset/daml/issues/2256
+          sys.error("GenMap not supported")
       }
 
     loop(rootParam, cursor.prev.get)

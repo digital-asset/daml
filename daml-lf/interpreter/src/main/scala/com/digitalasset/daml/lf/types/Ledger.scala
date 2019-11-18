@@ -972,6 +972,12 @@ object Ledger {
         case _: ValueCidlessLeaf => ()
         case ValueOptional(mbV) => mbV.foreach(collect)
         case ValueMap(map) => map.values.foreach(collect)
+        case ValueGenMap(entries) =>
+          entries.foreach {
+            case (k, v) =>
+              collect(k)
+              collect(v)
+          }
       }
 
     collect(value)
@@ -1010,6 +1016,8 @@ object Ledger {
         case vlit: ValueCidlessLeaf => vlit
         case ValueOptional(mbV) => ValueOptional(mbV.map(rewrite))
         case ValueMap(map) => ValueMap(map.mapValue(rewrite))
+        case ValueGenMap(entries) =>
+          ValueGenMap(entries.map { case (k, v) => rewrite(k) -> rewrite(v) })
       }
     rewrite(value)
   }

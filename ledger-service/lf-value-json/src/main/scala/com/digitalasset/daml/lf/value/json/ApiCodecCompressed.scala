@@ -58,6 +58,9 @@ abstract class ApiCodecCompressed[Cid](
       }
     case v: V.ValueMap[Cid] =>
       apiMapToJsValue(v)
+    case _: V.ValueGenMap[Cid] =>
+      // FIXME https://github.com/digital-asset/daml/issues/2256
+      serializationError("GenMap are not not supported.")
     case _: V.ValueTuple[Cid] => serializationError("impossible! tuples are not serializable")
   }
 
@@ -146,6 +149,9 @@ abstract class ApiCodecCompressed[Cid](
             jsValueToApiValue(v, prim.typArgs.head, defs)
           }))
       }
+      case Model.DamlLfPrimType.GenMap =>
+        // FIXME https://github.com/digital-asset/daml/issues/2256
+        deserializationError("GenMap not supported")
     }(fallback = deserializationError(s"Can't read ${value.prettyPrint} as $prim"))
   }
 

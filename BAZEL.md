@@ -47,26 +47,38 @@ provide a brief overview which may serve as a refresher.
 
 [bazel_core_concepts]: https://docs.bazel.build/versions/master/build-ref.html
 
-In short, the `da` repository is a Bazel *workspace*. It contains a `WORKSPACE`
+In short, the `daml` repository is a Bazel *workspace*. It contains a `WORKSPACE`
 file, which defines external dependencies. The workspace contains several
 *packages*. A package is a directory that contains a `BUILD.bazel` or `BUILD`
 file. Each package holds multiple *targets*. Targets are either *files* under
 the package directory or *rules* defined in the `BUILD.bazel` file. You can
 address a target by a *label* of the form `//path/to/package:target`. For
-example, `//ledger-client/ods:ods`. Here `ods` is a target in the package
-`ledger-client/ods`. It is defined in the file `ledger-client/ods/BUILD.bazel`
+example, `//ledger/sandbox:sandbox`. Here `sandbox` is a target in the package
+`ledger/sandbox`. It is defined in the file `ledger/sandbox/BUILD.bazel`
 using `da_scala_library` as shown below.
 
 ```
 da_scala_library(
-  name = 'ods',
-  deps = [
-    '//3rdparty/jvm/ch/qos/logback:logback_classic',
-    '//ledger-client/nanobot-framework',
-    ...
-  ],
-  srcs = glob(['src/main/**/*.scala']),
-  ...
+    name = "sandbox",
+    srcs = glob(["src/main/scala/**/*.scala"]),
+    resources =
+        glob(
+            ["src/main/resources/**/*"],
+            # Do not include logback.xml into the library: let the user
+            # of the sandbox-as-a-library decide how to log.
+            exclude = ["src/main/resources/logback.xml"],
+        ) + [
+            "//:COMPONENT-VERSION",
+        ],
+    tags = ["maven_coordinates=com.digitalasset.platform:sandbox:__VERSION__"],
+    visibility = [
+        "//visibility:public",
+    ],
+    runtime_deps = [
+        "@maven//:ch_qos_logback_logback_classic",
+        "@maven//:ch_qos_logback_logback_core",
+    ],
+    deps = compileDependencies,
 )
 ```
 
@@ -167,7 +179,7 @@ does not have a project view file yet, then you can generate one using the
 `bazel-project-view` tool in dev-env as follows:
 
 ```
-bazel-project-view -o ledger-client/ods/.bazelproject ledger-client/ods
+bazel-project-view -o ledger/sandbox/.bazelproject ledger/sandbox
 ```
 
 Choose the "Import Project View File" option and select the project view file
@@ -221,12 +233,12 @@ After these modifications the project view file might look like this:
 
 ```
 directories:
-  ledger-client/ods
-  ledger-client/ledger-client-binding
+  ledger/sandbox
+  ...
 
 targets:
-  //ledger-client/ods:ods
-  //ledger-client/ods:tests_test_suite_src_test_scala_com_digitalasset_ods_slick_SqlUtilsTest.scala
+  //ledger/sandbox:sandbox
+  ...
 
 additional_languages:
   scala
@@ -332,7 +344,7 @@ detailed information.
 - Build an individual target
 
     ```
-    bazel build //ledger-client/ods:ods
+    bazel build //ledger/sandbox:sandbox
     ```
 
 ### Running Tests
@@ -346,45 +358,58 @@ detailed information.
 - Execute a test suite
 
     ```
-    bazel test //ledger-client/ods:tests
+    bazel test //ledger/sandbox:sandbox-scala-tests
     ```
 
 - Show test output
 
     ```
-    bazel test //ledger-client/ods:tests --test_output=streamed
+    bazel test //ledger/sandbox:sandbox-scala-tests --test_output=streamed
     ```
 
 - Do not cache test results
 
     ```
-    bazel test //ledger-client/ods:tests --nocache_test_results
+    bazel test //ledger/sandbox:sandbox-scala-tests --nocache_test_results
     ```
 
-- Execute an individual test case in a Scala test-suite
+- Execute a specific Scala test-suite class
 
     ```
-    bazel test //ledger-client/ods:tests_test_suite_src_test_scala_com_digitalasset_ods_slick_SqlUtilsTest.scala
+    bazel test //ledger/sandbox:sandbox-scala-tests_test_suite_src_test_suite_scala_com_digitalasset_platform_sandbox_stores_ledger_sql_JdbcLedgerDaoSpec.scala
+    ```
+    
+- Execute a test with a specific name
+
+    ```
+    bazel test \
+    //ledger/sandbox:sandbox-scala-tests_test_suite_src_test_suite_scala_com_digitalasset_platform_sandbox_stores_ledger_sql_JdbcLedgerDaoSpec.scala \
+    --test_arg=-t \
+    --test_arg="JDBC Ledger DAO should be able to persist and load contracts without external offset"
     ```
 
 - Pass an argument to a test case in a Scala test-suite
 
     ```
-    bazel test //ledger-client/ods:tests_test_suite_src_test_scala_com_digitalasset_ods_slick_SqlUtilsTest.scala --test_arg=-z --test_arg="should return true"
+    bazel test //ledger/sandbox:sandbox-scala-tests_test_suite_src_test_suite_scala_com_digitalasset_platform_sandbox_stores_ledger_sql_JdbcLedgerDaoSpec.scala \
+    --test_arg=-z \
+    --test_arg="should return true"
     ```
+    
+    More broadly, for Scala tests you can pass through any of the args outlined in http://www.scalatest.org/user_guide/using_the_runner, separating into two instances of the --test-arg parameter as shown in the two examples above.
 
 ### Running Executables
 
 - Run an executable target
 
     ```
-    bazel run //rules_daml:sandbox-exec
+    bazel run //ledger/sandbox:sandbox-binary
     ```
 
 - Pass arguments to an executable target
 
     ```
-    bazel run //rules_daml:sandbox-exec -- --help
+    bazel run //ledger/sandbox:sandbox-binary -- --help
     ```
 
 ### Querying Targets
@@ -399,43 +424,43 @@ expressions can be combined using set operations like `intersect` or `union`.
 - List all targets underneath a directory
 
     ```
-    bazel query //ledger-client/...
+    bazel query //ledger/...
     ```
 
 - List all library targets underneath a directory
 
     ```
-    bazel query 'kind("library rule", //ledger-client/...)'
+    bazel query 'kind("library rule", //ledger/...)'
     ```
 
 - List all Scala library targets underneath a directory
 
     ```
-    bazel query 'kind("scala.*library rule", //ledger-client/...)'
+    bazel query 'kind("scala.*library rule", //ledger/...)'
     ```
 
 - List all test-suites underneath a directory
 
     ```
-    bazel query 'kind("test_suite", //ledger-client/...)'
+    bazel query 'kind("test_suite", //ledger/...)'
     ```
 
 - List all test-cases underneath a directory
 
     ```
-    bazel query 'tests(//ledger-client/...)'
+    bazel query 'tests(//ledger/...)'
     ```
 
 - List all Java test-cases underneath a directory
 
     ```
-    bazel query 'kind("java", tests(//ledger-client/...))'
+    bazel query 'kind("java", tests(//ledger/...))'
     ```
 
 - List all Scala library dependencies of a target
 
     ```
-    bazel query 'kind("scala.*library rule", deps(//ledger-client/ods:ods))'
+    bazel query 'kind("scala.*library rule", deps(//ledger/sandbox:sandbox))'
     ```
 
 - Find available 3rd party dependencies
@@ -452,7 +477,7 @@ query includes. These can then be rendered using Graphviz.
 - Graph all Scala library dependencies of a target
 
     ```
-    bazel query --noimplicit_deps 'kind(scala_library, deps(//ledger-client/ods:ods))' --output graph > graph.in
+    bazel query --noimplicit_deps 'kind(scala_library, deps(//ledger/sandbox:sandbox))' --output graph > graph.in
     dot -Tpng < graph.in > graph.png
     ```
 
@@ -491,7 +516,7 @@ it will watch these files for changes and rerun the command on file change. For
 example:
 
 ```
-ibazel test //ledger-client/ods:tests
+ibazel test //ledger/sandbox:sandbox-scala-tests
 ```
 
 Note, that this interacts well with Bazel's test result caching (which is

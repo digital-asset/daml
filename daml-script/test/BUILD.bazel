@@ -43,7 +43,7 @@ EOF
 da_scala_binary(
     name = "test_client",
     srcs = glob(["src/**/*.scala"]),
-    main_class = "com.daml.script.test.TestMain",
+    main_class = "com.digitalasset.daml.lf.engine.script.test.TestMain",
     deps = [
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/archive:daml_lf_dev_archive_java_proto",
@@ -58,6 +58,7 @@ da_scala_binary(
         "//ledger/ledger-api-common",
         "@maven//:com_github_scopt_scopt_2_12",
         "@maven//:com_typesafe_akka_akka_stream_2_12",
+        "@maven//:io_spray_spray_json_2_12",
         "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )
@@ -72,4 +73,16 @@ client_server_test(
     server_files = ["$(rootpath :script-test.dar)"],
 )
 
-# TODO Add wallclock time
+client_server_test(
+    name = "test_wallclock_time",
+    client = ":test_client",
+    client_args = ["-w"],
+    client_files = ["$(rootpath :script-test.dar)"],
+    data = [":script-test.dar"],
+    server = "//ledger/sandbox:sandbox-binary",
+    server_args = [
+        "-w",
+        "--port=0",
+    ],
+    server_files = ["$(rootpath :script-test.dar)"],
+)

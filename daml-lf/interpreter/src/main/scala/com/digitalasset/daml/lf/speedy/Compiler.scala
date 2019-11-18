@@ -204,6 +204,8 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
           case BFoldr => SEBuiltinRecursiveDefinition.FoldR
           case BEqualList => SEBuiltinRecursiveDefinition.EqualList
           case BCoerceContractId => SEAbs(1, SEVar(1))
+          case BMapEmpty => SEValue.EmptyMap
+          case BGenMapEmpty => SEValue.EmptyGenMap
           case _ =>
             SEBuiltin(bf match {
               case BTrace => SBTrace
@@ -300,7 +302,6 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
 
               // Map
 
-              case BMapEmpty => SBMapEmpty
               case BMapInsert => SBMapInsert
               case BMapLookup => SBMapLookup
               case BMapDelete => SBMapDelete
@@ -309,19 +310,16 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
 
               // GenMap
 
-              case BGenMapEmpty => throw new IllegalArgumentException("not supported")
-              case BGenMapInsert => throw new IllegalArgumentException("not supported")
-              case BGenMapLookup => throw new IllegalArgumentException("not supported")
-              case BGenMapDelete => throw new IllegalArgumentException("not supported")
-              case BGenMapKeys => throw new IllegalArgumentException("not supported")
-              case BGenMapValues => throw new IllegalArgumentException("not supported")
-              case BGenMapSize => throw new IllegalArgumentException("not supported")
+              case BGenMapInsert => SBGenMapInsert
+              case BGenMapLookup => SBGenMapLookup
+              case BGenMapDelete => SBGenMapDelete
+              case BGenMapKeys => SBGenMapKeys
+              case BGenMapValues => SBGenMapValues
+              case BGenMapSize => SBGenMapSize
 
-              // Implemented using normal functions
-              case BFoldl => throw CompileError(s"unexpected BFoldl")
-              case BFoldr => throw CompileError(s"unexpected BFoldr")
-              case BEqualList => throw CompileError(s"unexpected BEqualList")
-              case BCoerceContractId => throw CompileError(s"unexpected BCoerceContractId")
+              // Implemented using normal SExpr
+              case BFoldl | BFoldr | BEqualList | BCoerceContractId | BMapEmpty | BGenMapEmpty =>
+                throw CompileError(s"unexpected $bf")
             })
         }
 
@@ -1053,6 +1051,12 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
         case SList(a) => a.iterator.foreach(goV)
         case SOptional(x) => x.foreach(goV)
         case SMap(map) => map.values.foreach(goV)
+        case SGenMap(values) =>
+          values.foreach {
+            case (SGenMap.Key(k), v) =>
+              goV(k)
+              goV(v)
+          }
         case SRecord(_, _, args) => args.forEach(goV)
         case SVariant(_, _, value) => goV(value)
         case SEnum(_, _) => ()

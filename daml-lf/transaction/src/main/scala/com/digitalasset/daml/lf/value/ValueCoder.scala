@@ -515,6 +515,10 @@ object ValueCoder {
             }
             builder.setMap(protoMap).build()
 
+          case ValueGenMap(_) =>
+            // FIXME https://github.com/digital-asset/daml/issues/2256
+            throw Err("Trying to serialize GenMap which are not currently not supported.")
+
           case ValueTuple(fields) =>
             throw Err(s"Trying to serialize tuple, which are not serializable. Fields: $fields")
         }

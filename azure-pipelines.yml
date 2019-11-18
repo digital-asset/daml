@@ -17,6 +17,28 @@ pr:
       - master
 
 jobs:
+  - job: check_standard_change_label
+    pool:
+      name: 'linux-pool'
+    steps:
+      - checkout: self
+      - bash: |
+          set -euo pipefail
+
+          has_changed_infra_folder () {
+              git diff origin/master --name-only | grep -q '^infra/'
+          }
+
+          fail_if_missing_std_change_label () {
+              curl https://api.github.com/repos/digital-asset/daml/pulls/$PR -s | jq -r '.labels[].name' | grep -q '^Standard-Change$'
+          }
+
+          if has_changed_infra_folder; then
+              fail_if_missing_std_change_label
+          fi
+        condition: eq(variables['Build.Reason'], 'PullRequest')
+        env:
+          PR: $(System.PullRequest.PullRequestNumber)
   - job: Linux
     timeoutInMinutes: 360
     pool:

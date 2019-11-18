@@ -172,7 +172,7 @@ daml_package_rule = rule(
             cfg = "host",
         ),
         "cpp": attr.label(
-            default = Label("@haskell_hpp//:bin"),
+            default = Label("@hpp//:hpp"),
             executable = True,
             cfg = "host",
         ),

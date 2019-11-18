@@ -54,6 +54,11 @@ ghc_dwarf(name = "ghc_dwarf")
 
 load("@ghc_dwarf//:ghc_dwarf.bzl", "enable_ghc_dwarf")
 
+# Configure msys2 POSIX toolchain provided by dadew.
+load("//bazel_tools/dev_env_tool:dev_env_tool.bzl", "dadew_sh_posix_configure")
+
+dadew_sh_posix_configure() if is_windows else None
+
 nixpkgs_local_repository(
     name = "nixpkgs",
     nix_file = "//nix:nixpkgs.nix",
@@ -509,9 +514,9 @@ load("@bazel_skylib//lib:dicts.bzl", "dicts")
 # For the time being we build with GMP. See https://github.com/digital-asset/daml/issues/106
 use_integer_simple = not is_windows
 
-HASKELL_LSP_COMMIT = "fefcae8b44aaf7658e0f90d5530832efe0b32053"
+HASKELL_LSP_COMMIT = "4c4b588c3cb21c0509e2dd590db3f431f33ada11"
 
-HASKELL_LSP_HASH = "410af26154494735694ae323b3431d6a6ccb49ab6f028b56656039b5662de7d6"
+HASKELL_LSP_HASH = "80a3944306fb455fce36f7b3aafb8f0f8f6096a0bd3c46ed25cc0ff288d6413e"
 
 GRPC_HASKELL_CORE_VERSION = "0.0.0.0"
 
@@ -642,8 +647,8 @@ hazel_repositories(
             hazel_github_external(
                 "digital-asset",
                 "lsp-test",
-                "40da0529edb687864acf2716dff310d38b0641c6",
-                "b72566fe58906ca9bf35ad340db46f0ad140e502352af028ed8a1e39a5047823",
+                "95ef237e5b1c60385d20faefb5408f41908ad791",
+                "1bdfb85dd2568025afec2c5565175f9897be1a52128f5470b350c0ddc164447d",
                 patch_args = ["-p1"],
                 patches = ["@com_github_digital_asset_daml//bazel_tools:haskell-lsp-test-no-reexport.patch"],
             ) + hazel_github_external(
@@ -666,10 +671,6 @@ hazel_repositories(
                 "eb2c732b3d4ab5f7b367c51eef845e597ade19da52c03ee11954d35b6cfc4128",
                 patch_args = ["-p1"],
                 patches = ["@com_github_digital_asset_daml//3rdparty/haskell:bzlib-conduit.patch"],
-            ) + hazel_hackage(
-                "hpp",
-                "0.6.1",
-                "d1a843f4383223f85de4d91759545966f33a139d0019ab30a2f766bf9a7d62bf",
             ),
         pkgs = packages,
     ),
@@ -721,7 +722,7 @@ hazel_custom_package_github(
     strip_prefix = "wai-app-static",
 )
 
-GHCIDE_REV = "7a215d22ef22c447a050fbcc63900e9b5405e901"
+GHCIDE_REV = "78aa9745798cfd730861e8c037cc481aa6b0dd43"
 
 # We need a custom build file to depend on ghc-lib and ghc-lib-parser
 hazel_custom_package_github(
@@ -730,6 +731,46 @@ hazel_custom_package_github(
     github_repo = "ghcide",
     github_user = "digital-asset",
     repo_sha = GHCIDE_REV,
+)
+
+http_archive(
+    name = "hpp",
+    build_file_content = """
+load("@rules_haskell//haskell:cabal.bzl", "haskell_cabal_binary")
+haskell_cabal_binary(
+    name = "hpp",
+    srcs = glob(["**"]),
+    deps = [
+        "@stackage//:base",
+        "@stackage//:directory",
+        "@stackage//:filepath",
+        "@stackage//:hpp",
+        "@stackage//:time",
+    ],
+    visibility = ["//visibility:public"],
+)
+    """,
+    sha256 = "d1a843f4383223f85de4d91759545966f33a139d0019ab30a2f766bf9a7d62bf",
+    strip_prefix = "hpp-0.6.1",
+    urls = ["http://hackage.haskell.org/package/hpp-0.6.1/hpp-0.6.1.tar.gz"],
+)
+
+load("@rules_haskell//haskell:cabal.bzl", "stack_snapshot")
+
+stack_snapshot(
+    name = "stackage",
+    flags = {
+        "hashable": ["-integer-gmp"],
+        "text": ["integer-simple"],
+    } if not is_windows else {},
+    local_snapshot = "//:stack-snapshot.yaml",
+    packages = [
+        "base",
+        "directory",
+        "filepath",
+        "hpp",
+        "time",
+    ],
 )
 
 load("//bazel_tools:java.bzl", "java_home_runtime")
@@ -986,11 +1027,15 @@ dev_env_tool(
 
 http_archive(
     name = "canton",
-    build_file_content = '''
+    build_file_content = """
 package(default_visibility = ["//visibility:public"])
-filegroup(name="jars", srcs=glob(["lib/**"]))
-''',
-    sha256 = "b67215655bdcfaf0f4b271ebd3f9ce8f887c3c81a53351f47165a9bf5b93e435",
-    strip_prefix = "canton-0.3.0",
-    urls = ["https://github.com/digital-asset/canton/releases/download/v0.3.0/canton-0.3.0.tar.gz"],
+
+java_import(
+    name = "lib",
+    jars = glob(["lib/**"]),
+)
+""",
+    sha256 = "9d0e8fd49410bc7061bdf85a51d0becb46eb9cdaf3bf2162d06285f4861684df",
+    strip_prefix = "canton-0.4.0",
+    urls = ["https://github.com/digital-asset/canton/releases/download/v0.4.0/canton-0.4.0.tar.gz"],
 )

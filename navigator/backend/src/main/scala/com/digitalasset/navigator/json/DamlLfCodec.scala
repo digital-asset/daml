@@ -91,6 +91,9 @@ object DamlLfCodec {
     case Model.DamlLfPrimType.Timestamp => JsString(tagTypeTimestamp)
     case Model.DamlLfPrimType.Optional => JsString(tagTypeOptional)
     case Model.DamlLfPrimType.Map => JsString(tagTypeMap)
+    case Model.DamlLfPrimType.GenMap =>
+      // FIXME https://github.com/digital-asset/daml/issues/2256
+      serializationError("GenMap not supported")
     case Model.DamlLfPrimType.Unit => JsString(tagTypeUnit)
   }
 

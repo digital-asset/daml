@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load("@bazel_tools//tools/cpp:lib_cc_configure.bzl", "get_cpu_value")
+load("@rules_sh//sh:posix.bzl", "posix")
 
 def _create_build_content(rule_name, tools, win_paths, nix_paths):
     content = """
@@ -140,3 +141,50 @@ dev_env_tool = repository_rule(
     configure = True,
     local = True,
 )
+
+def _dadew_sh_posix_config_impl(repository_ctx):
+    ps = repository_ctx.which("powershell")
+    dadew = _dadew_where(repository_ctx, ps)
+    msys2_usr_bin = _dadew_tool_home(dadew, "msys2") + "\\usr\\bin"
+    commands = {}
+    for cmd in posix.commands:
+        for ext in [".exe", ""]:
+            path = "%s\\%s%s" % (msys2_usr_bin, cmd, ext)
+            if repository_ctx.path(path).exists:
+                commands[cmd] = path
+    repository_ctx.file("BUILD.bazel", executable = False, content = """
+load("@rules_sh//sh:posix.bzl", "sh_posix_toolchain")
+sh_posix_toolchain(
+    name = "dadew_posix",
+    {commands}
+)
+toolchain(
+    name = "dadew_posix_toolchain",
+    toolchain = "dadew_posix",
+    toolchain_type = "@rules_sh//sh/posix:toolchain_type",
+    exec_compatible_with = [
+        "@bazel_tools//platforms:x86_64",
+        "@bazel_tools//platforms:windows",
+    ],
+    target_compatible_with = [
+        "@bazel_tools//platforms:x86_64",
+        "@bazel_tools//platforms:windows",
+    ],
+)
+""".format(
+        commands = ",\n    ".join([
+            '{cmd} = r"{path}"'.format(cmd = cmd, path = cmd_path).replace("\\", "/")
+            for (cmd, cmd_path) in commands.items()
+            if cmd_path
+        ]),
+    ))
+
+_dadew_sh_posix_config = repository_rule(
+    implementation = _dadew_sh_posix_config_impl,
+    configure = True,
+    local = True,
+)
+
+def dadew_sh_posix_configure(name = "dadew_sh_posix"):
+    _dadew_sh_posix_config(name = name)
+    native.register_toolchains("@%s//:dadew_posix_toolchain" % name)

@@ -663,6 +663,15 @@ case class Conversions(homePackageId: Ref.PackageId) {
             ()
         }
         builder.setMap(mapBuilder)
+      case V.ValueGenMap(entries) =>
+        val mapBuilder = v1.GenMap.newBuilder
+        entries.foreach {
+          case (k, v) =>
+            mapBuilder.addEntries(
+              v1.GenMap.Entry.newBuilder().setKey(convertValue(k)).setValue(convertValue(v)))
+            ()
+        }
+        builder.setGenMap(mapBuilder)
     }
     builder.build
   }

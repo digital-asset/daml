@@ -27,6 +27,7 @@ da_scala_library(
     srcs = glob([
         "src/main/scala/com/digitalasset/assistant/**/*.scala",
     ]),
+    tags = ["maven_coordinates=com.daml:daml-project-config:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = compileDependencies,
 )

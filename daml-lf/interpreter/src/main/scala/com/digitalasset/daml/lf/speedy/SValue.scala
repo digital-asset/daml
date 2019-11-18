@@ -64,6 +64,8 @@ sealed trait SValue {
         V.ValueOptional(mbV.map(_.toValue))
       case SMap(mVal) =>
         V.ValueMap(SortedLookupList(mVal).mapValue(_.toValue))
+      case SGenMap(values) =>
+        V.ValueGenMap(ImmArray(values.map { case (k, v) => k.v.toValue -> v.toValue }))
       case SContractId(coid) =>
         V.ValueContractId(coid)
       case SAny(_, _) =>
@@ -102,6 +104,10 @@ sealed trait SValue {
         SOptional(mbV.map(_.mapContractId(f)))
       case SMap(value) =>
         SMap(value.transform((_, v) => v.mapContractId(f)))
+      case SGenMap(value) =>
+        SGenMap((InsertOrdMap.empty[SGenMap.Key, SValue] /: value) {
+          case (acc, (SGenMap.Key(k), v)) => acc + (SGenMap.Key(k.mapContractId(f)) -> v)
+        })
       case SAny(ty, value) =>
         SAny(ty, value.mapContractId(f))
     }
@@ -143,6 +149,27 @@ object SValue {
 
   final case class SMap(value: HashMap[String, SValue]) extends SValue
 
+  final case class SGenMap(value: InsertOrdMap[SGenMap.Key, SValue]) extends SValue
+
+  object SGenMap {
+    case class Key(v: SValue) {
+      override val hashCode: Int = svalue.Hasher.hash(v)
+      override def equals(obj: Any): Boolean = obj match {
+        case Key(v2: SValue) => svalue.Equality.areEqual(v, v2)
+        case _ => false
+      }
+    }
+
+    object Key {
+      def fromSValue(v: SValue): Either[String, Key] =
+        try {
+          Right(Key(v))
+        } catch {
+          case svalue.Hasher.NonHashableSValue(msg) => Left(msg)
+        }
+    }
+  }
+
   final case class SAny(ty: Type, value: SValue) extends SValue
 
   // Corresponds to a DAML-LF Nat type reified as a Speedy value.
@@ -173,6 +200,8 @@ object SValue {
     val False = SBool(false)
     val EmptyList = SList(FrontStack.empty)
     val None = SOptional(Option.empty)
+    val EmptyMap = SMap(HashMap.empty)
+    val EmptyGenMap = SGenMap(InsertOrdMap.empty)
     val Token = SToken
   }
 
@@ -182,6 +211,8 @@ object SValue {
     val True: X = apply(SValue.True)
     val False: X = apply(SValue.False)
     val EmptyList: X = apply(SValue.EmptyList)
+    val EmptyMap: X = apply(SValue.EmptyMap)
+    val EmptyGenMap: X = apply(SValue.EmptyGenMap)
     val None: X = apply(SValue.None)
     val Token: X = apply(SValue.Token)
     def bool(b: Boolean) = if (b) True else False
@@ -241,6 +272,11 @@ object SValue {
 
       case V.ValueMap(map) =>
         SMap(map.mapValue(fromValue).toHashMap)
+
+      case V.ValueGenMap(value) =>
+        SGenMap(InsertOrdMap(value.toSeq.map {
+          case (k, v) => SGenMap.Key(fromValue(k)) -> fromValue(v)
+        }: _*))
 
       case V.ValueVariant(Some(id), variant, value) =>
         SVariant(id, variant, fromValue(value))

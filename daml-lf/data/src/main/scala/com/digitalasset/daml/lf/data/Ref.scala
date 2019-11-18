@@ -150,8 +150,8 @@ object Ref {
   type ModuleName = DottedName
   val ModuleName = DottedName
 
-  /** Party are non empty US-ASCII strings built with letters, digits, space, minus and,
-      underscore. We use them to represent [PackageId]s and [Party] literals. In this way, we avoid
+  /** Party identifiers are non-empty US-ASCII strings built from letters, digits, space, colon, minus and,
+      underscore. We use them to represent [Party] literals. In this way, we avoid
       empty identifiers, escaping problems, and other similar pitfalls.
     */
   val Party = ConcatenableMatchingStringModule(":-_ ".contains(_))

@@ -45,7 +45,8 @@ data CommandsF a
   | Exercise { tplId : TemplateTypeRep, cId : ContractId (), argE : AnyChoice, continueE : LedgerValue -> a }
   deriving Functor
 
-type Commands = Ap CommandsF
+newtype Commands a = Commands (Ap CommandsF a)
+  deriving (Functor, Applicative)
 
 data ScriptF a
   = Submit (SubmitCmd a)
@@ -60,7 +61,7 @@ data QueryACS a = QueryACS
   } deriving Functor
 
 query : forall t. Template t => Party -> Script [t]
-query p = Free $ Query (QueryACS p (templateTypeRep @t) (pure . map (fromSome . fromAnyTemplate)))
+query p = Script $ Free $ Query (QueryACS p (templateTypeRep @t) (pure . map (fromSome . fromAnyTemplate)))
 
 data AllocateParty a = AllocateParty
   { displayName : Text
@@ -68,15 +69,26 @@ data AllocateParty a = AllocateParty
   } deriving Functor
 
 allocateParty : Text -> Script Party
-allocateParty displayName = Free (AllocParty $ AllocateParty displayName pure)
+allocateParty displayName = Script $ Free (AllocParty $ AllocateParty displayName pure)
 
-data SubmitCmd a = SubmitCmd { party : Party, commands : Commands a }
+data SubmitFailure = SubmitFailure
+  { status : Int
+  , description : Text
+  }
+
+data SubmitCmd a = SubmitCmd { party : Party, commands : Commands a, handleFailure : SubmitFailure -> a }
   deriving Functor
 
 submit : Party -> Commands a -> Script a
-submit p cmds = Free (fmap pure $ Submit $ SubmitCmd p cmds)
+submit p cmds = Script $ Free (fmap pure $ Submit $ SubmitCmd p cmds fail)
+  where fail (SubmitFailure status msg) = error $ "Submit failed with code " <> show status <> ": " <> msg
 
-type Script = Free ScriptF
+submitMustFail : Party -> Commands a -> Script ()
+submitMustFail p cmds = Script $ Free (fmap pure $ Submit $ SubmitCmd p (fail <$> cmds) (const ()))
+  where fail _ = error "Expected submit to fail but it succeeded"
+
+newtype Script a = Script (Free ScriptF a)
+  deriving (Functor, Applicative, Action)
 
 data LedgerValue = LedgerValue {}
 
@@ -84,8 +96,7 @@ fromLedgerValue : LedgerValue -> a
 fromLedgerValue = error "foobar"
 
 createCmd : Template t => t -> Commands (ContractId t)
-createCmd arg = Ap (\f -> f (Create (toAnyTemplate arg) identity) (pure coerceContractId))
+createCmd arg = Commands $ Ap (\f -> f (Create (toAnyTemplate arg) identity) (pure coerceContractId))
 
 exerciseCmd : forall t c r. Choice t c r => ContractId t -> c -> Commands r
-exerciseCmd cId arg = Ap (\f -> f (Exercise (templateTypeRep @t) (coerceContractId cId) (toAnyChoice @t arg) identity) (pure fromLedgerValue))
-
+exerciseCmd cId arg = Commands $ Ap (\f -> f (Exercise (templateTypeRep @t) (coerceContractId cId) (toAnyChoice @t arg) identity) (pure fromLedgerValue))
