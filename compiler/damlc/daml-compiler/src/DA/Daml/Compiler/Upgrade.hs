@@ -363,12 +363,8 @@ generateChoiceInstance env externPkgId templateDT choice =
           (LF.TCon (LF.Qualified LF.PRSelf moduleName0 dataTypeCon))
           (map (LF.TVar . fst) dataParams)
 
-    lfChoiceType :: LF.Type =
-        LF.TCon (LF.Qualified LF.PRSelf moduleName0
-                  (LF.TypeConName{unTypeConName=[LF.unChoiceName chcName]}))
-
     LF.DefDataType{dataTypeCon,dataParams} = templateDT
-    LF.TemplateChoice{chcName,chcReturnType=lfChoiceReturnType} = choice
+    LF.TemplateChoice{chcArgBinder=(_,lfChoiceType),chcName,chcReturnType=lfChoiceReturnType} = choice
 
     methodMapping =
       map (\funName -> (funName, mkExternalString funName)) methodNames
