@@ -59,8 +59,10 @@
   mavenUpload: True
 - target: //daml-lf/data-scalacheck:data-scalacheck
   type: jar-scala
+  mavenUpload: True
 - target: //daml-lf/transaction-scalacheck:transaction-scalacheck
   type: jar-scala
+  mavenUpload: True
 - target: //daml-lf/language:language
   type: jar-scala
   mavenUpload: True
