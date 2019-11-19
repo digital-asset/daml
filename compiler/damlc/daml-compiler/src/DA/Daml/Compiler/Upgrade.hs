@@ -139,6 +139,7 @@ generateTemplateInstanceModule env externPkgId
         , "import \"" <> packageName <> "\" " <> modName
         , "import qualified DA.Internal.LF"
         , "import qualified DA.Internal.Prelude"
+        , "import qualified DA.Internal.Template"
         , "import qualified Sdk.DA.Internal.Template"
         , "import qualified GHC.Types"
         ]
