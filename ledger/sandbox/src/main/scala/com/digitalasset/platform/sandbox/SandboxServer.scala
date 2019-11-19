@@ -256,7 +256,8 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
                     _,
                     indexAndWriteService.publishHeartbeat
                   )),
-              loggerFactory
+              loggerFactory,
+              mm
             )(am, esf)
             .map(_.withServices(List(resetService(ledgerId, authorizer, loggerFactory)))),
         // NOTE(JM): Re-use the same port after reset.

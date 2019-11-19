@@ -7,7 +7,7 @@ import java.util.concurrent.TimeUnit
 
 import com.codahale.metrics.Slf4jReporter.LoggingLevel
 import com.codahale.metrics.jmx.JmxReporter
-import com.codahale.metrics.{MetricRegistry, Slf4jReporter}
+import com.codahale.metrics.{MetricRegistry, Slf4jReporter, Timer}
 import com.digitalasset.platform.common.util.DirectExecutionContext
 
 import scala.concurrent.Future
@@ -35,8 +35,12 @@ final class MetricsManager(enableJmxReporter: Boolean) extends AutoCloseable {
 
   if (enableJmxReporter) jmxReporter.start()
 
-  def timedFuture[T](timerName: String, f: => Future[T]) = {
+  def timedFuture[T](timerName: String, f: => Future[T]): Future[T] = {
     val timer = metrics.timer(timerName)
+    timedFuture(timer, f)
+  }
+
+  def timedFuture[T](timer: Timer, f: => Future[T]): Future[T] = {
     val ctx = timer.time()
     val res = f
     res.onComplete(_ => ctx.stop())(DirectExecutionContext)

@@ -168,7 +168,8 @@ class StandaloneIndexServer(
               cond.config.timeModel,
               SandboxConfig.defaultCommandConfig,
               timeServiceBackendO,
-              loggerFactory
+              loggerFactory,
+              mm
             )(am, esf),
         config.port,
         config.maxInboundMessageSize,
