@@ -74,7 +74,9 @@ genrule(
         "//language-support/codegen-main:codegen-main_deploy.jar",
         "//templates:templates-tarball.tar.gz",
         "//triggers/daml:daml-trigger.dar",
+        "//daml-script/daml:daml-script.dar",
         "//triggers/runner:trigger-runner_deploy.jar",
+        "//daml-script/runner:script-runner_deploy.jar",
     ],
     outs = ["sdk-release-tarball.tar.gz"],
     cmd = """
@@ -99,6 +101,7 @@ genrule(
 
       mkdir -p $$OUT/daml-libs
       cp -t $$OUT/daml-libs $(location //triggers/daml:daml-trigger.dar)
+      cp -t $$OUT/daml-libs $(location //daml-script/daml:daml-script.dar)
 
       mkdir -p $$OUT/daml-helper
       tar xf $(location //daml-assistant/daml-helper:daml-helper-dist) --strip-components=1 -C $$OUT/daml-helper
@@ -127,6 +130,9 @@ genrule(
 
       mkdir -p $$OUT/daml-trigger
       cp $(location //triggers/runner:trigger-runner_deploy.jar) $$OUT/daml-trigger/daml-trigger.jar
+
+      mkdir -p $$OUT/daml-script
+      cp $(location //daml-script/runner:script-runner_deploy.jar) $$OUT/daml-script/daml-script.jar
 
       tar zcf $(location sdk-release-tarball.tar.gz) --format=ustar $$OUT
     """,
