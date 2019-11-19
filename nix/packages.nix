@@ -133,10 +133,7 @@ in rec {
     flake8 = pkgs.python37Packages.flake8;
     yapf = pkgs.python37Packages.yapf;
 
-    # Pex packaging has been submitted upsteam as
-    # https://github.com/NixOS/nixpkgs/pull/45497.
-    # However, this one is for a newer version
-    pex = pkgs.callPackage ./tools/pex {};
+    pex = pkgs.python37Packages.pex;
     pipenv = pkgs.pipenv;
 
     sphinx            = pkgs.python37.withPackages (ps: [ps.sphinx ps.sphinx_rtd_theme]);
