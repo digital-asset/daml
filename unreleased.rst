@@ -37,3 +37,8 @@ HEAD — ongoing
 - [Extractor] The app can now work against a Ledger API server that requires client authentication. See `issue #3157 <https://github.com/digital-asset/daml/issues/3157>`__.
 - [DAML Script] This release contains a first version of an experimental DAML script
    feature that provides a scenario-like API that is run against an actual ledger.
+
+- [JSON API - Experimental] The database schema has changed; if using
+  ``--query-store-jdbc-config``, you must rebuild the database by adding
+  ``,createSchema=true``.
+  See `issue #3461 <https://github.com/digital-asset/daml/pull/3461>`_.
