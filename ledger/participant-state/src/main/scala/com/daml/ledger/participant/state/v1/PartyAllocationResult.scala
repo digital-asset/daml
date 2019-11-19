@@ -28,7 +28,8 @@ object PartyAllocationResult {
 
   /** Submission ended up with internal error */
   final case class InternalError(reason: String) extends PartyAllocationResult {
-    override def description: String = "Party allocation failed with an internal error, reason=" + reason
+    override def description: String =
+      "Party allocation failed with an internal error, reason=" + reason
   }
 
   /** The requested party name already exists */
