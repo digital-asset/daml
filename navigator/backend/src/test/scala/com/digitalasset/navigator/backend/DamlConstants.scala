@@ -55,7 +55,7 @@ case object DamlConstants {
     DamlLfTypePrim(DamlLfPrimType.Optional, DamlLfImmArraySeq(typ))
   def simpleListT(typ: DamlLfIface.Type) =
     DamlLfTypePrim(DamlLfPrimType.List, DamlLfImmArraySeq(typ))
-  def simpleMapT(typ: DamlLfIface.Type) =
+  def simpleTextMapT(typ: DamlLfIface.Type) =
     DamlLfTypePrim(DamlLfPrimType.TextMap, DamlLfImmArraySeq(typ))
 
   val simpleTextV = V.ValueText("foo")
@@ -65,7 +65,7 @@ case object DamlConstants {
   val simpleDateV = V.ValueDate.fromIso8601("2019-01-28")
   val simpleTimestampV = V.ValueTimestamp.fromIso8601("2019-01-28T12:44:33.22Z")
   val simpleOptionalV = V.ValueOptional(Some(V.ValueText("foo")))
-  val simpleMapV = V.ValueTextMap(
+  val simpleTextMapV = V.ValueTextMap(
     SortedLookupList(Map("1" -> V.ValueInt64(1), "2" -> V.ValueInt64(2), "3" -> V.ValueInt64(3))))
 
   // ------------------------------------------------------------------------------------------------------------------
@@ -153,39 +153,36 @@ case object DamlConstants {
     DamlLfImmArraySeq(simpleTextT)
   )
 
-  val treeV = V.ValueVariant(
+  val treeLeftV = V.ValueVariant(
     Some(treeId),
     "Node",
     V.ValueRecord(
       Some(treeNodeId),
       ImmArray(
-        (
-          "left",
-          V.ValueVariant(
-            Some(treeId),
-            "Node",
-            V.ValueRecord(
-              Some(treeNodeId),
-              ImmArray(
-                (Some(name("left")), V.ValueVariant(Some(treeId), "Leaf", V.ValueText("LL"))),
-                (Some(name("right")), V.ValueVariant(Some(treeId), "Leaf", V.ValueText("LR")))
-              )
-            )
-          )),
-        (
-          "right",
-          V.ValueVariant(
-            Some(treeId),
-            "Node",
-            V.ValueRecord(
-              Some(treeNodeId),
-              ImmArray(
-                (Some(name("left")), V.ValueVariant(Some(treeId), "Leaf", V.ValueText("RL"))),
-                (Some(name("right")), V.ValueVariant(Some(treeId), "Leaf", V.ValueText("RR")))
-              )
-            )
-          ))
-      ).map { case (k, v) => (Some(name(k)), v) }
+        Some(name("left")) -> V.ValueVariant(Some(treeId), "Leaf", V.ValueText("LL")),
+        Some(name("right")) -> V.ValueVariant(Some(treeId), "Leaf", V.ValueText("LR"))
+      )
+    )
+  )
+
+  val treeRightV = V.ValueVariant(
+    Some(treeId),
+    "Node",
+    V.ValueRecord(
+      Some(treeNodeId),
+      ImmArray(
+        Some(name("left")) -> V.ValueVariant(Some(treeId), "Leaf", V.ValueText("RL")),
+        Some(name("right")) -> V.ValueVariant(Some(treeId), "Leaf", V.ValueText("RR"))
+      )
+    )
+  )
+
+  val treeV = V.ValueVariant(
+    Some(treeId),
+    "Node",
+    V.ValueRecord(
+      Some(treeNodeId),
+      ImmArray(Some(name("left")) -> treeLeftV, Some(name("right")) -> treeRightV)
     )
   )
 
@@ -218,7 +215,7 @@ case object DamlConstants {
       name("fOptionalText") -> simpleOptionalT(simpleTextT),
       name("fOptionalUnit") -> simpleOptionalT(simpleUnitT),
       name("fOptOptText") -> simpleOptionalT(simpleOptionalT(simpleTextT)),
-      name("fMap") -> simpleMapT(simpleInt64T),
+      name("fMap") -> simpleTextMapT(simpleInt64T),
       name("fVariant") -> simpleVariantTC,
       name("fRecord") -> simpleRecordTC
     ))
@@ -306,6 +303,17 @@ case object DamlConstants {
         ChoiceReplace -> DamlLfIface.TemplateChoice(treeNodeTC, false, simpleUnitT)
       ),
       None
+    )
+  )
+
+  def complexGenMapT(keyTyp: DamlLfIface.Type, valueTyp: DamlLfIface.Type) =
+    DamlLfTypePrim(DamlLfPrimType.GenMap, DamlLfImmArraySeq(keyTyp, valueTyp))
+
+  val complexGenMapV = V.ValueGenMap(
+    ImmArray(
+      treeV -> V.ValueInt64(1),
+      treeLeftV -> V.ValueInt64(2),
+      treeLeftV -> V.ValueInt64(3)
     )
   )
 

@@ -2,7 +2,7 @@
 // All rights reserved.
 
 import * as Moment from 'moment';
-import { NonExhaustiveMatch } from '../util'
+import {NonExhaustiveMatch} from '../util'
 import {DamlLfEnum, DamlLfIdentifier, DamlLfRecord, DamlLfType, DamlLfVariant} from './DamlLfType';
 
 // --------------------------------------------------------------------------------------------------------------------
@@ -29,8 +29,11 @@ export type DamlLfValueRecord     = { type: 'record', id: DamlLfIdentifier, fiel
 export type DamlLfValueVariant    = { type: 'variant', id: DamlLfIdentifier, constructor: string, value: DamlLfValue }
 export type DamlLfValueEnum       = { type: 'enum', id: DamlLfIdentifier, constructor: string }
 export type DamlLfValueUndefined  = { type: 'undefined' }
-export type DamlLfValueMap        = { type: 'map', value: DamlLfValueMapEntry[] }
-export type DamlLfValueMapEntry   = { key: string, value: DamlLfValue }
+export type DamlLfValueTextMap    = { type: 'textmap', value: DamlLfValueTextMapEntry[] }
+export type DamlLfValueTextMapEntry   = { key: string, value: DamlLfValue }
+export type DamlLfValueGenMap     = { type: 'genmap', value: DamlLfValueGenMapEntry[] }
+export type DamlLfValueGenMapEntry = { key: DamlLfValue, value: DamlLfValue }
+
 
 export type DamlLfValue
   = DamlLfValueText
@@ -44,7 +47,8 @@ export type DamlLfValue
   | DamlLfValueUnit
   | DamlLfValueOptional
   | DamlLfValueList
-  | DamlLfValueMap
+  | DamlLfValueTextMap
+  | DamlLfValueGenMap
   | DamlLfValueRecord
   | DamlLfValueVariant
   | DamlLfValueEnum
@@ -68,8 +72,10 @@ export function party(value: string): DamlLfValueParty { return { type: 'party'
 export function unit(): DamlLfValueUnit { return valueUnit }
 export function optional(value: DamlLfValue | null): DamlLfValueOptional { return { type: 'optional', value }}
 export function list(value: DamlLfValue[]): DamlLfValueList { return { type: 'list', value }}
-export function map(value: DamlLfValueMapEntry[]): DamlLfValueMap { return { type: 'map', value }}
-export function mapEntry(key: string, value: DamlLfValue): DamlLfValueMapEntry { return { key, value } }
+export function textmap(value: DamlLfValueTextMapEntry[]): DamlLfValueTextMap { return { type: 'textmap', value }}
+export function textMapEntry(key: string, value: DamlLfValue): DamlLfValueTextMapEntry { return { key, value } }
+export function genmap(value: DamlLfValueGenMapEntry[]): DamlLfValueGenMap { return { type: 'genmap', value }}
+export function genMapEntry(key: DamlLfValue, value: DamlLfValue): DamlLfValueGenMapEntry { return { key, value } }
 export function record(id: DamlLfIdentifier, fields: DamlLfRecordField[]): DamlLfValueRecord {
   return { type: 'record', id, fields }
 }
@@ -152,7 +158,7 @@ export function evalPath(value: DamlLfValue, path: string[], index: number = 0):
       } else {
         return notFound;
       }
-    case 'map':
+    case 'textmap':
       if (isLast) {
         return value;
       } else {
@@ -165,6 +171,29 @@ export function evalPath(value: DamlLfValue, path: string[], index: number = 0):
             return notFound;
           } else {
             return evalPath(fList[0].value, path, index + 1)
+          }
+        }
+      }
+    case 'genmap':
+      if (isLast) {
+        return value
+      } else if (index === path.length - 2) {
+        return notFound
+      } else {
+        const listIndex = parseInt(path[index]);
+        if (isNaN(listIndex)) {
+          return notFound;
+        } else if (listIndex < 0 || listIndex >= value.value.length) {
+          return notFound;
+        } else {
+          const entry = value.value[listIndex];
+          switch (path[index + 1]) {
+            case 'key' :
+              return evalPath(entry.key, path, index + 2);
+            case 'value' :
+              return evalPath(entry.value, path, index + 2);
+            default:
+              return notFound;
           }
         }
       }
@@ -194,7 +223,8 @@ export function initialValue(type: DamlLfType): DamlLfValue {
       case 'unit':        return unit();
       case 'optional':    return optional(null);
       case 'list':        return list([]);
-      case 'map':         return map([]);
+      case 'textmap':         return textmap([]);
+      case 'genmap':      return genmap([]);
       default: throw new NonExhaustiveMatch(type.name);
     }
     default: throw new NonExhaustiveMatch(type);
@@ -225,8 +255,10 @@ export function toJSON(value: DamlLfValue): JSON {
       return {[value.constructor]: toJSON(value.value)};
     case 'enum' :
       return value.constructor;
-    case 'map':
+    case 'textmap':
       return value.value.map((e) => ({key: e.key, value: toJSON(e.value)}));
+    case 'genmap':
+      return value.value.map((e) => ({key: toJSON(e.key), value: toJSON(e.value)}));
     case 'undefined': return '???';
     default: throw new NonExhaustiveMatch(value);
   }

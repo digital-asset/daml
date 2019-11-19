@@ -67,8 +67,13 @@ class ApiCodecVerboseSpec extends WordSpec with Matchers {
       "work for Tree" in {
         serializeAndParse(C.treeV, C.treeTC) shouldBe Success(C.treeV)
       }
-      "work for Map" in {
-        serializeAndParse(C.simpleMapV, C.simpleMapT(C.simpleTextT)) shouldBe Success(C.simpleMapV)
+      "work for TextMap" in {
+        serializeAndParse(C.simpleTextMapV, C.simpleTextMapT(C.simpleTextT)) shouldBe Success(
+          C.simpleTextMapV)
+      }
+      "work for GenMap" in {
+        serializeAndParse(C.complexGenMapV, C.complexGenMapT(C.treeNodeTC, C.simpleInt64T)) shouldBe Success(
+          C.complexGenMapV)
       }
     }
   }
