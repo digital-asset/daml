@@ -45,7 +45,7 @@ class VeryLargeArchiveSpec
   // future editors of this test should not feel obliged to synthesize a failure
   // if the system design has really changed so failures of this nature cannot
   // happen.
-  val failMB = 5
+  val failMB = 1
   val successMB = 10
 
   s"${failMB}MiB" should "fail" in {

@@ -31,8 +31,8 @@ compute = scenario do
     assert (applyFilter (<) 3 2 == False)
     assert (applyFilter (/=) 3 2 == True)
 
-    assert (round 2.5 == 3)
-    assert (round 3.5 == 4)
+    assert (round (2.5 : Decimal) == 3)
+    assert (round (3.5 : Decimal) == 4)
 
     assert (explode "me" == ["m", "e"])
 
