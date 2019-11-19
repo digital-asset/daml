@@ -10,6 +10,7 @@ import akka.http.scaladsl.Http.ServerBinding
 import akka.http.scaladsl.model.Uri
 import akka.stream.Materializer
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
+import com.digitalasset.http.dbbackend.ContractDao
 import com.digitalasset.http.json.{DomainJsonDecoder, DomainJsonEncoder}
 import com.digitalasset.http.util.FutureUtil
 import com.digitalasset.http.util.FutureUtil.toFuture
@@ -28,6 +29,9 @@ import com.digitalasset.platform.sandbox.SandboxServer
 import com.digitalasset.platform.sandbox.config.SandboxConfig
 import com.digitalasset.platform.services.time.TimeProviderType
 import scalaz._
+import scalaz.syntax.traverse._
+import scalaz.std.scalaFuture._
+import scalaz.std.option._
 
 import scala.concurrent.duration.{DAYS, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future}
@@ -50,6 +54,8 @@ object HttpServiceTestFixture {
     val ledgerId = LedgerId(testName)
     val applicationId = ApplicationId(testName)
 
+    val contractDaoF: Future[Option[ContractDao]] = jdbcConfig.map(c => initializeDb(c)).sequence
+
     val ledgerF: Future[(SandboxServer, Int)] = for {
       port <- toFuture(findOpenPort())
       ledger <- Future(SandboxServer(ledgerConfig(port, dar, ledgerId)))
@@ -57,6 +63,7 @@ object HttpServiceTestFixture {
 
     val httpServiceF: Future[(ServerBinding, Int)] = for {
       (_, ledgerPort) <- ledgerF
+      contractDao <- contractDaoF
       httpPort <- toFuture(findOpenPort())
       httpService <- stripLeft(
         HttpService.start(
@@ -65,7 +72,7 @@ object HttpServiceTestFixture {
           applicationId,
           "localhost",
           httpPort,
-          jdbcConfig,
+          contractDao,
           staticContentConfig,
           doNotReloadPackages))
     } yield (httpService, httpPort)
@@ -159,4 +166,10 @@ object HttpServiceTestFixture {
       case \/-(a) =>
         Future.successful(a)
     }
+
+  private def initializeDb(c: JdbcConfig)(implicit ec: ExecutionContext): Future[ContractDao] =
+    for {
+      dao <- Future(ContractDao(c.driver, c.url, c.user, c.password))
+      _ <- dao.transact(ContractDao.initialize(dao.logHandler)).unsafeToFuture(): Future[Unit]
+    } yield dao
 }

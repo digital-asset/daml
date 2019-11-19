@@ -8,12 +8,14 @@ import akka.http.scaladsl.Http.ServerBinding
 import akka.stream.ActorMaterializer
 import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.digitalasset.http.Statement.discard
+import com.digitalasset.http.dbbackend.ContractDao
 import com.digitalasset.ledger.api.refinements.ApiTypes.ApplicationId
 import com.typesafe.scalalogging.StrictLogging
-import scalaz.\/
+import scalaz.{-\/, \/, \/-}
 import scalaz.std.option._
 import scalaz.syntax.show._
 import scalaz.syntax.tag._
+import scopt.RenderingMode
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -22,6 +24,7 @@ import scala.util.{Failure, Success, Try}
 object Main extends StrictLogging {
 
   object ErrorCodes {
+    val Ok = 0
     val InvalidUsage = 100
     val StartupError = 101
   }
@@ -52,6 +55,26 @@ object Main extends StrictLogging {
       new AkkaExecutionSequencerPool("clientPool")(asys)
     implicit val ec: ExecutionContext = asys.dispatcher
 
+    def terminate() = discard { Await.result(asys.terminate(), 10.seconds) }
+
+    val contractDao = config.jdbcConfig.map(c => ContractDao(c.driver, c.url, c.user, c.password))
+
+    (contractDao, config.jdbcConfig) match {
+      case (Some(dao), Some(c)) if c.createSchema =>
+        logger.info("Creating DB schema...")
+        Try(dao.transact(ContractDao.initialize(dao.logHandler)).unsafeRunSync()) match {
+          case Success(()) =>
+            logger.info("DB schema created. Terminating process...")
+            terminate()
+            System.exit(ErrorCodes.Ok)
+          case Failure(e) =>
+            logger.error("Failed creating DB schema", e)
+            terminate()
+            System.exit(ErrorCodes.StartupError)
+        }
+      case _ =>
+    }
+
     val serviceF: Future[HttpService.Error \/ ServerBinding] =
       HttpService.start(
         config.ledgerHost,
@@ -59,7 +82,7 @@ object Main extends StrictLogging {
         config.applicationId,
         config.address,
         config.httpPort,
-        config.jdbcConfig,
+        contractDao,
         config.staticContentConfig,
         config.packageReloadInterval,
         config.maxInboundMessageSize
@@ -71,16 +94,21 @@ object Main extends StrictLogging {
           .stop(serviceF)
           .onComplete { fa =>
             logFailure("Shutdown error", fa)
-            discard { asys.terminate() }
+            terminate()
           }
       }
     }
 
     serviceF.onComplete {
-      case Success(_) =>
-      case Failure(_) =>
-        // no reason to log this failure, HttpService.start supposed to report it
-        discard { Await.result(asys.terminate(), 10.seconds) }
+      case Success(\/-(a)) =>
+        logger.info(s"Started server: $a")
+      case Success(-\/(e)) =>
+        logger.error(s"Cannot start server: $e")
+        terminate()
+        System.exit(ErrorCodes.StartupError)
+      case Failure(e) =>
+        logger.error("Cannot start server", e)
+        terminate()
         System.exit(ErrorCodes.StartupError)
     }
   }
@@ -96,6 +124,9 @@ object Main extends StrictLogging {
   @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
   private val configParser: scopt.OptionParser[Config] =
     new scopt.OptionParser[Config]("http-json-binary") {
+
+      override def renderingMode: RenderingMode = RenderingMode.OneColumn
+
       head("HTTP JSON API daemon")
 
       help("help").text("Print this usage text")
@@ -144,16 +175,15 @@ object Main extends StrictLogging {
         .action((x, c) => c.copy(jdbcConfig = Some(JdbcConfig.createUnsafe(x))))
         .validate(JdbcConfig.validate)
         .optional()
-        .text(s"Optional query store JDBC configuration string, "
-          + s"contains key-value pairs in the format: '${JdbcConfig.help}'. "
-          + s"Example: '${JdbcConfig.example}'")
+        .valueName(JdbcConfig.usage)
+        .text(s"Optional query store JDBC configuration string. " + JdbcConfig.help)
 
       opt[Map[String, String]]("static-content")
         .action((x, c) => c.copy(staticContentConfig = Some(StaticContentConfig.createUnsafe(x))))
         .validate(StaticContentConfig.validate)
         .optional()
-        .text(s"Optional static content configuration string, "
-          + s"contains key-value pairs in the format: '${StaticContentConfig.help}'. "
-          + s"Example: '${StaticContentConfig.example}'")
+        .valueName(StaticContentConfig.usage)
+        .text(s"DEV MODE ONLY (not recommended for production). Optional static content configuration string. "
+          + StaticContentConfig.help)
     }
 }

@@ -45,3 +45,5 @@ HEAD — ongoing
   ``--query-store-jdbc-config``, you must rebuild the database by adding
   ``,createSchema=true``.
   See `issue #3461 <https://github.com/digital-asset/daml/pull/3461>`_.
+
+- [JSON API - Experimental] Terminate process immediately after creating schema. See issue #3386.

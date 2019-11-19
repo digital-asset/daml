@@ -55,7 +55,8 @@ Start HTTP service from a DAML project directory
 
     $ daml json-api --ledger-host localhost --ledger-port 6865 \
         --http-port 7575 --max-inbound-message-size 4194304 --package-reload-interval 5s \
-        --application-id HTTP-JSON-API-Gateway
+        --application-id HTTP-JSON-API-Gateway --static-content "prefix=static,directory=./static-content" \
+        --query-store-jdbc-config "driver=org.postgresql.Driver,url=jdbc:postgresql://localhost:5432/test?&ssl=true,user=postgres,password=password,createSchema=false"
 
 ::
 
@@ -63,21 +64,35 @@ Start HTTP service from a DAML project directory
     HTTP JSON API daemon
     Usage: http-json-binary [options]
 
-      --help                   Print this usage text
-      --ledger-host <value>    Ledger host name or IP address
-      --ledger-port <value>    Ledger port number
-      --address <value>        IP address that HTTP JSON API service listens on. Defaults to 0.0.0.0.
-      --http-port <value>      HTTP JSON API service port number
+      --help
+            Print this usage text
+      --ledger-host <value>
+            Ledger host name or IP address
+      --ledger-port <value>
+            Ledger port number
+      --address <value>
+            IP address that HTTP JSON API service listens on. Defaults to 0.0.0.0.
+      --http-port <value>
+            HTTP JSON API service port number
       --application-id <value>
-                               Optional application ID to use for ledger registration. Defaults to HTTP-JSON-API-Gateway
+            Optional application ID to use for ledger registration. Defaults to HTTP-JSON-API-Gateway
       --package-reload-interval <value>
-                               Optional interval to poll for package updates. Examples: 500ms, 5s, 10min, 1h, 1d. Defaults to 5 seconds
+            Optional interval to poll for package updates. Examples: 500ms, 5s, 10min, 1h, 1d. Defaults to 5 seconds
       --max-inbound-message-size <value>
-                               Optional max inbound message size in bytes. Defaults to 4194304
-      --query-store-jdbc-config <value>
-                               Optional query store JDBC configuration string, contains key-value pairs in the format: 'driver=<JDBC driver class name>,url=<JDBC connection url>,user=<user>,password=<password>,createSchema=<true | false>'. Example: 'driver=org.postgresql.Driver,url=jdbc:postgresql://localhost:5432/test?&ssl=true,user=postgres,password=password,createSchema=false'
-      --static-content <value>
-                               Optional static content configuration string, contains key-value pairs in the format: 'prefix=<URI prefix>,directory=<directory containing static content>'. Example: 'prefix=static,directory=./static-content'
+            Optional max inbound message size in bytes. Defaults to 4194304
+      --query-store-jdbc-config "driver=<JDBC driver class name>,url=<JDBC connection url>,user=<user>,password=<password>,createSchema=<true|false>"
+            Optional query store JDBC configuration string. Contains comma-separated key-value pairs. Where:
+            driver -- JDBC driver class name,
+            url -- JDBC connection URL,
+            user -- database user name,
+            password -- database user password
+            createSchema -- boolean flag, if set to true, the process will re-create database schema and terminate immediately.
+            Example: "driver=org.postgresql.Driver,url=jdbc:postgresql://localhost:5432/test?&ssl=true,user=postgres,password=password,createSchema=false"
+      --static-content "prefix=<URL prefix>,directory=<directory>"
+            DEV MODE ONLY (not recommended for production). Optional static content configuration string. Contains comma-separated key-value pairs. Where:
+            prefix -- URL prefix,
+            directory -- local directory that will be mapped to the URL prefix.
+            Example: "prefix=static,directory=./static-content"
 
 Example session
 ***************

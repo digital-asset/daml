@@ -78,19 +78,26 @@ private[http] object JdbcConfig extends ConfigCompanion[JdbcConfig]("JdbcConfig"
   implicit val showInstance: Show[JdbcConfig] = Show.shows(a =>
     s"JdbcConfig(driver=${a.driver}, url=${a.url}, user=${a.user}, createSchema=${a.createSchema})")
 
-  lazy val help: String = helpString(
+  lazy val help: String =
+    "Contains comma-separated key-value pairs. Where:\n" +
+      "\tdriver -- JDBC driver class name,\n" +
+      "\turl -- JDBC connection URL,\n" +
+      "\tuser -- database user name,\n" +
+      "\tpassword -- database user password\n" +
+      "\tcreateSchema -- boolean flag, if set to true, the process will re-create database schema and terminate immediately.\n" +
+      "\tExample: " + helpString(
+      "org.postgresql.Driver",
+      "jdbc:postgresql://localhost:5432/test?&ssl=true",
+      "postgres",
+      "password",
+      "false")
+
+  lazy val usage: String = helpString(
     "<JDBC driver class name>",
     "<JDBC connection url>",
     "<user>",
     "<password>",
-    "<true | false>")
-
-  lazy val example: String = helpString(
-    "org.postgresql.Driver",
-    "jdbc:postgresql://localhost:5432/test?&ssl=true",
-    "postgres",
-    "password",
-    "false")
+    "<true|false>")
 
   override def create(x: Map[String, String]): Either[String, JdbcConfig] =
     for {
@@ -114,7 +121,7 @@ private[http] object JdbcConfig extends ConfigCompanion[JdbcConfig]("JdbcConfig"
       user: String,
       password: String,
       createSchema: String): String =
-    s"driver=$driver,url=$url,user=$user,password=$password,createSchema=$createSchema"
+    s"""\"driver=$driver,url=$url,user=$user,password=$password,createSchema=$createSchema\""""
 }
 
 private[http] final case class StaticContentConfig(
@@ -129,9 +136,12 @@ private[http] object StaticContentConfig
     Show.shows(a => s"StaticContentConfig(prefix=${a.prefix}, directory=${a.directory})")
 
   lazy val help: String =
-    helpString("<URI prefix>", "<directory containing static content>")
+    "Contains comma-separated key-value pairs. Where:\n" +
+      "\tprefix -- URL prefix,\n" +
+      "\tdirectory -- local directory that will be mapped to the URL prefix.\n" +
+      "\tExample: " + helpString("static", "./static-content")
 
-  lazy val example: String = helpString("static", "./static-content")
+  lazy val usage: String = helpString("<URL prefix>", "<directory>")
 
   override def create(x: Map[String, String]): Either[String, StaticContentConfig] =
     for {
@@ -144,5 +154,5 @@ private[http] object StaticContentConfig
     else Right(s)
 
   private def helpString(prefix: String, directory: String): String =
-    s"prefix=$prefix,directory=$directory"
+    s"""\"prefix=$prefix,directory=$directory\""""
 }

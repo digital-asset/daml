@@ -8,10 +8,11 @@ import cats.syntax.apply._
 import com.digitalasset.http.domain
 import doobie.LogHandler
 import doobie.free.connection.ConnectionIO
+import doobie.free.{connection => fconn}
 import doobie.implicits._
 import doobie.util.log
 import scalaz.syntax.tag._
-import doobie.free.{connection => fconn}
+
 import scala.concurrent.ExecutionContext
 
 class ContractDao(xa: Connection.T) {
