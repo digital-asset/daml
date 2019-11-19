@@ -329,7 +329,7 @@ dataDependencyTests damlc = testGroup "Data Dependencies" $
             , "  assert $ signatory t1 == [bob, bob]"
             , "  let anyTemplate = toAnyTemplate t1"
             , "  let (Some t2 : Optional Module.Template) = fromAnyTemplate anyTemplate"
-            , "  submit bob $ exercise coid1 Module.Choice with choiceArg = ()"
+            , "  submit bob $ exercise coid1 Module.Choice2 with choiceArg = ()"
             , "  pure ()"
             ]
         withCurrentDirectory projDir $
