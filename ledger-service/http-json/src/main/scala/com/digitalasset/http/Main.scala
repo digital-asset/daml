@@ -15,6 +15,7 @@ import scalaz.{-\/, \/, \/-}
 import scalaz.std.option._
 import scalaz.syntax.show._
 import scalaz.syntax.tag._
+import scopt.RenderingMode
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -123,6 +124,9 @@ object Main extends StrictLogging {
   @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
   private val configParser: scopt.OptionParser[Config] =
     new scopt.OptionParser[Config]("http-json-binary") {
+
+      override def renderingMode: RenderingMode = RenderingMode.OneColumn
+
       head("HTTP JSON API daemon")
 
       help("help").text("Print this usage text")
@@ -171,16 +175,15 @@ object Main extends StrictLogging {
         .action((x, c) => c.copy(jdbcConfig = Some(JdbcConfig.createUnsafe(x))))
         .validate(JdbcConfig.validate)
         .optional()
-        .text(s"Optional query store JDBC configuration string, "
-          + s"contains key-value pairs in the format: '${JdbcConfig.help}'. "
-          + s"Example: '${JdbcConfig.example}'")
+        .valueName(JdbcConfig.usage)
+        .text(s"Optional query store JDBC configuration string. " + JdbcConfig.help)
 
       opt[Map[String, String]]("static-content")
         .action((x, c) => c.copy(staticContentConfig = Some(StaticContentConfig.createUnsafe(x))))
         .validate(StaticContentConfig.validate)
         .optional()
-        .text(s"Optional static content configuration string, "
-          + s"contains key-value pairs in the format: '${StaticContentConfig.help}'. "
-          + s"Example: '${StaticContentConfig.example}'")
+        .valueName(StaticContentConfig.usage)
+        .text(s"DEV MODE ONLY (not recommended for production). Optional static content configuration string. "
+          + StaticContentConfig.help)
     }
 }
