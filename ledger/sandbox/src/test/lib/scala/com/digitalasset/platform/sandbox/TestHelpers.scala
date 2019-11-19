@@ -76,7 +76,8 @@ trait TestHelpers {
       TimeModel.reasonableDefault,
       timeProvider,
       new CommandExecutorImpl(Engine(), packageStore.getLfPackage),
-      NamedLoggerFactory.forParticipant(participantId)
+      NamedLoggerFactory.forParticipant(participantId),
+      mm
     )(ec, mat)
   }
 
