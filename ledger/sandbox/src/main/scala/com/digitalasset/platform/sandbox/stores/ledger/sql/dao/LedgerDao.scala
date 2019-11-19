@@ -65,7 +65,7 @@ trait LedgerReadDao extends AutoCloseable {
   type ExternalOffset = LedgerString
 
   /** Looks up the ledger id */
-  def lookupLedgerId(): Future[Option[LedgerId]]
+  def lookupLedgerId(callerId: String): Future[Option[LedgerId]]
 
   /** Looks up the current ledger end */
   def lookupLedgerEnd(): Future[LedgerOffset]

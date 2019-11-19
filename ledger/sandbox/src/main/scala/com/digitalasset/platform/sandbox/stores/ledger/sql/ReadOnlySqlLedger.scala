@@ -127,7 +127,7 @@ private class ReadOnlySqlLedgerFactory(
     initialLedgerId match {
       case Some(initialId) =>
         ledgerDao
-          .lookupLedgerId()
+          .lookupLedgerId("_initialize_some")
           .flatMap {
             case Some(foundLedgerId) if (foundLedgerId == initialId) =>
               ledgerFound(foundLedgerId)
@@ -144,7 +144,7 @@ private class ReadOnlySqlLedgerFactory(
       case None =>
         logger.info("No ledger id given. Looking for existing ledger in database.")
         ledgerDao
-          .lookupLedgerId()
+          .lookupLedgerId("_initialize_none")
           .flatMap {
             case Some(foundLedgerId) => ledgerFound(foundLedgerId)
             case None =>
