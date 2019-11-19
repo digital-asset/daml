@@ -137,8 +137,8 @@ generateTemplateInstanceModule env externPkgId
           modName <>
           " as X"
         , "import \"" <> packageName <> "\" " <> modName
-        , "import qualified Sdk.DA.Internal.LF"
-        , "import qualified Sdk.DA.Internal.Prelude"
+        , "import qualified DA.Internal.LF"
+        , "import qualified DA.Internal.Prelude"
         , "import qualified Sdk.DA.Internal.Template"
         , "import qualified GHC.Types"
         ]
@@ -327,7 +327,7 @@ generateChoiceInstance env externPkgId template choice =
         noLoc $
         HsTyVar noExt NotPromoted $
         noLoc $
-        mkRdrQual (mkModuleName "DA.Internal.Template") $
+        mkRdrQual (mkModuleName "Sdk.DA.Internal.Template") $
         mkOccName varName "Choice" :: LHsType GhcPs
 
     arg1 :: LHsType GhcPs =
