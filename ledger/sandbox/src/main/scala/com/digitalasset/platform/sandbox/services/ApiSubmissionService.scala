@@ -87,6 +87,14 @@ class ApiSubmissionService private (
   private val logger = loggerFactory.getLogger(this.getClass)
   private val validator = TimeModelValidator(timeModel)
 
+  private object Metrics {
+    val failedInterpretationsMeter =
+      metricsManager.metrics.meter("CommandSubmission.failedCommandInterpretations")
+
+    val submittedTransactionsTimer =
+      metricsManager.metrics.timer("CommandSubmission.submittedTransactions")
+  }
+
   override def submit(request: SubmitRequest): Future[Unit] = {
     val commands = request.commands
     val validation = for {
@@ -149,18 +157,12 @@ class ApiSubmissionService private (
       submissionResult <- handleResult(res)
     } yield submissionResult
 
-  private val failedInterpretationsMeter =
-    metricsManager.metrics.meter("CommandSubmission:failedCommandInterpretations")
-
-  private val submittedTransactionsTimer =
-    metricsManager.metrics.timer("CommandSubmission:submittedTransactions")
-
   private def handleResult(
       res: scala.Either[ErrorCause, (SubmitterInfo, TransactionMeta, Transaction.Transaction)]) =
     res match {
       case Right((submitterInfo, transactionMeta, transaction)) =>
         metricsManager.timedFuture(
-          submittedTransactionsTimer,
+          Metrics.submittedTransactionsTimer,
           FutureConverters.toScala(
             writeService.submitTransaction(
               submitterInfo,
@@ -168,7 +170,7 @@ class ApiSubmissionService private (
               transaction
             )))
       case Left(err) =>
-        failedInterpretationsMeter.mark()
+        Metrics.failedInterpretationsMeter.mark()
         Future.failed(grpcError(toStatus(err)))
     }
 

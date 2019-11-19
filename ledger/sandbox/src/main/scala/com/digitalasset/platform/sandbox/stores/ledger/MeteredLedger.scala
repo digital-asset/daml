@@ -37,26 +37,26 @@ private class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, mm: MetricsManager)
   override def lookupContract(
       contractId: Value.AbsoluteContractId,
       forParty: Party): Future[Option[Contract]] =
-    mm.timedFuture("Ledger:lookupContract", ledger.lookupContract(contractId, forParty))
+    mm.timedFuture("Ledger.lookupContract", ledger.lookupContract(contractId, forParty))
 
   override def lookupKey(key: GlobalKey, forParty: Party): Future[Option[AbsoluteContractId]] =
-    mm.timedFuture("Ledger:lookupKey", ledger.lookupKey(key, forParty))
+    mm.timedFuture("Ledger.lookupKey", ledger.lookupKey(key, forParty))
 
   override def lookupTransaction(
       transactionId: TransactionIdString): Future[Option[(Long, LedgerEntry.Transaction)]] =
-    mm.timedFuture("Ledger:lookupTransaction", ledger.lookupTransaction(transactionId))
+    mm.timedFuture("Ledger.lookupTransaction", ledger.lookupTransaction(transactionId))
 
   override def parties: Future[List[PartyDetails]] =
-    mm.timedFuture("Ledger:parties", ledger.parties)
+    mm.timedFuture("Ledger.parties", ledger.parties)
 
   override def listLfPackages(): Future[Map[PackageId, PackageDetails]] =
-    mm.timedFuture("Ledger:listLfPackages", ledger.listLfPackages())
+    mm.timedFuture("Ledger.listLfPackages", ledger.listLfPackages())
 
   override def getLfArchive(packageId: PackageId): Future[Option[Archive]] =
-    mm.timedFuture("Ledger:getLfArchive", ledger.getLfArchive(packageId))
+    mm.timedFuture("Ledger.getLfArchive", ledger.getLfArchive(packageId))
 
   override def getLfPackage(packageId: PackageId): Future[Option[Ast.Package]] =
-    mm.timedFuture("Ledger:getLfPackage", ledger.getLfPackage(packageId))
+    mm.timedFuture("Ledger.getLfPackage", ledger.getLfPackage(packageId))
 
   override def close(): Unit = {
     ledger.close()
@@ -73,27 +73,27 @@ private class MeteredLedger(ledger: Ledger, mm: MetricsManager)
     with Ledger {
 
   override def publishHeartbeat(time: Instant): Future[Unit] =
-    mm.timedFuture("Ledger:publishHeartbeat", ledger.publishHeartbeat(time))
+    mm.timedFuture("Ledger.publishHeartbeat", ledger.publishHeartbeat(time))
 
   override def publishTransaction(
       submitterInfo: SubmitterInfo,
       transactionMeta: TransactionMeta,
       transaction: SubmittedTransaction): Future[SubmissionResult] =
     mm.timedFuture(
-      "Ledger:publishTransaction",
+      "Ledger.publishTransaction",
       ledger.publishTransaction(submitterInfo, transactionMeta, transaction))
 
   override def allocateParty(
       party: Party,
       displayName: Option[String]): Future[PartyAllocationResult] =
-    mm.timedFuture("Ledger:addParty", ledger.allocateParty(party, displayName))
+    mm.timedFuture("Ledger.addParty", ledger.allocateParty(party, displayName))
 
   override def uploadPackages(
       knownSince: Instant,
       sourceDescription: Option[String],
       payload: List[Archive]): Future[UploadPackagesResult] =
     mm.timedFuture(
-      "Ledger:uploadPackages",
+      "Ledger.uploadPackages",
       ledger.uploadPackages(knownSince, sourceDescription, payload))
 
   override def close(): Unit = {

@@ -179,12 +179,12 @@ class JdbcIndexer private[index] (
 
   object Metrics {
     val stateUpdateProcessingTimer =
-      metricsManager.metrics.timer("JdbcIndexer:processedStateUpdates")
+      metricsManager.metrics.timer("JdbcIndexer.processedStateUpdates")
 
     private[JdbcIndexer] def setup(): Unit = {
-      val lastReceivedRecordTimeName = "JdbcIndexer:lastReceivedRecordTime"
-      val lastReceivedOffsetName = "JdbcIndexer:lastReceivedOffset"
-      val currentRecordTimeLagName = "JdbcIndexer:currentRecordTimeLag"
+      val lastReceivedRecordTimeName = "JdbcIndexer.lastReceivedRecordTime"
+      val lastReceivedOffsetName = "JdbcIndexer.lastReceivedOffset"
+      val currentRecordTimeLagName = "JdbcIndexer.currentRecordTimeLag"
 
       metricsManager.metrics.remove(lastReceivedRecordTimeName)
       metricsManager.metrics.remove(lastReceivedOffsetName)
