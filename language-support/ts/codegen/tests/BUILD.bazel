@@ -25,14 +25,14 @@ sh_test(
         "$(location :yarn)",
         "$(location //:daml2ts)",
         "$(location :daml2ts-test.dar)",
-        "$(location ts)",
+        "$(location ts/package.json)",
     ],
     data = [
         ":yarn",
         "//:daml2ts",
         ":daml2ts-test.dar",
-        "ts",
     ] + glob(["ts/**"]),
     deps = [
+        "@bazel_tools//tools/bash/runfiles",
     ],
 )
