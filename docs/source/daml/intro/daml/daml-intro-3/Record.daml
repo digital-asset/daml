@@ -46,7 +46,7 @@ record_test = scenario do
     -- `my_int_decimal` has type `KeyValue Int Decimal`
     my_int_decimal = KeyValue with
       my_key = 2
-      my_val = 2.0
+      my_val = 2.0 : Decimal
 
     -- If variables are in scope that match field names, we can pick them up
     -- implicitly, writing just `my_coord` instead of `my_coord = my_coord`.

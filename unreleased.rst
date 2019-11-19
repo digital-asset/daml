@@ -42,3 +42,6 @@ HEAD — ongoing
   ``--query-store-jdbc-config``, you must rebuild the database by adding
   ``,createSchema=true``.
   See `issue #3461 <https://github.com/digital-asset/daml/pull/3461>`_.
+- [DAML Compiler] The default DAML-LF version is now 1.7. You can
+  still produce DAML-LF 1.6 by passing ``--target=1.6`` to ``daml
+  build``.
