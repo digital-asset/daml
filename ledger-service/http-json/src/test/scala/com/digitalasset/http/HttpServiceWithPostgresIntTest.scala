@@ -44,14 +44,14 @@ class HttpServiceWithPostgresIntTest
     }
   }
 
-  private def selectAllDbContracts: Future[List[(String, JsValue, JsValue)]] = {
-    import doobie.implicits._
+  private def selectAllDbContracts: Future[List[(String, JsValue, Vector[String])]] = {
+    import doobie.implicits._, doobie.postgres.implicits._
     import com.digitalasset.http.dbbackend.Queries.Implicits._
     import dao.logHandler
 
-    val q: doobie.Query0[(String, JsValue, JsValue)] =
+    val q =
       sql"""SELECT contract_id, create_arguments, witness_parties FROM contract"""
-        .query[(String, JsValue, JsValue)]
+        .query[(String, JsValue, Vector[String])]
 
     dao.transact(q.to[List]).unsafeToFuture()
   }
