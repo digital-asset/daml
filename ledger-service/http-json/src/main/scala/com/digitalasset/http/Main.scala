@@ -11,7 +11,7 @@ import com.digitalasset.http.Statement.discard
 import com.digitalasset.http.dbbackend.ContractDao
 import com.digitalasset.ledger.api.refinements.ApiTypes.ApplicationId
 import com.typesafe.scalalogging.StrictLogging
-import scalaz.\/
+import scalaz.{-\/, \/, \/-}
 import scalaz.std.option._
 import scalaz.syntax.show._
 import scalaz.syntax.tag._
@@ -54,20 +54,24 @@ object Main extends StrictLogging {
       new AkkaExecutionSequencerPool("clientPool")(asys)
     implicit val ec: ExecutionContext = asys.dispatcher
 
-    config.jdbcConfig.foreach { c =>
-      if (c.createSchema) {
+    def terminate() = discard { Await.result(asys.terminate(), 10.seconds) }
+
+    val contractDao = config.jdbcConfig.map(c => ContractDao(c.driver, c.url, c.user, c.password))
+
+    (contractDao, config.jdbcConfig) match {
+      case (Some(dao), Some(c)) if c.createSchema =>
         logger.info("Creating DB schema...")
-        initDbSync(c) match {
+        Try(dao.transact(ContractDao.initialize(dao.logHandler)).unsafeRunSync()) match {
           case Success(()) =>
             logger.info("DB schema created. Terminating process...")
-            discard { asys.terminate() }
+            terminate()
             System.exit(ErrorCodes.Ok)
           case Failure(e) =>
             logger.error("Failed creating DB schema", e)
-            discard { asys.terminate() }
+            terminate()
             System.exit(ErrorCodes.StartupError)
         }
-      }
+      case _ =>
     }
 
     val serviceF: Future[HttpService.Error \/ ServerBinding] =
@@ -77,7 +81,7 @@ object Main extends StrictLogging {
         config.applicationId,
         config.address,
         config.httpPort,
-        config.jdbcConfig,
+        contractDao,
         config.staticContentConfig,
         config.packageReloadInterval,
         config.maxInboundMessageSize
@@ -89,16 +93,21 @@ object Main extends StrictLogging {
           .stop(serviceF)
           .onComplete { fa =>
             logFailure("Shutdown error", fa)
-            discard { asys.terminate() }
+            terminate()
           }
       }
     }
 
     serviceF.onComplete {
-      case Success(_) =>
-      case Failure(_) =>
-        // no reason to log this failure, HttpService.start supposed to report it
-        discard { Await.result(asys.terminate(), 10.seconds) }
+      case Success(\/-(a)) =>
+        logger.info(s"Started server: $a")
+      case Success(-\/(e)) =>
+        logger.error(s"Cannot start server: $e")
+        terminate()
+        System.exit(ErrorCodes.StartupError)
+      case Failure(e) =>
+        logger.error("Cannot start server", e)
+        terminate()
         System.exit(ErrorCodes.StartupError)
     }
   }
@@ -174,9 +183,4 @@ object Main extends StrictLogging {
           + s"contains key-value pairs in the format: '${StaticContentConfig.help}'. "
           + s"Example: '${StaticContentConfig.example}'")
     }
-
-  private def initDbSync(c: JdbcConfig)(implicit ec: ExecutionContext): Try[Unit] = Try {
-    val dao = ContractDao(c.driver, c.url, c.user, c.password)
-    dao.transact(ContractDao.initialize(dao.logHandler)).unsafeRunSync()
-  }
 }

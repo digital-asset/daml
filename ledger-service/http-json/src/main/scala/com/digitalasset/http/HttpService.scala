@@ -39,7 +39,6 @@ import scalaz._
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
-import scala.{util => u}
 
 object HttpService extends StrictLogging {
 
@@ -56,7 +55,7 @@ object HttpService extends StrictLogging {
       applicationId: ApplicationId,
       address: String,
       httpPort: Int,
-      jdbcConfig: Option[JdbcConfig] = None,
+      contractDao: Option[ContractDao] = None,
       staticContentConfig: Option[StaticContentConfig] = None,
       packageReloadInterval: FiniteDuration = DefaultPackageReloadInterval,
       maxInboundMessageSize: Int = DefaultMaxInboundMessageSize,
@@ -83,6 +82,7 @@ object HttpService extends StrictLogging {
       ledgerId = apiLedgerId(client.ledgerId): lar.LedgerId
 
       _ = logger.info(s"Connected to Ledger: ${ledgerId: lar.LedgerId}")
+      _ = logger.info(s"contractDao: ${contractDao.toString}")
 
       // TODO Pass a token to work against a ledger with authentication
       packageService = new PackageService(loadPackageStoreUpdates(client.packageClient, None))
@@ -91,9 +91,6 @@ object HttpService extends StrictLogging {
       _ <- eitherT(packageService.reload).leftMap(e => Error(e.shows)): ET[Unit]
 
       _ = schedulePackageReload(packageService, packageReloadInterval)
-
-      contractDao = jdbcConfig.map(c => ContractDao(c.driver, c.url, c.user, c.password))
-      _ = logger.info(s"contractDao: ${contractDao.toString}")
 
       commandService = new CommandService(
         packageService.resolveTemplateId,
@@ -134,15 +131,7 @@ object HttpService extends StrictLogging {
 
     } yield binding
 
-    val bindingF: Future[Error \/ ServerBinding] = bindingEt.run
-
-    bindingF.onComplete {
-      case u.Failure(e) => logger.error("Cannot start server", e)
-      case u.Success(-\/(e)) => logger.info(s"Cannot start server: $e")
-      case u.Success(\/-(a)) => logger.info(s"Started server: $a")
-    }
-
-    bindingF
+    bindingEt.run: Future[Error \/ ServerBinding]
   }
 
   private[http] def loadPackageStoreUpdates(packageClient: PackageClient, token: Option[String])(
