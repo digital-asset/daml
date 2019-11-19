@@ -10,14 +10,12 @@ import qualified Data.ByteString.Lazy as BSL
 import qualified Data.NameMap as NM
 import qualified Data.Set as Set
 import qualified Data.Set.Lens as Set
-import qualified Data.Text as T
-import qualified Data.Text.IO as T
+import qualified Data.Text.Extended as T
 import qualified "zip-archive" Codec.Archive.Zip as Zip
 
 import Control.Monad
 import DA.Daml.LF.Ast
 import DA.Daml.LF.Ast.Optics
-import Data.List.Extra
 import Options.Applicative
 import System.Directory
 import System.FilePath
@@ -56,17 +54,15 @@ main = do
 
 daml2ts :: Options -> PackageId -> Package -> IO ()
 daml2ts Options{..} pkgId pkg = do
-    let outputBaseDir = optOutputDir </> T.unpack (unPackageId pkgId)
-    createDirectoryIfMissing True outputBaseDir
-    T.writeFile (outputBaseDir </> "packageId.ts") $ T.unlines
+    let outputDir = optOutputDir </> T.unpack (unPackageId pkgId)
+    createDirectoryIfMissing True outputDir
+    T.writeFileUtf8 (outputDir </> "packageId.ts") $ T.unlines
         ["export default '" <> unPackageId pkgId <> "';"]
     forM_ (packageModules pkg) $ \mod -> do
-        Just (modPath, modName) <- pure $ unsnoc (map T.unpack (unModuleName (moduleName mod)))
-        let outputDir = outputBaseDir </> joinPath (modPath)
-        let outputFile = outputDir </> modName <.> "ts"
+        let outputFile = outputDir </> joinPath (map T.unpack (unModuleName (moduleName mod))) <.> "ts"
         putStrLn $ "Generating " ++ outputFile
-        createDirectoryIfMissing True outputDir
-        T.writeFile outputFile (genModule mod)
+        createDirectoryIfMissing True (takeDirectory outputFile)
+        T.writeFileUtf8 outputFile (genModule mod)
 
 dup :: a -> (a, a)
 dup x = (x, x)
@@ -92,10 +88,10 @@ genModule mod =
         ] ++
         ["import * as " <> modNameStr <> " from '" <> pkgRootPath <> "/" <> pkgRefStr <> T.intercalate "/" (unModuleName modName) <> "';"
         | modRef@(pkgRef, modName) <- Set.toList (Set.setOf moduleModuleRef mod)
-        , Just modNameStr <- [genModuleRef curModName modRef]
         , let pkgRefStr = case pkgRef of
                 PRSelf -> ""
                 PRImport pkgId -> "../" <> unPackageId pkgId <> "/"
+        , Just modNameStr <- [genModuleRef curModName modRef]
         ] ++
         [ ""
         ,"const moduleName = '" <> T.intercalate "." (unModuleName curModName) <> "';"
@@ -219,7 +215,7 @@ genType curModName = go
         t@TApp{} -> error $ "IMPOSSIBLE: type application not serializable - " <> DA.Pretty.renderPretty t
         TBuiltin t -> error $ "IMPOSSIBLE: partially applied primitive type not serializable - " <> DA.Pretty.renderPretty t
         TForall{} -> error "IMPOSSIBLE: universally quantified type not serializable"
-        TTuple{} -> error "IMPOSSIBLE: structur record not serializable"
+        TTuple{} -> error "IMPOSSIBLE: structural record not serializable"
         TNat{} -> error "IMPOSSIBLE: standalone type level natural not serializable"
 
 genTypeCon :: ModuleName -> Qualified TypeConName -> (T.Text, T.Text)
