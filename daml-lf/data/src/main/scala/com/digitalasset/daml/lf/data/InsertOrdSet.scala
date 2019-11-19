@@ -14,7 +14,7 @@ package com.digitalasset.daml.lf.data
   */
 import scala.collection.immutable.{HashSet, Set, Queue}
 
-sealed abstract class InsertOrdSet[T] extends Set[T] {
+final class InsertOrdSet[T] private (_items: Queue[T], _hashSet: HashSet[T]) extends Set[T] {
   def _items: Queue[T]
   def _hashSet: HashSet[T]
 
@@ -56,8 +56,9 @@ final case class NonEmptyInsertOrdSet[T](
     extends InsertOrdSet[T]
 
 object InsertOrdSet {
-  def empty[T] = EmptyInsertOrdSet.asInstanceOf[InsertOrdSet[T]]
+  private val Empty =  new InsertOrdSet(Queue.empty, HashSet.empty)
+  def empty[T] = Empty.asInstanceOf[InsertOrdSet[T]]
 
   def fromSeq[T](s: Seq[T]): InsertOrdSet[T] =
-    NonEmptyInsertOrdSet(Queue(s.reverse: _*), HashSet(s: _*))
+    new InsertOrdSet(Queue(s.reverse: _*), HashSet(s: _*))
 }
