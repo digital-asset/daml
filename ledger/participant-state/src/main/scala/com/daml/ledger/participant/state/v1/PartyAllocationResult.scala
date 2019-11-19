@@ -29,7 +29,7 @@ object PartyAllocationResult {
   /** Submission ended up with internal error */
   final case class InternalError(reason: String) extends PartyAllocationResult {
     override def description: String =
-      "Party allocation failed with an internal error, reason=" + reason
+      s"Party allocation failed with an internal error, reason=$reason"
   }
 
   /** The requested party name already exists */
@@ -39,7 +39,7 @@ object PartyAllocationResult {
 
   /** The requested party name is not valid */
   final case class InvalidName(details: String) extends PartyAllocationResult {
-    override def description: String = "Party name is invalid, details=" + details
+    override def description: String = s"Party name is invalid, details=$details"
   }
 
   /** The participant was not authorized to submit the allocation request */

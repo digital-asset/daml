@@ -27,12 +27,12 @@ object UploadPackagesResult {
   /** Submission ended up with internal error */
   final case class InternalError(reason: String) extends UploadPackagesResult {
     override def description: String =
-      "Party allocation failed with an internal error, reason=" + reason
+      s"Party allocation failed with an internal error, reason=$reason"
   }
 
   /** One of the uploaded packages is not valid */
   final case class InvalidPackage(reason: String) extends UploadPackagesResult {
-    override def description: String = "Uploaded packages were invalid, details=" + reason
+    override def description: String = s"Uploaded packages were invalid, details=$reason"
   }
 
   /** The participant was not authorized to submit the upload request */
