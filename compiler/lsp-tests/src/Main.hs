@@ -359,7 +359,7 @@ requestTests run _runScenarios = testGroup "requests"
               ]
           r <- getHover main' (Position 2 27)
           liftIO $ r @?= Just Hover
-              { _contents = HoverContents $ MarkupContent MkMarkdown "```daml\n: Decimal\n```\n"
+              { _contents = HoverContents $ MarkupContent MkMarkdown "```daml\n: Numeric n\n```\n"
               , _range = Just $ Range (Position 2 27) (Position 2 30)
               }
           closeDoc main'

@@ -44,16 +44,34 @@ class DarReaderTest extends WordSpec with Matchers with Inside with BazelRunfile
         archive3.getDamlLf1.getModulesCount should be > 0
 
         val archive1Modules = archive1.getDamlLf1.getModulesList.asScala
-        inside(archive1Modules.find(m => name(m.getNameDname) == "DarReaderTest")) {
+        val archive1InternedDotted = archive1.getDamlLf1.getInternedDottedNamesList.asScala
+        val archive1InternedStrings = archive1.getDamlLf1.getInternedStringsList.asScala
+        inside(
+          archive1Modules
+            .find(
+              m =>
+                internedName(
+                  archive1InternedDotted,
+                  archive1InternedStrings,
+                  m.getNameInternedDname) == "DarReaderTest")) {
           case Some(module) =>
             val actualTypes: Set[String] =
-              module.getDataTypesList.asScala.toSet.map((t: DamlLf1.DefDataType) =>
-                name(t.getNameDname))
+              module.getDataTypesList.asScala.toSet.map(
+                (t: DamlLf1.DefDataType) =>
+                  internedName(
+                    archive1InternedDotted,
+                    archive1InternedStrings,
+                    t.getNameInternedDname))
             actualTypes should contain allOf ("Transfer", "Call2", "CallablePayout", "PayOut")
         }
 
         val archive2Modules = archive2.getDamlLf1.getModulesList.asScala
-        val archive2ModuleNames: Set[String] = archive2Modules.map(m => name(m.getNameDname)).toSet
+        val archive2InternedDotted = archive2.getDamlLf1.getInternedDottedNamesList.asScala
+        val archive2InternedStrings = archive2.getDamlLf1.getInternedStringsList.asScala
+        val archive2ModuleNames: Set[String] = archive2Modules
+          .map(m =>
+            internedName(archive2InternedDotted, archive2InternedStrings, m.getNameInternedDname))
+          .toSet
         archive2ModuleNames shouldBe Set(
           "GHC.Prim",
           "GHC.Types",
@@ -71,6 +89,10 @@ class DarReaderTest extends WordSpec with Matchers with Inside with BazelRunfile
     }
   }
 
-  private def name(n: DamlLf1.DottedName): String =
-    n.getSegmentsList.iterator.asScala.mkString(".")
+  private def internedName(
+      internedDotted: Seq[DamlLf1.InternedDottedName],
+      internedStrings: Seq[String],
+      n: Int): String = {
+    internedDotted(n).getSegmentsInternedStrList.asScala.map(i => internedStrings(i)).mkString(".")
+  }
 }

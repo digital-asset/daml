@@ -93,11 +93,11 @@ aborted = scenario do
 
 int64overflow = scenario do
   alice <- getParty "Alice"
-  submitMustFail alice (pure (truncate (9999999999999.9 * 9999999999999.9)))
+  submitMustFail alice (pure (truncate (9999999999999.9 * 9999999999999.9 : Decimal)))
 
 roundBadScale = scenario do
   alice <- getParty "Alice"
-  submitMustFail alice (pure (roundBankers 20 1.0))
+  submitMustFail alice (pure (roundBankers 20 (1.0 : Decimal)))
 
 -- 2. Failed lookups
 
