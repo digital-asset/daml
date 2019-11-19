@@ -54,7 +54,7 @@ private case class ApiServicesBundle(services: immutable.Seq[BindableService]) e
     }
 
   override def withServices(otherServices: immutable.Seq[BindableService]): ApiServices =
-    copy(services = services.++:(otherServices))
+    copy(services = services ++ otherServices)
 
 }
 
@@ -163,7 +163,7 @@ object ApiServices {
 
       // Note: the command service uses the command submission, command completion, and transaction services internally.
       // These connections do not use authorization, authorization wrappers are only added here to all exposed services.
-      new ApiServicesBundle(
+      ApiServicesBundle(
         apiTimeServiceOpt.toList :::
           List(
           new LedgerIdentityServiceAuthorization(apiLedgerIdentityService, authorizer),
@@ -180,5 +180,4 @@ object ApiServices {
         ))
     }
   }
-
 }
