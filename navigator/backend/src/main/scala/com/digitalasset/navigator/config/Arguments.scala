@@ -88,6 +88,7 @@ object Arguments {
         .text(
           s"provide the path from which the access token will be read, required to interact with an authenticated ledger, no default")
         .action((path, arguments) => arguments.copy(accessTokenFile = Some(Paths.get(path))))
+        .optional()
 
       opt[String]('c', "config-file")
         .text(s"set the configuration file default: ${defaultConfigFile}")

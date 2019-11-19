@@ -7,7 +7,7 @@ import java.util
 
 import com.daml.ledger.javaapi
 import com.daml.ledger.javaapi.data.codegen.ContractId
-import com.daml.ledger.javaapi.data.{DamlList, DamlMap, DamlOptional}
+import com.daml.ledger.javaapi.data.{DamlGenMap, DamlList, DamlMap, DamlOptional}
 import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
 import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
 import com.digitalasset.daml.lf.iface._
@@ -80,6 +80,11 @@ package object inner {
             ClassName.get(classOf[java.util.Map[String, _]]),
             ClassName.get(classOf[java.lang.String]) +:
               typeParameters.map(toJavaTypeName(_, packagePrefixes)): _*)
+      case TypePrim(PrimTypeGenMap, typeParameters) =>
+        ParameterizedTypeName
+          .get(
+            ClassName.get(classOf[java.util.Map[_, _]]),
+            typeParameters.map(toJavaTypeName(_, packagePrefixes)): _*)
       case TypePrim(PrimTypeUnit, _) => ClassName.get(classOf[javaapi.data.Unit])
       case TypeVar(name) => TypeVariableName.get(JavaEscaper.escapeString(name))
     }
@@ -102,8 +107,7 @@ package object inner {
       case TypePrim(PrimTypeMap, _) =>
         ClassName.get(classOf[DamlMap])
       case TypePrim(PrimTypeGenMap, _) =>
-        // FIXME https://github.com/digital-asset/daml/issues/2256
-        sys.error("GenMap not supported")
+        ClassName.get(classOf[DamlGenMap])
       case TypePrim(PrimTypeUnit, _) =>
         ClassName.get(classOf[javaapi.data.Unit])
       case TypeCon(_, _) | TypeVar(_) =>

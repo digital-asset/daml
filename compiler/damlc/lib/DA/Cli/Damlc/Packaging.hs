@@ -47,6 +47,7 @@ import DA.Daml.LF.Reader
 import DA.Daml.Options.Types
 import DA.Daml.Project.Consts
 import qualified DA.Pretty
+import SdkVersion
 
 -- | Create the project package database containing the given dar packages.
 createProjectPackageDb ::
@@ -211,10 +212,15 @@ createProjectPackageDb opts thisSdkVer deps0 dataDeps = do
                 , optIsGenerated = True
                 , optDflagCheck = False
                 , optMbPackageName = Just unitIdStr
-                , optHideAllPkgs = False
+                , optHideAllPkgs = True
                 , optGhcCustomOpts = []
-                , optPackageImports = []
-                , optImportPath = workDir : optImportPath opts
+                , optPackageImports =
+                      ("daml-prim", True, []) :
+                      -- the following is for the edge case, when there is no standard library
+                      -- dependency, but the dalf still uses builtins or builtin types like Party.
+                      -- In this case, we use the current daml-stdlib as their origin.
+                      [(damlStdlib, True, []) | not $ hasStdlibDep deps]  ++
+                      [(takeBaseName dep, True, []) | dep <- deps]
                 }
 
         _ <- withDamlIdeState opts' loggerH diagnosticsLogger $ \ide ->
@@ -285,8 +291,22 @@ createProjectPackageDb opts thisSdkVer deps0 dataDeps = do
                         , optIsGenerated = True
                         , optDflagCheck = False
                         , optMbPackageName = Just instancesUnitIdStr
-                        , optHideAllPkgs = False
-                        , optPackageImports = [(unitIdStr, []) | pkgName /= "daml-stdlib"]
+                        , optHideAllPkgs = True
+                        , optPackageImports =
+                              ("daml-prim", True, []) :
+                              (unitIdStr, True, []) :
+                              -- we need the standard library from the current sdk for the
+                              -- definition of the template class.
+                              [ ( damlStdlib
+                                , False
+                                , [("DA.Internal.Template", "Sdk.DA.Internal.Template") ])
+                              ] ++
+                              -- the following is for the edge case, when there is no standard
+                              -- library dependency, but the dalf still uses builtins or builtin
+                              -- types like Party.  In this case, we use the current daml-stdlib as
+                              -- their origin.
+                              [(damlStdlib, True, []) | not $ hasStdlibDep deps] ++
+                              [(takeBaseName dep, True, []) | dep <- deps]
                         }
                 mbDar <-
                     withDamlIdeState opts' loggerH diagnosticsLogger $ \ide ->
@@ -303,6 +323,9 @@ createProjectPackageDb opts thisSdkVer deps0 dataDeps = do
                 Zip.createArchive darFp dar
                 ExtractedDar{..} <- extractDar darFp
                 installDar dbPathAbs edConfFiles edDalfs edSrcs
+
+    hasStdlibDep deps =
+        any (\dep -> isJust $ stripPrefix "daml-stdlib" $ takeBaseName dep) deps
 
 
 data ExtractedDar = ExtractedDar
@@ -413,4 +436,3 @@ getEntry fp dar =
 
 lfVersionString :: LF.Version -> String
 lfVersionString = DA.Pretty.renderPretty
-

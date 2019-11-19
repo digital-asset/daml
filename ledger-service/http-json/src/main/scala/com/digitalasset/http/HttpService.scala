@@ -6,6 +6,7 @@ package com.digitalasset.http
 import akka.actor.{ActorSystem, Cancellable}
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.Http.ServerBinding
+import akka.http.scaladsl.settings.ServerSettings
 import akka.stream.Materializer
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
@@ -56,6 +57,7 @@ object HttpService extends StrictLogging {
       address: String,
       httpPort: Int,
       jdbcConfig: Option[JdbcConfig] = None,
+      staticContentConfig: Option[StaticContentConfig] = None,
       packageReloadInterval: FiniteDuration = DefaultPackageReloadInterval,
       maxInboundMessageSize: Int = DefaultMaxInboundMessageSize,
       validateJwt: Endpoints.ValidateJwt = decodeJwt)(
@@ -64,6 +66,8 @@ object HttpService extends StrictLogging {
       aesf: ExecutionSequencerFactory,
       ec: ExecutionContext
   ): Future[Error \/ ServerBinding] = {
+
+    implicit val settings: ServerSettings = ServerSettings(asys)
 
     val clientConfig = LedgerClientConfiguration(
       applicationId = ApplicationId.unwrap(applicationId),
@@ -80,7 +84,8 @@ object HttpService extends StrictLogging {
 
       _ = logger.info(s"Connected to Ledger: ${ledgerId: lar.LedgerId}")
 
-      packageService = new PackageService(loadPackageStoreUpdates(client.packageClient))
+      // TODO Pass a token to work against a ledger with authentication
+      packageService = new PackageService(loadPackageStoreUpdates(client.packageClient, None))
 
       // load all packages right away
       _ <- eitherT(packageService.reload).leftMap(e => Error(e.shows)): ET[Unit]
@@ -112,7 +117,7 @@ object HttpService extends StrictLogging {
 
       (encoder, decoder) = buildJsonCodecs(ledgerId, packageService)
 
-      endpoints = new Endpoints(
+      jsonEndpoints = new Endpoints(
         ledgerId,
         validateJwt,
         commandService,
@@ -122,7 +127,13 @@ object HttpService extends StrictLogging {
         decoder,
       )
 
-      binding <- liftET[Error](Http().bindAndHandleAsync(endpoints.all, address, httpPort))
+      allEndpoints = staticContentConfig.cata(
+        c => StaticContentEndpoints.all(c) orElse jsonEndpoints.all,
+        jsonEndpoints.all
+      )
+
+      binding <- liftET[Error](
+        Http().bindAndHandleAsync(allEndpoints, address, httpPort, settings = settings))
 
     } yield binding
 
@@ -137,11 +148,11 @@ object HttpService extends StrictLogging {
     bindingF
   }
 
-  private[http] def loadPackageStoreUpdates(packageClient: PackageClient)(
+  private[http] def loadPackageStoreUpdates(packageClient: PackageClient, token: Option[String])(
       implicit ec: ExecutionContext): PackageService.ReloadPackageStore =
     (ids: Set[String]) =>
       LedgerReader
-        .loadPackageStoreUpdates(packageClient)(ids)
+        .loadPackageStoreUpdates(packageClient, token)(ids)
         .map(_.leftMap(e => PackageService.ServerError(e)))
 
   def stop(f: Future[Error \/ ServerBinding])(implicit ec: ExecutionContext): Future[Unit] = {

@@ -36,8 +36,12 @@ object HttpServiceTestFixture {
 
   private val doNotReloadPackages = FiniteDuration(100, DAYS)
 
-  def withHttpService[A](dar: File, jdbcConfig: Option[JdbcConfig], testName: String)(
-      testFn: (Uri, DomainJsonEncoder, DomainJsonDecoder) => Future[A])(
+  def withHttpService[A](
+      testName: String,
+      dar: File,
+      jdbcConfig: Option[JdbcConfig],
+      staticContentConfig: Option[StaticContentConfig]
+  )(testFn: (Uri, DomainJsonEncoder, DomainJsonDecoder) => Future[A])(
       implicit asys: ActorSystem,
       mat: Materializer,
       aesf: ExecutionSequencerFactory,
@@ -62,6 +66,7 @@ object HttpServiceTestFixture {
           "localhost",
           httpPort,
           jdbcConfig,
+          staticContentConfig,
           doNotReloadPackages))
     } yield (httpService, httpPort)
 
@@ -139,7 +144,7 @@ object HttpServiceTestFixture {
       implicit ec: ExecutionContext): Future[(DomainJsonEncoder, DomainJsonDecoder)] = {
     val ledgerId = apiLedgerId(client.ledgerId)
     val packageService = new PackageService(
-      HttpService.loadPackageStoreUpdates(client.packageClient))
+      HttpService.loadPackageStoreUpdates(client.packageClient, token = None))
     packageService
       .reload(ec)
       .flatMap(x => FutureUtil.toFuture(x))

@@ -212,24 +212,69 @@ private[inner] object FromValueGenerator extends StrictLogging {
         val entryArg = args.next()
         CodeBlock
           .builder()
-          .add(CodeBlock.of("$L.asMap().map($L -> ", accessor, optMapArg))
           .add(CodeBlock.of(
-            "$L.getMap().entrySet().stream().collect($T.<java.util.Map.Entry<String,Value>,String,$L>toMap(",
+            """$L.asMap().map(
+              |    $L -> $L.getMap().entrySet().stream().collect(
+              |        $T.<java.util.Map.Entry<String,Value>,String,$L>toMap(
+              |            java.util.Map.Entry::getKey,
+              |            $L ->
+              |                $L
+              |        )
+              |    )
+              |)""".stripMargin,
+            accessor,
+            optMapArg,
             optMapArg,
             classOf[Collectors],
-            toJavaTypeName(param, packagePrefixes)
+            toJavaTypeName(param, packagePrefixes),
+            entryArg,
+            extractor(
+              param,
+              entryArg,
+              CodeBlock.of("$L.getValue()", entryArg),
+              args,
+              packagePrefixes)
           ))
-          .add(CodeBlock.of("java.util.Map.Entry::getKey,$L -> ", entryArg))
-          .add(
-            CodeBlock.of(
-              "$L",
-              extractor(
-                param,
-                entryArg,
-                CodeBlock.of("$L.getValue()", entryArg),
-                args,
-                packagePrefixes)))
-          .add(CodeBlock.of(")))"))
+          .add(orElseThrow(apiType, field))
+          .build()
+
+      case TypePrim(PrimTypeGenMap, ImmArraySeq(keyType, valueType)) =>
+        val optMapArg = args.next()
+        val entryArg = args.next()
+        CodeBlock
+          .builder()
+          .add(CodeBlock.of(
+            """$L.asGenMap().map(
+              |    $L -> $L.getMap().entrySet().stream().collect(
+              |        $T.<java.util.Map.Entry<Value,Value>,$L,$L>toMap(
+              |            $L ->
+              |                $L,
+              |            $L ->
+              |                $L
+              |        )
+              |    )
+              |)""".stripMargin,
+            accessor,
+            optMapArg,
+            optMapArg,
+            classOf[Collectors],
+            toJavaTypeName(keyType, packagePrefixes),
+            toJavaTypeName(valueType, packagePrefixes),
+            entryArg,
+            extractor(
+              keyType,
+              entryArg,
+              CodeBlock.of("$L.getKey()", entryArg),
+              args,
+              packagePrefixes),
+            entryArg,
+            extractor(
+              valueType,
+              entryArg,
+              CodeBlock.of("$L.getValue()", entryArg),
+              args,
+              packagePrefixes)
+          ))
           .add(orElseThrow(apiType, field))
           .build()
 

@@ -879,7 +879,7 @@ dev_env_tool(
         ".",
     ],
     win_paths = [],
-    win_tool = "nodejs-10.12.0",
+    win_tool = "nodejs-10.16.3",
 )
 
 # Setup the Node.js toolchain
@@ -1037,5 +1037,5 @@ java_import(
 """,
     sha256 = "9d0e8fd49410bc7061bdf85a51d0becb46eb9cdaf3bf2162d06285f4861684df",
     strip_prefix = "canton-0.4.0",
-    urls = ["https://github.com/digital-asset/canton/releases/download/v0.4.0/canton-0.4.0.tar.gz"],
+    urls = ["https://www.canton.io/releases/canton-0.4.0.tar.gz"],
 )

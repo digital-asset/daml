@@ -6,6 +6,8 @@ package com.daml.ledger.participant.state.kvutils
 import com.daml.ledger.participant.state.kvutils.Conversions._
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.v1.SubmittedTransaction
+import com.digitalasset.daml.lf.data.InsertOrdSet
+import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.transaction.Node._
 import com.digitalasset.daml.lf.transaction.{GenTransaction, Transaction}
 import com.digitalasset.daml.lf.value.Value.{
@@ -47,38 +49,51 @@ private[kvutils] object InputsAndEffects {
     * and packages.
     */
   def computeInputs(tx: SubmittedTransaction): List[DamlStateKey] = {
-    val packageInputs: List[DamlStateKey] = tx.usedPackages.map { pkgId =>
-      DamlStateKey.newBuilder.setPackageId(pkgId).build
-    }.toList
+    val packageInputs: InsertOrdSet[DamlStateKey] = {
+      import PackageId.ordering
+      InsertOrdSet.fromSeq(
+        tx.usedPackages.toList.sorted
+          .map { pkgId =>
+            DamlStateKey.newBuilder.setPackageId(pkgId).build
+          }
+      )
+    }
 
-    def addContractInput(inputs: List[DamlStateKey], coid: ContractId): List[DamlStateKey] =
+    def contractInputs(coid: ContractId): InsertOrdSet[DamlStateKey] =
       coid match {
         case acoid: AbsoluteContractId =>
-          absoluteContractIdToStateKey(acoid) :: inputs
+          InsertOrdSet.empty + absoluteContractIdToStateKey(acoid)
         case _ =>
-          inputs
+          InsertOrdSet.empty
       }
 
-    tx.fold(GenTransaction.TopDown, packageInputs) {
-      case (stateInputs, (nodeId, node)) =>
-        node match {
-          case fetch: NodeFetch[ContractId] =>
-            addContractInput(stateInputs, fetch.coid)
-          case create: NodeCreate[ContractId, VersionedValue[ContractId]] =>
-            create.key.fold(stateInputs) { keyWithM =>
-              contractKeyToStateKey(GlobalKey(
-                create.coinst.template,
-                forceAbsoluteContractIds(keyWithM.key))) :: stateInputs
-            }
-          case exe: NodeExercises[_, ContractId, _] =>
-            addContractInput(stateInputs, exe.targetCoid)
-          case l: NodeLookupByKey[ContractId, Transaction.Value[ContractId]] =>
-            // We need both the contract key state and the contract state. The latter is used to verify
-            // that the submitter can access the contract.
-            contractKeyToStateKey(GlobalKey(l.templateId, forceAbsoluteContractIds(l.key.key))) ::
-              l.result.fold(stateInputs)(addContractInput(stateInputs, _))
-        }
+    def partyInputs(parties: Set[Party]): InsertOrdSet[DamlStateKey] = {
+      import Party.ordering
+      InsertOrdSet.fromSeq(parties.toList.sorted.map(partyStateKey))
     }
+
+    tx.fold(GenTransaction.TopDown, packageInputs: Set[DamlStateKey]) {
+        case (inputs, (nodeId, node)) =>
+          node match {
+            case fetch: NodeFetch[ContractId] =>
+              inputs ++ contractInputs(fetch.coid) ++ partyInputs(fetch.signatories) ++
+                partyInputs(fetch.stakeholders)
+            case create: NodeCreate[ContractId, VersionedValue[ContractId]] =>
+              create.key.fold(inputs) { keyWithM =>
+                inputs + contractKeyToStateKey(
+                  GlobalKey(create.coinst.template, forceAbsoluteContractIds(keyWithM.key)))
+              } ++ partyInputs(create.signatories) ++ partyInputs(create.stakeholders)
+            case exe: NodeExercises[_, ContractId, _] =>
+              inputs ++ contractInputs(exe.targetCoid) ++ partyInputs(exe.stakeholders) ++ partyInputs(
+                exe.signatories) ++ partyInputs(exe.controllers)
+            case l: NodeLookupByKey[ContractId, Transaction.Value[ContractId]] =>
+              // We need both the contract key state and the contract state. The latter is used to verify
+              // that the submitter can access the contract.
+              l.result.fold(inputs)(inputs ++ contractInputs(_)) +
+                contractKeyToStateKey(GlobalKey(l.templateId, forceAbsoluteContractIds(l.key.key)))
+          }
+      }
+      .toList
   }
 
   /** Compute the effects of a DAML transaction, that is, the created and consumed contracts. */

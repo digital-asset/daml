@@ -13,7 +13,7 @@ You can generate visual graphs for the contracts in your DAML project. To do thi
 
 
 Example: Visualizing the Quickstart project
-*******************************************
+===========================================
 
 Here's an example visualization based on the :doc:`quickstart </getting-started/quickstart>`. You'll need to `install Graphviz <http://www.graphviz.org/download/>`_ to try this out.
 
@@ -32,7 +32,7 @@ Running the above should produce an image which looks something like this:
 
 
 Visualizing DAML Contracts - Within IDE
-#######################################
+=======================================
 
 You can generate visual graphs from VS Code IDE. Open the daml project in VS Code and use `command palette <https://code.visualstudio.com/docs/getstarted/tips-and-tricks#_command-palette/>`_. Should reveal a new window pane with dot image. Also visual generates only the currently open daml file and its imports.
 
@@ -40,7 +40,7 @@ Note: You will need to install the Graphviz/dot packages as mentioned above.
 
 
 Visualizing DAML Contracts - Interactive Graphs
-###############################################
+===============================================
 
 This does not require any packages installed. You can generate `D3 <https://d3js.org/>`_ graphs for the contracts in your DAML project. To do this
 

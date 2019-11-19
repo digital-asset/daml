@@ -3,6 +3,8 @@
 
 package com.daml.ledger.api.testtool.infrastructure
 
+import com.digitalasset.timer.RetryStrategy
+
 import scala.concurrent.duration.{Duration, DurationInt}
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -11,7 +13,7 @@ object Eventually {
       runAssertion: => Future[A],
       attempts: Int = 10,
       firstWaitTime: Duration = 10.millis)(implicit ec: ExecutionContext): Future[A] =
-    RetryStrategy.exponentialBackoff(attempts, firstWaitTime) { _ =>
+    RetryStrategy.exponentialBackoff(attempts, firstWaitTime) { (_, _) =>
       runAssertion
     }
 }

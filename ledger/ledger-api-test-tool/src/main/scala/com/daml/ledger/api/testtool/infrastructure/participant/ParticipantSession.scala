@@ -5,8 +5,8 @@ package com.daml.ledger.api.testtool.infrastructure.participant
 
 import java.time.Duration
 
+import com.daml.ledger.api.testtool.infrastructure.LedgerServices
 import com.daml.ledger.api.testtool.infrastructure.ProtobufConverters._
-import com.daml.ledger.api.testtool.infrastructure.{LedgerServices, RetryStrategy}
 import com.digitalasset.ledger.api.v1.ledger_configuration_service.{
   GetLedgerConfigurationRequest,
   GetLedgerConfigurationResponse
@@ -14,6 +14,7 @@ import com.digitalasset.ledger.api.v1.ledger_configuration_service.{
 import com.digitalasset.ledger.api.v1.ledger_identity_service.GetLedgerIdentityRequest
 import com.digitalasset.ledger.api.v1.transaction_service.GetLedgerEndRequest
 import com.digitalasset.platform.testing.SingleItemObserver
+import com.digitalasset.timer.RetryStrategy
 import io.grpc.ManagedChannel
 import io.netty.channel.nio.NioEventLoopGroup
 import org.slf4j.LoggerFactory
@@ -28,8 +29,6 @@ private[participant] final class ParticipantSession(
 
   private[this] val logger = LoggerFactory.getLogger(classOf[ParticipantSession])
 
-  private[this] val eventually = RetryStrategy.exponentialBackoff(10, 10.millis)
-
   private[this] val services: LedgerServices = new LedgerServices(channel)
 
   // The ledger identifier is retrieved only once when the participant session is created
@@ -37,8 +36,8 @@ private[participant] final class ParticipantSession(
   // The test tool is designed to run tests in an isolated environment but changing the
   // global state of the ledger breaks this assumption, no matter what
   private[this] val ledgerIdF =
-    eventually { attempt =>
-      logger.debug(s"Retrieving ledger identifier to create ledger context (attempt #$attempt)...")
+    RetryStrategy.exponentialBackoff(10, 10.millis) { (attempt, wait) =>
+      logger.debug(s"Fetching ledgerId to create context (attempt #$attempt, next one in $wait)...")
       services.identity.getLedgerIdentity(new GetLedgerIdentityRequest).map(_.ledgerId)
     }
 

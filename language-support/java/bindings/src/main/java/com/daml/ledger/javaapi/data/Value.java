@@ -126,6 +126,10 @@ public abstract class Value {
         return (this instanceof DamlMap) ? Optional.of((DamlMap) this) : Optional.empty();
     }
 
+    public final Optional<DamlGenMap> asGenMap() {
+        return (this instanceof DamlGenMap) ? Optional.of((DamlGenMap) this) : Optional.empty();
+    }
+
     public abstract ValueOuterClass.Value toProto();
 }
 

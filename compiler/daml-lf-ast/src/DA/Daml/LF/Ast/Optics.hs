@@ -6,6 +6,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RankNTypes #-}
 module DA.Daml.LF.Ast.Optics(
+    ModuleRef,
     moduleModuleRef,
     unlocate,
     moduleExpr,

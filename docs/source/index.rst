@@ -56,7 +56,6 @@ DAML SDK documentation
 
    tools/assistant
    tools/sandbox
-   tools/visual
    tools/navigator/index
    tools/codegen
 
@@ -99,6 +98,8 @@ DAML SDK documentation
    migrate/index
    json-api/index
    DAML Triggers <triggers/index>
+   DAML Script <daml-script/index>
+   tools/visual
 
 .. toctree::
    :titlesonly:

@@ -10,6 +10,6 @@ import org.junit.runners.Suite;
 @Suite.SuiteClasses({
         DecimalTestForAll.class,
         EnumTestFor1_6AndFor1_7.class,
-        NumericTestFor1_7.class,
+        NumericTestFor1_7AndFor1_dev.class,
 })
 public class AllTestsFor1_7{ }

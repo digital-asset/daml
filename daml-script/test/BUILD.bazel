@@ -15,6 +15,7 @@ genrule(
     srcs =
         glob(["**/*.daml"]) + [
             "//daml-script/daml:daml-script.dar",
+            "//docs:source/daml-script/template-root/src/ScriptExample.daml",
         ],
     outs = ["script-test.dar"],
     cmd = """
@@ -22,6 +23,7 @@ genrule(
       TMP_DIR=$$(mktemp -d)
       mkdir -p $$TMP_DIR/daml
       cp -L $(location :daml/ScriptTest.daml) $$TMP_DIR/daml
+      cp -L $(location //docs:source/daml-script/template-root/src/ScriptExample.daml) $$TMP_DIR/daml
       cp -L $(location //daml-script/daml:daml-script.dar) $$TMP_DIR/
       cat << EOF > $$TMP_DIR/daml.yaml
 sdk-version: 0.0.0

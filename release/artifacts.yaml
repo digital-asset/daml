@@ -59,8 +59,10 @@
   mavenUpload: True
 - target: //daml-lf/data-scalacheck:data-scalacheck
   type: jar-scala
+  mavenUpload: True
 - target: //daml-lf/transaction-scalacheck:transaction-scalacheck
   type: jar-scala
+  mavenUpload: True
 - target: //daml-lf/language:language
   type: jar-scala
   mavenUpload: True
@@ -135,9 +137,6 @@
 - target: //ledger/ledger-api-auth:ledger-api-auth
   type: jar-scala
   mavenUpload: True
-- target: //ledger/ledger-api-grpc-utils:ledger-api-grpc-utils
-  type: jar-scala
-  mavenUpload: True
 - target: //ledger/sandbox:sandbox
   type: jar-scala
 - target: //ledger/ledger-api-test-tool:ledger-api-test-tool
@@ -196,5 +195,11 @@
 - target: //triggers/runner:trigger-runner
   type: jar-deploy
 - target: //daml-assistant/scala-daml-project-config:scala-daml-project-config
+  type: jar-scala
+  mavenUpload: true
+- target: //libs-scala/grpc-utils:grpc-utils
+  type: jar-scala
+  mavenUpload: True
+- target: //libs-scala/timer-utils:timer-utils
   type: jar-scala
   mavenUpload: true
