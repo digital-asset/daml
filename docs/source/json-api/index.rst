@@ -82,17 +82,17 @@ Start HTTP service from a DAML project directory
             Optional max inbound message size in bytes. Defaults to 4194304
       --query-store-jdbc-config "driver=<JDBC driver class name>,url=<JDBC connection url>,user=<user>,password=<password>,createSchema=<true|false>"
             Optional query store JDBC configuration string. Contains comma-separated key-value pairs. Where:
-        driver -- JDBC driver class name,
-        url -- JDBC connection URL,
-        user -- database user name,
-        password -- database user password
-        createSchema -- boolean flag, if set to true, the process will re-create database schema and terminate immediately.
-        Example: "driver=org.postgresql.Driver,url=jdbc:postgresql://localhost:5432/test?&ssl=true,user=postgres,password=password,createSchema=false"
+            driver -- JDBC driver class name,
+            url -- JDBC connection URL,
+            user -- database user name,
+            password -- database user password
+            createSchema -- boolean flag, if set to true, the process will re-create database schema and terminate immediately.
+            Example: "driver=org.postgresql.Driver,url=jdbc:postgresql://localhost:5432/test?&ssl=true,user=postgres,password=password,createSchema=false"
       --static-content "prefix=<URL prefix>,directory=<directory>"
             DEV MODE ONLY (not recommended for production). Optional static content configuration string. Contains comma-separated key-value pairs. Where:
-        prefix -- URL prefix,
-        directory -- local directory that will be mapped to the URL prefix.
-        Example: "prefix=static,directory=./static-content"
+            prefix -- URL prefix,
+            directory -- local directory that will be mapped to the URL prefix.
+            Example: "prefix=static,directory=./static-content"
 
 Example session
 ***************
