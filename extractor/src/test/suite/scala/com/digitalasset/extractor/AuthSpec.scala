@@ -6,10 +6,13 @@ package com.digitalasset.extractor
 import java.nio.file.Files
 import java.time.temporal.ChronoUnit
 import java.time.{Duration, Instant}
+import java.util.concurrent.atomic.AtomicReference
 
 import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.extractor.config.{ExtractorConfig, SnapshotEndSetting}
+import com.digitalasset.extractor.ledger.types.TransactionTree
 import com.digitalasset.extractor.targets.TextPrintTarget
+import com.digitalasset.extractor.writers.Writer
 import com.digitalasset.grpc.{GrpcException, GrpcStatus}
 import com.digitalasset.jwt.domain.DecodedJwt
 import com.digitalasset.jwt.{HMAC256Verifier, JwtSigner}
@@ -19,6 +22,7 @@ import com.digitalasset.ledger.api.tls.TlsConfiguration
 import com.digitalasset.ledger.api.v1.command_service.{CommandServiceGrpc, SubmitAndWaitRequest}
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
 import com.digitalasset.ledger.client.services.commands.SynchronousCommandClient
+import com.digitalasset.ledger.service.LedgerReader.PackageStore
 import com.digitalasset.platform.sandbox.config.SandboxConfig
 import com.digitalasset.platform.sandbox.services.{SandboxFixture, TestCommands}
 import com.digitalasset.timer.Delayed
@@ -26,9 +30,12 @@ import com.google.protobuf.timestamp.Timestamp
 import io.grpc.Status.Code.PERMISSION_DENIED
 import org.scalatest.{AsyncFlatSpec, Matchers}
 import org.slf4j.LoggerFactory
-import scalaz.OneAnd
+import scalaz.{OneAnd, \/}
 
+import scala.collection.mutable.ListBuffer
+import scala.concurrent.Future
 import scala.concurrent.duration.DurationInt
+import scala.util.{Failure, Success}
 import scala.util.control.NonFatal
 
 final class AuthSpec
@@ -142,27 +149,62 @@ final class AuthSpec
     extractor(withAuth).run().map(_ => succeed)
   }
 
-  it should "eventually fail if a token expires while the stream is in flight" in {
-    val process = extractor(tailWithAuth)
-    setToken(operatorPayload.expiresInFiveSeconds.asHeader())
-    Delayed.Future.by(10.seconds) {
-      newSyncClient.submitAndWait(SubmitAndWaitRequest(commands = dummyRequest.commands))
-    }
-    Delayed.by(10.seconds)(setToken(operatorPayload.asHeader()))
-    Delayed.Future.by(15.seconds)(process.shutdown().map(_ => succeed))
-  }
-
   it should "eventually succeed if an invalid token is replaced" in {
-    val process = extractor(tailWithAuth)
+    val writtenTxs = ListBuffer.empty[String]
+    val process =
+      new Extractor(tailWithAuth, None)(
+        (_, _, _) =>
+          new Writer {
+            private var lastOffset = new AtomicReference[String]
+            override def init(): Future[Unit] = Future.successful(())
+            override def handlePackages(packageStore: PackageStore): Future[Unit] =
+              Future.successful(())
+            override def handleTransaction(
+                transaction: TransactionTree): Future[Writer.RefreshPackages \/ Unit] = {
+              Future.successful {
+                \/.right {
+                  lastOffset.set {
+                    writtenTxs += transaction.transactionId
+                    transaction.offset
+                  }
+                }
+              }
+            }
+            override def getLastOffset: Future[Option[String]] =
+              Future.successful(Option(lastOffset.get()))
+        }
+      )
     setToken(operatorPayload.expiresInFiveSeconds.asHeader())
-    Delayed.Future.by(10.seconds) {
-      newSyncClient.submitAndWait(SubmitAndWaitRequest(commands = dummyRequest.commands))
-    }
+    val _ = process.run()
+    val expectedTxs = ListBuffer.empty[String]
+    Delayed.Future
+      .by(10.seconds) {
+        newSyncClient
+          .submitAndWaitForTransactionId(
+            SubmitAndWaitRequest(commands = dummyRequest.commands),
+            Option(operatorPayload.asHeader()))
+          .map(_.transactionId)
+      }
+      .onComplete {
+        case Success(tx) => val _ = expectedTxs += tx
+        case Failure(NonFatal(_)) => () // do nothing, the test will fail
+      }
     Delayed.by(15.seconds)(setToken(operatorPayload.asHeader()))
-    Delayed.Future.by(20.seconds) {
-      newSyncClient.submitAndWait(SubmitAndWaitRequest(commands = dummyRequest.commands))
-    }
-    Delayed.Future.by(25.seconds)(process.shutdown().map(_ => succeed))
+    Delayed.Future
+      .by(20.seconds) {
+        newSyncClient
+          .submitAndWaitForTransactionId(
+            SubmitAndWaitRequest(commands = dummyRequest.commands),
+            Option(operatorPayload.asHeader()))
+          .map(_.transactionId)
+      }
+      .onComplete {
+        case Success(tx) => val _ = expectedTxs += tx
+        case Failure(NonFatal(_)) => () // do nothing, the test will fail
+      }
+    Delayed.Future.by(25.seconds)(process.shutdown().map { _ =>
+      writtenTxs should contain theSameElementsAs expectedTxs
+    })
   }
 
 }
