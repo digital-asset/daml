@@ -152,6 +152,27 @@ object DamlCodecs extends encoding.ValuePrimitiveEncoding[Value] {
         }.toSeq))
     )
 
+  implicit override def valueGenMap[K, V](
+      implicit K: Value[K],
+      V: Value[V]
+  ): Value[P.GenMap[K, V]] =
+    fromArgumentValueFuns(
+      _.genMap.flatMap(gm =>
+        seqAlterTraverse(gm.entries)(e =>
+          for {
+            k <- e.key.flatMap(Value.decode[K](_))
+            v <- e.value.flatMap(Value.decode[V](_))
+          } yield k -> v)),
+      oa =>
+        VSum.GenMap(rpcvalue.GenMap(oa.map {
+          case (key, value) =>
+            rpcvalue.GenMap.Entry(
+              key = Some(Value.encode(key)),
+              value = Some(Value.encode(value))
+            )
+        }.toSeq))
+    )
+
 }
 
 /** Common superclass of record and variant classes' companions. */

@@ -102,6 +102,12 @@ object GenEncoding extends GenEncoding {
       implicit val elt: Arbitrary[A] = Arbitrary(ev)
       arbitrary[P.Map[A]]
     }
+
+    override def valueGenMap[K, V](implicit evK: Out[K], evV: Out[V]): Out[P.GenMap[K, V]] = {
+      implicit val eltK: Arbitrary[K] = Arbitrary(evK)
+      implicit val eltV: Arbitrary[V] = Arbitrary(evV)
+      arbitrary[P.GenMap[K, V]]
+    }
   }
 
   val genArbitraryIso: Gen <~> Arbitrary = new IsoFunctorTemplate[Gen, Arbitrary] {

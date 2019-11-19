@@ -4,7 +4,7 @@
 package com.digitalasset.codegen
 
 import com.digitalasset.ledger.client.binding.{Value, Primitive => P}
-import com.digitalasset.sample.{EnumMod, RecordMod, VariantMod}
+import com.digitalasset.sample._
 import org.scalatest.{Matchers, WordSpec}
 
 class DataTypeIT extends WordSpec with Matchers {
@@ -33,7 +33,7 @@ class DataTypeIT extends WordSpec with Matchers {
       Value.decode[T](Value.encode(variant2)) shouldBe Some(variant2)
     }
 
-    "enums" in {
+    "idempotent on enums" in {
       import EnumMod.Color._
 
       for (color <- List(EnumMod.Color.Red, EnumMod.Color.Blue, EnumMod.Color.Green))
@@ -41,6 +41,23 @@ class DataTypeIT extends WordSpec with Matchers {
 
     }
 
+    "idempotent on genMap" in {
+      import RecordMod.Pair
+      import RecordMod.Pair._
+      import VariantMod.Either._
+      import VariantMod.Either
+
+      type T = P.GenMap[Pair[P.Int64, P.Numeric], Either[P.Int64, P.Numeric]]
+
+      val genMap: T =
+        Map(
+          Pair(1L, BigDecimal("1.000")) -> Left(1L),
+          Pair(2L, BigDecimal("-2.222")) -> Right(BigDecimal("-2.222")),
+          Pair(3L, BigDecimal("3.333")) -> Left(3L)
+        )
+
+      Value.decode[T](Value.encode(genMap)) shouldBe Some(genMap)
+    }
   }
 
 }

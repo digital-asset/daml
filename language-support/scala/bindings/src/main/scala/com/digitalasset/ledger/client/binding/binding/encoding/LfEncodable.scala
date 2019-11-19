@@ -74,6 +74,12 @@ object LfEncodable extends ValuePrimitiveEncoding[LfEncodable] {
         lte.primitive.valueMap(LfEncodable.encoding[A](lte))
     }
 
+  override implicit def valueGenMap[K: LfEncodable, V: LfEncodable]: LfEncodable[P.GenMap[K, V]] =
+    new LfEncodable[P.GenMap[K, V]] {
+      override def encoding(lte: LfTypeEncoding): lte.Out[P.GenMap[K, V]] =
+        lte.primitive.valueGenMap(LfEncodable.encoding[K](lte), LfEncodable.encoding[V](lte))
+    }
+
   trait ViaFields[T] {
 
     /** The fields of `T`'s associated record type, each in some

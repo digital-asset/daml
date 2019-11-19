@@ -120,6 +120,8 @@ object ShowEncoding extends ShowEncoding {
     override def valueOptional[A: Show]: Show[P.Optional[A]] = optionShow
 
     override def valueMap[A: Show]: Show[P.Map[A]] = mapShow
+
+    override implicit def valueGenMap[K: Show, V: Show]: Show[P.GenMap[K, V]] = mapShow
   }
 
   object Implicits {

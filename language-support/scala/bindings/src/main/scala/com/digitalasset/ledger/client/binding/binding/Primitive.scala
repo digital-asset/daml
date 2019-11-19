@@ -47,8 +47,11 @@ sealed abstract class Primitive {
   type Optional[+A] = scala.Option[A]
   val Optional: scala.Option.type = scala.Option
 
-  type Map[+A] = imm.Map[String, A]
+  type Map[+V] = imm.Map[String, V]
   val Map: imm.Map.type = imm.Map
+
+  type GenMap[K, +V] = imm.Map[K, V]
+  val GenMap: imm.Map.type = imm.Map
 
   type ChoiceId = ApiTypes.Choice
   val ChoiceId: ApiTypes.Choice.type = ApiTypes.Choice

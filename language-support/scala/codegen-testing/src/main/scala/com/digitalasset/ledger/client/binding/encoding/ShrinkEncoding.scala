@@ -168,6 +168,9 @@ object ShrinkEncoding extends ShrinkEncoding {
     override implicit def valueMap[A: Out]: Out[P.Map[A]] =
       shrinkContainer2[Map, String, A]
 
+    override implicit def valueGenMap[K: Shrink, V: Shrink]: Shrink[P.GenMap[K, V]] =
+      shrinkContainer2[Map, K, V]
+
   }
 
   object Implicits {

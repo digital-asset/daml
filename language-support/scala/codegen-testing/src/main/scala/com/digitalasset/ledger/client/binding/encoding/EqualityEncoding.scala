@@ -103,9 +103,16 @@ object EqualityEncoding extends EqualityEncoding {
       case _ => false
     }
 
-    override implicit def valueMap[A: Fn]: Fn[P.Map[A]] = (a1, a2) => {
+    override implicit def valueMap[A: Fn]: Fn[P.Map[A]] = { (a1, a2) =>
       val ev = implicitly[Fn[A]]
       a1.keys == a2.keys && a1.keys.forall(k => ev(a1(k), a2(k)))
+    }
+
+    override implicit def valueGenMap[K: Fn, V: Fn]: Fn[P.GenMap[K, V]] = { (a1, a2) =>
+      // FIXME #2256
+      //val evK = implicitly[Fn[K]]
+      val evV = implicitly[Fn[V]]
+      a1.keys == a2.keys && a1.keys.forall(k => evV(a1(k), a2(k)))
     }
 
   }
