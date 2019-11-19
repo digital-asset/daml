@@ -122,9 +122,7 @@ in rec {
     license-checker =
       (import ./tools/license-checker { inherit pkgs; nodejs = tools.node; }).license-checker;
 
-    # This override is necessary to be able to run automated UI tests with Selenium 3.12.0
-    # The override can be removed when nixpkgs snapshot moved past the commit of 6b91b0d09f582f308a8ad4de526df494ff363622
-    chromedriver = pkgs.callPackage ./tools/chromedriver/default.nix {};
+    chromedriver = pkgs.chromedriver;
 
     # Python development
     pip3        = pkgs.python37Packages.pip;
