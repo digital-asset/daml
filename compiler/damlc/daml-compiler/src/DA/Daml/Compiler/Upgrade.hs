@@ -266,7 +266,7 @@ generateTemplateInstance env typeCon typeParams externPkgId =
             , cid_overlap_mode = Nothing
             }
   where
-    moduleNameStr = T.unpack $ LF.moduleNameString $ moduleName0
+    moduleNameStr = T.unpack $ LF.moduleNameString moduleName0
     moduleName0 = LF.moduleName $ envMod env
     templateTy =
         noLoc $
@@ -339,7 +339,7 @@ generateChoiceInstance env externPkgId template choice =
     arg3 :: LHsType GhcPs =
       noLoc $ convType env lfChoiceReturnType
 
-    moduleNameStr = T.unpack $ LF.moduleNameString $ moduleName0
+    moduleNameStr = T.unpack $ LF.moduleNameString moduleName0
     moduleName0 = LF.moduleName $ envMod env
     lfTemplateType = mkLfTemplateType moduleName0 dataTypeCon dataParams
 
