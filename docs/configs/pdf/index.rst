@@ -93,6 +93,7 @@ Experimental features
    daml-integration-kit/index
    json-api/index
    triggers/index
+   tools/visual
 
 Support and updates
 -------------------
