@@ -324,7 +324,6 @@ generateChoiceInstance env externPkgId template choice =
             , cid_overlap_mode = Nothing
             }
   where
-
     app :: LHsType GhcPs -> LHsType GhcPs -> LHsType GhcPs
     app t1 t2 = noLoc $ HsAppTy noExt t1 t2
 
