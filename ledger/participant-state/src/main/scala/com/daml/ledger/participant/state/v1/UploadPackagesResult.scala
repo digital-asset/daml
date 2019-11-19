@@ -31,7 +31,7 @@ object UploadPackagesResult {
 
   /** One of the uploaded packages is not valid */
   final case class InvalidPackage(reason: String) extends UploadPackagesResult {
-    override def description: String = "Uploaded packages were invalid: " + reason
+    override def description: String = "Uploaded packages were invalid, details=" + reason
   }
 
   /** The participant was not authorized to submit the upload request */

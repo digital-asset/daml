@@ -38,7 +38,7 @@ object PartyAllocationResult {
 
   /** The requested party name is not valid */
   final case class InvalidName(details: String) extends PartyAllocationResult {
-    override def description: String = "Party name is invalid, error=" + details
+    override def description: String = "Party name is invalid, details=" + details
   }
 
   /** The participant was not authorized to submit the allocation request */
