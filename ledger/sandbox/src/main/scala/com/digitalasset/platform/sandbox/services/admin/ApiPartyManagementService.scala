@@ -90,8 +90,12 @@ class ApiPartyManagementService private (
       .flatMap {
         case PartyAllocationResult.Ok(details) =>
           Future.successful(AllocatePartyResponse(Some(mapPartyDetails(details))))
+        case r @ PartyAllocationResult.Overloaded =>
+          Future.failed(ErrorFactories.resourceExhausted)
         case r @ PartyAllocationResult.AlreadyExists =>
           Future.failed(ErrorFactories.invalidArgument(r.description))
+        case r @ PartyAllocationResult.InternalError(_) =>
+          Future.failed(ErrorFactories.internal(r.reason))
         case r @ PartyAllocationResult.InvalidName(_) =>
           Future.failed(ErrorFactories.invalidArgument(r.description))
         case r @ PartyAllocationResult.ParticipantNotAuthorized =>
