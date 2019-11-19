@@ -354,13 +354,18 @@ generateChoiceInstance env externPkgId template choice =
           (LF.TCon (LF.Qualified LF.PRSelf moduleName0 dataTypeCon))
           (map (LF.TVar . fst) dataParams)
 
-    tycon :: LF.TypeConName = LF.tplTypeCon template
+    tycon :: LF.TypeConName =
+      LF.tplTypeCon template
+
     templateDT = case NM.lookup tycon (LF.moduleDataTypes (envMod env)) of
       Just x -> x
       Nothing -> error $ "Internal error: Could not find template definition for: " <> show tycon
 
     LF.DefDataType{dataTypeCon,dataParams} = templateDT
-    LF.TemplateChoice{chcArgBinder=(_,lfChoiceType),chcName,chcReturnType=lfChoiceReturnType} = choice
+    LF.TemplateChoice { chcArgBinder = (_, lfChoiceType)
+                      , chcName
+                      , chcReturnType = lfChoiceReturnType
+                      } = choice
 
     methodMapping =
       map (\funName -> (funName, mkExternalString funName)) methodNames
@@ -379,8 +384,8 @@ generateChoiceInstance env externPkgId template choice =
         , "_fromAnyChoice"
         ]
 
-classMethodStub :: (T.Text,String) -> LHsBindLR GhcPs GhcPs
-classMethodStub (funName,xString) =
+classMethodStub :: (T.Text, String) -> LHsBindLR GhcPs GhcPs
+classMethodStub (funName, xString) =
     noLoc $
     FunBind
         { fun_ext = noExt
