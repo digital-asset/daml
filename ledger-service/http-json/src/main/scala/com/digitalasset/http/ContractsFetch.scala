@@ -15,7 +15,6 @@ import akka.stream.scaladsl.{
   Source
 }
 import akka.stream.{ClosedShape, FanOutShape2, Graph, Materializer}
-import doobie.free.connection
 import com.digitalasset.http.Statement.discard
 import com.digitalasset.http.dbbackend.ContractDao.StaleOffsetException
 import com.digitalasset.http.dbbackend.{ContractDao, Queries}
@@ -378,10 +377,12 @@ private object ContractsFetch {
     surrogateTemplateIds(step.inserts.iterator.map(_.templateId).toSet).flatMap { stidMap =>
       import cats.syntax.apply._, cats.instances.vector._, scalaz.std.set._
       import json.JsonProtocol._
+      import doobie.postgres.implicits._
       (Queries.deleteContracts(step.deletes) *>
         Queries.insertContracts(step.inserts map (dbc =>
           dbc copy (templateId = stidMap getOrElse (dbc.templateId, throw new IllegalStateException(
-            "template ID missing from prior retrieval; impossible"))))))
+            "template ID missing from prior retrieval; impossible")),
+          witnessParties = domain.Party.unsubst(dbc.witnessParties)))))
     }.void
   }
 

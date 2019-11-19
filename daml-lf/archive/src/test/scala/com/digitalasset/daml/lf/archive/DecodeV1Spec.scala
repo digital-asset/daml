@@ -530,7 +530,12 @@ class DecodeV1Spec
         .asScala
         .collectFirst {
           case dv
-              if dv.getNameWithType.getNameDnameList.asScala.lastOption contains "reverseCopy" =>
+              if dalf1.getInternedDottedNamesList
+                .asScala(dv.getNameWithType.getNameInternedDname)
+                .getSegmentsInternedStrList
+                .asScala
+                .lastOption
+                .map(x => dalf1.getInternedStringsList.asScala(x)) contains "reverseCopy" =>
             val pr = dv.getExpr.getVal.getModule.getPackageRef
             pr.getSumCase shouldBe DamlLf1.PackageRef.SumCase.PACKAGE_ID_INTERNED_STR
             pr.getPackageIdInternedStr
