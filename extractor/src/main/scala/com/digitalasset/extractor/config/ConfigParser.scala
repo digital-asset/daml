@@ -4,14 +4,13 @@
 package com.digitalasset.extractor.config
 
 import java.io.File
-import java.nio.file.Paths
+import java.nio.file.{Path, Paths}
 
 import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
 import com.digitalasset.extractor.targets._
 import com.digitalasset.ledger.api.tls.TlsConfiguration
 import CustomScoptReaders._
-
 import scalaz.OneAnd
 
 import scala.util.Try
@@ -48,6 +47,7 @@ object ConfigParser {
       tlsPem: Option[String] = None,
       tlsCrt: Option[String] = None,
       tlsCaCrt: Option[String] = None,
+      accessTokenFile: Option[Path] = None,
   )
 
   private val configParser: OptionParser[CliParams] =
@@ -244,6 +244,14 @@ object ConfigParser {
           c.copy(tlsCaCrt = Some(path))
         }
 
+      note("\nAuthentication:")
+
+      opt[String]("access-token-file")
+        .text(
+          s"provide the path from which the access token will be read, required to interact with an authenticated ledger, no default")
+        .action((path, arguments) => arguments.copy(accessTokenFile = Some(Paths.get(path))))
+        .optional()
+
       checkConfig { c =>
         if (c.postgresMultiTableUseSchemes && !List("multi-table", "combined").contains(
             c.postgresOutputFormat)) {
@@ -304,6 +312,7 @@ object ConfigParser {
         cliParams.party,
         cliParams.templateConfigs,
         tlsConfig,
+        cliParams.accessTokenFile
       )
 
       val target = cliParams.target match {

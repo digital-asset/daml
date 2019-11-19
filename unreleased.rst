@@ -33,3 +33,5 @@ HEAD — ongoing
 - [JSON API - Experimental] CLI configuration to enable serving static content as part of the JSON API daemon:
   ``--static-content "directory=/full/path,prefix=static"``
   This configuration is NOT recommended for production deployment. See issue #2782.
+
+- [Extractor] The app can now work against a Ledger API server that requires client authentication. See `issue #3157 <https://github.com/digital-asset/daml/issues/3157>`__.
