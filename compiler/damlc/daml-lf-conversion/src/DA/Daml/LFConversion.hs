@@ -1668,11 +1668,11 @@ convertExternal env stdlibRef primId lfType
         let mod = ModuleName $ map T.pack $ splitOn "." modStr
         let qualify tconName = Qualified { qualPackage = pkgRef , qualModule = mod , qualObject = tconName}
         let templateDataType = TCon . qualify
-        let (choiceArg, choiceArgType) = chcArgBinder
+        let (choiceArg, _) = chcArgBinder
         case method of
           "exercise" -> do
             ETmLam (chcSelfBinder, TApp (TBuiltin BTContractId) (templateDataType tplTypeCon)) $
-              ETmLam (choiceArg, choiceArgType) $
+              ETmLam chcArgBinder $
                 EUpdate $ UExercise (qualify tplTypeCon) choice (EVar chcSelfBinder) Nothing (EVar choiceArg)
           "_toAnyChoice" ->
             -- TODO: envLfVersion env `supports` featureAnyType

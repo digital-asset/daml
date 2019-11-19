@@ -259,14 +259,14 @@ generateTemplateInstance env typeCon typeParams externPkgId =
                             noLoc $
                             convType env lfTemplateType
                       }
-            , cid_binds = listToBag $ map classMethodStub methodMapping
+            , cid_binds = mkClassMethodStubBag mkExternalString methodNames
             , cid_sigs = []
             , cid_tyfam_insts = []
             , cid_datafam_insts = []
             , cid_overlap_mode = Nothing
             }
   where
-    moduleNameStr = T.unpack $ LF.moduleNameString $ LF.moduleName $ envMod env
+    moduleNameStr = T.unpack $ LF.moduleNameString $ moduleName0
     moduleName0 = LF.moduleName $ envMod env
     templateTy =
         noLoc $
@@ -274,12 +274,7 @@ generateTemplateInstance env typeCon typeParams externPkgId =
         noLoc $
         mkRdrQual (mkModuleName "Sdk.DA.Internal.Template") $
         mkOccName varName "Template" :: LHsType GhcPs
-    lfTemplateType =
-        LF.mkTApps
-            (LF.TCon (LF.Qualified LF.PRSelf moduleName0 typeCon))
-            (map (LF.TVar . fst) typeParams)
-    methodMapping =
-        map (\funName -> (funName, mkExternalString funName)) methodNames
+    lfTemplateType = mkLfTemplateType moduleName0 typeCon typeParams
     mkExternalString :: T.Text -> String
     mkExternalString funName =
         (T.unpack $ LF.unPackageId externPkgId) <>
@@ -317,18 +312,16 @@ generateChoiceInstance env externPkgId template choice =
                       { hsib_ext = noExt
                       , hsib_body = body
                       }
-            , cid_binds = listToBag $ map classMethodStub methodMapping
+            , cid_binds = mkClassMethodStubBag mkExternalString methodNames
             , cid_sigs = []
             , cid_tyfam_insts = []
             , cid_datafam_insts = []
             , cid_overlap_mode = Nothing
             }
   where
-    app :: LHsType GhcPs -> LHsType GhcPs -> LHsType GhcPs
-    app t1 t2 = noLoc $ HsAppTy noExt t1 t2
 
     body :: LHsType GhcPs =
-      choiceClass `app` arg1 `app` arg2 `app` arg3
+      choiceClass `mkHsAppTy` arg1 `mkHsAppTy` arg2 `mkHsAppTy` arg3
 
     choiceClass :: LHsType GhcPs =
         noLoc $
@@ -346,13 +339,9 @@ generateChoiceInstance env externPkgId template choice =
     arg3 :: LHsType GhcPs =
       noLoc $ convType env lfChoiceReturnType
 
-    moduleNameStr = T.unpack $ LF.moduleNameString $ LF.moduleName $ envMod env
+    moduleNameStr = T.unpack $ LF.moduleNameString $ moduleName0
     moduleName0 = LF.moduleName $ envMod env
-
-    lfTemplateType :: LF.Type =
-        LF.mkTApps
-          (LF.TCon (LF.Qualified LF.PRSelf moduleName0 dataTypeCon))
-          (map (LF.TVar . fst) dataParams)
+    lfTemplateType = mkLfTemplateType moduleName0 dataTypeCon dataParams
 
     tycon :: LF.TypeConName =
       LF.tplTypeCon template
@@ -367,9 +356,6 @@ generateChoiceInstance env externPkgId template choice =
                       , chcReturnType = lfChoiceReturnType
                       } = choice
 
-    methodMapping =
-      map (\funName -> (funName, mkExternalString funName)) methodNames
-
     mkExternalString :: T.Text -> String
     mkExternalString funName =
       (T.unpack $ LF.unPackageId externPkgId) <>
@@ -383,6 +369,17 @@ generateChoiceInstance env externPkgId template choice =
         , "_toAnyChoice"
         , "_fromAnyChoice"
         ]
+
+mkLfTemplateType :: LF.ModuleName -> LF.TypeConName -> [(LF.TypeVarName, a)] -> LF.Type
+mkLfTemplateType moduleName0 typeCon typeParams=
+  LF.mkTApps
+    (LF.TCon (LF.Qualified LF.PRSelf moduleName0 typeCon))
+    (map (LF.TVar . fst) typeParams)
+
+mkClassMethodStubBag :: (T.Text -> String) -> [T.Text] -> Bag (LHsBindLR GhcPs GhcPs)
+mkClassMethodStubBag mkExternalString methodNames = do
+  let methodMapping = map (\funName -> (funName, mkExternalString funName)) methodNames
+  listToBag $ map classMethodStub methodMapping
 
 classMethodStub :: (T.Text, String) -> LHsBindLR GhcPs GhcPs
 classMethodStub (funName, xString) =
