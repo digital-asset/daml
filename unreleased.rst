@@ -18,13 +18,13 @@ HEAD — ongoing
   
 - [Navigator] Fixed a bug where Navigator becomes unresponsive if the ledger does not contain any DAML packages.
   
-- [Leger-API] Add field ``gen_map`` in Protobuf definition for ledger
+- [Ledger-API] Add field ``gen_map`` in Protobuf definition for ledger
   api values. This field is used to support generic maps, an new
   feature currently in development.  See issue
   https://github.com/digital-asset/daml/pull/3356 for more details
   about generic maps.
 
-  The Leger API will send no messages where this field is set, when
+  The Ledger API will send no messages where this field is set, when
   using a stable version of DAML-LF.  However the addition of this
   field may cause pattern-matching exhaustive warnings in the code of
   ledger API clients. Those warnings can be safely ignored until
@@ -40,3 +40,8 @@ HEAD — ongoing
 - [DAML Compiler] The default DAML-LF version is now 1.7. You can
   still produce DAML-LF 1.6 by passing ``--target=1.6`` to ``daml
   build``.
+
+- [JSON API - Experimental] The database schema has changed; if using
+  ``--query-store-jdbc-config``, you must rebuild the database by adding
+  ``,createSchema=true``.
+  See `issue #3461 <https://github.com/digital-asset/daml/pull/3461>`_.
