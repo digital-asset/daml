@@ -84,7 +84,7 @@ private[http] object JdbcConfig extends ConfigCompanion[JdbcConfig]("JdbcConfig"
       "\turl -- JDBC connection URL,\n" +
       "\tuser -- database user name,\n" +
       "\tpassword -- database user password\n" +
-      "\tcreateSchema -- boolean flag, if set to true, the process will create database schema and terminate immediately.\n" +
+      "\tcreateSchema -- boolean flag, if set to true, the process will re-create database schema and terminate immediately.\n" +
       "\tExample: " + helpString(
       "org.postgresql.Driver",
       "jdbc:postgresql://localhost:5432/test?&ssl=true",

@@ -86,7 +86,7 @@ Start HTTP service from a DAML project directory
         url -- JDBC connection URL,
         user -- database user name,
         password -- database user password
-        createSchema -- boolean flag, if set to true, the process will create database schema and terminate immediately.
+        createSchema -- boolean flag, if set to true, the process will re-create database schema and terminate immediately.
         Example: "driver=org.postgresql.Driver,url=jdbc:postgresql://localhost:5432/test?&ssl=true,user=postgres,password=password,createSchema=false"
       --static-content "prefix=<URL prefix>,directory=<directory>"
             DEV MODE ONLY (not recommended for production). Optional static content configuration string. Contains comma-separated key-value pairs. Where:
