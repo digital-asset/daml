@@ -112,6 +112,8 @@ Full list of options
 
 To see the full list of options, run the ``--help`` command, which gives the following output:
 
+.. code-block:: none
+
   Usage: extractor [prettyprint|postgresql] [options]
 
   Command: prettyprint [options]
