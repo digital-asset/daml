@@ -46,9 +46,7 @@ let shared = rec {
     exec ${pkgs.maven}/bin/mvn ''${MVN_SETTINGS:+-s "$MVN_SETTINGS"} "$@"
   '';
 
-  # The sass derivation in nixos-18.09 is broken, so we add our own
-  # created with bundix.
-  sass = pkgs.callPackage ./overrides/sass {};
+  sass = pkgs.sass;
 
   sphinx183 = pkgs.python3Packages.sphinx;
 

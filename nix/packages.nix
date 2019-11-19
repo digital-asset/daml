@@ -161,8 +161,6 @@ in rec {
 
     convert = bazel_dependencies.imagemagick;
 
-    # The sass derivation in nixos-18.09 is broken, so we add our own
-    # created with bundix.
     sass = bazel_dependencies.sass;
 
     graphviz  = pkgs.graphviz_2_32;
