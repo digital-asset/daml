@@ -60,6 +60,7 @@ data QueryACS a = QueryACS
   , continue : [AnyTemplate] -> a
   } deriving Functor
 
+-- TODO This should also return contract ids.
 query : forall t. Template t => Party -> Script [t]
 query p = Script $ Free $ Query (QueryACS p (templateTypeRep @t) (pure . map (fromSome . fromAnyTemplate)))
 
@@ -89,6 +90,9 @@ submitMustFail p cmds = Script $ Free (fmap pure $ Submit $ SubmitCmd p (fail <$
 
 newtype Script a = Script (Free ScriptF a)
   deriving (Functor, Applicative, Action)
+
+instance CanAbort Script where
+  abort = error
 
 data LedgerValue = LedgerValue {}
 

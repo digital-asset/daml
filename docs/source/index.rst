@@ -98,6 +98,7 @@ DAML SDK documentation
    migrate/index
    json-api/index
    DAML Triggers <triggers/index>
+   DAML Script <daml-script/index>
    tools/visual
 
 .. toctree::

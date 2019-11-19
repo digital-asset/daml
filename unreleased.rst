@@ -35,3 +35,5 @@ HEAD — ongoing
   This configuration is NOT recommended for production deployment. See issue #2782.
 
 - [Extractor] The app can now work against a Ledger API server that requires client authentication. See `issue #3157 <https://github.com/digital-asset/daml/issues/3157>`__.
+- [DAML Script] This release contains a first version of an experimental DAML script
+   feature that provides a scenario-like API that is run against an actual ledger.

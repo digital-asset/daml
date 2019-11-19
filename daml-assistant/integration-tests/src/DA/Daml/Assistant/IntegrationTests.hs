@@ -136,6 +136,12 @@ packagingTests = testGroup "packaging"
         withCurrentDirectory projDir $ callCommandQuiet "daml build"
         let dar = projDir </> ".daml" </> "dist" </> "copy-trigger-0.0.1.dar"
         assertBool "copy-trigger-0.1.0.dar was not created." =<< doesFileExist dar
+     , testCase "Build DAML script example"  $ withTempDir $ \tmpDir -> do
+        let projDir = tmpDir </> "script-example"
+        callCommandQuiet $ unwords ["daml", "new", projDir, "script-example"]
+        withCurrentDirectory projDir $ callCommandQuiet "daml build"
+        let dar = projDir </> ".daml/dist/script-example-0.0.1.dar"
+        assertBool "script-example-0.0.1.dar was not created." =<< doesFileExist dar
     ]
     <> [ testCaseSteps "Build migration package" $ \step -> withTempDir $ \tmpDir -> do
         -- it's important that we have fresh empty directories here!
