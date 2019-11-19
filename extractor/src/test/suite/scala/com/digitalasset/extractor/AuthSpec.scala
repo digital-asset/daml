@@ -88,7 +88,7 @@ final class AuthSpec
     readAs = List(operator)
   )
 
-  private val token = Some(Files.createTempFile("Extractor", "AuthSpec"))
+  private val accessTokenFile = Files.createTempFile("Extractor", "AuthSpec")
 
   private def setToken(string: String): Unit = {
     val _ = Files.write(accessTokenFile, string.getBytes())
@@ -97,7 +97,7 @@ final class AuthSpec
   override protected def afterAll(): Unit = {
     super.afterAll()
     try {
-      token.foreach(Files.delete)
+      Files.delete(accessTokenFile)
     } catch {
       case NonFatal(e) =>
         LoggerFactory.getLogger(classOf[AuthSpec]).warn("Unable to delete temporary token file", e)
@@ -125,7 +125,7 @@ final class AuthSpec
       None,
     )
 
-  private def withAuth = noAuth.copy(accessTokenFile = token)
+  private def withAuth = noAuth.copy(accessTokenFile = Option(accessTokenFile))
 
   private def tailWithAuth = withAuth.copy(to = SnapshotEndSetting.Follow)
 
