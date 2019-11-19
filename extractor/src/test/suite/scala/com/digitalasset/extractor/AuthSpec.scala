@@ -90,8 +90,9 @@ final class AuthSpec
 
   private val token = Some(Files.createTempFile("Extractor", "AuthSpec"))
 
-  private def setToken(string: String): Unit =
-    token.foreach(path => Files.write(path, string.getBytes()))
+  private def setToken(string: String): Unit = {
+    val _ = Files.write(accessTokenFile, string.getBytes())
+  }
 
   override protected def afterAll(): Unit = {
     super.afterAll()

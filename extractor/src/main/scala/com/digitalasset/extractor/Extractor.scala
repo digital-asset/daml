@@ -41,7 +41,7 @@ class Extractor[T](config: ExtractorConfig, target: T)(
     writerSupplier: (ExtractorConfig, T, String) => Writer = Writer.apply _)
     extends StrictLogging {
 
-  private val tokenHolder = new TokenHolder(config.accessTokenFile)
+  private val tokenHolder = config.accessTokenFile.map(new TokenHolder(_))
 
   implicit val system: ActorSystem = ActorSystem()
   import system.dispatcher
@@ -66,7 +66,7 @@ class Extractor[T](config: ExtractorConfig, target: T)(
 
       _ = logger.info(s"Connected to ledger ${client.ledgerId}\n\n")
 
-      endResponse <- client.transactionClient.getLedgerEnd(tokenHolder.token)
+      endResponse <- client.transactionClient.getLedgerEnd(tokenHolder.flatMap(_.token))
 
       endOffset = endResponse.offset.getOrElse(
         throw new RuntimeException("Failed to get ledger end: response did not contain an offset.")
@@ -84,7 +84,7 @@ class Extractor[T](config: ExtractorConfig, target: T)(
 
       _ = logger.trace("Handling packages...")
 
-      packageStore <- fetchPackages(client, writer, tokenHolder)
+      packageStore <- fetchPackages(client, writer)
       allTemplateIds = TemplateIds.getTemplateIds(packageStore.values.toSet)
       _ = logger.info(s"All available template ids: ${allTemplateIds}")
 
@@ -124,20 +124,17 @@ class Extractor[T](config: ExtractorConfig, target: T)(
       case GrpcException(GrpcStatus(`PERMISSION_DENIED`, _), _) => true
     } { (attempt, wait) =>
       logger.error(s"Failed to authenticate with Ledger API on attempt $attempt, next one in $wait")
-      tokenHolder.refresh()
+      tokenHolder.foreach(_.refresh())
       f()
     }
 
   private def doFetchPackages(
       packageClient: PackageClient): Future[LedgerReader.Error \/ Option[PackageStore]] =
     keepRetryingOnPermissionDenied { () =>
-      LedgerReader.loadPackageStoreUpdates(packageClient, tokenHolder.token)(Set.empty)
+      LedgerReader.loadPackageStoreUpdates(packageClient, tokenHolder.flatMap(_.token))(Set.empty)
     }
 
-  private def fetchPackages(
-      client: LedgerClient,
-      writer: Writer,
-      tokenHolder: TokenHolder): Future[PackageStore] = {
+  private def fetchPackages(client: LedgerClient, writer: Writer): Future[PackageStore] = {
     for {
       packageStoreE <- doFetchPackages(client.packageClient)
         .map(_.map(_.getOrElse(Map.empty))): Future[LedgerReader.Error \/ PackageStore]
@@ -174,7 +171,7 @@ class Extractor[T](config: ExtractorConfig, target: T)(
         maxBackoff = 30.seconds,
         randomFactor = 0.2 // adds 20% "noise" to vary the intervals slightly
       ) { () =>
-        tokenHolder.refresh()
+        tokenHolder.foreach(_.refresh())
         logger.info(s"Starting streaming transactions from ${startOffSet}...")
         client.transactionClient
           .getTransactionTrees(
@@ -182,7 +179,7 @@ class Extractor[T](config: ExtractorConfig, target: T)(
             streamUntil,
             transactionFilter,
             verbose = true,
-            tokenHolder.token
+            tokenHolder.flatMap(_.token)
           )
           .via(killSwitch.flow)
           .map(trim)
@@ -226,7 +223,7 @@ class Extractor[T](config: ExtractorConfig, target: T)(
         s" Refreshing packages..."
     )
     for {
-      _ <- fetchPackages(client, writer, tokenHolder)
+      _ <- fetchPackages(client, writer)
       result <- writer.handleTransaction(t)
       _ <- result.fold(
         // We still don't have all the types available for the transaction.
@@ -258,7 +255,7 @@ class Extractor[T](config: ExtractorConfig, target: T)(
         LedgerIdRequirement(ledgerId = "", enabled = false),
         CommandClientConfiguration(1, 1, overrideTtl = true, java.time.Duration.ofSeconds(20L)),
         sslContext = config.tlsConfig.client,
-        tokenHolder.token
+        tokenHolder.flatMap(_.token)
       )
     )
 
