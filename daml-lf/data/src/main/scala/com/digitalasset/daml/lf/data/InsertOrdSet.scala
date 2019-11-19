@@ -13,13 +13,14 @@ package com.digitalasset.daml.lf.data
   *  remove: O(n)
   */
 import scala.collection.immutable.{HashSet, Set, Queue}
+import scala.collection.{SetLike, AbstractSet}
 
-final class InsertOrdSet[T] private (_items: Queue[T], _hashSet: HashSet[T]) extends Set[T] {
-  def _items: Queue[T]
-  def _hashSet: HashSet[T]
-
+final class InsertOrdSet[T] private (_items: Queue[T], _hashSet: HashSet[T])
+    extends AbstractSet[T]
+    with Set[T]
+    with SetLike[T, InsertOrdSet[T]]
+    with Serializable {
   override def empty: InsertOrdSet[T] = InsertOrdSet.empty
-
   override def size: Int = _hashSet.size
 
   def iterator: Iterator[T] =
@@ -32,31 +33,20 @@ final class InsertOrdSet[T] private (_items: Queue[T], _hashSet: HashSet[T]) ext
     if (_hashSet.contains(elem))
       this
     else
-      NonEmptyInsertOrdSet(
+      new InsertOrdSet(
         elem +: _items,
         _hashSet + elem
       )
 
   override def -(elem: T): InsertOrdSet[T] =
-    NonEmptyInsertOrdSet(
+    new InsertOrdSet(
       _items.filter(elem2 => elem != elem2),
       _hashSet - elem
     )
 }
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
-final case object EmptyInsertOrdSet extends InsertOrdSet[Any] {
-  override def _items = Queue[Any]()
-  override def _hashSet = HashSet[Any]()
-}
-
-final case class NonEmptyInsertOrdSet[T](
-    override val _items: Queue[T],
-    override val _hashSet: HashSet[T])
-    extends InsertOrdSet[T]
-
 object InsertOrdSet {
-  private val Empty =  new InsertOrdSet(Queue.empty, HashSet.empty)
+  private val Empty = new InsertOrdSet(Queue.empty, HashSet.empty)
   def empty[T] = Empty.asInstanceOf[InsertOrdSet[T]]
 
   def fromSeq[T](s: Seq[T]): InsertOrdSet[T] =
