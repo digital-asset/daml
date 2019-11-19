@@ -6,10 +6,12 @@ package com.digitalasset.testing;
 import org.junit.runner.RunWith;
 import org.junit.runners.Suite;
 
+import java.math.BigDecimal;
+
 @RunWith(Suite.class)
 @Suite.SuiteClasses({
         DecimalTestForAll.class,
-        EnumTestFor1_6AndFor1_7.class,
         NumericTestFor1_7AndFor1_dev.class,
+        GenMapTestFor1_dev.class,
 })
-public class AllTestsFor1_7{ }
+public class AllTestsFor1_dev { }
