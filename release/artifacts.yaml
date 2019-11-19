@@ -197,9 +197,9 @@
 - target: //daml-assistant/scala-daml-project-config:scala-daml-project-config
   type: jar-scala
   mavenUpload: true
-- target: //libs-scala/grpc-utils
+- target: //libs-scala/grpc-utils:grpc-utils
   type: jar-scala
   mavenUpload: True
-- target: //libs-scala/timer-utils
+- target: //libs-scala/timer-utils:timer-utils
   type: jar-scala
   mavenUpload: true
