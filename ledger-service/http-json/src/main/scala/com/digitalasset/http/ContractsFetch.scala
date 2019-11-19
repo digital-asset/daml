@@ -6,6 +6,7 @@ package com.digitalasset.http
 import akka.NotUsed
 import akka.stream.scaladsl.{
   Broadcast,
+  Concat,
   Flow,
   GraphDSL,
   Partition,
@@ -248,11 +249,6 @@ private class ContractsFetch(
       case AbsoluteBookmark(x) => Some(x)
     }
 
-  private def transactionToInsertsAndDeletes(tx: lav1.transaction.Transaction)
-    : (InsertDeleteStep[lav1.event.CreatedEvent], domain.Offset) = {
-    val offset = domain.Offset.fromLedgerApi(tx)
-    (partitionInsertsDeletes(tx.events), offset)
-  }
 }
 
 private object ContractsFetch {
@@ -319,6 +315,51 @@ private object ContractsFetch {
     InsertDeleteStep(csb.result() filter (ce => !as.contains(ce.contractId)), as)
   }
 
+  /** Like `acsAndBoundary`, but also include the events produced by `transactionsSince`
+    * after the ACS's last offset, terminating with the last offset of the last transaction,
+    * or the ACS's last offset if there were no transactions.
+    */
+  private def acsFollowingAndBoundary(
+      transactionsSince: lav1.ledger_offset.LedgerOffset => Source[Transaction, NotUsed]): Graph[
+    FanOutShape2[
+      lav1.active_contracts_service.GetActiveContractsResponse,
+      InsertDeleteStep[lav1.event.CreatedEvent],
+      OffsetBookmark[String]],
+    NotUsed] =
+    GraphDSL.create() { implicit b =>
+      import GraphDSL.Implicits._
+      val acs = b add acsAndBoundary
+      val txns = b add transactionsFollowingBoundary(transactionsSince)
+      val allSteps = b add Concat[InsertDeleteStep[lav1.event.CreatedEvent]](2)
+      discard { acs.out0.map(sce => InsertDeleteStep(sce.toVector, Set.empty)) ~> allSteps }
+      discard { allSteps <~ txns.out0 }
+      discard { acs.out1 ~> txns.in }
+      new FanOutShape2(acs.in, allSteps.out, txns.out1)
+    }
+
+  private def transactionsFollowingBoundary(
+      transactionsSince: lav1.ledger_offset.LedgerOffset => Source[Transaction, NotUsed]): Graph[
+    FanOutShape2[
+      OffsetBookmark[String],
+      InsertDeleteStep[lav1.event.CreatedEvent],
+      OffsetBookmark[String]],
+    NotUsed] =
+    GraphDSL.create() { implicit b =>
+      import GraphDSL.Implicits._
+      type Off = OffsetBookmark[String]
+      val dupOff = b add Broadcast[Off](2)
+      val mergeOff = b add Concat[Off](2)
+      val txns = Flow[Off]
+        .flatMapConcat(off => transactionsSince(domain.Offset.tag.subst(off).toLedgerApi))
+        .map(transactionToInsertsAndDeletes)
+      val txnSplit = b add project2[InsertDeleteStep[lav1.event.CreatedEvent], domain.Offset]
+      val last = b add Flow[Off].fold(LedgerBegin: Off)((_, later) => later)
+      discard { dupOff ~> txns ~> txnSplit.in }
+      discard { dupOff ~> mergeOff ~> last }
+      discard { txnSplit.out1.map(off => AbsoluteBookmark(off.unwrap)) ~> mergeOff }
+      new FanOutShape2(dupOff.in, txnSplit.out0, last.out)
+    }
+
   /** Split a series of ACS responses into two channels: one with contracts, the
     * other with a single result, the last offset.
     */
@@ -340,6 +381,12 @@ private object ContractsFetch {
       discard { dup ~> off }
       new FanOutShape2(dup.in, acs.out, off.out)
     }
+
+  private def transactionToInsertsAndDeletes(tx: lav1.transaction.Transaction)
+    : (InsertDeleteStep[lav1.event.CreatedEvent], domain.Offset) = {
+    val offset = domain.Offset.fromLedgerApi(tx)
+    (partitionInsertsDeletes(tx.events), offset)
+  }
 
   private def surrogateTemplateIds[K <: TemplateId.RequiredPkg](ids: Set[K])(
       implicit log: doobie.LogHandler): ConnectionIO[Map[K, SurrogateTpId]] = {
