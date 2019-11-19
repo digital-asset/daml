@@ -100,7 +100,7 @@ in rec {
     # Nix development
     cabal2nix = pkgs.cabal2nix;
 
-    pypi2nix  = pkgs.pypi2nix.override { pythonPackages = pkgs.python37Packages; };
+    pypi2nix  = pkgs.pypi2nix;
 
     # Web development
     node        = bazel_dependencies.nodejs;
