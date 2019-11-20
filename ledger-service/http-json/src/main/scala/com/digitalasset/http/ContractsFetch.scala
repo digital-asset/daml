@@ -238,6 +238,9 @@ private object ContractsFetch {
       new FanOutShape2(split.in, left.out, right.out)
     }
 
+  def last[A](ifEmpty: A): Flow[A, A, NotUsed] =
+    Flow[A].fold(ifEmpty)((_, later) => later)
+
   /** Plan inserts, deletes from an in-order batch of create/archive events. */
   private def partitionInsertsDeletes(
       txes: Traversable[lav1.event.Event]): InsertDeleteStep[lav1.event.CreatedEvent] = {
@@ -296,11 +299,11 @@ private object ContractsFetch {
         .flatMapConcat(off => transactionsSince(domain.Offset.tag.subst(off).toLedgerApi))
         .map(transactionToInsertsAndDeletes)
       val txnSplit = b add project2[InsertDeleteStep[lav1.event.CreatedEvent], domain.Offset]
-      val last = b add Flow[Off].fold(LedgerBegin: Off)((_, later) => later)
+      val lastOff = b add last(LedgerBegin: Off)
       discard { dupOff ~> txns ~> txnSplit.in }
-      discard { dupOff ~> mergeOff ~> last }
+      discard { dupOff ~> mergeOff ~> lastOff }
       discard { txnSplit.out1.map(off => AbsoluteBookmark(off.unwrap)) ~> mergeOff }
-      new FanOutShape2(dupOff.in, txnSplit.out0, last.out)
+      new FanOutShape2(dupOff.in, txnSplit.out0, lastOff.out)
     }
 
   /** Split a series of ACS responses into two channels: one with contracts, the
@@ -319,7 +322,7 @@ private object ContractsFetch {
       val acs = b add (Flow fromFunction ((_: GACR).activeContracts))
       val off = b add Flow[GACR]
         .collect { case gacr if gacr.offset.nonEmpty => AbsoluteBookmark(gacr.offset) }
-        .fold(LedgerBegin: OffsetBookmark[String])((_, later) => later)
+        .via(last(LedgerBegin: OffsetBookmark[String]))
       discard { dup ~> acs }
       discard { dup ~> off }
       new FanOutShape2(dup.in, acs.out, off.out)
