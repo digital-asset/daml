@@ -71,7 +71,7 @@ object domain {
   sealed trait OffsetTag
   type Offset = String @@ OffsetTag
   object Offset {
-    private val tag = Tag.of[OffsetTag]
+    private[http] val tag = Tag.of[OffsetTag]
 
     def apply(s: String): Offset = tag(s)
 
