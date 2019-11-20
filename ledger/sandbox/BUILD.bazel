@@ -174,11 +174,12 @@ testDependencies = [
     "//ledger/test-common:test-common",
     "//ledger-api/testing-utils",
     "@maven//:com_typesafe_akka_akka_testkit_2_12",
-    "@maven//:org_scalatest_scalatest_2_12",
+    "@maven//:commons_io_commons_io",
+    "@maven//:org_awaitility_awaitility",
+    "@maven//:org_mockito_mockito_core",
     "@maven//:org_scalacheck_scalacheck_2_12",
     "@maven//:org_scalactic_scalactic_2_12",
-    "@maven//:org_awaitility_awaitility",
-    "@maven//:commons_io_commons_io",
+    "@maven//:org_scalatest_scalatest_2_12",
     "//bazel_tools/runfiles:scala_runfiles",
 ] + compileDependencies
 
