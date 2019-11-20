@@ -78,7 +78,8 @@ object KeyUtils {
   }
 
   /**
-    * Reads a RSA private key from a binary file (PKCS#8, DER)
+    * Reads a RSA private key from a binary file (PKCS#8, DER).
+    * To generate this file from a .pem file, use the following command:
     * openssl pkcs8 -topk8 -inform PEM -outform DER -in private-key.pem -nocrypt > private-key.der
     */
   def readRSAPrivateKeyFromDer(file: File): Try[RSAPrivateKey] = {
