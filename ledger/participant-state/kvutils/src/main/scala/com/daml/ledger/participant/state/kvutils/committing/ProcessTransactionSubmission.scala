@@ -5,7 +5,6 @@ package com.daml.ledger.participant.state.kvutils.committing
 
 import com.codahale.metrics
 import com.codahale.metrics.{Counter, Timer}
-import com.daml.ledger.participant.state.backport.TimeModelChecker
 import com.daml.ledger.participant.state.kvutils.Conversions.{buildTimestamp, commandDedupKey, _}
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.{Conversions, Err, InputsAndEffects, Pretty}

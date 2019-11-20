@@ -110,7 +110,6 @@ private[kvutils] case class ProcessConfigSubmission(
       }
 
   private def buildLogEntry(): Commit[Unit] = sequence2(
-  private val buildLogEntry: Commit[Unit] = sequence(
     delay {
       Metrics.accepts.inc()
       logger.trace(s"New configuration with generation ${newConfig.getGeneration} accepted.")
@@ -148,15 +147,12 @@ private[kvutils] case class ProcessConfigSubmission(
             .setParticipantId(participantId)
             .setConfiguration(configSubmission.getConfiguration))
         .build
-    )
   )
   }
 
   private def reject[A](
-      addReason: DamlConfigurationRejectionEntry.Builder => DamlConfigurationRejectionEntry.Builder)
-    : Commit[A] =
-  private def rejectInvalidConfiguration(error: String): Commit[Configuration] = {
-    Metrics.rejections.inc()
+                         addReason: DamlConfigurationRejectionEntry.Builder => DamlConfigurationRejectionEntry.Builder)
+  : Commit[A] =
     done(
       DamlLogEntry.newBuilder
         .setConfigurationRejectionEntry(
@@ -166,17 +162,9 @@ private[kvutils] case class ProcessConfigSubmission(
               .setParticipantId(participantId)
               .setConfiguration(configSubmission.getConfiguration)
           )
-          DamlConfigurationRejectionEntry.newBuilder
-            .setSubmissionId(configSubmission.getSubmissionId)
-            .setConfiguration(configSubmission.getConfiguration)
-            .setInvalidConfiguration(
-              DamlConfigurationRejectionEntry.InvalidConfiguration.newBuilder
-                .setError(error)
-            )
         )
         .build
     )
-  }
 
   private def rejectParticipantNotAuthorized[A]: Commit[A] = {
     Metrics.rejections.inc()

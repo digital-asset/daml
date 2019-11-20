@@ -14,7 +14,12 @@ import anorm.SqlParser._
 import anorm.ToStatement.optionToStatement
 import anorm.{AkkaStream, BatchSql, Macro, NamedParameter, RowParser, SQL, SqlParser}
 import com.daml.ledger.participant.state.index.v2.PackageDetails
-import com.daml.ledger.participant.state.v1.{AbsoluteContractInst, Configuration, ParticipantId, TransactionId}
+import com.daml.ledger.participant.state.v1.{
+  AbsoluteContractInst,
+  Configuration,
+  ParticipantId,
+  TransactionId
+}
 import com.digitalasset.daml.lf.archive.Decode
 import com.digitalasset.daml.lf.data.Ref.{
   ContractIdString,
@@ -270,7 +275,7 @@ private class JdbcLedgerDao(
               .execute()
             PersistenceResponse.Ok
           }).recover {
-            case NonFatal(e) if e.getMessage.contains(dbType.DUPLICATE_KEY_ERROR) =>
+            case NonFatal(e) if e.getMessage.contains(queries.DUPLICATE_KEY_ERROR) =>
               logger.warn(
                 s"Ignoring duplicate configuration submission for submissionId $submissionId, participantId $participantId")
               conn.rollback()
