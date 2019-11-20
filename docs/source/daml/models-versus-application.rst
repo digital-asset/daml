@@ -19,7 +19,7 @@ When the ledger is encoding legal rights and obligations between external counte
 * The ledger is a valuable source of legal information and shouldn’t be contaminated with non-business oriented logic
 * The more functionality in shared models, the more which needs to be agreed upon upfront by all companies involved. Further updating shared models is hard since all companies need to coordinate
 
-As a result, shared functionality in DAML models needs careful scrutinization. This minimalistic approach might only include:
+As a result, shared functionality in DAML models needs careful scrutiny. This minimalistic approach might only include:
 
 * Contracts representing, and going into the servicing of, traditional legal contracts
 * Contracts narrowly associated with the business process such as obligations for payment/delivery

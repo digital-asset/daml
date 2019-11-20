@@ -49,6 +49,13 @@ main = do
             , dataParams = []
             , dataCons = DataVariant [(VariantConName "Choice", TUnit)]
             }
+    let chcArg2 = DefDataType
+            { dataLocation = Nothing
+            , dataTypeCon = TypeConName ["Choice2"]
+            , dataSerializable = IsSerializable True
+            , dataParams = []
+            , dataCons = DataRecord [ (FieldName "choiceArg", TUnit) ]
+            }
     let emptyRec = DefDataType
             { dataLocation = Nothing
             , dataTypeCon = TypeConName ["EmptyRecord"]
@@ -63,6 +70,16 @@ main = do
             , chcControllers = tplParties
             , chcSelfBinder = ExprVarName "this"
             , chcArgBinder = (ExprVarName "self", TCon (modRef (dataTypeCon chcArg)))
+            , chcReturnType = TUnit
+            , chcUpdate = EUpdate $ UPure TUnit EUnit
+            }
+    let chc2 = TemplateChoice
+            { chcLocation = Nothing
+            , chcName = ChoiceName "Choice2"
+            , chcConsuming = True
+            , chcControllers = tplParties
+            , chcSelfBinder = ExprVarName "this"
+            , chcArgBinder = (ExprVarName "self", TCon (modRef (dataTypeCon chcArg2)))
             , chcReturnType = TUnit
             , chcUpdate = EUpdate $ UPure TUnit EUnit
             }
@@ -84,14 +101,14 @@ main = do
             , tplSignatories = tplParties
             , tplObservers = ENil TParty
             , tplAgreement = mkEmptyText
-            , tplChoices = NM.fromList ([chc] <> [arc | withArchiveChoice])
+            , tplChoices = NM.fromList ([chc,chc2] <> [arc | withArchiveChoice])
             , tplKey = Nothing
             }
     let mod = Module
             { moduleName = ModuleName ["Module"]
             , moduleSource = Nothing
             , moduleFeatureFlags = FeatureFlags{forbidPartyLiterals = True}
-            , moduleDataTypes = NM.fromList ([tplRec, chcArg] <> [emptyRec | withArchiveChoice])
+            , moduleDataTypes = NM.fromList ([tplRec, chcArg, chcArg2] <> [emptyRec | withArchiveChoice])
             , moduleValues = NM.empty
             , moduleTemplates = NM.fromList [tpl]
             }

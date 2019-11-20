@@ -25,7 +25,7 @@ Contract Observers and Stakeholders
 Intuitively, as signatories are bound by a contract, they have a stake in it.
 Actors might not be bound by the contract, but they still have a stake in their actions, as these are the actor's rights.
 Generalizing this, **observers** are parties who might not be bound by the contract, but still have the right to see the contract.
-For example, Alice should be an observer of the `PaintOffer`, such that she can is made aware that the offer exists.
+For example, Alice should be an observer of the `PaintOffer`, such that she is made aware that the offer exists.
 
 Signatories are already determined by the contract model discussed so far.
 The full **contract model** additionally specifies the observers on each contract.
@@ -48,7 +48,7 @@ Projections
 
 Stakeholders should see changes to contracts they hold a stake in, but that does not
 mean that they have to see the entirety of any transaction that their contract is
-involved in. This is made precise though *projections* of a transaction,
+involved in. This is made precise through *projections* of a transaction,
 which define the view that each party gets on a transaction.
 Intuitively, given a transaction within a commit, a party will see
 only the subtransaction consisting of all actions on contracts where the party
@@ -191,7 +191,7 @@ For these access controls, it suffices if one maintainer authorizes a **NoSuchKe
 However, we demand that *all* maintainers must authorize it.
 This is to prevent spam in the projection of the maintainers.
 If only one maintainer sufficed to authorize a key assertion,
-then a valid ledger could contain **NoSuchKey** `k` assertions where the maintainers of `k` include, apart from the requester arbitrary, arbitrary other parties.
+then a valid ledger could contain **NoSuchKey** `k` assertions where the maintainers of `k` include, apart from the requester, arbitrary other parties.
 Unlike **Create** actions to observers, such assertions are of no value to the other parties.
 Since processing such assertions may be expensive, they can be considered spam.
 Requiring all maintainers to authorize a **NoSuchKey** assertion avoids the problem.
@@ -209,7 +209,7 @@ parties as well.
 
 In the example of `ledger projections of the paint offer
 <#da-ledgers-projections-example>`__, the exercise on the `PaintOffer`
-is visible both the painter and to Alice.  As a consequence, the
+is visible to both the painter and Alice.  As a consequence, the
 exercise on the `Iou Bank A` is visible to the painter, and the
 creation of `Iou Bank P` is visible to Alice. As actions also contain
 the contracts they act on, `Iou Bank A` was thus shown to the painter

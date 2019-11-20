@@ -23,7 +23,7 @@ The remainder of the document will present:
 
 #. The minimal behavioral guarantees for identity and package services across all ledger implementations. The service users can rely on these guarantees, and the implementers must ensure that they hold.
 
-#. Guidelines for service users, explaining understand how the :ref:`ledger's topology <daml-ledger-topologies>` influences the unspecified part of the behavior.
+#. Guidelines for service users, explaining how the :ref:`ledger's topology <daml-ledger-topologies>` influences the unspecified part of the behavior.
 
 .. _identity-management:
 
@@ -125,7 +125,7 @@ Package Formats and Identifiers
 Any code -- i.e., DAML templates -- to be uploaded must compiled down to the :ref:`DAML-LF <daml-lf>` language.
 The unit of packaging for DAML-LF is the :ref:`.dalf <dar-file-dalf-file>` file.
 Each ``.dalf`` file is uniquely identified by its **package identifier**, which is the hash of its contents.
-Templates in a ``.dalf`` file can references templates from other ``.dalf`` files, i.e., ``.dalf`` files can depend on other ``.dalf`` files.
+Templates in a ``.dalf`` file can reference templates from other ``.dalf`` files, i.e., ``.dalf`` files can depend on other ``.dalf`` files.
 A :ref:`.dar <dar-file-dalf-file>` file is a simple archive containing multiple ``.dalf`` files, and has no identifier of its own.
 The archive provides a convenient way to package ``.dalf`` files together with their dependencies.
 The Ledger API supports only ``.dar`` file uploads.

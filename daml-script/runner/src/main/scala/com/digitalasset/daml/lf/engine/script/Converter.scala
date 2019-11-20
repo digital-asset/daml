@@ -83,7 +83,7 @@ object Converter {
 
   def toAnyChoice(v: SValue): Either[String, AnyChoice] = {
     v match {
-      case SRecord(_, _, vals) if vals.size == 1 => {
+      case SRecord(_, _, vals) if vals.size == 2 => {
         vals.get(0) match {
           case SAny(_, choiceVal @ SRecord(_, _, _)) =>
             Right(AnyChoice(choiceVal.id.qualifiedName.name.toString, choiceVal))
@@ -279,13 +279,15 @@ object Converter {
       entityName <- DottedName.fromString(id.entityName)
     } yield Identifier(packageId, QualifiedName(moduleName, entityName))
 
-  // Convert a Created event to an AnyTemplate
+  // Convert a Created event to a pair of (ContractId (), AnyTemplate)
   def fromCreated(
       translator: ValueTranslator,
+      primPackageId: PackageId,
       stdlibPackageId: PackageId,
       created: CreatedEvent): Either[String, SValue] = {
     val anyTemplateTyCon =
       Identifier(stdlibPackageId, QualifiedName.assertFromString("DA.Internal.LF:AnyTemplate"))
+    val pairTyCon = Identifier(primPackageId, QualifiedName.assertFromString("DA.Types:Tuple2"))
     for {
       templateId <- created.templateId match {
         case None => Left(s"Missing field templateId in $created")
@@ -297,7 +299,9 @@ object Converter {
         case ResultDone(v) => Right(v)
         case err => Left(s"Failure to translate value in create: $err")
       }
-    } yield record(anyTemplateTyCon, ("getAnyTemplate", SAny(TTyCon(tyCon), argSValue)))
+      anyTpl = record(anyTemplateTyCon, ("getAnyTemplate", SAny(TTyCon(tyCon), argSValue)))
+      cid <- ContractIdString.fromString(created.contractId)
+    } yield record(pairTyCon, ("_1", SContractId(AbsoluteContractId(cid))), ("_2", anyTpl))
   }
 
   def fromStatusException(

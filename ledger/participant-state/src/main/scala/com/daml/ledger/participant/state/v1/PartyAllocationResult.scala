@@ -16,23 +16,34 @@ object PartyAllocationResult {
     override def description: String = "Party successfully allocated"
   }
 
+  /** The system is overloaded, clients should back off exponentially */
+  case object Overloaded extends PartyAllocationResult {
+    override val description: String = "System is overloaded, please try again later"
+  }
+
   /** Synchronous party allocation is not supported */
-  final case object NotSupported extends PartyAllocationResult {
-    override def description: String = "Party allocation not supported"
+  case object NotSupported extends PartyAllocationResult {
+    override val description: String = "Party allocation not supported"
+  }
+
+  /** Submission ended up with internal error */
+  final case class InternalError(reason: String) extends PartyAllocationResult {
+    override def description: String =
+      s"Party allocation failed with an internal error, reason=$reason"
   }
 
   /** The requested party name already exists */
-  final case object AlreadyExists extends PartyAllocationResult {
-    override def description: String = "Party already exists"
+  case object AlreadyExists extends PartyAllocationResult {
+    override val description: String = "Party already exists"
   }
 
   /** The requested party name is not valid */
   final case class InvalidName(details: String) extends PartyAllocationResult {
-    override def description: String = "Party name is invalid: " + details
+    override def description: String = s"Party name is invalid, details=$details"
   }
 
   /** The participant was not authorized to submit the allocation request */
-  final case object ParticipantNotAuthorized extends PartyAllocationResult {
-    override def description: String = "Participant is not authorized to allocate a party"
+  case object ParticipantNotAuthorized extends PartyAllocationResult {
+    override val description: String = "Participant is not authorized to allocate a party"
   }
 }

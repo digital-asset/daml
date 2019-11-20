@@ -11,5 +11,3 @@ dependencies:
   - daml-stdlib
   - daml-trigger
 # trigger-dependencies-end
-build-options:
-  - --target=1.7

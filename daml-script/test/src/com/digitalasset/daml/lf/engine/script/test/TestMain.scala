@@ -242,6 +242,42 @@ case class Test3(dar: Dar[(PackageId, Package)], runner: TestRunner) {
   }
 }
 
+case class Test4(dar: Dar[(PackageId, Package)], runner: TestRunner) {
+  val scriptId = Identifier(dar.main._1, QualifiedName.assertFromString("ScriptTest:test4"))
+  def runTests() = {
+    runner.genericTest(
+      "test4",
+      dar,
+      scriptId,
+      None,
+      result =>
+        result match {
+          case SRecord(_, _, vals) if vals.size == 2 =>
+            TestRunner.assertEqual(vals.get(0), vals.get(1), "ContractIds")
+          case v => Left(s"Expected record with 2 fields but got $v")
+      }
+    )
+  }
+}
+
+// Runs the example from the docs to make sure it doesn’t produce a runtime error.
+case class ScriptExample(dar: Dar[(PackageId, Package)], runner: TestRunner) {
+  val scriptId = Identifier(dar.main._1, QualifiedName.assertFromString("ScriptExample:test"))
+  def runTests() = {
+    runner.genericTest(
+      "ScriptExample",
+      dar,
+      scriptId,
+      None,
+      result =>
+        result match {
+          case SUnit => Right(())
+          case v => Left(s"Expected SUnit but got $v")
+      }
+    )
+  }
+}
+
 object TestMain {
 
   private val configParser = new scopt.OptionParser[Config]("daml_script_test") {
@@ -280,6 +316,8 @@ object TestMain {
         Test1(dar, runner).runTests()
         Test2(dar, runner).runTests()
         Test3(dar, runner).runTests()
+        Test4(dar, runner).runTests()
+        ScriptExample(dar, runner).runTests()
     }
   }
 }

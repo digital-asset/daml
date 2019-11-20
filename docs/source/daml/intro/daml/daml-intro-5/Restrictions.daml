@@ -66,7 +66,7 @@ test_restrictions = scenario do
   bob <- getParty "Bob"
   dora <- getParty "Dora"
 
-  -- Dora can't issue negative Ious
+  -- Dora can't issue negative Ious.
   submitMustFail dora do
     create SimpleIou with
       issuer = dora
@@ -75,7 +75,7 @@ test_restrictions = scenario do
         amount = -100.0
         currency = "USD"
 
-  -- Or even zero Ious
+  -- Or even zero Ious.
   submitMustFail dora do
     create SimpleIou with
       issuer = dora
@@ -84,7 +84,7 @@ test_restrictions = scenario do
         amount = 0.0
         currency = "USD"
 
-  -- Nor positive Ious with invalid currencies
+  -- Nor positive Ious with invalid currencies.
   submitMustFail dora do
     create SimpleIou with
       issuer = dora
@@ -93,7 +93,7 @@ test_restrictions = scenario do
         amount = 100.0
         currency = "Swiss Francs"
 
-  -- But positive Ious still work, of course
+  -- But positive Ious still work, of course.
   iou <- submit dora do
     create SimpleIou with
       issuer = dora
@@ -104,12 +104,12 @@ test_restrictions = scenario do
 -- RESTRICTIONS_TEST_END
 
 -- TRANSFER_TEST_BEGIN
-  -- Alice can't transfer to herself
+  -- Alice can't transfer to herself...
   submitMustFail alice do
     exercise iou Transfer with
       newOwner = alice
 
-  -- but can transfer to bob
+  -- ... but can transfer to Bob.
   iou2 <- submit alice do
     exercise iou Transfer with
       newOwner = bob
@@ -117,24 +117,24 @@ test_restrictions = scenario do
 
 
 -- REDEEM_TEST_BEGIN
-  -- June 1st 2019 is a Saturday
+  -- June 1st 2019 is a Saturday.
   passToDate (date 2019 Jun 1)
-  -- Bob cannot redeem on a Saturday
+  -- Bob cannot redeem on a Saturday.
   submitMustFail bob do
     exercise iou2 Redeem
 
-  -- Not even at mid-day
+  -- Not even at mid-day.
   pass (hours 12)
-  -- Bob cannot redeem on a Saturday
+  -- Bob cannot redeem on a Saturday.
   submitMustFail bob do
     exercise iou2 Redeem
 
-  -- Bob also cannot redeem at 6am on a Monday
+  -- Bob also cannot redeem at 6am on a Monday.
   pass (hours 42)
   submitMustFail bob do
     exercise iou2 Redeem
 
-  -- Bob can redeem 8am on Monday.
+  -- Bob can redeem at 8am on Monday.
   pass (hours 2)
   submit bob do
     exercise iou2 Redeem
@@ -210,7 +210,7 @@ getCoin : Scenario Coin
 
 -- COIN_SCENARIO_BEGIN
 coin_test = scenario do
-  -- the coin is pseudo-random on LET so change the parameter to change the game
+  -- The coin is pseudo-random on LET so change the parameter to change the game.
   passToDate (date 2019 Jun 1)
   pass (seconds 2)
   coin <- getCoin

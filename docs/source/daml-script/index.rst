@@ -164,7 +164,9 @@ function. We pass it the type of the template and a party. It will
 then give us all active contracts of the given type visible to the
 party. In our example, we expect to see one active ``CoinProposal``
 for ``bank`` and one ``Coin`` contract for each of ``Alice`` and
-``Bob``.
+``Bob``. We get back list of ``(ContractId t, t)`` pairs from
+``query``. In our tests, we do not need the contract ids, so we throw
+them away using ``map snd``.
 
 .. literalinclude:: ./template-root/src/ScriptExample.daml
    :language: daml

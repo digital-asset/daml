@@ -3,12 +3,27 @@
 1. Make a PR that bumps the version number in the `VERSION`
    file and adds a new header and label for the new version in
    `docs/source/support/release-notes.rst` (see previous releases as examples).
-   Release notes should be cut and pasted under the new header from `unreleased.rst`.
-   Each change outlined in `unreleased.rst` is preceded by the section to
+   Release notes additions can be retrieved from commits using the following command:
+
+     ./unreleased.sh <revision range>
+
+   where `<revision range>` is the expressions (documented under `man gitrevisions`) to only read the relevant commits since the last release.
+   If, for example, the previous release is tagged as `v0.13.36` the `<revision range>` for all commits since then is `v0.13.36..`.
+   Each change outlined by the output of this command is preceded by the section to
    which it belongs: create one entry per section and add all pertaining
    items (without the section tag) to the release notes.
-   It is important that the PR only changes `VERSION`, `release-notes.rst` and `unreleased.rst`.
-   Note that `unreleased.rst` and `release-notes.rst` must be modified even if
+   Note that the changelog may also specify edits to existing changelog additions, in which case they will be reported with the `WARNING` tag as in the following example:
+
+       CHANGELOG_BEGIN
+
+       WARNING: fix typo in entry "Adds new amdin API to upload DAR files" with the following.
+
+       - [Sandbox] Adds new admin API to upload DAR files
+
+       CHANGELOG_END
+
+   It is important that the PR only changes `VERSION`, `release-notes.rst`.
+   Note that `VERSION` and `release-notes.rst` must be modified even if
    there have been no changes that have been added to the release notes so far.
 1. Merge the PR.
 1. Once CI has passed for the corresponding master build, the release should be

@@ -10,6 +10,7 @@ module ProposalDesugared
   ( main
   ) where
 
+import DA.Internal.Desugar
 import DA.Assert
 import DA.List
 import DA.Text
@@ -92,9 +93,9 @@ class Template t => ProposalInstance t where
     _fetchByKeyProposal = error "code will be injected by the compiler"
     _lookupByKeyProposal : ([Party], Text) -> Update (Optional (ContractId (Proposal t)))
     _lookupByKeyProposal = error "code will be injected by the compiler"
-    _toAnyContractKeyProposal : proxy (Proposal t) -> ([Party], Text) -> AnyContractKey
+    _toAnyContractKeyProposal : proxy (Proposal t) -> ([Party], Text) -> Any
     _toAnyContractKeyProposal = error "code will be injected by the compiler"
-    _fromAnyContractKeyProposal : proxy (Proposal t) -> AnyContractKey -> Optional ([Party], Text)
+    _fromAnyContractKeyProposal : proxy (Proposal t) -> Any -> Optional ([Party], Text)
     _fromAnyContractKeyProposal = error "code will be injected by the compiler"
 
     _consumptionProposalArchive : PreConsuming (Proposal t)
@@ -106,9 +107,9 @@ class Template t => ProposalInstance t where
         pure ()
     _exerciseProposalArchive : ContractId (Proposal t) -> Archive -> Update ()
     _exerciseProposalArchive = error "code will be injected by the compiler"
-    _toAnyChoiceProposalArchive : proxy (Proposal t) -> Archive -> AnyChoice
+    _toAnyChoiceProposalArchive : proxy (Proposal t) -> Archive -> Any
     _toAnyChoiceProposalArchive = error "code will be injected by the compiler"
-    _fromAnyChoiceProposalArchive : proxy (Proposal t) -> AnyChoice -> Optional Archive
+    _fromAnyChoiceProposalArchive : proxy (Proposal t) -> Any -> Optional Archive
     _fromAnyChoiceProposalArchive = error "code will be injected by the compiler"
 
     _consumptionProposalAccept : PreConsuming (Proposal t)
@@ -120,9 +121,9 @@ class Template t => ProposalInstance t where
         create asset
     _exerciseProposalAccept : ContractId (Proposal t) -> Accept -> Update (ContractId t)
     _exerciseProposalAccept = error "code will be injected by the compiler"
-    _toAnyChoiceProposalAccept : proxy (Proposal t) -> Accept -> AnyChoice
+    _toAnyChoiceProposalAccept : proxy (Proposal t) -> Accept -> Any
     _toAnyChoiceProposalAccept = error "code will be injected by the compiler"
-    _fromAnyChoiceProposalAccept : proxy (Proposal t) -> AnyChoice -> Optional Accept
+    _fromAnyChoiceProposalAccept : proxy (Proposal t) -> Any -> Optional Accept
     _fromAnyChoiceProposalAccept = error "code will be injected by the compiler"
 
 
@@ -190,9 +191,9 @@ class IouInstance where
     pure ()
   _exerciseIouArchive : ContractId Iou -> Archive -> Update ()
   _exerciseIouArchive = error "code will be injected by the compiler"
-  _toAnyChoiceIouArchive : proxy Iou -> Archive -> AnyChoice
+  _toAnyChoiceIouArchive : proxy Iou -> Archive -> Any
   _toAnyChoiceIouArchive = error "code will be injected by the compiler"
-  _fromAnyChoiceIouArchive : proxy Iou -> AnyChoice -> Optional Archive
+  _fromAnyChoiceIouArchive : proxy Iou -> Any -> Optional Archive
   _fromAnyChoiceIouArchive = error "code will be injected by the compiler"
 
   _consumptionIouBurn : PreConsuming Iou
@@ -204,9 +205,9 @@ class IouInstance where
     pure ()
   _exerciseIouBurn : ContractId Iou -> Burn -> Update ()
   _exerciseIouBurn = error "code will be injected by the compiler"
-  _toAnyChoiceIouBurn : proxy Iou -> Burn -> AnyChoice
+  _toAnyChoiceIouBurn : proxy Iou -> Burn -> Any
   _toAnyChoiceIouBurn = error "code will be injected by the compiler"
-  _fromAnyChoiceIouBurn : proxy Iou -> AnyChoice -> Optional Burn
+  _fromAnyChoiceIouBurn : proxy Iou -> Any -> Optional Burn
   _fromAnyChoiceIouBurn = error "code will be injected by the compiler"
 
 instance IouInstance where
