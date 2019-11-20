@@ -41,6 +41,13 @@ case object ClaimActAsAnyParty extends Claim
   */
 final case class ClaimActAsParty(name: Ref.Party) extends Claim
 
+/** Authorized to read all data for the given party.
+  *
+  * Does NOT authorize to modify the ledger in any way.
+  */
+final case class ClaimReadAsParty(name: Ref.Party) extends Claim
+
+
 /**
   * [[Claims]] define what actions an authenticated user can perform on the Ledger API.
   *
@@ -52,10 +59,10 @@ final case class ClaimActAsParty(name: Ref.Party) extends Claim
   * | Ledger API service                  | Method                     | Access with                              |
   * +-------------------------------------+----------------------------+------------------------------------------+
   * | LedgerIdentityService               | GetLedgerIdentity          | isPublic                                 |
-  * | ActiveContractsService              | GetActiveContracts         | for each requested party p: canActAs(p)  |
+  * | ActiveContractsService              | GetActiveContracts         | for each requested party p: canReadAs(p) |
   * | CommandSubmissionService            | Submit                     | for submitting party p: canActAs(p)      |
   * | CommandCompletionService            | CompletionEnd              | isPublic                                 |
-  * | CommandCompletionService            | CompletionStream           | for each requested party p: canActAs(p)  |
+  * | CommandCompletionService            | CompletionStream           | for each requested party p: canReadAs(p) |
   * | CommandService                      | *                          | for submitting party p: canActAs(p)      |
   * | LedgerConfigurationService          | GetLedgerConfiguration     | isPublic                                 |
   * | PackageService                      | *                          | isPublic                                 |
@@ -64,7 +71,7 @@ final case class ClaimActAsParty(name: Ref.Party) extends Claim
   * | ResetService                        | *                          | isAdmin                                  |
   * | TimeService                         | *                          | isAdmin                                  |
   * | TransactionService                  | LedgerEnd                  | isPublic                                 |
-  * | TransactionService                  | *                          | for each requested party p: canActAs(p)  |
+  * | TransactionService                  | *                          | for each requested party p: canReadAs(p) |
   * +-------------------------------------+----------------------------+------------------------------------------+
   */
 final case class Claims(claims: Seq[Claim], expiration: Option[Instant] = None) {
@@ -86,6 +93,16 @@ final case class Claims(claims: Seq[Claim], expiration: Option[Instant] = None) 
     claims.exists {
       case ClaimActAsAnyParty => true
       case ClaimActAsParty(p) if p == party => true
+      case _ => false
+    }
+  }
+
+  /** Returns true if the set of claims authorizes the user to read data for the given party, unless the claims expired */
+  def canReadAs(party: String): Boolean = {
+    claims.exists {
+      case ClaimActAsAnyParty => true
+      case ClaimActAsParty(p) if p == party => true
+      case ClaimReadAsParty(p) if p == party => true
       case _ => false
     }
   }

@@ -25,38 +25,38 @@ final class TransactionServiceAuthorization(
   override def getTransactions(
       request: transaction_service.GetTransactionsRequest,
       responseObserver: StreamObserver[GetTransactionsResponse]): Unit =
-    authorizer.requireClaimsForTransactionFilterOnStream(request.filter, service.getTransactions)(
+    authorizer.requireReadClaimsForTransactionFilterOnStream(request.filter, service.getTransactions)(
       request,
       responseObserver)
 
   override def getTransactionTrees(
       request: transaction_service.GetTransactionsRequest,
       responseObserver: StreamObserver[GetTransactionTreesResponse]): Unit =
-    authorizer.requireClaimsForTransactionFilterOnStream(
+    authorizer.requireReadClaimsForTransactionFilterOnStream(
       request.filter,
       service.getTransactionTrees)(request, responseObserver)
 
   override def getTransactionByEventId(
       request: transaction_service.GetTransactionByEventIdRequest): Future[GetTransactionResponse] =
-    authorizer.requireClaimsForAllParties(
+    authorizer.requireReadClaimsForAllParties(
       request.requestingParties,
       service.getTransactionByEventId)(request)
 
   override def getTransactionById(
       request: transaction_service.GetTransactionByIdRequest): Future[GetTransactionResponse] =
-    authorizer.requireClaimsForAllParties(request.requestingParties, service.getTransactionById)(
+    authorizer.requireReadClaimsForAllParties(request.requestingParties, service.getTransactionById)(
       request)
 
   override def getFlatTransactionByEventId(
       request: transaction_service.GetTransactionByEventIdRequest)
     : Future[GetFlatTransactionResponse] =
-    authorizer.requireClaimsForAllParties(
+    authorizer.requireReadClaimsForAllParties(
       request.requestingParties,
       service.getFlatTransactionByEventId)(request)
 
   override def getFlatTransactionById(
       request: transaction_service.GetTransactionByIdRequest): Future[GetFlatTransactionResponse] =
-    authorizer.requireClaimsForAllParties(
+    authorizer.requireReadClaimsForAllParties(
       request.requestingParties,
       service.getFlatTransactionById)(request)
 

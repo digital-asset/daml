@@ -22,7 +22,7 @@ final class CommandSubmissionServiceAuthorization(
     with GrpcApiService {
 
   override def submit(request: SubmitRequest): Future[Empty] =
-    authorizer.requireClaimsForParty(request.commands.map(_.party), service.submit)(request)
+    authorizer.requireActClaimsForParty(request.commands.map(_.party), service.submit)(request)
 
   override def bindService(): ServerServiceDefinition =
     CommandSubmissionServiceGrpc.bindService(this, DirectExecutionContext)
