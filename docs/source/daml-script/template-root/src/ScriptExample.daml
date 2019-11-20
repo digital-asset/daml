@@ -77,12 +77,12 @@ test = do
 
 -- TEST_QUERIES_BEGIN
   proposals <- query @CoinProposal bank
-  assertEq [CoinProposal (Coin bank bank)] proposals
+  assertEq [CoinProposal (Coin bank bank)] (map snd proposals)
 
   aliceCoins <- query @Coin alice
-  assertEq [Coin bank alice] aliceCoins
+  assertEq [Coin bank alice] (map snd aliceCoins)
 
   bobCoins <- query @Coin bob
-  assertEq [Coin bank bob] bobCoins
+  assertEq [Coin bank bob] (map snd bobCoins)
 -- TEST_QUERIES_END
 

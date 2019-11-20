@@ -66,7 +66,7 @@ test0 = do
   ts <- query @T alice
   tProposals <- query @TProposal alice
   cs <- query @C alice
-  pure (alice, bob, ts, tProposals, cs)
+  pure (alice, bob, map snd ts, map snd tProposals, map snd cs)
 
 test1 : Script (Numeric 11)
 test1 = do
@@ -74,7 +74,7 @@ test1 = do
   cid <- submit alice $ createCmd (NumericTpl alice 1.06)
   ts <- query @NumericTpl alice
   let v = case ts of
-        [NumericTpl _ v] -> v
+        [(_cid, NumericTpl _ v)] -> v
         _ -> error $ "Expected exactly one NumericTpl but got " <> show ts
   v' <- submit alice $ exerciseCmd cid GetV
   pure (v + v')
@@ -88,3 +88,10 @@ test3 = do
   cid <- submit alice $ createCmd (C alice 42)
   submitMustFail alice $ exerciseCmd cid ShouldFail
   pure ()
+
+test4 : Script (ContractId C, ContractId C)
+test4 = do
+  alice <- allocateParty "alice"
+  cid <- submit alice $ createCmd (C alice 42)
+  [(cid', _)] <- query @C alice
+  pure (cid, cid')

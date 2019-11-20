@@ -57,12 +57,11 @@ data ScriptF a
 data QueryACS a = QueryACS
   { party : Party
   , tplId : TemplateTypeRep
-  , continue : [AnyTemplate] -> a
+  , continue : [(ContractId (), AnyTemplate)] -> a
   } deriving Functor
 
--- TODO This should also return contract ids.
-query : forall t. Template t => Party -> Script [t]
-query p = Script $ Free $ Query (QueryACS p (templateTypeRep @t) (pure . map (fromSome . fromAnyTemplate)))
+query : forall t. Template t => Party -> Script [(ContractId t, t)]
+query p = Script $ Free $ Query (QueryACS p (templateTypeRep @t) (pure . map (\(cid, tpl) -> (coerceContractId cid, fromSome $ fromAnyTemplate tpl))))
 
 data AllocateParty a = AllocateParty
   { displayName : Text
