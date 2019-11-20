@@ -270,6 +270,7 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
           AuthorizationInterceptor(authService, ec),
           resetService(ledgerId, authorizer, loggerFactory)
         ),
+        mm
       ),
       asyncTolerance
     )

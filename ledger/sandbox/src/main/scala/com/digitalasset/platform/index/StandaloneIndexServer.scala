@@ -176,7 +176,8 @@ class StandaloneIndexServer(
         None,
         loggerFactory,
         config.tlsConfig.flatMap(_.server),
-        List(AuthorizationInterceptor(authService, ec))
+        List(AuthorizationInterceptor(authService, ec)),
+        mm
       )
       apiServerState = ApiServerState(
         domain.LedgerId(cond.ledgerId),
