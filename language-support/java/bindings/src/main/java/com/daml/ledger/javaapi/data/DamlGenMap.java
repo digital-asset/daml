@@ -11,7 +11,7 @@ import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collector;
 
-final public class DamlGenMap extends Value {
+public final class DamlGenMap extends Value {
 
     private static DamlGenMap EMPTY = new DamlGenMap(Collections.EMPTY_MAP);
 
@@ -28,10 +28,7 @@ final public class DamlGenMap extends Value {
         return Collector.of(
                 LinkedHashMap::new,
                 (acc, entry) -> acc.put(keyMapper.apply(entry), valueMapper.apply(entry)),
-                (left, right) -> {
-                    left.putAll(right);
-                    return left;
-                },
+                (left, right) -> { left.putAll(right); return left; },
                 DamlGenMap::new
         );
     }

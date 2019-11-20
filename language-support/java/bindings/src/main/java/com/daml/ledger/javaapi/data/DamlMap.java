@@ -11,7 +11,7 @@ import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collector;
 
-public class DamlMap extends Value {
+public final class DamlMap extends Value {
 
     private static DamlMap EMPTY = new DamlMap(Collections.emptyMap());
 
@@ -28,10 +28,7 @@ public class DamlMap extends Value {
         return Collector.of(
                 HashMap::new,
                 (acc, entry) -> acc.put(keyMapper.apply(entry), valueMapper.apply(entry)),
-                (left, right) -> {
-                    left.putAll(right);
-                    return left;
-                },
+                (left, right) -> { left.putAll(right); return left; },
                 DamlMap::new
         );
     }

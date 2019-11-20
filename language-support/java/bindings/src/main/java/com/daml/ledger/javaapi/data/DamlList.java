@@ -6,7 +6,6 @@ package com.daml.ledger.javaapi.data;
 import com.digitalasset.ledger.api.v1.ValueOuterClass;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
-import java.lang.reflect.Array;
 import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collector;
@@ -36,10 +35,7 @@ public final class DamlList extends Value {
         return Collector.of(
                 ArrayList::new,
                 (acc, entry) -> acc.add(valueMapper.apply(entry)),
-                (left, right) -> {
-                    left.addAll(right);
-                    return left;
-                },
+                (left, right) -> { left.addAll(right); return left; },
                 DamlList::new
         );
     }
