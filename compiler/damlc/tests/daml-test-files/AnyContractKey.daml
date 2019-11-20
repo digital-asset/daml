@@ -15,6 +15,15 @@ template T1
     key p : Party
     maintainer key
 
+template T1'
+  with
+    x : Int
+    p : Party
+  where
+    signatory p
+    key p : Party
+    maintainer key
+
 template T2
   with
     y : Text
@@ -40,6 +49,8 @@ main = scenario do
   p <- getParty "alice"
   fromAnyContractKey @T1 (toAnyContractKey @T1 p) === Some p
   fromAnyContractKey @T2 (toAnyContractKey @T2 (p, "foobar")) === Some (p, "foobar")
+
+  fromAnyContractKey @T1' (toAnyContractKey @T1 p) === None
 
   fromAnyContractKey @T2 (toAnyContractKey @T1 p) === None
   fromAnyContractKey @T1 (toAnyContractKey @T2 (p, "foobar")) === None
