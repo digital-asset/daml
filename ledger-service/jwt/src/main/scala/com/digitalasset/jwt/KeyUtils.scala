@@ -22,7 +22,7 @@ object KeyUtils {
 
   object Error {
     implicit val showInstance: Show[Error] =
-      Show.shows(e => s"PemUtils.Error: ${e.what}, ${e.message}")
+      Show.shows(e => s"KeyUtils.Error: ${e.what}, ${e.message}")
   }
 
   private val mimeCharSet = StandardCharsets.ISO_8859_1
