@@ -92,7 +92,4 @@ object RSA256Verifier extends StrictLogging {
       verfier <- RSA256Verifier.apply(rsaKey)
     } yield verfier
   }
-
-  /** Create a RSA256 validator with the key loaded from the given JWK server */
-  def fromJwk(url: String): Error \/ JwtVerifier = ???
 }
