@@ -43,7 +43,7 @@ final case class ClaimActAsParty(name: Ref.Party) extends Claim
 
 /** Authorized to read all data for the given party.
   *
-  * Does NOT authorize to modify the ledger in any way.
+  * Does NOT authorize to issue commands.
   */
 final case class ClaimReadAsParty(name: Ref.Party) extends Claim
 
