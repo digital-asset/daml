@@ -58,14 +58,20 @@ stakeholder t = signatory t ++ observer t
 class Template t => Choice t c r | t c -> r where
   -- | Exercise a choice on the contract with the given contract ID.
   exercise : ContractId t -> c -> Update r
-  _toAnyChoice : proxy t -> c -> AnyChoice
-  _fromAnyChoice : proxy t -> AnyChoice -> Optional c
+  _toAnyChoice : proxy t -> c -> Any
+  _fromAnyChoice : proxy t -> Any -> Optional c
 
 toAnyChoice : forall t c r. Choice t c r => c -> AnyChoice
-toAnyChoice = _toAnyChoice ([] : [t])
+toAnyChoice c =
+  AnyChoice
+    (_toAnyChoice ([] : [t]) c)
+    (templateTypeRep @t)
 
 fromAnyChoice : forall t c r. Choice t c r => AnyChoice -> Optional c
-fromAnyChoice = _fromAnyChoice ([] : [t])
+fromAnyChoice (AnyChoice any typeRep)
+  | Some c <- _fromAnyChoice ([] : [t]) any
+  , templateTypeRep @t == typeRep = Some c
+  | otherwise = None
 
 class Template t => TemplateKey t k | t -> k where
   -- | The key of a contract.
@@ -101,14 +107,20 @@ class Template t => TemplateKey t k | t -> k where
   -- | The list of maintainers of a contract key.
   maintainer : k -> [Party]
 
-  _toAnyContractKey : proxy t -> k -> AnyContractKey
-  _fromAnyContractKey : proxy t -> AnyContractKey -> Optional k
+  _toAnyContractKey : proxy t -> k -> Any
+  _fromAnyContractKey : proxy t -> Any -> Optional k
 
 toAnyContractKey : forall t k. TemplateKey t k => k -> AnyContractKey
-toAnyContractKey = _toAnyContractKey ([] : [t])
+toAnyContractKey k =
+  AnyContractKey
+    (_toAnyContractKey ([] : [t]) k)
+    (templateTypeRep @t)
 
 fromAnyContractKey : forall t k. TemplateKey t k => AnyContractKey -> Optional k
-fromAnyContractKey = _fromAnyContractKey ([] : [t])
+fromAnyContractKey (AnyContractKey any rep)
+  | Some k <- _fromAnyContractKey ([] : [t]) any
+  , templateTypeRep @t == rep = Some k
+  | otherwise = None
 
 -- | Exercise a choice on the contract associated with the given key.
 --

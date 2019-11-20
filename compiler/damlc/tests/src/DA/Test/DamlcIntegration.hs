@@ -120,6 +120,7 @@ getIntegrationTests registerTODO scenarioService version = do
     -- only run Test.daml (see https://github.com/digital-asset/daml/issues/726)
     bondTradingLocation <- locateRunfiles $ mainWorkspace </> "compiler/damlc/tests/bond-trading"
     let allTestFiles = damlTestFiles ++ [("bond-trading/Test.daml", bondTradingLocation </> "Test.daml")]
+    let (generatedFiles, nongeneratedFiles) = partition (\(f, _) -> takeFileName f == "ProposalDesugared.daml") allTestFiles
 
     let outdir = "compiler/damlc/output"
     createDirectoryIfMissing True outdir
@@ -134,12 +135,17 @@ getIntegrationTests registerTODO scenarioService version = do
     -- initialise the compiler service
     vfs <- makeVFSHandle
     damlEnv <- mkDamlEnv opts (Just scenarioService)
+    -- We use a separate service for generated files so that we can test files containing internal imports.
     pure $
-      withResource
-      (initialise (mainRule opts) (pure $ LSP.IdInt 0) (const $ pure ()) IdeLogger.noLogging damlEnv (toCompileOpts opts (IdeReportProgress False)) vfs)
-      shutdown $ \service ->
-      withTestArguments $ \args -> testGroup ("Tests for DAML-LF " ++ renderPretty version) $
-        map (testCase args version service outdir registerTODO) allTestFiles
+          withResource
+          (initialise (mainRule opts) (pure $ LSP.IdInt 0) (const $ pure ()) IdeLogger.noLogging damlEnv (toCompileOpts opts (IdeReportProgress False)) vfs)
+          shutdown $ \service ->
+          withResource
+          (initialise (mainRule opts) (pure $ LSP.IdInt 0) (const $ pure ()) IdeLogger.noLogging damlEnv (toCompileOpts opts { optIsGenerated = True } (IdeReportProgress False)) vfs)
+          shutdown $ \serviceGenerated ->
+          withTestArguments $ \args -> testGroup ("Tests for DAML-LF " ++ renderPretty version) $
+            map (testCase args version service outdir registerTODO) nongeneratedFiles <>
+            map (testCase args version serviceGenerated outdir registerTODO) generatedFiles
 
 newtype TestCase = TestCase ((String -> IO ()) -> IO Result)
 

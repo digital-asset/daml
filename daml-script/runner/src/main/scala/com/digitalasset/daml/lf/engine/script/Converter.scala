@@ -83,7 +83,7 @@ object Converter {
 
   def toAnyChoice(v: SValue): Either[String, AnyChoice] = {
     v match {
-      case SRecord(_, _, vals) if vals.size == 1 => {
+      case SRecord(_, _, vals) if vals.size == 2 => {
         vals.get(0) match {
           case SAny(_, choiceVal @ SRecord(_, _, _)) =>
             Right(AnyChoice(choiceVal.id.qualifiedName.name.toString, choiceVal))

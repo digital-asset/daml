@@ -58,3 +58,5 @@ main = scenario do
   fromAnyChoice @GT2 @(CT T2) (toAnyChoice @GT1 ct1) === None
   fromAnyChoice @GT2 @(CT T2) (toAnyChoice @GT2 ct2) === Some ct2
   fromAnyChoice @GT1 @(CT T1) (toAnyChoice @GT2 ct2) === None
+  fromAnyChoice @T1 @Archive (toAnyChoice @T2 Archive) === None
+  fromAnyChoice @T2 @Archive (toAnyChoice @T2 Archive) === Some Archive
