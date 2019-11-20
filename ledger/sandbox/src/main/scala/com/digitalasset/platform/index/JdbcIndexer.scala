@@ -275,7 +275,8 @@ class JdbcIndexer private[index] (
       //TODO BH: probably want to do this as atomic commit
 
       case PackageUploadEntryAccepted(participantId, submissionId) =>
-        ledgerDao.storePackageUploadEntry(headRef, headRef + 1, participantId, submissionId, None)
+        ledgerDao
+          .storePackageUploadEntry(headRef, headRef + 1, participantId, submissionId, None)
           .map(_ => headRef = headRef + 1)(DEC)
 
       //TODO BH: consider generalization of persistence storage JM has done on configuration branch

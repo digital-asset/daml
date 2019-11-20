@@ -9,7 +9,11 @@ import java.util.zip.ZipInputStream
 import akka.actor.Scheduler
 import akka.stream.ActorMaterializer
 import com.daml.ledger.participant.state.index.v2.IndexPackagesService
-import com.daml.ledger.participant.state.v1.{SubmissionResult, UploadPackagesResult, WritePackagesService}
+import com.daml.ledger.participant.state.v1.{
+  SubmissionResult,
+  UploadPackagesResult,
+  WritePackagesService
+}
 import com.digitalasset.daml.lf.archive.DarReader
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
 import com.digitalasset.ledger.api.v1.admin.package_management_service.PackageManagementServiceGrpc.PackageManagementService
@@ -87,19 +91,20 @@ class ApiPackageManagementService(
     )
   }
 
-  private def prepareUploadPackageResult(result: UploadPackagesResult): Future[UploadDarFileResponse] = {
+  private def prepareUploadPackageResult(
+      result: UploadPackagesResult): Future[UploadDarFileResponse] = {
     result match {
       case UploadPackagesResult.Ok =>
         Future.successful(UploadDarFileResponse())
-      case r@UploadPackagesResult.Overloaded =>
+      case r @ UploadPackagesResult.Overloaded =>
         Future.failed(ErrorFactories.resourceExhausted(r.description))
-      case r@UploadPackagesResult.InternalError(_) =>
+      case r @ UploadPackagesResult.InternalError(_) =>
         Future.failed(ErrorFactories.internal(r.reason))
-      case r@UploadPackagesResult.InvalidPackage(_) =>
+      case r @ UploadPackagesResult.InvalidPackage(_) =>
         Future.failed(ErrorFactories.invalidArgument(r.description))
-      case r@UploadPackagesResult.ParticipantNotAuthorized =>
+      case r @ UploadPackagesResult.ParticipantNotAuthorized =>
         Future.failed(ErrorFactories.permissionDenied(r.description))
-      case r@UploadPackagesResult.NotSupported =>
+      case r @ UploadPackagesResult.NotSupported =>
         Future.failed(ErrorFactories.unimplemented(r.description))
     }
   }
