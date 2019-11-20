@@ -22,6 +22,8 @@ import com.digitalasset.ledger.test_stable.Test.DummyFactory._
 import com.digitalasset.ledger.test_stable.Test.ParameterShowcase._
 import com.digitalasset.ledger.test_stable.Test.TriProposal._
 import com.digitalasset.ledger.test_stable.Test._
+import TransactionService.{comparableTransactions, comparableTransactionTrees}
+
 import io.grpc.Status
 import scalaz.Tag
 
@@ -861,18 +863,10 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
         alphaView <- alpha.flatTransactions(alice, bob)
         betaView <- beta.flatTransactions(alice, bob)
       } yield {
-        // Strip command id to yield a transaction comparable across participant
-        def stripCommandId(transactions: Seq[Transaction]): Seq[Transaction] =
-          transactions.map(_.copy(commandId = ""))
-
         assertEquals(
           "Single- and multi-party subscription yield different results",
-          stripCommandId(betaView),
-          stripCommandId(alphaView))
-        assertEquals(
-          "Single- and multi-party subscription yield different results",
-          stripCommandId(alphaView),
-          stripCommandId(betaView))
+          comparableTransactions(alphaView),
+          comparableTransactions(betaView))
       }
   }
 
@@ -889,18 +883,10 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
         alphaView <- alpha.transactionTrees(alice, bob)
         betaView <- beta.transactionTrees(alice, bob)
       } yield {
-        // Strip command id to yield a transaction comparable across participant
-        def stripCommandId(transactionTrees: Seq[TransactionTree]): Seq[TransactionTree] =
-          transactionTrees.map(_.copy(commandId = ""))
-
         assertEquals(
           "Single- and multi-party subscription yield different results",
-          stripCommandId(betaView),
-          stripCommandId(alphaView))
-        assertEquals(
-          "Single- and multi-party subscription yield different results",
-          stripCommandId(alphaView),
-          stripCommandId(betaView))
+          comparableTransactionTrees(alphaView),
+          comparableTransactionTrees(betaView))
       }
   }
 
@@ -1104,9 +1090,10 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
           trees.map(t => beta.transactionTreeById(t.transactionId, listener, submitter)))
       } yield {
         assertEquals(
-          "The events fetched by identifier did not match with the ones on the transaction stream",
-          trees,
-          byId)
+          "The events fetched by identifier did not match the ones on the transaction stream",
+          comparableTransactionTrees(trees),
+          comparableTransactionTrees(byId)
+        )
       }
   }
 
@@ -1124,13 +1111,12 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
   test(
     "TXInvisibleFlatTransactionById",
     "Do not expose an invisible flat transaction by identifier",
-    allocate(SingleParty, SingleParty)) {
-    case Participants(Participant(alpha, party), Participant(beta, intruder)) =>
+    allocate(TwoParties)) {
+    case Participants(Participant(ledger, party, intruder)) =>
       for {
-        dummy <- alpha.create(party, Dummy(party))
-        tree <- alpha.exercise(party, dummy.exerciseDummyChoice1)
-        _ <- synchronize(alpha, beta)
-        failure <- beta.flatTransactionById(tree.transactionId, intruder).failed
+        dummy <- ledger.create(party, Dummy(party))
+        tree <- ledger.exercise(party, dummy.exerciseDummyChoice1)
+        failure <- ledger.flatTransactionById(tree.transactionId, intruder).failed
       } yield {
         assertGrpcError(failure, Status.Code.NOT_FOUND, "Transaction not found, or not visible.")
       }
@@ -1175,9 +1161,9 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
           transactions.map(t => beta.flatTransactionById(t.transactionId, listener, submitter)))
       } yield {
         assertEquals(
-          "The events fetched by identifier did not match with the ones on the transaction stream",
-          transactions,
-          byId)
+          "The events fetched by identifier did not match the ones on the transaction stream",
+          comparableTransactions(transactions),
+          comparableTransactions(byId))
       }
   }
 
@@ -1266,13 +1252,12 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
   test(
     "TXInvisibleFlatTransactionByEventId",
     "Do not expose an invisible flat transaction by event identifier",
-    allocate(SingleParty, SingleParty)) {
-    case Participants(Participant(alpha, party), Participant(beta, intruder)) =>
+    allocate(TwoParties)) {
+    case Participants(Participant(ledger, party, intruder)) =>
       for {
-        dummy <- alpha.create(party, Dummy(party))
-        tree <- alpha.exercise(party, dummy.exerciseDummyChoice1)
-        _ <- synchronize(alpha, beta)
-        failure <- beta.flatTransactionByEventId(tree.rootEventIds.head, intruder).failed
+        dummy <- ledger.create(party, Dummy(party))
+        tree <- ledger.exercise(party, dummy.exerciseDummyChoice1)
+        failure <- ledger.flatTransactionByEventId(tree.rootEventIds.head, intruder).failed
       } yield {
         assertGrpcError(failure, Status.Code.NOT_FOUND, "Transaction not found, or not visible.")
       }
@@ -1459,4 +1444,16 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
         }
       }
   }
+}
+
+object TransactionService {
+
+  // Strip command id and offset to yield a transaction comparable across participant
+  private def comparableTransactions(transactions: Vector[Transaction]): Vector[Transaction] =
+    transactions.map(_.copy(commandId = "commandId", offset = "offset"))
+
+  private def comparableTransactionTrees(
+      transactionTrees: Vector[TransactionTree]): Vector[TransactionTree] =
+    transactionTrees.map(_.copy(commandId = "commandId", offset = "offset"))
+
 }
