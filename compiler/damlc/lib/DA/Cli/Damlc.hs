@@ -24,6 +24,7 @@ import DA.Cli.Damlc.IdeState
 import DA.Cli.Damlc.Packaging
 import DA.Cli.Damlc.Test
 import DA.Daml.Compiler.Dar
+import DA.Daml.Compiler.DataDependencies
 import DA.Daml.Compiler.DocTest
 import DA.Daml.Compiler.Scenario
 import DA.Daml.Compiler.Upgrade

@@ -39,7 +39,7 @@ import DA.Bazel.Runfiles
 import DA.Cli.Damlc.Base
 import DA.Cli.Damlc.IdeState
 import DA.Daml.Compiler.Dar
-import DA.Daml.Compiler.Upgrade
+import DA.Daml.Compiler.DataDependencies
 import qualified DA.Daml.LF.Ast as LF
 import DA.Daml.LF.Ast.Optics (packageRefs)
 import qualified DA.Daml.LF.Proto3.Archive as Archive
