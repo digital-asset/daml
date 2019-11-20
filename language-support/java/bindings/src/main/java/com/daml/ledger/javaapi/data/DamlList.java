@@ -7,8 +7,6 @@ import com.digitalasset.ledger.api.v1.ValueOuterClass;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
 import java.util.*;
-import java.util.function.Function;
-import java.util.stream.Collector;
 
 public final class DamlList extends Value {
 
@@ -16,7 +14,10 @@ public final class DamlList extends Value {
 
     private DamlList(){ }
 
-    private static DamlList fromPrivateList(@NonNull List<@NonNull Value> values){
+    /**
+     * The list that is passed to this constructor must not be change once passed.
+     */
+    protected static DamlList fromPrivateList(@NonNull List<@NonNull Value> values){
         DamlList damlList = new DamlList();
         damlList.values =  Collections.unmodifiableList(values);
         return damlList;
@@ -48,15 +49,6 @@ public final class DamlList extends Value {
         return values;
     }
 
-    public static <T> Collector<T, ArrayList<Value>, DamlList> collector(Function<T, Value> valueMapper) {
-        return Collector.of(
-                ArrayList::new,
-                (acc, entry) -> acc.add(valueMapper.apply(entry)),
-                (left, right) -> { left.addAll(right); return left; },
-                DamlList::fromPrivateList
-        );
-    }
-
     @Override
     public ValueOuterClass.Value toProto() {
         ValueOuterClass.List.Builder builder = ValueOuterClass.List.newBuilder();
@@ -67,7 +59,7 @@ public final class DamlList extends Value {
     }
 
     public static @NonNull DamlList fromProto(ValueOuterClass.List list) {
-        return list.getElementsList().stream().collect(collector(Value::fromProto));
+        return list.getElementsList().stream().collect(DamlCollectors.toDamlList(Value::fromProto));
     }
 
     @Override

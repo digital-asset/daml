@@ -519,10 +519,10 @@ Non-exposed parameterized types
 
 If the parameterized type is contained in a type where the *actual* type is specified (as in the ``BookAttributes`` type above), then the conversion methods of the enclosing type provides the required conversion function parameters automatically.
 
-Convert List and Optional values
-""""""""""""""""""""""""""""""""
+Convert Container values
+""""""""""""""""""""""""
 
-The conversion of the Java ``List`` and ``Optional`` types requires multiple steps to first convert the list elements or the value inside the optional creating the `DamlList`_ or `DamlOptional`_ value.
+The conversion of the Java types Container types such as ``Optional``, ``List`` or ``Map`` requires multiple steps to first convert the container elements creating the Daml conatiner value.
 
 .. code-block:: java
 
@@ -530,7 +530,7 @@ The conversion of the Java ``List`` and ``Optional`` types requires multiple ste
 
   Value serializedAuthors = authorsAttribute.toValue(f -> DamlList.of(f.stream().map(Text::new).collect(Collectors.<Value>toList())));
 
-The conversion of the Java ``List`` and ``Optional`` types similarly require that the Java Bindings types `DamlList`_ and `DamlOptional`_ are converted to it's Java equivalent and then all the contained elements are converted to Java types.
+The conversion of the Daml containers types such `DamlOptional`_, `DamlList`_, `DamlMap`_ similarly requires that the type is converted to it's Java equivalent and then all the contained elements are converted to Java types.
 
 .. code-block:: java
 
@@ -541,15 +541,16 @@ The conversion of the Java ``List`` and ``Optional`` types similarly require tha
 
 
 .. _Value: /app-dev/bindings-java/javadocs/com/daml/ledger/javaapi/Value.html
+.. _Unit: /app-dev/bindings-java/javadocs/com/daml/ledger/javaapi/data/Unit.html
+.. _Bool: /app-dev/bindings-java/javadocs/com/daml/ledger/javaapi/data/Bool.html
 .. _Int64: /app-dev/bindings-java/javadocs/com/daml/ledger/javaapi/data/Int64.html
 .. _Decimal: /app-dev/bindings-java/javadocs/com/daml/ledger/javaapi/data/Decimal.html
-.. _Text: /app-dev/bindings-java/javadocs/com/daml/ledger/javaapi/data/Text.html
-.. _Bool: /app-dev/bindings-java/javadocs/com/daml/ledger/javaapi/data/Bool.html
-.. _Party: /app-dev/bindings-java/javadocs/com/daml/ledger/javaapi/data/Party.html
 .. _Date: /app-dev/bindings-java/javadocs/com/daml/ledger/javaapi/data/Date.html
 .. _Timestamp: /app-dev/bindings-java/javadocs/com/daml/ledger/javaapi/data/Timestamp.html
+.. _Text: /app-dev/bindings-java/javadocs/com/daml/ledger/javaapi/data/Text.html
+.. _Party: /app-dev/bindings-java/javadocs/com/daml/ledger/javaapi/data/Party.html
+.. _ContractId: /app-dev/bindings-java/javadocs/com/daml/ledger/javaapi/data/ContractId.html
+.. _DamlOptional: /app-dev/bindings-java/javadocs/com/daml/ledger/javaapi/data/DamlOptional.html
 .. _DamlList: /app-dev/bindings-java/javadocs/com/daml/ledger/javaapi/data/DamlList.html
 .. _DamlMap: /app-dev/bindings-java/javadocs/com/daml/ledger/javaapi/data/DamLMap.html
-.. _DamlOptional: /app-dev/bindings-java/javadocs/com/daml/ledger/javaapi/data/DamlOptional.html
-.. _Unit: /app-dev/bindings-java/javadocs/com/daml/ledger/javaapi/data/Unit.html
-.. _ContractId: /app-dev/bindings-java/javadocs/com/daml/ledger/javaapi/data/ContractId.html
+.. _DamlCollectors: /app-dev/bindings-java/javadocs/com/daml/ledger/javaapi/data/DamLCollectors.html

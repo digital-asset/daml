@@ -55,7 +55,7 @@ public class RecordTest {
         Timestamp timestamp = new Timestamp(timestampMicrosValue);
         DamlList list = DamlList.of(Unit.getInstance(), Unit.getInstance());
         DamlList nestedList =
-                nestedListValue.stream().collect(DamlList.collector(ns -> ns.stream().collect(DamlList.collector(Int64::new))));
+                nestedListValue.stream().collect(DamlCollectors.toDamlList(ns -> ns.stream().collect(DamlCollectors.toDamlList(Int64::new))));
         Record nestedRecord = new Record(new Record.Field("value", new Int64(42)));
         Variant nestedVariant = new Variant("Nested", new Int64(42));
         ArrayList<Record.Field> fieldsList = new ArrayList<>(10);

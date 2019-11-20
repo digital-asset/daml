@@ -7,8 +7,6 @@ import com.digitalasset.ledger.api.v1.ValueOuterClass;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
 import java.util.*;
-import java.util.function.Function;
-import java.util.stream.Collector;
 
 public final class DamlMap extends Value {
 
@@ -16,7 +14,7 @@ public final class DamlMap extends Value {
 
     private DamlMap(){ }
 
-    private static DamlMap fromPrivateMap(Map<@NonNull String, @NonNull Value> value){
+    protected static DamlMap fromPrivateMap(Map<@NonNull String, @NonNull Value> value){
         DamlMap damlMap = new DamlMap();
         damlMap.value = Collections.unmodifiableMap(value);
         return damlMap;
@@ -31,18 +29,6 @@ public final class DamlMap extends Value {
     @Deprecated // use DamlMap:of
     public DamlMap(Map<String, Value> value) {
         this.value = Collections.unmodifiableMap(new HashMap<>(value));
-    }
-
-    public static <T> Collector<T, Map<String, Value>, DamlMap> collector(
-            Function<T, String> keyMapper,
-            Function<T, Value> valueMapper) {
-
-        return Collector.of(
-                HashMap::new,
-                (acc, entry) -> acc.put(keyMapper.apply(entry), valueMapper.apply(entry)),
-                (left, right) -> { left.putAll(right); return left; },
-                DamlMap::fromPrivateMap
-        );
     }
 
     public @NonNull Map<@NonNull String, @NonNull Value> getMap() { return value; }
@@ -81,7 +67,7 @@ public final class DamlMap extends Value {
     }
 
     public static @NonNull DamlMap fromProto(ValueOuterClass.Map map) {
-        return map.getEntriesList().stream().collect(collector(
+        return map.getEntriesList().stream().collect(DamlCollectors.toDamlMap(
                 ValueOuterClass.Map.Entry::getKey,
                 entry -> fromProto(entry.getValue())
         ));

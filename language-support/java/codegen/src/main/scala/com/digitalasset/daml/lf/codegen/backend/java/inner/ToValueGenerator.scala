@@ -94,9 +94,9 @@ object ToValueGenerator {
           generateToValueConverter(param, CodeBlock.of("$L", arg), args, packagePrefixes)
         )
         CodeBlock.of(
-          "$L.stream().collect($T.collector($L))",
+          "$L.stream().collect($T.toDamlList($L))",
           accessor,
-          apiList,
+          apiCollectors,
           extractor,
         )
 
@@ -122,9 +122,9 @@ object ToValueGenerator {
           generateToValueConverter(param, CodeBlock.of("$L.getValue()", arg), args, packagePrefixes)
         )
         CodeBlock.of(
-          "$L.entrySet().stream().collect($T.collector($T::getKey, $L)) ",
+          "$L.entrySet().stream().collect($T.toDamlMap($T::getKey, $L)) ",
           accessor,
-          apiMap,
+          apiCollectors,
           classOf[java.util.Map.Entry[_, _]],
           extractor
         )
@@ -146,9 +146,9 @@ object ToValueGenerator {
             packagePrefixes)
         )
         CodeBlock.of(
-          "$L.entrySet().stream().collect($T.collector($L, $L))",
+          "$L.entrySet().stream().collect($T.toDamlGenMap($L, $L))",
           accessor,
-          apiGenMap,
+          apiCollectors,
           keyExtractor,
           valueExtractor
         )
