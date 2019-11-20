@@ -37,12 +37,11 @@ import scalaz.syntax.show._
 import scalaz.syntax.tag._
 import scalaz.syntax.functor._
 import scalaz.syntax.std.option._
-import scalaz.{-\/, Applicative, Monoid, Traverse, \/, \/-}
+import scalaz.{-\/, \/, \/-}
 import spray.json.JsValue
 import com.typesafe.scalalogging.StrictLogging
 import scalaz.Liskov.<~<
 
-import scala.language.higherKinds
 import scala.concurrent.{ExecutionContext, Future}
 
 private class ContractsFetch(
@@ -103,63 +102,6 @@ private class ContractsFetch(
       _ = logger.debug(s"contractsFromOffsetIo($jwt, $party, $templateId, $ob0): $offset1")
     } yield offset1
 
-  private def readOffsetFromDbOrFetchFromLedger(
-      jwt: Jwt,
-      party: domain.Party,
-      templateId: domain.TemplateId.RequiredPkg)(
-      implicit ec: ExecutionContext,
-      mat: Materializer): ConnectionIO[OffsetBookmark[domain.Offset]] =
-    for {
-      offsetO <- ContractDao.lastOffset(party, templateId): ConnectionIO[Option[domain.Offset]]
-      offset <- offsetO.cata(
-        x => connection.pure(AbsoluteBookmark(x)),
-        contractsToOffsetIo(jwt, party, templateId)
-      )
-    } yield offset
-
-  private def contractsToOffsetIo(
-      jwt: Jwt,
-      party: domain.Party,
-      templateId: domain.TemplateId.RequiredPkg
-  )(
-      implicit ec: ExecutionContext,
-      mat: Materializer): ConnectionIO[OffsetBookmark[domain.Offset]] = {
-
-    val graph = RunnableGraph.fromGraph(
-      GraphDSL.create(
-        Sink.queue[ConnectionIO[Unit]](),
-        Sink.last[OffsetBookmark[String]]
-      )((a, b) => (a, b)) { implicit builder => (acsSink, offsetSink) =>
-        import GraphDSL.Implicits._
-
-        val initialAcsSource =
-          getActiveContracts(jwt, transactionFilter(party, List(templateId)), true)
-        val acsAndOffset = builder add acsAndBoundary
-
-        acsAndOffset.in <~ initialAcsSource
-        acsAndOffset.out0 ~> jsonifyCreates ~> persistInitialActiveContracts ~> acsSink
-        acsAndOffset.out1 ~> offsetSink
-
-        ClosedShape
-      })
-
-    val (acsQueue, lastOffsetFuture) = graph.run()
-
-    for {
-      _ <- sinkCioSequence_(acsQueue)
-      ledgerOffset <- connectionIOFuture(lastOffsetFuture)
-      offsetOrError <- ledgerOffset match {
-        case AbsoluteBookmark(str) =>
-          val offset = domain.Offset(str)
-          ContractDao
-            .updateOffset(party, templateId, offset, None)
-            .map(_ => AbsoluteBookmark(offset))
-        case LedgerBegin =>
-          connection.pure(LedgerBegin)
-      }
-    } yield offsetOrError
-  }
-
   private def prepareCreatedEventStorage(
       ce: lav1.event.CreatedEvent): Exception \/ PreInsertContract =
     for {
@@ -174,13 +116,6 @@ private class ContractsFetch(
         witnessParties = ac.witnessParties)
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
-  private def jsonifyCreates
-    : Flow[Seq[lav1.event.CreatedEvent], Vector[PreInsertContract], NotUsed] = {
-    import scalaz.syntax.traverse._
-    Flow fromFunction (_.toVector traverse prepareCreatedEventStorage fold (e => throw e, identity))
-  }
-
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private def jsonifyInsertDeleteStep(
       a: InsertDeleteStep[lav1.event.CreatedEvent]): InsertDeleteStep[PreInsertContract] = {
     import scalaz.syntax.traverse._
@@ -189,13 +124,6 @@ private class ContractsFetch(
       a.deletes
     )
   }
-
-  private def persistInitialActiveContracts
-    : Flow[Vector[PreInsertContract], ConnectionIO[Unit], NotUsed] =
-    Flow[Vector[PreInsertContract]]
-      .map(planAcsBlockInserts)
-      .conflate(_ append _)
-      .map(insertAndDelete)
 
   private def contractsFromOffsetIo(
       jwt: Jwt,
@@ -260,13 +188,6 @@ private class ContractsFetch(
       }
     } yield offsetOrError
   }
-
-  private def offsetFromBookmark(o: OffsetBookmark[domain.Offset]): Option[domain.Offset] =
-    o match {
-      case LedgerBegin => None
-      case AbsoluteBookmark(x) => Some(x)
-    }
-
 }
 
 private object ContractsFetch {
@@ -317,11 +238,6 @@ private object ContractsFetch {
       new FanOutShape2(split.in, left.out, right.out)
     }
 
-  /** Plan inserts from an ACS response. */
-  private def planAcsBlockInserts(
-      gacrs: Traversable[PreInsertContract]): InsertDeleteStep[PreInsertContract] =
-    InsertDeleteStep(gacrs.toVector, Set.empty)
-
   /** Plan inserts, deletes from an in-order batch of create/archive events. */
   private def partitionInsertsDeletes(
       txes: Traversable[lav1.event.Event]): InsertDeleteStep[lav1.event.CreatedEvent] = {
@@ -360,6 +276,10 @@ private object ContractsFetch {
       new FanOutShape2(acs.in, allSteps.out, txns.out1)
     }
 
+  /** Interpreting the transaction stream so it conveniently depends on
+    * the ACS graph, if desired.  Deliberately matching output shape
+    * to `acsFollowingAndBoundary`.
+    */
   private def transactionsFollowingBoundary(
       transactionsSince: lav1.ledger_offset.LedgerOffset => Source[Transaction, NotUsed]): Graph[
     FanOutShape2[
@@ -386,7 +306,7 @@ private object ContractsFetch {
   /** Split a series of ACS responses into two channels: one with contracts, the
     * other with a single result, the last offset.
     */
-  private def acsAndBoundary: Graph[
+  private[this] def acsAndBoundary: Graph[
     FanOutShape2[
       lav1.active_contracts_service.GetActiveContractsResponse,
       Seq[lav1.event.CreatedEvent],
@@ -463,17 +383,6 @@ private object ContractsFetch {
         (if (o.deletes.isEmpty) inserts
          else inserts.filter(c => !o.deletes.contains(cid(c).contractId))) ++ o.inserts,
         deletes union o.deletes)
-  }
-
-  object InsertDeleteStep {
-    implicit val `IDS covariant`: Traverse[InsertDeleteStep] = new Traverse[InsertDeleteStep] {
-      import scalaz.syntax.traverse._
-      type IDS[A] = InsertDeleteStep[A]
-      override def traverseImpl[G[_]: Applicative, A, B](fa: IDS[A])(f: A => G[B]) =
-        fa.inserts traverse f map (gbs => fa copy (inserts = gbs))
-      override def foldMap[A, M: Monoid](fa: IDS[A])(f: A => M) = fa.inserts foldMap f
-      override def map[A, B](fa: IDS[A])(f: A => B) = fa copy (inserts = fa.inserts map f)
-    }
   }
 
   private def transactionFilter(
