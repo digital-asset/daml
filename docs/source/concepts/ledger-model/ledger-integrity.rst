@@ -410,7 +410,7 @@ agree to this obligation. In other words, the painter did not *authorize*
 the creation of the obligation.
 
 In a DA ledger, a party can **authorize** a subaction of a commit in
-either of the following way:
+either of the following ways:
 
 * Every top-level action of the commit is authorized by all requesters
   of the commit.
