@@ -3,6 +3,8 @@
 
 package com.digitalasset.jwt
 
+import java.net.InetSocketAddress
+
 import com.sun.net.httpserver.{HttpExchange, HttpHandler, HttpServer}
 import java.security.KeyPairGenerator
 import java.security.interfaces.{RSAPrivateKey, RSAPublicKey}
@@ -14,7 +16,7 @@ import scalaz.syntax.show._
 /** Helper to create a HTTP server that serves a constant response on the "/result" URL */
 object SimpleHttpServer {
   def start(response: String): HttpServer = {
-    val server = HttpServer.create(null, 0)
+    val server = HttpServer.create(new InetSocketAddress(0), 0)
     server.createContext("/result", new HttpResultHandler(response))
     server.setExecutor(null)
     server.start()
@@ -22,7 +24,7 @@ object SimpleHttpServer {
   }
 
   def responseUrl(server: HttpServer) =
-    s"http://${server.getAddress.getHostName}:${server.getAddress.getPort}/result"
+    s"http://localhost:${server.getAddress.getPort}/result"
 
   def stop(server: HttpServer): Unit =
     server.stop(0)
@@ -86,17 +88,17 @@ class JwksSpec extends FlatSpec with Matchers {
     // Test 2: Failure - unknown key ID
     val token2 = generateToken("test-key-unknown", privateKey1)
       .fold(e => fail("Failed to generate signed token: " + e.shows), x => x)
-    val result2 = verifier.verify(token1)
+    val result2 = verifier.verify(token2)
 
     assert(
-      result1.isLeft,
+      result2.isLeft,
       s"The token with an unknown key ID should not successfully verify"
     )
 
     // Test 3: Failure - wrong public key
     val token3 = generateToken("test-key-1", privateKey2)
       .fold(e => fail("Failed to generate signed token: " + e.shows), x => x)
-    val result3 = verifier.verify(token1)
+    val result3 = verifier.verify(token3)
 
     assert(
       result3.isLeft,
