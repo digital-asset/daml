@@ -5,6 +5,7 @@ package com.digitalasset.daml.lf.data
 
 import org.scalatest.{Matchers, WordSpec}
 
+@SuppressWarnings(Array("org.wartremover.warts.Any"))
 class InsertOrdSetTest extends WordSpec with Matchers {
   "toSeq" should {
     "preserve order" in {
@@ -20,4 +21,11 @@ class InsertOrdSetTest extends WordSpec with Matchers {
     }
   }
 
+  "use CanBuildFrom of InsertOrdSet" should {
+    "preserve type" in {
+      val ios: InsertOrdSet[String] = InsertOrdSet.fromSeq(Seq("a", "b"))
+      ios.map(x => x) shouldBe ios
+      ios.map(x => x + "x") shouldBe a[InsertOrdSet[_]]
+    }
+  }
 }
