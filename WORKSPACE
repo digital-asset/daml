@@ -397,12 +397,7 @@ nixpkgs_package(
     name = "sass_nix",
     attribute_path = "sass",
     nix_file = "//nix:bazel.nix",
-    nix_file_deps = common_nix_file_deps + [
-        "//nix:overrides/sass/default.nix",
-        "//nix:overrides/sass/Gemfile",
-        "//nix:overrides/sass/Gemfile.lock",
-        "//nix:overrides/sass/gemset.nix",
-    ],
+    nix_file_deps = common_nix_file_deps,
     repositories = dev_env_nix_repos,
 )
 

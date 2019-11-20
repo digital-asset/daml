@@ -35,14 +35,10 @@ let shared = rec {
     postFixup = ''touch $out/share/go/ROOT'';
   });
 
-  # the GHC version we use plus custom overrides to sync with the
-  # stackage version as specified in stack.yaml. Prefer to use this for
-  # haskell binaries to keep the dev-env closure size as small
-  # as possible.
-  ghc = import ./ghc.nix { inherit pkgs; };
+  ghc = pkgs.haskell.packages.ghc865;
 
   # GHC configured for static linking only.
-  ghcStatic = ghc.ghc.override { enableShared = false; };
+  ghcStatic = (import ./ghc.nix { inherit pkgs; }).ghc.override { enableShared = false; };
 
 
   # Java 8 development
@@ -50,9 +46,7 @@ let shared = rec {
     exec ${pkgs.maven}/bin/mvn ''${MVN_SETTINGS:+-s "$MVN_SETTINGS"} "$@"
   '';
 
-  # The sass derivation in nixos-18.09 is broken, so we add our own
-  # created with bundix.
-  sass = pkgs.callPackage ./overrides/sass {};
+  sass = pkgs.sass;
 
   sphinx183 = pkgs.python3Packages.sphinx;
 

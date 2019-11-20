@@ -74,7 +74,7 @@ in rec {
     # The package itself is called bazel-watcher. However, the executable is
     # called ibazel. We call the attribute ibazel so that the default dev-env
     # wrapper works.
-    ibazel = pkgs.callPackage ./tools/bazel-watcher {};
+    ibazel = pkgs.bazel-watcher;
 
     scala = (bazel_dependencies.scala.override { jre = jdk; }).overrideAttrs (attrs: {
       buildInputs = attrs.buildInputs ++ [ pkgs.makeWrapper ];
@@ -100,7 +100,7 @@ in rec {
     # Nix development
     cabal2nix = pkgs.cabal2nix;
 
-    pypi2nix  = pkgs.pypi2nix.override { pythonPackages = pkgs.python37Packages; };
+    pypi2nix  = pkgs.pypi2nix;
 
     # Web development
     node        = bazel_dependencies.nodejs;
@@ -122,12 +122,10 @@ in rec {
     license-checker =
       (import ./tools/license-checker { inherit pkgs; nodejs = tools.node; }).license-checker;
 
-    # This override is necessary to be able to run automated UI tests with Selenium 3.12.0
-    # The override can be removed when nixpkgs snapshot moved past the commit of 6b91b0d09f582f308a8ad4de526df494ff363622
-    chromedriver = pkgs.callPackage ./tools/chromedriver/default.nix {};
+    chromedriver = pkgs.chromedriver;
 
     # Python development
-    pip3        = python37;
+    pip3        = pkgs.python37Packages.pip;
     python      = python37;
     python3     = python37;
     python37    = pkgs.python37Packages.python;
@@ -135,10 +133,7 @@ in rec {
     flake8 = pkgs.python37Packages.flake8;
     yapf = pkgs.python37Packages.yapf;
 
-    # Pex packaging has been submitted upsteam as
-    # https://github.com/NixOS/nixpkgs/pull/45497.
-    # However, this one is for a newer version
-    pex = pkgs.callPackage ./tools/pex {};
+    pex = pkgs.python37Packages.pex;
     pipenv = pkgs.pipenv;
 
     sphinx            = pkgs.python37.withPackages (ps: [ps.sphinx ps.sphinx_rtd_theme]);
@@ -161,8 +156,6 @@ in rec {
 
     convert = bazel_dependencies.imagemagick;
 
-    # The sass derivation in nixos-18.09 is broken, so we add our own
-    # created with bundix.
     sass = bazel_dependencies.sass;
 
     graphviz  = pkgs.graphviz_2_32;
