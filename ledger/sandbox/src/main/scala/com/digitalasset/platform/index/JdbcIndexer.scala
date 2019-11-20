@@ -10,6 +10,7 @@ import akka.actor.ActorSystem
 import akka.stream._
 import akka.stream.scaladsl.{Keep, Sink}
 import akka.{Done, NotUsed}
+import com.codahale.metrics.Gauge
 import com.daml.ledger.participant.state.index.v2
 import com.daml.ledger.participant.state.v1.Update._
 import com.daml.ledger.participant.state.v1._
@@ -73,10 +74,13 @@ class JdbcIndexerFactory[Status <: InitStatus] private (loggerFactory: NamedLogg
     this.asInstanceOf[JdbcIndexerFactory[Initialized]]
   }
 
-  def create(actorSystem: ActorSystem, readService: ReadService, jdbcUrl: String)(
-      implicit x: Status =:= Initialized): Future[JdbcIndexer] = {
+  def create(
+      participantId: String,
+      actorSystem: ActorSystem,
+      readService: ReadService,
+      jdbcUrl: String)(implicit x: Status =:= Initialized): Future[JdbcIndexer] = {
     val materializer: ActorMaterializer = ActorMaterializer()(actorSystem)
-    val metricsManager = MetricsManager(false)
+    val metricsManager = MetricsManager(s"com.digitalasset.platform.indexer.$participantId")
 
     implicit val ec: ExecutionContext = DEC
 
@@ -92,7 +96,7 @@ class JdbcIndexerFactory[Status <: InitStatus] private (loggerFactory: NamedLogg
       ledgerEnd <- ledgerDao.lookupLedgerEnd()
       externalOffset <- ledgerDao.lookupExternalLedgerEnd()
     } yield {
-      new JdbcIndexer(ledgerEnd, externalOffset, ledgerDao)(materializer) {
+      new JdbcIndexer(ledgerEnd, externalOffset, ledgerDao, metricsManager)(materializer) {
         override def close(): Unit = {
           super.close()
           materializer.shutdown()
@@ -162,12 +166,57 @@ class JdbcIndexerFactory[Status <: InitStatus] private (loggerFactory: NamedLogg
 class JdbcIndexer private[index] (
     initialInternalOffset: Long,
     beginAfterExternalOffset: Option[LedgerString],
-    ledgerDao: LedgerDao)(implicit mat: Materializer)
+    ledgerDao: LedgerDao,
+    metricsManager: MetricsManager)(implicit mat: Materializer)
     extends Indexer
     with AutoCloseable {
 
   @volatile
   private var headRef = initialInternalOffset
+
+  @volatile
+  private var lastReceivedRecordTime = Instant.now()
+
+  @volatile
+  private var lastReceivedOffset: LedgerString = _
+
+  object Metrics {
+    val stateUpdateProcessingTimer =
+      metricsManager.metrics.timer("JdbcIndexer.processedStateUpdates")
+
+    private[JdbcIndexer] def setup(): Unit = {
+      val lastReceivedRecordTimeName = "JdbcIndexer.lastReceivedRecordTime"
+      val lastReceivedOffsetName = "JdbcIndexer.lastReceivedOffset"
+      val currentRecordTimeLagName = "JdbcIndexer.currentRecordTimeLag"
+
+      metricsManager.metrics.remove(lastReceivedRecordTimeName)
+      metricsManager.metrics.remove(lastReceivedOffsetName)
+      metricsManager.metrics.remove(currentRecordTimeLagName)
+
+      metricsManager.metrics.gauge(
+        lastReceivedRecordTimeName,
+        () =>
+          new Gauge[Long] {
+            override def getValue: Long = lastReceivedRecordTime.toEpochMilli
+        })
+
+      metricsManager.metrics.gauge(
+        lastReceivedOffsetName,
+        () =>
+          new Gauge[LedgerString] {
+            override def getValue: LedgerString = lastReceivedOffset
+        })
+
+      metricsManager.metrics.gauge(
+        currentRecordTimeLagName,
+        () =>
+          new Gauge[Long] {
+            override def getValue: Long =
+              Instant.now().toEpochMilli - lastReceivedRecordTime.toEpochMilli
+        })
+      ()
+    }
+  }
 
   /**
     * Subscribes to an instance of ReadService.
@@ -176,10 +225,16 @@ class JdbcIndexer private[index] (
     * @return a handle of IndexFeedHandle or a failed Future
     */
   override def subscribe(readService: ReadService): Future[IndexFeedHandle] = {
+    Metrics.setup()
+
     val (killSwitch, completionFuture) = readService
       .stateUpdates(beginAfterExternalOffset.map(Offset.assertFromString))
       .viaMat(KillSwitches.single)(Keep.right[NotUsed, UniqueKillSwitch])
-      .mapAsync(1)((handleStateUpdate _).tupled)
+      .mapAsync(1)({
+        case (offset, update) =>
+          metricsManager
+            .timedFuture(Metrics.stateUpdateProcessingTimer, handleStateUpdate(offset, update))
+      })
       .toMat(Sink.ignore)(Keep.both)
       .run()
 
@@ -187,6 +242,9 @@ class JdbcIndexer private[index] (
   }
 
   private def handleStateUpdate(offset: Offset, update: Update): Future[Unit] = {
+    lastReceivedOffset = offset.toLedgerString
+    stateUpdateRecordTime(update).foreach(lastReceivedRecordTime = _)
+
     val externalOffset = Some(offset.toLedgerString)
     update match {
       case Heartbeat(recordTime) =>
@@ -286,6 +344,17 @@ class JdbcIndexer private[index] (
           .map(_ => headRef = headRef + 1)(DEC)
     }
   }
+
+  private def stateUpdateRecordTime(update: Update): Option[Instant] =
+    (update match {
+      case Heartbeat(recordTime) => Some(recordTime)
+      case PartyAddedToParticipant(_, _, _, recordTime) => Some(recordTime)
+      case PublicPackageUploaded(_, _, _, recordTime) => Some(recordTime)
+      case TransactionAccepted(_, _, _, _, recordTime, _) => Some(recordTime)
+      case ConfigurationChanged(_, _) => None
+      case ConfigurationChangeRejected(_, _) => None
+      case CommandRejected(_, _) => None
+    }) map (_.toInstant)
 
   private def toDomainRejection(
       submitterInfo: SubmitterInfo,

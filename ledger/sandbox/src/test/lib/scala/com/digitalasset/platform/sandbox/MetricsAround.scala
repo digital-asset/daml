@@ -13,7 +13,7 @@ trait MetricsAround extends BeforeAndAfterAll {
 
   override protected def beforeAll(): Unit = {
     super.beforeAll()
-    metricsManager = MetricsManager()
+    metricsManager = MetricsManager("MetricsAround")
   }
 
   override protected def afterAll(): Unit = {
