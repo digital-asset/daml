@@ -147,12 +147,12 @@ private[kvutils] case class ProcessConfigSubmission(
             .setParticipantId(participantId)
             .setConfiguration(configSubmission.getConfiguration))
         .build
-  )
+    )
   }
 
   private def reject[A](
-                         addReason: DamlConfigurationRejectionEntry.Builder => DamlConfigurationRejectionEntry.Builder)
-  : Commit[A] =
+      addReason: DamlConfigurationRejectionEntry.Builder => DamlConfigurationRejectionEntry.Builder)
+    : Commit[A] =
     done(
       DamlLogEntry.newBuilder
         .setConfigurationRejectionEntry(

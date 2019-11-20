@@ -68,6 +68,7 @@ da_scala_test(
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-domain",
         "//ledger/participant-state",
+        "//ledger/participant-state/protobuf:ledger_configuration_java_proto",
         "@maven//:ch_qos_logback_logback_classic",
         "@maven//:ch_qos_logback_logback_core",
         "@maven//:com_google_protobuf_protobuf_java",
@@ -78,7 +79,6 @@ da_scala_test(
         "@maven//:org_scalacheck_scalacheck_2_12",
         "@maven//:org_scalatest_scalatest_2_12",
         "@maven//:org_scalaz_scalaz_core_2_12",
-        "//ledger/participant-state/protobuf:ledger_configuration_java_proto",
     ],
 )
 

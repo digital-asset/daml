@@ -219,12 +219,11 @@ private class JdbcLedgerDao(
       endExclusive,
       PageSize,
       (startI, endE) => {
-        dbDispatcher.executeSql(s"load configuration entries [$startI, $endE[") {
-            implicit conn =>
-              SQL_GET_CONFIGURATION_ENTRIES
-                .on("startInclusive" -> startI, "endExclusive" -> endE)
-                .as(configurationEntryParser.*)
-          }
+        dbDispatcher.executeSql(s"load configuration entries [$startI, $endE[") { implicit conn =>
+          SQL_GET_CONFIGURATION_ENTRIES
+            .on("startInclusive" -> startI, "endExclusive" -> endE)
+            .as(configurationEntryParser.*)
+        }
       }
     ).flatMapConcat(Source(_))
 

@@ -6,13 +6,23 @@ package com.digitalasset.platform.sandbox.stores.ledger
 import java.time.Instant
 
 import akka.stream.scaladsl.Sink
-import com.daml.ledger.participant.state.v1.{ParticipantId, SubmissionResult, SubmitterInfo, TransactionMeta}
+import com.daml.ledger.participant.state.v1.{
+  ParticipantId,
+  SubmissionResult,
+  SubmitterInfo,
+  TransactionMeta
+}
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.transaction.GenTransaction
 import com.digitalasset.daml.lf.transaction.Transaction.{NodeId, TContractId, Value}
 import com.digitalasset.ledger.api.domain.{LedgerId, RejectionReason}
-import com.digitalasset.ledger.api.testing.utils.{AkkaBeforeAndAfterAll, MultiResourceBase, Resource, SuiteResourceManagementAroundEach}
+import com.digitalasset.ledger.api.testing.utils.{
+  AkkaBeforeAndAfterAll,
+  MultiResourceBase,
+  Resource,
+  SuiteResourceManagementAroundEach
+}
 import com.digitalasset.platform.sandbox.{LedgerResource, MetricsAround}
 import org.scalatest.concurrent.{AsyncTimeLimitedTests, ScalaFutures}
 import org.scalatest.time.Span
@@ -34,7 +44,7 @@ object BackendType {
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 class TransactionMRTComplianceIT
-  extends AsyncWordSpec
+    extends AsyncWordSpec
     with AkkaBeforeAndAfterAll
     with MultiResourceBase[BackendType, Ledger]
     with SuiteResourceManagementAroundEach
@@ -93,11 +103,11 @@ class TransactionMRTComplianceIT
         .map {
           _ should matchPattern {
             case LedgerEntry.Rejection(
-            _,
-            "cmdId",
-            "appId",
-            "submitter",
-            RejectionReason.TimedOut(_)) =>
+                _,
+                "cmdId",
+                "appId",
+                "submitter",
+                RejectionReason.TimedOut(_)) =>
           }
         }
     }

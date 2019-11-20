@@ -10,19 +10,19 @@ import com.digitalasset.daml.lf.data.Ref
 import scala.util.Try
 
 /** Ledger configuration describing the ledger's time model.
- * Emitted in [[com.daml.ledger.participant.state.v1.Update.ConfigurationChanged]].
- */
+  * Emitted in [[com.daml.ledger.participant.state.v1.Update.ConfigurationChanged]].
+  */
 final case class Configuration(
-                                /* The configuration generation. Monotonically increasing. */
-                                generation: Long,
-                                /** The time model of the ledger. Specifying the time-to-live bounds for Ledger API commands. */
-                                timeModel: TimeModel,
-                                /** The identity of the participant allowed to change the configuration. If not set, any participant
-                                 * can change the configuration. */
-                                authorizedParticipantId: Option[ParticipantId],
-                                /** Flag to enable "open world" mode in which submissions from unallocated parties are allowed through. Useful in testing. */
-                                openWorld: Boolean
-                              )
+    /* The configuration generation. Monotonically increasing. */
+    generation: Long,
+    /** The time model of the ledger. Specifying the time-to-live bounds for Ledger API commands. */
+    timeModel: TimeModel,
+    /** The identity of the participant allowed to change the configuration. If not set, any participant
+      * can change the configuration. */
+    authorizedParticipantId: Option[ParticipantId],
+    /** Flag to enable "open world" mode in which submissions from unallocated parties are allowed through. Useful in testing. */
+    openWorld: Boolean
+)
 
 object Configuration {
   import com.daml.ledger.participant.state.protobuf

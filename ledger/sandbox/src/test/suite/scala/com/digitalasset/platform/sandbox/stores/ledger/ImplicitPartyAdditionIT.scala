@@ -6,15 +6,30 @@ package com.digitalasset.platform.sandbox.stores.ledger
 import java.time.Instant
 
 import akka.stream.scaladsl.Sink
-import com.daml.ledger.participant.state.v1.{ParticipantId, SubmissionResult, SubmitterInfo, TransactionMeta}
+import com.daml.ledger.participant.state.v1.{
+  ParticipantId,
+  SubmissionResult,
+  SubmitterInfo,
+  TransactionMeta
+}
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.transaction.Node._
 import com.digitalasset.daml.lf.transaction.Transaction.{NodeId, TContractId, Value}
 import com.digitalasset.daml.lf.transaction.GenTransaction
-import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst, ValueText, VersionedValue}
+import com.digitalasset.daml.lf.value.Value.{
+  AbsoluteContractId,
+  ContractInst,
+  ValueText,
+  VersionedValue
+}
 import com.digitalasset.daml.lf.value.ValueVersions
-import com.digitalasset.ledger.api.testing.utils.{AkkaBeforeAndAfterAll, MultiResourceBase, Resource, SuiteResourceManagementAroundEach}
+import com.digitalasset.ledger.api.testing.utils.{
+  AkkaBeforeAndAfterAll,
+  MultiResourceBase,
+  Resource,
+  SuiteResourceManagementAroundEach
+}
 import com.digitalasset.platform.sandbox.{LedgerResource, MetricsAround}
 import org.scalatest.concurrent.{AsyncTimeLimitedTests, ScalaFutures}
 import org.scalatest.time.Span
@@ -38,7 +53,7 @@ object BackendType {
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 class ImplicitPartyAdditionIT
-  extends AsyncWordSpec
+    extends AsyncWordSpec
     with AkkaBeforeAndAfterAll
     with MultiResourceBase[BackendType, Ledger]
     with SuiteResourceManagementAroundEach
@@ -77,10 +92,10 @@ class ImplicitPartyAdditionIT
     }
 
   private def publishSingleNodeTx(
-                                   ledger: Ledger,
-                                   submitter: String,
-                                   commandId: String,
-                                   node: GenNode[NodeId, TContractId, Value[TContractId]]): Future[SubmissionResult] = {
+      ledger: Ledger,
+      submitter: String,
+      commandId: String,
+      node: GenNode[NodeId, TContractId, Value[TContractId]]): Future[SubmissionResult] = {
     val event1: NodeId = NodeId.unsafeFromIndex(0)
 
     val transaction = GenTransaction[NodeId, TContractId, Value[TContractId]](
