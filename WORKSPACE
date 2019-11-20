@@ -520,14 +520,15 @@ HASKELL_LSP_HASH = "80a3944306fb455fce36f7b3aafb8f0f8f6096a0bd3c46ed25cc0ff288d6
 
 GRPC_HASKELL_CORE_VERSION = "0.0.0.0"
 
-GHC_LIB_VERSION = "8.8.1.20191111"
+GHC_LIB_VERSION = "8.8.1.20191120"
 
 http_archive(
     name = "haskell_ghc__lib__parser",
     build_file = "//3rdparty/haskell:BUILD.ghc-lib-parser",
-    sha256 = "2b406c537667e7a802aa1551a9c2b697b47d1b40e3d8d99f9d0711209a6636fd",
+    sha256 = "8e0ea772426ffaa01cbe119faae8a34983999c99f491b30a9c9af55215832f0f",
     strip_prefix = "ghc-lib-parser-{}".format(GHC_LIB_VERSION),
-    urls = ["https://digitalassetsdk.bintray.com/ghc-lib/ghc-lib-parser-{}.tar.gz".format(GHC_LIB_VERSION)],
+    # urls = ["https://digitalassetsdk.bintray.com/ghc-lib/ghc-lib-parser-{}.tar.gz".format(GHC_LIB_VERSION)],
+    urls = ["https://purelyfunctional.org/downloads/ghc-lib-parser-{}.tar.gz".format(GHC_LIB_VERSION)],
 )
 
 # On Hackage but we need a custom build file to work around linker issues in GHCi.
@@ -598,7 +599,7 @@ hazel_repositories(
 
             # Read [Working on ghc-lib] for ghc-lib update instructions at
             # https://github.com/digital-asset/daml/blob/master/ghc-lib/working-on-ghc-lib.md.
-            hazel_ghclibs(GHC_LIB_VERSION, "0000000000000000000000000000000000000000000000000000000000000000", "89378f66a8283ddb785538e6d94c1a282d27fa2f3658b537ea5d3cee2efa786e") +
+            hazel_ghclibs(GHC_LIB_VERSION, "0000000000000000000000000000000000000000000000000000000000000000", "dc9fe67fca412000cdf4de8852b9bb4038eca9c73208ca692f95e3b5ec458bee") +
             hazel_github_external("digital-asset", "hlint", "951fdb6d28d7eed8ea1c7f3be69da29b61fcbe8f", "f5fb4cf98cde3ecf1209857208369a63ba21b04313d570c41dffe9f9139a1d34") +
             # Not in stackage
             hazel_hackage(

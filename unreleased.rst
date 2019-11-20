@@ -47,3 +47,6 @@ HEAD — ongoing
   See `issue #3461 <https://github.com/digital-asset/daml/pull/3461>`_.
 
 - [JSON API - Experimental] Terminate process immediately after creating schema. See issue #3386.
+
+- [DAML Stdlib] ``fromAnyChoice`` and ``fromAnyContractKey`` now take
+  the template type into account.

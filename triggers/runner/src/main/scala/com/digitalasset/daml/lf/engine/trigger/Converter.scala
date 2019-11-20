@@ -359,15 +359,39 @@ object Converter {
     }
   }
 
-  // Extract the value from a newtype wrapper around Any, e.g., AnyChoice or AnyContractKey
-  private def toAnyWrapper(wrapper: String, v: SValue): Either[String, SValue] = {
+  private def toAnyTemplate(v: SValue): Either[String, SValue] = {
     v match {
       case SRecord(_, _, vals) if vals.size == 1 =>
         vals.get(0) match {
           case SAny(_, v) => Right(v)
           case v => Left(s"Expected Any but got $v")
         }
-      case _ => Left(s"Expected $wrapper but got $v")
+      case _ => Left(s"Expected AnyTemplate but got $v")
+    }
+  }
+
+  // toAnyChoice and toAnyContractKey are identical right now
+  // but there is no resaon why they have to be, so we
+  // use two different methods.
+  private def toAnyChoice(v: SValue): Either[String, SValue] = {
+    v match {
+      case SRecord(_, _, vals) if vals.size == 2 =>
+        vals.get(0) match {
+          case SAny(_, v) => Right(v)
+          case v => Left(s"Expected Any but got $v")
+        }
+      case _ => Left(s"Expected AnyChoice but got $v")
+    }
+  }
+
+  private def toAnyContractKey(v: SValue): Either[String, SValue] = {
+    v match {
+      case SRecord(_, _, vals) if vals.size == 2 =>
+        vals.get(0) match {
+          case SAny(_, v) => Right(v)
+          case v => Left(s"Expected Any but got $v")
+        }
+      case _ => Left(s"Expected AnyContractKey but got $v")
     }
   }
 
@@ -384,7 +408,7 @@ object Converter {
     v match {
       case SRecord(_, _, vals) if vals.size == 1 => {
         for {
-          tpl <- toAnyWrapper("AnyTemplate", vals.get(0))
+          tpl <- toAnyTemplate(vals.get(0))
           templateId <- extractTemplateId(tpl)
           templateArg <- toLedgerRecord(tpl)
         } yield CreateCommand(Some(toApiIdentifier(templateId)), Some(templateArg))
@@ -398,7 +422,7 @@ object Converter {
       case SRecord(_, _, vals) if vals.size == 2 => {
         for {
           anyContractId <- toAnyContractId(vals.get(0))
-          choiceVal <- toAnyWrapper("AnyChoice", vals.get(1))
+          choiceVal <- toAnyChoice(vals.get(1))
           choiceName <- extractChoiceName(choiceVal)
           choiceArg <- toLedgerValue(choiceVal)
         } yield {
@@ -420,9 +444,9 @@ object Converter {
       case SRecord(_, _, vals) if vals.size == 3 => {
         for {
           tplId <- toTemplateTypeRep(vals.get(0))
-          keyVal <- toAnyWrapper("AnyContractKey", vals.get(1))
+          keyVal <- toAnyContractKey(vals.get(1))
           keyArg <- toLedgerValue(keyVal)
-          choiceVal <- toAnyWrapper("AnyChoice", vals.get(2))
+          choiceVal <- toAnyChoice(vals.get(2))
           choiceName <- extractChoiceName(choiceVal)
           choiceArg <- toLedgerValue(choiceVal)
         } yield {
