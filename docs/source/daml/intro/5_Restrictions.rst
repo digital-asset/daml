@@ -93,8 +93,8 @@ Time in scenarios
 
 In scenarios, record and ledger effective time are always equal. You can set them using the following functions:
 
-- ``passToDate``, which takes a date sets the time to midnight (UTC) of that date and ``pass``
-- ``pass``, which takes a ``Reltime`` (a relative time) and moves the ledger by that much
+- ``passToDate``, which takes a date and sets the time to midnight (UTC) of that date
+- ``pass``, which takes a ``RelTime`` (a relative time) and moves the ledger by that much
 
 Time on ledgers
 ~~~~~~~~~~~~~~~~~
@@ -128,7 +128,7 @@ However, the expressions you've seen that used the ``<-`` notation are not like 
 
 You cannot work out the value of ``now`` based on any variable in scope. To put it another way, there is no expression ``expr`` that you could put on the right hand side of ``now = expr``. To get the ledger effective time, you must be in the context of a submitted transaction, and then look at that context.
 
-Similarly, you've come across ``fetch``. If you have ``cid : ContractId Account`` in scope and you come across the expression ``fetch cid``, you can't evaluate that to an ``Account`` so you can't write ``account = fetch cid``. To do so, you'd have to have a ledger you can look that contract id up on.
+Similarly, you've come across ``fetch``. If you have ``cid : ContractId Account`` in scope and you come across the expression ``fetch cid``, you can't evaluate that to an ``Account`` so you can't write ``account = fetch cid``. To do so, you'd have to have a ledger you can look that contract ID up on.
 
 Actions and impurity
 ~~~~~~~~~~~~~~~~~~~~~
@@ -157,7 +157,7 @@ An action followed by another action, possibly depending on the result of the fi
 - A transaction is a list of actions. So a transaction followed by another transaction is again a transaction.
 - A scenario is a list of interactions with the ledger (``submit``, ``getParty``, ``pass``, etc). So a scenario followed by another scenario is again a scenario.
 
-This is where ``do`` blocks come in. ``do`` blocks allow you to combine small actions in to bigger actions, using the results of earlier actions in later ones.
+This is where ``do`` blocks come in. ``do`` blocks allow you to build complex actions from simple ones, using the results of earlier actions in later ones.
 
 .. literalinclude:: daml/daml-intro-5/Restrictions.daml
   :language: daml
@@ -185,7 +185,7 @@ The last expression in the ``do`` block of the ``Redeem`` choice is a pattern ma
 A sample Action
 ---------------
 
-If the above didn't make complete sense, here's another example to explain what actions are more generally, by creating a new type that is also an action. ``CoinGame a`` is an ``Action a`` in which a ``Coin`` is flipped. The ``Coin`` is a pseudo-random number generator and each flip has the effect of changing the RNGs state. Based on the ``Heads`` and ``Tails`` results, a return value of type ``a`` is calulated.
+If the above didn't make complete sense, here's another example to explain what actions are more generally, by creating a new type that is also an action. ``CoinGame a`` is an ``Action a`` in which a ``Coin`` is flipped. The ``Coin`` is a pseudo-random number generator and each flip has the effect of changing the random number generator's state. Based on the ``Heads`` and ``Tails`` results, a return value of type ``a`` is calulated.
 
 .. literalinclude:: daml/daml-intro-5/Restrictions.daml
   :language: daml
@@ -236,7 +236,7 @@ One option is to make the function explicitly partial by returning an ``Optional
   :start-after: -- OPTIONAL_POW_BEGIN
   :end-before: -- OPTIONAL_POW_END
 
-This is a useful pattern if we need to be able to handle the error case, but is also forces us to always handle it as we need to extract the result from an ``Optional``. We can see the impact on conveneience in the definition of the above function.  In cases, like division by zero or the above function, it can therefore be preferrable to fail catastrophically instead:
+This is a useful pattern if we need to be able to handle the error case, but it also forces us to always handle it as we need to extract the result from an ``Optional``. We can see the impact on convenience in the definition of the above function.  In cases, like division by zero or the above function, it can therefore be preferrable to fail catastrophically instead:
 
 .. literalinclude:: daml/daml-intro-5/Restrictions.daml
   :language: daml

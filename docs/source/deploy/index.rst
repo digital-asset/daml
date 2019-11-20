@@ -3,18 +3,18 @@
 
 .. _deploy-ref_index:
 
-Deploying to DAML ledgers
+Deploying to DAML Ledgers
 *************************
 
 To run a DAML application, you'll need to deploy it to a DAML ledger.
 
-How to deploy
+How to Deploy
 =============
 
 You can deploy to:
 
-- The Sandbox with persistence. For information on how to do this, see the section on persistence in :doc:`/tools/sandbox` docs
-- Further deployment options which are in development. For information on these options and their stage of development, see the table below.
+- The Sandbox with persistence. For information on how to do this, see the section on persistence in :doc:`/tools/sandbox` docs.
+- Other available DAML ledgers. For information on these options and their stage of development, see the :ref:`tables below <deploy-ref_available>`.
 
 To deploy a DAML project to a ledger, you will need the ledger's hostname (or IP) and the port number for the gRPC Ledger API. The default port number is 6865. Then, inside your DAML project folder, run the following command, taking care to substitute the ledger's hostname and port for ``<HOSTNAME>`` and ``<PORT>``:
 
@@ -103,7 +103,7 @@ The following table lists open source DAML integrations.
 
 .. _deploy-ref_in_development:
 
-DAML ledgers in development
+DAML Ledgers in Development
 ===========================
 
 The following table lists the ledgers that are implementing support for running DAML.

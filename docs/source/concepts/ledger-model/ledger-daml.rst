@@ -46,7 +46,7 @@ Intuitively, the allowed actions are:
    `ch` on a contract `c1`, and the fetched contract ID resolves to a contract `c2`, then the actors are defined as the
    intersection of (1) the signatories of `c1` union the controllers of `ch` with (2) the signatories of `c2`.
 
-   A :ref:`fetchbykey` statement also produce a **Fetch** action with the actors determined in the same way.
+   A :ref:`fetchbykey` statement also produces a **Fetch** action with the actors determined in the same way.
    A :ref:`lookupbykey` statement that finds a contract also translates into a **Fetch** action, but all maintainers of the key are the actors.
 
 #. **NoSuchKey** assertions corresponding to a :ref:`lookupByKey` update statement for the given key that does not find a contract.

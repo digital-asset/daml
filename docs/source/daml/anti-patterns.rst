@@ -139,9 +139,9 @@ Instead, you can break up the obligation into separate contracts for each of the
 The drawbacks of maintaining status variables in contracts are:
 
 * It is harder to understand the state of the ledger since you have to inspect contracts
-* More complex application code is required since it has to condition on the state the contract
+* More complex application code is required since it has to condition on the state of the contract
 * Within the contract code, having many choices on a contract can make it ambiguous as to how to advance the workflow forward
-* The contract code can become complex supporting all the various way to update its internal state
+* The contract code can become complex supporting all the various ways to update its internal state
 * Information can be leaked to parties who are not involved in the exercising of a choice
 * It is harder to update the ledger/models/application if a new state is introduced
 * Increased error checking code required to verify the state transitions are correct

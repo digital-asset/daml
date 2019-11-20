@@ -59,7 +59,7 @@ The first four problems can be solved or mitigated as follows:
 
 #. trust for privacy through TEEs that restrict data access by hardware means.
 
-The remainder of the section discuses these solutions and their implementations in the different DAML ledgers.
+The remainder of the section discusses these solutions and their implementations in the different DAML ledgers.
 The last problem, interoperability, is inherent when the two deployments are operated by different trust domains: by definition, a topology in which no single trust domain would hold the entire ledger is not a global state topology.
 
 .. _scaling-daml-ledgers:
@@ -113,7 +113,7 @@ Replication can also help to lower, or more precisely distribute the trust requi
 Trust can be distributed by introducing multiple organizations, i.e., multiple trust domains into the system.
 In these situations, the system typically consists of two types of nodes:
 
-1. Writer nodes, which replicate the physical shared ledger and can extend it with new commits.
+1. **Writer nodes**, which replicate the physical shared ledger and can extend it with new commits.
    Writer nodes are thus also referred to as **committer nodes**.
 
 .. _participant-node-def:
@@ -126,7 +126,7 @@ The participant nodes need not be trusted by the other nodes, or by the committe
 In general, the participant nodes do not necessarily even need to know each other.
 However, they have to be known to and accepted by the committer nodes.
 The committer nodes are jointly trusted with ensuring the ledger's integrity.
-To distribute the trust, the committers nodes must implement a Byzantine fault tolerant replication mechanism.
+To distribute the trust, the committer nodes must implement a Byzantine fault tolerant replication mechanism.
 For example, the mechanism can ensure that the system preserves integrity even if up to a third of the committer nodes (e.g., 2 out of 7) misbehave in arbitrary ways.
 The resulting topology is visualized below.
 

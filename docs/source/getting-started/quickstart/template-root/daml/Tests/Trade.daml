@@ -15,7 +15,7 @@ trade_test = scenario do
   usBank <- getParty "USD_Bank"
   eurBank <- getParty "EUR_Bank"
 
-  -- Banks issue Iou transfers
+  -- Banks issue IOU transfers.
   iouTransferAliceCid <- submit eurBank do
     iouCid <- create Iou with
       issuer = eurBank
@@ -34,17 +34,17 @@ trade_test = scenario do
       observers = []
     exercise iouCid Iou_Transfer with newOwner = bob
 
-  -- Bob and Alice accept
+  -- Bob and Alice accept.
   iouAliceCid <- submit alice do
     exercise iouTransferAliceCid IouTransfer_Accept
   iouBobCid <- submit bob do
     exercise iouTransferBobCid IouTransfer_Accept
 
-  -- Alice makes her EUR IOU visible to Bob
+  -- Alice makes her EUR IOU visible to Bob.
   iouAliceCid <- submit alice do
     exercise iouAliceCid Iou_AddObserver with newObserver = bob
 
-  -- Alice makes a trade proposal to swap her EUR for Bob's USD
+  -- Alice makes a trade proposal to swap her EUR for Bob's USD.
   tradePropCid <- submit alice do
     create IouTrade with
       buyer = alice
@@ -57,7 +57,7 @@ trade_test = scenario do
       quoteCurrency = "USD"
       quoteAmount = 110.0
 
-  -- Bob accepts
+  -- Bob accepts.
   newIous <- submit bob do
     exercise tradePropCid IouTrade_Accept with quoteIouCid = iouBobCid
 

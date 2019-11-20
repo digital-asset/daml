@@ -16,7 +16,7 @@ iou_test = scenario do
     issuer = bank
     currency = "USD"
 
-  -- Bank creates Iou transfers for Alice and Bob
+  -- Bank creates IOU transfers for Alice and Bob.
   iouTransferAliceCid <- submit bank do
     iouCid <- create Iou with
       issuer
@@ -42,20 +42,20 @@ iou_test = scenario do
   iouBobCid <- submit bob do
     exercise iouTransferBobCid IouTransfer_Accept
 
-  -- Alice transfers some Iou's to Bob
+  -- Alice splits the IOU and transfers part of it to Bob.
   split <- submit alice do
     exercise iouAliceCid Iou_Split with splitAmount = 40.0
   iouTransferCid <- submit alice do
     exercise (fst split) Iou_Transfer with newOwner = bob
 
-  -- Bob accepts merges them with the ones he had already.
+  -- Bob accepts and merges it with the one he already has.
   iouOtherCid <- submit bob do
     exercise iouTransferCid IouTransfer_Accept
 
   iouTotalCid <- submit bob do
     exercise iouBobCid Iou_Merge with otherCid = iouOtherCid
 
-  -- Assert things are as they should be
+  -- Assert things are as they should be.
   submit alice do
     aliceIou <- fetch (snd split)
     assert $ aliceIou == Iou with
@@ -74,7 +74,7 @@ iou_test = scenario do
       amount = 70.0
       observers = []
 
-  -- Issuer can archive Iou's they own
+  -- Issuers can archive IOUs they own.
   iouBankCid <- submit bank do
     create Iou with
       issuer = bank
@@ -118,16 +118,16 @@ iou_test = scenario do
   -- Double spend gets prevented by archiving the contract.
   submitMustFail alice do exercise (fst split) Iou_Transfer with newOwner = charlie
 
-  -- Similarly a merged contract gets archived as well.
+  -- Similarly, a merged contract gets archived as well.
   submitMustFail bank do exercise iouOtherCid Iou_Transfer with newOwner = charlie
 
   -- Only the owner can exercise the transfer choice.
   submitMustFail bank do exercise (snd split) Iou_Transfer with newOwner = charlie
 
-  -- Issuer can't archive something Alice owns
-  submitMustFail bank do exercise (snd split) Archive
+  -- Issuer can't archive something Bob owns.
+  submitMustFail bank do exercise (fst split) Archive
 
-  -- Alice can't archive something Alice owns
+  -- Issuer can't archive something Alice owns.
   submitMustFail bank do exercise (snd split) Archive
 
   -- Alice didn't disclose her remaining IOUs to Bob.
