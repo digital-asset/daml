@@ -219,16 +219,14 @@ private class JdbcLedgerDao(
       endExclusive,
       PageSize,
       (startI, endE) => {
-        Source
-          .fromFuture(dbDispatcher.executeSql(s"load configuration entries [$startI, $endE[") {
+        dbDispatcher.executeSql(s"load configuration entries [$startI, $endE[") {
             implicit conn =>
               SQL_GET_CONFIGURATION_ENTRIES
                 .on("startInclusive" -> startI, "endExclusive" -> endE)
                 .as(configurationEntryParser.*)
-          })
-          .flatMapConcat(Source(_))
+          }
       }
-    )
+    ).flatMapConcat(Source(_))
 
   private val SQL_INSERT_CONFIGURATION_ENTRY =
     SQL(

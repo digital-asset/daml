@@ -80,6 +80,7 @@ trait LedgerReadDao extends AutoCloseable {
   def lookupActiveOrDivulgedContract(
       contractId: AbsoluteContractId,
       forParty: Party): Future[Option[Contract]]
+
   /** Looks up the current ledger configuration, if it has been set. */
   def lookupLedgerConfiguration(): Future[Option[Configuration]]
 
@@ -87,9 +88,6 @@ trait LedgerReadDao extends AutoCloseable {
   def getConfigurationEntries(
       startInclusive: LedgerOffset,
       endExclusive: LedgerOffset): Source[(Long, ConfigurationEntry), NotUsed]
-
-  /** Looks up an active contract. Archived contracts must not be returned by this method */
-  def lookupActiveContract(contractId: AbsoluteContractId): Future[Option[Contract]]
 
   /**
     * Looks up a LedgerEntry at a given offset
