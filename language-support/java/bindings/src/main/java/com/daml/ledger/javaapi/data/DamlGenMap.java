@@ -6,7 +6,6 @@ package com.daml.ledger.javaapi.data;
 import com.digitalasset.ledger.api.v1.ValueOuterClass;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
-import javax.annotation.Nonnull;
 import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collector;
@@ -23,7 +22,7 @@ public final class DamlGenMap extends Value {
         this.map = value;
     }
 
-    private static @Nonnull DamlGenMap fromPrivateMap(@NonNull Map<@NonNull Value, @NonNull Value> map){
+    private static @NonNull DamlGenMap fromPrivateMap(@NonNull Map<@NonNull Value, @NonNull Value> map){
         return new DamlGenMap(Collections.unmodifiableMap(map));
     }
 
@@ -45,7 +44,7 @@ public final class DamlGenMap extends Value {
         );
     }
 
-    public @Nonnull Map<@NonNull Value, @NonNull Value> getMap() { return map; }
+    public @NonNull Map<@NonNull Value, @NonNull Value> getMap() { return map; }
 
     @Override
     public boolean equals(Object o) {
@@ -68,7 +67,7 @@ public final class DamlGenMap extends Value {
     }
 
     @Override
-    public @Nonnull ValueOuterClass.Value toProto() {
+    public ValueOuterClass.Value toProto() {
         ValueOuterClass.GenMap.Builder mb = ValueOuterClass.GenMap.newBuilder();
         map.forEach((key, value) ->
                 mb.addEntries(ValueOuterClass.GenMap.Entry.newBuilder()
@@ -78,7 +77,7 @@ public final class DamlGenMap extends Value {
         return ValueOuterClass.Value.newBuilder().setGenMap(mb).build();
     }
 
-    public static @Nonnull DamlGenMap fromProto(@Nonnull ValueOuterClass.GenMap map){
+    public static @NonNull DamlGenMap fromProto(ValueOuterClass.GenMap map){
         return map.getEntriesList().stream().collect(collector(
                 entry -> fromProto(entry.getKey()),
                 entry -> fromProto(entry.getValue())

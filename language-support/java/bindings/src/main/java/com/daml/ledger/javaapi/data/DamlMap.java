@@ -6,7 +6,6 @@ package com.daml.ledger.javaapi.data;
 import com.digitalasset.ledger.api.v1.ValueOuterClass;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
-import javax.annotation.Nonnull;
 import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collector;
@@ -46,7 +45,7 @@ public final class DamlMap extends Value {
         );
     }
 
-    public @Nonnull Map<@NonNull String, @NonNull Value> getMap() { return value; }
+    public @NonNull Map<@NonNull String, @NonNull Value> getMap() { return value; }
 
     @Override
     public boolean equals(Object o) {
@@ -69,7 +68,7 @@ public final class DamlMap extends Value {
     }
 
     @Override
-    public @Nonnull ValueOuterClass.Value toProto() {
+    public ValueOuterClass.Value toProto() {
         ValueOuterClass.Map.Builder mb = ValueOuterClass.Map.newBuilder();
         value.forEach((k, v) ->
                 mb.addEntries(ValueOuterClass.Map.Entry.newBuilder()
@@ -81,7 +80,7 @@ public final class DamlMap extends Value {
         return ValueOuterClass.Value.newBuilder().setMap(mb).build();
     }
 
-    public static @Nonnull DamlMap fromProto(ValueOuterClass.Map map) {
+    public static @NonNull DamlMap fromProto(ValueOuterClass.Map map) {
         return map.getEntriesList().stream().collect(collector(
                 ValueOuterClass.Map.Entry::getKey,
                 entry -> fromProto(entry.getValue())

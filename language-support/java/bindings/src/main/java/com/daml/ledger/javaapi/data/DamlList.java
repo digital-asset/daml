@@ -7,7 +7,6 @@ import com.digitalasset.ledger.api.v1.ValueOuterClass;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
 import java.util.*;
-import javax.annotation.Nonnull;
 import java.util.function.Function;
 import java.util.stream.Collector;
 
@@ -59,7 +58,7 @@ public final class DamlList extends Value {
     }
 
     @Override
-    public @Nonnull ValueOuterClass.Value toProto() {
+    public ValueOuterClass.Value toProto() {
         ValueOuterClass.List.Builder builder = ValueOuterClass.List.newBuilder();
         for (Value value : this.values) {
             builder.addElements(value.toProto());
@@ -67,7 +66,7 @@ public final class DamlList extends Value {
         return ValueOuterClass.Value.newBuilder().setList(builder.build()).build();
     }
 
-    public static @Nonnull DamlList fromProto(@Nonnull ValueOuterClass.List list) {
+    public static @NonNull DamlList fromProto(ValueOuterClass.List list) {
         return list.getElementsList().stream().collect(collector(Value::fromProto));
     }
 
