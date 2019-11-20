@@ -12,8 +12,9 @@ import com.digitalasset.daml.lf.data.ScalazEqual._
 import com.digitalasset.daml.lf.iface
 import com.digitalasset.daml.lf.value.{Value => V}
 import iface.{Type => Ty}
+import dbbackend.Queries.{concatFragment, contractColumnName}
 
-import scalaz.{Order, \&/, \/, \/-}
+import scalaz.{OneAnd, Order, \&/, \/, \/-}
 import scalaz.Tags.Conjunction
 import scalaz.std.anyVal._
 import scalaz.syntax.apply._
@@ -22,12 +23,14 @@ import scalaz.syntax.tag._
 import scalaz.syntax.std.option._
 import scalaz.syntax.std.string._
 import spray.json._
+import doobie.Fragment
+import doobie.implicits._
 
 sealed abstract class ValuePredicate extends Product with Serializable {
   import ValuePredicate._
   def toFunPredicate: LfV => Boolean = {
     def go(self: ValuePredicate): LfV => Boolean = self match {
-      case Literal(p) => p.isDefinedAt
+      case Literal(p, _) => p.isDefinedAt
 
       case RecordSubset(q) =>
         val cq = q map (_ map { case (_, vp) => go(vp) });
@@ -84,28 +87,30 @@ sealed abstract class ValuePredicate extends Product with Serializable {
     go(this)
   }
 
-  def toSqlWhereClause: LfV => SqlWhereClause = {
-    def go(self: ValuePredicate): LfV => SqlWhereClause =
-      v =>
-        self match {
-          case Literal(p) =>
-            if (p.isDefinedAt(v)) ""
-            else AlwaysFails
-          case _ => ""
+  @SuppressWarnings(Array("org.wartremover.warts.Any"))
+  def toSqlWhereClause: Fragment = {
+    import dbbackend.Queries.Implicits._ // JsValue support
+    def go(path: Fragment, self: ValuePredicate): SqlWhereClause =
+      self match {
+        case Literal(_, jq) =>
+          Vector(path ++ sql" = $jq::jsonb")
+        case _ => Vector.empty // TODO other cases
       }
 
-    go(this)
+    concatFragment(
+      OneAnd(sql"1 = 1", go(contractColumnName, this) map (sq => sql" AND (" ++ sq ++ sql")")))
   }
 }
 
 object ValuePredicate {
   type TypeLookup = Ref.Identifier => Option[iface.DefDataType.FWT]
   type LfV = V[V.AbsoluteContractId]
-  type SqlWhereClause = String
+  type SqlWhereClause = Vector[Fragment]
 
-  val AlwaysFails: SqlWhereClause = "1 = 2"
+  val AlwaysFails: SqlWhereClause = Vector(sql"1 = 2")
 
-  final case class Literal(p: LfV PartialFunction Unit) extends ValuePredicate
+  final case class Literal(p: LfV PartialFunction Unit, jsonbEqualPart: JsValue)
+      extends ValuePredicate
   final case class RecordSubset(fields: ImmArraySeq[Option[(Ref.Name, ValuePredicate)]])
       extends ValuePredicate
   final case class MapMatch(elems: SortedLookupList[ValuePredicate]) extends ValuePredicate
@@ -186,7 +191,8 @@ object ValuePredicate {
 
     def fromEnum(it: String, id: Ref.Identifier, typ: iface.Enum): Result =
       if (typ.constructors contains it)
-        Literal { case V.ValueEnum(_, v) if it == (v: String) => } else
+        Literal({ case V.ValueEnum(_, v) if it == (v: String) => }, JsString(it))
+      else
         predicateParseError(s"$it not a member of the enum $id")
 
     def fromOptional(it: JsValue, typ: iface.Type): Result =
@@ -209,23 +215,29 @@ object ValuePredicate {
         case _ => predicateParseError(s"missing type arg to $of")
       }
       (typ.typ, it).match2 {
-        case Bool => { case JsBoolean(q) => Literal { case V.ValueBool(v) if q == v => } }
+        case Bool => { case jq @ JsBoolean(q) => Literal({ case V.ValueBool(v) if q == v => }, jq) }
         case Int64 => Int64RangeExpr.toQueryParser
         case Text => TextRangeExpr.toQueryParser(Order fromScalaOrdering Utf8.Ordering)
         case Date => DateRangeExpr.toQueryParser
         case Timestamp => TimestampRangeExpr.toQueryParser
         case Party => {
-          case JsString(q) => Literal { case V.ValueParty(v) if q == (v: String) => }
+          case jq @ JsString(q) => Literal({ case V.ValueParty(v) if q == (v: String) => }, jq)
         }
         case ContractId => {
-          case JsString(q) => Literal { case V.ValueContractId(v) if q == (v.coid: String) => }
+          case jq @ JsString(q) =>
+            Literal({ case V.ValueContractId(v) if q == (v.coid: String) => }, jq)
         }
         case List => {
           case JsArray(as) =>
             val elemTy = soleTypeArg("List")
             ListMatch(as.map(a => fromValue(a, elemTy)))
         }
-        case Unit => { case JsObject(q) if q.isEmpty => Literal { case V.ValueUnit => } }
+        case Unit => {
+          case jq @ JsObject(q) if q.isEmpty =>
+            // `jq` is technically @>-ambiguous, but only {} can occur in a Unit-typed
+            // position, so the ambiguity never yields incorrect results
+            Literal({ case V.ValueUnit => }, jq)
+        }
         case Optional => {
           case q =>
             val elemTy = soleTypeArg("Optional")
@@ -334,7 +346,8 @@ object ValuePredicate {
         case _ => None
       }
 
-    def toLiteral(q: A) = Literal { case v if lfvScalar.lift(v) contains q => }
+    def toLiteral(q: A) =
+      Literal({ case v if lfvScalar.lift(v) contains q => }, JsNull /*TODO proper normalized*/ )
 
     def toRange(ltgt: Boundaries[A])(implicit A: Order[A]) = Range(ltgt, A, lfvScalar)
 
