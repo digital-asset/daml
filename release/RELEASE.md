@@ -5,7 +5,7 @@
    `docs/source/support/release-notes.rst` (see previous releases as examples).
    Release notes additions can be retrieved from commits using the following command:
 
-     for sha in $(git log --format=%H <revision range>); do git show --format=%b $sha | awk '/^$/{next} /^CHANGELOG$/{flag=1; next} flag'; done
+     git log <revision range> | awk '/^$/{next} /CHANGELOG_END/{flag=0; next} /CHANGELOG_BEGIN/{flag=1; next} flag'
 
    where `<revision range>` is the expressions (documented under `man gitrevisions`) to only read the relevant commits since the last release.
    If, for example, the previous release is tagged as `v0.13.36` the `<revision range>` for all commits since then is `v0.13.36..`.
