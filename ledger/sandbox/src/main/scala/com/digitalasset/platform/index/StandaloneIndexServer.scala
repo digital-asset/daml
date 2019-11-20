@@ -168,14 +168,16 @@ class StandaloneIndexServer(
               cond.config.timeModel,
               SandboxConfig.defaultCommandConfig,
               timeServiceBackendO,
-              loggerFactory
+              loggerFactory,
+              mm
             )(am, esf),
         config.port,
         config.maxInboundMessageSize,
         None,
         loggerFactory,
         config.tlsConfig.flatMap(_.server),
-        List(AuthorizationInterceptor(authService, ec))
+        List(AuthorizationInterceptor(authService, ec)),
+        mm
       )
       apiServerState = ApiServerState(
         domain.LedgerId(cond.ledgerId),
@@ -197,7 +199,10 @@ class StandaloneIndexServer(
   def start(): Future[SandboxState] = {
     val actorSystem = ActorSystem(actorSystemName)
     val infrastructure =
-      Infrastructure(actorSystem, ActorMaterializer()(actorSystem), MetricsManager(false))
+      Infrastructure(
+        actorSystem,
+        ActorMaterializer()(actorSystem),
+        MetricsManager(s"com.digitalasset.platform.ledger-api-server.$participantId"))
     implicit val ec: ExecutionContext = infrastructure.executionContext
     val apiState = buildAndStartApiServer(infrastructure)
 

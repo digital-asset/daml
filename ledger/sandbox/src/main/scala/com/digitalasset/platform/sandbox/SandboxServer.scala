@@ -256,7 +256,8 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
                     _,
                     indexAndWriteService.publishHeartbeat
                   )),
-              loggerFactory
+              loggerFactory,
+              mm
             )(am, esf)
             .map(_.withServices(List(resetService(ledgerId, authorizer, loggerFactory)))),
         // NOTE(JM): Re-use the same port after reset.
@@ -269,6 +270,7 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
           AuthorizationInterceptor(authService, ec),
           resetService(ledgerId, authorizer, loggerFactory)
         ),
+        mm
       ),
       asyncTolerance
     )
@@ -299,7 +301,10 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
   private def start(): SandboxState = {
     val actorSystem = ActorSystem(actorSystemName)
     val infrastructure =
-      Infrastructure(actorSystem, ActorMaterializer()(actorSystem), MetricsManager())
+      Infrastructure(
+        actorSystem,
+        ActorMaterializer()(actorSystem),
+        MetricsManager("com.digitalasset.platform.sandbox"))
     val packageStore = loadDamlPackages
     val apiState = buildAndStartApiServer(infrastructure, packageStore)
     SandboxState(apiState, infrastructure, packageStore)

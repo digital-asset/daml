@@ -7,7 +7,7 @@ import java.util.concurrent.TimeUnit
 
 import com.codahale.metrics.Slf4jReporter.LoggingLevel
 import com.codahale.metrics.jmx.JmxReporter
-import com.codahale.metrics.{MetricRegistry, Slf4jReporter}
+import com.codahale.metrics.{MetricRegistry, Slf4jReporter, Timer}
 import com.digitalasset.platform.common.util.DirectExecutionContext
 
 import scala.concurrent.Future
@@ -17,13 +17,13 @@ import scala.concurrent.Future
   * <br/><br/>
   * Note that metrics are in general light-weight and add negligible overhead. They are not visible to everyday
   * users so they can be safely enabled all the time. */
-final class MetricsManager(enableJmxReporter: Boolean) extends AutoCloseable {
+final class MetricsManager(jmxDomain: String, enableJmxReporter: Boolean) extends AutoCloseable {
 
   val metrics = new MetricRegistry()
 
   private lazy val jmxReporter = JmxReporter
     .forRegistry(metrics)
-    .inDomain("com.digitalasset.platform.sandbox")
+    .inDomain(jmxDomain)
     .build
 
   private val slf4jReporter = Slf4jReporter
@@ -35,8 +35,12 @@ final class MetricsManager(enableJmxReporter: Boolean) extends AutoCloseable {
 
   if (enableJmxReporter) jmxReporter.start()
 
-  def timedFuture[T](timerName: String, f: => Future[T]) = {
+  def timedFuture[T](timerName: String, f: => Future[T]): Future[T] = {
     val timer = metrics.timer(timerName)
+    timedFuture(timer, f)
+  }
+
+  def timedFuture[T](timer: Timer, f: => Future[T]): Future[T] = {
     val ctx = timer.time()
     val res = f
     res.onComplete(_ => ctx.stop())(DirectExecutionContext)
@@ -50,6 +54,6 @@ final class MetricsManager(enableJmxReporter: Boolean) extends AutoCloseable {
 }
 
 object MetricsManager {
-  def apply(enableJmxReporter: Boolean = true): MetricsManager =
-    new MetricsManager(enableJmxReporter)
+  def apply(jmxDomain: String, enableJmxReporter: Boolean = true): MetricsManager =
+    new MetricsManager(jmxDomain, enableJmxReporter)
 }

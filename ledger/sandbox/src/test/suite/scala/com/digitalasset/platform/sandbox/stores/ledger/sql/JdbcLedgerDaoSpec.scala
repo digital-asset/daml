@@ -86,7 +86,12 @@ class JdbcLedgerDaoSpec
     super.beforeAll()
     val loggerFactory = NamedLoggerFactory(JdbcLedgerDaoSpec.getClass)
     FlywayMigrations(postgresFixture.jdbcUrl, loggerFactory).migrate()
-    dbDispatcher = DbDispatcher(postgresFixture.jdbcUrl, 4, 4, loggerFactory, MetricsManager())
+    dbDispatcher = DbDispatcher(
+      postgresFixture.jdbcUrl,
+      4,
+      4,
+      loggerFactory,
+      MetricsManager("JdbcLedgerDaoSpec"))
     ledgerDao = JdbcLedgerDao(
       dbDispatcher,
       ContractSerializer,
