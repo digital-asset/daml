@@ -431,7 +431,6 @@ class LedgerBackedWriteService(ledger: Ledger, timeProvider: TimeProvider) exten
       payload: List[Archive],
       sourceDescription: Option[String]
   ): CompletionStage[SubmissionResult] =
-    // TODO BH: Implement package upload write service
     FutureConverters.toJava(
       ledger.uploadPackages(timeProvider.getCurrentTime, sourceDescription, payload))
 
