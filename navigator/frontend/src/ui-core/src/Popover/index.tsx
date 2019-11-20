@@ -186,29 +186,30 @@ export default class Popover extends React.Component<Props, {}> {
             </PositionContainer>
           ) : null
         ) : (
-        <Overlay
-          show={isOpen}
-          //tslint:disable-next-line:no-any -- library typings are not up to date
-          placement={position as any}
-          container={document.body}
-          target={() => this.target ? ReactDOM.findDOMNode(this.target) : null}
-          shouldUpdatePosition={true}
-        >
-          <PositionContainer>
-            <Tooltip
-              //tslint:disable-next-line:no-any -- library typings are not up to date
-              placement={position as any}
-              arrow={arrow}
-              margin={margin}
-              ref={(c) => {
-                this.contentNode = c ? ReactDOM.findDOMNode(c) : null;
-              }}
-              onClick={() => this.onInteraction('content')}
-            >
-              {content}
-            </Tooltip>
-          </PositionContainer>
-        </Overlay>)}
+          <Overlay
+            show={isOpen}
+            //tslint:disable-next-line:no-any -- library typings are not up to date
+            placement={position as any}
+            container={document.body}
+            target={() => this.target ? ReactDOM.findDOMNode(this.target) : null}
+            shouldUpdatePosition={true}
+          >
+            <PositionContainer>
+              <Tooltip
+                //tslint:disable-next-line:no-any -- library typings are not up to date
+                placement={position as any}
+                arrow={arrow}
+                margin={margin}
+                ref={(c) => {
+                  this.contentNode = c ? ReactDOM.findDOMNode(c) : null;
+                }}
+                onClick={() => this.onInteraction('content')}
+              >
+                {content}
+              </Tooltip>
+            </PositionContainer>
+          </Overlay>
+        )}
       </Wrapper>
     );
   }

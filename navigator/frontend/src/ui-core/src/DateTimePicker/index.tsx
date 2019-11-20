@@ -95,21 +95,23 @@ class InputMoment extends React.Component<Props & {ledgerTime: LedgerTime}, Stat
             defaultMoment={this.state.defaultMoment}
             onChange={this.onChange}
           />
-          {enableTime ?
-          <TimeInput
-            moment={this.state.moment}
-            defaultMoment={this.state.defaultMoment}
-            onChange={this.onChange}
-            onSubmit={this.onSubmit}
-          /> :
-          <CenteringWrapper>
-            <Button
-              type="main"
-              onClick={this.onSubmit}
-            >
-              Set
-            </Button>
-          </CenteringWrapper>}
+          {enableTime ? (
+            <TimeInput
+              moment={this.state.moment}
+              defaultMoment={this.state.defaultMoment}
+              onChange={this.onChange}
+              onSubmit={this.onSubmit}
+            />
+          ) : (
+            <CenteringWrapper>
+              <Button
+                type="main"
+                onClick={this.onSubmit}
+              >
+                Set
+              </Button>
+            </CenteringWrapper>
+          )}
         </div>
       </CalendarWrapper>
     );

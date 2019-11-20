@@ -48,13 +48,16 @@ export const columns: ContractColumn<Contract>[] = [
     createCell: ({cellData}) => (
       <ChoicesButton
         contract={cellData}
-        renderLink={(id, name) => (<Link
-          route={Routes.contract}
-          params={{id: encodeURIComponent(id), choice: name}}
-        >
-          <div>{name}</div>
-        </Link>)}
-      />),
+        renderLink={(id, name) => (
+          <Link
+            route={Routes.contract}
+            params={{id: encodeURIComponent(id), choice: name}}
+          >
+            <div>{name}</div>
+          </Link>
+        )}
+      />
+    ),
     sortable: false,
     width: 120,
     weight: 0,

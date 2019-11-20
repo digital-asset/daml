@@ -72,12 +72,13 @@ const store: Store<App.State> = createStore<App.State>(
   )),
 );
 
-ReactDOM.render(
-  <ApolloProvider store={store} client={client}>
-    <ThemeProvider theme={defaultTheme}>
-      <App.UI />
-    </ThemeProvider>
-  </ApolloProvider>,
+ReactDOM.render((
+    <ApolloProvider store={store} client={client}>
+      <ThemeProvider theme={defaultTheme}>
+        <App.UI />
+      </ThemeProvider>
+    </ApolloProvider>
+  ),
   document.getElementById('app'),
 );
 

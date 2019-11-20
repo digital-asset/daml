@@ -161,19 +161,20 @@ export function TableActionBarConfigSearchInput(props: {
   readonly width?: string;
 }){
   return (
-  <TableActionBarSearchInput
-    onChange={(value) => {
-      if (props.onConfigChange) {
-        props.onConfigChange({
-          ...props.config,
-          search: value,
-        });
-      }
-    }}
-    placeholder={''}
-    initialValue={props.config.search}
-    width={props.width}
-  />);
+    <TableActionBarSearchInput
+      onChange={(value) => {
+        if (props.onConfigChange) {
+          props.onConfigChange({
+            ...props.config,
+            search: value,
+          });
+        }
+      }}
+      placeholder={''}
+      initialValue={props.config.search}
+      width={props.width}
+    />
+  );
 }
 
 /** A checkbox, wired up to control a TableConfig */
@@ -186,21 +187,22 @@ export function TableActionBarConfigCheckbox<
   readonly title: string;
 }){
   return (
-  <TableActionBarCheckboxLabel>
-    <TableActionBarCheckbox
-      type="checkbox"
-      checked={!!props.config[props.configKey]}
-      onChange={(e: React.FormEvent<HTMLInputElement>) => {
-        if (props.onConfigChange) {
-          const el = e.target as HTMLInputElement;
-          props.onConfigChange({
-            //tslint:disable-next-line:no-any (becuase of TS bug)
-            ...props.config as any,
-            [props.configKey]: el.checked,
-          });
-        }
-      }}
-    />
-    {props.title}
-  </TableActionBarCheckboxLabel>);
+    <TableActionBarCheckboxLabel>
+      <TableActionBarCheckbox
+        type="checkbox"
+        checked={!!props.config[props.configKey]}
+        onChange={(e: React.FormEvent<HTMLInputElement>) => {
+          if (props.onConfigChange) {
+            const el = e.target as HTMLInputElement;
+            props.onConfigChange({
+              //tslint:disable-next-line:no-any (becuase of TS bug)
+              ...props.config as any,
+              [props.configKey]: el.checked,
+            });
+          }
+        }}
+      />
+      {props.title}
+    </TableActionBarCheckboxLabel>
+  );
 }

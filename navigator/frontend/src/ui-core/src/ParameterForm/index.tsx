@@ -305,21 +305,22 @@ const VariantInput = (props: VariantInputProps): JSX.Element => {
             }}
           />
         </LabeledElement>
-        {constructor !== undefined ?
-        (<LabeledElement label={'Value'} key={'value'}>
-          <ParameterInput
-            contractIdProvider={contractIdProvider}
-            typeProvider={typeProvider}
-            parameter={constructor.value}
-            name={`${name}.value`}
-            argument={value}
-            disabled={disabled}
-            onChange={(val) => {
-              onChange(DamlLfValueF.variant(id, constructor.name, val));
-            }}
-            level={level + 1}
-          />
-        </LabeledElement>) : null}
+        {constructor !== undefined ? (
+          <LabeledElement label={'Value'} key={'value'}>
+            <ParameterInput
+              contractIdProvider={contractIdProvider}
+              typeProvider={typeProvider}
+              parameter={constructor.value}
+              name={`${name}.value`}
+              argument={value}
+              disabled={disabled}
+              onChange={(val) => {
+                onChange(DamlLfValueF.variant(id, constructor.name, val));
+              }}
+              level={level + 1}
+            />
+          </LabeledElement>
+        ) : null}
       </NestedForm>
     );
   } else {
@@ -451,21 +452,22 @@ const OptionalInput = (props: OptionalInputProps): JSX.Element => {
             ]}
           />
         </LabeledElement>
-        {value !== null ?
-        (<LabeledElement label={'Value'} key={'value'}>
-          <ParameterInput
-            contractIdProvider={contractIdProvider}
-            typeProvider={typeProvider}
-            parameter={valueType}
-            name={`${name}.value`}
-            argument={value}
-            disabled={disabled}
-            onChange={(val) => {
-              onChange(DamlLfValueF.optional(val));
-            }}
-            level={level + 1}
-          />
-        </LabeledElement>) : null}
+        {value !== null ? (
+          <LabeledElement label={'Value'} key={'value'}>
+            <ParameterInput
+              contractIdProvider={contractIdProvider}
+              typeProvider={typeProvider}
+              parameter={valueType}
+              name={`${name}.value`}
+              argument={value}
+              disabled={disabled}
+              onChange={(val) => {
+                onChange(DamlLfValueF.optional(val));
+              }}
+              level={level + 1}
+            />
+          </LabeledElement>
+        ) : null}
       </NestedForm>
     );
   } else {
