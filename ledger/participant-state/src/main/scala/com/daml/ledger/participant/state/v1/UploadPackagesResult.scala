@@ -10,18 +10,18 @@ sealed abstract class UploadPackagesResult extends Product with Serializable {
 object UploadPackagesResult {
 
   /** The packages were successfully uploaded */
-  final case object Ok extends UploadPackagesResult {
-    override def description: String = "Packages successfully uploaded"
+  case object Ok extends UploadPackagesResult {
+    override val description: String = "Packages successfully uploaded"
   }
 
   /** The system is overloaded, clients should back off exponentially */
-  final case object Overloaded extends UploadPackagesResult {
-    override def description: String = "System is overloaded, please try again later"
+  case object Overloaded extends UploadPackagesResult {
+    override val description: String = "System is overloaded, please try again later"
   }
 
   /** Synchronous package upload is not supported */
-  final case object NotSupported extends UploadPackagesResult {
-    override def description: String = "Packages upload not supported"
+  case object NotSupported extends UploadPackagesResult {
+    override val description: String = "Packages upload not supported"
   }
 
   /** Submission ended up with internal error */
@@ -36,7 +36,7 @@ object UploadPackagesResult {
   }
 
   /** The participant was not authorized to submit the upload request */
-  final case object ParticipantNotAuthorized extends UploadPackagesResult {
-    override def description: String = "Participant is not authorized to upload packages"
+  case object ParticipantNotAuthorized extends UploadPackagesResult {
+    override val description: String = "Participant is not authorized to upload packages"
   }
 }

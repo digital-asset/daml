@@ -77,7 +77,7 @@ class ApiPackageManagementService(
             case UploadPackagesResult.Ok =>
               Future.successful(UploadDarFileResponse())
             case r @ UploadPackagesResult.Overloaded =>
-              Future.failed(ErrorFactories.resourceExhausted)
+              Future.failed(ErrorFactories.resourceExhausted(r.description))
             case r @ UploadPackagesResult.InternalError(_) =>
               Future.failed(ErrorFactories.internal(r.reason))
             case r @ UploadPackagesResult.InvalidPackage(_) =>

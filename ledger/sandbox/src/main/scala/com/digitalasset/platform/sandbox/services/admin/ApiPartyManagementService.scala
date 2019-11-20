@@ -91,7 +91,7 @@ class ApiPartyManagementService private (
         case PartyAllocationResult.Ok(details) =>
           Future.successful(AllocatePartyResponse(Some(mapPartyDetails(details))))
         case r @ PartyAllocationResult.Overloaded =>
-          Future.failed(ErrorFactories.resourceExhausted)
+          Future.failed(ErrorFactories.resourceExhausted(r.description))
         case r @ PartyAllocationResult.AlreadyExists =>
           Future.failed(ErrorFactories.invalidArgument(r.description))
         case r @ PartyAllocationResult.InternalError(_) =>
