@@ -19,13 +19,13 @@ type Response = (Maybe Checkpoint, [Completion])
 
 completionStream :: Request -> LedgerService (Stream Response)
 completionStream (lid,aid,partys,offsetOpt) =
-    makeLedgerService $ \timeout config -> do
+    makeLedgerService $ \timeout config mdm -> do
     let request = mkCompletionStreamRequest lid aid partys offsetOpt
     asyncStreamGen $ \stream ->
         withGRPCClient config $ \client -> do
             service <- commandCompletionServiceClient client
             let CommandCompletionService {commandCompletionServiceCompletionStream=rpc} = service
-            sendToStream timeout request raiseCompletionStreamResponse stream rpc
+            sendToStream timeout mdm request raiseCompletionStreamResponse stream rpc
 
 
 
@@ -46,12 +46,12 @@ mkCompletionStreamRequest (LedgerId id) aid parties offsetOpt = CompletionStream
 
 completionEnd :: LedgerId -> LedgerService AbsOffset
 completionEnd lid =
-    makeLedgerService $ \timeout config ->
+    makeLedgerService $ \timeout config mdm ->
     withGRPCClient config $ \client -> do
         service <- commandCompletionServiceClient client
         let CommandCompletionService {commandCompletionServiceCompletionEnd=rpc} = service
         let request = CompletionEndRequest (unLedgerId lid) noTrace
-        rpc (ClientNormalRequest request timeout emptyMdm)
+        rpc (ClientNormalRequest request timeout mdm)
             >>= unwrap
             >>= \case
             CompletionEndResponse (Just offset) ->

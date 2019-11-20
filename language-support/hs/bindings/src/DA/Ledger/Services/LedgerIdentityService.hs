@@ -11,11 +11,11 @@ import Network.GRPC.HighLevel.Generated
 
 getLedgerIdentity :: LedgerService LedgerId
 getLedgerIdentity =
-    makeLedgerService $ \timeout config -> do
+    makeLedgerService $ \timeout config mdm -> do
     let request = GetLedgerIdentityRequest noTrace
     withGRPCClient config $ \client -> do
         service <- ledgerIdentityServiceClient client
         let LedgerIdentityService{ledgerIdentityServiceGetLedgerIdentity=rpc} = service
-        response <- rpc (ClientNormalRequest request timeout emptyMdm)
+        response <- rpc (ClientNormalRequest request timeout mdm)
         GetLedgerIdentityResponse text <- unwrap response
         return $ LedgerId text
