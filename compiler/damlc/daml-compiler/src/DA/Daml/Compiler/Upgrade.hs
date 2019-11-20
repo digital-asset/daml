@@ -4,13 +4,10 @@
 
 module DA.Daml.Compiler.Upgrade
     ( generateUpgradeModule
-    , generateTemplateInstance
-    , generateSrcFromLf
     , generateSrcPkgFromLf
     , generateTemplateInstancesPkgFromLf
     , generateGenInstancesPkgFromLf
     , Env(..)
-    , DiffSdkVers(..)
     ) where
 
 import "ghc-lib-parser" Bag
@@ -46,8 +43,6 @@ data Env = Env
     , envQualify :: Bool
     , envMod :: LF.Module
     }
-
-newtype DiffSdkVers = DiffSdkVers Bool
 
 -- | Generate non-consuming choices to upgrade all templates defined in the module.
 generateUpgradeModule :: [String] -> String -> String -> String -> String
