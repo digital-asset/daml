@@ -12,6 +12,16 @@
    Each change outlined by the output of this command is preceded by the section to
    which it belongs: create one entry per section and add all pertaining
    items (without the section tag) to the release notes.
+   Note that the changelog may also specify edits to existing changelog additions, in which case they will be reported with the following format
+
+       CHANGELOG_BEGIN
+
+       ** Replace changelog for PR #42 **
+
+       - [Sandbox] Adds new admin API to upload DAR files
+
+       CHANGELOG_END
+
    It is important that the PR only changes `VERSION`, `release-notes.rst`.
    Note that `VERSION` and `release-notes.rst` must be modified even if
    there have been no changes that have been added to the release notes so far.

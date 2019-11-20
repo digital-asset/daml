@@ -45,6 +45,17 @@ The following is an example of a well-formed commit, including the description (
 
       CHANGELOG_END
 
+If you want to amend an existing changelog entry part of a PR already merged on master, do so with the following format:
+
+      CHANGELOG_BEGIN
+
+      ** Replace changelog for PR #42 **
+
+      - [Sandbox] Introduce a new API for party management.
+      See `#1311 <https://github.com/digital-asset/daml/issues/1311>`__.
+
+      CHANGELOG_END
+
 ## Working with issues
 
 We use issues and [pull requests](https://help.github.com/articles/about-pull-requests/) to collaborate and track our work. Anyone is welcome to open an issue. If you just want to ask a question, please ask away on [Stack Overflow](https://stackoverflow.com/questions/tagged/daml) using the tag `daml`.
