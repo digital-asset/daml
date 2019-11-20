@@ -30,7 +30,7 @@ For Git commit messages, our principle is that `git log --pretty=oneline` should
 - Does your PR include appropriate tests?
 - Make sure your PR title and description makes it easy for other developers to understand what the contained commits do. The title should say what the changes do. The description should expand on what it does (if not obvious from the title alone), and say why it is being done.
 - If your PR corresponds to an issue, add “Fixes #XX” to your pull request description. This will auto-close the corresponding issue when the commit is merged into master and tie the PR to the issue.
-- If your PR includes user-facing changes, one or more commits in the PR must end their body with a paragraph titled ``CHANGELOG`` that includes relevant changelog entries, where each entry starts with the component to which is belongs in square brackets. Use RST to format links as this text will be added to the changelog upon release.
+- If your PR includes user-facing changes, one or more commits in the PR must include in their body with a section between the ``CHANGELOG_BEGIN`` and ``CHANGELOG_END`` tags that includes relevant changelog entries, where each entry starts with the component to which is belongs in square brackets. Use RST to format links as this text will be added to the changelog upon release.
 
 The following is an example of a well-formed commit, including the description (first line) and a body that includes changelog additions:
 
@@ -38,10 +38,12 @@ The following is an example of a well-formed commit, including the description (
 
       Also fixes a typo in the Scala bindings documentation.
 
-      CHANGELOG
+      CHANGELOG_BEGIN
 
       - [Sandbox] Introduced a new API for package management.
         See `#1311 <https://github.com/digital-asset/daml/issues/1311>`__.
+
+      CHANGELOG_END
 
 ## Working with issues
 

@@ -13,9 +13,11 @@ The following is an example of a commit message including a description and a bo
 
   Also fixes a typo in the Scala bindings documentation.
 
-  CHANGELOG
+  CHANGELOG_BEGIN
 
   - [Sandbox] Introduced a new API for package management.
     See `#1311 <https://github.com/digital-asset/daml/issues/1311>`__.
+
+  CHANGELOG_END
 
 Please check `CONTRIBUTING.MD <https://github.com/digital-asset/daml/blob/master/CONTRIBUTING.md#pull-request-checklist>`__ for more details.
