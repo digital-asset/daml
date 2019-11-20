@@ -87,7 +87,7 @@ class ApiPackageManagementService(
     )
   }
 
-  private def prepareUploadPackageResult(result: UploadPackagesResult): Unit = {
+  private def prepareUploadPackageResult(result: UploadPackagesResult): Future[UploadDarFileResponse] = {
     result match {
       case UploadPackagesResult.Ok =>
         Future.successful(UploadDarFileResponse())
