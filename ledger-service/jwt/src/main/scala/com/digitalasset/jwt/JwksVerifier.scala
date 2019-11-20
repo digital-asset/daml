@@ -18,7 +18,14 @@ import scalaz.syntax.show._
   *
   */
 class JwksVerifier(url: URL) extends JwtVerifierBase {
-  private[this] val http = new UrlJwkProvider(url)
+
+  /** Timeout for connecting to the JWKS URL, in milliseconds */
+  private[this] val connectionTimeoutMs = 10000
+
+  /** Timeout for reading from the JWKS URL, in milliseconds */
+  private[this] val readTimeoutMs = 10000
+  private[this] val http =
+    new UrlJwkProvider(url, new Integer(connectionTimeoutMs), new Integer(readTimeoutMs))
 
   private[this] val cache: Cache[String, JwtVerifier] = CacheBuilder
     .newBuilder()
