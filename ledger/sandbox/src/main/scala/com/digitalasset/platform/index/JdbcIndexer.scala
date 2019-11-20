@@ -368,6 +368,8 @@ class JdbcIndexer private[index] (
       case ConfigurationChanged(_, _) => None
       case ConfigurationChangeRejected(_, _) => None
       case CommandRejected(_, _) => None
+      case PackageUploadEntryAccepted(_, _) => None
+      case PackageUploadEntryRejected(_, _, _) => None
     }) map (_.toInstant)
 
   private def toDomainRejection(
