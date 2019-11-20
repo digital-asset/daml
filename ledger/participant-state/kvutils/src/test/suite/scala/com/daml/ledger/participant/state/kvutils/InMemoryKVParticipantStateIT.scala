@@ -153,7 +153,7 @@ class InMemoryKVParticipantStateIT
       }
     }
 
-    "reject uploadPackages when archive is empty" in {
+    "return SubmissionResult Acknowledged for uploadPackages when archive is empty" in {
       val ps = new InMemoryKVParticipantState(participantId)
       val rt = ps.getNewRecordTime()
 
@@ -168,13 +168,11 @@ class InMemoryKVParticipantStateIT
       } yield {
         ps.close()
         result match {
-          case SubmissionResult.InternalError("Invalid Package") =>
+          case SubmissionResult.Acknowledged =>
             succeed
           case _ =>
             fail("Unexpected response to package upload.  Error : " + result.toString)
         }
-        // TODO BH : will need to match for this in read response stream
-//        case UploadPackagesResult.InvalidPackage(_) =>
       }
     }
 
