@@ -37,11 +37,12 @@ import scalaz.syntax.show._
 import scalaz.syntax.tag._
 import scalaz.syntax.functor._
 import scalaz.syntax.std.option._
-import scalaz.{-\/, \/, \/-}
+import scalaz.{-\/, Applicative, Monoid, Traverse, \/, \/-}
 import spray.json.JsValue
 import com.typesafe.scalalogging.StrictLogging
 import scalaz.Liskov.<~<
 
+import scala.language.higherKinds
 import scala.concurrent.{ExecutionContext, Future}
 
 private class ContractsFetch(
@@ -96,11 +97,11 @@ private class ContractsFetch(
       implicit ec: ExecutionContext,
       mat: Materializer): ConnectionIO[OffsetBookmark[domain.Offset]] =
     for {
-      offset0 <- readOffsetFromDbOrFetchFromLedger(jwt, party, templateId)
-      _ = logger.debug(s"readOffsetFromDbOrFetchFromLedger($jwt, $party, $templateId): $offset0")
-      offset1 <- contractsFromOffsetIo(jwt, party, templateId, offset0)
-      _ = logger.debug(s"contractsFromOffsetIo($jwt, $party, $templateId, $offset0): $offset1")
-    } yield offset1.cata(AbsoluteBookmark(_), offset0)
+      offset0 <- ContractDao.lastOffset(party, templateId)
+      ob0 = offset0.cata(AbsoluteBookmark(_), LedgerBegin)
+      offset1 <- contractsFromOffsetIo(jwt, party, templateId, ob0)
+      _ = logger.debug(s"contractsFromOffsetIo($jwt, $party, $templateId, $ob0): $offset1")
+    } yield offset1
 
   private def readOffsetFromDbOrFetchFromLedger(
       jwt: Jwt,
@@ -202,45 +203,62 @@ private class ContractsFetch(
       templateId: domain.TemplateId.RequiredPkg,
       offset: OffsetBookmark[domain.Offset])(
       implicit ec: ExecutionContext,
-      mat: Materializer): ConnectionIO[Option[domain.Offset]] = {
+      mat: Materializer): ConnectionIO[OffsetBookmark[domain.Offset]] = {
 
     val graph = RunnableGraph.fromGraph(
       GraphDSL.create(
         Sink.queue[ConnectionIO[Unit]](),
-        Sink.lastOption[domain.Offset]
+        Sink.last[OffsetBookmark[String]]
       )((a, b) => (a, b)) { implicit builder => (acsSink, offsetSink) =>
         import GraphDSL.Implicits._
 
-        val txSource: Source[Transaction, NotUsed] = getCreatesAndArchivesSince(
+        val txnK = getCreatesAndArchivesSince(
           jwt,
           transactionFilter(party, List(templateId)),
-          offset.toLedgerApi)
+          _: lav1.ledger_offset.LedgerOffset)
 
-        val untuple = builder add project2[InsertDeleteStep[lav1.event.CreatedEvent], domain.Offset]
+        // include ACS iff starting at LedgerBegin
+        val (idses, lastOff) = offset match {
+          case LedgerBegin =>
+            val stepsAndOffset = builder add acsFollowingAndBoundary(txnK)
+            stepsAndOffset.in <~ getActiveContracts(
+              jwt,
+              transactionFilter(party, List(templateId)),
+              true)
+            (stepsAndOffset.out0, stepsAndOffset.out1)
+
+          case AbsoluteBookmark(_) =>
+            val stepsAndOffset = builder add transactionsFollowingBoundary(txnK)
+            stepsAndOffset.in <~ Source.single(domain.Offset.tag.unsubst(offset))
+            (stepsAndOffset.out0, stepsAndOffset.out1)
+        }
+
         val transactInsertsDeletes = Flow
           .fromFunction(jsonifyInsertDeleteStep)
           .conflate(_ append _)
           .map(insertAndDelete)
 
-        txSource.map(transactionToInsertsAndDeletes) ~> untuple.in
-        untuple.out0 ~> transactInsertsDeletes ~> acsSink
-        untuple.out1 ~> offsetSink
+        idses ~> transactInsertsDeletes ~> acsSink
+        lastOff ~> offsetSink
 
         ClosedShape
       })
 
     val (acsQueue, lastOffsetFuture) = graph.run()
 
-    import cats.instances.option._
-    import connection.AsyncConnectionIO
-    import cats.syntax.traverse._
-
     for {
       _ <- sinkCioSequence_(acsQueue)
-      offsetO <- connectionIOFuture(lastOffsetFuture)
-      _ <- offsetO.traverse(newOffset =>
-        ContractDao.updateOffset(party, templateId, newOffset, offsetFromBookmark(offset)))
-    } yield offsetO
+      offset0 <- connectionIOFuture(lastOffsetFuture)
+      offsetOrError <- offset0 match {
+        case AbsoluteBookmark(str) =>
+          val newOffset = domain.Offset(str)
+          ContractDao
+            .updateOffset(party, templateId, newOffset, offset.toOption)
+            .map(_ => AbsoluteBookmark(newOffset))
+        case LedgerBegin =>
+          connection.pure(LedgerBegin)
+      }
+    } yield offsetOrError
   }
 
   private def offsetFromBookmark(o: OffsetBookmark[domain.Offset]): Option[domain.Offset] =
@@ -265,6 +283,11 @@ private object ContractsFetch {
         case AbsoluteBookmark(offset) => domain.Offset.toLedgerApi(ev(offset))
         case LedgerBegin => LedgerOffset(Boundary(LedgerBoundary.LEDGER_BEGIN))
       }
+
+    def toOption: Option[Off] = this match {
+      case AbsoluteBookmark(offset) => Some(offset)
+      case LedgerBegin => None
+    }
   }
   final case class AbsoluteBookmark[+Off](offset: Off) extends OffsetBookmark[Off]
   case object LedgerBegin extends OffsetBookmark[Nothing]
@@ -440,6 +463,17 @@ private object ContractsFetch {
         (if (o.deletes.isEmpty) inserts
          else inserts.filter(c => !o.deletes.contains(cid(c).contractId))) ++ o.inserts,
         deletes union o.deletes)
+  }
+
+  object InsertDeleteStep {
+    implicit val `IDS covariant`: Traverse[InsertDeleteStep] = new Traverse[InsertDeleteStep] {
+      import scalaz.syntax.traverse._
+      type IDS[A] = InsertDeleteStep[A]
+      override def traverseImpl[G[_]: Applicative, A, B](fa: IDS[A])(f: A => G[B]) =
+        fa.inserts traverse f map (gbs => fa copy (inserts = gbs))
+      override def foldMap[A, M: Monoid](fa: IDS[A])(f: A => M) = fa.inserts foldMap f
+      override def map[A, B](fa: IDS[A])(f: A => B) = fa copy (inserts = fa.inserts map f)
+    }
   }
 
   private def transactionFilter(
