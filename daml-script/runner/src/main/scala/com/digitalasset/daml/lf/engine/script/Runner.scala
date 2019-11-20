@@ -85,6 +85,14 @@ class Runner(
       }
       .get
       ._1
+  val primPackageId =
+    dar.all
+      .find {
+        case (pkgId, pkg) =>
+          pkg.modules.contains(DottedName.assertFromString("DA.Types"))
+      }
+      .get
+      ._1
   def lookupChoiceTy(id: Identifier, choice: Name): Either[String, Type] =
     for {
       pkg <- darMap
@@ -283,7 +291,8 @@ class Runner(
                   acsResponses.flatMap(acsPages => {
                     val res =
                       FrontStack(acsPages.flatMap(page => page.activeContracts))
-                        .traverseU(Converter.fromCreated(valueTranslator, stdlibPackageId, _))
+                        .traverseU(
+                          Converter.fromCreated(valueTranslator, primPackageId, stdlibPackageId, _))
                         .fold(s => throw new ConverterException(s), identity)
                     machine.ctrl =
                       Speedy.CtrlExpr(SEApp(SEValue(continue), Array(SEValue(SList(res)))))
