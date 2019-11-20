@@ -76,6 +76,10 @@ class ApiPackageManagementService(
           .flatMap {
             case UploadPackagesResult.Ok =>
               Future.successful(UploadDarFileResponse())
+            case r @ UploadPackagesResult.Overloaded =>
+              Future.failed(ErrorFactories.resourceExhausted(r.description))
+            case r @ UploadPackagesResult.InternalError(_) =>
+              Future.failed(ErrorFactories.internal(r.reason))
             case r @ UploadPackagesResult.InvalidPackage(_) =>
               Future.failed(ErrorFactories.invalidArgument(r.description))
             case r @ UploadPackagesResult.ParticipantNotAuthorized =>

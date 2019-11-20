@@ -40,6 +40,9 @@ trait ErrorFactories {
   def permissionDenied(description: String): StatusRuntimeException =
     grpcError(Status.PERMISSION_DENIED.withDescription(description))
 
+  def resourceExhausted(description: String): StatusRuntimeException =
+    grpcError(Status.RESOURCE_EXHAUSTED.withDescription(description))
+
   def grpcError(status: Status) = new ApiException(status)
 
 }
