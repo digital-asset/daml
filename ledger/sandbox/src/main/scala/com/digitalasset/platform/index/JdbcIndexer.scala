@@ -362,8 +362,8 @@ class JdbcIndexer private[index] (
   private def stateUpdateRecordTime(update: Update): Option[Instant] =
     (update match {
       case Heartbeat(recordTime) => Some(recordTime)
-      case PartyAddedToParticipant(_, _, _, recordTime) => Some(recordTime)
-      case PublicPackageUploaded(_, _, _, recordTime) => Some(recordTime)
+      case PartyAddedToParticipant(_, _, _, recordTime, _) => Some(recordTime)
+      case PublicPackageUploaded(_, _, _, recordTime, _) => Some(recordTime)
       case TransactionAccepted(_, _, _, _, recordTime, _) => Some(recordTime)
       case ConfigurationChanged(_, _) => None
       case ConfigurationChangeRejected(_, _) => None
