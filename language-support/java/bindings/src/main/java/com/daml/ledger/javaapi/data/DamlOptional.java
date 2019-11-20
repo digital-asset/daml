@@ -57,7 +57,7 @@ public class DamlOptional extends Value {
     }
 
     public static @Nonnull DamlOptional empty() {
-        return (DamlOptional) EMPTY;
+        return EMPTY;
     }
 
     @Override
@@ -67,5 +67,14 @@ public class DamlOptional extends Value {
         return ValueOuterClass.Value.newBuilder()
                 .setOptional(ob.build())
                 .build();
+    }
+
+    public static DamlOptional fromProto(ValueOuterClass.Optional optional) {
+        if (optional.hasValue()) {
+            return new DamlOptional(fromProto(optional.getValue()));
+        }
+        else {
+            return EMPTY;
+        }
     }
 }

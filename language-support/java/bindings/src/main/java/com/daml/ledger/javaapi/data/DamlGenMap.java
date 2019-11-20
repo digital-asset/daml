@@ -7,12 +7,11 @@ import com.digitalasset.ledger.api.v1.ValueOuterClass;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
 import javax.annotation.Nonnull;
-import java.util.Collections;
-import java.util.List;
-import java.util.Objects;
-import java.util.StringJoiner;
+import java.util.*;
+import java.util.function.Function;
+import java.util.stream.Collector;
 
-public class DamlGenMap extends Value {
+final public class DamlGenMap extends Value {
 
     private static DamlGenMap EMPTY = new DamlGenMap(Collections.EMPTY_MAP);
 
@@ -22,6 +21,21 @@ public class DamlGenMap extends Value {
         this.value = value;
     }
 
+    public static <T> Collector<T, Map<Value, Value>, DamlGenMap> collector(
+            Function<T, Value> keyMapper,
+            Function<T, Value> valueMapper) {
+
+        return Collector.of(
+                LinkedHashMap::new,
+                (acc, entry) -> acc.put(keyMapper.apply(entry), valueMapper.apply(entry)),
+                (left, right) -> {
+                    left.putAll(right);
+                    return left;
+                },
+                DamlGenMap::new
+        );
+    }
+
     public @Nonnull
     java.util.Map<Value, Value> getMap() { return value; }
 
@@ -29,8 +43,8 @@ public class DamlGenMap extends Value {
     public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
-        DamlGenMap optional = (DamlGenMap) o;
-        return Objects.equals(value, optional.value);
+        DamlGenMap other = (DamlGenMap) o;
+        return Objects.equals(value, other.value);
     }
 
     @Override
@@ -54,5 +68,12 @@ public class DamlGenMap extends Value {
                         .setValue(value.toProto())
                 ));
         return ValueOuterClass.Value.newBuilder().setGenMap(mb).build();
+    }
+
+    public static DamlGenMap fromProto(ValueOuterClass.GenMap map){
+        return map.getEntriesList().stream().collect(collector(
+                entry -> fromProto(entry.getKey()),
+                entry -> fromProto(entry.getValue())
+        ));
     }
 }

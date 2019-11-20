@@ -6,11 +6,10 @@ package com.daml.ledger.javaapi.data;
 import com.digitalasset.ledger.api.v1.ValueOuterClass;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Objects;
+import java.lang.reflect.Array;
+import java.util.*;
 import java.util.function.Function;
+import java.util.stream.Collector;
 
 public final class DamlList extends Value {
 
@@ -33,6 +32,18 @@ public final class DamlList extends Value {
         return values;
     }
 
+    public static <T> Collector<T, ArrayList<Value>, DamlList> collector(Function<T, Value> valueMapper) {
+        return Collector.of(
+                ArrayList::new,
+                (acc, entry) -> acc.add(valueMapper.apply(entry)),
+                (left, right) -> {
+                    left.addAll(right);
+                    return left;
+                },
+                DamlList::new
+        );
+    }
+
     @Override
     public ValueOuterClass.Value toProto() {
         ValueOuterClass.List.Builder builder = ValueOuterClass.List.newBuilder();
@@ -43,11 +54,7 @@ public final class DamlList extends Value {
     }
 
     public static DamlList fromProto(ValueOuterClass.List list) {
-        ArrayList<Value> values = new ArrayList<>(list.getElementsCount());
-        for (ValueOuterClass.Value value : list.getElementsList()) {
-            values.add(Value.fromProto(value));
-        }
-        return new DamlList(values);
+        return list.getElementsList().stream().collect(collector(Value::fromProto));
     }
 
     @Override

@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml.lf.codegen.backend.java.inner
-import java.util.stream.Collectors
 
 import com.daml.ledger.javaapi
 import com.digitalasset.daml.lf.codegen.backend.java.{JavaEscaper, Types}
@@ -95,11 +94,10 @@ object ToValueGenerator {
           generateToValueConverter(param, CodeBlock.of("$L", arg), args, packagePrefixes)
         )
         CodeBlock.of(
-          "new $T($L.stream().map($L).collect($T.<Value>toList()))",
-          apiList,
+          "$L.stream().collect($T.collector($L))",
           accessor,
+          apiList,
           extractor,
-          classOf[Collectors]
         )
 
       case TypePrim(PrimTypeOptional, ImmArraySeq(param)) =>
@@ -124,12 +122,9 @@ object ToValueGenerator {
           generateToValueConverter(param, CodeBlock.of("$L.getValue()", arg), args, packagePrefixes)
         )
         CodeBlock.of(
-          "new $T($L.entrySet().stream().collect($T.<$T<String,$L>,String,Value>toMap($T::getKey, $L)))",
-          apiMap,
+          "$L.entrySet().stream().collect($T.collector($T::getKey, $L)) ",
           accessor,
-          classOf[Collectors],
-          classOf[java.util.Map.Entry[_, _]],
-          toJavaTypeName(param, packagePrefixes),
+          apiMap,
           classOf[java.util.Map.Entry[_, _]],
           extractor
         )
@@ -151,13 +146,9 @@ object ToValueGenerator {
             packagePrefixes)
         )
         CodeBlock.of(
-          "new $T($L.entrySet().stream().collect($T.<$T<$L,$L>,Value,Value>toMap($L, $L)))",
-          apiGenMap,
+          "$L.entrySet().stream().collect($T.collector($L, $L))",
           accessor,
-          classOf[Collectors],
-          classOf[java.util.Map.Entry[_, _]],
-          toJavaTypeName(keyType, packagePrefixes),
-          toJavaTypeName(valueType, packagePrefixes),
+          apiGenMap,
           keyExtractor,
           valueExtractor
         )

@@ -7,23 +7,37 @@ import com.digitalasset.ledger.api.v1.ValueOuterClass;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
 import javax.annotation.Nonnull;
-import java.util.Collections;
-import java.util.Map;
-import java.util.Objects;
-import java.util.StringJoiner;
+import java.util.*;
+import java.util.function.Function;
+import java.util.stream.Collector;
 
 public class DamlMap extends Value {
 
     private static DamlMap EMPTY = new DamlMap(Collections.emptyMap());
 
-    private final java.util.Map<String, Value> value;
+    private final Map<String, Value> value;
 
-    public DamlMap(java.util.Map<String, Value> value) {
+    public DamlMap(Map<String, Value> value) {
         this.value = value;
     }
 
+    public static <T> Collector<T, Map<String, Value>, DamlMap> collector(
+            Function<T, String> keyMapper,
+            Function<T, Value> valueMapper) {
+
+        return Collector.of(
+                HashMap::new,
+                (acc, entry) -> acc.put(keyMapper.apply(entry), valueMapper.apply(entry)),
+                (left, right) -> {
+                    left.putAll(right);
+                    return left;
+                },
+                DamlMap::new
+        );
+    }
+
     public @Nonnull
-    java.util.Map<String, Value> getMap() { return value; }
+    Map<String, Value> getMap() { return value; }
 
     @Override
     public boolean equals(Object o) {
@@ -56,5 +70,12 @@ public class DamlMap extends Value {
         );
 
         return ValueOuterClass.Value.newBuilder().setMap(mb).build();
+    }
+
+    public static DamlMap fromProto(ValueOuterClass.Map map) {
+        return map.getEntriesList().stream().collect(collector(
+                ValueOuterClass.Map.Entry::getKey,
+                entry -> fromProto(entry.getValue())
+        ));
     }
 }
