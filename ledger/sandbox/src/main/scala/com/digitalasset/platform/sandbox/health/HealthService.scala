@@ -35,6 +35,7 @@ class HealthService(implicit materializer: Materializer, executionContext: Execu
     Source
       .repeat(servingResponse)
       .throttle(1, per = 1.second)
+      .via(dropRepeated)
       .runWith(Sink.foreach(responseObserver.onNext))
       .onComplete {
         case Success(Done) => responseObserver.onCompleted()
