@@ -74,10 +74,13 @@ class JdbcIndexerFactory[Status <: InitStatus] private (loggerFactory: NamedLogg
     this.asInstanceOf[JdbcIndexerFactory[Initialized]]
   }
 
-  def create(actorSystem: ActorSystem, readService: ReadService, jdbcUrl: String)(
-      implicit x: Status =:= Initialized): Future[JdbcIndexer] = {
+  def create(
+      participantId: String,
+      actorSystem: ActorSystem,
+      readService: ReadService,
+      jdbcUrl: String)(implicit x: Status =:= Initialized): Future[JdbcIndexer] = {
     val materializer: ActorMaterializer = ActorMaterializer()(actorSystem)
-    val metricsManager = MetricsManager(false)
+    val metricsManager = MetricsManager(s"com.digitalasset.platform.indexer.$participantId")
 
     implicit val ec: ExecutionContext = DEC
 

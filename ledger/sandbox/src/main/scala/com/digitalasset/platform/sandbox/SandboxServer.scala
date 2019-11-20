@@ -300,7 +300,10 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
   private def start(): SandboxState = {
     val actorSystem = ActorSystem(actorSystemName)
     val infrastructure =
-      Infrastructure(actorSystem, ActorMaterializer()(actorSystem), MetricsManager())
+      Infrastructure(
+        actorSystem,
+        ActorMaterializer()(actorSystem),
+        MetricsManager("com.digitalasset.platform.sandbox"))
     val packageStore = loadDamlPackages
     val apiState = buildAndStartApiServer(infrastructure, packageStore)
     SandboxState(apiState, infrastructure, packageStore)

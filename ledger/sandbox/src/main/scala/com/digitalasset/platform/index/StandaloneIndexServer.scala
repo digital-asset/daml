@@ -198,7 +198,10 @@ class StandaloneIndexServer(
   def start(): Future[SandboxState] = {
     val actorSystem = ActorSystem(actorSystemName)
     val infrastructure =
-      Infrastructure(actorSystem, ActorMaterializer()(actorSystem), MetricsManager(false))
+      Infrastructure(
+        actorSystem,
+        ActorMaterializer()(actorSystem),
+        MetricsManager(s"com.digitalasset.platform.ledger-api-server.$participantId"))
     implicit val ec: ExecutionContext = infrastructure.executionContext
     val apiState = buildAndStartApiServer(infrastructure)
 

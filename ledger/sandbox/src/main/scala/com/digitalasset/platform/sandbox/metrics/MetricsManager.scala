@@ -17,13 +17,13 @@ import scala.concurrent.Future
   * <br/><br/>
   * Note that metrics are in general light-weight and add negligible overhead. They are not visible to everyday
   * users so they can be safely enabled all the time. */
-final class MetricsManager(enableJmxReporter: Boolean) extends AutoCloseable {
+final class MetricsManager(jmxDomain: String, enableJmxReporter: Boolean) extends AutoCloseable {
 
   val metrics = new MetricRegistry()
 
   private lazy val jmxReporter = JmxReporter
     .forRegistry(metrics)
-    .inDomain("com.digitalasset.platform.sandbox")
+    .inDomain(jmxDomain)
     .build
 
   private val slf4jReporter = Slf4jReporter
@@ -54,6 +54,6 @@ final class MetricsManager(enableJmxReporter: Boolean) extends AutoCloseable {
 }
 
 object MetricsManager {
-  def apply(enableJmxReporter: Boolean = true): MetricsManager =
-    new MetricsManager(enableJmxReporter)
+  def apply(jmxDomain: String, enableJmxReporter: Boolean = true): MetricsManager =
+    new MetricsManager(jmxDomain, enableJmxReporter)
 }

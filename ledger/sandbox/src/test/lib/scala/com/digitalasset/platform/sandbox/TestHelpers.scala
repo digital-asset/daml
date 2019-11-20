@@ -52,7 +52,7 @@ trait TestHelpers {
       toleranceWindow: ToleranceWindow,
       authService: AuthService)(implicit ec: ExecutionContext, mat: ActorMaterializer) = {
 
-    implicit val mm: MetricsManager = MetricsManager()
+    implicit val mm: MetricsManager = MetricsManager("test")
 
     val ledgerId = LedgerId("sandbox-ledger")
     val participantId: ParticipantId = Ref.LedgerString.assertFromString("sandbox-participant")

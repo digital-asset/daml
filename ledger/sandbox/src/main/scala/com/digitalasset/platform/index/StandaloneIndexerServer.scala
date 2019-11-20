@@ -50,7 +50,7 @@ object StandaloneIndexerServer {
         indexer.start { () =>
           {
             val createF = initializedIndexerFactory
-              .create(actorSystem, readService, config.jdbcUrl)
+              .create(config.participantId, actorSystem, readService, config.jdbcUrl)
             // signal when ready
             createF.map(_ => {
               promise.trySuccess(())
