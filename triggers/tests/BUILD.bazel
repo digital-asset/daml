@@ -40,7 +40,7 @@ dependencies:
   - daml-prim
   - daml-trigger.dar
 EOF
-      $(location //compiler/damlc) build --target=1.7 --project-root=$$TMP_DIR -o $$PWD/$(location acs.dar)
+      $(location //compiler/damlc) build --project-root=$$TMP_DIR -o $$PWD/$(location acs.dar)
       rm -rf $$TMP_DIR
     """,
     tools = ["//compiler/damlc"],
