@@ -47,7 +47,6 @@ final case class ClaimActAsParty(name: Ref.Party) extends Claim
   */
 final case class ClaimReadAsParty(name: Ref.Party) extends Claim
 
-
 /**
   * [[Claims]] define what actions an authenticated user can perform on the Ledger API.
   *

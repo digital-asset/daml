@@ -64,8 +64,8 @@ final class Authorizer(now: () => Instant) {
     * of the given set. Authorization is always granted for an empty collection of parties.
     */
   def requireActClaimsForAllParties[Req, Res](
-    parties: Iterable[String],
-    call: Req => Future[Res]): Req => Future[Res] =
+      parties: Iterable[String],
+      call: Req => Future[Res]): Req => Future[Res] =
     wrapSingleCall(c => c.notExpired(now()) && parties.forall(p => c.canActAs(p)), call)
 
   /** Checks whether the current Claims authorize to read as the given party, if any.
@@ -88,8 +88,8 @@ final class Authorizer(now: () => Instant) {
     * Note: A missing party does NOT result in an authorization error.
     */
   def requireActClaimsForParty[Req, Res](
-    party: Option[String],
-    call: Req => Future[Res]): Req => Future[Res] =
+      party: Option[String],
+      call: Req => Future[Res]): Req => Future[Res] =
     requireActClaimsForAllParties(party.toList, call)
 
   /** Checks whether the current Claims authorize to read data for all parties mentioned in the given transaction filter */
@@ -104,7 +104,9 @@ final class Authorizer(now: () => Instant) {
   def requireReadClaimsForTransactionFilter[Req, Res](
       filter: Option[TransactionFilter],
       call: Req => Future[Res]): Req => Future[Res] =
-    requireReadClaimsForAllParties(filter.map(_.filtersByParty).fold(Set.empty[String])(_.keySet), call)
+    requireReadClaimsForAllParties(
+      filter.map(_.filtersByParty).fold(Set.empty[String])(_.keySet),
+      call)
 
   private def assertServerCall[A](observer: StreamObserver[A]): ServerCallStreamObserver[A] =
     observer match {

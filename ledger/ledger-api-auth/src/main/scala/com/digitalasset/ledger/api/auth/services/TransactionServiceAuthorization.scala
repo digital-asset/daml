@@ -25,9 +25,9 @@ final class TransactionServiceAuthorization(
   override def getTransactions(
       request: transaction_service.GetTransactionsRequest,
       responseObserver: StreamObserver[GetTransactionsResponse]): Unit =
-    authorizer.requireReadClaimsForTransactionFilterOnStream(request.filter, service.getTransactions)(
-      request,
-      responseObserver)
+    authorizer.requireReadClaimsForTransactionFilterOnStream(
+      request.filter,
+      service.getTransactions)(request, responseObserver)
 
   override def getTransactionTrees(
       request: transaction_service.GetTransactionsRequest,
@@ -44,8 +44,9 @@ final class TransactionServiceAuthorization(
 
   override def getTransactionById(
       request: transaction_service.GetTransactionByIdRequest): Future[GetTransactionResponse] =
-    authorizer.requireReadClaimsForAllParties(request.requestingParties, service.getTransactionById)(
-      request)
+    authorizer.requireReadClaimsForAllParties(
+      request.requestingParties,
+      service.getTransactionById)(request)
 
   override def getFlatTransactionByEventId(
       request: transaction_service.GetTransactionByEventIdRequest)

@@ -25,7 +25,8 @@ final class CommandServiceAuthorization(
     with GrpcApiService {
 
   override def submitAndWait(request: SubmitAndWaitRequest): Future[Empty] =
-    authorizer.requireActClaimsForParty(request.commands.map(_.party), service.submitAndWait)(request)
+    authorizer.requireActClaimsForParty(request.commands.map(_.party), service.submitAndWait)(
+      request)
 
   override def submitAndWaitForTransaction(
       request: SubmitAndWaitRequest): Future[SubmitAndWaitForTransactionResponse] =
