@@ -269,18 +269,18 @@ object ValuePredicate {
       q.toLongExact
     case JsString(q) =>
       q.parseLong.fold(e => throw e, identity)
-  }, { case V.ValueInt64(v) => v })
+  }, { case V.ValueInt64(v) => v })(V.ValueInt64)
   private[this] val TextRangeExpr = RangeExpr({ case JsString(s) => s }, {
     case V.ValueText(v) => v
-  })
+  })(V.ValueText)
   private[this] val DateRangeExpr = RangeExpr({
     case JsString(q) =>
       Time.Date fromString q fold (predicateParseError(_), identity)
-  }, { case V.ValueDate(v) => v })
+  }, { case V.ValueDate(v) => v })(V.ValueDate)
   private[this] val TimestampRangeExpr = RangeExpr({
     case JsString(q) =>
       Time.Timestamp fromString q fold (predicateParseError(_), identity)
-  }, { case V.ValueTimestamp(v) => v })
+  }, { case V.ValueTimestamp(v) => v })(V.ValueTimestamp)
   private[this] def numericRangeExpr(scale: Numeric.Scale) =
     RangeExpr(
       {
@@ -289,7 +289,7 @@ object ValuePredicate {
         case JsNumber(q) =>
           Numeric checkWithinBoundsAndRound (scale, q) fold (predicateParseError, identity)
       }, { case V.ValueNumeric(v) => v setScale scale }
-    )
+    )(qv => V.ValueNumeric(Numeric assertFromBigDecimal (scale, qv)))
 
   private[this] implicit val `jBD order`: Order[java.math.BigDecimal] =
     Order.fromScalaOrdering
@@ -302,7 +302,7 @@ object ValuePredicate {
 
   private[this] final case class RangeExpr[A](
       scalar: JsValue PartialFunction A,
-      lfvScalar: LfV PartialFunction A) {
+      lfvScalar: LfV PartialFunction A)(normalized: A => LfV) {
     import RangeExpr._
 
     private def scalarE(it: JsValue): PredicateParseError \/ A =
@@ -346,8 +346,13 @@ object ValuePredicate {
         case _ => None
       }
 
-    def toLiteral(q: A) =
-      Literal({ case v if lfvScalar.lift(v) contains q => }, JsNull /*TODO proper normalized*/ )
+    def toLiteral(q: A) = {
+      import json.JsonProtocol.LfValueDatabaseCodec.{apiValueToJsValue => dbApiValueToJsValue}
+      // we must roundtrip through normalized because e.g. there are several
+      // queries that equal 5, but only one of those will be used as the
+      // SQL representation (which we compare directly for equality)
+      Literal({ case v if lfvScalar.lift(v) contains q => }, dbApiValueToJsValue(normalized(q)))
+    }
 
     def toRange(ltgt: Boundaries[A])(implicit A: Order[A]) = Range(ltgt, A, lfvScalar)
 
