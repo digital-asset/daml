@@ -83,11 +83,27 @@ sealed abstract class ValuePredicate extends Product with Serializable {
     }
     go(this)
   }
+
+  def toSqlWhereClause: LfV => SqlWhereClause = {
+    def go(self: ValuePredicate): LfV => SqlWhereClause =
+      v =>
+        self match {
+          case Literal(p) =>
+            if (p.isDefinedAt(v)) ""
+            else AlwaysFails
+          case _ => ""
+      }
+
+    go(this)
+  }
 }
 
 object ValuePredicate {
   type TypeLookup = Ref.Identifier => Option[iface.DefDataType.FWT]
   type LfV = V[V.AbsoluteContractId]
+  type SqlWhereClause = String
+
+  val AlwaysFails: SqlWhereClause = "1 = 2"
 
   final case class Literal(p: LfV PartialFunction Unit) extends ValuePredicate
   final case class RecordSubset(fields: ImmArraySeq[Option[(Ref.Name, ValuePredicate)]])
