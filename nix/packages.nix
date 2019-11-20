@@ -74,7 +74,7 @@ in rec {
     # The package itself is called bazel-watcher. However, the executable is
     # called ibazel. We call the attribute ibazel so that the default dev-env
     # wrapper works.
-    ibazel = pkgs.callPackage ./tools/bazel-watcher {};
+    ibazel = pkgs.bazel-watcher;
 
     scala = (bazel_dependencies.scala.override { jre = jdk; }).overrideAttrs (attrs: {
       buildInputs = attrs.buildInputs ++ [ pkgs.makeWrapper ];
