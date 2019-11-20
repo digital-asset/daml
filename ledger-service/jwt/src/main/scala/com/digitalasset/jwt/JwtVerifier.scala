@@ -80,15 +80,16 @@ object RSA256Verifier extends StrictLogging {
 
   /**
     * Create a RSA256 validator with the key loaded from the given file.
-    * The file is assumed to be a X509 encoded RSA public key in a PEM container.
+    * The file is assumed to be a X509 encoded certificate.
+    * These typically have the .crt file extension.
     */
-  def fromX509PemFile(path: String): Error \/ JwtVerifier = {
+  def fromCrtFile(path: String): Error \/ JwtVerifier = {
     for {
       rsaKey <- \/.fromEither(
         KeyUtils
           .readRSAPublicKeyFromCrt(new File(path))
           .toEither)
-        .leftMap(e => Error('fromX509PemFile, e.getMessage))
+        .leftMap(e => Error('fromCrtFile, e.getMessage))
       verfier <- RSA256Verifier.apply(rsaKey)
     } yield verfier
   }

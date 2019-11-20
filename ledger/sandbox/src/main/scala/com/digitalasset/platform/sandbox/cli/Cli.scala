@@ -165,8 +165,8 @@ object Cli {
     opt[String]("auth-jwt-rs256-crt")
       .optional()
       .validate(v => Either.cond(v.length > 0, (), "Public key file path must be a non-empty string"))
-      .text("Enables JWT-based authorization, where the JWT is signed by RSA256 with a public key loaded from the given X509 certificate file")
-      .action( (path, config) => config.copy(authService = Some(AuthServiceJWT(RSA256Verifier.fromX509PemFile(path).valueOr(err => sys.error(s"Failed to create RSA256 verifier: $err"))))))
+      .text("Enables JWT-based authorization, where the JWT is signed by RSA256 with a public key loaded from the given X509 certificate file (.crt)")
+      .action( (path, config) => config.copy(authService = Some(AuthServiceJWT(RSA256Verifier.fromCrtFile(path).valueOr(err => sys.error(s"Failed to create RSA256 verifier: $err"))))))
 
     opt[String]("auth-jwt-rs256-jwks")
       .optional()
