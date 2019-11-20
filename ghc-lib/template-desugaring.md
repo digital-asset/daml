@@ -98,9 +98,9 @@ class IouInstance where
   _actionIouArchive self this@Iou{..} arg@Archive = pure ()
   _exerciseIouArchive : ContractId Iou -> Archive -> Update ()
   _exerciseIouArchive = magic @"archive"
-  _toAnyChoiceIouArchive : proxy Iou -> Archive -> AnyChoice
+  _toAnyChoiceIouArchive : proxy Iou -> Archive -> Any
   _toAnyChoiceIouArchive = magic @"toAnyChoice"
-  _fromAnyChoiceIouArchive : proxy Iou -> AnyChoice -> Optional Archive
+  _fromAnyChoiceIouArchive : proxy Iou -> Any -> Optional Archive
   _fromAnyChoiceIouArchive = magic @"fromAnyChoice"
 
   _consumptionIouTransfer : PreConsuming Iou
@@ -111,9 +111,9 @@ class IouInstance where
   _actionIouTransfer self this@Iou{..} arg@Transfer{..} = create this with owner = newOwner
   _exerciseIouTransfer : ContractId Iou -> Transfer -> Update (ContractId Iou)
   _exerciseIouTransfer = magic @"exercise"
-  _toAnyChoiceIouTransfer : proxy Iou -> Transfer -> AnyChoice
+  _toAnyChoiceIouTransfer : proxy Iou -> Transfer -> Any
   _toAnyChoiceIouTransfer = magic @"toAnyChoice"
-  _fromAnyChoiceIouTransfer : proxy Iou -> AnyChoice -> Optional Transfer
+  _fromAnyChoiceIouTransfer : proxy Iou -> Any -> Optional Transfer
   _fromAnyChoiceIouTransfer = magic @"fromAnyChoice"
 ```
 
@@ -138,8 +138,8 @@ When a type `t` is a `Template` instance, `class Choice` (defined by the DAML st
 ```haskell
 class Template t => Choice t c r | t c -> r where
   exercise : ContractId t -> c -> Update r
-  _toAnyChoice : proxy t -> c -> AnyChoice
-  _fromAnyChoice : proxy t -> AnyChoice -> Optional c
+  _toAnyChoice : proxy t -> c -> Any
+  _fromAnyChoice : proxy t -> Any -> Optional c
 ```
 
 In this example, `c` is identified with `Transfer` and `r` with `ContractId Iou`.
@@ -163,6 +163,8 @@ class Template t => TemplateKey t k | t -> k where
   key : t -> k
   fetchByKey : k -> Update (ContractId t, t)
   lookupByKey : k -> Update (Optional (ContractId t))
+  _toAnyContractKey : proxy t -> k -> Any
+  _fromAnyContractKey : proxy t -> Any -> Optional ks
 ```
 
 In the following `Enrollment` contract, there are no choices but there are declarations of `key` and `maintainer`.
@@ -237,9 +239,9 @@ class EnrollmentInstance where
   _actionEnrollmentArchive self this@Enrollment{..} arg@Archive = pure ()
   _exerciseEnrollmentArchive : ContractId Enrollment -> Archive -> Update ()
   _exerciseEnrollmentArchive = magic @"archive"
-  _toAnyChoiceEnrollmentArchive : proxy Enrollment -> Archive -> AnyChoice
+  _toAnyChoiceEnrollmentArchive : proxy Enrollment -> Archive -> Any
   _toAnyChoiceEnrollmentArchive = magic @"toAnyChoice"
-  _fromAnyChoiceEnrollmentArchive : proxy Enrollment -> AnyChoice -> Optional Archive
+  _fromAnyChoiceEnrollmentArchive : proxy Enrollment -> Any -> Optional Archive
   _fromAnyChoiceEnrollmentArchive = magic @"fromAnyChoice"
 
 instance EnrollmentInstance
@@ -260,6 +262,8 @@ instance TemplateKey Enrollment Registration where
   fetchByKey = _fetchByKeyEnrollment
   lookupByKey = _lookupByKeyEnrollment
   maintainer = _maintainerEnrollment (_hasKeyEnrollment : HasKey Enrollment)
+  _fromAnyContractKey = _fromAnyContractKeyEnrollment
+  _toAnyContractKey = _toAnyContractKeyEnrollment
 ```
 
 ### Example (3)
@@ -335,9 +339,9 @@ class Template t => ProposalInstance t where
     _actionProposalArchive self this@Proposal{..} arg@Archive = pure ()
     _exerciseProposalArchive : ContractId (Proposal t) -> Archive -> Update ()
     _exerciseProposalArchive = magic @"archive"
-    _toAnyChoiceProposalArchive : proxy (Proposal t) -> Archive -> AnyChoice
+    _toAnyChoiceProposalArchive : proxy (Proposal t) -> Archive -> Any
     _toAnyChoiceProposalArchive = magic @"toAnyChoice"
-    _fromAnyChoiceProposalArchive : proxy (Proposal t) -> AnyChoice -> Optional Archive
+    _fromAnyChoiceProposalArchive : proxy (Proposal t) -> Any -> Optional Archive
     _fromAnyChoiceProposalArchive = magic @"fromAnyChoice"
 
     _consumptionProposalAccept : PreConsuming (Proposal t)
@@ -349,9 +353,9 @@ class Template t => ProposalInstance t where
         create asset
     _exerciseProposalAccept : ContractId (Proposal t) -> Accept -> Update (ContractId t)
     _exerciseProposalAccept = magic @"exercise"
-    _toAnyChoiceProposalAccept : proxy (Proposal t) -> Accept -> AnyChoice
+    _toAnyChoiceProposalAccept : proxy (Proposal t) -> Accept -> Any
     _toAnyChoiceProposalAccept = magic @"toAnyChoice"
-    _fromAnyChoiceProposalAccept : proxy (Proposal t) -> AnyChoice -> Optional Accept
+    _fromAnyChoiceProposalAccept : proxy (Proposal t) -> Any -> Optional Accept
     _fromAnyChoiceProposalAccept = magic @"fromAnyChoice"
 
 instance ProposalInstance t => Template (Proposal t) where
@@ -369,6 +373,8 @@ instance ProposalInstance t => TemplateKey (Proposal t) ([Party], Text) where
     key = _keyProposal
     fetchByKey = _fetchByKeyProposal
     lookupByKey = _lookupByKeyProposal
+    _toAnyContractKey = _toAnyContractKeyProposal
+    _fromAnyContractKey = _fromAnyContractKeyProposal
 
 instance ProposalInstance t => Choice (Proposal t) Accept (ContractId t) where
     exercise = _exerciseProposalAccept
