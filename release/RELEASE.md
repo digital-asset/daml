@@ -13,7 +13,7 @@
    which it belongs: create one entry per section and add all pertaining
    items (without the section tag) to the release notes.
    It is important that the PR only changes `VERSION`, `release-notes.rst`.
-   Note that and `release-notes.rst` must be modified even if
+   Note that `VERSION` and `release-notes.rst` must be modified even if
    there have been no changes that have been added to the release notes so far.
 1. Merge the PR.
 1. Once CI has passed for the corresponding master build, the release should be
