@@ -206,13 +206,7 @@ class InMemoryKVParticipantState(
                   partyRequests -= submissionId
 
                 case KeyValueConsumption.PackageUploadResponse(submissionId, result) =>
-                  packageRequests
-                    .getOrElse(
-                      submissionId,
-                      sys.error(
-                        s"packageUpload response: $submissionId could not be matched with a request!"))
-                    .complete(result)
-                  packageRequests -= submissionId
+                  ()
               }
           case _ => ()
         }
