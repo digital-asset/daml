@@ -10,6 +10,7 @@
 let
   patches = [
     ./use-go-in-path.patch
+    ./rules-go.patch
   ];
 in
 buildBazelPackage rec {
