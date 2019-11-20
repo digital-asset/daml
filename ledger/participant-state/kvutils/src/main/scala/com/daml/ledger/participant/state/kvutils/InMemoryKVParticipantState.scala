@@ -483,15 +483,16 @@ class InMemoryKVParticipantState(
       archives: List[Archive],
       sourceDescription: Option[String]): CompletionStage[SubmissionResult] = {
     val sId = submissionIdSource.getAndIncrement().toString
-    val cf = new CompletableFuture[SubmissionResult]
-//    matcherActorRef ! AddPackageUploadRequest(sId, cf)
-    commitActorRef ! CommitSubmission(
-      allocateEntryId,
-      Envelope.enclose(
-        KeyValueSubmission
-          .archivesToSubmission(sId, archives, sourceDescription.getOrElse(""), participantId))
-    )
-    cf
+    val submission = KeyValueSubmission
+      .archivesToSubmission(sId, archives, sourceDescription.getOrElse(""), participantId)
+
+    CompletableFuture.completedFuture({
+      commitActorRef ! CommitSubmission(
+        allocateEntryId,
+        Envelope.enclose(submission)
+      )
+      SubmissionResult.Acknowledged
+    })
   }
 
   /** Retrieve the static initial conditions of the ledger, containing
