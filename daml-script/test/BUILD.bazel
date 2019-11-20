@@ -35,7 +35,7 @@ dependencies:
   - daml-prim
   - daml-script.dar
 EOF
-      $(location //compiler/damlc) build --target=1.7 --project-root=$$TMP_DIR -o $$PWD/$(location script-test.dar)
+      $(location //compiler/damlc) build --project-root=$$TMP_DIR -o $$PWD/$(location script-test.dar)
       rm -rf $$TMP_DIR
     """,
     tools = ["//compiler/damlc"],
