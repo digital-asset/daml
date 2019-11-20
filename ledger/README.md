@@ -2,40 +2,19 @@
 
 Home of our reference ledger implementation (Sandbox) and various ledger related libraries.
 
-## v1 gRPC API
-
-The v1 gRPC API is described [here](API.md)
-
 ## Logging
 
 ### Logging Configuration
 
-Ledger Server uses [Logback](https://logback.qos.ch/) for logging configuration.
+The Sandbox and Ledger API Server use [Logback](https://logback.qos.ch/) for logging configuration.
 
 #### Log Files
 
-By [default our log configuration](https://github.com/DACH-NY/da/blob/master/ledger/platform-deployment/src/main/resources/logback.xml) creates two log files:
-- a plaintext file `logs/ledger.log`
-- a json file `logs/ledger.json.log` (for Logstash type log processors)
-
-The path the file is stored in can be adjusted by setting `-Dlogging.location=some/other/path`.
-The filename used can be adjusted by setting `-Dlogging.file=my-process-logs`.
-
-By default no output is sent to stdout (beyond logs from the logging setup itself).
-
-#### standard streams logging
-
-For development and testing it can be useful to send all logs to stdout & stderr rather than files (for instance to use the IntelliJ console or getting useful output from docker containers).
-
-We [ship a logging configuration for this](https://github.com/DACH-NY/da/blob/master/ledger/platform-deployment/src/main/resources/logback-standard.xml) which can be enabled by using `-Dlogback.configurationFile=classpath:logback-standard.xml -Dlogging.config=classpath:logback-standard.xml`.
-
-INFO level and below goes to stdout. WARN and above goes to stderr.
-
-_Note: always use both `-Dlogback.configurationFile` and `-Dlogging.config`. Logback is first initialized with the configuration file from `logback.configurationFile`. When the Spring framework boots it recreates logback and uses the configuration specified in `logging.config`.
+The Sandbox logs at `INFO` level to standard out and to the file `sandbox.log` in the current working directory.
 
 ### Log levels
 
-As most Java libraries and frameworks, ledger server uses INFO as the default logging level. This level is for minimal 
+As most Java libraries and frameworks, the Sandbox and Ledger API Server use INFO as the default logging level. This level is for minimal 
 and important information (usually only startup and normal shutdown events). INFO level logging should not produce
 increasing volume of logging during normal operation.
 
@@ -43,6 +22,41 @@ WARN level should be used for transition between healthy/unhealthy state, or in 
 
 DEBUG level should be turned on only when investigating issues in the system, and usually that means we want the trail
 loggers. Normal loggers at DEBUG level can be useful sometimes (e.g. DAML interpretation).
+
+## Metrics
+
+Sandbox and Ledger API Server provide a couple of useful metrics:
+
+### Sandbox and Ledger API Server
+
+The Ledger API Server exposes basic metrics for all gRPC services and some additional ones.
+<table>
+<thead><tr><td>Metric Name</td><td>Description</td></tr>
+<tbody>
+<tr><td><pre>LedgerApi.com.digitalasset.ledger.api.v1.$SERVICE.$METHOD</pre></td><td>A <i>meter</i> that tracks the number of calls to the respective service and method.
+<tr><td><pre>CommandSubmission.failedCommandInterpretations</pre></td><td>A <i>meter</i> that tracks the failed command interpretations.
+<tr><td><pre>CommandSubmission.submittedTransactions</pre></td><td>A <i>timer</i> that tracks the commands submitted to the backing ledger. 
+</tbody>
+</table>
+
+### Indexer
+<table>
+<thead><tr><td>Metric Name</td><td>Description</td></tr></thead>
+<tbody>
+<tr><td><pre>JdbcIndexer.processedStateUpdates</pre></td><td>A <i>timer</i> that tracks duration of state update processing.</td></tr>
+<tr><td><pre>JdbcIndexer.lastReceivedRecordTime</pre></td><td>A <i>gauge</i> that returns the last received record time in milliseconds since EPOCH.</td></tr>
+<tr><td><pre>JdbcIndexer.lastReceivedOffset</pre></td><td>A <i>gauge</i> that returns that last received offset from the ledger.</td></tr>
+<tr><td><pre>JdbcIndexer.currentRecordTimeLag</pre></td><td>A <i>gauge</i> that returns the difference between the Indexer's wallclock time and the last received record time in milliseconds.</td></tr>
+</tbody>
+</table>
+
+The following JMX domains are used:
+
+* Sandbox: `com.digitalasset.platform.sandbox`
+* Ledger API Server: `com.digitalasset.platform.ledger-api-server.$PARTICIPANT_ID`
+* Indexer Server: `com.digitalasset.platform.indexer.$PARTICIPANT_ID`
+
+`$PARTICIPANT_ID` is provided via CLI parameters.
 
 ## gRPC and back-pressure
 
