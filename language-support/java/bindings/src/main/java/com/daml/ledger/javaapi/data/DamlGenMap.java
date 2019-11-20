@@ -13,12 +13,24 @@ import java.util.stream.Collector;
 
 public final class DamlGenMap extends Value {
 
-    private static DamlGenMap EMPTY = new DamlGenMap(Collections.EMPTY_MAP);
+    private final Map<Value, Value> map;
 
-    private final java.util.Map<Value, Value> value;
+    /**
+     * The map that is passed to this constructor must not be changed
+     * once passed.
+     */
+    private DamlGenMap(@NonNull Map<@NonNull Value, @NonNull Value> value) {
+        this.map = value;
+    }
 
-    public DamlGenMap(java.util.Map<Value, Value> value) {
-        this.value = value;
+    private static @Nonnull DamlGenMap fromPrivateMap(@NonNull Map<@NonNull Value, @NonNull Value> map){
+        return new DamlGenMap(Collections.unmodifiableMap(map));
+    }
+
+    private static DamlGenMap EMPTY = fromPrivateMap(Collections.EMPTY_MAP);
+
+    public static DamlGenMap of(@NonNull Map<@NonNull Value, @NonNull Value> map){
+       return new DamlGenMap(new LinkedHashMap<>(map));
     }
 
     public static <T> Collector<T, Map<Value, Value>, DamlGenMap> collector(
@@ -29,37 +41,36 @@ public final class DamlGenMap extends Value {
                 LinkedHashMap::new,
                 (acc, entry) -> acc.put(keyMapper.apply(entry), valueMapper.apply(entry)),
                 (left, right) -> { left.putAll(right); return left; },
-                DamlGenMap::new
+                DamlGenMap::fromPrivateMap
         );
     }
 
-    public @Nonnull
-    java.util.Map<Value, Value> getMap() { return value; }
+    public @Nonnull Map<@NonNull Value, @NonNull Value> getMap() { return map; }
 
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         DamlGenMap other = (DamlGenMap) o;
-        return Objects.equals(value, other.value);
+        return Objects.equals(map, other.map);
     }
 
     @Override
     public int hashCode() {
-        return value.hashCode();
+        return map.hashCode();
     }
 
     @Override
     public @NonNull String toString() {
         StringJoiner sj = new StringJoiner(", ", "GenMap{", "}");
-        value.forEach((key, value) -> sj.add(key.toString()+ " -> " + value.toString()));
+        map.forEach((key, value) -> sj.add(key.toString()+ " -> " + value.toString()));
         return sj.toString();
     }
 
     @Override
     public @Nonnull ValueOuterClass.Value toProto() {
         ValueOuterClass.GenMap.Builder mb = ValueOuterClass.GenMap.newBuilder();
-        value.forEach((key, value) ->
+        map.forEach((key, value) ->
                 mb.addEntries(ValueOuterClass.GenMap.Entry.newBuilder()
                         .setKey(key.toProto())
                         .setValue(value.toProto())
@@ -67,7 +78,7 @@ public final class DamlGenMap extends Value {
         return ValueOuterClass.Value.newBuilder().setGenMap(mb).build();
     }
 
-    public static DamlGenMap fromProto(ValueOuterClass.GenMap map){
+    public static @Nonnull DamlGenMap fromProto(@Nonnull ValueOuterClass.GenMap map){
         return map.getEntriesList().stream().collect(collector(
                 entry -> fromProto(entry.getKey()),
                 entry -> fromProto(entry.getValue())

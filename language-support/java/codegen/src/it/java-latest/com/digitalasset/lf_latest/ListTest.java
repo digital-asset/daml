@@ -216,7 +216,7 @@ public class ListTest {
         ));
 
         assertEquals(fromValue, fromConstructor);
-        assertEquals(fromConstructor.toValue(f -> new DamlList(f.stream().map(Text::new).collect(Collectors.<Value>toList()))), dataRecord);
+        assertEquals(fromConstructor.toValue(f -> f.stream().collect(DamlList.collector(Text::new))), dataRecord);
 
     }
 

@@ -13,12 +13,25 @@ import java.util.stream.Collector;
 
 public final class DamlMap extends Value {
 
-    private static DamlMap EMPTY = new DamlMap(Collections.emptyMap());
+    private Map<String, Value> value;
 
-    private final Map<String, Value> value;
+    private DamlMap(){ }
 
+    private static DamlMap fromPrivateMap(Map<@NonNull String, @NonNull Value> value){
+        DamlMap damlMap = new DamlMap();
+        damlMap.value = Collections.unmodifiableMap(value);
+        return damlMap;
+    }
+
+    private static @NonNull DamlMap EMPTY = fromPrivateMap(Collections.emptyMap());
+
+    public static DamlMap of(@NonNull Map<@NonNull String, @NonNull Value> value){
+        return fromPrivateMap(new HashMap<>(value));
+    }
+
+    @Deprecated // use DamlMap:of
     public DamlMap(Map<String, Value> value) {
-        this.value = value;
+        this.value = Collections.unmodifiableMap(new HashMap<>(value));
     }
 
     public static <T> Collector<T, Map<String, Value>, DamlMap> collector(
@@ -29,12 +42,11 @@ public final class DamlMap extends Value {
                 HashMap::new,
                 (acc, entry) -> acc.put(keyMapper.apply(entry), valueMapper.apply(entry)),
                 (left, right) -> { left.putAll(right); return left; },
-                DamlMap::new
+                DamlMap::fromPrivateMap
         );
     }
 
-    public @Nonnull
-    Map<String, Value> getMap() { return value; }
+    public @Nonnull Map<@NonNull String, @NonNull Value> getMap() { return value; }
 
     @Override
     public boolean equals(Object o) {
@@ -69,7 +81,7 @@ public final class DamlMap extends Value {
         return ValueOuterClass.Value.newBuilder().setMap(mb).build();
     }
 
-    public static DamlMap fromProto(ValueOuterClass.Map map) {
+    public static @Nonnull DamlMap fromProto(ValueOuterClass.Map map) {
         return map.getEntriesList().stream().collect(collector(
                 ValueOuterClass.Map.Entry::getKey,
                 entry -> fromProto(entry.getValue())

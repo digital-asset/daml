@@ -7,21 +7,39 @@ import com.digitalasset.ledger.api.v1.ValueOuterClass;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
 import java.util.*;
+import javax.annotation.Nonnull;
 import java.util.function.Function;
 import java.util.stream.Collector;
 
 public final class DamlList extends Value {
 
-    private final List<Value> values;
+    private List<Value> values;
 
-    /**
-     * The list that is passed to this constructor must not be changed
-     * once passed.
-     */
+    private DamlList(){ }
+
+    private static DamlList fromPrivateList(@NonNull List<@NonNull Value> values){
+        DamlList damlList = new DamlList();
+        damlList.values =  Collections.unmodifiableList(values);
+        return damlList;
+    }
+
+    private static DamlList EMPTY = fromPrivateList(Collections.EMPTY_LIST);
+
+    public static DamlList of(@NonNull List<@NonNull Value> values){
+        return fromPrivateList(new ArrayList<>(values));
+    }
+
+    @SafeVarargs
+    public static DamlList of(@NonNull Value...values){
+        return fromPrivateList(Arrays.asList(values));
+    }
+
+    @Deprecated // use DamlList:of
     public DamlList(@NonNull List<@NonNull Value> values) {
         this.values = values;
     }
 
+    @Deprecated // use DamlMap:of
     @SafeVarargs
     public DamlList(@NonNull Value...values) {
         this(Arrays.asList(values));
@@ -36,12 +54,12 @@ public final class DamlList extends Value {
                 ArrayList::new,
                 (acc, entry) -> acc.add(valueMapper.apply(entry)),
                 (left, right) -> { left.addAll(right); return left; },
-                DamlList::new
+                DamlList::fromPrivateList
         );
     }
 
     @Override
-    public ValueOuterClass.Value toProto() {
+    public @Nonnull ValueOuterClass.Value toProto() {
         ValueOuterClass.List.Builder builder = ValueOuterClass.List.newBuilder();
         for (Value value : this.values) {
             builder.addElements(value.toProto());
@@ -49,7 +67,7 @@ public final class DamlList extends Value {
         return ValueOuterClass.Value.newBuilder().setList(builder.build()).build();
     }
 
-    public static DamlList fromProto(ValueOuterClass.List list) {
+    public static @Nonnull DamlList fromProto(@Nonnull ValueOuterClass.List list) {
         return list.getElementsList().stream().collect(collector(Value::fromProto));
     }
 
@@ -63,7 +81,6 @@ public final class DamlList extends Value {
 
     @Override
     public int hashCode() {
-
         return Objects.hash(values);
     }
 
@@ -72,12 +89,5 @@ public final class DamlList extends Value {
         return "DamlList{" +
                 "values=" + values +
                 '}';
-    }
-}
-
-class ElementOfWrongTypeFound extends RuntimeException {
-
-    public ElementOfWrongTypeFound(ValueOuterClass.List list, ValueOuterClass.Value v, ValueOuterClass.Value.SumCase found, ValueOuterClass.Value.SumCase expected) {
-        super(String.format("Expecting list of types %s but found a value of type %s (value: %s, list: %s)", expected, found, v, list));
     }
 }

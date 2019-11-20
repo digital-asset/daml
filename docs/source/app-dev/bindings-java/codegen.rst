@@ -149,7 +149,7 @@ DAML built-in types are translated to the following equivalent types in Java:
 +--------------------------------+--------------------------------------------+------------------------+
 | ``List`` or ``[]``             | ``java.util.List``                         | `DamlList`_            |
 +--------------------------------+--------------------------------------------+------------------------+
-| ``TextMap``                    | ``java.util.Map``                          | `TextMap`_             |
+| ``TextMap``                    | ``java.util.Map``                          | `DamlMap`_             |
 |                                | Restricted to using ``String`` keys.       |                        |
 +--------------------------------+--------------------------------------------+------------------------+
 | ``Optional``                   | ``java.util.Optional``                     | `DamlOptional`_        |
@@ -528,7 +528,7 @@ The conversion of the Java ``List`` and ``Optional`` types requires multiple ste
 
   Attribute<List<String>> authorsAttribute = new Attribute<List<String>>(Arrays.asList("Homer", "Ovid", "Vergil"));
 
-  Value serializedAuthors = authorsAttribute.toValue(f -> new DamlList(f.stream().map(Text::new).collect(Collectors.<Value>toList())));
+  Value serializedAuthors = authorsAttribute.toValue(f -> DamlList.of(f.stream().map(Text::new).collect(Collectors.<Value>toList())));
 
 The conversion of the Java ``List`` and ``Optional`` types similarly require that the Java Bindings types `DamlList`_ and `DamlOptional`_ are converted to it's Java equivalent and then all the contained elements are converted to Java types.
 
@@ -549,7 +549,7 @@ The conversion of the Java ``List`` and ``Optional`` types similarly require tha
 .. _Date: /app-dev/bindings-java/javadocs/com/daml/ledger/javaapi/data/Date.html
 .. _Timestamp: /app-dev/bindings-java/javadocs/com/daml/ledger/javaapi/data/Timestamp.html
 .. _DamlList: /app-dev/bindings-java/javadocs/com/daml/ledger/javaapi/data/DamlList.html
-.. _TextMap: /app-dev/bindings-java/javadocs/com/daml/ledger/javaapi/data/TextMap.html
+.. _DamlMap: /app-dev/bindings-java/javadocs/com/daml/ledger/javaapi/data/DamLMap.html
 .. _DamlOptional: /app-dev/bindings-java/javadocs/com/daml/ledger/javaapi/data/DamlOptional.html
 .. _Unit: /app-dev/bindings-java/javadocs/com/daml/ledger/javaapi/data/Unit.html
 .. _ContractId: /app-dev/bindings-java/javadocs/com/daml/ledger/javaapi/data/ContractId.html

@@ -79,7 +79,7 @@ public class GenMapTestFor1_dev {
         value.put(pairValue1(), left(1L));
         value.put(pairValue2(), right(bg2()));
         value.put(pairValue3(), left(3L));
-        Value map = new DamlGenMap(value);
+        Value map = DamlGenMap.of(value);
         return new Record(
                 new Record.Field("x", map),
                 new Record.Field("party", new Party("alice"))
