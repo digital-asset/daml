@@ -45,11 +45,11 @@ The following is an example of a well-formed commit, including the description (
 
       CHANGELOG_END
 
-If you want to amend an existing changelog entry part of a PR already merged on master, do so with the following format:
+If you want to amend an existing changelog entry part of a PR already merged on master, do so by adding a ``WARNING`` to your changelog additions:
 
       CHANGELOG_BEGIN
 
-      ** Replace changelog for PR #42 **
+      WARNING: replace existing changelog entry "Introduced a new API for package management" with the following.
 
       - [Sandbox] Introduce a new API for party management.
       See `#1311 <https://github.com/digital-asset/daml/issues/1311>`__.

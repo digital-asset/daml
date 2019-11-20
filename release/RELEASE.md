@@ -12,11 +12,11 @@
    Each change outlined by the output of this command is preceded by the section to
    which it belongs: create one entry per section and add all pertaining
    items (without the section tag) to the release notes.
-   Note that the changelog may also specify edits to existing changelog additions, in which case they will be reported with the following format
+   Note that the changelog may also specify edits to existing changelog additions, in which case they will be reported with the `WARNING` tag as in the following example:
 
        CHANGELOG_BEGIN
 
-       ** Replace changelog for PR #42 **
+       WARNING: fix typo in entry "Adds new amdin API to upload DAR files" with the following.
 
        - [Sandbox] Adds new admin API to upload DAR files
 
