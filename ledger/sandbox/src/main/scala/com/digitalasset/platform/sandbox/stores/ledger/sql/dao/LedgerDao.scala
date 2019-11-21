@@ -237,6 +237,7 @@ trait LedgerWriteDao extends AutoCloseable {
   def storePackageUploadEntry(
       offset: LedgerOffset,
       newLedgerEnd: LedgerOffset,
+      externalOffset: Option[ExternalOffset],
       participantId: ParticipantId,
       submissionId: String,
       reason: Option[String]
