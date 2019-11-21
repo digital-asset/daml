@@ -23,7 +23,7 @@ public final class DamlGenMap extends Value {
     /**
      * The map that is passed to this constructor must not be changed once passed.
      */
-    protected static @NonNull DamlGenMap fromPrivateMap(@NonNull Map<@NonNull Value, @NonNull Value> map){
+    static @NonNull DamlGenMap fromPrivateMap(@NonNull Map<@NonNull Value, @NonNull Value> map){
         return new DamlGenMap(Collections.unmodifiableMap(map));
     }
 
@@ -32,9 +32,6 @@ public final class DamlGenMap extends Value {
     public static DamlGenMap of(@NonNull Map<@NonNull Value, @NonNull Value> map){
        return fromPrivateMap(new LinkedHashMap<>(map));
     }
-
-    @Deprecated // use DamlGenMap::stream or DamlGenMap::toMap
-    public @NonNull Map<@NonNull Value, @NonNull Value> getMap() { return map; }
 
     public Stream<Map.Entry<Value, Value>> stream(){
         return map.entrySet().stream();

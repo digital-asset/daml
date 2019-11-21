@@ -20,7 +20,7 @@ public final class DamlList extends Value {
     /**
      * The list that is passed to this constructor must not be change once passed.
      */
-    protected static DamlList fromPrivateList(@NonNull List<@NonNull Value> values){
+    static @NonNull DamlList fromPrivateList(@NonNull List<@NonNull Value> values){
         DamlList damlList = new DamlList();
         damlList.values =  Collections.unmodifiableList(values);
         return damlList;
@@ -50,7 +50,7 @@ public final class DamlList extends Value {
 
     @Deprecated // use DamlMap::stream or DamlMap::toListf
     public @NonNull List<@NonNull Value> getValues() {
-        return values;
+        return toList(Function.identity());
     }
 
     public @NonNull Stream<Value> stream(){

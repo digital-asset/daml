@@ -538,7 +538,9 @@ containers method ``toOptional``. This method expects a function to
 convert back the value possibiy contains in the container.
 
 .. code-block:: java
-
+  
+  Attribute<Optional<Long>> idAttribute2 =
+    serializedId.toOptional(v -> v.asInt64().orElseThrow(() -> new IllegalArgumentException("Expected Int64 element")));
   
 Convert Collection values
 """""""""""""""""""""""""
@@ -562,7 +564,7 @@ functions to convert back the container's entries.
 
 .. code-block:: java
 
-  Attribute<List<String>> authorsAttribute =
+  Attribute<List<String>> authorsAttribute2 =
       Attribute.<List<String>>fromValue(
           serializedAuthors,
           f0 -> f0.asList().orElseThrow(() -> new IllegalArgumentException("Expected DamlList field"))
@@ -570,7 +572,7 @@ functions to convert back the container's entries.
                    f1 -> f1.asText().orElseThrow(() -> new IllegalArgumentException("Expected Text element"))
                         .getValue()
                )
-      )
+      );
 
 
 .. _Value: /app-dev/bindings-java/javadocs/com/daml/ledger/javaapi/Value.html

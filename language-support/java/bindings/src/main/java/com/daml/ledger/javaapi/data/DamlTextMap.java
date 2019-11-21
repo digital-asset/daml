@@ -23,7 +23,7 @@ public class DamlTextMap extends Value {
     /**
      * The map that is passed to this constructor must not be changed once passed.
      */
-    static DamlTextMap fromPrivateMap(Map<@NonNull String, @NonNull Value> value){
+    static @NonNull DamlTextMap fromPrivateMap(Map<@NonNull String, @NonNull Value> value){
         return new DamlTextMap(Collections.unmodifiableMap(value));
     }
 
@@ -34,7 +34,9 @@ public class DamlTextMap extends Value {
     }
 
     @Deprecated // use DamlTextMap::toMap or DamlTextMap::stream
-    public final @NonNull Map<@NonNull String, @NonNull Value> getMap() { return map; }
+    public final @NonNull Map<@NonNull String, @NonNull Value> getMap() {
+        return toMap(Function.identity());
+    }
 
     public Stream<Map.Entry<String, Value>> stream(){
         return map.entrySet().stream();

@@ -119,9 +119,8 @@ public abstract class Value {
 
     @Deprecated // Use Value::asTextMap
     public final Optional<DamlTextMap> asMap() {
-        return (this instanceof DamlTextMap) ? Optional.of((DamlTextMap) this) : Optional.empty();
+        return asTextMap();
     }
-
 
     public final Optional<DamlGenMap> asGenMap() {
         return (this instanceof DamlGenMap) ? Optional.of((DamlGenMap) this) : Optional.empty();
