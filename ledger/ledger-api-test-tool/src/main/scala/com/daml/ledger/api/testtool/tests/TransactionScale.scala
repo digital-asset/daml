@@ -7,7 +7,7 @@ import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTestSuite}
 import com.digitalasset.ledger.test_dev.Test.TextContainer
-import com.digitalasset.ledger.test_stable.Test._
+import com.digitalasset.ledger.test_stable.Test.{Dummy, TextContainer}
 
 import scala.concurrent.Future
 
