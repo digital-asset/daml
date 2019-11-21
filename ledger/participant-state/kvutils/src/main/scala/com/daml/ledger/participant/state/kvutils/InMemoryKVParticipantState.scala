@@ -173,9 +173,6 @@ class InMemoryKVParticipantState(
       case AddPartyAllocationRequest(submissionId, cf) =>
         partyRequests += (submissionId -> cf); ()
 
-//      case AddPackageUploadRequest(submissionId, cf) =>
-//        packageRequests += (submissionId -> cf); ()
-
       case AddPotentialResponse(idx) =>
         assert(idx >= 0 && idx < stateRef.commitLog.size)
 
