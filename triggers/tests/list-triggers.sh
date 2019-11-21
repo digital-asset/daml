@@ -35,7 +35,9 @@ EXPECTED="\
   ExerciseByKey:exerciseByKeyTrigger
   Numeric:test
   Retry:retryTrigger
-  ACS:test\
+  ACS:test
+  TemplateIdFilter:testOne
+  TemplateIdFilter:testTwo\
 "
 
 if [ "$OUTPUT" != "$EXPECTED" ]; then

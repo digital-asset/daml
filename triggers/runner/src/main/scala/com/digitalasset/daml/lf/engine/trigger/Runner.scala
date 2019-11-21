@@ -33,9 +33,14 @@ import com.digitalasset.ledger.api.v1.command_submission_service.SubmitRequest
 import com.digitalasset.ledger.api.v1.event._
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
 import com.digitalasset.ledger.api.v1.transaction.Transaction
-import com.digitalasset.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
+import com.digitalasset.ledger.api.v1.transaction_filter.{
+  Filters,
+  InclusiveFilters,
+  TransactionFilter
+}
 import com.digitalasset.ledger.client.LedgerClient
 import com.digitalasset.ledger.client.services.commands.CompletionStreamElement._
+import com.digitalasset.platform.participant.util.LfEngineToApi.toApiIdentifier
 import com.digitalasset.platform.services.time.TimeProviderType
 
 sealed trait TriggerMsg
@@ -177,8 +182,44 @@ class Runner(
     }
   }
 
-  def msgSource(client: LedgerClient, offset: LedgerOffset, party: String)(
-      implicit materializer: Materializer)
+  def getTriggerFilter(triggerId: Identifier): TransactionFilter = {
+    val (triggerExpr, triggerTy) = getTrigger(triggerId)
+    val registeredTemplates = compiler.compile(
+      ERecProj(triggerTy, Name.assertFromString("registeredTemplates"), triggerExpr))
+    var machine = Speedy.Machine.fromSExpr(registeredTemplates, false, compiledPackages)
+    machine = stepToValue(machine)
+    val templateIds = machine.toSValue match {
+      case SVariant(_, "AllInDar", _) => {
+        darMap.toList.flatMap({
+          case (pkgId, pkg) =>
+            pkg.modules.toList.flatMap({
+              case (modName, module) =>
+                module.definitions.toList.flatMap({
+                  case (entityName, definition) =>
+                    definition match {
+                      case DDataType(_, _, DataRecord(_, Some(tpl))) =>
+                        Seq(toApiIdentifier(Identifier(pkgId, QualifiedName(modName, entityName))))
+                      case _ => Seq()
+                    }
+                })
+            })
+        })
+      }
+      case SVariant(_, "RegisteredTemplates", v) =>
+        converter.toRegisteredTemplates(v) match {
+          case Right(tpls) => tpls.map(toApiIdentifier(_))
+          case Left(err) => throw new ConverterException(err)
+        }
+      case v => throw new ConverterException(s"Expected AllInDar or RegisteredTemplates but got $v")
+    }
+    TransactionFilter(List((party, Filters(Some(InclusiveFilters(templateIds))))).toMap)
+  }
+
+  def msgSource(
+      client: LedgerClient,
+      offset: LedgerOffset,
+      party: String,
+      filter: TransactionFilter)(implicit materializer: Materializer)
     : (Source[TriggerMsg, NotUsed], (String, StatusRuntimeException) => Unit) = {
     // We use the queue to post failures that occur directly on command submission as opposed to
     // appearing asynchronously on the completion stream
@@ -186,11 +227,7 @@ class Runner(
       Source.queue[Completion](10, OverflowStrategy.backpressure).preMaterialize()
     val transactionSource =
       client.transactionClient
-        .getTransactions(
-          offset,
-          None,
-          TransactionFilter(List((party, Filters.defaultInstance)).toMap),
-          verbose = true)
+        .getTransactions(offset, None, filter, verbose = true)
         .map[TriggerMsg](TransactionMsg)
     val completionSource =
       client.commandClient
@@ -283,10 +320,9 @@ class Runner(
       }))(Keep.right[NotUsed, Future[SExpr]])
   }
 
-  def queryACS(client: LedgerClient, party: String)(
+  def queryACS(client: LedgerClient, filter: TransactionFilter)(
       implicit materializer: Materializer,
       executionContext: ExecutionContext) = {
-    val filter = TransactionFilter(List((party, Filters.defaultInstance)).toMap)
     for {
       acsResponses <- client.activeContractSetClient
         .getActiveContracts(filter, verbose = true)
@@ -302,10 +338,10 @@ class Runner(
       timeProviderType: TimeProviderType,
       acs: Seq[CreatedEvent],
       offset: LedgerOffset,
+      filter: TransactionFilter,
       msgFlow: Flow[TriggerMsg, TriggerMsg, NotUsed] = Flow[TriggerMsg],
   )(implicit materializer: Materializer, executionContext: ExecutionContext): Future[SExpr] = {
-    val filter = TransactionFilter(List((party, Filters.defaultInstance)).toMap)
-    val (source, postFailure) = msgSource(client, offset, party)
+    val (source, postFailure) = msgSource(client, offset, party, filter)
     def submit(req: SubmitRequest) = {
       val f = client.commandClient
         .withTimeProvider(Some(Runner.getTimeProvider(timeProviderType)))
@@ -345,10 +381,10 @@ object Runner extends StrictLogging {
       party,
       dar
     )
-    val filter = TransactionFilter(List((party, Filters.defaultInstance)).toMap)
+    val filter = runner.getTriggerFilter(triggerId)
     for {
-      (acs, offset) <- runner.queryACS(client, party)
-      finalState <- runner.runWithACS(triggerId, timeProviderType, acs, offset)
+      (acs, offset) <- runner.queryACS(client, filter)
+      finalState <- runner.runWithACS(triggerId, timeProviderType, acs, offset, filter)
     } yield finalState
   }
 }

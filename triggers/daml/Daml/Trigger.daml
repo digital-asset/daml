@@ -25,6 +25,8 @@ module Daml.Trigger
  , Completion(..)
  , Transaction(..)
  , CompletionStatus(..)
+ , RegisteredTemplates(..)
+ , registeredTemplate
  ) where
 
 import DA.Action
@@ -71,6 +73,8 @@ data Trigger s = Trigger
   -- Given the party your trigger is running as, the ACS, the commands in flight
   -- and the user-defined state, you can send commands to the ledger using
   -- `emitCommands` to change the ACS.
+  , registeredTemplates : RegisteredTemplates
+  -- ^ The templates the trigger will receive events for.
   }
 
 -- | TriggerA is the type used in the `rule` of a DAML trigger.
@@ -152,6 +156,7 @@ runTrigger : Trigger s -> LowLevel.Trigger (TriggerState s)
 runTrigger userTrigger = LowLevel.Trigger
   { initialState = initialState
   , update = update
+  , registeredTemplates = userTrigger.registeredTemplates
   }
   where
     initialState party (ActiveContracts createdEvents) =

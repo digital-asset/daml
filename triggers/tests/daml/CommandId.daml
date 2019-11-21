@@ -16,6 +16,7 @@ test = Trigger
       (cmdIds, MTransaction (Transaction _ (Some (CommandId cmdId)) [ArchivedEvent (fromArchived @T -> Some _)])) ->
         (cmdId :: cmdIds, [])
       _ -> (s, [])
+  , registeredTemplates = AllInDar
   }
 
 template T

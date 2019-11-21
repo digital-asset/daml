@@ -15,6 +15,7 @@ test = Trigger
       -- throw an assertion error
         (True, [Commands (CommandId "mycreate2") [createCmd (t { v = t.v + 1.0 })]])
       _ -> (s, [])
+  , registeredTemplates = AllInDar
   }
 
 template T
