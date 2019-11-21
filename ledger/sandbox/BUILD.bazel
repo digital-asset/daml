@@ -196,6 +196,7 @@ da_scala_library(
 da_scala_test_suite(
     name = "sandbox-scala-tests",
     size = "small",
+    timeout = "moderate",
     srcs = glob(
         ["src/test/suite/**/*.scala"],
     ),
