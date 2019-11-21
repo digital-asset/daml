@@ -155,12 +155,14 @@ class Endpoints(
         (jwt, jwtPayload, _) = input
 
         as <- eitherT(
-          handleFutureFailure(contractsService
-            .search(jwt, jwtPayload, emptyGetActiveContractsRequest))): ET[contractsService.Result]
+          handleFutureFailure(
+            contractsService
+              .search(jwt, jwtPayload, emptyGetActiveContractsRequest))
+        ): ET[Seq[contractsService.Result]]
 
         jsVal <- either(
-          as._1.toList
-            .traverse(a => encoder.encodeV(a))
+          as.toList
+            .traverse(a => encoder.encodeV(a._1))
             .leftMap(e => ServerError(e.shows))
             .flatMap(js => encodeList(js))
         ): ET[JsValue]
@@ -183,11 +185,11 @@ class Endpoints(
 
         as <- eitherT(
           handleFutureFailure(contractsService.search(jwt, jwtPayload, cmd))
-        ): ET[contractsService.Result]
+        ): ET[Seq[contractsService.Result]]
 
         xs <- either(
-          as._1.toList.traverse(_.traverse(v => apValueToLfValue(v)))
-        ): ET[List[domain.ActiveContract[LfValue]]]
+          as.toList.traverse { case (a, p) => a.traverse(v => apValueToLfValue(v)).map((_, p)) }
+        ): ET[List[(domain.ActiveContract[LfValue], contractsService.CompiledPredicates)]]
 
         ys = contractsService
           .filterSearch(as._2, xs): Seq[domain.ActiveContract[LfValue]]

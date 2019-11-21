@@ -3,9 +3,11 @@
 
 package com.digitalasset.http
 
+import akka.NotUsed
 import akka.stream.Materializer
-import akka.stream.scaladsl.Sink
+import akka.stream.scaladsl.{Sink, Source}
 import com.digitalasset.daml.lf.value.{Value => V}
+import com.digitalasset.http.domain.TemplateId.RequiredPkg
 import com.digitalasset.http.domain.{GetActiveContractsRequest, JwtPayload, TemplateId}
 import com.digitalasset.http.query.ValuePredicate
 import com.digitalasset.http.util.FutureUtil.toFuture
@@ -13,7 +15,6 @@ import com.digitalasset.http.util.IdentifierConverters.apiIdentifier
 import com.digitalasset.jwt.domain.Jwt
 import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
 import com.digitalasset.ledger.api.{v1 => lav1}
-
 import scalaz.syntax.show._
 import scalaz.{-\/, Show, \/, \/-}
 import spray.json.JsValue
@@ -30,7 +31,7 @@ class ContractsService(
 
   import ContractsService._
 
-  type Result = (Seq[ActiveContract], CompiledPredicates)
+  type Result = Error \/ (Source[ActiveContract, NotUsed], CompiledPredicates)
   type CompiledPredicates = Map[domain.TemplateId.RequiredPkg, query.ValuePredicate]
 
   private val contractsFetch = contractDao.map { dao =>
@@ -53,15 +54,15 @@ class ContractsService(
       jwt: Jwt,
       party: lar.Party,
       templateId: TemplateId.OptionalPkg,
-      contractKey: lav1.value.Value): Future[Option[ActiveContract]] =
-    for {
-      (as, _) <- search(jwt, party, Set(templateId), Map.empty)
-      a = findByContractKey(contractKey)(as)
-    } yield a
+      contractKey: lav1.value.Value): Future[Option[ActiveContract]] = {
 
-  private def findByContractKey(k: lav1.value.Value)(
-      as: Seq[ActiveContract]): Option[domain.ActiveContract[lav1.value.Value]] =
-    as.view.find(isContractKey(k))
+    toFuture(search(jwt, party, Set(templateId), Map.empty)).flatMap {
+      case (source, _) =>
+        source
+          .filter(isContractKey(contractKey))
+          .runWith(Sink.headOption): Future[Option[ActiveContract]]
+    }
+  }
 
   private def isContractKey(k: lav1.value.Value)(
       a: domain.ActiveContract[lav1.value.Value]): Boolean =
@@ -71,46 +72,59 @@ class ContractsService(
       jwt: Jwt,
       party: lar.Party,
       templateId: Option[TemplateId.OptionalPkg],
-      contractId: domain.ContractId): Future[Option[ActiveContract]] =
-    for {
-      (as, _) <- search(jwt, party, templateIds(templateId), Map.empty)
-      a = findByContractId(contractId)(as)
-    } yield a
+      contractId: domain.ContractId): Future[Option[ActiveContract]] = {
+
+    toFuture(search(jwt, party, templateIds(templateId), Map.empty)).flatMap {
+      case (source, _) =>
+        source
+          .filter(isContractId(contractId))
+          .runWith(Sink.headOption): Future[Option[ActiveContract]]
+    }
+  }
 
   private def templateIds(a: Option[TemplateId.OptionalPkg]): Set[TemplateId.OptionalPkg] =
     a.toList.toSet
 
-  private def findByContractId(k: domain.ContractId)(
-      as: Seq[ActiveContract]): Option[ActiveContract] =
-    as.find(x => (x.contractId: domain.ContractId) == k)
+  private def isContractId(k: domain.ContractId)(a: ActiveContract): Boolean =
+    (a.contractId: domain.ContractId) == k
 
-  def search(jwt: Jwt, jwtPayload: JwtPayload, request: GetActiveContractsRequest): Future[Result] =
+  def search(jwt: Jwt, jwtPayload: JwtPayload, request: GetActiveContractsRequest): Result =
     search(jwt, jwtPayload.party, request.templateIds, request.query)
 
   def search(
       jwt: Jwt,
       party: lar.Party,
       templateIds: Set[domain.TemplateId.OptionalPkg],
-      queryParams: Map[String, JsValue]): Future[Result] =
+      queryParams: Map[String, JsValue]): Result =
     for {
-      templateIds <- toFuture(resolveTemplateIds(templateIds))
-      _ <- fetchAndPersistContracts(jwt, party, templateIds)
-      allActiveContracts <- getActiveContracts(jwt, transactionFilter(party, templateIds), true)
-        .mapAsyncUnordered(parallelism)(gacr => toFuture(activeContracts(gacr)))
-        .runWith(Sink.seq)
-        .map(_.flatten): Future[Seq[ActiveContract]]
-      predicates = templateIds.iterator.map(a => (a, valuePredicate(a, queryParams))).toMap
-    } yield (allActiveContracts, predicates)
+      resolvedTemplateIds <- resolveTemplateIds(templateIds)
+        .leftMap(e => Error('search, e.shows)): Error \/ List[RequiredPkg]
+
+      predicates = resolvedTemplateIds
+        .map(x => (x, valuePredicate(x, queryParams)))
+        .toMap: CompiledPredicates
+
+      sourceF = fetchAndPersistContracts(jwt, party, resolvedTemplateIds).map { _ =>
+        getActiveContracts(jwt, transactionFilter(party, resolvedTemplateIds), true)
+          .mapAsyncUnordered(parallelism)(gacr => toFuture(activeContracts(gacr)))
+          .mapConcat(identity): Source[ActiveContract, NotUsed]
+      }: Future[Source[ActiveContract, NotUsed]]
+
+      source = Source
+        .fromFutureSource(sourceF)
+        .mapMaterializedValue(_ => NotUsed): Source[ActiveContract, NotUsed]
+
+    } yield (source, predicates)
 
   private def fetchAndPersistContracts(
       jwt: Jwt,
       party: lar.Party,
       templateIds: List[domain.TemplateId.RequiredPkg]): Future[Option[Unit]] = {
 
-    import scalaz.syntax.applicative._
-    import scalaz.syntax.traverse._
     import scalaz.std.option._
     import scalaz.std.scalaFuture._
+    import scalaz.syntax.applicative._
+    import scalaz.syntax.traverse._
 
     val option: Option[Future[Unit]] = ^(contractDao, contractsFetch)((dao, fetch) =>
       fetchAndPersistContracts(dao, fetch)(jwt, party, templateIds))
