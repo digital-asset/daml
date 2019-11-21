@@ -13,7 +13,7 @@ import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpecLike}
 import scala.collection.immutable
 import scala.concurrent.ExecutionContext
 
-class DropRepeatedSpec
+final class DropRepeatedSpec
     extends TestKit(ActorSystem(classOf[DropRepeatedSpec].getSimpleName))
     with WordSpecLike
     with Matchers

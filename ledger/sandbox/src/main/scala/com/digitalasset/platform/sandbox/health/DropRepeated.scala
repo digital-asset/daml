@@ -6,7 +6,7 @@ package com.digitalasset.platform.sandbox.health
 import akka.stream.stage.{GraphStage, GraphStageLogic, InHandler, OutHandler}
 import akka.stream.{Attributes, FlowShape, Inlet, Outlet}
 
-class DropRepeated[T] extends GraphStage[FlowShape[T, T]] {
+final class DropRepeated[T] extends GraphStage[FlowShape[T, T]] {
   private val in = Inlet[T]("input")
   private val out = Outlet[T]("DropRepeated output")
 

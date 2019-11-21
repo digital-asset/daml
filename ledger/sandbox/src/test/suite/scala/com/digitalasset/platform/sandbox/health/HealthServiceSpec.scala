@@ -28,7 +28,7 @@ object HealthServiceSpec {
     .build()
 }
 
-class HealthServiceSpec
+final class HealthServiceSpec
     extends TestKit(ActorSystem(classOf[HealthServiceSpec].getSimpleName))
     with WordSpecLike
     with Matchers
