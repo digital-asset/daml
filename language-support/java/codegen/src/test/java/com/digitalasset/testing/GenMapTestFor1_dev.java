@@ -12,11 +12,12 @@ import test.genmapmod.Box;
 import test.recordmod.Pair;
 import test.variantmod.Either;
 import test.variantmod.either.*;
+
 import java.math.BigDecimal;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 @RunWith(JUnitPlatform.class)
@@ -95,11 +96,9 @@ public class GenMapTestFor1_dev {
     @Test
     void fromValuePreservesOrder(){
         Record b = value();
-        Object[] keys = b.getFieldsMap().get("x").asGenMap().get().getMap().keySet().toArray();
-        assertEquals(keys.length, 3);
-        assertEquals(keys[0], pairValue1());
-        assertEquals(keys[1], pairValue2());
-        assertEquals(keys[2], pairValue3());
+        Object[] keys = b.getFieldsMap().get("x").asGenMap().get().stream().map(Map.Entry::getKey).toArray();
+        Object[] expected = {pairValue1(), pairValue2(), pairValue3()};
+        assertArrayEquals(keys, expected);
     }
 
 
