@@ -139,6 +139,7 @@
   mavenUpload: True
 - target: //ledger/sandbox:sandbox
   type: jar-scala
+  mavenUpload: True
 - target: //ledger/ledger-api-test-tool:ledger-api-test-tool
   type: jar-deploy
   mavenUpload: true
