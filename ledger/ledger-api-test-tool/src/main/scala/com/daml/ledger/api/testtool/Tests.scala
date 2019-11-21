@@ -34,6 +34,7 @@ object Tests {
     "PartyManagementServiceIT" -> (new PartyManagement(_)),
     "TimeIT" -> (new Time(_)),
     "TransactionServiceIT" -> (new TransactionService(_)),
+    "TransactionScaleIT" -> (new TransactionScale(_)),
     "WitnessesIT" -> (new Witnesses(_)),
     "WronglyTypedContractIdIT" -> (new WronglyTypedContractId(_))
   )
