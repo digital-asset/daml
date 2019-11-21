@@ -29,7 +29,7 @@ Ledger-API
 - Add field ``gen_map`` in Protobuf definition for ledger
   api values. This field is used to support generic maps, an new
   feature currently in development.  See issue
-  https://github.com/digital-asset/daml/pull/3356 for more details
+  https://github.com/digital-asset/daml/issues/2256 for more details
   about generic maps.
   The Ledger API will send no messages where this field is set, when
   using a stable version of DAML-LF.  However the addition of this
