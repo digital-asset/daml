@@ -35,6 +35,7 @@ test : Trigger TriggerState
 test = Trigger
   { initialState = \party acs -> (initState party acs, [])
   , update = update
+  , registeredTemplates = AllInDar
   }
   where
     update : Message -> TriggerState -> (TriggerState, [Commands])

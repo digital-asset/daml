@@ -128,13 +128,15 @@ class TestRunner(val config: Config) extends StrictLogging {
     val triggerFlow: Future[SExpr] = for {
       client <- clientF
       runner = new Runner(client, applicationId, party, dar)
-      (acs, offset) <- runner.queryACS(client, party)
+      filter = runner.getTriggerFilter(triggerId)
+      (acs, offset) <- runner.queryACS(client, filter)
       _ = acsPromise.success(())
       finalState <- runner.runWithACS(
         triggerId,
         config.timeProviderType,
         acs,
         offset,
+        filter,
         msgFlow = Flow[TriggerMsg].take(numMessages.num)
       )
     } yield finalState
@@ -788,6 +790,147 @@ case class PendingTests(dar: Dar[(PackageId, Package)], runner: TestRunner) {
   }
 }
 
+case class TemplateFilterTests(dar: Dar[(PackageId, Package)], runner: TestRunner) {
+
+  case class ActiveAssetMirrors(num: Int)
+  case class SuccessfulCompletions(num: Long)
+  case class FailedCompletions(num: Long)
+
+  val oneId = value.Identifier(
+    packageId = dar.main._1,
+    moduleName = "TemplateIdFilter",
+    entityName = "One"
+  )
+  val twoId = value.Identifier(
+    packageId = dar.main._1,
+    moduleName = "TemplateIdFilter",
+    entityName = "Two"
+  )
+
+  def test(
+      name: String,
+      triggerName: String,
+      numMessages: NumMessages,
+      doneOnes: Int,
+      doneTwos: Int) = {
+    def assertFinalState(finalState: SExpr, commandsR: Unit) = Right(())
+    def assertFinalACS(
+        acs: Map[Identifier, Seq[(String, Lf.ValueRecord[Lf.AbsoluteContractId])]],
+        commandsR: Unit) = {
+      val activeDoneOne = acs
+        .get(Identifier(dar.main._1, QualifiedName.assertFromString("TemplateIdFilter:DoneOne")))
+        .fold(0)(_.size)
+      val activeDoneTwo = acs
+        .get(Identifier(dar.main._1, QualifiedName.assertFromString("TemplateIdFilter:DoneTwo")))
+        .fold(0)(_.size)
+      for {
+        _ <- TestRunner.assertEqual(activeDoneOne, doneOnes, "DoneOne")
+        _ <- TestRunner.assertEqual(activeDoneTwo, doneTwos, "DoneTwo")
+      } yield ()
+    }
+    def cmds(client: LedgerClient, party: String) = { implicit ec: ExecutionContext =>
+      { implicit mat: ActorMaterializer =>
+        for {
+          _ <- createOne(client, party, "createOne")
+          _ <- createTwo(client, party, "createTwo")
+        } yield ()
+      }
+    }
+    val triggerId =
+      Identifier(dar.main._1, QualifiedName.assertFromString(s"TemplateIdFilter:$triggerName"))
+    runner.genericTest(name, dar, triggerId, cmds, numMessages, assertFinalState, assertFinalACS)
+  }
+
+  def createOne(client: LedgerClient, party: String, commandId: String)(
+      implicit ec: ExecutionContext,
+      materializer: ActorMaterializer): Future[Unit] = {
+    val commands = Seq(
+      Command().withCreate(CreateCommand(
+        templateId = Some(oneId),
+        createArguments = Some(
+          value.Record(
+            recordId = Some(oneId),
+            fields = Seq(
+              value.RecordField(
+                "p",
+                Some(value.Value().withParty(party))
+              )
+            )
+          )),
+      )))
+    for {
+      r <- client.commandClient
+        .withTimeProvider(Some(Runner.getTimeProvider(runner.config.timeProviderType)))
+        .trackSingleCommand(SubmitRequest(commands = Some(Commands(
+          ledgerId = client.ledgerId.unwrap,
+          applicationId = runner.applicationId.unwrap,
+          commandId = commandId,
+          party = party,
+          ledgerEffectiveTime = Some(fromInstant(Instant.EPOCH)),
+          maximumRecordTime = Some(fromInstant(Instant.EPOCH.plusSeconds(5))),
+          commands = commands
+        ))))
+    } yield ()
+  }
+
+  def createTwo(client: LedgerClient, party: String, commandId: String)(
+      implicit ec: ExecutionContext,
+      materializer: ActorMaterializer): Future[Unit] = {
+    val commands = Seq(
+      Command().withCreate(CreateCommand(
+        templateId = Some(twoId),
+        createArguments = Some(
+          value.Record(
+            recordId = Some(twoId),
+            fields = Seq(
+              value.RecordField(
+                "p",
+                Some(value.Value().withParty(party))
+              )
+            )
+          )),
+      )))
+    for {
+      r <- client.commandClient
+        .withTimeProvider(Some(Runner.getTimeProvider(runner.config.timeProviderType)))
+        .trackSingleCommand(SubmitRequest(commands = Some(Commands(
+          ledgerId = client.ledgerId.unwrap,
+          applicationId = runner.applicationId.unwrap,
+          commandId = commandId,
+          party = party,
+          ledgerEffectiveTime = Some(fromInstant(Instant.EPOCH)),
+          maximumRecordTime = Some(fromInstant(Instant.EPOCH.plusSeconds(5))),
+          commands = commands
+        ))))
+    } yield ()
+  }
+
+  def runTests() = {
+    test(
+      "Filter to One",
+      "testOne",
+      // 2 for the creates from the test
+      // 2 for the completions from the test
+      // 1 for the create in the trigger
+      // 1 for the completion from the trigger
+      NumMessages(6),
+      doneOnes = 1,
+      doneTwos = 0
+    )
+    test(
+      "Filter to Two",
+      "testTwo",
+      // 2 for the creates from the test
+      // 2 for the completions from the test
+      // 1 for the create in the trigger
+      // 1 for the completion from the trigger
+      NumMessages(6),
+      doneOnes = 0,
+      doneTwos = 1
+    )
+  }
+}
+
 object TestMain {
 
   private val configParser = new scopt.OptionParser[Config]("acs_test") {
@@ -833,6 +976,7 @@ object TestMain {
         NumericTests(dar, runner).runTests()
         CommandIdTests(dar, runner).runTests()
         PendingTests(dar, runner).runTests()
+        TemplateFilterTests(dar, runner).runTests()
     }
   }
 }

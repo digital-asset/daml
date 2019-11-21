@@ -16,6 +16,7 @@ retryTrigger = Trigger
         | Failed {} <- c.status -> allowedFail - 1
       _ -> allowedFail
   , rule = retryRule
+  , registeredTemplates = AllInDar
   }
 
 -- We first create a T template, then we try to exercise C 3 times until allowedRetries is 0
