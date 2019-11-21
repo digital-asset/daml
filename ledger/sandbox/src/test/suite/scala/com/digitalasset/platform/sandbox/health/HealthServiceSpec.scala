@@ -5,7 +5,7 @@ package com.digitalasset.platform.sandbox.health
 
 import com.digitalasset.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.digitalasset.platform.sandbox.health.HealthServiceSpec._
-import io.grpc.health.v1.{HealthCheckRequest, HealthCheckResponse}
+import io.grpc.health.v1.health.{HealthCheckRequest, HealthCheckResponse}
 import io.grpc.stub.StreamObserver
 import io.grpc.{Status, StatusRuntimeException}
 import org.mockito.Mockito
@@ -15,16 +15,13 @@ import org.scalatest.mockito.MockitoSugar
 import org.scalatest.time.{Second, Span}
 import org.scalatest.{Matchers, WordSpec}
 
-import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.DurationInt
+import scala.concurrent.{Await, ExecutionContext}
 
 object HealthServiceSpec {
-  private val request = HealthCheckRequest.getDefaultInstance
+  private val request = HealthCheckRequest()
 
-  private val servingResponse = HealthCheckResponse
-    .newBuilder()
-    .setStatus(HealthCheckResponse.ServingStatus.SERVING)
-    .build()
+  private val servingResponse = HealthCheckResponse(HealthCheckResponse.ServingStatus.SERVING)
 }
 
 final class HealthServiceSpec
@@ -41,15 +38,11 @@ final class HealthServiceSpec
 
   "HealthService" should {
     "check the current health" in {
-      val responseObserver = mock[StreamObserver[HealthCheckResponse]]
       val service = new HealthService()
 
-      service.check(request, responseObserver)
+      val response = Await.result(service.check(request), patienceConfig.timeout)
 
-      val inOrder = Mockito.inOrder(responseObserver)
-      inOrder.verify(responseObserver).onNext(servingResponse)
-      inOrder.verify(responseObserver).onCompleted()
-      inOrder.verifyNoMoreInteractions()
+      response should be(servingResponse)
     }
 
     "observe changes in health" in {

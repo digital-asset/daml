@@ -6,32 +6,32 @@ package com.digitalasset.platform.sandbox.health
 import akka.Done
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
+import com.digitalasset.grpc.adapter.utils.DirectExecutionContext
 import com.digitalasset.grpc.{GrpcException, GrpcStatus}
-import io.grpc.health.v1.{HealthCheckRequest, HealthCheckResponse, HealthGrpc}
+import com.digitalasset.platform.api.grpc.GrpcApiService
+import io.grpc.health.v1.health.{HealthCheckRequest, HealthCheckResponse, HealthGrpc}
 import io.grpc.stub.StreamObserver
-import io.grpc.{Context, Status}
+import io.grpc.{Context, ServerServiceDefinition, Status}
 
-import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
 import scala.util.{Failure, Success}
 
 class HealthService(watchThrottleFrequency: FiniteDuration = 1.second)(
     implicit materializer: Materializer,
-    executionContext: ExecutionContext
-) extends HealthGrpc.HealthImplBase {
-  private val servingResponse = HealthCheckResponse
-    .newBuilder()
-    .setStatus(HealthCheckResponse.ServingStatus.SERVING)
-    .build()
+    executionContext: ExecutionContext,
+) extends HealthGrpc.Health
+    with GrpcApiService {
+  private val servingResponse = HealthCheckResponse(HealthCheckResponse.ServingStatus.SERVING)
 
-  override def check(
-      request: HealthCheckRequest,
-      responseObserver: StreamObserver[HealthCheckResponse],
-  ): Unit = {
-    responseObserver.onNext(servingResponse)
-    responseObserver.onCompleted()
-  }
+  override def bindService(): ServerServiceDefinition =
+    HealthGrpc.bindService(this, DirectExecutionContext)
+
+  override def close(): Unit = ()
+
+  override def check(request: HealthCheckRequest): Future[HealthCheckResponse] =
+    Future.successful(servingResponse)
 
   override def watch(
       request: HealthCheckRequest,
