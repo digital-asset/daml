@@ -7,31 +7,56 @@ import com.digitalasset.ledger.api.v1.ValueOuterClass;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
 import java.util.*;
+import java.util.function.Function;
+import java.util.stream.Collector;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public final class DamlGenMap extends Value {
 
     private final Map<Value, Value> map;
 
-    private DamlGenMap(@NonNull Map<@NonNull Value, @NonNull Value> value) {
-        this.map = value;
+    private DamlGenMap(@NonNull Map<@NonNull Value, @NonNull Value> map) {
+        this.map = map;
     }
 
     /**
-     * The map that is passed to this constructor must not be changed
-     * once passed.
+     * The map that is passed to this constructor must not be changed once passed.
      */
     protected static @NonNull DamlGenMap fromPrivateMap(@NonNull Map<@NonNull Value, @NonNull Value> map){
         return new DamlGenMap(Collections.unmodifiableMap(map));
     }
 
-    private static DamlGenMap EMPTY = fromPrivateMap(Collections.EMPTY_MAP);
+    private static @NonNull DamlGenMap EMPTY = fromPrivateMap(Collections.EMPTY_MAP);
 
     public static DamlGenMap of(@NonNull Map<@NonNull Value, @NonNull Value> map){
-       return new DamlGenMap(new LinkedHashMap<>(map));
+       return fromPrivateMap(new LinkedHashMap<>(map));
     }
 
+    @Deprecated // use DamlGenMap::stream or DamlGenMap::toMap
     public @NonNull Map<@NonNull Value, @NonNull Value> getMap() { return map; }
+
+    public Stream<Map.Entry<Value, Value>> stream(){
+        return map.entrySet().stream();
+    }
+
+    public @NonNull <K, V> Map<@NonNull K, @NonNull V>toMap(
+            @NonNull Function<@NonNull Value, @NonNull K> keyMapper,
+            @NonNull Function<@NonNull Value, @NonNull V> valueMapper
+    ){
+        return stream().collect(Collectors.toMap(
+                e -> keyMapper.apply(e.getKey()),
+                e -> valueMapper.apply(e.getValue()),
+                (left, right) -> right,
+                LinkedHashMap::new
+        ));
+    }
+
+    public @NonNull<V> Map<@NonNull V, @NonNull V>toMap(
+            @NonNull Function<@NonNull Value, @NonNull V> valueMapper
+    ){
+        return toMap(valueMapper, valueMapper);
+    }
 
     @Override
     public boolean equals(Object o) {

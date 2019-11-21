@@ -106,9 +106,7 @@ object ToValueGenerator {
           generateToValueConverter(param, CodeBlock.of("$L", arg), args, packagePrefixes)
         val extractor = CodeBlock.of("$L -> $L", arg, wrapped)
         CodeBlock.of(
-          // new DamlOptional(jutilOptionalParamName.map(i -> new Int64(i)))
-          //       $T        (        $L            .map(       $L        ))
-          "new $T($L.map($L))",
+          "$T.of($L.map($L))",
           apiOptional,
           accessor,
           extractor
@@ -122,7 +120,7 @@ object ToValueGenerator {
           generateToValueConverter(param, CodeBlock.of("$L.getValue()", arg), args, packagePrefixes)
         )
         CodeBlock.of(
-          "$L.entrySet().stream().collect($T.toDamlMap($T::getKey, $L)) ",
+          "$L.entrySet().stream().collect($T.toDamlTextMap($T::getKey, $L)) ",
           accessor,
           apiCollectors,
           classOf[java.util.Map.Entry[_, _]],

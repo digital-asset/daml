@@ -135,7 +135,7 @@ DAML built-in types are translated to the following equivalent types in Java:
 +================================+============================================+========================+
 | ``Int``                        | ``java.lang.Long``                         | `Int64`_               |
 +--------------------------------+--------------------------------------------+------------------------+
-| ``Decimal``                    | ``java.math.BigDecimal``                   | `Decimal`_             |
+| ``Numeric``                    | ``java.math.BigDecimal``                   | `Numeric`_             |
 +--------------------------------+--------------------------------------------+------------------------+
 | ``Text``                       | ``java.lang.String``                       | `Text`_                |
 +--------------------------------+--------------------------------------------+------------------------+
@@ -149,7 +149,7 @@ DAML built-in types are translated to the following equivalent types in Java:
 +--------------------------------+--------------------------------------------+------------------------+
 | ``List`` or ``[]``             | ``java.util.List``                         | `DamlList`_            |
 +--------------------------------+--------------------------------------------+------------------------+
-| ``TextMap``                    | ``java.util.Map``                          | `DamlMap`_             |
+| ``TextMap``                    | ``java.util.Map``                          | `DamlTextMap`_         |
 |                                | Restricted to using ``String`` keys.       |                        |
 +--------------------------------+--------------------------------------------+------------------------+
 | ``Optional``                   | ``java.util.Optional``                     | `DamlOptional`_        |
@@ -519,25 +519,58 @@ Non-exposed parameterized types
 
 If the parameterized type is contained in a type where the *actual* type is specified (as in the ``BookAttributes`` type above), then the conversion methods of the enclosing type provides the required conversion function parameters automatically.
 
-Convert Container values
-""""""""""""""""""""""""
 
-The conversion of the Java types Container types such as ``Optional``, ``List`` or ``Map`` requires multiple steps to first convert the container elements creating the Daml conatiner value.
+Convert Optional values
+"""""""""""""""""""""""
 
-.. code-block:: java
-
-  Attribute<List<String>> authorsAttribute = new Attribute<List<String>>(Arrays.asList("Homer", "Ovid", "Vergil"));
-
-  Value serializedAuthors = authorsAttribute.toValue(f -> DamlList.of(f.stream().map(Text::new).collect(Collectors.<Value>toList())));
-
-The conversion of the Daml containers types such `DamlOptional`_, `DamlList`_, `DamlMap`_ similarly requires that the type is converted to it's Java equivalent and then all the contained elements are converted to Java types.
+The conversion of the Java ``Optional`` requires two steps. The
+``Optional`` must be mapped in order to convert its contains before
+to be passed to ``DamlOptional::of`` function.
 
 .. code-block:: java
 
-  Attribute<List<String>> authorsAttribute = Attribute.<List<String>>fromValue(serializedAuthors,
-      f0 -> f0.asList().orElseThrow(() -> new IllegalArgumentException("Expected DamlList field")).getValues().stream()
-          .map(f1 -> f1.asText().orElseThrow(() -> new IllegalArgumentException("Expected Text element")).getValue())
-              .collect(Collectors.toList()));
+  Attribute<Optional<Long>> idAttribute = new Attribute<List<Long>>(Optional.of(42));
+
+  val serializedId = DamlOptional.of(idAttribute.map(Int64::new));
+
+To convert back `DamlOptional`_ to Java ``Optional``, one must use the
+containers method ``toOptional``. This method expects a function to
+convert back the value possibiy contains in the container.
+
+.. code-block:: java
+
+  
+Convert Collection values
+"""""""""""""""""""""""""
+
+`DamlCollectors`_ provides collectors to converted Java collection
+containers such as ``List`` and ``Map`` to DamlValues in one pass. The
+builders for those collectors require functions to convert the element
+of the container.
+
+.. code-block:: java
+
+  Attribute<List<String>> authorsAttribute =
+      new Attribute<List<String>>(Arrays.asList("Homer", "Ovid", "Vergil"));
+
+  Value serializedAuthors =
+      authorsAttribute.toValue(f -> f.stream().collect(DamlCollector.toList(Text::new));
+
+To convert back DAML containers to Java ones, one must use the
+containers methods ``toList`` or ``toMap``. Those methods expect
+functions to convert back the container's entries.  
+
+.. code-block:: java
+
+  Attribute<List<String>> authorsAttribute =
+      Attribute.<List<String>>fromValue(
+          serializedAuthors,
+          f0 -> f0.asList().orElseThrow(() -> new IllegalArgumentException("Expected DamlList field"))
+               .toList(
+                   f1 -> f1.asText().orElseThrow(() -> new IllegalArgumentException("Expected Text element"))
+                        .getValue()
+               )
+      )
 
 
 .. _Value: /app-dev/bindings-java/javadocs/com/daml/ledger/javaapi/Value.html
@@ -545,6 +578,7 @@ The conversion of the Daml containers types such `DamlOptional`_, `DamlList`_, `
 .. _Bool: /app-dev/bindings-java/javadocs/com/daml/ledger/javaapi/data/Bool.html
 .. _Int64: /app-dev/bindings-java/javadocs/com/daml/ledger/javaapi/data/Int64.html
 .. _Decimal: /app-dev/bindings-java/javadocs/com/daml/ledger/javaapi/data/Decimal.html
+.. _Numeric: /app-dev/bindings-java/javadocs/com/daml/ledger/javaapi/data/Numeric.html
 .. _Date: /app-dev/bindings-java/javadocs/com/daml/ledger/javaapi/data/Date.html
 .. _Timestamp: /app-dev/bindings-java/javadocs/com/daml/ledger/javaapi/data/Timestamp.html
 .. _Text: /app-dev/bindings-java/javadocs/com/daml/ledger/javaapi/data/Text.html
@@ -552,5 +586,6 @@ The conversion of the Daml containers types such `DamlOptional`_, `DamlList`_, `
 .. _ContractId: /app-dev/bindings-java/javadocs/com/daml/ledger/javaapi/data/ContractId.html
 .. _DamlOptional: /app-dev/bindings-java/javadocs/com/daml/ledger/javaapi/data/DamlOptional.html
 .. _DamlList: /app-dev/bindings-java/javadocs/com/daml/ledger/javaapi/data/DamlList.html
+.. _DamlTextMap: /app-dev/bindings-java/javadocs/com/daml/ledger/javaapi/data/DamLTextMap.html
 .. _DamlMap: /app-dev/bindings-java/javadocs/com/daml/ledger/javaapi/data/DamLMap.html
 .. _DamlCollectors: /app-dev/bindings-java/javadocs/com/daml/ledger/javaapi/data/DamLCollectors.html

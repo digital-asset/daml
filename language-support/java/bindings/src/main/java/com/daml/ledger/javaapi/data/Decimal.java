@@ -9,7 +9,6 @@ import java.math.BigDecimal;
 
 @Deprecated
 public class Decimal extends Numeric {
-
     public Decimal(@NonNull BigDecimal value) {
         super(value);
     }

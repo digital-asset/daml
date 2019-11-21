@@ -7,6 +7,9 @@ import com.digitalasset.ledger.api.v1.ValueOuterClass;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
 import java.util.*;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public final class DamlList extends Value {
 
@@ -45,21 +48,17 @@ public final class DamlList extends Value {
         this(Arrays.asList(values));
     }
 
+    @Deprecated // use DamlMap::stream or DamlMap::toListf
     public @NonNull List<@NonNull Value> getValues() {
         return values;
     }
 
-    @Override
-    public ValueOuterClass.Value toProto() {
-        ValueOuterClass.List.Builder builder = ValueOuterClass.List.newBuilder();
-        for (Value value : this.values) {
-            builder.addElements(value.toProto());
-        }
-        return ValueOuterClass.Value.newBuilder().setList(builder.build()).build();
+    public @NonNull Stream<Value> stream(){
+        return values.stream();
     }
 
-    public static @NonNull DamlList fromProto(ValueOuterClass.List list) {
-        return list.getElementsList().stream().collect(DamlCollectors.toDamlList(Value::fromProto));
+    public @NonNull <T> List<T> toList(Function<Value, T> valueMapper) {
+        return stream().map(valueMapper).collect(Collectors.toList());
     }
 
     @Override
@@ -81,4 +80,18 @@ public final class DamlList extends Value {
                 "values=" + values +
                 '}';
     }
+
+    @Override
+    public ValueOuterClass.Value toProto() {
+        ValueOuterClass.List.Builder builder = ValueOuterClass.List.newBuilder();
+        for (Value value : this.values) {
+            builder.addElements(value.toProto());
+        }
+        return ValueOuterClass.Value.newBuilder().setList(builder.build()).build();
+    }
+
+    public static @NonNull DamlList fromProto(ValueOuterClass.List list) {
+        return list.getElementsList().stream().collect(DamlCollectors.toDamlList(Value::fromProto));
+    }
+
 }

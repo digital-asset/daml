@@ -5,9 +5,6 @@ package com.daml.ledger.javaapi.data;
 
 import com.digitalasset.ledger.api.v1.ValueOuterClass;
 
-import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.Map;
 import java.util.Optional;
 
 public abstract class Value {
@@ -43,7 +40,7 @@ public abstract class Value {
             case OPTIONAL:
                 return DamlOptional.fromProto(value.getOptional());
             case MAP:
-               return DamlMap.fromProto(value.getMap());
+               return DamlTextMap.fromProto(value.getMap());
             case GEN_MAP:
                 return DamlGenMap.fromProto(value.getGenMap());
             case SUM_NOT_SET:
@@ -116,9 +113,15 @@ public abstract class Value {
                 Optional.empty();
     }
 
-    public final Optional<DamlMap> asMap() {
-        return (this instanceof DamlMap) ? Optional.of((DamlMap) this) : Optional.empty();
+    public final Optional<DamlTextMap> asTextMap() {
+        return (this instanceof DamlTextMap) ? Optional.of((DamlTextMap) this) : Optional.empty();
     }
+
+    @Deprecated // Use Value::asTextMap
+    public final Optional<DamlTextMap> asMap() {
+        return (this instanceof DamlTextMap) ? Optional.of((DamlTextMap) this) : Optional.empty();
+    }
+
 
     public final Optional<DamlGenMap> asGenMap() {
         return (this instanceof DamlGenMap) ? Optional.of((DamlGenMap) this) : Optional.empty();

@@ -3,16 +3,13 @@
 
 package com.daml.ledger.javaapi.data;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.Map;
+import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collector;
 
 public final class DamlCollectors {
 
-    public static <T> Collector<T, ArrayList<Value>, DamlList> toDamlList(Function<T, Value> valueMapper) {
+    public static <T> Collector<T, List<Value>, DamlList> toDamlList(Function<T, Value> valueMapper) {
         return Collector.of(
                 ArrayList::new,
                 (acc, entry) -> acc.add(valueMapper.apply(entry)),
@@ -21,7 +18,11 @@ public final class DamlCollectors {
         );
     }
 
-    public static <T> Collector<T, Map<String, Value>, DamlMap> toDamlMap(
+    public static Collector<Value, List<Value>, DamlList> toDamlList(){
+        return toDamlList(Function.identity());
+    }
+
+    public static <T> Collector<T, Map<String, Value>, DamlTextMap> toDamlTextMap(
             Function<T, String> keyMapper,
             Function<T, Value> valueMapper) {
 
@@ -29,8 +30,12 @@ public final class DamlCollectors {
                 HashMap::new,
                 (acc, entry) -> acc.put(keyMapper.apply(entry), valueMapper.apply(entry)),
                 (left, right) -> { left.putAll(right); return left; },
-                DamlMap::fromPrivateMap
+                DamlTextMap::fromPrivateMap
         );
+    }
+
+    public static Collector<Map.Entry<String, Value>, Map<String, Value>, DamlTextMap> toDamlTextMap(){
+        return toDamlTextMap(Map.Entry::getKey, Map.Entry::getValue);
     }
 
     public static <T> Collector<T, Map<Value, Value>, DamlGenMap> toDamlGenMap(
@@ -43,6 +48,10 @@ public final class DamlCollectors {
                 (left, right) -> { left.putAll(right); return left; },
                 DamlGenMap::fromPrivateMap
         );
+    }
+
+    public static Collector<Map.Entry<Value, Value>, Map<Value, Value>, DamlGenMap> toMap(){
+        return toDamlGenMap(Map.Entry::getKey, Map.Entry::getValue);
     }
 
 }
