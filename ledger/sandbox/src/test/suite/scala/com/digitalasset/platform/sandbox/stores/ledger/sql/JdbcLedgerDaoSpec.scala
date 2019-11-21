@@ -274,8 +274,7 @@ class JdbcLedgerDaoSpec
     val defaultConfig = Configuration(
       generation = 0,
       timeModel = TimeModelImpl.reasonableDefault,
-      authorizedParticipantId = None,
-      openWorld = true)
+      authorizedParticipantIds = List.empty)
 
     "be able to persist and load configuration" in {
       val offset = nextOffset()

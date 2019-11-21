@@ -84,7 +84,7 @@ trait LedgerReadDao extends AutoCloseable {
   /** Looks up the current ledger configuration, if it has been set. */
   def lookupLedgerConfiguration(): Future[Option[Configuration]]
 
-  /** Get a stream of configuration entries. */
+  /** Returns a stream of configuration entries. */
   def getConfigurationEntries(
       startInclusive: LedgerOffset,
       endExclusive: LedgerOffset): Source[(Long, ConfigurationEntry), NotUsed]
