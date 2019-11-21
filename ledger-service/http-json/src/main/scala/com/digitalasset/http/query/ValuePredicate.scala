@@ -90,15 +90,16 @@ sealed abstract class ValuePredicate extends Product with Serializable {
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def toSqlWhereClause: Fragment = {
     import dbbackend.Queries.Implicits._ // JsValue support
-    def go(path: Fragment, self: ValuePredicate): SqlWhereClause =
+    final case class Rec(raw: SqlWhereClause, safe_== : Option[JsValue], safe_@> : Option[JsValue])
+    def go(path: Fragment, self: ValuePredicate): Rec =
       self match {
         case Literal(_, jq) =>
-          Vector(path ++ sql" = $jq::jsonb")
-        case _ => Vector.empty // TODO other cases
+          Rec(Vector(path ++ sql" = $jq::jsonb"), Some(jq), Some(jq))
+        case _ => Rec(AlwaysFails, None, None) // TODO other cases
       }
 
     concatFragment(
-      OneAnd(sql"1 = 1", go(contractColumnName, this) map (sq => sql" AND (" ++ sq ++ sql")")))
+      OneAnd(sql"1 = 1", go(contractColumnName, this).raw map (sq => sql" AND (" ++ sq ++ sql")")))
   }
 }
 
