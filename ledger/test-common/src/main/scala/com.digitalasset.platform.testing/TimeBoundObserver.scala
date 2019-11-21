@@ -4,6 +4,7 @@
 package com.digitalasset.platform.testing
 
 import com.digitalasset.timer.Delayed
+import io.grpc.Context
 import io.grpc.stub.StreamObserver
 
 import scala.collection.{immutable, mutable}
@@ -37,6 +38,7 @@ class TimeBoundObserver[T](duration: FiniteDuration)(implicit executionContext: 
   }
 
   override def onCompleted(): Unit = {
-    val _ = promise.trySuccess(buffer.toList)
+    val _succeeded = promise.trySuccess(buffer.toList)
+    val _cancelled = Context.current().withCancellation().cancel(null)
   }
 }
