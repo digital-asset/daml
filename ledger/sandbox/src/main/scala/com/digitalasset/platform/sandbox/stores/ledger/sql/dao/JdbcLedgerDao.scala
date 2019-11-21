@@ -1365,6 +1365,7 @@ private class JdbcLedgerDao(
   override def storePackageUploadEntry(
       offset: LedgerOffset,
       newLedgerEnd: LedgerOffset,
+      externalOffset: Option[ExternalOffset],
       participantId: ParticipantId,
       submissionId: String,
       reason: Option[String]): Future[PersistenceResponse] = {
@@ -1377,6 +1378,7 @@ private class JdbcLedgerDao(
       Future.failed,
       _ =>
         dbDispatcher.executeSql("store package rejections") { implicit conn =>
+          updateLedgerEnd(newLedgerEnd, externalOffset)
           val sqlupdate = executeBatchSql(
             queries.SQL_INSERT_PACKAGE_UPLOAD_ENTRY,
             List(
@@ -1384,8 +1386,7 @@ private class JdbcLedgerDao(
                 "participant_id" -> participantId,
                 "submission_id" -> submissionId,
                 "reason" -> reason)))
-          //TODO BH: do we require externalLedgerOffset for these entries??
-          updateLedgerEnd(newLedgerEnd, None)
+          //TODO BH more robust condition handling needed
           if (sqlupdate.head > 0) PersistenceResponse.Ok
           else PersistenceResponse.Duplicate
       }
