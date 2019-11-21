@@ -22,12 +22,12 @@ newtype ParticipantId = ParticipantId { unParticipantId :: Text} deriving (Eq,Or
 
 getParticipantId :: LedgerService ParticipantId
 getParticipantId =
-    makeLedgerService $ \timeout config -> do
+    makeLedgerService $ \timeout config mdm -> do
     withGRPCClient config $ \client -> do
         service <- LL.partyManagementServiceClient client
         let LL.PartyManagementService{partyManagementServiceGetParticipantId=rpc} = service
         let request = LL.GetParticipantIdRequest{}
-        rpc (ClientNormalRequest request timeout emptyMdm)
+        rpc (ClientNormalRequest request timeout mdm)
             >>= unwrap
             <&> \(LL.GetParticipantIdResponse text) -> ParticipantId text
 
@@ -39,12 +39,12 @@ data PartyDetails = PartyDetails
 
 listKnownParties :: LedgerService [PartyDetails]
 listKnownParties =
-    makeLedgerService $ \timeout config -> do
+    makeLedgerService $ \timeout config mdm -> do
     withGRPCClient config $ \client -> do
         service <- LL.partyManagementServiceClient client
         let LL.PartyManagementService{partyManagementServiceListKnownParties=rpc} = service
         let request = LL.ListKnownPartiesRequest{}
-        rpc (ClientNormalRequest request timeout emptyMdm)
+        rpc (ClientNormalRequest request timeout mdm)
             >>= unwrap
             >>= \(LL.ListKnownPartiesResponse xs) ->
                     either (fail . show) return $ raiseList raisePartyDetails xs
@@ -64,11 +64,11 @@ data AllocatePartyRequest = AllocatePartyRequest
 
 allocateParty :: AllocatePartyRequest -> LedgerService PartyDetails
 allocateParty request =
-    makeLedgerService $ \timeout config -> do
+    makeLedgerService $ \timeout config mdm -> do
     withGRPCClient config $ \client -> do
         service <- LL.partyManagementServiceClient client
         let LL.PartyManagementService{partyManagementServiceAllocateParty=rpc} = service
-        rpc (ClientNormalRequest (lowerRequest request) timeout emptyMdm)
+        rpc (ClientNormalRequest (lowerRequest request) timeout mdm)
             >>= unwrap
             >>= \case
             LL.AllocatePartyResponse Nothing ->
