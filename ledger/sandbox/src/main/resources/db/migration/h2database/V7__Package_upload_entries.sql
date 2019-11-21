@@ -10,10 +10,10 @@
 
 CREATE TABLE package_upload_entries
 (
-    ledger_offset    bigint primary key not null,
+    ledger_offset    bigint not null,
     recorded_at      timestamp          not null, --with timezone
     -- SubmissionId for package to be uploaded
-    submission_id    varchar            not null,
+    submission_id    varchar primary key not null,
     -- participant id that initiated the package upload
     participant_id   varchar            not null,
     -- The type of entry, one of 'accept' or 'reject'
@@ -22,7 +22,7 @@ CREATE TABLE package_upload_entries
     -- Rejection reason is a human-readable description why the change was rejected.
     rejection_reason varchar,
 
-    constraint check_entry_type
+    constraint check_package_upload_entry_type
         check (
                 (typ = 'accept' and rejection_reason is null) or
                 (typ = 'reject' and rejection_reason is not null)
