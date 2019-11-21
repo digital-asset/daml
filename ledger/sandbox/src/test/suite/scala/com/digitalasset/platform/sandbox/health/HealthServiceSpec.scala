@@ -3,9 +3,7 @@
 
 package com.digitalasset.platform.sandbox.health
 
-import akka.actor.ActorSystem
-import akka.stream.ActorMaterializer
-import akka.testkit.TestKit
+import com.digitalasset.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.digitalasset.platform.sandbox.health.HealthServiceSpec._
 import io.grpc.health.v1.{HealthCheckRequest, HealthCheckResponse}
 import io.grpc.stub.StreamObserver
@@ -14,7 +12,7 @@ import org.mockito.Mockito
 import org.mockito.Mockito._
 import org.scalatest.concurrent.Eventually
 import org.scalatest.mockito.MockitoSugar
-import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpecLike}
+import org.scalatest.{Matchers, WordSpec}
 
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.DurationInt
@@ -29,19 +27,13 @@ object HealthServiceSpec {
 }
 
 final class HealthServiceSpec
-    extends TestKit(ActorSystem(classOf[HealthServiceSpec].getSimpleName))
-    with WordSpecLike
+    extends WordSpec
     with Matchers
     with MockitoSugar
     with Eventually
-    with BeforeAndAfterAll {
+    with AkkaBeforeAndAfterAll {
 
-  private[this] implicit val materializer: ActorMaterializer = ActorMaterializer()
-  private[this] implicit val executionContext: ExecutionContext = materializer.executionContext
-
-  override def afterAll: Unit = {
-    TestKit.shutdownActorSystem(system)
-  }
+  private implicit val executionContext: ExecutionContext = materializer.executionContext
 
   "HealthService" should {
     "check the current health" in {
