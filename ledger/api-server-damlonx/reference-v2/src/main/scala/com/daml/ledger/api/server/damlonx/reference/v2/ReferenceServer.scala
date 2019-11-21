@@ -7,7 +7,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 import akka.actor.ActorSystem
 import akka.stream.{ActorMaterializer, ActorMaterializerSettings, Supervision}
-import com.codahale.metrics.{MetricRegistry, SharedMetricRegistries}
+import com.codahale.metrics.SharedMetricRegistries
 import com.daml.ledger.api.server.damlonx.reference.v2.cli.Cli
 import com.daml.ledger.participant.state.kvutils.InMemoryKVParticipantState
 import com.daml.ledger.participant.state.v1.ParticipantId
@@ -66,23 +66,25 @@ object ReferenceServer extends App {
       readService,
       config,
       participantLoggerFactory,
-      SharedMetricRegistries.getOrCreate(s"indexer-$participantId"))
+      SharedMetricRegistries.getOrCreate(s"indexer-$participantId"),
+    )
     indexServer <- StandaloneIndexServer(
       config,
       readService,
       writeService,
       authService,
       participantLoggerFactory,
-      SharedMetricRegistries.getOrCreate(s"ledger-api-server-$participantId")).start()
+      SharedMetricRegistries.getOrCreate(s"ledger-api-server-$participantId"),
+    ).start()
   } yield (indexerServer, indexServer)
 
   val extraParticipants =
     for {
-      (participantId, port, jdbcUrl) <- config.extraParticipants
+      (extraParticipantId, port, jdbcUrl) <- config.extraParticipants
     } yield {
       val participantConfig = config.copy(
         port = port,
-        participantId = participantId,
+        participantId = extraParticipantId,
         jdbcUrl = jdbcUrl
       )
       val participantLoggerFactory =
@@ -92,14 +94,14 @@ object ReferenceServer extends App {
           readService,
           participantConfig,
           participantLoggerFactory,
-          SharedMetricRegistries.getOrCreate(s"indexer-$participantId"))
+          SharedMetricRegistries.getOrCreate(s"indexer-$extraParticipantId"))
         extraLedgerApiServer <- StandaloneIndexServer(
           participantConfig,
           readService,
           writeService,
           authService,
           participantLoggerFactory,
-          SharedMetricRegistries.getOrCreate(s"ledger-api-server-$participantId")
+          SharedMetricRegistries.getOrCreate(s"ledger-api-server-$extraParticipantId")
         ).start()
       } yield (extraIndexer, extraLedgerApiServer)
     }

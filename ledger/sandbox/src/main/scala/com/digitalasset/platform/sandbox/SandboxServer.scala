@@ -95,7 +95,7 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
 
   private val metrics = new MetricRegistry
   private val metricsReporting =
-    new MetricsReporting(metrics, "com.digitalasset.platform.sandbox", true)
+    new MetricsReporting(metrics, "com.digitalasset.platform.sandbox")
 
   case class ApiServerState(
       ledgerId: LedgerId,
