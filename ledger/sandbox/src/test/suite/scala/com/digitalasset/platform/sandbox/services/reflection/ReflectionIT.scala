@@ -5,16 +5,16 @@ package com.digitalasset.platform.sandbox.services.reflection
 
 import com.digitalasset.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.digitalasset.platform.sandbox.services.SandboxFixture
+import com.digitalasset.platform.testing.SingleItemObserver
 import io.grpc.reflection.v1alpha.{
   ServerReflectionGrpc,
   ServerReflectionRequest,
   ServerReflectionResponse
 }
-import io.grpc.stub.StreamObserver
 import org.scalatest.{AsyncWordSpec, Matchers}
 
 import scala.collection.JavaConverters._
-import scala.concurrent.{Future, Promise}
+import scala.concurrent.Future
 
 final class ReflectionIT
     extends AsyncWordSpec
@@ -33,7 +33,7 @@ final class ReflectionIT
         for {
           response <- execRequest(listServices)
         } yield {
-          response.getListServicesResponse.getServiceCount shouldEqual 13
+          response.getListServicesResponse.getServiceCount shouldEqual 14
         }
       }
 
@@ -64,25 +64,8 @@ final class ReflectionIT
     ServerReflectionRequest.newBuilder().setFileContainingSymbol(symbol).build()
 
   private def execRequest(request: ServerReflectionRequest) = {
-    val doneP = Promise[ServerReflectionResponse]()
-    val ro =
-      ServerReflectionGrpc
-        .newStub(channel)
-        .serverReflectionInfo(new StreamObserver[ServerReflectionResponse] {
-          override def onNext(v: ServerReflectionResponse): Unit = {
-            doneP.success(v)
-          }
-
-          override def onError(throwable: Throwable): Unit = doneP.failure(throwable)
-
-          override def onCompleted(): Unit = {
-            doneP.tryFailure(new NoSuchElementException("Stream closed without any response."))
-            ()
-          }
-        })
-    ro.onNext(request)
-    ro.onCompleted()
-    val doneF = doneP.future
-    doneF
+    val observer = new SingleItemObserver[ServerReflectionResponse](_ => true)
+    ServerReflectionGrpc.newStub(channel).serverReflectionInfo(observer).onNext(request)
+    observer.result.map(_.get)
   }
 }
