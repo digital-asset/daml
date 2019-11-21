@@ -30,8 +30,12 @@ load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive", "http_file"
 load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
 
 rules_scala_version = "0f89c210ade8f4320017daf718a61de3c1ac4773"
-rules_haskell_version = "c53f7cc0fa11eb8f8107cf7cd977a6835b9f9ad6"
-rules_haskell_sha256 = "d5d8361a1a5a67cf24f7f44035e8120a7993089bc8c05b2415cc0ecf16884a73"
+
+# XXX: Update to rules_haskell master once the following PRs are merged.
+#   https://github.com/tweag/rules_haskell/pull/1153
+#   https://github.com/tweag/rules_haskell/pull/1156
+rules_haskell_version = "d35d9b94d24d96aa4d1c796360c4aa86c6661a48"
+rules_haskell_sha256 = "ea50ed748648d728e16e8fb98fa5da54c84d255a217f19b51d6942f69dd6abe8"
 rules_nixpkgs_version = "33c50ba64c11dddb95823d12f6b1324083cc5c43"
 rules_nixpkgs_sha256 = "91fedd5151bbd9ef89efc39e2172921bd7036c68cff54712a5df8ddf62bd6922"
 
@@ -55,9 +59,6 @@ def daml_deps():
                 # This should be made configurable in rules_haskell.
                 # Remove this patch once that's available.
                 "@com_github_digital_asset_daml//bazel_tools:haskell-opt.patch",
-                # This should be fixed in rules_haskell.
-                # Remove this patch once that's available.
-                "@com_github_digital_asset_daml//bazel_tools:haskell-cabal-wrapper.patch",
             ],
             patch_args = ["-p1"],
             sha256 = rules_haskell_sha256,
