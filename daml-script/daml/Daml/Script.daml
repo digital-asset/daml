@@ -107,7 +107,7 @@ submit p cmds = Script $ Free (fmap pure $ Submit $ SubmitCmd p cmds fail)
 
 -- | Submit the commands as a single transaction
 -- but error if it succeeds. This is only
--- useful for testing
+-- useful for testing.
 submitMustFail : Party -> Commands a -> Script ()
 submitMustFail p cmds = Script $ Free (fmap pure $ Submit $ SubmitCmd p (fail <$> cmds) (const ()))
   where fail _ = error "Expected submit to fail but it succeeded"
