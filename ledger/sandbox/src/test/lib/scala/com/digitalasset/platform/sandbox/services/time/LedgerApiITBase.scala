@@ -14,9 +14,9 @@ import scala.concurrent.{Await, Future}
 
 trait LedgerApiITBase extends WordSpecLike with ScalaFutures with Matchers with OptionValues {
 
-  protected def ledgerId: domain.LedgerId
+  protected def ledgerId(): domain.LedgerId
 
-  protected lazy val notLedgerId: domain.LedgerId = domain.LedgerId(s"not-${ledgerId.unwrap}")
+  protected lazy val notLedgerId: domain.LedgerId = domain.LedgerId(s"not-${ledgerId().unwrap}")
 
   protected val timeoutSeconds = 30L
 

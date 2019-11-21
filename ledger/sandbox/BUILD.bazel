@@ -175,6 +175,8 @@ testDependencies = [
     "//ledger/ledger-api-common:ledger-api-common-scala-tests-lib",
     "//ledger/test-common:test-common",
     "//ledger-api/testing-utils",
+    "//libs-scala/grpc-utils",
+    "//libs-scala/timer-utils",
     "@maven//:commons_io_commons_io",
     "@maven//:org_awaitility_awaitility",
     "@maven//:org_mockito_mockito_core",

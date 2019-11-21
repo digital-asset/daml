@@ -30,6 +30,7 @@ import scala.concurrent.{Await, ExecutionContext}
 import scala.concurrent.duration._
 import scala.util.Try
 import com.digitalasset.ledger.api.domain.LedgerId
+import com.digitalasset.ledger.client.auth.LedgerClientCallCredentials
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 import org.slf4j.LoggerFactory
 
@@ -68,10 +69,11 @@ trait SandboxFixture extends SuiteResource[Channel] with BeforeAndAfterAll {
 
   protected def channel: Channel = suiteResource.value
 
-  protected def ledgerIdOnServer: domain.LedgerId =
+  protected def ledgerId(token: Option[String] = None): domain.LedgerId =
     domain.LedgerId(
       LedgerIdentityServiceGrpc
         .blockingStub(channel)
+        .withCallCredentials(token.map(new LedgerClientCallCredentials(_)).orNull)
         .getLedgerIdentity(GetLedgerIdentityRequest())
         .ledgerId)
 
@@ -79,7 +81,7 @@ trait SandboxFixture extends SuiteResource[Channel] with BeforeAndAfterAll {
       implicit mat: Materializer,
       esf: ExecutionSequencerFactory): TimeProvider = {
     Try(TimeServiceGrpc.stub(channel))
-      .map(StaticTime.updatedVia(_, ledgerIdOnServer.unwrap)(mat, esf))
+      .map(StaticTime.updatedVia(_, ledgerId().unwrap)(mat, esf))
       .fold[TimeProvider](_ => TimeProvider.UTC, Await.result(_, 30.seconds))
   }
 
@@ -97,8 +99,6 @@ trait SandboxFixture extends SuiteResource[Channel] with BeforeAndAfterAll {
   protected def packageFiles: List[File] = List(darFile)
 
   protected def scenario: Option[String] = None
-
-  protected def ledgerId: domain.LedgerId = ledgerIdOnServer
 
   private lazy val sandboxResource = new SandboxServerResource(config)
 
