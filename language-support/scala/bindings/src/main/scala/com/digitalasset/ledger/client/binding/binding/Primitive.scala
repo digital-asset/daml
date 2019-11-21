@@ -14,6 +14,8 @@ import scala.language.higherKinds
 import java.time.{Instant, LocalDate, LocalDateTime}
 import java.util.TimeZone
 
+import com.digitalasset.daml.lf.data.InsertOrdMap
+
 sealed abstract class Primitive {
   type Int64 = Long
   type Numeric = BigDecimal
@@ -47,11 +49,16 @@ sealed abstract class Primitive {
   type Optional[+A] = scala.Option[A]
   val Optional: scala.Option.type = scala.Option
 
-  type Map[+V] = imm.Map[String, V]
-  val Map: imm.Map.type = imm.Map
+  type TextMap[+V] = imm.Map[String, V]
+  val TextMap: imm.Map.type = imm.Map
 
-  type GenMap[K, +V] = imm.Map[K, V]
-  val GenMap: imm.Map.type = imm.Map
+  @Deprecated // Use TextMap
+  type Map[+V] = TextMap[V]
+  @Deprecated // Use TextMap
+  val Map: TextMap.type = TextMap
+
+  type GenMap[K, +V] = InsertOrdMap[K, V]
+  val GenMap: InsertOrdMap.type = InsertOrdMap
 
   type ChoiceId = ApiTypes.Choice
   val ChoiceId: ApiTypes.Choice.type = ApiTypes.Choice

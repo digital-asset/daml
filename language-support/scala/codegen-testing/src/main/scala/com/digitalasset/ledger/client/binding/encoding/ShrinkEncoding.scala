@@ -9,6 +9,7 @@ import java.lang.Math.max
 import java.time.{Instant, LocalDate}
 import java.util.concurrent.TimeUnit
 
+import com.digitalasset.daml.lf.data.InsertOrdMap
 import com.digitalasset.ledger.api.v1.value.Identifier
 import com.digitalasset.ledger.api.v1.{value => rpcvalue}
 import com.digitalasset.ledger.client.binding.{Primitive => P}
@@ -165,11 +166,11 @@ object ShrinkEncoding extends ShrinkEncoding {
 
     def entry[A: Out]: Out[(String, A)] = implicitly[Out[(String, A)]]
 
-    override implicit def valueMap[A: Out]: Out[P.Map[A]] =
+    override implicit def valueTextMap[A: Out]: Out[P.TextMap[A]] =
       shrinkContainer2[Map, String, A]
 
     override implicit def valueGenMap[K: Shrink, V: Shrink]: Shrink[P.GenMap[K, V]] =
-      shrinkContainer2[Map, K, V]
+      shrinkContainer2[InsertOrdMap, K, V]
 
   }
 

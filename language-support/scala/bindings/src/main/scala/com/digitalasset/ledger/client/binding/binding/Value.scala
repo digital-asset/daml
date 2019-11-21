@@ -138,7 +138,7 @@ object DamlCodecs extends encoding.ValuePrimitiveEncoding[Value] {
       _.optional flatMap (_.value traverse (Value.decode[A](_))),
       oa => VSum.Optional(rpcvalue.Optional(oa map (Value.encode(_)))))
 
-  implicit override def valueMap[A](implicit A: Value[A]): Value[P.Map[A]] =
+  implicit override def valueTextMap[A](implicit A: Value[A]): Value[P.TextMap[A]] =
     fromArgumentValueFuns(
       _.map.flatMap(gm =>
         seqAlterTraverse(gm.entries)(e => e.value.flatMap(Value.decode[A](_)).map(e.key -> _))),
@@ -154,14 +154,15 @@ object DamlCodecs extends encoding.ValuePrimitiveEncoding[Value] {
 
   implicit override def valueGenMap[K, V](
       implicit K: Value[K],
-      V: Value[V]
-  ): Value[P.GenMap[K, V]] =
+      V: Value[V]): Value[P.GenMap[K, V]] =
     fromArgumentValueFuns(
       _.genMap.flatMap(gm =>
         seqAlterTraverse(gm.entries)(e =>
           for {
-            k <- e.key.flatMap(Value.decode[K](_))
-            v <- e.value.flatMap(Value.decode[V](_))
+            optK <- e.key
+            k <- Value.decode[K](optK)
+            optV <- e.value
+            v <- Value.decode[V](optV)
           } yield k -> v)),
       oa =>
         VSum.GenMap(rpcvalue.GenMap(oa.map {

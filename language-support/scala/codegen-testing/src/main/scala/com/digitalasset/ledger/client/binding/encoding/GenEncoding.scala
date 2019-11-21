@@ -98,9 +98,9 @@ object GenEncoding extends GenEncoding {
       arbitrary[P.Optional[A]]
     }
 
-    override def valueMap[A](implicit ev: Out[A]): Out[P.Map[A]] = {
+    override def valueTextMap[A](implicit ev: Out[A]): Out[P.TextMap[A]] = {
       implicit val elt: Arbitrary[A] = Arbitrary(ev)
-      arbitrary[P.Map[A]]
+      arbitrary[P.TextMap[A]]
     }
 
     override def valueGenMap[K, V](implicit evK: Out[K], evV: Out[V]): Out[P.GenMap[K, V]] = {

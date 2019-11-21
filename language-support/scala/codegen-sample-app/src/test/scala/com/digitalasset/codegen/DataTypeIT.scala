@@ -41,22 +41,34 @@ class DataTypeIT extends WordSpec with Matchers {
 
     }
 
-    "idempotent on genMap" in {
-      import RecordMod.Pair
-      import RecordMod.Pair._
-      import VariantMod.Either._
-      import VariantMod.Either
-
-      type T = P.GenMap[Pair[P.Int64, P.Numeric], Either[P.Int64, P.Numeric]]
+    "idempotent on textMap" in {
+      type T = P.TextMap[Long]
 
       val genMap: T =
-        Map(
-          Pair(1L, BigDecimal("1.000")) -> Left(1L),
-          Pair(2L, BigDecimal("-2.222")) -> Right(BigDecimal("-2.222")),
-          Pair(3L, BigDecimal("3.333")) -> Left(3L)
-        )
+        P.TextMap("1" -> 1L, "2" -> 2L, "3" -> 3L)
 
       Value.decode[T](Value.encode(genMap)) shouldBe Some(genMap)
+    }
+
+    val pair1 = RecordMod.Pair(1L, BigDecimal("1.000"))
+    val pair2 = RecordMod.Pair(2L, BigDecimal("-2.222"))
+    val pair3 = RecordMod.Pair(3L, BigDecimal("3.333"))
+
+    type T = P.GenMap[RecordMod.Pair[P.Int64, P.Numeric], VariantMod.Either[P.Int64, P.Numeric]]
+
+    val genMap: T =
+      P.GenMap(
+        pair1 -> VariantMod.Either.Left(1L),
+        pair2 -> VariantMod.Either.Right(BigDecimal("-2.222")),
+        pair3 -> VariantMod.Either.Left(3L)
+      )
+
+    "idempotent on genMap" in {
+      Value.decode[T](Value.encode(genMap)) shouldBe Some(genMap)
+    }
+
+    "preserve order of genMap entries" in {
+      Value.decode[T](Value.encode(genMap)).map(_.keys) shouldBe Some(Seq(pair1, pair2, pair3))
     }
   }
 

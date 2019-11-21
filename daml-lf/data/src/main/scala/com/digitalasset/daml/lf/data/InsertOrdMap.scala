@@ -3,7 +3,8 @@
 
 package com.digitalasset.daml.lf.data
 
-import scala.collection.immutable.{HashMap, Map, Queue}
+import scala.collection.generic.{CanBuildFrom, ImmutableMapFactory}
+import scala.collection.immutable.{AbstractMap, HashMap, Map, MapLike, Queue}
 
 /**
   * Insert-ordered Map (like ListMap), but with efficient lookups.
@@ -18,7 +19,11 @@ import scala.collection.immutable.{HashMap, Map, Queue}
 final class InsertOrdMap[K, +V] private (
     override val keys: Queue[K],
     hashMap: HashMap[K, V]
-) extends Map[K, V] {
+) extends AbstractMap[K, V]
+    with Map[K, V]
+    with MapLike[K, V, InsertOrdMap[K, V]] {
+
+  override def empty: InsertOrdMap[K, V] = InsertOrdMap.empty[K, V]
 
   override def size: Int = hashMap.size
 
@@ -43,13 +48,13 @@ final class InsertOrdMap[K, +V] private (
 
 }
 
-object InsertOrdMap {
+object InsertOrdMap extends ImmutableMapFactory[InsertOrdMap] {
 
   private val Empty: InsertOrdMap[Unit, Nothing] = new InsertOrdMap(Queue.empty, HashMap.empty)
 
   def empty[K, V]: InsertOrdMap[K, V] = Empty.asInstanceOf[InsertOrdMap[K, V]]
 
-  def apply[K, V](entries: (K, V)*): InsertOrdMap[K, V] =
-    entries.foldLeft(empty[K, V])(_ + _)
+  implicit def canBuildFrom[A, B]: CanBuildFrom[Coll, (A, B), InsertOrdMap[A, B]] =
+    new MapCanBuildFrom[A, B]
 
 }

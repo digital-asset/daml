@@ -68,10 +68,10 @@ object LfEncodable extends ValuePrimitiveEncoding[LfEncodable] {
         lte.primitive.valueOptional(LfEncodable.encoding[A](lte))
     }
 
-  override implicit def valueMap[A: LfEncodable]: LfEncodable[P.Map[A]] =
-    new LfEncodable[P.Map[A]] {
-      override def encoding(lte: LfTypeEncoding): lte.Out[P.Map[A]] =
-        lte.primitive.valueMap(LfEncodable.encoding[A](lte))
+  override implicit def valueTextMap[A: LfEncodable]: LfEncodable[P.TextMap[A]] =
+    new LfEncodable[P.TextMap[A]] {
+      override def encoding(lte: LfTypeEncoding): lte.Out[P.TextMap[A]] =
+        lte.primitive.valueTextMap(LfEncodable.encoding[A](lte))
     }
 
   override implicit def valueGenMap[K: LfEncodable, V: LfEncodable]: LfEncodable[P.GenMap[K, V]] =

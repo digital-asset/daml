@@ -88,9 +88,9 @@ object ValueSpec {
       ValueCheck[P.Optional[A]](s"Option[$tName]")
     }
 
-    override def valueMap[A](implicit vc: ValueCheck[A]) = {
+    override def valueTextMap[A](implicit vc: ValueCheck[A]) = {
       import vc._
-      ValueCheck[P.Map[A]](s"Map[$tName]")
+      ValueCheck[P.TextMap[A]](s"Map[$tName]")
     }
 
     override def valueGenMap[K, V](implicit vcK: ValueCheck[K], vcV: ValueCheck[V]) = {
@@ -119,7 +119,7 @@ object ValueSpec {
       }),
       (1, Gen.lzy {
         valueChecks.map { vc =>
-          Exists(TautologicalValueChecks.valueMap(vc.run))
+          Exists(TautologicalValueChecks.valueTextMap(vc.run))
         }
       }),
       (1, Gen.lzy {

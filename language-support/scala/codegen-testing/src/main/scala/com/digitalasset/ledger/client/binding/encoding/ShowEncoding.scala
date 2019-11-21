@@ -119,9 +119,16 @@ object ShowEncoding extends ShowEncoding {
 
     override def valueOptional[A: Show]: Show[P.Optional[A]] = optionShow
 
-    override def valueMap[A: Show]: Show[P.Map[A]] = mapShow
+    override def valueTextMap[A: Show]: Show[P.TextMap[A]] = mapShow
 
-    override implicit def valueGenMap[K: Show, V: Show]: Show[P.GenMap[K, V]] = mapShow
+    override def valueGenMap[K: Show, V: Show]: Show[P.GenMap[K, V]] =
+      Show.show { m =>
+        "SeqMap[" +:
+          Cord.mkCord(", ", m.toSeq.map { x =>
+          Cord(implicitly[Show[K]] show x._1, "->", implicitly[Show[V]] show x._2)
+        }: _*) :+ "]"
+      }
+
   }
 
   object Implicits {
