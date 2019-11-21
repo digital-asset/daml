@@ -16,21 +16,42 @@ import scalaz.syntax.show._
 /**
   * A JWK verifier, where the public keys are automatically fetched from the given JWKS URL.
   *
+  * In JWKS, each key ID uniquely identifies a public key.
+  * The keys are kept in cache, in order to prevent having to do a remove network access for each token validation.
+  *
+  * The cache is limited both in size and time.
+  * A size limit protects against infinitely growing memory consumption.
+  * A time limit is a safety catch for the case where a public key is used to sign a token without an expiration time
+  * and then is revoked.
+  *
+  * @param url The URL that points to the JWKS JSON document
+  * @param cacheMaxSize Maximum number of public keys to keep in the cache.
+  * @param cacheExpirationTime Maximum time to keep public keys in the cache.
+  * @param connectionTimeout Timeout for connecting to the JWKS URL.
+  * @param readTimeout Timeout for reading from the JWKS URL.
   */
-class JwksVerifier(url: URL) extends JwtVerifierBase {
+class JwksVerifier(
+    url: URL,
+    cacheMaxSize: Long = 10,
+    cacheExpirationTime: Long = 10,
+    cacheExpirationUnit: TimeUnit = TimeUnit.HOURS,
+    connectionTimeout: Long = 10,
+    connectionTimeoutUnit: TimeUnit = TimeUnit.SECONDS,
+    readTimeout: Long = 10,
+    readTimeoutUnit: TimeUnit = TimeUnit.SECONDS,
+) extends JwtVerifierBase {
 
-  /** Timeout for connecting to the JWKS URL, in milliseconds */
-  private[this] val connectionTimeoutMs = 10000
-
-  /** Timeout for reading from the JWKS URL, in milliseconds */
-  private[this] val readTimeoutMs = 10000
   private[this] val http =
-    new UrlJwkProvider(url, new Integer(connectionTimeoutMs), new Integer(readTimeoutMs))
+    new UrlJwkProvider(
+      url,
+      new Integer(connectionTimeoutUnit.toMillis(connectionTimeout).toInt),
+      new Integer(readTimeoutUnit.toMillis(readTimeout).toInt),
+    )
 
   private[this] val cache: Cache[String, JwtVerifier] = CacheBuilder
     .newBuilder()
-    .maximumSize(10)
-    .expireAfterWrite(10, TimeUnit.HOURS)
+    .maximumSize(cacheMaxSize)
+    .expireAfterWrite(cacheExpirationTime, cacheExpirationUnit)
     .build()
 
   private[this] def getVerifier(keyId: String): Error \/ JwtVerifier = {
