@@ -14,8 +14,7 @@ import com.codahale.metrics.{MetricRegistry, Slf4jReporter}
   * <br/><br/>
   * Note that metrics are in general light-weight and add negligible overhead. They are not visible to everyday
   * users so they can be safely enabled all the time. */
-final class MetricsReporting(metrics: MetricRegistry, jmxDomain: String)
-    extends AutoCloseable {
+final class MetricsReporting(metrics: MetricRegistry, jmxDomain: String) extends AutoCloseable {
 
   private val jmxReporter = JmxReporter
     .forRegistry(metrics)
@@ -29,7 +28,6 @@ final class MetricsReporting(metrics: MetricRegistry, jmxDomain: String)
     .convertDurationsTo(TimeUnit.MILLISECONDS)
     .withLoggingLevel(LoggingLevel.DEBUG)
     .build()
-
 
   override def close(): Unit = {
     slf4jReporter.report()
