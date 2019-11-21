@@ -13,7 +13,7 @@ import anorm.SqlParser._
 import anorm.ToStatement.optionToStatement
 import anorm.{AkkaStream, BatchSql, Macro, NamedParameter, RowParser, SQL, SqlParser}
 import com.daml.ledger.participant.state.index.v2.PackageDetails
-import com.daml.ledger.participant.state.v1.{AbsoluteContractInst, ParticipantId, TransactionId}
+import com.daml.ledger.participant.state.v1.{AbsoluteContractInst, TransactionId}
 import com.digitalasset.daml.lf.archive.Decode
 import com.digitalasset.daml.lf.data.Ref.{
   ContractIdString,
@@ -1366,7 +1366,7 @@ private class JdbcLedgerDao(
       offset: LedgerOffset,
       newLedgerEnd: LedgerOffset,
       externalOffset: Option[ExternalOffset],
-      participantId: ParticipantId,
+      participantId: String,
       submissionId: String,
       reason: Option[String]): Future[PersistenceResponse] = {
 

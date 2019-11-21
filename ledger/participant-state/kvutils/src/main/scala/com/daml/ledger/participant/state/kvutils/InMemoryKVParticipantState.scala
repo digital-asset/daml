@@ -201,9 +201,6 @@ class InMemoryKVParticipantState(
                         s"partyAllocation response: $submissionId could not be matched with a request!"))
                     .complete(result)
                   partyRequests -= submissionId
-
-                case KeyValueConsumption.PackageUploadResponse(submissionId, result) =>
-                  ()
               }
           case _ => ()
         }
