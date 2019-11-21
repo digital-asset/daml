@@ -12,6 +12,7 @@ import org.mockito.Mockito
 import org.mockito.Mockito._
 import org.scalatest.concurrent.Eventually
 import org.scalatest.mockito.MockitoSugar
+import org.scalatest.time.{Second, Span}
 import org.scalatest.{Matchers, WordSpec}
 
 import scala.concurrent.ExecutionContext
@@ -32,6 +33,9 @@ final class HealthServiceSpec
     with MockitoSugar
     with Eventually
     with AkkaBeforeAndAfterAll {
+
+  implicit override val patienceConfig: PatienceConfig =
+    PatienceConfig(timeout = scaled(Span(1, Second)))
 
   private implicit val executionContext: ExecutionContext = materializer.executionContext
 
