@@ -1031,6 +1031,6 @@ java_import(
 )
 """,
     sha256 = "9d0e8fd49410bc7061bdf85a51d0becb46eb9cdaf3bf2162d06285f4861684df",
-    strip_prefix = "canton-0.4.0",
-    urls = ["https://www.canton.io/releases/canton-0.4.0.tar.gz"],
+    strip_prefix = "canton-0.4.1",
+    urls = ["https://www.canton.io/releases/canton-0.4.1.tar.gz"],
 )

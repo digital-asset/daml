@@ -64,5 +64,5 @@ conformance_test(
         5021,
     ],
     server = ":canton-test-runner-with-dependencies",
-    tags = ["manual"],
+    tags = [],
 ) if not is_windows else None
