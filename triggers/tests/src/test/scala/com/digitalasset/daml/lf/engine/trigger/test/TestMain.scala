@@ -127,15 +127,12 @@ class TestRunner(val config: Config) extends StrictLogging {
 
     val triggerFlow: Future[SExpr] = for {
       client <- clientF
-      (acs, offset) <- Runner.queryACS(client, party)
+      runner = new Runner(client, applicationId, party, dar)
+      (acs, offset) <- runner.queryACS(client, party)
       _ = acsPromise.success(())
-      finalState <- Runner.runWithACS(
-        dar,
+      finalState <- runner.runWithACS(
         triggerId,
-        client,
         config.timeProviderType,
-        applicationId,
-        party,
         acs,
         offset,
         msgFlow = Flow[TriggerMsg].take(numMessages.num)

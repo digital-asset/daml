@@ -26,7 +26,6 @@ import com.digitalasset.daml.lf.speedy.{SExpr, Speedy, SValue, TraceLog}
 import com.digitalasset.daml.lf.speedy.SExpr._
 import com.digitalasset.daml.lf.speedy.SResult._
 import com.digitalasset.daml.lf.speedy.SValue._
-import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.refinements.ApiTypes.{ApplicationId}
 import com.digitalasset.ledger.api.v1.commands.Commands
 import com.digitalasset.ledger.api.v1.completion.Completion
@@ -44,12 +43,11 @@ final case class CompletionMsg(c: Completion) extends TriggerMsg
 final case class TransactionMsg(t: Transaction) extends TriggerMsg
 
 class Runner(
-    ledgerId: LedgerId,
+    client: LedgerClient,
     applicationId: ApplicationId,
     party: String,
     dar: Dar[(PackageId, Package)],
-    submit: SubmitRequest => Unit)
-    extends StrictLogging {
+) extends StrictLogging {
 
   private val triggerIds = TriggerIds.fromDar(dar)
   if (triggerIds.triggerPackageId != EXPECTED_TRIGGER_PACKAGE_ID) {
@@ -71,7 +69,7 @@ class Runner(
   // Handles the result of initialState or update, i.e., (s, [Commands], Text)
   // by submitting the commands, printing the log message and returning
   // the new state
-  def handleStepResult(v: SValue): SValue =
+  def handleStepResult(v: SValue, submit: SubmitRequest => Unit): SValue =
     v match {
       case SRecord(recordId, _, values)
           if recordId.qualifiedName ==
@@ -95,7 +93,7 @@ class Runner(
                   val commandUUID = UUID.randomUUID
                   commandIdMap += (commandUUID -> commandId)
                   val commandsArg = Commands(
-                    ledgerId = ledgerId.unwrap,
+                    ledgerId = client.ledgerId.unwrap,
                     applicationId = applicationId.unwrap,
                     commandId = commandUUID.toString,
                     party = party,
@@ -179,9 +177,44 @@ class Runner(
     }
   }
 
+  def msgSource(client: LedgerClient, offset: LedgerOffset, party: String)(
+      implicit materializer: Materializer)
+    : (Source[TriggerMsg, NotUsed], (String, StatusRuntimeException) => Unit) = {
+    // We use the queue to post failures that occur directly on command submission as opposed to
+    // appearing asynchronously on the completion stream
+    val (completionQueue, completionQueueSource) =
+      Source.queue[Completion](10, OverflowStrategy.backpressure).preMaterialize()
+    val transactionSource =
+      client.transactionClient
+        .getTransactions(
+          offset,
+          None,
+          TransactionFilter(List((party, Filters.defaultInstance)).toMap),
+          verbose = true)
+        .map[TriggerMsg](TransactionMsg)
+    val completionSource =
+      client.commandClient
+        .completionSource(List(party), offset)
+        .mapConcat({
+          case CheckpointElement(_) => List()
+          case CompletionElement(c) => List(c)
+        })
+        .merge(completionQueueSource)
+        .map[TriggerMsg](CompletionMsg)
+    def postSubmitFailure(commandId: String, s: StatusRuntimeException) = {
+      val _ = completionQueue.offer(
+        Completion(
+          commandId,
+          Some(Status(s.getStatus().getCode().value(), s.getStatus().getDescription()))))
+    }
+    (transactionSource.merge(completionSource), postSubmitFailure)
+  }
+
   def getTriggerSink(
       triggerId: Identifier,
-      acs: Seq[CreatedEvent]): Sink[TriggerMsg, Future[SExpr]] = {
+      acs: Seq[CreatedEvent],
+      submit: SubmitRequest => Unit,
+  ): Sink[TriggerMsg, Future[SExpr]] = {
     logger.info(s"Trigger is running as ${party}")
     val (triggerExpr, triggerTy) = getTrigger(triggerId)
     val update = compiler.compile(ERecProj(triggerTy, Name.assertFromString("update"), triggerExpr))
@@ -197,7 +230,7 @@ class Runner(
       SEApp(getInitialState, Array(SEValue(SParty(Party.assertFromString(party))), createdExpr))
     machine.ctrl = Speedy.CtrlExpr(initialState)
     machine = stepToValue(machine)
-    val evaluatedInitialState = handleStepResult(machine.toSValue)
+    val evaluatedInitialState = handleStepResult(machine.toSValue, submit)
     logger.debug(s"Initial state: $evaluatedInitialState")
     Flow[TriggerMsg]
       .mapConcat[TriggerMsg]({
@@ -245,20 +278,11 @@ class Runner(
         }
         machine.ctrl = Speedy.CtrlExpr(SEApp(update, Array(SEValue(messageVal), state)))
         machine = stepToValue(machine)
-        val newState = handleStepResult(machine.toSValue)
+        val newState = handleStepResult(machine.toSValue, submit)
         SEValue(newState)
       }))(Keep.right[NotUsed, Future[SExpr]])
   }
-}
 
-object Runner extends StrictLogging {
-  def getTimeProvider(ty: TimeProviderType): TimeProvider = {
-    ty match {
-      case TimeProviderType.Static => TimeProvider.Constant(Instant.EPOCH)
-      case TimeProviderType.WallClock => TimeProvider.UTC
-      case _ => throw new RuntimeException(s"Unexpected TimeProviderType: $ty")
-    }
-  }
   def queryACS(client: LedgerClient, party: String)(
       implicit materializer: Materializer,
       executionContext: ExecutionContext) = {
@@ -272,6 +296,40 @@ object Runner extends StrictLogging {
           LedgerOffset().withAbsolute(resp.offset))
     } yield (acsResponses.flatMap(x => x.activeContracts), offset)
   }
+
+  def runWithACS(
+      triggerId: Identifier,
+      timeProviderType: TimeProviderType,
+      acs: Seq[CreatedEvent],
+      offset: LedgerOffset,
+      msgFlow: Flow[TriggerMsg, TriggerMsg, NotUsed] = Flow[TriggerMsg],
+  )(implicit materializer: Materializer, executionContext: ExecutionContext): Future[SExpr] = {
+    val filter = TransactionFilter(List((party, Filters.defaultInstance)).toMap)
+    val (source, postFailure) = msgSource(client, offset, party)
+    def submit(req: SubmitRequest) = {
+      val f = client.commandClient
+        .withTimeProvider(Some(Runner.getTimeProvider(timeProviderType)))
+        .submitSingleCommand(req)
+      f.failed.foreach({
+        case s: StatusRuntimeException =>
+          postFailure(req.getCommands.commandId, s)
+        case e => logger.error(s"Unexpected exception: $e")
+      })
+    }
+    source
+      .via(msgFlow)
+      .runWith(getTriggerSink(triggerId, acs, submit))
+  }
+}
+
+object Runner extends StrictLogging {
+  def getTimeProvider(ty: TimeProviderType): TimeProvider = {
+    ty match {
+      case TimeProviderType.Static => TimeProvider.Constant(Instant.EPOCH)
+      case TimeProviderType.WallClock => TimeProvider.UTC
+      case _ => throw new RuntimeException(s"Unexpected TimeProviderType: $ty")
+    }
+  }
   def run(
       dar: Dar[(PackageId, Package)],
       triggerId: Identifier,
@@ -281,83 +339,16 @@ object Runner extends StrictLogging {
       party: String,
       msgFlow: Flow[TriggerMsg, TriggerMsg, NotUsed] = Flow[TriggerMsg],
   )(implicit materializer: Materializer, executionContext: ExecutionContext): Future[SExpr] = {
-    val filter = TransactionFilter(List((party, Filters.defaultInstance)).toMap)
-    for {
-      (acs, offset) <- Runner.queryACS(client, party)
-      finalState <- Runner.runWithACS(
-        dar,
-        triggerId,
-        client,
-        timeProviderType,
-        applicationId,
-        party,
-        acs,
-        offset)
-    } yield finalState
-  }
-  def runWithACS(
-      dar: Dar[(PackageId, Package)],
-      triggerId: Identifier,
-      client: LedgerClient,
-      timeProviderType: TimeProviderType,
-      applicationId: ApplicationId,
-      party: String,
-      acs: Seq[CreatedEvent],
-      offset: LedgerOffset,
-      msgFlow: Flow[TriggerMsg, TriggerMsg, NotUsed] = Flow[TriggerMsg],
-  )(implicit materializer: Materializer, executionContext: ExecutionContext): Future[SExpr] = {
-    val filter = TransactionFilter(List((party, Filters.defaultInstance)).toMap)
-    val (msgSource, postFailure) = Runner.msgSource(client, offset, party)
     val runner = new Runner(
-      client.ledgerId,
+      client,
       applicationId,
       party,
-      dar,
-      submitRequest => {
-        val f = client.commandClient
-          .withTimeProvider(Some(getTimeProvider(timeProviderType)))
-          .submitSingleCommand(submitRequest)
-        f.failed.foreach({
-          case s: StatusRuntimeException =>
-            postFailure(submitRequest.getCommands.commandId, s)
-          case e => logger.error(s"Unexpected exception: $e")
-        })
-      }
+      dar
     )
-    msgSource
-      .via(msgFlow)
-      .runWith(runner.getTriggerSink(triggerId, acs))
-  }
-  def msgSource(client: LedgerClient, offset: LedgerOffset, party: String)(
-      implicit materializer: Materializer)
-    : (Source[TriggerMsg, NotUsed], (String, StatusRuntimeException) => Unit) = {
-    // We use the queue to post failures that occur directly on command submission as opposed to
-    // appearing asynchronously on the completion stream
-    val (completionQueue, completionQueueSource) =
-      Source.queue[Completion](10, OverflowStrategy.backpressure).preMaterialize()
-    val transactionSource =
-      client.transactionClient
-        .getTransactions(
-          offset,
-          None,
-          TransactionFilter(List((party, Filters.defaultInstance)).toMap),
-          verbose = true)
-        .map[TriggerMsg](TransactionMsg)
-    val completionSource =
-      client.commandClient
-        .completionSource(List(party), offset)
-        .mapConcat({
-          case CheckpointElement(_) => List()
-          case CompletionElement(c) => List(c)
-        })
-        .merge(completionQueueSource)
-        .map[TriggerMsg](CompletionMsg)
-    def postSubmitFailure(commandId: String, s: StatusRuntimeException) = {
-      val _ = completionQueue.offer(
-        Completion(
-          commandId,
-          Some(Status(s.getStatus().getCode().value(), s.getStatus().getDescription()))))
-    }
-    (transactionSource.merge(completionSource), postSubmitFailure)
+    val filter = TransactionFilter(List((party, Filters.defaultInstance)).toMap)
+    for {
+      (acs, offset) <- runner.queryACS(client, party)
+      finalState <- runner.runWithACS(triggerId, timeProviderType, acs, offset)
+    } yield finalState
   }
 }
