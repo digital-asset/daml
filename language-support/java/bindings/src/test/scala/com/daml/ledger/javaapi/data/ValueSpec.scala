@@ -10,11 +10,15 @@ import java.util.concurrent.TimeUnit
 import com.daml.ledger.javaapi.data.Generators._
 import com.digitalasset.ledger.api.v1.ValueOuterClass.Value.SumCase
 import org.scalacheck.Gen
-import org.scalatest.prop.GeneratorDrivenPropertyChecks
+import org.scalatest.prop.{GeneratorDrivenPropertyChecks, TableDrivenPropertyChecks}
 import org.scalatest.{FlatSpec, Matchers}
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
-class ValueSpec extends FlatSpec with Matchers with GeneratorDrivenPropertyChecks {
+class ValueSpec
+    extends FlatSpec
+    with Matchers
+    with GeneratorDrivenPropertyChecks
+    with TableDrivenPropertyChecks {
 
   implicit override val generatorDrivenConfig: PropertyCheckConfiguration =
     PropertyCheckConfiguration(minSize = 1, sizeRange = 3)
