@@ -841,15 +841,15 @@ case class TemplateFilterTests(dar: Dar[(PackageId, Package)], runner: TestRunne
     runner.genericTest(name, dar, triggerId, cmds, numMessages, assertFinalState, assertFinalACS)
   }
 
-  def createOne(client: LedgerClient, party: String, commandId: String)(
+  def create(client: LedgerClient, party: String, commandId: String, templateId: value.Identifier)(
       implicit ec: ExecutionContext,
       materializer: ActorMaterializer): Future[Unit] = {
     val commands = Seq(
       Command().withCreate(CreateCommand(
-        templateId = Some(oneId),
+        templateId = Some(templateId),
         createArguments = Some(
           value.Record(
-            recordId = Some(oneId),
+            recordId = Some(templateId),
             fields = Seq(
               value.RecordField(
                 "p",
@@ -873,37 +873,14 @@ case class TemplateFilterTests(dar: Dar[(PackageId, Package)], runner: TestRunne
     } yield ()
   }
 
+  def createOne(client: LedgerClient, party: String, commandId: String)(
+      implicit ec: ExecutionContext,
+      materializer: ActorMaterializer): Future[Unit] =
+    create(client, party, commandId, oneId)
+
   def createTwo(client: LedgerClient, party: String, commandId: String)(
       implicit ec: ExecutionContext,
-      materializer: ActorMaterializer): Future[Unit] = {
-    val commands = Seq(
-      Command().withCreate(CreateCommand(
-        templateId = Some(twoId),
-        createArguments = Some(
-          value.Record(
-            recordId = Some(twoId),
-            fields = Seq(
-              value.RecordField(
-                "p",
-                Some(value.Value().withParty(party))
-              )
-            )
-          )),
-      )))
-    for {
-      r <- client.commandClient
-        .withTimeProvider(Some(Runner.getTimeProvider(runner.config.timeProviderType)))
-        .trackSingleCommand(SubmitRequest(commands = Some(Commands(
-          ledgerId = client.ledgerId.unwrap,
-          applicationId = runner.applicationId.unwrap,
-          commandId = commandId,
-          party = party,
-          ledgerEffectiveTime = Some(fromInstant(Instant.EPOCH)),
-          maximumRecordTime = Some(fromInstant(Instant.EPOCH.plusSeconds(5))),
-          commands = commands
-        ))))
-    } yield ()
-  }
+      materializer: ActorMaterializer): Future[Unit] = create(client, party, commandId, twoId)
 
   def runTests() = {
     test(

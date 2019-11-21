@@ -74,7 +74,7 @@ data Trigger s = Trigger
   -- and the user-defined state, you can send commands to the ledger using
   -- `emitCommands` to change the ACS.
   , registeredTemplates : RegisteredTemplates
-  -- The templates the trigger will receive events for.
+  -- ^ The templates the trigger will receive events for.
   }
 
 -- | TriggerA is the type used in the `rule` of a DAML trigger.
