@@ -32,7 +32,7 @@ final class DropRepeatedSpec
       val input = immutable.Seq(1, 2, 2, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 5)
 
       val _ = Source(input)
-        .via(dropRepeated)
+        .via(DropRepeated())
         .runWith(Sink.seq)
         .pipeTo(probe.ref)
         .failed
@@ -46,7 +46,7 @@ final class DropRepeatedSpec
       val input = immutable.Seq(1, 1, 2, 2, 1, 1, 2, 2)
 
       val _ = Source(input)
-        .via(dropRepeated)
+        .via(DropRepeated())
         .runWith(Sink.seq)
         .pipeTo(probe.ref)
         .failed

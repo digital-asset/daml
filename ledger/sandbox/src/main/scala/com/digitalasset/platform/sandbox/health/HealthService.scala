@@ -51,7 +51,7 @@ class HealthService(watchThrottleFrequency: FiniteDuration = 1.second)(
       .repeat(servingResponse)
       .takeWhile(_ => !isCancelled())
       .throttle(1, per = watchThrottleFrequency)
-      .via(dropRepeated)
+      .via(DropRepeated())
       .runWith(Sink.foreach(responseObserver.onNext))
       .onComplete {
         case Success(Done) =>
