@@ -24,8 +24,6 @@ object KeyValueConsumption {
   sealed trait AsyncResponse extends Serializable with Product
   final case class PartyAllocationResponse(submissionId: String, result: PartyAllocationResult)
       extends AsyncResponse
-  final case class PackageUploadResponse(submissionId: String, result: UploadPackagesResult)
-      extends AsyncResponse
 
   def packDamlLogEntry(entry: DamlStateKey): ByteString = entry.toByteString
   def unpackDamlLogEntry(bytes: ByteString): DamlLogEntry = DamlLogEntry.parseFrom(bytes)
@@ -149,19 +147,10 @@ object KeyValueConsumption {
 
     entry.getPayloadCase match {
       case DamlLogEntry.PayloadCase.PACKAGE_UPLOAD_ENTRY =>
-        if (participantId == entry.getPackageUploadEntry.getParticipantId)
-          Some(
-            PackageUploadResponse(
-              entry.getPackageUploadEntry.getSubmissionId,
-              UploadPackagesResult.Ok
-            )
-          )
-        else None
+        None
 
       case DamlLogEntry.PayloadCase.PACKAGE_UPLOAD_REJECTION_ENTRY =>
-        if (participantId == entry.getPackageUploadRejectionEntry.getParticipantId)
-          Some(packageRejectionEntryToAsyncResponse(entry.getPackageUploadRejectionEntry))
-        else None
+        None
 
       case DamlLogEntry.PayloadCase.PARTY_ALLOCATION_ENTRY =>
         if (participantId == entry.getPartyAllocationEntry.getParticipantId)
@@ -246,22 +235,6 @@ object KeyValueConsumption {
           PartyAllocationResult.ParticipantNotAuthorized
         case DamlPartyAllocationRejectionEntry.ReasonCase.REASON_NOT_SET =>
           sys.error("partyRejectionEntryToUpdate: REASON_NOT_SET!")
-      }
-    )
-  }
-
-  private def packageRejectionEntryToAsyncResponse(
-      rejEntry: DamlPackageUploadRejectionEntry): PackageUploadResponse = {
-
-    PackageUploadResponse(
-      submissionId = rejEntry.getSubmissionId,
-      result = rejEntry.getReasonCase match {
-        case DamlPackageUploadRejectionEntry.ReasonCase.INVALID_PACKAGE =>
-          UploadPackagesResult.InvalidPackage(rejEntry.getInvalidPackage.getDetails)
-        case DamlPackageUploadRejectionEntry.ReasonCase.PARTICIPANT_NOT_AUTHORIZED =>
-          UploadPackagesResult.ParticipantNotAuthorized
-        case DamlPackageUploadRejectionEntry.ReasonCase.REASON_NOT_SET =>
-          sys.error("rejectionEntryToUpdate: REASON_NOT_SET!")
       }
     )
   }
