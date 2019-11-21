@@ -63,30 +63,40 @@ private[kvutils] case class ProcessConfigSubmission(
     // Submission is authorized when:
     //      the provided participant id matches source participant id
     //  AND (
-    //      the authorized participant is unset
-    //   OR the authorized participant matches the submitting participant.
+    //      the authorized participants are unset
+    //   OR the authorized participants contain the submitting participant.
     //  )
-    val wellFormed =
-      participantId == configSubmission.getParticipantId
+    val submittingParticipantId = configSubmission.getParticipantId
+    val wellFormed = participantId == submittingParticipantId
 
     val authorized =
-      currentConfig.authorizedParticipantId
-        .fold(true)(authPid => authPid == participantId)
+      currentConfig.authorizedParticipantIds.isEmpty ||
+      currentConfig.authorizedParticipantIds.contains(participantId)
 
-    if (wellFormed && authorized) {
-      pass
-    } else {
+    if (!wellFormed) {
       logger.warn(
-        s"Rejected configuration submission. Authorized participant (${currentConfig.authorizedParticipantId}) does not match submitting participant $participantId.")
+        s"Rejected configuration submission. Submitting participant $submittingParticipantId does not match request participant $participantId")
 
       reject(
         _.setParticipantNotAuthorized(
           DamlConfigurationRejectionEntry.ParticipantNotAuthorized.newBuilder
             .setDetails(
-              s"Participant $participantId is not the authorized participant " +
-                currentConfig.authorizedParticipantId.getOrElse("<missing>")
+              s"Participant $participantId in request is not the submitting participant $submittingParticipantId"
             )
         ))
+    } else if (!authorized) {
+      logger.warn(
+        s"Rejected configuration submission. Authorized participants (${currentConfig.authorizedParticipantIds.mkString(", ")}) does not contain submitting participant $participantId.")
+
+      reject(
+        _.setParticipantNotAuthorized(
+          DamlConfigurationRejectionEntry.ParticipantNotAuthorized.newBuilder
+            .setDetails(
+              "Participant $participantId is not an authorized participant"
+            )
+        ))
+    } else {
+      pass
     }
   }
 
@@ -122,37 +132,36 @@ private[kvutils] case class ProcessConfigSubmission(
     done(
       DamlLogEntry.newBuilder
         .setRecordTime(buildTimestamp(recordTime))
-        .setConfigurationEntry(DamlConfigurationEntry.newBuilder
-          .setSubmissionId(configSubmission.getSubmissionId)
-          .setConfiguration(configSubmission.getConfiguration))
-        .build)
-  )
-
-  private def rejectGenerationMismatch(expected: Long): Commit[Unit] = {
-    Metrics.rejections.inc()
-    done(
-      DamlLogEntry.newBuilder
-        .setConfigurationRejectionEntry(
-          DamlConfigurationRejectionEntry.newBuilder
-            .setSubmissionId(configSubmission.getSubmissionId)
-            .setConfiguration(configSubmission.getConfiguration)
-            .setGenerationMismatch(
-              DamlConfigurationRejectionEntry.GenerationMismatch.newBuilder
-                .setExpectedGeneration(expected)
-            )
-        )
         .setConfigurationEntry(
           DamlConfigurationEntry.newBuilder
             .setSubmissionId(configSubmission.getSubmissionId)
             .setParticipantId(participantId)
             .setConfiguration(configSubmission.getConfiguration))
-        .build
-    )
-  }
+          .build
+        )
+  )
+
+  private def rejectGenerationMismatch(expected: Long): Commit[Unit] =
+
+    reject {
+      _.setGenerationMismatch(
+        DamlConfigurationRejectionEntry.GenerationMismatch.newBuilder
+          .setExpectedGeneration(expected)
+      )
+    }
+
+  private def rejectTimedOut[A]: Commit[A] =
+    reject {
+      _.setTimedOut(
+        DamlConfigurationRejectionEntry.TimedOut.newBuilder
+          .setMaximumRecordTime(configSubmission.getMaximumRecordTime)
+      )
+    }
 
   private def reject[A](
       addReason: DamlConfigurationRejectionEntry.Builder => DamlConfigurationRejectionEntry.Builder)
-    : Commit[A] =
+    : Commit[A] = {
+    Metrics.rejections.inc()
     done(
       DamlLogEntry.newBuilder
         .setConfigurationRejectionEntry(
@@ -165,43 +174,8 @@ private[kvutils] case class ProcessConfigSubmission(
         )
         .build
     )
-
-  private def rejectParticipantNotAuthorized[A]: Commit[A] = {
-    Metrics.rejections.inc()
-    done(
-      DamlLogEntry.newBuilder
-        .setConfigurationRejectionEntry(
-          DamlConfigurationRejectionEntry.newBuilder
-            .setSubmissionId(configSubmission.getSubmissionId)
-            .setConfiguration(configSubmission.getConfiguration)
-            .setParticipantNotAuthorized(
-              DamlConfigurationRejectionEntry.ParticipantNotAuthorized.newBuilder
-                .setDetails(
-                  s"Participant $participantId is not the authorized participant " +
-                    currentConfig.authorizedParticipantId.getOrElse("<missing>")
-                )
-            )
-        )
-        .build
-    )
   }
 
-  private def rejectTimedOut[A]: Commit[A] = {
-    Metrics.rejections.inc()
-    done(
-      DamlLogEntry.newBuilder
-        .setConfigurationRejectionEntry(
-          DamlConfigurationRejectionEntry.newBuilder
-            .setSubmissionId(configSubmission.getSubmissionId)
-            .setConfiguration(configSubmission.getConfiguration)
-            .setTimedOut(
-              DamlConfigurationRejectionEntry.TimedOut.newBuilder
-                .setMaximumRecordTime(configSubmission.getMaximumRecordTime)
-            )
-        )
-        .build
-    )
-  }
 }
 
 private[kvutils] object ProcessConfigSubmission {

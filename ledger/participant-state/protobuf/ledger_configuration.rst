@@ -36,7 +36,6 @@ As of version 1, these fields are included:
 * ``int64`` generation
 * ``LedgerTimeModel`` time_model
 * ``string`` authorized_participant_id
-* ``bool`` open_world
 
 ``version`` is required, and should be set to the latest version as
 specified by this document. Consumers should reject configurations
@@ -49,14 +48,10 @@ stale data.
 
 ``time_model`` is required.
 
-``authorized_participant_id`` is optional. If non-empty, then configuration
-change originating from a participant that does not match this field must be rejected.
+``authorized_participant_ids`` is optional. If non-empty, then configuration
+change originating from a participant that does not match any of the authorized
+participants field will be rejected.
 If unset, then change from any participant is accepted and that participant can set this field.
-
-``open_world`` is required. If set to true then party allocations are
-required and submission from parties unknown to the ledger or a submission
-in which the declared submitting party is not hosted on the submitting
-participant must be rejected.
 
 message LedgerTimeModel
 ^^^^^^^^^^^^^^^^^^^^^^^

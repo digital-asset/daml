@@ -14,6 +14,8 @@ import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.engine.Engine
 import com.digitalasset.daml_lf_dev.DamlLf
 import scalaz.State
+import scalaz.syntax.traverse._
+import scalaz.std.list._
 
 import scala.collection.JavaConverters._
 
@@ -44,9 +46,10 @@ object KVTest {
   def runTest[A](test: KVTest[A]): A =
     test.eval(initialTestState)
 
-  def runTestWithSimplePackage[A](test: KVTest[A]): A =
+  def runTestWithSimplePackage[A](parties: Party*)(test: KVTest[A]): A =
     (for {
       _ <- uploadSimpleArchive
+      _ <- parties.toList.map(p => allocateParty(p, p)).sequenceU
       r <- test
     } yield r).eval(initialTestState)
 
@@ -196,7 +199,7 @@ object KVTest {
 
   def submitConfig(
       configModify: Configuration => Configuration,
-      submissionId: String = "",
+      submissionId: String = randomString,
       mrtDelta: Duration = minMRTDelta
   ): KVTest[DamlLogEntry] =
     for {

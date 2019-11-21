@@ -31,15 +31,10 @@ message LedgerConfiguration {
   // ledger effective time and maximum record time of transactions.
   LedgerTimeModel time_model = 3;
 
-  // The identity of the participant that is allowed to change
+  // The identities of the participants that is allowed to change
   // the ledger configuration.
-  // If unset the configuration can be changed by anyone.
-  string authorized_participant_id = 4;
-
-  // If the "open world" flag is true, then party allocations are not
-  // explicitly required. That is, a submission from a party that is
-  // not allocated is allowed. This setting is useful when testing.
-  bool open_world = 5;
+  // If empty the configuration can be changed by anyone.
+  repeated string authorized_participant_ids = 4;
 }
 
 message LedgerTimeModel {

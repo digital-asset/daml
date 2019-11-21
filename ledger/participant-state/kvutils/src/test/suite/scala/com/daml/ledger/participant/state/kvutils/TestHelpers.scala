@@ -72,8 +72,7 @@ object TestHelpers {
   val theDefaultConfig = Configuration(
     generation = 0,
     timeModel = TimeModelImpl.reasonableDefault,
-    authorizedParticipantId = None,
-    openWorld = true,
+    authorizedParticipantIds = List.empty
   )
 
   def mkEntryId(n: Int): DamlLogEntryId = {

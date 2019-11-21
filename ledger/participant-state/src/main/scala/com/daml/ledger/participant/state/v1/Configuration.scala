@@ -7,7 +7,11 @@ import java.time.Duration
 
 import com.digitalasset.daml.lf.data.Ref
 
+import scala.collection.JavaConverters._
 import scala.util.Try
+import scalaz.std.list._
+import scalaz.std.either._
+import scalaz.syntax.traverse._
 
 /** Ledger configuration describing the ledger's time model.
   * Emitted in [[com.daml.ledger.participant.state.v1.Update.ConfigurationChanged]].
@@ -17,11 +21,9 @@ final case class Configuration(
     generation: Long,
     /** The time model of the ledger. Specifying the time-to-live bounds for Ledger API commands. */
     timeModel: TimeModel,
-    /** The identity of the participant allowed to change the configuration. If not set, any participant
+    /** The identities of the participants allowed to change the configuration. If not set, any participant
       * can change the configuration. */
-    authorizedParticipantId: Option[ParticipantId],
-    /** Flag to enable "open world" mode in which submissions from unallocated parties are allowed through. Useful in testing. */
-    openWorld: Boolean
+    authorizedParticipantIds: List[ParticipantId],
 )
 
 object Configuration {
@@ -50,17 +52,16 @@ object Configuration {
         else
           Left("Missing time model")
 
-        authPidRaw = config.getAuthorizedParticipantId
-        authPid <- if (authPidRaw.isEmpty)
-          Right(None)
-        else
-          Ref.LedgerString.fromString(authPidRaw).map(Some(_))
+        authPids <- config
+          .getAuthorizedParticipantIdsList
+          .asScala.toList
+          .map(Ref.LedgerString.fromString(_))
+          .sequenceU
       } yield {
         Configuration(
           generation = config.getGeneration,
           timeModel = tm,
-          authorizedParticipantId = authPid,
-          openWorld = config.getOpenWorld
+          authorizedParticipantIds = authPids,
         )
       }
 
@@ -78,8 +79,7 @@ object Configuration {
     protobuf.LedgerConfiguration.newBuilder
       .setVersion(protobufVersion)
       .setGeneration(config.generation)
-      .setAuthorizedParticipantId(config.authorizedParticipantId.fold("")(identity))
-      .setOpenWorld(config.openWorld)
+      .addAllAuthorizedParticipantIds((config.authorizedParticipantIds: List[String]).asJava)
       .setTimeModel(
         protobuf.LedgerTimeModel.newBuilder
           .setMaxClockSkew(buildDuration(tm.maxClockSkew))
@@ -89,7 +89,6 @@ object Configuration {
       .build
   }
 
-  // TODO(JM): Find a common place for these.
   private def parseDuration(dur: com.google.protobuf.Duration): Duration = {
     Duration.ofSeconds(dur.getSeconds, dur.getNanos.toLong)
   }

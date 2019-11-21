@@ -124,10 +124,7 @@ private[kvutils] case class ProcessTransactionSubmission(
             RejectionReason.SubmitterCannotActViaParticipant(
               s"Party '$submitter' not hosted by participant $participantId"))
       case None =>
-        if (config.openWorld)
-          pass
-        else
-          reject(RejectionReason.PartyNotKnownOnLedger)
+        reject(RejectionReason.PartyNotKnownOnLedger)
     }
 
   /** Validate ledger effective time and the command's time-to-live. */

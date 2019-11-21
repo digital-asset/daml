@@ -95,8 +95,7 @@ object InMemoryKVParticipantState {
 class InMemoryKVParticipantState(
     val participantId: ParticipantId,
     val ledgerId: LedgerString.T = Ref.LedgerString.assertFromString(UUID.randomUUID.toString),
-    file: Option[File] = None,
-    openWorld: Boolean = true)(implicit system: ActorSystem, mat: Materializer)
+    file: Option[File] = None)(implicit system: ActorSystem, mat: Materializer)
     extends ReadService
     with WriteService
     with AutoCloseable {
@@ -111,8 +110,7 @@ class InMemoryKVParticipantState(
   private val initialLedgerConfig = Configuration(
     generation = 0,
     timeModel = TimeModelImpl.reasonableDefault,
-    authorizedParticipantId = Some(participantId),
-    openWorld = openWorld
+    authorizedParticipantIds = List(participantId)
   )
 
   // DAML Engine for transaction validation.

@@ -35,14 +35,14 @@ class KVUtilsConfigSpec extends WordSpec with Matchers {
     "check generation" in KVTest.runTest {
       for {
         logEntry <- submitConfig(
-          configModify = c => c.copy(generation = c.generation + 1, openWorld = false),
+          configModify = c => c.copy(generation = c.generation + 1),
           submissionId = "submission0"
         )
         newConfig <- getConfiguration
 
         // Change again, but without bumping generation.
         logEntry2 <- submitConfig(
-          configModify = c => c.copy(generation = c.generation, openWorld = true),
+          configModify = c => c.copy(generation = c.generation),
           submissionId = "submission1"
         )
         newConfig2 <- getConfiguration
@@ -51,7 +51,6 @@ class KVUtilsConfigSpec extends WordSpec with Matchers {
         logEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.CONFIGURATION_ENTRY
         logEntry.getConfigurationEntry.getSubmissionId shouldEqual "submission0"
         newConfig.generation shouldEqual 1
-        newConfig.openWorld shouldEqual false
 
         logEntry2.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.CONFIGURATION_REJECTION_ENTRY
         logEntry2.getConfigurationRejectionEntry.getSubmissionId shouldEqual "submission1"
@@ -80,7 +79,7 @@ class KVUtilsConfigSpec extends WordSpec with Matchers {
         logEntry0 <- submitConfig { c =>
           c.copy(
             generation = c.generation + 1,
-            authorizedParticipantId = Some(p0)
+            authorizedParticipantIds = List(p0)
           )
         }
 
@@ -93,7 +92,6 @@ class KVUtilsConfigSpec extends WordSpec with Matchers {
             c =>
               c.copy(
                 generation = c.generation + 1,
-                openWorld = false
             )
           )
         }
@@ -107,7 +105,6 @@ class KVUtilsConfigSpec extends WordSpec with Matchers {
             c =>
               c.copy(
                 generation = c.generation + 1,
-                openWorld = false
             ))
         }
 

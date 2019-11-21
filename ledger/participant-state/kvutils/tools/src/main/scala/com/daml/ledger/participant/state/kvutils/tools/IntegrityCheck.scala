@@ -52,8 +52,7 @@ object IntegrityCheck extends App {
   val defaultConfig = Configuration(
     generation = 0,
     timeModel = TimeModel.reasonableDefault,
-    authorizedParticipantId = None,
-    openWorld = true
+    authorizedParticipantIds = List.empty
   )
   var state = Map.empty[Proto.DamlStateKey, Proto.DamlStateValue]
 
