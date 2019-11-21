@@ -406,7 +406,7 @@ private class SqlLedgerFactory(ledgerDao: LedgerDao, loggerFactory: NamedLoggerF
     initialLedgerId match {
       case Some(initialId) =>
         ledgerDao
-          .lookupLedgerId("_SqlLedgerFactory_initialize_some")
+          .lookupLedgerId()
           .flatMap {
             case Some(foundLedgerId) if (foundLedgerId == initialId) =>
               if (initialLedgerEntries.nonEmpty) {
@@ -460,7 +460,7 @@ private class SqlLedgerFactory(ledgerDao: LedgerDao, loggerFactory: NamedLoggerF
       case None =>
         logger.info("No ledger id given. Looking for existing ledger in database.")
         ledgerDao
-          .lookupLedgerId("_SqlLedgerFactory_initialize_none")
+          .lookupLedgerId()
           .flatMap {
             case Some(foundLedgerId) => ledgerFound(foundLedgerId)
             case None =>

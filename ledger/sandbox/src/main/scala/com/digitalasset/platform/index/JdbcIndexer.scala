@@ -143,7 +143,7 @@ class JdbcIndexerFactory[Status <: InitStatus] private (
 
   private def initializeLedger(ledgerId: domain.LedgerId, ledgerDao: LedgerDao) = {
     ledgerDao
-      .lookupLedgerId("_initializeLedger")
+      .lookupLedgerId()
       .flatMap {
         case Some(foundLedgerId) if foundLedgerId == ledgerId =>
           ledgerFound(foundLedgerId)

@@ -81,9 +81,9 @@ private class JdbcLedgerDao(
 
   private val SQL_SELECT_LEDGER_ID = SQL("select ledger_id from parameters")
 
-  override def lookupLedgerId(callerId: String): Future[Option[LedgerId]] =
+  override def lookupLedgerId(): Future[Option[LedgerId]] =
     dbDispatcher
-      .executeSql(s"get_ledger_id$callerId") { implicit conn =>
+      .executeSql(s"get_ledger_id") { implicit conn =>
         SQL_SELECT_LEDGER_ID
           .as(ledgerString("ledger_id").map(id => LedgerId(id.toString)).singleOpt)
       }
