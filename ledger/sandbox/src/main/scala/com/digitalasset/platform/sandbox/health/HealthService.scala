@@ -7,7 +7,6 @@ import akka.Done
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
 import com.digitalasset.grpc.{GrpcException, GrpcStatus}
-import com.digitalasset.platform.sandbox.health.HealthService._
 import io.grpc.health.v1.{HealthCheckRequest, HealthCheckResponse, HealthGrpc}
 import io.grpc.stub.StreamObserver
 import io.grpc.{Context, Status}
@@ -62,16 +61,12 @@ class HealthService(watchThrottleFrequency: FiniteDuration = 1.second)(
             case GrpcException(GrpcStatus(Status.Code.CANCELLED, _), _) =>
           }
         case Failure(error) =>
-          suppress(responseObserver.onError(error))
+          try {
+            responseObserver.onError(error)
+          } catch {
+            // ignore; what else can we do?
+            case NonFatal(_) =>
+          }
       }
   }
-}
-
-object HealthService {
-  private def suppress(f: => Unit): Unit =
-    try {
-      f
-    } catch {
-      case NonFatal(_) => // ignore
-    }
 }
