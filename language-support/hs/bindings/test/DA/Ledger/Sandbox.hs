@@ -23,7 +23,7 @@ import System.Process
 
 import DA.Ledger.Trace
 
-data AuthSpec = AuthSpec { sharedSecret :: String }
+newtype AuthSpec = AuthSpec { sharedSecret :: String }
 
 data SandboxSpec = SandboxSpec {dar :: String, maybeAuth :: Maybe AuthSpec}
 

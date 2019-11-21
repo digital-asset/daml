@@ -15,6 +15,7 @@ da_haskell_library(
         "containers",
         "exceptions",
         "extra",
+        "mtl",
         "grpc-haskell",
         "proto3-suite",
         "retry",

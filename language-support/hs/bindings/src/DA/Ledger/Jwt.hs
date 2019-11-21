@@ -16,8 +16,10 @@ tryCreateFromString s = do
   validate3parts s
   return $ Jwt s
 
+-- | catch easy user errors before sending the token to the ledger
 validate3parts :: String -> Either String ()
 validate3parts s = do
-  case length (splitOn "." s) of
-    3 -> return ()
-    n -> Left $ "Bad JWT token: The token was expected to have 3 parts, but got " <> show n
+  case splitOn "." s of
+    [_, _, _] -> return ()
+    parts -> Left $ "Bad JWT token: The token was expected to have 3 parts, but got "
+             <> show (length parts)

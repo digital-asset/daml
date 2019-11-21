@@ -31,8 +31,8 @@ import qualified Data.ByteString.Lazy as BSL (readFile,toStrict)
 import qualified Data.ByteString.UTF8 as BS (ByteString,fromString)
 import qualified Data.Map as Map
 import qualified Data.Set as Set
-import qualified Data.Text as DT(pack,unpack)
-import qualified Data.Text.Lazy as Text(Text,pack,unpack,fromStrict)
+import qualified Data.Text as T(pack,unpack)
+import qualified Data.Text.Lazy as TL(Text,pack,unpack,fromStrict)
 import qualified Data.UUID as UUID (toString)
 import qualified Data.Vector as Vector
 import qualified Web.JWT as JWT
@@ -42,7 +42,7 @@ main = do
     setEnv "TASTY_NUM_THREADS" "1" True
     Tasty.defaultMain $ testGroup "Ledger bindings"
         [ sharedSandboxTests
-        , authenticingSandboxTests
+        , authenticatingSandboxTests
         ]
 
 type SandboxTest = WithSandbox -> TestTree
@@ -87,8 +87,8 @@ sharedSandboxTests = testGroupWithSandbox (ShareSandbox True Nothing) "shared sa
     , tAllocateParty
     ]
 
-authenticingSandboxTests :: TestTree
-authenticingSandboxTests =
+authenticatingSandboxTests :: TestTree
+authenticatingSandboxTests =
   testGroupWithSandbox (ShareSandbox True (Just authSpec)) "shared authenticating sandbox"
   [ tGetLedgerIdentity
   , tListPackages
@@ -331,7 +331,7 @@ tGetActiveContracts withSandbox = testCase "tGetActiveContracts" $ run withSandb
     -- and then we get it
     [(off2,_,[active]),(off3,_,[])] <- getActiveContracts lid (filterEverythingForParty (alice testId)) (Verbosity True)
     let diffOffset :: AbsOffset -> AbsOffset -> Int
-        (AbsOffset a) `diffOffset` (AbsOffset b) = read (Text.unpack a) - read (Text.unpack b)
+        (AbsOffset a) `diffOffset` (AbsOffset b) = read (TL.unpack a) - read (TL.unpack b)
     liftIO $ do
         assertEqual "off2" (AbsOffset "" ) off2 -- strange
         assertEqual "off3 - off1" 1 (off3 `diffOffset` off1)
@@ -434,7 +434,7 @@ tSetTime withSandbox = testCase "tSetTime" $ run withSandbox $ \_ _testId -> do
 
 requiresAuthorizerButGot :: Party -> Party -> String -> IO ()
 requiresAuthorizerButGot (Party required) (Party given) err =
-    assertTextContains err $ "requires authorizers " <> Text.unpack required <> ", but only " <> Text.unpack given <> " were given"
+    assertTextContains err $ "requires authorizers " <> TL.unpack required <> ", but only " <> TL.unpack given <> " were given"
 
 tSubmitAndWait :: SandboxTest
 tSubmitAndWait withSandbox =
@@ -504,7 +504,7 @@ tGetParticipantId withSandbox = testCase "tGetParticipantId" $ run withSandbox $
 
 tAllocateParty :: SandboxTest
 tAllocateParty withSandbox = testCase "tAllocateParty" $ run withSandbox $ \_pid (TestId testId) -> do
-    let party = Party (Text.pack $ "me" <> show testId)
+    let party = Party (TL.pack $ "me" <> show testId)
     before <- listKnownParties
     let displayName = "Only Me"
     let request = AllocatePartyRequest { partyIdHint = unParty party, displayName }
@@ -593,10 +593,10 @@ nextTestId :: TestId -> TestId
 nextTestId (TestId i) = TestId (i + 1)
 
 alice,bob :: TestId -> Party
-alice (TestId i) = Party $ Text.pack $ "Alice" <> show i
-bob (TestId i) = Party $ Text.pack $ "Bob" <> show i
+alice (TestId i) = Party $ TL.pack $ "Alice" <> show i
+bob (TestId i) = Party $ TL.pack $ "Bob" <> show i
 
-createIOU :: PackageId -> Party -> Text.Text -> Int -> Command
+createIOU :: PackageId -> Party -> TL.Text -> Int -> Command
 createIOU pid party currency quantity = CreateCommand {tid,args}
     where
         tid = TemplateId (Identifier pid mod ent)
@@ -651,11 +651,11 @@ myAid :: ApplicationId
 myAid = ApplicationId ":my-application:"
 
 randomCid :: IO CommandId
-randomCid = do fmap (CommandId . Text.pack . UUID.toString) randomIO
+randomCid = do fmap (CommandId . TL.pack . UUID.toString) randomIO
 
 looksLikeSandBoxLedgerId :: LedgerId -> Bool
 looksLikeSandBoxLedgerId (LedgerId text) =
-    "sandbox-" `isPrefixOf` s && length s == 44 where s = Text.unpack text
+    "sandbox-" `isPrefixOf` s && length s == 44 where s = TL.unpack text
 
 ----------------------------------------------------------------------
 -- runWithSandbox
@@ -670,15 +670,15 @@ runWithSandbox Sandbox{port} maybeAuth tid ls = runLedgerService ls' timeout (co
 
 makeSignedJwt :: AuthSpec -> TestId -> Jwt
 makeSignedJwt AuthSpec{sharedSecret} tid = do
-  let parties = [ DT.pack $ Text.unpack $ unParty $ p tid | p <- [alice,bob] ]
+  let parties = [ T.pack $ TL.unpack $ unParty $ p tid | p <- [alice,bob] ]
   let urc = JWT.ClaimsMap $ Map.fromList
         [ ("admin", Aeson.Bool True)
         , ("actAs", Aeson.Array $ Vector.fromList $ map Aeson.String parties)
         ]
   let cs = mempty { JWT.unregisteredClaims = urc }
-  let key = JWT.hmacSecret $ DT.pack sharedSecret
+  let key = JWT.hmacSecret $ T.pack sharedSecret
   let text = JWT.encodeSigned key mempty cs
-  either error id $ Jwt.tryCreateFromString $ DT.unpack text
+  either error id $ Jwt.tryCreateFromString $ T.unpack text
 
 
 -- resetSandbox :: Sandbox-> IO ()
@@ -727,7 +727,7 @@ mainPackageId SandboxSpec{dar} = do
     Dalfs { mainDalf } <- either fail pure $ readDalfs archive
     case decodeArchive DecodeAsMain (BSL.toStrict mainDalf) of
         Left err -> fail $ show err
-        Right (LF.PackageId pId, _) -> pure (PackageId $ Text.fromStrict pId)
+        Right (LF.PackageId pId, _) -> pure (PackageId $ TL.fromStrict pId)
 
 ----------------------------------------------------------------------
 -- SharedSandbox
