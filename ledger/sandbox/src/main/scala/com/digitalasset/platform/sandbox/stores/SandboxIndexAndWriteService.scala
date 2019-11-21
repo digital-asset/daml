@@ -9,6 +9,7 @@ import java.util.concurrent.{CompletableFuture, CompletionStage}
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
+import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.index.v2._
 import com.daml.ledger.participant.state.v1.{
   ApplicationId => _,
@@ -35,7 +36,6 @@ import com.digitalasset.ledger.api.domain.{ParticipantId => _, _}
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.common.util.{DirectExecutionContext => DEC}
 import com.digitalasset.platform.participant.util.EventFilter
-import com.digitalasset.platform.sandbox.metrics.MetricsManager
 import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
 import com.digitalasset.platform.sandbox.stores.ledger._
 import com.digitalasset.platform.sandbox.stores.ledger.sql.SqlStartMode
@@ -73,7 +73,7 @@ object SandboxIndexAndWriteService {
       queueDepth: Int,
       templateStore: InMemoryPackageStore,
       loggerFactory: NamedLoggerFactory,
-      mm: MetricsManager)(implicit mat: Materializer): Future[IndexAndWriteService] =
+      metrics: MetricRegistry)(implicit mat: Materializer): Future[IndexAndWriteService] =
     Ledger
       .jdbcBacked(
         jdbcUrl,
@@ -85,10 +85,11 @@ object SandboxIndexAndWriteService {
         queueDepth,
         startMode,
         loggerFactory,
-        mm
+        metrics
       )
       .map(ledger =>
-        createInstance(Ledger.metered(ledger, mm), participantId, timeModel, timeProvider))(DEC)
+        createInstance(Ledger.metered(ledger, metrics), participantId, timeModel, timeProvider))(
+        DEC)
 
   def inMemory(
       ledgerId: LedgerId,
@@ -98,9 +99,11 @@ object SandboxIndexAndWriteService {
       acs: InMemoryActiveLedgerState,
       ledgerEntries: ImmArray[LedgerEntryOrBump],
       templateStore: InMemoryPackageStore,
-      mm: MetricsManager)(implicit mat: Materializer): IndexAndWriteService = {
+      metrics: MetricRegistry)(implicit mat: Materializer): IndexAndWriteService = {
     val ledger =
-      Ledger.metered(Ledger.inMemory(ledgerId, timeProvider, acs, templateStore, ledgerEntries), mm)
+      Ledger.metered(
+        Ledger.inMemory(ledgerId, timeProvider, acs, templateStore, ledgerEntries),
+        metrics)
     createInstance(ledger, participantId, timeModel, timeProvider)
   }
 

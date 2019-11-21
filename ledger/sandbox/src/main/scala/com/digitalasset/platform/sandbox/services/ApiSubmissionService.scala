@@ -4,6 +4,7 @@
 package com.digitalasset.platform.sandbox.services
 import com.digitalasset.ledger.api.v1.command_submission_service.CommandSubmissionServiceLogging
 import akka.stream.ActorMaterializer
+import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.index.v2.ContractStore
 import com.daml.ledger.participant.state.v1.SubmissionResult.{
   Acknowledged,
@@ -27,7 +28,7 @@ import com.digitalasset.ledger.api.domain.{LedgerId, Commands => ApiCommands}
 import com.digitalasset.ledger.api.messages.command.submission.SubmitRequest
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.api.grpc.GrpcApiService
-import com.digitalasset.platform.sandbox.metrics.MetricsManager
+import com.digitalasset.platform.sandbox.metrics.timedFuture
 import com.digitalasset.platform.sandbox.stores.ledger.{CommandExecutor, ErrorCause}
 import com.digitalasset.platform.server.api.services.domain.CommandSubmissionService
 import com.digitalasset.platform.server.api.services.grpc.GrpcCommandSubmissionService
@@ -52,7 +53,7 @@ object ApiSubmissionService {
       timeProvider: TimeProvider,
       commandExecutor: CommandExecutor,
       loggerFactory: NamedLoggerFactory,
-      metricsManager: MetricsManager)(implicit ec: ExecutionContext, mat: ActorMaterializer)
+      metrics: MetricRegistry)(implicit ec: ExecutionContext, mat: ActorMaterializer)
     : GrpcCommandSubmissionService with GrpcApiService with CommandSubmissionServiceLogging =
     new GrpcCommandSubmissionService(
       new ApiSubmissionService(
@@ -62,7 +63,7 @@ object ApiSubmissionService {
         timeProvider,
         commandExecutor,
         loggerFactory,
-        metricsManager),
+        metrics),
       ledgerId
     ) with CommandSubmissionServiceLogging
 
@@ -79,7 +80,7 @@ class ApiSubmissionService private (
     timeProvider: TimeProvider,
     commandExecutor: CommandExecutor,
     loggerFactory: NamedLoggerFactory,
-    metricsManager: MetricsManager)(implicit ec: ExecutionContext, mat: ActorMaterializer)
+    metrics: MetricRegistry)(implicit ec: ExecutionContext, mat: ActorMaterializer)
     extends CommandSubmissionService
     with ErrorFactories
     with AutoCloseable {
@@ -89,10 +90,10 @@ class ApiSubmissionService private (
 
   private object Metrics {
     val failedInterpretationsMeter =
-      metricsManager.metrics.meter("CommandSubmission.failedCommandInterpretations")
+      metrics.meter("CommandSubmission.failedCommandInterpretations")
 
     val submittedTransactionsTimer =
-      metricsManager.metrics.timer("CommandSubmission.submittedTransactions")
+      metrics.timer("CommandSubmission.submittedTransactions")
   }
 
   override def submit(request: SubmitRequest): Future[Unit] = {
@@ -161,7 +162,7 @@ class ApiSubmissionService private (
       res: scala.Either[ErrorCause, (SubmitterInfo, TransactionMeta, Transaction.Transaction)]) =
     res match {
       case Right((submitterInfo, transactionMeta, transaction)) =>
-        metricsManager.timedFuture(
+        timedFuture(
           Metrics.submittedTransactionsTimer,
           FutureConverters.toScala(
             writeService.submitTransaction(

@@ -8,6 +8,7 @@ import java.time.Instant
 
 import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
+import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
@@ -22,7 +23,7 @@ import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.sandbox.SandboxServer.{asyncTolerance, createInitialState, logger}
 import com.digitalasset.platform.sandbox.banner.Banner
 import com.digitalasset.platform.sandbox.config.SandboxConfig
-import com.digitalasset.platform.sandbox.metrics.MetricsManager
+import com.digitalasset.platform.sandbox.metrics.MetricsReporting
 import com.digitalasset.platform.sandbox.services.SandboxResetService
 import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
 import com.digitalasset.platform.sandbox.stores.ledger._
@@ -92,6 +93,10 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
 
   private val authService: AuthService = config.authService.getOrElse(AuthServiceWildcard)
 
+  private val metrics = new MetricRegistry
+  private val metricsReporting =
+    new MetricsReporting(metrics, "com.digitalasset.platform.sandbox")
+
   case class ApiServerState(
       ledgerId: LedgerId,
       apiServer: ApiServer,
@@ -105,17 +110,14 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
     }
   }
 
-  case class Infrastructure(
-      actorSystem: ActorSystem,
-      materializer: ActorMaterializer,
-      metricsManager: MetricsManager)
+  case class Infrastructure(actorSystem: ActorSystem, materializer: ActorMaterializer)
       extends AutoCloseable {
     def executionContext: ExecutionContext = materializer.executionContext
 
     override def close: Unit = {
       materializer.shutdown()
       Await.result(actorSystem.terminate(), asyncTolerance)
-      metricsManager.close()
+      ()
     }
   }
 
@@ -177,8 +179,6 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
     implicit val mat = infra.materializer
     implicit val ec: ExecutionContext = infra.executionContext
 
-    val mm: MetricsManager = infra.metricsManager
-
     val ledgerId = config.ledgerIdMode match {
       case LedgerIdMode.Static(id) => id
       case LedgerIdMode.Dynamic() => LedgerIdGenerator.generateRandomId()
@@ -212,7 +212,7 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
           config.commandConfig.maxCommandsInFlight * 2, // we can get commands directly as well on the submission service
           packageStore,
           loggerFactory,
-          mm
+          metrics
         )
 
       case None =>
@@ -225,7 +225,7 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
             acs,
             ledgerEntries,
             packageStore,
-            mm
+            metrics
           ))
     }
 
@@ -257,7 +257,7 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
                     indexAndWriteService.publishHeartbeat
                   )),
               loggerFactory,
-              mm
+              metrics
             )(am, esf)
             .map(_.withServices(List(resetService(ledgerId, authorizer, loggerFactory)))),
         // NOTE(JM): Re-use the same port after reset.
@@ -270,7 +270,7 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
           AuthorizationInterceptor(authService, ec),
           resetService(ledgerId, authorizer, loggerFactory)
         ),
-        mm
+        metrics
       ),
       asyncTolerance
     )
@@ -301,10 +301,7 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
   private def start(): SandboxState = {
     val actorSystem = ActorSystem(actorSystemName)
     val infrastructure =
-      Infrastructure(
-        actorSystem,
-        ActorMaterializer()(actorSystem),
-        MetricsManager("com.digitalasset.platform.sandbox"))
+      Infrastructure(actorSystem, ActorMaterializer()(actorSystem))
     val packageStore = loadDamlPackages
     val apiState = buildAndStartApiServer(infrastructure, packageStore)
     SandboxState(apiState, infrastructure, packageStore)
@@ -321,7 +318,10 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
       .fold({ case (err, file) => sys.error(s"Could not load package $file: $err") }, identity)
   }
 
-  override def close(): Unit = sandboxState.close()
+  override def close(): Unit = {
+    metricsReporting.close()
+    sandboxState.close()
+  }
 
   private def writePortFile(port: Int): Unit = {
     config.portFile.foreach { f =>
