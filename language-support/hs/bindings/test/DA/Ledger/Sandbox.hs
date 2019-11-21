@@ -3,6 +3,7 @@
 
 
 module DA.Ledger.Sandbox ( -- Run a sandbox for testing on a dynamically selected port
+    AuthSpec(..),
     SandboxSpec(..),
     Sandbox(..),
     startSandbox,
@@ -22,15 +23,20 @@ import System.Process
 
 import DA.Ledger.Trace
 
-data SandboxSpec = SandboxSpec {dar :: String}
+newtype AuthSpec = AuthSpec { sharedSecret :: String }
+
+data SandboxSpec = SandboxSpec {dar :: String, maybeAuth :: Maybe AuthSpec}
 
 data Sandbox = Sandbox { port :: Port, proh :: ProcessHandle }
 
-
 sandboxProcess :: SandboxSpec -> FilePath -> IO CreateProcess
-sandboxProcess SandboxSpec{dar} portFile = do
+sandboxProcess SandboxSpec{dar,maybeAuth} portFile = do
     binary <- locateRunfiles (mainWorkspace </> exe "ledger/sandbox/sandbox-binary")
-    pure $ proc binary [ dar, "--port-file", portFile, "-p", "0"]
+    pure $ proc binary $ [ dar, "--port-file", portFile, "-p", "0"] ++ authOpts
+      where
+        authOpts = case maybeAuth of
+          Nothing -> []
+          Just AuthSpec{sharedSecret} -> ["--auth-jwt-hs256=" <> sharedSecret]
 
 startSandboxProcess :: SandboxSpec -> FilePath -> IO (ProcessHandle,Maybe Handle)
 startSandboxProcess spec portFile = withDevNull $ \devNull -> do

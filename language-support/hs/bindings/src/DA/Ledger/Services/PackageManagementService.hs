@@ -27,12 +27,12 @@ data PackageDetails = PackageDetails
 
 listKnownPackages :: LedgerService [PackageDetails]
 listKnownPackages =
-    makeLedgerService $ \timeout config ->
+    makeLedgerService $ \timeout config mdm ->
     withGRPCClient config $ \client -> do
         service <- LL.packageManagementServiceClient client
         let LL.PackageManagementService {packageManagementServiceListKnownPackages=rpc} = service
         let request = LL.ListKnownPackagesRequest
-        rpc (ClientNormalRequest request timeout emptyMdm)
+        rpc (ClientNormalRequest request timeout mdm)
             >>= unwrap
             >>= either (fail . show) return . raiseResponse
 
@@ -53,11 +53,11 @@ raisePackageDetails = \case
 -- | Upload a DAR file to the ledger. If the ledger responds with `INVALID_ARGUMENT`, we return `Left details`.
 uploadDarFile :: ByteString -> LedgerService (Either String ()) -- Unlike other services, no LedgerId is needed. (why?!)
 uploadDarFile bytes =
-    makeLedgerService $ \timeout config ->
+    makeLedgerService $ \timeout config mdm ->
     withGRPCClient config $ \client -> do
         service <- LL.packageManagementServiceClient client
         let LL.PackageManagementService {packageManagementServiceUploadDarFile=rpc} = service
         let request = LL.UploadDarFileRequest bytes
-        rpc (ClientNormalRequest request timeout emptyMdm)
+        rpc (ClientNormalRequest request timeout mdm)
             >>= unwrapWithInvalidArgument
             <&> fmap (\LL.UploadDarFileResponse{} -> ())

@@ -46,7 +46,7 @@ class SqlLedgerSpec
         queueDepth,
         startMode = SqlStartMode.ContinueIfExists,
         loggerFactory,
-        metricsManager
+        metrics
       )
 
       ledgerF.map { ledger =>
@@ -65,7 +65,7 @@ class SqlLedgerSpec
         queueDepth,
         startMode = SqlStartMode.ContinueIfExists,
         loggerFactory,
-        metricsManager
+        metrics
       )
 
       ledgerF.map { ledger =>
@@ -86,7 +86,7 @@ class SqlLedgerSpec
           queueDepth,
           startMode = SqlStartMode.ContinueIfExists,
           loggerFactory,
-          metricsManager
+          metrics
         )
 
         ledger2 <- SqlLedger(
@@ -99,7 +99,7 @@ class SqlLedgerSpec
           queueDepth,
           startMode = SqlStartMode.ContinueIfExists,
           loggerFactory,
-          metricsManager
+          metrics
         )
 
         ledger3 <- SqlLedger(
@@ -112,7 +112,7 @@ class SqlLedgerSpec
           queueDepth,
           startMode = SqlStartMode.ContinueIfExists,
           loggerFactory,
-          metricsManager
+          metrics
         )
 
       } yield {
@@ -135,7 +135,7 @@ class SqlLedgerSpec
           queueDepth,
           startMode = SqlStartMode.ContinueIfExists,
           loggerFactory,
-          metricsManager
+          metrics
         )
         _ <- SqlLedger(
           jdbcUrl = postgresFixture.jdbcUrl,
@@ -147,7 +147,7 @@ class SqlLedgerSpec
           queueDepth,
           startMode = SqlStartMode.ContinueIfExists,
           loggerFactory,
-          metricsManager
+          metrics
         )
       } yield (())
 

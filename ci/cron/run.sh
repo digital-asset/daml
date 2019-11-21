@@ -4,6 +4,13 @@
 
 set -euo pipefail
 
+SHA=$(git log -n1 --format=%H)
+
+revert_sha () {
+    git checkout $SHA
+}
+trap revert_sha EXIT
+
 cd "$(dirname "$0")"/../..
 
 eval "$(dev-env/bin/dade assist)"

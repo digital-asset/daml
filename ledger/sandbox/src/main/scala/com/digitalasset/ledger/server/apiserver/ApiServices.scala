@@ -4,6 +4,7 @@
 package com.digitalasset.ledger.server.apiserver
 
 import akka.stream.ActorMaterializer
+import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.index.v2.{
   IdentityProvider,
   IndexActiveContractsService,
@@ -22,7 +23,6 @@ import com.digitalasset.ledger.client.services.commands.CommandSubmissionFlow
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.sandbox.config.CommandConfiguration
 import com.digitalasset.platform.sandbox.health.HealthService
-import com.digitalasset.platform.sandbox.metrics.MetricsManager
 import com.digitalasset.platform.sandbox.services._
 import com.digitalasset.platform.sandbox.services.admin.{
   ApiPackageManagementService,
@@ -71,7 +71,7 @@ object ApiServices {
       commandConfig: CommandConfiguration,
       optTimeServiceBackend: Option[TimeServiceBackend],
       loggerFactory: NamedLoggerFactory,
-      metricsManager: MetricsManager)(
+      metrics: MetricRegistry)(
       implicit mat: ActorMaterializer,
       esf: ExecutionSequencerFactory): Future[ApiServices] = {
     implicit val ec: ExecutionContext = mat.system.dispatcher
@@ -96,7 +96,7 @@ object ApiServices {
           timeProvider,
           new CommandExecutorImpl(engine, packagesService.getLfPackage),
           loggerFactory,
-          metricsManager,
+          metrics,
         )
 
       loggerFactory.getLogger(this.getClass).info(EngineInfo.show)

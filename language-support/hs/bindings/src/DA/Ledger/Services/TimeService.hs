@@ -17,22 +17,22 @@ import Google.Protobuf.Empty (Empty(..))
 
 getTime :: LedgerId -> LedgerService (Stream Timestamp)
 getTime lid =
-    makeLedgerService $ \timeout config -> do
+    makeLedgerService $ \timeout config mdm -> do
     let request = LL.GetTimeRequest (unLedgerId lid)
     asyncStreamGen $ \stream ->
         withGRPCClient config $ \client -> do
             service <- LL.timeServiceClient client
             let LL.TimeService {timeServiceGetTime=rpc} = service
-            sendToStream timeout request raiseGetTimeResponse stream rpc
+            sendToStream timeout mdm request raiseGetTimeResponse stream rpc
 
 -- | If the ledger responds with `StatusInvalidArgument`, we return `Left details` otherwise we return `Right ()`
 setTime :: LedgerId -> Timestamp -> Timestamp -> LedgerService (Either String ())
 setTime lid currentTime newTime  =
-    makeLedgerService $ \timeout config ->
+    makeLedgerService $ \timeout config mdm ->
     withGRPCClient config $ \client -> do
         service <- LL.timeServiceClient client
         let LL.TimeService {timeServiceSetTime=rpc} = service
         let request = LL.SetTimeRequest (unLedgerId lid) (Just (lowerTimestamp currentTime)) (Just (lowerTimestamp newTime))
-        rpc (ClientNormalRequest request timeout emptyMdm)
+        rpc (ClientNormalRequest request timeout mdm)
             >>= unwrapWithInvalidArgument
             <&> fmap (\Empty{} -> ())

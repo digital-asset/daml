@@ -3,6 +3,7 @@
 
 package com.digitalasset.platform.sandbox.metrics
 
+import com.codahale.metrics.MetricRegistry
 import io.grpc.{Metadata, ServerCall, ServerCallHandler, ServerInterceptor}
 
 /**
@@ -13,7 +14,7 @@ import io.grpc.{Metadata, ServerCall, ServerCallHandler, ServerInterceptor}
   * For example:
   * <pre>LedgerApi.com.digitalasset.ledger.api.v1.TransactionService.GetTransactionTrees</pre>
   */
-class MetricsInterceptor(metricsManager: MetricsManager) extends ServerInterceptor {
+class MetricsInterceptor(metrics: MetricRegistry) extends ServerInterceptor {
   override def interceptCall[ReqT, RespT](
       call: ServerCall[ReqT, RespT],
       headers: Metadata,
@@ -22,7 +23,7 @@ class MetricsInterceptor(metricsManager: MetricsManager) extends ServerIntercept
     // Converting it to a '.' makes it easier for downstream tools to
     // put the metrics into a hierarchy.
     val serviceName = call.getMethodDescriptor.getFullMethodName.replace('/', '.')
-    metricsManager.metrics.meter(s"LedgerApi.$serviceName").mark()
+    metrics.meter(s"LedgerApi.$serviceName").mark()
     next.startCall(call, headers)
   }
 }

@@ -7,24 +7,20 @@ import java.util.concurrent.TimeUnit
 
 import com.codahale.metrics.Slf4jReporter.LoggingLevel
 import com.codahale.metrics.jmx.JmxReporter
-import com.codahale.metrics.{MetricRegistry, Slf4jReporter, Timer}
-import com.digitalasset.platform.common.util.DirectExecutionContext
-
-import scala.concurrent.Future
+import com.codahale.metrics.{MetricRegistry, Slf4jReporter}
 
 /** Manages metrics and reporters. Creates and starts a JmxReporter and creates an Slf4jReporter as well, which dumps
   * its metrics when this object is closed
   * <br/><br/>
   * Note that metrics are in general light-weight and add negligible overhead. They are not visible to everyday
   * users so they can be safely enabled all the time. */
-final class MetricsManager(jmxDomain: String, enableJmxReporter: Boolean) extends AutoCloseable {
+final class MetricsReporting(metrics: MetricRegistry, jmxDomain: String) extends AutoCloseable {
 
-  val metrics = new MetricRegistry()
-
-  private lazy val jmxReporter = JmxReporter
+  private val jmxReporter = JmxReporter
     .forRegistry(metrics)
     .inDomain(jmxDomain)
     .build
+  jmxReporter.start()
 
   private val slf4jReporter = Slf4jReporter
     .forRegistry(metrics)
@@ -33,27 +29,8 @@ final class MetricsManager(jmxDomain: String, enableJmxReporter: Boolean) extend
     .withLoggingLevel(LoggingLevel.DEBUG)
     .build()
 
-  if (enableJmxReporter) jmxReporter.start()
-
-  def timedFuture[T](timerName: String, f: => Future[T]): Future[T] = {
-    val timer = metrics.timer(timerName)
-    timedFuture(timer, f)
-  }
-
-  def timedFuture[T](timer: Timer, f: => Future[T]): Future[T] = {
-    val ctx = timer.time()
-    val res = f
-    res.onComplete(_ => ctx.stop())(DirectExecutionContext)
-    res
-  }
-
   override def close(): Unit = {
     slf4jReporter.report()
-    if (enableJmxReporter) jmxReporter.close()
+    jmxReporter.close()
   }
-}
-
-object MetricsManager {
-  def apply(jmxDomain: String, enableJmxReporter: Boolean = true): MetricsManager =
-    new MetricsManager(jmxDomain, enableJmxReporter)
 }

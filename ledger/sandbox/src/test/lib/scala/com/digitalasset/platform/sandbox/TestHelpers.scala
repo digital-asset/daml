@@ -7,6 +7,7 @@ import java.io.File
 import java.time.Instant
 
 import akka.stream.ActorMaterializer
+import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.digitalasset.api.util.{TimeProvider, ToleranceWindow}
 import com.digitalasset.daml.lf.archive.DarReader
@@ -15,7 +16,6 @@ import com.digitalasset.daml.lf.engine.Engine
 import com.digitalasset.ledger.api.auth.AuthService
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
-import com.digitalasset.platform.sandbox.metrics.MetricsManager
 import com.digitalasset.platform.sandbox.services.ApiSubmissionService
 import com.digitalasset.platform.sandbox.stores.ledger.CommandExecutorImpl
 import com.digitalasset.platform.sandbox.stores.{
@@ -52,10 +52,9 @@ trait TestHelpers {
       toleranceWindow: ToleranceWindow,
       authService: AuthService)(implicit ec: ExecutionContext, mat: ActorMaterializer) = {
 
-    implicit val mm: MetricsManager = MetricsManager("test")
-
     val ledgerId = LedgerId("sandbox-ledger")
     val participantId: ParticipantId = Ref.LedgerString.assertFromString("sandbox-participant")
+    val metrics = new MetricRegistry
 
     val indexAndWriteService = SandboxIndexAndWriteService
       .inMemory(
@@ -66,7 +65,7 @@ trait TestHelpers {
         InMemoryActiveLedgerState.empty,
         ImmArray.empty,
         packageStore,
-        mm
+        metrics
       )
 
     ApiSubmissionService.create(
@@ -77,7 +76,7 @@ trait TestHelpers {
       timeProvider,
       new CommandExecutorImpl(Engine(), packageStore.getLfPackage),
       NamedLoggerFactory.forParticipant(participantId),
-      mm
+      metrics
     )(ec, mat)
   }
 

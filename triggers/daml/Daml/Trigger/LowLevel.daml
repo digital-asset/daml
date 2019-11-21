@@ -21,7 +21,6 @@ module Daml.Trigger.LowLevel
   , Trigger(..)
   , ActiveContracts(..)
   , Commands(..)
-  , TemplateId(..)
   , Command(..)
   , createCmd
   , exerciseCmd
@@ -29,6 +28,8 @@ module Daml.Trigger.LowLevel
   , fromCreate
   , fromExercise
   , fromExerciseByKey
+  , RegisteredTemplates(..)
+  , registeredTemplate
   ) where
 
 import DA.Next.Map (MapKey(..))
@@ -138,14 +139,22 @@ data ActiveContracts = ActiveContracts { activeContracts : [Created] }
 data Trigger s = Trigger
   { initialState : Party -> ActiveContracts -> (s, [Commands])
   , update : Message -> s -> (s, [Commands])
+  , registeredTemplates : RegisteredTemplates
   }
 
--- | We implicitly assume that the package id corresponds to the package the trigger is part of.
--- This type is temporary until we have a builtin in LF for identifiers.
-data TemplateId = TemplateId
-  { moduleName : Text
-  , entityName : Text
-  }
+-- | A template that the trigger will receive events for.
+newtype RegisteredTemplate = RegisteredTemplate TemplateTypeRep
+
+-- This controls which templates the trigger will receive events for.
+-- `AllInDar` is a safe default but for performance reasons you might
+-- want to limit it to limit the templates that the trigger will receive
+-- events for.
+data RegisteredTemplates
+  = AllInDar -- ^ Listen to events for all templates in the given DAR.
+  | RegisteredTemplates [RegisteredTemplate]
+
+registeredTemplate : forall t. Template t => RegisteredTemplate
+registeredTemplate = RegisteredTemplate (templateTypeRep @t)
 
 -- | A ledger API command. To construct a command use `createCmd` and `exerciseCmd`.
 data Command
