@@ -3,6 +3,7 @@
 
 package com.digitalasset.platform.testing
 
+import com.digitalasset.timer.Delayed
 import io.grpc.stub.StreamObserver
 
 import scala.collection.{immutable, mutable}
@@ -23,10 +24,7 @@ class TimeBoundObserver[T](duration: FiniteDuration)(implicit executionContext: 
   private val promise: Promise[immutable.Seq[T]] = Promise()
   private val buffer: mutable.Buffer[T] = mutable.ListBuffer()
 
-  executionContext.execute(() => {
-    Thread.sleep(duration.toMillis)
-    onCompleted()
-  })
+  Delayed.by(duration)(onCompleted())
 
   def future: Future[Seq[T]] = promise.future
 
