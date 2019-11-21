@@ -50,13 +50,12 @@ The Ledger API Server exposes basic metrics for all gRPC services and some addit
 </tbody>
 </table>
 
-The following JMX domains are used:
+### Metrics Reporting
 
-* Sandbox: `com.digitalasset.platform.sandbox`
-* Ledger API Server: `com.digitalasset.platform.ledger-api-server.$PARTICIPANT_ID`
-* Indexer Server: `com.digitalasset.platform.indexer.$PARTICIPANT_ID`
+The Sandbox automatically makes all metrics available via JMX under the JMX domain `com.digitalasset.platform.sandbox`. 
 
-`$PARTICIPANT_ID` is provided via CLI parameters.
+When building an Indexer or Ledger API Server the implementer/ledger integrator is responsible to set up 
+a `MetricRegistry` and a suitable metric reporting strategy that fits their needs.
 
 ## gRPC and back-pressure
 

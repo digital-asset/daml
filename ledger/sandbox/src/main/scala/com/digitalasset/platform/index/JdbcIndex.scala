@@ -6,13 +6,13 @@ package com.digitalasset.platform.index
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
+import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.index.v2
 import com.daml.ledger.participant.state.index.v2.IndexService
 import com.daml.ledger.participant.state.v1.{ParticipantId, ReadService}
 import com.digitalasset.ledger.api.domain.{ParticipantId => _, _}
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.common.util.{DirectExecutionContext => DEC}
-import com.digitalasset.platform.sandbox.metrics.MetricsManager
 import com.digitalasset.platform.sandbox.stores.LedgerBackedIndexService
 import com.digitalasset.platform.sandbox.stores.ledger.{
   Ledger,
@@ -29,13 +29,14 @@ object JdbcIndex {
       participantId: ParticipantId,
       jdbcUrl: String,
       loggerFactory: NamedLoggerFactory,
-      mm: MetricsManager)(implicit mat: Materializer): Future[IndexService with AutoCloseable] =
+      metrics: MetricRegistry)(
+      implicit mat: Materializer): Future[IndexService with AutoCloseable] =
     Ledger
-      .jdbcBackedReadOnly(jdbcUrl, ledgerId, loggerFactory, mm)
+      .jdbcBackedReadOnly(jdbcUrl, ledgerId, loggerFactory, metrics)
       .map { ledger =>
         val contractStore = new SandboxContractStore(ledger)
         new LedgerBackedIndexService(
-          MeteredReadOnlyLedger(ledger, mm),
+          MeteredReadOnlyLedger(ledger, metrics),
           contractStore,
           participantId) {
           override def getLedgerConfiguration(): Source[v2.LedgerConfiguration, NotUsed] =

@@ -9,9 +9,10 @@ import java.util.UUID
 import java.util.concurrent.TimeUnit
 
 import akka.stream.ActorMaterializer
+import com.codahale.metrics.MetricRegistry
 import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
-import com.digitalasset.platform.sandbox.metrics.{MetricsInterceptor, MetricsManager}
+import com.digitalasset.platform.sandbox.metrics.MetricsInterceptor
 import io.grpc.netty.NettyServerBuilder
 import io.grpc.ServerInterceptor
 import io.netty.channel.nio.NioEventLoopGroup
@@ -41,7 +42,7 @@ object LedgerApiServer {
       loggerFactory: NamedLoggerFactory,
       sslContext: Option[SslContext] = None,
       interceptors: List[ServerInterceptor] = List.empty,
-      metricsManager: MetricsManager)(implicit mat: ActorMaterializer): Future[ApiServer] = {
+      metrics: MetricRegistry)(implicit mat: ActorMaterializer): Future[ApiServer] = {
 
     val serverEsf = new AkkaExecutionSequencerPool(
       // NOTE(JM): Pick a unique pool name as we want to allow multiple ledger api server
@@ -63,7 +64,7 @@ object LedgerApiServer {
           loggerFactory,
           sslContext,
           interceptors,
-          metricsManager
+          metrics
         )
 
         /** returns the api port the server is listening on */
@@ -90,7 +91,7 @@ private class LedgerApiServer(
     loggerFactory: NamedLoggerFactory,
     sslContext: Option[SslContext] = None,
     interceptors: List[ServerInterceptor] = List.empty,
-    metricsManager: MetricsManager)(implicit mat: ActorMaterializer)
+    metrics: MetricRegistry)(implicit mat: ActorMaterializer)
     extends ApiServer {
 
   private val logger = loggerFactory.getLogger(this.getClass)
@@ -130,7 +131,7 @@ private class LedgerApiServer(
     builder.permitKeepAliveWithoutCalls(true)
     builder.maxInboundMessageSize(maxInboundMessageSize)
     interceptors.foreach(builder.intercept)
-    builder.intercept(new MetricsInterceptor(metricsManager))
+    builder.intercept(new MetricsInterceptor(metrics))
     val grpcServer = apiServices.services.foldLeft(builder)(_ addService _).build
     try {
       grpcServer.start()

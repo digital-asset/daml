@@ -6,10 +6,10 @@ package com.digitalasset.platform.sandbox.stores.ledger.sql
 import akka.NotUsed
 import akka.stream._
 import akka.stream.scaladsl.{Keep, RestartSource, Sink, Source}
+import com.codahale.metrics.MetricRegistry
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.common.util.{DirectExecutionContext => DEC}
-import com.digitalasset.platform.sandbox.metrics.MetricsManager
 import com.digitalasset.platform.sandbox.stores.ledger.ReadOnlyLedger
 import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.{
   DbType,
@@ -39,12 +39,17 @@ object ReadOnlySqlLedger {
       jdbcUrl: String,
       ledgerId: Option[LedgerId],
       loggerFactory: NamedLoggerFactory,
-      mm: MetricsManager)(implicit mat: Materializer): Future[ReadOnlyLedger] = {
+      metrics: MetricRegistry)(implicit mat: Materializer): Future[ReadOnlyLedger] = {
     implicit val ec: ExecutionContext = DEC
 
     val dbType = DbType.jdbcType(jdbcUrl)
     val dbDispatcher =
-      DbDispatcher(jdbcUrl, noOfShortLivedConnections, noOfStreamingConnections, loggerFactory, mm)
+      DbDispatcher(
+        jdbcUrl,
+        noOfShortLivedConnections,
+        noOfStreamingConnections,
+        loggerFactory,
+        metrics)
     val ledgerReadDao = LedgerDao.meteredRead(
       JdbcLedgerDao(
         dbDispatcher,
@@ -55,7 +60,7 @@ object ReadOnlySqlLedger {
         dbType,
         loggerFactory,
         mat.executionContext),
-      mm)
+      metrics)
 
     ReadOnlySqlLedgerFactory(ledgerReadDao, loggerFactory).createReadOnlySqlLedger(ledgerId)
   }

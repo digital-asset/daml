@@ -9,11 +9,12 @@ import java.time.Instant
 import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.Sink
+import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.v1.{ParticipantId, ReadService, WriteService}
 import com.digitalasset.daml.lf.engine.Engine
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
-import com.digitalasset.ledger.api.auth.{AuthService, Authorizer}
 import com.digitalasset.ledger.api.auth.interceptor.AuthorizationInterceptor
+import com.digitalasset.ledger.api.auth.{AuthService, Authorizer}
 import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.server.apiserver.{ApiServer, ApiServices, LedgerApiServer}
@@ -22,7 +23,6 @@ import com.digitalasset.platform.index.StandaloneIndexServer.asyncTolerance
 import com.digitalasset.platform.index.config.Config
 import com.digitalasset.platform.sandbox.BuildInfo
 import com.digitalasset.platform.sandbox.config.SandboxConfig
-import com.digitalasset.platform.sandbox.metrics.MetricsManager
 import com.digitalasset.platform.sandbox.stores.InMemoryPackageStore
 import com.digitalasset.platform.server.services.testing.TimeServiceBackend
 
@@ -40,6 +40,7 @@ object StandaloneIndexServer {
       writeService: WriteService,
       authService: AuthService,
       loggerFactory: NamedLoggerFactory,
+      metrics: MetricRegistry,
       engine: Engine = engineSharedAmongIndexServers, // allows sharing DAML engine with DAML-on-X participant
       timeServiceBackendO: Option[TimeServiceBackend] = None): StandaloneIndexServer =
     new StandaloneIndexServer(
@@ -49,6 +50,7 @@ object StandaloneIndexServer {
       writeService,
       authService,
       loggerFactory,
+      metrics,
       engine,
       timeServiceBackendO
     )
@@ -63,6 +65,7 @@ class StandaloneIndexServer(
     writeService: WriteService,
     authService: AuthService,
     loggerFactory: NamedLoggerFactory,
+    metrics: MetricRegistry,
     engine: Engine,
     timeServiceBackendO: Option[TimeServiceBackend]) {
   private val logger = loggerFactory.getLogger(this.getClass)
@@ -83,17 +86,14 @@ class StandaloneIndexServer(
     }
   }
 
-  case class Infrastructure(
-      actorSystem: ActorSystem,
-      materializer: ActorMaterializer,
-      metricsManager: MetricsManager)
+  case class Infrastructure(actorSystem: ActorSystem, materializer: ActorMaterializer)
       extends AutoCloseable {
     def executionContext: ExecutionContext = materializer.executionContext
 
     override def close: Unit = {
       materializer.shutdown()
       Await.result(actorSystem.terminate(), asyncTolerance)
-      metricsManager.close()
+      ()
     }
   }
 
@@ -123,6 +123,7 @@ class StandaloneIndexServer(
             sys.error("Unexpected request of contract key")
           }
         )
+      ()
     }
   }
 
@@ -140,7 +141,6 @@ class StandaloneIndexServer(
   private def buildAndStartApiServer(infra: Infrastructure)(
       implicit ec: ExecutionContext): Future[ApiServerState] = {
     implicit val mat = infra.materializer
-    val mm: MetricsManager = infra.metricsManager
 
     val packageStore = loadDamlPackages()
     preloadPackages(packageStore)
@@ -155,7 +155,7 @@ class StandaloneIndexServer(
         participantId,
         config.jdbcUrl,
         loggerFactory,
-        mm)
+        metrics)
       apiServer <- LedgerApiServer.create(
         (am: ActorMaterializer, esf: ExecutionSequencerFactory) =>
           ApiServices
@@ -169,7 +169,7 @@ class StandaloneIndexServer(
               SandboxConfig.defaultCommandConfig,
               timeServiceBackendO,
               loggerFactory,
-              mm
+              metrics
             )(am, esf),
         config.port,
         config.maxInboundMessageSize,
@@ -177,7 +177,7 @@ class StandaloneIndexServer(
         loggerFactory,
         config.tlsConfig.flatMap(_.server),
         List(AuthorizationInterceptor(authService, ec)),
-        mm
+        metrics
       )
       apiServerState = ApiServerState(
         domain.LedgerId(cond.ledgerId),
@@ -201,8 +201,8 @@ class StandaloneIndexServer(
     val infrastructure =
       Infrastructure(
         actorSystem,
-        ActorMaterializer()(actorSystem),
-        MetricsManager(s"com.digitalasset.platform.ledger-api-server.$participantId"))
+        ActorMaterializer()(actorSystem)
+      )
     implicit val ec: ExecutionContext = infrastructure.executionContext
     val apiState = buildAndStartApiServer(infrastructure)
 

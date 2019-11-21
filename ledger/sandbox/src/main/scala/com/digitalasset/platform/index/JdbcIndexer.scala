@@ -10,7 +10,7 @@ import akka.actor.ActorSystem
 import akka.stream._
 import akka.stream.scaladsl.{Keep, Sink}
 import akka.{Done, NotUsed}
-import com.codahale.metrics.Gauge
+import com.codahale.metrics.{Gauge, MetricRegistry}
 import com.daml.ledger.participant.state.index.v2
 import com.daml.ledger.participant.state.v1.Update._
 import com.daml.ledger.participant.state.v1._
@@ -23,8 +23,8 @@ import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.common.util.{DirectExecutionContext => DEC}
-import com.digitalasset.platform.sandbox.metrics.MetricsManager
 import com.digitalasset.platform.sandbox.services.transaction.SandboxEventIdFormatter
+import com.digitalasset.platform.sandbox.metrics.timedFuture
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry
 import com.digitalasset.platform.sandbox.stores.ledger.sql.SqlLedger.{
   defaultNumberOfShortLivedConnections,
@@ -54,11 +54,15 @@ final abstract class Initialized extends InitStatus
 final abstract class Uninitialized extends InitStatus
 
 object JdbcIndexerFactory {
-  def apply(loggerFactory: NamedLoggerFactory): JdbcIndexerFactory[Uninitialized] =
-    new JdbcIndexerFactory[Uninitialized](loggerFactory)
+  def apply(
+      metrics: MetricRegistry,
+      loggerFactory: NamedLoggerFactory): JdbcIndexerFactory[Uninitialized] =
+    new JdbcIndexerFactory[Uninitialized](metrics, loggerFactory)
 }
 
-class JdbcIndexerFactory[Status <: InitStatus] private (loggerFactory: NamedLoggerFactory) {
+class JdbcIndexerFactory[Status <: InitStatus] private (
+    metrics: MetricRegistry,
+    loggerFactory: NamedLoggerFactory) {
   private val logger = loggerFactory.getLogger(classOf[JdbcIndexer])
   private[index] val asyncTolerance = 30.seconds
 
@@ -80,7 +84,6 @@ class JdbcIndexerFactory[Status <: InitStatus] private (loggerFactory: NamedLogg
       readService: ReadService,
       jdbcUrl: String)(implicit x: Status =:= Initialized): Future[JdbcIndexer] = {
     val materializer: ActorMaterializer = ActorMaterializer()(actorSystem)
-    val metricsManager = MetricsManager(s"com.digitalasset.platform.indexer.$participantId")
 
     implicit val ec: ExecutionContext = DEC
 
@@ -88,7 +91,7 @@ class JdbcIndexerFactory[Status <: InitStatus] private (loggerFactory: NamedLogg
       .getLedgerInitialConditions()
       .runWith(Sink.head)(materializer)
 
-    val ledgerDao: LedgerDao = initializeDao(jdbcUrl, metricsManager, actorSystem.dispatcher)
+    val ledgerDao: LedgerDao = initializeDao(jdbcUrl, metrics, actorSystem.dispatcher)
     for {
       LedgerInitialConditions(ledgerIdString, _, _) <- ledgerInit
       ledgerId = domain.LedgerId(ledgerIdString)
@@ -96,12 +99,12 @@ class JdbcIndexerFactory[Status <: InitStatus] private (loggerFactory: NamedLogg
       ledgerEnd <- ledgerDao.lookupLedgerEnd()
       externalOffset <- ledgerDao.lookupExternalLedgerEnd()
     } yield {
-      new JdbcIndexer(ledgerEnd, externalOffset, ledgerDao, metricsManager)(materializer) {
+      new JdbcIndexer(ledgerEnd, externalOffset, ledgerDao, metrics)(materializer) {
         override def close(): Unit = {
           super.close()
           materializer.shutdown()
           Await.result(actorSystem.terminate(), asyncTolerance)
-          metricsManager.close()
+          ()
         }
       }
     }
@@ -109,7 +112,7 @@ class JdbcIndexerFactory[Status <: InitStatus] private (loggerFactory: NamedLogg
 
   private def initializeDao(
       jdbcUrl: String,
-      mm: MetricsManager,
+      metrics: MetricRegistry,
       executionContext: ExecutionContext) = {
     val dbType = DbType.jdbcType(jdbcUrl)
     val dbDispatcher =
@@ -118,7 +121,7 @@ class JdbcIndexerFactory[Status <: InitStatus] private (loggerFactory: NamedLogg
         if (dbType.supportsParallelWrites) defaultNumberOfShortLivedConnections else 1,
         defaultNumberOfStreamingConnections,
         loggerFactory,
-        mm)
+        metrics)
     val ledgerDao = LedgerDao.metered(
       JdbcLedgerDao(
         dbDispatcher,
@@ -129,7 +132,7 @@ class JdbcIndexerFactory[Status <: InitStatus] private (loggerFactory: NamedLogg
         dbType,
         loggerFactory,
         executionContext),
-      mm)
+      metrics)
     ledgerDao
   }
 
@@ -167,7 +170,7 @@ class JdbcIndexer private[index] (
     initialInternalOffset: Long,
     beginAfterExternalOffset: Option[LedgerString],
     ledgerDao: LedgerDao,
-    metricsManager: MetricsManager)(implicit mat: Materializer)
+    metrics: MetricRegistry)(implicit mat: Materializer)
     extends Indexer
     with AutoCloseable {
 
@@ -182,32 +185,32 @@ class JdbcIndexer private[index] (
 
   object Metrics {
     val stateUpdateProcessingTimer =
-      metricsManager.metrics.timer("JdbcIndexer.processedStateUpdates")
+      metrics.timer("JdbcIndexer.processedStateUpdates")
 
     private[JdbcIndexer] def setup(): Unit = {
       val lastReceivedRecordTimeName = "JdbcIndexer.lastReceivedRecordTime"
       val lastReceivedOffsetName = "JdbcIndexer.lastReceivedOffset"
       val currentRecordTimeLagName = "JdbcIndexer.currentRecordTimeLag"
 
-      metricsManager.metrics.remove(lastReceivedRecordTimeName)
-      metricsManager.metrics.remove(lastReceivedOffsetName)
-      metricsManager.metrics.remove(currentRecordTimeLagName)
+      metrics.remove(lastReceivedRecordTimeName)
+      metrics.remove(lastReceivedOffsetName)
+      metrics.remove(currentRecordTimeLagName)
 
-      metricsManager.metrics.gauge(
+      metrics.gauge(
         lastReceivedRecordTimeName,
         () =>
           new Gauge[Long] {
             override def getValue: Long = lastReceivedRecordTime.toEpochMilli
         })
 
-      metricsManager.metrics.gauge(
+      metrics.gauge(
         lastReceivedOffsetName,
         () =>
           new Gauge[LedgerString] {
             override def getValue: LedgerString = lastReceivedOffset
         })
 
-      metricsManager.metrics.gauge(
+      metrics.gauge(
         currentRecordTimeLagName,
         () =>
           new Gauge[Long] {
@@ -232,8 +235,7 @@ class JdbcIndexer private[index] (
       .viaMat(KillSwitches.single)(Keep.right[NotUsed, UniqueKillSwitch])
       .mapAsync(1)({
         case (offset, update) =>
-          metricsManager
-            .timedFuture(Metrics.stateUpdateProcessingTimer, handleStateUpdate(offset, update))
+          timedFuture(Metrics.stateUpdateProcessingTimer, handleStateUpdate(offset, update))
       })
       .toMat(Sink.ignore)(Keep.both)
       .run()

@@ -6,6 +6,7 @@ package com.digitalasset.platform.sandbox.stores.ledger.sql.dao
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
+import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.index.v2.PackageDetails
 import com.daml.ledger.participant.state.v1.{AbsoluteContractInst, TransactionId}
 import com.digitalasset.daml.lf.data.Ref.{LedgerString, PackageId, Party}
@@ -18,7 +19,6 @@ import com.digitalasset.ledger._
 import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails}
 import com.digitalasset.platform.common.util.DirectExecutionContext
 import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilter
-import com.digitalasset.platform.sandbox.metrics.MetricsManager
 import com.digitalasset.platform.sandbox.stores.ActiveLedgerState.{ActiveContract, Contract}
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry.Transaction
@@ -229,7 +229,7 @@ trait LedgerDao extends LedgerReadDao with LedgerWriteDao {
 object LedgerDao {
 
   /** Wraps the given LedgerDao adding metrics around important calls */
-  def metered(dao: LedgerDao, mm: MetricsManager): LedgerDao = MeteredLedgerDao(dao, mm)
-  def meteredRead(dao: LedgerReadDao, mm: MetricsManager): LedgerReadDao =
-    new MeteredLedgerReadDao(dao, mm)
+  def metered(dao: LedgerDao, metrics: MetricRegistry): LedgerDao = MeteredLedgerDao(dao, metrics)
+  def meteredRead(dao: LedgerReadDao, metrics: MetricRegistry): LedgerReadDao =
+    new MeteredLedgerReadDao(dao, metrics)
 }

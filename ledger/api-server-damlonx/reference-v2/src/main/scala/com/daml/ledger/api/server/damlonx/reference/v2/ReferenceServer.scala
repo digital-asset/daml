@@ -7,6 +7,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 import akka.actor.ActorSystem
 import akka.stream.{ActorMaterializer, ActorMaterializerSettings, Supervision}
+import com.codahale.metrics.{MetricRegistry, SharedMetricRegistries}
 import com.daml.ledger.api.server.damlonx.reference.v2.cli.Cli
 import com.daml.ledger.participant.state.kvutils.InMemoryKVParticipantState
 import com.daml.ledger.participant.state.v1.ParticipantId
@@ -61,13 +62,18 @@ object ReferenceServer extends App {
 
   val participantLoggerFactory = NamedLoggerFactory.forParticipant(participantId)
   val participantF: Future[(AutoCloseable, StandaloneIndexServer#SandboxState)] = for {
-    indexerServer <- StandaloneIndexerServer(readService, config, participantLoggerFactory)
+    indexerServer <- StandaloneIndexerServer(
+      readService,
+      config,
+      participantLoggerFactory,
+      SharedMetricRegistries.getOrCreate(s"indexer-$participantId"))
     indexServer <- StandaloneIndexServer(
       config,
       readService,
       writeService,
       authService,
-      participantLoggerFactory).start()
+      participantLoggerFactory,
+      SharedMetricRegistries.getOrCreate(s"ledger-api-server-$participantId")).start()
   } yield (indexerServer, indexServer)
 
   val extraParticipants =
@@ -85,13 +91,15 @@ object ReferenceServer extends App {
         extraIndexer <- StandaloneIndexerServer(
           readService,
           participantConfig,
-          participantLoggerFactory)
+          participantLoggerFactory,
+          SharedMetricRegistries.getOrCreate(s"indexer-$participantId"))
         extraLedgerApiServer <- StandaloneIndexServer(
           participantConfig,
           readService,
           writeService,
           authService,
-          participantLoggerFactory
+          participantLoggerFactory,
+          SharedMetricRegistries.getOrCreate(s"ledger-api-server-$participantId")
         ).start()
       } yield (extraIndexer, extraLedgerApiServer)
     }

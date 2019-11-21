@@ -6,6 +6,7 @@ package com.digitalasset.platform.index
 import java.net.URLEncoder
 
 import akka.actor.ActorSystem
+import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.v1.ReadService
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.common.util.{DirectExecutionContext => DEC}
@@ -21,14 +22,15 @@ object StandaloneIndexerServer {
   def apply(
       readService: ReadService,
       config: Config,
-      loggerFactory: NamedLoggerFactory): Future[AutoCloseable] = {
+      loggerFactory: NamedLoggerFactory,
+      metrics: MetricRegistry): Future[AutoCloseable] = {
 
     // encode ActorSystem name not allowed to contain daml-lf LedgerString characters ".:#/ "
     val actorSystem = ActorSystem(
       "StandaloneIndexerServer-" + URLEncoder.encode(config.participantId, "UTF-8"))
 
     val asyncTolerance: FiniteDuration = 10.seconds
-    val indexerFactory = JdbcIndexerFactory(loggerFactory)
+    val indexerFactory = JdbcIndexerFactory(metrics, loggerFactory)
     val indexer =
       RecoveringIndexer(
         actorSystem.scheduler,
