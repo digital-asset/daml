@@ -260,6 +260,24 @@ case class Test4(dar: Dar[(PackageId, Package)], runner: TestRunner) {
   }
 }
 
+case class TestKey(dar: Dar[(PackageId, Package)], runner: TestRunner) {
+  val scriptId = Identifier(dar.main._1, QualifiedName.assertFromString("ScriptTest:testKey"))
+  def runTests() = {
+    runner.genericTest(
+      "testKey",
+      dar,
+      scriptId,
+      None,
+      result =>
+        result match {
+          case SRecord(_, _, vals) if vals.size == 2 =>
+            TestRunner.assertEqual(vals.get(0), vals.get(1), "ContractIds")
+          case v => Left(s"Expected record with 2 fields but got $v")
+      }
+    )
+  }
+}
+
 // Runs the example from the docs to make sure it doesn’t produce a runtime error.
 case class ScriptExample(dar: Dar[(PackageId, Package)], runner: TestRunner) {
   val scriptId = Identifier(dar.main._1, QualifiedName.assertFromString("ScriptExample:test"))
@@ -317,6 +335,7 @@ object TestMain {
         Test2(dar, runner).runTests()
         Test3(dar, runner).runTests()
         Test4(dar, runner).runTests()
+        TestKey(dar, runner).runTests()
         ScriptExample(dar, runner).runTests()
     }
   }

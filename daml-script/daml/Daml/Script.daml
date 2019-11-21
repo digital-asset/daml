@@ -1,6 +1,6 @@
 -- Copyright (c) 2019 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
-
+{-# LANGUAGE AllowAmbiguousTypes #-}
 daml 1.2
 module Daml.Script
   ( Script
@@ -11,6 +11,7 @@ module Daml.Script
   , Commands
   , createCmd
   , exerciseCmd
+  , exerciseByKeyCmd
   ) where
 
 import Prelude hiding (submit, submitMustFail)
@@ -53,6 +54,7 @@ instance Applicative (Ap f) where
 data CommandsF a
   = Create { argC : AnyTemplate, continueC : ContractId () -> a }
   | Exercise { tplId : TemplateTypeRep, cId : ContractId (), argE : AnyChoice, continueE : LedgerValue -> a }
+  | ExerciseByKey { tplId : TemplateTypeRep, keyE : AnyContractKey, argE : AnyChoice, continueE : LedgerValue -> a }
   deriving Functor
 
 -- | This is used to build up the commands send as part of `submit`.
@@ -132,3 +134,7 @@ createCmd arg = Commands $ Ap (\f -> f (Create (toAnyTemplate arg) identity) (pu
 -- | Exercise a choice on the given contract.
 exerciseCmd : forall t c r. Choice t c r => ContractId t -> c -> Commands r
 exerciseCmd cId arg = Commands $ Ap (\f -> f (Exercise (templateTypeRep @t) (coerceContractId cId) (toAnyChoice @t arg) identity) (pure fromLedgerValue))
+
+-- | Exercise a choice on the contract with the given key.
+exerciseByKeyCmd : forall t k c r. (TemplateKey t k, Choice t c r) => k -> c -> Commands r
+exerciseByKeyCmd key arg = Commands $ Ap (\f -> f (ExerciseByKey (templateTypeRep @t) (toAnyContractKey @t key) (toAnyChoice @t arg) identity) (pure fromLedgerValue))
