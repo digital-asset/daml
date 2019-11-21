@@ -10,16 +10,28 @@
 CREATE TABLE party_allocation_entries
 (
     -- SubmissionId for the party allocation
-    submission_id    varchar not null,
+    submission_id    varchar primary key not null,
     -- participant id that initiated the allocation request
-    participant_id   varchar not null,
+    participant_id   varchar             not null,
     -- party
-    party   varchar not null,
+    party            varchar             not null,
     -- displayName
-    display_name   varchar not null,
+    display_name     varchar             not null,
     -- The ledger end at the time when the party allocation was added
-    ledger_offset      bigint                not null,
+    ledger_offset    bigint              not null,
+    -- The type of entry, one of 'accept' or 'reject'
+    typ              varchar             not null,
     -- If the type is 'rejection', then the rejection reason is set.
     -- Rejection reason is a human-readable description why the change was rejected.
-    rejection_reason varchar
-)
+    rejection_reason varchar,
+
+    constraint check_party_allocation_entry_type
+        check (
+                (typ = 'accept' and rejection_reason is null) or
+                (typ = 'reject' and rejection_reason is not null)
+            )
+);
+
+-- Index for retrieving the party allocation entry by submission id per participant
+CREATE UNIQUE INDEX idx_party_allocation_entries
+    ON party_allocation_entries (submission_id, participant_id)
