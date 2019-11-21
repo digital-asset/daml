@@ -62,7 +62,7 @@ class TransactionMRTComplianceIT
       case BackendType.InMemory =>
         LedgerResource.inMemory(ledgerId, timeProvider)
       case BackendType.Postgres =>
-        LedgerResource.postgres(ledgerId, timeProvider, metricsManager)
+        LedgerResource.postgres(ledgerId, timeProvider, metrics)
     }
 
   val LET = Instant.EPOCH.plusSeconds(2)
