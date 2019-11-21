@@ -28,3 +28,19 @@ EOF
     tools = ["//compiler/damlc"],
     visibility = ["//visibility:public"],
 )
+
+genrule(
+    name = "daml-script-rst-docs",
+    srcs = glob(["**/*.daml"]) + [":daml-script-rst-template.rst"],
+    outs = ["daml-script.rst"],
+    cmd = """
+        $(location //compiler/damlc) -- docs \
+            --combine \
+            --output=$(location :daml-script.rst) \
+            --format=Rst \
+            --template=$(location :daml-script-rst-template.rst) \
+            $(location Daml/Script.daml)
+    """,
+    tools = ["//compiler/damlc"],
+    visibility = ["//visibility:public"],
+)

@@ -2,8 +2,18 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 daml 1.2
-module Daml.Script where
+module Daml.Script
+  ( Script
+  , submit
+  , submitMustFail
+  , query
+  , allocateParty
+  , Commands
+  , createCmd
+  , exerciseCmd
+  ) where
 
+import Prelude hiding (submit, submitMustFail)
 import DA.Optional
 
 -- | A free monad
@@ -45,6 +55,11 @@ data CommandsF a
   | Exercise { tplId : TemplateTypeRep, cId : ContractId (), argE : AnyChoice, continueE : LedgerValue -> a }
   deriving Functor
 
+-- | This is used to build up the commands send as part of `submit`.
+-- If you enable the `ApplicativeDo` extension by adding
+-- `{-# LANGUAGE ApplicativeDo #-}` at the top of your file, you can
+-- use `do`-notation but the individual commands must not depend
+-- on each other.
 newtype Commands a = Commands (Ap CommandsF a)
   deriving (Functor, Applicative)
 
@@ -60,6 +75,8 @@ data QueryACS a = QueryACS
   , continue : [(ContractId (), AnyTemplate)] -> a
   } deriving Functor
 
+-- | Query the set of active contracts of the template
+-- that are visible to the given party.
 query : forall t. Template t => Party -> Script [(ContractId t, t)]
 query p = Script $ Free $ Query (QueryACS p (templateTypeRep @t) (pure . map (\(cid, tpl) -> (coerceContractId cid, fromSome $ fromAnyTemplate tpl))))
 
@@ -68,6 +85,8 @@ data AllocateParty a = AllocateParty
   , continue : Party -> a
   } deriving Functor
 
+-- | Allocate a party with the given display name
+-- using the party management service.
 allocateParty : Text -> Script Party
 allocateParty displayName = Script $ Free (AllocParty $ AllocateParty displayName pure)
 
@@ -79,14 +98,22 @@ data SubmitFailure = SubmitFailure
 data SubmitCmd a = SubmitCmd { party : Party, commands : Commands a, handleFailure : SubmitFailure -> a }
   deriving Functor
 
+-- | Submit the commands as a single transaction.
+
+-- This will error if the submission fails.
 submit : Party -> Commands a -> Script a
 submit p cmds = Script $ Free (fmap pure $ Submit $ SubmitCmd p cmds fail)
   where fail (SubmitFailure status msg) = error $ "Submit failed with code " <> show status <> ": " <> msg
 
+-- | Submit the commands as a single transaction
+-- but error if it succeeds. This is only
+-- useful for testing
 submitMustFail : Party -> Commands a -> Script ()
 submitMustFail p cmds = Script $ Free (fmap pure $ Submit $ SubmitCmd p (fail <$> cmds) (const ()))
   where fail _ = error "Expected submit to fail but it succeeded"
 
+-- | This is the type of A DAML script. `Script` is an instance of `Action`,
+-- so you can use `do` notation.
 newtype Script a = Script (Free ScriptF a)
   deriving (Functor, Applicative, Action)
 
@@ -98,8 +125,10 @@ data LedgerValue = LedgerValue {}
 fromLedgerValue : LedgerValue -> a
 fromLedgerValue = error "foobar"
 
+-- | Create a contract of the given template.
 createCmd : Template t => t -> Commands (ContractId t)
 createCmd arg = Commands $ Ap (\f -> f (Create (toAnyTemplate arg) identity) (pure coerceContractId))
 
+-- | Exercise a choice on the given contract.
 exerciseCmd : forall t c r. Choice t c r => ContractId t -> c -> Commands r
 exerciseCmd cId arg = Commands $ Ap (\f -> f (Exercise (templateTypeRep @t) (coerceContractId cId) (toAnyChoice @t arg) identity) (pure fromLedgerValue))

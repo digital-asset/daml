@@ -4,6 +4,11 @@
 DAML Script
 ###########
 
+.. toctree::
+   :hidden:
+
+   daml-script-docs
+
 **WARNING:** DAML Script is an experimental feature that is actively
 being designed and is *subject to breaking changes*.
 We welcome feedback about DAML script on
