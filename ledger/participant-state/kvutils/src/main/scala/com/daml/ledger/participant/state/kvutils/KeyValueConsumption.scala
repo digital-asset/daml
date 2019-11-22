@@ -55,7 +55,9 @@ object KeyValueConsumption {
             Ref.LedgerString.assertFromString(entry.getPackageUploadEntry.getSubmissionId)
           )
         }.toList
-        uniquePackages ++ List(Update.PackageUploadEntryAccepted(participantId, entry.getPackageUploadEntry.getSubmissionId))
+        uniquePackages ++ List(
+          Update
+            .PackageUploadEntryAccepted(participantId, entry.getPackageUploadEntry.getSubmissionId))
 
       case DamlLogEntry.PayloadCase.PACKAGE_UPLOAD_REJECTION_ENTRY =>
         val participantId =
@@ -63,7 +65,8 @@ object KeyValueConsumption {
         val rejection = entry.getPackageUploadRejectionEntry
         val proposedPackageUpload = rejection.getInvalidPackage
 
-          List(Update.PackageUploadEntryRejected(
+        List(
+          Update.PackageUploadEntryRejected(
             Ref.LedgerString.assertFromString(rejection.getParticipantId),
             Ref.LedgerString.assertFromString(rejection.getSubmissionId),
             reason = rejection.getReasonCase match {
