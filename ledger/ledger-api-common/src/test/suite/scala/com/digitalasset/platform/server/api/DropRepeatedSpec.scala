@@ -1,7 +1,7 @@
 // Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.sandbox.health
+package com.digitalasset.platform.server.api
 
 import akka.actor.ActorSystem
 import akka.pattern.pipe

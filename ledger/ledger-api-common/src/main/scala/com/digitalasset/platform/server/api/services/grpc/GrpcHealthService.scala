@@ -1,7 +1,7 @@
 // Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.sandbox.health
+package com.digitalasset.platform.server.api.services.grpc
 
 import akka.NotUsed
 import akka.stream.Materializer
@@ -9,6 +9,7 @@ import akka.stream.scaladsl.Source
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.grpc.adapter.utils.DirectExecutionContext
 import com.digitalasset.platform.api.grpc.GrpcApiService
+import com.digitalasset.platform.server.api.DropRepeated
 import io.grpc.ServerServiceDefinition
 import io.grpc.health.v1.health.{
   HealthAkkaGrpc,
@@ -20,7 +21,7 @@ import io.grpc.health.v1.health.{
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future}
 
-class HealthService(
+class GrpcHealthService(
     implicit protected val esf: ExecutionSequencerFactory,
     protected val mat: Materializer,
     executionContext: ExecutionContext,

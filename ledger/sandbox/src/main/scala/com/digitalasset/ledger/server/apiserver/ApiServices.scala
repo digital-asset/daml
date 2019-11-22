@@ -22,7 +22,6 @@ import com.digitalasset.ledger.api.v1.command_completion_service.CompletionEndRe
 import com.digitalasset.ledger.client.services.commands.CommandSubmissionFlow
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.sandbox.config.CommandConfiguration
-import com.digitalasset.platform.sandbox.health.HealthService
 import com.digitalasset.platform.sandbox.services._
 import com.digitalasset.platform.sandbox.services.admin.{
   ApiPackageManagementService,
@@ -30,6 +29,7 @@ import com.digitalasset.platform.sandbox.services.admin.{
 }
 import com.digitalasset.platform.sandbox.services.transaction.ApiTransactionService
 import com.digitalasset.platform.sandbox.stores.ledger.CommandExecutorImpl
+import com.digitalasset.platform.server.api.services.grpc.GrpcHealthService
 import com.digitalasset.platform.server.services.command.ApiCommandService
 import com.digitalasset.platform.server.services.identity.ApiLedgerIdentityService
 import com.digitalasset.platform.server.services.testing.{ApiTimeService, TimeServiceBackend}
@@ -162,7 +162,7 @@ object ApiServices {
 
       val apiReflectionService = ProtoReflectionService.newInstance()
 
-      val apiHealthService = new HealthService
+      val apiHealthService = new GrpcHealthService
 
       // Note: the command service uses the command submission, command completion, and transaction services internally.
       // These connections do not use authorization, authorization wrappers are only added here to all exposed services.
