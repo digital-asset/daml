@@ -13,7 +13,6 @@ import com.digitalasset.ledger.api.domain.PartyDetails
 import com.google.common.io.BaseEncoding
 import com.google.protobuf.ByteString
 
-import scala.collection.breakOut
 import scala.collection.JavaConverters._
 
 /** Utilities for producing [[Update]] events from [[DamlLogEntry]]'s committed to a
@@ -44,7 +43,8 @@ object KeyValueConsumption {
       case DamlLogEntry.PayloadCase.PACKAGE_UPLOAD_ENTRY =>
         val participantId =
           Ref.LedgerString.assertFromString(entry.getPackageUploadEntry.getParticipantId)
-        entry.getPackageUploadEntry.getArchivesList.asScala.map { archive =>
+        //only send package uploaded update if the log entry includes an archive
+        val uniquePackages = entry.getPackageUploadEntry.getArchivesList.asScala.map { archive =>
           Update.PublicPackageUploaded(
             archive,
             if (entry.getPackageUploadEntry.getSourceDescription.nonEmpty)
@@ -54,15 +54,16 @@ object KeyValueConsumption {
             recordTime,
             Ref.LedgerString.assertFromString(entry.getPackageUploadEntry.getSubmissionId)
           )
-        }(breakOut)
+        }.toList
+        uniquePackages ++ List(Update.PackageUploadEntryAccepted(participantId, entry.getPackageUploadEntry.getSubmissionId))
 
       case DamlLogEntry.PayloadCase.PACKAGE_UPLOAD_REJECTION_ENTRY =>
         val participantId =
           Ref.LedgerString.assertFromString(entry.getPackageUploadEntry.getParticipantId)
         val rejection = entry.getPackageUploadRejectionEntry
         val proposedPackageUpload = rejection.getInvalidPackage
-        entry.getPackageUploadEntry.getArchivesList.asScala.map { archive =>
-          Update.PackageUploadEntryRejected(
+
+          List(Update.PackageUploadEntryRejected(
             Ref.LedgerString.assertFromString(rejection.getParticipantId),
             Ref.LedgerString.assertFromString(rejection.getSubmissionId),
             reason = rejection.getReasonCase match {
@@ -73,8 +74,7 @@ object KeyValueConsumption {
               case DamlPackageUploadRejectionEntry.ReasonCase.PARTICIPANT_NOT_AUTHORIZED =>
                 s"Participant ${participantId} not authorized to upload package"
             }
-          )
-        }(breakOut)
+          ))
 
       case DamlLogEntry.PayloadCase.PARTY_ALLOCATION_ENTRY =>
         List(

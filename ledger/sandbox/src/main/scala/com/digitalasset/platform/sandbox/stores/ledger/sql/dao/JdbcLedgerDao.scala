@@ -4,6 +4,7 @@ package com.digitalasset.platform.sandbox.stores.ledger.sql.dao
 
 import java.io.InputStream
 import java.sql.Connection
+import java.time.Instant
 import java.util.Date
 
 import akka.stream.Materializer
@@ -1368,7 +1369,8 @@ private class JdbcLedgerDao(
       externalOffset: Option[ExternalOffset],
       participantId: String,
       submissionId: String,
-      reason: Option[String]): Future[PersistenceResponse] = {
+      reason: Option[String],
+      typ: String): Future[PersistenceResponse] = {
 
     val prereqs = Try {
       require(participantId.nonEmpty, "participantId cannot be empty")
@@ -1377,15 +1379,20 @@ private class JdbcLedgerDao(
     prereqs.fold(
       Future.failed,
       _ =>
-        dbDispatcher.executeSql("store package rejections") { implicit conn =>
+        dbDispatcher.executeSql("store package upload entry") { implicit conn =>
           updateLedgerEnd(newLedgerEnd, externalOffset)
           val sqlupdate = executeBatchSql(
             queries.SQL_INSERT_PACKAGE_UPLOAD_ENTRY,
             List(
               Seq[NamedParameter](
-                "participant_id" -> participantId,
+                "ledger_offset" -> offset,
+                "recorded_at" -> Instant.now(),
                 "submission_id" -> submissionId,
-                "reason" -> reason)))
+                "participant_id" -> participantId,
+                "typ" -> typ,
+                "rejection_reason" -> reason
+              ))
+          )
           //TODO BH more robust condition handling needed
           if (sqlupdate.head > 0) PersistenceResponse.Ok
           else PersistenceResponse.Duplicate
@@ -1481,9 +1488,8 @@ object JdbcLedgerDao {
         |on conflict (package_id) do nothing""".stripMargin
 
     override protected[JdbcLedgerDao] val SQL_INSERT_PACKAGE_UPLOAD_ENTRY: String =
-      """insert into package_upload_entries(submission_id, package_id, participant_id, reason)
-        |select {package_id}, {participant_id}, {submission_id}, {reason}
-        |from parameters
+      """insert into package_upload_entries(ledger_offset, recorded_at, submission_id, participant_id, typ, rejection_reason)
+        |values({ledger_offset}, {recorded_at}, {submission_id}, {participant_id}, {typ}, {rejection_reason})
         |on conflict (submission_id) do nothing""".stripMargin
 
     override protected[JdbcLedgerDao] val SQL_IMPLICITLY_INSERT_PARTIES: String =
@@ -1576,8 +1582,8 @@ object JdbcLedgerDao {
 
     override protected[JdbcLedgerDao] val SQL_INSERT_PACKAGE_UPLOAD_ENTRY: String =
       """merge into package_upload_entries using dual on submission_id = {submission_id}
-        |when not matched then insert (submission_id, package_id, participant_id, reason)
-        |select {submission_id}, {package_id}, {participant_id}, {reason}
+        |when not matched then insert (ledger_offset, recorded_at, submission_id, participant_id, typ, rejection_reason)
+        |select {ledger_offset}, {recorded_at}, {submission_id}, {participant_id}, {typ}, {rejection_reason}
         |from parameters""".stripMargin
 
     override protected[JdbcLedgerDao] val SQL_IMPLICITLY_INSERT_PARTIES: String =
