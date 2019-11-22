@@ -11,8 +11,9 @@ import com.digitalasset.platform.services.time.TimeProviderType
 case class RunnerConfig(
     darPath: File,
     scriptIdentifier: String,
-    ledgerHost: String,
-    ledgerPort: Int,
+    ledgerHost: Option[String],
+    ledgerPort: Option[Int],
+    participantConfig: Option[File],
     timeProviderType: TimeProviderType,
     commandTtl: Duration,
     inputFile: Option[File],
@@ -33,14 +34,19 @@ object RunnerConfig {
       .text("Identifier of the script that should be run in the format Module.Name:Entity.Name")
 
     opt[String]("ledger-host")
-      .required()
-      .action((t, c) => c.copy(ledgerHost = t))
+      .optional()
+      .action((t, c) => c.copy(ledgerHost = Some(t)))
       .text("Ledger hostname")
 
     opt[Int]("ledger-port")
-      .required()
-      .action((t, c) => c.copy(ledgerPort = t))
+      .optional()
+      .action((t, c) => c.copy(ledgerPort = Some(t)))
       .text("Ledger port")
+
+    opt[File]("participant-config")
+      .optional()
+      .action((t, c) => c.copy(participantConfig = Some(t)))
+      .text("File containing the participant configuration in JSON format")
 
     opt[Unit]('w', "wall-clock-time")
       .action { (t, c) =>
@@ -59,6 +65,18 @@ object RunnerConfig {
         c.copy(inputFile = Some(t))
       }
       .text("Path to a file containing the input value for the script in JSON format.")
+
+    checkConfig(c => {
+      if (c.ledgerHost.isDefined != c.ledgerPort.isDefined) {
+        failure("Must specify both --ledger-host and --ledger-port")
+      } else if (c.ledgerHost.isDefined && c.participantConfig.isDefined) {
+        failure("Cannot specify both --ledger-host and --participant-config")
+      } else if (c.ledgerHost.isEmpty && c.participantConfig.isEmpty) {
+        failure("Must specify either --ledger-host or --participant-config")
+      } else {
+        success
+      }
+    })
   }
   def parse(args: Array[String]): Option[RunnerConfig] =
     parser.parse(
@@ -66,8 +84,9 @@ object RunnerConfig {
       RunnerConfig(
         darPath = null,
         scriptIdentifier = null,
-        ledgerHost = "",
-        ledgerPort = 0,
+        ledgerHost = None,
+        ledgerPort = None,
+        participantConfig = None,
         timeProviderType = TimeProviderType.Static,
         commandTtl = Duration.ofSeconds(30L),
         inputFile = None,
