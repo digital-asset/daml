@@ -55,6 +55,9 @@ object KeyValueConsumption {
             Ref.LedgerString.assertFromString(entry.getPackageUploadEntry.getSubmissionId)
           )
         }.toList
+
+        // always send accepted message even if there are no package uploads
+        // TODO only send accept message if participantId matches
         uniquePackages ++ List(
           Update
             .PackageUploadEntryAccepted(participantId, entry.getPackageUploadEntry.getSubmissionId))
@@ -65,16 +68,17 @@ object KeyValueConsumption {
         val proposedPackageUpload = rejection.getInvalidPackage
 
         List(
+          // TODO only send reject message if participantId matches
           Update.PackageUploadEntryRejected(
             Ref.LedgerString.assertFromString(participantId),
             Ref.LedgerString.assertFromString(rejection.getSubmissionId),
             reason = rejection.getReasonCase match {
               case DamlPackageUploadRejectionEntry.ReasonCase.INVALID_PACKAGE =>
-                s"Package ${proposedPackageUpload.getDetails} rejected as invalid"
+                s"Package $proposedPackageUpload.getDetails rejected as invalid"
               case DamlPackageUploadRejectionEntry.ReasonCase.REASON_NOT_SET =>
-                s"Package ${proposedPackageUpload.getDetails} upload failed for undetermined reason"
+                s"Package $proposedPackageUpload.getDetails upload failed for undetermined reason"
               case DamlPackageUploadRejectionEntry.ReasonCase.PARTICIPANT_NOT_AUTHORIZED =>
-                s"Participant ${participantId} not authorized to upload package"
+                s"Participant $participantId not authorized to upload package"
             }
           ))
 
