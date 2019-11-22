@@ -481,10 +481,11 @@ overrideSdkVersion pkgConfig = do
                     , sdkVersion
                     , "from"
                     , sdkVersionEnvVar
-                    , "instead of DAML SDK version"
+                    , "enviroment variable instead of DAML SDK version"
                     , unPackageSdkVersion (pSdkVersion pkgConfig)
                     , "from"
                     , projectConfigName
+                    , "config file."
                     ]
             pure pkgConfig { pSdkVersion = PackageSdkVersion sdkVersion }
 
