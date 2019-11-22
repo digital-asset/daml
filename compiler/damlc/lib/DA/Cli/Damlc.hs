@@ -183,17 +183,13 @@ cmdTest numProcessors =
 runTestsInProjectOrFiles :: ProjectOpts -> Maybe [FilePath] -> UseColor -> Maybe FilePath -> Options -> Command
 runTestsInProjectOrFiles projectOpts Nothing color mbJUnitOutput cliOptions = Command Test effect
   where effect = withExpectProjectRoot (projectRoot projectOpts) "daml test" $ \pPath _ -> do
-        sdkVersionM <- fmap PackageSdkVersion <$> getSdkVersionMaybe
-        project <- readProjectConfig $ ProjectPath pPath
-        case parseProjectConfig sdkVersionM project of
-            Left err -> throwIO err
-            Right PackageConfigFields {..} -> do
-              -- TODO: We set up one scenario service context per file that
-              -- we pass to execTest and scenario cnotexts are quite expensive.
-              -- Therefore we keep the behavior of only passing the root file
-              -- if source points to a specific file.
-              files <- getDamlRootFiles pSrc
-              execTest files color mbJUnitOutput cliOptions
+        withPackageConfig (ProjectPath pPath) $ \PackageConfigFields{..} -> do
+            -- TODO: We set up one scenario service context per file that
+            -- we pass to execTest and scenario cnotexts are quite expensive.
+            -- Therefore we keep the behavior of only passing the root file
+            -- if source points to a specific file.
+            files <- getDamlRootFiles pSrc
+            execTest files color mbJUnitOutput cliOptions
 runTestsInProjectOrFiles projectOpts (Just inFiles) color mbJUnitOutput cliOptions = Command Test effect
   where effect = withProjectRoot' projectOpts $ \relativize -> do
         inFiles' <- mapM (fmap toNormalizedFilePath . relativize) inFiles
@@ -458,25 +454,46 @@ execLint inputFile opts =
          DlintDisabled  -> opts{optDlintUsage=DlintEnabled defaultDir True}
 
 -- | Parse the daml.yaml for package specific config fields.
-parseProjectConfig :: Maybe PackageSdkVersion -> ProjectConfig -> Either ConfigError PackageConfigFields
-parseProjectConfig sdkVersionM project = do
+parseProjectConfig :: ProjectConfig -> Either ConfigError PackageConfigFields
+parseProjectConfig project = do
     pName <- queryProjectConfigRequired ["name"] project
     pSrc <- queryProjectConfigRequired ["source"] project
     pExposedModules <- queryProjectConfig ["exposed-modules"] project
     pVersion <- queryProjectConfigRequired ["version"] project
     pDependencies <- queryProjectConfigRequired ["dependencies"] project
     pDataDependencies <- fromMaybe [] <$> queryProjectConfig ["data-dependencies"] project
-    pSdkVersion <- maybe (queryProjectConfigRequired ["sdk-version"] project) Right sdkVersionM
+    pSdkVersion <- queryProjectConfigRequired ["sdk-version"] project
     Right PackageConfigFields {..}
 
--- | We assume that this is only called within `withProjectRoot`.
-withPackageConfig :: (PackageConfigFields -> IO a) -> IO a
-withPackageConfig f = do
-    sdkVersionM <- fmap PackageSdkVersion <$> getSdkVersionMaybe
-    project <- readProjectConfig $ ProjectPath "."
-    case parseProjectConfig sdkVersionM project of
-        Left err -> throwIO err
-        Right pkgConfig -> f pkgConfig
+defaultProjectPath :: ProjectPath
+defaultProjectPath = ProjectPath "."
+
+overrideSdkVersion :: PackageConfigFields -> IO PackageConfigFields
+overrideSdkVersion pkgConfig = do
+    sdkVersionM <- getSdkVersionMaybe
+    case sdkVersionM of
+        Nothing ->
+            pure pkgConfig
+        Just sdkVersion -> do
+            when (pSdkVersion pkgConfig /= PackageSdkVersion sdkVersion) $
+                hPutStrLn stderr $ unwords
+                    [ "Warning: Using DAML SDK version"
+                    , sdkVersion
+                    , "from"
+                    , sdkVersionEnvVar
+                    , "instead of DAML SDK version"
+                    , unPackageSdkVersion (pSdkVersion pkgConfig)
+                    , "from"
+                    , projectConfigName
+                    ]
+            pure pkgConfig { pSdkVersion = PackageSdkVersion sdkVersion }
+
+withPackageConfig :: ProjectPath -> (PackageConfigFields -> IO a) -> IO a
+withPackageConfig projectPath f = do
+    project <- readProjectConfig projectPath
+    pkgConfig <- either throwIO pure (parseProjectConfig project)
+    pkgConfig' <- overrideSdkVersion pkgConfig
+    f pkgConfig'
 
 -- | If we're in a daml project, read the daml.yaml field and create the project local package
 -- database. Otherwise do nothing.
@@ -493,7 +510,7 @@ initPackageDb opts (InitPkgDb shouldInit) =
     when shouldInit $ do
         isProject <- doesFileExist projectConfigName
         when isProject $ do
-            withPackageConfig $ \PackageConfigFields {..} ->
+            withPackageConfig defaultProjectPath $ \PackageConfigFields {..} ->
                 createProjectPackageDb opts pSdkVersion pDependencies pDataDependencies
 
 execBuild :: ProjectOpts -> Options -> Maybe FilePath -> IncrementalBuild -> InitPkgDb -> Command
@@ -501,7 +518,7 @@ execBuild projectOpts options mbOutFile incrementalBuild initPkgDb =
   Command Build effect
   where effect = withProjectRoot' projectOpts $ \_relativize -> do
             initPackageDb options initPkgDb
-            withPackageConfig $ \pkgConfig@PackageConfigFields{..} -> do
+            withPackageConfig defaultProjectPath $ \pkgConfig@PackageConfigFields{..} -> do
                 putStrLn $ "Compiling " <> pName <> " to a DAR."
                 opts <- mkOptions options
                 loggerH <- getLogger opts "package"

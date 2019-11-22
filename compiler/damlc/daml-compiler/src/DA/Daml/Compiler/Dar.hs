@@ -85,7 +85,7 @@ newtype FromDalf = FromDalf
 
 newtype PackageSdkVersion = PackageSdkVersion
     { unPackageSdkVersion :: String
-    } deriving (Y.FromJSON)
+    } deriving (Eq, Y.FromJSON)
 
 -- | daml.yaml config fields specific to packaging.
 data PackageConfigFields = PackageConfigFields
