@@ -131,7 +131,7 @@ object Update {
     * Consider whether an enumerated set of reject reasons a la [[RejectionReason]] would be helpful, and whether the same breadth of reject
     * types needs to be handled for package upload entry rejects
     */
-  final case class PackageUploadEntryAccepted(participantId: String, submissionId: String)
+  final case class PackageUploadEntryAccepted(participantId: ParticipantId, submissionId: String)
       extends Update {
     override def description: String = {
       s"Accepted package ${submissionId} for participant ${participantId}"

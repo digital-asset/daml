@@ -79,7 +79,7 @@ class JdbcIndexerFactory[Status <: InitStatus] private (
   }
 
   def create(
-      participantId: String,
+      participantId: ParticipantId,
       actorSystem: ActorSystem,
       readService: ReadService,
       jdbcUrl: String)(implicit x: Status =:= Initialized): Future[JdbcIndexer] = {

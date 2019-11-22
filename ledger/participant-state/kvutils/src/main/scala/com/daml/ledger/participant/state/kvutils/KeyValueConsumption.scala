@@ -145,7 +145,7 @@ object KeyValueConsumption {
   def logEntryToAsyncResponse(
       entryId: DamlLogEntryId,
       entry: DamlLogEntry,
-      participantId: String): Option[AsyncResponse] = {
+      participantId: ParticipantId): Option[AsyncResponse] = {
 
     entry.getPayloadCase match {
       case DamlLogEntry.PayloadCase.PACKAGE_UPLOAD_ENTRY =>

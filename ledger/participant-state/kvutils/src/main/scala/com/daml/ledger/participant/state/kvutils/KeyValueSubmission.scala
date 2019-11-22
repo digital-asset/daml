@@ -6,6 +6,7 @@ package com.daml.ledger.participant.state.kvutils
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.v1.{
   Configuration,
+  ParticipantId,
   SubmittedTransaction,
   SubmitterInfo,
   TransactionMeta
@@ -69,7 +70,7 @@ object KeyValueSubmission {
       submissionId: String,
       archives: List[Archive],
       sourceDescription: String,
-      participantId: String): DamlSubmission = {
+      participantId: ParticipantId): DamlSubmission = {
 
     val inputDamlState = archives.map(
       archive =>
@@ -94,7 +95,7 @@ object KeyValueSubmission {
       submissionId: String,
       hint: Option[String],
       displayName: Option[String],
-      participantId: String): DamlSubmission = {
+      participantId: ParticipantId): DamlSubmission = {
     val party = hint.getOrElse("")
     DamlSubmission.newBuilder
       .addInputDamlState(partyStateKey(party))
