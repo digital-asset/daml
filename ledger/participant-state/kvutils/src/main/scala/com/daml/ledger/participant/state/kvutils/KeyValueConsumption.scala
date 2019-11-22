@@ -136,6 +136,7 @@ object KeyValueConsumption {
     }
   }
 
+  //TODO BH : Remove this function once party allocation entries are moved to new Update style as well
   /** Construct a participant-state [[AsyncResponse]] from a [[DamlLogEntry]].
     *
     * This method is expected to be used to implement [[com.daml.ledger.participant.state.v1.WriteService.allocateParty]]

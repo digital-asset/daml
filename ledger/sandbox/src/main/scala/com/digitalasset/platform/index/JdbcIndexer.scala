@@ -25,7 +25,7 @@ import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.common.util.{DirectExecutionContext => DEC}
 import com.digitalasset.platform.sandbox.services.transaction.SandboxEventIdFormatter
 import com.digitalasset.platform.sandbox.metrics.timedFuture
-import com.digitalasset.platform.sandbox.stores.ledger.{LedgerEntry}
+import com.digitalasset.platform.sandbox.stores.ledger.{LedgerEntry, PackageUploadEntry}
 import com.digitalasset.platform.sandbox.stores.ledger.sql.SqlLedger.{
   defaultNumberOfShortLivedConnections,
   defaultNumberOfStreamingConnections
@@ -282,7 +282,7 @@ class JdbcIndexer private[index] (
             participantId,
             submissionId,
             None,
-            "accept")
+            PackageUploadEntry.Accepted(submissionId, participantId))
           .map(_ => headRef = headRef + 1)(DEC)
 
       case PackageUploadEntryRejected(participantId, submissionId, reason) =>
@@ -294,7 +294,7 @@ class JdbcIndexer private[index] (
             participantId,
             submissionId,
             Some(reason),
-            "reject")
+            PackageUploadEntry.Rejected(submissionId, participantId, reason))
           .map(_ => headRef = headRef + 1)(DEC)
 
       case TransactionAccepted(

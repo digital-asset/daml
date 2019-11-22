@@ -8,7 +8,13 @@ import java.time.Duration
 
 import akka.stream.scaladsl.Sink
 import com.daml.ledger.participant.state.backport.TimeModel
-import com.daml.ledger.participant.state.v1.Update.{Heartbeat, PackageUploadEntryAccepted, PackageUploadEntryRejected, PartyAddedToParticipant, PublicPackageUploaded}
+import com.daml.ledger.participant.state.v1.Update.{
+  Heartbeat,
+  PackageUploadEntryAccepted,
+  PackageUploadEntryRejected,
+  PartyAddedToParticipant,
+  PublicPackageUploaded
+}
 import com.daml.ledger.participant.state.v1._
 import com.digitalasset.daml.bazeltools.BazelRunfiles
 import com.digitalasset.daml.lf.archive.DarReader
@@ -79,7 +85,7 @@ class InMemoryKVParticipantStateIT
     case (offset: Offset, update: PackageUploadEntryRejected) =>
       assert(offset == givenOffset)
       assert(update.participantId == participantId)
-      assert(update.reason contains("rejected as invalid"))
+      assert(update.reason contains ("rejected as invalid"))
     case _ => fail("did not find expected upload entry rejected")
   }
 

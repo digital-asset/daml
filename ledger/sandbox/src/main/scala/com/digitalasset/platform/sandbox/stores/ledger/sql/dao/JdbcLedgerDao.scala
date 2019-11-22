@@ -84,7 +84,7 @@ private class JdbcLedgerDao(
 
   override def lookupLedgerId(): Future[Option[LedgerId]] =
     dbDispatcher
-      .executeSql(s"get_ledger_id") { implicit conn =>
+      .executeSql("get_ledger_id") { implicit conn =>
         SQL_SELECT_LEDGER_ID
           .as(ledgerString("ledger_id").map(id => LedgerId(id.toString)).singleOpt)
       }
@@ -1370,7 +1370,7 @@ private class JdbcLedgerDao(
       participantId: ParticipantId,
       submissionId: String,
       reason: Option[String],
-      typ: String): Future[PersistenceResponse] = {
+      typ: PackageUploadEntry): Future[PersistenceResponse] = {
 
     val prereqs = Try {
       require(participantId.nonEmpty, "participantId cannot be empty")
@@ -1389,7 +1389,7 @@ private class JdbcLedgerDao(
                 "recorded_at" -> Instant.now(),
                 "submission_id" -> submissionId,
                 "participant_id" -> participantId,
-                "typ" -> typ,
+                "typ" -> typ.value,
                 "rejection_reason" -> reason
               ))
           )

@@ -155,7 +155,7 @@ private class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: MetricRegistry)
       participantId: ParticipantId,
       submissionId: String,
       reason: Option[String],
-      typ: String): Future[PersistenceResponse] =
+      typ: PackageUploadEntry): Future[PersistenceResponse] =
     ledgerDao.storePackageUploadEntry(
       offset,
       newLedgerEnd,
