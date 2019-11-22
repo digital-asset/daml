@@ -3,7 +3,7 @@
 # build-tools
 , bootPkgs
 , autoconf, automake, coreutils, fetchurl, perl, python3, m4, sphinx
-, bash
+, bash, makeWrapper, elfutils
 
 , libiconv ? null, ncurses
 
@@ -38,9 +38,12 @@
 , # Whether to disable the large address space allocator
   # necessary fix for iOS: https://www.reddit.com/r/haskell/comments/4ttdz1/building_an_osxi386_to_iosarm64_cross_compiler/d5qvd67/
   disableLargeAddressSpace ? stdenv.targetPlatform.isDarwin && stdenv.targetPlatform.isAarch64
+
+, enableDwarf ? false
 }:
 
 assert !enableIntegerSimple -> gmp != null;
+assert enableDwarf -> !stdenv.isDarwin; # elfutils libdw only works with ELF
 
 let
   inherit (stdenv) buildPlatform hostPlatform targetPlatform;
@@ -65,17 +68,23 @@ let
     HADDOCK_DOCS = NO
     BUILD_SPHINX_HTML = NO
     BUILD_SPHINX_PDF = NO
-  '' + stdenv.lib.optionalString enableRelocatedStaticLibs ''
-    GhcLibHcOpts += -fPIC
-    GhcRtsHcOpts += -fPIC
+  '' # Upstream in nixpkgs only uses -fPIC but without -fexternal-dynamic-refs GHC still produces
+     # R_X86_64_PC32 relocations which prevents loading these static libs as PIC.
+     + stdenv.lib.optionalString enableRelocatedStaticLibs ''
+    GhcLibHcOpts += -fPIC -fexternal-dynamic-refs
+    GhcRtsHcOpts += -fPIC -fexternal-dynamic-refs
   '' + stdenv.lib.optionalString targetPlatform.useAndroidPrebuilt ''
     EXTRA_CC_OPTS += -std=gnu99
+  '' + stdenv.lib.optionalString enableDwarf ''
+     GhcLibHcOpts += -g3
+     GhcRtsHcOpts += -g3
   '';
 
   # Splicer will pull out correct variations
   libDeps = platform: stdenv.lib.optional enableTerminfo [ ncurses ]
     ++ [libffi]
     ++ stdenv.lib.optional (!enableIntegerSimple) gmp
+    ++ stdenv.lib.optional enableDwarf elfutils
     ++ stdenv.lib.optional (platform.libc != "glibc" && !targetPlatform.isWindows) libiconv;
 
   toolsForTarget = [
@@ -156,6 +165,8 @@ stdenv.mkDerivation (rec {
     "--with-gmp-includes=${targetPackages.gmp.dev}/include" "--with-gmp-libraries=${targetPackages.gmp.out}/lib"
   ] ++ stdenv.lib.optional (targetPlatform == hostPlatform && hostPlatform.libc != "glibc" && !targetPlatform.isWindows) [
     "--with-iconv-includes=${libiconv}/include" "--with-iconv-libraries=${libiconv}/lib"
+  ] ++ stdenv.lib.optional enableDwarf [
+    "--enable-dwarf-unwind"
   ] ++ stdenv.lib.optionals (targetPlatform != hostPlatform) [
     "--enable-bootstrap-with-devel-snapshot"
   ] ++ stdenv.lib.optionals (targetPlatform.isAarch32) [
@@ -174,7 +185,7 @@ stdenv.mkDerivation (rec {
 
   nativeBuildInputs = [
     perl autoconf automake m4 python3 sphinx
-    ghc bootPkgs.alex bootPkgs.happy bootPkgs.hscolour
+    ghc bootPkgs.alex bootPkgs.happy bootPkgs.hscolour makeWrapper
   ];
 
   # For building runtime libs
@@ -206,6 +217,9 @@ stdenv.mkDerivation (rec {
       egrep --quiet '^#!' <(head -n 1 $i) || continue
       sed -i -e '2i export PATH="$PATH:${stdenv.lib.makeBinPath [ targetPackages.stdenv.cc.bintools coreutils ]}"' $i
     done
+  '' + stdenv.lib.optionalString enableDwarf ''
+    wrapProgram $out/bin/ghc-8.8.1 --add-flags "-L${elfutils}/lib"
+    wrapProgram $out/bin/ghc --add-flags "-L${elfutils}/lib"
   '';
 
   passthru = {
