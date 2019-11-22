@@ -261,9 +261,9 @@ class JdbcIndexer private[index] (
       case PartyAddedToParticipant(party, displayName, _, _, _) =>
         ledgerDao.storeParty(party, Some(displayName), externalOffset).map(_ => ())(DEC)
 
-      case PublicPackageUploaded(archive, sourceDescription, _, _, _) =>
+      case PublicPackageUploaded(archive, sourceDescription, _, recordTime, _) =>
         val uploadId = UUID.randomUUID().toString
-        val uploadInstant = Instant.now() // TODO: use PublicPackageUploaded.recordTime for multi-ledgers (#2635)
+        val uploadInstant = recordTime.toInstant
         val packages: List[(DamlLf.Archive, v2.PackageDetails)] = List(
           archive -> v2.PackageDetails(
             size = archive.getPayload.size.toLong,
