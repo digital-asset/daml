@@ -14,7 +14,7 @@ object GrpcException {
       case _ => None
     }
 
-  case class SpecificGrpcException(status: SpecificGrpcStatus) {
+  private[grpc] final class SpecificGrpcException(status: SpecificGrpcStatus) {
     def unapply(exception: Exception): Boolean =
       exception match {
         case e: StatusRuntimeException => status.unapply(e.getStatus)

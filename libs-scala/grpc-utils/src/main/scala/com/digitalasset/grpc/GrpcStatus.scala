@@ -19,7 +19,7 @@ object GrpcStatus {
   def toProto(status: Status): ProtobufStatus =
     toProto(status.getCode, Option(status.getDescription))
 
-  case class SpecificGrpcStatus(code: Code) {
+  private[grpc] final class SpecificGrpcStatus(code: Code) {
     def unapply(status: Status): Boolean =
       status.getCode == code
   }
