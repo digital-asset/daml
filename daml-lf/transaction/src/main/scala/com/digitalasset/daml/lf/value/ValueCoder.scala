@@ -528,7 +528,7 @@ object ValueCoder {
                 protoMap.addEntries(
                   proto.GenMap.Entry
                     .newBuilder()
-                    .setKey(go(nesting, key))
+                    .setKey(go(newNesting, key))
                     .setValue(go(newNesting, value))
                 )
                 ()

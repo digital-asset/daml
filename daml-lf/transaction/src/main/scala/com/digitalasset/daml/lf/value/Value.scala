@@ -63,12 +63,13 @@ sealed abstract class Value[+Cid] extends Product with Serializable {
       case FrontStackCons((v, nesting), vs) =>
         // we cannot define helper functions because otherwise go is not tail recursive. fun!
         val exceedsNestingErr = s"exceeds maximum nesting value of $MAXIMUM_NESTING"
+        val newNesting = nesting + 1
 
         v match {
           case tpl: ValueTuple[Cid] =>
             go(exceededNesting, errs :+ s"contains tuple $tpl", vs)
           case ValueRecord(_, flds) =>
-            if (nesting + 1 > MAXIMUM_NESTING) {
+            if (newNesting > MAXIMUM_NESTING) {
               if (exceededNesting) {
                 // we already exceeded the nesting, do not output again
                 go(exceededNesting, errs, vs)
@@ -76,11 +77,11 @@ sealed abstract class Value[+Cid] extends Product with Serializable {
                 go(true, errs :+ exceedsNestingErr, vs)
               }
             } else {
-              go(exceededNesting, errs, flds.map(v => (v._2, nesting + 1)) ++: vs)
+              go(exceededNesting, errs, flds.map(v => (v._2, newNesting)) ++: vs)
             }
 
           case ValueList(values) =>
-            if (nesting + 1 > MAXIMUM_NESTING) {
+            if (newNesting > MAXIMUM_NESTING) {
               if (exceededNesting) {
                 // we already exceeded the nesting, do not output again
                 go(exceededNesting, errs, vs)
@@ -88,11 +89,11 @@ sealed abstract class Value[+Cid] extends Product with Serializable {
                 go(true, errs :+ exceedsNestingErr, vs)
               }
             } else {
-              go(exceededNesting, errs, values.toImmArray.map(v => (v, nesting + 1)) ++: vs)
+              go(exceededNesting, errs, values.toImmArray.map(v => (v, newNesting)) ++: vs)
             }
 
           case ValueVariant(_, _, value) =>
-            if (nesting + 1 > MAXIMUM_NESTING) {
+            if (newNesting > MAXIMUM_NESTING) {
               if (exceededNesting) {
                 // we already exceeded the nesting, do not output again
                 go(exceededNesting, errs, vs)
@@ -100,13 +101,13 @@ sealed abstract class Value[+Cid] extends Product with Serializable {
                 go(true, errs :+ exceedsNestingErr, vs)
               }
             } else {
-              go(exceededNesting, errs, (value, nesting + 1) +: vs)
+              go(exceededNesting, errs, (value, newNesting) +: vs)
             }
 
           case _: ValueCidlessLeaf | _: ValueContractId[Cid] =>
             go(exceededNesting, errs, vs)
           case ValueOptional(x) =>
-            if (nesting + 1 > MAXIMUM_NESTING) {
+            if (newNesting > MAXIMUM_NESTING) {
               if (exceededNesting) {
                 // we already exceeded nesting, do not output again
                 go(exceededNesting, errs, vs)
@@ -114,10 +115,10 @@ sealed abstract class Value[+Cid] extends Product with Serializable {
                 go(true, errs :+ exceedsNestingErr, vs)
               }
             } else {
-              go(exceededNesting, errs, ImmArray(x.toList.map(v => (v, nesting + 1))) ++: vs)
+              go(exceededNesting, errs, ImmArray(x.toList.map(v => (v, newNesting))) ++: vs)
             }
           case ValueTextMap(value) =>
-            if (nesting + 1 > MAXIMUM_NESTING) {
+            if (newNesting > MAXIMUM_NESTING) {
               if (exceededNesting) {
                 // we already exceeded the nesting, do not output again
                 go(exceededNesting, errs, vs)
@@ -125,10 +126,10 @@ sealed abstract class Value[+Cid] extends Product with Serializable {
                 go(true, errs :+ exceedsNestingErr, vs)
               }
             } else {
-              go(exceededNesting, errs, value.values.map(v => (v, nesting + 1)) ++: vs)
+              go(exceededNesting, errs, value.values.map(v => (v, newNesting)) ++: vs)
             }
           case ValueGenMap(entries) =>
-            if (nesting + 1 > MAXIMUM_NESTING) {
+            if (newNesting > MAXIMUM_NESTING) {
               if (exceededNesting) {
                 // we already exceeded the nesting, do not output again
                 go(exceededNesting, errs, vs)
@@ -137,7 +138,7 @@ sealed abstract class Value[+Cid] extends Product with Serializable {
               }
             } else {
               val vs1 = entries.foldLeft(vs) {
-                case (acc, (k, v)) => (k -> (nesting + 1)) +: (v -> (nesting + 1)) +: acc
+                case (acc, (k, v)) => (k -> newNesting) +: (v -> newNesting) +: acc
               }
               go(exceededNesting, errs, vs1)
             }
