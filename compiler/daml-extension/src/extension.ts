@@ -17,6 +17,7 @@ import * as util from 'util';
 import fetch, { Response } from 'node-fetch';
 import { getOrd } from 'fp-ts/lib/Array';
 import { ordNumber } from 'fp-ts/lib/Ord';
+import { parseString } from 'xml2js';
 
 let damlRoot: string = path.join(os.homedir(), '.daml');
 
@@ -35,6 +36,8 @@ export async function activate(context: vscode.ExtensionContext) {
 
     // Check extension version to display release notes on updates
     showReleaseNotesIfNewVersion(context);
+
+    showBlog();
 
     damlLanguageClient = createLanguageClient(config, await consent);
     damlLanguageClient.registerProposedFeatures();
@@ -116,6 +119,23 @@ async function showReleaseNotesIfNewVersion(context: ExtensionContext) {
         showReleaseNotes(extensionVersion);
         await context.globalState.update(versionContextKey, extensionVersion);
     }
+}
+
+async function showBlog() {
+    const feedUrl = 'https://blog.daml.com/daml-driven/rss.xml';
+    fetch(feedUrl).then(async (res: Response) => {
+        if (res.ok) {
+            const rssXml = await res.text();
+            parseString(rssXml, function (err, rss) {
+                console.log(JSON.stringify(rss));
+                const latestBlog = rss.rss.channel[0].item[0];
+                if (latestBlog) {
+                    console.log(`Latest blog post: ${latestBlog.title}`);
+                    console.log(`Link: ${latestBlog.link}`);
+                }
+            });
+        }
+    });
 }
 
 // Check that `version2` is an upgrade from `version1`,
