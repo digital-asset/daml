@@ -13,7 +13,6 @@ import tests.listtest.*;
 import tests.listtest.color.Green;
 import tests.listtest.color.Red;
 import tests.listtest.listitem.Node;
-import tests.varianttest.variantitem.ParameterizedRecordVariant;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -219,8 +218,7 @@ public class ListTest {
         ));
 
         assertEquals(fromValue, fromConstructor);
-        assertEquals(fromConstructor.toValue(f -> new DamlList(f.stream().map(Text::new).collect(Collectors.<Value>toList()))), dataRecord);
-
+        assertEquals(fromConstructor.toValue(f -> f.stream().collect(DamlCollectors.toDamlList(Text::new))), dataRecord);
     }
 
 }

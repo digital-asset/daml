@@ -5,7 +5,6 @@ package com.daml.ledger.javaapi.data;
 
 import com.digitalasset.ledger.api.v1.ValueOuterClass;
 
-import java.util.HashMap;
 import java.util.Optional;
 
 public abstract class Value {
@@ -39,19 +38,11 @@ public abstract class Value {
             case DATE:
                 return new Date(value.getDate());
             case OPTIONAL:
-                if (value.getOptional().hasValue()) {
-                    Value inner = fromProto(value.getOptional().getValue());
-                    return DamlOptional.of(inner);
-                }
-                else {
-                    return DamlOptional.empty();
-                }
+                return DamlOptional.fromProto(value.getOptional());
             case MAP:
-                HashMap<String, Value> map = new HashMap<String, Value>();
-                for(ValueOuterClass.Map.Entry e: value.getMap().getEntriesList()){
-                    map.put(e.getKey(), fromProto(e.getValue()));
-                }
-                return new DamlMap(map);
+               return DamlTextMap.fromProto(value.getMap());
+            case GEN_MAP:
+                return DamlGenMap.fromProto(value.getGenMap());
             case SUM_NOT_SET:
                 throw new SumNotSetException(value);
             default:
@@ -122,8 +113,13 @@ public abstract class Value {
                 Optional.empty();
     }
 
-    public final Optional<DamlMap> asMap() {
-        return (this instanceof DamlMap) ? Optional.of((DamlMap) this) : Optional.empty();
+    public final Optional<DamlTextMap> asTextMap() {
+        return (this instanceof DamlTextMap) ? Optional.of((DamlTextMap) this) : Optional.empty();
+    }
+
+    @Deprecated // Use Value::asTextMap
+    public final Optional<DamlTextMap> asMap() {
+        return asTextMap();
     }
 
     public final Optional<DamlGenMap> asGenMap() {

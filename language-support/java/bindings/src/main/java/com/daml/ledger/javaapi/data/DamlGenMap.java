@@ -6,53 +6,90 @@ package com.daml.ledger.javaapi.data;
 import com.digitalasset.ledger.api.v1.ValueOuterClass;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
-import javax.annotation.Nonnull;
-import java.util.Collections;
-import java.util.List;
-import java.util.Objects;
-import java.util.StringJoiner;
+import java.util.*;
+import java.util.function.Function;
+import java.util.stream.Collector;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
-public class DamlGenMap extends Value {
+public final class DamlGenMap extends Value {
 
-    private static DamlGenMap EMPTY = new DamlGenMap(Collections.EMPTY_MAP);
+    private final Map<Value, Value> map;
 
-    private final java.util.Map<Value, Value> value;
-
-    public DamlGenMap(java.util.Map<Value, Value> value) {
-        this.value = value;
+    private DamlGenMap(@NonNull Map<@NonNull Value, @NonNull Value> map) {
+        this.map = map;
     }
 
-    public @Nonnull
-    java.util.Map<Value, Value> getMap() { return value; }
+    /**
+     * The map that is passed to this constructor must not be changed once passed.
+     */
+    static @NonNull DamlGenMap fromPrivateMap(@NonNull Map<@NonNull Value, @NonNull Value> map){
+        return new DamlGenMap(Collections.unmodifiableMap(map));
+    }
+
+    private static @NonNull DamlGenMap EMPTY = fromPrivateMap(Collections.EMPTY_MAP);
+
+    public static DamlGenMap of(@NonNull Map<@NonNull Value, @NonNull Value> map){
+       return fromPrivateMap(new LinkedHashMap<>(map));
+    }
+
+    public Stream<Map.Entry<Value, Value>> stream(){
+        return map.entrySet().stream();
+    }
+
+    public @NonNull <K, V> Map<@NonNull K, @NonNull V>toMap(
+            @NonNull Function<@NonNull Value, @NonNull K> keyMapper,
+            @NonNull Function<@NonNull Value, @NonNull V> valueMapper
+    ){
+        return stream().collect(Collectors.toMap(
+                e -> keyMapper.apply(e.getKey()),
+                e -> valueMapper.apply(e.getValue()),
+                (left, right) -> right,
+                LinkedHashMap::new
+        ));
+    }
+
+    public @NonNull<V> Map<@NonNull V, @NonNull V>toMap(
+            @NonNull Function<@NonNull Value, @NonNull V> valueMapper
+    ){
+        return toMap(valueMapper, valueMapper);
+    }
 
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
-        DamlGenMap optional = (DamlGenMap) o;
-        return Objects.equals(value, optional.value);
+        DamlGenMap other = (DamlGenMap) o;
+        return Objects.equals(map, other.map);
     }
 
     @Override
     public int hashCode() {
-        return value.hashCode();
+        return map.hashCode();
     }
 
     @Override
     public @NonNull String toString() {
         StringJoiner sj = new StringJoiner(", ", "GenMap{", "}");
-        value.forEach((key, value) -> sj.add(key.toString()+ " -> " + value.toString()));
+        map.forEach((key, value) -> sj.add(key.toString()+ " -> " + value.toString()));
         return sj.toString();
     }
 
     @Override
-    public @Nonnull ValueOuterClass.Value toProto() {
+    public ValueOuterClass.Value toProto() {
         ValueOuterClass.GenMap.Builder mb = ValueOuterClass.GenMap.newBuilder();
-        value.forEach((key, value) ->
+        map.forEach((key, value) ->
                 mb.addEntries(ValueOuterClass.GenMap.Entry.newBuilder()
                         .setKey(key.toProto())
                         .setValue(value.toProto())
                 ));
         return ValueOuterClass.Value.newBuilder().setGenMap(mb).build();
+    }
+
+    public static @NonNull DamlGenMap fromProto(ValueOuterClass.GenMap map){
+        return map.getEntriesList().stream().collect(DamlCollectors.toDamlGenMap(
+                entry -> fromProto(entry.getKey()),
+                entry -> fromProto(entry.getValue())
+        ));
     }
 }
