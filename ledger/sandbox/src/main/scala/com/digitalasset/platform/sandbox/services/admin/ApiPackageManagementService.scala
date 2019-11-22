@@ -11,7 +11,6 @@ import akka.stream.ActorMaterializer
 import com.daml.ledger.participant.state.index.v2.IndexPackagesService
 import com.daml.ledger.participant.state.v1.{
   SubmissionResult,
-  UploadPackagesResult,
   WritePackagesService
 }
 import com.digitalasset.daml.lf.archive.DarReader
