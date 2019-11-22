@@ -5,13 +5,14 @@ package com.digitalasset.http
 
 import akka.http.scaladsl.model.HttpMethods.{GET, POST}
 import akka.http.scaladsl.model._
+import akka.NotUsed
 import akka.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
 import akka.stream.Materializer
 import akka.util.ByteString
 import com.digitalasset.daml.lf
 import com.digitalasset.http.Statement.discard
 import com.digitalasset.http.domain.JwtPayload
-import com.digitalasset.http.json.ResponseFormats._
+import com.digitalasset.http.json.ResponseFormats
 import com.digitalasset.http.json.{DomainJsonDecoder, DomainJsonEncoder, SprayJson}
 import com.digitalasset.http.util.FutureUtil.{either, eitherT}
 import com.digitalasset.http.util.{ApiValueToLfValueConverter, FutureUtil}
@@ -32,7 +33,7 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
 
 import akka.stream.Materializer
-import akka.stream.scaladsl.{Sink, Source}
+import akka.stream.scaladsl.Source
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 class Endpoints(
@@ -163,28 +164,24 @@ class Endpoints(
       httpResponse(et)
 
     case req @ HttpRequest(GET, Uri.Path("/contracts/search"), _, _, _) =>
-      val et: Error \/ Source[Error \/ JsValue] = for {
-        input <- FutureUtil.eitherT(input(req)): ET[(Jwt, JwtPayload, String)]
+      val sourceF: Future[Error \/ Source[JsValue, NotUsed]] = input(req).map { inputOrError =>
+        for {
+          x <- inputOrError: Unauthorized \/ (Jwt, JwtPayload, String)
+          (jwt, jwtPayload, _) = x
 
-        (jwt, jwtPayload, _) = input
-
-        as <- eitherT(
-          handleSourceFailure(
-            contractsService
-              .search(jwt, jwtPayload, emptyGetActiveContractsRequest))
-        ): ET[Seq[contractsService.Result]]
-
-        jsVal <- either(
-          as.toList
-            .traverse(a => encoder.encodeV(a._1))
+          x <- contractsService
+            .search(jwt, jwtPayload, emptyGetActiveContractsRequest)
             .leftMap(e => ServerError(e.shows))
-            .flatMap(js => encodeList(js))
-        ): ET[JsValue]
+          (source, _) = x
 
-      } yield jsVal
+          jsValueSource = toJsValueSource(handleSourceFailure(source)): Source[JsValue, NotUsed]
 
-      httpResponse(et)
+        } yield jsValueSource
+      }
 
+      httpResponse(sourceF)
+
+    /*
     case req @ HttpRequest(POST, Uri.Path("/contracts/search"), _, _, _) =>
       val et: ET[JsValue] = for {
         input <- FutureUtil.eitherT(input(req)): ET[(Jwt, JwtPayload, String)]
@@ -217,6 +214,7 @@ class Endpoints(
       } yield j
 
       httpResponse(et)
+   */
   }
 
   lazy val parties: PartialFunction[HttpRequest, Future[HttpResponse]] = {
@@ -248,18 +246,33 @@ class Endpoints(
       }
   }
 
+  private def httpResponse(
+      output: Future[Error \/ Source[JsValue, NotUsed]]): Future[HttpResponse] =
+    output
+      .map {
+        case \/-(source) => httpResponseFromSource(StatusCodes.OK, source)
+        case -\/(e) => httpResponseError(e)
+      }
+      .recover {
+        case NonFatal(e) => httpResponseError(ServerError(e.getMessage))
+      }
+
   private def httpResponseOk(data: JsValue): HttpResponse =
-    httpResponse(StatusCodes.OK, resultJsObject(data))
+    httpResponse(StatusCodes.OK, ResponseFormats.resultJsObject(data))
 
   private def httpResponseError(error: Error): HttpResponse = {
+    val (status, jsObject) = errorsJsObject(error)
+    httpResponse(status, jsObject)
+  }
+
+  private def errorsJsObject(error: Error): (StatusCode, JsObject) = {
     val (status, errorMsg): (StatusCode, String) = error match {
       case InvalidUserInput(e) => StatusCodes.BadRequest -> e
       case ServerError(e) => StatusCodes.InternalServerError -> e
       case Unauthorized(e) => StatusCodes.Unauthorized -> e
       case NotFound(e) => StatusCodes.NotFound -> e
     }
-
-    httpResponse(status, errorsJsObject(status, errorMsg))
+    (status, ResponseFormats.errorsJsObject(status, errorMsg))
   }
 
   private def httpResponse(status: StatusCode, data: JsValue): HttpResponse = {
@@ -267,6 +280,15 @@ class Endpoints(
       status = status,
       entity = HttpEntity.Strict(ContentTypes.`application/json`, format(data)))
   }
+
+  private def httpResponseFromSource(
+      status: StatusCode,
+      data: Source[JsValue, NotUsed]): HttpResponse =
+    HttpResponse(
+      status = status,
+      entity = HttpEntity
+        .CloseDelimited(ContentTypes.`application/json`, ResponseFormats.resultJsObject(data))
+    )
 
   lazy val notFound: PartialFunction[HttpRequest, Future[HttpResponse]] = {
     case HttpRequest(method, uri, _, _, _) =>
@@ -302,6 +324,18 @@ class Endpoints(
 
   private def parsePayload(jwt: DecodedJwt[String]): Unauthorized \/ JwtPayload =
     SprayJson.decode[JwtPayload](jwt.payload).leftMap(e => Unauthorized(e.shows))
+
+  private def toJsValueSource(as: Source[ServerError \/ domain.ActiveContract[ApiValue], NotUsed])
+    : Source[JsValue, NotUsed] = {
+    as.map {
+      case -\/(e) =>
+        errorsJsObject(e)._2: JsObject
+      case \/-(a) =>
+        encoder
+          .encodeV[domain.ActiveContract](a)
+          .fold(e => errorsJsObject(ServerError(e.shows))._2, identity): JsValue
+    }
+  }
 }
 
 object Endpoints {
