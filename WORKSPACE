@@ -34,7 +34,7 @@ register_toolchains(
     "//:c2hs-toolchain",
 )
 
-load("//bazel_tools/dev_env_tool:dev_env_tool.bzl", "dev_env_tool")
+load("//bazel_tools/dev_env_tool:dev_env_tool.bzl", "dadew", "dev_env_tool")
 load(
     "@io_tweag_rules_nixpkgs//nixpkgs:nixpkgs.bzl",
     "nixpkgs_cc_configure",
@@ -44,6 +44,8 @@ load(
 load("//bazel_tools:os_info.bzl", "os_info")
 
 os_info(name = "os_info")
+
+dadew(name = "dadew")
 
 load("@os_info//:os_info.bzl", "is_linux", "is_windows")
 load("//bazel_tools:ghc_dwarf.bzl", "ghc_dwarf")
