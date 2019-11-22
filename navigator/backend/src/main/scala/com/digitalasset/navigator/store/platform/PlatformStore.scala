@@ -13,8 +13,8 @@ import akka.pattern.ask
 import akka.stream.ActorMaterializer
 import akka.util.Timeout
 import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.grpc.GrpcException
 import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
-import com.digitalasset.grpc.{GrpcException, GrpcStatus}
 import com.digitalasset.ledger.api.refinements.{ApiTypes, IdGenerator}
 import com.digitalasset.ledger.api.tls.TlsConfiguration
 import com.digitalasset.ledger.api.v1.testing.time_service.TimeServiceGrpc
@@ -339,7 +339,7 @@ class PlatformStore(
       })
       .recover({
         // If the time service is not implemented, then the ledger uses UTC time.
-        case GrpcException(GrpcStatus.UNIMPLEMENTED(), _) =>
+        case GrpcException.UNIMPLEMENTED() =>
           log.info("Time service is not implemented")
           None
       })

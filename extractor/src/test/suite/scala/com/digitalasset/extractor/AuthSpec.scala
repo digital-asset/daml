@@ -13,7 +13,7 @@ import com.digitalasset.extractor.config.{ExtractorConfig, SnapshotEndSetting}
 import com.digitalasset.extractor.ledger.types.TransactionTree
 import com.digitalasset.extractor.targets.TextPrintTarget
 import com.digitalasset.extractor.writers.Writer
-import com.digitalasset.grpc.{GrpcException, GrpcStatus}
+import com.digitalasset.grpc.GrpcException
 import com.digitalasset.jwt.domain.DecodedJwt
 import com.digitalasset.jwt.{HMAC256Verifier, JwtSigner}
 import com.digitalasset.ledger.api.auth.{AuthServiceJWT, AuthServiceJWTCodec, AuthServiceJWTPayload}
@@ -139,7 +139,7 @@ final class AuthSpec
 
   it should "fail immediately with a PERMISSION_DENIED if no token is provided" in {
     extractor(noAuth).run().failed.collect {
-      case GrpcException(GrpcStatus.PERMISSION_DENIED(), _) => succeed
+      case GrpcException.PERMISSION_DENIED() => succeed
     }
   }
 

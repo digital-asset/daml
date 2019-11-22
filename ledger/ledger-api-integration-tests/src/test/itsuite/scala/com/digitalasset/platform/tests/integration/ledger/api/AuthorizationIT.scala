@@ -10,7 +10,7 @@ import java.util.{Timer, TimerTask, UUID}
 
 import akka.stream.scaladsl.Sink
 import com.digitalasset.daml.bazeltools.BazelRunfiles.rlocation
-import com.digitalasset.grpc.{GrpcException, GrpcStatus}
+import com.digitalasset.grpc.GrpcException
 import com.digitalasset.jwt.domain.DecodedJwt
 import com.digitalasset.jwt.{HMAC256Verifier, JwtSigner}
 import com.digitalasset.ledger.api.auth.{AuthServiceJWT, AuthServiceJWTCodec, AuthServiceJWTPayload}
@@ -813,7 +813,7 @@ class AuthorizationIT
       }
       def onError(t: Throwable): Unit = {
         t match {
-          case GrpcException(GrpcStatus.PERMISSION_DENIED(), _) if gotSomething =>
+          case GrpcException.PERMISSION_DENIED() if gotSomething =>
             val _ = promise.trySuccess(())
           case _ =>
             val _ = promise.tryFailure(t)

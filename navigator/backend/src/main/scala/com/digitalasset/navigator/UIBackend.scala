@@ -20,7 +20,7 @@ import akka.http.scaladsl.settings.RoutingSettings
 import akka.pattern.ask
 import akka.stream.ActorMaterializer
 import akka.util.Timeout
-import com.digitalasset.grpc.{GrpcException, GrpcStatus}
+import com.digitalasset.grpc.GrpcException
 import com.digitalasset.navigator.SessionJsonProtocol._
 import com.digitalasset.navigator.config._
 import com.digitalasset.navigator.graphql.GraphQLContext
@@ -137,7 +137,7 @@ abstract class UIBackend extends LazyLogging with ApplicationInfoJsonSupport {
                                 _,
                                 _,
                                 _,
-                                GrpcException(GrpcStatus.PERMISSION_DENIED(), _)) =>
+                                GrpcException.PERMISSION_DENIED()) =>
                               logger.warn("Attempt to sign in without valid token")
                               complete(signIn(Some(InvalidCredentials)))
                             case _: ApplicationStateFailed =>

@@ -7,7 +7,7 @@ import java.lang.Math.floor
 
 import akka.actor.Scheduler
 import akka.pattern.after
-import com.digitalasset.grpc.{GrpcException, GrpcStatus}
+import com.digitalasset.grpc.GrpcException
 import com.typesafe.scalalogging.LazyLogging
 
 import scala.concurrent.duration._
@@ -47,7 +47,7 @@ object RetryHelper extends LazyLogging {
   }
 
   val failFastOnPermissionDenied: RetryStrategy = {
-    case GrpcException(GrpcStatus.PERMISSION_DENIED(), _) => false
+    case GrpcException.PERMISSION_DENIED() => false
     case NonFatal(_) => true
   }
 
