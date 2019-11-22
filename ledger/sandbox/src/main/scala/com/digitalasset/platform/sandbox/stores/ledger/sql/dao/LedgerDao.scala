@@ -8,7 +8,7 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.index.v2.PackageDetails
-import com.daml.ledger.participant.state.v1.{AbsoluteContractInst, TransactionId}
+import com.daml.ledger.participant.state.v1.{AbsoluteContractInst, ParticipantId, TransactionId}
 import com.digitalasset.daml.lf.data.Ref.{LedgerString, PackageId, Party}
 import com.digitalasset.daml.lf.data.Relation.Relation
 import com.digitalasset.daml.lf.transaction.Node
@@ -238,7 +238,7 @@ trait LedgerWriteDao extends AutoCloseable {
       offset: LedgerOffset,
       newLedgerEnd: LedgerOffset,
       externalOffset: Option[ExternalOffset],
-      participantId: String,
+      participantId: ParticipantId,
       submissionId: String,
       reason: Option[String],
       typ: String): Future[PersistenceResponse]
