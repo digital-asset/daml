@@ -3064,7 +3064,7 @@ program using the builtin functions : ``TEXTMAP_EMPTY``,
 ``TEXTMAP_INSERT``, ``TEXTMAP_LOOKUP``, ``TEXTMAP_DELETE``,
 ``TEXTMAP_LIST``, ``TEXTMAP_SIZE``,
 
-TextMpa was called ``Map`` in versions <= 1.dev.
+``'TextMap'`` was called ``'Map'`` in versions <= 1.dev.
 
 Enum
 ....
