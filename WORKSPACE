@@ -281,7 +281,6 @@ nix_ghc_deps = common_nix_file_deps + [
     "//nix:ghc.nix",
     "//nix:with-packages-wrapper.nix",
     "//nix:overrides/ghc-8.6.5.nix",
-    "//nix:overrides/ghc-8.6.3-binary.nix",
 ]
 
 # This is used to get ghc-pkg on Linux.
