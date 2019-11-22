@@ -7,16 +7,21 @@ import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTestSuite}
 import com.digitalasset.ledger.test_stable.Test.{Dummy, TextContainer}
+import TransactionScale.numberOfCommandsUnit
 
 import scala.concurrent.Future
 
 class TransactionScale(session: LedgerSession) extends LedgerTestSuite(session) {
+  require(
+    numberOfCommands(units = 1) > 0,
+    s"The load scale factor must be at least ${1.0 / numberOfCommandsUnit}")
+
   test(
     "TXLargeCommand",
     "Accept huge submissions with a large number of commands",
     allocate(SingleParty)) {
     case Participants(Participant(ledger, party)) =>
-      val targetNumberOfSubCommands = 1500
+      val targetNumberOfSubCommands = numberOfCommands(units = 3)
       for {
         request <- ledger.submitAndWaitRequest(
           party,
@@ -29,7 +34,7 @@ class TransactionScale(session: LedgerSession) extends LedgerTestSuite(session) 
 
   test("TXManyCommands", "Accept many, large commands at once", allocate(SingleParty)) {
     case Participants(Participant(ledger, party)) =>
-      val targetNumberOfCommands = 500
+      val targetNumberOfCommands = numberOfCommands(units = 1)
       val oneKbOfText = new String(Array.fill(512 /* two bytes each */ )('a'))
       for {
         contractIds <- Future.sequence((1 to targetNumberOfCommands).map(_ =>
@@ -39,4 +44,11 @@ class TransactionScale(session: LedgerSession) extends LedgerTestSuite(session) 
       }
   }
 
+  private def numberOfCommands(units: Int): Int =
+    (units * numberOfCommandsUnit * session.config.loadScaleFactor).toInt
+
+}
+
+object TransactionScale {
+  private val numberOfCommandsUnit = 500
 }

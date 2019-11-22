@@ -93,6 +93,14 @@ object Cli {
               |Defaults to 1.0. Use numbers higher than 1.0 to make test timeouts more lax,
               |use numbers lower than 1.0 to make test timeouts more strict.""".stripMargin)
 
+    opt[Double](name = "load-scale-factor")
+      .optional()
+      .action((v, c) => c.copy(loadScaleFactor = v))
+      .text("""Scale factor for the load used in scale test suites. Useful to adapt the load
+              |depending on the environment and the Ledger implementation under test.
+              |Defaults to 1.0. Use numbers higher than 1.0 to increase the load,
+              |use numbers lower than 1.0 to decrease the load.""".stripMargin)
+
     opt[Int](name = "concurrent-test-runs")
       .optional()
       .action((v, c) => c.copy(concurrentTestRuns = v))
