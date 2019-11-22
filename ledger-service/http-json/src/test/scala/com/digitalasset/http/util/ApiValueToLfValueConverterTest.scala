@@ -83,7 +83,7 @@ object ApiValueToLfValueConverterTest {
       value1 === value2
     case (V.ValueTuple(fields), V.ValueTuple(fields2)) =>
       fields === fields2
-    case (V.ValueMap(map1), V.ValueMap(map2)) =>
+    case (V.ValueTextMap(map1), V.ValueTextMap(map2)) =>
       map1.toImmArray === map2.toImmArray
     case _ =>
       false

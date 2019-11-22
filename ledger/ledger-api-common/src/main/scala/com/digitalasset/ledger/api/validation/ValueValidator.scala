@@ -105,7 +105,7 @@ object ValueValidator {
       for {
         entries <- map
         map <- SortedLookupList.fromImmArray(entries.toImmArray).left.map(invalidArgument)
-      } yield Lf.ValueMap(map)
+      } yield Lf.ValueTextMap(map)
 
     case Sum.GenMap(genMap0) =>
       val genMap = genMap0.entries

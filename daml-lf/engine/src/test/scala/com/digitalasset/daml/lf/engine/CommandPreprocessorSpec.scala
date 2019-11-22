@@ -65,7 +65,7 @@ class CommandPreprocessorSpec extends WordSpec with Matchers with TableDrivenPro
       TList(TText) ->
         ValueList(FrontStack(ValueText("a"), ValueText("b"))),
       TMap(TBool) ->
-        ValueMap(SortedLookupList(Map("0" -> ValueTrue, "1" -> ValueFalse))),
+        ValueTextMap(SortedLookupList(Map("0" -> ValueTrue, "1" -> ValueFalse))),
       TOptional(TText) ->
         ValueOptional(Some(ValueText("text"))),
       TTyCon(recordCon) ->

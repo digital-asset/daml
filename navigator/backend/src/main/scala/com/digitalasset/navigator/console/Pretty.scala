@@ -244,7 +244,7 @@ object Pretty {
     case V.ValueUnit => PrettyPrimitive("<unit>")
     case V.ValueOptional(None) => PrettyPrimitive("<none>")
     case V.ValueOptional(Some(v)) => PrettyObject(PrettyField("value", argument(v)))
-    case V.ValueMap(map) =>
+    case V.ValueTextMap(map) =>
       PrettyObject(map.toImmArray.toList.map {
         case (key, value) => PrettyField(key, argument(arg))
       })

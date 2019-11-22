@@ -164,7 +164,7 @@ object ApiCodecVerbose {
           case v => V.ValueOptional(Some(jsValueToApiValue(v)))
         }
       case `tagMap` =>
-        V.ValueMap(
+        V.ValueTextMap(
           SortedLookupList
             .fromImmArray(ImmArray(arrayField(value, propValue, "ApiMap").map(jsValueToMapEntry)))
             .fold(

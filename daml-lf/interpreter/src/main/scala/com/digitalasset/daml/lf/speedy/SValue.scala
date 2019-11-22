@@ -63,7 +63,7 @@ sealed trait SValue {
       case SOptional(mbV) =>
         V.ValueOptional(mbV.map(_.toValue))
       case SMap(mVal) =>
-        V.ValueMap(SortedLookupList(mVal).mapValue(_.toValue))
+        V.ValueTextMap(SortedLookupList(mVal).mapValue(_.toValue))
       case SGenMap(values) =>
         V.ValueGenMap(ImmArray(values.map { case (k, v) => k.v.toValue -> v.toValue }))
       case SContractId(coid) =>
@@ -270,7 +270,7 @@ object SValue {
       case V.ValueOptional(mbV) =>
         SOptional(mbV.map(fromValue))
 
-      case V.ValueMap(map) =>
+      case V.ValueTextMap(map) =>
         SMap(map.mapValue(fromValue).toHashMap)
 
       case V.ValueGenMap(value) =>

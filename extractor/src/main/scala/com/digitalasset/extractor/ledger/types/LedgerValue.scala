@@ -87,14 +87,14 @@ object LedgerValue {
   private def convertOptional(apiOptional: api.value.Optional) =
     apiOptional.value traverseU (_.convert) map (V.ValueOptional(_))
 
-  private def convertMap(apiMap: api.value.Map): String \/ OfCid[V.ValueMap] =
+  private def convertMap(apiMap: api.value.Map): String \/ OfCid[V.ValueTextMap] =
     for {
       entries <- apiMap.entries.toList.traverseU {
         case api.value.Map.Entry(_, None) => -\/("value must be defined")
         case api.value.Map.Entry(k, Some(v)) => v.sum.convert.map(k -> _)
       }
       map <- SortedLookupList.fromImmArray(ImmArray(entries)).disjunction
-    } yield V.ValueMap(map)
+    } yield V.ValueTextMap(map)
 
   private def convertIdentifier(
       apiIdentifier: api.value.Identifier): String \/ Option[Ref.Identifier] = {

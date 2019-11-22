@@ -64,7 +64,7 @@ case object DamlConstants {
   val simpleDateV = V.ValueDate.fromIso8601("2019-01-28")
   val simpleTimestampV = V.ValueTimestamp.fromIso8601("2019-01-28T12:44:33.22Z")
   val simpleOptionalV = V.ValueOptional(Some(V.ValueText("foo")))
-  val simpleMapV = V.ValueMap(
+  val simpleMapV = V.ValueTextMap(
     SortedLookupList(Map("1" -> V.ValueInt64(1), "2" -> V.ValueInt64(2), "3" -> V.ValueInt64(3))))
 
   // ------------------------------------------------------------------------------------------------------------------
@@ -243,7 +243,7 @@ case object DamlConstants {
       ("fOptOptText", V.ValueOptional(Some(V.ValueOptional(Some(V.ValueText("foo")))))),
       (
         "fMap",
-        V.ValueMap(
+        V.ValueTextMap(
           SortedLookupList(
             Map("1" -> V.ValueInt64(1), "2" -> V.ValueInt64(2), "3" -> V.ValueInt64(3))))),
       ("fVariant", simpleVariantV),

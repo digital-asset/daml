@@ -309,7 +309,7 @@ object Queries {
         case V.ValueParty(value) => Fragment("?", value: String)
         case V.ValueUnit => Fragment.const("FALSE")
         case V.ValueDate(LfTime.Date(days)) => Fragment("?", LocalDate.ofEpochDay(days.toLong))
-        case V.ValueMap(m) =>
+        case V.ValueTextMap(m) =>
           Fragment(
             "?::jsonb",
             toJsonString(m)

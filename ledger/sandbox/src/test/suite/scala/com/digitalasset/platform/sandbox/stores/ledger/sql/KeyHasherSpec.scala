@@ -49,7 +49,7 @@ class KeyHasherSpec extends WordSpec with Matchers {
         None -> ValueText("field1"),
         None -> ValueText("field2")
       ))
-    builder += None -> ValueMap(
+    builder += None -> ValueTextMap(
       SortedLookupList(
         Map(
           "keyA" -> ValueText("valueA"),
@@ -201,7 +201,7 @@ class KeyHasherSpec extends WordSpec with Matchers {
     "not produce collision in Map keys" in {
       val value1 = VersionedValue(
         ValueVersion("4"),
-        ValueMap(
+        ValueTextMap(
           SortedLookupList(
             Map(
               "A" -> ValueInt64(0),
@@ -209,7 +209,7 @@ class KeyHasherSpec extends WordSpec with Matchers {
             ))))
       val value2 = VersionedValue(
         ValueVersion("4"),
-        ValueMap(
+        ValueTextMap(
           SortedLookupList(
             Map(
               "A" -> ValueInt64(0),
@@ -227,7 +227,7 @@ class KeyHasherSpec extends WordSpec with Matchers {
     "not produce collision in Map values" in {
       val value1 = VersionedValue(
         ValueVersion("4"),
-        ValueMap(
+        ValueTextMap(
           SortedLookupList(
             Map(
               "A" -> ValueInt64(0),
@@ -235,7 +235,7 @@ class KeyHasherSpec extends WordSpec with Matchers {
             ))))
       val value2 = VersionedValue(
         ValueVersion("4"),
-        ValueMap(
+        ValueTextMap(
           SortedLookupList(
             Map(
               "A" -> ValueInt64(0),
