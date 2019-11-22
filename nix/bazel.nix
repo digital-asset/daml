@@ -35,7 +35,7 @@ let shared = rec {
     postFixup = ''touch $out/share/go/ROOT'';
   });
 
-  ghc = pkgs.haskell.packages.ghc865;
+  ghc = pkgs.haskell.packages.ghc881;
 
   # GHC configured for static linking only.
   ghcStatic = (import ./ghc.nix { inherit pkgs; }).ghc.override { enableShared = false; };

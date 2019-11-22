@@ -59,11 +59,11 @@ haskell_register_ghc_nixpkgs(
     build_file = "@io_tweag_rules_nixpkgs//nixpkgs:BUILD.pkg",
     compiler_flags = [ ... ],
     ...
-    version = "8.6.5",
+    version = "8.8.1",
 )
 haskell_register_ghc_bindists(
     compiler_flags = common_ghc_flags,
-    version = "8.6.5",
+    version = "8.8.1",
 ) if is_windows else None
 ```
 On Linux and macOS we import GHC from nixpkgs, while on Windows we download an
