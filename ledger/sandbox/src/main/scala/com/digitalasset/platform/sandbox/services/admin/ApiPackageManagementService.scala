@@ -77,36 +77,18 @@ class ApiPackageManagementService(
         FutureConverters
           .toScala(res._1)
           .flatMap {
-            //TODO BH: first step to get this to compile -- need to implement properly polling and retrieval of response event
+            //TODO BH: need to implement properly polling and retrieval of response event
             case SubmissionResult.Acknowledged =>
               Future.successful(UploadDarFileResponse())
+            case r @ SubmissionResult.Overloaded =>
+              Future.failed(ErrorFactories.resourceExhausted(r.description))
             case r @ SubmissionResult.InternalError(_) =>
               Future.failed(ErrorFactories.internal(r.reason))
-            case SubmissionResult.NotSupported =>
-              Future.failed(ErrorFactories.unimplemented("not supported"))
-            case SubmissionResult.Overloaded =>
-              Future.failed(ErrorFactories.grpcError(io.grpc.Status.RESOURCE_EXHAUSTED))
+            case r @ SubmissionResult.NotSupported =>
+              Future.failed(ErrorFactories.unimplemented(r.description))
           }(DE)
           .flatMap(pollUntilPersisted(res._2, _))(DE)
     )
-  }
-
-  private def prepareUploadPackageResult(
-      result: UploadPackagesResult): Future[UploadDarFileResponse] = {
-    result match {
-      case UploadPackagesResult.Ok =>
-        Future.successful(UploadDarFileResponse())
-      case r @ UploadPackagesResult.Overloaded =>
-        Future.failed(ErrorFactories.resourceExhausted(r.description))
-      case r @ UploadPackagesResult.InternalError(_) =>
-        Future.failed(ErrorFactories.internal(r.reason))
-      case r @ UploadPackagesResult.InvalidPackage(_) =>
-        Future.failed(ErrorFactories.invalidArgument(r.description))
-      case r @ UploadPackagesResult.ParticipantNotAuthorized =>
-        Future.failed(ErrorFactories.permissionDenied(r.description))
-      case r @ UploadPackagesResult.NotSupported =>
-        Future.failed(ErrorFactories.unimplemented(r.description))
-    }
   }
 
   /**
