@@ -1367,33 +1367,36 @@ private class JdbcLedgerDao(
       offset: LedgerOffset,
       newLedgerEnd: LedgerOffset,
       externalOffset: Option[ExternalOffset],
-      typ: PackageUploadEntry): Future[PersistenceResponse] = {
+      entry: PackageUploadEntry): Future[PersistenceResponse] = {
 
-    val prereqs = Try {
-      require(typ.participantId.nonEmpty, "participantId cannot be empty")
-      require(typ.submissionId.nonEmpty, "submissionId cannot be empty")
-    }
-    prereqs.fold(
-      Future.failed,
-      _ =>
-        dbDispatcher.executeSql("store package upload entry") { implicit conn =>
-          updateLedgerEnd(newLedgerEnd, externalOffset)
-          val sqlupdate = executeBatchSql(
-            queries.SQL_INSERT_PACKAGE_UPLOAD_ENTRY,
-            List(
-              Seq[NamedParameter](
-                "ledger_offset" -> offset,
-                "recorded_at" -> Instant.now(),
-                "submission_id" -> typ.submissionId,
-                "participant_id" -> typ.participantId,
-                "typ" -> typ.value,
-                "rejection_reason" -> reasonOrNull(typ)
-              ))
+    dbDispatcher.executeSql("store package upload entry") { implicit conn =>
+      updateLedgerEnd(newLedgerEnd, externalOffset)
+      Try({
+        SQL(queries.SQL_INSERT_PACKAGE_UPLOAD_ENTRY)
+          .on(
+            "ledger_offset" -> offset,
+            "recorded_at" -> Instant.now(),
+            "submission_id" -> entry.submissionId,
+            "participant_id" -> entry.submissionId,
+            "typ" -> entry.value,
+            "rejection_reason" -> reasonOrNull(entry)
           )
-          if (sqlupdate.head > 0) PersistenceResponse.Ok
-          else PersistenceResponse.Duplicate
-      }
-    )
+          .execute()
+        PersistenceResponse.Ok
+      }).recover {
+          case NonFatal(e) if e.getMessage.contains(queries.DUPLICATE_KEY_ERROR) =>
+            logger.warn(
+              s"Ignoring duplicate package upload entry submission for submissionId ${entry.submissionId} participantId ${entry.participantId}")
+            conn.rollback()
+            PersistenceResponse.Duplicate
+        }
+        .getOrElse {
+          logger.warn(
+            s"Insert package upload entry failed for submissionId ${entry.submissionId} participantId ${entry.participantId}")
+          conn.rollback()
+          PersistenceResponse.Duplicate
+        }
+    }
   }
 
   private def reasonOrNull(entry: PackageUploadEntry): String = {
