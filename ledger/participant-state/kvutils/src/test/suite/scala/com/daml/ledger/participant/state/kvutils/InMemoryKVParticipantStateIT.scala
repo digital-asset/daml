@@ -161,12 +161,12 @@ class InMemoryKVParticipantStateIT
         }
         // first upload arrives as head update followed by entry accepted:
         matchPackageUpload(updateTuples.head, Offset(Array(0L, 0L)), archives.head, rt)
-        matchPackageUploadEntryAccepted(updateTuples(1), Offset(Array(0L,1L)))
+        matchPackageUploadEntryAccepted(updateTuples(1), Offset(Array(0L, 1L)))
         // second upload results in no package upload but there is an entry accepted as it was a duplicate
-        matchPackageUploadEntryAccepted(updateTuples(2), Offset(Array(1L,0L)))
+        matchPackageUploadEntryAccepted(updateTuples(2), Offset(Array(1L, 0L)))
         // third upload arrives as a second package upload followed by an entry accepted:
         matchPackageUpload(updateTuples(3), Offset(Array(2L, 0L)), archives(1), rt)
-        matchPackageUploadEntryAccepted(updateTuples(4), Offset(Array(2L,1L)))
+        matchPackageUploadEntryAccepted(updateTuples(4), Offset(Array(2L, 1L)))
       }
     }
 
