@@ -35,6 +35,7 @@ private class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: MetricRegi
     val lookupExternalLedgerEnd = metrics.timer("LedgerDao.lookupExternalLedgerEnd")
     val lookupLedgerEntry = metrics.timer("LedgerDao.lookupLedgerEntry")
     val lookupTransaction = metrics.timer("LedgerDao.lookupTransaction")
+    val lookupLedgerConfiguration = metrics.timer("LedgerDao.lookupLedgerConfiguration")
     val lookupKey = metrics.timer("LedgerDao.lookupKey")
     val lookupActiveContract = metrics.timer("LedgerDao.lookupActiveContract")
     val getParties = metrics.timer("LedgerDao.getParties")
@@ -94,7 +95,7 @@ private class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: MetricRegi
 
   /** Looks up the current ledger configuration, if it has been set. */
   override def lookupLedgerConfiguration(): Future[Option[Configuration]] =
-    mm.timedFuture("lookupLedgerConfiguration", ledgerDao.lookupLedgerConfiguration())
+    timedFuture(Metrics.lookupLedgerConfiguration, ledgerDao.lookupLedgerConfiguration())
 
   /** Get a stream of configuration entries. */
   override def getConfigurationEntries(
@@ -112,7 +113,7 @@ private class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: MetricRegistry)
     val storeInitialState = metrics.timer("LedgerDao.storeInitialState")
     val uploadLfPackages = metrics.timer("LedgerDao.uploadLfPackages")
     val storeLedgerEntry = metrics.timer("LedgerDao.storeLedgerEntry")
-
+    val storeConfigurationEntry = metrics.timer("LedgerDao.storeConfigurationEntry")
   }
   override def storeLedgerEntry(
       offset: Long,
@@ -154,8 +155,8 @@ private class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: MetricRegistry)
       configuration: Configuration,
       rejectionReason: Option[String]
   ): Future[PersistenceResponse] =
-    mm.timedFuture(
-      "storeConfigurationEntry",
+    timedFuture(
+      Metrics.storeConfigurationEntry,
       ledgerDao.storeConfigurationEntry(
         offset,
         newLedgerEnd,

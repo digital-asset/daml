@@ -88,7 +88,7 @@ class ImplicitPartyAdditionIT
       case BackendType.InMemory =>
         LedgerResource.inMemory(ledgerId, participantId, timeProvider)
       case BackendType.Postgres =>
-        LedgerResource.postgres(ledgerId, timeProvider, participantId, metrics)
+        LedgerResource.postgres(ledgerId, participantId, timeProvider, metrics)
     }
 
   private def publishSingleNodeTx(

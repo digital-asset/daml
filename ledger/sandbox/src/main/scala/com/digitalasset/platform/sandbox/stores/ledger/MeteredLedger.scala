@@ -31,6 +31,7 @@ private class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: MetricRegis
     val lookupContract = metrics.timer("Ledger.lookupContract")
     val lookupKey = metrics.timer("Ledger.lookupKey")
     val lookupTransaction = metrics.timer("Ledger.lookupTransaction")
+    val lookupLedgerConfiguration  = metrics.timer("Ledger.lookupLedgerConfiguration ")
     val parties = metrics.timer("Ledger.parties")
     val listLfPackages = metrics.timer("Ledger.listLfPackages")
     val getLfArchive = metrics.timer("Ledger.getLfArchive")
@@ -76,7 +77,9 @@ private class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: MetricRegis
   }
 
   override def lookupLedgerConfiguration(): Future[Option[Configuration]] =
-    mm.timedFuture("Ledger:lookupLedgerConfiguration", ledger.lookupLedgerConfiguration())
+    timedFuture(
+      Metrics.lookupLedgerConfiguration,
+      ledger.lookupLedgerConfiguration())
 
   override def configurationEntries(offset: Option[Long]): Source[(Long, ConfigurationEntry), NotUsed] =
     ledger.configurationEntries(offset)
@@ -96,6 +99,7 @@ private class MeteredLedger(ledger: Ledger, metrics: MetricRegistry)
     val publishTransaction = metrics.timer("Ledger.publishTransaction")
     val addParty = metrics.timer("Ledger.addParty")
     val uploadPackages = metrics.timer("Ledger.uploadPackages")
+    val publishConfiguration = metrics.timer("Ledger.publishConfiguration ")
   }
 
   override def publishHeartbeat(time: Instant): Future[Unit] =
@@ -126,8 +130,8 @@ private class MeteredLedger(ledger: Ledger, metrics: MetricRegistry)
       maxRecordTime: Time.Timestamp,
       submissionId: String,
       config: Configuration): Future[SubmissionResult] =
-    mm.timedFuture(
-      "Ledger:publishConfiguration",
+    timedFuture(
+      Metrics.publishConfiguration,
       ledger.publishConfiguration(maxRecordTime, submissionId, config))
 
   override def close(): Unit = {

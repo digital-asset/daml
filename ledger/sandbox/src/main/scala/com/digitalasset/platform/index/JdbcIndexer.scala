@@ -370,9 +370,9 @@ class JdbcIndexer private[index] (
       case PartyAddedToParticipant(_, _, _, recordTime) => Some(recordTime)
       case PublicPackageUploaded(_, _, _, recordTime) => Some(recordTime)
       case TransactionAccepted(_, _, _, _, recordTime, _) => Some(recordTime)
-      case ConfigurationChanged(_, _) => None
-      case ConfigurationChangeRejected(_, _) => None
-      case CommandRejected(_, _) => None
+      case ConfigurationChanged(_, _, _, _) => None
+      case ConfigurationChangeRejected(_, _, _, _, _) => None
+      case CommandRejected(_, _, _) => None
     }) map (_.toInstant)
 
   private def toDomainRejection(
