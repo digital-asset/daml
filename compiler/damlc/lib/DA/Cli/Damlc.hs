@@ -183,8 +183,9 @@ cmdTest numProcessors =
 runTestsInProjectOrFiles :: ProjectOpts -> Maybe [FilePath] -> UseColor -> Maybe FilePath -> Options -> Command
 runTestsInProjectOrFiles projectOpts Nothing color mbJUnitOutput cliOptions = Command Test effect
   where effect = withExpectProjectRoot (projectRoot projectOpts) "daml test" $ \pPath _ -> do
+        sdkVersion <- PackageSdkVersion <$> getSdkVersion
         project <- readProjectConfig $ ProjectPath pPath
-        case parseProjectConfig project of
+        case parseProjectConfig sdkVersion project of
             Left err -> throwIO err
             Right PackageConfigFields {..} -> do
               -- TODO: We set up one scenario service context per file that
@@ -457,24 +458,22 @@ execLint inputFile opts =
          DlintDisabled  -> opts{optDlintUsage=DlintEnabled defaultDir True}
 
 -- | Parse the daml.yaml for package specific config fields.
-parseProjectConfig :: ProjectConfig -> Either ConfigError PackageConfigFields
-parseProjectConfig project = do
-    name <- queryProjectConfigRequired ["name"] project
-    main <- queryProjectConfigRequired ["source"] project
-    exposedModules <- queryProjectConfig ["exposed-modules"] project
-    version <- queryProjectConfigRequired ["version"] project
-    dependencies <-
-        queryProjectConfigRequired ["dependencies"] project
-    dataDeps <- fromMaybe [] <$> queryProjectConfig ["data-dependencies"] project
-    sdkVersion <- queryProjectConfigRequired ["sdk-version"] project
-    cliOpts <- queryProjectConfig ["build-options"] project
-    Right $ PackageConfigFields name main exposedModules version dependencies dataDeps sdkVersion cliOpts
+parseProjectConfig :: PackageSdkVersion -> ProjectConfig -> Either ConfigError PackageConfigFields
+parseProjectConfig pSdkVersion project = do
+    pName <- queryProjectConfigRequired ["name"] project
+    pSrc <- queryProjectConfigRequired ["source"] project
+    pExposedModules <- queryProjectConfig ["exposed-modules"] project
+    pVersion <- queryProjectConfigRequired ["version"] project
+    pDependencies <- queryProjectConfigRequired ["dependencies"] project
+    pDataDependencies <- fromMaybe [] <$> queryProjectConfig ["data-dependencies"] project
+    Right PackageConfigFields {..}
 
 -- | We assume that this is only called within `withProjectRoot`.
 withPackageConfig :: (PackageConfigFields -> IO a) -> IO a
 withPackageConfig f = do
+    sdkVersion <- PackageSdkVersion <$> getSdkVersion
     project <- readProjectConfig $ ProjectPath "."
-    case parseProjectConfig project of
+    case parseProjectConfig sdkVersion project of
         Left err -> throwIO err
         Right pkgConfig -> f pkgConfig
 
@@ -493,11 +492,8 @@ initPackageDb opts (InitPkgDb shouldInit) =
     when shouldInit $ do
         isProject <- doesFileExist projectConfigName
         when isProject $ do
-          project <- readProjectConfig $ ProjectPath "."
-          case parseProjectConfig project of
-              Left err -> throwIO err
-              Right PackageConfigFields {..} -> do
-                  createProjectPackageDb opts pSdkVersion pDependencies pDataDependencies
+            withPackageConfig $ \PackageConfigFields {..} ->
+                createProjectPackageDb opts pSdkVersion pDependencies pDataDependencies
 
 execBuild :: ProjectOpts -> Options -> Maybe FilePath -> IncrementalBuild -> InitPkgDb -> Command
 execBuild projectOpts options mbOutFile incrementalBuild initPkgDb =
@@ -572,8 +568,7 @@ execPackage projectOpts filePath opts mbOutFile dalfInput =
                               , pVersion = Nothing
                               , pDependencies = []
                               , pDataDependencies = []
-                              , pSdkVersion = ""
-                              , cliOpts = Nothing
+                              , pSdkVersion = PackageSdkVersion ""
                               }
                             (toNormalizedFilePath $ fromMaybe ifaceDir $ optIfaceDir opts')
                             dalfInput
@@ -885,14 +880,11 @@ parserInfo numProcessors =
 
 cliArgsFromDamlYaml :: IO [String]
 cliArgsFromDamlYaml = do
-    handle (\(_ :: ConfigError) -> return [])
-           $ do
-               project <- readProjectConfig $ ProjectPath "."
-               case parseProjectConfig project of
-                   Left _ -> return []
-                   Right pkgConfig -> case cliOpts pkgConfig of
-                       Nothing -> return []
-                       Just xs -> return xs
+    handle (\(_ :: ConfigError) -> return []) $ do
+        project <- readProjectConfig $ ProjectPath "."
+        case queryProjectConfigRequired ["build-options"] project of
+            Left _ -> pure []
+            Right xs -> pure xs
 
 main :: IO ()
 main = do
