@@ -152,8 +152,8 @@ private class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: MetricRegistry)
       offset: LedgerOffset,
       newLedgerEnd: LedgerOffset,
       externalOffset: Option[ExternalOffset],
-      typ: PackageUploadEntry): Future[PersistenceResponse] =
-    ledgerDao.storePackageUploadEntry(offset, newLedgerEnd, externalOffset, typ)
+      entry: PackageUploadEntry): Future[PersistenceResponse] =
+    ledgerDao.storePackageUploadEntry(offset, newLedgerEnd, externalOffset, entry)
 }
 
 object MeteredLedgerDao {

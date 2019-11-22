@@ -232,14 +232,14 @@ trait LedgerWriteDao extends AutoCloseable {
     * @param offset
     * @param newLedgerEnd
     * @param externalOffset
-    * @param typ
+    * @param entry
     * @return
     */
   def storePackageUploadEntry(
       offset: LedgerOffset,
       newLedgerEnd: LedgerOffset,
       externalOffset: Option[ExternalOffset],
-      typ: PackageUploadEntry): Future[PersistenceResponse]
+      entry: PackageUploadEntry): Future[PersistenceResponse]
 
   /** Resets the platform into a state as it was never used before. Meant to be used solely for testing. */
   def reset(): Future[Unit]
