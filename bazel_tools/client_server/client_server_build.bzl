@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 def _client_server_build_impl(ctx):
+    posix = ctx.toolchains["@rules_sh//sh/posix:toolchain_type"]
     ctx.actions.run_shell(
         outputs = [ctx.outputs.out],
         inputs = ctx.files.data,
@@ -10,15 +11,15 @@ def _client_server_build_impl(ctx):
             ctx.executable.client,
             ctx.executable.server,
         ]),
-        use_default_shell_env = True,
         command = """
         export {output_env}="{output_path}"
         {runner} "{client}" "{client_args} {client_files}" "{server}" "{server_args} {server_files}" &> runner.log
         if [ "$?" -ne 0 ]; then
-          cat runner.log
+          {cat} runner.log
           exit 1
         fi
       """.format(
+            cat = posix.commands["cat"],
             output_env = ctx.attr.output_env,
             output_path = ctx.outputs.out.path,
             runner = ctx.executable._runner.path,
@@ -63,6 +64,7 @@ client_server_build = rule(
     outputs = {
         "out": "%{name}.out",
     },
+    toolchains = ["@rules_sh//sh/posix:toolchain_type"],
 )
 """Creates a build target for a client-server run.
 
