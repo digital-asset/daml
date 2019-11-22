@@ -125,13 +125,19 @@ object Update {
     *   is informative, and can be used by applications to display information
     *   about the origin of the package.
     *
+    * @param recordTime
+    *   The ledger-provided timestamp at which the package was uploaded.
+    *
     * @param submissionId
     *   submissionId of the package upload command.
     *
     * Consider whether an enumerated set of reject reasons a la [[RejectionReason]] would be helpful, and whether the same breadth of reject
     * types needs to be handled for package upload entry rejects
     */
-  final case class PackageUploadEntryAccepted(participantId: ParticipantId, submissionId: SubmissionId)
+  final case class PackageUploadEntryAccepted(
+      participantId: ParticipantId,
+      recordTime: Timestamp,
+      submissionId: SubmissionId)
       extends Update {
     override def description: String = {
       s"Accepted package ${submissionId} for participant ${participantId}"
@@ -149,6 +155,9 @@ object Update {
     *   is informative, and can be used by applications to display information
     *   about the origin of the package.
     *
+    * @param recordTime
+    *   The ledger-provided timestamp at which the package was uploaded.
+    *
     * @param submissionId
     *   submissionId of the package upload command.
     *
@@ -160,6 +169,7 @@ object Update {
     */
   final case class PackageUploadEntryRejected(
       participantId: ParticipantId,
+      recordTime: Timestamp,
       submissionId: SubmissionId,
       reason: String)
       extends Update {
