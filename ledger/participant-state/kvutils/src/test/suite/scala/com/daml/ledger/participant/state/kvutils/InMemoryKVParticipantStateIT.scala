@@ -8,7 +8,11 @@ import java.time.Duration
 
 import akka.stream.scaladsl.Sink
 import com.daml.ledger.participant.state.backport.TimeModel
-import com.daml.ledger.participant.state.v1.Update.{PartyAddedToParticipant, PublicPackageUploaded}
+import com.daml.ledger.participant.state.v1.Update.{
+  PackageUploadEntryAccepted,
+  PartyAddedToParticipant,
+  PublicPackageUploaded
+}
 import com.daml.ledger.participant.state.v1._
 import com.digitalasset.daml.bazeltools.BazelRunfiles
 import com.digitalasset.daml.lf.archive.DarReader
@@ -64,6 +68,15 @@ class InMemoryKVParticipantStateIT
     case _ => fail("unexpected update message after a package upload")
   }
 
+  private def matchPackageUploadEntryAccepted(
+      updateTuple: (Offset, Update),
+      givenOffset: Offset): Assertion = updateTuple match {
+    case (offset: Offset, update: PackageUploadEntryAccepted) =>
+      assert(offset == givenOffset)
+      assert(update.participantId == participantId)
+    case _ => fail("unexpected update message after a package upload")
+  }
+
   "In-memory implementation" should {
 
     // FIXME(JM): Setup fixture for the participant-state
@@ -100,7 +113,7 @@ class InMemoryKVParticipantStateIT
       }
     }
 
-    "provide two updates after uploadPackages with two archives" in {
+    "provide three updates after uploadPackages with three archives" in {
       val ps = new InMemoryKVParticipantState(participantId)
       val rt = ps.getNewRecordTime()
 
@@ -108,7 +121,7 @@ class InMemoryKVParticipantStateIT
         result <- ps
           .uploadPackages(archives, sourceDescription)
           .toScala
-        updateTuples <- ps.stateUpdates(beginAfter = None).take(2).runWith(Sink.seq)
+        updateTuples <- ps.stateUpdates(beginAfter = None).take(3).runWith(Sink.seq)
       } yield {
         ps.close()
         result match {
@@ -119,10 +132,11 @@ class InMemoryKVParticipantStateIT
         }
         matchPackageUpload(updateTuples.head, Offset(Array(0L, 0L)), archives.head, rt)
         matchPackageUpload(updateTuples(1), Offset(Array(0L, 1L)), archives(1), rt)
+        matchPackageUpload(updateTuples(2), Offset(Array(0L, 2L)), archives(2), rt)
       }
     }
 
-    "remove duplicate package from update after uploadPackages" in {
+    "not provide update for a duplicate package" in {
       val ps = new InMemoryKVParticipantState(participantId)
       val rt = ps.getNewRecordTime()
 
@@ -130,26 +144,29 @@ class InMemoryKVParticipantStateIT
         _ <- ps
           .uploadPackages(List(archives.head), sourceDescription)
           .toScala
-        result <- ps
+        duplicateResult <- ps
           .uploadPackages(List(archives.head), sourceDescription)
           .toScala
         _ <- ps
           .uploadPackages(List(archives(1)), sourceDescription)
           .toScala
-        updateTuples <- ps.stateUpdates(beginAfter = None).take(2).runWith(Sink.seq)
+        updateTuples <- ps.stateUpdates(beginAfter = None).take(5).runWith(Sink.seq)
       } yield {
         ps.close()
-        result match {
+        duplicateResult match {
           case SubmissionResult.Acknowledged =>
             succeed
           case _ =>
-            fail("Unexpected response to package upload.  Error : " + result.toString)
+            fail("Unexpected response to package upload.  Error : " + duplicateResult.toString)
         }
-        // first upload arrives as head update:
+        // first upload arrives as head update followed by entry accepted:
         matchPackageUpload(updateTuples.head, Offset(Array(0L, 0L)), archives.head, rt)
-        // second upload results in no update because it was a duplicate
-        // third upload arrives as a second update:
-        matchPackageUpload(updateTuples(1), Offset(Array(2L, 0L)), archives(1), rt)
+        matchPackageUploadEntryAccepted(updateTuples(1), Offset(Array(0L,1L)))
+        // second upload results in no package upload but there is an entry accepted as it was a duplicate
+        matchPackageUploadEntryAccepted(updateTuples(2), Offset(Array(1L,0L)))
+        // third upload arrives as a second package upload followed by an entry accepted:
+        matchPackageUpload(updateTuples(3), Offset(Array(2L, 0L)), archives(1), rt)
+        matchPackageUploadEntryAccepted(updateTuples(4), Offset(Array(2L,1L)))
       }
     }
 

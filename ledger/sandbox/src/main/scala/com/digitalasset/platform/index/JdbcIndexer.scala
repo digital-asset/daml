@@ -25,7 +25,7 @@ import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.common.util.{DirectExecutionContext => DEC}
 import com.digitalasset.platform.sandbox.services.transaction.SandboxEventIdFormatter
 import com.digitalasset.platform.sandbox.metrics.timedFuture
-import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry
+import com.digitalasset.platform.sandbox.stores.ledger.{LedgerEntry}
 import com.digitalasset.platform.sandbox.stores.ledger.sql.SqlLedger.{
   defaultNumberOfShortLivedConnections,
   defaultNumberOfStreamingConnections
@@ -282,7 +282,8 @@ class JdbcIndexer private[index] (
             externalOffset,
             participantId,
             submissionId,
-            None)
+            None,
+            "accept")
           .map(_ => headRef = headRef + 1)(DEC)
 
       //TODO BH: consider generalization of persistence storage JM has done on configuration branch
@@ -294,7 +295,8 @@ class JdbcIndexer private[index] (
             externalOffset,
             participantId,
             submissionId,
-            Some(reason))
+            Some(reason),
+            "reject")
           .map(_ => headRef = headRef + 1)(DEC)
 
       case TransactionAccepted(

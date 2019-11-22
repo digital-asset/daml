@@ -240,8 +240,8 @@ trait LedgerWriteDao extends AutoCloseable {
       externalOffset: Option[ExternalOffset],
       participantId: String,
       submissionId: String,
-      reason: Option[String]
-  ): Future[PersistenceResponse]
+      reason: Option[String],
+      typ: String): Future[PersistenceResponse]
 
   /** Resets the platform into a state as it was never used before. Meant to be used solely for testing. */
   def reset(): Future[Unit]
