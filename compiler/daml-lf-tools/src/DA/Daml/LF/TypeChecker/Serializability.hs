@@ -91,7 +91,7 @@ serializabilityConditionsType world0 _version mbModNameTpls vars = go
         BTBool -> noConditions
         BTList -> Left URList  -- 'List' is used as a higher-kinded type constructor.
         BTOptional -> Left UROptional  -- 'Optional' is used as a higher-kinded type constructor.
-        BTTextMap -> Left URMap  -- 'Map' is used as a higher-kinded type constructor.
+        BTTextMap -> Left URMap  -- 'TextMap' is used as a higher-kinded type constructor.
         BTGenMap -> Left URGenMap -- 'GenMap' is used as a higher-kinded type constructor.
         BTUpdate -> Left URUpdate
         BTScenario -> Left URScenario
