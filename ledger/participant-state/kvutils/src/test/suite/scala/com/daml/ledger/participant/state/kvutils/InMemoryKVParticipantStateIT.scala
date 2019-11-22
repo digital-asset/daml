@@ -8,13 +8,7 @@ import java.time.Duration
 
 import akka.stream.scaladsl.Sink
 import com.daml.ledger.participant.state.backport.TimeModel
-import com.daml.ledger.participant.state.v1.Update.{
-  Heartbeat,
-  PackageUploadEntryAccepted,
-  PackageUploadEntryRejected,
-  PartyAddedToParticipant,
-  PublicPackageUploaded
-}
+import com.daml.ledger.participant.state.v1.Update._
 import com.daml.ledger.participant.state.v1._
 import com.digitalasset.daml.bazeltools.BazelRunfiles
 import com.digitalasset.daml.lf.archive.DarReader
