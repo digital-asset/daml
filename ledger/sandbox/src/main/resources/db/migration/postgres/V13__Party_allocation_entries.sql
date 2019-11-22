@@ -21,7 +21,7 @@ CREATE TABLE party_allocation_entries
     ledger_offset    bigint              not null,
     -- The type of entry, one of 'accept' or 'reject'
     typ              varchar             not null,
-    -- If the type is 'rejection', then the rejection reason is set.
+    -- If the type is 'reject', then the rejection reason is set.
     -- Rejection reason is a human-readable description why the change was rejected.
     rejection_reason varchar,
 

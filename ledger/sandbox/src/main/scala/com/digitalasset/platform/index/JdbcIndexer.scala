@@ -273,7 +273,7 @@ class JdbcIndexer private[index] (
         )
         ledgerDao.uploadLfPackages(uploadId, packages, externalOffset).map(_ => ())(DEC)
 
-      case PackageUploadEntryAccepted(participantId, submissionId) =>
+      case PackageUploadEntryAccepted(participantId, recordTime, submissionId) =>
         ledgerDao
           .storePackageUploadEntry(
             headRef,
@@ -282,7 +282,7 @@ class JdbcIndexer private[index] (
             PackageUploadEntry.Accepted(submissionId, participantId))
           .map(_ => headRef = headRef + 1)(DEC)
 
-      case PackageUploadEntryRejected(participantId, submissionId, reason) =>
+      case PackageUploadEntryRejected(participantId, recordTime, submissionId, reason) =>
         ledgerDao
           .storePackageUploadEntry(
             headRef,
@@ -374,8 +374,8 @@ class JdbcIndexer private[index] (
       case ConfigurationChanged(_, _) => None
       case ConfigurationChangeRejected(_, _) => None
       case CommandRejected(_, _) => None
-      case PackageUploadEntryAccepted(_, _) => None
-      case PackageUploadEntryRejected(_, _, _) => None
+      case PackageUploadEntryAccepted(_, recordTime, _) => Some(recordTime)
+      case PackageUploadEntryRejected(_, recordTime, _, _) => Some(recordTime)
     }) map (_.toInstant)
 
   private def toDomainRejection(
