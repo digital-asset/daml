@@ -84,6 +84,7 @@ class InMemoryKVParticipantStateIT
     case (offset: Offset, update: PackageUploadEntryRejected) =>
       assert(offset == givenOffset)
       assert(update.participantId == participantId)
+      assert(update.reason contains("rejected as invalid"))
     case _ => fail("did not find expected upload entry rejected")
   }
 
@@ -181,7 +182,7 @@ class InMemoryKVParticipantStateIT
       }
     }
 
-    "return SubmissionResult Acknowledged for uploadPackages when archive is empty" in {
+    "return SubmissionResult Acknowledged and entry rejected for uploadPackages when archive is empty" in {
       val ps = new InMemoryKVParticipantState(participantId)
 
       val badArchive = DamlLf.Archive.newBuilder
@@ -193,6 +194,30 @@ class InMemoryKVParticipantStateIT
           .uploadPackages(List(badArchive), sourceDescription)
           .toScala
         updateTuples <- ps.stateUpdates(beginAfter = None).take(3).runWith(Sink.seq)
+      } yield {
+        ps.close()
+        result match {
+          case SubmissionResult.Acknowledged =>
+            succeed
+          case _ =>
+            fail("Unexpected response to package upload.  Error : " + result.toString)
+        }
+        matchPackageUploadEntryRejected(updateTuples.head, Offset(Array(0L, 0L)))
+      }
+    }
+
+    "return SubmissionResult Acknowledged and entry rejected for for a mixture of valid and invalid packages" in {
+      val ps = new InMemoryKVParticipantState(participantId)
+
+      val badArchive = DamlLf.Archive.newBuilder
+        .setHash("asdf")
+        .build
+
+      for {
+        result <- ps
+          .uploadPackages(List(badArchive, archives.head, archives(1)), sourceDescription)
+          .toScala
+        updateTuples <- ps.stateUpdates(beginAfter = None).take(1).runWith(Sink.seq)
       } yield {
         ps.close()
         result match {
