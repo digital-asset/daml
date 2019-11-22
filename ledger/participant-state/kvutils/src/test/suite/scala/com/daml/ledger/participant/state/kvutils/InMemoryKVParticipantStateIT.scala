@@ -8,12 +8,7 @@ import java.time.Duration
 
 import akka.stream.scaladsl.Sink
 import com.daml.ledger.participant.state.backport.TimeModel
-import com.daml.ledger.participant.state.v1.Update.{
-  PackageUploadEntryAccepted,
-  PackageUploadEntryRejected,
-  PartyAddedToParticipant,
-  PublicPackageUploaded
-}
+import com.daml.ledger.participant.state.v1.Update.{Heartbeat, PackageUploadEntryAccepted, PackageUploadEntryRejected, PartyAddedToParticipant, PublicPackageUploaded}
 import com.daml.ledger.participant.state.v1._
 import com.digitalasset.daml.bazeltools.BazelRunfiles
 import com.digitalasset.daml.lf.archive.DarReader
@@ -124,6 +119,8 @@ class InMemoryKVParticipantStateIT
       }
     }
 
+    // TODO BH: Many of these tests for transformation from DamlLogEntry to Update better belong as
+    // a KeyValueConsumptionSpec as the heart of the logic is there
     "provide three updates and an accepted after uploadPackages with three archives" in {
       val ps = new InMemoryKVParticipantState(participantId)
       val rt = ps.getNewRecordTime()
@@ -148,7 +145,7 @@ class InMemoryKVParticipantStateIT
       }
     }
 
-    "not provide update for a duplicate package" in {
+    "not provide update for uploadPackages with a duplicate package" in {
       val ps = new InMemoryKVParticipantState(participantId)
       val rt = ps.getNewRecordTime()
 
@@ -182,7 +179,7 @@ class InMemoryKVParticipantStateIT
       }
     }
 
-    "return SubmissionResult Acknowledged and entry rejected for uploadPackages when archive is empty" in {
+    "provide entry rejected for uploadPackages with an empty archive" in {
       val ps = new InMemoryKVParticipantState(participantId)
 
       val badArchive = DamlLf.Archive.newBuilder
@@ -193,7 +190,7 @@ class InMemoryKVParticipantStateIT
         result <- ps
           .uploadPackages(List(badArchive), sourceDescription)
           .toScala
-        updateTuples <- ps.stateUpdates(beginAfter = None).take(3).runWith(Sink.seq)
+        updateTuples <- ps.stateUpdates(beginAfter = None).take(2).runWith(Sink.seq)
       } yield {
         ps.close()
         result match {
@@ -203,10 +200,12 @@ class InMemoryKVParticipantStateIT
             fail("Unexpected response to package upload.  Error : " + result.toString)
         }
         matchPackageUploadEntryRejected(updateTuples.head, Offset(Array(0L, 0L)))
+        // there should be no package upload -- ensure next log entry is a heartbeat
+        assert(updateTuples(1)._2.isInstanceOf[Heartbeat])
       }
     }
 
-    "return SubmissionResult Acknowledged and entry rejected for for a mixture of valid and invalid packages" in {
+    "provide entry rejected for uploadPackages with a mixture of valid and invalid packages" in {
       val ps = new InMemoryKVParticipantState(participantId)
 
       val badArchive = DamlLf.Archive.newBuilder
