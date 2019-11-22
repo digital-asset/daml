@@ -8,6 +8,9 @@ da_scala_library(
     srcs = glob([
         "src/main/scala/**/*.scala",
     ]),
+    tags = [
+        "maven_coordinates=com.digitalasset.ledger-api:rs-grpc-testing-utils:__VERSION__",
+    ],
     visibility = [
         "//visibility:public",
     ],
