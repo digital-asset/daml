@@ -6,7 +6,6 @@ package com.digitalasset.extractor
 import akka.actor.ActorSystem
 import akka.stream.scaladsl.{RestartSource, Sink}
 import akka.stream.{ActorMaterializer, KillSwitches}
-import com.digitalasset.timer.RetryStrategy
 import com.digitalasset.extractor.Types._
 import com.digitalasset.extractor.config.{ExtractorConfig, SnapshotEndSetting}
 import com.digitalasset.extractor.helpers.FutureUtil.toFuture
@@ -15,8 +14,8 @@ import com.digitalasset.extractor.ledger.types.TransactionTree
 import com.digitalasset.extractor.ledger.types.TransactionTree._
 import com.digitalasset.extractor.writers.Writer
 import com.digitalasset.extractor.writers.Writer.RefreshPackages
-import com.digitalasset.grpc.{GrpcException, GrpcStatus}
 import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
+import com.digitalasset.grpc.{GrpcException, GrpcStatus}
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
 import com.digitalasset.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
 import com.digitalasset.ledger.api.{v1 => api}
@@ -25,9 +24,9 @@ import com.digitalasset.ledger.client.configuration._
 import com.digitalasset.ledger.client.services.pkg.PackageClient
 import com.digitalasset.ledger.service.LedgerReader
 import com.digitalasset.ledger.service.LedgerReader.PackageStore
+import com.digitalasset.timer.RetryStrategy
 import com.typesafe.scalalogging.StrictLogging
 import io.grpc.netty.NettyChannelBuilder
-import io.grpc.Status.Code.PERMISSION_DENIED
 import scalaz.Scalaz._
 import scalaz._
 import scalaz.syntax.tag._
@@ -121,7 +120,7 @@ class Extractor[T](config: ExtractorConfig, target: T)(
 
   private def keepRetryingOnPermissionDenied[A](f: () => Future[A]): Future[A] =
     RetryStrategy.constant(1.second) {
-      case GrpcException(GrpcStatus(`PERMISSION_DENIED`, _), _) => true
+      case GrpcException(GrpcStatus.PERMISSION_DENIED(), _) => true
     } { (attempt, wait) =>
       logger.error(s"Failed to authenticate with Ledger API on attempt $attempt, next one in $wait")
       tokenHolder.foreach(_.refresh())

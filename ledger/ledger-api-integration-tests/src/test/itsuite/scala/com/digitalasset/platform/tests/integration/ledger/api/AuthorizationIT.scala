@@ -45,7 +45,6 @@ import com.digitalasset.ledger.api.v1.transaction_filter.{Filters, TransactionFi
 import com.digitalasset.ledger.api.v1.transaction_service._
 import com.digitalasset.platform.apitesting._
 import com.google.protobuf.ByteString
-import io.grpc.Status.Code.PERMISSION_DENIED
 import io.grpc.stub.StreamObserver
 import io.grpc.{Status, StatusException, StatusRuntimeException}
 import org.scalatest.concurrent.AsyncTimeLimitedTests
@@ -814,7 +813,7 @@ class AuthorizationIT
       }
       def onError(t: Throwable): Unit = {
         t match {
-          case GrpcException(GrpcStatus(`PERMISSION_DENIED`, _), _) if gotSomething =>
+          case GrpcException(GrpcStatus.PERMISSION_DENIED(), _) if gotSomething =>
             val _ = promise.trySuccess(())
           case _ =>
             val _ = promise.tryFailure(t)

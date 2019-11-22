@@ -31,7 +31,6 @@ import com.digitalasset.navigator.store.Store._
 import com.digitalasset.navigator.time._
 import com.digitalasset.navigator.util.RetryHelper
 import io.grpc.Channel
-import io.grpc.Status.Code.UNIMPLEMENTED
 import io.grpc.netty.{GrpcSslContexts, NettyChannelBuilder}
 import io.netty.handler.ssl.SslContext
 import org.slf4j.LoggerFactory
@@ -340,10 +339,9 @@ class PlatformStore(
       })
       .recover({
         // If the time service is not implemented, then the ledger uses UTC time.
-        case GrpcException(GrpcStatus(`UNIMPLEMENTED`, _), _) => {
+        case GrpcException(GrpcStatus.UNIMPLEMENTED(), _) =>
           log.info("Time service is not implemented")
           None
-        }
       })
   }
 

@@ -29,7 +29,6 @@ import com.digitalasset.navigator.model.{Ledger, PackageRegistry}
 import com.digitalasset.navigator.store.Store._
 import com.digitalasset.navigator.store.platform.PlatformStore
 import com.typesafe.scalalogging.LazyLogging
-import io.grpc.Status.Code.PERMISSION_DENIED
 import org.slf4j.LoggerFactory
 import sangria.schema._
 import spray.json._
@@ -138,7 +137,7 @@ abstract class UIBackend extends LazyLogging with ApplicationInfoJsonSupport {
                                 _,
                                 _,
                                 _,
-                                GrpcException(GrpcStatus(`PERMISSION_DENIED`, _), _)) =>
+                                GrpcException(GrpcStatus.PERMISSION_DENIED(), _)) =>
                               logger.warn("Attempt to sign in without valid token")
                               complete(signIn(Some(InvalidCredentials)))
                             case _: ApplicationStateFailed =>
