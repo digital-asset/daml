@@ -167,7 +167,7 @@ def daml_deps():
             name = "build_bazel_rules_nodejs",
             urls = ["https://github.com/bazelbuild/rules_nodejs/releases/download/0.32.2/rules_nodejs-0.32.2.tar.gz"],
             sha256 = "6d4edbf28ff6720aedf5f97f9b9a7679401bf7fca9d14a0fff80f644a99992b4",
-            patches = ["@com_github_digital_asset_daml//bazel_tools:rules_nodejs_default_shell_env.patch"],
+            patches = ["@com_github_digital_asset_daml//bazel_tools:rules_nodejs_posix_path.patch"],
             patch_args = ["-p1"],
         )
 
