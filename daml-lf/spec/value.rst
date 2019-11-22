@@ -242,6 +242,21 @@ As of version 5, may be any one of the above, or this:
 
 * `message Enum`_ enum
 
+*since version 6*
+
+As of version 6, may be any one of the above *except for* `field
+decimal`_, which is no longer allowed.  Instead, the value may be
+this:
+
+* `message Numeric`_ numeric
+
+*since version 7*
+
+As of version 7, may be any one of the above, or this:
+
+* `message GenMap`_ gen_map
+
+
 field contract_id
 ~~~~~~~~~~~~~~~~~
 
@@ -555,7 +570,7 @@ message Map
 
 *since version 4*
 
-A homogeneous map of values.
+A homogeneous map where keys are strings.
 
 In this version, these fields are included:
 
@@ -579,3 +594,34 @@ In this version, these fields are included:
 
 Only ``value`` is required, and it is required to be one of the values
 of the enum type to which this ``message Enum`` conforms.
+
+
+message GenMap.Entry
+^^^^^^^^^^^^^^^^^
+
+*since version 7*
+
+A map entry (key-value pair) used to build `message GenMap`_.
+
+As of version 7, these fields are included:
+
+* `message Value`_  key
+
+* `message Value`_ value
+
+Both ``key`` and ``value`` are required.
+
+message GenMap
+^^^^^^^^^^^
+
+*since version 7*
+
+A map where keys are values are homogeneous.
+
+In this version, these fields are included:
+
+* repeated `message GenMap.Entry`_ entries
+
+The ``keys`` and the ``value`` fields of every member of ``entries`` must
+conform to the same types. Entries occur in assertion order, if two ore more
+entries have the same keys, the last one override the formers.

@@ -196,6 +196,14 @@ object ValueGenerators {
     } yield ValueTextMap[ContractId](SortedLookupList(Map(list: _*)))
   def valueMapGen: Gen[ValueTextMap[ContractId]] = valueMapGen(0)
 
+  private def valueGenMapGen(nesting: Int) =
+    for {
+      list <- Gen.listOf(for {
+        k <- Gen.lzy(valueGen(nesting)); v <- Gen.lzy(valueGen(nesting))
+      } yield k -> v)
+    } yield ValueGenMap[ContractId](ImmArray(list))
+  def valueGenMapGen: Gen[ValueGenMap[ContractId]] = valueGenMapGen(0)
+
   def coidGen: Gen[ContractId] = {
     val genRel: Gen[ContractId] =
       Arbitrary.arbInt.arbitrary.map(i => RelativeContractId(Transaction.NodeId.unsafeFromIndex(i)))

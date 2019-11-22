@@ -390,6 +390,12 @@ object ValueCoder {
               )
             ValueTextMap(map)
 
+          case proto.Value.SumCase.GEN_MAP =>
+            assertSince(ValueVersions.minGenMap, "Value.SumCase.MAP")
+            val genMap = protoValue.getGenMap.getEntriesList.asScala.map(entry =>
+              go(newNesting, entry.getKey) -> go(newNesting, entry.getValue))
+            ValueGenMap(ImmArray(genMap))
+
           case proto.Value.SumCase.SUM_NOT_SET =>
             throw Err(s"Value not set")
         }
@@ -515,9 +521,19 @@ object ValueCoder {
             }
             builder.setMap(protoMap).build()
 
-          case ValueGenMap(_) =>
-            // FIXME https://github.com/digital-asset/daml/issues/2256
-            throw Err("Trying to serialize GenMap which are not currently not supported.")
+          case ValueGenMap(entries) =>
+            val protoMap = proto.GenMap.newBuilder()
+            entries.foreach {
+              case (key, value) =>
+                protoMap.addEntries(
+                  proto.GenMap.Entry
+                    .newBuilder()
+                    .setKey(go(nesting, key))
+                    .setValue(go(newNesting, value))
+                )
+                ()
+            }
+            builder.setGenMap(protoMap).build()
 
           case ValueTuple(fields) =>
             throw Err(s"Trying to serialize tuple, which are not serializable. Fields: $fields")
