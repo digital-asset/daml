@@ -272,7 +272,6 @@ class JdbcIndexer private[index] (
           )
         )
         ledgerDao.uploadLfPackages(uploadId, packages, externalOffset).map(_ => ())(DEC)
-      //TODO BH: probably want to do this as atomic commit
 
       case PackageUploadEntryAccepted(participantId, submissionId) =>
         ledgerDao
@@ -286,7 +285,6 @@ class JdbcIndexer private[index] (
             "accept")
           .map(_ => headRef = headRef + 1)(DEC)
 
-      //TODO BH: consider generalization of persistence storage JM has done on configuration branch
       case PackageUploadEntryRejected(participantId, submissionId, reason) =>
         ledgerDao
           .storePackageUploadEntry(

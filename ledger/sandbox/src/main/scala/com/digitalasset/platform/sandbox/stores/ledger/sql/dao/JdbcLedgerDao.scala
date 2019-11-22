@@ -1393,7 +1393,6 @@ private class JdbcLedgerDao(
                 "rejection_reason" -> reason
               ))
           )
-          //TODO BH more robust condition handling needed
           if (sqlupdate.head > 0) PersistenceResponse.Ok
           else PersistenceResponse.Duplicate
       }
