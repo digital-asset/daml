@@ -43,7 +43,7 @@ sealed abstract class ValuePredicate extends Product with Serializable {
       case MapMatch(q) =>
         val cq = (q mapValue go).toImmArray;
         {
-          case V.ValueMap(v) if cq.length == v.toImmArray.length =>
+          case V.ValueTextMap(v) if cq.length == v.toImmArray.length =>
             // the sort-by-key is the same for cq and v, so if equal, the keys
             // are at equal indices
             cq.iterator zip v.toImmArray.iterator forall {

@@ -655,7 +655,7 @@ case class Conversions(homePackageId: Ref.PackageId) {
           case Some(v) => optionalBuilder.setValue(convertValue(v))
         }
         builder.setOptional(optionalBuilder)
-      case V.ValueMap(map) =>
+      case V.ValueTextMap(map) =>
         val mapBuilder = v1.Map.newBuilder
         map.toImmArray.foreach {
           case (k, v) =>

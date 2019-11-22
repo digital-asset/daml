@@ -138,7 +138,7 @@ class ValueCoderSpec extends WordSpec with Matchers with EitherAssertions with P
     }
 
     "do maps" in {
-      forAll(valueMapGen) { v: ValueMap[ContractId] =>
+      forAll(valueMapGen) { v: ValueTextMap[ContractId] =>
         testRoundTrip(v)
       }
     }

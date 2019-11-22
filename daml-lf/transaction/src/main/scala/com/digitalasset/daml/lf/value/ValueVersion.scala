@@ -54,7 +54,7 @@ object ValueVersions
                 go(maxVV(minNumeric, currentVersion), values)
               case ValueOptional(x) =>
                 go(maxVV(minOptional, currentVersion), ImmArray(x.toList) ++: values)
-              case ValueMap(map) =>
+              case ValueTextMap(map) =>
                 go(maxVV(minMap, currentVersion), map.values ++: values)
               case ValueEnum(_, _) =>
                 go(maxVV(minEnum, currentVersion), values)

@@ -84,7 +84,7 @@ object LfEngineToApi {
           Right(api.Value(api.Value.Sum.Optional(api.Optional.defaultInstance))))(v =>
           lfValueToApiValue(verbose, v).map(c =>
             api.Value(api.Value.Sum.Optional(api.Optional(Some(c))))))
-      case Lf.ValueMap(m) =>
+      case Lf.ValueTextMap(m) =>
         m.toImmArray.reverse
           .foldLeft[Either[String, List[api.Map.Entry]]](Right(List.empty)) {
             case (Right(list), (k, v)) =>
