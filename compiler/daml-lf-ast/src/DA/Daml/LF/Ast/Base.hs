@@ -216,7 +216,7 @@ data BuiltinExpr
   | BEToText     !BuiltinType    -- :: t -> Text, where t is one of the builtin types
                                  -- {Int64, Decimal, Text, Timestamp, Date, Party}
                                  
-  -- Decimal arithmetic          
+  -- Decimal arithmetic
   | BEAddDecimal                 -- :: Decimal -> Decimal -> Decimal, crashes on overflow
   | BESubDecimal                 -- :: Decimal -> Decimal -> Decimal, crashes on overflow
   | BEMulDecimal                 -- :: Decimal -> Decimal -> Decimal, crashes on overflow and underflow, automatically rounds to even (see <https://en.wikipedia.org/wiki/Rounding#Round_half_to_even>)
