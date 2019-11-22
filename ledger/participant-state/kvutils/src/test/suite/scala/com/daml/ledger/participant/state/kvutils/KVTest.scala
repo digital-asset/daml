@@ -86,7 +86,7 @@ object KVTest {
     getDamlState(Conversions.configurationStateKey)
       .flatMap {
         case None => getDefaultConfiguration
-        case Some(v) => State.state(Configuration.decode(v.getConfiguration).right.get)
+        case Some(v) => State.state(Configuration.decode(v.getConfigurationEntry.getConfiguration).right.get)
       }
 
   def setRecordTime(rt: Timestamp): KVTest[Unit] =

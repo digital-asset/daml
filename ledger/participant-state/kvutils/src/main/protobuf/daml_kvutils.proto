@@ -305,6 +305,10 @@ message DamlConfigurationRejectionEntry {
   }
 }
 
+// Configuration entry that records a configuration change.
+// Also used in state to look up latest configuration.
+// When a configuration exists, only the participant that
+// submitted previously can change it.
 message DamlConfigurationEntry {
   // The submission from which this configuration originated.
   string submission_id = 1;
@@ -390,7 +394,7 @@ message DamlStateValue {
     DamlCommandDedupValue command_dedup = 3;
     DamlPartyAllocation party = 4;
     DamlContractKeyState contract_key_state = 5;
-    com.daml.ledger.participant.state.LedgerConfiguration configuration = 6;
+    DamlConfigurationEntry configuration_entry = 6;
   }
 }
 

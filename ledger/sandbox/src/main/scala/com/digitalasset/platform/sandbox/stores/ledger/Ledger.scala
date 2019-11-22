@@ -96,6 +96,7 @@ trait ReadOnlyLedger extends AutoCloseable {
 
   // Configuration management
   def lookupLedgerConfiguration(): Future[Option[Configuration]]
+  def configurationEntries(offset: Option[Long]): Source[(Long, ConfigurationEntry), NotUsed]
 }
 
 object Ledger {
@@ -106,6 +107,7 @@ object Ledger {
     * Creates an in-memory ledger
     *
     * @param ledgerId      the id to be used for the ledger
+    * @param participantId the id of the participant
     * @param timeProvider  the provider of time
     * @param acs           the starting ACS store
     * @param ledgerEntries the starting entries
@@ -113,11 +115,12 @@ object Ledger {
     */
   def inMemory(
       ledgerId: LedgerId,
+      participantId: ParticipantId,
       timeProvider: TimeProvider,
       acs: InMemoryActiveLedgerState,
       packages: InMemoryPackageStore,
       ledgerEntries: ImmArray[LedgerEntryOrBump]): Ledger =
-    new InMemoryLedger(ledgerId, timeProvider, acs, packages, ledgerEntries)
+    new InMemoryLedger(ledgerId, participantId, timeProvider, acs, packages, ledgerEntries)
 
   /**
     * Creates a JDBC backed ledger

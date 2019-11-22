@@ -30,11 +30,6 @@ message LedgerConfiguration {
   // The ledger time model, specifying the bounds for
   // ledger effective time and maximum record time of transactions.
   LedgerTimeModel time_model = 3;
-
-  // The identities of the participants that is allowed to change
-  // the ledger configuration.
-  // If empty the configuration can be changed by anyone.
-  repeated string authorized_participant_ids = 4;
 }
 
 message LedgerTimeModel {

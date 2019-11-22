@@ -373,6 +373,7 @@ private class SqlLedger(
             ()
         }(DEC)
     }
+
 }
 
 private class SqlLedgerFactory(ledgerDao: LedgerDao, loggerFactory: NamedLoggerFactory) {

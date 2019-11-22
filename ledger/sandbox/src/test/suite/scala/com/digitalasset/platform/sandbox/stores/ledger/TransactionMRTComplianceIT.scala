@@ -66,7 +66,7 @@ class TransactionMRTComplianceIT
   override protected def constructResource(index: Int, fixtureId: BackendType): Resource[Ledger] =
     fixtureId match {
       case BackendType.InMemory =>
-        LedgerResource.inMemory(ledgerId, timeProvider)
+        LedgerResource.inMemory(ledgerId, participantId, timeProvider)
       case BackendType.Postgres =>
         LedgerResource.postgres(ledgerId, participantId, timeProvider, metrics)
     }

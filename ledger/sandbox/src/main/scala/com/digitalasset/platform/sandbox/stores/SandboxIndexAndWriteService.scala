@@ -103,7 +103,7 @@ object SandboxIndexAndWriteService {
       metrics: MetricRegistry)(implicit mat: Materializer): IndexAndWriteService = {
     val ledger =
       Ledger.metered(
-        Ledger.inMemory(ledgerId, timeProvider, acs, templateStore, ledgerEntries),
+        Ledger.inMemory(ledgerId, participantId, timeProvider, acs, templateStore, ledgerEntries),
         metrics)
     createInstance(ledger, participantId, timeModel, timeProvider)
   }

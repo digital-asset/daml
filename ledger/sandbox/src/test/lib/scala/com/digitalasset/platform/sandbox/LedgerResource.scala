@@ -35,6 +35,7 @@ object LedgerResource {
 
   def inMemory(
       ledgerId: LedgerId,
+      participantId: ParticipantId,
       timeProvider: TimeProvider,
       acs: InMemoryActiveLedgerState = InMemoryActiveLedgerState.empty,
       packages: InMemoryPackageStore = InMemoryPackageStore.empty,
@@ -42,7 +43,7 @@ object LedgerResource {
     LedgerResource.resource(
       () =>
         Future.successful(
-          Ledger.inMemory(ledgerId, timeProvider, acs, packages, entries)
+          Ledger.inMemory(ledgerId, participantId, timeProvider, acs, packages, entries)
       )
     )
 

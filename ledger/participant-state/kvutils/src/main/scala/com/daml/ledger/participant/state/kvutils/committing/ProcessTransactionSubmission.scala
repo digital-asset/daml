@@ -59,7 +59,7 @@ private[kvutils] case class ProcessTransactionSubmission(
 
   // -------------------------------------------------------------------------------
 
-  private val config: Configuration =
+  private val (_, config) =
     Common.getCurrentConfiguration(defaultConfig, inputState, logger)
 
   private val txLet = parseTimestamp(txEntry.getLedgerEffectiveTime)

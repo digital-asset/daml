@@ -71,8 +71,7 @@ object TestHelpers {
   val theRecordTime: Timestamp = Timestamp.Epoch
   val theDefaultConfig = Configuration(
     generation = 0,
-    timeModel = TimeModelImpl.reasonableDefault,
-    authorizedParticipantIds = List.empty
+    timeModel = TimeModelImpl.reasonableDefault
   )
 
   def mkEntryId(n: Int): DamlLogEntryId = {

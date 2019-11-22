@@ -26,7 +26,7 @@ private[kvutils] case class ProcessConfigSubmission(
   private implicit val logger =
     LoggerFactory.getLogger(
       s"ProcessConfigSubmission[entryId=${Pretty.prettyEntryId(entryId)}, submId=${configSubmission.getSubmissionId}]")
-  private val currentConfig =
+  private val (currentConfigEntry, currentConfig) =
     Common.getCurrentConfiguration(defaultConfig, inputState, logger)
 
   private val newConfig = configSubmission.getConfiguration
@@ -63,15 +63,17 @@ private[kvutils] case class ProcessConfigSubmission(
     // Submission is authorized when:
     //      the provided participant id matches source participant id
     //  AND (
-    //      the authorized participants are unset
-    //   OR the authorized participants contain the submitting participant.
+    //      there exists no current configuration
+    //   OR the current configuration's participant matches the submitting participant.
     //  )
     val submittingParticipantId = configSubmission.getParticipantId
     val wellFormed = participantId == submittingParticipantId
 
     val authorized =
-      currentConfig.authorizedParticipantIds.isEmpty ||
-      currentConfig.authorizedParticipantIds.contains(participantId)
+      currentConfigEntry.fold(true) {
+        configEntry =>
+          configEntry.getParticipantId == participantId
+      }
 
     if (!wellFormed) {
       logger.warn(
@@ -86,7 +88,7 @@ private[kvutils] case class ProcessConfigSubmission(
         ))
     } else if (!authorized) {
       logger.warn(
-        s"Rejected configuration submission. Authorized participants (${currentConfig.authorizedParticipantIds.mkString(", ")}) does not contain submitting participant $participantId.")
+        s"Rejected configuration submission. $participantId is not authorized.")
 
       reject(
         _.setParticipantNotAuthorized(
@@ -119,27 +121,31 @@ private[kvutils] case class ProcessConfigSubmission(
           pass
       }
 
-  private def buildLogEntry(): Commit[Unit] = sequence2(
-    delay {
-      Metrics.accepts.inc()
-      logger.trace(s"New configuration with generation ${newConfig.getGeneration} accepted.")
-      set(
-        configurationStateKey ->
-          DamlStateValue.newBuilder
-            .setConfiguration(newConfig)
-            .build)
-    },
-    done(
-      DamlLogEntry.newBuilder
-        .setRecordTime(buildTimestamp(recordTime))
-        .setConfigurationEntry(
-          DamlConfigurationEntry.newBuilder
-            .setSubmissionId(configSubmission.getSubmissionId)
-            .setParticipantId(participantId)
-            .setConfiguration(configSubmission.getConfiguration))
+  private def buildLogEntry(): Commit[Unit] = {
+    val configEntry = DamlConfigurationEntry.newBuilder
+      .setSubmissionId(configSubmission.getSubmissionId)
+      .setParticipantId(participantId)
+      .setConfiguration(configSubmission.getConfiguration)
+
+    sequence2(
+      delay {
+        Metrics.accepts.inc()
+        logger.trace(s"New configuration with generation ${newConfig.getGeneration} accepted.")
+
+        set(
+          configurationStateKey ->
+            DamlStateValue.newBuilder
+              .setConfigurationEntry(configEntry)
+              .build)
+      },
+      done(
+        DamlLogEntry.newBuilder
+          .setRecordTime(buildTimestamp(recordTime))
+          .setConfigurationEntry(configEntry)
           .build
-        )
-  )
+      )
+    )
+  }
 
   private def rejectGenerationMismatch(expected: Long): Commit[Unit] =
 

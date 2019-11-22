@@ -78,8 +78,7 @@ class KVUtilsConfigSpec extends WordSpec with Matchers {
         // Set a configuration with an authorized participant id
         logEntry0 <- submitConfig { c =>
           c.copy(
-            generation = c.generation + 1,
-            authorizedParticipantIds = List(p0)
+            generation = c.generation + 1
           )
         }
 

@@ -22,7 +22,7 @@ import com.digitalasset.platform.common.util.DirectExecutionContext
 import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilter
 import com.digitalasset.platform.sandbox.stores.ActiveLedgerState
 import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.LedgerReadDao
-import com.digitalasset.platform.sandbox.stores.ledger.{LedgerEntry, LedgerSnapshot, ReadOnlyLedger}
+import com.digitalasset.platform.sandbox.stores.ledger.{LedgerEntry, LedgerSnapshot, ReadOnlyLedger, ConfigurationEntry}
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
@@ -88,6 +88,9 @@ class BaseLedger(val ledgerId: LedgerId, headAtInitialization: Long, ledgerDao: 
 
   override def lookupLedgerConfiguration(): Future[Option[Configuration]] =
     ledgerDao.lookupLedgerConfiguration()
+
+  override def configurationEntries(offset: Option[Long]): Source[(Long, ConfigurationEntry), NotUsed] =
+    dispatcher.startingAt(offset.getOrElse(0), RangeSource(ledgerDao.getConfigurationEntries(_, _)))
 
   override def close(): Unit = {
     dispatcher.close()
