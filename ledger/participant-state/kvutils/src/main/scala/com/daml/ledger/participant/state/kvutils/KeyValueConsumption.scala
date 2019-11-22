@@ -60,14 +60,13 @@ object KeyValueConsumption {
             .PackageUploadEntryAccepted(participantId, entry.getPackageUploadEntry.getSubmissionId))
 
       case DamlLogEntry.PayloadCase.PACKAGE_UPLOAD_REJECTION_ENTRY =>
-        val participantId =
-          Ref.LedgerString.assertFromString(entry.getPackageUploadEntry.getParticipantId)
         val rejection = entry.getPackageUploadRejectionEntry
+        val participantId = rejection.getParticipantId
         val proposedPackageUpload = rejection.getInvalidPackage
 
         List(
           Update.PackageUploadEntryRejected(
-            Ref.LedgerString.assertFromString(rejection.getParticipantId),
+            Ref.LedgerString.assertFromString(participantId),
             Ref.LedgerString.assertFromString(rejection.getSubmissionId),
             reason = rejection.getReasonCase match {
               case DamlPackageUploadRejectionEntry.ReasonCase.INVALID_PACKAGE =>
