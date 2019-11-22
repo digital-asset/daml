@@ -1,4 +1,5 @@
-resolver: lts-14.1
+# XXX: Update to LTS once GHC 8.8.1 is supported
+resolver: nightly-2019-11-21
 packages:
   - archive: http://digitalassetsdk.bintray.com/ghc-lib/ghc-lib-parser-8.8.1.20191120.tar.gz
     sha256: "89e5e8eadd66a90970b866a0669da28b1cd4fff2511a2dc09151a5b269bc0bc1"
@@ -11,16 +12,21 @@ packages:
     sha256: "f5fb4cf98cde3ecf1209857208369a63ba21b04313d570c41dffe9f9139a1d34"
     size: 167936
   - bytestring-nums-0.3.6
-  - extra-1.6.18
+  - cmark-gfm-0.2.1
   - grpc-haskell-0.0.1.0
   - grpc-haskell-core-0.0.0.0
   - haskell-lsp-0.18.0.0
   - haskell-lsp-types-0.18.0.0
-  - hie-bios-0.2.1
+  - haskell-src-1.0.3.1
   - hpp-0.6.1
+  - hslogger-1.3.1.0
   - lsp-test-0.8.2.0
+  - MissingH-1.4.2.1
+  - network-3.1.0.1
+  - network-bsd-2.8.1.0
   - proto3-suite-0.4.0.0
   - proto3-wire-1.1.0
+  - regex-tdfa-text-1.0.0.3
   # Core packages, need to be listed for integer-simple flags.
   - integer-simple-0.1.1.1
-  - text-1.2.3.1
+  - text-1.2.4.0

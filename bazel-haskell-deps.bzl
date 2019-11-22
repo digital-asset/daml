@@ -43,9 +43,9 @@ haskell_cabal_binary(
     visibility = ["//visibility:public"],
 )
 """,
-        sha256 = "d58e4d708b14ff332a8a8edad4fa8989cb6a9f518a7c6834e96281ac5f8ff232",
-        strip_prefix = "alex-3.2.4",
-        urls = ["http://hackage.haskell.org/package/alex-3.2.4/alex-3.2.4.tar.gz"],
+        sha256 = "b77c8a1270767c64e2adb21a6e91ee7cd904ba17edae17bc20fd03da5256e0e3",
+        strip_prefix = "alex-3.2.5",
+        urls = ["http://hackage.haskell.org/package/alex-3.2.5/alex-3.2.5.tar.gz"],
     )
 
     http_archive(
@@ -82,9 +82,9 @@ haskell_cabal_binary(
     visibility = ["//visibility:public"],
 )
 """,
-        sha256 = "9094d19ed0db980a34f1ffd58e64c7df9b4ecb3beed22fd9b9739044a8d45f77",
-        strip_prefix = "happy-1.19.11",
-        urls = ["http://hackage.haskell.org/package/happy-1.19.11/happy-1.19.11.tar.gz"],
+        sha256 = "fb9a23e41401711a3b288f93cf0a66db9f97da1ce32ec4fffea4b78a0daeb40f",
+        strip_prefix = "happy-1.19.12",
+        urls = ["http://hackage.haskell.org/package/happy-1.19.12/happy-1.19.12.tar.gz"],
     )
 
     # Standard ghcide (not ghc-lib based) - used on daml's Haskell sources.
