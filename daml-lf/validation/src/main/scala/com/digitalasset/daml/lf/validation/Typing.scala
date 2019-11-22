@@ -96,33 +96,33 @@ private[validation] object Typing {
             beta.name -> KStar,
             (alpha ->: beta ->: beta) ->: beta ->: TList(alpha) ->: beta)),
       // Maps
-      BMapEmpty ->
+      BTextMapEmpty ->
         TForall(
           alpha.name -> KStar,
           TTextMap(alpha)
         ),
-      BMapInsert ->
+      BTextMapInsert ->
         TForall(
           alpha.name -> KStar,
           TText ->: alpha ->: TTextMap(alpha) ->: TTextMap(alpha)
         ),
-      BMapLookup ->
+      BTextMapLookup ->
         TForall(
           alpha.name -> KStar,
           TText ->: TTextMap(alpha) ->: TOptional(alpha)
         ),
-      BMapDelete ->
+      BTextMapDelete ->
         TForall(
           alpha.name -> KStar,
           TText ->: TTextMap(alpha) ->: TTextMap(alpha)
         ),
-      BMapToList ->
+      BTextMapToList ->
         TForall(
           alpha.name -> KStar,
           TTextMap(alpha) ->: TList(
             TTuple(ImmArray(keyFieldName -> TText, valueFieldName -> alpha)))
         ),
-      BMapSize ->
+      BTextMapSize ->
         TForall(
           alpha.name -> KStar,
           TTextMap(alpha) ->: TInt64

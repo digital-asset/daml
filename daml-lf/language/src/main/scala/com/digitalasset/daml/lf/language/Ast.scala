@@ -356,12 +356,12 @@ object Ast {
   final case object BFoldr extends BuiltinFunction(3) // : ∀a b. (a → b → b) → b → List a → b
 
   // Maps
-  final case object BMapEmpty extends BuiltinFunction(0) // : ∀ a. Map a
-  final case object BMapInsert extends BuiltinFunction(3) // : ∀ a. Text -> a -> Map a -> Map a
-  final case object BMapLookup extends BuiltinFunction(2) // : ∀ a. Text -> Map a -> Optional a
-  final case object BMapDelete extends BuiltinFunction(2) // : ∀ a. Text -> Map a -> Map a
-  final case object BMapToList extends BuiltinFunction(1) // : ∀ a. Map a -> [Tuple("key":Text, "value":a)]
-  final case object BMapSize extends BuiltinFunction(1) // : ∀ a. Map a -> Int64
+  final case object BTextMapEmpty extends BuiltinFunction(0) // : ∀ a. TextMap a
+  final case object BTextMapInsert extends BuiltinFunction(3) // : ∀ a. Text -> a -> TextMap a -> TextMap a
+  final case object BTextMapLookup extends BuiltinFunction(2) // : ∀ a. Text -> TextMap a -> Optional a
+  final case object BTextMapDelete extends BuiltinFunction(2) // : ∀ a. Text -> TextMap a -> TextMap a
+  final case object BTextMapToList extends BuiltinFunction(1) // : ∀ a. TextMap a -> [Tuple("key":Text, "value":a)]
+  final case object BTextMapSize extends BuiltinFunction(1) // : ∀ a. TextMap a -> Int64
 
   // Generic Maps
   final case object BGenMapEmpty extends BuiltinFunction(0) // : ∀ a b. GenMap a b
