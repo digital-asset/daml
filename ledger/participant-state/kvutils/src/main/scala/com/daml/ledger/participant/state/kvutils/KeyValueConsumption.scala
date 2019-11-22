@@ -44,6 +44,7 @@ object KeyValueConsumption {
       case DamlLogEntry.PayloadCase.PACKAGE_UPLOAD_ENTRY =>
         val participantId =
           Ref.LedgerString.assertFromString(entry.getPackageUploadEntry.getParticipantId)
+        val submissionId = Ref.LedgerString.assertFromString(entry.getPackageUploadEntry.getSubmissionId)
         //only send package uploaded update if the log entry includes an archive
         val uniquePackages = entry.getPackageUploadEntry.getArchivesList.asScala.map { archive =>
           Update.PublicPackageUploaded(
@@ -53,7 +54,7 @@ object KeyValueConsumption {
             else None,
             participantId,
             recordTime,
-            Ref.LedgerString.assertFromString(entry.getPackageUploadEntry.getSubmissionId)
+            submissionId
           )
         }.toList
 
@@ -61,7 +62,7 @@ object KeyValueConsumption {
         // TODO only send accept message if participantId matches
         uniquePackages ++ List(
           Update
-            .PackageUploadEntryAccepted(participantId, entry.getPackageUploadEntry.getSubmissionId))
+            .PackageUploadEntryAccepted(participantId, submissionId))
 
       case DamlLogEntry.PayloadCase.PACKAGE_UPLOAD_REJECTION_ENTRY =>
         val rejection = entry.getPackageUploadRejectionEntry

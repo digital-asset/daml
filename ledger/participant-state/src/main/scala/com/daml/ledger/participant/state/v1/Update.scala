@@ -108,7 +108,7 @@ object Update {
       sourceDescription: Option[String],
       participantId: ParticipantId,
       recordTime: Timestamp,
-      submissionId: String)
+      submissionId: SubmissionId)
       extends Update {
     override def description: String =
       s"""Public package uploaded: ${archive.getHash}"""
@@ -131,7 +131,7 @@ object Update {
     * Consider whether an enumerated set of reject reasons a la [[RejectionReason]] would be helpful, and whether the same breadth of reject
     * types needs to be handled for package upload entry rejects
     */
-  final case class PackageUploadEntryAccepted(participantId: ParticipantId, submissionId: String)
+  final case class PackageUploadEntryAccepted(participantId: ParticipantId, submissionId: SubmissionId)
       extends Update {
     override def description: String = {
       s"Accepted package ${submissionId} for participant ${participantId}"
@@ -160,7 +160,7 @@ object Update {
     */
   final case class PackageUploadEntryRejected(
       participantId: ParticipantId,
-      submissionId: String,
+      submissionId: SubmissionId,
       reason: String)
       extends Update {
     override def description: String = {
