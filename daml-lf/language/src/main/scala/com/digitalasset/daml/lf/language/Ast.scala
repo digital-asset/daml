@@ -282,7 +282,7 @@ object Ast {
   case object BTBool extends BuiltinType
   case object BTList extends BuiltinType
   case object BTOptional extends BuiltinType
-  case object BTMap extends BuiltinType
+  case object BTTextMap extends BuiltinType
   case object BTGenMap extends BuiltinType
   case object BTUpdate extends BuiltinType
   case object BTScenario extends BuiltinType

@@ -62,7 +62,7 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
         "ContractId" -> BTContractId,
         "Arrow" -> BTArrow,
         "Option" -> BTOptional,
-        "Map" -> BTMap,
+        "TextMap" -> BTTextMap,
       )
 
       forEvery(testCases)((stringToParse, expectedBuiltinType) =>

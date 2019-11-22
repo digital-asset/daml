@@ -123,8 +123,8 @@ case object URList extends UnserializabilityReason {
 case object UROptional extends UnserializabilityReason {
   def pretty: String = "unapplied Option"
 }
-case object URMap extends UnserializabilityReason {
-  def pretty: String = "unapplied Map"
+case object URTextMap extends UnserializabilityReason {
+  def pretty: String = "unapplied TextMap"
 }
 case object URGenMap extends UnserializabilityReason {
   def pretty: String = "unapplied GenMap"

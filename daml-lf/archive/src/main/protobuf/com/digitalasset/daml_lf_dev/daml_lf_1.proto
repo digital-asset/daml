@@ -38,7 +38,8 @@
 //        2019-09-30: Add interning of strings and dotted names
 //        2019-11-04: Add Type representation values
 // * dev (special staging area for the next version to be released)
-//        2019-11-12: Add Generic Map
+//        2019-11-12: Add Generic Map (GenMap)
+//        2019-11-22: Rename Map to TextMap
 
 syntax = "proto3";
 package daml_lf_1;
@@ -265,9 +266,9 @@ enum PrimType {
   // *Available in versions >= 1.1*
   ARROW = 15;
 
-  // Builtin type 'TMap`
+  // Builtin type 'TTextMap`
   // *Available in versions >= 1.3*
-  MAP = 16;
+  TEXTMAP = 16;
 
   // Builtin type 'Numeric'
   // *Available in versions >= 1.7*
@@ -411,12 +412,12 @@ enum BuiltinFunction {
   FOLDL = 20;
   FOLDR = 21;
 
-  MAP_EMPTY = 96;
-  MAP_INSERT = 97;
-  MAP_LOOKUP = 98;
-  MAP_DELETE = 99;
-  MAP_TO_LIST = 100;
-  MAP_SIZE = 101;
+  TEXTMAP_EMPTY = 96;
+  TEXTMAP_INSERT = 97;
+  TEXTMAP_LOOKUP = 98;
+  TEXTMAP_DELETE = 99;
+  TEXTMAP_TO_LIST = 100;
+  TEXTMAP_SIZE = 101;
 
   GENMAP_EMPTY = 124; // *Available in versions >= 1.dev*
   GENMAP_INSERT = 125; // *Available in versions >= 1.dev*

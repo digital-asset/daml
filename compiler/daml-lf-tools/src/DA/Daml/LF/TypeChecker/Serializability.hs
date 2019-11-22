@@ -53,7 +53,7 @@ serializabilityConditionsType world0 _version mbModNameTpls vars = go
       TContractId typ -> go typ
       TList typ -> go typ
       TOptional typ -> go typ
-      TMap typ -> go typ
+      TTextMap typ -> go typ
       TGenMap t1 t2 -> HS.union <$> go t1 <*> go t2
       TNumeric (TNat n)
           | fromTypeLevelNat n <= numericMaxScale -> noConditions
@@ -91,7 +91,7 @@ serializabilityConditionsType world0 _version mbModNameTpls vars = go
         BTBool -> noConditions
         BTList -> Left URList  -- 'List' is used as a higher-kinded type constructor.
         BTOptional -> Left UROptional  -- 'Optional' is used as a higher-kinded type constructor.
-        BTMap -> Left URMap  -- 'Map' is used as a higher-kinded type constructor.
+        BTTextMap -> Left URMap  -- 'Map' is used as a higher-kinded type constructor.
         BTGenMap -> Left URGenMap -- 'GenMap' is used as a higher-kinded type constructor.
         BTUpdate -> Left URUpdate
         BTScenario -> Left URScenario

@@ -152,7 +152,7 @@ data BuiltinType
   | BTScenario
   | BTContractId
   | BTOptional
-  | BTMap
+  | BTTextMap
   | BTGenMap
   | BTArrow
   | BTAny
@@ -205,8 +205,8 @@ data BuiltinExpr
   | BEDate       !Int32          -- :: Date, days since unix epoch
   | BEUnit                       -- :: Unit
   | BEBool       !Bool           -- :: Bool
-
-  -- Polymorphic functions
+                                 
+  -- Polymorphic functions       
   | BEError                      -- :: ∀a. Text -> a
   | BEEqual      !BuiltinType    -- :: t -> t -> Bool, where t is the builtin type
   | BELess       !BuiltinType    -- :: t -> t -> Bool, where t is the builtin type
@@ -215,8 +215,8 @@ data BuiltinExpr
   | BEGreater    !BuiltinType    -- :: t -> t -> Bool, where t is the builtin type
   | BEToText     !BuiltinType    -- :: t -> Text, where t is one of the builtin types
                                  -- {Int64, Decimal, Text, Timestamp, Date, Party}
-
-  -- Decimal arithmetic
+                                 
+  -- Decimal arithmetic          
   | BEAddDecimal                 -- :: Decimal -> Decimal -> Decimal, crashes on overflow
   | BESubDecimal                 -- :: Decimal -> Decimal -> Decimal, crashes on overflow
   | BEMulDecimal                 -- :: Decimal -> Decimal -> Decimal, crashes on overflow and underflow, automatically rounds to even (see <https://en.wikipedia.org/wiki/Rounding#Round_half_to_even>)
@@ -239,18 +239,18 @@ data BuiltinExpr
   | BEShiftNumeric               -- :: ∀(s1:nat). ∀(s2:nat). Numeric s1 -> Numeric s2
 
   -- Integer arithmetic
-  | BEAddInt64                 -- :: Int64 -> Int64 -> Int64, crashes on overflow
-  | BESubInt64                 -- :: Int64 -> Int64 -> Int64, crashes on overflow
-  | BEMulInt64                 -- :: Int64 -> Int64 -> Int64, crashes on overflow
-  | BEDivInt64                 -- :: Int64 -> Int64 -> Int64, crashes on divisor = 0
-  | BEModInt64                 -- :: Int64 -> Int64 -> Int64, crashes on divisor = 0
-  | BEExpInt64                 -- :: Int64 -> Int64 -> Int64, crashes on overflow
+  | BEAddInt64                   -- :: Int64 -> Int64 -> Int64, crashes on overflow
+  | BESubInt64                   -- :: Int64 -> Int64 -> Int64, crashes on overflow
+  | BEMulInt64                   -- :: Int64 -> Int64 -> Int64, crashes on overflow
+  | BEDivInt64                   -- :: Int64 -> Int64 -> Int64, crashes on divisor = 0
+  | BEModInt64                   -- :: Int64 -> Int64 -> Int64, crashes on divisor = 0
+  | BEExpInt64                   -- :: Int64 -> Int64 -> Int64, crashes on overflow
 
   -- Numerical conversion
-  | BEInt64ToDecimal           -- :: Int64 -> Decimal, always succeeds since 10^28 > 2^63
-  | BEDecimalToInt64           -- :: Decimal -> Int64, only converts the whole part, crashes if it doesn't fit
-  | BEInt64ToNumeric           -- :: ∀(s:nat). Int64 -> Numeric s, crashes if it doesn't fit (TODO: verify?)
-  | BENumericToInt64           -- :: ∀(s:nat). Numeric s -> Int64, only converts the whole part, crashes if it doesn't fit
+  | BEInt64ToDecimal             -- :: Int64 -> Decimal, always succeeds since 10^28 > 2^63
+  | BEDecimalToInt64             -- :: Decimal -> Int64, only converts the whole part, crashes if it doesn't fit
+  | BEInt64ToNumeric             -- :: ∀(s:nat). Int64 -> Numeric s, crashes if it doesn't fit (TODO: verify?)
+  | BENumericToInt64             -- :: ∀(s:nat). Numeric s -> Int64, only converts the whole part, crashes if it doesn't fit
 
   -- Time conversion
   | BETimestampToUnixMicroseconds -- :: Timestamp -> Int64, in microseconds
@@ -264,21 +264,21 @@ data BuiltinExpr
   | BEEqualList                  -- :: ∀a. (a -> a -> Bool) -> List a -> List a -> Bool
 
   -- Map operations
-  | BEMapEmpty                    -- :: ∀ a. Map a
-  | BEMapInsert                   -- :: ∀ a. Text -> a -> Map a -> Map a
-  | BEMapLookup                   -- :: ∀ a. Text -> Map a -> Optional a
-  | BEMapDelete                   -- :: ∀ a. Text -> Map a -> Map a
-  | BEMapToList                   -- :: ∀ a. Map a -> List ⟨key: Text, value: a⟩
-  | BEMapSize                     -- :: ∀ a. Map a -> Int64
+  | BETextMapEmpty               -- :: ∀ a. TextMap a
+  | BETextMapInsert              -- :: ∀ a. Text -> a -> TextMap a -> TextMap a
+  | BETextMapLookup              -- :: ∀ a. Text -> TextMap a -> Optional a
+  | BETextMapDelete              -- :: ∀ a. Text -> TextMap a -> TextMap a
+  | BETextMapToList              -- :: ∀ a. TextMap a -> List ⟨key: Text, value: a⟩
+  | BETextMapSize                -- :: ∀ a. TextMap a -> Int64
 
   -- GenMap operations
-  | BEGenMapEmpty                    -- :: ∀ a b. GenMap a b
-  | BEGenMapInsert                   -- :: ∀ a b. a -> b -> GenMap a b -> GenMap a b
-  | BEGenMapLookup                   -- :: ∀ a b. a -> GenMap a b -> Optional b
-  | BEGenMapDelete                   -- :: ∀ a b. a -> GenMap a b -> GenMap a b
-  | BEGenMapKeys                     -- :: ∀ a b. GenMap a b -> List a
-  | BEGenMapValues                   -- :: ∀ a b. GenMap a b -> List b
-  | BEGenMapSize                     -- :: ∀ a b. GenMap a b -> Int64
+  | BEGenMapEmpty                -- :: ∀ a b. GenMap a b
+  | BEGenMapInsert               -- :: ∀ a b. a -> b -> GenMap a b -> GenMap a b
+  | BEGenMapLookup               -- :: ∀ a b. a -> GenMap a b -> Optional b
+  | BEGenMapDelete               -- :: ∀ a b. a -> GenMap a b -> GenMap a b
+  | BEGenMapKeys                 -- :: ∀ a b. GenMap a b -> List a
+  | BEGenMapValues               -- :: ∀ a b. GenMap a b -> List b
+  | BEGenMapSize                 -- :: ∀ a b. GenMap a b -> Int64
 
   -- Text operations
   | BEExplodeText                -- :: Text -> List Text

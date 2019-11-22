@@ -27,7 +27,7 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
         BTUnit -> k"*",
         BTBool -> k"*",
         BTList -> k"* -> *",
-        BTMap -> k"* -> *",
+        BTTextMap -> k"* -> *",
         BTGenMap -> k"* -> * -> *",
         BTUpdate -> k"* -> *",
         BTScenario -> k"* -> *",

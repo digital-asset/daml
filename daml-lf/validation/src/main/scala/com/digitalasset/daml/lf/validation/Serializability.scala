@@ -71,7 +71,7 @@ private[validation] object Serializability {
         checkType(tArg)
       case TOptional(tArg) =>
         checkType(tArg)
-      case TMap(tArg) =>
+      case TTextMap(tArg) =>
         checkType(tArg)
       case TGenMap(tKeys, tValues) =>
         checkType(tKeys)
@@ -88,8 +88,8 @@ private[validation] object Serializability {
             unserializable(URList)
           case BTOptional =>
             unserializable(UROptional)
-          case BTMap =>
-            unserializable(URMap)
+          case BTTextMap =>
+            unserializable(URTextMap)
           case BTGenMap =>
             unserializable(URGenMap)
           case BTUpdate =>

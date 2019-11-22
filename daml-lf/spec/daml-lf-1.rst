@@ -265,6 +265,8 @@ Version: 1.dev
 
   * **Add** generic map type ``GenMap``.
 
+  * **Rename** ``Map`` to ``TextMap``
+
 Abstract syntax
 ^^^^^^^^^^^^^^^
 
@@ -557,8 +559,8 @@ Then we can define our kinds, types, and expressions::
        |  'Bool'                                    -- BTyBool
        |  'List'                                    -- BTyList
        |  'Option'                                  -- BTyOption
-       |  'Map'                                     -- BTMap
-       |  'GenMap'                                  -- BTGenMap
+       |  'TextMap'                                 -- BTTextMap: map with string keys
+       |  'GenMap'                                  -- BTGenMap: map with general value keys
        |  'Update'                                  -- BTyUpdate
        |  'ContractId'                              -- BTyContractId
        |  'Any'                                     -- BTyAny
@@ -810,8 +812,8 @@ First, we formally defined *well-formed types*. ::
     ————————————————————————————————————————————— TyOption
       Γ  ⊢  'Option' : ⋆ → ⋆
 
-    ————————————————————————————————————————————— TyMap
-      Γ  ⊢  'Map' : ⋆ → ⋆
+    ————————————————————————————————————————————— TyTextMap
+      Γ  ⊢  'TextMap' : ⋆ → ⋆
 
     ————————————————————————————————————————————— TyGenMap
       Γ  ⊢  'GenMap' : ⋆ → ⋆ → ⋆
@@ -2538,16 +2540,16 @@ List functions
   predicate give as first argument.
 
 
-Map functions
-~~~~~~~~~~~~~
+TextMap functions
+~~~~~~~~~~~~~~~~~
 
-* ``MAP_EMPTY : ∀ α. 'Map' α``
+* ``TEXTMAP_EMPTY : ∀ α. 'TextMap' α``
 
-  Returns the empty map.
+  Returns the empty TextMap.
 
   [*Available in versions >= 1.3*]
 
-* ``MAP_INSERT : ∀ α.  'Text' → α → 'Map' α → 'Map' α``
+* ``TEXTMAP_INSERT : ∀ α.  'Text' → α → 'TextMap' α → 'TextMap' α``
 
   Inserts a new key and value in the map. If the key is already
   present in the map, the associated value is replaced with the
@@ -2555,27 +2557,27 @@ Map functions
 
   [*Available in versions >= 1.3*]
 
-* ``MAP_LOOKUP : ∀ α. 'Text' → 'Map' α → 'Optional' α``
+* ``TEXTMAP_LOOKUP : ∀ α. 'Text' → 'TextMap' α → 'Optional' α``
 
   Looks up the value at a key in the map.
 
   [*Available in versions >= 1.3*]
 
-* ``MAP_DELETE : ∀ α. 'Text' → 'Map' α → 'Map' α``
+* ``TEXTMAP_DELETE : ∀ α. 'Text' → 'TextMap' α → 'TextMap' α``
 
   Deletes a key and its value from the map. When the key is not a
   member of the map, the original map is returned.
 
   [*Available in versions >= 1.3*]
 
-* ``MAP_LIST : ∀ α. 'Map' α → 'List' ⟨ key: 'Text', value: α  ⟩``
+* ``TEXTMAP_LIST : ∀ α. 'TextMap' α → 'List' ⟨ key: 'Text', value: α  ⟩``
 
   Converts to a list of key/value pairs. The output list is guaranteed to be
   sorted according to the ordering of its keys.
 
   [*Available in versions >= 1.3*]
 
-* ``MAP_SIZE : ∀ α. 'Map' α → 'Int64'``
+* ``TEXTMAP_SIZE : ∀ α. 'TextMap' α → 'Int64'``
 
   Return the number of elements in the map.
 
@@ -3052,14 +3054,17 @@ The deserialization process will reject any DAML-LF 1.2 (or earlier)
 program using the two statements above or the field ``key`` within
 the message ``DefTemplate`` .
 
-Map
-...
+TextMap
+.......
 
 [*Available in versions >= 1.3*]
 
 The deserialization process will reject any DAML-LF 1.2 (or earlier)
-program using the builtin functions : ``MAP_EMPTY``, ``MAP_INSERT``,
-``MAP_LOOKUP``, ``MAP_DELETE``, ``MAP_LIST``, ``MAP_SIZE``,
+program using the builtin functions : ``TEXTMAP_EMPTY``,
+``TEXTMAP_INSERT``, ``TEXTMAP_LOOKUP``, ``TEXTMAP_DELETE``,
+``TEXTMAP_LIST``, ``TEXTMAP_SIZE``,
+
+TextMpa was called ``Map`` in versions <= 1.dev.
 
 Enum
 ....
