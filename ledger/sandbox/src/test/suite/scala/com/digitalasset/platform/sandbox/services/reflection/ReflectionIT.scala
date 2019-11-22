@@ -63,9 +63,13 @@ final class ReflectionIT
   private def fileBySymbolReq(symbol: String) =
     ServerReflectionRequest.newBuilder().setFileContainingSymbol(symbol).build()
 
-  private def execRequest(request: ServerReflectionRequest) = {
-    val observer = new SingleItemObserver[ServerReflectionResponse](_ => true)
-    ServerReflectionGrpc.newStub(channel).serverReflectionInfo(observer).onNext(request)
-    observer.result.map(_.get)
-  }
+  private def execRequest(request: ServerReflectionRequest) =
+    SingleItemObserver
+      .first[ServerReflectionResponse](
+        ServerReflectionGrpc
+          .newStub(channel)
+          .serverReflectionInfo(_)
+          .onNext(request)
+      )
+      .map(_.get)
 }
