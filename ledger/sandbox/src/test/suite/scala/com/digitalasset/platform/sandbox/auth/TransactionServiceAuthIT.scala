@@ -82,7 +82,7 @@ final class TransactionServiceAuthIT
   it should "allow calls with non-expired tokens" in {
     expect(transactions(Option(rwToken(submitter).expiresTomorrow.asHeader()))).toSucceed
   }
-  ignore should "break a stream in flight upon token expiration" in {
+  it should "break a stream in flight upon token expiration" in {
     val _ = Delayed.Future.by(10.seconds)(issueCommand())
     expect(expiringTransactions(rwToken(submitter).expiresInFiveSeconds.asHeader())).toSucceed
   }
@@ -114,7 +114,7 @@ final class TransactionServiceAuthIT
   it should "allow calls with non-expired tokens" in {
     expect(transactionsTrees(Option(rwToken(submitter).expiresTomorrow.asHeader()))).toSucceed
   }
-  ignore should "break a stream in flight upon token expiration" in {
+  it should "break a stream in flight upon token expiration" in {
     val _ = Delayed.Future.by(10.seconds)(issueCommand())
     expect(expiringTransactionTrees(rwToken(submitter).expiresInFiveSeconds.asHeader())).toSucceed
   }

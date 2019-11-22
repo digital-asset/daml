@@ -32,6 +32,16 @@ trait SandboxFixtureWithAuth extends SandboxFixture { self: Suite =>
         AuthServiceJWT(HMAC256Verifier(jwtSecret)
           .getOrElse(sys.error("Failed to create HMAC256 verifier")))))
 
+  protected def roToken(party: String) = AuthServiceJWTPayload(
+    ledgerId = None,
+    participantId = None,
+    applicationId = None,
+    exp = None,
+    admin = false,
+    actAs = Nil,
+    readAs = List(party)
+  )
+
   protected def rwToken(party: String) = AuthServiceJWTPayload(
     ledgerId = None,
     participantId = None,
@@ -65,7 +75,7 @@ trait SandboxFixtureWithAuth extends SandboxFixture { self: Suite =>
     def expiresTomorrow: AuthServiceJWTPayload = expiresIn(Duration.ofDays(1))
     def expired: AuthServiceJWTPayload = expiresIn(Duration.ofDays(-1))
 
-    def signed(secret: String): String =
+    private def signed(secret: String): String =
       JwtSigner.HMAC256
         .sign(DecodedJwt(jwtHeader, AuthServiceJWTCodec.compactPrint(payload)), secret)
         .getOrElse(sys.error("Failed to generate token"))
@@ -74,7 +84,7 @@ trait SandboxFixtureWithAuth extends SandboxFixture { self: Suite =>
     def asHeader(secret: String = jwtSecret) = s"Bearer ${signed(secret)}"
   }
 
-  /** Returns a future that fails iff the given stream immediately fails. */
+  /** Returns a future that fails iff the first event coming from the stream is itself a failure. */
   protected def streamResult[T](fn: StreamObserver[T] => Unit): Future[Unit] = {
     val promise = Promise[Unit]()
     fn(new StreamObserver[T] {
