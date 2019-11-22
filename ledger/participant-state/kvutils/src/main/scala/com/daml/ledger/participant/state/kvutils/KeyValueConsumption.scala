@@ -74,9 +74,9 @@ object KeyValueConsumption {
             Ref.LedgerString.assertFromString(rejection.getSubmissionId),
             reason = rejection.getReasonCase match {
               case DamlPackageUploadRejectionEntry.ReasonCase.INVALID_PACKAGE =>
-                s"Package $proposedPackageUpload.getDetails rejected as invalid"
+                s"Package ${proposedPackageUpload.getDetails} rejected as invalid"
               case DamlPackageUploadRejectionEntry.ReasonCase.REASON_NOT_SET =>
-                s"Package $proposedPackageUpload.getDetails upload failed for undetermined reason"
+                s"Package ${proposedPackageUpload.getDetails} upload failed for undetermined reason"
               case DamlPackageUploadRejectionEntry.ReasonCase.PARTICIPANT_NOT_AUTHORIZED =>
                 s"Participant $participantId not authorized to upload package"
             }
