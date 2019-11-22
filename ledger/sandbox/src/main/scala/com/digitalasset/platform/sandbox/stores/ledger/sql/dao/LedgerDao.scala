@@ -241,7 +241,7 @@ trait LedgerWriteDao extends AutoCloseable {
       participantId: ParticipantId,
       submissionId: String,
       reason: Option[String],
-      typ: String): Future[PersistenceResponse]
+      typ: PackageUploadEntry): Future[PersistenceResponse]
 
   /** Resets the platform into a state as it was never used before. Meant to be used solely for testing. */
   def reset(): Future[Unit]

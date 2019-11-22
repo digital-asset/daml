@@ -11,8 +11,7 @@ object SubmissionResult {
 
   /** The request has been received */
   final case object Acknowledged extends SubmissionResult {
-    override def description: String =
-      s"The request has been received"
+    override def description: String = "The request has been received"
   }
 
   /** The system is overloaded, clients should back off exponentially */
@@ -22,13 +21,11 @@ object SubmissionResult {
 
   /** Submission is not supported */
   final case object NotSupported extends SubmissionResult {
-    override def description: String =
-      s"Submission is not supported"
+    override def description: String = "Submission is not supported"
   }
 
   /** Submission ended up with internal error */
   final case class InternalError(reason: String) extends SubmissionResult {
-    override def description: String =
-      s"Failed with an internal error, reason=$reason"
+    override def description: String = s"Failed with an internal error, reason=$reason"
   }
 }
