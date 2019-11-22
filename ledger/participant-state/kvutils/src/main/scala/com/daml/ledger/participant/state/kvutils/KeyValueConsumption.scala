@@ -35,6 +35,7 @@ object KeyValueConsumption {
     * @param entry: The log entry.
     * @return [[Update]] constructed from log entry.
     */
+  // TODO add participantId to ensure participant id matches in DamlLogEntry
   def logEntryToUpdate(entryId: DamlLogEntryId, entry: DamlLogEntry): List[Update] = {
 
     val recordTime = parseTimestamp(entry.getRecordTime)
