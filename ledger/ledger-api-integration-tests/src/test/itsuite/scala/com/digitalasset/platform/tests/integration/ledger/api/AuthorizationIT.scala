@@ -10,7 +10,7 @@ import java.util.{Timer, TimerTask, UUID}
 
 import akka.stream.scaladsl.Sink
 import com.digitalasset.daml.bazeltools.BazelRunfiles.rlocation
-import com.digitalasset.grpc.{GrpcException, GrpcStatus}
+import com.digitalasset.grpc.GrpcException
 import com.digitalasset.jwt.domain.DecodedJwt
 import com.digitalasset.jwt.{HMAC256Verifier, JwtSigner}
 import com.digitalasset.ledger.api.auth.{AuthServiceJWT, AuthServiceJWTCodec, AuthServiceJWTPayload}
@@ -45,7 +45,6 @@ import com.digitalasset.ledger.api.v1.transaction_filter.{Filters, TransactionFi
 import com.digitalasset.ledger.api.v1.transaction_service._
 import com.digitalasset.platform.apitesting._
 import com.google.protobuf.ByteString
-import io.grpc.Status.Code.PERMISSION_DENIED
 import io.grpc.stub.StreamObserver
 import io.grpc.{Status, StatusException, StatusRuntimeException}
 import org.scalatest.concurrent.AsyncTimeLimitedTests
@@ -814,7 +813,7 @@ class AuthorizationIT
       }
       def onError(t: Throwable): Unit = {
         t match {
-          case GrpcException(GrpcStatus(`PERMISSION_DENIED`, _), _) if gotSomething =>
+          case GrpcException.PERMISSION_DENIED() if gotSomething =>
             val _ = promise.trySuccess(())
           case _ =>
             val _ = promise.tryFailure(t)

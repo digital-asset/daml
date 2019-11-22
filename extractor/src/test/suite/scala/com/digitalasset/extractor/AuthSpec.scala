@@ -13,7 +13,7 @@ import com.digitalasset.extractor.config.{ExtractorConfig, SnapshotEndSetting}
 import com.digitalasset.extractor.ledger.types.TransactionTree
 import com.digitalasset.extractor.targets.TextPrintTarget
 import com.digitalasset.extractor.writers.Writer
-import com.digitalasset.grpc.{GrpcException, GrpcStatus}
+import com.digitalasset.grpc.GrpcException
 import com.digitalasset.jwt.domain.DecodedJwt
 import com.digitalasset.jwt.{HMAC256Verifier, JwtSigner}
 import com.digitalasset.ledger.api.auth.{AuthServiceJWT, AuthServiceJWTCodec, AuthServiceJWTPayload}
@@ -27,7 +27,6 @@ import com.digitalasset.platform.sandbox.config.SandboxConfig
 import com.digitalasset.platform.sandbox.services.{SandboxFixture, TestCommands}
 import com.digitalasset.timer.Delayed
 import com.google.protobuf.timestamp.Timestamp
-import io.grpc.Status.Code.PERMISSION_DENIED
 import org.scalatest.{AsyncFlatSpec, Matchers}
 import org.slf4j.LoggerFactory
 import scalaz.{OneAnd, \/}
@@ -35,8 +34,8 @@ import scalaz.{OneAnd, \/}
 import scala.collection.mutable.ListBuffer
 import scala.concurrent.Future
 import scala.concurrent.duration.DurationInt
-import scala.util.{Failure, Success}
 import scala.util.control.NonFatal
+import scala.util.{Failure, Success}
 
 final class AuthSpec
     extends AsyncFlatSpec
@@ -140,7 +139,7 @@ final class AuthSpec
 
   it should "fail immediately with a PERMISSION_DENIED if no token is provided" in {
     extractor(noAuth).run().failed.collect {
-      case GrpcException(GrpcStatus(`PERMISSION_DENIED`, _), _) => succeed
+      case GrpcException.PERMISSION_DENIED() => succeed
     }
   }
 
