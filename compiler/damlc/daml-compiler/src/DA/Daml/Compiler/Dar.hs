@@ -46,6 +46,7 @@ import qualified Development.IDE.Types.Logger as IdeLogger
 import SdkVersion
 import System.Directory.Extra
 import System.FilePath
+import qualified Data.Yaml as Y
 
 import GHC
 import MkIface
@@ -83,7 +84,8 @@ newtype FromDalf = FromDalf
     }
 
 newtype PackageSdkVersion = PackageSdkVersion
-    { unPackageSdkVersion :: String }
+    { unPackageSdkVersion :: String
+    } deriving (Y.FromJSON)
 
 -- | daml.yaml config fields specific to packaging.
 data PackageConfigFields = PackageConfigFields

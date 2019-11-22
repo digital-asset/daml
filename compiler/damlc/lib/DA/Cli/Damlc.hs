@@ -183,9 +183,9 @@ cmdTest numProcessors =
 runTestsInProjectOrFiles :: ProjectOpts -> Maybe [FilePath] -> UseColor -> Maybe FilePath -> Options -> Command
 runTestsInProjectOrFiles projectOpts Nothing color mbJUnitOutput cliOptions = Command Test effect
   where effect = withExpectProjectRoot (projectRoot projectOpts) "daml test" $ \pPath _ -> do
-        sdkVersion <- PackageSdkVersion <$> getSdkVersion
+        sdkVersionM <- fmap PackageSdkVersion <$> getSdkVersionMaybe
         project <- readProjectConfig $ ProjectPath pPath
-        case parseProjectConfig sdkVersion project of
+        case parseProjectConfig sdkVersionM project of
             Left err -> throwIO err
             Right PackageConfigFields {..} -> do
               -- TODO: We set up one scenario service context per file that
@@ -458,22 +458,23 @@ execLint inputFile opts =
          DlintDisabled  -> opts{optDlintUsage=DlintEnabled defaultDir True}
 
 -- | Parse the daml.yaml for package specific config fields.
-parseProjectConfig :: PackageSdkVersion -> ProjectConfig -> Either ConfigError PackageConfigFields
-parseProjectConfig pSdkVersion project = do
+parseProjectConfig :: Maybe PackageSdkVersion -> ProjectConfig -> Either ConfigError PackageConfigFields
+parseProjectConfig sdkVersionM project = do
     pName <- queryProjectConfigRequired ["name"] project
     pSrc <- queryProjectConfigRequired ["source"] project
     pExposedModules <- queryProjectConfig ["exposed-modules"] project
     pVersion <- queryProjectConfigRequired ["version"] project
     pDependencies <- queryProjectConfigRequired ["dependencies"] project
     pDataDependencies <- fromMaybe [] <$> queryProjectConfig ["data-dependencies"] project
+    pSdkVersion <- maybe (queryProjectConfigRequired ["sdk-version"] project) Right sdkVersionM
     Right PackageConfigFields {..}
 
 -- | We assume that this is only called within `withProjectRoot`.
 withPackageConfig :: (PackageConfigFields -> IO a) -> IO a
 withPackageConfig f = do
-    sdkVersion <- PackageSdkVersion <$> getSdkVersion
+    sdkVersionM <- fmap PackageSdkVersion <$> getSdkVersionMaybe
     project <- readProjectConfig $ ProjectPath "."
-    case parseProjectConfig sdkVersion project of
+    case parseProjectConfig sdkVersionM project of
         Left err -> throwIO err
         Right pkgConfig -> f pkgConfig
 
