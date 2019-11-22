@@ -2,31 +2,14 @@
 
 ## Stackage
 
-To update the Stackage snapshot you need to clone the hazel repository into a
-separate directory:
+The daml repository uses a custom stack snapshot defined in
+`stack-snapshot.yaml`. Modify the `resolver` entry in that file to update the
+base Stackage snapshot. Update the package overrides defined in that file as
+appropriate.
 
-```
-$ git clone https://github.com/tweag/rules_haskell.git
-```
-
-Change into the hazel directory.
-
-```
-$ cd rules_haskell/hazel
-```
-
-Then execute the following command to update to the specified Stackage
-snapshot, where `$PROJECT` points to the root of this repository:
-(Requires `stack`)
-
-```
-$ Stackage.hs lts-12.4 "$PROJECT/hazel/packages.bzl"
-```
-
-On NixOS you may need to modify `Stackage.hs` to append the following flag to
-the list of `stack` intrepreter flags: `--nix-packages zlib`.
-
-This will take a while.
+A few Stackage packages require custom patches or custom build rules. These are
+defined in the `WORKSPACE` file and referenced in the `vendored_packages`
+attribute to `stack_snapshot` in the same file.
 
 
 ## Nixpkgs

@@ -11,6 +11,22 @@ if (!(Test-Path .\.bazelrc.local)) {
 
 $ARTIFACT_DIRS = if ("$env:BUILD_ARTIFACTSTAGINGDIRECTORY") { $env:BUILD_ARTIFACTSTAGINGDIRECTORY } else { Get-Location }
 
+# If a previous build was forcefully terminated, then stack's lock file might
+# not have been cleaned up properly leading to errors of the form
+#
+#   user error (hTryLock: lock already exists: C:\Users\VssAdministrator\AppData\Roaming\stack\pantry\hackage\hackage-security-lock)
+#
+# The package cache might be corrupted and just removing the lock might lead to
+# errors as below, so we just nuke the entire stack cache.
+#
+#   Failed populating package index cache
+#   IncompletePayload 56726464 844
+#
+if (Test-Path -Path $env:appdata\stack\pantry\hackage\hackage-security-lock) {
+    Write-Output ">> Nuking stack directory"
+    Remove-Item -ErrorAction Continue -Force -Recurse -Path $env:appdata\stack
+}
+
 function bazel() {
     Write-Output ">> bazel $args"
     $global:lastexitcode = 0
