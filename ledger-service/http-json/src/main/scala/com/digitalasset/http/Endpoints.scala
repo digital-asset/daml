@@ -31,6 +31,9 @@ import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
 
+import akka.stream.Materializer
+import akka.stream.scaladsl.{Sink, Source}
+
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 class Endpoints(
     ledgerId: lar.LedgerId,
@@ -114,6 +117,17 @@ class Endpoints(
         -\/(ServerError(e.getMessage))
     }
 
+//  private def handleSourceFailure[E: Show, A, M](
+//      soure: Source[E \/ A, M]): Source[ServerError \/ A, M] =
+//    source
+
+  private def handleSourceFailure[A, M](soure: Source[A, M]): Source[ServerError \/ A, M] =
+    soure.map(a => \/-(a)).recover {
+      case NonFatal(e) =>
+        logger.error("Source failed", e)
+        -\/(ServerError(e.getMessage))
+    }
+
   private def encodeList(as: Seq[JsValue]): ServerError \/ JsValue =
     SprayJson.encode(as).leftMap(e => ServerError(e.shows))
 
@@ -149,13 +163,13 @@ class Endpoints(
       httpResponse(et)
 
     case req @ HttpRequest(GET, Uri.Path("/contracts/search"), _, _, _) =>
-      val et: ET[JsValue] = for {
+      val et: Error \/ Source[Error \/ JsValue] = for {
         input <- FutureUtil.eitherT(input(req)): ET[(Jwt, JwtPayload, String)]
 
         (jwt, jwtPayload, _) = input
 
         as <- eitherT(
-          handleFutureFailure(
+          handleSourceFailure(
             contractsService
               .search(jwt, jwtPayload, emptyGetActiveContractsRequest))
         ): ET[Seq[contractsService.Result]]
