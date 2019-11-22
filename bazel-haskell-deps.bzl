@@ -14,6 +14,7 @@
 load("@bazel_skylib//lib:dicts.bzl", "dicts")
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 load("@os_info//:os_info.bzl", "is_windows")
+load("@dadew//:dadew.bzl", "dadew_tool_home")
 load("@rules_haskell//haskell:cabal.bzl", "stack_snapshot")
 
 GHCIDE_REV = "78aa9745798cfd730861e8c037cc481aa6b0dd43"
@@ -292,6 +293,20 @@ cc_library(name = "libgpr", linkstatic = 1, srcs = [":gpr"])
     )
 
     #
+    # Stack binary
+    #
+
+    # On Windows the stack binary is provisioned using dadew.
+    if is_windows:
+        native.new_local_repository(
+            name = "stack_windows",
+            build_file_content = """
+exports_files(["stack.exe"], visibility = ["//visibility:public"])
+""",
+            path = dadew_tool_home("stack"),
+        )
+
+    #
     # Stack Snapshots
     #
 
@@ -309,6 +324,7 @@ cc_library(name = "libgpr", linkstatic = 1, srcs = [":gpr"])
             "filepath",
             "language-c",
         ],
+        stack = "@stack_windows//:stack.exe" if is_windows else None,
         tools = [
             "@alex",
             "@happy",
@@ -492,6 +508,7 @@ cc_library(name = "libgpr", linkstatic = 1, srcs = [":gpr"])
             "zlib",
             "zlib-bindings",
         ] + (["unix"] if not is_windows else ["Win32"]),
+        stack = "@stack_windows//:stack.exe" if is_windows else None,
         tools = [
             "@alex",
             "@c2hs",
