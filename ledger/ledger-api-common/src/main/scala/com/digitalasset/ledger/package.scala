@@ -22,4 +22,7 @@ package object ledger {
   val EventId: LedgerString.type = LedgerString
   type EventId = EventId.T
 
+  /** Identifiers used to correlate admin submission with results. */
+  val SubmissionId: LedgerString.type = LedgerString
+  type SubmissionId = SubmissionId.T
 }
