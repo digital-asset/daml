@@ -39,6 +39,7 @@ load("@rules_haskell//haskell:cabal.bzl", "haskell_cabal_binary")
 haskell_cabal_binary(
     name = "alex",
     srcs = glob(["**"]),
+    compiler_flags = ["-w", "-optF=-w"],
     visibility = ["//visibility:public"],
 )
 """,
@@ -54,6 +55,7 @@ load("@rules_haskell//haskell:cabal.bzl", "haskell_cabal_binary")
 haskell_cabal_binary(
     name = "c2hs",
     srcs = glob(["**"]),
+    compiler_flags = ["-w", "-optF=-w"],
     deps = [
         "@c2hs_deps//:base",
         "@c2hs_deps//:bytestring",
@@ -76,6 +78,7 @@ load("@rules_haskell//haskell:cabal.bzl", "haskell_cabal_binary")
 haskell_cabal_binary(
     name = "happy",
     srcs = glob(["**"]),
+    compiler_flags = ["-w", "-optF=-w"],
     visibility = ["//visibility:public"],
 )
 """,
@@ -155,6 +158,7 @@ load("@rules_haskell//haskell:cabal.bzl", "haskell_cabal_binary")
 haskell_cabal_binary(
     name = "hpp",
     srcs = glob(["**"]),
+    compiler_flags = ["-w", "-optF=-w"],
     deps = [
         "@stackage//:base",
         "@stackage//:directory",
@@ -180,6 +184,7 @@ load("@rules_haskell//haskell:defs.bzl", "haskell_binary")
 haskell_binary(
     name = "compile-proto-file",
     srcs = ["tools/compile-proto-file/Main.hs"],
+    compiler_flags = ["-w", "-optF=-w"],
     deps = [
         "@stackage//:base",
         "@stackage//:optparse-applicative",
@@ -265,6 +270,7 @@ haskell_cabal_library(
     name = "grpc-haskell-core",
     version = "0.0.0.0",
     srcs = glob(["**"]),
+    compiler_flags = ["-w", "-optF=-w"],
     deps = packages["grpc-haskell-core"].deps + [
         ":grpc",
         ":libgpr",
