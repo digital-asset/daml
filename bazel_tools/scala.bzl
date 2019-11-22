@@ -329,16 +329,19 @@ def _scaladoc_jar_impl(ctx):
         # since we only have the output directory of the scaladoc generation we need to find
         # all the files below sources_out and add them to the zipper args file
         zipper_args_file = ctx.actions.declare_file(ctx.label.name + ".zipper_args")
+        posix = ctx.toolchains["@rules_sh//sh/posix:toolchain_type"]
         ctx.actions.run_shell(
             mnemonic = "ScaladocFindOutputFiles",
             outputs = [zipper_args_file],
             inputs = [outdir],
-            command = "find -L {src_path} -type f | sed -E 's#^{src_path}/(.*)$#\\1={src_path}/\\1#' | sort > {args_file}".format(
+            command = "{find} -L {src_path} -type f | {sed} -E 's#^{src_path}/(.*)$#\\1={src_path}/\\1#' | {sort} > {args_file}".format(
+                find = posix.commands["find"],
+                sed = posix.commands["sed"],
+                sort = posix.commands["sort"],
                 src_path = outdir.path,
                 args_file = zipper_args_file.path,
             ),
             progress_message = "find_scaladoc_output_files %s" % zipper_args_file.path,
-            use_default_shell_env = True,
         )
 
         ctx.actions.run(
@@ -375,6 +378,7 @@ scaladoc_jar = rule(
     outputs = {
         "out": "%{name}.jar",
     },
+    toolchains = ["@rules_sh//sh/posix:toolchain_type"],
 )
 """
 Generates a Scaladoc jar path/to/target/<name>.jar.
