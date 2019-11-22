@@ -128,7 +128,7 @@ class InterfaceReaderSpec extends WordSpec with Matchers with Inside {
       ImmArray.empty,
       Ast.DataRecord(
         ImmArray(
-          primField("textMap", Ast.BTTextMap, Ast.TBuiltin(Ast.BTInt64)),
+          primField("map", Ast.BTTextMap, Ast.TBuiltin(Ast.BTInt64)),
         ),
         None
       ))
