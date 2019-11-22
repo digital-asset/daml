@@ -33,6 +33,9 @@ final class PackageManagementServiceAuthIT
   it should "deny authenticated calls for a user with public claims" in {
     expect(listKnownPackages(Option(rwToken("alice").asHeader()))).toBeDenied
   }
+  it should "deny authenticated calls for a user with public read-only claims" in {
+    expect(listKnownPackages(Option(roToken("alice").asHeader()))).toBeDenied
+  }
   it should "allow authenticated calls for an admin" in {
     expect(listKnownPackages(Option(adminToken.asHeader()))).toSucceed
   }
@@ -62,6 +65,9 @@ final class PackageManagementServiceAuthIT
   }
   it should "deny authenticated calls for a user with public claims" in {
     expect(uploadDar(Option(rwToken("alice").asHeader()))).toBeDenied
+  }
+  it should "deny authenticated calls for a user with public read-only claims" in {
+    expect(uploadDar(Option(roToken("alice").asHeader()))).toBeDenied
   }
   it should "allow authenticated calls for an admin" in {
     expect(uploadDar(Option(adminToken.asHeader()))).toSucceed

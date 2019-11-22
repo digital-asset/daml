@@ -36,6 +36,9 @@ final class CommandServiceAuthIT
   it should "deny calls with expired tokens" in {
     expect(submitAndWait(Some(rwToken(submitter).expired.asHeader()))).toBeDenied
   }
+  it should "deny calls with read-only tokens" in {
+    expect(submitAndWait(Some(roToken(submitter).asHeader()))).toBeDenied
+  }
   it should "allow calls with non-expired tokens" in {
     expect(submitAndWait(Some(rwToken(submitter).expiresTomorrow.asHeader()))).toSucceed
   }
@@ -53,6 +56,9 @@ final class CommandServiceAuthIT
   }
   it should "deny calls with expired tokens" in {
     expect(submitAndWaitForTransaction(Some(rwToken(submitter).expired.asHeader()))).toBeDenied
+  }
+  it should "deny calls with read-only tokens" in {
+    expect(submitAndWaitForTransaction(Some(roToken(submitter).asHeader()))).toBeDenied
   }
   it should "allow calls with non-expired tokens" in {
     expect(submitAndWaitForTransaction(Some(rwToken(submitter).expiresTomorrow.asHeader()))).toSucceed
@@ -72,6 +78,9 @@ final class CommandServiceAuthIT
   it should "deny calls with expired tokens" in {
     expect(submitAndWaitForTransactionId(Some(rwToken(submitter).expired.asHeader()))).toBeDenied
   }
+  it should "deny calls with read-only tokens" in {
+    expect(submitAndWaitForTransactionId(Some(roToken(submitter).asHeader()))).toBeDenied
+  }
   it should "allow calls with non-expired tokens" in {
     expect(submitAndWaitForTransactionId(Some(rwToken(submitter).expiresTomorrow.asHeader()))).toSucceed
   }
@@ -89,6 +98,9 @@ final class CommandServiceAuthIT
   }
   it should "deny calls with expired tokens" in {
     expect(submitAndWaitForTransactionTree(Some(rwToken(submitter).expired.asHeader()))).toBeDenied
+  }
+  it should "deny calls with read-only tokens" in {
+    expect(submitAndWaitForTransactionTree(Some(roToken(submitter).asHeader()))).toBeDenied
   }
   it should "allow calls with non-expired tokens" in {
     expect(submitAndWaitForTransactionTree(Some(rwToken(submitter).expiresTomorrow.asHeader()))).toSucceed

@@ -41,6 +41,9 @@ final class TimeServiceAuthIT
   it should "allow authenticated calls for a user with public claims" in {
     expect(getTime(Option(rwToken("alice").asHeader()))).toSucceed
   }
+  it should "allow authenticated calls for a user with public read-only claims" in {
+    expect(getTime(Option(roToken("alice").asHeader()))).toSucceed
+  }
   it should "allow authenticated calls for an admin" in {
     expect(getTime(Option(adminToken.asHeader()))).toSucceed
   }

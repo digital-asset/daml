@@ -42,6 +42,9 @@ final class LedgerIdentityServiceAuthIT
   it should "deny calls with expired tokens" in {
     expect(getLedgerId(Option(rwToken("alice").expired.asHeader()))).toBeDenied
   }
+  it should "allow calls with read-only tokens" in {
+    expect(getLedgerId(Option(roToken("alice").asHeader()))).toSucceed
+  }
   it should "allow calls with non-expired tokens" in {
     expect(getLedgerId(Option(rwToken("alice").expiresTomorrow.asHeader()))).toSucceed
   }

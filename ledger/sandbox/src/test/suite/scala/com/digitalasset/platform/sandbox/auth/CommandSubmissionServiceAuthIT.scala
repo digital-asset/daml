@@ -39,6 +39,9 @@ final class CommandSubmissionServiceAuthIT
   it should "deny calls with expired tokens" in {
     expect(submit(Some(rwToken(submitter).expired.asHeader()))).toBeDenied
   }
+  it should "deny calls with read-only tokens" in {
+    expect(submit(Some(roToken(submitter).asHeader()))).toBeDenied
+  }
   it should "allow calls with non-expired tokens" in {
     expect(submit(Some(rwToken(submitter).expiresTomorrow.asHeader()))).toSucceed
   }

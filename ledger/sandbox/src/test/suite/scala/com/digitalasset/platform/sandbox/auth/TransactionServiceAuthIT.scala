@@ -79,6 +79,9 @@ final class TransactionServiceAuthIT
   it should "deny calls with expired tokens" in {
     expect(transactions(Option(rwToken(submitter).expired.asHeader()))).toBeDenied
   }
+  it should "allow calls with read-only tokens" in {
+    expect(transactions(Option(roToken(submitter).asHeader()))).toSucceed
+  }
   it should "allow calls with non-expired tokens" in {
     expect(transactions(Option(rwToken(submitter).expiresTomorrow.asHeader()))).toSucceed
   }
@@ -87,7 +90,7 @@ final class TransactionServiceAuthIT
     expect(expiringTransactions(rwToken(submitter).expiresInFiveSeconds.asHeader())).toSucceed
   }
 
-  private def transactionsTrees(token: Option[String]): Future[Unit] =
+  private def transactionTrees(token: Option[String]): Future[Unit] =
     command.flatMap(
       _ =>
         streamResult[GetTransactionTreesResponse](observer =>
@@ -103,16 +106,19 @@ final class TransactionServiceAuthIT
   behavior of "TransactionService#GetTransactionsTrees with authorization"
 
   it should "deny unauthorized calls" in {
-    expect(transactionsTrees(None)).toBeDenied
+    expect(transactionTrees(None)).toBeDenied
   }
   it should "allow authenticated calls" in {
-    expect(transactionsTrees(Option(rwToken(submitter).asHeader()))).toSucceed
+    expect(transactionTrees(Option(rwToken(submitter).asHeader()))).toSucceed
   }
   it should "deny calls with expired tokens" in {
-    expect(transactionsTrees(Option(rwToken(submitter).expired.asHeader()))).toBeDenied
+    expect(transactionTrees(Option(rwToken(submitter).expired.asHeader()))).toBeDenied
+  }
+  it should "allow calls with read-only tokens" in {
+    expect(transactionTrees(Option(roToken(submitter).asHeader()))).toSucceed
   }
   it should "allow calls with non-expired tokens" in {
-    expect(transactionsTrees(Option(rwToken(submitter).expiresTomorrow.asHeader()))).toSucceed
+    expect(transactionTrees(Option(rwToken(submitter).expiresTomorrow.asHeader()))).toSucceed
   }
   it should "break a stream in flight upon token expiration" in {
     val _ = Delayed.Future.by(10.seconds)(issueCommand())
@@ -134,6 +140,10 @@ final class TransactionServiceAuthIT
   }
   it should "allow authenticated calls" in {
     expect(getTransactionById(Option(rwToken(submitter).asHeader())))
+      .toFailWith(Status.Code.NOT_FOUND)
+  }
+  it should "allow calls with read-only tokens" in {
+    expect(getTransactionById(Option(roToken(submitter).asHeader())))
       .toFailWith(Status.Code.NOT_FOUND)
   }
   it should "deny calls with expired tokens" in {
@@ -165,6 +175,10 @@ final class TransactionServiceAuthIT
     expect(getTransactionByEventId(Option(rwToken(submitter).asHeader())))
       .toFailWith(Status.Code.NOT_FOUND)
   }
+  it should "allow calls with read-only tokens" in {
+    expect(getTransactionByEventId(Option(roToken(submitter).asHeader())))
+      .toFailWith(Status.Code.NOT_FOUND)
+  }
   it should "deny calls with expired tokens" in {
     expect(getTransactionByEventId(Option(rwToken(submitter).expired.asHeader())))
       .toFailWith(Status.Code.PERMISSION_DENIED)
@@ -189,6 +203,10 @@ final class TransactionServiceAuthIT
   }
   it should "allow authenticated calls" in {
     expect(getFlatTransactionById(Option(rwToken(submitter).asHeader())))
+      .toFailWith(Status.Code.NOT_FOUND)
+  }
+  it should "allow calls with read-only tokens" in {
+    expect(getFlatTransactionById(Option(roToken(submitter).asHeader())))
       .toFailWith(Status.Code.NOT_FOUND)
   }
   it should "deny calls with expired tokens" in {
@@ -219,6 +237,10 @@ final class TransactionServiceAuthIT
   }
   it should "allow authenticated calls" in {
     expect(getFlatTransactionByEventId(Option(rwToken(submitter).asHeader())))
+      .toFailWith(Status.Code.NOT_FOUND)
+  }
+  it should "allow calls with read-only tokens" in {
+    expect(getFlatTransactionByEventId(Option(roToken(submitter).asHeader())))
       .toFailWith(Status.Code.NOT_FOUND)
   }
   it should "deny calls with expired tokens" in {

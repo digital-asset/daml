@@ -45,6 +45,9 @@ final class LedgerConfigurationServiceAuthIT
   it should "deny calls with expired tokens" in {
     expect(ledgerConfig(Option(rwToken("alice").expired.asHeader()))).toBeDenied
   }
+  it should "allow calls with read-only tokens" in {
+    expect(ledgerConfig(Option(roToken("alice").asHeader()))).toSucceed
+  }
   it should "allow calls with non-expired tokens" in {
     expect(ledgerConfig(Option(rwToken("alice").expiresTomorrow.asHeader()))).toSucceed
   }

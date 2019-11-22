@@ -48,6 +48,9 @@ final class CommandCompletionServiceAuthIT
   it should "allow calls with non-expired tokens" in {
     expect(completionEnd(Option(rwToken(submitter).expiresTomorrow.asHeader()))).toSucceed
   }
+  it should "allow calls with read-only tokens" in {
+    expect(completionEnd(Option(roToken(submitter).asHeader()))).toSucceed
+  }
 
   private lazy val completionStreamRequest =
     new CompletionStreamRequest(unwrappedLedgerId, appId, List(submitter), Some(ledgerBegin))
@@ -82,6 +85,9 @@ final class CommandCompletionServiceAuthIT
   }
   it should "allow calls with non-expired tokens" in {
     expect(completionStream(Option(rwToken(submitter).expiresTomorrow.asHeader()))).toSucceed
+  }
+  it should "allow calls with read-only tokens" in {
+    expect(completionStream(Option(roToken(submitter).expiresTomorrow.asHeader()))).toSucceed
   }
   it should "break a stream in flight upon token expiration" in {
     val _ = Delayed.Future.by(10.seconds)(issueCommand())

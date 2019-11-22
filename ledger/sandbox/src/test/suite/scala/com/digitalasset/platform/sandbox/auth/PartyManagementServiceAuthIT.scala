@@ -30,6 +30,9 @@ final class PartyManagementServiceAuthIT
   it should "deny authenticated calls for a user with public claims" in {
     expect(listKnownParties(Option(rwToken("alice").asHeader()))).toBeDenied
   }
+  it should "deny authenticated calls for a user with public read-only claims" in {
+    expect(listKnownParties(Option(roToken("alice").asHeader()))).toBeDenied
+  }
   it should "allow authenticated calls for an admin" in {
     expect(listKnownParties(Option(adminToken.asHeader()))).toSucceed
   }
@@ -56,6 +59,9 @@ final class PartyManagementServiceAuthIT
   }
   it should "deny authenticated calls for a user with public claims" in {
     expect(allocateParty(Option(rwToken("alice").asHeader()))).toBeDenied
+  }
+  it should "deny authenticated calls for a user with public read-only claims" in {
+    expect(allocateParty(Option(roToken("alice").asHeader()))).toBeDenied
   }
   it should "allow authenticated calls for an admin" in {
     expect(allocateParty(Option(adminToken.asHeader()))).toSucceed

@@ -24,14 +24,14 @@ final class ActiveContractsServiceAuthIT
     with Matchers
     with Expect {
 
-  private val submitter = "alice"
+  private val subscriber = "alice"
 
   private def getActiveContracts(token: Option[String]): Future[Unit] =
     streamResult[GetActiveContractsResponse](
       observer =>
         stub(ActiveContractsServiceGrpc.stub(channel), token)
           .getActiveContracts(
-            new GetActiveContractsRequest(unwrappedLedgerId, txFilterFor(submitter)),
+            new GetActiveContractsRequest(unwrappedLedgerId, txFilterFor(subscriber)),
             observer))
 
   behavior of "ActiveContractsService with authorization"
@@ -43,16 +43,19 @@ final class ActiveContractsServiceAuthIT
     expect(getActiveContracts(Option(rwToken("bob").asHeader(UUID.randomUUID.toString)))).toBeDenied
   }
   it should "deny calls with an invalid signature" in {
-    expect(getActiveContracts(Option(rwToken(submitter).asHeader(UUID.randomUUID.toString)))).toBeDenied
+    expect(getActiveContracts(Option(rwToken(subscriber).asHeader(UUID.randomUUID.toString)))).toBeDenied
   }
   it should "allow authenticated calls" in {
-    expect(getActiveContracts(Option(rwToken(submitter).asHeader()))).toSucceed
+    expect(getActiveContracts(Option(rwToken(subscriber).asHeader()))).toSucceed
+  }
+  it should "allow authenticated calls with read-only token" in {
+    expect(getActiveContracts(Option(roToken(subscriber).asHeader()))).toSucceed
   }
   it should "deny calls with expired tokens" in {
-    expect(getActiveContracts(Option(rwToken(submitter).expired.asHeader()))).toBeDenied
+    expect(getActiveContracts(Option(rwToken(subscriber).expired.asHeader()))).toBeDenied
   }
   it should "allow calls with non-expired tokens" in {
-    expect(getActiveContracts(Option(rwToken(submitter).expiresTomorrow.asHeader()))).toSucceed
+    expect(getActiveContracts(Option(rwToken(subscriber).expiresTomorrow.asHeader()))).toSucceed
   }
 
 }
