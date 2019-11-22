@@ -62,13 +62,16 @@ import com.digitalasset.ledger.client.binding.{Primitive, Template}
 import com.digitalasset.platform.testing.{
   FiniteStreamObserver,
   SingleItemObserver,
-  SizeBoundObserver
+  SizeBoundObserver,
+  TimeBoundObserver
 }
 import com.google.protobuf.ByteString
+import io.grpc.health.v1.health.{HealthCheckRequest, HealthCheckResponse}
 import io.grpc.stub.StreamObserver
 import scalaz.Tag
 import scalaz.syntax.tag._
 
+import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
 
@@ -522,4 +525,11 @@ private[testtool] final class ParticipantTestContext private[participant] (
             new GetLedgerConfigurationRequest(overrideLedgerId.getOrElse(ledgerId)),
             _))
       .map(_.fold(sys.error("No ledger configuration available."))(_.getLedgerConfiguration))
+
+  def checkHealth(): Future[HealthCheckResponse] =
+    services.health.check(HealthCheckRequest())
+
+  def watchHealth(): Future[Seq[HealthCheckResponse]] =
+    TimeBoundObserver[HealthCheckResponse](100.milliseconds)(
+      services.health.watch(HealthCheckRequest(), _))
 }

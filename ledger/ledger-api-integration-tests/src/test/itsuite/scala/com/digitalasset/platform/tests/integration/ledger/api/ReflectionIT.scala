@@ -19,7 +19,7 @@ class ReflectionIT
     with SuiteResourceManagementAroundAll {
   override protected def config: Config = Config.default
 
-  def listServices =
+  def listServices: ServerReflectionRequest =
     ServerReflectionRequest.newBuilder().setHost("127.0.0.1").setListServices("").build()
 
   "Reflection service" when {
@@ -30,7 +30,7 @@ class ReflectionIT
         for {
           response <- execRequest(ledger, listServices)
         } yield {
-          response.getListServicesResponse.getServiceCount shouldEqual 13
+          response.getListServicesResponse.getServiceCount shouldEqual 14
         }
       }
 
@@ -61,13 +61,6 @@ class ReflectionIT
     val request =
       ServerReflectionRequest.newBuilder().setFileContainingSymbol(symbol).build()
     request
-  }
-
-  private def getFileRequest(fileName: String) = {
-    ServerReflectionRequest
-      .newBuilder()
-      .setFileByFilename(fileName)
-      .build()
   }
 
   private def execRequest(ledger: LedgerContext, request: ServerReflectionRequest) = {

@@ -16,8 +16,8 @@ import com.daml.ledger.participant.state.v1.{TimeModel, WriteService}
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.engine._
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
-import com.digitalasset.ledger.api.auth.services._
 import com.digitalasset.ledger.api.auth.Authorizer
+import com.digitalasset.ledger.api.auth.services._
 import com.digitalasset.ledger.api.v1.command_completion_service.CompletionEndRequest
 import com.digitalasset.ledger.client.services.commands.CommandSubmissionFlow
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
@@ -29,6 +29,7 @@ import com.digitalasset.platform.sandbox.services.admin.{
 }
 import com.digitalasset.platform.sandbox.services.transaction.ApiTransactionService
 import com.digitalasset.platform.sandbox.stores.ledger.CommandExecutorImpl
+import com.digitalasset.platform.server.api.services.grpc.GrpcHealthService
 import com.digitalasset.platform.server.services.command.ApiCommandService
 import com.digitalasset.platform.server.services.identity.ApiLedgerIdentityService
 import com.digitalasset.platform.server.services.testing.{ApiTimeService, TimeServiceBackend}
@@ -54,7 +55,7 @@ private case class ApiServicesBundle(services: immutable.Seq[BindableService]) e
     }
 
   override def withServices(otherServices: immutable.Seq[BindableService]): ApiServices =
-    copy(services = services.++:(otherServices))
+    copy(services = services ++ otherServices)
 
 }
 
@@ -140,8 +141,6 @@ object ApiServices {
       val apiActiveContractsService =
         ApiActiveContractsService.create(ledgerId, activeContractsService, loggerFactory)
 
-      val apiReflectionService = ProtoReflectionService.newInstance()
-
       val apiTimeServiceOpt =
         optTimeServiceBackend.map { tsb =>
           new TimeServiceAuthorization(
@@ -161,9 +160,13 @@ object ApiServices {
       val apiPackageManagementService =
         ApiPackageManagementService.createApiService(indexService, writeService, loggerFactory)
 
+      val apiReflectionService = ProtoReflectionService.newInstance()
+
+      val apiHealthService = new GrpcHealthService
+
       // Note: the command service uses the command submission, command completion, and transaction services internally.
       // These connections do not use authorization, authorization wrappers are only added here to all exposed services.
-      new ApiServicesBundle(
+      ApiServicesBundle(
         apiTimeServiceOpt.toList :::
           List(
           new LedgerIdentityServiceAuthorization(apiLedgerIdentityService, authorizer),
@@ -174,11 +177,11 @@ object ApiServices {
           new CommandCompletionServiceAuthorization(apiCompletionService, authorizer),
           new CommandServiceAuthorization(apiCommandService, authorizer),
           new ActiveContractsServiceAuthorization(apiActiveContractsService, authorizer),
-          apiReflectionService,
           new PartyManagementServiceAuthorization(apiPartyManagementService, authorizer),
           new PackageManagementServiceAuthorization(apiPackageManagementService, authorizer),
+          apiReflectionService,
+          apiHealthService,
         ))
     }
   }
-
 }

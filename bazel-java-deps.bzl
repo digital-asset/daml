@@ -50,6 +50,7 @@ def install_java_deps():
             "com.typesafe.akka:akka-slf4j_2.12:2.5.23",
             "com.typesafe.akka:akka-stream_2.12:2.5.23",
             "com.typesafe.akka:akka-stream-testkit_2.12:2.5.23",
+            "com.typesafe.akka:akka-testkit_2.12:2.5.23",
             "com.typesafe.play:anorm_2.12:2.5.3",
             "com.typesafe.play:anorm-akka_2.12:2.5.3",
             "com.typesafe.scala-logging:scala-logging_2.12:3.9.2",

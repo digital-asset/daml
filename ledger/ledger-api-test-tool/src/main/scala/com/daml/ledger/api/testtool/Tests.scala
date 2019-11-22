@@ -26,6 +26,7 @@ object Tests {
     "ContractKeysIT" -> (new ContractKeys(_)),
     "ContractKeysSubmitterIsMaintainerIT" -> (new ContractKeysSubmitterIsMaintainer(_)),
     "DivulgenceIT" -> (new Divulgence(_)),
+    "HealthServiceIT" -> (new HealthService(_)),
     "IdentityIT" -> (new Identity(_)),
     "LedgerConfigurationServiceIT" -> (new LedgerConfigurationService(_)),
     "LotsOfPartiesIT" -> (new LotsOfParties(_)),

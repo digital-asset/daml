@@ -116,6 +116,9 @@
 - target: //ledger-api/rs-grpc-akka:rs-grpc-akka
   type: jar-scala
   mavenUpload: True
+- target: //ledger-api/rs-grpc-testing-utils:rs-grpc-testing-utils
+  type: jar-scala
+  mavenUpload: True
 - target: //ledger/ledger-api-akka:ledger-api-akka
   type: jar-scala
   mavenUpload: True
