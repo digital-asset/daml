@@ -8,11 +8,7 @@ import java.time.Duration
 
 import akka.stream.scaladsl.Sink
 import com.daml.ledger.participant.state.backport.TimeModel
-import com.daml.ledger.participant.state.v1.Update.{
-  PackageUploadEntryAccepted,
-  PartyAddedToParticipant,
-  PublicPackageUploaded
-}
+import com.daml.ledger.participant.state.v1.Update.{PackageUploadEntryAccepted, PackageUploadEntryRejected, PartyAddedToParticipant, PublicPackageUploaded}
 import com.daml.ledger.participant.state.v1._
 import com.digitalasset.daml.bazeltools.BazelRunfiles
 import com.digitalasset.daml.lf.archive.DarReader
@@ -74,7 +70,16 @@ class InMemoryKVParticipantStateIT
     case (offset: Offset, update: PackageUploadEntryAccepted) =>
       assert(offset == givenOffset)
       assert(update.participantId == participantId)
-    case _ => fail("unexpected update message after a package upload")
+    case _ => fail("did not find expected upload entry accepted")
+  }
+
+  private def matchPackageUploadEntryRejected(
+      updateTuple: (Offset, Update),
+      givenOffset: Offset): Assertion = updateTuple match {
+    case (offset: Offset, update: PackageUploadEntryRejected) =>
+      assert(offset == givenOffset)
+      assert(update.participantId == participantId)
+    case _ => fail("did not find expected upload entry rejected")
   }
 
   "In-memory implementation" should {
@@ -113,7 +118,7 @@ class InMemoryKVParticipantStateIT
       }
     }
 
-    "provide three updates after uploadPackages with three archives" in {
+    "provide three updates and an accepted after uploadPackages with three archives" in {
       val ps = new InMemoryKVParticipantState(participantId)
       val rt = ps.getNewRecordTime()
 
@@ -121,7 +126,7 @@ class InMemoryKVParticipantStateIT
         result <- ps
           .uploadPackages(archives, sourceDescription)
           .toScala
-        updateTuples <- ps.stateUpdates(beginAfter = None).take(3).runWith(Sink.seq)
+        updateTuples <- ps.stateUpdates(beginAfter = None).take(4).runWith(Sink.seq)
       } yield {
         ps.close()
         result match {
@@ -133,6 +138,7 @@ class InMemoryKVParticipantStateIT
         matchPackageUpload(updateTuples.head, Offset(Array(0L, 0L)), archives.head, rt)
         matchPackageUpload(updateTuples(1), Offset(Array(0L, 1L)), archives(1), rt)
         matchPackageUpload(updateTuples(2), Offset(Array(0L, 2L)), archives(2), rt)
+        matchPackageUploadEntryAccepted(updateTuples(3), Offset(Array(0L, 3L)))
       }
     }
 
@@ -172,7 +178,6 @@ class InMemoryKVParticipantStateIT
 
     "return SubmissionResult Acknowledged for uploadPackages when archive is empty" in {
       val ps = new InMemoryKVParticipantState(participantId)
-      val rt = ps.getNewRecordTime()
 
       val badArchive = DamlLf.Archive.newBuilder
         .setHash("asdf")
@@ -182,6 +187,7 @@ class InMemoryKVParticipantStateIT
         result <- ps
           .uploadPackages(List(badArchive), sourceDescription)
           .toScala
+        updateTuples <- ps.stateUpdates(beginAfter = None).take(3).runWith(Sink.seq)
       } yield {
         ps.close()
         result match {
@@ -190,6 +196,7 @@ class InMemoryKVParticipantStateIT
           case _ =>
             fail("Unexpected response to package upload.  Error : " + result.toString)
         }
+        matchPackageUploadEntryRejected(updateTuples.head, Offset(Array(0L, 0L)))
       }
     }
 
