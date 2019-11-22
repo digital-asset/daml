@@ -279,9 +279,6 @@ class JdbcIndexer private[index] (
             headRef,
             headRef + 1,
             externalOffset,
-            participantId,
-            submissionId,
-            None,
             PackageUploadEntry.Accepted(submissionId, participantId))
           .map(_ => headRef = headRef + 1)(DEC)
 
@@ -291,9 +288,6 @@ class JdbcIndexer private[index] (
             headRef,
             headRef + 1,
             externalOffset,
-            participantId,
-            submissionId,
-            Some(reason),
             PackageUploadEntry.Rejected(submissionId, participantId, reason))
           .map(_ => headRef = headRef + 1)(DEC)
 

@@ -14,7 +14,7 @@ import anorm.SqlParser._
 import anorm.ToStatement.optionToStatement
 import anorm.{AkkaStream, BatchSql, Macro, NamedParameter, RowParser, SQL, SqlParser}
 import com.daml.ledger.participant.state.index.v2.PackageDetails
-import com.daml.ledger.participant.state.v1.{AbsoluteContractInst, ParticipantId, TransactionId}
+import com.daml.ledger.participant.state.v1.{AbsoluteContractInst, TransactionId}
 import com.digitalasset.daml.lf.archive.Decode
 import com.digitalasset.daml.lf.data.Ref.{
   ContractIdString,
@@ -1367,14 +1367,11 @@ private class JdbcLedgerDao(
       offset: LedgerOffset,
       newLedgerEnd: LedgerOffset,
       externalOffset: Option[ExternalOffset],
-      participantId: ParticipantId,
-      submissionId: String,
-      reason: Option[String],
       typ: PackageUploadEntry): Future[PersistenceResponse] = {
 
     val prereqs = Try {
-      require(participantId.nonEmpty, "participantId cannot be empty")
-      require(submissionId.nonEmpty, "submissionId cannot be empty")
+      require(typ.participantId.nonEmpty, "participantId cannot be empty")
+      require(typ.submissionId.nonEmpty, "submissionId cannot be empty")
     }
     prereqs.fold(
       Future.failed,
@@ -1387,16 +1384,25 @@ private class JdbcLedgerDao(
               Seq[NamedParameter](
                 "ledger_offset" -> offset,
                 "recorded_at" -> Instant.now(),
-                "submission_id" -> submissionId,
-                "participant_id" -> participantId,
+                "submission_id" -> typ.submissionId,
+                "participant_id" -> typ.participantId,
                 "typ" -> typ.value,
-                "rejection_reason" -> reason
+                "rejection_reason" -> reasonOrNull(typ)
               ))
           )
           if (sqlupdate.head > 0) PersistenceResponse.Ok
           else PersistenceResponse.Duplicate
       }
     )
+  }
+
+  private def reasonOrNull(entry: PackageUploadEntry): String = {
+    entry match {
+      case PackageUploadEntry.Rejected(_, _, reason) =>
+        reason
+      case PackageUploadEntry.Accepted(_, _) =>
+        null
+    }
   }
 
   private val SQL_TRUNCATE_ALL_TABLES =
