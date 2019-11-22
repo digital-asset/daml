@@ -7,6 +7,7 @@ import java.util.concurrent.Executors
 
 import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
+import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 import org.scalatest.{BeforeAndAfterAll, Suite}
 import org.slf4j.LoggerFactory
@@ -35,7 +36,11 @@ trait AkkaBeforeAndAfterAll extends BeforeAndAfterAll {
 
   protected implicit lazy val materializer: ActorMaterializer = ActorMaterializer()
 
+  protected implicit lazy val executionSequencerFactory: ExecutionSequencerFactory =
+    new AkkaExecutionSequencerPool(poolName = actorSystemName, actorCount = 1)
+
   override protected def afterAll(): Unit = {
+    executionSequencerFactory.close()
     materializer.shutdown()
     Await.result(system.terminate(), 30.seconds)
     super.afterAll()

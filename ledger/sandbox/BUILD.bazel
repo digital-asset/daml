@@ -34,6 +34,7 @@ compileDependencies = [
     "//language-support/scala/bindings",
     "//ledger-api/rs-grpc-akka",
     "//ledger-api/rs-grpc-bridge",
+    "//ledger-api/rs-grpc-testing-utils",
     "//ledger-service/jwt",
     "//ledger/ledger-api-akka",
     "//ledger/ledger-api-auth",

@@ -3,70 +3,40 @@
 
 package com.digitalasset.platform.sandbox.health
 
-import akka.Done
+import akka.NotUsed
 import akka.stream.Materializer
-import akka.stream.scaladsl.{Sink, Source}
+import akka.stream.scaladsl.Source
+import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.grpc.adapter.utils.DirectExecutionContext
-import com.digitalasset.grpc.{GrpcException, GrpcStatus}
 import com.digitalasset.platform.api.grpc.GrpcApiService
-import io.grpc.health.v1.health.{HealthCheckRequest, HealthCheckResponse, HealthGrpc}
-import io.grpc.stub.StreamObserver
-import io.grpc.{Context, ServerServiceDefinition, Status}
+import io.grpc.ServerServiceDefinition
+import io.grpc.health.v1.health.{
+  HealthAkkaGrpc,
+  HealthCheckRequest,
+  HealthCheckResponse,
+  HealthGrpc
+}
 
-import scala.concurrent.duration.{DurationInt, FiniteDuration}
+import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.control.NonFatal
-import scala.util.{Failure, Success}
 
-class HealthService(watchThrottleFrequency: FiniteDuration = 1.second)(
-    implicit materializer: Materializer,
+class HealthService(
+    implicit protected val esf: ExecutionSequencerFactory,
+    protected val mat: Materializer,
     executionContext: ExecutionContext,
-) extends HealthGrpc.Health
+) extends HealthAkkaGrpc
     with GrpcApiService {
   private val servingResponse = HealthCheckResponse(HealthCheckResponse.ServingStatus.SERVING)
 
   override def bindService(): ServerServiceDefinition =
     HealthGrpc.bindService(this, DirectExecutionContext)
 
-  override def close(): Unit = ()
-
   override def check(request: HealthCheckRequest): Future[HealthCheckResponse] =
     Future.successful(servingResponse)
 
-  override def watch(
-      request: HealthCheckRequest,
-      responseObserver: StreamObserver[HealthCheckResponse],
-  ): Unit = {
-    val context = Context.current()
-    watch(request, responseObserver, () => context.isCancelled)
-  }
-
-  private[health] def watch(
-      request: HealthCheckRequest,
-      responseObserver: StreamObserver[HealthCheckResponse],
-      isCancelled: () => Boolean,
-  ): Unit = {
+  override def watchSource(request: HealthCheckRequest): Source[HealthCheckResponse, NotUsed] =
     Source
       .repeat(servingResponse)
-      .takeWhile(_ => !isCancelled())
-      .throttle(1, per = watchThrottleFrequency)
+      .throttle(1, per = 1.second)
       .via(DropRepeated())
-      .runWith(Sink.foreach(responseObserver.onNext))
-      .onComplete {
-        case Success(Done) =>
-          try {
-            responseObserver.onCompleted()
-          } catch {
-            // The stream was cancelled; don't worry about it.
-            case GrpcException(GrpcStatus(Status.Code.CANCELLED, _), _) =>
-          }
-        case Failure(error) =>
-          try {
-            responseObserver.onError(error)
-          } catch {
-            // ignore; what else can we do?
-            case NonFatal(_) =>
-          }
-      }
-  }
 }
