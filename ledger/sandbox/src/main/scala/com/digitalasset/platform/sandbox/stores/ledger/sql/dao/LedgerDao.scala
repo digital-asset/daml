@@ -8,7 +8,7 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.index.v2.PackageDetails
-import com.daml.ledger.participant.state.v1.{AbsoluteContractInst, ParticipantId, TransactionId}
+import com.daml.ledger.participant.state.v1.{AbsoluteContractInst, TransactionId}
 import com.digitalasset.daml.lf.data.Ref.{LedgerString, PackageId, Party}
 import com.digitalasset.daml.lf.data.Relation.Relation
 import com.digitalasset.daml.lf.transaction.Node
@@ -20,8 +20,8 @@ import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails}
 import com.digitalasset.platform.common.util.DirectExecutionContext
 import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilter
 import com.digitalasset.platform.sandbox.stores.ActiveLedgerState.{ActiveContract, Contract}
-import com.digitalasset.platform.sandbox.stores.ledger.{LedgerEntry, PackageUploadEntry}
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry.Transaction
+import com.digitalasset.platform.sandbox.stores.ledger.{LedgerEntry, PackageUploadEntry}
 
 import scala.collection.immutable
 import scala.concurrent.Future
@@ -229,18 +229,16 @@ trait LedgerWriteDao extends AutoCloseable {
 
   /**
     * Store a package upload entry confirmation or rejection
-    * @param participantId
-    * @param submissionId
-    * @param reason
+    * @param offset
+    * @param newLedgerEnd
+    * @param externalOffset
+    * @param typ
     * @return
     */
   def storePackageUploadEntry(
       offset: LedgerOffset,
       newLedgerEnd: LedgerOffset,
       externalOffset: Option[ExternalOffset],
-      participantId: ParticipantId,
-      submissionId: String,
-      reason: Option[String],
       typ: PackageUploadEntry): Future[PersistenceResponse]
 
   /** Resets the platform into a state as it was never used before. Meant to be used solely for testing. */

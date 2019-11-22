@@ -6,10 +6,10 @@ package com.digitalasset.platform.sandbox.stores.ledger.sql.dao
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
-import com.daml.ledger.participant.state.v1.{ParticipantId, TransactionId}
 import com.codahale.metrics.MetricRegistry
-import com.digitalasset.daml.lf.data.Ref.{LedgerString, PackageId, Party}
 import com.daml.ledger.participant.state.index.v2.PackageDetails
+import com.daml.ledger.participant.state.v1.TransactionId
+import com.digitalasset.daml.lf.data.Ref.{LedgerString, PackageId, Party}
 import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
@@ -152,18 +152,8 @@ private class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: MetricRegistry)
       offset: LedgerOffset,
       newLedgerEnd: LedgerOffset,
       externalOffset: Option[ExternalOffset],
-      participantId: ParticipantId,
-      submissionId: String,
-      reason: Option[String],
       typ: PackageUploadEntry): Future[PersistenceResponse] =
-    ledgerDao.storePackageUploadEntry(
-      offset,
-      newLedgerEnd,
-      externalOffset,
-      participantId,
-      submissionId,
-      reason,
-      typ)
+    ledgerDao.storePackageUploadEntry(offset, newLedgerEnd, externalOffset, typ)
 }
 
 object MeteredLedgerDao {
