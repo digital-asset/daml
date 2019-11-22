@@ -118,10 +118,6 @@ class Endpoints(
         -\/(ServerError(e.getMessage))
     }
 
-//  private def handleSourceFailure[E: Show, A, M](
-//      soure: Source[E \/ A, M]): Source[ServerError \/ A, M] =
-//    source
-
   private def handleSourceFailure[A, M](soure: Source[A, M]): Source[ServerError \/ A, M] =
     soure.map(a => \/-(a)).recover {
       case NonFatal(e) =>
@@ -172,9 +168,9 @@ class Endpoints(
           x <- contractsService
             .search(jwt, jwtPayload, emptyGetActiveContractsRequest)
             .leftMap(e => ServerError(e.shows))
-          (source, _) = x
+          (acsSource, _) = x
 
-          jsValueSource = toJsValueSource(handleSourceFailure(source)): Source[JsValue, NotUsed]
+          jsValueSource = toJsValueSource(handleSourceFailure(acsSource)): Source[JsValue, NotUsed]
 
         } yield jsValueSource
       }
