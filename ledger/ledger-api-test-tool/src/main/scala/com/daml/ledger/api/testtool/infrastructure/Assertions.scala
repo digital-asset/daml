@@ -28,7 +28,7 @@ object Assertions extends DiffExtensions {
   def assertEquals[T: DiffShow](context: String, actual: T, expected: T): Unit = {
     val diff = DiffShow.diff(actual, expected)
     if (!diff.isIdentical)
-      throw new AssertionErrorWithPreformattedMessage(
+      throw AssertionErrorWithPreformattedMessage(
         diff.string,
         s"$context: two objects are supposed to be equal but they are not")
   }
