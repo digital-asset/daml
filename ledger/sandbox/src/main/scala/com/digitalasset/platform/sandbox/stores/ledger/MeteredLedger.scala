@@ -104,7 +104,7 @@ private class MeteredLedger(ledger: Ledger, metrics: MetricRegistry)
 
   override def allocateParty(
       party: Party,
-      displayName: Option[String]): Future[PartyAllocationResult] =
+      displayName: Option[String]): Future[SubmissionResult] =
     timedFuture(Metrics.addParty, ledger.allocateParty(party, displayName))
 
   override def uploadPackages(

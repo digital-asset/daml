@@ -6,7 +6,7 @@ package com.digitalasset.platform.sandbox.services.admin
 import akka.actor.Scheduler
 import akka.stream.ActorMaterializer
 import com.daml.ledger.participant.state.index.v2.IndexPartyManagementService
-import com.daml.ledger.participant.state.v1.{PartyAllocationResult, WritePartyService}
+import com.daml.ledger.participant.state.v1.{SubmissionResult, WritePartyService}
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.ledger.api.v1.admin.party_management_service.PartyManagementServiceGrpc.PartyManagementService
 import com.digitalasset.ledger.api.v1.admin.party_management_service._
@@ -14,7 +14,6 @@ import com.digitalasset.platform.api.grpc.GrpcApiService
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.common.util.{DirectExecutionContext => DE}
 import com.digitalasset.platform.server.api.validation.ErrorFactories
-
 import io.grpc.ServerServiceDefinition
 
 import scala.compat.java8.FutureConverters
@@ -88,23 +87,22 @@ class ApiPartyManagementService private (
       .toScala(writeService
         .allocateParty(party, displayName))
       .flatMap {
-        case PartyAllocationResult.Ok(details) =>
-          Future.successful(AllocatePartyResponse(Some(mapPartyDetails(details))))
-        case r @ PartyAllocationResult.Overloaded =>
+        case SubmissionResult.Acknowledged =>
+          //TODO BH get full response from accept/reject party allocation message
+          Future.successful(AllocatePartyResponse(Some(PartyDetails(party.getOrElse("DUMMY"), displayName.getOrElse(""), true))))
+        case r @ SubmissionResult.Overloaded =>
           Future.failed(ErrorFactories.resourceExhausted(r.description))
-        case r @ PartyAllocationResult.AlreadyExists =>
-          Future.failed(ErrorFactories.invalidArgument(r.description))
-        case r @ PartyAllocationResult.InternalError(_) =>
+        case r @ SubmissionResult.InternalError(_) =>
           Future.failed(ErrorFactories.internal(r.reason))
-        case r @ PartyAllocationResult.InvalidName(_) =>
-          Future.failed(ErrorFactories.invalidArgument(r.description))
-        case r @ PartyAllocationResult.ParticipantNotAuthorized =>
-          Future.failed(ErrorFactories.permissionDenied(r.description))
-        case r @ PartyAllocationResult.NotSupported =>
+        case r @ SubmissionResult.NotSupported =>
           Future.failed(ErrorFactories.unimplemented(r.description))
       }(DE)
       .flatMap(pollUntilPersisted)(DE)
   }
+
+  private def pollForAllocationResult()={
+  }
+
 
 }
 

@@ -244,10 +244,8 @@ class InMemoryKVParticipantStateIT
       } yield {
         ps.close()
         allocResult match {
-          case PartyAllocationResult.Ok(partyDetails) =>
-            assert(partyDetails.party == hint.get)
-            assert(partyDetails.displayName == displayName)
-            assert(partyDetails.isLocal)
+          case SubmissionResult.Acknowledged =>
+            succeed
           case _ =>
             fail("unexpected response to party allocation.  Error : " + allocResult.description)
         }
@@ -274,13 +272,25 @@ class InMemoryKVParticipantStateIT
 
       for {
         result <- ps.allocateParty(hint, displayName).toScala
+        updateTuple <- ps.stateUpdates(beginAfter = None).runWith(Sink.head)
       } yield {
         ps.close()
         result match {
-          case PartyAllocationResult.Ok(_) =>
+          case SubmissionResult.Acknowledged =>
             succeed
           case _ =>
             fail("unexpected response to party allocation.  Error : " + result.description)
+        }
+        updateTuple match {
+          case (offset: Offset, update: PartyAddedToParticipant) =>
+            assert(offset == Offset(Array(0L, 0L)))
+            assert(update.party != hint)
+            assert(update.displayName == displayName.get)
+            assert(update.participantId == ps.participantId)
+            assert(update.recordTime >= rt)
+          case _ =>
+            fail(
+              "unexpected update message after a party allocation.  Error : " + result.description)
         }
       }
     }
@@ -294,13 +304,22 @@ class InMemoryKVParticipantStateIT
 
       for {
         result <- ps.allocateParty(hint, displayName).toScala
+        updateTuples <- ps.stateUpdates(beginAfter = None).take(1).runWith(Sink.seq)
       } yield {
         ps.close()
         result match {
-          case PartyAllocationResult.InvalidName(_) =>
+          case SubmissionResult.Acknowledged =>
             succeed
           case _ =>
             fail("unexpected response to party allocation.  Error : " + result.description)
+        }
+        updateTuples.head match {
+          case (offset: Offset, update: PartyAllocationEntryRejected) =>
+            assert(offset == Offset(Array(0L, 0L)))
+            assert(update.rejectionReason contains "Party name is invalid")
+          case _ =>
+            fail(
+              "unexpected update message after a party allocation.  Error : " + result.description)
         }
       }
     }
@@ -315,20 +334,28 @@ class InMemoryKVParticipantStateIT
       for {
         result1 <- ps.allocateParty(hint, displayName).toScala
         result2 <- ps.allocateParty(hint, displayName).toScala
+        updateTuples <- ps.stateUpdates(beginAfter = None).take(2).runWith(Sink.seq)
       } yield {
         ps.close()
         result1 match {
-          case PartyAllocationResult.Ok(_) =>
+          case SubmissionResult.Acknowledged =>
             succeed
           case _ =>
             fail("unexpected response to party allocation.  Error : " + result1.description)
         }
-
         result2 match {
-          case PartyAllocationResult.AlreadyExists =>
+          case SubmissionResult.Acknowledged =>
             succeed
           case _ =>
             fail("unexpected response to party allocation.  Error : " + result2.description)
+        }
+        updateTuples(1) match {
+          case (offset: Offset, update: PartyAllocationEntryRejected) =>
+            assert(offset == Offset(Array(1L, 0L)))
+            assert(update.rejectionReason equalsIgnoreCase "Party already exists")
+          case _ =>
+            fail(
+              "unexpected update message after a party allocation.  Error : " + result2.description)
         }
       }
     }
@@ -393,7 +420,7 @@ class InMemoryKVParticipantStateIT
       waitForUpdateFuture
     }
 
-    "correctly implements open world tx submission authorization" in {
+    "correctly implement open world tx submission authorization" in {
       val ps = new InMemoryKVParticipantState(participantId, openWorld = true)
       val rt = ps.getNewRecordTime()
 
@@ -424,12 +451,13 @@ class InMemoryKVParticipantStateIT
             None /* no name hint, implementation decides party name */,
             Some("Somebody"))
           .toScala
-        _ <- assert(allocResult.isInstanceOf[PartyAllocationResult.Ok])
+        _ <- assert(allocResult.isInstanceOf[SubmissionResult])
+        newParty <- ps.stateUpdates(beginAfter = Some(Offset(Array(0L, 0L)))).runWith(Sink.head).map(_._2.asInstanceOf[PartyAddedToParticipant].party)
         _ <- ps
           .submitTransaction(
             submitterInfo(
               rt,
-              party = allocResult.asInstanceOf[PartyAllocationResult.Ok].result.party),
+              party = newParty),
             transactionMeta(rt),
             emptyTransaction)
           .toScala
@@ -470,12 +498,13 @@ class InMemoryKVParticipantStateIT
             None /* no name hint, implementation decides party name */,
             Some("Somebody"))
           .toScala
-        _ <- assert(allocResult.isInstanceOf[PartyAllocationResult.Ok])
+        _ <- assert(allocResult.isInstanceOf[SubmissionResult])
+        newParty <- ps.stateUpdates(beginAfter = Some(Offset(Array(0L, 0L)))).runWith(Sink.head).map(_._2.asInstanceOf[PartyAddedToParticipant].party)
         _ <- ps
           .submitTransaction(
             submitterInfo(
               rt,
-              party = allocResult.asInstanceOf[PartyAllocationResult.Ok].result.party),
+              party = newParty),
             transactionMeta(rt),
             emptyTransaction)
           .toScala

@@ -8,7 +8,7 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.index.v2.PackageDetails
-import com.daml.ledger.participant.state.v1.{AbsoluteContractInst, TransactionId}
+import com.daml.ledger.participant.state.v1.{AbsoluteContractInst, ParticipantId, TransactionId}
 import com.digitalasset.daml.lf.data.Ref.{LedgerString, PackageId, Party}
 import com.digitalasset.daml.lf.data.Relation.Relation
 import com.digitalasset.daml.lf.transaction.Node
@@ -189,7 +189,7 @@ trait LedgerWriteDao extends AutoCloseable {
     * Must be called at most once, before any call to storeLedgerEntry.
     *
     * @param activeContracts the active contract set
-    * @param ledgerEntries the list of LedgerEntries to save
+    * @param ledgerEntries   the list of LedgerEntries to save
     * @return Ok when the operation was successful
     */
   def storeInitialState(
@@ -201,7 +201,7 @@ trait LedgerWriteDao extends AutoCloseable {
   /**
     * Explicitly adds a new party to the list of known parties.
     *
-    * @param party The party identifier
+    * @param party       The party identifier
     * @param displayName The human readable display name
     * @return
     */
@@ -215,10 +215,8 @@ trait LedgerWriteDao extends AutoCloseable {
     * Stores a set of DAML-LF packages
     *
     * @param uploadId A unique identifier for this upload. Can be used to find
-    *   out which packages were uploaded together, in the case of concurrent uploads.
-    *
+    *                 out which packages were uploaded together, in the case of concurrent uploads.
     * @param packages The DAML-LF archives to upload, including their meta-data.
-    *
     * @return Values from the PersistenceResponse enum to the number of archives that led to that result
     */
   def uploadLfPackages(
@@ -229,6 +227,7 @@ trait LedgerWriteDao extends AutoCloseable {
 
   /**
     * Store a package upload entry confirmation or rejection
+    *
     * @param offset
     * @param newLedgerEnd
     * @param externalOffset
@@ -241,9 +240,27 @@ trait LedgerWriteDao extends AutoCloseable {
       externalOffset: Option[ExternalOffset],
       entry: PackageUploadEntry): Future[PersistenceResponse]
 
+  /**
+    * Store a party allocation rejection
+    *
+    * @param offset
+    * @param newLedgerEnd
+    * @param externalOffset
+    * @param submissionId
+    * @param participantId
+    * @param reason
+    * @return
+    */
+  def storePartyAllocationRejectEntry(
+      offset: LedgerOffset,
+      newLedgerEnd: LedgerOffset,
+      externalOffset: Option[ExternalOffset],
+      submissionId: SubmissionId,
+      participantId: ParticipantId,
+      reason: String): Future[PersistenceResponse]
+
   /** Resets the platform into a state as it was never used before. Meant to be used solely for testing. */
   def reset(): Future[Unit]
-
 }
 
 trait LedgerDao extends LedgerReadDao with LedgerWriteDao {

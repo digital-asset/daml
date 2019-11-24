@@ -16,9 +16,9 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
 import com.daml.ledger.participant.state.backport.TimeModel
 import com.daml.ledger.participant.state.kvutils.{DamlKvutils => Proto}
-import com.daml.ledger.participant.state.v1.{UploadPackagesResult, _}
+import com.daml.ledger.participant.state.v1._
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.{LedgerString, Party}
+import com.digitalasset.daml.lf.data.Ref.LedgerString
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.engine.Engine
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
@@ -76,9 +76,6 @@ object InMemoryKVParticipantState {
 
   sealed trait RequestMatch extends Serializable with Product
 
-  final case class AddPartyAllocationRequest(
-      submissionId: String,
-      cf: CompletableFuture[PartyAllocationResult])
   final case class AddPotentialResponse(idx: Int)
 
 }
@@ -161,56 +158,6 @@ class InMemoryKVParticipantState(
     stateRef = newState
   }
 
-  /** Akka actor that matches the requests for party allocation
-    * with asynchronous responses delivered within the log entries.
-    */
-  class ResponseMatcher extends Actor {
-    var partyRequests: Map[String, CompletableFuture[PartyAllocationResult]] = Map.empty
-    var packageRequests: Map[String, CompletableFuture[UploadPackagesResult]] = Map.empty
-
-    @SuppressWarnings(Array("org.wartremover.warts.Any"))
-    override def receive: Receive = {
-      case AddPartyAllocationRequest(submissionId, cf) =>
-        partyRequests += (submissionId -> cf); ()
-
-      case AddPotentialResponse(idx) =>
-        assert(idx >= 0 && idx < stateRef.commitLog.size)
-
-        stateRef.commitLog(idx) match {
-          case CommitSubmission(entryId, _) =>
-            stateRef.store
-              .get(entryId.getEntryId)
-              .flatMap { blob =>
-                KeyValueConsumption.logEntryToAsyncResponse(
-                  entryId,
-                  Envelope.open(blob) match {
-                    case Right(Envelope.LogEntryMessage(logEntry)) =>
-                      logEntry
-                    case _ =>
-                      sys.error(s"Envolope did not contain log entry")
-                  },
-                  participantId
-                )
-              }
-              .foreach {
-                case KeyValueConsumption.PartyAllocationResponse(submissionId, result) =>
-                  partyRequests
-                    .getOrElse(
-                      submissionId,
-                      sys.error(
-                        s"partyAllocation response: $submissionId could not be matched with a request!"))
-                    .complete(result)
-                  partyRequests -= submissionId
-              }
-          case _ => ()
-        }
-    }
-  }
-
-  /** Instance of the [[ResponseMatcher]] to which we send messages used for request-response matching. */
-  private val matcherActorRef =
-    system.actorOf(Props(new ResponseMatcher), s"response-matcher-$ledgerId")
-
   /** Akka actor that receives submissions sequentially and
     * commits them one after another to the state, e.g. appending
     * a new ledger commit entry, and applying it to the key-value store.
@@ -290,7 +237,6 @@ class InMemoryKVParticipantState(
 
           // Wake up consumers.
           dispatcher.signalNewHead(stateRef.commitLog.size)
-          matcherActorRef ! AddPotentialResponse(stateRef.commitLog.size - 1)
         }
     }
   }
@@ -436,31 +382,26 @@ class InMemoryKVParticipantState(
   /** Allocate a party on the ledger */
   override def allocateParty(
       hint: Option[String],
-      displayName: Option[String]): CompletionStage[PartyAllocationResult] = {
-
-    hint.map(p => Party.fromString(p)) match {
-      case None =>
-        allocatePartyOnLedger(generateRandomId(), displayName)
-      case Some(Right(party)) =>
-        allocatePartyOnLedger(party, displayName)
-      case Some(Left(error)) =>
-        CompletableFuture.completedFuture(PartyAllocationResult.InvalidName(error))
-    }
+      displayName: Option[String]): CompletionStage[SubmissionResult] = {
+    allocatePartyOnLedger(hint.getOrElse(generateRandomId()), displayName)
   }
 
   private def allocatePartyOnLedger(
       party: String,
-      displayName: Option[String]): CompletionStage[PartyAllocationResult] = {
+      displayName: Option[String]): CompletionStage[SubmissionResult] = {
     val sId = submissionIdSource.getAndIncrement().toString
-    val cf = new CompletableFuture[PartyAllocationResult]
-    matcherActorRef ! AddPartyAllocationRequest(sId, cf)
-    commitActorRef ! CommitSubmission(
-      allocateEntryId,
-      Envelope.enclose(
-        KeyValueSubmission.partyToSubmission(sId, Some(party), displayName, participantId)
+    val submission =
+      KeyValueSubmission.partyToSubmission(sId, Some(party), displayName, participantId)
+
+    CompletableFuture.completedFuture({
+      commitActorRef ! CommitSubmission(
+        allocateEntryId,
+        Envelope.enclose(
+          submission
+        )
       )
-    )
-    cf
+      SubmissionResult.Acknowledged
+    })
   }
 
   private def generateRandomId(): Ref.Party =

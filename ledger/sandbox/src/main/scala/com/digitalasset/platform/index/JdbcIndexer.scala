@@ -23,9 +23,8 @@ import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.common.util.{DirectExecutionContext => DEC}
-import com.digitalasset.platform.sandbox.services.transaction.SandboxEventIdFormatter
 import com.digitalasset.platform.sandbox.metrics.timedFuture
-import com.digitalasset.platform.sandbox.stores.ledger.{LedgerEntry, PackageUploadEntry}
+import com.digitalasset.platform.sandbox.services.transaction.SandboxEventIdFormatter
 import com.digitalasset.platform.sandbox.stores.ledger.sql.SqlLedger.{
   defaultNumberOfShortLivedConnections,
   defaultNumberOfStreamingConnections
@@ -44,6 +43,7 @@ import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{
   ValueSerializer
 }
 import com.digitalasset.platform.sandbox.stores.ledger.sql.util.DbDispatcher
+import com.digitalasset.platform.sandbox.stores.ledger.{LedgerEntry, PackageUploadEntry}
 import scalaz.syntax.tag._
 
 import scala.concurrent.duration._
@@ -261,6 +261,17 @@ class JdbcIndexer private[index] (
       case PartyAddedToParticipant(party, displayName, _, _, _) =>
         ledgerDao.storeParty(party, Some(displayName), externalOffset).map(_ => ())(DEC)
 
+      case PartyAllocationEntryRejected(submissionId, participantId, recordTime, rejectionReason) =>
+        ledgerDao
+          .storePartyAllocationRejectEntry(
+            headRef,
+            headRef + 1,
+            externalOffset,
+            submissionId,
+            participantId,
+            rejectionReason)
+          .map(_ => headRef = headRef + 1)(DEC)
+
       case PublicPackageUploaded(archive, sourceDescription, _, recordTime, _) =>
         val uploadId = UUID.randomUUID().toString
         val uploadInstant = recordTime.toInstant
@@ -369,6 +380,7 @@ class JdbcIndexer private[index] (
     (update match {
       case Heartbeat(recordTime) => Some(recordTime)
       case PartyAddedToParticipant(_, _, _, recordTime, _) => Some(recordTime)
+      case PartyAllocationEntryRejected(_, _, recordTime, _) => Some(recordTime)
       case PublicPackageUploaded(_, _, _, recordTime, _) => Some(recordTime)
       case TransactionAccepted(_, _, _, _, recordTime, _) => Some(recordTime)
       case ConfigurationChanged(_, _) => None

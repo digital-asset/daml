@@ -14,30 +14,22 @@ import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.index.v2.PackageDetails
 import com.daml.ledger.participant.state.v1._
 import com.digitalasset.api.util.TimeProvider
-import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.daml.lf.data.Ref.LedgerString.ordering
+import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.engine.Blinding
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractId}
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
-import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails, RejectionReason}
+import com.digitalasset.ledger.api.domain.{LedgerId, RejectionReason}
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.common.util.{DirectExecutionContext => DEC}
 import com.digitalasset.platform.sandbox.LedgerIdGenerator
 import com.digitalasset.platform.sandbox.services.transaction.SandboxEventIdFormatter
 import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
-import com.digitalasset.platform.sandbox.stores.ledger.sql.SqlStartMode.{
-  AlwaysReset,
-  ContinueIfExists
-}
+import com.digitalasset.platform.sandbox.stores.ledger.sql.SqlStartMode.{AlwaysReset, ContinueIfExists}
 import com.digitalasset.platform.sandbox.stores.ledger.sql.dao._
 import com.digitalasset.platform.sandbox.stores.ledger.sql.migration.FlywayMigrations
-import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{
-  ContractSerializer,
-  KeyHasher,
-  TransactionSerializer,
-  ValueSerializer
-}
+import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{ContractSerializer, KeyHasher, TransactionSerializer, ValueSerializer}
 import com.digitalasset.platform.sandbox.stores.ledger.sql.util.DbDispatcher
 import com.digitalasset.platform.sandbox.stores.ledger.{Ledger, LedgerEntry}
 import com.digitalasset.platform.sandbox.stores.{InMemoryActiveLedgerState, InMemoryPackageStore}
@@ -299,14 +291,18 @@ private class SqlLedger(
 
   override def allocateParty(
       party: Party,
-      displayName: Option[String]): Future[PartyAllocationResult] =
+      displayName: Option[String]): Future[SubmissionResult] =
     ledgerDao
       .storeParty(party, displayName, None)
       .map {
         case PersistenceResponse.Ok =>
-          PartyAllocationResult.Ok(PartyDetails(party, displayName, true))
+          SubmissionResult.Acknowledged
+          //TODO BH this info should be in the PartyAccept message
+          //PartyAllocationResult.Ok(PartyDetails(party, displayName, true))
         case PersistenceResponse.Duplicate =>
-          PartyAllocationResult.AlreadyExists
+          SubmissionResult.Acknowledged
+          //TODO BH this info should be in the PartyReject message
+          //PartyAllocationResult.AlreadyExists
       }(DEC)
 
   override def uploadPackages(

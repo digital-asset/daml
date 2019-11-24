@@ -10,7 +10,6 @@ import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.ledger.participant.state.index.v2.PackageDetails
 import com.daml.ledger.participant.state.v1.{
-  PartyAllocationResult,
   SubmissionResult,
   SubmittedTransaction,
   SubmitterInfo,
@@ -18,8 +17,8 @@ import com.daml.ledger.participant.state.v1.{
 }
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.ImmArray
-import com.digitalasset.daml.lf.data.Ref.{PackageId, Party, TransactionIdString}
 import com.digitalasset.daml.lf.data.Ref.LedgerString.ordering
+import com.digitalasset.daml.lf.data.Ref.{PackageId, Party, TransactionIdString}
 import com.digitalasset.daml.lf.engine.Blinding
 import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.transaction.Node
@@ -251,18 +250,20 @@ class InMemoryLedger(
       acs.parties.values.toList
     })
 
-  override def allocateParty(
-      party: Party,
-      displayName: Option[String]): Future[PartyAllocationResult] =
+  override def allocateParty(party: Party, displayName: Option[String]): Future[SubmissionResult] =
     Future.successful(this.synchronized {
       val ids = acs.parties.keySet
 
       if (ids.contains(party))
-        PartyAllocationResult.AlreadyExists
+        SubmissionResult.Acknowledged
+      //TODO BH include in reject message
+//        PartyAllocationResult.AlreadyExists
       else {
         val details = PartyDetails(party, displayName, true)
         acs = acs.addParty(details)
-        PartyAllocationResult.Ok(details)
+        SubmissionResult.Acknowledged
+        //TOD BH include in accept message
+//        PartyAllocationResult.Ok(details)
       }
     })
 

@@ -63,6 +63,7 @@ object Update {
     *   The submissionId of the command which requested party to be added.
     *
     */
+  // TODO BH: add isLocal as was on async event
   final case class PartyAddedToParticipant(
       party: Party,
       displayName: String,
@@ -72,6 +73,16 @@ object Update {
       extends Update {
     override def description: String =
       s"Add party '$party' to participant"
+  }
+
+  final case class PartyAllocationEntryRejected(
+      submissionId: SubmissionId,
+      participantId: ParticipantId,
+      recordTime: Timestamp,
+      rejectionReason: String)
+      extends Update {
+    override def description: String =
+      s"Request to add party to participant with submissionId'$submissionId' failed"
   }
 
   /** Signal the uploading of a package that is publicly visible.

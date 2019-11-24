@@ -8,11 +8,12 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.index.v2.PackageDetails
-import com.daml.ledger.participant.state.v1.TransactionId
+import com.daml.ledger.participant.state.v1.{ParticipantId, TransactionId}
 import com.digitalasset.daml.lf.data.Ref.{LedgerString, PackageId, Party}
 import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
+import com.digitalasset.ledger.SubmissionId
 import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails}
 import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilter
 import com.digitalasset.platform.sandbox.metrics.timedFuture
@@ -154,6 +155,21 @@ private class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: MetricRegistry)
       externalOffset: Option[ExternalOffset],
       entry: PackageUploadEntry): Future[PersistenceResponse] =
     ledgerDao.storePackageUploadEntry(offset, newLedgerEnd, externalOffset, entry)
+
+  def storePartyAllocationRejectEntry(
+      offset: LedgerOffset,
+      newLedgerEnd: LedgerOffset,
+      externalOffset: Option[ExternalOffset],
+      submissionId: SubmissionId,
+      participantId: ParticipantId,
+      reason: String): Future[PersistenceResponse] =
+    ledgerDao.storePartyAllocationRejectEntry(
+      offset,
+      newLedgerEnd,
+      externalOffset,
+      submissionId,
+      participantId,
+      reason)
 }
 
 object MeteredLedgerDao {
