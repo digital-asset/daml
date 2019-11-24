@@ -89,7 +89,8 @@ class ApiPartyManagementService private (
       .flatMap {
         case SubmissionResult.Acknowledged =>
           //TODO BH get full response from accept/reject party allocation message
-          Future.successful(AllocatePartyResponse(Some(PartyDetails(party.getOrElse("DUMMY"), displayName.getOrElse(""), true))))
+          Future.successful(AllocatePartyResponse(
+            Some(PartyDetails(party.getOrElse("DUMMY"), displayName.getOrElse(""), true))))
         case r @ SubmissionResult.Overloaded =>
           Future.failed(ErrorFactories.resourceExhausted(r.description))
         case r @ SubmissionResult.InternalError(_) =>
@@ -100,9 +101,7 @@ class ApiPartyManagementService private (
       .flatMap(pollUntilPersisted)(DE)
   }
 
-  private def pollForAllocationResult()={
-  }
-
+  private def pollForAllocationResult() = {}
 
 }
 

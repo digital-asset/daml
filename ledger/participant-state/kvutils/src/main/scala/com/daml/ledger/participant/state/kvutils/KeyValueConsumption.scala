@@ -110,7 +110,7 @@ object KeyValueConsumption {
             Ref.LedgerString.assertFromString(rejection.getSubmissionId),
             participantId,
             recordTime,
-            rejection.getReasonCase match{
+            rejection.getReasonCase match {
               case DamlPartyAllocationRejectionEntry.ReasonCase.INVALID_NAME =>
                 s"Party name is invalid, details=${rejection.getInvalidName.getDetails}"
               case DamlPartyAllocationRejectionEntry.ReasonCase.ALREADY_EXISTS =>

@@ -452,12 +452,13 @@ class InMemoryKVParticipantStateIT
             Some("Somebody"))
           .toScala
         _ <- assert(allocResult.isInstanceOf[SubmissionResult])
-        newParty <- ps.stateUpdates(beginAfter = Some(Offset(Array(0L, 0L)))).runWith(Sink.head).map(_._2.asInstanceOf[PartyAddedToParticipant].party)
+        newParty <- ps
+          .stateUpdates(beginAfter = Some(Offset(Array(0L, 0L))))
+          .runWith(Sink.head)
+          .map(_._2.asInstanceOf[PartyAddedToParticipant].party)
         _ <- ps
           .submitTransaction(
-            submitterInfo(
-              rt,
-              party = newParty),
+            submitterInfo(rt, party = newParty),
             transactionMeta(rt),
             emptyTransaction)
           .toScala
@@ -499,12 +500,13 @@ class InMemoryKVParticipantStateIT
             Some("Somebody"))
           .toScala
         _ <- assert(allocResult.isInstanceOf[SubmissionResult])
-        newParty <- ps.stateUpdates(beginAfter = Some(Offset(Array(0L, 0L)))).runWith(Sink.head).map(_._2.asInstanceOf[PartyAddedToParticipant].party)
+        newParty <- ps
+          .stateUpdates(beginAfter = Some(Offset(Array(0L, 0L))))
+          .runWith(Sink.head)
+          .map(_._2.asInstanceOf[PartyAddedToParticipant].party)
         _ <- ps
           .submitTransaction(
-            submitterInfo(
-              rt,
-              party = newParty),
+            submitterInfo(rt, party = newParty),
             transactionMeta(rt),
             emptyTransaction)
           .toScala
