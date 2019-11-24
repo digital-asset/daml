@@ -413,7 +413,7 @@ class LedgerBackedWriteService(ledger: Ledger, timeProvider: TimeProvider) exten
 
   override def allocateParty(
       hint: Option[String],
-      displayName: Option[String]): CompletionStage[PartyAllocationResult] = {
+      displayName: Option[String]): CompletionStage[SubmissionResult] = {
     // In the sandbox, the hint is used as-is.
     // If hint is not a valid and unallocated party name, the call fails
     hint.map(p => Party.fromString(p)) match {
@@ -422,7 +422,9 @@ class LedgerBackedWriteService(ledger: Ledger, timeProvider: TimeProvider) exten
           ledger.allocateParty(PartyIdGenerator.generateRandomId(), displayName))
       case Some(Right(party)) => FutureConverters.toJava(ledger.allocateParty(party, displayName))
       case Some(Left(error)) =>
-        CompletableFuture.completedFuture(PartyAllocationResult.InvalidName(error))
+        // TODO BH : don't think we want to throw submission result error here but rather submit the request
+        // then leave it to AllocatePartyRejectionEntry to give reason for failure "invalid party"
+        CompletableFuture.completedFuture(SubmissionResult.InternalError(error))
     }
   }
 

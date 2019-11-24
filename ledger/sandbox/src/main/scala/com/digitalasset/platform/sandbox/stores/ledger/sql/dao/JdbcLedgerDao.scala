@@ -14,7 +14,7 @@ import anorm.SqlParser._
 import anorm.ToStatement.optionToStatement
 import anorm.{AkkaStream, BatchSql, Macro, NamedParameter, RowParser, SQL, SqlParser}
 import com.daml.ledger.participant.state.index.v2.PackageDetails
-import com.daml.ledger.participant.state.v1.{AbsoluteContractInst, TransactionId}
+import com.daml.ledger.participant.state.v1.{AbsoluteContractInst, ParticipantId, TransactionId}
 import com.digitalasset.daml.lf.archive.Decode
 import com.digitalasset.daml.lf.data.Ref.{
   ContractIdString,
@@ -924,10 +924,10 @@ private class JdbcLedgerDao(
 
   private val SQL_SELECT_CONTRACT_LET =
     SQL("""
-        |select c.id, le.effective_at
-        |from contracts c
-        |left join ledger_entries le on c.transaction_id = le.transaction_id
-        |where c.id={contract_id} and c.archive_offset is null""".stripMargin)
+          |select c.id, le.effective_at
+          |from contracts c
+          |left join ledger_entries le on c.transaction_id = le.transaction_id
+          |where c.id={contract_id} and c.archive_offset is null""".stripMargin)
 
   private val SQL_SELECT_WITNESS =
     SQL("select witness from contract_witnesses where contract_id={contract_id}")
@@ -1131,7 +1131,7 @@ private class JdbcLedgerDao(
     def orEmptyStringList(xs: Seq[String]) = if (xs.nonEmpty) xs else List("")
 
     def contractStream(conn: Connection, offset: Long): Source[ActiveContract, Future[Done]] = {
-      //TODO: investigate where Akka Streams is actually iterating on the JDBC ResultSet (because, that is blocking IO!)
+
       AkkaStream
         .source(
           SQL_SELECT_ACTIVE_CONTRACTS.on(
@@ -1195,8 +1195,8 @@ private class JdbcLedgerDao(
 
   private val SQL_INSERT_PARTY =
     SQL("""insert into parties(party, display_name, ledger_offset, explicit)
-        |select {party}, {display_name}, ledger_end, 'true'
-        |from parameters""".stripMargin)
+          |select {party}, {display_name}, ledger_end, 'true'
+          |from parameters""".stripMargin)
 
   override def storeParty(
       party: Party,
@@ -1377,25 +1377,56 @@ private class JdbcLedgerDao(
             "ledger_offset" -> offset,
             "recorded_at" -> Instant.now(),
             "submission_id" -> entry.submissionId,
-            "participant_id" -> entry.submissionId,
+            "participant_id" -> entry.participantId,
             "typ" -> entry.value,
             "rejection_reason" -> reasonOrNull(entry)
           )
           .execute()
         PersistenceResponse.Ok
       }).recover {
-          case NonFatal(e) if e.getMessage.contains(queries.DUPLICATE_KEY_ERROR) =>
-            logger.warn(
-              s"Ignoring duplicate package upload entry submission for submissionId ${entry.submissionId} participantId ${entry.participantId}")
-            conn.rollback()
-            PersistenceResponse.Duplicate
-        }
-        .getOrElse {
+        case NonFatal(e) if e.getMessage.contains(queries.DUPLICATE_KEY_ERROR) =>
           logger.warn(
-            s"Insert package upload entry failed for submissionId ${entry.submissionId} participantId ${entry.participantId}")
+            s"Ignoring duplicate package upload entry submission for submissionId ${entry.submissionId} participantId ${entry.participantId}")
           conn.rollback()
           PersistenceResponse.Duplicate
-        }
+      }.get
+    }
+  }
+
+  private val SQL_INSERT_PARTY_ALLOCATION_ENTRY_REJECT: String =
+    """insert into party_allocation_entries(ledger_offset, recorded_at, submission_id, participant_id, typ, rejection_reason)
+      |values({ledger_offset}, {recorded_at}, {submission_id}, {participant_id}, {typ}, {rejection_reason})
+      |on conflict (submission_id) do nothing""".stripMargin
+
+  override def storePartyAllocationRejectEntry(
+      offset: LedgerOffset,
+      newLedgerEnd: LedgerOffset,
+      externalOffset: Option[ExternalOffset],
+      submissionId: SubmissionId,
+      participantId: ParticipantId,
+      reason: String): Future[PersistenceResponse] = {
+
+    dbDispatcher.executeSql("store party allocation reject entry") { implicit conn =>
+      updateLedgerEnd(newLedgerEnd, externalOffset)
+      Try({
+        SQL(SQL_INSERT_PARTY_ALLOCATION_ENTRY_REJECT)
+          .on(
+            "ledger_offset" -> offset,
+            "recorded_at" -> Instant.now(),
+            "submission_id" -> submissionId,
+            "participant_id" -> participantId,
+            "typ" -> "reject",
+            "rejection_reason" -> reason
+          )
+          .execute()
+        PersistenceResponse.Ok
+      }).recover {
+        case NonFatal(e) if e.getMessage.contains(queries.DUPLICATE_KEY_ERROR) =>
+          logger.warn(
+            s"Ignoring duplicate package upload entry submission for submissionId ${submissionId} participantId ${participantId}")
+          conn.rollback()
+          PersistenceResponse.Duplicate
+      }.get
     }
   }
 
@@ -1410,16 +1441,16 @@ private class JdbcLedgerDao(
 
   private val SQL_TRUNCATE_ALL_TABLES =
     SQL("""
-        |truncate ledger_entries cascade;
-        |truncate disclosures cascade;
-        |truncate contracts cascade;
-        |truncate contract_data cascade;
-        |truncate contract_witnesses cascade;
-        |truncate contract_key_maintainers cascade;
-        |truncate parameters cascade;
-        |truncate contract_keys cascade;
-        |truncate package_upload_entries cascade;
-        |truncate party_allocation_entries cascade;
+          |truncate ledger_entries cascade;
+          |truncate disclosures cascade;
+          |truncate contracts cascade;
+          |truncate contract_data cascade;
+          |truncate contract_witnesses cascade;
+          |truncate contract_key_maintainers cascade;
+          |truncate parameters cascade;
+          |truncate contract_keys cascade;
+          |truncate package_upload_entries cascade;
+          |truncate party_allocation_entries cascade;
       """.stripMargin)
 
   override def reset(): Future[Unit] =
