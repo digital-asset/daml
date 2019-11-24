@@ -26,10 +26,18 @@ import com.digitalasset.platform.common.util.{DirectExecutionContext => DEC}
 import com.digitalasset.platform.sandbox.LedgerIdGenerator
 import com.digitalasset.platform.sandbox.services.transaction.SandboxEventIdFormatter
 import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
-import com.digitalasset.platform.sandbox.stores.ledger.sql.SqlStartMode.{AlwaysReset, ContinueIfExists}
+import com.digitalasset.platform.sandbox.stores.ledger.sql.SqlStartMode.{
+  AlwaysReset,
+  ContinueIfExists
+}
 import com.digitalasset.platform.sandbox.stores.ledger.sql.dao._
 import com.digitalasset.platform.sandbox.stores.ledger.sql.migration.FlywayMigrations
-import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{ContractSerializer, KeyHasher, TransactionSerializer, ValueSerializer}
+import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{
+  ContractSerializer,
+  KeyHasher,
+  TransactionSerializer,
+  ValueSerializer
+}
 import com.digitalasset.platform.sandbox.stores.ledger.sql.util.DbDispatcher
 import com.digitalasset.platform.sandbox.stores.ledger.{Ledger, LedgerEntry}
 import com.digitalasset.platform.sandbox.stores.{InMemoryActiveLedgerState, InMemoryPackageStore}
@@ -289,20 +297,18 @@ private class SqlLedger(
         case Failure(f) => Failure(f)
       }(DEC)
 
-  override def allocateParty(
-      party: Party,
-      displayName: Option[String]): Future[SubmissionResult] =
+  override def allocateParty(party: Party, displayName: Option[String]): Future[SubmissionResult] =
     ledgerDao
       .storeParty(party, displayName, None)
       .map {
         case PersistenceResponse.Ok =>
           SubmissionResult.Acknowledged
-          //TODO BH this info should be in the PartyAccept message
-          //PartyAllocationResult.Ok(PartyDetails(party, displayName, true))
+        //TODO BH this info should be in the PartyAccept message
+        //PartyAllocationResult.Ok(PartyDetails(party, displayName, true))
         case PersistenceResponse.Duplicate =>
           SubmissionResult.Acknowledged
-          //TODO BH this info should be in the PartyReject message
-          //PartyAllocationResult.AlreadyExists
+        //TODO BH this info should be in the PartyReject message
+        //PartyAllocationResult.AlreadyExists
       }(DEC)
 
   override def uploadPackages(
