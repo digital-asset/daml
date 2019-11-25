@@ -155,10 +155,11 @@ object Cli {
         .text("The maximum TTL allowed for commands in seconds")
         .action( (maxTtl, config) => config.copy(timeModel = config.timeModel.copy(maxTtl = Duration.ofSeconds(maxTtl))))
 
-    opt[String]("auth-jwt-hs256")
+    opt[String]("auth-jwt-hs256-unsafe")
       .optional()
+      .hidden()
       .validate(v => Either.cond(v.length > 0, (), "HMAC secret must be a non-empty string"))
-      .text("Enables JWT-based authorization, where the JWT is signed by HMAC256 with the given secret")
+      .text("[UNSAFE] Enables JWT-based authorization with shared secret HMAC256 signing: USE THIS EXCLUSIVELY FOR TESTING")
       .action( (secret, config) => config.copy(authService = Some(AuthServiceJWT(HMAC256Verifier(secret).getOrElse(sys.error("Failed to create HMAC256 verifier"))))))
 
     help("help").text("Print the usage text")
