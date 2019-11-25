@@ -562,11 +562,11 @@ deployTest deployDir = testCase "daml deploy" $ do
             callCommandQuiet "daml build"
             withDevNull $ \devNull -> do
                 port :: Int <- fromIntegral <$> getFreePort
-                let sharedSecret = "Perfection is achieved, not when there is nothing more to add, but when there is nothing left to take away"
+                let sharedSecret = "TheSharedSecret"
                 let sandboxProc =
                         (shell $ unwords
                             ["daml sandbox"
-                            , "--auth-jwt-hs256-unsafe='" <> sharedSecret <> "'"
+                            , "--auth-jwt-hs256-unsafe=" <> sharedSecret
                             , "--port", show port
                             , ".daml/dist/proj1-0.0.1.dar"
                             ]) { std_out = UseHandle devNull }
