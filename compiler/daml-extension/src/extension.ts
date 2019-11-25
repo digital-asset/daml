@@ -165,15 +165,15 @@ async function showBlogIfNotSeen(context: ExtensionContext) {
                 const lastSeenBlog = context.globalState.get(recentBlogContextKey);
                 if (latestBlog &&
                     (!lastSeenBlog || typeof lastSeenBlog === 'string' && lastSeenBlog !== latestBlog.title)) {
-                        window.showInformationMessage(
-                            `New blog post: ${latestBlog.title}`,
-                            'Go to blog')
-                            .then(function(clicked) {
-                                if (clicked === 'Go to blog') {
-                                    env.openExternal(Uri.parse(latestBlog.link));
-                                }
-                            });
-                        await context.globalState.update(recentBlogContextKey, latestBlog.title);
+                    window.showInformationMessage(
+                        `New blog post: ${latestBlog.title}`,
+                        'Go to blog'
+                    ).then(function(clicked) {
+                        if (clicked === 'Go to blog') {
+                            env.openExternal(Uri.parse(latestBlog.link));
+                        }
+                    });
+                    await context.globalState.update(recentBlogContextKey, latestBlog.title);
                 }
             });
         }
