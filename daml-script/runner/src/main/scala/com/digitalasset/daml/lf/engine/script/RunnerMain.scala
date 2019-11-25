@@ -20,7 +20,6 @@ import com.digitalasset.daml.lf.language.Ast.Package
 import com.digitalasset.daml_lf_dev.DamlLf
 import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.digitalasset.ledger.api.refinements.ApiTypes.ApplicationId
-import com.digitalasset.ledger.client.LedgerClient
 import com.digitalasset.ledger.client.configuration.{
   CommandClientConfiguration,
   LedgerClientConfiguration,
@@ -80,9 +79,29 @@ object RunnerMain {
         })
 
         val runner = new Runner(dar, applicationId, commandUpdater)
+        val participantParams = config.participantConfig match {
+          case Some(file) => {
+            val source = Source.fromFile(file)
+            val fileContent = try {
+              source.mkString
+            } finally {
+              source.close
+            }
+            val jsVal = fileContent.parseJson
+            import ParticipantsJsonProtocol._
+            jsVal.convertTo[Participants[ApiParameters]]
+          }
+          case None =>
+            Participants(
+              default_participant =
+                Some(ApiParameters(config.ledgerHost.get, config.ledgerPort.get)),
+              participants = Map.empty,
+              party_participants = Map.empty)
+        }
+        println(participantParams)
         val flow: Future[Unit] = for {
-          client <- LedgerClient.singleHost(config.ledgerHost, config.ledgerPort, clientConfig)
-          _ <- runner.run(client, scriptId, inputValue)
+          clients <- Runner.connect(participantParams, clientConfig)
+          _ <- runner.run(clients, scriptId, inputValue)
         } yield ()
 
         flow.onComplete(_ => system.terminate())

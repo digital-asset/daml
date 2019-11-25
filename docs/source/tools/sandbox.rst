@@ -64,7 +64,7 @@ Running with authentication
 
 By default, Sandbox does not use any authentication and accepts all valid ledger API requests.
 
-To start Sandbox with authentication based on `JWT <https://jwt.io/>`_, run ``daml sandbox --auth-jwt-hs256=<secret>`` where ``<secret>`` is the secret used to sign the token with the HMAC256 algorithm.
+To start Sandbox with authentication based on `JWT <https://jwt.io/>`_, run ``daml sandbox --auth-jwt-hs256-unsafe=<secret>`` where ``<secret>`` is the secret used to sign the token with the HMAC256 algorithm. Please note that this option is there _exclusively_ for testing: for production use cases you are advised to use asymmetric key signing, which is currently being worked on.
 
 The JWT payload has the following schema:
 

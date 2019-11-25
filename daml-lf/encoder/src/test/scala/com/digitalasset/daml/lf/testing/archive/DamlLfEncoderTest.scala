@@ -39,7 +39,7 @@ class DamlLfEncoderTest
         "Variant")
 
       val modules_1_1 = modules_1_0 + "Option"
-      val modules_1_3 = modules_1_1 + "Map"
+      val modules_1_3 = modules_1_1 + "TextMap"
       val module_1_7 = modules_1_3 + "Enum"
       val modules_1_dev = module_1_7
 

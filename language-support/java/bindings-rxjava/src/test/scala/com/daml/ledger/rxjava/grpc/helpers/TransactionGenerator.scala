@@ -143,7 +143,7 @@ object TransactionGenerator {
       (elementsSize, newHeight) <- splitSizeAndHeight(height)
       elements <- Gen.listOfN(elementsSize, valueGen(newHeight))
       (scalaElements, javaElements) = elements.unzip
-    } yield (Sum.List(value.List(scalaElements)), new data.DamlList(javaElements.asJava))
+    } yield (Sum.List(value.List(scalaElements)), data.DamlList.of(javaElements.asJava))
 
   val int64ValueGen: Gen[(Sum.Int64, data.Int64)] = Arbitrary.arbLong.arbitrary.map { int64 =>
     (Sum.Int64(int64), new data.Int64(int64))

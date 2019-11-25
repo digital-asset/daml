@@ -71,6 +71,29 @@ def _symlink_files_recursive(ctx, find, source, dest):
     for f in files:
         ctx.symlink("%s/%s" % (source, f), "%s/%s" % (dest, f))
 
+def _dadew_impl(ctx):
+    ctx.file("BUILD.bazel", executable = False)
+    if get_cpu_value(ctx) == "x64_windows":
+        ps = ctx.which("powershell")
+        dadew = _dadew_where(ctx, ps)
+        ctx.file("dadew.bzl", executable = False, content = """
+dadew = r"{dadew}"
+def dadew_tool_home(tool):
+    return r"%s\\scoop\\apps\\%s\\current" % (dadew, tool)
+""".format(dadew = dadew))
+    else:
+        ctx.file("dadew.bzl", executable = False, content = """
+dadew = None
+def dadew_tool_home(tool):
+    return None
+""")
+
+dadew = repository_rule(
+    implementation = _dadew_impl,
+    configure = True,
+    local = True,
+)
+
 def _dev_env_tool_impl(ctx):
     if get_cpu_value(ctx) == "x64_windows":
         ps = ctx.which("powershell")

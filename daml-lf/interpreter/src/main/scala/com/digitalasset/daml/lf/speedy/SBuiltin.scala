@@ -390,7 +390,7 @@ object SBuiltin {
     }
   }
 
-  final case object SBMapInsert extends SBuiltin(3) {
+  final case object SBTextMapInsert extends SBuiltin(3) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       machine.ctrl = CtrlValue(args.get(2) match {
         case SMap(map) =>
@@ -398,15 +398,15 @@ object SBuiltin {
             case SText(key) =>
               SMap(map.updated(key, args.get(1)))
             case x =>
-              throw SErrorCrash(s"type mismatch SBMapInsert, expected Text got $x")
+              throw SErrorCrash(s"type mismatch SBTextMapInsert, expected Text got $x")
           }
         case x =>
-          throw SErrorCrash(s"type mismatch SBMapInsert, expected Map got $x")
+          throw SErrorCrash(s"type mismatch SBTextMapInsert, expected TextMap got $x")
       })
     }
   }
 
-  final case object SBMapLookup extends SBuiltin(2) {
+  final case object SBTextMapLookup extends SBuiltin(2) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       machine.ctrl = CtrlValue(args.get(1) match {
         case SMap(map) =>
@@ -414,15 +414,15 @@ object SBuiltin {
             case SText(key) =>
               SOptional(map.get(key))
             case x =>
-              throw SErrorCrash(s"type mismatch SBMapLookup, expected Text get $x")
+              throw SErrorCrash(s"type mismatch SBTextMapLookup, expected Text get $x")
           }
         case x =>
-          throw SErrorCrash(s"type mismatch SBMapLookup, expected Map get $x")
+          throw SErrorCrash(s"type mismatch SBTextMapLookup, expected TextMap get $x")
       })
     }
   }
 
-  final case object SBMapDelete extends SBuiltin(2) {
+  final case object SBTextMapDelete extends SBuiltin(2) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       machine.ctrl = CtrlValue(args.get(1) match {
         case SMap(map) =>
@@ -430,15 +430,15 @@ object SBuiltin {
             case SText(key) =>
               SMap(map - key)
             case x =>
-              throw SErrorCrash(s"type mismatch SBMapDelete, expected Text get $x")
+              throw SErrorCrash(s"type mismatch SBTextMapDelete, expected Text get $x")
           }
         case x =>
-          throw SErrorCrash(s"type mismatch SBMapDelete, expected Map get $x")
+          throw SErrorCrash(s"type mismatch SBTextMapDelete, expected TextMap get $x")
       })
     }
   }
 
-  final case object SBMapToList extends SBuiltin(1) {
+  final case object SBTextMapToList extends SBuiltin(1) {
 
     private val entryFields = Name.Array(Ast.keyFieldName, Ast.valueFieldName)
 
@@ -455,18 +455,18 @@ object SBuiltin {
           val entries = SortedLookupList(map).toImmArray
           SList(FrontStack(entries.map { case (k, v) => entry(k, v) }))
         case x =>
-          throw SErrorCrash(s"type mismatch SBMaptoList, expected Map get $x")
+          throw SErrorCrash(s"type mismatch SBTextMaptoList, expected TextMap get $x")
       })
     }
   }
 
-  final case object SBMapSize extends SBuiltin(1) {
+  final case object SBTextMapSize extends SBuiltin(1) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       machine.ctrl = CtrlValue(args.get(0) match {
         case SMap(map) =>
           SInt64(map.size.toLong)
         case x =>
-          throw SErrorCrash(s"type mismatch SBMapSize, expected Map get $x")
+          throw SErrorCrash(s"type mismatch SBTextMapSize, expected TextMap get $x")
       })
     }
   }

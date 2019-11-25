@@ -44,51 +44,69 @@ final class Authorizer(now: () => Instant) {
   def requireNotExpired[Req, Res](call: Req => Future[Res]): Req => Future[Res] =
     wrapSingleCall(_.notExpired(now()), call)
 
-  /** Wraps a streaming call to verify whether some Claims authorize to act as all parties
+  /** Wraps a streaming call to verify whether some Claims authorize to read as all parties
     * of the given set. Authorization is always granted for an empty collection of parties.
     */
-  def requireClaimsForAllPartiesOnStream[Req, Res](
+  def requireReadClaimsForAllPartiesOnStream[Req, Res](
       parties: Iterable[String],
       call: (Req, StreamObserver[Res]) => Unit): (Req, StreamObserver[Res]) => Unit =
-    wrapStream(c => c.notExpired(now()) && parties.forall(p => c.canActAs(p)), call)
+    wrapStream(c => c.notExpired(now()) && parties.forall(p => c.canReadAs(p)), call)
+
+  /** Wraps a single call to verify whether some Claims authorize to read as all parties
+    * of the given set. Authorization is always granted for an empty collection of parties.
+    */
+  def requireReadClaimsForAllParties[Req, Res](
+      parties: Iterable[String],
+      call: Req => Future[Res]): Req => Future[Res] =
+    wrapSingleCall(c => c.notExpired(now()) && parties.forall(p => c.canReadAs(p)), call)
 
   /** Wraps a single call to verify whether some Claims authorize to act as all parties
     * of the given set. Authorization is always granted for an empty collection of parties.
     */
-  def requireClaimsForAllParties[Req, Res](
+  def requireActClaimsForAllParties[Req, Res](
       parties: Iterable[String],
       call: Req => Future[Res]): Req => Future[Res] =
     wrapSingleCall(c => c.notExpired(now()) && parties.forall(p => c.canActAs(p)), call)
 
-  /** Checks whether the current Claims authorize to act as the given party, if any.
-    * Note: An missing party does NOT result in an authorization error.
+  /** Checks whether the current Claims authorize to read as the given party, if any.
+    * Note: A missing party does NOT result in an authorization error.
     */
-  def requireClaimsForPartyOnStream[Req, Res](
+  def requireReadClaimsForPartyOnStream[Req, Res](
       party: Option[String],
       call: (Req, StreamObserver[Res]) => Unit): (Req, StreamObserver[Res]) => Unit =
-    requireClaimsForAllPartiesOnStream(party.toList, call)
+    requireReadClaimsForAllPartiesOnStream(party.toList, call)
+
+  /** Checks whether the current Claims authorize to read as the given party, if any.
+    * Note: A missing party does NOT result in an authorization error.
+    */
+  def requireReadClaimsForParty[Req, Res](
+      party: Option[String],
+      call: Req => Future[Res]): Req => Future[Res] =
+    requireReadClaimsForAllParties(party.toList, call)
 
   /** Checks whether the current Claims authorize to act as the given party, if any.
     * Note: A missing party does NOT result in an authorization error.
     */
-  def requireClaimsForParty[Req, Res](
+  def requireActClaimsForParty[Req, Res](
       party: Option[String],
       call: Req => Future[Res]): Req => Future[Res] =
-    requireClaimsForAllParties(party.toList, call)
+    requireActClaimsForAllParties(party.toList, call)
 
   /** Checks whether the current Claims authorize to read data for all parties mentioned in the given transaction filter */
-  def requireClaimsForTransactionFilterOnStream[Req, Res](
+  def requireReadClaimsForTransactionFilterOnStream[Req, Res](
       filter: Option[TransactionFilter],
       call: (Req, StreamObserver[Res]) => Unit): (Req, StreamObserver[Res]) => Unit =
-    requireClaimsForAllPartiesOnStream(
+    requireReadClaimsForAllPartiesOnStream(
       filter.map(_.filtersByParty).fold(Set.empty[String])(_.keySet),
       call)
 
   /** Checks whether the current Claims authorize to read data for all parties mentioned in the given transaction filter */
-  def requireClaimsForTransactionFilter[Req, Res](
+  def requireReadClaimsForTransactionFilter[Req, Res](
       filter: Option[TransactionFilter],
       call: Req => Future[Res]): Req => Future[Res] =
-    requireClaimsForAllParties(filter.map(_.filtersByParty).fold(Set.empty[String])(_.keySet), call)
+    requireReadClaimsForAllParties(
+      filter.map(_.filtersByParty).fold(Set.empty[String])(_.keySet),
+      call)
 
   private def assertServerCall[A](observer: StreamObserver[A]): ServerCallStreamObserver[A] =
     observer match {

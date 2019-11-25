@@ -29,7 +29,7 @@ final class CommandCompletionServiceAuthorization(
   override def completionStream(
       request: CompletionStreamRequest,
       responseObserver: StreamObserver[CompletionStreamResponse]): Unit =
-    authorizer.requireClaimsForAllPartiesOnStream(request.parties, service.completionStream)(
+    authorizer.requireReadClaimsForAllPartiesOnStream(request.parties, service.completionStream)(
       request,
       responseObserver)
 

@@ -26,7 +26,7 @@ final class ActiveContractsServiceAuthorization(
   override def getActiveContracts(
       request: GetActiveContractsRequest,
       responseObserver: StreamObserver[GetActiveContractsResponse]): Unit =
-    authorizer.requireClaimsForTransactionFilterOnStream(
+    authorizer.requireReadClaimsForTransactionFilterOnStream(
       request.filter,
       service.getActiveContracts)(request, responseObserver)
 

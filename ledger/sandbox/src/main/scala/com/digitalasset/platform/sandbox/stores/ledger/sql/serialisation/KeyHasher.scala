@@ -92,7 +92,7 @@ object KeyHasher extends KeyHasher {
         op(z2, HashTokenCollectionEnd())
 
       // Map: [CollectionBegin(), (Text(key), Token(value))*, CollectionEnd()]
-      case ValueMap(xs) =>
+      case ValueTextMap(xs) =>
         val arr = xs.toImmArray
         val z1 = op(z, HashTokenCollectionBegin(arr.length))
         val z2 = arr.foldLeft[T](z1)((t, v) => {

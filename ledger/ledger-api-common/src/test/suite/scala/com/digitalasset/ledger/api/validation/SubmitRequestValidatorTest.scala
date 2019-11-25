@@ -502,7 +502,7 @@ class SubmitRequestValidatorTest
     "validating map values" should {
       "convert empty maps" in {
         val input = Value(Sum.Map(ApiMap(List.empty)))
-        val expected = Lf.ValueMap(SortedLookupList.empty)
+        val expected = Lf.ValueTextMap(SortedLookupList.empty)
         validateValue(input) shouldEqual Right(expected)
       }
 
@@ -516,7 +516,7 @@ class SubmitRequestValidatorTest
         val input = Value(Sum.Map(ApiMap(apiEntries.toSeq)))
         val lfEntries = entries.map { case (k, v) => k -> Lf.ValueInt64(v) }
         val expected =
-          Lf.ValueMap(SortedLookupList.fromImmArray(lfEntries).getOrElse(unexpectedError))
+          Lf.ValueTextMap(SortedLookupList.fromImmArray(lfEntries).getOrElse(unexpectedError))
 
         validateValue(input) shouldEqual Right(expected)
       }

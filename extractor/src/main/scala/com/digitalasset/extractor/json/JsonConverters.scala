@@ -50,7 +50,7 @@ object JsonConverters {
   implicit val variantEncoder: Encoder[OfCid[V.ValueVariant]] = valueEncoder
 
   implicit val mapEncoder: Encoder[SortedLookupList[LedgerValue]] =
-    valueEncoder.contramap(V.ValueMap(_))
+    valueEncoder.contramap(V.ValueTextMap(_))
 
   implicit val idKeyEncoder: KeyEncoder[Identifier] = id => s"${id.packageId}@${id.name}"
   implicit val idKeyDecoder: KeyDecoder[Identifier] = StringEncodedIdentifier.unapply

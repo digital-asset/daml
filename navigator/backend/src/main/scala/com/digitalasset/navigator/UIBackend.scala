@@ -20,7 +20,7 @@ import akka.http.scaladsl.settings.RoutingSettings
 import akka.pattern.ask
 import akka.stream.ActorMaterializer
 import akka.util.Timeout
-import com.digitalasset.grpc.{GrpcException, GrpcStatus}
+import com.digitalasset.grpc.GrpcException
 import com.digitalasset.navigator.SessionJsonProtocol._
 import com.digitalasset.navigator.config._
 import com.digitalasset.navigator.graphql.GraphQLContext
@@ -29,7 +29,6 @@ import com.digitalasset.navigator.model.{Ledger, PackageRegistry}
 import com.digitalasset.navigator.store.Store._
 import com.digitalasset.navigator.store.platform.PlatformStore
 import com.typesafe.scalalogging.LazyLogging
-import io.grpc.Status.Code.PERMISSION_DENIED
 import org.slf4j.LoggerFactory
 import sangria.schema._
 import spray.json._
@@ -138,7 +137,7 @@ abstract class UIBackend extends LazyLogging with ApplicationInfoJsonSupport {
                                 _,
                                 _,
                                 _,
-                                GrpcException(GrpcStatus(`PERMISSION_DENIED`, _), _)) =>
+                                GrpcException.PERMISSION_DENIED()) =>
                               logger.warn("Attempt to sign in without valid token")
                               complete(signIn(Some(InvalidCredentials)))
                             case _: ApplicationStateFailed =>
@@ -295,7 +294,8 @@ abstract class UIBackend extends LazyLogging with ApplicationInfoJsonSupport {
       case DumpGraphQLSchema =>
         dumpGraphQLSchema()
       case CreateConfig =>
-        userFacingLogger.info(s"Creating a configuration template file at $navigatorConfigFile")
+        userFacingLogger.info(
+          s"Creating a configuration template file at ${navigatorConfigFile.toAbsolutePath()}")
         Config.writeTemplateToPath(navigatorConfigFile, args.useDatabase)
       case RunServer =>
         Config.load(navigatorConfigFile, args.useDatabase) match {

@@ -971,7 +971,7 @@ object Ledger {
           coids += coid
         case _: ValueCidlessLeaf => ()
         case ValueOptional(mbV) => mbV.foreach(collect)
-        case ValueMap(map) => map.values.foreach(collect)
+        case ValueTextMap(map) => map.values.foreach(collect)
         case ValueGenMap(entries) =>
           entries.foreach {
             case (k, v) =>
@@ -1015,7 +1015,7 @@ object Ledger {
           ValueContractId(acoid)
         case vlit: ValueCidlessLeaf => vlit
         case ValueOptional(mbV) => ValueOptional(mbV.map(rewrite))
-        case ValueMap(map) => ValueMap(map.mapValue(rewrite))
+        case ValueTextMap(map) => ValueTextMap(map.mapValue(rewrite))
         case ValueGenMap(entries) =>
           ValueGenMap(entries.map { case (k, v) => rewrite(k) -> rewrite(v) })
       }

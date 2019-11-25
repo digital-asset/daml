@@ -11,11 +11,11 @@ import scala.language.higherKinds
 import scala.util.control.NonFatal
 
 object Assertions extends DiffExtensions {
-  def fail(message: => String): Nothing =
+  def fail(message: String): Nothing =
     throw new AssertionError(message)
 
-  def fail(message: => String, e: => Throwable): Nothing =
-    throw new AssertionError(message)
+  def fail(message: String, cause: Throwable): Nothing =
+    throw new AssertionError(message, cause)
 
   def assertLength[A, F[_] <: Seq[_]](context: String, length: Int, as: F[A]): F[A] = {
     assert(as.length == length, s"$context: expected $length item(s), got ${as.length}")
@@ -28,7 +28,7 @@ object Assertions extends DiffExtensions {
   def assertEquals[T: DiffShow](context: String, actual: T, expected: T): Unit = {
     val diff = DiffShow.diff(actual, expected)
     if (!diff.isIdentical)
-      throw new AssertionErrorWithPreformattedMessage(
+      throw AssertionErrorWithPreformattedMessage(
         diff.string,
         s"$context: two objects are supposed to be equal but they are not")
   }

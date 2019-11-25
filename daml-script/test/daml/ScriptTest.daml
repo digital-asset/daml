@@ -50,6 +50,18 @@ template NumericTpl
       controller p
       do pure v
 
+template WithKey
+  with
+    p : Party
+  where
+    signatory p
+    key p : Party
+    maintainer key
+
+    nonconsuming choice GetCid : ContractId WithKey
+      controller p
+      do pure self
+
 test0 : Script (Party, Party, [T], [TProposal], [C])
 test0 = do
   alice <- allocateParty "alice"
@@ -94,4 +106,11 @@ test4 = do
   alice <- allocateParty "alice"
   cid <- submit alice $ createCmd (C alice 42)
   [(cid', _)] <- query @C alice
+  pure (cid, cid')
+
+testKey : Script (ContractId WithKey, ContractId WithKey)
+testKey = do
+  alice <- allocateParty "alice"
+  cid <- submit alice $ createCmd (WithKey alice)
+  cid' <- submit alice $ exerciseByKeyCmd @WithKey alice GetCid
   pure (cid, cid')

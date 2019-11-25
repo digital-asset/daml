@@ -51,7 +51,7 @@ import SdkVersion
 
 -- | Create the project package database containing the given dar packages.
 createProjectPackageDb ::
-       Options -> String -> [FilePath] -> [FilePath] -> IO ()
+       Options -> PackageSdkVersion -> [FilePath] -> [FilePath] -> IO ()
 createProjectPackageDb opts thisSdkVer deps0 dataDeps = do
     let dbPath = projectPackageDatabase </> (lfVersionString $ optDamlLfVersion opts)
     let
@@ -78,7 +78,7 @@ createProjectPackageDb opts thisSdkVer deps0 dataDeps = do
           in mapM expand
     deps <- handleSdkPackages $ filter (`notElem` basePackages) deps0
     depsExtracted <- mapM extractDar deps
-    let uniqSdkVersions = nubSort $ filter (/= "0.0.0") $ thisSdkVer : map edSdkVersions depsExtracted
+    let uniqSdkVersions = nubSort $ filter (/= "0.0.0") $ unPackageSdkVersion thisSdkVer : map edSdkVersions depsExtracted
     -- we filter the 0.0.0 version because otherwise integration tests fail that import SDK packages
     unless (length uniqSdkVersions <= 1) $
            fail $
@@ -238,8 +238,7 @@ createProjectPackageDb opts thisSdkVer deps0 dataDeps = do
                         , pVersion = mbPkgVersion
                         , pDependencies = deps
                         , pDataDependencies = []
-                        , pSdkVersion = "unknown"
-                        , cliOpts = Nothing
+                        , pSdkVersion = PackageSdkVersion "unknown"
                         }
                     (map T.unpack $ LF.packageModuleNames dalf)
                     pkgIdStr
@@ -280,7 +279,6 @@ createProjectPackageDb opts thisSdkVer deps0 dataDeps = do
                             , pDependencies = (unitIdStr <.> "dalf") : deps
                             , pDataDependencies = []
                             , pSdkVersion = thisSdkVer
-                            , cliOpts = Nothing
                             }
                 opts' <-
                     mkOptions $

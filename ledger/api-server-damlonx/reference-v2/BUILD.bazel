@@ -50,6 +50,7 @@ da_scala_binary(
         "@maven//:com_github_scopt_scopt_2_12",
         "@maven//:com_typesafe_akka_akka_actor_2_12",
         "@maven//:com_typesafe_akka_akka_stream_2_12",
+        "@maven//:io_dropwizard_metrics_metrics_core",
         "@maven//:io_netty_netty_handler",
         "@maven//:io_netty_netty_tcnative_boringssl_static",
         "@maven//:org_slf4j_slf4j_api",
@@ -84,6 +85,8 @@ SERVERS = {
             # "db_close_delay=-1" is needed so that the in-memory database is not closed
             # (and therefore lost) after the flyway migration
             "--jdbc-url=jdbc:h2:mem:daml_on_x;db_close_delay=-1;db_close_on_exit=false",
+            # participant-id contains special colon (:) character allowed in LfStrings
+            "--participant-id=participant:h2database",
         ],
     },
     "postgres": {

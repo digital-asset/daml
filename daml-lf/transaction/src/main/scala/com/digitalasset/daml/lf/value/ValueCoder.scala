@@ -388,7 +388,7 @@ object ValueCoder {
                 err => throw Err(err),
                 identity
               )
-            ValueMap(map)
+            ValueTextMap(map)
 
           case proto.Value.SumCase.SUM_NOT_SET =>
             throw Err(s"Value not set")
@@ -501,7 +501,7 @@ object ValueCoder {
             mbV.foreach(v => protoOption.setValue(go(newNesting, v)))
             builder.setOptional(protoOption).build()
 
-          case ValueMap(map) =>
+          case ValueTextMap(map) =>
             val protoMap = proto.Map.newBuilder()
             map.toImmArray.foreach {
               case (key, value) =>

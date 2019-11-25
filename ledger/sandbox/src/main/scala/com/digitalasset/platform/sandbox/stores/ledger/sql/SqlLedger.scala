@@ -10,6 +10,7 @@ import akka.Done
 import akka.stream.QueueOfferResult.{Dropped, Enqueued, QueueClosed}
 import akka.stream.scaladsl.{GraphDSL, Keep, MergePreferred, Sink, Source, SourceQueueWithComplete}
 import akka.stream.{Materializer, OverflowStrategy, QueueOfferResult, SourceShape}
+import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.index.v2.PackageDetails
 import com.daml.ledger.participant.state.v1._
 import com.digitalasset.api.util.TimeProvider
@@ -23,7 +24,6 @@ import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails, RejectionReas
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.common.util.{DirectExecutionContext => DEC}
 import com.digitalasset.platform.sandbox.LedgerIdGenerator
-import com.digitalasset.platform.sandbox.metrics.MetricsManager
 import com.digitalasset.platform.sandbox.services.transaction.SandboxEventIdFormatter
 import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
 import com.digitalasset.platform.sandbox.stores.ledger.sql.SqlStartMode.{
@@ -76,7 +76,7 @@ object SqlLedger {
       queueDepth: Int,
       startMode: SqlStartMode = SqlStartMode.ContinueIfExists,
       loggerFactory: NamedLoggerFactory,
-      mm: MetricsManager)(implicit mat: Materializer): Future[Ledger] = {
+      metrics: MetricRegistry)(implicit mat: Materializer): Future[Ledger] = {
     implicit val ec: ExecutionContext = DEC
 
     new FlywayMigrations(jdbcUrl, loggerFactory).migrate()
@@ -90,7 +90,7 @@ object SqlLedger {
         noOfShortLivedConnections,
         defaultNumberOfStreamingConnections,
         loggerFactory,
-        mm)
+        metrics)
 
     val ledgerDao = LedgerDao.metered(
       JdbcLedgerDao(
@@ -102,7 +102,7 @@ object SqlLedger {
         dbType,
         loggerFactory,
         mat.executionContext),
-      mm)
+      metrics)
 
     val sqlLedgerFactory = SqlLedgerFactory(ledgerDao, loggerFactory)
 

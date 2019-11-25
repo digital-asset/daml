@@ -4,6 +4,7 @@ module DA.Daml.Compiler.Dar
     ( buildDar
     , FromDalf(..)
     , breakAt72Bytes
+    , PackageSdkVersion(..)
     , PackageConfigFields(..)
     , pkgNameVersion
     , getSrcRoot
@@ -45,6 +46,7 @@ import qualified Development.IDE.Types.Logger as IdeLogger
 import SdkVersion
 import System.Directory.Extra
 import System.FilePath
+import qualified Data.Yaml as Y
 
 import GHC
 import MkIface
@@ -81,6 +83,10 @@ newtype FromDalf = FromDalf
     { unFromDalf :: Bool
     }
 
+newtype PackageSdkVersion = PackageSdkVersion
+    { unPackageSdkVersion :: String
+    } deriving (Eq, Y.FromJSON)
+
 -- | daml.yaml config fields specific to packaging.
 data PackageConfigFields = PackageConfigFields
     { pName :: String
@@ -89,8 +95,7 @@ data PackageConfigFields = PackageConfigFields
     , pVersion :: Maybe String
     , pDependencies :: [String]
     , pDataDependencies :: [String]
-    , pSdkVersion :: String
-    , cliOpts :: Maybe [String]
+    , pSdkVersion :: PackageSdkVersion
     }
 
 buildDar ::
@@ -338,7 +343,7 @@ createArchive PackageConfigFields {..} pkgId dalf dalfDependencies srcRoot fileD
         map (breakAt72Bytes . BSLUTF8.fromString)
             [ "Manifest-Version: 1.0"
             , "Created-By: damlc"
-            , "Sdk-Version: " <> pSdkVersion
+            , "Sdk-Version: " <> unPackageSdkVersion pSdkVersion
             , "Main-Dalf: " <> toPosixFilePath location
             , "Dalfs: " <> intercalate ", " (map toPosixFilePath dalfs)
             , "Format: daml-lf"

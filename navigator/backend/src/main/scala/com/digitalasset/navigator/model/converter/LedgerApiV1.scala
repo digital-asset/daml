@@ -330,7 +330,7 @@ case object LedgerApiV1 {
         case _ => Left(GenericConversionError(s"Cannot read $map as $typ"))
       }
       values <- map.value traverseU (fillInTypeInfo(_, elementType, ctx))
-    } yield V.ValueMap(values)
+    } yield V.ValueTextMap(values)
 
   private def fillInOptionalTI(
       opt: Model.ApiOptional,

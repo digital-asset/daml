@@ -30,6 +30,7 @@ da_haskell_library(
         "time",
         "transformers",
         "utf8-string",
+        "yaml",
         "zip",
     ],
     src_strip_prefix = "src",

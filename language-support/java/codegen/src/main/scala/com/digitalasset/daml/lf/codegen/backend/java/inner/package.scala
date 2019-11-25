@@ -7,7 +7,7 @@ import java.util
 
 import com.daml.ledger.javaapi
 import com.daml.ledger.javaapi.data.codegen.ContractId
-import com.daml.ledger.javaapi.data.{DamlGenMap, DamlList, DamlMap, DamlOptional}
+import com.daml.ledger.javaapi.data.{DamlGenMap, DamlList, DamlTextMap, DamlOptional}
 import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
 import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
 import com.digitalasset.daml.lf.iface._
@@ -105,7 +105,7 @@ package object inner {
       case TypePrim(PrimTypeOptional, _) =>
         ClassName.get(classOf[DamlOptional])
       case TypePrim(PrimTypeMap, _) =>
-        ClassName.get(classOf[DamlMap])
+        ClassName.get(classOf[DamlTextMap])
       case TypePrim(PrimTypeGenMap, _) =>
         ClassName.get(classOf[DamlGenMap])
       case TypePrim(PrimTypeUnit, _) =>

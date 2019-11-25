@@ -8,4 +8,5 @@ import com.digitalasset.ledger.api.tls.TlsConfiguration
 private[testtool] final case class LedgerSessionConfiguration(
     participants: Vector[(String, Int)],
     ssl: Option[TlsConfiguration],
-    commandTtlFactor: Double)
+    commandTtlFactor: Double,
+    loadScaleFactor: Double)

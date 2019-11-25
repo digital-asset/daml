@@ -10,11 +10,15 @@ import java.util.concurrent.TimeUnit
 import com.daml.ledger.javaapi.data.Generators._
 import com.digitalasset.ledger.api.v1.ValueOuterClass.Value.SumCase
 import org.scalacheck.Gen
-import org.scalatest.prop.GeneratorDrivenPropertyChecks
+import org.scalatest.prop.{GeneratorDrivenPropertyChecks, TableDrivenPropertyChecks}
 import org.scalatest.{FlatSpec, Matchers}
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
-class ValueSpec extends FlatSpec with Matchers with GeneratorDrivenPropertyChecks {
+class ValueSpec
+    extends FlatSpec
+    with Matchers
+    with GeneratorDrivenPropertyChecks
+    with TableDrivenPropertyChecks {
 
   implicit override val generatorDrivenConfig: PropertyCheckConfiguration =
     PropertyCheckConfiguration(minSize = 1, sizeRange = 3)
@@ -37,7 +41,9 @@ class ValueSpec extends FlatSpec with Matchers with GeneratorDrivenPropertyCheck
     SumCase.TIMESTAMP -> (((_: Value).asTimestamp(), "asTimestamp")),
     SumCase.UNIT -> (((_: Value).asUnit(), "asUnit")),
     SumCase.VARIANT -> (((_: Value).asVariant(), "asVariant")),
-    SumCase.OPTIONAL -> (((_: Value).asOptional(), "asOptional"))
+    SumCase.OPTIONAL -> (((_: Value).asOptional(), "asOptional")),
+    SumCase.MAP -> (((_: Value).asTextMap(), "asTextMap")),
+    SumCase.GEN_MAP -> (((_: Value).asGenMap(), "asGenMap")),
   )
 
   def assertConversions[T <: Value](sumCase: SumCase, expected: T): scala.Unit = {
@@ -76,6 +82,8 @@ class ValueSpec extends FlatSpec with Matchers with GeneratorDrivenPropertyCheck
   assertConversions(SumCase.UNIT, Value.fromProto(unitValueGen.sample.get))
   assertConversions(SumCase.VARIANT, Value.fromProto(variantValueGen.sample.get))
   assertConversions(SumCase.OPTIONAL, Value.fromProto(optionalValueGen.sample.get))
+  assertConversions(SumCase.MAP, Value.fromProto(textMapValueGen.sample.get))
+  assertConversions(SumCase.GEN_MAP, Value.fromProto(genMapValueGen.sample.get))
 
   "Timestamp" should
     "be constructed from Instant" in forAll(Gen.posNum[Long]) { micros =>

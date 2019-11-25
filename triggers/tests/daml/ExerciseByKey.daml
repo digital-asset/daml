@@ -16,6 +16,7 @@ exerciseByKeyTrigger = Trigger
         | Failed {} <- c.status -> allowedFail - 1
       _ -> allowedFail
   , rule = retryRule
+  , registeredTemplates = AllInDar
   }
 
 -- Create one T template and then call a choice by key to create T_.

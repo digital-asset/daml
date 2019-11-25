@@ -65,13 +65,7 @@ object Reporter {
             s.print(cyan(s"- $test ... "))
             result match {
               case Result.Succeeded(duration) =>
-                val durationString = s"${duration.toMillis} ms"
-                val highlightedDurationString = duration.toMillis match {
-                  case d if d > 1000 => red(durationString)
-                  case d if d > 100 => yellow(durationString)
-                  case _ => green(durationString)
-                }
-                s.println(s"${green("Success")} ($highlightedDurationString)")
+                s.println(green(s"Success (${duration.toMillis} ms)"))
               case Result.TimedOut => s.println(red(s"Timeout"))
               case Result.Skipped(reason) =>
                 s.println(yellow(s"Skipped (reason: $reason)"))

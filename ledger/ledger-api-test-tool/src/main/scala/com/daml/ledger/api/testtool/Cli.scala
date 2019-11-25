@@ -49,10 +49,9 @@ object Cli {
     head("""The Ledger API Test Tool is a command line tool for testing the correctness of
         |ledger implementations based on DAML and Ledger API.""".stripMargin)
 
-    arg[(String, Int)]("[endpoints...]")(endpointRead)
+    arg[(String, Int)]("ENDPOINTS [...]")(endpointRead)
       .action((address, config) => config.copy(participants = config.participants :+ address))
       .unbounded()
-      .optional()
       .text("""Addresses of the participants to test, specified as `<host>:<port>`.""")
 
     // FIXME Make client_server_test more flexible and remove this deprecated option
@@ -92,6 +91,14 @@ object Cli {
               |depending on the environment and the Ledger implementation under test.
               |Defaults to 1.0. Use numbers higher than 1.0 to make test timeouts more lax,
               |use numbers lower than 1.0 to make test timeouts more strict.""".stripMargin)
+
+    opt[Double](name = "load-scale-factor")
+      .optional()
+      .action((v, c) => c.copy(loadScaleFactor = v))
+      .text("""Scale factor for the load used in scale test suites. Useful to adapt the load
+              |depending on the environment and the Ledger implementation under test.
+              |Defaults to 1.0. Use numbers higher than 1.0 to increase the load,
+              |use numbers lower than 1.0 to decrease the load.""".stripMargin)
 
     opt[Int](name = "concurrent-test-runs")
       .optional()

@@ -4,6 +4,7 @@
 package com.digitalasset.daml.lf.codegen.backend.java
 
 import com.daml.ledger.javaapi
+import com.daml.ledger.javaapi.data.DamlTextMap
 import com.squareup.javapoet.{ClassName, TypeName}
 
 object Types {
@@ -20,8 +21,9 @@ object Types {
   val apiOptional = ClassName.get(classOf[javaapi.data.DamlOptional])
   val apiUnit = ClassName.get(classOf[javaapi.data.Unit])
   val apiContractId = ClassName.get(classOf[javaapi.data.ContractId])
-  val apiMap = ClassName.get(classOf[javaapi.data.DamlMap])
+  val apiTextMap = ClassName.get(classOf[DamlTextMap])
   val apiGenMap = ClassName.get(classOf[javaapi.data.DamlGenMap])
+  val apiCollectors = ClassName.get(classOf[javaapi.data.DamlCollectors])
 
   // All the types part of the Java platform to which API types will be mapped to
   val javaNativeBoolean = TypeName.get(java.lang.Boolean.TYPE)

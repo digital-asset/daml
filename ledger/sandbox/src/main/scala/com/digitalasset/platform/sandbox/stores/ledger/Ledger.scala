@@ -8,6 +8,7 @@ import java.time.Instant
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
+import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.index.v2.PackageDetails
 import com.daml.ledger.participant.state.v1._
 import com.digitalasset.api.util.TimeProvider
@@ -21,7 +22,6 @@ import com.digitalasset.daml_lf_dev.DamlLf.Archive
 import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails}
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilter
-import com.digitalasset.platform.sandbox.metrics.MetricsManager
 import com.digitalasset.platform.sandbox.stores.ActiveLedgerState.Contract
 import com.digitalasset.platform.sandbox.stores.{InMemoryActiveLedgerState, InMemoryPackageStore}
 import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
@@ -130,7 +130,7 @@ object Ledger {
       queueDepth: Int,
       startMode: SqlStartMode,
       loggerFactory: NamedLoggerFactory,
-      mm: MetricsManager
+      metrics: MetricRegistry
   )(implicit mat: Materializer): Future[Ledger] =
     SqlLedger(
       jdbcUrl,
@@ -142,7 +142,7 @@ object Ledger {
       queueDepth,
       startMode,
       loggerFactory,
-      mm)
+      metrics)
 
   /**
     * Creates a JDBC backed read only ledger
@@ -155,15 +155,15 @@ object Ledger {
       jdbcUrl: String,
       ledgerId: LedgerId,
       loggerFactory: NamedLoggerFactory,
-      mm: MetricsManager
+      metrics: MetricRegistry
   )(implicit mat: Materializer): Future[ReadOnlyLedger] =
-    ReadOnlySqlLedger(jdbcUrl, Some(ledgerId), loggerFactory, mm)
+    ReadOnlySqlLedger(jdbcUrl, Some(ledgerId), loggerFactory, metrics)
 
   /** Wraps the given Ledger adding metrics around important calls */
-  def metered(ledger: Ledger, mm: MetricsManager): Ledger = MeteredLedger(ledger, mm)
+  def metered(ledger: Ledger, metrics: MetricRegistry): Ledger = MeteredLedger(ledger, metrics)
 
   /** Wraps the given Ledger adding metrics around important calls */
-  def meteredReadOnly(ledger: ReadOnlyLedger, mm: MetricsManager): ReadOnlyLedger =
-    MeteredReadOnlyLedger(ledger, mm)
+  def meteredReadOnly(ledger: ReadOnlyLedger, metrics: MetricRegistry): ReadOnlyLedger =
+    MeteredReadOnlyLedger(ledger, metrics)
 
 }

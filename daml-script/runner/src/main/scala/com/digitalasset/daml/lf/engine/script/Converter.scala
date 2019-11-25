@@ -23,8 +23,13 @@ import com.digitalasset.daml.lf.speedy.{SValue, SExpr}
 import com.digitalasset.daml.lf.speedy.SValue._
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, RelativeContractId}
 import com.digitalasset.daml.lf.CompiledPackages
-import com.digitalasset.ledger.api.v1.commands.{Command, CreateCommand, ExerciseCommand}
-import com.digitalasset.ledger.api.v1.event.{CreatedEvent}
+import com.digitalasset.ledger.api.v1.commands.{
+  Command,
+  CreateCommand,
+  ExerciseCommand,
+  ExerciseByKeyCommand
+}
+import com.digitalasset.ledger.api.v1.event.{CreatedEvent, ExercisedEvent}
 import com.digitalasset.ledger.api.v1.transaction.TreeEvent
 import com.digitalasset.ledger.api.v1.value
 import com.digitalasset.ledger.api.validation.ValueValidator
@@ -38,6 +43,7 @@ class ConverterException(message: String) extends RuntimeException(message)
 
 case class AnyTemplate(ty: Identifier, arg: SValue)
 case class AnyChoice(name: String, arg: SValue)
+case class AnyContractKey(key: SValue)
 
 object Converter {
   private def toLedgerRecord(v: SValue): Either[String, value.Record] = {
@@ -94,6 +100,18 @@ object Converter {
     }
   }
 
+  def toAnyContractKey(v: SValue): Either[String, AnyContractKey] = {
+    v match {
+      case SRecord(_, _, vals) if vals.size == 2 => {
+        vals.get(0) match {
+          case SAny(_, key) => Right(AnyContractKey(key))
+          case _ => Left(s"Expected SAny but got $v")
+        }
+      }
+      case _ => Left(s"Expected AnyChoice but got $v")
+    }
+  }
+
   def typeRepToIdentifier(v: SValue): Either[String, value.Identifier] = {
     v match {
       case SRecord(_, _, vals) if vals.size == 1 => {
@@ -138,6 +156,23 @@ object Converter {
         } yield
           Command().withExercise(
             ExerciseCommand(Some(tplId), cid.coid, anyChoice.name, Some(choiceArg)))
+      }
+      case _ => Left(s"Expected Exercise but got $v")
+    }
+
+  def toExerciseByKeyCommand(v: SValue): Either[String, Command] =
+    v match {
+      // typerep, contract id, choice argument and continuation
+      case SRecord(_, _, vals) if vals.size == 4 => {
+        for {
+          tplId <- typeRepToIdentifier(vals.get(0))
+          anyKey <- toAnyContractKey(vals.get(1))
+          keyArg <- toLedgerValue(anyKey.key)
+          anyChoice <- toAnyChoice(vals.get(2))
+          choiceArg <- toLedgerValue(anyChoice.arg)
+        } yield
+          Command().withExerciseByKey(
+            ExerciseByKeyCommand(Some(tplId), Some(keyArg), anyChoice.name, Some(choiceArg)))
       }
       case _ => Left(s"Expected Exercise but got $v")
     }
@@ -195,13 +230,35 @@ object Converter {
                 case Left(err) => Left(err)
                 case Right(r) => iter(v, commands ++ Seq(r))
               }
-            case Right((fb, _)) => Left(s"Expected Create or Exercise but got $fb")
+            case Right((SVariant(_, "ExerciseByKey", exerciseByKey), v)) =>
+              toExerciseByKeyCommand(exerciseByKey) match {
+                case Left(err) => Left(err)
+                case Right(r) => iter(v, commands ++ Seq(r))
+              }
+            case Right((fb, _)) => Left(s"Expected Create, Exercise or ExerciseByKey but got $fb")
             case Left(err) => Left(err)
           }
         case _ => Left(s"Expected PureA or Ap but got $v")
       }
     }
     iter(freeAp, Seq())
+  }
+
+  def translateExerciseResult(
+      choiceType: (Identifier, Name) => Either[String, Type],
+      translator: ValueTranslator,
+      ev: ExercisedEvent) = {
+    val apiExerciseResult = ev.getExerciseResult
+    for {
+      tplId <- fromApiIdentifier(ev.templateId.get)
+      choice <- Name.fromString(ev.choice)
+      resultType <- choiceType(tplId, choice)
+      validated <- ValueValidator.validateValue(apiExerciseResult).left.map(_.toString)
+      translated <- translator.translateValue(resultType, validated) match {
+        case ResultDone(r) => Right(r)
+        case err => Left(s"Failed to translate exercise result: $err")
+      }
+    } yield translated
   }
 
   // Given the free applicative for a submit request and the results of that request, we walk over the free applicative and
@@ -231,19 +288,18 @@ object Converter {
             case SVariant(_, "Exercise", v) => {
               val continue = v.asInstanceOf[SRecord].values.get(3)
               val exercised = eventResults.head.getExercised
-              val apiExerciseResult = exercised.getExerciseResult
               for {
-                tplId <- fromApiIdentifier(exercised.templateId.get)
-                choice <- Name.fromString(exercised.choice)
-                resultType <- choiceType(tplId, choice)
-                validated <- ValueValidator.validateValue(apiExerciseResult).left.map(_.toString)
-                translated <- translator.translateValue(resultType, validated) match {
-                  case ResultDone(r) => Right(r)
-                  case err => Left(s"Failed to translate exercise result: $err")
-                }
+                translated <- translateExerciseResult(choiceType, translator, exercised)
               } yield SEApp(SEValue(continue), Array(SEValue(translated)))
             }
-            case _ => Left(s"Expected Create or Exercise but got $fb")
+            case SVariant(_, "ExerciseByKey", v) => {
+              val continue = v.asInstanceOf[SRecord].values.get(3)
+              val exercised = eventResults.head.getExercised
+              for {
+                translated <- translateExerciseResult(choiceType, translator, exercised)
+              } yield SEApp(SEValue(continue), Array(SEValue(translated)))
+            }
+            case _ => Left(s"Expected Create, Exercise or ExerciseByKey but got $fb")
           }
           fValue <- fillCommandResults(
             compiledPackages,

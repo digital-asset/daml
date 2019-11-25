@@ -3,21 +3,20 @@
 
 package com.digitalasset.platform.sandbox
 
-import com.digitalasset.platform.sandbox.metrics.MetricsManager
+import com.codahale.metrics.MetricRegistry
 import org.scalatest.BeforeAndAfterAll
 
 trait MetricsAround extends BeforeAndAfterAll {
   self: org.scalatest.Suite =>
 
-  @volatile protected var metricsManager: MetricsManager = _
+  @volatile protected var metrics: MetricRegistry = _
 
   override protected def beforeAll(): Unit = {
     super.beforeAll()
-    metricsManager = MetricsManager("MetricsAround")
+    metrics = new MetricRegistry
   }
 
   override protected def afterAll(): Unit = {
-    metricsManager.close()
     super.afterAll()
   }
 }

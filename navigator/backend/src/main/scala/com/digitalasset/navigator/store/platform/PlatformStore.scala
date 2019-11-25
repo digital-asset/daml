@@ -13,8 +13,8 @@ import akka.pattern.ask
 import akka.stream.ActorMaterializer
 import akka.util.Timeout
 import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.grpc.GrpcException
 import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
-import com.digitalasset.grpc.{GrpcException, GrpcStatus}
 import com.digitalasset.ledger.api.refinements.{ApiTypes, IdGenerator}
 import com.digitalasset.ledger.api.tls.TlsConfiguration
 import com.digitalasset.ledger.api.v1.testing.time_service.TimeServiceGrpc
@@ -31,7 +31,6 @@ import com.digitalasset.navigator.store.Store._
 import com.digitalasset.navigator.time._
 import com.digitalasset.navigator.util.RetryHelper
 import io.grpc.Channel
-import io.grpc.Status.Code.UNIMPLEMENTED
 import io.grpc.netty.{GrpcSslContexts, NettyChannelBuilder}
 import io.netty.handler.ssl.SslContext
 import org.slf4j.LoggerFactory
@@ -288,7 +287,8 @@ class PlatformStore(
         maxParallelSubmissions,
         overrideTtl = false,
         Duration.ofSeconds(30)),
-      sslContext
+      sslContext,
+      token
     )
 
     val result =
@@ -340,10 +340,9 @@ class PlatformStore(
       })
       .recover({
         // If the time service is not implemented, then the ledger uses UTC time.
-        case GrpcException(GrpcStatus(`UNIMPLEMENTED`, _), _) => {
+        case GrpcException.UNIMPLEMENTED() =>
           log.info("Time service is not implemented")
           None
-        }
       })
   }
 

@@ -1,6 +1,18 @@
 package(default_visibility = ["//visibility:public"])
 
 cc_library(
+    name = "libbz2",
+    # Import `:bz2` as `srcs` to enforce the library name `libbz2.so`.
+    # Othwerwise, Bazel would mangle the library name and e.g. Cabal
+    # wouldn't recognize it.
+    srcs = [":bz2"],
+    hdrs = [":headers"],
+    includes = ["."],
+    linkstatic = 1,
+    visibility = ["//visibility:public"],
+)
+
+cc_library(
     name = "bz2",
     srcs = [
         "blocksort.c",
@@ -11,14 +23,14 @@ cc_library(
         "huffman.c",
         "randtable.c",
     ],
-    hdrs = [
+    hdrs = [":headers"],
+    includes = ["."],
+)
+
+filegroup(
+    name = "headers",
+    srcs = [
         "bzlib.h",
         "bzlib_private.h",
-    ],
-    includes = [
-        ".",
-    ],
-    visibility = [
-        "//visibility:public",
     ],
 )

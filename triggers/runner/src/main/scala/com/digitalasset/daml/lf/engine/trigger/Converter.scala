@@ -40,7 +40,8 @@ case class Converter(
     fromTransaction: Transaction => Either[String, SValue],
     fromCompletion: Completion => Either[String, SValue],
     fromACS: Seq[CreatedEvent] => Either[String, SValue],
-    toCommands: SValue => Either[String, (String, Seq[Command])]
+    toCommands: SValue => Either[String, (String, Seq[Command])],
+    toRegisteredTemplates: SValue => Either[String, Seq[Identifier]],
 )
 
 // Helper to create identifiers pointing to the DAML.Trigger module
@@ -340,6 +341,20 @@ object Converter {
     }
   }
 
+  private def toRegisteredTemplate(v: SValue): Either[String, Identifier] = {
+    v match {
+      case SRecord(_, _, vals) if vals.size == 1 => toTemplateTypeRep(vals.get(0))
+      case _ => Left(s"Expected RegisteredTemplate but got $v")
+    }
+  }
+
+  private def toRegisteredTemplates(v: SValue): Either[String, Seq[Identifier]] = {
+    v match {
+      case SList(tpls) => tpls.traverseU(toRegisteredTemplate(_)).map(_.toImmArray.toSeq)
+      case _ => Left(s"Expected list of RegisteredTemplate but got $v")
+    }
+  }
+
   private def toAbsoluteContractId(v: SValue): Either[String, AbsoluteContractId] = {
     v match {
       case SContractId(cid @ AbsoluteContractId(_)) => Right(cid)
@@ -514,7 +529,8 @@ object Converter {
       fromTransaction(valueTranslator, triggerIds, _),
       fromCompletion(triggerIds, _),
       fromACS(valueTranslator, triggerIds, _),
-      toCommands(triggerIds, _)
+      toCommands(triggerIds, _),
+      toRegisteredTemplates(_),
     )
   }
 }

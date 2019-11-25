@@ -6,7 +6,10 @@ load("//bazel_tools:proto.bzl", "proto_gen")
 
 proto_gen(
     name = "ledger-api-akka-srcs",
-    srcs = ["//ledger-api/grpc-definitions:protos"],
+    srcs = [
+        "//ledger-api/grpc-definitions:protos",
+        "@com_github_grpc_grpc//src/proto/grpc/health/v1:health_proto_descriptor",
+    ],
     plugin_exec = "//scala-protoc-plugins/scala-akka:protoc-gen-scala-akka",
     plugin_name = "scala-akka",
     deps = [

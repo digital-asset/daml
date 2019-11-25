@@ -27,7 +27,8 @@ private[validation] object Typing {
     case BTInt64 | BTText | BTTimestamp | BTParty | BTBool | BTDate | BTUnit | BTAny | BTTypeRep =>
       KStar
     case BTNumeric => KArrow(KNat, KStar)
-    case BTList | BTUpdate | BTScenario | BTContractId | BTOptional | BTMap => KArrow(KStar, KStar)
+    case BTList | BTUpdate | BTScenario | BTContractId | BTOptional | BTTextMap =>
+      KArrow(KStar, KStar)
     case BTArrow | BTGenMap => KArrow(KStar, KArrow(KStar, KStar))
   }
 
@@ -95,35 +96,36 @@ private[validation] object Typing {
             beta.name -> KStar,
             (alpha ->: beta ->: beta) ->: beta ->: TList(alpha) ->: beta)),
       // Maps
-      BMapEmpty ->
+      BTextMapEmpty ->
         TForall(
           alpha.name -> KStar,
-          TMap(alpha)
+          TTextMap(alpha)
         ),
-      BMapInsert ->
+      BTextMapInsert ->
         TForall(
           alpha.name -> KStar,
-          TText ->: alpha ->: TMap(alpha) ->: TMap(alpha)
+          TText ->: alpha ->: TTextMap(alpha) ->: TTextMap(alpha)
         ),
-      BMapLookup ->
+      BTextMapLookup ->
         TForall(
           alpha.name -> KStar,
-          TText ->: TMap(alpha) ->: TOptional(alpha)
+          TText ->: TTextMap(alpha) ->: TOptional(alpha)
         ),
-      BMapDelete ->
+      BTextMapDelete ->
         TForall(
           alpha.name -> KStar,
-          TText ->: TMap(alpha) ->: TMap(alpha)
+          TText ->: TTextMap(alpha) ->: TTextMap(alpha)
         ),
-      BMapToList ->
+      BTextMapToList ->
         TForall(
           alpha.name -> KStar,
-          TMap(alpha) ->: TList(TTuple(ImmArray(keyFieldName -> TText, valueFieldName -> alpha)))
+          TTextMap(alpha) ->: TList(
+            TTuple(ImmArray(keyFieldName -> TText, valueFieldName -> alpha)))
         ),
-      BMapSize ->
+      BTextMapSize ->
         TForall(
           alpha.name -> KStar,
-          TMap(alpha) ->: TInt64
+          TTextMap(alpha) ->: TInt64
         ),
       // GenMaps
       BGenMapEmpty ->

@@ -171,22 +171,29 @@ def _scala_source_jar_impl(ctx):
             for new_path in _strip_path_upto(src.path, ctx.attr.strip_upto):
                 zipper_args.append("%s=%s" % (new_path, src.path))
 
+    posix = ctx.toolchains["@rules_sh//sh/posix:toolchain_type"]
     if len(tmpsrcdirs) > 0:
         tmpsrc_cmds = [
-            "(find -L {tmpsrc_path} -type f | sed -E 's#^{tmpsrc_path}/(.*)$#\\1={tmpsrc_path}/\\1#')".format(tmpsrc_path = tmpsrcdir.path)
+            "({find} -L {tmpsrc_path} -type f | {sed} -E 's#^{tmpsrc_path}/(.*)$#\\1={tmpsrc_path}/\\1#')".format(
+                find = posix.commands["find"],
+                sed = posix.commands["sed"],
+                tmpsrc_path = tmpsrcdir.path,
+            )
             for tmpsrcdir in tmpsrcdirs
         ]
 
-        cmd = "(echo -e \"{src_paths}\" && {joined_tmpsrc_cmds}) | sort > {args_file}".format(
+        cmd = "(echo -e \"{src_paths}\" && {joined_tmpsrc_cmds}) | {sort} > {args_file}".format(
             src_paths = "\\n".join(zipper_args),
             joined_tmpsrc_cmds = " && ".join(tmpsrc_cmds),
             args_file = zipper_args_file.path,
+            sort = posix.commands["sort"],
         )
         inputs = tmpsrcdirs + [manifest_file] + ctx.files.srcs
     else:
-        cmd = "echo -e \"{src_paths}\" | sort > {args_file}".format(
+        cmd = "echo -e \"{src_paths}\" | {sort} > {args_file}".format(
             src_paths = "\\n".join(zipper_args),
             args_file = zipper_args_file.path,
+            sort = posix.commands["sort"],
         )
         inputs = [manifest_file] + ctx.files.srcs
 
@@ -196,7 +203,6 @@ def _scala_source_jar_impl(ctx):
         inputs = inputs,
         command = cmd,
         progress_message = "find_scala_source_files %s" % zipper_args_file.path,
-        use_default_shell_env = True,
     )
 
     ctx.actions.run(
@@ -229,6 +235,7 @@ scala_source_jar = rule(
     outputs = {
         "out": "%{name}.jar",
     },
+    toolchains = ["@rules_sh//sh/posix:toolchain_type"],
 )
 
 def _create_scala_source_jar(**kwargs):
@@ -322,16 +329,19 @@ def _scaladoc_jar_impl(ctx):
         # since we only have the output directory of the scaladoc generation we need to find
         # all the files below sources_out and add them to the zipper args file
         zipper_args_file = ctx.actions.declare_file(ctx.label.name + ".zipper_args")
+        posix = ctx.toolchains["@rules_sh//sh/posix:toolchain_type"]
         ctx.actions.run_shell(
             mnemonic = "ScaladocFindOutputFiles",
             outputs = [zipper_args_file],
             inputs = [outdir],
-            command = "find -L {src_path} -type f | sed -E 's#^{src_path}/(.*)$#\\1={src_path}/\\1#' | sort > {args_file}".format(
+            command = "{find} -L {src_path} -type f | {sed} -E 's#^{src_path}/(.*)$#\\1={src_path}/\\1#' | {sort} > {args_file}".format(
+                find = posix.commands["find"],
+                sed = posix.commands["sed"],
+                sort = posix.commands["sort"],
                 src_path = outdir.path,
                 args_file = zipper_args_file.path,
             ),
             progress_message = "find_scaladoc_output_files %s" % zipper_args_file.path,
-            use_default_shell_env = True,
         )
 
         ctx.actions.run(
@@ -368,6 +378,7 @@ scaladoc_jar = rule(
     outputs = {
         "out": "%{name}.jar",
     },
+    toolchains = ["@rules_sh//sh/posix:toolchain_type"],
 )
 """
 Generates a Scaladoc jar path/to/target/<name>.jar.

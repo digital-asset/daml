@@ -4,9 +4,9 @@
 package com.digitalasset.platform.sandbox
 
 import akka.stream.Materializer
+import com.codahale.metrics.MetricRegistry
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.ledger.api.testing.utils.Resource
-import com.digitalasset.platform.sandbox.metrics.MetricsManager
 import com.digitalasset.platform.sandbox.persistence.{PostgresFixture, PostgresResource}
 import com.digitalasset.platform.sandbox.stores.{InMemoryActiveLedgerState, InMemoryPackageStore}
 import com.digitalasset.platform.sandbox.stores.ledger.sql.SqlStartMode
@@ -48,7 +48,7 @@ object LedgerResource {
   def postgres(
       ledgerId: LedgerId,
       timeProvider: TimeProvider,
-      mm: MetricsManager,
+      metrics: MetricRegistry,
       packages: InMemoryPackageStore = InMemoryPackageStore.empty)(implicit mat: Materializer) = {
     new Resource[Ledger] {
       @volatile
@@ -75,7 +75,7 @@ object LedgerResource {
               128,
               SqlStartMode.AlwaysReset,
               NamedLoggerFactory(Tag.unwrap(ledgerId)),
-              mm
+              metrics
           ))
         ledger.setup()
       }

@@ -10,7 +10,7 @@ import java.util.{Timer, TimerTask, UUID}
 
 import akka.stream.scaladsl.Sink
 import com.digitalasset.daml.bazeltools.BazelRunfiles.rlocation
-import com.digitalasset.grpc.{GrpcException, GrpcStatus}
+import com.digitalasset.grpc.GrpcException
 import com.digitalasset.jwt.domain.DecodedJwt
 import com.digitalasset.jwt.{HMAC256Verifier, JwtSigner}
 import com.digitalasset.ledger.api.auth.{AuthServiceJWT, AuthServiceJWTCodec, AuthServiceJWTPayload}
@@ -45,7 +45,6 @@ import com.digitalasset.ledger.api.v1.transaction_filter.{Filters, TransactionFi
 import com.digitalasset.ledger.api.v1.transaction_service._
 import com.digitalasset.platform.apitesting._
 import com.google.protobuf.ByteString
-import io.grpc.Status.Code.PERMISSION_DENIED
 import io.grpc.stub.StreamObserver
 import io.grpc.{Status, StatusException, StatusRuntimeException}
 import org.scalatest.concurrent.AsyncTimeLimitedTests
@@ -85,7 +84,7 @@ class AuthorizationIT
     exp = None,
     admin = false,
     actAs = List(alice),
-    readAs = List(alice)
+    readAs = List()
   )
 
   private val bobPayload = AuthServiceJWTPayload(
@@ -95,13 +94,15 @@ class AuthorizationIT
     exp = None,
     admin = false,
     actAs = List(bob),
-    readAs = List(bob)
+    readAs = List()
   )
 
   private lazy val jwtHeader = """{"alg": "HS256", "typ": "JWT"}"""
   private lazy val jwtSecret = "AuthorizationIT"
 
   implicit class AuthServiceJWTPayloadExtensions(payload: AuthServiceJWTPayload) {
+    def readonly(): AuthServiceJWTPayload =
+      payload.copy(readAs = payload.actAs ++ payload.readAs, actAs = List.empty)
     def expiresIn(t: java.time.Duration): AuthServiceJWTPayload =
       payload.copy(exp = Some(Instant.now.plus(t)))
     def expiresInFiveSeconds: AuthServiceJWTPayload = expiresIn(Duration.ofSeconds(5))
@@ -123,6 +124,7 @@ class AuthorizationIT
   private val aliceHeader = alicePayload.asHeader()
   private val aliceExpiredHeader = alicePayload.expired.asHeader()
   private val aliceExpiresTomorrowHeader = alicePayload.expiresTomorrow.asHeader()
+  private val aliceReadOnlyHeader = alicePayload.readonly.asHeader()
   private val bobHeader = bobPayload.asHeader()
   private val invalidSignatureHeader = operatorPayload.asHeader("invalid secret")
 
@@ -142,6 +144,7 @@ class AuthorizationIT
         val ctxAlice = ctxNone.withAuthorizationHeader(aliceHeader)
         val ctxAliceExpired = ctxNone.withAuthorizationHeader(aliceExpiredHeader)
         val ctxAliceValid = ctxNone.withAuthorizationHeader(aliceExpiresTomorrowHeader)
+        val ctxAliceReadOnly = ctxNone.withAuthorizationHeader(aliceReadOnlyHeader)
         val ctxBob = ctxNone.withAuthorizationHeader(bobHeader)
 
         def call(ctx: LedgerContext, party: String) =
@@ -168,6 +171,8 @@ class AuthorizationIT
           _ <- mustBeDenied(callViaClient(Some(aliceExpiredHeader), alice)) // Reading the ACS for Alice as Alice after expiration
           _ <- call(ctxAliceValid, alice) // Reading the ACS for Alice as Alice before expiration
           _ <- callViaClient(Some(aliceExpiresTomorrowHeader), alice) // Reading the ACS for Alice as Alice before expiration
+          _ <- call(ctxAliceReadOnly, alice) // Reading the ACS for Alice as Alice
+          _ <- callViaClient(Some(aliceReadOnlyHeader), alice) // Reading the ACS for Alice as Alice
         } yield {
           succeed
         }
@@ -181,6 +186,8 @@ class AuthorizationIT
         val ledgerId = ctxNone.ledgerId.unwrap
         val ctxAlice = ctxNone.withAuthorizationHeader(aliceHeader)
         val ctxAliceExpired = ctxNone.withAuthorizationHeader(aliceExpiredHeader)
+        val ctxAliceValid = ctxNone.withAuthorizationHeader(aliceExpiresTomorrowHeader)
+        val ctxAliceReadOnly = ctxNone.withAuthorizationHeader(aliceReadOnlyHeader)
 
         def call(ctx: LedgerContext) =
           ctx.commandCompletionService.completionEnd(new CompletionEndRequest(ledgerId))
@@ -195,6 +202,10 @@ class AuthorizationIT
           _ <- mustBeDenied(callViaClient(Some(aliceExpiredHeader))) // Reading completion end with expired authorization
           _ <- call(ctxAlice) // Reading completion end with authorization
           _ <- callViaClient(Some(aliceHeader)) // Reading completion end with authorization
+          _ <- call(ctxAliceValid) // Reading completion end before expiration
+          _ <- callViaClient(Some(aliceExpiresTomorrowHeader)) // Reading completion end before expiration
+          _ <- call(ctxAliceReadOnly) // Reading completion end with authorization
+          _ <- callViaClient(Some(aliceReadOnlyHeader)) // Reading completion end with authorization
         } yield {
           succeed
         }
@@ -205,6 +216,8 @@ class AuthorizationIT
         val ledgerId = ctxNone.ledgerId
         val ctxAlice = ctxNone.withAuthorizationHeader(aliceHeader)
         val ctxAliceExpired = ctxNone.withAuthorizationHeader(aliceExpiredHeader)
+        val ctxAliceValid = ctxNone.withAuthorizationHeader(aliceExpiresTomorrowHeader)
+        val ctxAliceReadOnly = ctxNone.withAuthorizationHeader(aliceReadOnlyHeader)
         val ctxBob = ctxNone.withAuthorizationHeader(bobHeader)
 
         def call(ctx: LedgerContext, party: String) =
@@ -246,7 +259,8 @@ class AuthorizationIT
           _ <- mustBeDenied(call(ctxBob, alice)) // Reading completions for Alice as Bob
           _ <- call(ctxAlice, alice) // Reading completions for Alice as Alice
           _ <- mustBeDenied(call(ctxAliceExpired, alice)) // Reading completions for Alice as Alice after expiration
-          _ <- call(ctxAlice, alice) // Reading completions for Alice as Alice before expiration
+          _ <- call(ctxAliceValid, alice) // Reading completions for Alice as Alice before expiration
+          _ <- call(ctxAliceReadOnly, alice) // Reading completions for Alice as Alice before expiration
           ctxAliceAboutToExpire = ctxNone.withAuthorizationHeader(
             alicePayload.expiresInFiveSeconds.asHeader())
           _ = scheduleCommand(Duration.ofSeconds(10))
@@ -265,6 +279,7 @@ class AuthorizationIT
         val ctxAlice = ctxNone.withAuthorizationHeader(aliceHeader)
         val ctxAliceExpired = ctxNone.withAuthorizationHeader(aliceExpiredHeader)
         val ctxAliceValid = ctxNone.withAuthorizationHeader(aliceExpiresTomorrowHeader)
+        val ctxAliceReadOnly = ctxNone.withAuthorizationHeader(aliceReadOnlyHeader)
         val ctxBob = ctxNone.withAuthorizationHeader(bobHeader)
 
         def call(ctx: LedgerContext, party: String) =
@@ -276,6 +291,7 @@ class AuthorizationIT
           _ <- call(ctxAlice, alice) // Submitting commands for Alice as Alice
           _ <- mustBeDenied(call(ctxAliceExpired, alice)) // Submitting commands for Alice as Alice after expiration
           _ <- call(ctxAliceValid, alice) // Submitting commands for Alice as Alice before expiration
+          _ <- mustBeDenied(call(ctxAliceReadOnly, alice)) // Submitting commands for Alice as Alice with a read only token
         } yield {
           succeed
         }
@@ -287,6 +303,7 @@ class AuthorizationIT
         val ctxAlice = ctxNone.withAuthorizationHeader(aliceHeader)
         val ctxAliceExpired = ctxNone.withAuthorizationHeader(aliceExpiredHeader)
         val ctxAliceValid = ctxNone.withAuthorizationHeader(aliceExpiresTomorrowHeader)
+        val ctxAliceReadOnly = ctxNone.withAuthorizationHeader(aliceReadOnlyHeader)
         val ctxBob = ctxNone.withAuthorizationHeader(bobHeader)
 
         def call(ctx: LedgerContext, party: String) =
@@ -298,6 +315,7 @@ class AuthorizationIT
           _ <- call(ctxAlice, alice) // Submitting commands for Alice as Alice
           _ <- mustBeDenied(call(ctxAliceExpired, alice))
           _ <- call(ctxAliceValid, alice)
+          _ <- mustBeDenied(call(ctxAliceReadOnly, alice)) // Submitting commands for Alice as Alice with a read only token
         } yield {
           succeed
         }
@@ -309,6 +327,7 @@ class AuthorizationIT
         val ctxAlice = ctxNone.withAuthorizationHeader(aliceHeader)
         val ctxAliceExpired = ctxNone.withAuthorizationHeader(aliceExpiredHeader)
         val ctxAliceValid = ctxNone.withAuthorizationHeader(aliceExpiresTomorrowHeader)
+        val ctxAliceReadOnly = ctxNone.withAuthorizationHeader(aliceReadOnlyHeader)
         val ctxBob = ctxNone.withAuthorizationHeader(bobHeader)
 
         def call(ctx: LedgerContext, party: String) =
@@ -321,6 +340,7 @@ class AuthorizationIT
           _ <- call(ctxAlice, alice) // Submitting commands for Alice as Alice
           _ <- mustBeDenied(call(ctxAliceExpired, alice))
           _ <- call(ctxAliceValid, alice)
+          _ <- mustBeDenied(call(ctxAliceReadOnly, alice)) // Submitting commands for Alice as Alice with a read only token
         } yield {
           succeed
         }
@@ -332,6 +352,7 @@ class AuthorizationIT
         val ctxAlice = ctxNone.withAuthorizationHeader(aliceHeader)
         val ctxAliceExpired = ctxNone.withAuthorizationHeader(aliceExpiredHeader)
         val ctxAliceValid = ctxNone.withAuthorizationHeader(aliceExpiresTomorrowHeader)
+        val ctxAliceReadOnly = ctxNone.withAuthorizationHeader(aliceReadOnlyHeader)
         val ctxBob = ctxNone.withAuthorizationHeader(bobHeader)
 
         def call(ctx: LedgerContext, party: String) =
@@ -344,6 +365,7 @@ class AuthorizationIT
           _ <- call(ctxAlice, alice) // Submitting commands for Alice as Alice
           _ <- mustBeDenied(call(ctxAliceExpired, alice))
           _ <- call(ctxAliceValid, alice)
+          _ <- mustBeDenied(call(ctxAliceReadOnly, alice)) // Submitting commands for Alice as Alice with a read only token
         } yield {
           succeed
         }
@@ -358,6 +380,7 @@ class AuthorizationIT
         val ctxAlice = ctxNone.withAuthorizationHeader(aliceHeader)
         val ctxAliceExpired = ctxNone.withAuthorizationHeader(aliceExpiredHeader)
         val ctxAliceValid = ctxNone.withAuthorizationHeader(aliceExpiresTomorrowHeader)
+        val ctxAliceReadOnly = ctxNone.withAuthorizationHeader(aliceReadOnlyHeader)
         val ctxBob = ctxNone.withAuthorizationHeader(bobHeader)
 
         def call(ctx: LedgerContext, party: String) =
@@ -369,6 +392,7 @@ class AuthorizationIT
           _ <- call(ctxAlice, alice) // Submitting commands for Alice as Alice
           _ <- mustBeDenied(call(ctxAliceExpired, alice))
           _ <- call(ctxAliceValid, alice)
+          _ <- mustBeDenied(call(ctxAliceReadOnly, alice)) // Submitting commands for Alice as Alice with a read only token
         } yield {
           succeed
         }
@@ -383,6 +407,7 @@ class AuthorizationIT
         val ctxAlice = ctxNone.withAuthorizationHeader(aliceHeader)
         val ctxAliceExpired = ctxNone.withAuthorizationHeader(aliceExpiredHeader)
         val ctxAliceValid = ctxNone.withAuthorizationHeader(aliceExpiresTomorrowHeader)
+        val ctxAliceReadOnly = ctxNone.withAuthorizationHeader(aliceReadOnlyHeader)
 
         def call(ctx: LedgerContext) =
           streamResult[GetLedgerConfigurationResponse](
@@ -396,6 +421,7 @@ class AuthorizationIT
           _ <- call(ctxAlice) // Reading the ledger configuration with authorization
           _ <- mustBeDenied(call(ctxAliceExpired))
           _ <- call(ctxAliceValid)
+          _ <- call(ctxAliceReadOnly)
         } yield {
           succeed
         }
@@ -410,6 +436,7 @@ class AuthorizationIT
         val ctxAliceExpired = ctxNone.withAuthorizationHeader(aliceExpiredHeader)
         val ctxAliceValid = ctxNone.withAuthorizationHeader(aliceExpiresTomorrowHeader)
         val ctxAliceInvalidSignature = ctxNone.withAuthorizationHeader(invalidSignatureHeader)
+        val ctxAliceReadOnly = ctxNone.withAuthorizationHeader(aliceReadOnlyHeader)
 
         def call(ctx: LedgerContext) =
           ctx.ledgerIdentityService.getLedgerIdentity(new GetLedgerIdentityRequest())
@@ -420,6 +447,7 @@ class AuthorizationIT
           _ <- call(ctxAlice) // Reading the ledger ID with authorization
           _ <- mustBeDenied(call(ctxAliceExpired))
           _ <- call(ctxAliceValid)
+          _ <- call(ctxAliceReadOnly)
         } yield {
           succeed
         }
@@ -431,6 +459,7 @@ class AuthorizationIT
     "listKnownPackages" should {
       "work only when authorized" in allFixtures { ctxNone =>
         val ctxAlice = ctxNone.withAuthorizationHeader(aliceHeader)
+        val ctxAliceReadOnly = ctxNone.withAuthorizationHeader(aliceReadOnlyHeader)
         val ctxAdmin = ctxNone.withAuthorizationHeader(operatorHeader)
         val ctxAdminExpired = ctxNone.withAuthorizationHeader(operatorExpiredHeader)
         val ctxAdminValid = ctxNone.withAuthorizationHeader(operatorExpiresTomorrowHeader)
@@ -441,6 +470,7 @@ class AuthorizationIT
         for {
           _ <- mustBeDenied(call(ctxNone)) // Listing packages without authorization
           _ <- mustBeDenied(call(ctxAlice)) // Listing packages as Alice (a regular user)
+          _ <- mustBeDenied(call(ctxAliceReadOnly)) // Listing packages as Alice (a regular read-only user)
           _ <- call(ctxAdmin) // Listing packages as Operator (an admin)
           _ <- mustBeDenied(call(ctxAdminExpired))
           _ <- call(ctxAdminValid)
@@ -455,6 +485,7 @@ class AuthorizationIT
           Files.readAllBytes(new File(rlocation("ledger/test-common/Test-stable.dar")).toPath)
 
         val ctxAlice = ctxNone.withAuthorizationHeader(aliceHeader)
+        val ctxAliceReadOnly = ctxNone.withAuthorizationHeader(aliceReadOnlyHeader)
         val ctxAdmin = ctxNone.withAuthorizationHeader(operatorHeader)
         val ctxAdminExpired = ctxNone.withAuthorizationHeader(operatorExpiredHeader)
         val ctxAdminValid = ctxNone.withAuthorizationHeader(operatorExpiresTomorrowHeader)
@@ -466,6 +497,7 @@ class AuthorizationIT
         for {
           _ <- mustBeDenied(call(ctxNone)) // Uploading packages without authorization
           _ <- mustBeDenied(call(ctxAlice)) // Uploading packages as Alice (a regular user)
+          _ <- mustBeDenied(call(ctxAliceReadOnly)) // Uploading packages as Alice (a regular read-only user)
           _ <- call(ctxAdmin) // Uploading packages as Operator (an admin)
           _ <- mustBeDenied(call(ctxAdminExpired))
           _ <- call(ctxAdminValid)
@@ -480,6 +512,7 @@ class AuthorizationIT
     "listKnownParties" should {
       "work only when authorized" in allFixtures { ctxNone =>
         val ctxAlice = ctxNone.withAuthorizationHeader(aliceHeader)
+        val ctxAliceReadOnly = ctxNone.withAuthorizationHeader(aliceReadOnlyHeader)
         val ctxAdmin = ctxNone.withAuthorizationHeader(operatorHeader)
         val ctxAdminExpired = ctxNone.withAuthorizationHeader(operatorExpiredHeader)
         val ctxAdminValid = ctxNone.withAuthorizationHeader(operatorExpiresTomorrowHeader)
@@ -490,6 +523,7 @@ class AuthorizationIT
         for {
           _ <- mustBeDenied(call(ctxNone)) // Listing known parties without authorization
           _ <- mustBeDenied(call(ctxAlice)) // Listing known parties as Alice (a regular user)
+          _ <- mustBeDenied(call(ctxAliceReadOnly)) // Listing known parties as Alice (a regular read-only user)
           _ <- call(ctxAdmin) // Listing known parties as Operator (an admin)
           _ <- mustBeDenied(call(ctxAdminExpired))
           _ <- call(ctxAdminValid)
@@ -501,6 +535,7 @@ class AuthorizationIT
     "allocateParty" should {
       "work only when authorized" in allFixtures { ctxNone =>
         val ctxAlice = ctxNone.withAuthorizationHeader(aliceHeader)
+        val ctxAliceReadOnly = ctxNone.withAuthorizationHeader(aliceReadOnlyHeader)
         val ctxAdmin = ctxNone.withAuthorizationHeader(operatorHeader)
         val ctxAdminExpired = ctxNone.withAuthorizationHeader(operatorExpiredHeader)
         val ctxAdminValid = ctxNone.withAuthorizationHeader(operatorExpiresTomorrowHeader)
@@ -512,6 +547,7 @@ class AuthorizationIT
         for {
           _ <- mustBeDenied(call(ctxNone)) // Allocating a party without authorization
           _ <- mustBeDenied(call(ctxAlice)) // Allocating a party as Alice (a regular user)
+          _ <- mustBeDenied(call(ctxAliceReadOnly)) // Allocating a party as Alice (a regular read-only user)
           _ <- call(ctxAdmin) // Allocating a party as Operator (an admin)
           _ <- mustBeDenied(call(ctxAdminExpired))
           _ <- call(ctxAdminValid)
@@ -529,6 +565,7 @@ class AuthorizationIT
         val ctxAlice = ctxNone.withAuthorizationHeader(aliceHeader)
         val ctxAliceExpired = ctxNone.withAuthorizationHeader(aliceExpiredHeader)
         val ctxAliceValid = ctxNone.withAuthorizationHeader(aliceExpiresTomorrowHeader)
+        val ctxAliceReadOnly = ctxNone.withAuthorizationHeader(aliceReadOnlyHeader)
         val ctxAdmin = ctxNone.withAuthorizationHeader(operatorHeader)
         val ctxAdminExpired = ctxNone.withAuthorizationHeader(operatorExpiredHeader)
         val ctxAdminValid = ctxNone.withAuthorizationHeader(operatorExpiresTomorrowHeader)
@@ -543,6 +580,7 @@ class AuthorizationIT
           _ <- call(ctxAdmin) // Getting the time as Operator (an admin)
           _ <- mustBeDenied(call(ctxAliceExpired))
           _ <- call(ctxAliceValid)
+          _ <- call(ctxAliceReadOnly)
           _ <- mustBeDenied(call(ctxAdminExpired))
           _ <- call(ctxAdminValid)
         } yield {
@@ -559,6 +597,7 @@ class AuthorizationIT
         val ctxAlice = ctxNone.withAuthorizationHeader(aliceHeader)
         val ctxAliceExpired = ctxNone.withAuthorizationHeader(aliceExpiredHeader)
         val ctxAliceValid = ctxNone.withAuthorizationHeader(aliceExpiresTomorrowHeader)
+        val ctxAliceReadOnly = ctxNone.withAuthorizationHeader(aliceReadOnlyHeader)
         val ctxAdmin = ctxNone.withAuthorizationHeader(operatorHeader)
         val ctxAdminExpired = ctxNone.withAuthorizationHeader(operatorExpiredHeader)
         val ctxAdminValid = ctxNone.withAuthorizationHeader(operatorExpiresTomorrowHeader)
@@ -571,6 +610,7 @@ class AuthorizationIT
           _ <- call(ctxAdmin) // Reading ledger end as Operator (an admin)
           _ <- mustBeDenied(call(ctxAliceExpired))
           _ <- call(ctxAliceValid)
+          _ <- call(ctxAliceReadOnly)
           _ <- mustBeDenied(call(ctxAdminExpired))
           _ <- call(ctxAdminValid)
         } yield {
@@ -584,6 +624,7 @@ class AuthorizationIT
         val ctxAlice = ctxNone.withAuthorizationHeader(aliceHeader)
         val ctxAliceExpired = ctxNone.withAuthorizationHeader(aliceExpiredHeader)
         val ctxAliceValid = ctxNone.withAuthorizationHeader(aliceExpiresTomorrowHeader)
+        val ctxAliceReadOnly = ctxNone.withAuthorizationHeader(aliceReadOnlyHeader)
         val ctxBob = ctxNone.withAuthorizationHeader(bobHeader)
         def call(ctx: LedgerContext, party: String) =
           streamResult[GetTransactionsResponse](
@@ -598,6 +639,7 @@ class AuthorizationIT
           _ <- call(ctxAlice, alice) // Reading transactions for Alice as Alice
           _ <- mustBeDenied(call(ctxAliceExpired, alice))
           _ <- call(ctxAliceValid, alice)
+          _ <- call(ctxAliceReadOnly, alice)
         } yield {
           succeed
         }
@@ -609,6 +651,7 @@ class AuthorizationIT
         val ctxAlice = ctxNone.withAuthorizationHeader(aliceHeader)
         val ctxAliceExpired = ctxNone.withAuthorizationHeader(aliceExpiredHeader)
         val ctxAliceValid = ctxNone.withAuthorizationHeader(aliceExpiresTomorrowHeader)
+        val ctxAliceReadOnly = ctxNone.withAuthorizationHeader(aliceReadOnlyHeader)
         val ctxBob = ctxNone.withAuthorizationHeader(bobHeader)
         def call(ctx: LedgerContext, party: String) =
           streamResult[GetTransactionTreesResponse](
@@ -623,6 +666,7 @@ class AuthorizationIT
           _ <- call(ctxAlice, alice) // Reading transactions for Alice as Alice
           _ <- mustBeDenied(call(ctxAliceExpired, alice))
           _ <- call(ctxAliceValid, alice)
+          _ <- call(ctxAliceReadOnly, alice)
         } yield {
           succeed
         }
@@ -634,6 +678,7 @@ class AuthorizationIT
         val ctxAlice = ctxNone.withAuthorizationHeader(aliceHeader)
         val ctxAliceExpired = ctxNone.withAuthorizationHeader(aliceExpiredHeader)
         val ctxAliceValid = ctxNone.withAuthorizationHeader(aliceExpiresTomorrowHeader)
+        val ctxAliceReadOnly = ctxNone.withAuthorizationHeader(aliceReadOnlyHeader)
         val ctxBob = ctxNone.withAuthorizationHeader(bobHeader)
         def call(ctx: LedgerContext, party: String) =
           ctx.transactionService.getTransactionById(
@@ -644,6 +689,7 @@ class AuthorizationIT
           _ <- mustFailWith(call(ctxAlice, alice), Status.Code.NOT_FOUND) // Reading transactions for Alice as Alice
           _ <- mustBeDenied(call(ctxAliceExpired, alice))
           _ <- mustFailWith(call(ctxAliceValid, alice), Status.Code.NOT_FOUND)
+          _ <- mustFailWith(call(ctxAliceReadOnly, alice), Status.Code.NOT_FOUND)
         } yield {
           succeed
         }
@@ -655,6 +701,7 @@ class AuthorizationIT
         val ctxAlice = ctxNone.withAuthorizationHeader(aliceHeader)
         val ctxAliceExpired = ctxNone.withAuthorizationHeader(aliceExpiredHeader)
         val ctxAliceValid = ctxNone.withAuthorizationHeader(aliceExpiresTomorrowHeader)
+        val ctxAliceReadOnly = ctxNone.withAuthorizationHeader(aliceReadOnlyHeader)
         val ctxBob = ctxNone.withAuthorizationHeader(bobHeader)
         def call(ctx: LedgerContext, party: String) =
           ctx.transactionService.getTransactionByEventId(
@@ -666,6 +713,7 @@ class AuthorizationIT
           _ <- mustFailWith(call(ctxAlice, alice), Status.Code.NOT_FOUND) // Reading transactions for Alice as Alice
           _ <- mustBeDenied(call(ctxAliceExpired, alice))
           _ <- mustFailWith(call(ctxAliceValid, alice), Status.Code.NOT_FOUND)
+          _ <- mustFailWith(call(ctxAliceReadOnly, alice), Status.Code.NOT_FOUND)
         } yield {
           succeed
         }
@@ -677,6 +725,7 @@ class AuthorizationIT
         val ctxAlice = ctxNone.withAuthorizationHeader(aliceHeader)
         val ctxAliceExpired = ctxNone.withAuthorizationHeader(aliceExpiredHeader)
         val ctxAliceValid = ctxNone.withAuthorizationHeader(aliceExpiresTomorrowHeader)
+        val ctxAliceReadOnly = ctxNone.withAuthorizationHeader(aliceReadOnlyHeader)
         val ctxBob = ctxNone.withAuthorizationHeader(bobHeader)
         def call(ctx: LedgerContext, party: String) =
           ctx.transactionService.getFlatTransactionById(
@@ -688,6 +737,7 @@ class AuthorizationIT
           _ <- mustFailWith(call(ctxAlice, alice), Status.Code.NOT_FOUND) // Reading transactions for Alice as Alice
           _ <- mustBeDenied(call(ctxAliceExpired, alice))
           _ <- mustFailWith(call(ctxAliceValid, alice), Status.Code.NOT_FOUND)
+          _ <- mustFailWith(call(ctxAliceReadOnly, alice), Status.Code.NOT_FOUND)
         } yield {
           succeed
         }
@@ -699,6 +749,7 @@ class AuthorizationIT
         val ctxAlice = ctxNone.withAuthorizationHeader(aliceHeader)
         val ctxAliceExpired = ctxNone.withAuthorizationHeader(aliceExpiredHeader)
         val ctxAliceValid = ctxNone.withAuthorizationHeader(aliceExpiresTomorrowHeader)
+        val ctxAliceReadOnly = ctxNone.withAuthorizationHeader(aliceReadOnlyHeader)
         val ctxBob = ctxNone.withAuthorizationHeader(bobHeader)
         def call(ctx: LedgerContext, party: String) =
           ctx.transactionService.getFlatTransactionByEventId(
@@ -710,6 +761,7 @@ class AuthorizationIT
           _ <- mustFailWith(call(ctxAlice, alice), Status.Code.NOT_FOUND) // Reading transactions for Alice as Alice
           _ <- mustBeDenied(call(ctxAliceExpired, alice))
           _ <- mustFailWith(call(ctxAliceValid, alice), Status.Code.NOT_FOUND)
+          _ <- mustFailWith(call(ctxAliceReadOnly, alice), Status.Code.NOT_FOUND)
         } yield {
           succeed
         }
@@ -761,7 +813,7 @@ class AuthorizationIT
       }
       def onError(t: Throwable): Unit = {
         t match {
-          case GrpcException(GrpcStatus(`PERMISSION_DENIED`, _), _) if gotSomething =>
+          case GrpcException.PERMISSION_DENIED() if gotSomething =>
             val _ = promise.trySuccess(())
           case _ =>
             val _ = promise.tryFailure(t)

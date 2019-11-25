@@ -56,7 +56,7 @@ abstract class ApiCodecCompressed[Cid](
         case V.ValueOptional(Some(_)) => JsArray(apiValueToJsValue(v))
         case _ => apiValueToJsValue(v)
       }
-    case v: V.ValueMap[Cid] =>
+    case v: V.ValueTextMap[Cid] =>
       apiMapToJsValue(v)
     case _: V.ValueGenMap[Cid] =>
       // FIXME https://github.com/digital-asset/daml/issues/2256
@@ -88,7 +88,7 @@ abstract class ApiCodecCompressed[Cid](
         }: _*)
     }
 
-  private[this] def apiMapToJsValue(value: V.ValueMap[Cid]): JsValue =
+  private[this] def apiMapToJsValue(value: V.ValueTextMap[Cid]): JsValue =
     JsObject(
       value.value.toImmArray
         .map { case (k, v) => k -> apiValueToJsValue(v) }
@@ -145,7 +145,7 @@ abstract class ApiCodecCompressed[Cid](
         }
       case Model.DamlLfPrimType.Map => {
         case JsObject(a) =>
-          V.ValueMap(SortedLookupList(a.transform { (_, v) =>
+          V.ValueTextMap(SortedLookupList(a.transform { (_, v) =>
             jsValueToApiValue(v, prim.typArgs.head, defs)
           }))
       }

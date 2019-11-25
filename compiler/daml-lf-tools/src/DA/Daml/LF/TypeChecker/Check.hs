@@ -118,7 +118,7 @@ kindOfBuiltin = \case
   BTScenario -> KStar `KArrow` KStar
   BTContractId -> KStar `KArrow` KStar
   BTOptional -> KStar `KArrow` KStar
-  BTMap -> KStar `KArrow` KStar
+  BTTextMap -> KStar `KArrow` KStar
   BTGenMap -> KStar `KArrow` KStar `KArrow` KStar
   BTArrow -> KStar `KArrow` KStar `KArrow` KStar
   BTAny -> KStar
@@ -206,12 +206,12 @@ typeOfBuiltin = \case
              (tBeta :-> tAlpha :-> tBeta) :-> tBeta :-> TList tAlpha :-> tBeta
   BEFoldr -> pure $ TForall (alpha, KStar) $ TForall (beta, KStar) $
              (tAlpha :-> tBeta :-> tBeta) :-> tBeta :-> TList tAlpha :-> tBeta
-  BEMapEmpty  -> pure $ TForall (alpha, KStar) $ TMap tAlpha
-  BEMapInsert -> pure $ TForall (alpha, KStar) $ TText :-> tAlpha :-> TMap tAlpha :-> TMap tAlpha
-  BEMapLookup -> pure $ TForall (alpha, KStar) $ TText :-> TMap tAlpha :-> TOptional tAlpha
-  BEMapDelete -> pure $ TForall (alpha, KStar) $ TText :-> TMap tAlpha :-> TMap tAlpha
-  BEMapToList -> pure $ TForall (alpha, KStar) $ TMap tAlpha :-> TList (TMapEntry tAlpha)
-  BEMapSize   -> pure $ TForall (alpha, KStar) $ TMap tAlpha :-> TInt64
+  BETextMapEmpty  -> pure $ TForall (alpha, KStar) $ TTextMap tAlpha
+  BETextMapInsert -> pure $ TForall (alpha, KStar) $ TText :-> tAlpha :-> TTextMap tAlpha :-> TTextMap tAlpha
+  BETextMapLookup -> pure $ TForall (alpha, KStar) $ TText :-> TTextMap tAlpha :-> TOptional tAlpha
+  BETextMapDelete -> pure $ TForall (alpha, KStar) $ TText :-> TTextMap tAlpha :-> TTextMap tAlpha
+  BETextMapToList -> pure $ TForall (alpha, KStar) $ TTextMap tAlpha :-> TList (TTextMapEntry tAlpha)
+  BETextMapSize   -> pure $ TForall (alpha, KStar) $ TTextMap tAlpha :-> TInt64
   BEGenMapEmpty -> pure $ TForall (alpha, KStar) $ TForall (beta, KStar) $ TGenMap tAlpha tBeta
   BEGenMapInsert -> pure $ TForall (alpha, KStar) $ TForall (beta, KStar) $ tAlpha :-> tBeta :-> TGenMap tAlpha tBeta :-> TGenMap tAlpha tBeta
   BEGenMapLookup -> pure $ TForall (alpha, KStar) $ TForall (beta, KStar) $ tAlpha :-> TGenMap tAlpha tBeta :-> TOptional tBeta

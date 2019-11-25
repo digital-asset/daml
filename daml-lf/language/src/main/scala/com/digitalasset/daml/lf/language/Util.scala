@@ -64,7 +64,7 @@ object Util {
   val TNumeric = new ParametricType1(BTNumeric)
   val TList = new ParametricType1(BTList)
   val TOptional = new ParametricType1(BTOptional)
-  val TMap = new ParametricType1(BTMap)
+  val TTextMap = new ParametricType1(BTTextMap)
   val TGenMap = new ParametricType2(BTGenMap)
   val TUpdate = new ParametricType1(BTUpdate)
   val TScenario = new ParametricType1(BTScenario)

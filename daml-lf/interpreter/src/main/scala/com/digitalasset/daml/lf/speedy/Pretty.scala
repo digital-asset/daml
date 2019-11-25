@@ -413,11 +413,11 @@ object Pretty {
       case ValueParty(p) => char('\'') + str(p) + char('\'')
       case ValueOptional(Some(v1)) => text("Option(") + prettyValue(verbose)(v1) + char(')')
       case ValueOptional(None) => text("None")
-      case ValueMap(map) =>
+      case ValueTextMap(map) =>
         val list = map.toImmArray.map {
           case (k, v) => text(k) + text(" -> ") + prettyValue(verbose)(v)
         }
-        text("Map(") + intercalate(text(", "), list.toSeq) + text(")")
+        text("TextMap(") + intercalate(text(", "), list.toSeq) + text(")")
       case ValueGenMap(value) =>
         val list = value.map {
           case (k, v) => prettyValue(verbose)(k) + text(" -> ") + prettyValue(verbose)(v)

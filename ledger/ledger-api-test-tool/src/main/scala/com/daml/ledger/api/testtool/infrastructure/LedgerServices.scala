@@ -26,6 +26,8 @@ import com.digitalasset.ledger.api.v1.testing.time_service.TimeServiceGrpc.TimeS
 import com.digitalasset.ledger.api.v1.transaction_service.TransactionServiceGrpc
 import com.digitalasset.ledger.api.v1.transaction_service.TransactionServiceGrpc.TransactionService
 import io.grpc.Channel
+import io.grpc.health.v1.health.HealthGrpc
+import io.grpc.health.v1.health.HealthGrpc.Health
 
 private[infrastructure] final class LedgerServices(channel: Channel) {
   val activeContracts: ActiveContractsService = ActiveContractsServiceGrpc.stub(channel)
@@ -33,6 +35,7 @@ private[infrastructure] final class LedgerServices(channel: Channel) {
   val commandCompletion: CommandCompletionService = CommandCompletionServiceGrpc.stub(channel)
   val commandSubmission: CommandSubmissionService = CommandSubmissionServiceGrpc.stub(channel)
   val configuration: LedgerConfigurationService = LedgerConfigurationServiceGrpc.stub(channel)
+  val health: Health = HealthGrpc.stub(channel)
   val identity: LedgerIdentityService = LedgerIdentityServiceGrpc.stub(channel)
   val partyManagement: PartyManagementService = PartyManagementServiceGrpc.stub(channel)
   val packageManagement: PackageManagementService = PackageManagementServiceGrpc.stub(channel)

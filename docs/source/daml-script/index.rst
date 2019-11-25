@@ -4,6 +4,11 @@
 DAML Script
 ###########
 
+.. toctree::
+   :hidden:
+
+   daml-script-docs
+
 **WARNING:** DAML Script is an experimental feature that is actively
 being designed and is *subject to breaking changes*.
 We welcome feedback about DAML script on
@@ -191,3 +196,27 @@ We can then initialize our ledger passing in the json file via ``--input-file``.
 ``daml script daml script --dar .daml/dist/script-example-0.0.1.dar --script-name ScriptExample:initialize --ledger-host localhost --ledger-port 6865 --input-file ledger-parties.json``
 
 If you open Navigator, you can now see the contracts that have been created.
+
+Using DAML Script in Distributed Topologies
+===========================================
+
+So far, we have run DAML script against a single participant node. It
+is also more possible to run it in a setting where different parties
+are hosted on different participant nodes. To do so, pass the
+``--participant-config participants.json`` file to ``daml script``
+instead of ``--ledger-host`` and ``ledger-port``. The file should be of the format
+
+.. literalinclude:: ./participants-example.json
+   :language: json
+
+This will define a participant called ``one``, a default participant
+and it defines that the party ``alice`` is on participant
+``one``. Whenever you submit something as party, we will use the
+participant for that party or if none is specified
+``default_participant``. If ``default_participant`` is not specified,
+using a party with an unspecified participant is an error.
+
+``allocateParty`` will also use the ``default_participant``. If you
+want to allocate a party on a specific participant, you can use
+``allocatePartyOn`` which accepts the participant name as an extra
+argument.

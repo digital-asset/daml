@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml.lf.codegen.backend.java.inner
-import java.util.stream.Collectors
 
 import com.daml.ledger.javaapi
 import com.digitalasset.daml.lf.codegen.backend.java.{JavaEscaper, Types}
@@ -95,11 +94,10 @@ object ToValueGenerator {
           generateToValueConverter(param, CodeBlock.of("$L", arg), args, packagePrefixes)
         )
         CodeBlock.of(
-          "new $T($L.stream().map($L).collect($T.<Value>toList()))",
-          apiList,
+          "$L.stream().collect($T.toDamlList($L))",
           accessor,
+          apiCollectors,
           extractor,
-          classOf[Collectors]
         )
 
       case TypePrim(PrimTypeOptional, ImmArraySeq(param)) =>
@@ -108,9 +106,7 @@ object ToValueGenerator {
           generateToValueConverter(param, CodeBlock.of("$L", arg), args, packagePrefixes)
         val extractor = CodeBlock.of("$L -> $L", arg, wrapped)
         CodeBlock.of(
-          // new DamlOptional(jutilOptionalParamName.map(i -> new Int64(i)))
-          //       $T        (        $L            .map(       $L        ))
-          "new $T($L.map($L))",
+          "$T.of($L.map($L))",
           apiOptional,
           accessor,
           extractor
@@ -124,12 +120,9 @@ object ToValueGenerator {
           generateToValueConverter(param, CodeBlock.of("$L.getValue()", arg), args, packagePrefixes)
         )
         CodeBlock.of(
-          "new $T($L.entrySet().stream().collect($T.<$T<String,$L>,String,Value>toMap($T::getKey, $L)))",
-          apiMap,
+          "$L.entrySet().stream().collect($T.toDamlTextMap($T::getKey, $L)) ",
           accessor,
-          classOf[Collectors],
-          classOf[java.util.Map.Entry[_, _]],
-          toJavaTypeName(param, packagePrefixes),
+          apiCollectors,
           classOf[java.util.Map.Entry[_, _]],
           extractor
         )
@@ -151,13 +144,9 @@ object ToValueGenerator {
             packagePrefixes)
         )
         CodeBlock.of(
-          "new $T($L.entrySet().stream().collect($T.<$T<$L,$L>,Value,Value>toMap($L, $L)))",
-          apiGenMap,
+          "$L.entrySet().stream().collect($T.toDamlGenMap($L, $L))",
           accessor,
-          classOf[Collectors],
-          classOf[java.util.Map.Entry[_, _]],
-          toJavaTypeName(keyType, packagePrefixes),
-          toJavaTypeName(valueType, packagePrefixes),
+          apiCollectors,
           keyExtractor,
           valueExtractor
         )

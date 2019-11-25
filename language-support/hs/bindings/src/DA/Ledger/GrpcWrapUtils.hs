@@ -2,10 +2,13 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE DataKinds #-}
+-- Copyright (c) 2019 The DAML Authors. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
 {-# LANGUAGE GADTs #-}
 
 module DA.Ledger.GrpcWrapUtils (
-    noTrace, emptyMdm,
+    noTrace,
     unwrap, unwrapWithNotFound, unwrapWithInvalidArgument,
     sendToStream,
     ) where
@@ -20,13 +23,9 @@ import DA.Ledger.Stream
 import DA.Ledger.Convert (Perhaps,runRaise)
 import Network.GRPC.HighLevel (clientCallCancel)
 import Network.GRPC.HighLevel.Generated
-import qualified Data.Map as Map
 
 noTrace :: Maybe TraceContext
 noTrace = Nothing
-
-emptyMdm :: MetadataMap
-emptyMdm = MetadataMap Map.empty
 
 unwrap :: ClientResult 'Normal a -> IO a
 unwrap = \case
@@ -48,10 +47,10 @@ unwrapWithInvalidArgument = \case
     ClientErrorResponse (ClientIOError e) -> throwIO e
     ClientErrorResponse ce -> fail (show ce)
 
-sendToStream :: Show b => Int -> a -> (b -> Perhaps c) -> Stream c -> (ClientRequest 'ServerStreaming a b -> IO (ClientResult 'ServerStreaming b)) -> IO ()
-sendToStream timeout request convertResponse stream rpc = do
+sendToStream :: Show b => Int -> MetadataMap -> a -> (b -> Perhaps c) -> Stream c -> (ClientRequest 'ServerStreaming a b -> IO (ClientResult 'ServerStreaming b)) -> IO ()
+sendToStream timeout mdm request convertResponse stream rpc = do
     res <- rpc $
-        ClientReaderRequest request timeout emptyMdm
+        ClientReaderRequest request timeout mdm
         $ \clientCall _mdm recv -> do
           onClose stream $ \_ -> clientCallCancel clientCall
           fix $ \again -> do

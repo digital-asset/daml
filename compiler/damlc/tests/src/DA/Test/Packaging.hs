@@ -5,9 +5,11 @@ module DA.Test.Packaging (main) where
 
 import qualified "zip-archive" Codec.Archive.Zip as Zip
 import Control.Monad.Extra
+import Control.Exception.Safe
 import DA.Bazel.Runfiles
 import Data.Conduit.Tar.Extra (dropDirectory1)
 import qualified Data.ByteString.Lazy as BSL
+import qualified Data.ByteString.Lazy.Char8 as BSL.Char8
 import Data.List.Extra
 import System.Directory.Extra
 import System.Environment.Blank
@@ -160,6 +162,41 @@ tests damlc = testGroup "Packaging"
         assertBool "proj.dar was not created." =<< doesFileExist dar
         darFiles <- Zip.filesInArchive . Zip.toArchive <$> BSL.readFile dar
         assertBool "A.daml is missing" (any (\f -> takeFileName f == "A.daml") darFiles)
+
+    , testCase "Check that DAR manifest prefers DAML_SDK_VERSION over daml.yaml sdk-version." $ withTempDir $ \tmpDir -> do
+        -- Regression test for bug fixed in #3587.
+        let projDir = tmpDir </> "proj"
+        createDirectoryIfMissing True projDir
+        writeFileUTF8 (projDir </> "A.daml") $ unlines
+          [ "daml 1.2"
+          , "module A (a) where"
+          , "a : ()"
+          , "a = ()"
+          ]
+        writeFileUTF8 (projDir </> "daml.yaml") $ unlines
+          [ "sdk-version: a-bad-sdk-version"
+          , "name: proj"
+          , "version: \"1.0\""
+          , "source: ."
+          , "exposed-modules: [A]"
+          , "dependencies:"
+          , "  - daml-prim"
+          , "  - daml-stdlib"
+          ]
+
+        bracket
+            (setEnv "DAML_SDK_VERSION" sdkVersion True)
+            (\ _ -> unsetEnv "DAML_SDK_VERSION")
+            (\ _ -> buildProject projDir)
+
+        let dar = projDir </> ".daml" </> "dist" </> "proj-1.0.dar"
+        assertBool "proj.dar was not created." =<< doesFileExist dar
+        archive <- Zip.toArchive <$> BSL.readFile dar
+        Just entry <- pure $ Zip.findEntryByPath "META-INF/MANIFEST.MF" archive
+        let lines = BSL.Char8.lines (Zip.fromEntry entry)
+            expectedLine = "Sdk-Version: " <> BSL.Char8.pack sdkVersion
+        assertBool "META-INF/MANIFEST.MF picked up the wrong sdk version" (expectedLine `elem` lines)
+
     , testCase "Non-root sources files" $ withTempDir $ \projDir -> do
         -- Test that all daml source files get included in the dar if "source" points to a file
         -- rather than a directory

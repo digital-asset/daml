@@ -20,12 +20,12 @@ import Data.ByteString(ByteString)
 
 listPackages :: LedgerId -> LedgerService [PackageId]
 listPackages lid =
-    makeLedgerService $ \timeout config ->
+    makeLedgerService $ \timeout config mdm ->
     withGRPCClient config $ \client -> do
         service <- packageServiceClient client
         let PackageService {packageServiceListPackages=rpc} = service
         let request = ListPackagesRequest (unLedgerId lid) noTrace
-        response <- rpc (ClientNormalRequest request timeout emptyMdm)
+        response <- rpc (ClientNormalRequest request timeout mdm)
         ListPackagesResponse xs <- unwrap response
         return $ map PackageId $ Vector.toList xs
 
@@ -33,12 +33,12 @@ newtype Package = Package ByteString deriving (Eq,Ord,Show)
 
 getPackage :: LedgerId -> PackageId -> LedgerService (Maybe Package)
 getPackage lid pid =
-    makeLedgerService $ \timeout config ->
+    makeLedgerService $ \timeout config mdm ->
     withGRPCClient config $ \client -> do
         service <- packageServiceClient client
         let PackageService {packageServiceGetPackage=rpc} = service
         let request = GetPackageRequest (unLedgerId lid) (unPackageId pid) noTrace
-        rpc (ClientNormalRequest request timeout emptyMdm)
+        rpc (ClientNormalRequest request timeout mdm)
             >>= unwrapWithNotFound
             >>= \case
             Nothing ->
@@ -48,12 +48,12 @@ getPackage lid pid =
 
 getPackageStatus :: LedgerId -> PackageId -> LedgerService PackageStatus
 getPackageStatus lid pid =
-    makeLedgerService $ \timeout config ->
+    makeLedgerService $ \timeout config mdm ->
     withGRPCClient config $ \client -> do
         service <- packageServiceClient client
         let PackageService {packageServiceGetPackageStatus=rpc} = service
         let request = GetPackageStatusRequest (unLedgerId lid) (unPackageId pid) noTrace
-        rpc (ClientNormalRequest request timeout emptyMdm)
+        rpc (ClientNormalRequest request timeout mdm)
             >>= unwrap
             >>= \case
             GetPackageStatusResponse (Enumerated (Left n)) ->

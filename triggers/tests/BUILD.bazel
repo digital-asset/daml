@@ -28,6 +28,7 @@ genrule(
       cp -L $(location :daml/Numeric.daml) $$TMP_DIR/daml
       cp -L $(location :daml/CommandId.daml) $$TMP_DIR/daml
       cp -L $(location :daml/PendingSet.daml) $$TMP_DIR/daml
+      cp -L $(location :daml/TemplateIdFilter.daml) $$TMP_DIR/daml
       cp -L $(location //docs:source/triggers/template-root/src/CopyTrigger.daml) $$TMP_DIR/daml
       cp -L $(location //triggers/daml:daml-trigger.dar) $$TMP_DIR/
       cat << EOF > $$TMP_DIR/daml.yaml

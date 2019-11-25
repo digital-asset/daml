@@ -39,6 +39,7 @@ booTrigger = Trigger with
   initialize = \acs -> ()
   updateState = \acs _ s -> s
   rule = booRule
+  registeredTemplates = AllInDar
 
 booRule : Party -> ACS -> Map CommandId [Command] -> () -> TriggerA ()
 booRule party acs _commandsInFlight _userState = do
