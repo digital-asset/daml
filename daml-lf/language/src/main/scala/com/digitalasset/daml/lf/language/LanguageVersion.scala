@@ -48,7 +48,7 @@ object LanguageVersion {
     val partyTextConversions = v1_2
     val shaText = v1_2
     val contractKeys = v1_3
-    val map = v1_3
+    val textMap = v1_3
     val complexContactKeys = v1_4
     val optionalExerciseActor = v1_5
     val numberParsing = v1_5

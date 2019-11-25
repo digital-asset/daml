@@ -57,7 +57,7 @@ class TypeSpec extends WordSpec with Matchers {
             TypePrim(PrimTypeBool, ImmArraySeq.empty)
           case Pkg.BTList =>
             TypePrim(PrimTypeList, ImmArraySeq(assertOneArg(args)))
-          case Pkg.BTMap =>
+          case Pkg.BTTextMap =>
             TypePrim(PrimTypeMap, ImmArraySeq(assertOneArg(args)))
           case Pkg.BTGenMap =>
             // FIXME https://github.com/digital-asset/daml/issues/2256

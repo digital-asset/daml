@@ -1382,7 +1382,7 @@ convertTyCon env t
             "Party" -> pure TParty
             "Date" -> pure TDate
             "Time" -> pure TTimestamp
-            "TextMap" -> pure (TBuiltin BTMap)
+            "TextMap" -> pure (TBuiltin BTTextMap)
             "Any" ->
                 -- We just translate this to TUnit when it is not supported.
                 -- We can’t get rid of it completely since the template desugaring uses

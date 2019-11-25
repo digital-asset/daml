@@ -27,7 +27,7 @@ private[parser] class TypeParser[P](parameters: ParserParameters[P]) {
     "Date" -> BTDate,
     "ContractId" -> BTContractId,
     "Arrow" -> BTArrow,
-    "Map" -> BTMap,
+    "TextMap" -> BTTextMap,
     "GenMap" -> BTGenMap,
     "Any" -> BTAny,
     "TypeRep" -> BTTypeRep,

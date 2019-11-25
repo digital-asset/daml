@@ -272,7 +272,7 @@ encodeBuiltinType = P.Enumerated . Right . \case
     BTDate -> P.PrimTypeDATE
     BTContractId -> P.PrimTypeCONTRACT_ID
     BTOptional -> P.PrimTypeOPTIONAL
-    BTMap -> P.PrimTypeMAP
+    BTTextMap -> P.PrimTypeTEXTMAP
     BTGenMap -> P.PrimTypeGENMAP
     BTArrow -> P.PrimTypeARROW
     BTNumeric -> P.PrimTypeNUMERIC
@@ -452,12 +452,12 @@ encodeBuiltinExpr = \case
     BESha256Text -> builtin P.BuiltinFunctionSHA256_TEXT
     BEError -> builtin P.BuiltinFunctionERROR
 
-    BEMapEmpty -> builtin P.BuiltinFunctionMAP_EMPTY
-    BEMapInsert -> builtin P.BuiltinFunctionMAP_INSERT
-    BEMapLookup -> builtin P.BuiltinFunctionMAP_LOOKUP
-    BEMapDelete -> builtin P.BuiltinFunctionMAP_DELETE
-    BEMapSize -> builtin P.BuiltinFunctionMAP_SIZE
-    BEMapToList -> builtin P.BuiltinFunctionMAP_TO_LIST
+    BETextMapEmpty -> builtin P.BuiltinFunctionTEXTMAP_EMPTY
+    BETextMapInsert -> builtin P.BuiltinFunctionTEXTMAP_INSERT
+    BETextMapLookup -> builtin P.BuiltinFunctionTEXTMAP_LOOKUP
+    BETextMapDelete -> builtin P.BuiltinFunctionTEXTMAP_DELETE
+    BETextMapSize -> builtin P.BuiltinFunctionTEXTMAP_SIZE
+    BETextMapToList -> builtin P.BuiltinFunctionTEXTMAP_TO_LIST
 
     BEGenMapEmpty -> builtin P.BuiltinFunctionGENMAP_EMPTY
     BEGenMapInsert -> builtin P.BuiltinFunctionGENMAP_INSERT
