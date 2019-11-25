@@ -15,7 +15,10 @@ import qualified DA.Ledger as L
 import qualified Data.ByteString as BS
 import qualified Data.Text.Lazy as Text(pack)
 
-data HostAndPort = HostAndPort { host :: String, port :: Int }
+data HostAndPort = HostAndPort -- TODO: rename?
+  { host :: String
+  , port :: Int
+  , jwtM :: Maybe L.Jwt }
 
 instance Show HostAndPort where
     show HostAndPort{host,port} = host <> ":" <> show port
@@ -45,7 +48,8 @@ uploadDarFile hp bytes = run hp $ do
 
 run :: HostAndPort -> LedgerService a -> IO a
 run hp ls = do
-    let HostAndPort{host,port} = hp
+    let HostAndPort{host,port,jwtM} = hp
+    let ls' = case jwtM of Nothing -> ls; Just jwt -> L.setToken jwt ls
     let timeout = 30 :: L.TimeoutSeconds
     let ledgerClientConfig = L.configOfHostAndPort (L.Host $ fromString host) (L.Port port)
-    L.runLedgerService ls timeout ledgerClientConfig
+    L.runLedgerService ls' timeout ledgerClientConfig

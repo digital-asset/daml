@@ -80,6 +80,8 @@ import DA.Daml.Project.Consts
 import DA.Daml.Project.Types
 import DA.Daml.Project.Util
 
+import DA.Ledger (Jwt)
+import qualified DA.Ledger.Jwt as Jwt
 
 data DamlHelperError = DamlHelperError
     { errMessage :: T.Text
@@ -786,12 +788,26 @@ runStart
                 Nothing -> f sandboxPh
                 Just jsonApiPort -> withJsonApi sandboxPort jsonApiPort args f
 
-data HostAndPortFlags = HostAndPortFlags { hostM :: Maybe String, portM :: Maybe Int }
+data HostAndPortFlags = HostAndPortFlags
+  { hostM :: Maybe String
+  , portM :: Maybe Int
+  , jwtFileM :: Maybe String
+  }
+
+getJwtFromFile :: Maybe String -> IO (Maybe Jwt)
+getJwtFromFile jwtFileM = do
+  case jwtFileM of
+    Nothing -> return Nothing
+    Just jwtFile -> do
+      contents <- readFileUTF8 jwtFile
+      let jwt = either error id $ Jwt.tryCreateFromString contents
+      return (Just jwt)
 
 getHostAndPortDefaults :: HostAndPortFlags -> IO HostAndPort
-getHostAndPortDefaults HostAndPortFlags{hostM,portM} = do
+getHostAndPortDefaults HostAndPortFlags{hostM,portM,jwtFileM} = do
     host <- fromMaybeM getProjectLedgerHost hostM
     port <- fromMaybeM getProjectLedgerPort portM
+    jwtM <- getJwtFromFile jwtFileM
     return HostAndPort {..}
 
 
@@ -800,7 +816,7 @@ runDeploy :: HostAndPortFlags -> IO ()
 runDeploy flags = do
     hp <- getHostAndPortDefaults flags
     putStrLn $ "Deploying to " <> show hp
-    let flags' = HostAndPortFlags
+    let flags' = flags
             { hostM = Just (host hp)
             , portM = Just (port hp) }
     runLedgerAllocateParties flags' []

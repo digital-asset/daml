@@ -201,6 +201,7 @@ commandParser = subparser $ fold
     hostAndPortFlags = HostAndPortFlags
         <$> hostFlag
         <*> portFlag
+        <*> accessTokenFileFlag
 
     hostFlag :: Parser (Maybe String)
     hostFlag = optional . option str $
@@ -213,6 +214,12 @@ commandParser = subparser $ fold
         long "port"
         <> metavar "PORT_NUM"
         <> help "Port number for the ledger"
+
+    accessTokenFileFlag :: Parser (Maybe FilePath)
+    accessTokenFileFlag = optional . option str $
+        long "access-token-file"
+        <> metavar "JWT_PATH"
+        <> help "Path to the JWT token for ledger authorization"
 
 runCommand :: Command -> IO ()
 runCommand DamlStudio {..} = runDamlStudio replaceExtension remainingArguments
