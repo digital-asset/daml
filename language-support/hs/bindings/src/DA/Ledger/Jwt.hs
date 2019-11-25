@@ -8,11 +8,13 @@ module DA.Ledger.Jwt(
   ) where
 
 import Data.List.Extra (splitOn)
+import Data.String.Utils (strip)
 
 newtype Jwt = Jwt { toString :: String }
 
 tryCreateFromString :: String -> Either String Jwt
-tryCreateFromString s = do
+tryCreateFromString s0 = do
+  let s = strip s0
   validate3parts s
   return $ Jwt s
 
