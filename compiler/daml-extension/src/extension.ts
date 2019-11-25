@@ -121,23 +121,6 @@ async function showReleaseNotesIfNewVersion(context: ExtensionContext) {
     }
 }
 
-async function showBlog() {
-    const feedUrl = 'https://blog.daml.com/daml-driven/rss.xml';
-    fetch(feedUrl).then(async (res: Response) => {
-        if (res.ok) {
-            const rssXml = await res.text();
-            parseString(rssXml, function (err, rss) {
-                console.log(JSON.stringify(rss));
-                const latestBlog = rss.rss.channel[0].item[0];
-                if (latestBlog) {
-                    console.log(`Latest blog post: ${latestBlog.title}`);
-                    console.log(`Link: ${latestBlog.link}`);
-                }
-            });
-        }
-    });
-}
-
 // Check that `version2` is an upgrade from `version1`,
 // i.e. that the components of the version number have increased
 // (checked from major to minor version numbers).
@@ -163,6 +146,30 @@ async function showReleaseNotes(version: string) {
                 {} // No webview options for now
             );
             panel.webview.html = await result.text();
+        }
+    });
+}
+
+async function showBlog() {
+    const feedUrl = 'https://blog.daml.com/daml-driven/rss.xml';
+    fetch(feedUrl).then(async (res: Response) => {
+        if (res.ok) {
+            const rssXml = await res.text();
+            parseString(rssXml, function (err, rss) {
+                console.log(JSON.stringify(rss));
+                const latestBlog = rss.rss.channel[0].item[0];
+                // TODO: Check if we've seen this post before.
+                // Maybe give a choice to opt out of these notifications.
+                if (latestBlog) {
+                    window.showInformationMessage(
+                        `New blog post: ${latestBlog.title}`,
+                        'Go to blog').then(function(clicked) {
+                            if (clicked === 'Go to blog') {
+                                env.openExternal(Uri.parse(latestBlog.link));
+                            }
+                        });
+                }
+            });
         }
     });
 }
