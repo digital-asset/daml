@@ -38,7 +38,7 @@ export async function activate(context: vscode.ExtensionContext) {
     // Display release notes on updates
     showReleaseNotesIfNewVersion(context);
     // Notify about new blog posts
-    showBlogIfNotSeen(context);
+    showBlogIfNotSeen(config, context);
 
     damlLanguageClient = createLanguageClient(config, await consent);
     damlLanguageClient.registerProposedFeatures();
@@ -154,8 +154,10 @@ async function showReleaseNotes(version: string) {
 // Check if there is a new blog post which the user has not yet seen.
 // If so, display a notification with the link to the new post.
 // Update the user state so we don't notify about the same blog post again.
-// TODO(RJR): Maybe give the user a choice to opt out of these notifications.
-async function showBlogIfNotSeen(context: ExtensionContext) {
+// The user can opt out of these notifications entirely by changing the
+// 'daml.showNewBlogPosts' setting.
+async function showBlogIfNotSeen(config: WorkspaceConfiguration, context: ExtensionContext) {
+    if (!config.get('showNewBlogPosts')) { return; }
     const feedUrl = 'https://blog.daml.com/daml-driven/rss.xml';
     fetch(feedUrl).then(async (res: Response) => {
         if (res.ok) {
