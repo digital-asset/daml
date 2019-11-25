@@ -95,6 +95,17 @@ sealed abstract class ValuePredicate extends Product with Serializable {
       self match {
         case Literal(_, jq) =>
           Rec(Vector(path ++ sql" = $jq::jsonb"), Some(jq), Some(jq))
+
+        case ListMatch(qs) =>
+          val cqs = qs.zipWithIndex map {
+            case (eq, k) => go(path ++ sql"->$k", eq)
+          }
+          val allSafe_== = cqs collect (Function unlift (_.safe_==))
+          Rec(
+            cqs flatMap (_.raw),
+            if (cqs.length == allSafe_==.length) Some(JsArray(allSafe_==)) else None,
+            None)
+
         case _ => Rec(AlwaysFails, None, None) // TODO other cases
       }
 
