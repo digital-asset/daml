@@ -377,6 +377,7 @@ class InMemoryKVParticipantStateIT
             maxRecordTime = rt.addMicros(1000000),
             submissionId = "test2",
             config = lic.config.copy(
+              generation = lic.config.generation + 1,
               timeModel = TimeModel(
                 Duration.ofSeconds(123),
                 Duration.ofSeconds(123),
