@@ -243,7 +243,7 @@ private class JdbcLedgerDao(
       configuration: Configuration,
       rejectionReason: Option[String]
   ): Future[PersistenceResponse] = {
-    dbDispatcher.executeSql(s"store configuration entry submissionId=$submissionId") {
+    dbDispatcher.executeSql("store_configuration_entry", Some("submissionId=$submissionId")) {
       implicit conn =>
         // If the entry is stored by indexer, we never expect the generation or duplicate submission
         // and the indexer should correctly crash on duplicate. If we're storing for sandbox, then we can
