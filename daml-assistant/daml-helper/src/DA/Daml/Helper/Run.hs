@@ -791,16 +791,16 @@ runStart
 data LedgerFlags = LedgerFlags
   { hostM :: Maybe String
   , portM :: Maybe Int
-  , jwtFileM :: Maybe String
+  , jwtFileM :: Maybe FilePath
   }
 
-getJwtFromFile :: Maybe String -> IO (Maybe Jwt)
+getJwtFromFile :: Maybe FilePath -> IO (Maybe Jwt)
 getJwtFromFile jwtFileM = do
   case jwtFileM of
     Nothing -> return Nothing
     Just jwtFile -> do
       contents <- readFileUTF8 jwtFile
-      let jwt = either error id $ Jwt.tryCreateFromString contents
+      jwt <- either fail pure $ Jwt.tryCreateFromString contents
       return (Just jwt)
 
 getHostAndPortDefaults :: LedgerFlags -> IO LedgerArgs
