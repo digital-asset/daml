@@ -199,7 +199,7 @@ object ValueGenerators {
   private def valueGenMapGen(nesting: Int) =
     for {
       list <- Gen.listOf(for {
-        k <- Gen.lzy(valueGen(nesting)); v <- Gen.lzy(valueGen(nesting))
+        Gen.zip(Gen.lzy(valueGen(nesting)), Gen.lzy(valueGen(nesting)))
       } yield k -> v)
     } yield ValueGenMap[ContractId](ImmArray(list))
   def valueGenMapGen: Gen[ValueGenMap[ContractId]] = valueGenMapGen(0)

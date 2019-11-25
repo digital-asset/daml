@@ -58,7 +58,7 @@ private[digitalasset] object VersionTimeline {
       // FIXME https://github.com/digital-asset/daml/issues/2256
       //  * change the following line when LF 1.8 is frozen.
       //  * do not insert line after this once until 1.8 is frozen.
-      Both(This(ValueVersion("7")), LanguageVersion(LMV.V1, Dev)),
+      This(This(ValueVersion("7"))),
       // add new versions above this line (but see more notes below)
       That(LanguageVersion(LMV.V1, Dev)),
       // do *not* backfill to make more Boths, because such would
