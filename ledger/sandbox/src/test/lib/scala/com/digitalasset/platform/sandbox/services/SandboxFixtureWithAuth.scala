@@ -14,12 +14,13 @@ import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
 import com.digitalasset.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
 import com.digitalasset.ledger.client.auth.LedgerClientCallCredentials.authenticatingStub
 import com.digitalasset.platform.sandbox.config.SandboxConfig
+import com.digitalasset.platform.testing.SingleItemObserver
 import io.grpc.Status
 import io.grpc.stub.{AbstractStub, StreamObserver}
 import org.scalatest.Suite
 import scalaz.syntax.tag.ToTagOps
 
-import scala.concurrent.{Future, Promise}
+import scala.concurrent.{ExecutionContext, Future, Promise}
 
 trait SandboxFixtureWithAuth extends SandboxFixture { self: Suite =>
 
@@ -85,21 +86,9 @@ trait SandboxFixtureWithAuth extends SandboxFixture { self: Suite =>
   }
 
   /** Returns a future that fails iff the first event coming from the stream is itself a failure. */
-  protected def streamResult[T](fn: StreamObserver[T] => Unit): Future[Unit] = {
-    val promise = Promise[Unit]()
-    fn(new StreamObserver[T] {
-      def onNext(value: T): Unit = {
-        val _ = promise.trySuccess(())
-      }
-      def onError(t: Throwable): Unit = {
-        val _ = promise.tryFailure(t)
-      }
-      def onCompleted(): Unit = {
-        val _ = promise.trySuccess(())
-      }
-    })
-    promise.future
-  }
+  protected def streamResult[T](fn: StreamObserver[T] => Unit)(
+      implicit ec: ExecutionContext): Future[Unit] =
+    SingleItemObserver.first(fn).map(_ => ())
 
   protected def expectExpiration[T](fn: StreamObserver[T] => Unit): Future[Throwable] = {
     val promise = Promise[Throwable]()
