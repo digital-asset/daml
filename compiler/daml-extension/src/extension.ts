@@ -22,6 +22,7 @@ import { parseString } from 'xml2js';
 let damlRoot: string = path.join(os.homedir(), '.daml');
 
 const versionContextKey = 'version'
+const recentBlogContextKey = 'lastSeenBlog'
 
 var damlLanguageClient: LanguageClient;
 // Extension activation
@@ -34,10 +35,10 @@ export async function activate(context: vscode.ExtensionContext) {
     // Get telemetry consent
     const consent = getTelemetryConsent(config, context);
 
-    // Check extension version to display release notes on updates
+    // Display release notes on updates
     showReleaseNotesIfNewVersion(context);
-
-    showBlog();
+    // Notify about new blog posts
+    showBlogIfNotSeen(context);
 
     damlLanguageClient = createLanguageClient(config, await consent);
     damlLanguageClient.registerProposedFeatures();
@@ -150,24 +151,29 @@ async function showReleaseNotes(version: string) {
     });
 }
 
-async function showBlog() {
+// Check if there is a new blog post which the user has not yet seen.
+// If so, display a notification with the link to the new post.
+// Update the user state so we don't notify about the same blog post again.
+// TODO(RJR): Maybe give the user a choice to opt out of these notifications.
+async function showBlogIfNotSeen(context: ExtensionContext) {
     const feedUrl = 'https://blog.daml.com/daml-driven/rss.xml';
     fetch(feedUrl).then(async (res: Response) => {
         if (res.ok) {
             const rssXml = await res.text();
-            parseString(rssXml, function (err, rss) {
-                console.log(JSON.stringify(rss));
+            parseString(rssXml, async function (err, rss) {
                 const latestBlog = rss.rss.channel[0].item[0];
-                // TODO: Check if we've seen this post before.
-                // Maybe give a choice to opt out of these notifications.
-                if (latestBlog) {
-                    window.showInformationMessage(
-                        `New blog post: ${latestBlog.title}`,
-                        'Go to blog').then(function(clicked) {
-                            if (clicked === 'Go to blog') {
-                                env.openExternal(Uri.parse(latestBlog.link));
-                            }
-                        });
+                const lastSeenBlog = context.globalState.get(recentBlogContextKey);
+                if (latestBlog &&
+                    (!lastSeenBlog || typeof lastSeenBlog === 'string' && lastSeenBlog !== latestBlog.title)) {
+                        window.showInformationMessage(
+                            `New blog post: ${latestBlog.title}`,
+                            'Go to blog')
+                            .then(function(clicked) {
+                                if (clicked === 'Go to blog') {
+                                    env.openExternal(Uri.parse(latestBlog.link));
+                                }
+                            });
+                        await context.globalState.update(recentBlogContextKey, latestBlog.title);
                 }
             });
         }
