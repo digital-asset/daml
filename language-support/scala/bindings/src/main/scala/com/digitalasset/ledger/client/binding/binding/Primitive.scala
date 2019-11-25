@@ -9,8 +9,9 @@ import com.digitalasset.ledger.api.v1.{commands => rpccmd, value => rpcvalue}
 import scalaz.syntax.std.boolean._
 import scalaz.syntax.tag._
 
-import scala.collection.{immutable => imm}
 import scala.language.higherKinds
+import scala.collection.{mutable, immutable => imm}
+import scala.collection.generic.CanBuildFrom
 import java.time.{Instant, LocalDate, LocalDateTime}
 import java.util.TimeZone
 
@@ -49,13 +50,13 @@ sealed abstract class Primitive extends PrimitiveInstances {
   type Optional[+A] = scala.Option[A]
   val Optional: scala.Option.type = scala.Option
 
-  type TextMap[+V] = imm.Map[String, V]
-  val TextMap: imm.Map.type = imm.Map
+  type TextMap[+V] <: imm.Map[String, V] with imm.MapLike[String, V, TextMap[V]]
+  val TextMap: TextMapApi
 
   @deprecated("Use TextMap", since = "0.13.38")
   type Map[+V] = TextMap[V]
   @deprecated("Use TextMap", since = "0.13.38")
-  val Map: TextMap.type = TextMap
+  val Map: TextMap.type
 
   type GenMap[K, +V] = InsertOrdMap[K, V]
   val GenMap: InsertOrdMap.type = InsertOrdMap
@@ -69,6 +70,15 @@ sealed abstract class Primitive extends PrimitiveInstances {
   type TemplateId[+Tpl] <: ApiTypes.TemplateId
   val TemplateId: TemplateIdApi
   type Update[+A] <: DomainCommand
+
+  sealed abstract class TextMapApi {
+    type Coll = TextMap[_]
+    def empty[V]: TextMap[V]
+    def apply[V](elems: (String, V)*): TextMap[V]
+    def newBuilder[V]: mutable.Builder[(String, V), TextMap[V]]
+    implicit def canBuildFrom[V]: CanBuildFrom[Coll, (String, V), TextMap[V]]
+    def fromMap[V](map: imm.Map[String, V]): TextMap[V]
+  }
 
   sealed abstract class DateApi {
     val MIN: Date
@@ -138,6 +148,19 @@ private[client] object OnlyPrimitive extends Primitive {
   type ContractId[+Tpl] = ApiTypes.ContractId
   type TemplateId[+Tpl] = ApiTypes.TemplateId
   type Update[+A] = DomainCommand
+
+  type TextMap[+V] = imm.Map[String, V]
+
+  object TextMap extends TextMapApi {
+    override def empty[V]: TextMap[V] = imm.Map.empty
+    override def apply[V](elems: (String, V)*): TextMap[V] = imm.Map(elems: _*)
+    override def newBuilder[V]: mutable.Builder[(String, V), TextMap[V]] = imm.Map.newBuilder
+    override def canBuildFrom[V]: CanBuildFrom[Coll, (String, V), TextMap[V]] = imm.Map.canBuildFrom
+    override def fromMap[V](map: imm.Map[String, V]): TextMap[V] = map
+  }
+
+  @deprecated("Use TextMap", since = "0.13.38")
+  override val Map = TextMap
 
   object Date extends DateApi {
     import com.digitalasset.api.util.TimestampConversion
@@ -243,4 +266,18 @@ private[client] object OnlyPrimitive extends Primitive {
     rpcvalue.Record(recordId = Some(recordId), args.map {
       case (k, v) => rpcvalue.RecordField(k, Some(v))
     })
+}
+
+sealed abstract class PrimitiveInstances
+
+// do not import this._, use -Xsource:2.13 scalac option instead
+object PrimitiveInstances {
+  import language.implicitConversions
+  import Primitive.TextMap
+
+  implicit def textMapCanBuildFrom[V]: CanBuildFrom[TextMap.Coll, (String, V), TextMap[V]] =
+    TextMap.canBuildFrom
+
+  /** Applied in contexts that ''expect'' a `TextMap`, iff -Xsource:2.13. */
+  implicit def textMapFromMap[V](m: imm.Map[String, V]): TextMap[V] = TextMap fromMap m
 }
