@@ -6,19 +6,19 @@ package com.digitalasset.platform.sandbox
 import akka.stream.Materializer
 import com.codahale.metrics.MetricRegistry
 import com.digitalasset.api.util.TimeProvider
-import com.digitalasset.ledger.api.testing.utils.Resource
-import com.digitalasset.platform.sandbox.persistence.{PostgresFixture, PostgresResource}
-import com.digitalasset.platform.sandbox.stores.{InMemoryActiveLedgerState, InMemoryPackageStore}
-import com.digitalasset.platform.sandbox.stores.ledger.sql.SqlStartMode
-import com.digitalasset.platform.sandbox.stores.ledger.Ledger
 import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.ledger.api.domain.LedgerId
+import com.digitalasset.ledger.api.testing.utils.Resource
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
+import com.digitalasset.platform.sandbox.persistence.{PostgresFixture, PostgresResource}
 import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
+import com.digitalasset.platform.sandbox.stores.ledger.sql.SqlStartMode
+import com.digitalasset.platform.sandbox.stores.ledger.{Ledger, PartyAllocationLedgerEntry}
+import com.digitalasset.platform.sandbox.stores.{InMemoryActiveLedgerState, InMemoryPackageStore}
 import scalaz.Tag
 
-import scala.concurrent.{Await, Future}
 import scala.concurrent.duration._
+import scala.concurrent.{Await, Future}
 
 object LedgerResource {
   def resource(ledgerFactory: () => Future[Ledger]): Resource[Ledger] = new Resource[Ledger] {
@@ -37,11 +37,13 @@ object LedgerResource {
       timeProvider: TimeProvider,
       acs: InMemoryActiveLedgerState = InMemoryActiveLedgerState.empty,
       packages: InMemoryPackageStore = InMemoryPackageStore.empty,
-      entries: ImmArray[LedgerEntryOrBump] = ImmArray.empty): Resource[Ledger] =
+      entries: ImmArray[LedgerEntryOrBump] = ImmArray.empty,
+      partyAllocationEntries: ImmArray[PartyAllocationLedgerEntry] = ImmArray.empty)
+    : Resource[Ledger] =
     LedgerResource.resource(
       () =>
         Future.successful(
-          Ledger.inMemory(ledgerId, timeProvider, acs, packages, entries)
+          Ledger.inMemory(ledgerId, timeProvider, acs, packages, entries, partyAllocationEntries)
       )
     )
 

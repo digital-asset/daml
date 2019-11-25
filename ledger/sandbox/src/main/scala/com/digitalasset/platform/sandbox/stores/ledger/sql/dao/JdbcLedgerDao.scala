@@ -16,13 +16,7 @@ import anorm.{AkkaStream, BatchSql, Macro, NamedParameter, RowParser, SQL, SqlPa
 import com.daml.ledger.participant.state.index.v2.PackageDetails
 import com.daml.ledger.participant.state.v1.{AbsoluteContractInst, ParticipantId, TransactionId}
 import com.digitalasset.daml.lf.archive.Decode
-import com.digitalasset.daml.lf.data.Ref.{
-  ContractIdString,
-  LedgerString,
-  PackageId,
-  Party,
-  TransactionIdString
-}
+import com.digitalasset.daml.lf.data.Ref.{ContractIdString, LedgerString, PackageId, Party, TransactionIdString}
 import com.digitalasset.daml.lf.data.Relation.Relation
 import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.transaction.Node.{GlobalKey, KeyWithMaintainers}
@@ -35,26 +29,14 @@ import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails, RejectionReas
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.common.util.DirectExecutionContext
 import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilter
-import com.digitalasset.platform.sandbox.stores.ActiveLedgerState.{
-  ActiveContract,
-  Contract,
-  DivulgedContract
-}
+import com.digitalasset.platform.sandbox.stores.ActiveLedgerState.{ActiveContract, Contract, DivulgedContract}
 import com.digitalasset.platform.sandbox.stores._
-import com.digitalasset.platform.sandbox.stores.ledger.{LedgerEntry, PackageUploadEntry}
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry._
-import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.JdbcLedgerDao.{
-  H2DatabaseQueries,
-  PostgresQueries
-}
-import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{
-  ContractSerializer,
-  KeyHasher,
-  TransactionSerializer,
-  ValueSerializer
-}
+import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.JdbcLedgerDao.{H2DatabaseQueries, PostgresQueries}
+import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{ContractSerializer, KeyHasher, TransactionSerializer, ValueSerializer}
 import com.digitalasset.platform.sandbox.stores.ledger.sql.util.Conversions._
 import com.digitalasset.platform.sandbox.stores.ledger.sql.util.DbDispatcher
+import com.digitalasset.platform.sandbox.stores.ledger.{LedgerEntry, PackageUploadLedgerEntry, PartyAllocationLedgerEntry}
 import com.google.common.io.ByteStreams
 import scalaz.syntax.tag._
 
@@ -1236,6 +1218,10 @@ private class JdbcLedgerDao(
     SQL(
       "select * from package_upload_entries where ledger_offset>={startInclusive} and ledger_offset<{endExclusive} order by ledger_offset asc")
 
+  private val SQL_SELECT_PARTY_ALLOCATION_ENTRIES =
+    SQL(
+      "select * from party_allocation_entries where ledger_offset>={startInclusive} and ledger_offset<{endExclusive} order by ledger_offset asc")
+
   case class ParsedPackageData(
       packageId: String,
       sourceDescription: Option[String],
@@ -1250,7 +1236,7 @@ private class JdbcLedgerDao(
       "known_since"
     )
 
-  private val packageUploadEntryParser: RowParser[(Long, PackageUploadEntry)] =
+  private val packageUploadEntryParser: RowParser[(Long, PackageUploadLedgerEntry)] =
     (long("ledger_offset") ~
       str("typ") ~
       str("submission_id") ~
@@ -1268,12 +1254,50 @@ private class JdbcLedgerDao(
           offset ->
             (typ match {
               case "accept" =>
-                PackageUploadEntry.Accepted(
+                PackageUploadLedgerEntry.Accepted(
                   submissionId = submissionId,
                   participantId = participantId
                 )
               case "reject" =>
-                PackageUploadEntry.Rejected(
+                PackageUploadLedgerEntry.Rejected(
+                  submissionId = submissionId,
+                  participantId = participantId,
+                  reason = rejectionReason.getOrElse("<missing reason>")
+                )
+
+              case _ =>
+                sys.error(s"packageUploadEntryParser: Unknown configuration entry type: $typ")
+            })
+      }
+
+  private val partyAllocationEntryParser: RowParser[(Long, PartyAllocationLedgerEntry)] =
+    (long("ledger_offset") ~
+      str("typ") ~
+      str("submission_id") ~
+      str("participant_id") ~
+      str("party") ~
+      str("display_name") ~
+      str("rejection_reason")(emptyStringToNullColumn).?)
+      .map(flatten)
+      .map {
+        case (offset, typ, submissionId, participantIdRaw, party, displayName, rejectionReason) =>
+          val participantId = LedgerString
+            .fromString(participantIdRaw)
+            .fold(
+              err => sys.error(s"Failed to decode participant id in package upload entry: $err"),
+              identity)
+
+          offset ->
+            (typ match {
+              case "accept" =>
+                PartyAllocationLedgerEntry.Accepted(
+                  submissionId,
+                  participantId,
+                  //TODO BH what if party in DB is not valid?  isLocal depends on calling participant node
+                  PartyDetails(Party.assertFromString(party), Some(displayName), isLocal = true)
+                )
+              case "reject" =>
+                PartyAllocationLedgerEntry.Rejected(
                   submissionId = submissionId,
                   participantId = participantId,
                   reason = rejectionReason.getOrElse("<missing reason>")
@@ -1348,7 +1372,7 @@ private class JdbcLedgerDao(
 
   override def getPackageUploadEntries(
       startInclusive: Long,
-      endExclusive: Long): Source[(Long, PackageUploadEntry), NotUsed] =
+      endExclusive: Long): Source[(Long, PackageUploadLedgerEntry), NotUsed] =
     paginatingStream(
       startInclusive,
       endExclusive,
@@ -1367,7 +1391,7 @@ private class JdbcLedgerDao(
       offset: LedgerOffset,
       newLedgerEnd: LedgerOffset,
       externalOffset: Option[ExternalOffset],
-      entry: PackageUploadEntry): Future[PersistenceResponse] = {
+      entry: PackageUploadLedgerEntry): Future[PersistenceResponse] = {
 
     dbDispatcher.executeSql("store package upload entry") { implicit conn =>
       updateLedgerEnd(newLedgerEnd, externalOffset)
@@ -1392,6 +1416,29 @@ private class JdbcLedgerDao(
       }.get
     }
   }
+
+  override def getPartyAllocationEntries(
+      startInclusive: Long,
+      endExclusive: Long): Source[(Long, PartyAllocationLedgerEntry), NotUsed] =
+    paginatingStream(
+      startInclusive,
+      endExclusive,
+      PageSize,
+      (startI, endE) => {
+        dbDispatcher.executeSql(s"load package upload entries", Some(s"bounds: [$startI, $endE[")) {
+          implicit conn =>
+            SQL_SELECT_PARTY_ALLOCATION_ENTRIES
+              .on("startInclusive" -> startI, "endExclusive" -> endE)
+              .as(partyAllocationEntryParser.*)
+        }
+      }
+    ).flatMapConcat(Source(_))
+
+  //Future approach
+  //  dbDispatcher.executeSql("load package upload entries") { implicit conn =>
+  //    SQL_SELECT_PARTIES
+  //      .as(partyAllocationEntryParser.*)
+  //  }
 
   private val SQL_INSERT_PARTY_ALLOCATION_ENTRY_REJECT: String =
     """insert into party_allocation_entries(ledger_offset, recorded_at, submission_id, participant_id, typ, rejection_reason)
@@ -1430,11 +1477,11 @@ private class JdbcLedgerDao(
     }
   }
 
-  private def reasonOrNull(entry: PackageUploadEntry): String = {
+  private def reasonOrNull(entry: PackageUploadLedgerEntry): String = {
     entry match {
-      case PackageUploadEntry.Rejected(_, _, reason) =>
+      case PackageUploadLedgerEntry.Rejected(_, _, reason) =>
         reason
-      case PackageUploadEntry.Accepted(_, _) =>
+      case PackageUploadLedgerEntry.Accepted(_, _) =>
         null
     }
   }

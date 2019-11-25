@@ -18,7 +18,7 @@ import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails}
 import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilter
 import com.digitalasset.platform.sandbox.metrics.timedFuture
 import com.digitalasset.platform.sandbox.stores.ActiveLedgerState.{ActiveContract, Contract}
-import com.digitalasset.platform.sandbox.stores.ledger.{LedgerEntry, PackageUploadEntry}
+import com.digitalasset.platform.sandbox.stores.ledger.{LedgerEntry, PackageUploadLedgerEntry, PartyAllocationLedgerEntry}
 
 import scala.collection.immutable
 import scala.concurrent.Future
@@ -79,11 +79,16 @@ private class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: MetricRegi
 
   override def getPackageUploadEntries(
       startInclusive: LedgerOffset,
-      endExclusive: LedgerOffset): Source[(LedgerOffset, PackageUploadEntry), NotUsed] =
+      endExclusive: LedgerOffset): Source[(LedgerOffset, PackageUploadLedgerEntry), NotUsed] =
     ledgerDao.getPackageUploadEntries(startInclusive, endExclusive)
 
   override def getParties: Future[List[PartyDetails]] =
     timedFuture(Metrics.getParties, ledgerDao.getParties)
+
+  override def getPartyAllocationEntries(
+      startInclusive: LedgerOffset,
+      endExclusive: LedgerOffset): Source[(LedgerOffset, PartyAllocationLedgerEntry), NotUsed] =
+    ledgerDao.getPartyAllocationEntries(startInclusive, endExclusive)
 
   override def listLfPackages: Future[Map[PackageId, PackageDetails]] =
     timedFuture(Metrics.listLfPackages, ledgerDao.listLfPackages)
@@ -153,7 +158,7 @@ private class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: MetricRegistry)
       offset: LedgerOffset,
       newLedgerEnd: LedgerOffset,
       externalOffset: Option[ExternalOffset],
-      entry: PackageUploadEntry): Future[PersistenceResponse] =
+      entry: PackageUploadLedgerEntry): Future[PersistenceResponse] =
     ledgerDao.storePackageUploadEntry(offset, newLedgerEnd, externalOffset, entry)
 
   def storePartyAllocationRejectEntry(

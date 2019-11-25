@@ -98,11 +98,18 @@ object SandboxIndexAndWriteService {
       timeProvider: TimeProvider,
       acs: InMemoryActiveLedgerState,
       ledgerEntries: ImmArray[LedgerEntryOrBump],
+      partyAllocationEntries: ImmArray[PartyAllocationLedgerEntry],
       templateStore: InMemoryPackageStore,
       metrics: MetricRegistry)(implicit mat: Materializer): IndexAndWriteService = {
     val ledger =
       Ledger.metered(
-        Ledger.inMemory(ledgerId, timeProvider, acs, templateStore, ledgerEntries),
+        Ledger.inMemory(
+          ledgerId,
+          timeProvider,
+          acs,
+          templateStore,
+          ledgerEntries,
+          partyAllocationEntries),
         metrics)
     createInstance(ledger, participantId, timeModel, timeProvider)
   }
@@ -398,6 +405,13 @@ abstract class LedgerBackedIndexService(
   override def listParties(): Future[List[PartyDetails]] =
     ledger.parties
 
+  override def getPartyAllocationEntries(
+      offset: Option[Long]): Source[(Long, PartyAllocationEntry), NotUsed] =
+    ledger.partyAllocationEntries(offset).map {
+      case (offset, entry) =>
+        (offset, PartyConversion.partyAllocationLedgerEntryToDomain(entry))
+    }
+
   override def close(): Unit = {
     ledger.close()
   }
@@ -421,7 +435,8 @@ class LedgerBackedWriteService(ledger: Ledger, timeProvider: TimeProvider) exten
       case None =>
         FutureConverters.toJava(
           ledger.allocateParty(PartyIdGenerator.generateRandomId(), displayName, submissionid))
-      case Some(Right(party)) => FutureConverters.toJava(ledger.allocateParty(party, displayName, submissionid))
+      case Some(Right(party)) =>
+        FutureConverters.toJava(ledger.allocateParty(party, displayName, submissionid))
       case Some(Left(error)) =>
         // TODO BH : don't think we want to throw submission result error here but rather submit the request
         // then leave it to AllocatePartyRejectionEntry to give reason for failure "invalid party"

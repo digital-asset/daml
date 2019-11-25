@@ -6,15 +6,14 @@ package com.digitalasset.ledger.api
 import java.time.Instant
 
 import brave.propagation.TraceContext
-
+import com.digitalasset.daml.lf.command.{Commands => LfCommands}
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.LedgerString.ordering
-import com.digitalasset.ledger.api.domain.Event.{CreateOrArchiveEvent, CreateOrExerciseEvent}
-import scalaz.{@@, Tag}
-import scalaz.syntax.tag._
-import com.digitalasset.daml.lf.value.{Value => Lf}
-import com.digitalasset.daml.lf.command.{Commands => LfCommands}
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ValueRecord}
+import com.digitalasset.daml.lf.value.{Value => Lf}
+import com.digitalasset.ledger.api.domain.Event.{CreateOrArchiveEvent, CreateOrExerciseEvent}
+import scalaz.syntax.tag._
+import scalaz.{@@, Tag}
 
 import scala.collection.{breakOut, immutable}
 
@@ -255,7 +254,7 @@ object domain {
 
   type EventId = Ref.LedgerString @@ EventIdTag
   val EventId: Tag.TagOf[EventIdTag] = Tag.of[EventIdTag]
-  implicit val eventIdOrdering = scala.math.Ordering.by[EventId, Ref.LedgerString](_.unwrap)
+  implicit val eventIdOrdering: Ordering[EventId] = scala.math.Ordering.by[EventId, Ref.LedgerString](_.unwrap)
 
   sealed trait LedgerIdTag
 
@@ -274,6 +273,11 @@ object domain {
 
   sealed trait AbsoluteNodeIdTag
 
+  sealed trait SubmissionIdTag
+
+  type SubmissionId = Ref.LedgerString @@ SubmissionIdTag
+  val SubmissionId: Tag.TagOf[SubmissionIdTag] = Tag.of[SubmissionIdTag]
+
   case class Commands(
       ledgerId: LedgerId,
       workflowId: Option[WorkflowId],
@@ -290,4 +294,27 @@ object domain {
     * @param isLocal True if party is hosted by the backing participant.
     */
   case class PartyDetails(party: Ref.Party, displayName: Option[String], isLocal: Boolean)
+
+  sealed abstract class PartyAllocationEntry() extends Product with Serializable {
+    val submissionId: String
+    val participantId: ParticipantId
+    def value: String
+  }
+
+  object PartyAllocationEntry {
+    final case class Accepted(
+        override val submissionId: String,
+        override val participantId: ParticipantId,
+        partyDetails: PartyDetails
+    ) extends PartyAllocationEntry {
+      override def value = "accept"
+    }
+    final case class Rejected(
+        override val submissionId: String,
+        override val participantId: ParticipantId,
+        reason: String
+    ) extends PartyAllocationEntry {
+      override def value = "reject"
+    }
+  }
 }

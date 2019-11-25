@@ -21,7 +21,7 @@ import com.digitalasset.platform.common.util.DirectExecutionContext
 import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilter
 import com.digitalasset.platform.sandbox.stores.ActiveLedgerState.{ActiveContract, Contract}
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry.Transaction
-import com.digitalasset.platform.sandbox.stores.ledger.{LedgerEntry, PackageUploadEntry}
+import com.digitalasset.platform.sandbox.stores.ledger.{LedgerEntry, PackageUploadLedgerEntry, PartyAllocationLedgerEntry}
 
 import scala.collection.immutable
 import scala.concurrent.Future
@@ -134,7 +134,7 @@ trait LedgerReadDao extends AutoCloseable {
     */
   def getPackageUploadEntries(
       startInclusive: LedgerOffset,
-      endExclusive: LedgerOffset): Source[(Long, PackageUploadEntry), NotUsed]
+      endExclusive: LedgerOffset): Source[(Long, PackageUploadLedgerEntry), NotUsed]
 
   /**
     * Returns a snapshot of the ledger.
@@ -147,6 +147,10 @@ trait LedgerReadDao extends AutoCloseable {
 
   /** Returns a list of all known parties. */
   def getParties: Future[List[PartyDetails]]
+
+  def getPartyAllocationEntries(
+      startInclusive: LedgerOffset,
+      endExclusive: LedgerOffset): Source[(Long, PartyAllocationLedgerEntry), NotUsed]
 
   /** Returns a list of all known DAML-LF packages */
   def listLfPackages: Future[Map[PackageId, PackageDetails]]
@@ -238,7 +242,7 @@ trait LedgerWriteDao extends AutoCloseable {
       offset: LedgerOffset,
       newLedgerEnd: LedgerOffset,
       externalOffset: Option[ExternalOffset],
-      entry: PackageUploadEntry): Future[PersistenceResponse]
+      entry: PackageUploadLedgerEntry): Future[PersistenceResponse]
 
   /**
     * Store a party allocation rejection

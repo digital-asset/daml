@@ -18,11 +18,7 @@ import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.sandbox.services.ApiSubmissionService
 import com.digitalasset.platform.sandbox.stores.ledger.CommandExecutorImpl
-import com.digitalasset.platform.sandbox.stores.{
-  InMemoryActiveLedgerState,
-  InMemoryPackageStore,
-  SandboxIndexAndWriteService
-}
+import com.digitalasset.platform.sandbox.stores.{InMemoryActiveLedgerState, InMemoryPackageStore, SandboxIndexAndWriteService}
 import com.digitalasset.platform.services.time.TimeModel
 
 import scala.concurrent.ExecutionContext
@@ -63,6 +59,7 @@ trait TestHelpers {
         TimeModel.reasonableDefault,
         TimeProvider.Constant(Instant.EPOCH),
         InMemoryActiveLedgerState.empty,
+        ImmArray.empty,
         ImmArray.empty,
         packageStore,
         metrics

@@ -26,7 +26,7 @@ import com.digitalasset.platform.sandbox.stores.ActiveLedgerState.ActiveContract
 import com.digitalasset.platform.sandbox.stores.deduplicator.Deduplicator
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry.{Checkpoint, Rejection}
 import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
-import com.digitalasset.platform.sandbox.stores.ledger.{Ledger, LedgerEntry, LedgerSnapshot}
+import com.digitalasset.platform.sandbox.stores.ledger.{Ledger, LedgerEntry, LedgerSnapshot, PartyAllocationLedgerEntry}
 import com.digitalasset.platform.sandbox.stores.{ActiveLedgerState, InMemoryActiveLedgerState, InMemoryPackageStore}
 import org.slf4j.LoggerFactory
 
@@ -41,7 +41,8 @@ class InMemoryLedger(
     timeProvider: TimeProvider,
     acs0: InMemoryActiveLedgerState,
     packageStoreInit: InMemoryPackageStore,
-    ledgerEntries: ImmArray[LedgerEntryOrBump])
+    ledgerEntries: ImmArray[LedgerEntryOrBump],
+    partyAllocationEntries: ImmArray[PartyAllocationLedgerEntry])
     extends Ledger {
 
   private val logger = LoggerFactory.getLogger(this.getClass)
@@ -56,6 +57,12 @@ class InMemoryLedger(
         l.publish(entry)
         ()
     }
+    l
+  }
+
+  private val allocationEntries = {
+    val l = new LedgerEntries[PartyAllocationLedgerEntry](_.toString)
+    partyAllocationEntries.map(l.publish)
     l
   }
 
@@ -235,7 +242,14 @@ class InMemoryLedger(
       acs.parties.values.toList
     })
 
-  override def allocateParty(party: Party, displayName: Option[String], submissionId: String): Future[SubmissionResult] =
+  override def partyAllocationEntries(
+      offset: Option[Long]): Source[(Long, PartyAllocationLedgerEntry), NotUsed] =
+    allocationEntries.getSource(offset)
+
+  override def allocateParty(
+      party: Party,
+      displayName: Option[String],
+      submissionId: String): Future[SubmissionResult] =
     Future.successful(this.synchronized {
       val ids = acs.parties.keySet
 

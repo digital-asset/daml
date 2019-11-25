@@ -31,6 +31,7 @@ private class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: MetricRegis
     val lookupKey = metrics.timer("Ledger.lookupKey")
     val lookupTransaction = metrics.timer("Ledger.lookupTransaction")
     val parties = metrics.timer("Ledger.parties")
+    val partyAllocationEntries = metrics.timer("Ledger.partyAllocationEntries")
     val listLfPackages = metrics.timer("Ledger.listLfPackages")
     val getLfArchive = metrics.timer("Ledger.getLfArchive")
     val getLfPackage = metrics.timer("Ledger.getLfPackage")
@@ -60,6 +61,10 @@ private class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: MetricRegis
 
   override def parties: Future[List[PartyDetails]] =
     timedFuture(Metrics.parties, ledger.parties)
+
+  override def partyAllocationEntries(
+      offset: Option[Long]): Source[(Long, PartyAllocationLedgerEntry), NotUsed] =
+    ledger.partyAllocationEntries(offset)
 
   override def listLfPackages(): Future[Map[PackageId, PackageDetails]] =
     timedFuture(Metrics.listLfPackages, ledger.listLfPackages())

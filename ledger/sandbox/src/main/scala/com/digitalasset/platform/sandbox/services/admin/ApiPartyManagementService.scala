@@ -104,7 +104,22 @@ class ApiPartyManagementService private (
       .flatMap(pollUntilPersisted)(DE)
   }
 
-  private def pollForAllocationResult() = {}
+//  private def pollForAllocationResult(submissionId: String): Future[PartyAllocationLedgerEntry] = {
+//    val value = partyManagementService.getPartyAllocationEntries(Some(0L))
+//    PollingUtils
+//      .pollUntilPersisted(value _)(
+//        _.exists(_.party == newParty),
+//        description,
+//        50.milliseconds,
+//        500.milliseconds,
+//        d => d * 2,
+//        scheduler,
+//        loggerFactory)
+//      .map { numberOfAttempts =>
+//        logger.debug(s"Party $newParty available, read after $numberOfAttempts attempt(s)")
+//        result
+//      }(DE)
+//  }
 
 }
 

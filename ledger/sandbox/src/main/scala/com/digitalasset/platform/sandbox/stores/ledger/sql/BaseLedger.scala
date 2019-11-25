@@ -21,7 +21,7 @@ import com.digitalasset.platform.common.util.DirectExecutionContext
 import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilter
 import com.digitalasset.platform.sandbox.stores.ActiveLedgerState
 import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.LedgerReadDao
-import com.digitalasset.platform.sandbox.stores.ledger.{LedgerEntry, LedgerSnapshot, ReadOnlyLedger}
+import com.digitalasset.platform.sandbox.stores.ledger.{LedgerEntry, LedgerSnapshot, PartyAllocationLedgerEntry, ReadOnlyLedger}
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
@@ -42,7 +42,7 @@ class BaseLedger(val ledgerId: LedgerId, headAtInitialization: Long, ledgerDao: 
     ledgerDao.lookupKey(key, forParty)
 
   override def ledgerEntries(offset: Option[Long]): Source[(Long, LedgerEntry), NotUsed] =
-    dispatcher.startingAt(offset.getOrElse(0), RangeSource(ledgerDao.getLedgerEntries(_, _)))
+    dispatcher.startingAt(offset.getOrElse(0), RangeSource(ledgerDao.getLedgerEntries))
 
   override def ledgerEnd: Long = dispatcher.getHead()
 
@@ -72,6 +72,10 @@ class BaseLedger(val ledgerId: LedgerId, headAtInitialization: Long, ledgerDao: 
 
   override def parties: Future[List[domain.PartyDetails]] =
     ledgerDao.getParties
+
+  override def partyAllocationEntries(
+      offset: Option[Long]): Source[(Long, PartyAllocationLedgerEntry), NotUsed] =
+    dispatcher.startingAt(offset.getOrElse(0), RangeSource(ledgerDao.getPartyAllocationEntries))
 
   override def listLfPackages(): Future[Map[PackageId, v2.PackageDetails]] =
     ledgerDao.listLfPackages
