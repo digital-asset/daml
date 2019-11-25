@@ -131,6 +131,10 @@ final class LedgerTestSuiteRunner(
       .recover { case NonFatal(e) => throw LedgerTestSuiteRunner.UncaughtExceptionError(e) }
       .onComplete { result =>
         participantSessionManager.closeAll()
+        materializer.shutdown()
+        system.terminate().failed.foreach { throwable =>
+          logger.error("The actor system failed to terminate.", throwable)
+        }
         completionCallback(result)
       }
   }
