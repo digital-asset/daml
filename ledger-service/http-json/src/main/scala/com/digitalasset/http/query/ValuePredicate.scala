@@ -96,6 +96,16 @@ sealed abstract class ValuePredicate extends Product with Serializable {
         case Literal(_, jq) =>
           Rec(Vector(path ++ sql" = $jq::jsonb"), Some(jq), Some(jq))
 
+        case RecordSubset(qs) =>
+          val cqs = qs map (_ map { case (k, vp) => (k, go(path ++ sql"->${k: String}", vp)) })
+          val allSafe_== = cqs collect {
+            case Some((k, Rec(_, Some(eqv), _))) => (k, eqv)
+          }
+          Rec(
+            Vector( /*TODO*/ ),
+            if (allSafe_==.length == cqs.length) Some(JsObject(allSafe_== : _*)) else None,
+            None /* TODO Some-times */ )
+
         case VariantMatch((dc, q)) =>
           val Rec(vraw, v_==, v_@>) = go(path ++ sql"->${dc: String}", q)
           // @> is safe because in a variant-typed context, all JsObjects
@@ -106,7 +116,7 @@ sealed abstract class ValuePredicate extends Product with Serializable {
           val cqs = qs.zipWithIndex map {
             case (eq, k) => go(path ++ sql"->$k", eq)
           }
-          val allSafe_== = cqs collect (Function unlift (_.safe_==))
+          val allSafe_== = cqs collect Function.unlift(_.safe_==)
           Rec(
             cqs flatMap (_.raw),
             if (cqs.length == allSafe_==.length) Some(JsArray(allSafe_==)) else None,
