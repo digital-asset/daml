@@ -389,7 +389,7 @@ class BotTest extends FlatSpec with Matchers with DataLayerHelpers {
       Future.successful(scalaAPI.package_service.GetPackageStatusResponse.defaultInstance)
     ) { (server, _) =>
       val client =
-        DamlLedgerClient.forHostWithLedgerIdDiscovery("localhost", server.getPort, Optional.empty())
+        DamlLedgerClient.newBuilder("localhost", server.getPort).build()
       client.connect()
 
       /* The bot is wired here and inside wire is where the race condition can happen. We catch the possible

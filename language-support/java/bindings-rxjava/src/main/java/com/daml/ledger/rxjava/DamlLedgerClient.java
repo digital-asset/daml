@@ -11,7 +11,6 @@ import io.grpc.netty.NettyChannelBuilder;
 import io.netty.handler.ssl.SslContext;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
-import javax.net.ssl.SSLException;
 import java.util.LinkedList;
 import java.util.Optional;
 import java.util.concurrent.Callable;
@@ -33,7 +32,55 @@ import java.util.concurrent.TimeUnit;
  */
 public final class DamlLedgerClient implements LedgerClient {
 
-    private final SingleThreadExecutionSequencerPool pool;
+    public final static class Builder {
+
+        private final NettyChannelBuilder builder;
+        private Optional<String> expectedLedgerId = Optional.empty();
+
+        private Builder(@NonNull NettyChannelBuilder channelBuilder) {
+            this.builder = channelBuilder;
+            this.builder.usePlaintext();
+        }
+
+        public Builder withExpectedLedgerId(@NonNull String expectedLedgerId) {
+            this.expectedLedgerId = Optional.of(expectedLedgerId);
+            return this;
+        }
+
+        public Builder withSslContext(@NonNull SslContext sslContext) {
+            this.builder.sslContext(sslContext);
+            this.builder.useTransportSecurity();
+            return this;
+        }
+
+        public DamlLedgerClient build() {
+            return new DamlLedgerClient(this.builder, this.expectedLedgerId);
+        }
+
+    }
+
+    private static final String DEFAULT_POOL_NAME = "client";
+
+    private final SingleThreadExecutionSequencerPool pool = new SingleThreadExecutionSequencerPool(DEFAULT_POOL_NAME);
+
+    /**
+     * Create a new {@link Builder} with the given parameters
+     *
+     * Useful as a shortcut unless you have to customize the {@link NettyChannelBuilder} beyond the builder's capabilities
+     */
+    public static Builder newBuilder(@NonNull String host, int port) {
+        return new Builder(NettyChannelBuilder.forAddress(host, port));
+    }
+
+    /**
+     * Create a new {@link Builder} with the given parameters
+     *
+     * Useful to customize the {@link NettyChannelBuilder} beyond the builder's capabilities,
+     * otherwise {@link DamlLedgerClient#newBuilder(String, int)} is probably more suited for your use case
+     */
+    public static Builder newBuilder(@NonNull NettyChannelBuilder channelBuilder) {
+        return new Builder(channelBuilder);
+    }
 
     /**
      * Creates a {@link DamlLedgerClient} connected to a Ledger
@@ -44,31 +91,25 @@ public final class DamlLedgerClient implements LedgerClient {
      * @param hostPort The port of the Ledger
      * @param sslContext If present, it will be used to establish a TLS connection. If empty, an unsecured plaintext connection will be used.
      *                   Must be an SslContext created for client applications via {@link GrpcSslContexts#forClient()}.
+     * @deprecated since 0.13.38, please use {@link DamlLedgerClient#DamlLedgerClient(NettyChannelBuilder, Optional)} or even better either {@link DamlLedgerClient#newBuilder}
      */
+    @Deprecated
     public static DamlLedgerClient forLedgerIdAndHost(@NonNull String ledgerId, @NonNull String hostIp, int hostPort, @NonNull Optional<SslContext> sslContext) {
-        NettyChannelBuilder builder = NettyChannelBuilder.forAddress(hostIp, hostPort);
-        if (sslContext.isPresent()) {
-            builder.useTransportSecurity();
-            builder.sslContext(sslContext.get());
-        } else {
-            builder.usePlaintext();
-        }
-        return new DamlLedgerClient(Optional.of(ledgerId), builder.build());
+        Builder builder = newBuilder(hostIp, hostPort).withExpectedLedgerId(ledgerId);
+        sslContext.ifPresent(builder::withSslContext);
+        return builder.build();
     }
 
     /**
      * Like {@link DamlLedgerClient#forLedgerIdAndHost(String, String, int, Optional)} but with the ledger-id
      * automatically discovered instead of provided.
+     * @deprecated since 0.13.38, please use {@link DamlLedgerClient#DamlLedgerClient(NettyChannelBuilder, Optional)} or even better either {@link DamlLedgerClient#newBuilder}
      */
+    @Deprecated
     public static DamlLedgerClient forHostWithLedgerIdDiscovery(@NonNull String hostIp, int hostPort, Optional<SslContext> sslContext) {
-        NettyChannelBuilder builder = NettyChannelBuilder.forAddress(hostIp, hostPort);
-        if (sslContext.isPresent()) {
-            builder.useTransportSecurity();
-            builder.sslContext(sslContext.get());
-        } else {
-            builder.usePlaintext();
-        }
-        return new DamlLedgerClient(Optional.empty(), builder.build());
+        Builder builder = newBuilder(hostIp, hostPort);
+        sslContext.ifPresent(builder::withSslContext);
+        return builder.build();
     }
 
     private ActiveContractsClient activeContractsClient;
@@ -83,17 +124,23 @@ public final class DamlLedgerClient implements LedgerClient {
     private String expectedLedgerId;
     private final ManagedChannel channel;
 
+    private DamlLedgerClient(@NonNull NettyChannelBuilder channelBuilder, @NonNull Optional<String> expectedLedgerId) {
+        this.channel = channelBuilder.build();
+        this.expectedLedgerId = expectedLedgerId.orElse(null);
+    }
+
     /**
      * Creates a {@link DamlLedgerClient} with a previously created {@link ManagedChannel}. This is useful in
      * case additional settings need to be configured for the connection to the ledger (e.g. keep alive timeout).
      * @param expectedLedgerId If the value is present, {@link DamlLedgerClient#connect()} throws an exception
      *                         if the provided ledger id does not match the ledger id provided by the ledger.
      * @param channel A user provided instance of @{@link ManagedChannel}.
+     * @deprecated since 0.13.38, please use {@link DamlLedgerClient#newBuilder}
      */
+    @Deprecated
     public DamlLedgerClient(Optional<String> expectedLedgerId, @NonNull ManagedChannel channel) {
         this.channel = channel;
         this.expectedLedgerId = expectedLedgerId.orElse(null);
-        pool = new SingleThreadExecutionSequencerPool("client");
     }
 
     /**
