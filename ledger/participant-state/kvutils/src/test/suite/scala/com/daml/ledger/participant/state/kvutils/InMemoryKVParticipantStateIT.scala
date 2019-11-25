@@ -84,18 +84,11 @@ class InMemoryKVParticipantStateIT
       val rt = ps.getNewRecordTime()
 
       for {
-        result <- ps
-          .uploadPackages(List(archives.head), sourceDescription)
-          .toScala
+        result <- ps.uploadPackages(List(archives.head), sourceDescription).toScala
         updateTuple <- ps.stateUpdates(beginAfter = None).runWith(Sink.head)
       } yield {
         ps.close()
-        result match {
-          case UploadPackagesResult.Ok =>
-            succeed
-          case _ =>
-            fail("unexpected response to party allocation")
-        }
+        assert(result == UploadPackagesResult.Ok, "unexpected response to party allocation")
         matchPackageUpload(updateTuple, Offset(Array(0L, 0L)), archives.head, rt)
       }
     }
@@ -103,68 +96,49 @@ class InMemoryKVParticipantStateIT
     "provide two updates after uploadPackages with two archives" in {
       val ps = new InMemoryKVParticipantState(participantId)
       val rt = ps.getNewRecordTime()
+      val archive1 :: archive2 :: _ = archives
 
       for {
-        result <- ps
-          .uploadPackages(archives, sourceDescription)
-          .toScala
-        updateTuples <- ps.stateUpdates(beginAfter = None).take(2).runWith(Sink.seq)
+        result <- ps.uploadPackages(archives, sourceDescription).toScala
+        Seq(update1, update2) <- ps.stateUpdates(beginAfter = None).take(2).runWith(Sink.seq)
       } yield {
         ps.close()
-        result match {
-          case UploadPackagesResult.Ok =>
-            succeed
-          case _ =>
-            fail("unexpected response to party allocation")
-        }
-        matchPackageUpload(updateTuples.head, Offset(Array(0L, 0L)), archives.head, rt)
-        matchPackageUpload(updateTuples(1), Offset(Array(0L, 1L)), archives(1), rt)
+        assert(result == UploadPackagesResult.Ok, "unexpected response to party allocation")
+        matchPackageUpload(update1, Offset(Array(0L, 0L)), archive1, rt)
+        matchPackageUpload(update2, Offset(Array(0L, 1L)), archive2, rt)
       }
     }
 
     "remove duplicate package from update after uploadPackages" in {
       val ps = new InMemoryKVParticipantState(participantId)
       val rt = ps.getNewRecordTime()
+      val archive1 :: archive2 :: _ = archives
 
       for {
-        _ <- ps
-          .uploadPackages(List(archives.head), sourceDescription)
-          .toScala
-        result <- ps
-          .uploadPackages(List(archives.head), sourceDescription)
-          .toScala
-        _ <- ps
-          .uploadPackages(List(archives(1)), sourceDescription)
-          .toScala
-        updateTuples <- ps.stateUpdates(beginAfter = None).take(2).runWith(Sink.seq)
+        _ <- ps.uploadPackages(List(archive1), sourceDescription).toScala
+        result <- ps.uploadPackages(List(archive1), sourceDescription).toScala
+        _ <- ps.uploadPackages(List(archive2), sourceDescription).toScala
+        Seq(update1, update2) <- ps.stateUpdates(beginAfter = None).take(2).runWith(Sink.seq)
       } yield {
         ps.close()
-        result match {
-          case UploadPackagesResult.Ok =>
-            succeed
-          case _ =>
-            fail("unexpected response to party allocation")
-        }
+        assert(result == UploadPackagesResult.Ok, "unexpected response to party allocation")
         // first upload arrives as head update:
-        matchPackageUpload(updateTuples.head, Offset(Array(0L, 0L)), archives.head, rt)
+        matchPackageUpload(update1, Offset(Array(0L, 0L)), archive1, rt)
         // second upload results in no update because it was a duplicate
         // third upload arrives as a second update:
-        matchPackageUpload(updateTuples(1), Offset(Array(2L, 0L)), archives(1), rt)
+        matchPackageUpload(update2, Offset(Array(2L, 0L)), archive2, rt)
       }
     }
 
     "reject uploadPackages when archive is empty" in {
       val ps = new InMemoryKVParticipantState(participantId)
-      val rt = ps.getNewRecordTime()
 
       val badArchive = DamlLf.Archive.newBuilder
         .setHash("asdf")
         .build
 
       for {
-        result <- ps
-          .uploadPackages(List(badArchive), sourceDescription)
-          .toScala
+        result <- ps.uploadPackages(List(badArchive), sourceDescription).toScala
       } yield {
         ps.close()
         result match {
@@ -184,9 +158,7 @@ class InMemoryKVParticipantStateIT
       val displayName = Some("Alice Cooper")
 
       for {
-        allocResult <- ps
-          .allocateParty(hint, displayName)
-          .toScala
+        allocResult <- ps.allocateParty(hint, displayName).toScala
         updateTuple <- ps.stateUpdates(beginAfter = None).runWith(Sink.head)
       } yield {
         ps.close()
@@ -212,7 +184,6 @@ class InMemoryKVParticipantStateIT
 
     "accept allocateParty when hint is empty" in {
       val ps = new InMemoryKVParticipantState(participantId)
-      val rt = ps.getNewRecordTime()
 
       val hint = None
       val displayName = Some("Alice Cooper")
@@ -228,19 +199,10 @@ class InMemoryKVParticipantStateIT
             fail("unexpected response to party allocation")
         }
       }
-//      ps.allocateParty(hint, displayName).thenApply[Assertion]({
-//        case PartyAllocationResult.InvalidName(_) =>
-//          ps.close()
-//          succeed
-//        case _ =>
-//          ps.close()
-//          fail("unexpected response to party allocation")
-//      }).toScala
     }
 
     "reject allocateParty when hint contains invalid string for a party" in {
       val ps = new InMemoryKVParticipantState(participantId)
-      val rt = ps.getNewRecordTime()
 
       val hint = Some("Alice!@")
       val displayName = Some("Alice Cooper")
@@ -260,24 +222,16 @@ class InMemoryKVParticipantStateIT
 
     "reject duplicate allocateParty" in {
       val ps = new InMemoryKVParticipantState(participantId)
-      val rt = ps.getNewRecordTime()
 
       val hint = Some("Alice")
       val displayName = Some("Alice Cooper")
 
       for {
-        result1 <- ps.allocateParty(hint, displayName).toScala
-        result2 <- ps.allocateParty(hint, displayName).toScala
+        _ <- ps.allocateParty(hint, displayName).toScala
+        result <- ps.allocateParty(hint, displayName).toScala
       } yield {
         ps.close()
-        result1 match {
-          case PartyAllocationResult.Ok(_) =>
-            succeed
-          case _ =>
-            fail("unexpected response to party allocation")
-        }
-
-        result2 match {
+        result match {
           case PartyAllocationResult.AlreadyExists =>
             succeed
           case _ =>
@@ -287,13 +241,12 @@ class InMemoryKVParticipantStateIT
     }
 
     "provide update after transaction submission" in {
-
       val ps = new InMemoryKVParticipantState(participantId)
-      val rt = ps.getNewRecordTime()
 
+      val rt = ps.getNewRecordTime()
       val waitForUpdateFuture =
         ps.stateUpdates(beginAfter = None).runWith(Sink.head).map {
-          case (offset, update) =>
+          case (offset, _) =>
             ps.close()
             assert(offset == Offset(Array(0L, 0L)))
         }
@@ -366,21 +319,19 @@ class InMemoryKVParticipantStateIT
       val rt = ps.getNewRecordTime()
 
       val waitForUpdateFuture =
-        ps.stateUpdates(beginAfter = None).take(3).runWith(Sink.seq).map { updates =>
-          ps.close()
-          val (offset1, update1) = updates(0)
-          assert(offset1 == Offset(Array(0L, 0L)))
-          assert(update1.isInstanceOf[Update.TransactionAccepted])
+        ps.stateUpdates(beginAfter = None).take(3).runWith(Sink.seq).map {
+          case Seq((offset1, update1), (offset2, update2), (offset3, update3)) =>
+            ps.close()
 
-          val (offset2, update2) = updates(1)
-          assert(offset2 == Offset(Array(1L, 0L)))
-          assert(update2.isInstanceOf[Update.PartyAddedToParticipant])
+            assert(offset1 == Offset(Array(0, 0)))
+            assert(update1.isInstanceOf[Update.TransactionAccepted])
 
-          val (offset3, update3) = updates(2)
-          assert(offset3 == Offset(Array(2L, 0L)))
-          assert(update3.isInstanceOf[Update.TransactionAccepted])
+            assert(offset2 == Offset(Array(1, 0)))
+            assert(update2.isInstanceOf[Update.PartyAddedToParticipant])
+
+            assert(offset3 == Offset(Array(2, 0)))
+            assert(update3.isInstanceOf[Update.TransactionAccepted])
         }
-      val subInfo = submitterInfo(rt)
 
       for {
         // Submit without allocation in open world setting, expecting this to succeed.
@@ -402,7 +353,7 @@ class InMemoryKVParticipantStateIT
             emptyTransaction)
           .toScala
         r <- waitForUpdateFuture
-      } yield (r)
+      } yield r
     }
 
     "correctly implements closed world tx submission authorization" in {
@@ -448,7 +399,7 @@ class InMemoryKVParticipantStateIT
             emptyTransaction)
           .toScala
         r <- waitForUpdateFuture
-      } yield (r)
+      } yield r
     }
 
     "allow an administrator to submit new configuration" in {
@@ -483,15 +434,15 @@ class InMemoryKVParticipantStateIT
           )
           .toScala
 
-        updates <- ps.stateUpdates(None).take(2).runWith(Sink.seq)
+        Seq((_, update1), (_, update2)) <- ps.stateUpdates(None).take(2).runWith(Sink.seq)
       } yield {
         ps.close()
         // The first submission should change the config.
-        val newConfig = updates(0)._2.asInstanceOf[Update.ConfigurationChanged]
+        val newConfig = update1.asInstanceOf[Update.ConfigurationChanged]
         assert(newConfig.newConfiguration != lic.config)
 
         // The second submission should get rejected.
-        assert(updates(1)._2.isInstanceOf[Update.ConfigurationChangeRejected])
+        assert(update2.isInstanceOf[Update.ConfigurationChangeRejected])
       }
     }
   }
