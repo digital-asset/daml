@@ -36,7 +36,7 @@ sandboxProcess SandboxSpec{dar,maybeAuth} portFile = do
       where
         authOpts = case maybeAuth of
           Nothing -> []
-          Just AuthSpec{sharedSecret} -> ["--auth-jwt-hs256=" <> sharedSecret]
+          Just AuthSpec{sharedSecret} -> ["--auth-jwt-hs256-unsafe=" <> sharedSecret]
 
 startSandboxProcess :: SandboxSpec -> FilePath -> IO (ProcessHandle,Maybe Handle)
 startSandboxProcess spec portFile = withDevNull $ \devNull -> do
