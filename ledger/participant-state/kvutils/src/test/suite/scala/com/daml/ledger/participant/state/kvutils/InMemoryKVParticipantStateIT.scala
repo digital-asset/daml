@@ -5,6 +5,7 @@ package com.daml.ledger.participant.state.kvutils
 
 import java.io.File
 import java.time.Duration
+import java.util.UUID
 
 import akka.stream.scaladsl.Sink
 import com.daml.ledger.participant.state.backport.TimeModel
@@ -101,10 +102,11 @@ class InMemoryKVParticipantStateIT
     "provide update after uploadPackages" in {
       val ps = new InMemoryKVParticipantState(participantId)
       val rt = ps.getNewRecordTime()
+      val sId = UUID.randomUUID().toString
 
       for {
         result <- ps
-          .uploadPackages(List(archives.head), sourceDescription)
+          .uploadPackages(List(archives.head), sourceDescription, sId)
           .toScala
         updateTuple <- ps.stateUpdates(beginAfter = None).runWith(Sink.head)
       } yield {
@@ -124,10 +126,11 @@ class InMemoryKVParticipantStateIT
     "provide three updates and an accepted after uploadPackages with three archives" in {
       val ps = new InMemoryKVParticipantState(participantId)
       val rt = ps.getNewRecordTime()
+      val sId = UUID.randomUUID().toString
 
       for {
         result <- ps
-          .uploadPackages(archives, sourceDescription)
+          .uploadPackages(archives, sourceDescription, sId)
           .toScala
         updateTuples <- ps.stateUpdates(beginAfter = None).take(4).runWith(Sink.seq)
       } yield {
@@ -151,13 +154,13 @@ class InMemoryKVParticipantStateIT
 
       for {
         _ <- ps
-          .uploadPackages(List(archives.head), sourceDescription)
+          .uploadPackages(List(archives.head), sourceDescription, UUID.randomUUID().toString)
           .toScala
         duplicateResult <- ps
-          .uploadPackages(List(archives.head), sourceDescription)
+          .uploadPackages(List(archives.head), sourceDescription, UUID.randomUUID().toString)
           .toScala
         _ <- ps
-          .uploadPackages(List(archives(1)), sourceDescription)
+          .uploadPackages(List(archives(1)), sourceDescription, UUID.randomUUID().toString)
           .toScala
         updateTuples <- ps.stateUpdates(beginAfter = None).take(5).runWith(Sink.seq)
       } yield {
@@ -188,7 +191,7 @@ class InMemoryKVParticipantStateIT
 
       for {
         result <- ps
-          .uploadPackages(List(badArchive), sourceDescription)
+          .uploadPackages(List(badArchive), sourceDescription, UUID.randomUUID().toString)
           .toScala
         updateTuples <- ps.stateUpdates(beginAfter = None).take(2).runWith(Sink.seq)
       } yield {
@@ -214,7 +217,7 @@ class InMemoryKVParticipantStateIT
 
       for {
         result <- ps
-          .uploadPackages(List(badArchive, archives.head, archives(1)), sourceDescription)
+          .uploadPackages(List(badArchive, archives.head, archives(1)), sourceDescription, UUID.randomUUID().toString)
           .toScala
         updateTuples <- ps.stateUpdates(beginAfter = None).take(1).runWith(Sink.seq)
       } yield {
@@ -238,7 +241,7 @@ class InMemoryKVParticipantStateIT
 
       for {
         allocResult <- ps
-          .allocateParty(hint, displayName)
+          .allocateParty(hint, displayName, UUID.randomUUID().toString)
           .toScala
         updateTuple <- ps.stateUpdates(beginAfter = None).runWith(Sink.head)
       } yield {
@@ -271,7 +274,7 @@ class InMemoryKVParticipantStateIT
       val displayName = Some("Alice Cooper")
 
       for {
-        result <- ps.allocateParty(hint, displayName).toScala
+        result <- ps.allocateParty(hint, displayName, UUID.randomUUID().toString).toScala
         updateTuple <- ps.stateUpdates(beginAfter = None).runWith(Sink.head)
       } yield {
         ps.close()
@@ -303,7 +306,7 @@ class InMemoryKVParticipantStateIT
       val displayName = Some("Alice Cooper")
 
       for {
-        result <- ps.allocateParty(hint, displayName).toScala
+        result <- ps.allocateParty(hint, displayName, UUID.randomUUID().toString).toScala
         updateTuples <- ps.stateUpdates(beginAfter = None).take(1).runWith(Sink.seq)
       } yield {
         ps.close()
@@ -332,8 +335,8 @@ class InMemoryKVParticipantStateIT
       val displayName = Some("Alice Cooper")
 
       for {
-        result1 <- ps.allocateParty(hint, displayName).toScala
-        result2 <- ps.allocateParty(hint, displayName).toScala
+        result1 <- ps.allocateParty(hint, displayName, UUID.randomUUID().toString).toScala
+        result2 <- ps.allocateParty(hint, displayName, UUID.randomUUID().toString).toScala
         updateTuples <- ps.stateUpdates(beginAfter = None).take(2).runWith(Sink.seq)
       } yield {
         ps.close()
@@ -449,7 +452,8 @@ class InMemoryKVParticipantStateIT
         allocResult <- ps
           .allocateParty(
             None /* no name hint, implementation decides party name */,
-            Some("Somebody"))
+            Some("Somebody"),
+            UUID.randomUUID().toString)
           .toScala
         _ <- assert(allocResult.isInstanceOf[SubmissionResult])
         newParty <- ps
@@ -497,7 +501,8 @@ class InMemoryKVParticipantStateIT
         allocResult <- ps
           .allocateParty(
             None /* no name hint, implementation decides party name */,
-            Some("Somebody"))
+            Some("Somebody"),
+            UUID.randomUUID().toString)
           .toScala
         _ <- assert(allocResult.isInstanceOf[SubmissionResult])
         newParty <- ps
@@ -565,7 +570,7 @@ class InMemoryKVParticipantStateIT
 
     for {
       _ <- ps
-        .uploadPackages(archives, sourceDescription)
+        .uploadPackages(archives, sourceDescription, UUID.randomUUID().toString)
         .toScala
       updateTuple <- ps.stateUpdates(beginAfter = Some(Offset(Array(0L, 0L)))).runWith(Sink.head)
     } yield {

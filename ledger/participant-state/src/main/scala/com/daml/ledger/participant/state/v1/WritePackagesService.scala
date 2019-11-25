@@ -32,16 +32,17 @@ trait WritePackagesService {
     * provide the size, and the size might potentially be different from the
     * original size, which would be quite confusing.
     *
-    * @param payload           : DAML-LF archives to be uploaded to the ledger.
-    *
+    * @param payload          : DAML-LF archives to be uploaded to the ledger.
     * @param sourceDescription : Description provided by the backing participant
-    *   describing where it got the package from, e.g., when, where, or by whom
-    *   the packages were uploaded.
+    *                         describing where it got the package from, e.g., when, where, or by whom
+    *                         the packages were uploaded.
     *
+    * @param submissionId: Client picked submission identifier for matching the responses with the request.
     * @return an async result of a [[SubmissionResult]]
     */
   def uploadPackages(
       payload: List[Archive],
-      sourceDescription: Option[String]
+      sourceDescription: Option[String],
+      submissionId: String
   ): CompletionStage[SubmissionResult]
 }

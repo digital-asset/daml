@@ -413,14 +413,15 @@ class LedgerBackedWriteService(ledger: Ledger, timeProvider: TimeProvider) exten
 
   override def allocateParty(
       hint: Option[String],
-      displayName: Option[String]): CompletionStage[SubmissionResult] = {
+      displayName: Option[String],
+      submissionid: String): CompletionStage[SubmissionResult] = {
     // In the sandbox, the hint is used as-is.
     // If hint is not a valid and unallocated party name, the call fails
     hint.map(p => Party.fromString(p)) match {
       case None =>
         FutureConverters.toJava(
-          ledger.allocateParty(PartyIdGenerator.generateRandomId(), displayName))
-      case Some(Right(party)) => FutureConverters.toJava(ledger.allocateParty(party, displayName))
+          ledger.allocateParty(PartyIdGenerator.generateRandomId(), displayName, submissionid))
+      case Some(Right(party)) => FutureConverters.toJava(ledger.allocateParty(party, displayName, submissionid))
       case Some(Left(error)) =>
         // TODO BH : don't think we want to throw submission result error here but rather submit the request
         // then leave it to AllocatePartyRejectionEntry to give reason for failure "invalid party"
@@ -431,10 +432,11 @@ class LedgerBackedWriteService(ledger: Ledger, timeProvider: TimeProvider) exten
   // WritePackagesService
   override def uploadPackages(
       payload: List[Archive],
-      sourceDescription: Option[String]
+      sourceDescription: Option[String],
+      submissionId: String
   ): CompletionStage[SubmissionResult] =
     FutureConverters.toJava(
-      ledger.uploadPackages(timeProvider.getCurrentTime, sourceDescription, payload))
+      ledger.uploadPackages(timeProvider.getCurrentTime, sourceDescription, payload, submissionId))
 
   // WriteConfigService
   override def submitConfiguration(

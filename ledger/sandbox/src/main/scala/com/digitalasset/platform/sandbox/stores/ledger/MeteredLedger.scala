@@ -102,16 +102,20 @@ private class MeteredLedger(ledger: Ledger, metrics: MetricRegistry)
       Metrics.publishTransaction,
       ledger.publishTransaction(submitterInfo, transactionMeta, transaction))
 
-  override def allocateParty(party: Party, displayName: Option[String]): Future[SubmissionResult] =
-    timedFuture(Metrics.addParty, ledger.allocateParty(party, displayName))
+  override def allocateParty(
+      party: Party,
+      displayName: Option[String],
+      submissionId: String): Future[SubmissionResult] =
+    timedFuture(Metrics.addParty, ledger.allocateParty(party, displayName, submissionId))
 
   override def uploadPackages(
       knownSince: Instant,
       sourceDescription: Option[String],
-      payload: List[Archive]): Future[SubmissionResult] =
+      payload: List[Archive],
+      submissionId: String): Future[SubmissionResult] =
     timedFuture(
       Metrics.uploadPackages,
-      ledger.uploadPackages(knownSince, sourceDescription, payload))
+      ledger.uploadPackages(knownSince, sourceDescription, payload, submissionId))
 
   override def close(): Unit = {
     ledger.close()
