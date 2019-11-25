@@ -121,13 +121,7 @@ object ShowEncoding extends ShowEncoding {
 
     override def valueTextMap[A: Show]: Show[P.TextMap[A]] = mapShow
 
-    override def valueGenMap[K: Show, V: Show]: Show[P.GenMap[K, V]] =
-      Show.show { m =>
-        "SeqMap[" +:
-          Cord.mkCord(", ", m.toSeq.map { x =>
-          Cord(implicitly[Show[K]] show x._1, "->", implicitly[Show[V]] show x._2)
-        }: _*) :+ "]"
-      }
+    override def valueGenMap[K: Show, V: Show]: Show[P.GenMap[K, V]] = P.GenMap.insertMapShow
 
   }
 

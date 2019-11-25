@@ -3,6 +3,8 @@
 
 package com.digitalasset.daml.lf.data
 
+import scalaz.{Cord, Show}
+
 import scala.collection.generic.{CanBuildFrom, ImmutableMapFactory}
 import scala.collection.immutable.{AbstractMap, HashMap, Map, MapLike, Queue}
 
@@ -56,5 +58,13 @@ object InsertOrdMap extends ImmutableMapFactory[InsertOrdMap] {
 
   implicit def canBuildFrom[A, B]: CanBuildFrom[Coll, (A, B), InsertOrdMap[A, B]] =
     new MapCanBuildFrom[A, B]
+
+  implicit def insertMapShow[K: Show, V: Show]: Show[InsertOrdMap[K, V]] =
+    Show.show { m =>
+      "InsertOrdMap[" +:
+        Cord.mkCord(", ", m.toSeq.map { x =>
+        Cord(implicitly[Show[K]] show x._1, "->", implicitly[Show[V]] show x._2)
+      }: _*) :+ "]"
+    }
 
 }

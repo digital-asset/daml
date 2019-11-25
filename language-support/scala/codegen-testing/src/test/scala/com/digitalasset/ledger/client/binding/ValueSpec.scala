@@ -94,9 +94,9 @@ object ValueSpec {
     }
 
     override def valueGenMap[K, V](implicit vcK: ValueCheck[K], vcV: ValueCheck[V]) = {
-      implicit def TA: Arbitrary[P.GenMap[K, V]] = implicitly[Arbitrary[P.GenMap[K, V]]]
-      implicit def TS: Shrink[P.GenMap[K, V]] = implicitly[Shrink[P.GenMap[K, V]]]
-      implicit def TV: Value[P.GenMap[K, V]] = implicitly[Value[P.GenMap[K, V]]]
+      import vcK.{TA => KA, TS => KS, TV => KV}
+      import vcV.{TA => VA, TS => VS, TV => VV}
+
       ValueCheck[P.GenMap[K, V]](s"GenMap[${vcK.tName}, ${vcV.tName}]")
     }
   }

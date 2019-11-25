@@ -16,7 +16,7 @@ import java.util.TimeZone
 
 import com.digitalasset.daml.lf.data.InsertOrdMap
 
-sealed abstract class Primitive {
+sealed abstract class Primitive extends PrimitiveInstances {
   type Int64 = Long
   type Numeric = BigDecimal
   type Party = ApiTypes.Party
@@ -52,9 +52,9 @@ sealed abstract class Primitive {
   type TextMap[+V] = imm.Map[String, V]
   val TextMap: imm.Map.type = imm.Map
 
-  @Deprecated // Use TextMap
+  @deprecated("Use TextMap", since = "0.13.38")
   type Map[+V] = TextMap[V]
-  @Deprecated // Use TextMap
+  @deprecated("Use TextMap", since = "0.13.38")
   val Map: TextMap.type = TextMap
 
   type GenMap[K, +V] = InsertOrdMap[K, V]
