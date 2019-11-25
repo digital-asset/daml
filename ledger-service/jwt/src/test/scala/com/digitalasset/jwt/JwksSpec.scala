@@ -14,7 +14,7 @@ import org.scalatest.{FlatSpec, Matchers}
 import scalaz.syntax.show._
 
 /** Helper to create a HTTP server that serves a constant response on the "/result" URL */
-object SimpleHttpServer {
+private object SimpleHttpServer {
   def start(response: String): HttpServer = {
     val server = HttpServer.create(new InetSocketAddress(0), 0)
     server.createContext("/result", new HttpResultHandler(response))
