@@ -8,7 +8,7 @@ import java.time.Duration
 
 import ch.qos.logback.classic.Level
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.jwt.HMAC256Verifier
+import com.digitalasset.jwt.{HMAC256Verifier, JwksVerifier, RSA256Verifier}
 import com.digitalasset.ledger.api.auth.AuthServiceJWT
 import com.digitalasset.ledger.api.tls.TlsConfiguration
 import com.digitalasset.platform.common.LedgerIdMode
@@ -160,7 +160,19 @@ object Cli {
       .hidden()
       .validate(v => Either.cond(v.length > 0, (), "HMAC secret must be a non-empty string"))
       .text("[UNSAFE] Enables JWT-based authorization with shared secret HMAC256 signing: USE THIS EXCLUSIVELY FOR TESTING")
-      .action( (secret, config) => config.copy(authService = Some(AuthServiceJWT(HMAC256Verifier(secret).getOrElse(sys.error("Failed to create HMAC256 verifier"))))))
+      .action( (secret, config) => config.copy(authService = Some(AuthServiceJWT(HMAC256Verifier(secret).valueOr(err => sys.error(s"Failed to create HMAC256 verifier: $err"))))))
+
+    opt[String]("auth-jwt-rs256-crt")
+      .optional()
+      .validate(v => Either.cond(v.length > 0, (), "Certificate file path must be a non-empty string"))
+      .text("Enables JWT-based authorization, where the JWT is signed by RSA256 with a public key loaded from the given X509 certificate file (.crt)")
+      .action( (path, config) => config.copy(authService = Some(AuthServiceJWT(RSA256Verifier.fromCrtFile(path).valueOr(err => sys.error(s"Failed to create RSA256 verifier: $err"))))))
+
+    opt[String]("auth-jwt-rs256-jwks")
+      .optional()
+      .validate(v => Either.cond(v.length > 0, (), "JWK server URL must be a non-empty string"))
+      .text("Enables JWT-based authorization, where the JWT is signed by RSA256 with a public key loaded from the given JWKS URL")
+      .action( (url, config) => config.copy(authService = Some(AuthServiceJWT(JwksVerifier(url)))))
 
     help("help").text("Print the usage text")
 
