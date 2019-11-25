@@ -24,7 +24,8 @@ private[http] object ResponseFormats {
     JsObject(statusField(StatusCodes.OK), ("result", a))
   }
 
-  private val start: Source[ByteString, NotUsed] = Source.single(ByteString("{result=["))
+  private val start: Source[ByteString, NotUsed] =
+    Source.single(ByteString("""{"status":200,"result":["""))
 
   private val end: Source[ByteString, NotUsed] = Source.single(ByteString("]}"))
 
