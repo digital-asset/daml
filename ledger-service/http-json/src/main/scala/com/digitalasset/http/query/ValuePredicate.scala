@@ -13,11 +13,15 @@ import com.digitalasset.daml.lf.iface
 import com.digitalasset.daml.lf.value.{Value => V}
 import iface.{Type => Ty}
 import dbbackend.Queries.{concatFragment, contractColumnName}
+import json.JsonProtocol.LfValueDatabaseCodec.{apiValueToJsValue => dbApiValueToJsValue}
 
 import scalaz.{OneAnd, Order, \&/, \/, \/-}
 import scalaz.Tags.Conjunction
 import scalaz.std.anyVal._
+import scalaz.std.tuple._
+import scalaz.std.vector._
 import scalaz.syntax.apply._
+import scalaz.syntax.bifunctor._
 import scalaz.syntax.order._
 import scalaz.syntax.tag._
 import scalaz.syntax.std.option._
@@ -122,6 +126,17 @@ sealed abstract class ValuePredicate extends Product with Serializable {
             if (cqs.length == allSafe_==.length) Some(JsArray(allSafe_==)) else None,
             None)
 
+        case range: Range[a] =>
+          val exprs = range.ltgt
+            .umap(
+              _ map (boundary => sql" ${dbApiValueToJsValue(range.normalize(boundary))}::jsonb"))
+            .bifoldMap {
+              case (incl, ceil) => Vector(path ++ (if (incl) sql" <=" else sql" <") ++ ceil)
+            } {
+              case (incl, floor) => Vector(path ++ (if (incl) sql" >=" else sql" >") ++ floor)
+            }
+          Rec(exprs, None, None)
+
         case _ => Rec(AlwaysFails, None, None) // TODO other cases
       }
 
@@ -145,7 +160,11 @@ object ValuePredicate {
   final case class ListMatch(elems: Vector[ValuePredicate]) extends ValuePredicate
   final case class VariantMatch(elem: (Ref.Name, ValuePredicate)) extends ValuePredicate
   final case class OptionalMatch(elem: Option[ValuePredicate]) extends ValuePredicate
-  final case class Range[A](ltgt: Boundaries[A], ord: Order[A], project: LfV PartialFunction A)
+  final case class Range[A](
+      ltgt: Boundaries[A],
+      ord: Order[A],
+      project: LfV PartialFunction A,
+      normalize: A => LfV)
       extends ValuePredicate
 
   private[http] def fromTemplateJsObject(
@@ -375,14 +394,13 @@ object ValuePredicate {
       }
 
     def toLiteral(q: A) = {
-      import json.JsonProtocol.LfValueDatabaseCodec.{apiValueToJsValue => dbApiValueToJsValue}
       // we must roundtrip through normalized because e.g. there are several
       // queries that equal 5, but only one of those will be used as the
       // SQL representation (which we compare directly for equality)
       Literal({ case v if lfvScalar.lift(v) contains q => }, dbApiValueToJsValue(normalized(q)))
     }
 
-    def toRange(ltgt: Boundaries[A])(implicit A: Order[A]) = Range(ltgt, A, lfvScalar)
+    def toRange(ltgt: Boundaries[A])(implicit A: Order[A]) = Range(ltgt, A, lfvScalar, normalized)
 
     /** Match both the literal and range query cases. */
     def toQueryParser(implicit A: Order[A]): JsValue PartialFunction ValuePredicate = {
