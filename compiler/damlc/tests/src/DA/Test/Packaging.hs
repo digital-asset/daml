@@ -405,7 +405,16 @@ dataDependencyTests damlc = testGroup "Data Dependencies" $
         step "Regenerate source ..."
         callProcessSilent damlc ["generate-src", "Foo.dalf", "--srcdir=gen"]
         step "Compile generated source ..."
-        callProcessSilent damlc ["compile", "--generated-src", "gen/Foo.daml", "-o", "FooGen.dalf"]
+        callProcessSilent
+            damlc
+            [ "compile"
+            , "--generated-src"
+            , "gen/Foo.daml"
+            , "-o"
+            , "FooGen.dalf"
+            , "--package=(" <> show damlStdlib <>
+              ", False, [(\"DA.Internal.LF\", \"Sdk.DA.Internal.LF\"), (\"DA.Internal.Prelude\", \"Sdk.DA.Internal.Prelude\")])"
+            ]
         assertBool "FooGen.dalf was not created" =<< doesFileExist "FooGen.dalf"
     ]
 

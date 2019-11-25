@@ -788,7 +788,7 @@ execGenerateSrc opts dalfFp mbOutDir = Command GenerateSrc effect
                         (pkgId, _pkg) <- decode dalfBS
                         pure (pkgId, stringToUnitId $ takeFileName dalfFp)
         let pkgMap = MS.insert pkgId unitId pkgMap0
-        let genSrcs = generateSrcPkgFromLf (getUnitId unitId pkgMap) pkgId pkg
+        let genSrcs = generateSrcPkgFromLf (getUnitId unitId pkgMap) (Just "Sdk") pkg
         forM_ genSrcs $ \(path, src) -> do
             let fp = fromMaybe "" mbOutDir </> fromNormalizedFilePath path
             createDirectoryIfMissing True $ takeDirectory fp
@@ -823,7 +823,7 @@ execGenerateGenSrc darFp mbQual outDir = Command GenerateGenerics effect
         (mainPkgId, mainLfPkg) <-
             decode $ BSL.toStrict $ ZipArchive.fromEntry mainDalfEntry
         let getUid = getUnitId unitId pkgMap
-        let genSrcs = generateGenInstancesPkgFromLf getUid mainPkgId mainLfPkg (fromMaybe "" mbQual)
+        let genSrcs = generateGenInstancesPkgFromLf getUid Nothing mainPkgId mainLfPkg (fromMaybe "" mbQual)
         forM_ genSrcs $ \(path, src) -> do
             let fp = fromMaybe "" outDir </> fromNormalizedFilePath path
             createDirectoryIfMissing True $ takeDirectory fp

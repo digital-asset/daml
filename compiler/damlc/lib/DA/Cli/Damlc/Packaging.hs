@@ -121,10 +121,11 @@ createProjectPackageDb opts thisSdkVer deps0 dataDeps = do
                         | LF.PRImport pid <- toListOf packageRefs dalf
                         ]
                 let getUid = getUnitId unitId pkgMap
-                let src = generateSrcPkgFromLf getUid pkgId dalf
+                let src = generateSrcPkgFromLf getUid (Just "Sdk") dalf
                 let templInstSrc =
                         generateTemplateInstancesPkgFromLf
                             getUid
+                            (Just "Sdk")
                             pkgId
                             dalf
                 pure
@@ -216,10 +217,13 @@ createProjectPackageDb opts thisSdkVer deps0 dataDeps = do
                 , optGhcCustomOpts = []
                 , optPackageImports =
                       ("daml-prim", True, []) :
-                      -- the following is for the edge case, when there is no standard library
-                      -- dependency, but the dalf still uses builtins or builtin types like Party.
-                      -- In this case, we use the current daml-stdlib as their origin.
-                      [(damlStdlib, True, []) | not $ hasStdlibDep deps]  ++
+                      [ ( damlStdlib
+                        , False
+                        , [ ("DA.Internal.Template", "Sdk.DA.Internal.Template")
+                          , ("DA.Internal.LF", "Sdk.DA.Internal.LF")
+                          , ("DA.Internal.Prelude", "Sdk.DA.Internal.Prelude")
+                          ])
+                      ] ++
                       [(takeBaseName dep, True, []) | dep <- deps]
                 }
 
@@ -297,7 +301,10 @@ createProjectPackageDb opts thisSdkVer deps0 dataDeps = do
                               -- definition of the template class.
                               [ ( damlStdlib
                                 , False
-                                , [("DA.Internal.Template", "Sdk.DA.Internal.Template") ])
+                                , [ ("DA.Internal.Template", "Sdk.DA.Internal.Template")
+                                  , ("DA.Internal.LF", "Sdk.DA.Internal.LF")
+                                  , ("DA.Internal.Prelude", "Sdk.DA.Internal.Prelude")
+                                  ])
                               ] ++
                               -- the following is for the edge case, when there is no standard
                               -- library dependency, but the dalf still uses builtins or builtin
