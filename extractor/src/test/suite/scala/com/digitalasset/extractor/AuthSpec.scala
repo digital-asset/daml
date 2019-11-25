@@ -4,7 +4,7 @@
 package com.digitalasset.extractor
 
 import java.nio.file.Files
-import java.time.Instant
+import java.time.{Duration, Instant}
 import java.time.temporal.ChronoUnit
 import java.util.concurrent.atomic.AtomicReference
 
@@ -116,7 +116,7 @@ final class AuthSpec
   }
 
   it should "succeed if the proper token is provided" in {
-    setToken(operatorPayload.asHeader())
+    setToken(toHeader(operatorPayload))
     extractor(withAuth).run().map(_ => succeed)
   }
 
@@ -126,7 +126,7 @@ final class AuthSpec
       new Extractor(tailWithAuth, None)(
         (_, _, _) =>
           new Writer {
-            private var lastOffset = new AtomicReference[String]
+            private val lastOffset = new AtomicReference[String]
             override def init(): Future[Unit] = Future.successful(())
             override def handlePackages(packageStore: PackageStore): Future[Unit] =
               Future.successful(())
@@ -145,7 +145,7 @@ final class AuthSpec
               Future.successful(Option(lastOffset.get()))
         }
       )
-    setToken(operatorPayload.expiresInFiveSeconds.asHeader())
+    setToken(toHeader(expiringIn(Duration.ofSeconds(5), operatorPayload)))
     val _ = process.run()
     val expectedTxs = ListBuffer.empty[String]
     Delayed.Future
@@ -153,20 +153,20 @@ final class AuthSpec
         newSyncClient
           .submitAndWaitForTransactionId(
             SubmitAndWaitRequest(commands = dummyRequest.commands),
-            Option(operatorPayload.asHeader()))
+            Option(toHeader(operatorPayload)))
           .map(_.transactionId)
       }
       .onComplete {
         case Success(tx) => val _ = expectedTxs += tx
         case Failure(NonFatal(_)) => () // do nothing, the test will fail
       }
-    Delayed.by(15.seconds)(setToken(operatorPayload.asHeader()))
+    Delayed.by(15.seconds)(setToken(toHeader(operatorPayload)))
     Delayed.Future
       .by(20.seconds) {
         newSyncClient
           .submitAndWaitForTransactionId(
             SubmitAndWaitRequest(commands = dummyRequest.commands),
-            Option(operatorPayload.asHeader()))
+            Option(toHeader(operatorPayload)))
           .map(_.transactionId)
       }
       .onComplete {

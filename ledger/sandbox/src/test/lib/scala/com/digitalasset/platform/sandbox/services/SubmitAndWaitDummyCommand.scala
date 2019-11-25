@@ -6,27 +6,35 @@ package com.digitalasset.platform.sandbox.services
 import java.util.UUID
 
 import com.digitalasset.ledger.api.v1.command_service.{CommandServiceGrpc, SubmitAndWaitRequest}
+import com.digitalasset.platform.sandbox.auth.ServiceCallWithMainActorAuthTests
 import com.google.protobuf.empty.Empty
 
 import scala.concurrent.Future
 
-trait SubmitAndWaitDummyCommand extends TestCommands { self: SandboxFixtureWithAuth =>
+trait SubmitAndWaitDummyCommand extends TestCommands { self: ServiceCallWithMainActorAuthTests =>
 
-  def submitter: String
-
-  def appId: String
-
-  protected def issueCommand() = submitAndWait(Option(rwToken(submitter).asHeader()))
+  protected def submitAndWait(): Future[Empty] =
+    submitAndWait(Option(toHeader(readWriteToken(mainActor))))
 
   protected def dummySubmitAndWaitRequest: SubmitAndWaitRequest =
     SubmitAndWaitRequest(
-      dummyCommands(wrappedLedgerId, s"$appId-${UUID.randomUUID}", submitter)
-        .update(_.commands.applicationId := appId, _.commands.party := submitter)
+      dummyCommands(wrappedLedgerId, s"$serviceCallName-${UUID.randomUUID}", mainActor)
+        .update(_.commands.applicationId := serviceCallName, _.commands.party := mainActor)
         .commands)
 
-  protected def submitAndWait(token: Option[String]): Future[Empty] =
-    stub(CommandServiceGrpc.stub(channel), token).submitAndWait(dummySubmitAndWaitRequest)
+  private def service(token: Option[String]) =
+    stub(CommandServiceGrpc.stub(channel), token)
 
-  protected lazy val command = issueCommand()
+  protected def submitAndWait(token: Option[String]): Future[Empty] =
+    service(token).submitAndWait(dummySubmitAndWaitRequest)
+
+  protected def submitAndWaitForTransaction(token: Option[String]): Future[Empty] =
+    service(token).submitAndWait(dummySubmitAndWaitRequest)
+
+  protected def submitAndWaitForTransactionId(token: Option[String]): Future[Empty] =
+    service(token).submitAndWait(dummySubmitAndWaitRequest)
+
+  protected def submitAndWaitForTransactionTree(token: Option[String]): Future[Empty] =
+    service(token).submitAndWait(dummySubmitAndWaitRequest)
 
 }
