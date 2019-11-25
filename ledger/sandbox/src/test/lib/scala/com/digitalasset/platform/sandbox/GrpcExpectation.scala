@@ -11,7 +11,7 @@ import scala.concurrent.Future
 import scala.util.control.NonFatal
 import scala.util.{Failure, Success, Try}
 
-final class Expectation[T](f: Future[T], suite: AsyncTestSuite with Matchers) {
+final class GrpcExpectation[T](f: Future[T], suite: AsyncTestSuite with Matchers) {
 
   import suite._
 

@@ -9,6 +9,6 @@ import scala.concurrent.Future
 
 trait Expect { self: AsyncTestSuite with Matchers =>
 
-  def expect[T](f: => Future[T]) = new Expectation(f, self)
+  def expect[T](f: => Future[T]) = new GrpcExpectation(f, self)
 
 }
