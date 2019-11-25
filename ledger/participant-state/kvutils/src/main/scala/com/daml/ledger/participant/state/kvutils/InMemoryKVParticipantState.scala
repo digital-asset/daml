@@ -95,7 +95,7 @@ object InMemoryKVParticipantState {
   */
 class InMemoryKVParticipantState(
     val participantId: ParticipantId,
-    val ledgerId: LedgerString.T = Ref.LedgerString.assertFromString(UUID.randomUUID.toString),
+    val ledgerId: LedgerString = Ref.LedgerString.assertFromString(UUID.randomUUID.toString),
     file: Option[File] = None,
     openWorld: Boolean = true)(implicit system: ActorSystem, mat: Materializer)
     extends ReadService
