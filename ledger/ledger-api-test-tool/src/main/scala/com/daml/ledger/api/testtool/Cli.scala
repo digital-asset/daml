@@ -49,10 +49,9 @@ object Cli {
     head("""The Ledger API Test Tool is a command line tool for testing the correctness of
         |ledger implementations based on DAML and Ledger API.""".stripMargin)
 
-    arg[(String, Int)]("[endpoints...]")(endpointRead)
+    arg[(String, Int)]("ENDPOINTS [...]")(endpointRead)
       .action((address, config) => config.copy(participants = config.participants :+ address))
       .unbounded()
-      .optional()
       .text("""Addresses of the participants to test, specified as `<host>:<port>`.""")
 
     // FIXME Make client_server_test more flexible and remove this deprecated option
