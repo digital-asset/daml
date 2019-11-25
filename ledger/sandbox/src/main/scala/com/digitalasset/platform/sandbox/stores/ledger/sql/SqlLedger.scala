@@ -297,7 +297,10 @@ private class SqlLedger(
         case Failure(f) => Failure(f)
       }(DEC)
 
-  override def allocateParty(party: Party, displayName: Option[String]): Future[SubmissionResult] =
+  override def allocateParty(
+      party: Party,
+      displayName: Option[String],
+      submissionId: String): Future[SubmissionResult] =
     ledgerDao
       .storeParty(party, displayName, None)
       .map {
@@ -314,7 +317,8 @@ private class SqlLedger(
   override def uploadPackages(
       knownSince: Instant,
       sourceDescription: Option[String],
-      payload: List[Archive]): Future[SubmissionResult] = {
+      payload: List[Archive],
+      submissionId: String): Future[SubmissionResult] = {
     val submissionId = UUID.randomUUID().toString
     val packages = payload.map(archive =>
       (archive, PackageDetails(archive.getPayload.size().toLong, knownSince, sourceDescription)))

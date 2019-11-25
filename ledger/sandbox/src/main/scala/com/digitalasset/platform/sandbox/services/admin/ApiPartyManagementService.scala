@@ -3,6 +3,8 @@
 
 package com.digitalasset.platform.sandbox.services.admin
 
+import java.util.UUID
+
 import akka.actor.Scheduler
 import akka.stream.ActorMaterializer
 import com.daml.ledger.participant.state.index.v2.IndexPartyManagementService
@@ -82,10 +84,11 @@ class ApiPartyManagementService private (
   override def allocateParty(request: AllocatePartyRequest): Future[AllocatePartyResponse] = {
     val party = if (request.partyIdHint.isEmpty) None else Some(request.partyIdHint)
     val displayName = if (request.displayName.isEmpty) None else Some(request.displayName)
+    val submissionId = UUID.randomUUID().toString
 
     FutureConverters
       .toScala(writeService
-        .allocateParty(party, displayName))
+        .allocateParty(party, displayName, submissionId))
       .flatMap {
         case SubmissionResult.Acknowledged =>
           //TODO BH get full response from accept/reject party allocation message

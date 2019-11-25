@@ -3,6 +3,7 @@
 
 package com.daml.ledger.api.server.damlonx.reference.v2
 
+import java.util.UUID
 import java.util.concurrent.atomic.AtomicBoolean
 
 import akka.actor.ActorSystem
@@ -57,7 +58,7 @@ object ReferenceServer extends App {
     for {
       dar <- DarReader { case (_, x) => Try(Archive.parseFrom(x)) }
         .readArchiveFromFile(file)
-    } yield ledger.uploadPackages(dar.all, None)
+    } yield ledger.uploadPackages(dar.all, None, UUID.randomUUID().toString)
   }
 
   val participantLoggerFactory = NamedLoggerFactory.forParticipant(participantId)

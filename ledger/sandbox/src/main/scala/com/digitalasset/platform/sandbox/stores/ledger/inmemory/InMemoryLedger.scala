@@ -9,12 +9,7 @@ import java.util.concurrent.atomic.AtomicReference
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.ledger.participant.state.index.v2.PackageDetails
-import com.daml.ledger.participant.state.v1.{
-  SubmissionResult,
-  SubmittedTransaction,
-  SubmitterInfo,
-  TransactionMeta
-}
+import com.daml.ledger.participant.state.v1.{SubmissionResult, SubmittedTransaction, SubmitterInfo, TransactionMeta}
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.data.Ref.LedgerString.ordering
@@ -24,13 +19,7 @@ import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractId}
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
-import com.digitalasset.ledger.api.domain.{
-  ApplicationId,
-  CommandId,
-  LedgerId,
-  PartyDetails,
-  RejectionReason
-}
+import com.digitalasset.ledger.api.domain.{ApplicationId, CommandId, LedgerId, PartyDetails, RejectionReason}
 import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilter
 import com.digitalasset.platform.sandbox.services.transaction.SandboxEventIdFormatter
 import com.digitalasset.platform.sandbox.stores.ActiveLedgerState.ActiveContract
@@ -38,11 +27,7 @@ import com.digitalasset.platform.sandbox.stores.deduplicator.Deduplicator
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry.{Checkpoint, Rejection}
 import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
 import com.digitalasset.platform.sandbox.stores.ledger.{Ledger, LedgerEntry, LedgerSnapshot}
-import com.digitalasset.platform.sandbox.stores.{
-  ActiveLedgerState,
-  InMemoryActiveLedgerState,
-  InMemoryPackageStore
-}
+import com.digitalasset.platform.sandbox.stores.{ActiveLedgerState, InMemoryActiveLedgerState, InMemoryPackageStore}
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.Future
@@ -250,7 +235,7 @@ class InMemoryLedger(
       acs.parties.values.toList
     })
 
-  override def allocateParty(party: Party, displayName: Option[String]): Future[SubmissionResult] =
+  override def allocateParty(party: Party, displayName: Option[String], submissionId: String): Future[SubmissionResult] =
     Future.successful(this.synchronized {
       val ids = acs.parties.keySet
 
@@ -279,7 +264,8 @@ class InMemoryLedger(
   override def uploadPackages(
       knownSince: Instant,
       sourceDescription: Option[String],
-      payload: List[Archive]): Future[SubmissionResult] = {
+      payload: List[Archive],
+      submissionId: String): Future[SubmissionResult] = {
     val oldStore = packageStoreRef.get
     oldStore
       .withPackages(knownSince, sourceDescription, payload)
@@ -288,7 +274,7 @@ class InMemoryLedger(
         newStore => {
           if (packageStoreRef.compareAndSet(oldStore, newStore))
             Future.successful(SubmissionResult.Acknowledged)
-          else uploadPackages(knownSince, sourceDescription, payload)
+          else uploadPackages(knownSince, sourceDescription, payload, submissionId)
         }
       )
   }

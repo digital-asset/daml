@@ -46,13 +46,17 @@ trait WriteLedger extends AutoCloseable {
       transaction: SubmittedTransaction): Future[SubmissionResult]
 
   // Party management
-  def allocateParty(party: Party, displayName: Option[String]): Future[SubmissionResult]
+  def allocateParty(
+      party: Party,
+      displayName: Option[String],
+      submissionId: String): Future[SubmissionResult]
 
   // Package management
   def uploadPackages(
       knownSince: Instant,
       sourceDescription: Option[String],
-      payload: List[Archive]): Future[SubmissionResult]
+      payload: List[Archive],
+      submissionId: String): Future[SubmissionResult]
 }
 
 /** Defines all the functionalities a Ledger needs to provide */

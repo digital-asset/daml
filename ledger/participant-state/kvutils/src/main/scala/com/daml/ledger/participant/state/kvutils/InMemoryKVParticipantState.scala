@@ -6,7 +6,6 @@ package com.daml.ledger.participant.state.kvutils
 import java.io._
 import java.time.Clock
 import java.util.UUID
-import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.{CompletableFuture, CompletionStage}
 
 import akka.NotUsed
@@ -73,11 +72,6 @@ object InMemoryKVParticipantState {
 
   /** A periodically emitted heartbeat that is committed to the ledger. */
   final case class CommitHeartbeat(recordTime: Timestamp) extends Commit
-
-  sealed trait RequestMatch extends Serializable with Product
-
-  final case class AddPotentialResponse(idx: Int)
-
 }
 
 /** Implementation of the participant-state [[ReadService]] and [[WriteService]] using
@@ -121,9 +115,6 @@ class InMemoryKVParticipantState(
 
   // Namespace prefix for DAML state.
   private val NS_DAML_STATE = ByteString.copyFromUtf8("DS")
-
-  // For an in-memory ledger, an atomic integer is enough to guarantee uniqueness
-  private val submissionIdSource = new AtomicInteger()
 
   /** Interval for heartbeats. Heartbeats are committed to [[State.commitLog]]
     * and sent as [[Update.Heartbeat]] to [[stateUpdates]] consumers.
@@ -382,16 +373,11 @@ class InMemoryKVParticipantState(
   /** Allocate a party on the ledger */
   override def allocateParty(
       hint: Option[String],
-      displayName: Option[String]): CompletionStage[SubmissionResult] = {
-    allocatePartyOnLedger(hint.getOrElse(generateRandomId()), displayName)
-  }
-
-  private def allocatePartyOnLedger(
-      party: String,
-      displayName: Option[String]): CompletionStage[SubmissionResult] = {
-    val sId = submissionIdSource.getAndIncrement().toString
+      displayName: Option[String],
+      submissionId: String): CompletionStage[SubmissionResult] = {
+    val party = hint.getOrElse(generateRandomId())
     val submission =
-      KeyValueSubmission.partyToSubmission(sId, Some(party), displayName, participantId)
+      KeyValueSubmission.partyToSubmission(submissionId, Some(party), displayName, participantId)
 
     CompletableFuture.completedFuture({
       commitActorRef ! CommitSubmission(
@@ -410,10 +396,11 @@ class InMemoryKVParticipantState(
   /** Upload DAML-LF packages to the ledger */
   override def uploadPackages(
       archives: List[Archive],
-      sourceDescription: Option[String]): CompletionStage[SubmissionResult] = {
-    val sId = submissionIdSource.getAndIncrement().toString
+      sourceDescription: Option[String],
+      submissionId: String): CompletionStage[SubmissionResult] = {
+
     val submission = KeyValueSubmission
-      .archivesToSubmission(sId, archives, sourceDescription.getOrElse(""), participantId)
+      .archivesToSubmission(submissionId, archives, sourceDescription.getOrElse(""), participantId)
 
     CompletableFuture.completedFuture({
       commitActorRef ! CommitSubmission(

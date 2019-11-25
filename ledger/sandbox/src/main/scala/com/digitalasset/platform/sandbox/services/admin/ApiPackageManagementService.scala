@@ -4,6 +4,7 @@
 package com.digitalasset.platform.sandbox.services.admin
 
 import java.io.ByteArrayInputStream
+import java.util.UUID
 import java.util.zip.ZipInputStream
 
 import akka.actor.Scheduler
@@ -59,13 +60,14 @@ class ApiPackageManagementService(
   }
 
   override def uploadDarFile(request: UploadDarFileRequest): Future[UploadDarFileResponse] = {
+    val submissionId = UUID.randomUUID().toString
     val resultT = for {
       dar <- DarReader { case (_, x) => Try(Archive.parseFrom(x)) }
         .readArchive(
           "package-upload",
           new ZipInputStream(new ByteArrayInputStream(request.darFile.toByteArray)))
     } yield {
-      (packagesWrite.uploadPackages(dar.all, None), dar.all.map(_.getHash))
+      (packagesWrite.uploadPackages(dar.all, None, submissionId), dar.all.map(_.getHash))
     }
     resultT.fold(
       err => Future.failed(ErrorFactories.invalidArgument(err.getMessage)),
