@@ -8,6 +8,7 @@ module Daml.Script
   , submitMustFail
   , query
   , allocateParty
+  , allocatePartyOn
   , Commands
   , createCmd
   , exerciseCmd
@@ -84,13 +85,19 @@ query p = Script $ Free $ Query (QueryACS p (templateTypeRep @t) (pure . map (\(
 
 data AllocateParty a = AllocateParty
   { displayName : Text
+  , participant : Optional Text
   , continue : Party -> a
   } deriving Functor
 
 -- | Allocate a party with the given display name
 -- using the party management service.
 allocateParty : Text -> Script Party
-allocateParty displayName = Script $ Free (AllocParty $ AllocateParty displayName pure)
+allocateParty displayName = Script $ Free (AllocParty $ AllocateParty displayName None pure)
+
+-- | Allocate a party with the given display name
+-- using the party management service.
+allocatePartyOn : Text -> Text -> Script Party
+allocatePartyOn displayName participant = Script $ Free (AllocParty $ AllocateParty displayName (Some participant) pure)
 
 data SubmitFailure = SubmitFailure
   { status : Int

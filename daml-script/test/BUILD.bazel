@@ -4,6 +4,7 @@
 load(
     "//bazel_tools:scala.bzl",
     "da_scala_binary",
+    "da_scala_library",
 )
 load(
     "//bazel_tools/client_server:client_server_test.bzl",
@@ -23,6 +24,7 @@ genrule(
       TMP_DIR=$$(mktemp -d)
       mkdir -p $$TMP_DIR/daml
       cp -L $(location :daml/ScriptTest.daml) $$TMP_DIR/daml
+      cp -L $(location :daml/MultiTest.daml) $$TMP_DIR/daml
       cp -L $(location //docs:source/daml-script/template-root/src/ScriptExample.daml) $$TMP_DIR/daml
       cp -L $(location //daml-script/daml:daml-script.dar) $$TMP_DIR/
       cat << EOF > $$TMP_DIR/daml.yaml
@@ -42,10 +44,9 @@ EOF
     visibility = ["//visibility:public"],
 )
 
-da_scala_binary(
-    name = "test_client",
+da_scala_library(
+    name = "test-lib",
     srcs = glob(["src/**/*.scala"]),
-    main_class = "com.digitalasset.daml.lf.engine.script.test.TestMain",
     deps = [
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/archive:daml_lf_dev_archive_java_proto",
@@ -65,9 +66,21 @@ da_scala_binary(
     ],
 )
 
+da_scala_binary(
+    name = "test_client_single_participant",
+    main_class = "com.digitalasset.daml.lf.engine.script.test.SingleParticipant",
+    deps = [":test-lib"],
+)
+
+da_scala_binary(
+    name = "test_client_multi_participant",
+    main_class = "com.digitalasset.daml.lf.engine.script.test.MultiParticipant",
+    deps = [":test-lib"],
+)
+
 client_server_test(
     name = "test_static_time",
-    client = ":test_client",
+    client = ":test_client_single_participant",
     client_files = ["$(rootpath :script-test.dar)"],
     data = [":script-test.dar"],
     server = "//ledger/sandbox:sandbox-binary",
@@ -77,7 +90,7 @@ client_server_test(
 
 client_server_test(
     name = "test_wallclock_time",
-    client = ":test_client",
+    client = ":test_client_single_participant",
     client_args = ["-w"],
     client_files = ["$(rootpath :script-test.dar)"],
     data = [":script-test.dar"],
@@ -87,4 +100,23 @@ client_server_test(
         "--port=0",
     ],
     server_files = ["$(rootpath :script-test.dar)"],
+)
+
+client_server_test(
+    name = "test_multiparticipant",
+    client = ":test_client_multi_participant",
+    client_args = [
+        "-w",
+        "--extra-participant-port=6866",
+    ],
+    client_files = ["$(rootpath :script-test.dar)"],
+    data = [":script-test.dar"],
+    server = "//ledger/api-server-damlonx/reference-v2",
+    server_args = [
+        "--port=6865",
+        "--jdbc-url=jdbc:h2:mem:daml_on_x;db_close_delay=-1;db_close_on_exit=false",
+        "--extra-participant=second-participant,6866,jdbc:h2:mem:daml_on_x2;db_close_delay=-1;db_close_on_exit=false",
+    ],
+    server_files = ["$(rootpath :script-test.dar)"],
+    tags = ["exclusive"],
 )

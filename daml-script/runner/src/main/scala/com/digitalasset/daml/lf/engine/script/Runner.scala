@@ -31,6 +31,7 @@ import com.digitalasset.daml.lf.speedy.SValue._
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 import com.digitalasset.daml.lf.value.json.ApiCodecCompressed
+import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.refinements.ApiTypes.ApplicationId
 import com.digitalasset.ledger.api.v1.command_service.SubmitAndWaitRequest
@@ -41,6 +42,9 @@ import com.digitalasset.ledger.api.v1.transaction_filter.{
   InclusiveFilters
 }
 import com.digitalasset.ledger.client.LedgerClient
+import com.digitalasset.ledger.client.LedgerClient
+import com.digitalasset.ledger.client.configuration.LedgerClientConfiguration
+
 import com.digitalasset.ledger.client.services.commands.CommandUpdater
 
 object LfValueCodec extends ApiCodecCompressed[AbsoluteContractId](false, false) {
@@ -50,6 +54,82 @@ object LfValueCodec extends ApiCodecCompressed[AbsoluteContractId](false, false)
     case JsString(s) =>
       ContractIdString.fromString(s).fold(deserializationError(_), AbsoluteContractId)
     case _ => deserializationError("ContractId must be a string")
+  }
+}
+
+case class Participant(participant: String)
+case class Party(party: String)
+case class ApiParameters(host: String, port: Int)
+case class Participants[T](
+    default_participant: Option[T],
+    participants: Map[Participant, T],
+    party_participants: Map[Party, Participant],
+) {
+  def getPartyParticipant(party: Party): Either[String, T] =
+    party_participants.get(party) match {
+      case None =>
+        default_participant.fold[Either[String, T]](
+          Left(s"No participant for party $party and no default participant"))(Right(_))
+      case Some(participant) => getParticipant(Some(participant))
+    }
+  def getParticipant(participantOpt: Option[Participant]): Either[String, T] =
+    participantOpt match {
+      case None =>
+        default_participant.fold[Either[String, T]](Left(s"No default participant"))(Right(_))
+      case Some(participant) =>
+        participants.get(participant) match {
+          case None =>
+            default_participant.fold[Either[String, T]](
+              Left(s"No participant $participant and no default participant"))(Right(_))
+          case Some(t) => Right(t)
+        }
+    }
+}
+
+object ParticipantsJsonProtocol extends DefaultJsonProtocol {
+  implicit object ParticipantFormat extends JsonFormat[Participant] {
+    def read(value: JsValue) = value match {
+      case JsString(s) => Participant(s)
+      case _ => deserializationError("Expected Participant string")
+    }
+    def write(p: Participant) = JsString(p.participant)
+  }
+  implicit object PartyFormat extends JsonFormat[Party] {
+    def read(value: JsValue) = value match {
+      case JsString(s) => Party(s)
+      case _ => deserializationError("Expected Party string")
+    }
+    def write(p: Party) = JsString(p.party)
+  }
+  implicit val apiParametersFormat = jsonFormat2(ApiParameters)
+  implicit val participantsFormat = jsonFormat3(Participants[ApiParameters])
+}
+
+object Runner {
+  private def connectApiParameters(params: ApiParameters, clientConfig: LedgerClientConfiguration)(
+      implicit ec: ExecutionContext,
+      seq: ExecutionSequencerFactory): Future[LedgerClient] = {
+    LedgerClient.singleHost(params.host, params.port, clientConfig)
+  }
+  // We might want to have one config per participant at some point but for now this should be sufficient.
+  def connect(
+      participantParams: Participants[ApiParameters],
+      clientConfig: LedgerClientConfiguration)(
+      implicit ec: ExecutionContext,
+      seq: ExecutionSequencerFactory): Future[Participants[LedgerClient]] = {
+    for {
+      // The standard library is incredibly weird. Option is not Traversable so we have to convert to a list and back.
+      // Map is but it doesn’t return a Map so we have to call toMap afterwards.
+      defaultClient <- Future
+        .traverse(participantParams.default_participant.toList)(x =>
+          connectApiParameters(x, clientConfig))
+        .map(_.headOption)
+      participantClients <- Future
+        .traverse(participantParams.participants: Map[Participant, ApiParameters])({
+          case (k, v) => connectApiParameters(v, clientConfig).map((k, _))
+        })
+        .map(_.toMap)
+    } yield Participants(defaultClient, participantClients, participantParams.party_participants)
   }
 }
 
@@ -142,9 +222,13 @@ class Runner(
     SubmitAndWaitRequest(Some(commandUpdater.applyOverrides(commands)))
   }
 
-  def run(client: LedgerClient, scriptId: Identifier, inputValue: Option[JsValue])(
+  def run(
+      initialClients: Participants[LedgerClient],
+      scriptId: Identifier,
+      inputValue: Option[JsValue])(
       implicit ec: ExecutionContext,
       mat: ActorMaterializer): Future[SValue] = {
+    var clients = initialClients
     val scriptTy = darMap
       .get(scriptId.packageId)
       .flatMap(_.lookupIdentifier(scriptId.qualifiedName).toOption) match {
@@ -236,8 +320,10 @@ class Runner(
                   val requestOrErr = for {
                     party <- Converter.toParty(vals.get(0))
                     commands <- Converter.toCommands(compiledPackages, freeAp)
-                  } yield toSubmitRequest(client.ledgerId, party, commands)
-                  val request = requestOrErr.fold(s => throw new ConverterException(s), identity)
+                    client <- clients.getPartyParticipant(Party(party.value))
+                  } yield (client, toSubmitRequest(client.ledgerId, party, commands))
+                  val (client, request) =
+                    requestOrErr.fold(s => throw new ConverterException(s), identity)
                   val f =
                     client.commandServiceClient
                       .submitAndWaitForTransactionTree(request)
@@ -281,10 +367,14 @@ class Runner(
                   val filterOrErr = for {
                     party <- Converter.toParty(vals.get(0))
                     tplId <- Converter.typeRepToIdentifier(vals.get(1))
+                    client <- clients.getPartyParticipant(Party(party.value))
                   } yield
-                    TransactionFilter(
-                      List((party.value, Filters(Some(InclusiveFilters(Seq(tplId)))))).toMap)
-                  val filter = filterOrErr.fold(s => throw new ConverterException(s), identity)
+                    (
+                      client,
+                      TransactionFilter(
+                        List((party.value, Filters(Some(InclusiveFilters(Seq(tplId)))))).toMap))
+                  val (client, filter) =
+                    filterOrErr.fold(s => throw new ConverterException(s), identity)
                   val acsResponses = client.activeContractSetClient
                     .getActiveContracts(filter, verbose = true)
                     .runWith(Sink.seq)
@@ -304,16 +394,34 @@ class Runner(
             }
             case SVariant(_, "AllocParty", v) => {
               v match {
-                case SRecord(_, _, vals) if vals.size == 2 => {
+                case SRecord(_, _, vals) if vals.size == 3 => {
                   val displayName = vals.get(0) match {
                     case SText(value) => value
                     case v => throw new ConverterException(s"Expected SText but got $v")
                   }
-                  val continue = vals.get(1)
+                  val participantName = vals.get(1) match {
+                    case SOptional(Some(SText(t))) => Some(Participant(t))
+                    case SOptional(None) => None
+                    case v => throw new ConverterException(s"Expected SOptional(SText) but got $v")
+                  }
+                  val client = clients.getParticipant(participantName) match {
+                    case Left(err) => throw new RuntimeException(err)
+                    case Right(client) => client
+                  }
+                  val continue = vals.get(2)
                   val f =
                     client.partyManagementClient.allocateParty(None, Some(displayName))
                   f.flatMap(allocRes => {
                     val party = allocRes.party
+                    participantName match {
+                      case None => {
+                        // If no participant is specified, we use default_participant so we don’t need to change anything.
+                      }
+                      case Some(participant) =>
+                        clients =
+                          clients.copy(party_participants = clients.party_participants + (Party(
+                            party) -> participant))
+                    }
                     machine.ctrl =
                       Speedy.CtrlExpr(SEApp(SEValue(continue), Array(SEValue(SParty(party)))))
                     go()

@@ -3,132 +3,29 @@
 
 package com.digitalasset.daml.lf.engine.script.test
 
-import akka.actor.ActorSystem
-import akka.stream._
-import com.typesafe.scalalogging.StrictLogging
 import java.io.File
-import java.time.Instant
-import scala.concurrent.{Await, ExecutionContext, Future}
-import scala.concurrent.duration.Duration
-import scala.util.{Success, Failure}
-import scalaz.syntax.tag._
 import scalaz.syntax.traverse._
 import spray.json._
 
-import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.archive.Dar
 import com.digitalasset.daml.lf.archive.DarReader
 import com.digitalasset.daml.lf.archive.Decode
 import com.digitalasset.daml.lf.data.{FrontStack, FrontStackCons, Numeric}
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.speedy.SValue
 import com.digitalasset.daml.lf.speedy.SValue._
 import com.digitalasset.daml_lf_dev.DamlLf
-import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.digitalasset.ledger.api.refinements.ApiTypes.{ApplicationId}
-import com.digitalasset.ledger.client.configuration.{
-  CommandClientConfiguration,
-  LedgerClientConfiguration,
-  LedgerIdRequirement
-}
-import com.digitalasset.ledger.client.LedgerClient
-import com.digitalasset.ledger.client.services.commands.CommandUpdater
 
-import com.digitalasset.daml.lf.engine.script.Runner
+import com.digitalasset.daml.lf.engine.script._
 
 case class Config(ledgerPort: Int, darPath: File, wallclockTime: Boolean)
-
-// We do not use scalatest here since that doesn’t work nicely with
-// the client_server_test macro.
-
-object TestRunner {
-  def assertEqual[A](actual: A, expected: A, note: String) = {
-    if (actual == expected) {
-      Right(())
-    } else {
-      Left(s"$note: Expected $expected but got $actual")
-    }
-  }
-  def assertNotEqual[A](actual: A, expected: A, note: String) = {
-    if (actual != expected) {
-      Right(())
-    } else {
-      Left(s"$note: Expected $expected and $actual to be different")
-    }
-  }
-}
-
-class TestRunner(val config: Config) extends StrictLogging {
-  val applicationId = ApplicationId("DAML Script Test Runner")
-
-  val clientConfig = LedgerClientConfiguration(
-    applicationId = applicationId.unwrap,
-    ledgerIdRequirement = LedgerIdRequirement("", enabled = false),
-    commandClient = CommandClientConfiguration.default,
-    sslContext = None
-  )
-  val ttl = java.time.Duration.ofSeconds(30)
-  val commandUpdater = if (config.wallclockTime) {
-    new CommandUpdater(timeProviderO = Some(TimeProvider.UTC), ttl = ttl, overrideTtl = true)
-  } else {
-    new CommandUpdater(
-      timeProviderO = Some(TimeProvider.Constant(Instant.EPOCH)),
-      ttl = ttl,
-      overrideTtl = true)
-  }
-
-  def genericTest[A](
-      // test name
-      name: String,
-      // The dar package the trigger is in
-      dar: Dar[(PackageId, Package)],
-      // Identifier of the script value
-      scriptId: Identifier,
-      inputValue: Option[JsValue],
-      assertResult: SValue => Either[String, Unit]) = {
-
-    println(s"---\n$name:")
-
-    val system = ActorSystem("ScriptRunner")
-    implicit val sequencer: ExecutionSequencerFactory =
-      new AkkaExecutionSequencerPool("ScriptRunnerPool")(system)
-    implicit val materializer: ActorMaterializer = ActorMaterializer()(system)
-    implicit val ec: ExecutionContext = system.dispatcher
-
-    val clientF = LedgerClient.singleHost("localhost", config.ledgerPort, clientConfig)
-
-    val runner = new Runner(dar, applicationId, commandUpdater)
-
-    val testFlow: Future[Unit] = for {
-      client <- clientF
-      result <- runner.run(client, scriptId, inputValue)
-      _ <- assertResult(result) match {
-        case Left(err) =>
-          Future.failed(new RuntimeException(s"Assertion on script result failed: $err"))
-        case Right(()) => Future.unit
-      }
-    } yield ()
-    testFlow.onComplete({
-      case Success(_) => {
-        system.terminate
-        println(s"Test $name succeeded")
-      }
-      case Failure(err) => {
-        println(s"Test $name failed: $err")
-        sys.exit(1)
-      }
-    })
-    Await.result(testFlow, Duration.Inf)
-  }
-}
 
 case class Test0(dar: Dar[(PackageId, Package)], runner: TestRunner) {
   val scriptId = Identifier(dar.main._1, QualifiedName.assertFromString("ScriptTest:test0"))
   def runTests() = {
     runner.genericTest(
       "test0",
-      dar,
       scriptId,
       None,
       result =>
@@ -195,7 +92,6 @@ case class Test1(dar: Dar[(PackageId, Package)], runner: TestRunner) {
   def runTests() = {
     runner.genericTest(
       "test1",
-      dar,
       scriptId,
       None,
       result =>
@@ -213,7 +109,6 @@ case class Test2(dar: Dar[(PackageId, Package)], runner: TestRunner) {
   def runTests() = {
     runner.genericTest(
       "test2",
-      dar,
       scriptId,
       Some(JsObject(("p", JsString("Alice")), ("v", JsNumber(42)))),
       result =>
@@ -230,7 +125,6 @@ case class Test3(dar: Dar[(PackageId, Package)], runner: TestRunner) {
   def runTests() = {
     runner.genericTest(
       "test3",
-      dar,
       scriptId,
       None,
       result =>
@@ -247,7 +141,6 @@ case class Test4(dar: Dar[(PackageId, Package)], runner: TestRunner) {
   def runTests() = {
     runner.genericTest(
       "test4",
-      dar,
       scriptId,
       None,
       result =>
@@ -265,7 +158,6 @@ case class TestKey(dar: Dar[(PackageId, Package)], runner: TestRunner) {
   def runTests() = {
     runner.genericTest(
       "testKey",
-      dar,
       scriptId,
       None,
       result =>
@@ -284,7 +176,6 @@ case class ScriptExample(dar: Dar[(PackageId, Package)], runner: TestRunner) {
   def runTests() = {
     runner.genericTest(
       "ScriptExample",
-      dar,
       scriptId,
       None,
       result =>
@@ -296,7 +187,7 @@ case class ScriptExample(dar: Dar[(PackageId, Package)], runner: TestRunner) {
   }
 }
 
-object TestMain {
+object SingleParticipant {
 
   private val configParser = new scopt.OptionParser[Config]("daml_script_test") {
     head("daml_script_test")
@@ -329,7 +220,10 @@ object TestMain {
           case (pkgId, pkgArchive) => Decode.readArchivePayload(pkgId, pkgArchive)
         }
 
-        val runner = new TestRunner(config)
+        val participantParams =
+          Participants(Some(ApiParameters("localhost", config.ledgerPort)), Map.empty, Map.empty)
+
+        val runner = new TestRunner(participantParams, dar, config.wallclockTime)
         Test0(dar, runner).runTests()
         Test1(dar, runner).runTests()
         Test2(dar, runner).runTests()
