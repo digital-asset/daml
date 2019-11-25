@@ -40,7 +40,7 @@ final class ActiveContractsServiceAuthIT
     expect(getActiveContracts(None)).toBeDenied
   }
   it should "deny calls authorized for the wrong party" in {
-    expect(getActiveContracts(Option(rwToken("bob").asHeader(UUID.randomUUID.toString)))).toBeDenied
+    expect(getActiveContracts(Option(rwToken("bob").asHeader()))).toBeDenied
   }
   it should "deny calls with an invalid signature" in {
     expect(getActiveContracts(Option(rwToken(subscriber).asHeader(UUID.randomUUID.toString)))).toBeDenied
