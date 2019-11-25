@@ -346,6 +346,21 @@ class InMemoryKVParticipantStateIT
       waitForUpdateFuture
     }
 
+    "return update [0,1] with beginAfter=[0,0]" in {
+      val ps = new InMemoryKVParticipantState(participantId)
+      val rt = ps.getNewRecordTime()
+
+      for {
+        _ <- ps
+          .uploadPackages(archives, sourceDescription)
+          .toScala
+        updateTuple <- ps.stateUpdates(beginAfter = Some(Offset(Array(0L, 0L)))).runWith(Sink.head)
+      } yield {
+        ps.close()
+        matchPackageUpload(updateTuple, Offset(Array(0L, 1L)), archives(1), rt)
+      }
+    }
+
     "correctly implements open world tx submission authorization" in {
       val ps = new InMemoryKVParticipantState(participantId, openWorld = true)
       val rt = ps.getNewRecordTime()
@@ -435,64 +450,49 @@ class InMemoryKVParticipantStateIT
         r <- waitForUpdateFuture
       } yield (r)
     }
-  }
 
-  "can submit new configuration" in {
-    val ps = new InMemoryKVParticipantState(participantId)
-    val rt = ps.getNewRecordTime()
+    "allow an administrator to submit new configuration" in {
+      val ps = new InMemoryKVParticipantState(participantId)
+      val rt = ps.getNewRecordTime()
 
-    for {
-      lic <- ps.getLedgerInitialConditions().runWith(Sink.head)
+      for {
+        lic <- ps.getLedgerInitialConditions().runWith(Sink.head)
 
-      // Submit a configuration change that flips the "open world" flag.
-      _ <- ps
-        .submitConfiguration(
-          maxRecordTime = rt.addMicros(1000000),
-          submissionId = "test1",
-          config = lic.config.copy(
-            generation = lic.config.generation + 1,
-            openWorld = !lic.config.openWorld
-          ))
-        .toScala
+        // Submit a configuration change that flips the "open world" flag.
+        _ <- ps
+          .submitConfiguration(
+            maxRecordTime = rt.addMicros(1000000),
+            submissionId = "test1",
+            config = lic.config.copy(
+              generation = lic.config.generation + 1,
+              openWorld = !lic.config.openWorld
+            ))
+          .toScala
 
-      // Submit another configuration change that uses stale "current config".
-      _ <- ps
-        .submitConfiguration(
-          maxRecordTime = rt.addMicros(1000000),
-          submissionId = "test2",
-          config = lic.config.copy(
-            timeModel = TimeModel(
-              Duration.ofSeconds(123),
-              Duration.ofSeconds(123),
-              Duration.ofSeconds(123)).get
+        // Submit another configuration change that uses stale "current config".
+        _ <- ps
+          .submitConfiguration(
+            maxRecordTime = rt.addMicros(1000000),
+            submissionId = "test2",
+            config = lic.config.copy(
+              timeModel = TimeModel(
+                Duration.ofSeconds(123),
+                Duration.ofSeconds(123),
+                Duration.ofSeconds(123)).get
+            )
           )
-        )
-        .toScala
+          .toScala
 
-      updates <- ps.stateUpdates(None).take(2).runWith(Sink.seq)
-    } yield {
-      ps.close()
-      // The first submission should change the config.
-      val newConfig = updates(0)._2.asInstanceOf[Update.ConfigurationChanged]
-      assert(newConfig.newConfiguration != lic.config)
+        updates <- ps.stateUpdates(None).take(2).runWith(Sink.seq)
+      } yield {
+        ps.close()
+        // The first submission should change the config.
+        val newConfig = updates(0)._2.asInstanceOf[Update.ConfigurationChanged]
+        assert(newConfig.newConfiguration != lic.config)
 
-      // The second submission should get rejected.
-      assert(updates(1)._2.isInstanceOf[Update.ConfigurationChangeRejected])
-    }
-  }
-
-  "return update [0,1] with beginAfter=[0,0]" in {
-    val ps = new InMemoryKVParticipantState(participantId)
-    val rt = ps.getNewRecordTime()
-
-    for {
-      _ <- ps
-        .uploadPackages(archives, sourceDescription)
-        .toScala
-      updateTuple <- ps.stateUpdates(beginAfter = Some(Offset(Array(0L, 0L)))).runWith(Sink.head)
-    } yield {
-      ps.close()
-      matchPackageUpload(updateTuple, Offset(Array(0L, 1L)), archives(1), rt)
+        // The second submission should get rejected.
+        assert(updates(1)._2.isInstanceOf[Update.ConfigurationChangeRejected])
+      }
     }
   }
 }
