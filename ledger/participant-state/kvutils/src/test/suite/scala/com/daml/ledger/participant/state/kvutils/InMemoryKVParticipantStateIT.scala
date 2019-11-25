@@ -8,61 +8,23 @@ import java.time.Duration
 
 import akka.stream.scaladsl.Sink
 import com.daml.ledger.participant.state.backport.TimeModel
+import com.daml.ledger.participant.state.kvutils.InMemoryKVParticipantStateIT._
 import com.daml.ledger.participant.state.v1.Update.{PartyAddedToParticipant, PublicPackageUploaded}
 import com.daml.ledger.participant.state.v1._
-import com.digitalasset.daml.bazeltools.BazelRunfiles
+import com.digitalasset.daml.bazeltools.BazelRunfiles._
 import com.digitalasset.daml.lf.archive.DarReader
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.transaction.Transaction.PartialTransaction
 import com.digitalasset.daml_lf_dev.DamlLf
 import com.digitalasset.ledger.api.testing.utils.AkkaBeforeAndAfterAll
+import org.scalatest.Assertions._
 import org.scalatest.{Assertion, AsyncWordSpec}
 
 import scala.compat.java8.FutureConverters._
 import scala.util.Try
 
-class InMemoryKVParticipantStateIT
-    extends AsyncWordSpec
-    with AkkaBeforeAndAfterAll
-    with BazelRunfiles {
-
-  private val emptyTransaction: SubmittedTransaction =
-    PartialTransaction.initial.finish.right.get
-
-  private val participantId: ParticipantId =
-    Ref.LedgerString.assertFromString("in-memory-participant")
-  private val sourceDescription = Some("provided by test")
-
-  private val darReader = DarReader { case (_, is) => Try(DamlLf.Archive.parseFrom(is)) }
-  private val archives =
-    darReader.readArchiveFromFile(new File(rlocation("ledger/test-common/Test-stable.dar"))).get.all
-
-  private def submitterInfo(rt: Timestamp, party: String = "Alice") = SubmitterInfo(
-    submitter = Ref.Party.assertFromString(party),
-    applicationId = Ref.LedgerString.assertFromString("tests"),
-    commandId = Ref.LedgerString.assertFromString("X"),
-    maxRecordTime = rt.addMicros(Duration.ofSeconds(10).toNanos / 1000)
-  )
-
-  private def transactionMeta(let: Timestamp) = TransactionMeta(
-    ledgerEffectiveTime = let,
-    workflowId = Some(Ref.LedgerString.assertFromString("tests"))
-  )
-
-  private def matchPackageUpload(
-      updateTuple: (Offset, Update),
-      givenOffset: Offset,
-      givenArchive: DamlLf.Archive,
-      rt: Timestamp): Assertion = updateTuple match {
-    case (offset: Offset, update: PublicPackageUploaded) =>
-      assert(offset == givenOffset)
-      assert(update.archive == givenArchive)
-      assert(update.sourceDescription == sourceDescription)
-      assert(update.participantId == participantId)
-      assert(update.recordTime >= rt)
-    case _ => fail("unexpected update message after a package upload")
-  }
+class InMemoryKVParticipantStateIT extends AsyncWordSpec with AkkaBeforeAndAfterAll {
 
   "In-memory implementation" should {
 
@@ -442,5 +404,45 @@ class InMemoryKVParticipantStateIT
         assert(update2.isInstanceOf[Update.ConfigurationChangeRejected])
       }
     }
+  }
+}
+
+object InMemoryKVParticipantStateIT {
+  private val emptyTransaction: SubmittedTransaction =
+    PartialTransaction.initial.finish.right.get
+
+  private val participantId: ParticipantId =
+    Ref.LedgerString.assertFromString("in-memory-participant")
+  private val sourceDescription = Some("provided by test")
+
+  private val darReader = DarReader { case (_, is) => Try(DamlLf.Archive.parseFrom(is)) }
+  private val archives =
+    darReader.readArchiveFromFile(new File(rlocation("ledger/test-common/Test-stable.dar"))).get.all
+
+  private def submitterInfo(rt: Timestamp, party: String = "Alice") = SubmitterInfo(
+    submitter = Ref.Party.assertFromString(party),
+    applicationId = Ref.LedgerString.assertFromString("tests"),
+    commandId = Ref.LedgerString.assertFromString("X"),
+    maxRecordTime = rt.addMicros(Duration.ofSeconds(10).toNanos / 1000)
+  )
+
+  private def transactionMeta(let: Timestamp) = TransactionMeta(
+    ledgerEffectiveTime = let,
+    workflowId = Some(Ref.LedgerString.assertFromString("tests"))
+  )
+
+  private def matchPackageUpload(
+      updateTuple: (Offset, Update),
+      givenOffset: Offset,
+      givenArchive: DamlLf.Archive,
+      rt: Timestamp
+  ): Assertion = updateTuple match {
+    case (offset: Offset, update: PublicPackageUploaded) =>
+      assert(offset == givenOffset)
+      assert(update.archive == givenArchive)
+      assert(update.sourceDescription == sourceDescription)
+      assert(update.participantId == participantId)
+      assert(update.recordTime >= rt)
+    case _ => fail("unexpected update message after a package upload")
   }
 }
