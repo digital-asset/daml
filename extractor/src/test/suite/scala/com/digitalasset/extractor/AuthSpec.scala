@@ -14,9 +14,7 @@ import com.digitalasset.extractor.ledger.types.TransactionTree
 import com.digitalasset.extractor.targets.TextPrintTarget
 import com.digitalasset.extractor.writers.Writer
 import com.digitalasset.grpc.GrpcException
-import com.digitalasset.jwt.domain.DecodedJwt
-import com.digitalasset.jwt.{HMAC256Verifier, JwtSigner}
-import com.digitalasset.ledger.api.auth.{AuthServiceJWT, AuthServiceJWTCodec, AuthServiceJWTPayload}
+import com.digitalasset.ledger.api.auth.AuthServiceJWTPayload
 import com.digitalasset.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.digitalasset.ledger.api.tls.TlsConfiguration
 import com.digitalasset.ledger.api.v1.command_service.{CommandServiceGrpc, SubmitAndWaitRequest}

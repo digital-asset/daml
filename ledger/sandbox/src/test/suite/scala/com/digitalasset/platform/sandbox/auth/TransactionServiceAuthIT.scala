@@ -143,7 +143,9 @@ final class TransactionServiceAuthIT
       .toFailWith(Status.Code.NOT_FOUND)
   }
   it should "allow calls with read-only tokens" in {
-    expect(getTransactionById(Option(roToken(submitter).asHeader())))
+    expect(
+      getTransactionById(Option(roToken(submitter)
+        .asHeader())))
       .toFailWith(Status.Code.NOT_FOUND)
   }
   it should "deny calls with expired tokens" in {
