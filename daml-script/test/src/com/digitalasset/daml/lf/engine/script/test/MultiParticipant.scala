@@ -75,7 +75,7 @@ object MultiParticipant {
           None,
           Seq(
             (Participant("one"), ApiParameters("localhost", config.ledgerPort)),
-            (Participant("two"), ApiParameters("localhost", config.ledgerPort))).toMap,
+            (Participant("two"), ApiParameters("localhost", config.extraParticipantPort))).toMap,
           Map.empty
         )
 
