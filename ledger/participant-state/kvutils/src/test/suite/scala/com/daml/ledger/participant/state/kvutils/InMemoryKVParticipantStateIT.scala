@@ -5,6 +5,7 @@ package com.daml.ledger.participant.state.kvutils
 
 import java.io.File
 import java.time.Duration
+import java.util.UUID
 
 import akka.stream.scaladsl.Sink
 import com.daml.ledger.participant.state.backport.TimeModel
@@ -14,6 +15,7 @@ import com.daml.ledger.participant.state.v1._
 import com.digitalasset.daml.bazeltools.BazelRunfiles._
 import com.digitalasset.daml.lf.archive.DarReader
 import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Ref.LedgerString
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.transaction.Transaction.PartialTransaction
 import com.digitalasset.daml_lf_dev.DamlLf
@@ -29,11 +31,13 @@ class InMemoryKVParticipantStateIT
     with BeforeAndAfterEach
     with AkkaBeforeAndAfterAll {
 
+  var ledgerId: LedgerString = _
   var ps: InMemoryKVParticipantState = _
 
   override protected def beforeEach(): Unit = {
     super.beforeEach()
-    ps = new InMemoryKVParticipantState(participantId)
+    ledgerId = Ref.LedgerString.assertFromString(s"ledger-${UUID.randomUUID()}")
+    ps = new InMemoryKVParticipantState(participantId, ledgerId)
   }
 
   override protected def afterEach(): Unit = {
@@ -47,11 +51,13 @@ class InMemoryKVParticipantStateIT
     // creation & teardown!
 
     "return initial conditions" in {
-      ps.getLedgerInitialConditions()
-        .runWith(Sink.head)
-        .map { _ =>
-          succeed
-        }
+      for {
+        conditions <- ps
+          .getLedgerInitialConditions()
+          .runWith(Sink.head)
+      } yield {
+        assert(conditions.ledgerId == ledgerId)
+      }
     }
 
     "provide update after uploadPackages" in {
