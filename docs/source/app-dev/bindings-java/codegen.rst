@@ -588,6 +588,6 @@ functions to convert back the container's entries.
 .. _ContractId: /app-dev/bindings-java/javadocs/com/daml/ledger/javaapi/data/ContractId.html
 .. _DamlOptional: /app-dev/bindings-java/javadocs/com/daml/ledger/javaapi/data/DamlOptional.html
 .. _DamlList: /app-dev/bindings-java/javadocs/com/daml/ledger/javaapi/data/DamlList.html
-.. _DamlTextMap: /app-dev/bindings-java/javadocs/com/daml/ledger/javaapi/data/DamLTextMap.html
-.. _DamlMap: /app-dev/bindings-java/javadocs/com/daml/ledger/javaapi/data/DamLMap.html
-.. _DamlCollectors: /app-dev/bindings-java/javadocs/com/daml/ledger/javaapi/data/DamLCollectors.html
+.. _DamlTextMap: /app-dev/bindings-java/javadocs/com/daml/ledger/javaapi/data/DamlTextMap.html
+.. _DamlMap: /app-dev/bindings-java/javadocs/com/daml/ledger/javaapi/data/DamlMap.html
+.. _DamlCollectors: /app-dev/bindings-java/javadocs/com/daml/ledger/javaapi/data/DamlCollectors.html
