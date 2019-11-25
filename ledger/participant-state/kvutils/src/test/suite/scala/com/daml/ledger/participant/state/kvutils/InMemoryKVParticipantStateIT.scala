@@ -19,12 +19,27 @@ import com.digitalasset.daml.lf.transaction.Transaction.PartialTransaction
 import com.digitalasset.daml_lf_dev.DamlLf
 import com.digitalasset.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import org.scalatest.Assertions._
-import org.scalatest.{Assertion, AsyncWordSpec}
+import org.scalatest.{Assertion, AsyncWordSpec, BeforeAndAfterEach}
 
 import scala.compat.java8.FutureConverters._
 import scala.util.Try
 
-class InMemoryKVParticipantStateIT extends AsyncWordSpec with AkkaBeforeAndAfterAll {
+class InMemoryKVParticipantStateIT
+    extends AsyncWordSpec
+    with BeforeAndAfterEach
+    with AkkaBeforeAndAfterAll {
+
+  var ps: InMemoryKVParticipantState = _
+
+  override protected def beforeEach(): Unit = {
+    super.beforeEach()
+    ps = new InMemoryKVParticipantState(participantId)
+  }
+
+  override protected def afterEach(): Unit = {
+    ps.close()
+    super.afterEach()
+  }
 
   "In-memory implementation" should {
 
@@ -32,31 +47,26 @@ class InMemoryKVParticipantStateIT extends AsyncWordSpec with AkkaBeforeAndAfter
     // creation & teardown!
 
     "return initial conditions" in {
-      val ps = new InMemoryKVParticipantState(participantId)
       ps.getLedgerInitialConditions()
         .runWith(Sink.head)
         .map { _ =>
-          ps.close()
           succeed
         }
     }
 
     "provide update after uploadPackages" in {
-      val ps = new InMemoryKVParticipantState(participantId)
       val rt = ps.getNewRecordTime()
 
       for {
         result <- ps.uploadPackages(List(archives.head), sourceDescription).toScala
         updateTuple <- ps.stateUpdates(beginAfter = None).runWith(Sink.head)
       } yield {
-        ps.close()
         assert(result == UploadPackagesResult.Ok, "unexpected response to party allocation")
         matchPackageUpload(updateTuple, Offset(Array(0L, 0L)), archives.head, rt)
       }
     }
 
     "provide two updates after uploadPackages with two archives" in {
-      val ps = new InMemoryKVParticipantState(participantId)
       val rt = ps.getNewRecordTime()
       val archive1 :: archive2 :: _ = archives
 
@@ -64,7 +74,6 @@ class InMemoryKVParticipantStateIT extends AsyncWordSpec with AkkaBeforeAndAfter
         result <- ps.uploadPackages(archives, sourceDescription).toScala
         Seq(update1, update2) <- ps.stateUpdates(beginAfter = None).take(2).runWith(Sink.seq)
       } yield {
-        ps.close()
         assert(result == UploadPackagesResult.Ok, "unexpected response to party allocation")
         matchPackageUpload(update1, Offset(Array(0L, 0L)), archive1, rt)
         matchPackageUpload(update2, Offset(Array(0L, 1L)), archive2, rt)
@@ -72,7 +81,6 @@ class InMemoryKVParticipantStateIT extends AsyncWordSpec with AkkaBeforeAndAfter
     }
 
     "remove duplicate package from update after uploadPackages" in {
-      val ps = new InMemoryKVParticipantState(participantId)
       val rt = ps.getNewRecordTime()
       val archive1 :: archive2 :: _ = archives
 
@@ -82,7 +90,6 @@ class InMemoryKVParticipantStateIT extends AsyncWordSpec with AkkaBeforeAndAfter
         _ <- ps.uploadPackages(List(archive2), sourceDescription).toScala
         Seq(update1, update2) <- ps.stateUpdates(beginAfter = None).take(2).runWith(Sink.seq)
       } yield {
-        ps.close()
         assert(result == UploadPackagesResult.Ok, "unexpected response to party allocation")
         // first upload arrives as head update:
         matchPackageUpload(update1, Offset(Array(0L, 0L)), archive1, rt)
@@ -93,7 +100,6 @@ class InMemoryKVParticipantStateIT extends AsyncWordSpec with AkkaBeforeAndAfter
     }
 
     "reject uploadPackages when archive is empty" in {
-      val ps = new InMemoryKVParticipantState(participantId)
 
       val badArchive = DamlLf.Archive.newBuilder
         .setHash("asdf")
@@ -102,7 +108,6 @@ class InMemoryKVParticipantStateIT extends AsyncWordSpec with AkkaBeforeAndAfter
       for {
         result <- ps.uploadPackages(List(badArchive), sourceDescription).toScala
       } yield {
-        ps.close()
         result match {
           case UploadPackagesResult.InvalidPackage(_) =>
             succeed
@@ -113,7 +118,6 @@ class InMemoryKVParticipantStateIT extends AsyncWordSpec with AkkaBeforeAndAfter
     }
 
     "provide update after allocateParty" in {
-      val ps = new InMemoryKVParticipantState(participantId)
       val rt = ps.getNewRecordTime()
 
       val hint = Some("Alice")
@@ -123,7 +127,6 @@ class InMemoryKVParticipantStateIT extends AsyncWordSpec with AkkaBeforeAndAfter
         allocResult <- ps.allocateParty(hint, displayName).toScala
         updateTuple <- ps.stateUpdates(beginAfter = None).runWith(Sink.head)
       } yield {
-        ps.close()
         allocResult match {
           case PartyAllocationResult.Ok(partyDetails) =>
             assert(partyDetails.party == hint.get)
@@ -145,15 +148,12 @@ class InMemoryKVParticipantStateIT extends AsyncWordSpec with AkkaBeforeAndAfter
     }
 
     "accept allocateParty when hint is empty" in {
-      val ps = new InMemoryKVParticipantState(participantId)
-
       val hint = None
       val displayName = Some("Alice Cooper")
 
       for {
         result <- ps.allocateParty(hint, displayName).toScala
       } yield {
-        ps.close()
         result match {
           case PartyAllocationResult.Ok(_) =>
             succeed
@@ -164,15 +164,12 @@ class InMemoryKVParticipantStateIT extends AsyncWordSpec with AkkaBeforeAndAfter
     }
 
     "reject allocateParty when hint contains invalid string for a party" in {
-      val ps = new InMemoryKVParticipantState(participantId)
-
       val hint = Some("Alice!@")
       val displayName = Some("Alice Cooper")
 
       for {
         result <- ps.allocateParty(hint, displayName).toScala
       } yield {
-        ps.close()
         result match {
           case PartyAllocationResult.InvalidName(_) =>
             succeed
@@ -183,8 +180,6 @@ class InMemoryKVParticipantStateIT extends AsyncWordSpec with AkkaBeforeAndAfter
     }
 
     "reject duplicate allocateParty" in {
-      val ps = new InMemoryKVParticipantState(participantId)
-
       val hint = Some("Alice")
       val displayName = Some("Alice Cooper")
 
@@ -192,7 +187,6 @@ class InMemoryKVParticipantStateIT extends AsyncWordSpec with AkkaBeforeAndAfter
         _ <- ps.allocateParty(hint, displayName).toScala
         result <- ps.allocateParty(hint, displayName).toScala
       } yield {
-        ps.close()
         result match {
           case PartyAllocationResult.AlreadyExists =>
             succeed
@@ -203,8 +197,6 @@ class InMemoryKVParticipantStateIT extends AsyncWordSpec with AkkaBeforeAndAfter
     }
 
     "provide update after transaction submission" in {
-      val ps = new InMemoryKVParticipantState(participantId)
-
       val rt = ps.getNewRecordTime()
       val updateResult = ps.stateUpdates(beginAfter = None).runWith(Sink.head)
 
@@ -212,13 +204,11 @@ class InMemoryKVParticipantStateIT extends AsyncWordSpec with AkkaBeforeAndAfter
 
       updateResult.map {
         case (offset, _) =>
-          ps.close()
           assert(offset == Offset(Array(0L, 0L)))
       }
     }
 
     "reject duplicate commands" in {
-      val ps = new InMemoryKVParticipantState(participantId)
       val rt = ps.getNewRecordTime()
 
       val updatesResult = ps.stateUpdates(beginAfter = None).take(2).runWith(Sink.seq)
@@ -227,8 +217,6 @@ class InMemoryKVParticipantStateIT extends AsyncWordSpec with AkkaBeforeAndAfter
       ps.submitTransaction(submitterInfo(rt), transactionMeta(rt), emptyTransaction)
 
       updatesResult.map { updates =>
-        ps.close()
-
         val (offset1, update1) = updates.head
         val (offset2, update2) = updates(1)
         assert(offset1 == Offset(Array(0L, 0L)))
@@ -244,7 +232,6 @@ class InMemoryKVParticipantStateIT extends AsyncWordSpec with AkkaBeforeAndAfter
     }
 
     "return second update with beginAfter=0" in {
-      val ps = new InMemoryKVParticipantState(participantId)
       val rt = ps.getNewRecordTime()
 
       val updateResult =
@@ -255,14 +242,12 @@ class InMemoryKVParticipantStateIT extends AsyncWordSpec with AkkaBeforeAndAfter
 
       updateResult.map {
         case (offset, update) =>
-          ps.close()
           assert(offset == Offset(Array(1L, 0L)))
           assert(update.isInstanceOf[Update.CommandRejected])
       }
     }
 
     "return update [0,1] with beginAfter=[0,0]" in {
-      val ps = new InMemoryKVParticipantState(participantId)
       val rt = ps.getNewRecordTime()
 
       for {
@@ -271,13 +256,11 @@ class InMemoryKVParticipantStateIT extends AsyncWordSpec with AkkaBeforeAndAfter
           .toScala
         updateTuple <- ps.stateUpdates(beginAfter = Some(Offset(Array(0L, 0L)))).runWith(Sink.head)
       } yield {
-        ps.close()
         matchPackageUpload(updateTuple, Offset(Array(0L, 1L)), archives(1), rt)
       }
     }
 
     "correctly implements open world tx submission authorization" in {
-      val ps = new InMemoryKVParticipantState(participantId, openWorld = true)
       val rt = ps.getNewRecordTime()
 
       val updatesResult = ps.stateUpdates(beginAfter = None).take(3).runWith(Sink.seq)
@@ -303,8 +286,6 @@ class InMemoryKVParticipantStateIT extends AsyncWordSpec with AkkaBeforeAndAfter
           .toScala
         Seq((offset1, update1), (offset2, update2), (offset3, update3)) <- updatesResult
       } yield {
-        ps.close()
-
         assert(offset1 == Offset(Array(0, 0)))
         assert(update1.isInstanceOf[Update.TransactionAccepted])
 
@@ -317,12 +298,24 @@ class InMemoryKVParticipantStateIT extends AsyncWordSpec with AkkaBeforeAndAfter
     }
 
     "correctly implements closed world tx submission authorization" in {
-      val ps = new InMemoryKVParticipantState(participantId, openWorld = false)
       val rt = ps.getNewRecordTime()
 
-      val updatesResult = ps.stateUpdates(beginAfter = None).take(3).runWith(Sink.seq)
+      val updatesResult = ps.stateUpdates(beginAfter = None).take(4).runWith(Sink.seq)
 
       for {
+        lic <- ps.getLedgerInitialConditions().runWith(Sink.head)
+
+        _ <- ps
+          .submitConfiguration(
+            maxRecordTime = rt.addMicros(1000000),
+            submissionId = "test1",
+            config = lic.config.copy(
+              generation = lic.config.generation + 1,
+              openWorld = false,
+            )
+          )
+          .toScala
+
         // Submit without allocation in closed world setting.
         _ <- ps.submitTransaction(submitterInfo(rt), transactionMeta(rt), emptyTransaction).toScala
 
@@ -343,26 +336,25 @@ class InMemoryKVParticipantStateIT extends AsyncWordSpec with AkkaBeforeAndAfter
           .toScala
         updates <- updatesResult
       } yield {
-        ps.close()
-
         def takeUpdate(n: Int) = {
           val (offset, update) = updates(n)
           assert(offset == Offset(Array(n.toLong, 0L)))
           update
         }
 
+        assert(takeUpdate(0).isInstanceOf[Update.ConfigurationChanged])
+
         assert(
-          takeUpdate(0)
+          takeUpdate(1)
             .asInstanceOf[Update.CommandRejected]
             .reason == RejectionReason.PartyNotKnownOnLedger)
 
-        assert(takeUpdate(1).isInstanceOf[Update.PartyAddedToParticipant])
-        assert(takeUpdate(2).isInstanceOf[Update.TransactionAccepted])
+        assert(takeUpdate(2).isInstanceOf[Update.PartyAddedToParticipant])
+        assert(takeUpdate(3).isInstanceOf[Update.TransactionAccepted])
       }
     }
 
     "allow an administrator to submit new configuration" in {
-      val ps = new InMemoryKVParticipantState(participantId)
       val rt = ps.getNewRecordTime()
 
       for {
@@ -395,7 +387,6 @@ class InMemoryKVParticipantStateIT extends AsyncWordSpec with AkkaBeforeAndAfter
 
         Seq((_, update1), (_, update2)) <- ps.stateUpdates(None).take(2).runWith(Sink.seq)
       } yield {
-        ps.close()
         // The first submission should change the config.
         val newConfig = update1.asInstanceOf[Update.ConfigurationChanged]
         assert(newConfig.newConfiguration != lic.config)
