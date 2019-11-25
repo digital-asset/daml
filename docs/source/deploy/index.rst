@@ -18,9 +18,11 @@ You can deploy to:
 
 To deploy a DAML project to a ledger, you will need the ledger's hostname (or IP) and the port number for the gRPC Ledger API. The default port number is 6865. Then, inside your DAML project folder, run the following command, taking care to substitute the ledger's hostname and port for ``<HOSTNAME>`` and ``<PORT>``:
 
+Once you have retrieved your access token, you can provide it by storing it in a file and provide the path to it using the ``--access-token-file`` command line option.
+
 .. code-block:: none
 
-   $ daml deploy --host=<HOSTNAME> --port=<PORT>
+   $ daml deploy --host=<HOSTNAME> --port=<PORT> --access-token-file=<TOKEN-FILE>
 
 This command will deploy your project to the ledger. This has two steps:
 
@@ -29,6 +31,8 @@ This command will deploy your project to the ledger. This has two steps:
 #. It will upload the project's compiled DAR file to the ledger via the package management service of the Ledger API. This will make the templates defined in the current project available to the users of the ledger.
 
 Instead of passing ``--host`` and ``--port`` flags to the command above, you can add the following section to the project's ``daml.yaml`` file:
+
+If the ledger has no authenication, the ``--access-token-file`` flag may be ommitted.
 
 .. code-block:: yaml
 
@@ -44,7 +48,9 @@ You can also use the ``daml ledger`` command for more fine-grained deployment op
    Usage: daml ledger COMMAND
      Interact with a remote DAML ledger. You can specify the ledger in daml.yaml
      with the ledger.host and ledger.port options, or you can pass the --host and
-     --port flags to each command below.
+     --port flags to each command below. If the ledger is authenticated, you should
+     pass the name of the file containing the token using the --access-token-file
+     flag.
 
    Available options:
      -h,--help                Show this help text

@@ -120,7 +120,10 @@ commandParser = subparser $ fold
               , "(if missing) and upload the project's built DAR file. You "
               , "can specify the ledger in daml.yaml with the ledger.host and "
               , "ledger.port options, or you can pass the --host and --port "
-              , "flags to this command instead."
+              , "flags to this command instead. "
+              , "If the ledger is authenticated, you should pass "
+              , "the name of the file containing the token "
+              , "using the --access-token-file flag."
               ]
         , deployFooter
         ]
@@ -150,7 +153,10 @@ commandParser = subparser $ fold
               [ "Interact with a remote DAML ledger. You can specify "
               , "the ledger in daml.yaml with the ledger.host and "
               , "ledger.port options, or you can pass the --host "
-              , "and --port flags to each command below."
+              , "and --port flags to each command below. "
+              , "If the ledger is authenticated, you should pass "
+              , "the name of the file containing the token "
+              , "using the --access-token-file flag."
               ]
         , deployFooter
         ]
@@ -218,8 +224,8 @@ commandParser = subparser $ fold
     accessTokenFileFlag :: Parser (Maybe FilePath)
     accessTokenFileFlag = optional . option str $
         long "access-token-file"
-        <> metavar "JWT_PATH"
-        <> help "Path to the JWT token for ledger authorization"
+        <> metavar "TOKEN_PATH"
+        <> help "Path to the token-file for ledger authorization"
 
 runCommand :: Command -> IO ()
 runCommand DamlStudio {..} = runDamlStudio replaceExtension remainingArguments
