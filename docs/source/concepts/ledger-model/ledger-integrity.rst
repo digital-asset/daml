@@ -307,7 +307,7 @@ The link between DAML and contract models is explained in more detail in a :ref:
 
 To see the conformance criterion in action, assume that
 the contract model allows only the following actions on `PaintOffer`
-and `MustPaint` contracts.
+and `PaintAgree` contracts.
 
 .. https://www.lucidchart.com/documents/edit/1ea6f551-c212-4620-9417-27784adccbcc
 .. image:: ./images/models-paint-offer.svg
