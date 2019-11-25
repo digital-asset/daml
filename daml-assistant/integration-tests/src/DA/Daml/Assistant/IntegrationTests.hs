@@ -566,7 +566,7 @@ deployTest deployDir = testCase "daml deploy" $ do
                 let sandboxProc =
                         (shell $ unwords
                             ["daml sandbox"
-                            , "--auth-jwt-hs256='" <> sharedSecret <> "'"
+                            , "--auth-jwt-hs256-unsafe='" <> sharedSecret <> "'"
                             , "--port", show port
                             , ".daml/dist/proj1-0.0.1.dar"
                             ]) { std_out = UseHandle devNull }
