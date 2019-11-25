@@ -48,11 +48,11 @@ data Command
       , navigatorOptions :: NavigatorOptions
       , jsonApiOptions :: JsonApiOptions
       }
-    | Deploy { flags :: HostAndPortFlags }
-    | LedgerListParties { flags :: HostAndPortFlags, json :: JsonFlag }
-    | LedgerAllocateParties { flags :: HostAndPortFlags, parties :: [String] }
-    | LedgerUploadDar { flags :: HostAndPortFlags, darPathM :: Maybe FilePath }
-    | LedgerNavigator { flags :: HostAndPortFlags, remainingArguments :: [String] }
+    | Deploy { flags :: LedgerFlags }
+    | LedgerListParties { flags :: LedgerFlags, json :: JsonFlag }
+    | LedgerAllocateParties { flags :: LedgerFlags, parties :: [String] }
+    | LedgerUploadDar { flags :: LedgerFlags, darPathM :: Maybe FilePath }
+    | LedgerNavigator { flags :: LedgerFlags, remainingArguments :: [String] }
 
 commandParser :: Parser Command
 commandParser = subparser $ fold
@@ -128,7 +128,7 @@ commandParser = subparser $ fold
     deployFooter = footer "See https://docs.daml.com/deploy/ for more information on deployment."
 
     deployCmd = Deploy
-        <$> hostAndPortFlags
+        <$> ledgerFlags
 
     jsonApiCfg = JsonApiConfig <$> option
         readJsonApiPort
@@ -178,27 +178,27 @@ commandParser = subparser $ fold
         ]
 
     ledgerListPartiesCmd = LedgerListParties
-        <$> hostAndPortFlags
+        <$> ledgerFlags
         <*> fmap JsonFlag (switch $ long "json" <> help "Output party list in JSON")
 
     ledgerAllocatePartiesCmd = LedgerAllocateParties
-        <$> hostAndPortFlags
+        <$> ledgerFlags
         <*> many (argument str (metavar "PARTY" <> help "Parties to be allocated on the ledger (defaults to project parties if empty)"))
 
     -- same as allocate-parties but requires a single party.
     ledgerAllocatePartyCmd = LedgerAllocateParties
-        <$> hostAndPortFlags
+        <$> ledgerFlags
         <*> fmap (:[]) (argument str (metavar "PARTY" <> help "Party to be allocated on the ledger"))
 
     ledgerUploadDarCmd = LedgerUploadDar
-        <$> hostAndPortFlags
+        <$> ledgerFlags
         <*> optional (argument str (metavar "PATH" <> help "DAR file to upload (defaults to project DAR)"))
 
     ledgerNavigatorCmd = LedgerNavigator
-        <$> hostAndPortFlags
+        <$> ledgerFlags
         <*> many (argument str (metavar "ARG" <> help "Extra arguments to navigator."))
 
-    hostAndPortFlags = HostAndPortFlags
+    ledgerFlags = LedgerFlags
         <$> hostFlag
         <*> portFlag
         <*> accessTokenFileFlag

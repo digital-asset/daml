@@ -9,7 +9,7 @@ module DA.Daml.Helper.Run
     , runListTemplates
     , runStart
 
-    , HostAndPortFlags(..)
+    , LedgerFlags(..)
     , JsonFlag(..)
     , runDeploy
     , runLedgerAllocateParties
@@ -788,7 +788,7 @@ runStart
                 Nothing -> f sandboxPh
                 Just jsonApiPort -> withJsonApi sandboxPort jsonApiPort args f
 
-data HostAndPortFlags = HostAndPortFlags
+data LedgerFlags = LedgerFlags
   { hostM :: Maybe String
   , portM :: Maybe Int
   , jwtFileM :: Maybe String
@@ -803,16 +803,16 @@ getJwtFromFile jwtFileM = do
       let jwt = either error id $ Jwt.tryCreateFromString contents
       return (Just jwt)
 
-getHostAndPortDefaults :: HostAndPortFlags -> IO HostAndPort
-getHostAndPortDefaults HostAndPortFlags{hostM,portM,jwtFileM} = do
+getHostAndPortDefaults :: LedgerFlags -> IO LedgerArgs
+getHostAndPortDefaults LedgerFlags{hostM,portM,jwtFileM} = do
     host <- fromMaybeM getProjectLedgerHost hostM
     port <- fromMaybeM getProjectLedgerPort portM
     jwtM <- getJwtFromFile jwtFileM
-    return HostAndPort {..}
+    return LedgerArgs {..}
 
 
 -- | Allocate project parties and upload project DAR file to ledger.
-runDeploy :: HostAndPortFlags -> IO ()
+runDeploy :: LedgerFlags -> IO ()
 runDeploy flags = do
     hp <- getHostAndPortDefaults flags
     putStrLn $ "Deploying to " <> show hp
@@ -826,7 +826,7 @@ runDeploy flags = do
 newtype JsonFlag = JsonFlag { unJsonFlag :: Bool }
 
 -- | Fetch list of parties from ledger.
-runLedgerListParties :: HostAndPortFlags -> JsonFlag -> IO ()
+runLedgerListParties :: LedgerFlags -> JsonFlag -> IO ()
 runLedgerListParties flags (JsonFlag json) = do
     hp <- getHostAndPortDefaults flags
     unless json . putStrLn $ "Listing parties at " <> show hp
@@ -847,7 +847,7 @@ runLedgerListParties flags (JsonFlag json) = do
 
 -- | Allocate parties on ledger. If list of parties is empty,
 -- defaults to the project parties.
-runLedgerAllocateParties :: HostAndPortFlags -> [String] -> IO ()
+runLedgerAllocateParties :: LedgerFlags -> [String] -> IO ()
 runLedgerAllocateParties flags partiesArg = do
     parties <- if notNull partiesArg
         then pure partiesArg
@@ -857,7 +857,7 @@ runLedgerAllocateParties flags partiesArg = do
     mapM_ (allocatePartyIfRequired hp) parties
 
 -- | Allocate a party if it doesn't already exist (by display name).
-allocatePartyIfRequired :: HostAndPort -> String -> IO ()
+allocatePartyIfRequired :: LedgerArgs -> String -> IO ()
 allocatePartyIfRequired hp name = do
     partyM <- Ledger.lookupParty hp name
     party <- flip fromMaybeM partyM $ do
@@ -866,7 +866,7 @@ allocatePartyIfRequired hp name = do
     putStrLn $ "Allocated " <> show party <> " for '" <> name <> "' at " <> show hp
 
 -- | Upload a DAR file to the ledger. (Defaults to project DAR)
-runLedgerUploadDar :: HostAndPortFlags -> Maybe FilePath -> IO ()
+runLedgerUploadDar :: LedgerFlags -> Maybe FilePath -> IO ()
 runLedgerUploadDar flags darPathM = do
     hp <- getHostAndPortDefaults flags
     darPath <- flip fromMaybeM darPathM $ do
@@ -880,7 +880,7 @@ runLedgerUploadDar flags darPathM = do
 -- | Run navigator against configured ledger. We supply Navigator with
 -- the list of parties from the ledger, but in the future Navigator
 -- should fetch the list of parties itself.
-runLedgerNavigator :: HostAndPortFlags -> [String] -> IO ()
+runLedgerNavigator :: LedgerFlags -> [String] -> IO ()
 runLedgerNavigator flags remainingArguments = do
     hostAndPort <- getHostAndPortDefaults flags
     putStrLn $ "Opening navigator at " <> show hostAndPort
