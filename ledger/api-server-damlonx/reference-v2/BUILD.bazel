@@ -85,6 +85,8 @@ SERVERS = {
             # "db_close_delay=-1" is needed so that the in-memory database is not closed
             # (and therefore lost) after the flyway migration
             "--jdbc-url=jdbc:h2:mem:daml_on_x;db_close_delay=-1;db_close_on_exit=false",
+            # participant-id contains special colon (:) character allowed in LfStrings
+            "--participant-id=participant:h2database",
         ],
     },
     "postgres": {
