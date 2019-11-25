@@ -35,10 +35,8 @@ object LedgerValue {
       case Sum.List(apiList) => convertList(apiList)
       case Sum.Record(apiRecord) => convertRecord(apiRecord)
       case Sum.Optional(apiOptional) => convertOptional(apiOptional)
-      case Sum.Map(map) => convertMap(map)
-      case Sum.GenMap(_) =>
-        // FIXME https://github.com/digital-asset/daml/issues/2256
-        -\/("GenMap not supported")
+      case Sum.Map(map) => convertTextMap(map)
+      case Sum.GenMap(entries) => convertGenMap(entries)
       case Sum.Bool(value) => V.ValueBool(value).right
       case Sum.ContractId(value) => V.ValueContractId(value).right
       case Sum.Int64(value) => V.ValueInt64(value).right
@@ -87,14 +85,24 @@ object LedgerValue {
   private def convertOptional(apiOptional: api.value.Optional) =
     apiOptional.value traverseU (_.convert) map (V.ValueOptional(_))
 
-  private def convertMap(apiMap: api.value.Map): String \/ OfCid[V.ValueTextMap] =
+  private def convertTextMap(apiMap: api.value.Map): String \/ OfCid[V.ValueTextMap] =
     for {
       entries <- apiMap.entries.toList.traverseU {
-        case api.value.Map.Entry(_, None) => -\/("value must be defined")
         case api.value.Map.Entry(k, Some(v)) => v.sum.convert.map(k -> _)
+        case api.value.Map.Entry(_, None) => -\/("value must be defined")
       }
       map <- SortedLookupList.fromImmArray(ImmArray(entries)).disjunction
     } yield V.ValueTextMap(map)
+
+  private def convertGenMap(apiMap: api.value.GenMap): String \/ OfCid[V.ValueGenMap] =
+    apiMap.entries.toList
+      .traverseU { entry =>
+        for {
+          k <- entry.key.fold[String \/ OfCid[V]](-\/("key must be defined"))(_.convert)
+          v <- entry.value.fold[String \/ OfCid[V]](-\/("value must be defined"))(_.convert)
+        } yield k -> v
+      }
+      .map(entries => V.ValueGenMap(ImmArray(entries)))
 
   private def convertIdentifier(
       apiIdentifier: api.value.Identifier): String \/ Option[Ref.Identifier] = {

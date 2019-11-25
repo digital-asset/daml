@@ -133,7 +133,7 @@ optionals =
         deep_optional = Some None
         party = bob
 
-maps =
+textMaps =
   scenario do
     bob <- getParty "Bob"
     submit bob do
