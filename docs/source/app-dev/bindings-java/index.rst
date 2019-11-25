@@ -174,10 +174,9 @@ Before any ledger services can be accessed, a connection to the ledger must be e
 Connecting securely
 ===================
 
-The Java bindings library lets you connect to a DAML Ledger via a secure connection. The factory methods
-``DamlLedgerClient.forLedgerIdAndHost`` and ``DamlLedgerClient.forHostWithLedgerIdDiscovery`` accept a parameter of type ``Optional<SslContext>``.
-If the value of that optional parameter is not present (i.e. by passing ``Optional.empty()``), a plain text / insecure connection will be established.
-This is useful when connecting to a locally running Sandbox.
+The Java bindings library lets you connect to a DAML Ledger via a secure connection. The builders created by
+``DamlLedgerClient.newBuilder`` default to a plaintext connection, but you can invoke ``withSslContext` to pass an ``SslContext``.
+Using the default plaintext connection is useful only when connecting to a locally running Sandbox for development purposes.
 
 Secure connections to a DAML Ledger must be configured to use client authentication certificates, which can be provided by a Ledger Operator.
 
@@ -188,7 +187,7 @@ For information on how to set up an ``SslContext`` with the provided certificate
 Advanced connection settings
 ============================
 
-Sometimes the default settings for gRPC connections/channels are not suitable for a given situation. These usecases are supported by creating a a custom `ManagedChannel <https://grpc.io/grpc-java/javadoc/io/grpc/ManagedChannel.html>`_ object via `ManagedChannelBuilder <https://grpc.io/grpc-java/javadoc/io/grpc/ManagedChannelBuilder.html>`_  or `NettyChannelBuilder <https://grpc.io/grpc-java/javadoc/io/grpc/netty/NettyChannelBuilder.html>`_ and passing the channel instance to the constructor of `DamlLedgerClient <javadocs/com/daml/ledger/rxjava/DamlLedgerClient.html>`_.
+Sometimes the default settings for gRPC connections/channels are not suitable for a given situation. These use cases are supported by creating a a custom `NettyChannelBuilder <https://grpc.github.io/grpc-java/javadoc/io/grpc/netty/NettyChannelBuilder.html>`_ object and passing the it to the ``newBuilder`` static method defined over `DamlLedgerClient <javadocs/com/daml/ledger/rxjava/DamlLedgerClient.html>`_.
 
 Example project
 ***************
