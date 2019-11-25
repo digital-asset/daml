@@ -96,6 +96,12 @@ sealed abstract class ValuePredicate extends Product with Serializable {
         case Literal(_, jq) =>
           Rec(Vector(path ++ sql" = $jq::jsonb"), Some(jq), Some(jq))
 
+        case VariantMatch((dc, q)) =>
+          val Rec(vraw, v_==, v_@>) = go(path ++ sql"->${dc: String}", q)
+          // @> is safe because in a variant-typed context, all JsObjects
+          // have exactly one key
+          Rec(vraw, v_== map (jv => JsObject((dc, jv))), v_@> map (jv => JsObject((dc, jv))))
+
         case ListMatch(qs) =>
           val cqs = qs.zipWithIndex map {
             case (eq, k) => go(path ++ sql"->$k", eq)
