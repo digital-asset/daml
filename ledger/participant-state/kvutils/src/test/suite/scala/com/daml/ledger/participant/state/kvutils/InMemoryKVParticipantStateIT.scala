@@ -244,59 +244,59 @@ class InMemoryKVParticipantStateIT
       val ps = new InMemoryKVParticipantState(participantId)
 
       val rt = ps.getNewRecordTime()
-      val waitForUpdateFuture =
-        ps.stateUpdates(beginAfter = None).runWith(Sink.head).map {
-          case (offset, _) =>
-            ps.close()
-            assert(offset == Offset(Array(0L, 0L)))
-        }
+      val updateResult = ps.stateUpdates(beginAfter = None).runWith(Sink.head)
 
       ps.submitTransaction(submitterInfo(rt), transactionMeta(rt), emptyTransaction)
 
-      waitForUpdateFuture
+      updateResult.map {
+        case (offset, _) =>
+          ps.close()
+          assert(offset == Offset(Array(0L, 0L)))
+      }
     }
 
     "reject duplicate commands" in {
       val ps = new InMemoryKVParticipantState(participantId)
       val rt = ps.getNewRecordTime()
 
-      val waitForUpdateFuture =
-        ps.stateUpdates(beginAfter = None).take(2).runWith(Sink.seq).map { updates =>
-          ps.close()
-
-          val (offset1, update1) = updates.head
-          val (offset2, update2) = updates(1)
-          assert(offset1 == Offset(Array(0L, 0L)))
-          assert(update1.isInstanceOf[Update.TransactionAccepted])
-
-          assert(offset2 == Offset(Array(1L, 0L)))
-          assert(update2.isInstanceOf[Update.CommandRejected])
-          assert(
-            update2
-              .asInstanceOf[Update.CommandRejected]
-              .reason == RejectionReason.DuplicateCommand)
-        }
+      val updatesResult = ps.stateUpdates(beginAfter = None).take(2).runWith(Sink.seq)
 
       ps.submitTransaction(submitterInfo(rt), transactionMeta(rt), emptyTransaction)
       ps.submitTransaction(submitterInfo(rt), transactionMeta(rt), emptyTransaction)
 
-      waitForUpdateFuture
+      updatesResult.map { updates =>
+        ps.close()
+
+        val (offset1, update1) = updates.head
+        val (offset2, update2) = updates(1)
+        assert(offset1 == Offset(Array(0L, 0L)))
+        assert(update1.isInstanceOf[Update.TransactionAccepted])
+
+        assert(offset2 == Offset(Array(1L, 0L)))
+        assert(update2.isInstanceOf[Update.CommandRejected])
+        assert(
+          update2
+            .asInstanceOf[Update.CommandRejected]
+            .reason == RejectionReason.DuplicateCommand)
+      }
     }
 
     "return second update with beginAfter=0" in {
       val ps = new InMemoryKVParticipantState(participantId)
       val rt = ps.getNewRecordTime()
 
-      val waitForUpdateFuture =
-        ps.stateUpdates(beginAfter = Some(Offset(Array(0L, 0L)))).runWith(Sink.head).map {
-          case (offset, update) =>
-            ps.close()
-            assert(offset == Offset(Array(1L, 0L)))
-            assert(update.isInstanceOf[Update.CommandRejected])
-        }
+      val updateResult =
+        ps.stateUpdates(beginAfter = Some(Offset(Array(0L, 0L)))).runWith(Sink.head)
+
       ps.submitTransaction(submitterInfo(rt), transactionMeta(rt), emptyTransaction)
       ps.submitTransaction(submitterInfo(rt), transactionMeta(rt), emptyTransaction)
-      waitForUpdateFuture
+
+      updateResult.map {
+        case (offset, update) =>
+          ps.close()
+          assert(offset == Offset(Array(1L, 0L)))
+          assert(update.isInstanceOf[Update.CommandRejected])
+      }
     }
 
     "return update [0,1] with beginAfter=[0,0]" in {
@@ -318,20 +318,7 @@ class InMemoryKVParticipantStateIT
       val ps = new InMemoryKVParticipantState(participantId, openWorld = true)
       val rt = ps.getNewRecordTime()
 
-      val waitForUpdateFuture =
-        ps.stateUpdates(beginAfter = None).take(3).runWith(Sink.seq).map {
-          case Seq((offset1, update1), (offset2, update2), (offset3, update3)) =>
-            ps.close()
-
-            assert(offset1 == Offset(Array(0, 0)))
-            assert(update1.isInstanceOf[Update.TransactionAccepted])
-
-            assert(offset2 == Offset(Array(1, 0)))
-            assert(update2.isInstanceOf[Update.PartyAddedToParticipant])
-
-            assert(offset3 == Offset(Array(2, 0)))
-            assert(update3.isInstanceOf[Update.TransactionAccepted])
-        }
+      val updatesResult = ps.stateUpdates(beginAfter = None).take(3).runWith(Sink.seq)
 
       for {
         // Submit without allocation in open world setting, expecting this to succeed.
@@ -352,32 +339,26 @@ class InMemoryKVParticipantStateIT
             transactionMeta(rt),
             emptyTransaction)
           .toScala
-        r <- waitForUpdateFuture
-      } yield r
+        Seq((offset1, update1), (offset2, update2), (offset3, update3)) <- updatesResult
+      } yield {
+        ps.close()
+
+        assert(offset1 == Offset(Array(0, 0)))
+        assert(update1.isInstanceOf[Update.TransactionAccepted])
+
+        assert(offset2 == Offset(Array(1, 0)))
+        assert(update2.isInstanceOf[Update.PartyAddedToParticipant])
+
+        assert(offset3 == Offset(Array(2, 0)))
+        assert(update3.isInstanceOf[Update.TransactionAccepted])
+      }
     }
 
     "correctly implements closed world tx submission authorization" in {
       val ps = new InMemoryKVParticipantState(participantId, openWorld = false)
       val rt = ps.getNewRecordTime()
 
-      val waitForUpdateFuture =
-        ps.stateUpdates(beginAfter = None).take(3).runWith(Sink.seq).map { updates =>
-          ps.close()
-
-          def takeUpdate(n: Int) = {
-            val (offset, update) = updates(n)
-            assert(offset == Offset(Array(n.toLong, 0L)))
-            update
-          }
-
-          assert(
-            takeUpdate(0)
-              .asInstanceOf[Update.CommandRejected]
-              .reason == RejectionReason.PartyNotKnownOnLedger)
-
-          assert(takeUpdate(1).isInstanceOf[Update.PartyAddedToParticipant])
-          assert(takeUpdate(2).isInstanceOf[Update.TransactionAccepted])
-        }
+      val updatesResult = ps.stateUpdates(beginAfter = None).take(3).runWith(Sink.seq)
 
       for {
         // Submit without allocation in closed world setting.
@@ -398,8 +379,24 @@ class InMemoryKVParticipantStateIT
             transactionMeta(rt),
             emptyTransaction)
           .toScala
-        r <- waitForUpdateFuture
-      } yield r
+        updates <- updatesResult
+      } yield {
+        ps.close()
+
+        def takeUpdate(n: Int) = {
+          val (offset, update) = updates(n)
+          assert(offset == Offset(Array(n.toLong, 0L)))
+          update
+        }
+
+        assert(
+          takeUpdate(0)
+            .asInstanceOf[Update.CommandRejected]
+            .reason == RejectionReason.PartyNotKnownOnLedger)
+
+        assert(takeUpdate(1).isInstanceOf[Update.PartyAddedToParticipant])
+        assert(takeUpdate(2).isInstanceOf[Update.TransactionAccepted])
+      }
     }
 
     "allow an administrator to submit new configuration" in {
