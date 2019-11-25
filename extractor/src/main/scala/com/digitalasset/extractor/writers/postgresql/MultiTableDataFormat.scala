@@ -257,7 +257,7 @@ class MultiTableDataFormat(
         case iface.PrimTypeText => "TEXT"
         case iface.PrimTypeDate => "DATE"
         case iface.PrimTypeOptional => "JSONB"
-        case iface.PrimTypeMap => "JSONB"
+        case iface.PrimTypeTextMap => "JSONB"
         case iface.PrimTypeGenMap => "JSONB"
       }
     case TypeCon(_, _, true) => "TEXT"

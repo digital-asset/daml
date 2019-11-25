@@ -205,7 +205,7 @@ private[inner] object FromValueGenerator extends StrictLogging {
           accessor,
           orElseThrow(apiType, field))
 
-      case TypePrim(PrimTypeMap, ImmArraySeq(param)) =>
+      case TypePrim(PrimTypeTextMap, ImmArraySeq(param)) =>
         val optMapArg = args.next()
         val entryArg = args.next()
         CodeBlock.of(

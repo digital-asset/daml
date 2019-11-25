@@ -139,7 +139,7 @@ object TypedValueGenerators {
 
     def map(elt: ValueAddend): Aux[Compose[SortedLookupList, elt.Inj, ?]] = new ValueAddend {
       type Inj[Cid] = SortedLookupList[elt.Inj[Cid]]
-      override val t = TypePrim(PT.Map, ImmArraySeq(elt.t))
+      override val t = TypePrim(PT.TextMap, ImmArraySeq(elt.t))
       override def inj[Cid] =
         (sll: SortedLookupList[elt.Inj[Cid]]) => ValueTextMap(sll map elt.inj)
       override def prj[Cid] = {
