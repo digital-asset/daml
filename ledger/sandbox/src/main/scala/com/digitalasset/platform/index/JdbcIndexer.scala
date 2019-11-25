@@ -245,7 +245,7 @@ class JdbcIndexer private[index] (
 
   private def handleStateUpdate(offset: Offset, update: Update): Future[Unit] = {
     lastReceivedOffset = offset.toLedgerString
-    stateUpdateRecordTime(update).foreach(lastReceivedRecordTime = _)
+    lastReceivedRecordTime = update.recordTime.toInstant
 
     val externalOffset = Some(offset.toLedgerString)
     update match {
@@ -363,17 +363,6 @@ class JdbcIndexer private[index] (
           .map(_ => headRef = headRef + 1)(DEC)
     }
   }
-
-  private def stateUpdateRecordTime(update: Update): Option[Instant] =
-    (update match {
-      case Heartbeat(recordTime) => Some(recordTime)
-      case PartyAddedToParticipant(_, _, _, recordTime) => Some(recordTime)
-      case PublicPackageUploaded(_, _, _, recordTime) => Some(recordTime)
-      case TransactionAccepted(_, _, _, _, recordTime, _) => Some(recordTime)
-      case ConfigurationChanged(_, _, _, _) => None
-      case ConfigurationChangeRejected(_, _, _, _, _) => None
-      case CommandRejected(_, _, _) => None
-    }) map (_.toInstant)
 
   private def toDomainRejection(
       submitterInfo: SubmitterInfo,
