@@ -70,10 +70,7 @@ private[kvutils] case class ProcessConfigSubmission(
     val wellFormed = participantId == submittingParticipantId
 
     val authorized =
-      currentConfigEntry.fold(true) {
-        configEntry =>
-          configEntry.getParticipantId == participantId
-      }
+      currentConfigEntry.forall(_.getParticipantId == participantId)
 
     if (!wellFormed) {
       logger.warn(
@@ -87,8 +84,7 @@ private[kvutils] case class ProcessConfigSubmission(
             )
         ))
     } else if (!authorized) {
-      logger.warn(
-        s"Rejected configuration submission. $participantId is not authorized.")
+      logger.warn(s"Rejected configuration submission. $participantId is not authorized.")
 
       reject(
         _.setParticipantNotAuthorized(
@@ -148,7 +144,6 @@ private[kvutils] case class ProcessConfigSubmission(
   }
 
   private def rejectGenerationMismatch(expected: Long): Commit[Unit] =
-
     reject {
       _.setGenerationMismatch(
         DamlConfigurationRejectionEntry.GenerationMismatch.newBuilder

@@ -85,6 +85,7 @@ da_scala_test(
 proto_library(
     name = "daml_kvutils_proto",
     srcs = ["src/main/protobuf/daml_kvutils.proto"],
+    strip_import_prefix = "src/main/protobuf/",
     deps = [
         "//daml-lf/archive:daml_lf_dev_archive_proto",
         "//daml-lf/transaction:transaction_proto",

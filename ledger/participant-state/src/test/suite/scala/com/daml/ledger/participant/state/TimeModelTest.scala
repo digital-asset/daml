@@ -1,36 +1,33 @@
 // Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.server.services.time
+package com.daml.ledger.participant.state.v1
 
 import java.time._
 
-import com.digitalasset.platform.services.time.{TimeModel, TimeModelChecker}
 import org.scalatest.{Matchers, WordSpec}
 
 class TimeModelTest extends WordSpec with Matchers {
 
   private val referenceTime = Instant.EPOCH
   private val epsilon = Duration.ofMillis(10L)
-  private val sut =
+  private val timeModel =
     TimeModel(Duration.ofSeconds(1L), Duration.ofSeconds(1L), Duration.ofSeconds(30L)).get
 
-  private val checker = TimeModelChecker(sut)
-
-  private val referenceMrt = referenceTime.plus(sut.maxTtl)
+  private val referenceMrt = referenceTime.plus(timeModel.maxTtl)
 
   private def acceptLet(let: Instant): Boolean =
-    checker.checkLet(referenceTime, let, let.plus(sut.maxTtl))
+    timeModel.checkLet(referenceTime, let, let.plus(timeModel.maxTtl))
 
   private def acceptMrt(mrt: Instant): Boolean =
-    checker.checkLet(referenceTime, mrt.minus(sut.maxTtl), mrt)
+    timeModel.checkLet(referenceTime, mrt.minus(timeModel.maxTtl), mrt)
 
-  private def acceptTtl(mrt: Instant): Boolean = checker.checkTtl(referenceTime, mrt)
+  private def acceptTtl(mrt: Instant): Boolean = timeModel.checkTtl(referenceTime, mrt)
 
   "Ledger effective time model checker" when {
     "calculating derived values" should {
       "calculate minTtl correctly" in {
-        sut.minTtl shouldEqual sut.minTransactionLatency.plus(sut.maxClockSkew)
+        timeModel.minTtl shouldEqual timeModel.minTransactionLatency.plus(timeModel.maxClockSkew)
       }
     }
 
@@ -40,55 +37,55 @@ class TimeModelTest extends WordSpec with Matchers {
       }
 
       "succeed if the time is higher than the current time and is within tolerance limit" in {
-        acceptLet(referenceTime.plus(sut.futureAcceptanceWindow).minus(epsilon)) shouldEqual true
+        acceptLet(referenceTime.plus(timeModel.futureAcceptanceWindow).minus(epsilon)) shouldEqual true
       }
 
       "succeed if the time is equal to the high boundary" in {
-        acceptLet(referenceTime.plus(sut.futureAcceptanceWindow)) shouldEqual true
+        acceptLet(referenceTime.plus(timeModel.futureAcceptanceWindow)) shouldEqual true
       }
 
       "fail if the time is higher than the high boundary" in {
-        acceptLet(referenceTime.plus(sut.futureAcceptanceWindow).plus(epsilon)) shouldEqual false
+        acceptLet(referenceTime.plus(timeModel.futureAcceptanceWindow).plus(epsilon)) shouldEqual false
       }
 
       "fail if the MRT is less than the low boundary" in {
-        acceptMrt(referenceMrt.minus(sut.maxTtl).minus(epsilon)) shouldEqual false
+        acceptMrt(referenceMrt.minus(timeModel.maxTtl).minus(epsilon)) shouldEqual false
       }
 
       "succeed if the MRT is equal to the low boundary" in {
-        acceptMrt(referenceMrt.minus(sut.maxTtl)) shouldEqual true
+        acceptMrt(referenceMrt.minus(timeModel.maxTtl)) shouldEqual true
       }
 
       "succeed if the MRT is greater than than the low boundary" in {
-        acceptMrt(referenceMrt.minus(sut.maxTtl).plus(epsilon)) shouldEqual true
+        acceptMrt(referenceMrt.minus(timeModel.maxTtl).plus(epsilon)) shouldEqual true
       }
     }
   }
 
-  "TTL time model checker" when {
+  "TTL time model" when {
     "checking if TTL is within accepted boundaries" should {
       "fail if the TTL is less than than the low boundary" in {
-        acceptTtl(referenceTime.plus(sut.minTtl).minus(epsilon)) shouldEqual false
+        acceptTtl(referenceTime.plus(timeModel.minTtl).minus(epsilon)) shouldEqual false
       }
 
       "succeed if the TTL is equal to the low boundary" in {
-        acceptTtl(referenceTime.plus(sut.minTtl)) shouldEqual true
+        acceptTtl(referenceTime.plus(timeModel.minTtl)) shouldEqual true
       }
 
       "succeed if the TTL is greater than the low boundary" in {
-        acceptTtl(referenceTime.plus(sut.minTtl).plus(epsilon)) shouldEqual true
+        acceptTtl(referenceTime.plus(timeModel.minTtl).plus(epsilon)) shouldEqual true
       }
 
       "succeed if the TTL is less than the high boundary" in {
-        acceptTtl(referenceTime.plus(sut.maxTtl).minus(epsilon)) shouldEqual true
+        acceptTtl(referenceTime.plus(timeModel.maxTtl).minus(epsilon)) shouldEqual true
       }
 
       "succeed if the TTL is equal to the high boundary" in {
-        acceptTtl(referenceTime.plus(sut.maxTtl)) shouldEqual true
+        acceptTtl(referenceTime.plus(timeModel.maxTtl)) shouldEqual true
       }
 
       "fail if the TTL is greater than than the high boundary" in {
-        acceptTtl(referenceTime.plus(sut.maxTtl).plus(epsilon)) shouldEqual false
+        acceptTtl(referenceTime.plus(timeModel.maxTtl).plus(epsilon)) shouldEqual false
       }
     }
   }

@@ -2,7 +2,7 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 ---------------------------------------------------------------------------------------------------
--- V8: Add table for ledger configuration changes
+-- V12: Add table for ledger configuration changes
 --
 -- This schema version adds a table for ledger configuration changes and adds the latest
 -- configuration to the parameters table.

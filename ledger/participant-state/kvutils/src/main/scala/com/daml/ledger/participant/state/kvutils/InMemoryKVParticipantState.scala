@@ -109,7 +109,7 @@ class InMemoryKVParticipantState(
   // The initial ledger configuration
   private val initialLedgerConfig = Configuration(
     generation = 0,
-    timeModel = TimeModelImpl.reasonableDefault
+    timeModel = TimeModel.reasonableDefault
   )
 
   // DAML Engine for transaction validation.

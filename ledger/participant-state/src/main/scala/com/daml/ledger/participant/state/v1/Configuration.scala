@@ -50,12 +50,11 @@ object Configuration {
       }
 
     def decodeTimeModel(tm: protobuf.LedgerTimeModel): Either[String, TimeModel] =
-      TimeModelImpl(
+      TimeModel(
         maxClockSkew = parseDuration(tm.getMaxClockSkew),
         minTransactionLatency = parseDuration(tm.getMinTransactionLatency),
         maxTtl = parseDuration(tm.getMaxTtl)
       ).toEither.left.map(e => s"decodeTimeModel: ${e.getMessage}")
-
   }
 
   def encode(config: Configuration): protobuf.LedgerConfiguration = {

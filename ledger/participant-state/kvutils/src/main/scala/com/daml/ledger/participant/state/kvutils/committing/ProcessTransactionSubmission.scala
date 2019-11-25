@@ -8,12 +8,7 @@ import com.codahale.metrics.{Counter, Timer}
 import com.daml.ledger.participant.state.kvutils.Conversions.{buildTimestamp, commandDedupKey, _}
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.{Conversions, Err, InputsAndEffects, Pretty}
-import com.daml.ledger.participant.state.v1.{
-  Configuration,
-  ParticipantId,
-  RejectionReason,
-  TimeModelCheckerImpl
-}
+import com.daml.ledger.participant.state.v1.{Configuration, ParticipantId, RejectionReason}
 import com.digitalasset.daml.lf.archive.Decode
 import com.digitalasset.daml.lf.archive.Reader.ParseError
 import com.digitalasset.daml.lf.data.Ref.{PackageId, Party}
@@ -129,11 +124,11 @@ private[kvutils] case class ProcessTransactionSubmission(
 
   /** Validate ledger effective time and the command's time-to-live. */
   private def validateLetAndTtl: Commit[Unit] = delay {
-    val timeModelChecker = TimeModelCheckerImpl(config.timeModel)
+    val timeModel = config.timeModel
     val givenLET = txLet.toInstant
     val givenMRT = parseTimestamp(txEntry.getSubmitterInfo.getMaximumRecordTime).toInstant
 
-    if (timeModelChecker.checkLet(
+    if (timeModel.checkLet(
         currentTime = recordTime.toInstant,
         givenLedgerEffectiveTime = givenLET,
         givenMaximumRecordTime = givenMRT)

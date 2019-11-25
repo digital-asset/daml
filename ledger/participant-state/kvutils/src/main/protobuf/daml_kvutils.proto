@@ -20,7 +20,7 @@ import "google/protobuf/duration.proto";
 import "com/digitalasset/daml_lf_dev/daml_lf.proto";
 import "com/digitalasset/daml/lf/transaction.proto";
 import "com/digitalasset/daml/lf/value.proto";
-import "ledger/participant-state/protobuf/ledger_configuration.proto";
+import "com/daml/ledger/participant/state/ledger_configuration.proto";
 
 
 // Envelope with which we wrap all kvutils messages that are sent over the network

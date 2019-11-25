@@ -31,7 +31,7 @@ private class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: MetricRegis
     val lookupContract = metrics.timer("Ledger.lookupContract")
     val lookupKey = metrics.timer("Ledger.lookupKey")
     val lookupTransaction = metrics.timer("Ledger.lookupTransaction")
-    val lookupLedgerConfiguration  = metrics.timer("Ledger.lookupLedgerConfiguration ")
+    val lookupLedgerConfiguration = metrics.timer("Ledger.lookupLedgerConfiguration ")
     val parties = metrics.timer("Ledger.parties")
     val listLfPackages = metrics.timer("Ledger.listLfPackages")
     val getLfArchive = metrics.timer("Ledger.getLfArchive")
@@ -77,11 +77,10 @@ private class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: MetricRegis
   }
 
   override def lookupLedgerConfiguration(): Future[Option[Configuration]] =
-    timedFuture(
-      Metrics.lookupLedgerConfiguration,
-      ledger.lookupLedgerConfiguration())
+    timedFuture(Metrics.lookupLedgerConfiguration, ledger.lookupLedgerConfiguration())
 
-  override def configurationEntries(offset: Option[Long]): Source[(Long, ConfigurationEntry), NotUsed] =
+  override def configurationEntries(
+      offset: Option[Long]): Source[(Long, ConfigurationEntry), NotUsed] =
     ledger.configurationEntries(offset)
 }
 

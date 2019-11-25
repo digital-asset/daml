@@ -4,7 +4,7 @@
 DAML Ledger Configuration Specification
 =======================================
 
-**version 1, 22nd June 2019**
+**version 1, 25th November 2019**
 
 This specification, along with ``ledger_configuration.proto``
 defines the data representation and the semantics of ledger

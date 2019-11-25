@@ -7,7 +7,6 @@ import com.daml.ledger.participant.state.kvutils.Conversions._
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.v1._
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.{LedgerString, Party}
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.ledger.api.domain.PartyDetails
 import com.google.common.io.BaseEncoding
@@ -30,17 +29,17 @@ object KeyValueConsumption {
   def packDamlLogEntry(entry: DamlStateKey): ByteString = entry.toByteString
   def unpackDamlLogEntry(bytes: ByteString): DamlLogEntry = DamlLogEntry.parseFrom(bytes)
 
-  /** Construct a participant-state [[Update]] from a [[DamlLogEntry]].
+  /** Construct a participant-state [[Update]]s from a [[DamlLogEntry]].
+    * Throws [[Err]] exception on badly formed data.
     *
     * This method is expected to be used to implement [[com.daml.ledger.participant.state.v1.ReadService.stateUpdates]].
     *
     * @param entryId: The log entry identifier.
     * @param entry: The log entry.
-    * @return [[Update]] constructed from log entry.
+    * @return [[Update]]s constructed from log entry.
     */
+  @throws(classOf[Err])
   def logEntryToUpdate(entryId: DamlLogEntryId, entry: DamlLogEntry): List[Update] = {
-    // FIXME(JM): Bunch of exceptions can be thrown by this method. Return a `Try[List[Update]]` instead?
-
     val recordTime = parseTimestamp(entry.getRecordTime)
 
     entry.getPayloadCase match {
@@ -51,7 +50,7 @@ object KeyValueConsumption {
             if (entry.getPackageUploadEntry.getSourceDescription.nonEmpty)
               Some(entry.getPackageUploadEntry.getSourceDescription)
             else None,
-            Ref.LedgerString.assertFromString(entry.getPackageUploadEntry.getParticipantId),
+            parseLedgerString("ParticipantId")(entry.getPackageUploadEntry.getParticipantId),
             recordTime
           )
         }(breakOut)
@@ -60,13 +59,11 @@ object KeyValueConsumption {
         List.empty
 
       case DamlLogEntry.PayloadCase.PARTY_ALLOCATION_ENTRY =>
+        val pae = entry.getPartyAllocationEntry
+        val party = parseParty(pae.getParty)
+        val participantId = parseLedgerString("ParticipantId")(pae.getParticipantId)
         List(
-          Update.PartyAddedToParticipant(
-            Party.assertFromString(entry.getPartyAllocationEntry.getParty),
-            entry.getPartyAllocationEntry.getDisplayName,
-            Ref.LedgerString.assertFromString(entry.getPartyAllocationEntry.getParticipantId),
-            recordTime
-          )
+          Update.PartyAddedToParticipant(party, pae.getDisplayName, participantId, recordTime)
         )
 
       case DamlLogEntry.PayloadCase.PARTY_ALLOCATION_REJECTION_ENTRY =>
@@ -77,25 +74,33 @@ object KeyValueConsumption {
 
       case DamlLogEntry.PayloadCase.CONFIGURATION_ENTRY =>
         val configEntry = entry.getConfigurationEntry
-        val newConfig = Configuration.decode(configEntry.getConfiguration).right.get
+        val newConfig = Configuration
+          .decode(configEntry.getConfiguration)
+          .fold(err => throw Err.DecodeError("Configuration", err), identity)
+        val participantId =
+          parseLedgerString("ParticipantId")(configEntry.getParticipantId)
         List(
           Update.ConfigurationChanged(
             recordTime,
             configEntry.getSubmissionId,
-            LedgerString.assertFromString(configEntry.getParticipantId),
-            newConfig))
+            participantId,
+            newConfig
+          )
+        )
 
       case DamlLogEntry.PayloadCase.CONFIGURATION_REJECTION_ENTRY =>
         val rejection = entry.getConfigurationRejectionEntry
-        val proposedConfig = Configuration.decode(rejection.getConfiguration).right.get
-
+        val proposedConfig = Configuration
+          .decode(rejection.getConfiguration)
+          .fold(err => throw Err.DecodeError("Configuration", err), identity)
+        val participantId =
+          parseLedgerString("ParticipantId")(rejection.getParticipantId)
         List(
           Update.ConfigurationChangeRejected(
             recordTime = recordTime,
             submissionId = rejection.getSubmissionId,
-            participantId = LedgerString.assertFromString(rejection.getParticipantId),
+            participantId = participantId,
             proposedConfiguration = proposedConfig,
-            // FIXME(JM): Should we just break out the rejection reasons in the participant-state api?
             rejectionReason = rejection.getReasonCase match {
               case DamlConfigurationRejectionEntry.ReasonCase.GENERATION_MISMATCH =>
                 s"Generation mismatch: ${proposedConfig.generation} != ${rejection.getGenerationMismatch.getExpectedGeneration}"
@@ -114,10 +119,12 @@ object KeyValueConsumption {
           ))
 
       case DamlLogEntry.PayloadCase.TRANSACTION_REJECTION_ENTRY =>
-        List(transactionRejectionEntryToUpdate(recordTime, entry.getTransactionRejectionEntry))
+        List(
+          transactionRejectionEntryToUpdate(recordTime, entry.getTransactionRejectionEntry)
+        )
 
       case DamlLogEntry.PayloadCase.PAYLOAD_NOT_SET =>
-        sys.error("logEntryToUpdate: PAYLOAD_NOT_SET!")
+        throw Err.InternalError("logEntryToUpdate: PAYLOAD_NOT_SET!")
     }
   }
 
@@ -159,7 +166,7 @@ object KeyValueConsumption {
               entry.getPartyAllocationEntry.getSubmissionId,
               PartyAllocationResult.Ok(
                 PartyDetails(
-                  Party.assertFromString(entry.getPartyAllocationEntry.getParty),
+                  parseParty(entry.getPartyAllocationEntry.getParty),
                   if (entry.getPartyAllocationEntry.getDisplayName.isEmpty)
                     None
                   else
@@ -189,14 +196,13 @@ object KeyValueConsumption {
         None
 
       case DamlLogEntry.PayloadCase.PAYLOAD_NOT_SET =>
-        sys.error("logEntryToAsyncResponse: PAYLOAD_NOT_SET!")
+        throw Err.InternalError("logEntryToAsyncResponse: PAYLOAD_NOT_SET!")
     }
   }
 
   private def transactionRejectionEntryToUpdate(
       recordTime: Timestamp,
-      rejEntry: DamlTransactionRejectionEntry): Update.CommandRejected = {
-
+      rejEntry: DamlTransactionRejectionEntry): Update.CommandRejected =
     Update.CommandRejected(
       recordTime = recordTime,
       submitterInfo = parseSubmitterInfo(rejEntry.getSubmitterInfo),
@@ -218,10 +224,9 @@ object KeyValueConsumption {
             rejEntry.getSubmitterCannotActViaParticipant.getDetails
           )
         case DamlTransactionRejectionEntry.ReasonCase.REASON_NOT_SET =>
-          sys.error("transactionRejectionEntryToUpdate: REASON_NOT_SET!")
+          throw Err.InternalError("transactionRejectionEntryToUpdate: REASON_NOT_SET!")
       }
     )
-  }
 
   private def partyRejectionEntryToAsyncResponse(
       rejEntry: DamlPartyAllocationRejectionEntry): PartyAllocationResponse = {
@@ -236,7 +241,7 @@ object KeyValueConsumption {
         case DamlPartyAllocationRejectionEntry.ReasonCase.PARTICIPANT_NOT_AUTHORIZED =>
           PartyAllocationResult.ParticipantNotAuthorized
         case DamlPartyAllocationRejectionEntry.ReasonCase.REASON_NOT_SET =>
-          sys.error("partyRejectionEntryToUpdate: REASON_NOT_SET!")
+          throw Err.InternalError("partyRejectionEntryToUpdate: REASON_NOT_SET!")
       }
     )
   }
@@ -252,7 +257,7 @@ object KeyValueConsumption {
         case DamlPackageUploadRejectionEntry.ReasonCase.PARTICIPANT_NOT_AUTHORIZED =>
           UploadPackagesResult.ParticipantNotAuthorized
         case DamlPackageUploadRejectionEntry.ReasonCase.REASON_NOT_SET =>
-          sys.error("rejectionEntryToUpdate: REASON_NOT_SET!")
+          throw Err.InternalError("rejectionEntryToUpdate: REASON_NOT_SET!")
       }
     )
   }
@@ -263,14 +268,16 @@ object KeyValueConsumption {
       txEntry: DamlTransactionEntry,
       recordTime: Timestamp): Update.TransactionAccepted = {
     val relTx = Conversions.decodeTransaction(txEntry.getTransaction)
-    val hexTxId = LedgerString.assertFromString(BaseEncoding.base16.encode(entryId.toByteArray))
-
+    val hexTxId = parseLedgerString("TransactionId")(
+      BaseEncoding.base16.encode(entryId.toByteArray)
+    )
     Update.TransactionAccepted(
       optSubmitterInfo = Some(parseSubmitterInfo(txEntry.getSubmitterInfo)),
       transactionMeta = TransactionMeta(
         ledgerEffectiveTime = parseTimestamp(txEntry.getLedgerEffectiveTime),
-        workflowId =
-          Some(txEntry.getWorkflowId).filter(_.nonEmpty).map(LedgerString.assertFromString),
+        workflowId = Some(txEntry.getWorkflowId)
+          .filter(_.nonEmpty)
+          .map(parseLedgerString("WorkflowId")),
       ),
       transaction = makeCommittedTransaction(entryId, relTx),
       transactionId = hexTxId,
@@ -289,5 +296,17 @@ object KeyValueConsumption {
         _.mapContractId(toAbsCoid(txId, _))
       )
   }
+
+  @throws(classOf[Err])
+  private def parseLedgerString(what: String)(s: String): Ref.LedgerString =
+    Ref.LedgerString
+      .fromString(s)
+      .fold(err => throw Err.DecodeError(what, "Cannot parse '$s': $err"), identity)
+
+  @throws(classOf[Err])
+  private def parseParty(s: String): Ref.Party =
+    Ref.Party
+      .fromString(s)
+      .fold(err => throw Err.DecodeError("Party", "Cannot parse '$s': $err"), identity)
 
 }

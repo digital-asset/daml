@@ -290,7 +290,9 @@ class InMemoryKVParticipantStateIT
       val rt = ps.getNewRecordTime
       for {
         alice <- allocateParty(ps, "alice")
-        _ <- ps.submitTransaction(submitterInfo(rt, alice), transactionMeta(rt), emptyTransaction).toScala
+        _ <- ps
+          .submitTransaction(submitterInfo(rt, alice), transactionMeta(rt), emptyTransaction)
+          .toScala
         update <- ps.stateUpdates(beginAfter = None).drop(1).runWith(Sink.head)
       } yield {
         ps.close()
@@ -303,8 +305,12 @@ class InMemoryKVParticipantStateIT
       val rt = ps.getNewRecordTime
       for {
         alice <- allocateParty(ps, "alice")
-        _ <- ps.submitTransaction(submitterInfo(rt, alice), transactionMeta(rt), emptyTransaction).toScala
-        _ <- ps.submitTransaction(submitterInfo(rt, alice), transactionMeta(rt), emptyTransaction).toScala
+        _ <- ps
+          .submitTransaction(submitterInfo(rt, alice), transactionMeta(rt), emptyTransaction)
+          .toScala
+        _ <- ps
+          .submitTransaction(submitterInfo(rt, alice), transactionMeta(rt), emptyTransaction)
+          .toScala
 
         updates <- ps.stateUpdates(beginAfter = None).take(3).runWith(Sink.seq)
       } yield {
@@ -333,9 +339,15 @@ class InMemoryKVParticipantStateIT
       val rt = ps.getNewRecordTime
       for {
         alice <- allocateParty(ps, "alice") // offset now at [1,0]
-        _ <- ps.submitTransaction(submitterInfo(rt, alice), transactionMeta(rt), emptyTransaction).toScala
-        _ <- ps.submitTransaction(submitterInfo(rt, alice), transactionMeta(rt), emptyTransaction).toScala
-        offsetAndUpdate <- ps.stateUpdates(beginAfter = Some(Offset(Array(1L, 0L)))).runWith(Sink.head)
+        _ <- ps
+          .submitTransaction(submitterInfo(rt, alice), transactionMeta(rt), emptyTransaction)
+          .toScala
+        _ <- ps
+          .submitTransaction(submitterInfo(rt, alice), transactionMeta(rt), emptyTransaction)
+          .toScala
+        offsetAndUpdate <- ps
+          .stateUpdates(beginAfter = Some(Offset(Array(1L, 0L))))
+          .runWith(Sink.head)
       } yield {
         val (offset, update) = offsetAndUpdate
         ps.close()
@@ -351,7 +363,12 @@ class InMemoryKVParticipantStateIT
 
       for {
         // Submit without allocation
-        _ <- ps.submitTransaction(submitterInfo(rt, unallocatedParty), transactionMeta(rt), emptyTransaction).toScala
+        _ <- ps
+          .submitTransaction(
+            submitterInfo(rt, unallocatedParty),
+            transactionMeta(rt),
+            emptyTransaction)
+          .toScala
 
         // Allocate a party and try the submission again with an allocated party.
         allocResult <- ps

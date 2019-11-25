@@ -41,7 +41,12 @@ import com.digitalasset.platform.sandbox.stores.ActiveLedgerState.ActiveContract
 import com.digitalasset.platform.sandbox.stores.deduplicator.Deduplicator
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry.{Checkpoint, Rejection}
 import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
-import com.digitalasset.platform.sandbox.stores.ledger.{Ledger, LedgerEntry, LedgerSnapshot, ConfigurationEntry}
+import com.digitalasset.platform.sandbox.stores.ledger.{
+  Ledger,
+  LedgerEntry,
+  LedgerSnapshot,
+  ConfigurationEntry
+}
 import com.digitalasset.platform.sandbox.stores.{
   ActiveLedgerState,
   InMemoryActiveLedgerState,
@@ -51,7 +56,6 @@ import org.slf4j.LoggerFactory
 
 import scala.concurrent.Future
 import scala.util.{Failure, Success, Try}
-
 
 sealed trait InMemoryEntry extends Product with Serializable
 final case class InMemoryLedgerEntry(entry: LedgerEntry) extends InMemoryEntry
@@ -311,20 +315,28 @@ class InMemoryLedger(
       submissionId: String,
       config: Configuration): Future[SubmissionResult] =
     Future.successful {
-      // FIXME(JM): Verify that new configuration is of a newer generation!
-      entries.publish(InMemoryConfigEntry(
-        ConfigurationEntry.Accepted(
-          submissionId,
-          participantId,
-          config)))
-      ledgerConfiguration = Some(config)
+      ledgerConfiguration match {
+        case Some(currentConfig) if config.generation != currentConfig.generation =>
+          entries.publish(
+            InMemoryConfigEntry(ConfigurationEntry.Rejected(
+              submissionId,
+              participantId,
+              "Generation mismatch, expected ${currentConfig.generation}, got ${config.generation}",
+              config)))
+
+        case _ =>
+          entries.publish(
+            InMemoryConfigEntry(ConfigurationEntry.Accepted(submissionId, participantId, config)))
+          ledgerConfiguration = Some(config)
+      }
       SubmissionResult.Acknowledged
     }
 
   override def lookupLedgerConfiguration(): Future[Option[Configuration]] =
     Future.successful(ledgerConfiguration)
 
-  override def configurationEntries(offset: Option[Long]): Source[(Long, ConfigurationEntry), NotUsed] =
+  override def configurationEntries(
+      offset: Option[Long]): Source[(Long, ConfigurationEntry), NotUsed] =
     entries
       .getSource(offset)
       .collect { case (offset, InMemoryConfigEntry(entry)) => offset -> entry }

@@ -188,11 +188,9 @@ private[kvutils] object Common {
         Configuration
           .decode(entry.getConfiguration)
           .fold({ err =>
-              logger.error(s"Failed to parse configuration: $err, using default configuration.")
-              None
-            },
-            conf => Some(Some(entry) -> conf)
-          )
+            logger.error(s"Failed to parse configuration: $err, using default configuration.")
+            None
+          }, conf => Some(Some(entry) -> conf))
       }
       .getOrElse(None -> defaultConfig)
 }
