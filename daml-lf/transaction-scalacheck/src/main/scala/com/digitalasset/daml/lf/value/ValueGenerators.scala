@@ -197,11 +197,10 @@ object ValueGenerators {
   def valueMapGen: Gen[ValueTextMap[ContractId]] = valueMapGen(0)
 
   private def valueGenMapGen(nesting: Int) =
-    for {
-      list <- Gen.listOf(for {
-        Gen.zip(Gen.lzy(valueGen(nesting)), Gen.lzy(valueGen(nesting)))
-      } yield k -> v)
-    } yield ValueGenMap[ContractId](ImmArray(list))
+    Gen
+      .listOf(Gen.zip(Gen.lzy(valueGen(nesting)), Gen.lzy(valueGen(nesting))))
+      .flatMap(list => ValueGenMap[ContractId](ImmArray(list)))
+
   def valueGenMapGen: Gen[ValueGenMap[ContractId]] = valueGenMapGen(0)
 
   def coidGen: Gen[ContractId] = {
