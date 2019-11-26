@@ -681,7 +681,7 @@ available for usage::
        |  'variant' T (α₁: k₁)… (αₙ: kₙ) ↦ V₁ : τ₁ | … | Vₘ : τₘ
                                                     -- DefVariant
        |  'enum' T  ↦ E₁ | … | Eₘ                    -- DefEnum
-       |  'synonym' T (α₁: k₁)… (αₙ: kₙ) ↦ τ        -- DefTypeSynonym
+       |  'synonym' S (α₁: k₁)… (αₙ: kₙ) ↦ τ        -- DefTypeSynonym
        |  'val' W : τ ↦ e                           -- DefValue
        |  'tpl' (x : T) ↦                           -- DefTemplate
             { 'precondition' e₁
@@ -852,11 +852,11 @@ First, we formally defined *well-formed types*. ::
     ————————————————————————————————————————————— TyTuple
       Γ  ⊢  ⟨ f₁: τ₁, …, fₙ: τₙ ⟩  :  ⋆
 
-      'synonym' T (α₁:k₁) … (αₙ:kₙ) ↦ τ ∈ 〚Ξ〛Mod
+      'synonym' S (α₁:k₁) … (αₙ:kₙ) ↦ τ ∈ 〚Ξ〛Mod
       (α₁:k₁) … (αₙ:kₙ) · Γ  ⊢  τ  :  ⋆
       Γ  ⊢  α₁ : k₁  …  Γ  ⊢  αₙ : kₙ
     ————————————————————————————————————————————— TyTypeSynonym
-      Γ  ⊢  T α₁ … αₙ  :  ⋆
+      Γ  ⊢  S α₁ … αₙ  :  ⋆
 
 
 
@@ -996,9 +996,9 @@ Then we define *well-formed expressions*. ::
     ——————————————————————————————————————————————————————————————— ExpEnumCon
       Γ  ⊢  Mod:T:Eᵢ  :  Mod:T
 
-      'synonym' T (α₁:k₁) … (αₙ:kₙ) ↦ τ   Γ  ↦  e : τ
+      'synonym' S (α₁:k₁) … (αₙ:kₙ) ↦ τ   Γ  ↦  e : τ
     ——————————————————————————————————————————————————————————————— ExpTypeSynonym
-      Γ  ⊢  e : Mod:T α₁ … αₙ
+      Γ  ⊢  e : Mod:S α₁ … αₙ
 
       Γ  ⊢  e₁  :  τ₁      …      Γ  ⊢  eₘ  :  τₘ
     ——————————————————————————————————————————————————————————————— ExpTupleCon
