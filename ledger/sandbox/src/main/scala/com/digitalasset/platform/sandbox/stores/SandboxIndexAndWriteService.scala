@@ -33,6 +33,7 @@ import com.digitalasset.ledger.api.domain.CompletionEvent.{
   CommandRejected
 }
 import com.digitalasset.ledger.api.domain.{ParticipantId => _, _}
+import com.digitalasset.ledger.api.health.HealthChecks
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.common.util.{DirectExecutionContext => DEC}
 import com.digitalasset.platform.participant.util.EventFilter
@@ -55,6 +56,8 @@ trait IndexAndWriteService extends AutoCloseable {
   def writeService: WriteService
 
   def publishHeartbeat(instant: Instant): Future[Unit]
+
+  def healthChecks: HealthChecks
 }
 
 object SandboxIndexAndWriteService {
@@ -73,7 +76,8 @@ object SandboxIndexAndWriteService {
       queueDepth: Int,
       templateStore: InMemoryPackageStore,
       loggerFactory: NamedLoggerFactory,
-      metrics: MetricRegistry)(implicit mat: Materializer): Future[IndexAndWriteService] =
+      metrics: MetricRegistry,
+  )(implicit mat: Materializer): Future[IndexAndWriteService] =
     Ledger
       .jdbcBacked(
         jdbcUrl,
@@ -85,7 +89,7 @@ object SandboxIndexAndWriteService {
         queueDepth,
         startMode,
         loggerFactory,
-        metrics
+        metrics,
       )
       .map(ledger =>
         createInstance(Ledger.metered(ledger, metrics), participantId, timeModel, timeProvider))(
@@ -99,7 +103,8 @@ object SandboxIndexAndWriteService {
       acs: InMemoryActiveLedgerState,
       ledgerEntries: ImmArray[LedgerEntryOrBump],
       templateStore: InMemoryPackageStore,
-      metrics: MetricRegistry)(implicit mat: Materializer): IndexAndWriteService = {
+      metrics: MetricRegistry,
+  )(implicit mat: Materializer): IndexAndWriteService = {
     val ledger =
       Ledger.metered(
         Ledger.inMemory(ledgerId, timeProvider, acs, templateStore, ledgerEntries),
@@ -111,7 +116,8 @@ object SandboxIndexAndWriteService {
       ledger: Ledger,
       participantId: ParticipantId,
       timeModel: TimeModel,
-      timeProvider: TimeProvider)(implicit mat: Materializer) = {
+      timeProvider: TimeProvider,
+  )(implicit mat: Materializer): IndexAndWriteService = {
     val contractStore = new SandboxContractStore(ledger)
     val indexSvc = new LedgerBackedIndexService(ledger, contractStore, participantId) {
       override def getLedgerConfiguration(): Source[LedgerConfiguration, NotUsed] =
@@ -123,12 +129,14 @@ object SandboxIndexAndWriteService {
     val heartbeats = scheduleHeartbeats(timeProvider, ledger.publishHeartbeat)
 
     new IndexAndWriteService {
-      override def indexService: IndexService = indexSvc
+      override val indexService: IndexService = indexSvc
 
-      override def writeService: WriteService = writeSvc
+      override val writeService: WriteService = writeSvc
 
       override def publishHeartbeat(instant: Instant): Future[Unit] =
         ledger.publishHeartbeat(instant)
+
+      override val healthChecks: HealthChecks = indexSvc.healthChecks ++ writeSvc.healthChecks
 
       override def close(): Unit = {
         heartbeats.close()

@@ -212,7 +212,7 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
           config.commandConfig.maxCommandsInFlight * 2, // we can get commands directly as well on the submission service
           packageStore,
           loggerFactory,
-          metrics
+          metrics,
         )
 
       case None =>
@@ -225,7 +225,7 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
             acs,
             ledgerEntries,
             packageStore,
-            metrics
+            metrics,
           ))
     }
 
@@ -251,13 +251,10 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
               config.timeModel,
               config.commandConfig,
               timeServiceBackendO
-                .map(
-                  TimeServiceBackend.withObserver(
-                    _,
-                    indexAndWriteService.publishHeartbeat
-                  )),
+                .map(TimeServiceBackend.withObserver(_, indexAndWriteService.publishHeartbeat)),
               loggerFactory,
-              metrics
+              metrics,
+              indexAndWriteService.healthChecks,
             )(am, esf)
             .map(_.withServices(List(resetService(ledgerId, authorizer, loggerFactory)))),
         // NOTE(JM): Re-use the same port after reset.

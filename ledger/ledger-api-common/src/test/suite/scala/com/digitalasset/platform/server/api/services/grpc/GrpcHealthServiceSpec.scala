@@ -4,6 +4,7 @@
 package com.digitalasset.platform.server.api.services.grpc
 
 import com.digitalasset.grpc.adapter.server.rs.MockServerCallStreamObserver
+import com.digitalasset.ledger.api.health.HealthChecks
 import com.digitalasset.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.digitalasset.platform.server.api.services.grpc.GrpcHealthServiceSpec._
 import io.grpc.health.v1.health.{HealthCheckRequest, HealthCheckResponse}
@@ -32,7 +33,7 @@ final class GrpcHealthServiceSpec
 
   "HealthService" should {
     "check the current health" in {
-      val service = new GrpcHealthService()
+      val service = new GrpcHealthService(HealthChecks.empty)
 
       val response = Await.result(service.check(request), patienceConfig.timeout)
 
@@ -41,7 +42,7 @@ final class GrpcHealthServiceSpec
 
     "observe changes in health" in {
       val responseObserver = new MockServerCallStreamObserver[HealthCheckResponse]
-      val service = new GrpcHealthService()
+      val service = new GrpcHealthService(HealthChecks.empty)
 
       service.watch(request, responseObserver)
       responseObserver.demandResponse()

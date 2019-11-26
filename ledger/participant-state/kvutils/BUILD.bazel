@@ -30,6 +30,7 @@ da_scala_library(
         "//daml-lf/transaction:value_java_proto",
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-domain",
+        "//ledger/ledger-api-health",
         "//ledger/participant-state",
         "@maven//:com_google_guava_guava",
         "@maven//:com_google_protobuf_protobuf_java",

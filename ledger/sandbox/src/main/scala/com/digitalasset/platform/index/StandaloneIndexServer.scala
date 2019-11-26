@@ -17,6 +17,7 @@ import com.digitalasset.ledger.api.auth.interceptor.AuthorizationInterceptor
 import com.digitalasset.ledger.api.auth.{AuthService, Authorizer}
 import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.domain.LedgerId
+import com.digitalasset.ledger.api.health.HealthChecks
 import com.digitalasset.ledger.server.apiserver.{ApiServer, ApiServices, LedgerApiServer}
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.index.StandaloneIndexServer._
@@ -46,6 +47,7 @@ class StandaloneIndexServer(
     authService: AuthService,
     loggerFactory: NamedLoggerFactory,
     metrics: MetricRegistry,
+    healthChecks: HealthChecks,
     engine: Engine = engineSharedAmongIndexServers, // allows sharing DAML engine with DAML-on-X participant
     timeServiceBackendO: Option[TimeServiceBackend] = None,
 ) {
@@ -150,7 +152,8 @@ class StandaloneIndexServer(
               SandboxConfig.defaultCommandConfig,
               timeServiceBackendO,
               loggerFactory,
-              metrics
+              metrics,
+              writeService.healthChecks ++ indexService.healthChecks,
             )(am, esf),
         config.port,
         config.maxInboundMessageSize,

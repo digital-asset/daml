@@ -14,6 +14,7 @@ import com.daml.ledger.participant.state.v1.ParticipantId
 import com.digitalasset.daml.lf.archive.DarReader
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
 import com.digitalasset.ledger.api.auth.AuthServiceWildcard
+import com.digitalasset.ledger.api.health.HealthChecks
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.index.{StandaloneIndexServer, StandaloneIndexerServer}
 import org.slf4j.LoggerFactory
@@ -75,6 +76,7 @@ object ReferenceServer extends App {
       authService,
       participantLoggerFactory,
       SharedMetricRegistries.getOrCreate(s"ledger-api-server-$participantId"),
+      readService.healthChecks ++ writeService.healthChecks,
     ).start()
   } yield (indexerServer, indexServer)
 
@@ -94,14 +96,16 @@ object ReferenceServer extends App {
           readService,
           participantConfig,
           participantLoggerFactory,
-          SharedMetricRegistries.getOrCreate(s"indexer-$extraParticipantId"))
+          SharedMetricRegistries.getOrCreate(s"indexer-$extraParticipantId"),
+        )
         extraLedgerApiServer <- new StandaloneIndexServer(
           participantConfig,
           readService,
           writeService,
           authService,
           participantLoggerFactory,
-          SharedMetricRegistries.getOrCreate(s"ledger-api-server-$extraParticipantId")
+          SharedMetricRegistries.getOrCreate(s"ledger-api-server-$extraParticipantId"),
+          readService.healthChecks ++ writeService.healthChecks,
         ).start()
       } yield (extraIndexer, extraLedgerApiServer)
     }

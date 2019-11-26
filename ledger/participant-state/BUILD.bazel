@@ -23,6 +23,7 @@ da_scala_library(
         "//daml-lf/transaction:transaction_java_proto",
         "//daml-lf/transaction:value_java_proto",
         "//ledger/ledger-api-domain",
+        "//ledger/ledger-api-health",
         "@maven//:com_google_guava_guava",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:com_typesafe_akka_akka_actor_2_12",

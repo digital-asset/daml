@@ -8,6 +8,7 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.grpc.adapter.utils.DirectExecutionContext
+import com.digitalasset.ledger.api.health.HealthChecks
 import com.digitalasset.platform.api.grpc.GrpcApiService
 import com.digitalasset.platform.server.api.DropRepeated
 import io.grpc.ServerServiceDefinition
@@ -21,7 +22,7 @@ import io.grpc.health.v1.health.{
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future}
 
-class GrpcHealthService(
+class GrpcHealthService(healthChecks: HealthChecks)(
     implicit protected val esf: ExecutionSequencerFactory,
     protected val mat: Materializer,
     executionContext: ExecutionContext,

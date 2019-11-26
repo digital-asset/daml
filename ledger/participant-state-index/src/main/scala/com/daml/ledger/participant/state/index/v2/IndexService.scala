@@ -11,5 +11,6 @@ trait IndexService
     with IndexActiveContractsService
     with ContractStore
     with IdentityProvider
-//with IndexTimeService //TODO: this needs some further discussion as the TimeService is actually optional
     with IndexPartyManagementService
+    // with IndexTimeService //TODO: this needs some further discussion as the TimeService is actually optional
+    with IndexHealthChecks
