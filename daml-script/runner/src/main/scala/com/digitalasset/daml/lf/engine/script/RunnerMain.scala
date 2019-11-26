@@ -98,7 +98,6 @@ object RunnerMain {
               participants = Map.empty,
               party_participants = Map.empty)
         }
-        println(participantParams)
         val flow: Future[Unit] = for {
           clients <- Runner.connect(participantParams, clientConfig)
           _ <- runner.run(clients, scriptId, inputValue)
