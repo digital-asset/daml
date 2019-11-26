@@ -143,7 +143,7 @@ buildDar service pkgConf@PackageConfigFields {..} ifDir dalfInput = do
                  -- get all dalf dependencies.
                  dalfDependencies0 <- getDalfDependencies files
                  let dalfDependencies =
-                         [ (T.pack $ unitIdString unitId, LF.dalfPackageBytes pkg)
+                         [ (T.pack $ unitIdString unitId, LF.dalfPackageBytes pkg, LF.dalfPackageId pkg)
                          | (unitId, pkg) <- Map.toList dalfDependencies0
                          ]
                  let dataFiles = [mkConfFile pkgConf pkgModuleNames (T.unpack pkgId)]
@@ -298,7 +298,7 @@ createArchive ::
        PackageConfigFields
     -> String
     -> BSL.ByteString -- ^ DALF
-    -> [(T.Text, BS.ByteString)] -- ^ DALF dependencies
+    -> [(T.Text, BS.ByteString, LF.PackageId)] -- ^ DALF dependencies
     -> NormalizedFilePath -- ^ Source root directory
     -> [NormalizedFilePath] -- ^ Module dependencies
     -> [(String, BS.ByteString)] -- ^ Data files
@@ -320,8 +320,8 @@ createArchive PackageConfigFields {..} pkgId dalf dalfDependencies srcRoot fileD
         Zip.sinkEntry Zip.Deflate (sourceFile $ fromNormalizedFilePath mPath) entry
     let dalfName = pkgName </> pkgNameVersion pName pVersion <.> "dalf"
     let dependencies =
-            [ (pkgName </> T.unpack depName <> ".dalf", BSL.fromStrict bs)
-            | (depName, bs) <- dalfDependencies
+            [ (pkgName </> T.unpack depName <> "-" <> (T.unpack $ LF.unPackageId depPkgId) <> ".dalf", BSL.fromStrict bs)
+            | (depName, bs, depPkgId) <- dalfDependencies
             ]
     let dataFiles' =
             [ (pkgName </> "data" </> n, BSC.fromStrict bs)

@@ -253,6 +253,26 @@ tests damlc = testGroup "Packaging"
         checkDarFile darFiles "B" "C.hi"
         checkDarFile darFiles "B" "C.hie"
 
+    , testCase "Dalf dependencies get package id suffices" $ withTempDir $ \projDir -> do
+        createDirectoryIfMissing True (projDir </> "daml")
+        writeFileUTF8 (projDir </> "daml/A.daml") $ unlines
+          [ "daml 1.2"
+          , "module A where"
+          , "data A = A ()"
+          ]
+        writeFileUTF8 (projDir </> "daml.yaml") $ unlines
+          [ "sdk-version: " <> sdkVersion
+          , "name: proj"
+          , "version: 0.1.0"
+          , "source: daml"
+          , "dependencies: [daml-prim, daml-stdlib]"
+          ]
+        buildProject projDir
+        let dar = projDir </> ".daml/dist/proj-0.1.0.dar"
+        assertBool "proj-0.1.0.dar was not created." =<< doesFileExist dar
+        darFiles <- Zip.filesInArchive . Zip.toArchive <$> BSL.readFile dar
+        checkNotDarFile darFiles "." "daml-prim.dalf"
+
     , testCase "Imports from different directories" $ withTempDir $ \projDir -> do
         -- Regression test for #2929
         createDirectory (projDir </> "A")
@@ -438,3 +458,8 @@ checkDarFile :: [FilePath] -> FilePath -> FilePath -> IO ()
 checkDarFile darFiles dir file =
     assertBool (dir </> file <> " not in " <> show darFiles) $
     any (\f -> normalise (dropDirectory1 f) == normalise (dir </> file)) darFiles
+
+checkNotDarFile :: [FilePath] -> FilePath -> FilePath -> IO ()
+checkNotDarFile darFiles dir file =
+    assertBool (dir </> file <> " in " <> show darFiles) $
+    not $ any (\f -> normalise (dropDirectory1 f) == normalise (dir </> file)) darFiles

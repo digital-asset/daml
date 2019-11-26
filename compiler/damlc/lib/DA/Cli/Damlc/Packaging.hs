@@ -138,8 +138,8 @@ createProjectPackageDb opts thisSdkVer deps0 dataDeps = do
     forM_ pkgIdsTopoSorted $ \vertex -> do
         let ((src, templInstSrc, uid, dalf, bs), pkgId, _) =
                 vertexToNode vertex
-        when (uid /= primUnitId) $ do
-            let unitIdStr = unitIdString uid
+        let unitIdStr = unitIdString uid
+        unless (unitIdString primUnitId `isPrefixOf` unitIdStr) $ do
             let instancesUnitIdStr = "instances-" <> unitIdStr
             let pkgIdStr = T.unpack $ LF.unPackageId pkgId
             let (pkgName, mbPkgVersion) =
