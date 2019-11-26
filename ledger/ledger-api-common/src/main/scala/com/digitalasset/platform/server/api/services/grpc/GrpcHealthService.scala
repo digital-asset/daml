@@ -11,6 +11,7 @@ import com.digitalasset.grpc.adapter.utils.DirectExecutionContext
 import com.digitalasset.ledger.api.health.HealthChecks
 import com.digitalasset.platform.api.grpc.GrpcApiService
 import com.digitalasset.platform.server.api.DropRepeated
+import com.digitalasset.platform.server.api.services.grpc.GrpcHealthService._
 import io.grpc.ServerServiceDefinition
 import io.grpc.health.v1.health.{
   HealthAkkaGrpc,
@@ -19,26 +20,41 @@ import io.grpc.health.v1.health.{
   HealthGrpc
 }
 
-import scala.concurrent.duration.DurationInt
+import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future}
 
-class GrpcHealthService(healthChecks: HealthChecks)(
+class GrpcHealthService(
+    healthChecks: HealthChecks,
+    maximumWatchFrequency: FiniteDuration = 1.second,
+)(
     implicit protected val esf: ExecutionSequencerFactory,
     protected val mat: Materializer,
     executionContext: ExecutionContext,
 ) extends HealthAkkaGrpc
     with GrpcApiService {
-  private val servingResponse = HealthCheckResponse(HealthCheckResponse.ServingStatus.SERVING)
-
   override def bindService(): ServerServiceDefinition =
     HealthGrpc.bindService(this, DirectExecutionContext)
 
   override def check(request: HealthCheckRequest): Future[HealthCheckResponse] =
-    Future.successful(servingResponse)
+    Future.successful(response)
 
   override def watchSource(request: HealthCheckRequest): Source[HealthCheckResponse, NotUsed] =
     Source
-      .repeat(servingResponse)
-      .throttle(1, per = 1.second)
+      .fromIterator(() => Iterator.continually(response))
+      .throttle(1, per = maximumWatchFrequency)
       .via(DropRepeated())
+
+  private def response: HealthCheckResponse =
+    if (healthChecks.isHealthy)
+      servingResponse
+    else
+      notServingResponse
+}
+
+object GrpcHealthService {
+  private[grpc] val servingResponse =
+    HealthCheckResponse(HealthCheckResponse.ServingStatus.SERVING)
+
+  private[grpc] val notServingResponse =
+    HealthCheckResponse(HealthCheckResponse.ServingStatus.NOT_SERVING)
 }

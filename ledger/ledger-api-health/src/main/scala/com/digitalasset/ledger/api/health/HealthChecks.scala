@@ -3,7 +3,9 @@
 
 package com.digitalasset.ledger.api.health
 
-case class HealthChecks() {
+class HealthChecks(components: (String, ReportsHealth)*) {
+  def isHealthy: Boolean = components.forall(_._2.currentHealth == Healthy)
+
   def ++(other: HealthChecks): HealthChecks = this
 }
 
