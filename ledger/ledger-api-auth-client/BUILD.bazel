@@ -1,14 +1,11 @@
 # Copyright (c) 2019 The DAML Authors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load(
-    "//bazel_tools:scala.bzl",
-    "da_scala_library",
-)
+load("//bazel_tools:java.bzl", "da_java_library")
 
-da_scala_library(
+da_java_library(
     name = "ledger-api-auth-client",
-    srcs = glob(["src/main/scala/com/digitalasset/ledger/api/auth/client/**/*.scala"]),
+    srcs = glob(["src/main/java/com/digitalasset/ledger/api/auth/client/**/*.java"]),
     tags = ["maven_coordinates=com.digitalasset.ledger:ledger-api-auth-client:__VERSION__"],
     visibility = [
         "//visibility:public",
