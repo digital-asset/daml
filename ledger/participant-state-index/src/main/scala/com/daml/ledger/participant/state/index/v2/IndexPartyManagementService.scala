@@ -19,5 +19,6 @@ trait IndexPartyManagementService {
 
   def listParties(): Future[List[PartyDetails]]
 
-  def getPartyAllocationEntries(offset: Option[Long]): Source[(Long, PartyAllocationEntry), NotUsed]
+  def getPartyAllocationEntries(
+      offset: Option[Long] = None): Source[(Long, PartyAllocationEntry), NotUsed]
 }

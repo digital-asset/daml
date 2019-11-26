@@ -18,7 +18,11 @@ import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails}
 import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilter
 import com.digitalasset.platform.sandbox.metrics.timedFuture
 import com.digitalasset.platform.sandbox.stores.ActiveLedgerState.{ActiveContract, Contract}
-import com.digitalasset.platform.sandbox.stores.ledger.{LedgerEntry, PackageUploadLedgerEntry, PartyAllocationLedgerEntry}
+import com.digitalasset.platform.sandbox.stores.ledger.{
+  LedgerEntry,
+  PackageUploadLedgerEntry,
+  PartyAllocationLedgerEntry
+}
 
 import scala.collection.immutable
 import scala.concurrent.Future
@@ -161,20 +165,20 @@ private class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: MetricRegistry)
       entry: PackageUploadLedgerEntry): Future[PersistenceResponse] =
     ledgerDao.storePackageUploadEntry(offset, newLedgerEnd, externalOffset, entry)
 
-  def storePartyAllocationRejectEntry(
+  def storePartyAllocationEntry(
       offset: LedgerOffset,
       newLedgerEnd: LedgerOffset,
       externalOffset: Option[ExternalOffset],
       submissionId: SubmissionId,
       participantId: ParticipantId,
-      reason: String): Future[PersistenceResponse] =
-    ledgerDao.storePartyAllocationRejectEntry(
+      entry: PartyAllocationLedgerEntry): Future[PersistenceResponse] =
+    ledgerDao.storePartyAllocationEntry(
       offset,
       newLedgerEnd,
       externalOffset,
       submissionId,
       participantId,
-      reason)
+      entry)
 }
 
 object MeteredLedgerDao {

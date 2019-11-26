@@ -254,7 +254,8 @@ object domain {
 
   type EventId = Ref.LedgerString @@ EventIdTag
   val EventId: Tag.TagOf[EventIdTag] = Tag.of[EventIdTag]
-  implicit val eventIdOrdering: Ordering[EventId] = scala.math.Ordering.by[EventId, Ref.LedgerString](_.unwrap)
+  implicit val eventIdOrdering: Ordering[EventId] =
+    scala.math.Ordering.by[EventId, Ref.LedgerString](_.unwrap)
 
   sealed trait LedgerIdTag
 

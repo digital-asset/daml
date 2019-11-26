@@ -16,7 +16,13 @@ import anorm.{AkkaStream, BatchSql, Macro, NamedParameter, RowParser, SQL, SqlPa
 import com.daml.ledger.participant.state.index.v2.PackageDetails
 import com.daml.ledger.participant.state.v1.{AbsoluteContractInst, ParticipantId, TransactionId}
 import com.digitalasset.daml.lf.archive.Decode
-import com.digitalasset.daml.lf.data.Ref.{ContractIdString, LedgerString, PackageId, Party, TransactionIdString}
+import com.digitalasset.daml.lf.data.Ref.{
+  ContractIdString,
+  LedgerString,
+  PackageId,
+  Party,
+  TransactionIdString
+}
 import com.digitalasset.daml.lf.data.Relation.Relation
 import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.transaction.Node.{GlobalKey, KeyWithMaintainers}
@@ -29,14 +35,30 @@ import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails, RejectionReas
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.common.util.DirectExecutionContext
 import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilter
-import com.digitalasset.platform.sandbox.stores.ActiveLedgerState.{ActiveContract, Contract, DivulgedContract}
+import com.digitalasset.platform.sandbox.stores.ActiveLedgerState.{
+  ActiveContract,
+  Contract,
+  DivulgedContract
+}
 import com.digitalasset.platform.sandbox.stores._
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry._
-import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.JdbcLedgerDao.{H2DatabaseQueries, PostgresQueries}
-import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{ContractSerializer, KeyHasher, TransactionSerializer, ValueSerializer}
+import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.JdbcLedgerDao.{
+  H2DatabaseQueries,
+  PostgresQueries
+}
+import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{
+  ContractSerializer,
+  KeyHasher,
+  TransactionSerializer,
+  ValueSerializer
+}
 import com.digitalasset.platform.sandbox.stores.ledger.sql.util.Conversions._
 import com.digitalasset.platform.sandbox.stores.ledger.sql.util.DbDispatcher
-import com.digitalasset.platform.sandbox.stores.ledger.{LedgerEntry, PackageUploadLedgerEntry, PartyAllocationLedgerEntry}
+import com.digitalasset.platform.sandbox.stores.ledger.{
+  LedgerEntry,
+  PackageUploadLedgerEntry,
+  PartyAllocationLedgerEntry
+}
 import com.google.common.io.ByteStreams
 import scalaz.syntax.tag._
 
@@ -1419,8 +1441,8 @@ private class JdbcLedgerDao(
 
   override def getPartyAllocationEntries(
       startInclusive: Long,
-      endExclusive: Long): Source[(Long, PartyAllocationLedgerEntry), NotUsed] =
-    paginatingStream(
+      endExclusive: Long): Source[(Long, PartyAllocationLedgerEntry), NotUsed] = {
+    val value: Source[List[(LedgerOffset, PartyAllocationLedgerEntry)], NotUsed] = paginatingStream(
       startInclusive,
       endExclusive,
       PageSize,
@@ -1432,7 +1454,9 @@ private class JdbcLedgerDao(
               .as(partyAllocationEntryParser.*)
         }
       }
-    ).flatMapConcat(Source(_))
+    )
+    value.flatMapConcat(Source(_))
+  }
 
   //Future approach
   //  dbDispatcher.executeSql("load package upload entries") { implicit conn =>
@@ -1440,40 +1464,53 @@ private class JdbcLedgerDao(
   //      .as(partyAllocationEntryParser.*)
   //  }
 
-  private val SQL_INSERT_PARTY_ALLOCATION_ENTRY_REJECT: String =
-    """insert into party_allocation_entries(ledger_offset, recorded_at, submission_id, participant_id, typ, rejection_reason)
-      |values({ledger_offset}, {recorded_at}, {submission_id}, {participant_id}, {typ}, {rejection_reason})
-      |on conflict (submission_id) do nothing""".stripMargin
-
-  override def storePartyAllocationRejectEntry(
+  override def storePartyAllocationEntry(
       offset: LedgerOffset,
       newLedgerEnd: LedgerOffset,
       externalOffset: Option[ExternalOffset],
       submissionId: SubmissionId,
       participantId: ParticipantId,
-      reason: String): Future[PersistenceResponse] = {
+      entry: PartyAllocationLedgerEntry): Future[PersistenceResponse] = {
 
     dbDispatcher.executeSql("store party allocation reject entry") { implicit conn =>
       updateLedgerEnd(newLedgerEnd, externalOffset)
       Try({
-        SQL(SQL_INSERT_PARTY_ALLOCATION_ENTRY_REJECT)
+        SQL(queries.SQL_INSERT_PARTY_ALLOCATION_ENTRY)
           .on(
             "ledger_offset" -> offset,
             "recorded_at" -> Instant.now(),
             "submission_id" -> submissionId,
             "participant_id" -> participantId,
-            "typ" -> "reject",
-            "rejection_reason" -> reason
+            "party" -> optionalPartyDetails(entry).orNull.party.toString,
+            "display_name" -> optionalPartyDetails(entry).orNull.displayName.toString,
+            "typ" -> entry.value,
+            "rejection_reason" -> partyAllocationReasonorNull(entry)
           )
           .execute()
         PersistenceResponse.Ok
       }).recover {
         case NonFatal(e) if e.getMessage.contains(queries.DUPLICATE_KEY_ERROR) =>
           logger.warn(
-            s"Ignoring duplicate package upload entry submission for submissionId ${submissionId} participantId ${participantId}")
+            s"Ignoring duplicate package upload entry submission for submissionId $submissionId participantId $participantId")
           conn.rollback()
           PersistenceResponse.Duplicate
       }.get
+    }
+  }
+
+  private def optionalPartyDetails(entry: PartyAllocationLedgerEntry): Option[PartyDetails] =
+    entry match {
+      case PartyAllocationLedgerEntry.Accepted(_, _, partyDetails) =>
+        Some(partyDetails)
+      case PartyAllocationLedgerEntry.Rejected(_, _, _) =>
+        None
+    }
+  private def partyAllocationReasonorNull(entry: PartyAllocationLedgerEntry): String = {
+    entry match {
+      case PartyAllocationLedgerEntry.Rejected(_, _, reason) =>
+        reason
+      case PartyAllocationLedgerEntry.Accepted(_, _, _) =>
+        null
     }
   }
 
@@ -1544,6 +1581,7 @@ object JdbcLedgerDao {
     protected[JdbcLedgerDao] def SQL_INSERT_CONTRACT_DATA: String
     protected[JdbcLedgerDao] def SQL_INSERT_PACKAGE: String
     protected[JdbcLedgerDao] def SQL_INSERT_PACKAGE_UPLOAD_ENTRY: String
+    protected[JdbcLedgerDao] def SQL_INSERT_PARTY_ALLOCATION_ENTRY: String
     protected[JdbcLedgerDao] def SQL_IMPLICITLY_INSERT_PARTIES: String
 
     protected[JdbcLedgerDao] def SQL_SELECT_CONTRACT: String
@@ -1576,6 +1614,11 @@ object JdbcLedgerDao {
     override protected[JdbcLedgerDao] val SQL_INSERT_PACKAGE_UPLOAD_ENTRY: String =
       """insert into package_upload_entries(ledger_offset, recorded_at, submission_id, participant_id, typ, rejection_reason)
         |values({ledger_offset}, {recorded_at}, {submission_id}, {participant_id}, {typ}, {rejection_reason})
+        |on conflict (submission_id) do nothing""".stripMargin
+
+    override protected[JdbcLedgerDao] val SQL_INSERT_PARTY_ALLOCATION_ENTRY: String =
+      """insert into party_allocation_entries(ledger_offset, recorded_at, submission_id, participant_id, party, display_name, typ, rejection_reason)
+        |values({ledger_offset}, {recorded_at}, {submission_id}, {participant_id}, {party}, {display_name}, {typ}, {rejection_reason})
         |on conflict (submission_id) do nothing""".stripMargin
 
     override protected[JdbcLedgerDao] val SQL_IMPLICITLY_INSERT_PARTIES: String =
@@ -1670,6 +1713,12 @@ object JdbcLedgerDao {
       """merge into package_upload_entries using dual on submission_id = {submission_id}
         |when not matched then insert (ledger_offset, recorded_at, submission_id, participant_id, typ, rejection_reason)
         |select {ledger_offset}, {recorded_at}, {submission_id}, {participant_id}, {typ}, {rejection_reason}
+        |from parameters""".stripMargin
+
+    override protected[JdbcLedgerDao] val SQL_INSERT_PARTY_ALLOCATION_ENTRY: String =
+      """merge into party_allocation_entries using dual on submission_id = {submission_id}
+        |when not matched then insert (ledger_offset, recorded_at, submission_id, participant_id, party, display_name, typ, rejection_reason)
+        |select {ledger_offset}, {recorded_at}, {submission_id}, {participant_id}, {party}, {display_name}, {typ}, {rejection_reason}
         |from parameters""".stripMargin
 
     override protected[JdbcLedgerDao] val SQL_IMPLICITLY_INSERT_PARTIES: String =

@@ -25,7 +25,11 @@ import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilte
 import com.digitalasset.platform.sandbox.stores.ActiveLedgerState.Contract
 import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
 import com.digitalasset.platform.sandbox.stores.ledger.inmemory.InMemoryLedger
-import com.digitalasset.platform.sandbox.stores.ledger.sql.{ReadOnlySqlLedger, SqlLedger, SqlStartMode}
+import com.digitalasset.platform.sandbox.stores.ledger.sql.{
+  ReadOnlySqlLedger,
+  SqlLedger,
+  SqlStartMode
+}
 import com.digitalasset.platform.sandbox.stores.{InMemoryActiveLedgerState, InMemoryPackageStore}
 
 import scala.concurrent.Future
@@ -78,7 +82,8 @@ trait ReadOnlyLedger extends AutoCloseable {
   // Party management
   def parties: Future[List[PartyDetails]]
 
-  def partyAllocationEntries(offset: Option[Long]): Source[(Long, PartyAllocationLedgerEntry), NotUsed]
+  def partyAllocationEntries(
+      offset: Option[Long]): Source[(Long, PartyAllocationLedgerEntry), NotUsed]
 
   // Package management
   def listLfPackages(): Future[Map[PackageId, PackageDetails]]

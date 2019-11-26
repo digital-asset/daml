@@ -21,7 +21,11 @@ import com.digitalasset.platform.common.util.DirectExecutionContext
 import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilter
 import com.digitalasset.platform.sandbox.stores.ActiveLedgerState.{ActiveContract, Contract}
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry.Transaction
-import com.digitalasset.platform.sandbox.stores.ledger.{LedgerEntry, PackageUploadLedgerEntry, PartyAllocationLedgerEntry}
+import com.digitalasset.platform.sandbox.stores.ledger.{
+  LedgerEntry,
+  PackageUploadLedgerEntry,
+  PartyAllocationLedgerEntry
+}
 
 import scala.collection.immutable
 import scala.concurrent.Future
@@ -252,16 +256,16 @@ trait LedgerWriteDao extends AutoCloseable {
     * @param externalOffset
     * @param submissionId
     * @param participantId
-    * @param reason
+    * @param entry
     * @return
     */
-  def storePartyAllocationRejectEntry(
+  def storePartyAllocationEntry(
       offset: LedgerOffset,
       newLedgerEnd: LedgerOffset,
       externalOffset: Option[ExternalOffset],
       submissionId: SubmissionId,
       participantId: ParticipantId,
-      reason: String): Future[PersistenceResponse]
+      entry: PartyAllocationLedgerEntry): Future[PersistenceResponse]
 
   /** Resets the platform into a state as it was never used before. Meant to be used solely for testing. */
   def reset(): Future[Unit]

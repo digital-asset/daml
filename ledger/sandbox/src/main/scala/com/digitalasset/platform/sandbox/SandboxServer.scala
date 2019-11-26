@@ -28,7 +28,11 @@ import com.digitalasset.platform.sandbox.services.SandboxResetService
 import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
 import com.digitalasset.platform.sandbox.stores.ledger._
 import com.digitalasset.platform.sandbox.stores.ledger.sql.SqlStartMode
-import com.digitalasset.platform.sandbox.stores.{InMemoryActiveLedgerState, InMemoryPackageStore, SandboxIndexAndWriteService}
+import com.digitalasset.platform.sandbox.stores.{
+  InMemoryActiveLedgerState,
+  InMemoryPackageStore,
+  SandboxIndexAndWriteService
+}
 import com.digitalasset.platform.server.services.testing.TimeServiceBackend
 import com.digitalasset.platform.services.time.TimeProviderType
 import org.slf4j.LoggerFactory

@@ -7,9 +7,11 @@ import java.util.UUID
 
 import akka.actor.Scheduler
 import akka.stream.ActorMaterializer
+import akka.stream.scaladsl.Sink
 import com.daml.ledger.participant.state.index.v2.IndexPartyManagementService
 import com.daml.ledger.participant.state.v1.{SubmissionResult, WritePartyService}
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
+import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.v1.admin.party_management_service.PartyManagementServiceGrpc.PartyManagementService
 import com.digitalasset.ledger.api.v1.admin.party_management_service._
 import com.digitalasset.platform.api.grpc.GrpcApiService
@@ -26,7 +28,10 @@ class ApiPartyManagementService private (
     partyManagementService: IndexPartyManagementService,
     writeService: WritePartyService,
     scheduler: Scheduler,
-    loggerFactory: NamedLoggerFactory
+    loggerFactory: NamedLoggerFactory,
+    implicit val ec: ExecutionContext,
+    esf: ExecutionSequencerFactory,
+    mat: ActorMaterializer
 ) extends PartyManagementService
     with GrpcApiService {
 
@@ -61,7 +66,8 @@ class ApiPartyManagementService private (
     * @param result The result of the party allocation
     * @return The result of the party allocation received originally, wrapped in a [[Future]]
     */
-  private def pollUntilPersisted(result: AllocatePartyResponse): Future[AllocatePartyResponse] = {
+  private def pollUntilPartyPersisted(
+      result: AllocatePartyResponse): Future[AllocatePartyResponse] = {
     require(result.partyDetails.isDefined, "Party allocation response must have the party details")
     val newParty = result.partyDetails.get.party
     val description = s"party $newParty"
@@ -92,8 +98,15 @@ class ApiPartyManagementService private (
       .flatMap {
         case SubmissionResult.Acknowledged =>
           //TODO BH get full response from accept/reject party allocation message
-          Future.successful(AllocatePartyResponse(
-            Some(PartyDetails(party.getOrElse("DUMMY"), displayName.getOrElse(""), true))))
+//            AllocatePartyResponse(
+//            Some(PartyDetails(party.getOrElse("DUMMY"), displayName.getOrElse(""), true)))
+          pollForAllocationResult(submissionId).flatMap {
+            case domain.PartyAllocationEntry.Accepted(_, _, partyDetails) =>
+              Future.successful(AllocatePartyResponse(Some(
+                PartyDetails(partyDetails.party, partyDetails.displayName.getOrElse(""), true))))
+            case domain.PartyAllocationEntry.Rejected(_, _, reason) =>
+              Future.failed(ErrorFactories.invalidArgument(reason))
+          }
         case r @ SubmissionResult.Overloaded =>
           Future.failed(ErrorFactories.resourceExhausted(r.description))
         case r @ SubmissionResult.InternalError(_) =>
@@ -101,25 +114,40 @@ class ApiPartyManagementService private (
         case r @ SubmissionResult.NotSupported =>
           Future.failed(ErrorFactories.unimplemented(r.description))
       }(DE)
-      .flatMap(pollUntilPersisted)(DE)
+      .flatMap(pollUntilPartyPersisted)(DE)
   }
 
-//  private def pollForAllocationResult(submissionId: String): Future[PartyAllocationLedgerEntry] = {
-//    val value = partyManagementService.getPartyAllocationEntries(Some(0L))
-//    PollingUtils
-//      .pollUntilPersisted(value _)(
-//        _.exists(_.party == newParty),
-//        description,
-//        50.milliseconds,
-//        500.milliseconds,
-//        d => d * 2,
-//        scheduler,
-//        loggerFactory)
-//      .map { numberOfAttempts =>
-//        logger.debug(s"Party $newParty available, read after $numberOfAttempts attempt(s)")
-//        result
-//      }(DE)
-//  }
+  private def pollForAllocationResult(submissionId: String): Future[domain.PartyAllocationEntry] = {
+
+    def sourcePartyAllocations: Future[List[domain.PartyAllocationEntry]] =
+      partyManagementService
+        .getPartyAllocationEntries(Some(0L))
+        .runWith(Sink.seq)(mat)
+        .map(_.toList.map {
+          case (_, entry) => entry
+        })
+
+    def matchingAllocationEntry = {
+      sourcePartyAllocations
+        .map(entries => entries.find(_.submissionId == submissionId))
+        .map(_.get)
+    }
+
+    PollingUtils
+      .pollUntilPersisted(sourcePartyAllocations _)(
+        _.exists(_.submissionId == submissionId),
+        "some description",
+        50.milliseconds,
+        500.milliseconds,
+        d => d * 2,
+        scheduler,
+        loggerFactory)
+      .flatMap { numberOfAttempts =>
+        logger.debug(
+          s"submissionId $submissionId available, read after $numberOfAttempts attempt(s)")
+        matchingAllocationEntry
+      }(DE)
+  }
 
 }
 
@@ -132,7 +160,13 @@ object ApiPartyManagementService {
       esf: ExecutionSequencerFactory,
       mat: ActorMaterializer)
     : PartyManagementServiceGrpc.PartyManagementService with GrpcApiService =
-    new ApiPartyManagementService(readBackend, writeBackend, mat.system.scheduler, loggerFactory)
-    with PartyManagementServiceLogging
+    new ApiPartyManagementService(
+      readBackend,
+      writeBackend,
+      mat.system.scheduler,
+      loggerFactory,
+      ec,
+      esf,
+      mat) with PartyManagementServiceLogging
 
 }
