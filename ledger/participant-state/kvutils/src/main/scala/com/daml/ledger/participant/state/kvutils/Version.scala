@@ -7,6 +7,11 @@ package com.daml.ledger.participant.state.kvutils
   * and the changelog of kvutils.
   *
   * Changes:
+  * [since 100.13.37]:
+  * - Removed DamlConfiguration in favour of participant-state's LedgerConfiguration.
+  * - Authorization of configuration changes is now based on validating against the participant id
+  *   of the previously submitted configuration.
+  *
   * [since 100.13.29]:
   * - Add support for ledger dumps via environment variable: "KVUTILS_LEDGER_DUMP=/tmp/ledger.dump".
   * - Add integrity checker tool to verify ledger dumps for validating compatibility of new versions.
@@ -36,5 +41,11 @@ package com.daml.ledger.participant.state.kvutils
   * - Bug in command deduplication fixed: rejected commands are now deduplicated correctly.
   */
 object Version {
+
+  /** The kvutils version number. Packing kvutils messages into envelopes carries the version number.
+    * Version should be incremented when semantics of fields change and migration of data is required or
+    * when the protobuf default value for a field is insufficient and must be filled in during decoding.
+    * Handling of older versions is handled by [[Envelope.open]] which performs the migration to latest version.
+    */
   val version: Long = 0
 }

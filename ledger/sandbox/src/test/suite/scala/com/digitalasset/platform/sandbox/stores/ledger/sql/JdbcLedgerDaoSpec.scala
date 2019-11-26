@@ -11,7 +11,7 @@ import java.util.concurrent.atomic.AtomicLong
 import akka.stream.scaladsl.{Sink, Source}
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.index.v2
-import com.daml.ledger.participant.state.v1.{Offset, Configuration, TimeModelImpl}
+import com.daml.ledger.participant.state.v1.{Offset, Configuration, TimeModel}
 import com.digitalasset.daml.bazeltools.BazelRunfiles
 import com.digitalasset.daml.lf.archive.DarReader
 import com.digitalasset.daml.lf.data.Ref.LedgerString.ordering
@@ -273,7 +273,7 @@ class JdbcLedgerDaoSpec
 
     val defaultConfig = Configuration(
       generation = 0,
-      timeModel = TimeModelImpl.reasonableDefault
+      timeModel = TimeModel.reasonableDefault
     )
 
     "be able to persist and load configuration" in {
