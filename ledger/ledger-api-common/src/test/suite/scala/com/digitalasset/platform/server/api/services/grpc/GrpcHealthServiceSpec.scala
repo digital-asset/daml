@@ -3,6 +3,7 @@
 
 package com.digitalasset.platform.server.api.services.grpc
 
+import com.digitalasset.grpc.GrpcException
 import com.digitalasset.grpc.adapter.server.rs.MockServerCallStreamObserver
 import com.digitalasset.ledger.api.health._
 import com.digitalasset.ledger.api.testing.utils.AkkaBeforeAndAfterAll
@@ -31,7 +32,7 @@ final class GrpcHealthServiceSpec
     "report SERVING if there are no health checks" in {
       val service = new GrpcHealthService(HealthChecks.empty)
 
-      val response = Await.result(service.check(request), patienceConfig.timeout)
+      val response = Await.result(service.check(allServicesRequest), patienceConfig.timeout)
 
       response should be(servingResponse)
     }
@@ -39,7 +40,7 @@ final class GrpcHealthServiceSpec
     "report SERVING if there is one healthy check" in {
       val service = new GrpcHealthService(new HealthChecks("component" -> healthyComponent))
 
-      val response = Await.result(service.check(request), patienceConfig.timeout)
+      val response = Await.result(service.check(allServicesRequest), patienceConfig.timeout)
 
       response should be(servingResponse)
     }
@@ -47,7 +48,7 @@ final class GrpcHealthServiceSpec
     "report NOT_SERVING if there is one unhealthy check" in {
       val service = new GrpcHealthService(new HealthChecks("component" -> unhealthyComponent))
 
-      val response = Await.result(service.check(request), patienceConfig.timeout)
+      val response = Await.result(service.check(allServicesRequest), patienceConfig.timeout)
 
       response should be(notServingResponse)
     }
@@ -60,7 +61,7 @@ final class GrpcHealthServiceSpec
           "component C" -> healthyComponent,
         ))
 
-      val response = Await.result(service.check(request), patienceConfig.timeout)
+      val response = Await.result(service.check(allServicesRequest), patienceConfig.timeout)
 
       response should be(servingResponse)
     }
@@ -73,9 +74,67 @@ final class GrpcHealthServiceSpec
           "component C" -> healthyComponent,
         ))
 
-      val response = Await.result(service.check(request), patienceConfig.timeout)
+      val response = Await.result(service.check(allServicesRequest), patienceConfig.timeout)
 
       response should be(notServingResponse)
+    }
+
+    "report SERVING when querying a single, healthy component" in {
+      val service = new GrpcHealthService(new HealthChecks("component" -> healthyComponent))
+
+      val response =
+        Await.result(service.check(serviceRequestFor("component")), patienceConfig.timeout)
+
+      response should be(servingResponse)
+    }
+
+    "report NOT_SERVING when querying a single, unhealthy component" in {
+      val service = new GrpcHealthService(new HealthChecks("component" -> unhealthyComponent))
+
+      val response =
+        Await.result(service.check(serviceRequestFor("component")), patienceConfig.timeout)
+
+      response should be(notServingResponse)
+    }
+
+    "report SERVING when querying a healthy component alongside other, unhealthy components" in {
+      val service = new GrpcHealthService(
+        new HealthChecks(
+          "component A" -> healthyComponent,
+          "component B" -> healthyComponent,
+          "component C" -> unhealthyComponent,
+        ))
+
+      val response =
+        Await.result(service.check(serviceRequestFor("component B")), patienceConfig.timeout)
+
+      response should be(servingResponse)
+    }
+
+    "report NOT_SERVING when querying an unhealthy component alongside other, healthy components" in {
+      val service = new GrpcHealthService(
+        new HealthChecks(
+          "component A" -> unhealthyComponent,
+          "component B" -> healthyComponent,
+          "component C" -> healthyComponent,
+        ))
+
+      val response =
+        Await.result(service.check(serviceRequestFor("component A")), patienceConfig.timeout)
+
+      response should be(notServingResponse)
+    }
+
+    "fail gracefully when a non-existent component is queried" in {
+      val service = new GrpcHealthService(new HealthChecks("component" -> unhealthyComponent))
+
+      try {
+        Await.result(service.check(serviceRequestFor("another component")), patienceConfig.timeout)
+        fail("Expected a NOT_FOUND error, but got a successful result.")
+      } catch {
+        case GrpcException.NOT_FOUND() =>
+          succeed
+      }
     }
 
     "observe changes in health" in {
@@ -93,7 +152,7 @@ final class GrpcHealthServiceSpec
         maximumWatchFrequency = 1.millisecond,
       )
 
-      service.watch(request, responseObserver)
+      service.watch(allServicesRequest, responseObserver)
       responseObserver.demandResponse(count = 5)
 
       eventually {
@@ -136,11 +195,63 @@ final class GrpcHealthServiceSpec
           ))
       }
     }
+
+    "observe changes in a single component's health" in {
+      val responseObserver = new MockServerCallStreamObserver[HealthCheckResponse]
+
+      var componentAHealth: HealthStatus = Healthy
+      var componentBHealth: HealthStatus = Healthy
+      var componentCHealth: HealthStatus = Healthy
+      val service = new GrpcHealthService(
+        new HealthChecks(
+          "component A" -> new StubReporter(componentAHealth),
+          "component B" -> new StubReporter(componentBHealth),
+          "component C" -> new StubReporter(componentCHealth),
+        ),
+        maximumWatchFrequency = 1.millisecond,
+      )
+
+      service.watch(serviceRequestFor("component C"), responseObserver)
+      responseObserver.demandResponse(count = 3)
+
+      eventually {
+        responseObserver.elements should be(Vector(servingResponse))
+      }
+
+      componentBHealth = Unhealthy
+      eventually {
+        responseObserver.elements should be(Vector(servingResponse))
+      }
+
+      componentBHealth = Healthy
+      eventually {
+        responseObserver.elements should be(Vector(servingResponse))
+      }
+
+      componentAHealth = Unhealthy
+      eventually {
+        responseObserver.elements should be(Vector(servingResponse))
+      }
+
+      componentCHealth = Unhealthy
+      eventually {
+        responseObserver.elements should be(Vector(servingResponse, notServingResponse))
+      }
+
+      componentCHealth = Healthy
+      componentAHealth = Healthy
+      eventually {
+        responseObserver.elements should be(
+          Vector(servingResponse, notServingResponse, servingResponse))
+      }
+    }
   }
 }
 
 object GrpcHealthServiceSpec {
-  private val request = HealthCheckRequest()
+  private val allServicesRequest = HealthCheckRequest()
+
+  private def serviceRequestFor(componentName: String) = HealthCheckRequest(service = componentName)
 
   private val healthyComponent: ReportsHealth = new StubReporter(Healthy)
 

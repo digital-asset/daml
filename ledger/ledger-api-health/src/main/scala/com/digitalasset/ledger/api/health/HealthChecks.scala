@@ -3,12 +3,26 @@
 
 package com.digitalasset.ledger.api.health
 
-class HealthChecks(components: (String, ReportsHealth)*) {
-  def isHealthy: Boolean = components.forall(_._2.currentHealth == Healthy)
+import com.digitalasset.ledger.api.health.HealthChecks._
+
+class HealthChecks(components: Component*) {
+  def hasComponent(componentName: String): Boolean =
+    components.exists(_._1 == componentName)
 
   def ++(other: HealthChecks): HealthChecks = this
+
+  def isHealthy(componentName: Option[String]): Boolean =
+    componentsMatching(componentName).forall(_._2.currentHealth == Healthy)
+
+  private def componentsMatching(componentName: Option[String]): Seq[Component] =
+    componentName match {
+      case None => components
+      case Some(name) => components.filter(_._1 == name)
+    }
 }
 
 object HealthChecks {
+  type Component = (String, ReportsHealth)
+
   val empty: HealthChecks = new HealthChecks()
 }

@@ -72,6 +72,7 @@ testDependencies = [
     "//ledger/participant-state",
     "//daml-lf/archive:daml_lf_archive_reader",
     "//ledger/ledger-api-client:ledger-api-client",
+    "//libs-scala/grpc-utils",
     "@maven//:org_scalatest_scalatest_2_12",
     "@maven//:org_awaitility_awaitility",
     "@maven//:com_typesafe_akka_akka_actor_2_12",

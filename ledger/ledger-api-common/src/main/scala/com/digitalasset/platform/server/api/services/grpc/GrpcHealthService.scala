@@ -12,13 +12,13 @@ import com.digitalasset.ledger.api.health.HealthChecks
 import com.digitalasset.platform.api.grpc.GrpcApiService
 import com.digitalasset.platform.server.api.DropRepeated
 import com.digitalasset.platform.server.api.services.grpc.GrpcHealthService._
-import io.grpc.ServerServiceDefinition
 import io.grpc.health.v1.health.{
   HealthAkkaGrpc,
   HealthCheckRequest,
   HealthCheckResponse,
   HealthGrpc
 }
+import io.grpc.{ServerServiceDefinition, Status, StatusException}
 
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future}
@@ -36,19 +36,24 @@ class GrpcHealthService(
     HealthGrpc.bindService(this, DirectExecutionContext)
 
   override def check(request: HealthCheckRequest): Future[HealthCheckResponse] =
-    Future.successful(response)
+    Future.successful(response(Option(request.service).filter(_.nonEmpty)))
 
   override def watchSource(request: HealthCheckRequest): Source[HealthCheckResponse, NotUsed] =
     Source
-      .fromIterator(() => Iterator.continually(response))
+      .fromIterator(() =>
+        Iterator.continually(response(Option(request.service).filter(_.nonEmpty))))
       .throttle(1, per = maximumWatchFrequency)
       .via(DropRepeated())
 
-  private def response: HealthCheckResponse =
-    if (healthChecks.isHealthy)
+  private def response(componentName: Option[String]): HealthCheckResponse = {
+    if (!componentName.forall(healthChecks.hasComponent))
+      throw new StatusException(Status.NOT_FOUND)
+    if (healthChecks.isHealthy(componentName))
       servingResponse
     else
       notServingResponse
+  }
+
 }
 
 object GrpcHealthService {
