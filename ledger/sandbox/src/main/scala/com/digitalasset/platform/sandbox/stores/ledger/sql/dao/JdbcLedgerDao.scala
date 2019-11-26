@@ -1501,7 +1501,7 @@ private class JdbcLedgerDao(
             "submission_id" -> submissionId,
             "participant_id" -> participantId,
             "party" -> optionalPartyDetails(entry).orNull.party.toString,
-            "display_name" -> optionalPartyDetails(entry).orNull.displayName.toString,
+            "display_name" -> optionalPartyDetails(entry).map(_.displayName.orNull),
             "typ" -> entry.value,
             "rejection_reason" -> partyAllocationReasonorNull(entry)
           )
