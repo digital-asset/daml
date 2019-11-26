@@ -8,16 +8,6 @@ let
 
   # package overrides
   overrides = _: pkgs: rec {
-    # We can't use pkgs.bazel here, as it is somewhat outdated. It features
-    # version 0.10.1, while rules_haskell (for example) requires bazel >= 0.14.
-    bazel = pkgs.callPackage ./overrides/bazel {
-      inherit (pkgs.darwin) cctools;
-      inherit (pkgs.darwin.apple_sdk.frameworks) CoreFoundation CoreServices Foundation;
-      buildJdk = pkgs.jdk8;
-      buildJdkName = "jdk8";
-      runJdk = pkgs.jdk8;
-      stdenv = if pkgs.stdenv.cc.isClang then pkgs.llvmPackages_6.stdenv else pkgs.stdenv;
-    };
     ephemeralpg = pkgs.ephemeralpg.overrideAttrs(oldAttrs: {
       installPhase = ''
         mkdir -p $out

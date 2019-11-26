@@ -1,6 +1,7 @@
 -- Copyright (c) 2019 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
+{-# LANGUAGE CPP #-}
 
 module DA.Daml.Doc.Tests(mkTestTree)
   where
@@ -311,4 +312,4 @@ fileTest damlFile = do
             ".json" -> AP.encodePretty' jsonConf doc
             other -> error $ "Unsupported file extension " <> other
   where
-    diff ref new = ["diff", "--strip-trailing-cr", ref, new]
+    diff ref new = [POSIX_DIFF, "--strip-trailing-cr", ref, new]
