@@ -81,6 +81,7 @@ import Development.IDE.Core.RuleTypes.Daml
 import DA.Daml.DocTest
 import DA.Daml.LFConversion (convertModule, sourceLocToRange)
 import DA.Daml.LFConversion.UtilLF
+import DA.Daml.LF.Reader (stripPkgId)
 import qualified DA.Daml.LF.Ast as LF
 import qualified DA.Daml.LF.InferSerializability as Serializability
 import qualified DA.Daml.LF.PrettyScenario as LF
@@ -422,9 +423,16 @@ generatePackageMap fps = do
       allFiles <- listFilesRecursive fp
       let dalfs = filter ((== ".dalf") . takeExtension) allFiles
       forM dalfs $ \dalf -> do
-        dalfPkgOrErr <- readDalfPackage dalf
-        let unitId = stringToUnitId $ dropExtension $ takeFileName dalf
-        pure (fmap (unitId,) dalfPkgOrErr)
+          dalfPkgOrErr <- readDalfPackage dalf
+          let baseName = takeBaseName dalf
+          let getUnitId pkg =
+                  ( stringToUnitId $
+                    fromMaybe baseName $
+                    stripPkgId
+                        baseName
+                        (T.unpack $ LF.unPackageId $ LF.dalfPackageId pkg)
+                  , pkg)
+          pure (fmap getUnitId dalfPkgOrErr)
   return (diags, Map.fromList pkgs)
 
 readDalfPackage :: FilePath -> IO (Either FileDiagnostic LF.DalfPackage)

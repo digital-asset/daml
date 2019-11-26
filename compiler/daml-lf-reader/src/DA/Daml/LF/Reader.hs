@@ -9,9 +9,11 @@ module DA.Daml.LF.Reader
     , Dalfs(..)
     , readDalfManifest
     , readDalfs
+    , stripPkgId
     ) where
 
 import "zip-archive" Codec.Archive.Zip
+import Control.Monad (guard)
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.UTF8 as BSUTF8
@@ -119,3 +121,11 @@ getEntry :: Archive -> FilePath -> Either String BSL.ByteString
 getEntry dar path = case findEntryByPath path dar of
     Nothing -> Left $ "Could not find " <> path <> " in DAR"
     Just entry -> Right $ fromEntry entry
+
+-- Strip the package id from the end of a dalf file name
+-- TODO (drsk) This needs to become a hard error
+stripPkgId :: String -> String -> Maybe String
+stripPkgId baseName expectedPkgId = do
+    (unitId, pkgId) <- stripInfixEnd "-" baseName
+    guard $ pkgId == expectedPkgId
+    pure unitId
