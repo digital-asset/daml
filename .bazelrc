@@ -10,6 +10,9 @@ build:darwin --disk_cache=.bazel-cache/disk
 fetch:linux --repository_cache=.bazel-cache/repo
 fetch:darwin --repository_cache=.bazel-cache/repo
 
+# Skip intermediate results when fetching from cache.
+build --remote_download_toplevel
+
 # Improve remote cache hit rate by exluding environment variables from the
 # sandbox that are not whitelisted using --action_env.
 # This will become the default in a future Bazel release.
