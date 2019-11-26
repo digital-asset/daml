@@ -21,7 +21,7 @@ trait ReadOnlyServiceCallAuthTests extends ServiceCallWithMainActorAuthTests {
   it should "allow calls with explicitly non-expired read-only token" in {
     successfulBehavior(serviceCallWithToken(canReadAsMainActorExpiresTomorrow))
   }
-  it should "allow calls with implicitly non-expired read-only token" in {
+  it should "allow calls with read-only token without expiration" in {
     successfulBehavior(serviceCallWithToken(canReadAsMainActor))
   }
 
@@ -31,7 +31,7 @@ trait ReadOnlyServiceCallAuthTests extends ServiceCallWithMainActorAuthTests {
   it should "allow calls with explicitly non-expired read/write token" in {
     successfulBehavior(serviceCallWithToken(canActAsMainActorExpiresTomorrow))
   }
-  it should "allow calls with implicitly non-expired read/write token" in {
+  it should "allow calls with read/write token without expiration" in {
     successfulBehavior(serviceCallWithToken(canActAsMainActor))
   }
 

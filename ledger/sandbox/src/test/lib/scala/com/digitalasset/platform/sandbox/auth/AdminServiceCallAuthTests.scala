@@ -24,7 +24,7 @@ trait AdminServiceCallAuthTests extends ServiceCallAuthTests {
   it should "allow calls with explicitly non-expired admin token" in {
     expectSuccess(serviceCallWithToken(canReadAsAdminExpiresTomorrow))
   }
-  it should "allow calls with implicitly non-expired admin token" in {
+  it should "allow calls with admin token without expiration" in {
     expectSuccess(serviceCallWithToken(canReadAsAdmin))
   }
 

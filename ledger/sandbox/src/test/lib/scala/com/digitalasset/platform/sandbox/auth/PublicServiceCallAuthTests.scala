@@ -11,7 +11,7 @@ trait PublicServiceCallAuthTests extends ServiceCallAuthTests {
   it should "allow calls with explicitly non-expired read-only token" in {
     expectSuccess(serviceCallWithToken(canReadAsRandomPartyExpiresTomorrow))
   }
-  it should "allow calls with implicitly non-expired read-only token" in {
+  it should "allow calls with read-only token without expiration" in {
     expectSuccess(serviceCallWithToken(canReadAsRandomParty))
   }
 
@@ -21,7 +21,7 @@ trait PublicServiceCallAuthTests extends ServiceCallAuthTests {
   it should "allow calls with explicitly non-expired read/write token" in {
     expectSuccess(serviceCallWithToken(canActAsRandomPartyExpiresTomorrow))
   }
-  it should "allow calls with implicitly non-expired read/write token" in {
+  it should "allow calls with read/write token without expiration" in {
     expectSuccess(serviceCallWithToken(canActAsRandomParty))
   }
 
@@ -31,7 +31,7 @@ trait PublicServiceCallAuthTests extends ServiceCallAuthTests {
   it should "allow calls with explicitly non-expired admin token" in {
     expectSuccess(serviceCallWithToken(canReadAsAdminExpiresTomorrow))
   }
-  it should "allow calls with implicitly non-expired admin token" in {
+  it should "allow calls with admin token without expiration" in {
     expectSuccess(serviceCallWithToken(canReadAsAdmin))
   }
 

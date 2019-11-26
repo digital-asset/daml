@@ -11,14 +11,14 @@ trait ReadWriteServiceCallAuthTests extends ServiceCallWithMainActorAuthTests {
   it should "allow calls with explicitly non-expired read/write token" in {
     expectSuccess(serviceCallWithToken(canActAsMainActorExpiresTomorrow))
   }
-  it should "allow calls with implicitly non-expired read/write token" in {
+  it should "allow calls with read/write token without expiration" in {
     expectSuccess(serviceCallWithToken(canActAsMainActor))
   }
 
   it should "deny calls with explicitly non-expired read-only token" in {
     expectPermissionDenied(serviceCallWithToken(canReadAsMainActorExpiresTomorrow))
   }
-  it should "deny calls with implicitly non-expired read-only token" in {
+  it should "deny calls with read-only token without expiration" in {
     expectPermissionDenied(serviceCallWithToken(canReadAsMainActor))
   }
 
