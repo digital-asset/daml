@@ -68,7 +68,7 @@ object ReferenceServer extends App {
       participantLoggerFactory,
       SharedMetricRegistries.getOrCreate(s"indexer-$participantId"),
     )
-    indexServer <- StandaloneIndexServer(
+    indexServer <- new StandaloneIndexServer(
       config,
       readService,
       writeService,
@@ -95,7 +95,7 @@ object ReferenceServer extends App {
           participantConfig,
           participantLoggerFactory,
           SharedMetricRegistries.getOrCreate(s"indexer-$extraParticipantId"))
-        extraLedgerApiServer <- StandaloneIndexServer(
+        extraLedgerApiServer <- new StandaloneIndexServer(
           participantConfig,
           readService,
           writeService,

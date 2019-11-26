@@ -19,7 +19,7 @@ import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.server.apiserver.{ApiServer, ApiServices, LedgerApiServer}
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
-import com.digitalasset.platform.index.StandaloneIndexServer.asyncTolerance
+import com.digitalasset.platform.index.StandaloneIndexServer._
 import com.digitalasset.platform.index.config.Config
 import com.digitalasset.platform.sandbox.BuildInfo
 import com.digitalasset.platform.sandbox.config.SandboxConfig
@@ -32,42 +32,23 @@ import scala.concurrent.{Await, ExecutionContext, Future}
 // Main entry point to start an index server that also hosts the ledger API.
 // See v2.ReferenceServer on how it is used.
 object StandaloneIndexServer {
-  private val asyncTolerance = 30.seconds
+  private val actorSystemName = "index"
 
-  def apply(
-      config: Config,
-      readService: ReadService,
-      writeService: WriteService,
-      authService: AuthService,
-      loggerFactory: NamedLoggerFactory,
-      metrics: MetricRegistry,
-      engine: Engine = engineSharedAmongIndexServers, // allows sharing DAML engine with DAML-on-X participant
-      timeServiceBackendO: Option[TimeServiceBackend] = None): StandaloneIndexServer =
-    new StandaloneIndexServer(
-      "index",
-      config,
-      readService,
-      writeService,
-      authService,
-      loggerFactory,
-      metrics,
-      engine,
-      timeServiceBackendO
-    )
+  private val asyncTolerance = 30.seconds
 
   private val engineSharedAmongIndexServers = Engine()
 }
 
 class StandaloneIndexServer(
-    actorSystemName: String,
     config: Config,
     readService: ReadService,
     writeService: WriteService,
     authService: AuthService,
     loggerFactory: NamedLoggerFactory,
     metrics: MetricRegistry,
-    engine: Engine,
-    timeServiceBackendO: Option[TimeServiceBackend]) {
+    engine: Engine = engineSharedAmongIndexServers, // allows sharing DAML engine with DAML-on-X participant
+    timeServiceBackendO: Option[TimeServiceBackend] = None,
+) {
   private val logger = loggerFactory.getLogger(this.getClass)
 
   // Name of this participant,

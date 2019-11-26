@@ -85,7 +85,7 @@ object SqlLedger {
     val noOfShortLivedConnections =
       if (dbType.supportsParallelWrites) defaultNumberOfShortLivedConnections else 1
     val dbDispatcher =
-      DbDispatcher(
+      new DbDispatcher(
         jdbcUrl,
         noOfShortLivedConnections,
         defaultNumberOfStreamingConnections,

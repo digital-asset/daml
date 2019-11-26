@@ -13,7 +13,7 @@ class PostgresIT extends WordSpec with Matchers with PostgresAroundAll {
   private val loggerFactory = NamedLoggerFactory("PostgresIT")
 
   private lazy val connectionProvider =
-    HikariJdbcConnectionProvider(postgresFixture.jdbcUrl, 4, 4)
+    new HikariJdbcConnectionProvider(postgresFixture.jdbcUrl, 4, 4)
 
   "Postgres" when {
 

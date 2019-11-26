@@ -44,7 +44,7 @@ object ReadOnlySqlLedger {
 
     val dbType = DbType.jdbcType(jdbcUrl)
     val dbDispatcher =
-      DbDispatcher(
+      new DbDispatcher(
         jdbcUrl,
         noOfShortLivedConnections,
         noOfStreamingConnections,
