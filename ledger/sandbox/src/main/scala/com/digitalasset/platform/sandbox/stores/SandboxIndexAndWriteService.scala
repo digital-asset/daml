@@ -126,7 +126,7 @@ object SandboxIndexAndWriteService {
           .single(LedgerConfiguration(timeModel.minTtl, timeModel.maxTtl))
           .concat(Source.fromFuture(Promise[LedgerConfiguration]().future)) // we should keep the stream open!
     }
-    val writeSvc = new LedgerBackedWriteService(ledger, timeProvider)
+    val writeSvc = new LedgerBackedWriteService(ledger, timeProvider, participantId)
     val heartbeats = scheduleHeartbeats(timeProvider, ledger.publishHeartbeat)
 
     new IndexAndWriteService {
@@ -423,7 +423,11 @@ abstract class LedgerBackedIndexService(
   }
 }
 
-class LedgerBackedWriteService(ledger: Ledger, timeProvider: TimeProvider) extends WriteService {
+class LedgerBackedWriteService(
+    ledger: Ledger,
+    timeProvider: TimeProvider,
+    participantId: ParticipantId)
+    extends WriteService {
 
   override def submitTransaction(
       submitterInfo: ParticipantState.SubmitterInfo,
@@ -434,15 +438,20 @@ class LedgerBackedWriteService(ledger: Ledger, timeProvider: TimeProvider) exten
   override def allocateParty(
       hint: Option[String],
       displayName: Option[String],
-      submissionid: String): CompletionStage[SubmissionResult] = {
+      submissionId: String): CompletionStage[SubmissionResult] = {
     // In the sandbox, the hint is used as-is.
     // If hint is not a valid and unallocated party name, the call fails
     hint.map(p => Party.fromString(p)) match {
       case None =>
         FutureConverters.toJava(
-          ledger.allocateParty(PartyIdGenerator.generateRandomId(), displayName, submissionid))
+          ledger.allocateParty(
+            PartyIdGenerator.generateRandomId(),
+            displayName,
+            submissionId,
+            participantId))
       case Some(Right(party)) =>
-        FutureConverters.toJava(ledger.allocateParty(party, displayName, submissionid))
+        FutureConverters.toJava(
+          ledger.allocateParty(party, displayName, submissionId, participantId))
       case Some(Left(error)) =>
         // TODO BH : don't think we want to throw submission result error here but rather submit the request
         // then leave it to AllocatePartyRejectionEntry to give reason for failure "invalid party"

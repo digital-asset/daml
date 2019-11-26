@@ -20,7 +20,7 @@ import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.engine.Blinding
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractId}
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
-import com.digitalasset.ledger.api.domain.{LedgerId, RejectionReason}
+import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails, RejectionReason}
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.common.util.{DirectExecutionContext => DEC}
 import com.digitalasset.platform.sandbox.LedgerIdGenerator
@@ -39,8 +39,13 @@ import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{
   ValueSerializer
 }
 import com.digitalasset.platform.sandbox.stores.ledger.sql.util.DbDispatcher
-import com.digitalasset.platform.sandbox.stores.ledger.{Ledger, LedgerEntry}
+import com.digitalasset.platform.sandbox.stores.ledger.{
+  Ledger,
+  LedgerEntry,
+  PartyAllocationLedgerEntry
+}
 import com.digitalasset.platform.sandbox.stores.{InMemoryActiveLedgerState, InMemoryPackageStore}
+import com.digitalasset.platform.server.api.validation.ErrorFactories
 import scalaz.syntax.tag._
 
 import scala.collection.immutable
@@ -297,11 +302,39 @@ private class SqlLedger(
         case Failure(f) => Failure(f)
       }(DEC)
 
+  //TODO BH: revisit this and where it is needed
   override def allocateParty(
       party: Party,
       displayName: Option[String],
-      submissionId: String): Future[SubmissionResult] =
-    ledgerDao
+      submissionId: String,
+      participantId: ParticipantId): Future[SubmissionResult] = {
+
+    val storePartyAllocationEntry: Future[SubmissionResult] = {
+      var headRef = 0L
+      ledgerDao
+        .storePartyAllocationEntry(
+          headRef,
+          headRef + 1,
+          None,
+          Ref.LedgerString.assertFromString(submissionId),
+          participantId,
+          //TODO BH proper participant isLocal check needed
+          PartyAllocationLedgerEntry
+            .Accepted(submissionId, participantId, PartyDetails(party, displayName, isLocal = true))
+        )
+        .map {
+          case PersistenceResponse.Ok =>
+            SubmissionResult.Acknowledged
+          //TODO BH this info should be in the PartyAccept message
+          //PartyAllocationResult.Ok(PartyDetails(party, displayName, true))
+          case PersistenceResponse.Duplicate =>
+            SubmissionResult.Acknowledged
+          //TODO BH this info should be in the PartyReject message
+          //PartyAllocationResult.AlreadyExists
+        }(DEC)
+    }
+
+    val storeParty = ledgerDao
       .storeParty(party, displayName, None)
       .map {
         case PersistenceResponse.Ok =>
@@ -313,6 +346,14 @@ private class SqlLedger(
         //TODO BH this info should be in the PartyReject message
         //PartyAllocationResult.AlreadyExists
       }(DEC)
+
+    storePartyAllocationEntry.flatMap {
+      case SubmissionResult.Acknowledged =>
+        storeParty
+      case _ =>
+        Future.failed(ErrorFactories.invalidArgument("unable to store party to DB"))
+    }(DEC)
+  }
 
   override def uploadPackages(
       knownSince: Instant,

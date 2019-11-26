@@ -49,7 +49,8 @@ trait WriteLedger extends AutoCloseable {
   def allocateParty(
       party: Party,
       displayName: Option[String],
-      submissionId: String): Future[SubmissionResult]
+      submissionId: String,
+      participantId: ParticipantId): Future[SubmissionResult]
 
   // Package management
   def uploadPackages(

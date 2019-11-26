@@ -11,15 +11,15 @@ CREATE TABLE party_allocation_entries
 (
     -- The ledger end at the time when the party allocation was added
     ledger_offset    bigint              not null,
-    recorded_at      timestamp          not null, --with timezone
+    recorded_at      timestamp           not null, --with timezone
     -- SubmissionId for the party allocation
     submission_id    varchar primary key not null,
     -- participant id that initiated the allocation request
     participant_id   varchar             not null,
     -- party
-    party            varchar             not null,
+    party            varchar,
     -- displayName
-    display_name     varchar             not null,
+    display_name     varchar,
     -- The type of entry, one of 'accept' or 'reject'
     typ              varchar             not null,
     -- If the type is 'reject', then the rejection reason is set.

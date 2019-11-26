@@ -264,20 +264,23 @@ class InMemoryLedger(
   override def allocateParty(
       party: Party,
       displayName: Option[String],
-      submissionId: String): Future[SubmissionResult] =
+      submissionId: String,
+      participantId: ParticipantId): Future[SubmissionResult] =
     Future.successful(this.synchronized {
       val ids = acs.parties.keySet
 
-      if (ids.contains(party))
+      if (ids.contains(party)) {
+        allocationEntries.publish(
+          PartyAllocationLedgerEntry
+            .Rejected(submissionId, participantId, s"Party $party already exists")
+        )
         SubmissionResult.Acknowledged
-      //TODO BH include in reject message
-//        PartyAllocationResult.AlreadyExists
-      else {
+      } else {
         val details = PartyDetails(party, displayName, true)
         acs = acs.addParty(details)
+        allocationEntries.publish(
+          PartyAllocationLedgerEntry.Accepted(submissionId, participantId, details))
         SubmissionResult.Acknowledged
-        //TOD BH include in accept message
-//        PartyAllocationResult.Ok(details)
       }
     })
 

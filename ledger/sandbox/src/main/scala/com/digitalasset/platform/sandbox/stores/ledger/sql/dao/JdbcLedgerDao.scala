@@ -1305,8 +1305,8 @@ private class JdbcLedgerDao(
       str("typ") ~
       str("submission_id") ~
       str("participant_id") ~
-      str("party") ~
-      str("display_name") ~
+      str("party")(emptyStringToNullColumn).? ~
+      str("display_name")(emptyStringToNullColumn).? ~
       str("rejection_reason")(emptyStringToNullColumn).?)
       .map(flatten)
       .map {
@@ -1324,7 +1324,10 @@ private class JdbcLedgerDao(
                   submissionId,
                   participantId,
                   //TODO BH what if party in DB is not valid?  isLocal depends on calling participant node
-                  PartyDetails(Party.assertFromString(party), Some(displayName), isLocal = true)
+                  PartyDetails(
+                    Party.assertFromString(party.get),
+                    displayName,
+                    isLocal = true)
                 )
               case "reject" =>
                 PartyAllocationLedgerEntry.Rejected(
@@ -1476,12 +1479,6 @@ private class JdbcLedgerDao(
           .map(_._2)
       }
   }
-
-  //Future approach
-  //  dbDispatcher.executeSql("load package upload entries") { implicit conn =>
-  //    SQL_SELECT_PARTIES
-  //      .as(partyAllocationEntryParser.*)
-  //  }
 
   override def storePartyAllocationEntry(
       offset: LedgerOffset,
