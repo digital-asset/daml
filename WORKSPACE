@@ -710,7 +710,7 @@ nixpkgs_package(
     build_file_content = """
 cc_library(
   name = "grpc_lib",
-  srcs = [":lib/libgrpc.so", ":lib/libgpr.so"],
+  srcs = [":lib/libgrpc.so", ":lib/libgpr.so"] if is_linux else [":lib/libgrpc.dylib", ":lib/libgpr.dylib"],
   visibility = ["//visibility:public"],
   hdrs = [":include"],
   includes = ["include"],
