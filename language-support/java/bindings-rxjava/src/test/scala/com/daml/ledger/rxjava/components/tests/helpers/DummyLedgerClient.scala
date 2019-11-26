@@ -128,6 +128,7 @@ class DummyLedgerClient(
 
   override def getLedgerIdentityClient: LedgerIdentityClient = new LedgerIdentityClient {
     override def getLedgerIdentity: Single[String] = Single.just(ledgerId)
+    override def getLedgerIdentity(accessToken: String): Single[String] = Single.just(ledgerId)
   }
 
   override def getPackageClient: PackageClient = ???

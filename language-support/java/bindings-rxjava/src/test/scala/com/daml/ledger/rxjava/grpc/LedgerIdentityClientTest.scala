@@ -21,4 +21,22 @@ class LedgerIdentityClientTest extends FlatSpec with Matchers {
         .blockingGet() shouldBe ledgerServices.ledgerId
   }
 
+  it should "return ledger-id when requested with authorization" in ledgerServices
+    .withLedgerIdentityClient(mockedAuthService) { (binding, _) =>
+      binding
+        .getLedgerIdentity(publicToken)
+        .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
+        .blockingGet() shouldBe ledgerServices.ledgerId
+    }
+
+  it should "deny ledger-id queries with insufficient authorization" in ledgerServices
+    .withLedgerIdentityClient(mockedAuthService) { (binding, _) =>
+      a[RuntimeException] should be thrownBy {
+        binding
+          .getLedgerIdentity(emptyToken)
+          .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
+          .blockingGet()
+      }
+    }
+
 }

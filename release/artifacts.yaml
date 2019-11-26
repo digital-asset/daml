@@ -140,6 +140,9 @@
 - target: //ledger/ledger-api-auth:ledger-api-auth
   type: jar-scala
   mavenUpload: True
+- target: //ledger/ledger-api-auth-client:ledger-api-auth-client
+  type: jar-scala
+  mavenUpload: True
 - target: //ledger/sandbox:sandbox
   type: jar-scala
 - target: //ledger/ledger-api-test-tool:ledger-api-test-tool
