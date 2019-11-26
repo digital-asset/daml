@@ -6,9 +6,11 @@ package com.daml.ledger.rxjava.grpc
 import java.util.concurrent.TimeUnit
 
 import com.daml.ledger.rxjava.grpc.helpers.{LedgerServices, TestConfiguration}
+import com.digitalasset.grpc.{GrpcException, GrpcStatus}
 import org.scalatest.{FlatSpec, Matchers}
 
-class LedgerIdentityClientTest extends FlatSpec with Matchers {
+@SuppressWarnings(Array("org.wartremover.warts.Any"))
+final class LedgerIdentityClientTest extends FlatSpec with Matchers {
 
   val ledgerServices = new LedgerServices("ledger-identity-service-ledger")
 
@@ -31,11 +33,13 @@ class LedgerIdentityClientTest extends FlatSpec with Matchers {
 
   it should "deny ledger-id queries with insufficient authorization" in ledgerServices
     .withLedgerIdentityClient(mockedAuthService) { (binding, _) =>
-      a[RuntimeException] should be thrownBy {
+      the[RuntimeException] thrownBy {
         binding
           .getLedgerIdentity(emptyToken)
           .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
           .blockingGet()
+      } getCause () getCause () should matchPattern {
+        case GrpcException(GrpcStatus.PERMISSION_DENIED(), _) => ()
       }
     }
 

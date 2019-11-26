@@ -28,7 +28,9 @@ public class LedgerIdentityClientImpl implements LedgerIdentityClient {
 
     private Single<String> getLedgerIdentity(@NonNull Optional<String> accessToken) {
         LedgerIdentityServiceGrpc.LedgerIdentityServiceFutureStub stub = this.serviceStub;
-        accessToken.ifPresent(t -> this.serviceStub.withCallCredentials(new LedgerCallCredentials(t)));
+        if (accessToken.isPresent()) {
+            stub = this.serviceStub.withCallCredentials(new LedgerCallCredentials(accessToken.get()));
+        }
         return Single
                 .fromFuture(stub.getLedgerIdentity(LedgerIdentityServiceOuterClass.GetLedgerIdentityRequest.getDefaultInstance()))
                 .map(LedgerIdentityServiceOuterClass.GetLedgerIdentityResponse::getLedgerId);
