@@ -32,7 +32,13 @@ bazel test -j 200 //... --test_tag_filters "$tag_filter" --experimental_executio
 # Make sure that Bazel query works.
 bazel query 'deps(//...)' > /dev/null
 # Check that we can load damlc in ghci
-da-ghci --data yes //:repl -e '()'
+GHCI_SCRIPT=$(mktemp)
+cat <<EOF > $GHCI_SCRIPT
+:main --help
+:quit
+EOF
+echo $GHC_
+da-ghci --data yes //:repl -ghci-script $GHCI_SCRIPT -e '()'
 # Check that our IDE works on our codebase
 ./compiler/ghcide-daml.sh compiler/damlc/exe/Main.hs 2>&1 | tee ide-log
 grep -q "1 file worked, 0 files failed" ide-log
