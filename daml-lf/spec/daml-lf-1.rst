@@ -476,8 +476,8 @@ future addition to allowed identifier characters.
 
 In the following, we will use identifiers to represent *built-in
 functions*, term and type *variable names*, record and tuple *field
-names*, *variant constructors*, *template choices* and *type synonyms*. On the other
-hand, we will use names to represent *type constructors*, *value
+names*, *variant constructors* and *template choices*. On the other
+hand, we will use names to represent *type constructors*, *type synonyms*, *value
 references*, and *module names*. Finally, we will use PackageId
 strings as *package identifiers*.  ::
 
@@ -502,14 +502,14 @@ strings as *package identifiers*.  ::
   Template choice names
              Ch ::= Ident                           -- ChoiceName
 
-  Type synonym names
-              S ::= Ident                           -- TypeSynonym
-
   Value references
               W ::= Name                            -- ValRef
 
   Type constructors
               T ::= Name                            -- TyConName
+
+  Type synonym names
+              S ::= Name                            -- TypeSynonym
 
   Module names
         ModName ::= Name                            -- ModName
