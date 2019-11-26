@@ -172,11 +172,12 @@ def daml_deps():
         )
 
     if "com_github_grpc_grpc" not in native.existing_rules():
+        # This should be kept in sync with the grpc version we get from Nix.
         http_archive(
             name = "com_github_grpc_grpc",
-            strip_prefix = "grpc-1.23.0",
-            urls = ["https://github.com/grpc/grpc/archive/v1.23.0.tar.gz"],
-            sha256 = "f56ced18740895b943418fa29575a65cc2396ccfa3159fa40d318ef5f59471f9",
+            strip_prefix = "grpc-1.23.1",
+            urls = ["https://github.com/grpc/grpc/archive/v1.23.1.tar.gz"],
+            sha256 = "dd7da002b15641e4841f20a1f3eb1e359edb69d5ccf8ac64c362823b05f523d9",
             patches = [
                 "@com_github_digital_asset_daml//bazel_tools:grpc-bazel-mingw.patch",
             ],
