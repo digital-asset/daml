@@ -33,6 +33,10 @@ bazel test -j 200 //... --test_tag_filters "$tag_filter" --experimental_executio
 bazel query 'deps(//...)' > /dev/null
 # Check that we can load damlc in ghci
 GHCI_SCRIPT=$(mktemp)
+function cleanup {
+  rm -rf "$GHCI_SCRIPT"
+}
+trap cleanup EXIT
 cat <<EOF > $GHCI_SCRIPT
 :m DA.Cli.Damlc
 :main --help
