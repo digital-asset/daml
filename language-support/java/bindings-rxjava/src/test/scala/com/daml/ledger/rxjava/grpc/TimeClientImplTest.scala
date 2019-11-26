@@ -21,7 +21,7 @@ class TimeClientImplTest extends FlatSpec with Matchers with OptionValues with D
 
   it should "send requests with the correct ledger ID, current time and new time" in {
     val (timeService, timeServiceImpl) = TimeServiceImpl.createWithRef()
-    ledgerServices.withTimeClient(timeService) { timeClient =>
+    ledgerServices.withTimeClient(Seq(timeService)) { timeClient =>
       val currentLedgerTimeSeconds = 1l
       val currentLedgerTimeNanos = 2l
       val currentTime = Instant.ofEpochSecond(currentLedgerTimeSeconds, currentLedgerTimeNanos)
@@ -45,7 +45,7 @@ class TimeClientImplTest extends FlatSpec with Matchers with OptionValues with D
 
   it should "return the responses received" in {
     val getTimeResponse = genGetTimeResponse
-    ledgerServices.withTimeClient(TimeServiceImpl(getTimeResponse)) { timeClient =>
+    ledgerServices.withTimeClient(Seq(TimeServiceImpl(getTimeResponse))) { timeClient =>
       val response = timeClient.getTime
         .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
         .blockingFirst()
@@ -59,7 +59,7 @@ class TimeClientImplTest extends FlatSpec with Matchers with OptionValues with D
   it should "send requests with the correct ledger ID" in {
     val getTimeResponse = genGetTimeResponse // we use the first element to block on the first element
     val (service, impl) = TimeServiceImpl.createWithRef(getTimeResponse)
-    ledgerServices.withTimeClient(service) { timeClient =>
+    ledgerServices.withTimeClient(Seq(service)) { timeClient =>
       val _ = timeClient
         .getTime()
         .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
@@ -71,7 +71,7 @@ class TimeClientImplTest extends FlatSpec with Matchers with OptionValues with D
   behavior of "[9.4] TimeClientImpl.setTime"
 
   it should "return an error without sending a request when the time to set if bigger than the current time" in {
-    ledgerServices.withTimeClient(TimeServiceImpl()) { timeClient =>
+    ledgerServices.withTimeClient(Seq(TimeServiceImpl())) { timeClient =>
       val currentTime = Instant.ofEpochSecond(1l, 2l)
       intercept[RuntimeException](
         timeClient
