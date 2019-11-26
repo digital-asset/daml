@@ -90,7 +90,7 @@ class ApiPartyManagementService private (
     PollingUtils
       .pollSingleUntilPersisted(() =>
         partyManagementService.lookupPartyAllocationEntry(submissionId))(
-        "some description",
+        s"submissionId $submissionId",
         50.milliseconds,
         500.milliseconds,
         d => d * 2,
