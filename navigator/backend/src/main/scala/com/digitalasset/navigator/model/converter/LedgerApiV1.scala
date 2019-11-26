@@ -344,7 +344,7 @@ case object LedgerApiV1 {
         case _ => Left(GenericConversionError(s"Cannot read $genMap as $typ"))
       }
       (keyType, valueType) = types
-      values <- genMap.value.toSeq traverseU {
+      values <- genMap.entries.toSeq traverseU {
         case (k, v) =>
           for {
             key <- fillInTypeInfo(k, keyType, ctx)

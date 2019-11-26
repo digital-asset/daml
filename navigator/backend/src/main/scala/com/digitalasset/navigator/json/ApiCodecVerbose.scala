@@ -100,7 +100,7 @@ object ApiCodecVerbose {
   def apiGenMapToJsValue(value: Model.ApiGenMap): JsValue =
     JsObject(
       propType -> JsString(tagGenMap),
-      propValue -> JsArray(value.value.toSeq.toVector.map {
+      propValue -> JsArray(value.entries.toSeq.toVector.map {
         case (k, v) =>
           JsObject("key" -> apiValueToJsValue(k), "value" -> apiValueToJsValue(v))
       })
