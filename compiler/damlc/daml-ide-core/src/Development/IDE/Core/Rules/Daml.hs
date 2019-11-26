@@ -80,6 +80,7 @@ import Development.IDE.Core.RuleTypes.Daml
 import DA.Daml.DocTest
 import DA.Daml.LFConversion (convertModule, sourceLocToRange)
 import DA.Daml.LFConversion.UtilLF
+import DA.Daml.LF.Reader (stripPkgId)
 import qualified DA.Daml.LF.Ast as LF
 import qualified DA.Daml.LF.InferSerializability as Serializability
 import qualified DA.Daml.LF.PrettyScenario as LF
@@ -410,7 +411,10 @@ generatePackageMap fps = do
           (pkgId, package) <-
             mapLeft (ideErrorPretty $ toNormalizedFilePath dalf) $
             Archive.decodeArchive Archive.DecodeAsDependency dalfBS
-          let unitId = stringToUnitId $ dropExtension $ takeFileName dalf
+          let baseName = takeBaseName dalf
+          let unitId = stringToUnitId $
+                        fromMaybe baseName $
+                        stripPkgId baseName (T.unpack $ LF.unPackageId pkgId)
           Right (unitId, LF.DalfPackage pkgId (LF.ExternalPackage pkgId package) dalfBS)
   return (diags, Map.fromList pkgs)
 
