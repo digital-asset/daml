@@ -412,6 +412,12 @@ abstract class LedgerBackedIndexService(
         (offset, PartyConversion.partyAllocationLedgerEntryToDomain(entry))
     }
 
+  override def lookupPartyAllocationEntry(
+      submissionId: ParticipantState.SubmissionId): Future[Option[PartyAllocationEntry]] =
+    ledger
+      .lookupPartyAllocationEntry(submissionId)
+      .map(_.map(PartyConversion.partyAllocationLedgerEntryToDomain))(DEC)
+
   override def close(): Unit = {
     ledger.close()
   }

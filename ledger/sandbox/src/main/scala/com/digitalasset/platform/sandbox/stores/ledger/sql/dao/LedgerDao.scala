@@ -8,7 +8,12 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.index.v2.PackageDetails
-import com.daml.ledger.participant.state.v1.{AbsoluteContractInst, ParticipantId, TransactionId}
+import com.daml.ledger.participant.state.v1.{
+  AbsoluteContractInst,
+  ParticipantId,
+  SubmissionId,
+  TransactionId
+}
 import com.digitalasset.daml.lf.data.Ref.{LedgerString, PackageId, Party}
 import com.digitalasset.daml.lf.data.Relation.Relation
 import com.digitalasset.daml.lf.transaction.Node
@@ -155,6 +160,14 @@ trait LedgerReadDao extends AutoCloseable {
   def getPartyAllocationEntries(
       startInclusive: LedgerOffset,
       endExclusive: LedgerOffset): Source[(Long, PartyAllocationLedgerEntry), NotUsed]
+
+  /**
+    * Looks up a party allocation entry by submission identifier.
+    * @param submissionId
+    * @return the optional party allocation entry
+    */
+  def lookupPartyAllocationEntry(
+      submissionId: SubmissionId): Future[Option[PartyAllocationLedgerEntry]]
 
   /** Returns a list of all known DAML-LF packages */
   def listLfPackages: Future[Map[PackageId, PackageDetails]]

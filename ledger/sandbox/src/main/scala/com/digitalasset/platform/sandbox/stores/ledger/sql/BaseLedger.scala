@@ -7,6 +7,7 @@ import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.daml.ledger.participant.state.index.v2
+import com.daml.ledger.participant.state.v1.SubmissionId
 import com.digitalasset.daml.lf.archive.Decode
 import com.digitalasset.daml.lf.data.Ref.{PackageId, Party, TransactionIdString}
 import com.digitalasset.daml.lf.language.Ast
@@ -81,6 +82,10 @@ class BaseLedger(val ledgerId: LedgerId, headAtInitialization: Long, ledgerDao: 
   override def partyAllocationEntries(
       offset: Option[Long]): Source[(Long, PartyAllocationLedgerEntry), NotUsed] =
     dispatcher.startingAt(offset.getOrElse(0L), RangeSource(ledgerDao.getPartyAllocationEntries))
+
+  override def lookupPartyAllocationEntry(
+      submissionId: SubmissionId): Future[Option[PartyAllocationLedgerEntry]] =
+    ledgerDao.lookupPartyAllocationEntry(submissionId)
 
   override def listLfPackages(): Future[Map[PackageId, v2.PackageDetails]] =
     ledgerDao.listLfPackages

@@ -7,9 +7,9 @@ import java.util.UUID
 
 import akka.actor.Scheduler
 import akka.stream.ActorMaterializer
-import akka.stream.scaladsl.Sink
 import com.daml.ledger.participant.state.index.v2.IndexPartyManagementService
-import com.daml.ledger.participant.state.v1.{SubmissionResult, WritePartyService}
+import com.daml.ledger.participant.state.v1.{SubmissionId, SubmissionResult, WritePartyService}
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.v1.admin.party_management_service.PartyManagementServiceGrpc.PartyManagementService
@@ -58,48 +58,17 @@ class ApiPartyManagementService private (
       .listParties()
       .map(ps => ListKnownPartiesResponse(ps.map(mapPartyDetails)))(DE)
 
-  /**
-    * Wraps a call [[PollingUtils.pollUntilPersisted]] so that it can be chained on the party allocation with a `flatMap`.
-    *
-    * Checks invariants and forwards the original result after the party is found to be persisted.
-    *
-    * @param result The result of the party allocation
-    * @return The result of the party allocation received originally, wrapped in a [[Future]]
-    */
-  private def pollUntilPartyPersisted(
-      result: AllocatePartyResponse): Future[AllocatePartyResponse] = {
-    require(result.partyDetails.isDefined, "Party allocation response must have the party details")
-    val newParty = result.partyDetails.get.party
-    val description = s"party $newParty"
-
-    PollingUtils
-      .pollUntilPersisted(partyManagementService.listParties _)(
-        _.exists(_.party == newParty),
-        description,
-        50.milliseconds,
-        500.milliseconds,
-        d => d * 2,
-        scheduler,
-        loggerFactory)
-      .map { numberOfAttempts =>
-        logger.debug(s"Party $newParty available, read after $numberOfAttempts attempt(s)")
-        result
-      }(DE)
-  }
-
   override def allocateParty(request: AllocatePartyRequest): Future[AllocatePartyResponse] = {
     val party = if (request.partyIdHint.isEmpty) None else Some(request.partyIdHint)
     val displayName = if (request.displayName.isEmpty) None else Some(request.displayName)
-    val submissionId = UUID.randomUUID().toString
+    val submissionId = Ref.LedgerString.assertFromString(UUID.randomUUID().toString)
 
     FutureConverters
-      .toScala(writeService
-        .allocateParty(party, displayName, submissionId))
+      .toScala(
+        writeService
+          .allocateParty(party, displayName, submissionId))
       .flatMap {
         case SubmissionResult.Acknowledged =>
-          //TODO BH get full response from accept/reject party allocation message
-//            AllocatePartyResponse(
-//            Some(PartyDetails(party.getOrElse("DUMMY"), displayName.getOrElse(""), true)))
           pollForAllocationResult(submissionId).flatMap {
             case domain.PartyAllocationEntry.Accepted(_, _, partyDetails) =>
               Future.successful(AllocatePartyResponse(Some(
@@ -114,38 +83,24 @@ class ApiPartyManagementService private (
         case r @ SubmissionResult.NotSupported =>
           Future.failed(ErrorFactories.unimplemented(r.description))
       }(DE)
-      .flatMap(pollUntilPartyPersisted)(DE)
   }
 
-  private def pollForAllocationResult(submissionId: String): Future[domain.PartyAllocationEntry] = {
-
-    def sourcePartyAllocations: Future[List[domain.PartyAllocationEntry]] =
-      partyManagementService
-        .getPartyAllocationEntries(Some(0L))
-        .runWith(Sink.seq)(mat)
-        .map(_.toList.map {
-          case (_, entry) => entry
-        })
-
-    def matchingAllocationEntry = {
-      sourcePartyAllocations
-        .map(entries => entries.find(_.submissionId == submissionId))
-        .map(_.get)
-    }
-
+  private def pollForAllocationResult(
+      submissionId: SubmissionId): Future[domain.PartyAllocationEntry] = {
     PollingUtils
-      .pollUntilPersisted(sourcePartyAllocations _)(
-        _.exists(_.submissionId == submissionId),
+      .pollSingleUntilPersisted(() =>
+        partyManagementService.lookupPartyAllocationEntry(submissionId))(
         "some description",
         50.milliseconds,
         500.milliseconds,
         d => d * 2,
         scheduler,
         loggerFactory)
-      .flatMap { numberOfAttempts =>
-        logger.debug(
-          s"submissionId $submissionId available, read after $numberOfAttempts attempt(s)")
-        matchingAllocationEntry
+      .map {
+        case (numberOfAttempts, result) =>
+          logger.debug(
+            s"submissionId $submissionId available, read after $numberOfAttempts attempt(s)")
+          result
       }(DE)
   }
 

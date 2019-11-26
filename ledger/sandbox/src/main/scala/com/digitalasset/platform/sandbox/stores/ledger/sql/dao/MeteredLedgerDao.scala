@@ -8,7 +8,7 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.index.v2.PackageDetails
-import com.daml.ledger.participant.state.v1.{ParticipantId, TransactionId}
+import com.daml.ledger.participant.state.v1.{ParticipantId, SubmissionId, TransactionId}
 import com.digitalasset.daml.lf.data.Ref.{LedgerString, PackageId, Party}
 import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.value.Value
@@ -39,6 +39,7 @@ private class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: MetricRegi
     val lookupTransaction = metrics.timer("LedgerDao.lookupTransaction")
     val lookupKey = metrics.timer("LedgerDao.lookupKey")
     val lookupActiveContract = metrics.timer("LedgerDao.lookupActiveContract")
+    val lookupPartyAllocationEntry = metrics.timer("LedgerDao.lookupPartyAllocationEntry")
     val getParties = metrics.timer("LedgerDao.getParties")
     val listLfPackages = metrics.timer("LedgerDao.listLfPackages")
     val getLfArchive = metrics.timer("LedgerDao.getLfArchive")
@@ -93,6 +94,13 @@ private class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: MetricRegi
       startInclusive: LedgerOffset,
       endExclusive: LedgerOffset): Source[(LedgerOffset, PartyAllocationLedgerEntry), NotUsed] =
     ledgerDao.getPartyAllocationEntries(startInclusive, endExclusive)
+
+  override def lookupPartyAllocationEntry(
+      submissionId: SubmissionId): Future[Option[PartyAllocationLedgerEntry]] = {
+    timedFuture(
+      Metrics.lookupPartyAllocationEntry,
+      ledgerDao.lookupPartyAllocationEntry(submissionId))
+  }
 
   override def listLfPackages: Future[Map[PackageId, PackageDetails]] =
     timedFuture(Metrics.listLfPackages, ledgerDao.listLfPackages)

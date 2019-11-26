@@ -5,8 +5,8 @@ package com.daml.ledger.participant.state.index.v2
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
-import com.daml.ledger.participant.state.v1.ParticipantId
-import com.digitalasset.ledger.api.domain.{PartyDetails, PartyAllocationEntry}
+import com.daml.ledger.participant.state.v1.{ParticipantId, SubmissionId}
+import com.digitalasset.ledger.api.domain.{PartyAllocationEntry, PartyDetails}
 
 import scala.concurrent.Future
 
@@ -21,4 +21,7 @@ trait IndexPartyManagementService {
 
   def getPartyAllocationEntries(
       offset: Option[Long] = None): Source[(Long, PartyAllocationEntry), NotUsed]
+
+  /** Try to retrieve the party allocation entry given a submission id. */
+  def lookupPartyAllocationEntry(submissionId: SubmissionId): Future[Option[PartyAllocationEntry]]
 }

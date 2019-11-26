@@ -9,12 +9,7 @@ import java.util.concurrent.atomic.AtomicReference
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.ledger.participant.state.index.v2.PackageDetails
-import com.daml.ledger.participant.state.v1.{
-  SubmissionResult,
-  SubmittedTransaction,
-  SubmitterInfo,
-  TransactionMeta
-}
+import com.daml.ledger.participant.state.v1._
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.data.Ref.LedgerString.ordering
@@ -312,4 +307,11 @@ class InMemoryLedger(
         }
       )
   }
+
+  override def lookupPartyAllocationEntry(
+      submissionId: SubmissionId): Future[Option[PartyAllocationLedgerEntry]] =
+    ??? // FIXME(JM,BH)
+  /*allocationEntries.getSource(None)
+    .filter { case (_, entry) => entry.submissionId == submissionId) }
+    .runWith(Sink.head)(mat)*/
 }

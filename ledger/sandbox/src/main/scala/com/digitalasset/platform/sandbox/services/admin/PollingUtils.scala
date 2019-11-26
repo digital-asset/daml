@@ -64,4 +64,34 @@ object PollingUtils {
     go(1, minWait.min(maxWait).max(50.milliseconds))
   }
 
+  def pollSingleUntilPersisted[T](poll: () => Future[Option[T]])(
+      description: String,
+      minWait: FiniteDuration,
+      maxWait: FiniteDuration,
+      backoffProgression: FiniteDuration => FiniteDuration,
+      scheduler: Scheduler,
+      loggerFactory: NamedLoggerFactory): Future[(Int, T)] = {
+
+    val logger = loggerFactory.getLogger(this.getClass)
+
+    def go(attempt: Int, waitTime: FiniteDuration): Future[(Int, T)] = {
+      logger.debug(s"Polling for '$description' being persisted (attempt #$attempt)...")
+      poll()
+        .flatMap {
+          case Some(persisted) => Future.successful(attempt -> persisted)
+          case _ =>
+            logger.debug(s"'$description' not yet persisted, backing off for $waitTime...")
+            after(waitTime, scheduler)(
+              go(attempt + 1, backoffProgression(waitTime).min(maxWait).max(50.milliseconds)))(DE)
+        }(DE)
+        .recoverWith {
+          case _ =>
+            after(waitTime, scheduler)(
+              go(attempt + 1, backoffProgression(waitTime).min(maxWait).max(50.milliseconds)))(DE)
+        }(DE)
+    }
+
+    go(1, minWait.min(maxWait).max(50.milliseconds))
+  }
+
 }

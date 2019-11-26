@@ -85,6 +85,9 @@ trait ReadOnlyLedger extends AutoCloseable {
   def partyAllocationEntries(
       offset: Option[Long]): Source[(Long, PartyAllocationLedgerEntry), NotUsed]
 
+  def lookupPartyAllocationEntry(
+      submissionId: SubmissionId): Future[Option[PartyAllocationLedgerEntry]]
+
   // Package management
   def listLfPackages(): Future[Map[PackageId, PackageDetails]]
 

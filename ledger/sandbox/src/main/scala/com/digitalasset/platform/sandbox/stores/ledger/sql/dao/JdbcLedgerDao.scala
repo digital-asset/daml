@@ -14,7 +14,12 @@ import anorm.SqlParser._
 import anorm.ToStatement.optionToStatement
 import anorm.{AkkaStream, BatchSql, Macro, NamedParameter, RowParser, SQL, SqlParser}
 import com.daml.ledger.participant.state.index.v2.PackageDetails
-import com.daml.ledger.participant.state.v1.{AbsoluteContractInst, ParticipantId, TransactionId}
+import com.daml.ledger.participant.state.v1.{
+  AbsoluteContractInst,
+  ParticipantId,
+  SubmissionId,
+  TransactionId
+}
 import com.digitalasset.daml.lf.archive.Decode
 import com.digitalasset.daml.lf.data.Ref.{
   ContractIdString,
@@ -1244,6 +1249,9 @@ private class JdbcLedgerDao(
     SQL(
       "select * from party_allocation_entries where ledger_offset>={startInclusive} and ledger_offset<{endExclusive} order by ledger_offset asc")
 
+  private val SQL_SELECT_PARTY_ALLOCATION_ENTRY =
+    SQL("select * from party_allocation_entries where submission_id={submissionId} limit 1")
+
   case class ParsedPackageData(
       packageId: String,
       sourceDescription: Option[String],
@@ -1441,21 +1449,32 @@ private class JdbcLedgerDao(
 
   override def getPartyAllocationEntries(
       startInclusive: Long,
-      endExclusive: Long): Source[(Long, PartyAllocationLedgerEntry), NotUsed] = {
-    val value: Source[List[(LedgerOffset, PartyAllocationLedgerEntry)], NotUsed] = paginatingStream(
+      endExclusive: Long): Source[(Long, PartyAllocationLedgerEntry), NotUsed] =
+    paginatingStream(
       startInclusive,
       endExclusive,
       PageSize,
       (startI, endE) => {
-        dbDispatcher.executeSql(s"load package upload entries", Some(s"bounds: [$startI, $endE[")) {
-          implicit conn =>
-            SQL_SELECT_PARTY_ALLOCATION_ENTRIES
-              .on("startInclusive" -> startI, "endExclusive" -> endE)
-              .as(partyAllocationEntryParser.*)
-        }
+        dbDispatcher
+          .executeSql(s"load party allocation entries", Some(s"bounds: [$startI, $endE[")) {
+            implicit conn =>
+              SQL_SELECT_PARTY_ALLOCATION_ENTRIES
+                .on("startInclusive" -> startI, "endExclusive" -> endE)
+                .as(partyAllocationEntryParser.*)
+          }
       }
-    )
-    value.flatMapConcat(Source(_))
+    ).flatMapConcat(Source(_))
+
+  override def lookupPartyAllocationEntry(
+      submissionId: SubmissionId): Future[Option[PartyAllocationLedgerEntry]] = {
+    dbDispatcher
+      .executeSql(s"load party allocation entry", None) { implicit conn =>
+        SQL_SELECT_PARTY_ALLOCATION_ENTRY
+          .on("submissionId" -> submissionId)
+          .as(partyAllocationEntryParser.*)
+          .headOption
+          .map(_._2)
+      }
   }
 
   //Future approach
