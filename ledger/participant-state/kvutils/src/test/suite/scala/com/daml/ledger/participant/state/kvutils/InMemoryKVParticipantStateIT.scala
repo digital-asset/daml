@@ -47,8 +47,8 @@ class InMemoryKVParticipantStateIT
 
   private def allocateParty(hint: String): Future[Party] = {
     ps.allocateParty(Some(hint), None).toScala.flatMap {
-            case PartyAllocationResult.Ok(details) => Future.successful(details.party)
-                  case err => Future.failed(new RuntimeException("failed to allocate party: $err"))
+      case PartyAllocationResult.Ok(details) => Future.successful(details.party)
+      case err => Future.failed(new RuntimeException("failed to allocate party: $err"))
     }
   }
 
@@ -284,7 +284,6 @@ class InMemoryKVParticipantStateIT
       val updatesResult = ps.stateUpdates(beginAfter = None).take(4).runWith(Sink.seq)
       val unallocatedParty = Ref.Party.assertFromString("nobody")
 
-
       for {
         lic <- ps.getLedgerInitialConditions().runWith(Sink.head)
 
@@ -299,10 +298,12 @@ class InMemoryKVParticipantStateIT
           .toScala
 
         // Submit without allocation
-        _ <- ps.submitTransaction(
-          submitterInfo(rt, unallocatedParty),
-          transactionMeta(rt),
-          emptyTransaction).toScala
+        _ <- ps
+          .submitTransaction(
+            submitterInfo(rt, unallocatedParty),
+            transactionMeta(rt),
+            emptyTransaction)
+          .toScala
 
         // Allocate a party and try the submission again with an allocated party.
         allocResult <- ps
@@ -320,8 +321,10 @@ class InMemoryKVParticipantStateIT
             emptyTransaction)
           .toScala
 
-        Seq((offset1, update1), (offset2, update2), (offset3, update3), (offset4, update4)) <-
-          ps.stateUpdates(beginAfter = None).take(4).runWith(Sink.seq)
+        Seq((offset1, update1), (offset2, update2), (offset3, update3), (offset4, update4)) <- ps
+          .stateUpdates(beginAfter = None)
+          .take(4)
+          .runWith(Sink.seq)
 
       } yield {
         assert(update1.isInstanceOf[Update.ConfigurationChanged])
