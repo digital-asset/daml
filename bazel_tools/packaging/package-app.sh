@@ -128,7 +128,7 @@ elif [[ "$(uname -s)" == "Darwin" ]]; then
           /usr/bin/install_name_tool -change "$lib" "/usr/lib/$libName" "$from_copied"
       elif [[ "$lib" == @rpath/* ]]; then
           libName="${lib#@rpath/}"
-          local to="$WORKDIR/$NAME/lib/$libName"
+          local to="$WORKDIR/$NAME/lib/$(basename $libName)"
           if [[ ! -f "$to" ]]; then
               libOK=0
               for rpath in $rpaths; do
