@@ -190,7 +190,7 @@ private class ContractsFetch(
   }
 }
 
-private object ContractsFetch {
+private[http] object ContractsFetch {
   type Contract = domain.Contract[lav1.value.Value]
 
   type PreInsertContract = DBContract[TemplateId.RequiredPkg, JsValue, Seq[domain.Party]]
@@ -261,7 +261,7 @@ private object ContractsFetch {
     * after the ACS's last offset, terminating with the last offset of the last transaction,
     * or the ACS's last offset if there were no transactions.
     */
-  private def acsFollowingAndBoundary(
+  private[http] def acsFollowingAndBoundary(
       transactionsSince: lav1.ledger_offset.LedgerOffset => Source[Transaction, NotUsed]): Graph[
     FanOutShape2[
       lav1.active_contracts_service.GetActiveContractsResponse,
@@ -382,9 +382,12 @@ private object ContractsFetch {
   final case class InsertDeleteStep[+C](inserts: Vector[C], deletes: Set[String]) {
     def append[CC >: C](o: InsertDeleteStep[CC])(
         implicit cid: CC <~< DBContract[Any, Any, Any]): InsertDeleteStep[CC] =
+      appendWithCid(o)(x => cid(x).contractId)
+
+    def appendWithCid[CC >: C](o: InsertDeleteStep[CC])(cid: C => String): InsertDeleteStep[CC] =
       InsertDeleteStep(
         (if (o.deletes.isEmpty) inserts
-         else inserts.filter(c => !o.deletes.contains(cid(c).contractId))) ++ o.inserts,
+         else inserts.filter(c => !o.deletes.contains(cid(c)))) ++ o.inserts,
         deletes union o.deletes)
   }
 

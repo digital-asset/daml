@@ -33,7 +33,7 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
 
 import akka.stream.Materializer
-import akka.stream.scaladsl.Source
+import akka.stream.scaladsl.{Source, Flow}
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 class Endpoints(
@@ -118,8 +118,8 @@ class Endpoints(
         -\/(ServerError(e.getMessage))
     }
 
-  private def handleSourceFailure[A, M](soure: Source[A, M]): Source[ServerError \/ A, M] =
-    soure.map(a => \/-(a)).recover {
+  private def handleSourceFailure[A]: Flow[A, ServerError \/ A, NotUsed] =
+    Flow.fromFunction[A, ServerError \/ A](a => \/-(a)).recover {
       case NonFatal(e) =>
         logger.error("Source failed", e)
         -\/(ServerError(e.getMessage))
@@ -170,7 +170,8 @@ class Endpoints(
             .leftMap(e => ServerError(e.shows))
           (acsSource, _) = x
 
-          jsValueSource = handleSourceFailure(acsSource)
+          jsValueSource = acsSource
+            .via(handleSourceFailure)
             .map {
               _.flatMap { a =>
                 encoder
@@ -202,7 +203,8 @@ class Endpoints(
 
           funPredicates = predicate transform ((_, vp) => vp.toFunPredicate)
 
-          jsValueSource = handleSourceFailure(acsSource)
+          jsValueSource = acsSource
+            .via(handleSourceFailure)
             .map(_.flatMap(_.traverse(apiValueToLfValue)): Error \/ domain.ActiveContract[LfValue])
             .collect { collectActiveContracts(funPredicates) }
             .map(_.flatMap(toJsValue).fold(errorToJsValue, identity): JsValue)
