@@ -708,6 +708,7 @@ nixpkgs_package(
     name = "grpc_nix",
     attribute_path = "grpc",
     build_file_content = """
+load("@os_info//:os_info.bzl", "is_linux")
 cc_library(
   name = "grpc_lib",
   srcs = [":lib/libgrpc.so", ":lib/libgpr.so"] if is_linux else [":lib/libgrpc.dylib", ":lib/libgpr.dylib"],
