@@ -136,6 +136,7 @@ elif [[ "$(uname -s)" == "Darwin" ]]; then
                       libOK=1
                       cp "$rpath/$libName" "$to"
                       chmod 0755 "$to"
+                      /usr/bin/install_name_tool -add_rpath "@loader_path/lib" "$to"
                       copy_deps "$rpath/$libName" "$to"
                       break
                   fi
@@ -153,6 +154,7 @@ elif [[ "$(uname -s)" == "Darwin" ]]; then
         if [ ! -f "$to" ]; then
           cp "$lib" "$to"
           chmod 0755 "$to"
+          /usr/bin/install_name_tool -add_rpath "@loader_path/lib" "$to"
 
           # Traverse the library as well to find the closure
           copy_deps "$lib" "$to"
