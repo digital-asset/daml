@@ -267,6 +267,8 @@ Version: 1.dev
 
   * **Rename** ``Map`` to ``TextMap``
 
+  * **Add** type synonyms.
+
 Abstract syntax
 ^^^^^^^^^^^^^^^
 
@@ -474,7 +476,7 @@ future addition to allowed identifier characters.
 
 In the following, we will use identifiers to represent *built-in
 functions*, term and type *variable names*, record and tuple *field
-names*, *variant constructors*, and *template choices*. On the other
+names*, *variant constructors*, *template choices* and *type synonyms*. On the other
 hand, we will use names to represent *type constructors*, *value
 references*, and *module names*. Finally, we will use PackageId
 strings as *package identifiers*.  ::
@@ -499,6 +501,9 @@ strings as *package identifiers*.  ::
 
   Template choice names
              Ch ::= Ident                           -- ChoiceName
+
+  Type synonym names
+              S ::= Ident                           -- TypeSynonym
 
   Value references
               W ::= Name                            -- ValRef
@@ -676,6 +681,7 @@ available for usage::
        |  'variant' T (α₁: k₁)… (αₙ: kₙ) ↦ V₁ : τ₁ | … | Vₘ : τₘ
                                                     -- DefVariant
        |  'enum' T  ↦ E₁ | … | Eₘ                    -- DefEnum
+       |  'synonym' T (α₁: k₁)… (αₙ: kₙ) ↦ τ        -- DefTypeSynonym
        |  'val' W : τ ↦ e                           -- DefValue
        |  'tpl' (x : T) ↦                           -- DefTemplate
             { 'precondition' e₁
@@ -846,6 +852,14 @@ First, we formally defined *well-formed types*. ::
     ————————————————————————————————————————————— TyTuple
       Γ  ⊢  ⟨ f₁: τ₁, …, fₙ: τₙ ⟩  :  ⋆
 
+      'synonym' T (α₁:k₁) … (αₙ:kₙ) ↦ τ ∈ 〚Ξ〛Mod
+      (α₁:k₁) … (αₙ:kₙ) · Γ  ⊢  τ  :  ⋆
+      Γ  ⊢  α₁ : k₁  …  Γ  ⊢  αₙ : kₙ
+    ————————————————————————————————————————————— TyTypeSynonym
+      Γ  ⊢  T α₁ … αₙ  :  ⋆
+
+
+
 
 Well-formed expression
 ......................
@@ -981,6 +995,10 @@ Then we define *well-formed expressions*. ::
       'enum' T ↦ … | Eᵢ | …  ∈  〚Ξ〛Mod
     ——————————————————————————————————————————————————————————————— ExpEnumCon
       Γ  ⊢  Mod:T:Eᵢ  :  Mod:T
+
+      'synonym' T (α₁:k₁) … (αₙ:kₙ) ↦ τ   Γ  ↦  e : τ
+    ——————————————————————————————————————————————————————————————— ExpTypeSynonym
+      Γ  ⊢  e : Mod:T α₁ … αₙ
 
       Γ  ⊢  e₁  :  τ₁      …      Γ  ⊢  eₘ  :  τₘ
     ——————————————————————————————————————————————————————————————— ExpTupleCon
