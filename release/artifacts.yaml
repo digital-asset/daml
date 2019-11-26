@@ -141,7 +141,7 @@
   type: jar-scala
   mavenUpload: True
 - target: //ledger/ledger-api-auth-client:ledger-api-auth-client
-  type: jar-scala
+  type: jar
   mavenUpload: True
 - target: //ledger/sandbox:sandbox
   type: jar-scala
