@@ -32,7 +32,6 @@ import qualified Web.JWT as JWT
 
 import DA.Bazel.Runfiles
 import DA.Daml.Helper.Run
-import DA.Daml.Options.Types
 import SdkVersion
 
 main :: IO ()
@@ -133,7 +132,7 @@ noassistantTests damlDir = testGroup "no assistant"
 -- integration tests.
 packagingTests :: TestTree
 packagingTests = testGroup "packaging"
-    ([ testCase "Build copy trigger" $ withTempDir $ \tmpDir -> do
+     [ testCase "Build copy trigger" $ withTempDir $ \tmpDir -> do
         let projDir = tmpDir </> "copy-trigger"
         callCommandQuiet $ unwords ["daml", "new", projDir, "copy-trigger"]
         withCurrentDirectory projDir $ callCommandQuiet "daml build"
@@ -145,291 +144,295 @@ packagingTests = testGroup "packaging"
         withCurrentDirectory projDir $ callCommandQuiet "daml build"
         let dar = projDir </> ".daml/dist/script-example-0.0.1.dar"
         assertBool "script-example-0.0.1.dar was not created." =<< doesFileExist dar
-    ]
-    <> [ testCaseSteps "Build migration package" $ \step -> withTempDir $ \tmpDir -> do
-        -- it's important that we have fresh empty directories here!
-        let projectA = tmpDir </> "a-1.0"
-        let projectB = tmpDir </> "a-2.0"
-        let projectUpgrade = tmpDir </> "upgrade"
-        let projectRollback = tmpDir </> "rollback"
-        let aDar = projectA </> "projecta.dar"
-        let bDar = projectB </> "projectb.dar"
-        let upgradeDar = projectUpgrade </> distDir </> "upgrade-0.0.1.dar"
-        let rollbackDar= projectRollback </> distDir </> "rollback-0.0.1.dar"
-        let bWithUpgradesDar = "a-2.0-with-upgrades.dar"
-        step "Creating project a-1.0 ..."
-        createDirectoryIfMissing True (projectA </> "daml")
-        writeFileUTF8 (projectA </> "daml" </> "Main.daml") $ unlines
-            [ "{-# LANGUAGE EmptyCase #-}"
-            , "daml 1.2"
-            , "module Main where"
-            , "data OnlyA"
-            , "data Both"
-            , "template Foo"
-            , "  with"
-            , "    a : Int"
-            , "    p : Party"
-            , "  where"
-            , "    signatory p"
-            ]
-        writeFileUTF8 (projectA </> "daml.yaml") $ unlines
-            [ "sdk-version: " <> sdkVersion
-            , "name: a"
-            , "version: \"1.0\""
-            , "source: daml"
-            , "exposed-modules: [Main]"
-            , "dependencies:"
-            , "  - daml-prim"
-            , "  - daml-stdlib"
-            ]
-        -- We use -o to test that we do not depend on the name of the dar
-        withCurrentDirectory projectA $ callCommandQuiet $ "daml build -o " <> aDar
-        assertBool "a-1.0.dar was not created." =<< doesFileExist aDar
-        step "Creating project a-2.0 ..."
-        createDirectoryIfMissing True (projectB </> "daml")
-        writeFileUTF8 (projectB </> "daml" </> "Main.daml") $ unlines
-            [ "daml 1.2"
-            , "module Main where"
-            , "data OnlyB"
-            , "data Both"
-            , "template Foo"
-            , "  with"
-            , "    a : Int"
-            , "    p : Party"
-            , "  where"
-            , "    signatory p"
-            ]
-        writeFileUTF8 (projectB </> "daml.yaml") $ unlines
-            [ "sdk-version: " <> sdkVersion
-            , "name: a"
-            , "version: \"2.0\""
-            , "source: daml"
-            , "exposed-modules: [Main]"
-            , "dependencies:"
-            , "  - daml-prim"
-            , "  - daml-stdlib"
-            ]
-        -- We use -o to test that we do not depend on the name of the dar
-        withCurrentDirectory projectB $ callCommandQuiet $ "daml build -o " <> bDar
-        assertBool "a-2.0.dar was not created." =<< doesFileExist bDar
-        step "Creating upgrade/rollback project"
-        -- We use -o to verify that we do not depend on the
-        callCommandQuiet $ unwords ["daml", "migrate", projectUpgrade, aDar, bDar]
-        callCommandQuiet $ unwords ["daml", "migrate", projectRollback, bDar, aDar]
-        step "Build migration project"
-        withCurrentDirectory projectUpgrade $
-            callCommandQuiet "daml build"
-        assertBool "upgrade-0.0.1.dar was not created" =<< doesFileExist upgradeDar
-        step "Build rollback project"
-        withCurrentDirectory projectRollback $
-            callCommandQuiet "daml build"
-        assertBool "rollback-0.0.1.dar was not created" =<< doesFileExist rollbackDar
-        step "Merging upgrade dar"
-        callCommandQuiet $
-          unwords
-              [ "daml damlc merge-dars"
-              , bDar
-              , upgradeDar
-              , "--dar-name"
-              , bWithUpgradesDar
-              ]
-        assertBool "a-0.2-with-upgrades.dar was not created." =<< doesFileExist bWithUpgradesDar
-      , testCaseSteps "Build migration package with generics" $ \step -> withTempDir $ \tmpDir -> do
-        -- it's important that we have fresh empty directories here!
-        let projectA = tmpDir </> "a-1.0"
-        let projectB = tmpDir </> "a-2.0"
-        let projectUpgrade = tmpDir </> "upgrade"
-        let aDar = projectA </> "projecta.dar"
-        let bDar = projectB </> "projectb.dar"
-        let upgradeDar = projectUpgrade </> distDir </> "upgrade-0.0.1.dar"
-        step "Creating project a-1.0 ..."
-        createDirectoryIfMissing True (projectA </> "daml")
-        writeFileUTF8 (projectA </> "daml" </> "Main.daml") $ unlines
-            [ "{-# LANGUAGE EmptyCase #-}"
-            , "daml 1.2"
-            , "module Main where"
-            , "data OnlyA"
-            , "data Both"
-            , "template Foo"
-            , "  with"
-            , "    a : Int"
-            , "    p : Party"
-            , "  where"
-            , "    signatory p"
-            ]
-        writeFileUTF8 (projectA </> "daml.yaml") $ unlines
-            [ "sdk-version: " <> sdkVersion
-            , "name: a"
-            , "version: \"1.0\""
-            , "source: daml"
-            , "exposed-modules: [Main]"
-            , "dependencies:"
-            , "  - daml-prim"
-            , "  - daml-stdlib"
-            ]
-        -- We use -o to test that we do not depend on the name of the dar
-        withCurrentDirectory projectA $ callCommandQuiet $ "daml build -o " <> aDar
-        assertBool "a-1.0.dar was not created." =<< doesFileExist aDar
-        step "Creating project a-2.0 ..."
-        createDirectoryIfMissing True (projectB </> "daml")
-        writeFileUTF8 (projectB </> "daml" </> "Main.daml") $ unlines
-            [ "daml 1.2"
-            , "module Main where"
-            , "data OnlyB"
-            , "data Both"
-            , "template Foo"
-            , "  with"
-            , "    a : Int"
-            , "    p : Party"
-            , "    new : Optional Text"
-            , "  where"
-            , "    signatory p"
-            ]
-        writeFileUTF8 (projectB </> "daml.yaml") $ unlines
-            [ "sdk-version: " <> sdkVersion
-            , "name: a"
-            , "version: \"2.0\""
-            , "source: daml"
-            , "exposed-modules: [Main]"
-            , "dependencies:"
-            , "  - daml-prim"
-            , "  - daml-stdlib"
-            ]
-        -- We use -o to test that we do not depend on the name of the dar
-        withCurrentDirectory projectB $ callCommandQuiet $ "daml build -o " <> bDar
-        assertBool "a-2.0.dar was not created." =<< doesFileExist bDar
-        step "Creating upgrade/rollback project"
-        callCommandQuiet $ unwords ["daml", "migrate", projectUpgrade, aDar, bDar]
-        step "Generate generic instances"
-        writeFileUTF8 (projectUpgrade </> "daml" </> "Main.daml") $ unlines
-           [ "daml 1.2"
-           , "module Main where"
-           , "import MainA qualified as A"
-           , "import MainB qualified as B"
-           , "import MainAGenInstances()"
-           , "import MainBGenInstances()"
-           , "import DA.Upgrade"
-           , "import DA.Generics"
-           , "template instance FooUpgrade = Upgrade A.Foo B.Foo"
-           , "template instance FooRollback = Rollback A.Foo B.Foo"
-           , "instance Convertible A.Foo B.Foo"
-           , "instance Convertible B.Foo A.Foo"
-           ]
-        callCommandQuiet $
-            unwords
-                [ "daml"
-                , "damlc"
-                , "generate-generic-src"
-                , "--srcdir"
-                , projectUpgrade </> "daml"
-                , "--qualify"
-                , "A"
-                , aDar
-                ]
-        callCommandQuiet $
-            unwords
-                [ "daml"
-                , "damlc"
-                , "generate-generic-src"
-                , "--srcdir"
-                , projectUpgrade </> "daml"
-                , "--qualify"
-                , "B"
-                , bDar
-                ]
-        step "Build migration project"
-        withCurrentDirectory projectUpgrade $
-            callCommandQuiet "daml build --generated-src"
-        assertBool "upgrade-0.0.1.dar was not created" =<< doesFileExist upgradeDar
+     ]
+    -- TODO(MH, #3606): Enable theses tests again when `daml migrate` doesn't
+    -- depend on generic templates anymore. We need to add the following
+    -- import as well.
+    -- import DA.Daml.Options.Types
+    -- <> [ testCaseSteps "Build migration package" $ \step -> withTempDir $ \tmpDir -> do
+    --     -- it's important that we have fresh empty directories here!
+    --     let projectA = tmpDir </> "a-1.0"
+    --     let projectB = tmpDir </> "a-2.0"
+    --     let projectUpgrade = tmpDir </> "upgrade"
+    --     let projectRollback = tmpDir </> "rollback"
+    --     let aDar = projectA </> "projecta.dar"
+    --     let bDar = projectB </> "projectb.dar"
+    --     let upgradeDar = projectUpgrade </> distDir </> "upgrade-0.0.1.dar"
+    --     let rollbackDar= projectRollback </> distDir </> "rollback-0.0.1.dar"
+    --     let bWithUpgradesDar = "a-2.0-with-upgrades.dar"
+    --     step "Creating project a-1.0 ..."
+    --     createDirectoryIfMissing True (projectA </> "daml")
+    --     writeFileUTF8 (projectA </> "daml" </> "Main.daml") $ unlines
+    --         [ "{-# LANGUAGE EmptyCase #-}"
+    --         , "daml 1.2"
+    --         , "module Main where"
+    --         , "data OnlyA"
+    --         , "data Both"
+    --         , "template Foo"
+    --         , "  with"
+    --         , "    a : Int"
+    --         , "    p : Party"
+    --         , "  where"
+    --         , "    signatory p"
+    --         ]
+    --     writeFileUTF8 (projectA </> "daml.yaml") $ unlines
+    --         [ "sdk-version: " <> sdkVersion
+    --         , "name: a"
+    --         , "version: \"1.0\""
+    --         , "source: daml"
+    --         , "exposed-modules: [Main]"
+    --         , "dependencies:"
+    --         , "  - daml-prim"
+    --         , "  - daml-stdlib"
+    --         ]
+    --     -- We use -o to test that we do not depend on the name of the dar
+    --     withCurrentDirectory projectA $ callCommandQuiet $ "daml build -o " <> aDar
+    --     assertBool "a-1.0.dar was not created." =<< doesFileExist aDar
+    --     step "Creating project a-2.0 ..."
+    --     createDirectoryIfMissing True (projectB </> "daml")
+    --     writeFileUTF8 (projectB </> "daml" </> "Main.daml") $ unlines
+    --         [ "daml 1.2"
+    --         , "module Main where"
+    --         , "data OnlyB"
+    --         , "data Both"
+    --         , "template Foo"
+    --         , "  with"
+    --         , "    a : Int"
+    --         , "    p : Party"
+    --         , "  where"
+    --         , "    signatory p"
+    --         ]
+    --     writeFileUTF8 (projectB </> "daml.yaml") $ unlines
+    --         [ "sdk-version: " <> sdkVersion
+    --         , "name: a"
+    --         , "version: \"2.0\""
+    --         , "source: daml"
+    --         , "exposed-modules: [Main]"
+    --         , "dependencies:"
+    --         , "  - daml-prim"
+    --         , "  - daml-stdlib"
+    --         ]
+    --     -- We use -o to test that we do not depend on the name of the dar
+    --     withCurrentDirectory projectB $ callCommandQuiet $ "daml build -o " <> bDar
+    --     assertBool "a-2.0.dar was not created." =<< doesFileExist bDar
+    --     step "Creating upgrade/rollback project"
+    --     -- We use -o to verify that we do not depend on the
+    --     callCommandQuiet $ unwords ["daml", "migrate", projectUpgrade, aDar, bDar]
+    --     callCommandQuiet $ unwords ["daml", "migrate", projectRollback, bDar, aDar]
+    --     step "Build migration project"
+    --     withCurrentDirectory projectUpgrade $
+    --         callCommandQuiet "daml build"
+    --     assertBool "upgrade-0.0.1.dar was not created" =<< doesFileExist upgradeDar
+    --     step "Build rollback project"
+    --     withCurrentDirectory projectRollback $
+    --         callCommandQuiet "daml build"
+    --     assertBool "rollback-0.0.1.dar was not created" =<< doesFileExist rollbackDar
+    --     step "Merging upgrade dar"
+    --     callCommandQuiet $
+    --       unwords
+    --           [ "daml damlc merge-dars"
+    --           , bDar
+    --           , upgradeDar
+    --           , "--dar-name"
+    --           , bWithUpgradesDar
+    --           ]
+    --     assertBool "a-0.2-with-upgrades.dar was not created." =<< doesFileExist bWithUpgradesDar
+    --   , testCaseSteps "Build migration package with generics" $ \step -> withTempDir $ \tmpDir -> do
+    --     -- it's important that we have fresh empty directories here!
+    --     let projectA = tmpDir </> "a-1.0"
+    --     let projectB = tmpDir </> "a-2.0"
+    --     let projectUpgrade = tmpDir </> "upgrade"
+    --     let aDar = projectA </> "projecta.dar"
+    --     let bDar = projectB </> "projectb.dar"
+    --     let upgradeDar = projectUpgrade </> distDir </> "upgrade-0.0.1.dar"
+    --     step "Creating project a-1.0 ..."
+    --     createDirectoryIfMissing True (projectA </> "daml")
+    --     writeFileUTF8 (projectA </> "daml" </> "Main.daml") $ unlines
+    --         [ "{-# LANGUAGE EmptyCase #-}"
+    --         , "daml 1.2"
+    --         , "module Main where"
+    --         , "data OnlyA"
+    --         , "data Both"
+    --         , "template Foo"
+    --         , "  with"
+    --         , "    a : Int"
+    --         , "    p : Party"
+    --         , "  where"
+    --         , "    signatory p"
+    --         ]
+    --     writeFileUTF8 (projectA </> "daml.yaml") $ unlines
+    --         [ "sdk-version: " <> sdkVersion
+    --         , "name: a"
+    --         , "version: \"1.0\""
+    --         , "source: daml"
+    --         , "exposed-modules: [Main]"
+    --         , "dependencies:"
+    --         , "  - daml-prim"
+    --         , "  - daml-stdlib"
+    --         ]
+    --     -- We use -o to test that we do not depend on the name of the dar
+    --     withCurrentDirectory projectA $ callCommandQuiet $ "daml build -o " <> aDar
+    --     assertBool "a-1.0.dar was not created." =<< doesFileExist aDar
+    --     step "Creating project a-2.0 ..."
+    --     createDirectoryIfMissing True (projectB </> "daml")
+    --     writeFileUTF8 (projectB </> "daml" </> "Main.daml") $ unlines
+    --         [ "daml 1.2"
+    --         , "module Main where"
+    --         , "data OnlyB"
+    --         , "data Both"
+    --         , "template Foo"
+    --         , "  with"
+    --         , "    a : Int"
+    --         , "    p : Party"
+    --         , "    new : Optional Text"
+    --         , "  where"
+    --         , "    signatory p"
+    --         ]
+    --     writeFileUTF8 (projectB </> "daml.yaml") $ unlines
+    --         [ "sdk-version: " <> sdkVersion
+    --         , "name: a"
+    --         , "version: \"2.0\""
+    --         , "source: daml"
+    --         , "exposed-modules: [Main]"
+    --         , "dependencies:"
+    --         , "  - daml-prim"
+    --         , "  - daml-stdlib"
+    --         ]
+    --     -- We use -o to test that we do not depend on the name of the dar
+    --     withCurrentDirectory projectB $ callCommandQuiet $ "daml build -o " <> bDar
+    --     assertBool "a-2.0.dar was not created." =<< doesFileExist bDar
+    --     step "Creating upgrade/rollback project"
+    --     callCommandQuiet $ unwords ["daml", "migrate", projectUpgrade, aDar, bDar]
+    --     step "Generate generic instances"
+    --     writeFileUTF8 (projectUpgrade </> "daml" </> "Main.daml") $ unlines
+    --        [ "daml 1.2"
+    --        , "module Main where"
+    --        , "import MainA qualified as A"
+    --        , "import MainB qualified as B"
+    --        , "import MainAGenInstances()"
+    --        , "import MainBGenInstances()"
+    --        , "import DA.Upgrade"
+    --        , "import DA.Generics"
+    --        , "template instance FooUpgrade = Upgrade A.Foo B.Foo"
+    --        , "template instance FooRollback = Rollback A.Foo B.Foo"
+    --        , "instance Convertible A.Foo B.Foo"
+    --        , "instance Convertible B.Foo A.Foo"
+    --        ]
+    --     callCommandQuiet $
+    --         unwords
+    --             [ "daml"
+    --             , "damlc"
+    --             , "generate-generic-src"
+    --             , "--srcdir"
+    --             , projectUpgrade </> "daml"
+    --             , "--qualify"
+    --             , "A"
+    --             , aDar
+    --             ]
+    --     callCommandQuiet $
+    --         unwords
+    --             [ "daml"
+    --             , "damlc"
+    --             , "generate-generic-src"
+    --             , "--srcdir"
+    --             , projectUpgrade </> "daml"
+    --             , "--qualify"
+    --             , "B"
+    --             , bDar
+    --             ]
+    --     step "Build migration project"
+    --     withCurrentDirectory projectUpgrade $
+    --         callCommandQuiet "daml build --generated-src"
+    --     assertBool "upgrade-0.0.1.dar was not created" =<< doesFileExist upgradeDar
 
-    , testCaseSteps "Build migration package in LF 1.dev with Numerics" $ \step -> withTempDir $ \tmpDir -> do
-        -- it's important that we have fresh empty directories here!
-        let projectA = tmpDir </> "a-1.0"
-        let projectB = tmpDir </> "a-2.0"
-        let projectUpgrade = tmpDir </> "upgrade"
-        let projectRollback = tmpDir </> "rollback"
-        let aDar = projectA </> "projecta.dar"
-        let bDar = projectB </> "projectb.dar"
-        let upgradeDar = projectUpgrade </> distDir </> "upgrade-0.0.1.dar"
-        let rollbackDar= projectRollback </> distDir </> "rollback-0.0.1.dar"
-        let bWithUpgradesDar = "a-2.0-with-upgrades.dar"
-        step "Creating project a-1.0 ..."
-        createDirectoryIfMissing True (projectA </> "daml")
-        writeFileUTF8 (projectA </> "daml" </> "Main.daml") $ unlines
-            [ "daml 1.2"
-            , "module Main where"
-            , "data OnlyA"
-            , "data Both"
-            , "template Foo"
-            , "  with"
-            , "    a : Numeric 5"
-            , "    p : Party"
-            , "  where"
-            , "    signatory p"
-            ]
-        writeFileUTF8 (projectA </> "daml.yaml") $ unlines
-            [ "sdk-version: " <> sdkVersion
-            , "name: a"
-            , "version: \"1.0\""
-            , "source: daml"
-            , "exposed-modules: [Main]"
-            , "dependencies:"
-            , "  - daml-prim"
-            , "  - daml-stdlib"
-            ]
-        -- We use -o to test that we do not depend on the name of the dar
-        withCurrentDirectory projectA $ callCommandQuiet $ "daml build --target 1.dev -o " <> aDar
-        assertBool "a-1.0.dar was not created." =<< doesFileExist aDar
-        step "Creating project a-2.0 ..."
-        createDirectoryIfMissing True (projectB </> "daml")
-        writeFileUTF8 (projectB </> "daml" </> "Main.daml") $ unlines
-            [ "daml 1.2"
-            , "module Main where"
-            , "data OnlyB"
-            , "data Both"
-            , "template Foo"
-            , "  with"
-            , "    a : Numeric 5"
-            , "    p : Party"
-            , "  where"
-            , "    signatory p"
-            ]
-        writeFileUTF8 (projectB </> "daml.yaml") $ unlines
-            [ "sdk-version: " <> sdkVersion
-            , "name: a"
-            , "version: \"2.0\""
-            , "source: daml"
-            , "exposed-modules: [Main]"
-            , "dependencies:"
-            , "  - daml-prim"
-            , "  - daml-stdlib"
-            ]
-        -- We use -o to test that we do not depend on the name of the dar
-        withCurrentDirectory projectB $ callCommandQuiet $ "daml build --target 1.dev -o " <> bDar
-        assertBool "a-2.0.dar was not created." =<< doesFileExist bDar
-        step "Creating upgrade/rollback project"
-        -- We use -o to verify that we do not depend on the
-        callCommandQuiet $ unwords ["daml", "migrate", projectUpgrade, aDar, bDar]
-        callCommandQuiet $ unwords ["daml", "migrate", projectRollback, bDar, aDar]
-        step "Build migration project"
-        withCurrentDirectory projectUpgrade $
-            callCommandQuiet "daml build --target 1.dev"
-        assertBool "upgrade-0.0.1.dar was not created" =<< doesFileExist upgradeDar
-        step "Build rollback project"
-        withCurrentDirectory projectRollback $
-            callCommandQuiet "daml build --target 1.dev"
-        assertBool "rollback-0.0.1.dar was not created" =<< doesFileExist rollbackDar
-        step "Merging upgrade dar"
-        callCommandQuiet $
-          unwords
-              [ "daml damlc merge-dars"
-              , bDar
-              , upgradeDar
-              , "--dar-name"
-              , bWithUpgradesDar
-              ]
-        assertBool "a-0.2-with-upgrades.dar was not created." =<< doesFileExist bWithUpgradesDar
-    ])
+    -- , testCaseSteps "Build migration package in LF 1.dev with Numerics" $ \step -> withTempDir $ \tmpDir -> do
+    --     -- it's important that we have fresh empty directories here!
+    --     let projectA = tmpDir </> "a-1.0"
+    --     let projectB = tmpDir </> "a-2.0"
+    --     let projectUpgrade = tmpDir </> "upgrade"
+    --     let projectRollback = tmpDir </> "rollback"
+    --     let aDar = projectA </> "projecta.dar"
+    --     let bDar = projectB </> "projectb.dar"
+    --     let upgradeDar = projectUpgrade </> distDir </> "upgrade-0.0.1.dar"
+    --     let rollbackDar= projectRollback </> distDir </> "rollback-0.0.1.dar"
+    --     let bWithUpgradesDar = "a-2.0-with-upgrades.dar"
+    --     step "Creating project a-1.0 ..."
+    --     createDirectoryIfMissing True (projectA </> "daml")
+    --     writeFileUTF8 (projectA </> "daml" </> "Main.daml") $ unlines
+    --         [ "daml 1.2"
+    --         , "module Main where"
+    --         , "data OnlyA"
+    --         , "data Both"
+    --         , "template Foo"
+    --         , "  with"
+    --         , "    a : Numeric 5"
+    --         , "    p : Party"
+    --         , "  where"
+    --         , "    signatory p"
+    --         ]
+    --     writeFileUTF8 (projectA </> "daml.yaml") $ unlines
+    --         [ "sdk-version: " <> sdkVersion
+    --         , "name: a"
+    --         , "version: \"1.0\""
+    --         , "source: daml"
+    --         , "exposed-modules: [Main]"
+    --         , "dependencies:"
+    --         , "  - daml-prim"
+    --         , "  - daml-stdlib"
+    --         ]
+    --     -- We use -o to test that we do not depend on the name of the dar
+    --     withCurrentDirectory projectA $ callCommandQuiet $ "daml build --target 1.dev -o " <> aDar
+    --     assertBool "a-1.0.dar was not created." =<< doesFileExist aDar
+    --     step "Creating project a-2.0 ..."
+    --     createDirectoryIfMissing True (projectB </> "daml")
+    --     writeFileUTF8 (projectB </> "daml" </> "Main.daml") $ unlines
+    --         [ "daml 1.2"
+    --         , "module Main where"
+    --         , "data OnlyB"
+    --         , "data Both"
+    --         , "template Foo"
+    --         , "  with"
+    --         , "    a : Numeric 5"
+    --         , "    p : Party"
+    --         , "  where"
+    --         , "    signatory p"
+    --         ]
+    --     writeFileUTF8 (projectB </> "daml.yaml") $ unlines
+    --         [ "sdk-version: " <> sdkVersion
+    --         , "name: a"
+    --         , "version: \"2.0\""
+    --         , "source: daml"
+    --         , "exposed-modules: [Main]"
+    --         , "dependencies:"
+    --         , "  - daml-prim"
+    --         , "  - daml-stdlib"
+    --         ]
+    --     -- We use -o to test that we do not depend on the name of the dar
+    --     withCurrentDirectory projectB $ callCommandQuiet $ "daml build --target 1.dev -o " <> bDar
+    --     assertBool "a-2.0.dar was not created." =<< doesFileExist bDar
+    --     step "Creating upgrade/rollback project"
+    --     -- We use -o to verify that we do not depend on the
+    --     callCommandQuiet $ unwords ["daml", "migrate", projectUpgrade, aDar, bDar]
+    --     callCommandQuiet $ unwords ["daml", "migrate", projectRollback, bDar, aDar]
+    --     step "Build migration project"
+    --     withCurrentDirectory projectUpgrade $
+    --         callCommandQuiet "daml build --target 1.dev"
+    --     assertBool "upgrade-0.0.1.dar was not created" =<< doesFileExist upgradeDar
+    --     step "Build rollback project"
+    --     withCurrentDirectory projectRollback $
+    --         callCommandQuiet "daml build --target 1.dev"
+    --     assertBool "rollback-0.0.1.dar was not created" =<< doesFileExist rollbackDar
+    --     step "Merging upgrade dar"
+    --     callCommandQuiet $
+    --       unwords
+    --           [ "daml damlc merge-dars"
+    --           , bDar
+    --           , upgradeDar
+    --           , "--dar-name"
+    --           , bWithUpgradesDar
+    --           ]
+    --     assertBool "a-0.2-with-upgrades.dar was not created." =<< doesFileExist bWithUpgradesDar
+    -- ]
 
 quickstartTests :: FilePath -> FilePath -> TestTree
 quickstartTests quickstartDir mvnDir = testGroup "quickstart"
