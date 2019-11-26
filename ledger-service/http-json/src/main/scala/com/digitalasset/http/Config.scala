@@ -4,6 +4,7 @@
 package com.digitalasset.http
 
 import java.io.File
+import java.nio.file.Path
 
 import com.digitalasset.ledger.api.refinements.ApiTypes.ApplicationId
 import scalaz.{Show, \/}
@@ -23,6 +24,7 @@ private[http] final case class Config(
     maxInboundMessageSize: Int = HttpService.DefaultMaxInboundMessageSize,
     jdbcConfig: Option[JdbcConfig] = None,
     staticContentConfig: Option[StaticContentConfig] = None,
+    accessTokenFile: Option[Path] = None,
 )
 
 private[http] object Config {
