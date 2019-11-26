@@ -855,7 +855,7 @@ First, we formally defined *well-formed types*. ::
       'synonym' S (α₁:k₁) … (αₙ:kₙ) ↦ τ ∈ 〚Ξ〛Mod
       Γ  ⊢  τ₁ : k₁  …  Γ  ⊢  τₙ : kₙ
     ————————————————————————————————————————————— TyTypeSynonym
-      Γ  ⊢  S τ₁ … τₙ  :  ⋆
+      Γ  ⊢  Mod:S τ₁ … τₙ  :  ⋆
 
 
 
