@@ -126,6 +126,8 @@ elif [[ "$(uname -s)" == "Darwin" ]]; then
       local libName="$(basename $lib)"
       if [[ "$libName" == "libSystem.B.dylib" ]]; then
           /usr/bin/install_name_tool -change "$lib" "/usr/lib/$libName" "$from_copied"
+      elif [[ "$libName" == "libdispatch.dylib" ]]; then
+          /usr/bin/install_name_tool -change "$lib" "/usr/lib/system/$libName" "$from_copied"
       elif [[ "$lib" == @rpath/* ]]; then
           libName="${lib#@rpath/}"
           local to="$WORKDIR/$NAME/lib/$(basename $libName)"
