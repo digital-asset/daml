@@ -199,7 +199,7 @@ object ValueGenerators {
   private def valueGenMapGen(nesting: Int) =
     Gen
       .listOf(Gen.zip(Gen.lzy(valueGen(nesting)), Gen.lzy(valueGen(nesting))))
-      .flatMap(list => ValueGenMap[ContractId](ImmArray(list)))
+      .map(list => ValueGenMap[ContractId](ImmArray(list)))
 
   def valueGenMapGen: Gen[ValueGenMap[ContractId]] = valueGenMapGen(0)
 
