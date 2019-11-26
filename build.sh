@@ -37,7 +37,6 @@ cat <<EOF > $GHCI_SCRIPT
 :main --help
 :quit
 EOF
-echo $GHC_
 da-ghci --data yes //:repl -ghci-script $GHCI_SCRIPT -e '()'
 # Check that our IDE works on our codebase
 ./compiler/ghcide-daml.sh compiler/damlc/exe/Main.hs 2>&1 | tee ide-log

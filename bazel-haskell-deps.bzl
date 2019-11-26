@@ -261,8 +261,7 @@ haskell_library(
     )
 
     # The Bazel-provided grpc libs cause issues in GHCi so we get them from Nix on Linux and MacOS.
-    # We keep them in
-    deps = "[\":grpc\", \":libgpr\"]" if is_windows else "[\"@grpc_nix//:grpc_lib\"]"
+    deps = '[":grpc", ":libgpr"]' if is_windows else '["@grpc_nix//:grpc_lib"]'
     extra_targets = """
 fat_cc_library(
   name = "grpc",
