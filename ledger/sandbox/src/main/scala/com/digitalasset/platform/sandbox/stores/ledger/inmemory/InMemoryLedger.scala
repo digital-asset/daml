@@ -310,8 +310,11 @@ class InMemoryLedger(
 
   override def lookupPartyAllocationEntry(
       submissionId: SubmissionId): Future[Option[PartyAllocationLedgerEntry]] =
-    ??? // FIXME(JM,BH)
-  /*allocationEntries.getSource(None)
-    .filter { case (_, entry) => entry.submissionId == submissionId) }
-    .runWith(Sink.head)(mat)*/
+    Future.successful {
+      allocationEntries.getItems
+        .collectFirst {
+          case (_, entry) if entry.submissionId == submissionId => entry
+        }
+    }
+
 }

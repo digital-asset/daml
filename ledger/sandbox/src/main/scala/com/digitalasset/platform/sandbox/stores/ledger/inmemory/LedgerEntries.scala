@@ -54,6 +54,9 @@ private[ledger] class LedgerEntries[T](identify: T => String) {
       )
     )
 
+  def getItems: Iterable[(Long, T)] =
+    state.get().items
+
   def publish(item: T): Long = {
     val newHead = store(item)
     dispatcher.signalNewHead(newHead)
