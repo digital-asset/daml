@@ -208,7 +208,7 @@ case class AcsTests(dar: Dar[(PackageId, Package)], runner: TestRunner) {
   val assetId = value.Identifier(
     packageId = dar.main._1,
     moduleName = "ACS",
-    entityName = "AssetUnit"
+    entityName = "Asset"
   )
 
   def test(
@@ -325,7 +325,7 @@ case class AcsTests(dar: Dar[(PackageId, Package)], runner: TestRunner) {
           value.Identifier(
             packageId = dar.main._1,
             moduleName = "ACS",
-            entityName = "AssetUnit",
+            entityName = "Asset",
           )),
         contractId = contractId,
         choice = "Archive",

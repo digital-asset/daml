@@ -1,11 +1,10 @@
 -- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
+-- @ERROR range=12:24-12:32; Generic templates are not supported anymore.
+-- @ERROR range=34:10-34:16; Generic templates are not supported anymore.
 
--- A generic proposal workflow using generic templates. This is not tested
--- itself but imported in the `ProposalIou` test.
--- @SINCE-LF 1.5
 daml 1.2
-module Proposal where
+module GenericTemplateError where
 
 import DA.List
 import DA.Text
@@ -31,3 +30,8 @@ template Template t => Proposal t
     controller receivers can
       Accept : ContractId t
         do create asset
+
+template Simple a with
+    party: Party
+  where
+    signatory part

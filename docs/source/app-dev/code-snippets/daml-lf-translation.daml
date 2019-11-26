@@ -33,23 +33,3 @@ template Iou
         do
           updateOwner newOwner
 -- end code snippet: choice data types
-
--- start code snippet: generic template data types
-template Template a => Proposal a
-  with
-    proposal: a
-    proposers: [Party]
-    receivers: [Party]
-  where
--- end code snippet: generic template data types
-    signatory proposers
-    observer receivers
-
-    choice Accept: ContractId a
-      controller receivers
-      do
-        create proposal
-
--- start code snippet: generic template instantiation
-template instance IouProposal = Proposal Iou
--- end code snippet: generic template instantiation
