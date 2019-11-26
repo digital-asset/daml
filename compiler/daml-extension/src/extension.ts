@@ -136,17 +136,20 @@ function checkVersionUpgrade(version1: string, version2: string) {
 // We display the HTML in a new editor tab using a "webview":
 // https://code.visualstudio.com/api/extension-guides/webview
 async function showReleaseNotes(version: string) {
-    const releaseNotesUrl = 'https://blog.daml.com/release-notes/';
-    const url = releaseNotesUrl + version;
-    const result = await fetch(url);
-    if (result.ok) {
-        const panel = vscode.window.createWebviewPanel(
-            'releaseNotes', // Identifies the type of the webview. Used internally
-            `New DAML SDK ${version} Available`, // Title of the panel displayed to the user
-            vscode.ViewColumn.One, // Editor column to show the new webview panel in
-            {} // No webview options for now
-        );
-        panel.webview.html = await result.text();
+    try {
+        const releaseNotesUrl = 'https://blog.daml.com/release-notes/';
+        const url = releaseNotesUrl + version;
+        const result = await fetch(url);
+        if (result.ok) {
+            const panel = vscode.window.createWebviewPanel(
+                'releaseNotes', // Identifies the type of the webview. Used internally
+                `New DAML SDK ${version} Available`, // Title of the panel displayed to the user
+                vscode.ViewColumn.One, // Editor column to show the new webview panel in
+                {} // No webview options for now
+            );
+            panel.webview.html = await result.text();
+        }
+    } catch (_error) {
     }
 }
 
@@ -157,24 +160,27 @@ async function showReleaseNotes(version: string) {
 // 'daml.showNewBlogPosts' setting.
 async function showBlogIfNotSeen(config: WorkspaceConfiguration, context: ExtensionContext) {
     if (!config.get('showNewBlogPosts')) { return; }
-    const feedUrl = 'https://blog.daml.com/daml-driven/rss.xml';
-    const res = await fetch(feedUrl);
-    if (res.ok) {
-        const rssXml = await res.text();
-        const rss = await parseStringPromise(rssXml);
-        const latestBlog = rss.rss.channel[0].item[0];
-        const lastSeenBlog = context.globalState.get(recentBlogContextKey);
-        if (latestBlog &&
-            (!lastSeenBlog || typeof lastSeenBlog === 'string' && lastSeenBlog !== latestBlog.title)) {
-            const clicked = await window.showInformationMessage(
-                `New blog post: ${latestBlog.title}`,
-                'Go to blog'
-            );
-            if (clicked === 'Go to blog') {
-                env.openExternal(Uri.parse(latestBlog.link));
+    try {
+        const feedUrl = 'https://blog.daml.com/daml-driven/rss.xml';
+        const res = await fetch(feedUrl);
+        if (res.ok) {
+            const rssXml = await res.text();
+            const rss = await parseStringPromise(rssXml);
+            const latestBlog = rss.rss.channel[0].item[0];
+            const lastSeenBlog = context.globalState.get(recentBlogContextKey);
+            if (latestBlog &&
+                (!lastSeenBlog || typeof lastSeenBlog === 'string' && lastSeenBlog !== latestBlog.title)) {
+                const clicked = await window.showInformationMessage(
+                    `New blog post: ${latestBlog.title}`,
+                    'Go to blog'
+                );
+                if (clicked === 'Go to blog') {
+                    env.openExternal(Uri.parse(latestBlog.link));
+                }
+                await context.globalState.update(recentBlogContextKey, latestBlog.title);
             }
-            await context.globalState.update(recentBlogContextKey, latestBlog.title);
         }
+    } catch (_error) {
     }
 }
 
