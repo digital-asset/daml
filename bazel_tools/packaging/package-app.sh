@@ -16,7 +16,7 @@
 # On Windows we only handle statically linked binaries
 # (Haskell binaries are linked statically on Windows) so we
 # just copy the binary and the resources and create a tarball from that.
-set -eoux pipefail
+set -eou pipefail
 
 WORKDIR="$(mktemp -d)"
 trap "rm -rf $WORKDIR" EXIT
@@ -118,8 +118,6 @@ elif [[ "$(uname -s)" == "Darwin" ]]; then
   function copy_deps() {
     local from_original=$(readlink -f $1)
     local from_copied=$2
-    echo "Original: $from_original"
-    echo "Copied: $from_copied"
     local needed="$(/usr/bin/otool -L "$from_copied" | sed -n -e '1d' -e 's/^\s*\([^ ]*\).*$/\1/p')"
     # Note that it is crucial that we resolve loader_path relative to from_original instead of from_copied
     loader_path="$(dirname $from_original)"
