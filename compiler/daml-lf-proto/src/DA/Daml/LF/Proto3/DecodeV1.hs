@@ -380,12 +380,12 @@ decodeBuiltinFunction = pure . \case
   LF1.BuiltinFunctionAPPEND_TEXT    -> BEAppendText
   LF1.BuiltinFunctionERROR          -> BEError
 
-  LF1.BuiltinFunctionMAP_EMPTY      -> BEMapEmpty
-  LF1.BuiltinFunctionMAP_INSERT     -> BEMapInsert
-  LF1.BuiltinFunctionMAP_LOOKUP     -> BEMapLookup
-  LF1.BuiltinFunctionMAP_DELETE     -> BEMapDelete
-  LF1.BuiltinFunctionMAP_TO_LIST    -> BEMapToList
-  LF1.BuiltinFunctionMAP_SIZE       -> BEMapSize
+  LF1.BuiltinFunctionTEXTMAP_EMPTY      -> BETextMapEmpty
+  LF1.BuiltinFunctionTEXTMAP_INSERT     -> BETextMapInsert
+  LF1.BuiltinFunctionTEXTMAP_LOOKUP     -> BETextMapLookup
+  LF1.BuiltinFunctionTEXTMAP_DELETE     -> BETextMapDelete
+  LF1.BuiltinFunctionTEXTMAP_TO_LIST    -> BETextMapToList
+  LF1.BuiltinFunctionTEXTMAP_SIZE       -> BETextMapSize
 
   LF1.BuiltinFunctionGENMAP_EMPTY      -> BEGenMapEmpty
   LF1.BuiltinFunctionGENMAP_INSERT     -> BEGenMapInsert
@@ -688,7 +688,7 @@ decodePrim = pure . \case
   LF1.PrimTypeDATE -> BTDate
   LF1.PrimTypeCONTRACT_ID -> BTContractId
   LF1.PrimTypeOPTIONAL -> BTOptional
-  LF1.PrimTypeMAP -> BTMap
+  LF1.PrimTypeTEXTMAP -> BTTextMap
   LF1.PrimTypeGENMAP -> BTGenMap
   LF1.PrimTypeARROW -> BTArrow
   LF1.PrimTypeANY -> BTAny

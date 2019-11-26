@@ -139,18 +139,18 @@ convertPrim _ "BETextFromCodePoints" (TList TInt64 :-> TText) =
 
 -- Map operations
 
-convertPrim _ "BEMapEmpty" (TMap a) =
-  EBuiltin BEMapEmpty `ETyApp` a
-convertPrim _ "BEMapInsert"  (TText :-> a1 :-> TMap a2 :-> TMap a3) | a1 == a2, a2 == a3 =
-  EBuiltin BEMapInsert `ETyApp` a1
-convertPrim _ "BEMapLookup" (TText :-> TMap a1 :-> TOptional a2) | a1 == a2 =
-  EBuiltin BEMapLookup `ETyApp` a1
-convertPrim _ "BEMapDelete" (TText :-> TMap a1 :-> TMap a2) | a1 == a2 =
-  EBuiltin BEMapDelete `ETyApp` a1
-convertPrim _ "BEMapToList" (TMap a1 :-> TList (TMapEntry a2)) | a1 == a2  =
-  EBuiltin BEMapToList `ETyApp` a1
-convertPrim _ "BEMapSize" (TMap a :-> TInt64) =
-  EBuiltin BEMapSize `ETyApp` a
+convertPrim _ "BETextMapEmpty" (TTextMap a) =
+  EBuiltin BETextMapEmpty `ETyApp` a
+convertPrim _ "BETextMapInsert"  (TText :-> a1 :-> TTextMap a2 :-> TTextMap a3) | a1 == a2, a2 == a3 =
+  EBuiltin BETextMapInsert `ETyApp` a1
+convertPrim _ "BETextMapLookup" (TText :-> TTextMap a1 :-> TOptional a2) | a1 == a2 =
+  EBuiltin BETextMapLookup `ETyApp` a1
+convertPrim _ "BETextMapDelete" (TText :-> TTextMap a1 :-> TTextMap a2) | a1 == a2 =
+  EBuiltin BETextMapDelete `ETyApp` a1
+convertPrim _ "BETextMapToList" (TTextMap a1 :-> TList (TTextMapEntry a2)) | a1 == a2  =
+  EBuiltin BETextMapToList `ETyApp` a1
+convertPrim _ "BETextMapSize" (TTextMap a :-> TInt64) =
+  EBuiltin BETextMapSize `ETyApp` a
 
 
 convertPrim _ "BEGenMapEmpty" (TGenMap a b) =

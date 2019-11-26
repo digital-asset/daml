@@ -8,10 +8,9 @@ import java.util.concurrent.TimeUnit
 
 import com.codahale.metrics
 import com.daml.ledger.participant.state.kvutils.{DamlKvutils => Proto, _}
-import com.daml.ledger.participant.state.v1.{Configuration, Update}
+import com.daml.ledger.participant.state.v1._
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.engine.Engine
-import com.digitalasset.platform.services.time.TimeModel
 
 import scala.collection.JavaConverters._
 import scala.util.Try

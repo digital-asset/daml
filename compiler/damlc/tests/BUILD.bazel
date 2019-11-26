@@ -327,12 +327,16 @@ sh_test(
     args = [
         "$(location //compiler/damlc)",
         "$(location @com_google_protobuf//:protoc)",
+        "$(POSIX_DIFF)",
     ],
     data = [
         ":daml-test-files",
         "//compiler/damlc",
         "//compiler/damlc/pkg-db",
         "@com_google_protobuf//:protoc",
+    ],
+    toolchains = [
+        "@rules_sh//sh/posix:make_variables",
     ],
     deps = [
         "@bazel_tools//tools/bash/runfiles",

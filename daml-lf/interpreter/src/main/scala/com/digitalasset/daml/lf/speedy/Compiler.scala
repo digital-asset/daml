@@ -204,7 +204,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
           case BFoldr => SEBuiltinRecursiveDefinition.FoldR
           case BEqualList => SEBuiltinRecursiveDefinition.EqualList
           case BCoerceContractId => SEAbs(1, SEVar(1))
-          case BMapEmpty => SEValue.EmptyMap
+          case BTextMapEmpty => SEValue.EmptyMap
           case BGenMapEmpty => SEValue.EmptyGenMap
           case _ =>
             SEBuiltin(bf match {
@@ -300,13 +300,13 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
               case BEqualContractId => SBEqual
               case BEqualTypeRep => SBEqual
 
-              // Map
+              // TextMap
 
-              case BMapInsert => SBMapInsert
-              case BMapLookup => SBMapLookup
-              case BMapDelete => SBMapDelete
-              case BMapToList => SBMapToList
-              case BMapSize => SBMapSize
+              case BTextMapInsert => SBTextMapInsert
+              case BTextMapLookup => SBTextMapLookup
+              case BTextMapDelete => SBTextMapDelete
+              case BTextMapToList => SBTextMapToList
+              case BTextMapSize => SBTextMapSize
 
               // GenMap
 
@@ -318,7 +318,8 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
               case BGenMapSize => SBGenMapSize
 
               // Implemented using normal SExpr
-              case BFoldl | BFoldr | BEqualList | BCoerceContractId | BMapEmpty | BGenMapEmpty =>
+              case BFoldl | BFoldr | BEqualList | BCoerceContractId | BTextMapEmpty |
+                  BGenMapEmpty =>
                 throw CompileError(s"unexpected $bf")
             })
         }

@@ -294,7 +294,8 @@ abstract class UIBackend extends LazyLogging with ApplicationInfoJsonSupport {
       case DumpGraphQLSchema =>
         dumpGraphQLSchema()
       case CreateConfig =>
-        userFacingLogger.info(s"Creating a configuration template file at $navigatorConfigFile")
+        userFacingLogger.info(
+          s"Creating a configuration template file at ${navigatorConfigFile.toAbsolutePath()}")
         Config.writeTemplateToPath(navigatorConfigFile, args.useDatabase)
       case RunServer =>
         Config.load(navigatorConfigFile, args.useDatabase) match {

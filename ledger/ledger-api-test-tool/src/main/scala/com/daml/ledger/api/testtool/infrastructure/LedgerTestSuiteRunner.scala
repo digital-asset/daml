@@ -3,7 +3,7 @@
 
 package com.daml.ledger.api.testtool.infrastructure
 
-import java.util.concurrent.{ExecutionException, Executors, TimeoutException}
+import java.util.concurrent.{ExecutionException, TimeoutException}
 import java.util.{Timer, TimerTask}
 
 import akka.actor.ActorSystem
@@ -15,7 +15,7 @@ import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantSessio
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.duration.Duration
-import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService, Future, Promise}
+import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.control.NonFatal
 import scala.util.{Failure, Try}
 
@@ -104,13 +104,9 @@ final class LedgerTestSuiteRunner(
     result(start(test, session))
 
   private def run(completionCallback: Try[Vector[LedgerTestSummary]] => Unit): Unit = {
-    implicit val executionContext: ExecutionContextExecutorService =
-      ExecutionContext.fromExecutorService(Executors.newCachedThreadPool())
-    val system: ActorSystem =
-      ActorSystem(
-        classOf[LedgerTestSuiteRunner].getSimpleName,
-        defaultExecutionContext = Some(executionContext))
+    val system: ActorSystem = ActorSystem(classOf[LedgerTestSuiteRunner].getSimpleName)
     implicit val materializer: ActorMaterializer = ActorMaterializer()(system)
+    implicit val executionContext: ExecutionContext = materializer.executionContext
 
     val participantSessionManager = new ParticipantSessionManager
     val ledgerSession = new LedgerSession(config, participantSessionManager)
@@ -135,8 +131,11 @@ final class LedgerTestSuiteRunner(
       .recover { case NonFatal(e) => throw LedgerTestSuiteRunner.UncaughtExceptionError(e) }
       .onComplete { result =>
         participantSessionManager.closeAll()
+        materializer.shutdown()
+        system.terminate().failed.foreach { throwable =>
+          logger.error("The actor system failed to terminate.", throwable)
+        }
         completionCallback(result)
-        executionContext.shutdown()
       }
   }
 

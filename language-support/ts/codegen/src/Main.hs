@@ -191,7 +191,7 @@ genType curModName = go
             let (t', ser) = go t
             in
             ("(" <> t' <> " | null)", "daml.Optional(" <> ser <> ")")
-        TMap t  ->
+        TTextMap t  ->
             let (t', ser) = go t
             in
             ("{ [key: string]: " <> t' <> " }", "daml.TextMap(" <> ser <> ")")

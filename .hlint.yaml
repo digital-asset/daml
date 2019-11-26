@@ -87,6 +87,7 @@
     - DA.Sdk.Cli.System
     - DA.Sdk.Cli.Version
     - DA.Daml.Assistant.Install.Path
+    - DA.Daml.Doc.Tests
     - DA.Signals
     - Development.IDE.Core.Compile
     - Development.IDE.GHC.Compat

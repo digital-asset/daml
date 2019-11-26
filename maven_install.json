@@ -233,12 +233,12 @@
                 "file": "v1/https/repo1.maven.org/maven2/com/auth0/java-jwt/3.8.1/java-jwt-3.8.1.jar",
                 "directDependencies": [
                     "com.fasterxml.jackson.core:jackson-databind:2.9.8",
-                    "commons-codec:commons-codec:1.12"
+                    "commons-codec:commons-codec:1.13"
                 ],
                 "dependencies": [
+                    "commons-codec:commons-codec:1.13",
                     "com.fasterxml.jackson.core:jackson-databind:2.9.8",
                     "com.fasterxml.jackson.core:jackson-core:2.9.8",
-                    "commons-codec:commons-codec:1.12",
                     "com.fasterxml.jackson.core:jackson-annotations:2.9.8"
                 ],
                 "url": "https://repo1.maven.org/maven2/com/auth0/java-jwt/3.8.1/java-jwt-3.8.1.jar",
@@ -252,19 +252,75 @@
                 "file": "v1/https/repo1.maven.org/maven2/com/auth0/java-jwt/3.8.1/java-jwt-3.8.1-sources.jar",
                 "directDependencies": [
                     "com.fasterxml.jackson.core:jackson-databind:jar:sources:2.9.8",
-                    "commons-codec:commons-codec:jar:sources:1.12"
+                    "commons-codec:commons-codec:jar:sources:1.13"
                 ],
                 "dependencies": [
                     "com.fasterxml.jackson.core:jackson-core:jar:sources:2.9.8",
                     "com.fasterxml.jackson.core:jackson-databind:jar:sources:2.9.8",
                     "com.fasterxml.jackson.core:jackson-annotations:jar:sources:2.9.8",
-                    "commons-codec:commons-codec:jar:sources:1.12"
+                    "commons-codec:commons-codec:jar:sources:1.13"
                 ],
                 "url": "https://repo1.maven.org/maven2/com/auth0/java-jwt/3.8.1/java-jwt-3.8.1-sources.jar",
                 "mirror_urls": [
                     "https://repo1.maven.org/maven2/com/auth0/java-jwt/3.8.1/java-jwt-3.8.1-sources.jar"
                 ],
                 "sha256": "73e99e54327508ef5ecd96b4369e1b5932f3abc96a45b13cefdac1e9c3cbb6f8"
+            },
+            {
+                "coord": "com.auth0:jwks-rsa:0.9.0",
+                "file": "v1/https/repo1.maven.org/maven2/com/auth0/jwks-rsa/0.9.0/jwks-rsa-0.9.0.jar",
+                "directDependencies": [
+                    "com.fasterxml.jackson.core:jackson-databind:2.9.8",
+                    "com.google.guava:guava:24.0-jre",
+                    "commons-codec:commons-codec:1.13",
+                    "commons-io:commons-io:2.5"
+                ],
+                "dependencies": [
+                    "org.checkerframework:checker-compat-qual:2.0.0",
+                    "com.fasterxml.jackson.core:jackson-databind:2.9.8",
+                    "com.google.code.findbugs:jsr305:3.0.2",
+                    "commons-codec:commons-codec:1.13",
+                    "commons-io:commons-io:2.5",
+                    "org.codehaus.mojo:animal-sniffer-annotations:1.17",
+                    "com.google.j2objc:j2objc-annotations:1.1",
+                    "com.google.guava:guava:24.0-jre",
+                    "com.fasterxml.jackson.core:jackson-annotations:2.9.8",
+                    "com.google.errorprone:error_prone_annotations:2.3.2",
+                    "com.fasterxml.jackson.core:jackson-core:2.9.8"
+                ],
+                "url": "https://repo1.maven.org/maven2/com/auth0/jwks-rsa/0.9.0/jwks-rsa-0.9.0.jar",
+                "mirror_urls": [
+                    "https://repo1.maven.org/maven2/com/auth0/jwks-rsa/0.9.0/jwks-rsa-0.9.0.jar"
+                ],
+                "sha256": "81daf61d045996ee96c8372c8493904319d2a1f57cf0d4082181d2abb8d6482a"
+            },
+            {
+                "coord": "com.auth0:jwks-rsa:jar:sources:0.9.0",
+                "file": "v1/https/repo1.maven.org/maven2/com/auth0/jwks-rsa/0.9.0/jwks-rsa-0.9.0-sources.jar",
+                "directDependencies": [
+                    "com.fasterxml.jackson.core:jackson-databind:jar:sources:2.9.8",
+                    "com.google.guava:guava:jar:sources:24.0-jre",
+                    "commons-codec:commons-codec:jar:sources:1.13",
+                    "commons-io:commons-io:jar:sources:2.5"
+                ],
+                "dependencies": [
+                    "com.google.code.findbugs:jsr305:jar:sources:3.0.2",
+                    "com.fasterxml.jackson.core:jackson-databind:jar:sources:2.9.8",
+                    "org.checkerframework:checker-compat-qual:jar:sources:2.0.0",
+                    "org.codehaus.mojo:animal-sniffer-annotations:jar:sources:1.17",
+                    "com.google.guava:guava:jar:sources:24.0-jre",
+                    "commons-io:commons-io:jar:sources:2.5",
+                    "com.google.j2objc:j2objc-annotations:jar:sources:1.1",
+                    "com.fasterxml.jackson.core:jackson-core:jar:sources:2.9.8",
+                    "commons-codec:commons-codec:jar:sources:1.13",
+                    "com.fasterxml.jackson.core:jackson-annotations:jar:sources:2.9.8",
+                    "com.google.errorprone:error_prone_annotations:jar:sources:2.3.2"
+                ],
+                "url": "https://repo1.maven.org/maven2/com/auth0/jwks-rsa/0.9.0/jwks-rsa-0.9.0-sources.jar",
+                "mirror_urls": [
+                    "https://repo1.maven.org/maven2/com/auth0/jwks-rsa/0.9.0/jwks-rsa-0.9.0-sources.jar"
+                ],
+                "sha256": "431bfb54c1c7cd720f8be2e10e6ed771ed4973f3daf7698586eafb0d4c2d3258"
             },
             {
                 "coord": "com.beust:jcommander:1.12",
@@ -3475,26 +3531,26 @@
                 "sha256": "a66fc818710bc62c3fe19accc933f234dcec7bb58ac7cb36518d46ff57a6c666"
             },
             {
-                "coord": "commons-codec:commons-codec:1.12",
-                "file": "v1/https/repo1.maven.org/maven2/commons-codec/commons-codec/1.12/commons-codec-1.12.jar",
+                "coord": "commons-codec:commons-codec:1.13",
+                "file": "v1/https/repo1.maven.org/maven2/commons-codec/commons-codec/1.13/commons-codec-1.13.jar",
                 "directDependencies": [],
                 "dependencies": [],
-                "url": "https://repo1.maven.org/maven2/commons-codec/commons-codec/1.12/commons-codec-1.12.jar",
+                "url": "https://repo1.maven.org/maven2/commons-codec/commons-codec/1.13/commons-codec-1.13.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/commons-codec/commons-codec/1.12/commons-codec-1.12.jar"
+                    "https://repo1.maven.org/maven2/commons-codec/commons-codec/1.13/commons-codec-1.13.jar"
                 ],
-                "sha256": "23df58fae9c83d1bcd277b99f9429e9d8c134f0600b73e2e86b2385ed793c81e"
+                "sha256": "61f7a3079e92b9fdd605238d0295af5fd11ac411a0a0af48deace1f6c5ffa072"
             },
             {
-                "coord": "commons-codec:commons-codec:jar:sources:1.12",
-                "file": "v1/https/repo1.maven.org/maven2/commons-codec/commons-codec/1.12/commons-codec-1.12-sources.jar",
+                "coord": "commons-codec:commons-codec:jar:sources:1.13",
+                "file": "v1/https/repo1.maven.org/maven2/commons-codec/commons-codec/1.13/commons-codec-1.13-sources.jar",
                 "directDependencies": [],
                 "dependencies": [],
-                "url": "https://repo1.maven.org/maven2/commons-codec/commons-codec/1.12/commons-codec-1.12-sources.jar",
+                "url": "https://repo1.maven.org/maven2/commons-codec/commons-codec/1.13/commons-codec-1.13-sources.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/commons-codec/commons-codec/1.12/commons-codec-1.12-sources.jar"
+                    "https://repo1.maven.org/maven2/commons-codec/commons-codec/1.13/commons-codec-1.13-sources.jar"
                 ],
-                "sha256": "9938b259c2ec37cf0d25c4ea2b400b7b6636e6628189a6ef1852895dce7d2e2a"
+                "sha256": "09a72795a920c1a9c0209cfb8395f8d97089832d249cba8c0938a3423b3ed1d1"
             },
             {
                 "coord": "commons-collections:commons-collections:3.0",
@@ -5584,13 +5640,13 @@
                 "coord": "org.apache.httpcomponents:httpclient:4.5.3",
                 "file": "v1/https/repo1.maven.org/maven2/org/apache/httpcomponents/httpclient/4.5.3/httpclient-4.5.3.jar",
                 "directDependencies": [
-                    "commons-codec:commons-codec:1.12",
+                    "commons-codec:commons-codec:1.13",
                     "commons-logging:commons-logging:1.2",
                     "org.apache.httpcomponents:httpcore:4.4.6"
                 ],
                 "dependencies": [
+                    "commons-codec:commons-codec:1.13",
                     "commons-logging:commons-logging:1.2",
-                    "commons-codec:commons-codec:1.12",
                     "org.apache.httpcomponents:httpcore:4.4.6"
                 ],
                 "url": "https://repo1.maven.org/maven2/org/apache/httpcomponents/httpclient/4.5.3/httpclient-4.5.3.jar",
@@ -5603,14 +5659,14 @@
                 "coord": "org.apache.httpcomponents:httpclient:jar:sources:4.5.3",
                 "file": "v1/https/repo1.maven.org/maven2/org/apache/httpcomponents/httpclient/4.5.3/httpclient-4.5.3-sources.jar",
                 "directDependencies": [
-                    "commons-codec:commons-codec:jar:sources:1.12",
+                    "commons-codec:commons-codec:jar:sources:1.13",
                     "commons-logging:commons-logging:jar:sources:1.2",
                     "org.apache.httpcomponents:httpcore:jar:sources:4.4.6"
                 ],
                 "dependencies": [
                     "org.apache.httpcomponents:httpcore:jar:sources:4.4.6",
-                    "commons-codec:commons-codec:jar:sources:1.12",
-                    "commons-logging:commons-logging:jar:sources:1.2"
+                    "commons-logging:commons-logging:jar:sources:1.2",
+                    "commons-codec:commons-codec:jar:sources:1.13"
                 ],
                 "url": "https://repo1.maven.org/maven2/org/apache/httpcomponents/httpclient/4.5.3/httpclient-4.5.3-sources.jar",
                 "mirror_urls": [
@@ -12539,9 +12595,9 @@
                 "file": "v1/https/repo1.maven.org/maven2/org/seleniumhq/selenium/selenium-chrome-driver/3.12.0/selenium-chrome-driver-3.12.0.jar",
                 "directDependencies": [
                     "com.squareup.okhttp3:okhttp:3.9.1",
-                    "commons-codec:commons-codec:1.12",
                     "org.seleniumhq.selenium:selenium-remote-driver:3.12.0",
                     "commons-logging:commons-logging:1.2",
+                    "commons-codec:commons-codec:1.13",
                     "net.bytebuddy:byte-buddy:1.9.7",
                     "org.seleniumhq.selenium:selenium-api:3.12.0",
                     "com.squareup.okio:okio:1.13.0",
@@ -12554,10 +12610,10 @@
                 "dependencies": [
                     "com.squareup.okhttp3:okhttp:3.9.1",
                     "org.checkerframework:checker-compat-qual:2.0.0",
-                    "commons-codec:commons-codec:1.12",
                     "org.seleniumhq.selenium:selenium-remote-driver:3.12.0",
                     "commons-logging:commons-logging:1.2",
                     "com.google.code.findbugs:jsr305:3.0.2",
+                    "commons-codec:commons-codec:1.13",
                     "net.bytebuddy:byte-buddy:1.9.7",
                     "org.seleniumhq.selenium:selenium-api:3.12.0",
                     "org.codehaus.mojo:animal-sniffer-annotations:1.17",
@@ -12580,7 +12636,6 @@
                 "coord": "org.seleniumhq.selenium:selenium-chrome-driver:jar:sources:3.12.0",
                 "file": "v1/https/repo1.maven.org/maven2/org/seleniumhq/selenium/selenium-chrome-driver/3.12.0/selenium-chrome-driver-3.12.0-sources.jar",
                 "directDependencies": [
-                    "commons-codec:commons-codec:jar:sources:1.12",
                     "com.squareup.okhttp3:okhttp:jar:sources:3.9.1",
                     "commons-logging:commons-logging:jar:sources:1.2",
                     "net.bytebuddy:byte-buddy:jar:sources:1.9.7",
@@ -12591,10 +12646,10 @@
                     "com.google.code.gson:gson:jar:sources:2.8.2",
                     "org.apache.httpcomponents:httpclient:jar:sources:4.5.3",
                     "org.seleniumhq.selenium:selenium-api:jar:sources:3.12.0",
-                    "org.seleniumhq.selenium:selenium-remote-driver:jar:sources:3.12.0"
+                    "org.seleniumhq.selenium:selenium-remote-driver:jar:sources:3.12.0",
+                    "commons-codec:commons-codec:jar:sources:1.13"
                 ],
                 "dependencies": [
-                    "commons-codec:commons-codec:jar:sources:1.12",
                     "com.google.code.findbugs:jsr305:jar:sources:3.0.2",
                     "com.squareup.okhttp3:okhttp:jar:sources:3.9.1",
                     "commons-logging:commons-logging:jar:sources:1.2",
@@ -12610,6 +12665,7 @@
                     "org.apache.httpcomponents:httpclient:jar:sources:4.5.3",
                     "org.seleniumhq.selenium:selenium-api:jar:sources:3.12.0",
                     "org.seleniumhq.selenium:selenium-remote-driver:jar:sources:3.12.0",
+                    "commons-codec:commons-codec:jar:sources:1.13",
                     "com.google.errorprone:error_prone_annotations:jar:sources:2.3.2"
                 ],
                 "url": "https://repo1.maven.org/maven2/org/seleniumhq/selenium/selenium-chrome-driver/3.12.0/selenium-chrome-driver-3.12.0-sources.jar",
@@ -12623,9 +12679,9 @@
                 "file": "v1/https/repo1.maven.org/maven2/org/seleniumhq/selenium/selenium-edge-driver/3.12.0/selenium-edge-driver-3.12.0.jar",
                 "directDependencies": [
                     "com.squareup.okhttp3:okhttp:3.9.1",
-                    "commons-codec:commons-codec:1.12",
                     "org.seleniumhq.selenium:selenium-remote-driver:3.12.0",
                     "commons-logging:commons-logging:1.2",
+                    "commons-codec:commons-codec:1.13",
                     "net.bytebuddy:byte-buddy:1.9.7",
                     "org.seleniumhq.selenium:selenium-api:3.12.0",
                     "com.squareup.okio:okio:1.13.0",
@@ -12638,10 +12694,10 @@
                 "dependencies": [
                     "com.squareup.okhttp3:okhttp:3.9.1",
                     "org.checkerframework:checker-compat-qual:2.0.0",
-                    "commons-codec:commons-codec:1.12",
                     "org.seleniumhq.selenium:selenium-remote-driver:3.12.0",
                     "commons-logging:commons-logging:1.2",
                     "com.google.code.findbugs:jsr305:3.0.2",
+                    "commons-codec:commons-codec:1.13",
                     "net.bytebuddy:byte-buddy:1.9.7",
                     "org.seleniumhq.selenium:selenium-api:3.12.0",
                     "org.codehaus.mojo:animal-sniffer-annotations:1.17",
@@ -12664,7 +12720,6 @@
                 "coord": "org.seleniumhq.selenium:selenium-edge-driver:jar:sources:3.12.0",
                 "file": "v1/https/repo1.maven.org/maven2/org/seleniumhq/selenium/selenium-edge-driver/3.12.0/selenium-edge-driver-3.12.0-sources.jar",
                 "directDependencies": [
-                    "commons-codec:commons-codec:jar:sources:1.12",
                     "com.squareup.okhttp3:okhttp:jar:sources:3.9.1",
                     "commons-logging:commons-logging:jar:sources:1.2",
                     "net.bytebuddy:byte-buddy:jar:sources:1.9.7",
@@ -12675,10 +12730,10 @@
                     "com.google.code.gson:gson:jar:sources:2.8.2",
                     "org.apache.httpcomponents:httpclient:jar:sources:4.5.3",
                     "org.seleniumhq.selenium:selenium-api:jar:sources:3.12.0",
-                    "org.seleniumhq.selenium:selenium-remote-driver:jar:sources:3.12.0"
+                    "org.seleniumhq.selenium:selenium-remote-driver:jar:sources:3.12.0",
+                    "commons-codec:commons-codec:jar:sources:1.13"
                 ],
                 "dependencies": [
-                    "commons-codec:commons-codec:jar:sources:1.12",
                     "com.google.code.findbugs:jsr305:jar:sources:3.0.2",
                     "com.squareup.okhttp3:okhttp:jar:sources:3.9.1",
                     "commons-logging:commons-logging:jar:sources:1.2",
@@ -12694,6 +12749,7 @@
                     "org.apache.httpcomponents:httpclient:jar:sources:4.5.3",
                     "org.seleniumhq.selenium:selenium-api:jar:sources:3.12.0",
                     "org.seleniumhq.selenium:selenium-remote-driver:jar:sources:3.12.0",
+                    "commons-codec:commons-codec:jar:sources:1.13",
                     "com.google.errorprone:error_prone_annotations:jar:sources:2.3.2"
                 ],
                 "url": "https://repo1.maven.org/maven2/org/seleniumhq/selenium/selenium-edge-driver/3.12.0/selenium-edge-driver-3.12.0-sources.jar",
@@ -12707,9 +12763,9 @@
                 "file": "v1/https/repo1.maven.org/maven2/org/seleniumhq/selenium/selenium-firefox-driver/3.12.0/selenium-firefox-driver-3.12.0.jar",
                 "directDependencies": [
                     "com.squareup.okhttp3:okhttp:3.9.1",
-                    "commons-codec:commons-codec:1.12",
                     "org.seleniumhq.selenium:selenium-remote-driver:3.12.0",
                     "commons-logging:commons-logging:1.2",
+                    "commons-codec:commons-codec:1.13",
                     "net.bytebuddy:byte-buddy:1.9.7",
                     "org.seleniumhq.selenium:selenium-api:3.12.0",
                     "com.squareup.okio:okio:1.13.0",
@@ -12722,10 +12778,10 @@
                 "dependencies": [
                     "com.squareup.okhttp3:okhttp:3.9.1",
                     "org.checkerframework:checker-compat-qual:2.0.0",
-                    "commons-codec:commons-codec:1.12",
                     "org.seleniumhq.selenium:selenium-remote-driver:3.12.0",
                     "commons-logging:commons-logging:1.2",
                     "com.google.code.findbugs:jsr305:3.0.2",
+                    "commons-codec:commons-codec:1.13",
                     "net.bytebuddy:byte-buddy:1.9.7",
                     "org.seleniumhq.selenium:selenium-api:3.12.0",
                     "org.codehaus.mojo:animal-sniffer-annotations:1.17",
@@ -12748,7 +12804,6 @@
                 "coord": "org.seleniumhq.selenium:selenium-firefox-driver:jar:sources:3.12.0",
                 "file": "v1/https/repo1.maven.org/maven2/org/seleniumhq/selenium/selenium-firefox-driver/3.12.0/selenium-firefox-driver-3.12.0-sources.jar",
                 "directDependencies": [
-                    "commons-codec:commons-codec:jar:sources:1.12",
                     "com.squareup.okhttp3:okhttp:jar:sources:3.9.1",
                     "commons-logging:commons-logging:jar:sources:1.2",
                     "net.bytebuddy:byte-buddy:jar:sources:1.9.7",
@@ -12759,10 +12814,10 @@
                     "com.google.code.gson:gson:jar:sources:2.8.2",
                     "org.apache.httpcomponents:httpclient:jar:sources:4.5.3",
                     "org.seleniumhq.selenium:selenium-api:jar:sources:3.12.0",
-                    "org.seleniumhq.selenium:selenium-remote-driver:jar:sources:3.12.0"
+                    "org.seleniumhq.selenium:selenium-remote-driver:jar:sources:3.12.0",
+                    "commons-codec:commons-codec:jar:sources:1.13"
                 ],
                 "dependencies": [
-                    "commons-codec:commons-codec:jar:sources:1.12",
                     "com.google.code.findbugs:jsr305:jar:sources:3.0.2",
                     "com.squareup.okhttp3:okhttp:jar:sources:3.9.1",
                     "commons-logging:commons-logging:jar:sources:1.2",
@@ -12778,6 +12833,7 @@
                     "org.apache.httpcomponents:httpclient:jar:sources:4.5.3",
                     "org.seleniumhq.selenium:selenium-api:jar:sources:3.12.0",
                     "org.seleniumhq.selenium:selenium-remote-driver:jar:sources:3.12.0",
+                    "commons-codec:commons-codec:jar:sources:1.13",
                     "com.google.errorprone:error_prone_annotations:jar:sources:2.3.2"
                 ],
                 "url": "https://repo1.maven.org/maven2/org/seleniumhq/selenium/selenium-firefox-driver/3.12.0/selenium-firefox-driver-3.12.0-sources.jar",
@@ -12791,9 +12847,9 @@
                 "file": "v1/https/repo1.maven.org/maven2/org/seleniumhq/selenium/selenium-ie-driver/3.12.0/selenium-ie-driver-3.12.0.jar",
                 "directDependencies": [
                     "com.squareup.okhttp3:okhttp:3.9.1",
-                    "commons-codec:commons-codec:1.12",
                     "org.seleniumhq.selenium:selenium-remote-driver:3.12.0",
                     "commons-logging:commons-logging:1.2",
+                    "commons-codec:commons-codec:1.13",
                     "net.bytebuddy:byte-buddy:1.9.7",
                     "org.seleniumhq.selenium:selenium-api:3.12.0",
                     "com.squareup.okio:okio:1.13.0",
@@ -12806,10 +12862,10 @@
                 "dependencies": [
                     "com.squareup.okhttp3:okhttp:3.9.1",
                     "org.checkerframework:checker-compat-qual:2.0.0",
-                    "commons-codec:commons-codec:1.12",
                     "org.seleniumhq.selenium:selenium-remote-driver:3.12.0",
                     "commons-logging:commons-logging:1.2",
                     "com.google.code.findbugs:jsr305:3.0.2",
+                    "commons-codec:commons-codec:1.13",
                     "net.bytebuddy:byte-buddy:1.9.7",
                     "org.seleniumhq.selenium:selenium-api:3.12.0",
                     "org.codehaus.mojo:animal-sniffer-annotations:1.17",
@@ -12832,7 +12888,6 @@
                 "coord": "org.seleniumhq.selenium:selenium-ie-driver:jar:sources:3.12.0",
                 "file": "v1/https/repo1.maven.org/maven2/org/seleniumhq/selenium/selenium-ie-driver/3.12.0/selenium-ie-driver-3.12.0-sources.jar",
                 "directDependencies": [
-                    "commons-codec:commons-codec:jar:sources:1.12",
                     "com.squareup.okhttp3:okhttp:jar:sources:3.9.1",
                     "commons-logging:commons-logging:jar:sources:1.2",
                     "net.bytebuddy:byte-buddy:jar:sources:1.9.7",
@@ -12843,10 +12898,10 @@
                     "com.google.code.gson:gson:jar:sources:2.8.2",
                     "org.apache.httpcomponents:httpclient:jar:sources:4.5.3",
                     "org.seleniumhq.selenium:selenium-api:jar:sources:3.12.0",
-                    "org.seleniumhq.selenium:selenium-remote-driver:jar:sources:3.12.0"
+                    "org.seleniumhq.selenium:selenium-remote-driver:jar:sources:3.12.0",
+                    "commons-codec:commons-codec:jar:sources:1.13"
                 ],
                 "dependencies": [
-                    "commons-codec:commons-codec:jar:sources:1.12",
                     "com.google.code.findbugs:jsr305:jar:sources:3.0.2",
                     "com.squareup.okhttp3:okhttp:jar:sources:3.9.1",
                     "commons-logging:commons-logging:jar:sources:1.2",
@@ -12862,6 +12917,7 @@
                     "org.apache.httpcomponents:httpclient:jar:sources:4.5.3",
                     "org.seleniumhq.selenium:selenium-api:jar:sources:3.12.0",
                     "org.seleniumhq.selenium:selenium-remote-driver:jar:sources:3.12.0",
+                    "commons-codec:commons-codec:jar:sources:1.13",
                     "com.google.errorprone:error_prone_annotations:jar:sources:2.3.2"
                 ],
                 "url": "https://repo1.maven.org/maven2/org/seleniumhq/selenium/selenium-ie-driver/3.12.0/selenium-ie-driver-3.12.0-sources.jar",
@@ -12876,9 +12932,9 @@
                 "directDependencies": [
                     "com.squareup.okhttp3:okhttp:3.9.1",
                     "org.seleniumhq.selenium:selenium-opera-driver:3.12.0",
-                    "commons-codec:commons-codec:1.12",
                     "org.seleniumhq.selenium:selenium-remote-driver:3.12.0",
                     "commons-logging:commons-logging:1.2",
+                    "commons-codec:commons-codec:1.13",
                     "org.seleniumhq.selenium:selenium-chrome-driver:3.12.0",
                     "net.bytebuddy:byte-buddy:1.9.7",
                     "org.seleniumhq.selenium:selenium-edge-driver:3.12.0",
@@ -12898,10 +12954,10 @@
                     "com.squareup.okhttp3:okhttp:3.9.1",
                     "org.seleniumhq.selenium:selenium-opera-driver:3.12.0",
                     "org.checkerframework:checker-compat-qual:2.0.0",
-                    "commons-codec:commons-codec:1.12",
                     "org.seleniumhq.selenium:selenium-remote-driver:3.12.0",
                     "commons-logging:commons-logging:1.2",
                     "com.google.code.findbugs:jsr305:3.0.2",
+                    "commons-codec:commons-codec:1.13",
                     "org.seleniumhq.selenium:selenium-chrome-driver:3.12.0",
                     "net.bytebuddy:byte-buddy:1.9.7",
                     "org.seleniumhq.selenium:selenium-edge-driver:3.12.0",
@@ -12930,7 +12986,6 @@
                 "coord": "org.seleniumhq.selenium:selenium-java:jar:sources:3.12.0",
                 "file": "v1/https/repo1.maven.org/maven2/org/seleniumhq/selenium/selenium-java/3.12.0/selenium-java-3.12.0-sources.jar",
                 "directDependencies": [
-                    "commons-codec:commons-codec:jar:sources:1.12",
                     "com.squareup.okhttp3:okhttp:jar:sources:3.9.1",
                     "org.seleniumhq.selenium:selenium-firefox-driver:jar:sources:3.12.0",
                     "commons-logging:commons-logging:jar:sources:1.2",
@@ -12948,10 +13003,10 @@
                     "org.seleniumhq.selenium:selenium-chrome-driver:jar:sources:3.12.0",
                     "org.seleniumhq.selenium:selenium-safari-driver:jar:sources:3.12.0",
                     "org.seleniumhq.selenium:selenium-remote-driver:jar:sources:3.12.0",
-                    "org.seleniumhq.selenium:selenium-opera-driver:jar:sources:3.12.0"
+                    "org.seleniumhq.selenium:selenium-opera-driver:jar:sources:3.12.0",
+                    "commons-codec:commons-codec:jar:sources:1.13"
                 ],
                 "dependencies": [
-                    "commons-codec:commons-codec:jar:sources:1.12",
                     "com.google.code.findbugs:jsr305:jar:sources:3.0.2",
                     "com.squareup.okhttp3:okhttp:jar:sources:3.9.1",
                     "org.seleniumhq.selenium:selenium-firefox-driver:jar:sources:3.12.0",
@@ -12974,6 +13029,7 @@
                     "org.seleniumhq.selenium:selenium-safari-driver:jar:sources:3.12.0",
                     "org.seleniumhq.selenium:selenium-remote-driver:jar:sources:3.12.0",
                     "org.seleniumhq.selenium:selenium-opera-driver:jar:sources:3.12.0",
+                    "commons-codec:commons-codec:jar:sources:1.13",
                     "com.google.errorprone:error_prone_annotations:jar:sources:2.3.2"
                 ],
                 "url": "https://repo1.maven.org/maven2/org/seleniumhq/selenium/selenium-java/3.12.0/selenium-java-3.12.0-sources.jar",
@@ -12987,9 +13043,9 @@
                 "file": "v1/https/repo1.maven.org/maven2/org/seleniumhq/selenium/selenium-opera-driver/3.12.0/selenium-opera-driver-3.12.0.jar",
                 "directDependencies": [
                     "com.squareup.okhttp3:okhttp:3.9.1",
-                    "commons-codec:commons-codec:1.12",
                     "org.seleniumhq.selenium:selenium-remote-driver:3.12.0",
                     "commons-logging:commons-logging:1.2",
+                    "commons-codec:commons-codec:1.13",
                     "net.bytebuddy:byte-buddy:1.9.7",
                     "org.seleniumhq.selenium:selenium-api:3.12.0",
                     "com.squareup.okio:okio:1.13.0",
@@ -13002,10 +13058,10 @@
                 "dependencies": [
                     "com.squareup.okhttp3:okhttp:3.9.1",
                     "org.checkerframework:checker-compat-qual:2.0.0",
-                    "commons-codec:commons-codec:1.12",
                     "org.seleniumhq.selenium:selenium-remote-driver:3.12.0",
                     "commons-logging:commons-logging:1.2",
                     "com.google.code.findbugs:jsr305:3.0.2",
+                    "commons-codec:commons-codec:1.13",
                     "net.bytebuddy:byte-buddy:1.9.7",
                     "org.seleniumhq.selenium:selenium-api:3.12.0",
                     "org.codehaus.mojo:animal-sniffer-annotations:1.17",
@@ -13028,7 +13084,6 @@
                 "coord": "org.seleniumhq.selenium:selenium-opera-driver:jar:sources:3.12.0",
                 "file": "v1/https/repo1.maven.org/maven2/org/seleniumhq/selenium/selenium-opera-driver/3.12.0/selenium-opera-driver-3.12.0-sources.jar",
                 "directDependencies": [
-                    "commons-codec:commons-codec:jar:sources:1.12",
                     "com.squareup.okhttp3:okhttp:jar:sources:3.9.1",
                     "commons-logging:commons-logging:jar:sources:1.2",
                     "net.bytebuddy:byte-buddy:jar:sources:1.9.7",
@@ -13039,10 +13094,10 @@
                     "com.google.code.gson:gson:jar:sources:2.8.2",
                     "org.apache.httpcomponents:httpclient:jar:sources:4.5.3",
                     "org.seleniumhq.selenium:selenium-api:jar:sources:3.12.0",
-                    "org.seleniumhq.selenium:selenium-remote-driver:jar:sources:3.12.0"
+                    "org.seleniumhq.selenium:selenium-remote-driver:jar:sources:3.12.0",
+                    "commons-codec:commons-codec:jar:sources:1.13"
                 ],
                 "dependencies": [
-                    "commons-codec:commons-codec:jar:sources:1.12",
                     "com.google.code.findbugs:jsr305:jar:sources:3.0.2",
                     "com.squareup.okhttp3:okhttp:jar:sources:3.9.1",
                     "commons-logging:commons-logging:jar:sources:1.2",
@@ -13058,6 +13113,7 @@
                     "org.apache.httpcomponents:httpclient:jar:sources:4.5.3",
                     "org.seleniumhq.selenium:selenium-api:jar:sources:3.12.0",
                     "org.seleniumhq.selenium:selenium-remote-driver:jar:sources:3.12.0",
+                    "commons-codec:commons-codec:jar:sources:1.13",
                     "com.google.errorprone:error_prone_annotations:jar:sources:2.3.2"
                 ],
                 "url": "https://repo1.maven.org/maven2/org/seleniumhq/selenium/selenium-opera-driver/3.12.0/selenium-opera-driver-3.12.0-sources.jar",
@@ -13071,8 +13127,8 @@
                 "file": "v1/https/repo1.maven.org/maven2/org/seleniumhq/selenium/selenium-remote-driver/3.12.0/selenium-remote-driver-3.12.0.jar",
                 "directDependencies": [
                     "com.squareup.okhttp3:okhttp:3.9.1",
-                    "commons-codec:commons-codec:1.12",
                     "commons-logging:commons-logging:1.2",
+                    "commons-codec:commons-codec:1.13",
                     "net.bytebuddy:byte-buddy:1.9.7",
                     "org.seleniumhq.selenium:selenium-api:3.12.0",
                     "com.squareup.okio:okio:1.13.0",
@@ -13085,9 +13141,9 @@
                 "dependencies": [
                     "com.squareup.okhttp3:okhttp:3.9.1",
                     "org.checkerframework:checker-compat-qual:2.0.0",
-                    "commons-codec:commons-codec:1.12",
                     "commons-logging:commons-logging:1.2",
                     "com.google.code.findbugs:jsr305:3.0.2",
+                    "commons-codec:commons-codec:1.13",
                     "net.bytebuddy:byte-buddy:1.9.7",
                     "org.seleniumhq.selenium:selenium-api:3.12.0",
                     "org.codehaus.mojo:animal-sniffer-annotations:1.17",
@@ -13110,7 +13166,6 @@
                 "coord": "org.seleniumhq.selenium:selenium-remote-driver:jar:sources:3.12.0",
                 "file": "v1/https/repo1.maven.org/maven2/org/seleniumhq/selenium/selenium-remote-driver/3.12.0/selenium-remote-driver-3.12.0-sources.jar",
                 "directDependencies": [
-                    "commons-codec:commons-codec:jar:sources:1.12",
                     "com.squareup.okhttp3:okhttp:jar:sources:3.9.1",
                     "commons-logging:commons-logging:jar:sources:1.2",
                     "net.bytebuddy:byte-buddy:jar:sources:1.9.7",
@@ -13120,10 +13175,10 @@
                     "org.apache.commons:commons-exec:jar:sources:1.3",
                     "com.google.code.gson:gson:jar:sources:2.8.2",
                     "org.apache.httpcomponents:httpclient:jar:sources:4.5.3",
-                    "org.seleniumhq.selenium:selenium-api:jar:sources:3.12.0"
+                    "org.seleniumhq.selenium:selenium-api:jar:sources:3.12.0",
+                    "commons-codec:commons-codec:jar:sources:1.13"
                 ],
                 "dependencies": [
-                    "commons-codec:commons-codec:jar:sources:1.12",
                     "com.google.code.findbugs:jsr305:jar:sources:3.0.2",
                     "com.squareup.okhttp3:okhttp:jar:sources:3.9.1",
                     "commons-logging:commons-logging:jar:sources:1.2",
@@ -13138,6 +13193,7 @@
                     "com.google.code.gson:gson:jar:sources:2.8.2",
                     "org.apache.httpcomponents:httpclient:jar:sources:4.5.3",
                     "org.seleniumhq.selenium:selenium-api:jar:sources:3.12.0",
+                    "commons-codec:commons-codec:jar:sources:1.13",
                     "com.google.errorprone:error_prone_annotations:jar:sources:2.3.2"
                 ],
                 "url": "https://repo1.maven.org/maven2/org/seleniumhq/selenium/selenium-remote-driver/3.12.0/selenium-remote-driver-3.12.0-sources.jar",
@@ -13151,9 +13207,9 @@
                 "file": "v1/https/repo1.maven.org/maven2/org/seleniumhq/selenium/selenium-safari-driver/3.12.0/selenium-safari-driver-3.12.0.jar",
                 "directDependencies": [
                     "com.squareup.okhttp3:okhttp:3.9.1",
-                    "commons-codec:commons-codec:1.12",
                     "org.seleniumhq.selenium:selenium-remote-driver:3.12.0",
                     "commons-logging:commons-logging:1.2",
+                    "commons-codec:commons-codec:1.13",
                     "net.bytebuddy:byte-buddy:1.9.7",
                     "org.seleniumhq.selenium:selenium-api:3.12.0",
                     "com.squareup.okio:okio:1.13.0",
@@ -13166,10 +13222,10 @@
                 "dependencies": [
                     "com.squareup.okhttp3:okhttp:3.9.1",
                     "org.checkerframework:checker-compat-qual:2.0.0",
-                    "commons-codec:commons-codec:1.12",
                     "org.seleniumhq.selenium:selenium-remote-driver:3.12.0",
                     "commons-logging:commons-logging:1.2",
                     "com.google.code.findbugs:jsr305:3.0.2",
+                    "commons-codec:commons-codec:1.13",
                     "net.bytebuddy:byte-buddy:1.9.7",
                     "org.seleniumhq.selenium:selenium-api:3.12.0",
                     "org.codehaus.mojo:animal-sniffer-annotations:1.17",
@@ -13192,7 +13248,6 @@
                 "coord": "org.seleniumhq.selenium:selenium-safari-driver:jar:sources:3.12.0",
                 "file": "v1/https/repo1.maven.org/maven2/org/seleniumhq/selenium/selenium-safari-driver/3.12.0/selenium-safari-driver-3.12.0-sources.jar",
                 "directDependencies": [
-                    "commons-codec:commons-codec:jar:sources:1.12",
                     "com.squareup.okhttp3:okhttp:jar:sources:3.9.1",
                     "commons-logging:commons-logging:jar:sources:1.2",
                     "net.bytebuddy:byte-buddy:jar:sources:1.9.7",
@@ -13203,10 +13258,10 @@
                     "com.google.code.gson:gson:jar:sources:2.8.2",
                     "org.apache.httpcomponents:httpclient:jar:sources:4.5.3",
                     "org.seleniumhq.selenium:selenium-api:jar:sources:3.12.0",
-                    "org.seleniumhq.selenium:selenium-remote-driver:jar:sources:3.12.0"
+                    "org.seleniumhq.selenium:selenium-remote-driver:jar:sources:3.12.0",
+                    "commons-codec:commons-codec:jar:sources:1.13"
                 ],
                 "dependencies": [
-                    "commons-codec:commons-codec:jar:sources:1.12",
                     "com.google.code.findbugs:jsr305:jar:sources:3.0.2",
                     "com.squareup.okhttp3:okhttp:jar:sources:3.9.1",
                     "commons-logging:commons-logging:jar:sources:1.2",
@@ -13222,6 +13277,7 @@
                     "org.apache.httpcomponents:httpclient:jar:sources:4.5.3",
                     "org.seleniumhq.selenium:selenium-api:jar:sources:3.12.0",
                     "org.seleniumhq.selenium:selenium-remote-driver:jar:sources:3.12.0",
+                    "commons-codec:commons-codec:jar:sources:1.13",
                     "com.google.errorprone:error_prone_annotations:jar:sources:2.3.2"
                 ],
                 "url": "https://repo1.maven.org/maven2/org/seleniumhq/selenium/selenium-safari-driver/3.12.0/selenium-safari-driver-3.12.0-sources.jar",
@@ -13235,9 +13291,9 @@
                 "file": "v1/https/repo1.maven.org/maven2/org/seleniumhq/selenium/selenium-support/3.12.0/selenium-support-3.12.0.jar",
                 "directDependencies": [
                     "com.squareup.okhttp3:okhttp:3.9.1",
-                    "commons-codec:commons-codec:1.12",
                     "org.seleniumhq.selenium:selenium-remote-driver:3.12.0",
                     "commons-logging:commons-logging:1.2",
+                    "commons-codec:commons-codec:1.13",
                     "net.bytebuddy:byte-buddy:1.9.7",
                     "org.seleniumhq.selenium:selenium-api:3.12.0",
                     "com.squareup.okio:okio:1.13.0",
@@ -13250,10 +13306,10 @@
                 "dependencies": [
                     "com.squareup.okhttp3:okhttp:3.9.1",
                     "org.checkerframework:checker-compat-qual:2.0.0",
-                    "commons-codec:commons-codec:1.12",
                     "org.seleniumhq.selenium:selenium-remote-driver:3.12.0",
                     "commons-logging:commons-logging:1.2",
                     "com.google.code.findbugs:jsr305:3.0.2",
+                    "commons-codec:commons-codec:1.13",
                     "net.bytebuddy:byte-buddy:1.9.7",
                     "org.seleniumhq.selenium:selenium-api:3.12.0",
                     "org.codehaus.mojo:animal-sniffer-annotations:1.17",
@@ -13276,7 +13332,6 @@
                 "coord": "org.seleniumhq.selenium:selenium-support:jar:sources:3.12.0",
                 "file": "v1/https/repo1.maven.org/maven2/org/seleniumhq/selenium/selenium-support/3.12.0/selenium-support-3.12.0-sources.jar",
                 "directDependencies": [
-                    "commons-codec:commons-codec:jar:sources:1.12",
                     "com.squareup.okhttp3:okhttp:jar:sources:3.9.1",
                     "commons-logging:commons-logging:jar:sources:1.2",
                     "net.bytebuddy:byte-buddy:jar:sources:1.9.7",
@@ -13287,10 +13342,10 @@
                     "com.google.code.gson:gson:jar:sources:2.8.2",
                     "org.apache.httpcomponents:httpclient:jar:sources:4.5.3",
                     "org.seleniumhq.selenium:selenium-api:jar:sources:3.12.0",
-                    "org.seleniumhq.selenium:selenium-remote-driver:jar:sources:3.12.0"
+                    "org.seleniumhq.selenium:selenium-remote-driver:jar:sources:3.12.0",
+                    "commons-codec:commons-codec:jar:sources:1.13"
                 ],
                 "dependencies": [
-                    "commons-codec:commons-codec:jar:sources:1.12",
                     "com.google.code.findbugs:jsr305:jar:sources:3.0.2",
                     "com.squareup.okhttp3:okhttp:jar:sources:3.9.1",
                     "commons-logging:commons-logging:jar:sources:1.2",
@@ -13306,6 +13361,7 @@
                     "org.apache.httpcomponents:httpclient:jar:sources:4.5.3",
                     "org.seleniumhq.selenium:selenium-api:jar:sources:3.12.0",
                     "org.seleniumhq.selenium:selenium-remote-driver:jar:sources:3.12.0",
+                    "commons-codec:commons-codec:jar:sources:1.13",
                     "com.google.errorprone:error_prone_annotations:jar:sources:2.3.2"
                 ],
                 "url": "https://repo1.maven.org/maven2/org/seleniumhq/selenium/selenium-support/3.12.0/selenium-support-3.12.0-sources.jar",
@@ -13536,10 +13592,10 @@
                 ],
                 "dependencies": [
                     "org.ow2.asm:asm:5.0.4",
-                    "commons-codec:commons-codec:1.12",
                     "org.ow2.asm:asm-tree:5.0.3",
                     "com.github.jnr:jffi:1.2.15",
                     "org.rnorth:tcp-unix-socket-proxy:1.0.1",
+                    "commons-codec:commons-codec:1.13",
                     "org.slf4j:slf4j-api:1.7.26",
                     "commons-lang:commons-lang:2.6",
                     "junit:junit:4.12",
@@ -13580,7 +13636,6 @@
                 ],
                 "dependencies": [
                     "com.github.jnr:jnr-ffi:jar:sources:2.1.4",
-                    "commons-codec:commons-codec:jar:sources:1.12",
                     "org.slf4j:slf4j-ext:jar:sources:1.7.25",
                     "org.jetbrains:annotations:jar:sources:13.0",
                     "org.apache.commons:commons-compress:jar:sources:1.12",
@@ -13604,6 +13659,7 @@
                     "org.scijava:native-lib-loader:jar:sources:2.0.2",
                     "com.github.jnr:jnr-x86asm:jar:sources:1.0.2",
                     "log4j:log4j:jar:sources:1.2.17",
+                    "commons-codec:commons-codec:jar:sources:1.13",
                     "org.ow2.asm:asm-analysis:jar:sources:5.0.3",
                     "junit:junit:jar:sources:4.12",
                     "org.ow2.asm:asm-util:jar:sources:5.0.3",
@@ -13623,10 +13679,10 @@
                 ],
                 "dependencies": [
                     "org.ow2.asm:asm:5.0.4",
-                    "commons-codec:commons-codec:1.12",
                     "org.ow2.asm:asm-tree:5.0.3",
                     "com.github.jnr:jffi:1.2.15",
                     "org.rnorth:tcp-unix-socket-proxy:1.0.1",
+                    "commons-codec:commons-codec:1.13",
                     "org.slf4j:slf4j-api:1.7.26",
                     "commons-lang:commons-lang:2.6",
                     "junit:junit:4.12",
@@ -13668,7 +13724,6 @@
                 ],
                 "dependencies": [
                     "com.github.jnr:jnr-ffi:jar:sources:2.1.4",
-                    "commons-codec:commons-codec:jar:sources:1.12",
                     "org.slf4j:slf4j-ext:jar:sources:1.7.25",
                     "org.jetbrains:annotations:jar:sources:13.0",
                     "org.apache.commons:commons-compress:jar:sources:1.12",
@@ -13693,6 +13748,7 @@
                     "org.testcontainers:jdbc:jar:sources:1.4.2",
                     "com.github.jnr:jnr-x86asm:jar:sources:1.0.2",
                     "log4j:log4j:jar:sources:1.2.17",
+                    "commons-codec:commons-codec:jar:sources:1.13",
                     "org.ow2.asm:asm-analysis:jar:sources:5.0.3",
                     "junit:junit:jar:sources:4.12",
                     "org.ow2.asm:asm-util:jar:sources:5.0.3",
@@ -13709,10 +13765,10 @@
                 "file": "v1/https/repo1.maven.org/maven2/org/testcontainers/testcontainers/1.4.2/testcontainers-1.4.2.jar",
                 "directDependencies": [
                     "org.ow2.asm:asm:5.0.4",
-                    "commons-codec:commons-codec:1.12",
                     "org.ow2.asm:asm-tree:5.0.3",
                     "com.github.jnr:jffi:1.2.15",
                     "org.rnorth:tcp-unix-socket-proxy:1.0.1",
+                    "commons-codec:commons-codec:1.13",
                     "org.slf4j:slf4j-api:1.7.26",
                     "commons-lang:commons-lang:2.6",
                     "junit:junit:4.12",
@@ -13739,10 +13795,10 @@
                 ],
                 "dependencies": [
                     "org.ow2.asm:asm:5.0.4",
-                    "commons-codec:commons-codec:1.12",
                     "org.ow2.asm:asm-tree:5.0.3",
                     "com.github.jnr:jffi:1.2.15",
                     "org.rnorth:tcp-unix-socket-proxy:1.0.1",
+                    "commons-codec:commons-codec:1.13",
                     "org.slf4j:slf4j-api:1.7.26",
                     "commons-lang:commons-lang:2.6",
                     "junit:junit:4.12",
@@ -13779,7 +13835,6 @@
                 "file": "v1/https/repo1.maven.org/maven2/org/testcontainers/testcontainers/1.4.2/testcontainers-1.4.2-sources.jar",
                 "directDependencies": [
                     "com.github.jnr:jnr-ffi:jar:sources:2.1.4",
-                    "commons-codec:commons-codec:jar:sources:1.12",
                     "org.slf4j:slf4j-ext:jar:sources:1.7.25",
                     "org.jetbrains:annotations:jar:sources:13.0",
                     "org.apache.commons:commons-compress:jar:sources:1.12",
@@ -13802,13 +13857,13 @@
                     "org.ow2.asm:asm:jar:sources:5.0.4",
                     "org.scijava:native-lib-loader:jar:sources:2.0.2",
                     "com.github.jnr:jnr-x86asm:jar:sources:1.0.2",
+                    "commons-codec:commons-codec:jar:sources:1.13",
                     "org.ow2.asm:asm-analysis:jar:sources:5.0.3",
                     "junit:junit:jar:sources:4.12",
                     "org.ow2.asm:asm-util:jar:sources:5.0.3"
                 ],
                 "dependencies": [
                     "com.github.jnr:jnr-ffi:jar:sources:2.1.4",
-                    "commons-codec:commons-codec:jar:sources:1.12",
                     "org.slf4j:slf4j-ext:jar:sources:1.7.25",
                     "org.jetbrains:annotations:jar:sources:13.0",
                     "org.apache.commons:commons-compress:jar:sources:1.12",
@@ -13832,6 +13887,7 @@
                     "org.scijava:native-lib-loader:jar:sources:2.0.2",
                     "com.github.jnr:jnr-x86asm:jar:sources:1.0.2",
                     "log4j:log4j:jar:sources:1.2.17",
+                    "commons-codec:commons-codec:jar:sources:1.13",
                     "org.ow2.asm:asm-analysis:jar:sources:5.0.3",
                     "junit:junit:jar:sources:4.12",
                     "org.ow2.asm:asm-util:jar:sources:5.0.3"
@@ -14520,6 +14576,6 @@
             }
         ],
         "version": "0.1.0",
-        "__AUTOGENERATED_FILE_DO_NOT_MODIFY_THIS_FILE_MANUALLY": -1052568063
+        "__AUTOGENERATED_FILE_DO_NOT_MODIFY_THIS_FILE_MANUALLY": -1437003746
     }
 }

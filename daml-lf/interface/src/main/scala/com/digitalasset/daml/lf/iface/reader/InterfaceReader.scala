@@ -238,7 +238,7 @@ object InterfaceReader {
         case Ast.BTContractId => \/-((1, PrimType.ContractId))
         case Ast.BTList => \/-((1, PrimType.List))
         case Ast.BTOptional => \/-((1, PrimType.Optional))
-        case Ast.BTMap => \/-((1, PrimType.Map))
+        case Ast.BTTextMap => \/-((1, PrimType.Map))
         case Ast.BTGenMap => \/-((2, PrimType.GenMap))
         case Ast.BTNumeric =>
           unserializableDataType(

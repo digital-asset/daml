@@ -147,7 +147,7 @@ private[engine] class ValueTranslator(compiledPackages: CompiledPackages) {
             ls.toImmArray.traverseU(go(newNesting, elemType, _)).map(es => SList(FrontStack(es)))
 
           // map
-          case (TMap(elemType), ValueTextMap(map)) =>
+          case (TTextMap(elemType), ValueTextMap(map)) =>
             map.toImmArray
               .traverseU {
                 case (key0, value0) => go(newNesting, elemType, value0).map(key0 -> _)

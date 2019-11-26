@@ -10,7 +10,9 @@ import Control.Concurrent.Async
 import Control.Exception
 import Control.Monad
 import Control.Monad.Fail (MonadFail)
+import qualified Data.Aeson.Types as Aeson
 import Data.List.Extra
+import qualified Data.Map as Map
 import qualified Data.Text as T
 import Data.Typeable
 import Data.Maybe (maybeToList)
@@ -26,6 +28,7 @@ import System.Process
 import Test.Main
 import Test.Tasty
 import Test.Tasty.HUnit
+import qualified Web.JWT as JWT
 
 import DA.Bazel.Runfiles
 import DA.Daml.Helper.Run
@@ -559,23 +562,36 @@ deployTest deployDir = testCase "daml deploy" $ do
             callCommandQuiet "daml build"
             withDevNull $ \devNull -> do
                 port :: Int <- fromIntegral <$> getFreePort
+                let sharedSecret = "TheSharedSecret"
                 let sandboxProc =
                         (shell $ unwords
                             ["daml sandbox"
+                            , "--auth-jwt-hs256-unsafe=" <> sharedSecret
                             , "--port", show port
                             , ".daml/dist/proj1-0.0.1.dar"
                             ]) { std_out = UseHandle devNull }
+                let tokenFile = deployDir </> "secretToken.jwt"
+                writeFileUTF8 tokenFile (makeSignedJwt sharedSecret <> "\n")
                 withCreateProcess sandboxProc  $ \_ _ _ ph ->
                     race_ (waitForProcess' sandboxProc ph) $ do
                         waitForConnectionOnPort (threadDelay 100000) port
                         withCurrentDirectory (deployDir </> "proj2") $ do
                             callCommandQuiet $ unwords
                                 [ "daml deploy"
+                                , "--access-token-file " <> tokenFile
                                 , "--port", show port
                                 , "--host localhost"
                                 ]
                         -- waitForProcess' will block on Windows so we explicitly kill the process.
                         terminateProcess ph
+
+makeSignedJwt :: String -> String
+makeSignedJwt sharedSecret = do
+  let urc = JWT.ClaimsMap $ Map.fromList [ ("admin", Aeson.Bool True)]
+  let cs = mempty { JWT.unregisteredClaims = urc }
+  let key = JWT.hmacSecret $ T.pack sharedSecret
+  let text = JWT.encodeSigned key mempty cs
+  T.unpack text
 
 
 damlInstallerName :: String

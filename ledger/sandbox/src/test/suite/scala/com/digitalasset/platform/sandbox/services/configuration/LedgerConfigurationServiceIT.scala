@@ -31,7 +31,7 @@ sealed trait LedgerConfigurationServiceITBase extends WordSpec with Matchers {
         val LedgerConfiguration(Some(minTtl), Some(maxTtl)) =
           LedgerConfigurationServiceGrpc
             .blockingStub(channel)
-            .getLedgerConfiguration(GetLedgerConfigurationRequest(ledgerIdOnServer.unwrap))
+            .getLedgerConfiguration(GetLedgerConfigurationRequest(ledgerId().unwrap))
             .next()
             .getLedgerConfiguration
 

@@ -153,12 +153,12 @@ safetyStep = \case
       BEDecimalToInt64    -> Safe 0 -- crash if the decimal doesn't fit
       BEFoldl             -> Safe 2
       BEFoldr             -> Safe 2
-      BEMapEmpty          -> Safe 0
-      BEMapInsert         -> Safe 3
-      BEMapLookup         -> Safe 2
-      BEMapDelete         -> Safe 2
-      BEMapToList         -> Safe 1
-      BEMapSize           -> Safe 1
+      BETextMapEmpty      -> Safe 0
+      BETextMapInsert     -> Safe 3
+      BETextMapLookup     -> Safe 2
+      BETextMapDelete     -> Safe 2
+      BETextMapToList     -> Safe 1
+      BETextMapSize       -> Safe 1
       BEGenMapEmpty       -> Safe 0
       BEGenMapInsert      -> Safe 2 -- crash if key invalid
       BEGenMapLookup      -> Safe 1 -- crash if key invalid

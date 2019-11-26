@@ -94,7 +94,7 @@ object InMemoryKVParticipantState {
   */
 class InMemoryKVParticipantState(
     val participantId: ParticipantId,
-    val ledgerId: LedgerString.T = Ref.LedgerString.assertFromString(UUID.randomUUID.toString),
+    val ledgerId: LedgerString = Ref.LedgerString.assertFromString(UUID.randomUUID.toString),
     file: Option[File] = None)(implicit system: ActorSystem, mat: Materializer)
     extends ReadService
     with WriteService
@@ -549,7 +549,7 @@ class InMemoryKVParticipantState(
   /** Get a new record time for the ledger from the system clock.
     * Public for use from integration tests.
     */
-  def getNewRecordTime: Timestamp =
+  def getNewRecordTime(): Timestamp =
     Timestamp.assertFromInstant(Clock.systemUTC().instant())
 
   /** Submit a new configuration to the ledger. */

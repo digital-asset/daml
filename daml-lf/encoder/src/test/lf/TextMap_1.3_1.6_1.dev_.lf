@@ -1,15 +1,15 @@
 // Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-module MapMod {
+module TextMapMod {
 
-  record @serializable Box = { x: Map Int64, party: Party } ;
+  record @serializable Box = { x: TextMap Int64, party: Party } ;
 
   template (this : Box) =  {
     precondition True,
-    signatories (PartyMod:one (MapMod:Box {party} this)),
+    signatories (PartyMod:one (TextMapMod:Box {party} this)),
     observers (Nil @Party),
-    agreement "Agreement MapMod:Box",
+    agreement "Agreement TextMapMod:Box",
     choices {
     }
   };

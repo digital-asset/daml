@@ -6,7 +6,7 @@ package com.digitalasset.ledger.api.auth
 import java.util.concurrent.{CompletableFuture, CompletionStage}
 
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.jwt.JwtVerifier
+import com.digitalasset.jwt.{JwtVerifier, JwtVerifierBase}
 import com.digitalasset.ledger.api.auth.AuthServiceJWT.Error
 import io.grpc.Metadata
 import org.slf4j.{Logger, LoggerFactory}
@@ -18,7 +18,7 @@ import scala.util.Try
 /** An AuthService that reads a JWT token from a `Authorization: Bearer` HTTP header.
   * The token is expected to use the format as defined in [[AuthServiceJWTPayload]]:
   */
-class AuthServiceJWT(verifier: JwtVerifier) extends AuthService {
+class AuthServiceJWT(verifier: JwtVerifierBase) extends AuthService {
 
   protected val logger: Logger = LoggerFactory.getLogger(AuthServiceJWT.getClass)
 
@@ -86,6 +86,6 @@ object AuthServiceJWT {
   def apply(verifier: com.auth0.jwt.interfaces.JWTVerifier) =
     new AuthServiceJWT(new JwtVerifier(verifier))
 
-  def apply(verifier: JwtVerifier) =
+  def apply(verifier: JwtVerifierBase) =
     new AuthServiceJWT(verifier)
 }

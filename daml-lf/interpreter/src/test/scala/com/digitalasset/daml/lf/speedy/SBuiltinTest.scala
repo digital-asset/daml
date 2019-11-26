@@ -753,7 +753,7 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
     }
   }
 
-  "Map operations" - {
+  "TextMap operations" - {
 
     def buildMap[X](typ: String, l: (String, X)*) =
       ("MAP_EMPTY @Int64" /: l) { case (acc, (k, v)) => s"""(MAP_INSERT @$typ "$k" $v $acc)""" }
