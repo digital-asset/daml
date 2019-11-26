@@ -17,6 +17,7 @@ import com.digitalasset.ledger.client.services.testing.time.StaticTime
 import com.digitalasset.platform.sandbox.services.SandboxFixture
 import io.grpc.Status
 import org.awaitility.Awaitility
+import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.{Matchers, WordSpec}
 import scalaz.syntax.tag._
 
@@ -25,12 +26,14 @@ import scala.concurrent.duration._
 
 class StaticTimeIT
     extends WordSpec
-    with LedgerApiITBase
     with SandboxFixture
     with SuiteResourceManagementAroundAll
+    with ScalaFutures
     with Matchers {
 
   implicit private def ec = materializer.executionContext
+
+  private lazy val notLedgerId: domain.LedgerId = domain.LedgerId(s"not-${ledgerId().unwrap}")
 
   private val duration = java.time.Duration.ofSeconds(30L)
 
@@ -43,7 +46,7 @@ class StaticTimeIT
     "reading time" should {
 
       "return it" in {
-        withStaticTime(ledgerId)(_.getCurrentTime)
+        withStaticTime(ledgerId())(_.getCurrentTime)
         succeed
       }
     }
@@ -51,7 +54,7 @@ class StaticTimeIT
     "updating time" should {
 
       "update its state when successfully setting time forward" in {
-        withStaticTime(ledgerId) { sut =>
+        withStaticTime(ledgerId()) { sut =>
           val newTime = sut.getCurrentTime.plus(duration)
           whenReady(sut.setTime(newTime)) { _ =>
             sut.getCurrentTime shouldEqual newTime
@@ -60,16 +63,16 @@ class StaticTimeIT
       }
 
       "synchronize time updates between different existing instances" in {
-        withStaticTime(ledgerId) { sut =>
-          withStaticTime(ledgerId) { sut2 =>
+        withStaticTime(ledgerId()) { sut =>
+          withStaticTime(ledgerId()) { sut2 =>
             assertTimeIsSynchronized(sut, sut2)
           }
         }
       }
 
       "initialize new instances with the latest time" in {
-        withStaticTime(ledgerId) { sut =>
-          assertTimeIsSynchronized(sut, createStaticTime(ledgerId))
+        withStaticTime(ledgerId()) { sut =>
+          assertTimeIsSynchronized(sut, createStaticTime(ledgerId()))
         }
       }
     }

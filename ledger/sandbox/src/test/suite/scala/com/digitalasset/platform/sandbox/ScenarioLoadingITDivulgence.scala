@@ -43,7 +43,7 @@ class ScenarioLoadingITDivulgence
   private val allTemplatesForParty = M.transactionFilter
 
   private def getSnapshot(transactionFilter: TransactionFilter = allTemplatesForParty) =
-    newACClient(ledgerIdOnServer)
+    newACClient(ledgerId())
       .getActiveContracts(transactionFilter)
       .runWith(Sink.seq)
 
