@@ -11,51 +11,10 @@ module DA.Upgrade
   ( iso
   , Convertible(..)
   , GenConvertible
-  , Upgrade(..)
-  , UpgradeInstance(..)
-  , RollbackInstance(..)
-  , Rollback(..)
   )
   where
 
 import DA.Generics
-import DA.Next.Set
-
-----------------------------------------------------------------------------------------------------
--- Upgrade templates
-----------------------------------------------------------------------------------------------------
-
-template (Template i, Template o, Convertible i o) => Upgrade i o
-    with
-        op : Party
-    where
-        signatory op
-        nonconsuming choice DoUpgrade: ContractId o
-            with
-                inC : ContractId i
-                sigs : [Party]
-            controller sigs
-                do
-                    d <- fetch inC
-                    assert $ fromList sigs == fromList (signatory d)
-                    archive inC
-                    create $ convert d
-
-template (Template i, Template o, Convertible o i) => Rollback i o
-    with
-        op : Party
-    where
-        signatory op
-        nonconsuming choice DoRollback: ContractId i
-            with
-                inC : ContractId o
-                sigs : [Party]
-            controller sigs
-                do
-                    d <- fetch inC
-                    assert $ fromList sigs == fromList (signatory d)
-                    archive inC
-                    create $ convert d
 
 ----------------------------------------------------------------------------------------------------
 -- Data type conversion
