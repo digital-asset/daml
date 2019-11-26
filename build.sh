@@ -34,6 +34,7 @@ bazel query 'deps(//...)' > /dev/null
 # Check that we can load damlc in ghci
 GHCI_SCRIPT=$(mktemp)
 cat <<EOF > $GHCI_SCRIPT
+:m DA.Cli.Damlc
 :main --help
 :quit
 EOF
