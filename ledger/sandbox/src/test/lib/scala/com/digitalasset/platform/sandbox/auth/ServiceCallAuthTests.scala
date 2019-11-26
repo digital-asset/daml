@@ -7,10 +7,10 @@ import java.time.Duration
 import java.util.UUID
 
 import com.digitalasset.grpc.{GrpcException, GrpcStatus}
+import com.digitalasset.ledger.api.auth.client.LedgerCallCredentials
 import com.digitalasset.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
 import com.digitalasset.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
-import com.digitalasset.ledger.client.auth.LedgerClientCallCredentials.authenticatingStub
 import com.digitalasset.platform.sandbox.services.SandboxFixtureWithAuth
 import io.grpc.Status
 import io.grpc.stub.AbstractStub
@@ -30,7 +30,7 @@ trait ServiceCallAuthTests
   def serviceCallWithToken(token: Option[String]): Future[Any]
 
   protected def stub[A <: AbstractStub[A]](stub: A, token: Option[String]): A =
-    token.fold(stub)(authenticatingStub(stub))
+    token.fold(stub)(LedgerCallCredentials.authenticatingStub(stub, _))
 
   protected def expectSuccess(f: Future[Any]): Future[Assertion] = f.map((_: Any) => succeed)
 
