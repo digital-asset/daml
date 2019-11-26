@@ -85,6 +85,7 @@ da_scala_test(
         "//ledger/sandbox:sandbox-scala-tests-lib",
         "//ledger/participant-state",
         "//bazel_tools/runfiles:scala_runfiles",
+        "//ledger/ledger-api-auth",
     ] + http_json_deps,
 )
 

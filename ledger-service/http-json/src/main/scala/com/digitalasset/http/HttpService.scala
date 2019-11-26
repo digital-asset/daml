@@ -3,6 +3,8 @@
 
 package com.digitalasset.http
 
+import java.nio.file.Path
+
 import akka.actor.{ActorSystem, Cancellable}
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.Http.ServerBinding
@@ -30,7 +32,7 @@ import com.digitalasset.ledger.client.configuration.{
   LedgerIdRequirement
 }
 import com.digitalasset.ledger.client.services.pkg.PackageClient
-import com.digitalasset.ledger.service.LedgerReader
+import com.digitalasset.ledger.service.{LedgerReader, TokenHolder}
 import com.typesafe.scalalogging.StrictLogging
 import io.grpc.netty.NettyChannelBuilder
 import scalaz.Scalaz._
@@ -55,6 +57,7 @@ object HttpService extends StrictLogging {
       applicationId: ApplicationId,
       address: String,
       httpPort: Int,
+      accessTokenFile: Option[Path],
       contractDao: Option[ContractDao] = None,
       staticContentConfig: Option[StaticContentConfig] = None,
       packageReloadInterval: FiniteDuration = DefaultPackageReloadInterval,
@@ -68,11 +71,14 @@ object HttpService extends StrictLogging {
 
     implicit val settings: ServerSettings = ServerSettings(asys)
 
+    val tokenHolder = accessTokenFile.map(new TokenHolder(_))
+
     val clientConfig = LedgerClientConfiguration(
       applicationId = ApplicationId.unwrap(applicationId),
       ledgerIdRequirement = LedgerIdRequirement("", enabled = false),
       commandClient = CommandClientConfiguration.default,
-      sslContext = None
+      sslContext = None,
+      token = tokenHolder.flatMap(_.token)
     )
 
     val bindingEt: EitherT[Future, Error, ServerBinding] = for {
@@ -84,8 +90,8 @@ object HttpService extends StrictLogging {
       _ = logger.info(s"Connected to Ledger: ${ledgerId: lar.LedgerId}")
       _ = logger.info(s"contractDao: ${contractDao.toString}")
 
-      // TODO Pass a token to work against a ledger with authentication
-      packageService = new PackageService(loadPackageStoreUpdates(client.packageClient, None))
+      packageService = new PackageService(
+        loadPackageStoreUpdates(client.packageClient, tokenHolder))
 
       // load all packages right away
       _ <- eitherT(packageService.reload).leftMap(e => Error(e.shows)): ET[Unit]
@@ -134,12 +140,20 @@ object HttpService extends StrictLogging {
     bindingEt.run: Future[Error \/ ServerBinding]
   }
 
-  private[http] def loadPackageStoreUpdates(packageClient: PackageClient, token: Option[String])(
+  private[http] def loadPackageStoreUpdates(
+      packageClient: PackageClient,
+      tokenHolder: Option[TokenHolder])(
       implicit ec: ExecutionContext): PackageService.ReloadPackageStore =
-    (ids: Set[String]) =>
+    (ids: Set[String]) => {
+      val token =
+        tokenHolder.flatMap { holder =>
+          holder.refresh()
+          holder.token
+        }
       LedgerReader
         .loadPackageStoreUpdates(packageClient, token)(ids)
         .map(_.leftMap(e => PackageService.ServerError(e)))
+    }
 
   def stop(f: Future[Error \/ ServerBinding])(implicit ec: ExecutionContext): Future[Unit] = {
     logger.info("Stopping server...")

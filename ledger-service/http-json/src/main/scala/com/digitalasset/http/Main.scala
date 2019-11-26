@@ -3,6 +3,8 @@
 
 package com.digitalasset.http
 
+import java.nio.file.Paths
+
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http.ServerBinding
 import akka.stream.ActorMaterializer
@@ -47,6 +49,7 @@ object Main extends StrictLogging {
         s", maxInboundMessageSize=${config.maxInboundMessageSize: Int}" +
         s", jdbcConfig=${config.jdbcConfig.shows}" +
         s", staticContentConfig=${config.staticContentConfig.shows}" +
+        s", accessTokenFile=${config.accessTokenFile.toString}" +
         ")")
 
     implicit val asys: ActorSystem = ActorSystem("http-json-ledger-api")
@@ -82,6 +85,7 @@ object Main extends StrictLogging {
         config.applicationId,
         config.address,
         config.httpPort,
+        config.accessTokenFile,
         contractDao,
         config.staticContentConfig,
         config.packageReloadInterval,
@@ -185,5 +189,11 @@ object Main extends StrictLogging {
         .valueName(StaticContentConfig.usage)
         .text(s"DEV MODE ONLY (not recommended for production). Optional static content configuration string. "
           + StaticContentConfig.help)
+
+      opt[String]("access-token-file")
+        .text(
+          s"provide the path from which the access token will be read, required to interact with an authenticated ledger, no default")
+        .action((path, arguments) => arguments.copy(accessTokenFile = Some(Paths.get(path))))
+        .optional()
     }
 }
