@@ -1,3 +1,6 @@
+-- Copyright (c) 2019 The DAML Authors. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
 {-# LANGUAGE CPP #-}
 
 daml 1.2
@@ -193,3 +196,4 @@ instance Eq k => Traversable.Traversable (Map k) where
   mapA f x = fmap fromList $ mapA (\(k, v) -> fmap (k,) $ f v) $ toList x
 
 #endif
+
