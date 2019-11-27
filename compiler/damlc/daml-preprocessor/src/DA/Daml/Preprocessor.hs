@@ -42,6 +42,7 @@ mayImportInternal =
         , "DA.Date"
         , "DA.Record"
         , "DA.TextMap"
+        , "DA.Map"
         , "DA.Generics"
         ]
 
