@@ -82,6 +82,5 @@ Given the record time ``RT``, a transaction submission with a ledger effective t
  and maximum record time ``MRT`` is accepted if:
 
 * ``LET - MRT >= min_transaction_latency + max_clock_skew``
-  `MINTTL = min_transaction_latency + max_clock_skew`.
 * ``LET - MRT <= max_ttl``.
 * ``LET - max_clock_skew <= RT <= MRT``.
