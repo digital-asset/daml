@@ -55,7 +55,8 @@ case object DamlConstants {
     DamlLfTypePrim(DamlLfPrimType.Optional, DamlLfImmArraySeq(typ))
   def simpleListT(typ: DamlLfIface.Type) =
     DamlLfTypePrim(DamlLfPrimType.List, DamlLfImmArraySeq(typ))
-  def simpleMapT(typ: DamlLfIface.Type) = DamlLfTypePrim(DamlLfPrimType.Map, DamlLfImmArraySeq(typ))
+  def simpleMapT(typ: DamlLfIface.Type) =
+    DamlLfTypePrim(DamlLfPrimType.TextMap, DamlLfImmArraySeq(typ))
 
   val simpleTextV = V.ValueText("foo")
   val simpleInt64V = V.ValueInt64(100)

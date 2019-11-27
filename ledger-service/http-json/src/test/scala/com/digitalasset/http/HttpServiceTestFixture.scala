@@ -16,6 +16,7 @@ import com.digitalasset.http.util.FutureUtil
 import com.digitalasset.http.util.FutureUtil.toFuture
 import com.digitalasset.http.util.IdentifierConverters.apiLedgerId
 import com.digitalasset.http.util.TestUtil.findOpenPort
+import com.digitalasset.ledger.api.auth.AuthService
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.refinements.ApiTypes.ApplicationId
 import com.digitalasset.ledger.client.LedgerClient
@@ -72,6 +73,7 @@ object HttpServiceTestFixture {
           applicationId,
           "localhost",
           httpPort,
+          None,
           contractDao,
           staticContentConfig,
           doNotReloadPackages))
@@ -102,7 +104,11 @@ object HttpServiceTestFixture {
     fa
   }
 
-  def withLedger[A](dar: File, testName: String)(testFn: LedgerClient => Future[A])(
+  def withLedger[A](
+      dar: File,
+      testName: String,
+      token: Option[String] = None,
+      authService: Option[AuthService] = None)(testFn: LedgerClient => Future[A])(
       implicit aesf: ExecutionSequencerFactory,
       ec: ExecutionContext): Future[A] = {
 
@@ -111,12 +117,12 @@ object HttpServiceTestFixture {
 
     val ledgerF: Future[(SandboxServer, Int)] = for {
       port <- toFuture(findOpenPort())
-      ledger <- Future(SandboxServer(ledgerConfig(port, dar, ledgerId)))
+      ledger <- Future(SandboxServer(ledgerConfig(port, dar, ledgerId, authService)))
     } yield (ledger, port)
 
     val clientF: Future[LedgerClient] = for {
       (_, ledgerPort) <- ledgerF
-      client <- LedgerClient.singleHost("localhost", ledgerPort, clientConfig(applicationId))
+      client <- LedgerClient.singleHost("localhost", ledgerPort, clientConfig(applicationId, token))
     } yield client
 
     val fa: Future[A] = for {
@@ -131,27 +137,35 @@ object HttpServiceTestFixture {
     fa
   }
 
-  private def ledgerConfig(ledgerPort: Int, dar: File, ledgerId: LedgerId): SandboxConfig =
+  private def ledgerConfig(
+      ledgerPort: Int,
+      dar: File,
+      ledgerId: LedgerId,
+      authService: Option[AuthService] = None): SandboxConfig =
     SandboxConfig.default.copy(
       port = ledgerPort,
       damlPackages = List(dar),
       timeProviderType = TimeProviderType.WallClock,
       ledgerIdMode = LedgerIdMode.Static(ledgerId),
+      authService = authService
     )
 
-  private def clientConfig[A](applicationId: ApplicationId): LedgerClientConfiguration =
+  private def clientConfig[A](
+      applicationId: ApplicationId,
+      token: Option[String] = None): LedgerClientConfiguration =
     LedgerClientConfiguration(
       applicationId = ApplicationId.unwrap(applicationId),
       ledgerIdRequirement = LedgerIdRequirement("", enabled = false),
       commandClient = CommandClientConfiguration.default,
-      sslContext = None
+      sslContext = None,
+      token = token
     )
 
   def jsonCodecs(client: LedgerClient)(
       implicit ec: ExecutionContext): Future[(DomainJsonEncoder, DomainJsonDecoder)] = {
     val ledgerId = apiLedgerId(client.ledgerId)
     val packageService = new PackageService(
-      HttpService.loadPackageStoreUpdates(client.packageClient, token = None))
+      HttpService.loadPackageStoreUpdates(client.packageClient, holderM = None))
     packageService
       .reload(ec)
       .flatMap(x => FutureUtil.toFuture(x))

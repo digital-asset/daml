@@ -32,10 +32,10 @@ sealed trait LedgerIdentityServiceITBaseGiven
   "A platform" when {
     "started" should {
       "expose the expected ledger identifier" in {
-        ledgerIdOnServer.unwrap shouldEqual givenLedgerId
+        ledgerId().unwrap shouldEqual givenLedgerId
       }
       "expose the expected ledger identifier across restarts" in {
-        ledgerIdOnServer.unwrap shouldEqual givenLedgerId
+        ledgerId().unwrap shouldEqual givenLedgerId
       }
     }
   }
@@ -71,12 +71,12 @@ sealed trait LedgerIdentityServiceITBaseDynamic
     "started" should {
 
       "expose a ledger identifer" in {
-        firstRunLedgerId = ledgerIdOnServer.unwrap
+        firstRunLedgerId = ledgerId().unwrap
         firstRunLedgerId should not be empty
       }
 
       "have different identifiers across restarts" in {
-        firstRunLedgerId should not equal ledgerIdOnServer.unwrap
+        firstRunLedgerId should not equal ledgerId().unwrap
       }
 
     }
@@ -121,12 +121,12 @@ final class LedgerIdentityServicePostgresDynamicSharedPostgresIT
     "started" should {
 
       "expose a ledger identifer" in {
-        firstRunLedgerId = ledgerIdOnServer.unwrap
+        firstRunLedgerId = ledgerId().unwrap
         firstRunLedgerId should not be empty
       }
 
       "have the assigned random ledger identifier after a restart" in {
-        firstRunLedgerId shouldEqual ledgerIdOnServer.unwrap
+        firstRunLedgerId shouldEqual ledgerId().unwrap
       }
 
     }

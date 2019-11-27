@@ -46,6 +46,9 @@ da_haskell_library(
 da_haskell_library(
     name = "daml-doc-testing",
     srcs = glob(["test/**/*.hs"]),
+    compiler_flags = [
+        "-DPOSIX_DIFF=\"$(POSIX_DIFF)\"",
+    ],
     hackage_deps = [
         "aeson-pretty",
         "base",
@@ -62,6 +65,9 @@ da_haskell_library(
         "transformers",
     ],
     src_strip_prefix = "test",
+    toolchains = [
+        "@rules_sh//sh/posix:make_variables",
+    ],
     visibility = ["//visibility:public"],
     deps = [
         "//compiler/damlc/daml-doc",

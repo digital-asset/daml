@@ -21,16 +21,6 @@ template T2
   where
     signatory p
 
-template Template t => GenericT t
-  with
-    wrapped : t
-    p : Party
-  where
-    signatory p
-
-template instance GT1 = GenericT T1
-template instance GT2 = GenericT T2
-
 assertTypeRepEq : CanAbort m => TemplateTypeRep -> TemplateTypeRep -> m ()
 assertTypeRepEq a b =
   unless (a == b) $ abort "TypeReps are not equal"
@@ -43,9 +33,6 @@ assertTypeRepNeq a b =
 main = scenario do
   assertTypeRepEq (templateTypeRep @T1) (templateTypeRep @T1)
   assertTypeRepEq (templateTypeRep @T2) (templateTypeRep @T2)
-  assertTypeRepEq (templateTypeRep @GT1) (templateTypeRep @GT1)
-  assertTypeRepEq (templateTypeRep @GT2) (templateTypeRep @GT2)
 
   assertTypeRepNeq (templateTypeRep @T1) (templateTypeRep @T2)
-  assertTypeRepNeq (templateTypeRep @GT1) (templateTypeRep @GT2)
   assertTypeRepNeq (templateTypeRep @T1) (templateTypeRep @TemplateTypeRep2.T1)

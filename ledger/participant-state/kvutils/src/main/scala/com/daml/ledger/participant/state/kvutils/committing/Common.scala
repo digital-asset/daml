@@ -9,7 +9,8 @@ import com.codahale.metrics
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlLogEntry,
   DamlStateKey,
-  DamlStateValue
+  DamlStateValue,
+  DamlConfigurationEntry
 }
 import com.daml.ledger.participant.state.kvutils.{Conversions, Err}
 import com.daml.ledger.participant.state.v1.Configuration
@@ -173,17 +174,23 @@ private[kvutils] object Common {
   def getCurrentConfiguration(
       defaultConfig: Configuration,
       inputState: Map[DamlStateKey, Option[DamlStateValue]],
-      logger: Logger): Configuration =
+      logger: Logger): (Option[DamlConfigurationEntry], Configuration) =
     inputState
-      .get(Conversions.configurationStateKey)
-      .flatten
+      .getOrElse(
+        Conversions.configurationStateKey,
+        /* If we're retrieving configuration, we require it to at least
+         * have been declared as an input by the submitter as it is used
+         * to authorize configuration changes. */
+        throw Err.MissingInputState(Conversions.configurationStateKey)
+      )
       .flatMap { v =>
-        Conversions
-          .parseDamlConfiguration(v.getConfiguration)
+        val entry = v.getConfigurationEntry
+        Configuration
+          .decode(entry.getConfiguration)
           .fold({ err =>
             logger.error(s"Failed to parse configuration: $err, using default configuration.")
             None
-          }, Some(_))
+          }, conf => Some(Some(entry) -> conf))
       }
-      .getOrElse(defaultConfig)
+      .getOrElse(None -> defaultConfig)
 }

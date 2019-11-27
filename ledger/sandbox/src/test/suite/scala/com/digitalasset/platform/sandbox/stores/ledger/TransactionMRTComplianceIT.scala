@@ -6,7 +6,12 @@ package com.digitalasset.platform.sandbox.stores.ledger
 import java.time.Instant
 
 import akka.stream.scaladsl.Sink
-import com.daml.ledger.participant.state.v1.{SubmissionResult, SubmitterInfo, TransactionMeta}
+import com.daml.ledger.participant.state.v1.{
+  ParticipantId,
+  SubmissionResult,
+  SubmitterInfo,
+  TransactionMeta
+}
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.transaction.GenTransaction
@@ -51,6 +56,7 @@ class TransactionMRTComplianceIT
   override def timeLimit: Span = scaled(60.seconds)
 
   val ledgerId: LedgerId = LedgerId(Ref.LedgerString.assertFromString("ledgerId"))
+  private val participantId: ParticipantId = Ref.LedgerString.assertFromString("participantId")
   val timeProvider = TimeProvider.Constant(Instant.EPOCH.plusSeconds(10))
 
   /** Overriding this provides an easy way to narrow down testing to a single implementation. */
@@ -60,9 +66,9 @@ class TransactionMRTComplianceIT
   override protected def constructResource(index: Int, fixtureId: BackendType): Resource[Ledger] =
     fixtureId match {
       case BackendType.InMemory =>
-        LedgerResource.inMemory(ledgerId, timeProvider)
+        LedgerResource.inMemory(ledgerId, participantId, timeProvider)
       case BackendType.Postgres =>
-        LedgerResource.postgres(ledgerId, timeProvider, metrics)
+        LedgerResource.postgres(ledgerId, participantId, timeProvider, metrics)
     }
 
   val LET = Instant.EPOCH.plusSeconds(2)

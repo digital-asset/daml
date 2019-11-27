@@ -4,6 +4,7 @@
 package com.daml.ledger.rxjava.grpc.helpers
 
 import java.net.{InetSocketAddress, SocketAddress}
+import java.time.Clock
 import java.util.concurrent.TimeUnit
 
 import com.daml.ledger.rxjava.grpc._
@@ -11,6 +12,8 @@ import com.daml.ledger.rxjava.{CommandCompletionClient, LedgerConfigurationClien
 import com.daml.ledger.testkit.services.TransactionServiceImpl.LedgerItem
 import com.daml.ledger.testkit.services._
 import com.digitalasset.grpc.adapter.{ExecutionSequencerFactory, SingleThreadExecutionSequencerPool}
+import com.digitalasset.ledger.api.auth.interceptor.AuthorizationInterceptor
+import com.digitalasset.ledger.api.auth.{AuthService, AuthServiceWildcard, Authorizer}
 import com.digitalasset.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
 import com.digitalasset.ledger.api.v1.command_completion_service.{
   CompletionEndResponse,
@@ -36,19 +39,21 @@ import io.reactivex.Observable
 import scala.concurrent.ExecutionContext.global
 import scala.concurrent.{ExecutionContext, Future}
 
-class LedgerServices(val ledgerId: String) {
+final class LedgerServices(val ledgerId: String) {
 
   import LedgerServices._
 
   val executionContext: ExecutionContext = global
-  val esf: ExecutionSequencerFactory = new SingleThreadExecutionSequencerPool(ledgerId)
+  private val esf: ExecutionSequencerFactory = new SingleThreadExecutionSequencerPool(ledgerId)
+  private val authorizer = new Authorizer(() => Clock.systemUTC().instant())
 
   def newServerBuilder(): NettyServerBuilder = NettyServerBuilder.forAddress(nextAddress())
 
-  def withServer(services: ServerServiceDefinition*)(f: Server => Any): Any = {
+  def withServer(authService: AuthService, services: Seq[ServerServiceDefinition])(
+      f: Server => Any): Any = {
     var server: Option[Server] = None
     try {
-      val realServer = createServer(services)
+      val realServer = createServer(authService, services)
       server = Some(realServer)
       f(realServer)
     } finally {
@@ -58,8 +63,9 @@ class LedgerServices(val ledgerId: String) {
     }
   }
 
-  def withServerAndChannel(services: ServerServiceDefinition*)(f: ManagedChannel => Any): Any = {
-    withServer(services: _*) { server =>
+  def withServerAndChannel(authService: AuthService, services: Seq[ServerServiceDefinition])(
+      f: ManagedChannel => Any): Any = {
+    withServer(authService, services) { server =>
       var channel: Option[ManagedChannel] = None
       try {
         val realChannel = createChannel(server.getPort)
@@ -72,9 +78,12 @@ class LedgerServices(val ledgerId: String) {
     }
   }
 
-  private def createServer(services: Seq[ServerServiceDefinition]): Server =
+  private def createServer(
+      authService: AuthService,
+      services: Seq[ServerServiceDefinition]): Server =
     services
       .foldLeft(newServerBuilder())(_ addService _)
+      .intercept(AuthorizationInterceptor(authService, executionContext))
       .build()
       .start()
 
@@ -84,36 +93,43 @@ class LedgerServices(val ledgerId: String) {
       .usePlaintext()
       .build()
 
-  def withACSClient(getActiveContractsResponses: Observable[GetActiveContractsResponse])(
+  def withACSClient(
+      getActiveContractsResponses: Observable[GetActiveContractsResponse],
+      authService: AuthService = AuthServiceWildcard)(
       f: (ActiveContractClientImpl, ActiveContractsServiceImpl) => Any): Any = {
     val (service, serviceImpl) =
       ActiveContractsServiceImpl.createWithRef(getActiveContractsResponses)(executionContext)
-    withServerAndChannel(service) { channel =>
+    withServerAndChannel(authService, Seq(service)) { channel =>
       f(new ActiveContractClientImpl(ledgerId, channel, esf), serviceImpl)
     }
   }
 
-  def withTimeClient(services: ServerServiceDefinition*)(f: TimeClientImpl => Any): Any =
-    withServerAndChannel(services: _*) { channel =>
+  def withTimeClient(
+      services: Seq[ServerServiceDefinition],
+      authService: AuthService = AuthServiceWildcard)(f: TimeClientImpl => Any): Any =
+    withServerAndChannel(authService, services) { channel =>
       f(new TimeClientImpl(ledgerId, channel, esf))
     }
 
-  def withCommandSubmissionClient(response: Future[Empty])(
+  def withCommandSubmissionClient(
+      response: Future[Empty],
+      authService: AuthService = AuthServiceWildcard)(
       f: (CommandSubmissionClientImpl, CommandSubmissionServiceImpl) => Any): Any = {
     val (service, serviceImpl) =
       CommandSubmissionServiceImpl.createWithRef(response)(executionContext)
-    withServerAndChannel(service) { channel =>
+    withServerAndChannel(authService, Seq(service)) { channel =>
       f(new CommandSubmissionClientImpl(ledgerId, channel), serviceImpl)
     }
   }
 
   def withCommandCompletionClient(
       completions: List[CompletionStreamResponse],
-      end: CompletionEndResponse)(
+      end: CompletionEndResponse,
+      authService: AuthService = AuthServiceWildcard)(
       f: (CommandCompletionClient, CommandCompletionServiceImpl) => Any): Any = {
     val (service, impl) =
       CommandCompletionServiceImpl.createWithRef(completions, end)(executionContext)
-    withServerAndChannel(service) { channel =>
+    withServerAndChannel(authService, Seq(service)) { channel =>
       f(new CommandCompletionClientImpl(ledgerId, channel, esf), impl)
     }
   }
@@ -121,14 +137,15 @@ class LedgerServices(val ledgerId: String) {
   def withPackageClient(
       listPackagesResponse: Future[ListPackagesResponse],
       getPackageResponse: Future[GetPackageResponse],
-      getPackageStatusResponse: Future[GetPackageStatusResponse])(
+      getPackageStatusResponse: Future[GetPackageStatusResponse],
+      authService: AuthService = AuthServiceWildcard)(
       f: (PackageClient, PackageServiceImpl) => Any): Any = {
     val (service, impl) =
       PackageServiceImpl.createWithRef(
         listPackagesResponse,
         getPackageResponse,
         getPackageStatusResponse)(executionContext)
-    withServerAndChannel(service) { channel =>
+    withServerAndChannel(authService, Seq(service)) { channel =>
       f(new PackageClientImpl(ledgerId, channel), impl)
     }
   }
@@ -137,39 +154,45 @@ class LedgerServices(val ledgerId: String) {
       submitAndWaitResponse: Future[Empty],
       submitAndWaitForTransactionIdResponse: Future[SubmitAndWaitForTransactionIdResponse],
       submitAndWaitForTransactionResponse: Future[SubmitAndWaitForTransactionResponse],
-      submitAndWaitForTransactionTreeResponse: Future[SubmitAndWaitForTransactionTreeResponse])(
+      submitAndWaitForTransactionTreeResponse: Future[SubmitAndWaitForTransactionTreeResponse],
+      authService: AuthService = AuthServiceWildcard)(
       f: (CommandClientImpl, CommandServiceImpl) => Any): Any = {
     val (service, serviceImpl) = CommandServiceImpl.createWithRef(
       submitAndWaitResponse,
       submitAndWaitForTransactionIdResponse,
       submitAndWaitForTransactionResponse,
       submitAndWaitForTransactionTreeResponse)(executionContext)
-    withServerAndChannel(service) { channel =>
+    withServerAndChannel(authService, Seq(service)) { channel =>
       f(new CommandClientImpl(ledgerId, channel), serviceImpl)
     }
   }
 
-  def withConfigurationClient(responses: Seq[GetLedgerConfigurationResponse])(
+  def withConfigurationClient(
+      responses: Seq[GetLedgerConfigurationResponse],
+      authService: AuthService = AuthServiceWildcard)(
       f: (LedgerConfigurationClient, LedgerConfigurationServiceImpl) => Any): Any = {
     val (service, impl) = LedgerConfigurationServiceImpl.createWithRef(responses)(executionContext)
-    withServerAndChannel(service) { channel =>
+    withServerAndChannel(authService, Seq(service)) { channel =>
       f(new LedgerConfigurationClientImpl(ledgerId, channel, esf), impl)
     }
   }
 
-  def withLedgerIdentityClient()(
+  def withLedgerIdentityClient(authService: AuthService = AuthServiceWildcard)(
       f: (LedgerIdentityClientImpl, LedgerIdentityServiceImpl) => Any): Any = {
-    val (service, serviceImpl) = LedgerIdentityServiceImpl.createWithRef(ledgerId)(executionContext)
-    withServerAndChannel(service) { channel =>
+    val (service, serviceImpl) =
+      LedgerIdentityServiceImpl.createWithRef(ledgerId, authorizer)(executionContext)
+    withServerAndChannel(authService, Seq(service)) { channel =>
       f(new LedgerIdentityClientImpl(channel), serviceImpl)
     }
   }
 
-  def withTransactionClient(ledgerContent: Observable[LedgerItem])(
+  def withTransactionClient(
+      ledgerContent: Observable[LedgerItem],
+      authService: AuthService = AuthServiceWildcard)(
       f: (TransactionClientImpl, TransactionServiceImpl) => Any): Any = {
     val (service, serviceImpl) =
       TransactionServiceImpl.createWithRef(ledgerContent)(executionContext)
-    withServerAndChannel(service) { channel =>
+    withServerAndChannel(authService, Seq(service)) { channel =>
       f(new TransactionClientImpl(ledgerId, channel, esf), serviceImpl)
     }
   }
@@ -188,7 +211,8 @@ class LedgerServices(val ledgerId: String) {
       getLedgerConfigurationResponses: Seq[GetLedgerConfigurationResponse],
       listPackagesResponse: Future[ListPackagesResponse],
       getPackageResponse: Future[GetPackageResponse],
-      getPackageStatusResponse: Future[GetPackageStatusResponse])(
+      getPackageStatusResponse: Future[GetPackageStatusResponse],
+      authService: AuthService = AuthServiceWildcard)(
       f: (Server, LedgerServicesImpls) => Any): Any = {
     val (services, impls) = LedgerServicesImpls.createWithRef(
       ledgerId,
@@ -207,7 +231,7 @@ class LedgerServices(val ledgerId: String) {
       getPackageResponse,
       getPackageStatusResponse
     )(executionContext)
-    withServer(services: _*) { server =>
+    withServer(authService, services) { server =>
       f(server, impls)
     }
   }

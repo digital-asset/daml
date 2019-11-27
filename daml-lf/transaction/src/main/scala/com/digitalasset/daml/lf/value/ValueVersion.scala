@@ -25,6 +25,7 @@ object ValueVersions
   private[value] val minMap = ValueVersion("4")
   private[value] val minEnum = ValueVersion("5")
   private[value] val minNumeric = ValueVersion("6")
+  private[value] val minGenMap = ValueVersion("7")
 
   def assignVersion[Cid](v0: Value[Cid]): Either[String, ValueVersion] = {
     import VersionTimeline.{maxVersion => maxVV}
@@ -56,6 +57,11 @@ object ValueVersions
                 go(maxVV(minOptional, currentVersion), ImmArray(x.toList) ++: values)
               case ValueTextMap(map) =>
                 go(maxVV(minMap, currentVersion), map.values ++: values)
+              case ValueGenMap(entries) =>
+                val newValues = entries.iterator.foldLeft(values) {
+                  case (acc, (key, value)) => key +: value +: acc
+                }
+                go(maxVV(minGenMap, currentVersion), newValues)
               case ValueEnum(_, _) =>
                 go(maxVV(minEnum, currentVersion), values)
               // tuples are a no-no

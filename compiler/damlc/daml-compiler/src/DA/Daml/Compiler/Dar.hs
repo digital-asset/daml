@@ -15,6 +15,7 @@ module DA.Daml.Compiler.Dar
     ) where
 
 import qualified "zip" Codec.Archive.Zip as Zip
+import Control.Exception (assert)
 import Control.Monad.Extra
 import Control.Monad.IO.Class
 import Control.Monad.Trans.Class
@@ -117,8 +118,9 @@ buildDar service pkgConf@PackageConfigFields {..} ifDir dalfInput = do
              runMaybeT $ do
                  files <- getDamlFiles pSrc
                  opts <- lift getIdeOptions
+                 lfVersion <- lift getDamlLfVersion
                  pkg <- case optShakeFiles opts of
-                     Nothing -> mergePkgs <$> usesE GeneratePackage files
+                     Nothing -> mergePkgs lfVersion <$> usesE GeneratePackage files
                      Just _ -> generateSerializedPackage pName files
                  let pkgModuleNames = map T.unpack $ LF.packageModuleNames pkg
                  let missingExposed =
@@ -204,16 +206,15 @@ getSrcRoot fileOrDir = do
           pure $ toNormalizedFilePath root
 
 -- | Merge several packages into one.
-mergePkgs :: [WhnfPackage] -> LF.Package
-mergePkgs [] = error "No package build when building dar"
-mergePkgs (WhnfPackage pkg0:pkgs) =
-    foldl
-        (\pkg1 (WhnfPackage pkg2) ->
+mergePkgs :: LF.Version -> [WhnfPackage] -> LF.Package
+mergePkgs ver pkgs =
+    foldl'
+        (\pkg1 (WhnfPackage pkg2) -> assert (LF.packageLfVersion pkg1 == ver) $
              LF.Package
-                 { LF.packageLfVersion = LF.packageLfVersion pkg2
+                 { LF.packageLfVersion = ver
                  , LF.packageModules = LF.packageModules pkg1 `NM.union` LF.packageModules pkg2
                  })
-        pkg0
+        LF.Package { LF.packageLfVersion = ver, LF.packageModules = NM.empty }
         pkgs
 
 -- | Find all DAML files below a given source root. If the source root is a file we interpret it as

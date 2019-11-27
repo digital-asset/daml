@@ -14,6 +14,8 @@ genrule(
         "//language-support/java/bindings:bindings-java_pom.xml",
         "//language-support/java/bindings-rxjava:libbindings-rxjava.jar",
         "//language-support/java/bindings-rxjava:bindings-rxjava_pom.xml",
+        "//ledger/ledger-api-auth-client:libledger-api-auth-client.jar",
+        "//ledger/ledger-api-auth-client:ledger-api-auth-client_pom.xml",
         "//language-support/java/codegen:shaded_binary.jar",
         "//language-support/java/codegen:shaded_binary_pom.xml",
         "//ledger-api/rs-grpc-bridge:librs-grpc-bridge.jar",
@@ -57,6 +59,10 @@ genrule(
         "com.digitalasset.ledger-api" "rs-grpc-bridge" \
         $(location //ledger-api/rs-grpc-bridge:librs-grpc-bridge.jar) \
         $(location //ledger-api/rs-grpc-bridge:rs-grpc-bridge_pom.xml)
+      install_mvn \
+        "com.digitalasset.ledger" "ledger-api-auth-client" \
+        $(location //ledger/ledger-api-auth-client:libledger-api-auth-client.jar) \
+        $(location //ledger/ledger-api-auth-client:ledger-api-auth-client_pom.xml)
       $(location @mvn_dev_env//:mvn) -q -Dmaven.repo.local=$$MVN_DB -f "$$TMP_DIR/quickstart-java/pom.xml" dependency:resolve dependency:resolve-plugins
       tar cf $(location integration-tests-mvn.tar) -C $$(dirname $$MVN_DB) $$(basename $$MVN_DB)
     """,

@@ -3,27 +3,28 @@
 module DA.Daml.Assistant.IntegrationTests (main) where
 
 import Conduit hiding (connect)
-import qualified Data.Conduit.Zlib as Zlib
-import qualified Data.Conduit.Tar.Extra as Tar.Conduit.Extra
 import Control.Concurrent
 import Control.Concurrent.Async
 import Control.Exception
 import Control.Monad
 import Control.Monad.Fail (MonadFail)
+import DA.Daml.Options.Types
 import qualified Data.Aeson.Types as Aeson
+import qualified Data.Conduit.Tar.Extra as Tar.Conduit.Extra
+import qualified Data.Conduit.Zlib as Zlib
 import Data.List.Extra
 import qualified Data.Map as Map
+import Data.Maybe (maybeToList)
 import qualified Data.Text as T
 import Data.Typeable
-import Data.Maybe (maybeToList)
 import Network.HTTP.Client
 import Network.HTTP.Types
 import Network.Socket
 import System.Directory.Extra
 import System.Environment.Blank
 import System.FilePath
-import System.Info.Extra
 import System.IO.Extra
+import System.Info.Extra
 import System.Process
 import Test.Main
 import Test.Tasty
@@ -32,7 +33,6 @@ import qualified Web.JWT as JWT
 
 import DA.Bazel.Runfiles
 import DA.Daml.Helper.Run
-import DA.Daml.Options.Types
 import SdkVersion
 
 main :: IO ()
@@ -133,7 +133,7 @@ noassistantTests damlDir = testGroup "no assistant"
 -- integration tests.
 packagingTests :: TestTree
 packagingTests = testGroup "packaging"
-    ([ testCase "Build copy trigger" $ withTempDir $ \tmpDir -> do
+     [ testCase "Build copy trigger" $ withTempDir $ \tmpDir -> do
         let projDir = tmpDir </> "copy-trigger"
         callCommandQuiet $ unwords ["daml", "new", projDir, "copy-trigger"]
         withCurrentDirectory projDir $ callCommandQuiet "daml build"
@@ -145,8 +145,7 @@ packagingTests = testGroup "packaging"
         withCurrentDirectory projDir $ callCommandQuiet "daml build"
         let dar = projDir </> ".daml/dist/script-example-0.0.1.dar"
         assertBool "script-example-0.0.1.dar was not created." =<< doesFileExist dar
-    ]
-    <> [ testCaseSteps "Build migration package" $ \step -> withTempDir $ \tmpDir -> do
+     , testCaseSteps "Build migration package" $ \step -> withTempDir $ \tmpDir -> do
         -- it's important that we have fresh empty directories here!
         let projectA = tmpDir </> "a-1.0"
         let projectB = tmpDir </> "a-2.0"
@@ -310,8 +309,6 @@ packagingTests = testGroup "packaging"
            , "import MainBGenInstances()"
            , "import DA.Upgrade"
            , "import DA.Generics"
-           , "template instance FooUpgrade = Upgrade A.Foo B.Foo"
-           , "template instance FooRollback = Rollback A.Foo B.Foo"
            , "instance Convertible A.Foo B.Foo"
            , "instance Convertible B.Foo A.Foo"
            ]
@@ -429,7 +426,7 @@ packagingTests = testGroup "packaging"
               , bWithUpgradesDar
               ]
         assertBool "a-0.2-with-upgrades.dar was not created." =<< doesFileExist bWithUpgradesDar
-    ])
+    ]
 
 quickstartTests :: FilePath -> FilePath -> TestTree
 quickstartTests quickstartDir mvnDir = testGroup "quickstart"

@@ -314,7 +314,7 @@ object ValuePredicate {
             val elemTy = soleTypeArg("Optional")
             fromOptional(q, elemTy)
         }
-        case Map => {
+        case TextMap => {
           case JsObject(q) =>
             val elemTy = soleTypeArg("Map")
             MapMatch(SortedLookupList(q) mapValue (fromValue(_, elemTy)))

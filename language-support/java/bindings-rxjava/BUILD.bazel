@@ -34,6 +34,7 @@ da_java_library(
     deps = [
         "//language-support/java/bindings:bindings-java",
         "//ledger-api/rs-grpc-bridge",
+        "//ledger/ledger-api-auth-client",
         "@maven//:com_google_api_grpc_proto_google_common_protos",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:io_grpc_grpc_api",
@@ -59,6 +60,8 @@ testDependencies = [
     "//libs-scala/grpc-utils",
     "//language-support/java/testkit:testkit",
     "//ledger-api/rs-grpc-bridge:rs-grpc-bridge",
+    "//ledger/ledger-api-auth",
+    "//ledger/ledger-api-common",
     "@maven//:org_scalatest_scalatest_2_12",
     "@maven//:io_reactivex_rxjava2_rxjava",
     "@maven//:com_google_api_grpc_proto_google_common_protos",

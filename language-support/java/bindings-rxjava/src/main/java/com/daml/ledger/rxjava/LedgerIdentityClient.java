@@ -11,4 +11,6 @@ import io.reactivex.Single;
 public interface LedgerIdentityClient {
 
     Single<String> getLedgerIdentity();
+
+    Single<String> getLedgerIdentity(String accessToken);
 }

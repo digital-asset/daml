@@ -7,6 +7,7 @@ import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.daml.ledger.participant.state.index.v2
+import com.daml.ledger.participant.state.v1.Configuration
 import com.digitalasset.daml.lf.archive.Decode
 import com.digitalasset.daml.lf.data.Ref.{PackageId, Party, TransactionIdString}
 import com.digitalasset.daml.lf.language.Ast
@@ -21,7 +22,12 @@ import com.digitalasset.platform.common.util.DirectExecutionContext
 import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilter
 import com.digitalasset.platform.sandbox.stores.ActiveLedgerState
 import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.LedgerReadDao
-import com.digitalasset.platform.sandbox.stores.ledger.{LedgerEntry, LedgerSnapshot, ReadOnlyLedger}
+import com.digitalasset.platform.sandbox.stores.ledger.{
+  LedgerEntry,
+  LedgerSnapshot,
+  ReadOnlyLedger,
+  ConfigurationEntry
+}
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
@@ -85,8 +91,16 @@ class BaseLedger(val ledgerId: LedgerId, headAtInitialization: Long, ledgerDao: 
       .flatMap(archiveO =>
         Future.fromTry(Try(archiveO.map(archive => Decode.decodeArchive(archive)._2))))(DEC)
 
+  override def lookupLedgerConfiguration(): Future[Option[Configuration]] =
+    ledgerDao.lookupLedgerConfiguration()
+
+  override def configurationEntries(
+      offset: Option[Long]): Source[(Long, ConfigurationEntry), NotUsed] =
+    dispatcher.startingAt(offset.getOrElse(0), RangeSource(ledgerDao.getConfigurationEntries(_, _)))
+
   override def close(): Unit = {
     dispatcher.close()
     ledgerDao.close()
   }
+
 }

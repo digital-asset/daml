@@ -4,7 +4,6 @@
 package com.daml.ledger.rxjava
 
 import java.time.Instant
-import java.util.Optional
 import java.util.concurrent.TimeUnit
 
 import com.daml.ledger.javaapi.data.LedgerOffset.Absolute
@@ -36,19 +35,17 @@ class DamlLedgerClientTest extends FlatSpec with Matchers with OptionValues with
 
   it should "connect to an existing ledger-api grpc service with the correct ledgerId and pass the ledgerId to the clients" in {
     withFakeLedgerServer() { (server, impls) =>
-      val damlLedgerClient = DamlLedgerClient.forLedgerIdAndHost(
-        ledgerServices.ledgerId,
-        "localhost",
-        server.getPort,
-        Optional.empty())
+      val damlLedgerClient = DamlLedgerClient
+        .newBuilder("localhost", server.getPort)
+        .withExpectedLedgerId(ledgerServices.ledgerId)
+        .build()
       testDamlLedgerClient(damlLedgerClient, impls)
     }
   }
 
   it should "connect to an existing ledger-api grpc service, autodiscover the ledgerId and pass it to the clients" in {
     withFakeLedgerServer() { (server, impls) =>
-      val damlLedgerClient =
-        DamlLedgerClient.forHostWithLedgerIdDiscovery("localhost", server.getPort, Optional.empty())
+      val damlLedgerClient = DamlLedgerClient.newBuilder("localhost", server.getPort).build()
       testDamlLedgerClient(damlLedgerClient, impls)
     }
   }

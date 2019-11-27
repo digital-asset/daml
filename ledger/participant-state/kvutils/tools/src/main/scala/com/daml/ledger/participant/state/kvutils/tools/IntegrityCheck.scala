@@ -7,9 +7,8 @@ import java.io.{DataInputStream, FileInputStream}
 import java.util.concurrent.TimeUnit
 
 import com.codahale.metrics
-import com.daml.ledger.participant.state.backport.TimeModel
 import com.daml.ledger.participant.state.kvutils.{DamlKvutils => Proto, _}
-import com.daml.ledger.participant.state.v1.{Configuration, Update}
+import com.daml.ledger.participant.state.v1._
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.engine.Engine
 
@@ -51,9 +50,7 @@ object IntegrityCheck extends App {
   val engine = Engine()
   val defaultConfig = Configuration(
     generation = 0,
-    timeModel = TimeModel.reasonableDefault,
-    authorizedParticipantId = None,
-    openWorld = true
+    timeModel = TimeModel.reasonableDefault
   )
   var state = Map.empty[Proto.DamlStateKey, Proto.DamlStateValue]
 

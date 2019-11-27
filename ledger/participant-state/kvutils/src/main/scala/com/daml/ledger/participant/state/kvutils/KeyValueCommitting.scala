@@ -55,6 +55,10 @@ object KeyValueCommitting {
     *   Resolved input state specified in submission. Optional to mark that input state was resolved
     *   but not present. Specifically we require the command de-duplication input to be resolved, but don't
     *   expect to be present.
+    *   We also do not trust the submitter to provide the correct list of input keys and we need
+    *   to verify that an input actually does not exist and was not just included in inputs.
+    *   For example when committing a configuration we need the current configuration to authorize
+    *   the submission.
     * @return Log entry to be committed and the DAML state updates to be applied.
     */
   @throws(classOf[Err])

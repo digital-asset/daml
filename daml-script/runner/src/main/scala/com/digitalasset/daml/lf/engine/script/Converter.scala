@@ -38,6 +38,7 @@ import com.digitalasset.platform.participant.util.LfEngineToApi.{
   lfValueToApiRecord,
   lfValueToApiValue
 }
+import com.digitalasset.daml.lf.speedy.Pretty
 
 class ConverterException(message: String) extends RuntimeException(message)
 
@@ -201,6 +202,7 @@ object Converter {
       } else {
         machine.step() match {
           case SResultContinue => iter()
+          case SResultError(err) => Left(Pretty.prettyError(err, machine.ptx).render(80))
           case res => Left(res.toString())
         }
       }

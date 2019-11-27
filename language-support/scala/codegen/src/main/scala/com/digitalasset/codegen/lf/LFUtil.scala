@@ -85,7 +85,7 @@ final case class LFUtil(
         case PT.Date => q"$primitiveObject.Date"
         case PT.Timestamp => q"$primitiveObject.Timestamp"
         case PT.Unit => q"$primitiveObject.Unit"
-        case PT.List | PT.ContractId | PT.Optional | PT.Map | PT.GenMap =>
+        case PT.List | PT.ContractId | PT.Optional | PT.TextMap | PT.GenMap =>
           throw UnsupportedDamlTypeException(
             s"type $refType should not occur in a Data-kinded position; this is an invalid input LF")
         case TypeConName(tyCon) =>
@@ -103,7 +103,7 @@ final case class LFUtil(
       case TypePrim(PT.Optional, ImmArraySeq(typ)) =>
         val optType = genTypeToScalaType(typ)
         q"$primitiveObject.Optional[$optType]"
-      case TypePrim(PT.Map, ImmArraySeq(typ)) =>
+      case TypePrim(PT.TextMap, ImmArraySeq(typ)) =>
         val optType = genTypeToScalaType(typ)
         q"$primitiveObject.Map[$optType]"
       case TypePrim(PT.GenMap, ImmArraySeq(_, _)) =>

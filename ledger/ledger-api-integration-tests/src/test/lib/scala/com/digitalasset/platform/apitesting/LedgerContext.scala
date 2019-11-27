@@ -45,7 +45,7 @@ import com.digitalasset.ledger.api.v1.testing.time_service.TimeServiceGrpc
 import com.digitalasset.ledger.api.v1.testing.time_service.TimeServiceGrpc.TimeServiceStub
 import com.digitalasset.ledger.api.v1.transaction_service.TransactionServiceGrpc
 import com.digitalasset.ledger.api.v1.transaction_service.TransactionServiceGrpc.TransactionServiceStub
-import com.digitalasset.ledger.client.auth.LedgerClientCallCredentials
+import com.digitalasset.ledger.api.auth.client.LedgerCallCredentials
 import com.digitalasset.ledger.client.configuration.CommandClientConfiguration
 import com.digitalasset.ledger.client.services.acs.ActiveContractSetClient
 import com.digitalasset.ledger.client.services.commands.CommandClient
@@ -95,7 +95,7 @@ trait LedgerContext {
     *  @return the new LedgerContext
     */
   def withAuthorizationHeader(headerValue: String): LedgerContext =
-    withCallCredentials(new LedgerClientCallCredentials(headerValue))
+    withCallCredentials(new LedgerCallCredentials(headerValue))
 
   def packageIds: Iterable[Ref.PackageId]
   def ledgerIdentityService: LedgerIdentityServiceStub

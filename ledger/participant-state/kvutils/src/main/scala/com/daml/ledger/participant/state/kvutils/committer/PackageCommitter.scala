@@ -130,7 +130,7 @@ private[kvutils] case class PackageCommitter(engine: Engine)
     */
   private def preload(submissionId: String, archives: Iterable[Archive]): Runnable = { () =>
     val ctx = Metrics.preloadTimer.time()
-    def trace(msg: String): Unit = logger.trace("[submissionId=$submissionId]: " + msg)
+    def trace(msg: String): Unit = logger.trace(s"[submissionId=$submissionId]: " + msg)
     try {
       val loadedPackages = engine.compiledPackages().packageIds
       val packages: Map[Ref.PackageId, Ast.Package] = Metrics.decodeTimer.time { () =>
