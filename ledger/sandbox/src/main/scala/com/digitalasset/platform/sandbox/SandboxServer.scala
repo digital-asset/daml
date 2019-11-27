@@ -241,7 +241,7 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
 
     val healthChecks = new HealthChecks(
       "index" -> indexAndWriteService.indexService,
-      "ledger" -> indexAndWriteService.writeService,
+      "write" -> indexAndWriteService.writeService,
     )
 
     val apiServer = Await.result(
