@@ -267,6 +267,8 @@ Version: 1.dev
 
   * **Rename** ``Map`` to ``TextMap``
 
+  * **Add** type synonyms.
+
 Abstract syntax
 ^^^^^^^^^^^^^^^
 
@@ -474,8 +476,8 @@ future addition to allowed identifier characters.
 
 In the following, we will use identifiers to represent *built-in
 functions*, term and type *variable names*, record and tuple *field
-names*, *variant constructors*, and *template choices*. On the other
-hand, we will use names to represent *type constructors*, *value
+names*, *variant constructors* and *template choices*. On the other
+hand, we will use names to represent *type constructors*, *type synonyms*, *value
 references*, and *module names*. Finally, we will use PackageId
 strings as *package identifiers*.  ::
 
@@ -505,6 +507,9 @@ strings as *package identifiers*.  ::
 
   Type constructors
               T ::= Name                            -- TyConName
+
+  Type synonym names
+              S ::= Name                            -- TypeSynonym
 
   Module names
         ModName ::= Name                            -- ModName
@@ -676,6 +681,7 @@ available for usage::
        |  'variant' T (α₁: k₁)… (αₙ: kₙ) ↦ V₁ : τ₁ | … | Vₘ : τₘ
                                                     -- DefVariant
        |  'enum' T  ↦ E₁ | … | Eₘ                    -- DefEnum
+       |  'synonym' S (α₁: k₁)… (αₙ: kₙ) ↦ τ        -- DefTypeSynonym
        |  'val' W : τ ↦ e                           -- DefValue
        |  'tpl' (x : T) ↦                           -- DefTemplate
             { 'precondition' e₁
@@ -846,6 +852,13 @@ First, we formally defined *well-formed types*. ::
     ————————————————————————————————————————————— TyTuple
       Γ  ⊢  ⟨ f₁: τ₁, …, fₙ: τₙ ⟩  :  ⋆
 
+      'synonym' S (α₁:k₁) … (αₙ:kₙ) ↦ τ ∈ 〚Ξ〛Mod
+      Γ  ⊢  τ₁ : k₁  …  Γ  ⊢  τₙ : kₙ
+    ————————————————————————————————————————————— TyTypeSynonym
+      Γ  ⊢  Mod:S τ₁ … τₙ  :  ⋆
+
+
+
 
 Well-formed expression
 ......................
@@ -981,6 +994,12 @@ Then we define *well-formed expressions*. ::
       'enum' T ↦ … | Eᵢ | …  ∈  〚Ξ〛Mod
     ——————————————————————————————————————————————————————————————— ExpEnumCon
       Γ  ⊢  Mod:T:Eᵢ  :  Mod:T
+
+      'synonym' S (α₁:k₁) … (αₙ:kₙ) ↦ τ
+      Γ  ⊢  τ₁ : k₁    ⋯     Γ  ⊢  τₙ : kₙ
+      Γ  ↦  e : τ[α₁ ↦ τ₁, …, α₁ ↦ τₙ]
+    ——————————————————————————————————————————————————————————————— ExpTypeSynonym
+      Γ  ⊢  e : Mod:S τ₁ … τₙ
 
       Γ  ⊢  e₁  :  τ₁      …      Γ  ⊢  eₘ  :  τₘ
     ——————————————————————————————————————————————————————————————— ExpTupleCon
@@ -1219,6 +1238,10 @@ for the ``DefTemplate`` rule). ::
   ——————————————————————————————————————————————————————————————— DefEnum
     ⊢  'enum' T  ↦ E₁ | … | Eₘ
 
+    (α₁:k₁) … (αₙ:kₙ) · Γ  ⊢  τ  :  ⋆
+  ——————————————————————————————————————————————————————————————— DefTypeSynonym
+    ⊢  'synonym' S (α₁: k₁) … (αₙ: kₙ) ↦ τ
+
     ε  ⊢  e  :  τ
   ——————————————————————————————————————————————————————————————— DefValue
     ⊢  'val' W : τ ↦ e
@@ -1341,17 +1364,19 @@ name* construct as follows:
   in the module ``Mod`` is ``Mod.T``.
 * The *fully resolved name* of a variant type constructor ``T``
   defined in the module ``Mod`` is ``Mod.T``.
-* The *fully resolved name* of a enum type constructor ``T``
-  defined in the module ``Mod`` is ``Mod.T``.
+* The *fully resolved name* of a enum type constructor ``T`` defined
+  in the module ``Mod`` is ``Mod.T``.
+* The *fully resolved name* of a type synonym ``S`` defined in the
+  module ``Mod`` is ``Mod.S``.
 * The *fully resolved name* of a field ``fᵢ`` of a record type
-  definition ``'record' T …  ↦ { …, fᵢ: τᵢ, … }`` defined in the module
-  ``Mod`` is ``Mod.T.fᵢ``
+  definition ``'record' T …  ↦ { …, fᵢ: τᵢ, … }`` defined in the
+  module ``Mod`` is ``Mod.T.fᵢ``
 * The *fully resolved name* of a variant constructor ``Vᵢ`` of a
-  variant type definition ``'variant' T … ↦ …  | Vᵢ: τᵢ | …`` defined in
-  the module ``Mod`` is ``Mod.T.Vᵢ``.
-* The *fully resolved name* of a enum constructor ``Eᵢ`` of a enum type
-   definition ``'enum' T ↦ …  | Eᵢ | …`` defined in the module ``Mod``
-   is ``Mod.T.Eᵢ``.
+  variant type definition ``'variant' T … ↦ …  | Vᵢ: τᵢ | …`` defined
+  in the module ``Mod`` is ``Mod.T.Vᵢ``.
+* The *fully resolved name* of a enum constructor ``Eᵢ`` of a enum
+   type definition ``'enum' T ↦ …  | Eᵢ | …`` defined in the module
+   ``Mod`` is ``Mod.T.Eᵢ``.
 * The *fully resolved name* of a choice ``Ch`` of a template
   definition ``'tpl' (x : T) ↦ { …, 'choices' { …, 'choice' ChKind Ch
   … ↦ …, … } }`` defined in the module ``Mod`` is ``Mod.T.Ch``.

@@ -22,7 +22,8 @@ import com.digitalasset.ledger.api.v1.TransactionServiceOuterClass.{
 import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.sandbox.config.SandboxConfig
 import com.digitalasset.platform.sandbox.services.SandboxServerResource
-import com.digitalasset.platform.services.time.{TimeModel, TimeProviderType}
+import com.digitalasset.platform.services.time.TimeProviderType
+import com.daml.ledger.participant.state.v1.TimeModel
 import io.grpc.Channel
 import org.scalatest.Assertion
 

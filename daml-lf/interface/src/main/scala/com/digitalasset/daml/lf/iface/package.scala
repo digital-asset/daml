@@ -12,6 +12,10 @@ import scala.collection.TraversableLike
 
 // Types to be used internally
 package object iface {
+
+  @deprecated("Use TextMap", since = "0.13.38")
+  val PrimTypeMap = PrimTypeTextMap
+
   type FieldWithType = (Ref.Name, Type)
 
   private[iface] def lfprintln(

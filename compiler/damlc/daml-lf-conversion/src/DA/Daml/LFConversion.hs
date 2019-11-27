@@ -704,7 +704,7 @@ convertBind env (name, x)
 -- during conversion to DAML-LF together with their constructors since we
 -- deliberately remove 'GHC.Types.Opaque' as well.
 internalTypes :: UniqSet FastString
-internalTypes = mkUniqSet ["Scenario","Update","ContractId","Time","Date","Party","Pair", "TextMap", "Any", "TypeRep"]
+internalTypes = mkUniqSet ["Scenario","Update","ContractId","Time","Date","Party","Pair", "TextMap", "Map", "Any", "TypeRep"]
 
 internalFunctions :: UniqFM (UniqSet FastString)
 internalFunctions = listToUFM $ map (bimap mkModuleNameFS mkUniqSet)
@@ -1383,6 +1383,7 @@ convertTyCon env t
             "Date" -> pure TDate
             "Time" -> pure TTimestamp
             "TextMap" -> pure (TBuiltin BTTextMap)
+            "Map" -> pure (TBuiltin BTGenMap)
             "Any" ->
                 -- We just translate this to TUnit when it is not supported.
                 -- We can’t get rid of it completely since the template desugaring uses

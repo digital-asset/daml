@@ -27,6 +27,7 @@ fi
 TESTS_DIR=$(dirname $(rlocation "$TEST_WORKSPACE/compiler/damlc/tests/daml-test-files/Examples.daml"))
 damlc=$(rlocation "$TEST_WORKSPACE/$1")
 protoc=$(rlocation "$TEST_WORKSPACE/$2")
+diff="$3"
 
 # Check that DAML compilation is deterministic.
 TMP_SRC1=$(mktemp -d)
@@ -54,10 +55,10 @@ $protoc --decode_raw < "$TMP_OUT/out_2" > "$TMP_OUT/decoded_out_2"
 # We first diff the decoded files to get useful debugging output and
 # then the non-decoded files to ensure that we actually get bitwise
 # identical outputs.
-diff -u "$TMP_OUT/decoded_out_1" "$TMP_OUT/decoded_out_2"
-diff -u "$TMP_OUT/out_1" "$TMP_OUT/out_2"
+$diff -u "$TMP_OUT/decoded_out_1" "$TMP_OUT/decoded_out_2"
+$diff -u "$TMP_OUT/out_1" "$TMP_OUT/out_2"
 $protoc --decode_raw < "$TMP_OUT/out_proj_1" > "$TMP_OUT/decoded_out_proj_1"
 $protoc --decode_raw < "$TMP_OUT/out_proj_2" > "$TMP_OUT/decoded_out_proj_2"
-diff -u "$TMP_OUT/decoded_out_proj_1" "$TMP_OUT/decoded_out_proj_2"
-diff -u "$TMP_OUT/out_proj_1" "$TMP_OUT/out_proj_2"
+$diff -u "$TMP_OUT/decoded_out_proj_1" "$TMP_OUT/decoded_out_proj_2"
+$diff -u "$TMP_OUT/out_proj_1" "$TMP_OUT/out_proj_2"
 

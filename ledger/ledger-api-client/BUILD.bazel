@@ -19,6 +19,7 @@ da_scala_library(
         "//language-support/scala/bindings",
         "//ledger-api/rs-grpc-akka",
         "//ledger-api/rs-grpc-bridge",
+        "//ledger/ledger-api-auth-client",
         "//ledger/ledger-api-domain",
         "//ledger/participant-state",
         "//libs-scala/grpc-utils",

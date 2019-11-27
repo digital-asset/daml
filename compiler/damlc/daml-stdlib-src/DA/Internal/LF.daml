@@ -22,6 +22,10 @@ module DA.Internal.LF
 
   , TextMap
 
+  #ifdef DAML_GENMAP
+  , Map
+  #endif
+
   , Update
 
   , Scenario
@@ -115,6 +119,14 @@ instance Ord Time where (<=) = primitive @"BELessEq"
 -- `Text` to values of type `a`.
 data TextMap a =
   TextMap Opaque
+
+#ifdef DAML_GENMAP
+-- | The `Map a b` type represents an associative array from keys of type `a`
+-- to values of type `b`. It uses the built-in equality for keys. Import
+-- `DA.Map` to use it.
+data Map a b =
+  Map Opaque
+#endif
 
 -- | The `ContractId a` type represents an ID for a contract created from a template `a`.
 --   You can use the ID to fetch the contract, among other things.

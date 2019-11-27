@@ -136,13 +136,11 @@ class InterfaceReaderSpec extends WordSpec with Matchers with Inside {
     val actual = InterfaceReader.foldModule(wrappInModule(dnfs("MapRecord"), dataType))
     val expectedResult = Map(
       Ref.QualifiedName(moduleName, dnfs("MapRecord")) ->
-        iface.InterfaceType.Normal(
-          DefDataType(
-            ImmArray.empty.toSeq,
-            Record(
-              ImmArraySeq[(Ref.Name, TypePrim)](
-                ("map", TypePrim(PrimTypeMap, ImmArraySeq(TypePrim(PrimTypeInt64, ImmArraySeq()))))
-              ))))
+        iface.InterfaceType.Normal(DefDataType(
+          ImmArray.empty.toSeq,
+          Record(ImmArraySeq[(Ref.Name, TypePrim)](
+            ("map", TypePrim(PrimTypeTextMap, ImmArraySeq(TypePrim(PrimTypeInt64, ImmArraySeq()))))
+          ))))
     )
 
     actual.typeDecls shouldBe expectedResult

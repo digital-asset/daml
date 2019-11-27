@@ -92,8 +92,8 @@ object LfEngineToApi {
             case (left, _) => left
           }
           .map(list => api.Value(api.Value.Sum.Map(api.Map(list))))
-      case Lf.ValueGenMap(arr) =>
-        arr.reverseIterator
+      case Lf.ValueGenMap(entries) =>
+        entries.reverseIterator
           .foldLeft[Either[String, List[api.GenMap.Entry]]](Right(List.empty)) {
             case (acc, (k, v)) =>
               for {

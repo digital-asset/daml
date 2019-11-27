@@ -4,6 +4,7 @@
 package com.digitalasset.ledger.client
 
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
+import com.digitalasset.ledger.api.auth.client.LedgerCallCredentials
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.v1.active_contracts_service.ActiveContractsServiceGrpc
 import com.digitalasset.ledger.api.v1.admin.party_management_service.PartyManagementServiceGrpc
@@ -13,7 +14,6 @@ import com.digitalasset.ledger.api.v1.command_submission_service.CommandSubmissi
 import com.digitalasset.ledger.api.v1.ledger_identity_service.LedgerIdentityServiceGrpc
 import com.digitalasset.ledger.api.v1.package_service.PackageServiceGrpc
 import com.digitalasset.ledger.api.v1.transaction_service.TransactionServiceGrpc
-import com.digitalasset.ledger.client.auth.LedgerClientCallCredentials.authenticatingStub
 import com.digitalasset.ledger.client.configuration.LedgerClientConfiguration
 import com.digitalasset.ledger.client.services.acs.ActiveContractSetClient
 import com.digitalasset.ledger.client.services.admin.PartyManagementClient
@@ -80,7 +80,7 @@ object LedgerClient {
   }
 
   private[client] def stub[A <: AbstractStub[A]](stub: A, token: Option[String]): A =
-    token.fold(stub)(authenticatingStub(stub))
+    token.fold(stub)(LedgerCallCredentials.authenticatingStub(stub, _))
 
   /**
     * A convenient shortcut to build a [[LedgerClient]], use [[fromBuilder]] for a more

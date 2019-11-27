@@ -74,7 +74,7 @@ package object inner {
           .get(
             ClassName.get(classOf[java.util.Optional[_]]),
             typeParameters.map(toJavaTypeName(_, packagePrefixes)): _*)
-      case TypePrim(PrimTypeMap, typeParameters) =>
+      case TypePrim(PrimTypeTextMap, typeParameters) =>
         ParameterizedTypeName
           .get(
             ClassName.get(classOf[java.util.Map[String, _]]),
@@ -104,7 +104,7 @@ package object inner {
         ClassName.get(classOf[DamlList])
       case TypePrim(PrimTypeOptional, _) =>
         ClassName.get(classOf[DamlOptional])
-      case TypePrim(PrimTypeMap, _) =>
+      case TypePrim(PrimTypeTextMap, _) =>
         ClassName.get(classOf[DamlTextMap])
       case TypePrim(PrimTypeGenMap, _) =>
         ClassName.get(classOf[DamlGenMap])

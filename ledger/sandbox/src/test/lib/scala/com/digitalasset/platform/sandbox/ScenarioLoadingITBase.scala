@@ -68,7 +68,7 @@ abstract class ScenarioLoadingITBase
   private val allTemplatesForParty = M.transactionFilter
 
   private def getSnapshot(transactionFilter: TransactionFilter = allTemplatesForParty) =
-    newACClient(ledgerIdOnServer)
+    newACClient(ledgerId())
       .getActiveContracts(transactionFilter)
       .runWith(Sink.seq)
 
@@ -101,7 +101,7 @@ abstract class ScenarioLoadingITBase
     val letInstant = Instant.EPOCH.plus(10, ChronoUnit.DAYS)
     val let = Timestamp(letInstant.getEpochSecond, letInstant.getNano)
     val mrt = Timestamp(let.seconds + 30L, let.nanos)
-    dummyCommands(ledgerId, "commandId1").update(
+    dummyCommands(ledgerId(), "commandId1").update(
       _.commands.ledgerEffectiveTime := let,
       _.commands.maximumRecordTime := mrt
     )
@@ -136,7 +136,7 @@ abstract class ScenarioLoadingITBase
         val beginOffset =
           LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN))
         val resultsF =
-          newTransactionClient(ledgerIdOnServer)
+          newTransactionClient(ledgerId())
             .getTransactions(beginOffset, None, transactionFilter)
             .take(4)
             .runWith(Sink.seq)
@@ -166,7 +166,7 @@ abstract class ScenarioLoadingITBase
       }
 
       "event ids can be used to load transactions (ACS)" in {
-        val client = newTransactionClient(ledgerIdOnServer)
+        val client = newTransactionClient(ledgerId())
         whenReady(submitRequest(SubmitAndWaitRequest(commands = dummyRequest.commands))) { _ =>
           whenReady(getSnapshot()) { resp =>
             val responses = resp.init // last response is just ledger offset
@@ -187,7 +187,7 @@ abstract class ScenarioLoadingITBase
       "event ids are the same as contract ids (transaction service)" in {
         val beginOffset =
           LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN))
-        val client = newTransactionClient(ledgerIdOnServer)
+        val client = newTransactionClient(ledgerId())
         val resultsF = client
           .getTransactions(beginOffset, None, transactionFilter)
           .take(4)

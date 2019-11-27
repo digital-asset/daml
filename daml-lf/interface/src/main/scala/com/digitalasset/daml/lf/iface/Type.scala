@@ -141,7 +141,7 @@ sealed abstract class PrimType extends TypeConNameOrPrimType {
       case List => list
       case Unit => unit
       case Optional => optional
-      case Map => map
+      case TextMap => map
       case GenMap => genMap
     }
   }
@@ -158,7 +158,9 @@ object PrimType {
   final val List = PrimTypeList
   final val Unit = PrimTypeUnit
   final val Optional = PrimTypeOptional
-  final val Map = PrimTypeMap
+  final val TextMap = PrimTypeTextMap
+  @deprecated("Use TextMap", since = "0.13.38")
+  final val Map = TextMap
   final val GenMap = PrimTypeGenMap
 }
 
@@ -172,7 +174,7 @@ case object PrimTypeContractId extends PrimType
 case object PrimTypeList extends PrimType
 case object PrimTypeUnit extends PrimType
 case object PrimTypeOptional extends PrimType
-case object PrimTypeMap extends PrimType
+case object PrimTypeTextMap extends PrimType
 case object PrimTypeGenMap extends PrimType
 
 trait PrimTypeVisitor[+Z] {

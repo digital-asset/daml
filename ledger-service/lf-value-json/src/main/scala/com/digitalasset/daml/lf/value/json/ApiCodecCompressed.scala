@@ -143,7 +143,7 @@ abstract class ApiCodecCompressed[Cid](
             }
           case _ if !useArray => V.ValueOptional(Some(jsValueToApiValue(value, typArg, defs)))
         }
-      case Model.DamlLfPrimType.Map => {
+      case Model.DamlLfPrimType.TextMap => {
         case JsObject(a) =>
           V.ValueTextMap(SortedLookupList(a.transform { (_, v) =>
             jsValueToApiValue(v, prim.typArgs.head, defs)

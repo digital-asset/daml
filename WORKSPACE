@@ -705,6 +705,24 @@ load("@com_github_bazelbuild_buildtools//buildifier:deps.bzl", "buildifier_depen
 buildifier_dependencies()
 
 nixpkgs_package(
+    name = "grpc_nix",
+    attribute_path = "grpc",
+    build_file_content = """
+load("@os_info//:os_info.bzl", "is_linux")
+cc_library(
+  name = "grpc_lib",
+  srcs = [":lib/libgrpc.so", ":lib/libgpr.so"] if is_linux else [":lib/libgrpc.dylib", ":lib/libgpr.dylib"],
+  visibility = ["//visibility:public"],
+  hdrs = [":include"],
+  includes = ["include"],
+)
+    """,
+    nix_file = "//nix:bazel.nix",
+    nix_file_deps = common_nix_file_deps,
+    repositories = dev_env_nix_repos,
+)
+
+nixpkgs_package(
     name = "python3_nix",
     attribute_path = "python3",
     nix_file = "//nix:bazel.nix",

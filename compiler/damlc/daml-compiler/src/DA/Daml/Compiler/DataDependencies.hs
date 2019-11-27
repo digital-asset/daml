@@ -40,15 +40,15 @@ import SdkVersion
 data Env = Env
     { envGetUnitId :: LF.PackageRef -> UnitId
     , envQualify :: Bool
+    , envSdkPrefix :: Maybe String
     , envMod :: LF.Module
     }
 
 -- | Extract all data defintions from a daml-lf module and generate a haskell source file from it.
 generateSrcFromLf ::
        Env
-    -> LF.PackageId
     -> ParsedSource
-generateSrcFromLf env thisPkgId = noLoc mod
+generateSrcFromLf env = noLoc mod
   where
     -- TODO (drsk) how come those '#' appear in daml-lf names?
     sanitize = T.dropWhileEnd (== '#')
@@ -180,41 +180,8 @@ generateSrcFromLf env thisPkgId = noLoc mod
                 | conName <- cons
                 ]
 
-    imports = declImports ++ additionalImports
-    mkImport :: Bool -> String -> [LImportDecl GhcPs]
-    mkImport pred modName = [ noLoc $
-        ImportDecl
-            { ideclExt = noExt
-            , ideclSourceSrc = NoSourceText
-            , ideclName = noLoc $ mkModuleName modName
-            , ideclPkgQual = Nothing
-            , ideclSource = False
-            , ideclSafe = False
-            , ideclImplicit = False
-            , ideclQualified = False
-            , ideclAs = Nothing
-            , ideclHiding = Nothing
-            } :: LImportDecl GhcPs
-        | pred
-        ]
-    -- additional imports needed for typechecking
-    additionalImports =
-        concat
-            [ mkImport
-                  ((unitIdString $ envGetUnitId env $ LF.PRImport thisPkgId) /= "daml-prim")
-                  "GHC.Err"
-            , mkImport
-                  ((unitIdString $ envGetUnitId env $ LF.PRImport thisPkgId) /= "daml-prim")
-                  "GHC.CString"
-            , mkImport
-                  ((LF.unModuleName $ LF.moduleName $ envMod env) == ["GHC", "Types"])
-                  "GHC.Prim"
-            , mkImport
-                  ((LF.unModuleName $ LF.moduleName $ envMod env) /= ["GHC", "Types"])
-                  "GHC.Types"
-            ]
     -- imports needed by the module declarations
-    declImports
+    imports
      =
         [ noLoc $
         ImportDecl
@@ -246,23 +213,27 @@ generateSrcFromLf env thisPkgId = noLoc mod
             LF.BTInt64 -> (primUnitId, translateModName intTyCon)
             LF.BTDecimal -> (primUnitId, LF.ModuleName ["GHC", "Types"])
             LF.BTText -> (primUnitId, LF.ModuleName ["GHC", "Types"])
-            LF.BTTimestamp -> (damlStdlibUnitId, LF.ModuleName ["DA", "Internal", "LF"])
-            LF.BTDate -> (damlStdlibUnitId, LF.ModuleName ["DA", "Internal", "LF"])
-            LF.BTParty -> (damlStdlibUnitId, LF.ModuleName ["DA", "Internal", "LF"])
+            LF.BTTimestamp -> (damlStdlibUnitId, sdkDaInternalLf)
+            LF.BTDate -> (damlStdlibUnitId, sdkDaInternalLf)
+            LF.BTParty -> (damlStdlibUnitId, sdkDaInternalLf)
             LF.BTUnit -> (primUnitId, translateModName unitTyCon)
             LF.BTBool -> (primUnitId, translateModName boolTyCon)
             LF.BTList -> (primUnitId, translateModName listTyCon)
-            LF.BTUpdate -> (damlStdlibUnitId, LF.ModuleName ["DA", "Internal", "LF"])
-            LF.BTScenario -> (damlStdlibUnitId, LF.ModuleName ["DA", "Internal", "LF"])
-            LF.BTContractId -> (damlStdlibUnitId, LF.ModuleName ["DA", "Internal", "LF"])
-            LF.BTOptional -> (damlStdlibUnitId, LF.ModuleName ["DA", "Internal", "Prelude"])
-            LF.BTTextMap -> (damlStdlibUnitId, LF.ModuleName ["DA", "Internal", "LF"])
-            LF.BTGenMap -> (damlStdlibUnitId, LF.ModuleName ["DA", "Internal", "LF"])
+            LF.BTUpdate -> (damlStdlibUnitId, sdkDaInternalLf)
+            LF.BTScenario -> (damlStdlibUnitId, sdkDaInternalLf)
+            LF.BTContractId -> (damlStdlibUnitId, sdkDaInternalLf)
+            LF.BTOptional -> (damlStdlibUnitId, sdkInternalPrelude)
+            LF.BTTextMap -> (damlStdlibUnitId, sdkDaInternalLf)
+            LF.BTGenMap -> (damlStdlibUnitId, sdkDaInternalLf)
                 -- GENMAP TODO (#2256): Verify module name once GenMap implemented in stdlib.
             LF.BTArrow -> (primUnitId, translateModName funTyCon)
             LF.BTNumeric -> (primUnitId, LF.ModuleName ["GHC", "Types"])
-            LF.BTAny -> (damlStdlibUnitId, LF.ModuleName ["DA", "Internal", "LF"])
-            LF.BTTypeRep -> (damlStdlibUnitId, LF.ModuleName ["DA", "Internal", "LF"])
+            LF.BTAny -> (damlStdlibUnitId, sdkDaInternalLf)
+            LF.BTTypeRep -> (damlStdlibUnitId, sdkDaInternalLf)
+
+    sdkDaInternalLf = LF.ModuleName $  sdkPrefix ++ ["DA", "Internal", "LF"]
+    sdkInternalPrelude = LF.ModuleName $ sdkPrefix ++ ["DA", "Internal", "Prelude"]
+    sdkPrefix = [T.pack prefix | Just prefix <- [envSdkPrefix env]]
 
     translateModName ::
            forall a. NamedThing a
@@ -278,16 +249,18 @@ generateSrcFromLf env thisPkgId = noLoc mod
 -- external package.
 generateTemplateInstancesPkgFromLf ::
        (LF.PackageRef -> UnitId)
+    -> Maybe String
     -> LF.PackageId
     -> LF.Package
     -> [(NormalizedFilePath, String)]
-generateTemplateInstancesPkgFromLf getUnitId pkgId pkg =
+generateTemplateInstancesPkgFromLf getUnitId mbSdkPrefix pkgId pkg =
     catMaybes
         [ generateTemplateInstanceModule
             Env
                 { envGetUnitId = getUnitId
                 , envQualify = False
                 , envMod = mod
+                , envSdkPrefix = mbSdkPrefix
                 }
             pkgId
         | mod <- NM.toList $ LF.packageModules pkg
@@ -332,10 +305,9 @@ generateTemplateInstanceModule env externPkgId
           modName <>
           " as X"
         , "import \"" <> packageName <> "\" " <> modName
-        , "import qualified DA.Internal.LF"
-        , "import qualified DA.Internal.Prelude"
-        , "import qualified DA.Internal.Template"
-        , "import qualified Sdk.DA.Internal.Template"
+        , "import qualified DA.Internal.Template (Archive)" -- needed for the Archive data type
+        , "import qualified " <> prefixStdlibImport env "DA.Internal.Template"
+        , "import qualified " <> prefixStdlibImport env "DA.Internal.LF"
         , "import qualified GHC.Types"
         ]
 
@@ -374,7 +346,7 @@ generateTemplateInstance env typeCon typeParams externPkgId =
         noLoc $
         HsTyVar noExt NotPromoted $
         noLoc $
-        mkRdrQual (mkModuleName "Sdk.DA.Internal.Template") $
+        mkRdrQual (mkModuleName $ prefixStdlibImport env "DA.Internal.Template") $
         mkOccName varName "Template" :: LHsType GhcPs
     lfTemplateType = mkLfTemplateType moduleName0 typeCon typeParams
     mkExternalString :: T.Text -> String
@@ -429,7 +401,7 @@ generateChoiceInstance env externPkgId template choice =
         noLoc $
         HsTyVar noExt NotPromoted $
         noLoc $
-        mkRdrQual (mkModuleName "Sdk.DA.Internal.Template") $
+        mkRdrQual (mkModuleName $ prefixStdlibImport env "DA.Internal.Template") $
         mkOccName varName "Choice" :: LHsType GhcPs
 
     arg1 :: LHsType GhcPs =
@@ -544,7 +516,7 @@ convType env =
         LF.TApp ty1 ty2 ->
             HsParTy noExt $
             noLoc $ HsAppTy noExt (noLoc $ convType env ty1) (noLoc $ convType env ty2)
-        LF.TBuiltin builtinTy -> convBuiltInTy (envQualify env) builtinTy
+        LF.TBuiltin builtinTy -> convBuiltInTy env builtinTy
         LF.TForall {..} ->
             HsParTy noExt $
             noLoc $
@@ -566,29 +538,31 @@ convType env =
         HsTyVar noExt NotPromoted $
         noLoc $ mkRdrUnqual $ occName $ tupleTyConName BoxedTuple i
 
-convBuiltInTy :: Bool -> LF.BuiltinType -> HsType GhcPs
-convBuiltInTy qualify =
+convBuiltInTy :: Env -> LF.BuiltinType -> HsType GhcPs
+convBuiltInTy env =
     \case
         LF.BTInt64 -> mkTyConType qualify intTyCon
         LF.BTDecimal -> mkGhcType "Decimal"
         LF.BTText -> mkGhcType "Text"
-        LF.BTTimestamp -> mkLfInternalType "Time"
-        LF.BTDate -> mkLfInternalType "Date"
-        LF.BTParty -> mkLfInternalType "Party"
+        LF.BTTimestamp -> mkLfInternalType env "Time"
+        LF.BTDate -> mkLfInternalType env "Date"
+        LF.BTParty -> mkLfInternalType env "Party"
         LF.BTUnit -> mkTyConTypeUnqual unitTyCon
         LF.BTBool -> mkTyConType qualify boolTyCon
         LF.BTList -> mkTyConTypeUnqual listTyCon
-        LF.BTUpdate -> mkLfInternalType "Update"
-        LF.BTScenario -> mkLfInternalType "Scenario"
-        LF.BTContractId -> mkLfInternalType "ContractId"
-        LF.BTOptional -> mkLfInternalPrelude "Optional"
-        LF.BTTextMap -> mkLfInternalType "TextMap"
-        LF.BTGenMap -> mkLfInternalType "GenMap"
+        LF.BTUpdate -> mkLfInternalType env "Update"
+        LF.BTScenario -> mkLfInternalType env "Scenario"
+        LF.BTContractId -> mkLfInternalType env "ContractId"
+        LF.BTOptional -> mkLfInternalPrelude env "Optional"
+        LF.BTTextMap -> mkLfInternalType env "TextMap"
+        LF.BTGenMap -> mkLfInternalType env "GenMap"
             -- GENMAP TODO  (#2256): Verify type name once implemented in stdlib.
         LF.BTArrow -> mkTyConTypeUnqual funTyCon
         LF.BTNumeric -> mkGhcType "Numeric"
-        LF.BTAny -> mkLfInternalType "Any"
-        LF.BTTypeRep -> mkLfInternalType "TypeRep"
+        LF.BTAny -> mkLfInternalType env "Any"
+        LF.BTTypeRep -> mkLfInternalType env "TypeRep"
+  where
+    qualify = envQualify env
 
 errTooManyNameComponents :: [T.Text] -> a
 errTooManyNameComponents cs =
@@ -631,19 +605,21 @@ mkGhcType =
     HsTyVar noExt NotPromoted .
     noLoc . mkOrig gHC_TYPES . mkOccName varName
 
-mkLfInternalType :: String -> HsType GhcPs
-mkLfInternalType =
+mkLfInternalType :: Env -> String -> HsType GhcPs
+mkLfInternalType env =
     HsTyVar noExt NotPromoted .
     noLoc .
-    mkOrig (mkModule damlStdlibUnitId $ mkModuleName "DA.Internal.LF") .
+    mkOrig (mkModule damlStdlibUnitId $ mkModuleName $ prefixStdlibImport env "DA.Internal.LF") .
     mkOccName varName
 
+prefixStdlibImport :: Env -> String -> String
+prefixStdlibImport env impString = (maybe "" (<> ".") $ envSdkPrefix env) <> impString
 
-mkLfInternalPrelude :: String -> HsType GhcPs
-mkLfInternalPrelude =
+mkLfInternalPrelude :: Env -> String -> HsType GhcPs
+mkLfInternalPrelude env =
     HsTyVar noExt NotPromoted .
     noLoc .
-    mkOrig (mkModule damlStdlibUnitId $ mkModuleName "DA.Internal.Prelude") .
+    mkOrig (mkModule damlStdlibUnitId $ mkModuleName $ prefixStdlibImport env "DA.Internal.Prelude") .
     mkOccName varName
 
 mkTyConTypeUnqual :: TyCon -> HsType GhcPs
@@ -730,10 +706,10 @@ mkLfTemplateType moduleName0 typeCon typeParams=
 -- | Generate the full source for a daml-lf package.
 generateSrcPkgFromLf ::
        (LF.PackageRef -> UnitId)
-    -> LF.PackageId
+    -> Maybe String
     -> LF.Package
     -> [(NormalizedFilePath, String)]
-generateSrcPkgFromLf getUnitId thisPkgId pkg = do
+generateSrcPkgFromLf getUnitId mbSdkPrefix pkg = do
     mod <- NM.toList $ LF.packageModules pkg
     guard $ (LF.unModuleName $ LF.moduleName mod) /= ["GHC", "Prim"]
     let fp =
@@ -742,84 +718,16 @@ generateSrcPkgFromLf getUnitId thisPkgId pkg = do
             ".daml"
     pure
         ( fp
-        , unlines (header mod) ++
+        , unlines header ++
           (showSDocForUser fakeDynFlags alwaysQualify $
-           ppr $ generateSrcFromLf (Env getUnitId True mod) thisPkgId) ++
-          unlines (builtins mod))
+           ppr $ generateSrcFromLf $ env mod))
   where
-    modName = LF.unModuleName . LF.moduleName
-    header m = header0 ++ header1 m
-    header0 =
+    env m = Env getUnitId True mbSdkPrefix m
+    header =
         ["{-# LANGUAGE NoDamlSyntax #-}"
         , "{-# LANGUAGE NoImplicitPrelude #-}"
         , "{-# LANGUAGE TypeOperators #-}"
         ]
-    header1 m
-        | modName m == ["GHC", "Types"] = ["", "{-# LANGUAGE MagicHash #-}"]
-        | otherwise = []
-    --
-    -- IMPORTANT
-    -- =========
-    --
-    -- The following are datatypes that are not compiled to daml-lf because they are builtin into
-    -- the compiler. They will not show up in any daml-lf package and can hence not be recovered.
-    -- They are however needed to generate interface files. Be very careful if you need to delete or
-    -- change any of the following data types and make sure that upgrades still work. Generally,
-    -- this should be unproblematic as long as the exported API of these files doesn't change.
-    builtins m
-        | LF.unModuleName (LF.moduleName m) == ["DA", "Internal", "LF"] =
-            [ ""
-            , "data TextMap a = TextMap GHC.Types.Opaque"
-            , "data Time = Time GHC.Types.Opaque"
-            , "data Date = Date GHC.Types.Opaque"
-            , "data ContractId a = ContractId GHC.Types.Opaque"
-            , "data Update a = Update GHC.Types.Opaque"
-            , "data Scenario a = Scenario GHC.Types.Opaque"
-            , "data Party = Party GHC.Types.Opaque"
-            ]
-        | LF.unModuleName (LF.moduleName m) == ["DA", "Internal", "Template"] =
-            [ ""
-            , "class Template c where"
-            , "   signatory :: c -> [DA.Internal.LF.Party]"
-            ]
-        | LF.unModuleName (LF.moduleName m) == ["GHC", "Types"] =
-            [ ""
-            , "data [] a = [] | a : [a]"
-            , "data Opaque = Opaque"
-            , "data Int = Int#"
-            , "data Char"
-            , "data Text = Text Opaque"
-            , "type TextLit = [Char]"
-            , "data Word"
-            ]
-            ++ if LF.packageLfVersion pkg `LF.supports` LF.featureNumeric then
-                    [ "data Nat"
-                    , "data Numeric (n: Nat) = Numeric Opaque"
-                    , "type Decimal = Numeric 10"
-                    ]
-                else
-                    [ "data Decimal = Decimal Opaque" ]
-            ++
-            [ "data Module = Module TrName TrName"
-            , "data TrName = TrNameS Addr# | TrNameD [Char]"
-            , "data KindBndr = Int"
-            , "data RuntimeRep"
-            , "data KindRep = KindRepTyConApp TyCon [KindRep] \
-                              \ | KindRepVar !KindBndr \
-                              \ | KindRepApp KindRep KindRep \
-                              \ | KindRepFun KindRep KindRep \
-                              \ | KindRepTYPE !RuntimeRep \
-                              \ | KindRepTypeLitS TypeLitSort Addr# \
-                              \ | KindRepTypeLitD TypeLitSort [Char]"
-            , "data TypeLitSort = TypeLitSymbol | TypeLitNat"
-            , "data TyCon = TyCon Word# Word# \
-                                     \ Module \
-                                     \ TrName \
-                                     \ Int# \
-                                     \ KindRep"
-
-            ]
-        | otherwise = []
 
 
 genericInstances :: Env -> LF.PackageId -> ([ImportDecl GhcPs], [HsDecl GhcPs])
@@ -838,22 +746,24 @@ genericInstances env externPkgId =
       | L _ (TyClD _x DataDecl {..}) <- hsmodDecls src
       ])
   where
-    src = unLoc $ generateSrcFromLf env externPkgId
+    src = unLoc $ generateSrcFromLf env
 
 
 generateGenInstancesPkgFromLf ::
        (LF.PackageRef -> UnitId)
+    -> Maybe String
     -> LF.PackageId
     -> LF.Package
     -> String
     -> [(NormalizedFilePath, String)]
-generateGenInstancesPkgFromLf getUnitId pkgId pkg qual =
+generateGenInstancesPkgFromLf getUnitId mbSdkPrefix pkgId pkg qual =
     catMaybes
         [ generateGenInstanceModule
             Env
                 { envGetUnitId = getUnitId
                 , envQualify = False
                 , envMod = mod
+                , envSdkPrefix = mbSdkPrefix
                 }
             pkgId
             qual

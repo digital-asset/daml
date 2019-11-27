@@ -112,7 +112,7 @@ object ToValueGenerator {
           extractor
         )
 
-      case TypePrim(PrimTypeMap, ImmArraySeq(param)) =>
+      case TypePrim(PrimTypeTextMap, ImmArraySeq(param)) =>
         val arg = args.next()
         val extractor = CodeBlock.of(
           "$L -> $L",

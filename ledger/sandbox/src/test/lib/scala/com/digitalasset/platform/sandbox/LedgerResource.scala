@@ -5,6 +5,7 @@ package com.digitalasset.platform.sandbox
 
 import akka.stream.Materializer
 import com.codahale.metrics.MetricRegistry
+import com.daml.ledger.participant.state.v1.ParticipantId
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.ledger.api.testing.utils.Resource
 import com.digitalasset.platform.sandbox.persistence.{PostgresFixture, PostgresResource}
@@ -34,6 +35,7 @@ object LedgerResource {
 
   def inMemory(
       ledgerId: LedgerId,
+      participantId: ParticipantId,
       timeProvider: TimeProvider,
       acs: InMemoryActiveLedgerState = InMemoryActiveLedgerState.empty,
       packages: InMemoryPackageStore = InMemoryPackageStore.empty,
@@ -41,12 +43,13 @@ object LedgerResource {
     LedgerResource.resource(
       () =>
         Future.successful(
-          Ledger.inMemory(ledgerId, timeProvider, acs, packages, entries)
+          Ledger.inMemory(ledgerId, participantId, timeProvider, acs, packages, entries)
       )
     )
 
   def postgres(
       ledgerId: LedgerId,
+      participantId: ParticipantId,
       timeProvider: TimeProvider,
       metrics: MetricRegistry,
       packages: InMemoryPackageStore = InMemoryPackageStore.empty)(implicit mat: Materializer) = {
@@ -68,6 +71,7 @@ object LedgerResource {
             Ledger.jdbcBacked(
               postgres.value.jdbcUrl,
               ledgerId,
+              participantId,
               timeProvider,
               InMemoryActiveLedgerState.empty,
               packages,

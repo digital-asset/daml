@@ -5,12 +5,12 @@ package com.digitalasset.platform.sandbox.services
 
 import java.io.File
 import java.util.concurrent.Executors
-
 import akka.actor.ActorSystem
 import akka.stream.{ActorMaterializer, Materializer}
 import com.digitalasset.daml.bazeltools.BazelRunfiles._
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
+import com.digitalasset.ledger.api.auth.client.LedgerCallCredentials
 import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.testing.utils.{Resource, SuiteResource}
 import com.digitalasset.ledger.api.v1.ledger_identity_service.{
@@ -21,16 +21,16 @@ import com.digitalasset.ledger.api.v1.testing.time_service.TimeServiceGrpc
 import com.digitalasset.ledger.client.services.testing.time.StaticTime
 import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.sandbox.config.SandboxConfig
-import com.digitalasset.platform.services.time.{TimeModel, TimeProviderType}
+import com.digitalasset.platform.services.time.TimeProviderType
 import io.grpc.Channel
 import org.scalatest.{BeforeAndAfterAll, Suite}
 import scalaz.syntax.tag._
-
 import scala.concurrent.{Await, ExecutionContext}
 import scala.concurrent.duration._
 import scala.util.Try
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.google.common.util.concurrent.ThreadFactoryBuilder
+import com.daml.ledger.participant.state.v1.TimeModel
 import org.slf4j.LoggerFactory
 
 trait SandboxFixture extends SuiteResource[Channel] with BeforeAndAfterAll {
@@ -68,10 +68,11 @@ trait SandboxFixture extends SuiteResource[Channel] with BeforeAndAfterAll {
 
   protected def channel: Channel = suiteResource.value
 
-  protected def ledgerIdOnServer: domain.LedgerId =
+  protected def ledgerId(token: Option[String] = None): domain.LedgerId =
     domain.LedgerId(
       LedgerIdentityServiceGrpc
         .blockingStub(channel)
+        .withCallCredentials(token.map(new LedgerCallCredentials(_)).orNull)
         .getLedgerIdentity(GetLedgerIdentityRequest())
         .ledgerId)
 
@@ -79,7 +80,7 @@ trait SandboxFixture extends SuiteResource[Channel] with BeforeAndAfterAll {
       implicit mat: Materializer,
       esf: ExecutionSequencerFactory): TimeProvider = {
     Try(TimeServiceGrpc.stub(channel))
-      .map(StaticTime.updatedVia(_, ledgerIdOnServer.unwrap)(mat, esf))
+      .map(StaticTime.updatedVia(_, ledgerId().unwrap)(mat, esf))
       .fold[TimeProvider](_ => TimeProvider.UTC, Await.result(_, 30.seconds))
   }
 
@@ -97,8 +98,6 @@ trait SandboxFixture extends SuiteResource[Channel] with BeforeAndAfterAll {
   protected def packageFiles: List[File] = List(darFile)
 
   protected def scenario: Option[String] = None
-
-  protected def ledgerId: domain.LedgerId = ledgerIdOnServer
 
   private lazy val sandboxResource = new SandboxServerResource(config)
 

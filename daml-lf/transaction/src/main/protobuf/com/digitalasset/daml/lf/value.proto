@@ -76,6 +76,8 @@ message Value {
         Map map = 16; // *since v4*
 
         Enum enum = 17; // *since v5*
+
+        GenMap gen_map = 18; // *since v7*
     }
 }
 // architecture-handbook-entry-end: Value
@@ -129,5 +131,13 @@ message Map {
         Value value = 2;
     }
 
+    repeated Entry entries = 1;
+}
+
+message GenMap {
+    message Entry {
+        Value key = 1;
+        Value value = 2;
+    }
     repeated Entry entries = 1;
 }

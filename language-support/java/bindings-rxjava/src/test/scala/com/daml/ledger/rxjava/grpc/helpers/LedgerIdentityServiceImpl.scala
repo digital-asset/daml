@@ -3,6 +3,8 @@
 
 package com.daml.ledger.rxjava.grpc.helpers
 
+import com.digitalasset.ledger.api.auth.Authorizer
+import com.digitalasset.ledger.api.auth.services.LedgerIdentityServiceAuthorization
 import com.digitalasset.ledger.api.v1.ledger_identity_service.{
   GetLedgerIdentityRequest,
   GetLedgerIdentityResponse,
@@ -23,9 +25,12 @@ class LedgerIdentityServiceImpl(ledgerId: String) extends LedgerIdentityService 
 
 object LedgerIdentityServiceImpl {
 
-  def createWithRef(ledgerId: String)(
+  def createWithRef(ledgerId: String, authorizer: Authorizer)(
       implicit ec: ExecutionContext): (ServerServiceDefinition, LedgerIdentityServiceImpl) = {
-    val impl = new LedgerIdentityServiceImpl(ledgerId)
-    (LedgerIdentityServiceGrpc.bindService(impl, ec), impl)
+    val impl = new LedgerIdentityServiceImpl(ledgerId) with AutoCloseable {
+      override def close(): Unit = ()
+    }
+    val authImpl = new LedgerIdentityServiceAuthorization(impl, authorizer)
+    (LedgerIdentityServiceGrpc.bindService(authImpl, ec), impl)
   }
 }

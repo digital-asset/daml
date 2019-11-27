@@ -418,8 +418,8 @@ object Pretty {
           case (k, v) => text(k) + text(" -> ") + prettyValue(verbose)(v)
         }
         text("TextMap(") + intercalate(text(", "), list.toSeq) + text(")")
-      case ValueGenMap(value) =>
-        val list = value.map {
+      case ValueGenMap(entries) =>
+        val list = entries.map {
           case (k, v) => prettyValue(verbose)(k) + text(" -> ") + prettyValue(verbose)(v)
         }
         text("GenMap(") + intercalate(text(", "), list.toSeq) + text(")")

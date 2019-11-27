@@ -325,7 +325,7 @@ case object LedgerApiV1 {
   ): Result[Model.ApiMap] =
     for {
       elementType <- typ match {
-        case Model.DamlLfTypePrim(Model.DamlLfPrimType.Map, Seq(t)) =>
+        case Model.DamlLfTypePrim(Model.DamlLfPrimType.TextMap, Seq(t)) =>
           Right(t)
         case _ => Left(GenericConversionError(s"Cannot read $map as $typ"))
       }

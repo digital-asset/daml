@@ -90,7 +90,7 @@ object DamlLfCodec {
     case Model.DamlLfPrimType.Text => JsString(tagTypeText)
     case Model.DamlLfPrimType.Timestamp => JsString(tagTypeTimestamp)
     case Model.DamlLfPrimType.Optional => JsString(tagTypeOptional)
-    case Model.DamlLfPrimType.Map => JsString(tagTypeMap)
+    case Model.DamlLfPrimType.TextMap => JsString(tagTypeMap)
     case Model.DamlLfPrimType.GenMap =>
       // FIXME https://github.com/digital-asset/daml/issues/2256
       serializationError("GenMap not supported")
@@ -174,7 +174,7 @@ object DamlLfCodec {
     case `tagTypeTimestamp` => Model.DamlLfPrimType.Timestamp
     case `tagTypeUnit` => Model.DamlLfPrimType.Unit
     case `tagTypeOptional` => Model.DamlLfPrimType.Optional
-    case `tagTypeMap` => Model.DamlLfPrimType.Map
+    case `tagTypeMap` => Model.DamlLfPrimType.TextMap
   }
 
   def jsValueToDamlLfDataType(value: JsValue): Model.DamlLfDataType =

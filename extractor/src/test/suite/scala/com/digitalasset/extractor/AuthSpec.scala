@@ -4,8 +4,8 @@
 package com.digitalasset.extractor
 
 import java.nio.file.Files
-import java.time.temporal.ChronoUnit
 import java.time.{Duration, Instant}
+import java.time.temporal.ChronoUnit
 import java.util.concurrent.atomic.AtomicReference
 
 import com.digitalasset.daml.lf.data.Ref.Party
@@ -14,17 +14,14 @@ import com.digitalasset.extractor.ledger.types.TransactionTree
 import com.digitalasset.extractor.targets.TextPrintTarget
 import com.digitalasset.extractor.writers.Writer
 import com.digitalasset.grpc.GrpcException
-import com.digitalasset.jwt.domain.DecodedJwt
-import com.digitalasset.jwt.{HMAC256Verifier, JwtSigner}
-import com.digitalasset.ledger.api.auth.{AuthServiceJWT, AuthServiceJWTCodec, AuthServiceJWTPayload}
+import com.digitalasset.ledger.api.auth.AuthServiceJWTPayload
 import com.digitalasset.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.digitalasset.ledger.api.tls.TlsConfiguration
 import com.digitalasset.ledger.api.v1.command_service.{CommandServiceGrpc, SubmitAndWaitRequest}
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
 import com.digitalasset.ledger.client.services.commands.SynchronousCommandClient
 import com.digitalasset.ledger.service.LedgerReader.PackageStore
-import com.digitalasset.platform.sandbox.config.SandboxConfig
-import com.digitalasset.platform.sandbox.services.{SandboxFixture, TestCommands}
+import com.digitalasset.platform.sandbox.services.{SandboxFixtureWithAuth, TestCommands}
 import com.digitalasset.timer.Delayed
 import com.google.protobuf.timestamp.Timestamp
 import org.scalatest.{AsyncFlatSpec, Matchers}
@@ -39,13 +36,10 @@ import scala.util.{Failure, Success}
 
 final class AuthSpec
     extends AsyncFlatSpec
-    with SandboxFixture
+    with SandboxFixtureWithAuth
     with SuiteResourceManagementAroundAll
     with Matchers
     with TestCommands {
-
-  private val jwtHeader = """{"alg": "HS256", "typ": "JWT"}"""
-  private val jwtSecret = "com.digitalasset.extractor.AuthSpec"
 
   private def newSyncClient = new SynchronousCommandClient(CommandServiceGrpc.stub(channel))
 
@@ -55,33 +49,11 @@ final class AuthSpec
     val letInstant = Instant.EPOCH.plus(10, ChronoUnit.DAYS)
     val let = Timestamp(letInstant.getEpochSecond, letInstant.getNano)
     val mrt = Timestamp(let.seconds + 30L, let.nanos)
-    dummyCommands(ledgerId, "commandId1").update(
+    dummyCommands(wrappedLedgerId, "commandId1").update(
       _.commands.ledgerEffectiveTime := let,
       _.commands.maximumRecordTime := mrt
     )
   }
-
-  implicit class AuthServiceJWTPayloadExtensions(payload: AuthServiceJWTPayload) {
-    def expiresIn(t: java.time.Duration): AuthServiceJWTPayload =
-      payload.copy(exp = Some(Instant.now.plus(t)))
-    def expiresInFiveSeconds: AuthServiceJWTPayload = expiresIn(Duration.ofSeconds(5))
-    def expiresTomorrow: AuthServiceJWTPayload = expiresIn(Duration.ofDays(1))
-    def expired: AuthServiceJWTPayload = expiresIn(Duration.ofDays(-1))
-
-    def signed(secret: String): String =
-      JwtSigner.HMAC256
-        .sign(DecodedJwt(jwtHeader, AuthServiceJWTCodec.compactPrint(payload)), secret)
-        .getOrElse(sys.error("Failed to generate token"))
-        .value
-
-    def asHeader(secret: String = jwtSecret) = s"Bearer ${signed(secret)}"
-  }
-
-  override protected def config: SandboxConfig =
-    super.config.copy(
-      authService = Some(
-        AuthServiceJWT(
-          HMAC256Verifier(jwtSecret).getOrElse(sys.error("Failed to create HMAC256 verifier")))))
 
   private val operator = "OPERATOR"
   private val operatorPayload = AuthServiceJWTPayload(
@@ -144,7 +116,7 @@ final class AuthSpec
   }
 
   it should "succeed if the proper token is provided" in {
-    setToken(operatorPayload.asHeader())
+    setToken(toHeader(operatorPayload))
     extractor(withAuth).run().map(_ => succeed)
   }
 
@@ -154,7 +126,7 @@ final class AuthSpec
       new Extractor(tailWithAuth, None)(
         (_, _, _) =>
           new Writer {
-            private var lastOffset = new AtomicReference[String]
+            private val lastOffset = new AtomicReference[String]
             override def init(): Future[Unit] = Future.successful(())
             override def handlePackages(packageStore: PackageStore): Future[Unit] =
               Future.successful(())
@@ -173,7 +145,7 @@ final class AuthSpec
               Future.successful(Option(lastOffset.get()))
         }
       )
-    setToken(operatorPayload.expiresInFiveSeconds.asHeader())
+    setToken(toHeader(expiringIn(Duration.ofSeconds(5), operatorPayload)))
     val _ = process.run()
     val expectedTxs = ListBuffer.empty[String]
     Delayed.Future
@@ -181,20 +153,20 @@ final class AuthSpec
         newSyncClient
           .submitAndWaitForTransactionId(
             SubmitAndWaitRequest(commands = dummyRequest.commands),
-            Option(operatorPayload.asHeader()))
+            Option(toHeader(operatorPayload)))
           .map(_.transactionId)
       }
       .onComplete {
         case Success(tx) => val _ = expectedTxs += tx
         case Failure(NonFatal(_)) => () // do nothing, the test will fail
       }
-    Delayed.by(15.seconds)(setToken(operatorPayload.asHeader()))
+    Delayed.by(15.seconds)(setToken(toHeader(operatorPayload)))
     Delayed.Future
       .by(20.seconds) {
         newSyncClient
           .submitAndWaitForTransactionId(
             SubmitAndWaitRequest(commands = dummyRequest.commands),
-            Option(operatorPayload.asHeader()))
+            Option(toHeader(operatorPayload)))
           .map(_.transactionId)
       }
       .onComplete {
