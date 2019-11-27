@@ -3,6 +3,8 @@
 
 package com.digitalasset.daml.bazeltools
 
+import java.nio.file.{Path, Paths}
+
 import com.google.devtools.build.runfiles.Runfiles
 
 trait BazelRunfiles {
@@ -14,8 +16,16 @@ trait BazelRunfiles {
       sys.env.contains)
 
   def rlocation(path: String): String =
-    if (inBazelEnvironment) Runfiles.create.rlocation(MainWorkspace + "/" + path) else path
+    if (inBazelEnvironment)
+      Runfiles.create.rlocation(MainWorkspace + "/" + path)
+    else
+      path
 
+  def rlocation(path: Path): Path =
+    if (inBazelEnvironment)
+      Paths.get(Runfiles.create.rlocation(Paths.get(MainWorkspace).resolve(path).toString))
+    else
+      path
 }
 
 object BazelRunfiles extends BazelRunfiles
