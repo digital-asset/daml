@@ -37,7 +37,7 @@ import scalaz.syntax.show._
 import scalaz.syntax.tag._
 import scalaz.syntax.functor._
 import scalaz.syntax.std.option._
-import scalaz.{-\/, \/, \/-}
+import scalaz.{-\/, Liskov, \/, \/-}
 import spray.json.JsValue
 import com.typesafe.scalalogging.StrictLogging
 import scalaz.Liskov.<~<
@@ -380,11 +380,13 @@ private[http] object ContractsFetch {
   }
 
   final case class InsertDeleteStep[+C](inserts: Vector[C], deletes: Set[String]) {
+    @SuppressWarnings(Array("org.wartremover.warts.Any"))
     def append[CC >: C](o: InsertDeleteStep[CC])(
         implicit cid: CC <~< DBContract[Any, Any, Any]): InsertDeleteStep[CC] =
-      appendWithCid(o)(x => cid(x).contractId)
+      appendWithCid(o)(
+        Liskov.contra1_2[Function1, DBContract[Any, Any, Any], CC, String](cid)(_.contractId))
 
-    def appendWithCid[CC >: C](o: InsertDeleteStep[CC])(cid: C => String): InsertDeleteStep[CC] =
+    def appendWithCid[CC >: C](o: InsertDeleteStep[CC])(cid: CC => String): InsertDeleteStep[CC] =
       InsertDeleteStep(
         (if (o.deletes.isEmpty) inserts
          else inserts.filter(c => !o.deletes.contains(cid(c)))) ++ o.inserts,

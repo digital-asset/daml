@@ -120,7 +120,7 @@ class Endpoints(
 
   private def handleSourceFailure[E: Show, A]: Flow[E \/ A, ServerError \/ A, NotUsed] =
     Flow
-      .fromFunction[E \/ A, ServerError \/ A](x => x.leftMap(e => ServerError(e.shows)))
+      .fromFunction((_: E \/ A).leftMap(e => ServerError(e.shows)))
       .recover {
         case NonFatal(e) =>
           logger.error("Source failed", e)
