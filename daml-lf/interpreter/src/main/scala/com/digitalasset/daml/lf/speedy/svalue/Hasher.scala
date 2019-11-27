@@ -72,7 +72,7 @@ private[speedy] object Hasher {
                 loop(pushOrderedValues(values.iterator().asScala, cmdsRest), stack)
               case SVariant(_, variant, value) =>
                 loop(Value(value) :: Mix(variant.hashCode) :: cmdsRest, stack)
-              case SStroct(_, values) =>
+              case SStruct(_, values) =>
                 loop(pushOrderedValues(values.iterator().asScala, cmdsRest), stack)
               case SOptional(opt) =>
                 loop(pushOrderedValues(opt.iterator, cmdsRest), stack)

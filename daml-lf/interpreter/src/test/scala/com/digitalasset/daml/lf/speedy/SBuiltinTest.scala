@@ -1380,7 +1380,7 @@ object SBuiltinTest {
     val args = new util.ArrayList[SValue](2)
     args.add(SText(k))
     args.add(v)
-    SStroct(entryFields, args)
+    SStruct(entryFields, args)
   }
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))

@@ -346,8 +346,8 @@ message Type {
     Type body = 2;
   }
 
-  // Stroct type
-  message Stroct {
+  // Struct type
+  message Struct {
     // name of the field with their types.
     repeated FieldWithType fields = 1;
   }
@@ -358,7 +358,7 @@ message Type {
     Prim prim = 3; // FixMe: renamed
     Fun fun = 4;
     Forall forall = 5;
-    Stroct stroct = 7;
+    Struct struct = 7;
     // *Available in versions >= 1.7*
     // *Must be between 0 and 37 (bounds inclusive)*
     // use standard signed long for future usage.
@@ -656,14 +656,14 @@ message Expr {
     }
   }
 
-  // Stroct Construction ('ExpStroctCon')
-  message StroctCon {
+  // Struct Construction ('ExpStructCon')
+  message StructCon {
     // Field names and their associated values.
     repeated FieldWithExpr fields = 1;
   }
 
-  // Stroct Projection ('ExpStroctProj')
-  message StroctProj {
+  // Struct Projection ('ExpStructProj')
+  message StructProj {
 
     // Name of the field to be projected on.
     oneof field {
@@ -674,12 +674,12 @@ message Expr {
       int32 field_interned_str = 3; // *Available in versions >= 1.7*
     }
 
-    // stroct to be projected.
-    Expr stroct = 2;
+    // struct to be projected.
+    Expr struct = 2;
   }
 
-  // Stroct update ('ExpTuplUpdate')
-  message StroctUpd {
+  // Struct update ('ExpTuplUpdate')
+  message StructUpd {
 
     // Name of the updated field.
     oneof field {
@@ -690,8 +690,8 @@ message Expr {
       int32 field_interned_str = 4; // *Available in versions >= 1.7*
     }
 
-    // Actual stroct being updated.
-    Expr stroct = 2;
+    // Actual struct being updated.
+    Expr struct = 2;
 
     // Value to which the record is udpated.
     Expr update = 3;
@@ -838,14 +838,14 @@ message Expr {
     // Enum construction ('ExpEnumCon')
     EnumCon enum_con = 28; // *Available in versions >= 1.6*
 
-    // Stroct construction ('ExpStroctCon')
-    StroctCon stroct_con = 9;
+    // Struct construction ('ExpStructCon')
+    StructCon struct_con = 9;
 
-    // Stroct project ('ExpStroctProj')
-    StroctProj stroct_proj = 10;
+    // Struct project ('ExpStructProj')
+    StructProj struct_proj = 10;
 
-    // Stroct update ('ExpStroctUpdate')
-    StroctUpd stroct_upd = 23;
+    // Struct update ('ExpStructUpdate')
+    StructUpd struct_upd = 23;
 
     // Application ('ExpApp')
     App app = 11;

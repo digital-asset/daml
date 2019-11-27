@@ -556,11 +556,11 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
           assertNonEmpty(vars, "vars")
           (vars :\ decodeType(tForall.getBody))((binder, acc) =>
             TForall(decodeTypeVarWithKind(binder), acc))
-        case PLF.Type.SumCase.STROCT =>
-          val stroct = lfType.getStroct
-          val fields = stroct.getFieldsList.asScala
+        case PLF.Type.SumCase.STRUCT =>
+          val struct = lfType.getStruct
+          val fields = struct.getFieldsList.asScala
           assertNonEmpty(fields, "fields")
-          TStroct(fields.map(decodeFieldWithType)(breakOut))
+          TStruct(fields.map(decodeFieldWithType)(breakOut))
 
         case PLF.Type.SumCase.SUM_NOT_SET =>
           throw ParseError("Type.SUM_NOT_SET")
@@ -723,39 +723,39 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
             )
           )
 
-        case PLF.Expr.SumCase.STROCT_CON =>
-          val stroctCon = lfExpr.getStroctCon
-          EStroctCon(
-            ImmArray(stroctCon.getFieldsList.asScala).map(decodeFieldWithExpr(_, definition))
+        case PLF.Expr.SumCase.STRUCT_CON =>
+          val structCon = lfExpr.getStructCon
+          EStructCon(
+            ImmArray(structCon.getFieldsList.asScala).map(decodeFieldWithExpr(_, definition))
           )
 
-        case PLF.Expr.SumCase.STROCT_PROJ =>
-          val stroctProj = lfExpr.getStroctProj
-          EStroctProj(
+        case PLF.Expr.SumCase.STRUCT_PROJ =>
+          val structProj = lfExpr.getStructProj
+          EStructProj(
             field = handleInternedName(
-              stroctProj.getFieldCase,
-              PLF.Expr.StroctProj.FieldCase.FIELD_STR,
-              stroctProj.getFieldStr,
-              PLF.Expr.StroctProj.FieldCase.FIELD_INTERNED_STR,
-              stroctProj.getFieldInternedStr,
-              "Expr.StroctProj.field.field"
+              structProj.getFieldCase,
+              PLF.Expr.StructProj.FieldCase.FIELD_STR,
+              structProj.getFieldStr,
+              PLF.Expr.StructProj.FieldCase.FIELD_INTERNED_STR,
+              structProj.getFieldInternedStr,
+              "Expr.StructProj.field.field"
             ),
-            stroct = decodeExpr(stroctProj.getStroct, definition)
+            struct = decodeExpr(structProj.getStruct, definition)
           )
 
-        case PLF.Expr.SumCase.STROCT_UPD =>
-          val stroctUpd = lfExpr.getStroctUpd
-          EStroctUpd(
+        case PLF.Expr.SumCase.STRUCT_UPD =>
+          val structUpd = lfExpr.getStructUpd
+          EStructUpd(
             field = handleInternedName(
-              stroctUpd.getFieldCase,
-              PLF.Expr.StroctUpd.FieldCase.FIELD_STR,
-              stroctUpd.getFieldStr,
-              PLF.Expr.StroctUpd.FieldCase.FIELD_INTERNED_STR,
-              stroctUpd.getFieldInternedStr,
-              "Expr.StroctUpd.field.field"
+              structUpd.getFieldCase,
+              PLF.Expr.StructUpd.FieldCase.FIELD_STR,
+              structUpd.getFieldStr,
+              PLF.Expr.StructUpd.FieldCase.FIELD_INTERNED_STR,
+              structUpd.getFieldInternedStr,
+              "Expr.StructUpd.field.field"
             ),
-            stroct = decodeExpr(stroctUpd.getStroct, definition),
-            update = decodeExpr(stroctUpd.getUpdate, definition)
+            struct = decodeExpr(structUpd.getStruct, definition),
+            update = decodeExpr(structUpd.getUpdate, definition)
           )
 
         case PLF.Expr.SumCase.APP =>

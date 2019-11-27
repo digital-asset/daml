@@ -145,9 +145,9 @@ prettyRecord lvl sept fields =
   where
     prettyField (name, thing) = hang (pretty name <-> sept) 2 (pPrintPrec lvl 0 thing)
 
-prettyStroct :: (Pretty a) =>
+prettyStruct :: (Pretty a) =>
   PrettyLevel -> Doc ann -> [(FieldName, a)] -> Doc ann
-prettyStroct lvl sept fields =
+prettyStruct lvl sept fields =
   "<" <> sep (punctuate ";" (map prettyField fields)) <> ">"
   where
     prettyField (name, thing) = hang (pretty name <-> sept) 2 (pPrintPrec lvl 0 thing)
@@ -168,7 +168,7 @@ instance Pretty Type where
       in  maybeParens (prec > precTForall)
             (prettyForall <-> hsep (map (prettyAndKind lvl) vs) <> "."
              <-> pPrintPrec lvl precTForall t1)
-    TStroct fields -> prettyStroct lvl prettyHasType fields
+    TStruct fields -> prettyStruct lvl prettyHasType fields
     TNat n -> integer (fromTypeLevelNat n)
 
 precEApp, precEAbs :: Rational
@@ -417,14 +417,14 @@ instance Pretty Expr where
         (map TyArg targs ++ [TmArg arg])
     EEnumCon tcon con ->
       pretty tcon <> ":" <> pretty con
-    EStroctCon fields ->
-      prettyStroct lvl "=" fields
-    EStroctProj field expr -> pPrintPrec lvl precHighest expr <> "." <> pretty field
-    EStroctUpd field stroct update ->
+    EStructCon fields ->
+      prettyStruct lvl "=" fields
+    EStructProj field expr -> pPrintPrec lvl precHighest expr <> "." <> pretty field
+    EStructUpd field struct update ->
           "<" <> updDoc <> ">"
       where
         updDoc = sep
-          [ pPrintPrec lvl 0 stroct
+          [ pPrintPrec lvl 0 struct
           , keyword_ "with"
           , hang (pretty field <-> "=") 2 (pPrintPrec lvl 0 update)
           ]

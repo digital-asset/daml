@@ -31,8 +31,8 @@ sealed abstract class Value[+Cid] extends Product with Serializable {
         ValueRecord(id, fs.map({
           case (lbl, value) => (lbl, value.mapContractId(f))
         }))
-      case ValueStroct(fs) =>
-        ValueStroct(fs.map[(Name, Value[Cid2])] {
+      case ValueStruct(fs) =>
+        ValueStruct(fs.map[(Name, Value[Cid2])] {
           case (lbl, value) => (lbl, value.mapContractId(f))
         })
       case ValueVariant(id, variant, value) =>
@@ -66,8 +66,8 @@ sealed abstract class Value[+Cid] extends Product with Serializable {
         val newNesting = nesting + 1
 
         v match {
-          case tpl: ValueStroct[Cid] =>
-            go(exceededNesting, errs :+ s"contains stroct $tpl", vs)
+          case tpl: ValueStruct[Cid] =>
+            go(exceededNesting, errs :+ s"contains struct $tpl", vs)
           case ValueRecord(_, flds) =>
             if (newNesting > MAXIMUM_NESTING) {
               if (exceededNesting) {
@@ -223,8 +223,8 @@ object Value {
   final case class ValueGenMap[+Cid](entries: ImmArray[(Value[Cid], Value[Cid])]) extends Value[Cid]
   // this is present here just because we need it in some internal code --
   // specifically the scenario interpreter converts committed values to values and
-  // currently those can be strocts, although we should probably ban that.
-  final case class ValueStroct[+Cid](fields: ImmArray[(Name, Value[Cid])]) extends Value[Cid]
+  // currently those can be structs, although we should probably ban that.
+  final case class ValueStruct[+Cid](fields: ImmArray[(Name, Value[Cid])]) extends Value[Cid]
 
   // Order of GenMap entries is relevant for this equality.
   implicit def `Value Equal instance`[Cid: Equal]: Equal[Value[Cid]] =
@@ -259,8 +259,8 @@ object Value {
           case ValueOptional(value2) =>
             value === value2
         }
-        case ValueStroct(fields) => {
-          case ValueStroct(fields2) =>
+        case ValueStruct(fields) => {
+          case ValueStruct(fields2) =>
             fields === fields2
         }
         case ValueTextMap(map1) => {

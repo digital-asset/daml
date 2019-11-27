@@ -48,8 +48,8 @@ instance EitherLike TL.Text Int32 P.DefTemplateParam
 instance EitherLike TL.Text Int32 P.Expr_EnumConEnumCon
 instance EitherLike TL.Text Int32 P.Expr_RecProjField
 instance EitherLike TL.Text Int32 P.Expr_RecUpdField
-instance EitherLike TL.Text Int32 P.Expr_StroctProjField
-instance EitherLike TL.Text Int32 P.Expr_StroctUpdField
+instance EitherLike TL.Text Int32 P.Expr_StructProjField
+instance EitherLike TL.Text Int32 P.Expr_StructUpdField
 instance EitherLike TL.Text Int32 P.Expr_VariantConVariantCon
 instance EitherLike TL.Text Int32 P.FieldWithExprField
 instance EitherLike TL.Text Int32 P.FieldWithTypeField

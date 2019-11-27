@@ -62,9 +62,9 @@ private[engine] class ValueTranslator(compiledPackages: CompiledPackages) {
           case forall: TForall =>
             fail(
               s"Unexpected forall when replacing parameters in command translation -- all types should be serializable, and foralls are not: $forall")
-          case stroct: TStroct =>
+          case struct: TStruct =>
             fail(
-              s"Unexpected stroct when replacing parameters in command translation -- all types should be serializable, and strocts are not: $stroct")
+              s"Unexpected struct when replacing parameters in command translation -- all types should be serializable, and structs are not: $struct")
         }
 
       go(typ0)

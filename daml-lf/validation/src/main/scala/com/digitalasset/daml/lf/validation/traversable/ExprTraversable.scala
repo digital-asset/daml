@@ -25,12 +25,12 @@ private[validation] object ExprTraversable {
         f(update)
       case EVariantCon(tycon @ _, variant @ _, arg) =>
         f(arg)
-      case EStroctCon(fields) =>
+      case EStructCon(fields) =>
         fields.values.foreach(f)
-      case EStroctProj(field @ _, stroct) =>
-        f(stroct)
-      case EStroctUpd(field @ _, stroct, update) =>
-        f(stroct)
+      case EStructProj(field @ _, struct) =>
+        f(struct)
+      case EStructUpd(field @ _, struct, update) =>
+        f(struct)
         f(update)
       case EApp(fun, arg) =>
         f(fun)

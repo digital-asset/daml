@@ -23,7 +23,7 @@ private[validation] object TypeTraversable {
       case TForall(binder @ _, body) =>
         f(body)
         ()
-      case TStroct(fields) =>
+      case TStruct(fields) =>
         fields.values.foreach(f)
     }
 
@@ -79,7 +79,7 @@ private[validation] object TypeTraversable {
       case EScenario(s) =>
         foreach(s, f)
       case EVar(_) | EVal(_) | EBuiltin(_) | EPrimCon(_) | EPrimLit(_) | EApp(_, _) | ECase(_, _) |
-          ELocation(_, _) | EStroctCon(_) | EStroctProj(_, _) | EStroctUpd(_, _, _) | ETyAbs(_, _) =>
+          ELocation(_, _) | EStructCon(_) | EStructProj(_, _) | EStructUpd(_, _, _) | ETyAbs(_, _) =>
         ExprTraversable.foreach(expr0, foreach(_, f))
     }
     ()

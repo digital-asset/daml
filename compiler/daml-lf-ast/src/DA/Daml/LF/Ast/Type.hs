@@ -30,7 +30,7 @@ freeVars e = go Set.empty e Set.empty
         TApp s1 s2 -> go boundVars s1 $ go boundVars s2 acc
         TBuiltin _ -> acc
         TForall (v, _k) s -> go (Set.insert v boundVars) s acc
-        TStroct fs -> foldl' (\acc (_, t) -> go boundVars t acc) acc fs
+        TStruct fs -> foldl' (\acc (_, t) -> go boundVars t acc) acc fs
         TNat _ -> Set.empty
 
 -- | Auxiliary data structure to track bound variables in the test for alpha
@@ -68,7 +68,7 @@ alphaEquiv = go (AlphaEnv 0 Map.empty Map.empty)
               , binderDepthRhs = Map.insert v2 currentDepth binderDepthRhs
               }
         in  k1 == k2 && go env1 t1 t2
-      (TStroct fs1, TStroct fs2)
+      (TStruct fs1, TStruct fs2)
         | Just bs <- zipWithExactMay agree (sortOn fst fs1) (sortOn fst fs2) ->
             and bs
         where
@@ -105,7 +105,7 @@ substitute subst = go (Map.foldl' (\acc t -> acc `Set.union` freeVars t) Set.emp
                 subst1 = Map.insert v0 (TVar v1) subst0
             in  TForall (v1, k) (go fvSubst1 subst1 t)
         | otherwise -> TForall (v0, k) (go fvSubst0 (Map.delete v0 subst0) t)
-      TStroct fs -> TStroct (map (second go0) fs)
+      TStruct fs -> TStruct (map (second go0) fs)
       TNat n -> TNat n
       where
         go0 = go fvSubst0 subst0

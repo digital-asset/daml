@@ -24,8 +24,8 @@ private[validation] case class TypeSubst(map: Map[TypeVarName, Type], private va
       } else
         v -> TypeSubst(map - v)
       TForall((v1, k), subst1(t))
-    case TStroct(ts) =>
-      TStroct(ts.transform { (_, x) =>
+    case TStruct(ts) =>
+      TStruct(ts.transform { (_, x) =>
         apply(x)
       })
   }
@@ -127,14 +127,14 @@ private[validation] case class TypeSubst(map: Map[TypeVarName, Type], private va
       ERecUpd(apply(tycon), field, apply(record), apply(update))
     case EVariantCon(tycon, variant, arg) =>
       EVariantCon(apply(tycon), variant, apply(arg))
-    case EStroctCon(fields) =>
-      EStroctCon(fields.transform { (_, x) =>
+    case EStructCon(fields) =>
+      EStructCon(fields.transform { (_, x) =>
         apply(x)
       })
-    case EStroctProj(field, stroct) =>
-      EStroctProj(field, apply(stroct))
-    case EStroctUpd(field, stroct, update) =>
-      EStroctUpd(field, apply(stroct), apply(update))
+    case EStructProj(field, struct) =>
+      EStructProj(field, apply(struct))
+    case EStructUpd(field, struct, update) =>
+      EStructUpd(field, apply(struct), apply(update))
     case EApp(fun, arg) =>
       EApp(apply(fun), apply(arg))
     case ETyApp(expr, typ) =>

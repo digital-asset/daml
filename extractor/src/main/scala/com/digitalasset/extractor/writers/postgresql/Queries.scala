@@ -317,9 +317,9 @@ object Queries {
         case V.ValueGenMap(_) =>
           // FIXME https://github.com/digital-asset/daml/issues/2256
           throw new IllegalArgumentException(s"Gen Map are not supported")
-        case stroct @ V.ValueStroct(_) =>
+        case struct @ V.ValueStruct(_) =>
           throw new IllegalArgumentException(
-            s"stroct should not be present in contract, as raw strocts are not serializable: $stroct")
+            s"struct should not be present in contract, as raw structs are not serializable: $struct")
       }
     }
   }

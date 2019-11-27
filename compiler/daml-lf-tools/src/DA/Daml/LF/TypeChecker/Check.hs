@@ -141,7 +141,7 @@ kindOf = \case
     pure resKind
   TBuiltin btype -> pure (kindOfBuiltin btype)
   TForall (v, k) t1 -> introTypeVar v k $ checkType t1 KStar $> KStar
-  TStroct recordType -> checkRecordType recordType $> KStar
+  TStruct recordType -> checkRecordType recordType $> KStar
   TNat _ -> pure KNat
 
 typeOfBuiltin :: MonadGamma m => BuiltinExpr -> m Type
@@ -278,22 +278,22 @@ typeOfRecUpd typ0 field record update = do
   checkExpr update fieldType
   pure typ1
 
-typeOfStroctCon :: MonadGamma m => [(FieldName, Expr)] -> m Type
-typeOfStroctCon recordExpr = do
+typeOfStructCon :: MonadGamma m => [(FieldName, Expr)] -> m Type
+typeOfStructCon recordExpr = do
   checkUnique EDuplicateField (map fst recordExpr)
-  TStroct <$> (traverse . _2) typeOf recordExpr
+  TStruct <$> (traverse . _2) typeOf recordExpr
 
-typeOfStroctProj :: MonadGamma m => FieldName -> Expr -> m Type
-typeOfStroctProj field expr = do
+typeOfStructProj :: MonadGamma m => FieldName -> Expr -> m Type
+typeOfStructProj field expr = do
   typ <- typeOf expr
-  stroctType <- match _TStroct (EExpectedStroctType typ) typ
-  match _Just (EUnknownField field) (lookup field stroctType)
+  structType <- match _TStruct (EExpectedStructType typ) typ
+  match _Just (EUnknownField field) (lookup field structType)
 
-typeOfStroctUpd :: MonadGamma m => FieldName -> Expr -> Expr -> m Type
-typeOfStroctUpd field stroct update = do
-  typ <- typeOf stroct
-  stroctType <- match _TStroct (EExpectedStroctType typ) typ
-  fieldType <- match _Just (EUnknownField field) (lookup field stroctType)
+typeOfStructUpd :: MonadGamma m => FieldName -> Expr -> Expr -> m Type
+typeOfStructUpd field struct update = do
+  typ <- typeOf struct
+  structType <- match _TStruct (EExpectedStructType typ) typ
+  fieldType <- match _Just (EUnknownField field) (lookup field structType)
   checkExpr update fieldType
   pure typ
 
@@ -456,7 +456,7 @@ typeOfUpdate = \case
     return (TUpdate typ)
   UFetchByKey retrieveByKey -> do
     (cidType, contractType) <- checkRetrieveByKey retrieveByKey
-    return (TUpdate (TStroct [(FieldName "contractId", cidType), (FieldName "contract", contractType)]))
+    return (TUpdate (TStruct [(FieldName "contractId", cidType), (FieldName "contract", contractType)]))
   ULookupByKey retrieveByKey -> do
     (cidType, _contractType) <- checkRetrieveByKey retrieveByKey
     return (TUpdate (TOptional cidType))
@@ -498,9 +498,9 @@ typeOf = \case
   ERecUpd typ field record update -> typeOfRecUpd typ field record update
   EVariantCon typ con arg -> checkVariantCon typ con arg $> typeConAppToType typ
   EEnumCon typ con -> checkEnumCon typ con $> TCon typ
-  EStroctCon recordExpr -> typeOfStroctCon recordExpr
-  EStroctProj field expr -> typeOfStroctProj field expr
-  EStroctUpd field stroct update -> typeOfStroctUpd field stroct update
+  EStructCon recordExpr -> typeOfStructCon recordExpr
+  EStructProj field expr -> typeOfStructProj field expr
+  EStructUpd field struct update -> typeOfStructUpd field struct update
   ETmApp fun arg -> typeOfTmApp fun arg
   ETyApp expr typ -> typeOfTyApp expr typ
   ETmLam binder body -> typeOfTmLam binder body

@@ -12,8 +12,8 @@ import org.scalatest.{FreeSpec, Matchers}
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 class ValueSpec extends FreeSpec with Matchers with Checkers with GeneratorDrivenPropertyChecks {
   "serialize" - {
-    val emptyStroct = ValueStroct(ImmArray.empty)
-    val emptyStroctError = "contains stroct ValueStroct(ImmArray())"
+    val emptyStruct = ValueStruct(ImmArray.empty)
+    val emptyStructError = "contains struct ValueStruct(ImmArray())"
     val exceedsNesting = (1 to MAXIMUM_NESTING + 1).foldRight[Value[Nothing]](ValueInt64(42)) {
       case (_, v) => ValueVariant(None, Ref.Name.assertFromString("foo"), v)
     }
@@ -22,12 +22,12 @@ class ValueSpec extends FreeSpec with Matchers with Checkers with GeneratorDrive
       case (_, v) => ValueVariant(None, Ref.Name.assertFromString("foo"), v)
     }
 
-    "rejects stroct" in {
-      emptyStroct.serializable shouldBe ImmArray(emptyStroctError)
+    "rejects struct" in {
+      emptyStruct.serializable shouldBe ImmArray(emptyStructError)
     }
 
-    "rejects nested stroct" in {
-      ValueList(FrontStack(emptyStroct)).serializable shouldBe ImmArray(emptyStroctError)
+    "rejects nested struct" in {
+      ValueList(FrontStack(emptyStruct)).serializable shouldBe ImmArray(emptyStructError)
     }
 
     "rejects excessive nesting" in {
@@ -39,8 +39,8 @@ class ValueSpec extends FreeSpec with Matchers with Checkers with GeneratorDrive
     }
 
     "outputs both error messages, without duplication" in {
-      ValueList(FrontStack(exceedsNesting, ValueStroct(ImmArray.empty), exceedsNesting)).serializable shouldBe
-        ImmArray(exceedsNestingError, emptyStroctError)
+      ValueList(FrontStack(exceedsNesting, ValueStruct(ImmArray.empty), exceedsNesting)).serializable shouldBe
+        ImmArray(exceedsNestingError, emptyStructError)
     }
   }
 

@@ -103,7 +103,7 @@ object LfEngineToApi {
               } yield api.GenMap.Entry(Some(key), Some(value)) :: tail
           }
           .map(list => api.Value(api.Value.Sum.GenMap(api.GenMap(list))))
-      case Lf.ValueStroct(_) => Left("strocts not allowed")
+      case Lf.ValueStruct(_) => Left("structs not allowed")
       case Lf.ValueList(vs) =>
         vs.toImmArray.toSeq.traverseEitherStrictly(lfValueToApiValue(verbose, _)) map { xs =>
           api.Value(api.Value.Sum.List(api.List(xs)))

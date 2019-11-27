@@ -107,8 +107,8 @@ private[validation] object Serializability {
         }
       case TForall(_, _) =>
         unserializable(URForall)
-      case TStroct(_) =>
-        unserializable(URStroct)
+      case TStruct(_) =>
+        unserializable(URStruct)
     }
   }
 

@@ -239,9 +239,9 @@ private[digitalasset] class EncodeV1(val minor: LV.Minor) {
           expect(args.isEmpty)
           builder.setForall(
             PLF.Type.Forall.newBuilder().accumulateLeft(binders)(_ addVars _).setBody(body))
-        case TStroct(fields) =>
+        case TStruct(fields) =>
           expect(args.isEmpty)
-          builder.setStroct(PLF.Type.Stroct.newBuilder().accumulateLeft(fields)(_ addFields _))
+          builder.setStruct(PLF.Type.Struct.newBuilder().accumulateLeft(fields)(_ addFields _))
       }
     }
 
@@ -502,19 +502,19 @@ private[digitalasset] class EncodeV1(val minor: LV.Minor) {
           val b = PLF.Expr.EnumCon.newBuilder().setTycon(tyCon)
           setString(con, b.setEnumConStr, b.setEnumConInternedStr)
           builder.setEnumCon(b.build())
-        case EStroctCon(fields) =>
-          builder.setStroctCon(PLF.Expr.StroctCon.newBuilder().accumulateLeft(fields)(_ addFields _))
-        case EStroctProj(field, expr) =>
-          val b = PLF.Expr.StroctProj.newBuilder()
+        case EStructCon(fields) =>
+          builder.setStructCon(PLF.Expr.StructCon.newBuilder().accumulateLeft(fields)(_ addFields _))
+        case EStructProj(field, expr) =>
+          val b = PLF.Expr.StructProj.newBuilder()
           setString(field, b.setFieldStr, b.setFieldInternedStr)
-          b.setStroct(expr)
-          builder.setStroctProj(b)
-        case EStroctUpd(field, stroct, update) =>
-          val b = PLF.Expr.StroctUpd.newBuilder()
+          b.setStruct(expr)
+          builder.setStructProj(b)
+        case EStructUpd(field, struct, update) =>
+          val b = PLF.Expr.StructUpd.newBuilder()
           setString(field, b.setFieldStr, b.setFieldInternedStr)
-          b.setStroct(stroct)
+          b.setStruct(struct)
           b.setUpdate(update)
-          builder.setStroctUpd(b)
+          builder.setStructUpd(b)
         case EApps(fun, args) =>
           builder.setApp(PLF.Expr.App.newBuilder().setFun(fun).accumulateLeft(args)(_ addArgs _))
         case ETyApps(expr, typs1) =>

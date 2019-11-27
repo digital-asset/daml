@@ -56,14 +56,14 @@ private[parser] class TypeParser[P](parameters: ParserParameters[P]) {
   private lazy val fieldType: Parser[(FieldName, Type)] =
     id ~ `:` ~ typ ^^ { case name ~ _ ~ t => name -> t }
 
-  private lazy val tStroct: Parser[Type] =
-    `<` ~>! rep1sep(fieldType, `,`) <~ `>` ^^ (fs => TStroct(ImmArray(fs)))
+  private lazy val tStruct: Parser[Type] =
+    `<` ~>! rep1sep(fieldType, `,`) <~ `>` ^^ (fs => TStruct(ImmArray(fs)))
 
   lazy val typ0: Parser[Type] =
     `(` ~> typ <~ `)` |
       tNat |
       tForall |
-      tStroct |
+      tStruct |
       (id ^? builtinTypes) ^^ TBuiltin |
       fullIdentifier ^^ TTyCon.apply |
       id ^^ TVar.apply

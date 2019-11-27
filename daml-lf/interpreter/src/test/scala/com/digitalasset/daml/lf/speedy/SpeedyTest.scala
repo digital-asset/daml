@@ -69,7 +69,7 @@ class SpeedyTest extends WordSpec with Matchers {
       eval(e"Matcher:list @Int64 ${intList()}", pkgs) shouldEqual Right(SOptional(None))
       eval(e"Matcher:list @Int64 ${intList(7, 11, 13)}", pkgs) shouldEqual Right(
         SOptional(
-          Some(SStroct(
+          Some(SStruct(
             Ref.Name.Array(n"x1", n"x2"),
             ArrayList(SInt64(7), SList(FrontStack(SInt64(11), SInt64(13))))))))
     }

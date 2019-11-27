@@ -298,16 +298,16 @@ encodeType' typ = fmap (P.Type . Just) $ case typ ^. _TApps of
         type_ForallVars <- encodeTypeVarsWithKinds binders
         type_ForallBody <- encodeType body
         pure $ P.TypeSumForall P.Type_Forall{..}
-    (TStroct flds, []) -> do
-        type_StroctFields <- encodeFieldsWithTypes unFieldName flds
-        pure $ P.TypeSumStroct P.Type_Stroct{..}
+    (TStruct flds, []) -> do
+        type_StructFields <- encodeFieldsWithTypes unFieldName flds
+        pure $ P.TypeSumStruct P.Type_Struct{..}
 
     (TNat n, _) ->
         pure $ P.TypeSumNat (fromTypeLevelNat n)
 
     (TApp{}, _) -> error "TApp after unwinding TApp"
     -- NOTE(MH): The following case is ill-kinded.
-    (TStroct{}, _:_) -> error "Application of TStroct"
+    (TStruct{}, _:_) -> error "Application of TStruct"
     -- NOTE(MH): The following case requires impredicative polymorphism,
     -- which we don't support.
     (TForall{}, _:_) -> error "Application of TForall"
@@ -514,18 +514,18 @@ encodeExpr' = \case
         expr_EnumConTycon <- encodeQualTypeConName enumTypeCon
         expr_EnumConEnumCon <- encodeName unVariantConName enumDataCon
         pureExpr $ P.ExprSumEnumCon P.Expr_EnumCon{..}
-    EStroctCon{..} -> do
-        expr_StroctConFields <- encodeFieldsWithExprs unFieldName stroctFields
-        pureExpr $ P.ExprSumStroctCon P.Expr_StroctCon{..}
-    EStroctProj{..} -> do
-        expr_StroctProjField <- encodeName unFieldName stroctField
-        expr_StroctProjStroct <- encodeExpr stroctExpr
-        pureExpr $ P.ExprSumStroctProj P.Expr_StroctProj{..}
-    EStroctUpd{..} -> do
-        expr_StroctUpdField <- encodeName unFieldName stroctField
-        expr_StroctUpdStroct <- encodeExpr stroctExpr
-        expr_StroctUpdUpdate <- encodeExpr stroctUpdate
-        pureExpr $ P.ExprSumStroctUpd P.Expr_StroctUpd{..}
+    EStructCon{..} -> do
+        expr_StructConFields <- encodeFieldsWithExprs unFieldName structFields
+        pureExpr $ P.ExprSumStructCon P.Expr_StructCon{..}
+    EStructProj{..} -> do
+        expr_StructProjField <- encodeName unFieldName structField
+        expr_StructProjStruct <- encodeExpr structExpr
+        pureExpr $ P.ExprSumStructProj P.Expr_StructProj{..}
+    EStructUpd{..} -> do
+        expr_StructUpdField <- encodeName unFieldName structField
+        expr_StructUpdStruct <- encodeExpr structExpr
+        expr_StructUpdUpdate <- encodeExpr structUpdate
+        pureExpr $ P.ExprSumStructUpd P.Expr_StructUpd{..}
     e@ETmApp{} -> do
         let (fun, args) = e ^. _ETmApps
         expr_AppFun <- encodeExpr fun

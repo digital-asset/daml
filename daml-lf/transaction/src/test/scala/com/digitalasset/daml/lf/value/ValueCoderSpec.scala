@@ -161,9 +161,9 @@ class ValueCoderSpec extends WordSpec with Matchers with EitherAssertions with P
       }
     }
 
-    "don't stroct" in {
-      val stroct = ValueStroct(ImmArray((Ref.Name.assertFromString("foo"), ValueInt64(42))))
-      val res = ValueCoder.encodeValue[ContractId](defaultCidEncode, defaultValueVersion, stroct)
+    "don't struct" in {
+      val struct = ValueStruct(ImmArray((Ref.Name.assertFromString("foo"), ValueInt64(42))))
+      val res = ValueCoder.encodeValue[ContractId](defaultCidEncode, defaultValueVersion, struct)
       res.left.get.errorMessage should include("serializable")
     }
 

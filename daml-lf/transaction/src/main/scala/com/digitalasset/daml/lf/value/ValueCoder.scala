@@ -535,8 +535,8 @@ object ValueCoder {
             }
             builder.setGenMap(protoMap).build()
 
-          case ValueStroct(fields) =>
-            throw Err(s"Trying to serialize stroct, which are not serializable. Fields: $fields")
+          case ValueStruct(fields) =>
+            throw Err(s"Trying to serialize struct, which are not serializable. Fields: $fields")
         }
       }
     }

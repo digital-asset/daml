@@ -100,7 +100,7 @@ builtinType f =
         TApp s t -> TApp <$> builtinType f s <*> builtinType f t
         TBuiltin x -> TBuiltin <$> f x
         TForall b body -> TForall b <$> builtinType f body
-        TStroct fs -> TStroct <$> (traverse . _2) (builtinType f) fs
+        TStruct fs -> TStruct <$> (traverse . _2) (builtinType f) fs
         TNat n -> pure $ TNat n
 
 type ModuleRef = (PackageRef, ModuleName)

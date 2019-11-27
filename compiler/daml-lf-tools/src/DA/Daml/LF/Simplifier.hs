@@ -44,9 +44,9 @@ freeVarsStep = \case
   ERecUpdF _ _ s1 s2 -> s1 <> s2
   EVariantConF _ _ s -> s
   EEnumConF _ _ -> Set.empty
-  EStroctConF fs -> foldMap snd fs
-  EStroctProjF _ s -> s
-  EStroctUpdF _ s1 s2 -> s1 <> s2
+  EStructConF fs -> foldMap snd fs
+  EStructProjF _ s -> s
+  EStructUpdF _ s1 s2 -> s1 <> s2
   ETmAppF s1 s2 -> s1 <> s2
   ETyAppF s _ -> s
   ETmLamF (x, _) s -> x `Set.delete` s
@@ -188,9 +188,9 @@ safetyStep = \case
   ERecUpdF _ _ s1 s2 -> s1 `min` s2 `min` Safe 0
   EVariantConF _ _ s -> s `min` Safe 0
   EEnumConF _ _ -> Safe 0
-  EStroctConF fs -> minimum (Safe 0 : map snd fs)
-  EStroctProjF _ s -> s `min` Safe 0
-  EStroctUpdF _ s1 s2 -> s1 `min` s2 `min` Safe 0
+  EStructConF fs -> minimum (Safe 0 : map snd fs)
+  EStructProjF _ s -> s `min` Safe 0
+  EStructUpdF _ s1 s2 -> s1 `min` s2 `min` Safe 0
   ETmAppF s1 s2 ->
     case s2 of
       Unsafe -> Unsafe
@@ -236,7 +236,7 @@ simplifyExpr = fst . cata go
     go :: ExprF (Expr, Info) -> (Expr, Info)
     go = \case
       -- <...; f = e; ...>.f    ==>    e
-      EStroctProjF f (EStroctCon fes, s)
+      EStructProjF f (EStructCon fes, s)
         -- NOTE(MH): We're deliberately overapproximating the potential of
         -- bottoms and the set of free variables below to avoid recomputing
         -- them.
@@ -251,20 +251,20 @@ simplifyExpr = fst . cata go
         | x == x' -> e
 
       -- let x = <...; f = e; ...> in x.f    ==>    e
-      ELetF (BindingF (x, _) (EStroctCon fes, s)) (EStroctProj f (EVar x'), _)
+      ELetF (BindingF (x, _) (EStructCon fes, s)) (EStructProj f (EVar x'), _)
         -- NOTE(MH): See NOTE above on @s@.
         | x == x', Safe _ <- safety s, Just e <- f `lookup` fes -> (e, s)
 
       -- let x = <f1 = e1; ...; fn = en> in T {f1 = x.f1; ...; fn = x.fn}
       -- ==>
       -- T {f1 = e1; ...; fn = en}
-      ELetF (BindingF (x1, _) (EStroctCon fes1, s)) (ERecCon t fes2, _)
+      ELetF (BindingF (x1, _) (EStructCon fes1, s)) (ERecCon t fes2, _)
         | Just bs <- Safe.zipWithExactMay matchField fes1 fes2
         , and bs ->
             (ERecCon t fes1, s)
         where
           matchField (f1, _) (f2, e2)
-            | f1 == f2, EStroctProj f3 (EVar x3) <- e2, f1 == f3, x1 == x3 = True
+            | f1 == f2, EStructProj f3 (EVar x3) <- e2, f1 == f3, x1 == x3 = True
             | otherwise = False
 
       -- let x = e1 in e2    ==>    e2, if e1 cannot be bottom and x is not free in e2
@@ -278,8 +278,8 @@ simplifyExpr = fst . cata go
       --   `fv(e2) ⊆ V ∪ {x}`.
       -- - If `let x = e1 in e2` is k-safe, then `e1` is 0-safe and `e2` is
       --   k-safe.
-      EStroctProjF f (ELet (Binding (x, t) e1) e2, Info fv sf) ->
-        go $ ELetF (BindingF (x, t) (e1, s1)) (go $ EStroctProjF f (e2, s2))
+      EStructProjF f (ELet (Binding (x, t) e1) e2, Info fv sf) ->
+        go $ ELetF (BindingF (x, t) (e1, s1)) (go $ EStructProjF f (e2, s2))
         where
           s1 = Info fv (sf `min` Safe 0)
           s2 = Info (Set.insert x fv) sf
