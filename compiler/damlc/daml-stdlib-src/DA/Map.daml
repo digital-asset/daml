@@ -63,9 +63,12 @@ fromList list = foldl (\acc (key, value) -> insert key value acc) empty list
 
 -- | Create a map from a list of key/value pairs with a combining
 -- function. Examples:
+--
 -- ```
---   M.fromListWith (++) [("A", [1]), ("A", [2]), ("B", [2]), ("B", [1]), ("A", [3])] == M.fromList [("A", [1, 2, 3]), ("B", [2, 1])]
---   M.fromListWith (++) [] == (M.empty : Map Text [Int])
+-- >>> fromListWith (++) [("A", [1]), ("A", [2]), ("B", [2]), ("B", [1]), ("A", [3])]
+-- Map [("A", [1, 2, 3]), ("B", [2, 1])]
+-- >>> fromListWith (++) [] == (M.empty : Map Text [Int])
+-- True
 -- ```
 --
 -- Note that this function uses the built-in equality for the type `k`,
@@ -196,4 +199,3 @@ instance Eq k => Traversable.Traversable (Map k) where
   mapA f x = fmap fromList $ mapA (\(k, v) -> fmap (k,) $ f v) $ toList x
 
 #endif
-
