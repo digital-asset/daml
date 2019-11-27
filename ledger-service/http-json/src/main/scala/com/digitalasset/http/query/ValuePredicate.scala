@@ -94,11 +94,22 @@ sealed abstract class ValuePredicate extends Product with Serializable {
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def toSqlWhereClause: Fragment = {
     import dbbackend.Queries.Implicits._ // JsValue support
-    final case class Rec(raw: SqlWhereClause, safe_== : Option[JsValue], safe_@> : Option[JsValue])
-    def go(path: Fragment, self: ValuePredicate): Rec =
+    type Path = Fragment
+
+    final case class Rec(
+        raw: SqlWhereClause,
+        safe_== : Option[JsValue],
+        safe_@> : Option[JsValue]) {
+      def flush_@>(path: Path): Option[Fragment] =
+        safe_@> map (jq => path ++ sql" @> $jq::jsonb")
+      def flush_==(path: Path): Option[Fragment] =
+        safe_== map (jq => path ++ sql" = $jq::jsonb")
+    }
+
+    def go(path: Path, self: ValuePredicate): Rec =
       self match {
         case Literal(_, jq) =>
-          Rec(Vector(path ++ sql" = $jq::jsonb"), Some(jq), Some(jq))
+          Rec(Vector.empty, Some(jq), Some(jq))
 
         case RecordSubset(qs) =>
           val cqs = qs map (_ map { case (k, vp) => (k, go(path ++ sql"->${k: String}", vp)) })
@@ -145,8 +156,13 @@ sealed abstract class ValuePredicate extends Product with Serializable {
         case _ => Rec(AlwaysFails, None, None) // TODO other cases
       }
 
-    concatFragment(
-      OneAnd(sql"1 = 1", go(contractColumnName, this).raw map (sq => sql" AND (" ++ sq ++ sql")")))
+    val outerRec = go(contractColumnName, this)
+    outerRec flush_== contractColumnName getOrElse
+      concatFragment(
+        OneAnd(
+          sql"1 = 1",
+          (outerRec.raw ++ outerRec.flush_@>(contractColumnName).toList) map (sq =>
+            sql" AND (" ++ sq ++ sql")")))
   }
 }
 
