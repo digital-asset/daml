@@ -6,25 +6,27 @@ package com.digitalasset.daml.lf.codegen.backend.java
 import com.squareup.javapoet.{ClassName, MethodSpec, TypeName}
 import com.typesafe.scalalogging.StrictLogging
 import javax.lang.model.element.Modifier
+import com.digitalasset.daml.lf.codegen.backend.java.inner.ClassNameExtensions
 
 private[codegen] object ObjectMethods extends StrictLogging {
 
-  def apply(className: ClassName, fieldNames: IndexedSeq[String]): Vector[MethodSpec] =
+  def apply(className: ClassName, typeParameters: IndexedSeq[String], fieldNames: IndexedSeq[String]): Vector[MethodSpec] =
     Vector(
-      generateEquals(className, fieldNames),
+      generateEquals(className.asWildcardType(typeParameters), fieldNames),
       generateHashCode(fieldNames),
       generateToString(className, fieldNames, None))
 
   def apply(
       className: ClassName,
+      typeParameters: IndexedSeq[String],
       fieldNames: IndexedSeq[String],
       enclosingClassName: ClassName): Vector[MethodSpec] =
     Vector(
-      generateEquals(className, fieldNames),
+      generateEquals(className.asWildcardType(typeParameters), fieldNames),
       generateHashCode(fieldNames),
       generateToString(className, fieldNames, Some(enclosingClassName)))
 
-  private def initEqualsBuilder(className: ClassName): MethodSpec.Builder =
+  private def initEqualsBuilder(className: TypeName): MethodSpec.Builder =
     MethodSpec
       .methodBuilder("equals")
       .addModifiers(Modifier.PUBLIC)
@@ -42,7 +44,7 @@ private[codegen] object ObjectMethods extends StrictLogging {
       .endControlFlow()
       .addStatement("$T other = ($T) object", className, className)
 
-  private def generateEquals(className: ClassName, fieldNames: IndexedSeq[String]): MethodSpec =
+  private def generateEquals(className: TypeName, fieldNames: IndexedSeq[String]): MethodSpec =
     if (fieldNames.isEmpty) {
       initEqualsBuilder(className).addStatement("return true").build()
     } else {

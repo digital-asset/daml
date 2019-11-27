@@ -51,7 +51,7 @@ object VariantConstructorClass extends StrictLogging {
         .addMethod(ConstructorGenerator.generateConstructor(
           IndexedSeq(FieldInfo("body", body, variantFieldName, javaType))))
         .addMethods(conversionMethods.asJava)
-        .addMethods(ObjectMethods(className.rawType, Vector(variantFieldName)).asJava)
+        .addMethods(ObjectMethods(className.rawType, typeArgs, Vector(variantFieldName)).asJava)
         .build()
     }
   }

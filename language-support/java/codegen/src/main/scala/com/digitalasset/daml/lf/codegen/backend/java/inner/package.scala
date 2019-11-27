@@ -7,7 +7,7 @@ import java.util
 
 import com.daml.ledger.javaapi
 import com.daml.ledger.javaapi.data.codegen.ContractId
-import com.daml.ledger.javaapi.data.{DamlGenMap, DamlList, DamlTextMap, DamlOptional}
+import com.daml.ledger.javaapi.data.{DamlGenMap, DamlList, DamlOptional, DamlTextMap}
 import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
 import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
 import com.digitalasset.daml.lf.iface._
@@ -194,6 +194,11 @@ package object inner {
     def parameterized(typeParams: IndexedSeq[String]): TypeName = {
       if (typeParams.isEmpty) name
       else ParameterizedTypeName.get(name, typeParams.map(TypeVariableName.get): _*)
+    }
+
+    def asWildcardType(typeParams: IndexedSeq[String]): TypeName = {
+      if (typeParams.isEmpty) name
+      else ParameterizedTypeName.get(name, typeParams.map(_ => WildcardTypeName.subtypeOf(classOf[Object])): _*)
     }
   }
 
