@@ -101,7 +101,7 @@ With Authentication
 
 If you are running the HTTP JSON API against a Ledger API server that requires authentication, you must provide the access token when you start it.
 
-The access token retrieval depends on the specific DAML setup you are working with: please refer to the ledger operator to learn how.
+The access token retrieval depends on the specific DAML setup you are working with: please refer to the ledger operator to learn how to retrieve a token.
 
 Once you have retrieved your access token, you can provide it to the HTTP JSON API by storing it in a file and provide the path to it using the ``--access-token-file`` command line option.
 
