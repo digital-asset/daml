@@ -81,14 +81,14 @@ object Ast {
   /** Variant construction. */
   final case class EEnumCon(tyConName: TypeConName, con: EnumConName) extends Expr
 
-  /** Tuple construction. */
-  final case class ETupleCon(fields: ImmArray[(FieldName, Expr)]) extends Expr
+  /** Stroct construction. */
+  final case class EStroctCon(fields: ImmArray[(FieldName, Expr)]) extends Expr
 
-  /** Tuple projection. */
-  final case class ETupleProj(field: FieldName, tuple: Expr) extends Expr
+  /** Stroct projection. */
+  final case class EStroctProj(field: FieldName, stroct: Expr) extends Expr
 
-  /** Non-destructive tuple update. */
-  final case class ETupleUpd(field: FieldName, tuple: Expr, update: Expr) extends Expr
+  /** Non-destructive stroct update. */
+  final case class EStroctUpd(field: FieldName, stroct: Expr, update: Expr) extends Expr
 
   /** Expression application. Function can be an abstraction or a builtin function. */
   final case class EApp(fun: Expr, arg: Expr) extends Expr
@@ -221,7 +221,7 @@ object Ast {
             prettyType(fun, precTApp) + " " + prettyType(arg, precTApp + 1))
         case TForall((v, _), body) =>
           maybeParens(prec > precTForall, "∀" + v + prettyForAll(body))
-        case TTuple(fields) =>
+        case TStroct(fields) =>
           "(" + fields
             .map { case (n, t) => n + ": " + prettyType(t, precTForall) }
             .toSeq
@@ -262,13 +262,13 @@ object Ast {
   /** Universally quantified type. */
   final case class TForall(binder: (TypeVarName, Kind), body: Type) extends Type
 
-  /** Tuples */
-  final case class TTuple private (sortedFields: ImmArray[(FieldName, Type)]) extends Type
+  /** Strocts */
+  final case class TStroct private (sortedFields: ImmArray[(FieldName, Type)]) extends Type
 
-  object TTuple extends (ImmArray[(FieldName, Type)] => TTuple) {
+  object TStroct extends (ImmArray[(FieldName, Type)] => TStroct) {
     // should be dropped once the compiler sort fields.
-    def apply(fields: ImmArray[(FieldName, Type)]): TTuple =
-      new TTuple(ImmArray(fields.toSeq.sortBy(_._1: String)))
+    def apply(fields: ImmArray[(FieldName, Type)]): TStroct =
+      new TStroct(ImmArray(fields.toSeq.sortBy(_._1: String)))
   }
 
   sealed abstract class BuiltinType extends Product with Serializable
@@ -360,7 +360,7 @@ object Ast {
   final case object BTextMapInsert extends BuiltinFunction(3) // : ∀ a. Text -> a -> TextMap a -> TextMap a
   final case object BTextMapLookup extends BuiltinFunction(2) // : ∀ a. Text -> TextMap a -> Optional a
   final case object BTextMapDelete extends BuiltinFunction(2) // : ∀ a. Text -> TextMap a -> TextMap a
-  final case object BTextMapToList extends BuiltinFunction(1) // : ∀ a. TextMap a -> [Tuple("key":Text, "value":a)]
+  final case object BTextMapToList extends BuiltinFunction(1) // : ∀ a. TextMap a -> [Stroct("key":Text, "value":a)]
   final case object BTextMapSize extends BuiltinFunction(1) // : ∀ a. TextMap a -> Int64
 
   // Generic Maps

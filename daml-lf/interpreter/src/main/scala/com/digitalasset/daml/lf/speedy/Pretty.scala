@@ -369,7 +369,7 @@ object Pretty {
               text("<no-label>") & char('=') & prettyValue(true)(v)
           }) &
           char('}')
-      case ValueTuple(fs) =>
+      case ValueStroct(fs) =>
         char('{') &
           fill(text(", "), fs.toList.map {
             case (k, v) => text(k) & char('=') & prettyValue(true)(v)

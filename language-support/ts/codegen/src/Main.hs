@@ -215,7 +215,7 @@ genType curModName = go
         t@TApp{} -> error $ "IMPOSSIBLE: type application not serializable - " <> DA.Pretty.renderPretty t
         TBuiltin t -> error $ "IMPOSSIBLE: partially applied primitive type not serializable - " <> DA.Pretty.renderPretty t
         TForall{} -> error "IMPOSSIBLE: universally quantified type not serializable"
-        TTuple{} -> error "IMPOSSIBLE: structural record not serializable"
+        TStroct{} -> error "IMPOSSIBLE: structural record not serializable"
         TNat{} -> error "IMPOSSIBLE: standalone type level natural not serializable"
 
 genTypeCon :: ModuleName -> Qualified TypeConName -> (T.Text, T.Text)

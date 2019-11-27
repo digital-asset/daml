@@ -61,7 +61,7 @@ abstract class ApiCodecCompressed[Cid](
     case _: V.ValueGenMap[Cid] =>
       // FIXME https://github.com/digital-asset/daml/issues/2256
       serializationError("GenMap are not not supported.")
-    case _: V.ValueTuple[Cid] => serializationError("impossible! tuples are not serializable")
+    case _: V.ValueStroct[Cid] => serializationError("impossible! strocts are not serializable")
   }
 
   @throws[SerializationException]

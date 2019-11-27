@@ -535,8 +535,8 @@ object ValueCoder {
             }
             builder.setGenMap(protoMap).build()
 
-          case ValueTuple(fields) =>
-            throw Err(s"Trying to serialize tuple, which are not serializable. Fields: $fields")
+          case ValueStroct(fields) =>
+            throw Err(s"Trying to serialize stroct, which are not serializable. Fields: $fields")
         }
       }
     }

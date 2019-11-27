@@ -62,9 +62,9 @@ private[engine] class ValueTranslator(compiledPackages: CompiledPackages) {
           case forall: TForall =>
             fail(
               s"Unexpected forall when replacing parameters in command translation -- all types should be serializable, and foralls are not: $forall")
-          case tuple: TTuple =>
+          case stroct: TStroct =>
             fail(
-              s"Unexpected tuple when replacing parameters in command translation -- all types should be serializable, and tuples are not: $tuple")
+              s"Unexpected stroct when replacing parameters in command translation -- all types should be serializable, and strocts are not: $stroct")
         }
 
       go(typ0)

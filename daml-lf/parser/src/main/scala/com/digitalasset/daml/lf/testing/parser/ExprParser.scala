@@ -26,9 +26,9 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
       eRecProj |
       eRecUpd |
       eVariantOrEnumCon |
-      eTupleCon |
-      eTupleUpd |
-      eTupleProj |
+      eStroctCon |
+      eStroctUpd |
+      eStroctProj |
       eAbs |
       eTyAbs |
       eLet |
@@ -138,17 +138,17 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
         EEnumCon(tName, vName)
     }
 
-  private lazy val eTupleCon: Parser[Expr] =
-    `<` ~> fieldInits <~ `>` ^^ ETupleCon
+  private lazy val eStroctCon: Parser[Expr] =
+    `<` ~> fieldInits <~ `>` ^^ EStroctCon
 
-  private lazy val eTupleProj: Parser[Expr] =
+  private lazy val eStroctProj: Parser[Expr] =
     (`(` ~> expr <~ `)` ~ `.`) ~! id ^^ {
-      case tuple ~ fName => ETupleProj(fName, tuple)
+      case stroct ~ fName => EStroctProj(fName, stroct)
     }
 
-  private lazy val eTupleUpd: Parser[Expr] =
+  private lazy val eStroctUpd: Parser[Expr] =
     `<` ~> expr ~ (`with` ~>! fieldInit) <~ `>` ^^ {
-      case tuple ~ ((fName, value)) => ETupleUpd(fName, tuple, value)
+      case stroct ~ ((fName, value)) => EStroctUpd(fName, stroct, value)
     }
 
   private[parser] lazy val varBinder: Parser[(Name, Type)] =

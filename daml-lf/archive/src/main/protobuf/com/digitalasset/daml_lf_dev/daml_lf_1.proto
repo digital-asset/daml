@@ -346,8 +346,8 @@ message Type {
     Type body = 2;
   }
 
-  // Tuple type
-  message Tuple {
+  // Stroct type
+  message Stroct {
     // name of the field with their types.
     repeated FieldWithType fields = 1;
   }
@@ -358,7 +358,7 @@ message Type {
     Prim prim = 3; // FixMe: renamed
     Fun fun = 4;
     Forall forall = 5;
-    Tuple tuple = 7;
+    Stroct stroct = 7;
     // *Available in versions >= 1.7*
     // *Must be between 0 and 37 (bounds inclusive)*
     // use standard signed long for future usage.
@@ -656,14 +656,14 @@ message Expr {
     }
   }
 
-  // Tuple Construction ('ExpTupleCon')
-  message TupleCon {
+  // Stroct Construction ('ExpStroctCon')
+  message StroctCon {
     // Field names and their associated values.
     repeated FieldWithExpr fields = 1;
   }
 
-  // Tuple Projection ('ExpTupleProj')
-  message TupleProj {
+  // Stroct Projection ('ExpStroctProj')
+  message StroctProj {
 
     // Name of the field to be projected on.
     oneof field {
@@ -674,12 +674,12 @@ message Expr {
       int32 field_interned_str = 3; // *Available in versions >= 1.7*
     }
 
-    // tuple to be projected.
-    Expr tuple = 2;
+    // stroct to be projected.
+    Expr stroct = 2;
   }
 
-  // Tuple update ('ExpTuplUpdate')
-  message TupleUpd {
+  // Stroct update ('ExpTuplUpdate')
+  message StroctUpd {
 
     // Name of the updated field.
     oneof field {
@@ -690,8 +690,8 @@ message Expr {
       int32 field_interned_str = 4; // *Available in versions >= 1.7*
     }
 
-    // Actual tuple being updated.
-    Expr tuple = 2;
+    // Actual stroct being updated.
+    Expr stroct = 2;
 
     // Value to which the record is udpated.
     Expr update = 3;
@@ -838,14 +838,14 @@ message Expr {
     // Enum construction ('ExpEnumCon')
     EnumCon enum_con = 28; // *Available in versions >= 1.6*
 
-    // Tuple construction ('ExpTupleCon')
-    TupleCon tuple_con = 9;
+    // Stroct construction ('ExpStroctCon')
+    StroctCon stroct_con = 9;
 
-    // Tuple project ('ExpTupleProj')
-    TupleProj tuple_proj = 10;
+    // Stroct project ('ExpStroctProj')
+    StroctProj stroct_proj = 10;
 
-    // Tuple update ('ExpTupleUpdate')
-    TupleUpd tuple_upd = 23;
+    // Stroct update ('ExpStroctUpdate')
+    StroctUpd stroct_upd = 23;
 
     // Application ('ExpApp')
     App app = 11;

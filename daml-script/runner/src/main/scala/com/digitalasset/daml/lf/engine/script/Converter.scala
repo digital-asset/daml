@@ -181,22 +181,22 @@ object Converter {
   def toApFields(
       compiledPackages: CompiledPackages,
       fun: SValue): Either[String, (SValue, SValue)] = {
-    val extractTuple = SEMakeClo(
+    val extractStroct = SEMakeClo(
       Array(),
       2,
       SEApp(
-        SEBuiltin(SBTupleCon(Name.Array(Name.assertFromString("a"), Name.assertFromString("b")))),
+        SEBuiltin(SBStroctCon(Name.Array(Name.assertFromString("a"), Name.assertFromString("b")))),
         Array(SEVar(2), SEVar(1))))
     val machine =
-      Speedy.Machine.fromSExpr(SEApp(SEValue(fun), Array(extractTuple)), false, compiledPackages)
+      Speedy.Machine.fromSExpr(SEApp(SEValue(fun), Array(extractStroct)), false, compiledPackages)
     @tailrec
     def iter(): Either[String, (SValue, SValue)] = {
       if (machine.isFinal) {
         machine.toSValue match {
-          case STuple(_, values) if values.size == 2 => {
+          case SStroct(_, values) if values.size == 2 => {
             Right((values.get(0), values.get(1)))
           }
-          case v => Left(s"Expected STuple but got $v")
+          case v => Left(s"Expected SStroct but got $v")
         }
       } else {
         machine.step() match {

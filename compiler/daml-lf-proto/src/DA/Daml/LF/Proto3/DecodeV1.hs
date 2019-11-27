@@ -466,18 +466,18 @@ decodeExprSum exprSum = mayDecode "exprSum" exprSum $ \case
     EEnumCon
       <$> mayDecode "Expr_EnumConTycon" mbTypeCon decodeTypeConName
       <*> decodeName VariantConName dataCon
-  LF1.ExprSumTupleCon (LF1.Expr_TupleCon fields) ->
-    ETupleCon
+  LF1.ExprSumStroctCon (LF1.Expr_StroctCon fields) ->
+    EStroctCon
       <$> mapM decodeFieldWithExpr (V.toList fields)
-  LF1.ExprSumTupleProj (LF1.Expr_TupleProj field mbTuple) ->
-    ETupleProj
+  LF1.ExprSumStroctProj (LF1.Expr_StroctProj field mbStroct) ->
+    EStroctProj
       <$> decodeName FieldName field
-      <*> mayDecode "Expr_TupleProjTuple" mbTuple decodeExpr
-  LF1.ExprSumTupleUpd (LF1.Expr_TupleUpd field mbTuple mbUpdate) ->
-    ETupleUpd
+      <*> mayDecode "Expr_StroctProjStroct" mbStroct decodeExpr
+  LF1.ExprSumStroctUpd (LF1.Expr_StroctUpd field mbStroct mbUpdate) ->
+    EStroctUpd
       <$> decodeName FieldName field
-      <*> mayDecode "Expr_TupleUpdTuple" mbTuple decodeExpr
-      <*> mayDecode "Expr_TupleUpdUpdate" mbUpdate decodeExpr
+      <*> mayDecode "Expr_StroctUpdStroct" mbStroct decodeExpr
+      <*> mayDecode "Expr_StroctUpdUpdate" mbUpdate decodeExpr
   LF1.ExprSumApp (LF1.Expr_App mbFun args) -> do
     fun <- mayDecode "Expr_AppFun" mbFun decodeExpr
     foldl' ETmApp fun <$> mapM decodeExpr (V.toList args)
@@ -720,8 +720,8 @@ decodeType LF1.Type{..} = mayDecode "typeSum" typeSum $ \case
   LF1.TypeSumForall (LF1.Type_Forall binders mbBody) -> do
     body <- mayDecode "type_ForAllBody" mbBody decodeType
     foldr TForall body <$> traverse decodeTypeVarWithKind (V.toList binders)
-  LF1.TypeSumTuple (LF1.Type_Tuple flds) ->
-    TTuple <$> mapM (decodeFieldWithType FieldName) (V.toList flds)
+  LF1.TypeSumStroct (LF1.Type_Stroct flds) ->
+    TStroct <$> mapM (decodeFieldWithType FieldName) (V.toList flds)
   where
     decodeWithArgs :: V.Vector LF1.Type -> Decode Type -> Decode Type
     decodeWithArgs args fun = foldl TApp <$> fun <*> traverse decodeType args

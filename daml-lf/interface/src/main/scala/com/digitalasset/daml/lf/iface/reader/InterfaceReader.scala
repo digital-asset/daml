@@ -217,7 +217,7 @@ object InterfaceReader {
       case Ast.TApp(tyfun, arg) =>
         toIfaceType(ctx, arg, FrontStack.empty) flatMap (tArg =>
           toIfaceType(ctx, tyfun, tArg +: args))
-      case Ast.TForall(_, _) | Ast.TTuple(_) | Ast.TNat(_) =>
+      case Ast.TForall(_, _) | Ast.TStroct(_) | Ast.TNat(_) =>
         unserializableDataType(ctx, s"unserializable data type: ${a.pretty}")
     }
 

@@ -177,9 +177,9 @@ data Type
     , forallBody   :: !Type
       -- ^ Type of the body of the type abstraction.
     }
-  -- | Type for tuples aka structural records. Parameterized by the names of the
+  -- | Type for strocts aka structural records. Parameterized by the names of the
   -- fields and their types.
-  | TTuple      ![(FieldName, Type)]
+  | TStroct      ![(FieldName, Type)]
   -- | Type-level natural numbers
   | TNat !TypeLevelNat
   deriving (Eq, Data, Generic, NFData, Ord, Show)
@@ -358,25 +358,25 @@ data Expr
     , enumDataCon :: !VariantConName
       -- ^ Data constructor of the enum type.
     }
-  -- | Tuple construction.
-  | ETupleCon
-    { tupFields :: ![(FieldName, Expr)]
+  -- | Stroct construction.
+  | EStroctCon
+    { stroctFields :: ![(FieldName, Expr)]
       -- ^ Fields together with the expressions to assign to them.
     }
-  -- | Tuple projection.
-  | ETupleProj
-    { tupField :: !FieldName
+  -- | Stroct projection.
+  | EStroctProj
+    { stroctField :: !FieldName
       -- ^ Field to project to.
-    , tupExpr  :: !Expr
+    , stroctExpr  :: !Expr
       -- ^ Expression to project from.
     }
-  -- | Non-destructive tuple update.
-  | ETupleUpd
-    { tupField :: !FieldName
+  -- | Non-destructive stroct update.
+  | EStroctUpd
+    { stroctField :: !FieldName
       -- ^ Field to update.
-    , tupExpr :: !Expr
+    , stroctExpr :: !Expr
       -- ^ Expression to update the field in.
-    , tupUpdate :: !Expr
+    , stroctUpdate :: !Expr
       -- ^ Expression to update the field with.
     }
   -- | (Expression) application.

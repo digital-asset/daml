@@ -58,8 +58,8 @@ private[digitalasset] class AstRewriter(
           TApp(apply(tyfun), apply(arg))
         case TForall(binder, body) =>
           TForall(binder, apply(body))
-        case TTuple(fields) =>
-          TTuple(fields.map(apply))
+        case TStroct(fields) =>
+          TStroct(fields.map(apply))
       }
 
   def apply(nameWithType: (Name, Type)): (Name, Type) = nameWithType match {
@@ -89,14 +89,14 @@ private[digitalasset] class AstRewriter(
           EVariantCon(apply(tycon), variant, apply(arg))
         case EEnumCon(tyCon, cons) =>
           EEnumCon(apply(tyCon), cons)
-        case ETupleCon(fields) =>
-          ETupleCon(fields.transform { (_, x) =>
+        case EStroctCon(fields) =>
+          EStroctCon(fields.transform { (_, x) =>
             apply(x)
           })
-        case ETupleProj(field, tuple) =>
-          ETupleProj(field, apply(tuple))
-        case ETupleUpd(field, tuple, update) =>
-          ETupleUpd(field, apply(tuple), apply(update))
+        case EStroctProj(field, stroct) =>
+          EStroctProj(field, apply(stroct))
+        case EStroctUpd(field, stroct, update) =>
+          EStroctUpd(field, apply(stroct), apply(update))
         case EApp(fun, arg) =>
           EApp(apply(fun), apply(arg))
         case ETyApp(expr, typ) =>

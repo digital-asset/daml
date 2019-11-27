@@ -64,9 +64,9 @@ object ValueVersions
                 go(maxVV(minGenMap, currentVersion), newValues)
               case ValueEnum(_, _) =>
                 go(maxVV(minEnum, currentVersion), values)
-              // tuples are a no-no
-              case ValueTuple(fields) =>
-                Left(s"Got tuple when trying to assign version. Fields: $fields")
+              // strocts are a no-no
+              case ValueStroct(fields) =>
+                Left(s"Got stroct when trying to assign version. Fields: $fields")
             }
         }
       }

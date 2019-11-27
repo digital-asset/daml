@@ -959,7 +959,7 @@ object Ledger {
           fs.foreach {
             case (_, v) => collect(v)
           }
-        case ValueTuple(fs) =>
+        case ValueStroct(fs) =>
           fs.foreach {
             case (_, v) => collect(v)
           }
@@ -1003,8 +1003,8 @@ object Ledger {
           ValueRecord(tycon, fs.map[(Option[Name], Value[AbsoluteContractId])] {
             case (k, v) => (k, rewrite(v))
           })
-        case ValueTuple(fs) =>
-          ValueTuple(fs.map[(Name, Value[AbsoluteContractId])] {
+        case ValueStroct(fs) =>
+          ValueStroct(fs.map[(Name, Value[AbsoluteContractId])] {
             case (k, v) => (k, rewrite(v))
           })
         case ValueVariant(tycon, variant, value) =>

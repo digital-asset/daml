@@ -49,7 +49,7 @@ data UnserializabilityReason
   | URForall  -- ^ It has higher rank.
   | URUpdate  -- ^ It contains an update action.
   | URScenario  -- ^ It contains a scenario action.
-  | URTuple  -- ^ It contains a structural record.
+  | URStroct  -- ^ It contains a structural record.
   | URList  -- ^ It contains an unapplied list type constructor.
   | UROptional  -- ^ It contains an unapplied optional type constructor.
   | URMap  -- ^ It contains an unapplied map type constructor.
@@ -82,7 +82,7 @@ data Error
   | EExpectedEnumType      !(Qualified TypeConName)
   | EUnknownDataCon        !VariantConName
   | EUnknownField          !FieldName
-  | EExpectedTupleType     !Type
+  | EExpectedStroctType     !Type
   | EKindMismatch          {foundKind :: !Kind, expectedKind :: !Kind}
   | ETypeMismatch          {foundType :: !Type, expectedType :: !Type, expr :: !(Maybe Expr)}
   | EExpectedHigherKind    !Kind
@@ -156,7 +156,7 @@ instance Pretty UnserializabilityReason where
     URForall -> "higher-ranked type"
     URUpdate -> "Update"
     URScenario -> "Scenario"
-    URTuple -> "structual record"
+    URStroct -> "structual record"
     URList -> "unapplied List"
     UROptional -> "unapplied Optional"
     URMap -> "unapplied Map"
@@ -205,8 +205,8 @@ instance Pretty Error where
     EExpectedEnumType qname -> "expected enum type: " <> pretty qname
     EUnknownDataCon name -> "unknown data constructor: " <> pretty name
     EUnknownField name -> "unknown field: " <> pretty name
-    EExpectedTupleType foundType ->
-      "expected tuple type, but found: " <> pretty foundType
+    EExpectedStroctType foundType ->
+      "expected stroct type, but found: " <> pretty foundType
 
     ETypeMismatch{foundType, expectedType, expr} ->
       vcat $

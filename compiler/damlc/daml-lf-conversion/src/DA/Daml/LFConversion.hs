@@ -359,10 +359,10 @@ convertGenericTemplate env x
                         let tupleType = TypeConApp tupleTyCon [TContractId polyType, polyType]
                         let fetchByKey =
                                 ETmLam (mkVar "key", keyType) $
-                                EUpdate $ UBind (Binding (res, TTuple [(selfField, TContractId monoType), (thisField, monoType)]) $ EUpdate $ UFetchByKey $ RetrieveByKey monoTyCon $ EVar $ mkVar "key") $
+                                EUpdate $ UBind (Binding (res, TStroct [(selfField, TContractId monoType), (thisField, monoType)]) $ EUpdate $ UFetchByKey $ RetrieveByKey monoTyCon $ EVar $ mkVar "key") $
                                 EUpdate $ UPure (typeConAppToType tupleType) $ ERecCon tupleType
-                                    [ (FieldName "_1", unwrapCid $ ETupleProj selfField $ EVar res)
-                                    , (FieldName "_2", unwrapTpl $ ETupleProj thisField $ EVar res)
+                                    [ (FieldName "_1", unwrapCid $ EStroctProj selfField $ EVar res)
+                                    , (FieldName "_2", unwrapTpl $ EStroctProj thisField $ EVar res)
                                     ]
                         let lookupByKey =
                                 ETmLam (mkVar "key", keyType) $
@@ -748,9 +748,9 @@ convertExpr env0 e = do
             let fields = [(mkField f1, t1), (mkField f2, t2)]
             tupleTyCon <- qDA_Types env $ mkTypeCon ["Tuple" <> T.pack (show $ length fields)]
             let tupleType = TypeConApp tupleTyCon (map snd fields)
-            pure $ ETmLam (varV1, TTuple fields) $ ERecCon tupleType $ zipWithFrom mkFieldProj (1 :: Int) fields
+            pure $ ETmLam (varV1, TStroct fields) $ ERecCon tupleType $ zipWithFrom mkFieldProj (1 :: Int) fields
         where
-            mkFieldProj i (name, _typ) = (mkField ("_" <> T.pack (show i)), ETupleProj name (EVar varV1))
+            mkFieldProj i (name, _typ) = (mkField ("_" <> T.pack (show i)), EStroctProj name (EVar varV1))
     go env (VarIn GHC_Types "primitive") (LType (isStrLitTy -> Just y) : LType t : args)
         = fmap (, args) $ convertPrim (envLfVersion env) (unpackFS y) <$> convertType env t
     go env (VarIn GHC_Types "external") (LType (isStrLitTy -> Just y) : LType t : args)
@@ -1418,7 +1418,7 @@ convertType env o@(TypeCon t ts)
     , [StrLitTy f1, StrLitTy f2, t1, t2] <- ts = do
         t1 <- convertType env t1
         t2 <- convertType env t2
-        pure $ TTuple [(mkField f1, t1), (mkField f2, t2)]
+        pure $ TStroct [(mkField f1, t1), (mkField f2, t2)]
     | tyConFlavour t == TypeSynonymFlavour = convertType env $ expandTypeSynonyms o
     | otherwise = mkTApps <$> convertTyCon env t <*> mapM (convertType env) ts
 convertType env t | Just (v, t') <- splitForAllTy_maybe t

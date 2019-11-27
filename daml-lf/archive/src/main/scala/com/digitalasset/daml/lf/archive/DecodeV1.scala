@@ -556,11 +556,11 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
           assertNonEmpty(vars, "vars")
           (vars :\ decodeType(tForall.getBody))((binder, acc) =>
             TForall(decodeTypeVarWithKind(binder), acc))
-        case PLF.Type.SumCase.TUPLE =>
-          val tuple = lfType.getTuple
-          val fields = tuple.getFieldsList.asScala
+        case PLF.Type.SumCase.STROCT =>
+          val stroct = lfType.getStroct
+          val fields = stroct.getFieldsList.asScala
           assertNonEmpty(fields, "fields")
-          TTuple(fields.map(decodeFieldWithType)(breakOut))
+          TStroct(fields.map(decodeFieldWithType)(breakOut))
 
         case PLF.Type.SumCase.SUM_NOT_SET =>
           throw ParseError("Type.SUM_NOT_SET")
@@ -723,39 +723,39 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
             )
           )
 
-        case PLF.Expr.SumCase.TUPLE_CON =>
-          val tupleCon = lfExpr.getTupleCon
-          ETupleCon(
-            ImmArray(tupleCon.getFieldsList.asScala).map(decodeFieldWithExpr(_, definition))
+        case PLF.Expr.SumCase.STROCT_CON =>
+          val stroctCon = lfExpr.getStroctCon
+          EStroctCon(
+            ImmArray(stroctCon.getFieldsList.asScala).map(decodeFieldWithExpr(_, definition))
           )
 
-        case PLF.Expr.SumCase.TUPLE_PROJ =>
-          val tupleProj = lfExpr.getTupleProj
-          ETupleProj(
+        case PLF.Expr.SumCase.STROCT_PROJ =>
+          val stroctProj = lfExpr.getStroctProj
+          EStroctProj(
             field = handleInternedName(
-              tupleProj.getFieldCase,
-              PLF.Expr.TupleProj.FieldCase.FIELD_STR,
-              tupleProj.getFieldStr,
-              PLF.Expr.TupleProj.FieldCase.FIELD_INTERNED_STR,
-              tupleProj.getFieldInternedStr,
-              "Expr.TupleProj.field.field"
+              stroctProj.getFieldCase,
+              PLF.Expr.StroctProj.FieldCase.FIELD_STR,
+              stroctProj.getFieldStr,
+              PLF.Expr.StroctProj.FieldCase.FIELD_INTERNED_STR,
+              stroctProj.getFieldInternedStr,
+              "Expr.StroctProj.field.field"
             ),
-            tuple = decodeExpr(tupleProj.getTuple, definition)
+            stroct = decodeExpr(stroctProj.getStroct, definition)
           )
 
-        case PLF.Expr.SumCase.TUPLE_UPD =>
-          val tupleUpd = lfExpr.getTupleUpd
-          ETupleUpd(
+        case PLF.Expr.SumCase.STROCT_UPD =>
+          val stroctUpd = lfExpr.getStroctUpd
+          EStroctUpd(
             field = handleInternedName(
-              tupleUpd.getFieldCase,
-              PLF.Expr.TupleUpd.FieldCase.FIELD_STR,
-              tupleUpd.getFieldStr,
-              PLF.Expr.TupleUpd.FieldCase.FIELD_INTERNED_STR,
-              tupleUpd.getFieldInternedStr,
-              "Expr.TupleUpd.field.field"
+              stroctUpd.getFieldCase,
+              PLF.Expr.StroctUpd.FieldCase.FIELD_STR,
+              stroctUpd.getFieldStr,
+              PLF.Expr.StroctUpd.FieldCase.FIELD_INTERNED_STR,
+              stroctUpd.getFieldInternedStr,
+              "Expr.StroctUpd.field.field"
             ),
-            tuple = decodeExpr(tupleUpd.getTuple, definition),
-            update = decodeExpr(tupleUpd.getUpdate, definition)
+            stroct = decodeExpr(stroctUpd.getStroct, definition),
+            update = decodeExpr(stroctUpd.getUpdate, definition)
           )
 
         case PLF.Expr.SumCase.APP =>

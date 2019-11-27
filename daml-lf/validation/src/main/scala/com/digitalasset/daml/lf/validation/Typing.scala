@@ -120,7 +120,7 @@ private[validation] object Typing {
         TForall(
           alpha.name -> KStar,
           TTextMap(alpha) ->: TList(
-            TTuple(ImmArray(keyFieldName -> TText, valueFieldName -> alpha)))
+            TStroct(ImmArray(keyFieldName -> TText, valueFieldName -> alpha)))
         ),
       BTextMapSize ->
         TForall(
@@ -431,7 +431,7 @@ private[validation] object Typing {
       case TForall((v, k), b) =>
         introTypeVar(v, k).checkType(b, KStar)
         KStar
-      case TTuple(recordType) =>
+      case TStroct(recordType) =>
         checkRecordType(recordType)
         KStar
     }
@@ -486,27 +486,27 @@ private[validation] object Typing {
           throw EExpectedRecordType(ctx, typ0)
       }
 
-    private def typeOfTupleCon(fields: ImmArray[(FieldName, Expr)]): Type = {
+    private def typeOfStroctCon(fields: ImmArray[(FieldName, Expr)]): Type = {
       checkUniq[FieldName](fields.keys, EDuplicateField(ctx, _))
-      TTuple(fields.transform { (_, x) =>
+      TStroct(fields.transform { (_, x) =>
         typeOf(x)
       })
     }
 
-    private def typeOfTupleProj(field: FieldName, expr: Expr): Type = typeOf(expr) match {
-      case TTuple(tupleType) =>
-        tupleType.lookup(field, EUnknownField(ctx, field))
+    private def typeOfStroctProj(field: FieldName, expr: Expr): Type = typeOf(expr) match {
+      case TStroct(stroctType) =>
+        stroctType.lookup(field, EUnknownField(ctx, field))
       case typ =>
-        throw EExpectedTupleType(ctx, typ)
+        throw EExpectedStroctType(ctx, typ)
     }
 
-    private def typeOfTupleUpd(field: FieldName, tuple: Expr, update: Expr): Type =
-      typeOf(tuple) match {
-        case typ @ TTuple(tupleType) =>
-          checkExpr(update, tupleType.lookup(field, EUnknownField(ctx, field)))
+    private def typeOfStroctUpd(field: FieldName, stroct: Expr, update: Expr): Type =
+      typeOf(stroct) match {
+        case typ @ TStroct(stroctType) =>
+          checkExpr(update, stroctType.lookup(field, EUnknownField(ctx, field)))
           typ
         case typ =>
-          throw EExpectedTupleType(ctx, typ)
+          throw EExpectedStroctType(ctx, typ)
       }
 
     private def typeOfTmApp(fun: Expr, arg: Expr): Type = typeOf(fun) match {
@@ -729,7 +729,7 @@ private[validation] object Typing {
         checkRetrieveByKey(retrieveByKey)
         // fetches return the contract id and the contract itself
         TUpdate(
-          TTuple(
+          TStroct(
             ImmArray(
               (contractIdFieldName, TContractId(TTyCon(retrieveByKey.templateId))),
               (contractFieldName, TTyCon(retrieveByKey.templateId)))))
@@ -813,12 +813,12 @@ private[validation] object Typing {
       case EEnumCon(tyCon, constructor) =>
         checkEnumCon(tyCon, constructor)
         TTyCon(tyCon)
-      case ETupleCon(fields) =>
-        typeOfTupleCon(fields)
-      case ETupleProj(field, tuple) =>
-        typeOfTupleProj(field, tuple)
-      case ETupleUpd(field, tuple, update) =>
-        typeOfTupleUpd(field, tuple, update)
+      case EStroctCon(fields) =>
+        typeOfStroctCon(fields)
+      case EStroctProj(field, stroct) =>
+        typeOfStroctProj(field, stroct)
+      case EStroctUpd(field, stroct, update) =>
+        typeOfStroctUpd(field, stroct, update)
       case EApp(fun, arg) =>
         typeOfTmApp(fun, arg)
       case ETyApp(expr, typ) =>

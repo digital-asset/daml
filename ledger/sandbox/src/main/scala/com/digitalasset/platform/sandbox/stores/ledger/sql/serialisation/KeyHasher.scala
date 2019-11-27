@@ -105,9 +105,9 @@ object KeyHasher extends KeyHasher {
         val z2 = entries.foldLeft[T](z1) { case (t, (k, v)) => foldLeft(k, foldLeft(v, t, op), op) }
         op(z2, HashTokenCollectionEnd())
 
-      // Tuple: should never be encountered
-      case ValueTuple(_) =>
-        sys.error("Hashing of tuple values is not supported")
+      // Stroct: should never be encountered
+      case ValueStroct(_) =>
+        sys.error("Hashing of stroct values is not supported")
     }
   }
 
