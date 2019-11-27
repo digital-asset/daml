@@ -5,7 +5,6 @@ package com.daml.ledger.participant.state.kvutils.committing
 
 import com.codahale.metrics
 import com.codahale.metrics.{Counter, Timer}
-import com.daml.ledger.participant.state.backport.TimeModelChecker
 import com.daml.ledger.participant.state.kvutils.Conversions.{buildTimestamp, commandDedupKey, _}
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.{Conversions, Err, InputsAndEffects, Pretty}
@@ -55,7 +54,7 @@ private[kvutils] case class ProcessTransactionSubmission(
 
   // -------------------------------------------------------------------------------
 
-  private val config: Configuration =
+  private val (_, config) =
     Common.getCurrentConfiguration(defaultConfig, inputState, logger)
 
   private val txLet = parseTimestamp(txEntry.getLedgerEffectiveTime)
@@ -120,19 +119,16 @@ private[kvutils] case class ProcessTransactionSubmission(
             RejectionReason.SubmitterCannotActViaParticipant(
               s"Party '$submitter' not hosted by participant $participantId"))
       case None =>
-        if (config.openWorld)
-          pass
-        else
-          reject(RejectionReason.PartyNotKnownOnLedger)
+        reject(RejectionReason.PartyNotKnownOnLedger)
     }
 
   /** Validate ledger effective time and the command's time-to-live. */
   private def validateLetAndTtl: Commit[Unit] = delay {
-    val timeModelChecker = TimeModelChecker(config.timeModel)
+    val timeModel = config.timeModel
     val givenLET = txLet.toInstant
     val givenMRT = parseTimestamp(txEntry.getSubmitterInfo.getMaximumRecordTime).toInstant
 
-    if (timeModelChecker.checkLet(
+    if (timeModel.checkLet(
         currentTime = recordTime.toInstant,
         givenLedgerEffectiveTime = givenLET,
         givenMaximumRecordTime = givenMRT)

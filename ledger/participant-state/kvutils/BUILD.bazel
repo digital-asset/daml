@@ -31,6 +31,7 @@ da_scala_library(
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-domain",
         "//ledger/participant-state",
+        "//ledger/participant-state/protobuf:ledger_configuration_java_proto",
         "@maven//:com_google_guava_guava",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:com_typesafe_akka_akka_actor_2_12",
@@ -67,6 +68,7 @@ da_scala_test(
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-domain",
         "//ledger/participant-state",
+        "//ledger/participant-state/protobuf:ledger_configuration_java_proto",
         "@maven//:ch_qos_logback_logback_classic",
         "@maven//:ch_qos_logback_logback_core",
         "@maven//:com_google_protobuf_protobuf_java",
@@ -83,10 +85,12 @@ da_scala_test(
 proto_library(
     name = "daml_kvutils_proto",
     srcs = ["src/main/protobuf/daml_kvutils.proto"],
+    strip_import_prefix = "src/main/protobuf/",
     deps = [
         "//daml-lf/archive:daml_lf_dev_archive_proto",
         "//daml-lf/transaction:transaction_proto",
         "//daml-lf/transaction:value_proto",
+        "//ledger/participant-state/protobuf:ledger_configuration_proto",
         "@com_google_protobuf//:duration_proto",
         "@com_google_protobuf//:empty_proto",
         "@com_google_protobuf//:timestamp_proto",
