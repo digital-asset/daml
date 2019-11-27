@@ -177,7 +177,7 @@ class SqlLedgerSpec
       }
     }
 
-    "be unhealthy if the underlying database is inaccessible" in {
+    "be unhealthy if the underlying database is inaccessible 3 or more times in a row" in {
       for {
         ledger <- SqlLedger(
           jdbcUrl = postgresFixture.jdbcUrl,
@@ -197,10 +197,14 @@ class SqlLedgerSpec
 
         _ = stopPostgres()
         _ <- ledger.allocateParty(PartyIdGenerator.generateRandomId(), Some("Bob")).failed
+        _ = ledger.currentHealth() should be(Healthy)
+        _ <- ledger.allocateParty(PartyIdGenerator.generateRandomId(), Some("Carol")).failed
+        _ = ledger.currentHealth() should be(Healthy)
+        _ <- ledger.allocateParty(PartyIdGenerator.generateRandomId(), Some("Dan")).failed
         _ = ledger.currentHealth() should be(Unhealthy)
 
         _ = startPostgres()
-        _ <- ledger.allocateParty(PartyIdGenerator.generateRandomId(), Some("Carol"))
+        _ <- ledger.allocateParty(PartyIdGenerator.generateRandomId(), Some("Erin"))
         _ = ledger.currentHealth() should be(Healthy)
       } yield succeed
     }

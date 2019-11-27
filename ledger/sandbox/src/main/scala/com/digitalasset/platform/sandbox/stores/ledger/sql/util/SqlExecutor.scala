@@ -4,11 +4,13 @@
 package com.digitalasset.platform.sandbox.stores.ledger.sql.util
 
 import java.sql.SQLTransientConnectionException
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.{Executors, TimeUnit}
 
 import com.codahale.metrics.{MetricRegistry, Timer}
 import com.digitalasset.ledger.api.health.{HealthStatus, Healthy, ReportsHealth, Unhealthy}
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
+import com.digitalasset.platform.sandbox.stores.ledger.sql.util.SqlExecutor._
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 
 import scala.concurrent.{Future, Promise}
@@ -40,9 +42,13 @@ final class SqlExecutor(
         .build()
     )
 
-  private var lastKnownHealth: HealthStatus = Healthy
+  private val transientFailureCount: AtomicInteger = new AtomicInteger(0)
 
-  override def currentHealth(): HealthStatus = lastKnownHealth
+  override def currentHealth(): HealthStatus =
+    if (transientFailureCount.get() < maxTransientFailureCount)
+      Healthy
+    else
+      Unhealthy
 
   def runQuery[A](description: String, extraLog: Option[String])(block: => A): Future[A] = {
     val promise = Promise[A]
@@ -59,10 +65,10 @@ final class SqlExecutor(
       try {
         // Actual execution
         promise.success(block)
-        lastKnownHealth = Healthy
+        transientFailureCount.set(0)
       } catch {
         case e: SQLTransientConnectionException =>
-          lastKnownHealth = Unhealthy
+          transientFailureCount.incrementAndGet()
           promise.failure(e)
         case NonFatal(e) =>
           logger.error(
@@ -90,4 +96,8 @@ final class SqlExecutor(
   }
 
   override def close(): Unit = executor.shutdown()
+}
+
+object SqlExecutor {
+  val maxTransientFailureCount: Int = 3
 }
