@@ -149,7 +149,7 @@ class SqlLedgerSpec
           loggerFactory,
           metrics
         )
-      } yield (())
+      } yield ()
 
       ledgerF.failed.map { t =>
         t.getMessage shouldEqual "Ledger id mismatch. Ledger id given ('AnotherLedger') is not equal to the existing one ('TheLedger')!"

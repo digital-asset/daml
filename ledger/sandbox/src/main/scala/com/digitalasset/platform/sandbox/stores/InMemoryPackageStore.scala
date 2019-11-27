@@ -13,9 +13,8 @@ import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
 import org.slf4j.LoggerFactory
-
-import scalaz.std.list._
 import scalaz.std.either._
+import scalaz.std.list._
 import scalaz.syntax.traverse._
 
 import scala.collection.immutable.Map
@@ -23,7 +22,7 @@ import scala.concurrent.Future
 import scala.util.Try
 
 object InMemoryPackageStore {
-  def empty(): InMemoryPackageStore = new InMemoryPackageStore(Map.empty, Map.empty, Map.empty)
+  def empty: InMemoryPackageStore = new InMemoryPackageStore(Map.empty, Map.empty, Map.empty)
 }
 
 case class InMemoryPackageStore(
