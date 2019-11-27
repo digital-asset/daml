@@ -6,6 +6,7 @@ package com.digitalasset.platform.sandbox.stores.ledger.sql
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.ledger.api.domain.LedgerId
+import com.digitalasset.ledger.api.health.Healthy
 import com.digitalasset.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.sandbox.MetricsAround
@@ -156,6 +157,23 @@ class SqlLedgerSpec
       }
     }
 
+    "is healthy" in {
+      for {
+        ledger <- SqlLedger(
+          jdbcUrl = postgresFixture.jdbcUrl,
+          ledgerId = None,
+          timeProvider = TimeProvider.UTC,
+          acs = InMemoryActiveLedgerState.empty,
+          packages = InMemoryPackageStore.empty,
+          initialLedgerEntries = ImmArray.empty,
+          queueDepth,
+          startMode = SqlStartMode.ContinueIfExists,
+          loggerFactory,
+          metrics
+        )
+      } yield {
+        ledger.currentHealth should be(Healthy)
+      }
+    }
   }
-
 }

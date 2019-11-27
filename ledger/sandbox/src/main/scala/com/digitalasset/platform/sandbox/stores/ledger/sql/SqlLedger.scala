@@ -14,13 +14,14 @@ import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.index.v2.PackageDetails
 import com.daml.ledger.participant.state.v1._
 import com.digitalasset.api.util.TimeProvider
-import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.daml.lf.data.Ref.LedgerString.ordering
+import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.engine.Blinding
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractId}
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
 import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails, RejectionReason}
+import com.digitalasset.ledger.api.health.HealthStatus
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.common.util.{DirectExecutionContext => DEC}
 import com.digitalasset.platform.sandbox.LedgerIdGenerator
@@ -76,7 +77,8 @@ object SqlLedger {
       queueDepth: Int,
       startMode: SqlStartMode = SqlStartMode.ContinueIfExists,
       loggerFactory: NamedLoggerFactory,
-      metrics: MetricRegistry)(implicit mat: Materializer): Future[Ledger] = {
+      metrics: MetricRegistry,
+  )(implicit mat: Materializer): Future[Ledger] = {
     implicit val ec: ExecutionContext = DEC
 
     new FlywayMigrations(jdbcUrl, loggerFactory).migrate()
@@ -90,7 +92,8 @@ object SqlLedger {
         noOfShortLivedConnections,
         defaultNumberOfStreamingConnections,
         loggerFactory,
-        metrics)
+        metrics,
+      )
 
     val ledgerDao = LedgerDao.metered(
       JdbcLedgerDao(
@@ -116,7 +119,7 @@ object SqlLedger {
       queueDepth,
       // we use noOfShortLivedConnections for the maximum batch size, since it doesn't make sense
       // to try to persist more ledger entries concurrently than we have SQL executor threads and SQL connections available.
-      noOfShortLivedConnections
+      noOfShortLivedConnections,
     )
   }
 }
@@ -129,7 +132,8 @@ private class SqlLedger(
     packages: InMemoryPackageStore,
     queueDepth: Int,
     maxBatchSize: Int,
-    loggerFactory: NamedLoggerFactory)(implicit mat: Materializer)
+    loggerFactory: NamedLoggerFactory,
+)(implicit mat: Materializer)
     extends BaseLedger(ledgerId, headAtInitialization, ledgerDao)
     with Ledger {
 
@@ -211,6 +215,8 @@ private class SqlLedger(
         Future[Done]])
       .run()
   }
+
+  override def currentHealth: HealthStatus = ledgerDao.currentHealth
 
   override def close(): Unit = {
     super.close()
@@ -360,10 +366,9 @@ private class SqlLedgerFactory(ledgerDao: LedgerDao, loggerFactory: NamedLoggerF
       packages: InMemoryPackageStore,
       initialLedgerEntries: ImmArray[LedgerEntryOrBump],
       queueDepth: Int,
-      maxBatchSize: Int
+      maxBatchSize: Int,
   )(implicit mat: Materializer): Future[SqlLedger] = {
-    @SuppressWarnings(Array("org.wartremover.warts.ExplicitImplicitTypes"))
-    implicit val ec = DEC
+    implicit val ec: ExecutionContext = DEC
 
     def init(): Future[LedgerId] = startMode match {
       case AlwaysReset =>
@@ -387,7 +392,8 @@ private class SqlLedgerFactory(ledgerDao: LedgerDao, loggerFactory: NamedLoggerF
         packages,
         queueDepth,
         maxBatchSize,
-        loggerFactory)
+        loggerFactory,
+      )
   }
 
   private def reset(): Future[Unit] =

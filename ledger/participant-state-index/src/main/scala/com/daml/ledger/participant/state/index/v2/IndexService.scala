@@ -3,6 +3,8 @@
 
 package com.daml.ledger.participant.state.index.v2
 
+import com.digitalasset.ledger.api.health.ReportsHealth
+
 trait IndexService
     extends IndexPackagesService
     with IndexConfigurationService
@@ -13,4 +15,4 @@ trait IndexService
     with IdentityProvider
     with IndexPartyManagementService
     // with IndexTimeService //TODO: this needs some further discussion as the TimeService is actually optional
-    with IndexHealthChecks
+    with ReportsHealth

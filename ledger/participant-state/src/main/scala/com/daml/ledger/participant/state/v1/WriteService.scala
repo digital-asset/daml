@@ -5,6 +5,8 @@ package com.daml.ledger.participant.state.v1
 
 import java.util.concurrent.CompletionStage
 
+import com.digitalasset.ledger.api.health.ReportsHealth
+
 /** An interface to change a ledger via a participant.
   *
   * The methods in this interface are all methods that are supported
@@ -29,7 +31,7 @@ trait WriteService
     extends WritePackagesService
     with WritePartyService
     with WriteConfigService
-    with WriteHealthChecks {
+    with ReportsHealth {
 
   /** Submit a transaction for acceptance to the ledger.
     *

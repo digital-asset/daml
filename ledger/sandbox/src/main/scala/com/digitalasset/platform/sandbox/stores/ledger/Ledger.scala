@@ -20,7 +20,7 @@ import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
 import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails}
-import com.digitalasset.ledger.api.health.HealthChecks
+import com.digitalasset.ledger.api.health.ReportsHealth
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilter
 import com.digitalasset.platform.sandbox.stores.ActiveLedgerState.Contract
@@ -37,11 +37,7 @@ import scala.concurrent.Future
 
 trait Ledger extends ReadOnlyLedger with WriteLedger
 
-trait LedgerHealthChecks {
-  def healthChecks: HealthChecks = HealthChecks.empty
-}
-
-trait WriteLedger extends LedgerHealthChecks with AutoCloseable {
+trait WriteLedger extends ReportsHealth with AutoCloseable {
 
   def publishHeartbeat(time: Instant): Future[Unit]
 
@@ -61,7 +57,7 @@ trait WriteLedger extends LedgerHealthChecks with AutoCloseable {
 }
 
 /** Defines all the functionalities a Ledger needs to provide */
-trait ReadOnlyLedger extends LedgerHealthChecks with AutoCloseable {
+trait ReadOnlyLedger extends ReportsHealth with AutoCloseable {
 
   def ledgerId: LedgerId
 

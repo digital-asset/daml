@@ -92,7 +92,6 @@ object ReferenceServer extends App {
       authService,
       NamedLoggerFactory.forParticipant(config.participantId),
       SharedMetricRegistries.getOrCreate(s"ledger-api-server-${config.participantId}"),
-      readService.healthChecks ++ writeService.healthChecks,
     )
 
   val closed = new AtomicBoolean(false)

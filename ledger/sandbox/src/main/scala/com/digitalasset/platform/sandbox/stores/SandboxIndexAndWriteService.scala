@@ -33,7 +33,7 @@ import com.digitalasset.ledger.api.domain.CompletionEvent.{
   CommandRejected
 }
 import com.digitalasset.ledger.api.domain.{ParticipantId => _, _}
-import com.digitalasset.ledger.api.health.HealthChecks
+import com.digitalasset.ledger.api.health.HealthStatus
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.common.util.{DirectExecutionContext => DEC}
 import com.digitalasset.platform.participant.util.EventFilter
@@ -56,8 +56,6 @@ trait IndexAndWriteService extends AutoCloseable {
   def writeService: WriteService
 
   def publishHeartbeat(instant: Instant): Future[Unit]
-
-  def healthChecks: HealthChecks
 }
 
 object SandboxIndexAndWriteService {
@@ -136,8 +134,6 @@ object SandboxIndexAndWriteService {
       override def publishHeartbeat(instant: Instant): Future[Unit] =
         ledger.publishHeartbeat(instant)
 
-      override val healthChecks: HealthChecks = indexSvc.healthChecks ++ writeSvc.healthChecks
-
       override def close(): Unit = {
         heartbeats.close()
         ledger.close()
@@ -174,6 +170,8 @@ abstract class LedgerBackedIndexService(
     extends IndexService
     with AutoCloseable {
   override def getLedgerId(): Future[LedgerId] = Future.successful(ledger.ledgerId)
+
+  override def currentHealth(): HealthStatus = ledger.currentHealth()
 
   override def getActiveContractSetSnapshot(
       txFilter: TransactionFilter): Future[ActiveContractSetSnapshot] = {
@@ -412,6 +410,8 @@ abstract class LedgerBackedIndexService(
 }
 
 class LedgerBackedWriteService(ledger: Ledger, timeProvider: TimeProvider) extends WriteService {
+
+  override def currentHealth(): HealthStatus = ledger.currentHealth()
 
   override def submitTransaction(
       submitterInfo: ParticipantState.SubmitterInfo,

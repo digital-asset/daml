@@ -22,6 +22,7 @@ import com.digitalasset.daml.lf.data.Ref.{LedgerString, Party}
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.engine.Engine
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
+import com.digitalasset.ledger.api.health.{HealthStatus, Healthy}
 import com.digitalasset.platform.akkastreams.dispatcher.Dispatcher
 import com.digitalasset.platform.akkastreams.dispatcher.SubSource.OneAfterAnother
 import com.google.protobuf.ByteString
@@ -373,6 +374,8 @@ class InMemoryKVParticipantState(
         List(Update.Heartbeat(recordTime))
     }
   }
+
+  override def currentHealth(): HealthStatus = Healthy
 
   /** Subscribe to updates to the participant state.
     * Implemented using the [[Dispatcher]] helper which handles the signalling

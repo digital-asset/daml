@@ -19,8 +19,8 @@ import com.daml.ledger.participant.state.v1.{
 }
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.ImmArray
-import com.digitalasset.daml.lf.data.Ref.{PackageId, Party, TransactionIdString}
 import com.digitalasset.daml.lf.data.Ref.LedgerString.ordering
+import com.digitalasset.daml.lf.data.Ref.{PackageId, Party, TransactionIdString}
 import com.digitalasset.daml.lf.engine.Blinding
 import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.transaction.Node
@@ -33,6 +33,7 @@ import com.digitalasset.ledger.api.domain.{
   PartyDetails,
   RejectionReason
 }
+import com.digitalasset.ledger.api.health.{HealthStatus, Healthy}
 import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilter
 import com.digitalasset.platform.sandbox.services.transaction.SandboxEventIdFormatter
 import com.digitalasset.platform.sandbox.stores.ActiveLedgerState.ActiveContract
@@ -77,6 +78,8 @@ class InMemoryLedger(
   }
 
   private val packageStoreRef = new AtomicReference[InMemoryPackageStore](packageStoreInit)
+
+  override def currentHealth(): HealthStatus = Healthy
 
   override def ledgerEntries(offset: Option[Long]): Source[(Long, LedgerEntry), NotUsed] =
     entries.getSource(offset)

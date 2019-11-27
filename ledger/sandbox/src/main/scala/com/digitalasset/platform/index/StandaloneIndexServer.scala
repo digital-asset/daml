@@ -47,7 +47,6 @@ class StandaloneIndexServer(
     authService: AuthService,
     loggerFactory: NamedLoggerFactory,
     metrics: MetricRegistry,
-    healthChecks: HealthChecks,
     engine: Engine = engineSharedAmongIndexServers, // allows sharing DAML engine with DAML-on-X participant
     timeServiceBackendO: Option[TimeServiceBackend] = None,
 ) {
@@ -139,6 +138,10 @@ class StandaloneIndexServer(
         config.jdbcUrl,
         loggerFactory,
         metrics)
+      healthChecks = new HealthChecks(
+        "index" -> indexService,
+        "ledger" -> writeService,
+      )
       apiServer <- LedgerApiServer.create(
         (am: ActorMaterializer, esf: ExecutionSequencerFactory) =>
           ApiServices
@@ -153,7 +156,7 @@ class StandaloneIndexServer(
               timeServiceBackendO,
               loggerFactory,
               metrics,
-              writeService.healthChecks ++ indexService.healthChecks,
+              healthChecks,
             )(am, esf),
         config.port,
         config.maxInboundMessageSize,

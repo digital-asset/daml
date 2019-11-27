@@ -9,6 +9,7 @@ import java.util.concurrent.Executors
 import akka.stream.scaladsl.Source
 import akka.{Done, NotUsed}
 import com.codahale.metrics.MetricRegistry
+import com.digitalasset.ledger.api.health.{HealthStatus, ReportsHealth}
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.common.util.DirectExecutionContext
 import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.HikariJdbcConnectionProvider
@@ -30,12 +31,14 @@ class DbDispatcher(
     noOfStreamingConnections: Int,
     loggerFactory: NamedLoggerFactory,
     metrics: MetricRegistry,
-) extends AutoCloseable {
+) extends AutoCloseable
+    with ReportsHealth {
 
   private val logger = loggerFactory.getLogger(getClass)
   private val connectionProvider =
     new HikariJdbcConnectionProvider(jdbcUrl, noOfShortLivedConnections, noOfStreamingConnections)
-  private val sqlExecutor = SqlExecutor(noOfShortLivedConnections, loggerFactory, metrics)
+  private val sqlExecutor =
+    new SqlExecutor(noOfShortLivedConnections, loggerFactory, metrics)
 
   private val connectionGettingThreadPool = ExecutionContext.fromExecutorService(
     Executors.newSingleThreadExecutor(
@@ -46,6 +49,8 @@ class DbDispatcher(
           logger.error(s"got an uncaught exception on thread: ${thread.getName}", t))
         .build()))
 
+  override def currentHealth: HealthStatus = sqlExecutor.currentHealth
+
   /** Runs an SQL statement in a dedicated Executor. The whole block will be run in a single database transaction.
     *
     * The isolation level by default is the one defined in the JDBC driver, it can be however overridden per query on
@@ -53,7 +58,7 @@ class DbDispatcher(
     */
   def executeSql[T](description: String, extraLog: Option[String] = None)(
       sql: Connection => T): Future[T] =
-    sqlExecutor.runQuery(description, extraLog)(connectionProvider.runSQL(conn => sql(conn)))
+    sqlExecutor.runQuery(description, extraLog)(connectionProvider.runSQL(sql))
 
   /**
     * Creates a lazy Source, which takes care of:
