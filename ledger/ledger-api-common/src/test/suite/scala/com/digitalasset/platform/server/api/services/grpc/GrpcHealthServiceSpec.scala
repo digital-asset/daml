@@ -125,18 +125,6 @@ final class GrpcHealthServiceSpec
       response should be(notServingResponse)
     }
 
-    "fail gracefully when a non-existent component is queried" in {
-      val service = new GrpcHealthService(new HealthChecks("component" -> unhealthyComponent))
-
-      try {
-        Await.result(service.check(serviceRequestFor("another component")), patienceConfig.timeout)
-        fail("Expected a NOT_FOUND error, but got a successful result.")
-      } catch {
-        case GrpcException.NOT_FOUND() =>
-          succeed
-      }
-    }
-
     "observe changes in health" in {
       val responseObserver = new MockServerCallStreamObserver[HealthCheckResponse]
 
@@ -244,6 +232,35 @@ final class GrpcHealthServiceSpec
         responseObserver.elements should be(
           Vector(servingResponse, notServingResponse, servingResponse))
       }
+    }
+  }
+
+  "fail gracefully when a non-existent component is checked" in {
+    val service = new GrpcHealthService(new HealthChecks("component" -> unhealthyComponent))
+
+    val response = service.check(serviceRequestFor("another component"))
+    try {
+      Await.result(response, patienceConfig.timeout)
+      fail("Expected a NOT_FOUND error, but got a successful result.")
+    } catch {
+      case GrpcException.NOT_FOUND() =>
+        succeed
+    }
+  }
+
+  "fail gracefully when a non-existent component is watched" in {
+    val responseObserver = new MockServerCallStreamObserver[HealthCheckResponse]
+    val service = new GrpcHealthService(new HealthChecks("component" -> unhealthyComponent))
+
+    service.watch(serviceRequestFor("another component"), responseObserver)
+    responseObserver.demandResponse()
+
+    try {
+      Await.result(responseObserver.completionFuture, patienceConfig.timeout)
+      fail("Expected a NOT_FOUND error, but got a successful result.")
+    } catch {
+      case GrpcException.NOT_FOUND() =>
+        succeed
     }
   }
 }
