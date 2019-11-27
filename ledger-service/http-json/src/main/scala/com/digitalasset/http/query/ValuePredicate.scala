@@ -128,12 +128,15 @@ sealed abstract class ValuePredicate extends Product with Serializable {
           Rec(vraw, v_== map (jv => JsObject((dc, jv))), v_@> map (jv => JsObject((dc, jv))))
 
         case ListMatch(qs) =>
-          val cqs = qs.zipWithIndex map {
-            case (eq, k) => go(path ++ sql"->$k", eq)
-          }
+          val (cqs, flushed_@>) = qs.zipWithIndex.map {
+            case (eq, k) =>
+              val kpath = path ++ sql"->$k"
+              val krec = go(kpath, eq)
+              (krec, (krec flush_@> kpath).toList)
+          }.unzip
           val allSafe_== = cqs collect Function.unlift(_.safe_==)
           Rec(
-            cqs flatMap (_.raw),
+            cqs.flatMap(_.raw) ++ flushed_@>.flatten,
             if (cqs.length == allSafe_==.length) Some(JsArray(allSafe_==)) else None,
             None)
 
