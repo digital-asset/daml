@@ -127,6 +127,11 @@ sealed abstract class ValuePredicate extends Product with Serializable {
             None)
 
         case range: Range[a] =>
+          // this output relies on a *big* invariant: comparing the raw JSON data
+          // with the built-in SQL operators <, >, &c, yields equal results to
+          // comparing the same data in a data-aware way. That's why we *must* use
+          // numbers-as-numbers in LfValueDatabaseCodec, and why ISO-8601 strings
+          // for dates and timestamps are so important.
           val exprs = range.ltgt
             .umap(
               _ map (boundary => sql" ${dbApiValueToJsValue(range.normalize(boundary))}::jsonb"))

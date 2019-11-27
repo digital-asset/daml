@@ -41,6 +41,7 @@ object JsonProtocol extends DefaultJsonProtocol {
         encodeInt64AsString = true)
       with CodecAbsoluteContractIds
 
+  // DB *must not* use stringly ints or decimals; see ValuePredicate Range comments
   object LfValueDatabaseCodec
       extends ApiCodecCompressed[AbsoluteContractId](
         encodeDecimalAsString = false,
