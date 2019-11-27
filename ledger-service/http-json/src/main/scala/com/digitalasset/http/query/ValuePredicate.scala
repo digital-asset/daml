@@ -120,6 +120,8 @@ sealed abstract class ValuePredicate extends Product with Serializable {
           val allSafe_@> = cqs collect {
             case Some((k, Rec(_, _, Some(ssv)))) => (k, ssv)
           }
+          // TODO SC where == is Some but @> is None, we can still do better
+          // than propagating the raw
           Rec(
             cqs.toVector.flatMap(_.toList.flatMap(_._2.raw)),
             if (allSafe_==.length == cqs.length) Some(JsObject(allSafe_== : _*)) else None,
@@ -142,6 +144,8 @@ sealed abstract class ValuePredicate extends Product with Serializable {
           val allSafe_@> = cqs collect {
             case (k, Rec(_, _, Some(ssv))) => (k, ssv)
           }
+          // TODO SC where == is Some but @> is None, we can still do better
+          // than propagating the raw
           Rec(
             (sql"(SELECT count(*) FROM jsonb_object_keys(" ++ path ++ sql")) = ${cqs.length}") +: cqs
               .flatMap(_._2.raw)
