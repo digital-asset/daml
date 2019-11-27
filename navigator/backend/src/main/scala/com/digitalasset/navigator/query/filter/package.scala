@@ -84,7 +84,7 @@ package object filter {
           Right(checkContained("contractid", expectedValue))
         case DamlLfTypePrim(DamlLfPrimType.Optional, _) =>
           Right(checkContained("optional", expectedValue))
-        case DamlLfTypePrim(DamlLfPrimType.Map, _) =>
+        case DamlLfTypePrim(DamlLfPrimType.TextMap, _) =>
           Right(checkContained("map", expectedValue))
         case DamlLfTypePrim(DamlLfPrimType.GenMap, _) =>
           // FIXME https://github.com/digital-asset/daml/issues/2256

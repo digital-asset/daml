@@ -58,7 +58,7 @@ class TypeSpec extends WordSpec with Matchers {
           case Pkg.BTList =>
             TypePrim(PrimTypeList, ImmArraySeq(assertOneArg(args)))
           case Pkg.BTTextMap =>
-            TypePrim(PrimTypeMap, ImmArraySeq(assertOneArg(args)))
+            TypePrim(PrimTypeTextMap, ImmArraySeq(assertOneArg(args)))
           case Pkg.BTGenMap =>
             // FIXME https://github.com/digital-asset/daml/issues/2256
             sys.error("GenMap not supported in interface type")
