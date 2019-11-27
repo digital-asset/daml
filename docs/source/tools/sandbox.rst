@@ -59,12 +59,34 @@ Due to possible conflicts between the ``&`` character and various terminal shell
 
 If you're not familiar with JDBC URLs, see the JDBC docs for more information: https://jdbc.postgresql.org/documentation/head/connect.html
 
+.. _sandbox-authentication:
+
 Running with authentication
 ***************************
 
 By default, Sandbox does not use any authentication and accepts all valid ledger API requests.
 
-To start Sandbox with authentication based on `JWT <https://jwt.io/>`_, run ``daml sandbox --auth-jwt-hs256-unsafe=<secret>`` where ``<secret>`` is the secret used to sign the token with the HMAC256 algorithm. Please note that this option is there _exclusively_ for testing: for production use cases you are advised to use asymmetric key signing, which is currently being worked on.
+To start Sandbox with authentication based on `JWT <https://jwt.io/>`_ tokens,
+use one of the following command line options:
+
+- ``--auth-jwt-rs256-crt=<filename>``.
+  The sandbox will expect all tokens to be signed with RSA256 with the public key loaded from the given X.509 certificate file.
+  Both PEM-encoded certificates (text files starting with ``-----BEGIN CERTIFICATE-----``)
+  and DER-encoded certicates (binary files) are supported.
+
+- ``--auth-jwt-rs256-jwks=<url>``.
+  The sandbox will expect all tokens to be signed with RSA256 with the public key loaded from the given `JWKS <https://tools.ietf.org/html/rfc7517>`_ URL.
+
+.. warning::
+
+  For testing purposes only, the following options may also be used.
+  None of them is considered safe for production:
+
+  - ``--auth-jwt-hss256-unsafe=<secret>``.
+    The sandbox will expect all tokens to be signed with HMAC256 with the given plaintext secret.
+
+Token payload
+=============
 
 The JWT payload has the following schema:
 
@@ -77,15 +99,32 @@ The JWT payload has the following schema:
       "exp": 1300819380,
       "admin": true,
       "actAs": ["Alice"],
-      "readAs": ["Alice", "Bob"],
+      "readAs": ["Bob"]
    }
 
 where
-``ledgerId``, ``participantId``, ``applicationId`` restricts the validity of the token to the given ledger, participant, or application;
-``exp`` is the standard JWT expiration date;
-``admin`` determines whether the token bearer is authorized to use admin endpoints of the ledger API;
-``actAs`` lists all DAML parties the token bearer can act as (e.g., as submitter of a command); and
-``readAs`` lists all DAML parties the token bearer can read data for.
+
+- ``ledgerId``, ``participantId``, ``applicationId`` restricts the validity of the token to the given ledger, participant, or application
+- ``exp`` is the standard JWT expiration date (in seconds since EPOCH)
+- ``admin`` determines whether the token bearer is authorized to use admin endpoints of the ledger API
+- ``actAs`` lists all DAML parties the token bearer can act as (e.g., as submitter of a command) and read data for
+- ``readAs`` lists all DAML parties the token bearer can read data for
+
+Generating tokens
+=================
+
+To generate tokens for testing purposes, use the `jtw.io <https://jwt.io/>`_ web site.
+
+To generate RSA keys for testing purposes, use the following command
+
+.. code-block:: none
+
+  openssl req -nodes -new -x509  -keyout sandbox.key -out sandbox.crt
+
+which generates the following files:
+
+- ``sandbox.key``: the private key in PEM/DER/PKCS#1 format
+- ``sandbox.crt``: a self-signed certificate containing the public key, in PEM/DER/X.509 Certificate format
 
 Command-line reference
 **********************

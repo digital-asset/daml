@@ -334,6 +334,28 @@ Deploying a DAML Ledger
   scripted package upload) can be supported by a uniform admin interface
   (`GitHub issue <https://github.com/digital-asset/daml/issues/347>`__).
 
+Authorization
+=============
+
+To implement authorization on your ledger,
+do the following modifications to your code:
+
+- Implement the ``com.digitalasset.ledger.api.auth.AuthService`` (`source code <https://github.com/digital-asset/daml/blob/master/ledger/ledger-api-auth/src/main/scala/com/digitalasset/ledger/api/auth/AuthService.scala>`_) interface.
+  An AuthService receives all HTTP headers attached to a gRPC ledger API request
+  and returns a set of ``Claims`` (`source code <https://github.com/digital-asset/daml/blob/master/ledger/ledger-api-auth/src/main/scala/com/digitalasset/ledger/api/auth/Claims.scala>`_), which describe the authorization of the request.
+- Instantiate a ``com.digitalasset.ledger.api.auth.interceptor.AuthorizationInterceptor`` (`source code <https://github.com/digital-asset/daml/blob/master/ledger/ledger-api-auth/src/main/scala/com/digitalasset/ledger/api/auth/interceptor/AuthorizationInterceptor.scala>`_),
+  and pass it an instance of your AuthService implementation.
+  This interceptor will be responsible for storing the decoded Claims in a place where ledger API services can access them.
+- When starting the ``com.digitalasset.ledger.server.apiserver.LedgerApiServer`` (`source code <https://github.com/digital-asset/daml/blob/master/ledger/sandbox/src/main/scala/com/digitalasset/ledger/server/apiserver/LedgerApiServer.scala>`_),
+  add the above AuthorizationInterceptor to the list of interceptors (see ``interceptors`` parameter of ``LedgerApiServer.create``).
+
+For reference, you can have a look at how authorization is implemented in the sandbox:
+
+- The ``com.digitalasset.ledger.api.auth.AuthServiceJWT`` class (`source code <https://github.com/digital-asset/daml/blob/master/ledger/ledger-api-auth/src/main/scala/com/digitalasset/ledger/api/auth/AuthServiceJWT.scala>`_)
+  reads a `JWT <https://jwt.io/>`_ token from HTTP headers.
+- The ``com.digitalasset.ledger.api.auth.AuthServiceJWTPayload`` class (`source code <https://github.com/digital-asset/daml/blob/master/ledger/ledger-api-auth/src/main/scala/com/digitalasset/ledger/api/auth/AuthServiceJWTPayload.scala>`_)
+  defines the format of the token payload.
+- The token signature algorithm and the corresponding public key is specified as a sandbox command line parameter.
 
 .. _integration-kit_testing:
 
