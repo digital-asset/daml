@@ -40,7 +40,7 @@ private class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: MetricRegi
     val getLfArchive: Timer = metrics.timer("LedgerDao.getLfArchive")
   }
 
-  override def currentHealth: HealthStatus = ledgerDao.currentHealth
+  override def currentHealth(): HealthStatus = ledgerDao.currentHealth()
 
   override def lookupLedgerId(): Future[Option[LedgerId]] =
     timedFuture(Metrics.lookupLedgerId, ledgerDao.lookupLedgerId())
@@ -104,7 +104,7 @@ private class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: MetricRegistry)
     val storeLedgerEntry: Timer = metrics.timer("LedgerDao.storeLedgerEntry")
   }
 
-  override def currentHealth: HealthStatus = ledgerDao.currentHealth
+  override def currentHealth(): HealthStatus = ledgerDao.currentHealth()
 
   override def storeLedgerEntry(
       offset: Long,

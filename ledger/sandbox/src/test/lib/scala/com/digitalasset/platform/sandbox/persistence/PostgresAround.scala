@@ -112,6 +112,25 @@ trait PostgresAround {
 
   protected def stopAndCleanUpPostgres(): Unit = {
     logger.info("Stopping and cleaning up PostgreSQL...")
+    stopPostgres()
+    deleteRecursively(postgresFixture.tempDir)
+    logger.info("PostgreSQL has stopped, and the data directory has been deleted.")
+  }
+
+  protected def startPostgres(): Unit = run(
+    "start PostgreSQL",
+    Tool.pg_ctl,
+    "-o",
+    s"-F -p ${postgresFixture.port}",
+    "-w",
+    "-D",
+    postgresFixture.dataDir.toString,
+    "-l",
+    postgresFixture.logFile.toString,
+    "start",
+  )
+
+  protected def stopPostgres(): Unit = {
     run(
       "stop PostgreSQL",
       Tool.pg_ctl,
@@ -122,8 +141,6 @@ trait PostgresAround {
       "immediate",
       "stop",
     )
-    deleteRecursively(postgresFixture.tempDir)
-    logger.info("PostgreSQL has stopped, and the data directory has been deleted.")
   }
 
   private def initializeDatabase(): Unit = run(
@@ -159,19 +176,6 @@ trait PostgresAround {
     Files.write(postgresFixture.confFile, configText.getBytes(StandardCharsets.UTF_8))
     ()
   }
-
-  private def startPostgres(): Unit = run(
-    "start PostgreSQL",
-    Tool.pg_ctl,
-    "-o",
-    s"-F -p ${postgresFixture.port}",
-    "-w",
-    "-D",
-    postgresFixture.dataDir.toString,
-    "-l",
-    postgresFixture.logFile.toString,
-    "start",
-  )
 
   private def createTestDatabase(): Unit = run(
     "create the database",

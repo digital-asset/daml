@@ -93,7 +93,7 @@ private class ReadOnlySqlLedger(
       .run()
   }
 
-  override def currentHealth: HealthStatus = ledgerDao.currentHealth
+  override def currentHealth(): HealthStatus = ledgerDao.currentHealth()
 
   override def close(): Unit = {
     ledgerEndUpdateKillSwitch.shutdown()

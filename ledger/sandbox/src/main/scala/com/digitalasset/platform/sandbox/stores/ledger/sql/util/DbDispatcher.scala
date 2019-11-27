@@ -49,7 +49,7 @@ class DbDispatcher(
           logger.error(s"got an uncaught exception on thread: ${thread.getName}", t))
         .build()))
 
-  override def currentHealth: HealthStatus = sqlExecutor.currentHealth
+  override def currentHealth(): HealthStatus = sqlExecutor.currentHealth()
 
   /** Runs an SQL statement in a dedicated Executor. The whole block will be run in a single database transaction.
     *

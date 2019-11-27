@@ -82,7 +82,7 @@ private class JdbcLedgerDao(
 
   private val SQL_SELECT_LEDGER_ID = SQL("select ledger_id from parameters")
 
-  override def currentHealth: HealthStatus = dbDispatcher.currentHealth
+  override def currentHealth(): HealthStatus = dbDispatcher.currentHealth()
 
   override def lookupLedgerId(): Future[Option[LedgerId]] =
     dbDispatcher

@@ -14,7 +14,7 @@ class HealthChecks(private val components: Components) {
   def ++(other: HealthChecks): HealthChecks = new HealthChecks(this.components ++ other.components)
 
   def isHealthy(componentName: Option[ComponentName]): Boolean =
-    componentsMatching(componentName).forall(_._2.currentHealth == Healthy)
+    componentsMatching(componentName).forall(_._2.currentHealth() == Healthy)
 
   private def componentsMatching(componentName: Option[ComponentName]): Components =
     componentName match {

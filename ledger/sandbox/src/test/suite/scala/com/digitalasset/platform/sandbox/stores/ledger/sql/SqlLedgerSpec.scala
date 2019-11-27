@@ -6,11 +6,12 @@ package com.digitalasset.platform.sandbox.stores.ledger.sql
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.ledger.api.domain.LedgerId
-import com.digitalasset.ledger.api.health.Healthy
+import com.digitalasset.ledger.api.health.{Healthy, Unhealthy}
 import com.digitalasset.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.sandbox.MetricsAround
 import com.digitalasset.platform.sandbox.persistence.PostgresAroundEach
+import com.digitalasset.platform.sandbox.stores.ledger.PartyIdGenerator
 import com.digitalasset.platform.sandbox.stores.{InMemoryActiveLedgerState, InMemoryPackageStore}
 import org.scalatest.concurrent.{AsyncTimeLimitedTests, ScaledTimeSpans}
 import org.scalatest.time.Span
@@ -157,7 +158,7 @@ class SqlLedgerSpec
       }
     }
 
-    "is healthy" in {
+    "be healthy" in {
       for {
         ledger <- SqlLedger(
           jdbcUrl = postgresFixture.jdbcUrl,
@@ -172,8 +173,36 @@ class SqlLedgerSpec
           metrics
         )
       } yield {
-        ledger.currentHealth should be(Healthy)
+        ledger.currentHealth() should be(Healthy)
       }
+    }
+
+    "be unhealthy if the underlying database is inaccessible" in {
+      for {
+        ledger <- SqlLedger(
+          jdbcUrl = postgresFixture.jdbcUrl,
+          ledgerId = None,
+          timeProvider = TimeProvider.UTC,
+          acs = InMemoryActiveLedgerState.empty,
+          packages = InMemoryPackageStore.empty,
+          initialLedgerEntries = ImmArray.empty,
+          queueDepth,
+          startMode = SqlStartMode.ContinueIfExists,
+          loggerFactory,
+          metrics
+        )
+
+        _ <- ledger.allocateParty(PartyIdGenerator.generateRandomId(), Some("Alice"))
+        _ = ledger.currentHealth() should be(Healthy)
+
+        _ = stopPostgres()
+        _ <- ledger.allocateParty(PartyIdGenerator.generateRandomId(), Some("Bob")).failed
+        _ = ledger.currentHealth() should be(Unhealthy)
+
+        _ = startPostgres()
+        _ <- ledger.allocateParty(PartyIdGenerator.generateRandomId(), Some("Carol"))
+        _ = ledger.currentHealth() should be(Healthy)
+      } yield succeed
     }
   }
 }

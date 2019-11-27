@@ -216,7 +216,7 @@ private class SqlLedger(
       .run()
   }
 
-  override def currentHealth: HealthStatus = ledgerDao.currentHealth
+  override def currentHealth(): HealthStatus = ledgerDao.currentHealth()
 
   override def close(): Unit = {
     super.close()
