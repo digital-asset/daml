@@ -171,6 +171,9 @@ private class JdbcLedgerDao(
   override def lookupLedgerConfiguration(): Future[Option[Configuration]] =
     dbDispatcher.executeSql("lookup_configuration")(implicit conn => selectLedgerConfiguration)
 
+  private val configurationAcceptType = "accept"
+  private val configurationRejectType = "reject"
+
   private val configurationEntryParser: RowParser[(Long, ConfigurationEntry)] =
     (long("ledger_offset") ~
       str("typ") ~
@@ -192,13 +195,13 @@ private class JdbcLedgerDao(
 
           offset ->
             (typ match {
-              case "accept" =>
+              case `configurationAcceptType` =>
                 ConfigurationEntry.Accepted(
                   submissionId = submissionId,
                   participantId = participantId,
                   configuration = config
                 )
-              case "reject" =>
+              case `configurationRejectType` =>
                 ConfigurationEntry.Rejected(
                   submissionId = submissionId,
                   participantId = participantId,
@@ -219,10 +222,11 @@ private class JdbcLedgerDao(
       endExclusive,
       PageSize,
       (startI, endE) => {
-        dbDispatcher.executeSql("load_configuration_entries", Some(s"bounds: [$startI, $endE[") { implicit conn =>
-          SQL_GET_CONFIGURATION_ENTRIES
-            .on("startInclusive" -> startI, "endExclusive" -> endE)
-            .as(configurationEntryParser.*)
+        dbDispatcher.executeSql("load_configuration_entries", Some(s"bounds: [$startI, $endE[")) {
+          implicit conn =>
+            SQL_GET_CONFIGURATION_ENTRIES
+              .on("startInclusive" -> startI, "endExclusive" -> endE)
+              .as(configurationEntryParser.*)
         }
       }
     ).flatMapConcat(Source(_))
@@ -245,40 +249,49 @@ private class JdbcLedgerDao(
   ): Future[PersistenceResponse] = {
     dbDispatcher.executeSql("store_configuration_entry", Some("submissionId=$submissionId")) {
       implicit conn =>
-        // If the entry is stored by indexer, we never expect the generation or duplicate submission
-        // and the indexer should correctly crash on duplicate. If we're storing for sandbox, then we can
-        // expect this to fail with "Duplicate".
         val currentConfig = selectLedgerConfiguration
+        var finalRejectionReason = rejectionReason
         if (rejectionReason.isEmpty && (currentConfig exists (_.generation + 1 != configuration.generation))) {
-          PersistenceResponse.Duplicate
-        } else {
-          updateLedgerEnd(newLedgerEnd, externalOffset)
-          val configurationBytes = Configuration.encode(configuration).toByteArray
-          val typ = if (rejectionReason.isDefined) "reject" else "accept"
-          if (rejectionReason.isEmpty)
-            updateCurrentConfiguration(configurationBytes)
-
-          Try({
-            SQL_INSERT_CONFIGURATION_ENTRY
-              .on(
-                "ledger_offset" -> offset,
-                "recorded_at" -> recordedAt,
-                "submission_id" -> submissionId,
-                "participant_id" -> participantId,
-                "typ" -> typ,
-                "rejection_reason" -> rejectionReason.orNull,
-                "configuration" -> configurationBytes
-              )
-              .execute()
-            PersistenceResponse.Ok
-          }).recover {
-            case NonFatal(e) if e.getMessage.contains(queries.DUPLICATE_KEY_ERROR) =>
-              logger.warn(
-                s"Ignoring duplicate configuration submission for submissionId $submissionId, participantId $participantId")
-              conn.rollback()
-              PersistenceResponse.Duplicate
-          }.get
+          // If we're not storing a rejection and the new generation is not succ of current configuration, then
+          // we store a rejection. This code path is only expected to be taken in sandbox. This follows the same
+          // pattern as storing transactions.
+          finalRejectionReason = Some(s"Generation mismatch")
         }
+
+        updateLedgerEnd(newLedgerEnd, externalOffset)
+        val configurationBytes = Configuration.encode(configuration).toByteArray
+        val typ = if (finalRejectionReason.isEmpty) {
+          configurationAcceptType
+        } else {
+          configurationRejectType
+        }
+
+        Try({
+          SQL_INSERT_CONFIGURATION_ENTRY
+            .on(
+              "ledger_offset" -> offset,
+              "recorded_at" -> recordedAt,
+              "submission_id" -> submissionId,
+              "participant_id" -> participantId,
+              "typ" -> typ,
+              "rejection_reason" -> finalRejectionReason.orNull,
+              "configuration" -> configurationBytes
+            )
+            .execute()
+
+          if (typ == configurationAcceptType) {
+            updateCurrentConfiguration(configurationBytes)
+          }
+
+          PersistenceResponse.Ok
+        }).recover {
+          case NonFatal(e) if e.getMessage.contains(queries.DUPLICATE_KEY_ERROR) =>
+            logger.warn(
+              s"Ignoring duplicate configuration submission for submissionId $submissionId, participantId $participantId")
+            conn.rollback()
+            PersistenceResponse.Duplicate
+        }.get
+
     }
   }
 

@@ -14,9 +14,8 @@ import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.index.v2.PackageDetails
 import com.daml.ledger.participant.state.v1._
 import com.digitalasset.api.util.TimeProvider
-import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.daml.lf.data.Ref.LedgerString.ordering
-import com.digitalasset.daml.lf.data.{ImmArray, Ref}
+import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.engine.Blinding
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractId}
@@ -352,8 +351,8 @@ private class SqlLedger(
       config: Configuration): Future[SubmissionResult] =
     enqueue { offsets =>
       val recordTime = timeProvider.getCurrentTime
-      // FIXME(JM): Configurations with wrong generation or used submission id will result in 'Duplicate'.
-      // For the wrong generation case one would prefer storing a rejection!
+      // NOTE(JM): If the generation in the new configuration is invalid
+      // we persist a rejection.
       ledgerDao
         .storeConfigurationEntry(
           offsets.offset,

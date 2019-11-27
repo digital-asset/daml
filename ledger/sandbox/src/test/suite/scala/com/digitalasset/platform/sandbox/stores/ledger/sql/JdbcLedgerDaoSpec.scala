@@ -11,7 +11,7 @@ import java.util.concurrent.atomic.AtomicLong
 import akka.stream.scaladsl.{Sink, Source}
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.index.v2
-import com.daml.ledger.participant.state.v1.{Offset, Configuration, TimeModel}
+import com.daml.ledger.participant.state.v1.{Configuration, Offset, TimeModel}
 import com.digitalasset.daml.bazeltools.BazelRunfiles
 import com.digitalasset.daml.lf.archive.DarReader
 import com.digitalasset.daml.lf.data.Ref.LedgerString.ordering
@@ -45,8 +45,6 @@ import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.participant.util.EventFilter
 import com.digitalasset.platform.sandbox.persistence.PostgresAroundAll
 import com.digitalasset.platform.sandbox.stores.ActiveLedgerState.ActiveContract
-import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry
-import com.digitalasset.platform.sandbox.stores.ledger.{ConfigurationEntry, LedgerEntry}
 import com.digitalasset.platform.sandbox.stores.ledger.sql.dao._
 import com.digitalasset.platform.sandbox.stores.ledger.sql.migration.FlywayMigrations
 import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{
@@ -56,6 +54,7 @@ import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{
   ValueSerializer
 }
 import com.digitalasset.platform.sandbox.stores.ledger.sql.util.DbDispatcher
+import com.digitalasset.platform.sandbox.stores.ledger.{ConfigurationEntry, LedgerEntry}
 import org.scalatest.{AsyncWordSpec, Matchers, OptionValues}
 
 import scala.collection.immutable.TreeMap
@@ -395,11 +394,13 @@ class JdbcLedgerDaoSpec
       } yield {
         resp0 shouldEqual PersistenceResponse.Ok
         resp1 shouldEqual PersistenceResponse.Duplicate
-        resp2 shouldEqual PersistenceResponse.Duplicate
+        resp2 shouldEqual PersistenceResponse.Ok
         resp3 shouldEqual PersistenceResponse.Ok
         lastConfig shouldEqual lastConfigActual
-        entries shouldEqual List(
+        entries.toList shouldEqual List(
           offset0 -> ConfigurationEntry.Accepted("refuse-config-0", participantId, newConfig),
+          offset2 -> ConfigurationEntry
+            .Rejected("refuse-config-1", participantId, "Generation mismatch", config),
           offset3 -> ConfigurationEntry.Accepted("refuse-config-2", participantId, lastConfig)
         )
       }

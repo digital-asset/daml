@@ -29,7 +29,7 @@ object KeyValueConsumption {
   def packDamlLogEntry(entry: DamlStateKey): ByteString = entry.toByteString
   def unpackDamlLogEntry(bytes: ByteString): DamlLogEntry = DamlLogEntry.parseFrom(bytes)
 
-  /** Construct a participant-state [[Update]]s from a [[DamlLogEntry]].
+  /** Construct participant-state [[Update]]s from a [[DamlLogEntry]].
     * Throws [[Err]] exception on badly formed data.
     *
     * This method is expected to be used to implement [[com.daml.ledger.participant.state.v1.ReadService.stateUpdates]].

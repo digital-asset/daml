@@ -34,7 +34,6 @@ da_scala_library(
         "@maven//:io_grpc_grpc_api",
         "@maven//:io_grpc_grpc_core",
         "@maven//:io_grpc_grpc_services",
-        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )
 

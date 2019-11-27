@@ -315,25 +315,26 @@ class InMemoryLedger(
       submissionId: String,
       config: Configuration): Future[SubmissionResult] =
     Future.successful {
-      ledgerConfiguration match {
-        case Some(currentConfig) if config.generation != currentConfig.generation =>
-          entries.publish(
-            InMemoryConfigEntry(ConfigurationEntry.Rejected(
+      this.synchronized {
+        ledgerConfiguration match {
+          case Some(currentConfig) if config.generation != currentConfig.generation =>
+            entries.publish(InMemoryConfigEntry(ConfigurationEntry.Rejected(
               submissionId,
               participantId,
               "Generation mismatch, expected ${currentConfig.generation}, got ${config.generation}",
               config)))
 
-        case _ =>
-          entries.publish(
-            InMemoryConfigEntry(ConfigurationEntry.Accepted(submissionId, participantId, config)))
-          ledgerConfiguration = Some(config)
+          case _ =>
+            entries.publish(
+              InMemoryConfigEntry(ConfigurationEntry.Accepted(submissionId, participantId, config)))
+            ledgerConfiguration = Some(config)
+        }
+        SubmissionResult.Acknowledged
       }
-      SubmissionResult.Acknowledged
     }
 
   override def lookupLedgerConfiguration(): Future[Option[Configuration]] =
-    Future.successful(ledgerConfiguration)
+    Future.successful(this.synchronized { ledgerConfiguration })
 
   override def configurationEntries(
       offset: Option[Long]): Source[(Long, ConfigurationEntry), NotUsed] =
