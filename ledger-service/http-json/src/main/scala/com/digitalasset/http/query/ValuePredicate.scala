@@ -132,6 +132,24 @@ sealed abstract class ValuePredicate extends Product with Serializable {
           // have exactly one key
           Rec(vraw, v_== map (jv => JsObject((dc, jv))), v_@> map (jv => JsObject((dc, jv))))
 
+        case MapMatch(qs) =>
+          val cqs = qs.toImmArray.toSeq map {
+            case (k, eq) => (k, go(path ++ sql"->$k", eq))
+          }
+          val allSafe_== = cqs collect {
+            case (k, Rec(_, Some(eqv), _)) => (k, eqv)
+          }
+          val allSafe_@> = cqs collect {
+            case (k, Rec(_, _, Some(ssv))) => (k, ssv)
+          }
+          Rec(
+            (sql"(SELECT count(*) FROM jsonb_object_keys(" ++ path ++ sql")) = ${cqs.length}") +: cqs
+              .flatMap(_._2.raw)
+              .toVector,
+            (cqs.length == allSafe_==.length) option JsObject(allSafe_== : _*),
+            allSafe_@>.nonEmpty option JsObject(allSafe_@> : _*)
+          )
+
         case ListMatch(qs) =>
           val (cqs, flushed_@>) = qs.zipWithIndex.map {
             case (eq, k) =>
