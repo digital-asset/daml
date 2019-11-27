@@ -50,4 +50,8 @@ trait DataLayerHelpers {
     new CompletionEndResponse(Some(genLedgerOffset(absVal)))
 
   val filterNothing: FiltersByParty = new FiltersByParty(Map[String, Filter]().asJava)
+
+  def filterFor(party: String): FiltersByParty =
+    new FiltersByParty(
+      Map(party -> new InclusiveFilter(Set.empty[Identifier].asJava).asInstanceOf[Filter]).asJava)
 }

@@ -35,6 +35,12 @@ class DummyLedgerClient(
         filter: TransactionFilter,
         verbose: Boolean): Flowable[GetActiveContractsResponse] =
       activeContractSet
+
+    override def getActiveContracts(
+        filter: TransactionFilter,
+        verbose: Boolean,
+        accessToken: String): Flowable[GetActiveContractsResponse] =
+      ???
   }
 
   override def getTransactionsClient: TransactionsClient = new TransactionsClient {
@@ -128,7 +134,7 @@ class DummyLedgerClient(
 
   override def getLedgerIdentityClient: LedgerIdentityClient = new LedgerIdentityClient {
     override def getLedgerIdentity: Single[String] = Single.just(ledgerId)
-    override def getLedgerIdentity(accessToken: String): Single[String] = Single.just(ledgerId)
+    override def getLedgerIdentity(accessToken: String): Single[String] = ???
   }
 
   override def getPackageClient: PackageClient = ???

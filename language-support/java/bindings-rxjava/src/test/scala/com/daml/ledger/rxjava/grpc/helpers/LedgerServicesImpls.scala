@@ -64,7 +64,7 @@ object LedgerServicesImpls {
       implicit ec: ExecutionContext): (Seq[ServerServiceDefinition], LedgerServicesImpls) = {
     val (iServiceDef, iService) = LedgerIdentityServiceImpl.createWithRef(ledgerId, authorizer)(ec)
     val (acsServiceDef, acsService) =
-      ActiveContractsServiceImpl.createWithRef(getActiveContractsResponse)(ec)
+      ActiveContractsServiceImpl.createWithRef(getActiveContractsResponse, authorizer)(ec)
     val (tsServiceDef, tsService) =
       TransactionServiceImpl.createWithRef(transactions)(ec)
     val (csServiceDef, csService) =
