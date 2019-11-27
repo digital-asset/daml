@@ -530,6 +530,5 @@ private[testtool] final class ParticipantTestContext private[participant] (
     services.health.check(HealthCheckRequest())
 
   def watchHealth(): Future[Seq[HealthCheckResponse]] =
-    TimeBoundObserver[HealthCheckResponse](100.milliseconds)(
-      services.health.watch(HealthCheckRequest(), _))
+    TimeBoundObserver[HealthCheckResponse](1.second)(services.health.watch(HealthCheckRequest(), _))
 }
