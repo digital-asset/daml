@@ -165,7 +165,7 @@ object HttpServiceTestFixture {
       implicit ec: ExecutionContext): Future[(DomainJsonEncoder, DomainJsonDecoder)] = {
     val ledgerId = apiLedgerId(client.ledgerId)
     val packageService = new PackageService(
-      HttpService.loadPackageStoreUpdates(client.packageClient, tokenHolder = None))
+      HttpService.loadPackageStoreUpdates(client.packageClient, holderM = None))
     packageService
       .reload(ec)
       .flatMap(x => FutureUtil.toFuture(x))
