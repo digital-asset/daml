@@ -22,7 +22,6 @@ import io.grpc.{ServerServiceDefinition, Status, StatusException}
 
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.Try
 
 class GrpcHealthService(
     healthChecks: HealthChecks,
@@ -37,7 +36,7 @@ class GrpcHealthService(
     HealthGrpc.bindService(this, DirectExecutionContext)
 
   override def check(request: HealthCheckRequest): Future[HealthCheckResponse] =
-    Future.fromTry(Try(matchResponse(Option(request.service).filter(_.nonEmpty))))
+    Future(matchResponse(Option(request.service).filter(_.nonEmpty)))
 
   override def watchSource(request: HealthCheckRequest): Source[HealthCheckResponse, NotUsed] =
     Source
