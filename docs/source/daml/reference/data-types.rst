@@ -29,9 +29,13 @@ Table of built-in primitive types
      - ``1``,  ``1000000``, ``1_000_000``
      - ``Int`` values are signed 64-bit integers which represent numbers between ``-9,223,372,036,854,775,808`` and ``9,223,372,036,854,775,807`` inclusive. Arithmetic operations raise an error on overflows and division by ``0``. To make long numbers more readable you can optionally add underscores.
    * - ``Decimal``
-     - fixed point decimals
+     - short for ``Numeric 10``
      - ``1.0``
-     - ``Decimal`` values are rational numbers with precision 38 and scale 10: numbers of the form ``x / 10^10`` where x is an integer with ``|x| < 10^38``.
+     - ``Decimal`` values are rational numbers with precision 38 and scale 10.
+   * - ``Numeric n``
+     - fixed point decimal numbers
+     - ``1.0``
+     - `Numeric n` values are rational numbers with up to ``38`` digits. The scale parameter ``n`` controls the number of digits after the decimal point, so for example, ``Numeric 10`` values have 10 decimal places, and ``Numeric 20`` values have 20 decimal places. The value of ``n`` must be between ``0`` and ``37`` inclusive.
    * - ``Text``
      - strings
      - ``"hello"``
@@ -51,7 +55,7 @@ Table of built-in primitive types
    * - ``Time``
      - models absolute time (UTC)
      - ``time (date 2007 Apr 5) 14 30 05``
-     - ``Time`` values have microsecond precision. To create a value of type ``Time``, use a ``Date`` and the function ``time`` (to get this function, import ``DA.Time``). 
+     - ``Time`` values have microsecond precision. To create a value of type ``Time``, use a ``Date`` and the function ``time`` (to get this function, import ``DA.Time``).
    * - ``RelTime``
      - models differences between time values
      - ``seconds 1``, ``seconds (-2)``
