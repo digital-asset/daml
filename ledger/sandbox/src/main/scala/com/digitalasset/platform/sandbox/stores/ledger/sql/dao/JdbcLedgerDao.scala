@@ -169,7 +169,7 @@ private class JdbcLedgerDao(
       .flatMap(Configuration.decode(_).toOption)
 
   override def lookupLedgerConfiguration(): Future[Option[Configuration]] =
-    dbDispatcher.executeSql("lookup configuration")(implicit conn => selectLedgerConfiguration)
+    dbDispatcher.executeSql("lookup_configuration")(implicit conn => selectLedgerConfiguration)
 
   private val configurationEntryParser: RowParser[(Long, ConfigurationEntry)] =
     (long("ledger_offset") ~
@@ -219,7 +219,7 @@ private class JdbcLedgerDao(
       endExclusive,
       PageSize,
       (startI, endE) => {
-        dbDispatcher.executeSql(s"load configuration entries [$startI, $endE[") { implicit conn =>
+        dbDispatcher.executeSql("load_configuration_entries", Some(s"bounds: [$startI, $endE[") { implicit conn =>
           SQL_GET_CONFIGURATION_ENTRIES
             .on("startInclusive" -> startI, "endExclusive" -> endE)
             .as(configurationEntryParser.*)

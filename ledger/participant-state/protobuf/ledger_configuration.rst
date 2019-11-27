@@ -78,11 +78,10 @@ between the ledger and clients.
 transaction.
 
 These three parameters are used in the following way.
-Given the record time `RT`, a transaction submission with a ledger effective time `LET`
- and maximum record time `MRT` is accepted if:
+Given the record time ``RT``, a transaction submission with a ledger effective time ``LET``
+ and maximum record time ``MRT`` is accepted if:
 
-* the difference between `LET` and `MRT` is above `MINTTL`, where
+* ``LET - MRT >= min_transaction_latency + max_clock_skew``
   `MINTTL = min_transaction_latency + max_clock_skew`.
-* the difference between `LET` and `MRT` is below `max_ttl`.
-* `RT` is between (`LET` - `max_clock_skew`) and `MRT`.
-
+* ``LET - MRT <= max_ttl``.
+* ``LET - max_clock_skew <= RT <= MRT``.
