@@ -1364,17 +1364,19 @@ name* construct as follows:
   in the module ``Mod`` is ``Mod.T``.
 * The *fully resolved name* of a variant type constructor ``T``
   defined in the module ``Mod`` is ``Mod.T``.
-* The *fully resolved name* of a enum type constructor ``T``
-  defined in the module ``Mod`` is ``Mod.T``.
+* The *fully resolved name* of a enum type constructor ``T`` defined
+  in the module ``Mod`` is ``Mod.T``.
+* The *fully resolved name* of a type synonym ``S`` defined in the
+  module ``Mod`` is ``Mod.S``.
 * The *fully resolved name* of a field ``fᵢ`` of a record type
-  definition ``'record' T …  ↦ { …, fᵢ: τᵢ, … }`` defined in the module
-  ``Mod`` is ``Mod.T.fᵢ``
+  definition ``'record' T …  ↦ { …, fᵢ: τᵢ, … }`` defined in the
+  module ``Mod`` is ``Mod.T.fᵢ``
 * The *fully resolved name* of a variant constructor ``Vᵢ`` of a
-  variant type definition ``'variant' T … ↦ …  | Vᵢ: τᵢ | …`` defined in
-  the module ``Mod`` is ``Mod.T.Vᵢ``.
-* The *fully resolved name* of a enum constructor ``Eᵢ`` of a enum type
-   definition ``'enum' T ↦ …  | Eᵢ | …`` defined in the module ``Mod``
-   is ``Mod.T.Eᵢ``.
+  variant type definition ``'variant' T … ↦ …  | Vᵢ: τᵢ | …`` defined
+  in the module ``Mod`` is ``Mod.T.Vᵢ``.
+* The *fully resolved name* of a enum constructor ``Eᵢ`` of a enum
+   type definition ``'enum' T ↦ …  | Eᵢ | …`` defined in the module
+   ``Mod`` is ``Mod.T.Eᵢ``.
 * The *fully resolved name* of a choice ``Ch`` of a template
   definition ``'tpl' (x : T) ↦ { …, 'choices' { …, 'choice' ChKind Ch
   … ↦ …, … } }`` defined in the module ``Mod`` is ``Mod.T.Ch``.
