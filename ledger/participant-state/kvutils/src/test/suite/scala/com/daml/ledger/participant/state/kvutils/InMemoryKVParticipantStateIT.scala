@@ -513,7 +513,7 @@ object InMemoryKVParticipantStateIT {
     case (offset: Offset, update: PackageUploadEntryRejected) =>
       assert(offset == givenOffset)
       assert(update.participantId == participantId)
-      assert(update.reason contains ("rejected as invalid"))
+      assert(update.reason contains "rejected as invalid")
     case _ => fail("did not find expected upload entry rejected")
   }
 }

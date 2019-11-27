@@ -1324,10 +1324,7 @@ private class JdbcLedgerDao(
                   submissionId,
                   participantId,
                   //TODO BH what if party in DB is not valid?  isLocal depends on calling participant node
-                  PartyDetails(
-                    Party.assertFromString(party.get),
-                    displayName,
-                    isLocal = true)
+                  PartyDetails(Party.assertFromString(party.get), displayName, isLocal = true)
                 )
               case "reject" =>
                 PartyAllocationLedgerEntry.Rejected(
