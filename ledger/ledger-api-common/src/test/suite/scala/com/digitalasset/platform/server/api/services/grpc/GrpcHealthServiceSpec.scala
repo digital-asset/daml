@@ -30,7 +30,7 @@ final class GrpcHealthServiceSpec
 
   "HealthService" should {
     "report SERVING if there are no health checks" in {
-      val service = new GrpcHealthService(HealthChecks.empty)
+      val service = new GrpcHealthService(new HealthChecks)
 
       val response = Await.result(service.check(allServicesRequest), patienceConfig.timeout)
 

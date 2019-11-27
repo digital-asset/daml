@@ -11,15 +11,10 @@ class HealthChecks(private val components: Components) {
   def hasComponent(componentName: ComponentName): Boolean =
     components.exists(_._1 == componentName)
 
-  def ++(other: HealthChecks): HealthChecks = new HealthChecks(this.components ++ other.components)
-
   def isHealthy(componentName: Option[ComponentName]): Boolean =
-    componentsMatching(componentName).forall(_._2.currentHealth() == Healthy)
-
-  private def componentsMatching(componentName: Option[ComponentName]): Components =
     componentName match {
-      case None => components
-      case Some(name) => components.filterKeys(_ == name)
+      case None => components.forall(_._2.currentHealth() == Healthy)
+      case Some(name) => components(name).currentHealth() == Healthy
     }
 }
 
@@ -29,6 +24,4 @@ object HealthChecks {
   type Component = (ComponentName, ReportsHealth)
 
   type Components = Map[ComponentName, ReportsHealth]
-
-  val empty: HealthChecks = new HealthChecks()
 }

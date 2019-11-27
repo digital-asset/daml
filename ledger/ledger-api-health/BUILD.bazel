@@ -16,15 +16,3 @@ da_scala_library(
     ],
     deps = [],
 )
-
-da_scala_library(
-    name = "ledger-api-health-tests-lib",
-    srcs = glob(["src/test/lib/**/*.scala"]),
-    deps = [],
-)
-
-da_scala_test_suite(
-    name = "ledger-api-health-tests",
-    srcs = glob(["src/test/suite/**/*.scala"]),
-    deps = [":ledger-api-health-tests-lib"],
-)
