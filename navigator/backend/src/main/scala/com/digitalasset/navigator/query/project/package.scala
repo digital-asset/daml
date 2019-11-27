@@ -94,7 +94,7 @@ object project {
         case DamlLfTypePrim(DamlLfPrimType.List, _) => Right(StringValue("list"))
         case DamlLfTypePrim(DamlLfPrimType.ContractId, _) => Right(StringValue("contractid"))
         case DamlLfTypePrim(DamlLfPrimType.Optional, _) => Right(StringValue("optional"))
-        case DamlLfTypePrim(DamlLfPrimType.TextMap, _) => Right(StringValue("map"))
+        case DamlLfTypePrim(DamlLfPrimType.TextMap, _) => Right(StringValue("textmap"))
         case DamlLfTypePrim(DamlLfPrimType.GenMap, _) => Right(StringValue("genmap"))
       }
 

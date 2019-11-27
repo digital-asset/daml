@@ -85,7 +85,7 @@ package object filter {
         case DamlLfTypePrim(DamlLfPrimType.Optional, _) =>
           Right(checkContained("optional", expectedValue))
         case DamlLfTypePrim(DamlLfPrimType.TextMap, _) =>
-          Right(checkContained("map", expectedValue))
+          Right(checkContained("textmap", expectedValue))
         case DamlLfTypePrim(DamlLfPrimType.GenMap, _) =>
           Right(checkContained("genmap", expectedValue))
 
