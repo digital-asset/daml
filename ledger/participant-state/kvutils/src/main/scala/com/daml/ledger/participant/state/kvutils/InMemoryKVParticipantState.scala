@@ -98,7 +98,8 @@ class InMemoryKVParticipantState(
     val participantId: ParticipantId,
     val ledgerId: LedgerString = Ref.LedgerString.assertFromString(UUID.randomUUID.toString),
     file: Option[File] = None,
-    openWorld: Boolean = true)(implicit system: ActorSystem, mat: Materializer)
+    openWorld: Boolean = true,
+)(implicit system: ActorSystem, mat: Materializer)
     extends ReadService
     with WriteService
     with AutoCloseable {

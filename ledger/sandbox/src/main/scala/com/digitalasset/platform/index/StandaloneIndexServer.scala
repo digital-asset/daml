@@ -140,6 +140,7 @@ class StandaloneIndexServer(
         metrics)
       healthChecks = new HealthChecks(
         "index" -> indexService,
+        "read" -> readService,
         "write" -> writeService,
       )
       apiServer <- LedgerApiServer.create(
