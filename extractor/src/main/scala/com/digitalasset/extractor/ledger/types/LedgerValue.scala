@@ -89,7 +89,7 @@ object LedgerValue {
     for {
       entries <- apiMap.entries.toList.traverseU {
         case api.value.Map.Entry(k, Some(v)) => v.sum.convert.map(k -> _)
-        case api.value.Map.Entry(_, None) => -\/("value must be defined")
+        case api.value.Map.Entry(_, None) => -\/("value field of Map.Entry must be defined")
       }
       map <- SortedLookupList.fromImmArray(ImmArray(entries)).disjunction
     } yield V.ValueTextMap(map)
@@ -98,8 +98,10 @@ object LedgerValue {
     apiMap.entries.toList
       .traverseU { entry =>
         for {
-          k <- entry.key.fold[String \/ OfCid[V]](-\/("key must be defined"))(_.convert)
-          v <- entry.value.fold[String \/ OfCid[V]](-\/("value must be defined"))(_.convert)
+          k <- entry.key.fold[String \/ OfCid[V]](-\/("key field of GenMap.Entry must be defined"))(
+            _.convert)
+          v <- entry.value.fold[String \/ OfCid[V]](
+            -\/("value field of GenMap.Entry must be defined"))(_.convert)
         } yield k -> v
       }
       .map(entries => V.ValueGenMap(ImmArray(entries)))
