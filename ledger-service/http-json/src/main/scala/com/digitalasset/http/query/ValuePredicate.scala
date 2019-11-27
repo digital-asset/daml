@@ -120,10 +120,16 @@ sealed abstract class ValuePredicate extends Product with Serializable {
           val allSafe_@> = cqs collect {
             case Some((k, Rec(_, _, Some(ssv)))) => (k, ssv)
           }
-          // TODO SC where == is Some but @> is None, we can still do better
-          // than propagating the raw
+          // collecting raw, but overriding with an element = if it's =-safe
+          // but not @>-safe (equality of @>-safe elements is represented
+          // within the safe_@>, which is always collected below)
+          val eqOrRaw = cqs collect {
+            case Some((k, r @ Rec(_, Some(_), None))) =>
+              r.flush_==(path ++ sql"->${k: String}").toList.toVector
+            case Some((_, Rec(raw, _, _))) => raw
+          }
           Rec(
-            cqs.toVector.flatMap(_.toList.flatMap(_._2.raw)),
+            eqOrRaw.toVector.flatten,
             if (allSafe_==.length == cqs.length) Some(JsObject(allSafe_== : _*)) else None,
             allSafe_@>.nonEmpty option JsObject(allSafe_@> : _*)
           )
