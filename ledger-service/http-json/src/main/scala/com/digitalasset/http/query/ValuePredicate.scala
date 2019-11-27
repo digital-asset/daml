@@ -24,6 +24,7 @@ import scalaz.syntax.apply._
 import scalaz.syntax.bifunctor._
 import scalaz.syntax.order._
 import scalaz.syntax.tag._
+import scalaz.syntax.std.boolean._
 import scalaz.syntax.std.option._
 import scalaz.syntax.std.string._
 import spray.json._
@@ -116,10 +117,14 @@ sealed abstract class ValuePredicate extends Product with Serializable {
           val allSafe_== = cqs collect {
             case Some((k, Rec(_, Some(eqv), _))) => (k, eqv)
           }
+          val allSafe_@> = cqs collect {
+            case Some((k, Rec(_, _, Some(ssv)))) => (k, ssv)
+          }
           Rec(
-            Vector( /*TODO*/ ),
+            cqs.toVector.flatMap(_.toList.flatMap(_._2.raw)),
             if (allSafe_==.length == cqs.length) Some(JsObject(allSafe_== : _*)) else None,
-            None /* TODO Some-times */ )
+            allSafe_@>.nonEmpty option JsObject(allSafe_@> : _*)
+          )
 
         case VariantMatch((dc, q)) =>
           val Rec(vraw, v_==, v_@>) = go(path ++ sql"->${dc: String}", q)
