@@ -57,7 +57,12 @@ export function contractid(): DamlLfTypePrim { return { type: 'primitive', name:
 export function timestamp(): DamlLfTypePrim { return { type: 'primitive', name: 'timestamp', args: [] } }
 export function date(): DamlLfTypePrim { return { type: 'primitive', name: 'date', args: [] } }
 export function list(type: DamlLfType): DamlLfTypePrim { return { type: 'primitive', name: 'list', args: [type] } }
-export function map(type: DamlLfType): DamlLfTypePrim { return { type: 'primitive', name: 'textmap', args: [type] } }
+export function textmap(type: DamlLfType): DamlLfTypePrim {
+  return { type: 'primitive', name: 'textmap', args: [type] }
+}
+export function genmap(keytype: DamlLfType, valueType: DamlLfType): DamlLfTypePrim {
+  return { type: 'primitive', name: 'genmap', args: [keytype, valueType] }
+}
 export function optional(type: DamlLfType): DamlLfTypePrim {
   return { type: 'primitive', name: 'optional', args: [type] }
 }

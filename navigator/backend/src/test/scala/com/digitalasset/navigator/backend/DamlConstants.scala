@@ -313,7 +313,7 @@ case object DamlConstants {
     ImmArray(
       treeV -> V.ValueInt64(1),
       treeLeftV -> V.ValueInt64(2),
-      treeLeftV -> V.ValueInt64(3)
+      treeRightV -> V.ValueInt64(3)
     )
   )
 
