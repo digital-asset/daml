@@ -10,6 +10,7 @@ import akka.stream.{ActorMaterializer, Materializer}
 import com.digitalasset.daml.bazeltools.BazelRunfiles._
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
+import com.digitalasset.ledger.api.auth.client.LedgerCallCredentials
 import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.testing.utils.{Resource, SuiteResource}
 import com.digitalasset.ledger.api.v1.ledger_identity_service.{
@@ -28,7 +29,6 @@ import scala.concurrent.{Await, ExecutionContext}
 import scala.concurrent.duration._
 import scala.util.Try
 import com.digitalasset.ledger.api.domain.LedgerId
-import com.digitalasset.ledger.client.auth.LedgerClientCallCredentials
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 import com.daml.ledger.participant.state.v1.TimeModel
 import org.slf4j.LoggerFactory
@@ -72,7 +72,7 @@ trait SandboxFixture extends SuiteResource[Channel] with BeforeAndAfterAll {
     domain.LedgerId(
       LedgerIdentityServiceGrpc
         .blockingStub(channel)
-        .withCallCredentials(token.map(new LedgerClientCallCredentials(_)).orNull)
+        .withCallCredentials(token.map(new LedgerCallCredentials(_)).orNull)
         .getLedgerIdentity(GetLedgerIdentityRequest())
         .ledgerId)
 

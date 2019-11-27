@@ -17,10 +17,12 @@ import * as util from 'util';
 import fetch, { Response } from 'node-fetch';
 import { getOrd } from 'fp-ts/lib/Array';
 import { ordNumber } from 'fp-ts/lib/Ord';
+import { parseStringPromise } from 'xml2js';
 
 let damlRoot: string = path.join(os.homedir(), '.daml');
 
 const versionContextKey = 'version'
+const recentBlogContextKey = 'lastSeenBlog'
 
 var damlLanguageClient: LanguageClient;
 // Extension activation
@@ -33,8 +35,10 @@ export async function activate(context: vscode.ExtensionContext) {
     // Get telemetry consent
     const consent = getTelemetryConsent(config, context);
 
-    // Check extension version to display release notes on updates
+    // Display release notes on updates
     showReleaseNotesIfNewVersion(context);
+    // Notify about new blog posts
+    showBlogIfNotSeen(config, context);
 
     damlLanguageClient = createLanguageClient(config, await consent);
     damlLanguageClient.registerProposedFeatures();
@@ -113,7 +117,7 @@ async function showReleaseNotesIfNewVersion(context: ExtensionContext) {
     // the next update.
     if (typeof extensionVersion === 'string' && extensionVersion !== '' &&
         (!recordedVersion || typeof recordedVersion === 'string' && checkVersionUpgrade(recordedVersion, extensionVersion))) {
-        showReleaseNotes(extensionVersion);
+        await showReleaseNotes(extensionVersion);
         await context.globalState.update(versionContextKey, extensionVersion);
     }
 }
@@ -132,19 +136,49 @@ function checkVersionUpgrade(version1: string, version2: string) {
 // We display the HTML in a new editor tab using a "webview":
 // https://code.visualstudio.com/api/extension-guides/webview
 async function showReleaseNotes(version: string) {
-    const releaseNotesUrl = 'https://blog.daml.com/release-notes/';
-    const url = releaseNotesUrl + version;
-    fetch(url).then(async (result: Response) => {
-        if (result.ok) {
+    try {
+        const releaseNotesUrl = 'https://blog.daml.com/release-notes/' + version;
+        const res = await fetch(releaseNotesUrl);
+        if (res.ok) {
             const panel = vscode.window.createWebviewPanel(
                 'releaseNotes', // Identifies the type of the webview. Used internally
                 `New DAML SDK ${version} Available`, // Title of the panel displayed to the user
                 vscode.ViewColumn.One, // Editor column to show the new webview panel in
                 {} // No webview options for now
             );
-            panel.webview.html = await result.text();
+            panel.webview.html = await res.text();
         }
-    });
+    } catch (_error) {}
+}
+
+// Check if there is a new blog post which the user has not yet seen.
+// If so, display a notification with the link to the new post.
+// Update the user state so we don't notify about the same blog post again.
+// The user can opt out of these notifications entirely by changing the
+// 'daml.showNewBlogPosts' setting.
+async function showBlogIfNotSeen(config: WorkspaceConfiguration, context: ExtensionContext) {
+    if (!config.get('showNewBlogPosts')) { return; }
+    try {
+        const feedUrl = 'https://blog.daml.com/daml-driven/rss.xml';
+        const res = await fetch(feedUrl);
+        if (res.ok) {
+            const rssXml = await res.text();
+            const rss = await parseStringPromise(rssXml);
+            const latestBlog = rss.rss.channel[0].item[0];
+            const lastSeenBlog = context.globalState.get(recentBlogContextKey);
+            if (latestBlog &&
+                (!lastSeenBlog || typeof lastSeenBlog === 'string' && lastSeenBlog !== latestBlog.title)) {
+                const clicked = await window.showInformationMessage(
+                    `New blog post: ${latestBlog.title}`,
+                    'Go to blog'
+                );
+                if (clicked === 'Go to blog') {
+                    env.openExternal(Uri.parse(latestBlog.link));
+                }
+                await context.globalState.update(recentBlogContextKey, latestBlog.title);
+            }
+        }
+    } catch (_error) {}
 }
 
 function getViewColumnForShowResource(): ViewColumn {

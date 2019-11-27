@@ -3,7 +3,10 @@
 
 package com.daml.ledger.rxjava.grpc.helpers
 
+import java.time.Clock
+
 import com.daml.ledger.testkit.services._
+import com.digitalasset.ledger.api.auth.Authorizer
 import com.digitalasset.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
 import com.digitalasset.ledger.api.v1.command_completion_service.{
   CompletionEndResponse,
@@ -40,6 +43,8 @@ case class LedgerServicesImpls(
 
 object LedgerServicesImpls {
 
+  private val authorizer = new Authorizer(() => Clock.systemUTC().instant())
+
   def createWithRef(
       ledgerId: String,
       getActiveContractsResponse: Observable[GetActiveContractsResponse],
@@ -57,7 +62,7 @@ object LedgerServicesImpls {
       getPackageResponse: Future[GetPackageResponse],
       getPackageStatusResponse: Future[GetPackageStatusResponse])(
       implicit ec: ExecutionContext): (Seq[ServerServiceDefinition], LedgerServicesImpls) = {
-    val (iServiceDef, iService) = LedgerIdentityServiceImpl.createWithRef(ledgerId)(ec)
+    val (iServiceDef, iService) = LedgerIdentityServiceImpl.createWithRef(ledgerId, authorizer)(ec)
     val (acsServiceDef, acsService) =
       ActiveContractsServiceImpl.createWithRef(getActiveContractsResponse)(ec)
     val (tsServiceDef, tsService) =

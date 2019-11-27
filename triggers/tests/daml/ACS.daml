@@ -7,7 +7,7 @@ module ACS where
 import Daml.Trigger.LowLevel
 
 data TriggerState = TriggerState
-  { activeAssets : [ContractId (Asset ())]
+  { activeAssets : [ContractId Asset]
   , successfulCompletions : Int
   , failedCompletions : Int
   , nextCommandId : Int
@@ -23,9 +23,9 @@ initState party (ActiveContracts events) = TriggerState
   , failedCompletions = 0
   }
   where
-    updateAcs : [ContractId (Asset ())] -> Created -> [ContractId (Asset ())]
+    updateAcs : [ContractId Asset] -> Created -> [ContractId Asset]
     updateAcs acs created
-      | Some (_, cid, _) <- fromCreated @(Asset ()) created = cid :: acs
+      | Some (_, cid, _) <- fromCreated @Asset created = cid :: acs
       | otherwise = acs
 
 -- | This is a very silly trigger for testing purposes:
@@ -51,26 +51,23 @@ test = Trigger
         , [Commands (CommandId $ "command_" <> show state.nextCommandId) cmds]
         )
       where
-        updateEvent : ([Command], [ContractId (Asset ())]) -> Event -> ([Command], [ContractId (Asset ())])
+        updateEvent : ([Command], [ContractId Asset]) -> Event -> ([Command], [ContractId Asset])
         updateEvent (cmds, acs) ev = case ev of
-          CreatedEvent (fromCreated @(Asset ()) -> Some (_, assetId, asset)) ->
+          CreatedEvent (fromCreated @Asset -> Some (_, assetId, asset)) ->
             let proposeMirror : Command = createCmd (AssetMirrorProposal { issuer = asset.issuer })
             in (proposeMirror :: cmds, assetId :: acs)
           CreatedEvent (fromCreated -> Some (_, proposalId, AssetMirrorProposal {})) ->
             let accept : Command = exerciseCmd proposalId Accept
             in (accept :: cmds, acs)
-          ArchivedEvent (fromArchived @(Asset ()) -> Some (_, assetId)) ->
+          ArchivedEvent (fromArchived @Asset -> Some (_, assetId)) ->
             (cmds, filter (/= assetId) acs)
           _ -> (cmds, acs)
 
--- This is only a generic template to test that we do the conversion properly.
-template Asset t
+template Asset
   with
     issuer : Party
   where
     signatory issuer
-
-template instance AssetUnit = Asset ()
 
 template AssetMirror
   with

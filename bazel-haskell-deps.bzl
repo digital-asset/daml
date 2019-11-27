@@ -260,6 +260,21 @@ haskell_library(
         urls = ["https://github.com/digital-asset/ghcide/archive/%s.tar.gz" % GHCIDE_REV],
     )
 
+    # The Bazel-provided grpc libs cause issues in GHCi so we get them from Nix on Linux and MacOS.
+    deps = '[":grpc", ":libgpr"]' if is_windows else '["@grpc_nix//:grpc_lib"]'
+    extra_targets = """
+fat_cc_library(
+  name = "grpc",
+  input_lib = "@com_github_grpc_grpc//:grpc",
+)
+# Cabal requires libgpr next to libgrpc. However, fat_cc_library of grpc
+# already contains gpr and providing a second copy would cause duplicate symbol
+# errors. Instead, we define an empty dummy libgpr.
+genrule(name = "gpr-source", outs = ["gpr.c"], cmd = "touch $(OUTS)")
+cc_library(name = "gpr", srcs = [":gpr-source"])
+cc_library(name = "libgpr", linkstatic = 1, srcs = [":gpr"])
+""" if is_windows else ""
+
     http_archive(
         name = "grpc_haskell_core",
         build_file_content = """
@@ -271,24 +286,12 @@ haskell_cabal_library(
     version = "0.0.0.0",
     srcs = glob(["**"]),
     compiler_flags = ["-w", "-optF=-w"],
-    deps = packages["grpc-haskell-core"].deps + [
-        ":grpc",
-        ":libgpr",
-    ],
+    deps = packages["grpc-haskell-core"].deps + {deps},
     tools = ["@c2hs//:c2hs"],
     visibility = ["//visibility:public"],
 )
-fat_cc_library(
-    name = "grpc",
-    input_lib = "@com_github_grpc_grpc//:grpc",
-)
-# Cabal requires libgpr next to libgrpc. However, fat_cc_library of grpc
-# already contains gpr and providing a second copy would cause duplicate symbol
-# errors. Instead, we define an empty dummy libgpr.
-genrule(name = "gpr-source", outs = ["gpr.c"], cmd = "touch $(OUTS)")
-cc_library(name = "gpr", srcs = [":gpr-source"])
-cc_library(name = "libgpr", linkstatic = 1, srcs = [":gpr"])
-""",
+{extra_targets}
+""".format(deps = deps, extra_targets = extra_targets),
         patch_args = ["-p1"],
         patches = [
             "@com_github_digital_asset_daml//bazel_tools:grpc-haskell-core-cpp-options.patch",

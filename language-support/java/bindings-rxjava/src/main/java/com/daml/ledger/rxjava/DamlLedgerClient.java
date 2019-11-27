@@ -36,15 +36,11 @@ public final class DamlLedgerClient implements LedgerClient {
 
         private final NettyChannelBuilder builder;
         private Optional<String> expectedLedgerId = Optional.empty();
+        private Optional<String> accessToken = Optional.empty();
 
         private Builder(@NonNull NettyChannelBuilder channelBuilder) {
             this.builder = channelBuilder;
             this.builder.usePlaintext();
-        }
-
-        public Builder withExpectedLedgerId(@NonNull String expectedLedgerId) {
-            this.expectedLedgerId = Optional.of(expectedLedgerId);
-            return this;
         }
 
         public Builder withSslContext(@NonNull SslContext sslContext) {
@@ -53,8 +49,18 @@ public final class DamlLedgerClient implements LedgerClient {
             return this;
         }
 
+        public Builder withExpectedLedgerId(@NonNull String expectedLedgerId) {
+            this.expectedLedgerId = Optional.of(expectedLedgerId);
+            return this;
+        }
+
+        public Builder withAccessToken(@NonNull String accessToken) {
+            this.accessToken = Optional.of(accessToken);
+            return this;
+        }
+
         public DamlLedgerClient build() {
-            return new DamlLedgerClient(this.builder, this.expectedLedgerId);
+            return new DamlLedgerClient(this.builder, this.expectedLedgerId, this.accessToken);
         }
 
     }
@@ -91,7 +97,7 @@ public final class DamlLedgerClient implements LedgerClient {
      * @param hostPort The port of the Ledger
      * @param sslContext If present, it will be used to establish a TLS connection. If empty, an unsecured plaintext connection will be used.
      *                   Must be an SslContext created for client applications via {@link GrpcSslContexts#forClient()}.
-     * @deprecated since 0.13.38, please use {@link DamlLedgerClient#DamlLedgerClient(NettyChannelBuilder, Optional)} or even better either {@link DamlLedgerClient#newBuilder}
+     * @deprecated since 0.13.38, please use {@link DamlLedgerClient#DamlLedgerClient(NettyChannelBuilder, Optional, Optional)} or even better either {@link DamlLedgerClient#newBuilder}
      */
     @Deprecated
     public static DamlLedgerClient forLedgerIdAndHost(@NonNull String ledgerId, @NonNull String hostIp, int hostPort, @NonNull Optional<SslContext> sslContext) {
@@ -103,7 +109,7 @@ public final class DamlLedgerClient implements LedgerClient {
     /**
      * Like {@link DamlLedgerClient#forLedgerIdAndHost(String, String, int, Optional)} but with the ledger-id
      * automatically discovered instead of provided.
-     * @deprecated since 0.13.38, please use {@link DamlLedgerClient#DamlLedgerClient(NettyChannelBuilder, Optional)} or even better either {@link DamlLedgerClient#newBuilder}
+     * @deprecated since 0.13.38, please use {@link DamlLedgerClient#DamlLedgerClient(NettyChannelBuilder, Optional, Optional)} or even better either {@link DamlLedgerClient#newBuilder}
      */
     @Deprecated
     public static DamlLedgerClient forHostWithLedgerIdDiscovery(@NonNull String hostIp, int hostPort, Optional<SslContext> sslContext) {
@@ -122,11 +128,13 @@ public final class DamlLedgerClient implements LedgerClient {
     private LedgerConfigurationClient ledgerConfigurationClient;
     private TimeClient timeClient;
     private String expectedLedgerId;
+    private String accessToken;
     private final ManagedChannel channel;
 
-    private DamlLedgerClient(@NonNull NettyChannelBuilder channelBuilder, @NonNull Optional<String> expectedLedgerId) {
+    private DamlLedgerClient(@NonNull NettyChannelBuilder channelBuilder, @NonNull Optional<String> expectedLedgerId, @NonNull Optional<String> accessToken) {
         this.channel = channelBuilder.build();
         this.expectedLedgerId = expectedLedgerId.orElse(null);
+        this.accessToken = accessToken.orElse(null);
     }
 
     /**
@@ -224,19 +232,4 @@ public final class DamlLedgerClient implements LedgerClient {
         pool.close();
     }
 
-    public static void main(String[] args) {
-        DamlLedgerClient ledgerClient = DamlLedgerClient.forHostWithLedgerIdDiscovery("localhost", 6865, Optional.empty());
-        ledgerClient.connect();
-        String ledgerId = ledgerClient.ledgerIdentityClient.getLedgerIdentity().blockingGet();
-        System.out.println("expectedLedgerId = " + ledgerId);
-        LinkedList<String> packageIds = ledgerClient.packageClient
-                .listPackages()
-                .collect((Callable<LinkedList<String>>) LinkedList::new, LinkedList::addFirst)
-                .blockingGet();
-        System.out.println("packageIds = " + packageIds);
-        ledgerClient.ledgerConfigurationClient
-                .getLedgerConfiguration()
-                .take(1)
-                .blockingForEach(c -> System.out.println("ledger-configuration " + c));
-    }
 }

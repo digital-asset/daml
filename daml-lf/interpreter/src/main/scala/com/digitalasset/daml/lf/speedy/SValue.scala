@@ -273,8 +273,8 @@ object SValue {
       case V.ValueTextMap(map) =>
         SMap(map.mapValue(fromValue).toHashMap)
 
-      case V.ValueGenMap(value) =>
-        SGenMap(InsertOrdMap(value.toSeq.map {
+      case V.ValueGenMap(entries) =>
+        SGenMap(InsertOrdMap(entries.toSeq.map {
           case (k, v) => SGenMap.Key(fromValue(k)) -> fromValue(v)
         }: _*))
 
