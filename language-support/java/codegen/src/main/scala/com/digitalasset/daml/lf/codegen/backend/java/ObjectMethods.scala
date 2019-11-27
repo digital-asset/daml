@@ -42,13 +42,13 @@ private[codegen] object ObjectMethods extends StrictLogging {
       .beginControlFlow("if (!(object instanceof $T))", className)
       .addStatement("return false")
       .endControlFlow()
-      .addStatement("$T other = ($T) object", className, className)
 
   private def generateEquals(className: TypeName, fieldNames: IndexedSeq[String]): MethodSpec =
     if (fieldNames.isEmpty) {
       initEqualsBuilder(className).addStatement("return true").build()
     } else {
       initEqualsBuilder(className)
+        .addStatement("$T other = ($T) object", className, className)
         .addStatement(
           s"return ${List.fill(fieldNames.size)("this.$L.equals(other.$L)").mkString(" && ")}",
           fieldNames.flatMap(fieldName => IndexedSeq(fieldName, fieldName)): _*
