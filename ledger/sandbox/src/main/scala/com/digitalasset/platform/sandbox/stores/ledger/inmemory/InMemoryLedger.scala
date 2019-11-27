@@ -36,6 +36,7 @@ import com.digitalasset.platform.sandbox.stores.ledger.{
   Ledger,
   LedgerEntry,
   LedgerSnapshot,
+  PackageUploadLedgerEntry,
   PartyAllocationLedgerEntry
 }
 import com.digitalasset.platform.sandbox.stores.{
@@ -57,7 +58,8 @@ class InMemoryLedger(
     acs0: InMemoryActiveLedgerState,
     packageStoreInit: InMemoryPackageStore,
     ledgerEntries: ImmArray[LedgerEntryOrBump],
-    partyAllocationEntries: ImmArray[PartyAllocationLedgerEntry])
+    partyAllocationEntries: ImmArray[PartyAllocationLedgerEntry] = ImmArray.empty,
+    packageUploadEntries: ImmArray[PackageUploadLedgerEntry] = ImmArray.empty)
     extends Ledger {
 
   private val logger = LoggerFactory.getLogger(this.getClass)
@@ -78,6 +80,12 @@ class InMemoryLedger(
   private val allocationEntries = {
     val l = new LedgerEntries[PartyAllocationLedgerEntry](_.toString)
     partyAllocationEntries.map(l.publish)
+    l
+  }
+
+  private val packageUEntries = {
+    val l = new LedgerEntries[PackageUploadLedgerEntry](_.toString)
+    packageUploadEntries.map(l.publish)
     l
   }
 
@@ -293,20 +301,34 @@ class InMemoryLedger(
   override def getLfPackage(packageId: PackageId): Future[Option[Ast.Package]] =
     packageStoreRef.get.getLfPackage(packageId)
 
+  override def lookupPackageUploadEntry(
+      submissionId: SubmissionId): Future[Option[PackageUploadLedgerEntry]] =
+    Future.successful {
+      packageUEntries.getItems
+        .collectFirst {
+          case (_, entry) if entry.submissionId == submissionId => entry
+        }
+    }
+
   override def uploadPackages(
       knownSince: Instant,
       sourceDescription: Option[String],
       payload: List[Archive],
-      submissionId: String): Future[SubmissionResult] = {
+      submissionId: String,
+      participantId: ParticipantId): Future[SubmissionResult] = {
     val oldStore = packageStoreRef.get
     oldStore
       .withPackages(knownSince, sourceDescription, payload)
       .fold(
-        err => Future.successful(SubmissionResult.InternalError(err)),
+        err => {
+          packageUEntries.publish(PackageUploadLedgerEntry.Rejected(submissionId, participantId, err))
+          Future.successful(SubmissionResult.InternalError(err))
+        },
         newStore => {
-          if (packageStoreRef.compareAndSet(oldStore, newStore))
+          if (packageStoreRef.compareAndSet(oldStore, newStore)) {
+            packageUEntries.publish(PackageUploadLedgerEntry.Accepted(submissionId, participantId))
             Future.successful(SubmissionResult.Acknowledged)
-          else uploadPackages(knownSince, sourceDescription, payload, submissionId)
+          } else uploadPackages(knownSince, sourceDescription, payload, submissionId, participantId)
         }
       )
   }
@@ -319,5 +341,4 @@ class InMemoryLedger(
           case (_, entry) if entry.submissionId == submissionId => entry
         }
     }
-
 }

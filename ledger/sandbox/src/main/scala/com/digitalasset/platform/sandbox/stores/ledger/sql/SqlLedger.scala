@@ -359,7 +359,8 @@ private class SqlLedger(
       knownSince: Instant,
       sourceDescription: Option[String],
       payload: List[Archive],
-      submissionId: String): Future[SubmissionResult] = {
+      submissionId: String,
+      participantId: ParticipantId): Future[SubmissionResult] = {
     val submissionId = UUID.randomUUID().toString
     val packages = payload.map(archive =>
       (archive, PackageDetails(archive.getPayload.size().toLong, knownSince, sourceDescription)))

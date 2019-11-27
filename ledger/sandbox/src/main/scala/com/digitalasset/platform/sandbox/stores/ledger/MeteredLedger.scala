@@ -76,6 +76,10 @@ private class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: MetricRegis
   override def getLfPackage(packageId: PackageId): Future[Option[Ast.Package]] =
     timedFuture(Metrics.getLfPackage, ledger.getLfPackage(packageId))
 
+  override def lookupPackageUploadEntry(
+      submissionId: SubmissionId): Future[Option[PackageUploadLedgerEntry]] =
+    ledger.lookupPackageUploadEntry(submissionId)
+
   override def close(): Unit = {
     ledger.close()
   }
@@ -125,10 +129,11 @@ private class MeteredLedger(ledger: Ledger, metrics: MetricRegistry)
       knownSince: Instant,
       sourceDescription: Option[String],
       payload: List[Archive],
-      submissionId: String): Future[SubmissionResult] =
+      submissionId: String,
+      participantId: ParticipantId): Future[SubmissionResult] =
     timedFuture(
       Metrics.uploadPackages,
-      ledger.uploadPackages(knownSince, sourceDescription, payload, submissionId))
+      ledger.uploadPackages(knownSince, sourceDescription, payload, submissionId, participantId))
 
   override def close(): Unit = {
     ledger.close()

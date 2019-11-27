@@ -57,7 +57,8 @@ trait WriteLedger extends AutoCloseable {
       knownSince: Instant,
       sourceDescription: Option[String],
       payload: List[Archive],
-      submissionId: String): Future[SubmissionResult]
+      submissionId: String,
+      participantId: ParticipantId): Future[SubmissionResult]
 }
 
 /** Defines all the functionalities a Ledger needs to provide */
@@ -96,6 +97,7 @@ trait ReadOnlyLedger extends AutoCloseable {
 
   def getLfPackage(packageId: PackageId): Future[Option[Ast.Package]]
 
+  def lookupPackageUploadEntry(submissionId: SubmissionId): Future[Option[PackageUploadLedgerEntry]]
 }
 
 object Ledger {

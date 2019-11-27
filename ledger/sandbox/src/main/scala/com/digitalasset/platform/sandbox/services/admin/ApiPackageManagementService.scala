@@ -10,9 +10,11 @@ import java.util.zip.ZipInputStream
 import akka.actor.Scheduler
 import akka.stream.ActorMaterializer
 import com.daml.ledger.participant.state.index.v2.IndexPackagesService
-import com.daml.ledger.participant.state.v1.{SubmissionResult, WritePackagesService}
+import com.daml.ledger.participant.state.v1.{SubmissionId, SubmissionResult, WritePackagesService}
 import com.digitalasset.daml.lf.archive.DarReader
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
+import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.v1.admin.package_management_service.PackageManagementServiceGrpc.PackageManagementService
 import com.digitalasset.ledger.api.v1.admin.package_management_service._
 import com.digitalasset.platform.api.grpc.GrpcApiService
@@ -77,7 +79,12 @@ class ApiPackageManagementService(
           .flatMap {
             //TODO BH: need to implement properly polling and retrieval of response event
             case SubmissionResult.Acknowledged =>
-              Future.successful(UploadDarFileResponse())
+              pollForPackageUploadResult(Ref.LedgerString.assertFromString(submissionId)).flatMap {
+                case domain.PackageUploadEntry.Accepted(_, _) =>
+                  Future.successful(UploadDarFileResponse())
+                case domain.PackageUploadEntry.Rejected(_, _, reason) =>
+                  Future.failed(ErrorFactories.invalidArgument(reason))
+              }(DE)
             case r @ SubmissionResult.Overloaded =>
               Future.failed(ErrorFactories.resourceExhausted(r.description))
             case r @ SubmissionResult.InternalError(_) =>
@@ -85,39 +92,27 @@ class ApiPackageManagementService(
             case r @ SubmissionResult.NotSupported =>
               Future.failed(ErrorFactories.unimplemented(r.description))
           }(DE)
-          .flatMap(pollUntilPersisted(res._2, _))(DE)
     )
   }
 
-  /**
-    * Wraps a call [[PollingUtils.pollUntilPersisted]] so that it can be chained on the package upload with a `flatMap`.
-    *
-    * Checks invariants and forwards the original result after all packages are found to be persisted.
-    *
-    * @param ids The IDs of the uploaded packages
-    * @return The result of the package upload received originally, wrapped in a [[Future]]
-    */
-  private def pollUntilPersisted(
-      ids: List[String],
-      result: UploadDarFileResponse): Future[UploadDarFileResponse] = {
-    val newPackages = ids.toSet
-    val description = s"packages ${ids.mkString(", ")}"
-
+  private def pollForPackageUploadResult(
+      submissionId: SubmissionId): Future[domain.PackageUploadEntry] = {
     PollingUtils
-      .pollUntilPersisted(packagesIndex.listLfPackages _)(
-        x => newPackages.subsetOf(x.keySet.toSet),
-        description,
+      .pollSingleUntilPersisted(() => packagesIndex.lookupPackageUploadEntry(submissionId))(
+        s"submissionId $submissionId",
         50.milliseconds,
         500.milliseconds,
         d => d * 2,
         scheduler,
         loggerFactory)
-      .map { numberOfAttempts =>
-        logger.debug(
-          s"All ${ids.length} packages available, read after $numberOfAttempts attempt(s)")
-        result
+      .map {
+        case (numberOfAttempts, result) =>
+          logger.debug(
+            s"submissionId $submissionId available, read after $numberOfAttempts attempt(s)")
+          result
       }(DE)
   }
+
 }
 
 object ApiPackageManagementService {

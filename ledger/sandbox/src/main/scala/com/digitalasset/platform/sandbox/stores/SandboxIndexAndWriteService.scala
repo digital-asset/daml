@@ -11,12 +11,7 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.index.v2._
-import com.daml.ledger.participant.state.v1.{
-  ApplicationId => _,
-  LedgerId => _,
-  TransactionId => _,
-  _
-}
+import com.daml.ledger.participant.state.v1.{SubmissionId, ApplicationId => _, LedgerId => _, TransactionId => _, _}
 import com.daml.ledger.participant.state.{v1 => ParticipantState}
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.Ref.{LedgerString, PackageId, Party, TransactionIdString}
@@ -27,11 +22,7 @@ import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
 import com.digitalasset.ledger.api.domain
-import com.digitalasset.ledger.api.domain.CompletionEvent.{
-  Checkpoint,
-  CommandAccepted,
-  CommandRejected
-}
+import com.digitalasset.ledger.api.domain.CompletionEvent.{Checkpoint, CommandAccepted, CommandRejected}
 import com.digitalasset.ledger.api.domain.{ParticipantId => _, _}
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.common.util.{DirectExecutionContext => DEC}
@@ -386,6 +377,10 @@ abstract class LedgerBackedIndexService(
   override def getLfPackage(packageId: PackageId): Future[Option[Ast.Package]] =
     ledger.getLfPackage(packageId)
 
+  override def lookupPackageUploadEntry(submissionId: SubmissionId): Future[Option[PackageUploadEntry]] =
+    ledger.lookupPackageUploadEntry(submissionId)
+    .map(_.map(PackageConversion.packageUploadLedgerEntryToDomain))(DEC)
+
   // ContractStore
   override def lookupActiveContract(
       submitter: Ref.Party,
@@ -466,7 +461,7 @@ class LedgerBackedWriteService(
       submissionId: String
   ): CompletionStage[SubmissionResult] =
     FutureConverters.toJava(
-      ledger.uploadPackages(timeProvider.getCurrentTime, sourceDescription, payload, submissionId))
+      ledger.uploadPackages(timeProvider.getCurrentTime, sourceDescription, payload, submissionId, participantId))
 
   // WriteConfigService
   override def submitConfiguration(

@@ -7,13 +7,14 @@ import java.io.File
 import java.time.Instant
 
 import com.daml.ledger.participant.state.index.v2.{IndexPackagesService, PackageDetails}
+import com.daml.ledger.participant.state.v1.SubmissionId
 import com.digitalasset.daml.lf.archive.Reader.ParseError
 import com.digitalasset.daml.lf.archive.{DarReader, Decode}
 import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
+import com.digitalasset.ledger.api.domain
 import org.slf4j.LoggerFactory
-
 import scalaz.std.list._
 import scalaz.std.either._
 import scalaz.syntax.traverse._
@@ -47,6 +48,8 @@ case class InMemoryPackageStore(
 
   override def getLfPackage(packageId: PackageId): Future[Option[Ast.Package]] =
     Future.successful(getLfPackageSync(packageId))
+
+  override def lookupPackageUploadEntry(submissionId: SubmissionId): Future[Option[domain.PackageUploadEntry]] = ???
 
   def getLfPackageSync(packageId: PackageId): Option[Ast.Package] =
     packages.get(packageId)

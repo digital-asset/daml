@@ -318,4 +318,27 @@ object domain {
       override def value = "reject"
     }
   }
+
+  sealed abstract class PackageUploadEntry() extends Product with Serializable {
+    val submissionId: String
+    val participantId: ParticipantId
+    def value: String
+  }
+
+  object PackageUploadEntry {
+    final case class Accepted(
+        override val submissionId: String,
+        override val participantId: ParticipantId,
+    ) extends PackageUploadEntry {
+      override def value = "accept"
+    }
+    final case class Rejected(
+        override val submissionId: String,
+        override val participantId: ParticipantId,
+        reason: String
+    ) extends PackageUploadEntry {
+      override def value = "reject"
+    }
+  }
+
 }
