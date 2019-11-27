@@ -503,7 +503,8 @@ private[digitalasset] class EncodeV1(val minor: LV.Minor) {
           setString(con, b.setEnumConStr, b.setEnumConInternedStr)
           builder.setEnumCon(b.build())
         case EStructCon(fields) =>
-          builder.setStructCon(PLF.Expr.StructCon.newBuilder().accumulateLeft(fields)(_ addFields _))
+          builder.setStructCon(
+            PLF.Expr.StructCon.newBuilder().accumulateLeft(fields)(_ addFields _))
         case EStructProj(field, expr) =>
           val b = PLF.Expr.StructProj.newBuilder()
           setString(field, b.setFieldStr, b.setFieldInternedStr)
