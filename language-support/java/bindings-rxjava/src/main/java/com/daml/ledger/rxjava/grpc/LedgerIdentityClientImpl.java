@@ -4,6 +4,7 @@
 package com.daml.ledger.rxjava.grpc;
 
 import com.daml.ledger.rxjava.LedgerIdentityClient;
+import com.daml.ledger.rxjava.grpc.helpers.StubHelper;
 import com.digitalasset.ledger.api.auth.client.LedgerCallCredentials;
 import com.digitalasset.ledger.api.v1.LedgerIdentityServiceGrpc;
 import com.digitalasset.ledger.api.v1.LedgerIdentityServiceOuterClass;
@@ -27,12 +28,9 @@ public class LedgerIdentityClientImpl implements LedgerIdentityClient {
     }
 
     private Single<String> getLedgerIdentity(@NonNull Optional<String> accessToken) {
-        LedgerIdentityServiceGrpc.LedgerIdentityServiceFutureStub stub = this.serviceStub;
-        if (accessToken.isPresent()) {
-            stub = this.serviceStub.withCallCredentials(new LedgerCallCredentials(accessToken.get()));
-        }
         return Single
-                .fromFuture(stub.getLedgerIdentity(LedgerIdentityServiceOuterClass.GetLedgerIdentityRequest.getDefaultInstance()))
+                .fromFuture(StubHelper.authenticating(this.serviceStub, accessToken)
+                        .getLedgerIdentity(LedgerIdentityServiceOuterClass.GetLedgerIdentityRequest.getDefaultInstance()))
                 .map(LedgerIdentityServiceOuterClass.GetLedgerIdentityResponse::getLedgerId);
     }
 
