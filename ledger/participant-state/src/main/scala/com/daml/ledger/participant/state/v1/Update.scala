@@ -35,7 +35,7 @@ object Update {
   /** Signal that the current [[Configuration]] has changed. */
   final case class ConfigurationChanged(
       recordTime: Timestamp,
-      submissionId: String,
+      submissionId: SubmissionId,
       participantId: ParticipantId,
       newConfiguration: Configuration)
       extends Update {
@@ -47,7 +47,7 @@ object Update {
     */
   final case class ConfigurationChangeRejected(
       recordTime: Timestamp,
-      submissionId: String,
+      submissionId: SubmissionId,
       participantId: ParticipantId,
       proposedConfiguration: Configuration,
       rejectionReason: String)

@@ -104,13 +104,7 @@ object SandboxIndexAndWriteService {
       metrics: MetricRegistry)(implicit mat: Materializer): IndexAndWriteService = {
     val ledger =
       Ledger.metered(
-        Ledger.inMemory(
-          ledgerId,
-          participantId,
-          timeProvider,
-          acs,
-          templateStore,
-          ledgerEntries),
+        Ledger.inMemory(ledgerId, participantId, timeProvider, acs, templateStore, ledgerEntries),
         metrics)
     createInstance(ledger, participantId, timeModel, timeProvider)
   }
@@ -413,7 +407,7 @@ abstract class LedgerBackedIndexService(
     ledger.parties
 
   override def lookupPartyAllocationEntry(
-      submissionId: ParticipantState.SubmissionId): Future[Option[PartyAllocationEntry]] =
+      submissionId: SubmissionId): Future[Option[PartyAllocationEntry]] =
     ledger
       .lookupPartyAllocationEntry(submissionId)
       .map(_.map(PartyConversion.partyAllocationLedgerEntryToDomain))(DEC)
@@ -438,7 +432,7 @@ class LedgerBackedWriteService(
   override def allocateParty(
       hint: Option[String],
       displayName: Option[String],
-      submissionId: String): CompletionStage[SubmissionResult] = {
+      submissionId: SubmissionId): CompletionStage[SubmissionResult] = {
     // In the sandbox, the hint is used as-is.
     // If hint is not a valid and unallocated party name, the call fails
     hint.map(p => Party.fromString(p)) match {
@@ -447,15 +441,11 @@ class LedgerBackedWriteService(
           ledger.allocateParty(
             PartyIdGenerator.generateRandomId(),
             displayName,
-            Ref.LedgerString.assertFromString(submissionId),
+            submissionId,
             participantId))
       case Some(Right(party)) =>
         FutureConverters.toJava(
-          ledger.allocateParty(
-            party,
-            displayName,
-            Ref.LedgerString.assertFromString(submissionId),
-            participantId))
+          ledger.allocateParty(party, displayName, submissionId, participantId))
       case Some(Left(error)) =>
         CompletableFuture.completedFuture(SubmissionResult.InternalError(error))
     }
@@ -465,20 +455,20 @@ class LedgerBackedWriteService(
   override def uploadPackages(
       payload: List[Archive],
       sourceDescription: Option[String],
-      submissionId: String
+      submissionId: SubmissionId,
   ): CompletionStage[SubmissionResult] =
     FutureConverters.toJava(
       ledger.uploadPackages(
         timeProvider.getCurrentTime,
         sourceDescription,
         payload,
-        Ref.LedgerString.assertFromString(submissionId),
+        submissionId,
         participantId))
 
   // WriteConfigService
   override def submitConfiguration(
       maxRecordTime: Time.Timestamp,
-      submissionId: String,
+      submissionId: SubmissionId,
       config: Configuration): CompletionStage[SubmissionResult] =
     FutureConverters.toJava(ledger.publishConfiguration(maxRecordTime, submissionId, config))
 }

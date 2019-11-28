@@ -250,7 +250,7 @@ trait LedgerWriteDao extends AutoCloseable {
       newLedgerEnd: LedgerOffset,
       externalOffset: Option[ExternalOffset],
       recordedAt: Instant,
-      submissionId: String,
+      submissionId: SubmissionId,
       participantId: ParticipantId,
       configuration: Configuration,
       rejectionReason: Option[String]

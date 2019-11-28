@@ -55,7 +55,6 @@ class InMemoryKVParticipantStateIT
   }*/
 
   private val alice = Ref.Party.assertFromString("alice")
-  private val bob = Ref.Party.assertFromString("bob")
   private def randomLedgerString(): Ref.LedgerString =
     Ref.LedgerString.assertFromString(UUID.randomUUID().toString)
 
@@ -75,14 +74,22 @@ class InMemoryKVParticipantStateIT
     }
 
     "provide update after uploadPackages" in {
+      println("provide update start")
       for {
         result <- ps
           .uploadPackages(List(archives.head), sourceDescription, randomLedgerString())
           .toScala
-        updateTuple <- ps.stateUpdates(beginAfter = None).runWith(Sink.head)
+
+        _ = println("upload packages done")
+        Seq(acceptedUpdate, packageUpdate) <- ps
+          .stateUpdates(beginAfter = None)
+          .take(2)
+          .runWith(Sink.seq)
       } yield {
+        println("provide update end")
         assert(result == SubmissionResult.Acknowledged, "unexpected response to party allocation")
-        matchPackageUpload(updateTuple, Offset(Array(0L, 0L)), archives.head, rt)
+        matchPackageUploadEntryAccepted(acceptedUpdate, Offset(Array(0L, 0L)))
+        matchPackageUpload(packageUpdate, Offset(Array(0L, 1L)), archives.head, rt)
       }
     }
 
@@ -98,10 +105,10 @@ class InMemoryKVParticipantStateIT
           .runWith(Sink.seq)
       } yield {
         assert(result == SubmissionResult.Acknowledged, "unexpected response to party allocation")
-        matchPackageUpload(update1, Offset(Array(0L, 0L)), archive1, rt)
-        matchPackageUpload(update2, Offset(Array(0L, 1L)), archive2, rt)
-        matchPackageUpload(update3, Offset(Array(0L, 2L)), archive3, rt)
-        matchPackageUploadEntryAccepted(update4, Offset(Array(0L, 3L)))
+        matchPackageUploadEntryAccepted(update1, Offset(Array(0L, 0L)))
+        matchPackageUpload(update2, Offset(Array(0L, 1L)), archive1, rt)
+        matchPackageUpload(update3, Offset(Array(0L, 2L)), archive2, rt)
+        matchPackageUpload(update4, Offset(Array(0L, 3L)), archive3, rt)
       }
     }
 
@@ -123,15 +130,17 @@ class InMemoryKVParticipantStateIT
           .take(5)
           .runWith(Sink.seq)
       } yield {
-        assert(result == SubmissionResult.Acknowledged, "unexpected response to party allocation")
+        assert(
+          result == SubmissionResult.Acknowledged,
+          s"unexpected response to party allocation: $result")
         // first upload returns a package upload followed by an entry accepted
-        matchPackageUpload(update1, Offset(Array(0L, 0L)), archives.head, rt)
-        matchPackageUploadEntryAccepted(update2, Offset(Array(0L, 1L)))
+        matchPackageUploadEntryAccepted(update1, Offset(Array(0L, 0L)))
+        matchPackageUpload(update2, Offset(Array(0L, 1L)), archives.head, rt)
         // second upload results in only an entry accepted as it was a duplicate
         matchPackageUploadEntryAccepted(update3, Offset(Array(1L, 0L)))
         // third upload arrives as a second package upload followed by an entry accepted:
-        matchPackageUpload(update4, Offset(Array(2L, 0L)), archives(1), rt)
-        matchPackageUploadEntryAccepted(update5, Offset(Array(2L, 1L)))
+        matchPackageUploadEntryAccepted(update4, Offset(Array(2L, 0L)))
+        matchPackageUpload(update5, Offset(Array(2L, 1L)), archives(1), rt)
       }
     }
 
@@ -144,12 +153,17 @@ class InMemoryKVParticipantStateIT
         result <- ps
           .uploadPackages(List(badArchive), sourceDescription, randomLedgerString())
           .toScala
+        // Repeat to make sure no package upload updates appear.
+        _ <- ps
+          .uploadPackages(List(badArchive), sourceDescription, randomLedgerString())
+          .toScala
         Seq(update1, update2) <- ps.stateUpdates(beginAfter = None).take(2).runWith(Sink.seq)
       } yield {
-        assert(result == SubmissionResult.Acknowledged, "unexpected response to party allocation")
+        assert(
+          result == SubmissionResult.Acknowledged,
+          s"unexpected response to package upload: $result")
         matchPackageUploadEntryRejected(update1, Offset(Array(0L, 0L)))
-        // there should be no package upload -- ensure next log entry is a heartbeat
-        assert(update2._2.isInstanceOf[Heartbeat])
+        matchPackageUploadEntryRejected(update2, Offset(Array(1L, 0L)))
       }
     }
 
@@ -166,11 +180,13 @@ class InMemoryKVParticipantStateIT
             sourceDescription,
             randomLedgerString())
           .toScala
-        Seq(update1) <- ps.stateUpdates(beginAfter = None).take(1).runWith(Sink.seq)
+        update <- ps.stateUpdates(beginAfter = None).runWith(Sink.head)
       } yield {
         ps.close()
-        assert(result == SubmissionResult.Acknowledged, "unexpected response to party allocation")
-        matchPackageUploadEntryRejected(update1, Offset(Array(0L, 0L)))
+        assert(
+          result == SubmissionResult.Acknowledged,
+          s"unexpected response to package upload: $result")
+        matchPackageUploadEntryRejected(update, Offset(Array(0L, 0L)))
       }
     }
 
@@ -184,7 +200,7 @@ class InMemoryKVParticipantStateIT
       } yield {
         assert(
           allocResult == SubmissionResult.Acknowledged,
-          "unexpected response to party allocation")
+          s"unexpected response to party allocation: $allocResult")
         updateTuple match {
           case (offset: Offset, update: PartyAddedToParticipant) =>
             assert(offset == Offset(Array(0L, 0L)))
@@ -267,7 +283,6 @@ class InMemoryKVParticipantStateIT
 
     "provide update after transaction submission" in {
       val rt = ps.getNewRecordTime()
-      val alice = Ref.Party.assertFromString("alice")
       for {
         _ <- ps.allocateParty(hint = Some(alice), None, randomLedgerString()).toScala
         _ <- ps
@@ -308,7 +323,9 @@ class InMemoryKVParticipantStateIT
     "return second update with beginAfter=0" in {
       val rt = ps.getNewRecordTime()
       for {
-        _ <- ps.allocateParty(hint = Some(alice), None, randomLedgerString()).toScala // offset now at [1,0]
+        _ <- ps
+          .allocateParty(hint = Some(alice), None, randomLedgerString())
+          .toScala // offset now at [1,0]
         _ <- ps
           .submitTransaction(submitterInfo(rt, alice), transactionMeta(rt), emptyTransaction)
           .toScala
@@ -333,7 +350,7 @@ class InMemoryKVParticipantStateIT
           .toScala
         updateTuple <- ps.stateUpdates(beginAfter = Some(Offset(Array(0L, 0L)))).runWith(Sink.head)
       } yield {
-        matchPackageUpload(updateTuple, Offset(Array(0L, 1L)), archives(1), rt)
+        matchPackageUpload(updateTuple, Offset(Array(0L, 1L)), archives(0), rt)
       }
     }
 
@@ -480,7 +497,7 @@ object InMemoryKVParticipantStateIT {
   ): Assertion = updateTuple match {
     case (offset: Offset, update: PublicPackageUploaded) =>
       assert(offset == givenOffset)
-      assert(update.archive == givenArchive)
+      assert(update.archive.getHash == givenArchive.getHash)
       assert(update.sourceDescription == sourceDescription)
       assert(update.participantId == participantId)
       assert(update.recordTime >= rt)

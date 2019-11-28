@@ -330,7 +330,7 @@ private class SqlLedger(
           headRef,
           headRef + 1,
           None,
-          Ref.LedgerString.assertFromString(submissionId),
+          submissionId,
           participantId,
           //TODO BH proper participant isLocal check needed
           PartyAllocationLedgerEntry
@@ -411,7 +411,7 @@ private class SqlLedger(
 
   override def publishConfiguration(
       maxRecordTime: Time.Timestamp,
-      submissionId: String,
+      submissionId: SubmissionId,
       config: Configuration): Future[SubmissionResult] =
     enqueue { offsets =>
       val recordTime = timeProvider.getCurrentTime

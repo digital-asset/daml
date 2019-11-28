@@ -11,7 +11,7 @@ import akka.stream.{ActorMaterializer, ActorMaterializerSettings, Supervision}
 import com.codahale.metrics.SharedMetricRegistries
 import com.daml.ledger.api.server.damlonx.reference.v2.cli.Cli
 import com.daml.ledger.participant.state.kvutils.InMemoryKVParticipantState
-import com.daml.ledger.participant.state.v1.ParticipantId
+import com.daml.ledger.participant.state.v1.{ParticipantId, SubmissionId}
 import com.digitalasset.daml.lf.archive.DarReader
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
 import com.digitalasset.ledger.api.auth.AuthServiceWildcard
@@ -58,7 +58,11 @@ object ReferenceServer extends App {
     for {
       dar <- DarReader { case (_, x) => Try(Archive.parseFrom(x)) }
         .readArchiveFromFile(file)
-    } yield ledger.uploadPackages(dar.all, None, UUID.randomUUID().toString)
+    } yield
+      ledger.uploadPackages(
+        dar.all,
+        None,
+        SubmissionId.assertFromString(UUID.randomUUID().toString))
   }
 
   val participantLoggerFactory = NamedLoggerFactory.forParticipant(participantId)

@@ -15,7 +15,7 @@ class KVUtilsConfigSpec extends WordSpec with Matchers {
   import KVTest._
   import TestHelpers._
 
-  implicit def `string to LedgerString`(s: String): Ref.LedgerString =
+  implicit def `String to LedgerString`(s: String): Ref.LedgerString =
     Ref.LedgerString.assertFromString(s)
 
   "configuration" should {

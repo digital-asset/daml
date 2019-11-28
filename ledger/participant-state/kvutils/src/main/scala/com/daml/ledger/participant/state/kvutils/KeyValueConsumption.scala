@@ -84,14 +84,19 @@ object KeyValueConsumption {
           ))
 
       case DamlLogEntry.PayloadCase.PARTY_ALLOCATION_ENTRY =>
-         // TODO(BH): add isLocal with check:
-         // entry.getPartyAllocationEntry.getParticipantId == participantId
+        // TODO(BH): add isLocal with check:
+        // entry.getPartyAllocationEntry.getParticipantId == participantId
         val pae = entry.getPartyAllocationEntry
         val party = parseParty(pae.getParty)
         val participantId = parseLedgerString("ParticipantId")(pae.getParticipantId)
         val submissionId = parseLedgerString("SubmissionId")(pae.getSubmissionId)
         List(
-          Update.PartyAddedToParticipant(party, pae.getDisplayName, participantId, recordTime, submissionId))
+          Update.PartyAddedToParticipant(
+            party,
+            pae.getDisplayName,
+            participantId,
+            recordTime,
+            submissionId))
 
       case DamlLogEntry.PayloadCase.PARTY_ALLOCATION_REJECTION_ENTRY =>
         val rejection = entry.getPartyAllocationRejectionEntry

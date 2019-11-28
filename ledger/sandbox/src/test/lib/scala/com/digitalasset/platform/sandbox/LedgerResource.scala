@@ -39,8 +39,7 @@ object LedgerResource {
       timeProvider: TimeProvider,
       acs: InMemoryActiveLedgerState = InMemoryActiveLedgerState.empty,
       packages: InMemoryPackageStore = InMemoryPackageStore.empty,
-      entries: ImmArray[LedgerEntryOrBump] = ImmArray.empty)
-    : Resource[Ledger] =
+      entries: ImmArray[LedgerEntryOrBump] = ImmArray.empty): Resource[Ledger] =
     LedgerResource.resource(
       () =>
         Future.successful(

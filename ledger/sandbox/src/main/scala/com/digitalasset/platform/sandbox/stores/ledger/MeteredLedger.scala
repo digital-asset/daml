@@ -143,7 +143,7 @@ private class MeteredLedger(ledger: Ledger, metrics: MetricRegistry)
 
   override def publishConfiguration(
       maxRecordTime: Time.Timestamp,
-      submissionId: String,
+      submissionId: SubmissionId,
       config: Configuration): Future[SubmissionResult] =
     timedFuture(
       Metrics.publishConfiguration,

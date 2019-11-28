@@ -319,7 +319,8 @@ class InMemoryLedger(
       .fold(
         err => {
           entries.publish(
-            InMemoryPackageEntry(PackageUploadLedgerEntry.Rejected(submissionId, participantId, err)))
+            InMemoryPackageEntry(
+              PackageUploadLedgerEntry.Rejected(submissionId, participantId, err)))
           Future.successful(SubmissionResult.InternalError(err))
         },
         newStore => {
@@ -343,7 +344,7 @@ class InMemoryLedger(
 
   override def publishConfiguration(
       maxRecordTime: Time.Timestamp,
-      submissionId: String,
+      submissionId: SubmissionId,
       config: Configuration): Future[SubmissionResult] =
     Future.successful {
       this.synchronized {

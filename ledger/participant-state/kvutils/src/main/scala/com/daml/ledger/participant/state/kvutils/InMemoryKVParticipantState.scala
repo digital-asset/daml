@@ -373,11 +373,7 @@ class InMemoryKVParticipantState(
       submissionId: SubmissionId): CompletionStage[SubmissionResult] = {
     val party = hint.getOrElse(generateRandomParty())
     val submission =
-      KeyValueSubmission.partyToSubmission(
-        submissionId,
-        Some(party),
-        displayName,
-        participantId)
+      KeyValueSubmission.partyToSubmission(submissionId, Some(party), displayName, participantId)
 
     CompletableFuture.completedFuture({
       commitActorRef ! CommitSubmission(
@@ -402,13 +398,12 @@ class InMemoryKVParticipantState(
     val submission = KeyValueSubmission
       .archivesToSubmission(submissionId, archives, sourceDescription.getOrElse(""), participantId)
 
-    CompletableFuture.completedFuture({
-      commitActorRef ! CommitSubmission(
-        allocateEntryId,
-        Envelope.enclose(submission)
-      )
-      SubmissionResult.Acknowledged
-    })
+    commitActorRef ! CommitSubmission(
+      allocateEntryId,
+      Envelope.enclose(submission)
+    )
+
+    CompletableFuture.completedFuture(SubmissionResult.Acknowledged)
   }
 
   /** Retrieve the static initial conditions of the ledger, containing

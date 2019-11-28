@@ -62,7 +62,7 @@ class ApiPackageManagementService(
   }
 
   override def uploadDarFile(request: UploadDarFileRequest): Future[UploadDarFileResponse] = {
-    val submissionId = UUID.randomUUID().toString
+    val submissionId = Ref.LedgerString.assertFromString(UUID.randomUUID().toString)
     val resultT = for {
       dar <- DarReader { case (_, x) => Try(Archive.parseFrom(x)) }
         .readArchive(
@@ -78,7 +78,7 @@ class ApiPackageManagementService(
           .toScala(res._1)
           .flatMap {
             case SubmissionResult.Acknowledged =>
-              pollForPackageUploadResult(Ref.LedgerString.assertFromString(submissionId)).flatMap {
+              pollForPackageUploadResult(submissionId).flatMap {
                 case domain.PackageUploadEntry.Accepted(_, _) =>
                   Future.successful(UploadDarFileResponse())
                 case domain.PackageUploadEntry.Rejected(_, _, reason) =>

@@ -189,7 +189,7 @@ private class JdbcLedgerDao(
       byteArray("configuration"))
       .map(flatten)
       .map {
-        case (offset, typ, submissionId, participantIdRaw, rejectionReason, configBytes) =>
+        case (offset, typ, submissionIdRaw, participantIdRaw, rejectionReason, configBytes) =>
           val config = Configuration
             .decode(configBytes)
             .fold(err => sys.error(s"Failed to decode configuration: $err"), identity)
@@ -197,6 +197,12 @@ private class JdbcLedgerDao(
             .fromString(participantIdRaw)
             .fold(
               err => sys.error(s"Failed to decode participant id in configuration entry: $err"),
+              identity)
+
+          val submissionId = LedgerString
+            .fromString(submissionIdRaw)
+            .fold(
+              err => sys.error(s"Failed to decode submission id in configuration entry: $err"),
               identity)
 
           offset ->
@@ -248,7 +254,7 @@ private class JdbcLedgerDao(
       newLedgerEnd: LedgerOffset,
       externalOffset: Option[ExternalOffset],
       recordedAt: Instant,
-      submissionId: String,
+      submissionId: SubmissionId,
       participantId: ParticipantId,
       configuration: Configuration,
       rejectionReason: Option[String]
@@ -1418,18 +1424,12 @@ private class JdbcLedgerDao(
   private val packageUploadEntryParser: RowParser[(Long, PackageUploadLedgerEntry)] =
     (long("ledger_offset") ~
       str("typ") ~
-      str("submission_id") ~
-      str("participant_id") ~
+      ledgerString("submission_id") ~
+      ledgerString("participant_id") ~
       str("rejection_reason")(emptyStringToNullColumn).?)
       .map(flatten)
       .map {
-        case (offset, typ, submissionId, participantIdRaw, rejectionReason) =>
-          val participantId = LedgerString
-            .fromString(participantIdRaw)
-            .fold(
-              err => sys.error(s"Failed to decode participant id in package upload entry: $err"),
-              identity)
-
+        case (offset, typ, submissionId, participantId, rejectionReason) =>
           offset ->
             (typ match {
               case "accept" =>
@@ -1452,8 +1452,8 @@ private class JdbcLedgerDao(
   private val partyAllocationEntryParser: RowParser[(Long, PartyAllocationLedgerEntry)] =
     (long("ledger_offset") ~
       str("typ") ~
-      str("submission_id") ~
-      str("participant_id") ~
+      ledgerString("submission_id") ~
+      ledgerString("participant_id") ~
       str("party")(emptyStringToNullColumn).? ~
       str("display_name")(emptyStringToNullColumn).? ~
       str("rejection_reason")(emptyStringToNullColumn).?)
@@ -1462,23 +1462,11 @@ private class JdbcLedgerDao(
         case (
             offset,
             typ,
-            submissionIdRaw,
-            participantIdRaw,
+            submissionId,
+            participantId,
             party,
             displayName,
             rejectionReason) =>
-          val participantId = LedgerString
-            .fromString(participantIdRaw)
-            .fold(
-              err => sys.error(s"Failed to decode participant id in party allocation entry: $err"),
-              identity)
-
-          val submissionId: SubmissionId = LedgerString
-            .fromString(submissionIdRaw)
-            .fold(
-              err => sys.error(s"Failed to decode submission id in party allocation entry: $err"),
-              identity)
-
           offset ->
             (typ match {
               case "accept" =>

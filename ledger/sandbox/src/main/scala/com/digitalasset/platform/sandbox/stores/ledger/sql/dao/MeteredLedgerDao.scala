@@ -10,7 +10,12 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.index.v2.PackageDetails
-import com.daml.ledger.participant.state.v1.{Configuration, ParticipantId, SubmissionId, TransactionId}
+import com.daml.ledger.participant.state.v1.{
+  Configuration,
+  ParticipantId,
+  SubmissionId,
+  TransactionId
+}
 import com.digitalasset.daml.lf.data.Ref.{LedgerString, PackageId, Party}
 import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.value.Value
@@ -170,7 +175,7 @@ private class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: MetricRegistry)
       newLedgerEnd: LedgerOffset,
       externalOffset: Option[ExternalOffset],
       recordTime: Instant,
-      submissionId: String,
+      submissionId: SubmissionId,
       participantId: ParticipantId,
       configuration: Configuration,
       rejectionReason: Option[String]

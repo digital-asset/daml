@@ -64,7 +64,7 @@ trait WriteLedger extends AutoCloseable {
   // Configuration management
   def publishConfiguration(
       maxRecordTime: Timestamp,
-      submissionId: String,
+      submissionId: SubmissionId,
       config: Configuration
   ): Future[SubmissionResult]
 
@@ -102,7 +102,6 @@ trait ReadOnlyLedger extends AutoCloseable {
   def getLfArchive(packageId: PackageId): Future[Option[Archive]]
 
   def getLfPackage(packageId: PackageId): Future[Option[Ast.Package]]
-
 
   def lookupPackageUploadEntry(submissionId: SubmissionId): Future[Option[PackageUploadLedgerEntry]]
 
