@@ -93,11 +93,6 @@ private class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: MetricRegi
   override def getParties: Future[List[PartyDetails]] =
     timedFuture(Metrics.getParties, ledgerDao.getParties)
 
-  override def getPartyAllocationEntries(
-      startInclusive: LedgerOffset,
-      endExclusive: LedgerOffset): Source[(LedgerOffset, PartyAllocationLedgerEntry), NotUsed] =
-    ledgerDao.getPartyAllocationEntries(startInclusive, endExclusive)
-
   override def lookupPartyAllocationEntry(
       submissionId: SubmissionId): Future[Option[PartyAllocationLedgerEntry]] = {
     timedFuture(

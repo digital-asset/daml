@@ -63,10 +63,6 @@ private class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: MetricRegis
   override def parties: Future[List[PartyDetails]] =
     timedFuture(Metrics.parties, ledger.parties)
 
-  override def partyAllocationEntries(
-      offset: Option[Long]): Source[(Long, PartyAllocationLedgerEntry), NotUsed] =
-    ledger.partyAllocationEntries(offset)
-
   override def listLfPackages(): Future[Map[PackageId, PackageDetails]] =
     timedFuture(Metrics.listLfPackages, ledger.listLfPackages())
 

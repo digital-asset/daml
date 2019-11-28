@@ -21,14 +21,8 @@ import com.digitalasset.platform.akkastreams.dispatcher.SubSource.RangeSource
 import com.digitalasset.platform.common.util.DirectExecutionContext
 import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilter
 import com.digitalasset.platform.sandbox.stores.ActiveLedgerState
+import com.digitalasset.platform.sandbox.stores.ledger._
 import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.LedgerReadDao
-import com.digitalasset.platform.sandbox.stores.ledger.{
-  LedgerEntry,
-  LedgerSnapshot,
-  PackageUploadLedgerEntry,
-  PartyAllocationLedgerEntry,
-  ReadOnlyLedger
-}
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
@@ -79,10 +73,6 @@ class BaseLedger(val ledgerId: LedgerId, headAtInitialization: Long, ledgerDao: 
 
   override def parties: Future[List[domain.PartyDetails]] =
     ledgerDao.getParties
-
-  override def partyAllocationEntries(
-      offset: Option[Long]): Source[(Long, PartyAllocationLedgerEntry), NotUsed] =
-    dispatcher.startingAt(offset.getOrElse(0L), RangeSource(ledgerDao.getPartyAllocationEntries))
 
   override def lookupPartyAllocationEntry(
       submissionId: SubmissionId): Future[Option[PartyAllocationLedgerEntry]] =

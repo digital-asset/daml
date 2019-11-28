@@ -265,10 +265,6 @@ class InMemoryLedger(
       acs.parties.values.toList
     })
 
-  override def partyAllocationEntries(
-      offset: Option[Long]): Source[(Long, PartyAllocationLedgerEntry), NotUsed] =
-    allocationEntries.getSource(offset)
-
   override def allocateParty(
       party: Party,
       displayName: Option[String],

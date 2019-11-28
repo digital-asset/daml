@@ -68,8 +68,13 @@ class ApiPartyManagementService private (
         case SubmissionResult.Acknowledged =>
           pollForAllocationResult(submissionId).flatMap {
             case domain.PartyAllocationEntry.Accepted(_, _, partyDetails) =>
-              Future.successful(AllocatePartyResponse(Some(
-                PartyDetails(partyDetails.party, partyDetails.displayName.getOrElse(""), isLocal=true))))
+              Future.successful(
+                AllocatePartyResponse(
+                  Some(
+                    PartyDetails(
+                      partyDetails.party,
+                      partyDetails.displayName.getOrElse(""),
+                      isLocal = true))))
             case domain.PartyAllocationEntry.Rejected(_, _, reason) =>
               Future.failed(ErrorFactories.invalidArgument(reason))
           }(DE)
@@ -112,10 +117,7 @@ object ApiPartyManagementService {
       esf: ExecutionSequencerFactory,
       mat: ActorMaterializer)
     : PartyManagementServiceGrpc.PartyManagementService with GrpcApiService =
-    new ApiPartyManagementService(
-      readBackend,
-      writeBackend,
-      mat.system.scheduler,
-      loggerFactory) with PartyManagementServiceLogging
+    new ApiPartyManagementService(readBackend, writeBackend, mat.system.scheduler, loggerFactory)
+    with PartyManagementServiceLogging
 
 }

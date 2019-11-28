@@ -157,10 +157,6 @@ trait LedgerReadDao extends AutoCloseable {
   /** Returns a list of all known parties. */
   def getParties: Future[List[PartyDetails]]
 
-  def getPartyAllocationEntries(
-      startInclusive: LedgerOffset,
-      endExclusive: LedgerOffset): Source[(Long, PartyAllocationLedgerEntry), NotUsed]
-
   /**
     * Looks up a party allocation entry by submission identifier.
     * @param submissionId

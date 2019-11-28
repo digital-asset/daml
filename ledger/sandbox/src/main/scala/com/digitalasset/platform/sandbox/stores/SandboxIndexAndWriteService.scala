@@ -412,13 +412,6 @@ abstract class LedgerBackedIndexService(
   override def listParties(): Future[List[PartyDetails]] =
     ledger.parties
 
-  override def getPartyAllocationEntries(
-      offset: Option[Long]): Source[(Long, PartyAllocationEntry), NotUsed] =
-    ledger.partyAllocationEntries(offset).map {
-      case (offset, entry) =>
-        (offset, PartyConversion.partyAllocationLedgerEntryToDomain(entry))
-    }
-
   override def lookupPartyAllocationEntry(
       submissionId: ParticipantState.SubmissionId): Future[Option[PartyAllocationEntry]] =
     ledger

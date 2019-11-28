@@ -1248,10 +1248,6 @@ private class JdbcLedgerDao(
   private val SQL_SELECT_PACKAGE_UPLOAD_ENTRY =
     SQL("select * from package_upload_entries where submission_id={submissionId} limit 1")
 
-  private val SQL_SELECT_PARTY_ALLOCATION_ENTRIES =
-    SQL(
-      "select * from party_allocation_entries where ledger_offset>={startInclusive} and ledger_offset<{endExclusive} order by ledger_offset asc")
-
   private val SQL_SELECT_PARTY_ALLOCATION_ENTRY =
     SQL("select * from party_allocation_entries where submission_id={submissionId} limit 1")
 
@@ -1462,24 +1458,6 @@ private class JdbcLedgerDao(
       }.get
     }
   }
-
-  override def getPartyAllocationEntries(
-      startInclusive: Long,
-      endExclusive: Long): Source[(Long, PartyAllocationLedgerEntry), NotUsed] =
-    paginatingStream(
-      startInclusive,
-      endExclusive,
-      PageSize,
-      (startI, endE) => {
-        dbDispatcher
-          .executeSql("load_party_allocation_entries", Some(s"bounds: [$startI, $endE[")) {
-            implicit conn =>
-              SQL_SELECT_PARTY_ALLOCATION_ENTRIES
-                .on("startInclusive" -> startI, "endExclusive" -> endE)
-                .as(partyAllocationEntryParser.*)
-          }
-      }
-    ).flatMapConcat(Source(_))
 
   override def lookupPartyAllocationEntry(
       submissionId: SubmissionId): Future[Option[PartyAllocationLedgerEntry]] = {
