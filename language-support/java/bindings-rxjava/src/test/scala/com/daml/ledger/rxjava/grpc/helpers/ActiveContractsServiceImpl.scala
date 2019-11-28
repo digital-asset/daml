@@ -17,9 +17,10 @@ import io.reactivex.{Observable, Observer}
 
 import scala.concurrent.ExecutionContext
 
-class ActiveContractsServiceImpl(
+final class ActiveContractsServiceImpl(
     getActiveContractsResponses: Observable[GetActiveContractsResponse])
-    extends ActiveContractsService {
+    extends ActiveContractsService
+    with FakeAutoCloseable {
 
   private var lastRequest = Option.empty[GetActiveContractsRequest]
 
@@ -45,9 +46,7 @@ object ActiveContractsServiceImpl {
       getActiveContractsResponses: Observable[GetActiveContractsResponse],
       authorizer: Authorizer)(
       implicit ec: ExecutionContext): (ServerServiceDefinition, ActiveContractsServiceImpl) = {
-    val impl = new ActiveContractsServiceImpl(getActiveContractsResponses) with AutoCloseable {
-      override def close(): Unit = ()
-    }
+    val impl = new ActiveContractsServiceImpl(getActiveContractsResponses)
     val authImpl = new ActiveContractsServiceAuthorization(impl, authorizer)
     (ActiveContractsServiceGrpc.bindService(authImpl, ec), impl)
   }

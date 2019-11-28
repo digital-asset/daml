@@ -105,7 +105,7 @@ class ActiveContractClientImplTest
   "ActiveContractClientImpl.getActiveContracts" should "succeed with sufficient authorization" in {
     ledgerServices.withACSClient(Observable.empty(), mockedAuthService) { (acsClient, _) =>
       acsClient
-        .getActiveContracts(filterFor(someParty), false, somePartyToken)
+        .getActiveContracts(filterFor(someParty), false, somePartyReadToken)
         .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
         .blockingIterable()
         .asScala

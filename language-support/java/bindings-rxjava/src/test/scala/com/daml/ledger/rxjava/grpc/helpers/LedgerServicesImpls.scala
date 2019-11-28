@@ -75,7 +75,8 @@ object LedgerServicesImpls {
       submitAndWaitResponse,
       submitAndWaitForTransactionIdResponse,
       submitAndWaitForTransactionResponse,
-      submitAndWaitForTransactionTreeResponse)(ec)
+      submitAndWaitForTransactionTreeResponse,
+      authorizer)(ec)
     val (lcServiceDef, lcService) =
       LedgerConfigurationServiceImpl.createWithRef(getLedgerConfigurationResponses)(ec)
     val (timeServiceDef, timeService) = TimeServiceImpl.createWithRef(getTimeResponses: _*)(ec)
