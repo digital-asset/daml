@@ -6,14 +6,17 @@ package com.daml.ledger.participant.state.kvutils
 import java.time.Duration
 
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
+import com.daml.ledger.participant.state.v1.Configuration
 import com.digitalasset.daml.lf.data.Ref
 import org.scalatest.{Matchers, WordSpec}
-
-import scala.util.Success
+import scala.language.implicitConversions
 
 class KVUtilsConfigSpec extends WordSpec with Matchers {
   import KVTest._
   import TestHelpers._
+
+  implicit def `string to LedgerString`(s: String): Ref.LedgerString =
+    Ref.LedgerString.assertFromString(s)
 
   "configuration" should {
 
@@ -22,28 +25,28 @@ class KVUtilsConfigSpec extends WordSpec with Matchers {
         KeyValueSubmission.packDamlSubmission(
           KeyValueSubmission.configurationToSubmission(
             maxRecordTime = theRecordTime,
-            submissionId = Ref.LedgerString.assertFromString("foobar"),
+            submissionId = "foobar",
+            participantId = "participant",
             config = theDefaultConfig
           )))
 
       val configSubm = subm.getConfigurationSubmission
       Conversions.parseTimestamp(configSubm.getMaximumRecordTime) shouldEqual theRecordTime
       configSubm.getSubmissionId shouldEqual "foobar"
-      Conversions.parseDamlConfiguration(configSubm.getConfiguration) shouldEqual Success(
-        theDefaultConfig)
+      Configuration.decode(configSubm.getConfiguration) shouldEqual Right(theDefaultConfig)
     }
 
     "check generation" in KVTest.runTest {
       for {
         logEntry <- submitConfig(
-          configModify = c => c.copy(generation = c.generation + 1, openWorld = false),
+          configModify = c => c.copy(generation = c.generation + 1),
           submissionId = "submission0"
         )
         newConfig <- getConfiguration
 
         // Change again, but without bumping generation.
         logEntry2 <- submitConfig(
-          configModify = c => c.copy(generation = c.generation, openWorld = true),
+          configModify = c => c.copy(generation = c.generation),
           submissionId = "submission1"
         )
         newConfig2 <- getConfiguration
@@ -52,7 +55,6 @@ class KVUtilsConfigSpec extends WordSpec with Matchers {
         logEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.CONFIGURATION_ENTRY
         logEntry.getConfigurationEntry.getSubmissionId shouldEqual "submission0"
         newConfig.generation shouldEqual 1
-        newConfig.openWorld shouldEqual false
 
         logEntry2.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.CONFIGURATION_REJECTION_ENTRY
         logEntry2.getConfigurationRejectionEntry.getSubmissionId shouldEqual "submission1"
@@ -84,8 +86,7 @@ class KVUtilsConfigSpec extends WordSpec with Matchers {
         // Set a configuration with an authorized participant id
         logEntry0 <- submitConfig { c =>
           c.copy(
-            generation = c.generation + 1,
-            authorizedParticipantId = Some(p0)
+            generation = c.generation + 1
           )
         }
 
@@ -98,7 +99,6 @@ class KVUtilsConfigSpec extends WordSpec with Matchers {
             c =>
               c.copy(
                 generation = c.generation + 1,
-                openWorld = false
             )
           )
         }
@@ -112,7 +112,6 @@ class KVUtilsConfigSpec extends WordSpec with Matchers {
             c =>
               c.copy(
                 generation = c.generation + 1,
-                openWorld = false
             ))
         }
 

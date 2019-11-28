@@ -13,7 +13,6 @@ import akka.actor.{Actor, ActorSystem, PoisonPill, Props}
 import akka.pattern.gracefulStop
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
-import com.daml.ledger.participant.state.backport.TimeModel
 import com.daml.ledger.participant.state.kvutils.{DamlKvutils => Proto}
 import com.daml.ledger.participant.state.v1._
 import com.digitalasset.daml.lf.data.Ref
@@ -84,8 +83,7 @@ object InMemoryKVParticipantState {
 class InMemoryKVParticipantState(
     val participantId: ParticipantId,
     val ledgerId: LedgerString = Ref.LedgerString.assertFromString(UUID.randomUUID.toString),
-    file: Option[File] = None,
-    openWorld: Boolean = true)(implicit system: ActorSystem, mat: Materializer)
+    file: Option[File] = None)(implicit system: ActorSystem, mat: Materializer)
     extends ReadService
     with WriteService
     with AutoCloseable {
@@ -99,9 +97,7 @@ class InMemoryKVParticipantState(
   // The initial ledger configuration
   private val initialLedgerConfig = Configuration(
     generation = 0,
-    timeModel = TimeModel.reasonableDefault,
-    authorizedParticipantId = Some(participantId),
-    openWorld = openWorld
+    timeModel = TimeModel.reasonableDefault
   )
 
   // DAML Engine for transaction validation.
@@ -175,7 +171,7 @@ class InMemoryKVParticipantState(
           case Right(_) => sys.error("Unexpected message in envelope")
         }
         val state = stateRef
-        val newRecordTime = getNewRecordTime()
+        val newRecordTime = getNewRecordTime
 
         if (state.store.contains(entryId.getEntryId)) {
           // The entry identifier already in use, drop the message and let the
@@ -242,7 +238,7 @@ class InMemoryKVParticipantState(
     // This source stops when the actor dies.
     val _ = Source
       .tick(HEARTBEAT_INTERVAL, HEARTBEAT_INTERVAL, ())
-      .map(_ => CommitHeartbeat(getNewRecordTime()))
+      .map(_ => CommitHeartbeat(getNewRecordTime))
       .to(Sink.actorRef(actorRef, onCompleteMessage = ()))
       .run()
 
@@ -374,11 +370,11 @@ class InMemoryKVParticipantState(
   override def allocateParty(
       hint: Option[String],
       displayName: Option[String],
-      submissionId: String): CompletionStage[SubmissionResult] = {
-    val party = hint.getOrElse(generateRandomId())
+      submissionId: SubmissionId): CompletionStage[SubmissionResult] = {
+    val party = hint.getOrElse(generateRandomParty())
     val submission =
       KeyValueSubmission.partyToSubmission(
-        Ref.LedgerString.assertFromString(submissionId),
+        submissionId,
         Some(party),
         displayName,
         participantId)
@@ -394,14 +390,14 @@ class InMemoryKVParticipantState(
     })
   }
 
-  private def generateRandomId(): Ref.Party =
+  private def generateRandomParty(): Ref.Party =
     Ref.Party.assertFromString(s"party-${UUID.randomUUID().toString.take(8)}")
 
   /** Upload DAML-LF packages to the ledger */
   override def uploadPackages(
       archives: List[Archive],
       sourceDescription: Option[String],
-      submissionId: String): CompletionStage[SubmissionResult] = {
+      submissionId: SubmissionId): CompletionStage[SubmissionResult] = {
 
     val submission = KeyValueSubmission
       .archivesToSubmission(submissionId, archives, sourceDescription.getOrElse(""), participantId)
@@ -466,7 +462,7 @@ class InMemoryKVParticipantState(
     * at which this class has been instantiated.
     */
   private val initialConditions =
-    LedgerInitialConditions(ledgerId, initialLedgerConfig, getNewRecordTime())
+    LedgerInitialConditions(ledgerId, initialLedgerConfig, getNewRecordTime)
 
   /** Get a new record time for the ledger from the system clock.
     * Public for use from integration tests.
@@ -477,14 +473,12 @@ class InMemoryKVParticipantState(
   /** Submit a new configuration to the ledger. */
   override def submitConfiguration(
       maxRecordTime: Timestamp,
-      submissionId: String,
+      submissionId: SubmissionId,
       config: Configuration): CompletionStage[SubmissionResult] =
     CompletableFuture.completedFuture({
       val submission =
-        KeyValueSubmission.configurationToSubmission(
-          maxRecordTime,
-          Ref.LedgerString.assertFromString(submissionId),
-          config)
+        KeyValueSubmission
+          .configurationToSubmission(maxRecordTime, submissionId, participantId, config)
       commitActorRef ! CommitSubmission(
         allocateEntryId,
         Envelope.enclose(submission)

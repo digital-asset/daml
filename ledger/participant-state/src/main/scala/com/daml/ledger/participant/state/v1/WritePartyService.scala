@@ -39,6 +39,6 @@ trait WritePartyService {
   def allocateParty(
       hint: Option[String],
       displayName: Option[String],
-      submissionId: String
+      submissionId: SubmissionId
   ): CompletionStage[SubmissionResult]
 }

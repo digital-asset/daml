@@ -5,6 +5,7 @@ package com.digitalasset.platform.sandbox
 
 import akka.stream.Materializer
 import com.codahale.metrics.MetricRegistry
+import com.daml.ledger.participant.state.v1.ParticipantId
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.ledger.api.domain.LedgerId
@@ -13,7 +14,7 @@ import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.sandbox.persistence.{PostgresFixture, PostgresResource}
 import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
 import com.digitalasset.platform.sandbox.stores.ledger.sql.SqlStartMode
-import com.digitalasset.platform.sandbox.stores.ledger.{Ledger, PartyAllocationLedgerEntry}
+import com.digitalasset.platform.sandbox.stores.ledger.Ledger
 import com.digitalasset.platform.sandbox.stores.{InMemoryActiveLedgerState, InMemoryPackageStore}
 import scalaz.Tag
 
@@ -34,21 +35,22 @@ object LedgerResource {
 
   def inMemory(
       ledgerId: LedgerId,
+      participantId: ParticipantId,
       timeProvider: TimeProvider,
       acs: InMemoryActiveLedgerState = InMemoryActiveLedgerState.empty,
       packages: InMemoryPackageStore = InMemoryPackageStore.empty,
-      entries: ImmArray[LedgerEntryOrBump] = ImmArray.empty,
-      partyAllocationEntries: ImmArray[PartyAllocationLedgerEntry] = ImmArray.empty)
+      entries: ImmArray[LedgerEntryOrBump] = ImmArray.empty)
     : Resource[Ledger] =
     LedgerResource.resource(
       () =>
         Future.successful(
-          Ledger.inMemory(ledgerId, timeProvider, acs, packages, entries, partyAllocationEntries)
+          Ledger.inMemory(ledgerId, participantId, timeProvider, acs, packages, entries)
       )
     )
 
   def postgres(
       ledgerId: LedgerId,
+      participantId: ParticipantId,
       timeProvider: TimeProvider,
       metrics: MetricRegistry,
       packages: InMemoryPackageStore = InMemoryPackageStore.empty)(implicit mat: Materializer) = {
@@ -70,6 +72,7 @@ object LedgerResource {
             Ledger.jdbcBacked(
               postgres.value.jdbcUrl,
               ledgerId,
+              participantId,
               timeProvider,
               InMemoryActiveLedgerState.empty,
               packages,

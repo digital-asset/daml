@@ -239,9 +239,9 @@ private[digitalasset] class EncodeV1(val minor: LV.Minor) {
           expect(args.isEmpty)
           builder.setForall(
             PLF.Type.Forall.newBuilder().accumulateLeft(binders)(_ addVars _).setBody(body))
-        case TTuple(fields) =>
+        case TStruct(fields) =>
           expect(args.isEmpty)
-          builder.setTuple(PLF.Type.Tuple.newBuilder().accumulateLeft(fields)(_ addFields _))
+          builder.setStruct(PLF.Type.Struct.newBuilder().accumulateLeft(fields)(_ addFields _))
       }
     }
 
@@ -502,19 +502,20 @@ private[digitalasset] class EncodeV1(val minor: LV.Minor) {
           val b = PLF.Expr.EnumCon.newBuilder().setTycon(tyCon)
           setString(con, b.setEnumConStr, b.setEnumConInternedStr)
           builder.setEnumCon(b.build())
-        case ETupleCon(fields) =>
-          builder.setTupleCon(PLF.Expr.TupleCon.newBuilder().accumulateLeft(fields)(_ addFields _))
-        case ETupleProj(field, expr) =>
-          val b = PLF.Expr.TupleProj.newBuilder()
+        case EStructCon(fields) =>
+          builder.setStructCon(
+            PLF.Expr.StructCon.newBuilder().accumulateLeft(fields)(_ addFields _))
+        case EStructProj(field, expr) =>
+          val b = PLF.Expr.StructProj.newBuilder()
           setString(field, b.setFieldStr, b.setFieldInternedStr)
-          b.setTuple(expr)
-          builder.setTupleProj(b)
-        case ETupleUpd(field, tuple, update) =>
-          val b = PLF.Expr.TupleUpd.newBuilder()
+          b.setStruct(expr)
+          builder.setStructProj(b)
+        case EStructUpd(field, struct, update) =>
+          val b = PLF.Expr.StructUpd.newBuilder()
           setString(field, b.setFieldStr, b.setFieldInternedStr)
-          b.setTuple(tuple)
+          b.setStruct(struct)
           b.setUpdate(update)
-          builder.setTupleUpd(b)
+          builder.setStructUpd(b)
         case EApps(fun, args) =>
           builder.setApp(PLF.Expr.App.newBuilder().setFun(fun).accumulateLeft(args)(_ addArgs _))
         case ETyApps(expr, typs1) =>

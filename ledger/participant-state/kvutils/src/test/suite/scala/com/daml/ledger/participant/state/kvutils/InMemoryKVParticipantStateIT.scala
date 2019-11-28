@@ -8,7 +8,6 @@ import java.time.Duration
 import java.util.UUID
 
 import akka.stream.scaladsl.Sink
-import com.daml.ledger.participant.state.backport.TimeModel
 import com.daml.ledger.participant.state.kvutils.InMemoryKVParticipantStateIT._
 import com.daml.ledger.participant.state.v1.Update._
 import com.daml.ledger.participant.state.v1._
@@ -47,8 +46,22 @@ class InMemoryKVParticipantStateIT
     super.afterEach()
   }
 
-  // TODO BH: Many of these tests for transformation from DamlLogEntry to Update better belong as
+  /*
+  private def allocateParty(hint: String): Future[Party] = {
+    ps.allocateParty(Some(hint), None, randomLedgerString()).toScala.flatMap {
+      case PartyAllocationResult.Ok(details) => Future.successful(details.party)
+      case err => Future.failed(new RuntimeException("failed to allocate party: $err"))
+    }
+  }*/
+
+  private val alice = Ref.Party.assertFromString("alice")
+  private val bob = Ref.Party.assertFromString("bob")
+  private def randomLedgerString(): Ref.LedgerString =
+    Ref.LedgerString.assertFromString(UUID.randomUUID().toString)
+
+  // TODO(BH): Many of these tests for transformation from DamlLogEntry to Update better belong as
   // a KeyValueConsumptionSpec as the heart of the logic is there
+
   "In-memory implementation" should {
 
     "return initial conditions" in {
@@ -64,7 +77,7 @@ class InMemoryKVParticipantStateIT
     "provide update after uploadPackages" in {
       for {
         result <- ps
-          .uploadPackages(List(archives.head), sourceDescription, UUID.randomUUID().toString)
+          .uploadPackages(List(archives.head), sourceDescription, randomLedgerString())
           .toScala
         updateTuple <- ps.stateUpdates(beginAfter = None).runWith(Sink.head)
       } yield {
@@ -78,7 +91,7 @@ class InMemoryKVParticipantStateIT
       val archive1 :: archive2 :: archive3 :: _ = archives
 
       for {
-        result <- ps.uploadPackages(archives, sourceDescription, UUID.randomUUID().toString).toScala
+        result <- ps.uploadPackages(archives, sourceDescription, randomLedgerString()).toScala
         Seq(update1, update2, update3, update4) <- ps
           .stateUpdates(beginAfter = None)
           .take(4)
@@ -97,13 +110,13 @@ class InMemoryKVParticipantStateIT
 
       for {
         _ <- ps
-          .uploadPackages(List(archive1), sourceDescription, UUID.randomUUID().toString)
+          .uploadPackages(List(archive1), sourceDescription, randomLedgerString())
           .toScala
         result <- ps
-          .uploadPackages(List(archive1), sourceDescription, UUID.randomUUID().toString)
+          .uploadPackages(List(archive1), sourceDescription, randomLedgerString())
           .toScala
         _ <- ps
-          .uploadPackages(List(archive2), sourceDescription, UUID.randomUUID().toString)
+          .uploadPackages(List(archive2), sourceDescription, randomLedgerString())
           .toScala
         Seq(update1, update2, update3, update4, update5) <- ps
           .stateUpdates(beginAfter = None)
@@ -129,7 +142,7 @@ class InMemoryKVParticipantStateIT
 
       for {
         result <- ps
-          .uploadPackages(List(badArchive), sourceDescription, UUID.randomUUID().toString)
+          .uploadPackages(List(badArchive), sourceDescription, randomLedgerString())
           .toScala
         Seq(update1, update2) <- ps.stateUpdates(beginAfter = None).take(2).runWith(Sink.seq)
       } yield {
@@ -151,7 +164,7 @@ class InMemoryKVParticipantStateIT
           .uploadPackages(
             List(badArchive, archive1, archive2),
             sourceDescription,
-            UUID.randomUUID().toString)
+            randomLedgerString())
           .toScala
         Seq(update1) <- ps.stateUpdates(beginAfter = None).take(1).runWith(Sink.seq)
       } yield {
@@ -166,7 +179,7 @@ class InMemoryKVParticipantStateIT
       val displayName = Some("Alice Cooper")
 
       for {
-        allocResult <- ps.allocateParty(hint, displayName, UUID.randomUUID().toString).toScala
+        allocResult <- ps.allocateParty(hint, displayName, randomLedgerString()).toScala
         updateTuple <- ps.stateUpdates(beginAfter = None).runWith(Sink.head)
       } yield {
         assert(
@@ -191,7 +204,7 @@ class InMemoryKVParticipantStateIT
       val displayName = Some("Alice Cooper")
 
       for {
-        result <- ps.allocateParty(hint = None, displayName, UUID.randomUUID().toString).toScala
+        result <- ps.allocateParty(hint = None, displayName, randomLedgerString()).toScala
         updateTuple <- ps.stateUpdates(beginAfter = None).runWith(Sink.head)
       } yield {
         assert(result == SubmissionResult.Acknowledged, "unexpected response to party allocation")
@@ -215,7 +228,7 @@ class InMemoryKVParticipantStateIT
       val displayName = Some("Alice Cooper")
 
       for {
-        result <- ps.allocateParty(hintInvalidName, displayName, UUID.randomUUID().toString).toScala
+        result <- ps.allocateParty(hintInvalidName, displayName, randomLedgerString()).toScala
         updateTuples <- ps.stateUpdates(beginAfter = None).take(1).runWith(Sink.seq)
       } yield {
         assert(result == SubmissionResult.Acknowledged, "unexpected response to party allocation")
@@ -235,8 +248,8 @@ class InMemoryKVParticipantStateIT
       val displayName = Some("Alice Cooper")
 
       for {
-        result1 <- ps.allocateParty(hint, displayName, UUID.randomUUID().toString).toScala
-        result2 <- ps.allocateParty(hint, displayName, UUID.randomUUID().toString).toScala
+        result1 <- ps.allocateParty(hint, displayName, randomLedgerString()).toScala
+        result2 <- ps.allocateParty(hint, displayName, randomLedgerString()).toScala
         Seq(_, update2) <- ps.stateUpdates(beginAfter = None).take(2).runWith(Sink.seq)
       } yield {
         assert(result1 == SubmissionResult.Acknowledged, "unexpected response to party allocation")
@@ -253,61 +266,70 @@ class InMemoryKVParticipantStateIT
     }
 
     "provide update after transaction submission" in {
-      val updateResult = ps.stateUpdates(beginAfter = None).runWith(Sink.head)
-
-      ps.submitTransaction(submitterInfo(rt), transactionMeta(rt), emptyTransaction)
-
-      updateResult.map {
-        case (offset, _) =>
-          assert(offset == Offset(Array(0L, 0L)))
+      val rt = ps.getNewRecordTime()
+      val alice = Ref.Party.assertFromString("alice")
+      for {
+        _ <- ps.allocateParty(hint = Some(alice), None, randomLedgerString()).toScala
+        _ <- ps
+          .submitTransaction(submitterInfo(rt, alice), transactionMeta(rt), emptyTransaction)
+          .toScala
+        update <- ps.stateUpdates(beginAfter = None).drop(1).runWith(Sink.head)
+      } yield {
+        assert(update._1 == Offset(Array(1L, 0L)))
       }
     }
 
     "reject duplicate commands" in {
       val rt = ps.getNewRecordTime()
 
-      val updatesResult = ps.stateUpdates(beginAfter = None).take(2).runWith(Sink.seq)
+      for {
+        _ <- ps.allocateParty(hint = Some(alice), None, randomLedgerString()).toScala
+        _ <- ps
+          .submitTransaction(submitterInfo(rt, alice), transactionMeta(rt), emptyTransaction)
+          .toScala
+        _ <- ps
+          .submitTransaction(submitterInfo(rt, alice), transactionMeta(rt), emptyTransaction)
+          .toScala
+        updates <- ps.stateUpdates(beginAfter = None).take(3).runWith(Sink.seq)
+      } yield {
+        val (offset0, update0) = updates(0)
+        assert(offset0 == Offset(Array(0L, 0L)))
+        assert(update0.isInstanceOf[Update.PartyAddedToParticipant])
 
-      ps.submitTransaction(submitterInfo(rt), transactionMeta(rt), emptyTransaction)
-      ps.submitTransaction(submitterInfo(rt), transactionMeta(rt), emptyTransaction)
-
-      updatesResult.map { updates =>
-        val (offset1, update1) = updates.head
-        val (offset2, update2) = updates(1)
-        assert(offset1 == Offset(Array(0L, 0L)))
+        val (offset1, update1) = updates(1)
+        assert(offset1 == Offset(Array(1L, 0L)))
         assert(update1.isInstanceOf[Update.TransactionAccepted])
 
-        assert(offset2 == Offset(Array(1L, 0L)))
-        assert(update2.isInstanceOf[Update.CommandRejected])
-        assert(
-          update2
-            .asInstanceOf[Update.CommandRejected]
-            .reason == RejectionReason.DuplicateCommand)
+        val (offset2, update2) = updates(2)
+        assert(offset2 == Offset(Array(2L, 0L)))
       }
     }
 
     "return second update with beginAfter=0" in {
       val rt = ps.getNewRecordTime()
-
-      val updateResult =
-        ps.stateUpdates(beginAfter = Some(Offset(Array(0L, 0L)))).runWith(Sink.head)
-
-      ps.submitTransaction(submitterInfo(rt), transactionMeta(rt), emptyTransaction)
-      ps.submitTransaction(submitterInfo(rt), transactionMeta(rt), emptyTransaction)
-
-      updateResult.map {
-        case (offset, update) =>
-          assert(offset == Offset(Array(1L, 0L)))
-          assert(update.isInstanceOf[Update.CommandRejected])
+      for {
+        _ <- ps.allocateParty(hint = Some(alice), None, randomLedgerString()).toScala // offset now at [1,0]
+        _ <- ps
+          .submitTransaction(submitterInfo(rt, alice), transactionMeta(rt), emptyTransaction)
+          .toScala
+        _ <- ps
+          .submitTransaction(submitterInfo(rt, alice), transactionMeta(rt), emptyTransaction)
+          .toScala
+        offsetAndUpdate <- ps
+          .stateUpdates(beginAfter = Some(Offset(Array(1L, 0L))))
+          .runWith(Sink.head)
+      } yield {
+        val (offset, update) = offsetAndUpdate
+        assert(offset == Offset(Array(2L, 0L)))
+        assert(update.isInstanceOf[Update.CommandRejected])
       }
     }
 
     "return update [0,1] with beginAfter=[0,0]" in {
       val rt = ps.getNewRecordTime()
-
       for {
         _ <- ps
-          .uploadPackages(archives, sourceDescription, UUID.randomUUID().toString)
+          .uploadPackages(archives, sourceDescription, randomLedgerString())
           .toScala
         updateTuple <- ps.stateUpdates(beginAfter = Some(Offset(Array(0L, 0L)))).runWith(Sink.head)
       } yield {
@@ -315,48 +337,11 @@ class InMemoryKVParticipantStateIT
       }
     }
 
-    "correctly implements open world tx submission authorization" in {
+    "correctly implements tx submission authorization" in {
       val rt = ps.getNewRecordTime()
 
-      val updatesResult = ps.stateUpdates(beginAfter = None).take(3).runWith(Sink.seq)
-
-      for {
-        // Submit without allocation in open world setting, expecting this to succeed.
-        _ <- ps.submitTransaction(submitterInfo(rt), transactionMeta(rt), emptyTransaction).toScala
-
-        // Allocate a party and try the submission again with an allocated party.
-        allocResult <- ps
-          .allocateParty(
-            None /* no name hint, implementation decides party name */,
-            Some("Somebody"),
-            UUID.randomUUID().toString)
-          .toScala
-        _ <- assert(allocResult.isInstanceOf[SubmissionResult])
-        newParty <- ps
-          .stateUpdates(beginAfter = Some(Offset(Array(0L, 0L))))
-          .runWith(Sink.head)
-          .map(_._2.asInstanceOf[PartyAddedToParticipant].party)
-        _ <- ps
-          .submitTransaction(
-            submitterInfo(rt, party = newParty),
-            transactionMeta(rt),
-            emptyTransaction)
-          .toScala
-        Seq((offset1, update1), (offset2, update2), (offset3, update3)) <- updatesResult
-      } yield {
-        assert(offset1 == Offset(Array(0, 0)))
-        assert(update1.isInstanceOf[Update.TransactionAccepted])
-
-        assert(offset2 == Offset(Array(1, 0)))
-        assert(update2.isInstanceOf[Update.PartyAddedToParticipant])
-
-        assert(offset3 == Offset(Array(2, 0)))
-        assert(update3.isInstanceOf[Update.TransactionAccepted])
-      }
-    }
-
-    "correctly implements closed world tx submission authorization" in {
       val updatesResult = ps.stateUpdates(beginAfter = None).take(4).runWith(Sink.seq)
+      val unallocatedParty = Ref.Party.assertFromString("nobody")
 
       for {
         lic <- ps.getLedgerInitialConditions().runWith(Sink.head)
@@ -364,23 +349,27 @@ class InMemoryKVParticipantStateIT
         _ <- ps
           .submitConfiguration(
             maxRecordTime = rt.addMicros(1000000),
-            submissionId = "test1",
+            submissionId = randomLedgerString(),
             config = lic.config.copy(
               generation = lic.config.generation + 1,
-              openWorld = false,
             )
           )
           .toScala
 
-        // Submit without allocation in closed world setting.
-        _ <- ps.submitTransaction(submitterInfo(rt), transactionMeta(rt), emptyTransaction).toScala
+        // Submit without allocation
+        _ <- ps
+          .submitTransaction(
+            submitterInfo(rt, unallocatedParty),
+            transactionMeta(rt),
+            emptyTransaction)
+          .toScala
 
         // Allocate a party and try the submission again with an allocated party.
         allocResult <- ps
           .allocateParty(
             None /* no name hint, implementation decides party name */,
             Some("Somebody"),
-            UUID.randomUUID().toString)
+            randomLedgerString())
           .toScala
         _ <- assert(allocResult.isInstanceOf[SubmissionResult])
         //get the new party off state updates
@@ -394,23 +383,24 @@ class InMemoryKVParticipantStateIT
             transactionMeta(rt),
             emptyTransaction)
           .toScala
-        updates <- updatesResult
+
+        Seq((offset1, update1), (offset2, update2), (offset3, update3), (offset4, update4)) <- ps
+          .stateUpdates(beginAfter = None)
+          .take(4)
+          .runWith(Sink.seq)
+
       } yield {
-        def takeUpdate(n: Int) = {
-          val (offset, update) = updates(n)
-          assert(offset == Offset(Array(n.toLong, 0L)))
-          update
-        }
-
-        assert(takeUpdate(0).isInstanceOf[Update.ConfigurationChanged])
-
+        assert(update1.isInstanceOf[Update.ConfigurationChanged])
+        assert(offset1 == Offset(Array(0L, 0L)))
         assert(
-          takeUpdate(1)
+          update2
             .asInstanceOf[Update.CommandRejected]
             .reason == RejectionReason.PartyNotKnownOnLedger)
-
-        assert(takeUpdate(2).isInstanceOf[Update.PartyAddedToParticipant])
-        assert(takeUpdate(3).isInstanceOf[Update.TransactionAccepted])
+        assert(offset2 == Offset(Array(1L, 0L)))
+        assert(update3.isInstanceOf[Update.PartyAddedToParticipant])
+        assert(offset3 == Offset(Array(2L, 0L)))
+        assert(update4.isInstanceOf[Update.TransactionAccepted])
+        assert(offset4 == Offset(Array(3L, 0L)))
       }
     }
 
@@ -420,14 +410,13 @@ class InMemoryKVParticipantStateIT
       for {
         lic <- ps.getLedgerInitialConditions().runWith(Sink.head)
 
-        // Submit a configuration change that flips the "open world" flag.
+        // Submit an initial configuration change
         _ <- ps
           .submitConfiguration(
             maxRecordTime = rt.addMicros(1000000),
-            submissionId = "test1",
+            submissionId = randomLedgerString(),
             config = lic.config.copy(
               generation = lic.config.generation + 1,
-              openWorld = !lic.config.openWorld
             ))
           .toScala
 
@@ -435,7 +424,7 @@ class InMemoryKVParticipantStateIT
         _ <- ps
           .submitConfiguration(
             maxRecordTime = rt.addMicros(1000000),
-            submissionId = "test2",
+            submissionId = randomLedgerString(),
             config = lic.config.copy(
               generation = lic.config.generation + 1,
               timeModel = TimeModel(
@@ -471,8 +460,8 @@ object InMemoryKVParticipantStateIT {
   private val archives =
     darReader.readArchiveFromFile(new File(rlocation("ledger/test-common/Test-stable.dar"))).get.all
 
-  private def submitterInfo(rt: Timestamp, party: String = "Alice") = SubmitterInfo(
-    submitter = Ref.Party.assertFromString(party),
+  private def submitterInfo(rt: Timestamp, party: Ref.Party) = SubmitterInfo(
+    submitter = party,
     applicationId = Ref.LedgerString.assertFromString("tests"),
     commandId = Ref.LedgerString.assertFromString("X"),
     maxRecordTime = rt.addMicros(Duration.ofSeconds(10).toNanos / 1000)

@@ -18,6 +18,7 @@ import com.daml.ledger.participant.state.v1.{
   AbsoluteContractInst,
   ParticipantId,
   SubmissionId,
+  Configuration,
   TransactionId
 }
 import com.digitalasset.daml.lf.archive.Decode
@@ -60,6 +61,7 @@ import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{
 import com.digitalasset.platform.sandbox.stores.ledger.sql.util.Conversions._
 import com.digitalasset.platform.sandbox.stores.ledger.sql.util.DbDispatcher
 import com.digitalasset.platform.sandbox.stores.ledger.{
+  ConfigurationEntry,
   LedgerEntry,
   PackageUploadLedgerEntry,
   PartyAllocationLedgerEntry
@@ -149,6 +151,154 @@ private class JdbcLedgerDao(
       .on("ExternalLedgerEnd" -> externalLedgerEnd)
       .execute()
     ()
+  }
+
+  private val SQL_UPDATE_CURRENT_CONFIGURATION = SQL(
+    "update parameters set configuration={configuration}"
+  )
+  private val SQL_SELECT_CURRENT_CONFIGURATION = SQL("select configuration from parameters")
+
+  private val SQL_GET_CONFIGURATION_ENTRIES = SQL(
+    "select * from configuration_entries where ledger_offset>={startInclusive} and ledger_offset<{endExclusive} order by ledger_offset asc")
+
+  private def updateCurrentConfiguration(configBytes: Array[Byte])(
+      implicit conn: Connection): Unit = {
+    SQL_UPDATE_CURRENT_CONFIGURATION
+      .on("configuration" -> configBytes)
+      .execute()
+    ()
+  }
+
+  private def selectLedgerConfiguration(implicit conn: Connection) =
+    SQL_SELECT_CURRENT_CONFIGURATION
+      .as(byteArray("configuration").?.single)
+      .flatMap(Configuration.decode(_).toOption)
+
+  override def lookupLedgerConfiguration(): Future[Option[Configuration]] =
+    dbDispatcher.executeSql("lookup_configuration")(implicit conn => selectLedgerConfiguration)
+
+  private val configurationAcceptType = "accept"
+  private val configurationRejectType = "reject"
+
+  private val configurationEntryParser: RowParser[(Long, ConfigurationEntry)] =
+    (long("ledger_offset") ~
+      str("typ") ~
+      str("submission_id") ~
+      str("participant_id") ~
+      str("rejection_reason")(emptyStringToNullColumn).? ~
+      byteArray("configuration"))
+      .map(flatten)
+      .map {
+        case (offset, typ, submissionId, participantIdRaw, rejectionReason, configBytes) =>
+          val config = Configuration
+            .decode(configBytes)
+            .fold(err => sys.error(s"Failed to decode configuration: $err"), identity)
+          val participantId = LedgerString
+            .fromString(participantIdRaw)
+            .fold(
+              err => sys.error(s"Failed to decode participant id in configuration entry: $err"),
+              identity)
+
+          offset ->
+            (typ match {
+              case `configurationAcceptType` =>
+                ConfigurationEntry.Accepted(
+                  submissionId = submissionId,
+                  participantId = participantId,
+                  configuration = config
+                )
+              case `configurationRejectType` =>
+                ConfigurationEntry.Rejected(
+                  submissionId = submissionId,
+                  participantId = participantId,
+                  rejectionReason = rejectionReason.getOrElse("<missing reason>"),
+                  proposedConfiguration = config
+                )
+
+              case _ =>
+                sys.error(s"getConfigurationEntries: Unknown configuration entry type: $typ")
+            })
+      }
+
+  override def getConfigurationEntries(
+      startInclusive: Long,
+      endExclusive: Long): Source[(Long, ConfigurationEntry), NotUsed] =
+    paginatingStream(
+      startInclusive,
+      endExclusive,
+      PageSize,
+      (startI, endE) => {
+        dbDispatcher.executeSql("load_configuration_entries", Some(s"bounds: [$startI, $endE[")) {
+          implicit conn =>
+            SQL_GET_CONFIGURATION_ENTRIES
+              .on("startInclusive" -> startI, "endExclusive" -> endE)
+              .as(configurationEntryParser.*)
+        }
+      }
+    ).flatMapConcat(Source(_))
+
+  private val SQL_INSERT_CONFIGURATION_ENTRY =
+    SQL(
+      """insert into configuration_entries(ledger_offset, recorded_at, submission_id, participant_id, typ, rejection_reason, configuration)
+        |values({ledger_offset}, {recorded_at}, {submission_id}, {participant_id}, {typ}, {rejection_reason}, {configuration})
+        |""".stripMargin)
+
+  override def storeConfigurationEntry(
+      offset: LedgerOffset,
+      newLedgerEnd: LedgerOffset,
+      externalOffset: Option[ExternalOffset],
+      recordedAt: Instant,
+      submissionId: String,
+      participantId: ParticipantId,
+      configuration: Configuration,
+      rejectionReason: Option[String]
+  ): Future[PersistenceResponse] = {
+    dbDispatcher.executeSql("store_configuration_entry", Some("submissionId=$submissionId")) {
+      implicit conn =>
+        val currentConfig = selectLedgerConfiguration
+        var finalRejectionReason = rejectionReason
+        if (rejectionReason.isEmpty && (currentConfig exists (_.generation + 1 != configuration.generation))) {
+          // If we're not storing a rejection and the new generation is not succ of current configuration, then
+          // we store a rejection. This code path is only expected to be taken in sandbox. This follows the same
+          // pattern as storing transactions.
+          finalRejectionReason = Some(s"Generation mismatch")
+        }
+
+        updateLedgerEnd(newLedgerEnd, externalOffset)
+        val configurationBytes = Configuration.encode(configuration).toByteArray
+        val typ = if (finalRejectionReason.isEmpty) {
+          configurationAcceptType
+        } else {
+          configurationRejectType
+        }
+
+        Try({
+          SQL_INSERT_CONFIGURATION_ENTRY
+            .on(
+              "ledger_offset" -> offset,
+              "recorded_at" -> recordedAt,
+              "submission_id" -> submissionId,
+              "participant_id" -> participantId,
+              "typ" -> typ,
+              "rejection_reason" -> finalRejectionReason.orNull,
+              "configuration" -> configurationBytes
+            )
+            .execute()
+
+          if (typ == configurationAcceptType) {
+            updateCurrentConfiguration(configurationBytes)
+          }
+
+          PersistenceResponse.Ok
+        }).recover {
+          case NonFatal(e) if e.getMessage.contains(queries.DUPLICATE_KEY_ERROR) =>
+            logger.warn(
+              s"Ignoring duplicate configuration submission for submissionId $submissionId, participantId $participantId")
+            conn.rollback()
+            PersistenceResponse.Duplicate
+        }.get
+
+    }
   }
 
   private val SQL_INSERT_CONTRACT_KEY =
@@ -1544,17 +1694,18 @@ private class JdbcLedgerDao(
 
   private val SQL_TRUNCATE_ALL_TABLES =
     SQL("""
-          |truncate ledger_entries cascade;
-          |truncate disclosures cascade;
-          |truncate contracts cascade;
-          |truncate contract_data cascade;
-          |truncate contract_witnesses cascade;
-          |truncate contract_key_maintainers cascade;
-          |truncate parameters cascade;
-          |truncate contract_keys cascade;
-          |truncate package_upload_entries cascade;
-          |truncate party_allocation_entries cascade;
-          |truncate parties cascade;
+        |truncate ledger_entries cascade;
+        |truncate disclosures cascade;
+        |truncate contracts cascade;
+        |truncate contract_data cascade;
+        |truncate contract_witnesses cascade;
+        |truncate contract_key_maintainers cascade;
+        |truncate parameters cascade;
+        |truncate contract_keys cascade;
+        |truncate configuration_entries cascade;
+        |truncate package_upload_entries cascade;
+        |truncate party_allocation_entries cascade;
+        |truncate parties cascade;
       """.stripMargin)
 
   override def reset(): Future[Unit] =

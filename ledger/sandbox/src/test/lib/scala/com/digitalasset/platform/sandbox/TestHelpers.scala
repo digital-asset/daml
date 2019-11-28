@@ -8,7 +8,7 @@ import java.time.Instant
 
 import akka.stream.ActorMaterializer
 import com.codahale.metrics.MetricRegistry
-import com.daml.ledger.participant.state.v1.ParticipantId
+import com.daml.ledger.participant.state.v1.{ParticipantId, TimeModel}
 import com.digitalasset.api.util.{TimeProvider, ToleranceWindow}
 import com.digitalasset.daml.lf.archive.DarReader
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
@@ -23,7 +23,6 @@ import com.digitalasset.platform.sandbox.stores.{
   InMemoryPackageStore,
   SandboxIndexAndWriteService
 }
-import com.digitalasset.platform.services.time.TimeModel
 
 import scala.concurrent.ExecutionContext
 

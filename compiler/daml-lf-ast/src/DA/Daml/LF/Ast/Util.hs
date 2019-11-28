@@ -182,7 +182,7 @@ pattern TGenMap :: Type -> Type -> Type
 pattern TGenMap t1 t2 = TApp (TApp (TBuiltin BTGenMap) t1) t2
 
 pattern TTextMapEntry :: Type -> Type
-pattern TTextMapEntry a = TTuple [(FieldName "key", TText), (FieldName "value", a)]
+pattern TTextMapEntry a = TStruct [(FieldName "key", TText), (FieldName "value", a)]
 
 pattern TConApp :: Qualified TypeConName -> [Type] -> Type
 pattern TConApp tcon targs <- (view (leftSpine _TApp) -> (TCon tcon, targs))

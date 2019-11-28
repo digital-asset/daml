@@ -249,7 +249,7 @@ class JdbcIndexer private[index] (
 
   private def handleStateUpdate(offset: Offset, update: Update): Future[Unit] = {
     lastReceivedOffset = offset.toLedgerString
-    stateUpdateRecordTime(update).foreach(lastReceivedRecordTime = _)
+    lastReceivedRecordTime = update.recordTime.toInstant
 
     val externalOffset = Some(offset.toLedgerString)
     update match {
@@ -368,21 +368,38 @@ class JdbcIndexer private[index] (
           .storeLedgerEntry(headRef, headRef + 1, externalOffset, pt)
           .map(_ => headRef = headRef + 1)(DEC)
 
-      case _: ConfigurationChanged =>
-        // TODO (GS) implement configuration changes
-        Future.successful(())
+      case config: ConfigurationChanged =>
+        ledgerDao
+          .storeConfigurationEntry(
+            headRef,
+            headRef + 1,
+            externalOffset,
+            config.recordTime.toInstant,
+            config.submissionId,
+            config.participantId,
+            config.newConfiguration,
+            None
+          )
+          .map(_ => headRef = headRef + 1)(DEC)
 
-      case _: ConfigurationChangeRejected =>
-        // TODO(JM) implement configuration rejections
-        Future.successful(())
+      case configRejection: ConfigurationChangeRejected =>
+        ledgerDao
+          .storeConfigurationEntry(
+            headRef,
+            headRef + 1,
+            externalOffset,
+            configRejection.recordTime.toInstant,
+            configRejection.submissionId,
+            configRejection.participantId,
+            configRejection.proposedConfiguration,
+            Some(configRejection.rejectionReason)
+          )
+          .map(_ => headRef = headRef + 1)(DEC)
 
-      case CommandRejected(submitterInfo, RejectionReason.DuplicateCommand) =>
-        Future.successful(())
-
-      case CommandRejected(submitterInfo, reason) =>
+      case CommandRejected(recordTime, submitterInfo, reason) =>
         val rejection = PersistenceEntry.Rejection(
           LedgerEntry.Rejection(
-            Instant.now(), // TODO should we get this from the backend?
+            recordTime.toInstant,
             submitterInfo.commandId,
             submitterInfo.applicationId,
             submitterInfo.submitter,
@@ -395,20 +412,6 @@ class JdbcIndexer private[index] (
           .map(_ => headRef = headRef + 1)(DEC)
     }
   }
-
-  private def stateUpdateRecordTime(update: Update): Option[Instant] =
-    (update match {
-      case Heartbeat(recordTime) => Some(recordTime)
-      case PartyAddedToParticipant(_, _, _, recordTime, _) => Some(recordTime)
-      case PartyAllocationEntryRejected(_, _, recordTime, _) => Some(recordTime)
-      case PublicPackageUploaded(_, _, _, recordTime, _) => Some(recordTime)
-      case TransactionAccepted(_, _, _, _, recordTime, _) => Some(recordTime)
-      case ConfigurationChanged(_, _) => None
-      case ConfigurationChangeRejected(_, _) => None
-      case CommandRejected(_, _) => None
-      case PackageUploadEntryAccepted(_, recordTime, _) => Some(recordTime)
-      case PackageUploadEntryRejected(_, recordTime, _, _) => Some(recordTime)
-    }) map (_.toInstant)
 
   private def toDomainRejection(
       submitterInfo: SubmitterInfo,

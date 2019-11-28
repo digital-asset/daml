@@ -11,6 +11,7 @@ import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.index.v2.PackageDetails
 import com.daml.ledger.participant.state.v1._
 import com.digitalasset.daml.lf.data.Ref.{PackageId, Party, TransactionIdString}
+import com.digitalasset.daml.lf.data.Time
 import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.transaction.Node.GlobalKey
 import com.digitalasset.daml.lf.value.Value
@@ -30,6 +31,7 @@ private class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: MetricRegis
     val lookupContract = metrics.timer("Ledger.lookupContract")
     val lookupKey = metrics.timer("Ledger.lookupKey")
     val lookupTransaction = metrics.timer("Ledger.lookupTransaction")
+    val lookupLedgerConfiguration = metrics.timer("Ledger.lookupLedgerConfiguration ")
     val parties = metrics.timer("Ledger.parties")
     val partyAllocationEntries = metrics.timer("Ledger.partyAllocationEntries")
     val lookupPartyAllocationEntry = metrics.timer("Ledger.lookupPartyAllocationEntry")
@@ -83,6 +85,13 @@ private class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: MetricRegis
   override def lookupPartyAllocationEntry(
       submissionId: SubmissionId): Future[Option[PartyAllocationLedgerEntry]] =
     timedFuture(Metrics.lookupPartyAllocationEntry, ledger.lookupPartyAllocationEntry(submissionId))
+
+  override def lookupLedgerConfiguration(): Future[Option[Configuration]] =
+    timedFuture(Metrics.lookupLedgerConfiguration, ledger.lookupLedgerConfiguration())
+
+  override def configurationEntries(
+      offset: Option[Long]): Source[(Long, ConfigurationEntry), NotUsed] =
+    ledger.configurationEntries(offset)
 }
 
 object MeteredReadOnlyLedger {
@@ -99,6 +108,7 @@ private class MeteredLedger(ledger: Ledger, metrics: MetricRegistry)
     val publishTransaction = metrics.timer("Ledger.publishTransaction")
     val addParty = metrics.timer("Ledger.addParty")
     val uploadPackages = metrics.timer("Ledger.uploadPackages")
+    val publishConfiguration = metrics.timer("Ledger.publishConfiguration ")
   }
 
   override def publishHeartbeat(time: Instant): Future[Unit] =
@@ -131,9 +141,18 @@ private class MeteredLedger(ledger: Ledger, metrics: MetricRegistry)
       Metrics.uploadPackages,
       ledger.uploadPackages(knownSince, sourceDescription, payload, submissionId, participantId))
 
+  override def publishConfiguration(
+      maxRecordTime: Time.Timestamp,
+      submissionId: String,
+      config: Configuration): Future[SubmissionResult] =
+    timedFuture(
+      Metrics.publishConfiguration,
+      ledger.publishConfiguration(maxRecordTime, submissionId, config))
+
   override def close(): Unit = {
     ledger.close()
   }
+
 }
 
 object MeteredLedger {

@@ -3,6 +3,8 @@
 
 package com.digitalasset.platform.sandbox.stores.ledger.sql.dao
 
+import java.time.Instant
+
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
@@ -12,7 +14,8 @@ import com.daml.ledger.participant.state.v1.{
   AbsoluteContractInst,
   ParticipantId,
   SubmissionId,
-  TransactionId
+  TransactionId,
+  Configuration
 }
 import com.digitalasset.daml.lf.data.Ref.{LedgerString, PackageId, Party}
 import com.digitalasset.daml.lf.data.Relation.Relation
@@ -27,6 +30,7 @@ import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilte
 import com.digitalasset.platform.sandbox.stores.ActiveLedgerState.{ActiveContract, Contract}
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry.Transaction
 import com.digitalasset.platform.sandbox.stores.ledger.{
+  ConfigurationEntry,
   LedgerEntry,
   PackageUploadLedgerEntry,
   PartyAllocationLedgerEntry
@@ -86,6 +90,14 @@ trait LedgerReadDao extends AutoCloseable {
   def lookupActiveOrDivulgedContract(
       contractId: AbsoluteContractId,
       forParty: Party): Future[Option[Contract]]
+
+  /** Looks up the current ledger configuration, if it has been set. */
+  def lookupLedgerConfiguration(): Future[Option[Configuration]]
+
+  /** Returns a stream of configuration entries. */
+  def getConfigurationEntries(
+      startInclusive: LedgerOffset,
+      endExclusive: LedgerOffset): Source[(Long, ConfigurationEntry), NotUsed]
 
   /**
     * Looks up a LedgerEntry at a given offset
@@ -228,6 +240,20 @@ trait LedgerWriteDao extends AutoCloseable {
       party: Party,
       displayName: Option[String],
       externalOffset: Option[ExternalOffset]
+  ): Future[PersistenceResponse]
+
+  /**
+    * Store a configuration change or rejection.
+    */
+  def storeConfigurationEntry(
+      offset: LedgerOffset,
+      newLedgerEnd: LedgerOffset,
+      externalOffset: Option[ExternalOffset],
+      recordedAt: Instant,
+      submissionId: String,
+      participantId: ParticipantId,
+      configuration: Configuration,
+      rejectionReason: Option[String]
   ): Future[PersistenceResponse]
 
   /**

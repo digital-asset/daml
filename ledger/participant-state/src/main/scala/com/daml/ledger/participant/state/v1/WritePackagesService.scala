@@ -43,6 +43,6 @@ trait WritePackagesService {
   def uploadPackages(
       payload: List[Archive],
       sourceDescription: Option[String],
-      submissionId: String
+      submissionId: SubmissionId
   ): CompletionStage[SubmissionResult]
 }

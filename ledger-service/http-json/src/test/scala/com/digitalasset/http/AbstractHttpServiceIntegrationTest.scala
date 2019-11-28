@@ -168,6 +168,15 @@ abstract class AbstractHttpServiceIntegrationTest
     }
   }
 
+  "contracts/search with invalid JSON query should return error" in withHttpService { (uri, _, _) =>
+    postJsonStringRequest(uri.withPath(Uri.Path("/contracts/search")), "{NOT A VALID JSON OBJECT")
+      .flatMap {
+        case (status, output) =>
+          status shouldBe StatusCodes.BadRequest
+          assertStatus(output, StatusCodes.BadRequest)
+      }: Future[Assertion]
+  }
+
   protected def jsObject(s: String): JsObject = {
     val r: JsonError \/ JsObject = for {
       jsVal <- SprayJson.parse(s).leftMap(e => JsonError(e.shows))
@@ -491,24 +500,30 @@ abstract class AbstractHttpServiceIntegrationTest
     domain.ExerciseCommand(templateId, contractId, choice, arg, None)
   }
 
-  private def postJsonRequest(
+  private def postJsonStringRequest(
       uri: Uri,
-      json: JsValue,
+      jsonString: String,
       headers: List[HttpHeader] = headersWithAuth): Future[(StatusCode, JsValue)] = {
-    logger.info(s"postJson: $uri json: $json")
+    logger.info(s"postJson: ${uri.toString} json: ${jsonString: String}")
     Http()
       .singleRequest(
         HttpRequest(
           method = HttpMethods.POST,
           uri = uri,
           headers = headers,
-          entity = HttpEntity(ContentTypes.`application/json`, json.prettyPrint))
+          entity = HttpEntity(ContentTypes.`application/json`, jsonString))
       )
       .flatMap { resp =>
         val bodyF: Future[String] = getResponseDataBytes(resp, debug = true)
         bodyF.map(body => (resp.status, body.parseJson))
       }
   }
+
+  private def postJsonRequest(
+      uri: Uri,
+      json: JsValue,
+      headers: List[HttpHeader] = headersWithAuth): Future[(StatusCode, JsValue)] =
+    postJsonStringRequest(uri, json.prettyPrint, headers)
 
   private def getRequest(
       uri: Uri,
