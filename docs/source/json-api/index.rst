@@ -103,7 +103,7 @@ Apart from interacting with the Ledger API on behalf of the user, the HTTP JSON 
 
 For this reason, you must provide an access token when you start the HTTP JSON API if you're running it against a Ledger API server that requires authentication.
 
-Note that this token is used exclusively for the HTTP JSON API server and that it will not be use to authenticate client calls to the HTTP JSON API: the user is expected to provide a valid authentication token with each call.
+Note that this token is used exclusively for maintaining the internal list of known packages and templates, and that it will not be use to authenticate client calls to the HTTP JSON API: the user is expected to provide a valid authentication token with each call.
 
 The HTTP JSON API servers requires no access to party-specific data and requires exclusively access to the ledger identity and package services: a token issued for the HTTP JSON API server should contain enough claims to contact these two service but no more than that. Please refer to your ledger operator's documentation to find out how.
 
