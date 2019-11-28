@@ -269,6 +269,8 @@ Version: 1.dev
 
   * **Add** type synonyms.
 
+  * **Rename** structural records from ``Tuple`` to ``Struct``
+
 Abstract syntax
 ^^^^^^^^^^^^^^^
 
@@ -579,7 +581,7 @@ Then we can define our kinds, types, and expressions::
        |  ∀ α : k . τ                               -- TyForall: Universal quantification
        |  BuiltinType                               -- TyBuiltin: Builtin type
        |  Mod:T                                     -- TyCon: type constructor
-       |  ⟨ f₁: τ₁, …, fₘ: τₘ ⟩                     -- TyStruct: Struct type
+       |  ⟨ f₁: τ₁, …, fₘ: τₘ ⟩                     -- TyStruct: Structural record type
 
   Expressions
     e ::= x                                         -- ExpVar: Local variable
@@ -677,7 +679,7 @@ available for usage::
     Def
       ::=
        |  'record' T (α₁: k₁)… (αₙ: kₙ) ↦ { f₁ : τ₁, …, fₘ : τₘ }
-                                                    -- DefRecord
+                                                    -- DefRecord: Nominal record type
        |  'variant' T (α₁: k₁)… (αₙ: kₙ) ↦ V₁ : τ₁ | … | Vₘ : τₘ
                                                     -- DefVariant
        |  'enum' T  ↦ E₁ | … | Eₘ                    -- DefEnum
