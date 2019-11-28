@@ -9,13 +9,13 @@ import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path, Paths}
 import java.util.concurrent.atomic.AtomicBoolean
 
-import com.digitalasset.daml.bazeltools.BazelRunfiles._
+import com.digitalasset.daml.bazeltools.BazelRunfiles.rlocation
 import com.digitalasset.ledger.api.testing.utils.Resource
 import org.apache.commons.io.{FileUtils, IOUtils}
 import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach}
 import org.slf4j.LoggerFactory
 
-import scala.collection.JavaConverters._
+import scala.collection.JavaConverters.asScalaBufferConverter
 import scala.util.control.NonFatal
 
 trait PostgresAroundAll extends PostgresAround with BeforeAndAfterAll {
