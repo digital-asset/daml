@@ -204,26 +204,6 @@ def daml_deps():
             urls = ["https://github.com/johnynek/bazel_jar_jar/archive/20dbf71f09b1c1c2a8575a42005a968b38805519.zip"],  # Latest commit SHA as at 2019/02/13
         )
 
-    if "com_github_scalapb_scalapb" not in native.existing_rules():
-        http_archive(
-            name = "com_github_scalapb_scalapb",
-            url = "https://github.com/scalapb/ScalaPB/releases/download/v0.8.0/scalapbc-0.8.0.zip",
-            sha256 = "bda0b44b50f0a816342a52c34e6a341b1a792f2a6d26f4f060852f8f10f5d854",
-            strip_prefix = "scalapbc-0.8.0/lib",
-            build_file_content = """
-java_import(
-    name = "compilerplugin",
-    jars = ["com.thesamet.scalapb.compilerplugin-0.8.0.jar"],
-    visibility = ["//visibility:public"],
-)
-java_import(
-    name = "scala-library",
-    jars = ["org.scala-lang.scala-library-2.11.12.jar"],
-    visibility = ["//visibility:public"],
-)
-            """,
-        )
-
         if "com_github_googleapis_googleapis" not in native.existing_rules():
             http_archive(
                 name = "com_github_googleapis_googleapis",
