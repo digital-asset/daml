@@ -3,12 +3,14 @@
 
 package com.digitalasset.platform.sandbox.stores.ledger.sql.dao
 
+import java.time.Instant
+
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.codahale.metrics.{MetricRegistry, Timer}
 import com.daml.ledger.participant.state.index.v2.PackageDetails
-import com.daml.ledger.participant.state.v1.TransactionId
+import com.daml.ledger.participant.state.v1.{Configuration, ParticipantId, TransactionId}
 import com.digitalasset.daml.lf.data.Ref.{LedgerString, PackageId, Party}
 import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.value.Value
@@ -18,7 +20,7 @@ import com.digitalasset.ledger.api.health.HealthStatus
 import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilter
 import com.digitalasset.platform.sandbox.metrics.timedFuture
 import com.digitalasset.platform.sandbox.stores.ActiveLedgerState.{ActiveContract, Contract}
-import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry
+import com.digitalasset.platform.sandbox.stores.ledger.{ConfigurationEntry, LedgerEntry}
 
 import scala.collection.immutable
 import scala.concurrent.Future
@@ -33,6 +35,7 @@ private class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: MetricRegi
     val lookupExternalLedgerEnd: Timer = metrics.timer("LedgerDao.lookupExternalLedgerEnd")
     val lookupLedgerEntry: Timer = metrics.timer("LedgerDao.lookupLedgerEntry")
     val lookupTransaction: Timer = metrics.timer("LedgerDao.lookupTransaction")
+    val lookupLedgerConfiguration: Timer = metrics.timer("LedgerDao.lookupLedgerConfiguration")
     val lookupKey: Timer = metrics.timer("LedgerDao.lookupKey")
     val lookupActiveContract: Timer = metrics.timer("LedgerDao.lookupActiveContract")
     val getParties: Timer = metrics.timer("LedgerDao.getParties")
@@ -91,6 +94,16 @@ private class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: MetricRegi
   override def close(): Unit = {
     ledgerDao.close()
   }
+
+  /** Looks up the current ledger configuration, if it has been set. */
+  override def lookupLedgerConfiguration(): Future[Option[Configuration]] =
+    timedFuture(Metrics.lookupLedgerConfiguration, ledgerDao.lookupLedgerConfiguration())
+
+  /** Get a stream of configuration entries. */
+  override def getConfigurationEntries(
+      startInclusive: LedgerOffset,
+      endExclusive: LedgerOffset): Source[(LedgerOffset, ConfigurationEntry), NotUsed] =
+    ledgerDao.getConfigurationEntries(startInclusive, endExclusive)
 }
 
 private class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: MetricRegistry)
@@ -102,6 +115,7 @@ private class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: MetricRegistry)
     val storeInitialState: Timer = metrics.timer("LedgerDao.storeInitialState")
     val uploadLfPackages: Timer = metrics.timer("LedgerDao.uploadLfPackages")
     val storeLedgerEntry: Timer = metrics.timer("LedgerDao.storeLedgerEntry")
+    val storeConfigurationEntry: Timer = metrics.timer("LedgerDao.storeConfigurationEntry")
   }
 
   override def currentHealth(): HealthStatus = ledgerDao.currentHealth()
@@ -135,6 +149,29 @@ private class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: MetricRegistry)
       displayName: Option[String],
       externalOffset: Option[ExternalOffset]): Future[PersistenceResponse] =
     timedFuture(Metrics.storeParty, ledgerDao.storeParty(party, displayName, externalOffset))
+
+  override def storeConfigurationEntry(
+      offset: LedgerOffset,
+      newLedgerEnd: LedgerOffset,
+      externalOffset: Option[ExternalOffset],
+      recordTime: Instant,
+      submissionId: String,
+      participantId: ParticipantId,
+      configuration: Configuration,
+      rejectionReason: Option[String]
+  ): Future[PersistenceResponse] =
+    timedFuture(
+      Metrics.storeConfigurationEntry,
+      ledgerDao.storeConfigurationEntry(
+        offset,
+        newLedgerEnd,
+        externalOffset,
+        recordTime,
+        submissionId,
+        participantId,
+        configuration,
+        rejectionReason)
+    )
 
   override def uploadLfPackages(
       uploadId: String,

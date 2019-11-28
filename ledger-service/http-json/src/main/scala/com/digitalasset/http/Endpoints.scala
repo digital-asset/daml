@@ -5,13 +5,14 @@ package com.digitalasset.http
 
 import akka.http.scaladsl.model.HttpMethods.{GET, POST}
 import akka.http.scaladsl.model._
+import akka.NotUsed
 import akka.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
 import akka.stream.Materializer
 import akka.util.ByteString
 import com.digitalasset.daml.lf
 import com.digitalasset.http.Statement.discard
 import com.digitalasset.http.domain.JwtPayload
-import com.digitalasset.http.json.ResponseFormats._
+import com.digitalasset.http.json.ResponseFormats
 import com.digitalasset.http.json.{DomainJsonDecoder, DomainJsonEncoder, SprayJson}
 import com.digitalasset.http.util.FutureUtil.{either, eitherT}
 import com.digitalasset.http.util.{ApiValueToLfValueConverter, FutureUtil}
@@ -30,6 +31,9 @@ import spray.json._
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
+
+import akka.stream.Materializer
+import akka.stream.scaladsl.{Source, Flow}
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 class Endpoints(
@@ -114,6 +118,15 @@ class Endpoints(
         -\/(ServerError(e.getMessage))
     }
 
+  private def handleSourceFailure[E: Show, A]: Flow[E \/ A, ServerError \/ A, NotUsed] =
+    Flow
+      .fromFunction((_: E \/ A).leftMap(e => ServerError(e.shows)))
+      .recover {
+        case NonFatal(e) =>
+          logger.error("Source failed", e)
+          -\/(ServerError(e.getMessage))
+      }
+
   private def encodeList(as: Seq[JsValue]): ServerError \/ JsValue =
     SprayJson.encode(as).leftMap(e => ServerError(e.shows))
 
@@ -131,17 +144,14 @@ class Endpoints(
           decoder
             .decodeV[domain.ContractLookupRequest](reqBody)
             .leftMap(e => InvalidUserInput(e.shows))
-        ): ET[domain.ContractLookupRequest[lav1.value.Value]]
+        ): ET[domain.ContractLookupRequest[ApiValue]]
 
         ac <- eitherT(
           handleFutureFailure(contractsService.lookup(jwt, jwtPayload, cmd))
-        ): ET[Option[domain.ActiveContract[lav1.value.Value]]]
+        ): ET[Option[domain.ActiveContract[LfValue]]]
 
         jsVal <- either(
-          ac match {
-            case None => \/-(JsObject())
-            case Some(x) => encoder.encodeV(x).leftMap(e => ServerError(e.shows))
-          }
+          ac.cata(x => lfAcToJsValue(x).leftMap(e => ServerError(e.shows)), \/-(JsObject()))
         ): ET[JsValue]
 
       } yield jsVal
@@ -149,58 +159,41 @@ class Endpoints(
       httpResponse(et)
 
     case req @ HttpRequest(GET, Uri.Path("/contracts/search"), _, _, _) =>
-      val et: ET[JsValue] = for {
-        input <- FutureUtil.eitherT(input(req)): ET[(Jwt, JwtPayload, String)]
+      val sourceF: Future[Error \/ Source[JsValue, NotUsed]] = input(req).map {
+        _.map {
+          case (jwt, jwtPayload, _) =>
+            contractsService
+              .search(jwt, jwtPayload, emptyGetActiveContractsRequest)
+              .via(handleSourceFailure)
+              .map {
+                _.flatMap(lfAcToJsValue)
+                  .fold(errorToJsValue, identity): JsValue
+              }: Source[JsValue, NotUsed]
+        }
+      }
 
-        (jwt, jwtPayload, _) = input
-
-        as <- eitherT(
-          handleFutureFailure(contractsService
-            .search(jwt, jwtPayload, emptyGetActiveContractsRequest))): ET[contractsService.Result]
-
-        jsVal <- either(
-          as._1.toList
-            .traverse(a => encoder.encodeV(a))
-            .leftMap(e => ServerError(e.shows))
-            .flatMap(js => encodeList(js))
-        ): ET[JsValue]
-
-      } yield jsVal
-
-      httpResponse(et)
+      httpResponse(sourceF)
 
     case req @ HttpRequest(POST, Uri.Path("/contracts/search"), _, _, _) =>
-      val et: ET[JsValue] = for {
-        input <- FutureUtil.eitherT(input(req)): ET[(Jwt, JwtPayload, String)]
+      val sourceF: Future[Error \/ Source[JsValue, NotUsed]] = input(req).map {
+        _.flatMap {
+          case (jwt, jwtPayload, reqBody) =>
+            SprayJson
+              .decode[domain.GetActiveContractsRequest](reqBody)
+              .leftMap(e => InvalidUserInput(e.shows))
+              .map { cmd =>
+                contractsService
+                  .search(jwt, jwtPayload, cmd)
+                  .via(handleSourceFailure)
+                  .map {
+                    _.flatMap(lfAcToJsValue)
+                      .fold(errorToJsValue, identity): JsValue
+                  }: Source[JsValue, NotUsed]
+              }
+        }
+      }
 
-        (jwt, jwtPayload, reqBody) = input
-
-        cmd <- either(
-          SprayJson
-            .decode[domain.GetActiveContractsRequest](reqBody)
-            .leftMap(e => InvalidUserInput(e.shows))
-        ): ET[domain.GetActiveContractsRequest]
-
-        as <- eitherT(
-          handleFutureFailure(contractsService.search(jwt, jwtPayload, cmd))
-        ): ET[contractsService.Result]
-
-        xs <- either(
-          as._1.toList.traverse(_.traverse(v => apValueToLfValue(v)))
-        ): ET[List[domain.ActiveContract[LfValue]]]
-
-        ys = contractsService
-          .filterSearch(as._2, xs): Seq[domain.ActiveContract[LfValue]]
-
-        js <- either(
-          ys.toList.traverse(_.traverse(v => lfValueToJsValue(v)))
-        ): ET[Seq[domain.ActiveContract[JsValue]]]
-
-        j <- either(SprayJson.encode(js).leftMap(e => ServerError(e.shows))): ET[JsValue]
-
-      } yield j
-
-      httpResponse(et)
+      httpResponse(sourceF)
   }
 
   lazy val parties: PartialFunction[HttpRequest, Future[HttpResponse]] = {
@@ -214,12 +207,30 @@ class Endpoints(
       httpResponse(et)
   }
 
-  private def apValueToLfValue(a: ApiValue): Error \/ LfValue =
+  private def apiValueToLfValue(a: ApiValue): Error \/ LfValue =
     ApiValueToLfValueConverter.apiValueToLfValue(a).leftMap(e => ServerError(e.shows))
 
   private def lfValueToJsValue(a: LfValue): Error \/ JsValue =
     \/.fromTryCatchNonFatal(LfValueCodec.apiValueToJsValue(a)).leftMap(e =>
       ServerError(e.getMessage))
+
+  private def collectActiveContracts(
+      predicates: Map[domain.TemplateId.RequiredPkg, LfValue => Boolean]): PartialFunction[
+    Error \/ domain.ActiveContract[LfValue],
+    Error \/ domain.ActiveContract[LfValue]
+  ] = {
+    case e @ -\/(_) => e
+    case a @ \/-(ac) if predicates.get(ac.templateId).forall(f => f(ac.argument)) => a
+  }
+
+  private def errorToJsValue(e: Error): JsValue = errorsJsObject(e)._2
+
+  private def lfAcToJsValue(a: domain.ActiveContract[LfValue]): Error \/ JsValue = {
+    for {
+      b <- a.traverse(lfValueToJsValue): Error \/ domain.ActiveContract[JsValue]
+      c <- SprayJson.encode(b).leftMap(e => ServerError(e.shows))
+    } yield c
+  }
 
   private def httpResponse(output: ET[JsValue]): Future[HttpResponse] = {
     val fa: Future[Error \/ JsValue] = output.run
@@ -232,18 +243,33 @@ class Endpoints(
       }
   }
 
+  private def httpResponse(
+      output: Future[Error \/ Source[JsValue, NotUsed]]): Future[HttpResponse] =
+    output
+      .map {
+        case \/-(source) => httpResponseFromSource(StatusCodes.OK, source)
+        case -\/(e) => httpResponseError(e)
+      }
+      .recover {
+        case NonFatal(e) => httpResponseError(ServerError(e.getMessage))
+      }
+
   private def httpResponseOk(data: JsValue): HttpResponse =
-    httpResponse(StatusCodes.OK, resultJsObject(data))
+    httpResponse(StatusCodes.OK, ResponseFormats.resultJsObject(data))
 
   private def httpResponseError(error: Error): HttpResponse = {
+    val (status, jsObject) = errorsJsObject(error)
+    httpResponse(status, jsObject)
+  }
+
+  private def errorsJsObject(error: Error): (StatusCode, JsObject) = {
     val (status, errorMsg): (StatusCode, String) = error match {
       case InvalidUserInput(e) => StatusCodes.BadRequest -> e
       case ServerError(e) => StatusCodes.InternalServerError -> e
       case Unauthorized(e) => StatusCodes.Unauthorized -> e
       case NotFound(e) => StatusCodes.NotFound -> e
     }
-
-    httpResponse(status, errorsJsObject(status, errorMsg))
+    (status, ResponseFormats.errorsJsObject(status, errorMsg))
   }
 
   private def httpResponse(status: StatusCode, data: JsValue): HttpResponse = {
@@ -251,6 +277,15 @@ class Endpoints(
       status = status,
       entity = HttpEntity.Strict(ContentTypes.`application/json`, format(data)))
   }
+
+  private def httpResponseFromSource(
+      status: StatusCode,
+      data: Source[JsValue, NotUsed]): HttpResponse =
+    HttpResponse(
+      status = status,
+      entity = HttpEntity
+        .CloseDelimited(ContentTypes.`application/json`, ResponseFormats.resultJsObject(data))
+    )
 
   lazy val notFound: PartialFunction[HttpRequest, Future[HttpResponse]] = {
     case HttpRequest(method, uri, _, _, _) =>
@@ -295,6 +330,8 @@ object Endpoints {
   private type ApiValue = lav1.value.Value
 
   private type LfValue = lf.value.Value[lf.value.Value.AbsoluteContractId]
+
+  private type ActiveContractStream[A] = Source[A, NotUsed]
 
   type ValidateJwt = Jwt => Unauthorized \/ DecodedJwt[String]
 

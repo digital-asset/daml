@@ -310,7 +310,7 @@ object Repl {
           prettyType(fun, precTApp) + " " + prettyType(arg, precTApp + 1))
       case TForall((v, _), body) =>
         maybeParens(prec > precTForall, "∀" + v + prettyForAll(body))
-      case TTuple(fields) =>
+      case TStruct(fields) =>
         "(" + fields
           .map { case (n, t) => n + ": " + prettyType(t, precTForall) }
           .toSeq

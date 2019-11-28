@@ -5,7 +5,6 @@ package com.digitalasset.platform.sandbox.services
 
 import java.io.File
 import java.util.concurrent.Executors
-
 import akka.actor.ActorSystem
 import akka.stream.{ActorMaterializer, Materializer}
 import com.digitalasset.daml.bazeltools.BazelRunfiles._
@@ -22,16 +21,16 @@ import com.digitalasset.ledger.api.v1.testing.time_service.TimeServiceGrpc
 import com.digitalasset.ledger.client.services.testing.time.StaticTime
 import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.sandbox.config.SandboxConfig
-import com.digitalasset.platform.services.time.{TimeModel, TimeProviderType}
+import com.digitalasset.platform.services.time.TimeProviderType
 import io.grpc.Channel
 import org.scalatest.{BeforeAndAfterAll, Suite}
 import scalaz.syntax.tag._
-
 import scala.concurrent.{Await, ExecutionContext}
 import scala.concurrent.duration._
 import scala.util.Try
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.google.common.util.concurrent.ThreadFactoryBuilder
+import com.daml.ledger.participant.state.v1.TimeModel
 import org.slf4j.LoggerFactory
 
 trait SandboxFixture extends SuiteResource[Channel] with BeforeAndAfterAll {

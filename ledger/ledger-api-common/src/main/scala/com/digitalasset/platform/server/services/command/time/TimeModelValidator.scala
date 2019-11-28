@@ -7,7 +7,6 @@ import java.time.{Duration, Instant}
 
 import com.daml.ledger.participant.state.v1.TimeModel
 import com.digitalasset.platform.server.api.validation.ErrorFactories
-import com.digitalasset.platform.services.time.TimeModelChecker
 import io.grpc.Status
 
 import scala.util.{Failure, Success, Try}
@@ -17,13 +16,11 @@ import scala.util.{Failure, Success, Try}
   */
 final case class TimeModelValidator(model: TimeModel) extends ErrorFactories {
 
-  private val timeModelChecker = TimeModelChecker(model)
-
   /**
     * Wraps [[model.checkTtl]] with a StatusRuntimeException wrapper.
     */
   def checkTtl(givenLedgerEffectiveTime: Instant, givenMaximumRecordTime: Instant): Try[Unit] = {
-    if (timeModelChecker.checkTtl(givenLedgerEffectiveTime, givenMaximumRecordTime))
+    if (model.checkTtl(givenLedgerEffectiveTime, givenMaximumRecordTime))
       Success(())
     else {
       val givenTtl = Duration.between(givenLedgerEffectiveTime, givenMaximumRecordTime)
@@ -46,10 +43,7 @@ final case class TimeModelValidator(model: TimeModel) extends ErrorFactories {
       applicationId: String): Try[Unit] =
     for {
       _ <- checkTtl(givenLedgerEffectiveTime, givenMaximumRecordTime)
-      _ <- if (timeModelChecker.checkLet(
-          currentTime,
-          givenLedgerEffectiveTime,
-          givenMaximumRecordTime))
+      _ <- if (model.checkLet(currentTime, givenLedgerEffectiveTime, givenMaximumRecordTime))
         Success(())
       else
         Failure(

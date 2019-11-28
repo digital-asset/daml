@@ -20,6 +20,9 @@ sealed trait Update extends Product with Serializable {
 
   /** Short human-readable one-line description summarizing the state updates content. */
   def description: String
+
+  /** The record time at which the state change was committed. */
+  def recordTime: Timestamp
 }
 
 object Update {
@@ -30,18 +33,27 @@ object Update {
   }
 
   /** Signal that the current [[Configuration]] has changed. */
-  final case class ConfigurationChanged(submissionId: String, newConfiguration: Configuration)
+  final case class ConfigurationChanged(
+      recordTime: Timestamp,
+      submissionId: String,
+      participantId: ParticipantId,
+      newConfiguration: Configuration)
       extends Update {
     override def description: String =
-      s"Configuration changed to: $newConfiguration"
+      s"Configuration change '$submissionId' from participant '$participantId' accepted with configuration: $newConfiguration"
   }
 
   /** Signal that a configuration change submitted by this participant was rejected.
     */
-  final case class ConfigurationChangeRejected(submissionId: String, reason: String)
+  final case class ConfigurationChangeRejected(
+      recordTime: Timestamp,
+      submissionId: String,
+      participantId: ParticipantId,
+      proposedConfiguration: Configuration,
+      rejectionReason: String)
       extends Update {
     override def description: String = {
-      s"Configuration change '$submissionId' was rejected: $reason"
+      s"Configuration change '$submissionId' from participant '$participantId' was rejected: $rejectionReason"
     }
   }
 
@@ -155,6 +167,7 @@ object Update {
     * rejected.
     */
   final case class CommandRejected(
+      recordTime: Timestamp,
       submitterInfo: SubmitterInfo,
       reason: RejectionReason,
   ) extends Update {

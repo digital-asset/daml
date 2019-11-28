@@ -10,6 +10,8 @@ import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.ledger.participant.state.index.v2.PackageDetails
 import com.daml.ledger.participant.state.v1.{
+  Configuration,
+  ParticipantId,
   PartyAllocationResult,
   SubmissionResult,
   SubmittedTransaction,
@@ -18,9 +20,9 @@ import com.daml.ledger.participant.state.v1.{
   UploadPackagesResult
 }
 import com.digitalasset.api.util.TimeProvider
-import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.data.Ref.LedgerString.ordering
 import com.digitalasset.daml.lf.data.Ref.{PackageId, Party, TransactionIdString}
+import com.digitalasset.daml.lf.data.{ImmArray, Time}
 import com.digitalasset.daml.lf.engine.Blinding
 import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.transaction.Node
@@ -40,7 +42,12 @@ import com.digitalasset.platform.sandbox.stores.ActiveLedgerState.ActiveContract
 import com.digitalasset.platform.sandbox.stores.deduplicator.Deduplicator
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry.{Checkpoint, Rejection}
 import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
-import com.digitalasset.platform.sandbox.stores.ledger.{Ledger, LedgerEntry, LedgerSnapshot}
+import com.digitalasset.platform.sandbox.stores.ledger.{
+  ConfigurationEntry,
+  Ledger,
+  LedgerEntry,
+  LedgerSnapshot
+}
 import com.digitalasset.platform.sandbox.stores.{
   ActiveLedgerState,
   InMemoryActiveLedgerState,
@@ -51,11 +58,16 @@ import org.slf4j.LoggerFactory
 import scala.concurrent.Future
 import scala.util.{Failure, Success, Try}
 
+sealed trait InMemoryEntry extends Product with Serializable
+final case class InMemoryLedgerEntry(entry: LedgerEntry) extends InMemoryEntry
+final case class InMemoryConfigEntry(entry: ConfigurationEntry) extends InMemoryEntry
+
 /** This stores all the mutable data that we need to run a ledger: the PCS, the ACS, and the deduplicator.
   *
   */
 class InMemoryLedger(
     val ledgerId: LedgerId,
+    participantId: ParticipantId,
     timeProvider: TimeProvider,
     acs0: InMemoryActiveLedgerState,
     packageStoreInit: InMemoryPackageStore,
@@ -65,13 +77,13 @@ class InMemoryLedger(
   private val logger = LoggerFactory.getLogger(this.getClass)
 
   private val entries = {
-    val l = new LedgerEntries[LedgerEntry](_.toString)
+    val l = new LedgerEntries[InMemoryEntry](_.toString)
     ledgerEntries.foreach {
       case LedgerEntryOrBump.Bump(increment) =>
         l.incrementOffset(increment)
         ()
       case LedgerEntryOrBump.Entry(entry) =>
-        l.publish(entry)
+        l.publish(InMemoryLedgerEntry(entry))
         ()
     }
     l
@@ -82,11 +94,14 @@ class InMemoryLedger(
   override def currentHealth(): HealthStatus = Healthy
 
   override def ledgerEntries(offset: Option[Long]): Source[(Long, LedgerEntry), NotUsed] =
-    entries.getSource(offset)
+    entries
+      .getSource(offset)
+      .collect { case (offset, InMemoryLedgerEntry(entry)) => offset -> entry }
 
   // mutable state
   private var acs = acs0
   private var deduplicator = Deduplicator()
+  private var ledgerConfiguration: Option[Configuration] = None
 
   override def ledgerEnd: Long = entries.ledgerEnd
 
@@ -117,7 +132,7 @@ class InMemoryLedger(
 
   override def publishHeartbeat(time: Instant): Future[Unit] =
     Future.successful(this.synchronized[Unit] {
-      entries.publish(Checkpoint(time))
+      entries.publish(InMemoryLedgerEntry(Checkpoint(time)))
       ()
     })
 
@@ -211,7 +226,7 @@ class InMemoryLedger(
               mappedTx,
               recordBlinding
             )
-          entries.publish(entry)
+          entries.publish(InMemoryLedgerEntry(entry))
           ()
       }
     }
@@ -221,12 +236,14 @@ class InMemoryLedger(
   private def handleError(submitterInfo: SubmitterInfo, reason: RejectionReason): Unit = {
     logger.warn(s"Publishing error to ledger: ${reason.description}")
     entries.publish(
-      Rejection(
-        timeProvider.getCurrentTime,
-        submitterInfo.commandId,
-        submitterInfo.applicationId,
-        submitterInfo.submitter,
-        reason)
+      InMemoryLedgerEntry(
+        Rejection(
+          timeProvider.getCurrentTime,
+          submitterInfo.commandId,
+          submitterInfo.applicationId,
+          submitterInfo.submitter,
+          reason)
+      )
     )
     ()
   }
@@ -243,8 +260,8 @@ class InMemoryLedger(
         Future.successful(
           entries
             .getEntryAt(n)
-            .collect[(Long, LedgerEntry.Transaction)] {
-              case t: LedgerEntry.Transaction =>
+            .collect {
+              case InMemoryLedgerEntry(t: LedgerEntry.Transaction) =>
                 (n, t) // the transaction id is also the offset
             })
     }
@@ -295,4 +312,37 @@ class InMemoryLedger(
         }
       )
   }
+
+  override def publishConfiguration(
+      maxRecordTime: Time.Timestamp,
+      submissionId: String,
+      config: Configuration): Future[SubmissionResult] =
+    Future.successful {
+      this.synchronized {
+        ledgerConfiguration match {
+          case Some(currentConfig) if config.generation != currentConfig.generation =>
+            entries.publish(InMemoryConfigEntry(ConfigurationEntry.Rejected(
+              submissionId,
+              participantId,
+              "Generation mismatch, expected ${currentConfig.generation}, got ${config.generation}",
+              config)))
+
+          case _ =>
+            entries.publish(
+              InMemoryConfigEntry(ConfigurationEntry.Accepted(submissionId, participantId, config)))
+            ledgerConfiguration = Some(config)
+        }
+        SubmissionResult.Acknowledged
+      }
+    }
+
+  override def lookupLedgerConfiguration(): Future[Option[Configuration]] =
+    Future.successful(this.synchronized { ledgerConfiguration })
+
+  override def configurationEntries(
+      offset: Option[Long]): Source[(Long, ConfigurationEntry), NotUsed] =
+    entries
+      .getSource(offset)
+      .collect { case (offset, InMemoryConfigEntry(entry)) => offset -> entry }
+
 }

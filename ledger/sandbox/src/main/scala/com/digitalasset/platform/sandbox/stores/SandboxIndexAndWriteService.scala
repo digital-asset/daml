@@ -41,7 +41,6 @@ import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntr
 import com.digitalasset.platform.sandbox.stores.ledger._
 import com.digitalasset.platform.sandbox.stores.ledger.sql.SqlStartMode
 import com.digitalasset.platform.server.api.validation.ErrorFactories
-import com.digitalasset.platform.services.time.TimeModel
 import org.slf4j.LoggerFactory
 import scalaz.Tag
 import scalaz.syntax.tag._
@@ -66,7 +65,7 @@ object SandboxIndexAndWriteService {
       ledgerId: LedgerId,
       participantId: ParticipantId,
       jdbcUrl: String,
-      timeModel: TimeModel,
+      timeModel: ParticipantState.TimeModel,
       timeProvider: TimeProvider,
       acs: InMemoryActiveLedgerState,
       ledgerEntries: ImmArray[LedgerEntryOrBump],
@@ -80,6 +79,7 @@ object SandboxIndexAndWriteService {
       .jdbcBacked(
         jdbcUrl,
         ledgerId,
+        participantId,
         timeProvider,
         acs,
         templateStore,
@@ -96,7 +96,7 @@ object SandboxIndexAndWriteService {
   def inMemory(
       ledgerId: LedgerId,
       participantId: ParticipantId,
-      timeModel: TimeModel,
+      timeModel: ParticipantState.TimeModel,
       timeProvider: TimeProvider,
       acs: InMemoryActiveLedgerState,
       ledgerEntries: ImmArray[LedgerEntryOrBump],
@@ -105,7 +105,7 @@ object SandboxIndexAndWriteService {
   )(implicit mat: Materializer): IndexAndWriteService = {
     val ledger =
       Ledger.metered(
-        Ledger.inMemory(ledgerId, timeProvider, acs, templateStore, ledgerEntries),
+        Ledger.inMemory(ledgerId, participantId, timeProvider, acs, templateStore, ledgerEntries),
         metrics)
     createInstance(ledger, participantId, timeModel, timeProvider)
   }
@@ -113,7 +113,7 @@ object SandboxIndexAndWriteService {
   private def createInstance(
       ledger: Ledger,
       participantId: ParticipantId,
-      timeModel: TimeModel,
+      timeModel: ParticipantState.TimeModel,
       timeProvider: TimeProvider,
   )(implicit mat: Materializer): IndexAndWriteService = {
     val contractStore = new SandboxContractStore(ledger)
@@ -447,6 +447,5 @@ class LedgerBackedWriteService(ledger: Ledger, timeProvider: TimeProvider) exten
       maxRecordTime: Time.Timestamp,
       submissionId: String,
       config: Configuration): CompletionStage[SubmissionResult] =
-    // FIXME(JM): Implement configuration changes in sandbox.
-    CompletableFuture.completedFuture(SubmissionResult.NotSupported)
+    FutureConverters.toJava(ledger.publishConfiguration(maxRecordTime, submissionId, config))
 }

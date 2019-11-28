@@ -32,6 +32,7 @@ import com.digitalasset.ledger.client.configuration.{
   LedgerIdRequirement
 }
 import com.digitalasset.ledger.client.services.pkg.PackageClient
+import com.digitalasset.ledger.service.LedgerReader.PackageStore
 import com.digitalasset.ledger.service.{LedgerReader, TokenHolder}
 import com.typesafe.scalalogging.StrictLogging
 import io.grpc.netty.NettyChannelBuilder
@@ -140,20 +141,31 @@ object HttpService extends StrictLogging {
     bindingEt.run: Future[Error \/ ServerBinding]
   }
 
-  private[http] def loadPackageStoreUpdates(
-      packageClient: PackageClient,
-      tokenHolder: Option[TokenHolder])(
-      implicit ec: ExecutionContext): PackageService.ReloadPackageStore =
-    (ids: Set[String]) => {
-      val token =
-        tokenHolder.flatMap { holder =>
+  @SuppressWarnings(Array("org.wartremover.warts.Any"))
+  private[http] def refreshToken(holderM: Option[TokenHolder])(
+      implicit ec: ExecutionContext): Future[PackageService.ServerError \/ Option[String]] =
+    Future(
+      holderM
+        .traverseU { holder =>
           holder.refresh()
           holder.token
-        }
-      LedgerReader
-        .loadPackageStoreUpdates(packageClient, token)(ids)
-        .map(_.leftMap(e => PackageService.ServerError(e)))
-    }
+            .map(\/-(_))
+            .getOrElse(-\/(PackageService.ServerError("Unable to load token")))
+        })
+
+  @SuppressWarnings(Array("org.wartremover.warts.Any"))
+  private[http] def doLoad(packageClient: PackageClient, ids: Set[String], tokenM: Option[String])(
+      implicit ec: ExecutionContext): Future[PackageService.ServerError \/ Option[PackageStore]] =
+    LedgerReader
+      .loadPackageStoreUpdates(packageClient, tokenM)(ids)
+      .map(_.leftMap(e => PackageService.ServerError(e)))
+
+  @SuppressWarnings(Array("org.wartremover.warts.Any"))
+  private[http] def loadPackageStoreUpdates(
+      packageClient: PackageClient,
+      holderM: Option[TokenHolder])(
+      implicit ec: ExecutionContext): PackageService.ReloadPackageStore =
+    (ids: Set[String]) => refreshToken(holderM).flatMap(_.traverseM(doLoad(packageClient, ids, _)))
 
   def stop(f: Future[Error \/ ServerBinding])(implicit ec: ExecutionContext): Future[Unit] = {
     logger.info("Stopping server...")

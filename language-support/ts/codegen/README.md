@@ -15,9 +15,10 @@ all DALFs in that DAR. The output will be written into the directory `DIR`
 you specify via the `-o` option.
 
 The `@digitalasset/daml-json-types` package referenced by the generated
-code has not yet been published. You can find it [next to the code
-generator](https://github.com/digital-asset/daml/tree/master/language-support/ts/codegen/tests/ts/daml-json-types)
+code has not yet been published. You can find it in the
+[`tests/ts/daml-json-types`](https://github.com/digital-asset/daml/tree/master/language-support/ts/codegen/tests/ts/daml-json-types)
+directory.
 
 Currently, the generated interfaces are tailored towards the
-[ledger.ts](https://github.com/digital-asset/davl/blob/master/ui/src/ledger/ledger.ts)
+[`ledger.ts`](https://github.com/digital-asset/davl/blob/master/ui/src/ledger/ledger.ts)
 module of DAVL.

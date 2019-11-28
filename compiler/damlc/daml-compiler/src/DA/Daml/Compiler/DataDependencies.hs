@@ -525,7 +525,7 @@ convType env =
                 [mkUserTyVar $ LF.unTypeVarName $ fst forallBinder]
                 (noLoc $ convType env forallBody)
         -- TODO (drsk): Is this the correct tuple type? What about the field names?
-        LF.TTuple fls ->
+        LF.TStruct fls ->
             HsTupleTy
                 noExt
                 HsBoxedTuple

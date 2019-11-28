@@ -26,9 +26,7 @@ generateUpgradeModule templateNames modName qualA qualB =
 
 upgradeTemplates :: String -> [String]
 upgradeTemplates n =
-    [ "template instance " <> n <> "Upgrade = Upgrade A." <> n <> " B." <> n
-    , "template instance " <> n <> "Rollback = Rollback A." <> n <> " B." <> n
-    , "instance Convertible A." <> n <> " B." <> n <> " where"
+    [ "instance Convertible A." <> n <> " B." <> n <> " where"
     , "    convert A." <> n <> "{..} = B." <> n <> " {..}"
     , "instance Convertible B." <> n <> " A." <> n <> " where"
     , "    convert B." <> n <> "{..} = A." <> n <> " {..}"

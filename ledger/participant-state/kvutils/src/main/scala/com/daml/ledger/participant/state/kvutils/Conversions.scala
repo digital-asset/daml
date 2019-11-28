@@ -5,14 +5,8 @@ package com.daml.ledger.participant.state.kvutils
 
 import java.time.{Duration, Instant}
 
-import com.daml.ledger.participant.state.backport.TimeModel
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
-import com.daml.ledger.participant.state.v1.{
-  Configuration,
-  PackageId,
-  SubmittedTransaction,
-  SubmitterInfo
-}
+import com.daml.ledger.participant.state.v1.{PackageId, SubmittedTransaction, SubmitterInfo}
 import com.digitalasset.daml.lf.data.Ref.{ContractIdString, LedgerString, Party}
 import com.digitalasset.daml.lf.data.Time
 import com.digitalasset.daml.lf.transaction.Node.GlobalKey
@@ -29,7 +23,7 @@ import com.digitalasset.daml.lf.value.{Value, ValueCoder, ValueOuterClass}
 import com.google.common.io.BaseEncoding
 import com.google.protobuf.{ByteString, Empty}
 
-import scala.util.{Failure, Success, Try}
+import scala.util.Try
 
 /** Internal utilities for converting between protobuf messages and our scala
   * data structures.
@@ -171,51 +165,6 @@ private[kvutils] object Conversions {
       commandId = LedgerString.assertFromString(subInfo.getCommandId),
       maxRecordTime = parseTimestamp(subInfo.getMaximumRecordTime)
     )
-
-  def buildDamlConfiguration(config: Configuration): DamlConfiguration = {
-    val tm = config.timeModel
-    DamlConfiguration.newBuilder
-      .setGeneration(config.generation)
-      .setAuthorizedParticipantId(config.authorizedParticipantId.fold("")(identity))
-      .setOpenWorld(config.openWorld)
-      .setTimeModel(
-        DamlTimeModel.newBuilder
-          .setMaxClockSkew(buildDuration(tm.maxClockSkew))
-          .setMinTransactionLatency(buildDuration(tm.minTransactionLatency))
-          .setMaxTtl(buildDuration(tm.maxTtl))
-      )
-      .build
-  }
-
-  def parseDamlConfiguration(config: DamlConfiguration): Try[Configuration] =
-    for {
-      tm <- if (config.hasTimeModel)
-        Success(config.getTimeModel)
-      else
-        Failure(Err.DecodeError("Configuration", "No time model"))
-      parsedTM <- TimeModel(
-        maxClockSkew = parseDuration(tm.getMaxClockSkew),
-        minTransactionLatency = parseDuration(tm.getMinTransactionLatency),
-        maxTtl = parseDuration(tm.getMaxTtl)
-      )
-      authPidString = config.getAuthorizedParticipantId
-      authPid <- if (authPidString.isEmpty)
-        Success(None)
-      else
-        LedgerString
-          .fromString(config.getAuthorizedParticipantId)
-          .fold(
-            err => Failure(Err.DecodeError("Configuration", err)),
-            ls => Success(Some(ls))
-          )
-
-      parsedConfig = Configuration(
-        generation = config.getGeneration,
-        timeModel = parsedTM,
-        authorizedParticipantId = authPid,
-        openWorld = config.getOpenWorld
-      )
-    } yield parsedConfig
 
   def buildTimestamp(ts: Time.Timestamp): com.google.protobuf.Timestamp = {
     val instant = ts.toInstant
