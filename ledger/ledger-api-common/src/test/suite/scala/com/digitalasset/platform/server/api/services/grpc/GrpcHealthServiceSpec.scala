@@ -133,9 +133,9 @@ final class GrpcHealthServiceSpec
       var componentCHealth: HealthStatus = Healthy
       val service = new GrpcHealthService(
         new HealthChecks(
-          "component A" -> new StubReporter(componentAHealth),
-          "component B" -> new StubReporter(componentBHealth),
-          "component C" -> new StubReporter(componentCHealth),
+          "component A" -> StubReporter.changing(() => componentAHealth),
+          "component B" -> StubReporter.changing(() => componentBHealth),
+          "component C" -> StubReporter.changing(() => componentCHealth),
         ),
         maximumWatchFrequency = 1.millisecond,
       )
@@ -192,9 +192,9 @@ final class GrpcHealthServiceSpec
       var componentCHealth: HealthStatus = Healthy
       val service = new GrpcHealthService(
         new HealthChecks(
-          "component A" -> new StubReporter(componentAHealth),
-          "component B" -> new StubReporter(componentBHealth),
-          "component C" -> new StubReporter(componentCHealth),
+          "component A" -> StubReporter.changing(() => componentAHealth),
+          "component B" -> StubReporter.changing(() => componentBHealth),
+          "component C" -> StubReporter.changing(() => componentCHealth),
         ),
         maximumWatchFrequency = 1.millisecond,
       )
@@ -270,12 +270,18 @@ object GrpcHealthServiceSpec {
 
   private def serviceRequestFor(componentName: String) = HealthCheckRequest(service = componentName)
 
-  private val healthyComponent: ReportsHealth = new StubReporter(Healthy)
+  private val healthyComponent: ReportsHealth = StubReporter.fixed(Healthy)
 
-  private val unhealthyComponent: ReportsHealth = new StubReporter(Unhealthy)
+  private val unhealthyComponent: ReportsHealth = StubReporter.fixed(Unhealthy)
 
-  private class StubReporter(_currentHealth: => HealthStatus) extends ReportsHealth {
-    override def currentHealth(): HealthStatus = _currentHealth
+  private class StubReporter private[StubReporter] (fetchCurrentHealth: () => HealthStatus)
+      extends ReportsHealth {
+    override def currentHealth(): HealthStatus = fetchCurrentHealth()
   }
 
+  private object StubReporter {
+    def changing(fetchCurrentHealth: () => HealthStatus) = new StubReporter(fetchCurrentHealth)
+
+    def fixed(fixedHealth: HealthStatus) = new StubReporter(() => fixedHealth)
+  }
 }
