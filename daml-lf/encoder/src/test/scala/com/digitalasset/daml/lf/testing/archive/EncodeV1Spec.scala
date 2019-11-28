@@ -102,7 +102,7 @@ class EncodeV1Spec extends WordSpec with Matchers with TableDrivenPropertyChecks
              case e of Nil -> None @(<head: a, tail: List a>)
                      | Cons h t -> Some @(<head: a, tail: List a>) (<head = h, tail = t>);
            val aOptionMatch: forall (a: *). Text -> TextMap a -> a -> a = /\ (a:*). \ (key: Text) (map: TextMap a) (default: a) ->
-             case (MAP_LOOKUP @a key map) of None -> default | Some y -> y;
+             case (TEXTMAP_LOOKUP @a key map) of None -> default | Some y -> y;
            val aVariantMatch: forall (a:*). Mod:Tree a -> Option a = /\ (a: *). \(e: Mod:Tree a) ->
              case e of Mod:Tree:Leaf x -> None @a
                      | Mod:Tree:Node node -> Some @a (Mod:Tree.Node @a { value } node);

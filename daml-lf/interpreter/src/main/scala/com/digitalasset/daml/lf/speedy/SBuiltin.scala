@@ -393,10 +393,10 @@ object SBuiltin {
   final case object SBTextMapInsert extends SBuiltin(3) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       machine.ctrl = CtrlValue(args.get(2) match {
-        case SMap(map) =>
+        case STextMap(map) =>
           args.get(0) match {
             case SText(key) =>
-              SMap(map.updated(key, args.get(1)))
+              STextMap(map.updated(key, args.get(1)))
             case x =>
               throw SErrorCrash(s"type mismatch SBTextMapInsert, expected Text got $x")
           }
@@ -409,7 +409,7 @@ object SBuiltin {
   final case object SBTextMapLookup extends SBuiltin(2) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       machine.ctrl = CtrlValue(args.get(1) match {
-        case SMap(map) =>
+        case STextMap(map) =>
           args.get(0) match {
             case SText(key) =>
               SOptional(map.get(key))
@@ -425,10 +425,10 @@ object SBuiltin {
   final case object SBTextMapDelete extends SBuiltin(2) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       machine.ctrl = CtrlValue(args.get(1) match {
-        case SMap(map) =>
+        case STextMap(map) =>
           args.get(0) match {
             case SText(key) =>
-              SMap(map - key)
+              STextMap(map - key)
             case x =>
               throw SErrorCrash(s"type mismatch SBTextMapDelete, expected Text get $x")
           }
@@ -451,11 +451,11 @@ object SBuiltin {
 
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       machine.ctrl = CtrlValue(args.get(0) match {
-        case SMap(map) =>
+        case STextMap(map) =>
           val entries = SortedLookupList(map).toImmArray
           SList(FrontStack(entries.map { case (k, v) => entry(k, v) }))
         case x =>
-          throw SErrorCrash(s"type mismatch SBTextMaptoList, expected TextMap get $x")
+          throw SErrorCrash(s"type mismatch SBTextMapToList, expected TextMap get $x")
       })
     }
   }
@@ -463,7 +463,7 @@ object SBuiltin {
   final case object SBTextMapSize extends SBuiltin(1) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       machine.ctrl = CtrlValue(args.get(0) match {
-        case SMap(map) =>
+        case STextMap(map) =>
           SInt64(map.size.toLong)
         case x =>
           throw SErrorCrash(s"type mismatch SBTextMapSize, expected TextMap get $x")
@@ -774,7 +774,7 @@ object SBuiltin {
     */
   final case class SBCheckPrecond(templateId: TypeConName) extends SBuiltin(2) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
-      if (args.get(0).isInstanceOf[SMap])
+      if (args.get(0).isInstanceOf[STextMap])
         throw new Error(args.toString)
       args.get(1) match {
         case SBool(true) =>

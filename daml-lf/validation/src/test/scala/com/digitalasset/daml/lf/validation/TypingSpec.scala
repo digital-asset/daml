@@ -122,7 +122,7 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
         //ExpLitParty
         E"(( 'party' ))" -> T"(( Party ))",
         //TextMap
-        E"Λ (τ : ⋆) . (( MAP_EMPTY @τ ))" -> T"∀ (τ : ⋆) . (( TextMap τ ))",
+        E"Λ (τ : ⋆) . (( TEXTMAP_EMPTY @τ ))" -> T"∀ (τ : ⋆) . (( TextMap τ ))",
         //GenMap
         E"Λ (τ : ⋆) (σ : ⋆). (( GENMAP_EMPTY @τ @σ ))" -> T"∀ (τ : ⋆) (σ : ⋆) . (( GenMap τ σ ))",
         //ExpVal
