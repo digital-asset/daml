@@ -596,7 +596,7 @@ case class Conversions(homePackageId: Ref.PackageId) {
             )
             .build
         )
-      case V.ValueTuple(fields) =>
+      case V.ValueStruct(fields) =>
         builder.setTuple(
           Tuple.newBuilder
             .addAllFields(

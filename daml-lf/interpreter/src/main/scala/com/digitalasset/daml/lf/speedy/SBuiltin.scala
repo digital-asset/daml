@@ -446,7 +446,7 @@ object SBuiltin {
       val args = new util.ArrayList[SValue](2)
       args.add(SText(key))
       args.add(value)
-      STuple(entryFields, args)
+      SStruct(entryFields, args)
     }
 
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
@@ -725,37 +725,37 @@ object SBuiltin {
     }
   }
 
-  /** $tcon[fields] :: a -> b -> ... -> Tuple */
-  final case class SBTupleCon(fields: Array[Name])
+  /** $tcon[fields] :: a -> b -> ... -> Struct */
+  final case class SBStructCon(fields: Array[Name])
       extends SBuiltin(fields.length)
       with SomeArrayEquals {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
-      machine.ctrl = CtrlValue(STuple(fields, args))
+      machine.ctrl = CtrlValue(SStruct(fields, args))
     }
   }
 
-  /** $tproj[field] :: Tuple -> a */
-  final case class SBTupleProj(field: FieldName) extends SBuiltin(1) {
+  /** $tproj[field] :: Struct -> a */
+  final case class SBStructProj(field: FieldName) extends SBuiltin(1) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       machine.ctrl = CtrlValue(args.get(0) match {
-        case STuple(fields, values) =>
+        case SStruct(fields, values) =>
           values.get(fields.indexOf(field))
         case v =>
-          crash(s"TupleProj on non-tuple: $v")
+          crash(s"StructProj on non-struct: $v")
       })
     }
   }
 
-  /** $tupd[field] :: Tuple -> a -> Tuple */
-  final case class SBTupleUpd(field: FieldName) extends SBuiltin(2) {
+  /** $tupd[field] :: Struct -> a -> Struct */
+  final case class SBStructUpd(field: FieldName) extends SBuiltin(2) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       machine.ctrl = CtrlValue(args.get(0) match {
-        case STuple(fields, values) =>
+        case SStruct(fields, values) =>
           val values2 = values.clone.asInstanceOf[util.ArrayList[SValue]]
           values2.set(fields.indexOf(field), args.get(1))
-          STuple(fields, values2)
+          SStruct(fields, values2)
         case v =>
-          crash(s"TupleUpd on non-tuple: $v")
+          crash(s"StructUpd on non-struct: $v")
       })
     }
   }
@@ -819,7 +819,7 @@ object SBuiltin {
       val obs = extractParties(args.get(3))
       val key = args.get(4) match {
         case SOptional(None) => None
-        case SOptional(Some(STuple(flds, vals)))
+        case SOptional(Some(SStruct(flds, vals)))
             if flds.length == 2 && flds(0) == "key" && flds(1) == "maintainers" =>
           asVersionedValue(vals.get(0).toValue) match {
             case Left(err) => crash(err)

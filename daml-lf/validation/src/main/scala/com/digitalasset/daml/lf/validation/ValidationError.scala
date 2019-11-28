@@ -108,7 +108,7 @@ case object URUpdate extends UnserializabilityReason {
 case object URScenario extends UnserializabilityReason {
   def pretty: String = "Scenario"
 }
-case object URTuple extends UnserializabilityReason {
+case object URStruct extends UnserializabilityReason {
   def pretty: String = "structural record"
 }
 case object URNumeric extends UnserializabilityReason {
@@ -218,8 +218,8 @@ final case class EUnknownEnumCon(context: Context, conName: EnumConName) extends
 final case class EUnknownField(context: Context, fieldName: FieldName) extends ValidationError {
   protected def prettyInternal: String = s"unknown field: $fieldName"
 }
-final case class EExpectedTupleType(context: Context, typ: Type) extends ValidationError {
-  protected def prettyInternal: String = s"expected tuple type, but found: ${typ.pretty}"
+final case class EExpectedStructType(context: Context, typ: Type) extends ValidationError {
+  protected def prettyInternal: String = s"expected struct type, but found: ${typ.pretty}"
 }
 final case class EKindMismatch(context: Context, foundKind: Kind, expectedKind: Kind)
     extends ValidationError {

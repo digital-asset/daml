@@ -27,9 +27,9 @@ data ExprF expr
   | ERecUpdF     !TypeConApp !FieldName !expr !expr
   | EVariantConF !TypeConApp !VariantConName !expr
   | EEnumConF    !(Qualified TypeConName) !VariantConName
-  | ETupleConF   ![(FieldName, expr)]
-  | ETupleProjF  !FieldName !expr
-  | ETupleUpdF   !FieldName !expr !expr
+  | EStructConF  ![(FieldName, expr)]
+  | EStructProjF !FieldName !expr
+  | EStructUpdF  !FieldName !expr !expr
   | ETmAppF      !expr !expr
   | ETyAppF      !expr !Type
   | ETmLamF      !(ExprVarName, Type) !expr
@@ -159,9 +159,9 @@ instance Recursive Expr where
     ERecUpd   a b c d -> ERecUpdF     a b c d
     EVariantCon a b c -> EVariantConF   a b c
     EEnumCon    a b   -> EEnumConF      a b
-    ETupleCon   a     -> ETupleConF     a
-    ETupleProj  a b   -> ETupleProjF    a b
-    ETupleUpd   a b c -> ETupleUpdF     a b c
+    EStructCon  a     -> EStructConF    a
+    EStructProj a b   -> EStructProjF   a b
+    EStructUpd  a b c -> EStructUpdF    a b c
     ETmApp      a b   -> ETmAppF        a b
     ETyApp      a b   -> ETyAppF        a b
     ETmLam      a b   -> ETmLamF        a b
@@ -189,9 +189,9 @@ instance Corecursive Expr where
     ERecUpdF   a b c d -> ERecUpd     a b c d
     EVariantConF a b c -> EVariantCon   a b c
     EEnumConF    a b   -> EEnumCon      a b
-    ETupleConF   a     -> ETupleCon     a
-    ETupleProjF  a b   -> ETupleProj    a b
-    ETupleUpdF   a b c -> ETupleUpd     a b c
+    EStructConF  a     -> EStructCon    a
+    EStructProjF a b   -> EStructProj   a b
+    EStructUpdF  a b c -> EStructUpd    a b c
     ETmAppF      a b   -> ETmApp        a b
     ETyAppF      a b   -> ETyApp        a b
     ETmLamF      a b   -> ETmLam        a b

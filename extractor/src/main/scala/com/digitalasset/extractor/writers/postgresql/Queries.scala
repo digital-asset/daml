@@ -317,9 +317,9 @@ object Queries {
         case V.ValueGenMap(_) =>
           // FIXME https://github.com/digital-asset/daml/issues/2256
           throw new IllegalArgumentException(s"Gen Map are not supported")
-        case tuple @ V.ValueTuple(_) =>
+        case struct @ V.ValueStruct(_) =>
           throw new IllegalArgumentException(
-            s"tuple should not be present in contract, as raw tuples are not serializable: $tuple")
+            s"struct should not be present in contract, as raw structs are not serializable: $struct")
       }
     }
   }

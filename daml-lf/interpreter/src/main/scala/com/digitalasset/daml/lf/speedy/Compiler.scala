@@ -369,16 +369,16 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
           translate(update)
         )
 
-      case ETupleCon(fields) =>
-        SEApp(SEBuiltin(SBTupleCon(Name.Array(fields.map(_._1).toSeq: _*))), fields.iterator.map {
+      case EStructCon(fields) =>
+        SEApp(SEBuiltin(SBStructCon(Name.Array(fields.map(_._1).toSeq: _*))), fields.iterator.map {
           case (_, e) => translate(e)
         }.toArray)
 
-      case ETupleProj(field, tuple) =>
-        SBTupleProj(field)(translate(tuple))
+      case EStructProj(field, struct) =>
+        SBStructProj(field)(translate(struct))
 
-      case ETupleUpd(field, tuple, update) =>
-        SBTupleUpd(field)(translate(tuple), translate(update))
+      case EStructUpd(field, struct, update) =>
+        SBStructUpd(field)(translate(struct), translate(update))
 
       case ECase(scrut, alts) =>
         SECase(
@@ -584,7 +584,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
                       observers,
                       SEVar(3) // token
                     )
-                  ) in SBTupleCon(Name.Array(contractIdFieldName, contractFieldName))(
+                  ) in SBStructCon(Name.Array(contractIdFieldName, contractFieldName))(
                     SEVar(3), // contract id
                     SEVar(2) // contract
                   )
@@ -1062,7 +1062,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
         case SVariant(_, _, value) => goV(value)
         case SEnum(_, _) => ()
         case SAny(_, v) => goV(v)
-        case _: SPAP | SToken | STuple(_, _) =>
+        case _: SPAP | SToken | SStruct(_, _) =>
           throw CompileError("validate: unexpected SEValue")
       }
     }
@@ -1163,7 +1163,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
         case Some(tmplKey) =>
           SELet(translate(tmplKey.body)) in
             SBSome(
-              SBTupleCon(Name.Array(keyFieldName, maintainersFieldName))(
+              SBStructCon(Name.Array(keyFieldName, maintainersFieldName))(
                 SEVar(1), // key
                 SEApp(translate(tmplKey.maintainers), Array(SEVar(1) /* key */ ))))
       }
