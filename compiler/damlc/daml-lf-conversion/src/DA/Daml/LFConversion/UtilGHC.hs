@@ -99,12 +99,6 @@ pattern DA_Internal_LF <- ModuleIn DamlStdlib "DA.Internal.LF"
 pattern DA_Internal_Prelude <- ModuleIn DamlStdlib "DA.Internal.Prelude"
 pattern DA_Internal_Record <- ModuleIn DamlStdlib "DA.Internal.Record"
 
-
-isConstraintTupleProjectionFn :: Id -> Bool
-isConstraintTupleProjectionFn name =
-    let t = getOccText name
-    in T.isPrefixOf "$p" t && T.isSuffixOf ",%)" t
-
 -- | Break down a constraint tuple projection function name.
 -- These have the form "$p1(%,%)" "$p2(%,%)" "$p1(%,,%)" etc.
 constraintTupleProjection_maybe :: T.Text -> Maybe (Int, Int)
