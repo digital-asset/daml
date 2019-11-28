@@ -12,13 +12,12 @@ import com.digitalasset.platform.server.api.services.grpc.GrpcHealthServiceSpec.
 import io.grpc.health.v1.health.{HealthCheckRequest, HealthCheckResponse}
 import org.scalatest.concurrent.Eventually
 import org.scalatest.time.{Second, Span}
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.{AsyncWordSpec, Matchers}
 
 import scala.concurrent.duration.DurationInt
-import scala.concurrent.{Await, ExecutionContext}
 
 final class GrpcHealthServiceSpec
-    extends WordSpec
+    extends AsyncWordSpec
     with Matchers
     with Eventually
     with AkkaBeforeAndAfterAll {
@@ -26,31 +25,35 @@ final class GrpcHealthServiceSpec
   implicit override val patienceConfig: PatienceConfig =
     PatienceConfig(timeout = scaled(Span(1, Second)))
 
-  private implicit val executionContext: ExecutionContext = materializer.executionContext
-
   "HealthService" should {
     "report SERVING if there are no health checks" in {
       val service = new GrpcHealthService(new HealthChecks)
 
-      val response = Await.result(service.check(allServicesRequest), patienceConfig.timeout)
-
-      response should be(servingResponse)
+      for {
+        response <- service.check(allServicesRequest)
+      } yield {
+        response should be(servingResponse)
+      }
     }
 
     "report SERVING if there is one healthy check" in {
       val service = new GrpcHealthService(new HealthChecks("component" -> healthyComponent))
 
-      val response = Await.result(service.check(allServicesRequest), patienceConfig.timeout)
-
-      response should be(servingResponse)
+      for {
+        response <- service.check(allServicesRequest)
+      } yield {
+        response should be(servingResponse)
+      }
     }
 
     "report NOT_SERVING if there is one unhealthy check" in {
       val service = new GrpcHealthService(new HealthChecks("component" -> unhealthyComponent))
 
-      val response = Await.result(service.check(allServicesRequest), patienceConfig.timeout)
-
-      response should be(notServingResponse)
+      for {
+        response <- service.check(allServicesRequest)
+      } yield {
+        response should be(notServingResponse)
+      }
     }
 
     "report SERVING if all checks are healthy" in {
@@ -61,9 +64,11 @@ final class GrpcHealthServiceSpec
           "component C" -> healthyComponent,
         ))
 
-      val response = Await.result(service.check(allServicesRequest), patienceConfig.timeout)
-
-      response should be(servingResponse)
+      for {
+        response <- service.check(allServicesRequest)
+      } yield {
+        response should be(servingResponse)
+      }
     }
 
     "report NOT_SERVING if a single check is unhealthy" in {
@@ -74,27 +79,31 @@ final class GrpcHealthServiceSpec
           "component C" -> healthyComponent,
         ))
 
-      val response = Await.result(service.check(allServicesRequest), patienceConfig.timeout)
-
-      response should be(notServingResponse)
+      for {
+        response <- service.check(allServicesRequest)
+      } yield {
+        response should be(notServingResponse)
+      }
     }
 
     "report SERVING when querying a single, healthy component" in {
       val service = new GrpcHealthService(new HealthChecks("component" -> healthyComponent))
 
-      val response =
-        Await.result(service.check(serviceRequestFor("component")), patienceConfig.timeout)
-
-      response should be(servingResponse)
+      for {
+        response <- service.check(serviceRequestFor("component"))
+      } yield {
+        response should be(servingResponse)
+      }
     }
 
     "report NOT_SERVING when querying a single, unhealthy component" in {
       val service = new GrpcHealthService(new HealthChecks("component" -> unhealthyComponent))
 
-      val response =
-        Await.result(service.check(serviceRequestFor("component")), patienceConfig.timeout)
-
-      response should be(notServingResponse)
+      for {
+        response <- service.check(serviceRequestFor("component"))
+      } yield {
+        response should be(notServingResponse)
+      }
     }
 
     "report SERVING when querying a healthy component alongside other, unhealthy components" in {
@@ -105,10 +114,11 @@ final class GrpcHealthServiceSpec
           "component C" -> unhealthyComponent,
         ))
 
-      val response =
-        Await.result(service.check(serviceRequestFor("component B")), patienceConfig.timeout)
-
-      response should be(servingResponse)
+      for {
+        response <- service.check(serviceRequestFor("component B"))
+      } yield {
+        response should be(servingResponse)
+      }
     }
 
     "report NOT_SERVING when querying an unhealthy component alongside other, healthy components" in {
@@ -119,10 +129,11 @@ final class GrpcHealthServiceSpec
           "component C" -> healthyComponent,
         ))
 
-      val response =
-        Await.result(service.check(serviceRequestFor("component A")), patienceConfig.timeout)
-
-      response should be(notServingResponse)
+      for {
+        response <- service.check(serviceRequestFor("component A"))
+      } yield {
+        response should be(notServingResponse)
+      }
     }
 
     "observe changes in health" in {
@@ -248,13 +259,15 @@ final class GrpcHealthServiceSpec
   "fail gracefully when a non-existent component is checked" in {
     val service = new GrpcHealthService(new HealthChecks("component" -> unhealthyComponent))
 
-    val response = service.check(serviceRequestFor("another component"))
-    try {
-      Await.result(response, patienceConfig.timeout)
-      fail("Expected a NOT_FOUND error, but got a successful result.")
-    } catch {
-      case GrpcException.NOT_FOUND() =>
-        succeed
+    for {
+      throwable <- service.check(serviceRequestFor("another component")).failed
+    } yield {
+      throwable match {
+        case GrpcException.NOT_FOUND() =>
+          succeed
+        case _ =>
+          fail("Expected a NOT_FOUND error.")
+      }
     }
   }
 
@@ -265,12 +278,15 @@ final class GrpcHealthServiceSpec
     service.watch(serviceRequestFor("another component"), responseObserver)
     responseObserver.demandResponse()
 
-    try {
-      Await.result(responseObserver.completionFuture, patienceConfig.timeout)
-      fail("Expected a NOT_FOUND error, but got a successful result.")
-    } catch {
-      case GrpcException.NOT_FOUND() =>
-        succeed
+    for {
+      throwable <- responseObserver.completionFuture.failed
+    } yield {
+      throwable match {
+        case GrpcException.NOT_FOUND() =>
+          succeed
+        case _ =>
+          fail("Expected a NOT_FOUND error.")
+      }
     }
   }
 }
