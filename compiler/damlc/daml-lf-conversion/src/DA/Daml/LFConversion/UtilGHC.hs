@@ -99,8 +99,9 @@ pattern DA_Internal_LF <- ModuleIn DamlStdlib "DA.Internal.LF"
 pattern DA_Internal_Prelude <- ModuleIn DamlStdlib "DA.Internal.Prelude"
 pattern DA_Internal_Record <- ModuleIn DamlStdlib "DA.Internal.Record"
 
--- | Break down a constraint tuple projection function name.
--- These have the form "$p1(%,%)" "$p2(%,%)" "$p1(%,,%)" etc.
+-- | Break down a constraint tuple projection function name
+-- into an (index, arity) pair. These names have the form
+-- "$p1(%,%)" "$p2(%,%)" "$p1(%,,%)" etc.
 constraintTupleProjection_maybe :: T.Text -> Maybe (Int, Int)
 constraintTupleProjection_maybe t1 = do
     t2 <- T.stripPrefix "$p" t1
@@ -112,16 +113,16 @@ constraintTupleProjection_maybe t1 = do
     pure (index, T.length tCommas + 1)
 
 pattern ConstraintTupleProjectionFS :: Int -> Int -> FastString
-pattern ConstraintTupleProjectionFS i j <-
-    (constraintTupleProjection_maybe . fsToText -> Just (i,j))
+pattern ConstraintTupleProjectionFS index arity <-
+    (constraintTupleProjection_maybe . fsToText -> Just (index, arity))
 
 pattern ConstraintTupleProjectionName :: Int -> Int -> Var
-pattern ConstraintTupleProjectionName i j <-
-    NameIn GHC_Classes (ConstraintTupleProjectionFS i j)
+pattern ConstraintTupleProjectionName index arity <-
+    NameIn GHC_Classes (ConstraintTupleProjectionFS index arity)
 
 pattern ConstraintTupleProjection :: Int -> Int -> GHC.Expr Var
-pattern ConstraintTupleProjection i j <-
-    Var (ConstraintTupleProjectionName i j)
+pattern ConstraintTupleProjection index arity <-
+    Var (ConstraintTupleProjectionName index arity)
 
 
 subst :: [(TyVar, GHC.Type)] -> GHC.Type -> GHC.Type
