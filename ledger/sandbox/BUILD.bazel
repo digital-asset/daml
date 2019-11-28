@@ -244,7 +244,8 @@ server_conformance_test(
     ],
     servers = SERVERS,
     test_tool_args = [
-        "--include=PackageManagementServiceIT",
+        "--all-tests",
+        "--exclude=LotsOfPartiesIT",
     ],
 )
 
