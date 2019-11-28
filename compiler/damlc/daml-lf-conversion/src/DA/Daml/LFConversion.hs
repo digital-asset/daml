@@ -811,9 +811,10 @@ convertExpr env0 e = do
         t2' <- convertType env t2
         pure (x' `ETyApp` t1' `ETyApp` t2' `ETmApp` EBuiltin (BEText (unpackCStringUtf8 s)))
 
-    go env (ConstraintTupleProjection i j) args | (LExpr x : args') <- drop j args =
-        fmap (, args') $ do
-            let fieldName = mkField ("_" <> T.pack (show i))
+    go env (ConstraintTupleProjection index arity) args
+        | (LExpr x : args') <- drop arity args -- drop the type arguments
+        = fmap (, args') $ do
+            let fieldName = mkField ("_" <> T.pack (show index))
             x' <- convertExpr env x
             pure $ EStructProj fieldName x'
 
