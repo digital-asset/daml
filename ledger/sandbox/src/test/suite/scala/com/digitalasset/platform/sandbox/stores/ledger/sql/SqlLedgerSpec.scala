@@ -3,6 +3,8 @@
 
 package com.digitalasset.platform.sandbox.stores.ledger.sql
 
+import java.sql.SQLException
+
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
@@ -14,22 +16,26 @@ import com.digitalasset.platform.sandbox.MetricsAround
 import com.digitalasset.platform.sandbox.persistence.PostgresAroundEach
 import com.digitalasset.platform.sandbox.stores.ledger.PartyIdGenerator
 import com.digitalasset.platform.sandbox.stores.{InMemoryActiveLedgerState, InMemoryPackageStore}
-import org.scalatest.concurrent.{AsyncTimeLimitedTests, ScaledTimeSpans}
-import org.scalatest.time.Span
+import org.scalatest.concurrent.{AsyncTimeLimitedTests, Eventually, ScaledTimeSpans}
+import org.scalatest.time.{Second, Span}
 import org.scalatest.{AsyncWordSpec, Matchers}
 
+import scala.concurrent.Await
 import scala.concurrent.duration._
 
 class SqlLedgerSpec
     extends AsyncWordSpec
-    with AsyncTimeLimitedTests
     with Matchers
-    with PostgresAroundEach
-    with AkkaBeforeAndAfterAll
+    with AsyncTimeLimitedTests
     with ScaledTimeSpans
+    with Eventually
+    with AkkaBeforeAndAfterAll
+    with PostgresAroundEach
     with MetricsAround {
 
   override val timeLimit: Span = scaled(60.seconds)
+  implicit override val patienceConfig: PatienceConfig =
+    PatienceConfig(timeout = scaled(Span(1, Second)))
 
   private val queueDepth = 128
 
@@ -202,32 +208,45 @@ class SqlLedgerSpec
           loggerFactory,
           metrics
         )
-
-        _ <- ledger.allocateParty(PartyIdGenerator.generateRandomId(), Some("Alice"))
-        _ = withClue("after allocating Alice,") {
-          ledger.currentHealth() should be(Healthy)
+      } yield {
+        def allocateParty(displayName: String): Unit = {
+          Await.result(
+            ledger.allocateParty(PartyIdGenerator.generateRandomId(), Some(displayName)),
+            patienceConfig.timeout)
+          ()
         }
 
-        _ = stopPostgres()
-        _ <- ledger.allocateParty(PartyIdGenerator.generateRandomId(), Some("Bob")).failed
-        _ = withClue("after allocating Bob,") {
+        allocateParty("Alice")
+        withClue("after allocating Alice,") {
           ledger.currentHealth() should be(Healthy)
         }
-        _ <- ledger.allocateParty(PartyIdGenerator.generateRandomId(), Some("Carol")).failed
-        _ = withClue("after allocating Carol,") {
+
+        stopPostgres()
+
+        assertThrows[SQLException](allocateParty("Bob"))
+        withClue("after allocating Bob,") {
           ledger.currentHealth() should be(Healthy)
         }
-        _ <- ledger.allocateParty(PartyIdGenerator.generateRandomId(), Some("Dan")).failed
-        _ = withClue("after allocating Dan,") {
+
+        assertThrows[SQLException](allocateParty("Carol"))
+        withClue("after allocating Carol,") {
+          ledger.currentHealth() should be(Healthy)
+        }
+
+        assertThrows[SQLException](allocateParty("Dan"))
+        withClue("after allocating Dan,") {
           ledger.currentHealth() should be(Unhealthy)
         }
 
-        _ = startPostgres()
-        _ <- ledger.allocateParty(PartyIdGenerator.generateRandomId(), Some("Erin"))
-        _ = withClue("after allocating Erin,") {
-          ledger.currentHealth() should be(Healthy)
+        startPostgres()
+
+        eventually {
+          allocateParty("Erin")
+          withClue("after allocating Erin,") {
+            ledger.currentHealth() should be(Healthy)
+          }
         }
-      } yield succeed
+      }
     }
   }
 }
