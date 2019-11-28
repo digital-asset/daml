@@ -152,7 +152,7 @@ private[engine] class ValueTranslator(compiledPackages: CompiledPackages) {
               .traverseU {
                 case (key0, value0) => go(newNesting, elemType, value0).map(key0 -> _)
               }
-              .map(l => SMap(HashMap(l.toSeq: _*)))
+              .map(l => STextMap(HashMap(l.toSeq: _*)))
 
           // genMap
           case (TGenMap(keyType, valueType), ValueGenMap(entries)) =>
