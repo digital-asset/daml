@@ -204,19 +204,29 @@ class SqlLedgerSpec
         )
 
         _ <- ledger.allocateParty(PartyIdGenerator.generateRandomId(), Some("Alice"))
-        _ = ledger.currentHealth() should be(Healthy)
+        _ = withClue("after allocating Alice,") {
+          ledger.currentHealth() should be(Healthy)
+        }
 
         _ = stopPostgres()
         _ <- ledger.allocateParty(PartyIdGenerator.generateRandomId(), Some("Bob")).failed
-        _ = ledger.currentHealth() should be(Healthy)
+        _ = withClue("after allocating Bob,") {
+          ledger.currentHealth() should be(Healthy)
+        }
         _ <- ledger.allocateParty(PartyIdGenerator.generateRandomId(), Some("Carol")).failed
-        _ = ledger.currentHealth() should be(Healthy)
+        _ = withClue("after allocating Carol,") {
+          ledger.currentHealth() should be(Healthy)
+        }
         _ <- ledger.allocateParty(PartyIdGenerator.generateRandomId(), Some("Dan")).failed
-        _ = ledger.currentHealth() should be(Unhealthy)
+        _ = withClue("after allocating Dan,") {
+          ledger.currentHealth() should be(Unhealthy)
+        }
 
         _ = startPostgres()
         _ <- ledger.allocateParty(PartyIdGenerator.generateRandomId(), Some("Erin"))
-        _ = ledger.currentHealth() should be(Healthy)
+        _ = withClue("after allocating Erin,") {
+          ledger.currentHealth() should be(Healthy)
+        }
       } yield succeed
     }
   }
