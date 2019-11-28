@@ -66,7 +66,7 @@ Running with authentication
 
 By default, Sandbox does not use any authentication and accepts all valid ledger API requests.
 
-To start Sandbox with authentication based on `JWT <https://jwt.io/>`_ tokens,
+To start Sandbox with authentication based on `JWT <https://jwt.io/>`__ tokens,
 use one of the following command line options:
 
 - ``--auth-jwt-rs256-crt=<filename>``.
@@ -75,7 +75,7 @@ use one of the following command line options:
   and DER-encoded certicates (binary files) are supported.
 
 - ``--auth-jwt-rs256-jwks=<url>``.
-  The sandbox will expect all tokens to be signed with RSA256 with the public key loaded from the given `JWKS <https://tools.ietf.org/html/rfc7517>`_ URL.
+  The sandbox will expect all tokens to be signed with RSA256 with the public key loaded from the given `JWKS <https://tools.ietf.org/html/rfc7517>`__ URL.
 
 .. warning::
 
@@ -113,7 +113,7 @@ where
 Generating tokens
 =================
 
-To generate tokens for testing purposes, use the `jtw.io <https://jwt.io/>`_ web site.
+To generate tokens for testing purposes, use the `jtw.io <https://jwt.io/>`__ web site.
 
 To generate RSA keys for testing purposes, use the following command
 

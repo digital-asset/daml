@@ -40,7 +40,7 @@ Getting access tokens
 
 To learn how to receive access tokens for a deployed ledger, contact your ledger operator.
 This may be a manual exchange over a secure channel,
-or your application may have to request tokens at runtime using an API such as `OAuth <https://oauth.net/2/>`_.
+or your application may have to request tokens at runtime using an API such as `OAuth <https://oauth.net/2/>`__.
 
 To learn how to generate access tokens for a local sandbox,
 read the :ref:`sandbox <sandbox-authentication>` documentation.
