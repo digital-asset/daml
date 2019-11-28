@@ -690,7 +690,7 @@ convertBind env (name, x)
     | (as, Let (Rec [(f, Lam v y)]) (Var f')) <- collectBinders x, f == f'
     = convertBind env $ (,) name $ mkLams as $ Lam v $ Let (NonRec f $ mkVarApps (Var name) as) y
 
-    -- | Constraint tuple projections are turned into LF strict projections at use site.
+    -- | Constraint tuple projections are turned into LF struct projections at use site.
     | ConstraintTupleProjectionName _ _ <- name
     = pure []
 
