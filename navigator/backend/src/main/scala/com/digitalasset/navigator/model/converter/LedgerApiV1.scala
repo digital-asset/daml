@@ -413,7 +413,7 @@ case object LedgerApiV1 {
       case v: Model.ApiRecord => fillInRecordTI(v, typ, ctx)
       case v: Model.ApiVariant => fillInVariantTI(v, typ, ctx)
       case _: Model.ApiImpossible =>
-        Left(GenericConversionError("unserializable Tuple appeared of serializable type"))
+        Left(GenericConversionError("unserializable Struct appeared of serializable type"))
     }
 
   def readCompletion(completion: V1.completion.Completion): Result[Option[Model.CommandStatus]] = {

@@ -82,7 +82,7 @@ data Error
   | EExpectedEnumType      !(Qualified TypeConName)
   | EUnknownDataCon        !VariantConName
   | EUnknownField          !FieldName
-  | EExpectedStructType     !Type
+  | EExpectedStructType    !Type
   | EKindMismatch          {foundKind :: !Kind, expectedKind :: !Kind}
   | ETypeMismatch          {foundType :: !Type, expectedType :: !Type, expr :: !(Maybe Expr)}
   | EExpectedHigherKind    !Kind

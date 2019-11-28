@@ -80,7 +80,7 @@ object ApiCodecVerbose {
     case _: Model.ApiGenMap =>
       // FIXME https://github.com/digital-asset/daml/issues/2256
       serializationError(s"Gen Map are not supported")
-    case _: Model.ApiImpossible => serializationError("impossible! tuples are not serializable")
+    case _: Model.ApiImpossible => serializationError("impossible! structs are not serializable")
   }
 
   def apiListToJsValue(value: Model.ApiList): JsValue =
