@@ -7,6 +7,7 @@ import java.io.StringWriter
 import java.net.ServerSocket
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path, Paths}
+import java.util.concurrent.atomic.AtomicBoolean
 
 import com.digitalasset.daml.bazeltools.BazelRunfiles._
 import com.digitalasset.ledger.api.testing.utils.Resource
@@ -86,6 +87,8 @@ trait PostgresAround {
   @volatile
   protected var postgresFixture: PostgresFixture = _
 
+  private val started: AtomicBoolean = new AtomicBoolean(false)
+
   protected def startEphemeralPostgres(): Unit = {
     logger.info("Starting an ephemeral PostgreSQL instance...")
     val tempDir = Files.createTempDirectory("postgres_test")
@@ -117,20 +120,30 @@ trait PostgresAround {
     logger.info("PostgreSQL has stopped, and the data directory has been deleted.")
   }
 
-  protected def startPostgres(): Unit = run(
-    "start PostgreSQL",
-    Tool.pg_ctl,
-    "-o",
-    s"-F -p ${postgresFixture.port}",
-    "-w",
-    "-D",
-    postgresFixture.dataDir.toString,
-    "-l",
-    postgresFixture.logFile.toString,
-    "start",
-  )
+  protected def startPostgres(): Unit = {
+    if (!started.compareAndSet(false, true)) {
+      throw new IllegalStateException(
+        "Attempted to start PostgreSQL, but it has already been started.")
+    }
+    run(
+      "start PostgreSQL",
+      Tool.pg_ctl,
+      "-o",
+      s"-F -p ${postgresFixture.port}",
+      "-w",
+      "-D",
+      postgresFixture.dataDir.toString,
+      "-l",
+      postgresFixture.logFile.toString,
+      "start",
+    )
+  }
 
   protected def stopPostgres(): Unit = {
+    if (!started.compareAndSet(true, false)) {
+      throw new IllegalStateException(
+        "Attempted to stop PostgreSQL, but it has already been stopped.")
+    }
     run(
       "stop PostgreSQL",
       Tool.pg_ctl,
