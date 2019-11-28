@@ -105,10 +105,14 @@ class Template t => TemplateKey t k | t -> k where
   --    getting the contract instance.
 
   -- | The list of maintainers of a contract key.
-  maintainer : k -> [Party]
+  _maintainer : proxy t -> k -> [Party]
 
   _toAnyContractKey : proxy t -> k -> Any
   _fromAnyContractKey : proxy t -> Any -> Optional k
+
+-- | The list of maintainers of a contract key.
+maintainer : forall t k. TemplateKey t k => k -> [Party]
+maintainer = _maintainer ([] : [t])
 
 toAnyContractKey : forall t k. TemplateKey t k => k -> AnyContractKey
 toAnyContractKey k =
@@ -147,8 +151,6 @@ data PostConsuming t = PostConsuming {}
 -- choice in every template.
 data Archive = Archive {}
   deriving (Eq, Show)
-
-data HasKey t = HasKey {}
 
 -- | Accepted ways to specify a list of parties: either a single party, or a list of parties.
 class IsParties a where
