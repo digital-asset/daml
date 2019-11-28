@@ -52,6 +52,15 @@ case class InMemoryPackageStore(
   def getLfPackageSync(packageId: PackageId): Option[Ast.Package] =
     packages.get(packageId)
 
+  override def lookupPackageUploadEntry(
+      submissionId: SubmissionId): Future[Option[domain.PackageUploadEntry]] = {
+    // TODO BH : not clear what codepath gets you here, but
+    // extending IndexPackagesService requires this method to be implemented
+    logger.error(
+      s"this will never return  as we are unable to match to accept/reject package upload entry for  $submissionId")
+    Future.successful((None))
+  }
+
   def withPackages(
       knownSince: Instant,
       sourceDescription: Option[String],
@@ -112,11 +121,4 @@ case class InMemoryPackageStore(
               PackageDetails(archive.getPayload.size.toLong, knownSince, sourceDescription)
             store.addPackage(pkgId, details, archive, pkg)
       })
-
-  override def lookupPackageUploadEntry(
-      submissionId: SubmissionId): Future[Option[domain.PackageUploadEntry]] = {
-    //TODO BH : implement me
-    logger.warn(s"nothing to see here for $submissionId")
-    Future.successful((None))
-  }
 }
