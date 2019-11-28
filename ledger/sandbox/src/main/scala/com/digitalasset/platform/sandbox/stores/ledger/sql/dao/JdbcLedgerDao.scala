@@ -1424,7 +1424,7 @@ private class JdbcLedgerDao(
       endExclusive,
       PageSize,
       (startI, endE) => {
-        dbDispatcher.executeSql(s"load package upload entries", Some(s"bounds: [$startI, $endE[")) {
+        dbDispatcher.executeSql("load_package_upload_entries", Some(s"bounds: [$startI, $endE[")) {
           implicit conn =>
             SQL_SELECT_PACKAGE_UPLOAD_ENTRIES
               .on("startInclusive" -> startI, "endExclusive" -> endE)
@@ -1439,7 +1439,7 @@ private class JdbcLedgerDao(
       externalOffset: Option[ExternalOffset],
       entry: PackageUploadLedgerEntry): Future[PersistenceResponse] = {
 
-    dbDispatcher.executeSql("store package upload entry") { implicit conn =>
+    dbDispatcher.executeSql("store_package_upload_entry") { implicit conn =>
       updateLedgerEnd(newLedgerEnd, externalOffset)
       Try({
         SQL(queries.SQL_INSERT_PACKAGE_UPLOAD_ENTRY)
@@ -1472,7 +1472,7 @@ private class JdbcLedgerDao(
       PageSize,
       (startI, endE) => {
         dbDispatcher
-          .executeSql(s"load party allocation entries", Some(s"bounds: [$startI, $endE[")) {
+          .executeSql("load_party_allocation_entries", Some(s"bounds: [$startI, $endE[")) {
             implicit conn =>
               SQL_SELECT_PARTY_ALLOCATION_ENTRIES
                 .on("startInclusive" -> startI, "endExclusive" -> endE)
@@ -1484,7 +1484,7 @@ private class JdbcLedgerDao(
   override def lookupPartyAllocationEntry(
       submissionId: SubmissionId): Future[Option[PartyAllocationLedgerEntry]] = {
     dbDispatcher
-      .executeSql(s"load party allocation entry", None) { implicit conn =>
+      .executeSql("load_party_allocation_entry", None) { implicit conn =>
         SQL_SELECT_PARTY_ALLOCATION_ENTRY
           .on("submissionId" -> submissionId)
           .as(partyAllocationEntryParser.*)
@@ -1496,7 +1496,7 @@ private class JdbcLedgerDao(
   override def lookupPackageUploadEntry(
       submissionId: SubmissionId): Future[Option[PackageUploadLedgerEntry]] = {
     dbDispatcher
-      .executeSql(s"load package upload entry", None) { implicit conn =>
+      .executeSql("load_package_upload_entry", None) { implicit conn =>
         SQL_SELECT_PACKAGE_UPLOAD_ENTRY
           .on("submissionId" -> submissionId)
           .as(packageUploadEntryParser.*)
@@ -1513,7 +1513,7 @@ private class JdbcLedgerDao(
       participantId: ParticipantId,
       entry: PartyAllocationLedgerEntry): Future[PersistenceResponse] = {
 
-    dbDispatcher.executeSql("store party allocation reject entry") { implicit conn =>
+    dbDispatcher.executeSql("store_party_allocation_reject_entry") { implicit conn =>
       updateLedgerEnd(newLedgerEnd, externalOffset)
       Try({
         SQL(queries.SQL_INSERT_PARTY_ALLOCATION_ENTRY)
@@ -1576,6 +1576,7 @@ private class JdbcLedgerDao(
           |truncate contract_keys cascade;
           |truncate package_upload_entries cascade;
           |truncate party_allocation_entries cascade;
+          |truncate parties cascade;
       """.stripMargin)
 
   override def reset(): Future[Unit] =
