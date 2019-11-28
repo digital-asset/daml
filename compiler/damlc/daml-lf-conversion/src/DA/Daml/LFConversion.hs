@@ -538,7 +538,7 @@ convertTypeDef env o@(ATyCon t) = withRange (convNameLoc t) $ if
     | isTypeSynonymTyCon t
     -> pure []
 
-    -- Constraint tuples are represented by LF tuples.
+    -- Constraint tuples are represented by LF structs.
     | isConstraintTupleTyCon t
     -> pure []
 
@@ -690,7 +690,7 @@ convertBind env (name, x)
     | (as, Let (Rec [(f, Lam v y)]) (Var f')) <- collectBinders x, f == f'
     = convertBind env $ (,) name $ mkLams as $ Lam v $ Let (NonRec f $ mkVarApps (Var name) as) y
 
-    -- | Constraint tuple projections are turned into LF tuple projections at use site.
+    -- | Constraint tuple projections are turned into LF strict projections at use site.
     | ConstraintTupleProjectionName _ _ <- name
     = pure []
 
