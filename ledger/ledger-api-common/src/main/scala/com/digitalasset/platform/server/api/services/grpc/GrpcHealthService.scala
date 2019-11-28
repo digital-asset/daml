@@ -22,6 +22,7 @@ import io.grpc.{ServerServiceDefinition, Status, StatusException}
 
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.{Failure, Success, Try}
 
 class GrpcHealthService(
     healthChecks: HealthChecks,
@@ -36,23 +37,21 @@ class GrpcHealthService(
     HealthGrpc.bindService(this, DirectExecutionContext)
 
   override def check(request: HealthCheckRequest): Future[HealthCheckResponse] =
-    Future(matchResponse(Option(request.service).filter(_.nonEmpty)))
+    Future.fromTry(matchResponse(serviceFrom(request)))
 
   override def watchSource(request: HealthCheckRequest): Source[HealthCheckResponse, NotUsed] =
     Source
-      .fromIterator(() =>
-        Iterator.continually(matchResponse(Option(request.service).filter(_.nonEmpty))))
+      .fromIterator(() => Iterator.continually(matchResponse(serviceFrom(request)).get))
       .throttle(1, per = maximumWatchFrequency)
       .via(DropRepeated())
 
-  private def matchResponse(componentName: Option[String]): HealthCheckResponse = {
+  private def matchResponse(componentName: Option[String]): Try[HealthCheckResponse] =
     if (!componentName.forall(healthChecks.hasComponent))
-      throw new StatusException(Status.NOT_FOUND)
-    if (healthChecks.isHealthy(componentName))
-      servingResponse
+      Failure(new StatusException(Status.NOT_FOUND))
+    else if (healthChecks.isHealthy(componentName))
+      Success(servingResponse)
     else
-      notServingResponse
-  }
+      Success(notServingResponse)
 }
 
 object GrpcHealthService {
@@ -61,4 +60,8 @@ object GrpcHealthService {
 
   private[grpc] val notServingResponse =
     HealthCheckResponse(HealthCheckResponse.ServingStatus.NOT_SERVING)
+
+  private def serviceFrom(request: HealthCheckRequest): Option[String] = {
+    Option(request.service).filter(_.nonEmpty)
+  }
 }
