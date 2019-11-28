@@ -25,12 +25,29 @@ import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.common.util.{DirectExecutionContext => DEC}
 import com.digitalasset.platform.sandbox.metrics.timedFuture
 import com.digitalasset.platform.sandbox.services.transaction.SandboxEventIdFormatter
-import com.digitalasset.platform.sandbox.stores.ledger.sql.SqlLedger.{defaultNumberOfShortLivedConnections, defaultNumberOfStreamingConnections}
-import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.{DbType, JdbcLedgerDao, LedgerDao, PersistenceEntry}
+import com.digitalasset.platform.sandbox.stores.ledger.sql.SqlLedger.{
+  defaultNumberOfShortLivedConnections,
+  defaultNumberOfStreamingConnections
+}
+import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.{
+  DbType,
+  JdbcLedgerDao,
+  LedgerDao,
+  PersistenceEntry
+}
 import com.digitalasset.platform.sandbox.stores.ledger.sql.migration.FlywayMigrations
-import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{ContractSerializer, KeyHasher, TransactionSerializer, ValueSerializer}
+import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{
+  ContractSerializer,
+  KeyHasher,
+  TransactionSerializer,
+  ValueSerializer
+}
 import com.digitalasset.platform.sandbox.stores.ledger.sql.util.DbDispatcher
-import com.digitalasset.platform.sandbox.stores.ledger.{LedgerEntry, PackageUploadLedgerEntry, PartyAllocationLedgerEntry}
+import com.digitalasset.platform.sandbox.stores.ledger.{
+  LedgerEntry,
+  PackageUploadLedgerEntry,
+  PartyAllocationLedgerEntry
+}
 import scalaz.syntax.tag._
 
 import scala.concurrent.duration._

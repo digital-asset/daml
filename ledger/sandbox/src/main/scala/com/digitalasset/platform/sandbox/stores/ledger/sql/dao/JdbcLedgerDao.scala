@@ -1313,7 +1313,14 @@ private class JdbcLedgerDao(
       str("rejection_reason")(emptyStringToNullColumn).?)
       .map(flatten)
       .map {
-        case (offset, typ, submissionIdRaw, participantIdRaw, party, displayName, rejectionReason) =>
+        case (
+            offset,
+            typ,
+            submissionIdRaw,
+            participantIdRaw,
+            party,
+            displayName,
+            rejectionReason) =>
           val participantId = LedgerString
             .fromString(participantIdRaw)
             .fold(
@@ -1486,7 +1493,8 @@ private class JdbcLedgerDao(
       }
   }
 
-  override def lookupPackageUploadEntry(submissionId: SubmissionId): Future[Option[PackageUploadLedgerEntry]] = {
+  override def lookupPackageUploadEntry(
+      submissionId: SubmissionId): Future[Option[PackageUploadLedgerEntry]] = {
     dbDispatcher
       .executeSql(s"load package upload entry", None) { implicit conn =>
         SQL_SELECT_PACKAGE_UPLOAD_ENTRY

@@ -17,7 +17,11 @@ import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails}
 import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilter
 import com.digitalasset.platform.sandbox.metrics.timedFuture
 import com.digitalasset.platform.sandbox.stores.ActiveLedgerState.{ActiveContract, Contract}
-import com.digitalasset.platform.sandbox.stores.ledger.{LedgerEntry, PackageUploadLedgerEntry, PartyAllocationLedgerEntry}
+import com.digitalasset.platform.sandbox.stores.ledger.{
+  LedgerEntry,
+  PackageUploadLedgerEntry,
+  PartyAllocationLedgerEntry
+}
 
 import scala.collection.immutable
 import scala.concurrent.Future

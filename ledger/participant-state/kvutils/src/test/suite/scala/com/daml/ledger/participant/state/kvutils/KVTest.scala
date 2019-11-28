@@ -196,7 +196,7 @@ object KVTest {
 
   def submitConfig(
       configModify: Configuration => Configuration,
-      submissionId: String = "",
+      submissionId: String = randomString,
       mrtDelta: Duration = minMRTDelta
   ): KVTest[DamlLogEntry] =
     for {
@@ -216,7 +216,11 @@ object KVTest {
       hint: String,
       participantId: ParticipantId): KVTest[DamlLogEntry] =
     submit(
-      KeyValueSubmission.partyToSubmission(Ref.LedgerString.assertFromString(subId), Some(hint), None, participantId)
+      KeyValueSubmission.partyToSubmission(
+        Ref.LedgerString.assertFromString(subId),
+        Some(hint),
+        None,
+        participantId)
     ).map(_._2)
 
   def allocateParty(subId: String, hint: String): KVTest[Party] =

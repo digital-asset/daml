@@ -63,9 +63,13 @@ class KVUtilsConfigSpec extends WordSpec with Matchers {
 
     "reject expired submissions" in KVTest.runTest {
       for {
-        logEntry <- submitConfig(mrtDelta = Duration.ofMinutes(-1), configModify = { c =>
-          c.copy(generation = c.generation + 1)
-        })
+        logEntry <- submitConfig(
+          mrtDelta = Duration.ofMinutes(-1),
+          configModify = { c =>
+            c.copy(generation = c.generation + 1)
+          },
+          submissionId = "some-submission-id"
+        )
       } yield {
         logEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.CONFIGURATION_REJECTION_ENTRY
         logEntry.getConfigurationRejectionEntry.getReasonCase shouldEqual DamlConfigurationRejectionEntry.ReasonCase.TIMED_OUT

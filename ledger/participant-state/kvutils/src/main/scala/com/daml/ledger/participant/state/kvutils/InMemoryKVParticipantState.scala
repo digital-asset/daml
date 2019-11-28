@@ -377,7 +377,11 @@ class InMemoryKVParticipantState(
       submissionId: String): CompletionStage[SubmissionResult] = {
     val party = hint.getOrElse(generateRandomId())
     val submission =
-      KeyValueSubmission.partyToSubmission(Ref.LedgerString.assertFromString(submissionId), Some(party), displayName, participantId)
+      KeyValueSubmission.partyToSubmission(
+        Ref.LedgerString.assertFromString(submissionId),
+        Some(party),
+        displayName,
+        participantId)
 
     CompletableFuture.completedFuture({
       commitActorRef ! CommitSubmission(
@@ -477,7 +481,10 @@ class InMemoryKVParticipantState(
       config: Configuration): CompletionStage[SubmissionResult] =
     CompletableFuture.completedFuture({
       val submission =
-        KeyValueSubmission.configurationToSubmission(maxRecordTime, Ref.LedgerString.assertFromString(submissionId), config)
+        KeyValueSubmission.configurationToSubmission(
+          maxRecordTime,
+          Ref.LedgerString.assertFromString(submissionId),
+          config)
       commitActorRef ! CommitSubmission(
         allocateEntryId,
         Envelope.enclose(submission)

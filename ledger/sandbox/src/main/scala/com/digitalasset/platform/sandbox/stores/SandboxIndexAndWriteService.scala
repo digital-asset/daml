@@ -11,7 +11,13 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.index.v2._
-import com.daml.ledger.participant.state.v1.{SubmissionId, ApplicationId => _, LedgerId => _, TransactionId => _, _}
+import com.daml.ledger.participant.state.v1.{
+  SubmissionId,
+  ApplicationId => _,
+  LedgerId => _,
+  TransactionId => _,
+  _
+}
 import com.daml.ledger.participant.state.{v1 => ParticipantState}
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.Ref.{LedgerString, PackageId, Party, TransactionIdString}
@@ -22,7 +28,11 @@ import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
 import com.digitalasset.ledger.api.domain
-import com.digitalasset.ledger.api.domain.CompletionEvent.{Checkpoint, CommandAccepted, CommandRejected}
+import com.digitalasset.ledger.api.domain.CompletionEvent.{
+  Checkpoint,
+  CommandAccepted,
+  CommandRejected
+}
 import com.digitalasset.ledger.api.domain.{ParticipantId => _, _}
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.common.util.{DirectExecutionContext => DEC}
@@ -377,9 +387,11 @@ abstract class LedgerBackedIndexService(
   override def getLfPackage(packageId: PackageId): Future[Option[Ast.Package]] =
     ledger.getLfPackage(packageId)
 
-  override def lookupPackageUploadEntry(submissionId: SubmissionId): Future[Option[PackageUploadEntry]] =
-    ledger.lookupPackageUploadEntry(submissionId)
-    .map(_.map(PackageConversion.packageUploadLedgerEntryToDomain))(DEC)
+  override def lookupPackageUploadEntry(
+      submissionId: SubmissionId): Future[Option[PackageUploadEntry]] =
+    ledger
+      .lookupPackageUploadEntry(submissionId)
+      .map(_.map(PackageConversion.packageUploadLedgerEntryToDomain))(DEC)
 
   // ContractStore
   override def lookupActiveContract(
@@ -446,7 +458,11 @@ class LedgerBackedWriteService(
             participantId))
       case Some(Right(party)) =>
         FutureConverters.toJava(
-          ledger.allocateParty(party, displayName, Ref.LedgerString.assertFromString(submissionId), participantId))
+          ledger.allocateParty(
+            party,
+            displayName,
+            Ref.LedgerString.assertFromString(submissionId),
+            participantId))
       case Some(Left(error)) =>
         // TODO BH : don't think we want to throw submission result error here but rather submit the request
         // then leave it to AllocatePartyRejectionEntry to give reason for failure "invalid party"
@@ -461,7 +477,12 @@ class LedgerBackedWriteService(
       submissionId: String
   ): CompletionStage[SubmissionResult] =
     FutureConverters.toJava(
-      ledger.uploadPackages(timeProvider.getCurrentTime, sourceDescription, payload, Ref.LedgerString.assertFromString(submissionId), participantId))
+      ledger.uploadPackages(
+        timeProvider.getCurrentTime,
+        sourceDescription,
+        payload,
+        Ref.LedgerString.assertFromString(submissionId),
+        participantId))
 
   // WriteConfigService
   override def submitConfiguration(

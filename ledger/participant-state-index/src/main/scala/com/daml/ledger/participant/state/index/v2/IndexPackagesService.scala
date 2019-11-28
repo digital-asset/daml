@@ -23,5 +23,6 @@ trait IndexPackagesService {
   /** Like [[getLfArchive]], but already parsed. */
   def getLfPackage(packageId: PackageId): Future[Option[Package]]
 
-  def lookupPackageUploadEntry(submissionId: SubmissionId): Future[Option[domain.PackageUploadEntry]]
+  def lookupPackageUploadEntry(
+      submissionId: SubmissionId): Future[Option[domain.PackageUploadEntry]]
 }

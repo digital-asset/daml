@@ -11,14 +11,10 @@ trait PackageConversion {
       ledgerEntry: PackageUploadLedgerEntry): domain.PackageUploadEntry =
     ledgerEntry match {
       case PackageUploadLedgerEntry.Accepted(submissionId, participantId) =>
-        PackageUploadEntry.Accepted(
-          submissionId,
-          domain.ParticipantId(participantId))
+        PackageUploadEntry.Accepted(submissionId, domain.ParticipantId(participantId))
       case PackageUploadLedgerEntry.Rejected(submissionId, participantId, reason) =>
         PackageUploadEntry.Rejected(submissionId, domain.ParticipantId(participantId), reason)
     }
 }
 
 object PackageConversion extends PackageConversion
-
-

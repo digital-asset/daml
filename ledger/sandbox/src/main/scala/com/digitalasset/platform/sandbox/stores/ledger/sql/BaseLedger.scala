@@ -22,7 +22,13 @@ import com.digitalasset.platform.common.util.DirectExecutionContext
 import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilter
 import com.digitalasset.platform.sandbox.stores.ActiveLedgerState
 import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.LedgerReadDao
-import com.digitalasset.platform.sandbox.stores.ledger.{LedgerEntry, LedgerSnapshot, PackageUploadLedgerEntry, PartyAllocationLedgerEntry, ReadOnlyLedger}
+import com.digitalasset.platform.sandbox.stores.ledger.{
+  LedgerEntry,
+  LedgerSnapshot,
+  PackageUploadLedgerEntry,
+  PartyAllocationLedgerEntry,
+  ReadOnlyLedger
+}
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
@@ -94,7 +100,8 @@ class BaseLedger(val ledgerId: LedgerId, headAtInitialization: Long, ledgerDao: 
       .flatMap(archiveO =>
         Future.fromTry(Try(archiveO.map(archive => Decode.decodeArchive(archive)._2))))(DEC)
 
-  override def lookupPackageUploadEntry(submissionId: SubmissionId): Future[Option[PackageUploadLedgerEntry]] =
+  override def lookupPackageUploadEntry(
+      submissionId: SubmissionId): Future[Option[PackageUploadLedgerEntry]] =
     ledgerDao.lookupPackageUploadEntry(submissionId)
 
   override def close(): Unit = {
