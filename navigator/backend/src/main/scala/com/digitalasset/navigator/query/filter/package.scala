@@ -111,6 +111,20 @@ package object filter {
     @annotation.tailrec
     def loop(argument: ApiValue, cursor: PropertyCursor): Either[DotNotFailure, Boolean] =
       argument match {
+        case V.ValueContractId(value) if cursor.isLast =>
+          Right(checkContained(value, expectedValue))
+        case V.ValueInt64(value) if cursor.isLast =>
+          Right(checkContained(value.toString, expectedValue))
+        case V.ValueNumeric(value) if cursor.isLast =>
+          Right(checkContained(value.toUnscaledString, expectedValue))
+        case V.ValueText(value) if cursor.isLast => Right(checkContained(value, expectedValue))
+        case V.ValueParty(value) if cursor.isLast => Right(checkContained(value, expectedValue))
+        case V.ValueBool(value) if cursor.isLast =>
+          Right(checkContained(value.toString, expectedValue))
+        case V.ValueUnit if cursor.isLast => Right(expectedValue == "")
+        case t: V.ValueTimestamp if cursor.isLast =>
+          Right(checkContained(t.toIso8601, expectedValue))
+        case t: V.ValueDate if cursor.isLast => Right(checkContained(t.toIso8601, expectedValue))
         case V.ValueRecord(_, fields) =>
           cursor.next match {
             case None => Right(false)
@@ -151,17 +165,7 @@ package object filter {
                   Left(TypeCoercionFailure("list index", "int", cursor, cursor.current))
               }
           }
-        case V.ValueContractId(value) if cursor.isLast =>
-          Right(checkContained(value, expectedValue))
-        case V.ValueInt64(value) if cursor.isLast =>
-          Right(checkContained(value.toString, expectedValue))
-        case V.ValueNumeric(value) if cursor.isLast =>
-          Right(checkContained(value.toUnscaledString, expectedValue))
-        case V.ValueText(value) if cursor.isLast => Right(checkContained(value, expectedValue))
-        case V.ValueParty(value) if cursor.isLast => Right(checkContained(value, expectedValue))
-        case V.ValueBool(value) if cursor.isLast =>
-          Right(checkContained(value.toString, expectedValue))
-        case V.ValueUnit if cursor.isLast => Right(expectedValue == "")
+
         case V.ValueOptional(optValue) =>
           (cursor.next, optValue) match {
             case (None, None) => Right(expectedValue == "None")
@@ -171,10 +175,39 @@ package object filter {
             case (Some(nextCursor), None) if nextCursor.current == "None" => Right(true)
             case (Some(_), _) => Right(false)
           }
-        case t: V.ValueTimestamp if cursor.isLast =>
-          Right(checkContained(t.toIso8601, expectedValue))
-        case t: V.ValueDate if cursor.isLast => Right(checkContained(t.toIso8601, expectedValue))
+        case V.ValueTextMap(textMap) =>
+          cursor.next match {
+            case None => Right(false)
+            case Some(nextCursor) =>
+              textMap.toImmArray.toSeq.collectFirst {
+                case (k, v) if k == nextCursor.current => v
+              } match {
+                case None => Right(false)
+                case Some(v) => loop(v, nextCursor)
+              }
+          }
+        case V.ValueGenMap(entries) =>
+          cursor.next match {
+            case None =>
+              Right(false)
+            case Some(nextCursor) =>
+              Try(nextCursor.current.toInt) match {
+                case Success(index) =>
+                  nextCursor.next match {
+                    case Some(nextNextCursor) if nextNextCursor.current == "key" =>
+                      loop(entries(index)._1, nextNextCursor)
+                    case Some(nextNextCursor) if nextNextCursor.current == "value" =>
+                      loop(entries(index)._2, nextNextCursor)
+                    case None =>
+                      Right(false)
+                  }
+                case Failure(_) =>
+                  Left(TypeCoercionFailure("GenMap index", "int", cursor, cursor.current))
+              }
+
+          }
       }
+
     loop(rootArgument, cursor.prev.get)
   }
 
