@@ -25,7 +25,7 @@ import scala.concurrent.{ExecutionContext, Future}
   * @param noOfShortLivedConnections the number of connections to be pre-allocated for regular SQL queries
   * @param noOfStreamingConnections  the max number of connections to be used for long, streaming queries
   */
-class DbDispatcher(
+final class DbDispatcher(
     jdbcUrl: String,
     val noOfShortLivedConnections: Int,
     noOfStreamingConnections: Int,

@@ -133,7 +133,7 @@ object SqlLedger {
   }
 }
 
-private class SqlLedger(
+private final class SqlLedger(
     ledgerId: LedgerId,
     participantId: ParticipantId,
     headAtInitialization: Long,
@@ -377,7 +377,7 @@ private class SqlLedger(
 
 }
 
-private class SqlLedgerFactory(ledgerDao: LedgerDao, loggerFactory: NamedLoggerFactory) {
+private final class SqlLedgerFactory(ledgerDao: LedgerDao, loggerFactory: NamedLoggerFactory) {
 
   private val logger = loggerFactory.getLogger(getClass)
 
