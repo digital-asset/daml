@@ -252,14 +252,13 @@ object PostgresAround {
   }
 
   private case class Tool private[Tool] (name: String) {
-
     import Tool._
 
     def path: Path = rlocation(binPath.resolve(name + binExtension))
   }
 
   private object Tool {
-    private[Tool] val binPath = Paths.get("external/postgresql_dev_env/bin")
+    private[Tool] val binPath = Paths.get("external", "postgresql_dev_env", "bin")
     private[Tool] val binExtension = if (isWindows) ".exe" else ""
 
     val createdb = Tool("createdb")

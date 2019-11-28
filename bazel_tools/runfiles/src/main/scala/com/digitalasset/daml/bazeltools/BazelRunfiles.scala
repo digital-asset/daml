@@ -8,8 +8,9 @@ import java.nio.file.{Path, Paths}
 import com.google.devtools.build.runfiles.Runfiles
 
 trait BazelRunfiles {
-
   private val MainWorkspace = "com_github_digital_asset_daml"
+
+  private val MainWorkspacePath = Paths.get(MainWorkspace)
 
   private val inBazelEnvironment =
     Set("RUNFILES_DIR", "JAVA_RUNFILES", "RUNFILES_MANIFEST_FILE", "RUNFILES_MANIFEST_ONLY").exists(
@@ -22,9 +23,14 @@ trait BazelRunfiles {
       path
 
   def rlocation(path: Path): Path =
-    if (inBazelEnvironment)
-      Paths.get(Runfiles.create.rlocation(Paths.get(MainWorkspace).resolve(path).toString))
-    else
+    if (inBazelEnvironment) {
+      val workspacePathString = MainWorkspacePath
+        .resolve(path)
+        .toString
+        .replaceAllLiterally("\\", "/")
+      val runfilePath = Option(Runfiles.create.rlocation(workspacePathString))
+      Paths.get(runfilePath.getOrElse(throw new IllegalArgumentException(path.toString)))
+    } else
       path
 }
 
