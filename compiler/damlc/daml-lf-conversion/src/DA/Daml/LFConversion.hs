@@ -759,7 +759,7 @@ convertExpr env0 e = do
             let tupleType = TypeConApp tupleTyCon (map snd fields)
             pure $ ETmLam (varV1, TStruct fields) $ ERecCon tupleType $ zipWithFrom mkFieldProj (1 :: Int) fields
         where
-            mkFieldProj i (name, _typ) = (mkField ("_" <> T.pack (show i)), EStructProj name (EVar varV1))
+            mkFieldProj i (name, _typ) = (mkIndexedField i, EStructProj name (EVar varV1))
     go env (VarIn GHC_Types "primitive") (LType (isStrLitTy -> Just y) : LType t : args)
         = fmap (, args) $ convertPrim (envLfVersion env) (unpackFS y) <$> convertType env t
     go env (VarIn GHC_Types "external") (LType (isStrLitTy -> Just y) : LType t : args)
@@ -814,7 +814,7 @@ convertExpr env0 e = do
     go env (ConstraintTupleProjection index arity) args
         | (LExpr x : args') <- drop arity args -- drop the type arguments
         = fmap (, args') $ do
-            let fieldName = mkField ("_" <> T.pack (show index))
+            let fieldName = mkIndexedField index
             x' <- convertExpr env x
             pure $ EStructProj fieldName x'
 
@@ -1452,7 +1452,7 @@ convertType env o@(TypeCon t ts)
     | tyConFlavour t == TypeSynonymFlavour = convertType env $ expandTypeSynonyms o
     | isConstraintTupleTyCon t = do
         fieldTys <- mapM (convertType env) ts
-        let fieldNames = map (mkField . ("_" <>) . T.pack . show) ([1..] :: [Int])
+        let fieldNames = map mkIndexedField [1..]
         pure $ TStruct (zip fieldNames fieldTys)
 
     | otherwise = mkTApps <$> convertTyCon env t <*> mapM (convertType env) ts
@@ -1546,7 +1546,7 @@ ctorLabels con =
       -- If we omit this workaround, `GHC.Tuple.Unit` gets translated into a
       -- variant rather than a record and the `SugarUnit` test will fail.
       || (getOccFS con == "Unit" && nameModule (getName con) == gHC_TUPLE)
-    = map (mkField . T.cons '_' . T.pack . show) [1..dataConSourceArity con]
+    = map mkIndexedField [1..dataConSourceArity con]
     | flv == NewtypeFlavour && null lbls
     = [mkField "unpack"]
     | otherwise
