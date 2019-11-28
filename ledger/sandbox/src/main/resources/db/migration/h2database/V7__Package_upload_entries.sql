@@ -2,7 +2,7 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 ---------------------------------------------------------------------------------------------------
--- V12: package_upload_entries
+-- V7: package_upload_entries
 --
 -- This schema version adds a table for tracking DAML-LF package submissions
 -- It includes id to track the package submission and status
