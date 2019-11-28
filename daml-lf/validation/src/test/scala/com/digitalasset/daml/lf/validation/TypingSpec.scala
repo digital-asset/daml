@@ -142,13 +142,13 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
         // ExpEnumCon
         E"(( Mod:Color:Blue ))" ->
           T"Mod:Color",
-        // ExpTupleCon
+        // ExpStructCon
         E"Λ (τ₁ : ⋆) (τ₂ : ⋆). λ (e₁ : τ₁) (e₂ : τ₂)  →  (( ⟨ f₁ = e₁, f₂ = e₂ ⟩ ))" ->
           T"∀ (τ₁ : ⋆) (τ₂ : ⋆). τ₁ → τ₂ → (( ⟨ f₁: τ₁, f₂: τ₂ ⟩ ))",
-        // ExpTupleProj
+        // ExpStructProj
         E"Λ (τ₁ : ⋆) (τ₂ : ⋆). λ (e: ⟨ f₁: τ₁, f₂: τ₂ ⟩) → (( (e).f₂ ))" ->
           T"∀ (τ₁ : ⋆) (τ₂ : ⋆) . ⟨ f₁: τ₁, f₂: τ₂ ⟩ → (( τ₂ ))",
-        // ExpTupleUpdate
+        // ExpStructUpdate
         E"Λ (τ₁ : ⋆) (τ₂ : ⋆). λ (e: ⟨ f₁: τ₁, f₂: τ₂ ⟩) (e₂ : τ₂)  → (( ⟨ e with f₂ = e₂ ⟩ ))" ->
           T"∀ (τ₁ : ⋆) (τ₂ : ⋆) . ⟨ f₁: τ₁, f₂: τ₂ ⟩ → τ₂ → (( ⟨ f₁: τ₁, f₂: τ₂ ⟩ ))",
         // ExpCaseVariant
@@ -345,11 +345,11 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
         // ExpVarCon
         E"Λ (σ : ⋆ → ⋆). λ (e : σ) → (( Mod:Tree:Leaf @σ e ))",
         E"Λ (σ : ⋆). λ (e : σ) → (( Mod:Tree @σ Cons @σ [e] (Nil @σ) ))",
-        // ExpTupleCon
+        // ExpStructCon
         E"Λ (τ₁ : ⋆) (τ₂ : ⋆). λ (e₁ : τ₁)  → (( ⟨ f₁ = e₁, f₁ = e₁ ⟩ ))",
-        // ExpTupleProj
+        // ExpStructProj
         E"Λ (τ₁ : ⋆) (τ₂ : ⋆). λ (e: ⟨ f₁: τ₁, f₂: τ₂ ⟩) → (( (e).f3 ))",
-        // ExpTupleUpdate
+        // ExpStructUpdate
         E"Λ (τ₁ : ⋆) (τ₂ : ⋆). λ (e: ⟨ f₁: τ₁, f₂: τ₂ ⟩) (e₂ : τ₂)  → (( ⟨ e with f₃ = e₂ ⟩ ))",
         E"Λ (τ₁ : ⋆) (τ₂ : ⋆) (τ₃: ⋆). λ (e: ⟨ f₁: τ₁, f₂: τ₂ ⟩) (e₃: τ₃)  → (( ⟨ e with f₂ = e₃ ⟩ ))",
         // ExpCaseVariant

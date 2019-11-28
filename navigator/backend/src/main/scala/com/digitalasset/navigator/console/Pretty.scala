@@ -251,7 +251,7 @@ object Pretty {
     case V.ValueGenMap(_) =>
       // FIXME https://github.com/digital-asset/daml/issues/2256
       throw sys.error(s"Gen Map are not supported")
-    case _: model.ApiImpossible => sys.error("impossible! tuples are not serializable")
+    case _: model.ApiImpossible => sys.error("impossible! structs are not serializable")
   }
 
   /** Outputs an object in YAML format */
