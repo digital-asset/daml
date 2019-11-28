@@ -442,11 +442,11 @@ class LedgerBackedWriteService(
           ledger.allocateParty(
             PartyIdGenerator.generateRandomId(),
             displayName,
-            submissionId,
+            Ref.LedgerString.assertFromString(submissionId),
             participantId))
       case Some(Right(party)) =>
         FutureConverters.toJava(
-          ledger.allocateParty(party, displayName, submissionId, participantId))
+          ledger.allocateParty(party, displayName, Ref.LedgerString.assertFromString(submissionId), participantId))
       case Some(Left(error)) =>
         // TODO BH : don't think we want to throw submission result error here but rather submit the request
         // then leave it to AllocatePartyRejectionEntry to give reason for failure "invalid party"
@@ -461,7 +461,7 @@ class LedgerBackedWriteService(
       submissionId: String
   ): CompletionStage[SubmissionResult] =
     FutureConverters.toJava(
-      ledger.uploadPackages(timeProvider.getCurrentTime, sourceDescription, payload, submissionId, participantId))
+      ledger.uploadPackages(timeProvider.getCurrentTime, sourceDescription, payload, Ref.LedgerString.assertFromString(submissionId), participantId))
 
   // WriteConfigService
   override def submitConfiguration(

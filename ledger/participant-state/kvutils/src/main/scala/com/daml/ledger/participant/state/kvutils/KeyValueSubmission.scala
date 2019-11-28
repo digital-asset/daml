@@ -7,6 +7,7 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.v1.{
   Configuration,
   ParticipantId,
+  SubmissionId,
   SubmittedTransaction,
   SubmitterInfo,
   TransactionMeta
@@ -92,7 +93,7 @@ object KeyValueSubmission {
 
   /** Prepare a party allocation submission. */
   def partyToSubmission(
-      submissionId: String,
+      submissionId: SubmissionId,
       hint: Option[String],
       displayName: Option[String],
       participantId: ParticipantId): DamlSubmission = {
@@ -112,7 +113,7 @@ object KeyValueSubmission {
   /** Prepare a ledger configuration change submission. */
   def configurationToSubmission(
       maxRecordTime: Timestamp,
-      submissionId: String,
+      submissionId: SubmissionId,
       config: Configuration): DamlSubmission = {
     val tm = config.timeModel
     DamlSubmission.newBuilder

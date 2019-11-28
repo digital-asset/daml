@@ -3,7 +3,7 @@
 
 package com.digitalasset.platform.sandbox.stores.ledger
 
-import com.daml.ledger.participant.state.v1.ParticipantId
+import com.daml.ledger.participant.state.v1.{ParticipantId, SubmissionId}
 import com.digitalasset.ledger.api.domain.PartyDetails
 
 //TODO BH consider removing duplication of this class
@@ -16,7 +16,7 @@ sealed abstract class PartyAllocationLedgerEntry() extends Product with Serializ
 object PartyAllocationLedgerEntry {
 
   final case class Accepted(
-      override val submissionId: String,
+      override val submissionId: SubmissionId,
       override val participantId: ParticipantId,
       partyDetails: PartyDetails
   ) extends PartyAllocationLedgerEntry {
@@ -24,7 +24,7 @@ object PartyAllocationLedgerEntry {
   }
 
   final case class Rejected(
-      override val submissionId: String,
+      override val submissionId: SubmissionId,
       override val participantId: ParticipantId,
       reason: String
   ) extends PartyAllocationLedgerEntry {

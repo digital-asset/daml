@@ -272,7 +272,7 @@ class InMemoryLedger(
   override def allocateParty(
       party: Party,
       displayName: Option[String],
-      submissionId: String,
+      submissionId: SubmissionId,
       participantId: ParticipantId): Future[SubmissionResult] =
     Future.successful(this.synchronized {
       val ids = acs.parties.keySet
@@ -314,7 +314,7 @@ class InMemoryLedger(
       knownSince: Instant,
       sourceDescription: Option[String],
       payload: List[Archive],
-      submissionId: String,
+      submissionId: SubmissionId,
       participantId: ParticipantId): Future[SubmissionResult] = {
     val oldStore = packageStoreRef.get
     oldStore

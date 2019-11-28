@@ -6,6 +6,7 @@ package com.daml.ledger.participant.state.kvutils
 import java.time.Duration
 
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
+import com.digitalasset.daml.lf.data.Ref
 import org.scalatest.{Matchers, WordSpec}
 
 import scala.util.Success
@@ -21,7 +22,7 @@ class KVUtilsConfigSpec extends WordSpec with Matchers {
         KeyValueSubmission.packDamlSubmission(
           KeyValueSubmission.configurationToSubmission(
             maxRecordTime = theRecordTime,
-            submissionId = "foobar",
+            submissionId = Ref.LedgerString.assertFromString("foobar"),
             config = theDefaultConfig
           )))
 

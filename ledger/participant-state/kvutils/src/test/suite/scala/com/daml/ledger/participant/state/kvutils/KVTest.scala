@@ -205,7 +205,7 @@ object KVTest {
       result <- submit(
         KeyValueSubmission.configurationToSubmission(
           maxRecordTime = testState.recordTime.addMicros(mrtDelta.toNanos / 1000),
-          submissionId = submissionId,
+          submissionId = Ref.LedgerString.assertFromString(submissionId),
           config = configModify(oldConf)
         )
       )
@@ -216,7 +216,7 @@ object KVTest {
       hint: String,
       participantId: ParticipantId): KVTest[DamlLogEntry] =
     submit(
-      KeyValueSubmission.partyToSubmission(subId, Some(hint), None, participantId)
+      KeyValueSubmission.partyToSubmission(Ref.LedgerString.assertFromString(subId), Some(hint), None, participantId)
     ).map(_._2)
 
   def allocateParty(subId: String, hint: String): KVTest[Party] =

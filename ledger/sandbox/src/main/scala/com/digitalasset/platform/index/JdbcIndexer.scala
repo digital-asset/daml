@@ -14,7 +14,6 @@ import com.codahale.metrics.{Gauge, MetricRegistry}
 import com.daml.ledger.participant.state.index.v2
 import com.daml.ledger.participant.state.v1.Update._
 import com.daml.ledger.participant.state.v1._
-import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.LedgerString
 import com.digitalasset.daml.lf.data.Ref.LedgerString.ordering
 import com.digitalasset.daml.lf.engine.Blinding
@@ -26,29 +25,12 @@ import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.common.util.{DirectExecutionContext => DEC}
 import com.digitalasset.platform.sandbox.metrics.timedFuture
 import com.digitalasset.platform.sandbox.services.transaction.SandboxEventIdFormatter
-import com.digitalasset.platform.sandbox.stores.ledger.sql.SqlLedger.{
-  defaultNumberOfShortLivedConnections,
-  defaultNumberOfStreamingConnections
-}
-import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.{
-  DbType,
-  JdbcLedgerDao,
-  LedgerDao,
-  PersistenceEntry
-}
+import com.digitalasset.platform.sandbox.stores.ledger.sql.SqlLedger.{defaultNumberOfShortLivedConnections, defaultNumberOfStreamingConnections}
+import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.{DbType, JdbcLedgerDao, LedgerDao, PersistenceEntry}
 import com.digitalasset.platform.sandbox.stores.ledger.sql.migration.FlywayMigrations
-import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{
-  ContractSerializer,
-  KeyHasher,
-  TransactionSerializer,
-  ValueSerializer
-}
+import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{ContractSerializer, KeyHasher, TransactionSerializer, ValueSerializer}
 import com.digitalasset.platform.sandbox.stores.ledger.sql.util.DbDispatcher
-import com.digitalasset.platform.sandbox.stores.ledger.{
-  LedgerEntry,
-  PackageUploadLedgerEntry,
-  PartyAllocationLedgerEntry
-}
+import com.digitalasset.platform.sandbox.stores.ledger.{LedgerEntry, PackageUploadLedgerEntry, PartyAllocationLedgerEntry}
 import scalaz.syntax.tag._
 
 import scala.concurrent.duration._
@@ -272,7 +254,7 @@ class JdbcIndexer private[index] (
             headRef,
             headRef + 1,
             externalOffset,
-            Ref.LedgerString.assertFromString(submissionId),
+            submissionId,
             participantId,
             //TODO BH proper participant isLocal check needed
             PartyAllocationLedgerEntry.Accepted(

@@ -307,7 +307,7 @@ private class SqlLedger(
   override def allocateParty(
       party: Party,
       displayName: Option[String],
-      submissionId: String,
+      submissionId: SubmissionId,
       participantId: ParticipantId): Future[SubmissionResult] = {
 
     val storePartyAllocationEntry: Future[SubmissionResult] = {
@@ -352,7 +352,7 @@ private class SqlLedger(
       knownSince: Instant,
       sourceDescription: Option[String],
       payload: List[Archive],
-      submissionId: String,
+      submissionId: SubmissionId,
       participantId: ParticipantId): Future[SubmissionResult] = {
 
     val packages = payload.map(archive =>

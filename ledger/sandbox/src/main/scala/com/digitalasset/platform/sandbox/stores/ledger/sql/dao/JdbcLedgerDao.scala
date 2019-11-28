@@ -1313,11 +1313,17 @@ private class JdbcLedgerDao(
       str("rejection_reason")(emptyStringToNullColumn).?)
       .map(flatten)
       .map {
-        case (offset, typ, submissionId, participantIdRaw, party, displayName, rejectionReason) =>
+        case (offset, typ, submissionIdRaw, participantIdRaw, party, displayName, rejectionReason) =>
           val participantId = LedgerString
             .fromString(participantIdRaw)
             .fold(
-              err => sys.error(s"Failed to decode participant id in package upload entry: $err"),
+              err => sys.error(s"Failed to decode participant id in party allocation entry: $err"),
+              identity)
+
+          val submissionId: SubmissionId = LedgerString
+            .fromString(submissionIdRaw)
+            .fold(
+              err => sys.error(s"Failed to decode submission id in party allocation entry: $err"),
               identity)
 
           offset ->
@@ -1337,7 +1343,7 @@ private class JdbcLedgerDao(
                 )
 
               case _ =>
-                sys.error(s"packageUploadEntryParser: Unknown configuration entry type: $typ")
+                sys.error(s"partyAllocationEntryParser: Unknown party allocation entry type: $typ")
             })
       }
 
