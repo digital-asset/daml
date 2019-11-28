@@ -14,14 +14,14 @@ import com.digitalasset.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.sandbox.MetricsAround
 import com.digitalasset.platform.sandbox.persistence.PostgresAroundEach
-import com.digitalasset.platform.sandbox.stores.ledger.PartyIdGenerator
+import com.digitalasset.platform.sandbox.stores.ledger.{Ledger, PartyIdGenerator}
 import com.digitalasset.platform.sandbox.stores.{InMemoryActiveLedgerState, InMemoryPackageStore}
 import org.scalatest.concurrent.{AsyncTimeLimitedTests, Eventually, ScaledTimeSpans}
 import org.scalatest.time.{Second, Span}
 import org.scalatest.{AsyncWordSpec, Matchers}
 
-import scala.concurrent.Await
 import scala.concurrent.duration._
+import scala.concurrent.{Await, Future}
 
 class SqlLedgerSpec
     extends AsyncWordSpec
@@ -45,91 +45,27 @@ class SqlLedgerSpec
   private val loggerFactory = NamedLoggerFactory(this.getClass)
 
   "SQL Ledger" should {
-    "be able to be created from scratch with a random ledger id" in {
-      val ledgerF = SqlLedger(
-        jdbcUrl = postgresFixture.jdbcUrl,
-        ledgerId = None,
-        participantId = participantId,
-        timeProvider = TimeProvider.UTC,
-        acs = InMemoryActiveLedgerState.empty,
-        packages = InMemoryPackageStore.empty,
-        initialLedgerEntries = ImmArray.empty,
-        queueDepth,
-        startMode = SqlStartMode.ContinueIfExists,
-        loggerFactory,
-        metrics
-      )
-
-      ledgerF.map { ledger =>
+    "be able to be created from scratch with a random ledger ID" in {
+      for {
+        ledger <- createSqlLedger()
+      } yield {
         ledger.ledgerId should not be equal("")
       }
     }
 
-    "be able to be created from scratch with a given ledger id" in {
-      val ledgerF = SqlLedger(
-        jdbcUrl = postgresFixture.jdbcUrl,
-        ledgerId = Some(ledgerId),
-        participantId = participantId,
-        timeProvider = TimeProvider.UTC,
-        acs = InMemoryActiveLedgerState.empty,
-        packages = InMemoryPackageStore.empty,
-        initialLedgerEntries = ImmArray.empty,
-        queueDepth,
-        startMode = SqlStartMode.ContinueIfExists,
-        loggerFactory,
-        metrics
-      )
-
-      ledgerF.map { ledger =>
+    "be able to be created from scratch with a given ledger ID" in {
+      for {
+        ledger <- createSqlLedger(ledgerId)
+      } yield {
         ledger.ledgerId should not be equal(LedgerId)
       }
     }
 
-    "be able to be reused keeping the old ledger id" in {
-
+    "be able to be reused keeping the old ledger ID" in {
       for {
-        ledger1 <- SqlLedger(
-          jdbcUrl = postgresFixture.jdbcUrl,
-          ledgerId = Some(ledgerId),
-          participantId = participantId,
-          timeProvider = TimeProvider.UTC,
-          acs = InMemoryActiveLedgerState.empty,
-          packages = InMemoryPackageStore.empty,
-          initialLedgerEntries = ImmArray.empty,
-          queueDepth,
-          startMode = SqlStartMode.ContinueIfExists,
-          loggerFactory,
-          metrics
-        )
-
-        ledger2 <- SqlLedger(
-          jdbcUrl = postgresFixture.jdbcUrl,
-          ledgerId = Some(ledgerId),
-          participantId = participantId,
-          timeProvider = TimeProvider.UTC,
-          acs = InMemoryActiveLedgerState.empty,
-          packages = InMemoryPackageStore.empty,
-          initialLedgerEntries = ImmArray.empty,
-          queueDepth,
-          startMode = SqlStartMode.ContinueIfExists,
-          loggerFactory,
-          metrics
-        )
-
-        ledger3 <- SqlLedger(
-          jdbcUrl = postgresFixture.jdbcUrl,
-          ledgerId = None,
-          participantId = participantId,
-          timeProvider = TimeProvider.UTC,
-          acs = InMemoryActiveLedgerState.empty,
-          packages = InMemoryPackageStore.empty,
-          initialLedgerEntries = ImmArray.empty,
-          queueDepth,
-          startMode = SqlStartMode.ContinueIfExists,
-          loggerFactory,
-          metrics
-        )
-
+        ledger1 <- createSqlLedger(ledgerId)
+        ledger2 <- createSqlLedger(ledgerId)
+        ledger3 <- createSqlLedger()
       } yield {
         ledger1.ledgerId should not be equal(LedgerId)
         ledger1.ledgerId shouldEqual ledger2.ledgerId
@@ -137,57 +73,18 @@ class SqlLedgerSpec
       }
     }
 
-    "refuse to create a new ledger when there is already one with a different ledger id" in {
-
-      val ledgerF = for {
-        _ <- SqlLedger(
-          jdbcUrl = postgresFixture.jdbcUrl,
-          ledgerId = Some(LedgerId(Ref.LedgerString.assertFromString("TheLedger"))),
-          participantId = participantId,
-          timeProvider = TimeProvider.UTC,
-          acs = InMemoryActiveLedgerState.empty,
-          packages = InMemoryPackageStore.empty,
-          initialLedgerEntries = ImmArray.empty,
-          queueDepth,
-          startMode = SqlStartMode.ContinueIfExists,
-          loggerFactory,
-          metrics
-        )
-        _ <- SqlLedger(
-          jdbcUrl = postgresFixture.jdbcUrl,
-          ledgerId = Some(LedgerId(Ref.LedgerString.assertFromString("AnotherLedger"))),
-          participantId = participantId,
-          timeProvider = TimeProvider.UTC,
-          acs = InMemoryActiveLedgerState.empty,
-          packages = InMemoryPackageStore.empty,
-          initialLedgerEntries = ImmArray.empty,
-          queueDepth,
-          startMode = SqlStartMode.ContinueIfExists,
-          loggerFactory,
-          metrics
-        )
-      } yield ()
-
-      ledgerF.failed.map { t =>
-        t.getMessage shouldEqual "Ledger id mismatch. Ledger id given ('AnotherLedger') is not equal to the existing one ('TheLedger')!"
+    "refuse to create a new ledger when there is already one with a different ledger ID" in {
+      for {
+        _ <- createSqlLedger(ledgerId = "TheLedger")
+        throwable <- createSqlLedger(ledgerId = "AnotherLedger").failed
+      } yield {
+        throwable.getMessage shouldEqual "Ledger id mismatch. Ledger id given ('AnotherLedger') is not equal to the existing one ('TheLedger')!"
       }
     }
 
     "be healthy" in {
       for {
-        ledger <- SqlLedger(
-          jdbcUrl = postgresFixture.jdbcUrl,
-          ledgerId = None,
-          participantId = participantId,
-          timeProvider = TimeProvider.UTC,
-          acs = InMemoryActiveLedgerState.empty,
-          packages = InMemoryPackageStore.empty,
-          initialLedgerEntries = ImmArray.empty,
-          queueDepth,
-          startMode = SqlStartMode.ContinueIfExists,
-          loggerFactory,
-          metrics
-        )
+        ledger <- createSqlLedger()
       } yield {
         ledger.currentHealth() should be(Healthy)
       }
@@ -195,19 +92,7 @@ class SqlLedgerSpec
 
     "be unhealthy if the underlying database is inaccessible 3 or more times in a row" in {
       for {
-        ledger <- SqlLedger(
-          jdbcUrl = postgresFixture.jdbcUrl,
-          ledgerId = None,
-          participantId = participantId,
-          timeProvider = TimeProvider.UTC,
-          acs = InMemoryActiveLedgerState.empty,
-          packages = InMemoryPackageStore.empty,
-          initialLedgerEntries = ImmArray.empty,
-          queueDepth,
-          startMode = SqlStartMode.ContinueIfExists,
-          loggerFactory,
-          metrics
-        )
+        ledger <- createSqlLedger()
       } yield {
         def allocateParty(displayName: String): Unit = {
           Await.result(
@@ -249,4 +134,29 @@ class SqlLedgerSpec
       }
     }
   }
+
+  private def createSqlLedger(): Future[Ledger] =
+    createSqlLedger(None)
+
+  private def createSqlLedger(ledgerId: LedgerId): Future[Ledger] =
+    createSqlLedger(Some(ledgerId))
+
+  private def createSqlLedger(ledgerId: String): Future[Ledger] = {
+    val assertedLedgerId: LedgerId = LedgerId(Ref.LedgerString.assertFromString(ledgerId))
+    createSqlLedger(Some(assertedLedgerId))
+  }
+
+  private def createSqlLedger(ledgerId: Option[LedgerId]) = SqlLedger(
+    jdbcUrl = postgresFixture.jdbcUrl,
+    ledgerId = ledgerId,
+    participantId = participantId,
+    timeProvider = TimeProvider.UTC,
+    acs = InMemoryActiveLedgerState.empty,
+    packages = InMemoryPackageStore.empty,
+    initialLedgerEntries = ImmArray.empty,
+    queueDepth,
+    startMode = SqlStartMode.ContinueIfExists,
+    loggerFactory,
+    metrics,
+  )
 }
