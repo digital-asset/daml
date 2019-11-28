@@ -93,6 +93,23 @@ Start HTTP service from a DAML project directory
             prefix -- URL prefix,
             directory -- local directory that will be mapped to the URL prefix.
             Example: "prefix=static,directory=./static-content"
+      --access-token-file <value>
+        provide the path from which the access token will be read, required to interact with an authenticated ledger, no default
+
+With Authentication
+===================
+
+Apart from interacting with the Ledger API on behalf of the user, the HTTP JSON API server must also interact with the Ledger API to maintain some relevant internal state.
+
+For this reason, you must provide an access token when you start the HTTP JSON API if you're running it against a Ledger API server that requires authentication.
+
+Note that this token is used exclusively for maintaining the internal list of known packages and templates, and that it will not be use to authenticate client calls to the HTTP JSON API: the user is expected to provide a valid authentication token with each call.
+
+The HTTP JSON API servers requires no access to party-specific data, only access to the ledger identity and package services: a token issued for the HTTP JSON API server should contain enough claims to contact these two services but no more than that. Please refer to your ledger operator's documentation to find out how.
+
+Once you have retrieved your access token, you can provide it to the HTTP JSON API by storing it in a file and provide the path to it using the ``--access-token-file`` command line option.
+
+If the token cannot be read from the provided path or the Ledger API reports an authentication error (for example due to token expiration), the HTTP JSON API will report the error via logging. The token file can be updated with a valid token and it will be picked up at the next attempt to send a request.
 
 Example session
 ***************
