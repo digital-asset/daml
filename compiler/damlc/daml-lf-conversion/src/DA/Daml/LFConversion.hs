@@ -815,7 +815,7 @@ convertExpr env0 e = do
         fmap (, args') $ do
             let fieldName = mkField ("_" <> T.pack (show i))
             x' <- convertExpr env x
-            pure $ ETupleProj fieldName x'
+            pure $ EStructProj fieldName x'
 
     -- conversion of bodies of $con2tag functions
     go env (VarIn GHC_Base "getTag") (LType (TypeCon t _) : LExpr x : args) = fmap (, args) $ do
@@ -1140,7 +1140,7 @@ convertDataCon env m con args
                 pure $ EEnumCon qTCon ctorName
 
             ConstraintTupleCon -> do
-                pure $ ETupleCon (zipExact fldNames tmArgs)
+                pure $ EStructCon (zipExact fldNames tmArgs)
 
             SimpleVariantCon ->
                 fmap (EVariantCon tcon ctorName) $ case tmArgs of
@@ -1452,7 +1452,7 @@ convertType env o@(TypeCon t ts)
     | isConstraintTupleTyCon t = do
         fieldTys <- mapM (convertType env) ts
         let fieldNames = map (mkField . ("_" <>) . T.pack . show) ([1..] :: [Int])
-        pure $ TTuple (zip fieldNames fieldTys)
+        pure $ TStruct (zip fieldNames fieldTys)
 
     | otherwise = mkTApps <$> convertTyCon env t <*> mapM (convertType env) ts
 convertType env t | Just (v, t') <- splitForAllTy_maybe t
