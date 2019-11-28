@@ -119,14 +119,16 @@ class SqlLedgerSpec
         }
 
         assertThrows[SQLException](allocateParty("Dan"))
-        withClue("after allocating Dan,") {
-          ledger.currentHealth() should be(Unhealthy)
+        eventually {
+          withClue("after allocating Dan,") {
+            ledger.currentHealth() should be(Unhealthy)
+          }
         }
 
         startPostgres()
 
+        allocateParty("Erin")
         eventually {
-          allocateParty("Erin")
           withClue("after allocating Erin,") {
             ledger.currentHealth() should be(Healthy)
           }
