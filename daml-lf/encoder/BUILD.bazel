@@ -9,6 +9,12 @@ load(
     "da_scala_test_suite",
     "lf_scalacopts",
 )
+load(
+    "//daml-lf/language:daml-lf.bzl",
+    "lf_dev_version",
+    "lf_latest_version",
+    "lf_stable_version",
+)
 
 lf_targets = [
     "1.0",
@@ -18,8 +24,6 @@ lf_targets = [
     "1.7",
     "1.dev",
 ]
-
-lf_latest = "1.7"
 
 da_scala_library(
     name = "encoder",
@@ -133,12 +137,19 @@ da_scala_binary(
     for target in lf_targets
 ]
 
-filegroup(
-    name = "testing-dar-latest",
-    srcs = [":testing-dar-%s" % lf_latest],
-    visibility = [
-        "//daml-lf:__subpackages__",
-        "//extractor:__subpackages__",
-        "//language-support:__subpackages__",
-    ],
-)
+[
+    filegroup(
+        name = "testing-dar-%s" % alias,
+        srcs = [":testing-dar-%s" % version],
+        visibility = [
+            "//daml-lf:__subpackages__",
+            "//extractor:__subpackages__",
+            "//language-support:__subpackages__",
+        ],
+    )
+    for (alias, version) in [
+        ("stable", lf_stable_version),
+        ("latest", lf_latest_version),
+        ("dev", lf_dev_version),
+    ]
+]

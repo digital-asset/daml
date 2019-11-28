@@ -3,7 +3,7 @@
 
 package com.digitalasset.extractor.json
 
-import com.digitalasset.daml.lf.data.SortedLookupList
+import com.digitalasset.daml.lf.data.{ImmArray, SortedLookupList}
 import com.digitalasset.daml.lf.value.{Value => V}
 import com.digitalasset.daml.lf.value.json.ApiCodecCompressed
 import com.digitalasset.extractor.ledger.types.{Identifier, LedgerValue}
@@ -38,9 +38,8 @@ object JsonConverters {
     }
   }
 
-  def toJsonString[A: Encoder](a: A): String = {
+  def toJsonString[A: Encoder](a: A): String =
     a.asJson.noSpaces
-  }
 
   implicit val recordEncoder: Encoder[OfCid[V.ValueRecord]] = valueEncoder
 
@@ -49,8 +48,11 @@ object JsonConverters {
 
   implicit val variantEncoder: Encoder[OfCid[V.ValueVariant]] = valueEncoder
 
-  implicit val mapEncoder: Encoder[SortedLookupList[LedgerValue]] =
+  implicit val textMapEncoder: Encoder[SortedLookupList[LedgerValue]] =
     valueEncoder.contramap(V.ValueTextMap(_))
+
+  implicit val genMapEncoder: Encoder[ImmArray[(LedgerValue, LedgerValue)]] =
+    valueEncoder.contramap(V.ValueGenMap(_))
 
   implicit val idKeyEncoder: KeyEncoder[Identifier] = id => s"${id.packageId}@${id.name}"
   implicit val idKeyDecoder: KeyDecoder[Identifier] = StringEncodedIdentifier.unapply
