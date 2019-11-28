@@ -66,6 +66,13 @@ object SqlLedger {
   val defaultNumberOfShortLivedConnections = 16
   val defaultNumberOfStreamingConnections = 2
 
+  private case class Offsets(offset: Long, nextOffset: Long)
+
+  private type Queues = (
+      SourceQueueWithComplete[Offsets => Future[Unit]],
+      SourceQueueWithComplete[Offsets => Future[Unit]],
+  )
+
   //jdbcUrl must have the user/password encoded in form of: "jdbc:postgresql://localhost/test?user=fred&password=secret"
   def apply(
       jdbcUrl: String,
@@ -140,56 +147,50 @@ private class SqlLedger(
     extends BaseLedger(ledgerId, headAtInitialization, ledgerDao)
     with Ledger {
 
-  private val logger = loggerFactory.getLogger(getClass)
+  import SqlLedger._
 
-  private case class Offsets(offset: Long, nextOffset: Long)
+  private val logger = loggerFactory.getLogger(getClass)
 
   // the reason for modelling persistence as a reactive pipeline is to avoid having race-conditions between the
   // moving ledger-end, the async persistence operation and the dispatcher head notification
-  private val (checkpointQueue, persistenceQueue): (
-      SourceQueueWithComplete[Offsets => Future[Unit]],
-      SourceQueueWithComplete[Offsets => Future[Unit]]) = createQueues()
+  private val (checkpointQueue, persistenceQueue): Queues = createQueues()
 
   watchForFailures(checkpointQueue, "checkpoint")
   watchForFailures(persistenceQueue, "persistence")
 
-  private def watchForFailures(queue: SourceQueueWithComplete[_], name: String) =
+  private def watchForFailures(queue: SourceQueueWithComplete[_], name: String): Unit =
     queue
       .watchCompletion()
-      .onComplete {
-        case Failure(t) => logger.error(s"$name queue has been closed with a failure!", t)
-        case _ => ()
+      .failed
+      .foreach { throwable =>
+        logger.error(s"$name queue has been closed with a failure!", throwable)
       }(DEC)
 
-  private def createQueues(): (
-      SourceQueueWithComplete[Offsets => Future[Unit]],
-      SourceQueueWithComplete[Offsets => Future[Unit]]) = {
+  private def createQueues(): Queues = {
+    implicit val ec: ExecutionContext = DEC
 
     val checkpointQueue = Source.queue[Offsets => Future[Unit]](1, OverflowStrategy.dropHead)
     val persistenceQueue =
       Source.queue[Offsets => Future[Unit]](queueDepth, OverflowStrategy.dropNew)
 
-    implicit val ec: ExecutionContext = DEC
+    val mergedSources =
+      Source.fromGraph(GraphDSL.create(checkpointQueue, persistenceQueue)(_ -> _) {
+        implicit b => (checkpointSource, persistenceSource) =>
+          import akka.stream.scaladsl.GraphDSL.Implicits._
+          val merge = b.add(MergePreferred[Offsets => Future[Unit]](1))
 
-    val mergedSources = Source.fromGraph(GraphDSL.create(checkpointQueue, persistenceQueue) {
-      case (q1Mat, q2Mat) =>
-        q1Mat -> q2Mat
-    } { implicit b => (s1, s2) =>
-      import akka.stream.scaladsl.GraphDSL.Implicits._
-      val merge = b.add(MergePreferred[Offsets => Future[Unit]](1))
+          checkpointSource ~> merge.preferred
+          persistenceSource ~> merge.in(0)
 
-      s1 ~> merge.preferred
-      s2 ~> merge.in(0)
-
-      SourceShape(merge.out)
-    })
+          SourceShape(merge.out)
+      })
 
     // By default we process the requests in batches when under pressure (see semantics of `batch`). Note
     // that this is safe on the read end because the readers rely on the dispatchers to know the
     // ledger end, and not the database itself. This means that they will not start reading from the new
     // ledger end until we tell them so, which we do when _all_ the entries have been committed.
     mergedSources
-      .batch(maxBatchSize.toLong, e => Queue(e))((batch, e) => batch :+ e)
+      .batch(maxBatchSize.toLong, Queue(_))(_.enqueue(_))
       .mapAsync(1) { queue =>
         val startOffset = dispatcher.getHead()
         // we can only do this because there is no parallelism here!
@@ -203,14 +204,9 @@ private class SqlLedger(
           .map { _ =>
             //note that we can have holes in offsets in case of the storing of an entry failed for some reason
             dispatcher.signalNewHead(startOffset + queue.length) //signalling downstream subscriptions
-          }(DEC)
+          }
       }
-      .toMat(Sink.ignore)(
-        Keep.left[
-          (
-              SourceQueueWithComplete[Offsets => Future[Unit]],
-              SourceQueueWithComplete[Offsets => Future[Unit]]),
-          Future[Done]])
+      .toMat(Sink.ignore)(Keep.left[Queues, Future[Done]])
       .run()
   }
 
