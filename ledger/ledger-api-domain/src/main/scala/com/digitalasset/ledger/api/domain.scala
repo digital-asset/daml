@@ -274,11 +274,6 @@ object domain {
 
   sealed trait AbsoluteNodeIdTag
 
-  sealed trait SubmissionIdTag
-
-  type SubmissionId = Ref.LedgerString @@ SubmissionIdTag
-  val SubmissionId: Tag.TagOf[SubmissionIdTag] = Tag.of[SubmissionIdTag]
-
   case class Commands(
       ledgerId: LedgerId,
       workflowId: Option[WorkflowId],
