@@ -326,12 +326,8 @@ private class SqlLedger(
         .map {
           case PersistenceResponse.Ok =>
             SubmissionResult.Acknowledged
-          //TODO BH this info should be in the PartyAccept message
-          //PartyAllocationResult.Ok(PartyDetails(party, displayName, true))
           case PersistenceResponse.Duplicate =>
             SubmissionResult.Acknowledged
-          //TODO BH this info should be in the PartyReject message
-          //PartyAllocationResult.AlreadyExists
         }(DEC)
     }
 
@@ -340,12 +336,8 @@ private class SqlLedger(
       .map {
         case PersistenceResponse.Ok =>
           SubmissionResult.Acknowledged
-        //TODO BH this info should be in the PartyAccept message
-        //PartyAllocationResult.Ok(PartyDetails(party, displayName, true))
         case PersistenceResponse.Duplicate =>
           SubmissionResult.Acknowledged
-        //TODO BH this info should be in the PartyReject message
-        //PartyAllocationResult.AlreadyExists
       }(DEC)
 
     storePartyAllocationEntry.flatMap {
