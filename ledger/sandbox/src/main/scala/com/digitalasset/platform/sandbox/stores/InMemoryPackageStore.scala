@@ -49,8 +49,6 @@ case class InMemoryPackageStore(
   override def getLfPackage(packageId: PackageId): Future[Option[Ast.Package]] =
     Future.successful(getLfPackageSync(packageId))
 
-  override def lookupPackageUploadEntry(submissionId: SubmissionId): Future[Option[domain.PackageUploadEntry]] = ???
-
   def getLfPackageSync(packageId: PackageId): Option[Ast.Package] =
     packages.get(packageId)
 
@@ -115,4 +113,10 @@ case class InMemoryPackageStore(
             store.addPackage(pkgId, details, archive, pkg)
       })
 
+  override def lookupPackageUploadEntry(
+      submissionId: SubmissionId): Future[Option[domain.PackageUploadEntry]] = {
+    //TODO BH : implement me
+    logger.warn(s"nothing to see here for $submissionId")
+    Future.successful((None))
+  }
 }

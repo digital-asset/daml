@@ -42,6 +42,7 @@ import com.digitalasset.platform.sandbox.stores.ledger.sql.util.DbDispatcher
 import com.digitalasset.platform.sandbox.stores.ledger.{
   Ledger,
   LedgerEntry,
+  PackageUploadLedgerEntry,
   PartyAllocationLedgerEntry
 }
 import com.digitalasset.platform.sandbox.stores.{InMemoryActiveLedgerState, InMemoryPackageStore}
@@ -361,9 +362,26 @@ private class SqlLedger(
       payload: List[Archive],
       submissionId: String,
       participantId: ParticipantId): Future[SubmissionResult] = {
-    val submissionId = UUID.randomUUID().toString
+
     val packages = payload.map(archive =>
       (archive, PackageDetails(archive.getPayload.size().toLong, knownSince, sourceDescription)))
+
+    val storePackageUploadEntry: Future[SubmissionResult] = {
+      var headRef = 0L
+      ledgerDao
+        .storePackageUploadEntry(
+          headRef,
+          headRef + 1,
+          None,
+          PackageUploadLedgerEntry.Accepted(submissionId, participantId))
+        .map {
+          case PersistenceResponse.Ok =>
+            SubmissionResult.Acknowledged
+          case PersistenceResponse.Duplicate =>
+            SubmissionResult.Acknowledged
+        }(DEC)
+    }
+
     ledgerDao
       .uploadLfPackages(submissionId, packages, None)
       .map { result =>
@@ -378,7 +396,14 @@ private class SqlLedger(
         // that we only keep the knownSince and sourceDescription of the first upload.
         SubmissionResult.Acknowledged
       }(DEC)
+      .flatMap {
+        case SubmissionResult.Acknowledged =>
+          storePackageUploadEntry
+        case _ =>
+          Future.failed(ErrorFactories.invalidArgument("unable to store party upload entry to DB"))
+      }(DEC)
   }
+
 }
 
 private class SqlLedgerFactory(ledgerDao: LedgerDao, loggerFactory: NamedLoggerFactory) {

@@ -77,7 +77,6 @@ class ApiPackageManagementService(
         FutureConverters
           .toScala(res._1)
           .flatMap {
-            //TODO BH: need to implement properly polling and retrieval of response event
             case SubmissionResult.Acknowledged =>
               pollForPackageUploadResult(Ref.LedgerString.assertFromString(submissionId)).flatMap {
                 case domain.PackageUploadEntry.Accepted(_, _) =>

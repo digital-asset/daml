@@ -321,7 +321,8 @@ class InMemoryLedger(
       .withPackages(knownSince, sourceDescription, payload)
       .fold(
         err => {
-          packageUEntries.publish(PackageUploadLedgerEntry.Rejected(submissionId, participantId, err))
+          packageUEntries.publish(
+            PackageUploadLedgerEntry.Rejected(submissionId, participantId, err))
           Future.successful(SubmissionResult.InternalError(err))
         },
         newStore => {

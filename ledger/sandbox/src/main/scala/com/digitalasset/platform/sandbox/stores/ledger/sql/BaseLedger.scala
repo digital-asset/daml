@@ -35,7 +35,7 @@ class BaseLedger(val ledgerId: LedgerId, headAtInitialization: Long, ledgerDao: 
 
   protected final val dispatcher: Dispatcher[Long] = Dispatcher[Long](
     "sql-ledger",
-    0l,
+    0L,
     headAtInitialization
   )
 
@@ -94,7 +94,8 @@ class BaseLedger(val ledgerId: LedgerId, headAtInitialization: Long, ledgerDao: 
       .flatMap(archiveO =>
         Future.fromTry(Try(archiveO.map(archive => Decode.decodeArchive(archive)._2))))(DEC)
 
-  override def lookupPackageUploadEntry(submissionId: SubmissionId): Future[Option[PackageUploadLedgerEntry]] = ???
+  override def lookupPackageUploadEntry(submissionId: SubmissionId): Future[Option[PackageUploadLedgerEntry]] =
+    ledgerDao.lookupPackageUploadEntry(submissionId)
 
   override def close(): Unit = {
     dispatcher.close()

@@ -1245,6 +1245,9 @@ private class JdbcLedgerDao(
     SQL(
       "select * from package_upload_entries where ledger_offset>={startInclusive} and ledger_offset<{endExclusive} order by ledger_offset asc")
 
+  private val SQL_SELECT_PACKAGE_UPLOAD_ENTRY =
+    SQL("select * from package_upload_entries where submission_id={submissionId} limit 1")
+
   private val SQL_SELECT_PARTY_ALLOCATION_ENTRIES =
     SQL(
       "select * from party_allocation_entries where ledger_offset>={startInclusive} and ledger_offset<{endExclusive} order by ledger_offset asc")
@@ -1472,6 +1475,17 @@ private class JdbcLedgerDao(
         SQL_SELECT_PARTY_ALLOCATION_ENTRY
           .on("submissionId" -> submissionId)
           .as(partyAllocationEntryParser.*)
+          .headOption
+          .map(_._2)
+      }
+  }
+
+  override def lookupPackageUploadEntry(submissionId: SubmissionId): Future[Option[PackageUploadLedgerEntry]] = {
+    dbDispatcher
+      .executeSql(s"load package upload entry", None) { implicit conn =>
+        SQL_SELECT_PACKAGE_UPLOAD_ENTRY
+          .on("submissionId" -> submissionId)
+          .as(packageUploadEntryParser.*)
           .headOption
           .map(_._2)
       }

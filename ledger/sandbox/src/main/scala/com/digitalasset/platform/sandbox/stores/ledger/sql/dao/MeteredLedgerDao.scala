@@ -13,16 +13,11 @@ import com.digitalasset.daml.lf.data.Ref.{LedgerString, PackageId, Party}
 import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
-import com.digitalasset.ledger.SubmissionId
 import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails}
 import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilter
 import com.digitalasset.platform.sandbox.metrics.timedFuture
 import com.digitalasset.platform.sandbox.stores.ActiveLedgerState.{ActiveContract, Contract}
-import com.digitalasset.platform.sandbox.stores.ledger.{
-  LedgerEntry,
-  PackageUploadLedgerEntry,
-  PartyAllocationLedgerEntry
-}
+import com.digitalasset.platform.sandbox.stores.ledger.{LedgerEntry, PackageUploadLedgerEntry, PartyAllocationLedgerEntry}
 
 import scala.collection.immutable
 import scala.concurrent.Future
@@ -86,6 +81,10 @@ private class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: MetricRegi
       startInclusive: LedgerOffset,
       endExclusive: LedgerOffset): Source[(LedgerOffset, PackageUploadLedgerEntry), NotUsed] =
     ledgerDao.getPackageUploadEntries(startInclusive, endExclusive)
+
+  override def lookupPackageUploadEntry(
+      submissionId: SubmissionId): Future[Option[PackageUploadLedgerEntry]] =
+    ledgerDao.lookupPackageUploadEntry(submissionId)
 
   override def getParties: Future[List[PartyDetails]] =
     timedFuture(Metrics.getParties, ledgerDao.getParties)
