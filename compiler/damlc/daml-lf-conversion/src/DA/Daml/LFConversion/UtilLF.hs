@@ -37,6 +37,9 @@ mkModName = ModuleName
 mkField :: T.Text -> FieldName
 mkField = FieldName
 
+mkIndexedField :: Int -> FieldName
+mkIndexedField i = mkField ("_" <> T.pack (show i))
+
 mkVariantCon :: T.Text -> VariantConName
 mkVariantCon = VariantConName
 

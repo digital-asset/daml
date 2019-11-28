@@ -538,6 +538,10 @@ convertTypeDef env o@(ATyCon t) = withRange (convNameLoc t) $ if
     | isTypeSynonymTyCon t
     -> pure []
 
+    -- Constraint tuples are represented by LF structs.
+    | isConstraintTupleTyCon t
+    -> pure []
+
     -- Enum types. These are algebraic types without any type arguments,
     -- with two or more constructors that have no arguments.
     | isEnumTyCon t
@@ -685,6 +689,11 @@ convertBind env (name, x)
     -- lifter or DAML-LF supports local recursion.
     | (as, Let (Rec [(f, Lam v y)]) (Var f')) <- collectBinders x, f == f'
     = convertBind env $ (,) name $ mkLams as $ Lam v $ Let (NonRec f $ mkVarApps (Var name) as) y
+
+    -- | Constraint tuple projections are turned into LF struct projections at use site.
+    | ConstraintTupleProjectionName _ _ <- name
+    = pure []
+
     | otherwise
     = withRange (convNameLoc name) $ do
     x' <- convertExpr env x
@@ -750,7 +759,7 @@ convertExpr env0 e = do
             let tupleType = TypeConApp tupleTyCon (map snd fields)
             pure $ ETmLam (varV1, TStruct fields) $ ERecCon tupleType $ zipWithFrom mkFieldProj (1 :: Int) fields
         where
-            mkFieldProj i (name, _typ) = (mkField ("_" <> T.pack (show i)), EStructProj name (EVar varV1))
+            mkFieldProj i (name, _typ) = (mkIndexedField i, EStructProj name (EVar varV1))
     go env (VarIn GHC_Types "primitive") (LType (isStrLitTy -> Just y) : LType t : args)
         = fmap (, args) $ convertPrim (envLfVersion env) (unpackFS y) <$> convertType env t
     go env (VarIn GHC_Types "external") (LType (isStrLitTy -> Just y) : LType t : args)
@@ -801,6 +810,13 @@ convertExpr env0 e = do
         t1' <- convertType env t1
         t2' <- convertType env t2
         pure (x' `ETyApp` t1' `ETyApp` t2' `ETmApp` EBuiltin (BEText (unpackCStringUtf8 s)))
+
+    go env (ConstraintTupleProjection index arity) args
+        | (LExpr x : args') <- drop arity args -- drop the type arguments
+        = fmap (, args') $ do
+            let fieldName = mkIndexedField index
+            x' <- convertExpr env x
+            pure $ EStructProj fieldName x'
 
     -- conversion of bodies of $con2tag functions
     go env (VarIn GHC_Base "getTag") (LType (TypeCon t _) : LExpr x : args) = fmap (, args) $ do
@@ -1021,6 +1037,10 @@ convertExpr env0 e = do
     go env o@(Coercion _) args = unhandled "Coercion" o
     go _ x args = unhandled "Expression" x
 
+-- | Is this a constraint tuple?
+isConstraintTupleTyCon :: TyCon -> Bool
+isConstraintTupleTyCon = maybe False (== ConstraintTuple) . tyConTuple_maybe
+
 -- | Is this an enum type?
 isEnumTyCon :: TyCon -> Bool
 isEnumTyCon tycon =
@@ -1053,11 +1073,15 @@ conHasLabels = notNull . ctorLabels
 isEnumCon :: DataCon -> Bool
 isEnumCon = isEnumTyCon . dataConTyCon
 
+isConstraintTupleCon :: DataCon -> Bool
+isConstraintTupleCon = isConstraintTupleTyCon . dataConTyCon
+
 isSimpleRecordCon :: DataCon -> Bool
 isSimpleRecordCon con =
     (conHasLabels con || conHasNoArgs con)
     && conIsSingle con
     && not (isEnumCon con)
+    && not (isConstraintTupleCon con)
 
 isVariantRecordCon :: DataCon -> Bool
 isVariantRecordCon con = conHasLabels con && not (conIsSingle con)
@@ -1068,11 +1092,13 @@ data DataConClass
     | SimpleRecordCon -- ^ constructor for a record type
     | SimpleVariantCon -- ^ constructor for a variant type with no synthetic record type
     | VariantRecordCon -- ^ constructor for a variant type with a synthetic record type
+    | ConstraintTupleCon -- ^ constructor for a constraint tuple
     deriving (Eq, Show)
 
 classifyDataCon :: DataCon -> DataConClass
 classifyDataCon con
     | isEnumCon con = EnumCon
+    | isConstraintTupleCon con = ConstraintTupleCon
     | isSimpleRecordCon con = SimpleRecordCon
     | isVariantRecordCon con = VariantRecordCon
     | otherwise = SimpleVariantCon
@@ -1113,6 +1139,9 @@ convertDataCon env m con args
             EnumCon -> do
                 unless (null args) $ unhandled "enum constructor with arguments" xargs
                 pure $ EEnumCon qTCon ctorName
+
+            ConstraintTupleCon -> do
+                pure $ EStructCon (zipExact fldNames tmArgs)
 
             SimpleVariantCon ->
                 fmap (EVariantCon tcon ctorName) $ case tmArgs of
@@ -1357,7 +1386,7 @@ packageNameToPkgRef env =
 convertTyCon :: Env -> TyCon -> ConvertM LF.Type
 convertTyCon env t
     | t == unitTyCon = pure TUnit
-    | isTupleTyCon t, arity >= 2 = TCon <$> qDA_Types env (mkTypeCon ["Tuple" <> T.pack (show arity)])
+    | isTupleTyCon t, not (isConstraintTupleTyCon t), arity >= 2 = TCon <$> qDA_Types env (mkTypeCon ["Tuple" <> T.pack (show arity)])
     | t == listTyCon = pure (TBuiltin BTList)
     | t == boolTyCon = pure TBool
     | t == intTyCon || t == intPrimTyCon = pure TInt64
@@ -1421,6 +1450,11 @@ convertType env o@(TypeCon t ts)
         t2 <- convertType env t2
         pure $ TStruct [(mkField f1, t1), (mkField f2, t2)]
     | tyConFlavour t == TypeSynonymFlavour = convertType env $ expandTypeSynonyms o
+    | isConstraintTupleTyCon t = do
+        fieldTys <- mapM (convertType env) ts
+        let fieldNames = map mkIndexedField [1..]
+        pure $ TStruct (zip fieldNames fieldTys)
+
     | otherwise = mkTApps <$> convertTyCon env t <*> mapM (convertType env) ts
 convertType env t | Just (v, t') <- splitForAllTy_maybe t
   = TForall <$> convTypeVar v <*> convertType env t'
@@ -1512,7 +1546,7 @@ ctorLabels con =
       -- If we omit this workaround, `GHC.Tuple.Unit` gets translated into a
       -- variant rather than a record and the `SugarUnit` test will fail.
       || (getOccFS con == "Unit" && nameModule (getName con) == gHC_TUPLE)
-    = map (mkField . T.cons '_' . T.pack . show) [1..dataConSourceArity con]
+    = map mkIndexedField [1..dataConSourceArity con]
     | flv == NewtypeFlavour && null lbls
     = [mkField "unpack"]
     | otherwise
