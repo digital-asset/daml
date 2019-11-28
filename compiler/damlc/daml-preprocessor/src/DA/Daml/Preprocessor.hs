@@ -11,7 +11,6 @@ module DA.Daml.Preprocessor
 import           DA.Daml.Preprocessor.Records
 import           DA.Daml.Preprocessor.Generics
 import           DA.Daml.Preprocessor.EnumType
-import           DA.Daml.Preprocessor.TemplateConstraint
 
 import Development.IDE.Types.Options
 import qualified "ghc-lib" GHC
@@ -53,7 +52,7 @@ damlPreprocessor mbPkgName x
     | otherwise = IdePreprocessedSource
         { preprocWarnings = checkModuleName x
         , preprocErrors = checkImports x ++ checkDataTypes x ++ checkModuleDefinition x ++ checkGenericTemplates x
-        , preprocSource = recordDotPreprocessor $ importDamlPreprocessor $ genericsPreprocessor mbPkgName $ templateConstraintPreprocessor $ enumTypePreprocessor x
+        , preprocSource = recordDotPreprocessor $ importDamlPreprocessor $ genericsPreprocessor mbPkgName $ enumTypePreprocessor x
         }
     where
       name = fmap GHC.unLoc $ GHC.hsmodName $ GHC.unLoc x
