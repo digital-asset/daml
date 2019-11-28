@@ -28,10 +28,7 @@ class ApiPartyManagementService private (
     partyManagementService: IndexPartyManagementService,
     writeService: WritePartyService,
     scheduler: Scheduler,
-    loggerFactory: NamedLoggerFactory,
-    implicit val ec: ExecutionContext,
-    esf: ExecutionSequencerFactory,
-    mat: ActorMaterializer
+    loggerFactory: NamedLoggerFactory
 ) extends PartyManagementService
     with GrpcApiService {
 
@@ -72,10 +69,10 @@ class ApiPartyManagementService private (
           pollForAllocationResult(submissionId).flatMap {
             case domain.PartyAllocationEntry.Accepted(_, _, partyDetails) =>
               Future.successful(AllocatePartyResponse(Some(
-                PartyDetails(partyDetails.party, partyDetails.displayName.getOrElse(""), true))))
+                PartyDetails(partyDetails.party, partyDetails.displayName.getOrElse(""), isLocal=true))))
             case domain.PartyAllocationEntry.Rejected(_, _, reason) =>
               Future.failed(ErrorFactories.invalidArgument(reason))
-          }
+          }(DE)
         case r @ SubmissionResult.Overloaded =>
           Future.failed(ErrorFactories.resourceExhausted(r.description))
         case r @ SubmissionResult.InternalError(_) =>
@@ -119,9 +116,6 @@ object ApiPartyManagementService {
       readBackend,
       writeBackend,
       mat.system.scheduler,
-      loggerFactory,
-      ec,
-      esf,
-      mat) with PartyManagementServiceLogging
+      loggerFactory) with PartyManagementServiceLogging
 
 }
