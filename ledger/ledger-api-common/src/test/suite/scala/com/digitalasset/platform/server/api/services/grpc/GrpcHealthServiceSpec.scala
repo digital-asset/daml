@@ -164,6 +164,7 @@ final class GrpcHealthServiceSpec
           Vector(servingResponse, notServingResponse, servingResponse, notServingResponse))
       }
 
+      // this won't emit a new response, because the overall health of the system didn't change.
       componentCHealth = Unhealthy
       eventually {
         responseObserver.elements should be(
@@ -206,16 +207,19 @@ final class GrpcHealthServiceSpec
         responseObserver.elements should be(Vector(servingResponse))
       }
 
+      // this component won't affect the health of component C
       componentBHealth = Unhealthy
       eventually {
         responseObserver.elements should be(Vector(servingResponse))
       }
 
+      // this component won't affect the health of component C
       componentBHealth = Healthy
       eventually {
         responseObserver.elements should be(Vector(servingResponse))
       }
 
+      // this component won't affect the health of component C
       componentAHealth = Unhealthy
       eventually {
         responseObserver.elements should be(Vector(servingResponse))
@@ -227,6 +231,12 @@ final class GrpcHealthServiceSpec
       }
 
       componentCHealth = Healthy
+      eventually {
+        responseObserver.elements should be(
+          Vector(servingResponse, notServingResponse, servingResponse))
+      }
+
+      // this component won't affect the health of component C
       componentAHealth = Healthy
       eventually {
         responseObserver.elements should be(
