@@ -143,10 +143,10 @@
   mavenUpload: true
 - target: //ledger/ledger-api-auth-client:ledger-api-auth-client
   type: jar-lib
-  mavenUpload: True
+  mavenUpload: true
 - target: //ledger/ledger-api-health:ledger-api-health
   type: jar-scala
-  mavenUpload: True
+  mavenUpload: true
 - target: //ledger/sandbox:sandbox
   type: jar-scala
   mavenUpload: true
