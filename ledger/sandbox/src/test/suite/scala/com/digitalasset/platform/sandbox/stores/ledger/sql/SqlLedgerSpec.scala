@@ -17,10 +17,9 @@ import com.digitalasset.platform.sandbox.persistence.PostgresAroundEach
 import com.digitalasset.platform.sandbox.stores.ledger.{Ledger, PartyIdGenerator}
 import com.digitalasset.platform.sandbox.stores.{InMemoryActiveLedgerState, InMemoryPackageStore}
 import org.scalatest.concurrent.{AsyncTimeLimitedTests, Eventually, ScaledTimeSpans}
-import org.scalatest.time.{Second, Span}
+import org.scalatest.time.{Minute, Seconds, Span}
 import org.scalatest.{AsyncWordSpec, Matchers}
 
-import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 
 class SqlLedgerSpec
@@ -33,9 +32,9 @@ class SqlLedgerSpec
     with PostgresAroundEach
     with MetricsAround {
 
-  override val timeLimit: Span = scaled(60.seconds)
+  override val timeLimit: Span = scaled(Span(1, Minute))
   implicit override val patienceConfig: PatienceConfig =
-    PatienceConfig(timeout = scaled(Span(1, Second)))
+    PatienceConfig(timeout = scaled(Span(5, Seconds)))
 
   private val queueDepth = 128
 
@@ -108,28 +107,18 @@ class SqlLedgerSpec
 
         stopPostgres()
 
-        assertThrows[SQLException](allocateParty("Bob"))
-        withClue("after allocating Bob,") {
-          ledger.currentHealth() should be(Healthy)
-        }
-
-        assertThrows[SQLException](allocateParty("Carol"))
-        withClue("after allocating Carol,") {
-          ledger.currentHealth() should be(Healthy)
-        }
-
-        assertThrows[SQLException](allocateParty("Dan"))
         eventually {
-          withClue("after allocating Dan,") {
+          assertThrows[SQLException](allocateParty("Bob"))
+          withClue("after allocating Bob,") {
             ledger.currentHealth() should be(Unhealthy)
           }
         }
 
         startPostgres()
 
-        allocateParty("Erin")
         eventually {
-          withClue("after allocating Erin,") {
+          allocateParty("Carol")
+          withClue("after allocating Carol,") {
             ledger.currentHealth() should be(Healthy)
           }
         }
@@ -148,17 +137,18 @@ class SqlLedgerSpec
     createSqlLedger(Some(assertedLedgerId))
   }
 
-  private def createSqlLedger(ledgerId: Option[LedgerId]) = SqlLedger(
-    jdbcUrl = postgresFixture.jdbcUrl,
-    ledgerId = ledgerId,
-    participantId = participantId,
-    timeProvider = TimeProvider.UTC,
-    acs = InMemoryActiveLedgerState.empty,
-    packages = InMemoryPackageStore.empty,
-    initialLedgerEntries = ImmArray.empty,
-    queueDepth,
-    startMode = SqlStartMode.ContinueIfExists,
-    loggerFactory,
-    metrics,
-  )
+  private def createSqlLedger(ledgerId: Option[LedgerId]): Future[Ledger] =
+    SqlLedger(
+      jdbcUrl = postgresFixture.jdbcUrl,
+      ledgerId = ledgerId,
+      participantId = participantId,
+      timeProvider = TimeProvider.UTC,
+      acs = InMemoryActiveLedgerState.empty,
+      packages = InMemoryPackageStore.empty,
+      initialLedgerEntries = ImmArray.empty,
+      queueDepth,
+      startMode = SqlStartMode.ContinueIfExists,
+      loggerFactory,
+      metrics,
+    )
 }
