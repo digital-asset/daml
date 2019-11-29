@@ -1,7 +1,6 @@
 -- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
--- @ERROR range=12:24-12:32; Generic templates are not supported anymore.
--- @ERROR range=34:10-34:16; Generic templates are not supported anymore.
+-- @ERROR range=11:24-11:34; Generic templates are no longer supported
 
 daml 1.2
 module GenericTemplateError where

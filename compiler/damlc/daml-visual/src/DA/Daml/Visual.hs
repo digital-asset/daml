@@ -145,12 +145,12 @@ startFromUpdate seen world update = case update of
 startFromExpr :: Set.Set (LF.Qualified LF.ExprValName) -> LF.World -> LF.Expr -> Set.Set Action
 startFromExpr seen world e = case e of
     LF.EVar _ -> Set.empty
-    -- NOTE(MH/RJR): Do not explore the `$fXInstance` dictionary because it
-    -- contains all the ledger actions and therefore creates too many edges
+    -- NOTE(MH/RJR): Do not explore the `$fChoice`/`$fTemplate` dictionaries because
+    -- they contain all the ledger actions and therefore creates too many edges
     -- in the graph. We instead detect calls to the `create`, `archive` and
     -- `exercise` methods from `Template` and `Choice` instances.
     LF.EVal (LF.Qualified _ _ (LF.ExprValName ref))
-        | "$f" `T.isPrefixOf` ref && "Instance" `T.isSuffixOf` ref -> Set.empty
+        | any (`T.isPrefixOf` ref) ["$fChoice", "$fTemplate"] -> Set.empty
     LF.EVal ref -> case LF.lookupValue ref world of
         Right LF.DefValue{..}
             | ref `Set.member` seen -> Set.empty
