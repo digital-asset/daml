@@ -6,6 +6,118 @@ Release notes
 
 This page contains release notes for the SDK.
 
+.. _release-0-13-38:
+
+0.13.38 - 2019-11-29
+--------------------
+
+Ledger API
+~~~~~~~~~~
+
+- Allow non-alphanumeric characters in Ledger API server participant ids
+  (space, colon, hash, slash, dot). Proper fix for change originally
+  attempted in v0.13.36. See issue
+  `issue #3327 <https://github.com/digital-asset/daml/issues/3327>`__.
+- Add healthcheck endpoints, conforming to the
+  `GRPC Health Checking Protocol <https://github.com/grpc/grpc/blob/master/doc/health-checking.md>`_.
+  It is always ``SERVING`` for now.
+
+Ledger API Server
+~~~~~~~~~~~~~~~~~
+
+- Ledger API Server and Indexer now accept an instance of ``MetricRegistry``
+  as parameters. This gives implementors of ledger integrations the most
+  flexibility to set up metrics reporting that works best for them.
+- Add various metrics to track gRPC requests, command submissions, and state
+  update processing.
+  See `#3513 <https://github.com/digital-asset/daml/issues/3513>`__.
+
+DAML Ledger Integration Kit
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- Add conformance test coverage for the ``grpc.health.v1.Health`` service.
+- Add Ledger API Test Tool `--load-scale-factor` option that allows dialing up
+  or down the workload applied by scale tests (such as the
+  ``TransactionScaleIT`` suite). This allows improving the performance of
+  different ledger over time.
+- The Ledger API Test Tool no longer shows individual test duration colored
+  based on how long they lasted.
+
+Sandbox
+~~~~~~~
+
+- Add support for JWT tokens that only authorize to read data, but not to act
+  on the ledger.
+- Add CLI options to start the sandbox with JWT based authentication with RSA
+  signed tokens.
+  See `issue #3155 <https://github.com/digital-asset/daml/issues/3155>`__ .
+- The ``--auth-jwt-hs256`` CLI option is renamed to
+  ``--auth-jwt-hs256-unsafe``: you are advised to _not_ use this JWT token
+  signing way in a production environment.
+
+Navigator
+~~~~~~~~~
+
+- Fixed a bug where the ``--access-token-file`` option did not work correctly.
+
+DAML Compiler
+~~~~~~~~~~~~~
+
+- Bugfix: The ``Sdk-Version`` field in a DAR manifest file now matches the SDK
+  version of the compiler, not the ``sdk-version`` field from ``daml.yaml``.
+  These are usually the same, but they could be different if you set the
+  ``DAML_SDK_VERSION`` environment variable before running ``daml init`` or
+  ``daml build``.
+- Make the experimental feature "generic templates"
+  unavailable. The current implementation is at odds with other, more
+  important language features still under development.
+
+DAML Studio
+~~~~~~~~~~~
+
+- Notify users about new DAML Driven blog posts.
+
+Java Bindings
+~~~~~~~~~~~~~
+
+- Deprecated existing constructors for ``DamlLedgerClient``, please use
+  the static ``newBuilder`` method to instantiate a builder and use it to
+  create the client, starting from either a ``NettyChannelBuilder`` or a
+  plain host/port pair.
+- Rename ``DamlMap`` to ``DamlTextMap``.
+- ``DamlCollectors`` class provides Collectors to build more easily
+  ``DamlList`` and ``DamlTextMap``.
+- Change the recommended method to convert ``DamlValue`` containers
+  from/to Java Bindings containers.
+  See `docs/source/app-dev/bindings-java/codegen.rst` for more details
+  the new methodology.
+
+
+DAML-LF Interface Reader
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+- **Rename** ``PrimTypeMap`` to ``PrimTypeTextMap`` and ``PrimType.Map`` to
+  ``PrimType.TextMap``
+
+JSON API - Experimental
+~~~~~~~~~~~~~~~~~~~~~~~
+
+- Accept a path to a file containing a token at startup for package retrieval.
+  See `issue #3627 <https://github.com/digital-asset/daml/issues/3627>`__.
+
+DAML Triggers - Experimental
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- DAML Triggers now allow you to specify which templates you want to listen
+  for. This can improve performance.
+
+DAML Script - Experimental
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- DAML Script can now run be used in distributed topologies.
+- Expose the Ledger API ``exerciseByKey`` command
+
+
 .. _release-0-13-37:
 
 0.13.37 - 2019-11-20
