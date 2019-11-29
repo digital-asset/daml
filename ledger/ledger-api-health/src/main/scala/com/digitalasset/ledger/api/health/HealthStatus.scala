@@ -3,7 +3,11 @@
 
 package com.digitalasset.ledger.api.health
 
-sealed trait HealthStatus
+sealed abstract class HealthStatus extends Product with Serializable {
+  val healthy: HealthStatus = Healthy
+
+  val unhealthy: HealthStatus = Unhealthy
+}
 
 case object Healthy extends HealthStatus
 
