@@ -205,6 +205,7 @@
   type: jar-deploy
 - target: //triggers/runner:trigger-runner
   type: jar-deploy
+  mavenUpload: true
 - target: //daml-assistant/scala-daml-project-config:scala-daml-project-config
   type: jar-scala
   mavenUpload: true
