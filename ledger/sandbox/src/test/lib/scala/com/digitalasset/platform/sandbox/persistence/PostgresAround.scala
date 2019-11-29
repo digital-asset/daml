@@ -107,6 +107,7 @@ trait PostgresAround {
       logger.info("PostgreSQL has started.")
     } catch {
       case NonFatal(e) =>
+        stopPostgres()
         deleteRecursively(tempDir)
         postgresFixture = null
         throw e
@@ -140,20 +141,19 @@ trait PostgresAround {
   }
 
   protected def stopPostgres(): Unit = {
-    if (!started.compareAndSet(true, false)) {
-      throw new IllegalStateException(
-        "Attempted to stop PostgreSQL, but it has already been stopped.")
+    if (started.compareAndSet(true, false)) {
+      logger.info("Stopping PostgreSQL...")
+      run(
+        "stop PostgreSQL",
+        Tool.pg_ctl,
+        "-w",
+        "-D",
+        postgresFixture.dataDir.toString,
+        "-m",
+        "immediate",
+        "stop",
+      )
     }
-    run(
-      "stop PostgreSQL",
-      Tool.pg_ctl,
-      "-w",
-      "-D",
-      postgresFixture.dataDir.toString,
-      "-m",
-      "immediate",
-      "stop",
-    )
   }
 
   private def initializeDatabase(): Unit = run(
