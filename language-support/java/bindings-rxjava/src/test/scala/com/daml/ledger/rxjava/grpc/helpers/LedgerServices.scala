@@ -162,7 +162,8 @@ final class LedgerServices(val ledgerId: String) {
       submitAndWaitResponse,
       submitAndWaitForTransactionIdResponse,
       submitAndWaitForTransactionResponse,
-      submitAndWaitForTransactionTreeResponse)(executionContext)
+      submitAndWaitForTransactionTreeResponse,
+      authorizer)(executionContext)
     withServerAndChannel(authService, Seq(service)) { channel =>
       f(new CommandClientImpl(ledgerId, channel), serviceImpl)
     }
