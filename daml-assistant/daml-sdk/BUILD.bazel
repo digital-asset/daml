@@ -10,21 +10,7 @@ load(
 compileDeps = [
 
     # EXTRACTOR DEPS
-    "@maven//:io_grpc_grpc_services",
-    "//daml-lf/data",
-    "//daml-lf/interface",
-    "//daml-lf/transaction",
-    "//ledger-api/rs-grpc-bridge",
-    "//ledger-api/rs-grpc-akka",
-    "//language-support/scala/bindings",
-    "//ledger/ledger-api-auth",
-    "//ledger/ledger-api-client",
-    "//ledger/ledger-api-common",
-    "//ledger/ledger-api-domain",
-    "//ledger-service/lf-value-json",
-    "//ledger-service/utils",
-    "//libs-scala/grpc-utils",
-    "//libs-scala/timer-utils",
+    "@maven//:io_grpc_grpc_services", # this one has to go first
     "@maven//:io_netty_netty_handler",
     "@maven//:io_netty_netty_tcnative_boringssl_static",
     "@maven//:com_chuusai_shapeless_2_12",
