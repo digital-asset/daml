@@ -75,7 +75,7 @@ object RunnerConfig {
         } else if (c.ledgerPort == 0) {
           failure("Missing option --ledger-port")
         } else if (c.ledgerParty == null) {
-          failure("Missing option --ledger-pary")
+          failure("Missing option --ledger-party")
         } else {
           success
         }
