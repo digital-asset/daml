@@ -5,6 +5,7 @@ package com.daml.ledger.api.testtool.tests
 
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
+import com.daml.ledger.api.testtool.infrastructure.Synchronize.synchronize
 import com.daml.ledger.api.testtool.infrastructure.TransactionHelpers._
 import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTestSuite}
 import com.digitalasset.ledger.client.binding.Primitive
@@ -318,6 +319,7 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
       val template = WithObservers(giver, Primitive.List(observer1, observer2))
       for {
         _ <- alpha.create(giver, template)
+        _ <- synchronize(alpha, beta)
         observer1View <- alpha.transactionTrees(observer1)
         observer2View <- beta.transactionTrees(observer2)
       } yield {
@@ -341,13 +343,14 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
 
   test(
     "CSDiscloseExerciseToObservers",
-    "Diclose exercise to observers",
+    "Disclose exercise to observers",
     allocate(TwoParties, SingleParty)) {
     case Participants(Participant(alpha, giver, observer1), Participant(beta, observer2)) =>
       val template = WithObservers(giver, Primitive.List(observer1, observer2))
       for {
         withObservers <- alpha.create(giver, template)
         _ <- alpha.exercise(giver, withObservers.exercisePing)
+        _ <- synchronize(alpha, beta)
         observer1View <- alpha.transactionTrees(observer1)
         observer2View <- beta.transactionTrees(observer2)
       } yield {
