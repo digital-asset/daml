@@ -135,8 +135,8 @@ data ContractId a =
 instance Eq (ContractId a) where (==) = primitive @"BEEqualContractId"
 instance Show (ContractId a) where show _ = "<contract-id>"
 
--- | HIDE We need this for testing while during the implementation of
--- generic templates. It will most likely disappear thereafter.
+-- | HIDE This is currently used in the internals of DAML script and DAML triggers
+-- but not really something that we want to expose to users.
 coerceContractId : ContractId a -> ContractId b
 coerceContractId = primitive @"BECoerceContractId"
 
