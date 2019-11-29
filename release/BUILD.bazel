@@ -69,14 +69,10 @@ genrule(
         "//daml-assistant/daml-helper:daml-helper-dist",
         "//ledger/sandbox:sandbox-binary_deploy.jar",
         "//navigator/backend:navigator-binary_deploy.jar",
-        "//extractor:extractor-binary_deploy.jar",
-        "//ledger-service/http-json:http-json-binary_deploy.jar",
-        "//language-support/codegen-main:codegen-main_deploy.jar",
         "//templates:templates-tarball.tar.gz",
         "//triggers/daml:daml-trigger.dar",
         "//daml-script/daml:daml-script.dar",
-        "//triggers/runner:trigger-runner_deploy.jar",
-        "//daml-script/runner:script-runner_deploy.jar",
+        "//daml-assistant/daml-sdk:sdk_deploy.jar",
     ],
     outs = ["sdk-release-tarball.tar.gz"],
     cmd = """
@@ -115,24 +111,12 @@ genrule(
       mkdir -p $$OUT/navigator
       cp $(location //navigator/backend:navigator-binary_deploy.jar) $$OUT/navigator/navigator.jar
 
-      mkdir -p $$OUT/extractor
-      cp $(location //extractor:extractor-binary_deploy.jar) $$OUT/extractor/extractor.jar
-
-      mkdir -p $$OUT/json-api
-      cp $(location //ledger-service/http-json:http-json-binary_deploy.jar) $$OUT/json-api/json-api.jar
-      cp -L $(location //ledger-service/http-json:release/json-api-logback.xml) $$OUT/json-api/
-
-      mkdir -p $$OUT/codegen
-      cp $(location //language-support/codegen-main:codegen-main_deploy.jar) $$OUT/codegen/codegen.jar
-
       mkdir -p $$OUT/templates
       tar xf $(location //templates:templates-tarball.tar.gz) --strip-components=1 -C $$OUT/templates
 
-      mkdir -p $$OUT/daml-trigger
-      cp $(location //triggers/runner:trigger-runner_deploy.jar) $$OUT/daml-trigger/daml-trigger.jar
-
-      mkdir -p $$OUT/daml-script
-      cp $(location //daml-script/runner:script-runner_deploy.jar) $$OUT/daml-script/daml-script.jar
+      mkdir -p $$OUT/daml-sdk
+      cp $(location //daml-assistant/daml-sdk:sdk_deploy.jar) $$OUT/daml-sdk/daml-sdk.jar
+      cp -L $(location //ledger-service/http-json:release/json-api-logback.xml) $$OUT/daml-sdk/
 
       tar zcf $(location sdk-release-tarball.tar.gz) --format=ustar $$OUT
     """,

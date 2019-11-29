@@ -14,6 +14,7 @@ da_scala_library(
     scalacopts = lf_scalacopts,
     tags = ["maven_coordinates=com.digitalasset:daml-lf-interface:__VERSION__"],
     visibility = [
+        "//daml-assistant/daml-sdk:__subpackages__",
         "//daml-lf:__subpackages__",
         "//daml-script:__subpackages__",
         "//extractor:__subpackages__",

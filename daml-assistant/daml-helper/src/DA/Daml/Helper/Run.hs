@@ -704,12 +704,18 @@ withNavigator (SandboxPort sandboxPort) navigatorPort args a = do
         waitForHttpServer (putStr "." *> threadDelay 500000) (navigatorURL navigatorPort) []
         a ph
 
+damlSdkJarFolder :: FilePath
+damlSdkJarFolder = "daml-sdk"
+
+damlSdkJar :: FilePath
+damlSdkJar = damlSdkJarFolder </> "daml-sdk.jar"
+
 withJsonApi :: SandboxPort -> JsonApiPort -> [String] -> (Process () () () -> IO a) -> IO a
 withJsonApi (SandboxPort sandboxPort) (JsonApiPort jsonApiPort) args a = do
-    logbackArg <- getLogbackArg ("json-api" </> "json-api-logback.xml")
+    logbackArg <- getLogbackArg (damlSdkJarFolder </> "json-api-logback.xml")
     let jsonApiArgs =
             ["--ledger-host", "localhost", "--ledger-port", show sandboxPort, "--http-port", show jsonApiPort] <> args
-    withJar jsonApiPath [logbackArg] jsonApiArgs $ \ph -> do
+    withJar damlSdkJar [logbackArg] ("json-api":jsonApiArgs) $ \ph -> do
         putStrLn "Waiting for JSON API to start: "
         -- For now, we have a dummy authorization header here to wait for startup since we cannot get a 200
         -- response otherwise. We probably want to add some method to detect successful startup without
@@ -1006,6 +1012,3 @@ sandboxPath = "sandbox/sandbox.jar"
 
 navigatorPath :: FilePath
 navigatorPath = "navigator/navigator.jar"
-
-jsonApiPath :: FilePath
-jsonApiPath = "json-api/json-api.jar"

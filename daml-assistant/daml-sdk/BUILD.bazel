@@ -1,0 +1,82 @@
+# Copyright (c) 2019 The DAML Authors. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+    "//bazel_tools:scala.bzl",
+    "da_scala_binary",
+    "da_scala_library",
+)
+
+# copied from extractor BUILD.bazel
+compileDeps = [
+    # this has to come first other as somehow a different instance of grpc-core.jar
+    "@maven//:io_grpc_grpc_services",
+    "//daml-lf/data",
+    "//daml-lf/interface",
+    "//daml-lf/transaction",
+    "//ledger-api/rs-grpc-bridge",
+    "//ledger-api/rs-grpc-akka",
+    "//language-support/scala/bindings",
+    "//ledger/ledger-api-auth",
+    "//ledger/ledger-api-client",
+    "//ledger/ledger-api-common",
+    "//ledger/ledger-api-domain",
+    "//ledger-service/lf-value-json",
+    "//ledger-service/utils",
+    "//libs-scala/grpc-utils",
+    "//libs-scala/timer-utils",
+    "@maven//:io_netty_netty_handler",
+    "@maven//:io_netty_netty_tcnative_boringssl_static",
+    "@maven//:com_chuusai_shapeless_2_12",
+    "@maven//:com_lihaoyi_fansi_2_12",
+    "@maven//:org_spire_math_kind_projector_2_12",
+    "@maven//:org_typelevel_cats_core_2_12",
+    "@maven//:org_typelevel_cats_effect_2_12",
+    "@maven//:org_typelevel_cats_free_2_12",
+    "@maven//:org_typelevel_cats_kernel_2_12",
+    "@maven//:com_github_scopt_scopt_2_12",
+    "@maven//:com_lihaoyi_pprint_2_12",
+    "@maven//:com_lihaoyi_sourcecode_2_12",
+    "@maven//:org_tpolecat_doobie_core_2_12",
+    "@maven//:org_tpolecat_doobie_free_2_12",
+    "@maven//:org_tpolecat_doobie_postgres_2_12",
+    "@maven//:com_typesafe_akka_akka_actor_2_12",
+    "@maven//:com_typesafe_akka_akka_stream_2_12",
+    "@maven//:org_scalaz_scalaz_core_2_12",
+    "@maven//:org_slf4j_slf4j_api",
+    "@maven//:com_typesafe_scala_logging_scala_logging_2_12",
+    "@maven//:io_circe_circe_core_2_12",
+    "@maven//:io_circe_circe_generic_2_12",
+    "@maven//:io_circe_circe_parser_2_12",
+    "@maven//:io_spray_spray_json_2_12",
+    "@maven//:io_grpc_grpc_netty",
+]
+
+runtimeDeps = [
+    "@maven//:ch_qos_logback_logback_classic",
+    "@maven//:ch_qos_logback_logback_core",
+]
+
+
+da_scala_library(
+    name = "sdk-lib",
+    srcs = glob(["src/main/scala/**/*.scala"]),
+    resources = glob(["src/main/resources/**/*"]),
+    runtime_deps = runtimeDeps,
+    visibility = ["//visibility:public"],
+    deps = compileDeps + [
+        "//triggers/runner:trigger-runner-lib",
+        "//daml-script/runner:script-runner-lib",
+        "//language-support/codegen-main:codegen-main-lib",
+        "//extractor:extractor",
+        "//ledger-service/http-json:http-json",
+    ],
+)
+
+da_scala_binary(
+    name = "sdk",
+    main_class = "com.digitalasset.daml.sdk.SdkMain",
+    tags = ["maven_coordinates=com.digitalasset.daml.sdk:sdk:__VERSION__"],
+    visibility = ["//visibility:public"],
+    deps = [":sdk-lib"],
+)
