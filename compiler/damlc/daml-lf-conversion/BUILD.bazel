@@ -13,6 +13,7 @@ da_haskell_library(
         "base",
         "bytestring",
         "containers",
+        "Decimal",
         "directory",
         "extra",
         "filepath",
