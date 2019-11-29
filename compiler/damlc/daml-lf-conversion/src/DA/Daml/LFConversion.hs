@@ -512,8 +512,8 @@ convertBind env (name, x)
             ETmLam (mkVar "key", keyTyLf) $
             EUpdate $ UBind (Binding (res, TStruct [(selfField, TContractId tplTyLf), (thisField, tplTyLf)]) $ EUpdate $ UFetchByKey retrieveByKey) $
             EUpdate $ UPure (typeConAppToType tupleType) $ ERecCon tupleType
-                [ (FieldName "_1", EStructProj selfField $ EVar res)
-                , (FieldName "_2", EStructProj thisField $ EVar res)
+                [ (mkIndexedField 1, EStructProj selfField $ EVar res)
+                , (mkIndexedField 2, EStructProj thisField $ EVar res)
                 ]
       let toAnyContractKey =
             if envLfVersion env `supports` featureAnyType
@@ -540,13 +540,13 @@ convertBind env (name, x)
                    EBuiltin (BEText "fromAnyContractKey is not supported in this DAML-LF version")
       let dict = ERecCon (TypeConApp classTyConLf [tplTyLf, keyTyLf]) $
             map (second (ETmLam (mkVar "_", TUnit))) $
-              [ (FieldName "_1", tplSuperDict)
-              , (FieldName "_2", key)
-              , (FieldName "_3", lookupByKey)
-              , (FieldName "_4", fetchByKey)
-              , (FieldName "_5", maintainer)
-              , (FieldName "_6", toAnyContractKey)
-              , (FieldName "_7", fromAnyContractKey)
+              [ (mkIndexedField 1, tplSuperDict)
+              , (mkIndexedField 2, key)
+              , (mkIndexedField 3, lookupByKey)
+              , (mkIndexedField 4, fetchByKey)
+              , (mkIndexedField 5, maintainer)
+              , (mkIndexedField 6, toAnyContractKey)
+              , (mkIndexedField 7, fromAnyContractKey)
               ]
       name' <- convValWithType env name
       pure [defValue name name' dict]
@@ -588,16 +588,16 @@ convertBind env (name, x)
                  else EBuiltin BEError `ETyApp` (mkProxy tplTyLf :-> typeConAppToType templateTypeRepTy) `ETmApp` EBuiltin (BEText "templateTypeRep is not supported in this DAML-LF version")
        let dict = ERecCon (TypeConApp classTyConLf [tplTyLf]) $
              map (second (ETmLam (mkVar "_", TUnit)))
-             [ (FieldName "_1", signatory)
-             , (FieldName "_2", observer)
-             , (FieldName "_3", ensure)
-             , (FieldName "_4", agreement)
-             , (FieldName "_5", create)
-             , (FieldName "_6", fetch)
-             , (FieldName "_7", archive)
-             , (FieldName "_8", toAnyTemplate)
-             , (FieldName "_9", fromAnyTemplate)
-             , (FieldName "_10", templateTypeRep)
+             [ (mkIndexedField 1, signatory)
+             , (mkIndexedField 2, observer)
+             , (mkIndexedField 3, ensure)
+             , (mkIndexedField 4, agreement)
+             , (mkIndexedField 5, create)
+             , (mkIndexedField 6, fetch)
+             , (mkIndexedField 7, archive)
+             , (mkIndexedField 8, toAnyTemplate)
+             , (mkIndexedField 9, fromAnyTemplate)
+             , (mkIndexedField 10, templateTypeRep)
              ]
        let choiceData = MS.findWithDefault [] (qualObject tplTyConLf) (envChoiceData env)
        let convertChoice :: ChoiceData -> ConvertM TemplateChoice
@@ -637,11 +637,11 @@ convertBind env (name, x)
            pure TemplateKey
              { tplKeyType = keyTyLf
              , tplKeyBody =
-                 ERecProj dictTyConApp (FieldName "_2") (EVal qualDictName)
+                 ERecProj dictTyConApp (mkIndexedField 2) (EVal qualDictName)
                  `ETmApp` EUnit
                  `ETmApp` EVar this
              , tplKeyMaintainers =
-                 ERecProj dictTyConApp (FieldName "_5") (EVal qualDictName)
+                 ERecProj dictTyConApp (mkIndexedField 5) (EVal qualDictName)
                  `ETmApp` EUnit
                  `ETyApp` TBuiltin BTList
                  `ETmApp` ENil tplTyLf
@@ -700,10 +700,10 @@ convertBind env (name, x)
                          EBuiltin (BEText "fromAnyChoice is not supported in this DAML-LF version")
           let dict = ERecCon (TypeConApp choiceTyLf [tplTyLf, choiceArgTyLf, choiceRetTyLf]) $
                 map (second (ETmLam (mkVar "_", TUnit)))
-                [ (FieldName "_1", tplSuperDict)
-                , (FieldName "_2", exercise)
-                , (FieldName "_3", toAnyChoice)
-                , (FieldName "_4", fromAnyChoice)
+                [ (mkIndexedField 1, tplSuperDict)
+                , (mkIndexedField 2, exercise)
+                , (mkIndexedField 3, toAnyChoice)
+                , (mkIndexedField 4, fromAnyChoice)
                 ]
           name' <- convValWithType env name
           pure [defValue name name' dict]
