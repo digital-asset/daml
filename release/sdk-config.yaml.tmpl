@@ -37,15 +37,15 @@ commands:
 - name: sandbox
   path: daml-helper/daml-helper
   desc: "Launch the Sandbox"
-  args: ["run-jar", "sandbox/sandbox.jar"]
+  args: ["run-jar", "daml-sdk/daml-sdk.jar", "sandbox"]
 - name: navigator
   path: daml-helper/daml-helper
   desc: "Launch the Navigator"
-  args: ["run-jar", "navigator/navigator.jar"]
+  args: ["run-jar", "daml-sdk/daml-sdk.jar", "navigator"]
 - name: extractor
   path: daml-helper/daml-helper
   desc: "Launch the Extractor"
-  args: ["run-jar", "extractor/extractor.jar"]
+  args: ["run-jar", "daml-sdk/daml-sdk.jar", "extractor"]
 - name: ledger
   path: daml-helper/daml-helper
   desc: "Interact with a DAML ledger (experimental)"
@@ -60,16 +60,16 @@ commands:
 - name: json-api
   path: daml-helper/daml-helper
   desc: "Launch the HTTP JSON API (experimental)"
-  args: ["run-jar", "--logback-config=json-api/json-api-logback.xml", "json-api/json-api.jar"]
+  args: ["run-jar", "--logback-config=daml-sdk/json-api-logback.xml", "daml-sdk/daml-sdk.jar", "json-api"]
 - name: codegen
   path: daml-helper/daml-helper
   desc: "Run the DAML codegen"
-  args: ["run-jar", "codegen/codegen.jar"]
+  args: ["run-jar", "daml-sdk/daml-sdk.jar", "codegen"]
 - name: trigger
   path: daml-helper/daml-helper
-  args: ["run-jar", "daml-trigger/daml-trigger.jar"]
+  args: ["run-jar", "daml-sdk/daml-sdk.jar", "trigger"]
   desc: "Run a DAML trigger (experimental)"
 - name: script
   path: daml-helper/daml-helper
-  args: ["run-jar", "daml-script/daml-script.jar"]
+  args: ["run-jar", "daml-sdk/daml-sdk.jar", "script"]
   desc: "Run a DAML trigger (experimental)"

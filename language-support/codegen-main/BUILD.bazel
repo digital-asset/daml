@@ -4,6 +4,7 @@
 load(
     "//bazel_tools:scala.bzl",
     "da_scala_binary",
+    "da_scala_library",
     "scala_source_jar",
     "scaladoc_jar",
 )
@@ -13,6 +14,21 @@ load(
 )
 load("//bazel_tools:pom_file.bzl", "pom_file")
 load("@os_info//:os_info.bzl", "is_windows")
+
+da_scala_library(
+    name = "codegen-main-lib",
+    srcs = glob(["src/main/**/*.scala"]),
+    visibility = ["//visibility:public"],
+    deps = [
+        "//daml-assistant/scala-daml-project-config",
+        "//language-support/codegen-common",
+        "//language-support/java/codegen:lib",
+        "//language-support/scala/codegen:codegen-main",
+        "@maven//:ch_qos_logback_logback_classic",
+        "@maven//:com_github_scopt_scopt_2_12",
+        "@maven//:com_typesafe_scala_logging_scala_logging_2_12",
+    ],
+)
 
 da_scala_binary(
     name = "codegen-main",
