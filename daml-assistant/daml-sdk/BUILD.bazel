@@ -10,7 +10,7 @@ load(
 compileDeps = [
 
     # EXTRACTOR DEPS
-    "@maven//:io_grpc_grpc_services", # this one has to go first
+    "@maven//:io_grpc_grpc_services",  # this one has to go first
     "@maven//:io_netty_netty_handler",
     "@maven//:io_netty_netty_tcnative_boringssl_static",
     "@maven//:com_chuusai_shapeless_2_12",
@@ -62,13 +62,12 @@ runtimeDeps = [
     "@maven//:ch_qos_logback_logback_core",
 ]
 
-
 da_scala_library(
     name = "sdk-lib",
     srcs = glob(["src/main/scala/**/*.scala"]),
     resources = glob(["src/main/resources/**/*"]),
-    runtime_deps = runtimeDeps,
     visibility = ["//visibility:public"],
+    runtime_deps = runtimeDeps,
     deps = compileDeps + [
         "//triggers/runner:trigger-runner-lib",
         "//daml-script/runner:script-runner-lib",
