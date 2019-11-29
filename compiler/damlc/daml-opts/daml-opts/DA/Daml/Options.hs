@@ -160,7 +160,7 @@ xExtensionsSet =
   , ConstraintKinds
     -- type classes
   , MultiParamTypeClasses, FlexibleContexts, FlexibleInstances, GeneralizedNewtypeDeriving, TypeSynonymInstances
-  , DefaultSignatures, StandaloneDeriving, FunctionalDependencies, DeriveFunctor, UndecidableSuperClasses
+  , DefaultSignatures, StandaloneDeriving, FunctionalDependencies, DeriveFunctor
     -- let generalization
   , MonoLocalBinds
     -- replacing primitives
