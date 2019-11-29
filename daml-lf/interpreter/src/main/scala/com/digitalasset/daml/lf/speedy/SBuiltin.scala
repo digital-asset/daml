@@ -1324,7 +1324,7 @@ object SBuiltin {
       args.get(0) match {
         case SText(t) =>
           machine.ctrl = CtrlValue(SText(t.toUpperCase(util.Locale.ROOT)))
-            // TODO [FM]: replace with ASCII-specific function, or not
+        // TODO [FM]: replace with ASCII-specific function, or not
         case x =>
           throw SErrorCrash(s"type mismatch SBTextoUpper, expected Text got $x")
       }
@@ -1337,7 +1337,7 @@ object SBuiltin {
       args.get(0) match {
         case SText(t) =>
           machine.ctrl = CtrlValue(SText(t.toLowerCase(util.Locale.ROOT)))
-            // TODO [FM]: replace with ASCII-specific function, or not
+        // TODO [FM]: replace with ASCII-specific function, or not
         case x =>
           throw SErrorCrash(s"type mismatch SBTextToLower, expected Text got $x")
       }
@@ -1354,16 +1354,16 @@ object SBuiltin {
               args.get(2) match {
                 case SText(t) =>
                   val length = t.codePointCount(0, t.length).toLong
-                  if (to <= 0 || from >= length || to <= from ) {
+                  if (to <= 0 || from >= length || to <= from) {
                     machine.ctrl = CtrlValue(SText(""))
                   } else {
                     val rfrom = from.max(0).toInt
                     val rto = to.min(length).toInt
-                      // NOTE [FM]: We use toInt only after ensuring the indices are
-                      // between 0 and length, inclusive. Calling toInt prematurely
-                      // would mean dropping the high order bits indiscriminitely,
-                      // so for instance (0x100000000L).toInt == 0, resulting in an
-                      // empty string below even though `to` was larger than length.
+                    // NOTE [FM]: We use toInt only after ensuring the indices are
+                    // between 0 and length, inclusive. Calling toInt prematurely
+                    // would mean dropping the high order bits indiscriminitely,
+                    // so for instance (0x100000000L).toInt == 0, resulting in an
+                    // empty string below even though `to` was larger than length.
                     val ifrom = t.offsetByCodePoints(0, rfrom)
                     val ito = t.offsetByCodePoints(ifrom, rto - rfrom)
                     machine.ctrl = CtrlValue(SText(t.slice(ifrom, ito)))
@@ -1391,7 +1391,7 @@ object SBuiltin {
               if (n < 0) {
                 machine.ctrl = CtrlValue(SOptional(None))
               } else {
-                val rn = t.codePointCount(0,n).toLong // we want to return the number of codepoints!
+                val rn = t.codePointCount(0, n).toLong // we want to return the number of codepoints!
                 machine.ctrl = CtrlValue(SOptional(Some(SInt64(rn))))
               }
             case x =>
@@ -1451,7 +1451,7 @@ object SBuiltin {
         case SText(pattern) =>
           args.get(1) match {
             case SText(t) =>
-              val seq : Seq[SValue] = t.split(pattern).map(SText).toSeq
+              val seq: Seq[SValue] = t.split(pattern).map(SText).toSeq
               machine.ctrl = CtrlValue(SList(FrontStack(seq)))
             case x =>
               throw SErrorCrash(s"type mismatch SBTextSplitOn, expected Text got $x")
@@ -1473,7 +1473,8 @@ object SBuiltin {
                 v match {
                   case SText(t) => t
                   case x =>
-                    throw SErrorCrash(s"type mismatch SBTextIntercalate, expected Text in list, got $x")
+                    throw SErrorCrash(
+                      s"type mismatch SBTextIntercalate, expected Text in list, got $x")
                 }
               }
               machine.ctrl = CtrlValue(SText(xs.iterator.mkString(sep)))

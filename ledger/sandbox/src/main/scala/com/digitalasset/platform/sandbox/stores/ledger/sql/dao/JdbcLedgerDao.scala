@@ -58,7 +58,10 @@ import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{
   ValueSerializer
 }
 import com.digitalasset.platform.sandbox.stores.ledger.sql.util.Conversions._
-import com.digitalasset.platform.sandbox.stores.ledger.sql.util.DbDispatcher
+import com.digitalasset.platform.sandbox.stores.ledger.sql.util.{
+  DbDispatcher,
+  PaginatingAsyncStream
+}
 import com.digitalasset.platform.sandbox.stores.ledger.{ConfigurationEntry, LedgerEntry}
 import com.google.common.io.ByteStreams
 import scalaz.syntax.tag._
@@ -219,23 +222,20 @@ private class JdbcLedgerDao(
   override def getConfigurationEntries(
       startInclusive: Long,
       endExclusive: Long): Source[(Long, ConfigurationEntry), NotUsed] =
-    paginatingStream(
-      PageSize,
-      queryOffset => {
-        dbDispatcher.executeSql(
-          "load_configuration_entries",
-          Some(s"bounds: [$startInclusive, $endExclusive[ queryOffset $queryOffset")) {
-          implicit conn =>
-            SQL_GET_CONFIGURATION_ENTRIES
-              .on(
-                "startInclusive" -> startInclusive,
-                "endExclusive" -> endExclusive,
-                "pageSize" -> PageSize,
-                "queryOffset" -> queryOffset)
-              .as(configurationEntryParser.*)
-        }
+    PaginatingAsyncStream(PageSize, executionContext) { queryOffset =>
+      dbDispatcher.executeSql(
+        "load_configuration_entries",
+        Some(s"bounds: [$startInclusive, $endExclusive[ queryOffset $queryOffset")) {
+        implicit conn =>
+          SQL_GET_CONFIGURATION_ENTRIES
+            .on(
+              "startInclusive" -> startInclusive,
+              "endExclusive" -> endExclusive,
+              "pageSize" -> PageSize,
+              "queryOffset" -> queryOffset)
+            .as(configurationEntryParser.*)
       }
-    )
+    }
 
   private val SQL_INSERT_CONFIGURATION_ENTRY =
     SQL(
@@ -1227,49 +1227,26 @@ private class JdbcLedgerDao(
   private val SQL_GET_LEDGER_ENTRIES = SQL(
     "select * from ledger_entries where ledger_offset>={startInclusive} and ledger_offset<{endExclusive} order by ledger_offset asc limit {pageSize} offset {queryOffset}")
 
-  // Note that here we are reading, non transactionally, the stream in chunks. The reason why this is
-  // safe is that
-  // * The ledger entries are never removed;
-  // * We fix the ledger end at the beginning.
-  private def paginatingStream[T](
-      pageSize: Int,
-      queryPage: Long => Future[List[T]]): Source[T, NotUsed] = {
-    Source
-      .unfoldAsync(Option(0L)) {
-        case None => Future.successful(None)
-        case Some(queryOffset) =>
-          queryPage(queryOffset).map { result =>
-            val resultSize = result.size.toLong
-            val newQueryOffset = if (resultSize < pageSize) None else Some(queryOffset + pageSize)
-            Some(newQueryOffset -> result)
-          }(executionContext)
-      }
-      .flatMapConcat(Source(_))
-  }
-
   private val PageSize = 100
 
   override def getLedgerEntries(
       startInclusive: Long,
       endExclusive: Long): Source[(Long, LedgerEntry), NotUsed] =
-    paginatingStream(
-      PageSize,
-      queryOffset => {
-        dbDispatcher.executeSql(
-          s"load_ledger_entries",
-          Some(s"bounds: [$startInclusive, $endExclusive[ query-offset $queryOffset")) {
-          implicit conn =>
-            val parsedEntries = SQL_GET_LEDGER_ENTRIES
-              .on(
-                "startInclusive" -> startInclusive,
-                "endExclusive" -> endExclusive,
-                "pageSize" -> PageSize,
-                "queryOffset" -> queryOffset)
-              .as(EntryParser.*)
-            parsedEntries.map(entry => entry -> loadDisclosureOptForEntry(entry))
-        }
+    PaginatingAsyncStream(PageSize, executionContext) { queryOffset =>
+      dbDispatcher.executeSql(
+        s"load_ledger_entries",
+        Some(s"bounds: [$startInclusive, $endExclusive[ query-offset $queryOffset")) {
+        implicit conn =>
+          val parsedEntries = SQL_GET_LEDGER_ENTRIES
+            .on(
+              "startInclusive" -> startInclusive,
+              "endExclusive" -> endExclusive,
+              "pageSize" -> PageSize,
+              "queryOffset" -> queryOffset)
+            .as(EntryParser.*)
+          parsedEntries.map(entry => entry -> loadDisclosureOptForEntry(entry))
       }
-    ).map((toLedgerEntry _).tupled)
+    }.map((toLedgerEntry _).tupled)
 
   private def loadDisclosureOptForEntry(parsedEntry: ParsedEntry)(
       implicit conn: Connection): Option[Relation[EventId, Party]] = {
@@ -1291,29 +1268,25 @@ private class JdbcLedgerDao(
     def orEmptyStringList(xs: Seq[String]) = if (xs.nonEmpty) xs else List("")
 
     val contractStream =
-      paginatingStream(
-        PageSize,
-        queryOffset => {
-          dbDispatcher.executeSql(
-            "load_active_contracts",
-            Some(s"bounds: [0, $endExclusive[ queryOffset $queryOffset")) {
-            implicit conn =>
-              SQL_SELECT_ACTIVE_CONTRACTS
-                .on(
-                  "endExclusive" -> endExclusive,
-                  "queryOffset" -> queryOffset,
-                  "pageSize" -> PageSize,
-                  // using '&' as a "separator" for the two columns because it is not allowed in either Party or Identifier strings
-                  // and querying on tuples is basically impossible to do sensibly.
-                  "template_parties" -> orEmptyStringList(filter.specificSubscriptions.map {
-                    case (ident, party) => ident.qualifiedName.qualifiedName + "&" + party.toString
-                  }),
-                  "wildcard_parties" -> orEmptyStringList(filter.globalSubscriptions.toList)
-                )
-                .as(ContractDataParser.*)(conn)
-          }
+      PaginatingAsyncStream(PageSize, executionContext) { queryOffset =>
+        dbDispatcher.executeSql(
+          "load_active_contracts",
+          Some(s"bounds: [0, $endExclusive[ queryOffset $queryOffset")) { implicit conn =>
+          SQL_SELECT_ACTIVE_CONTRACTS
+            .on(
+              "endExclusive" -> endExclusive,
+              "queryOffset" -> queryOffset,
+              "pageSize" -> PageSize,
+              // using '&' as a "separator" for the two columns because it is not allowed in either Party or Identifier strings
+              // and querying on tuples is basically impossible to do sensibly.
+              "template_parties" -> orEmptyStringList(filter.specificSubscriptions.map {
+                case (ident, party) => ident.qualifiedName.qualifiedName + "&" + party.toString
+              }),
+              "wildcard_parties" -> orEmptyStringList(filter.globalSubscriptions.toList)
+            )
+            .as(ContractDataParser.*)(conn)
         }
-      ).mapAsync(1) { contractResult =>
+      }.mapAsync(1) { contractResult =>
         dbDispatcher
           .executeSql("load_contract_details", Some(s"contract details: ${contractResult._1}")) {
             implicit conn =>

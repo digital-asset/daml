@@ -1436,7 +1436,6 @@ private[lf] object DecodeV1 {
       BuiltinFunctionInfo(TEXT_REPLICATE, BTextReplicate, minVersion = unstable),
       BuiltinFunctionInfo(TEXT_SPLIT_ON, BTextSplitOn, minVersion = unstable),
       BuiltinFunctionInfo(TEXT_INTERCALATE, BTextIntercalate, minVersion = unstable)
-
     )
   }
 
