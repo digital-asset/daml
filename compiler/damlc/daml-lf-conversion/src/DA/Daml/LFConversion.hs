@@ -163,6 +163,7 @@ data Env = Env
     ,envInstances :: [(TyCon, [GHC.Type])]
     ,envChoiceData :: MS.Map TypeConName [ChoiceData]
     ,envTemplateKeyData :: MS.Map TypeConName TemplateKeyData
+    ,envIsGenerated :: Bool
     }
 
 data ChoiceData = ChoiceData
@@ -275,10 +276,11 @@ convertRationalNumericMono env scale num denom
 convertModule
     :: LF.Version
     -> MS.Map UnitId DalfPackage
+    -> Bool
     -> NormalizedFilePath
     -> CoreModule
     -> Either FileDiagnostic LF.Module
-convertModule lfVersion pkgMap file x = runConvertM (ConversionEnv file Nothing) $ do
+convertModule lfVersion pkgMap isGenerated file x = runConvertM (ConversionEnv file Nothing) $ do
     definitions <- concatMapM (convertBind env) binds
     types <- concatMapM (convertTypeDef env) (eltsUFM (cm_types x))
     pure (LF.moduleFromDefinitions lfModName (Just $ fromNormalizedFilePath file) flags (types ++ definitions))
@@ -331,6 +333,7 @@ convertModule lfVersion pkgMap file x = runConvertM (ConversionEnv file Nothing)
           , envInstances = instances
           , envChoiceData = choiceData
           , envTemplateKeyData = templateKeyData
+          , envIsGenerated = isGenerated
           }
 
 data Consuming = PreConsuming
@@ -486,6 +489,7 @@ convertTemplateInstanceDef env tname templateTyCon args = do
 convertBind :: Env -> (Var, GHC.Expr Var) -> ConvertM [Definition]
 convertBind env (name, x)
     | "$fTemplateKey" `T.isPrefixOf` getOccText name
+    , not (envIsGenerated env)
     , TypeCon classTyCon [tplTy, keyTy] <- varType name = withRange (convNameLoc name) $ do
       TCon classTyConLf <- convertTyCon env classTyCon
       tplTyLf@(TCon tplTyConLf) <- convertType env tplTy
@@ -551,7 +555,8 @@ convertBind env (name, x)
       name' <- convValWithType env name
       pure [defValue name name' dict]
     | "$fTemplate" `T.isPrefixOf` getOccText name
-    , TypeCon classTyCon [tplTy@(TypeCon tplTyCon _)] <- varType name = withRange (convNameLoc name) $ do
+    , TypeCon classTyCon [tplTy@(TypeCon tplTyCon _)] <- varType name
+    , not (envIsGenerated env)  = withRange (convNameLoc name) $ do
        TCon classTyConLf <- convertTyCon env classTyCon
        tplTyLf@(TCon tplTyConLf) <- convertType env tplTy
        ERecCon _
@@ -660,6 +665,7 @@ convertBind env (name, x)
        name' <- convValWithType env name
        pure [defValue name name' dict, DTemplate template]
     | "$fChoice" `T.isPrefixOf` getOccText name
+    , not (envIsGenerated env)
     , TypeCon tyCon [tplTy, choiceArgTy, choiceRetTy] <- varType name = withRange (convNameLoc name) $ do
           TConApp choiceTyLf _ <- convertTyCon env tyCon
           ERecCon _ [(_, tplSuperDict), _, _, _] <- convertExpr env x
