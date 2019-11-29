@@ -4,6 +4,7 @@ import com.digitalasset.daml.lf.engine.script.{RunnerMain => Script}
 import com.digitalasset.codegen.{CodegenMain => Codegen}
 import com.digitalasset.extractor.{Main => Extractor}
 import com.digitalasset.http.{Main => JsonApi}
+import com.digitalasset.navigator.{NavigatorBackend => Navigator}
 
 object SdkMain {
     def main(args: Array[String]): Unit = {
@@ -15,6 +16,7 @@ object SdkMain {
             case "codegen" => Codegen.main(rest)
             case "extractor" => Extractor.main(rest)
             case "json-api" => JsonApi.main(rest)
+            case "navigator" => Navigator.main(rest)
             case _ => sys.exit(1)
         }
     }

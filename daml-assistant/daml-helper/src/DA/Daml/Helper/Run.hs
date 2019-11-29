@@ -698,7 +698,7 @@ withNavigator (SandboxPort sandboxPort) navigatorPort args a = do
             , navigatorPortNavigatorArgs navigatorPort
             , args
             ]
-    withJar navigatorPath [] navigatorArgs $ \ph -> do
+    withJar damlSdkJar [] ("navigator":navigatorArgs) $ \ph -> do
         putStrLn "Waiting for navigator to start: "
         -- TODO We need to figure out a sane timeout for this step.
         waitForHttpServer (putStr "." *> threadDelay 500000) (navigatorURL navigatorPort) []
@@ -903,7 +903,7 @@ runLedgerNavigator flags remainingArguments = do
         writeFileUTF8 navigatorConfPath (T.unpack $ navigatorConfig partyDetails)
         unsetEnv "DAML_PROJECT" -- necessary to prevent config contamination
         withCurrentDirectory confDir $ do
-            withJar navigatorPath [] navigatorArgs $ \ph -> do
+            withJar damlSdkJar [] ("navigator":navigatorArgs) $ \ph -> do
                 exitCode <- waitExitCode ph
                 exitWith exitCode
 
@@ -1009,6 +1009,3 @@ waitForHttpServer sleep url headers = do
 
 sandboxPath :: FilePath
 sandboxPath = "sandbox/sandbox.jar"
-
-navigatorPath :: FilePath
-navigatorPath = "navigator/navigator.jar"
