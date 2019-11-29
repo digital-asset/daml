@@ -43,6 +43,8 @@ module DA.Map
     , insert
     , union
     , merge
+    , keys
+    , values
     ) where
 
 import Prelude hiding (lookup, null, filter, empty)
@@ -85,11 +87,21 @@ fromListWith f = foldl g empty
 
 -- | Get the list of keys in the map. Keys are in "first insertion order", so
 -- if a key k1 was first inserted before k2, then k1 will show up before k2.
+
+-- ```
+-- >>> keys (fromList [("A", 1), ("B", 2)])
+-- ["A", "B"]
+-- ```
 keys : Map k v -> [k]
 keys = primitive @"BEGenMapKeys"
 
 -- | Get the list of values in the map. These will be in the same order as
 -- their respective keys from `M.keys`.
+--
+-- ```
+-- >>> values (fromList [("A", 1), ("B", 2)])
+-- [1, 2]
+-- ```
 values : Map k v -> [v]
 values = primitive @"BEGenMapValues"
 
