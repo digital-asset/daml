@@ -28,7 +28,6 @@ import com.digitalasset.platform.sandbox.metrics.timedFuture
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry
 import com.digitalasset.platform.sandbox.stores.ledger.sql.SqlLedger.{
   defaultNumberOfShortLivedConnections,
-  defaultNumberOfStreamingConnections
 }
 import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.{
   DbType,
@@ -119,7 +118,6 @@ class JdbcIndexerFactory[Status <: InitStatus] private (
       new DbDispatcher(
         jdbcUrl,
         if (dbType.supportsParallelWrites) defaultNumberOfShortLivedConnections else 1,
-        defaultNumberOfStreamingConnections,
         loggerFactory,
         metrics)
     val ledgerDao = LedgerDao.metered(

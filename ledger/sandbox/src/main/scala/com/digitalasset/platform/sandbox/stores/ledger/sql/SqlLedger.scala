@@ -64,7 +64,6 @@ object SqlStartMode {
 object SqlLedger {
 
   val defaultNumberOfShortLivedConnections = 16
-  val defaultNumberOfStreamingConnections = 2
 
   private case class Offsets(offset: Long, nextOffset: Long)
 
@@ -98,7 +97,6 @@ object SqlLedger {
       new DbDispatcher(
         jdbcUrl,
         noOfShortLivedConnections,
-        defaultNumberOfStreamingConnections,
         loggerFactory,
         metrics,
       )

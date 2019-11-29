@@ -7,12 +7,12 @@ import java.sql.Connection
 import java.time.Instant
 import java.util.Date
 
+import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
-import akka.{Done, NotUsed}
 import anorm.SqlParser._
 import anorm.ToStatement.optionToStatement
-import anorm.{AkkaStream, BatchSql, Macro, NamedParameter, RowParser, SQL, SqlParser}
+import anorm.{BatchSql, Macro, NamedParameter, RowParser, SQL, SqlParser}
 import com.daml.ledger.participant.state.index.v2.PackageDetails
 import com.daml.ledger.participant.state.v1.{
   AbsoluteContractInst,
@@ -39,7 +39,6 @@ import com.digitalasset.ledger.api.domain.RejectionReason._
 import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails, RejectionReason}
 import com.digitalasset.ledger.api.health.HealthStatus
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
-import com.digitalasset.platform.common.util.DirectExecutionContext
 import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilter
 import com.digitalasset.platform.sandbox.stores.ActiveLedgerState.{
   ActiveContract,
@@ -47,7 +46,6 @@ import com.digitalasset.platform.sandbox.stores.ActiveLedgerState.{
   DivulgedContract
 }
 import com.digitalasset.platform.sandbox.stores._
-import com.digitalasset.platform.sandbox.stores.ledger.{ConfigurationEntry, LedgerEntry}
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry._
 import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.JdbcLedgerDao.{
   H2DatabaseQueries,
@@ -61,6 +59,7 @@ import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{
 }
 import com.digitalasset.platform.sandbox.stores.ledger.sql.util.Conversions._
 import com.digitalasset.platform.sandbox.stores.ledger.sql.util.DbDispatcher
+import com.digitalasset.platform.sandbox.stores.ledger.{ConfigurationEntry, LedgerEntry}
 import com.google.common.io.ByteStreams
 import scalaz.syntax.tag._
 
@@ -156,7 +155,7 @@ private class JdbcLedgerDao(
   private val SQL_SELECT_CURRENT_CONFIGURATION = SQL("select configuration from parameters")
 
   private val SQL_GET_CONFIGURATION_ENTRIES = SQL(
-    "select * from configuration_entries where ledger_offset>={startInclusive} and ledger_offset<{endExclusive} order by ledger_offset asc")
+    "select * from configuration_entries where ledger_offset>={startInclusive} and ledger_offset<{endExclusive} order by ledger_offset asc limit {pageSize} offset {queryOffset}")
 
   private def updateCurrentConfiguration(configBytes: Array[Byte])(
       implicit conn: Connection): Unit = {
@@ -221,18 +220,22 @@ private class JdbcLedgerDao(
       startInclusive: Long,
       endExclusive: Long): Source[(Long, ConfigurationEntry), NotUsed] =
     paginatingStream(
-      startInclusive,
-      endExclusive,
       PageSize,
-      (startI, endE) => {
-        dbDispatcher.executeSql("load_configuration_entries", Some(s"bounds: [$startI, $endE[")) {
+      queryOffset => {
+        dbDispatcher.executeSql(
+          "load_configuration_entries",
+          Some(s"bounds: [$startInclusive, $endExclusive[ queryOffset $queryOffset")) {
           implicit conn =>
             SQL_GET_CONFIGURATION_ENTRIES
-              .on("startInclusive" -> startI, "endExclusive" -> endE)
+              .on(
+                "startInclusive" -> startInclusive,
+                "endExclusive" -> endExclusive,
+                "pageSize" -> PageSize,
+                "queryOffset" -> queryOffset)
               .as(configurationEntryParser.*)
         }
       }
-    ).flatMapConcat(Source(_))
+    )
 
   private val SQL_INSERT_CONFIGURATION_ENTRY =
     SQL(
@@ -1222,28 +1225,26 @@ private class JdbcLedgerDao(
       .toSet
 
   private val SQL_GET_LEDGER_ENTRIES = SQL(
-    "select * from ledger_entries where ledger_offset>={startInclusive} and ledger_offset<{endExclusive} order by ledger_offset asc")
+    "select * from ledger_entries where ledger_offset>={startInclusive} and ledger_offset<{endExclusive} order by ledger_offset asc limit {pageSize} offset {queryOffset}")
 
   // Note that here we are reading, non transactionally, the stream in chunks. The reason why this is
   // safe is that
   // * The ledger entries are never removed;
   // * We fix the ledger end at the beginning.
   private def paginatingStream[T](
-      startInclusive: Long,
-      endExclusive: Long,
       pageSize: Int,
-      queryPage: (Long, Long) => Future[T]): Source[T, NotUsed] = {
-    Source.unfoldAsync(startInclusive) { start =>
-      if (start >= endExclusive) {
-        Future.successful(None)
-      } else {
-        val pageEnd =
-          if (endExclusive - startInclusive <= pageSize) endExclusive else start + pageSize
-        queryPage(start, pageEnd).map { result =>
-          Some(pageEnd -> result)
-        }(executionContext)
+      queryPage: Long => Future[List[T]]): Source[T, NotUsed] = {
+    Source
+      .unfoldAsync(Option(0L)) {
+        case None => Future.successful(None)
+        case Some(queryOffset) =>
+          queryPage(queryOffset).map { result =>
+            val resultSize = result.size.toLong
+            val newQueryOffset = if (resultSize < pageSize) None else Some(queryOffset + pageSize)
+            Some(newQueryOffset -> result)
+          }(executionContext)
       }
-    }
+      .flatMapConcat(Source(_))
   }
 
   private val PageSize = 100
@@ -1252,20 +1253,23 @@ private class JdbcLedgerDao(
       startInclusive: Long,
       endExclusive: Long): Source[(Long, LedgerEntry), NotUsed] =
     paginatingStream(
-      startInclusive,
-      endExclusive,
       PageSize,
-      (startI, endE) => {
-        dbDispatcher.executeSql(s"load_ledger_entries", Some(s"bounds: [$startI, $endE[")) {
+      queryOffset => {
+        dbDispatcher.executeSql(
+          s"load_ledger_entries",
+          Some(s"bounds: [$startInclusive, $endExclusive[ query-offset $queryOffset")) {
           implicit conn =>
             val parsedEntries = SQL_GET_LEDGER_ENTRIES
-              .on("startInclusive" -> startI, "endExclusive" -> endE)
+              .on(
+                "startInclusive" -> startInclusive,
+                "endExclusive" -> endExclusive,
+                "pageSize" -> PageSize,
+                "queryOffset" -> queryOffset)
               .as(EntryParser.*)
             parsedEntries.map(entry => entry -> loadDisclosureOptForEntry(entry))
         }
       }
-    ).mapConcat(identity)
-      .map((toLedgerEntry _).tupled)
+    ).map((toLedgerEntry _).tupled)
 
   private def loadDisclosureOptForEntry(parsedEntry: ParsedEntry)(
       implicit conn: Connection): Option[Relation[EventId, Party]] = {
@@ -1281,45 +1285,48 @@ private class JdbcLedgerDao(
   // this query pre-filters the active contracts. this avoids loading data that anyway will be dismissed later
   private val SQL_SELECT_ACTIVE_CONTRACTS = SQL(queries.SQL_SELECT_ACTIVE_CONTRACTS)
 
-  override def getActiveContractSnapshot(untilExclusive: LedgerOffset, filter: TemplateAwareFilter)(
+  override def getActiveContractSnapshot(endExclusive: LedgerOffset, filter: TemplateAwareFilter)(
       implicit mat: Materializer): Future[LedgerSnapshot] = {
 
     def orEmptyStringList(xs: Seq[String]) = if (xs.nonEmpty) xs else List("")
 
-    def contractStream(conn: Connection, offset: Long): Source[ActiveContract, Future[Done]] = {
-      //TODO: investigate where Akka Streams is actually iterating on the JDBC ResultSet (because, that is blocking IO!)
-      AkkaStream
-        .source(
-          SQL_SELECT_ACTIVE_CONTRACTS.on(
-            "offset" -> offset,
-            // using '&' as a "separator" for the two columns because it is not allowed in either Party or Identifier strings
-            // and querying on tuples is basically impossible to do sensibly.
-            "template_parties" -> orEmptyStringList(filter.specificSubscriptions.map {
-              case (ident, party) => ident.qualifiedName.qualifiedName + "&" + party.toString
-            }),
-            "wildcard_parties" -> orEmptyStringList(filter.globalSubscriptions.toList)
-          ),
-          parser = ContractDataParser
-        )(mat, conn)
-        .mapAsync(dbDispatcher.noOfShortLivedConnections) { contractResult =>
-          // it's ok to not have query isolation as witnesses cannot change once we saved them
-          dbDispatcher
-            .executeSql("load_contract_details", Some(s"contract details: ${contractResult._1}")) {
-              implicit conn =>
-                mapContractDetails(contractResult) match {
-                  case ac: ActiveContract => ac
-                  case _: DivulgedContract =>
-                    sys.error(
-                      "Impossible: SQL_SELECT_ACTIVE_CONTRACTS returned a divulged contract")
-                }
-            }
+    val contractStream =
+      paginatingStream(
+        PageSize,
+        queryOffset => {
+          dbDispatcher.executeSql(
+            "load_active_contracts",
+            Some(s"bounds: [0, $endExclusive[ queryOffset $queryOffset")) {
+            implicit conn =>
+              SQL_SELECT_ACTIVE_CONTRACTS
+                .on(
+                  "endExclusive" -> endExclusive,
+                  "queryOffset" -> queryOffset,
+                  "pageSize" -> PageSize,
+                  // using '&' as a "separator" for the two columns because it is not allowed in either Party or Identifier strings
+                  // and querying on tuples is basically impossible to do sensibly.
+                  "template_parties" -> orEmptyStringList(filter.specificSubscriptions.map {
+                    case (ident, party) => ident.qualifiedName.qualifiedName + "&" + party.toString
+                  }),
+                  "wildcard_parties" -> orEmptyStringList(filter.globalSubscriptions.toList)
+                )
+                .as(ContractDataParser.*)(conn)
+          }
         }
-    }.mapMaterializedValue(_.map(_ => Done)(DirectExecutionContext))
+      ).mapAsync(1) { contractResult =>
+        dbDispatcher
+          .executeSql("load_contract_details", Some(s"contract details: ${contractResult._1}")) {
+            implicit conn =>
+              mapContractDetails(contractResult) match {
+                case ac: ActiveContract => ac
+                case _: DivulgedContract =>
+                  sys.error("Impossible: SQL_SELECT_ACTIVE_CONTRACTS returned a divulged contract")
+              }
+          }
 
-    Future.successful(
-      LedgerSnapshot(
-        untilExclusive,
-        dbDispatcher.runStreamingSql(conn => contractStream(conn, untilExclusive))))
+      }
+
+    Future.successful(LedgerSnapshot(endExclusive, contractStream))
   }
 
   private val SQL_SELECT_PARTIES =
@@ -1601,6 +1608,7 @@ object JdbcLedgerDao {
       // thus resulting in multiple output rows
       s"""
          |select distinct
+         |  c.create_offset,
          |  cd.id,
          |  cd.contract,
          |  c.transaction_id,
@@ -1616,13 +1624,15 @@ object JdbcLedgerDao {
          |inner join contract_witnesses w on c.id = w.contract_id
          |left join contract_signatories sigs on sigs.contract_id = c.id
          |left join contract_observers obs on obs.contract_id = c.id
-         |where create_offset <= {offset} and (archive_offset is null or archive_offset > {offset})
+         |where create_offset < {endExclusive} and (archive_offset is null or archive_offset > {endExclusive})
          |and
          |   (
          |     concat(c.name,'&',w.witness) in ({template_parties})
          |     OR w.witness in ({wildcard_parties})
          |    )
-         |group by cd.id, cd.contract, c.transaction_id, c.create_event_id, c.workflow_id, c.key, le.effective_at
+         |group by c.create_offset, cd.id, cd.contract, c.transaction_id, c.create_event_id, c.workflow_id, c.key, le.effective_at
+         |order by c.create_offset
+         |limit {pageSize} offset {queryOffset}
          |""".stripMargin
   }
 
@@ -1689,6 +1699,7 @@ object JdbcLedgerDao {
       // thus resulting in multiple output rows
       s"""
          |select distinct
+         |  c.create_offset,
          |  cd.id,
          |  cd.contract,
          |  c.transaction_id,
@@ -1704,13 +1715,15 @@ object JdbcLedgerDao {
          |inner join contract_witnesses w on c.id = w.contract_id
          |left join contract_signatories sigs on sigs.contract_id = c.id
          |left join contract_observers obs on obs.contract_id = c.id
-         |where create_offset <= {offset} and (archive_offset is null or archive_offset > {offset})
+         |where c.create_offset <= {endExclusive} and (archive_offset is null or archive_offset > {endExclusive})
          |and
          |   (
          |     concat(c.name,'&',w.witness) in ({template_parties})
          |     OR w.witness in ({wildcard_parties})
          |    )
-         |group by cd.id, cd.contract, c.transaction_id, c.create_event_id, c.workflow_id, c.key, le.effective_at
+         |group by c.create_offset, cd.id, cd.contract, c.transaction_id, c.create_event_id, c.workflow_id, c.key, le.effective_at
+         |order by c.create_offset
+         |limit {pageSize} offset {queryOffset}
          |""".stripMargin
 
   }
