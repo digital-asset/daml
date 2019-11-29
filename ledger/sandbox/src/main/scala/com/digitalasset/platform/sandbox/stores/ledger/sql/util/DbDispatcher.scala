@@ -18,10 +18,10 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder
 import scala.concurrent.{ExecutionContext, Future}
 
 /**
-  * A helper class to dispatch blocking SQL queries onto a dedicated thread pool. The number of threads are being kept
-  * * in sync with the number of JDBC connections in the pool.
+  * A helper class to dispatch blocking SQL queries onto a dedicated thread pool.
+  * The number of threads are being kept in sync with the number of JDBC connections in the pool.
   *
-  * @param jdbcUrl                   the jdbc url containing the database name, user name and password
+  * @param jdbcUrl                    the JDBC url containing the database name, user name and password
   * @param noOfShortLivedConnections the number of connections to be pre-allocated for regular SQL queries
   * @param noOfStreamingConnections  the max number of connections to be used for long, streaming queries
   */
