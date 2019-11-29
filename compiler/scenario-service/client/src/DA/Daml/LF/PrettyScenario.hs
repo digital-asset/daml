@@ -848,8 +848,8 @@ renderScenarioResult world res = TL.toStrict $ Blaze.renderHtml $ do
     H.docTypeHtml $ do
         H.head $ do
             H.style $ H.text Pretty.highlightStylesheet
-            H.style $ H.text stylesheet
             H.script "" H.! A.src "$webviewSrc"
+            H.link H.! A.rel "stylesheet" H.! A.href "$webviewCss"
         let tableView = renderTableView world res
         let transView = renderTransactionView world res
         let noteView = H.div H.! A.class_ "note" H.! A.id "note" $ H.toHtml $ T.pack " "
@@ -869,48 +869,6 @@ renderScenarioResult world res = TL.toStrict $ Blaze.renderHtml $ do
                 noteView
                 tbl
                 transView
-
-stylesheet :: T.Text
-stylesheet = T.unlines
-  [ "table, th, td {"
-  , "  border: 1px solid;"
-  , "  border-collapse: collapse;"
-  , "}"
-  , "th, td {"
-  , "  padding-left: 2px;"
-  , "  padding-right: 2px;"
-  , "}"
-  , "body.hide_archived .archived {"
-  , "  display: none;"
-  , "}"
-  , "body.hide_table .table {"
-  , "  display: none;"
-  , "}"
-  , "body.hide_transaction .transaction {"
-  , "  display: none;"
-  , "}"
-  , "body.hide_note .note {"
-  , "  display: none;"
-  , "}"
-  , "tr.archived td {"
-  , "  text-decoration: line-through;"
-  , "}"
-  , "td.disclosure {"
-  , "  max-width: 1em;"
-  , "  text-align: center;"
-  , "}"
-  , "tr.archived td.disclosure {"
-  , "  text-decoration: none;"
-  , "}"
-  , "th {"
-  , "  vertical-align: bottom;"
-  , "}"
-  , "div.observer {"
-  , "  max-width: 1em;"
-  , "  writing-mode: vertical-rl;"
-  , "  transform: rotate(180deg);"
-  , "}"
-  ]
 
 scenarioNotInFileNote :: T.Text -> T.Text
 scenarioNotInFileNote file = htmlNote $ T.pack $
