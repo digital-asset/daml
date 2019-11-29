@@ -45,7 +45,7 @@ final class SqlExecutor(
   private val transientFailureCount: AtomicInteger = new AtomicInteger(0)
 
   override def currentHealth(): HealthStatus =
-    if (transientFailureCount.get() < maxTransientFailureCount)
+    if (transientFailureCount.get() < MaxTransientFailureCount)
       Healthy
     else
       Unhealthy
@@ -99,5 +99,5 @@ final class SqlExecutor(
 }
 
 object SqlExecutor {
-  val maxTransientFailureCount: Int = 3
+  val MaxTransientFailureCount: Int = 3
 }
