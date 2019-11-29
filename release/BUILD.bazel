@@ -67,7 +67,6 @@ genrule(
         "//compiler/damlc:damlc-dist",
         "//compiler/daml-extension:vsix",
         "//daml-assistant/daml-helper:daml-helper-dist",
-        "//ledger/sandbox:sandbox-binary_deploy.jar",
         "//templates:templates-tarball.tar.gz",
         "//triggers/daml:daml-trigger.dar",
         "//daml-script/daml:daml-script.dar",
@@ -103,9 +102,6 @@ genrule(
 
       mkdir -p $$OUT/studio
       cp $(location //compiler/daml-extension:vsix) $$OUT/studio/daml-bundled.vsix
-
-      mkdir -p $$OUT/sandbox
-      cp $(location //ledger/sandbox:sandbox-binary_deploy.jar) $$OUT/sandbox/sandbox.jar
 
       mkdir -p $$OUT/templates
       tar xf $(location //templates:templates-tarball.tar.gz) --strip-components=1 -C $$OUT/templates

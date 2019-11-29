@@ -5,6 +5,7 @@ import com.digitalasset.codegen.{CodegenMain => Codegen}
 import com.digitalasset.extractor.{Main => Extractor}
 import com.digitalasset.http.{Main => JsonApi}
 import com.digitalasset.navigator.{NavigatorBackend => Navigator}
+import com.digitalasset.platform.sandbox.{SandboxMain => Sandbox}
 
 object SdkMain {
     def main(args: Array[String]): Unit = {
@@ -17,6 +18,7 @@ object SdkMain {
             case "extractor" => Extractor.main(rest)
             case "json-api" => JsonApi.main(rest)
             case "navigator" => Navigator.main(rest)
+            case "sandbox" => Sandbox.main(rest)
             case _ => sys.exit(1)
         }
     }

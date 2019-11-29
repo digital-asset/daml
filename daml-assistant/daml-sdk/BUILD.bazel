@@ -90,6 +90,7 @@ da_scala_library(
         "//extractor:extractor",
         "//ledger-service/http-json:http-json",
         "//navigator/backend:navigator-library",
+        "//ledger/sandbox:sandbox",
     ],
 )
 

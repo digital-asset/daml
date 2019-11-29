@@ -685,7 +685,7 @@ navigatorURL (NavigatorPort p) = "http://localhost:" <> show p
 
 withSandbox :: SandboxPort -> [String] -> (Process () () () -> IO a) -> IO a
 withSandbox (SandboxPort port) args a = do
-    withJar sandboxPath [] (["--port", show port] ++ args) $ \ph -> do
+    withJar damlSdkJar [] (["sandbox", "--port", show port] ++ args) $ \ph -> do
         putStrLn "Waiting for sandbox to start: "
         -- TODO We need to figure out what a sane timeout for this step.
         waitForConnectionOnPort (putStr "." *> threadDelay 500000) port
@@ -1006,6 +1006,3 @@ waitForHttpServer sleep url headers = do
             _ -> sleep *> pure Nothing
     where isIOException e = isJust (fromException e :: Maybe IOException)
           isHttpException e = isJust (fromException e :: Maybe HTTP.HttpException)
-
-sandboxPath :: FilePath
-sandboxPath = "sandbox/sandbox.jar"
