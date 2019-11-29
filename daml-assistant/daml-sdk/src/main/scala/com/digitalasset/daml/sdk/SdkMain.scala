@@ -1,3 +1,6 @@
+// Copyright (c) 2019 The DAML Authors. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 package com.digitalasset.daml.sdk
 import com.digitalasset.daml.lf.engine.trigger.{RunnerMain => Trigger}
 import com.digitalasset.daml.lf.engine.script.{RunnerMain => Script}
@@ -23,3 +26,4 @@ object SdkMain {
         }
     }
 }
+
