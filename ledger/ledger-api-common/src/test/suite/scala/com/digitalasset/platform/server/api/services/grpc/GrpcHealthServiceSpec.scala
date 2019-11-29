@@ -30,7 +30,7 @@ final class GrpcHealthServiceSpec
       val service = new GrpcHealthService(new HealthChecks)
 
       for {
-        response <- service.check(allServicesRequest)
+        response <- service.check(HealthCheckRequest())
       } yield {
         response should be(servingResponse)
       }
@@ -40,7 +40,7 @@ final class GrpcHealthServiceSpec
       val service = new GrpcHealthService(new HealthChecks("component" -> healthyComponent))
 
       for {
-        response <- service.check(allServicesRequest)
+        response <- service.check(HealthCheckRequest())
       } yield {
         response should be(servingResponse)
       }
@@ -50,7 +50,7 @@ final class GrpcHealthServiceSpec
       val service = new GrpcHealthService(new HealthChecks("component" -> unhealthyComponent))
 
       for {
-        response <- service.check(allServicesRequest)
+        response <- service.check(HealthCheckRequest())
       } yield {
         response should be(notServingResponse)
       }
@@ -65,7 +65,7 @@ final class GrpcHealthServiceSpec
         ))
 
       for {
-        response <- service.check(allServicesRequest)
+        response <- service.check(HealthCheckRequest())
       } yield {
         response should be(servingResponse)
       }
@@ -80,7 +80,7 @@ final class GrpcHealthServiceSpec
         ))
 
       for {
-        response <- service.check(allServicesRequest)
+        response <- service.check(HealthCheckRequest())
       } yield {
         response should be(notServingResponse)
       }
@@ -90,7 +90,7 @@ final class GrpcHealthServiceSpec
       val service = new GrpcHealthService(new HealthChecks("component" -> healthyComponent))
 
       for {
-        response <- service.check(serviceRequestFor("component"))
+        response <- service.check(HealthCheckRequest("component"))
       } yield {
         response should be(servingResponse)
       }
@@ -100,7 +100,7 @@ final class GrpcHealthServiceSpec
       val service = new GrpcHealthService(new HealthChecks("component" -> unhealthyComponent))
 
       for {
-        response <- service.check(serviceRequestFor("component"))
+        response <- service.check(HealthCheckRequest("component"))
       } yield {
         response should be(notServingResponse)
       }
@@ -115,7 +115,7 @@ final class GrpcHealthServiceSpec
         ))
 
       for {
-        response <- service.check(serviceRequestFor("component B"))
+        response <- service.check(HealthCheckRequest("component B"))
       } yield {
         response should be(servingResponse)
       }
@@ -130,7 +130,7 @@ final class GrpcHealthServiceSpec
         ))
 
       for {
-        response <- service.check(serviceRequestFor("component A"))
+        response <- service.check(HealthCheckRequest("component A"))
       } yield {
         response should be(notServingResponse)
       }
@@ -144,14 +144,14 @@ final class GrpcHealthServiceSpec
       var componentCHealth: HealthStatus = Healthy
       val service = new GrpcHealthService(
         new HealthChecks(
-          "component A" -> StubReporter.changing(() => componentAHealth),
-          "component B" -> StubReporter.changing(() => componentBHealth),
-          "component C" -> StubReporter.changing(() => componentCHealth),
+          "component A" -> compnentWithHealthBackedBy(() => componentAHealth),
+          "component B" -> compnentWithHealthBackedBy(() => componentBHealth),
+          "component C" -> compnentWithHealthBackedBy(() => componentCHealth),
         ),
         maximumWatchFrequency = 1.millisecond,
       )
 
-      service.watch(allServicesRequest, responseObserver)
+      service.watch(HealthCheckRequest(), responseObserver)
       responseObserver.demandResponse(count = 5)
 
       eventually {
@@ -204,14 +204,14 @@ final class GrpcHealthServiceSpec
       var componentCHealth: HealthStatus = Healthy
       val service = new GrpcHealthService(
         new HealthChecks(
-          "component A" -> StubReporter.changing(() => componentAHealth),
-          "component B" -> StubReporter.changing(() => componentBHealth),
-          "component C" -> StubReporter.changing(() => componentCHealth),
+          "component A" -> compnentWithHealthBackedBy(() => componentAHealth),
+          "component B" -> compnentWithHealthBackedBy(() => componentBHealth),
+          "component C" -> compnentWithHealthBackedBy(() => componentCHealth),
         ),
         maximumWatchFrequency = 1.millisecond,
       )
 
-      service.watch(serviceRequestFor("component C"), responseObserver)
+      service.watch(HealthCheckRequest("component C"), responseObserver)
       responseObserver.demandResponse(count = 3)
 
       eventually {
@@ -260,7 +260,7 @@ final class GrpcHealthServiceSpec
     val service = new GrpcHealthService(new HealthChecks("component" -> unhealthyComponent))
 
     for {
-      throwable <- service.check(serviceRequestFor("another component")).failed
+      throwable <- service.check(HealthCheckRequest("another component")).failed
     } yield {
       throwable match {
         case GrpcException.NOT_FOUND() =>
@@ -275,7 +275,7 @@ final class GrpcHealthServiceSpec
     val responseObserver = new MockServerCallStreamObserver[HealthCheckResponse]
     val service = new GrpcHealthService(new HealthChecks("component" -> unhealthyComponent))
 
-    service.watch(serviceRequestFor("another component"), responseObserver)
+    service.watch(HealthCheckRequest("another component"), responseObserver)
     responseObserver.demandResponse()
 
     for {
@@ -292,22 +292,10 @@ final class GrpcHealthServiceSpec
 }
 
 object GrpcHealthServiceSpec {
-  private val allServicesRequest = HealthCheckRequest()
+  private val healthyComponent: ReportsHealth = () => Healthy
 
-  private def serviceRequestFor(componentName: String) = HealthCheckRequest(service = componentName)
+  private val unhealthyComponent: ReportsHealth = () => Unhealthy
 
-  private val healthyComponent: ReportsHealth = StubReporter.fixed(Healthy)
-
-  private val unhealthyComponent: ReportsHealth = StubReporter.fixed(Unhealthy)
-
-  private class StubReporter private[StubReporter] (fetchCurrentHealth: () => HealthStatus)
-      extends ReportsHealth {
-    override def currentHealth(): HealthStatus = fetchCurrentHealth()
-  }
-
-  private object StubReporter {
-    def changing(fetchCurrentHealth: () => HealthStatus) = new StubReporter(fetchCurrentHealth)
-
-    def fixed(fixedHealth: HealthStatus) = new StubReporter(() => fixedHealth)
-  }
+  private def compnentWithHealthBackedBy(fetchCurrentHealth: () => HealthStatus): ReportsHealth =
+    () => fetchCurrentHealth()
 }
