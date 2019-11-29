@@ -94,7 +94,6 @@ import Control.Monad.Fail
 import           Control.Monad.Reader
 import           Control.Monad.State.Strict
 import           DA.Daml.LF.Ast as LF
-import           DA.Daml.LF.Ast.Type as LF
 import           DA.Daml.LF.Ast.Numeric
 import           Data.Data hiding (TyCon)
 import qualified Data.Decimal as Decimal
@@ -349,17 +348,6 @@ convertTypeDef env o@(ATyCon t) = withRange (convNameLoc t) $ if
     , n `elementOfUniqSet` internalTypes
     -> pure []
 
-    -- NOTE(MH): We detect type synonyms produced by the desugaring
-    -- of `template instance` declarations and inline the record definition
-    -- of the generic template.
-    --
-    -- TODO(FM): Precompute a map of possible template instances in Env
-    -- instead of checking every closed type synonym against every class
-    -- instance (or improve this some other way to subquadratic time).
-    | Just ([], TypeCon tpl args) <- synTyConDefn_maybe t
-    , any (\(c, args') -> getOccFS c == getOccFS tpl <> "Instance" && eqTypes args args') $ envInstances env
-    -> convertTemplateInstanceDef env (getName t) tpl args
-
     -- Type synonyms get expanded out during conversion (see 'convertType').
     | isTypeSynonymTyCon t
     -> pure []
@@ -470,22 +458,6 @@ proxyVar :: TypeVarName
 proxyVar = mkTypeVar "proxy"
 mkProxy :: LF.Type -> LF.Type
 mkProxy = TApp (TVar proxyVar)
-
--- | Instantiate and inline the generic template record definition
--- for a template instance.
-convertTemplateInstanceDef :: Env -> Name -> TyCon -> [GHC.Type] -> ConvertM [Definition]
-convertTemplateInstanceDef env tname templateTyCon args = do
-    when (tyConFlavour templateTyCon /= DataTypeFlavour) $
-        unhandled "template type with unexpected flavour"
-            (prettyPrint $ tyConFlavour templateTyCon)
-    lfArgs <- mapM (convertType env) args
-    let templateCon = tyConSingleDataCon templateTyCon
-        tyVarNames = map convTypeVarName (tyConTyVars templateTyCon)
-        subst = MS.fromList (zipExact tyVarNames lfArgs)
-    fields <- convertRecordFields env templateCon (LF.substitute subst)
-    let tconName = mkTypeCon [getOccText tname]
-        typeDef = defDataType tconName [] (DataRecord fields)
-    pure [typeDef]
 
 convertBind :: Env -> (Var, GHC.Expr Var) -> ConvertM [Definition]
 convertBind env (name, x)
