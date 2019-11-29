@@ -8,18 +8,18 @@ import java.time.Instant
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
-import com.codahale.metrics.MetricRegistry
+import com.codahale.metrics.{MetricRegistry, Timer}
+import com.daml.ledger.participant.state.index.v2.PackageDetails
 import com.daml.ledger.participant.state.v1.{Configuration, ParticipantId, TransactionId}
 import com.digitalasset.daml.lf.data.Ref.{LedgerString, PackageId, Party}
-import com.daml.ledger.participant.state.index.v2.PackageDetails
 import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
 import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails}
+import com.digitalasset.ledger.api.health.HealthStatus
 import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilter
 import com.digitalasset.platform.sandbox.metrics.timedFuture
 import com.digitalasset.platform.sandbox.stores.ActiveLedgerState.{ActiveContract, Contract}
-import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry
 import com.digitalasset.platform.sandbox.stores.ledger.{ConfigurationEntry, LedgerEntry}
 
 import scala.collection.immutable
@@ -30,19 +30,21 @@ private class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: MetricRegi
     with AutoCloseable {
 
   private object Metrics {
-    val lookupLedgerId = metrics.timer("LedgerDao.lookupLedgerId")
-    val lookupLedgerEnd = metrics.timer("LedgerDao.lookupLedgerEnd")
-    val lookupExternalLedgerEnd = metrics.timer("LedgerDao.lookupExternalLedgerEnd")
-    val lookupLedgerEntry = metrics.timer("LedgerDao.lookupLedgerEntry")
-    val lookupTransaction = metrics.timer("LedgerDao.lookupTransaction")
-    val lookupLedgerConfiguration = metrics.timer("LedgerDao.lookupLedgerConfiguration")
-    val lookupKey = metrics.timer("LedgerDao.lookupKey")
-    val lookupActiveContract = metrics.timer("LedgerDao.lookupActiveContract")
-    val getParties = metrics.timer("LedgerDao.getParties")
-    val listLfPackages = metrics.timer("LedgerDao.listLfPackages")
-    val getLfArchive = metrics.timer("LedgerDao.getLfArchive")
-
+    val lookupLedgerId: Timer = metrics.timer("LedgerDao.lookupLedgerId")
+    val lookupLedgerEnd: Timer = metrics.timer("LedgerDao.lookupLedgerEnd")
+    val lookupExternalLedgerEnd: Timer = metrics.timer("LedgerDao.lookupExternalLedgerEnd")
+    val lookupLedgerEntry: Timer = metrics.timer("LedgerDao.lookupLedgerEntry")
+    val lookupTransaction: Timer = metrics.timer("LedgerDao.lookupTransaction")
+    val lookupLedgerConfiguration: Timer = metrics.timer("LedgerDao.lookupLedgerConfiguration")
+    val lookupKey: Timer = metrics.timer("LedgerDao.lookupKey")
+    val lookupActiveContract: Timer = metrics.timer("LedgerDao.lookupActiveContract")
+    val getParties: Timer = metrics.timer("LedgerDao.getParties")
+    val listLfPackages: Timer = metrics.timer("LedgerDao.listLfPackages")
+    val getLfArchive: Timer = metrics.timer("LedgerDao.getLfArchive")
   }
+
+  override def currentHealth(): HealthStatus = ledgerDao.currentHealth()
+
   override def lookupLedgerId(): Future[Option[LedgerId]] =
     timedFuture(Metrics.lookupLedgerId, ledgerDao.lookupLedgerId())
 
@@ -109,12 +111,15 @@ private class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: MetricRegistry)
     with LedgerDao {
 
   private object Metrics {
-    val storeParty = metrics.timer("LedgerDao.storeParty")
-    val storeInitialState = metrics.timer("LedgerDao.storeInitialState")
-    val uploadLfPackages = metrics.timer("LedgerDao.uploadLfPackages")
-    val storeLedgerEntry = metrics.timer("LedgerDao.storeLedgerEntry")
-    val storeConfigurationEntry = metrics.timer("LedgerDao.storeConfigurationEntry")
+    val storeParty: Timer = metrics.timer("LedgerDao.storeParty")
+    val storeInitialState: Timer = metrics.timer("LedgerDao.storeInitialState")
+    val uploadLfPackages: Timer = metrics.timer("LedgerDao.uploadLfPackages")
+    val storeLedgerEntry: Timer = metrics.timer("LedgerDao.storeLedgerEntry")
+    val storeConfigurationEntry: Timer = metrics.timer("LedgerDao.storeConfigurationEntry")
   }
+
+  override def currentHealth(): HealthStatus = ledgerDao.currentHealth()
+
   override def storeLedgerEntry(
       offset: Long,
       newLedgerEnd: Long,

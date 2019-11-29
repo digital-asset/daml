@@ -97,11 +97,3 @@ class HikariJdbcConnectionProvider(
     streamingDataSource.close()
   }
 }
-
-object HikariJdbcConnectionProvider {
-  def apply(
-      jdbcUrl: String,
-      noOfShortLivedConnections: Int,
-      noOfStreamingConnections: Int): JdbcConnectionProvider =
-    new HikariJdbcConnectionProvider(jdbcUrl, noOfShortLivedConnections, noOfStreamingConnections)
-}

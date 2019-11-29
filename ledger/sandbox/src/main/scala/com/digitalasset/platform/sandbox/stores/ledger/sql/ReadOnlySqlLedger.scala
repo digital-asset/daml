@@ -8,6 +8,7 @@ import akka.stream._
 import akka.stream.scaladsl.{Keep, RestartSource, Sink, Source}
 import com.codahale.metrics.MetricRegistry
 import com.digitalasset.ledger.api.domain.LedgerId
+import com.digitalasset.ledger.api.health.HealthStatus
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.common.util.{DirectExecutionContext => DEC}
 import com.digitalasset.platform.sandbox.stores.ledger.ReadOnlyLedger
@@ -39,17 +40,19 @@ object ReadOnlySqlLedger {
       jdbcUrl: String,
       ledgerId: Option[LedgerId],
       loggerFactory: NamedLoggerFactory,
-      metrics: MetricRegistry)(implicit mat: Materializer): Future[ReadOnlyLedger] = {
+      metrics: MetricRegistry,
+  )(implicit mat: Materializer): Future[ReadOnlyLedger] = {
     implicit val ec: ExecutionContext = DEC
 
     val dbType = DbType.jdbcType(jdbcUrl)
     val dbDispatcher =
-      DbDispatcher(
+      new DbDispatcher(
         jdbcUrl,
         noOfShortLivedConnections,
         noOfStreamingConnections,
         loggerFactory,
-        metrics)
+        metrics,
+      )
     val ledgerReadDao = LedgerDao.meteredRead(
       JdbcLedgerDao(
         dbDispatcher,
@@ -62,14 +65,16 @@ object ReadOnlySqlLedger {
         mat.executionContext),
       metrics)
 
-    ReadOnlySqlLedgerFactory(ledgerReadDao, loggerFactory).createReadOnlySqlLedger(ledgerId)
+    new ReadOnlySqlLedgerFactory(ledgerReadDao, loggerFactory)
+      .createReadOnlySqlLedger(ledgerId)
   }
 }
 
 private class ReadOnlySqlLedger(
     ledgerId: LedgerId,
     headAtInitialization: Long,
-    ledgerDao: LedgerReadDao)(implicit mat: Materializer)
+    ledgerDao: LedgerReadDao,
+)(implicit mat: Materializer)
     extends BaseLedger(ledgerId, headAtInitialization, ledgerDao) {
 
   private val ledgerEndUpdateKillSwitch = {
@@ -88,6 +93,8 @@ private class ReadOnlySqlLedger(
       .run()
   }
 
+  override def currentHealth(): HealthStatus = ledgerDao.currentHealth()
+
   override def close(): Unit = {
     ledgerEndUpdateKillSwitch.shutdown()
     super.close()
@@ -96,11 +103,11 @@ private class ReadOnlySqlLedger(
 
 private class ReadOnlySqlLedgerFactory(
     ledgerDao: LedgerReadDao,
-    loggerFactory: NamedLoggerFactory) {
-
+    loggerFactory: NamedLoggerFactory,
+) {
   private val logger = loggerFactory.getLogger(getClass)
 
-  /** *
+  /**
     * Creates a DB backed Ledger implementation.
     *
     * @return a compliant read-only Ledger implementation
@@ -129,7 +136,7 @@ private class ReadOnlySqlLedgerFactory(
         ledgerDao
           .lookupLedgerId()
           .flatMap {
-            case Some(foundLedgerId) if (foundLedgerId == initialId) =>
+            case Some(foundLedgerId) if foundLedgerId == initialId =>
               ledgerFound(foundLedgerId)
             case Some(foundLedgerId) =>
               val errorMsg =
@@ -157,10 +164,4 @@ private class ReadOnlySqlLedgerFactory(
     logger.info(s"Found existing ledger with id: ${foundLedgerId.unwrap}")
     Future.successful(foundLedgerId)
   }
-
-}
-
-private object ReadOnlySqlLedgerFactory {
-  def apply(ledgerDao: LedgerReadDao, loggerFactory: NamedLoggerFactory): ReadOnlySqlLedgerFactory =
-    new ReadOnlySqlLedgerFactory(ledgerDao, loggerFactory)
 }

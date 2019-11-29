@@ -8,36 +8,60 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.grpc.adapter.utils.DirectExecutionContext
+import com.digitalasset.ledger.api.health.HealthChecks
 import com.digitalasset.platform.api.grpc.GrpcApiService
 import com.digitalasset.platform.server.api.DropRepeated
-import io.grpc.ServerServiceDefinition
+import com.digitalasset.platform.server.api.services.grpc.GrpcHealthService._
 import io.grpc.health.v1.health.{
   HealthAkkaGrpc,
   HealthCheckRequest,
   HealthCheckResponse,
   HealthGrpc
 }
+import io.grpc.{ServerServiceDefinition, Status, StatusException}
 
-import scala.concurrent.duration.DurationInt
+import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.{Failure, Success, Try}
 
 class GrpcHealthService(
+    healthChecks: HealthChecks,
+    maximumWatchFrequency: FiniteDuration = 1.second,
+)(
     implicit protected val esf: ExecutionSequencerFactory,
     protected val mat: Materializer,
     executionContext: ExecutionContext,
 ) extends HealthAkkaGrpc
     with GrpcApiService {
-  private val servingResponse = HealthCheckResponse(HealthCheckResponse.ServingStatus.SERVING)
-
   override def bindService(): ServerServiceDefinition =
     HealthGrpc.bindService(this, DirectExecutionContext)
 
   override def check(request: HealthCheckRequest): Future[HealthCheckResponse] =
-    Future.successful(servingResponse)
+    Future.fromTry(matchResponse(serviceFrom(request)))
 
   override def watchSource(request: HealthCheckRequest): Source[HealthCheckResponse, NotUsed] =
     Source
-      .repeat(servingResponse)
-      .throttle(1, per = 1.second)
+      .fromIterator(() => Iterator.continually(matchResponse(serviceFrom(request)).get))
+      .throttle(1, per = maximumWatchFrequency)
       .via(DropRepeated())
+
+  private def matchResponse(componentName: Option[String]): Try[HealthCheckResponse] =
+    if (!componentName.forall(healthChecks.hasComponent))
+      Failure(new StatusException(Status.NOT_FOUND))
+    else if (healthChecks.isHealthy(componentName))
+      Success(servingResponse)
+    else
+      Success(notServingResponse)
+}
+
+object GrpcHealthService {
+  private[grpc] val servingResponse =
+    HealthCheckResponse(HealthCheckResponse.ServingStatus.SERVING)
+
+  private[grpc] val notServingResponse =
+    HealthCheckResponse(HealthCheckResponse.ServingStatus.NOT_SERVING)
+
+  private def serviceFrom(request: HealthCheckRequest): Option[String] = {
+    Option(request.service).filter(_.nonEmpty)
+  }
 }

@@ -21,10 +21,10 @@ import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
 import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails}
+import com.digitalasset.ledger.api.health.ReportsHealth
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilter
 import com.digitalasset.platform.sandbox.stores.ActiveLedgerState.Contract
-import com.digitalasset.platform.sandbox.stores.{InMemoryActiveLedgerState, InMemoryPackageStore}
 import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
 import com.digitalasset.platform.sandbox.stores.ledger.inmemory.InMemoryLedger
 import com.digitalasset.platform.sandbox.stores.ledger.sql.{
@@ -32,12 +32,13 @@ import com.digitalasset.platform.sandbox.stores.ledger.sql.{
   SqlLedger,
   SqlStartMode
 }
+import com.digitalasset.platform.sandbox.stores.{InMemoryActiveLedgerState, InMemoryPackageStore}
 
 import scala.concurrent.Future
 
 trait Ledger extends ReadOnlyLedger with WriteLedger
 
-trait WriteLedger extends AutoCloseable {
+trait WriteLedger extends ReportsHealth with AutoCloseable {
 
   def publishHeartbeat(time: Instant): Future[Unit]
 
@@ -65,7 +66,7 @@ trait WriteLedger extends AutoCloseable {
 }
 
 /** Defines all the functionalities a Ledger needs to provide */
-trait ReadOnlyLedger extends AutoCloseable {
+trait ReadOnlyLedger extends ReportsHealth with AutoCloseable {
 
   def ledgerId: LedgerId
 

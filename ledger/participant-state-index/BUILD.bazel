@@ -14,6 +14,7 @@ compileDependencies = [
     "//daml-lf/language",
     "//daml-lf/transaction",
     "//ledger/ledger-api-domain",
+    "//ledger/ledger-api-health",
 ]
 
 da_scala_library(
