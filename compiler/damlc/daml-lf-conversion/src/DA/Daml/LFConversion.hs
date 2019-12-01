@@ -159,8 +159,6 @@ data Env = Env
     ,envAliases :: MS.Map Var LF.Expr
     ,envPkgMap :: MS.Map GHC.UnitId LF.DalfPackage
     ,envLfVersion :: LF.Version
-    ,envTypeSynonyms :: [(GHC.Type, TyCon)]
-    ,envInstances :: [(TyCon, [GHC.Type])]
     ,envChoiceData :: MS.Map TypeConName [ChoiceData]
     ,envTemplateKeyData :: MS.Map TypeConName TemplateKeyData
     ,envIsGenerated :: Bool
@@ -299,17 +297,6 @@ convertModule lfVersion pkgMap isGenerated file x = runConvertM (ConversionEnv f
                 | otherwise -> [(name, body)]
               Rec binds -> binds
           ]
-        typeSynonyms =
-          [ (wrappedT, t)
-          | ATyCon t <- eltsUFM (cm_types x)
-          , Just ([], wrappedT) <- [synTyConDefn_maybe t]
-          ]
-        instances =
-            [ (c, ts)
-            | (name, _) <- binds
-            , DFunId _ <- [idDetails name]
-            , TypeCon c ts <- [varType name]
-            ]
         choiceData = MS.fromListWith (++)
             [ (mkTypeCon [getOccText tplTy], [ChoiceData ty v])
             | (name, v) <- binds
@@ -329,8 +316,6 @@ convertModule lfVersion pkgMap isGenerated file x = runConvertM (ConversionEnv f
           , envAliases = MS.empty
           , envPkgMap = pkgMap
           , envLfVersion = lfVersion
-          , envTypeSynonyms = typeSynonyms
-          , envInstances = instances
           , envChoiceData = choiceData
           , envTemplateKeyData = templateKeyData
           , envIsGenerated = isGenerated
