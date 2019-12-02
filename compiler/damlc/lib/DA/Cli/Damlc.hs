@@ -918,7 +918,7 @@ main = do
     -- Note: need to parse given args first to decide whether we need to add
     -- args from daml.yaml.
     Command cmd _ <- handleParseResult tempParseResult
-    let args = if cmd `elem` [Build, Compile, Ide, Test]
+    let args = if cmd `elem` [Build, Compile, Ide, Test, DamlDoc]
                then cliArgs ++ damlYamlArgs
                else cliArgs
         (errMsgs, parseResult) = parse args
