@@ -106,7 +106,7 @@ jobs:
   - job: Windows
     timeoutInMinutes: 360
     pool:
-      name: 'vs2017-win2016'
+      name: 'windows-pool'
     steps:
       - template: ci/report-start.yml
       - template: ci/build-windows.yml
