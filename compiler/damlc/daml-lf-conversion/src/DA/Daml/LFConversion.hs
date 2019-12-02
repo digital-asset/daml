@@ -101,6 +101,7 @@ import           Data.Foldable (foldlM)
 import           Data.Int
 import           Data.List.Extra hiding (for)
 import qualified Data.Map.Strict as MS
+import qualified Data.Set as S
 import           Data.Maybe
 import qualified Data.NameMap as NM
 import qualified Data.Text as T
@@ -162,6 +163,8 @@ data Env = Env
     ,envChoiceData :: MS.Map TypeConName [ChoiceData]
     ,envTemplateKeyData :: MS.Map TypeConName TemplateKeyData
     ,envIsGenerated :: Bool
+    ,envTypeVars :: !(MS.Map Var TypeVarName)
+    ,envTypeVarNames :: !(S.Set TypeVarName) -- cached range of envTypeVars
     }
 
 data ChoiceData = ChoiceData
@@ -180,6 +183,38 @@ envInsertAlias v x env = env{envAliases = MS.insert v x (envAliases env)}
 
 envLookupAlias :: Var -> Env -> Maybe LF.Expr
 envLookupAlias x = MS.lookup x . envAliases
+
+-- | Bind a type var without shadowing its LF name.
+envBindTypeVar :: Var -> Env -> (TypeVarName, Env)
+envBindTypeVar x env = try 1 (TypeVarName prefix)
+    where
+        prefix = getOccText x
+        nameFor i = TypeVarName (prefix <> T.pack (show i))
+
+        try :: Integer -> TypeVarName -> (TypeVarName, Env)
+        try i name =
+            if envHasTypeVarName name env
+                then try (i+1) (nameFor i)
+                else (name, envInsertTypeVar x name env)
+
+-- | Bind multiple type vars without shadowing their LF names.
+envBindTypeVars :: [Var] -> Env -> ([TypeVarName], Env)
+envBindTypeVars xs env = foldr f ([], env) xs
+    where
+        f x (ys, env) =
+            let (y, env') = envBindTypeVar x env in (y:ys, env')
+
+envInsertTypeVar :: Var -> TypeVarName -> Env -> Env
+envInsertTypeVar x n env = env
+    { envTypeVars = MS.insert x n (envTypeVars env)
+    , envTypeVarNames = S.insert n (envTypeVarNames env)
+    }
+
+envLookupTypeVar :: Var -> Env -> Maybe TypeVarName
+envLookupTypeVar x = MS.lookup x . envTypeVars
+
+envHasTypeVarName :: TypeVarName -> Env -> Bool
+envHasTypeVarName x = S.member x . envTypeVarNames
 
 ---------------------------------------------------------------------
 -- CONVERSION
@@ -319,6 +354,8 @@ convertModule lfVersion pkgMap isGenerated file x = runConvertM (ConversionEnv f
           , envChoiceData = choiceData
           , envTemplateKeyData = templateKeyData
           , envIsGenerated = isGenerated
+          , envTypeVars = MS.empty
+          , envTypeVarNames = S.empty
           }
 
 data Consuming = PreConsuming
@@ -376,9 +413,14 @@ convertSimpleRecordDef env tycon = do
         sanitize -- DICTIONARY SANITIZATION step (1)
             | flavour == ClassFlavour = (TUnit :->)
             | otherwise = id
-    tyVars <- mapM convTypeVar (tyConTyVars tycon)
-    fields <- convertRecordFields env con sanitize
-    let tconName = mkTypeCon [getOccText tycon]
+        labels = ctorLabels con
+        (_, theta, args, _) = dataConSig con
+
+    (env', tyVars) <- bindTypeVars env (tyConTyVars tycon)
+    fieldTypes <- mapM (convertType env') (theta ++ args)
+
+    let fields = zipExact labels (map sanitize fieldTypes)
+        tconName = mkTypeCon [getOccText tycon]
         typeDef = defDataType tconName tyVars (DataRecord fields)
         workerDef = defNewtypeWorker env tycon tconName con tyVars fields
     pure $ typeDef : [workerDef | flavour == NewtypeFlavour]
@@ -395,18 +437,11 @@ defNewtypeWorker env loc tconName con tyVars fields =
             ERecCon tcon [(label, EVar (fieldToVar label)) | (label,_) <- fields]
     in defValue loc (workerName, workerType) workerBody
 
-convertRecordFields :: Env -> DataCon -> (LF.Type -> t) -> ConvertM [(FieldName, t)]
-convertRecordFields env con wrap = do
-    let labels = ctorLabels con
-        (_, theta, args, _) = dataConSig con
-    types <- mapM (convertType env) (theta ++ args)
-    pure $ zipExact labels (map wrap types)
-
 convertVariantDef :: Env -> TyCon -> ConvertM [Definition]
 convertVariantDef env tycon = do
-    tyVars <- mapM convTypeVar (tyConTyVars tycon)
+    (env', tyVars) <- bindTypeVars env (tyConTyVars tycon)
     (constrs, moreDefs) <- mapAndUnzipM
-        (convertVariantConDef env tycon tyVars)
+        (convertVariantConDef env' tycon tyVars)
         (tyConDataCons tycon)
     let tconName = mkTypeCon [getOccText tycon]
         typeDef = defDataType tconName tyVars (DataVariant constrs)
@@ -975,8 +1010,13 @@ convertExpr env0 e = do
         | otherwise = fmap (, args) $ pure $ EVar $ convVar x
 
     go env (Lam name x) args
-        | isTyVar name = fmap (, args) $ ETyLam <$> convTypeVar name <*> convertExpr env x
-        | otherwise = fmap (, args) $ ETmLam <$> convVarWithType env name <*> convertExpr env x
+        | isTyVar name = fmap (, args) $ do
+            (env', name') <- bindTypeVar env name
+            ETyLam name' <$> convertExpr env' x
+        | otherwise = fmap (, args) $
+            ETmLam
+                <$> convVarWithType env name
+                <*> convertExpr env x
     go env (Cast x co) args = fmap (, args) $ do
         x' <- convertExpr env x
         (to, _from) <- convertCoercion env co
@@ -1012,7 +1052,7 @@ convertExpr env0 e = do
             TScenario{} -> asLet
             TAny{} -> asLet
             tcon | isSimpleRecordCon con -> do
-                fields <- convertRecordFields env con id
+                let fields = ctorLabels con
                 case zipExactMay vs fields of
                     Nothing -> unsupported "Pattern match with existential type" alt
                     Just vsFields -> convertLet env bind scrutinee $ \env -> do
@@ -1260,8 +1300,8 @@ convertAlt env (TConApp tcon targs) alt@(DataAlt con, vs, x) = do
             unhandled "unreachable case -- convertAlt with simple record constructor" ()
 
         VariantRecordCon -> do
-            fields <- convertRecordFields env con id
-            let patBinder = vArg
+            let fields = ctorLabels con
+                patBinder = vArg
             case zipExactMay vs fields of
                 Nothing -> unsupported "Pattern match with existential type" alt
                 Just vsFlds -> do
@@ -1271,11 +1311,11 @@ convertAlt env (TConApp tcon targs) alt@(DataAlt con, vs, x) = do
 
 convertAlt _ _ x = unsupported "Case alternative of this form" x
 
-mkProjBindings :: Env -> LF.Expr -> TypeConApp -> [(Var, (FieldName, LF.Type))] -> LF.Expr -> ConvertM LF.Expr
+mkProjBindings :: Env -> LF.Expr -> TypeConApp -> [(Var, FieldName)] -> LF.Expr -> ConvertM LF.Expr
 mkProjBindings env recExpr recTyp vsFlds e =
   fmap (\bindings -> mkELets bindings e) $ sequence
     [ Binding <$> convVarWithType env v <*> pure (ERecProj recTyp fld recExpr)
-    | (v, (fld, _typ)) <- vsFlds
+    | (v, fld) <- vsFlds
     , not (isDeadOcc (occInfo (idInfo v)))
     ]
 
@@ -1451,40 +1491,57 @@ metadataTys :: UniqSet FastString
 metadataTys = mkUniqSet ["MetaData", "MetaCons", "MetaSel"]
 
 convertType :: Env -> GHC.Type -> ConvertM LF.Type
-convertType env o@(TypeCon t ts)
-    | t == listTyCon, ts `eqTypes` [charTy] = pure TText
-    | NameIn DA_Generics n <- t, n `elementOfUniqSet` metadataTys, [_] <- ts = pure TUnit
-    | t == anyTyCon, [_] <- ts = pure TUnit -- used for type-zonking
-    | t == funTyCon, _:_:ts' <- ts =
-        foldl TApp TArrow <$> mapM (convertType env) ts'
-    | NameIn DA_Internal_LF "Pair" <- t
-    , [StrLitTy f1, StrLitTy f2, t1, t2] <- ts = do
-        t1 <- convertType env t1
-        t2 <- convertType env t2
-        pure $ TStruct [(mkField f1, t1), (mkField f2, t2)]
-    | tyConFlavour t == TypeSynonymFlavour = convertType env $ expandTypeSynonyms o
-    | isConstraintTupleTyCon t = do
-        fieldTys <- mapM (convertType env) ts
-        let fieldNames = map mkIndexedField [1..]
-        pure $ TStruct (zip fieldNames fieldTys)
+convertType env = go env
+  where
+    go :: Env -> GHC.Type -> ConvertM LF.Type
+    go env o@(TypeCon t ts)
+        | t == listTyCon, ts `eqTypes` [charTy] =
+            pure TText
+        | NameIn DA_Generics n <- t
+        , n `elementOfUniqSet` metadataTys
+        , [_] <- ts =
+            pure TUnit
+        | t == anyTyCon, [_] <- ts =
+            pure TUnit -- used for type-zonking
+        | t == funTyCon, _:_:ts' <- ts =
+            foldl TApp TArrow <$> mapM (go env) ts'
+        | NameIn DA_Internal_LF "Pair" <- t
+        , [StrLitTy f1, StrLitTy f2, t1, t2] <- ts = do
+            t1 <- go env t1
+            t2 <- go env t2
+            pure $ TStruct [(mkField f1, t1), (mkField f2, t2)]
+        | tyConFlavour t == TypeSynonymFlavour =
+            go env (expandTypeSynonyms o)
+        | isConstraintTupleTyCon t = do
+            fieldTys <- mapM (go env) ts
+            let fieldNames = map mkIndexedField [1..]
+            pure $ TStruct (zip fieldNames fieldTys)
+        | otherwise =
+            mkTApps <$> convertTyCon env t <*> mapM (go env) ts
 
-    | otherwise = mkTApps <$> convertTyCon env t <*> mapM (convertType env) ts
-convertType env t | Just (v, t') <- splitForAllTy_maybe t
-  = TForall <$> convTypeVar v <*> convertType env t'
-convertType env t | Just t' <- getTyVar_maybe t
-  = TVar . fst <$> convTypeVar t'
-convertType env t | Just s <- isStrLitTy t
-  = pure TUnit
-convertType env t | Just m <- isNumLitTy t
-  = case typeLevelNatE m of
-        Left TLNEOutOfBounds ->
-            unsupported "type-level natural outside of supported range [0, 37]" m
-        Right n ->
-            pure (TNat n)
-convertType env t | Just (a,b) <- splitAppTy_maybe t
-  = TApp <$> convertType env a <*> convertType env b
-convertType env x
-  = unhandled "Type" x
+    go env t
+        | Just (v, t') <- splitForAllTy_maybe t
+        = do
+            (env', v') <- bindTypeVar env v
+            TForall v' <$> go env' t'
+
+    go env t | Just v <- getTyVar_maybe t
+        = TVar . fst <$> convTypeVar env v
+
+    go _ t | Just s <- isStrLitTy t
+        = pure TUnit
+
+    go env t | Just m <- isNumLitTy t
+        = case typeLevelNatE m of
+            Left TLNEOutOfBounds ->
+                unsupported "type-level natural outside of supported range [0, 37]" m
+            Right n ->
+                pure (TNat n)
+
+    go env t | Just (a,b) <- splitAppTy_maybe t
+        = TApp <$> go env a <*> go env b
+
+    go _ t = unhandled "Type" t
 
 
 convertKind :: GHC.Kind -> ConvertM LF.Kind
@@ -1781,13 +1838,30 @@ anyTpl = mkVar "anyTpl"
 convFieldName :: FieldLbl a -> FieldName
 convFieldName = mkField . fsToText . flLabel
 
-convTypeVar :: Var -> ConvertM (TypeVarName, LF.Kind)
-convTypeVar t = do
-    k <- convertKind $ tyVarKind t
-    pure (convTypeVarName t, k)
+bindTypeVar :: Env -> Var -> ConvertM (Env, (TypeVarName, LF.Kind))
+bindTypeVar env v = do
+    let (n, env') = envBindTypeVar v env
+    k <- convertKind (tyVarKind v)
+    pure (env', (n, k))
 
-convTypeVarName :: Var -> TypeVarName
-convTypeVarName = mkTypeVar . T.pack . show . varUnique
+bindTypeVars :: Env -> [Var] -> ConvertM (Env, [(TypeVarName, LF.Kind)])
+bindTypeVars env vs = do
+    let (ns, env') = envBindTypeVars vs env
+    ks <- mapM (convertKind . tyVarKind) vs
+    pure (env', (zipExact ns ks))
+
+convTypeVar :: Env -> Var -> ConvertM (TypeVarName, LF.Kind)
+convTypeVar env v = do
+    n <- convTypeVarName env v
+    k <- convertKind $ tyVarKind v
+    pure (n, k)
+
+convTypeVarName :: Env -> Var -> ConvertM TypeVarName
+convTypeVarName env v = do
+    case envLookupTypeVar v env of
+        Nothing ->
+            unhandled "Type variable not bound in conversion environment" v
+        Just tv -> pure tv
 
 convVar :: Var -> ExprVarName
 convVar = mkVar . varPrettyPrint
