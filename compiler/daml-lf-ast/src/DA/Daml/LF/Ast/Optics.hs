@@ -92,6 +92,7 @@ dataConsType f = \case
   DataRecord  fs -> DataRecord  <$> (traverse . _2) f fs
   DataVariant cs -> DataVariant <$> (traverse . _2) f cs
   DataEnum cs -> pure $ DataEnum cs
+  DataSynonym t -> DataSynonym <$> f t
 
 builtinType :: Traversal' Type BuiltinType
 builtinType f =

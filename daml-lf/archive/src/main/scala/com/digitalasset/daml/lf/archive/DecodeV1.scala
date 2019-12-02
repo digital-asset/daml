@@ -248,6 +248,9 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
         lfDataType.getSerializable,
         ImmArray(params).map(decodeTypeVarWithKind),
         lfDataType.getDataConsCase match {
+          case PLF.DefDataType.DataConsCase.SYNONYM =>
+            //assertSince(LV.Features.type_syn, "DefDataType.DataCons.Synonym") //TODO(NICK)
+            throw ParseError("DefDataType.DataCons.Synonym") //TODO(NICK)
           case PLF.DefDataType.DataConsCase.RECORD =>
             DataRecord(decodeFields(ImmArray(lfDataType.getRecord.getFieldsList.asScala)), None)
           case PLF.DefDataType.DataConsCase.VARIANT =>

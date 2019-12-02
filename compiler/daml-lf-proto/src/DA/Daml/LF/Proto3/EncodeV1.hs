@@ -712,6 +712,9 @@ encodeDefDataType DefDataType{..} = do
     defDataTypeName <- encodeDottedName unTypeConName dataTypeCon
     defDataTypeParams <- encodeTypeVarsWithKinds dataParams
     defDataTypeDataCons <- fmap Just $ case dataCons of
+        DataSynonym typ -> do
+            t <- encodeType' typ
+            pure $ P.DefDataTypeDataConsSynonym t
         DataRecord fs -> do
             defDataType_FieldsFields <- encodeFieldsWithTypes unFieldName fs
             pure $ P.DefDataTypeDataConsRecord P.DefDataType_Fields{..}

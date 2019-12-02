@@ -104,6 +104,13 @@ main = do
             , tplChoices = NM.fromList ([chc,chc2] <> [arc | withArchiveChoice])
             , tplKey = Nothing
             }
+    let _syn = DefDataType -- TODO(NICK) make use of this synonym
+            { dataLocation = Nothing
+            , dataTypeCon = TypeConName ["Syn"]
+            , dataSerializable = IsSerializable True
+            , dataParams = []
+            , dataCons = DataSynonym TUnit
+            }
     let mod = Module
             { moduleName = ModuleName ["Module"]
             , moduleSource = Nothing
