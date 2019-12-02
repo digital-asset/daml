@@ -218,7 +218,7 @@ sealed abstract class ValuePredicate extends Product with Serializable {
         OneAnd(
           sql"1 = 1",
           (outerRec.raw ++ outerRec.flush_@>(contractColumnName).toList) map (sq =>
-            sql" AND (" ++ sq ++ sql")")))
+            sql" AND " ++ sq)))
   }
 }
 
