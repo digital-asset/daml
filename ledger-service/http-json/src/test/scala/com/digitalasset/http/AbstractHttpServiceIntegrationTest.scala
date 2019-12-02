@@ -117,14 +117,14 @@ abstract class AbstractHttpServiceIntegrationTest
     }
   }
 
-  "contracts/search POST" in withHttpService { (uri, encoder, _) =>
+  "contracts/search POST with empty query" in withHttpService { (uri, encoder, _) =>
     searchWithQuery(
       searchDataSet,
       jsObject("""{"%templates": [{"moduleName": "Iou", "entityName": "Iou"}]}"""),
       uri,
       encoder
     ).map { acl: List[domain.ActiveContract[JsValue]] =>
-      acl.size shouldBe 4
+      acl.size shouldBe searchDataSet.size
     }
   }
 
