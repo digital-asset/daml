@@ -5,10 +5,14 @@ package com.digitalasset.http.json
 
 import akka.NotUsed
 import akka.http.scaladsl.model._
-import akka.stream.scaladsl.{Concat, Source}
+import akka.stream.scaladsl.{Concat, Source, _}
+import akka.stream.{FanOutShape2, SourceShape, UniformFanInShape}
 import akka.util.ByteString
-import spray.json._
+import com.digitalasset.http.ContractsFetch
+import scalaz.syntax.show._
+import scalaz.{Show, \/}
 import spray.json.DefaultJsonProtocol._
+import spray.json._
 
 private[http] object ResponseFormats {
   def errorsJsObject(status: StatusCode, es: String*): JsObject = {
@@ -24,19 +28,41 @@ private[http] object ResponseFormats {
     JsObject(statusField(StatusCodes.OK), ("result", a))
   }
 
-  private val start: Source[ByteString, NotUsed] =
-    Source.single(ByteString("""{"status":200,"result":["""))
+  def resultJsObject[E: Show](
+      jsVals: Source[E \/ JsValue, NotUsed]): Source[ByteString, NotUsed] = {
 
-  private val end: Source[ByteString, NotUsed] = Source.single(ByteString("]}"))
+    val graph = GraphDSL.create() { implicit b =>
+      import GraphDSL.Implicits._
 
-  def resultJsObject(jsVals: Source[JsValue, NotUsed]): Source[ByteString, NotUsed] = {
-    val csv: Source[ByteString, NotUsed] = jsVals.zipWithIndex.map {
-      case (a, i) =>
-        if (i == 0L) ByteString(a.compactPrint)
-        else ByteString("," + a.compactPrint)
+      val partition: FanOutShape2[E \/ JsValue, E, JsValue] = b add ContractsFetch.partition
+      val concat: UniformFanInShape[ByteString, ByteString] = b add Concat(3)
+
+      // first produce the result element
+      Source.single(ByteString("""{"result":[""")) ~> concat.in(0)
+
+      jsVals ~> partition.in
+
+      // second consume all successes
+      partition.out1.zipWithIndex.map(a => formatOneElement(a._1, a._2)) ~> concat.in(1)
+
+      // then consume all failures and produce the status and optional errors
+      partition.out0.fold(Vector.empty[E])((b, a) => b :+ a).map {
+        case Vector() =>
+          ByteString("""],"status":200}""")
+        case errors =>
+          val jsErrors: Vector[JsString] = errors.map(e => JsString(e.shows))
+          ByteString(s"""],errors=${JsArray(jsErrors).compactPrint},"status":501}""")
+      } ~> concat.in(2)
+
+      SourceShape(concat.out)
     }
 
-    Source.combine(start, csv, end)(Concat.apply)
+    Source.fromGraph(graph)
+  }
+
+  private def formatOneElement(a: JsValue, index: Long): ByteString = {
+    if (index == 0L) ByteString(a.compactPrint)
+    else ByteString("," + a.compactPrint)
   }
 
   def statusField(status: StatusCode): (String, JsNumber) =
