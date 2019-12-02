@@ -170,7 +170,7 @@ sealed abstract class ValuePredicate extends Product with Serializable {
           }.unzip
           val allSafe_== = cqs collect Function.unlift(_.safe_==)
           Rec(
-            cqs.flatMap(_.raw) ++ flushed_@>.flatten,
+            cqs.flatMap(_.raw) ++ flushed_@>.flatten :+ (sql"jsonb_array_length(" ++ path ++ sql") = ${qs.length}"),
             (cqs.length == allSafe_==.length) option JsArray(allSafe_==),
             None)
 
