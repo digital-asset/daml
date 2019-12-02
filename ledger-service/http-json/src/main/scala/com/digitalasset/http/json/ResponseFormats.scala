@@ -51,7 +51,7 @@ private[http] object ResponseFormats {
           ByteString("""],"status":200}""")
         case errors =>
           val jsErrors: Vector[JsString] = errors.map(e => JsString(e.shows))
-          ByteString(s"""],errors=${JsArray(jsErrors).compactPrint},"status":501}""")
+          ByteString(s"""],"errors":${JsArray(jsErrors).compactPrint},"status":501}""")
       } ~> concat.in(2)
 
       SourceShape(concat.out)
