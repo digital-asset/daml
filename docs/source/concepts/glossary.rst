@@ -79,6 +79,9 @@ A **disjunction choice** has more than one `controller <#controller>`__.
 
 If a contract uses **flexible controllers**, this means you don't specify the controller of the `choice <#choice>`__ at `creation <#create>`__ time of the `contract <#contract-contract-instance>`__, but at `exercise <#exercise>`__ time.
 
+
+.. _glossary-party:
+
 Party
 =====
 
