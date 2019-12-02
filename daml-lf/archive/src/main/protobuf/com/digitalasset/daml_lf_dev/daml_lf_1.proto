@@ -40,6 +40,7 @@
 // * dev (special staging area for the next version to be released)
 //        2019-11-12: Add Generic Map (GenMap)
 //        2019-11-22: Rename Map to TextMap
+//        2019-11-28: Rename Tuple to Struct
 
 syntax = "proto3";
 package daml_lf_1;

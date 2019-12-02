@@ -1051,7 +1051,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
         case _: SPrimLit | STNat(_) | STypeRep(_) =>
         case SList(a) => a.iterator.foreach(goV)
         case SOptional(x) => x.foreach(goV)
-        case SMap(map) => map.values.foreach(goV)
+        case STextMap(map) => map.values.foreach(goV)
         case SGenMap(values) =>
           values.foreach {
             case (SGenMap.Key(k), v) =>

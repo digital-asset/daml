@@ -756,61 +756,63 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
   "TextMap operations" - {
 
     def buildMap[X](typ: String, l: (String, X)*) =
-      ("MAP_EMPTY @Int64" /: l) { case (acc, (k, v)) => s"""(MAP_INSERT @$typ "$k" $v $acc)""" }
+      ("TEXTMAP_EMPTY @Int64" /: l) {
+        case (acc, (k, v)) => s"""(TEXTMAP_INSERT @$typ "$k" $v $acc)"""
+      }
 
-    "MAP_EMPTY" - {
+    "TEXTMAP_EMPTY" - {
       "produces a map" in {
-        eval(e"MAP_EMPTY @Int64") shouldEqual Right(SMap(HashMap.empty))
+        eval(e"TEXTMAP_EMPTY @Int64") shouldEqual Right(STextMap(HashMap.empty))
       }
     }
 
-    "MAP_INSERT" - {
+    "TEXTMAP_INSERT" - {
 
       "inserts as expected" in {
         eval(e"${buildMap("Int64", "a" -> 1, "b" -> 2, "c" -> 3)}") shouldBe
-          Right(SMap(HashMap("a" -> SInt64(1), "b" -> SInt64(2), "c" -> SInt64(3))))
+          Right(STextMap(HashMap("a" -> SInt64(1), "b" -> SInt64(2), "c" -> SInt64(3))))
       }
 
       "replaces already present key" in {
         val map = buildMap("Int64", "a" -> 1, "b" -> 2, "c" -> 3)
 
         eval(e"$map") shouldBe
-          Right(SMap(HashMap("a" -> SInt64(1), "b" -> SInt64(2), "c" -> SInt64(3))))
-        eval(e"""MAP_INSERT @Int64 "b" 4 $map""") shouldEqual Right(
-          SMap(HashMap("a" -> SInt64(1), "b" -> SInt64(4), "c" -> SInt64(3))))
+          Right(STextMap(HashMap("a" -> SInt64(1), "b" -> SInt64(2), "c" -> SInt64(3))))
+        eval(e"""TEXTMAP_INSERT @Int64 "b" 4 $map""") shouldEqual Right(
+          STextMap(HashMap("a" -> SInt64(1), "b" -> SInt64(4), "c" -> SInt64(3))))
       }
     }
 
-    "MAP_LOOKUP" - {
+    "TEXTMAP_LOOKUP" - {
       val map = buildMap("Int64", "a" -> 1, "b" -> 2, "c" -> 3)
 
       "finds existing key" in {
         for {
           x <- List("a" -> 1L, "b" -> 2L, "c" -> 3L)
           (k, v) = x
-        } eval(e"""MAP_LOOKUP @Int64 "$k" $map""") shouldEqual Right(SOptional(Some(SInt64(v))))
+        } eval(e"""TEXTMAP_LOOKUP @Int64 "$k" $map""") shouldEqual Right(SOptional(Some(SInt64(v))))
       }
       "not finds non-existing key" in {
-        eval(e"""MAP_LOOKUP @Int64 "d" $map""") shouldEqual Right(SOptional(None))
+        eval(e"""TEXTMAP_LOOKUP @Int64 "d" $map""") shouldEqual Right(SOptional(None))
       }
     }
 
-    "MAP_DELETE" - {
+    "TEXTMAP_DELETE" - {
       val map = buildMap("Int64", "a" -> 1, "b" -> 2, "c" -> 3)
 
       "deletes existing key" in {
-        eval(e"""MAP_DELETE @Int64 "a" $map""") shouldEqual Right(
-          SMap(HashMap("b" -> SInt64(2), "c" -> SInt64(3))))
-        eval(e"""MAP_DELETE @Int64 "b" $map""") shouldEqual Right(
-          SMap(HashMap("a" -> SInt64(1), "c" -> SInt64(3))))
+        eval(e"""TEXTMAP_DELETE @Int64 "a" $map""") shouldEqual Right(
+          STextMap(HashMap("b" -> SInt64(2), "c" -> SInt64(3))))
+        eval(e"""TEXTMAP_DELETE @Int64 "b" $map""") shouldEqual Right(
+          STextMap(HashMap("a" -> SInt64(1), "c" -> SInt64(3))))
       }
       "does nothing with non-existing key" in {
-        eval(e"""MAP_DELETE @Int64 "d" $map""") shouldEqual Right(
-          SMap(HashMap("a" -> SInt64(1), "b" -> SInt64(2), "c" -> SInt64(3))))
+        eval(e"""TEXTMAP_DELETE @Int64 "d" $map""") shouldEqual Right(
+          STextMap(HashMap("a" -> SInt64(1), "b" -> SInt64(2), "c" -> SInt64(3))))
       }
     }
 
-    "MAP_TO_LIST" - {
+    "TEXTMAP_TO_LIST" - {
 
       "returns the keys in order" in {
         val words = List(
@@ -826,7 +828,7 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
           "favor" -> 9,
         )
 
-        eval(e"MAP_TO_LIST @Int64 ${buildMap("Int64", words: _*)}") shouldEqual
+        eval(e"TEXTMAP_TO_LIST @Int64 ${buildMap("Int64", words: _*)}") shouldEqual
           Right(
             SList(FrontStack(
               mapEntry("cover", SInt64(8)),
@@ -843,14 +845,14 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
       }
     }
 
-    "MAP_SIZE" - {
+    "TEXTMAP_SIZE" - {
       "returns 0 for empty Map" in {
-        eval(e"MAP_SIZE @Int64 (MAP_EMPTY @Int64)") shouldEqual Right(SInt64(0))
+        eval(e"TEXTMAP_SIZE @Int64 (TEXTMAP_EMPTY @Int64)") shouldEqual Right(SInt64(0))
       }
 
       "returns the expected size for non-empty Map" in {
         val map = buildMap("Int64", "a" -> 1, "b" -> 2, "c" -> 3)
-        eval(e"MAP_SIZE @Int64 $map") shouldEqual Right(SInt64(3))
+        eval(e"TEXTMAP_SIZE @Int64 $map") shouldEqual Right(SInt64(3))
       }
     }
 
@@ -998,7 +1000,7 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
       }
     }
 
-    "MAP_SIZE" - {
+    "TEXTMAP_SIZE" - {
       "returns 0 for empty Map" in {
         eval(e"GENMAP_SIZE @Text @Int64 (GENMAP_EMPTY @Text @Int64)") shouldEqual Right(SInt64(0))
       }

@@ -3,24 +3,31 @@
 
 package com.digitalasset.platform.sandbox.stores.ledger.sql.util
 
+import java.sql.SQLTransientConnectionException
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.{Executors, TimeUnit}
 
-import com.codahale.metrics.MetricRegistry
+import com.codahale.metrics.{MetricRegistry, Timer}
+import com.digitalasset.ledger.api.health.{HealthStatus, Healthy, ReportsHealth, Unhealthy}
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
+import com.digitalasset.platform.sandbox.stores.ledger.sql.util.SqlExecutor._
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 
 import scala.concurrent.{Future, Promise}
 import scala.util.control.NonFatal
 
 /** A dedicated executor for blocking sql queries. */
-final class SqlExecutor(noOfThread: Int, loggerFactory: NamedLoggerFactory, metrics: MetricRegistry)
-    extends AutoCloseable {
-
+final class SqlExecutor(
+    noOfThread: Int,
+    loggerFactory: NamedLoggerFactory,
+    metrics: MetricRegistry,
+) extends AutoCloseable
+    with ReportsHealth {
   private[this] val logger = loggerFactory.getLogger(getClass)
 
   object Metrics {
-    val waitAllTimer = metrics.timer("sql_all_wait")
-    val execAllTimer = metrics.timer("sql_all_exec")
+    val waitAllTimer: Timer = metrics.timer("sql_all_wait")
+    val execAllTimer: Timer = metrics.timer("sql_all_exec")
   }
 
   private lazy val executor =
@@ -34,6 +41,14 @@ final class SqlExecutor(noOfThread: Int, loggerFactory: NamedLoggerFactory, metr
         })
         .build()
     )
+
+  private val transientFailureCount: AtomicInteger = new AtomicInteger(0)
+
+  override def currentHealth(): HealthStatus =
+    if (transientFailureCount.get() < MaxTransientFailureCount)
+      Healthy
+    else
+      Unhealthy
 
   def runQuery[A](description: String, extraLog: Option[String])(block: => A): Future[A] = {
     val promise = Promise[A]
@@ -50,7 +65,11 @@ final class SqlExecutor(noOfThread: Int, loggerFactory: NamedLoggerFactory, metr
       try {
         // Actual execution
         promise.success(block)
+        transientFailureCount.set(0)
       } catch {
+        case e: SQLTransientConnectionException =>
+          transientFailureCount.incrementAndGet()
+          promise.failure(e)
         case NonFatal(e) =>
           logger.error(
             s"$description: Got an exception while executing a SQL query. Rolled back the transaction.",
@@ -77,13 +96,8 @@ final class SqlExecutor(noOfThread: Int, loggerFactory: NamedLoggerFactory, metr
   }
 
   override def close(): Unit = executor.shutdown()
-
 }
 
 object SqlExecutor {
-  def apply(
-      noOfThread: Int,
-      loggerFactory: NamedLoggerFactory,
-      metrics: MetricRegistry): SqlExecutor =
-    new SqlExecutor(noOfThread, loggerFactory, metrics)
+  val MaxTransientFailureCount: Int = 3
 }

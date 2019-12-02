@@ -15,7 +15,9 @@ import io.grpc.ServerServiceDefinition
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class LedgerIdentityServiceImpl(ledgerId: String) extends LedgerIdentityService {
+final class LedgerIdentityServiceImpl(ledgerId: String)
+    extends LedgerIdentityService
+    with FakeAutoCloseable {
 
   override def getLedgerIdentity(
       request: GetLedgerIdentityRequest): Future[GetLedgerIdentityResponse] = {
@@ -27,9 +29,7 @@ object LedgerIdentityServiceImpl {
 
   def createWithRef(ledgerId: String, authorizer: Authorizer)(
       implicit ec: ExecutionContext): (ServerServiceDefinition, LedgerIdentityServiceImpl) = {
-    val impl = new LedgerIdentityServiceImpl(ledgerId) with AutoCloseable {
-      override def close(): Unit = ()
-    }
+    val impl = new LedgerIdentityServiceImpl(ledgerId)
     val authImpl = new LedgerIdentityServiceAuthorization(impl, authorizer)
     (LedgerIdentityServiceGrpc.bindService(authImpl, ec), impl)
   }

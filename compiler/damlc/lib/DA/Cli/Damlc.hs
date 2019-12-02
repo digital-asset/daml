@@ -629,7 +629,8 @@ execInspect inFile outFile jsonOutput lvl =
 
       if jsonOutput
       then do
-        archive :: PLF.ArchivePayload <- errorOnLeft "Cannot decode archive" (PS.fromByteString bytes)
+        payloadBytes <- PLF.archivePayload <$> errorOnLeft "Cannot decode archive" (PS.fromByteString bytes)
+        archive :: PLF.ArchivePayload <- errorOnLeft "Cannot decode archive payload" $ PS.fromByteString payloadBytes
         writeOutputBSL outFile
          $ Aeson.Pretty.encodePretty
          $ Proto.JSONPB.toAesonValue archive

@@ -120,7 +120,7 @@ class JdbcIndexerFactory[Status <: InitStatus] private (
       executionContext: ExecutionContext) = {
     val dbType = DbType.jdbcType(jdbcUrl)
     val dbDispatcher =
-      DbDispatcher(
+      new DbDispatcher(
         jdbcUrl,
         if (dbType.supportsParallelWrites) defaultNumberOfShortLivedConnections else 1,
         defaultNumberOfStreamingConnections,

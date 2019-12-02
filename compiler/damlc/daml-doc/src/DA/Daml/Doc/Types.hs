@@ -77,6 +77,7 @@ data ModuleDoc = ModuleDoc
   , md_descr     :: Maybe DocText
   , md_templates :: [TemplateDoc]
   , md_templateInstances :: [TemplateInstanceDoc]
+  -- TODO This doesn’t make sense anymore now that we killed generic templates.
   , md_adts      :: [ADTDoc]
   , md_functions :: [FunctionDoc]
   , md_classes   :: [ClassDoc]

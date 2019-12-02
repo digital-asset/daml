@@ -16,7 +16,7 @@ import scalaz._
 import Scalaz._
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
-class MapsSpec
+class TextMapsSpec
     extends FlatSpec
     with Suite
     with PostgresAroundAll
@@ -28,9 +28,9 @@ class MapsSpec
 
   override protected def darFile = new File(rlocation("extractor/PrimitiveTypes.dar"))
 
-  override def scenario: Option[String] = Some("PrimitiveTypes:maps")
+  override def scenario: Option[String] = Some("PrimitiveTypes:textMaps")
 
-  "Lists" should "be extracted" in {
+  "TextMaps" should "be extracted" in {
     val contracts = getContracts
 
     contracts should have length 2

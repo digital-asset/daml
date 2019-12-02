@@ -85,7 +85,7 @@ LF_VERSIONS = [
             name = "daml_lf_%s_archive_proto_tarball" % version,
             srcs = [":daml_lf_%s_archive_proto_srcs" % version],
             extension = "tar.gz",
-            package_dir = "com/digitalasset/daml_lf",
+            package_dir = "com/digitalasset/daml_lf_%s" % mangle_for_java(version),
             visibility = ["//visibility:public"],
         ),
     ]

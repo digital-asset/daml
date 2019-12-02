@@ -21,6 +21,7 @@ import com.digitalasset.daml.lf.engine.Blinding
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractId}
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
 import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails, RejectionReason}
+import com.digitalasset.ledger.api.health.HealthStatus
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.common.util.{DirectExecutionContext => DEC}
 import com.digitalasset.platform.sandbox.LedgerIdGenerator
@@ -71,6 +72,13 @@ object SqlLedger {
   val defaultNumberOfShortLivedConnections = 16
   val defaultNumberOfStreamingConnections = 2
 
+  private case class Offsets(offset: Long, nextOffset: Long)
+
+  private type Queues = (
+      SourceQueueWithComplete[Offsets => Future[Unit]],
+      SourceQueueWithComplete[Offsets => Future[Unit]],
+  )
+
   //jdbcUrl must have the user/password encoded in form of: "jdbc:postgresql://localhost/test?user=fred&password=secret"
   def apply(
       jdbcUrl: String,
@@ -83,7 +91,8 @@ object SqlLedger {
       queueDepth: Int,
       startMode: SqlStartMode = SqlStartMode.ContinueIfExists,
       loggerFactory: NamedLoggerFactory,
-      metrics: MetricRegistry)(implicit mat: Materializer): Future[Ledger] = {
+      metrics: MetricRegistry,
+  )(implicit mat: Materializer): Future[Ledger] = {
     implicit val ec: ExecutionContext = DEC
 
     new FlywayMigrations(jdbcUrl, loggerFactory).migrate()
@@ -92,12 +101,13 @@ object SqlLedger {
     val noOfShortLivedConnections =
       if (dbType.supportsParallelWrites) defaultNumberOfShortLivedConnections else 1
     val dbDispatcher =
-      DbDispatcher(
+      new DbDispatcher(
         jdbcUrl,
         noOfShortLivedConnections,
         defaultNumberOfStreamingConnections,
         loggerFactory,
-        metrics)
+        metrics,
+      )
 
     val ledgerDao = LedgerDao.metered(
       JdbcLedgerDao(
@@ -124,12 +134,12 @@ object SqlLedger {
       queueDepth,
       // we use noOfShortLivedConnections for the maximum batch size, since it doesn't make sense
       // to try to persist more ledger entries concurrently than we have SQL executor threads and SQL connections available.
-      noOfShortLivedConnections
+      noOfShortLivedConnections,
     )
   }
 }
 
-private class SqlLedger(
+private final class SqlLedger(
     ledgerId: LedgerId,
     participantId: ParticipantId,
     headAtInitialization: Long,
@@ -138,60 +148,55 @@ private class SqlLedger(
     packages: InMemoryPackageStore,
     queueDepth: Int,
     maxBatchSize: Int,
-    loggerFactory: NamedLoggerFactory)(implicit mat: Materializer)
+    loggerFactory: NamedLoggerFactory,
+)(implicit mat: Materializer)
     extends BaseLedger(ledgerId, headAtInitialization, ledgerDao)
     with Ledger {
 
-  private val logger = loggerFactory.getLogger(getClass)
+  import SqlLedger._
 
-  private case class Offsets(offset: Long, nextOffset: Long)
+  private val logger = loggerFactory.getLogger(getClass)
 
   // the reason for modelling persistence as a reactive pipeline is to avoid having race-conditions between the
   // moving ledger-end, the async persistence operation and the dispatcher head notification
-  private val (checkpointQueue, persistenceQueue): (
-      SourceQueueWithComplete[Offsets => Future[Unit]],
-      SourceQueueWithComplete[Offsets => Future[Unit]]) = createQueues()
+  private val (checkpointQueue, persistenceQueue): Queues = createQueues()
 
   watchForFailures(checkpointQueue, "checkpoint")
   watchForFailures(persistenceQueue, "persistence")
 
-  private def watchForFailures(queue: SourceQueueWithComplete[_], name: String) =
+  private def watchForFailures(queue: SourceQueueWithComplete[_], name: String): Unit =
     queue
       .watchCompletion()
-      .onComplete {
-        case Failure(t) => logger.error(s"$name queue has been closed with a failure!", t)
-        case _ => ()
+      .failed
+      .foreach { throwable =>
+        logger.error(s"$name queue has been closed with a failure!", throwable)
       }(DEC)
 
-  private def createQueues(): (
-      SourceQueueWithComplete[Offsets => Future[Unit]],
-      SourceQueueWithComplete[Offsets => Future[Unit]]) = {
+  private def createQueues(): Queues = {
+    implicit val ec: ExecutionContext = DEC
 
     val checkpointQueue = Source.queue[Offsets => Future[Unit]](1, OverflowStrategy.dropHead)
     val persistenceQueue =
       Source.queue[Offsets => Future[Unit]](queueDepth, OverflowStrategy.dropNew)
 
-    implicit val ec: ExecutionContext = DEC
+    val mergedSources =
+      Source.fromGraph(GraphDSL.create(checkpointQueue, persistenceQueue)(_ -> _) {
+        implicit b => (checkpointSource, persistenceSource) =>
+          import akka.stream.scaladsl.GraphDSL.Implicits._
+          val merge = b.add(MergePreferred[Offsets => Future[Unit]](1))
 
-    val mergedSources = Source.fromGraph(GraphDSL.create(checkpointQueue, persistenceQueue) {
-      case (q1Mat, q2Mat) =>
-        q1Mat -> q2Mat
-    } { implicit b => (s1, s2) =>
-      import akka.stream.scaladsl.GraphDSL.Implicits._
-      val merge = b.add(MergePreferred[Offsets => Future[Unit]](1))
+          checkpointSource ~> merge.preferred
+          persistenceSource ~> merge.in(0)
 
-      s1 ~> merge.preferred
-      s2 ~> merge.in(0)
-
-      SourceShape(merge.out)
-    })
+          SourceShape(merge.out)
+      })
 
     // By default we process the requests in batches when under pressure (see semantics of `batch`). Note
     // that this is safe on the read end because the readers rely on the dispatchers to know the
     // ledger end, and not the database itself. This means that they will not start reading from the new
     // ledger end until we tell them so, which we do when _all_ the entries have been committed.
     mergedSources
-      .batch(maxBatchSize.toLong, e => Queue(e))((batch, e) => batch :+ e)
+      .batch(maxBatchSize.toLong, Queue(_))(_.enqueue(_))
       .mapAsync(1) { queue =>
         val startOffset = dispatcher.getHead()
         // we can only do this because there is no parallelism here!
@@ -205,16 +210,13 @@ private class SqlLedger(
           .map { _ =>
             //note that we can have holes in offsets in case of the storing of an entry failed for some reason
             dispatcher.signalNewHead(startOffset + queue.length) //signalling downstream subscriptions
-          }(DEC)
+          }
       }
-      .toMat(Sink.ignore)(
-        Keep.left[
-          (
-              SourceQueueWithComplete[Offsets => Future[Unit]],
-              SourceQueueWithComplete[Offsets => Future[Unit]]),
-          Future[Done]])
+      .toMat(Sink.ignore)(Keep.left[Queues, Future[Done]])
       .run()
   }
+
+  override def currentHealth(): HealthStatus = ledgerDao.currentHealth()
 
   override def close(): Unit = {
     super.close()
@@ -438,7 +440,7 @@ private class SqlLedger(
     }
 }
 
-private class SqlLedgerFactory(ledgerDao: LedgerDao, loggerFactory: NamedLoggerFactory) {
+private final class SqlLedgerFactory(ledgerDao: LedgerDao, loggerFactory: NamedLoggerFactory) {
 
   private val logger = loggerFactory.getLogger(getClass)
 
@@ -467,10 +469,9 @@ private class SqlLedgerFactory(ledgerDao: LedgerDao, loggerFactory: NamedLoggerF
       packages: InMemoryPackageStore,
       initialLedgerEntries: ImmArray[LedgerEntryOrBump],
       queueDepth: Int,
-      maxBatchSize: Int
+      maxBatchSize: Int,
   )(implicit mat: Materializer): Future[SqlLedger] = {
-    @SuppressWarnings(Array("org.wartremover.warts.ExplicitImplicitTypes"))
-    implicit val ec = DEC
+    implicit val ec: ExecutionContext = DEC
 
     def init(): Future[LedgerId] = startMode match {
       case AlwaysReset =>
@@ -495,7 +496,8 @@ private class SqlLedgerFactory(ledgerDao: LedgerDao, loggerFactory: NamedLoggerF
         packages,
         queueDepth,
         maxBatchSize,
-        loggerFactory)
+        loggerFactory,
+      )
   }
 
   private def reset(): Future[Unit] =

@@ -25,6 +25,7 @@ import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
 import com.digitalasset.ledger._
 import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails}
+import com.digitalasset.ledger.api.health.ReportsHealth
 import com.digitalasset.platform.common.util.DirectExecutionContext
 import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilter
 import com.digitalasset.platform.sandbox.stores.ActiveLedgerState.{ActiveContract, Contract}
@@ -71,7 +72,7 @@ object PersistenceResponse {
 
 case class LedgerSnapshot(offset: Long, acs: Source[ActiveContract, NotUsed])
 
-trait LedgerReadDao extends AutoCloseable {
+trait LedgerReadDao extends AutoCloseable with ReportsHealth {
 
   type LedgerOffset = Long
 
@@ -186,7 +187,7 @@ trait LedgerReadDao extends AutoCloseable {
   def getLfArchive(packageId: PackageId): Future[Option[Archive]]
 }
 
-trait LedgerWriteDao extends AutoCloseable {
+trait LedgerWriteDao extends AutoCloseable with ReportsHealth {
 
   type LedgerOffset = Long
 

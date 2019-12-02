@@ -94,16 +94,17 @@ import Control.Monad.Fail
 import           Control.Monad.Reader
 import           Control.Monad.State.Strict
 import           DA.Daml.LF.Ast as LF
-import           DA.Daml.LF.Ast.Type as LF
 import           DA.Daml.LF.Ast.Numeric
 import           Data.Data hiding (TyCon)
+import qualified Data.Decimal as Decimal
 import           Data.Foldable (foldlM)
 import           Data.Int
-import           Data.List.Extra
+import           Data.List.Extra hiding (for)
 import qualified Data.Map.Strict as MS
 import           Data.Maybe
 import qualified Data.NameMap as NM
 import qualified Data.Text as T
+import Data.Traversable (for)
 import           Data.Tuple.Extra
 import           Data.Ratio
 import           "ghc-lib" GHC
@@ -158,9 +159,20 @@ data Env = Env
     ,envAliases :: MS.Map Var LF.Expr
     ,envPkgMap :: MS.Map GHC.UnitId LF.DalfPackage
     ,envLfVersion :: LF.Version
-    ,envTypeSynonyms :: [(GHC.Type, TyCon)]
-    ,envInstances :: [(TyCon, [GHC.Type])]
+    ,envChoiceData :: MS.Map TypeConName [ChoiceData]
+    ,envTemplateKeyData :: MS.Map TypeConName TemplateKeyData
+    ,envIsGenerated :: Bool
     }
+
+data ChoiceData = ChoiceData
+  { _choiceDatTy :: GHC.Type
+  , _choiceDatExpr :: GHC.Expr GHC.CoreBndr
+  }
+
+data TemplateKeyData = TemplateKeyData
+  { _templateKeyType :: GHC.Type
+  , _templateKeyDict :: GHC.Var
+  }
 
 -- v is an alias for x
 envInsertAlias :: Var -> LF.Expr -> Env -> Env
@@ -262,10 +274,11 @@ convertRationalNumericMono env scale num denom
 convertModule
     :: LF.Version
     -> MS.Map UnitId DalfPackage
+    -> Bool
     -> NormalizedFilePath
     -> CoreModule
     -> Either FileDiagnostic LF.Module
-convertModule lfVersion pkgMap file x = runConvertM (ConversionEnv file Nothing) $ do
+convertModule lfVersion pkgMap isGenerated file x = runConvertM (ConversionEnv file Nothing) $ do
     definitions <- concatMapM (convertBind env) binds
     types <- concatMapM (convertTypeDef env) (eltsUFM (cm_types x))
     pure (LF.moduleFromDefinitions lfModName (Just $ fromNormalizedFilePath file) flags (types ++ definitions))
@@ -284,16 +297,17 @@ convertModule lfVersion pkgMap file x = runConvertM (ConversionEnv file Nothing)
                 | otherwise -> [(name, body)]
               Rec binds -> binds
           ]
-        typeSynonyms =
-          [ (wrappedT, t)
-          | ATyCon t <- eltsUFM (cm_types x)
-          , Just ([], wrappedT) <- [synTyConDefn_maybe t]
-          ]
-        instances =
-            [ (c, ts)
+        choiceData = MS.fromListWith (++)
+            [ (mkTypeCon [getOccText tplTy], [ChoiceData ty v])
+            | (name, v) <- binds
+            , "_choice_" `T.isPrefixOf` getOccText name
+            , ty@(TypeCon _ [_, _, TypeCon _ [TypeCon tplTy _]]) <- [varType name]
+            ]
+        templateKeyData = MS.fromList
+            [ (mkTypeCon [getOccText tplTy], TemplateKeyData keyTy name)
             | (name, _) <- binds
-            , DFunId _ <- [idDetails name]
-            , TypeCon c ts <- [varType name]
+            , "$fTemplateKey" `T.isPrefixOf` getOccText name
+            , ty@(TypeCon _ [TypeCon tplTy _, keyTy]) <- [varType name]
             ]
         env = Env
           { envLFModuleName = lfModName
@@ -302,214 +316,10 @@ convertModule lfVersion pkgMap file x = runConvertM (ConversionEnv file Nothing)
           , envAliases = MS.empty
           , envPkgMap = pkgMap
           , envLfVersion = lfVersion
-          , envTypeSynonyms = typeSynonyms
-          , envInstances = instances
+          , envChoiceData = choiceData
+          , envTemplateKeyData = templateKeyData
+          , envIsGenerated = isGenerated
           }
-
--- TODO(MH): We should run this on an `LF.Expr` instead of a `GHC.Expr`.
--- This will avoid a fair bit of repetition.
-convertGenericTemplate :: Env -> GHC.Expr Var -> ConvertM (Template, LF.Expr)
-convertGenericTemplate env x
-    | (Var dictCon, args) <- collectArgs x
-    , Just m <- nameModule_maybe $ varName dictCon
-    , Just dictCon <- isDataConId_maybe dictCon
-    , (tyArgs, args) <- span isTypeArg args
-    , Just tyArgs <- mapM isType_maybe tyArgs
-    , (superClassDicts, args) <- span isSuperClassDict args
-    , Just (signatories : observers : ensure : agreement : create : _fetch : archive : _toAnyTemplate : _fromAnyTemplate : _templateTypeRep : keyAndChoices) <- mapM isVar_maybe args
-    , Just (polyType@(TypeCon polyTyCon _), _) <- splitFunTy_maybe (varType create)
-    , Just monoTyCon <- findMonoTyp polyType
-    = do
-        let tplLocation = convNameLoc monoTyCon
-            fields = ctorLabels (tyConSingleDataCon polyTyCon)
-        polyType@(TConApp polyTyCon polyTyArgs) <- convertType env polyType
-        let polyTCA = TypeConApp polyTyCon polyTyArgs
-        monoType@(TCon monoTyCon) <- convertTyCon env monoTyCon
-        let monoTCA = TypeConApp monoTyCon []
-        let coerceRec fromType toType fromExpr =
-                ELet (Binding (rec, typeConAppToType fromType) fromExpr) $
-                ERecCon toType $ map (\field -> (field, ERecProj fromType field (EVar rec))) fields
-        let (unwrapTpl, wrapTpl, unwrapCid, wrapCid)
-                | null polyTyArgs = (id, id, id, id)
-                | otherwise =
-                    ( coerceRec monoTCA polyTCA
-                    , coerceRec polyTCA monoTCA
-                    , ETmApp $ mkETyApps (EBuiltin BECoerceContractId) [monoType, polyType]
-                    , ETmApp $ mkETyApps (EBuiltin BECoerceContractId) [polyType, monoType]
-                    )
-        stdlibRef <- packageNameToPkgRef env damlStdlib
-        let tplTypeCon = qualObject monoTyCon
-        let tplParam = this
-        let applyThis e = ETmApp e $ unwrapTpl $ EVar this
-        tplSignatories <- applyThis <$> convertExpr env (Var signatories)
-        tplObservers <- applyThis <$> convertExpr env (Var observers)
-        tplPrecondition <- applyThis <$> convertExpr env (Var ensure)
-        tplAgreement <- applyThis <$> convertExpr env (Var agreement)
-        archive <- convertExpr env (Var archive)
-        (tplKey, key, choices) <- case keyAndChoices of
-                hasKey : key : maintainers : _fetchByKey : _lookupByKey : _toAnyContractKey : _fromAnyContractKey : choices
-                    | TypeCon (Is "HasKey") _ <- varType hasKey -> do
-                        _ :-> keyType <- convertType env (varType key)
-                        hasKey <- convertExpr env (Var hasKey)
-                        key <- convertExpr env (Var key)
-                        maintainers <- convertExpr env (Var maintainers)
-                        let selfField = FieldName "contractId"
-                        let thisField = FieldName "contract"
-                        tupleTyCon <- qDA_Types env $ mkTypeCon ["Tuple2"]
-                        let tupleType = TypeConApp tupleTyCon [TContractId polyType, polyType]
-                        let fetchByKey =
-                                ETmLam (mkVar "key", keyType) $
-                                EUpdate $ UBind (Binding (res, TStruct [(selfField, TContractId monoType), (thisField, monoType)]) $ EUpdate $ UFetchByKey $ RetrieveByKey monoTyCon $ EVar $ mkVar "key") $
-                                EUpdate $ UPure (typeConAppToType tupleType) $ ERecCon tupleType
-                                    [ (FieldName "_1", unwrapCid $ EStructProj selfField $ EVar res)
-                                    , (FieldName "_2", unwrapTpl $ EStructProj thisField $ EVar res)
-                                    ]
-                        let lookupByKey =
-                                ETmLam (mkVar "key", keyType) $
-                                EUpdate $ UBind (Binding (res, TOptional (TContractId monoType)) $ EUpdate $ ULookupByKey $ RetrieveByKey monoTyCon $ EVar $ mkVar "key") $
-                                EUpdate $ UPure (TOptional (TContractId polyType)) $ ECase (EVar res)
-                                    [ CaseAlternative CPNone $ ENone (TContractId polyType)
-                                    , CaseAlternative (CPSome self) $ ESome (TContractId polyType) $ unwrapCid $ EVar self
-                                    ]
-                        let toAnyContractKey =
-                                if envLfVersion env `supports` featureAnyType
-                                  then ETyLam
-                                         (mkTypeVar "proxy", KArrow KStar KStar)
-                                         (ETmLam
-                                            (mkVar "_", TApp (TVar $ mkTypeVar "proxy") polyType)
-                                            (ETmLam (mkVar "key", keyType) $ EToAny keyType $ EVar $ mkVar "key"))
-                                  else EBuiltin BEError `ETyApp`
-                                       TForall (mkTypeVar "proxy", KArrow KStar KStar) (TApp (TVar $ mkTypeVar "proxy") polyType :-> keyType :-> TUnit) `ETmApp`
-                                       EBuiltin (BEText "toAnyContractKey is not supported in this DAML-LF version")
-                        let fromAnyContractKey =
-                                if envLfVersion env `supports` featureAnyType
-                                  then ETyLam
-                                         (mkTypeVar "proxy", KArrow KStar KStar)
-                                         (ETmLam
-                                            (mkVar "_", TApp (TVar $ mkTypeVar "proxy") polyType)
-                                            (ETmLam (mkVar "any", TAny) $ EFromAny keyType $ EVar $ mkVar "any"))
-                                  else EBuiltin BEError `ETyApp`
-                                       TForall (mkTypeVar "proxy", KArrow KStar KStar) (TApp (TVar $ mkTypeVar "proxy") polyType :-> TUnit :-> TOptional keyType) `ETmApp`
-                                       EBuiltin (BEText "fromAnyContractKey is not supported in this DAML-LF version")
-                        pure (Just $ TemplateKey keyType (applyThis key) (ETmApp maintainers hasKey), [hasKey, key, maintainers, fetchByKey, lookupByKey, toAnyContractKey, fromAnyContractKey], choices)
-                choices -> pure (Nothing, [], choices)
-        let convertGenericChoice :: [Var] -> ConvertM (TemplateChoice, [LF.Expr])
-            convertGenericChoice [consumption, controllers, action, _exercise, _toAnyChoice, _fromAnyChoice] = do
-                (argType, argTCon, resType) <- convertType env (varType action) >>= \case
-                    TContractId _ :-> _ :-> argType@(TConApp argTCon _) :-> TUpdate resType -> pure (argType, argTCon, resType)
-                    t -> unhandled "Choice action type" (varType action)
-                let chcLocation = Nothing
-                let chcName = ChoiceName $ T.intercalate "." $ unTypeConName $ qualObject argTCon
-                consumptionType <- case varType consumption of
-                    TypeCon (Is "NonConsuming") _ -> pure NonConsuming
-                    TypeCon (Is "PreConsuming") _ -> pure PreConsuming
-                    TypeCon (Is "PostConsuming") _ -> pure PostConsuming
-                    t -> unhandled "choice consumption type" t
-                let chcConsuming = consumptionType == PreConsuming
-                let chcSelfBinder = self
-                let applySelf e = ETmApp e $ unwrapCid $ EVar self
-                let chcArgBinder = (arg, argType)
-                let applyArg e = e `ETmApp` EVar (fst chcArgBinder)
-                let chcReturnType = resType
-                consumption <- convertExpr env (Var consumption)
-                chcControllers <- applyArg . applyThis <$> convertExpr env (Var controllers)
-                update <- applyArg . applyThis . applySelf <$> convertExpr env (Var action)
-                let chcUpdate
-                      | consumptionType /= PostConsuming = update
-                      | otherwise =
-                        EUpdate $ UBind (Binding (res, resType) update) $
-                        EUpdate $ UBind (Binding (mkVar "_", TUnit) $ ETmApp archive $ EVar self) $
-                        EUpdate $ UPure resType $ EVar res
-                controllers <- convertExpr env (Var controllers)
-                action <- convertExpr env (Var action)
-                let exercise =
-                        mkETmLams [(self, TContractId polyType), (arg, argType)] $
-                          EUpdate $ UExercise monoTyCon chcName (wrapCid $ EVar self) Nothing (EVar arg)
-                let toAnyChoice =
-                        if envLfVersion env `supports` featureAnyType
-                          then ETyLam
-                                 (mkTypeVar "proxy", KArrow KStar KStar)
-                                 (ETmLam
-                                    (mkVar "_", TApp (TVar $ mkTypeVar "proxy") polyType)
-                                    (ETmLam chcArgBinder $ EToAny argType $ EVar arg))
-                          else EBuiltin BEError `ETyApp`
-                               TForall (mkTypeVar "proxy", KArrow KStar KStar) (TApp (TVar $ mkTypeVar "proxy") polyType :-> argType :-> TUnit) `ETmApp`
-                               EBuiltin (BEText "toAnyChoice is not supported in this DAML-LF version")
-                let fromAnyChoice =
-                        if envLfVersion env `supports` featureAnyType
-                          then ETyLam
-                                 (mkTypeVar "proxy", KArrow KStar KStar)
-                                 (ETmLam
-                                    (mkVar "_", TApp (TVar $ mkTypeVar "proxy") polyType)
-                                    (ETmLam (mkVar "any", TAny) $ EFromAny argType $ EVar $ mkVar "any"))
-                          else EBuiltin BEError `ETyApp`
-                               TForall (mkTypeVar "proxy", KArrow KStar KStar) (TApp (TVar $ mkTypeVar "proxy") polyType :-> TUnit :-> TOptional argType) `ETmApp`
-                               EBuiltin (BEText "fromAnyChoice is not supported in this DAML-LF version")
-                pure (TemplateChoice{..}, [consumption, controllers, action, exercise, toAnyChoice, fromAnyChoice])
-            convertGenericChoice es = unhandled "generic choice" es
-        (tplChoices, choices) <- first NM.fromList . unzip <$> mapM convertGenericChoice (chunksOf 6 choices)
-        superClassDicts <- mapM (convertExpr env) superClassDicts
-        signatories <- convertExpr env (Var signatories)
-        observers <- convertExpr env (Var observers)
-        ensure <- convertExpr env (Var ensure)
-        agreement <- convertExpr env (Var agreement)
-        let create = ETmLam (this, polyType) $ EUpdate $ UBind (Binding (self, TContractId monoType) $ EUpdate $ UCreate monoTyCon $ wrapTpl $ EVar this) $ EUpdate $ UPure (TContractId polyType) $ unwrapCid $ EVar self
-        let fetch = ETmLam (self, TContractId polyType) $ EUpdate $ UBind (Binding (this, monoType) $ EUpdate $ UFetch monoTyCon $ wrapCid $ EVar self) $ EUpdate $ UPure polyType $ unwrapTpl $ EVar this
-        let anyTemplateTy = anyTemplateTyFromStdlib stdlibRef
-        let anyTemplateField = mkField "getAnyTemplate"
-        let toAnyTemplate =
-                if envLfVersion env `supports` featureAnyType
-                  then ETmLam (this, polyType) $ ERecCon anyTemplateTy [(anyTemplateField, EToAny (TCon monoTyCon) (wrapTpl $ EVar this))]
-                  else EBuiltin BEError `ETyApp` (polyType :-> typeConAppToType anyTemplateTy) `ETmApp` EBuiltin (BEText "toAnyTemplate is not supported in this DAML-LF version")
-        let fromAnyTemplate =
-                if envLfVersion env `supports` featureAnyType
-                    then ETmLam (anyTpl, typeConAppToType anyTemplateTy) $
-                         ECase (EFromAny (TCon monoTyCon) (ERecProj anyTemplateTy anyTemplateField (EVar anyTpl)))
-                             [ CaseAlternative CPNone $ ENone polyType
-                             , CaseAlternative (CPSome self) $ ESome polyType $ unwrapTpl $ EVar self
-                             ]
-                    else EBuiltin BEError `ETyApp` (typeConAppToType anyTemplateTy :-> TOptional polyType) `ETmApp` EBuiltin (BEText "fromAnyTemplate is not supported in this DAML-LF version")
-        let templateTypeRep =
-                let proxyName = mkTypeVar "proxy"
-                    argType = TVar proxyName `TApp` polyType
-                    resType = TypeConApp (Qualified stdlibRef (mkModName ["DA", "Internal", "LF"]) (mkTypeCon ["TemplateTypeRep"])) []
-                    resField = mkField "getTemplateTypeRep"
-                in
-                ETyLam (proxyName, KStar `KArrow` KStar) $!
-                    if envLfVersion env `supports` featureTypeRep
-                        then ETmLam (arg, argType) $ ERecCon resType [(resField, ETypeRep (TCon monoTyCon))]
-                        else EBuiltin BEError `ETyApp` (argType :-> typeConAppToType resType) `ETmApp` EBuiltin (BEText "templateTypeRep is not supported in this DAML-LF version")
-        tyArgs <- mapM (convertType env) tyArgs
-        -- NOTE(MH): The additional lambda is DICTIONARY SANITIZATION step (3).
-        let tmArgs = map (ETmLam (mkVar "_", TUnit)) $ superClassDicts ++ [signatories, observers, ensure, agreement, create, fetch, archive, toAnyTemplate, fromAnyTemplate, templateTypeRep] ++ key ++ concat choices
-        qTCon <- qualify env m  $ mkTypeCon [getOccText $ dataConTyCon dictCon]
-        let tcon = TypeConApp qTCon tyArgs
-        let fldNames = ctorLabels dictCon
-        let dict = ERecCon tcon (zip fldNames tmArgs)
-        pure (Template{..}, dict)
-  where
-    isVar_maybe :: GHC.Expr Var -> Maybe Var
-    isVar_maybe = \case
-        Var v -> Just v
-        _ -> Nothing
-    isSuperClassDict :: GHC.Expr Var -> Bool
-    -- NOTE(MH): We need the `$f` and `$d` cases since GHC inlines super class
-    -- dictionaries without running the simplifier under some circumstances.
-    isSuperClassDict (Var v) = any (`T.isPrefixOf` getOccText v) ["$cp", "$f", "$d"]
-    -- For things like Numeric 10 we can end up with superclass dictionaries
-    -- of the form `dict @10`.
-    isSuperClassDict (App t _) = isSuperClassDict t
-    isSuperClassDict _ = False
-    findMonoTyp :: GHC.Type -> Maybe TyCon
-    findMonoTyp t = case t of
-        TypeCon tcon [] -> Just tcon
-        t -> snd <$> find (eqType t . fst) (envTypeSynonyms env)
-    this = mkVar "this"
-    self = mkVar "self"
-    arg = mkVar "arg"
-    res = mkVar "res"
-    rec = mkVar "rec"
-convertGenericTemplate env x = unhandled "generic template" x
 
 data Consuming = PreConsuming
                | NonConsuming
@@ -523,19 +333,12 @@ convertTypeDef env o@(ATyCon t) = withRange (convNameLoc t) $ if
     , n `elementOfUniqSet` internalTypes
     -> pure []
 
-    -- NOTE(MH): We detect type synonyms produced by the desugaring
-    -- of `template instance` declarations and inline the record definition
-    -- of the generic template.
-    --
-    -- TODO(FM): Precompute a map of possible template instances in Env
-    -- instead of checking every closed type synonym against every class
-    -- instance (or improve this some other way to subquadratic time).
-    | Just ([], TypeCon tpl args) <- synTyConDefn_maybe t
-    , any (\(c, args') -> getOccFS c == getOccFS tpl <> "Instance" && eqTypes args args') $ envInstances env
-    -> convertTemplateInstanceDef env (getName t) tpl args
-
     -- Type synonyms get expanded out during conversion (see 'convertType').
     | isTypeSynonymTyCon t
+    -> pure []
+
+    -- Constraint tuples are represented by LF structs.
+    | isConstraintTupleTyCon t
     -> pure []
 
     -- Enum types. These are algebraic types without any type arguments,
@@ -631,31 +434,245 @@ convertVariantConDef env tycon tyVars con =
         tconName = mkTypeCon [getOccText tycon]
         ctorName = mkVariantCon (getOccText con)
 
--- | Instantiate and inline the generic template record definition
--- for a template instance.
-convertTemplateInstanceDef :: Env -> Name -> TyCon -> [GHC.Type] -> ConvertM [Definition]
-convertTemplateInstanceDef env tname templateTyCon args = do
-    when (tyConFlavour templateTyCon /= DataTypeFlavour) $
-        unhandled "template type with unexpected flavour"
-            (prettyPrint $ tyConFlavour templateTyCon)
-    lfArgs <- mapM (convertType env) args
-    let templateCon = tyConSingleDataCon templateTyCon
-        tyVarNames = map convTypeVarName (tyConTyVars templateTyCon)
-        subst = MS.fromList (zipExact tyVarNames lfArgs)
-    fields <- convertRecordFields env templateCon (LF.substitute subst)
-    let tconName = mkTypeCon [getOccText tname]
-        typeDef = defDataType tconName [] (DataRecord fields)
-    pure [typeDef]
+this, self, arg, res :: ExprVarName
+this = mkVar "this"
+self = mkVar "self"
+arg = mkVar "arg"
+res = mkVar "res"
+proxyVar :: TypeVarName
+proxyVar = mkTypeVar "proxy"
+mkProxy :: LF.Type -> LF.Type
+mkProxy = TApp (TVar proxyVar)
 
 convertBind :: Env -> (Var, GHC.Expr Var) -> ConvertM [Definition]
 convertBind env (name, x)
-    | DFunId _ <- idDetails name
-    , TypeCon (Is tplInst) _ <- varType name
-    , "Instance" `T.isSuffixOf` fsToText tplInst
-    = withRange (convNameLoc name) $ do
-        (tmpl, dict) <- convertGenericTemplate env x
-        name' <- convValWithType env name
-        pure [DTemplate tmpl, defValue name name' dict]
+    | "$fTemplateKey" `T.isPrefixOf` getOccText name
+    , not (envIsGenerated env)
+    , TypeCon classTyCon [tplTy, keyTy] <- varType name = withRange (convNameLoc name) $ do
+      TCon classTyConLf <- convertTyCon env classTyCon
+      tplTyLf@(TCon tplTyConLf) <- convertType env tplTy
+      keyTyLf <- convertType env keyTy
+      ERecCon _
+        ( (_, tplSuperDict)
+        : (_, key)
+        : _lookupByKey
+        : _fetchByKey
+        : (_, maintainer)
+        : _toAnyContractKey
+        : _fromAnyContractKey
+        : []
+        ) <- convertExpr env x
+      tupleTyCon <- qDA_Types env $ mkTypeCon ["Tuple2"]
+      let tupleType = TypeConApp tupleTyCon [TContractId tplTyLf, tplTyLf]
+      let selfField = FieldName "contractId"
+      let thisField = FieldName "contract"
+      let retrieveByKey = RetrieveByKey tplTyConLf (EVar $ mkVar "key")
+      let lookupByKey =
+            ETmLam (mkVar "key", keyTyLf) $
+            EUpdate $ ULookupByKey retrieveByKey
+      let fetchByKey =
+            ETmLam (mkVar "key", keyTyLf) $
+            EUpdate $ UBind (Binding (res, TStruct [(selfField, TContractId tplTyLf), (thisField, tplTyLf)]) $ EUpdate $ UFetchByKey retrieveByKey) $
+            EUpdate $ UPure (typeConAppToType tupleType) $ ERecCon tupleType
+                [ (mkIndexedField 1, EStructProj selfField $ EVar res)
+                , (mkIndexedField 2, EStructProj thisField $ EVar res)
+                ]
+      let toAnyContractKey =
+            if envLfVersion env `supports` featureAnyType
+              then
+                ETyLam (proxyVar, KArrow KStar KStar) $
+                  ETmLam
+                    (mkVar "_", mkProxy tplTyLf) $
+                    ETmLam (mkVar "arg", keyTyLf) $
+                      EToAny keyTyLf (EVar $ mkVar "arg")
+              else
+                EBuiltin BEError `ETyApp`
+                TForall (proxyVar, KArrow KStar KStar) (mkProxy tplTyLf :-> keyTyLf :-> TUnit) `ETmApp`
+                EBuiltin (BEText "toAnyContractKey is not supported in this DAML-LF version")
+      let fromAnyContractKey =
+            if envLfVersion env `supports` featureAnyType
+              then
+                ETyLam (proxyVar, KArrow KStar KStar) $
+                  ETmLam
+                    (mkVar "_", mkProxy tplTyLf) $
+                    ETmLam (mkVar "any", TAny) $
+                      EFromAny keyTyLf (EVar $ mkVar "any")
+              else EBuiltin BEError `ETyApp`
+                   TForall (proxyVar, KArrow KStar KStar) (mkProxy tplTyLf :-> TUnit :-> TOptional keyTyLf) `ETmApp`
+                   EBuiltin (BEText "fromAnyContractKey is not supported in this DAML-LF version")
+      let dict = ERecCon (TypeConApp classTyConLf [tplTyLf, keyTyLf]) $
+            map (second (ETmLam (mkVar "_", TUnit))) $
+              [ (mkIndexedField 1, tplSuperDict)
+              , (mkIndexedField 2, key)
+              , (mkIndexedField 3, lookupByKey)
+              , (mkIndexedField 4, fetchByKey)
+              , (mkIndexedField 5, maintainer)
+              , (mkIndexedField 6, toAnyContractKey)
+              , (mkIndexedField 7, fromAnyContractKey)
+              ]
+      name' <- convValWithType env name
+      pure [defValue name name' dict]
+    | "$fTemplate" `T.isPrefixOf` getOccText name
+    , TypeCon classTyCon [tplTy@(TypeCon tplTyCon _)] <- varType name
+    , not (envIsGenerated env)  = withRange (convNameLoc name) $ do
+       TCon classTyConLf <- convertTyCon env classTyCon
+       tplTyLf@(TCon tplTyConLf) <- convertType env tplTy
+       ERecCon _
+         ( (_, signatory)
+         : (_, observer)
+         : (_, ensure)
+         : (_, agreement)
+         : _create
+         : _fetch
+         : (_, archive)
+         : _)
+         <- convertExpr env x
+       stdlibRef <- packageNameToPkgRef env damlStdlib
+       let anyTemplateTy = anyTemplateTyFromStdlib stdlibRef
+       let templateTypeRepTy = templateTypeRepTyFromStdlib stdlibRef
+       let create = ETmLam (this, tplTyLf) $ EUpdate $ UCreate tplTyConLf (EVar (this))
+       let fetch = ETmLam (this, TContractId tplTyLf) $ EUpdate $ UFetch tplTyConLf (EVar this)
+       let toAnyTemplate =
+             if envLfVersion env `supports` featureAnyType
+                then ETmLam (this, tplTyLf) $ ERecCon anyTemplateTy [(anyTemplateField, EToAny tplTyLf (EVar (this)))]
+                else EBuiltin BEError `ETyApp` (tplTyLf :-> typeConAppToType anyTemplateTy) `ETmApp` EBuiltin (BEText "toAnyTemplate is not supported in this DAML-LF version")
+       let fromAnyTemplate =
+             if envLfVersion env `supports` featureAnyType
+               then ETmLam
+                 (mkVar "any", typeConAppToType anyTemplateTy) $
+                 EFromAny tplTyLf (ERecProj anyTemplateTy anyTemplateField (EVar $ mkVar "any"))
+               else EBuiltin BEError `ETyApp` (typeConAppToType anyTemplateTy :-> TOptional tplTyLf) `ETmApp` EBuiltin (BEText "fromAnyTemplate is not supported in this DAML-LF version")
+       let templateTypeRep =
+             ETyLam (proxyVar, KArrow KStar KStar) $
+               if envLfVersion env `supports` featureTypeRep
+                 then ETmLam
+                   (mkVar "_", mkProxy tplTyLf) $
+                   ERecCon templateTypeRepTy [(templateTypeRepField, ETypeRep tplTyLf)]
+                 else EBuiltin BEError `ETyApp` (mkProxy tplTyLf :-> typeConAppToType templateTypeRepTy) `ETmApp` EBuiltin (BEText "templateTypeRep is not supported in this DAML-LF version")
+       let dict = ERecCon (TypeConApp classTyConLf [tplTyLf]) $
+             map (second (ETmLam (mkVar "_", TUnit)))
+             [ (mkIndexedField 1, signatory)
+             , (mkIndexedField 2, observer)
+             , (mkIndexedField 3, ensure)
+             , (mkIndexedField 4, agreement)
+             , (mkIndexedField 5, create)
+             , (mkIndexedField 6, fetch)
+             , (mkIndexedField 7, archive)
+             , (mkIndexedField 8, toAnyTemplate)
+             , (mkIndexedField 9, fromAnyTemplate)
+             , (mkIndexedField 10, templateTypeRep)
+             ]
+       let choiceData = MS.findWithDefault [] (qualObject tplTyConLf) (envChoiceData env)
+       let convertChoice :: ChoiceData -> ConvertM TemplateChoice
+           convertChoice (ChoiceData ty expr) = do
+             TConApp _ [_, _ :-> _ :-> choiceTy@(TConApp choiceTyCon _) :-> TUpdate choiceRetTy, consumingTy] <- convertType env ty
+             let choiceName = ChoiceName (T.intercalate "." $ unTypeConName $ qualObject choiceTyCon)
+             ERecCon _ [(_, controllers), (_, action), _] <- convertExpr env expr
+             consuming <- case consumingTy of
+                 TConApp (Qualified { qualObject = TypeConName con }) _
+                   | con == ["NonConsuming"] -> pure NonConsuming
+                   | con == ["PreConsuming"] -> pure PreConsuming
+                   | con == ["PostConsuming"] -> pure PostConsuming
+                 _ -> unhandled "choice consumption type" (show consumingTy)
+             let update = action `ETmApp` EVar self `ETmApp` EVar this ` ETmApp` EVar (arg)
+             update <- pure $ if consuming /= PostConsuming
+                 then update
+                 else EUpdate $ UBind (Binding (res, choiceRetTy) update) $
+                      EUpdate $ UBind (Binding (mkVar "_", TUnit) $ archive `ETmApp` EVar self) $
+                      EUpdate $ UPure choiceRetTy $ EVar res
+             pure TemplateChoice
+               { chcLocation = Nothing
+               , chcName = choiceName
+               , chcConsuming = consuming == PreConsuming
+               , chcControllers = controllers `ETmApp` EVar this `ETmApp` EVar (arg)
+               , chcSelfBinder = self
+               , chcArgBinder = (arg, choiceTy)
+               , chcReturnType = choiceRetTy
+               , chcUpdate = update
+               }
+       choices <- NM.fromList <$> traverse convertChoice choiceData
+       key <- for (MS.lookup (qualObject tplTyConLf) (envTemplateKeyData env)) $ \(TemplateKeyData keyTy keyDict) -> do
+           keyTyLf <- convertType env keyTy
+           (dictName, TConApp dictTy dictTyArgs) <- convValWithType env keyDict
+           let dictTyConApp = TypeConApp dictTy dictTyArgs
+           Just m <- pure $ nameModule_maybe $ varName keyDict
+           qualDictName <- qualify env m dictName
+           pure TemplateKey
+             { tplKeyType = keyTyLf
+             , tplKeyBody =
+                 ERecProj dictTyConApp (mkIndexedField 2) (EVal qualDictName)
+                 `ETmApp` EUnit
+                 `ETmApp` EVar this
+             , tplKeyMaintainers =
+                 ERecProj dictTyConApp (mkIndexedField 5) (EVal qualDictName)
+                 `ETmApp` EUnit
+                 `ETyApp` TBuiltin BTList
+                 `ETmApp` ENil tplTyLf
+             }
+       let template = Template
+             { tplLocation = convNameLoc tplTyCon
+             , tplTypeCon = qualObject tplTyConLf
+             , tplParam = this
+             , tplPrecondition = ensure `ETmApp` EVar this
+             , tplSignatories = signatory `ETmApp` EVar this
+             , tplObservers = observer `ETmApp` EVar this
+             , tplAgreement = agreement `ETmApp` EVar this
+             , tplChoices = choices
+             , tplKey = key
+             }
+       name' <- convValWithType env name
+       pure [defValue name name' dict, DTemplate template]
+    | "$fChoice" `T.isPrefixOf` getOccText name
+    , not (envIsGenerated env)
+    , TypeCon tyCon [tplTy, choiceArgTy, choiceRetTy] <- varType name = withRange (convNameLoc name) $ do
+          TConApp choiceTyLf _ <- convertTyCon env tyCon
+          ERecCon _ [(_, tplSuperDict), _, _, _] <- convertExpr env x
+          tplTyLf@(TCon tplTyConLf) <- convertType env tplTy
+          choiceArgTyLf@(TConApp choiceTyCon _) <- convertType env choiceArgTy
+          let choiceName = ChoiceName (T.intercalate "." $ unTypeConName $ qualObject choiceTyCon)
+          choiceRetTyLf <- convertType env choiceRetTy
+          let exercise =
+                ETmLam (this, TContractId tplTyLf) $
+                  ETmLam (arg, choiceArgTyLf) $
+                    EUpdate $ UExercise
+                      tplTyConLf
+                      choiceName
+                      (EVar this)
+                      Nothing
+                      (EVar arg)
+          let toAnyChoice =
+                if envLfVersion env `supports` featureAnyType
+                  then
+                    ETyLam (proxyVar, KArrow KStar KStar) $
+                      ETmLam
+                        (mkVar "_", mkProxy tplTyLf) $
+                        ETmLam (mkVar "arg", choiceArgTyLf) $
+                          EToAny choiceArgTyLf (EVar arg)
+                  else EBuiltin BEError `ETyApp`
+                       TForall (proxyVar, KArrow KStar KStar) (mkProxy tplTyLf :-> choiceArgTyLf :-> TUnit) `ETmApp`
+                       EBuiltin (BEText "toAnyChoice is not supported in this DAML-LF version")
+          let fromAnyChoice =
+                if envLfVersion env `supports` featureAnyType
+                  then
+                    ETyLam (proxyVar, KArrow KStar KStar) $
+                      ETmLam
+                        (mkVar "_", mkProxy tplTyLf) $
+                        ETmLam (mkVar "any", TAny) $
+                          EFromAny choiceArgTyLf (EVar $ mkVar "any")
+                  else EBuiltin BEError `ETyApp`
+                         TForall (proxyVar, KArrow KStar KStar) (mkProxy tplTyLf :-> TUnit :-> TOptional choiceArgTyLf) `ETmApp`
+                         EBuiltin (BEText "fromAnyChoice is not supported in this DAML-LF version")
+          let dict = ERecCon (TypeConApp choiceTyLf [tplTyLf, choiceArgTyLf, choiceRetTyLf]) $
+                map (second (ETmLam (mkVar "_", TUnit)))
+                [ (mkIndexedField 1, tplSuperDict)
+                , (mkIndexedField 2, exercise)
+                , (mkIndexedField 3, toAnyChoice)
+                , (mkIndexedField 4, fromAnyChoice)
+                ]
+          name' <- convValWithType env name
+          pure [defValue name name' dict]
+    -- This is inlined in the choice in the template so we can just drop this.
+    | "_choice_" `T.isPrefixOf` getOccText name = pure []
     | Just internals <- lookupUFM internalFunctions (envGHCModuleName env)
     , getOccFS name `elementOfUniqSet` internals
     = pure []
@@ -685,6 +702,11 @@ convertBind env (name, x)
     -- lifter or DAML-LF supports local recursion.
     | (as, Let (Rec [(f, Lam v y)]) (Var f')) <- collectBinders x, f == f'
     = convertBind env $ (,) name $ mkLams as $ Lam v $ Let (NonRec f $ mkVarApps (Var name) as) y
+
+    -- | Constraint tuple projections are turned into LF struct projections at use site.
+    | ConstraintTupleProjectionName _ _ <- name
+    = pure []
+
     | otherwise
     = withRange (convNameLoc name) $ do
     x' <- convertExpr env x
@@ -750,7 +772,7 @@ convertExpr env0 e = do
             let tupleType = TypeConApp tupleTyCon (map snd fields)
             pure $ ETmLam (varV1, TStruct fields) $ ERecCon tupleType $ zipWithFrom mkFieldProj (1 :: Int) fields
         where
-            mkFieldProj i (name, _typ) = (mkField ("_" <> T.pack (show i)), EStructProj name (EVar varV1))
+            mkFieldProj i (name, _typ) = (mkIndexedField i, EStructProj name (EVar varV1))
     go env (VarIn GHC_Types "primitive") (LType (isStrLitTy -> Just y) : LType t : args)
         = fmap (, args) $ convertPrim (envLfVersion env) (unpackFS y) <$> convertType env t
     go env (VarIn GHC_Types "external") (LType (isStrLitTy -> Just y) : LType t : args)
@@ -780,7 +802,7 @@ convertExpr env0 e = do
     go env (VarIn GHC_Real "fromRational") (LType (isNumLitTy -> Just n) : _ : LExpr (VarIs ":%" `App` tyInteger `App` Lit (LitNumber _ top _) `App` Lit (LitNumber _ bot _)) : args)
         = fmap (, args) $ convertRationalNumericMono env n top bot
     go env (VarIn GHC_Real "fromRational") (LType scaleTyCoRep : _ : LExpr (VarIs ":%" `App` tyInteger `App` Lit (LitNumber _ top _) `App` Lit (LitNumber _ bot _)) : args)
-        = unsupported "Polymorphic numeric literal. Specify a fixed scale by giving the type, e.g. (1.2345 : Numeric 10)" ()
+        = unsupported ("Polymorphic numeric literal. Specify a fixed scale by giving the type, e.g. (" ++ show (fromRational (top % bot) :: Decimal.Decimal) ++ " : Numeric 10)") ()
     go env (VarIn GHC_Num "negate") (tyInt : LExpr (VarIs "$fAdditiveInt") : LExpr (untick -> VarIs "fromInteger" `App` Lit (LitNumber _ x _)) : args)
         = fmap (, args) $ convertInt64 (negate x)
     go env (VarIn GHC_Integer_Type "fromInteger") (LExpr (Lit (LitNumber _ x _)) : args)
@@ -801,6 +823,13 @@ convertExpr env0 e = do
         t1' <- convertType env t1
         t2' <- convertType env t2
         pure (x' `ETyApp` t1' `ETyApp` t2' `ETmApp` EBuiltin (BEText (unpackCStringUtf8 s)))
+
+    go env (ConstraintTupleProjection index arity) args
+        | (LExpr x : args') <- drop arity args -- drop the type arguments
+        = fmap (, args') $ do
+            let fieldName = mkIndexedField index
+            x' <- convertExpr env x
+            pure $ EStructProj fieldName x'
 
     -- conversion of bodies of $con2tag functions
     go env (VarIn GHC_Base "getTag") (LType (TypeCon t _) : LExpr x : args) = fmap (, args) $ do
@@ -1021,6 +1050,10 @@ convertExpr env0 e = do
     go env o@(Coercion _) args = unhandled "Coercion" o
     go _ x args = unhandled "Expression" x
 
+-- | Is this a constraint tuple?
+isConstraintTupleTyCon :: TyCon -> Bool
+isConstraintTupleTyCon = maybe False (== ConstraintTuple) . tyConTuple_maybe
+
 -- | Is this an enum type?
 isEnumTyCon :: TyCon -> Bool
 isEnumTyCon tycon =
@@ -1053,11 +1086,15 @@ conHasLabels = notNull . ctorLabels
 isEnumCon :: DataCon -> Bool
 isEnumCon = isEnumTyCon . dataConTyCon
 
+isConstraintTupleCon :: DataCon -> Bool
+isConstraintTupleCon = isConstraintTupleTyCon . dataConTyCon
+
 isSimpleRecordCon :: DataCon -> Bool
 isSimpleRecordCon con =
     (conHasLabels con || conHasNoArgs con)
     && conIsSingle con
     && not (isEnumCon con)
+    && not (isConstraintTupleCon con)
 
 isVariantRecordCon :: DataCon -> Bool
 isVariantRecordCon con = conHasLabels con && not (conIsSingle con)
@@ -1068,11 +1105,13 @@ data DataConClass
     | SimpleRecordCon -- ^ constructor for a record type
     | SimpleVariantCon -- ^ constructor for a variant type with no synthetic record type
     | VariantRecordCon -- ^ constructor for a variant type with a synthetic record type
+    | ConstraintTupleCon -- ^ constructor for a constraint tuple
     deriving (Eq, Show)
 
 classifyDataCon :: DataCon -> DataConClass
 classifyDataCon con
     | isEnumCon con = EnumCon
+    | isConstraintTupleCon con = ConstraintTupleCon
     | isSimpleRecordCon con = SimpleRecordCon
     | isVariantRecordCon con = VariantRecordCon
     | otherwise = SimpleVariantCon
@@ -1113,6 +1152,9 @@ convertDataCon env m con args
             EnumCon -> do
                 unless (null args) $ unhandled "enum constructor with arguments" xargs
                 pure $ EEnumCon qTCon ctorName
+
+            ConstraintTupleCon -> do
+                pure $ EStructCon (zipExact fldNames tmArgs)
 
             SimpleVariantCon ->
                 fmap (EVariantCon tcon ctorName) $ case tmArgs of
@@ -1357,7 +1399,7 @@ packageNameToPkgRef env =
 convertTyCon :: Env -> TyCon -> ConvertM LF.Type
 convertTyCon env t
     | t == unitTyCon = pure TUnit
-    | isTupleTyCon t, arity >= 2 = TCon <$> qDA_Types env (mkTypeCon ["Tuple" <> T.pack (show arity)])
+    | isTupleTyCon t, not (isConstraintTupleTyCon t), arity >= 2 = TCon <$> qDA_Types env (mkTypeCon ["Tuple" <> T.pack (show arity)])
     | t == listTyCon = pure (TBuiltin BTList)
     | t == boolTyCon = pure TBool
     | t == intTyCon || t == intPrimTyCon = pure TInt64
@@ -1421,6 +1463,11 @@ convertType env o@(TypeCon t ts)
         t2 <- convertType env t2
         pure $ TStruct [(mkField f1, t1), (mkField f2, t2)]
     | tyConFlavour t == TypeSynonymFlavour = convertType env $ expandTypeSynonyms o
+    | isConstraintTupleTyCon t = do
+        fieldTys <- mapM (convertType env) ts
+        let fieldNames = map mkIndexedField [1..]
+        pure $ TStruct (zip fieldNames fieldTys)
+
     | otherwise = mkTApps <$> convertTyCon env t <*> mapM (convertType env) ts
 convertType env t | Just (v, t') <- splitForAllTy_maybe t
   = TForall <$> convTypeVar v <*> convertType env t'
@@ -1512,7 +1559,7 @@ ctorLabels con =
       -- If we omit this workaround, `GHC.Tuple.Unit` gets translated into a
       -- variant rather than a record and the `SugarUnit` test will fail.
       || (getOccFS con == "Unit" && nameModule (getName con) == gHC_TUPLE)
-    = map (mkField . T.cons '_' . T.pack . show) [1..dataConSourceArity con]
+    = map mkIndexedField [1..dataConSourceArity con]
     | flv == NewtypeFlavour && null lbls
     = [mkField "unpack"]
     | otherwise
@@ -1712,6 +1759,18 @@ anyTemplateTyFromStdlib stdlibRef =
 
 anyTemplateField :: FieldName
 anyTemplateField = mkField "getAnyTemplate"
+
+templateTypeRepTyFromStdlib :: PackageRef -> TypeConApp
+templateTypeRepTyFromStdlib stdlibRef =
+    TypeConApp
+        (Qualified
+             stdlibRef
+             (mkModName ["DA", "Internal", "LF"])
+             (mkTypeCon ["TemplateTypeRep"]))
+        []
+
+templateTypeRepField :: FieldName
+templateTypeRepField = mkField "getTemplateTypeRep"
 
 anyTpl :: ExprVarName
 anyTpl = mkVar "anyTpl"

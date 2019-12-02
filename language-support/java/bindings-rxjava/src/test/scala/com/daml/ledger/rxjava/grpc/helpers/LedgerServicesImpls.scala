@@ -64,7 +64,7 @@ object LedgerServicesImpls {
       implicit ec: ExecutionContext): (Seq[ServerServiceDefinition], LedgerServicesImpls) = {
     val (iServiceDef, iService) = LedgerIdentityServiceImpl.createWithRef(ledgerId, authorizer)(ec)
     val (acsServiceDef, acsService) =
-      ActiveContractsServiceImpl.createWithRef(getActiveContractsResponse)(ec)
+      ActiveContractsServiceImpl.createWithRef(getActiveContractsResponse, authorizer)(ec)
     val (tsServiceDef, tsService) =
       TransactionServiceImpl.createWithRef(transactions)(ec)
     val (csServiceDef, csService) =
@@ -75,7 +75,8 @@ object LedgerServicesImpls {
       submitAndWaitResponse,
       submitAndWaitForTransactionIdResponse,
       submitAndWaitForTransactionResponse,
-      submitAndWaitForTransactionTreeResponse)(ec)
+      submitAndWaitForTransactionTreeResponse,
+      authorizer)(ec)
     val (lcServiceDef, lcService) =
       LedgerConfigurationServiceImpl.createWithRef(getLedgerConfigurationResponses)(ec)
     val (timeServiceDef, timeService) = TimeServiceImpl.createWithRef(getTimeResponses: _*)(ec)

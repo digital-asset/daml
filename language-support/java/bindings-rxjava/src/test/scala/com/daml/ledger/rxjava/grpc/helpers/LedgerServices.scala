@@ -98,7 +98,8 @@ final class LedgerServices(val ledgerId: String) {
       authService: AuthService = AuthServiceWildcard)(
       f: (ActiveContractClientImpl, ActiveContractsServiceImpl) => Any): Any = {
     val (service, serviceImpl) =
-      ActiveContractsServiceImpl.createWithRef(getActiveContractsResponses)(executionContext)
+      ActiveContractsServiceImpl.createWithRef(getActiveContractsResponses, authorizer)(
+        executionContext)
     withServerAndChannel(authService, Seq(service)) { channel =>
       f(new ActiveContractClientImpl(ledgerId, channel, esf), serviceImpl)
     }
@@ -161,7 +162,8 @@ final class LedgerServices(val ledgerId: String) {
       submitAndWaitResponse,
       submitAndWaitForTransactionIdResponse,
       submitAndWaitForTransactionResponse,
-      submitAndWaitForTransactionTreeResponse)(executionContext)
+      submitAndWaitForTransactionTreeResponse,
+      authorizer)(executionContext)
     withServerAndChannel(authService, Seq(service)) { channel =>
       f(new CommandClientImpl(ledgerId, channel), serviceImpl)
     }

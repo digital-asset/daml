@@ -11,6 +11,7 @@ da_haskell_binary(
         "bytestring",
         "containers",
         "directory",
+        "extra",
         "filepath",
         "lens",
         "optparse-applicative",

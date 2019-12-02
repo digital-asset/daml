@@ -204,8 +204,9 @@ generateRawDalfRule =
                     setPriority priorityGenerateDalf
                     -- Generate the map from package names to package hashes
                     pkgMap <- useNoFile_ GeneratePackageMap
+                    DamlEnv{envIsGenerated} <- getDamlServiceEnv
                     -- GHC Core to DAML LF
-                    case convertModule lfVersion pkgMap file core of
+                    case convertModule lfVersion pkgMap envIsGenerated file core of
                         Left e -> return ([e], Nothing)
                         Right v -> return ([], Just $ LF.simplifyModule v)
 
@@ -340,7 +341,8 @@ generateSerializedDalfRule options =
                         Just core -> fmap (first (diags ++)) $ do
                             -- lf conversion
                             pkgMap <- useNoFile_ GeneratePackageMap
-                            case convertModule lfVersion pkgMap file core of
+                            DamlEnv{envIsGenerated} <- getDamlServiceEnv
+                            case convertModule lfVersion pkgMap envIsGenerated file core of
                                 Left e -> pure ([e], Nothing)
                                 Right rawDalf -> do
                                     -- LF postprocessing

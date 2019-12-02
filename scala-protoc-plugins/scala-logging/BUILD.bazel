@@ -8,9 +8,6 @@ da_scala_binary(
     srcs = ["LoggingCompilerPlugin.scala"],
     main_class = "com.digitalasset.protoc.plugins.logging.LoggingCompilerPlugin",
     visibility = ["//visibility:public"],
-    runtime_deps = [
-        "@com_github_scalapb_scalapb//:scala-library",
-    ],
     deps = [
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:com_thesamet_scalapb_compilerplugin_2_12",

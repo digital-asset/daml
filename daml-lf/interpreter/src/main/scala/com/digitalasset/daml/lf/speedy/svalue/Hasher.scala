@@ -78,7 +78,7 @@ private[speedy] object Hasher {
                 loop(pushOrderedValues(opt.iterator, cmdsRest), stack)
               case SList(values) =>
                 loop(pushOrderedValues(values.iterator, cmdsRest), stack)
-              case SMap(value) =>
+              case STextMap(value) =>
                 val newCmds = ((Unordered(value.size) :: cmdsRest) /: value) {
                   case (acc, (k, v)) => Value(v) :: Mix(k.hashCode) :: acc
                 }

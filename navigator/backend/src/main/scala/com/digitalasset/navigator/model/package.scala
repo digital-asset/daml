@@ -100,4 +100,5 @@ package object model extends NavigatorModelAliases[String] {
 
   def parseOpaqueIdentifier(id: TemplateStringId): Option[DamlLfRef.Identifier] =
     parseOpaqueIdentifier(TemplateStringId.unwrap(id))
+
 }

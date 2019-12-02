@@ -24,6 +24,11 @@ let damlRoot: string = path.join(os.homedir(), '.daml');
 const versionContextKey = 'version'
 const recentBlogContextKey = 'lastSeenBlog'
 
+type WebviewFiles = {
+    src: Uri;  // The JavaScript file.
+    css: Uri;
+}
+
 var damlLanguageClient: LanguageClient;
 // Extension activation
 // Note: You can log debug information by using `console.log()`
@@ -43,10 +48,15 @@ export async function activate(context: vscode.ExtensionContext) {
     damlLanguageClient = createLanguageClient(config, await consent);
     damlLanguageClient.registerProposedFeatures();
 
-    const webviewSrc: Uri =
-        vscode.Uri.file(path.join(context.extensionPath, 'src', 'webview.js')).
-        with({scheme: 'vscode-resource'});
-    let virtualResourceManager = new VirtualResourceManager(damlLanguageClient, webviewSrc);
+    const webviewFiles: WebviewFiles = {
+        src:
+            vscode.Uri.file(path.join(context.extensionPath, 'src', 'webview.js')).
+            with({scheme: 'vscode-resource'}),
+        css:
+            vscode.Uri.file(path.join(context.extensionPath, 'src', 'webview.css')).
+            with({scheme: 'vscode-resource'}),
+    };
+    let virtualResourceManager = new VirtualResourceManager(damlLanguageClient, webviewFiles);
     context.subscriptions.push(virtualResourceManager);
 
     let _unused = damlLanguageClient.onReady().then(() => {
@@ -387,11 +397,11 @@ class VirtualResourceManager {
     private _panelStates: Map<UriString, SelectedView> = new Map<UriString, SelectedView>();
     private _client: LanguageClient;
     private _disposables: vscode.Disposable[] = [];
-    private _webviewSrc : Uri;
+    private _webviewFiles : WebviewFiles;
 
-    constructor(client: LanguageClient, webviewSrc: Uri) {
+    constructor(client: LanguageClient, webviewFiles: WebviewFiles) {
         this._client = client;
-        this._webviewSrc = webviewSrc;
+        this._webviewFiles = webviewFiles;
     }
 
     private open(uri: UriString) {
@@ -449,7 +459,8 @@ class VirtualResourceManager {
     }
 
     public setContent(uri: UriString, contents: ScenarioResult) {
-        contents = contents.replace('$webviewSrc', this._webviewSrc.toString());
+        contents = contents.replace('$webviewSrc', this._webviewFiles.src.toString());
+        contents = contents.replace('$webviewCss', this._webviewFiles.css.toString());
         this._panelContents.set(uri, contents);
         const panel = this._panels.get(uri);
         if (panel) {

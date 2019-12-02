@@ -123,9 +123,14 @@ extractDocs extractOpts diagsLogger ideOpts fp = do
 
             (adts, md_templateInstances) =
                 partitionEithers . flip map filteredTyCons $ \adt ->
-                    case getTemplateInstanceDoc adt of
+                    case find (\td -> td_name td == ad_name adt) md_templates of
                         Nothing -> Left adt
-                        Just ti -> Right ti
+                        Just td -> Right TemplateInstanceDoc
+                          { ti_anchor = td_anchor td
+                          , ti_name = ad_name adt
+                          , ti_descr = Nothing
+                          , ti_rhs = TypeApp Nothing (ad_name adt) []
+                          }
 
             md_adts = mapMaybe (filterTypeByExports ctx) adts
 
@@ -274,6 +279,7 @@ getFctDocs ctx@DocCtx{..} (DeclData decl docs) = do
         fct_descr = docs
 
     guard (exportsFunction dc_exports fct_name)
+    guard (not $ "_choice_" `T.isPrefixOf` packRdrName name)
     Just FunctionDoc {..}
 
 getClsDocs :: DocCtx -> DeclData -> Maybe ClassDoc
@@ -522,34 +528,6 @@ getTemplateDocs DocCtx{..} typeMap templateInstanceMap =
                       [RecordC{ ac_fields = fields }] -> fields
                       [] -> [] -- catching the dummy case here, see above
                       _other -> error "getFields: found multiple constructors"
-
--- | A template instance is desugared to a type synonym with a doc marker.
---
--- For example,
---
--- @template instance ProposalIou = Proposal Iou@
---
--- leads to the `type` declaration
---
--- @--| TEMPLATE_INSTANCE@
--- @type ProposalIou = Proposal Iou@
---
--- This function looks for the "TEMPLATE_INSTANCE" doc marker around a type
--- synonym and, if it finds it, creates the relevant doc structure.
-getTemplateInstanceDoc :: ADTDoc -> Maybe TemplateInstanceDoc
-getTemplateInstanceDoc tyConDoc
-    | TypeSynDoc{..} <- tyConDoc
-    , Just (DocText doc) <- ad_descr
-    , Just realDoc <- T.stripSuffix "TEMPLATE_INSTANCE" doc
-    = Just TemplateInstanceDoc
-        { ti_name = ad_name
-        , ti_anchor = ad_anchor
-        , ti_descr = Just (DocText realDoc)
-        , ti_rhs = ad_rhs
-        }
-
-    | otherwise
-    = Nothing
 
 -- recognising Template and Choice instances
 
