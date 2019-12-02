@@ -106,9 +106,9 @@ jobs:
   - job: Windows
     timeoutInMinutes: 360
     pool:
-      name: 'windows-pool'
+      name: 'vs2017-win2016'
     steps:
-#       - template: ci/report-start.yml
+      - template: ci/report-start.yml
       - template: ci/build-windows.yml
       - template: ci/tell-slack-failed.yml
       - template: ci/report-end.yml
