@@ -160,6 +160,7 @@ supports such tokens.
 
 GET http://localhost:7575/contracts/search
 ==========================================
+List all currently active contracts for all known templates. Note that the retrieved contracts do not get persisted into query store database.
 
 POST http://localhost:7575/contracts/search
 ===========================================

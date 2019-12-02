@@ -29,6 +29,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 class ContractsService(
     resolveTemplateIds: PackageService.ResolveTemplateIds,
+    allTemplateIds: PackageService.AllTemplateIds,
     getActiveContracts: LedgerClientJwt.GetActiveContracts,
     getCreatesAndArchivesSince: LedgerClientJwt.GetCreatesAndArchivesSince,
     lookupType: query.ValuePredicate.TypeLookup,
@@ -104,6 +105,16 @@ class ContractsService(
 
   private def isContractId(k: domain.ContractId)(a: domain.ActiveContract[LfValue]): Boolean =
     (a.contractId: domain.ContractId) == k
+
+  def retrieveAll(
+      jwt: Jwt,
+      jwtPayload: JwtPayload): Source[Error \/ domain.ActiveContract[LfValue], NotUsed] =
+    retrieveAll(jwt, jwtPayload.party)
+
+  def retrieveAll(
+      jwt: Jwt,
+      party: lar.Party): Source[Error \/ domain.ActiveContract[LfValue], NotUsed] =
+    Source(allTemplateIds()).flatMapConcat(tpId => searchInMemory(jwt, party, tpId, Map.empty))
 
   def search(jwt: Jwt, jwtPayload: JwtPayload, request: GetActiveContractsRequest)
     : Source[Error \/ domain.ActiveContract[LfValue], NotUsed] =

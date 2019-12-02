@@ -25,6 +25,7 @@ import com.digitalasset.ledger.api.v1.{value => v}
 import com.typesafe.scalalogging.StrictLogging
 import org.scalatest._
 import scalaz.std.list._
+import scalaz.std.scalaFuture._
 import scalaz.syntax.show._
 import scalaz.syntax.tag._
 import scalaz.syntax.traverse._
@@ -74,7 +75,7 @@ abstract class AbstractHttpServiceIntegrationTest
 
   protected def withLedger[A] = HttpServiceTestFixture.withLedger[A](dar, testId) _
 
-  "contracts/search without query" in withHttpService { (uri: Uri, _, _) =>
+  "contracts/search GET empty results" in withHttpService { (uri: Uri, _, _) =>
     getRequest(uri = uri.withPath(Uri.Path("/contracts/search")))
       .flatMap {
         case (status, output) =>
@@ -83,7 +84,7 @@ abstract class AbstractHttpServiceIntegrationTest
           inside(output) {
             case JsObject(fields) =>
               inside(fields.get("result")) {
-                case Some(jsArray) => jsArray shouldBe JsArray(Vector.empty)
+                case Some(JsArray(vector)) => vector should have size (0L)
               }
           }
       }: Future[Assertion]
@@ -95,6 +96,37 @@ abstract class AbstractHttpServiceIntegrationTest
     iouCreateCommand(amount = "333.33", currency = "GBP"),
     iouCreateCommand(amount = "444.44", currency = "BTC"),
   )
+
+  "contracts/search GET" in withHttpService { (uri: Uri, encoder, _) =>
+    searchDataSet.traverse(c => postCreateCommand(c, encoder, uri)).flatMap { rs =>
+      rs.map(_._1) shouldBe List.fill(searchDataSet.size)(StatusCodes.OK)
+
+      getRequest(uri = uri.withPath(Uri.Path("/contracts/search")))
+        .flatMap {
+          case (status, output) =>
+            status shouldBe StatusCodes.OK
+            assertStatus(output, StatusCodes.OK)
+            inside(output) {
+              case JsObject(fields) =>
+                inside(fields.get("result")) {
+                  case Some(JsArray(vector)) =>
+                    vector should have size (searchDataSet.size.toLong)
+                }
+            }
+        }: Future[Assertion]
+    }
+  }
+
+  "contracts/search POST" in withHttpService { (uri, encoder, _) =>
+    searchWithQuery(
+      searchDataSet,
+      jsObject("""{"%templates": [{"moduleName": "Iou", "entityName": "Iou"}]}"""),
+      uri,
+      encoder
+    ).map { acl: List[domain.ActiveContract[JsValue]] =>
+      acl.size shouldBe 4
+    }
+  }
 
   "contracts/search with query, one field" in withHttpService { (uri, encoder, _) =>
     searchWithQuery(
@@ -190,8 +222,6 @@ abstract class AbstractHttpServiceIntegrationTest
       query: JsObject,
       uri: Uri,
       encoder: DomainJsonEncoder): Future[List[domain.ActiveContract[JsValue]]] = {
-    import scalaz.std.scalaFuture._
-
     commands.traverse(c => postCreateCommand(c, encoder, uri)).flatMap { rs =>
       rs.map(_._1) shouldBe List.fill(commands.size)(StatusCodes.OK)
       postJsonRequest(uri.withPath(Uri.Path("/contracts/search")), query).map {

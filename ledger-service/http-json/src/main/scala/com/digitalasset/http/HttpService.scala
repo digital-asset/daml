@@ -108,6 +108,7 @@ object HttpService extends StrictLogging {
 
       contractsService = new ContractsService(
         packageService.resolveTemplateIds,
+        packageService.allTemplateIds,
         LedgerClientJwt.getActiveContracts(client),
         LedgerClientJwt.getCreatesAndArchivesSince(client),
         LedgerReader.damlLfTypeLookup(packageService.packageStore _),
