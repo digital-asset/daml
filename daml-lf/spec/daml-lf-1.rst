@@ -510,9 +510,6 @@ strings as *package identifiers*.  ::
   Type constructors
               T ::= Name                            -- TyConName
 
-  Type synonym names
-              S ::= Name                            -- TypeSynonym
-
   Module names
         ModName ::= Name                            -- ModName
 
@@ -683,7 +680,7 @@ available for usage::
        |  'variant' T (α₁: k₁)… (αₙ: kₙ) ↦ V₁ : τ₁ | … | Vₘ : τₘ
                                                     -- DefVariant
        |  'enum' T  ↦ E₁ | … | Eₘ                    -- DefEnum
-       |  'synonym' S (α₁: k₁)… (αₙ: kₙ) ↦ τ        -- DefTypeSynonym
+       |  'synonym' T (α₁: k₁)… (αₙ: kₙ) ↦ τ        -- DefTypeSynonym
        |  'val' W : τ ↦ e                           -- DefValue
        |  'tpl' (x : T) ↦                           -- DefTemplate
             { 'precondition' e₁
@@ -854,10 +851,10 @@ First, we formally defined *well-formed types*. ::
     ————————————————————————————————————————————— TyStruct
       Γ  ⊢  ⟨ f₁: τ₁, …, fₙ: τₙ ⟩  :  ⋆
 
-      'synonym' S (α₁:k₁) … (αₙ:kₙ) ↦ τ ∈ 〚Ξ〛Mod
+      'synonym' T (α₁:k₁) … (αₙ:kₙ) ↦ τ ∈ 〚Ξ〛Mod
       Γ  ⊢  τ₁ : k₁  …  Γ  ⊢  τₙ : kₙ
     ————————————————————————————————————————————— TyTypeSynonym
-      Γ  ⊢  Mod:S τ₁ … τₙ  :  ⋆
+      Γ  ⊢  Mod:T τ₁ … τₙ  :  ⋆
 
 
 
@@ -997,11 +994,11 @@ Then we define *well-formed expressions*. ::
     ——————————————————————————————————————————————————————————————— ExpEnumCon
       Γ  ⊢  Mod:T:Eᵢ  :  Mod:T
 
-      'synonym' S (α₁:k₁) … (αₙ:kₙ) ↦ τ
+      'synonym' T (α₁:k₁) … (αₙ:kₙ) ↦ τ
       Γ  ⊢  τ₁ : k₁    ⋯     Γ  ⊢  τₙ : kₙ
       Γ  ↦  e : τ[α₁ ↦ τ₁, …, α₁ ↦ τₙ]
     ——————————————————————————————————————————————————————————————— ExpTypeSynonym
-      Γ  ⊢  e : Mod:S τ₁ … τₙ
+      Γ  ⊢  e : Mod:T τ₁ … τₙ
 
       Γ  ⊢  e₁  :  τ₁      …      Γ  ⊢  eₘ  :  τₘ
     ——————————————————————————————————————————————————————————————— ExpStructCon
@@ -1242,7 +1239,7 @@ for the ``DefTemplate`` rule). ::
 
     (α₁:k₁) … (αₙ:kₙ) · Γ  ⊢  τ  :  ⋆
   ——————————————————————————————————————————————————————————————— DefTypeSynonym
-    ⊢  'synonym' S (α₁: k₁) … (αₙ: kₙ) ↦ τ
+    ⊢  'synonym' T (α₁: k₁) … (αₙ: kₙ) ↦ τ
 
     ε  ⊢  e  :  τ
   ——————————————————————————————————————————————————————————————— DefValue
@@ -1368,8 +1365,8 @@ name* construct as follows:
   defined in the module ``Mod`` is ``Mod.T``.
 * The *fully resolved name* of a enum type constructor ``T`` defined
   in the module ``Mod`` is ``Mod.T``.
-* The *fully resolved name* of a type synonym ``S`` defined in the
-  module ``Mod`` is ``Mod.S``.
+* The *fully resolved name* of a type synonym ``T`` defined in the
+  module ``Mod`` is ``Mod.T``.
 * The *fully resolved name* of a field ``fᵢ`` of a record type
   definition ``'record' T …  ↦ { …, fᵢ: τᵢ, … }`` defined in the
   module ``Mod`` is ``Mod.T.fᵢ``
