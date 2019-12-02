@@ -318,7 +318,6 @@ private final class SqlLedger(
         case Failure(f) => Failure(f)
       }(DEC)
 
-  //TODO BH: revisit this and where it is needed
   override def allocateParty(
       party: Party,
       displayName: Option[String],
@@ -377,43 +376,44 @@ private final class SqlLedger(
     val packages = payload.map(archive =>
       (archive, PackageDetails(archive.getPayload.size().toLong, knownSince, sourceDescription)))
 
-    val storePackageUploadEntry: Future[SubmissionResult] = {
-      var headRef = 0L
+    def storePackageUploadEntry(offsets: SqlLedger.Offsets) = {
       ledgerDao
         .storePackageUploadEntry(
-          headRef,
-          headRef + 1,
+          offsets.offset,
+          offsets.nextOffset,
           None,
           PackageUploadLedgerEntry
             .Accepted(submissionId, participantId, timeProvider.getCurrentTime))
-        .map {
-          case PersistenceResponse.Ok =>
-            SubmissionResult.Acknowledged
-          case PersistenceResponse.Duplicate =>
-            SubmissionResult.Acknowledged
+        .map(_ => ())(DEC)
+        .recover {
+          case t =>
+            logger.error(s"Failed to persist package upload entry with offsets: $offsets", t)
         }(DEC)
     }
 
-    ledgerDao
-      .uploadLfPackages(submissionId, packages, None)
-      .map { result =>
-        result.get(PersistenceResponse.Ok).fold(logger.info(s"No package uploaded")) { uploaded =>
-          logger.info(s"Successfully uploaded $uploaded packages")
-        }
-        for (duplicates <- result.get(PersistenceResponse.Duplicate)) {
-          logger.info(s"$duplicates packages discarded as duplicates")
-        }
-        // Unlike the data access layer, the API has no concept of duplicates, so we
-        // discard the information; package upload is idempotent, apart from the fact
-        // that we only keep the knownSince and sourceDescription of the first upload.
-        SubmissionResult.Acknowledged
-      }(DEC)
-      .flatMap {
-        case SubmissionResult.Acknowledged =>
-          storePackageUploadEntry
-        case _ =>
-          Future.failed(ErrorFactories.invalidArgument("unable to store party upload entry to DB"))
-      }(DEC)
+    enqueue { offsets =>
+      ledgerDao
+        .uploadLfPackages(submissionId, packages, None)
+        .map { result =>
+          result.get(PersistenceResponse.Ok).fold(logger.info(s"No package uploaded")) { uploaded =>
+            logger.info(s"Successfully uploaded $uploaded packages")
+          }
+          for (duplicates <- result.get(PersistenceResponse.Duplicate)) {
+            logger.info(s"$duplicates packages discarded as duplicates")
+          }
+          // Unlike the data access layer, the API has no concept of duplicates, so we
+          // discard the information; package upload is idempotent, apart from the fact
+          // that we only keep the knownSince and sourceDescription of the first upload.
+          SubmissionResult.Acknowledged
+        }(DEC)
+        .flatMap {
+          case SubmissionResult.Acknowledged =>
+            storePackageUploadEntry(offsets)
+          case _ =>
+            Future.failed(
+              ErrorFactories.invalidArgument("unable to store party upload entry to DB"))
+        }(DEC)
+    }
   }
 
   override def publishConfiguration(
@@ -523,7 +523,7 @@ private final class SqlLedgerFactory(ledgerDao: LedgerDao, loggerFactory: NamedL
         ledgerDao
           .lookupLedgerId()
           .flatMap {
-            case Some(foundLedgerId) if (foundLedgerId == initialId) =>
+            case Some(foundLedgerId) if foundLedgerId == initialId =>
               if (initialLedgerEntries.nonEmpty) {
                 logger.warn(
                   s"Initial ledger entries provided, presumably from scenario, but I'm picking up from an existing database, and thus they will not be used")
