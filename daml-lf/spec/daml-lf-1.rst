@@ -581,6 +581,7 @@ Then we can define our kinds, types, and expressions::
        |  ∀ α : k . τ                               -- TyForall: Universal quantification
        |  BuiltinType                               -- TyBuiltin: Builtin type
        |  Mod:T                                     -- TyCon: type constructor
+       |  Mod:S                                     -- TySynonym: type synonym
        |  ⟨ f₁: τ₁, …, fₘ: τₘ ⟩                     -- TyStruct: Structural record type
 
   Expressions
