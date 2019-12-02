@@ -231,7 +231,6 @@ emptyDocs name =
         md_anchor = Just (moduleAnchor md_name)
         md_descr = Nothing
         md_templates = []
-        md_templateInstances = []
         md_adts = []
         md_functions = []
         md_classes = []
