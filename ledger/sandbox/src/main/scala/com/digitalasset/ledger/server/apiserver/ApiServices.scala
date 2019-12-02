@@ -18,6 +18,7 @@ import com.digitalasset.daml.lf.engine._
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.ledger.api.auth.Authorizer
 import com.digitalasset.ledger.api.auth.services._
+import com.digitalasset.ledger.api.health.HealthChecks
 import com.digitalasset.ledger.api.v1.command_completion_service.CompletionEndRequest
 import com.digitalasset.ledger.client.services.commands.CommandSubmissionFlow
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
@@ -71,9 +72,9 @@ object ApiServices {
       commandConfig: CommandConfiguration,
       optTimeServiceBackend: Option[TimeServiceBackend],
       loggerFactory: NamedLoggerFactory,
-      metrics: MetricRegistry)(
-      implicit mat: ActorMaterializer,
-      esf: ExecutionSequencerFactory): Future[ApiServices] = {
+      metrics: MetricRegistry,
+      healthChecks: HealthChecks,
+  )(implicit mat: ActorMaterializer, esf: ExecutionSequencerFactory): Future[ApiServices] = {
     implicit val ec: ExecutionContext = mat.system.dispatcher
 
     // still trying to keep it tidy in case we want to split it later
@@ -162,7 +163,7 @@ object ApiServices {
 
       val apiReflectionService = ProtoReflectionService.newInstance()
 
-      val apiHealthService = new GrpcHealthService
+      val apiHealthService = new GrpcHealthService(healthChecks)
 
       // Note: the command service uses the command submission, command completion, and transaction services internally.
       // These connections do not use authorization, authorization wrappers are only added here to all exposed services.

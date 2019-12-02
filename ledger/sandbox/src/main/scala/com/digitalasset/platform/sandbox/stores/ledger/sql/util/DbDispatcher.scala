@@ -9,6 +9,7 @@ import java.util.concurrent.Executors
 import akka.stream.scaladsl.Source
 import akka.{Done, NotUsed}
 import com.codahale.metrics.MetricRegistry
+import com.digitalasset.ledger.api.health.{HealthStatus, ReportsHealth}
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.common.util.DirectExecutionContext
 import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.HikariJdbcConnectionProvider
@@ -16,7 +17,39 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder
 
 import scala.concurrent.{ExecutionContext, Future}
 
-trait DbDispatcher extends AutoCloseable {
+/**
+  * A helper class to dispatch blocking SQL queries onto a dedicated thread pool.
+  * The number of threads are being kept in sync with the number of JDBC connections in the pool.
+  *
+  * @param jdbcUrl                    the JDBC url containing the database name, user name and password
+  * @param noOfShortLivedConnections the number of connections to be pre-allocated for regular SQL queries
+  * @param noOfStreamingConnections  the max number of connections to be used for long, streaming queries
+  */
+final class DbDispatcher(
+    jdbcUrl: String,
+    val noOfShortLivedConnections: Int,
+    noOfStreamingConnections: Int,
+    loggerFactory: NamedLoggerFactory,
+    metrics: MetricRegistry,
+) extends AutoCloseable
+    with ReportsHealth {
+
+  private val logger = loggerFactory.getLogger(getClass)
+  private val connectionProvider =
+    new HikariJdbcConnectionProvider(jdbcUrl, noOfShortLivedConnections, noOfStreamingConnections)
+  private val sqlExecutor =
+    new SqlExecutor(noOfShortLivedConnections, loggerFactory, metrics)
+
+  private val connectionGettingThreadPool = ExecutionContext.fromExecutorService(
+    Executors.newSingleThreadExecutor(
+      new ThreadFactoryBuilder()
+        .setDaemon(true)
+        .setNameFormat("JdbcConnectionAccessor")
+        .setUncaughtExceptionHandler((thread, t) =>
+          logger.error(s"got an uncaught exception on thread: ${thread.getName}", t))
+        .build()))
+
+  override def currentHealth(): HealthStatus = sqlExecutor.currentHealth()
 
   /** Runs an SQL statement in a dedicated Executor. The whole block will be run in a single database transaction.
     *
@@ -24,7 +57,8 @@ trait DbDispatcher extends AutoCloseable {
     * the Connection. See further details at: https://docs.oracle.com/cd/E19830-01/819-4721/beamv/index.html
     */
   def executeSql[T](description: String, extraLog: Option[String] = None)(
-      sql: Connection => T): Future[T]
+      sql: Connection => T): Future[T] =
+    sqlExecutor.runQuery(description, extraLog)(connectionProvider.runSQL(sql))
 
   /**
     * Creates a lazy Source, which takes care of:
@@ -36,40 +70,7 @@ trait DbDispatcher extends AutoCloseable {
     * @tparam T the type of streamed elements
     * @return a lazy source which will only access the database after it's materialized and run
     */
-  def runStreamingSql[T](sql: Connection => Source[T, Future[Done]]): Source[T, NotUsed]
-
-  /** The number of pre-allocated connections for short lived queries */
-  def noOfShortLivedConnections: Int
-}
-
-private class DbDispatcherImpl(
-    jdbcUrl: String,
-    val noOfShortLivedConnections: Int,
-    noOfStreamingConnections: Int,
-    loggerFactory: NamedLoggerFactory,
-    metrics: MetricRegistry)
-    extends DbDispatcher {
-
-  private val logger = loggerFactory.getLogger(getClass)
-  private val connectionProvider =
-    HikariJdbcConnectionProvider(jdbcUrl, noOfShortLivedConnections, noOfStreamingConnections)
-  private val sqlExecutor = SqlExecutor(noOfShortLivedConnections, loggerFactory, metrics)
-
-  private val connectionGettingThreadPool = ExecutionContext.fromExecutorService(
-    Executors.newSingleThreadExecutor(
-      new ThreadFactoryBuilder()
-        .setDaemon(true)
-        .setNameFormat("JdbcConnectionAccessor")
-        .setUncaughtExceptionHandler((thread, t) =>
-          logger.error(s"got an uncaught exception on thread: ${thread.getName}", t))
-        .build()))
-
-  override def executeSql[T](description: String, extraLog: Option[String] = None)(
-      sql: Connection => T): Future[T] =
-    sqlExecutor.runQuery(description, extraLog)(connectionProvider.runSQL(conn => sql(conn)))
-
-  override def runStreamingSql[T](
-      sql: Connection => Source[T, Future[Done]]): Source[T, NotUsed] = {
+  def runStreamingSql[T](sql: Connection => Source[T, Future[Done]]): Source[T, NotUsed] = {
     // Getting a connection can block! Presumably, it only blocks if the connection pool has no free connections.
     // getStreamingConnection calls can therefore not be parallelized, and we use a single thread for all of them.
     Source
@@ -87,29 +88,4 @@ private class DbDispatcherImpl(
     sqlExecutor.close()
     connectionGettingThreadPool.shutdown()
   }
-}
-
-object DbDispatcher {
-
-  /**
-    * A helper class to dispatch blocking SQL queries onto a dedicated thread pool. The number of threads are being kept
-    * * in sync with the number of JDBC connections in the pool.
-    *
-    * @param jdbcUrl                   the jdbc url containing the database name, user name and password
-    * @param noOfShortLivedConnections the number of connections to be pre-allocated for regular SQL queries
-    * @param noOfStreamingConnections  the max number of connections to be used for long, streaming queries
-    */
-  def apply(
-      jdbcUrl: String,
-      noOfShortLivedConnections: Int,
-      noOfStreamingConnections: Int,
-      loggerFactory: NamedLoggerFactory,
-      metrics: MetricRegistry): DbDispatcher =
-    new DbDispatcherImpl(
-      jdbcUrl,
-      noOfShortLivedConnections,
-      noOfStreamingConnections,
-      loggerFactory,
-      metrics
-    )
 }

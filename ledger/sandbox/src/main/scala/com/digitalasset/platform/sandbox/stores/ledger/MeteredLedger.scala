@@ -18,6 +18,7 @@ import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
 import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails}
+import com.digitalasset.ledger.api.health.HealthStatus
 import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilter
 import com.digitalasset.platform.sandbox.metrics.timedFuture
 import com.digitalasset.platform.sandbox.stores.ActiveLedgerState.Contract
@@ -39,6 +40,8 @@ private class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: MetricRegis
   }
 
   override def ledgerId: LedgerId = ledger.ledgerId
+
+  override def currentHealth(): HealthStatus = ledger.currentHealth()
 
   override def ledgerEntries(offset: Option[Long]): Source[(Long, LedgerEntry), NotUsed] =
     ledger.ledgerEntries(offset)

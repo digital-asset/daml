@@ -17,6 +17,7 @@ import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.ledger.api.auth.interceptor.AuthorizationInterceptor
 import com.digitalasset.ledger.api.auth.{AuthService, AuthServiceWildcard, Authorizer}
 import com.digitalasset.ledger.api.domain.LedgerId
+import com.digitalasset.ledger.api.health.HealthChecks
 import com.digitalasset.ledger.server.apiserver.{ApiServer, ApiServices, LedgerApiServer}
 import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
@@ -212,7 +213,7 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
           config.commandConfig.maxCommandsInFlight * 2, // we can get commands directly as well on the submission service
           packageStore,
           loggerFactory,
-          metrics
+          metrics,
         )
 
       case None =>
@@ -225,7 +226,7 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
             acs,
             ledgerEntries,
             packageStore,
-            metrics
+            metrics,
           ))
     }
 
@@ -237,6 +238,11 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
       }, identity)
 
     val authorizer = new Authorizer(() => java.time.Clock.systemUTC.instant())
+
+    val healthChecks = new HealthChecks(
+      "index" -> indexAndWriteService.indexService,
+      "write" -> indexAndWriteService.writeService,
+    )
 
     val apiServer = Await.result(
       LedgerApiServer.create(
@@ -251,13 +257,10 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
               config.timeModel,
               config.commandConfig,
               timeServiceBackendO
-                .map(
-                  TimeServiceBackend.withObserver(
-                    _,
-                    indexAndWriteService.publishHeartbeat
-                  )),
+                .map(TimeServiceBackend.withObserver(_, indexAndWriteService.publishHeartbeat)),
               loggerFactory,
-              metrics
+              metrics,
+              healthChecks,
             )(am, esf)
             .map(_.withServices(List(resetService(ledgerId, authorizer, loggerFactory)))),
         // NOTE(JM): Re-use the same port after reset.

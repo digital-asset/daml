@@ -103,7 +103,7 @@ If you are running Extractor against a Ledger API server that requires authentic
 
 The access token retrieval depends on the specific DAML setup you are working with: please refer to the ledger operator to learn how.
 
-Once you have retrieved your access token, you can provide it to Extrator by storing it in a file and provide the path to it using the ``--access-token-file`` command line option.
+Once you have retrieved your access token, you can provide it to Extractor by storing it in a file and provide the path to it using the ``--access-token-file`` command line option.
 
 Both in the case in which the token cannot be read from the provided path or if the Ledger API reports an authentication error (for example due to token expiration), Extractor will keep trying to read and use it and report the error via logging. This retry mechanism allows expired token to be overwritten with valid ones and keep Extractor going from where it left off.
 

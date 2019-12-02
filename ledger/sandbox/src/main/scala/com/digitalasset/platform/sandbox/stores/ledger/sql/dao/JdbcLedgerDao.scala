@@ -37,6 +37,7 @@ import com.digitalasset.daml_lf_dev.DamlLf.Archive
 import com.digitalasset.ledger._
 import com.digitalasset.ledger.api.domain.RejectionReason._
 import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails, RejectionReason}
+import com.digitalasset.ledger.api.health.HealthStatus
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.common.util.DirectExecutionContext
 import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilter
@@ -76,8 +77,8 @@ private class JdbcLedgerDao(
     keyHasher: KeyHasher,
     dbType: DbType,
     loggerFactory: NamedLoggerFactory,
-    executionContext: ExecutionContext)
-    extends LedgerDao {
+    executionContext: ExecutionContext,
+) extends LedgerDao {
 
   private val queries = dbType match {
     case DbType.Postgres => PostgresQueries
@@ -86,6 +87,8 @@ private class JdbcLedgerDao(
   private val logger = loggerFactory.getLogger(getClass)
 
   private val SQL_SELECT_LEDGER_ID = SQL("select ledger_id from parameters")
+
+  override def currentHealth(): HealthStatus = dbDispatcher.currentHealth()
 
   override def lookupLedgerId(): Future[Option[LedgerId]] =
     dbDispatcher
@@ -247,7 +250,7 @@ private class JdbcLedgerDao(
       configuration: Configuration,
       rejectionReason: Option[String]
   ): Future[PersistenceResponse] = {
-    dbDispatcher.executeSql("store_configuration_entry", Some("submissionId=$submissionId")) {
+    dbDispatcher.executeSql("store_configuration_entry", Some(s"submissionId=$submissionId")) {
       implicit conn =>
         val currentConfig = selectLedgerConfiguration
         var finalRejectionReason = rejectionReason

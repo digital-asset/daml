@@ -8,7 +8,7 @@ import java.util.concurrent.TimeUnit
 
 import com.daml.ledger.javaapi.data.LedgerOffset.Absolute
 import com.daml.ledger.javaapi.data.{Command, CreateCommand, Identifier, Record}
-import com.daml.ledger.rxjava.grpc.helpers._
+import com.daml.ledger.rxjava.grpc.helpers.{CommandServiceImpl, _}
 import com.daml.ledger.testkit.services._
 import com.digitalasset.ledger.api.v1.command_completion_service.CompletionStreamResponse
 import com.digitalasset.ledger.api.v1.command_service.{

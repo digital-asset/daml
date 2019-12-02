@@ -196,7 +196,6 @@ distributeInstanceDocs docs =
         , md_descr = md_descr
         , md_functions = md_functions
         , md_templates = md_templates
-        , md_templateInstances = md_templateInstances
         , md_classes = map (addClassInstances imap) md_classes
         , md_adts = map (addTypeInstances imap) md_adts
         , md_instances = md_instances

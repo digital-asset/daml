@@ -78,7 +78,7 @@ class TypeSpec extends WordSpec with Matchers {
         }
       case Pkg.TTyCon(tycon) => TypeCon(TypeConName(tycon), args.toImmArray.toSeq)
       case Pkg.TNat(_) => sys.error("cannot use nat type in interface type")
-      case _: Pkg.TTuple => sys.error("cannot use tuples in interface type")
+      case _: Pkg.TStruct => sys.error("cannot use structs in interface type")
       case _: Pkg.TForall => sys.error("cannot use forall in interface type")
     }
 

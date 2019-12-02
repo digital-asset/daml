@@ -225,7 +225,6 @@ generateSrcFromLf env = noLoc mod
             LF.BTOptional -> (damlStdlibUnitId, sdkInternalPrelude)
             LF.BTTextMap -> (damlStdlibUnitId, sdkDaInternalLf)
             LF.BTGenMap -> (damlStdlibUnitId, sdkDaInternalLf)
-                -- GENMAP TODO (#2256): Verify module name once GenMap implemented in stdlib.
             LF.BTArrow -> (primUnitId, translateModName funTyCon)
             LF.BTNumeric -> (primUnitId, LF.ModuleName ["GHC", "Types"])
             LF.BTAny -> (damlStdlibUnitId, sdkDaInternalLf)
@@ -525,7 +524,7 @@ convType env =
                 [mkUserTyVar $ LF.unTypeVarName $ fst forallBinder]
                 (noLoc $ convType env forallBody)
         -- TODO (drsk): Is this the correct tuple type? What about the field names?
-        LF.TTuple fls ->
+        LF.TStruct fls ->
             HsTupleTy
                 noExt
                 HsBoxedTuple
@@ -555,8 +554,7 @@ convBuiltInTy env =
         LF.BTContractId -> mkLfInternalType env "ContractId"
         LF.BTOptional -> mkLfInternalPrelude env "Optional"
         LF.BTTextMap -> mkLfInternalType env "TextMap"
-        LF.BTGenMap -> mkLfInternalType env "GenMap"
-            -- GENMAP TODO  (#2256): Verify type name once implemented in stdlib.
+        LF.BTGenMap -> mkLfInternalType env "Map"
         LF.BTArrow -> mkTyConTypeUnqual funTyCon
         LF.BTNumeric -> mkGhcType "Numeric"
         LF.BTAny -> mkLfInternalType env "Any"
@@ -807,4 +805,3 @@ generateGenInstanceModule env externPkgId qual
         [ "import qualified " <> modNameQual
         , "import qualified DA.Generics"
         ]
-

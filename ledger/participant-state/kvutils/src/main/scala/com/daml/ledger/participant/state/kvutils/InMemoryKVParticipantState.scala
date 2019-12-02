@@ -21,6 +21,7 @@ import com.digitalasset.daml.lf.data.Ref.{LedgerString, Party}
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.engine.Engine
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
+import com.digitalasset.ledger.api.health.{HealthStatus, Healthy}
 import com.digitalasset.platform.akkastreams.dispatcher.Dispatcher
 import com.digitalasset.platform.akkastreams.dispatcher.SubSource.OneAfterAnother
 import com.google.protobuf.ByteString
@@ -95,7 +96,8 @@ object InMemoryKVParticipantState {
 class InMemoryKVParticipantState(
     val participantId: ParticipantId,
     val ledgerId: LedgerString = Ref.LedgerString.assertFromString(UUID.randomUUID.toString),
-    file: Option[File] = None)(implicit system: ActorSystem, mat: Materializer)
+    file: Option[File] = None,
+)(implicit system: ActorSystem, mat: Materializer)
     extends ReadService
     with WriteService
     with AutoCloseable {
@@ -369,6 +371,8 @@ class InMemoryKVParticipantState(
         List(Update.Heartbeat(recordTime))
     }
   }
+
+  override def currentHealth(): HealthStatus = Healthy
 
   /** Subscribe to updates to the participant state.
     * Implemented using the [[Dispatcher]] helper which handles the signalling

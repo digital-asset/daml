@@ -96,7 +96,7 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
         "a -> b" -> TApp(TApp(TBuiltin(BTArrow), α), β),
         "a -> b -> a" -> TApp(TApp(TBuiltin(BTArrow), α), TApp(TApp(TBuiltin(BTArrow), β), α)),
         "forall (a: *). Mod:T a" -> TForall((α.name, KStar), TApp(T, α)),
-        "<f1: a, f2: Bool, f3:Mod:T>" -> TTuple(
+        "<f1: a, f2: Bool, f3:Mod:T>" -> TStruct(
           ImmArray[(FieldName, Type)](n"f1" -> α, n"f2" -> TBuiltin(BTBool), n"f3" -> T))
       )
 
@@ -262,9 +262,9 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
         "Mod:R:C" ->
           EEnumCon(R.tycon, n"C"),
         "< f1 =2, f2=False >" ->
-          ETupleCon(ImmArray(n"f1" -> e"2", n"f2" -> e"False")),
+          EStructCon(ImmArray(n"f1" -> e"2", n"f2" -> e"False")),
         "(x).f1" ->
-          ETupleProj(n"f1", e"x"),
+          EStructProj(n"f1", e"x"),
         "x y" ->
           EApp(e"x", e"y"),
         "x y z" ->

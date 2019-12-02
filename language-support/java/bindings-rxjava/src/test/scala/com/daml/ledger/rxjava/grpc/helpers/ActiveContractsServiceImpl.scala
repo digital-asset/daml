@@ -1,8 +1,9 @@
 // Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.ledger.testkit.services
-
+package com.daml.ledger.rxjava.grpc.helpers
+import com.digitalasset.ledger.api.auth.Authorizer
+import com.digitalasset.ledger.api.auth.services.ActiveContractsServiceAuthorization
 import com.digitalasset.ledger.api.v1.active_contracts_service.ActiveContractsServiceGrpc.ActiveContractsService
 import com.digitalasset.ledger.api.v1.active_contracts_service.{
   ActiveContractsServiceGrpc,
@@ -14,13 +15,12 @@ import io.grpc.stub.StreamObserver
 import io.reactivex.disposables.Disposable
 import io.reactivex.{Observable, Observer}
 
-import collection.JavaConverters._
-
 import scala.concurrent.ExecutionContext
 
-class ActiveContractsServiceImpl(
+final class ActiveContractsServiceImpl(
     getActiveContractsResponses: Observable[GetActiveContractsResponse])
-    extends ActiveContractsService {
+    extends ActiveContractsService
+    with FakeAutoCloseable {
 
   private var lastRequest = Option.empty[GetActiveContractsRequest]
 
@@ -40,16 +40,15 @@ class ActiveContractsServiceImpl(
 }
 
 object ActiveContractsServiceImpl {
-  def apply(getActiveContractsResponses: GetActiveContractsResponse*)(
-      implicit ec: ExecutionContext): ServerServiceDefinition =
-    ActiveContractsServiceGrpc.bindService(
-      new ActiveContractsServiceImpl(Observable.fromIterable(getActiveContractsResponses.asJava)),
-      ec)
 
   /** Return the ServerServiceDefinition and the underlying ActiveContractsServiceImpl for inspection */
-  def createWithRef(getActiveContractsResponses: Observable[GetActiveContractsResponse])(
+  def createWithRef(
+      getActiveContractsResponses: Observable[GetActiveContractsResponse],
+      authorizer: Authorizer)(
       implicit ec: ExecutionContext): (ServerServiceDefinition, ActiveContractsServiceImpl) = {
-    val acsImpl = new ActiveContractsServiceImpl(getActiveContractsResponses)
-    (ActiveContractsServiceGrpc.bindService(acsImpl, ec), acsImpl)
+    val impl = new ActiveContractsServiceImpl(getActiveContractsResponses)
+    val authImpl = new ActiveContractsServiceAuthorization(impl, authorizer)
+    (ActiveContractsServiceGrpc.bindService(authImpl, ec), impl)
   }
+
 }

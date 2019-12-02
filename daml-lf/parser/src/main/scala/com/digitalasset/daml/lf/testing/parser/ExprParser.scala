@@ -26,9 +26,9 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
       eRecProj |
       eRecUpd |
       eVariantOrEnumCon |
-      eTupleCon |
-      eTupleUpd |
-      eTupleProj |
+      eStructCon |
+      eStructUpd |
+      eStructProj |
       eAbs |
       eTyAbs |
       eLet |
@@ -138,17 +138,17 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
         EEnumCon(tName, vName)
     }
 
-  private lazy val eTupleCon: Parser[Expr] =
-    `<` ~> fieldInits <~ `>` ^^ ETupleCon
+  private lazy val eStructCon: Parser[Expr] =
+    `<` ~> fieldInits <~ `>` ^^ EStructCon
 
-  private lazy val eTupleProj: Parser[Expr] =
+  private lazy val eStructProj: Parser[Expr] =
     (`(` ~> expr <~ `)` ~ `.`) ~! id ^^ {
-      case tuple ~ fName => ETupleProj(fName, tuple)
+      case struct ~ fName => EStructProj(fName, struct)
     }
 
-  private lazy val eTupleUpd: Parser[Expr] =
+  private lazy val eStructUpd: Parser[Expr] =
     `<` ~> expr ~ (`with` ~>! fieldInit) <~ `>` ^^ {
-      case tuple ~ ((fName, value)) => ETupleUpd(fName, tuple, value)
+      case struct ~ ((fName, value)) => EStructUpd(fName, struct, value)
     }
 
   private[parser] lazy val varBinder: Parser[(Name, Type)] =
@@ -237,12 +237,12 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
     "UNIX_MICROSECONDS_TO_TIMESTAMP" -> BUnixMicrosecondsToTimestamp,
     "FOLDL" -> BFoldl,
     "FOLDR" -> BFoldr,
-    "MAP_EMPTY" -> BTextMapEmpty,
-    "MAP_INSERT" -> BTextMapInsert,
-    "MAP_LOOKUP" -> BTextMapLookup,
-    "MAP_DELETE" -> BTextMapDelete,
-    "MAP_TO_LIST" -> BTextMapToList,
-    "MAP_SIZE" -> BTextMapSize,
+    "TEXTMAP_EMPTY" -> BTextMapEmpty,
+    "TEXTMAP_INSERT" -> BTextMapInsert,
+    "TEXTMAP_LOOKUP" -> BTextMapLookup,
+    "TEXTMAP_DELETE" -> BTextMapDelete,
+    "TEXTMAP_TO_LIST" -> BTextMapToList,
+    "TEXTMAP_SIZE" -> BTextMapSize,
     "GENMAP_EMPTY" -> BGenMapEmpty,
     "GENMAP_INSERT" -> BGenMapInsert,
     "GENMAP_LOOKUP" -> BGenMapLookup,

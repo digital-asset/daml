@@ -72,13 +72,13 @@ private[speedy] object Hasher {
                 loop(pushOrderedValues(values.iterator().asScala, cmdsRest), stack)
               case SVariant(_, variant, value) =>
                 loop(Value(value) :: Mix(variant.hashCode) :: cmdsRest, stack)
-              case STuple(_, values) =>
+              case SStruct(_, values) =>
                 loop(pushOrderedValues(values.iterator().asScala, cmdsRest), stack)
               case SOptional(opt) =>
                 loop(pushOrderedValues(opt.iterator, cmdsRest), stack)
               case SList(values) =>
                 loop(pushOrderedValues(values.iterator, cmdsRest), stack)
-              case SMap(value) =>
+              case STextMap(value) =>
                 val newCmds = ((Unordered(value.size) :: cmdsRest) /: value) {
                   case (acc, (k, v)) => Value(v) :: Mix(k.hashCode) :: acc
                 }

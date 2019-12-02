@@ -40,6 +40,7 @@
 // * dev (special staging area for the next version to be released)
 //        2019-11-12: Add Generic Map (GenMap)
 //        2019-11-22: Rename Map to TextMap
+//        2019-11-28: Rename Tuple to Struct
 
 syntax = "proto3";
 package daml_lf_1;
@@ -346,8 +347,8 @@ message Type {
     Type body = 2;
   }
 
-  // Tuple type
-  message Tuple {
+  // Struct type
+  message Struct {
     // name of the field with their types.
     repeated FieldWithType fields = 1;
   }
@@ -358,7 +359,7 @@ message Type {
     Prim prim = 3; // FixMe: renamed
     Fun fun = 4;
     Forall forall = 5;
-    Tuple tuple = 7;
+    Struct struct = 7;
     // *Available in versions >= 1.7*
     // *Must be between 0 and 37 (bounds inclusive)*
     // use standard signed long for future usage.
@@ -656,14 +657,14 @@ message Expr {
     }
   }
 
-  // Tuple Construction ('ExpTupleCon')
-  message TupleCon {
+  // Struct Construction ('ExpStructCon')
+  message StructCon {
     // Field names and their associated values.
     repeated FieldWithExpr fields = 1;
   }
 
-  // Tuple Projection ('ExpTupleProj')
-  message TupleProj {
+  // Struct Projection ('ExpStructProj')
+  message StructProj {
 
     // Name of the field to be projected on.
     oneof field {
@@ -674,12 +675,12 @@ message Expr {
       int32 field_interned_str = 3; // *Available in versions >= 1.7*
     }
 
-    // tuple to be projected.
-    Expr tuple = 2;
+    // struct to be projected.
+    Expr struct = 2;
   }
 
-  // Tuple update ('ExpTuplUpdate')
-  message TupleUpd {
+  // Struct update ('ExpTuplUpdate')
+  message StructUpd {
 
     // Name of the updated field.
     oneof field {
@@ -690,8 +691,8 @@ message Expr {
       int32 field_interned_str = 4; // *Available in versions >= 1.7*
     }
 
-    // Actual tuple being updated.
-    Expr tuple = 2;
+    // Actual struct being updated.
+    Expr struct = 2;
 
     // Value to which the record is udpated.
     Expr update = 3;
@@ -838,14 +839,14 @@ message Expr {
     // Enum construction ('ExpEnumCon')
     EnumCon enum_con = 28; // *Available in versions >= 1.6*
 
-    // Tuple construction ('ExpTupleCon')
-    TupleCon tuple_con = 9;
+    // Struct construction ('ExpStructCon')
+    StructCon struct_con = 9;
 
-    // Tuple project ('ExpTupleProj')
-    TupleProj tuple_proj = 10;
+    // Struct project ('ExpStructProj')
+    StructProj struct_proj = 10;
 
-    // Tuple update ('ExpTupleUpdate')
-    TupleUpd tuple_upd = 23;
+    // Struct update ('ExpStructUpdate')
+    StructUpd struct_upd = 23;
 
     // Application ('ExpApp')
     App app = 11;

@@ -685,7 +685,7 @@ navigatorURL (NavigatorPort p) = "http://localhost:" <> show p
 
 withSandbox :: SandboxPort -> [String] -> (Process () () () -> IO a) -> IO a
 withSandbox (SandboxPort port) args a = do
-    withJar sandboxPath [] (["--port", show port] ++ args) $ \ph -> do
+    withJar damlSdkJar [] (["sandbox", "--port", show port] ++ args) $ \ph -> do
         putStrLn "Waiting for sandbox to start: "
         -- TODO We need to figure out what a sane timeout for this step.
         waitForConnectionOnPort (putStr "." *> threadDelay 500000) port
@@ -698,18 +698,24 @@ withNavigator (SandboxPort sandboxPort) navigatorPort args a = do
             , navigatorPortNavigatorArgs navigatorPort
             , args
             ]
-    withJar navigatorPath [] navigatorArgs $ \ph -> do
+    withJar damlSdkJar [] ("navigator":navigatorArgs) $ \ph -> do
         putStrLn "Waiting for navigator to start: "
         -- TODO We need to figure out a sane timeout for this step.
         waitForHttpServer (putStr "." *> threadDelay 500000) (navigatorURL navigatorPort) []
         a ph
 
+damlSdkJarFolder :: FilePath
+damlSdkJarFolder = "daml-sdk"
+
+damlSdkJar :: FilePath
+damlSdkJar = damlSdkJarFolder </> "daml-sdk.jar"
+
 withJsonApi :: SandboxPort -> JsonApiPort -> [String] -> (Process () () () -> IO a) -> IO a
 withJsonApi (SandboxPort sandboxPort) (JsonApiPort jsonApiPort) args a = do
-    logbackArg <- getLogbackArg ("json-api" </> "json-api-logback.xml")
+    logbackArg <- getLogbackArg (damlSdkJarFolder </> "json-api-logback.xml")
     let jsonApiArgs =
             ["--ledger-host", "localhost", "--ledger-port", show sandboxPort, "--http-port", show jsonApiPort] <> args
-    withJar jsonApiPath [logbackArg] jsonApiArgs $ \ph -> do
+    withJar damlSdkJar [logbackArg] ("json-api":jsonApiArgs) $ \ph -> do
         putStrLn "Waiting for JSON API to start: "
         -- For now, we have a dummy authorization header here to wait for startup since we cannot get a 200
         -- response otherwise. We probably want to add some method to detect successful startup without
@@ -897,7 +903,7 @@ runLedgerNavigator flags remainingArguments = do
         writeFileUTF8 navigatorConfPath (T.unpack $ navigatorConfig partyDetails)
         unsetEnv "DAML_PROJECT" -- necessary to prevent config contamination
         withCurrentDirectory confDir $ do
-            withJar navigatorPath [] navigatorArgs $ \ph -> do
+            withJar damlSdkJar [] ("navigator":navigatorArgs) $ \ph -> do
                 exitCode <- waitExitCode ph
                 exitWith exitCode
 
@@ -1000,12 +1006,3 @@ waitForHttpServer sleep url headers = do
             _ -> sleep *> pure Nothing
     where isIOException e = isJust (fromException e :: Maybe IOException)
           isHttpException e = isJust (fromException e :: Maybe HTTP.HttpException)
-
-sandboxPath :: FilePath
-sandboxPath = "sandbox/sandbox.jar"
-
-navigatorPath :: FilePath
-navigatorPath = "navigator/navigator.jar"
-
-jsonApiPath :: FilePath
-jsonApiPath = "json-api/json-api.jar"

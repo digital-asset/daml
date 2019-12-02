@@ -37,8 +37,8 @@ sealed trait SValue {
       case SBool(x) => V.ValueBool(x)
       case SUnit => V.ValueUnit
       case SDate(x) => V.ValueDate(x)
-      case STuple(fields, svalues) =>
-        V.ValueTuple(
+      case SStruct(fields, svalues) =>
+        V.ValueStruct(
           ImmArray(
             fields.toSeq
               .zip(svalues.asScala)
@@ -62,7 +62,7 @@ sealed trait SValue {
         V.ValueList(lst.map(_.toValue))
       case SOptional(mbV) =>
         V.ValueOptional(mbV.map(_.toValue))
-      case SMap(mVal) =>
+      case STextMap(mVal) =>
         V.ValueTextMap(SortedLookupList(mVal).mapValue(_.toValue))
       case SGenMap(values) =>
         V.ValueGenMap(ImmArray(values.map { case (k, v) => k.v.toValue -> v.toValue }))
@@ -94,16 +94,16 @@ sealed trait SValue {
         SPAP(prim2, args2, arity)
       case SRecord(tycon, fields, values) =>
         SRecord(tycon, fields, mapArrayList(values, v => v.mapContractId(f)))
-      case STuple(fields, values) =>
-        STuple(fields, mapArrayList(values, v => v.mapContractId(f)))
+      case SStruct(fields, values) =>
+        SStruct(fields, mapArrayList(values, v => v.mapContractId(f)))
       case SVariant(tycon, variant, value) =>
         SVariant(tycon, variant, value.mapContractId(f))
       case SList(lst) =>
         SList(lst.map(_.mapContractId(f)))
       case SOptional(mbV) =>
         SOptional(mbV.map(_.mapContractId(f)))
-      case SMap(value) =>
-        SMap(value.transform((_, v) => v.mapContractId(f)))
+      case STextMap(value) =>
+        STextMap(value.transform((_, v) => v.mapContractId(f)))
       case SGenMap(value) =>
         SGenMap((InsertOrdMap.empty[SGenMap.Key, SValue] /: value) {
           case (acc, (SGenMap.Key(k), v)) => acc + (SGenMap.Key(k.mapContractId(f)) -> v)
@@ -137,7 +137,7 @@ object SValue {
       extends SValue
 
   @SuppressWarnings(Array("org.wartremover.warts.ArrayEquals"))
-  final case class STuple(fields: Array[Name], values: util.ArrayList[SValue]) extends SValue
+  final case class SStruct(fields: Array[Name], values: util.ArrayList[SValue]) extends SValue
 
   final case class SVariant(id: Identifier, variant: VariantConName, value: SValue) extends SValue
 
@@ -147,9 +147,9 @@ object SValue {
 
   final case class SList(list: FrontStack[SValue]) extends SValue
 
-  final case class SMap(value: HashMap[String, SValue]) extends SValue
+  final case class STextMap(textMap: HashMap[String, SValue]) extends SValue
 
-  final case class SGenMap(value: InsertOrdMap[SGenMap.Key, SValue]) extends SValue
+  final case class SGenMap(genMap: InsertOrdMap[SGenMap.Key, SValue]) extends SValue
 
   object SGenMap {
     case class Key(v: SValue) {
@@ -200,7 +200,7 @@ object SValue {
     val False = SBool(false)
     val EmptyList = SList(FrontStack.empty)
     val None = SOptional(Option.empty)
-    val EmptyMap = SMap(HashMap.empty)
+    val EmptyMap = STextMap(HashMap.empty)
     val EmptyGenMap = SGenMap(InsertOrdMap.empty)
     val Token = SToken
   }
@@ -251,7 +251,7 @@ object SValue {
       case V.ValueRecord(None, _) =>
         throw SErrorCrash("SValue.fromValue: record missing identifier")
 
-      case V.ValueTuple(fs) =>
+      case V.ValueStruct(fs) =>
         val fields = Name.Array.ofDim(fs.length)
         val values = new util.ArrayList[SValue](fields.length)
         fs.foreach {
@@ -259,7 +259,7 @@ object SValue {
             fields(values.size) = k
             val _ = values.add(fromValue(v))
         }
-        STuple(fields, values)
+        SStruct(fields, values)
 
       case V.ValueVariant(None, _variant @ _, _value @ _) =>
         throw SErrorCrash("SValue.fromValue: variant without identifier")
@@ -271,7 +271,7 @@ object SValue {
         SOptional(mbV.map(fromValue))
 
       case V.ValueTextMap(map) =>
-        SMap(map.mapValue(fromValue).toHashMap)
+        STextMap(map.mapValue(fromValue).toHashMap)
 
       case V.ValueGenMap(entries) =>
         SGenMap(InsertOrdMap(entries.toSeq.map {

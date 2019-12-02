@@ -27,6 +27,7 @@ java_import(
     jars = [
         "//navigator/frontend:frontend.jar",
     ],
+    visibility = ["//visibility:public"],
 )
 
 # Version file, as a top level resources.
@@ -35,12 +36,14 @@ java_library(
     resources = [
         "//:component-version",
     ],
+    visibility = ["//visibility:public"],
 )
 
 # Static backend resources.
 java_library(
     name = "backend-resources",
     resources = glob(["src/main/resources/**/*"]),
+    visibility = ["//visibility:public"],
 )
 
 compileDependencies = [
@@ -110,6 +113,7 @@ da_scala_library(
         "src/main/scala/com/digitalasset/navigator/**/*.scala",
     ]),
     scalacopts = navigator_scalacopts,
+    visibility = ["//visibility:public"],
     deps = compileDependencies,
 )
 

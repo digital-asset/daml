@@ -8,6 +8,7 @@
 module DA.Daml.LF.Ast.Optics(
     ModuleRef,
     moduleModuleRef,
+    typeModuleRef,
     unlocate,
     moduleExpr,
     dataConsType,
@@ -100,7 +101,7 @@ builtinType f =
         TApp s t -> TApp <$> builtinType f s <*> builtinType f t
         TBuiltin x -> TBuiltin <$> f x
         TForall b body -> TForall b <$> builtinType f body
-        TTuple fs -> TTuple <$> (traverse . _2) (builtinType f) fs
+        TStruct fs -> TStruct <$> (traverse . _2) (builtinType f) fs
         TNat n -> pure $ TNat n
 
 type ModuleRef = (PackageRef, ModuleName)
@@ -108,6 +109,9 @@ type ModuleRef = (PackageRef, ModuleName)
 -- | Traverse all the module references contained in 'Qualified's in a 'Package'.
 moduleModuleRef :: Traversal' Module ModuleRef
 moduleModuleRef = monoTraverse
+
+typeModuleRef :: Traversal' Type ModuleRef
+typeModuleRef = monoTraverse
 
 instance MonoTraversable ModuleRef (Qualified a) where
   monoTraverse f (Qualified pkg0 mod0 x) =

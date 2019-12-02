@@ -3,7 +3,14 @@
 
 package com.digitalasset.daml.lf.value.json
 
-import com.digitalasset.daml.lf.data.{FrontStack, Ref, SortedLookupList, Time, Numeric => LfNumeric}
+import com.digitalasset.daml.lf.data.{
+  FrontStack,
+  ImmArray,
+  Ref,
+  SortedLookupList,
+  Time,
+  Numeric => LfNumeric
+}
 import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
 import com.digitalasset.daml.lf.data.ScalazEqual._
 import com.digitalasset.daml.lf.iface
@@ -56,12 +63,11 @@ abstract class ApiCodecCompressed[Cid](
         case V.ValueOptional(Some(_)) => JsArray(apiValueToJsValue(v))
         case _ => apiValueToJsValue(v)
       }
-    case v: V.ValueTextMap[Cid] =>
-      apiMapToJsValue(v)
-    case _: V.ValueGenMap[Cid] =>
-      // FIXME https://github.com/digital-asset/daml/issues/2256
-      serializationError("GenMap are not not supported.")
-    case _: V.ValueTuple[Cid] => serializationError("impossible! tuples are not serializable")
+    case textMap: V.ValueTextMap[Cid] =>
+      apiMapToJsValue(textMap)
+    case genMap: V.ValueGenMap[Cid] =>
+      apiGenMapToJsValue(genMap)
+    case _: V.ValueStruct[Cid] => serializationError("impossible! structs are not serializable")
   }
 
   @throws[SerializationException]
@@ -94,6 +100,13 @@ abstract class ApiCodecCompressed[Cid](
         .map { case (k, v) => k -> apiValueToJsValue(v) }
         .toSeq
         .toMap)
+
+  private[this] def apiGenMapToJsValue(value: V.ValueGenMap[Cid]): JsValue =
+    JsArray(
+      value.entries.map {
+        case (key, value) => JsArray(apiValueToJsValue(key), apiValueToJsValue(value))
+      }.toSeq: _*
+    )
 
   // ------------------------------------------------------------------------------------------------------------------
   // Decoding - this needs access to DAML-LF types
@@ -149,9 +162,15 @@ abstract class ApiCodecCompressed[Cid](
             jsValueToApiValue(v, prim.typArgs.head, defs)
           }))
       }
-      case Model.DamlLfPrimType.GenMap =>
-        // FIXME https://github.com/digital-asset/daml/issues/2256
-        deserializationError("GenMap not supported")
+      case Model.DamlLfPrimType.GenMap => {
+        case JsArray(entries) =>
+          V.ValueGenMap(ImmArray(entries.map {
+            case JsArray(Vector(key, value)) =>
+              jsValueToApiValue(key, prim.typArgs(0), defs) ->
+                jsValueToApiValue(value, prim.typArgs(1), defs)
+          }))
+      }
+
     }(fallback = deserializationError(s"Can't read ${value.prettyPrint} as $prim"))
   }
 

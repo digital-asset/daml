@@ -7,12 +7,16 @@ import com.daml.ledger.javaapi.data.GetActiveContractsRequest;
 import com.daml.ledger.javaapi.data.GetActiveContractsResponse;
 import com.daml.ledger.javaapi.data.TransactionFilter;
 import com.daml.ledger.rxjava.ActiveContractsClient;
+import com.daml.ledger.rxjava.grpc.helpers.StubHelper;
 import com.daml.ledger.rxjava.util.ClientPublisherFlowable;
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory;
 import com.digitalasset.ledger.api.v1.ActiveContractsServiceGrpc;
 import com.digitalasset.ledger.api.v1.ActiveContractsServiceOuterClass;
 import io.grpc.Channel;
 import io.reactivex.Flowable;
+import org.checkerframework.checker.nullness.qual.NonNull;
+
+import java.util.Optional;
 
 public class ActiveContractClientImpl implements ActiveContractsClient {
 
@@ -23,14 +27,23 @@ public class ActiveContractClientImpl implements ActiveContractsClient {
     public ActiveContractClientImpl(String ledgerId, Channel channel, ExecutionSequencerFactory sequencerFactory) {
         this.ledgerId = ledgerId;
         this.sequencerFactory = sequencerFactory;
-        serviceStub = ActiveContractsServiceGrpc.newStub(channel);
+        this.serviceStub = ActiveContractsServiceGrpc.newStub(channel);
+    }
+
+    private Flowable<GetActiveContractsResponse> getActiveContracts(@NonNull TransactionFilter filter, boolean verbose, @NonNull Optional<String> accessToken) {
+        ActiveContractsServiceOuterClass.GetActiveContractsRequest request = new GetActiveContractsRequest(ledgerId, filter, verbose).toProto();
+        return ClientPublisherFlowable
+                .create(request, StubHelper.authenticating(this.serviceStub, accessToken)::getActiveContracts, sequencerFactory)
+                .map(GetActiveContractsResponse::fromProto);
     }
 
     @Override
-    public Flowable<GetActiveContractsResponse> getActiveContracts(TransactionFilter filter, boolean verbose) {
-        ActiveContractsServiceOuterClass.GetActiveContractsRequest request = new GetActiveContractsRequest(ledgerId, filter, verbose).toProto();
-        return ClientPublisherFlowable
-                .create(request, serviceStub::getActiveContracts, sequencerFactory)
-                .map(GetActiveContractsResponse::fromProto);
+    public Flowable<GetActiveContractsResponse> getActiveContracts(@NonNull TransactionFilter filter, boolean verbose) {
+        return getActiveContracts(filter, verbose, Optional.empty());
+    }
+
+    @Override
+    public Flowable<GetActiveContractsResponse> getActiveContracts(@NonNull TransactionFilter filter, boolean verbose, @NonNull String accessToken) {
+        return getActiveContracts(filter, verbose, Optional.of(accessToken));
     }
 }

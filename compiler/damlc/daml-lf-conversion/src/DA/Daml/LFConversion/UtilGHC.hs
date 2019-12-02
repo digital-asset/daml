@@ -29,6 +29,8 @@ import qualified Data.Text.Encoding as T
 import Control.Exception
 import GHC.Ptr(Ptr(..))
 import System.IO.Unsafe
+import Text.Read (readMaybe)
+import Control.Monad (guard)
 
 
 ----------------------------------------------------------------------
@@ -96,6 +98,32 @@ pattern DA_Generics <- ModuleIn DamlStdlib "DA.Generics"
 pattern DA_Internal_LF <- ModuleIn DamlStdlib "DA.Internal.LF"
 pattern DA_Internal_Prelude <- ModuleIn DamlStdlib "DA.Internal.Prelude"
 pattern DA_Internal_Record <- ModuleIn DamlStdlib "DA.Internal.Record"
+
+-- | Break down a constraint tuple projection function name
+-- into an (index, arity) pair. These names have the form
+-- "$p1(%,%)" "$p2(%,%)" "$p1(%,,%)" etc.
+constraintTupleProjection_maybe :: T.Text -> Maybe (Int, Int)
+constraintTupleProjection_maybe t1 = do
+    t2 <- T.stripPrefix "$p" t1
+    t3 <- T.stripSuffix "%)" t2
+    let (tIndex, tRest) = T.breakOn "(%" t3
+    tCommas <- T.stripPrefix "(%" tRest
+    guard (all (== ',') (T.unpack tCommas))
+    index <- readMaybe (T.unpack tIndex)
+    pure (index, T.length tCommas + 1)
+
+pattern ConstraintTupleProjectionFS :: Int -> Int -> FastString
+pattern ConstraintTupleProjectionFS index arity <-
+    (constraintTupleProjection_maybe . fsToText -> Just (index, arity))
+
+pattern ConstraintTupleProjectionName :: Int -> Int -> Var
+pattern ConstraintTupleProjectionName index arity <-
+    NameIn GHC_Classes (ConstraintTupleProjectionFS index arity)
+
+pattern ConstraintTupleProjection :: Int -> Int -> GHC.Expr Var
+pattern ConstraintTupleProjection index arity <-
+    Var (ConstraintTupleProjectionName index arity)
+
 
 subst :: [(TyVar, GHC.Type)] -> GHC.Type -> GHC.Type
 subst env = transform $ \t ->

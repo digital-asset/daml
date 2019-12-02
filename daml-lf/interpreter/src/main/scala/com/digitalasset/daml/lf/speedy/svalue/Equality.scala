@@ -48,7 +48,7 @@ private[lf] object Equality {
             equality(stack)
           case (SOptional(Some(v1)), SOptional(Some(v2))) =>
             equality((v1, v2) +: stack)
-          case (SMap(map1), SMap(map2)) =>
+          case (STextMap(map1), STextMap(map2)) =>
             map1.keySet == map2.keySet && {
               val keys = map1.keys
               equality(zipAndPush(keys.iterator.map(map1), keys.iterator.map(map2), stack))
@@ -58,7 +58,7 @@ private[lf] object Equality {
               val keys = map1.keys
               equality(zipAndPush(keys.iterator.map(map1), keys.iterator.map(map2), stack))
             }
-          case (STuple(fields1, args1), STuple(fields2, args2)) =>
+          case (SStruct(fields1, args1), SStruct(fields2, args2)) =>
             (fields1 sameElements fields2) && equality(
               zipAndPush(args1.iterator().asScala, args2.iterator().asScala, stack))
           case (SAny(t1, v1), SAny(t2, v2)) =>

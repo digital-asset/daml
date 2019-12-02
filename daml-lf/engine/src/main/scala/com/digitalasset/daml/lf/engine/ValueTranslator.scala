@@ -62,9 +62,9 @@ private[engine] class ValueTranslator(compiledPackages: CompiledPackages) {
           case forall: TForall =>
             fail(
               s"Unexpected forall when replacing parameters in command translation -- all types should be serializable, and foralls are not: $forall")
-          case tuple: TTuple =>
+          case struct: TStruct =>
             fail(
-              s"Unexpected tuple when replacing parameters in command translation -- all types should be serializable, and tuples are not: $tuple")
+              s"Unexpected struct when replacing parameters in command translation -- all types should be serializable, and structs are not: $struct")
         }
 
       go(typ0)
@@ -146,13 +146,25 @@ private[engine] class ValueTranslator(compiledPackages: CompiledPackages) {
           case (TList(elemType), ValueList(ls)) =>
             ls.toImmArray.traverseU(go(newNesting, elemType, _)).map(es => SList(FrontStack(es)))
 
-          // map
+          // textMap
           case (TTextMap(elemType), ValueTextMap(map)) =>
             map.toImmArray
               .traverseU {
                 case (key0, value0) => go(newNesting, elemType, value0).map(key0 -> _)
               }
-              .map(l => SMap(HashMap(l.toSeq: _*)))
+              .map(l => STextMap(HashMap(l.toSeq: _*)))
+
+          // genMap
+          case (TGenMap(keyType, valueType), ValueGenMap(entries)) =>
+            entries
+              .traverseU {
+                case (key0, value0) =>
+                  for {
+                    key <- go(newNesting, keyType, key0)
+                    value <- go(newNesting, valueType, value0)
+                  } yield SGenMap.Key(key) -> value
+              }
+              .map(l => SGenMap(InsertOrdMap(l.toSeq: _*)))
 
           // variants
           case (TTyConApp(tyCon, tyConArgs), ValueVariant(mbVariantId, constructorName, val0)) =>

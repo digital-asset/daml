@@ -246,12 +246,17 @@ object Pretty {
     case V.ValueOptional(Some(v)) => PrettyObject(PrettyField("value", argument(v)))
     case V.ValueTextMap(map) =>
       PrettyObject(map.toImmArray.toList.map {
-        case (key, value) => PrettyField(key, argument(arg))
+        case (key, value) => PrettyField(key, argument(value))
       })
-    case V.ValueGenMap(_) =>
-      // FIXME https://github.com/digital-asset/daml/issues/2256
-      throw sys.error(s"Gen Map are not supported")
-    case _: model.ApiImpossible => sys.error("impossible! tuples are not serializable")
+    case V.ValueGenMap(genMap) =>
+      PrettyArray(genMap.toSeq.map {
+        case (key, value) =>
+          PrettyObject(
+            PrettyField("key", argument(key)),
+            PrettyField("value", argument(value))
+          )
+      }: _*)
+    case _: model.ApiImpossible => sys.error("impossible! structs are not serializable")
   }
 
   /** Outputs an object in YAML format */

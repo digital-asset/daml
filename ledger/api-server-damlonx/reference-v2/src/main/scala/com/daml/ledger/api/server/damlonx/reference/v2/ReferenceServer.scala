@@ -10,11 +10,11 @@ import akka.stream.{ActorMaterializer, ActorMaterializerSettings, Supervision}
 import com.codahale.metrics.SharedMetricRegistries
 import com.daml.ledger.api.server.damlonx.reference.v2.cli.Cli
 import com.daml.ledger.participant.state.kvutils.InMemoryKVParticipantState
-import com.daml.ledger.participant.state.v1.ParticipantId
 import com.digitalasset.daml.lf.archive.DarReader
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
 import com.digitalasset.ledger.api.auth.AuthServiceWildcard
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
+import com.digitalasset.platform.index.config.Config
 import com.digitalasset.platform.index.{StandaloneIndexServer, StandaloneIndexerServer}
 import org.slf4j.LoggerFactory
 
@@ -23,7 +23,6 @@ import scala.util.Try
 import scala.util.control.NonFatal
 
 object ReferenceServer extends App {
-
   val logger = LoggerFactory.getLogger("indexed-kvutils")
 
   val config =
@@ -35,9 +34,6 @@ object ReferenceServer extends App {
         allowExtraParticipants = true)
       .getOrElse(sys.exit(1))
 
-  // Name of this participant
-  val participantId: ParticipantId = config.participantId
-
   implicit val system: ActorSystem = ActorSystem("indexed-kvutils")
   implicit val materializer: ActorMaterializer = ActorMaterializer(
     ActorMaterializerSettings(system)
@@ -47,7 +43,7 @@ object ReferenceServer extends App {
       })
   implicit val ec: ExecutionContext = system.dispatcher
 
-  val ledger = new InMemoryKVParticipantState(participantId)
+  val ledger = new InMemoryKVParticipantState(config.participantId)
 
   val readService = ledger
   val writeService = ledger
@@ -60,22 +56,9 @@ object ReferenceServer extends App {
     } yield ledger.uploadPackages(dar.all, None)
   }
 
-  val participantLoggerFactory = NamedLoggerFactory.forParticipant(participantId)
   val participantF: Future[(AutoCloseable, StandaloneIndexServer#SandboxState)] = for {
-    indexerServer <- StandaloneIndexerServer(
-      readService,
-      config,
-      participantLoggerFactory,
-      SharedMetricRegistries.getOrCreate(s"indexer-$participantId"),
-    )
-    indexServer <- StandaloneIndexServer(
-      config,
-      readService,
-      writeService,
-      authService,
-      participantLoggerFactory,
-      SharedMetricRegistries.getOrCreate(s"ledger-api-server-$participantId"),
-    ).start()
+    indexerServer <- newIndexer(config)
+    indexServer <- newIndexServer(config).start()
   } yield (indexerServer, indexServer)
 
   val extraParticipants =
@@ -85,26 +68,31 @@ object ReferenceServer extends App {
       val participantConfig = config.copy(
         port = port,
         participantId = extraParticipantId,
-        jdbcUrl = jdbcUrl
+        jdbcUrl = jdbcUrl,
       )
-      val participantLoggerFactory =
-        NamedLoggerFactory.forParticipant(participantConfig.participantId)
       for {
-        extraIndexer <- StandaloneIndexerServer(
-          readService,
-          participantConfig,
-          participantLoggerFactory,
-          SharedMetricRegistries.getOrCreate(s"indexer-$extraParticipantId"))
-        extraLedgerApiServer <- StandaloneIndexServer(
-          participantConfig,
-          readService,
-          writeService,
-          authService,
-          participantLoggerFactory,
-          SharedMetricRegistries.getOrCreate(s"ledger-api-server-$extraParticipantId")
-        ).start()
+        extraIndexer <- newIndexer(participantConfig)
+        extraLedgerApiServer <- newIndexServer(participantConfig).start()
       } yield (extraIndexer, extraLedgerApiServer)
     }
+
+  def newIndexer(config: Config) =
+    StandaloneIndexerServer(
+      readService,
+      config,
+      NamedLoggerFactory.forParticipant(config.participantId),
+      SharedMetricRegistries.getOrCreate(s"indexer-${config.participantId}"),
+    )
+
+  def newIndexServer(config: Config) =
+    new StandaloneIndexServer(
+      config,
+      readService,
+      writeService,
+      authService,
+      NamedLoggerFactory.forParticipant(config.participantId),
+      SharedMetricRegistries.getOrCreate(s"ledger-api-server-${config.participantId}"),
+    )
 
   val closed = new AtomicBoolean(false)
 
@@ -132,9 +120,8 @@ object ReferenceServer extends App {
   try {
     Runtime.getRuntime.addShutdownHook(new Thread(() => closeServer()))
   } catch {
-    case NonFatal(t) => {
+    case NonFatal(t) =>
       logger.error("Shutting down Sandbox application because of initialization error", t)
       closeServer()
-    }
   }
 }

@@ -30,7 +30,7 @@ private[validation] object AlphaEquiv {
             binderDepthLhs + (varName1 -> currentDepth),
             binderDepthRhs + (varName2 -> currentDepth)
           ).alphaEquiv(b1, b2)
-      case (TTuple(fs1), TTuple(fs2)) =>
+      case (TStruct(fs1), TStruct(fs2)) =>
         (fs1.keys sameElements fs1.keys) &&
           (fs1.values zip fs2.values).forall((alphaEquiv _).tupled)
       case _ => false

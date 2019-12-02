@@ -66,6 +66,33 @@ stack build --stack-yaml=hadrian/stack.yaml --only-dependencies
 hadrian/build.stack.sh --configure --flavour=quickest -j
 ```
 
+## Iterating on Template Desugaring
+
+Modifying GHC, building `ghc-lib` and then building `damlc` is quite time
+intensive and makes mistakes very costly. Therefore it is usually preferable to
+first take a look at the new output from template desugaring before building `ghc-lib`.
+The fastest option for that is to build GHC with
+
+```
+./hadrian/build.sh -j --flavour=quickest --freeze1
+```
+
+You can then run GHC on a DAML file as follows
+
+```
+./_build/stage1/bin/ghc  ~/tmp/Test.hs -ddump-parsed
+```
+
+Note that the file should end with `.hs`, otherwise GHC will think that it is an additional input
+for the linking phase and your DAML file should start with:
+
+```
+{-# LANGUAGE DamlSyntax #-}
+```
+
+You will get compile errors after the parse tree has been emitted since the standard library is missing
+but if you just want to see the output from template desugaring, this is sufficient.
+
 ## How to build `ghc-lib` from the DA GHC fork
 (You don't need to follow the previous step in order to do this.)
 

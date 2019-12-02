@@ -269,6 +269,8 @@ Version: 1.dev
 
   * **Add** type synonyms.
 
+  * **Rename** structural records from ``Tuple`` to ``Struct``
+
 Abstract syntax
 ^^^^^^^^^^^^^^^
 
@@ -475,7 +477,7 @@ DAML-LF as a "not an Ident" notation, so should not be considered for
 future addition to allowed identifier characters.
 
 In the following, we will use identifiers to represent *built-in
-functions*, term and type *variable names*, record and tuple *field
+functions*, term and type *variable names*, record and struct *field
 names*, *variant constructors* and *template choices*. On the other
 hand, we will use names to represent *type constructors*, *type synonyms*, *value
 references*, and *module names*. Finally, we will use PackageId
@@ -490,7 +492,7 @@ strings as *package identifiers*.  ::
   Built-in function names
               F ::= Ident                           -- Builtin
 
-  Record and tuple field names
+  Record and struct field names
               f ::= Ident                           -- Field
 
   Variant data constructors
@@ -507,9 +509,6 @@ strings as *package identifiers*.  ::
 
   Type constructors
               T ::= Name                            -- TyConName
-
-  Type synonym names
-              S ::= Name                            -- TypeSynonym
 
   Module names
         ModName ::= Name                            -- ModName
@@ -579,7 +578,7 @@ Then we can define our kinds, types, and expressions::
        |  ∀ α : k . τ                               -- TyForall: Universal quantification
        |  BuiltinType                               -- TyBuiltin: Builtin type
        |  Mod:T                                     -- TyCon: type constructor
-       |  ⟨ f₁: τ₁, …, fₘ: τₘ ⟩                     -- TyTuple: Tuple type
+       |  ⟨ f₁: τ₁, …, fₘ: τₘ ⟩                     -- TyStruct: Structural record type
 
   Expressions
     e ::= x                                         -- ExpVar: Local variable
@@ -610,9 +609,9 @@ Then we can define our kinds, types, and expressions::
        |  Mod:T @τ₁ … @τₙ { e₁ 'with' f = e₂ }      -- ExpRecUpdate: Record update
        |  Mod:T:V @τ₁ … @τₙ e                       -- ExpVariantCon: Variant construction
        |  Mod:T:E                                   -- ExpEnumCon:Enum construction
-       |  ⟨ f₁ = e₁, …, fₘ = eₘ ⟩                   -- ExpTupleCon: Tuple construction
-       |  e.f                                       -- ExpTupleProj: Tuple projection
-       |  ⟨ e₁ 'with' f = e₂ ⟩                      -- ExpTupleUpdate: Tuple update
+       |  ⟨ f₁ = e₁, …, fₘ = eₘ ⟩                   -- ExpStructCon: Struct construction
+       |  e.f                                       -- ExpStructProj: Struct projection
+       |  ⟨ e₁ 'with' f = e₂ ⟩                      -- ExpStructUpdate: Struct update
        |  u                                         -- ExpUpdate: Update expression
        | 'to_any' @τ t                              -- ExpToAny: Wrap a value of the given type in Any
        | 'from_any' @τ t                            -- ExpToAny: Extract a value of the given from Any or return None
@@ -677,11 +676,11 @@ available for usage::
     Def
       ::=
        |  'record' T (α₁: k₁)… (αₙ: kₙ) ↦ { f₁ : τ₁, …, fₘ : τₘ }
-                                                    -- DefRecord
+                                                    -- DefRecord: Nominal record type
        |  'variant' T (α₁: k₁)… (αₙ: kₙ) ↦ V₁ : τ₁ | … | Vₘ : τₘ
                                                     -- DefVariant
        |  'enum' T  ↦ E₁ | … | Eₘ                    -- DefEnum
-       |  'synonym' S (α₁: k₁)… (αₙ: kₙ) ↦ τ        -- DefTypeSynonym
+       |  'synonym' T (α₁: k₁)… (αₙ: kₙ) ↦ τ        -- DefTypeSynonym
        |  'val' W : τ ↦ e                           -- DefValue
        |  'tpl' (x : T) ↦                           -- DefTemplate
             { 'precondition' e₁
@@ -849,13 +848,13 @@ First, we formally defined *well-formed types*. ::
       Γ  ⊢  Mod:T :  ⋆
 
       Γ  ⊢  τ₁  :  ⋆    …    Γ  ⊢  τₙ  :  ⋆
-    ————————————————————————————————————————————— TyTuple
+    ————————————————————————————————————————————— TyStruct
       Γ  ⊢  ⟨ f₁: τ₁, …, fₙ: τₙ ⟩  :  ⋆
 
-      'synonym' S (α₁:k₁) … (αₙ:kₙ) ↦ τ ∈ 〚Ξ〛Mod
+      'synonym' T (α₁:k₁) … (αₙ:kₙ) ↦ τ ∈ 〚Ξ〛Mod
       Γ  ⊢  τ₁ : k₁  …  Γ  ⊢  τₙ : kₙ
     ————————————————————————————————————————————— TyTypeSynonym
-      Γ  ⊢  Mod:S τ₁ … τₙ  :  ⋆
+      Γ  ⊢  Mod:T τ₁ … τₙ  :  ⋆
 
 
 
@@ -995,23 +994,23 @@ Then we define *well-formed expressions*. ::
     ——————————————————————————————————————————————————————————————— ExpEnumCon
       Γ  ⊢  Mod:T:Eᵢ  :  Mod:T
 
-      'synonym' S (α₁:k₁) … (αₙ:kₙ) ↦ τ
+      'synonym' T (α₁:k₁) … (αₙ:kₙ) ↦ τ
       Γ  ⊢  τ₁ : k₁    ⋯     Γ  ⊢  τₙ : kₙ
       Γ  ↦  e : τ[α₁ ↦ τ₁, …, α₁ ↦ τₙ]
     ——————————————————————————————————————————————————————————————— ExpTypeSynonym
-      Γ  ⊢  e : Mod:S τ₁ … τₙ
+      Γ  ⊢  e : Mod:T τ₁ … τₙ
 
       Γ  ⊢  e₁  :  τ₁      …      Γ  ⊢  eₘ  :  τₘ
-    ——————————————————————————————————————————————————————————————— ExpTupleCon
+    ——————————————————————————————————————————————————————————————— ExpStructCon
       Γ  ⊢  ⟨ f₁ = e₁, …, fₘ = eₘ ⟩  :  ⟨ f₁: τ₁, …, fₘ: τₘ ⟩
 
       Γ  ⊢  e  :  ⟨ …, fᵢ: τᵢ, … ⟩
-    ——————————————————————————————————————————————————————————————— ExpTupleProj
+    ——————————————————————————————————————————————————————————————— ExpStructProj
       Γ  ⊢  e.fᵢ  :  τᵢ
 
       Γ  ⊢  e  :  ⟨ f₁: τ₁, …, fᵢ: τᵢ, …, fₙ: τₙ ⟩
       Γ  ⊢  eᵢ  :  τᵢ
-    ——————————————————————————————————————————————————————————————— ExpTupleUpdate
+    ——————————————————————————————————————————————————————————————— ExpStructUpdate
       Γ  ⊢   ⟨ e 'with' fᵢ = eᵢ ⟩  :  ⟨ f₁: τ₁, …, fₙ: τₙ ⟩
 
       'variant' T (α₁:k₁) … (αₙ:kn) ↦ … | V : τ | …  ∈  〚Ξ〛Mod
@@ -1204,7 +1203,7 @@ types are the types whose values can be persisted on the ledger. ::
 
 Note that
 
-1. Tuples are *not* serializable.
+1. Structs are *not* serializable.
 2. Uninhabited variant and enum types are *not* serializable.
 3. For a data type to be serializable, *all* type
    parameters must be instantiated with serializable types, even
@@ -1240,7 +1239,7 @@ for the ``DefTemplate`` rule). ::
 
     (α₁:k₁) … (αₙ:kₙ) · Γ  ⊢  τ  :  ⋆
   ——————————————————————————————————————————————————————————————— DefTypeSynonym
-    ⊢  'synonym' S (α₁: k₁) … (αₙ: kₙ) ↦ τ
+    ⊢  'synonym' T (α₁: k₁) … (αₙ: kₙ) ↦ τ
 
     ε  ⊢  e  :  τ
   ——————————————————————————————————————————————————————————————— DefValue
@@ -1366,8 +1365,8 @@ name* construct as follows:
   defined in the module ``Mod`` is ``Mod.T``.
 * The *fully resolved name* of a enum type constructor ``T`` defined
   in the module ``Mod`` is ``Mod.T``.
-* The *fully resolved name* of a type synonym ``S`` defined in the
-  module ``Mod`` is ``Mod.S``.
+* The *fully resolved name* of a type synonym ``T`` defined in the
+  module ``Mod`` is ``Mod.T``.
 * The *fully resolved name* of a field ``fᵢ`` of a record type
   definition ``'record' T …  ↦ { …, fᵢ: τᵢ, … }`` defined in the
   module ``Mod`` is ``Mod.T.fᵢ``
@@ -1545,7 +1544,7 @@ need to be evaluated further. ::
      ⊢ᵥ  Mod:T:E
 
      ⊢ᵥ  e₁      ⋯      ⊢ᵥ  eₘ
-   ——————————————————————————————————————————————————— ValExpTupleCon
+   ——————————————————————————————————————————————————— ValExpStructCon
      ⊢ᵥ  ⟨ f₁ = e₁, …, fₘ = eₘ ⟩
 
      ⊢ᵥ  e
@@ -1793,16 +1792,16 @@ exact output.
       e₁ ‖ E₀  ⇓  Ok v₁ ‖ E₁
         ⋮
       eₙ ‖ Eₙ₋₁  ⇓  Ok vₙ ‖ Eₙ
-    —————————————————————————————————————————————————————————————————————— EvExpTupleCon
+    —————————————————————————————————————————————————————————————————————— EvExpStructCon
       ⟨f₁ = e₁, …, fₙ = eₙ⟩ ‖ E₀  ⇓  Ok ⟨f₁ = v₁, …, fₙ = vₙ⟩ ‖ Eₙ
 
       e ‖ E₀  ⇓  Ok ⟨ f₁= v₁, …, fᵢ = vᵢ, …, fₙ = vₙ ⟩ ‖ E₁
-    —————————————————————————————————————————————————————————————————————— EvExpTupleProj
+    —————————————————————————————————————————————————————————————————————— EvExpStructProj
       e.fᵢ ‖ E₀  ⇓  Ok vᵢ ‖ E₁
 
       e ‖ E₀  ⇓  Ok ⟨ f₁= v₁, …, fᵢ = vᵢ, …, fₙ = vₙ ⟩ ‖ E₁
       eᵢ ‖ E₁  ⇓  Ok vᵢ' ‖ E₂
-    —————————————————————————————————————————————————————————————————————— EvExpTupleUpd
+    —————————————————————————————————————————————————————————————————————— EvExpStructUpd
       ⟨ e 'with' fᵢ = eᵢ ⟩ ‖ E₀
         ⇓
       Ok ⟨ f₁= v₁, …, fᵢ= vᵢ', …, fₙ= vₙ ⟩ ‖ E₂
@@ -2766,7 +2765,7 @@ defined. ::
   Mod:T:E ~ᵥ Mod:T:E
 
   e₁ ~ᵥ e₁'     …       eₙ ~ᵥ eₙ'
-  ——————————————————————————————————————————————————— GenEqTupleCon
+  ——————————————————————————————————————————————————— GenEqStructCon
   ⟨ f₁ = e₁, …, fₘ = eₘ ⟩ ~ᵥ ⟨ f₁ = e₁', …, fₘ = eₘ' ⟩
 
 

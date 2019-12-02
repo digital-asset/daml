@@ -13,7 +13,7 @@ import qualified Data.Set.Lens as Set
 import qualified Data.Text.Extended as T
 import qualified "zip-archive" Codec.Archive.Zip as Zip
 
-import Control.Monad
+import Control.Monad.Extra
 import DA.Daml.LF.Ast
 import DA.Daml.LF.Ast.Optics
 import Options.Applicative
@@ -59,16 +59,19 @@ daml2ts Options{..} pkgId pkg = do
     T.writeFileUtf8 (outputDir </> "packageId.ts") $ T.unlines
         ["export default '" <> unPackageId pkgId <> "';"]
     forM_ (packageModules pkg) $ \mod -> do
-        let outputFile = outputDir </> joinPath (map T.unpack (unModuleName (moduleName mod))) <.> "ts"
-        putStrLn $ "Generating " ++ outputFile
-        createDirectoryIfMissing True (takeDirectory outputFile)
-        T.writeFileUtf8 outputFile (genModule mod)
+        whenJust (genModule mod) $ \modTxt -> do
+            let outputFile = outputDir </> joinPath (map T.unpack (unModuleName (moduleName mod))) <.> "ts"
+            putStrLn $ "Generating " ++ outputFile
+            createDirectoryIfMissing True (takeDirectory outputFile)
+            T.writeFileUtf8 outputFile modTxt
 
 dup :: a -> (a, a)
 dup x = (x, x)
 
-genModule :: Module -> T.Text
-genModule mod =
+genModule :: Module -> Maybe T.Text
+genModule mod
+  | null serDefs = Nothing
+  | otherwise =
     let curModName = moduleName mod
         pkgRootPath
           | lenModName == 1 = "."
@@ -76,44 +79,42 @@ genModule mod =
           where
             lenModName = length (unModuleName curModName)
         tpls = moduleTemplates mod
+        (defSers, refs) = unzip (map (genDefDataType curModName tpls) serDefs)
     in
-    T.unlines $
+    Just $ T.unlines $
         ["// Generated from " <> T.intercalate "/" (unModuleName curModName) <> ".daml"
         ,"/* eslint-disable @typescript-eslint/camelcase */"
-        ,"/* eslint-disable @typescript-eslint/no-unused-vars */"
         ,"/* eslint-disable @typescript-eslint/no-use-before-define */"
         ,"import * as daml from '@digitalasset/daml-json-types';"
         ,"import * as jtv from '@mojotech/json-type-validation';"
         ,"import packageId from '" <> pkgRootPath <> "/packageId';"
         ] ++
         ["import * as " <> modNameStr <> " from '" <> pkgRootPath <> "/" <> pkgRefStr <> T.intercalate "/" (unModuleName modName) <> "';"
-        | modRef@(pkgRef, modName) <- Set.toList (Set.setOf moduleModuleRef mod)
+        | modRef@(pkgRef, modName) <- Set.toList ((PRSelf, curModName) `Set.delete` Set.unions refs)
         , let pkgRefStr = case pkgRef of
                 PRSelf -> ""
                 PRImport pkgId -> "../" <> unPackageId pkgId <> "/"
-        , Just modNameStr <- [genModuleRef curModName modRef]
+        , let modNameStr = genModuleRef modRef
         ] ++
         [ ""
         ,"const moduleName = '" <> T.intercalate "." (unModuleName curModName) <> "';"
         ,"const templateId = (entityName: string): daml.TemplateId => ({packageId, moduleName, entityName});"
         ] ++
-        concat
-        [ [""] ++ def' ++ ser
-        | def <- NM.toList (moduleDataTypes mod)
-        , getIsSerializable (dataSerializable def)
-        , let (def', ser) = genDefDataType curModName tpls def
-        ]
+        concatMap (\(def, ser) -> [""] ++ def ++ ser) defSers
+  where
+    serDefs = filter (getIsSerializable . dataSerializable) (NM.toList (moduleDataTypes mod))
 
-genDefDataType :: ModuleName -> NM.NameMap Template -> DefDataType -> ([T.Text], [T.Text])
+genDefDataType :: ModuleName -> NM.NameMap Template -> DefDataType -> (([T.Text], [T.Text]), Set.Set ModuleRef)
 genDefDataType curModName tpls def = case unTypeConName (dataTypeCon def) of
     [] -> error "IMPOSSIBLE: empty type constructor name"
     _:_:_ -> error "TODO(MH): multi-part type constructor names"
     [conName] -> case dataCons def of
-        DataVariant{} -> (makeType ["unknown;"], makeSer ["jtv.unknownJson,"])  -- TODO(MH): make variants type safe
-        DataEnum{} -> (makeType ["unknown;"], makeSer ["jtv.unknownJson,"])  -- TODO(MH): make enum types type safe
+        DataVariant{} -> ((makeType ["unknown;"], makeSer ["jtv.unknownJson,"]), Set.empty)  -- TODO(MH): make variants type safe
+        DataEnum{} -> ((makeType ["unknown;"], makeSer ["jtv.unknownJson,"]), Set.empty)  -- TODO(MH): make enum types type safe
         DataRecord fields ->
             let (fieldNames, fieldTypesLf) = unzip [(unFieldName x, t) | (x, t) <- fields]
                 (fieldTypesTs, fieldSers) = unzip (map (genType curModName) fieldTypesLf)
+                fieldRefs = map (Set.setOf typeModuleRef . snd) fields
                 typeDesc =
                     ["{"] ++
                     ["  " <> x <> ": " <> t <> ";" | (x, t) <- zip fieldNames fieldTypesTs] ++
@@ -124,12 +125,14 @@ genDefDataType curModName tpls def = case unTypeConName (dataTypeCon def) of
                     ["}),"]
             in
             case NM.lookup (dataTypeCon def) tpls of
-                Nothing -> (makeType typeDesc, makeSer serDesc)
+                Nothing -> ((makeType typeDesc, makeSer serDesc), Set.unions fieldRefs)
                 Just tpl ->
-                    let chcs =
-                            [(unChoiceName (chcName chc), t)
+                    let (chcs, argRefs) = unzip
+                            [((unChoiceName (chcName chc), t), argRefs)
                             | chc <- NM.toList (tplChoices tpl)
-                            , let (t, _) = genType curModName (snd (chcArgBinder chc))
+                            , let tLf = snd (chcArgBinder chc)
+                            , let (t, _) = genType curModName tLf
+                            , let argRefs = Set.setOf typeModuleRef tLf
                             ]
                         dict =
                             ["export const " <> conName <> ": daml.Template<" <> conName <> "> & {"] ++
@@ -151,8 +154,9 @@ genDefDataType curModName tpls def = case unTypeConName (dataTypeCon def) of
                             ["};"]
                         knots =
                             [conName <> "." <> x <> ".template = " <> conName <> ";" | (x, _) <- chcs]
+                        refs = Set.unions (fieldRefs ++ argRefs)
                     in
-                    (makeType typeDesc, dict ++ knots)
+                    ((makeType typeDesc, dict ++ knots), refs)
       where
         paramNames = map (unTypeVarName . fst) (dataParams def)
         typeParams
@@ -215,7 +219,7 @@ genType curModName = go
         t@TApp{} -> error $ "IMPOSSIBLE: type application not serializable - " <> DA.Pretty.renderPretty t
         TBuiltin t -> error $ "IMPOSSIBLE: partially applied primitive type not serializable - " <> DA.Pretty.renderPretty t
         TForall{} -> error "IMPOSSIBLE: universally quantified type not serializable"
-        TTuple{} -> error "IMPOSSIBLE: structural record not serializable"
+        TStruct{} -> error "IMPOSSIBLE: structural record not serializable"
         TNat{} -> error "IMPOSSIBLE: standalone type level natural not serializable"
 
 genTypeCon :: ModuleName -> Qualified TypeConName -> (T.Text, T.Text)
@@ -223,18 +227,16 @@ genTypeCon curModName (Qualified pkgRef modName conParts) =
     case unTypeConName conParts of
         [] -> error "IMPOSSIBLE: empty type constructor name"
         _:_:_ -> error "TODO(MH): multi-part type constructor names"
-        [conName] -> dup $ qualify (genModuleRef curModName (pkgRef, modName)) conName
+        [conName]
+          | modRef == (PRSelf, curModName) -> dup conName
+          | otherwise -> dup (genModuleRef modRef <> "." <> conName)
+          where
+            modRef = (pkgRef, modName)
 
-qualify :: Maybe T.Text -> T.Text -> T.Text
-qualify Nothing y = y
-qualify (Just x) y = x <> "." <> y
-
-genModuleRef :: ModuleName -> ModuleRef -> Maybe T.Text
-genModuleRef curModName (pkgRef, modName) = case pkgRef of
-    PRSelf
-      | modName == curModName -> Nothing
-      | otherwise -> Just modNameStr
-    PRImport pkgId -> Just ("pkg" <> unPackageId pkgId <> "_" <> modNameStr)
+genModuleRef :: ModuleRef -> T.Text
+genModuleRef (pkgRef, modName) = case pkgRef of
+    PRSelf -> modNameStr
+    PRImport pkgId -> "pkg" <> unPackageId pkgId <> "_" <> modNameStr
   where
     modNameStr = T.intercalate "_" (unModuleName modName)
 

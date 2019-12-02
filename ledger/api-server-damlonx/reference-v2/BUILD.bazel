@@ -43,6 +43,7 @@ da_scala_binary(
         "//ledger/ledger-api-client",
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-domain",
+        "//ledger/ledger-api-health",
         "//ledger/participant-state",
         "//ledger/participant-state-index",
         "//ledger/participant-state/kvutils",

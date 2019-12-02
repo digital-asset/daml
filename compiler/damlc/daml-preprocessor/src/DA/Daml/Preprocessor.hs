@@ -11,15 +11,12 @@ module DA.Daml.Preprocessor
 import           DA.Daml.Preprocessor.Records
 import           DA.Daml.Preprocessor.Generics
 import           DA.Daml.Preprocessor.EnumType
-import           DA.Daml.Preprocessor.TemplateConstraint
 
 import Development.IDE.Types.Options
 import qualified "ghc-lib" GHC
 import qualified "ghc-lib-parser" SrcLoc as GHC
 import qualified "ghc-lib-parser" Module as GHC
 import qualified "ghc-lib-parser" FastString as GHC
-import qualified "ghc-lib-parser" OccName as GHC
-import qualified "ghc-lib-parser" RdrName as GHC
 import Outputable
 
 import           Control.Monad.Extra
@@ -52,8 +49,8 @@ damlPreprocessor mbPkgName x
     | maybe False (isInternal ||^ (`elem` mayImportInternal)) name = noPreprocessor x
     | otherwise = IdePreprocessedSource
         { preprocWarnings = checkModuleName x
-        , preprocErrors = checkImports x ++ checkDataTypes x ++ checkModuleDefinition x ++ checkGenericTemplates x
-        , preprocSource = recordDotPreprocessor $ importDamlPreprocessor $ genericsPreprocessor mbPkgName $ templateConstraintPreprocessor $ enumTypePreprocessor x
+        , preprocErrors = checkImports x ++ checkDataTypes x ++ checkModuleDefinition x
+        , preprocSource = recordDotPreprocessor $ importDamlPreprocessor $ genericsPreprocessor mbPkgName $ enumTypePreprocessor x
         }
     where
       name = fmap GHC.unLoc $ GHC.hsmodName $ GHC.unLoc x
@@ -166,24 +163,10 @@ checkModuleDefinition x
         ]
     | otherwise = []
 
-checkGenericTemplates :: GHC.ParsedSource -> [(GHC.SrcSpan, String)]
-checkGenericTemplates m =
-    [ (ss, "Generic templates are not supported anymore.")
-    | GHC.L ss tycl <- universeTyClDecl m
-    , "Instance" `isSuffixOf` GHC.occNameString (GHC.rdrNameOcc tycl)
-    ]
-
 -- Extract all data constructors with their locations
 universeConDecl :: GHC.ParsedSource -> [GHC.LConDecl GHC.GhcPs]
 -- equivalent to universeBi, but specialised to be faster
 universeConDecl m = concat
     [ dd_cons
     | GHC.TyClD _ GHC.DataDecl{tcdDataDefn=GHC.HsDataDefn{dd_cons}} <- map GHC.unLoc $ GHC.hsmodDecls $ GHC.unLoc m
-    ]
-
--- Extract the names of all non-nullary type class definions.
-universeTyClDecl :: GHC.ParsedSource -> [GHC.Located GHC.RdrName]
-universeTyClDecl m =
-    [ tcdLName
-    | GHC.TyClD _ GHC.ClassDecl{tcdLName, tcdTyVars = GHC.HsQTvs{hsq_explicit = _:_}} <- map GHC.unLoc $ GHC.hsmodDecls $ GHC.unLoc m
     ]

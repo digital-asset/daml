@@ -35,6 +35,13 @@ class DummyLedgerClient(
         filter: TransactionFilter,
         verbose: Boolean): Flowable[GetActiveContractsResponse] =
       activeContractSet
+
+    // TODO Untested endpoint
+    override def getActiveContracts(
+        filter: TransactionFilter,
+        verbose: Boolean,
+        accessToken: String): Flowable[GetActiveContractsResponse] =
+      ???
   }
 
   override def getTransactionsClient: TransactionsClient = new TransactionsClient {
@@ -59,30 +66,36 @@ class DummyLedgerClient(
         verbose: Boolean): Flowable[Transaction] =
       getTransactions(begin, LedgerOffset.LedgerEnd.getInstance(), filter, verbose)
 
+    // TODO Untested endpoint
     override def getTransactionsTrees(
         begin: LedgerOffset,
         end: LedgerOffset,
         filter: TransactionFilter,
         verbose: Boolean): Flowable[TransactionTree] = ???
 
+    // TODO Untested endpoint
     override def getTransactionsTrees(
         begin: LedgerOffset,
         filter: TransactionFilter,
         verbose: Boolean): Flowable[TransactionTree] = ???
 
+    // TODO Untested endpoint
     override def getTransactionByEventId(
         eventId: String,
         requestingParties: util.Set[String]): Single[TransactionTree] = ???
 
+    // TODO Untested endpoint
     override def getTransactionById(
         transactionId: String,
         requestingParties: util.Set[String]): Single[TransactionTree] =
       ???
 
+    // TODO Untested endpoint
     override def getFlatTransactionByEventId(
         eventId: String,
         requestingParties: util.Set[String]): Single[Transaction] = ???
 
+    // TODO Untested endpoint
     override def getFlatTransactionById(
         transactionId: String,
         requestingParties: util.Set[String]): Single[Transaction] = ???
@@ -128,15 +141,20 @@ class DummyLedgerClient(
 
   override def getLedgerIdentityClient: LedgerIdentityClient = new LedgerIdentityClient {
     override def getLedgerIdentity: Single[String] = Single.just(ledgerId)
-    override def getLedgerIdentity(accessToken: String): Single[String] = Single.just(ledgerId)
+    // TODO Untested endpoint
+    override def getLedgerIdentity(accessToken: String): Single[String] = ???
   }
 
+  // TODO Untested client
   override def getPackageClient: PackageClient = ???
 
+  // TODO Untested client
   override def getLedgerConfigurationClient: LedgerConfigurationClient = ???
 
+  // TODO Untested client
   override def getCommandClient: CommandClient = ???
 
+  // TODO Untested client
   override def getTimeClient: TimeClient = ???
 }
 

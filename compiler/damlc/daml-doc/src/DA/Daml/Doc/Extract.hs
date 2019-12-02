@@ -117,15 +117,9 @@ extractDocs extractOpts diagsLogger ideOpts fp = do
 
             -- Type constructor docs without data types corresponding to
             -- templates and choices
-            filteredTyCons
+            adts
                 = MS.elems . MS.withoutKeys typeMap . Set.unions
                 $ dc_templates : MS.elems dc_choices
-
-            (adts, md_templateInstances) =
-                partitionEithers . flip map filteredTyCons $ \adt ->
-                    case getTemplateInstanceDoc adt of
-                        Nothing -> Left adt
-                        Just ti -> Right ti
 
             md_adts = mapMaybe (filterTypeByExports ctx) adts
 
@@ -274,6 +268,7 @@ getFctDocs ctx@DocCtx{..} (DeclData decl docs) = do
         fct_descr = docs
 
     guard (exportsFunction dc_exports fct_name)
+    guard (not $ "_choice_" `T.isPrefixOf` packRdrName name)
     Just FunctionDoc {..}
 
 getClsDocs :: DocCtx -> DeclData -> Maybe ClassDoc
@@ -522,34 +517,6 @@ getTemplateDocs DocCtx{..} typeMap templateInstanceMap =
                       [RecordC{ ac_fields = fields }] -> fields
                       [] -> [] -- catching the dummy case here, see above
                       _other -> error "getFields: found multiple constructors"
-
--- | A template instance is desugared to a type synonym with a doc marker.
---
--- For example,
---
--- @template instance ProposalIou = Proposal Iou@
---
--- leads to the `type` declaration
---
--- @--| TEMPLATE_INSTANCE@
--- @type ProposalIou = Proposal Iou@
---
--- This function looks for the "TEMPLATE_INSTANCE" doc marker around a type
--- synonym and, if it finds it, creates the relevant doc structure.
-getTemplateInstanceDoc :: ADTDoc -> Maybe TemplateInstanceDoc
-getTemplateInstanceDoc tyConDoc
-    | TypeSynDoc{..} <- tyConDoc
-    , Just (DocText doc) <- ad_descr
-    , Just realDoc <- T.stripSuffix "TEMPLATE_INSTANCE" doc
-    = Just TemplateInstanceDoc
-        { ti_name = ad_name
-        , ti_anchor = ad_anchor
-        , ti_descr = Just (DocText realDoc)
-        , ti_rhs = ad_rhs
-        }
-
-    | otherwise
-    = Nothing
 
 -- recognising Template and Choice instances
 
