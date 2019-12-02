@@ -117,20 +117,9 @@ extractDocs extractOpts diagsLogger ideOpts fp = do
 
             -- Type constructor docs without data types corresponding to
             -- templates and choices
-            filteredTyCons
+            adts
                 = MS.elems . MS.withoutKeys typeMap . Set.unions
                 $ dc_templates : MS.elems dc_choices
-
-            (adts, md_templateInstances) =
-                partitionEithers . flip map filteredTyCons $ \adt ->
-                    case find (\td -> td_name td == ad_name adt) md_templates of
-                        Nothing -> Left adt
-                        Just td -> Right TemplateInstanceDoc
-                          { ti_anchor = td_anchor td
-                          , ti_name = ad_name adt
-                          , ti_descr = Nothing
-                          , ti_rhs = TypeApp Nothing (ad_name adt) []
-                          }
 
             md_adts = mapMaybe (filterTypeByExports ctx) adts
 

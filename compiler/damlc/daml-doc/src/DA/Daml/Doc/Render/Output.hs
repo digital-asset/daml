@@ -41,7 +41,6 @@ instance RenderDoc ModuleDoc where
         , RenderModuleHeader ("Module " <> unModulename md_name)
         , renderDoc md_descr
         , section "Templates" md_templates
-        , section "Template Instances" md_templateInstances
         , section "Typeclasses" md_classes
         , section "Orphan Typeclass Instances" (filter id_isOrphan md_instances)
         , section "Data Types" md_adts
@@ -83,22 +82,6 @@ instance RenderDoc ChoiceDoc where
         [ RenderParagraph $ RenderStrong ("Choice " <> unTypename cd_name)
         , renderDoc cd_descr
         , fieldTable cd_fields
-        ]
-
-instance RenderDoc TemplateInstanceDoc where
-    renderDoc TemplateInstanceDoc{..} = mconcat
-        [ renderDoc ti_anchor
-        , RenderParagraph $ renderUnwords
-            [ RenderStrong "template instance"
-            , maybeAnchorLink ti_anchor (unTypename ti_name)
-            ]
-        , RenderBlock $ mconcat
-            [ RenderParagraph $ renderUnwords
-                [ RenderPlain "="
-                , renderType ti_rhs
-                ]
-            , renderDoc ti_descr
-            ]
         ]
 
 instance RenderDoc ClassDoc where
