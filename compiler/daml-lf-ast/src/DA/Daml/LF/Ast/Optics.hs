@@ -8,6 +8,7 @@
 module DA.Daml.LF.Ast.Optics(
     ModuleRef,
     moduleModuleRef,
+    typeModuleRef,
     unlocate,
     moduleExpr,
     dataConsType,
@@ -108,6 +109,9 @@ type ModuleRef = (PackageRef, ModuleName)
 -- | Traverse all the module references contained in 'Qualified's in a 'Package'.
 moduleModuleRef :: Traversal' Module ModuleRef
 moduleModuleRef = monoTraverse
+
+typeModuleRef :: Traversal' Type ModuleRef
+typeModuleRef = monoTraverse
 
 instance MonoTraversable ModuleRef (Qualified a) where
   monoTraverse f (Qualified pkg0 mod0 x) =
