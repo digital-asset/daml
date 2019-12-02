@@ -1588,7 +1588,7 @@ private class JdbcLedgerDao(
         SQL(queries.SQL_INSERT_PACKAGE_UPLOAD_ENTRY)
           .on(
             "ledger_offset" -> offset,
-            "recorded_at" -> Instant.now(),
+            "recorded_at" -> entry.recordTime,
             "submission_id" -> entry.submissionId,
             "participant_id" -> entry.participantId,
             "typ" -> entry.value,
@@ -1644,7 +1644,7 @@ private class JdbcLedgerDao(
         SQL(queries.SQL_INSERT_PARTY_ALLOCATION_ENTRY)
           .on(
             "ledger_offset" -> offset,
-            "recorded_at" -> Instant.now(),
+            "recorded_at" -> entry.recordTime,
             "submission_id" -> submissionId,
             "participant_id" -> participantId,
             "party" -> optionalPartyDetails(entry).map(_.party.toString).orNull,
