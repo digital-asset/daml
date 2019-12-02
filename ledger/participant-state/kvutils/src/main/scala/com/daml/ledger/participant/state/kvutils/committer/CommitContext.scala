@@ -3,7 +3,7 @@
 
 package com.daml.ledger.participant.state.kvutils.committer
 
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlStateKey, DamlStateValue}
+import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlLogEntryId, DamlStateKey, DamlStateValue}
 import com.daml.ledger.participant.state.kvutils.Err
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.digitalasset.daml.lf.data.Time.Timestamp
@@ -22,6 +22,7 @@ private[kvutils] trait CommitContext {
   private val outputs: mutable.Map[DamlStateKey, DamlStateValue] =
     mutable.HashMap.empty[DamlStateKey, DamlStateValue]
 
+  def getEntryId: DamlLogEntryId
   def getRecordTime: Timestamp
   def getParticipantId: ParticipantId
 
