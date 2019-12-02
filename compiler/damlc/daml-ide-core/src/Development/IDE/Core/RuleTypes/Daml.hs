@@ -58,6 +58,7 @@ type instance RuleResult GeneratePackageDeps = WhnfPackage
 
 
 type instance RuleResult GeneratePackageMap = Map UnitId LF.DalfPackage
+type instance RuleResult GenerateStablePackages = Map (UnitId, LF.ModuleName) LF.DalfPackage
 
 -- | Runs all scenarios in the given file (but not scenarios in imports).
 type instance RuleResult RunScenarios = [(VirtualResource, Either SS.Error SS.ScenarioResult)]
@@ -152,6 +153,12 @@ data GeneratePackageMap = GeneratePackageMap
 instance Binary   GeneratePackageMap
 instance Hashable GeneratePackageMap
 instance NFData   GeneratePackageMap
+
+data GenerateStablePackages = GenerateStablePackages
+   deriving (Eq, Show, Typeable, Generic)
+instance Binary GenerateStablePackages
+instance Hashable GenerateStablePackages
+instance NFData GenerateStablePackages
 
 data RunScenarios = RunScenarios
     deriving (Eq, Show, Typeable, Generic)
