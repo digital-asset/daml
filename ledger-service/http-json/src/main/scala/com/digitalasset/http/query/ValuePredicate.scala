@@ -177,8 +177,14 @@ sealed abstract class ValuePredicate extends Product with Serializable {
         case OptionalMatch(None) =>
           Rec(Vector.empty, Some(JsNull), Some(JsNull))
 
-        case OptionalMatch(Some(iom @ OptionalMatch(_))) =>
-          sys.error("TODO SC nested optional")
+        case OptionalMatch(Some(OptionalMatch(None))) =>
+          Rec(Vector(sql"jsonb_array_length(" ++ path ++ sql") = 0"), Some(JsArray()), Some(JsArray()))
+
+        case OptionalMatch(Some(oq @ OptionalMatch(Some(_)))) =>
+          val cq = go(path ++ sql"->0", oq)
+          // we don't do a length check because arrays here have 1 elem at most;
+          // [] @> [x] is false for all x
+          Rec(cq.raw, cq.safe_== map (JsArray(_)), cq.safe_@> map (JsArray(_)))
 
         case OptionalMatch(Some(oq)) =>
           go(path, oq)
