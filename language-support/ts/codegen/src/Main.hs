@@ -9,6 +9,7 @@ import qualified Data.ByteString as B
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.NameMap as NM
 import qualified Data.Set as Set
+import qualified Data.Set.Lens as Set
 import qualified Data.Text.Extended as T
 import qualified "zip-archive" Codec.Archive.Zip as Zip
 
@@ -89,7 +90,7 @@ genModule mod
         ,"import packageId from '" <> pkgRootPath <> "/packageId';"
         ] ++
         ["import * as " <> modNameStr <> " from '" <> pkgRootPath <> "/" <> pkgRefStr <> T.intercalate "/" (unModuleName modName) <> "';"
-        | modRef@(pkgRef, modName) <- Set.toList (Set.unions refs)
+        | modRef@(pkgRef, modName) <- Set.toList ((PRSelf, curModName) `Set.delete` Set.unions refs)
         , let pkgRefStr = case pkgRef of
                 PRSelf -> ""
                 PRImport pkgId -> "../" <> unPackageId pkgId <> "/"
@@ -112,7 +113,8 @@ genDefDataType curModName tpls def = case unTypeConName (dataTypeCon def) of
         DataEnum{} -> ((makeType ["unknown;"], makeSer ["jtv.unknownJson,"]), Set.empty)  -- TODO(MH): make enum types type safe
         DataRecord fields ->
             let (fieldNames, fieldTypesLf) = unzip [(unFieldName x, t) | (x, t) <- fields]
-                (unzip -> (fieldTypesTs, fieldSers), fieldRefs) = unzip (map (genType curModName) fieldTypesLf)
+                (fieldTypesTs, fieldSers) = unzip (map (genType curModName) fieldTypesLf)
+                fieldRefs = map (Set.setOf typeModuleRef . snd) fields
                 typeDesc =
                     ["{"] ++
                     ["  " <> x <> ": " <> t <> ";" | (x, t) <- zip fieldNames fieldTypesTs] ++
@@ -128,7 +130,9 @@ genDefDataType curModName tpls def = case unTypeConName (dataTypeCon def) of
                     let (chcs, argRefs) = unzip
                             [((unChoiceName (chcName chc), t), argRefs)
                             | chc <- NM.toList (tplChoices tpl)
-                            , let ((t, _), argRefs) = genType curModName (snd (chcArgBinder chc))
+                            , let tLf = snd (chcArgBinder chc)
+                            , let (t, _) = genType curModName tLf
+                            , let argRefs = Set.setOf typeModuleRef tLf
                             ]
                         dict =
                             ["export const " <> conName <> ": daml.Template<" <> conName <> "> & {"] ++
@@ -168,51 +172,48 @@ genDefDataType curModName tpls def = case unTypeConName (dataTypeCon def) of
             map ("  " <>) (onHead ("decoder: " <>) serDesc) ++
             ["});"]
 
-genType :: ModuleName -> Type -> ((T.Text, T.Text), Set.Set ModuleRef)
+genType :: ModuleName -> Type -> (T.Text, T.Text)
 genType curModName = go
   where
     go = \case
-        TVar v -> (dup (unTypeVarName v), Set.empty)
-        TUnit -> (("{}", "daml.Unit"), Set.empty)
-        TBool -> (("boolean", "daml.Bool"), Set.empty)
-        TInt64 -> (dup "daml.Int", Set.empty)
-        TDecimal -> (dup "daml.Decimal", Set.empty)
-        TNumeric _ -> (dup "daml.Numeric", Set.empty)  -- TODO(MH): Figure out what to do with the scale.
-        TText -> (("string", "daml.Text"), Set.empty)
-        TTimestamp -> (dup "daml.Time", Set.empty)
-        TParty -> (dup "daml.Party", Set.empty)
-        TDate -> (dup "daml.Date", Set.empty)
+        TVar v -> dup (unTypeVarName v)
+        TUnit -> ("{}", "daml.Unit")
+        TBool -> ("boolean", "daml.Bool")
+        TInt64 -> dup "daml.Int"
+        TDecimal -> dup "daml.Decimal"
+        TNumeric _ -> dup "daml.Numeric"  -- TODO(MH): Figure out what to do with the scale.
+        TText -> ("string", "daml.Text")
+        TTimestamp -> dup "daml.Time"
+        TParty -> dup "daml.Party"
+        TDate -> dup "daml.Date"
         TList t ->
-            let ((t', ser), refs) = go t
+            let (t', ser) = go t
             in
-            ((t' <> "[]", "daml.List(" <> ser <> ")"), refs)
+            (t' <> "[]", "daml.List(" <> ser <> ")")
         TOptional (TOptional _) -> error "TODO(MH): nested optionals"
         TOptional t ->
-            let ((t', ser), refs) = go t
+            let (t', ser) = go t
             in
-            (("(" <> t' <> " | null)", "daml.Optional(" <> ser <> ")"), refs)
+            ("(" <> t' <> " | null)", "daml.Optional(" <> ser <> ")")
         TTextMap t  ->
-            let ((t', ser), refs) = go t
+            let (t', ser) = go t
             in
-            (("{ [key: string]: " <> t' <> " }", "daml.TextMap(" <> ser <> ")"), refs)
+            ("{ [key: string]: " <> t' <> " }", "daml.TextMap(" <> ser <> ")")
         TUpdate _ -> error "IMPOSSIBLE: Update not serializable"
         TScenario _ -> error "IMPOSSIBLE: Scenario not serializable"
         TContractId t ->
-            let ((t', ser), refs) = go t
+            let (t', ser) = go t
             in
-            (("daml.ContractId<" <> t' <> ">", "daml.ContractId(" <> ser <> ")"), refs)
+            ("daml.ContractId<" <> t' <> ">", "daml.ContractId(" <> ser <> ")")
         TConApp con ts ->
-            let ((con', ser), conRefs) = genTypeCon curModName con
-                (unzip -> (ts', sers), tsRefs) = unzip (map go ts)
-                refs = Set.unions (conRefs:tsRefs)
+            let (con', ser) = genTypeCon curModName con
+                (ts', sers) = unzip (map go ts)
             in
             if null ts
-                then ((con', ser), refs)
+                then (con', ser)
                 else
-                    ( ( con' <> "<" <> T.intercalate ", " ts' <> ">"
-                      , ser <> "(" <> T.intercalate ", " sers <> ")"
-                      )
-                    , refs
+                    ( con' <> "<" <> T.intercalate ", " ts' <> ">"
+                    , ser <> "(" <> T.intercalate ", " sers <> ")"
                     )
         TCon _ -> error "IMPOSSIBLE: lonely type constructor"
         t@TApp{} -> error $ "IMPOSSIBLE: type application not serializable - " <> DA.Pretty.renderPretty t
@@ -221,14 +222,14 @@ genType curModName = go
         TStruct{} -> error "IMPOSSIBLE: structural record not serializable"
         TNat{} -> error "IMPOSSIBLE: standalone type level natural not serializable"
 
-genTypeCon :: ModuleName -> Qualified TypeConName -> ((T.Text, T.Text), Set.Set ModuleRef)
+genTypeCon :: ModuleName -> Qualified TypeConName -> (T.Text, T.Text)
 genTypeCon curModName (Qualified pkgRef modName conParts) =
     case unTypeConName conParts of
         [] -> error "IMPOSSIBLE: empty type constructor name"
         _:_:_ -> error "TODO(MH): multi-part type constructor names"
         [conName]
-          | modRef == (PRSelf, curModName) -> (dup conName, Set.empty)
-          | otherwise -> (dup (genModuleRef modRef <> "." <> conName), Set.singleton modRef)
+          | modRef == (PRSelf, curModName) -> dup conName
+          | otherwise -> dup (genModuleRef modRef <> "." <> conName)
           where
             modRef = (pkgRef, modName)
 
