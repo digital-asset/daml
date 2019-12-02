@@ -262,7 +262,7 @@ class JdbcIndexer private[index] (
             PersistenceEntry.Checkpoint(LedgerEntry.Checkpoint(recordTime.toInstant)))
           .map(_ => headRef = headRef + 1)(DEC)
 
-      case PartyAddedToParticipant(party, displayName, participantId, _, submissionId) =>
+      case PartyAddedToParticipant(party, displayName, participantId, recordTime, submissionId) =>
         ledgerDao.storeParty(party, Some(displayName), externalOffset).map(_ => ())(DEC)
 
         //store party allocation accepted entry in party allocation entries table too
@@ -277,6 +277,7 @@ class JdbcIndexer private[index] (
             PartyAllocationLedgerEntry.Accepted(
               submissionId,
               participantId,
+              recordTime.toInstant,
               PartyDetails(party, Some(displayName), isLocal = true))
           )
           .map(_ => headRef = headRef + 1)(DEC)
@@ -289,7 +290,7 @@ class JdbcIndexer private[index] (
             externalOffset,
             submissionId,
             participantId,
-            PartyAllocationLedgerEntry.Rejected(submissionId, participantId, rejectionReason))
+            PartyAllocationLedgerEntry.Rejected(submissionId, participantId, recordTime.toInstant, rejectionReason))
           .map(_ => headRef = headRef + 1)(DEC)
 
       case PublicPackageUploaded(archive, sourceDescription, _, recordTime, _) =>
@@ -310,7 +311,7 @@ class JdbcIndexer private[index] (
             headRef,
             headRef + 1,
             externalOffset,
-            PackageUploadLedgerEntry.Accepted(submissionId, participantId))
+            PackageUploadLedgerEntry.Accepted(submissionId, participantId, recordTime.toInstant))
           .map(_ => headRef = headRef + 1)(DEC)
 
       case PackageUploadEntryRejected(participantId, recordTime, submissionId, reason) =>
@@ -319,7 +320,7 @@ class JdbcIndexer private[index] (
             headRef,
             headRef + 1,
             externalOffset,
-            PackageUploadLedgerEntry.Rejected(submissionId, participantId, reason))
+            PackageUploadLedgerEntry.Rejected(submissionId, participantId, recordTime.toInstant, reason))
           .map(_ => headRef = headRef + 1)(DEC)
 
       case TransactionAccepted(

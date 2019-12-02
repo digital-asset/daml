@@ -19,13 +19,7 @@ import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractId}
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
-import com.digitalasset.ledger.api.domain.{
-  ApplicationId,
-  CommandId,
-  LedgerId,
-  PartyDetails,
-  RejectionReason
-}
+import com.digitalasset.ledger.api.domain.{ApplicationId, CommandId, LedgerId, PartyDetails, RejectionReason}
 import com.digitalasset.ledger.api.health.{HealthStatus, Healthy}
 import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilter
 import com.digitalasset.platform.sandbox.services.transaction.SandboxEventIdFormatter
@@ -33,19 +27,8 @@ import com.digitalasset.platform.sandbox.stores.ActiveLedgerState.ActiveContract
 import com.digitalasset.platform.sandbox.stores.deduplicator.Deduplicator
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry.{Checkpoint, Rejection}
 import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
-import com.digitalasset.platform.sandbox.stores.ledger.{
-  ConfigurationEntry,
-  Ledger,
-  LedgerEntry,
-  LedgerSnapshot,
-  PackageUploadLedgerEntry,
-  PartyAllocationLedgerEntry
-}
-import com.digitalasset.platform.sandbox.stores.{
-  ActiveLedgerState,
-  InMemoryActiveLedgerState,
-  InMemoryPackageStore
-}
+import com.digitalasset.platform.sandbox.stores.ledger._
+import com.digitalasset.platform.sandbox.stores.{ActiveLedgerState, InMemoryActiveLedgerState, InMemoryPackageStore}
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.Future
@@ -279,15 +262,19 @@ class InMemoryLedger(
         entries.publish(
           InMemoryPartyEntry(
             PartyAllocationLedgerEntry
-              .Rejected(submissionId, participantId, s"Party $party already exists"))
+              .Rejected(
+                submissionId,
+                participantId,
+                timeProvider.getCurrentTime,
+                s"Party $party already exists"))
         )
         SubmissionResult.Acknowledged
       } else {
-        val details = PartyDetails(party, displayName, true)
+        val details = PartyDetails(party, displayName, isLocal = true)
         acs = acs.addParty(details)
         entries.publish(
-          InMemoryPartyEntry(
-            PartyAllocationLedgerEntry.Accepted(submissionId, participantId, details)))
+          InMemoryPartyEntry(PartyAllocationLedgerEntry
+            .Accepted(submissionId, participantId, timeProvider.getCurrentTime, details)))
         SubmissionResult.Acknowledged
       }
     })
@@ -316,6 +303,7 @@ class InMemoryLedger(
       payload: List[Archive],
       submissionId: SubmissionId,
       participantId: ParticipantId): Future[SubmissionResult] = {
+    val recordTime = timeProvider.getCurrentTime
     val oldStore = packageStoreRef.get
     oldStore
       .withPackages(knownSince, sourceDescription, payload)
@@ -323,13 +311,14 @@ class InMemoryLedger(
         err => {
           entries.publish(
             InMemoryPackageEntry(
-              PackageUploadLedgerEntry.Rejected(submissionId, participantId, err)))
+              PackageUploadLedgerEntry.Rejected(submissionId, participantId, recordTime, err)))
           Future.successful(SubmissionResult.InternalError(err))
         },
         newStore => {
           if (packageStoreRef.compareAndSet(oldStore, newStore)) {
             entries.publish(
-              InMemoryPackageEntry(PackageUploadLedgerEntry.Accepted(submissionId, participantId)))
+              InMemoryPackageEntry(
+                PackageUploadLedgerEntry.Accepted(submissionId, participantId, recordTime)))
             Future.successful(SubmissionResult.Acknowledged)
           } else uploadPackages(knownSince, sourceDescription, payload, submissionId, participantId)
         }

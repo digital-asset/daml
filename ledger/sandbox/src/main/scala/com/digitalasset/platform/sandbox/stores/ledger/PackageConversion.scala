@@ -10,9 +10,9 @@ trait PackageConversion {
   def packageUploadLedgerEntryToDomain(
       ledgerEntry: PackageUploadLedgerEntry): domain.PackageUploadEntry =
     ledgerEntry match {
-      case PackageUploadLedgerEntry.Accepted(submissionId, participantId) =>
+      case PackageUploadLedgerEntry.Accepted(submissionId, participantId, _) =>
         PackageUploadEntry.Accepted(submissionId, domain.ParticipantId(participantId))
-      case PackageUploadLedgerEntry.Rejected(submissionId, participantId, reason) =>
+      case PackageUploadLedgerEntry.Rejected(submissionId, participantId, _, reason) =>
         PackageUploadEntry.Rejected(submissionId, domain.ParticipantId(participantId), reason)
     }
 }

@@ -1426,25 +1426,28 @@ private class JdbcLedgerDao(
 
   private val packageUploadEntryParser: RowParser[(Long, PackageUploadLedgerEntry)] =
     (long("ledger_offset") ~
+      date("recorded_at").? ~
       str("typ") ~
       ledgerString("submission_id") ~
       ledgerString("participant_id") ~
       str("rejection_reason")(emptyStringToNullColumn).?)
       .map(flatten)
       .map {
-        case (offset, typ, submissionId, participantId, rejectionReason) =>
+        case (offset, recordedAt, typ, submissionId, participantId, rejectionReason) =>
           offset ->
             (typ match {
               case "accept" =>
                 PackageUploadLedgerEntry.Accepted(
-                  submissionId = submissionId,
-                  participantId = participantId
+                  submissionId,
+                  participantId,
+                  recordedAt.get.toInstant
                 )
               case "reject" =>
                 PackageUploadLedgerEntry.Rejected(
-                  submissionId = submissionId,
-                  participantId = participantId,
-                  reason = rejectionReason.getOrElse("<missing reason>")
+                  submissionId,
+                  participantId,
+                  recordedAt.get.toInstant,
+                  rejectionReason.getOrElse("<missing reason>")
                 )
 
               case _ =>
@@ -1454,6 +1457,7 @@ private class JdbcLedgerDao(
 
   private val partyAllocationEntryParser: RowParser[(Long, PartyAllocationLedgerEntry)] =
     (long("ledger_offset") ~
+      date("recorded_at").? ~
       str("typ") ~
       ledgerString("submission_id") ~
       ledgerString("participant_id") ~
@@ -1462,21 +1466,30 @@ private class JdbcLedgerDao(
       str("rejection_reason")(emptyStringToNullColumn).?)
       .map(flatten)
       .map {
-        case (offset, typ, submissionId, participantId, party, displayName, rejectionReason) =>
+        case (
+            offset,
+            recordedAt,
+            typ,
+            submissionId,
+            participantId,
+            party,
+            displayName,
+            rejectionReason) =>
           offset ->
             (typ match {
               case "accept" =>
                 PartyAllocationLedgerEntry.Accepted(
                   submissionId,
                   participantId,
-                  //TODO BH what if party in DB is not valid?  isLocal depends on calling participant node
+                  recordedAt.get.toInstant,
                   PartyDetails(Party.assertFromString(party.get), displayName, isLocal = true)
                 )
               case "reject" =>
                 PartyAllocationLedgerEntry.Rejected(
-                  submissionId = submissionId,
-                  participantId = participantId,
-                  reason = rejectionReason.getOrElse("<missing reason>")
+                  submissionId,
+                  participantId,
+                  recordedAt.get.toInstant,
+                  rejectionReason.getOrElse("<missing reason>")
                 )
 
               case _ =>
@@ -1634,7 +1647,7 @@ private class JdbcLedgerDao(
             "recorded_at" -> Instant.now(),
             "submission_id" -> submissionId,
             "participant_id" -> participantId,
-            "party" -> optionalPartyDetails(entry).orNull.party.toString,
+            "party" -> optionalPartyDetails(entry).map(_.party.toString).orNull,
             "display_name" -> optionalPartyDetails(entry).map(_.displayName.orNull),
             "typ" -> entry.value,
             "rejection_reason" -> partyAllocationReasonorNull(entry)
@@ -1653,25 +1666,25 @@ private class JdbcLedgerDao(
 
   private def optionalPartyDetails(entry: PartyAllocationLedgerEntry): Option[PartyDetails] =
     entry match {
-      case PartyAllocationLedgerEntry.Accepted(_, _, partyDetails) =>
+      case PartyAllocationLedgerEntry.Accepted(_, _, _, partyDetails) =>
         Some(partyDetails)
-      case PartyAllocationLedgerEntry.Rejected(_, _, _) =>
+      case PartyAllocationLedgerEntry.Rejected(_, _, _, _) =>
         None
     }
   private def partyAllocationReasonorNull(entry: PartyAllocationLedgerEntry): String = {
     entry match {
-      case PartyAllocationLedgerEntry.Rejected(_, _, reason) =>
+      case PartyAllocationLedgerEntry.Rejected(_, _, _, reason) =>
         reason
-      case PartyAllocationLedgerEntry.Accepted(_, _, _) =>
+      case PartyAllocationLedgerEntry.Accepted(_, _, _, _) =>
         null
     }
   }
 
   private def reasonOrNull(entry: PackageUploadLedgerEntry): String = {
     entry match {
-      case PackageUploadLedgerEntry.Rejected(_, _, reason) =>
+      case PackageUploadLedgerEntry.Rejected(_, _, _, reason) =>
         reason
-      case PackageUploadLedgerEntry.Accepted(_, _) =>
+      case PackageUploadLedgerEntry.Accepted(_, _, _) =>
         null
     }
   }

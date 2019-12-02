@@ -3,6 +3,8 @@
 
 package com.digitalasset.platform.sandbox.stores.ledger
 
+import java.time.Instant
+
 import com.daml.ledger.participant.state.v1.{ParticipantId, SubmissionId}
 import com.digitalasset.ledger.api.domain.PartyDetails
 
@@ -10,6 +12,7 @@ import com.digitalasset.ledger.api.domain.PartyDetails
 sealed abstract class PartyAllocationLedgerEntry() extends Product with Serializable {
   val submissionId: String
   val participantId: ParticipantId
+  val recordTime: Instant
   def value: String
 }
 
@@ -18,6 +21,7 @@ object PartyAllocationLedgerEntry {
   final case class Accepted(
       override val submissionId: SubmissionId,
       override val participantId: ParticipantId,
+      override val recordTime: Instant,
       partyDetails: PartyDetails
   ) extends PartyAllocationLedgerEntry {
     override def value = "accept"
@@ -26,6 +30,7 @@ object PartyAllocationLedgerEntry {
   final case class Rejected(
       override val submissionId: SubmissionId,
       override val participantId: ParticipantId,
+      override val recordTime: Instant,
       reason: String
   ) extends PartyAllocationLedgerEntry {
     override def value = "reject"

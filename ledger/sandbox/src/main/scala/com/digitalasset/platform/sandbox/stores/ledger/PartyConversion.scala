@@ -10,12 +10,12 @@ trait PartyConversion {
   def partyAllocationLedgerEntryToDomain(
       ledgerEntry: PartyAllocationLedgerEntry): domain.PartyAllocationEntry =
     ledgerEntry match {
-      case PartyAllocationLedgerEntry.Accepted(submissionId, participantId, partyDetails) =>
+      case PartyAllocationLedgerEntry.Accepted(submissionId, participantId, _, partyDetails) =>
         PartyAllocationEntry.Accepted(
           submissionId,
           domain.ParticipantId(participantId),
           partyDetails)
-      case PartyAllocationLedgerEntry.Rejected(submissionId, participantId, reason) =>
+      case PartyAllocationLedgerEntry.Rejected(submissionId, participantId, _, reason) =>
         PartyAllocationEntry.Rejected(submissionId, domain.ParticipantId(participantId), reason)
     }
 }
