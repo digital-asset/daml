@@ -16,6 +16,7 @@ import qualified "zip-archive" Codec.Archive.Zip as Zip
 import Control.Monad.Extra
 import DA.Daml.LF.Ast
 import DA.Daml.LF.Ast.Optics
+import Data.List
 import Options.Applicative
 import System.Directory
 import System.FilePath
@@ -80,27 +81,31 @@ genModule mod
             lenModName = length (unModuleName curModName)
         tpls = moduleTemplates mod
         (defSers, refs) = unzip (map (genDefDataType curModName tpls) serDefs)
+        header =
+            ["// Generated from " <> T.intercalate "/" (unModuleName curModName) <> ".daml"
+            ,"/* eslint-disable @typescript-eslint/camelcase */"
+            ,"/* eslint-disable @typescript-eslint/no-use-before-define */"
+            ,"import * as daml from '@digitalasset/daml-json-types';"
+            ,"import * as jtv from '@mojotech/json-type-validation';"
+            ]
+        imports =
+            ["import * as " <> modNameStr <> " from '" <> pkgRootPath <> "/" <> pkgRefStr <> T.intercalate "/" (unModuleName modName) <> "';"
+            | modRef@(pkgRef, modName) <- Set.toList ((PRSelf, curModName) `Set.delete` Set.unions refs)
+            , let pkgRefStr = case pkgRef of
+                    PRSelf -> ""
+                    PRImport pkgId -> "../" <> unPackageId pkgId <> "/"
+            , let modNameStr = genModuleRef modRef
+            ]
+        templateId
+          | null (moduleTemplates mod) = []
+          | otherwise =
+            ["import packageId from '" <> pkgRootPath <> "/packageId';"
+            ,"const moduleName = '" <> T.intercalate "." (unModuleName curModName) <> "';"
+            ,"const templateId = (entityName: string): daml.TemplateId => ({packageId, moduleName, entityName});"
+            ]
+        defs = map (\(def, ser) -> def ++ ser) defSers
     in
-    Just $ T.unlines $
-        ["// Generated from " <> T.intercalate "/" (unModuleName curModName) <> ".daml"
-        ,"/* eslint-disable @typescript-eslint/camelcase */"
-        ,"/* eslint-disable @typescript-eslint/no-use-before-define */"
-        ,"import * as daml from '@digitalasset/daml-json-types';"
-        ,"import * as jtv from '@mojotech/json-type-validation';"
-        ,"import packageId from '" <> pkgRootPath <> "/packageId';"
-        ] ++
-        ["import * as " <> modNameStr <> " from '" <> pkgRootPath <> "/" <> pkgRefStr <> T.intercalate "/" (unModuleName modName) <> "';"
-        | modRef@(pkgRef, modName) <- Set.toList ((PRSelf, curModName) `Set.delete` Set.unions refs)
-        , let pkgRefStr = case pkgRef of
-                PRSelf -> ""
-                PRImport pkgId -> "../" <> unPackageId pkgId <> "/"
-        , let modNameStr = genModuleRef modRef
-        ] ++
-        [ ""
-        ,"const moduleName = '" <> T.intercalate "." (unModuleName curModName) <> "';"
-        ,"const templateId = (entityName: string): daml.TemplateId => ({packageId, moduleName, entityName});"
-        ] ++
-        concatMap (\(def, ser) -> [""] ++ def ++ ser) defSers
+    Just $ T.unlines $ intercalate [""] $ filter (not . null) $ header : imports : templateId : defs
   where
     serDefs = filter (getIsSerializable . dataSerializable) (NM.toList (moduleDataTypes mod))
 
