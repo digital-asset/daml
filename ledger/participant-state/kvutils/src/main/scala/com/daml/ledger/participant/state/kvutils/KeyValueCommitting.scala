@@ -6,7 +6,10 @@ package com.daml.ledger.participant.state.kvutils
 import com.codahale.metrics
 import com.daml.ledger.participant.state.kvutils.Conversions._
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
-import com.daml.ledger.participant.state.kvutils.committer.{PackageCommitter, PartyAllocationCommitter}
+import com.daml.ledger.participant.state.kvutils.committer.{
+  PackageCommitter,
+  PartyAllocationCommitter
+}
 import com.daml.ledger.participant.state.kvutils.committing._
 import com.daml.ledger.participant.state.v1.{Configuration, ParticipantId}
 import com.digitalasset.daml.lf.data.Time.Timestamp

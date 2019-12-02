@@ -3,7 +3,11 @@
 
 package com.daml.ledger.participant.state.kvutils.committer
 
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlLogEntryId, DamlStateKey, DamlStateValue}
+import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
+  DamlLogEntryId,
+  DamlStateKey,
+  DamlStateValue
+}
 import com.daml.ledger.participant.state.kvutils.Err
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.digitalasset.daml.lf.data.Time.Timestamp
