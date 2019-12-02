@@ -19,7 +19,13 @@ import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractId}
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
-import com.digitalasset.ledger.api.domain.{ApplicationId, CommandId, LedgerId, PartyDetails, RejectionReason}
+import com.digitalasset.ledger.api.domain.{
+  ApplicationId,
+  CommandId,
+  LedgerId,
+  PartyDetails,
+  RejectionReason
+}
 import com.digitalasset.ledger.api.health.{HealthStatus, Healthy}
 import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilter
 import com.digitalasset.platform.sandbox.services.transaction.SandboxEventIdFormatter
@@ -28,7 +34,11 @@ import com.digitalasset.platform.sandbox.stores.deduplicator.Deduplicator
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry.{Checkpoint, Rejection}
 import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
 import com.digitalasset.platform.sandbox.stores.ledger._
-import com.digitalasset.platform.sandbox.stores.{ActiveLedgerState, InMemoryActiveLedgerState, InMemoryPackageStore}
+import com.digitalasset.platform.sandbox.stores.{
+  ActiveLedgerState,
+  InMemoryActiveLedgerState,
+  InMemoryPackageStore
+}
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.Future

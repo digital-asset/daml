@@ -336,7 +336,11 @@ private final class SqlLedger(
           participantId,
           //TODO BH proper participant isLocal check needed
           PartyAllocationLedgerEntry
-            .Accepted(submissionId, participantId, timeProvider.getCurrentTime, PartyDetails(party, displayName, isLocal = true))
+            .Accepted(
+              submissionId,
+              participantId,
+              timeProvider.getCurrentTime,
+              PartyDetails(party, displayName, isLocal = true))
         )
         .map {
           case PersistenceResponse.Ok =>
@@ -380,7 +384,8 @@ private final class SqlLedger(
           headRef,
           headRef + 1,
           None,
-          PackageUploadLedgerEntry.Accepted(submissionId, participantId, timeProvider.getCurrentTime))
+          PackageUploadLedgerEntry
+            .Accepted(submissionId, participantId, timeProvider.getCurrentTime))
         .map {
           case PersistenceResponse.Ok =>
             SubmissionResult.Acknowledged

@@ -290,7 +290,9 @@ class JdbcIndexer private[index] (
             externalOffset,
             submissionId,
             participantId,
-            PartyAllocationLedgerEntry.Rejected(submissionId, participantId, recordTime.toInstant, rejectionReason))
+            PartyAllocationLedgerEntry
+              .Rejected(submissionId, participantId, recordTime.toInstant, rejectionReason)
+          )
           .map(_ => headRef = headRef + 1)(DEC)
 
       case PublicPackageUploaded(archive, sourceDescription, _, recordTime, _) =>
@@ -320,7 +322,8 @@ class JdbcIndexer private[index] (
             headRef,
             headRef + 1,
             externalOffset,
-            PackageUploadLedgerEntry.Rejected(submissionId, participantId, recordTime.toInstant, reason))
+            PackageUploadLedgerEntry
+              .Rejected(submissionId, participantId, recordTime.toInstant, reason))
           .map(_ => headRef = headRef + 1)(DEC)
 
       case TransactionAccepted(
