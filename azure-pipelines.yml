@@ -108,7 +108,7 @@ jobs:
     pool:
       name: 'windows-pool'
     steps:
-      - template: ci/report-start.yml
+#       - template: ci/report-start.yml
       - template: ci/build-windows.yml
       - template: ci/tell-slack-failed.yml
       - template: ci/report-end.yml
