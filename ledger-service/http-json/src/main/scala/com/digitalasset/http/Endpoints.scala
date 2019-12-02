@@ -130,9 +130,6 @@ class Endpoints(
   private def encodeList(as: Seq[JsValue]): ServerError \/ JsValue =
     SprayJson.encode(as).leftMap(e => ServerError(e.shows))
 
-  private val emptyGetActiveContractsRequest =
-    domain.GetActiveContractsRequest(Set.empty, Map.empty)
-
   lazy val contracts: PartialFunction[HttpRequest, Future[HttpResponse]] = {
     case req @ HttpRequest(GET, Uri.Path("/contracts/lookup"), _, _, _) =>
       val et: ET[JsValue] = for {
@@ -163,7 +160,7 @@ class Endpoints(
         _.map {
           case (jwt, jwtPayload, _) =>
             contractsService
-              .search(jwt, jwtPayload, emptyGetActiveContractsRequest)
+              .retrieveAll(jwt, jwtPayload)
               .via(handleSourceFailure)
               .map {
                 _.flatMap(lfAcToJsValue)
