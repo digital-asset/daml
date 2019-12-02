@@ -132,7 +132,7 @@ sealed abstract class ValuePredicate extends Product with Serializable {
           Rec(
             eqOrRaw.toVector.flatten,
             if (allSafe_==.length == cqs.length) Some(JsObject(allSafe_== : _*)) else None,
-            allSafe_@>.nonEmpty option JsObject(allSafe_@> : _*)
+            Some(JsObject(allSafe_@> : _*))
           )
 
         case VariantMatch((dc, q)) =>
@@ -158,7 +158,7 @@ sealed abstract class ValuePredicate extends Product with Serializable {
               .flatMap(_._2.raw)
               .toVector,
             (cqs.length == allSafe_==.length) option JsObject(allSafe_== : _*),
-            allSafe_@>.nonEmpty option JsObject(allSafe_@> : _*)
+            Some(JsObject(allSafe_@> : _*))
           )
 
         case ListMatch(qs) =>
@@ -171,7 +171,7 @@ sealed abstract class ValuePredicate extends Product with Serializable {
           val allSafe_== = cqs collect Function.unlift(_.safe_==)
           Rec(
             cqs.flatMap(_.raw) ++ flushed_@>.flatten,
-            if (cqs.length == allSafe_==.length) Some(JsArray(allSafe_==)) else None,
+            (cqs.length == allSafe_==.length) option JsArray(allSafe_==),
             None)
 
         case range: Range[a] =>
