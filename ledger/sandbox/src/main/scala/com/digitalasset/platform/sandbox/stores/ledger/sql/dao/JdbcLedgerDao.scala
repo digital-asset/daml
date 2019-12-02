@@ -250,7 +250,7 @@ private class JdbcLedgerDao(
       configuration: Configuration,
       rejectionReason: Option[String]
   ): Future[PersistenceResponse] = {
-    dbDispatcher.executeSql("store_configuration_entry", Some("submissionId=$submissionId")) {
+    dbDispatcher.executeSql("store_configuration_entry", Some(s"submissionId=$submissionId")) {
       implicit conn =>
         val currentConfig = selectLedgerConfiguration
         var finalRejectionReason = rejectionReason
