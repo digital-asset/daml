@@ -174,6 +174,15 @@ sealed abstract class ValuePredicate extends Product with Serializable {
             (cqs.length == allSafe_==.length) option JsArray(allSafe_==),
             None)
 
+        case OptionalMatch(None) =>
+          Rec(Vector.empty, Some(JsNull), Some(JsNull))
+
+        case OptionalMatch(Some(iom @ OptionalMatch(_))) =>
+          sys.error("TODO SC nested optional")
+
+        case OptionalMatch(Some(oq)) =>
+          go(path, oq)
+
         case range: Range[a] =>
           range.ltgt match {
             case Both((Inclusive, ceil), (Inclusive, floor)) if range.ord.equal(ceil, floor) =>
@@ -195,8 +204,6 @@ sealed abstract class ValuePredicate extends Product with Serializable {
                 }
               Rec(exprs, None, None)
           }
-
-        case _ => Rec(AlwaysFails, None, None) // TODO other cases
       }
 
     val outerRec = go(contractColumnName, this)
