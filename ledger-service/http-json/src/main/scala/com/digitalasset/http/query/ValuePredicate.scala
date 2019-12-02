@@ -30,6 +30,7 @@ import scalaz.syntax.std.string._
 import spray.json._
 import doobie.Fragment
 import doobie.implicits._
+import scalaz.\&/.Both
 
 sealed abstract class ValuePredicate extends Product with Serializable {
   import ValuePredicate._
@@ -174,20 +175,26 @@ sealed abstract class ValuePredicate extends Product with Serializable {
             None)
 
         case range: Range[a] =>
-          // this output relies on a *big* invariant: comparing the raw JSON data
-          // with the built-in SQL operators <, >, &c, yields equal results to
-          // comparing the same data in a data-aware way. That's why we *must* use
-          // numbers-as-numbers in LfValueDatabaseCodec, and why ISO-8601 strings
-          // for dates and timestamps are so important.
-          val exprs = range.ltgt
-            .umap(
-              _ map (boundary => sql" ${dbApiValueToJsValue(range.normalize(boundary))}::jsonb"))
-            .bifoldMap {
-              case (incl, ceil) => Vector(path ++ (if (incl) sql" <=" else sql" <") ++ ceil)
-            } {
-              case (incl, floor) => Vector(path ++ (if (incl) sql" >=" else sql" >") ++ floor)
-            }
-          Rec(exprs, None, None)
+          range.ltgt match {
+            case Both((Inclusive, ceil), (Inclusive, floor)) if range.ord.equal(ceil, floor) =>
+              val jsv = dbApiValueToJsValue(range.normalize(ceil))
+              Rec(Vector.empty, Some(jsv), Some(jsv))
+            case _ =>
+              // this output relies on a *big* invariant: comparing the raw JSON data
+              // with the built-in SQL operators <, >, &c, yields equal results to
+              // comparing the same data in a data-aware way. That's why we *must* use
+              // numbers-as-numbers in LfValueDatabaseCodec, and why ISO-8601 strings
+              // for dates and timestamps are so important.
+              val exprs = range.ltgt
+                .umap(_ map (boundary =>
+                  sql" ${dbApiValueToJsValue(range.normalize(boundary))}::jsonb"))
+                .bifoldMap {
+                  case (incl, ceil) => Vector(path ++ (if (incl) sql" <=" else sql" <") ++ ceil)
+                } {
+                  case (incl, floor) => Vector(path ++ (if (incl) sql" >=" else sql" >") ++ floor)
+                }
+              Rec(exprs, None, None)
+          }
 
         case _ => Rec(AlwaysFails, None, None) // TODO other cases
       }
@@ -398,9 +405,9 @@ object ValuePredicate {
   private[this] implicit val `jBD order`: Order[java.math.BigDecimal] =
     Order.fromScalaOrdering
 
-  private[this] type Inclusive = Boolean
-  private[this] final val Inclusive = true
-  private[this] final val Exclusive = false
+  private type Inclusive = Boolean
+  private final val Inclusive = true
+  private final val Exclusive = false
 
   type Boundaries[+A] = (Inclusive, A) \&/ (Inclusive, A)
 
