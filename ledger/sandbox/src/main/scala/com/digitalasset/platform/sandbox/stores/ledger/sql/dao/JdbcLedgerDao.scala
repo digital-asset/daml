@@ -5,7 +5,7 @@ package com.digitalasset.platform.sandbox.stores.ledger.sql.dao
 import java.io.InputStream
 import java.sql.Connection
 import java.time.Instant
-import java.util.{Date, UUID}
+import java.util.Date
 
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
@@ -16,9 +16,9 @@ import anorm.{AkkaStream, BatchSql, Macro, NamedParameter, RowParser, SQL, SqlPa
 import com.daml.ledger.participant.state.index.v2.PackageDetails
 import com.daml.ledger.participant.state.v1.{
   AbsoluteContractInst,
-  Configuration,
   ParticipantId,
   SubmissionId,
+  Configuration,
   TransactionId
 }
 import com.digitalasset.daml.lf.archive.Decode
@@ -660,22 +660,15 @@ private class JdbcLedgerDao(
         }
 
         override def addParties(parties: Set[Party]): AcsStoreAcc = {
-          parties.toList.map { p =>
-            val submissionId = SubmissionId.assertFromString(UUID.randomUUID().toString)
-            //FIXME BH not sure we ever know this for implicit parties, probably need to make this nullable
-            val participantId = ParticipantId.assertFromString("IMPLICIT")
-            storePartyAllocationEntry(
-              offset,
-              offset + 1,
-              None,
-              submissionId,
-              participantId,
-              PartyAllocationLedgerEntry.Accepted(
-                submissionId,
-                participantId,
-                Instant.now(),
-                PartyDetails(p, None, isLocal = true))
-            )
+          val partyParams = parties.toList.map(
+            p =>
+              Seq[NamedParameter](
+                "name" -> (p: String),
+                "ledger_offset" -> offset,
+                "explicit" -> false
+            ))
+          if (partyParams.nonEmpty) {
+            executeBatchSql(queries.SQL_IMPLICITLY_INSERT_PARTIES, partyParams)
           }
           this
         }
@@ -1342,31 +1335,59 @@ private class JdbcLedgerDao(
   }
 
   private val SQL_SELECT_PARTIES =
-    SQL("select * from party_allocation_entries where typ='accept'")
+    SQL("select party, display_name, ledger_offset, explicit from parties")
 
-  case class ParsedPartyData(party: String, displayName: Option[String], ledgerOffset: Long)
+  case class ParsedPartyData(
+      party: String,
+      displayName: Option[String],
+      ledgerOffset: Long,
+      explicit: Boolean)
 
   private val PartyDataParser: RowParser[ParsedPartyData] =
     Macro.parser[ParsedPartyData](
       "party",
       "display_name",
-      "ledger_offset"
+      "ledger_offset",
+      "explicit"
     )
 
   override def getParties: Future[List[PartyDetails]] =
     dbDispatcher.executeSql("load_parties") { implicit conn =>
       SQL_SELECT_PARTIES
-        .as(partyAllocationEntryParser.*)
+        .as(PartyDataParser.*)
         // TODO: isLocal should be based on equality of participantId reported in an
         // update and the id given to participant in a command-line argument
         // (See issue #2026)
-        .map {
-          case (_, PartyAllocationLedgerEntry.Accepted(_, _, _, details)) =>
-            PartyDetails(Party.assertFromString(details.party), details.displayName, isLocal = true)
-          case (_, rejected: PartyAllocationLedgerEntry.Rejected) =>
-            sys.error(s"partyEntryParser: Unexpected rejected party returned: $rejected")
-        }
+        .map(d => PartyDetails(Party.assertFromString(d.party), d.displayName, isLocal = true))
     }
+
+  private val SQL_INSERT_PARTY =
+    SQL("""insert into parties(party, display_name, ledger_offset, explicit)
+          |select {party}, {display_name}, ledger_end, 'true'
+          |from parameters""".stripMargin)
+
+  override def storeParty(
+      party: Party,
+      displayName: Option[String],
+      externalOffset: Option[ExternalOffset]): Future[PersistenceResponse] = {
+    dbDispatcher.executeSql("store_party", Some(s"party: $party")) { implicit conn =>
+      Try {
+        SQL_INSERT_PARTY
+          .on(
+            "party" -> (party: String),
+            "display_name" -> displayName,
+          )
+          .execute()
+        externalOffset.foreach(updateExternalLedgerEnd)
+        PersistenceResponse.Ok
+      }.recover {
+        case NonFatal(e) if e.getMessage.contains(queries.DUPLICATE_KEY_ERROR) =>
+          logger.warn("Party with ID {} already exists", party)
+          conn.rollback()
+          PersistenceResponse.Duplicate
+      }.get
+    }
+  }
 
   private val SQL_SELECT_PACKAGES =
     SQL("""select package_id, source_description, known_since, size
@@ -1681,6 +1702,7 @@ private class JdbcLedgerDao(
         |truncate configuration_entries cascade;
         |truncate package_upload_entries cascade;
         |truncate party_allocation_entries cascade;
+        |truncate parties cascade;
       """.stripMargin)
 
   override def reset(): Future[Unit] =
@@ -1728,6 +1750,7 @@ object JdbcLedgerDao {
     protected[JdbcLedgerDao] def SQL_INSERT_PACKAGE: String
     protected[JdbcLedgerDao] def SQL_INSERT_PACKAGE_UPLOAD_ENTRY: String
     protected[JdbcLedgerDao] def SQL_INSERT_PARTY_ALLOCATION_ENTRY: String
+    protected[JdbcLedgerDao] def SQL_IMPLICITLY_INSERT_PARTIES: String
 
     protected[JdbcLedgerDao] def SQL_SELECT_CONTRACT: String
     protected[JdbcLedgerDao] def SQL_SELECT_ACTIVE_CONTRACTS: String
@@ -1765,6 +1788,11 @@ object JdbcLedgerDao {
       """insert into party_allocation_entries(ledger_offset, recorded_at, submission_id, participant_id, party, display_name, typ, rejection_reason)
         |values({ledger_offset}, {recorded_at}, {submission_id}, {participant_id}, {party}, {display_name}, {typ}, {rejection_reason})
         |on conflict (submission_id) do nothing""".stripMargin
+
+    override protected[JdbcLedgerDao] val SQL_IMPLICITLY_INSERT_PARTIES: String =
+      """insert into parties(party, explicit, ledger_offset)
+        |values({name}, {explicit}, {ledger_offset})
+        |on conflict (party) do nothing""".stripMargin
 
     override protected[JdbcLedgerDao] val SQL_BATCH_INSERT_DIVULGENCES: String =
       """insert into contract_divulgences(contract_id, party, ledger_offset, transaction_id)
@@ -1860,6 +1888,10 @@ object JdbcLedgerDao {
         |when not matched then insert (ledger_offset, recorded_at, submission_id, participant_id, party, display_name, typ, rejection_reason)
         |select {ledger_offset}, {recorded_at}, {submission_id}, {participant_id}, {party}, {display_name}, {typ}, {rejection_reason}
         |from parameters""".stripMargin
+
+    override protected[JdbcLedgerDao] val SQL_IMPLICITLY_INSERT_PARTIES: String =
+      """merge into parties using dual on party = {name}
+        |when not matched then insert (party, explicit, ledger_offset) values ({name}, {explicit}, {ledger_offset})""".stripMargin
 
     override protected[JdbcLedgerDao] val SQL_BATCH_INSERT_DIVULGENCES: String =
       """merge into contract_divulgences using dual on contract_id = {contract_id} and party = {party}

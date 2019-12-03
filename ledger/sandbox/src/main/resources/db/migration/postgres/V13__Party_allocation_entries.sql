@@ -6,7 +6,6 @@
 --
 -- This schema version adds a table for tracking party allocation submissions
 ---------------------------------------------------------------------------------------------------
-DROP TABLE parties;
 
 CREATE TABLE party_allocation_entries
 (
