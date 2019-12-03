@@ -324,32 +324,22 @@ private final class SqlLedger(
       submissionId: SubmissionId,
       participantId: ParticipantId): Future[SubmissionResult] = {
 
-    val storePartyAllocationEntry: Future[SubmissionResult] = {
-      var headRef = 0L
-      ledgerDao
-        .storePartyAllocationEntry(
-          headRef,
-          headRef + 1,
-          None,
-          submissionId,
-          participantId,
-          PartyAllocationLedgerEntry
-            .Accepted(
-              submissionId,
-              participantId,
-              timeProvider.getCurrentTime,
-              PartyDetails(party, displayName, isLocal = (participantId == this.participantId)))
-        )
-        .map {
-          case PersistenceResponse.Ok =>
-            SubmissionResult.Acknowledged
-          case PersistenceResponse.Duplicate =>
-            SubmissionResult.Acknowledged
-        }(DEC)
-    }
-
-    val storeParty = ledgerDao
-      .storeParty(party, displayName, None)
+    var headRef = 0L
+    ledgerDao
+      .storePartyAllocationEntry(
+        headRef,
+        headRef + 1,
+        None,
+        submissionId,
+        participantId,
+        //TODO BH proper participant isLocal check needed
+        PartyAllocationLedgerEntry
+          .Accepted(
+            submissionId,
+            participantId,
+            timeProvider.getCurrentTime,
+            PartyDetails(party, displayName, isLocal = (participantId == this.participantId)))
+      )
       .map {
         case PersistenceResponse.Ok =>
           SubmissionResult.Acknowledged
@@ -357,12 +347,6 @@ private final class SqlLedger(
           SubmissionResult.Acknowledged
       }(DEC)
 
-    storePartyAllocationEntry.flatMap {
-      case SubmissionResult.Acknowledged =>
-        storeParty
-      case _ =>
-        Future.failed(ErrorFactories.invalidArgument("unable to store party to DB"))
-    }(DEC)
   }
 
   override def uploadPackages(

@@ -264,8 +264,6 @@ class JdbcIndexer private[index] (
           .map(_ => headRef = headRef + 1)(DEC)
 
       case PartyAddedToParticipant(party, displayName, participantId, recordTime, submissionId) =>
-        ledgerDao.storeParty(party, Some(displayName), externalOffset).map(_ => ())(DEC)
-
         //store party allocation accepted entry in party allocation entries table too
         ledgerDao
           .storePartyAllocationEntry(

@@ -220,19 +220,6 @@ trait LedgerWriteDao extends AutoCloseable with ReportsHealth {
   ): Future[Unit]
 
   /**
-    * Explicitly adds a new party to the list of known parties.
-    *
-    * @param party       The party identifier
-    * @param displayName The human readable display name
-    * @return
-    */
-  def storeParty(
-      party: Party,
-      displayName: Option[String],
-      externalOffset: Option[ExternalOffset]
-  ): Future[PersistenceResponse]
-
-  /**
     * Store a configuration change or rejection.
     */
   def storeConfigurationEntry(

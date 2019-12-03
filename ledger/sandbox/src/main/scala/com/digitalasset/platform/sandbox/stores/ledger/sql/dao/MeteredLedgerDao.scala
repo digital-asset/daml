@@ -133,7 +133,6 @@ private class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: MetricRegistry)
     with LedgerDao {
 
   private object Metrics {
-    val storeParty: Timer = metrics.timer("LedgerDao.storeParty")
     val storeInitialState: Timer = metrics.timer("LedgerDao.storeInitialState")
     val uploadLfPackages: Timer = metrics.timer("LedgerDao.uploadLfPackages")
     val storeLedgerEntry: Timer = metrics.timer("LedgerDao.storeLedgerEntry")
@@ -167,12 +166,6 @@ private class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: MetricRegistry)
 
   override def reset(): Future[Unit] =
     ledgerDao.reset()
-
-  override def storeParty(
-      party: Party,
-      displayName: Option[String],
-      externalOffset: Option[ExternalOffset]): Future[PersistenceResponse] =
-    timedFuture(Metrics.storeParty, ledgerDao.storeParty(party, displayName, externalOffset))
 
   override def storeConfigurationEntry(
       offset: LedgerOffset,
