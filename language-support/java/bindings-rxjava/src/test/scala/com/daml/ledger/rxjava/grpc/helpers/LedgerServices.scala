@@ -145,7 +145,8 @@ final class LedgerServices(val ledgerId: String) {
       PackageServiceImpl.createWithRef(
         listPackagesResponse,
         getPackageResponse,
-        getPackageStatusResponse)(executionContext)
+        getPackageStatusResponse,
+        authorizer)(executionContext)
     withServerAndChannel(authService, Seq(service)) { channel =>
       f(new PackageClientImpl(ledgerId, channel), impl)
     }
