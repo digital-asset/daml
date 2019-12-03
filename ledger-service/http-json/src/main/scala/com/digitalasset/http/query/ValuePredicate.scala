@@ -170,15 +170,20 @@ sealed abstract class ValuePredicate extends Product with Serializable {
           }.unzip
           val allSafe_== = cqs collect Function.unlift(_.safe_==)
           Rec(
-            cqs.flatMap(_.raw) ++ flushed_@>.flatten :+ (sql"jsonb_array_length(" ++ path ++ sql") = ${qs.length}"),
+            cqs
+              .flatMap(_.raw) ++ flushed_@>.flatten :+ (sql"jsonb_array_length(" ++ path ++ sql") = ${qs.length}"),
             (cqs.length == allSafe_==.length) option JsArray(allSafe_==),
-            None)
+            None
+          )
 
         case OptionalMatch(None) =>
           Rec(Vector.empty, Some(JsNull), Some(JsNull))
 
         case OptionalMatch(Some(OptionalMatch(None))) =>
-          Rec(Vector(sql"jsonb_array_length(" ++ path ++ sql") = 0"), Some(JsArray()), Some(JsArray()))
+          Rec(
+            Vector(sql"jsonb_array_length(" ++ path ++ sql") = 0"),
+            Some(JsArray()),
+            Some(JsArray()))
 
         case OptionalMatch(Some(oq @ OptionalMatch(Some(_)))) =>
           val cq = go(path ++ sql"->0", oq)

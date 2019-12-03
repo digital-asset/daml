@@ -9,6 +9,7 @@ import akka.stream.{Materializer, SourceShape}
 import com.digitalasset.daml.lf
 import com.digitalasset.daml.lf.value.{Value => V}
 import com.digitalasset.http.ContractsFetch.{InsertDeleteStep, OffsetBookmark}
+import com.digitalasset.http.dbbackend.ContractDao
 import com.digitalasset.http.domain.{GetActiveContractsRequest, JwtPayload, TemplateId}
 import com.digitalasset.http.query.ValuePredicate
 import com.digitalasset.http.query.ValuePredicate.LfV
@@ -113,7 +114,7 @@ class ContractsService(
 
   def retrieveAll(
       jwt: Jwt,
-      party: lar.Party): Source[Error \/ domain.ActiveContract[LfValue], NotUsed] =
+      party: domain.Party): Source[Error \/ domain.ActiveContract[LfValue], NotUsed] =
     Source(allTemplateIds()).flatMapConcat(tpId => searchInMemory(jwt, party, tpId, Map.empty))
 
   def search(jwt: Jwt, jwtPayload: JwtPayload, request: GetActiveContractsRequest)
@@ -122,7 +123,7 @@ class ContractsService(
 
   def search(
       jwt: Jwt,
-      party: lar.Party,
+      party: domain.Party,
       templateIds: Set[domain.TemplateId.OptionalPkg],
       queryParams: Map[String, JsValue])
     : Source[Error \/ domain.ActiveContract[LfValue], NotUsed] = {
@@ -143,9 +144,48 @@ class ContractsService(
     }
   }
 
+  private def searchDb(dao: dbbackend.ContractDao, fetch: ContractsFetch)(
+      jwt: Jwt,
+      party: domain.Party,
+      templateIds: List[domain.TemplateId.RequiredPkg],
+      queryParams: Map[String, JsValue])
+    : Source[Error \/ domain.ActiveContract[JsValue], NotUsed] = {
+
+    // TODO use `stream` when materializing DBContracts, so we could stream ActiveContracts
+    val fv: Future[Vector[domain.ActiveContract[JsValue]]] = dao
+      .transact { searchDb_(fetch, dao.logHandler)(jwt, party, templateIds, queryParams) }
+      .unsafeToFuture()
+
+    Source.fromFuture(fv).mapConcat(identity).map(\/.right)
+  }
+
+  private def searchDb_(fetch: ContractsFetch, doobieLog: doobie.LogHandler)(
+      jwt: Jwt,
+      party: domain.Party,
+      templateIds: List[domain.TemplateId.RequiredPkg],
+      queryParams: Map[String, JsValue])
+    : doobie.ConnectionIO[Vector[domain.ActiveContract[JsValue]]] = {
+    import cats.instances.list._, cats.syntax.traverse._, doobie.implicits._
+    templateIds
+      .traverse(tpId => searchDbOneTpId_(fetch, doobieLog)(jwt, party, tpId, queryParams))
+      .map(_.toVector.flatten)
+  }
+
+  private def searchDbOneTpId_(fetch: ContractsFetch, doobieLog: doobie.LogHandler)(
+      jwt: Jwt,
+      party: domain.Party,
+      templateId: domain.TemplateId.RequiredPkg,
+      queryParams: Map[String, JsValue])
+    : doobie.ConnectionIO[Vector[domain.ActiveContract[JsValue]]] =
+    for {
+      _ <- fetch.fetchAndPersist(jwt, party, templateId)
+      predicate = valuePredicate(templateId, queryParams)
+      acs <- ContractDao.selectContracts(party, templateId, predicate.toSqlWhereClause)(doobieLog)
+    } yield acs
+
   private def searchInMemory(
       jwt: Jwt,
-      party: lar.Party,
+      party: domain.Party,
       templateId: domain.TemplateId.RequiredPkg,
       queryParams: Map[String, JsValue])
     : Source[Error \/ domain.ActiveContract[LfValue], NotUsed] = {
@@ -239,7 +279,7 @@ class ContractsService(
       jwt: Jwt,
       party: domain.Party,
       templateIds: List[domain.TemplateId.RequiredPkg]): Future[Unit] =
-    dao.transact(fetch.contractsIo2(jwt, party, templateIds)).unsafeToFuture().map(_ => ())
+    dao.transact(fetch.fetchAndPersist(jwt, party, templateIds)).unsafeToFuture().map(_ => ())
 
   def filterSearch(
       compiledPredicates: CompiledPredicates,

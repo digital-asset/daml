@@ -58,17 +58,20 @@ private class ContractsFetch(
     StaleOffsetException.SqlState
   )
 
-  def contractsIo2(jwt: Jwt, party: domain.Party, templateIds: List[domain.TemplateId.RequiredPkg])(
+  def fetchAndPersist(
+      jwt: Jwt,
+      party: domain.Party,
+      templateIds: List[domain.TemplateId.RequiredPkg])(
       implicit ec: ExecutionContext,
       mat: Materializer): ConnectionIO[List[OffsetBookmark[domain.Offset]]] = {
     import cats.instances.list._, cats.syntax.traverse._, doobie.implicits._
     // TODO(Leo/Stephen): can we run this traverse concurrently?
     templateIds.traverse { templateId =>
-      contractsIo(jwt, party, templateId)
+      fetchAndPersist(jwt, party, templateId)
     }
   }
 
-  def contractsIo(jwt: Jwt, party: domain.Party, templateId: domain.TemplateId.RequiredPkg)(
+  def fetchAndPersist(jwt: Jwt, party: domain.Party, templateId: domain.TemplateId.RequiredPkg)(
       implicit ec: ExecutionContext,
       mat: Materializer): ConnectionIO[OffsetBookmark[domain.Offset]] = {
 
