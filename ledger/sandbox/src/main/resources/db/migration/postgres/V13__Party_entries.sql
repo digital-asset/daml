@@ -2,14 +2,13 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 ---------------------------------------------------------------------------------------------------
--- V8: party_allocation_entries
+-- V13: party_entries
 --
 -- This schema version adds a table for tracking party allocation submissions
 ---------------------------------------------------------------------------------------------------
-
 DROP TABLE parties;
 
-CREATE TABLE party_allocation_entries
+CREATE TABLE party_entries
 (
     -- The ledger end at the time when the party allocation was added
     ledger_offset    bigint              not null,
@@ -17,12 +16,13 @@ CREATE TABLE party_allocation_entries
     -- SubmissionId for the party allocation
     submission_id    varchar primary key not null,
     -- participant id that initiated the allocation request
+    -- may be null for implicit party that has not yet been allocated
     participant_id   varchar,
     -- party
     party            varchar,
     -- displayName
     display_name     varchar,
-    -- The type of entry, one of 'accept' or 'reject'
+    -- The type of entry, 'accept' or 'reject' or 'implicit'
     typ              varchar             not null,
     -- If the type is 'reject', then the rejection reason is set.
     -- Rejection reason is a human-readable description why the change was rejected.
@@ -30,7 +30,7 @@ CREATE TABLE party_allocation_entries
     -- true if the party was added on participantId node that owns the party
     is_local         bool,
 
-    constraint check_party_allocation_entry_type
+    constraint check_party_entry_type
         check (
                 (typ = 'accept' and rejection_reason is null) or
                 (typ = 'reject' and rejection_reason is not null) or
@@ -39,5 +39,5 @@ CREATE TABLE party_allocation_entries
 );
 
 -- Index for retrieving the party allocation entry by submission id per participant
-CREATE UNIQUE INDEX idx_party_allocation_entries
-    ON party_allocation_entries (submission_id, participant_id)
+CREATE UNIQUE INDEX idx_party_entries
+    ON party_entries (submission_id, participant_id)
