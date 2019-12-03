@@ -117,7 +117,7 @@ final class LedgerServices(val ledgerId: String) {
       authService: AuthService = AuthServiceWildcard)(
       f: (CommandSubmissionClientImpl, CommandSubmissionServiceImpl) => Any): Any = {
     val (service, serviceImpl) =
-      CommandSubmissionServiceImpl.createWithRef(response)(executionContext)
+      CommandSubmissionServiceImpl.createWithRef(response, authorizer)(executionContext)
     withServerAndChannel(authService, Seq(service)) { channel =>
       f(new CommandSubmissionClientImpl(ledgerId, channel), serviceImpl)
     }

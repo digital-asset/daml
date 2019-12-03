@@ -24,4 +24,14 @@ public interface CommandSubmissionClient {
                          @NonNull Instant ledgerEffectiveTime,
                          @NonNull Instant maximumRecordTime,
                          @NonNull List<@NonNull Command> commands);
+
+    Single<Empty> submit(@NonNull String workflowId,
+                         @NonNull String applicationId,
+                         @NonNull String commandId,
+                         @NonNull String party,
+                         @NonNull Instant ledgerEffectiveTime,
+                         @NonNull Instant maximumRecordTime,
+                         @NonNull List<@NonNull Command> commands,
+                         @NonNull String accessToken);
+
 }

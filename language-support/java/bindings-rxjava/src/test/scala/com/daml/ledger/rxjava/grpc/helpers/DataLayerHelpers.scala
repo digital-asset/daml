@@ -33,12 +33,12 @@ trait DataLayerHelpers {
     new GetTimeResponse(Some(Timestamp(1l, 2)))
   }
 
-  def genCommands(commands: List[Command]): SubmitCommandsRequest = {
+  def genCommands(commands: List[Command], party: Option[String] = None): SubmitCommandsRequest = {
     new SubmitCommandsRequest(
       "workflowId",
       "applicationId",
       "commandId",
-      "party",
+      party.getOrElse("party"),
       Instant.EPOCH,
       Instant.EPOCH,
       commands.asJava)

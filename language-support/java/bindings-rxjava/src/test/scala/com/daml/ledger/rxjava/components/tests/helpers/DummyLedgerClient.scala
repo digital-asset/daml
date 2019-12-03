@@ -137,6 +137,17 @@ class DummyLedgerClient(
           commands))
       Single.just(Empty.getDefaultInstance)
     }
+
+    // TODO Untested endpoint
+    override def submit(
+        workflowId: String,
+        applicationId: String,
+        commandId: String,
+        party: String,
+        ledgerEffectiveTime: Instant,
+        maximumRecordTime: Instant,
+        commands: util.List[Command],
+        accessToken: String): Single[Empty] = ???
   }
 
   override def getLedgerIdentityClient: LedgerIdentityClient = new LedgerIdentityClient {
