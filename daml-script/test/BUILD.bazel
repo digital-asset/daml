@@ -17,6 +17,7 @@ genrule(
         glob(["**/*.daml"]) + [
             "//daml-script/daml:daml-script.dar",
             "//docs:source/daml-script/template-root/src/ScriptExample.daml",
+            "//:VERSION",
         ],
     outs = ["script-test.dar"],
     cmd = """
@@ -28,7 +29,7 @@ genrule(
       cp -L $(location //docs:source/daml-script/template-root/src/ScriptExample.daml) $$TMP_DIR/daml
       cp -L $(location //daml-script/daml:daml-script.dar) $$TMP_DIR/
       cat << EOF > $$TMP_DIR/daml.yaml
-sdk-version: 0.0.0
+sdk-version: $$(cat $(location //:VERSION))
 name: script-test
 source: daml
 version: 0.0.1

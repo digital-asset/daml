@@ -16,6 +16,7 @@ genrule(
         glob(["**/*.daml"]) + [
             "//triggers/daml:daml-trigger.dar",
             "//docs:source/triggers/template-root/src/CopyTrigger.daml",
+            "//:VERSION",
         ],
     outs = ["acs.dar"],
     cmd = """
@@ -32,7 +33,7 @@ genrule(
       cp -L $(location //docs:source/triggers/template-root/src/CopyTrigger.daml) $$TMP_DIR/daml
       cp -L $(location //triggers/daml:daml-trigger.dar) $$TMP_DIR/
       cat << EOF > $$TMP_DIR/daml.yaml
-sdk-version: 0.0.0
+sdk-version: $$(cat $(location //:VERSION))
 name: acs
 source: daml
 version: 0.0.1
