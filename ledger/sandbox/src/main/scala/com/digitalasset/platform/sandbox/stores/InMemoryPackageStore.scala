@@ -7,13 +7,11 @@ import java.io.File
 import java.time.Instant
 
 import com.daml.ledger.participant.state.index.v2.PackageDetails
-import com.daml.ledger.participant.state.v1.SubmissionId
 import com.digitalasset.daml.lf.archive.Reader.ParseError
 import com.digitalasset.daml.lf.archive.{DarReader, Decode}
 import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
-import com.digitalasset.ledger.api.domain
 import org.slf4j.LoggerFactory
 import scalaz.std.either._
 import scalaz.std.list._
@@ -50,15 +48,6 @@ case class InMemoryPackageStore(
 
   def getLfPackageSync(packageId: PackageId): Option[Ast.Package] =
     packages.get(packageId)
-
-  def lookupPackageUploadEntry(
-      submissionId: SubmissionId): Future[Option[domain.PackageUploadEntry]] = {
-    // TODO BH : not clear what codepath gets you here, but
-    // extending IndexPackagesService requires this method to be implemented
-    logger.error(
-      s"this will never return  as we are unable to match to accept/reject package upload entry for  $submissionId")
-    Future.successful(None)
-  }
 
   def withPackages(
       knownSince: Instant,

@@ -93,10 +93,10 @@ object Update {
     * with a possible need to revisit as part of the per-party package visibility work
     * https://github.com/digital-asset/daml/issues/311.
     *
-   * @param submissionId
-   *   submissionId of the party allocation command.
-   *
-   * @param participantId
+    * @param submissionId
+    *   submissionId of the party allocation command.
+    *
+    * @param participantId
     *   The participant to which the party was requested to be added. This field
     *   is informative,
     *
