@@ -164,7 +164,10 @@ data Env = Env
     ,envTemplateKeyData :: MS.Map TypeConName TemplateKeyData
     ,envIsGenerated :: Bool
     ,envTypeVars :: !(MS.Map Var TypeVarName)
-    ,envTypeVarNames :: !(S.Set TypeVarName) -- cached range of envTypeVars
+        -- ^ Maps GHC type variables in scope to their LF type variable names
+    ,envTypeVarNames :: !(S.Set TypeVarName)
+        -- ^ The set of LF type variable names in scope (i.e. the set of
+        -- values of 'envTypeVars').
     }
 
 data ChoiceData = ChoiceData
@@ -191,8 +194,8 @@ envBindTypeVar x env = try 1 (TypeVarName prefix)
         prefix = getOccText x
         nameFor i = TypeVarName (prefix <> T.pack (show i))
 
-        try :: Integer -> TypeVarName -> (TypeVarName, Env)
-        try i name =
+        try :: Int -> TypeVarName -> (TypeVarName, Env)
+        try !i name =
             if envHasTypeVarName name env
                 then try (i+1) (nameFor i)
                 else (name, envInsertTypeVar x name env)
