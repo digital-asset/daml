@@ -12,6 +12,7 @@ import com.digitalasset.ledger.api.auth.{
   Authorizer,
   Claim,
   ClaimActAsParty,
+  ClaimAdmin,
   ClaimPublic,
   ClaimReadAsParty,
   Claims
@@ -23,6 +24,7 @@ package object grpc {
 
   private[grpc] val emptyToken = "empty"
   private[grpc] val publicToken = "public"
+  private[grpc] val adminToken = "admin"
 
   private[grpc] val someParty = UUID.randomUUID.toString
   private[grpc] val somePartyReadToken = UUID.randomUUID.toString
@@ -36,6 +38,7 @@ package object grpc {
     AuthServiceStatic {
       case `emptyToken` => Claims(Nil)
       case `publicToken` => Claims(Seq[Claim](ClaimPublic))
+      case `adminToken` => Claims(Seq[Claim](ClaimAdmin))
       case `somePartyReadToken` =>
         Claims(Seq[Claim](ClaimPublic, ClaimReadAsParty(Ref.Party.assertFromString(someParty))))
       case `somePartyReadWriteToken` =>

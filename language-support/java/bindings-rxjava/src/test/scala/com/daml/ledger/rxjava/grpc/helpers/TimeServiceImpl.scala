@@ -1,22 +1,26 @@
 // Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.ledger.testkit.services
+package com.daml.ledger.rxjava.grpc.helpers
 
+import com.digitalasset.ledger.api.auth.Authorizer
+import com.digitalasset.ledger.api.auth.services.TimeServiceAuthorization
+import com.digitalasset.ledger.api.v1.testing.time_service.TimeServiceGrpc.TimeService
 import com.digitalasset.ledger.api.v1.testing.time_service.{
   GetTimeRequest,
   GetTimeResponse,
   SetTimeRequest,
   TimeServiceGrpc
 }
-import com.digitalasset.ledger.api.v1.testing.time_service.TimeServiceGrpc.TimeService
 import com.google.protobuf.empty.Empty
 import io.grpc.ServerServiceDefinition
 import io.grpc.stub.StreamObserver
 
 import scala.concurrent.{ExecutionContext, Future};
 
-class TimeServiceImpl(getTimeResponses: Seq[GetTimeResponse]) extends TimeService {
+final class TimeServiceImpl(getTimeResponses: Seq[GetTimeResponse])
+    extends TimeService
+    with FakeAutoCloseable {
 
   private var lastGetTimeRequest: Option[GetTimeRequest] = None
   private var lastSetTimeRequest: Option[SetTimeRequest] = None
@@ -40,14 +44,10 @@ class TimeServiceImpl(getTimeResponses: Seq[GetTimeResponse]) extends TimeServic
 }
 
 object TimeServiceImpl {
-  def apply(getTimeResponses: GetTimeResponse*)(
-      implicit ec: ExecutionContext): ServerServiceDefinition = {
-    TimeServiceGrpc.bindService(new TimeServiceImpl(getTimeResponses), ec)
-  }
-
-  def createWithRef(getTimeResponses: GetTimeResponse*)(
+  def createWithRef(getTimeResponses: Seq[GetTimeResponse], authorizer: Authorizer)(
       implicit ec: ExecutionContext): (ServerServiceDefinition, TimeServiceImpl) = {
-    val time = new TimeServiceImpl(getTimeResponses)
-    (TimeServiceGrpc.bindService(time, ec), time)
+    val impl = new TimeServiceImpl(getTimeResponses)
+    val authImpl = new TimeServiceAuthorization(impl, authorizer)
+    (TimeServiceGrpc.bindService(authImpl, ec), impl)
   }
 }
