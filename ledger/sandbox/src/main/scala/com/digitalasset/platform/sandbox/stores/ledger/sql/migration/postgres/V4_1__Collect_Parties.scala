@@ -72,7 +72,7 @@ class V4_1__Collect_Parties extends BaseJavaMigration {
     val submissionId = UUID.randomUUID().toString
     val SQL_INSERT_PARTY =
       s"""INSERT INTO
-        |  party_allocation_entries(party, recorded_at, typ, ledger_offset, submission_id)
+        |  party_entries(party, recorded_at, typ, ledger_offset, submission_id)
         |VALUES
         |  ({name}, $now, "implicit", {ledger_offset}, $submissionId)
         |ON CONFLICT

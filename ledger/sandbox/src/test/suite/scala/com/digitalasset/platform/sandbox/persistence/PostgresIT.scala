@@ -47,7 +47,7 @@ class PostgresIT extends WordSpec with Matchers with PostgresAroundAll {
         checkTableExists("disclosures")
         checkTableExists("contract_witnesses")
         checkTableExists("parameters")
-        checkTableExists("party_allocation_entries")
+        checkTableExists("party_entries")
         checkTableExists("package_upload_entries")
       }
     }

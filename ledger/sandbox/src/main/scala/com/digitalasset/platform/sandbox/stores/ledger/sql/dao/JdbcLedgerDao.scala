@@ -1342,7 +1342,7 @@ private class JdbcLedgerDao(
   }
 
   private val SQL_SELECT_PARTIES =
-    SQL("select * from party_allocation_entries where typ <> 'reject'")
+    SQL("select * from party_entries where typ <> 'reject'")
 
   case class ParsedPartyData(party: String, displayName: Option[String], ledgerOffset: Long)
 
@@ -1387,15 +1387,11 @@ private class JdbcLedgerDao(
           |where package_id = {package_id}
           |""".stripMargin)
 
-  private val SQL_SELECT_PACKAGE_UPLOAD_ENTRIES =
-    SQL(
-      "select * from package_upload_entries where ledger_offset>={startInclusive} and ledger_offset<{endExclusive} order by ledger_offset asc")
-
   private val SQL_SELECT_PACKAGE_UPLOAD_ENTRY =
     SQL("select * from package_upload_entries where submission_id={submissionId} limit 1")
 
-  private val SQL_SELECT_PARTY_ALLOCATION_ENTRY =
-    SQL("select * from party_allocation_entries where submission_id={submissionId} limit 1")
+  private val SQL_SELECT_PARTY_ENTRY =
+    SQL("select * from party_entries where submission_id={submissionId} limit 1")
 
   case class ParsedPackageData(
       packageId: String,
@@ -1596,8 +1592,8 @@ private class JdbcLedgerDao(
   override def lookupPartyAllocationEntry(
       submissionId: SubmissionId): Future[Option[PartyLedgerEntry]] = {
     dbDispatcher
-      .executeSql("load_party_allocation_entry", None) { implicit conn =>
-        SQL_SELECT_PARTY_ALLOCATION_ENTRY
+      .executeSql("load_party_entry", None) { implicit conn =>
+        SQL_SELECT_PARTY_ENTRY
           .on("submissionId" -> submissionId)
           .as(partyAllocationEntryParser.*)
           .headOption
@@ -1631,10 +1627,10 @@ private class JdbcLedgerDao(
       case _ => entryRejectType
     }
 
-    dbDispatcher.executeSql("store_party_allocation_entry") { implicit conn =>
+    dbDispatcher.executeSql("store_party_entry") { implicit conn =>
       updateLedgerEnd(newLedgerEnd, externalOffset)
       Try({
-        SQL(queries.SQL_INSERT_PARTY_ALLOCATION_ENTRY)
+        SQL(queries.SQL_INSERT_PARTY_ENTRY)
           .on(
             "ledger_offset" -> offset,
             "recorded_at" -> entry.recordTime,
@@ -1698,7 +1694,7 @@ private class JdbcLedgerDao(
         |truncate contract_keys cascade;
         |truncate configuration_entries cascade;
         |truncate package_upload_entries cascade;
-        |truncate party_allocation_entries cascade;
+        |truncate party_entries cascade;
       """.stripMargin)
 
   override def reset(): Future[Unit] =
@@ -1745,7 +1741,7 @@ object JdbcLedgerDao {
     protected[JdbcLedgerDao] def SQL_INSERT_CONTRACT_DATA: String
     protected[JdbcLedgerDao] def SQL_INSERT_PACKAGE: String
     protected[JdbcLedgerDao] def SQL_INSERT_PACKAGE_UPLOAD_ENTRY: String
-    protected[JdbcLedgerDao] def SQL_INSERT_PARTY_ALLOCATION_ENTRY: String
+    protected[JdbcLedgerDao] def SQL_INSERT_PARTY_ENTRY: String
 
     protected[JdbcLedgerDao] def SQL_SELECT_CONTRACT: String
     protected[JdbcLedgerDao] def SQL_SELECT_ACTIVE_CONTRACTS: String
@@ -1779,8 +1775,8 @@ object JdbcLedgerDao {
         |values({ledger_offset}, {recorded_at}, {submission_id}, {participant_id}, {typ}, {rejection_reason})
         |on conflict (submission_id) do nothing""".stripMargin
 
-    override protected[JdbcLedgerDao] val SQL_INSERT_PARTY_ALLOCATION_ENTRY: String =
-      """insert into party_allocation_entries(ledger_offset, recorded_at, submission_id, participant_id, party, display_name, typ, rejection_reason, is_local)
+    override protected[JdbcLedgerDao] val SQL_INSERT_PARTY_ENTRY: String =
+      """insert into party_entries(ledger_offset, recorded_at, submission_id, participant_id, party, display_name, typ, rejection_reason, is_local)
         |values({ledger_offset}, {recorded_at}, {submission_id}, {participant_id}, {party}, {display_name}, {typ}, {rejection_reason}, {is_local})
         |on conflict (submission_id) do nothing""".stripMargin
 
@@ -1873,8 +1869,8 @@ object JdbcLedgerDao {
         |select {ledger_offset}, {recorded_at}, {submission_id}, {participant_id}, {typ}, {rejection_reason}
         |from parameters""".stripMargin
 
-    override protected[JdbcLedgerDao] val SQL_INSERT_PARTY_ALLOCATION_ENTRY: String =
-      """merge into party_allocation_entries using dual on submission_id = {submission_id}
+    override protected[JdbcLedgerDao] val SQL_INSERT_PARTY_ENTRY: String =
+      """merge into party_entries using dual on submission_id = {submission_id}
         |when not matched then insert (ledger_offset, recorded_at, submission_id, participant_id, party, display_name, typ, rejection_reason, is_local)
         |select {ledger_offset}, {recorded_at}, {submission_id}, {participant_id}, {party}, {display_name}, {typ}, {rejection_reason}, {is_local}
         |from parameters""".stripMargin
