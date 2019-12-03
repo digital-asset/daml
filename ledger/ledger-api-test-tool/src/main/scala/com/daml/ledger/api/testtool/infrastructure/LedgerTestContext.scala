@@ -17,8 +17,6 @@ import scala.concurrent.{ExecutionContext, Future}
 private[testtool] final class LedgerTestContext private[infrastructure] (
     participants: Vector[ParticipantTestContext])(implicit ec: ExecutionContext) {
 
-  require(participants.nonEmpty, "At least one participant must be provided.")
-
   private[this] val participantsRing = Iterator.continually(participants).flatten
 
   /**
