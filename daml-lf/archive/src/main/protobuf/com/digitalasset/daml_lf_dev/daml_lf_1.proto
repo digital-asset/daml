@@ -1309,6 +1309,7 @@ message DefDataType {
     Fields record = 3; // Records without fields are explicitly allowed.
     Fields variant = 4; // Variants without constructors are explicitly allowed.
     EnumConstructors enum = 7; // *Available in versions >= 1.6*
+    Type synonym = 9; // *Available in versions >= 1.dev*
   }
 
   // If true, this data type preserves serializability in the sense that when

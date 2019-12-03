@@ -108,6 +108,9 @@ generateSrcFromLf env = noLoc mod
 
     convDataCons :: T.Text -> LF.DataCons -> [LConDecl GhcPs]
     convDataCons dataTypeCon0 = \case
+            LF.DataSynonym _ ->
+              [] -- TODO(NICK) write the Haskell type synonym
+
             LF.DataRecord fields ->
                 [ noLoc $
                   ConDeclH98

@@ -670,6 +670,8 @@ data DataCons
   | DataVariant ![(VariantConName, Type)]
   -- | An enum type given by the name of its constructors.
   | DataEnum ![VariantConName]
+  -- | A type synonym
+  | DataSynonym !Type
   deriving (Eq, Data, Generic, NFData, Ord, Show)
 
 newtype HasNoPartyLiterals = HasNoPartyLiterals{getHasNoPartyLiterals :: Bool}
