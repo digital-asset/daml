@@ -6,16 +6,13 @@
 package db.migration.postgres
 
 import java.sql.{Connection, ResultSet}
+import java.time.Instant
+import java.util.UUID
 
 import anorm.{BatchSql, NamedParameter}
 import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.transaction.GenTransaction
-import com.digitalasset.daml.lf.transaction.Node.{
-  NodeCreate,
-  NodeExercises,
-  NodeFetch,
-  NodeLookupByKey
-}
+import com.digitalasset.daml.lf.transaction.Node.{NodeCreate, NodeExercises, NodeFetch, NodeLookupByKey}
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 import com.digitalasset.ledger.EventId
 import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.TransactionSerializer
@@ -71,11 +68,13 @@ class V4_1__Collect_Parties extends BaseJavaMigration {
   private def updateParties(transactions: Iterator[(Long, Transaction)])(
       implicit conn: Connection): Unit = {
 
+    val now = Instant.now()
+    val submissionId = UUID.randomUUID().toString
     val SQL_INSERT_PARTY =
-      """INSERT INTO
-        |  parties(party, explicit, ledger_offset)
+      s"""INSERT INTO
+        |  party_allocation_entries(party, recorded_at, typ, ledger_offset, submission_id)
         |VALUES
-        |  ({name}, false, {ledger_offset})
+        |  ({name}, $now, "implicit", {ledger_offset}, $submissionId)
         |ON CONFLICT
         |  (party)
         |DO NOTHING
