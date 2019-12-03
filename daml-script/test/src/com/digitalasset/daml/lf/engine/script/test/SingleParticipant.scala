@@ -170,6 +170,19 @@ case class TestKey(dar: Dar[(PackageId, Package)], runner: TestRunner) {
   }
 }
 
+case class TestCreateAndExercise(dar: Dar[(PackageId, Package)], runner: TestRunner) {
+  val scriptId =
+    Identifier(dar.main._1, QualifiedName.assertFromString("ScriptTest:testCreateAndExercise"))
+  def runTests() = {
+    runner.genericTest(
+      "testKey",
+      scriptId,
+      None,
+      result => TestRunner.assertEqual(SInt64(42), result, "Exercise result")
+    )
+  }
+}
+
 // Runs the example from the docs to make sure it doesn’t produce a runtime error.
 case class ScriptExample(dar: Dar[(PackageId, Package)], runner: TestRunner) {
   val scriptId = Identifier(dar.main._1, QualifiedName.assertFromString("ScriptExample:test"))
@@ -230,6 +243,7 @@ object SingleParticipant {
         Test3(dar, runner).runTests()
         Test4(dar, runner).runTests()
         TestKey(dar, runner).runTests()
+        TestCreateAndExercise(dar, runner).runTests()
         ScriptExample(dar, runner).runTests()
     }
   }
