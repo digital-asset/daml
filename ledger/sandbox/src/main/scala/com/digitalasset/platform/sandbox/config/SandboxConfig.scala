@@ -14,12 +14,6 @@ import com.daml.ledger.participant.state.v1.TimeModel
 
 import scala.concurrent.duration._
 
-final case class TlsServerConfiguration(
-    enabled: Boolean,
-    keyCertChainFile: File,
-    keyFile: File,
-    trustCertCollectionFile: File)
-
 /**
   * Defines the basic configuration for running sandbox
   */
