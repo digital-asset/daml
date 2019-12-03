@@ -1638,7 +1638,7 @@ private class JdbcLedgerDao(
       participantId: ParticipantId,
       entry: PartyAllocationLedgerEntry): Future[PersistenceResponse] = {
 
-    dbDispatcher.executeSql("store_party_allocation_reject_entry") { implicit conn =>
+    dbDispatcher.executeSql("store_party_allocation_entry") { implicit conn =>
       updateLedgerEnd(newLedgerEnd, externalOffset)
       Try({
         SQL(queries.SQL_INSERT_PARTY_ALLOCATION_ENTRY)
