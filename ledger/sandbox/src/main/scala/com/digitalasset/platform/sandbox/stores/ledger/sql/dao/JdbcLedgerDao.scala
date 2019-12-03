@@ -1646,9 +1646,9 @@ private class JdbcLedgerDao(
           .execute()
         PersistenceResponse.Ok
       }).recover {
-        case NonFatal(e) if e.getMessage.contains(queries.DUPLICATE_KEY_ERROR) =>
+        case NonFatal(e)  =>
           logger.warn(
-            s"Ignoring duplicate package upload entry submission for submissionId $submissionId participantId $participantId")
+            s"Error ${e.getMessage} encountered while storing package upload entry for submissionId $submissionId participantId $participantId", e)
           conn.rollback()
           PersistenceResponse.Duplicate
       }.get
