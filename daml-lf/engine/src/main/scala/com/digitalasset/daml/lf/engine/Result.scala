@@ -96,7 +96,7 @@ object Result {
     })
 
   def needPackage[A](
-      compiledPackages: ConcurrentCompiledPackages,
+      compiledPackages: MutableCompiledPackages,
       packageId: PackageId,
       resume: Package => Result[A]): Result[A] =
     compiledPackages.getPackage(packageId) match {
@@ -112,7 +112,7 @@ object Result {
     }
 
   def needDefinition[A](
-      packagesCache: ConcurrentCompiledPackages,
+      packagesCache: MutableCompiledPackages,
       identifier: Identifier,
       resume: Definition => Result[A]): Result[A] =
     needPackage(
@@ -124,7 +124,7 @@ object Result {
     )
 
   def needDataType[A](
-      packagesCache: ConcurrentCompiledPackages,
+      packagesCache: MutableCompiledPackages,
       identifier: Identifier,
       resume: DDataType => Result[A]): Result[A] =
     needPackage(
@@ -136,7 +136,7 @@ object Result {
     )
 
   def needTemplate[A](
-      packagesCache: ConcurrentCompiledPackages,
+      packagesCache: MutableCompiledPackages,
       identifier: Identifier,
       resume: Template => Result[A]): Result[A] =
     needPackage(

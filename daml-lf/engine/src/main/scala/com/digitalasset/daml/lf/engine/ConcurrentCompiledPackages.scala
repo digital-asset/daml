@@ -5,7 +5,6 @@ package com.digitalasset.daml.lf.engine
 
 import java.util.concurrent.ConcurrentHashMap
 
-import com.digitalasset.daml.lf.CompiledPackages
 import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.daml.lf.engine.ConcurrentCompiledPackages.AddPackageState
 import com.digitalasset.daml.lf.language.Ast.Package
@@ -17,7 +16,7 @@ import scala.collection.JavaConverters._
 /** Thread-safe class that can be used when you need to maintain a shared, mutable collection of
   * packages.
   */
-final class ConcurrentCompiledPackages extends CompiledPackages {
+final class ConcurrentCompiledPackages extends MutableCompiledPackages {
   private[this] val _packages: ConcurrentHashMap[PackageId, Package] =
     new ConcurrentHashMap()
   private[this] val _defns: ConcurrentHashMap[SDefinitionRef, SExpr] =

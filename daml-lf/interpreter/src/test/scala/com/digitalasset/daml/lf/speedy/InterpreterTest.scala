@@ -251,23 +251,6 @@ class InterpreterTest extends WordSpec with Matchers with TableDrivenPropertyChe
 
     }
 
-    "tracks packages" in {
-      val machine = Speedy.Machine.fromExpr(
-        EVal(ref),
-        true,
-        pkgs1,
-        false
-      )
-      var result: SResult = SResultContinue
-      def run() = {
-        while (result == SResultContinue && !machine.isFinal) result = machine.step()
-      }
-
-      run()
-
-      machine.ptx.usedPackages shouldBe Set(dummyPkg)
-    }
-
   }
 
 }

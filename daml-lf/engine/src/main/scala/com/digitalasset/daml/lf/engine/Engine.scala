@@ -44,8 +44,7 @@ import com.digitalasset.daml.lf.speedy.{Command => SpeedyCommand}
   * This class is thread safe.
   */
 final class Engine {
-  private[this] val _compiledPackages = ConcurrentCompiledPackages()
-  private[this] val _commandTranslation = new CommandPreprocessor(_compiledPackages)
+  private[this] val _compiledPackages: MutableCompiledPackages = ConcurrentCompiledPackages()
 
   /**
     * Executes commands `cmds` under the authority of `cmds.submitter` and returns one of the following:
@@ -67,22 +66,34 @@ final class Engine {
     * </ul>
     *
     * This method does NOT perform authorization checks; ResultDone can contain a transaction that's not well-authorized.
+    *
+    * The resulting transaction will include the packages used
+    * during the execution.
     */
-  def submit(cmds: Commands): Result[Transaction.Transaction] =
-    _commandTranslation
+  def submit(cmds: Commands): Result[Transaction.Transaction] = {
+    val trackingCompiledPackages = TrackingCompiledPackages(_compiledPackages)
+    new CommandPreprocessor(trackingCompiledPackages)
       .preprocessCommands(cmds)
       .flatMap { processedCmds =>
-        ShouldCheckSubmitterInMaintainers(_compiledPackages, cmds).flatMap {
+        ShouldCheckSubmitterInMaintainers(trackingCompiledPackages, cmds).flatMap {
           checkSubmitterInMaintainers =>
-            interpret(
+            interpretCommands(
               validating = false,
               checkSubmitterInMaintainers = checkSubmitterInMaintainers,
               submitters = Set(cmds.submitter),
               commands = processedCmds,
-              time = cmds.ledgerEffectiveTime
-            )
+              time = cmds.ledgerEffectiveTime,
+              compiledPackages = trackingCompiledPackages
+            ) map { tx =>
+
+              println(s"!!! used packages: ${trackingCompiledPackages.getUsedPackages}")
+              tx.copy(
+                optUsedPackages = Some(trackingCompiledPackages.getUsedPackages)
+              )
+            }
         }
       }
+  }
 
   /**
     * Behaves like `submit`, but it takes GenNode arguments instead of a Commands argument.
@@ -107,18 +118,22 @@ final class Engine {
       nodes: Seq[GenNode.WithTxValue[Value.NodeId, Value.ContractId]],
       ledgerEffectiveTime: Time.Timestamp
   ): Result[Transaction.Transaction] = {
+
+    val commandTranslation = new CommandPreprocessor(_compiledPackages)
     for {
-      commands <- Result.sequence(ImmArray(nodes).map(translateNode(_commandTranslation)))
+      commands <- Result.sequence(ImmArray(nodes).map(translateNode(commandTranslation)))
       checkSubmitterInMaintainers <- ShouldCheckSubmitterInMaintainers(
         _compiledPackages,
         commands.map(_._2.templateId))
       // reinterpret is never used for submission, only for validation.
-      result <- interpret(
+      result <- interpretCommands(
         validating = true,
         checkSubmitterInMaintainers = checkSubmitterInMaintainers,
         submitters = submitters,
         commands = commands,
-        time = ledgerEffectiveTime)
+        time = ledgerEffectiveTime,
+        compiledPackages = _compiledPackages
+      )
     } yield result
   }
 
@@ -143,6 +158,7 @@ final class Engine {
   ): Result[Unit] = {
     import scalaz.syntax.traverse.ToTraverseOps
     import scalaz.std.option._
+    val commandTranslation = new CommandPreprocessor(_compiledPackages)
     //reinterpret
     for {
       requiredAuthorizers <- tx.roots
@@ -167,16 +183,18 @@ final class Engine {
       // For empty transactions, use an empty set of submitters
       submitters = submittersOpt.getOrElse(Set.empty)
 
-      commands <- translateTransactionRoots(_commandTranslation, tx)
+      commands <- translateTransactionRoots(commandTranslation, tx)
       checkSubmitterInMaintainers <- ShouldCheckSubmitterInMaintainers(
         _compiledPackages,
         commands.map(_._2._2.templateId))
-      rtx <- interpret(
+      rtx <- interpretCommands(
         validating = true,
         checkSubmitterInMaintainers = checkSubmitterInMaintainers,
         submitters = submitters,
         commands = commands.map(_._2),
-        time = ledgerEffectiveTime)
+        time = ledgerEffectiveTime,
+        compiledPackages = _compiledPackages
+      )
       validationResult <- if (tx isReplayedBy rtx) {
         ResultDone(())
       } else {
@@ -274,56 +292,35 @@ final class Engine {
     }))
   }
 
-  /** Interprets the given expression under the authority of @submitters
-    *
-    * Submitters are a set, in order to support interpreting subtransactions (a subtransaciton can be authorized
-    * by multiple parties).
-    */
-  private[engine] def interpret(
-      validating: Boolean,
-      /* See documentation for `Speedy.Machine` for the meaning of this field */
-      checkSubmitterInMaintainers: Boolean,
-      submitters: Set[Party],
-      expr: Expr,
-      time: Time.Timestamp): Result[Transaction.Transaction] = {
-    val machine =
-      Machine
-        .build(
-          checkSubmitterInMaintainers = checkSubmitterInMaintainers,
-          sexpr = Compiler(_compiledPackages.packages).compile(expr),
-          compiledPackages = _compiledPackages)
-        .copy(validating = validating, committers = submitters)
-
-    interpretLoop(machine, time)
-  }
-
   /** Interprets the given commands under the authority of @submitters
     *
-    * Submitters are a set, in order to support interpreting subtransactions (a subtransaciton can be authorized
-    * by multiple parties).
+    * Submitters are a set, in order to support interpreting subtransactions
+    * (a subtransaction can be authorized by multiple parties).
     */
-  private[engine] def interpret(
+  private[engine] def interpretCommands(
       validating: Boolean,
       /* See documentation for `Speedy.Machine` for the meaning of this field */
       checkSubmitterInMaintainers: Boolean,
       submitters: Set[Party],
       commands: ImmArray[(Type, SpeedyCommand)],
-      time: Time.Timestamp): Result[Transaction.Transaction] = {
+      time: Time.Timestamp,
+      compiledPackages: MutableCompiledPackages = _compiledPackages): Result[Transaction.Transaction] = {
     val machine = Machine
       .build(
         checkSubmitterInMaintainers = checkSubmitterInMaintainers,
-        sexpr = Compiler(_compiledPackages.packages).compile(commands.map(_._2)),
-        compiledPackages = _compiledPackages
+        sexpr = Compiler(compiledPackages.packages).compile(commands.map(_._2)),
+        compiledPackages = compiledPackages
       )
       .copy(validating = validating, committers = submitters)
-    interpretLoop(machine, time)
+    interpretLoop(machine, time, compiledPackages)
   }
 
   // TODO SC remove 'return', notwithstanding a love of unhandled exceptions
   @SuppressWarnings(Array("org.wartremover.warts.Any", "org.wartremover.warts.Return"))
   private[engine] def interpretLoop(
       machine: Machine,
-      time: Time.Timestamp
+      time: Time.Timestamp,
+      compiledPackages: MutableCompiledPackages
   ): Result[Transaction.Transaction] = {
     while (!machine.isFinal) {
       machine.step match {
@@ -341,10 +338,10 @@ final class Engine {
           return Result.needPackage(
             ref.packageId,
             pkg => {
-              _compiledPackages.addPackage(ref.packageId, pkg).flatMap {
+              compiledPackages.addPackage(ref.packageId, pkg).flatMap {
                 case _ =>
-                  callback(_compiledPackages)
-                  interpretLoop(machine, time)
+                  callback(compiledPackages)
+                  interpretLoop(machine, time, compiledPackages)
               }
             }
           )
@@ -353,7 +350,7 @@ final class Engine {
           return Result.needContract(
             contractId, { coinst =>
               cbPresent(coinst)
-              interpretLoop(machine, time)
+              interpretLoop(machine, time, compiledPackages)
             }
           )
 
@@ -367,11 +364,11 @@ final class Engine {
                 if (!cbMissing(())) {
                   ResultError(Error(s"dependency error: couldn't find key $gk"))
                 } else {
-                  interpretLoop(machine, time)
+                  interpretLoop(machine, time, compiledPackages)
                 }
               case Some(key) =>
                 cbPresent(key)
-                interpretLoop(machine, time)
+                interpretLoop(machine, time, compiledPackages)
             }
           )
 

@@ -470,7 +470,8 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
     "cause used package to show up in transaction" in {
       // NOTE(JM): Other packages are pulled in by BasicTests.daml, e.g. daml-prim, but we
       // don't know the package ids here.
-      interpretResult.map(_.usedPackages.contains(basicTestsPkgId)) shouldBe Right(true)
+      interpretResult
+        .map(_.optUsedPackages.fold(false)(_.contains(basicTestsPkgId))) shouldBe Right(true)
     }
   }
 
@@ -489,7 +490,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
       res.flatMap(
         r =>
           engine
-            .interpret(
+            .interpretCommands(
               validating = false,
               checkSubmitterInMaintainers = true,
               submitters = Set(party),
@@ -503,7 +504,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
         .submit(Commands(party, ImmArray(command), let, "test"))
         .consume(lookupContract, lookupPackage, lookupKey)
       interpretResult shouldBe 'right
-      submitResult shouldBe interpretResult
+      (interpretResult |@| submitResult)(_ isReplayedBy _) shouldBe Right(true)
     }
 
     "reinterpret to the same result" in {
@@ -580,7 +581,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
       res.flatMap(
         r =>
           engine
-            .interpret(
+            .interpretCommands(
               validating = false,
               checkSubmitterInMaintainers = true,
               submitters = Set(alice),
@@ -593,7 +594,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
       val submitResult = engine
         .submit(Commands(alice, ImmArray(command), let, "test"))
         .consume(lookupContractWithKey, lookupPackage, lookupKey)
-      submitResult shouldBe result
+      (result |@| submitResult)(_ isReplayedBy _) shouldBe Right(true)
     }
 
     "reinterpret to the same result" in {
@@ -649,7 +650,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
       res.flatMap(
         r =>
           engine
-            .interpret(
+            .interpretCommands(
               validating = false,
               checkSubmitterInMaintainers = true,
               submitters = Set(party),
@@ -867,19 +868,22 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
       res.flatMap(
         r =>
           engine
-            .interpret(
+            .interpretCommands(
               validating = false,
               checkSubmitterInMaintainers = true,
               submitters = Set(bob),
               commands = r,
               time = let)
             .consume(lookupContractForPayout, lookupPackage, lookupKey))
+    interpretResult shouldBe 'right
+
     "be translated" in {
       val submitResult = engine
         .submit(Commands(bob, ImmArray(command), let, "test"))
         .consume(lookupContractForPayout, lookupPackage, lookupKey)
-      interpretResult shouldBe 'right
-      submitResult shouldBe interpretResult
+      submitResult shouldBe 'right
+
+      (interpretResult |@| submitResult)(_ isReplayedBy _) shouldBe Right(true)
     }
 
     val Right(tx) = interpretResult
@@ -1068,7 +1072,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
       res.flatMap(
         r =>
           engine
-            .interpret(
+            .interpretCommands(
               validating = false,
               checkSubmitterInMaintainers = true,
               submitters = Set(exerciseActor),
@@ -1099,7 +1103,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
         }
       fetchNodes.foreach {
         case (nid, n) =>
-          val fetchTx = GenTx(TreeMap(nid -> n), ImmArray(nid), Set(basicTestsPkgId))
+          val fetchTx = GenTx(TreeMap(nid -> n), ImmArray(nid), None)
           val Right(reinterpreted) = engine
             .reinterpret(n.requiredAuthorizers, Seq(n), let)
             .consume(lookupContract, lookupPackage, lookupKey)

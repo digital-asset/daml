@@ -80,7 +80,7 @@ class TransactionMRTComplianceIT
         GenTransaction[NodeId, TContractId, Value[TContractId]](
           TreeMap.empty,
           ImmArray.empty,
-          Set.empty)
+          None)
 
       val submitterInfo = SubmitterInfo(
         Ref.Party.assertFromString("submitter"),

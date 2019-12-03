@@ -148,7 +148,6 @@ object Speedy {
     }
 
     def lookupVal(eval: SEVal): Ctrl = {
-      ptx = ptx.markPackage(eval.ref.packageId)
       eval.cached match {
         case Some((v, stack_trace)) => {
           pushStackTrace(stack_trace)

@@ -256,7 +256,7 @@ class TransactionCoderSpec
       val tx = GenTransaction(
         nodes = TreeMap(nodes.toSeq: _*),
         roots = nodes.map(_._1),
-        usedPackages = Set.empty
+        optUsedPackages = None
       )
       tx shouldEqual TransactionCoder
         .decodeVersionedTransaction(

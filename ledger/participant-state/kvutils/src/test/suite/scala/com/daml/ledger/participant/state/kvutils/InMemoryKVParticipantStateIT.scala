@@ -16,7 +16,8 @@ import com.digitalasset.daml.lf.archive.DarReader
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.LedgerString
 import com.digitalasset.daml.lf.data.Time.Timestamp
-import com.digitalasset.daml.lf.transaction.Transaction.PartialTransaction
+import com.digitalasset.daml.lf.data.{InsertOrdSet, ImmArray}
+import com.digitalasset.daml.lf.transaction.GenTransaction
 import com.digitalasset.daml_lf_dev.DamlLf
 import com.digitalasset.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import org.scalatest.Assertions._
@@ -25,6 +26,7 @@ import org.scalatest.{Assertion, AsyncWordSpec, BeforeAndAfterEach}
 import scala.concurrent.Future
 import scala.compat.java8.FutureConverters._
 import scala.util.Try
+import scala.collection.immutable.SortedMap
 
 class InMemoryKVParticipantStateIT
     extends AsyncWordSpec
@@ -387,7 +389,7 @@ class InMemoryKVParticipantStateIT
 
 object InMemoryKVParticipantStateIT {
   private val emptyTransaction: SubmittedTransaction =
-    PartialTransaction.initial.finish.right.get
+    GenTransaction(SortedMap.empty, ImmArray.empty, Some(InsertOrdSet.empty))
 
   private val participantId: ParticipantId =
     Ref.LedgerString.assertFromString("in-memory-participant")
