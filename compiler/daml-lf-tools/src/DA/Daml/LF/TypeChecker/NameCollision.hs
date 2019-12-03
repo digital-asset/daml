@@ -147,7 +147,8 @@ checkDataType moduleName DefDataType{..} =
             forM_ constrs $ \vconName -> do
                 checkName (NEnumCon moduleName dataTypeCon vconName)
 
-        DataSynonym _ -> return ()
+        DataSynonym _ ->
+            checkName (NEnumType moduleName dataTypeCon)
 
 checkTemplate :: MonadGamma m => ModuleName -> Template -> S.StateT NCState m ()
 checkTemplate moduleName Template{..} = do
