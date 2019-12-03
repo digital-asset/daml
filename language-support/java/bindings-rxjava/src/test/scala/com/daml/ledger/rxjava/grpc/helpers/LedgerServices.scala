@@ -129,7 +129,7 @@ final class LedgerServices(val ledgerId: String) {
       authService: AuthService = AuthServiceWildcard)(
       f: (CommandCompletionClient, CommandCompletionServiceImpl) => Any): Any = {
     val (service, impl) =
-      CommandCompletionServiceImpl.createWithRef(completions, end)(executionContext)
+      CommandCompletionServiceImpl.createWithRef(completions, end, authorizer)(executionContext)
     withServerAndChannel(authService, Seq(service)) { channel =>
       f(new CommandCompletionClientImpl(ledgerId, channel, esf), impl)
     }
