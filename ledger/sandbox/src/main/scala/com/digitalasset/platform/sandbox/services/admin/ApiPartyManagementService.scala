@@ -77,6 +77,8 @@ class ApiPartyManagementService private (
                       partyDetails.isLocal))))
             case domain.PartyAllocationEntry.Rejected(_, _, reason) =>
               Future.failed(ErrorFactories.invalidArgument(reason))
+            case domain.PartyAllocationEntry.Implicit(_, _) =>
+              Future.failed(ErrorFactories.unimplemented("implicit parties cannot be allocated"))
           }(DE)
         case r @ SubmissionResult.Overloaded =>
           Future.failed(ErrorFactories.resourceExhausted(r.description))

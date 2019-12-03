@@ -293,20 +293,23 @@ object domain {
 
   sealed abstract class PartyAllocationEntry() extends Product with Serializable {
     val submissionId: String
-    val participantId: ParticipantId
   }
 
   object PartyAllocationEntry {
     final case class Accepted(
         override val submissionId: String,
-        override val participantId: ParticipantId,
+        participantId: ParticipantId,
         partyDetails: PartyDetails
     ) extends PartyAllocationEntry
 
     final case class Rejected(
         override val submissionId: String,
-        override val participantId: ParticipantId,
+        participantId: ParticipantId,
         reason: String
+    ) extends PartyAllocationEntry
+    final case class Implicit(
+        override val submissionId: String,
+        partyDetails: PartyDetails
     ) extends PartyAllocationEntry
   }
 

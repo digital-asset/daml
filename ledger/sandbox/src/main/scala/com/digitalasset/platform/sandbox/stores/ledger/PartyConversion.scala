@@ -17,6 +17,8 @@ trait PartyConversion {
           partyDetails)
       case PartyAllocationLedgerEntry.Rejected(submissionId, participantId, _, reason) =>
         PartyAllocationEntry.Rejected(submissionId, domain.ParticipantId(participantId), reason)
+      case PartyAllocationLedgerEntry.Implicit(submissionId, _, partyDetails) =>
+        PartyAllocationEntry.Implicit(submissionId, partyDetails)
     }
 }
 

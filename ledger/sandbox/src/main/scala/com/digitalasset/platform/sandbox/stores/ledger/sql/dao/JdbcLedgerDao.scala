@@ -182,6 +182,7 @@ private class JdbcLedgerDao(
 
   private val entryAcceptType = "accept"
   private val entryRejectType = "reject"
+  private val entryImplicitType = "implicit"
 
   private val configurationEntryParser: RowParser[(Long, ConfigurationEntry)] =
     (long("ledger_offset") ~
@@ -662,17 +663,16 @@ private class JdbcLedgerDao(
         override def addParties(parties: Set[Party]): AcsStoreAcc = {
           parties.toList.map { p =>
             val submissionId = SubmissionId.assertFromString(UUID.randomUUID().toString)
-            //FIXME BH not sure we ever know this for implicit parties, probably need to make this nullable
-            val participantId = ParticipantId.assertFromString("IMPLICIT")
+
             storePartyAllocationEntry(
               offset,
               offset + 1,
               None,
               submissionId,
-              participantId,
-              PartyAllocationLedgerEntry.Accepted(
+              //FIXME BH not sure we ever know this for implicit parties, probably need to make this nullable
+              ParticipantId.assertFromString("IMPLICIT"),
+              PartyAllocationLedgerEntry.Implicit(
                 submissionId,
-                participantId,
                 Instant.now(),
                 PartyDetails(p, None, isLocal = true))
             )
@@ -1342,7 +1342,7 @@ private class JdbcLedgerDao(
   }
 
   private val SQL_SELECT_PARTIES =
-    SQL("select * from party_allocation_entries where typ='accept'")
+    SQL("select * from party_allocation_entries where typ <> 'reject'")
 
   case class ParsedPartyData(party: String, displayName: Option[String], ledgerOffset: Long)
 
@@ -1362,7 +1362,15 @@ private class JdbcLedgerDao(
         // (See issue #2026)
         .map {
           case (_, PartyAllocationLedgerEntry.Accepted(_, _, _, details)) =>
-            PartyDetails(Party.assertFromString(details.party), details.displayName, isLocal = true)
+            PartyDetails(
+              Party.assertFromString(details.party),
+              details.displayName,
+              isLocal = details.isLocal)
+          case (_, PartyAllocationLedgerEntry.Implicit(_, _, details)) =>
+            PartyDetails(
+              Party.assertFromString(details.party),
+              details.displayName,
+              isLocal = details.isLocal)
           case (_, rejected: PartyAllocationLedgerEntry.Rejected) =>
             sys.error(s"partyEntryParser: Unexpected rejected party returned: $rejected")
         }
@@ -1439,7 +1447,7 @@ private class JdbcLedgerDao(
       date("recorded_at").? ~
       str("typ") ~
       ledgerString("submission_id") ~
-      ledgerString("participant_id") ~
+      ledgerString("participant_id").? ~
       str("party")(emptyStringToNullColumn).? ~
       str("display_name")(emptyStringToNullColumn).? ~
       str("rejection_reason")(emptyStringToNullColumn).? ~
@@ -1461,7 +1469,7 @@ private class JdbcLedgerDao(
               case `entryAcceptType` =>
                 PartyAllocationLedgerEntry.Accepted(
                   submissionId,
-                  participantId,
+                  participantId.get,
                   recordedAt.get.toInstant,
                   PartyDetails(
                     Party.assertFromString(party.get),
@@ -1471,9 +1479,18 @@ private class JdbcLedgerDao(
               case `entryRejectType` =>
                 PartyAllocationLedgerEntry.Rejected(
                   submissionId,
-                  participantId,
+                  participantId.get,
                   recordedAt.get.toInstant,
                   rejectionReason.getOrElse("<missing reason>")
+                )
+              case `entryImplicitType` =>
+                PartyAllocationLedgerEntry.Implicit(
+                  submissionId,
+                  recordedAt.get.toInstant,
+                  PartyDetails(
+                    Party.assertFromString(party.get),
+                    displayName,
+                    isLocal.getOrElse(true))
                 )
 
               case _ =>
@@ -1562,7 +1579,7 @@ private class JdbcLedgerDao(
             "submission_id" -> entry.submissionId,
             "participant_id" -> entry.participantId,
             "typ" -> typ,
-            "rejection_reason" -> reasonOrNull(entry)
+            "rejection_reason" -> packageUploadReasonOrNull(entry)
           )
           .execute()
         PersistenceResponse.Ok
@@ -1605,10 +1622,12 @@ private class JdbcLedgerDao(
       newLedgerEnd: LedgerOffset,
       externalOffset: Option[ExternalOffset],
       submissionId: SubmissionId,
+      //FIXME BH remove this as we will get it conditionally off the entry instead
       participantId: ParticipantId,
       entry: PartyAllocationLedgerEntry): Future[PersistenceResponse] = {
     val typ = entry match {
       case PartyAllocationLedgerEntry.Accepted(_, _, _, _) => entryAcceptType
+      case PartyAllocationLedgerEntry.Implicit(_,_,_) => entryImplicitType
       case _ => entryRejectType
     }
 
@@ -1644,6 +1663,8 @@ private class JdbcLedgerDao(
     entry match {
       case PartyAllocationLedgerEntry.Accepted(_, _, _, partyDetails) =>
         Some(partyDetails)
+      case PartyAllocationLedgerEntry.Implicit(_,_,partyDetails) =>
+        Some(partyDetails)
       case PartyAllocationLedgerEntry.Rejected(_, _, _, _) =>
         None
     }
@@ -1651,12 +1672,12 @@ private class JdbcLedgerDao(
     entry match {
       case PartyAllocationLedgerEntry.Rejected(_, _, _, reason) =>
         Some(reason)
-      case PartyAllocationLedgerEntry.Accepted(_, _, _, _) =>
+      case _ =>
         None
     }
   }
 
-  private def reasonOrNull(entry: PackageUploadLedgerEntry): String = {
+  private def packageUploadReasonOrNull(entry: PackageUploadLedgerEntry): String = {
     entry match {
       case PackageUploadLedgerEntry.Rejected(_, _, _, reason) =>
         reason

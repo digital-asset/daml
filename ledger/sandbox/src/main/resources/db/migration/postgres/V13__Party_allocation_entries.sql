@@ -16,12 +16,13 @@ CREATE TABLE party_allocation_entries
     -- SubmissionId for the party allocation
     submission_id    varchar primary key not null,
     -- participant id that initiated the allocation request
-    participant_id   varchar             not null,
+    -- may be null for implicit party that has not yet been allocated
+    participant_id   varchar,
     -- party
     party            varchar,
     -- displayName
     display_name     varchar,
-    -- The type of entry, one of 'accept' or 'reject'
+    -- The type of entry, one of 'accept' or 'reject' or 'implicit'
     typ              varchar             not null,
     -- If the type is 'reject', then the rejection reason is set.
     -- Rejection reason is a human-readable description why the change was rejected.
@@ -32,7 +33,8 @@ CREATE TABLE party_allocation_entries
     constraint check_party_allocation_entry_type
         check (
                 (typ = 'accept' and rejection_reason is null) or
-                (typ = 'reject' and rejection_reason is not null)
+                (typ = 'reject' and rejection_reason is not null) or
+                (typ = 'implicit' and party is not null)
             )
 );
 
