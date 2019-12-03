@@ -209,7 +209,7 @@ object Update {
     * Consider whether an enumerated set of reject reasons a la [[RejectionReason]] would be helpful, and whether the same breadth of reject
     * types needs to be handled for package upload entry rejects
     */
-  final case class PackageUploadEntryRejected(
+  final case class PackageUploadRejected(
       participantId: ParticipantId,
       recordTime: Timestamp,
       submissionId: SubmissionId,

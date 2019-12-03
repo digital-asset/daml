@@ -69,7 +69,7 @@ object KeyValueConsumption {
 
         List(
           // TODO(BH): only send reject message if participantId matches
-          Update.PackageUploadEntryRejected(
+          Update.PackageUploadRejected(
             participantId,
             recordTime,
             submissionId,

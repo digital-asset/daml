@@ -321,7 +321,7 @@ class JdbcIndexer private[index] (
             PackageUploadLedgerEntry.Accepted(submissionId, participantId, recordTime.toInstant))
           .map(_ => headRef = headRef + 1)(DEC)
 
-      case PackageUploadEntryRejected(participantId, recordTime, submissionId, reason) =>
+      case PackageUploadRejected(participantId, recordTime, submissionId, reason) =>
         ledgerDao
           .storePackageUploadEntry(
             headRef,

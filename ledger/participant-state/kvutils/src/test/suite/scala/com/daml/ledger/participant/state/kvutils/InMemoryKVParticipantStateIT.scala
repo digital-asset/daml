@@ -516,7 +516,7 @@ object InMemoryKVParticipantStateIT {
   private def matchPackageUploadEntryRejected(
       updateTuple: (Offset, Update),
       givenOffset: Offset): Assertion = updateTuple match {
-    case (offset: Offset, update: PackageUploadEntryRejected) =>
+    case (offset: Offset, update: PackageUploadRejected) =>
       assert(offset == givenOffset)
       assert(update.participantId == participantId)
       assert(update.reason contains "rejected as invalid")
