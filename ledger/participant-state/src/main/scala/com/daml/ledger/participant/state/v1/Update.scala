@@ -175,8 +175,6 @@ object Update {
     * @param submissionId
     *   submissionId of the package upload command.
     *
-    * Consider whether an enumerated set of reject reasons a la [[RejectionReason]] would be helpful, and whether the same breadth of reject
-    * types needs to be handled for package upload entry rejects
     */
   final case class PackageUploadAccepted(
       participantId: ParticipantId,
