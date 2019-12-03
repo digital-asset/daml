@@ -75,7 +75,6 @@ object Update {
     *   The submissionId of the command which requested party to be added.
     *
     */
-
   final case class PartyAddedToParticipant(
       party: Party,
       displayName: String,

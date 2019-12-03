@@ -280,7 +280,8 @@ class InMemoryLedger(
         )
         SubmissionResult.Acknowledged
       } else {
-        val details = PartyDetails(party, displayName, isLocal = this.participantId == participantId)
+        val details =
+          PartyDetails(party, displayName, isLocal = this.participantId == participantId)
         acs = acs.addParty(details)
         entries.publish(
           InMemoryPartyEntry(PartyAllocationLedgerEntry

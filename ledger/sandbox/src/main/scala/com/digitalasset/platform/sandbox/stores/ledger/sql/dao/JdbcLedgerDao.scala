@@ -42,14 +42,31 @@ import com.digitalasset.ledger.api.health.HealthStatus
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.common.util.DirectExecutionContext
 import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilter
-import com.digitalasset.platform.sandbox.stores.ActiveLedgerState.{ActiveContract, Contract, DivulgedContract}
+import com.digitalasset.platform.sandbox.stores.ActiveLedgerState.{
+  ActiveContract,
+  Contract,
+  DivulgedContract
+}
 import com.digitalasset.platform.sandbox.stores._
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry._
-import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.JdbcLedgerDao.{H2DatabaseQueries, PostgresQueries}
-import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{ContractSerializer, KeyHasher, TransactionSerializer, ValueSerializer}
+import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.JdbcLedgerDao.{
+  H2DatabaseQueries,
+  PostgresQueries
+}
+import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{
+  ContractSerializer,
+  KeyHasher,
+  TransactionSerializer,
+  ValueSerializer
+}
 import com.digitalasset.platform.sandbox.stores.ledger.sql.util.Conversions._
 import com.digitalasset.platform.sandbox.stores.ledger.sql.util.DbDispatcher
-import com.digitalasset.platform.sandbox.stores.ledger.{ConfigurationEntry, LedgerEntry, PackageUploadLedgerEntry, PartyAllocationLedgerEntry}
+import com.digitalasset.platform.sandbox.stores.ledger.{
+  ConfigurationEntry,
+  LedgerEntry,
+  PackageUploadLedgerEntry,
+  PartyAllocationLedgerEntry
+}
 import com.google.common.io.ByteStreams
 import scalaz.syntax.tag._
 
@@ -1467,7 +1484,10 @@ private class JdbcLedgerDao(
                   submissionId,
                   participantId,
                   recordedAt.get.toInstant,
-                  PartyDetails(Party.assertFromString(party.get), displayName, isLocal.getOrElse(true))
+                  PartyDetails(
+                    Party.assertFromString(party.get),
+                    displayName,
+                    isLocal.getOrElse(true))
                 )
               case `entryRejectType` =>
                 PartyAllocationLedgerEntry.Rejected(

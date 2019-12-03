@@ -278,7 +278,10 @@ class JdbcIndexer private[index] (
               submissionId,
               participantId,
               recordTime.toInstant,
-              PartyDetails(party, Some(displayName), isLocal = (this.participantId == participantId)))
+              PartyDetails(
+                party,
+                Some(displayName),
+                isLocal = (this.participantId == participantId)))
           )
           .map(_ => headRef = headRef + 1)(DEC)
 
