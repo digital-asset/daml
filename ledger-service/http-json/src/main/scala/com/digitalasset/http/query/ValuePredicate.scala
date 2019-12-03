@@ -214,11 +214,14 @@ sealed abstract class ValuePredicate extends Product with Serializable {
 
     val outerRec = go(contractColumnName, this)
     outerRec flush_== contractColumnName getOrElse
-      concatFragment(
-        OneAnd(
-          sql"1 = 1",
-          (outerRec.raw ++ outerRec.flush_@>(contractColumnName).toList) map (sq =>
-            sql" AND " ++ sq)))
+      concatFragment{
+        val preds = outerRec.raw ++ outerRec.flush_@>(contractColumnName).toList match {
+          case hd +: tl => OneAnd(hd, tl)
+          case _ => OneAnd(sql"1 = 1", Vector.empty)
+        }
+        preds.copy(tail = preds.tail map (sq =>
+          sql" AND " ++ sq))
+      }
   }
 }
 
