@@ -10,8 +10,6 @@ import com.digitalasset.daml.lf.speedy.SValue._
 import scala.annotation.tailrec
 import scala.collection.JavaConverters._
 
-// FIXME https://github.com/digital-asset/daml/issues/2256
-// add extensive tests
 private[lf] object Equality {
 
   // Equality between two SValues of same type.

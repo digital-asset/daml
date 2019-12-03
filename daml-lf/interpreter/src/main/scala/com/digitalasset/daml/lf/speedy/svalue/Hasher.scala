@@ -10,8 +10,6 @@ import scala.annotation.tailrec
 import scala.collection.JavaConverters._
 import scala.util.hashing.MurmurHash3
 
-// FIXME https://github.com/digital-asset/daml/issues/2256
-// add extensive tests
 private[speedy] object Hasher {
 
   case class NonHashableSValue(msg: String) extends IllegalArgumentException
