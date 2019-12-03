@@ -463,6 +463,8 @@ instance Pretty Expr where
 instance Pretty DefDataType where
   pPrintPrec lvl _prec (DefDataType mbLoc tcon (IsSerializable serializable) params dataCons) =
     withSourceLoc mbLoc $ case dataCons of
+    DataSynonym typ ->
+      (keyword_ "synonym" <-> lhsDoc) $$ nest 2 (pPrintPrec lvl 0 typ)
     DataRecord fields ->
       hang (keyword_ "record" <-> lhsDoc) 2 (prettyRecord lvl prettyHasType fields)
     DataVariant variants ->

@@ -235,6 +235,7 @@ typeConFieldsNames _ (LF.FieldName fName, _) = [fName]
 typeConFields :: LF.Qualified LF.TypeConName -> LF.World -> [T.Text]
 typeConFields qName world = case LF.lookupDataType qName world of
   Right dataType -> case LF.dataCons dataType of
+    LF.DataSynonym _ -> [""] -- TODO(NICK)
     LF.DataRecord re -> concatMap (typeConFieldsNames world) re
     LF.DataVariant _ -> [""]
     LF.DataEnum _ -> [""]

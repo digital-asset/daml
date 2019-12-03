@@ -27,7 +27,8 @@ import com.digitalasset.ledger.api.v1.commands.{
   Command,
   CreateCommand,
   ExerciseCommand,
-  ExerciseByKeyCommand
+  ExerciseByKeyCommand,
+  CreateAndExerciseCommand,
 }
 import com.digitalasset.ledger.api.v1.event.{CreatedEvent, ExercisedEvent}
 import com.digitalasset.ledger.api.v1.transaction.TreeEvent
@@ -175,7 +176,26 @@ object Converter {
           Command().withExerciseByKey(
             ExerciseByKeyCommand(Some(tplId), Some(keyArg), anyChoice.name, Some(choiceArg)))
       }
-      case _ => Left(s"Expected Exercise but got $v")
+      case _ => Left(s"Expected ExerciseByKey but got $v")
+    }
+
+  def toCreateAndExerciseCommand(v: SValue): Either[String, Command] =
+    v match {
+      case SRecord(_, _, vals) if vals.size == 3 => {
+        for {
+          anyTemplate <- toAnyTemplate(vals.get(0))
+          templateArg <- toLedgerRecord(anyTemplate.arg)
+          anyChoice <- toAnyChoice(vals.get(1))
+          choiceArg <- toLedgerValue(anyChoice.arg)
+        } yield
+          Command().withCreateAndExercise(
+            CreateAndExerciseCommand(
+              Some(toApiIdentifier(anyTemplate.ty)),
+              Some(templateArg),
+              anyChoice.name,
+              Some(choiceArg)))
+      }
+      case _ => Left(s"Expected CreateAndExercise but got $v")
     }
 
   // Extract the two fields out of the RankN encoding used in the Ap constructor.
@@ -237,7 +257,13 @@ object Converter {
                 case Left(err) => Left(err)
                 case Right(r) => iter(v, commands ++ Seq(r))
               }
-            case Right((fb, _)) => Left(s"Expected Create, Exercise or ExerciseByKey but got $fb")
+            case Right((SVariant(_, "CreateAndExercise", createAndExercise), v)) =>
+              toCreateAndExerciseCommand(createAndExercise) match {
+                case Left(err) => Left(err)
+                case Right(r) => iter(v, commands ++ Seq(r))
+              }
+            case Right((fb, _)) =>
+              Left(s"Expected Create, Exercise ExerciseByKey or CreateAndExercise but got $fb")
             case Left(err) => Left(err)
           }
         case _ => Left(s"Expected PureA or Ap but got $v")
@@ -277,7 +303,7 @@ object Converter {
         for {
           apFields <- toApFields(compiledPackages, v)
           (fb, apfba) = apFields
-          bValue <- fb match {
+          r <- fb match {
             // We already validate these records during toCommands so we don’t bother doing proper validation again here.
             case SVariant(_, "Create", v) => {
               val continue = v.asInstanceOf[SRecord].values.get(1)
@@ -285,30 +311,39 @@ object Converter {
               for {
                 cid <- ContractIdString.fromString(contractIdString)
                 contractId = SContractId(AbsoluteContractId(cid))
-              } yield SEApp(SEValue(continue), Array(SEValue(contractId)))
+              } yield (SEApp(SEValue(continue), Array(SEValue(contractId))), eventResults.tail)
             }
             case SVariant(_, "Exercise", v) => {
               val continue = v.asInstanceOf[SRecord].values.get(3)
               val exercised = eventResults.head.getExercised
               for {
                 translated <- translateExerciseResult(choiceType, translator, exercised)
-              } yield SEApp(SEValue(continue), Array(SEValue(translated)))
+              } yield (SEApp(SEValue(continue), Array(SEValue(translated))), eventResults.tail)
             }
             case SVariant(_, "ExerciseByKey", v) => {
               val continue = v.asInstanceOf[SRecord].values.get(3)
               val exercised = eventResults.head.getExercised
               for {
                 translated <- translateExerciseResult(choiceType, translator, exercised)
-              } yield SEApp(SEValue(continue), Array(SEValue(translated)))
+              } yield (SEApp(SEValue(continue), Array(SEValue(translated))), eventResults.tail)
+            }
+            case SVariant(_, "CreateAndExercise", v) => {
+              val continue = v.asInstanceOf[SRecord].values.get(2)
+              // We get a create and an exercise event here. We only care about the exercise event so we skip the create.
+              val exercised = eventResults(1).getExercised
+              for {
+                translated <- translateExerciseResult(choiceType, translator, exercised)
+              } yield (SEApp(SEValue(continue), Array(SEValue(translated))), eventResults.drop(2))
             }
             case _ => Left(s"Expected Create, Exercise or ExerciseByKey but got $fb")
           }
+          (bValue, eventResults) = r
           fValue <- fillCommandResults(
             compiledPackages,
             choiceType,
             translator,
             apfba,
-            eventResults.tail)
+            eventResults)
         } yield SEApp(fValue, Array(bValue))
       }
       case _ => Left(s"Expected PureA or Ap but got $freeAp")

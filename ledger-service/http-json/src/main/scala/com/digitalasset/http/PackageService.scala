@@ -67,6 +67,9 @@ private class PackageService(reloadPackageStoreIfChanged: PackageService.ReloadP
   def resolveTemplateIds: ResolveTemplateIds =
     x => PackageService.resolveTemplateIds(state.templateIdMap)(x)
 
+  def allTemplateIds: AllTemplateIds =
+    () => state.templateIdMap.all
+
   // See the above comment
   def resolveChoiceRecordId: ResolveChoiceRecordId =
     (x, y) => PackageService.resolveChoiceRecordId(state.choiceIdMap)(x, y)
@@ -92,6 +95,9 @@ object PackageService {
 
   type ResolveTemplateId =
     TemplateId.OptionalPkg => Error \/ TemplateId.RequiredPkg
+
+  type AllTemplateIds =
+    () => Set[TemplateId.RequiredPkg]
 
   type ResolveChoiceRecordId =
     (TemplateId.RequiredPkg, Choice) => Error \/ Identifier

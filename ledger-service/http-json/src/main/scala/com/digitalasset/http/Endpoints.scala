@@ -130,9 +130,6 @@ class Endpoints(
   private def encodeList(as: Seq[JsValue]): ServerError \/ JsValue =
     SprayJson.encode(as).leftMap(e => ServerError(e.shows))
 
-  private val emptyGetActiveContractsRequest =
-    domain.GetActiveContractsRequest(Set.empty, Map.empty)
-
   lazy val contracts: PartialFunction[HttpRequest, Future[HttpResponse]] = {
     case req @ HttpRequest(GET, Uri.Path("/contracts/lookup"), _, _, _) =>
       val et: ET[JsValue] = for {
@@ -159,23 +156,20 @@ class Endpoints(
       httpResponse(et)
 
     case req @ HttpRequest(GET, Uri.Path("/contracts/search"), _, _, _) =>
-      val sourceF: Future[Error \/ Source[JsValue, NotUsed]] = input(req).map {
+      val sourceF: Future[Error \/ Source[Error \/ JsValue, NotUsed]] = input(req).map {
         _.map {
           case (jwt, jwtPayload, _) =>
             contractsService
-              .search(jwt, jwtPayload, emptyGetActiveContractsRequest)
+              .retrieveAll(jwt, jwtPayload)
               .via(handleSourceFailure)
-              .map {
-                _.flatMap(lfAcToJsValue)
-                  .fold(errorToJsValue, identity): JsValue
-              }: Source[JsValue, NotUsed]
+              .map(_.flatMap(lfAcToJsValue)): Source[Error \/ JsValue, NotUsed]
         }
       }
 
       httpResponse(sourceF)
 
     case req @ HttpRequest(POST, Uri.Path("/contracts/search"), _, _, _) =>
-      val sourceF: Future[Error \/ Source[JsValue, NotUsed]] = input(req).map {
+      val sourceF: Future[Error \/ Source[Error \/ JsValue, NotUsed]] = input(req).map {
         _.flatMap {
           case (jwt, jwtPayload, reqBody) =>
             SprayJson
@@ -185,10 +179,7 @@ class Endpoints(
                 contractsService
                   .search(jwt, jwtPayload, cmd)
                   .via(handleSourceFailure)
-                  .map {
-                    _.flatMap(lfAcToJsValue)
-                      .fold(errorToJsValue, identity): JsValue
-                  }: Source[JsValue, NotUsed]
+                  .map(_.flatMap(lfAcToJsValue)): Source[Error \/ JsValue, NotUsed]
               }
         }
       }
@@ -244,11 +235,11 @@ class Endpoints(
   }
 
   private def httpResponse(
-      output: Future[Error \/ Source[JsValue, NotUsed]]): Future[HttpResponse] =
+      output: Future[Error \/ Source[Error \/ JsValue, NotUsed]]): Future[HttpResponse] =
     output
       .map {
-        case \/-(source) => httpResponseFromSource(StatusCodes.OK, source)
         case -\/(e) => httpResponseError(e)
+        case \/-(source) => httpResponseFromSource(source)
       }
       .recover {
         case NonFatal(e) => httpResponseError(ServerError(e.getMessage))
@@ -278,11 +269,9 @@ class Endpoints(
       entity = HttpEntity.Strict(ContentTypes.`application/json`, format(data)))
   }
 
-  private def httpResponseFromSource(
-      status: StatusCode,
-      data: Source[JsValue, NotUsed]): HttpResponse =
+  private def httpResponseFromSource(data: Source[Error \/ JsValue, NotUsed]): HttpResponse =
     HttpResponse(
-      status = status,
+      status = StatusCodes.OK,
       entity = HttpEntity
         .CloseDelimited(ContentTypes.`application/json`, ResponseFormats.resultJsObject(data))
     )

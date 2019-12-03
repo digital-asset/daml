@@ -6,7 +6,7 @@
 
 genrule(
     name = "daml-trigger",
-    srcs = glob(["**/*.daml"]),
+    srcs = glob(["**/*.daml"]) + ["//:VERSION"],
     outs = ["daml-trigger.dar"],
     cmd = """
       set -eou pipefail
@@ -15,7 +15,7 @@ genrule(
       cp -L $(location Daml/Trigger.daml) $$TMP_DIR/daml/Daml
       cp -L $(location Daml/Trigger/LowLevel.daml) $$TMP_DIR/daml/Daml/Trigger
       cat << EOF > $$TMP_DIR/daml.yaml
-sdk-version: 0.0.0
+sdk-version: $$(cat $(location //:VERSION))
 name: daml-trigger
 source: daml
 version: 0.0.1

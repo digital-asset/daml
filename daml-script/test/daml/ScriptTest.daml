@@ -39,6 +39,10 @@ template C
       controller p
       do assert False
 
+    choice GetCValue : Int
+      controller p
+      do pure v
+
 template NumericTpl
   with
     p : Party
@@ -114,3 +118,16 @@ testKey = do
   cid <- submit alice $ createCmd (WithKey alice)
   cid' <- submit alice $ exerciseByKeyCmd @WithKey alice GetCid
   pure (cid, cid')
+
+testCreateAndExercise : Script Int
+testCreateAndExercise = do
+  alice <- allocateParty "alice"
+  cid <- submit alice $ createCmd (C alice 41)
+  -- We send a couple of commands to make sure that we properly handle the fact that
+  -- we get two event results from a CreateAndExercise
+  (_, r, _) <- submit alice $
+    (,,)
+      <$> createCmd (C alice 42)
+      <*> createAndExerciseCmd (C alice 42) GetCValue
+      <*> exerciseCmd cid GetCValue
+  pure r

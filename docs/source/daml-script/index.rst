@@ -83,7 +83,7 @@ script so that we can easily swap them out.
    :end-before: -- LEDGER_PARTIES_END
 
 Let us now write a function to initialize the ledger with 3
-``CoinProposal``s and accept 2 of them. This function takes the
+``CoinProposal`` contracts and accept 2 of them. This function takes the
 ``LedgerParties`` as an argument and return something of type ``Script
 ()`` which is DAML script’s equivalent of ``Scenario ()``.
 

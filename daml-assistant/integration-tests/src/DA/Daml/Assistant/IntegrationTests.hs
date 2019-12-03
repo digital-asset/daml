@@ -139,6 +139,45 @@ packagingTests = testGroup "packaging"
         withCurrentDirectory projDir $ callCommandQuiet "daml build"
         let dar = projDir </> ".daml" </> "dist" </> "copy-trigger-0.0.1.dar"
         assertBool "copy-trigger-0.1.0.dar was not created." =<< doesFileExist dar
+     , testCase "Build trigger with extra dependency" $ withTempDir $ \tmpDir -> do
+        let myDepDir = tmpDir </> "mydep"
+        createDirectoryIfMissing True (myDepDir </> "daml")
+        writeFileUTF8 (myDepDir </> "daml.yaml") $ unlines
+            [ "sdk-version: " <> sdkVersion
+            , "name: mydep"
+            , "version: \"1.0\""
+            , "source: daml"
+            , "dependencies:"
+            , "  - daml-prim"
+            , "  - daml-stdlib"
+            ]
+        writeFileUTF8 (myDepDir </> "daml" </> "MyDep.daml") $ unlines
+          [ "daml 1.2"
+          , "module MyDep where"
+          ]
+        withCurrentDirectory myDepDir $ callCommandQuiet "daml build -o mydep.dar"
+        let myTriggerDir = tmpDir </> "mytrigger"
+        createDirectoryIfMissing True (myTriggerDir </> "daml")
+        writeFileUTF8 (myTriggerDir </> "daml.yaml") $ unlines
+            [ "sdk-version: " <> sdkVersion
+            , "name: mytrigger"
+            , "version: \"1.0\""
+            , "source: daml"
+            , "dependencies:"
+            , "  - daml-prim"
+            , "  - daml-stdlib"
+            , "  - daml-trigger"
+            , "  - " <> myDepDir </> "mydep.dar"
+            ]
+        writeFileUTF8 (myTriggerDir </> "daml/Main.daml") $ unlines
+            [ "daml 1.2"
+            , "module Main where"
+            , "import MyDep ()"
+            , "import Daml.Trigger ()"
+            ]
+        withCurrentDirectory myTriggerDir $ callCommandQuiet "daml build -o mytrigger.dar"
+        let dar = myTriggerDir </> "mytrigger.dar"
+        assertBool "mytrigger.dar was not created." =<< doesFileExist dar
      , testCase "Build DAML script example"  $ withTempDir $ \tmpDir -> do
         let projDir = tmpDir </> "script-example"
         callCommandQuiet $ unwords ["daml", "new", projDir, "script-example"]
@@ -478,7 +517,7 @@ quickstartTests quickstartDir mvnDir = testGroup "quickstart"
                   manager <- newManager defaultManagerSettings
                   resp <- httpLbs req manager
                   responseBody resp @?=
-                      "{\"status\":200,\"result\":[]}"
+                      "{\"result\":[],\"status\":200}"
                   -- waitForProcess' will block on Windows so we explicitly kill the process.
                   terminateProcess jsonApiPh
               terminateProcess sandboxPh

@@ -138,12 +138,10 @@ genrule(
     outs = ["SdkVersion.hs"],
     cmd = """
         SDK_VERSION=$$(cat $(location VERSION))
-        COMPONENT_VERSION=$$(cat $(location :component-version))
         cat > $@ <<EOF
 module SdkVersion where
-sdkVersion, componentVersion, damlStdlib :: String
+sdkVersion, damlStdlib :: String
 sdkVersion = "$$SDK_VERSION"
-componentVersion = "$$COMPONENT_VERSION"
 damlStdlib = "daml-stdlib-" ++ sdkVersion
 EOF
     """,

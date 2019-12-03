@@ -208,6 +208,8 @@ decodeDefDataType LF1.DefDataType{..} =
 
 decodeDataCons :: LF1.DefDataTypeDataCons -> Decode DataCons
 decodeDataCons = \case
+  LF1.DefDataTypeDataConsSynonym ty ->
+    DataSynonym <$> decodeType ty
   LF1.DefDataTypeDataConsRecord (LF1.DefDataType_Fields fs) ->
     DataRecord <$> mapM (decodeFieldWithType FieldName) (V.toList fs)
   LF1.DefDataTypeDataConsVariant (LF1.DefDataType_Fields fs) ->
