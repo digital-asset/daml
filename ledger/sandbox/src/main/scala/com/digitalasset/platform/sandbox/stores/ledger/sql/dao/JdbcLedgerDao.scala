@@ -42,31 +42,14 @@ import com.digitalasset.ledger.api.health.HealthStatus
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.common.util.DirectExecutionContext
 import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilter
-import com.digitalasset.platform.sandbox.stores.ActiveLedgerState.{
-  ActiveContract,
-  Contract,
-  DivulgedContract
-}
+import com.digitalasset.platform.sandbox.stores.ActiveLedgerState.{ActiveContract, Contract, DivulgedContract}
 import com.digitalasset.platform.sandbox.stores._
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry._
-import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.JdbcLedgerDao.{
-  H2DatabaseQueries,
-  PostgresQueries
-}
-import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{
-  ContractSerializer,
-  KeyHasher,
-  TransactionSerializer,
-  ValueSerializer
-}
+import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.JdbcLedgerDao.{H2DatabaseQueries, PostgresQueries}
+import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{ContractSerializer, KeyHasher, TransactionSerializer, ValueSerializer}
 import com.digitalasset.platform.sandbox.stores.ledger.sql.util.Conversions._
 import com.digitalasset.platform.sandbox.stores.ledger.sql.util.DbDispatcher
-import com.digitalasset.platform.sandbox.stores.ledger.{
-  ConfigurationEntry,
-  LedgerEntry,
-  PackageUploadLedgerEntry,
-  PartyAllocationLedgerEntry
-}
+import com.digitalasset.platform.sandbox.stores.ledger.{ConfigurationEntry, LedgerEntry, PackageUploadLedgerEntry, PartyAllocationLedgerEntry}
 import com.google.common.io.ByteStreams
 import scalaz.syntax.tag._
 
@@ -1463,7 +1446,8 @@ private class JdbcLedgerDao(
       ledgerString("participant_id") ~
       str("party")(emptyStringToNullColumn).? ~
       str("display_name")(emptyStringToNullColumn).? ~
-      str("rejection_reason")(emptyStringToNullColumn).?)
+      str("rejection_reason")(emptyStringToNullColumn).? ~
+      bool("is_local").?)
       .map(flatten)
       .map {
         case (
@@ -1474,7 +1458,8 @@ private class JdbcLedgerDao(
             participantId,
             party,
             displayName,
-            rejectionReason) =>
+            rejectionReason,
+            isLocal) =>
           offset ->
             (typ match {
               case `entryAcceptType` =>
@@ -1482,7 +1467,7 @@ private class JdbcLedgerDao(
                   submissionId,
                   participantId,
                   recordedAt.get.toInstant,
-                  PartyDetails(Party.assertFromString(party.get), displayName, isLocal = true)
+                  PartyDetails(Party.assertFromString(party.get), displayName, isLocal.getOrElse(true))
                 )
               case `entryRejectType` =>
                 PartyAllocationLedgerEntry.Rejected(
@@ -1529,7 +1514,7 @@ private class JdbcLedgerDao(
       require(packages.nonEmpty, "The list of packages to upload cannot be empty")
     }
     requirements.fold(
-      Future.failed,
+      e => Future.failed(e),
       _ =>
         dbDispatcher.executeSql(
           "store_packages",
@@ -1640,7 +1625,9 @@ private class JdbcLedgerDao(
             "party" -> optionalPartyDetails(entry).map(_.party.toString).orNull,
             "display_name" -> optionalPartyDetails(entry).map(_.displayName.orNull),
             "typ" -> typ,
-            "rejection_reason" -> partyAllocationReasonOrNull(entry)
+            "rejection_reason" -> partyAllocationReasonOrNull(entry).orNull,
+            // does not appear nullable boolean field is permitted, default to false
+            "is_local" -> optionalPartyDetails(entry).exists(_.isLocal)
           )
           .execute()
         PersistenceResponse.Ok
@@ -1661,12 +1648,12 @@ private class JdbcLedgerDao(
       case PartyAllocationLedgerEntry.Rejected(_, _, _, _) =>
         None
     }
-  private def partyAllocationReasonOrNull(entry: PartyAllocationLedgerEntry): String = {
+  private def partyAllocationReasonOrNull(entry: PartyAllocationLedgerEntry): Option[String] = {
     entry match {
       case PartyAllocationLedgerEntry.Rejected(_, _, _, reason) =>
-        reason
+        Some(reason)
       case PartyAllocationLedgerEntry.Accepted(_, _, _, _) =>
-        null
+        None
     }
   }
 
@@ -1775,8 +1762,8 @@ object JdbcLedgerDao {
         |on conflict (submission_id) do nothing""".stripMargin
 
     override protected[JdbcLedgerDao] val SQL_INSERT_PARTY_ALLOCATION_ENTRY: String =
-      """insert into party_allocation_entries(ledger_offset, recorded_at, submission_id, participant_id, party, display_name, typ, rejection_reason)
-        |values({ledger_offset}, {recorded_at}, {submission_id}, {participant_id}, {party}, {display_name}, {typ}, {rejection_reason})
+      """insert into party_allocation_entries(ledger_offset, recorded_at, submission_id, participant_id, party, display_name, typ, rejection_reason, is_local)
+        |values({ledger_offset}, {recorded_at}, {submission_id}, {participant_id}, {party}, {display_name}, {typ}, {rejection_reason}, {is_local})
         |on conflict (submission_id) do nothing""".stripMargin
 
     override protected[JdbcLedgerDao] val SQL_IMPLICITLY_INSERT_PARTIES: String =
@@ -1875,8 +1862,8 @@ object JdbcLedgerDao {
 
     override protected[JdbcLedgerDao] val SQL_INSERT_PARTY_ALLOCATION_ENTRY: String =
       """merge into party_allocation_entries using dual on submission_id = {submission_id}
-        |when not matched then insert (ledger_offset, recorded_at, submission_id, participant_id, party, display_name, typ, rejection_reason)
-        |select {ledger_offset}, {recorded_at}, {submission_id}, {participant_id}, {party}, {display_name}, {typ}, {rejection_reason}
+        |when not matched then insert (ledger_offset, recorded_at, submission_id, participant_id, party, display_name, typ, rejection_reason, is_local)
+        |select {ledger_offset}, {recorded_at}, {submission_id}, {participant_id}, {party}, {display_name}, {typ}, {rejection_reason}, {is_local}
         |from parameters""".stripMargin
 
     override protected[JdbcLedgerDao] val SQL_IMPLICITLY_INSERT_PARTIES: String =

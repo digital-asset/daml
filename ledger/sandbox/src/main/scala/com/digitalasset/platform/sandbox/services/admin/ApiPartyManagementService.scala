@@ -74,7 +74,7 @@ class ApiPartyManagementService private (
                     PartyDetails(
                       partyDetails.party,
                       partyDetails.displayName.getOrElse(""),
-                      isLocal = true))))
+                      partyDetails.isLocal))))
             case domain.PartyAllocationEntry.Rejected(_, _, reason) =>
               Future.failed(ErrorFactories.invalidArgument(reason))
           }(DE)

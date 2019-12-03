@@ -75,7 +75,7 @@ object Update {
     *   The submissionId of the command which requested party to be added.
     *
     */
-  // TODO BH: add isLocal as was on async event
+
   final case class PartyAddedToParticipant(
       party: Party,
       displayName: String,

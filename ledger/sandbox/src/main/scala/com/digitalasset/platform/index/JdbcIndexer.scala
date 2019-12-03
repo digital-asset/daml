@@ -103,7 +103,7 @@ class JdbcIndexerFactory[Status <: InitStatus] private (
       ledgerEnd <- ledgerDao.lookupLedgerEnd()
       externalOffset <- ledgerDao.lookupExternalLedgerEnd()
     } yield {
-      new JdbcIndexer(ledgerEnd, externalOffset, ledgerDao, metrics)(materializer) {
+      new JdbcIndexer(ledgerEnd, externalOffset, ledgerDao, metrics, participantId)(materializer) {
         override def close(): Unit = {
           super.close()
           materializer.shutdown()
@@ -174,7 +174,8 @@ class JdbcIndexer private[index] (
     initialInternalOffset: Long,
     beginAfterExternalOffset: Option[LedgerString],
     ledgerDao: LedgerDao,
-    metrics: MetricRegistry)(implicit mat: Materializer)
+    metrics: MetricRegistry,
+    participantId: ParticipantId)(implicit mat: Materializer)
     extends Indexer
     with AutoCloseable {
 
@@ -273,12 +274,11 @@ class JdbcIndexer private[index] (
             externalOffset,
             submissionId,
             participantId,
-            //TODO BH proper participant isLocal check needed
             PartyAllocationLedgerEntry.Accepted(
               submissionId,
               participantId,
               recordTime.toInstant,
-              PartyDetails(party, Some(displayName), isLocal = true))
+              PartyDetails(party, Some(displayName), isLocal = (this.participantId == participantId)))
           )
           .map(_ => headRef = headRef + 1)(DEC)
 

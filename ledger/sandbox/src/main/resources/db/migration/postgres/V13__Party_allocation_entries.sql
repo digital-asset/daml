@@ -25,6 +25,8 @@ CREATE TABLE party_allocation_entries
     -- If the type is 'reject', then the rejection reason is set.
     -- Rejection reason is a human-readable description why the change was rejected.
     rejection_reason varchar,
+    -- true if the party was added on participantId node that owns the party
+    is_local         bool,
 
     constraint check_party_allocation_entry_type
         check (
