@@ -116,7 +116,7 @@ object IntegrityCheck extends App {
           updates.forall(
             update =>
               update.isInstanceOf[Update.PublicPackageUploaded]
-                || update.isInstanceOf[Update.PackageUploadEntryAccepted]
+                || update.isInstanceOf[Update.PackageUploadAccepted]
                 || update.isInstanceOf[Update.PackageUploadEntryRejected]))
       case Proto.DamlLogEntry.PayloadCase.CONFIGURATION_ENTRY =>
         assert(updates.head.isInstanceOf[Update.ConfigurationChanged])

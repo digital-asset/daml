@@ -36,6 +36,7 @@ private class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: MetricRegis
     val parties = metrics.timer("Ledger.parties")
     val partyAllocationEntries = metrics.timer("Ledger.partyAllocationEntries")
     val lookupPartyAllocationEntry = metrics.timer("Ledger.lookupPartyAllocationEntry")
+    val lookupPackageUploadEntry = metrics.timer("Ledger.lookupPackageUploadEntry")
     val listLfPackages = metrics.timer("Ledger.listLfPackages")
     val getLfArchive = metrics.timer("Ledger.getLfArchive")
     val getLfPackage = metrics.timer("Ledger.getLfPackage")
@@ -79,7 +80,7 @@ private class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: MetricRegis
 
   override def lookupPackageUploadEntry(
       submissionId: SubmissionId): Future[Option[PackageUploadLedgerEntry]] =
-    ledger.lookupPackageUploadEntry(submissionId)
+    timedFuture(Metrics.lookupPackageUploadEntry, ledger.lookupPackageUploadEntry(submissionId))
 
   override def close(): Unit = {
     ledger.close()

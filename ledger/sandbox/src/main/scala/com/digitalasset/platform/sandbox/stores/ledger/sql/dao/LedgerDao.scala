@@ -148,17 +148,6 @@ trait LedgerReadDao extends AutoCloseable with ReportsHealth {
       endExclusive: LedgerOffset): Source[(LedgerOffset, LedgerEntry), NotUsed]
 
   /**
-    * Returns a stream of package upload entries
-    *
-    * @param startInclusive starting offset inclusive
-    * @param endExclusive   ending offset exclusive
-    * @return a stream of ledger entries tupled with their offset
-    */
-  def getPackageUploadEntries(
-      startInclusive: LedgerOffset,
-      endExclusive: LedgerOffset): Source[(Long, PackageUploadLedgerEntry), NotUsed]
-
-  /**
     * Returns a snapshot of the ledger.
     * The snapshot consists of an offset, and a stream of contracts that were active at that offset.
     *

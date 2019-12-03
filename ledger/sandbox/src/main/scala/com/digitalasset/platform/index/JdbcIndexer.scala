@@ -282,7 +282,7 @@ class JdbcIndexer private[index] (
           )
           .map(_ => headRef = headRef + 1)(DEC)
 
-      case PartyAllocationEntryRejected(submissionId, participantId, recordTime, rejectionReason) =>
+      case PartyAllocationRejected(submissionId, participantId, recordTime, rejectionReason) =>
         ledgerDao
           .storePartyAllocationEntry(
             headRef,
@@ -307,7 +307,7 @@ class JdbcIndexer private[index] (
         )
         ledgerDao.uploadLfPackages(uploadId, packages, externalOffset).map(_ => ())(DEC)
 
-      case PackageUploadEntryAccepted(participantId, recordTime, submissionId) =>
+      case PackageUploadAccepted(participantId, recordTime, submissionId) =>
         ledgerDao
           .storePackageUploadEntry(
             headRef,

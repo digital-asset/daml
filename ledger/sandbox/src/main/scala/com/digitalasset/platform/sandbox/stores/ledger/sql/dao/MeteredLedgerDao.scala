@@ -48,6 +48,7 @@ private class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: MetricRegi
     val lookupKey: Timer = metrics.timer("LedgerDao.lookupKey")
     val lookupActiveContract: Timer = metrics.timer("LedgerDao.lookupActiveContract")
     val lookupPartyAllocationEntry: Timer = metrics.timer("LedgerDao.lookupPartyAllocationEntry")
+    val lookupPackageUploadEntry: Timer = metrics.timer("LedgerDao.lookupPackageUploadEntry")
     val getParties: Timer = metrics.timer("LedgerDao.getParties")
     val listLfPackages: Timer = metrics.timer("LedgerDao.listLfPackages")
     val getLfArchive: Timer = metrics.timer("LedgerDao.getLfArchive")
@@ -92,14 +93,9 @@ private class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: MetricRegi
       endExclusive: LedgerOffset): Source[(LedgerOffset, LedgerEntry), NotUsed] =
     ledgerDao.getLedgerEntries(startInclusive, endExclusive)
 
-  override def getPackageUploadEntries(
-      startInclusive: LedgerOffset,
-      endExclusive: LedgerOffset): Source[(LedgerOffset, PackageUploadLedgerEntry), NotUsed] =
-    ledgerDao.getPackageUploadEntries(startInclusive, endExclusive)
-
   override def lookupPackageUploadEntry(
       submissionId: SubmissionId): Future[Option[PackageUploadLedgerEntry]] =
-    ledgerDao.lookupPackageUploadEntry(submissionId)
+    timedFuture(Metrics.lookupPackageUploadEntry, ledgerDao.lookupPackageUploadEntry(submissionId))
 
   override def getParties: Future[List[PartyDetails]] =
     timedFuture(Metrics.getParties, ledgerDao.getParties)
@@ -142,6 +138,8 @@ private class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: MetricRegistry)
     val uploadLfPackages: Timer = metrics.timer("LedgerDao.uploadLfPackages")
     val storeLedgerEntry: Timer = metrics.timer("LedgerDao.storeLedgerEntry")
     val storeConfigurationEntry: Timer = metrics.timer("LedgerDao.storeConfigurationEntry")
+    val storePackageUploadEntry: Timer = metrics.timer("LedgerDao.storePackageUploadEntry")
+    val storePartyAllocationEntry: Timer = metrics.timer("LedgerDao.storePartyAllocationEntry")
   }
 
   override def currentHealth(): HealthStatus = ledgerDao.currentHealth()
@@ -216,7 +214,9 @@ private class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: MetricRegistry)
       newLedgerEnd: LedgerOffset,
       externalOffset: Option[ExternalOffset],
       entry: PackageUploadLedgerEntry): Future[PersistenceResponse] =
-    ledgerDao.storePackageUploadEntry(offset, newLedgerEnd, externalOffset, entry)
+    timedFuture(
+      Metrics.storePackageUploadEntry,
+      ledgerDao.storePackageUploadEntry(offset, newLedgerEnd, externalOffset, entry))
 
   def storePartyAllocationEntry(
       offset: LedgerOffset,
@@ -225,13 +225,15 @@ private class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: MetricRegistry)
       submissionId: SubmissionId,
       participantId: ParticipantId,
       entry: PartyAllocationLedgerEntry): Future[PersistenceResponse] =
-    ledgerDao.storePartyAllocationEntry(
-      offset,
-      newLedgerEnd,
-      externalOffset,
-      submissionId,
-      participantId,
-      entry)
+    timedFuture(
+      Metrics.storePartyAllocationEntry,
+      ledgerDao.storePartyAllocationEntry(
+        offset,
+        newLedgerEnd,
+        externalOffset,
+        submissionId,
+        participantId,
+        entry))
 }
 
 object MeteredLedgerDao {

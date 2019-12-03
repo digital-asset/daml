@@ -333,13 +333,12 @@ private final class SqlLedger(
           None,
           submissionId,
           participantId,
-          //TODO BH proper participant isLocal check needed
           PartyAllocationLedgerEntry
             .Accepted(
               submissionId,
               participantId,
               timeProvider.getCurrentTime,
-              PartyDetails(party, displayName, isLocal = true))
+              PartyDetails(party, displayName, isLocal = (participantId == this.participantId)))
         )
         .map {
           case PersistenceResponse.Ok =>
@@ -395,7 +394,7 @@ private final class SqlLedger(
       ledgerDao
         .uploadLfPackages(submissionId, packages, None)
         .map { result =>
-          result.get(PersistenceResponse.Ok).fold(logger.info(s"No package uploaded")) { uploaded =>
+          result.get(PersistenceResponse.Ok).fold(logger.info("No package uploaded")) { uploaded =>
             logger.info(s"Successfully uploaded $uploaded packages")
           }
           for (duplicates <- result.get(PersistenceResponse.Duplicate)) {

@@ -294,7 +294,6 @@ object domain {
   sealed abstract class PartyAllocationEntry() extends Product with Serializable {
     val submissionId: String
     val participantId: ParticipantId
-    def value: String
   }
 
   object PartyAllocationEntry {
@@ -302,38 +301,31 @@ object domain {
         override val submissionId: String,
         override val participantId: ParticipantId,
         partyDetails: PartyDetails
-    ) extends PartyAllocationEntry {
-      override def value = "accept"
-    }
+    ) extends PartyAllocationEntry
+
     final case class Rejected(
         override val submissionId: String,
         override val participantId: ParticipantId,
         reason: String
-    ) extends PartyAllocationEntry {
-      override def value = "reject"
-    }
+    ) extends PartyAllocationEntry
   }
 
   sealed abstract class PackageUploadEntry() extends Product with Serializable {
     val submissionId: String
     val participantId: ParticipantId
-    def value: String
   }
 
   object PackageUploadEntry {
     final case class Accepted(
         override val submissionId: String,
         override val participantId: ParticipantId,
-    ) extends PackageUploadEntry {
-      override def value = "accept"
-    }
+    ) extends PackageUploadEntry
+
     final case class Rejected(
         override val submissionId: String,
         override val participantId: ParticipantId,
         reason: String
-    ) extends PackageUploadEntry {
-      override def value = "reject"
-    }
+    ) extends PackageUploadEntry
   }
 
 }

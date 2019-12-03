@@ -5,7 +5,7 @@ package com.daml.ledger.participant.state.kvutils
 
 import com.daml.ledger.participant.state.kvutils.Conversions._
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
-import com.daml.ledger.participant.state.v1.Update.PartyAllocationEntryRejected
+import com.daml.ledger.participant.state.v1.Update.PartyAllocationRejected
 import com.daml.ledger.participant.state.v1._
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Time.Timestamp
@@ -59,7 +59,7 @@ object KeyValueConsumption {
         }.toList
 
         // TODO(BH): only send accept message if participantId matches
-        Update.PackageUploadEntryAccepted(participantId, recordTime, submissionId) :: packageUpdates
+        Update.PackageUploadAccepted(participantId, recordTime, submissionId) :: packageUpdates
 
       case DamlLogEntry.PayloadCase.PACKAGE_UPLOAD_REJECTION_ENTRY =>
         val rejection = entry.getPackageUploadRejectionEntry
@@ -106,7 +106,7 @@ object KeyValueConsumption {
         // TODO(BH): only send for matching participant who sent request
         // if (participantId == entry.getPartyAllocationRejectionEntry.getParticipantId)
         List(
-          PartyAllocationEntryRejected(
+          PartyAllocationRejected(
             submissionId,
             participantId,
             recordTime,

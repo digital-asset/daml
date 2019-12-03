@@ -180,8 +180,8 @@ private class JdbcLedgerDao(
   override def lookupLedgerConfiguration(): Future[Option[Configuration]] =
     dbDispatcher.executeSql("lookup_configuration")(implicit conn => selectLedgerConfiguration)
 
-  private val configurationAcceptType = "accept"
-  private val configurationRejectType = "reject"
+  private val entryAcceptType = "accept"
+  private val entryRejectType = "reject"
 
   private val configurationEntryParser: RowParser[(Long, ConfigurationEntry)] =
     (long("ledger_offset") ~
@@ -210,13 +210,13 @@ private class JdbcLedgerDao(
 
           offset ->
             (typ match {
-              case `configurationAcceptType` =>
+              case `entryAcceptType` =>
                 ConfigurationEntry.Accepted(
                   submissionId = submissionId,
                   participantId = participantId,
                   configuration = config
                 )
-              case `configurationRejectType` =>
+              case `entryRejectType` =>
                 ConfigurationEntry.Rejected(
                   submissionId = submissionId,
                   participantId = participantId,
@@ -276,9 +276,9 @@ private class JdbcLedgerDao(
         updateLedgerEnd(newLedgerEnd, externalOffset)
         val configurationBytes = Configuration.encode(configuration).toByteArray
         val typ = if (finalRejectionReason.isEmpty) {
-          configurationAcceptType
+          entryAcceptType
         } else {
-          configurationRejectType
+          entryRejectType
         }
 
         Try({
@@ -294,7 +294,7 @@ private class JdbcLedgerDao(
             )
             .execute()
 
-          if (typ == configurationAcceptType) {
+          if (typ == entryAcceptType) {
             updateCurrentConfiguration(configurationBytes)
           }
 
@@ -1436,13 +1436,13 @@ private class JdbcLedgerDao(
         case (offset, recordedAt, typ, submissionId, participantId, rejectionReason) =>
           offset ->
             (typ match {
-              case "accept" =>
+              case `entryAcceptType` =>
                 PackageUploadLedgerEntry.Accepted(
                   submissionId,
                   participantId,
                   recordedAt.get.toInstant
                 )
-              case "reject" =>
+              case `entryRejectType` =>
                 PackageUploadLedgerEntry.Rejected(
                   submissionId,
                   participantId,
@@ -1477,14 +1477,14 @@ private class JdbcLedgerDao(
             rejectionReason) =>
           offset ->
             (typ match {
-              case "accept" =>
+              case `entryAcceptType` =>
                 PartyAllocationLedgerEntry.Accepted(
                   submissionId,
                   participantId,
                   recordedAt.get.toInstant,
                   PartyDetails(Party.assertFromString(party.get), displayName, isLocal = true)
                 )
-              case "reject" =>
+              case `entryRejectType` =>
                 PartyAllocationLedgerEntry.Rejected(
                   submissionId,
                   participantId,
@@ -1559,29 +1559,15 @@ private class JdbcLedgerDao(
     )
   }
 
-  override def getPackageUploadEntries(
-      startInclusive: Long,
-      endExclusive: Long): Source[(Long, PackageUploadLedgerEntry), NotUsed] =
-    paginatingStream(
-      startInclusive,
-      endExclusive,
-      PageSize,
-      (startI, endE) => {
-        dbDispatcher.executeSql("load_package_upload_entries", Some(s"bounds: [$startI, $endE[")) {
-          implicit conn =>
-            SQL_SELECT_PACKAGE_UPLOAD_ENTRIES
-              .on("startInclusive" -> startI, "endExclusive" -> endE)
-              .as(packageUploadEntryParser.*)
-        }
-      }
-    ).flatMapConcat(Source(_))
-
   override def storePackageUploadEntry(
       offset: LedgerOffset,
       newLedgerEnd: LedgerOffset,
       externalOffset: Option[ExternalOffset],
       entry: PackageUploadLedgerEntry): Future[PersistenceResponse] = {
-
+    val typ = entry match {
+      case PackageUploadLedgerEntry.Accepted(_, _, _) => entryAcceptType
+      case _ => entryRejectType
+    }
     dbDispatcher.executeSql("store_package_upload_entry") { implicit conn =>
       updateLedgerEnd(newLedgerEnd, externalOffset)
       Try({
@@ -1591,7 +1577,7 @@ private class JdbcLedgerDao(
             "recorded_at" -> entry.recordTime,
             "submission_id" -> entry.submissionId,
             "participant_id" -> entry.participantId,
-            "typ" -> entry.value,
+            "typ" -> typ,
             "rejection_reason" -> reasonOrNull(entry)
           )
           .execute()
@@ -1637,6 +1623,10 @@ private class JdbcLedgerDao(
       submissionId: SubmissionId,
       participantId: ParticipantId,
       entry: PartyAllocationLedgerEntry): Future[PersistenceResponse] = {
+    val typ = entry match {
+      case PartyAllocationLedgerEntry.Accepted(_, _, _, _) => entryAcceptType
+      case _ => entryRejectType
+    }
 
     dbDispatcher.executeSql("store_party_allocation_entry") { implicit conn =>
       updateLedgerEnd(newLedgerEnd, externalOffset)
@@ -1649,8 +1639,8 @@ private class JdbcLedgerDao(
             "participant_id" -> participantId,
             "party" -> optionalPartyDetails(entry).map(_.party.toString).orNull,
             "display_name" -> optionalPartyDetails(entry).map(_.displayName.orNull),
-            "typ" -> entry.value,
-            "rejection_reason" -> partyAllocationReasonorNull(entry)
+            "typ" -> typ,
+            "rejection_reason" -> partyAllocationReasonOrNull(entry)
           )
           .execute()
         PersistenceResponse.Ok
@@ -1671,7 +1661,7 @@ private class JdbcLedgerDao(
       case PartyAllocationLedgerEntry.Rejected(_, _, _, _) =>
         None
     }
-  private def partyAllocationReasonorNull(entry: PartyAllocationLedgerEntry): String = {
+  private def partyAllocationReasonOrNull(entry: PartyAllocationLedgerEntry): String = {
     entry match {
       case PartyAllocationLedgerEntry.Rejected(_, _, _, reason) =>
         reason

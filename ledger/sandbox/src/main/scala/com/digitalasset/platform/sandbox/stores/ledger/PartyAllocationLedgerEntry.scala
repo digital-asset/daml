@@ -13,7 +13,6 @@ sealed abstract class PartyAllocationLedgerEntry() extends Product with Serializ
   val submissionId: String
   val participantId: ParticipantId
   val recordTime: Instant
-  def value: String
 }
 
 object PartyAllocationLedgerEntry {
@@ -23,16 +22,12 @@ object PartyAllocationLedgerEntry {
       override val participantId: ParticipantId,
       override val recordTime: Instant,
       partyDetails: PartyDetails
-  ) extends PartyAllocationLedgerEntry {
-    override def value = "accept"
-  }
+  ) extends PartyAllocationLedgerEntry
 
   final case class Rejected(
       override val submissionId: SubmissionId,
       override val participantId: ParticipantId,
       override val recordTime: Instant,
       reason: String
-  ) extends PartyAllocationLedgerEntry {
-    override def value = "reject"
-  }
+  ) extends PartyAllocationLedgerEntry
 }

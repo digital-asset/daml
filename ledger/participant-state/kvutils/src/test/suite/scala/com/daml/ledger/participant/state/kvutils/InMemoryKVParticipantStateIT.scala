@@ -249,7 +249,7 @@ class InMemoryKVParticipantStateIT
       } yield {
         assert(result == SubmissionResult.Acknowledged, "unexpected response to party allocation")
         updateTuples.head match {
-          case (offset: Offset, update: PartyAllocationEntryRejected) =>
+          case (offset: Offset, update: PartyAllocationRejected) =>
             assert(offset == Offset(Array(0L, 0L)))
             assert(update.rejectionReason contains "Party name is invalid")
           case _ =>
@@ -271,7 +271,7 @@ class InMemoryKVParticipantStateIT
         assert(result1 == SubmissionResult.Acknowledged, "unexpected response to party allocation")
         assert(result2 == SubmissionResult.Acknowledged, "unexpected response to party allocation")
         update2 match {
-          case (offset: Offset, update: PartyAllocationEntryRejected) =>
+          case (offset: Offset, update: PartyAllocationRejected) =>
             assert(offset == Offset(Array(1L, 0L)))
             assert(update.rejectionReason equalsIgnoreCase "Party already exists")
           case _ =>
@@ -507,7 +507,7 @@ object InMemoryKVParticipantStateIT {
   private def matchPackageUploadEntryAccepted(
       updateTuple: (Offset, Update),
       givenOffset: Offset): Assertion = updateTuple match {
-    case (offset: Offset, update: PackageUploadEntryAccepted) =>
+    case (offset: Offset, update: PackageUploadAccepted) =>
       assert(offset == givenOffset)
       assert(update.participantId == participantId)
     case _ => fail("did not find expected upload entry accepted")

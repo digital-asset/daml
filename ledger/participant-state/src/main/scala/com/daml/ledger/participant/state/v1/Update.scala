@@ -93,15 +93,15 @@ object Update {
     * with a possible need to revisit as part of the per-party package visibility work
     * https://github.com/digital-asset/daml/issues/311.
     *
-    * @param participantId
+   * @param submissionId
+   *   submissionId of the party allocation command.
+   *
+   * @param participantId
     *   The participant to which the party was requested to be added. This field
     *   is informative,
     *
     * @param recordTime
     *   The ledger-provided timestamp at which the package was uploaded.
-    *
-    * @param submissionId
-    *   submissionId of the party allocation command.
     *
     * @param rejectionReason
     *   reason for rejection of the party allocation entry
@@ -109,7 +109,7 @@ object Update {
     * Consider whether an enumerated set of reject reasons a la [[RejectionReason]] would be helpful, and whether the same breadth of reject
     * types needs to be handled for party allocation entry rejects
     */
-  final case class PartyAllocationEntryRejected(
+  final case class PartyAllocationRejected(
       submissionId: SubmissionId,
       participantId: ParticipantId,
       recordTime: Timestamp,
@@ -179,13 +179,13 @@ object Update {
     * Consider whether an enumerated set of reject reasons a la [[RejectionReason]] would be helpful, and whether the same breadth of reject
     * types needs to be handled for package upload entry rejects
     */
-  final case class PackageUploadEntryAccepted(
+  final case class PackageUploadAccepted(
       participantId: ParticipantId,
       recordTime: Timestamp,
       submissionId: SubmissionId)
       extends Update {
     override def description: String = {
-      s"Accepted package ${submissionId} for participant ${participantId}"
+      s"Accepted package $submissionId for participant $participantId"
     }
   }
 

@@ -12,7 +12,6 @@ sealed abstract class PackageUploadLedgerEntry() extends Product with Serializab
   val submissionId: String
   val participantId: ParticipantId
   val recordTime: Instant
-  def value: String
 }
 
 object PackageUploadLedgerEntry {
@@ -20,15 +19,12 @@ object PackageUploadLedgerEntry {
       override val submissionId: String,
       override val participantId: ParticipantId,
       override val recordTime: Instant
-  ) extends PackageUploadLedgerEntry {
-    override def value = "accept"
-  }
+  ) extends PackageUploadLedgerEntry
+
   final case class Rejected(
       override val submissionId: String,
       override val participantId: ParticipantId,
       override val recordTime: Instant,
       reason: String
-  ) extends PackageUploadLedgerEntry {
-    override def value = "reject"
-  }
+  ) extends PackageUploadLedgerEntry
 }
