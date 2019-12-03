@@ -65,7 +65,7 @@ import com.digitalasset.platform.sandbox.stores.ledger.{
   ConfigurationEntry,
   LedgerEntry,
   PackageUploadLedgerEntry,
-  PartyAllocationLedgerEntry
+  PartyLedgerEntry
 }
 import com.google.common.io.ByteStreams
 import scalaz.syntax.tag._
@@ -671,7 +671,7 @@ private class JdbcLedgerDao(
               submissionId,
               //FIXME BH not sure we ever know this for implicit parties, probably need to make this nullable
               ParticipantId.assertFromString("IMPLICIT"),
-              PartyAllocationLedgerEntry.Implicit(
+              PartyLedgerEntry.ImplicitPartyCreated(
                 submissionId,
                 Instant.now(),
                 PartyDetails(p, None, isLocal = true))
@@ -1361,17 +1361,17 @@ private class JdbcLedgerDao(
         // update and the id given to participant in a command-line argument
         // (See issue #2026)
         .map {
-          case (_, PartyAllocationLedgerEntry.Accepted(_, _, _, details)) =>
+          case (_, PartyLedgerEntry.AllocationAccepted(_, _, _, details)) =>
             PartyDetails(
               Party.assertFromString(details.party),
               details.displayName,
               isLocal = details.isLocal)
-          case (_, PartyAllocationLedgerEntry.Implicit(_, _, details)) =>
+          case (_, PartyLedgerEntry.ImplicitPartyCreated(_, _, details)) =>
             PartyDetails(
               Party.assertFromString(details.party),
               details.displayName,
               isLocal = details.isLocal)
-          case (_, rejected: PartyAllocationLedgerEntry.Rejected) =>
+          case (_, rejected: PartyLedgerEntry.AllocationRejected) =>
             sys.error(s"partyEntryParser: Unexpected rejected party returned: $rejected")
         }
     }
@@ -1442,7 +1442,7 @@ private class JdbcLedgerDao(
             })
       }
 
-  private val partyAllocationEntryParser: RowParser[(Long, PartyAllocationLedgerEntry)] =
+  private val partyAllocationEntryParser: RowParser[(Long, PartyLedgerEntry)] =
     (long("ledger_offset") ~
       date("recorded_at").? ~
       str("typ") ~
@@ -1467,7 +1467,7 @@ private class JdbcLedgerDao(
           offset ->
             (typ match {
               case `entryAcceptType` =>
-                PartyAllocationLedgerEntry.Accepted(
+                PartyLedgerEntry.AllocationAccepted(
                   submissionId,
                   participantId.get,
                   recordedAt.get.toInstant,
@@ -1477,14 +1477,14 @@ private class JdbcLedgerDao(
                     isLocal.getOrElse(true))
                 )
               case `entryRejectType` =>
-                PartyAllocationLedgerEntry.Rejected(
+                PartyLedgerEntry.AllocationRejected(
                   submissionId,
                   participantId.get,
                   recordedAt.get.toInstant,
                   rejectionReason.getOrElse("<missing reason>")
                 )
               case `entryImplicitType` =>
-                PartyAllocationLedgerEntry.Implicit(
+                PartyLedgerEntry.ImplicitPartyCreated(
                   submissionId,
                   recordedAt.get.toInstant,
                   PartyDetails(
@@ -1594,7 +1594,7 @@ private class JdbcLedgerDao(
   }
 
   override def lookupPartyAllocationEntry(
-      submissionId: SubmissionId): Future[Option[PartyAllocationLedgerEntry]] = {
+      submissionId: SubmissionId): Future[Option[PartyLedgerEntry]] = {
     dbDispatcher
       .executeSql("load_party_allocation_entry", None) { implicit conn =>
         SQL_SELECT_PARTY_ALLOCATION_ENTRY
@@ -1624,10 +1624,10 @@ private class JdbcLedgerDao(
       submissionId: SubmissionId,
       //FIXME BH remove this as we will get it conditionally off the entry instead
       participantId: ParticipantId,
-      entry: PartyAllocationLedgerEntry): Future[PersistenceResponse] = {
+      entry: PartyLedgerEntry): Future[PersistenceResponse] = {
     val typ = entry match {
-      case PartyAllocationLedgerEntry.Accepted(_, _, _, _) => entryAcceptType
-      case PartyAllocationLedgerEntry.Implicit(_,_,_) => entryImplicitType
+      case PartyLedgerEntry.AllocationAccepted(_, _, _, _) => entryAcceptType
+      case PartyLedgerEntry.ImplicitPartyCreated(_, _, _) => entryImplicitType
       case _ => entryRejectType
     }
 
@@ -1659,18 +1659,18 @@ private class JdbcLedgerDao(
     }
   }
 
-  private def optionalPartyDetails(entry: PartyAllocationLedgerEntry): Option[PartyDetails] =
+  private def optionalPartyDetails(entry: PartyLedgerEntry): Option[PartyDetails] =
     entry match {
-      case PartyAllocationLedgerEntry.Accepted(_, _, _, partyDetails) =>
+      case PartyLedgerEntry.AllocationAccepted(_, _, _, partyDetails) =>
         Some(partyDetails)
-      case PartyAllocationLedgerEntry.Implicit(_,_,partyDetails) =>
+      case PartyLedgerEntry.ImplicitPartyCreated(_, _, partyDetails) =>
         Some(partyDetails)
-      case PartyAllocationLedgerEntry.Rejected(_, _, _, _) =>
+      case PartyLedgerEntry.AllocationRejected(_, _, _, _) =>
         None
     }
-  private def partyAllocationReasonOrNull(entry: PartyAllocationLedgerEntry): Option[String] = {
+  private def partyAllocationReasonOrNull(entry: PartyLedgerEntry): Option[String] = {
     entry match {
-      case PartyAllocationLedgerEntry.Rejected(_, _, _, reason) =>
+      case PartyLedgerEntry.AllocationRejected(_, _, _, reason) =>
         Some(reason)
       case _ =>
         None

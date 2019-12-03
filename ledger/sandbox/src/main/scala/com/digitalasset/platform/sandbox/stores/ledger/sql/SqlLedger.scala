@@ -44,7 +44,7 @@ import com.digitalasset.platform.sandbox.stores.ledger.{
   Ledger,
   LedgerEntry,
   PackageUploadLedgerEntry,
-  PartyAllocationLedgerEntry
+  PartyLedgerEntry
 }
 import com.digitalasset.platform.sandbox.stores.{InMemoryActiveLedgerState, InMemoryPackageStore}
 import com.digitalasset.platform.server.api.validation.ErrorFactories
@@ -333,8 +333,8 @@ private final class SqlLedger(
         submissionId,
         participantId,
         //TODO BH proper participant isLocal check needed
-        PartyAllocationLedgerEntry
-          .Accepted(
+        PartyLedgerEntry
+          .AllocationAccepted(
             submissionId,
             participantId,
             timeProvider.getCurrentTime,

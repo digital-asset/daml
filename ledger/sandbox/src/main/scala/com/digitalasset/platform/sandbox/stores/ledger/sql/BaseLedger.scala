@@ -77,7 +77,7 @@ class BaseLedger(val ledgerId: LedgerId, headAtInitialization: Long, ledgerDao: 
     ledgerDao.getParties
 
   override def lookupPartyAllocationEntry(
-      submissionId: SubmissionId): Future[Option[PartyAllocationLedgerEntry]] =
+      submissionId: SubmissionId): Future[Option[PartyLedgerEntry]] =
     ledgerDao.lookupPartyAllocationEntry(submissionId)
 
   override def listLfPackages(): Future[Map[PackageId, v2.PackageDetails]] =

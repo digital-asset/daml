@@ -4,21 +4,20 @@
 package com.digitalasset.platform.sandbox.stores.ledger
 
 import com.digitalasset.ledger.api.domain
-import com.digitalasset.ledger.api.domain.PartyAllocationEntry
+import com.digitalasset.ledger.api.domain.PartyEntry
 
 trait PartyConversion {
-  def partyAllocationLedgerEntryToDomain(
-      ledgerEntry: PartyAllocationLedgerEntry): domain.PartyAllocationEntry =
+  def partyAllocationLedgerEntryToDomain(ledgerEntry: PartyLedgerEntry): domain.PartyEntry =
     ledgerEntry match {
-      case PartyAllocationLedgerEntry.Accepted(submissionId, participantId, _, partyDetails) =>
-        PartyAllocationEntry.Accepted(
+      case PartyLedgerEntry.AllocationAccepted(submissionId, participantId, _, partyDetails) =>
+        PartyEntry.AllocationAccepted(
           submissionId,
           domain.ParticipantId(participantId),
           partyDetails)
-      case PartyAllocationLedgerEntry.Rejected(submissionId, participantId, _, reason) =>
-        PartyAllocationEntry.Rejected(submissionId, domain.ParticipantId(participantId), reason)
-      case PartyAllocationLedgerEntry.Implicit(submissionId, _, partyDetails) =>
-        PartyAllocationEntry.Implicit(submissionId, partyDetails)
+      case PartyLedgerEntry.AllocationRejected(submissionId, participantId, _, reason) =>
+        PartyEntry.AllocationRejected(submissionId, domain.ParticipantId(participantId), reason)
+      case PartyLedgerEntry.ImplicitPartyCreated(submissionId, _, partyDetails) =>
+        PartyEntry.ImplicitPartyCreated(submissionId, partyDetails)
     }
 }
 

@@ -47,7 +47,7 @@ import scala.util.{Failure, Success, Try}
 sealed trait InMemoryEntry extends Product with Serializable
 final case class InMemoryLedgerEntry(entry: LedgerEntry) extends InMemoryEntry
 final case class InMemoryConfigEntry(entry: ConfigurationEntry) extends InMemoryEntry
-final case class InMemoryPartyEntry(entry: PartyAllocationLedgerEntry) extends InMemoryEntry
+final case class InMemoryPartyEntry(entry: PartyLedgerEntry) extends InMemoryEntry
 final case class InMemoryPackageEntry(entry: PackageUploadLedgerEntry) extends InMemoryEntry
 
 /** This stores all the mutable data that we need to run a ledger: the PCS, the ACS, and the deduplicator.
@@ -271,8 +271,8 @@ class InMemoryLedger(
       if (ids.contains(party)) {
         entries.publish(
           InMemoryPartyEntry(
-            PartyAllocationLedgerEntry
-              .Rejected(
+            PartyLedgerEntry
+              .AllocationRejected(
                 submissionId,
                 participantId,
                 timeProvider.getCurrentTime,
@@ -284,8 +284,8 @@ class InMemoryLedger(
           PartyDetails(party, displayName, isLocal = this.participantId == participantId)
         acs = acs.addParty(details)
         entries.publish(
-          InMemoryPartyEntry(PartyAllocationLedgerEntry
-            .Accepted(submissionId, participantId, timeProvider.getCurrentTime, details)))
+          InMemoryPartyEntry(PartyLedgerEntry
+            .AllocationAccepted(submissionId, participantId, timeProvider.getCurrentTime, details)))
         SubmissionResult.Acknowledged
       }
     })
@@ -337,7 +337,7 @@ class InMemoryLedger(
   }
 
   override def lookupPartyAllocationEntry(
-      submissionId: SubmissionId): Future[Option[PartyAllocationLedgerEntry]] =
+      submissionId: SubmissionId): Future[Option[PartyLedgerEntry]] =
     Future.successful {
       entries.getItems
         .collectFirst {

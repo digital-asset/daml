@@ -8,30 +8,30 @@ import java.time.Instant
 import com.daml.ledger.participant.state.v1.{ParticipantId, SubmissionId}
 import com.digitalasset.ledger.api.domain.PartyDetails
 
-sealed abstract class PartyAllocationLedgerEntry() extends Product with Serializable {
+sealed abstract class PartyLedgerEntry() extends Product with Serializable {
   val submissionId: String
   val recordTime: Instant
 }
 
-object PartyAllocationLedgerEntry {
+object PartyLedgerEntry {
 
-  final case class Accepted(
+  final case class AllocationAccepted(
       override val submissionId: SubmissionId,
       participantId: ParticipantId,
       override val recordTime: Instant,
       partyDetails: PartyDetails
-  ) extends PartyAllocationLedgerEntry
+  ) extends PartyLedgerEntry
 
-  final case class Rejected(
+  final case class AllocationRejected(
       override val submissionId: SubmissionId,
       participantId: ParticipantId,
       override val recordTime: Instant,
       reason: String
-  ) extends PartyAllocationLedgerEntry
+  ) extends PartyLedgerEntry
 
-  final case class Implicit(
+  final case class ImplicitPartyCreated(
       override val submissionId: SubmissionId,
       override val recordTime: Instant,
       partyDetails: PartyDetails
-  ) extends PartyAllocationLedgerEntry
+  ) extends PartyLedgerEntry
 }

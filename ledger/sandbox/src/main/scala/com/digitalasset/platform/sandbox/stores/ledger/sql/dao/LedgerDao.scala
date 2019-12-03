@@ -34,7 +34,7 @@ import com.digitalasset.platform.sandbox.stores.ledger.{
   ConfigurationEntry,
   LedgerEntry,
   PackageUploadLedgerEntry,
-  PartyAllocationLedgerEntry
+  PartyLedgerEntry
 }
 
 import scala.collection.immutable
@@ -164,8 +164,7 @@ trait LedgerReadDao extends AutoCloseable with ReportsHealth {
     * @param submissionId
     * @return the optional party allocation entry
     */
-  def lookupPartyAllocationEntry(
-      submissionId: SubmissionId): Future[Option[PartyAllocationLedgerEntry]]
+  def lookupPartyAllocationEntry(submissionId: SubmissionId): Future[Option[PartyLedgerEntry]]
 
   def lookupPackageUploadEntry(submissionId: SubmissionId): Future[Option[PackageUploadLedgerEntry]]
 
@@ -279,7 +278,7 @@ trait LedgerWriteDao extends AutoCloseable with ReportsHealth {
       externalOffset: Option[ExternalOffset],
       submissionId: SubmissionId,
       participantId: ParticipantId,
-      entry: PartyAllocationLedgerEntry): Future[PersistenceResponse]
+      entry: PartyLedgerEntry): Future[PersistenceResponse]
 
   /** Resets the platform into a state as it was never used before. Meant to be used solely for testing. */
   def reset(): Future[Unit]

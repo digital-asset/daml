@@ -28,7 +28,7 @@ import com.digitalasset.platform.sandbox.stores.ActiveLedgerState.{ActiveContrac
 import com.digitalasset.platform.sandbox.stores.ledger.{
   LedgerEntry,
   PackageUploadLedgerEntry,
-  PartyAllocationLedgerEntry,
+  PartyLedgerEntry,
   ConfigurationEntry
 }
 import scala.collection.immutable
@@ -101,7 +101,7 @@ private class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: MetricRegi
     timedFuture(Metrics.getParties, ledgerDao.getParties)
 
   override def lookupPartyAllocationEntry(
-      submissionId: SubmissionId): Future[Option[PartyAllocationLedgerEntry]] = {
+      submissionId: SubmissionId): Future[Option[PartyLedgerEntry]] = {
     timedFuture(
       Metrics.lookupPartyAllocationEntry,
       ledgerDao.lookupPartyAllocationEntry(submissionId))
@@ -217,7 +217,7 @@ private class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: MetricRegistry)
       externalOffset: Option[ExternalOffset],
       submissionId: SubmissionId,
       participantId: ParticipantId,
-      entry: PartyAllocationLedgerEntry): Future[PersistenceResponse] =
+      entry: PartyLedgerEntry): Future[PersistenceResponse] =
     timedFuture(
       Metrics.storePartyAllocationEntry,
       ledgerDao.storePartyAllocationEntry(

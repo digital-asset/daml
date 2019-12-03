@@ -291,26 +291,26 @@ object domain {
     */
   case class PartyDetails(party: Ref.Party, displayName: Option[String], isLocal: Boolean)
 
-  sealed abstract class PartyAllocationEntry() extends Product with Serializable {
+  sealed abstract class PartyEntry() extends Product with Serializable {
     val submissionId: String
   }
 
-  object PartyAllocationEntry {
-    final case class Accepted(
+  object PartyEntry {
+    final case class AllocationAccepted(
         override val submissionId: String,
         participantId: ParticipantId,
         partyDetails: PartyDetails
-    ) extends PartyAllocationEntry
+    ) extends PartyEntry
 
-    final case class Rejected(
+    final case class AllocationRejected(
         override val submissionId: String,
         participantId: ParticipantId,
         reason: String
-    ) extends PartyAllocationEntry
-    final case class Implicit(
+    ) extends PartyEntry
+    final case class ImplicitPartyCreated(
         override val submissionId: String,
         partyDetails: PartyDetails
-    ) extends PartyAllocationEntry
+    ) extends PartyEntry
   }
 
   sealed abstract class PackageUploadEntry() extends Product with Serializable {

@@ -4,7 +4,7 @@
 package com.daml.ledger.participant.state.index.v2
 
 import com.daml.ledger.participant.state.v1.{ParticipantId, SubmissionId}
-import com.digitalasset.ledger.api.domain.{PartyAllocationEntry, PartyDetails}
+import com.digitalasset.ledger.api.domain.{PartyEntry, PartyDetails}
 
 import scala.concurrent.Future
 
@@ -18,5 +18,5 @@ trait IndexPartyManagementService {
   def listParties(): Future[List[PartyDetails]]
 
   /** Try to retrieve the party allocation entry given a submission id. */
-  def lookupPartyAllocationEntry(submissionId: SubmissionId): Future[Option[PartyAllocationEntry]]
+  def lookupPartyAllocationEntry(submissionId: SubmissionId): Future[Option[PartyEntry]]
 }

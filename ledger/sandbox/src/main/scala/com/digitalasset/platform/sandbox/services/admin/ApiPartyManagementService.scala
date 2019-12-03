@@ -67,7 +67,7 @@ class ApiPartyManagementService private (
       .flatMap {
         case SubmissionResult.Acknowledged =>
           pollForAllocationResult(submissionId).flatMap {
-            case domain.PartyAllocationEntry.Accepted(_, _, partyDetails) =>
+            case domain.PartyEntry.AllocationAccepted(_, _, partyDetails) =>
               Future.successful(
                 AllocatePartyResponse(
                   Some(
@@ -75,9 +75,9 @@ class ApiPartyManagementService private (
                       partyDetails.party,
                       partyDetails.displayName.getOrElse(""),
                       partyDetails.isLocal))))
-            case domain.PartyAllocationEntry.Rejected(_, _, reason) =>
+            case domain.PartyEntry.AllocationRejected(_, _, reason) =>
               Future.failed(ErrorFactories.invalidArgument(reason))
-            case domain.PartyAllocationEntry.Implicit(_, _) =>
+            case domain.PartyEntry.ImplicitPartyCreated(_, _) =>
               Future.failed(ErrorFactories.unimplemented("implicit parties cannot be allocated"))
           }(DE)
         case r @ SubmissionResult.Overloaded =>
@@ -89,8 +89,7 @@ class ApiPartyManagementService private (
       }(DE)
   }
 
-  private def pollForAllocationResult(
-      submissionId: SubmissionId): Future[domain.PartyAllocationEntry] = {
+  private def pollForAllocationResult(submissionId: SubmissionId): Future[domain.PartyEntry] = {
     PollingUtils
       .pollSingleUntilPersisted(() =>
         partyManagementService.lookupPartyAllocationEntry(submissionId))(

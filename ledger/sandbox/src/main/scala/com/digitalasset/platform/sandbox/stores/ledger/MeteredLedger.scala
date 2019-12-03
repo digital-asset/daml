@@ -87,7 +87,7 @@ private class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: MetricRegis
   }
 
   override def lookupPartyAllocationEntry(
-      submissionId: SubmissionId): Future[Option[PartyAllocationLedgerEntry]] =
+      submissionId: SubmissionId): Future[Option[PartyLedgerEntry]] =
     timedFuture(Metrics.lookupPartyAllocationEntry, ledger.lookupPartyAllocationEntry(submissionId))
 
   override def lookupLedgerConfiguration(): Future[Option[Configuration]] =

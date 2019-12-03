@@ -46,7 +46,7 @@ import com.digitalasset.platform.sandbox.stores.ledger.sql.util.DbDispatcher
 import com.digitalasset.platform.sandbox.stores.ledger.{
   LedgerEntry,
   PackageUploadLedgerEntry,
-  PartyAllocationLedgerEntry
+  PartyLedgerEntry
 }
 import scalaz.syntax.tag._
 
@@ -272,7 +272,7 @@ class JdbcIndexer private[index] (
             externalOffset,
             submissionId,
             participantId,
-            PartyAllocationLedgerEntry.Accepted(
+            PartyLedgerEntry.AllocationAccepted(
               submissionId,
               participantId,
               recordTime.toInstant,
@@ -291,8 +291,12 @@ class JdbcIndexer private[index] (
             externalOffset,
             submissionId,
             participantId,
-            PartyAllocationLedgerEntry
-              .Rejected(submissionId, participantId, recordTime.toInstant, rejectionReason)
+            PartyLedgerEntry
+              .AllocationRejected(
+                submissionId,
+                participantId,
+                recordTime.toInstant,
+                rejectionReason)
           )
           .map(_ => headRef = headRef + 1)(DEC)
 
