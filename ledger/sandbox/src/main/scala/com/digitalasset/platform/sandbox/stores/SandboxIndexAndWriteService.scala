@@ -416,12 +416,14 @@ class LedgerBackedWriteService(ledger: Ledger, timeProvider: TimeProvider) exten
   override def submitTransaction(
       submitterInfo: ParticipantState.SubmitterInfo,
       transactionMeta: ParticipantState.TransactionMeta,
-      transaction: SubmittedTransaction): CompletionStage[ParticipantState.SubmissionResult] =
+      transaction: SubmittedTransaction,
+      tracingInfo: TracingInfo): CompletionStage[ParticipantState.SubmissionResult] =
     FutureConverters.toJava(ledger.publishTransaction(submitterInfo, transactionMeta, transaction))
 
   override def allocateParty(
       hint: Option[String],
-      displayName: Option[String]): CompletionStage[PartyAllocationResult] = {
+      displayName: Option[String],
+      tracingInfo: TracingInfo): CompletionStage[PartyAllocationResult] = {
     // In the sandbox, the hint is used as-is.
     // If hint is not a valid and unallocated party name, the call fails
     hint.map(p => Party.fromString(p)) match {
@@ -437,7 +439,8 @@ class LedgerBackedWriteService(ledger: Ledger, timeProvider: TimeProvider) exten
   // WritePackagesService
   override def uploadPackages(
       payload: List[Archive],
-      sourceDescription: Option[String]
+      sourceDescription: Option[String],
+      tracingInfo: TracingInfo
   ): CompletionStage[UploadPackagesResult] =
     FutureConverters.toJava(
       ledger.uploadPackages(timeProvider.getCurrentTime, sourceDescription, payload))
@@ -446,6 +449,7 @@ class LedgerBackedWriteService(ledger: Ledger, timeProvider: TimeProvider) exten
   override def submitConfiguration(
       maxRecordTime: Time.Timestamp,
       submissionId: String,
-      config: Configuration): CompletionStage[SubmissionResult] =
+      config: Configuration,
+      tracingInfo: TracingInfo): CompletionStage[SubmissionResult] =
     FutureConverters.toJava(ledger.publishConfiguration(maxRecordTime, submissionId, config))
 }

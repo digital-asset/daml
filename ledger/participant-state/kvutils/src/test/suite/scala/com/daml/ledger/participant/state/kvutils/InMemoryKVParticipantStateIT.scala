@@ -48,7 +48,7 @@ class InMemoryKVParticipantStateIT
   }
 
   private def allocateParty(hint: String): Future[Party] = {
-    ps.allocateParty(Some(hint), None).toScala.flatMap {
+    ps.allocateParty(Some(hint), None, TracingInfo("")).toScala.flatMap {
       case PartyAllocationResult.Ok(details) => Future.successful(details.party)
       case err => Future.failed(new RuntimeException("failed to allocate party: $err"))
     }
@@ -70,7 +70,7 @@ class InMemoryKVParticipantStateIT
       val rt = ps.getNewRecordTime()
 
       for {
-        result <- ps.uploadPackages(List(archives.head), sourceDescription).toScala
+        result <- ps.uploadPackages(List(archives.head), sourceDescription, TracingInfo("")).toScala
         updateTuple <- ps.stateUpdates(beginAfter = None).runWith(Sink.head)
       } yield {
         assert(result == UploadPackagesResult.Ok, "unexpected response to party allocation")
@@ -83,7 +83,7 @@ class InMemoryKVParticipantStateIT
       val archive1 :: archive2 :: _ = archives
 
       for {
-        result <- ps.uploadPackages(archives, sourceDescription).toScala
+        result <- ps.uploadPackages(archives, sourceDescription, TracingInfo("")).toScala
         Seq(update1, update2) <- ps.stateUpdates(beginAfter = None).take(2).runWith(Sink.seq)
       } yield {
         assert(result == UploadPackagesResult.Ok, "unexpected response to party allocation")
@@ -97,9 +97,9 @@ class InMemoryKVParticipantStateIT
       val archive1 :: archive2 :: _ = archives
 
       for {
-        _ <- ps.uploadPackages(List(archive1), sourceDescription).toScala
-        result <- ps.uploadPackages(List(archive1), sourceDescription).toScala
-        _ <- ps.uploadPackages(List(archive2), sourceDescription).toScala
+        _ <- ps.uploadPackages(List(archive1), sourceDescription, TracingInfo("")).toScala
+        result <- ps.uploadPackages(List(archive1), sourceDescription, TracingInfo("")).toScala
+        _ <- ps.uploadPackages(List(archive2), sourceDescription, TracingInfo("")).toScala
         Seq(update1, update2) <- ps.stateUpdates(beginAfter = None).take(2).runWith(Sink.seq)
       } yield {
         assert(result == UploadPackagesResult.Ok, "unexpected response to party allocation")
@@ -118,7 +118,7 @@ class InMemoryKVParticipantStateIT
         .build
 
       for {
-        result <- ps.uploadPackages(List(badArchive), sourceDescription).toScala
+        result <- ps.uploadPackages(List(badArchive), sourceDescription, TracingInfo("")).toScala
       } yield {
         result match {
           case UploadPackagesResult.InvalidPackage(_) =>
@@ -136,7 +136,7 @@ class InMemoryKVParticipantStateIT
       val displayName = Some("Alice Cooper")
 
       for {
-        allocResult <- ps.allocateParty(hint, displayName).toScala
+        allocResult <- ps.allocateParty(hint, displayName, TracingInfo("")).toScala
         updateTuple <- ps.stateUpdates(beginAfter = None).runWith(Sink.head)
       } yield {
         allocResult match {
@@ -164,7 +164,7 @@ class InMemoryKVParticipantStateIT
       val displayName = Some("Alice Cooper")
 
       for {
-        result <- ps.allocateParty(hint, displayName).toScala
+        result <- ps.allocateParty(hint, displayName, TracingInfo("")).toScala
       } yield {
         result match {
           case PartyAllocationResult.Ok(_) =>
@@ -180,7 +180,7 @@ class InMemoryKVParticipantStateIT
       val displayName = Some("Alice Cooper")
 
       for {
-        result <- ps.allocateParty(hint, displayName).toScala
+        result <- ps.allocateParty(hint, displayName, TracingInfo("")).toScala
       } yield {
         result match {
           case PartyAllocationResult.InvalidName(_) =>
@@ -196,8 +196,8 @@ class InMemoryKVParticipantStateIT
       val displayName = Some("Alice Cooper")
 
       for {
-        _ <- ps.allocateParty(hint, displayName).toScala
-        result <- ps.allocateParty(hint, displayName).toScala
+        _ <- ps.allocateParty(hint, displayName, TracingInfo("")).toScala
+        result <- ps.allocateParty(hint, displayName, TracingInfo("")).toScala
       } yield {
         result match {
           case PartyAllocationResult.AlreadyExists =>
@@ -213,7 +213,11 @@ class InMemoryKVParticipantStateIT
       for {
         alice <- allocateParty("alice")
         _ <- ps
-          .submitTransaction(submitterInfo(rt, alice), transactionMeta(rt), emptyTransaction)
+          .submitTransaction(
+            submitterInfo(rt, alice),
+            transactionMeta(rt),
+            emptyTransaction,
+            TracingInfo(""))
           .toScala
         update <- ps.stateUpdates(beginAfter = None).drop(1).runWith(Sink.head)
       } yield {
@@ -227,10 +231,18 @@ class InMemoryKVParticipantStateIT
       for {
         alice <- allocateParty("alice")
         _ <- ps
-          .submitTransaction(submitterInfo(rt, alice), transactionMeta(rt), emptyTransaction)
+          .submitTransaction(
+            submitterInfo(rt, alice),
+            transactionMeta(rt),
+            emptyTransaction,
+            TracingInfo(""))
           .toScala
         _ <- ps
-          .submitTransaction(submitterInfo(rt, alice), transactionMeta(rt), emptyTransaction)
+          .submitTransaction(
+            submitterInfo(rt, alice),
+            transactionMeta(rt),
+            emptyTransaction,
+            TracingInfo(""))
           .toScala
         updates <- ps.stateUpdates(beginAfter = None).take(3).runWith(Sink.seq)
       } yield {
@@ -252,10 +264,18 @@ class InMemoryKVParticipantStateIT
       for {
         alice <- allocateParty("alice") // offset now at [1,0]
         _ <- ps
-          .submitTransaction(submitterInfo(rt, alice), transactionMeta(rt), emptyTransaction)
+          .submitTransaction(
+            submitterInfo(rt, alice),
+            transactionMeta(rt),
+            emptyTransaction,
+            TracingInfo(""))
           .toScala
         _ <- ps
-          .submitTransaction(submitterInfo(rt, alice), transactionMeta(rt), emptyTransaction)
+          .submitTransaction(
+            submitterInfo(rt, alice),
+            transactionMeta(rt),
+            emptyTransaction,
+            TracingInfo(""))
           .toScala
         offsetAndUpdate <- ps
           .stateUpdates(beginAfter = Some(Offset(Array(1L, 0L))))
@@ -272,7 +292,7 @@ class InMemoryKVParticipantStateIT
 
       for {
         _ <- ps
-          .uploadPackages(archives, sourceDescription)
+          .uploadPackages(archives, sourceDescription, TracingInfo(""))
           .toScala
         updateTuple <- ps.stateUpdates(beginAfter = Some(Offset(Array(0L, 0L)))).runWith(Sink.head)
       } yield {
@@ -295,7 +315,8 @@ class InMemoryKVParticipantStateIT
             submissionId = "test1",
             config = lic.config.copy(
               generation = lic.config.generation + 1,
-            )
+            ),
+            TracingInfo("")
           )
           .toScala
 
@@ -304,14 +325,16 @@ class InMemoryKVParticipantStateIT
           .submitTransaction(
             submitterInfo(rt, unallocatedParty),
             transactionMeta(rt),
-            emptyTransaction)
+            emptyTransaction,
+            TracingInfo(""))
           .toScala
 
         // Allocate a party and try the submission again with an allocated party.
         allocResult <- ps
           .allocateParty(
             None /* no name hint, implementation decides party name */,
-            Some("Somebody"))
+            Some("Somebody"),
+            TracingInfo(""))
           .toScala
         _ <- assert(allocResult.isInstanceOf[PartyAllocationResult.Ok])
         _ <- ps
@@ -320,7 +343,8 @@ class InMemoryKVParticipantStateIT
               rt,
               party = allocResult.asInstanceOf[PartyAllocationResult.Ok].result.party),
             transactionMeta(rt),
-            emptyTransaction)
+            emptyTransaction,
+            TracingInfo(""))
           .toScala
 
         Seq((offset1, update1), (offset2, update2), (offset3, update3), (offset4, update4)) <- ps
@@ -356,7 +380,8 @@ class InMemoryKVParticipantStateIT
             submissionId = "test1",
             config = lic.config.copy(
               generation = lic.config.generation + 1,
-            ))
+            ),
+            TracingInfo(""))
           .toScala
 
         // Submit another configuration change that uses stale "current config".
@@ -370,7 +395,8 @@ class InMemoryKVParticipantStateIT
                 Duration.ofSeconds(123),
                 Duration.ofSeconds(123),
                 Duration.ofSeconds(123)).get
-            )
+            ),
+            tracingInfo = TracingInfo("")
           )
           .toScala
 

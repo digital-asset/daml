@@ -51,7 +51,8 @@ object KeyValueConsumption {
               Some(entry.getPackageUploadEntry.getSourceDescription)
             else None,
             parseLedgerString("ParticipantId")(entry.getPackageUploadEntry.getParticipantId),
-            recordTime
+            recordTime,
+            TracingInfo("")
           )
         }(breakOut)
 
@@ -63,7 +64,12 @@ object KeyValueConsumption {
         val party = parseParty(pae.getParty)
         val participantId = parseLedgerString("ParticipantId")(pae.getParticipantId)
         List(
-          Update.PartyAddedToParticipant(party, pae.getDisplayName, participantId, recordTime)
+          Update.PartyAddedToParticipant(
+            party,
+            pae.getDisplayName,
+            participantId,
+            recordTime,
+            TracingInfo(""))
         )
 
       case DamlLogEntry.PayloadCase.PARTY_ALLOCATION_REJECTION_ENTRY =>
@@ -84,7 +90,8 @@ object KeyValueConsumption {
             recordTime,
             configEntry.getSubmissionId,
             participantId,
-            newConfig
+            newConfig,
+            TracingInfo("")
           )
         )
 
@@ -115,7 +122,8 @@ object KeyValueConsumption {
                 s"Configuration change request timed out: $mrt > $rt"
               case DamlConfigurationRejectionEntry.ReasonCase.REASON_NOT_SET =>
                 "Unknown reason"
-            }
+            },
+            TracingInfo("")
           ))
 
       case DamlLogEntry.PayloadCase.TRANSACTION_REJECTION_ENTRY =>
@@ -225,7 +233,8 @@ object KeyValueConsumption {
           )
         case DamlTransactionRejectionEntry.ReasonCase.REASON_NOT_SET =>
           throw Err.InternalError("transactionRejectionEntryToUpdate: REASON_NOT_SET!")
-      }
+      },
+      TracingInfo("")
     )
 
   private def partyRejectionEntryToAsyncResponse(
@@ -282,7 +291,8 @@ object KeyValueConsumption {
       transaction = makeCommittedTransaction(entryId, relTx),
       transactionId = hexTxId,
       recordTime = recordTime,
-      divulgedContracts = List.empty
+      divulgedContracts = List.empty,
+      TracingInfo("")
     )
   }
 

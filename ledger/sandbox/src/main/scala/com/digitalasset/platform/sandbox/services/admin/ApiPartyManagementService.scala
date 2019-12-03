@@ -3,10 +3,12 @@
 
 package com.digitalasset.platform.sandbox.services.admin
 
+import java.util.UUID
+
 import akka.actor.Scheduler
 import akka.stream.ActorMaterializer
 import com.daml.ledger.participant.state.index.v2.IndexPartyManagementService
-import com.daml.ledger.participant.state.v1.{PartyAllocationResult, WritePartyService}
+import com.daml.ledger.participant.state.v1.{PartyAllocationResult, TracingInfo, WritePartyService}
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.ledger.api.v1.admin.party_management_service.PartyManagementServiceGrpc.PartyManagementService
 import com.digitalasset.ledger.api.v1.admin.party_management_service._
@@ -14,7 +16,6 @@ import com.digitalasset.platform.api.grpc.GrpcApiService
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.common.util.{DirectExecutionContext => DE}
 import com.digitalasset.platform.server.api.validation.ErrorFactories
-
 import io.grpc.ServerServiceDefinition
 
 import scala.compat.java8.FutureConverters
@@ -83,10 +84,11 @@ class ApiPartyManagementService private (
   override def allocateParty(request: AllocatePartyRequest): Future[AllocatePartyResponse] = {
     val party = if (request.partyIdHint.isEmpty) None else Some(request.partyIdHint)
     val displayName = if (request.displayName.isEmpty) None else Some(request.displayName)
+    val tracingInfo = TracingInfo(UUID.randomUUID.toString)
 
     FutureConverters
       .toScala(writeService
-        .allocateParty(party, displayName))
+        .allocateParty(party, displayName, tracingInfo))
       .flatMap {
         case PartyAllocationResult.Ok(details) =>
           Future.successful(AllocatePartyResponse(Some(mapPartyDetails(details))))

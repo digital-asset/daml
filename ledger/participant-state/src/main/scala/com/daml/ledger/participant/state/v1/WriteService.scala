@@ -95,11 +95,13 @@ trait WriteService
     *                        This typically happens after a transaction has been assigned a
     *                        globally unique id, as then the contract-ids can be derived from that
     *                        transaction id.
+    * @param tracingInfo     : the information allowing tracing of the request across distributed stack.
     *
     * @return an async result of a SubmissionResult
     */
   def submitTransaction(
       submitterInfo: SubmitterInfo,
       transactionMeta: TransactionMeta,
-      transaction: SubmittedTransaction): CompletionStage[SubmissionResult]
+      transaction: SubmittedTransaction,
+      tracingInfo: TracingInfo): CompletionStage[SubmissionResult]
 }

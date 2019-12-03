@@ -23,11 +23,13 @@ trait WriteConfigService {
     * @param maxRecordTime: The maximum record time after which the request is rejected.
     * @param submissionId: Client picked submission identifier for matching the responses with the request.
     * @param config: The new ledger configuration.
+    * @param tracingInfo: The information allowing tracing of the request across the distributed stack.
     * @return an async result of a SubmissionResult
     */
   def submitConfiguration(
       maxRecordTime: Timestamp,
       submissionId: String,
-      config: Configuration
+      config: Configuration,
+      tracingInfo: TracingInfo
   ): CompletionStage[SubmissionResult]
 }

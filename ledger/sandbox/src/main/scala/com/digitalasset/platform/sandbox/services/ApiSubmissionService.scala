@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.platform.sandbox.services
+import java.util.UUID
+
 import com.digitalasset.ledger.api.v1.command_submission_service.CommandSubmissionServiceLogging
 import akka.stream.ActorMaterializer
 import com.codahale.metrics.MetricRegistry
@@ -168,8 +170,11 @@ class ApiSubmissionService private (
             writeService.submitTransaction(
               submitterInfo,
               transactionMeta,
-              transaction
-            )))
+              transaction,
+              // TODO: Push generation of the UUID to the start of the request handling
+              TracingInfo(UUID.randomUUID.toString)
+            ))
+        )
       case Left(err) =>
         Metrics.failedInterpretationsMeter.mark()
         Future.failed(grpcError(toStatus(err)))

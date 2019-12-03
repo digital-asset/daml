@@ -32,10 +32,13 @@ trait WritePartyService {
     *
     * @param displayName  : A human readable name of the new party
     *
+    * @param tracingInfo  : The information allowing tracing of the request across the distributed stack.
+    *
     * @return an async result of a PartyAllocationResult
     */
   def allocateParty(
       hint: Option[String],
-      displayName: Option[String]
+      displayName: Option[String],
+      tracingInfo: TracingInfo
   ): CompletionStage[PartyAllocationResult]
 }

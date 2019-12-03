@@ -39,10 +39,13 @@ trait WritePackagesService {
     *
     * @param payload           : DAML-LF archives to be uploaded to the ledger.
     *
+    * @param tracingInfo       : The information allowing tracing of the request across the distributed stack.
+    *
     * @return an async result of a [[UploadPackagesResult]]
     */
   def uploadPackages(
       payload: List[Archive],
-      sourceDescription: Option[String]
+      sourceDescription: Option[String],
+      tracingInfo: TracingInfo
   ): CompletionStage[UploadPackagesResult]
 }

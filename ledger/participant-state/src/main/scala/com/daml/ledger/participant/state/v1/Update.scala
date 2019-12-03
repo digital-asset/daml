@@ -32,25 +32,61 @@ object Update {
     override def description: String = s"Heartbeat: $recordTime"
   }
 
-  /** Signal that the current [[Configuration]] has changed. */
+  /** Signal that the current [[Configuration]] has changed.
+    *
+    * @param recordTime
+    *   The ledger-provided timestamp at which the party was allocated.
+    *
+    * @param submissionId
+    *   Client picked submission identifier for matching the responses with the request.
+    *
+    * @param participantId
+    *   The participant that this party was added to.
+    *
+    * @param newConfiguration
+    *   The new ledger configuration.
+    *
+    * @param tracingInfo
+    *   The information allowing tracing of the request across the distributed stack.
+    */
   final case class ConfigurationChanged(
       recordTime: Timestamp,
       submissionId: String,
       participantId: ParticipantId,
-      newConfiguration: Configuration)
+      newConfiguration: Configuration,
+      tracingInfo: TracingInfo)
       extends Update {
     override def description: String =
       s"Configuration change '$submissionId' from participant '$participantId' accepted with configuration: $newConfiguration"
   }
 
   /** Signal that a configuration change submitted by this participant was rejected.
-    */
+    *
+    * @param recordTime
+    *   The ledger-provided timestamp at which the party was allocated.
+    *
+    * @param submissionId
+    *   Client picked submission identifier for matching the responses with the request.
+    *
+    * @param participantId
+    *   The participant that this party was added to.
+    *
+    * @param proposedConfiguration
+    *   The proposed ledger configuration that got rejected.
+    *
+    * @param rejectionReason
+    *   The reason for rejecting the configuration.
+    *
+    * @param tracingInfo
+    *   The information allowing tracing of the request across the distributed stack.
+    **/
   final case class ConfigurationChangeRejected(
       recordTime: Timestamp,
       submissionId: String,
       participantId: ParticipantId,
       proposedConfiguration: Configuration,
-      rejectionReason: String)
+      rejectionReason: String,
+      tracingInfo: TracingInfo)
       extends Update {
     override def description: String = {
       s"Configuration change '$submissionId' from participant '$participantId' was rejected: $rejectionReason"
@@ -71,12 +107,15 @@ object Update {
     * @param recordTime
     *   The ledger-provided timestamp at which the party was allocated.
     *
+    * @param tracingInfo
+    *   The information allowing tracing of the request across the distributed stack.
     */
   final case class PartyAddedToParticipant(
       party: Party,
       displayName: String,
       participantId: ParticipantId,
-      recordTime: Timestamp)
+      recordTime: Timestamp,
+      tracingInfo: TracingInfo)
       extends Update {
     override def description: String =
       s"Add party '$party' to participant"
@@ -107,12 +146,15 @@ object Update {
     * @param recordTime
     *   The ledger-provided timestamp at which the package was uploaded.
     *
+    * @param tracingInfo
+    *   The information allowing tracing of the request across the distributed stack.
     */
   final case class PublicPackageUploaded(
       archive: DamlLf.Archive,
       sourceDescription: Option[String],
       participantId: ParticipantId,
-      recordTime: Timestamp)
+      recordTime: Timestamp,
+      tracingInfo: TracingInfo)
       extends Update {
     override def description: String =
       s"""Public package uploaded: ${archive.getHash}"""
@@ -149,6 +191,9 @@ object Update {
     *
     * @param divulgedContracts:
     *   List of divulged contracts. See [[DivulgedContract]] for details.
+    *
+    * @param tracingInfo
+    *   The information allowing tracing of the request across the distributed stack.
     */
   final case class TransactionAccepted(
       optSubmitterInfo: Option[SubmitterInfo],
@@ -156,20 +201,38 @@ object Update {
       transaction: CommittedTransaction,
       transactionId: TransactionId,
       recordTime: Timestamp,
-      divulgedContracts: List[DivulgedContract]
+      divulgedContracts: List[DivulgedContract],
+      tracingInfo: TracingInfo
   ) extends Update {
     override def description: String = s"Accept transaction $transactionId"
   }
 
   /** Signal that a command submitted via [[WriteService]] was rejected.
     *
-    * See the different [[RejectionReason]] for why a command can be
-    * rejected.
+    * The message is only received by the participant that sent the original request.
+    *
+    * @param recordTime:
+    *   The ledger-provided timestamp at which the transaction was recorded.
+    *   The last [[Configuration]] set before this [[TransactionAccepted]]
+    *   determines how this transaction's recordTime relates to its
+    *   [[TransactionMeta.ledgerEffectiveTime]].
+    *
+    * @param submitterInfo:
+    *   The information provided by the submitter of the command that
+    *   created this transaction.
+    *
+    * @param reason
+    *   The reason for rejecting the command. See the different [[RejectionReason]] for
+    *   why a command can be rejected.
+    *
+    * @param tracingInfo
+    *   The information allowing tracing of the request across the distributed stack.
     */
   final case class CommandRejected(
       recordTime: Timestamp,
       submitterInfo: SubmitterInfo,
       reason: RejectionReason,
+      tracingInfo: TracingInfo
   ) extends Update {
     override def description: String = {
       s"Reject command ${submitterInfo.commandId}: $reason"

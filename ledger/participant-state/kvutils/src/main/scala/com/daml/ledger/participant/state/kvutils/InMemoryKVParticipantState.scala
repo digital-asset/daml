@@ -428,7 +428,8 @@ class InMemoryKVParticipantState(
   override def submitTransaction(
       submitterInfo: SubmitterInfo,
       transactionMeta: TransactionMeta,
-      transaction: SubmittedTransaction): CompletionStage[SubmissionResult] =
+      transaction: SubmittedTransaction,
+      tracingInfo: TracingInfo): CompletionStage[SubmissionResult] =
     CompletableFuture.completedFuture({
       // Construct a [[DamlSubmission]] message using the key-value utilities.
       // [[DamlSubmission]] contains the serialized transaction and metadata such as
@@ -451,7 +452,8 @@ class InMemoryKVParticipantState(
   /** Allocate a party on the ledger */
   override def allocateParty(
       hint: Option[String],
-      displayName: Option[String]): CompletionStage[PartyAllocationResult] = {
+      displayName: Option[String],
+      tracingInfo: TracingInfo): CompletionStage[PartyAllocationResult] = {
 
     hint.map(p => Party.fromString(p)) match {
       case None =>
@@ -484,7 +486,8 @@ class InMemoryKVParticipantState(
   /** Upload DAML-LF packages to the ledger */
   override def uploadPackages(
       archives: List[Archive],
-      sourceDescription: Option[String]): CompletionStage[UploadPackagesResult] = {
+      sourceDescription: Option[String],
+      tracingInfo: TracingInfo): CompletionStage[UploadPackagesResult] = {
     val sId = submissionIdSource.getAndIncrement().toString
     val cf = new CompletableFuture[UploadPackagesResult]
     matcherActorRef ! AddPackageUploadRequest(sId, cf)
@@ -560,7 +563,8 @@ class InMemoryKVParticipantState(
   override def submitConfiguration(
       maxRecordTime: Timestamp,
       submissionId: String,
-      config: Configuration): CompletionStage[SubmissionResult] =
+      config: Configuration,
+      tracingInfo: TracingInfo): CompletionStage[SubmissionResult] =
     CompletableFuture.completedFuture({
       val submission =
         KeyValueSubmission
