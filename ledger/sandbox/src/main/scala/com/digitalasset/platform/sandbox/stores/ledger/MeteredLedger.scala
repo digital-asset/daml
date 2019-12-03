@@ -34,7 +34,6 @@ private class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: MetricRegis
     val lookupTransaction = metrics.timer("Ledger.lookupTransaction")
     val lookupLedgerConfiguration = metrics.timer("Ledger.lookupLedgerConfiguration ")
     val parties = metrics.timer("Ledger.parties")
-    val partyAllocationEntries = metrics.timer("Ledger.partyAllocationEntries")
     val lookupPartyAllocationEntry = metrics.timer("Ledger.lookupPartyAllocationEntry")
     val lookupPackageUploadEntry = metrics.timer("Ledger.lookupPackageUploadEntry")
     val listLfPackages = metrics.timer("Ledger.listLfPackages")
