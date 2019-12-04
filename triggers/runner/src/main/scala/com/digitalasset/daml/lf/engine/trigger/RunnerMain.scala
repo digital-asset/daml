@@ -70,7 +70,6 @@ object RunnerMain {
         implicit val ec: ExecutionContext = system.dispatcher
 
         val tokenHolder = config.accessTokenFile.map(new TokenHolder(_))
-        println(tokenHolder.flatMap(_.token))
         // We probably want to refresh the token at some point but given that triggers
         // are expected to be written such that they can be killed and restarted at
         // any time it would in principle also be fine to just have the auth failure due
