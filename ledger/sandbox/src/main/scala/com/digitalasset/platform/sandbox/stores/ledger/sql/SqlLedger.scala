@@ -324,26 +324,28 @@ private final class SqlLedger(
       submissionId: SubmissionId,
       participantId: ParticipantId): Future[SubmissionResult] = {
 
-    var headRef = 0L
-    ledgerDao
-      .storePartyEntry(
-        headRef,
-        headRef + 1,
-        None,
-        PartyLedgerEntry
-          .AllocationAccepted(
-            submissionId,
-            participantId,
-            timeProvider.getCurrentTime,
-            PartyDetails(party, displayName, isLocal = (participantId == this.participantId)))
-      )
-      .map {
-        case PersistenceResponse.Ok =>
-          SubmissionResult.Acknowledged
-        case PersistenceResponse.Duplicate =>
-          SubmissionResult.Acknowledged
-      }(DEC)
-
+    enqueue { offsets =>
+      ledgerDao
+        .storePartyEntry(
+          offsets.offset,
+          offsets.nextOffset,
+          None,
+          PartyLedgerEntry
+            .AllocationAccepted(
+              submissionId,
+              participantId,
+              timeProvider.getCurrentTime,
+              PartyDetails(party, displayName, isLocal = (participantId == this.participantId)))
+        )
+        .map {
+          case PersistenceResponse.Ok => ()
+          case PersistenceResponse.Duplicate => ()
+        }(DEC)
+        .recover {
+          case t =>
+            logger.error(s"Failed to persist allocation accepted entry with offsets: $offsets", t)
+        }(DEC)
+    }
   }
 
   override def uploadPackages(
