@@ -108,32 +108,36 @@ sealed abstract class ValuePredicate extends Product with Serializable {
         safe_== map (jq => path ++ sql" = $jq::jsonb")
     }
 
+    def goObject(path: Path, cqs: ImmArraySeq[(String, Rec)]): Rec = {
+      val allSafe_== = cqs collect {
+        case (k, Rec(_, Some(eqv), _)) => (k, eqv)
+      }
+      val allSafe_@> = cqs collect {
+        case (k, Rec(_, _, Some(ssv))) => (k, ssv)
+      }
+      // collecting raw, but overriding with an element = if it's =-safe
+      // but not @>-safe (equality of @>-safe elements is represented
+      // within the safe_@>, which is always collected below)
+      val eqOrRaw = cqs map {
+        case (k, r @ Rec(_, Some(_), None)) =>
+          r.flush_==(path ++ sql"->${k: String}").toList.toVector
+        case (_, Rec(raw, _, _)) => raw
+      }
+      Rec(
+        eqOrRaw.toVector.flatten,
+        (allSafe_==.length == cqs.length) option JsObject(allSafe_== : _*),
+        Some(JsObject(allSafe_@> : _*))
+      )
+    }
+
     def go(path: Path, self: ValuePredicate): Rec =
       self match {
         case Literal(_, jq) =>
           Rec(Vector.empty, Some(jq), Some(jq))
 
         case RecordSubset(qs) =>
-          val cqs = qs map (_ map { case (k, vp) => (k, go(path ++ sql"->${k: String}", vp)) })
-          val allSafe_== = cqs collect {
-            case Some((k, Rec(_, Some(eqv), _))) => (k, eqv)
-          }
-          val allSafe_@> = cqs collect {
-            case Some((k, Rec(_, _, Some(ssv)))) => (k, ssv)
-          }
-          // collecting raw, but overriding with an element = if it's =-safe
-          // but not @>-safe (equality of @>-safe elements is represented
-          // within the safe_@>, which is always collected below)
-          val eqOrRaw = cqs collect {
-            case Some((k, r @ Rec(_, Some(_), None))) =>
-              r.flush_==(path ++ sql"->${k: String}").toList.toVector
-            case Some((_, Rec(raw, _, _))) => raw
-          }
-          Rec(
-            eqOrRaw.toVector.flatten,
-            if (allSafe_==.length == cqs.length) Some(JsObject(allSafe_== : _*)) else None,
-            Some(JsObject(allSafe_@> : _*))
-          )
+          val cqs = qs collect { case Some((k, vp)) => (k, go(path ++ sql"->${k: String}", vp)) }
+          goObject(path, cqs)
 
         case VariantMatch((dc, q)) =>
           val Rec(vraw, v_==, v_@>) = go(path ++ sql"->${dc: String}", q)
@@ -145,21 +149,9 @@ sealed abstract class ValuePredicate extends Product with Serializable {
           val cqs = qs.toImmArray.toSeq map {
             case (k, eq) => (k, go(path ++ sql"->$k", eq))
           }
-          val allSafe_== = cqs collect {
-            case (k, Rec(_, Some(eqv), _)) => (k, eqv)
-          }
-          val allSafe_@> = cqs collect {
-            case (k, Rec(_, _, Some(ssv))) => (k, ssv)
-          }
-          // TODO SC where == is Some but @> is None, we can still do better
-          // than propagating the raw
-          Rec(
-            (sql"(SELECT count(*) FROM jsonb_object_keys(" ++ path ++ sql")) = ${cqs.length}") +: cqs
-              .flatMap(_._2.raw)
-              .toVector,
-            (cqs.length == allSafe_==.length) option JsObject(allSafe_== : _*),
-            Some(JsObject(allSafe_@> : _*))
-          )
+          val recordLike = goObject(path, cqs)
+          recordLike.copy(raw = (sql"(SELECT count(*) FROM jsonb_object_keys(" ++ path ++ sql")) = ${cqs.length}")
+            +: recordLike.raw)
 
         case ListMatch(qs) =>
           val (cqs, flushed_@>) = qs.zipWithIndex.map {
@@ -170,8 +162,8 @@ sealed abstract class ValuePredicate extends Product with Serializable {
           }.unzip
           val allSafe_== = cqs collect Function.unlift(_.safe_==)
           Rec(
-            cqs
-              .flatMap(_.raw) ++ flushed_@>.flatten :+ (sql"jsonb_array_length(" ++ path ++ sql") = ${qs.length}"),
+            (sql"jsonb_array_length(" ++ path ++ sql") = ${qs.length}")
+              +: (cqs.flatMap(_.raw) ++ flushed_@>.flatten),
             (cqs.length == allSafe_==.length) option JsArray(allSafe_==),
             None
           )
