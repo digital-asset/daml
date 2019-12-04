@@ -9,10 +9,14 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.v1.Configuration
 import com.digitalasset.daml.lf.data.Ref
 import org.scalatest.{Matchers, WordSpec}
+import scala.language.implicitConversions
 
 class KVUtilsConfigSpec extends WordSpec with Matchers {
   import KVTest._
   import TestHelpers._
+
+  implicit def `String to LedgerString`(s: String): Ref.LedgerString =
+    Ref.LedgerString.assertFromString(s)
 
   "configuration" should {
 
@@ -22,7 +26,7 @@ class KVUtilsConfigSpec extends WordSpec with Matchers {
           KeyValueSubmission.configurationToSubmission(
             maxRecordTime = theRecordTime,
             submissionId = "foobar",
-            participantId = Ref.LedgerString.assertFromString("participant"),
+            participantId = "participant",
             config = theDefaultConfig
           )))
 
@@ -61,9 +65,13 @@ class KVUtilsConfigSpec extends WordSpec with Matchers {
 
     "reject expired submissions" in KVTest.runTest {
       for {
-        logEntry <- submitConfig(mrtDelta = Duration.ofMinutes(-1), configModify = { c =>
-          c.copy(generation = c.generation + 1)
-        })
+        logEntry <- submitConfig(
+          mrtDelta = Duration.ofMinutes(-1),
+          configModify = { c =>
+            c.copy(generation = c.generation + 1)
+          },
+          submissionId = "some-submission-id"
+        )
       } yield {
         logEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.CONFIGURATION_REJECTION_ENTRY
         logEntry.getConfigurationRejectionEntry.getReasonCase shouldEqual DamlConfigurationRejectionEntry.ReasonCase.TIMED_OUT

@@ -83,6 +83,7 @@ object TestHelpers {
   def mkParticipantId(n: Int): ParticipantId =
     Ref.LedgerString.assertFromString(s"participant-$n")
 
-  def randomString: String = UUID.randomUUID().toString
+  def randomLedgerString: Ref.LedgerString =
+    Ref.LedgerString.assertFromString(UUID.randomUUID().toString)
 
 }

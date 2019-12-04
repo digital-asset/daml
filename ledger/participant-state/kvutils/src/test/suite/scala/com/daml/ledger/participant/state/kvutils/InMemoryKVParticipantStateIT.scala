@@ -9,7 +9,7 @@ import java.util.UUID
 
 import akka.stream.scaladsl.Sink
 import com.daml.ledger.participant.state.kvutils.InMemoryKVParticipantStateIT._
-import com.daml.ledger.participant.state.v1.Update.{PartyAddedToParticipant, PublicPackageUploaded}
+import com.daml.ledger.participant.state.v1.Update._
 import com.daml.ledger.participant.state.v1._
 import com.digitalasset.daml.bazeltools.BazelRunfiles._
 import com.digitalasset.daml.lf.archive.DarReader
@@ -23,7 +23,6 @@ import com.digitalasset.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import org.scalatest.Assertions._
 import org.scalatest.{Assertion, AsyncWordSpec, BeforeAndAfterEach}
 
-import scala.concurrent.Future
 import scala.compat.java8.FutureConverters._
 import scala.util.Try
 import scala.collection.immutable.SortedMap
@@ -35,11 +34,13 @@ class InMemoryKVParticipantStateIT
 
   var ledgerId: LedgerString = _
   var ps: InMemoryKVParticipantState = _
+  var rt: Timestamp = _
 
   override protected def beforeEach(): Unit = {
     super.beforeEach()
     ledgerId = Ref.LedgerString.assertFromString(s"ledger-${UUID.randomUUID()}")
     ps = new InMemoryKVParticipantState(participantId, ledgerId)
+    rt = ps.getNewRecordTime()
   }
 
   override protected def afterEach(): Unit = {
@@ -47,12 +48,12 @@ class InMemoryKVParticipantStateIT
     super.afterEach()
   }
 
-  private def allocateParty(hint: String): Future[Party] = {
-    ps.allocateParty(Some(hint), None).toScala.flatMap {
-      case PartyAllocationResult.Ok(details) => Future.successful(details.party)
-      case err => Future.failed(new RuntimeException("failed to allocate party: $err"))
-    }
-  }
+  private val alice = Ref.Party.assertFromString("alice")
+  private def randomLedgerString(): Ref.LedgerString =
+    Ref.LedgerString.assertFromString(UUID.randomUUID().toString)
+
+  // TODO(BH): Many of these tests for transformation from DamlLogEntry to Update better belong as
+  // a KeyValueConsumptionSpec as the heart of the logic is there
 
   "In-memory implementation" should {
 
@@ -67,8 +68,6 @@ class InMemoryKVParticipantStateIT
     }
 
     "provide update after uploadPackages" in {
-      val rt = ps.getNewRecordTime()
-
       for {
         result <- ps.uploadPackages(List(archives.head), sourceDescription).toScala
         updateTuple <- ps.stateUpdates(beginAfter = None).runWith(Sink.head)
@@ -79,7 +78,6 @@ class InMemoryKVParticipantStateIT
     }
 
     "provide two updates after uploadPackages with two archives" in {
-      val rt = ps.getNewRecordTime()
       val archive1 :: archive2 :: _ = archives
 
       for {
@@ -93,7 +91,6 @@ class InMemoryKVParticipantStateIT
     }
 
     "remove duplicate package from update after uploadPackages" in {
-      val rt = ps.getNewRecordTime()
       val archive1 :: archive2 :: _ = archives
 
       for {
@@ -130,23 +127,16 @@ class InMemoryKVParticipantStateIT
     }
 
     "provide update after allocateParty" in {
-      val rt = ps.getNewRecordTime()
-
-      val hint = Some("Alice")
+      val hint = Some(Ref.Party.assertFromString("Alice"))
       val displayName = Some("Alice Cooper")
 
       for {
-        allocResult <- ps.allocateParty(hint, displayName).toScala
+        allocResult <- ps.allocateParty(hint, displayName, randomLedgerString()).toScala
         updateTuple <- ps.stateUpdates(beginAfter = None).runWith(Sink.head)
       } yield {
-        allocResult match {
-          case PartyAllocationResult.Ok(partyDetails) =>
-            assert(partyDetails.party == hint.get)
-            assert(partyDetails.displayName == displayName)
-            assert(partyDetails.isLocal)
-          case _ =>
-            fail("unexpected response to party allocation")
-        }
+        assert(
+          allocResult == SubmissionResult.Acknowledged,
+          s"unexpected response to party allocation: $allocResult")
         updateTuple match {
           case (offset: Offset, update: PartyAddedToParticipant) =>
             assert(offset == Offset(Array(0L, 0L)))
@@ -154,56 +144,55 @@ class InMemoryKVParticipantStateIT
             assert(update.displayName == displayName.get)
             assert(update.participantId == ps.participantId)
             assert(update.recordTime >= rt)
-          case _ => fail("unexpected update message after a party allocation")
+          case _ =>
+            fail(
+              s"unexpected update message after a party allocation. Error : ${allocResult.description}")
         }
       }
     }
 
     "accept allocateParty when hint is empty" in {
-      val hint = None
+      val hintNone = None
       val displayName = Some("Alice Cooper")
 
       for {
-        result <- ps.allocateParty(hint, displayName).toScala
+        result <- ps.allocateParty(hint = None, displayName, randomLedgerString()).toScala
+        updateTuple <- ps.stateUpdates(beginAfter = None).runWith(Sink.head)
       } yield {
-        result match {
-          case PartyAllocationResult.Ok(_) =>
-            succeed
+        assert(result == SubmissionResult.Acknowledged, "unexpected response to party allocation")
+        updateTuple match {
+          case (offset: Offset, update: PartyAddedToParticipant) =>
+            assert(offset == Offset(Array(0L, 0L)))
+            assert(update.party != hintNone)
+            assert(update.displayName == displayName.get)
+            assert(update.participantId == ps.participantId)
+            assert(update.recordTime >= rt)
           case _ =>
-            fail("unexpected response to party allocation")
+            fail(
+              "unexpected update message after a party allocation.  Error : " + result.description)
         }
-      }
-    }
 
-    "reject allocateParty when hint contains invalid string for a party" in {
-      val hint = Some("Alice!@")
-      val displayName = Some("Alice Cooper")
-
-      for {
-        result <- ps.allocateParty(hint, displayName).toScala
-      } yield {
-        result match {
-          case PartyAllocationResult.InvalidName(_) =>
-            succeed
-          case _ =>
-            fail("unexpected response to party allocation")
-        }
       }
     }
 
     "reject duplicate allocateParty" in {
-      val hint = Some("Alice")
+      val hint = Some(Ref.Party.assertFromString("Alice"))
       val displayName = Some("Alice Cooper")
 
       for {
-        _ <- ps.allocateParty(hint, displayName).toScala
-        result <- ps.allocateParty(hint, displayName).toScala
+        result1 <- ps.allocateParty(hint, displayName, randomLedgerString()).toScala
+        result2 <- ps.allocateParty(hint, displayName, randomLedgerString()).toScala
+        Seq(_, update2) <- ps.stateUpdates(beginAfter = None).take(2).runWith(Sink.seq)
       } yield {
-        result match {
-          case PartyAllocationResult.AlreadyExists =>
-            succeed
+        assert(result1 == SubmissionResult.Acknowledged, "unexpected response to party allocation")
+        assert(result2 == SubmissionResult.Acknowledged, "unexpected response to party allocation")
+        update2 match {
+          case (offset: Offset, update: PartyAllocationRejected) =>
+            assert(offset == Offset(Array(1L, 0L)))
+            assert(update.rejectionReason equalsIgnoreCase "Party already exists")
           case _ =>
-            fail("unexpected response to party allocation")
+            fail(
+              "unexpected update message after a party allocation.  Error : " + result2.description)
         }
       }
     }
@@ -211,7 +200,7 @@ class InMemoryKVParticipantStateIT
     "provide update after transaction submission" in {
       val rt = ps.getNewRecordTime()
       for {
-        alice <- allocateParty("alice")
+        _ <- ps.allocateParty(hint = Some(alice), None, randomLedgerString()).toScala
         _ <- ps
           .submitTransaction(submitterInfo(rt, alice), transactionMeta(rt), emptyTransaction)
           .toScala
@@ -225,7 +214,7 @@ class InMemoryKVParticipantStateIT
       val rt = ps.getNewRecordTime()
 
       for {
-        alice <- allocateParty("alice")
+        _ <- ps.allocateParty(hint = Some(alice), None, randomLedgerString()).toScala
         _ <- ps
           .submitTransaction(submitterInfo(rt, alice), transactionMeta(rt), emptyTransaction)
           .toScala
@@ -250,7 +239,9 @@ class InMemoryKVParticipantStateIT
     "return second update with beginAfter=0" in {
       val rt = ps.getNewRecordTime()
       for {
-        alice <- allocateParty("alice") // offset now at [1,0]
+        _ <- ps
+          .allocateParty(hint = Some(alice), None, randomLedgerString())
+          .toScala // offset now at [1,0]
         _ <- ps
           .submitTransaction(submitterInfo(rt, alice), transactionMeta(rt), emptyTransaction)
           .toScala
@@ -268,8 +259,6 @@ class InMemoryKVParticipantStateIT
     }
 
     "return update [0,1] with beginAfter=[0,0]" in {
-      val rt = ps.getNewRecordTime()
-
       for {
         _ <- ps
           .uploadPackages(archives, sourceDescription)
@@ -292,7 +281,7 @@ class InMemoryKVParticipantStateIT
         _ <- ps
           .submitConfiguration(
             maxRecordTime = rt.addMicros(1000000),
-            submissionId = "test1",
+            submissionId = randomLedgerString(),
             config = lic.config.copy(
               generation = lic.config.generation + 1,
             )
@@ -311,14 +300,18 @@ class InMemoryKVParticipantStateIT
         allocResult <- ps
           .allocateParty(
             None /* no name hint, implementation decides party name */,
-            Some("Somebody"))
+            Some("Somebody"),
+            randomLedgerString())
           .toScala
-        _ <- assert(allocResult.isInstanceOf[PartyAllocationResult.Ok])
+        _ <- assert(allocResult.isInstanceOf[SubmissionResult])
+        //get the new party off state updates
+        newParty <- ps
+          .stateUpdates(beginAfter = Some(Offset(Array(1L, 0L))))
+          .runWith(Sink.head)
+          .map(_._2.asInstanceOf[PartyAddedToParticipant].party)
         _ <- ps
           .submitTransaction(
-            submitterInfo(
-              rt,
-              party = allocResult.asInstanceOf[PartyAllocationResult.Ok].result.party),
+            submitterInfo(rt, party = newParty),
             transactionMeta(rt),
             emptyTransaction)
           .toScala
@@ -353,7 +346,7 @@ class InMemoryKVParticipantStateIT
         _ <- ps
           .submitConfiguration(
             maxRecordTime = rt.addMicros(1000000),
-            submissionId = "test1",
+            submissionId = randomLedgerString(),
             config = lic.config.copy(
               generation = lic.config.generation + 1,
             ))
@@ -363,7 +356,7 @@ class InMemoryKVParticipantStateIT
         _ <- ps
           .submitConfiguration(
             maxRecordTime = rt.addMicros(1000000),
-            submissionId = "test2",
+            submissionId = randomLedgerString(),
             config = lic.config.copy(
               generation = lic.config.generation + 1,
               timeModel = TimeModel(
@@ -419,7 +412,7 @@ object InMemoryKVParticipantStateIT {
   ): Assertion = updateTuple match {
     case (offset: Offset, update: PublicPackageUploaded) =>
       assert(offset == givenOffset)
-      assert(update.archive == givenArchive)
+      assert(update.archive.getHash == givenArchive.getHash)
       assert(update.sourceDescription == sourceDescription)
       assert(update.participantId == participantId)
       assert(update.recordTime >= rt)

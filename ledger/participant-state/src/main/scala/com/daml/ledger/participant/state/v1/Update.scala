@@ -35,7 +35,7 @@ object Update {
   /** Signal that the current [[Configuration]] has changed. */
   final case class ConfigurationChanged(
       recordTime: Timestamp,
-      submissionId: String,
+      submissionId: SubmissionId,
       participantId: ParticipantId,
       newConfiguration: Configuration)
       extends Update {
@@ -47,7 +47,7 @@ object Update {
     */
   final case class ConfigurationChangeRejected(
       recordTime: Timestamp,
-      submissionId: String,
+      submissionId: SubmissionId,
       participantId: ParticipantId,
       proposedConfiguration: Configuration,
       rejectionReason: String)
@@ -71,43 +71,53 @@ object Update {
     * @param recordTime
     *   The ledger-provided timestamp at which the party was allocated.
     *
+    * @param submissionId
+    *   The submissionId of the command which requested party to be added.
+    *
     */
   final case class PartyAddedToParticipant(
       party: Party,
       displayName: String,
       participantId: ParticipantId,
-      recordTime: Timestamp)
+      recordTime: Timestamp,
+      submissionId: Option[SubmissionId])
       extends Update {
     override def description: String =
       s"Add party '$party' to participant"
   }
 
-  /** Signal the uploading of a package that is publicly visible.
+  /** Signal that the party allocation request has been Rejected.
     *
-    * We expect that ledger or participant-node administrators issue such
-    * public uploads. The 'public' qualifier refers to the fact that all
-    * parties hosted by a participant (or even all parties connected to a
-    * ledger) will see the uploaded package. It is in contrast to a future
-    * extension where we plan to support per-party package visibility
+    * Initially this will be visible to all participants in the current open world,
+    * with a possible need to revisit as part of the per-party package visibility work
     * https://github.com/digital-asset/daml/issues/311.
     *
-    *
-    * @param archive
-    *   The DAML-LF package that was uploaded.
-    *
-    * @param sourceDescription
-    *   A description of the package, provided by the administrator as part of
-    *   the upload.
+    * @param submissionId
+    *   submissionId of the party allocation command.
     *
     * @param participantId
-    *   The participant through which the package was uploaded. This field
-    *   is informative, and can be used by applications to display information
-    *   about the origin of the package.
+    *   The participant to which the party was requested to be added. This field
+    *   is informative,
     *
     * @param recordTime
     *   The ledger-provided timestamp at which the package was uploaded.
     *
+    * @param rejectionReason
+    *   reason for rejection of the party allocation entry
+    *
+    * Consider whether an enumerated set of reject reasons a la [[RejectionReason]] would be helpful, and whether the same breadth of reject
+    * types needs to be handled for party allocation entry rejects
     */
+  final case class PartyAllocationRejected(
+      submissionId: SubmissionId,
+      participantId: ParticipantId,
+      recordTime: Timestamp,
+      rejectionReason: String)
+      extends Update {
+    override def description: String =
+      s"Request to add party to participant with submissionId'$submissionId' failed"
+  }
+
   final case class PublicPackageUploaded(
       archive: DamlLf.Archive,
       sourceDescription: Option[String],

@@ -178,13 +178,13 @@ object KVTest {
       tx: SubmittedTransaction,
       mrtDelta: Duration = minMRTDelta,
       letDelta: Duration = Duration.ZERO,
-      commandId: String = randomString): KVTest[(DamlLogEntryId, DamlLogEntry)] =
+      commandId: CommandId = randomLedgerString): KVTest[(DamlLogEntryId, DamlLogEntry)] =
     for {
       testState <- get[KVTestState]
       submInfo = SubmitterInfo(
         submitter = submitter,
         applicationId = Ref.LedgerString.assertFromString("test"),
-        commandId = Ref.LedgerString.assertFromString(commandId),
+        commandId = commandId,
         maxRecordTime = testState.recordTime.addMicros(mrtDelta.toNanos / 1000)
       )
       subm = KeyValueSubmission.transactionToSubmission(
@@ -200,7 +200,7 @@ object KVTest {
 
   def submitConfig(
       configModify: Configuration => Configuration,
-      submissionId: String = randomString,
+      submissionId: SubmissionId = randomLedgerString,
       mrtDelta: Duration = minMRTDelta
   ): KVTest[DamlLogEntry] =
     for {
@@ -221,7 +221,11 @@ object KVTest {
       hint: String,
       participantId: ParticipantId): KVTest[DamlLogEntry] =
     submit(
-      KeyValueSubmission.partyToSubmission(subId, Some(hint), None, participantId)
+      KeyValueSubmission.partyToSubmission(
+        Ref.LedgerString.assertFromString(subId),
+        Some(hint),
+        None,
+        participantId)
     ).map(_._2)
 
   def allocateParty(subId: String, hint: String): KVTest[Party] =
