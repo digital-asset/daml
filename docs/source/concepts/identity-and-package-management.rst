@@ -85,11 +85,11 @@ Identifiers and Ledger Authentication
 =====================================
 
 To issue commands or receive transactions on behalf of a newly provisioned party, an application must authenticate itself to the party's hosting participant as someone authorized to represent the party.
-Currently, the Ledger API provides no authentication mechanisms.
-However, it will soon support authentication through JSON Web Tokens.
 Before the newly provisioned party can be used, the application will have to obtain a token for this party.
 The issuance of tokens is specific to each ledger and independent of the Ledger API.
 The same is true for the policy which the participants use to decide whether to accept a token.
+
+To learn more about ledger API authentication, please read the :doc:`Authentication documentation </app-dev/authentication>`.
 
 .. _identifiers-and-real-world:
 
