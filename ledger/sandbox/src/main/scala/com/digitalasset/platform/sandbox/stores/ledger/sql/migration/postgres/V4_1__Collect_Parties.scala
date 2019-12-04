@@ -12,7 +12,12 @@ import java.util.UUID
 import anorm.{BatchSql, NamedParameter}
 import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.transaction.GenTransaction
-import com.digitalasset.daml.lf.transaction.Node.{NodeCreate, NodeExercises, NodeFetch, NodeLookupByKey}
+import com.digitalasset.daml.lf.transaction.Node.{
+  NodeCreate,
+  NodeExercises,
+  NodeFetch,
+  NodeLookupByKey
+}
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 import com.digitalasset.ledger.EventId
 import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.TransactionSerializer
