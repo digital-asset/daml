@@ -72,32 +72,28 @@ final class ConcurrentCompiledPackages extends MutableCompiledPackages {
             }
           }
 
-          // Compile the speedy definitions for this package.
-          val defns =
-            try {
-              speedy.Compiler(packages orElse state.packages).compilePackage(pkgId)
-            } catch {
-              // A missing package during compilation is means that the dependencies declared
-              // in the package are wrong.
-              case speedy.Compiler.PackageNotFound(dependency) =>
-                return ResultError(Error(
-                  s"Internal error: Invalid direct dependencies, package $dependency found missing during compilation"))
+          // At this point all dependencies have been loaded. Update the packages
+          // map using 'computeIfAbsent' which will ensure we only compile the
+          // package once. Other concurrent calls to add this package will block
+          // waiting for the first one to finish.
+          _packages.computeIfAbsent(
+            pkgId, { _ =>
+              // Compile the speedy definitions for this package.
+              val defns = speedy.Compiler(packages orElse state.packages).compilePackage(pkgId)
+              for ((defnId, defn) <- defns) {
+                _defns.put(defnId, defn)
+              }
+              // Compute the transitive dependencies of the new package. Since we are adding
+              // packages in dependency order we can just union the dependencies of the
+              // direct dependencies to get the complete transitive dependencies.
+              val deps = pkg.directDeps.foldLeft(pkg.directDeps) {
+                case (deps, dependency) =>
+                  deps union _packageDeps.get(dependency)
+              }
+              _packageDeps.put(pkgId, deps)
+              pkg
             }
-
-          // if we made it this far, update
-          _packages.put(pkgId, pkg)
-          for ((defnId, defn) <- defns) {
-            _defns.put(defnId, defn)
-          }
-
-          // Compute the transitive dependencies of the new package. Since we are adding
-          // packages in dependency order we can just union the dependencies of the
-          // direct dependencies to get the complete transitive dependencies.
-          val deps = pkg.directDeps.foldLeft(pkg.directDeps) {
-            case (deps, dependency) =>
-              deps union _packageDeps.get(dependency)
-          }
-          _packageDeps.put(pkgId, deps)
+          )
         }
       }
 
@@ -106,6 +102,7 @@ final class ConcurrentCompiledPackages extends MutableCompiledPackages {
 
   def clear(): Unit = this.synchronized[Unit] {
     _packages.clear()
+    _packageDeps.clear()
     _defns.clear()
   }
 
