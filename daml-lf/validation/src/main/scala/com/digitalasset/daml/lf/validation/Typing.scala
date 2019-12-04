@@ -235,7 +235,7 @@ private[validation] object Typing {
       // Unstable text functions
       BTextToUpper -> (TText ->: TText),
       BTextToLower -> (TText ->: TText),
-      BTextSliceIndex -> (TInt64 ->: TInt64 ->: TText ->: TText),
+      BTextSlice -> (TInt64 ->: TInt64 ->: TText ->: TText),
       BTextSliceIndex -> (TText ->: TText ->: TOptional(TInt64)),
       BTextContainsOnly -> (TText ->: TText ->: TBool),
       BTextReplicate -> (TInt64 ->: TText ->: TText),
