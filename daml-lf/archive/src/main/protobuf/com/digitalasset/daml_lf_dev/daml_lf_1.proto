@@ -41,6 +41,7 @@
 //        2019-11-12: Add Generic Map (GenMap)
 //        2019-11-22: Rename Map to TextMap
 //        2019-11-28: Rename Tuple to Struct
+//        2019-12-03: Add (experimental) text primitives.
 
 syntax = "proto3";
 package daml_lf_1;
@@ -512,7 +513,17 @@ enum BuiltinFunction {
 
   TEXT_FROM_CODE_POINTS = 105;  // *Available in versions >= 1.6*
   TEXT_TO_CODE_POINTS = 106; // *Available in versions >= 1.6*
-  // Next id is 131. 130 is GENMAP_SIZE.
+
+  TEXT_ASCII_TO_UPPER = 131; // *Available in versions >= 1.dev*
+  TEXT_ASCII_TO_LOWER = 132; // *Available in versions >= 1.dev*
+  TEXT_SLICE = 133;
+  TEXT_SLICE_INDEX = 134; // *Available in versions >= 1.dev*
+  TEXT_CONTAINS_ONLY = 135; // *Available in versions >= 1.dev*
+  TEXT_REPLICATE = 136; // *Available in versions >= 1.dev*
+  TEXT_SPLIT_ON = 137; // *Available in versions >= 1.dev*
+  TEXT_INTERCALATE = 138; // *Available in versions >= 1.dev*
+
+  // Next id is 139. 138 is TEXT_JOIN.
 }
 
 // Builtin literals

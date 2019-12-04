@@ -183,6 +183,15 @@ safetyStep = \case
       BEDecimalFromText -> Safe 1
       BETextToCodePoints -> Safe 1
       BECoerceContractId -> Safe 1
+      BETextAsciiToUpper -> Safe 1
+      BETextAsciiToLower -> Safe 1
+      BETextSlice -> Safe 3
+      BETextSliceIndex -> Safe 2
+      BETextContainsOnly -> Safe 2
+      BETextReplicate -> Safe 2
+      BETextSplitOn -> Safe 2
+      BETextIntercalate -> Safe 2
+
   ERecConF _ fs -> minimum (Safe 0 : map snd fs)
   ERecProjF _ _ s -> s `min` Safe 0
   ERecUpdF _ _ s1 s2 -> s1 `min` s2 `min` Safe 0

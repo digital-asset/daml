@@ -1427,7 +1427,15 @@ private[lf] object DecodeV1 {
       BuiltinFunctionInfo(EQUAL_CONTRACT_ID, BEqualContractId),
       BuiltinFunctionInfo(EQUAL_TYPE_REP, BEqualTypeRep),
       BuiltinFunctionInfo(TRACE, BTrace),
-      BuiltinFunctionInfo(COERCE_CONTRACT_ID, BCoerceContractId, minVersion = coerceContractId)
+      BuiltinFunctionInfo(COERCE_CONTRACT_ID, BCoerceContractId, minVersion = coerceContractId),
+      BuiltinFunctionInfo(TEXT_ASCII_TO_UPPER, BTextAsciiToUpper, minVersion = unstable),
+      BuiltinFunctionInfo(TEXT_ASCII_TO_LOWER, BTextAsciiToLower, minVersion = unstable),
+      BuiltinFunctionInfo(TEXT_SLICE_INDEX, BTextSliceIndex, minVersion = unstable),
+      BuiltinFunctionInfo(TEXT_CONTAINS_ONLY, BTextContainsOnly, minVersion = unstable),
+      BuiltinFunctionInfo(TEXT_REPLICATE, BTextReplicate, minVersion = unstable),
+      BuiltinFunctionInfo(TEXT_SPLIT_ON, BTextSplitOn, minVersion = unstable),
+      BuiltinFunctionInfo(TEXT_INTERCALATE, BTextIntercalate, minVersion = unstable)
+
     )
   }
 

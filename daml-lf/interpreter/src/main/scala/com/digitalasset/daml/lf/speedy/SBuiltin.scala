@@ -1316,6 +1316,64 @@ object SBuiltin {
     }
   }
 
+  // Unstable text primitives.
+
+  /** $text_ascii_to_upper :: Text -> Text */
+  final case object SBTextAsciiToUpper extends SBuiltin(1) {
+    def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
+      crash("text_ascii_to_upper not implemented yet")
+    }
+  }
+
+  /** $text_ascii_to_lower :: Text -> Text */
+  final case object SBTextAsciiToLower extends SBuiltin(1) {
+    def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
+      crash("text_ascii_to_lower not implemented yet")
+    }
+  }
+
+  /** $text_slice :: Int -> Int -> Text -> Text */
+  final case object SBTextSlice extends SBuiltin(3) {
+    def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
+      crash("text_slice not implemented yet")
+    }
+  }
+
+  /** $text_slice_index :: Text -> Text -> Optional Int */
+  final case object SBTextSliceIndex extends SBuiltin(2) {
+    def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
+      crash("text_slice_index not implemented yet")
+    }
+  }
+
+  /** $text_contains_only :: Text -> Text -> Bool */
+  final case object SBTextContainsOnly extends SBuiltin(2) {
+    def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
+      crash("text_contains_only not implemented yet")
+    }
+  }
+
+  /** $text_replicate :: Int -> Text -> Text */
+  final case object SBTextReplicate extends SBuiltin(2) {
+    def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
+      crash("text_replicate not implemented yet")
+    }
+  }
+
+  /** $text_split_on :: Text -> Text -> List Text */
+  final case object SBTextSplitOn extends SBuiltin(2) {
+    def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
+      crash("text_split_on not implemented yet")
+    }
+  }
+
+  /** $text_intercalate :: Text -> List Text -> Text */
+  final case object SBTextIntercalate extends SBuiltin(2) {
+    def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
+      crash("text_intercalate not implemented yet")
+    }
+  }
+
   // Helpers
   //
 

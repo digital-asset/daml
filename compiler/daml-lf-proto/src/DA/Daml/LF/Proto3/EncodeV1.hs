@@ -477,6 +477,15 @@ encodeBuiltinExpr = \case
     BEEqualContractId -> builtin P.BuiltinFunctionEQUAL_CONTRACT_ID
     BECoerceContractId -> builtin P.BuiltinFunctionCOERCE_CONTRACT_ID
 
+    BETextAsciiToUpper -> builtin P.BuiltinFunctionTEXT_ASCII_TO_UPPER
+    BETextAsciiToLower -> builtin P.BuiltinFunctionTEXT_ASCII_TO_LOWER
+    BETextSlice -> builtin P.BuiltinFunctionTEXT_SLICE
+    BETextSliceIndex -> builtin P.BuiltinFunctionTEXT_SLICE_INDEX
+    BETextContainsOnly -> builtin P.BuiltinFunctionTEXT_CONTAINS_ONLY
+    BETextReplicate -> builtin P.BuiltinFunctionTEXT_REPLICATE
+    BETextSplitOn -> builtin P.BuiltinFunctionTEXT_SPLIT_ON
+    BETextIntercalate -> builtin P.BuiltinFunctionTEXT_INTERCALATE
+
     where
       builtin = pure . P.ExprSumBuiltin . P.Enumerated . Right
       lit = P.ExprSumPrimLit . P.PrimLit . Just
