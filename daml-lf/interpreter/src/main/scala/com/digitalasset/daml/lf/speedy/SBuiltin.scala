@@ -1462,7 +1462,24 @@ object SBuiltin {
   /** $text_intercalate :: Text -> List Text -> Text */
   final case object SBTextIntercalate extends SBuiltin(2) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
-      crash("text_intercalate not implemented yet")
+      args.get(0) match {
+        case SText(sep) =>
+          args.get(1) match {
+            case SList(vs) =>
+              val xs = vs.map { (v: SValue) =>
+                v match {
+                  case SText(t) => t
+                  case x =>
+                    throw SErrorCrash(s"type mismatch SBTextIntercalate, expected Text in list, got $x")
+                }
+              }
+              machine.ctrl = CtrlValue(SText(xs.iterator.mkString(sep)))
+            case x =>
+              throw SErrorCrash(s"type mismatch SBTextIntercalate, expected List got $x")
+          }
+        case x =>
+          throw SErrorCrash(s"type mismatch SBTextIntercalate, expected Text got $x")
+      }
     }
   }
 
