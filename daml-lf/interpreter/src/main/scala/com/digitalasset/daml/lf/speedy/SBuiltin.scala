@@ -1426,7 +1426,12 @@ object SBuiltin {
         case SInt64(n) =>
           args.get(1) match {
             case SText(t) =>
-              machine.ctrl = CtrlValue(SText(t * n))
+              if (n < 0) {
+                machine.ctrl = CtrlValue(SText(""))
+              } else {
+                val rn = n.min(Int.MaxValue.toLong).toInt
+                machine.ctrl = CtrlValue(SText(t * rn))
+              }
             case x =>
               throw SErrorCrash(s"type mismatch SBTextReplicate, expected Text got $x")
           }
@@ -1443,8 +1448,8 @@ object SBuiltin {
         case SText(pattern) =>
           args.get(1) match {
             case SText(t) =>
-              val array = t.split(pattern).map(SText(_))
-              machine.ctrl = CtrlValue(SList(array))
+              val seq : Seq[SValue] = t.split(pattern).map(SText).toSeq
+              machine.ctrl = CtrlValue(SList(FrontStack(seq)))
             case x =>
               throw SErrorCrash(s"type mismatch SBTextSplitOn, expected Text got $x")
           }
