@@ -1335,7 +1335,34 @@ object SBuiltin {
   /** $text_slice :: Int -> Int -> Text -> Text */
   final case object SBTextSlice extends SBuiltin(3) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
-      crash("text_slice not implemented yet")
+      args.get(0) match {
+        case SInt64(from) =>
+          args.get(1) match {
+            case SInt64(to) =>
+              args.get(2) match {
+                case SText(t) =>
+                  if (to <= 0 || from >= t.length.toLong || to <= from ) {
+                    machine.ctrl = CtrlValue(SText(""))
+                  } else {
+                    val rfrom = from.max(0).toInt
+                    val rto = to.min(t.length.toLong).toInt
+                      // NOTE [FM]: We use toInt only after ensuring the indices are
+                      // between 0 and t.length inclusive. Calling toInt prematurely
+                      // would mean dropping the high order bits indiscriminitely,
+                      // so for instance (0x100000000L).toInt == 0, resulting in an
+                      // empty string below even though `to` was larger than the
+                      // length.
+                    machine.ctrl = CtrlValue(SText(t.slice(rfrom, rto)))
+                  }
+                case x =>
+                  throw SErrorCrash(s"type mismatch SBTextSlice, expected Text got $x")
+              }
+            case x =>
+              throw SErrorCrash(s"type mismatch SBTextSlice, expected Int64 got $x")
+          }
+        case x =>
+          throw SErrorCrash(s"type mismatch SBTextSlice, expected Int64 got $x")
+      }
     }
   }
 
