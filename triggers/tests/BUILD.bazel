@@ -118,8 +118,11 @@ client_server_test(
     name = "test_static_time_authenticated",
     timeout = "long",
     client = ":test_client",
-    client_args = ["--access-token-file=$(rootpath :test-auth-token.jwt)"],
-    client_files = ["$(rootpath :acs.dar)"],
+    client_args = ["--access-token-file"],
+    client_files = [
+        "$(rootpath :test-auth-token.jwt)",
+        "$(rootpath :acs.dar)",
+    ],
     data = [
         ":acs.dar",
         ":test-auth-token.jwt",
