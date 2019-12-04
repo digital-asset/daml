@@ -84,7 +84,8 @@ object LedgerServicesImpls {
       PackageServiceImpl.createWithRef(
         listPackagesResponse,
         getPackageResponse,
-        getPackageStatusResponse)(ec)
+        getPackageStatusResponse,
+        authorizer)(ec)
 
     val services = Seq(
       iServiceDef,
