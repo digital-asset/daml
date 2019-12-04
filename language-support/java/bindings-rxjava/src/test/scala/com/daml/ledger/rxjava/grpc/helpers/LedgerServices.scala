@@ -8,9 +8,8 @@ import java.time.Clock
 import java.util.concurrent.TimeUnit
 
 import com.daml.ledger.rxjava.grpc._
+import com.daml.ledger.rxjava.grpc.helpers.TransactionsServiceImpl.LedgerItem
 import com.daml.ledger.rxjava.{CommandCompletionClient, LedgerConfigurationClient, PackageClient}
-import com.daml.ledger.testkit.services.TransactionServiceImpl.LedgerItem
-import com.daml.ledger.testkit.services._
 import com.digitalasset.grpc.adapter.{ExecutionSequencerFactory, SingleThreadExecutionSequencerPool}
 import com.digitalasset.ledger.api.auth.interceptor.AuthorizationInterceptor
 import com.digitalasset.ledger.api.auth.{AuthService, AuthServiceWildcard, Authorizer}
@@ -189,12 +188,12 @@ final class LedgerServices(val ledgerId: String) {
     }
   }
 
-  def withTransactionClient(
+  def withTransactionsClient(
       ledgerContent: Observable[LedgerItem],
       authService: AuthService = AuthServiceWildcard)(
-      f: (TransactionClientImpl, TransactionServiceImpl) => Any): Any = {
+      f: (TransactionClientImpl, TransactionsServiceImpl) => Any): Any = {
     val (service, serviceImpl) =
-      TransactionServiceImpl.createWithRef(ledgerContent)(executionContext)
+      TransactionsServiceImpl.createWithRef(ledgerContent, authorizer)(executionContext)
     withServerAndChannel(authService, Seq(service)) { channel =>
       f(new TransactionClientImpl(ledgerId, channel, esf), serviceImpl)
     }
