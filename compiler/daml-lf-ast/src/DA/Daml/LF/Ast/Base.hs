@@ -298,8 +298,8 @@ data BuiltinExpr
   | BECoerceContractId           -- :: forall a b. ContractId a -> ContractId b
 
   -- Experimental Text Primitives
-  | BETextAsciiToUpper           -- :: Text -> Text
-  | BETextAsciiToLower           -- :: Text -> Text
+  | BETextToUpper                -- :: Text -> Text
+  | BETextToLower                -- :: Text -> Text
   | BETextSlice                  -- :: Int -> Int -> Text -> Text
   | BETextSliceIndex             -- :: Text -> Text -> Optional Int64
   | BETextContainsOnly           -- :: Text -> Text -> Bool

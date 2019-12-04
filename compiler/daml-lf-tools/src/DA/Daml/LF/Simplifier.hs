@@ -183,8 +183,8 @@ safetyStep = \case
       BEDecimalFromText -> Safe 1
       BETextToCodePoints -> Safe 1
       BECoerceContractId -> Safe 1
-      BETextAsciiToUpper -> Safe 1
-      BETextAsciiToLower -> Safe 1
+      BETextToUpper -> Safe 1
+      BETextToLower -> Safe 1
       BETextSlice -> Safe 3
       BETextSliceIndex -> Safe 2
       BETextContainsOnly -> Safe 2

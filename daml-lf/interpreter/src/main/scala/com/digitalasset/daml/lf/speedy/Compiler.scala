@@ -318,8 +318,8 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
               case BGenMapSize => SBGenMapSize
 
               // Unstable Text Primitives
-              case BTextAsciiToUpper => SBTextAsciiToUpper
-              case BTextAsciiToLower => SBTextAsciiToLower
+              case BTextToUpper => SBTextToUpper
+              case BTextToLower => SBTextToLower
               case BTextSlice => SBTextSlice
               case BTextSliceIndex => SBTextSliceIndex
               case BTextContainsOnly => SBTextContainsOnly

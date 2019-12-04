@@ -343,10 +343,10 @@ fromCodePoints = primitive @"BETextFromCodePoints"
 #ifdef DAML_UNSTABLE
 
 unstableToUpper : Text -> Text
-unstableToUpper = primitive @"BETextAsciiToUpper"
+unstableToUpper = primitive @"BETextToUpper"
 
 unstableToLower : Text -> Text
-unstableToLower = primitive @"BETextAsciiToLower"
+unstableToLower = primitive @"BETextToLower"
 
 unstableSlice : Int -> Int -> Text -> Text
 unstableSlice = primitive @"BETextSlice"

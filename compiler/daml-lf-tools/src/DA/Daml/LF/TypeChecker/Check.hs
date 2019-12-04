@@ -234,8 +234,8 @@ typeOfBuiltin = \case
   BECoerceContractId -> do
     pure $ TForall (alpha, KStar) $ TForall (beta, KStar) $ TContractId tAlpha :-> TContractId tBeta
 
-  BETextAsciiToUpper -> pure (TText :-> TText)
-  BETextAsciiToLower -> pure (TText :-> TText)
+  BETextToUpper -> pure (TText :-> TText)
+  BETextToLower -> pure (TText :-> TText)
   BETextSlice -> pure (TInt64 :-> TInt64 :-> TText :-> TText)
   BETextSliceIndex -> pure (TText :-> TText :-> TOptional TInt64)
   BETextContainsOnly -> pure (TText :-> TText :-> TBool)

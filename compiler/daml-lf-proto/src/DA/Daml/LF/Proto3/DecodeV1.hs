@@ -415,8 +415,8 @@ decodeBuiltinFunction = pure . \case
   LF1.BuiltinFunctionEQUAL_CONTRACT_ID -> BEEqualContractId
   LF1.BuiltinFunctionCOERCE_CONTRACT_ID -> BECoerceContractId
 
-  LF1.BuiltinFunctionTEXT_ASCII_TO_UPPER -> BETextAsciiToUpper
-  LF1.BuiltinFunctionTEXT_ASCII_TO_LOWER -> BETextAsciiToLower
+  LF1.BuiltinFunctionTEXT_TO_UPPER -> BETextToUpper
+  LF1.BuiltinFunctionTEXT_TO_LOWER -> BETextToLower
   LF1.BuiltinFunctionTEXT_SLICE -> BETextSlice
   LF1.BuiltinFunctionTEXT_SLICE_INDEX -> BETextSliceIndex
   LF1.BuiltinFunctionTEXT_CONTAINS_ONLY -> BETextContainsOnly

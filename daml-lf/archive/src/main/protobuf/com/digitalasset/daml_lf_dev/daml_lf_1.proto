@@ -514,8 +514,8 @@ enum BuiltinFunction {
   TEXT_FROM_CODE_POINTS = 105;  // *Available in versions >= 1.6*
   TEXT_TO_CODE_POINTS = 106; // *Available in versions >= 1.6*
 
-  TEXT_ASCII_TO_UPPER = 131; // *Available in versions >= 1.dev*
-  TEXT_ASCII_TO_LOWER = 132; // *Available in versions >= 1.dev*
+  TEXT_TO_UPPER = 131; // *Available in versions >= 1.dev*
+  TEXT_TO_LOWER = 132; // *Available in versions >= 1.dev*
   TEXT_SLICE = 133;
   TEXT_SLICE_INDEX = 134; // *Available in versions >= 1.dev*
   TEXT_CONTAINS_ONLY = 135; // *Available in versions >= 1.dev*

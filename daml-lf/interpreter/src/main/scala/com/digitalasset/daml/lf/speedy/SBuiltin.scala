@@ -1318,28 +1318,28 @@ object SBuiltin {
 
   // Unstable text primitives.
 
-  /** $text_ascii_to_upper :: Text -> Text */
-  final case object SBTextAsciiToUpper extends SBuiltin(1) {
+  /** $text_to_upper :: Text -> Text */
+  final case object SBTextToUpper extends SBuiltin(1) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       args.get(0) match {
         case SText(t) =>
           machine.ctrl = CtrlValue(SText(t.toUpperCase(util.Locale.ROOT)))
-            // TODO [FM]: replace with ASCII-specific function, or rename primitive to TEXT_TO_UPPER
+            // TODO [FM]: replace with ASCII-specific function, or not
         case x =>
-          throw SErrorCrash(s"type mismatch SBTextAsciiToUpper, expected Text got $x")
+          throw SErrorCrash(s"type mismatch SBTextoUpper, expected Text got $x")
       }
     }
   }
 
-  /** $text_ascii_to_lower :: Text -> Text */
-  final case object SBTextAsciiToLower extends SBuiltin(1) {
+  /** $text_to_lower :: Text -> Text */
+  final case object SBTextToLower extends SBuiltin(1) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       args.get(0) match {
         case SText(t) =>
           machine.ctrl = CtrlValue(SText(t.toLowerCase(util.Locale.ROOT)))
-            // TODO [FM]: replace with ASCII-specific function, or rename primitive to TEXT_TO_LOWER
+            // TODO [FM]: replace with ASCII-specific function, or not
         case x =>
-          throw SErrorCrash(s"type mismatch SBTextAsciiToLower, expected Text got $x")
+          throw SErrorCrash(s"type mismatch SBTextToLower, expected Text got $x")
       }
     }
   }
