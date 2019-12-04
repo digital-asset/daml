@@ -108,7 +108,7 @@ sealed abstract class ValuePredicate extends Product with Serializable {
         safe_== map (jq => path ++ sql" = $jq::jsonb")
     }
 
-    def goObject(path: Path, cqs: ImmArraySeq[(String, Rec)]): Rec = {
+    def goObject(path: Path, cqs: ImmArraySeq[(String, Rec)], count: Int): Rec = {
       val allSafe_== = cqs collect {
         case (k, Rec(_, Some(eqv), _)) => (k, eqv)
       }
@@ -125,7 +125,7 @@ sealed abstract class ValuePredicate extends Product with Serializable {
       }
       Rec(
         eqOrRaw.toVector.flatten,
-        (allSafe_==.length == cqs.length) option JsObject(allSafe_== : _*),
+        (allSafe_==.length == count) option JsObject(allSafe_== : _*),
         Some(JsObject(allSafe_@> : _*))
       )
     }
@@ -137,7 +137,7 @@ sealed abstract class ValuePredicate extends Product with Serializable {
 
         case RecordSubset(qs) =>
           val cqs = qs collect { case Some((k, vp)) => (k, go(path ++ sql"->${k: String}", vp)) }
-          goObject(path, cqs)
+          goObject(path, cqs, qs.length)
 
         case VariantMatch((dc, q)) =>
           val Rec(vraw, v_==, v_@>) = go(path ++ sql"->${dc: String}", q)
@@ -149,7 +149,7 @@ sealed abstract class ValuePredicate extends Product with Serializable {
           val cqs = qs.toImmArray.toSeq map {
             case (k, eq) => (k, go(path ++ sql"->$k", eq))
           }
-          val recordLike = goObject(path, cqs)
+          val recordLike = goObject(path, cqs, qs.toImmArray.length)
           recordLike.copy(
             raw = (sql"(SELECT count(*) FROM jsonb_object_keys(" ++ path ++ sql")) = ${cqs.length}")
               +: recordLike.raw)
