@@ -73,6 +73,11 @@ object LedgerApiTestTool {
       sys.exit(0)
     }
 
+    if (config.participants.isEmpty) {
+      println("No participant to test, exiting.")
+      sys.exit(0)
+    }
+
     val missingTests = (config.included ++ config.excluded).filterNot(Tests.all.contains)
     if (missingTests.nonEmpty) {
       println("The following tests could not be found:")
