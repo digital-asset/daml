@@ -5,7 +5,6 @@ package com.daml.ledger.rxjava;
 
 import com.daml.ledger.javaapi.data.Command;
 import com.google.protobuf.Empty;
-import com.google.protobuf.Timestamp;
 import io.reactivex.Single;
 import org.checkerframework.checker.nullness.qual.NonNull;
 

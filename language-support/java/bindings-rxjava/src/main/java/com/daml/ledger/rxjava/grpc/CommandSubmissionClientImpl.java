@@ -3,9 +3,9 @@
 
 package com.daml.ledger.rxjava.grpc;
 
-import com.daml.ledger.rxjava.CommandSubmissionClient;
 import com.daml.ledger.javaapi.data.Command;
 import com.daml.ledger.javaapi.data.SubmitRequest;
+import com.daml.ledger.rxjava.CommandSubmissionClient;
 import com.daml.ledger.rxjava.grpc.helpers.StubHelper;
 import com.digitalasset.ledger.api.v1.CommandSubmissionServiceGrpc;
 import com.digitalasset.ledger.api.v1.CommandSubmissionServiceOuterClass;

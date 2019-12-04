@@ -6,8 +6,8 @@ package com.daml.ledger.rxjava.components.tests.helpers
 import java.time.Instant
 import java.util
 
-import com.daml.ledger.rxjava._
 import com.daml.ledger.javaapi.data._
+import com.daml.ledger.rxjava._
 import com.google.protobuf.Empty
 import io.reactivex.{Flowable, Single}
 import org.slf4j.LoggerFactory
