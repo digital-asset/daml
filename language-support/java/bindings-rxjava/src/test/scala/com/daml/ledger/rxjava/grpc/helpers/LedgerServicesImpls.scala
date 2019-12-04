@@ -79,7 +79,8 @@ object LedgerServicesImpls {
       authorizer)(ec)
     val (lcServiceDef, lcService) =
       LedgerConfigurationServiceImpl.createWithRef(getLedgerConfigurationResponses)(ec)
-    val (timeServiceDef, timeService) = TimeServiceImpl.createWithRef(getTimeResponses: _*)(ec)
+    val (timeServiceDef, timeService) =
+      TimeServiceImpl.createWithRef(getTimeResponses, authorizer)(ec)
     val (packageServiceDef, packageService) =
       PackageServiceImpl.createWithRef(
         listPackagesResponse,
