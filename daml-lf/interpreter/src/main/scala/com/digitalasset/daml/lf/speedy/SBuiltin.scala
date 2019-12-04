@@ -1439,7 +1439,18 @@ object SBuiltin {
   /** $text_split_on :: Text -> Text -> List Text */
   final case object SBTextSplitOn extends SBuiltin(2) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
-      crash("text_split_on not implemented yet")
+      args.get(0) match {
+        case SText(pattern) =>
+          args.get(1) match {
+            case SText(t) =>
+              val array = t.split(pattern).map(SText(_))
+              machine.ctrl = CtrlValue(SList(array))
+            case x =>
+              throw SErrorCrash(s"type mismatch SBTextSplitOn, expected Text got $x")
+          }
+        case x =>
+          throw SErrorCrash(s"type mismatch SBTextSplitOn, expected Text got $x")
+      }
     }
   }
 
