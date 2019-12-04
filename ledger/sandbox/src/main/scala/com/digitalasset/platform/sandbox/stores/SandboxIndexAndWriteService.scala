@@ -101,7 +101,6 @@ object SandboxIndexAndWriteService {
       timeProvider: TimeProvider,
       acs: InMemoryActiveLedgerState,
       ledgerEntries: ImmArray[LedgerEntryOrBump],
-      partyAllocationEntries: ImmArray[PartyLedgerEntry],
       templateStore: InMemoryPackageStore,
       metrics: MetricRegistry,
   )(implicit mat: Materializer): IndexAndWriteService = {
@@ -415,7 +414,7 @@ abstract class LedgerBackedIndexService(
   override def lookupPartyAllocationEntry(submissionId: SubmissionId): Future[Option[PartyEntry]] =
     ledger
       .lookupPartyAllocationEntry(submissionId)
-      .map(_.map(PartyConversion.partyAllocationLedgerEntryToDomain))(DEC)
+      .map(_.map(PartyConversion.partyLedgerEntryToDomain))(DEC)
 
   override def close(): Unit = {
     ledger.close()

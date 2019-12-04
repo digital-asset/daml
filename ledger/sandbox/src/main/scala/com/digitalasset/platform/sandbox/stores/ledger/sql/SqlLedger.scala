@@ -326,7 +326,7 @@ private final class SqlLedger(
 
     var headRef = 0L
     ledgerDao
-      .storePartyAllocationEntry(
+      .storePartyEntry(
         headRef,
         headRef + 1,
         None,

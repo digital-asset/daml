@@ -266,7 +266,7 @@ class JdbcIndexer private[index] (
       case PartyAddedToParticipant(party, displayName, participantId, recordTime, submissionId) =>
         //store party allocation accepted entry in party allocation entries table too
         ledgerDao
-          .storePartyAllocationEntry(
+          .storePartyEntry(
             headRef,
             headRef + 1,
             externalOffset,
@@ -285,7 +285,7 @@ class JdbcIndexer private[index] (
 
       case PartyAllocationRejected(submissionId, participantId, recordTime, rejectionReason) =>
         ledgerDao
-          .storePartyAllocationEntry(
+          .storePartyEntry(
             headRef,
             headRef + 1,
             externalOffset,

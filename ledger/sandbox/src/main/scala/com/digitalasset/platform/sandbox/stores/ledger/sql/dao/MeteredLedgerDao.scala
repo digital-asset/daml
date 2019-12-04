@@ -211,7 +211,7 @@ private class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: MetricRegistry)
       Metrics.storePackageUploadEntry,
       ledgerDao.storePackageUploadEntry(offset, newLedgerEnd, externalOffset, entry))
 
-  def storePartyAllocationEntry(
+  def storePartyEntry(
       offset: LedgerOffset,
       newLedgerEnd: LedgerOffset,
       externalOffset: Option[ExternalOffset],
@@ -220,7 +220,7 @@ private class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: MetricRegistry)
       entry: PartyLedgerEntry): Future[PersistenceResponse] =
     timedFuture(
       Metrics.storePartyAllocationEntry,
-      ledgerDao.storePartyAllocationEntry(
+      ledgerDao.storePartyEntry(
         offset,
         newLedgerEnd,
         externalOffset,

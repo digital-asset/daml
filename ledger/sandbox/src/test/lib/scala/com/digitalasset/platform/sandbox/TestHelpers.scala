@@ -63,7 +63,6 @@ trait TestHelpers {
         TimeProvider.Constant(Instant.EPOCH),
         InMemoryActiveLedgerState.empty,
         ImmArray.empty,
-        ImmArray.empty,
         packageStore,
         metrics
       )

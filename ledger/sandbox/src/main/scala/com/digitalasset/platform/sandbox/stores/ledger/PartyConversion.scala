@@ -7,7 +7,7 @@ import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.domain.PartyEntry
 
 trait PartyConversion {
-  def partyAllocationLedgerEntryToDomain(ledgerEntry: PartyLedgerEntry): domain.PartyEntry =
+  def partyLedgerEntryToDomain(ledgerEntry: PartyLedgerEntry): domain.PartyEntry =
     ledgerEntry match {
       case PartyLedgerEntry.AllocationAccepted(submissionId, participantId, _, partyDetails) =>
         PartyEntry.AllocationAccepted(

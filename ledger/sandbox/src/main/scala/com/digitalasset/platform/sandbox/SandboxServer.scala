@@ -225,7 +225,6 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
             timeProvider,
             acs,
             ledgerEntries,
-            ImmArray.empty[PartyLedgerEntry],
             packageStore,
             metrics,
           ))

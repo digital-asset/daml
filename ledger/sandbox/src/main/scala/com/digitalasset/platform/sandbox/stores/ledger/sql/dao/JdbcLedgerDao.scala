@@ -665,7 +665,7 @@ private class JdbcLedgerDao(
             parties.toList.map { p =>
               val submissionId = SubmissionId.assertFromString(UUID.randomUUID().toString)
 
-              storePartyAllocationEntry(
+              storePartyEntry(
                 offset,
                 offset + 1,
                 externalLedgerEnd,
@@ -1358,7 +1358,7 @@ private class JdbcLedgerDao(
   override def getParties: Future[List[PartyDetails]] =
     dbDispatcher.executeSql("load_parties") { implicit conn =>
       SQL_SELECT_PARTIES
-        .as(partyAllocationEntryParser.*)
+        .as(partyLedgerEntryParser.*)
         // TODO: isLocal should be based on equality of participantId reported in an
         // update and the id given to participant in a command-line argument
         // (See issue #2026)
@@ -1440,7 +1440,7 @@ private class JdbcLedgerDao(
             })
       }
 
-  private val partyAllocationEntryParser: RowParser[(Long, PartyLedgerEntry)] =
+  private val partyLedgerEntryParser: RowParser[(Long, PartyLedgerEntry)] =
     (long("ledger_offset") ~
       date("recorded_at").? ~
       str("typ") ~
@@ -1492,7 +1492,7 @@ private class JdbcLedgerDao(
                 )
 
               case _ =>
-                sys.error(s"partyAllocationEntryParser: Unknown party allocation entry type: $typ")
+                sys.error(s"partyLedgerEntryParser: Unknown party allocation entry type: $typ")
             })
       }
 
@@ -1597,7 +1597,7 @@ private class JdbcLedgerDao(
       .executeSql("load_party_entry", None) { implicit conn =>
         SQL_SELECT_PARTY_ENTRY
           .on("submissionId" -> submissionId)
-          .as(partyAllocationEntryParser.*)
+          .as(partyLedgerEntryParser.*)
           .headOption
           .map(_._2)
       }
@@ -1615,7 +1615,7 @@ private class JdbcLedgerDao(
       }
   }
 
-  override def storePartyAllocationEntry(
+  override def storePartyEntry(
       offset: LedgerOffset,
       newLedgerEnd: LedgerOffset,
       externalOffset: Option[ExternalOffset],

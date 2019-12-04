@@ -272,7 +272,7 @@ trait LedgerWriteDao extends AutoCloseable with ReportsHealth {
     * @param entry
     * @return
     */
-  def storePartyAllocationEntry(
+  def storePartyEntry(
       offset: LedgerOffset,
       newLedgerEnd: LedgerOffset,
       externalOffset: Option[ExternalOffset],
