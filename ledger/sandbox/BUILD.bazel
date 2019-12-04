@@ -1,21 +1,12 @@
 # Copyright (c) 2019 The DAML Authors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load(
-    "//bazel_tools:scala.bzl",
-    "da_scala_binary",
-    "da_scala_library",
-    "da_scala_test_suite",
-)
-load(
-    "//rules_daml:daml.bzl",
-    "daml_compile",
-)
+load("//rules_daml:daml.bzl", "daml_compile")
+load("//bazel_tools:scala.bzl", "da_scala_binary", "da_scala_library", "da_scala_test_suite")
 load("//bazel_tools:pom_file.bzl", "pom_file")
-load(
-    "//ledger/ledger-api-test-tool:conformance.bzl",
-    "server_conformance_test",
-)
+load("//ledger/ledger-api-test-tool:conformance.bzl", "server_conformance_test")
+load("@io_bazel_rules_docker//java:image.bzl", "java_image")
+load("@os_info//:os_info.bzl", "is_windows")
 
 compileDependencies = [
     # grpc_services has to come first other as somehow a different instance of grpc-core.jar
@@ -162,6 +153,14 @@ genrule(
     """,
     visibility = ["//visibility:public"],
 )
+
+java_image(
+    name = "sandbox-image",
+    main_class = "com.digitalasset.platform.sandbox.SandboxMain",
+    resources = ["src/main/resources/logback.xml"],
+    visibility = ["//visibility:public"],
+    runtime_deps = [":sandbox"],
+) if not is_windows else None
 
 alias(
     name = "Test-1.5.dar",
