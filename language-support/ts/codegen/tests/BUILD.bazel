@@ -31,8 +31,7 @@ sh_test(
         ":yarn",
         "//:daml2ts",
         ":daml2ts-test.dar",
-    ] +
-    glob(
+    ] + glob(
         ["ts/**"],
         exclude = ["ts/**/node_modules/**"],
     ),
