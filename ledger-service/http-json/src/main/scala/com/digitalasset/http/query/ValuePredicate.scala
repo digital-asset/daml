@@ -150,8 +150,9 @@ sealed abstract class ValuePredicate extends Product with Serializable {
             case (k, eq) => (k, go(path ++ sql"->$k", eq))
           }
           val recordLike = goObject(path, cqs)
-          recordLike.copy(raw = (sql"(SELECT count(*) FROM jsonb_object_keys(" ++ path ++ sql")) = ${cqs.length}")
-            +: recordLike.raw)
+          recordLike.copy(
+            raw = (sql"(SELECT count(*) FROM jsonb_object_keys(" ++ path ++ sql")) = ${cqs.length}")
+              +: recordLike.raw)
 
         case ListMatch(qs) =>
           val (cqs, flushed_@>) = qs.zipWithIndex.map {
