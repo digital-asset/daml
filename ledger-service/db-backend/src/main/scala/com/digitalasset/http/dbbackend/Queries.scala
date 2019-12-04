@@ -182,7 +182,7 @@ object Queries {
 
   private[http] def selectContracts(party: String, tpid: SurrogateTpId, predicate: Fragment)(
       implicit log: LogHandler): Query0[DBContract[Unit, JsValue, Unit]] = {
-    val q = sql"""SELECT (contract_id, create_arguments)
+    val q = sql"""SELECT contract_id, create_arguments
                   FROM contract
                   WHERE witness_parties @> ARRAY[$party::text] AND tpid = $tpid
                         AND (""" ++ predicate ++ sql")"
