@@ -57,6 +57,49 @@ The Sandbox automatically makes all metrics available via JMX under the JMX doma
 When building an Indexer or Ledger API Server the implementer/ledger integrator is responsible to set up 
 a `MetricRegistry` and a suitable metric reporting strategy that fits their needs.
 
+## Health Checks
+
+### Ledger API Server health checks
+
+The Ledger API Server exposes health checks over the [GRPC Health Checking Protocol][]. You can check the health of
+the overall server by making a GRPC request to `grpc.health.v1.Health.Check`.
+
+You can also perform a streaming health check by making a request to `grpc.health.v1.Health.Watch`. The server will
+immediately send the current health of the Ledger API Server, and then send a new message whenever the health changes.
+
+The ledger may optionally expose health checks for underlying services and connections; the names of the services are
+ledger-dependent. For example, the Sandbox exposes two service health checks:
+
+- the `"index"` service tests the health of the connection to the index database
+- the `"write"` service tests the health of the connection to the ledger database
+
+To use these, make a request with the `service` field set to the name of the service. An unknown service name will
+result in a GRPC `NOT_FOUND` error.
+
+[GRPC Health Checking Protocol]: https://github.com/grpc/grpc/blob/master/doc/health-checking.md
+
+### Indexer health checks
+
+The Indexer does not currently run a GRPC server, and so does not expose any health checks on its own.
+
+In the situation where it is run in the same process as the Ledger API Server, the authors of the binary are encouraged
+to add specific health checks for the Indexer. This is the case in the Sandbox and Reference implementations.
+
+### Checking the server health in production
+
+We encourage you to use the [grpc-health-probe][] tool to periodically check the health of your Ledger API Server in
+production. On the command line, you can run it as follows (changing the address to match your ledger):
+
+```shell
+$ grpc-health-probe -addr=localhost:6865
+status: SERVING
+```
+
+More details can be found on the Kubernetes blog, in the post titled _[Health checking gRPC servers on Kubernetes][]_.
+
+[grpc-health-probe]: https://github.com/grpc-ecosystem/grpc-health-probe
+[Health checking gRPC servers on Kubernetes]: https://kubernetes.io/blog/2018/10/01/health-checking-grpc-servers-on-kubernetes/
+
 ## gRPC and back-pressure
 
 ### RPC
