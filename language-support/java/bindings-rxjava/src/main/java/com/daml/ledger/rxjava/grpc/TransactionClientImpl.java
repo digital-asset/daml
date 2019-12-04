@@ -24,11 +24,11 @@ public final class TransactionClientImpl implements TransactionsClient {
     private final TransactionServiceGrpc.TransactionServiceFutureStub serviceFutureStub;
     private final ExecutionSequencerFactory sequencerFactory;
 
-    public TransactionClientImpl(String ledgerId, Channel channel, ExecutionSequencerFactory sequencerFactory) {
+    public TransactionClientImpl(String ledgerId, Channel channel, ExecutionSequencerFactory sequencerFactory, Optional<String> accessToken) {
         this.ledgerId = ledgerId;
         this.sequencerFactory = sequencerFactory;
-        this.serviceStub = TransactionServiceGrpc.newStub(channel);
-        this.serviceFutureStub = TransactionServiceGrpc.newFutureStub(channel);
+        this.serviceStub = StubHelper.authenticating(TransactionServiceGrpc.newStub(channel), accessToken);
+        this.serviceFutureStub = StubHelper.authenticating(TransactionServiceGrpc.newFutureStub(channel), accessToken);
     }
 
     private Flowable<Transaction> extractTransactions(TransactionServiceOuterClass.GetTransactionsRequest request, Optional<String> accessToken) {

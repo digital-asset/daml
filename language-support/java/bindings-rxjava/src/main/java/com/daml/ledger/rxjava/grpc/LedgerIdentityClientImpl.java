@@ -18,13 +18,8 @@ public class LedgerIdentityClientImpl implements LedgerIdentityClient {
 
     private LedgerIdentityServiceGrpc.LedgerIdentityServiceFutureStub serviceStub;
 
-    public LedgerIdentityClientImpl(Channel channel) {
-        this.serviceStub = LedgerIdentityServiceGrpc.newFutureStub(channel);
-    }
-
-    public LedgerIdentityClientImpl(@NonNull Channel channel, @NonNull String accessToken) {
-        this(channel);
-        this.serviceStub = this.serviceStub.withCallCredentials(new LedgerCallCredentials(accessToken));
+    public LedgerIdentityClientImpl(Channel channel, Optional<String> accessToken) {
+        this.serviceStub = StubHelper.authenticating(LedgerIdentityServiceGrpc.newFutureStub(channel), accessToken);
     }
 
     private Single<String> getLedgerIdentity(@NonNull Optional<String> accessToken) {

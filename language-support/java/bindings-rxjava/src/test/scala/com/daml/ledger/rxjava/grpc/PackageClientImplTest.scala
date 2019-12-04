@@ -5,8 +5,8 @@ package com.daml.ledger.rxjava.grpc
 
 import java.util.concurrent.TimeUnit
 
-import com.daml.ledger.rxjava.PackageClient
-import com.daml.ledger.rxjava.grpc.helpers.{AuthMatchers, LedgerServices, TestConfiguration}
+import com.daml.ledger.rxjava._
+import com.daml.ledger.rxjava.grpc.helpers.{LedgerServices, TestConfiguration}
 import com.digitalasset.ledger.api.v1.package_service._
 import com.google.protobuf.ByteString
 import org.scalatest.{FlatSpec, Matchers, OptionValues}

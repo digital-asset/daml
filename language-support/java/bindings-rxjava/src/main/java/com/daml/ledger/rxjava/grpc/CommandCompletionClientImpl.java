@@ -27,11 +27,11 @@ public class CommandCompletionClientImpl implements CommandCompletionClient {
     private final CommandCompletionServiceGrpc.CommandCompletionServiceFutureStub serviceFutureStub;
     private final ExecutionSequencerFactory sequencerFactory;
 
-    public CommandCompletionClientImpl(String ledgerId, Channel channel, ExecutionSequencerFactory sequencerFactory) {
+    public CommandCompletionClientImpl(String ledgerId, Channel channel, ExecutionSequencerFactory sequencerFactory, Optional<String> accessToken) {
         this.ledgerId = ledgerId;
         this.sequencerFactory = sequencerFactory;
-        serviceStub = CommandCompletionServiceGrpc.newStub(channel);
-        serviceFutureStub = CommandCompletionServiceGrpc.newFutureStub(channel);
+        this.serviceStub = StubHelper.authenticating(CommandCompletionServiceGrpc.newStub(channel), accessToken);
+        this.serviceFutureStub = StubHelper.authenticating(CommandCompletionServiceGrpc.newFutureStub(channel), accessToken);
     }
 
     private Flowable<CompletionStreamResponse> completionStream(CompletionStreamRequest request, Optional<String> accessToken) {

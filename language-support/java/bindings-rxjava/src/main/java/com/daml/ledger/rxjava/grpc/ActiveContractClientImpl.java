@@ -24,10 +24,10 @@ public class ActiveContractClientImpl implements ActiveContractsClient {
     private final ActiveContractsServiceGrpc.ActiveContractsServiceStub serviceStub;
     private ExecutionSequencerFactory sequencerFactory;
 
-    public ActiveContractClientImpl(String ledgerId, Channel channel, ExecutionSequencerFactory sequencerFactory) {
+    public ActiveContractClientImpl(String ledgerId, Channel channel, ExecutionSequencerFactory sequencerFactory, Optional<String> accessToken) {
         this.ledgerId = ledgerId;
         this.sequencerFactory = sequencerFactory;
-        this.serviceStub = ActiveContractsServiceGrpc.newStub(channel);
+        this.serviceStub = StubHelper.authenticating(ActiveContractsServiceGrpc.newStub(channel), accessToken);
     }
 
     private Flowable<GetActiveContractsResponse> getActiveContracts(@NonNull TransactionFilter filter, boolean verbose, @NonNull Optional<String> accessToken) {

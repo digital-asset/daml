@@ -22,9 +22,9 @@ public class CommandSubmissionClientImpl implements CommandSubmissionClient {
     private final String ledgerId;
     private final CommandSubmissionServiceGrpc.CommandSubmissionServiceFutureStub serviceStub;
 
-    public CommandSubmissionClientImpl(@NonNull String ledgerId, @NonNull Channel channel) {
+    public CommandSubmissionClientImpl(@NonNull String ledgerId, @NonNull Channel channel, Optional<String> accessToken) {
         this.ledgerId = ledgerId;
-        this.serviceStub = CommandSubmissionServiceGrpc.newFutureStub(channel);
+        this.serviceStub = StubHelper.authenticating(CommandSubmissionServiceGrpc.newFutureStub(channel), accessToken);
     }
 
     public Single<com.google.protobuf.Empty> submit(@NonNull String workflowId,

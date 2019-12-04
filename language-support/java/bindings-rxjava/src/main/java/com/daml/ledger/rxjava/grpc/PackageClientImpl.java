@@ -20,9 +20,9 @@ public class PackageClientImpl implements PackageClient {
     private final String ledgerId;
     private final PackageServiceGrpc.PackageServiceFutureStub serviceStub;
 
-    public PackageClientImpl(String ledgerId, Channel channel) {
+    public PackageClientImpl(String ledgerId, Channel channel, Optional<String> accessToken) {
         this.ledgerId = ledgerId;
-        serviceStub = PackageServiceGrpc.newFutureStub(channel);
+        serviceStub = StubHelper.authenticating(PackageServiceGrpc.newFutureStub(channel), accessToken);
     }
 
     private Flowable<String> listPackages(Optional<String> accessToken) {

@@ -16,6 +16,7 @@ import com.daml.ledger.rxjava.components.tests.helpers.DummyLedgerClient
 import com.daml.ledger.rxjava.grpc.helpers.{LedgerServices, TransactionsServiceImpl}
 import com.daml.ledger.rxjava.{CommandSubmissionClient, DamlLedgerClient, untestedEndpoint}
 import com.digitalasset.grpc.{GrpcException, GrpcStatus}
+import com.digitalasset.ledger.api.auth.AuthServiceWildcard
 import com.digitalasset.ledger.api.v1.command_service.{
   SubmitAndWaitForTransactionIdResponse,
   SubmitAndWaitForTransactionResponse,
@@ -395,7 +396,8 @@ final class BotTest extends FlatSpec with Matchers {
       Seq.empty,
       Future.successful(scalaAPI.package_service.ListPackagesResponse.defaultInstance),
       Future.successful(scalaAPI.package_service.GetPackageResponse.defaultInstance),
-      Future.successful(scalaAPI.package_service.GetPackageStatusResponse.defaultInstance)
+      Future.successful(scalaAPI.package_service.GetPackageStatusResponse.defaultInstance),
+      AuthServiceWildcard
     ) { (server, _) =>
       val client =
         DamlLedgerClient.newBuilder("localhost", server.getPort).build()

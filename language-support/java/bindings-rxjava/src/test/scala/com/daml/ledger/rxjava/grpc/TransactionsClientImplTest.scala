@@ -6,14 +6,9 @@ package com.daml.ledger.rxjava.grpc
 import java.util.concurrent.TimeUnit
 
 import com.daml.ledger.javaapi.data
-import com.daml.ledger.rxjava.TransactionsClient
+import com.daml.ledger.rxjava._
 import com.daml.ledger.rxjava.grpc.helpers.TransactionGenerator._
-import com.daml.ledger.rxjava.grpc.helpers.{
-  AuthMatchers,
-  DataLayerHelpers,
-  LedgerServices,
-  TestConfiguration
-}
+import com.daml.ledger.rxjava.grpc.helpers.{DataLayerHelpers, LedgerServices, TestConfiguration}
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset.Value.Absolute
 import com.digitalasset.ledger.api.v1.value.Identifier
