@@ -26,6 +26,7 @@ import qualified DA.Daml.LF.Ast as LF
 import DA.Pretty (renderPretty)
 import Data.Maybe
 import qualified System.Directory as Dir
+import System.Environment
 import System.FilePath
 
 -- | Compiler run configuration for DAML-GHC.
@@ -34,6 +35,8 @@ data Options = Options
     -- ^ import path for both user modules and standard library
   , optPackageDbs :: [FilePath]
     -- ^ package databases that will be loaded
+  , optStablePackages :: Maybe FilePath
+    -- ^ The directory in which stable DALF packages are located.
   , optMbPackageName :: Maybe String
     -- ^ compile in the context of the given package name and create interface files
   , optWriteInterface :: Bool
@@ -128,11 +131,25 @@ mkOptions opts@Options {..} = do
     case optDlintUsage of
       DlintEnabled dir _ -> checkDirExists dir
       DlintDisabled -> return ()
-
+    -- On Windows, looking up mainWorkspace/compiler/damlc and then appeanding stable-packages doesn’t work.
+    -- On the other hand, looking up the full path directly breaks our resources logic for dist tarballs.
+    -- Therefore we first try stable-packages and then fall back to resources if that does not exist
+    stablePackages <- do
+        execPath <- getExecutablePath
+        let jarResources = takeDirectory execPath </> "resources"
+        hasJarResources <- Dir.doesDirectoryExist jarResources
+        if hasJarResources
+           then pure (jarResources </> "stable-packages")
+           else locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "stable-packages")
+    stablePackagesExist <- Dir.doesDirectoryExist stablePackages
+    let mbStablePackages = do
+            guard stablePackagesExist
+            pure stablePackages
     ghcVersionFile <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "ghcversion.h")
 
     pure opts {
         optPackageDbs = map (</> versionSuffix) $ pkgDbs ++ optPackageDbs,
+        optStablePackages = mbStablePackages,
         optGhcVersionFile = Just ghcVersionFile
     }
   where checkDirExists f =
@@ -154,6 +171,7 @@ defaultOptions mbVersion =
     Options
         { optImportPath = []
         , optPackageDbs = []
+        , optStablePackages = Nothing
         , optMbPackageName = Nothing
         , optWriteInterface = False
         , optIfaceDir = Nothing

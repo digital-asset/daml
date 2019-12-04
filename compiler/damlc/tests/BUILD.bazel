@@ -151,6 +151,7 @@ da_haskell_test(
     srcs = ["src/DA/Test/ShakeIdeClient.hs"],
     data = [
         "//compiler/damlc/pkg-db",
+        "//compiler/damlc/stable-packages",
         "//compiler/scenario-service/server:scenario_service_jar",
     ],
     hackage_deps = [

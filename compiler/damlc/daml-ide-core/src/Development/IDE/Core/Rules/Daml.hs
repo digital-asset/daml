@@ -45,6 +45,7 @@ import qualified Data.ByteString.UTF8 as BS
 import Data.Either.Extra
 import Data.Foldable
 import Data.List.Extra
+import qualified Data.List.NonEmpty as NonEmpty
 import qualified Data.IntMap.Strict as IntMap
 import qualified Data.Map.Strict as Map
 import Data.Maybe
@@ -177,7 +178,15 @@ getDalfDependencies :: [NormalizedFilePath] -> MaybeT Action (Map.Map UnitId LF.
 getDalfDependencies files = do
     unitIds <- concatMap transitivePkgDeps <$> usesE GetDependencies files
     pkgMap <- useNoFileE GeneratePackageMap
-    pure $ Map.restrictKeys pkgMap (Set.fromList $ map (DefiniteUnitId . DefUnitId) unitIds)
+    let actualDeps = Map.restrictKeys pkgMap (Set.fromList $ map (DefiniteUnitId . DefUnitId) unitIds)
+    -- For now, we unconditionally include all stable packages.
+    -- Given that they are quite small and it is pretty much impossible to not depend on them
+    -- this is fine. We might want to try being more clever here in the future.
+    stablePackages <-
+        fmap (Map.mapKeys stableUnitId) $
+        useNoFileE GenerateStablePackages
+    pure $ stablePackages `Map.union` actualDeps
+  where stableUnitId (unitId, modName) = stringToUnitId $ GHC.unitIdString unitId <> "-" <> T.unpack (T.intercalate "-" $ LF.unModuleName modName)
 
 runScenarios :: NormalizedFilePath -> Action (Maybe [(VirtualResource, Either SS.Error SS.ScenarioResult)])
 runScenarios file = use RunScenarios file
@@ -204,9 +213,10 @@ generateRawDalfRule =
                     setPriority priorityGenerateDalf
                     -- Generate the map from package names to package hashes
                     pkgMap <- useNoFile_ GeneratePackageMap
+                    stablePkgs <- useNoFile_ GenerateStablePackages
                     DamlEnv{envIsGenerated} <- getDamlServiceEnv
                     -- GHC Core to DAML LF
-                    case convertModule lfVersion pkgMap envIsGenerated file core of
+                    case convertModule lfVersion pkgMap (Map.map LF.dalfPackageId stablePkgs) envIsGenerated file core of
                         Left e -> return ([e], Nothing)
                         Right v -> return ([], Just $ LF.simplifyModule v)
 
@@ -217,7 +227,11 @@ generateDalfRule =
         lfVersion <- getDamlLfVersion
         WhnfPackage pkg <- use_ GeneratePackageDeps file
         pkgMap <- useNoFile_ GeneratePackageMap
-        let pkgs = map LF.dalfPackagePkg $ Map.elems pkgMap
+        stablePackages <- useNoFile_ GenerateStablePackages
+        -- We need to dedup here to make sure that each package only appears once.
+        let pkgs =
+                Map.elems $ Map.fromList $ map (\e@(LF.ExternalPackage pkgId _) -> (pkgId, e)) $
+                map LF.dalfPackagePkg (Map.elems pkgMap) <> map LF.dalfPackagePkg (Map.elems stablePackages)
         let world = LF.initWorldSelf pkgs pkg
         rawDalf <- use_ GenerateRawDalf file
         setPriority priorityGenerateDalf
@@ -341,8 +355,9 @@ generateSerializedDalfRule options =
                         Just core -> fmap (first (diags ++)) $ do
                             -- lf conversion
                             pkgMap <- useNoFile_ GeneratePackageMap
+                            stablePkgs <- useNoFile_ GenerateStablePackages
                             DamlEnv{envIsGenerated} <- getDamlServiceEnv
-                            case convertModule lfVersion pkgMap envIsGenerated file core of
+                            case convertModule lfVersion pkgMap (Map.map LF.dalfPackageId stablePkgs) envIsGenerated file core of
                                 Left e -> pure ([e], Nothing)
                                 Right rawDalf -> do
                                     -- LF postprocessing
@@ -407,14 +422,18 @@ generatePackageMap fps = do
       allFiles <- listFilesRecursive fp
       let dalfs = filter ((== ".dalf") . takeExtension) allFiles
       forM dalfs $ \dalf -> do
-        dalfBS <- BS.readFile dalf
-        return $ do
-          (pkgId, package) <-
-            mapLeft (ideErrorPretty $ toNormalizedFilePath dalf) $
-            Archive.decodeArchive Archive.DecodeAsDependency dalfBS
-          let unitId = stringToUnitId $ dropExtension $ takeFileName dalf
-          Right (unitId, LF.DalfPackage pkgId (LF.ExternalPackage pkgId package) dalfBS)
+        dalfPkgOrErr <- readDalfPackage dalf
+        let unitId = stringToUnitId $ dropExtension $ takeFileName dalf
+        pure (fmap (unitId,) dalfPkgOrErr)
   return (diags, Map.fromList pkgs)
+
+readDalfPackage :: FilePath -> IO (Either FileDiagnostic LF.DalfPackage)
+readDalfPackage dalf = do
+    bs <- BS.readFile dalf
+    pure $ do
+        (pkgId, package) <-
+            mapLeft (ideErrorPretty $ toNormalizedFilePath dalf) $ Archive.decodeArchive Archive.DecodeAsDependency bs
+        Right (LF.DalfPackage pkgId (LF.ExternalPackage pkgId package) bs)
 
 generatePackageMapRule :: Options -> Rules ()
 generatePackageMapRule opts =
@@ -429,6 +448,33 @@ generatePackageMapRule opts =
                 "Errors:\n" ++ unlines (map show errs)
         let hash = BS.concat $ map (T.encodeUtf8 . LF.unPackageId . LF.dalfPackageId) $ Map.elems res
         return (Just hash, ([], Just res))
+
+generateStablePackages :: FilePath -> IO ([FileDiagnostic], Map.Map (UnitId, LF.ModuleName) LF.DalfPackage)
+generateStablePackages fp = do
+    (diags, pkgs) <- fmap partitionEithers $ do
+        allFiles <- listFilesRecursive fp
+        let dalfs = filter ((== ".dalf") . takeExtension) allFiles
+        forM dalfs $ \dalf -> do
+            let unitId = stringToUnitId $ takeFileName $ takeDirectory dalf
+            let moduleName = LF.ModuleName (NonEmpty.toList $ T.splitOn "-" $ T.pack $ dropExtension $ takeFileName dalf)
+            dalfPkgOrErr <- readDalfPackage dalf
+            pure (fmap ((unitId, moduleName),) dalfPkgOrErr)
+    pure (diags, Map.fromList pkgs)
+
+
+generateStablePackagesRule :: Options -> Rules ()
+generateStablePackagesRule opts =
+    defineEarlyCutoff $ \GenerateStablePackages _file -> assert (null $ fromNormalizedFilePath _file) $ do
+        (errs, res) <- liftIO $ maybe (pure ([], Map.empty)) generateStablePackages (optStablePackages opts)
+        when (errs /= []) $ do
+            logger <- actionLogger
+            liftIO $ logError logger $ T.pack $
+                "Rule GenerateStablePackages generated errors\n" ++
+                "Options: " ++ show (optStablePackages opts) ++ "\n" ++
+                "Errors:\n" ++ unlines (map show errs)
+        let hash = BS.concat $ map (T.encodeUtf8 . LF.unPackageId . LF.dalfPackageId) $ Map.elems res
+        return (Just hash, ([], Just res))
+
 
 generatePackageRule :: Rules ()
 generatePackageRule =
@@ -509,13 +555,14 @@ contextForFile file = do
     lfVersion <- getDamlLfVersion
     WhnfPackage pkg <- use_ GeneratePackage file
     pkgMap <- useNoFile_ GeneratePackageMap
+    stablePackages <- useNoFile_ GenerateStablePackages
     encodedModules <-
         mapM (\m -> fmap (\(hash, bs) -> (hash, (LF.moduleName m, bs))) (encodeModule lfVersion m)) $
         NM.toList $ LF.packageModules pkg
     DamlEnv{..} <- getDamlServiceEnv
     pure SS.Context
         { ctxModules = Map.fromList encodedModules
-        , ctxPackages = [(LF.dalfPackageId pkg, LF.dalfPackageBytes pkg) | pkg <- Map.elems pkgMap]
+        , ctxPackages = [(LF.dalfPackageId pkg, LF.dalfPackageBytes pkg) | pkg <- Map.elems pkgMap ++ Map.elems stablePackages]
         , ctxDamlLfVersion = lfVersion
         , ctxSkipValidation = SS.SkipValidation (getSkipScenarioValidation envSkipScenarioValidation)
         }
@@ -905,6 +952,7 @@ damlRule opts = do
     readInterfaceRule
     generateDocTestModuleRule
     generatePackageMapRule opts
+    generateStablePackagesRule opts
     generatePackageRule
     generateRawPackageRule opts
     generatePackageDepsRule opts

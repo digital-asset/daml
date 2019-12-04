@@ -159,6 +159,12 @@ data Env = Env
     ,envModuleUnitId :: GHC.UnitId
     ,envAliases :: MS.Map Var LF.Expr
     ,envPkgMap :: MS.Map GHC.UnitId LF.DalfPackage
+    ,envStablePackages :: MS.Map (GHC.UnitId, LF.ModuleName) LF.PackageId
+    -- This mapping allows us to split individual modules out from a GHC package into their
+    -- own LF package. Thereby we can guarantee stable package ids at the LF level without having
+    -- to rely on data-dependencies to generate interface files.
+    -- Once data dependencies are well-supported we might want to remove this if the number of GHC
+    -- packages does not cause performance issues.
     ,envLfVersion :: LF.Version
     ,envChoiceData :: MS.Map TypeConName [ChoiceData]
     ,envTemplateKeyData :: MS.Map TypeConName TemplateKeyData
@@ -312,11 +318,12 @@ convertRationalNumericMono env scale num denom
 convertModule
     :: LF.Version
     -> MS.Map UnitId DalfPackage
+    -> MS.Map (GHC.UnitId, LF.ModuleName) LF.PackageId
     -> Bool
     -> NormalizedFilePath
     -> CoreModule
     -> Either FileDiagnostic LF.Module
-convertModule lfVersion pkgMap isGenerated file x = runConvertM (ConversionEnv file Nothing) $ do
+convertModule lfVersion pkgMap stablePackages isGenerated file x = runConvertM (ConversionEnv file Nothing) $ do
     definitions <- concatMapM (convertBind env) binds
     types <- concatMapM (convertTypeDef env) (eltsUFM (cm_types x))
     pure (LF.moduleFromDefinitions lfModName (Just $ fromNormalizedFilePath file) flags (types ++ definitions))
@@ -353,6 +360,7 @@ convertModule lfVersion pkgMap isGenerated file x = runConvertM (ConversionEnv f
           , envModuleUnitId = thisUnitId
           , envAliases = MS.empty
           , envPkgMap = pkgMap
+          , envStablePackages = stablePackages
           , envLfVersion = lfVersion
           , envChoiceData = choiceData
           , envTemplateKeyData = templateKeyData
@@ -1412,19 +1420,33 @@ convertModuleName =
 qualify :: Env -> GHC.Module -> a -> ConvertM (Qualified a)
 qualify env m x = do
     unitId <- convertUnitId (envModuleUnitId env) (envPkgMap env) $ GHC.moduleUnitId m
-    pure $ Qualified unitId (convertModuleName $ GHC.moduleName m) x
+    pure $ rewriteStableQualified env $ Qualified unitId (convertModuleName $ GHC.moduleName m) x
 
 qDA_Types :: Env -> a -> ConvertM (Qualified a)
 qDA_Types env a = do
   pkgRef <- packageNameToPkgRef env "daml-prim"
   pure $ Qualified pkgRef (mkModName ["DA", "Types"]) a
 
+-- | Rewrite an a qualified name into a reference into one of the hardcoded
+-- stable packages if there is one.
+rewriteStableQualified :: Env -> Qualified a -> Qualified a
+rewriteStableQualified env q@(Qualified pkgRef modName obj) =
+    let mbUnitId = case pkgRef of
+            PRSelf -> Just (envModuleUnitId env)
+            PRImport pkgId ->
+                -- TODO We probably want to replace this my a more efficient lookup at some point
+                fmap fst $ find (\(_, dalfPkg) -> dalfPackageId dalfPkg == pkgId) $ MS.toList $ envPkgMap env
+    in case (\unitId -> MS.lookup (unitId, modName) (envStablePackages env)) =<< mbUnitId of
+      Nothing -> q
+      Just pkgId -> Qualified (PRImport pkgId) modName obj
+
 convertQualified :: NamedThing a => Env -> a -> ConvertM (Qualified TypeConName)
 convertQualified env x = do
   pkgRef <- nameToPkgRef env x
-  pure $ Qualified
+  let modName = convertModuleName $ GHC.moduleName $ nameModule $ getName x
+  pure $ rewriteStableQualified env $ Qualified
     pkgRef
-    (convertModuleName $ GHC.moduleName $ nameModule $ getName x)
+    modName
     (mkTypeCon [getOccText x])
 
 nameToPkgRef :: NamedThing a => Env -> a -> ConvertM LF.PackageRef

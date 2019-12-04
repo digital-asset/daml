@@ -683,6 +683,12 @@ execMigrate projectOpts inFile1_ inFile2_ mbDir =
   Command Migrate effect
   where
     effect = do
+      -- See https://github.com/digital-asset/daml/issues/3704
+      hPutStrLn stderr $ unlines
+        [ "Warning: `damlc migrate` is currently in the process of being reworked"
+        , "to make it function better across SDK versions and address"
+        , "a number of known bugs."
+        ]
       inFile1 <- makeAbsolute inFile1_
       inFile2 <- makeAbsolute inFile2_
       withProjectRoot' projectOpts $ \_relativize
