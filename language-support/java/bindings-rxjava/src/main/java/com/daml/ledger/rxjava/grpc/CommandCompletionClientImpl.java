@@ -8,6 +8,7 @@ import com.daml.ledger.javaapi.data.CompletionEndResponse;
 import com.daml.ledger.javaapi.data.CompletionStreamRequest;
 import com.daml.ledger.javaapi.data.CompletionStreamResponse;
 import com.daml.ledger.javaapi.data.LedgerOffset;
+import com.daml.ledger.rxjava.grpc.helpers.StubHelper;
 import com.daml.ledger.rxjava.util.ClientPublisherFlowable;
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory;
 import com.digitalasset.ledger.api.v1.CommandCompletionServiceGrpc;
@@ -16,6 +17,7 @@ import io.grpc.Channel;
 import io.reactivex.Flowable;
 import io.reactivex.Single;
 
+import java.util.Optional;
 import java.util.Set;
 
 public class CommandCompletionClientImpl implements CommandCompletionClient {
@@ -32,27 +34,46 @@ public class CommandCompletionClientImpl implements CommandCompletionClient {
         serviceFutureStub = CommandCompletionServiceGrpc.newFutureStub(channel);
     }
 
-    private Flowable<CompletionStreamResponse> completionStream(CompletionStreamRequest request) {
+    private Flowable<CompletionStreamResponse> completionStream(CompletionStreamRequest request, Optional<String> accessToken) {
         return ClientPublisherFlowable
-                .create(request.toProto(), serviceStub::completionStream, sequencerFactory)
+                .create(request.toProto(), StubHelper.authenticating(serviceStub, accessToken)::completionStream, sequencerFactory)
                 .map(CompletionStreamResponse::fromProto);
     }
 
     @Override
     public Flowable<CompletionStreamResponse> completionStream(String applicationId, LedgerOffset offset, Set<String> parties) {
-        return completionStream(new CompletionStreamRequest(ledgerId, applicationId, parties, offset));
+        return completionStream(new CompletionStreamRequest(ledgerId, applicationId, parties, offset), Optional.empty());
+    }
+
+    @Override
+    public Flowable<CompletionStreamResponse> completionStream(String applicationId, LedgerOffset offset, Set<String> parties, String accessToken) {
+        return completionStream(new CompletionStreamRequest(ledgerId, applicationId, parties, offset), Optional.of(accessToken));
     }
 
     @Override
     public Flowable<CompletionStreamResponse> completionStream(String applicationId, Set<String> parties) {
-        return completionStream(new CompletionStreamRequest(ledgerId, applicationId, parties));
+        return completionStream(new CompletionStreamRequest(ledgerId, applicationId, parties), Optional.empty());
+    }
+
+    @Override
+    public Flowable<CompletionStreamResponse> completionStream(String applicationId, Set<String> parties, String accessToken) {
+        return completionStream(new CompletionStreamRequest(ledgerId, applicationId, parties), Optional.of(accessToken));
+    }
+
+    private Single<CompletionEndResponse> completionEnd(Optional<String> accessToken) {
+        CommandCompletionServiceOuterClass.CompletionEndRequest request = CommandCompletionServiceOuterClass.CompletionEndRequest.newBuilder().setLedgerId(ledgerId).build();
+        return Single
+                .fromFuture(StubHelper.authenticating(serviceFutureStub, accessToken).completionEnd(request))
+                .map(CompletionEndResponse::fromProto);
     }
 
     @Override
     public Single<CompletionEndResponse> completionEnd() {
-        CommandCompletionServiceOuterClass.CompletionEndRequest request = CommandCompletionServiceOuterClass.CompletionEndRequest.newBuilder().setLedgerId(ledgerId).build();
-        return Single
-                .fromFuture(serviceFutureStub.completionEnd(request))
-                .map(CompletionEndResponse::fromProto);
+        return completionEnd(Optional.empty());
+    }
+
+    @Override
+    public Single<CompletionEndResponse> completionEnd(String accessToken) {
+        return completionEnd(Optional.of(accessToken));
     }
 }

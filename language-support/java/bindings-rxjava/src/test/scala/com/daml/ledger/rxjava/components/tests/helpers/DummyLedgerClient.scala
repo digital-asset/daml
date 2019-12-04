@@ -109,12 +109,28 @@ class DummyLedgerClient(
         offset: LedgerOffset,
         parties: util.Set[String]): Flowable[CompletionStreamResponse] =
       commandCompletions
+    // TODO Untested endpoint
+    override def completionStream(
+        applicationId: String,
+        offset: LedgerOffset,
+        parties: util.Set[String],
+        accessToken: String): Flowable[CompletionStreamResponse] =
+      ???
     override def completionStream(
         applicationId: String,
         parties: util.Set[String]): Flowable[CompletionStreamResponse] =
       commandCompletions
+    // TODO Untested endpoint
+    override def completionStream(
+        applicationId: String,
+        parties: util.Set[String],
+        accessToken: String): Flowable[CompletionStreamResponse] =
+      ???
 
+    // TODO Untested endpoint
     override def completionEnd(): Single[CompletionEndResponse] = ???
+    // TODO Untested endpoint
+    override def completionEnd(accessToken: String): Single[CompletionEndResponse] = ???
   }
 
   override def getCommandSubmissionClient: CommandSubmissionClient = new CommandSubmissionClient {

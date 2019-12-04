@@ -70,7 +70,7 @@ object LedgerServicesImpls {
     val (csServiceDef, csService) =
       CommandSubmissionServiceImpl.createWithRef(commandSubmissionResponse)(ec)
     val (ccServiceDef, ccService) =
-      CommandCompletionServiceImpl.createWithRef(completions, completionsEnd)(ec)
+      CommandCompletionServiceImpl.createWithRef(completions, completionsEnd, authorizer)(ec)
     val (cServiceDef, cService) = CommandServiceImpl.createWithRef(
       submitAndWaitResponse,
       submitAndWaitForTransactionIdResponse,
