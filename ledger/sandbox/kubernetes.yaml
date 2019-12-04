@@ -1,0 +1,97 @@
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: sandbox
+spec:
+  type: LoadBalancer
+  selector:
+    app: sandbox
+  ports:
+    - name: ledger-api
+      port: 6865
+
+---
+
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: sandbox
+  labels:
+    app: sandbox
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sandbox
+  template:
+    metadata:
+      labels:
+        app: sandbox
+    spec:
+      containers:
+        - name: sandbox
+          image: bazel/ledger/sandbox:sandbox-image
+          args:
+            - --ledgerid=kubernetes-demo
+            - --port=6865
+            - --eager-package-loading
+            - --sql-backend-jdbcurl=jdbc:postgresql://db:5432/sandbox?user=sandbox
+          ports:
+            - name: ledger-api
+              containerPort: 6865
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: db
+  labels:
+    app: db
+spec:
+  selector:
+    app: db
+  ports:
+    - name: postgresql
+      port: 5432
+
+---
+
+kind: StatefulSet
+apiVersion: apps/v1
+metadata:
+  name: db
+spec:
+  selector:
+    matchLabels:
+      app: db
+  serviceName: db
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: db
+    spec:
+      containers:
+        - name: postgresql
+          image: postgres
+          env:
+            - name: POSTGRES_USER
+              value: sandbox
+          ports:
+            - name: postgresql
+              containerPort: 5432
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 1Gi
