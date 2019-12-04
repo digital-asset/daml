@@ -23,6 +23,7 @@ import com.digitalasset.ledger.client.configuration.{
   LedgerClientConfiguration,
   LedgerIdRequirement
 }
+import com.digitalasset.ledger.service.TokenHolder
 
 object RunnerMain {
 
@@ -50,13 +51,13 @@ object RunnerMain {
       case None => sys.exit(1)
       case Some(config) => {
         val encodedDar: Dar[(PackageId, DamlLf.ArchivePayload)] =
-          DarReader().readArchiveFromFile(config.darPath).get
+          DarReader().readArchiveFromFile(config.darPath.toFile).get
         val dar: Dar[(PackageId, Package)] = encodedDar.map {
           case (pkgId, pkgArchive) => Decode.readArchivePayload(pkgId, pkgArchive)
         }
 
         if (config.listTriggers) {
-          listTriggers(config.darPath, dar)
+          listTriggers(config.darPath.toFile, dar)
           sys.exit(0)
         }
 
@@ -68,12 +69,20 @@ object RunnerMain {
         val sequencer = new AkkaExecutionSequencerPool("TriggerRunnerPool")(system)
         implicit val ec: ExecutionContext = system.dispatcher
 
+        val tokenHolder = config.accessTokenFile.map(new TokenHolder(_))
+        println(tokenHolder.flatMap(_.token))
+        // We probably want to refresh the token at some point but given that triggers
+        // are expected to be written such that they can be killed and restarted at
+        // any time it would in principle also be fine to just have the auth failure due
+        // to an expired token tear the trigger down and have some external monitoring process (e.g. systemd)
+        // restart it.
         val applicationId = ApplicationId("Trigger Runner")
         val clientConfig = LedgerClientConfiguration(
           applicationId = ApplicationId.unwrap(applicationId),
           ledgerIdRequirement = LedgerIdRequirement("", enabled = false),
           commandClient = CommandClientConfiguration.default.copy(ttl = config.commandTtl),
-          sslContext = None
+          sslContext = None,
+          token = tokenHolder.flatMap(_.token)
         )
 
         val flow: Future[Unit] = for {

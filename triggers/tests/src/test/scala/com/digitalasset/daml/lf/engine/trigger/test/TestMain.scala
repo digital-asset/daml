@@ -3,7 +3,7 @@
 
 package com.digitalasset.daml.lf.engine.trigger.test
 
-import java.io.File
+import java.nio.file.{Path, Paths}
 import java.time.Instant
 
 import akka.actor.ActorSystem
@@ -28,6 +28,7 @@ import com.digitalasset.ledger.api.v1.command_submission_service._
 import com.digitalasset.ledger.api.v1.commands._
 import com.digitalasset.ledger.api.v1.value
 import com.digitalasset.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
+import com.digitalasset.ledger.service.TokenHolder
 import com.digitalasset.daml.lf.archive.DarReader
 import com.digitalasset.daml.lf.archive.Dar
 import com.digitalasset.daml.lf.language.Ast._
@@ -49,7 +50,11 @@ import com.digitalasset.platform.services.time.TimeProviderType
 
 import com.digitalasset.daml.lf.engine.trigger.{Runner, TriggerMsg}
 
-case class Config(ledgerPort: Int, darPath: File, timeProviderType: TimeProviderType)
+case class Config(
+    ledgerPort: Int,
+    darPath: Path,
+    timeProviderType: TimeProviderType,
+    accessTokenFile: Option[Path])
 
 // We do not use scalatest here since that doesn’t work nicely with
 // the client_server_test macro.
@@ -78,12 +83,14 @@ class TestRunner(val config: Config) extends StrictLogging {
   var partyCount = 0
 
   val applicationId = ApplicationId("Trigger Test Runner")
+  val tokenHolder = config.accessTokenFile.map(new TokenHolder(_))
 
   val clientConfig = LedgerClientConfiguration(
     applicationId = applicationId.unwrap,
     ledgerIdRequirement = LedgerIdRequirement("", enabled = false),
     commandClient = CommandClientConfiguration.default,
-    sslContext = None
+    sslContext = None,
+    token = tokenHolder.flatMap(_.token)
   )
 
   def getNewParty(): String = {
@@ -917,15 +924,19 @@ object TestMain {
       .required()
       .action((p, c) => c.copy(ledgerPort = p))
 
-    arg[File]("<dar>")
+    arg[String]("<dar>")
       .required()
-      .action((d, c) => c.copy(darPath = d))
+      .action((d, c) => c.copy(darPath = Paths.get(d)))
 
     opt[Unit]('w', "wall-clock-time")
       .action { (t, c) =>
         c.copy(timeProviderType = TimeProviderType.WallClock)
       }
       .text("Use wall clock time (UTC). When not provided, static time is used.")
+    opt[String]("access-token-file")
+      .action { (f, c) =>
+        c.copy(accessTokenFile = Some(Paths.get(f)))
+      }
   }
 
   private val applicationId = ApplicationId("AscMain test")
@@ -936,12 +947,12 @@ object TestMain {
   case class FailedCompletions(num: Long)
 
   def main(args: Array[String]): Unit = {
-    configParser.parse(args, Config(0, null, TimeProviderType.Static)) match {
+    configParser.parse(args, Config(0, null, TimeProviderType.Static, None)) match {
       case None =>
         sys.exit(1)
       case Some(config) =>
         val encodedDar: Dar[(PackageId, DamlLf.ArchivePayload)] =
-          DarReader().readArchiveFromFile(config.darPath).get
+          DarReader().readArchiveFromFile(config.darPath.toFile).get
         val dar: Dar[(PackageId, Package)] = encodedDar.map {
           case (pkgId, pkgArchive) => Decode.readArchivePayload(pkgId, pkgArchive)
         }

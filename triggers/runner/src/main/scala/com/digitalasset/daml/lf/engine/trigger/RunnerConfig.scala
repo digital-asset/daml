@@ -3,13 +3,13 @@
 
 package com.digitalasset.daml.lf.engine.trigger
 
-import java.io.File
+import java.nio.file.{Path, Paths}
 import java.time.Duration
 
 import com.digitalasset.platform.services.time.TimeProviderType
 
 case class RunnerConfig(
-    darPath: File,
+    darPath: Path,
     // If true, we will only list the triggers in the DAR and exit.
     listTriggers: Boolean,
     triggerIdentifier: String,
@@ -18,15 +18,16 @@ case class RunnerConfig(
     ledgerParty: String,
     timeProviderType: TimeProviderType,
     commandTtl: Duration,
+    accessTokenFile: Option[Path],
 )
 
 object RunnerConfig {
   private val parser = new scopt.OptionParser[RunnerConfig]("trigger-runner") {
     head("trigger-runner")
 
-    opt[File]("dar")
+    opt[String]("dar")
       .required()
-      .action((f, c) => c.copy(darPath = f))
+      .action((f, c) => c.copy(darPath = Paths.get(f)))
       .text("Path to the dar file containing the trigger")
 
     opt[String]("trigger-name")
@@ -56,6 +57,12 @@ object RunnerConfig {
         c.copy(commandTtl = Duration.ofSeconds(t))
       }
       .text("TTL in seconds used for commands emitted by the trigger. Defaults to 30s.")
+
+    opt[String]("access-token-file")
+      .action { (f, c) =>
+        c.copy(accessTokenFile = Some(Paths.get(f)))
+      }
+      .text("File from which the access token will be read, required to interact with an authenticated ledger")
 
     cmd("list")
       .action((_, c) => c.copy(listTriggers = true))
@@ -93,6 +100,7 @@ object RunnerConfig {
         ledgerParty = null,
         timeProviderType = TimeProviderType.Static,
         commandTtl = Duration.ofSeconds(30L),
+        accessTokenFile = None,
       )
     )
 }
