@@ -68,7 +68,8 @@ final case class ClaimReadAsParty(name: Ref.Party) extends Claim
   * | PackageManagementService            | *                          | isAdmin                                  |
   * | PartyManagementService              | *                          | isAdmin                                  |
   * | ResetService                        | *                          | isAdmin                                  |
-  * | TimeService                         | *                          | isAdmin                                  |
+  * | TimeService                         | GetTime                    | isPublic                                 |
+  * | TimeService                         | SetTime                    | isAdmin                                  |
   * | TransactionService                  | LedgerEnd                  | isPublic                                 |
   * | TransactionService                  | *                          | for each requested party p: canReadAs(p) |
   * +-------------------------------------+----------------------------+------------------------------------------+

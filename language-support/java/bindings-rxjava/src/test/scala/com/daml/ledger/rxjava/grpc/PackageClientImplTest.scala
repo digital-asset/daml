@@ -5,19 +5,15 @@ package com.daml.ledger.rxjava.grpc
 
 import java.util.concurrent.TimeUnit
 
-import com.daml.ledger.rxjava.grpc.helpers.{DataLayerHelpers, LedgerServices, TestConfiguration}
+import com.daml.ledger.rxjava.PackageClient
+import com.daml.ledger.rxjava.grpc.helpers.{AuthMatchers, LedgerServices, TestConfiguration}
 import com.digitalasset.ledger.api.v1.package_service._
 import com.google.protobuf.ByteString
 import org.scalatest.{FlatSpec, Matchers, OptionValues}
 
 import scala.concurrent.Future
 
-class PackageClientImplTest
-    extends FlatSpec
-    with Matchers
-    with OptionValues
-    with DataLayerHelpers
-    with PackageClientImplTestHelpers {
+class PackageClientImplTest extends FlatSpec with Matchers with AuthMatchers with OptionValues {
 
   val ledgerServices = new LedgerServices("package-service-ledger")
 
@@ -88,7 +84,7 @@ class PackageClientImplTest
     ledgerServices.withPackageClient(
       listPackageResponseFuture(),
       defaultGetPackageResponseFuture,
-      defaultGetPackageStatusResponseFuture) { (client, service) =>
+      defaultGetPackageStatusResponseFuture) { (client, _) =>
       val getPackageStatus = client
         .getPackageStatus("packageId")
         .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
@@ -112,9 +108,84 @@ class PackageClientImplTest
       service.getLastGetPackageStatusRequest.value.packageId shouldBe "packageId"
     }
   }
-}
 
-trait PackageClientImplTestHelpers {
+  behavior of "Authorization"
+
+  def toAuthenticatedServer(fn: PackageClient => Any): Any =
+    ledgerServices.withPackageClient(
+      listPackageResponseFuture(),
+      defaultGetPackageResponseFuture,
+      defaultGetPackageStatusResponseFuture,
+      mockedAuthService) { (client, _) =>
+      fn(client)
+    }
+
+  it should "deny access without token" in {
+    withClue("getPackage") {
+      expectPermissionDenied {
+        toAuthenticatedServer { client =>
+          client.getPackage("...").blockingGet()
+        }
+      }
+    }
+    withClue("getPackageStatus") {
+      expectPermissionDenied {
+        toAuthenticatedServer { client =>
+          client.getPackageStatus("...").blockingGet()
+        }
+      }
+    }
+    withClue("listPackages") {
+      expectPermissionDenied {
+        toAuthenticatedServer { client =>
+          client.listPackages().blockingFirst()
+        }
+      }
+    }
+  }
+
+  it should "deny access without sufficient authorization" in {
+    withClue("getPackage") {
+      expectPermissionDenied {
+        toAuthenticatedServer { client =>
+          client.getPackage("...", emptyToken).blockingGet()
+        }
+      }
+    }
+    withClue("getPackageStatus") {
+      expectPermissionDenied {
+        toAuthenticatedServer { client =>
+          client.getPackageStatus("...", emptyToken).blockingGet()
+        }
+      }
+    }
+    withClue("listPackages") {
+      expectPermissionDenied {
+        toAuthenticatedServer { client =>
+          client.listPackages(emptyToken).blockingFirst()
+        }
+      }
+    }
+  }
+
+  it should "allow access with sufficient authorization" in {
+    toAuthenticatedServer { client =>
+      withClue("getPackage") {
+        client.getPackage("...", publicToken).blockingGet()
+      }
+    }
+    toAuthenticatedServer { client =>
+      withClue("getPackageStatus") {
+        client.getPackageStatus("...", publicToken).blockingGet()
+      }
+    }
+    toAuthenticatedServer { client =>
+      withClue("listPackages") {
+        client.listPackages(publicToken).blockingIterable()
+      }
+    }
+  }
+
   def listPackageResponse(pids: String*) = new ListPackagesResponse(pids)
 
   def listPackageResponseFuture(pids: String*) = Future.successful(listPackageResponse(pids: _*))
@@ -125,4 +196,5 @@ trait PackageClientImplTestHelpers {
   val defaultGetPackageResponseFuture = Future.successful(defaultGetPackageResponse)
   val defaultGetPackageStatusResponse = new GetPackageStatusResponse(PackageStatus.values.head)
   val defaultGetPackageStatusResponseFuture = Future.successful(defaultGetPackageStatusResponse)
+
 }

@@ -65,12 +65,15 @@ object IouMain extends App with StrictLogging {
 
   private val timeProvider = TimeProvider.Constant(Instant.EPOCH)
 
+  // <doc-ref:ledger-client-configuration>
   private val clientConfig = LedgerClientConfiguration(
     applicationId = ApplicationId.unwrap(applicationId),
     ledgerIdRequirement = LedgerIdRequirement("", enabled = false),
     commandClient = CommandClientConfiguration.default,
-    sslContext = None
+    sslContext = None,
+    token = None
   )
+  // </doc-ref:ledger-client-configuration>
 
   private val clientF: Future[LedgerClient] =
     LedgerClient.singleHost(ledgerHost, ledgerPort, clientConfig)(ec, aesf)

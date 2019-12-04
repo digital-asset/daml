@@ -64,13 +64,10 @@ case class VersionedTransaction[Nid, Cid](
   *
   * @param nodes The nodes of this transaction.
   * @param roots References to the root nodes of the transaction.
-  * @param usedPackages The set of packages used during interpretation.
+  * @param optUsedPackages The set of packages used during command processing.
   *                     This is a hint for what packages are required to validate
-  *                     the transaction using the current interpreter. This assumption
-  *                     may not hold if new DAML engine implementations are introduced
-  *                     as some packages may be only referenced during compilation to
-  *                     engine's internal form. The used packages are not serialized
-  *                     using [[TransactionCoder]].
+  *                     the transaction using the current interpreter.
+  *                     The used packages are not serialized using [[TransactionCoder]].
   *
   * Users of this class may assume that all instances are well-formed, i.e., `isWellFormed.isEmpty`.
   * For performance reasons, users are not required to call `isWellFormed`.
@@ -79,7 +76,7 @@ case class VersionedTransaction[Nid, Cid](
 case class GenTransaction[Nid: Ordering, Cid, +Val](
     nodes: SortedMap[Nid, GenNode[Nid, Cid, Val]],
     roots: ImmArray[Nid],
-    usedPackages: Set[PackageId]) {
+    optUsedPackages: Option[Set[PackageId]]) {
   import GenTransaction._
 
   def mapContractIdAndValue[Cid2, Val2](
@@ -106,7 +103,7 @@ case class GenTransaction[Nid: Ordering, Cid, +Val](
       nodes = nodes.map {
         case (nid, node) => (f(nid), node.mapNodeId(f))
       },
-      usedPackages = usedPackages
+      optUsedPackages = optUsedPackages
     )
 
   /**
@@ -490,12 +487,6 @@ object Transaction {
     *              we archive. This is not an optimization and is required for
     *              correct semantics, since otherwise lookups for keys for
     *              locally archived absolute contract ids will succeed wrongly.
-    * @param usedPackages The set of packages used during interpretation.
-    *                     This is a hint for what packages are required to validate
-    *                     the transaction using the current interpreter. This assumption
-    *                     may not hold if new DAML engine implementations are introduced
-    *                     as some packages may be only referenced during compilation to
-    *                     engine's internal form.
     */
   case class PartialTransaction(
       nextNodeId: NodeId,
@@ -505,7 +496,6 @@ object Transaction {
       context: Context,
       aborted: Option[TransactionError],
       keys: Map[GlobalKey, Option[TContractId]],
-      usedPackages: Set[PackageId]
   ) {
 
     private def computeRoots: Set[NodeId] = {
@@ -542,7 +532,7 @@ object Transaction {
         // roots field is not initialized when this method is executed on a failed transaction,
         // so we need to compute them.
         val rootNodes = computeRoots
-        val tx = GenTransaction(nodes, ImmArray(rootNodes), usedPackages)
+        val tx = GenTransaction(nodes, ImmArray(rootNodes), None)
 
         tx.foreach(GenTransaction.TopDown, { (nid, node) =>
           val rootPrefix = if (rootNodes.contains(nid)) "root " else ""
@@ -573,7 +563,7 @@ object Transaction {
               GenTransaction(
                 nodes = nodes,
                 roots = roots.toImmArray,
-                usedPackages = usedPackages
+                None
               ))
           case _ => Left(this)
         }
@@ -644,12 +634,6 @@ object Transaction {
         }
       }
     }
-
-    /** Mark a package as being used in the process of preparing the
-      * transaction.
-      */
-    def markPackage(packageId: PackageId): PartialTransaction =
-      this.copy(usedPackages = usedPackages + packageId)
 
     def serializable(a: Value[TContractId]): ImmArray[String] = a.value.serializable()
 
@@ -833,8 +817,7 @@ object Transaction {
       consumedBy = Map.empty,
       context = ContextRoot,
       aborted = None,
-      keys = Map.empty,
-      usedPackages = Set.empty
+      keys = Map.empty
     )
   }
 

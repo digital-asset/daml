@@ -5,12 +5,11 @@ package com.daml.ledger.rxjava.grpc.helpers
 
 import java.time.Instant
 
+import com.daml.ledger.rxjava.grpc.helpers.Generators._
 import com.google.protobuf.Timestamp
 import org.scalacheck.Gen
 import org.scalatest.prop.GeneratorDrivenPropertyChecks
 import org.scalatest.{FlatSpec, Matchers}
-
-import Generators._
 
 class TimestampComparatorTest extends FlatSpec with Matchers with GeneratorDrivenPropertyChecks {
 

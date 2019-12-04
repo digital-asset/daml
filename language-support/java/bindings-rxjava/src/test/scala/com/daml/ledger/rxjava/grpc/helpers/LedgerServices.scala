@@ -117,7 +117,7 @@ final class LedgerServices(val ledgerId: String) {
       authService: AuthService = AuthServiceWildcard)(
       f: (CommandSubmissionClientImpl, CommandSubmissionServiceImpl) => Any): Any = {
     val (service, serviceImpl) =
-      CommandSubmissionServiceImpl.createWithRef(response)(executionContext)
+      CommandSubmissionServiceImpl.createWithRef(response, authorizer)(executionContext)
     withServerAndChannel(authService, Seq(service)) { channel =>
       f(new CommandSubmissionClientImpl(ledgerId, channel), serviceImpl)
     }
@@ -129,7 +129,7 @@ final class LedgerServices(val ledgerId: String) {
       authService: AuthService = AuthServiceWildcard)(
       f: (CommandCompletionClient, CommandCompletionServiceImpl) => Any): Any = {
     val (service, impl) =
-      CommandCompletionServiceImpl.createWithRef(completions, end)(executionContext)
+      CommandCompletionServiceImpl.createWithRef(completions, end, authorizer)(executionContext)
     withServerAndChannel(authService, Seq(service)) { channel =>
       f(new CommandCompletionClientImpl(ledgerId, channel, esf), impl)
     }
@@ -145,7 +145,8 @@ final class LedgerServices(val ledgerId: String) {
       PackageServiceImpl.createWithRef(
         listPackagesResponse,
         getPackageResponse,
-        getPackageStatusResponse)(executionContext)
+        getPackageStatusResponse,
+        authorizer)(executionContext)
     withServerAndChannel(authService, Seq(service)) { channel =>
       f(new PackageClientImpl(ledgerId, channel), impl)
     }

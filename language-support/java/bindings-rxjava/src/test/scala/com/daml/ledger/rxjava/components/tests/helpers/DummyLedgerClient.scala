@@ -6,8 +6,8 @@ package com.daml.ledger.rxjava.components.tests.helpers
 import java.time.Instant
 import java.util
 
-import com.daml.ledger.rxjava._
 import com.daml.ledger.javaapi.data._
+import com.daml.ledger.rxjava._
 import com.google.protobuf.Empty
 import io.reactivex.{Flowable, Single}
 import org.slf4j.LoggerFactory
@@ -109,12 +109,28 @@ class DummyLedgerClient(
         offset: LedgerOffset,
         parties: util.Set[String]): Flowable[CompletionStreamResponse] =
       commandCompletions
+    // TODO Untested endpoint
+    override def completionStream(
+        applicationId: String,
+        offset: LedgerOffset,
+        parties: util.Set[String],
+        accessToken: String): Flowable[CompletionStreamResponse] =
+      ???
     override def completionStream(
         applicationId: String,
         parties: util.Set[String]): Flowable[CompletionStreamResponse] =
       commandCompletions
+    // TODO Untested endpoint
+    override def completionStream(
+        applicationId: String,
+        parties: util.Set[String],
+        accessToken: String): Flowable[CompletionStreamResponse] =
+      ???
 
+    // TODO Untested endpoint
     override def completionEnd(): Single[CompletionEndResponse] = ???
+    // TODO Untested endpoint
+    override def completionEnd(accessToken: String): Single[CompletionEndResponse] = ???
   }
 
   override def getCommandSubmissionClient: CommandSubmissionClient = new CommandSubmissionClient {
@@ -137,6 +153,17 @@ class DummyLedgerClient(
           commands))
       Single.just(Empty.getDefaultInstance)
     }
+
+    // TODO Untested endpoint
+    override def submit(
+        workflowId: String,
+        applicationId: String,
+        commandId: String,
+        party: String,
+        ledgerEffectiveTime: Instant,
+        maximumRecordTime: Instant,
+        commands: util.List[Command],
+        accessToken: String): Single[Empty] = ???
   }
 
   override def getLedgerIdentityClient: LedgerIdentityClient = new LedgerIdentityClient {

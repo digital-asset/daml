@@ -5,8 +5,8 @@ package com.daml.ledger.rxjava.components
 
 import java.util.concurrent.TimeUnit
 
-import com.daml.ledger.rxjava.components.helpers.{CommandsAndPendingSet, CreatedContract}
 import com.daml.ledger.javaapi.data.{Identifier, LedgerOffset, WorkflowEvent}
+import com.daml.ledger.rxjava.components.helpers.{CommandsAndPendingSet, CreatedContract}
 import io.reactivex.Flowable
 import org.scalatest.{FlatSpec, Matchers}
 

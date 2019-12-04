@@ -171,7 +171,7 @@ class JdbcLedgerDaoSpec
               Some(keyWithMaintainers)
             )),
           ImmArray(event1),
-          Set.empty
+          None
         ),
         Map(event1 -> Set[Party]("Alice", "Bob"), event2 -> Set[Party]("Alice", "In", "Chains"))
       )
@@ -498,7 +498,7 @@ class JdbcLedgerDaoSpec
               Some(keyWithMaintainers)
             )),
           ImmArray(event1),
-          Set.empty
+          None
         ),
         Map(event1 -> Set("Alice", "Bob"), event2 -> Set("Alice", "In", "Chains"))
       )
@@ -563,7 +563,7 @@ class JdbcLedgerDaoSpec
             )
           ),
           ImmArray(event1, event2),
-          Set.empty
+          None
         ),
         Map(event1 -> Set("Alice", "Bob"), event2 -> Set("Alice", "In", "Chains"))
       )
@@ -619,7 +619,7 @@ class JdbcLedgerDaoSpec
                 None
               )),
             ImmArray[EventId](s"event$id"),
-            Set.empty
+            None
           ),
           Map((s"event$id": EventId) -> Set("Alice", "Bob"))
         )
@@ -656,7 +656,7 @@ class JdbcLedgerDaoSpec
                 None
               )),
             ImmArray[EventId](s"event$id"),
-            Set.empty
+            None
           ),
           Map((s"event$id": EventId) -> Set("Alice", "Bob"))
         )

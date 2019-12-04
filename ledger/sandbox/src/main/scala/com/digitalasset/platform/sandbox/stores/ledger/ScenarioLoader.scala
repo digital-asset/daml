@@ -235,7 +235,7 @@ object ScenarioLoader {
         val transactionId = txId.id
         val workflowId =
           Some(Ref.LedgerString.concat(workflowIdPrefix, Ref.LedgerString.fromInt(stepId)))
-        val txNoHash = GenTransaction(richTransaction.nodes, richTransaction.roots, Set.empty)
+        val txNoHash = GenTransaction(richTransaction.nodes, richTransaction.roots, None)
         val tx = txNoHash
           .mapContractIdAndValue(absCidWithHash, _.mapContractId(absCidWithHash))
           .mapNodeId(nodeIdWithHash)

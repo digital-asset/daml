@@ -7,15 +7,7 @@ import java.time.Clock
 import java.util.UUID
 
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.ledger.api.auth.{
-  AuthServiceStatic,
-  Authorizer,
-  Claim,
-  ClaimActAsParty,
-  ClaimPublic,
-  ClaimReadAsParty,
-  Claims
-}
+import com.digitalasset.ledger.api.auth._
 
 package object grpc {
 
@@ -23,6 +15,7 @@ package object grpc {
 
   private[grpc] val emptyToken = "empty"
   private[grpc] val publicToken = "public"
+  private[grpc] val adminToken = "admin"
 
   private[grpc] val someParty = UUID.randomUUID.toString
   private[grpc] val somePartyReadToken = UUID.randomUUID.toString
@@ -36,6 +29,7 @@ package object grpc {
     AuthServiceStatic {
       case `emptyToken` => Claims(Nil)
       case `publicToken` => Claims(Seq[Claim](ClaimPublic))
+      case `adminToken` => Claims(Seq[Claim](ClaimAdmin))
       case `somePartyReadToken` =>
         Claims(Seq[Claim](ClaimPublic, ClaimReadAsParty(Ref.Party.assertFromString(someParty))))
       case `somePartyReadWriteToken` =>

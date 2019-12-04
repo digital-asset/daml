@@ -39,15 +39,21 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
     val internedDottedNames =
       decodeInternedDottedNames(lfPackage.getInternedDottedNamesList.asScala, internedStrings)
 
+    val dependencyTracker = new PackageDependencyTracker(packageId)
+
     Package(
-      lfPackage.getModulesList.asScala
+      modules = lfPackage.getModulesList.asScala
         .map(
           ModuleDecoder(
             packageId,
             internedStrings,
             internedDottedNames,
+            Some(dependencyTracker),
             _,
-            onlySerializableDataDefs).decode))
+            onlySerializableDataDefs).decode),
+      directDeps = dependencyTracker.getDependencies
+    )
+
   }
 
   // each LF scenario module is wrapped in a distinct proto package
@@ -75,6 +81,7 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
       packageId,
       internedStrings,
       internedDottedNames,
+      None,
       lfScenarioModule.getModules(0),
       onlySerializableDataDefs = false
     ).decode()
@@ -106,10 +113,19 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
       case Right(x) => x
     }
 
+  case class PackageDependencyTracker(self: PackageId) {
+    private val deps = mutable.Set.empty[PackageId]
+    def markDependency(pkgId: PackageId): Unit =
+      if (pkgId != self)
+        deps += pkgId
+    def getDependencies: Set[PackageId] = deps.toSet
+  }
+
   case class ModuleDecoder(
       packageId: PackageId,
       internedStrings: ImmArraySeq[String],
       internedDottedNames: ImmArraySeq[DottedName],
+      optDependencyTracker: Option[PackageDependencyTracker],
       lfModule: PLF.Module,
       onlySerializableDataDefs: Boolean
   ) {
@@ -591,6 +607,7 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
         case SC.SUM_NOT_SET =>
           throw ParseError("PackageRef.SUM_NOT_SET")
       }
+      optDependencyTracker.foreach(_.markDependency(pkgId))
       (pkgId, modName)
     }
 

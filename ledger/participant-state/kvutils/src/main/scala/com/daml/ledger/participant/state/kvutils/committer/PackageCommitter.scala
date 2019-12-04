@@ -159,7 +159,9 @@ private[kvutils] case class PackageCommitter(engine: Engine)
       trace(s"Preload complete.")
     } catch {
       case scala.util.control.NonFatal(err) =>
-        logger.error(s"[submissionId=$submissionId]: Preload exception: $err")
+        logger.error(
+          s"[submissionId=$submissionId]: Preload exception: $err. Stack trace: ${err.getStackTrace
+            .mkString(", ")}")
     } finally {
       val _ = ctx.stop()
     }

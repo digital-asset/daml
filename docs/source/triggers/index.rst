@@ -254,6 +254,9 @@ have created as ``Alice``. Once you archive the ``Subscriber``
 contract, you can see that the ``Copy`` contract will also be
 archived.
 
+When using DAML triggers against a Ledger with authentication, you can
+pass ``--access-token-file token.jwt`` to ``daml trigger`` which will
+read the token from the file ``token.jwt``.
 
 When not to use DAML triggers
 =============================

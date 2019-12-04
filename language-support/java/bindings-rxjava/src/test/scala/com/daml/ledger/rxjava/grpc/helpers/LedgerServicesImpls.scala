@@ -68,9 +68,9 @@ object LedgerServicesImpls {
     val (tsServiceDef, tsService) =
       TransactionServiceImpl.createWithRef(transactions)(ec)
     val (csServiceDef, csService) =
-      CommandSubmissionServiceImpl.createWithRef(commandSubmissionResponse)(ec)
+      CommandSubmissionServiceImpl.createWithRef(commandSubmissionResponse, authorizer)(ec)
     val (ccServiceDef, ccService) =
-      CommandCompletionServiceImpl.createWithRef(completions, completionsEnd)(ec)
+      CommandCompletionServiceImpl.createWithRef(completions, completionsEnd, authorizer)(ec)
     val (cServiceDef, cService) = CommandServiceImpl.createWithRef(
       submitAndWaitResponse,
       submitAndWaitForTransactionIdResponse,
@@ -79,12 +79,14 @@ object LedgerServicesImpls {
       authorizer)(ec)
     val (lcServiceDef, lcService) =
       LedgerConfigurationServiceImpl.createWithRef(getLedgerConfigurationResponses)(ec)
-    val (timeServiceDef, timeService) = TimeServiceImpl.createWithRef(getTimeResponses: _*)(ec)
+    val (timeServiceDef, timeService) =
+      TimeServiceImpl.createWithRef(getTimeResponses, authorizer)(ec)
     val (packageServiceDef, packageService) =
       PackageServiceImpl.createWithRef(
         listPackagesResponse,
         getPackageResponse,
-        getPackageStatusResponse)(ec)
+        getPackageStatusResponse,
+        authorizer)(ec)
 
     val services = Seq(
       iServiceDef,

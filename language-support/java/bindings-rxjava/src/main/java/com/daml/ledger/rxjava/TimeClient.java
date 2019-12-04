@@ -12,6 +12,8 @@ import java.time.Instant;
 public interface TimeClient {
 
     Single<Empty> setTime(Instant currentTime, Instant newTime);
+    Single<Empty> setTime(Instant currentTime, Instant newTime, String accessToken);
 
     Flowable<Instant> getTime();
+    Flowable<Instant> getTime(String accessToken);
 }

@@ -151,6 +151,16 @@ class BotTest extends FlatSpec with Matchers with DataLayerHelpers {
                   commands))
               Single.error(new RuntimeException("expected failure"))
             }
+            // TODO Untested endpoint
+            override def submit(
+                workflowId: String,
+                applicationId: String,
+                commandId: String,
+                party: String,
+                ledgerEffectiveTime: Instant,
+                maximumRecordTime: Instant,
+                commands: util.List[Command],
+                accessToken: String): Single[JEmpty] = ???
           }
       }
 

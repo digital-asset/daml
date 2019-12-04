@@ -286,7 +286,7 @@ abstract class UIBackend extends LazyLogging with ApplicationInfoJsonSupport {
     Arguments.parse(rawArgs, defaultConfigFile) foreach run
 
   private def run(args: Arguments): Unit = {
-    val navigatorConfigFile = args.configFile.getOrElse(defaultConfigFile)
+    val navigatorConfigFile = args.configFile.fold[ConfigOption](DefaultConfig(defaultConfigFile))(ExplicitConfig(_))
 
     args.command match {
       case ShowUsage =>
@@ -295,8 +295,8 @@ abstract class UIBackend extends LazyLogging with ApplicationInfoJsonSupport {
         dumpGraphQLSchema()
       case CreateConfig =>
         userFacingLogger.info(
-          s"Creating a configuration template file at ${navigatorConfigFile.toAbsolutePath()}")
-        Config.writeTemplateToPath(navigatorConfigFile, args.useDatabase)
+          s"Creating a configuration template file at ${navigatorConfigFile.path.toAbsolutePath()}")
+        Config.writeTemplateToPath(navigatorConfigFile.path, args.useDatabase)
       case RunServer =>
         Config.load(navigatorConfigFile, args.useDatabase) match {
           case Left(ConfigNotFound(_)) =>

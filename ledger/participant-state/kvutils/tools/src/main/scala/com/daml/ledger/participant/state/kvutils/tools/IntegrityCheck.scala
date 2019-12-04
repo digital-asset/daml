@@ -60,6 +60,7 @@ object IntegrityCheck extends App {
   var count = 0
   while (size > 0) {
     count += 1
+
     val buf = Array.ofDim[Byte](size)
     ledgerDumpStream.readFully(buf, 0, size)
 

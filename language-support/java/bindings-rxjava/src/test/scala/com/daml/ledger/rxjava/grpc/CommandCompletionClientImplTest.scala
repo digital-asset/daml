@@ -8,7 +8,13 @@ import java.util.concurrent.TimeUnit
 
 import com.daml.ledger.javaapi.data.LedgerOffset
 import com.daml.ledger.javaapi.data.LedgerOffset.LedgerBegin
-import com.daml.ledger.rxjava.grpc.helpers.{DataLayerHelpers, LedgerServices, TestConfiguration}
+import com.daml.ledger.rxjava.CommandCompletionClient
+import com.daml.ledger.rxjava.grpc.helpers.{
+  AuthMatchers,
+  DataLayerHelpers,
+  LedgerServices,
+  TestConfiguration
+}
 import com.digitalasset.ledger.api.v1.command_completion_service.CompletionStreamResponse
 import com.digitalasset.ledger.api.v1.completion.Completion
 import com.google.rpc.status.Status
@@ -16,9 +22,10 @@ import org.scalatest.{FlatSpec, Matchers, OptionValues}
 
 import scala.collection.JavaConverters._
 
-class CommandCompletionImplTest
+class CommandCompletionClientImplTest
     extends FlatSpec
     with Matchers
+    with AuthMatchers
     with OptionValues
     with DataLayerHelpers {
 
@@ -103,4 +110,99 @@ class CommandCompletionImplTest
       serviceImpl.getLastCompletionStreamRequest.value.parties should contain theSameElementsAs parties
     }
   }
+
+  behavior of "Authorization"
+
+  def toAuthenticatedServer(fn: CommandCompletionClient => Any): Any = {
+    val completion1 = Completion("cid1", Option(new Status(0)), traceContext = None)
+    val completionResponse = CompletionStreamResponse(None, List(completion1))
+    ledgerServices.withCommandCompletionClient(
+      List(completionResponse),
+      genCompletionEndResponse(""),
+      mockedAuthService
+    ) { (client, _) =>
+      fn(client)
+    }
+  }
+
+  it should "deny access without token" in {
+    toAuthenticatedServer { client =>
+      withClue("completionStream") {
+        expectPermissionDenied {
+          client
+            .completionStream("appId", LedgerBegin.getInstance(), Set(someParty).asJava)
+            .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
+            .blockingFirst()
+        }
+      }
+      withClue("completionStream unbounded") {
+        expectPermissionDenied {
+          client
+            .completionStream("appId", Set(someParty).asJava)
+            .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
+            .blockingFirst()
+        }
+      }
+      withClue("completionEnd") {
+        expectPermissionDenied {
+          client.completionEnd().blockingGet()
+        }
+      }
+    }
+  }
+
+  it should "deny access with the wrong token" in {
+    toAuthenticatedServer { client =>
+      withClue("completionStream") {
+        expectPermissionDenied {
+          client
+            .completionStream(
+              "appId",
+              LedgerBegin.getInstance(),
+              Set(someParty).asJava,
+              someOtherPartyReadToken)
+            .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
+            .blockingFirst()
+        }
+      }
+      withClue("completionStream unbounded") {
+        expectPermissionDenied {
+          client
+            .completionStream("appId", Set(someParty).asJava, someOtherPartyReadToken)
+            .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
+            .blockingFirst()
+        }
+      }
+      withClue("completionEnd") {
+        expectPermissionDenied {
+          client.completionEnd(emptyToken).blockingGet()
+        }
+      }
+    }
+  }
+
+  it should "allow access with the correct token" in {
+    toAuthenticatedServer { client =>
+      withClue("completionStream") {
+        client
+          .completionStream(
+            "appId",
+            LedgerBegin.getInstance(),
+            Set(someParty).asJava,
+            somePartyReadToken)
+          .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
+          .blockingFirst()
+      }
+      withClue("completionStream unbounded") {
+        client
+          .completionStream("appId", Set(someParty).asJava, somePartyReadToken)
+          .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
+          .blockingFirst()
+      }
+      withClue("completionEnd") {
+        client.completionEnd(somePartyReadToken).blockingGet()
+      }
+    }
+  }
+
 }
