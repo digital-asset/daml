@@ -5,6 +5,7 @@ package com.daml.ledger.participant.state.kvutils.committer
 
 import com.codahale.metrics
 import com.codahale.metrics.Timer
+import com.daml.ledger.participant.state.kvutils.DamlStateMap
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlLogEntry,
   DamlLogEntryId,

@@ -6,6 +6,7 @@ package com.daml.ledger.participant.state.kvutils.committing
 import java.util.concurrent.TimeUnit
 
 import com.codahale.metrics
+import com.daml.ledger.participant.state.kvutils.DamlStateMap
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlLogEntry,
   DamlStateKey,
@@ -20,13 +21,13 @@ import org.slf4j.Logger
 import scala.annotation.tailrec
 
 private[kvutils] object Common {
-  type DamlStateMap = Map[DamlStateKey, DamlStateValue]
+  type DamlOutputStateMap = Map[DamlStateKey, DamlStateValue]
 
   final case class CommitContext private (
       /* The input state as declared by the submission. */
       inputState: DamlStateMap,
       /* The intermediate and final state that is committed. */
-      resultState: DamlStateMap,
+      resultState: DamlOutputStateMap,
   )
 
   /** A monadic computation that represents the process of committing which accumulates
@@ -53,7 +54,7 @@ private[kvutils] object Common {
   }
 
   /** The terminal state for the commit computation. */
-  final case class CommitDone(logEntry: DamlLogEntry, state: DamlStateMap)
+  final case class CommitDone(logEntry: DamlLogEntry, state: DamlOutputStateMap)
 
   object Commit {
 
@@ -105,7 +106,7 @@ private[kvutils] object Common {
 
     /** Run a sequence of commit computations, producing a log entry and the state. */
     def runSequence(inputState: DamlStateMap, acts: (String, Commit[Unit])*)(
-        implicit logger: Logger): (DamlLogEntry, DamlStateMap) =
+        implicit logger: Logger): (DamlLogEntry, DamlOutputStateMap) =
       sequence(acts).run(CommitContext(inputState, InsertOrdMap.empty)) match {
         case Left(done) => done.logEntry -> done.state
         case Right(_) =>
@@ -154,13 +155,16 @@ private[kvutils] object Common {
     def get(key: DamlStateKey): Commit[Option[DamlStateValue]] =
       Commit { state =>
         Right(
-          state.resultState.get(key).orElse(state.inputState.get(key))
+          state.resultState
+            .get(key)
+            .orElse(state.inputState.getOrElse(key, throw Err.MissingInputState(key)))
             -> state)
       }
 
-    def getDamlState: Commit[DamlStateMap] =
+    def getDamlState: Commit[DamlOutputStateMap] =
       Commit { state =>
-        Right((state.inputState ++ state.resultState) -> state)
+        Right(
+          (state.inputState.collect { case (k, Some(v)) => k -> v } ++ state.resultState) -> state)
       }
 
     /** Finish the computation and produce a log entry, along with the

@@ -7,7 +7,13 @@ import com.codahale.metrics
 import com.codahale.metrics.{Counter, Timer}
 import com.daml.ledger.participant.state.kvutils.Conversions.{buildTimestamp, commandDedupKey, _}
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
-import com.daml.ledger.participant.state.kvutils.{Conversions, Err, InputsAndEffects, Pretty}
+import com.daml.ledger.participant.state.kvutils.{
+  Conversions,
+  Err,
+  InputsAndEffects,
+  Pretty,
+  DamlStateMap
+}
 import com.daml.ledger.participant.state.v1.{Configuration, ParticipantId, RejectionReason}
 import com.digitalasset.daml.lf.archive.Decode
 import com.digitalasset.daml.lf.archive.Reader.ParseError
@@ -30,7 +36,7 @@ private[kvutils] case class ProcessTransactionSubmission(
     txEntry: DamlTransactionEntry,
     // FIXME(JM): remove inputState as a global to avoid accessing it when the intermediate
     // state should be used.
-    inputState: Map[DamlStateKey, Option[DamlStateValue]]) {
+    inputState: DamlStateMap) {
 
   import ProcessTransactionSubmission._
   import Common._
@@ -42,7 +48,7 @@ private[kvutils] case class ProcessTransactionSubmission(
 
   def run: (DamlLogEntry, Map[DamlStateKey, DamlStateValue]) = Metrics.runTimer.time { () =>
     runSequence(
-      inputState = inputState.collect { case (k, Some(x)) => k -> x },
+      inputState = inputState,
       "Authorize submitter" -> authorizeSubmitter,
       "Deduplicate" -> deduplicateCommand,
       "Validate LET/TTL" -> validateLetAndTtl,

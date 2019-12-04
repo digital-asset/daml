@@ -8,7 +8,7 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlStateKey,
   DamlStateValue
 }
-import com.daml.ledger.participant.state.kvutils.Err
+import com.daml.ledger.participant.state.kvutils.{Err, DamlStateMap}
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.digitalasset.daml.lf.data.Time.Timestamp
 
@@ -32,7 +32,9 @@ private[kvutils] trait CommitContext {
 
   /** Retrieve value from output state, or if not found, from input state. */
   def get(key: DamlStateKey): Option[DamlStateValue] =
-    outputs.get(key).orElse(inputs.get(key))
+    outputs.get(key).orElse {
+      inputs.getOrElse(key, throw Err.MissingInputState(key))
+    }
 
   /** Set a value in the output state. */
   def set(key: DamlStateKey, value: DamlStateValue): Unit = {

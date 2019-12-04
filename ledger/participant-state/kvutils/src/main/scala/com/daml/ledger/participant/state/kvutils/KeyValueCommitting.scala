@@ -87,7 +87,7 @@ object KeyValueCommitting {
             recordTime,
             submission.getPackageUploadEntry,
             participantId,
-            inputState.collect { case (k, Some(v)) => k -> v }
+            inputState
           )
           logEntry -> outputs.toMap
 
@@ -97,7 +97,7 @@ object KeyValueCommitting {
             recordTime,
             submission.getPartyAllocationEntry,
             participantId,
-            inputState.collect { case (k, Some(v)) => k -> v }
+            inputState
           )
           logEntry -> outputs.toMap
 
