@@ -18,7 +18,7 @@ import qualified Data.Text.Lazy as Text(pack)
 data LedgerArgs = LedgerArgs
   { host :: String
   , port :: Int
-  , jwtM :: Maybe L.Jwt }
+  , tokM :: Maybe String }
 
 instance Show LedgerArgs where
     show LedgerArgs{host,port} = host <> ":" <> show port
@@ -48,8 +48,8 @@ uploadDarFile hp bytes = run hp $ do
 
 run :: LedgerArgs -> LedgerService a -> IO a
 run hp ls = do
-    let LedgerArgs{host,port,jwtM} = hp
-    let ls' = case jwtM of Nothing -> ls; Just jwt -> L.setToken jwt ls
+    let LedgerArgs{host,port,tokM} = hp
+    let ls' = case tokM of Nothing -> ls; Just tok -> L.setToken tok ls
     let timeout = 30 :: L.TimeoutSeconds
     let ledgerClientConfig = L.configOfHostAndPort (L.Host $ fromString host) (L.Port port)
     L.runLedgerService ls' timeout ledgerClientConfig

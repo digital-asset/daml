@@ -24,7 +24,6 @@ import Test.Tasty as Tasty (TestName,TestTree,testGroup,withResource,defaultMain
 import Test.Tasty.HUnit as Tasty(assertFailure,assertBool,assertEqual,testCase)
 import qualified "zip-archive" Codec.Archive.Zip as Zip
 import qualified DA.Daml.LF.Ast as LF
-import qualified DA.Ledger.Jwt as Jwt
 import qualified Data.Aeson.Types as Aeson
 import qualified Data.ByteString as BS (readFile)
 import qualified Data.ByteString.Lazy as BSL (readFile,toStrict)
@@ -668,7 +667,7 @@ runWithSandbox Sandbox{port} maybeAuth tid ls = runLedgerService ls' timeout (co
             Nothing -> ls
             Just authSpec -> setToken (makeSignedJwt authSpec tid) ls
 
-makeSignedJwt :: AuthSpec -> TestId -> Jwt
+makeSignedJwt :: AuthSpec -> TestId -> String
 makeSignedJwt AuthSpec{sharedSecret} tid = do
   let parties = [ T.pack $ TL.unpack $ unParty $ p tid | p <- [alice,bob] ]
   let urc = JWT.ClaimsMap $ Map.fromList
@@ -678,7 +677,7 @@ makeSignedJwt AuthSpec{sharedSecret} tid = do
   let cs = mempty { JWT.unregisteredClaims = urc }
   let key = JWT.hmacSecret $ T.pack sharedSecret
   let text = JWT.encodeSigned key mempty cs
-  either error id $ Jwt.tryCreateFromString $ T.unpack text
+  "Bearer " <> T.unpack text
 
 
 -- resetSandbox :: Sandbox-> IO ()
