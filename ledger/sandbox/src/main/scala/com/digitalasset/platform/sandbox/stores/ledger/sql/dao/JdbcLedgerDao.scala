@@ -661,22 +661,24 @@ private class JdbcLedgerDao(
         }
 
         override def addParties(parties: Set[Party]): AcsStoreAcc = {
-          parties.toList.map { p =>
-            val submissionId = SubmissionId.assertFromString(UUID.randomUUID().toString)
+          lookupExternalLedgerEnd().map { externalLedgerEnd =>
+            parties.toList.map { p =>
+              val submissionId = SubmissionId.assertFromString(UUID.randomUUID().toString)
 
-            storePartyAllocationEntry(
-              offset,
-              offset + 1,
-              None,
-              submissionId,
-              //FIXME BH not sure we ever know this for implicit parties, probably need to make this nullable
-              ParticipantId.assertFromString("IMPLICIT"),
-              PartyLedgerEntry.ImplicitPartyCreated(
+              storePartyAllocationEntry(
+                offset,
+                offset + 1,
+                externalLedgerEnd,
                 submissionId,
-                Instant.now(),
-                PartyDetails(p, None, isLocal = true))
-            )
-          }
+                //FIXME BH not sure we ever know this for implicit parties, probably need to make this nullable
+                ParticipantId.assertFromString("IMPLICIT"),
+                PartyLedgerEntry.ImplicitPartyCreated(
+                  submissionId,
+                  Instant.now(),
+                  PartyDetails(p, None, isLocal = true))
+              )
+            }
+          }(DirectExecutionContext)
           this
         }
 
@@ -1646,9 +1648,10 @@ private class JdbcLedgerDao(
           .execute()
         PersistenceResponse.Ok
       }).recover {
-        case NonFatal(e)  =>
+        case NonFatal(e) =>
           logger.warn(
-            s"Error ${e.getMessage} encountered while storing package upload entry for submissionId $submissionId participantId $participantId", e)
+            s"Error ${e.getMessage} encountered while storing package upload entry for submissionId $submissionId participantId $participantId",
+            e)
           conn.rollback()
           PersistenceResponse.Duplicate
       }.get
