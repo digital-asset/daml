@@ -114,9 +114,6 @@ class ContractsService(
     errorOrAc.cata(x => toFuture(x).map(Some(_)), Future.successful(None))
   }
 
-  private def templateIds(a: Option[TemplateId.OptionalPkg]): Set[TemplateId.OptionalPkg] =
-    a.toList.toSet
-
   private def isContractId(k: domain.ContractId)(a: domain.ActiveContract[LfValue]): Boolean =
     (a.contractId: domain.ContractId) == k
 
