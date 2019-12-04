@@ -61,15 +61,16 @@ class DecodeV1Spec
       minVersion: LV.Minor,
       stringTable: ImmArraySeq[String] = ImmArraySeq.empty,
       dottedNameTable: ImmArraySeq[DottedName] = ImmArraySeq.empty
-  ) =
-    new DecodeV1(minVersion)
-      .ModuleDecoder(
-        Ref.PackageId.assertFromString("noPkgId"),
-        stringTable,
-        dottedNameTable :+ dummyModuleName,
-        dummyModule(minVersion, dottedNameTable.length),
-        onlySerializableDataDefs = false
-      )
+  ) = {
+    new DecodeV1(minVersion).ModuleDecoder(
+      Ref.PackageId.assertFromString("noPkgId"),
+      stringTable,
+      dottedNameTable :+ dummyModuleName,
+      None,
+      dummyModule(minVersion, dottedNameTable.length),
+      onlySerializableDataDefs = false
+    )
+  }
 
   private val preNumericMinVersions = Table(
     "minVersion",

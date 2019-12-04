@@ -101,7 +101,7 @@ class ImplicitPartyAdditionIT
     val transaction = GenTransaction[NodeId, TContractId, Value[TContractId]](
       TreeMap(event1 -> node),
       ImmArray(event1),
-      Set.empty
+      None
     )
 
     val submitterInfo = SubmitterInfo(

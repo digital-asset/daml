@@ -196,7 +196,9 @@ class InterpreterTest extends WordSpec with Matchers with TableDrivenPropertyChe
                   Map(DottedName.assertFromString("bar") ->
                     DValue(TBuiltin(BTBool), true, ETrue, false)),
                   LanguageVersion.default,
-                  FeatureFlags.default))))).right.get
+                  FeatureFlags.default)),
+              Set.empty[PackageId]
+            ))).right.get
     "succeeds" in {
       val machine = Speedy.Machine.fromExpr(
         EVal(ref),
@@ -249,23 +251,6 @@ class InterpreterTest extends WordSpec with Matchers with TableDrivenPropertyChe
           sys.error(s"expected result to be missing definition, got $result")
       }
 
-    }
-
-    "tracks packages" in {
-      val machine = Speedy.Machine.fromExpr(
-        EVal(ref),
-        true,
-        pkgs1,
-        false
-      )
-      var result: SResult = SResultContinue
-      def run() = {
-        while (result == SResultContinue && !machine.isFinal) result = machine.step()
-      }
-
-      run()
-
-      machine.ptx.usedPackages shouldBe Set(dummyPkg)
     }
 
   }
