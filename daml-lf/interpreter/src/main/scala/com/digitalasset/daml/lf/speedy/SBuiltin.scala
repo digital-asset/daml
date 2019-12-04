@@ -1369,7 +1369,22 @@ object SBuiltin {
   /** $text_slice_index :: Text -> Text -> Optional Int */
   final case object SBTextSliceIndex extends SBuiltin(2) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
-      crash("text_slice_index not implemented yet")
+      args.get(0) match {
+        case SText(slice) =>
+          args.get(1) match {
+            case SText(t) =>
+              val n = t.indexOfSlice(slice)
+              if (n < 0) {
+                machine.ctrl = CtrlValue(SOptional(None))
+              } else {
+                machine.ctrl = CtrlValue(SOptional(Some(SInt64(n.toLong))))
+              }
+            case x =>
+              throw SErrorCrash(s"type mismatch SBTextSliceIndex, expected Text got $x")
+          }
+        case x =>
+          throw SErrorCrash(s"type mismatch SBTextSliceIndex, expected Text got $x")
+      }
     }
   }
 
