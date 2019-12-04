@@ -41,6 +41,7 @@ import org.slf4j.LoggerFactory
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.Try
+import scala.util.control.NonFatal
 
 object SandboxServer {
   private val logger = LoggerFactory.getLogger(this.getClass)
@@ -305,9 +306,15 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
     val actorSystem = ActorSystem(actorSystemName)
     val infrastructure =
       Infrastructure(actorSystem, ActorMaterializer()(actorSystem))
-    val packageStore = loadDamlPackages
-    val apiState = buildAndStartApiServer(infrastructure, packageStore)
-    SandboxState(apiState, infrastructure, packageStore)
+    try {
+      val packageStore = loadDamlPackages()
+      val apiState = buildAndStartApiServer(infrastructure, packageStore)
+      SandboxState(apiState, infrastructure, packageStore)
+    } catch {
+      case NonFatal(e) =>
+        infrastructure.close()
+        throw e
+    }
   }
 
   private def loadDamlPackages(): InMemoryPackageStore = {
