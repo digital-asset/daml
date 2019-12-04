@@ -1403,7 +1403,19 @@ object SBuiltin {
   /** $text_contains_only :: Text -> Text -> Bool */
   final case object SBTextContainsOnly extends SBuiltin(2) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
-      crash("text_contains_only not implemented yet")
+      args.get(0) match {
+        case SText(alphabet) =>
+          args.get(1) match {
+            case SText(t) =>
+              val alphabetSet = alphabet.toSet
+              val result = t.forall(alphabetSet.contains(_))
+              machine.ctrl = CtrlValue(SBool(result))
+            case x =>
+              throw SErrorCrash(s"type mismatch SBTextSliceIndex, expected Text got $x")
+          }
+        case x =>
+          throw SErrorCrash(s"type mismatch SBTextSliceIndex, expected Text got $x")
+      }
     }
   }
 
