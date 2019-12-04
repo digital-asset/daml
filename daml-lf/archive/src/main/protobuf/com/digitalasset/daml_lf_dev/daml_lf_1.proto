@@ -563,6 +563,12 @@ enum BuiltinFunction {
   TEXT_INTERCALATE = 9908; // *Available in versions >= 1.dev*
 }
 
+// *Available only in 1.dev*
+message ExperimentalBuiltinFunction{
+  string name = 1;
+  Type type = 2;
+}
+
 // Builtin literals
 // FixMe: Renamed
 message PrimLit {
@@ -945,6 +951,10 @@ message Expr {
     // A type representation
     // *Available in versions >= 1.7*
     Type type_rep = 32;
+
+    // Hook to add quickly a builtin for testing purpose
+    // *Available in versions 1.dev*
+    ExperimentalBuiltinFunction experimental_builtin = 536870911;
   }
 
   reserved 19; // This was equals. Removed in favour of BuiltinFunction.EQUAL_*

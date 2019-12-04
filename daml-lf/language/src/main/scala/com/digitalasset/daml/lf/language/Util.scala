@@ -29,6 +29,12 @@ object Util {
   object TFun extends ((Type, Type) => Type) {
     def apply(targ: Type, tres: Type) =
       TApp(TApp(TBuiltin(BTArrow), targ), tres)
+
+    def unapply(arg: Type): Option[(Type, Type)] =
+      arg match {
+        case TApp(TApp(TBuiltin(BTArrow), targ), tres) => Some(targ -> tres)
+        case _ => None
+      }
   }
 
   class ParametricType1(bType: BuiltinType) {

@@ -1647,6 +1647,37 @@ object SBuiltin {
 
   private def rightOrArithmeticError[A](message: String, mb: Either[String, A]): A =
     mb.fold(_ => throw DamlEArithmeticError(s"$message"), identity)
+}
+
+object SEExperimentalBuiltin {
+
+  // When adding a new builtin try to let this class self content,
+  // that is add everything you need here.
+
+  import com.digitalasset.daml.lf.language.Ast._
+  import com.digitalasset.daml.lf.language.Util._
+
+  def apply(name: String, typ: Type): SExpr =
+    (name, typ) match {
+      case ("take", TFun(TInt64, TFun(TText, TText))) => SEBuiltin(SBExperimentalTextTake)
+    }
+
+  // Experimental
+  /** $take :: Int64 -> Text -> Text */
+  private final object SBExperimentalTextTake extends SBuiltin(2) {
+    def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
+      var k = Math.toIntExact(args.get(1).asInstanceOf[SInt64].value)
+      val s = args.get(2).asInstanceOf[SText].value
+      var i = -1
+      var next = 0
+      do {
+        k -= 1
+        i = next
+        next = if (s(i).isHighSurrogate) i + 2 else i + 1
+      } while (k > 0)
+      machine.ctrl = CtrlValue(SText(s.substring(i, next)))
+    }
+  }
 
   private def rightOrCrash[A](either: Either[String, A]) =
     either.fold(crash, identity)

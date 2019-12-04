@@ -140,6 +140,9 @@ object Ast {
   /** Unique textual representation of template Id **/
   final case class ETypeRep(typ: Type) extends Expr
 
+  /** Experimental builtin function  */
+  final case class EExperimentalBuiltin(name: String, typ: Type) extends Expr
+
   //
   // Kinds
   //

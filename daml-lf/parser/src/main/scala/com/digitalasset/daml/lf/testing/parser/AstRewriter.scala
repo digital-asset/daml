@@ -129,6 +129,8 @@ private[digitalasset] class AstRewriter(
           EToAny(ty, apply(body))
         case EFromAny(ty, body) =>
           EFromAny(ty, apply(body))
+        case EExperimentalBuiltin(name, typ) =>
+          EExperimentalBuiltin(name, apply(typ))
       }
 
   def apply(x: TypeConApp): TypeConApp = x match {

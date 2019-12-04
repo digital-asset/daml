@@ -568,6 +568,9 @@ decodeExprSum exprSum = mayDecode "exprSum" exprSum $ \case
     return (EFromAny type' expr)
   LF1.ExprSumTypeRep typ ->
     ETypeRep <$> decodeType typ
+  LF1.ExprSumExperimentalBuiltin _ ->
+  -- FIXME: https://github.com/digital-asset/daml/issues/3710
+    error "Experimental builtin not supported"
 
 decodeUpdate :: LF1.Update -> Decode Expr
 decodeUpdate LF1.Update{..} = mayDecode "updateSum" updateSum $ \case
