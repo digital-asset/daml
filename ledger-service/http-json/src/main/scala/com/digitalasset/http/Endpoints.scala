@@ -179,7 +179,7 @@ class Endpoints(
                 contractsService
                   .search(jwt, jwtPayload, cmd)
                   .via(handleSourceFailure)
-                  .map(_.flatMap(lfAcToJsValue)): Source[Error \/ JsValue, NotUsed]
+                  .map(_.flatMap(jsAcToJsValue)): Source[Error \/ JsValue, NotUsed]
               }
         }
       }
@@ -222,6 +222,9 @@ class Endpoints(
       c <- SprayJson.encode(b).leftMap(e => ServerError(e.shows))
     } yield c
   }
+
+  private def jsAcToJsValue(a: domain.ActiveContract[JsValue]): Error \/ JsValue =
+    SprayJson.encode(a).leftMap(e => ServerError(e.shows))
 
   private def httpResponse(output: ET[JsValue]): Future[HttpResponse] = {
     val fa: Future[Error \/ JsValue] = output.run
