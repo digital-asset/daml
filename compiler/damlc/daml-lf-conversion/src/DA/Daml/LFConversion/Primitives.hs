@@ -239,6 +239,16 @@ convertPrim _ "BENumericFromText" (TText :-> TOptional (TNumeric n)) =
     ETyApp (EBuiltin BENumericFromText) n
 convertPrim _ x ty = error $ "Unknown primitive " ++ show x ++ " at type " ++ renderPretty ty
 
+-- Experimental text primitives.
+convertPrim _ "BETextAsciiToUpper" (TText :-> TText) = EBuiltin BETextAsciiToUpper
+convertPrim _ "BETextAsciiToLower" (TText :-> TText) = EBuiltin BETextAsciiToLower
+convertPrim _ "BETextSlice" (TInt64 :-> TInt64 :-> TText :-> TText) = EBuiltin BETextSlice
+convertPrim _ "BETextSliceIndex" (TText :-> TText :-> TOptional TInt64) = EBuiltin BETextSliceIndex
+convertPrim _ "BETextContainsOnly" (TText :-> TText :-> TBool) = EBuiltin BETextContainsOnly
+convertPrim _ "BETextReplicate" (TInt64 :-> TText :-> TText) = EBuiltin BETextReplicate
+convertPrim _ "BETextSplitOn" (TText :-> TText :-> TList TText) = EBuiltin BETextSplitOn
+convertPrim _ "BETextIntercalate" (TText :-> TList TText :-> TText) = EBuiltin BETextIntercalate
+
 -- | Some builtins are only supported in specific versions of DAML-LF.
 -- Since we don't have conditional compilation in daml-stdlib, we compile
 -- them to calls to `error` in unsupported versions.
