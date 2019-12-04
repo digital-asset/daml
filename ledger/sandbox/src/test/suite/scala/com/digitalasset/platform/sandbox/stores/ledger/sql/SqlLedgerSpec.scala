@@ -4,7 +4,6 @@
 package com.digitalasset.platform.sandbox.stores.ledger.sql
 
 import java.util.UUID
-import java.sql.SQLException
 
 import com.daml.ledger.participant.state.v1.{ParticipantId, SubmissionId}
 import com.digitalasset.api.util.TimeProvider
@@ -114,7 +113,7 @@ class SqlLedgerSpec
         stopPostgres()
 
         eventually {
-          assertThrows[SQLException](allocateParty("Bob"))
+          allocateParty("Bob")
           withClue("after allocating Bob,") {
             ledger.currentHealth() should be(Unhealthy)
           }
