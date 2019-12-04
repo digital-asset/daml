@@ -194,7 +194,6 @@ private class ContractsFetch(
 }
 
 private[http] object ContractsFetch {
-  type Contract = domain.Contract[lav1.value.Value]
 
   type PreInsertContract = DBContract[TemplateId.RequiredPkg, JsValue, Seq[domain.Party]]
 
