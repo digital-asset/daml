@@ -41,10 +41,7 @@ class HttpServiceWithPostgresIntTest
       encoder
     ).flatMap { searchResult: List[domain.ActiveContract[JsValue]] =>
       discard { searchResult should have size 2 }
-      discard {
-        val currencyValues = searchResult.flatMap(_.argument.asJsObject().getFields("currency"))
-        currencyValues shouldBe List.fill(2)(JsString("EUR"))
-      }
+      discard { searchResult.map(getField("currency")) shouldBe List.fill(2)(JsString("EUR")) }
       selectAllDbContracts.flatMap { listFromDb =>
         discard { listFromDb should have size searchDataSet.size.toLong }
         val actualCurrencyValues: List[String] = listFromDb
@@ -68,4 +65,10 @@ class HttpServiceWithPostgresIntTest
 
     dao.transact(q.to[List]).unsafeToFuture()
   }
+
+  private def getField(k: String)(a: domain.ActiveContract[JsValue]): JsValue =
+    a.argument.asJsObject().getFields(k) match {
+      case Seq(x) => x
+      case xs @ _ => fail(s"Expected exactly one value, got: $xs")
+    }
 }
