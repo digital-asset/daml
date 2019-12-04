@@ -1,4 +1,3 @@
-
 // Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -30,26 +29,6 @@ service ConfigManagementService {
   //   and resubmitting.
   // - UNIMPLEMENTED if this method is not supported by the backing ledger.
   rpc SetTimeModel (SetTimeModelRequest) returns (SetTimeModelResponse);
-
-  // FIXME(JM): Support retrieving the complete configuration encoded using ledger_configuration.proto?
-  // FIXME(JM): Support streaming configuration?
-}
-
-// FIXME(JM): ../ledger_configuration_service.proto contains "LedgerConfiguration" that
-// has some time model parameters. It isn't a 1-1 match though. We might want to reconcile these.
-
-// FIXME(JM): Complete copy from ledger_configuration.proto. We likely still want to evolve these
-// separately as the ledger_configuration.proto has to maintain full backwards compatibility.
-message TimeModel {
-  // The expected minimum latency of a transaction.
-  google.protobuf.Duration min_transaction_latency = 1;
-
-  // The maximum allowed clock skew between the ledger and clients.
-  google.protobuf.Duration max_clock_skew = 2;
-
-  // The maximum allowed time to live for a transaction.
-  // Must be greater than the derived minimum time to live.
-  google.protobuf.Duration max_ttl = 3;
 }
 
 message GetTimeModelRequest {
@@ -65,13 +44,37 @@ message GetTimeModelResponse {
 }
 
 message SetTimeModelRequest {
+  // Submission identifier used for tracking the request and to reject
+  // duplicate submissions.
+  // Required.
+  string submission_id = 1;
+
   // The current configuration generation which we're submitting the change against.
   // This is used to perform a compare-and-swap of the configuration to
   // safeguard against concurrent modifications.
-  int64 configuration_generation = 1;
+  // Required.
+  int64 configuration_generation = 2;
 
-  TimeModel new_time_model = 2;
+  // The new time model that replaces the current one.
+  // Required.
+  TimeModel new_time_model = 3;
 }
 
 message SetTimeModelResponse {
 }
+
+message TimeModel {
+  // The expected minimum latency of a transaction.
+  // Required.
+  google.protobuf.Duration min_transaction_latency = 1;
+
+  // The maximum allowed clock skew between the ledger and clients.
+  // Required.
+  google.protobuf.Duration max_clock_skew = 2;
+
+  // The maximum allowed time to live for a transaction.
+  // Must be greater than the derived minimum time to live.
+  // Required.
+  google.protobuf.Duration max_ttl = 3;
+}
+
