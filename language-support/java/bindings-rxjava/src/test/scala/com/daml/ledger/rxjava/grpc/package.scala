@@ -7,16 +7,7 @@ import java.time.Clock
 import java.util.UUID
 
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.ledger.api.auth.{
-  AuthServiceStatic,
-  Authorizer,
-  Claim,
-  ClaimActAsParty,
-  ClaimAdmin,
-  ClaimPublic,
-  ClaimReadAsParty,
-  Claims
-}
+import com.digitalasset.ledger.api.auth._
 
 package object grpc {
 

@@ -7,13 +7,7 @@ import java.time.Instant
 import java.util.concurrent.TimeUnit
 
 import com.daml.ledger.rxjava.TimeClient
-import com.daml.ledger.rxjava.grpc.helpers.{
-  AuthMatchers,
-  DataLayerHelpers,
-  LedgerServices,
-  TestConfiguration,
-  TimeServiceImpl
-}
+import com.daml.ledger.rxjava.grpc.helpers._
 import org.scalatest.{FlatSpec, Matchers, OptionValues}
 
 import scala.concurrent.ExecutionContext

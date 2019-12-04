@@ -7,8 +7,8 @@ import java.time.Instant
 
 import com.daml.ledger.javaapi.data._
 import com.digitalasset.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
-import com.digitalasset.ledger.api.v1.event.CreatedEvent
 import com.digitalasset.ledger.api.v1.command_completion_service.CompletionEndResponse
+import com.digitalasset.ledger.api.v1.event.CreatedEvent
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset.Value.Absolute
 import com.digitalasset.ledger.api.v1.testing.time_service.GetTimeResponse

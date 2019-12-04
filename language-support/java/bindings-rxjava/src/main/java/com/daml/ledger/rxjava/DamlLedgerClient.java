@@ -11,9 +11,7 @@ import io.grpc.netty.NettyChannelBuilder;
 import io.netty.handler.ssl.SslContext;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
-import java.util.LinkedList;
 import java.util.Optional;
-import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
 
 /**

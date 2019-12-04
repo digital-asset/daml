@@ -3,11 +3,11 @@
 
 package com.daml.ledger.rxjava.grpc;
 
-import com.daml.ledger.rxjava.CommandCompletionClient;
 import com.daml.ledger.javaapi.data.CompletionEndResponse;
 import com.daml.ledger.javaapi.data.CompletionStreamRequest;
 import com.daml.ledger.javaapi.data.CompletionStreamResponse;
 import com.daml.ledger.javaapi.data.LedgerOffset;
+import com.daml.ledger.rxjava.CommandCompletionClient;
 import com.daml.ledger.rxjava.grpc.helpers.StubHelper;
 import com.daml.ledger.rxjava.util.ClientPublisherFlowable;
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory;

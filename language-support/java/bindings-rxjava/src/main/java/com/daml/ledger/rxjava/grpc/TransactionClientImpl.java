@@ -3,8 +3,8 @@
 
 package com.daml.ledger.rxjava.grpc;
 
-import com.daml.ledger.rxjava.TransactionsClient;
 import com.daml.ledger.javaapi.data.*;
+import com.daml.ledger.rxjava.TransactionsClient;
 import com.daml.ledger.rxjava.util.ClientPublisherFlowable;
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory;
 import com.digitalasset.ledger.api.v1.TransactionServiceGrpc;

@@ -7,7 +7,7 @@ import com.daml.ledger.javaapi.data.Identifier;
 import com.daml.ledger.javaapi.data.Record;
 import com.daml.ledger.javaapi.data.Template;
 import com.daml.ledger.javaapi.data.Value;
-import com.daml.ledger.rxjava.components.helpers.CreatedContract;
+
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.HashMap;
