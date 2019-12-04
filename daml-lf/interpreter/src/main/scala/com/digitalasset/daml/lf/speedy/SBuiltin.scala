@@ -1411,10 +1411,10 @@ object SBuiltin {
               val result = t.forall(alphabetSet.contains(_))
               machine.ctrl = CtrlValue(SBool(result))
             case x =>
-              throw SErrorCrash(s"type mismatch SBTextSliceIndex, expected Text got $x")
+              throw SErrorCrash(s"type mismatch SBTextContainsOnly, expected Text got $x")
           }
         case x =>
-          throw SErrorCrash(s"type mismatch SBTextSliceIndex, expected Text got $x")
+          throw SErrorCrash(s"type mismatch SBTextContainsOnly, expected Text got $x")
       }
     }
   }
@@ -1422,7 +1422,17 @@ object SBuiltin {
   /** $text_replicate :: Int -> Text -> Text */
   final case object SBTextReplicate extends SBuiltin(2) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
-      crash("text_replicate not implemented yet")
+      args.get(0) match {
+        case SInt64(n) =>
+          args.get(1) match {
+            case SText(t) =>
+              machine.ctrl = CtrlValue(SText(t * n))
+            case x =>
+              throw SErrorCrash(s"type mismatch SBTextReplicate, expected Text got $x")
+          }
+        case x =>
+          throw SErrorCrash(s"type mismatch SBTextReplicate, expected Int64 got $x")
+      }
     }
   }
 
