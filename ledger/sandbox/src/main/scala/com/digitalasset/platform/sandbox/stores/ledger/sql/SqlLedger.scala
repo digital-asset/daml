@@ -330,9 +330,6 @@ private final class SqlLedger(
         headRef,
         headRef + 1,
         None,
-        submissionId,
-        participantId,
-        //TODO BH proper participant isLocal check needed
         PartyLedgerEntry
           .AllocationAccepted(
             submissionId,

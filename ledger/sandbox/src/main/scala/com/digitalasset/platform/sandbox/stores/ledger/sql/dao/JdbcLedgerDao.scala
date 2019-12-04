@@ -14,13 +14,7 @@ import anorm.SqlParser._
 import anorm.ToStatement.optionToStatement
 import anorm.{AkkaStream, BatchSql, Macro, NamedParameter, RowParser, SQL, SqlParser}
 import com.daml.ledger.participant.state.index.v2.PackageDetails
-import com.daml.ledger.participant.state.v1.{
-  AbsoluteContractInst,
-  Configuration,
-  ParticipantId,
-  SubmissionId,
-  TransactionId
-}
+import com.daml.ledger.participant.state.v1.{ApplicationId => _, CommandId => _, WorkflowId => _, _}
 import com.digitalasset.daml.lf.archive.Decode
 import com.digitalasset.daml.lf.data.Ref.{
   ContractIdString,
@@ -669,14 +663,10 @@ private class JdbcLedgerDao(
                 offset,
                 offset + 1,
                 externalLedgerEnd,
-                submissionId,
-                //FIXME BH not sure we ever know this for implicit parties, probably need to make this nullable
-                ParticipantId.assertFromString("IMPLICIT"),
                 PartyLedgerEntry.ImplicitPartyCreated(
                   submissionId,
                   Instant.now(),
-                  PartyDetails(p, None, isLocal = true))
-              )
+                  PartyDetails(p, None, isLocal = true)))
             }
           }(DirectExecutionContext)
           this
@@ -1619,9 +1609,6 @@ private class JdbcLedgerDao(
       offset: LedgerOffset,
       newLedgerEnd: LedgerOffset,
       externalOffset: Option[ExternalOffset],
-      submissionId: SubmissionId,
-      //FIXME BH remove this as we will get it conditionally off the entry instead
-      participantId: ParticipantId,
       entry: PartyLedgerEntry): Future[PersistenceResponse] = {
     val typ = entry match {
       case PartyLedgerEntry.AllocationAccepted(_, _, _, _) => entryAcceptType
@@ -1636,8 +1623,8 @@ private class JdbcLedgerDao(
           .on(
             "ledger_offset" -> offset,
             "recorded_at" -> entry.recordTime,
-            "submission_id" -> submissionId,
-            "participant_id" -> participantId,
+            "submission_id" -> entry.submissionId,
+            "participant_id" -> optionalParticipantId(entry),
             "party" -> optionalPartyDetails(entry).map(_.party.toString).orNull,
             "display_name" -> optionalPartyDetails(entry).map(_.displayName.orNull),
             "typ" -> typ,
@@ -1650,13 +1637,23 @@ private class JdbcLedgerDao(
       }).recover {
         case NonFatal(e) =>
           logger.warn(
-            s"Error ${e.getMessage} encountered while storing package upload entry for submissionId $submissionId participantId $participantId",
+            s"Error ${e.getMessage} encountered while storing package upload entry for submissionId ${entry.submissionId}",
             e)
           conn.rollback()
           PersistenceResponse.Duplicate
       }.get
     }
   }
+
+  private def optionalParticipantId(entry: PartyLedgerEntry): Option[ParticipantId] =
+    entry match {
+      case PartyLedgerEntry.AllocationAccepted(_, participantId, _, _) =>
+        Some(participantId)
+      case PartyLedgerEntry.ImplicitPartyCreated(_, _, _) =>
+        None
+      case PartyLedgerEntry.AllocationRejected(_, participantId, _, _) =>
+        Some(participantId)
+    }
 
   private def optionalPartyDetails(entry: PartyLedgerEntry): Option[PartyDetails] =
     entry match {

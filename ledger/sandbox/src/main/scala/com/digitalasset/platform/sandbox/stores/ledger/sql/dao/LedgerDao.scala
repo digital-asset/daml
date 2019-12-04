@@ -10,13 +10,7 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.index.v2.PackageDetails
-import com.daml.ledger.participant.state.v1.{
-  AbsoluteContractInst,
-  ParticipantId,
-  SubmissionId,
-  TransactionId,
-  Configuration
-}
+import com.daml.ledger.participant.state.v1._
 import com.digitalasset.daml.lf.data.Ref.{LedgerString, PackageId, Party}
 import com.digitalasset.daml.lf.data.Relation.Relation
 import com.digitalasset.daml.lf.transaction.Node
@@ -267,8 +261,6 @@ trait LedgerWriteDao extends AutoCloseable with ReportsHealth {
     * @param offset
     * @param newLedgerEnd
     * @param externalOffset
-    * @param submissionId
-    * @param participantId
     * @param entry
     * @return
     */
@@ -276,8 +268,6 @@ trait LedgerWriteDao extends AutoCloseable with ReportsHealth {
       offset: LedgerOffset,
       newLedgerEnd: LedgerOffset,
       externalOffset: Option[ExternalOffset],
-      submissionId: SubmissionId,
-      participantId: ParticipantId,
       entry: PartyLedgerEntry): Future[PersistenceResponse]
 
   /** Resets the platform into a state as it was never used before. Meant to be used solely for testing. */
