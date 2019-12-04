@@ -1,3 +1,6 @@
+// Copyright (c) 2019 The DAML Authors. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 package com.digitalasset.daml.lf.speedy.svalue
 
 import com.digitalasset.daml.lf.data.{FrontStack, InsertOrdMap, Numeric, Ref, Time}
@@ -331,3 +334,4 @@ class SEquatableValuesSpec extends WordSpec with Matchers with TableDrivenProper
   }
 
 }
+
