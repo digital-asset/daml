@@ -77,10 +77,7 @@ class TransactionMRTComplianceIT
   "A Ledger" should {
     "reject transactions with a record time after the MRT" in allFixtures { ledger =>
       val dummyTransaction =
-        GenTransaction[NodeId, TContractId, Value[TContractId]](
-          TreeMap.empty,
-          ImmArray.empty,
-          None)
+        GenTransaction[NodeId, TContractId, Value[TContractId]](TreeMap.empty, ImmArray.empty, None)
 
       val submitterInfo = SubmitterInfo(
         Ref.Party.assertFromString("submitter"),

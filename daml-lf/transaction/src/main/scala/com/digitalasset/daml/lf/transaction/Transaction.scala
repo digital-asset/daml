@@ -76,7 +76,7 @@ case class VersionedTransaction[Nid, Cid](
 case class GenTransaction[Nid: Ordering, Cid, +Val](
     nodes: SortedMap[Nid, GenNode[Nid, Cid, Val]],
     roots: ImmArray[Nid],
-    optUsedPackages: Option[InsertOrdSet[PackageId]]) {
+    optUsedPackages: Option[Set[PackageId]]) {
   import GenTransaction._
 
   def mapContractIdAndValue[Cid2, Val2](

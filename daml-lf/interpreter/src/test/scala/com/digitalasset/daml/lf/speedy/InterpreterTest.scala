@@ -196,7 +196,9 @@ class InterpreterTest extends WordSpec with Matchers with TableDrivenPropertyChe
                   Map(DottedName.assertFromString("bar") ->
                     DValue(TBuiltin(BTBool), true, ETrue, false)),
                   LanguageVersion.default,
-                  FeatureFlags.default))))).right.get
+                  FeatureFlags.default)),
+              Set.empty[PackageId]
+            ))).right.get
     "succeeds" in {
       val machine = Speedy.Machine.fromExpr(
         EVal(ref),

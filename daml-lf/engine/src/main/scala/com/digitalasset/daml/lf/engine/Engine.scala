@@ -45,6 +45,8 @@ import com.digitalasset.daml.lf.speedy.{Command => SpeedyCommand}
   */
 final class Engine {
   private[this] val _compiledPackages: MutableCompiledPackages = ConcurrentCompiledPackages()
+  private[this] val _commandTranslation: CommandPreprocessor = new CommandPreprocessor(
+    _compiledPackages)
 
   /**
     * Executes commands `cmds` under the authority of `cmds.submitter` and returns one of the following:
@@ -67,15 +69,13 @@ final class Engine {
     *
     * This method does NOT perform authorization checks; ResultDone can contain a transaction that's not well-authorized.
     *
-    * The resulting transaction will include the packages used
-    * during the execution.
+    * The resulting transaction is annotated with packages required to validate it.
     */
   def submit(cmds: Commands): Result[Transaction.Transaction] = {
-    val trackingCompiledPackages = TrackingCompiledPackages(_compiledPackages)
-    new CommandPreprocessor(trackingCompiledPackages)
+    _commandTranslation
       .preprocessCommands(cmds)
       .flatMap { processedCmds =>
-        ShouldCheckSubmitterInMaintainers(trackingCompiledPackages, cmds).flatMap {
+        ShouldCheckSubmitterInMaintainers(_compiledPackages, cmds).flatMap {
           checkSubmitterInMaintainers =>
             interpretCommands(
               validating = false,
@@ -83,13 +83,22 @@ final class Engine {
               submitters = Set(cmds.submitter),
               commands = processedCmds,
               time = cmds.ledgerEffectiveTime,
-              compiledPackages = trackingCompiledPackages
             ) map { tx =>
-
-              println(s"!!! used packages: ${trackingCompiledPackages.getUsedPackages}")
-              tx.copy(
-                optUsedPackages = Some(trackingCompiledPackages.getUsedPackages)
-              )
+              // Annotate the transaction with the package dependencies. Since
+              // all commands are actions on a contract template, with a fully typed
+              // argument, we only need to consider the templates mentioned in the command
+              // to compute the full dependencies.
+              val deps = processedCmds.foldLeft(Set.empty[PackageId]) {
+                case (pkgIds, (_, cmd)) =>
+                  val pkgId = cmd.templateId.packageId
+                  val transitiveDeps =
+                    _compiledPackages
+                      .getPackageDependencies(pkgId)
+                      .getOrElse(
+                        sys.error("INTERNAL ERROR: Missing dependencies of package $pkgId"))
+                  (pkgIds + pkgId) union transitiveDeps
+              }
+              tx.copy(optUsedPackages = Some(deps))
             }
         }
       }
@@ -131,8 +140,7 @@ final class Engine {
         checkSubmitterInMaintainers = checkSubmitterInMaintainers,
         submitters = submitters,
         commands = commands,
-        time = ledgerEffectiveTime,
-        compiledPackages = _compiledPackages
+        time = ledgerEffectiveTime
       )
     } yield result
   }
@@ -192,8 +200,7 @@ final class Engine {
         checkSubmitterInMaintainers = checkSubmitterInMaintainers,
         submitters = submitters,
         commands = commands.map(_._2),
-        time = ledgerEffectiveTime,
-        compiledPackages = _compiledPackages
+        time = ledgerEffectiveTime
       )
       validationResult <- if (tx isReplayedBy rtx) {
         ResultDone(())
@@ -303,24 +310,22 @@ final class Engine {
       checkSubmitterInMaintainers: Boolean,
       submitters: Set[Party],
       commands: ImmArray[(Type, SpeedyCommand)],
-      time: Time.Timestamp,
-      compiledPackages: MutableCompiledPackages = _compiledPackages): Result[Transaction.Transaction] = {
+      time: Time.Timestamp): Result[Transaction.Transaction] = {
     val machine = Machine
       .build(
         checkSubmitterInMaintainers = checkSubmitterInMaintainers,
         sexpr = Compiler(compiledPackages.packages).compile(commands.map(_._2)),
-        compiledPackages = compiledPackages
+        compiledPackages = _compiledPackages
       )
       .copy(validating = validating, committers = submitters)
-    interpretLoop(machine, time, compiledPackages)
+    interpretLoop(machine, time)
   }
 
   // TODO SC remove 'return', notwithstanding a love of unhandled exceptions
   @SuppressWarnings(Array("org.wartremover.warts.Any", "org.wartremover.warts.Return"))
   private[engine] def interpretLoop(
       machine: Machine,
-      time: Time.Timestamp,
-      compiledPackages: MutableCompiledPackages
+      time: Time.Timestamp
   ): Result[Transaction.Transaction] = {
     while (!machine.isFinal) {
       machine.step match {
@@ -338,10 +343,10 @@ final class Engine {
           return Result.needPackage(
             ref.packageId,
             pkg => {
-              compiledPackages.addPackage(ref.packageId, pkg).flatMap {
+              _compiledPackages.addPackage(ref.packageId, pkg).flatMap {
                 case _ =>
-                  callback(compiledPackages)
-                  interpretLoop(machine, time, compiledPackages)
+                  callback(_compiledPackages)
+                  interpretLoop(machine, time)
               }
             }
           )
@@ -350,7 +355,7 @@ final class Engine {
           return Result.needContract(
             contractId, { coinst =>
               cbPresent(coinst)
-              interpretLoop(machine, time, compiledPackages)
+              interpretLoop(machine, time)
             }
           )
 
@@ -364,11 +369,11 @@ final class Engine {
                 if (!cbMissing(())) {
                   ResultError(Error(s"dependency error: couldn't find key $gk"))
                 } else {
-                  interpretLoop(machine, time, compiledPackages)
+                  interpretLoop(machine, time)
                 }
               case Some(key) =>
                 cbPresent(key)
-                interpretLoop(machine, time, compiledPackages)
+                interpretLoop(machine, time)
             }
           )
 

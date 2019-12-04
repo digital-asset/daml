@@ -53,10 +53,13 @@ private[kvutils] object InputsAndEffects {
       val usedPackages = tx.optUsedPackages.getOrElse(
         throw new InternalError("Transaction was not annotated with used packages")
       )
-      usedPackages
-        .map { pkgId =>
-          DamlStateKey.newBuilder.setPackageId(pkgId).build
-        }
+      import PackageId.ordering
+      InsertOrdSet.fromSeq(
+        usedPackages.toList.sorted
+          .map { pkgId =>
+            DamlStateKey.newBuilder.setPackageId(pkgId).build
+          }
+      )
     }
 
     def contractInputs(coid: ContractId): InsertOrdSet[DamlStateKey] =

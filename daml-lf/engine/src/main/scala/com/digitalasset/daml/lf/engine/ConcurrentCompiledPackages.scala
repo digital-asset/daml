@@ -8,9 +8,7 @@ import java.util.concurrent.ConcurrentHashMap
 import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.daml.lf.engine.ConcurrentCompiledPackages.AddPackageState
 import com.digitalasset.daml.lf.language.Ast.Package
-import com.digitalasset.daml.lf.speedy.Compiler.PackageNotFound
-import com.digitalasset.daml.lf.speedy.SExpr.SDefinitionRef
-import com.digitalasset.daml.lf.speedy.{Compiler, SExpr}
+import com.digitalasset.daml.lf.speedy
 import scala.collection.JavaConverters._
 
 /** Thread-safe class that can be used when you need to maintain a shared, mutable collection of
@@ -19,11 +17,14 @@ import scala.collection.JavaConverters._
 final class ConcurrentCompiledPackages extends MutableCompiledPackages {
   private[this] val _packages: ConcurrentHashMap[PackageId, Package] =
     new ConcurrentHashMap()
-  private[this] val _defns: ConcurrentHashMap[SDefinitionRef, SExpr] =
+  private[this] val _defns: ConcurrentHashMap[speedy.SExpr.SDefinitionRef, speedy.SExpr] =
+    new ConcurrentHashMap()
+  private[this] val _packageDeps: ConcurrentHashMap[PackageId, Set[PackageId]] =
     new ConcurrentHashMap()
 
   def getPackage(pId: PackageId): Option[Package] = Option(_packages.get(pId))
-  def getDefinition(dref: SDefinitionRef): Option[SExpr] = Option(_defns.get(dref))
+  def getDefinition(dref: speedy.SExpr.SDefinitionRef): Option[speedy.SExpr] =
+    Option(_defns.get(dref))
 
   /** Might ask for a package if the package you're trying to add references it.
     *
@@ -54,26 +55,33 @@ final class ConcurrentCompiledPackages extends MutableCompiledPackages {
             case Some(pkg_) => pkg_
           }
 
+          // Load dependencies of this package and transitively its dependencies.
+          for (dependency <- pkg.directDeps) {
+            if (!_packages.contains(dependency) && !state.seenDependencies.contains(dependency)) {
+              return ResultNeedPackage(
+                dependency, {
+                  case None => ResultError(Error(s"Could not find package $dependency"))
+                  case Some(dependencyPkg) =>
+                    addPackageInternal(
+                      AddPackageState(
+                        packages = state.packages + (dependency -> dependencyPkg),
+                        seenDependencies = state.seenDependencies + dependency,
+                        toCompile = dependency :: pkgId :: toCompile))
+                }
+              )
+            }
+          }
+
+          // Compile the speedy definitions for this package.
           val defns =
             try {
-              Compiler(packages orElse state.packages).compilePackage(pkgId)
+              speedy.Compiler(packages orElse state.packages).compilePackage(pkgId)
             } catch {
-              // if we have a missing package, ask for it and then compile that one, too.
-              case PackageNotFound(dependency) =>
-                if (state.seenDependencies.contains(dependency)) {
-                  return ResultError(Error(s"Cyclical packages, stumbled upon $dependency twice"))
-                }
-                return ResultNeedPackage(
-                  dependency, {
-                    case None => ResultError(Error(s"Could not find package $dependency"))
-                    case Some(dependencyPkg) =>
-                      addPackageInternal(
-                        AddPackageState(
-                          packages = state.packages + (dependency -> dependencyPkg),
-                          seenDependencies = state.seenDependencies + dependency,
-                          toCompile = dependency :: pkgId :: toCompile))
-                  }
-                )
+              // A missing package during compilation is means that the dependencies declared
+              // in the package are wrong.
+              case speedy.Compiler.PackageNotFound(dependency) =>
+                return ResultError(Error(
+                  s"Internal error: Invalid direct dependencies, package $dependency found missing during compilation"))
             }
 
           // if we made it this far, update
@@ -81,6 +89,15 @@ final class ConcurrentCompiledPackages extends MutableCompiledPackages {
           for ((defnId, defn) <- defns) {
             _defns.put(defnId, defn)
           }
+
+          // Compute the transitive dependencies of the new package. Since we are adding
+          // packages in dependency order we can just union the dependencies of the
+          // direct dependencies to get the complete transitive dependencies.
+          val deps = pkg.directDeps.foldLeft(pkg.directDeps) {
+            case (deps, dependency) =>
+              deps union _packageDeps.get(dependency)
+          }
+          _packageDeps.put(pkgId, deps)
         }
       }
 
@@ -94,6 +111,9 @@ final class ConcurrentCompiledPackages extends MutableCompiledPackages {
 
   override def packageIds: Set[PackageId] =
     _packages.keySet.asScala.toSet
+
+  def getPackageDependencies(pkgId: PackageId): Option[Set[PackageId]] =
+    Option(_packageDeps.get(pkgId))
 }
 
 object ConcurrentCompiledPackages {

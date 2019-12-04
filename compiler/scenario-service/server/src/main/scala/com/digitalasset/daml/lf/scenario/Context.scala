@@ -148,7 +148,7 @@ class Context(val contextId: Context.ContextId) {
   }
 
   def allPackages: Map[PackageId, Ast.Package] =
-    extPackages + (homePackageId -> Ast.Package(modules))
+    extPackages + (homePackageId -> Ast.Package(modules, Set.empty[PackageId]))
 
   private def buildMachine(identifier: Identifier): Option[Speedy.Machine] = {
     for {
