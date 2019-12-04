@@ -806,7 +806,7 @@ getJwtFromFile jwtFileM = do
     Nothing -> return Nothing
     Just jwtFile -> do
       contents <- readFileUTF8 jwtFile
-      jwt <- either fail pure $ Jwt.tryCreateFromString contents
+      jwt <- either fail pure $ Jwt.tryCreateFromBearerString contents
       return (Just jwt)
 
 getHostAndPortDefaults :: LedgerFlags -> IO LedgerArgs

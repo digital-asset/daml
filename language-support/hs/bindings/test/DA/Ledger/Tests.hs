@@ -22,7 +22,7 @@ import System.Random (randomIO)
 import System.Time.Extra (timeout)
 import Test.Tasty as Tasty (TestName,TestTree,testGroup,withResource,defaultMain)
 import Test.Tasty.HUnit as Tasty(assertFailure,assertBool,assertEqual,testCase)
-import qualified Codec.Archive.Zip as Zip
+import qualified "zip-archive" Codec.Archive.Zip as Zip
 import qualified DA.Daml.LF.Ast as LF
 import qualified DA.Ledger.Jwt as Jwt
 import qualified Data.Aeson.Types as Aeson

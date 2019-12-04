@@ -17,7 +17,7 @@ import DA.Ledger.Retry (ledgerRetry)
 import Network.GRPC.HighLevel.Client(TimeoutSeconds)
 import Network.GRPC.HighLevel.Generated(ClientConfig,MetadataMap(..))
 import UnliftIO(MonadUnliftIO)
-import qualified DA.Ledger.Jwt as Jwt (toString)
+import qualified DA.Ledger.Jwt as Jwt (toBearerString)
 import qualified Data.ByteString.UTF8 as BSU8
 import qualified Data.Map as Map
 import qualified Data.SortedList as SortedList
@@ -49,7 +49,7 @@ makeMdm = \case
   Nothing -> MetadataMap Map.empty
   Just jwt -> MetadataMap $ Map.fromList [
     ("authorization",
-     SortedList.toSortedList [ BSU8.fromString $ "Bearer " <> Jwt.toString jwt ])]
+     SortedList.toSortedList [ BSU8.fromString $ Jwt.toBearerString jwt ])]
 
 askTimeout :: LedgerService TimeoutSeconds
 askTimeout = asks ts

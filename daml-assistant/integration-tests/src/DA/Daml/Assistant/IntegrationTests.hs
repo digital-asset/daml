@@ -607,7 +607,7 @@ deployTest deployDir = testCase "daml deploy" $ do
                             , ".daml/dist/proj1-0.0.1.dar"
                             ]) { std_out = UseHandle devNull }
                 let tokenFile = deployDir </> "secretToken.jwt"
-                writeFileUTF8 tokenFile (makeSignedJwt sharedSecret <> "\n")
+                writeFileUTF8 tokenFile ("Bearer " <> makeSignedJwt sharedSecret <> "\n")
                 withCreateProcess sandboxProc  $ \_ _ _ ph ->
                     race_ (waitForProcess' sandboxProc ph) $ do
                         waitForConnectionOnPort (threadDelay 100000) port
