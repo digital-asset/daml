@@ -180,13 +180,11 @@ object Queries {
     hd ++ go(0, tl.size)
   }
 
-  private[http] def selectContracts(
-      party: String,
-      tpid: SurrogateTpId,
-      predicate: Fragment): Query0[DBContract[Unit, JsValue, Unit]] = {
+  private[http] def selectContracts(party: String, tpid: SurrogateTpId, predicate: Fragment)(
+      implicit log: LogHandler): Query0[DBContract[Unit, JsValue, Unit]] = {
     val q = sql"""SELECT (contract_id, create_arguments)
                   FROM contract
-                  WHERE witness_parties @> ARRAY[$party] AND tpid = $tpid
+                  WHERE witness_parties @> ARRAY[$party::text] AND tpid = $tpid
                         AND (""" ++ predicate ++ sql")"
     q.query[(String, JsValue)].map {
       case (cid, ca) => DBContract(cid, (), ca, ())
