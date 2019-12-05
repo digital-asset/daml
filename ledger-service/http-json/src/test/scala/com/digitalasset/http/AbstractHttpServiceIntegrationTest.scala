@@ -338,7 +338,7 @@ abstract class AbstractHttpServiceIntegrationTest
                     inside(fields.get("result")) {
                       case Some(JsString(newContractId)) =>
                         (newContractId: String) should not be (contractId.unwrap: String)
-                      // TODO(Leo) fetch the contract by newContractId
+                      // TODO(Leo) fetch the newly created IouTransfer by newContractId
                     }
                 }
             }
