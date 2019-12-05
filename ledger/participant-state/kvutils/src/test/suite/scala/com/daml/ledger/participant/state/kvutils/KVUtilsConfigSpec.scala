@@ -7,16 +7,12 @@ import java.time.Duration
 
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.v1.Configuration
-import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Ref.LedgerString.assertFromString
 import org.scalatest.{Matchers, WordSpec}
-import scala.language.implicitConversions
 
 class KVUtilsConfigSpec extends WordSpec with Matchers {
   import KVTest._
   import TestHelpers._
-
-  implicit def `String to LedgerString`(s: String): Ref.LedgerString =
-    Ref.LedgerString.assertFromString(s)
 
   "configuration" should {
 
@@ -25,8 +21,8 @@ class KVUtilsConfigSpec extends WordSpec with Matchers {
         KeyValueSubmission.packDamlSubmission(
           KeyValueSubmission.configurationToSubmission(
             maxRecordTime = theRecordTime,
-            submissionId = "foobar",
-            participantId = "participant",
+            submissionId = assertFromString("foobar"),
+            participantId = assertFromString("participant"),
             config = theDefaultConfig
           )))
 
@@ -40,14 +36,14 @@ class KVUtilsConfigSpec extends WordSpec with Matchers {
       for {
         logEntry <- submitConfig(
           configModify = c => c.copy(generation = c.generation + 1),
-          submissionId = "submission0"
+          submissionId = assertFromString("submission0")
         )
         newConfig <- getConfiguration
 
         // Change again, but without bumping generation.
         logEntry2 <- submitConfig(
           configModify = c => c.copy(generation = c.generation),
-          submissionId = "submission1"
+          submissionId = assertFromString("submission1")
         )
         newConfig2 <- getConfiguration
 
@@ -70,7 +66,7 @@ class KVUtilsConfigSpec extends WordSpec with Matchers {
           configModify = { c =>
             c.copy(generation = c.generation + 1)
           },
-          submissionId = "some-submission-id"
+          submissionId = assertFromString("some-submission-id")
         )
       } yield {
         logEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.CONFIGURATION_REJECTION_ENTRY

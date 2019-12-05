@@ -18,14 +18,14 @@ object PartyLedgerEntry {
   final case class AllocationAccepted(
       submissionIdOpt: Option[SubmissionId],
       participantId: ParticipantId,
-      override val recordTime: Instant,
+      recordTime: Instant,
       partyDetails: PartyDetails
   ) extends PartyLedgerEntry
 
   final case class AllocationRejected(
       submissionId: SubmissionId,
       participantId: ParticipantId,
-      override val recordTime: Instant,
+      recordTime: Instant,
       reason: String
   ) extends PartyLedgerEntry {
     override val submissionIdOpt: Option[SubmissionId] = Some(submissionId)

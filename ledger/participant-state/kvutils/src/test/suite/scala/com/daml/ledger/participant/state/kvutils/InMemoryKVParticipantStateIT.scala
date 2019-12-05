@@ -152,7 +152,6 @@ class InMemoryKVParticipantStateIT
     }
 
     "accept allocateParty when hint is empty" in {
-      val hintNone = None
       val displayName = Some("Alice Cooper")
 
       for {

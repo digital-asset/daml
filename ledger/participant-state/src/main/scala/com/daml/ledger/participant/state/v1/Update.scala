@@ -114,8 +114,8 @@ object Update {
       recordTime: Timestamp,
       rejectionReason: String)
       extends Update {
-    override def description: String =
-      s"Request to add party to participant with submissionId'$submissionId' failed"
+    override val description: String =
+      s"Request to add party to participant with submissionId '$submissionId' failed"
   }
 
   final case class PublicPackageUploaded(
