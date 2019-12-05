@@ -15,6 +15,7 @@ import com.digitalasset.http.HttpServiceTestFixture.jsonCodecs
 import com.digitalasset.http.domain.TemplateId.OptionalPkg
 import com.digitalasset.http.json.SprayJson.objectField
 import com.digitalasset.http.json._
+import com.digitalasset.http.util.ClientUtil.boxedRecord
 import com.digitalasset.http.util.FutureUtil.toFuture
 import com.digitalasset.http.util.TestUtil.requiredFile
 import com.digitalasset.jwt.JwtSigner
@@ -528,17 +529,15 @@ abstract class AbstractHttpServiceIntegrationTest
     )
     val choice = lar.Choice("Iou_Transfer")
 
-    domain.ExerciseCommand(templateId, contractId, choice, toValue(arg), None)
+    domain.ExerciseCommand(templateId, contractId, choice, boxedRecord(arg), None)
   }
 
   private def iouArchiveCommand(contractId: lar.ContractId): domain.ExerciseCommand[v.Value] = {
     val templateId: OptionalPkg = domain.TemplateId(None, "Iou", "Iou")
     val arg: Record = v.Record()
     val choice = lar.Choice("Archive")
-    domain.ExerciseCommand(templateId, contractId, choice, toValue(arg), None)
+    domain.ExerciseCommand(templateId, contractId, choice, boxedRecord(arg), None)
   }
-
-  private def toValue(r: v.Record): v.Value = v.Value(v.Value.Sum.Record(r))
 
   private def postJsonStringRequest(
       uri: Uri,

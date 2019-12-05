@@ -71,15 +71,14 @@ class CommandService(
     et.run
   }
 
-  def exerciseWithResult(
-      jwt: Jwt,
-      jwtPayload: JwtPayload,
-      input: ExerciseCommand[lav1.value.Record]): Future[Error \/ lav1.value.Value] = {
+  def exerciseWithResult(jwt: Jwt, jwtPayload: JwtPayload, input: ExerciseCommand[lav1.value.Value])
+    : Future[Error \/ domain.ExerciseResponse[lav1.value.Value]] = {
 
 //    val et: EitherT[Future, Error, List[Contract[lav1.value.Value]]] = for {
 //      command <- EitherT.either(exerciseCommand(input))
 //      request = submitAndWaitRequest(jwtPayload, input.meta, command)
-//      response <- liftET(logResult('exerciseWithResult, submitAndWaitForTransactionTree(jwt, request)))
+//      response <- liftET(
+//        logResult('exerciseWithResult, submitAndWaitForTransactionTree(jwt, request)))
 //      contracts <- EitherT.either(contracts(response))
 //    } yield contracts
 //

@@ -7,6 +7,7 @@ import java.time.Instant
 
 import com.digitalasset.daml.lf
 import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.http.util.ClientUtil.boxedRecord
 import com.digitalasset.http.util.IdentifierConverters
 import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
 import com.digitalasset.ledger.api.{v1 => lav1}
@@ -165,9 +166,6 @@ object domain {
       }
     }
   }
-
-  def boxedRecord(a: lav1.value.Record): lav1.value.Value =
-    lav1.value.Value(lav1.value.Value.Sum.Record(a))
 
   object ActiveContract {
     def fromLedgerApi(gacr: lav1.active_contracts_service.GetActiveContractsResponse)
