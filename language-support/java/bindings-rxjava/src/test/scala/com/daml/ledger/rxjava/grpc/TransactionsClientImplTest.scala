@@ -293,7 +293,7 @@ final class TransactionsClientImplTest
     }
 
   it should "deny access without a token" in {
-    withClue("getTransactions 1") {
+    withClue("getTransactions specifying end") {
       expectPermissionDenied {
         toAuthenticatedServer(
           _.getTransactions(ledgerBegin, ledgerEnd, filterFor(someParty), false)
@@ -303,7 +303,7 @@ final class TransactionsClientImplTest
             .size)
       }
     }
-    withClue("getTransactions 2") {
+    withClue("getTransactions without specifying end") {
       expectPermissionDenied {
         toAuthenticatedServer(
           _.getTransactions(ledgerBegin, filterFor(someParty), false)
@@ -313,7 +313,7 @@ final class TransactionsClientImplTest
             .size)
       }
     }
-    withClue("getTransactionsTree 1") {
+    withClue("getTransactionsTree specifying end") {
       expectPermissionDenied {
         toAuthenticatedServer(
           _.getTransactionsTrees(ledgerBegin, ledgerEnd, filterFor(someParty), false)
@@ -352,7 +352,7 @@ final class TransactionsClientImplTest
   }
 
   it should "deny access with insufficient authorization" in {
-    withClue("getTransactions 1") {
+    withClue("getTransactions specifying end") {
       expectPermissionDenied {
         toAuthenticatedServer(
           _.getTransactions(
@@ -367,7 +367,7 @@ final class TransactionsClientImplTest
             .size)
       }
     }
-    withClue("getTransactions 2") {
+    withClue("getTransactions without specifying end") {
       expectPermissionDenied {
         toAuthenticatedServer(
           _.getTransactions(ledgerBegin, filterFor(someParty), false, someOtherPartyReadWriteToken)
@@ -377,7 +377,7 @@ final class TransactionsClientImplTest
             .size)
       }
     }
-    withClue("getTransactionsTree 1") {
+    withClue("getTransactionsTree specifying end") {
       expectPermissionDenied {
         toAuthenticatedServer(
           _.getTransactionsTrees(
@@ -428,7 +428,7 @@ final class TransactionsClientImplTest
   }
 
   it should "allow access with sufficient authorization" in {
-    withClue("getTransactions 1") {
+    withClue("getTransactions specifying end") {
       toAuthenticatedServer(
         _.getTransactions(
           ledgerBegin,
@@ -441,7 +441,7 @@ final class TransactionsClientImplTest
           .asScala
           .size)
     }
-    withClue("getTransactions 2") {
+    withClue("getTransactions without specifying end") {
       toAuthenticatedServer(
         _.getTransactions(ledgerBegin, filterFor(someParty), false, somePartyReadWriteToken)
           .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
@@ -449,7 +449,7 @@ final class TransactionsClientImplTest
           .asScala
           .size)
     }
-    withClue("getTransactionsTree 1") {
+    withClue("getTransactionsTree specifying end") {
       toAuthenticatedServer(
         _.getTransactionsTrees(
           ledgerBegin,
