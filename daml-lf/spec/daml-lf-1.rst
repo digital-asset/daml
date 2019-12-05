@@ -259,17 +259,15 @@ Version: 1.7
 Version: 1.dev
 ..............
 
-  * **Change** Transaction submitter must be in the contract key
-    maintainers when performing lookup or fetches by key. See
-    `issue #1866 <https://github.com/digital-asset/daml/issues/1866>`_
-
-  * **Add** generic map type ``GenMap``.
-
+  * **Rename** structural records from ``Tuple`` to ``Struct``
+    
   * **Rename** ``Map`` to ``TextMap``
 
+  * **Add** generic equality builtin.
+    
+  * **Add** generic map type ``GenMap``.
+   
   * **Add** type synonyms.
-
-  * **Rename** structural records from ``Tuple`` to ``Struct``
 
 Abstract syntax
 ^^^^^^^^^^^^^^^
@@ -378,7 +376,8 @@ US-ASCII characters (See the rules `PackageIdChar` and `PartyIdChar`
 below for the exact sets of characters). We use those string in
 instances when we want to avoid empty identifiers, escaping problems,
 and other similar pitfalls. ::
-  PackageId strings
+
+PackageId strings
    PackageIdString ::= ' PackageIdChars '             -- PackageIdString
 
   Sequences of PackageId character
@@ -453,10 +452,10 @@ The literals represent actual DAML-LF values:
    integer, i.e. it equals ``2⁶³``.  Similarly,``2019-13-28`` is not a
    valid ``LitDate`` because there are only 12 months in a year.
 
-Number likes literals (``LitNatTyp``, ``LitInt64``, ``LitNumeric``,
-``LitDate``, ``LitTimestamp``) are ordered by natural ordering. Text
-like literal (``LitText`` and ``LitParty`` are order lexicographically.
-Contract Id are not ordered.
+Number-like literals (``LitNatTyp``, ``LitInt64``, ``LitNumeric``,
+``LitDate``, ``LitTimestamp``) are ordered by natural
+ordering. Text-like literals (``LitText`` and ``LitParty`` are ordered
+lexicographically.  Contract Ids are not ordered.
 
 
 Identifiers
@@ -567,7 +566,7 @@ Then we can define our kinds, types, and expressions::
        |  'Bool'                                    -- BTyBool
        |  'List'                                    -- BTyList
        |  'Option'                                  -- BTyOption
-       |  'TextMap'                                 -- BTTextMap: map with string keys 
+       |  'TextMap'                                 -- BTTextMap: map with string keys
        |  'GenMap'                                  -- BTGenMap: map with general value keys
        |  'Update'                                  -- BTyUpdate
        |  'ContractId'                              -- BTyContractId
@@ -1743,31 +1742,26 @@ will always be used to compare values of same types::
   ——————————————————————————————————————————————————— GenEqOptionSome
    'Some' @τ v ~ᵥ 'Some' @τ w
 
-   v₁ ~ᵥ v₁     …       vₙ ~ᵥ wₙ
+   v₁ ~ᵥ w₁     …       vₘ ~ᵥ wₘ
   ——————————————————————————————————————————————————— GenEqRecCon
-  Mod:T @τ … @τ { f₁ = v₁, …, fₙ = wₙ }
-    ~ᵥ Mod:T @τ … @τ { f₁ = w₁, …, fₙ = wₙ }
+  Mod:T @τ₁ … @τₙ { f₁ = v₁, …, fₘ = wₘ }
+    ~ᵥ Mod:T @σ₁ … @σₙ { f₁ = w₁, …, fₘ = wₘ }
 
    v ~ᵥ w
   ——————————————————————————————————————————————————— GenEqVariantCon
-   Mod:T:V @τ … @τ v ~ᵥ Mod:T:V @τ … @τ w
+   Mod:T:V @τ₁ … @τₙ v ~ᵥ Mod:T:V @σ₁ … @σₙ w
 
   ——————————————————————————————————————————————————— GenEqEnumCon
    Mod:T:E ~ᵥ Mod:T:E
 
-   v₁ ~ᵥ w₁     …       vₙ ~ᵥ wₙ
+   v₁ ~ᵥ w₁     …       vₙ ~ᵥ wₘ
   ——————————————————————————————————————————————————— GenEqStructCon
    ⟨ f₁ = v₁, …, fₘ = vₘ ⟩ ~ᵥ ⟨ f₁ = w₁, …, fₘ = wₘ ⟩
-
-
-    ∀ i ∈ 1 ⋯ m, ∃ j ∈ 1 ⋯ m, vⱼ ~ vₘ  v(vⱼ) = w(vₘ)
-   
-
+    
     v₁ ~ᵥ w₁     …       vₙ ~ᵥ wₙ
   ——————————————————————————————————————————————————— GenEqTextMap
-   [ t₁ ↦ w₁, …, tₘ ↦ wₘ ]
-     ~ᵥ  [s₁ ↦ w₁, …, sₘ ↦ wₘ]
-
+   [ t₁ ↦ w₁; …; tₘ ↦ wₘ ]
+     ~ᵥ  [t₁ ↦ w₁; …;x tₘ ↦ wₘ]
 
   ——————————————————————————————————————————————————— GenEqEmptyGenMap
    〚 〛 ~ᵥ 〚 〛
@@ -3054,8 +3048,9 @@ encoding that does not follow the minor version provided is rejected.
 Below we list, in chronological order, all the changes that have been
 introduced to the serialization format since version 1.0
 
-Option type
-...........
+
+Optional type
+.............
 
 [*Available in versions >= 1.1*]
 
