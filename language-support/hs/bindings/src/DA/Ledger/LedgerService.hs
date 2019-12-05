@@ -4,7 +4,7 @@
 -- Abstraction for LedgerService, which can be composed monadically.
 module DA.Ledger.LedgerService (
     LedgerService, runLedgerService, makeLedgerService, TimeoutSeconds,
-    setToken,
+    Token(..), setToken,
     askTimeout,
     ) where
 
@@ -23,10 +23,10 @@ import qualified Data.SortedList as SortedList
 data Context = Context
   { ts :: TimeoutSeconds
   , cc :: ClientConfig
-  , tokMaybe :: Maybe Tok
+  , tokMaybe :: Maybe Token
   }
 
-type Tok = String
+newtype Token = Token String
 
 newtype LedgerService a = LedgerService (ReaderT Context IO a)
   deriving ( Functor,Applicative,Monad,MonadFail,MonadIO,MonadUnliftIO
@@ -36,7 +36,7 @@ runLedgerService :: LedgerService a -> TimeoutSeconds -> ClientConfig -> IO a
 runLedgerService (LedgerService r) ts cc =
   runReaderT r $ Context { ts, cc, tokMaybe = Nothing }
 
-setToken :: Tok -> LedgerService a -> LedgerService a
+setToken :: Token -> LedgerService a -> LedgerService a
 setToken tok = local $ \context -> context { tokMaybe = Just tok }
 
 makeLedgerService :: (TimeoutSeconds -> ClientConfig -> MetadataMap -> IO a) -> LedgerService a
@@ -44,10 +44,10 @@ makeLedgerService f = do
   LedgerService $ ReaderT $ \Context{ts,cc,tokMaybe} ->
     ledgerRetry $ f ts cc (makeMdm tokMaybe)
 
-makeMdm :: Maybe Tok -> MetadataMap
+makeMdm :: Maybe Token -> MetadataMap
 makeMdm = \case
   Nothing -> MetadataMap Map.empty
-  Just tok -> MetadataMap $ Map.fromList [
+  Just (Token tok) -> MetadataMap $ Map.fromList [
     ("authorization",
      SortedList.toSortedList [ BSU8.fromString tok ])]
 

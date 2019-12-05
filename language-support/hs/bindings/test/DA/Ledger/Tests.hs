@@ -665,7 +665,9 @@ runWithSandbox Sandbox{port} maybeAuth tid ls = runLedgerService ls' timeout (co
           ls' :: LedgerService a
           ls' = case maybeAuth of
             Nothing -> ls
-            Just authSpec -> setToken (makeSignedJwt authSpec tid) ls
+            Just authSpec -> do
+              let tok = Ledger.Token ("Bearer " <> makeSignedJwt authSpec tid)
+              setToken tok ls
 
 makeSignedJwt :: AuthSpec -> TestId -> String
 makeSignedJwt AuthSpec{sharedSecret} tid = do
@@ -677,7 +679,7 @@ makeSignedJwt AuthSpec{sharedSecret} tid = do
   let cs = mempty { JWT.unregisteredClaims = urc }
   let key = JWT.hmacSecret $ T.pack sharedSecret
   let text = JWT.encodeSigned key mempty cs
-  "Bearer " <> T.unpack text
+  T.unpack text
 
 
 -- resetSandbox :: Sandbox-> IO ()

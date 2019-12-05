@@ -797,13 +797,13 @@ data LedgerFlags = LedgerFlags
   , tokFileM :: Maybe FilePath
   }
 
-getTokFromFile :: Maybe FilePath -> IO (Maybe String)
+getTokFromFile :: Maybe FilePath -> IO (Maybe Token)
 getTokFromFile tokFileM = do
   case tokFileM of
     Nothing -> return Nothing
     Just tokFile -> do
       tok <- readFileUTF8 tokFile
-      return (Just tok)
+      return (Just (Token tok))
 
 getHostAndPortDefaults :: LedgerFlags -> IO LedgerArgs
 getHostAndPortDefaults LedgerFlags{hostM,portM,tokFileM} = do
