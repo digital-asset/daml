@@ -105,7 +105,11 @@ createProjectPackageDb opts thisSdkVer deps0 dataDeps = do
             (pkgId, package) <-
                 either (fail . DA.Pretty.renderPretty) pure $
                 Archive.decodeArchive Archive.DecodeAsMain dalf
-            pure (pkgId, package, dalf, stringToUnitId name)
+            pure
+                ( pkgId
+                , package
+                , dalf
+                , stringToUnitId $ parseUnitId name pkgId)
     -- mapping from package id's to unit id's. if the same package is imported with
     -- different unit id's, we would loose a unit id here.
     let pkgMap =
@@ -137,8 +141,8 @@ createProjectPackageDb opts thisSdkVer deps0 dataDeps = do
     forM_ pkgIdsTopoSorted $ \vertex -> do
         let ((src, templInstSrc, uid, dalf, bs), pkgId, _) =
                 vertexToNode vertex
-        when (not $ unitIdString primUnitId `isPrefixOf` unitIdString uid) $ do
-            let unitIdStr = unitIdString uid
+        let unitIdStr = unitIdString uid
+        unless (unitIdString primUnitId `isPrefixOf` unitIdStr) $ do
             let instancesUnitIdStr = "instances-" <> unitIdStr
             let pkgIdStr = T.unpack $ LF.unPackageId pkgId
             let (pkgName, mbPkgVersion) =
@@ -223,7 +227,10 @@ createProjectPackageDb opts thisSdkVer deps0 dataDeps = do
                           , ("DA.Internal.Prelude", "Sdk.DA.Internal.Prelude")
                           ])
                       ] ++
-                      [(takeBaseName dep, True, []) | dep <- deps]
+                      [ (takeBaseName dep, True, [])
+                      | dep <- deps
+                      , not $ (unitIdString primUnitId) `isPrefixOf` dep
+                      ]
                 }
 
         _ <- withDamlIdeState opts' loggerH diagnosticsLogger $ \ide ->
@@ -310,7 +317,10 @@ createProjectPackageDb opts thisSdkVer deps0 dataDeps = do
                               -- types like Party.  In this case, we use the current daml-stdlib as
                               -- their origin.
                               [(damlStdlib, True, []) | not $ hasStdlibDep deps] ++
-                              [(takeBaseName dep, True, []) | dep <- deps]
+                              [ (takeBaseName dep, True, [])
+                              | dep <- deps
+                              , not $ (unitIdString primUnitId) `isPrefixOf` dep
+                              ]
                         }
                 mbDar <-
                     withDamlIdeState opts' loggerH diagnosticsLogger $ \ide ->

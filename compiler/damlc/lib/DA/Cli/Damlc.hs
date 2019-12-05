@@ -68,7 +68,7 @@ import Development.IDE.Types.Location
 import Development.IDE.Types.Options (clientSupportsProgress)
 import "ghc-lib-parser" DynFlags
 import GHC.Conc
-import "ghc-lib-parser" Module
+import "ghc-lib-parser" Module hiding (parseUnitId)
 import qualified Network.Socket as NS
 import Options.Applicative.Extended
 import qualified Proto3.Suite as PS
@@ -700,9 +700,11 @@ execMigrate projectOpts inFile1_ inFile2_ mbDir =
                   let dar = ZipArchive.toArchive $ BSL.fromStrict bytes
                   -- get the main pkg
                   dalfManifest <- either fail pure $ readDalfManifest dar
-                  let pkgName = takeBaseName $ mainDalfPath dalfManifest
                   mainDalfEntry <- getEntry (mainDalfPath dalfManifest) dar
-                  (mainPkgId, mainLfPkg) <- decode $ BSL.toStrict $ ZipArchive.fromEntry mainDalfEntry
+                  (mainPkgId, mainLfPkg) <-
+                      decode $ BSL.toStrict $ ZipArchive.fromEntry mainDalfEntry
+                  let baseName = takeBaseName $ mainDalfPath dalfManifest
+                  let pkgName = parseUnitId baseName mainPkgId
                   pure (pkgName, mainPkgId, mainLfPkg)
           -- generate upgrade modules and instances modules
           let eqModNames =

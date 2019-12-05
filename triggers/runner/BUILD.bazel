@@ -49,7 +49,7 @@ genrule(
     ],
     outs = ["com/digitalasset/daml/lf/engine/trigger/TriggerPackageIds.scala"],
     cmd = """
-      PACKAGE_ID=$$($(location //compiler/damlc) inspect-dar $(location //triggers/daml:daml-trigger.dar) | awk '/daml-trigger-0.0.1 / {print $$2}')
+      PACKAGE_ID=$$($(location //compiler/damlc) inspect-dar $(location //triggers/daml:daml-trigger.dar) | awk '/daml-trigger-0.0.1-([a..f]|[0..9])*/ {print $$2}')
       cat << EOF > $(location com/digitalasset/daml/lf/engine/trigger/TriggerPackageIds.scala)
 package com.digitalasset.daml.lf.engine
 

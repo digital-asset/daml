@@ -11,6 +11,7 @@ import Data.Conduit.Tar.Extra (dropDirectory1)
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.Lazy.Char8 as BSL.Char8
 import Data.List.Extra
+import Data.Maybe
 import System.Directory.Extra
 import System.Environment.Blank
 import System.Exit
@@ -253,6 +254,31 @@ tests damlc = testGroup "Packaging"
         checkDarFile darFiles "B" "C.hi"
         checkDarFile darFiles "B" "C.hie"
 
+    , testCase "Dalf dependencies get package id suffices" $ withTempDir $ \projDir -> do
+        createDirectoryIfMissing True (projDir </> "daml")
+        writeFileUTF8 (projDir </> "daml/A.daml") $ unlines
+          [ "daml 1.2"
+          , "module A where"
+          , "data A = A ()"
+          ]
+        writeFileUTF8 (projDir </> "daml.yaml") $ unlines
+          [ "sdk-version: " <> sdkVersion
+          , "name: proj"
+          , "version: 0.1.0"
+          , "source: daml"
+          , "dependencies: [daml-prim, daml-stdlib]"
+          ]
+        buildProject projDir
+        let dar = projDir </> ".daml/dist/proj-0.1.0.dar"
+        assertBool "proj-0.1.0.dar was not created." =<< doesFileExist dar
+        darFiles <- Zip.filesInArchive . Zip.toArchive <$> BSL.readFile dar
+        let allDalfFilesHavePkgId = and $ do
+              fp <- darFiles
+              guard $ "dalf" `isExtensionOf` fp
+              let (_s, pId) = fromMaybe ("", "not a package id") $ stripInfixEnd "-" $ takeBaseName fp
+              pure $ all (`elem` ['a' .. 'f'] ++ ['0' .. '9']) pId
+        assertBool "Dalf files without package ids" allDalfFilesHavePkgId
+
     , testCase "Imports from different directories" $ withTempDir $ \projDir -> do
         -- Regression test for #2929
         createDirectory (projDir </> "A")
@@ -309,10 +335,9 @@ tests damlc = testGroup "Packaging"
     , dataDependencyTests damlc
     ]
   where
+      buildProject' :: FilePath -> FilePath -> IO ()
+      buildProject' damlc dir = withCurrentDirectory dir $ callProcessSilent damlc ["build"]
       buildProject = buildProject' damlc
-
-buildProject' :: FilePath -> FilePath -> IO ()
-buildProject' damlc dir = withCurrentDirectory dir $ callProcessSilent damlc ["build"]
 
 dataDependencyTests :: FilePath -> TestTree
 dataDependencyTests damlc = testGroup "Data Dependencies" $

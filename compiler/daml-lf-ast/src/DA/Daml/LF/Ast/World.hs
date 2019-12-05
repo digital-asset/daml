@@ -62,16 +62,14 @@ data DalfPackage = DalfPackage
 instance NFData DalfPackage
 
 -- | Construct the 'World' from only the imported packages.
+-- TODO (drsk) : hurraybit: please check that the duplicate package id check here is not needed.
 initWorld :: [ExternalPackage] -> Version -> World
 initWorld importedPkgs version =
   World
     (foldl' insertPkg HMS.empty importedPkgs)
     (Package version NM.empty)
   where
-    insertPkg hms (ExternalPackage pkgId pkg)
-      | pkgId `HMS.member` hms =
-          error $  "World.initWorld: duplicate package id " ++ show pkgId
-      | otherwise = HMS.insert pkgId pkg hms
+    insertPkg hms (ExternalPackage pkgId pkg) = HMS.insert pkgId pkg hms
 
 -- | Create a World with an initial self package
 initWorldSelf :: [ExternalPackage] -> Package -> World
