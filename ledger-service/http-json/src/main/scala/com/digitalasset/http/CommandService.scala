@@ -58,7 +58,7 @@ class CommandService(
   private def liftET[A](fa: Future[A]): EitherT[Future, Error, A] = EitherT.rightT(fa)
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
-  def exercise(jwt: Jwt, jwtPayload: JwtPayload, input: ExerciseCommand[lav1.value.Record])
+  def exercise(jwt: Jwt, jwtPayload: JwtPayload, input: ExerciseCommand[lav1.value.Value])
     : Future[Error \/ List[Contract[lav1.value.Value]]] = {
 
     val et: EitherT[Future, Error, List[Contract[lav1.value.Value]]] = for {
@@ -106,7 +106,7 @@ class CommandService(
   }
 
   private def exerciseCommand(
-      input: ExerciseCommand[lav1.value.Record]): Error \/ lav1.commands.Command.Command.Exercise =
+      input: ExerciseCommand[lav1.value.Value]): Error \/ lav1.commands.Command.Command.Exercise =
     for {
       templateId <- resolveTemplateId(input.templateId)
         .leftMap(e => Error('exerciseCommand, e.shows))

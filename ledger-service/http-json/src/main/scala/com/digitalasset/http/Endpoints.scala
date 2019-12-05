@@ -86,9 +86,9 @@ class Endpoints(
 
         cmd <- either(
           decoder
-            .decodeR[domain.ExerciseCommand](reqBody)
+            .decodeV[domain.ExerciseCommand](reqBody)
             .leftMap(e => InvalidUserInput(e.shows))
-        ): ET[domain.ExerciseCommand[lav1.value.Record]]
+        ): ET[domain.ExerciseCommand[lav1.value.Value]]
 
         cs <- eitherT(
           handleFutureFailure(commandService.exercise(jwt, jwtPayload, cmd))
