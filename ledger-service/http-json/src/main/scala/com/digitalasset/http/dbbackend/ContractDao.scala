@@ -6,12 +6,14 @@ package com.digitalasset.http.dbbackend
 import cats.effect._
 import cats.syntax.apply._
 import com.digitalasset.http.domain
+import com.digitalasset.http.json.JsonProtocol.LfValueDatabaseCodec
 import doobie.LogHandler
 import doobie.free.connection.ConnectionIO
 import doobie.free.{connection => fconn}
 import doobie.implicits._
 import doobie.util.log
 import scalaz.syntax.tag._
+import spray.json.JsValue
 
 import scala.concurrent.ExecutionContext
 
@@ -64,6 +66,35 @@ object ContractDao {
       else
         fconn.raiseError(StaleOffsetException(party, templateId, newOffset, lastOffset))
     } yield ()
+
+  def selectContracts(
+      party: domain.Party,
+      templateId: domain.TemplateId.RequiredPkg,
+      predicate: doobie.Fragment)(
+      implicit log: LogHandler): ConnectionIO[Vector[domain.ActiveContract[JsValue]]] =
+    for {
+      tpId <- Queries.surrogateTemplateId(
+        templateId.packageId,
+        templateId.moduleName,
+        templateId.entityName)
+
+      dbContracts <- Queries.selectContracts(party.unwrap, tpId, predicate).to[Vector]
+      domainContracts = dbContracts.map(toDomain(templateId))
+    } yield domainContracts
+
+  // TODO(Leo) we should either remove fields from domain.ActiveContract or store them in DB and populate
+  private def toDomain(templateId: domain.TemplateId.RequiredPkg)(
+      a: Queries.DBContract[Unit, JsValue, Unit]): domain.ActiveContract[JsValue] =
+    domain.ActiveContract(
+      contractId = domain.ContractId(a.contractId),
+      templateId = templateId,
+      key = None,
+      argument = LfValueDatabaseCodec.asLfValueCodec(a.createArguments),
+      witnessParties = Seq.empty,
+      signatories = Seq.empty,
+      observers = Seq.empty,
+      agreementText = ""
+    )
 
   final case class StaleOffsetException(
       party: domain.Party,
