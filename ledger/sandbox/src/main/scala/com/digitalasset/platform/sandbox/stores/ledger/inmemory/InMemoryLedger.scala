@@ -9,16 +9,7 @@ import java.util.concurrent.atomic.AtomicReference
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.ledger.participant.state.index.v2.PackageDetails
-import com.daml.ledger.participant.state.v1.{
-  Configuration,
-  ParticipantId,
-  PartyAllocationResult,
-  SubmissionResult,
-  SubmittedTransaction,
-  SubmitterInfo,
-  TransactionMeta,
-  UploadPackagesResult
-}
+import com.daml.ledger.participant.state.v1._
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.Ref.LedgerString.ordering
 import com.digitalasset.daml.lf.data.Ref.{PackageId, Party, TransactionIdString}
@@ -42,12 +33,7 @@ import com.digitalasset.platform.sandbox.stores.ActiveLedgerState.ActiveContract
 import com.digitalasset.platform.sandbox.stores.deduplicator.Deduplicator
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry.{Checkpoint, Rejection}
 import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
-import com.digitalasset.platform.sandbox.stores.ledger.{
-  ConfigurationEntry,
-  Ledger,
-  LedgerEntry,
-  LedgerSnapshot
-}
+import com.digitalasset.platform.sandbox.stores.ledger._
 import com.digitalasset.platform.sandbox.stores.{
   ActiveLedgerState,
   InMemoryActiveLedgerState,
@@ -61,6 +47,7 @@ import scala.util.{Failure, Success, Try}
 sealed trait InMemoryEntry extends Product with Serializable
 final case class InMemoryLedgerEntry(entry: LedgerEntry) extends InMemoryEntry
 final case class InMemoryConfigEntry(entry: ConfigurationEntry) extends InMemoryEntry
+final case class InMemoryPartyEntry(entry: PartyLedgerEntry) extends InMemoryEntry
 
 /** This stores all the mutable data that we need to run a ledger: the PCS, the ACS, and the deduplicator.
   *
@@ -272,20 +259,38 @@ class InMemoryLedger(
       acs.parties.values.toList
     })
 
-  override def allocateParty(
+  override def publishPartyAllocation(
+      submissionId: SubmissionId,
       party: Party,
-      displayName: Option[String]): Future[PartyAllocationResult] =
-    Future.successful(this.synchronized {
+      displayName: Option[String]): Future[SubmissionResult] =
+    Future.successful(this.synchronized[SubmissionResult] {
       val ids = acs.parties.keySet
-
-      if (ids.contains(party))
-        PartyAllocationResult.AlreadyExists
-      else {
-        val details = PartyDetails(party, displayName, true)
-        acs = acs.addParty(details)
-        PartyAllocationResult.Ok(details)
+      if (ids.contains(party)) {
+        entries.publish(
+          InMemoryPartyEntry(
+            PartyLedgerEntry.AllocationRejected(
+              submissionId,
+              participantId,
+              timeProvider.getCurrentTime,
+              "Party already exists")))
+      } else {
+        acs = acs.addParty(PartyDetails(party, displayName, true))
+        entries.publish(
+          InMemoryPartyEntry(
+            PartyLedgerEntry.AllocationAccepted(
+              Some(submissionId),
+              participantId,
+              timeProvider.getCurrentTime,
+              PartyDetails(party, displayName, isLocal = true))))
       }
+      SubmissionResult.Acknowledged
     })
+
+  override def partyEntries: Source[(Long, PartyLedgerEntry), NotUsed] = {
+    entries.getSource(None).collect {
+      case (offset, InMemoryPartyEntry(partyEntry)) => (offset, partyEntry)
+    }
+  }
 
   override def listLfPackages(): Future[Map[PackageId, PackageDetails]] =
     packageStoreRef.get.listLfPackages()

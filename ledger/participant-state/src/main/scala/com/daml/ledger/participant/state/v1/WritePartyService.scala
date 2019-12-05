@@ -37,7 +37,7 @@ trait WritePartyService {
     * @return an async result of a SubmissionResult
     */
   def allocateParty(
-      hint: Option[String],
+      hint: Option[Party],
       displayName: Option[String],
       submissionId: SubmissionId
   ): CompletionStage[SubmissionResult]

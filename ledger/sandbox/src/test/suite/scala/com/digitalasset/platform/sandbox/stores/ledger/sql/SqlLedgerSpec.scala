@@ -14,7 +14,7 @@ import com.digitalasset.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.sandbox.MetricsAround
 import com.digitalasset.platform.sandbox.persistence.PostgresAroundEach
-import com.digitalasset.platform.sandbox.stores.ledger.{Ledger, PartyIdGenerator}
+import com.digitalasset.platform.sandbox.stores.ledger.Ledger
 import com.digitalasset.platform.sandbox.stores.{InMemoryActiveLedgerState, InMemoryPackageStore}
 import org.scalatest.concurrent.{AsyncTimeLimitedTests, Eventually, ScaledTimeSpans}
 import org.scalatest.time.{Minute, Seconds, Span}
@@ -93,14 +93,15 @@ class SqlLedgerSpec
       for {
         ledger <- createSqlLedger()
       } yield {
-        def allocateParty(displayName: String): Unit = {
+        def listPackages(displayName: String): Unit = {
           Await.result(
-            ledger.allocateParty(PartyIdGenerator.generateRandomId(), Some(displayName)),
-            patienceConfig.timeout)
+            ledger.listLfPackages(),
+            patienceConfig.timeout
+          )
           ()
         }
 
-        allocateParty("Alice")
+        listPackages("Alice")
         withClue("after allocating Alice,") {
           ledger.currentHealth() should be(Healthy)
         }
@@ -108,7 +109,7 @@ class SqlLedgerSpec
         stopPostgres()
 
         eventually {
-          assertThrows[SQLException](allocateParty("Bob"))
+          assertThrows[SQLException](listPackages("Bob"))
           withClue("after allocating Bob,") {
             ledger.currentHealth() should be(Unhealthy)
           }
@@ -117,7 +118,7 @@ class SqlLedgerSpec
         startPostgres()
 
         eventually {
-          allocateParty("Carol")
+          listPackages("Carol")
           withClue("after allocating Carol,") {
             ledger.currentHealth() should be(Healthy)
           }
