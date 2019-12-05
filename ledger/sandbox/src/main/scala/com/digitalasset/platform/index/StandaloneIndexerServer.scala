@@ -7,19 +7,17 @@ import akka.actor.ActorSystem
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.v1.ReadService
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
-import com.digitalasset.platform.common.util.{DirectExecutionContext => DEC}
+import com.digitalasset.platform.common.util.DirectExecutionContext.implicitEC
 import com.digitalasset.platform.index.config.{Config, StartupMode}
 
 import scala.concurrent.duration._
-import scala.concurrent.{Await, ExecutionContext, Future, Promise}
+import scala.concurrent.{Await, Future, Promise}
 import scala.util.control.NonFatal
 
 // Main entry point to start an indexer server.
 // See v2.ReferenceServer for the usage
 object StandaloneIndexerServer {
   private val asyncTolerance: FiniteDuration = 10.seconds
-
-  private implicit val executionContext: ExecutionContext = DEC
 
   def apply(
       readService: ReadService,
