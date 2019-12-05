@@ -167,7 +167,7 @@ object ShrinkEncoding extends ShrinkEncoding {
     def entry[A: Out]: Out[(String, A)] = implicitly[Out[(String, A)]]
 
     override implicit def valueTextMap[A: Out]: Out[P.TextMap[A]] =
-      shrinkContainer2[Map, String, A]
+      shrinkContainer2[Lambda[(uk, v) => P.TextMap[v]], String, A]
 
     override implicit def valueGenMap[K: Shrink, V: Shrink]: Shrink[P.GenMap[K, V]] =
       shrinkContainer2[InsertOrdMap, K, V]

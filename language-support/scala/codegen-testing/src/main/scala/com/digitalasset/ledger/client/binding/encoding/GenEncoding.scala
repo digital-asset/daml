@@ -17,6 +17,7 @@ import scalaz.std.vector._
 import scalaz.syntax.foldable._
 import scalaz.syntax.plus._
 
+@SuppressWarnings(Array("org.wartremover.warts.Any"))
 abstract class GenEncoding extends LfTypeEncoding {
   import GenEncoding.{VariantCasesImpl, primitiveImpl}
 
@@ -63,6 +64,7 @@ abstract class GenEncoding extends LfTypeEncoding {
 
 object GenEncoding extends GenEncoding {
 
+  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   class VariantCasesImpl extends Plus[VariantCases] {
     def plus[A](a: VariantCases[A], b: => VariantCases[A]): VariantCases[A] =
       a <+> b
@@ -100,7 +102,7 @@ object GenEncoding extends GenEncoding {
 
     override def valueTextMap[A](implicit ev: Out[A]): Out[P.TextMap[A]] = {
       implicit val elt: Arbitrary[A] = Arbitrary(ev)
-      arbitrary[P.TextMap[A]]
+      P.TextMap.leibniz[A].subst(arbitrary[collection.immutable.Map[String, A]])
     }
 
     override def valueGenMap[K, V](implicit evK: Out[K], evV: Out[V]): Out[P.GenMap[K, V]] = {

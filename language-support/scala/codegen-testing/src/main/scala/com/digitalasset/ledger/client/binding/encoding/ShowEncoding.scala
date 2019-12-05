@@ -47,6 +47,7 @@ abstract class ShowEncoding extends LfTypeEncoding {
 
   override def fields[A](fi: Field[A]): RecordFields[A] = fi
 
+  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   override def enumAll[A](
       enumId: Identifier,
       index: A => Int,
@@ -119,7 +120,7 @@ object ShowEncoding extends ShowEncoding {
 
     override def valueOptional[A: Show]: Show[P.Optional[A]] = optionShow
 
-    override def valueTextMap[A: Show]: Show[P.TextMap[A]] = mapShow
+    override def valueTextMap[A: Show]: Show[P.TextMap[A]] = P.TextMap.leibniz[A].subst(mapShow)
 
     override def valueGenMap[K: Show, V: Show]: Show[P.GenMap[K, V]] = P.GenMap.insertMapShow
 

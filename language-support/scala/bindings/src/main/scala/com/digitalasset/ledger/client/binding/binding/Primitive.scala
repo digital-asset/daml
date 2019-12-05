@@ -4,6 +4,7 @@
 package com.digitalasset.ledger.client.binding
 
 import encoding.ExerciseOn
+import com.digitalasset.daml.lf.data.InsertOrdMap
 import com.digitalasset.ledger.api.refinements.ApiTypes
 import com.digitalasset.ledger.api.v1.{commands => rpccmd, value => rpcvalue}
 import scalaz.syntax.std.boolean._
@@ -15,7 +16,7 @@ import scala.collection.generic.CanBuildFrom
 import java.time.{Instant, LocalDate, LocalDateTime}
 import java.util.TimeZone
 
-import com.digitalasset.daml.lf.data.InsertOrdMap
+import scalaz.Leibniz.===
 
 sealed abstract class Primitive extends PrimitiveInstances {
   type Int64 = Long
@@ -78,6 +79,9 @@ sealed abstract class Primitive extends PrimitiveInstances {
     def newBuilder[V]: mutable.Builder[(String, V), TextMap[V]]
     implicit def canBuildFrom[V]: CanBuildFrom[Coll, (String, V), TextMap[V]]
     def fromMap[V](map: imm.Map[String, V]): TextMap[V]
+    def subst[F[_[_]]](fa: F[imm.Map[String, ?]]): F[TextMap]
+    def leibniz[V]: imm.Map[String, V] === TextMap[V] =
+      subst[Lambda[g[_] => imm.Map[String, V] === g[V]]](scalaz.Leibniz.refl)
   }
 
   sealed abstract class DateApi {
@@ -157,6 +161,7 @@ private[client] object OnlyPrimitive extends Primitive {
     override def newBuilder[V]: mutable.Builder[(String, V), TextMap[V]] = imm.Map.newBuilder
     override def canBuildFrom[V]: CanBuildFrom[Coll, (String, V), TextMap[V]] = imm.Map.canBuildFrom
     override def fromMap[V](map: imm.Map[String, V]): TextMap[V] = map
+    override def subst[F[_[_]]](fa: F[TextMap]): F[TextMap] = fa
   }
 
   @deprecated("Use TextMap", since = "0.13.38")
