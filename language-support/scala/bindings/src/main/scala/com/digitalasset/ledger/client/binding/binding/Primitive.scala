@@ -165,7 +165,7 @@ private[client] object OnlyPrimitive extends Primitive {
   }
 
   @deprecated("Use TextMap", since = "0.13.38")
-  override val Map = TextMap
+  override val Map: TextMap.type = TextMap
 
   object Date extends DateApi {
     import com.digitalasset.api.util.TimestampConversion
