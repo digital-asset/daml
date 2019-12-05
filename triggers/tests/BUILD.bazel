@@ -53,6 +53,7 @@ da_scala_binary(
     name = "test_client",
     srcs = glob(["src/**/*.scala"]),
     main_class = "com.digitalasset.daml.lf.engine.trigger.test.TestMain",
+    resources = ["//triggers/runner:src/main/resources/logback.xml"],
     deps = [
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/archive:daml_lf_dev_archive_java_proto",
