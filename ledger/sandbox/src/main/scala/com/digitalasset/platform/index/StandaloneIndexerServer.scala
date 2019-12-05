@@ -7,57 +7,64 @@ import akka.actor.ActorSystem
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.v1.ReadService
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
-import com.digitalasset.platform.common.util.{DirectExecutionContext => DEC}
+import com.digitalasset.platform.common.util.DirectExecutionContext.implicitEC
 import com.digitalasset.platform.index.config.{Config, StartupMode}
 
-import scala.concurrent.{Await, Future, Promise}
 import scala.concurrent.duration._
+import scala.concurrent.{Await, Future, Promise}
+import scala.util.control.NonFatal
 
 // Main entry point to start an indexer server.
 // See v2.ReferenceServer for the usage
 object StandaloneIndexerServer {
+  private val asyncTolerance: FiniteDuration = 10.seconds
 
   def apply(
       readService: ReadService,
       config: Config,
       loggerFactory: NamedLoggerFactory,
-      metrics: MetricRegistry): Future[AutoCloseable] = {
-
+      metrics: MetricRegistry,
+  ): Future[AutoCloseable] = {
     // ActorSystem name not allowed to contain daml-lf LedgerString characters ".:#/ "
     val actorSystem = ActorSystem(
       "StandaloneIndexerServer-" + config.participantId.filterNot(".:#/ ".toSet))
-    val asyncTolerance: FiniteDuration = 10.seconds
-    val indexerFactory = JdbcIndexerFactory(metrics, loggerFactory)
-    val indexer =
-      RecoveringIndexer(
-        actorSystem.scheduler,
-        asyncTolerance,
-        indexerFactory.asyncTolerance,
-        loggerFactory)
 
-    val initializedIndexerFactory = config.startupMode match {
-      case StartupMode.MigrateOnly | StartupMode.MigrateAndStart =>
-        indexerFactory.migrateSchema(config.jdbcUrl)
-      case StartupMode.ValidateAndStart => indexerFactory.validateSchema(config.jdbcUrl)
-    }
+    val indexerFactory = JdbcIndexerFactory(metrics, loggerFactory)
+    val indexer = RecoveringIndexer(
+      actorSystem.scheduler,
+      asyncTolerance,
+      indexerFactory.asyncTolerance,
+      loggerFactory)
 
     val promise = Promise[Unit]
 
-    config.startupMode match {
-      case StartupMode.MigrateOnly => promise.success(())
-      case StartupMode.MigrateAndStart | StartupMode.ValidateAndStart =>
-        indexer.start { () =>
-          {
-            val createF = initializedIndexerFactory
+    def startIndexer(initializedIndexerFactory: JdbcIndexerFactory[Initialized]): Future[Unit] =
+      indexer
+        .start(
+          () =>
+            initializedIndexerFactory
               .create(config.participantId, actorSystem, readService, config.jdbcUrl)
-            // signal when ready
-            createF.map(_ => {
-              promise.trySuccess(())
-            })(DEC)
-            createF
-              .flatMap(_.subscribe(readService))(DEC)
-          }
-        }
+              .flatMap { indexer =>
+                // signal when ready
+                promise.trySuccess(())
+                indexer.subscribe(readService)
+            })
+        .map(_ => ())
+
+    try {
+      config.startupMode match {
+        case StartupMode.MigrateOnly =>
+          promise.success(())
+        case StartupMode.MigrateAndStart =>
+          startIndexer(indexerFactory.migrateSchema(config.jdbcUrl))
+        case StartupMode.ValidateAndStart =>
+          startIndexer(indexerFactory.validateSchema(config.jdbcUrl))
+      }
+    } catch {
+      case NonFatal(e) =>
+        indexer.close()
+        actorSystem.terminate()
+        promise.failure(e)
     }
 
     promise.future.map { _ =>
@@ -68,6 +75,6 @@ object StandaloneIndexerServer {
           val _ = Await.result(actorSystem.terminate(), asyncTolerance)
         }
       }
-    }(DEC)
+    }
   }
 }

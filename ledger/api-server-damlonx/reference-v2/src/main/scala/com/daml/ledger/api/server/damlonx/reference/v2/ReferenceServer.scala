@@ -117,11 +117,17 @@ object ReferenceServer extends App {
     }
   }
 
+  private def startupFailed(e: Throwable): Unit = {
+    logger.error("Shutting down because of an initialization error.", e)
+    closeServer()
+  }
+
+  participantF.failed.foreach(startupFailed)
+
   try {
     Runtime.getRuntime.addShutdownHook(new Thread(() => closeServer()))
   } catch {
-    case NonFatal(t) =>
-      logger.error("Shutting down Sandbox application because of initialization error", t)
-      closeServer()
+    case NonFatal(e) =>
+      startupFailed(e)
   }
 }

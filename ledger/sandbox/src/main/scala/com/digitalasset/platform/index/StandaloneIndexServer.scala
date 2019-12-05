@@ -29,6 +29,7 @@ import com.digitalasset.platform.server.services.testing.TimeServiceBackend
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.util.control.NonFatal
 
 // Main entry point to start an index server that also hosts the ledger API.
 // See v2.ReferenceServer on how it is used.
@@ -193,10 +194,12 @@ class StandaloneIndexServer(
       )
     implicit val ec: ExecutionContext = infrastructure.executionContext
     val apiState = buildAndStartApiServer(infrastructure)
-
     logger.info("Started Index Server")
-
-    apiState.map(SandboxState(_, infrastructure))
+    apiState.transform(SandboxState(_, infrastructure), {
+      case NonFatal(e) =>
+        infrastructure.close()
+        e
+    })
   }
 
   private def writePortFile(port: Int): Unit = {
