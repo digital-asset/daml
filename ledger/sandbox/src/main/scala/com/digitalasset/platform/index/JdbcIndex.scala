@@ -40,6 +40,8 @@ object JdbcIndex {
           contractStore,
           participantId) {
           override def getLedgerConfiguration(): Source[v2.LedgerConfiguration, NotUsed] =
+            // FIXME(JM): This is broken. We should not use ReadService in Ledger API Server,
+            // The indexer should on start set the default configuration.
             readService.getLedgerInitialConditions().map { cond =>
               v2.LedgerConfiguration(cond.config.timeModel.minTtl, cond.config.timeModel.maxTtl)
             }

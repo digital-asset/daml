@@ -153,7 +153,7 @@ class StandaloneIndexServer(
               authorizer,
               engine,
               config.timeProvider,
-              cond.config.timeModel,
+              cond.config,
               SandboxConfig.defaultCommandConfig,
               timeServiceBackendO,
               loggerFactory,

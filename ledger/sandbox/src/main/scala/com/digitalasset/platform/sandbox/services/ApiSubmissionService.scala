@@ -86,6 +86,9 @@ class ApiSubmissionService private (
     with AutoCloseable {
 
   private val logger = loggerFactory.getLogger(this.getClass)
+
+  // FIXME(JM): We need to query the current configuration every time we want to validate
+  // a command. Will be addressed in follow-up PR.
   private val validator = TimeModelValidator(timeModel)
 
   private object Metrics {

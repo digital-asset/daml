@@ -92,7 +92,7 @@ class BaseLedger(val ledgerId: LedgerId, headAtInitialization: Long, ledgerDao: 
       .flatMap(archiveO =>
         Future.fromTry(Try(archiveO.map(archive => Decode.decodeArchive(archive)._2))))(DEC)
 
-  override def lookupLedgerConfiguration(): Future[Option[Configuration]] =
+  override def lookupLedgerConfiguration(): Future[Option[(Long, Configuration)]] =
     ledgerDao.lookupLedgerConfiguration()
 
   override def configurationEntries(

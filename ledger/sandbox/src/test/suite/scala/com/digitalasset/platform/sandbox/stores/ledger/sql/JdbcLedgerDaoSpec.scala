@@ -305,7 +305,7 @@ class JdbcLedgerDaoSpec
       val offset = nextOffset()
       val participantId = Ref.LedgerString.assertFromString("participant-0")
       for {
-        startingConfig <- ledgerDao.lookupLedgerConfiguration()
+        startingConfig <- ledgerDao.lookupLedgerConfiguration().map(_.map(_._2))
         proposedConfig = startingConfig.getOrElse(defaultConfig)
         response <- ledgerDao.storeConfigurationEntry(
           offset,
@@ -317,7 +317,7 @@ class JdbcLedgerDaoSpec
           proposedConfig,
           Some("bad config")
         )
-        storedConfig <- ledgerDao.lookupLedgerConfiguration()
+        storedConfig <- ledgerDao.lookupLedgerConfiguration().map(_.map(_._2))
         entries <- ledgerDao.getConfigurationEntries(offset, offset + 1).runWith(Sink.seq)
 
       } yield {
@@ -334,7 +334,7 @@ class JdbcLedgerDaoSpec
       val offset0 = nextOffset()
       val participantId = Ref.LedgerString.assertFromString("participant-0")
       for {
-        config <- ledgerDao.lookupLedgerConfiguration().map(_.getOrElse(defaultConfig))
+        config <- ledgerDao.lookupLedgerConfiguration().map(_.map(_._2).getOrElse(defaultConfig))
 
         // Store a new configuration with a known submission id
         resp0 <- ledgerDao.storeConfigurationEntry(
@@ -347,7 +347,7 @@ class JdbcLedgerDaoSpec
           config.copy(generation = config.generation + 1),
           None
         )
-        newConfig <- ledgerDao.lookupLedgerConfiguration().map(_.get)
+        newConfig <- ledgerDao.lookupLedgerConfiguration().map(_.map(_._2).get)
 
         // Submission with duplicate submissionId is rejected
         offset1 = nextOffset()
@@ -388,7 +388,7 @@ class JdbcLedgerDaoSpec
           lastConfig,
           None
         )
-        lastConfigActual <- ledgerDao.lookupLedgerConfiguration().map(_.get)
+        lastConfigActual <- ledgerDao.lookupLedgerConfiguration().map(_.map(_._2).get)
 
         entries <- ledgerDao.getConfigurationEntries(offset0, offset3 + 1).runWith(Sink.seq)
       } yield {

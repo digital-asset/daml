@@ -91,7 +91,7 @@ trait LedgerReadDao extends AutoCloseable with ReportsHealth {
       forParty: Party): Future[Option[Contract]]
 
   /** Looks up the current ledger configuration, if it has been set. */
-  def lookupLedgerConfiguration(): Future[Option[Configuration]]
+  def lookupLedgerConfiguration(): Future[Option[(Long, Configuration)]]
 
   /** Returns a stream of configuration entries. */
   def getConfigurationEntries(

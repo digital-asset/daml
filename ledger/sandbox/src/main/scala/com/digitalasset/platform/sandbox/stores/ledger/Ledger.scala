@@ -101,9 +101,9 @@ trait ReadOnlyLedger extends ReportsHealth with AutoCloseable {
   def getLfPackage(packageId: PackageId): Future[Option[Ast.Package]]
 
   // Configuration management
-  def lookupLedgerConfiguration(): Future[Option[Configuration]]
-
-  def configurationEntries(offset: Option[Long]): Source[(Long, ConfigurationEntry), NotUsed]
+  def lookupLedgerConfiguration(): Future[Option[(Long, Configuration)]]
+  def configurationEntries(
+      startExclusive: Option[Long]): Source[(Long, ConfigurationEntry), NotUsed]
 }
 
 object Ledger {

@@ -4,8 +4,11 @@
 package com.digitalasset.platform.sandbox.stores.ledger
 
 import com.daml.ledger.participant.state.v1.{Configuration, ParticipantId}
+import com.digitalasset.ledger.api.domain
 
-sealed abstract class ConfigurationEntry extends Product with Serializable
+sealed abstract class ConfigurationEntry extends Product with Serializable {
+  def toDomain: domain.ConfigurationEntry
+}
 
 object ConfigurationEntry {
 
@@ -13,13 +16,28 @@ object ConfigurationEntry {
       submissionId: String,
       participantId: ParticipantId,
       configuration: Configuration,
-  ) extends ConfigurationEntry
+  ) extends ConfigurationEntry {
+    override def toDomain: domain.ConfigurationEntry =
+      domain.ConfigurationEntry.Accepted(
+        submissionId,
+        domain.ParticipantId(participantId),
+        configuration
+      )
+  }
 
   final case class Rejected(
       submissionId: String,
       participantId: ParticipantId,
       rejectionReason: String,
       proposedConfiguration: Configuration
-  ) extends ConfigurationEntry
+  ) extends ConfigurationEntry {
+    override def toDomain: domain.ConfigurationEntry =
+      domain.ConfigurationEntry.Rejected(
+        submissionId,
+        domain.ParticipantId(participantId),
+        rejectionReason,
+        proposedConfiguration
+      )
+  }
 
 }

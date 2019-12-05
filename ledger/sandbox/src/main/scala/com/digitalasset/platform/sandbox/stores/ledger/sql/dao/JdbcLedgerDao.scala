@@ -12,7 +12,16 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import anorm.SqlParser._
 import anorm.ToStatement.optionToStatement
-import anorm.{BatchSql, Macro, NamedParameter, RowParser, SQL, SqlParser}
+import anorm.{
+  AkkaStream,
+  BatchSql,
+  Macro,
+  NamedParameter,
+  ResultSetParser,
+  RowParser,
+  SQL,
+  SqlParser
+}
 import com.daml.ledger.participant.state.index.v2.PackageDetails
 import com.daml.ledger.participant.state.v1.{
   AbsoluteContractInst,
@@ -159,7 +168,8 @@ private class JdbcLedgerDao(
   private val SQL_UPDATE_CURRENT_CONFIGURATION = SQL(
     "update parameters set configuration={configuration}"
   )
-  private val SQL_SELECT_CURRENT_CONFIGURATION = SQL("select configuration from parameters")
+  private val SQL_SELECT_CURRENT_CONFIGURATION = SQL(
+    "select ledger_end, configuration from parameters")
 
   private val SQL_GET_CONFIGURATION_ENTRIES = SQL(
     "select * from configuration_entries where ledger_offset>={startInclusive} and ledger_offset<{endExclusive} order by ledger_offset asc limit {pageSize} offset {queryOffset}")
@@ -172,12 +182,22 @@ private class JdbcLedgerDao(
     ()
   }
 
-  private def selectLedgerConfiguration(implicit conn: Connection) =
-    SQL_SELECT_CURRENT_CONFIGURATION
-      .as(byteArray("configuration").?.single)
-      .flatMap(Configuration.decode(_).toOption)
+  private val currentConfigurationParser: ResultSetParser[Option[(Long, Configuration)]] =
+    (long("ledger_end") ~
+      byteArray("configuration").? map flatten).single
+      .map {
+        case (_, None) => None
+        case (offset, Some(configBytes)) =>
+          Configuration
+            .decode(configBytes)
+            .toOption
+            .map(config => offset -> config)
+      }
 
-  override def lookupLedgerConfiguration(): Future[Option[Configuration]] =
+  private def selectLedgerConfiguration(implicit conn: Connection) =
+    SQL_SELECT_CURRENT_CONFIGURATION.as(currentConfigurationParser)
+
+  override def lookupLedgerConfiguration(): Future[Option[(Long, Configuration)]] =
     dbDispatcher.executeSql("lookup_configuration")(implicit conn => selectLedgerConfiguration)
 
   private val acceptType = "accept"
@@ -261,7 +281,7 @@ private class JdbcLedgerDao(
       implicit conn =>
         val currentConfig = selectLedgerConfiguration
         var finalRejectionReason = rejectionReason
-        if (rejectionReason.isEmpty && (currentConfig exists (_.generation + 1 != configuration.generation))) {
+        if (rejectionReason.isEmpty && (currentConfig exists (_._2.generation + 1 != configuration.generation))) {
           // If we're not storing a rejection and the new generation is not succ of current configuration, then
           // we store a rejection. This code path is only expected to be taken in sandbox. This follows the same
           // pattern as storing transactions.

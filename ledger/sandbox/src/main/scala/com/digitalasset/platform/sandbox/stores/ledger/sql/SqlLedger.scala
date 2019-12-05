@@ -20,7 +20,7 @@ import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.engine.Blinding
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractId}
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
-import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails, RejectionReason}
+import com.digitalasset.ledger.api.domain.{LedgerId, RejectionReason}
 import com.digitalasset.ledger.api.health.HealthStatus
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.common.util.{DirectExecutionContext => DEC}

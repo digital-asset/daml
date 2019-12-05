@@ -12,7 +12,7 @@ import com.daml.ledger.participant.state.index.v2.{
   IndexPackagesService,
   _
 }
-import com.daml.ledger.participant.state.v1.{TimeModel, WriteService}
+import com.daml.ledger.participant.state.v1.{Configuration, WriteService}
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.engine._
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
@@ -26,7 +26,8 @@ import com.digitalasset.platform.sandbox.config.CommandConfiguration
 import com.digitalasset.platform.sandbox.services._
 import com.digitalasset.platform.sandbox.services.admin.{
   ApiPackageManagementService,
-  ApiPartyManagementService
+  ApiPartyManagementService,
+  ApiConfigManagementService
 }
 import com.digitalasset.platform.sandbox.services.transaction.ApiTransactionService
 import com.digitalasset.platform.sandbox.stores.ledger.CommandExecutorImpl
@@ -68,7 +69,7 @@ object ApiServices {
       authorizer: Authorizer,
       engine: Engine,
       timeProvider: TimeProvider,
-      timeModel: TimeModel,
+      defaultLedgerConfiguration: Configuration,
       commandConfig: CommandConfiguration,
       optTimeServiceBackend: Option[TimeServiceBackend],
       loggerFactory: NamedLoggerFactory,
@@ -86,6 +87,7 @@ object ApiServices {
     val contractStore: ContractStore = indexService
     val completionsService: IndexCompletionsService = indexService
     val partyManagementService: IndexPartyManagementService = indexService
+    val configManagementService: IndexConfigManagementService = indexService
 
     identityService.getLedgerId().map { ledgerId =>
       val apiSubmissionService =
@@ -93,7 +95,7 @@ object ApiServices {
           ledgerId,
           contractStore,
           writeService,
-          timeModel,
+          defaultLedgerConfiguration.timeModel,
           timeProvider,
           new CommandExecutorImpl(engine, packagesService.getLfPackage),
           loggerFactory,
@@ -165,6 +167,15 @@ object ApiServices {
       val apiPackageManagementService =
         ApiPackageManagementService.createApiService(indexService, writeService, loggerFactory)
 
+      val apiConfigManagementService =
+        ApiConfigManagementService
+          .createApiService(
+            configManagementService,
+            writeService,
+            timeProvider,
+            defaultLedgerConfiguration,
+            loggerFactory)
+
       val apiReflectionService = ProtoReflectionService.newInstance()
 
       val apiHealthService = new GrpcHealthService(healthChecks)
@@ -184,6 +195,7 @@ object ApiServices {
           new ActiveContractsServiceAuthorization(apiActiveContractsService, authorizer),
           new PartyManagementServiceAuthorization(apiPartyManagementService, authorizer),
           new PackageManagementServiceAuthorization(apiPackageManagementService, authorizer),
+          new ConfigManagementServiceAuthorization(apiConfigManagementService, authorizer),
           apiReflectionService,
           apiHealthService,
         ))

@@ -416,6 +416,18 @@ abstract class LedgerBackedIndexService(
   override def close(): Unit = {
     ledger.close()
   }
+
+  /** Looks up the current configuration, if set, and the offset from which
+    * to subscribe to further configuration changes.
+    * The offset is internal and not exposed over Ledger API.
+    */
+  override def lookupConfiguration(): Future[Option[(Long, Configuration)]] =
+    ledger.lookupLedgerConfiguration()
+
+  /** Retrieve configuration entries. */
+  override def configurationEntries(
+      startExclusive: Option[Long]): Source[domain.ConfigurationEntry, NotUsed] =
+    ledger.configurationEntries(startExclusive).map(_._2.toDomain)
 }
 
 class LedgerBackedWriteService(ledger: Ledger, timeProvider: TimeProvider) extends WriteService {

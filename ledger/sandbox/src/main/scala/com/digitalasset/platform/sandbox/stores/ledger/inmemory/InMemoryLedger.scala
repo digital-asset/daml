@@ -341,13 +341,15 @@ class InMemoryLedger(
       }
     }
 
-  override def lookupLedgerConfiguration(): Future[Option[Configuration]] =
-    Future.successful(this.synchronized { ledgerConfiguration })
+  override def lookupLedgerConfiguration(): Future[Option[(Long, Configuration)]] =
+    Future.successful(this.synchronized {
+      ledgerConfiguration.map(config => ledgerEnd -> config)
+    })
 
   override def configurationEntries(
-      offset: Option[Long]): Source[(Long, ConfigurationEntry), NotUsed] =
+      startExclusive: Option[Long]): Source[(Long, ConfigurationEntry), NotUsed] =
     entries
-      .getSource(offset)
+      .getSource(startExclusive.map(_ + 1))
       .collect { case (offset, InMemoryConfigEntry(entry)) => offset -> entry }
 
 }

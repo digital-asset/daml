@@ -82,7 +82,7 @@ private class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: MetricRegis
     ledger.close()
   }
 
-  override def lookupLedgerConfiguration(): Future[Option[Configuration]] =
+  override def lookupLedgerConfiguration(): Future[Option[(Long, Configuration)]] =
     timedFuture(Metrics.lookupLedgerConfiguration, ledger.lookupLedgerConfiguration())
 
   override def configurationEntries(
