@@ -404,11 +404,13 @@ abstract class LedgerBackedIndexService(
   override def listParties(): Future[List[PartyDetails]] =
     ledger.parties
 
-  override def partyEntries(): Source[PartyEntry, NotUsed] = ledger.partyEntries.map {
-    case (_, PartyLedgerEntry.AllocationRejected(subId, participantId, _, reason)) =>
-      PartyEntry.AllocationRejected(subId, domain.ParticipantId(participantId), reason)
-    case (_, PartyLedgerEntry.AllocationAccepted(subId, participantId, _, details)) =>
-      PartyEntry.AllocationAccepted(subId, domain.ParticipantId(participantId), details)
+  override def partyEntries(beginOffset: LedgerOffset.Absolute): Source[PartyEntry, NotUsed] = {
+    ledger.partyEntries(beginOffset.value.toLong).map {
+      case (_, PartyLedgerEntry.AllocationRejected(subId, participantId, _, reason)) =>
+        PartyEntry.AllocationRejected(subId, domain.ParticipantId(participantId), reason)
+      case (_, PartyLedgerEntry.AllocationAccepted(subId, participantId, _, details)) =>
+        PartyEntry.AllocationAccepted(subId, domain.ParticipantId(participantId), details)
+    }
   }
 
   override def close(): Unit = {

@@ -77,8 +77,8 @@ class BaseLedger(val ledgerId: LedgerId, headAtInitialization: Long, ledgerDao: 
   override def parties: Future[List[domain.PartyDetails]] =
     ledgerDao.getParties
 
-  override def partyEntries: Source[(Long, PartyLedgerEntry), NotUsed] =
-    dispatcher.startingAt(0, RangeSource(ledgerDao.getPartyEntries(_, _)))
+  override def partyEntries(beginOffset: Long): Source[(Long, PartyLedgerEntry), NotUsed] =
+    dispatcher.startingAt(beginOffset, RangeSource(ledgerDao.getPartyEntries))
 
   override def listLfPackages(): Future[Map[PackageId, v2.PackageDetails]] =
     ledgerDao.listLfPackages

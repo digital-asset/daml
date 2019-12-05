@@ -286,8 +286,8 @@ class InMemoryLedger(
       SubmissionResult.Acknowledged
     })
 
-  override def partyEntries: Source[(Long, PartyLedgerEntry), NotUsed] = {
-    entries.getSource(None).collect {
+  override def partyEntries(beginOffset: Long): Source[(Long, PartyLedgerEntry), NotUsed] = {
+    entries.getSource(Some(beginOffset)).collect {
       case (offset, InMemoryPartyEntry(partyEntry)) => (offset, partyEntry)
     }
   }
