@@ -237,6 +237,17 @@ convertPrim _ "BEToTextNumeric" (TNumeric n :-> TText) =
     ETyApp (EBuiltin BEToTextNumeric) n
 convertPrim _ "BENumericFromText" (TText :-> TOptional (TNumeric n)) =
     ETyApp (EBuiltin BENumericFromText) n
+
+-- Experimental text primitives.
+convertPrim _ "BETextToUpper" (TText :-> TText) = EBuiltin BETextToUpper
+convertPrim _ "BETextToLower" (TText :-> TText) = EBuiltin BETextToLower
+convertPrim _ "BETextSlice" (TInt64 :-> TInt64 :-> TText :-> TText) = EBuiltin BETextSlice
+convertPrim _ "BETextSliceIndex" (TText :-> TText :-> TOptional TInt64) = EBuiltin BETextSliceIndex
+convertPrim _ "BETextContainsOnly" (TText :-> TText :-> TBool) = EBuiltin BETextContainsOnly
+convertPrim _ "BETextReplicate" (TInt64 :-> TText :-> TText) = EBuiltin BETextReplicate
+convertPrim _ "BETextSplitOn" (TText :-> TText :-> TList TText) = EBuiltin BETextSplitOn
+convertPrim _ "BETextIntercalate" (TText :-> TList TText :-> TText) = EBuiltin BETextIntercalate
+
 convertPrim _ x ty = error $ "Unknown primitive " ++ show x ++ " at type " ++ renderPretty ty
 
 -- | Some builtins are only supported in specific versions of DAML-LF.

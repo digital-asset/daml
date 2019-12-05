@@ -88,6 +88,16 @@ featureGenMap = Feature
     , featureCppFlag = "DAML_GENMAP"
     }
 
+-- Unstable, experimental features. This should stay in 1.dev forever.
+-- Features implemented with this flag should be moved to a separate
+-- feature flag once the decision to add them permanently has been made.
+featureUnstable :: Feature
+featureUnstable = Feature
+    { featureName = "Unstable, experimental features"
+    , featureMinVersion = versionDev
+    , featureCppFlag = "DAML_UNSTABLE"
+    }
+
 allFeatures :: [Feature]
 allFeatures =
     [ featureNumeric
@@ -95,6 +105,7 @@ allFeatures =
     , featureTypeRep
     , featureStringInterning
     , featureGenMap
+    , featureUnstable
     ]
 
 allFeaturesForVersion :: Version -> [Feature]

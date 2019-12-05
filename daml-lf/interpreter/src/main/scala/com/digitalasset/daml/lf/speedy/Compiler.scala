@@ -317,6 +317,16 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
               case BGenMapValues => SBGenMapValues
               case BGenMapSize => SBGenMapSize
 
+              // Unstable Text Primitives
+              case BTextToUpper => SBTextToUpper
+              case BTextToLower => SBTextToLower
+              case BTextSlice => SBTextSlice
+              case BTextSliceIndex => SBTextSliceIndex
+              case BTextContainsOnly => SBTextContainsOnly
+              case BTextReplicate => SBTextReplicate
+              case BTextSplitOn => SBTextSplitOn
+              case BTextIntercalate => SBTextIntercalate
+
               // Implemented using normal SExpr
               case BFoldl | BFoldr | BEqualList | BCoerceContractId | BTextMapEmpty |
                   BGenMapEmpty =>

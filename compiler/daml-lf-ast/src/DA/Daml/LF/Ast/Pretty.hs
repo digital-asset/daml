@@ -264,8 +264,16 @@ instance Pretty BuiltinExpr where
     BEPartyToQuotedText -> "PARTY_TO_QUOTED_TEXT"
     BETextToCodePoints -> "TEXT_TO_CODE_POINTS"
     BETextFromCodePoints -> "TEXT_FROM_CODE_POINTS"
-
     BECoerceContractId -> "COERCE_CONTRACT_ID"
+    BETextToUpper -> "TEXT_TO_UPPER"
+    BETextToLower -> "TEXT_TO_LOWER"
+    BETextSlice -> "TEXT_SLICE"
+    BETextSliceIndex -> "TEXT_SLICE_INDEX"
+    BETextContainsOnly -> "TEXT_CONTAINS_ONLY"
+    BETextReplicate -> "TEXT_REPLICATE"
+    BETextSplitOn -> "TEXT_SPLIT_ON"
+    BETextIntercalate -> "TEXT_INTERCALATE"
+
     where
       epochToText fmt secs =
         T.pack $
