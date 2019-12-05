@@ -55,9 +55,9 @@ sealed abstract class Primitive extends PrimitiveInstances {
   type TextMap[+V] <: imm.Map[String, V] with imm.MapLike[String, V, TextMap[V]]
   val TextMap: TextMapApi
 
-  @deprecated("Use TextMap", since = "0.13.38")
+  @deprecated("Use TextMap", since = "0.13.40")
   type Map[+V] = TextMap[V]
-  @deprecated("Use TextMap", since = "0.13.38")
+  @deprecated("Use TextMap", since = "0.13.40")
   val Map: TextMap.type
 
   type GenMap[K, +V] = InsertOrdMap[K, V]
