@@ -41,7 +41,8 @@ class DamlLfEncoderTest
       val modules_1_1 = modules_1_0 + "OptionMod"
       val modules_1_3 = modules_1_1 + "TextMapMod"
       val modules_1_6 = modules_1_3 + "EnumMod"
-      val modules_1_dev = modules_1_6 + "GenMapMod"
+      val modules_1_7 = modules_1_6 + "NumericMod"
+      val modules_1_dev = modules_1_7 + "GenMapMod"
 
       val versions = Table(
         "versions" -> "modues",
@@ -49,6 +50,7 @@ class DamlLfEncoderTest
         "1.1" -> modules_1_1,
         "1.3" -> modules_1_3,
         "1.6" -> modules_1_6,
+        "1.7" -> modules_1_7,
         "1.dev" -> modules_1_dev
       )
 
