@@ -1364,8 +1364,8 @@ object SBuiltin {
                       // would mean dropping the high order bits indiscriminitely,
                       // so for instance (0x100000000L).toInt == 0, resulting in an
                       // empty string below even though `to` was larger than length.
-                    val ifrom = t.offsetByCodepoints(0, rfrom)
-                    val ito = t.offsetByCodepoints(ifrom, rto - rfrom)
+                    val ifrom = t.offsetByCodePoints(0, rfrom)
+                    val ito = t.offsetByCodePoints(ifrom, rto - rfrom)
                     machine.ctrl = CtrlValue(SText(t.slice(ifrom, ito)))
                   }
                 case x =>
