@@ -6,7 +6,6 @@ package com.daml.ledger.participant.state.kvutils
 import java.time.Duration
 
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
-import com.daml.ledger.participant.state.kvutils.committing.Common.DamlStateMap
 import com.daml.ledger.participant.state.v1._
 import com.digitalasset.daml.lf.command.{Command, Commands}
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
@@ -25,7 +24,7 @@ final case class KVTestState(
     recordTime: Timestamp,
     defaultConfig: Configuration,
     nextEntryId: Int,
-    damlState: DamlStateMap) {}
+    damlState: Map[DamlStateKey, DamlStateValue]) {}
 
 object KVTest {
   import scalaz.State._
@@ -96,7 +95,7 @@ object KVTest {
   def advanceRecordTime(micros: Long): KVTest[Unit] =
     modify(s => s.copy(recordTime = s.recordTime.addMicros(micros)))
 
-  def addDamlState(newState: DamlStateMap): KVTest[Unit] =
+  def addDamlState(newState: Map[DamlStateKey, DamlStateValue]): KVTest[Unit] =
     modify(s => s.copy(damlState = s.damlState ++ newState))
 
   def getDamlState(key: DamlStateKey): KVTest[Option[DamlStateValue]] =
@@ -113,9 +112,9 @@ object KVTest {
         defaultConfig = testState.defaultConfig,
         submission = submission,
         participantId = testState.participantId,
-        inputState =
-          submission.getInputDamlStateList.asScala.map(_ -> None).toMap ++
-            testState.damlState.mapValues(Some(_)),
+        inputState = submission.getInputDamlStateList.asScala.map { key =>
+          key -> testState.damlState.get(key)
+        }.toMap,
       )
       _ <- addDamlState(newState)
     } yield {

@@ -6,7 +6,10 @@ package com.daml.ledger.participant.state.kvutils
 import com.codahale.metrics
 import com.daml.ledger.participant.state.kvutils.Conversions._
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
-import com.daml.ledger.participant.state.kvutils.committer.PackageCommitter
+import com.daml.ledger.participant.state.kvutils.committer.{
+  PackageCommitter,
+  PartyAllocationCommitter
+}
 import com.daml.ledger.participant.state.kvutils.committing._
 import com.daml.ledger.participant.state.v1.{Configuration, ParticipantId}
 import com.digitalasset.daml.lf.data.Time.Timestamp
@@ -84,18 +87,19 @@ object KeyValueCommitting {
             recordTime,
             submission.getPackageUploadEntry,
             participantId,
-            inputState.collect { case (k, Some(v)) => k -> v }
+            inputState
           )
           logEntry -> outputs.toMap
 
         case DamlSubmission.PayloadCase.PARTY_ALLOCATION_ENTRY =>
-          ProcessPartyAllocation(
+          val (logEntry, outputs) = PartyAllocationCommitter.run(
             entryId,
             recordTime,
-            participantId,
             submission.getPartyAllocationEntry,
+            participantId,
             inputState
-          ).run
+          )
+          logEntry -> outputs.toMap
 
         case DamlSubmission.PayloadCase.CONFIGURATION_SUBMISSION =>
           ProcessConfigSubmission(

@@ -286,7 +286,8 @@ abstract class UIBackend extends LazyLogging with ApplicationInfoJsonSupport {
     Arguments.parse(rawArgs, defaultConfigFile) foreach run
 
   private def run(args: Arguments): Unit = {
-    val navigatorConfigFile = args.configFile.fold[ConfigOption](DefaultConfig(defaultConfigFile))(ExplicitConfig(_))
+    val navigatorConfigFile =
+      args.configFile.fold[ConfigOption](DefaultConfig(defaultConfigFile))(ExplicitConfig(_))
 
     args.command match {
       case ShowUsage =>
