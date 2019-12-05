@@ -19,7 +19,9 @@ final class LotsOfParties(session: LedgerSession) extends LedgerTestSuite(sessio
   type Parties = Set[Party]
   type PartyMap[T] = Map[Party, T]
 
-  private val partyCount = 1024
+  // Can be set to 1024 parties again after fixing
+  // https://github.com/digital-asset/daml/issues/3747
+  private val partyCount = 125
 
   private val allocation: ParticipantAllocation =
     allocate(Parties(partyCount / 2), Parties(partyCount / 2))

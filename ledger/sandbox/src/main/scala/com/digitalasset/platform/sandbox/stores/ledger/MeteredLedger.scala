@@ -66,6 +66,9 @@ private class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: MetricRegis
   override def parties: Future[List[PartyDetails]] =
     timedFuture(Metrics.parties, ledger.parties)
 
+  override def partyEntries(beginOffset: Long): Source[(Long, PartyLedgerEntry), NotUsed] =
+    ledger.partyEntries(beginOffset)
+
   override def listLfPackages(): Future[Map[PackageId, PackageDetails]] =
     timedFuture(Metrics.listLfPackages, ledger.listLfPackages())
 
@@ -99,7 +102,7 @@ private class MeteredLedger(ledger: Ledger, metrics: MetricRegistry)
   private object Metrics {
     val publishHeartbeat = metrics.timer("Ledger.publishHeartbeat")
     val publishTransaction = metrics.timer("Ledger.publishTransaction")
-    val addParty = metrics.timer("Ledger.addParty")
+    val publishPartyAllocation = metrics.timer("Ledger.publishPartyAllocation")
     val uploadPackages = metrics.timer("Ledger.uploadPackages")
     val publishConfiguration = metrics.timer("Ledger.publishConfiguration ")
   }
@@ -115,10 +118,13 @@ private class MeteredLedger(ledger: Ledger, metrics: MetricRegistry)
       Metrics.publishTransaction,
       ledger.publishTransaction(submitterInfo, transactionMeta, transaction))
 
-  override def allocateParty(
+  def publishPartyAllocation(
+      submissionId: SubmissionId,
       party: Party,
-      displayName: Option[String]): Future[PartyAllocationResult] =
-    timedFuture(Metrics.addParty, ledger.allocateParty(party, displayName))
+      displayName: Option[String]): Future[SubmissionResult] =
+    timedFuture(
+      Metrics.publishPartyAllocation,
+      ledger.publishPartyAllocation(submissionId, party, displayName))
 
   override def uploadPackages(
       knownSince: Instant,

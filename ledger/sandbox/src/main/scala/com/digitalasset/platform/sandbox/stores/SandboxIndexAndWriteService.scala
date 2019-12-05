@@ -4,7 +4,7 @@
 package com.digitalasset.platform.sandbox.stores
 
 import java.time.Instant
-import java.util.concurrent.{CompletableFuture, CompletionStage}
+import java.util.concurrent.CompletionStage
 
 import akka.NotUsed
 import akka.stream.Materializer
@@ -404,6 +404,15 @@ abstract class LedgerBackedIndexService(
   override def listParties(): Future[List[PartyDetails]] =
     ledger.parties
 
+  override def partyEntries(beginOffset: LedgerOffset.Absolute): Source[PartyEntry, NotUsed] = {
+    ledger.partyEntries(beginOffset.value.toLong).map {
+      case (_, PartyLedgerEntry.AllocationRejected(subId, participantId, _, reason)) =>
+        PartyEntry.AllocationRejected(subId, domain.ParticipantId(participantId), reason)
+      case (_, PartyLedgerEntry.AllocationAccepted(subId, participantId, _, details)) =>
+        PartyEntry.AllocationAccepted(subId, domain.ParticipantId(participantId), details)
+    }
+  }
+
   override def close(): Unit = {
     ledger.close()
   }
@@ -420,18 +429,11 @@ class LedgerBackedWriteService(ledger: Ledger, timeProvider: TimeProvider) exten
     FutureConverters.toJava(ledger.publishTransaction(submitterInfo, transactionMeta, transaction))
 
   override def allocateParty(
-      hint: Option[String],
-      displayName: Option[String]): CompletionStage[PartyAllocationResult] = {
-    // In the sandbox, the hint is used as-is.
-    // If hint is not a valid and unallocated party name, the call fails
-    hint.map(p => Party.fromString(p)) match {
-      case None =>
-        FutureConverters.toJava(
-          ledger.allocateParty(PartyIdGenerator.generateRandomId(), displayName))
-      case Some(Right(party)) => FutureConverters.toJava(ledger.allocateParty(party, displayName))
-      case Some(Left(error)) =>
-        CompletableFuture.completedFuture(PartyAllocationResult.InvalidName(error))
-    }
+      hint: Option[Party],
+      displayName: Option[String],
+      submissionId: SubmissionId): CompletionStage[SubmissionResult] = {
+    val party = hint.getOrElse(PartyIdGenerator.generateRandomId())
+    FutureConverters.toJava(ledger.publishPartyAllocation(submissionId, party, displayName))
   }
 
   // WritePackagesService
@@ -445,7 +447,7 @@ class LedgerBackedWriteService(ledger: Ledger, timeProvider: TimeProvider) exten
   // WriteConfigService
   override def submitConfiguration(
       maxRecordTime: Time.Timestamp,
-      submissionId: String,
+      submissionId: SubmissionId,
       config: Configuration): CompletionStage[SubmissionResult] =
     FutureConverters.toJava(ledger.publishConfiguration(maxRecordTime, submissionId, config))
 }

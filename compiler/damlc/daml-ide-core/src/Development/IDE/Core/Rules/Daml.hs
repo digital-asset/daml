@@ -221,18 +221,22 @@ generateRawDalfRule =
                         Left e -> return ([e], Nothing)
                         Right v -> return ([], Just $ LF.simplifyModule v)
 
+getExternalPackages :: Action [LF.ExternalPackage]
+getExternalPackages = do
+    pkgMap <- useNoFile_ GeneratePackageMap
+    stablePackages <- useNoFile_ GenerateStablePackages
+    -- We need to dedup here to make sure that each package only appears once.
+    pure $
+        Map.elems $ Map.fromList $ map (\e@(LF.ExternalPackage pkgId _) -> (pkgId, e)) $
+        map LF.dalfPackagePkg (Map.elems pkgMap) <> map LF.dalfPackagePkg (Map.elems stablePackages)
+
 -- Generates and type checks the DALF for a module.
 generateDalfRule :: Rules ()
 generateDalfRule =
     define $ \GenerateDalf file -> do
         lfVersion <- getDamlLfVersion
         WhnfPackage pkg <- use_ GeneratePackageDeps file
-        pkgMap <- useNoFile_ GeneratePackageMap
-        stablePackages <- useNoFile_ GenerateStablePackages
-        -- We need to dedup here to make sure that each package only appears once.
-        let pkgs =
-                Map.elems $ Map.fromList $ map (\e@(LF.ExternalPackage pkgId _) -> (pkgId, e)) $
-                map LF.dalfPackagePkg (Map.elems pkgMap) <> map LF.dalfPackagePkg (Map.elems stablePackages)
+        pkgs <- getExternalPackages
         let world = LF.initWorldSelf pkgs pkg
         rawDalf <- use_ GenerateRawDalf file
         setPriority priorityGenerateDalf
@@ -363,7 +367,7 @@ generateSerializedDalfRule options =
                                 Right rawDalf -> do
                                     -- LF postprocessing
                                     rawDalf <- pure $ LF.simplifyModule rawDalf
-                                    let pkgs = map LF.dalfPackagePkg $ Map.elems pkgMap
+                                    pkgs <- getExternalPackages
                                     let world = LF.initWorldSelf pkgs (buildPackage (optMbPackageName options) lfVersion dalfDeps)
                                     let liftError e = [ideErrorPretty file e]
                                     let dalfOrErr = do
@@ -578,8 +582,7 @@ contextForFile file = do
 worldForFile :: NormalizedFilePath -> Action LF.World
 worldForFile file = do
     WhnfPackage pkg <- use_ GeneratePackage file
-    pkgMap <- useNoFile_ GeneratePackageMap
-    let pkgs = map LF.dalfPackagePkg $ Map.elems pkgMap
+    pkgs <- getExternalPackages
     pure $ LF.initWorldSelf pkgs pkg
 
 data ScenarioBackendException = ScenarioBackendException

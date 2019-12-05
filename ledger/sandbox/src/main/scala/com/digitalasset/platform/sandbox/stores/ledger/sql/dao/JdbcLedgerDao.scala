@@ -62,7 +62,11 @@ import com.digitalasset.platform.sandbox.stores.ledger.sql.util.{
   DbDispatcher,
   PaginatingAsyncStream
 }
-import com.digitalasset.platform.sandbox.stores.ledger.{ConfigurationEntry, LedgerEntry}
+import com.digitalasset.platform.sandbox.stores.ledger.{
+  ConfigurationEntry,
+  LedgerEntry,
+  PartyLedgerEntry
+}
 import com.google.common.io.ByteStreams
 import scalaz.syntax.tag._
 
@@ -176,8 +180,8 @@ private class JdbcLedgerDao(
   override def lookupLedgerConfiguration(): Future[Option[Configuration]] =
     dbDispatcher.executeSql("lookup_configuration")(implicit conn => selectLedgerConfiguration)
 
-  private val configurationAcceptType = "accept"
-  private val configurationRejectType = "reject"
+  private val acceptType = "accept"
+  private val rejectType = "reject"
 
   private val configurationEntryParser: RowParser[(Long, ConfigurationEntry)] =
     (long("ledger_offset") ~
@@ -200,13 +204,13 @@ private class JdbcLedgerDao(
 
           offset ->
             (typ match {
-              case `configurationAcceptType` =>
+              case `acceptType` =>
                 ConfigurationEntry.Accepted(
                   submissionId = submissionId,
                   participantId = participantId,
                   configuration = config
                 )
-              case `configurationRejectType` =>
+              case `rejectType` =>
                 ConfigurationEntry.Rejected(
                   submissionId = submissionId,
                   participantId = participantId,
@@ -267,9 +271,9 @@ private class JdbcLedgerDao(
         updateLedgerEnd(newLedgerEnd, externalOffset)
         val configurationBytes = Configuration.encode(configuration).toByteArray
         val typ = if (finalRejectionReason.isEmpty) {
-          configurationAcceptType
+          acceptType
         } else {
-          configurationRejectType
+          rejectType
         }
 
         Try({
@@ -285,7 +289,7 @@ private class JdbcLedgerDao(
             )
             .execute()
 
-          if (typ == configurationAcceptType) {
+          if (typ == acceptType) {
             updateCurrentConfiguration(configurationBytes)
           }
 
@@ -298,6 +302,140 @@ private class JdbcLedgerDao(
             PersistenceResponse.Duplicate
         }.get
 
+    }
+  }
+
+  private val SQL_INSERT_PARTY_ENTRY_ACCEPT =
+    SQL(
+      """insert into party_entries(ledger_offset, recorded_at, submission_id, participant_id, typ, party, display_name, is_local)
+        |values ({ledger_offset}, {recorded_at}, {submission_id}, {participant_id}, 'accept', {party}, {display_name}, {is_local})
+        |""".stripMargin)
+
+  private val SQL_INSERT_PARTY_ENTRY_REJECT =
+    SQL(
+      """insert into party_entries(ledger_offset, recorded_at, submission_id, participant_id, typ, rejection_reason)
+        |values ({ledger_offset}, {recorded_at}, {submission_id}, {participant_id}, 'reject', {rejection_reason})
+        |""".stripMargin)
+
+  override def storePartyEntry(
+      offset: LedgerOffset,
+      newLedgerEnd: LedgerOffset,
+      externalOffset: Option[ExternalOffset],
+      partyEntry: PartyLedgerEntry): Future[PersistenceResponse] = {
+    dbDispatcher.executeSql("store_party_entry") { implicit conn =>
+      updateLedgerEnd(newLedgerEnd, externalOffset)
+
+      partyEntry match {
+        case PartyLedgerEntry.AllocationAccepted(
+            submissionIdOpt,
+            participantId,
+            recordTime,
+            partyDetails) =>
+          Try({
+            SQL_INSERT_PARTY_ENTRY_ACCEPT
+              .on(
+                "ledger_offset" -> offset,
+                "recorded_at" -> recordTime,
+                "submission_id" -> submissionIdOpt,
+                "participant_id" -> participantId,
+                "party" -> partyDetails.party,
+                "display_name" -> partyDetails.displayName,
+                "is_local" -> partyDetails.isLocal
+              )
+              .execute()
+
+            storeParty(partyDetails.party, partyDetails.displayName, offset)
+
+            PersistenceResponse.Ok
+          }).recover {
+            case NonFatal(e) if e.getMessage.contains(queries.DUPLICATE_KEY_ERROR) =>
+              logger.warn(
+                s"Ignoring duplicate party submission for submissionId $submissionIdOpt, participantId $participantId")
+              conn.rollback()
+              PersistenceResponse.Duplicate
+          }.get
+        case PartyLedgerEntry.AllocationRejected(submissionId, participantId, recordTime, reason) =>
+          SQL_INSERT_PARTY_ENTRY_REJECT
+            .on(
+              "ledger_offset" -> offset,
+              "recorded_at" -> recordTime,
+              "submission_id" -> submissionId,
+              "participant_id" -> participantId,
+              "rejection_reason" -> reason
+            )
+            .execute()
+          PersistenceResponse.Ok
+      }
+    }
+
+  }
+
+  private val SQL_GET_PARTY_ENTRIES = SQL(
+    "select * from party_entries where ledger_offset>={startInclusive} and ledger_offset<{endExclusive} order by ledger_offset asc limit {pageSize} offset {queryOffset}")
+
+  private val partyEntryParser: RowParser[(Long, PartyLedgerEntry)] =
+    (long("ledger_offset") ~
+      date("recorded_at") ~
+      ledgerString("submission_id").? ~
+      ledgerString("participant_id").? ~
+      party("party").? ~
+      str("display_name").? ~
+      str("typ") ~
+      str("rejection_reason").? ~
+      bool("is_local").?)
+      .map(flatten)
+      .map {
+        case (
+            offset,
+            recordTime,
+            submissionIdOpt,
+            Some(participantId),
+            Some(party),
+            displayNameOpt,
+            `acceptType`,
+            None,
+            Some(isLocal)) =>
+          offset ->
+            PartyLedgerEntry.AllocationAccepted(
+              submissionIdOpt,
+              participantId,
+              recordTime.toInstant,
+              PartyDetails(party, displayNameOpt, isLocal))
+        case (
+            offset,
+            recordTime,
+            Some(submissionId),
+            Some(participantId),
+            None,
+            None,
+            `rejectType`,
+            Some(reason),
+            None) =>
+          offset -> PartyLedgerEntry.AllocationRejected(
+            submissionId,
+            participantId,
+            recordTime.toInstant,
+            reason)
+        case invalidRow =>
+          sys.error(s"getPartyEntries: invalid party entry row: $invalidRow")
+      }
+
+  override def getPartyEntries(
+      startInclusive: LedgerOffset,
+      endExclusive: LedgerOffset): Source[(Long, PartyLedgerEntry), NotUsed] = {
+    PaginatingAsyncStream(PageSize, executionContext) { queryOffset =>
+      dbDispatcher.executeSql(
+        "load_party_entries",
+        Some(s"bounds: [$startInclusive, $endExclusive[ queryOffset $queryOffset")) {
+        implicit conn =>
+          SQL_GET_PARTY_ENTRIES
+            .on(
+              "startInclusive" -> startInclusive,
+              "endExclusive" -> endExclusive,
+              "pageSize" -> PageSize,
+              "queryOffset" -> queryOffset)
+            .as(partyEntryParser.*)
+      }
     }
   }
 
@@ -969,7 +1107,7 @@ private class JdbcLedgerDao(
       str("rejection_type").? ~
       str("rejection_description").? ~
       long("ledger_offset")
-  ) map flatten map (ParsedEntry.tupled)
+  ) map flatten map ParsedEntry.tupled
 
   private val DisclosureParser = ledgerString("event_id") ~ party("party") map flatten
 
@@ -1331,30 +1469,25 @@ private class JdbcLedgerDao(
 
   private val SQL_INSERT_PARTY =
     SQL("""insert into parties(party, display_name, ledger_offset, explicit)
-        |select {party}, {display_name}, ledger_end, 'true'
-        |from parameters""".stripMargin)
+          |values ({party}, {display_name}, {ledger_offset}, 'true')""".stripMargin)
 
-  override def storeParty(
-      party: Party,
-      displayName: Option[String],
-      externalOffset: Option[ExternalOffset]): Future[PersistenceResponse] = {
-    dbDispatcher.executeSql("store_party", Some(s"party: $party")) { implicit conn =>
-      Try {
-        SQL_INSERT_PARTY
-          .on(
-            "party" -> (party: String),
-            "display_name" -> displayName,
-          )
-          .execute()
-        externalOffset.foreach(updateExternalLedgerEnd)
-        PersistenceResponse.Ok
-      }.recover {
-        case NonFatal(e) if e.getMessage.contains(queries.DUPLICATE_KEY_ERROR) =>
-          logger.warn("Party with ID {} already exists", party)
-          conn.rollback()
-          PersistenceResponse.Duplicate
-      }.get
-    }
+  private def storeParty(party: Party, displayName: Option[String], offset: LedgerOffset)(
+      implicit conn: Connection): PersistenceResponse = {
+    Try {
+      SQL_INSERT_PARTY
+        .on(
+          "party" -> (party: String),
+          "display_name" -> displayName,
+          "ledger_offset" -> offset
+        )
+        .execute()
+      PersistenceResponse.Ok
+    }.recover {
+      case NonFatal(e) if e.getMessage.contains(queries.DUPLICATE_KEY_ERROR) =>
+        logger.warn("Party with ID {} already exists", party)
+        conn.rollback()
+        PersistenceResponse.Duplicate
+    }.get
   }
 
   private val SQL_SELECT_PACKAGES =

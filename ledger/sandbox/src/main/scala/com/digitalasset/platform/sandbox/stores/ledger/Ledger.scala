@@ -48,7 +48,10 @@ trait WriteLedger extends ReportsHealth with AutoCloseable {
       transaction: SubmittedTransaction): Future[SubmissionResult]
 
   // Party management
-  def allocateParty(party: Party, displayName: Option[String]): Future[PartyAllocationResult]
+  def publishPartyAllocation(
+      submissionId: SubmissionId,
+      party: Party,
+      displayName: Option[String]): Future[SubmissionResult]
 
   // Package management
   def uploadPackages(
@@ -88,6 +91,8 @@ trait ReadOnlyLedger extends ReportsHealth with AutoCloseable {
   // Party management
   def parties: Future[List[PartyDetails]]
 
+  def partyEntries(beginOffset: Long): Source[(Long, PartyLedgerEntry), NotUsed]
+
   // Package management
   def listLfPackages(): Future[Map[PackageId, PackageDetails]]
 
@@ -97,6 +102,7 @@ trait ReadOnlyLedger extends ReportsHealth with AutoCloseable {
 
   // Configuration management
   def lookupLedgerConfiguration(): Future[Option[Configuration]]
+
   def configurationEntries(offset: Option[Long]): Source[(Long, ConfigurationEntry), NotUsed]
 }
 

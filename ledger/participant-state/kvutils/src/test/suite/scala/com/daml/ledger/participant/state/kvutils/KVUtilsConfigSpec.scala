@@ -7,7 +7,7 @@ import java.time.Duration
 
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.v1.Configuration
-import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Ref.LedgerString.assertFromString
 import org.scalatest.{Matchers, WordSpec}
 
 class KVUtilsConfigSpec extends WordSpec with Matchers {
@@ -21,8 +21,8 @@ class KVUtilsConfigSpec extends WordSpec with Matchers {
         KeyValueSubmission.packDamlSubmission(
           KeyValueSubmission.configurationToSubmission(
             maxRecordTime = theRecordTime,
-            submissionId = "foobar",
-            participantId = Ref.LedgerString.assertFromString("participant"),
+            submissionId = assertFromString("foobar"),
+            participantId = assertFromString("participant"),
             config = theDefaultConfig
           )))
 
@@ -36,14 +36,14 @@ class KVUtilsConfigSpec extends WordSpec with Matchers {
       for {
         logEntry <- submitConfig(
           configModify = c => c.copy(generation = c.generation + 1),
-          submissionId = "submission0"
+          submissionId = assertFromString("submission0")
         )
         newConfig <- getConfiguration
 
         // Change again, but without bumping generation.
         logEntry2 <- submitConfig(
           configModify = c => c.copy(generation = c.generation),
-          submissionId = "submission1"
+          submissionId = assertFromString("submission1")
         )
         newConfig2 <- getConfiguration
 
@@ -61,9 +61,13 @@ class KVUtilsConfigSpec extends WordSpec with Matchers {
 
     "reject expired submissions" in KVTest.runTest {
       for {
-        logEntry <- submitConfig(mrtDelta = Duration.ofMinutes(-1), configModify = { c =>
-          c.copy(generation = c.generation + 1)
-        })
+        logEntry <- submitConfig(
+          mrtDelta = Duration.ofMinutes(-1),
+          configModify = { c =>
+            c.copy(generation = c.generation + 1)
+          },
+          submissionId = assertFromString("some-submission-id")
+        )
       } yield {
         logEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.CONFIGURATION_REJECTION_ENTRY
         logEntry.getConfigurationRejectionEntry.getReasonCase shouldEqual DamlConfigurationRejectionEntry.ReasonCase.TIMED_OUT

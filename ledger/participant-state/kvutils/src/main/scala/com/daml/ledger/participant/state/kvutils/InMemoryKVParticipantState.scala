@@ -15,9 +15,9 @@ import akka.pattern.gracefulStop
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
 import com.daml.ledger.participant.state.kvutils.{DamlKvutils => Proto}
-import com.daml.ledger.participant.state.v1.{UploadPackagesResult, _}
+import com.daml.ledger.participant.state.v1._
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.{LedgerString, Party}
+import com.digitalasset.daml.lf.data.Ref.LedgerString
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.engine.Engine
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
@@ -74,14 +74,10 @@ object InMemoryKVParticipantState {
   /** A periodically emitted heartbeat that is committed to the ledger. */
   final case class CommitHeartbeat(recordTime: Timestamp) extends Commit
 
-  sealed trait RequestMatch extends Serializable with Product
-
   final case class AddPackageUploadRequest(
       submissionId: String,
       cf: CompletableFuture[UploadPackagesResult])
-  final case class AddPartyAllocationRequest(
-      submissionId: String,
-      cf: CompletableFuture[PartyAllocationResult])
+
   final case class AddPotentialResponse(idx: Int)
 
 }
@@ -166,14 +162,10 @@ class InMemoryKVParticipantState(
     * with asynchronous responses delivered within the log entries.
     */
   class ResponseMatcher extends Actor {
-    var partyRequests: Map[String, CompletableFuture[PartyAllocationResult]] = Map.empty
     var packageRequests: Map[String, CompletableFuture[UploadPackagesResult]] = Map.empty
 
     @SuppressWarnings(Array("org.wartremover.warts.Any"))
     override def receive: Receive = {
-      case AddPartyAllocationRequest(submissionId, cf) =>
-        partyRequests += (submissionId -> cf); ()
-
       case AddPackageUploadRequest(submissionId, cf) =>
         packageRequests += (submissionId -> cf); ()
 
@@ -197,15 +189,6 @@ class InMemoryKVParticipantState(
                 )
               }
               .foreach {
-                case KeyValueConsumption.PartyAllocationResponse(submissionId, result) =>
-                  partyRequests
-                    .getOrElse(
-                      submissionId,
-                      sys.error(
-                        s"partyAllocation response: $submissionId could not be matched with a request!"))
-                    .complete(result)
-                  partyRequests -= submissionId
-
                 case KeyValueConsumption.PackageUploadResponse(submissionId, result) =>
                   packageRequests
                     .getOrElse(
@@ -345,8 +328,8 @@ class InMemoryKVParticipantState(
       zeroIndex = beginning,
       headAtInitialization = beginning)
 
-  /** Helper for [[dispatcher]] to fetch [[DamlLogEntry]] from the
-    * state and convert it into [[Update]].
+  /** Helper for [[dispatcher]] to fetch [[com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlLogEntry]] from the
+    * state and convert it into [[com.daml.ledger.participant.state.v1.Update]].
     */
   private def getUpdate(idx: Int, state: State): List[Update] = {
     assert(idx >= 0 && idx < state.commitLog.size)
@@ -450,35 +433,25 @@ class InMemoryKVParticipantState(
 
   /** Allocate a party on the ledger */
   override def allocateParty(
-      hint: Option[String],
-      displayName: Option[String]): CompletionStage[PartyAllocationResult] = {
+      hint: Option[Party],
+      displayName: Option[String],
+      submissionId: SubmissionId): CompletionStage[SubmissionResult] = {
+    val party = hint.getOrElse(generateRandomParty())
+    val submission =
+      KeyValueSubmission.partyToSubmission(submissionId, Some(party), displayName, participantId)
 
-    hint.map(p => Party.fromString(p)) match {
-      case None =>
-        allocatePartyOnLedger(generateRandomId(), displayName)
-      case Some(Right(party)) =>
-        allocatePartyOnLedger(party, displayName)
-      case Some(Left(error)) =>
-        CompletableFuture.completedFuture(PartyAllocationResult.InvalidName(error))
-    }
-  }
-
-  private def allocatePartyOnLedger(
-      party: String,
-      displayName: Option[String]): CompletionStage[PartyAllocationResult] = {
-    val sId = submissionIdSource.getAndIncrement().toString
-    val cf = new CompletableFuture[PartyAllocationResult]
-    matcherActorRef ! AddPartyAllocationRequest(sId, cf)
-    commitActorRef ! CommitSubmission(
-      allocateEntryId,
-      Envelope.enclose(
-        KeyValueSubmission.partyToSubmission(sId, Some(party), displayName, participantId)
+    CompletableFuture.completedFuture({
+      commitActorRef ! CommitSubmission(
+        allocateEntryId,
+        Envelope.enclose(
+          submission
+        )
       )
-    )
-    cf
+      SubmissionResult.Acknowledged
+    })
   }
 
-  private def generateRandomId(): Ref.Party =
+  private def generateRandomParty(): Ref.Party =
     Ref.Party.assertFromString(s"party-${UUID.randomUUID().toString.take(8)}")
 
   /** Upload DAML-LF packages to the ledger */
@@ -559,7 +532,7 @@ class InMemoryKVParticipantState(
   /** Submit a new configuration to the ledger. */
   override def submitConfiguration(
       maxRecordTime: Timestamp,
-      submissionId: String,
+      submissionId: SubmissionId,
       config: Configuration): CompletionStage[SubmissionResult] =
     CompletableFuture.completedFuture({
       val submission =
