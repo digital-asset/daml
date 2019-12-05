@@ -18,21 +18,30 @@ import java.util.Set;
 public interface TransactionsClient {
 
     Flowable<Transaction> getTransactions(LedgerOffset begin, LedgerOffset end, TransactionFilter filter, boolean verbose);
+    Flowable<Transaction> getTransactions(LedgerOffset begin, LedgerOffset end, TransactionFilter filter, boolean verbose, String accessToken);
 
     Flowable<Transaction> getTransactions(LedgerOffset begin, TransactionFilter filter, boolean verbose);
+    Flowable<Transaction> getTransactions(LedgerOffset begin, TransactionFilter filter, boolean verbose, String accessToken);
 
     Flowable<TransactionTree> getTransactionsTrees(LedgerOffset begin, LedgerOffset end, TransactionFilter filter, boolean verbose);
+    Flowable<TransactionTree> getTransactionsTrees(LedgerOffset begin, LedgerOffset end, TransactionFilter filter, boolean verbose, String accessToken);
 
     Flowable<TransactionTree> getTransactionsTrees(LedgerOffset begin, TransactionFilter filter, boolean verbose);
+    Flowable<TransactionTree> getTransactionsTrees(LedgerOffset begin, TransactionFilter filter, boolean verbose, String accessToken);
 
     Single<TransactionTree> getTransactionByEventId(String eventId, Set<String> requestingParties);
+    Single<TransactionTree> getTransactionByEventId(String eventId, Set<String> requestingParties, String accessToken);
 
     Single<TransactionTree> getTransactionById(String transactionId, Set<String> requestingParties);
+    Single<TransactionTree> getTransactionById(String transactionId, Set<String> requestingParties, String accessToken);
 
     Single<Transaction> getFlatTransactionByEventId(String eventId, Set<String> requestingParties);
+    Single<Transaction> getFlatTransactionByEventId(String eventId, Set<String> requestingParties, String accessToken);
 
     Single<Transaction> getFlatTransactionById(String transactionId, Set<String> requestingParties);
+    Single<Transaction> getFlatTransactionById(String transactionId, Set<String> requestingParties, String accessToken);
 
     Single<LedgerOffset> getLedgerEnd();
+    Single<LedgerOffset> getLedgerEnd(String accessToken);
 
 }

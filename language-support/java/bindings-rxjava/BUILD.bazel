@@ -59,7 +59,6 @@ testDependencies = [
     "@maven//:org_slf4j_slf4j_api",
     "//ledger-api/grpc-definitions:ledger-api-scalapb",
     "//libs-scala/grpc-utils",
-    "//language-support/java/testkit:testkit",
     "//ledger-api/rs-grpc-bridge:rs-grpc-bridge",
     "//ledger/ledger-api-auth",
     "//ledger/ledger-api-common",
