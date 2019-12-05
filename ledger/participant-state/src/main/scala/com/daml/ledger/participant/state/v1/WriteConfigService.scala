@@ -27,7 +27,7 @@ trait WriteConfigService {
     */
   def submitConfiguration(
       maxRecordTime: Timestamp,
-      submissionId: String,
+      submissionId: SubmissionId,
       config: Configuration
   ): CompletionStage[SubmissionResult]
 }

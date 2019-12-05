@@ -156,7 +156,11 @@ object ApiServices {
 
       val apiPartyManagementService =
         ApiPartyManagementService
-          .createApiService(partyManagementService, writeService, loggerFactory)
+          .createApiService(
+            partyManagementService,
+            transactionsService,
+            writeService,
+            loggerFactory)
 
       val apiPackageManagementService =
         ApiPackageManagementService.createApiService(indexService, writeService, loggerFactory)
