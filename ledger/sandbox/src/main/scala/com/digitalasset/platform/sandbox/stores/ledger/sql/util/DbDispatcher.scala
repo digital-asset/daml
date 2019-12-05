@@ -18,7 +18,7 @@ import com.digitalasset.platform.sandbox.stores.ledger.sql.util.DbDispatcher._
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 import org.slf4j.Logger
 
-import scala.concurrent.{ExecutionContext, Future, Promise}
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
 
 final class DbDispatcher(
@@ -30,7 +30,8 @@ final class DbDispatcher(
     metrics: MetricRegistry,
 ) extends AutoCloseable
     with ReportsHealth {
-  private val streamingThreadPool = ExecutionContext.fromExecutorService(streamingExecutor)
+  private val sqlExecution = ExecutionContext.fromExecutorService(sqlExecutor)
+  private val streamingExecution = ExecutionContext.fromExecutorService(streamingExecutor)
 
   private val transientFailureCount: AtomicInteger = new AtomicInteger(0)
 
@@ -53,11 +54,10 @@ final class DbDispatcher(
   def executeSql[T](description: String, extraLog: Option[String] = None)(
       sql: Connection => T
   ): Future[T] = {
-    val promise = Promise[T]
     val waitTimer = metrics.timer(s"sql_${description}_wait")
     val execTimer = metrics.timer(s"sql_${description}_exec")
     val startWait = System.nanoTime()
-    sqlExecutor.execute(() => {
+    Future {
       val waitNanos = System.nanoTime() - startWait
       extraLog.foreach(log =>
         logger.trace(s"$description: $log wait ${(waitNanos / 1E6).toLong} ms"))
@@ -66,35 +66,37 @@ final class DbDispatcher(
       val startExec = System.nanoTime()
       try {
         // Actual execution
-        promise.success(connectionProvider.runSQL(sql))
+        val result = connectionProvider.runSQL(sql)
         transientFailureCount.set(0)
+        result
       } catch {
         case e: SQLTransientConnectionException =>
           transientFailureCount.incrementAndGet()
-          promise.failure(e)
+          throw e
         case NonFatal(e) =>
           logger.error(
             s"$description: Got an exception while executing a SQL query. Rolled back the transaction.",
             e)
-          promise.failure(e)
+          throw e
+        // fatal errors don't make it for some reason to the setUncaughtExceptionHandler
         case t: Throwable =>
-          logger.error(s"$description: got a fatal error!", t) //fatal errors don't make it for some reason to the setUncaughtExceptionHandler above
+          logger.error(s"$description: got a fatal error!", t)
           throw t
+      } finally {
+        // decouple metrics updating from sql execution above
+        try {
+          val execNanos = System.nanoTime() - startExec
+          extraLog.foreach(log =>
+            logger.trace(s"$description: $log exec ${(execNanos / 1E6).toLong} ms"))
+          execTimer.update(execNanos, TimeUnit.NANOSECONDS)
+          Metrics.execAllTimer.update(execNanos, TimeUnit.NANOSECONDS)
+        } catch {
+          case t: Throwable =>
+            logger
+              .error(s"$description: Got an exception while updating timer metrics. Ignoring.", t)
+        }
       }
-
-      // decouple metrics updating from sql execution above
-      try {
-        val execNanos = System.nanoTime() - startExec
-        extraLog.foreach(log =>
-          logger.trace(s"$description: $log exec ${(execNanos / 1E6).toLong} ms"))
-        execTimer.update(execNanos, TimeUnit.NANOSECONDS)
-        Metrics.execAllTimer.update(execNanos, TimeUnit.NANOSECONDS)
-      } catch {
-        case t: Throwable =>
-          logger.error("$description: Got an exception while updating timer metrics. Ignoring.", t)
-      }
-    })
-    promise.future
+    }(sqlExecution)
   }
 
   /**
@@ -111,7 +113,7 @@ final class DbDispatcher(
     // Getting a connection can block! Presumably, it only blocks if the connection pool has no free connections.
     // getStreamingConnection calls can therefore not be parallelized, and we use a single thread for all of them.
     Source
-      .fromFuture(Future(connectionProvider.getStreamingConnection())(streamingThreadPool))
+      .fromFuture(Future(connectionProvider.getStreamingConnection())(streamingExecution))
       .flatMapConcat(conn =>
         sql(conn)
           .mapMaterializedValue { f =>
@@ -148,9 +150,8 @@ object DbDispatcher {
         new ThreadFactoryBuilder()
           .setDaemon(true)
           .setNameFormat("sql-executor-%d")
-          .setUncaughtExceptionHandler((_, e) => {
-            logger.error("Got an uncaught exception in SQL executor!", e)
-          })
+          .setUncaughtExceptionHandler((_, e) =>
+            logger.error("Got an uncaught exception in SQL executor!", e))
           .build()
       )
 
@@ -161,7 +162,8 @@ object DbDispatcher {
           .setNameFormat("JdbcConnectionAccessor")
           .setUncaughtExceptionHandler((thread, t) =>
             logger.error(s"got an uncaught exception on thread: ${thread.getName}", t))
-          .build())
+          .build()
+      )
 
     new DbDispatcher(
       noOfShortLivedConnections,
