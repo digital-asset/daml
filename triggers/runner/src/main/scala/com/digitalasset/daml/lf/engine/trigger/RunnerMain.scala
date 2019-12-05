@@ -23,7 +23,7 @@ import com.digitalasset.ledger.client.configuration.{
   LedgerClientConfiguration,
   LedgerIdRequirement
 }
-import com.digitalasset.ledger.service.TokenHolder
+import com.digitalasset.auth.TokenHolder
 
 object RunnerMain {
 

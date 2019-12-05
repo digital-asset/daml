@@ -28,7 +28,7 @@ import com.digitalasset.ledger.api.v1.command_submission_service._
 import com.digitalasset.ledger.api.v1.commands._
 import com.digitalasset.ledger.api.v1.value
 import com.digitalasset.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
-import com.digitalasset.ledger.service.TokenHolder
+import com.digitalasset.auth.TokenHolder
 import com.digitalasset.daml.lf.archive.DarReader
 import com.digitalasset.daml.lf.archive.Dar
 import com.digitalasset.daml.lf.language.Ast._

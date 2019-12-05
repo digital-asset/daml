@@ -11,6 +11,7 @@ import akka.http.scaladsl.Http.ServerBinding
 import akka.http.scaladsl.settings.ServerSettings
 import akka.stream.Materializer
 import com.digitalasset.api.util.TimeProvider
+import com.digitalasset.auth.TokenHolder
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.http.dbbackend.ContractDao
 import com.digitalasset.http.json.{
@@ -33,7 +34,7 @@ import com.digitalasset.ledger.client.configuration.{
 }
 import com.digitalasset.ledger.client.services.pkg.PackageClient
 import com.digitalasset.ledger.service.LedgerReader.PackageStore
-import com.digitalasset.ledger.service.{LedgerReader, TokenHolder}
+import com.digitalasset.ledger.service.LedgerReader
 import com.typesafe.scalalogging.StrictLogging
 import io.grpc.netty.NettyChannelBuilder
 import scalaz.Scalaz._

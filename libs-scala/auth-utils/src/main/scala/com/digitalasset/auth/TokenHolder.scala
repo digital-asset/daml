@@ -1,7 +1,7 @@
 // Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.service
+package com.digitalasset.auth
 
 import java.nio.file.{Files, Path}
 import java.util.concurrent.atomic.AtomicReference
@@ -15,7 +15,7 @@ object TokenHolder {
 
   private val logger = LoggerFactory.getLogger(classOf[TokenHolder])
 
-  private def slurpToken(path: Path): Option[String] =
+  private def slurp(path: Path): Option[String] =
     try {
       logger.info(s"Reading token from $path...")
       Option(Files.readAllLines(path).stream.collect(Collectors.joining("\n")))
@@ -29,12 +29,10 @@ object TokenHolder {
 
 final class TokenHolder(path: Path) {
 
-  import TokenHolder.slurpToken
-
-  private[this] val ref = new AtomicReference(slurpToken(path))
+  private val ref = new AtomicReference(TokenHolder.slurp(path))
 
   def token: Option[String] = ref.get()
 
-  def refresh(): Unit = ref.set(slurpToken(path))
+  def refresh(): Unit = ref.set(TokenHolder.slurp(path))
 
 }
