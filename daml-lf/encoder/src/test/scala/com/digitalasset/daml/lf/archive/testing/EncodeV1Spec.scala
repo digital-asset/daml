@@ -130,6 +130,7 @@ class EncodeV1Spec extends WordSpec with Matchers with TableDrivenPropertyChecks
              uget_time;
            val anEmbedExpr: forall (a: *). Update a -> Update a = /\ (a: *). \ (x: Update a) ->
              uembed_expr @a x;
+           val isZero: Int64 -> Bool = EQUAL @Int64 0;
          }
         
       """

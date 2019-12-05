@@ -248,6 +248,7 @@ object Ast {
     // works because Numeric.Scale.MinValue = 0
     val values = Numeric.Scale.values.map(new TNat(_))
     def apply(n: Numeric.Scale): TNat = values(n)
+    val Decimal: TNat = values(10)
   }
 
   /** Reference to a type constructor. */
@@ -424,16 +425,10 @@ object Ast {
   final case object BGreaterEqDate extends BuiltinFunction(2) // : Date → Date → Bool
   final case object BGreaterEqParty extends BuiltinFunction(2) // : Party → Party → Bool
 
-  final case object BEqualInt64 extends BuiltinFunction(2) // : Int64 -> Int64 -> Bool
   final case object BEqualNumeric extends BuiltinFunction(2) // :  ∀s. Numeric s ->  ∀s. Numeric s -> Bool
-  final case object BEqualText extends BuiltinFunction(2) // : Text -> Text -> Bool
-  final case object BEqualTimestamp extends BuiltinFunction(2) // : Timestamp -> Timestamp -> Bool
-  final case object BEqualDate extends BuiltinFunction(2) // : Date -> Date -> Bool
-  final case object BEqualParty extends BuiltinFunction(2) // : Party -> Party -> Bool
-  final case object BEqualBool extends BuiltinFunction(2) // : Bool -> Bool -> Bool
   final case object BEqualList extends BuiltinFunction(3) // : ∀a. (a -> a -> Bool) -> List a -> List a -> Bool
   final case object BEqualContractId extends BuiltinFunction(2) // : ∀a. ContractId a -> ContractId a -> Bool
-  final case object BEqualTypeRep extends BuiltinFunction(2) // : TypeRep -> TypeRep -> Bool
+  final case object BEqual extends BuiltinFunction(2) // ∀a. a -> a -> Bool
   final case object BCoerceContractId extends BuiltinFunction(1) // : ∀a b. ContractId a -> ContractId b
 
   // Unstable Text Primitives
