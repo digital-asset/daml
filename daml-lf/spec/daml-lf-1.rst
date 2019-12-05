@@ -378,7 +378,6 @@ US-ASCII characters (See the rules `PackageIdChar` and `PartyIdChar`
 below for the exact sets of characters). We use those string in
 instances when we want to avoid empty identifiers, escaping problems,
 and other similar pitfalls. ::
-
   PackageId strings
    PackageIdString ::= ' PackageIdChars '             -- PackageIdString
 
@@ -417,7 +416,7 @@ We can now define all the literals that a program can handle::
      LitTimestamp ∈  \d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(.\d{1,3})?Z
                                                      -- LitTimestamp
   UTF8 string literals:
-         LitText ::= String                          -- LitText
+               t ::= String                          -- LitText
 
   Party literals:
         LitParty ::= PartyIdString                   -- LitParty
@@ -453,6 +452,11 @@ The literals represent actual DAML-LF values:
    ``LitInt64`` since it cannot be encoded as a signed 64-bits
    integer, i.e. it equals ``2⁶³``.  Similarly,``2019-13-28`` is not a
    valid ``LitDate`` because there are only 12 months in a year.
+
+Number likes literals (``LitNatTyp``, ``LitInt64``, ``LitNumeric``,
+``LitDate``, ``LitTimestamp``) are ordered by natural ordering. Text
+like literal (``LitText`` and ``LitParty`` are order lexicographically.
+Contract Id are not ordered.
 
 
 Identifiers
@@ -563,7 +567,7 @@ Then we can define our kinds, types, and expressions::
        |  'Bool'                                    -- BTyBool
        |  'List'                                    -- BTyList
        |  'Option'                                  -- BTyOption
-       |  'TextMap'                                 -- BTTextMap: map with string keys
+       |  'TextMap'                                 -- BTTextMap: map with string keys 
        |  'GenMap'                                  -- BTGenMap: map with general value keys
        |  'Update'                                  -- BTyUpdate
        |  'ContractId'                              -- BTyContractId
@@ -591,13 +595,9 @@ Then we can define our kinds, types, and expressions::
        |  ()                                        -- ExpUnit
        |  'True'                                    -- ExpTrue
        |  'False'                                   -- ExpFalse
-       |  'Nil' @τ                                  -- ExpListNil: Empty list
-       |  'Cons' @τ e₁ e₂                           -- ExpListCons: Cons list
-       |  'None' @τ                                 -- ExpOptionNone: Empty Option
-       |  'Some' @τ e                               -- ExpOptionSome: Non-empty Option
        |  LitInt64                                  -- ExpLitInt64: 64-bit integer literal
        |  LitNumeric                                -- ExpLitNumeric: Numeric literal
-       |  LitText                                   -- ExpLitText: UTF-8 string literal
+       |  t                                         -- ExpLitText: UTF-8 string literal
        |  LitDate                                   -- ExpLitDate: Date literal
        |  LitTimestamp                              -- ExpLitTimestamp: UTC timestamp literal
        |  LitParty                                  -- ExpLitParty: Party literal
@@ -612,10 +612,16 @@ Then we can define our kinds, types, and expressions::
        |  ⟨ f₁ = e₁, …, fₘ = eₘ ⟩                   -- ExpStructCon: Struct construction
        |  e.f                                       -- ExpStructProj: Struct projection
        |  ⟨ e₁ 'with' f = e₂ ⟩                      -- ExpStructUpdate: Struct update
-       |  u                                         -- ExpUpdate: Update expression
+       |  'Nil' @τ                                  -- ExpListNil: Empty list
+       |  'Cons' @τ e₁ e₂                           -- ExpListCons: Cons list
+       |  'None' @τ                                 -- ExpOptionNone: Empty Option
+       |  'Some' @τ e                               -- ExpOptionSome: Non-empty Option
+       |  [t₁ ↦ e₁; …; tₙ ↦ eₙ]                     -- ExpTextMap
+       | 〚e₁ ↦ e₁; …; eₙ ↦ eₙ'〛                 -- ExpGenMap       
        | 'to_any' @τ t                              -- ExpToAny: Wrap a value of the given type in Any
        | 'from_any' @τ t                            -- ExpToAny: Extract a value of the given from Any or return None
        | 'type_rep' @τ                              -- ExpToTypeRep: A type representation
+       |  u                                         -- ExpUpdate: Update expression
 
   Patterns
     p
@@ -643,10 +649,12 @@ Then we can define our kinds, types, and expressions::
        |  'embed_expr' @τ e                         -- UpdateEmbedExpr
 
 
-.. (RH) is better?
-    *  Mod:T @τ₁ … @τₙ {f} e
-    *  e.(Mod:T @τ₁ … @τₙ)
-
+.. note:: The explicit syntax for maps (cases ``ExpTextMap`` and
+  ``ExpGenMap``) is forbidden in serialized programs. It is specifies
+  here to ease the definition of `values`_, `operational semantics`_
+  and `generic equality`_. In practice, `text map functions`_ and
+  `generic map functions`_ are the only way to create and handle those
+  objects.
 
 In the following, we will use ``τ₁ → τ₂`` as syntactic sugar for the
 type application ``('TArrow' τ₁ τ₂)`` where ``τ₁`` and ``τ₂`` are
@@ -918,6 +926,16 @@ Then we define *well-formed expressions*. ::
     ——————————————————————————————————————————————————————————————— ExpOptionSome
       Γ  ⊢  'Some' @τ e  :  'Option' τ
 
+      ∀ i,j ∈ 1, …, n  i > j ∨ tᵢ ≤ tⱼ  
+      Γ  ⊢  e₁  :  τ     Γ  ⊢  eₙ :  τ
+    ——————————————————————————————————————————————————————————————— ExpTextMap
+      Γ  ⊢  [t₁ ↦ e₁; …; tₙ ↦ eₙ] : 'TextMap' τ                  
+
+      Γ  ⊢  e₁  :  σ      Γ  ⊢  eₙ :  σ
+      Γ  ⊢  e₁'  :  τ     Γ  ⊢  eₙ' :  τ
+    ——————————————————————————————————————————————————————————————— ExpGenMap (*)
+      Γ  ⊢  〚e₁ ↦ e₁'; …; eₙ ↦ eₙ'〛: GenMap σ τ                   
+      
       τ contains no quantifiers
       ε  ⊢  τ : *     Γ  ⊢  e  : τ
     ——————————————————————————————————————————————————————————————— ExpToAny
@@ -943,7 +961,7 @@ Then we define *well-formed expressions*. ::
       Γ  ⊢  LitNumeric  :  'Numeric' n
 
     ——————————————————————————————————————————————————————————————— ExpLitText
-      Γ  ⊢  LitText  :  'Text'
+      Γ  ⊢  t  :  'Text'
 
     ——————————————————————————————————————————————————————————————— ExpLitDate
       Γ  ⊢  LitDate  :  'Date'
@@ -1125,6 +1143,13 @@ Then we define *well-formed expressions*. ::
     ——————————————————————————————————————————————————————————————— UpdEmbedExpr
       Γ  ⊢  'embed_expr' @τ e  :  Update' τ
 
+
+.. note :: Unlike ``ExpTextMap``, the ``ExpGenMap`` rule does not
+  enforce uniqueness of key. In practice, the uniqueness is enforced
+  by the `builtin functions <Generic Map functions>`_ that are the
+  only way to handle generic maps in a serialized program, the
+  explicit syntax for maps being forbidden in serialized programs.
+      
 
 Serializable types
 ..................
@@ -1487,7 +1512,7 @@ need to be evaluated further. ::
      ⊢ᵥ  LitNumeric
 
    ——————————————————————————————————————————————————— ValExpLitText
-     ⊢ᵥ  LitText
+     ⊢ᵥ  t
 
    ——————————————————————————————————————————————————— ValExpLitDate
      ⊢ᵥ  LitDate
@@ -1521,6 +1546,15 @@ need to be evaluated further. ::
    ——————————————————————————————————————————————————— ValExpOptionSome
      ⊢ᵥ  'Some' @τ e
 
+     ⊢ᵥ  e₁    ⋯    ⊢ᵥ eₙ
+   ——————————————————————————————————————————————————— ValExpTextMap
+     ⊢ᵥ  [t₁ ↦ e₁; ⋯ ; tₙ ↦ eₙ]
+
+     ⊢ᵥ  e₁    ⋯    ⊢ᵥ eₙ
+     ⊢ᵥ  e₁'   ⋯    ⊢ᵥ eₙ'
+   ——————————————————————————————————————————————————— ValExpGenMap
+     ⊢ᵥ  〚e₁ ↦ e₁'; ⋯ ; eₙ ↦ eₙ'〛
+     
      0 ≤ k < m
      𝕋(F) = ∀ (α₁: ⋆) … (αₘ: ⋆). σ₁ → … → σₙ → σ
    ——————————————————————————————————————————————————— ValExpBuiltin₁
@@ -1592,7 +1626,7 @@ need to be evaluated further. ::
 
 Note that the argument of an embedded expression does not need to be a
 value for the whole to be so.  In the following, we will use the
-symbol ``v`` to represent an expression which is a value.
+symbol ``v`` or ``w`` to represent an expression which is a value.
 
 
 Pattern matching
@@ -1653,7 +1687,106 @@ bound by pattern.
     —————————————————————————————————————————————————————————————————————— MatchFail
        v 'matches' p  ⇝  Fail
 
+       
+Value equality
+~~~~~~~~~~~~~~
 
+We define here the relation ``~ᵥ`` on values that is used as equality
+check. This is a partial equivalence relation over all values, but a
+(total) equivalence relation over serialized values. This relation
+will always be used to compare values of same types::
+
+                                  ┌────────┐
+  Generic Equivalence Relation    │ v ~ᵥ w │
+                                  └────────┘
+	   
+   LitNumeric₁ and LitNumeric₂ have the same scale and value
+  ——————————————————————————————————————————————————— GenEqLitNumeric
+   LitNumeric₁ ~ᵥ LitNumeric₂
+
+   t₁ and t₂ have the same value
+  ——————————————————————————————————————————————————— GenEqLitText
+   t₁ ~ᵥ t₂
+
+   LitDate₁ and LitDate₂ have the same value
+  ——————————————————————————————————————————————————— GenEqLitDate
+   LitDate₁ ~ᵥ LitDate₂
+
+   LitTimestamp₁ and LitTimestamp₂ have the same value
+  ——————————————————————————————————————————————————— GenEqLitTimestamp
+   LitTimestamp₁ ~ᵥ LitTimestamp₂
+
+   cid₁ and cid₂ are the same
+  ——————————————————————————————————————————————————— GenEqLitContractId
+   cid₁ ~ᵥ cid₂
+
+  ——————————————————————————————————————————————————— GenEqUnit
+   () ~ᵥ ()
+
+  ——————————————————————————————————————————————————— GenEqTrue
+   'True' ~ᵥ 'True'
+
+  ——————————————————————————————————————————————————— GenEqFalse
+   'False' ~ᵥ 'False'
+
+  ——————————————————————————————————————————————————— GenEqListNil
+   'Nil' @τ₁ ~ᵥ 'Nil' @τ₂
+
+   vₕ ~ᵥ wₕ  vₜ ~ᵥ wₜ
+  ——————————————————————————————————————————————————— GenEqListCons
+   'Cons' @τ vₕ vₜ  ~ᵥ 'Cons' @τ wₜ wₜ
+
+  ——————————————————————————————————————————————————— GenEqOptionNone
+   'None' @τ ~ᵥ 'None' @σ
+
+   v ~ᵥ w
+  ——————————————————————————————————————————————————— GenEqOptionSome
+   'Some' @τ v ~ᵥ 'Some' @τ w
+
+   v₁ ~ᵥ v₁     …       vₙ ~ᵥ wₙ
+  ——————————————————————————————————————————————————— GenEqRecCon
+  Mod:T @τ … @τ { f₁ = v₁, …, fₙ = wₙ }
+    ~ᵥ Mod:T @τ … @τ { f₁ = w₁, …, fₙ = wₙ }
+
+   v ~ᵥ w
+  ——————————————————————————————————————————————————— GenEqVariantCon
+   Mod:T:V @τ … @τ v ~ᵥ Mod:T:V @τ … @τ w
+
+  ——————————————————————————————————————————————————— GenEqEnumCon
+   Mod:T:E ~ᵥ Mod:T:E
+
+   v₁ ~ᵥ w₁     …       vₙ ~ᵥ wₙ
+  ——————————————————————————————————————————————————— GenEqStructCon
+   ⟨ f₁ = v₁, …, fₘ = vₘ ⟩ ~ᵥ ⟨ f₁ = w₁, …, fₘ = wₘ ⟩
+
+
+    ∀ i ∈ 1 ⋯ m, ∃ j ∈ 1 ⋯ m, vⱼ ~ vₘ  v(vⱼ) = w(vₘ)
+   
+
+    v₁ ~ᵥ w₁     …       vₙ ~ᵥ wₙ
+  ——————————————————————————————————————————————————— GenEqTextMap
+   [ t₁ ↦ w₁, …, tₘ ↦ wₘ ]
+     ~ᵥ  [s₁ ↦ w₁, …, sₘ ↦ wₘ]
+
+
+  ——————————————————————————————————————————————————— GenEqEmptyGenMap
+   〚 〛 ~ᵥ 〚 〛
+
+    i ∈ { 1 … m }      vᵢ ~ᵥ v₁'      wᵢ ~ᵥ w₁'
+   〚 v₁ ↦ w₁, …, vᵢ₋₁ ↦ vᵢ₋₁, vᵢ₊₁ ↦ vᵢ₊₁, …,  vₘ ↦ wₘ 〛
+      ~ᵥ〚 v₂' ↦ w₂', …, vₘ' ↦ wₘ' 〛
+  ——————————————————————————————————————————————————— GenEqNonEmptyGenMap
+   〚 v₁ ↦ w₁, …, vₘ ↦ wₘ 〛 ~ᵥ 〚 v₁' ↦ w₁', …, vₘ' ↦ wₘ 〛
+   
+  ——————————————————————————————————————————————————— GenEqTypeRep
+    'type_rep' @τ ~ᵥ 'type_rep' @τ
+
+    v ~ᵥ w
+  ——————————————————————————————————————————————————— GenEqAny
+    'to_any' @τ v ~ᵥ 'to_any' @τ w
+
+
+       
 Expression evaluation
 ~~~~~~~~~~~~~~~~~~~~~
 
@@ -1686,7 +1819,7 @@ exact output.
 
   Evaluation result
     r ::= Ok v                                      -- ResOk
-       |  Err LitText                               -- ResErr
+       |  Err t                                    -- ResErr
 
                            ┌───────────────────┐
   Big-step evaluation      │ e ‖ E₁  ⇓  r ‖ E₂ │
@@ -2126,6 +2259,15 @@ This section lists the built-in functions supported by DAML LF 1.
 The functions come with their types and a description of their
 behavior.
 
+Generic equality function
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+* ``EQUAL : ∀ (α:*). α → α → 'Bool'``
+
+  Returns ``'True'`` if the two argument are equal according ``~ᵥ``,
+  ``'False'`` otherwise.
+
+  [*Available in version >= 1.dev*]
 
 Boolean functions
 ~~~~~~~~~~~~~~~~~
@@ -2135,6 +2277,8 @@ Boolean functions
   Returns ``'True'`` if the two booleans are syntactically equal,
   ``False`` otherwise.
 
+  [*Available in version < 1.dev*]
+  
 Int64 functions
 ~~~~~~~~~~~~~~~
 
@@ -2192,6 +2336,8 @@ Int64 functions
   Returns ``'True'`` if the first integer is equal to the second,
   ``'False'`` otherwise.
 
+  [*Available in version < 1.dev*]
+  
 * ``TO_TEXT_INT64 : 'Int64' → 'Text'``
 
   Returns the decimal representation of the integer as a string.
@@ -2280,6 +2426,8 @@ Numeric functions
   ``'False'`` otherwise.  The scale of the inputs is given by the type
   parameter `α`.
 
+  [*Available in version < 1.dev*]
+  
 * ``TO_TEXT_NUMERIC : ∀ (α : nat) . 'Numeric' α → 'Text'``
 
   Returns the numeric string representation of the numeric.  The scale
@@ -2346,6 +2494,8 @@ String functions
   Returns ``'True'`` if the first string is equal to the second,
   ``'False'`` otherwise.
 
+  [*Available in version < 1.dev*]
+  
 * ``TO_TEXT_TEXT : 'Text' → 'Text'``
 
   Returns string such as.
@@ -2396,6 +2546,8 @@ Timestamp functions
   Returns ``'True'`` if the first timestamp is equal to the second,
   ``'False'`` otherwise.
 
+  [*Available in version < 1.dev*]
+  
 * ``TO_TEXT_TIMESTAMP : 'Timestamp' → 'Text'``
 
   Returns an `ISO 8601 <https://en.wikipedia.org/wiki/ISO_8601>`_
@@ -2456,6 +2608,8 @@ Date functions
   Returns ``'True'`` if the first date is equal to the second,
   ``'False'`` otherwise.
 
+  [*Available in version < 1.dev*]
+  
 * ``TO_TEXT_DATE : 'Date' → 'Text'``
 
   Returns an `ISO 8601 <https://en.wikipedia.org/wiki/ISO_8601>`_
@@ -2507,6 +2661,8 @@ Party functions
   Returns ``'True'`` if the first party is equal to the second,
   ``'False'`` otherwise.
 
+  [*Available in version < 1.dev*]
+  
 * ``TO_QUOTED_TEXT_PARTY : 'Party' → 'Text'``
 
   Returns a single-quoted ``Text`` representation of the party. It
@@ -2540,6 +2696,8 @@ ContractId functions
   Returns ``'True'`` if the first contact id is equal to the second,
   ``'False'`` otherwise.
 
+  [*Available in version < 1.dev*]
+  
 * ``COERCE_CONTRACT_ID  : ∀ (α : ⋆) (β : ⋆) . 'ContractId' α → 'ContractId' β``
 
   Returns the given contract id unchanged at a different type.
@@ -2564,8 +2722,11 @@ List functions
   predicate give as first argument.
 
 
-TextMap functions
-~~~~~~~~~~~~~~~~~
+Text map functions
+~~~~~~~~~~~~~~~~~~
+
+**Entries ordering**: All the operation above preserved the order of
+ the map according the lexicographic order of its keys. 
 
 * ``TEXTMAP_EMPTY : ∀ α. 'TextMap' α``
 
@@ -2607,22 +2768,32 @@ TextMap functions
 
   [*Available in versions >= 1.3*]
 
-Type Representation function
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-* ``EQUAL_TYPE_REP`` : 'TypeRep' → 'TypeRep' → 'Bool'``
-
-  Returns ``'True'`` if the first type representation is syntactically equal to
-  the second one, ``'False'`` otherwise.
-
-  [*Available in versions >= 1.7*]
-
-Generic Map functions
+Generic map functions
 ~~~~~~~~~~~~~~~~~~~~~
+
+**Validity of Keys:** A key is valid if and only if it is equivalent
+to itself according to the relation ``~ᵥ`` defined in `value equality`
+section. Attempts to use an invalid key in the operations listed under
+always result in a runtime error.
+
+Of particular note, the following values are never valid keys:
+
+* Lambda expressions ``λ x : τ . e``
+* Type abstractions ``Λ α : k . e``
+* (Partially applied) built-in functions
+* Update statement  
+* Any value containing an invalid key
+
+**Comparison of Keys:** The `value equality`_ is used for key
+ comparison.
+
+**Entries ordering**: The builtins listed below maintain the order
+in which keys were inserted into the map (insertion-order). 
+
 
 * ``GENMAP_EMPTY : ∀ α. ∀ β. 'GenMap' α β``
 
-  Returns the empty generic map.
+  Returns an empty generic map.
 
   [*Available in versions >= 1.dev*]
 
@@ -2630,10 +2801,11 @@ Generic Map functions
 
   Inserts a new key and value in the map. If the key is already
   present in the map, the associated value is replaced with the
-  supplied value.
+  supplied value, otherwise the new key/value entry is appended at the
+  ends of the map.
 
   This raises an error if the key is not a valid map key. Keys are
-  compared according to the rules listed below.
+  compared according to ``~ᵥ``.
 
   [*Available in versions >= 1.dev*]
 
@@ -2652,23 +2824,23 @@ Generic Map functions
   member of the map, the original map is returned.
 
   This raises an error if the key is not a valid map key. Keys are
-  compared according to the rules listed below.
+  compared according to ``~ᵥ``.
 
   [*Available in versions >= 1.dev*]
 
 * ``GENMAP_KEYS : ∀ α. ∀ β.  'GenMap' α β → 'List' α``
 
-  Get the list of keys in the map. The keys are returned by first-insertion
-  order, so if you insert key ``x`` before key ``y``, then ``x`` will appear
-  before ``y`` in the list.
+  Get the list of keys in the map. The keys are returned by insertion
+  order, so if you insert key ``x`` before key ``y``, then ``x`` will
+  appear before ``y`` in the list.
 
   [*Available in versions >= 1.dev*]
 
 * ``GENMAP_VALUES : ∀ α. ∀ β.  'GenMap' α β → 'List' β``
 
-  Get the list of values in the map. The values are returned in the same
-  order as ``GENMAP_KEYS``, so the ith element of ``GENMAP_KEYS`` maps to
-  the ith element of ``GENMAP_VALUES``.
+  Get the list of values in the map. The values are returned in the
+  same order as ``GENMAP_KEYS``, so the ith element of ``GENMAP_KEYS``
+  maps to the ith element of ``GENMAP_VALUES``.
 
   [*Available in versions >= 1.dev*]
 
@@ -2691,84 +2863,17 @@ Of particular note, the following values are never valid keys:
 * (Partially applied) built-in functions
 * Any value containing an invalid key
 
-**Comparison of Keys:** We define here the relation ``~ᵥ`` on value
-expressions that is used for key comparison. This is a partial
-equivalence relation over all values, but a (total) equivalence
-relation over valid keys.
+Type Representation function
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-This relation is not exposed as a builtin function, but it coincides
-with the builtin equality for any given type, if that builtin is
-defined. ::
+* ``EQUAL_TYPE_REP`` : 'TypeRep' → 'TypeRep' → 'Bool'``
 
-                                  ┌──────────┐
-  Generic Equivalence Relation    │ e₁ ~ᵥ e₂ │
-                                  └──────────┘
+  Returns ``'True'`` if the first type representation is syntactically equal to
+  the second one, ``'False'`` otherwise.
 
-  LitInt64₁ and LitInt64₂ have the same value
-  ——————————————————————————————————————————————————— GenEqLitInt64
-  LitInt64₁ ~ᵥ LitInt64₂
+  [*Available in versions = 1.7*]
 
-  LitNumeric₁ and LitNumeric₂ have the same scale and value
-  ——————————————————————————————————————————————————— GenEqLitNumeric
-  LitNumeric₁ ~ᵥ LitNumeric₂
-
-  LitText₁ and LitText₂ have the same value
-  ——————————————————————————————————————————————————— GenEqLitText
-  LitText₁ ~ᵥ LitText₂
-
-  LitDate₁ and LitDate₂ have the same value
-  ——————————————————————————————————————————————————— GenEqLitDate
-  LitDate₁ ~ᵥ LitDate₂
-
-  LitTimestamp₁ and LitTimestamp₂ have the same value
-  ——————————————————————————————————————————————————— GenEqLitTimestamp
-  LitTimestamp₁ ~ᵥ LitTimestamp₂
-
-  cid₁ and cid₂ are the same
-  ——————————————————————————————————————————————————— GenEqLitContractId
-  cid₁ ~ᵥ cid₂
-
-  ——————————————————————————————————————————————————— GenEqUnit
-  () ~ᵥ ()
-
-  ——————————————————————————————————————————————————— GenEqTrue
-  'True' ~ᵥ 'True'
-
-  ——————————————————————————————————————————————————— GenEqFalse
-  'False' ~ᵥ 'False'
-
-  ——————————————————————————————————————————————————— GenEqListNil
-  'Nil' @τ₁ ~ᵥ 'Nil' @τ₂
-
-  e₁ ~ᵥ e₁'
-  e₂ ~ᵥ e₂'
-  ——————————————————————————————————————————————————— GenEqListCons
-  'Cons' @τ e₁ e₂  ~ᵥ 'Cons' @τ' e₁' e₂'
-
-  ——————————————————————————————————————————————————— GenEqOptionNone
-  'None' @τ₁ ~ᵥ 'None' @τ₂
-
-  e₁ ~ᵥ e₂
-  ——————————————————————————————————————————————————— GenEqOptionSome
-  'Some' @τ₁ e₁ ~ᵥ 'Some' @τ₂ e₂
-
-  e₁ ~ᵥ e₁'     …       eₙ ~ᵥ eₙ'
-  ——————————————————————————————————————————————————— GenEqRecCon
-  Mod:T @τ₁ … @τₙ { f₁ = e₁, …, fₙ = eₙ }
-    ~ᵥ Mod:T @τ₁' … @τₙ' { f₁ = e₁', …, fₙ = eₙ' }
-
-  e ~ᵥ e'
-  ——————————————————————————————————————————————————— GenEqVariantCon
-  Mod:T:V @τ₁ … @τₙ e ~ᵥ Mod:T:V @τ₁' … @τₙ' e'
-
-  ——————————————————————————————————————————————————— GenEqEnumCon
-  Mod:T:E ~ᵥ Mod:T:E
-
-  e₁ ~ᵥ e₁'     …       eₙ ~ᵥ eₙ'
-  ——————————————————————————————————————————————————— GenEqStructCon
-  ⟨ f₁ = e₁, …, fₘ = eₘ ⟩ ~ᵥ ⟨ f₁ = e₁', …, fₘ = eₘ' ⟩
-
-
+  
 Conversions functions
 ~~~~~~~~~~~~~~~~~~~~~
 
@@ -2928,7 +3033,16 @@ comments::
 
   // * must be non empty *
 
+  
+Maps
+....
 
+The program serialization format does not provide any direct way to
+encode neither `TextMap` not `GenMap`. DAML-LF programs can create
+such objects only dynamically using the builtin functions prefixed by
+`TEXTMAP_` or `'GENMAP_'`
+
+  
 Serialization changes since version 1.0
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -2939,7 +3053,6 @@ language in a backward compatibility way. During deserialization, any
 encoding that does not follow the minor version provided is rejected.
 Below we list, in chronological order, all the changes that have been
 introduced to the serialization format since version 1.0
-
 
 Option type
 ...........
