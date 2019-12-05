@@ -7,12 +7,12 @@ import java.nio.file.Files
 
 import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
+import com.digitalasset.auth.TokenHolder
 import com.digitalasset.daml.bazeltools.BazelRunfiles.rlocation
 import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.digitalasset.http.util.TestUtil.requiredFile
 import com.digitalasset.ledger.api.auth.{AuthServiceStatic, Claim, ClaimPublic, Claims}
 import com.digitalasset.ledger.client.LedgerClient
-import com.digitalasset.ledger.service.TokenHolder
 import org.scalatest.{AsyncFlatSpec, BeforeAndAfterAll, Matchers}
 import org.slf4j.LoggerFactory
 

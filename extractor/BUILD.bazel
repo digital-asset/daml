@@ -32,6 +32,7 @@ compileDependencies = [
     "//ledger/ledger-api-domain",
     "//ledger-service/lf-value-json",
     "//ledger-service/utils",
+    "//libs-scala/auth-utils",
     "//libs-scala/grpc-utils",
     "//libs-scala/timer-utils",
     "@maven//:io_netty_netty_handler",
