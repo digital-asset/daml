@@ -6,7 +6,7 @@ package com.digitalasset.daml.lf.data
 import scalaz.{Cord, Show}
 
 import scala.collection.generic.{CanBuildFrom, ImmutableMapFactory}
-import scala.collection.immutable.{AbstractMap, HashMap, Map, MapLike, Queue}
+import scala.collection.immutable.{AbstractMap, HashMap, Map, Queue}
 
 /**
   * Insert-ordered Map (like ListMap), but with efficient lookups.
@@ -23,7 +23,7 @@ final class InsertOrdMap[K, +V] private (
     hashMap: HashMap[K, V]
 ) extends AbstractMap[K, V]
     with Map[K, V]
-    with MapLike[K, V, InsertOrdMap[K, V]] {
+    with MapKOps[K, V, InsertOrdMap[K, +?]] {
 
   override def empty: InsertOrdMap[K, V] = InsertOrdMap.empty[K, V]
 
