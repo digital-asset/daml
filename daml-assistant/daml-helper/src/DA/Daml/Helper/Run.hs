@@ -80,9 +80,6 @@ import DA.Daml.Project.Consts
 import DA.Daml.Project.Types
 import DA.Daml.Project.Util
 
-import DA.Ledger (Jwt)
-import qualified DA.Ledger.Jwt as Jwt
-
 data DamlHelperError = DamlHelperError
     { errMessage :: T.Text
     , errInternal :: Maybe T.Text
@@ -797,23 +794,22 @@ runStart
 data LedgerFlags = LedgerFlags
   { hostM :: Maybe String
   , portM :: Maybe Int
-  , jwtFileM :: Maybe FilePath
+  , tokFileM :: Maybe FilePath
   }
 
-getJwtFromFile :: Maybe FilePath -> IO (Maybe Jwt)
-getJwtFromFile jwtFileM = do
-  case jwtFileM of
+getTokFromFile :: Maybe FilePath -> IO (Maybe Token)
+getTokFromFile tokFileM = do
+  case tokFileM of
     Nothing -> return Nothing
-    Just jwtFile -> do
-      contents <- readFileUTF8 jwtFile
-      jwt <- either fail pure $ Jwt.tryCreateFromString contents
-      return (Just jwt)
+    Just tokFile -> do
+      tok <- readFileUTF8 tokFile
+      return (Just (Token tok))
 
 getHostAndPortDefaults :: LedgerFlags -> IO LedgerArgs
-getHostAndPortDefaults LedgerFlags{hostM,portM,jwtFileM} = do
+getHostAndPortDefaults LedgerFlags{hostM,portM,tokFileM} = do
     host <- fromMaybeM getProjectLedgerHost hostM
     port <- fromMaybeM getProjectLedgerPort portM
-    jwtM <- getJwtFromFile jwtFileM
+    tokM <- getTokFromFile tokFileM
     return LedgerArgs {..}
 
 
