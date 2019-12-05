@@ -1353,17 +1353,17 @@ object SBuiltin {
             case SInt64(to) =>
               args.get(2) match {
                 case SText(t) =>
-                  if (to <= 0 || from >= t.length.toLong || to <= from ) {
+                  val length = t.codePointCount(0, t.length).toLong
+                  if (to <= 0 || from >= length || to <= from ) {
                     machine.ctrl = CtrlValue(SText(""))
                   } else {
                     val rfrom = from.max(0).toInt
-                    val rto = to.min(t.codePointCount(0, t.length).toLong).toInt
+                    val rto = to.min(length).toInt
                       // NOTE [FM]: We use toInt only after ensuring the indices are
-                      // between 0 and t.length inclusive. Calling toInt prematurely
+                      // between 0 and length, inclusive. Calling toInt prematurely
                       // would mean dropping the high order bits indiscriminitely,
                       // so for instance (0x100000000L).toInt == 0, resulting in an
-                      // empty string below even though `to` was larger than the
-                      // length.
+                      // empty string below even though `to` was larger than length.
                     val ifrom = t.offsetByCodepoints(0, rfrom)
                     val ito = t.offsetByCodepoints(ifrom, rto - rfrom)
                     machine.ctrl = CtrlValue(SText(t.slice(ifrom, ito)))
