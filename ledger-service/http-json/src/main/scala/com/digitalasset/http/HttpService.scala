@@ -13,24 +13,15 @@ import akka.stream.Materializer
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.http.dbbackend.ContractDao
-import com.digitalasset.http.json.{
-  ApiValueToJsValueConverter,
-  DomainJsonDecoder,
-  DomainJsonEncoder,
-  JsValueToApiValueConverter
-}
-import com.digitalasset.http.util.ApiValueToLfValueConverter
+import com.digitalasset.http.json.{ApiValueToJsValueConverter, DomainJsonDecoder, DomainJsonEncoder, JsValueToApiValueConverter}
+import com.digitalasset.http.util.{ApiValueToLfValueConverter, EndpointUtil}
 import com.digitalasset.http.util.FutureUtil._
 import com.digitalasset.http.util.IdentifierConverters.apiLedgerId
 import com.digitalasset.jwt.JwtDecoder
 import com.digitalasset.ledger.api.refinements.ApiTypes.ApplicationId
 import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
 import com.digitalasset.ledger.client.LedgerClient
-import com.digitalasset.ledger.client.configuration.{
-  CommandClientConfiguration,
-  LedgerClientConfiguration,
-  LedgerIdRequirement
-}
+import com.digitalasset.ledger.client.configuration.{CommandClientConfiguration, LedgerClientConfiguration, LedgerIdRequirement}
 import com.digitalasset.ledger.client.services.pkg.PackageClient
 import com.digitalasset.ledger.service.LedgerReader.PackageStore
 import com.digitalasset.ledger.service.{LedgerReader, TokenHolder}
@@ -129,9 +120,24 @@ object HttpService extends StrictLogging {
         decoder,
       )
 
+      websocketService = new WebSocketService(
+        client.transactionClient,
+        packageService.resolveTemplateIds,
+        encoder,
+        decoder
+      )
+
+      websocketEndpoints = new WebsocketEndpoints(
+        ledgerId,
+        validateJwt,
+        websocketService,
+        encoder,
+        decoder
+      )
+
       allEndpoints = staticContentConfig.cata(
-        c => StaticContentEndpoints.all(c) orElse jsonEndpoints.all,
-        jsonEndpoints.all
+        c => StaticContentEndpoints.all(c) orElse jsonEndpoints.all orElse websocketEndpoints.transactionWebSocket orElse EndpointUtil.notFound, //TODO: Clean up ugly chaining
+        jsonEndpoints.all orElse websocketEndpoints.transactionWebSocket orElse EndpointUtil.notFound
       )
 
       binding <- liftET[Error](

@@ -53,7 +53,7 @@ class Endpoints(
   import json.JsonProtocol._
 
   lazy val all: PartialFunction[HttpRequest, Future[HttpResponse]] =
-    command orElse contracts orElse parties orElse notFound
+    command orElse contracts orElse parties
 
   lazy val command: PartialFunction[HttpRequest, Future[HttpResponse]] = {
     case req @ HttpRequest(POST, Uri.Path("/command/create"), _, _, _) =>
