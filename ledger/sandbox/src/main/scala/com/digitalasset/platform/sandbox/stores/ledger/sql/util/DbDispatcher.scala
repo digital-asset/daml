@@ -5,7 +5,7 @@ package com.digitalasset.platform.sandbox.stores.ledger.sql.util
 
 import java.sql.{Connection, SQLTransientConnectionException}
 import java.util.concurrent.atomic.AtomicInteger
-import java.util.concurrent.{Executors, TimeUnit}
+import java.util.concurrent.{ExecutorService, Executors, TimeUnit}
 
 import akka.stream.scaladsl.Source
 import akka.{Done, NotUsed}
@@ -16,51 +16,21 @@ import com.digitalasset.platform.common.util.DirectExecutionContext
 import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.HikariJdbcConnectionProvider
 import com.digitalasset.platform.sandbox.stores.ledger.sql.util.DbDispatcher._
 import com.google.common.util.concurrent.ThreadFactoryBuilder
+import org.slf4j.Logger
 
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.control.NonFatal
 
-/**
-  * A helper class to dispatch blocking SQL queries onto a dedicated thread pool.
-  * The number of threads are being kept in sync with the number of JDBC connections in the pool.
-  *
-  * @param jdbcUrl                    the JDBC url containing the database name, user name and password
-  * @param noOfShortLivedConnections the number of connections to be pre-allocated for regular SQL queries
-  * @param noOfStreamingConnections  the max number of connections to be used for long, streaming queries
-  */
 final class DbDispatcher(
-    jdbcUrl: String,
     val noOfShortLivedConnections: Int,
-    noOfStreamingConnections: Int,
-    loggerFactory: NamedLoggerFactory,
+    connectionProvider: HikariJdbcConnectionProvider,
+    sqlExecutor: ExecutorService,
+    streamingExecutor: ExecutorService,
+    logger: Logger,
     metrics: MetricRegistry,
 ) extends AutoCloseable
     with ReportsHealth {
-  private val logger = loggerFactory.getLogger(getClass)
-
-  private val connectionProvider =
-    new HikariJdbcConnectionProvider(jdbcUrl, noOfShortLivedConnections, noOfStreamingConnections)
-
-  private val connectionGettingThreadPool = ExecutionContext.fromExecutorService(
-    Executors.newSingleThreadExecutor(
-      new ThreadFactoryBuilder()
-        .setDaemon(true)
-        .setNameFormat("JdbcConnectionAccessor")
-        .setUncaughtExceptionHandler((thread, t) =>
-          logger.error(s"got an uncaught exception on thread: ${thread.getName}", t))
-        .build()))
-
-  private lazy val sqlExecutor =
-    Executors.newFixedThreadPool(
-      noOfShortLivedConnections,
-      new ThreadFactoryBuilder()
-        .setDaemon(true)
-        .setNameFormat("sql-executor-%d")
-        .setUncaughtExceptionHandler((_, e) => {
-          logger.error("Got an uncaught exception in SQL executor!", e)
-        })
-        .build()
-    )
+  private val streamingThreadPool = ExecutionContext.fromExecutorService(streamingExecutor)
 
   private val transientFailureCount: AtomicInteger = new AtomicInteger(0)
 
@@ -141,7 +111,7 @@ final class DbDispatcher(
     // Getting a connection can block! Presumably, it only blocks if the connection pool has no free connections.
     // getStreamingConnection calls can therefore not be parallelized, and we use a single thread for all of them.
     Source
-      .fromFuture(Future(connectionProvider.getStreamingConnection())(connectionGettingThreadPool))
+      .fromFuture(Future(connectionProvider.getStreamingConnection())(streamingThreadPool))
       .flatMapConcat(conn =>
         sql(conn)
           .mapMaterializedValue { f =>
@@ -151,12 +121,55 @@ final class DbDispatcher(
   }
 
   override def close(): Unit = {
-    connectionProvider.close()
+    streamingExecutor.shutdown()
     sqlExecutor.shutdown()
-    connectionGettingThreadPool.shutdown()
+    connectionProvider.close()
   }
 }
 
 object DbDispatcher {
   val MaxTransientFailureCount: Int = 3
+
+  def start(
+      jdbcUrl: String,
+      noOfShortLivedConnections: Int,
+      noOfStreamingConnections: Int,
+      loggerFactory: NamedLoggerFactory,
+      metrics: MetricRegistry,
+  ): DbDispatcher = {
+    val logger = loggerFactory.getLogger(classOf[DbDispatcher])
+
+    val connectionProvider =
+      new HikariJdbcConnectionProvider(jdbcUrl, noOfShortLivedConnections, noOfStreamingConnections)
+
+    lazy val sqlExecutor =
+      Executors.newFixedThreadPool(
+        noOfShortLivedConnections,
+        new ThreadFactoryBuilder()
+          .setDaemon(true)
+          .setNameFormat("sql-executor-%d")
+          .setUncaughtExceptionHandler((_, e) => {
+            logger.error("Got an uncaught exception in SQL executor!", e)
+          })
+          .build()
+      )
+
+    val streamingExecutor =
+      Executors.newSingleThreadExecutor(
+        new ThreadFactoryBuilder()
+          .setDaemon(true)
+          .setNameFormat("JdbcConnectionAccessor")
+          .setUncaughtExceptionHandler((thread, t) =>
+            logger.error(s"got an uncaught exception on thread: ${thread.getName}", t))
+          .build())
+
+    new DbDispatcher(
+      noOfShortLivedConnections,
+      connectionProvider,
+      sqlExecutor,
+      streamingExecutor,
+      logger,
+      metrics,
+    )
+  }
 }
