@@ -164,7 +164,6 @@ private[client] object OnlyPrimitive extends Primitive {
     override def subst[F[_[_]]](fa: F[TextMap]): F[TextMap] = fa
   }
 
-  @deprecated("Use TextMap", since = "0.13.38")
   override val Map = TextMap
 
   object Date extends DateApi {
