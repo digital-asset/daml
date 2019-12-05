@@ -6,7 +6,7 @@ package com.daml.ledger.rxjava.grpc
 import java.time.Instant
 import java.util.concurrent.TimeUnit
 
-import com.daml.ledger.rxjava.TimeClient
+import com.daml.ledger.rxjava._
 import com.daml.ledger.rxjava.grpc.helpers._
 import org.scalatest.{FlatSpec, Matchers, OptionValues}
 

@@ -5,7 +5,8 @@ package com.daml.ledger.rxjava.grpc
 
 import java.util.concurrent.TimeUnit
 
-import com.daml.ledger.rxjava.grpc.helpers.{AuthMatchers, LedgerServices, TestConfiguration}
+import com.daml.ledger.rxjava._
+import com.daml.ledger.rxjava.grpc.helpers.{LedgerServices, TestConfiguration}
 import org.scalatest.{FlatSpec, Matchers}
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))

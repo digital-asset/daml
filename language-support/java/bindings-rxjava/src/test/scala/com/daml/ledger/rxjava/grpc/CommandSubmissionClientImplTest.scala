@@ -6,13 +6,8 @@ package com.daml.ledger.rxjava.grpc
 import java.util.concurrent.TimeUnit
 
 import com.daml.ledger.javaapi.data.{Command, CreateCommand, Identifier, Record}
-import com.daml.ledger.rxjava.CommandSubmissionClient
-import com.daml.ledger.rxjava.grpc.helpers.{
-  AuthMatchers,
-  DataLayerHelpers,
-  LedgerServices,
-  TestConfiguration
-}
+import com.daml.ledger.rxjava._
+import com.daml.ledger.rxjava.grpc.helpers.{DataLayerHelpers, LedgerServices, TestConfiguration}
 import com.google.protobuf.empty.Empty
 import org.scalatest.{FlatSpec, Matchers, OptionValues}
 

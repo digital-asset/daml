@@ -25,11 +25,11 @@ public final class TimeClientImpl implements TimeClient {
     private final TimeServiceGrpc.TimeServiceStub serviceStub;
     private final ExecutionSequencerFactory sequencerFactory;
 
-    public TimeClientImpl(String ledgerId, Channel channel, ExecutionSequencerFactory sequencerFactory) {
+    public TimeClientImpl(String ledgerId, Channel channel, ExecutionSequencerFactory sequencerFactory, Optional<String> accessToken) {
         this.ledgerId = ledgerId;
         this.sequencerFactory = sequencerFactory;
-        this.serviceFutureStub = TimeServiceGrpc.newFutureStub(channel);
-        this.serviceStub = TimeServiceGrpc.newStub(channel);
+        this.serviceFutureStub = StubHelper.authenticating(TimeServiceGrpc.newFutureStub(channel), accessToken);
+        this.serviceStub = StubHelper.authenticating(TimeServiceGrpc.newStub(channel), accessToken);
     }
 
     private Single<Empty> setTime(Instant currentTime, Instant newTime, Optional<String> accessToken) {

@@ -8,13 +8,8 @@ import java.util.concurrent.TimeUnit
 
 import com.daml.ledger.javaapi.data.LedgerOffset
 import com.daml.ledger.javaapi.data.LedgerOffset.LedgerBegin
-import com.daml.ledger.rxjava.CommandCompletionClient
-import com.daml.ledger.rxjava.grpc.helpers.{
-  AuthMatchers,
-  DataLayerHelpers,
-  LedgerServices,
-  TestConfiguration
-}
+import com.daml.ledger.rxjava._
+import com.daml.ledger.rxjava.grpc.helpers.{DataLayerHelpers, LedgerServices, TestConfiguration}
 import com.digitalasset.ledger.api.v1.command_completion_service.CompletionStreamResponse
 import com.digitalasset.ledger.api.v1.completion.Completion
 import com.google.rpc.status.Status

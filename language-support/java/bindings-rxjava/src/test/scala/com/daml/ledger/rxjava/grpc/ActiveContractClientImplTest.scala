@@ -5,12 +5,8 @@ package com.daml.ledger.rxjava.grpc
 
 import java.util.concurrent.TimeUnit
 
-import com.daml.ledger.rxjava.grpc.helpers.{
-  AuthMatchers,
-  DataLayerHelpers,
-  LedgerServices,
-  TestConfiguration
-}
+import com.daml.ledger.rxjava._
+import com.daml.ledger.rxjava.grpc.helpers.{DataLayerHelpers, LedgerServices, TestConfiguration}
 import io.reactivex.Observable
 import org.scalatest.{FlatSpec, Matchers, OptionValues}
 
