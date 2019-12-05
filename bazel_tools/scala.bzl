@@ -121,7 +121,7 @@ lf_scalacopts = [
     "-Ywarn-unused",
 ]
 
-def _wrap_rule(rule, name = "", scalacopts = [], plugins = [], **kwargs):
+def _wrap_rule(rule, name = "", scalacopts = [], plugins = [], generated_srcs = [], **kwargs):
     rule(
         name = name,
         scalacopts = common_scalacopts + plugin_scalacopts + scalacopts,
@@ -284,7 +284,7 @@ def _scaladoc_jar_impl(ctx):
     srcFiles = [
         src.path
         for src in ctx.files.srcs
-        if src.is_source
+        if src.is_source or src in ctx.files.generated_srcs
     ]
 
     if srcFiles != []:
@@ -361,6 +361,8 @@ scaladoc_jar = rule(
         "doctitle": attr.string(default = ""),
         "plugins": attr.label_list(default = []),
         "srcs": attr.label_list(allow_files = True),
+        # generated source files that should still be included.
+        "generated_srcs": attr.label_list(allow_files = True),
         "scalacopts": attr.string_list(),
         "_zipper": attr.label(
             default = Label("@bazel_tools//tools/zip:zipper"),
@@ -402,6 +404,7 @@ def _create_scaladoc_jar(**kwargs):
             plugins = plugins,
             srcs = kwargs["srcs"],
             scalacopts = kwargs.get("scalacopts", []),
+            generated_srcs = kwargs.get("generated_srcs", []),
         )
 
 def da_scala_library(name, **kwargs):

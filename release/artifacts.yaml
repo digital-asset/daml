@@ -206,8 +206,8 @@
   type: jar-scala
 - target: //ledger-service/http-json:http-json-binary
   type: jar-deploy
-- target: //triggers/runner:trigger-runner
-  type: jar-deploy
+- target: //triggers/runner:trigger-runner-lib
+  type: jar-scala
   mavenUpload: true
 - target: //daml-assistant/scala-daml-project-config:scala-daml-project-config
   type: jar-scala
