@@ -25,10 +25,13 @@ else
 fi
 # --- end runfiles.bash initialization ---
 
-YARN=$(rlocation "$TEST_WORKSPACE/$1")
-DAML2TS=$(rlocation "$TEST_WORKSPACE/$2")
-DAR=$(rlocation "$TEST_WORKSPACE/$3")
-PACKAGE_JSON=$(rlocation "$TEST_WORKSPACE/$4")
+JAVA=$(rlocation "$TEST_WORKSPACE/$1")
+YARN=$(rlocation "$TEST_WORKSPACE/$2")
+DAML2TS=$(rlocation "$TEST_WORKSPACE/$3")
+SANDBOX=$(rlocation "$TEST_WORKSPACE/$4")
+JSON_API=$(rlocation "$TEST_WORKSPACE/$5")
+DAR=$(rlocation "$TEST_WORKSPACE/$6")
+PACKAGE_JSON=$(rlocation "$TEST_WORKSPACE/$7")
 TS_DIR=$(dirname $PACKAGE_JSON)
 
 TMP_DIR=$(mktemp -d)
@@ -36,11 +39,14 @@ cleanup() {
   rm -rf $TMP_DIR
 }
 trap cleanup EXIT
+echo "TMP_DIR = $TMP_DIR"
 
-cp -r $TS_DIR/* $TMP_DIR
+cp -rL $TS_DIR/* $TMP_DIR
 cd $TMP_DIR
 
-$DAML2TS -o generated/src $DAR
+$DAML2TS -o generated/src/daml --main-package-name daml-tests $DAR
 $YARN install --frozen-lockfile
 $YARN workspaces run build
 $YARN workspaces run lint
+cd generated
+JAVA=$JAVA SANDBOX=$SANDBOX JSON_API=$JSON_API DAR=$DAR yarn test

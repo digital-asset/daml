@@ -6,11 +6,10 @@
       "dom",
       "es2015"
      ],
-    "esModuleInterop": true,
     "incremental": true,
     "strict": true,
     "noUnusedLocals": true,
-    "noUnusedParameters": false,
+    "noUnusedParameters": true,
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true,
     "outDir": "lib/",
@@ -18,5 +17,5 @@
     "declaration": true,
     "sourceMap": true
     },
-  "include": ["src/**/*.ts"]
+  "include": ["src/**/*.ts"],
 }
