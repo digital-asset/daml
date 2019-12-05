@@ -17,7 +17,7 @@ import qualified "zip-archive" Codec.Archive.Zip as ZipArchive
 import Control.Exception.Safe (handleIO)
 import Control.Lens (toListOf)
 import Control.Monad
-import qualified Data.ByteString as B
+import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.UTF8 as BSUTF8
 import Data.Graph
@@ -50,33 +50,31 @@ import qualified DA.Pretty
 import SdkVersion
 
 -- | Create the project package database containing the given dar packages.
+--
+-- We differentiate between two kinds of dependencies.
+--
+-- deps (depencies in daml.yaml):
+--   This is intended for packages that include interface files and can
+--   be used directly.
+--   These packages have to be built with the same SDK version.
+--
+-- data-deps (data-dependencies in daml.yaml):
+--   This is intended for packages that have already been uploaded to the
+--   ledger. Based on the DAML-LF we generate dummy interface files
+--   and then remap references to those dummy packages to the original DAML-LF
+--   package id.
 createProjectPackageDb ::
        Options -> PackageSdkVersion -> [FilePath] -> [FilePath] -> IO ()
-createProjectPackageDb opts thisSdkVer deps0 dataDeps = do
-    let dbPath = projectPackageDatabase </> (lfVersionString $ optDamlLfVersion opts)
-    let
+createProjectPackageDb opts thisSdkVer deps dataDeps = do
+    let dbPath = projectPackageDatabase </> lfVersionString (optDamlLfVersion opts)
     -- Since we reinitialize the whole package db anyway,
     -- during `daml init`, we clear the package db before to avoid
     -- issues during SDk upgrades. Once we have a more clever mechanism than
     -- reinitializing everything, we probably want to change this.
     removePathForcibly dbPath
     createDirectoryIfMissing True $ dbPath </> "package.conf.d"
-    -- Expand SDK package dependencies using the SDK root path.
-    -- E.g. `daml-trigger` --> `$DAML_SDK/daml-libs/daml-trigger.dar`
-    -- Or, fail if not run from DAML assistant.
-    mbSdkPath <- handleIO (\_ -> pure Nothing) $ Just <$> getSdkPath
-    let isSdkPackage fp = takeExtension fp `notElem` [".dar", ".dalf"]
-        handleSdkPackages :: [FilePath] -> IO [FilePath]
-        handleSdkPackages =
-          let expand fp
-                | isSdkPackage fp
-                = case mbSdkPath of
-                    Just sdkPath -> pure $! sdkPath </> "daml-libs" </> fp <.> "dar"
-                    Nothing -> fail $ "Cannot resolve SDK dependency '" ++ fp ++ "'. Use daml-assistant."
-                | otherwise
-                = pure fp
-          in mapM expand
-    deps <- handleSdkPackages $ filter (`notElem` basePackages) deps0
+
+    deps <- expandSdkPackages (filter (`notElem` basePackages) deps)
     depsExtracted <- mapM extractDar deps
     let uniqSdkVersions = nubSort $ unPackageSdkVersion thisSdkVer : map edSdkVersions depsExtracted
     unless (length uniqSdkVersions <= 1) $
@@ -87,61 +85,33 @@ createProjectPackageDb opts thisSdkVer deps0 dataDeps = do
     -- deal with data imports first
     let (fpDars, fpDalfs) = partition ((== ".dar") . takeExtension) dataDeps
     dars <- mapM extractDar fpDars
-    let dalfs = concatMap edDalfs dars
-    -- when we compile packages with different sdk versions or with dalf dependencies, we
-    -- need to generate the interface files
+    -- These are the dalfs that are in a DAR that has been passed in via data-dependencies.
     let dalfsFromDars =
             [ ( dropExtension $ takeFileName $ ZipArchive.eRelativePath e
-              , BSL.toStrict $ ZipArchive.fromEntry e)
-            | e <- dalfs
+              , BSL.toStrict $ ZipArchive.fromEntry e
+              )
+            | e <- concatMap edDalfs dars
             ]
+    -- These are dalfs that have been passed in directly as DALFs via data-dependencies.
     dalfsFromFps <-
         forM fpDalfs $ \fp -> do
-            bs <- B.readFile fp
+            bs <- BS.readFile fp
             pure (dropExtension $ takeFileName fp, bs)
     let allDalfs = dalfsFromDars ++ dalfsFromFps
-    pkgs <-
-        forM allDalfs $ \(name, dalf) -> do
-            (pkgId, package) <-
-                either (fail . DA.Pretty.renderPretty) pure $
-                Archive.decodeArchive Archive.DecodeAsMain dalf
-            pure
-                ( pkgId
-                , package
-                , dalf
-                , stringToUnitId $ parseUnitId name pkgId)
-    -- mapping from package id's to unit id's. if the same package is imported with
-    -- different unit id's, we would loose a unit id here.
-    let pkgMap =
-            MS.fromList
-                [(pkgId, unitId) | (pkgId, _pkg, _bs, unitId) <- pkgs]
-    -- order the packages in topological order
-    let (depGraph, vertexToNode, _keyToVertex) =
-            graphFromEdges $ do
-                (pkgId, dalf, bs, unitId) <- pkgs
-                let pkgRefs =
-                        [ pid
-                        | LF.PRImport pid <- toListOf packageRefs dalf
-                        ]
-                let getUid = getUnitId unitId pkgMap
-                let src = generateSrcPkgFromLf getUid (Just "Sdk") dalf
-                let templInstSrc =
-                        generateTemplateInstancesPkgFromLf
-                            getUid
-                            (Just "Sdk")
-                            pkgId
-                            dalf
-                pure
-                    ( (src, templInstSrc, unitId, dalf, bs)
-                    , pkgId
-                    , pkgRefs)
-    let pkgIdsTopoSorted = reverse $ topSort depGraph
+    pkgs <- forM allDalfs $ \(name, dalf) -> do
+        (pkgId, package) <-
+            either (fail . DA.Pretty.renderPretty) pure $
+            Archive.decodeArchive Archive.DecodeAsMain dalf
+        pure (pkgId, package, dalf, stringToUnitId $ parseUnitId name pkgId)
+
     dbPathAbs <- makeAbsolute dbPath
     projectPackageDatabaseAbs <- makeAbsolute projectPackageDatabase
-    forM_ pkgIdsTopoSorted $ \vertex -> do
-        let ((src, templInstSrc, uid, dalf, bs), pkgId, _) =
-                vertexToNode vertex
-        let unitIdStr = unitIdString uid
+
+    let (depGraph, vertexToNode) = buildLfPackageGraph pkgs
+    -- Iterate over the dependency graph in topological order.
+    forM_ (reverse $ topSort depGraph) $ \vertex -> do
+        let (pkgNode, pkgId) = vertexToNode vertex
+        let unitIdStr = unitIdString $ unitId pkgNode
         unless (unitIdString primUnitId `isPrefixOf` unitIdStr) $ do
             let instancesUnitIdStr = "instances-" <> unitIdStr
             let pkgIdStr = T.unpack $ LF.unPackageId pkgId
@@ -151,18 +121,17 @@ createProjectPackageDb opts thisSdkVer deps0 dataDeps = do
                         guard $ all (`elem` '.' : ['0' .. '9']) ver
                         Just (uId, Just ver)
             let deps =
-                    [ unitIdString uId <.> "dalf"
-                    | ((_src, _templSrc, uId, _dalf, _bs), pId, _) <-
-                          map vertexToNode $ reachable depGraph vertex
+                    [ unitIdString (unitId depPkgNode) <.> "dalf"
+                    | (depPkgNode, pId) <- map vertexToNode $ reachable depGraph vertex
                     , pkgId /= pId
                     ]
             let workDir = dbPath </> unitIdStr <> "-" <> pkgIdStr
             createDirectoryIfMissing True workDir
             -- write the dalf package
-            B.writeFile (workDir </> unitIdStr <.> "dalf") bs
+            BS.writeFile (workDir </> unitIdStr <.> "dalf") $ encodedDalf pkgNode
             generateAndInstallIfaceFiles
-                dalf
-                src
+                (dalf pkgNode)
+                (stubSources pkgNode)
                 opts
                 workDir
                 dbPath
@@ -173,9 +142,10 @@ createProjectPackageDb opts thisSdkVer deps0 dataDeps = do
                 mbPkgVersion
                 deps
 
-            unless (null templInstSrc) $
+            unless (null $ templateInstanceSources pkgNode) $
                 generateAndInstallInstancesPkg
-                    templInstSrc
+                    thisSdkVer
+                    (templateInstanceSources pkgNode)
                     opts
                     dbPathAbs
                     projectPackageDatabaseAbs
@@ -188,159 +158,176 @@ createProjectPackageDb opts thisSdkVer deps0 dataDeps = do
     -- finally install the dependecies
     forM_ depsExtracted $
         \ExtractedDar{..} -> installDar dbPath edConfFiles edDalfs edSrcs
-  where
-    -- generate interface files and install them in the package database
-    generateAndInstallIfaceFiles ::
-           LF.Package
-        -> [(NormalizedFilePath, String)]
-        -> Options
-        -> FilePath
-        -> FilePath
-        -> FilePath
-        -> String
-        -> String
-        -> String
-        -> Maybe String
-        -> [String]
-        -> IO ()
-    generateAndInstallIfaceFiles dalf src opts workDir dbPath projectPackageDatabase unitIdStr pkgIdStr pkgName mbPkgVersion deps = do
-        loggerH <- getLogger opts "generate interface files"
-        let src' = [ (toNormalizedFilePath $ workDir </> fromNormalizedFilePath nfp, str) | (nfp, str) <- src]
-        mapM_ writeSrc src'
-        opts' <-
-            mkOptions $
-            opts
-                { optWriteInterface = False
-                , optPackageDbs = projectPackageDatabase : optPackageDbs opts
-                , optIfaceDir = Nothing
-                , optIsGenerated = True
-                , optDflagCheck = False
-                , optMbPackageName = Just unitIdStr
-                , optHideAllPkgs = True
-                , optGhcCustomOpts = []
-                , optPackageImports =
-                      ("daml-prim", True, []) :
-                      [ ( damlStdlib
-                        , False
-                        , [ ("DA.Internal.Template", "Sdk.DA.Internal.Template")
-                          , ("DA.Internal.LF", "Sdk.DA.Internal.LF")
-                          , ("DA.Internal.Prelude", "Sdk.DA.Internal.Prelude")
-                          ])
-                      ] ++
-                      [ (takeBaseName dep, True, [])
-                      | dep <- deps
-                      , not $ (unitIdString primUnitId) `isPrefixOf` dep
-                      ]
-                }
 
-        _ <- withDamlIdeState opts' loggerH diagnosticsLogger $ \ide ->
-            runAction ide $
-            writeIfacesAndHie
-                (toNormalizedFilePath "./")
-                [fp | (fp, _content) <- src']
-        -- write the conf file and refresh the package cache
-        let (cfPath, cfBs) =
-                mkConfFile
+-- Expand SDK package dependencies using the SDK root path.
+-- E.g. `daml-trigger` --> `$DAML_SDK/daml-libs/daml-trigger.dar`
+-- When invoked outside of the SDK, we will only error out
+-- if there is actually an SDK package so that
+-- When there is no SDK
+expandSdkPackages :: [FilePath] -> IO [FilePath]
+expandSdkPackages dars = do
+    mbSdkPath <- handleIO (\_ -> pure Nothing) $ Just <$> getSdkPath
+    traverse (expand mbSdkPath) dars
+  where
+    isSdkPackage fp = takeExtension fp `notElem` [".dar", ".dalf"]
+    expand mbSdkPath fp
+      | isSdkPackage fp = case mbSdkPath of
+            Just sdkPath -> pure $ sdkPath </> "daml-libs" </> fp <.> "dar"
+            Nothing -> fail $ "Cannot resolve SDK dependency '" ++ fp ++ "'. Use daml assistant."
+      | otherwise = pure fp
+
+-- generate interface files and install them in the package database
+generateAndInstallIfaceFiles ::
+       LF.Package
+    -> [(NormalizedFilePath, String)]
+    -> Options
+    -> FilePath
+    -> FilePath
+    -> FilePath
+    -> String
+    -> String
+    -> String
+    -> Maybe String
+    -> [String]
+    -> IO ()
+generateAndInstallIfaceFiles dalf src opts workDir dbPath projectPackageDatabase unitIdStr pkgIdStr pkgName mbPkgVersion deps = do
+    loggerH <- getLogger opts "generate interface files"
+    let src' = [ (toNormalizedFilePath $ workDir </> fromNormalizedFilePath nfp, str) | (nfp, str) <- src]
+    mapM_ writeSrc src'
+    opts' <-
+        mkOptions $
+        opts
+            { optWriteInterface = False
+            , optPackageDbs = projectPackageDatabase : optPackageDbs opts
+            , optIfaceDir = Nothing
+            , optIsGenerated = True
+            , optDflagCheck = False
+            , optMbPackageName = Just unitIdStr
+            , optHideAllPkgs = True
+            , optGhcCustomOpts = []
+            , optPackageImports =
+                  ("daml-prim", True, []) :
+                  [ ( damlStdlib
+                    , False
+                    , [ ("DA.Internal.Template", "Sdk.DA.Internal.Template")
+                      , ("DA.Internal.LF", "Sdk.DA.Internal.LF")
+                      , ("DA.Internal.Prelude", "Sdk.DA.Internal.Prelude")
+                      ])
+                  ] ++
+                  [ (takeBaseName dep, True, [])
+                  | dep <- deps
+                  , not $ unitIdString primUnitId `isPrefixOf` dep
+                  ]
+            }
+
+    _ <- withDamlIdeState opts' loggerH diagnosticsLogger $ \ide ->
+        runAction ide $
+        writeIfacesAndHie
+            (toNormalizedFilePath "./")
+            [fp | (fp, _content) <- src']
+    -- write the conf file and refresh the package cache
+    let (cfPath, cfBs) =
+            mkConfFile
+                PackageConfigFields
+                    { pName = pkgName
+                    , pSrc = "" -- not used
+                    , pExposedModules = Nothing
+                    , pVersion = mbPkgVersion
+                    , pDependencies = deps
+                    , pDataDependencies = []
+                    , pSdkVersion = PackageSdkVersion "unknown"
+                    }
+                (map T.unpack $ LF.packageModuleNames dalf)
+                pkgIdStr
+    BS.writeFile (dbPath </> "package.conf.d" </> cfPath) cfBs
+    ghcPkgPath <- getGhcPkgPath
+    callProcess
+        (ghcPkgPath </> exe "ghc-pkg")
+        [ "recache"
+        -- ghc-pkg insists on using a global package db and will try
+        -- to find one automatically if we don’t specify it here.
+        , "--global-package-db=" ++ (dbPath </> "package.conf.d")
+        , "--expand-pkgroot"
+        ]
+
+-- generate a package containing template instances and install it in the package database
+generateAndInstallInstancesPkg
+    :: PackageSdkVersion
+    -> [(NormalizedFilePath, String)]
+    -> Options
+    -> FilePath
+    -> FilePath
+    -> String
+    -> String
+    -> String
+    -> Maybe String
+    -> [String]
+    -> IO ()
+generateAndInstallInstancesPkg thisSdkVer templInstSrc opts dbPathAbs projectPackageDatabaseAbs unitIdStr instancesUnitIdStr pkgName mbPkgVersion deps =
+    withTempDir $ \tempDir ->
+        withCurrentDirectory tempDir $ do
+            loggerH <- getLogger opts "generate instances package"
+            mapM_ writeSrc templInstSrc
+            let pkgConfig =
                     PackageConfigFields
-                        { pName = pkgName
-                        , pSrc = "" -- not used
+                        { pName = "instances-" <> pkgName
+                        , pSrc = "."
                         , pExposedModules = Nothing
                         , pVersion = mbPkgVersion
-                        , pDependencies = deps
+                        , pDependencies = (unitIdStr <.> "dalf") : deps
                         , pDataDependencies = []
-                        , pSdkVersion = PackageSdkVersion "unknown"
+                        , pSdkVersion = thisSdkVer
                         }
-                    (map T.unpack $ LF.packageModuleNames dalf)
-                    pkgIdStr
-        B.writeFile (dbPath </> "package.conf.d" </> cfPath) cfBs
-        ghcPkgPath <- getGhcPkgPath
-        callProcess
-            (ghcPkgPath </> exe "ghc-pkg")
-            [ "recache"
-            -- ghc-pkg insists on using a global package db and will try
-            -- to find one automatically if we don’t specify it here.
-            , "--global-package-db=" ++ (dbPath </> "package.conf.d")
-            , "--expand-pkgroot"
-            ]
+            opts' <-
+                mkOptions $
+                opts
+                    { optWriteInterface = True
+                    , optPackageDbs = projectPackageDatabaseAbs : optPackageDbs opts
+                    , optIfaceDir = Just "./"
+                    , optIsGenerated = True
+                    , optDflagCheck = False
+                    , optMbPackageName = Just instancesUnitIdStr
+                    , optHideAllPkgs = True
+                    , optPackageImports =
+                          ("daml-prim", True, []) :
+                          (unitIdStr, True, []) :
+                          -- we need the standard library from the current sdk for the
+                          -- definition of the template class.
+                          [ ( damlStdlib
+                            , False
+                            , [ ("DA.Internal.Template", "Sdk.DA.Internal.Template")
+                              , ("DA.Internal.LF", "Sdk.DA.Internal.LF")
+                              , ("DA.Internal.Prelude", "Sdk.DA.Internal.Prelude")
+                              ])
+                          ] ++
+                          -- the following is for the edge case, when there is no standard
+                          -- library dependency, but the dalf still uses builtins or builtin
+                          -- types like Party.  In this case, we use the current daml-stdlib as
+                          -- their origin.
+                          [(damlStdlib, True, []) | not $ any isStdlib deps] ++
+                          [ (takeBaseName dep, True, [])
+                          | dep <- deps
+                          , not $ unitIdString primUnitId `isPrefixOf` dep
+                          ]
+                    }
+            mbDar <-
+                withDamlIdeState opts' loggerH diagnosticsLogger $ \ide ->
+                    buildDar
+                        ide
+                        pkgConfig
+                        (toNormalizedFilePath $
+                         fromMaybe ifaceDir $ optIfaceDir opts')
+                        (FromDalf False)
+            dar <- mbErr "ERROR: Creation of instances DAR file failed." mbDar
+          -- TODO (drsk) switch to different zip library so we don't have to write
+          -- the dar.
+            let darFp = instancesUnitIdStr <.> "dar"
+            Zip.createArchive darFp dar
+            ExtractedDar{..} <- extractDar darFp
+            installDar dbPathAbs edConfFiles edDalfs edSrcs
 
-    -- generate a package containing template instances and install it in the package database
-    generateAndInstallInstancesPkg ::
-           [(NormalizedFilePath, String)]
-        -> Options
-        -> FilePath
-        -> FilePath
-        -> String
-        -> String
-        -> String
-        -> Maybe String
-        -> [String]
-        -> IO ()
-    generateAndInstallInstancesPkg templInstSrc opts dbPathAbs projectPackageDatabaseAbs unitIdStr instancesUnitIdStr pkgName mbPkgVersion deps =
-        withTempDir $ \tempDir ->
-            withCurrentDirectory tempDir $ do
-                loggerH <- getLogger opts "generate instances package"
-                mapM_ writeSrc templInstSrc
-                let pkgConfig =
-                        PackageConfigFields
-                            { pName = "instances-" <> pkgName
-                            , pSrc = "."
-                            , pExposedModules = Nothing
-                            , pVersion = mbPkgVersion
-                            , pDependencies = (unitIdStr <.> "dalf") : deps
-                            , pDataDependencies = []
-                            , pSdkVersion = thisSdkVer
-                            }
-                opts' <-
-                    mkOptions $
-                    opts
-                        { optWriteInterface = True
-                        , optPackageDbs = projectPackageDatabaseAbs : optPackageDbs opts
-                        , optIfaceDir = Just "./"
-                        , optIsGenerated = True
-                        , optDflagCheck = False
-                        , optMbPackageName = Just instancesUnitIdStr
-                        , optHideAllPkgs = True
-                        , optPackageImports =
-                              ("daml-prim", True, []) :
-                              (unitIdStr, True, []) :
-                              -- we need the standard library from the current sdk for the
-                              -- definition of the template class.
-                              [ ( damlStdlib
-                                , False
-                                , [ ("DA.Internal.Template", "Sdk.DA.Internal.Template")
-                                  , ("DA.Internal.LF", "Sdk.DA.Internal.LF")
-                                  , ("DA.Internal.Prelude", "Sdk.DA.Internal.Prelude")
-                                  ])
-                              ] ++
-                              -- the following is for the edge case, when there is no standard
-                              -- library dependency, but the dalf still uses builtins or builtin
-                              -- types like Party.  In this case, we use the current daml-stdlib as
-                              -- their origin.
-                              [(damlStdlib, True, []) | not $ hasStdlibDep deps] ++
-                              [ (takeBaseName dep, True, [])
-                              | dep <- deps
-                              , not $ (unitIdString primUnitId) `isPrefixOf` dep
-                              ]
-                        }
-                mbDar <-
-                    withDamlIdeState opts' loggerH diagnosticsLogger $ \ide ->
-                        buildDar
-                            ide
-                            pkgConfig
-                            (toNormalizedFilePath $
-                             fromMaybe ifaceDir $ optIfaceDir opts')
-                            (FromDalf False)
-                dar <- mbErr "ERROR: Creation of instances DAR file failed." mbDar
-              -- TODO (drsk) switch to different zip library so we don't have to write
-              -- the dar.
-                let darFp = instancesUnitIdStr <.> "dar"
-                Zip.createArchive darFp dar
-                ExtractedDar{..} <- extractDar darFp
-                installDar dbPathAbs edConfFiles edDalfs edSrcs
-
-    hasStdlibDep deps =
-        any (\dep -> isJust $ stripPrefix "daml-stdlib" $ takeBaseName dep) deps
-
+isStdlib :: FilePath -> Bool
+isStdlib = isJust . stripPrefix "daml-stdlib" . takeBaseName
 
 data ExtractedDar = ExtractedDar
     { edSdkVersions :: String
@@ -381,7 +368,7 @@ extractDar fp = do
     pure (ExtractedDar sdkVersion [mainDalfEntry] confFiles dalfs srcs)
 
 -- | A helper to construct package ref to unit id maps.
-getUnitId :: UnitId -> MS.Map LF.PackageId UnitId -> (LF.PackageRef -> UnitId)
+getUnitId :: UnitId -> MS.Map LF.PackageId UnitId -> LF.PackageRef -> UnitId
 getUnitId thisUnitId pkgMap =
     \case
         LF.PRSelf -> thisUnitId
@@ -450,3 +437,38 @@ getEntry fp dar =
 
 lfVersionString :: LF.Version -> String
 lfVersionString = DA.Pretty.renderPretty
+
+
+buildLfPackageGraph
+    :: [(LF.PackageId, LF.Package, BS.ByteString, UnitId)]
+    -> ( Graph
+       , Vertex -> (PackageNode, LF.PackageId)
+       )
+buildLfPackageGraph pkgs = (depGraph,  vertexToNode')
+  where
+    -- mapping from package id's to unit id's. if the same package is imported with
+    -- different unit id's, we would loose a unit id here.
+    pkgMap = MS.fromList [(pkgId, unitId) | (pkgId, _pkg, _bs, unitId) <- pkgs]
+    -- order the packages in topological order
+    (depGraph, vertexToNode, _keyToVertex) =
+        graphFromEdges
+            [ (PackageNode src templInstSrc unitId dalf bs, pkgId, pkgRefs)
+            | (pkgId, dalf, bs, unitId) <- pkgs
+            , let pkgRefs = [ pid | LF.PRImport pid <- toListOf packageRefs dalf ]
+            , let getUid = getUnitId unitId pkgMap
+            , let src = generateSrcPkgFromLf getUid (Just "Sdk") dalf
+            , let templInstSrc = generateTemplateInstancesPkgFromLf getUid (Just "Sdk") pkgId dalf
+            ]
+    vertexToNode' v = case vertexToNode v of
+        -- We don’t care about outgoing edges.
+        (node, key, _keys) -> (node, key)
+
+data PackageNode = PackageNode
+  { stubSources :: [(NormalizedFilePath, String)]
+  -- ^ Sources for the stub package containining data type definitions
+  , templateInstanceSources :: [(NormalizedFilePath, String)]
+  -- ^ Sources for the package containing instances for Template, Choice, …
+  , unitId :: UnitId
+  , dalf :: LF.Package
+  , encodedDalf :: BS.ByteString
+  }
