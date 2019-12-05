@@ -3,19 +3,22 @@
 
 package com.digitalasset.platform.sandbox.stores.ledger.sql.util
 
-import java.sql.Connection
-import java.util.concurrent.Executors
+import java.sql.{Connection, SQLTransientConnectionException}
+import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.{Executors, TimeUnit}
 
 import akka.stream.scaladsl.Source
 import akka.{Done, NotUsed}
-import com.codahale.metrics.MetricRegistry
-import com.digitalasset.ledger.api.health.{HealthStatus, ReportsHealth}
+import com.codahale.metrics.{MetricRegistry, Timer}
+import com.digitalasset.ledger.api.health.{HealthStatus, Healthy, ReportsHealth, Unhealthy}
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.common.util.DirectExecutionContext
 import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.HikariJdbcConnectionProvider
+import com.digitalasset.platform.sandbox.stores.ledger.sql.util.DbDispatcher._
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.{ExecutionContext, Future, Promise}
+import scala.util.control.NonFatal
 
 /**
   * A helper class to dispatch blocking SQL queries onto a dedicated thread pool.
@@ -33,12 +36,10 @@ final class DbDispatcher(
     metrics: MetricRegistry,
 ) extends AutoCloseable
     with ReportsHealth {
-
   private val logger = loggerFactory.getLogger(getClass)
+
   private val connectionProvider =
     new HikariJdbcConnectionProvider(jdbcUrl, noOfShortLivedConnections, noOfStreamingConnections)
-  private val sqlExecutor =
-    new SqlExecutor(noOfShortLivedConnections, loggerFactory, metrics)
 
   private val connectionGettingThreadPool = ExecutionContext.fromExecutorService(
     Executors.newSingleThreadExecutor(
@@ -49,7 +50,30 @@ final class DbDispatcher(
           logger.error(s"got an uncaught exception on thread: ${thread.getName}", t))
         .build()))
 
-  override def currentHealth(): HealthStatus = sqlExecutor.currentHealth()
+  private lazy val sqlExecutor =
+    Executors.newFixedThreadPool(
+      noOfShortLivedConnections,
+      new ThreadFactoryBuilder()
+        .setDaemon(true)
+        .setNameFormat("sql-executor-%d")
+        .setUncaughtExceptionHandler((_, e) => {
+          logger.error("Got an uncaught exception in SQL executor!", e)
+        })
+        .build()
+    )
+
+  private val transientFailureCount: AtomicInteger = new AtomicInteger(0)
+
+  object Metrics {
+    val waitAllTimer: Timer = metrics.timer("sql_all_wait")
+    val execAllTimer: Timer = metrics.timer("sql_all_exec")
+  }
+
+  override def currentHealth(): HealthStatus =
+    if (transientFailureCount.get() < MaxTransientFailureCount)
+      Healthy
+    else
+      Unhealthy
 
   /** Runs an SQL statement in a dedicated Executor. The whole block will be run in a single database transaction.
     *
@@ -57,8 +81,51 @@ final class DbDispatcher(
     * the Connection. See further details at: https://docs.oracle.com/cd/E19830-01/819-4721/beamv/index.html
     */
   def executeSql[T](description: String, extraLog: Option[String] = None)(
-      sql: Connection => T): Future[T] =
-    sqlExecutor.runQuery(description, extraLog)(connectionProvider.runSQL(sql))
+      sql: Connection => T
+  ): Future[T] = {
+    val promise = Promise[T]
+    val waitTimer = metrics.timer(s"sql_${description}_wait")
+    val execTimer = metrics.timer(s"sql_${description}_exec")
+    val startWait = System.nanoTime()
+    sqlExecutor.execute(() => {
+      val waitNanos = System.nanoTime() - startWait
+      extraLog.foreach(log =>
+        logger.trace(s"$description: $log wait ${(waitNanos / 1E6).toLong} ms"))
+      waitTimer.update(waitNanos, TimeUnit.NANOSECONDS)
+      Metrics.waitAllTimer.update(waitNanos, TimeUnit.NANOSECONDS)
+      val startExec = System.nanoTime()
+      try {
+        // Actual execution
+        promise.success(connectionProvider.runSQL(sql))
+        transientFailureCount.set(0)
+      } catch {
+        case e: SQLTransientConnectionException =>
+          transientFailureCount.incrementAndGet()
+          promise.failure(e)
+        case NonFatal(e) =>
+          logger.error(
+            s"$description: Got an exception while executing a SQL query. Rolled back the transaction.",
+            e)
+          promise.failure(e)
+        case t: Throwable =>
+          logger.error(s"$description: got a fatal error!", t) //fatal errors don't make it for some reason to the setUncaughtExceptionHandler above
+          throw t
+      }
+
+      // decouple metrics updating from sql execution above
+      try {
+        val execNanos = System.nanoTime() - startExec
+        extraLog.foreach(log =>
+          logger.trace(s"$description: $log exec ${(execNanos / 1E6).toLong} ms"))
+        execTimer.update(execNanos, TimeUnit.NANOSECONDS)
+        Metrics.execAllTimer.update(execNanos, TimeUnit.NANOSECONDS)
+      } catch {
+        case t: Throwable =>
+          logger.error("$description: Got an exception while updating timer metrics. Ignoring.", t)
+      }
+    })
+    promise.future
+  }
 
   /**
     * Creates a lazy Source, which takes care of:
@@ -85,7 +152,11 @@ final class DbDispatcher(
 
   override def close(): Unit = {
     connectionProvider.close()
-    sqlExecutor.close()
+    sqlExecutor.shutdown()
     connectionGettingThreadPool.shutdown()
   }
+}
+
+object DbDispatcher {
+  val MaxTransientFailureCount: Int = 3
 }
