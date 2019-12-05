@@ -317,9 +317,6 @@ private final class SqlLedger(
       party: Party,
       displayName: Option[String]): Future[SubmissionResult] = {
     enqueue { offsets =>
-      val recordTime = timeProvider.getCurrentTime
-      // NOTE(JM): If the generation in the new configuration is invalid
-      // we persist a rejection.
       ledgerDao
         .storePartyEntry(
           offsets.offset,

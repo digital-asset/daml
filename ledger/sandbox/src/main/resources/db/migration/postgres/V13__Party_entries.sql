@@ -21,7 +21,7 @@ CREATE TABLE party_entries
     party            varchar,
     -- displayName
     display_name     varchar,
-    -- The type of entry, 'accept' or 'reject' or 'implicit'
+    -- The type of entry, 'accept' or 'reject'
     typ              varchar             not null,
     -- If the type is 'reject', then the rejection reason is set.
     -- Rejection reason is a human-readable description why the change was rejected.
@@ -32,8 +32,7 @@ CREATE TABLE party_entries
     constraint check_party_entry_type
         check (
                 (typ = 'accept' and rejection_reason is null and party is not null) or
-                (typ = 'reject' and rejection_reason is not null) or
-                (typ = 'implicit' and party is not null)
+                (typ = 'reject' and rejection_reason is not null)
             )
 );
 
