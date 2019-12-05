@@ -514,16 +514,17 @@ enum BuiltinFunction {
   TEXT_FROM_CODE_POINTS = 105;  // *Available in versions >= 1.6*
   TEXT_TO_CODE_POINTS = 106; // *Available in versions >= 1.6*
 
-  TEXT_TO_UPPER = 131; // *Available in versions >= 1.dev*
-  TEXT_TO_LOWER = 132; // *Available in versions >= 1.dev*
-  TEXT_SLICE = 133;
-  TEXT_SLICE_INDEX = 134; // *Available in versions >= 1.dev*
-  TEXT_CONTAINS_ONLY = 135; // *Available in versions >= 1.dev*
-  TEXT_REPLICATE = 136; // *Available in versions >= 1.dev*
-  TEXT_SPLIT_ON = 137; // *Available in versions >= 1.dev*
-  TEXT_INTERCALATE = 138; // *Available in versions >= 1.dev*
+  // Next id is 131. 130 is GENMAP_SIZE.
 
-  // Next id is 139. 138 is TEXT_JOIN.
+  // EXPERIMENTAL TEXT PRIMITIVES -- these do not yet have stable numbers.
+  TEXT_TO_UPPER = 9901; // *Available in versions >= 1.dev*
+  TEXT_TO_LOWER = 9902; // *Available in versions >= 1.dev*
+  TEXT_SLICE = 9903; // *Available in versions >= 1.dev*
+  TEXT_SLICE_INDEX = 9904; // *Available in versions >= 1.dev*
+  TEXT_CONTAINS_ONLY = 9905; // *Available in versions >= 1.dev*
+  TEXT_REPLICATE = 9906; // *Available in versions >= 1.dev*
+  TEXT_SPLIT_ON = 9907; // *Available in versions >= 1.dev*
+  TEXT_INTERCALATE = 9908; // *Available in versions >= 1.dev*
 }
 
 // Builtin literals
