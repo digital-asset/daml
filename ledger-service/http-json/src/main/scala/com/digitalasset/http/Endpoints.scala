@@ -88,16 +88,40 @@ class Endpoints(
           decoder
             .decodeV[domain.ExerciseCommand](reqBody)
             .leftMap(e => InvalidUserInput(e.shows))
-        ): ET[domain.ExerciseCommand[lav1.value.Value]]
+        ): ET[domain.ExerciseCommand[ApiValue]]
 
         cs <- eitherT(
           handleFutureFailure(commandService.exercise(jwt, jwtPayload, cmd))
-        ): ET[List[domain.Contract[lav1.value.Value]]]
+        ): ET[List[domain.Contract[ApiValue]]]
 
         jsVal <- either(
           cs.traverse(a => encoder.encodeV(a))
             .leftMap(e => ServerError(e.shows))
             .flatMap(as => encodeList(as))): ET[JsValue]
+
+      } yield jsVal
+
+      httpResponse(et)
+
+    case req @ HttpRequest(POST, Uri.Path("/command/exercise-with-result"), _, _, _) =>
+      val et: ET[JsValue] = for {
+        t3 <- eitherT(input(req)): ET[(Jwt, JwtPayload, String)]
+
+        (jwt, jwtPayload, reqBody) = t3
+
+        cmd <- either(
+          decoder
+            .decodeV[domain.ExerciseCommand](reqBody)
+            .leftMap(e => InvalidUserInput(e.shows))
+        ): ET[domain.ExerciseCommand[ApiValue]]
+
+        choiceResult <- eitherT(
+          handleFutureFailure(commandService.exerciseWithResult(jwt, jwtPayload, cmd))
+        ): ET[ApiValue]
+
+        lfVal <- either(apiValueToLfValue(choiceResult)): ET[LfValue]
+
+        jsVal <- either(lfValueToJsValue(lfVal)): ET[JsValue]
 
       } yield jsVal
 

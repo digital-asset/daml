@@ -71,22 +71,22 @@ class CommandService(
     et.run
   }
 
-  def exerciseWithResult(jwt: Jwt, jwtPayload: JwtPayload, input: ExerciseCommand[lav1.value.Value])
-    : Future[Error \/ domain.ExerciseResponse[lav1.value.Value]] = {
+  @SuppressWarnings(Array("org.wartremover.warts.Any"))
+  def exerciseWithResult(
+      jwt: Jwt,
+      jwtPayload: JwtPayload,
+      input: ExerciseCommand[lav1.value.Value]): Future[Error \/ lav1.value.Value] = {
 
-//    val et: EitherT[Future, Error, List[Contract[lav1.value.Value]]] = for {
-//      command <- EitherT.either(exerciseCommand(input))
-//      request = submitAndWaitRequest(jwtPayload, input.meta, command)
-//      response <- liftET(
-//        logResult('exerciseWithResult, submitAndWaitForTransactionTree(jwt, request)))
-//      contracts <- EitherT.either(contracts(response))
-//    } yield contracts
-//
-//    et.run
-    ???
+    val et: EitherT[Future, Error, lav1.value.Value] = for {
+      command <- EitherT.either(exerciseCommand(input))
+      request = submitAndWaitRequest(jwtPayload, input.meta, command)
+      response <- liftET(
+        logResult('exerciseWithResult, submitAndWaitForTransactionTree(jwt, request)))
+      result <- EitherT.either(exerciseResult(response))
+    } yield result
+
+    et.run
   }
-
-  def eitherT[A](fa: Future[A]): Future[Error \/ A] = fa.map(a => \/-(a))
 
   private def logResult[A](op: Symbol, fa: Future[A]): Future[A] = {
     fa.onComplete {
@@ -177,6 +177,27 @@ class CommandService(
   private def contracts(
       tx: lav1.transaction.Transaction): Error \/ List[Contract[lav1.value.Value]] =
     Contract.fromLedgerApi(tx).leftMap(e => Error('contracts, e.shows))
+
+  private def exerciseResult(a: lav1.command_service.SubmitAndWaitForTransactionTreeResponse)
+    : Error \/ lav1.value.Value = {
+    val result: Option[lav1.value.Value] = for {
+      transaction <- a.transaction: Option[lav1.transaction.TransactionTree]
+      treeEvent <- rootTreeEvent(transaction): Option[lav1.transaction.TreeEvent]
+      exercised <- treeEvent.kind.exercised: Option[lav1.event.ExercisedEvent]
+      exResult <- exercised.exerciseResult: Option[lav1.value.Value]
+    } yield exResult
+
+    result.toRightDisjunction(
+      Error(
+        'choiceArgument,
+        s"Cannot get exerciseResult from the first root event of gRPC response: ${a.toString}"))
+  }
+
+  private def rootTreeEvent(
+      a: lav1.transaction.TransactionTree): Option[lav1.transaction.TreeEvent] =
+    a.rootEventIds.headOption.flatMap { id =>
+      a.eventsById.get(id)
+    }
 }
 
 object CommandService {

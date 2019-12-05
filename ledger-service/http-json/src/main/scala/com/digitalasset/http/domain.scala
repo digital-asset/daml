@@ -81,11 +81,6 @@ object domain {
       argument: LfV,
       meta: Option[CommandMeta])
 
-  final case class ExerciseResponse[+LfV](
-      choiceResult: LfV,
-      events: List[Contract[LfV]]
-  )
-
   object PartyDetails {
     def fromLedgerApi(p: com.digitalasset.ledger.api.domain.PartyDetails): PartyDetails =
       PartyDetails(Party(p.party), p.displayName, p.isLocal)
