@@ -1746,14 +1746,14 @@ will always be used to compare values of same types::
   ——————————————————————————————————————————————————— GenEqOptionSome
    'Some' @τ v ~ᵥ 'Some' @σ w
 
-   v₁ ~ᵥ v₁     …       vₙ ~ᵥ wₙ
+   v₁ ~ᵥ v₁     …       vₘ ~ᵥ wₘ
   ——————————————————————————————————————————————————— GenEqRecCon
-  Mod:T @τ … @τ { f₁ = v₁, …, fₙ = wₙ }
-    ~ᵥ Mod:T @τ … @τ { f₁ = w₁, …, fₙ = wₙ }
+  Mod:T @τ1 … @τₙ { f₁ = v₁, …, fₙ = wₘ }
+    ~ᵥ Mod:T @σ₁ … @σₙ { f₁ = w₁, …, fₙ = wₘ }
 
    v ~ᵥ w
   ——————————————————————————————————————————————————— GenEqVariantCon
-   Mod:T:V @τ … @τ v ~ᵥ Mod:T:V @τ … @τ w
+   Mod:T:V @τ₁ … @τₙ v ~ᵥ Mod:T:V @σ₁ … @σₙ w
 
   ——————————————————————————————————————————————————— GenEqEnumCon
    Mod:T:E ~ᵥ Mod:T:E
