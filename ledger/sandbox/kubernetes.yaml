@@ -41,6 +41,21 @@ spec:
           ports:
             - name: ledger-api
               containerPort: 6865
+          startupProbe:
+            tcpSocket:
+              port: ledger-api
+            failureThreshold: 10
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: ledger-api
+            periodSeconds: 10
+          readinessProbe:
+            exec:
+              command:
+                - grpc-health-probe
+                - -addr=:6865
+            periodSeconds: 10
 
 ---
 

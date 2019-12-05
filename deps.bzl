@@ -249,3 +249,14 @@ def daml_deps():
             strip_prefix = "bazel-common-9e3880428c1837db9fb13335ed390b7e33e346a7",
             urls = ["https://github.com/google/bazel-common/archive/9e3880428c1837db9fb13335ed390b7e33e346a7.zip"],
         )
+
+    if "com_github_grpc_ecosystem_grpc_health_probe_binary" not in native.existing_rules():
+        http_file(
+            name = "com_github_grpc_ecosystem_grpc_health_probe_binary",
+            sha256 = "bfbe82e34645e91cdf3bacbb0d2dc7786f3c3cc4da6b64a446e5fdfb7bb0429f",
+            downloaded_file_path = "grpc-health-probe",
+            urls = [
+                "https://github.com/grpc-ecosystem/grpc-health-probe/releases/download/v0.3.1/grpc_health_probe-linux-amd64",
+            ],
+            executable = True,
+        )
