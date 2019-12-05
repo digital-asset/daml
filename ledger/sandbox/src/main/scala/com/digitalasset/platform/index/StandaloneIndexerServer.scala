@@ -40,8 +40,7 @@ object StandaloneIndexerServer {
 
     val promise = Promise[Unit]
 
-    def startIndexer(initializedIndexerFactory: JdbcIndexerFactory[Initialized]): Future[Unit] = {
-      println("Starting the indexer.")
+    def startIndexer(initializedIndexerFactory: JdbcIndexerFactory[Initialized]): Future[Unit] =
       indexer
         .start(
           () =>
@@ -53,7 +52,6 @@ object StandaloneIndexerServer {
                 indexer.subscribe(readService)
             })
         .map(_ => ())
-    }
 
     try {
       config.startupMode match {
