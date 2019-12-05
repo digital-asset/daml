@@ -35,10 +35,7 @@ final class InsertOrdMap[K, +V] private (
   override def get(key: K): Option[V] = hashMap.get(key)
 
   override def updated[V1 >: V](key: K, value: V1): InsertOrdMap[K, V1] =
-    if (hashMap.contains(key))
-      new InsertOrdMap(keys, hashMap.updated(key, value))
-    else
-      new InsertOrdMap(keys :+ key, hashMap.updated(key, value))
+    new InsertOrdMap(if (hashMap.contains(key)) keys else keys :+ key, hashMap.updated(key, value))
 
   override def +[V1 >: V](kv: (K, V1)): InsertOrdMap[K, V1] = {
     val (key, value) = kv
