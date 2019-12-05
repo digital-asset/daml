@@ -233,6 +233,16 @@ typeOfBuiltin = \case
     TContractId tAlpha :-> TContractId tAlpha :-> TBool
   BECoerceContractId -> do
     pure $ TForall (alpha, KStar) $ TForall (beta, KStar) $ TContractId tAlpha :-> TContractId tBeta
+
+  BETextToUpper -> pure (TText :-> TText)
+  BETextToLower -> pure (TText :-> TText)
+  BETextSlice -> pure (TInt64 :-> TInt64 :-> TText :-> TText)
+  BETextSliceIndex -> pure (TText :-> TText :-> TOptional TInt64)
+  BETextContainsOnly -> pure (TText :-> TText :-> TBool)
+  BETextReplicate -> pure (TInt64 :-> TText :-> TText)
+  BETextSplitOn -> pure (TText :-> TText :-> TList TText)
+  BETextIntercalate -> pure (TText :-> TList TText :-> TText)
+
   where
     tComparison btype = TBuiltin btype :-> TBuiltin btype :-> TBool
     tBinop typ = typ :-> typ :-> typ

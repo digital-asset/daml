@@ -13,10 +13,10 @@ import com.daml.ledger.javaapi.data.{Unit => DAMLUnit, _}
 import com.daml.ledger.rxjava.components.LedgerViewFlowable.LedgerView
 import com.daml.ledger.rxjava.components.helpers.{CommandsAndPendingSet, CreatedContract}
 import com.daml.ledger.rxjava.components.tests.helpers.DummyLedgerClient
-import com.daml.ledger.rxjava.grpc.helpers.{DataLayerHelpers, LedgerServices}
-import com.daml.ledger.rxjava.{CommandSubmissionClient, DamlLedgerClient}
-import com.daml.ledger.testkit.services.TransactionServiceImpl
+import com.daml.ledger.rxjava.grpc.helpers.{LedgerServices, TransactionsServiceImpl}
+import com.daml.ledger.rxjava.{CommandSubmissionClient, DamlLedgerClient, untestedEndpoint}
 import com.digitalasset.grpc.{GrpcException, GrpcStatus}
+import com.digitalasset.ledger.api.auth.AuthServiceWildcard
 import com.digitalasset.ledger.api.v1.command_service.{
   SubmitAndWaitForTransactionIdResponse,
   SubmitAndWaitForTransactionResponse,
@@ -41,9 +41,9 @@ import scala.util.Random
 import scala.util.control.NonFatal
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
-class BotTest extends FlatSpec with Matchers with DataLayerHelpers {
+final class BotTest extends FlatSpec with Matchers {
 
-  override def ledgerServices: LedgerServices = new LedgerServices("bot-test")
+  def ledgerServices: LedgerServices = new LedgerServices("bot-test")
   val ec: ExecutionContext = ledgerServices.executionContext
   val logger = LoggerFactory.getLogger(this.getClass)
 
@@ -151,6 +151,16 @@ class BotTest extends FlatSpec with Matchers with DataLayerHelpers {
                   commands))
               Single.error(new RuntimeException("expected failure"))
             }
+            override def submit(
+                workflowId: String,
+                applicationId: String,
+                commandId: String,
+                party: String,
+                ledgerEffectiveTime: Instant,
+                maximumRecordTime: Instant,
+                commands: util.List[Command],
+                accessToken: String): Single[JEmpty] =
+              untestedEndpoint
           }
       }
 
@@ -358,7 +368,7 @@ class BotTest extends FlatSpec with Matchers with DataLayerHelpers {
      * of getACSDone.future.isCompleted
      */
     def dummyTransactionResponse(offset: String) =
-      TransactionServiceImpl.LedgerItem(
+      TransactionsServiceImpl.LedgerItem(
         "",
         "",
         "",
@@ -366,7 +376,7 @@ class BotTest extends FlatSpec with Matchers with DataLayerHelpers {
         Seq(),
         offset,
         None)
-    val getTransactionsResponses = Observable.defer[TransactionServiceImpl.LedgerItem](
+    val getTransactionsResponses = Observable.defer[TransactionsServiceImpl.LedgerItem](
       () =>
         Observable.fromArray(
           dummyTransactionResponse(if (getACSDone.future.isCompleted) rightOffset else wrongOffset))
@@ -386,7 +396,8 @@ class BotTest extends FlatSpec with Matchers with DataLayerHelpers {
       Seq.empty,
       Future.successful(scalaAPI.package_service.ListPackagesResponse.defaultInstance),
       Future.successful(scalaAPI.package_service.GetPackageResponse.defaultInstance),
-      Future.successful(scalaAPI.package_service.GetPackageStatusResponse.defaultInstance)
+      Future.successful(scalaAPI.package_service.GetPackageStatusResponse.defaultInstance),
+      AuthServiceWildcard
     ) { (server, _) =>
       val client =
         DamlLedgerClient.newBuilder("localhost", server.getPort).build()
@@ -403,7 +414,7 @@ class BotTest extends FlatSpec with Matchers with DataLayerHelpers {
           _ => Flowable.empty())
       } catch {
         case GrpcException(GrpcStatus.INVALID_ARGUMENT(), trailers) =>
-          /** the tests relies on specific implementation of the [[TransactionServiceImpl.getTransactions()]]  */
+          /** the tests relies on specific implementation of the [[TransactionsServiceImpl.getTransactions()]]  */
           fail(trailers.get(Metadata.Key.of("cause", Metadata.ASCII_STRING_MARSHALLER)))
       }
 

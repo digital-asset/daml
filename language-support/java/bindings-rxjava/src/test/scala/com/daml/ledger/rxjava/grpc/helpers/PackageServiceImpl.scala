@@ -1,19 +1,22 @@
 // Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.ledger.testkit.services
+package com.daml.ledger.rxjava.grpc.helpers
 
-import com.digitalasset.ledger.api.v1.package_service._
+import com.digitalasset.ledger.api.auth.Authorizer
+import com.digitalasset.ledger.api.auth.services.PackageServiceAuthorization
 import com.digitalasset.ledger.api.v1.package_service.PackageServiceGrpc.PackageService
+import com.digitalasset.ledger.api.v1.package_service._
 import io.grpc.ServerServiceDefinition
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class PackageServiceImpl(
+final class PackageServiceImpl(
     listPackagesResponse: Future[ListPackagesResponse],
     getPackageResponse: Future[GetPackageResponse],
     getPackageStatusResponse: Future[GetPackageStatusResponse])
-    extends PackageService {
+    extends PackageService
+    with FakeAutoCloseable {
 
   private var lastListPackageRequest: Option[ListPackagesRequest] = None
   private var lastGetPackagesRequest: Option[GetPackageRequest] = None
@@ -46,10 +49,12 @@ object PackageServiceImpl {
   def createWithRef(
       listPackagesResponse: Future[ListPackagesResponse],
       getPackageResponse: Future[GetPackageResponse],
-      getPackageStatusResponse: Future[GetPackageStatusResponse])(
+      getPackageStatusResponse: Future[GetPackageStatusResponse],
+      authorizer: Authorizer)(
       implicit ec: ExecutionContext): (ServerServiceDefinition, PackageServiceImpl) = {
     val impl =
       new PackageServiceImpl(listPackagesResponse, getPackageResponse, getPackageStatusResponse)
-    (PackageServiceGrpc.bindService(impl, ec), impl)
+    val authImpl = new PackageServiceAuthorization(impl, authorizer)
+    (PackageServiceGrpc.bindService(authImpl, ec), impl)
   }
 }

@@ -5,12 +5,12 @@ package com.daml.ledger.rxjava.grpc.helpers
 
 import com.digitalasset.ledger.api.auth.Authorizer
 import com.digitalasset.ledger.api.auth.services.LedgerIdentityServiceAuthorization
+import com.digitalasset.ledger.api.v1.ledger_identity_service.LedgerIdentityServiceGrpc.LedgerIdentityService
 import com.digitalasset.ledger.api.v1.ledger_identity_service.{
   GetLedgerIdentityRequest,
   GetLedgerIdentityResponse,
   LedgerIdentityServiceGrpc
 }
-import com.digitalasset.ledger.api.v1.ledger_identity_service.LedgerIdentityServiceGrpc.LedgerIdentityService
 import io.grpc.ServerServiceDefinition
 
 import scala.concurrent.{ExecutionContext, Future}

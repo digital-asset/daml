@@ -30,6 +30,7 @@ da_haskell_binary(
         ghc_pkg,
         "//compiler/damlc:ghcversion",
         "//compiler/damlc/pkg-db",
+        "//compiler/damlc/stable-packages",
         "//compiler/scenario-service/server:scenario_service_jar",
     ],
     hackage_deps = [
@@ -65,7 +66,10 @@ da_haskell_binary(
         "-optl-static",
         "-optl-pthread",
     ] if is_windows else [],
-    data = ["//compiler/damlc:ghcversion"],
+    data = [
+        "//compiler/damlc:ghcversion",
+        "//compiler/damlc/stable-packages",
+    ],
     hackage_deps = [
         "base",
     ],
@@ -83,6 +87,7 @@ package_app(
         ":ghc-pkg-dist",
         "//compiler/damlc/daml-ide-core:dlint.yaml",
         "//compiler/damlc/pkg-db",
+        "//compiler/damlc/stable-packages",
         "//compiler/scenario-service/server:scenario_service_jar",
         "@static_asset_d3plus//:js/d3.min.js",
         "@static_asset_d3plus//:js/d3plus.min.js",

@@ -145,3 +145,30 @@ To exercise ``IouTransfer_Accept`` choice on the ``IouTransfer`` contract that y
    :end-before: // </doc-ref:submit-iou-transfer-accept-exercise-command>
 
 Fore more details on how to subscribe to receive events for a particular party, please refer to the implementation of `com.digitalasset.quickstart.iou.IouMain#newOwnerAcceptsAllTransfers <https://github.com/digital-asset/daml/blob/master/language-support/scala/examples/quickstart-scala/application/src/main/scala/com/digitalasset/quickstart/iou/IouMain.scala>`_.
+
+
+.. _scala-bindings-authentication:
+
+Authentication
+==============
+
+Some ledgers will require you to send an access token along with each request.
+To learn more about authentication, read the :doc:`Authentication </app-dev/authentication>` overview.
+
+To use the same token for all ledger API requests,
+use the ``token`` field of ``LedgerClientConfiguration``:
+
+.. literalinclude:: ./code-snippets/quickstart-scala/application/src/main/scala/com/digitalasset/quickstart/iou/IouMain.scala
+   :start-after: // <doc-ref:ledger-client-configuration>
+   :end-before: // </doc-ref:ledger-client-configuration>
+
+To specify the token for an individual call,
+use the ``token`` parameter:
+
+.. code-block:: scala
+
+   transactionClient.getLedgerEnd() // Uses the token specified in LedgerClientConfiguration
+   transactionClient.getLedgerEnd(token = acessToken) // Uses the given token
+
+Note that if your tokens can change at run time (e.g., because they expire or because you switch users),
+you will need to specify them on a per-call basis as shown above.

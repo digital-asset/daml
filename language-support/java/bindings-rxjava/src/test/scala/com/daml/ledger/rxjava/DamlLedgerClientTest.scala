@@ -9,7 +9,7 @@ import java.util.concurrent.TimeUnit
 import com.daml.ledger.javaapi.data.LedgerOffset.Absolute
 import com.daml.ledger.javaapi.data.{Command, CreateCommand, Identifier, Record}
 import com.daml.ledger.rxjava.grpc.helpers.{CommandServiceImpl, _}
-import com.daml.ledger.testkit.services._
+import com.digitalasset.ledger.api.auth.{AuthService, AuthServiceWildcard}
 import com.digitalasset.ledger.api.v1.command_completion_service.CompletionStreamResponse
 import com.digitalasset.ledger.api.v1.command_service.{
   SubmitAndWaitForTransactionIdResponse,
@@ -27,14 +27,19 @@ import org.scalatest.{Assertion, FlatSpec, Matchers, OptionValues}
 import scala.collection.JavaConverters._
 import scala.concurrent.Future
 
-class DamlLedgerClientTest extends FlatSpec with Matchers with OptionValues with DataLayerHelpers {
+class DamlLedgerClientTest
+    extends FlatSpec
+    with Matchers
+    with AuthMatchers
+    with OptionValues
+    with DataLayerHelpers {
 
   val ledgerServices = new LedgerServices(getClass.getSimpleName)
 
   behavior of "DamlLedgerClient.forLedgerIdAndHost"
 
   it should "connect to an existing ledger-api grpc service with the correct ledgerId and pass the ledgerId to the clients" in {
-    withFakeLedgerServer() { (server, impls) =>
+    withFakeLedgerServer(AuthServiceWildcard) { (server, impls) =>
       val damlLedgerClient = DamlLedgerClient
         .newBuilder("localhost", server.getPort)
         .withExpectedLedgerId(ledgerServices.ledgerId)
@@ -44,9 +49,40 @@ class DamlLedgerClientTest extends FlatSpec with Matchers with OptionValues with
   }
 
   it should "connect to an existing ledger-api grpc service, autodiscover the ledgerId and pass it to the clients" in {
-    withFakeLedgerServer() { (server, impls) =>
+    withFakeLedgerServer(AuthServiceWildcard) { (server, impls) =>
       val damlLedgerClient = DamlLedgerClient.newBuilder("localhost", server.getPort).build()
       testDamlLedgerClient(damlLedgerClient, impls)
+    }
+  }
+
+  it should "work with authentication" in {
+    withFakeLedgerServer(mockedAuthService) { (server, ledgerServicesImpls) =>
+      val damlLedgerClient = DamlLedgerClient
+        .newBuilder("localhost", server.getPort)
+        .withExpectedLedgerId(ledgerServices.ledgerId)
+        .withAccessToken(somePartyReadWriteToken)
+        .build()
+      damlLedgerClient.connect()
+      damlLedgerClient.getLedgerId shouldBe ledgerServices.ledgerId
+      testActiveContractSetClient(
+        damlLedgerClient.getActiveContractSetClient,
+        ledgerServicesImpls.activeContractsServiceImpl)
+      testCommandClient(damlLedgerClient.getCommandClient, ledgerServicesImpls.commandServiceImpl)
+      testCommandCompletionClient(
+        damlLedgerClient.getCommandCompletionClient,
+        ledgerServicesImpls.commandCompletionServiceImpl)
+      testCommandSubmissionClient(
+        damlLedgerClient.getCommandSubmissionClient,
+        ledgerServicesImpls.commandSubmissionServiceImpl)
+      testLedgerConfigurationClient(
+        damlLedgerClient.getLedgerConfigurationClient,
+        ledgerServicesImpls.ledgerConfigurationServiceImpl)
+      testTimeClientGet(damlLedgerClient.getTimeClient, ledgerServicesImpls.timeServiceImpl)
+      expectPermissionDenied {
+        testTimeClientSet(damlLedgerClient.getTimeClient, ledgerServicesImpls.timeServiceImpl)
+      }
+      testPackageClient(damlLedgerClient.getPackageClient, ledgerServicesImpls.packageServiceImpl)
+      damlLedgerClient.close()
     }
   }
 
@@ -71,9 +107,9 @@ class DamlLedgerClientTest extends FlatSpec with Matchers with OptionValues with
     testLedgerConfigurationClient(
       damlLedgerClient.getLedgerConfigurationClient,
       ledgerServicesImpls.ledgerConfigurationServiceImpl)
-    testTimeClient(damlLedgerClient.getTimeClient, ledgerServicesImpls.timeServiceImpl)
+    testTimeClientGet(damlLedgerClient.getTimeClient, ledgerServicesImpls.timeServiceImpl)
+    testTimeClientSet(damlLedgerClient.getTimeClient, ledgerServicesImpls.timeServiceImpl)
     testPackageClient(damlLedgerClient.getPackageClient, ledgerServicesImpls.packageServiceImpl)
-    damlLedgerClient.getPackageClient
     damlLedgerClient.close()
   }
 
@@ -82,7 +118,7 @@ class DamlLedgerClientTest extends FlatSpec with Matchers with OptionValues with
       activeContractsServiceImpl: ActiveContractsServiceImpl): Assertion = {
     withClue(clueFor("ActiveContractsClient")) {
       activeContractSetClient
-        .getActiveContracts(filterNothing, false)
+        .getActiveContracts(filterFor(someParty), false)
         .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
         .blockingIterable()
         .asScala
@@ -98,7 +134,7 @@ class DamlLedgerClientTest extends FlatSpec with Matchers with OptionValues with
       val recordId = new Identifier("recordPackageId", "recordModuleName", "recordEntityName")
       val record = new Record(recordId, List.empty[Record.Field].asJava)
       val command = new CreateCommand(new Identifier("a", "a", "b"), record)
-      val commands = genCommands(List(command))
+      val commands = genCommands(List(command), Option(someParty))
       commandClient
         .submitAndWait(
           commands.getWorkflowId,
@@ -121,7 +157,7 @@ class DamlLedgerClientTest extends FlatSpec with Matchers with OptionValues with
       commandCompletionServiceImpl: CommandCompletionServiceImpl): Assertion = {
     withClue(clueFor("CommandCompletionClient")) {
       commandCompletionClient
-        .completionStream("applicationId", new Absolute(""), Set("Alice").asJava)
+        .completionStream("applicationId", new Absolute(""), Set(someParty).asJava)
         .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
         .blockingFirst()
       commandCompletionServiceImpl.getLastCompletionStreamRequest.value.ledgerId shouldBe ledgerServices.ledgerId
@@ -140,7 +176,7 @@ class DamlLedgerClientTest extends FlatSpec with Matchers with OptionValues with
       val recordId = new Identifier("recordPackageId", "recordModuleName", "recordEntityName")
       val record = new Record(recordId, List.empty[Record.Field].asJava)
       val command = new CreateCommand(new Identifier("a", "a", "b"), record)
-      val commands = genCommands(List[Command](command))
+      val commands = genCommands(List[Command](command), Option(someParty))
       commandSubmissionClient
         .submit(
           commands.getWorkflowId,
@@ -158,14 +194,21 @@ class DamlLedgerClientTest extends FlatSpec with Matchers with OptionValues with
     }
   }
 
-  private def testTimeClient(
+  private def testTimeClientGet(
       timeClient: TimeClient,
       timeServiceImpl: TimeServiceImpl): Assertion = {
-    withClue("TimeClient") {
+    withClue("TimeClientGet") {
       timeClient.getTime
         .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
         .blockingFirst()
       timeServiceImpl.getLastGetTimeRequest.value.ledgerId shouldBe ledgerServices.ledgerId
+    }
+  }
+
+  private def testTimeClientSet(
+      timeClient: TimeClient,
+      timeServiceImpl: TimeServiceImpl): Assertion = {
+    withClue("TimeClientSet") {
       timeClient
         .setTime(Instant.EPOCH, Instant.ofEpochSecond(10l))
         .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
@@ -208,7 +251,8 @@ class DamlLedgerClientTest extends FlatSpec with Matchers with OptionValues with
   }
 
   // a custom withFakeLedgerServer that sets all parameters such that testing ledgerId is possible
-  private def withFakeLedgerServer()(f: (Server, LedgerServicesImpls) => Any): Any = {
+  private def withFakeLedgerServer(authService: AuthService)(
+      f: (Server, LedgerServicesImpls) => Any): Any = {
     ledgerServices.withFakeLedgerServer(
       Observable.fromArray(genGetActiveContractsResponse),
       Observable.empty(),
@@ -223,7 +267,8 @@ class DamlLedgerClientTest extends FlatSpec with Matchers with OptionValues with
       Seq(GetLedgerConfigurationResponse.defaultInstance),
       Future.successful(ListPackagesResponse(Seq("id1"))),
       Future.successful(GetPackageResponse(HashFunction.SHA256, ByteString.EMPTY)),
-      Future.successful(GetPackageStatusResponse(PackageStatus.values.head))
+      Future.successful(GetPackageStatusResponse(PackageStatus.values.head)),
+      authService
     )(f)
   }
 }

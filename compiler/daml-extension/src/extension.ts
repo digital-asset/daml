@@ -175,17 +175,19 @@ async function showBlogIfNotSeen(config: WorkspaceConfiguration, context: Extens
             const rssXml = await res.text();
             const rss = await parseStringPromise(rssXml);
             const latestBlog = rss.rss.channel[0].item[0];
+            const latestTitle = latestBlog.title[0];
             const lastSeenBlog = context.globalState.get(recentBlogContextKey);
-            if (latestBlog &&
-                (!lastSeenBlog || typeof lastSeenBlog === 'string' && lastSeenBlog !== latestBlog.title)) {
+            if (latestBlog && (!lastSeenBlog || lastSeenBlog !== latestTitle)) {
+                // Update last seen blog to avoid showing the same notification again.
+                await context.globalState.update(recentBlogContextKey, latestTitle);
                 const clicked = await window.showInformationMessage(
-                    `New blog post: ${latestBlog.title}`,
+                    `New blog post: ${latestTitle}`,
                     'Go to blog'
                 );
                 if (clicked === 'Go to blog') {
-                    env.openExternal(Uri.parse(latestBlog.link));
+                    const link = latestBlog.link[0];
+                    env.openExternal(Uri.parse(link));
                 }
-                await context.globalState.update(recentBlogContextKey, latestBlog.title);
             }
         }
     } catch (_error) {}

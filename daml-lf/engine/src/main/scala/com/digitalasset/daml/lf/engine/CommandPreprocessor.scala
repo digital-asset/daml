@@ -12,7 +12,7 @@ import com.digitalasset.daml.lf.value.Value
 
 import scala.annotation.tailrec
 
-private[engine] class CommandPreprocessor(compiledPackages: ConcurrentCompiledPackages) {
+private[engine] class CommandPreprocessor(compiledPackages: MutableCompiledPackages) {
 
   private val valueTranslator = new ValueTranslator(compiledPackages)
 

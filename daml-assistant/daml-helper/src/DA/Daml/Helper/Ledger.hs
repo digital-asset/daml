@@ -1,14 +1,14 @@
 -- Copyright (c) 2019 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 module DA.Daml.Helper.Ledger (
-    LedgerArgs(..),
+    LedgerArgs(..), Token(..),
     listParties, PartyDetails(..), Party(..),
     lookupParty,
     allocateParty,
     uploadDarFile,
     ) where
 
-import DA.Ledger(LedgerService,PartyDetails(..),Party(..))
+import DA.Ledger(LedgerService,PartyDetails(..),Party(..),Token)
 import Data.List.Extra as List
 import Data.String(fromString)
 import qualified DA.Ledger as L
@@ -18,7 +18,7 @@ import qualified Data.Text.Lazy as Text(pack)
 data LedgerArgs = LedgerArgs
   { host :: String
   , port :: Int
-  , jwtM :: Maybe L.Jwt }
+  , tokM :: Maybe Token }
 
 instance Show LedgerArgs where
     show LedgerArgs{host,port} = host <> ":" <> show port
@@ -48,8 +48,8 @@ uploadDarFile hp bytes = run hp $ do
 
 run :: LedgerArgs -> LedgerService a -> IO a
 run hp ls = do
-    let LedgerArgs{host,port,jwtM} = hp
-    let ls' = case jwtM of Nothing -> ls; Just jwt -> L.setToken jwt ls
+    let LedgerArgs{host,port,tokM} = hp
+    let ls' = case tokM of Nothing -> ls; Just tok -> L.setToken tok ls
     let timeout = 30 :: L.TimeoutSeconds
     let ledgerClientConfig = L.configOfHostAndPort (L.Host $ fromString host) (L.Port port)
     L.runLedgerService ls' timeout ledgerClientConfig

@@ -233,5 +233,7 @@ da_haskell_repl(
         "//daml-assistant:daml",
         "//daml-assistant/daml-helper",
         "//daml-assistant/integration-tests",
+        "//language-support/hs/bindings:hs-ledger",
+        "//language-support/hs/bindings:test",
     ],
 )

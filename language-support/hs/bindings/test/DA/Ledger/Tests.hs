@@ -22,9 +22,8 @@ import System.Random (randomIO)
 import System.Time.Extra (timeout)
 import Test.Tasty as Tasty (TestName,TestTree,testGroup,withResource,defaultMain)
 import Test.Tasty.HUnit as Tasty(assertFailure,assertBool,assertEqual,testCase)
-import qualified Codec.Archive.Zip as Zip
+import qualified "zip-archive" Codec.Archive.Zip as Zip
 import qualified DA.Daml.LF.Ast as LF
-import qualified DA.Ledger.Jwt as Jwt
 import qualified Data.Aeson.Types as Aeson
 import qualified Data.ByteString as BS (readFile)
 import qualified Data.ByteString.Lazy as BSL (readFile,toStrict)
@@ -130,7 +129,7 @@ tListPackages withSandbox = testCase "listPackages" $ run withSandbox $ \pid _te
     lid <- getLedgerIdentity
     pids <- listPackages lid
     liftIO $ do
-        assertEqual "#packages" 3 (length pids)
+        assertEqual "#packages" 5 (length pids)
         assertBool "The pid is listed" (pid `elem` pids)
 
 tGetPackage :: SandboxTest
@@ -666,9 +665,11 @@ runWithSandbox Sandbox{port} maybeAuth tid ls = runLedgerService ls' timeout (co
           ls' :: LedgerService a
           ls' = case maybeAuth of
             Nothing -> ls
-            Just authSpec -> setToken (makeSignedJwt authSpec tid) ls
+            Just authSpec -> do
+              let tok = Ledger.Token ("Bearer " <> makeSignedJwt authSpec tid)
+              setToken tok ls
 
-makeSignedJwt :: AuthSpec -> TestId -> Jwt
+makeSignedJwt :: AuthSpec -> TestId -> String
 makeSignedJwt AuthSpec{sharedSecret} tid = do
   let parties = [ T.pack $ TL.unpack $ unParty $ p tid | p <- [alice,bob] ]
   let urc = JWT.ClaimsMap $ Map.fromList
@@ -678,7 +679,7 @@ makeSignedJwt AuthSpec{sharedSecret} tid = do
   let cs = mempty { JWT.unregisteredClaims = urc }
   let key = JWT.hmacSecret $ T.pack sharedSecret
   let text = JWT.encodeSigned key mempty cs
-  either error id $ Jwt.tryCreateFromString $ T.unpack text
+  T.unpack text
 
 
 -- resetSandbox :: Sandbox-> IO ()

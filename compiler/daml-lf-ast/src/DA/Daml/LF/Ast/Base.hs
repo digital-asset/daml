@@ -205,8 +205,8 @@ data BuiltinExpr
   | BEDate       !Int32          -- :: Date, days since unix epoch
   | BEUnit                       -- :: Unit
   | BEBool       !Bool           -- :: Bool
-                                 
-  -- Polymorphic functions       
+
+  -- Polymorphic functions
   | BEError                      -- :: ∀a. Text -> a
   | BEEqual      !BuiltinType    -- :: t -> t -> Bool, where t is the builtin type
   | BELess       !BuiltinType    -- :: t -> t -> Bool, where t is the builtin type
@@ -215,7 +215,7 @@ data BuiltinExpr
   | BEGreater    !BuiltinType    -- :: t -> t -> Bool, where t is the builtin type
   | BEToText     !BuiltinType    -- :: t -> Text, where t is one of the builtin types
                                  -- {Int64, Decimal, Text, Timestamp, Date, Party}
-                                 
+
   -- Decimal arithmetic
   | BEAddDecimal                 -- :: Decimal -> Decimal -> Decimal, crashes on overflow
   | BESubDecimal                 -- :: Decimal -> Decimal -> Decimal, crashes on overflow
@@ -296,6 +296,16 @@ data BuiltinExpr
   | BETrace                      -- :: forall a. Text -> a -> a
   | BEEqualContractId            -- :: forall a. ContractId a -> ContractId a -> Bool
   | BECoerceContractId           -- :: forall a b. ContractId a -> ContractId b
+
+  -- Experimental Text Primitives
+  | BETextToUpper                -- :: Text -> Text
+  | BETextToLower                -- :: Text -> Text
+  | BETextSlice                  -- :: Int -> Int -> Text -> Text
+  | BETextSliceIndex             -- :: Text -> Text -> Optional Int64
+  | BETextContainsOnly           -- :: Text -> Text -> Bool
+  | BETextReplicate              -- :: Int64 -> Text -> Text
+  | BETextSplitOn                -- :: Text -> Text -> [Text]
+  | BETextIntercalate            -- :: Text -> [Text] -> Text
   deriving (Eq, Data, Generic, NFData, Ord, Show)
 
 

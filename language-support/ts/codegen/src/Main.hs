@@ -160,9 +160,11 @@ genDefDataType curModName tpls def = case unTypeConName (dataTypeCon def) of
                             ["};"]
                         knots =
                             [conName <> "." <> x <> ".template = " <> conName <> ";" | (x, _) <- chcs]
+                        registrations =
+                            ["daml.registerTemplate(" <> conName <> ");"]
                         refs = Set.unions (fieldRefs ++ argRefs)
                     in
-                    ((makeType typeDesc, dict ++ knots), refs)
+                    ((makeType typeDesc, dict ++ knots ++ registrations), refs)
       where
         paramNames = map (unTypeVarName . fst) (dataParams def)
         typeParams

@@ -31,7 +31,10 @@ sh_test(
         ":yarn",
         "//:daml2ts",
         ":daml2ts-test.dar",
-    ] + glob(["ts/**"]),
+    ] + glob(
+        ["ts/**"],
+        exclude = ["ts/**/node_modules/**"],
+    ),
     deps = [
         "@bazel_tools//tools/bash/runfiles",
     ],

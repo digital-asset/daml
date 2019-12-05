@@ -6,6 +6,7 @@ package com.digitalasset.extractor
 import akka.actor.ActorSystem
 import akka.stream.scaladsl.{RestartSource, Sink}
 import akka.stream.{ActorMaterializer, KillSwitches}
+import com.digitalasset.auth.TokenHolder
 import com.digitalasset.extractor.Types._
 import com.digitalasset.extractor.config.{ExtractorConfig, SnapshotEndSetting}
 import com.digitalasset.extractor.helpers.FutureUtil.toFuture
@@ -22,7 +23,7 @@ import com.digitalasset.ledger.api.{v1 => api}
 import com.digitalasset.ledger.client.LedgerClient
 import com.digitalasset.ledger.client.configuration._
 import com.digitalasset.ledger.client.services.pkg.PackageClient
-import com.digitalasset.ledger.service.{LedgerReader, TokenHolder}
+import com.digitalasset.ledger.service.LedgerReader
 import com.digitalasset.ledger.service.LedgerReader.PackageStore
 import com.digitalasset.timer.RetryStrategy
 import com.typesafe.scalalogging.StrictLogging

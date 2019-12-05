@@ -63,5 +63,4 @@ object PollingUtils {
 
     go(1, minWait.min(maxWait).max(50.milliseconds))
   }
-
 }

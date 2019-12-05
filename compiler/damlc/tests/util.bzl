@@ -67,6 +67,7 @@ def damlc_integration_test(name, main_function):
         main_function = main_function,
         data = [
             "//compiler/damlc/pkg-db",
+            "//compiler/damlc/stable-packages",
             "//compiler/scenario-service/server:scenario_service_jar",
             "@jq_dev_env//:jq",
             ":daml-test-files",

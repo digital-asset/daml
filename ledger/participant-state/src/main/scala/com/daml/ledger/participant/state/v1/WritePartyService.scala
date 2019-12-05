@@ -32,10 +32,13 @@ trait WritePartyService {
     *
     * @param displayName  : A human readable name of the new party
     *
-    * @return an async result of a PartyAllocationResult
+    * @param submissionId: Client picked submission identifier for matching the responses with the request.
+    *
+    * @return an async result of a SubmissionResult
     */
   def allocateParty(
-      hint: Option[String],
-      displayName: Option[String]
-  ): CompletionStage[PartyAllocationResult]
+      hint: Option[Party],
+      displayName: Option[String],
+      submissionId: SubmissionId
+  ): CompletionStage[SubmissionResult]
 }

@@ -171,7 +171,7 @@ class JdbcLedgerDaoSpec
               Some(keyWithMaintainers)
             )),
           ImmArray(event1),
-          Set.empty
+          None
         ),
         Map(event1 -> Set[Party]("Alice", "Bob"), event2 -> Set[Party]("Alice", "In", "Chains"))
       )
@@ -451,10 +451,12 @@ class JdbcLedgerDaoSpec
       } yield {
         firstUploadResult shouldBe Map(PersistenceResponse.Ok -> 1)
         secondUploadResult shouldBe Map(
-          PersistenceResponse.Ok -> 2,
+          PersistenceResponse.Ok -> 4,
           PersistenceResponse.Duplicate -> 1)
         loadedPackages.values.flatMap(_.sourceDescription.toList) should contain theSameElementsAs Seq(
           firstDescription,
+          secondDescription,
+          secondDescription,
           secondDescription,
           secondDescription)
       }
@@ -498,7 +500,7 @@ class JdbcLedgerDaoSpec
               Some(keyWithMaintainers)
             )),
           ImmArray(event1),
-          Set.empty
+          None
         ),
         Map(event1 -> Set("Alice", "Bob"), event2 -> Set("Alice", "In", "Chains"))
       )
@@ -563,7 +565,7 @@ class JdbcLedgerDaoSpec
             )
           ),
           ImmArray(event1, event2),
-          Set.empty
+          None
         ),
         Map(event1 -> Set("Alice", "Bob"), event2 -> Set("Alice", "In", "Chains"))
       )
@@ -619,7 +621,7 @@ class JdbcLedgerDaoSpec
                 None
               )),
             ImmArray[EventId](s"event$id"),
-            Set.empty
+            None
           ),
           Map((s"event$id": EventId) -> Set("Alice", "Bob"))
         )
@@ -656,7 +658,7 @@ class JdbcLedgerDaoSpec
                 None
               )),
             ImmArray[EventId](s"event$id"),
-            Set.empty
+            None
           ),
           Map((s"event$id": EventId) -> Set("Alice", "Bob"))
         )

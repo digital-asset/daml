@@ -246,6 +246,7 @@ optionsParser :: Int -> EnableScenarioService -> Parser (Maybe String) -> Parser
 optionsParser numProcessors enableScenarioService parsePkgName = Options
     <$> optImportPath
     <*> optPackageDir
+    <*> pure Nothing
     <*> parsePkgName
     <*> optWriteIface
     <*> pure Nothing

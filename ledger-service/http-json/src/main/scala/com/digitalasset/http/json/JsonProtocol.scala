@@ -41,11 +41,23 @@ object JsonProtocol extends DefaultJsonProtocol {
         encodeInt64AsString = true)
       with CodecAbsoluteContractIds
 
+  // DB *must not* use stringly ints or decimals; see ValuePredicate Range comments
   object LfValueDatabaseCodec
       extends ApiCodecCompressed[AbsoluteContractId](
         encodeDecimalAsString = false,
         encodeInt64AsString = false)
-      with CodecAbsoluteContractIds
+      with CodecAbsoluteContractIds {
+    private[http] def asLfValueCodec(jv: JsValue): JsValue = jv match {
+      case JsObject(fields) => JsObject(fields transform ((_, v) => asLfValueCodec(v)))
+      case JsArray(elements) => JsArray(elements map asLfValueCodec)
+      case JsNull | _: JsString | _: JsBoolean => jv
+      case JsNumber(value) =>
+        // diverges slightly from ApiCodecCompressed: integers of numeric type
+        // will not have a ".0" included in their string representation.  We can't
+        // tell the difference here between an int64 and a numeric
+        JsString(value.bigDecimal.stripTrailingZeros.toPlainString)
+    }
+  }
 
   sealed trait CodecAbsoluteContractIds extends ApiCodecCompressed[AbsoluteContractId] {
     protected override final def apiContractIdToJsValue(obj: AbsoluteContractId) =

@@ -11,9 +11,7 @@ import io.grpc.netty.NettyChannelBuilder;
 import io.netty.handler.ssl.SslContext;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
-import java.util.LinkedList;
 import java.util.Optional;
-import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -128,13 +126,13 @@ public final class DamlLedgerClient implements LedgerClient {
     private LedgerConfigurationClient ledgerConfigurationClient;
     private TimeClient timeClient;
     private String expectedLedgerId;
-    private String accessToken;
+    private Optional<String> accessToken;
     private final ManagedChannel channel;
 
     private DamlLedgerClient(@NonNull NettyChannelBuilder channelBuilder, @NonNull Optional<String> expectedLedgerId, @NonNull Optional<String> accessToken) {
         this.channel = channelBuilder.build();
         this.expectedLedgerId = expectedLedgerId.orElse(null);
-        this.accessToken = accessToken.orElse(null);
+        this.accessToken = accessToken;
     }
 
     /**
@@ -155,7 +153,7 @@ public final class DamlLedgerClient implements LedgerClient {
      * Connects this instance of the {@link DamlLedgerClient} to the Ledger.
      */
     public void connect() {
-        ledgerIdentityClient = new LedgerIdentityClientImpl(channel);
+        ledgerIdentityClient = new LedgerIdentityClientImpl(channel, this.accessToken);
 
         String reportedLedgerId = ledgerIdentityClient.getLedgerIdentity().blockingGet();
 
@@ -165,14 +163,14 @@ public final class DamlLedgerClient implements LedgerClient {
             this.expectedLedgerId = reportedLedgerId;
         }
 
-        activeContractsClient = new ActiveContractClientImpl(reportedLedgerId, channel, pool);
-        transactionsClient = new TransactionClientImpl(reportedLedgerId, channel, pool);
-        commandCompletionClient = new CommandCompletionClientImpl(reportedLedgerId, channel, pool);
-        commandSubmissionClient = new CommandSubmissionClientImpl(reportedLedgerId, channel);
-        commandClient = new CommandClientImpl(reportedLedgerId, channel);
-        packageClient = new PackageClientImpl(reportedLedgerId, channel);
-        ledgerConfigurationClient = new LedgerConfigurationClientImpl(reportedLedgerId, channel, pool);
-        timeClient = new TimeClientImpl(reportedLedgerId, channel, pool);
+        activeContractsClient = new ActiveContractClientImpl(reportedLedgerId, channel, pool, this.accessToken);
+        transactionsClient = new TransactionClientImpl(reportedLedgerId, channel, pool, this.accessToken);
+        commandCompletionClient = new CommandCompletionClientImpl(reportedLedgerId, channel, pool, this.accessToken);
+        commandSubmissionClient = new CommandSubmissionClientImpl(reportedLedgerId, channel, this.accessToken);
+        commandClient = new CommandClientImpl(reportedLedgerId, channel, this.accessToken);
+        packageClient = new PackageClientImpl(reportedLedgerId, channel, this.accessToken);
+        ledgerConfigurationClient = new LedgerConfigurationClientImpl(reportedLedgerId, channel, pool, this.accessToken);
+        timeClient = new TimeClientImpl(reportedLedgerId, channel, pool, this.accessToken);
     }
 
 

@@ -436,6 +436,16 @@ object Ast {
   final case object BEqualTypeRep extends BuiltinFunction(2) // : TypeRep -> TypeRep -> Bool
   final case object BCoerceContractId extends BuiltinFunction(1) // : ∀a b. ContractId a -> ContractId b
 
+  // Unstable Text Primitives
+  final case object BTextToUpper extends BuiltinFunction(1) // Text → Text
+  final case object BTextToLower extends BuiltinFunction(1) // : Text → Text
+  final case object BTextSlice extends BuiltinFunction(3) // : Int64 → Int64 → Text → Text
+  final case object BTextSliceIndex extends BuiltinFunction(2) // : Text → Text → Optional Int64
+  final case object BTextContainsOnly extends BuiltinFunction(2) // : Text → Text → Bool
+  final case object BTextReplicate extends BuiltinFunction(2) // : Int64 → Text → Text
+  final case object BTextSplitOn extends BuiltinFunction(2) // : Text → Text → List Text
+  final case object BTextIntercalate extends BuiltinFunction(2) // : Text → List Text → Text
+
   //
   // Update expressions
   //
@@ -660,7 +670,7 @@ object Ast {
     }
   }
 
-  case class Package(modules: Map[ModuleName, Module]) {
+  case class Package(modules: Map[ModuleName, Module], directDeps: Set[PackageId]) {
     def lookupIdentifier(identifier: QualifiedName): Either[String, Definition] = {
       this.modules.get(identifier.module) match {
         case None =>
@@ -679,12 +689,12 @@ object Ast {
 
   object Package {
 
-    def apply(modules: Traversable[Module]): Package = {
+    def apply(modules: Traversable[Module], directDeps: Traversable[PackageId]): Package = {
       val modulesWithNames = modules.map(m => m.name -> m)
       findDuplicate(modulesWithNames).foreach { modName =>
         throw PackageError(s"Collision on module name ${modName.toString}")
       }
-      Package(modulesWithNames.toMap)
+      Package(modulesWithNames.toMap, directDeps.toSet)
     }
   }
 

@@ -390,7 +390,7 @@ object ValueGenerators {
     for {
       nodes <- Gen.listOf(danglingRefGenNode)
       roots <- Gen.listOf(Arbitrary.arbInt.arbitrary.map(NodeId.unsafeFromIndex))
-    } yield GenTransaction(TreeMap(nodes: _*), ImmArray(roots), Set.empty)
+    } yield GenTransaction(TreeMap(nodes: _*), ImmArray(roots), None)
   }
 
   @deprecated("use malformedGenTransaction instead", since = "100.11.17")

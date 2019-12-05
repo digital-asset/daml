@@ -11,6 +11,7 @@ import akka.http.scaladsl.Http.ServerBinding
 import akka.http.scaladsl.settings.ServerSettings
 import akka.stream.Materializer
 import com.digitalasset.api.util.TimeProvider
+import com.digitalasset.auth.TokenHolder
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.http.dbbackend.ContractDao
 import com.digitalasset.http.json.{ApiValueToJsValueConverter, DomainJsonDecoder, DomainJsonEncoder, JsValueToApiValueConverter}
@@ -24,7 +25,7 @@ import com.digitalasset.ledger.client.LedgerClient
 import com.digitalasset.ledger.client.configuration.{CommandClientConfiguration, LedgerClientConfiguration, LedgerIdRequirement}
 import com.digitalasset.ledger.client.services.pkg.PackageClient
 import com.digitalasset.ledger.service.LedgerReader.PackageStore
-import com.digitalasset.ledger.service.{LedgerReader, TokenHolder}
+import com.digitalasset.ledger.service.LedgerReader
 import com.typesafe.scalalogging.StrictLogging
 import io.grpc.netty.NettyChannelBuilder
 import scalaz.Scalaz._
@@ -99,6 +100,7 @@ object HttpService extends StrictLogging {
 
       contractsService = new ContractsService(
         packageService.resolveTemplateIds,
+        packageService.resolveTemplateId,
         packageService.allTemplateIds,
         LedgerClientJwt.getActiveContracts(client),
         LedgerClientJwt.getCreatesAndArchivesSince(client),

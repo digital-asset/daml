@@ -43,6 +43,7 @@ http_json_deps = [
     "//ledger-service/utils",
     "//ledger-service/jwt",
     "//ledger-service/db-backend",
+    "//libs-scala/auth-utils",
 ]
 
 da_scala_library(

@@ -3,15 +3,14 @@
 
 package com.daml.ledger.rxjava.components
 
-import com.daml.ledger.javaapi.data.Identifier
-import com.daml.ledger.javaapi.data.Party
-import com.daml.ledger.javaapi.data.Record
-import com.daml.ledger.javaapi.data.Text
-import com.daml.ledger.rxjava.components.helpers.CreatedContract
-import com.daml.ledger.rxjava.components.helpers.CreatedContractContext
-import com.daml.ledger.rxjava.components.helpers.TemplateUtils
-import templateutils.{TemplateA, TemplateB, TemplateC}
+import com.daml.ledger.javaapi.data.{Identifier, Party, Record, Text}
+import com.daml.ledger.rxjava.components.helpers.{
+  CreatedContract,
+  CreatedContractContext,
+  TemplateUtils
+}
 import org.scalatest.{FlatSpec, Matchers}
+import templateutils.{TemplateA, TemplateB, TemplateC}
 
 class TestContext extends CreatedContractContext {
   @Override

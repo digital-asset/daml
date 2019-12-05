@@ -25,9 +25,9 @@ public class CommandClientImpl implements CommandClient {
     private final String ledgerId;
     private final CommandServiceGrpc.CommandServiceFutureStub serviceStub;
 
-    public CommandClientImpl(@NonNull String ledgerId, @NonNull Channel channel) {
+    public CommandClientImpl(@NonNull String ledgerId, @NonNull Channel channel, @NonNull Optional<String> accessToken) {
         this.ledgerId = ledgerId;
-        this.serviceStub = CommandServiceGrpc.newFutureStub(channel);
+        this.serviceStub = StubHelper.authenticating(CommandServiceGrpc.newFutureStub(channel), accessToken);
     }
 
     private Single<Empty> submitAndWait(@NonNull String workflowId, @NonNull String applicationId,

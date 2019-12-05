@@ -3,9 +3,6 @@
 
 package com.daml.ledger.rxjava.grpc.helpers
 
-import java.time.Clock
-
-import com.daml.ledger.testkit.services._
 import com.digitalasset.ledger.api.auth.Authorizer
 import com.digitalasset.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
 import com.digitalasset.ledger.api.v1.command_completion_service.{
@@ -33,7 +30,7 @@ import scala.concurrent.{ExecutionContext, Future}
 case class LedgerServicesImpls(
     ledgerIdentityServiceImpl: LedgerIdentityServiceImpl,
     activeContractsServiceImpl: ActiveContractsServiceImpl,
-    transactionServiceImpl: TransactionServiceImpl,
+    transactionServiceImpl: TransactionsServiceImpl,
     commandSubmissionServiceImpl: CommandSubmissionServiceImpl,
     commandCompletionServiceImpl: CommandCompletionServiceImpl,
     commandServiceImpl: CommandServiceImpl,
@@ -43,12 +40,10 @@ case class LedgerServicesImpls(
 
 object LedgerServicesImpls {
 
-  private val authorizer = new Authorizer(() => Clock.systemUTC().instant())
-
   def createWithRef(
       ledgerId: String,
       getActiveContractsResponse: Observable[GetActiveContractsResponse],
-      transactions: Observable[TransactionServiceImpl.LedgerItem],
+      transactions: Observable[TransactionsServiceImpl.LedgerItem],
       commandSubmissionResponse: Future[Empty],
       completions: List[CompletionStreamResponse],
       completionsEnd: CompletionEndResponse,
@@ -60,17 +55,18 @@ object LedgerServicesImpls {
       getLedgerConfigurationResponses: Seq[GetLedgerConfigurationResponse],
       listPackagesResponse: Future[ListPackagesResponse],
       getPackageResponse: Future[GetPackageResponse],
-      getPackageStatusResponse: Future[GetPackageStatusResponse])(
+      getPackageStatusResponse: Future[GetPackageStatusResponse],
+      authorizer: Authorizer)(
       implicit ec: ExecutionContext): (Seq[ServerServiceDefinition], LedgerServicesImpls) = {
     val (iServiceDef, iService) = LedgerIdentityServiceImpl.createWithRef(ledgerId, authorizer)(ec)
     val (acsServiceDef, acsService) =
       ActiveContractsServiceImpl.createWithRef(getActiveContractsResponse, authorizer)(ec)
     val (tsServiceDef, tsService) =
-      TransactionServiceImpl.createWithRef(transactions)(ec)
+      TransactionsServiceImpl.createWithRef(transactions, authorizer)(ec)
     val (csServiceDef, csService) =
-      CommandSubmissionServiceImpl.createWithRef(commandSubmissionResponse)(ec)
+      CommandSubmissionServiceImpl.createWithRef(commandSubmissionResponse, authorizer)(ec)
     val (ccServiceDef, ccService) =
-      CommandCompletionServiceImpl.createWithRef(completions, completionsEnd)(ec)
+      CommandCompletionServiceImpl.createWithRef(completions, completionsEnd, authorizer)(ec)
     val (cServiceDef, cService) = CommandServiceImpl.createWithRef(
       submitAndWaitResponse,
       submitAndWaitForTransactionIdResponse,
@@ -78,13 +74,15 @@ object LedgerServicesImpls {
       submitAndWaitForTransactionTreeResponse,
       authorizer)(ec)
     val (lcServiceDef, lcService) =
-      LedgerConfigurationServiceImpl.createWithRef(getLedgerConfigurationResponses)(ec)
-    val (timeServiceDef, timeService) = TimeServiceImpl.createWithRef(getTimeResponses: _*)(ec)
+      LedgerConfigurationServiceImpl.createWithRef(getLedgerConfigurationResponses, authorizer)(ec)
+    val (timeServiceDef, timeService) =
+      TimeServiceImpl.createWithRef(getTimeResponses, authorizer)(ec)
     val (packageServiceDef, packageService) =
       PackageServiceImpl.createWithRef(
         listPackagesResponse,
         getPackageResponse,
-        getPackageStatusResponse)(ec)
+        getPackageStatusResponse,
+        authorizer)(ec)
 
     val services = Seq(
       iServiceDef,

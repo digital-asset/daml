@@ -62,6 +62,8 @@ private[ledger] class LedgerEntries[T](identify: T => String) {
 
   def ledgerBeginning: Long = 0L
 
+  def items = state.get().items.iterator
+
   def ledgerEnd: Long = state.get().ledgerEnd
 
   def toTransactionId: TransactionIdString =

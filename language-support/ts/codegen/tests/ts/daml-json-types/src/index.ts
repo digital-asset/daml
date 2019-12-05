@@ -23,7 +23,7 @@ export type TemplateId = {
 /**
  * Companion object of the `TemplateId` type.
  */
-const TemplateId: Serializable<TemplateId> = {
+export const TemplateId: Serializable<TemplateId> = {
   decoder: () => jtv.object({
     packageId: jtv.string(),
     moduleName: jtv.string(),
@@ -47,6 +47,31 @@ export interface Template<T extends {}> extends Serializable<T> {
 export interface Choice<T, C> extends Serializable<C> {
   template: Template<T>;
   choiceName: string;
+}
+
+const registeredTemplates: {[key: string]: Template<object>} = {};
+
+const templateIdToString = ({packageId, moduleName, entityName}: TemplateId) =>
+  `${packageId}:${moduleName}:${entityName}`;
+
+export const registerTemplate = <T extends {}>(template: Template<T>) => {
+  const templateId = templateIdToString(template.templateId);
+  const oldTemplate = registeredTemplates[templateId];
+  if (oldTemplate === undefined) {
+    registeredTemplates[templateId] = template;
+    console.debug(`Registered template ${templateId}.`);
+  } else {
+    console.warn(`Trying to re-register template ${templateId}.`);
+  }
+}
+
+export const lookupTemplate = (templateId: TemplateId): Template<object> => {
+  const templateIdStr = templateIdToString(templateId);
+  const template = registeredTemplates[templateIdStr];
+  if (template === undefined) {
+    throw Error(`Trying to look up template ${templateIdStr}`);
+  }
+  return template;
 }
 
 /**

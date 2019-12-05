@@ -12,22 +12,31 @@ import com.digitalasset.daml.lf.data.ScalazEqual._
 import com.digitalasset.daml.lf.iface
 import com.digitalasset.daml.lf.value.{Value => V}
 import iface.{Type => Ty}
+import dbbackend.Queries.{concatFragment, contractColumnName}
+import json.JsonProtocol.LfValueDatabaseCodec.{apiValueToJsValue => dbApiValueToJsValue}
 
-import scalaz.{Order, \&/, \/, \/-}
+import scalaz.{OneAnd, Order, \&/, \/, \/-}
 import scalaz.Tags.Conjunction
 import scalaz.std.anyVal._
+import scalaz.std.tuple._
+import scalaz.std.vector._
 import scalaz.syntax.apply._
+import scalaz.syntax.bifunctor._
 import scalaz.syntax.order._
 import scalaz.syntax.tag._
+import scalaz.syntax.std.boolean._
 import scalaz.syntax.std.option._
 import scalaz.syntax.std.string._
 import spray.json._
+import doobie.Fragment
+import doobie.implicits._
+import scalaz.\&/.Both
 
 sealed abstract class ValuePredicate extends Product with Serializable {
   import ValuePredicate._
   def toFunPredicate: LfV => Boolean = {
     def go(self: ValuePredicate): LfV => Boolean = self match {
-      case Literal(p) => p.isDefinedAt
+      case Literal(p, _) => p.isDefinedAt
 
       case RecordSubset(q) =>
         val cq = q map (_ map { case (_, vp) => go(vp) });
@@ -83,20 +92,156 @@ sealed abstract class ValuePredicate extends Product with Serializable {
     }
     go(this)
   }
+
+  @SuppressWarnings(Array("org.wartremover.warts.Any"))
+  def toSqlWhereClause: Fragment = {
+    import dbbackend.Queries.Implicits._ // JsValue support
+    type Path = Fragment
+
+    final case class Rec(
+        raw: SqlWhereClause,
+        safe_== : Option[JsValue],
+        safe_@> : Option[JsValue]) {
+      def flush_@>(path: Path): Option[Fragment] =
+        safe_@> map (jq => path ++ sql" @> $jq::jsonb")
+      def flush_==(path: Path): Option[Fragment] =
+        safe_== map (jq => path ++ sql" = $jq::jsonb")
+    }
+
+    def goObject(path: Path, cqs: ImmArraySeq[(String, Rec)], count: Int): Rec = {
+      val allSafe_== = cqs collect {
+        case (k, Rec(_, Some(eqv), _)) => (k, eqv)
+      }
+      val allSafe_@> = cqs collect {
+        case (k, Rec(_, _, Some(ssv))) => (k, ssv)
+      }
+      // collecting raw, but overriding with an element = if it's =-safe
+      // but not @>-safe (equality of @>-safe elements is represented
+      // within the safe_@>, which is always collected below)
+      val eqOrRaw = cqs map {
+        case (k, r @ Rec(_, Some(_), None)) =>
+          r.flush_==(path ++ sql"->${k: String}").toList.toVector
+        case (_, Rec(raw, _, _)) => raw
+      }
+      Rec(
+        eqOrRaw.toVector.flatten,
+        (allSafe_==.length == count) option JsObject(allSafe_== : _*),
+        Some(JsObject(allSafe_@> : _*))
+      )
+    }
+
+    def go(path: Path, self: ValuePredicate): Rec =
+      self match {
+        case Literal(_, jq) =>
+          Rec(Vector.empty, Some(jq), Some(jq))
+
+        case RecordSubset(qs) =>
+          val cqs = qs collect { case Some((k, vp)) => (k, go(path ++ sql"->${k: String}", vp)) }
+          goObject(path, cqs, qs.length)
+
+        case VariantMatch((dc, q)) =>
+          val Rec(vraw, v_==, v_@>) = go(path ++ sql"->${dc: String}", q)
+          // @> is safe because in a variant-typed context, all JsObjects
+          // have exactly one key
+          Rec(vraw, v_== map (jv => JsObject((dc, jv))), v_@> map (jv => JsObject((dc, jv))))
+
+        case MapMatch(qs) =>
+          val cqs = qs.toImmArray.toSeq map {
+            case (k, eq) => (k, go(path ++ sql"->$k", eq))
+          }
+          val recordLike = goObject(path, cqs, qs.toImmArray.length)
+          recordLike.copy(
+            raw = (sql"(SELECT count(*) FROM jsonb_object_keys(" ++ path ++ sql")) = ${cqs.length}")
+              +: recordLike.raw)
+
+        case ListMatch(qs) =>
+          val (cqs, flushed_@>) = qs.zipWithIndex.map {
+            case (eq, k) =>
+              val kpath = path ++ sql"->$k"
+              val krec = go(kpath, eq)
+              (krec, (krec flush_@> kpath).toList)
+          }.unzip
+          val allSafe_== = cqs collect Function.unlift(_.safe_==)
+          Rec(
+            (sql"jsonb_array_length(" ++ path ++ sql") = ${qs.length}")
+              +: (cqs.flatMap(_.raw) ++ flushed_@>.flatten),
+            (cqs.length == allSafe_==.length) option JsArray(allSafe_==),
+            None
+          )
+
+        case OptionalMatch(None) =>
+          Rec(Vector.empty, Some(JsNull), Some(JsNull))
+
+        case OptionalMatch(Some(OptionalMatch(None))) =>
+          Rec(
+            Vector(sql"jsonb_array_length(" ++ path ++ sql") = 0"),
+            Some(JsArray()),
+            Some(JsArray()))
+
+        case OptionalMatch(Some(oq @ OptionalMatch(Some(_)))) =>
+          val cq = go(path ++ sql"->0", oq)
+          // we don't do a length check because arrays here have 1 elem at most;
+          // [] @> [x] is false for all x
+          Rec(cq.raw, cq.safe_== map (JsArray(_)), cq.safe_@> map (JsArray(_)))
+
+        case OptionalMatch(Some(oq)) =>
+          go(path, oq)
+
+        case range: Range[a] =>
+          range.ltgt match {
+            case Both((Inclusive, ceil), (Inclusive, floor)) if range.ord.equal(ceil, floor) =>
+              val jsv = dbApiValueToJsValue(range.normalize(ceil))
+              Rec(Vector.empty, Some(jsv), Some(jsv))
+            case _ =>
+              // this output relies on a *big* invariant: comparing the raw JSON data
+              // with the built-in SQL operators <, >, &c, yields equal results to
+              // comparing the same data in a data-aware way. That's why we *must* use
+              // numbers-as-numbers in LfValueDatabaseCodec, and why ISO-8601 strings
+              // for dates and timestamps are so important.
+              val exprs = range.ltgt
+                .umap(_ map (boundary =>
+                  sql" ${dbApiValueToJsValue(range.normalize(boundary))}::jsonb"))
+                .bifoldMap {
+                  case (incl, ceil) => Vector(path ++ (if (incl) sql" <=" else sql" <") ++ ceil)
+                } {
+                  case (incl, floor) => Vector(path ++ (if (incl) sql" >=" else sql" >") ++ floor)
+                }
+              Rec(exprs, None, None)
+          }
+      }
+
+    val outerRec = go(contractColumnName, this)
+    outerRec flush_== contractColumnName getOrElse
+      concatFragment {
+        val preds = outerRec.raw ++ outerRec.flush_@>(contractColumnName).toList match {
+          case hd +: tl => OneAnd(hd, tl)
+          case _ => OneAnd(sql"1 = 1", Vector.empty)
+        }
+        preds.copy(tail = preds.tail map (sq => sql" AND " ++ sq))
+      }
+  }
 }
 
 object ValuePredicate {
   type TypeLookup = Ref.Identifier => Option[iface.DefDataType.FWT]
   type LfV = V[V.AbsoluteContractId]
+  type SqlWhereClause = Vector[Fragment]
 
-  final case class Literal(p: LfV PartialFunction Unit) extends ValuePredicate
+  val AlwaysFails: SqlWhereClause = Vector(sql"1 = 2")
+
+  final case class Literal(p: LfV PartialFunction Unit, jsonbEqualPart: JsValue)
+      extends ValuePredicate
   final case class RecordSubset(fields: ImmArraySeq[Option[(Ref.Name, ValuePredicate)]])
       extends ValuePredicate
   final case class MapMatch(elems: SortedLookupList[ValuePredicate]) extends ValuePredicate
   final case class ListMatch(elems: Vector[ValuePredicate]) extends ValuePredicate
   final case class VariantMatch(elem: (Ref.Name, ValuePredicate)) extends ValuePredicate
   final case class OptionalMatch(elem: Option[ValuePredicate]) extends ValuePredicate
-  final case class Range[A](ltgt: Boundaries[A], ord: Order[A], project: LfV PartialFunction A)
+  final case class Range[A](
+      ltgt: Boundaries[A],
+      ord: Order[A],
+      project: LfV PartialFunction A,
+      normalize: A => LfV)
       extends ValuePredicate
 
   private[http] def fromTemplateJsObject(
@@ -170,7 +315,8 @@ object ValuePredicate {
 
     def fromEnum(it: String, id: Ref.Identifier, typ: iface.Enum): Result =
       if (typ.constructors contains it)
-        Literal { case V.ValueEnum(_, v) if it == (v: String) => } else
+        Literal({ case V.ValueEnum(_, v) if it == (v: String) => }, JsString(it))
+      else
         predicateParseError(s"$it not a member of the enum $id")
 
     def fromOptional(it: JsValue, typ: iface.Type): Result =
@@ -193,23 +339,29 @@ object ValuePredicate {
         case _ => predicateParseError(s"missing type arg to $of")
       }
       (typ.typ, it).match2 {
-        case Bool => { case JsBoolean(q) => Literal { case V.ValueBool(v) if q == v => } }
+        case Bool => { case jq @ JsBoolean(q) => Literal({ case V.ValueBool(v) if q == v => }, jq) }
         case Int64 => Int64RangeExpr.toQueryParser
         case Text => TextRangeExpr.toQueryParser(Order fromScalaOrdering Utf8.Ordering)
         case Date => DateRangeExpr.toQueryParser
         case Timestamp => TimestampRangeExpr.toQueryParser
         case Party => {
-          case JsString(q) => Literal { case V.ValueParty(v) if q == (v: String) => }
+          case jq @ JsString(q) => Literal({ case V.ValueParty(v) if q == (v: String) => }, jq)
         }
         case ContractId => {
-          case JsString(q) => Literal { case V.ValueContractId(v) if q == (v.coid: String) => }
+          case jq @ JsString(q) =>
+            Literal({ case V.ValueContractId(v) if q == (v.coid: String) => }, jq)
         }
         case List => {
           case JsArray(as) =>
             val elemTy = soleTypeArg("List")
             ListMatch(as.map(a => fromValue(a, elemTy)))
         }
-        case Unit => { case JsObject(q) if q.isEmpty => Literal { case V.ValueUnit => } }
+        case Unit => {
+          case jq @ JsObject(q) if q.isEmpty =>
+            // `jq` is technically @>-ambiguous, but only {} can occur in a Unit-typed
+            // position, so the ambiguity never yields incorrect results
+            Literal({ case V.ValueUnit => }, jq)
+        }
         case Optional => {
           case q =>
             val elemTy = soleTypeArg("Optional")
@@ -241,18 +393,18 @@ object ValuePredicate {
       q.toLongExact
     case JsString(q) =>
       q.parseLong.fold(e => throw e, identity)
-  }, { case V.ValueInt64(v) => v })
+  }, { case V.ValueInt64(v) => v })(V.ValueInt64)
   private[this] val TextRangeExpr = RangeExpr({ case JsString(s) => s }, {
     case V.ValueText(v) => v
-  })
+  })(V.ValueText)
   private[this] val DateRangeExpr = RangeExpr({
     case JsString(q) =>
       Time.Date fromString q fold (predicateParseError(_), identity)
-  }, { case V.ValueDate(v) => v })
+  }, { case V.ValueDate(v) => v })(V.ValueDate)
   private[this] val TimestampRangeExpr = RangeExpr({
     case JsString(q) =>
       Time.Timestamp fromString q fold (predicateParseError(_), identity)
-  }, { case V.ValueTimestamp(v) => v })
+  }, { case V.ValueTimestamp(v) => v })(V.ValueTimestamp)
   private[this] def numericRangeExpr(scale: Numeric.Scale) =
     RangeExpr(
       {
@@ -261,20 +413,20 @@ object ValuePredicate {
         case JsNumber(q) =>
           Numeric checkWithinBoundsAndRound (scale, q) fold (predicateParseError, identity)
       }, { case V.ValueNumeric(v) => v setScale scale }
-    )
+    )(qv => V.ValueNumeric(Numeric assertFromBigDecimal (scale, qv)))
 
   private[this] implicit val `jBD order`: Order[java.math.BigDecimal] =
     Order.fromScalaOrdering
 
-  private[this] type Inclusive = Boolean
-  private[this] final val Inclusive = true
-  private[this] final val Exclusive = false
+  private type Inclusive = Boolean
+  private final val Inclusive = true
+  private final val Exclusive = false
 
   type Boundaries[+A] = (Inclusive, A) \&/ (Inclusive, A)
 
   private[this] final case class RangeExpr[A](
       scalar: JsValue PartialFunction A,
-      lfvScalar: LfV PartialFunction A) {
+      lfvScalar: LfV PartialFunction A)(normalized: A => LfV) {
     import RangeExpr._
 
     private def scalarE(it: JsValue): PredicateParseError \/ A =
@@ -318,9 +470,14 @@ object ValuePredicate {
         case _ => None
       }
 
-    def toLiteral(q: A) = Literal { case v if lfvScalar.lift(v) contains q => }
+    def toLiteral(q: A) = {
+      // we must roundtrip through normalized because e.g. there are several
+      // queries that equal 5, but only one of those will be used as the
+      // SQL representation (which we compare directly for equality)
+      Literal({ case v if lfvScalar.lift(v) contains q => }, dbApiValueToJsValue(normalized(q)))
+    }
 
-    def toRange(ltgt: Boundaries[A])(implicit A: Order[A]) = Range(ltgt, A, lfvScalar)
+    def toRange(ltgt: Boundaries[A])(implicit A: Order[A]) = Range(ltgt, A, lfvScalar, normalized)
 
     /** Match both the literal and range query cases. */
     def toQueryParser(implicit A: Order[A]): JsValue PartialFunction ValuePredicate = {

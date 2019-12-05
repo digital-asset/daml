@@ -7,15 +7,13 @@ load(
 )
 
 da_scala_library(
-    name = "testkit",
+    name = "auth-utils",
     srcs = glob(["src/main/scala/**/*.scala"]),
+    tags = ["maven_coordinates=com.digitalasset:auth-utils:__VERSION__"],
     visibility = [
         "//visibility:public",
     ],
     deps = [
-        "//ledger-api/grpc-definitions:ledger-api-scalapb",
-        "//ledger-api/rs-grpc-bridge",
-        "@maven//:com_google_code_findbugs_jsr305",
-        "@maven//:io_reactivex_rxjava2_rxjava",
+        "@maven//:org_slf4j_slf4j_api",
     ],
 )

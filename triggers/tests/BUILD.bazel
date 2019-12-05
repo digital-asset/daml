@@ -53,6 +53,7 @@ da_scala_binary(
     name = "test_client",
     srcs = glob(["src/**/*.scala"]),
     main_class = "com.digitalasset.daml.lf.engine.trigger.test.TestMain",
+    resources = ["//triggers/runner:src/main/resources/logback.xml"],
     deps = [
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/archive:daml_lf_dev_archive_java_proto",
@@ -64,6 +65,7 @@ da_scala_binary(
         "//language-support/scala/bindings-akka",
         "//ledger-api/rs-grpc-bridge",
         "//ledger/ledger-api-common",
+        "//libs-scala/auth-utils",
         "//triggers/runner:trigger-runner-lib",
         "@maven//:com_github_scopt_scopt_2_12",
         "@maven//:com_typesafe_akka_akka_stream_2_12",
@@ -93,6 +95,43 @@ client_server_test(
     server_args = [
         "-w",
         "--port=0",
+    ],
+    server_files = ["$(rootpath :acs.dar)"],
+)
+
+AUTH_TOKEN = "I_CAN_HAZ_AUTH"
+
+# This is a genrule so we can replace it by something nicer that actually generates the token
+# from some readable input so we can change it more easily.
+# For now, this corresponds to a token that has admin set to false
+# and actAs to Alice1, …, Alice100
+genrule(
+    name = "test-auth-token",
+    outs = ["test-auth-token.jwt"],
+    cmd = """
+      cat <<EOF > $(location test-auth-token.jwt)
+Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhY3RBcyI6WyJBbGljZTEiLCJBbGljZTIiLCJBbGljZTMiLCJBbGljZTQiLCJBbGljZTUiLCJBbGljZTYiLCJBbGljZTciLCJBbGljZTgiLCJBbGljZTkiLCJBbGljZTEwIiwiQWxpY2UxMSIsIkFsaWNlMTIiLCJBbGljZTEzIiwiQWxpY2UxNCIsIkFsaWNlMTUiLCJBbGljZTE2IiwiQWxpY2UxNyIsIkFsaWNlMTgiLCJBbGljZTE5IiwiQWxpY2UyMCIsIkFsaWNlMjEiLCJBbGljZTIyIiwiQWxpY2UyMyIsIkFsaWNlMjQiLCJBbGljZTI1IiwiQWxpY2UyNiIsIkFsaWNlMjciLCJBbGljZTI4IiwiQWxpY2UyOSIsIkFsaWNlMzAiLCJBbGljZTMxIiwiQWxpY2UzMiIsIkFsaWNlMzMiLCJBbGljZTM0IiwiQWxpY2UzNSIsIkFsaWNlMzYiLCJBbGljZTM3IiwiQWxpY2UzOCIsIkFsaWNlMzkiLCJBbGljZTQwIiwiQWxpY2U0MSIsIkFsaWNlNDIiLCJBbGljZTQzIiwiQWxpY2U0NCIsIkFsaWNlNDUiLCJBbGljZTQ2IiwiQWxpY2U0NyIsIkFsaWNlNDgiLCJBbGljZTQ5IiwiQWxpY2U1MCIsIkFsaWNlNTEiLCJBbGljZTUyIiwiQWxpY2U1MyIsIkFsaWNlNTQiLCJBbGljZTU1IiwiQWxpY2U1NiIsIkFsaWNlNTciLCJBbGljZTU4IiwiQWxpY2U1OSIsIkFsaWNlNjAiLCJBbGljZTYxIiwiQWxpY2U2MiIsIkFsaWNlNjMiLCJBbGljZTY0IiwiQWxpY2U2NSIsIkFsaWNlNjYiLCJBbGljZTY3IiwiQWxpY2U2OCIsIkFsaWNlNjkiLCJBbGljZTcwIiwiQWxpY2U3MSIsIkFsaWNlNzIiLCJBbGljZTczIiwiQWxpY2U3NCIsIkFsaWNlNzUiLCJBbGljZTc2IiwiQWxpY2U3NyIsIkFsaWNlNzgiLCJBbGljZTc5IiwiQWxpY2U4MCIsIkFsaWNlODEiLCJBbGljZTgyIiwiQWxpY2U4MyIsIkFsaWNlODQiLCJBbGljZTg1IiwiQWxpY2U4NiIsIkFsaWNlODciLCJBbGljZTg4IiwiQWxpY2U4OSIsIkFsaWNlOTAiLCJBbGljZTkxIiwiQWxpY2U5MiIsIkFsaWNlOTMiLCJBbGljZTk0IiwiQWxpY2U5NSIsIkFsaWNlOTYiLCJBbGljZTk3IiwiQWxpY2U5OCIsIkFsaWNlOTkiLCJBbGljZTEwMCJdfQ.p78Bgrx0kX2tPwXoc2p5Uz22HifzfELjnmf7XwmCI4k
+EOF
+    """,
+)
+
+client_server_test(
+    name = "test_static_time_authenticated",
+    timeout = "long",
+    client = ":test_client",
+    client_args = ["--access-token-file"],
+    client_files = [
+        "$(rootpath :test-auth-token.jwt)",
+        "$(rootpath :acs.dar)",
+    ],
+    data = [
+        ":acs.dar",
+        ":test-auth-token.jwt",
+    ],
+    server = "//ledger/sandbox:sandbox-binary",
+    server_args = [
+        "--port=0",
+        "--auth-jwt-hs256-unsafe={}".format(AUTH_TOKEN),
     ],
     server_files = ["$(rootpath :acs.dar)"],
 )

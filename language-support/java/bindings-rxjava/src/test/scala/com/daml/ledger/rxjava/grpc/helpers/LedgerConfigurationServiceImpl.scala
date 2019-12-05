@@ -3,19 +3,22 @@
 
 package com.daml.ledger.rxjava.grpc.helpers
 
+import com.digitalasset.ledger.api.auth.Authorizer
+import com.digitalasset.ledger.api.auth.services.LedgerConfigurationServiceAuthorization
+import com.digitalasset.ledger.api.v1.ledger_configuration_service.LedgerConfigurationServiceGrpc.LedgerConfigurationService
 import com.digitalasset.ledger.api.v1.ledger_configuration_service.{
   GetLedgerConfigurationRequest,
   GetLedgerConfigurationResponse,
   LedgerConfigurationServiceGrpc
 }
-import com.digitalasset.ledger.api.v1.ledger_configuration_service.LedgerConfigurationServiceGrpc.LedgerConfigurationService
 import io.grpc.ServerServiceDefinition
 import io.grpc.stub.StreamObserver
 
 import scala.concurrent.ExecutionContext
 
 class LedgerConfigurationServiceImpl(responses: Seq[GetLedgerConfigurationResponse])
-    extends LedgerConfigurationService {
+    extends LedgerConfigurationService
+    with FakeAutoCloseable {
 
   private var lastRequest: Option[GetLedgerConfigurationRequest] = None
 
@@ -30,9 +33,10 @@ class LedgerConfigurationServiceImpl(responses: Seq[GetLedgerConfigurationRespon
 }
 
 object LedgerConfigurationServiceImpl {
-  def createWithRef(responses: Seq[GetLedgerConfigurationResponse])(
+  def createWithRef(responses: Seq[GetLedgerConfigurationResponse], authorizer: Authorizer)(
       implicit ec: ExecutionContext): (ServerServiceDefinition, LedgerConfigurationServiceImpl) = {
-    val serviceImpl = new LedgerConfigurationServiceImpl(responses)
-    (LedgerConfigurationServiceGrpc.bindService(serviceImpl, ec), serviceImpl)
+    val impl = new LedgerConfigurationServiceImpl(responses)
+    val authImpl = new LedgerConfigurationServiceAuthorization(impl, authorizer)
+    (LedgerConfigurationServiceGrpc.bindService(authImpl, ec), impl)
   }
 }
