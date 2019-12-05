@@ -154,6 +154,13 @@ object JsonProtocol extends DefaultJsonProtocol {
   implicit val CreateCommandFormat: RootJsonFormat[domain.CreateCommand[JsObject]] = jsonFormat3(
     domain.CreateCommand[JsObject])
 
-  implicit val ExerciseCommandFormat: RootJsonFormat[domain.ExerciseCommand[JsObject]] =
+  // TODO(Leo) this should go away as part of #3390
+  implicit val ExerciseCommandFormat0: RootJsonFormat[domain.ExerciseCommand[JsObject]] =
     jsonFormat5(domain.ExerciseCommand[JsObject])
+
+  implicit val ExerciseCommandFormat: RootJsonFormat[domain.ExerciseCommand[JsValue]] =
+    jsonFormat5(domain.ExerciseCommand[JsValue])
+
+  implicit val ExerciseResponseFormat: RootJsonFormat[domain.ExerciseResponse[JsValue]] =
+    jsonFormat2(domain.ExerciseResponse[JsValue])
 }

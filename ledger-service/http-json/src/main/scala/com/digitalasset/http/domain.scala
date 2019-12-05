@@ -63,6 +63,28 @@ object domain {
 
   case class PartyDetails(party: Party, displayName: Option[String], isLocal: Boolean)
 
+  final case class CommandMeta(
+      commandId: Option[lar.CommandId],
+      ledgerEffectiveTime: Option[Instant],
+      maximumRecordTime: Option[Instant])
+
+  final case class CreateCommand[+LfV](
+      templateId: TemplateId.OptionalPkg,
+      argument: LfV,
+      meta: Option[CommandMeta])
+
+  final case class ExerciseCommand[+LfV](
+      templateId: TemplateId.OptionalPkg,
+      contractId: lar.ContractId,
+      choice: lar.Choice,
+      argument: LfV,
+      meta: Option[CommandMeta])
+
+  final case class ExerciseResponse[+LfV](
+      choiceResult: LfV,
+      events: List[Contract[LfV]]
+  )
+
   object PartyDetails {
     def fromLedgerApi(p: com.digitalasset.ledger.api.domain.PartyDetails): PartyDetails =
       PartyDetails(Party(p.party), p.displayName, p.isLocal)
@@ -249,23 +271,6 @@ object domain {
     def required(label: String): Error \/ A =
       o toRightDisjunction Error('ErrorOps_required, s"Missing required field $label")
   }
-
-  final case class CommandMeta(
-      commandId: Option[lar.CommandId],
-      ledgerEffectiveTime: Option[Instant],
-      maximumRecordTime: Option[Instant])
-
-  final case class CreateCommand[+LfV](
-      templateId: TemplateId.OptionalPkg,
-      argument: LfV,
-      meta: Option[CommandMeta])
-
-  final case class ExerciseCommand[+LfV](
-      templateId: TemplateId.OptionalPkg,
-      contractId: lar.ContractId,
-      choice: lar.Choice,
-      argument: LfV,
-      meta: Option[CommandMeta])
 
   trait HasTemplateId[F[_]] {
     def templateId(fa: F[_]): TemplateId.OptionalPkg
