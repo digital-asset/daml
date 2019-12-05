@@ -1825,7 +1825,7 @@ exact output.
 
   Evaluation result
     r ::= Ok v                                      -- ResOk
-       |  Err t                                    -- ResErr
+       |  Err t                                     -- ResErr
 
                            ┌───────────────────┐
   Big-step evaluation      │ e ‖ E₁  ⇓  r ‖ E₂ │
@@ -2731,8 +2731,8 @@ List functions
 Text map functions
 ~~~~~~~~~~~~~~~~~~
 
-**Entries ordering**: All the operation above preserved the order of
- the map according the lexicographic order of its keys.
+**Entry order**: The operations above return always a map with entries
+ordered by keys.
 
 * ``TEXTMAP_EMPTY : ∀ α. 'TextMap' α``
 
@@ -3044,8 +3044,8 @@ Maps
 ....
 
 The program serialization format does not provide any direct way to
-encode neither `TextMap` not `GenMap`. DAML-LF programs can create
-such objects only dynamically using the builtin functions prefixed by
+encode either `TextMap` or `GenMap`. DAML-LF programs can create such
+objects only dynamically using the builtin functions prefixed by
 `TEXTMAP_` or `'GENMAP_'`
 
 
