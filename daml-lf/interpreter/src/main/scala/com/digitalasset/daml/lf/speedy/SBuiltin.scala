@@ -1357,14 +1357,16 @@ object SBuiltin {
                     machine.ctrl = CtrlValue(SText(""))
                   } else {
                     val rfrom = from.max(0).toInt
-                    val rto = to.min(t.length.toLong).toInt
+                    val rto = to.min(t.codePointCount(0, t.length).toLong).toInt
                       // NOTE [FM]: We use toInt only after ensuring the indices are
                       // between 0 and t.length inclusive. Calling toInt prematurely
                       // would mean dropping the high order bits indiscriminitely,
                       // so for instance (0x100000000L).toInt == 0, resulting in an
                       // empty string below even though `to` was larger than the
                       // length.
-                    machine.ctrl = CtrlValue(SText(t.slice(rfrom, rto)))
+                    val ifrom = t.offsetByCodepoints(0, rfrom)
+                    val ito = t.offsetByCodepoints(ifrom, rto - rfrom)
+                    machine.ctrl = CtrlValue(SText(t.slice(ifrom, ito)))
                   }
                 case x =>
                   throw SErrorCrash(s"type mismatch SBTextSlice, expected Text got $x")
@@ -1385,11 +1387,12 @@ object SBuiltin {
         case SText(slice) =>
           args.get(1) match {
             case SText(t) =>
-              val n = t.indexOfSlice(slice)
+              val n = t.indexOfSlice(slice) // n is -1 if slice is not found.
               if (n < 0) {
                 machine.ctrl = CtrlValue(SOptional(None))
               } else {
-                machine.ctrl = CtrlValue(SOptional(Some(SInt64(n.toLong))))
+                val rn = t.codePointCount(0,n).toLong // we want to return the number of codepoints!
+                machine.ctrl = CtrlValue(SOptional(Some(SInt64(rn))))
               }
             case x =>
               throw SErrorCrash(s"type mismatch SBTextSliceIndex, expected Text got $x")
@@ -1407,8 +1410,8 @@ object SBuiltin {
         case SText(alphabet) =>
           args.get(1) match {
             case SText(t) =>
-              val alphabetSet = alphabet.toSet
-              val result = t.forall(alphabetSet.contains(_))
+              val alphabetSet = alphabet.codePoints().iterator().asScala.toSet
+              val result = t.codePoints().iterator().asScala.forall(alphabetSet.contains(_))
               machine.ctrl = CtrlValue(SBool(result))
             case x =>
               throw SErrorCrash(s"type mismatch SBTextContainsOnly, expected Text got $x")
