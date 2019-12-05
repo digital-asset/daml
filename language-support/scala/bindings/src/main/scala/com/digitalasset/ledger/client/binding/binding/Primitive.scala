@@ -7,6 +7,7 @@ import encoding.ExerciseOn
 import com.digitalasset.daml.lf.data.InsertOrdMap
 import com.digitalasset.ledger.api.refinements.ApiTypes
 import com.digitalasset.ledger.api.v1.{commands => rpccmd, value => rpcvalue}
+import scalaz.Id.Id
 import scalaz.syntax.std.boolean._
 import scalaz.syntax.tag._
 
@@ -78,9 +79,9 @@ sealed abstract class Primitive extends PrimitiveInstances {
     def apply[V](elems: (String, V)*): TextMap[V]
     def newBuilder[V]: mutable.Builder[(String, V), TextMap[V]]
     implicit def canBuildFrom[V]: CanBuildFrom[Coll, (String, V), TextMap[V]]
-    def fromMap[V](map: imm.Map[String, V]): TextMap[V]
+    final def fromMap[V](map: imm.Map[String, V]): TextMap[V] = leibniz[V].subst[Id](map)
     def subst[F[_[_]]](fa: F[imm.Map[String, ?]]): F[TextMap]
-    def leibniz[V]: imm.Map[String, V] === TextMap[V] =
+    final def leibniz[V]: imm.Map[String, V] === TextMap[V] =
       subst[Lambda[g[_] => imm.Map[String, V] === g[V]]](scalaz.Leibniz.refl)
   }
 
@@ -160,7 +161,6 @@ private[client] object OnlyPrimitive extends Primitive {
     override def apply[V](elems: (String, V)*): TextMap[V] = imm.Map(elems: _*)
     override def newBuilder[V]: mutable.Builder[(String, V), TextMap[V]] = imm.Map.newBuilder
     override def canBuildFrom[V]: CanBuildFrom[Coll, (String, V), TextMap[V]] = imm.Map.canBuildFrom
-    override def fromMap[V](map: imm.Map[String, V]): TextMap[V] = map
     override def subst[F[_[_]]](fa: F[TextMap]): F[TextMap] = fa
   }
 
