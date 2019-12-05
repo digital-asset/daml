@@ -23,7 +23,7 @@ export type TemplateId = {
 /**
  * Companion object of the `TemplateId` type.
  */
-const TemplateId: Serializable<TemplateId> = {
+export const TemplateId: Serializable<TemplateId> = {
   decoder: () => jtv.object({
     packageId: jtv.string(),
     moduleName: jtv.string(),

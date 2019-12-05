@@ -17,19 +17,29 @@ alias(
     name = "yarn",
     actual = "@nodejs//:bin/yarn.cmd" if is_windows else "@nodejs//:bin/yarn",
 )
+alias(
+    name = "java",
+    actual = "@local_jdk//:bin/java.exe" if is_windows else "@local_jdk//:bin/java",
+)
 
 sh_test(
     name = "build-and-lint",
     srcs = ["build-and-lint.sh"],
     args = [
+        "$(location :java)",
         "$(location :yarn)",
         "$(location //:daml2ts)",
+        "$(location //ledger/sandbox:sandbox-binary_deploy.jar)",
+        "$(location //ledger-service/http-json:http-json-binary_deploy.jar)",
         "$(location :daml2ts-test.dar)",
         "$(location ts/package.json)",
     ],
     data = [
+        ":java",
         ":yarn",
         "//:daml2ts",
+        "//ledger/sandbox:sandbox-binary_deploy.jar",
+        "//ledger-service/http-json:http-json-binary_deploy.jar",
         ":daml2ts-test.dar",
     ] + glob(
         ["ts/**"],
