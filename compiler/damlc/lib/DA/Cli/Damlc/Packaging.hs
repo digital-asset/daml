@@ -109,8 +109,7 @@ createProjectPackageDb opts thisSdkVer deps0 dataDeps = do
                 ( pkgId
                 , package
                 , dalf
-                , stringToUnitId $
-                  fromMaybe name $ stripPkgId name $ T.unpack $ LF.unPackageId pkgId)
+                , stringToUnitId $ parseUnitId name pkgId)
     -- mapping from package id's to unit id's. if the same package is imported with
     -- different unit id's, we would loose a unit id here.
     let pkgMap =

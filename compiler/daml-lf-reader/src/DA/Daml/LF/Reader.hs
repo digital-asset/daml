@@ -10,16 +10,20 @@ module DA.Daml.LF.Reader
     , readDalfManifest
     , readDalfs
     , stripPkgId
+    , parseUnitId
     ) where
 
 import "zip-archive" Codec.Archive.Zip
 import Control.Monad (guard)
+import qualified DA.Daml.LF.Ast as LF
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
-import qualified Data.ByteString.UTF8 as BSUTF8
 import qualified Data.ByteString.Lazy as BSL
+import qualified Data.ByteString.UTF8 as BSUTF8
 import Data.Char
 import Data.List.Extra
+import Data.Maybe
+import qualified Data.Text as T
 import Data.Void
 import Text.Megaparsec
 import Text.Megaparsec.Byte
@@ -129,3 +133,10 @@ stripPkgId baseName expectedPkgId = do
     (unitId, pkgId) <- stripInfixEnd "-" baseName
     guard $ pkgId == expectedPkgId
     pure unitId
+
+-- Get the unit id of a string, given an expected package id of the package, by stripping the
+-- package id from the back. I.e. if 'package-name-123abc' is given and the known package id is
+-- '123abc', then 'package-name' is returned as unit id.
+parseUnitId :: String -> LF.PackageId -> String
+parseUnitId name pkgId =
+    fromMaybe name $ stripPkgId name $ T.unpack $ LF.unPackageId pkgId
