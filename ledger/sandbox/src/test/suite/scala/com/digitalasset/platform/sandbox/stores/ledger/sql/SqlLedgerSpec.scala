@@ -93,7 +93,7 @@ class SqlLedgerSpec
       for {
         ledger <- createSqlLedger()
       } yield {
-        def listPackages(displayName: String): Unit = {
+        def listPackages(): Unit = {
           Await.result(
             ledger.listLfPackages(),
             patienceConfig.timeout
@@ -101,16 +101,16 @@ class SqlLedgerSpec
           ()
         }
 
-        listPackages("Alice")
-        withClue("after allocating Alice,") {
+        listPackages()
+        withClue("before shutting down postgres,") {
           ledger.currentHealth() should be(Healthy)
         }
 
         stopPostgres()
 
         eventually {
-          assertThrows[SQLException](listPackages("Bob"))
-          withClue("after allocating Bob,") {
+          assertThrows[SQLException](listPackages())
+          withClue("after shutting down postgres,") {
             ledger.currentHealth() should be(Unhealthy)
           }
         }
@@ -118,8 +118,8 @@ class SqlLedgerSpec
         startPostgres()
 
         eventually {
-          listPackages("Carol")
-          withClue("after allocating Carol,") {
+          listPackages()
+          withClue("after starting up postgres,") {
             ledger.currentHealth() should be(Healthy)
           }
         }

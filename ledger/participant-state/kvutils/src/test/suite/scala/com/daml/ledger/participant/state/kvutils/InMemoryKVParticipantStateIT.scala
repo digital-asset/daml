@@ -163,7 +163,7 @@ class InMemoryKVParticipantStateIT
         updateTuple match {
           case (offset: Offset, update: PartyAddedToParticipant) =>
             assert(offset == Offset(Array(0L, 0L)))
-            assert(update.party != hintNone)
+            assert(update.party.nonEmpty)
             assert(update.displayName == displayName.get)
             assert(update.participantId == ps.participantId)
             assert(update.recordTime >= rt)

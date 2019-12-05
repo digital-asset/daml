@@ -212,7 +212,7 @@ trait LedgerWriteDao extends AutoCloseable with ReportsHealth {
   ): Future[Unit]
 
   /**
-    * Stores a party allocation of rejection thereof.
+    * Stores a party allocation or rejection thereof.
     *
     * @param offset       the offset to store the party entry
     * @param newLedgerEnd the new ledger end, valid after this operation finishes
