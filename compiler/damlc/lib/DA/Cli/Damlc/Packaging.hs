@@ -101,7 +101,7 @@ createProjectPackageDb opts thisSdkVer deps dataDeps = do
     let allDalfs = dalfsFromDars ++ dalfsFromFps
     pkgs <- forM allDalfs $ \(name, dalf) -> do
         (pkgId, package) <-
-            either (fail . DA.Pretty.renderPretty) pure $
+            requiredE $
             Archive.decodeArchive Archive.DecodeAsMain dalf
         pure (pkgId, package, dalf, stringToUnitId $ parseUnitId name pkgId)
 
