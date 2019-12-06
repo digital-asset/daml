@@ -26,6 +26,7 @@ data Name
     | NRecordType ModuleName TypeConName
     | NVariantType ModuleName TypeConName
     | NEnumType ModuleName TypeConName
+    | NTypeSynonym ModuleName TypeConName
     | NVariantCon ModuleName TypeConName VariantConName
     | NEnumCon ModuleName TypeConName VariantConName
     | NField ModuleName TypeConName FieldName
@@ -42,6 +43,8 @@ displayName = \case
         T.concat ["variant ", dot m, ":", dot t]
     NEnumType (ModuleName m) (TypeConName t) ->
         T.concat ["enum ", dot m, ":", dot t]
+    NTypeSynonym (ModuleName m) (TypeConName t) ->
+        T.concat ["synonym ", dot m, ":", dot t]
     NVariantCon (ModuleName m) (TypeConName t) (VariantConName v) ->
         T.concat ["variant constructor ", dot m, ":", dot t, ".", v]
     NEnumCon (ModuleName m) (TypeConName t) (VariantConName v) ->
@@ -88,6 +91,8 @@ fullyResolve = FRName . map T.toLower . \case
     NVariantType (ModuleName m) (TypeConName t) ->
         m ++ t
     NEnumType (ModuleName m) (TypeConName t) ->
+        m ++ t
+    NTypeSynonym (ModuleName m) (TypeConName t) ->
         m ++ t
     NVariantCon (ModuleName m) (TypeConName t) (VariantConName v) ->
         m ++ t ++ [v]
@@ -149,7 +154,7 @@ checkDataType moduleName DefDataType{..} =
                 checkName (NEnumCon moduleName dataTypeCon vconName)
 
         DataSynonym _ ->
-            checkName (NEnumType moduleName dataTypeCon)
+            checkName (NTypeSynonym moduleName dataTypeCon)
 
 checkTemplate :: MonadGamma m => ModuleName -> Template -> S.StateT NCState m ()
 checkTemplate moduleName Template{..} = do
