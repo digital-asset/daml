@@ -14,7 +14,8 @@ def conformance_test(
         extra_data = [],
         ports = [6865],
         test_tool_args = [],
-        tags = []):
+        tags = [],
+        flaky = False):
     client_server_test(
         name = name,
         timeout = "long",
@@ -32,9 +33,10 @@ def conformance_test(
             "dont-run-on-darwin",
             "exclusive",
         ] + tags,
+        flaky = flaky,
     ) if not is_windows else None
 
-def server_conformance_test(name, servers, server_args = [], test_tool_args = []):
+def server_conformance_test(name, servers, server_args = [], test_tool_args = [], flaky = False):
     for server_name, server in servers.items():
         test_name = "-".join([segment for segment in [name, server_name] if segment])
         conformance_test(
@@ -43,4 +45,5 @@ def server_conformance_test(name, servers, server_args = [], test_tool_args = []
             server = server["binary"],
             server_args = server.get("server_args", []) + server_args,
             test_tool_args = server.get("test_tool_args", []) + test_tool_args,
+            flaky = flaky,
         )
