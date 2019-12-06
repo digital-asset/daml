@@ -168,7 +168,7 @@ createProjectPackageDb opts thisSdkVer deps dataDeps = do
 expandSdkPackages :: [FilePath] -> IO [FilePath]
 expandSdkPackages dars = do
     mbSdkPath <- handleIO (\_ -> pure Nothing) $ Just <$> getSdkPath
-    traverse (expand mbSdkPath) dars
+    mapM (expand mbSdkPath) dars
   where
     isSdkPackage fp = takeExtension fp `notElem` [".dar", ".dalf"]
     expand mbSdkPath fp
