@@ -232,14 +232,14 @@
                 "coord": "com.auth0:java-jwt:3.8.3",
                 "file": "v1/https/repo1.maven.org/maven2/com/auth0/java-jwt/3.8.3/java-jwt-3.8.3.jar",
                 "directDependencies": [
-                    "com.fasterxml.jackson.core:jackson-databind:2.10.0.pr3",
+                    "com.fasterxml.jackson.core:jackson-databind:2.10.1",
                     "commons-codec:commons-codec:1.13"
                 ],
                 "dependencies": [
                     "commons-codec:commons-codec:1.13",
-                    "com.fasterxml.jackson.core:jackson-annotations:2.10.0.pr3",
-                    "com.fasterxml.jackson.core:jackson-core:2.10.0.pr3",
-                    "com.fasterxml.jackson.core:jackson-databind:2.10.0.pr3"
+                    "com.fasterxml.jackson.core:jackson-databind:2.10.1",
+                    "com.fasterxml.jackson.core:jackson-annotations:2.10.1",
+                    "com.fasterxml.jackson.core:jackson-core:2.10.1"
                 ],
                 "url": "https://repo1.maven.org/maven2/com/auth0/java-jwt/3.8.3/java-jwt-3.8.3.jar",
                 "mirror_urls": [
@@ -251,14 +251,14 @@
                 "coord": "com.auth0:java-jwt:jar:sources:3.8.3",
                 "file": "v1/https/repo1.maven.org/maven2/com/auth0/java-jwt/3.8.3/java-jwt-3.8.3-sources.jar",
                 "directDependencies": [
-                    "com.fasterxml.jackson.core:jackson-databind:jar:sources:2.10.0.pr3",
+                    "com.fasterxml.jackson.core:jackson-databind:jar:sources:2.10.1",
                     "commons-codec:commons-codec:jar:sources:1.13"
                 ],
                 "dependencies": [
-                    "com.fasterxml.jackson.core:jackson-annotations:jar:sources:2.10.0.pr3",
-                    "com.fasterxml.jackson.core:jackson-databind:jar:sources:2.10.0.pr3",
-                    "commons-codec:commons-codec:jar:sources:1.13",
-                    "com.fasterxml.jackson.core:jackson-core:jar:sources:2.10.0.pr3"
+                    "com.fasterxml.jackson.core:jackson-annotations:jar:sources:2.10.1",
+                    "com.fasterxml.jackson.core:jackson-core:jar:sources:2.10.1",
+                    "com.fasterxml.jackson.core:jackson-databind:jar:sources:2.10.1",
+                    "commons-codec:commons-codec:jar:sources:1.13"
                 ],
                 "url": "https://repo1.maven.org/maven2/com/auth0/java-jwt/3.8.3/java-jwt-3.8.3-sources.jar",
                 "mirror_urls": [
@@ -270,7 +270,7 @@
                 "coord": "com.auth0:jwks-rsa:0.9.0",
                 "file": "v1/https/repo1.maven.org/maven2/com/auth0/jwks-rsa/0.9.0/jwks-rsa-0.9.0.jar",
                 "directDependencies": [
-                    "com.fasterxml.jackson.core:jackson-databind:2.10.0.pr3",
+                    "com.fasterxml.jackson.core:jackson-databind:2.10.1",
                     "com.google.guava:guava:24.0-jre",
                     "commons-codec:commons-codec:1.13",
                     "commons-io:commons-io:2.5"
@@ -280,13 +280,13 @@
                     "com.google.code.findbugs:jsr305:3.0.2",
                     "commons-codec:commons-codec:1.13",
                     "commons-io:commons-io:2.5",
+                    "com.fasterxml.jackson.core:jackson-core:2.10.1",
+                    "com.fasterxml.jackson.core:jackson-annotations:2.10.1",
                     "org.codehaus.mojo:animal-sniffer-annotations:1.17",
                     "com.google.j2objc:j2objc-annotations:1.1",
                     "com.google.guava:guava:24.0-jre",
-                    "com.fasterxml.jackson.core:jackson-annotations:2.10.0.pr3",
-                    "com.fasterxml.jackson.core:jackson-core:2.10.0.pr3",
-                    "com.google.errorprone:error_prone_annotations:2.3.2",
-                    "com.fasterxml.jackson.core:jackson-databind:2.10.0.pr3"
+                    "com.fasterxml.jackson.core:jackson-databind:2.10.1",
+                    "com.google.errorprone:error_prone_annotations:2.3.2"
                 ],
                 "url": "https://repo1.maven.org/maven2/com/auth0/jwks-rsa/0.9.0/jwks-rsa-0.9.0.jar",
                 "mirror_urls": [
@@ -298,21 +298,21 @@
                 "coord": "com.auth0:jwks-rsa:jar:sources:0.9.0",
                 "file": "v1/https/repo1.maven.org/maven2/com/auth0/jwks-rsa/0.9.0/jwks-rsa-0.9.0-sources.jar",
                 "directDependencies": [
-                    "com.fasterxml.jackson.core:jackson-databind:jar:sources:2.10.0.pr3",
+                    "com.fasterxml.jackson.core:jackson-databind:jar:sources:2.10.1",
                     "com.google.guava:guava:jar:sources:24.0-jre",
                     "commons-codec:commons-codec:jar:sources:1.13",
                     "commons-io:commons-io:jar:sources:2.5"
                 ],
                 "dependencies": [
-                    "com.fasterxml.jackson.core:jackson-databind:jar:sources:2.10.0.pr3",
                     "com.google.code.findbugs:jsr305:jar:sources:3.0.2",
-                    "com.fasterxml.jackson.core:jackson-core:jar:sources:2.10.0.pr3",
-                    "com.fasterxml.jackson.core:jackson-annotations:jar:sources:2.10.0.pr3",
+                    "com.fasterxml.jackson.core:jackson-databind:jar:sources:2.10.1",
                     "org.checkerframework:checker-compat-qual:jar:sources:2.0.0",
                     "org.codehaus.mojo:animal-sniffer-annotations:jar:sources:1.17",
                     "com.google.guava:guava:jar:sources:24.0-jre",
                     "commons-io:commons-io:jar:sources:2.5",
                     "com.google.j2objc:j2objc-annotations:jar:sources:1.1",
+                    "com.fasterxml.jackson.core:jackson-core:jar:sources:2.10.1",
+                    "com.fasterxml.jackson.core:jackson-annotations:jar:sources:2.10.1",
                     "commons-codec:commons-codec:jar:sources:1.13",
                     "com.google.errorprone:error_prone_annotations:jar:sources:2.3.2"
                 ],
@@ -611,165 +611,165 @@
                 "sha256": "820565cc1911a8e1d88789344229f92fe3dcfd747793f18fcf6e120fbe15dfd3"
             },
             {
-                "coord": "com.fasterxml.jackson.core:jackson-annotations:2.10.0.pr3",
-                "file": "v1/https/repo1.maven.org/maven2/com/fasterxml/jackson/core/jackson-annotations/2.10.0.pr3/jackson-annotations-2.10.0.pr3.jar",
+                "coord": "com.fasterxml.jackson.core:jackson-annotations:2.10.1",
+                "file": "v1/https/repo1.maven.org/maven2/com/fasterxml/jackson/core/jackson-annotations/2.10.1/jackson-annotations-2.10.1.jar",
                 "directDependencies": [],
                 "dependencies": [],
-                "url": "https://repo1.maven.org/maven2/com/fasterxml/jackson/core/jackson-annotations/2.10.0.pr3/jackson-annotations-2.10.0.pr3.jar",
+                "url": "https://repo1.maven.org/maven2/com/fasterxml/jackson/core/jackson-annotations/2.10.1/jackson-annotations-2.10.1.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/com/fasterxml/jackson/core/jackson-annotations/2.10.0.pr3/jackson-annotations-2.10.0.pr3.jar"
+                    "https://repo1.maven.org/maven2/com/fasterxml/jackson/core/jackson-annotations/2.10.1/jackson-annotations-2.10.1.jar"
                 ],
-                "sha256": "767b73916fd0e258ae4dbc37a10838a37acb73cad50d16c5286d0306926ef302"
+                "sha256": "673f8ae16becea4fa937404b3a851417faf42df3bbc592028bbe2bfe0cc9d8cb"
             },
             {
-                "coord": "com.fasterxml.jackson.core:jackson-annotations:jar:sources:2.10.0.pr3",
-                "file": "v1/https/repo1.maven.org/maven2/com/fasterxml/jackson/core/jackson-annotations/2.10.0.pr3/jackson-annotations-2.10.0.pr3-sources.jar",
+                "coord": "com.fasterxml.jackson.core:jackson-annotations:jar:sources:2.10.1",
+                "file": "v1/https/repo1.maven.org/maven2/com/fasterxml/jackson/core/jackson-annotations/2.10.1/jackson-annotations-2.10.1-sources.jar",
                 "directDependencies": [],
                 "dependencies": [],
-                "url": "https://repo1.maven.org/maven2/com/fasterxml/jackson/core/jackson-annotations/2.10.0.pr3/jackson-annotations-2.10.0.pr3-sources.jar",
+                "url": "https://repo1.maven.org/maven2/com/fasterxml/jackson/core/jackson-annotations/2.10.1/jackson-annotations-2.10.1-sources.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/com/fasterxml/jackson/core/jackson-annotations/2.10.0.pr3/jackson-annotations-2.10.0.pr3-sources.jar"
+                    "https://repo1.maven.org/maven2/com/fasterxml/jackson/core/jackson-annotations/2.10.1/jackson-annotations-2.10.1-sources.jar"
                 ],
-                "sha256": "8a2b04cec5011ee353fe7f4eea117d27861fb748e1d1d31b0f966cff03132e68"
+                "sha256": "51edbe61480b811fc9ceaa158e233b88a193b58b69a4c9cfe7c8b2ef50f98b5d"
             },
             {
-                "coord": "com.fasterxml.jackson.core:jackson-core:2.10.0.pr3",
-                "file": "v1/https/repo1.maven.org/maven2/com/fasterxml/jackson/core/jackson-core/2.10.0.pr3/jackson-core-2.10.0.pr3.jar",
+                "coord": "com.fasterxml.jackson.core:jackson-core:2.10.1",
+                "file": "v1/https/repo1.maven.org/maven2/com/fasterxml/jackson/core/jackson-core/2.10.1/jackson-core-2.10.1.jar",
                 "directDependencies": [],
                 "dependencies": [],
-                "url": "https://repo1.maven.org/maven2/com/fasterxml/jackson/core/jackson-core/2.10.0.pr3/jackson-core-2.10.0.pr3.jar",
+                "url": "https://repo1.maven.org/maven2/com/fasterxml/jackson/core/jackson-core/2.10.1/jackson-core-2.10.1.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/com/fasterxml/jackson/core/jackson-core/2.10.0.pr3/jackson-core-2.10.0.pr3.jar"
+                    "https://repo1.maven.org/maven2/com/fasterxml/jackson/core/jackson-core/2.10.1/jackson-core-2.10.1.jar"
                 ],
-                "sha256": "3fbf28746929fb30b4ab7266c2187ceccb34fd1e4e7f35e20ba85c97f38f49dc"
+                "sha256": "79bffbdcd349f69a5ac252e2b4096131704386af4fa14d95395ea9a0e423cf33"
             },
             {
-                "coord": "com.fasterxml.jackson.core:jackson-core:jar:sources:2.10.0.pr3",
-                "file": "v1/https/repo1.maven.org/maven2/com/fasterxml/jackson/core/jackson-core/2.10.0.pr3/jackson-core-2.10.0.pr3-sources.jar",
+                "coord": "com.fasterxml.jackson.core:jackson-core:jar:sources:2.10.1",
+                "file": "v1/https/repo1.maven.org/maven2/com/fasterxml/jackson/core/jackson-core/2.10.1/jackson-core-2.10.1-sources.jar",
                 "directDependencies": [],
                 "dependencies": [],
-                "url": "https://repo1.maven.org/maven2/com/fasterxml/jackson/core/jackson-core/2.10.0.pr3/jackson-core-2.10.0.pr3-sources.jar",
+                "url": "https://repo1.maven.org/maven2/com/fasterxml/jackson/core/jackson-core/2.10.1/jackson-core-2.10.1-sources.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/com/fasterxml/jackson/core/jackson-core/2.10.0.pr3/jackson-core-2.10.0.pr3-sources.jar"
+                    "https://repo1.maven.org/maven2/com/fasterxml/jackson/core/jackson-core/2.10.1/jackson-core-2.10.1-sources.jar"
                 ],
-                "sha256": "734ed2fe3c75072f003667ae633aeda2874fcfd6222dd746b16c345a12b78799"
+                "sha256": "001eeeb4ae3241e0e880ab2f9b867c33d560c73b34a5d69d9b216b8b04cfb9bd"
             },
             {
-                "coord": "com.fasterxml.jackson.core:jackson-databind:2.10.0.pr3",
-                "file": "v1/https/repo1.maven.org/maven2/com/fasterxml/jackson/core/jackson-databind/2.10.0.pr3/jackson-databind-2.10.0.pr3.jar",
+                "coord": "com.fasterxml.jackson.core:jackson-databind:2.10.1",
+                "file": "v1/https/repo1.maven.org/maven2/com/fasterxml/jackson/core/jackson-databind/2.10.1/jackson-databind-2.10.1.jar",
                 "directDependencies": [
-                    "com.fasterxml.jackson.core:jackson-annotations:2.10.0.pr3",
-                    "com.fasterxml.jackson.core:jackson-core:2.10.0.pr3"
+                    "com.fasterxml.jackson.core:jackson-annotations:2.10.1",
+                    "com.fasterxml.jackson.core:jackson-core:2.10.1"
                 ],
                 "dependencies": [
-                    "com.fasterxml.jackson.core:jackson-annotations:2.10.0.pr3",
-                    "com.fasterxml.jackson.core:jackson-core:2.10.0.pr3"
+                    "com.fasterxml.jackson.core:jackson-annotations:2.10.1",
+                    "com.fasterxml.jackson.core:jackson-core:2.10.1"
                 ],
-                "url": "https://repo1.maven.org/maven2/com/fasterxml/jackson/core/jackson-databind/2.10.0.pr3/jackson-databind-2.10.0.pr3.jar",
+                "url": "https://repo1.maven.org/maven2/com/fasterxml/jackson/core/jackson-databind/2.10.1/jackson-databind-2.10.1.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/com/fasterxml/jackson/core/jackson-databind/2.10.0.pr3/jackson-databind-2.10.0.pr3.jar"
+                    "https://repo1.maven.org/maven2/com/fasterxml/jackson/core/jackson-databind/2.10.1/jackson-databind-2.10.1.jar"
                 ],
-                "sha256": "6ae3607d17d756614c7536ef2ce51f4995493ab80cae046c5da7c0c3827fc335"
+                "sha256": "2d23f47001492233565adf5a34f225f2ae89564cee08024873ec36b7842ede46"
             },
             {
-                "coord": "com.fasterxml.jackson.core:jackson-databind:jar:sources:2.10.0.pr3",
-                "file": "v1/https/repo1.maven.org/maven2/com/fasterxml/jackson/core/jackson-databind/2.10.0.pr3/jackson-databind-2.10.0.pr3-sources.jar",
+                "coord": "com.fasterxml.jackson.core:jackson-databind:jar:sources:2.10.1",
+                "file": "v1/https/repo1.maven.org/maven2/com/fasterxml/jackson/core/jackson-databind/2.10.1/jackson-databind-2.10.1-sources.jar",
                 "directDependencies": [
-                    "com.fasterxml.jackson.core:jackson-annotations:jar:sources:2.10.0.pr3",
-                    "com.fasterxml.jackson.core:jackson-core:jar:sources:2.10.0.pr3"
+                    "com.fasterxml.jackson.core:jackson-annotations:jar:sources:2.10.1",
+                    "com.fasterxml.jackson.core:jackson-core:jar:sources:2.10.1"
                 ],
                 "dependencies": [
-                    "com.fasterxml.jackson.core:jackson-annotations:jar:sources:2.10.0.pr3",
-                    "com.fasterxml.jackson.core:jackson-core:jar:sources:2.10.0.pr3"
+                    "com.fasterxml.jackson.core:jackson-annotations:jar:sources:2.10.1",
+                    "com.fasterxml.jackson.core:jackson-core:jar:sources:2.10.1"
                 ],
-                "url": "https://repo1.maven.org/maven2/com/fasterxml/jackson/core/jackson-databind/2.10.0.pr3/jackson-databind-2.10.0.pr3-sources.jar",
+                "url": "https://repo1.maven.org/maven2/com/fasterxml/jackson/core/jackson-databind/2.10.1/jackson-databind-2.10.1-sources.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/com/fasterxml/jackson/core/jackson-databind/2.10.0.pr3/jackson-databind-2.10.0.pr3-sources.jar"
+                    "https://repo1.maven.org/maven2/com/fasterxml/jackson/core/jackson-databind/2.10.1/jackson-databind-2.10.1-sources.jar"
                 ],
-                "sha256": "9d00dd41bca59aef0ee6c968d7dfb205d6624a13742cb548e6cca8035bca86f2"
+                "sha256": "43fb05e9652c4aef1e272b330649037e92d32b96af005a49e4b801a7f1585e15"
             },
             {
-                "coord": "com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.10.0.pr3",
-                "file": "v1/https/repo1.maven.org/maven2/com/fasterxml/jackson/dataformat/jackson-dataformat-yaml/2.10.0.pr3/jackson-dataformat-yaml-2.10.0.pr3.jar",
+                "coord": "com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.10.1",
+                "file": "v1/https/repo1.maven.org/maven2/com/fasterxml/jackson/dataformat/jackson-dataformat-yaml/2.10.1/jackson-dataformat-yaml-2.10.1.jar",
                 "directDependencies": [
-                    "com.fasterxml.jackson.core:jackson-core:2.10.0.pr3",
+                    "com.fasterxml.jackson.core:jackson-core:2.10.1",
                     "org.yaml:snakeyaml:1.24"
                 ],
                 "dependencies": [
                     "org.yaml:snakeyaml:1.24",
-                    "com.fasterxml.jackson.core:jackson-core:2.10.0.pr3"
+                    "com.fasterxml.jackson.core:jackson-core:2.10.1"
                 ],
-                "url": "https://repo1.maven.org/maven2/com/fasterxml/jackson/dataformat/jackson-dataformat-yaml/2.10.0.pr3/jackson-dataformat-yaml-2.10.0.pr3.jar",
+                "url": "https://repo1.maven.org/maven2/com/fasterxml/jackson/dataformat/jackson-dataformat-yaml/2.10.1/jackson-dataformat-yaml-2.10.1.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/com/fasterxml/jackson/dataformat/jackson-dataformat-yaml/2.10.0.pr3/jackson-dataformat-yaml-2.10.0.pr3.jar"
+                    "https://repo1.maven.org/maven2/com/fasterxml/jackson/dataformat/jackson-dataformat-yaml/2.10.1/jackson-dataformat-yaml-2.10.1.jar"
                 ],
-                "sha256": "75d0017b25f52c1a45b3907c73bcf2d69ca71035e794c9004209464215e2d368"
+                "sha256": "d1f0a32e15894aa3639cf31680b813f5fbb39650618a145cb2631e65ad1cd9c2"
             },
             {
-                "coord": "com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:jar:sources:2.10.0.pr3",
-                "file": "v1/https/repo1.maven.org/maven2/com/fasterxml/jackson/dataformat/jackson-dataformat-yaml/2.10.0.pr3/jackson-dataformat-yaml-2.10.0.pr3-sources.jar",
+                "coord": "com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:jar:sources:2.10.1",
+                "file": "v1/https/repo1.maven.org/maven2/com/fasterxml/jackson/dataformat/jackson-dataformat-yaml/2.10.1/jackson-dataformat-yaml-2.10.1-sources.jar",
                 "directDependencies": [
-                    "com.fasterxml.jackson.core:jackson-core:jar:sources:2.10.0.pr3",
+                    "com.fasterxml.jackson.core:jackson-core:jar:sources:2.10.1",
                     "org.yaml:snakeyaml:jar:sources:1.24"
                 ],
                 "dependencies": [
                     "org.yaml:snakeyaml:jar:sources:1.24",
-                    "com.fasterxml.jackson.core:jackson-core:jar:sources:2.10.0.pr3"
+                    "com.fasterxml.jackson.core:jackson-core:jar:sources:2.10.1"
                 ],
-                "url": "https://repo1.maven.org/maven2/com/fasterxml/jackson/dataformat/jackson-dataformat-yaml/2.10.0.pr3/jackson-dataformat-yaml-2.10.0.pr3-sources.jar",
+                "url": "https://repo1.maven.org/maven2/com/fasterxml/jackson/dataformat/jackson-dataformat-yaml/2.10.1/jackson-dataformat-yaml-2.10.1-sources.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/com/fasterxml/jackson/dataformat/jackson-dataformat-yaml/2.10.0.pr3/jackson-dataformat-yaml-2.10.0.pr3-sources.jar"
+                    "https://repo1.maven.org/maven2/com/fasterxml/jackson/dataformat/jackson-dataformat-yaml/2.10.1/jackson-dataformat-yaml-2.10.1-sources.jar"
                 ],
-                "sha256": "96869de806e9b6b0b0f50cca5eb08c796a7c9594483997c5e5f4626507e2f776"
+                "sha256": "9cdeb072fed1ab8a00ee1385af42719f565cd9040ad1512cdbd86fdf07da2237"
             },
             {
-                "coord": "com.fasterxml.jackson.module:jackson-module-parameter-names:2.10.0.pr3",
-                "file": "v1/https/repo1.maven.org/maven2/com/fasterxml/jackson/module/jackson-module-parameter-names/2.10.0.pr3/jackson-module-parameter-names-2.10.0.pr3.jar",
+                "coord": "com.fasterxml.jackson.module:jackson-module-parameter-names:2.10.1",
+                "file": "v1/https/repo1.maven.org/maven2/com/fasterxml/jackson/module/jackson-module-parameter-names/2.10.1/jackson-module-parameter-names-2.10.1.jar",
                 "directDependencies": [
-                    "com.fasterxml.jackson.core:jackson-core:2.10.0.pr3",
-                    "com.fasterxml.jackson.core:jackson-databind:2.10.0.pr3"
+                    "com.fasterxml.jackson.core:jackson-core:2.10.1",
+                    "com.fasterxml.jackson.core:jackson-databind:2.10.1"
                 ],
                 "dependencies": [
-                    "com.fasterxml.jackson.core:jackson-annotations:2.10.0.pr3",
-                    "com.fasterxml.jackson.core:jackson-core:2.10.0.pr3",
-                    "com.fasterxml.jackson.core:jackson-databind:2.10.0.pr3"
+                    "com.fasterxml.jackson.core:jackson-databind:2.10.1",
+                    "com.fasterxml.jackson.core:jackson-annotations:2.10.1",
+                    "com.fasterxml.jackson.core:jackson-core:2.10.1"
                 ],
-                "url": "https://repo1.maven.org/maven2/com/fasterxml/jackson/module/jackson-module-parameter-names/2.10.0.pr3/jackson-module-parameter-names-2.10.0.pr3.jar",
+                "url": "https://repo1.maven.org/maven2/com/fasterxml/jackson/module/jackson-module-parameter-names/2.10.1/jackson-module-parameter-names-2.10.1.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/com/fasterxml/jackson/module/jackson-module-parameter-names/2.10.0.pr3/jackson-module-parameter-names-2.10.0.pr3.jar"
+                    "https://repo1.maven.org/maven2/com/fasterxml/jackson/module/jackson-module-parameter-names/2.10.1/jackson-module-parameter-names-2.10.1.jar"
                 ],
-                "sha256": "7295b80c683f75179c93baf2fdd19590db853d8317caf511661d498813202220"
+                "sha256": "e8083b8aef3704fd8a1032454d1d80ad5e250a678fbb3bc8ac89c0f0567badf3"
             },
             {
-                "coord": "com.fasterxml.jackson.module:jackson-module-parameter-names:jar:sources:2.10.0.pr3",
-                "file": "v1/https/repo1.maven.org/maven2/com/fasterxml/jackson/module/jackson-module-parameter-names/2.10.0.pr3/jackson-module-parameter-names-2.10.0.pr3-sources.jar",
+                "coord": "com.fasterxml.jackson.module:jackson-module-parameter-names:jar:sources:2.10.1",
+                "file": "v1/https/repo1.maven.org/maven2/com/fasterxml/jackson/module/jackson-module-parameter-names/2.10.1/jackson-module-parameter-names-2.10.1-sources.jar",
                 "directDependencies": [
-                    "com.fasterxml.jackson.core:jackson-core:jar:sources:2.10.0.pr3",
-                    "com.fasterxml.jackson.core:jackson-databind:jar:sources:2.10.0.pr3"
+                    "com.fasterxml.jackson.core:jackson-core:jar:sources:2.10.1",
+                    "com.fasterxml.jackson.core:jackson-databind:jar:sources:2.10.1"
                 ],
                 "dependencies": [
-                    "com.fasterxml.jackson.core:jackson-annotations:jar:sources:2.10.0.pr3",
-                    "com.fasterxml.jackson.core:jackson-databind:jar:sources:2.10.0.pr3",
-                    "com.fasterxml.jackson.core:jackson-core:jar:sources:2.10.0.pr3"
+                    "com.fasterxml.jackson.core:jackson-annotations:jar:sources:2.10.1",
+                    "com.fasterxml.jackson.core:jackson-core:jar:sources:2.10.1",
+                    "com.fasterxml.jackson.core:jackson-databind:jar:sources:2.10.1"
                 ],
-                "url": "https://repo1.maven.org/maven2/com/fasterxml/jackson/module/jackson-module-parameter-names/2.10.0.pr3/jackson-module-parameter-names-2.10.0.pr3-sources.jar",
+                "url": "https://repo1.maven.org/maven2/com/fasterxml/jackson/module/jackson-module-parameter-names/2.10.1/jackson-module-parameter-names-2.10.1-sources.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/com/fasterxml/jackson/module/jackson-module-parameter-names/2.10.0.pr3/jackson-module-parameter-names-2.10.0.pr3-sources.jar"
+                    "https://repo1.maven.org/maven2/com/fasterxml/jackson/module/jackson-module-parameter-names/2.10.1/jackson-module-parameter-names-2.10.1-sources.jar"
                 ],
-                "sha256": "4a2b83a022bf17e7993bcfca0c10515ba95a0c858487ed1be55f5706a998b989"
+                "sha256": "65598832be28bd03ecce720ce841e19749469e6703180e8f7a1ae97f245c974f"
             },
             {
                 "coord": "com.fasterxml.jackson.module:jackson-module-paranamer:2.9.8",
                 "file": "v1/https/repo1.maven.org/maven2/com/fasterxml/jackson/module/jackson-module-paranamer/2.9.8/jackson-module-paranamer-2.9.8.jar",
                 "directDependencies": [
-                    "com.fasterxml.jackson.core:jackson-databind:2.10.0.pr3",
+                    "com.fasterxml.jackson.core:jackson-databind:2.10.1",
                     "com.thoughtworks.paranamer:paranamer:2.8"
                 ],
                 "dependencies": [
-                    "com.fasterxml.jackson.core:jackson-annotations:2.10.0.pr3",
-                    "com.fasterxml.jackson.core:jackson-core:2.10.0.pr3",
-                    "com.fasterxml.jackson.core:jackson-databind:2.10.0.pr3",
-                    "com.thoughtworks.paranamer:paranamer:2.8"
+                    "com.fasterxml.jackson.core:jackson-databind:2.10.1",
+                    "com.fasterxml.jackson.core:jackson-annotations:2.10.1",
+                    "com.thoughtworks.paranamer:paranamer:2.8",
+                    "com.fasterxml.jackson.core:jackson-core:2.10.1"
                 ],
                 "url": "https://repo1.maven.org/maven2/com/fasterxml/jackson/module/jackson-module-paranamer/2.9.8/jackson-module-paranamer-2.9.8.jar",
                 "mirror_urls": [
@@ -781,14 +781,14 @@
                 "coord": "com.fasterxml.jackson.module:jackson-module-paranamer:jar:sources:2.9.8",
                 "file": "v1/https/repo1.maven.org/maven2/com/fasterxml/jackson/module/jackson-module-paranamer/2.9.8/jackson-module-paranamer-2.9.8-sources.jar",
                 "directDependencies": [
-                    "com.fasterxml.jackson.core:jackson-databind:jar:sources:2.10.0.pr3",
+                    "com.fasterxml.jackson.core:jackson-databind:jar:sources:2.10.1",
                     "com.thoughtworks.paranamer:paranamer:jar:sources:2.8"
                 ],
                 "dependencies": [
-                    "com.fasterxml.jackson.core:jackson-annotations:jar:sources:2.10.0.pr3",
-                    "com.fasterxml.jackson.core:jackson-databind:jar:sources:2.10.0.pr3",
                     "com.thoughtworks.paranamer:paranamer:jar:sources:2.8",
-                    "com.fasterxml.jackson.core:jackson-core:jar:sources:2.10.0.pr3"
+                    "com.fasterxml.jackson.core:jackson-annotations:jar:sources:2.10.1",
+                    "com.fasterxml.jackson.core:jackson-core:jar:sources:2.10.1",
+                    "com.fasterxml.jackson.core:jackson-databind:jar:sources:2.10.1"
                 ],
                 "url": "https://repo1.maven.org/maven2/com/fasterxml/jackson/module/jackson-module-paranamer/2.9.8/jackson-module-paranamer-2.9.8-sources.jar",
                 "mirror_urls": [
@@ -802,17 +802,17 @@
                 "directDependencies": [
                     "org.scala-lang:scala-library:2.12.8",
                     "com.fasterxml.jackson.module:jackson-module-paranamer:2.9.8",
-                    "com.fasterxml.jackson.core:jackson-annotations:2.10.0.pr3",
-                    "com.fasterxml.jackson.core:jackson-core:2.10.0.pr3",
-                    "com.fasterxml.jackson.core:jackson-databind:2.10.0.pr3"
+                    "com.fasterxml.jackson.core:jackson-core:2.10.1",
+                    "com.fasterxml.jackson.core:jackson-annotations:2.10.1",
+                    "com.fasterxml.jackson.core:jackson-databind:2.10.1"
                 ],
                 "dependencies": [
                     "com.thoughtworks.paranamer:paranamer:2.8",
                     "org.scala-lang:scala-library:2.12.8",
                     "com.fasterxml.jackson.module:jackson-module-paranamer:2.9.8",
-                    "com.fasterxml.jackson.core:jackson-annotations:2.10.0.pr3",
-                    "com.fasterxml.jackson.core:jackson-core:2.10.0.pr3",
-                    "com.fasterxml.jackson.core:jackson-databind:2.10.0.pr3"
+                    "com.fasterxml.jackson.core:jackson-core:2.10.1",
+                    "com.fasterxml.jackson.core:jackson-annotations:2.10.1",
+                    "com.fasterxml.jackson.core:jackson-databind:2.10.1"
                 ],
                 "url": "https://repo1.maven.org/maven2/com/fasterxml/jackson/module/jackson-module-scala_2.12/2.9.8/jackson-module-scala_2.12-2.9.8.jar",
                 "mirror_urls": [
@@ -824,18 +824,18 @@
                 "coord": "com.fasterxml.jackson.module:jackson-module-scala_2.12:jar:sources:2.9.8",
                 "file": "v1/https/repo1.maven.org/maven2/com/fasterxml/jackson/module/jackson-module-scala_2.12/2.9.8/jackson-module-scala_2.12-2.9.8-sources.jar",
                 "directDependencies": [
-                    "com.fasterxml.jackson.core:jackson-databind:jar:sources:2.10.0.pr3",
-                    "com.fasterxml.jackson.core:jackson-core:jar:sources:2.10.0.pr3",
+                    "com.fasterxml.jackson.core:jackson-databind:jar:sources:2.10.1",
                     "org.scala-lang:scala-library:jar:sources:2.12.8",
-                    "com.fasterxml.jackson.core:jackson-annotations:jar:sources:2.10.0.pr3",
+                    "com.fasterxml.jackson.core:jackson-core:jar:sources:2.10.1",
+                    "com.fasterxml.jackson.core:jackson-annotations:jar:sources:2.10.1",
                     "com.fasterxml.jackson.module:jackson-module-paranamer:jar:sources:2.9.8"
                 ],
                 "dependencies": [
-                    "com.fasterxml.jackson.core:jackson-databind:jar:sources:2.10.0.pr3",
-                    "com.fasterxml.jackson.core:jackson-core:jar:sources:2.10.0.pr3",
+                    "com.fasterxml.jackson.core:jackson-databind:jar:sources:2.10.1",
                     "org.scala-lang:scala-library:jar:sources:2.12.8",
-                    "com.fasterxml.jackson.core:jackson-annotations:jar:sources:2.10.0.pr3",
                     "com.thoughtworks.paranamer:paranamer:jar:sources:2.8",
+                    "com.fasterxml.jackson.core:jackson-core:jar:sources:2.10.1",
+                    "com.fasterxml.jackson.core:jackson-annotations:jar:sources:2.10.1",
                     "com.fasterxml.jackson.module:jackson-module-paranamer:jar:sources:2.9.8"
                 ],
                 "url": "https://repo1.maven.org/maven2/com/fasterxml/jackson/module/jackson-module-scala_2.12/2.9.8/jackson-module-scala_2.12-2.9.8-sources.jar",
@@ -2358,18 +2358,18 @@
                     "org.mongodb.scala:mongo-scala-bson_2.12:2.2.0",
                     "org.mongodb:mongodb-driver-async:3.6.4",
                     "org.scala-lang.modules:scala-parser-combinators_2.12:1.0.4",
+                    "com.fasterxml.jackson.core:jackson-core:2.10.1",
                     "com.storm-enroute:scalameter-core_2.12:0.10.1",
                     "org.scala-lang:scala-reflect:2.12.7",
                     "org.mongodb:bson:3.6.4",
+                    "com.fasterxml.jackson.core:jackson-annotations:2.10.1",
                     "com.fasterxml.jackson.module:jackson-module-scala_2.12:2.9.8",
                     "org.apache.commons:commons-math3:3.2",
-                    "com.fasterxml.jackson.core:jackson-annotations:2.10.0.pr3",
-                    "com.fasterxml.jackson.core:jackson-core:2.10.0.pr3",
+                    "com.fasterxml.jackson.core:jackson-databind:2.10.1",
                     "org.apache.commons:commons-lang3:3.9",
                     "org.scala-lang.modules:scala-xml_2.12:1.0.6",
                     "org.mongodb:mongodb-driver-core:3.6.4",
-                    "io.spray:spray-json_2.12:1.3.3",
-                    "com.fasterxml.jackson.core:jackson-databind:2.10.0.pr3"
+                    "io.spray:spray-json_2.12:1.3.3"
                 ],
                 "url": "https://repo1.maven.org/maven2/com/storm-enroute/scalameter_2.12/0.10.1/scalameter_2.12-0.10.1.jar",
                 "mirror_urls": [
@@ -2394,11 +2394,9 @@
                 ],
                 "dependencies": [
                     "io.spray:spray-json_2.12:jar:sources:1.3.3",
-                    "com.fasterxml.jackson.core:jackson-databind:jar:sources:2.10.0.pr3",
-                    "com.fasterxml.jackson.core:jackson-core:jar:sources:2.10.0.pr3",
+                    "com.fasterxml.jackson.core:jackson-databind:jar:sources:2.10.1",
                     "org.scala-lang:scala-reflect:jar:sources:2.12.7",
                     "org.scala-lang:scala-library:jar:sources:2.12.8",
-                    "com.fasterxml.jackson.core:jackson-annotations:jar:sources:2.10.0.pr3",
                     "org.scala-tools.testing:test-interface:jar:sources:0.5",
                     "org.apache.commons:commons-lang3:jar:sources:3.9",
                     "org.scala-lang.modules:scala-parser-combinators_2.12:jar:sources:1.0.4",
@@ -2411,7 +2409,9 @@
                     "org.mongodb.scala:mongo-scala-bson_2.12:jar:sources:2.2.0",
                     "org.mongodb:bson:jar:sources:3.6.4",
                     "org.scala-lang.modules:scala-xml_2.12:jar:sources:1.0.6",
+                    "com.fasterxml.jackson.core:jackson-core:jar:sources:2.10.1",
                     "com.storm-enroute:scalameter-core_2.12:jar:sources:0.10.1",
+                    "com.fasterxml.jackson.core:jackson-annotations:jar:sources:2.10.1",
                     "com.fasterxml.jackson.module:jackson-module-paranamer:jar:sources:2.9.8",
                     "org.ow2.asm:asm:jar:sources:5.0.4",
                     "com.fasterxml.jackson.module:jackson-module-scala_2.12:jar:sources:2.9.8"
@@ -14576,6 +14576,6 @@
             }
         ],
         "version": "0.1.0",
-        "__AUTOGENERATED_FILE_DO_NOT_MODIFY_THIS_FILE_MANUALLY": 16758010
+        "__AUTOGENERATED_FILE_DO_NOT_MODIFY_THIS_FILE_MANUALLY": 675505891
     }
 }
