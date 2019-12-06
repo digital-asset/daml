@@ -118,6 +118,10 @@ object IntegrityCheck extends App {
         assert(updates.head.isInstanceOf[Update.ConfigurationChanged])
       case Proto.DamlLogEntry.PayloadCase.CONFIGURATION_REJECTION_ENTRY =>
         assert(updates.head.isInstanceOf[Update.ConfigurationChangeRejected])
+      case Proto.DamlLogEntry.PayloadCase.PARTY_ALLOCATION_ENTRY =>
+        assert(updates.head.isInstanceOf[Update.PartyAddedToParticipant])
+      case Proto.DamlLogEntry.PayloadCase.PARTY_ALLOCATION_REJECTION_ENTRY =>
+        assert(updates.head.isInstanceOf[Update.PartyAllocationRejected])
       case _ =>
         ()
     }
