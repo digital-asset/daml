@@ -10,8 +10,6 @@ import scala.annotation.tailrec
 import scala.collection.JavaConverters._
 import scala.util.hashing.MurmurHash3
 
-// FIXME https://github.com/digital-asset/daml/issues/2256
-// add extensive tests
 private[speedy] object Hasher {
 
   case class NonHashableSValue(msg: String) extends IllegalArgumentException
@@ -30,8 +28,8 @@ private[speedy] object Hasher {
   def hash(v: SValue): Int =
     loop(List(Value(v)))
 
-  private def pushOrderedValues(values: Iterator[SValue], cmds: List[Command]) =
-    ((Ordered(values.size) :: cmds) /: values) { case (acc, v) => Value(v) :: acc }
+  private def pushOrderedValues(size: Int, values: Iterator[SValue], cmds: List[Command]) =
+    ((Ordered(size) :: cmds) /: values) { case (acc, v) => Value(v) :: acc }
 
   @tailrec
   private def loop(cmds: List[Command], stack: List[Int] = List.empty): Int =
@@ -69,15 +67,15 @@ private[speedy] object Hasher {
               case SEnum(_, constructor) =>
                 loop(cmdsRest, constructor.hashCode :: stack)
               case SRecord(_, _, values) =>
-                loop(pushOrderedValues(values.iterator().asScala, cmdsRest), stack)
+                loop(pushOrderedValues(values.size, values.iterator().asScala, cmdsRest), stack)
               case SVariant(_, variant, value) =>
                 loop(Value(value) :: Mix(variant.hashCode) :: cmdsRest, stack)
               case SStruct(_, values) =>
-                loop(pushOrderedValues(values.iterator().asScala, cmdsRest), stack)
+                loop(pushOrderedValues(values.size, values.iterator().asScala, cmdsRest), stack)
               case SOptional(opt) =>
-                loop(pushOrderedValues(opt.iterator, cmdsRest), stack)
+                loop(pushOrderedValues(opt.fold(0)(_ => 1), opt.iterator, cmdsRest), stack)
               case SList(values) =>
-                loop(pushOrderedValues(values.iterator, cmdsRest), stack)
+                loop(pushOrderedValues(values.length, values.iterator, cmdsRest), stack)
               case STextMap(value) =>
                 val newCmds = ((Unordered(value.size) :: cmdsRest) /: value) {
                   case (acc, (k, v)) => Value(v) :: Mix(k.hashCode) :: acc
@@ -89,11 +87,11 @@ private[speedy] object Hasher {
                 }
                 loop(newCmds, stack)
               case SAny(t, v) =>
-                loop(Value(v) :: Mix(t.hashCode()) :: cmds, stack)
+                loop(Value(v) :: Mix(t.hashCode()) :: cmdsRest, stack)
             }
           case Mix(h) =>
             val x :: stackRest = stack
-            loop(cmds, MurmurHash3.mix(h, x) :: stackRest)
+            loop(cmdsRest, MurmurHash3.mix(h, x) :: stackRest)
           case Ordered(n) =>
             val (xs, stackRest) = stack.splitAt(n)
             loop(cmdsRest, MurmurHash3.orderedHash(xs) :: stackRest)

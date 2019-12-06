@@ -678,7 +678,7 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
 
       // Here lexicographical order of string representation corresponds to chronological order
 
-      val timeStamp = Table[String]("timestamp", "1969-07-21", "1970-01-01", "2001-01-01")
+      val dates = Table[String]("dates", "1969-07-21", "1970-01-01", "2001-01-01")
 
       val testCases = Table[String, (String, String) => Either[SError, SValue]](
         ("builtin", "reference"),
@@ -690,8 +690,8 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
       )
 
       forEvery(testCases) { (builtin, ref) =>
-        forEvery(timeStamp) { a =>
-          forEvery(timeStamp) { b =>
+        forEvery(dates) { a =>
+          forEvery(dates) { b =>
             eval(e""" $builtin "$a" "$b" """).left.map(_ => ()) shouldEqual ref(a, b)
           }
         }
@@ -1278,7 +1278,8 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
       val builtin = e"""FROM_TEXT_NUMERIC @10"""
 
       forEvery(testCases) { (input, output) =>
-        eval(Ast.EApp(builtin, Ast.EPrimLit(PLText(input())))) shouldEqual Right(SOptional(output))
+        eval(Ast.EApp(builtin, Ast.EPrimLit(Ast.PLText(input())))) shouldEqual Right(
+          SOptional(output))
       }
 
     }
