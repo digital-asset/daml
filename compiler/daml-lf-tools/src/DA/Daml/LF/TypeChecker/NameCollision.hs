@@ -178,6 +178,8 @@ checkModuleFully m = do
     checkModuleName m
     checkModuleTypes m
 
+-- | Is the first module an ascendant of the second? This check
+-- is case-insensitive because name collisions are case-insensitive.
 isAscendant :: ModuleName -> ModuleName -> Bool
 isAscendant (ModuleName xs) (ModuleName ys) =
     (length xs < length ys) && and (zipWith sameish xs ys)
