@@ -295,20 +295,20 @@ final class BotTest extends FlatSpec with Matchers {
     Bot.wireSimple(appId, ledgerClient, transactionFilter, bot)
 
     // when the bot is wired-up, no command should have been submitted to the server
-    Thread.sleep(1l)
+    Thread.sleep(100l)
     ledgerClient.submitted.size shouldBe 0
 
     // when the bot receives a transaction, a command should be submitted to the server
     val createdEvent1 = create(party, templateId)
     transactions.emit(transactionArray(createdEvent1))
-    Thread.sleep(1l)
+    Thread.sleep(100l)
     ledgerClient.submitted.size shouldBe 1
 
     val archivedEvent1 = archive(createdEvent1)
     val createEvent2 = create(party, templateId)
     val createEvent3 = create(party, templateId)
     transactions.emit(transactionArray(archivedEvent1, createEvent2, createEvent3))
-    Thread.sleep(1l)
+    Thread.sleep(100l)
     ledgerClient.submitted.size shouldBe 3
 
     // we complete the first command with success and then check that the client hasn't submitted a new command
@@ -322,7 +322,7 @@ final class BotTest extends FlatSpec with Matchers {
             .setStatus(Status.newBuilder().setCode(OK.value).build())
             .build()).asJava
       ))
-    Thread.sleep(1l)
+    Thread.sleep(100l)
     ledgerClient.submitted.size shouldBe 3
 
     // WARNING: THE FOLLOWING TEST IS NOT PASSING YET
