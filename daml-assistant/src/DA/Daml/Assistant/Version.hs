@@ -30,6 +30,8 @@ import Data.Either.Extra
 import Data.Aeson (eitherDecodeStrict')
 import Safe
 import Network.HTTP.Simple
+import Network.HTTP.Client (Request(responseTimeout), responseTimeoutMicro)
+
 import qualified Data.HashMap.Strict as M
 
 -- | Determine SDK version of running daml assistant. Fails with an
@@ -111,9 +113,10 @@ getDefaultSdkVersion damlPath = do
 -- https://docs.daml.com/versions.json and parse the obtained list
 -- of versions.
 getAvailableSdkVersions :: IO [SdkVersion]
-getAvailableSdkVersions = wrapErr "Fetching list of avalaible SDK versions" $ do
-    response <- requiredAny "HTTPS connection to docs.daml.com failed" $
-        httpBS "GET http://docs.daml.com/versions.json"
+getAvailableSdkVersions = wrapErr "Fetching list of available SDK versions" $ do
+    response <- requiredAny "HTTPS connection to docs.daml.com failed" $ do
+        request <- parseRequest "GET http://docs.daml.com/versions.json"
+        httpBS request { responseTimeout = responseTimeoutMicro 2000000 }
 
     when (getResponseStatusCode response /= 200) $ do
         throwIO $ assistantErrorBecause
@@ -147,4 +150,3 @@ getLatestSdkVersionCached damlPath = do
     pure $ do
         versions <- eitherToMaybe versionsE
         maximumMay versions
-
