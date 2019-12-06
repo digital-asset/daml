@@ -32,6 +32,29 @@ private[kvutils] case class PackageCommitter(engine: Engine)
     )
   }
 
+  private def rejectionTraceLog(
+     msg: String,
+     packageUploadEntry: DamlPackageUploadEntry.Builder): Unit =
+    logger.trace(
+      s"Package upload rejected, $msg, correlationId=${packageUploadEntry.getSubmissionId}")
+
+  private val authorizeSubmission: Step = (ctx, uploadEntry) => {
+    if (ctx.getParticipantId == uploadEntry.getParticipantId)
+      StepContinue(uploadEntry)
+    else {
+      val msg =
+        s"participant id ${uploadEntry.getParticipantId} did not match authenticated participant id ${ctx.getParticipantId}"
+      rejectionTraceLog(msg, uploadEntry)
+      StepStop(
+        buildPackageRejectionLogEntry(
+          ctx,
+          uploadEntry,
+          _.setParticipantNotAuthorized(
+            DamlPackageUploadRejectionEntry.ParticipantNotAuthorized.newBuilder
+              .setDetails(msg))))
+    }
+  }
+
   private val validateEntry: Step = (ctx, uploadEntry) => {
     // NOTE(JM): Currently the proper validation is unimplemented. The package is decoded and preloaded
     // in background and we're just checking that hash and payload are set. See comment in [[preload]].
@@ -44,13 +67,15 @@ private[kvutils] case class PackageCommitter(engine: Engine)
     }
     if (errors.isEmpty)
       StepContinue(uploadEntry)
-    else
+    else{
       StepStop(
         buildPackageRejectionLogEntry(
           ctx,
           uploadEntry,
           _.setInvalidPackage(DamlPackageUploadRejectionEntry.InvalidPackage.newBuilder
             .setDetails(errors.mkString(", ")))))
+    }
+
   }
 
   private val filterDuplicates: Step = (ctx, uploadEntry) => {
@@ -79,7 +104,7 @@ private[kvutils] case class PackageCommitter(engine: Engine)
 
   private val buildLogEntry: Step = (ctx, uploadEntry) => {
     logger.trace(
-      s"Packages committed: ${uploadEntry.getArchivesList.asScala.map(_.getHash).mkString(", ")}")
+      s"Packages committed, packages=[${uploadEntry.getArchivesList.asScala.map(_.getHash).mkString(", ")}] correlationId=$uploadEntry.getSubmissionId")
 
     uploadEntry.getArchivesList.forEach { archive =>
       ctx.set(
@@ -99,6 +124,7 @@ private[kvutils] case class PackageCommitter(engine: Engine)
     uploadEntry.toBuilder
 
   override val steps: Iterable[(StepInfo, Step)] = Iterable(
+    "authorizeSubmission" -> authorizeSubmission,
     "validateEntry" -> validateEntry,
     "filterDuplicates" -> filterDuplicates,
     "enqueuePreload" -> enqueuePreload,
@@ -130,7 +156,7 @@ private[kvutils] case class PackageCommitter(engine: Engine)
     */
   private def preload(submissionId: String, archives: Iterable[Archive]): Runnable = { () =>
     val ctx = Metrics.preloadTimer.time()
-    def trace(msg: String): Unit = logger.trace(s"[submissionId=$submissionId]: " + msg)
+    def trace(msg: String): Unit = logger.trace(s"$msg, correlationId=$submissionId")
     try {
       val loadedPackages = engine.compiledPackages().packageIds
       val packages: Map[Ref.PackageId, Ast.Package] = Metrics.decodeTimer.time { () =>

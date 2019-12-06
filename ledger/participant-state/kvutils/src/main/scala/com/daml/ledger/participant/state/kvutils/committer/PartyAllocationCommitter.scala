@@ -20,10 +20,9 @@ private[kvutils] case object PartyAllocationCommitter
 
   private def rejectionTraceLog(
       msg: String,
-      ctx: CommitContext,
       partyAllocationEntry: DamlPartyAllocationEntry.Builder): Unit =
     logger.trace(
-      s"Party allocation rejected, $msg, entryId=${Pretty.prettyEntryId(ctx.getEntryId)}, submId=${partyAllocationEntry.getSubmissionId}")
+      s"Party allocation rejected, $msg, correlationId=${partyAllocationEntry.getSubmissionId}")
 
   private val authorizeSubmission: Step = (ctx, partyAllocationEntry) => {
     if (ctx.getParticipantId == partyAllocationEntry.getParticipantId)
@@ -31,7 +30,7 @@ private[kvutils] case object PartyAllocationCommitter
     else {
       val msg =
         s"participant id ${partyAllocationEntry.getParticipantId} did not match authenticated participant id ${ctx.getParticipantId}"
-      rejectionTraceLog(msg, ctx, partyAllocationEntry)
+      rejectionTraceLog(msg, partyAllocationEntry)
       StepStop(
         buildRejectionLogEntry(
           ctx,
@@ -48,7 +47,7 @@ private[kvutils] case object PartyAllocationCommitter
       StepContinue(partyAllocationEntry)
     else {
       val msg = s"party string '${party}' invalid"
-      rejectionTraceLog(msg, ctx, partyAllocationEntry)
+      rejectionTraceLog(msg, partyAllocationEntry)
       StepStop(
         buildRejectionLogEntry(
           ctx,
@@ -65,7 +64,7 @@ private[kvutils] case object PartyAllocationCommitter
       StepContinue(partyAllocationEntry)
     else {
       val msg = s"party already exists party='$party'"
-      rejectionTraceLog(msg, ctx, partyAllocationEntry)
+      rejectionTraceLog(msg, partyAllocationEntry)
       StepStop(
         buildRejectionLogEntry(
           ctx,
