@@ -214,20 +214,14 @@ private[validation] object Typing {
       BGreaterEqDate -> tComparison(BTDate),
       BGreaterEqParty -> tComparison(BTParty),
       BImplodeText -> (TList(TText) ->: TText),
-      BEqualInt64 -> tComparison(BTInt64),
       BEqualNumeric -> tNumComparison,
-      BEqualText -> tComparison(BTText),
-      BEqualTimestamp -> tComparison(BTTimestamp),
-      BEqualDate -> tComparison(BTDate),
-      BEqualParty -> tComparison(BTParty),
-      BEqualBool -> tComparison(BTBool),
       BEqualList ->
         TForall(
           alpha.name -> KStar,
           (alpha ->: alpha ->: TBool) ->: TList(alpha) ->: TList(alpha) ->: TBool),
       BEqualContractId ->
         TForall(alpha.name -> KStar, TContractId(alpha) ->: TContractId(alpha) ->: TBool),
-      BEqualTypeRep -> (TTypeRep ->: TTypeRep ->: TBool),
+      BEqual -> TForall(alpha.name -> KStar, alpha ->: alpha ->: TBool),
       BCoerceContractId ->
         TForall(
           alpha.name -> KStar,

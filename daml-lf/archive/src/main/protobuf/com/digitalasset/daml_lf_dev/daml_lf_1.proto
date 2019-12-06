@@ -42,6 +42,7 @@
 //        2019-11-22: Rename Map to TextMap
 //        2019-11-28: Rename Tuple to Struct
 //        2019-12-03: Add (experimental) text primitives.
+//        2019-12-05: Add Generic Equality builtin
 
 syntax = "proto3";
 package daml_lf_1;
@@ -494,18 +495,18 @@ enum BuiltinFunction {
 
   IMPLODE_TEXT = 78;
 
-  EQUAL_INT64 = 79;
-  EQUAL_DECIMAL = 80;  // *Available in versions < 1.7*
-  EQUAL_NUMERIC = 120;  // *Available in versions >= 1.7*
-  EQUAL_TEXT = 81;
-  EQUAL_TIMESTAMP = 82;
-  EQUAL_DATE = 83;
-  EQUAL_PARTY = 84;
-  EQUAL_BOOL = 85;
-  EQUAL_CONTRACT_ID = 86;
+  EQUAL_INT64 = 79;       // *Available in versions < 1.dev*
+  EQUAL_DECIMAL = 80;     // *Available in versions < 1.7*
+  EQUAL_NUMERIC = 120;    // *Available in versions >= 1.7 and < 1.dev*
+  EQUAL_TEXT = 81;        // *Available in versions < 1.dev*
+  EQUAL_TIMESTAMP = 82;   // *Available in versions < 1.dev*
+  EQUAL_DATE = 83;        // *Available in versions < 1.dev*
+  EQUAL_PARTY = 84;       // *Available in versions < 1.dev*
+  EQUAL_BOOL = 85;        // *Available in versions < 1.dev*
+  EQUAL_CONTRACT_ID = 86; // *Available in versions < 1.dev*
   EQUAL_LIST = 87;
-  EQUAL_TYPE_REP = 123;
-
+  EQUAL_TYPE_REP = 123;   // *Available in versions < 1.dev*
+  EQUAL = 131;            // *Available in versions >= 1.dev*
 
   TRACE = 88;
 
@@ -514,7 +515,7 @@ enum BuiltinFunction {
   TEXT_FROM_CODE_POINTS = 105;  // *Available in versions >= 1.6*
   TEXT_TO_CODE_POINTS = 106; // *Available in versions >= 1.6*
 
-  // Next id is 131. 130 is GENMAP_SIZE.
+  // Next id is 132. 131 is EQUAL.
 
   // EXPERIMENTAL TEXT PRIMITIVES -- these do not yet have stable numbers.
   TEXT_TO_UPPER = 9901; // *Available in versions >= 1.dev*
