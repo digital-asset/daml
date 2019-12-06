@@ -103,7 +103,7 @@ createProjectPackageDb opts thisSdkVer deps dataDeps = do
         (pkgId, package) <-
             requiredE $
             Archive.decodeArchive Archive.DecodeAsMain dalf
-        pure (pkgId, package, dalf, stringToUnitId $ parseUnitId name pkgId)
+        pure (pkgId, package, dalf, stringToUnitId (parseUnitId name pkgId))
 
     dbPathAbs <- makeAbsolute dbPath
     projectPackageDatabaseAbs <- makeAbsolute projectPackageDatabase
