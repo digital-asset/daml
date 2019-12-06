@@ -20,10 +20,12 @@ def sdk_tarball(name, version):
             "//daml-script/daml:daml-script.dar",
             "//daml-assistant/daml-sdk:sdk_deploy.jar",
         ],
+        tools = ["@zip_dev_env//:zip"],
         outs = ["{}.tar.gz".format(name)],
         cmd = """
           # damlc
           VERSION=$$(cat $(location {version}))
+          ZIP=$$PWD/$(location @zip_dev_env//:zip)
           OUT=sdk-$$VERSION
           mkdir -p $$OUT
 
@@ -44,6 +46,18 @@ def sdk_tarball(name, version):
           mkdir -p $$OUT/daml-libs
           cp -t $$OUT/daml-libs $(location //triggers/daml:daml-trigger.dar)
           cp -t $$OUT/daml-libs $(location //daml-script/daml:daml-script.dar)
+
+          # Patch the SDK version in all bundled DAML libraries.
+          # This is necessary to make daml-sdk-head work despite the check in damlc
+          # that DAR dependencies are built with the same SDK.
+          for file in $$OUT/daml-libs/*; do
+            file=$$PWD/$$file
+            chmod +w $$file
+            unzip -q $$file META-INF/MANIFEST.MF -d $$OUT/daml-libs
+            sed -i "s/Sdk-Version:.*/Sdk-Version: $$VERSION/" $$OUT/daml-libs/META-INF/MANIFEST.MF
+            (cd $$OUT/daml-libs; $$ZIP -q $$file META-INF/MANIFEST.MF)
+            rm $$OUT/daml-libs/META-INF/MANIFEST.MF
+          done
 
           mkdir -p $$OUT/daml-helper
           tar xf $(location //daml-assistant/daml-helper:daml-helper-dist) --strip-components=1 -C $$OUT/daml-helper
