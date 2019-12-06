@@ -1412,7 +1412,7 @@ private[lf] object DecodeV1 {
       ),
       BuiltinFunctionInfo(EQUAL, BEqual),
       BuiltinFunctionInfo(EQUAL_LIST, BEqualList),
-      // FIXME https://github.com/digital-asset/daml/issues/2256
+      // FIXME https://github.com/digital-asset/daml/issues/3752
       // Constrain max version of the following 'EQUAL_' builtin once
       // generic equality is handled by the compiler
       BuiltinFunctionInfo(EQUAL_INT64, BEqual, implicitParameters = List(TInt64)),

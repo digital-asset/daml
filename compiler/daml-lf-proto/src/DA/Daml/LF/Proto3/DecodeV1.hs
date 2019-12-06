@@ -309,7 +309,7 @@ decodeBuiltinFunction = pure . \case
   LF1.BuiltinFunctionEQUAL_BOOL -> BEEqual BTBool
   LF1.BuiltinFunctionEQUAL_TYPE_REP -> BEEqual BTTypeRep
   LF1.BuiltinFunctionEQUAL ->
-    -- FIXME https://github.com/digital-asset/daml/issues/2256
+    -- FIXME https://github.com/digital-asset/daml/issues/3376
     error "EQUAL is not supported"
 
   LF1.BuiltinFunctionLEQ_INT64 -> BELessEq BTInt64
