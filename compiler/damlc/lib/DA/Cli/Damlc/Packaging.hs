@@ -110,7 +110,10 @@ createProjectPackageDb opts thisSdkVer deps dataDeps = do
 
     let (depGraph, vertexToNode) = buildLfPackageGraph pkgs
     -- Iterate over the dependency graph in topological order.
-    forM_ (reverse $ topSort depGraph) $ \vertex -> do
+    -- We do a topological sort on the transposed graph which ensures that
+    -- the packages with no dependencies come first and we
+    -- never process a package without first having processed its dependencies.
+    forM_ (topSort $ transposeG depGraph) $ \vertex -> do
         let (pkgNode, pkgId) = vertexToNode vertex
         let unitIdStr = unitIdString $ unitId pkgNode
         unless (unitIdString primUnitId `isPrefixOf` unitIdStr) $ do
@@ -440,6 +443,7 @@ lfVersionString :: LF.Version -> String
 lfVersionString = DA.Pretty.renderPretty
 
 
+-- | The graph will have an edge from package A to package B if A depends on B.
 buildLfPackageGraph
     :: [(LF.PackageId, LF.Package, BS.ByteString, UnitId)]
     -> ( Graph
