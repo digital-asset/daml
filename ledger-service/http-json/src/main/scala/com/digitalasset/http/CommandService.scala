@@ -64,7 +64,8 @@ class CommandService(
     val et: EitherT[Future, Error, List[Contract[lav1.value.Value]]] = for {
       command <- EitherT.either(exerciseCommand(input))
       request = submitAndWaitRequest(jwtPayload, input.meta, command)
-      response <- liftET(logResult('exercise, submitAndWaitForTransaction(jwt, request)))
+      response <- liftET(logResult('exercise, submitAndWaitForTransactionTree(jwt, request)))
+      _ = println(s"----- response: $response")
       contracts <- EitherT.either(contracts(response))
     } yield contracts
 
@@ -173,10 +174,21 @@ class CommandService(
       .toRightDisjunction(Error('contracts, s"Received response without transaction: $response"))
       .flatMap(contracts)
 
+  private def contracts(response: lav1.command_service.SubmitAndWaitForTransactionTreeResponse)
+    : Error \/ List[Contract[lav1.value.Value]] =
+    response.transaction
+      .toRightDisjunction(Error('contracts, s"Received response without transaction: $response"))
+      .flatMap(contracts)
+
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private def contracts(
       tx: lav1.transaction.Transaction): Error \/ List[Contract[lav1.value.Value]] =
-    Contract.fromLedgerApi(tx).leftMap(e => Error('contracts, e.shows))
+    Contract.fromTransaction(tx).leftMap(e => Error('contracts, e.shows))
+
+  @SuppressWarnings(Array("org.wartremover.warts.Any"))
+  private def contracts(
+      tx: lav1.transaction.TransactionTree): Error \/ List[Contract[lav1.value.Value]] =
+    Contract.fromTransactionTree(tx).leftMap(e => Error('contracts, e.shows)).map(_.toList)
 
   private def exerciseResult(a: lav1.command_service.SubmitAndWaitForTransactionTreeResponse)
     : Error \/ lav1.value.Value = {

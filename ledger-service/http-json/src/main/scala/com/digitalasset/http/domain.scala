@@ -12,6 +12,7 @@ import com.digitalasset.http.util.IdentifierConverters
 import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
 import com.digitalasset.ledger.api.{v1 => lav1}
 import scalaz.std.list._
+import scalaz.std.vector._
 import scalaz.std.option._
 import scalaz.std.tuple._
 import scalaz.syntax.show._
@@ -20,6 +21,7 @@ import scalaz.syntax.traverse._
 import scalaz.{-\/, @@, Applicative, Show, Tag, Traverse, \/, \/-}
 import spray.json.JsValue
 
+import scala.annotation.tailrec
 import scala.language.higherKinds
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
@@ -127,16 +129,20 @@ object domain {
 
   object Contract {
 
-    def fromLedgerApi(
+    def fromTransaction(
         tx: lav1.transaction.Transaction): Error \/ List[Contract[lav1.value.Value]] = {
-      tx.events.toList.traverse(fromLedgerApi(_))
+      tx.events.toList.traverse(fromEvent(_))
     }
 
-    def fromLedgerApi(gacr: lav1.active_contracts_service.GetActiveContractsResponse)
-      : Error \/ List[Contract[lav1.value.Value]] =
-      ActiveContract.fromLedgerApi(gacr).map(_.map(a => domain.Contract(\/-(a))))
+    def fromTransactionTree(
+        tx: lav1.transaction.TransactionTree): Error \/ Vector[Contract[lav1.value.Value]] = {
+      tx.rootEventIds.toVector
+        .map(fromTreeEvent(tx.eventsById))
+        .sequence
+        .map(_.flatten)
+    }
 
-    def fromLedgerApi(event: lav1.event.Event): Error \/ Contract[lav1.value.Value] =
+    def fromEvent(event: lav1.event.Event): Error \/ Contract[lav1.value.Value] =
       event.event match {
         case lav1.event.Event.Event.Created(created) =>
           ActiveContract.fromLedgerApi(created).map(a => Contract(\/-(a)))
@@ -146,6 +152,34 @@ object domain {
           val errorMsg = s"Expected either Created or Archived event, got: Empty"
           -\/(Error('Contract_fromLedgerApi, errorMsg))
       }
+
+    def fromTreeEvent(eventsById: Map[String, lav1.transaction.TreeEvent])(
+        eventId: String): Error \/ Vector[Contract[lav1.value.Value]] = {
+      import scalaz.syntax.applicative._
+
+      @tailrec
+      def loop(es: Vector[String], acc: Error \/ Vector[Contract[lav1.value.Value]])
+        : Error \/ Vector[Contract[lav1.value.Value]] = es match {
+        case Vector() =>
+          acc
+        case head +: tail =>
+          eventsById(head).kind match {
+            case lav1.transaction.TreeEvent.Kind.Created(created) =>
+              val a = ActiveContract.fromLedgerApi(created).map(a => Contract(\/-(a)))
+              val newAcc = ^(acc, a)(_ :+ _)
+              loop(tail, newAcc)
+            case lav1.transaction.TreeEvent.Kind.Exercised(exercised) =>
+              val a = ArchivedContract.fromLedgerApi(exercised).map(_.map(a => Contract(-\/(a))))
+              val newAcc = ^(acc, a)(_ ++ _.toVector)
+              loop(exercised.childEventIds.toVector ++ tail, newAcc)
+            case lav1.transaction.TreeEvent.Kind.Empty =>
+              val errorMsg = s"Expected either Created or Exercised event, got: Empty"
+              -\/(Error('Contract_fromTreeEvent, errorMsg))
+          }
+      }
+
+      loop(Vector(eventId), \/-(Vector()))
+    }
 
     implicit val covariant: Traverse[Contract] = new Traverse[Contract] {
 
@@ -223,6 +257,21 @@ object domain {
           templateId = TemplateId fromLedgerApi templateId,
           witnessParties = Party.subst(in.witnessParties)
         )
+
+    def fromLedgerApi(in: lav1.event.ExercisedEvent): Error \/ Option[ArchivedContract] =
+      if (in.consuming) {
+        for {
+          templateId <- in.templateId.required("templateId")
+        } yield
+          Some(
+            ArchivedContract(
+              contractId = ContractId(in.contractId),
+              templateId = TemplateId.fromLedgerApi(templateId),
+              witnessParties = Party.subst(in.witnessParties)
+            ))
+      } else {
+        \/-(None)
+      }
   }
 
   object ContractLookupRequest {

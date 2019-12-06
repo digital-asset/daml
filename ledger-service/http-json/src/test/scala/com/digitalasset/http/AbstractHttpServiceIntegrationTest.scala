@@ -316,7 +316,7 @@ abstract class AbstractHttpServiceIntegrationTest
       }: Future[Assertion]
   }
 
-  "command/exercise-with-result IOU_Transfer" in withHttpService { (uri, encoder, decoder) =>
+  "command/exercise-with-result IOU_Transfer" in withHttpService { (uri, encoder, _) =>
     val create: domain.CreateCommand[v.Record] = iouCreateCommand()
     postCreateCommand(create, encoder, uri)
       .flatMap {
