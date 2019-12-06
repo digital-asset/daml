@@ -22,9 +22,9 @@ DAML Compiler
 
 - The modules ``GHC.Prim`` and ``GHC.Types`` from ``daml-prim``
   have been moved to separate packages.
-- Don't make `UndecidableSuperClasses` a default language extension
+- Don't make ``UndecidableSuperClasses`` a default language extension
   for DAML anymore. If you really need this feature for a module,
-  you can reenable it using a `LANGUAGE` pragma at the top.
+  you can reenable it using a ``LANGUAGE`` pragma at the top.
 
 DAML SDK
 ~~~~~~~~
