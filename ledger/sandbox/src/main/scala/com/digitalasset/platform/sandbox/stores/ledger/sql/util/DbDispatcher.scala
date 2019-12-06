@@ -3,15 +3,13 @@
 
 package com.digitalasset.platform.sandbox.stores.ledger.sql.util
 
-import java.sql.{Connection, SQLTransientConnectionException}
-import java.util.concurrent.atomic.AtomicInteger
+import java.sql.Connection
 import java.util.concurrent.{ExecutorService, Executors, TimeUnit}
 
 import com.codahale.metrics.{MetricRegistry, Timer}
-import com.digitalasset.ledger.api.health.{HealthStatus, Healthy, ReportsHealth, Unhealthy}
+import com.digitalasset.ledger.api.health.{HealthStatus, ReportsHealth}
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.HikariJdbcConnectionProvider
-import com.digitalasset.platform.sandbox.stores.ledger.sql.util.DbDispatcher._
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 import org.slf4j.Logger
 
@@ -28,18 +26,12 @@ final class DbDispatcher(
     with ReportsHealth {
   private val sqlExecution = ExecutionContext.fromExecutorService(sqlExecutor)
 
-  private val transientFailureCount: AtomicInteger = new AtomicInteger(0)
-
   object Metrics {
     val waitAllTimer: Timer = metrics.timer("sql_all_wait")
     val execAllTimer: Timer = metrics.timer("sql_all_exec")
   }
 
-  override def currentHealth(): HealthStatus =
-    if (transientFailureCount.get() < MaxTransientFailureCount)
-      Healthy
-    else
-      Unhealthy
+  override def currentHealth(): HealthStatus = connectionProvider.currentHealth()
 
   /** Runs an SQL statement in a dedicated Executor. The whole block will be run in a single database transaction.
     *
@@ -62,12 +54,8 @@ final class DbDispatcher(
       try {
         // Actual execution
         val result = connectionProvider.runSQL(sql)
-        transientFailureCount.set(0)
         result
       } catch {
-        case e: SQLTransientConnectionException =>
-          transientFailureCount.incrementAndGet()
-          throw e
         case NonFatal(e) =>
           logger.error(
             s"$description: Got an exception while executing a SQL query. Rolled back the transaction.",
@@ -101,8 +89,6 @@ final class DbDispatcher(
 }
 
 object DbDispatcher {
-  val MaxTransientFailureCount: Int = 3
-
   def start(
       jdbcUrl: String,
       maxConnections: Int,
@@ -111,8 +97,7 @@ object DbDispatcher {
   ): DbDispatcher = {
     val logger = loggerFactory.getLogger(classOf[DbDispatcher])
 
-    val connectionProvider =
-      new HikariJdbcConnectionProvider(jdbcUrl, maxConnections, metrics)
+    val connectionProvider = HikariJdbcConnectionProvider.start(jdbcUrl, maxConnections, metrics)
 
     lazy val sqlExecutor =
       Executors.newFixedThreadPool(

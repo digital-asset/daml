@@ -3,8 +3,6 @@
 
 package com.digitalasset.platform.sandbox.stores.ledger.sql
 
-import java.sql.SQLException
-
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
@@ -20,6 +18,7 @@ import org.scalatest.concurrent.{AsyncTimeLimitedTests, Eventually, ScaledTimeSp
 import org.scalatest.time.{Minute, Seconds, Span}
 import org.scalatest.{AsyncWordSpec, Matchers}
 
+import scala.collection.mutable
 import scala.concurrent.{Await, Future}
 
 class SqlLedgerSpec
@@ -34,7 +33,7 @@ class SqlLedgerSpec
 
   override val timeLimit: Span = scaled(Span(1, Minute))
   implicit override val patienceConfig: PatienceConfig =
-    PatienceConfig(timeout = scaled(Span(5, Seconds)))
+    PatienceConfig(timeout = scaled(Span(10, Seconds)))
 
   private val queueDepth = 128
 
@@ -42,6 +41,13 @@ class SqlLedgerSpec
   private val participantId: ParticipantId = Ref.LedgerString.assertFromString("TheParticipant")
 
   private val loggerFactory = NamedLoggerFactory(this.getClass)
+
+  private val createdLedgers = mutable.Buffer[Ledger]()
+
+  override protected def afterEach(): Unit = {
+    createdLedgers.foreach(_.close())
+    super.afterEach()
+  }
 
   "SQL Ledger" should {
     "be able to be created from scratch with a random ledger ID" in {
@@ -101,7 +107,6 @@ class SqlLedgerSpec
           ()
         }
 
-        listPackages()
         withClue("before shutting down postgres,") {
           ledger.currentHealth() should be(Healthy)
         }
@@ -109,7 +114,6 @@ class SqlLedgerSpec
         stopPostgres()
 
         eventually {
-          assertThrows[SQLException](listPackages())
           withClue("after shutting down postgres,") {
             ledger.currentHealth() should be(Unhealthy)
           }
@@ -118,7 +122,6 @@ class SqlLedgerSpec
         startPostgres()
 
         eventually {
-          listPackages()
           withClue("after starting up postgres,") {
             ledger.currentHealth() should be(Healthy)
           }
@@ -140,18 +143,23 @@ class SqlLedgerSpec
 
   private def createSqlLedger(ledgerId: Option[LedgerId]): Future[Ledger] = {
     metrics.getNames.forEach(name => { val _ = metrics.remove(name) })
-    SqlLedger(
-      jdbcUrl = postgresFixture.jdbcUrl,
-      ledgerId = ledgerId,
-      participantId = participantId,
-      timeProvider = TimeProvider.UTC,
-      acs = InMemoryActiveLedgerState.empty,
-      packages = InMemoryPackageStore.empty,
-      initialLedgerEntries = ImmArray.empty,
-      queueDepth,
-      startMode = SqlStartMode.ContinueIfExists,
-      loggerFactory,
-      metrics,
-    )
+    for {
+      ledger <- SqlLedger(
+        jdbcUrl = postgresFixture.jdbcUrl,
+        ledgerId = ledgerId,
+        participantId = participantId,
+        timeProvider = TimeProvider.UTC,
+        acs = InMemoryActiveLedgerState.empty,
+        packages = InMemoryPackageStore.empty,
+        initialLedgerEntries = ImmArray.empty,
+        queueDepth,
+        startMode = SqlStartMode.ContinueIfExists,
+        loggerFactory,
+        metrics,
+      )
+    } yield {
+      createdLedgers += ledger
+      ledger
+    }
   }
 }
