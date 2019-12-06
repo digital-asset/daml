@@ -49,24 +49,10 @@ object HikariConnection {
   }
 }
 
-class HikariJdbcConnectionProvider(
-    jdbcUrl: String,
-    noOfShortLivedConnections: Int,
-    metrics: MetricRegistry)
-    extends JdbcConnectionProvider {
-
-  // these connections should never timeout as we have exactly the same number of threads using them as many connections we have
-  private val shortLivedDataSource =
-    HikariConnection.createDataSource(
-      jdbcUrl,
-      "Short-Lived-Connections",
-      noOfShortLivedConnections,
-      noOfShortLivedConnections,
-      250.millis,
-      Some(metrics))
+class HikariJdbcConnectionProvider(dataSource: HikariDataSource) extends JdbcConnectionProvider {
 
   override def runSQL[T](block: Connection => T): T = {
-    val conn = shortLivedDataSource.getConnection()
+    val conn = dataSource.getConnection()
     conn.setAutoCommit(false)
     try {
       val res = block(conn)
@@ -83,6 +69,25 @@ class HikariJdbcConnectionProvider(
   }
 
   override def close(): Unit = {
-    shortLivedDataSource.close()
+    dataSource.close()
+  }
+}
+
+object HikariJdbcConnectionProvider {
+  def start(
+      jdbcUrl: String,
+      maxConnections: Int,
+      metrics: MetricRegistry,
+  ): HikariJdbcConnectionProvider = {
+    // these connections should never time out as we have the same number of threads as connections
+    val dataSource = HikariConnection.createDataSource(
+      jdbcUrl,
+      "Short-Lived-Connections",
+      maxConnections,
+      maxConnections,
+      250.millis,
+      Some(metrics),
+    )
+    new HikariJdbcConnectionProvider(dataSource)
   }
 }

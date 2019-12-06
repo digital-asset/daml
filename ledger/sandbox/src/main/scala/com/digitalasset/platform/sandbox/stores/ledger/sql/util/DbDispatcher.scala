@@ -111,8 +111,7 @@ object DbDispatcher {
   ): DbDispatcher = {
     val logger = loggerFactory.getLogger(classOf[DbDispatcher])
 
-    val connectionProvider =
-      new HikariJdbcConnectionProvider(jdbcUrl, maxConnections, metrics)
+    val connectionProvider = HikariJdbcConnectionProvider.start(jdbcUrl, maxConnections, metrics)
 
     lazy val sqlExecutor =
       Executors.newFixedThreadPool(
