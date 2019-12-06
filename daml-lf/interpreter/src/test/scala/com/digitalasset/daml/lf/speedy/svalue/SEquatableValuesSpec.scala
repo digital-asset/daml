@@ -3,20 +3,22 @@
 
 package com.digitalasset.daml.lf.speedy.svalue
 
+import java.util
+
 import com.digitalasset.daml.lf.data.{FrontStack, InsertOrdMap, Numeric, Ref, Time}
+import com.digitalasset.daml.lf.language.{Ast, Util => AstUtil}
 import com.digitalasset.daml.lf.speedy.SValue._
+import com.digitalasset.daml.lf.speedy.{SBuiltin, SExpr, SValue}
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, NodeId, RelativeContractId}
 import org.scalatest.prop.{TableDrivenPropertyChecks, TableFor1, TableFor2}
 import org.scalatest.{Matchers, WordSpec}
+import scalaz._
+import Scalaz._
 
+import scala.collection.JavaConverters._
 import scala.collection.immutable.HashMap
 import scala.language.implicitConversions
-import java.util
 
-import com.digitalasset.daml.lf.language.{Ast, Util => AstUtil}
-import com.digitalasset.daml.lf.speedy.{SBuiltin, SExpr, SValue}
-
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 class SEquatableValuesSpec extends WordSpec with Matchers with TableDrivenPropertyChecks {
 
   private val pkgId = Ref.PackageId.assertFromString("pkgId")
@@ -96,63 +98,17 @@ class SEquatableValuesSpec extends WordSpec with Matchers with TableDrivenProper
     } yield SStruct(record2Fields, ArrayList(x, y))
 
   private def lists(atLeast3Values: List[SValue]) = {
-    val a :: b :: c :: _ = atLeast3Values
-    List(
-      List(),
-      List(a),
-      List(b),
-      List(a, a),
-      List(b, b),
-      List(a, b),
-      List(a, a, a),
-      List(b, b, b),
-      List(a, a, b),
-      List(b, b, a),
-      List(a, b, a),
-      List(b, a, b),
-      List(a, b, b),
-      List(b, a, a),
-      List(a, b, c),
-      List(c, a, b),
-    )
+    val s = atLeast3Values.take(3)
+    val r = List.iterate(List.empty[List[SValue]], 4)(s :: _).flatMap(_.sequence)
+    assert(r.length == 40)
+    r
   }
 
   private def optLists(atLeast3Values: List[SValue]) = {
-    val a :: b :: c :: _ = atLeast3Values
-    val x = SOptional(None)
-    List(
-      List(),
-      List(a),
-      List(b),
-      List(x),
-      List(a, a),
-      List(b, b),
-      List(x, x),
-      List(a, b),
-      List(a, x),
-      List(x, a),
-      List(a, a, a),
-      List(b, b, b),
-      List(x, x, x),
-      List(a, a, b),
-      List(a, a, x),
-      List(b, b, a),
-      List(x, x, a),
-      List(a, b, a),
-      List(a, x, a),
-      List(b, a, b),
-      List(x, a, x),
-      List(a, b, b),
-      List(a, x, x),
-      List(b, a, a),
-      List(x, a, a),
-      List(x, a, b),
-      List(a, b, c),
-      List(a, x, c),
-      List(a, b, x),
-      List(c, a, b),
-      List(c, a, x),
-    )
+    val s = SOptional(Option.empty) :: atLeast3Values.take(3).map(x => SOptional(Some(x)))
+    val r = List.iterate(List.empty[List[SValue]], 4)(s :: _).flatMap(_.sequence)
+    assert(r.length == 85)
+    r
   }
 
   private def mkOptionals(values: List[SValue]): List[SValue] =
@@ -243,7 +199,7 @@ class SEquatableValuesSpec extends WordSpec with Matchers with TableDrivenProper
     wrappedFuns ++ wrappedFunOptional ++ wrappedAnyFuns
   }
 
-  private val nonEquatableValues =
+  private val nonEquatableValues: TableFor1[TableFor1[SValue]] =
     Table(
       "nonEquatable values",
       Table("funs", funs: _*),
@@ -327,11 +283,7 @@ class SEquatableValuesSpec extends WordSpec with Matchers with TableDrivenProper
 
   }
 
-  private def ArrayList[X](as: X*): util.ArrayList[X] = {
-    val a = new util.ArrayList[X](as.length)
-    as.foreach(a.add)
-    a
-  }
+  private def ArrayList[X](as: X*): util.ArrayList[X] =
+    new util.ArrayList[X](as.asJava)
 
 }
-
