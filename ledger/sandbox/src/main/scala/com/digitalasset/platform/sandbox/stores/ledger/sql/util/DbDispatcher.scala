@@ -19,7 +19,7 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
 
 final class DbDispatcher(
-    val noOfShortLivedConnections: Int,
+    val maxConnections: Int,
     connectionProvider: HikariJdbcConnectionProvider,
     sqlExecutor: ExecutorService,
     logger: Logger,
@@ -105,18 +105,18 @@ object DbDispatcher {
 
   def start(
       jdbcUrl: String,
-      noOfShortLivedConnections: Int,
+      maxConnections: Int,
       loggerFactory: NamedLoggerFactory,
       metrics: MetricRegistry,
   ): DbDispatcher = {
     val logger = loggerFactory.getLogger(classOf[DbDispatcher])
 
     val connectionProvider =
-      new HikariJdbcConnectionProvider(jdbcUrl, noOfShortLivedConnections, metrics)
+      new HikariJdbcConnectionProvider(jdbcUrl, maxConnections, metrics)
 
     lazy val sqlExecutor =
       Executors.newFixedThreadPool(
-        noOfShortLivedConnections,
+        maxConnections,
         new ThreadFactoryBuilder()
           .setDaemon(true)
           .setNameFormat("sql-executor-%d")
@@ -125,6 +125,6 @@ object DbDispatcher {
           .build()
       )
 
-    new DbDispatcher(noOfShortLivedConnections, connectionProvider, sqlExecutor, logger, metrics)
+    new DbDispatcher(maxConnections, connectionProvider, sqlExecutor, logger, metrics)
   }
 }
