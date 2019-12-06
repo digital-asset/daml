@@ -45,7 +45,7 @@ class DamlLfEncoderTest
       val modules_1_dev = modules_1_7 + "GenMapMod"
 
       val versions = Table(
-        "versions" -> "modues",
+        "versions" -> "modules",
         "1.0" -> modules_1_0,
         "1.1" -> modules_1_1,
         "1.3" -> modules_1_3,
@@ -69,7 +69,9 @@ class DamlLfEncoderTest
 
   }
 
-  private def getModules(dar: Dar[(PackageId, DamlLf.ArchivePayload)]) =
+  private val preInternalizationVersions = List.range(0, 7).map(_.toString).toSet
+
+  private def getModules(dar: Dar[(PackageId, DamlLf.ArchivePayload)]) = {
     for {
       pkgWithId <- dar.main +: dar.dependencies
       (_, pkg) = pkgWithId
@@ -80,12 +82,13 @@ class DamlLfEncoderTest
       )
       segments <- pkg.getDamlLf1.getModulesList.asScala.map(
         mod =>
-          if (version < "7")
+          if (preInternalizationVersions(version))
             mod.getNameDname.getSegmentsList.asScala
           else
             dottedNames(mod.getNameInternedDname)
       )
     } yield DottedName.assertFromSegments(segments)
+  }
 
   private implicit def toDottedName(s: String): DottedName =
     DottedName.assertFromString(s)
