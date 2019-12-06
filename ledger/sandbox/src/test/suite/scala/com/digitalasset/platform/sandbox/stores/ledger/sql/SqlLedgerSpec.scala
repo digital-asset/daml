@@ -20,6 +20,7 @@ import org.scalatest.concurrent.{AsyncTimeLimitedTests, Eventually, ScaledTimeSp
 import org.scalatest.time.{Minute, Seconds, Span}
 import org.scalatest.{AsyncWordSpec, Matchers}
 
+import scala.collection.mutable
 import scala.concurrent.{Await, Future}
 
 class SqlLedgerSpec
@@ -42,6 +43,13 @@ class SqlLedgerSpec
   private val participantId: ParticipantId = Ref.LedgerString.assertFromString("TheParticipant")
 
   private val loggerFactory = NamedLoggerFactory(this.getClass)
+
+  private val createdLedgers = mutable.Buffer[Ledger]()
+
+  override protected def afterEach(): Unit = {
+    createdLedgers.foreach(_.close())
+    super.afterEach()
+  }
 
   "SQL Ledger" should {
     "be able to be created from scratch with a random ledger ID" in {
@@ -140,18 +148,23 @@ class SqlLedgerSpec
 
   private def createSqlLedger(ledgerId: Option[LedgerId]): Future[Ledger] = {
     metrics.getNames.forEach(name => { val _ = metrics.remove(name) })
-    SqlLedger(
-      jdbcUrl = postgresFixture.jdbcUrl,
-      ledgerId = ledgerId,
-      participantId = participantId,
-      timeProvider = TimeProvider.UTC,
-      acs = InMemoryActiveLedgerState.empty,
-      packages = InMemoryPackageStore.empty,
-      initialLedgerEntries = ImmArray.empty,
-      queueDepth,
-      startMode = SqlStartMode.ContinueIfExists,
-      loggerFactory,
-      metrics,
-    )
+    for {
+      ledger <- SqlLedger(
+        jdbcUrl = postgresFixture.jdbcUrl,
+        ledgerId = ledgerId,
+        participantId = participantId,
+        timeProvider = TimeProvider.UTC,
+        acs = InMemoryActiveLedgerState.empty,
+        packages = InMemoryPackageStore.empty,
+        initialLedgerEntries = ImmArray.empty,
+        queueDepth,
+        startMode = SqlStartMode.ContinueIfExists,
+        loggerFactory,
+        metrics,
+      )
+    } yield {
+      createdLedgers += ledger
+      ledger
+    }
   }
 }
