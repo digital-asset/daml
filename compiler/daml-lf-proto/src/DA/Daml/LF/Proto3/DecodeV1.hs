@@ -448,15 +448,6 @@ decodeBuiltinFunction = pure . \case
   LF1.BuiltinFunctionEQUAL_CONTRACT_ID -> BEEqualContractId
   LF1.BuiltinFunctionCOERCE_CONTRACT_ID -> BECoerceContractId
 
-  LF1.BuiltinFunctionTEXT_TO_UPPER -> BETextToUpper
-  LF1.BuiltinFunctionTEXT_TO_LOWER -> BETextToLower
-  LF1.BuiltinFunctionTEXT_SLICE -> BETextSlice
-  LF1.BuiltinFunctionTEXT_SLICE_INDEX -> BETextSliceIndex
-  LF1.BuiltinFunctionTEXT_CONTAINS_ONLY -> BETextContainsOnly
-  LF1.BuiltinFunctionTEXT_REPLICATE -> BETextReplicate
-  LF1.BuiltinFunctionTEXT_SPLIT_ON -> BETextSplitOn
-  LF1.BuiltinFunctionTEXT_INTERCALATE -> BETextIntercalate
-
 decodeLocation :: LF1.Location -> Decode SourceLoc
 decodeLocation (LF1.Location mbModRef mbRange) = do
   mbModRef' <- traverse decodeModuleRef mbModRef
@@ -568,9 +559,9 @@ decodeExprSum exprSum = mayDecode "exprSum" exprSum $ \case
     return (EFromAny type' expr)
   LF1.ExprSumTypeRep typ ->
     ETypeRep <$> decodeType typ
-  LF1.ExprSumExperimentalBuiltin _ ->
-  -- FIXME: https://github.com/digital-asset/daml/issues/3710
-    error "Experimental builtin not supported"
+  LF1.ExprSumExperimentalBuiltin (LF1.Expr_ExperimentalBuiltin name mbType) -> do
+    type' <- mayDecode "expr_ExperimentalBuiltin" mbType decodeType
+    return (EExperimentalBuiltin (decodeString name) type')
 
 decodeUpdate :: LF1.Update -> Decode Expr
 decodeUpdate LF1.Update{..} = mayDecode "updateSum" updateSum $ \case

@@ -416,16 +416,6 @@ object Ast {
 
   final case object BCoerceContractId extends BuiltinFunction(1) // : ∀a b. ContractId a -> ContractId b
 
-  // Unstable Text Primitives
-  final case object BTextToUpper extends BuiltinFunction(1) // Text → Text
-  final case object BTextToLower extends BuiltinFunction(1) // : Text → Text
-  final case object BTextSlice extends BuiltinFunction(3) // : Int64 → Int64 → Text → Text
-  final case object BTextSliceIndex extends BuiltinFunction(2) // : Text → Text → Optional Int64
-  final case object BTextContainsOnly extends BuiltinFunction(2) // : Text → Text → Bool
-  final case object BTextReplicate extends BuiltinFunction(2) // : Int64 → Text → Text
-  final case object BTextSplitOn extends BuiltinFunction(2) // : Text → Text → List Text
-  final case object BTextIntercalate extends BuiltinFunction(2) // : Text → List Text → Text
-
   //
   // Update expressions
   //

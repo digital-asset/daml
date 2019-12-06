@@ -210,15 +210,6 @@ private[validation] object Typing {
         TForall(
           alpha.name -> KStar,
           TForall(beta.name -> KStar, TContractId(alpha) ->: TContractId(beta))),
-      // Unstable text functions
-      BTextToUpper -> (TText ->: TText),
-      BTextToLower -> (TText ->: TText),
-      BTextSlice -> (TInt64 ->: TInt64 ->: TText ->: TText),
-      BTextSliceIndex -> (TText ->: TText ->: TOptional(TInt64)),
-      BTextContainsOnly -> (TText ->: TText ->: TBool),
-      BTextReplicate -> (TInt64 ->: TText ->: TText),
-      BTextSplitOn -> (TText ->: TText ->: TList(TText)),
-      BTextIntercalate -> (TText ->: TList(TText) ->: TText),
     )
   }
 

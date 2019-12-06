@@ -1640,14 +1640,6 @@ private[lf] object DecodeV1 {
       BuiltinFunctionInfo(EQUAL_CONTRACT_ID, BEqualContractId, maxVersion = Some(genMap)),
       BuiltinFunctionInfo(TRACE, BTrace),
       BuiltinFunctionInfo(COERCE_CONTRACT_ID, BCoerceContractId, minVersion = coerceContractId),
-      BuiltinFunctionInfo(TEXT_TO_UPPER, BTextToUpper, minVersion = unstable),
-      BuiltinFunctionInfo(TEXT_TO_LOWER, BTextToLower, minVersion = unstable),
-      BuiltinFunctionInfo(TEXT_SLICE, BTextSlice, minVersion = unstable),
-      BuiltinFunctionInfo(TEXT_SLICE_INDEX, BTextSliceIndex, minVersion = unstable),
-      BuiltinFunctionInfo(TEXT_CONTAINS_ONLY, BTextContainsOnly, minVersion = unstable),
-      BuiltinFunctionInfo(TEXT_REPLICATE, BTextReplicate, minVersion = unstable),
-      BuiltinFunctionInfo(TEXT_SPLIT_ON, BTextSplitOn, minVersion = unstable),
-      BuiltinFunctionInfo(TEXT_INTERCALATE, BTextIntercalate, minVersion = unstable)
     )
   }
 

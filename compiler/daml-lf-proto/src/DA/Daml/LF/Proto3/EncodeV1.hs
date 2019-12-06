@@ -497,15 +497,6 @@ encodeBuiltinExpr = \case
     BEEqualContractId -> builtin P.BuiltinFunctionEQUAL_CONTRACT_ID
     BECoerceContractId -> builtin P.BuiltinFunctionCOERCE_CONTRACT_ID
 
-    BETextToUpper -> builtin P.BuiltinFunctionTEXT_TO_UPPER
-    BETextToLower -> builtin P.BuiltinFunctionTEXT_TO_LOWER
-    BETextSlice -> builtin P.BuiltinFunctionTEXT_SLICE
-    BETextSliceIndex -> builtin P.BuiltinFunctionTEXT_SLICE_INDEX
-    BETextContainsOnly -> builtin P.BuiltinFunctionTEXT_CONTAINS_ONLY
-    BETextReplicate -> builtin P.BuiltinFunctionTEXT_REPLICATE
-    BETextSplitOn -> builtin P.BuiltinFunctionTEXT_SPLIT_ON
-    BETextIntercalate -> builtin P.BuiltinFunctionTEXT_INTERCALATE
-
     where
       builtin = pure . P.ExprSumBuiltin . P.Enumerated . Right
       lit = P.ExprSumPrimLit . P.PrimLit . Just
@@ -619,7 +610,11 @@ encodeExpr' = \case
         pureExpr $ P.ExprSumFromAny P.Expr_FromAny{..}
     ETypeRep ty -> do
         expr . P.ExprSumTypeRep <$> encodeType' ty
-  where
+    EExperimentalBuiltin name typ -> do
+        expr_ExperimentalBuiltinName <- pure $ encodeString name
+        expr_ExperimentalBuiltinType <- encodeType typ
+        pureExpr $ P.ExprSumExperimentalBuiltin P.Expr_ExperimentalBuiltin{..}
+    where
     expr = P.Expr Nothing . Just
     pureExpr = pure . expr
 

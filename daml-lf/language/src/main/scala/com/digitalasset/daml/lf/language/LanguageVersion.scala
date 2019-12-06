@@ -67,12 +67,6 @@ object LanguageVersion {
     val genMap = v1_dev
     val scenarioMustFailAtMsg = v1_dev
 
-    /** Unstable, experimental features. This should stay in 1.dev forever.
-      * Features implemented with this flag should be moved to a separate
-      * feature flag once the decision to add them permanently has been made.
-      */
-    val unstable = v1_dev
-
     /** See <https://github.com/digital-asset/daml/issues/1866>. To not break backwards
       * compatibility, we introduce a new DAML-LF version where this restriction is in
       * place, and then:

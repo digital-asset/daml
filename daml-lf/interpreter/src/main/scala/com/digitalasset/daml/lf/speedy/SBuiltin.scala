@@ -1378,10 +1378,107 @@ object SBuiltin {
     }
   }
 
+  // Helpers
+  //
+
+  /** Check whether the partial transaction has been aborted, and
+    * throw if so. The partial transaction abort status must be
+    * checked after every operation on it.
+    */
+  private def checkAborted(ptx: PartialTransaction): Unit =
+    ptx.aborted match {
+      case Some(ContractNotActive(coid, tid, consumedBy)) =>
+        throw DamlELocalContractNotActive(coid, tid, consumedBy)
+      case Some(EndExerciseInRootContext) =>
+        crash("internal error: end exercise in root context")
+      case None =>
+        ()
+    }
+
+  private def checkToken(v: SValue): Unit =
+    v match {
+      case SToken => ()
+      case _ =>
+        crash(s"value not a token: $v")
+    }
+
+  private def extractParties(v: SValue): Set[Party] =
+    v match {
+      case SList(vs) =>
+        vs.iterator.collect {
+          case SParty(p) => p
+          case x => crash(s"non-party value in list: $x")
+        }.toSet
+      case SParty(p) =>
+        Set(p)
+      case _ =>
+        crash(s"value not a list of parties or party: $v")
+    }
+
+  private def checkLookupMaintainers(
+      templateId: Identifier,
+      machine: Machine,
+      maintainers: Set[Party]): Unit = {
+    // This check is dependent on whether we are submitting or validating the transaction.
+    // See <https://github.com/digital-asset/daml/issues/1866#issuecomment-506315152>,
+    // specifically "Consequently it suffices to implement this check
+    // only for the submission. There is no intention to enforce "submitter
+    // must be a maintainer" during validation; if we find in the future a
+    // way to disclose key information or support interactive submission,
+    // then we can lift this restriction without changing the validation
+    // parts. In particular, this should not affect whether we have to ship
+    // the submitter along with the transaction."
+    if (!machine.validating) {
+      val submitter = if (machine.committers.size != 1) {
+        crash(
+          s"expecting exactly one committer since we're not validating, but got ${machine.committers}")
+      } else {
+        machine.committers.toSeq.head
+      }
+      if (machine.checkSubmitterInMaintainers) {
+        if (!(maintainers.contains(submitter))) {
+          throw DamlESubmitterNotInMaintainers(templateId, submitter, maintainers)
+        }
+      }
+    }
+  }
+
+  private def rightOrArithmeticError[A](message: String, mb: Either[String, A]): A =
+    mb.fold(_ => throw DamlEArithmeticError(s"$message"), identity)
+}
+
+object SEExperimentalBuiltin {
+
+  // When adding a new builtin try to let this class self content,
+  // that is add everything you need here.
+
+  import com.digitalasset.daml.lf.language.Ast._
+  import com.digitalasset.daml.lf.language.Util._
+
+  def apply(name: String, typ: Type): SExpr =
+    (name, typ) match {
+      case ("TEXT_TO_UPPER", TFun(TText, TText)) =>
+        SEBuiltin(SBTextToUpper)
+      case ("TEXT_TO_LOWER", TFun(TText, TText)) =>
+        SEBuiltin(SBTextToLower)
+      case ("TEXT_SLICE", TFun(TInt64, TFun(TInt64, TFun(TText, TText)))) =>
+        SEBuiltin(SBTextSlice)
+      case ("TEXT_SLICE_INDEX", TFun(TText, TFun(TText, TOptional(TInt64)))) =>
+        SEBuiltin(SBTextSliceIndex)
+      case ("TEXT_CONTAINS_ONLY", TFun(TText, TFun(TText, TBool))) =>
+        SEBuiltin(SBTextContainsOnly)
+      case ("TEXT_REPLICATE", TFun(TInt64, TFun(TText, TText))) =>
+        SEBuiltin(SBTextReplicate)
+      case ("TEXT_SPLIT_ON", TFun(TText, TFun(TText, TList(TText)))) =>
+        SEBuiltin(SBTextSplitOn)
+      case ("TEXT_INTERCALATE", TFun(TText, TFun(TList(TText), TText))) =>
+        SEBuiltin(SBTextIntercalate)
+    }
+
   // Unstable text primitives.
 
   /** $text_to_upper :: Text -> Text */
-  final case object SBTextToUpper extends SBuiltin(1) {
+  private object SBTextToUpper extends SBuiltin(1) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       args.get(0) match {
         case SText(t) =>
@@ -1394,7 +1491,7 @@ object SBuiltin {
   }
 
   /** $text_to_lower :: Text -> Text */
-  final case object SBTextToLower extends SBuiltin(1) {
+  private object SBTextToLower extends SBuiltin(1) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       args.get(0) match {
         case SText(t) =>
@@ -1407,7 +1504,7 @@ object SBuiltin {
   }
 
   /** $text_slice :: Int -> Int -> Text -> Text */
-  final case object SBTextSlice extends SBuiltin(3) {
+  private object SBTextSlice extends SBuiltin(3) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       args.get(0) match {
         case SInt64(from) =>
@@ -1443,7 +1540,7 @@ object SBuiltin {
   }
 
   /** $text_slice_index :: Text -> Text -> Optional Int */
-  final case object SBTextSliceIndex extends SBuiltin(2) {
+  private object SBTextSliceIndex extends SBuiltin(2) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       args.get(0) match {
         case SText(slice) =>
@@ -1466,7 +1563,7 @@ object SBuiltin {
   }
 
   /** $text_contains_only :: Text -> Text -> Bool */
-  final case object SBTextContainsOnly extends SBuiltin(2) {
+  private object SBTextContainsOnly extends SBuiltin(2) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       args.get(0) match {
         case SText(alphabet) =>
@@ -1485,7 +1582,7 @@ object SBuiltin {
   }
 
   /** $text_replicate :: Int -> Text -> Text */
-  final case object SBTextReplicate extends SBuiltin(2) {
+  private object SBTextReplicate extends SBuiltin(2) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       args.get(0) match {
         case SInt64(n) =>
@@ -1507,7 +1604,7 @@ object SBuiltin {
   }
 
   /** $text_split_on :: Text -> Text -> List Text */
-  final case object SBTextSplitOn extends SBuiltin(2) {
+  private object SBTextSplitOn extends SBuiltin(2) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       args.get(0) match {
         case SText(pattern) =>
@@ -1525,7 +1622,7 @@ object SBuiltin {
   }
 
   /** $text_intercalate :: Text -> List Text -> Text */
-  final case object SBTextIntercalate extends SBuiltin(2) {
+  private object SBTextIntercalate extends SBuiltin(2) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       args.get(0) match {
         case SText(sep) =>

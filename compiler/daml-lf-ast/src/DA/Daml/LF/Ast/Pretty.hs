@@ -276,14 +276,6 @@ instance Pretty BuiltinExpr where
     BETextToCodePoints -> "TEXT_TO_CODE_POINTS"
     BETextFromCodePoints -> "TEXT_FROM_CODE_POINTS"
     BECoerceContractId -> "COERCE_CONTRACT_ID"
-    BETextToUpper -> "TEXT_TO_UPPER"
-    BETextToLower -> "TEXT_TO_LOWER"
-    BETextSlice -> "TEXT_SLICE"
-    BETextSliceIndex -> "TEXT_SLICE_INDEX"
-    BETextContainsOnly -> "TEXT_CONTAINS_ONLY"
-    BETextReplicate -> "TEXT_REPLICATE"
-    BETextSplitOn -> "TEXT_SPLIT_ON"
-    BETextIntercalate -> "TEXT_INTERCALATE"
 
     where
       epochToText fmt secs =
@@ -478,6 +470,7 @@ instance Pretty Expr where
     EToAny ty body -> prettyAppKeyword lvl prec "to_any" [TyArg ty, TmArg body]
     EFromAny ty body -> prettyAppKeyword lvl prec "from_any" [TyArg ty, TmArg body]
     ETypeRep ty -> prettyAppKeyword lvl prec "type_rep" [TyArg ty]
+    EExperimentalBuiltin name _ -> pretty name
 
 instance Pretty DefTypeSyn where
   pPrintPrec lvl _prec (DefTypeSyn mbLoc syn params typ) =

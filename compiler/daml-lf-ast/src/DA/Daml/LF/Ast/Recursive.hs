@@ -15,6 +15,7 @@ module DA.Daml.LF.Ast.Recursive(
     ) where
 
 import Data.Functor.Foldable
+import qualified Data.Text as T
 
 import DA.Daml.LF.Ast.Base
 
@@ -46,6 +47,7 @@ data ExprF expr
   | EToAnyF !Type !expr
   | EFromAnyF !Type !expr
   | ETypeRepF !Type
+  | EExperimentalBuiltinF !T.Text !Type
   deriving (Foldable, Functor, Traversable)
 
 data BindingF expr = BindingF !(ExprVarName, Type) !expr
@@ -178,6 +180,7 @@ instance Recursive Expr where
     EToAny a b  -> EToAnyF a b
     EFromAny a b -> EFromAnyF a b
     ETypeRep a -> ETypeRepF a
+    EExperimentalBuiltin a b -> EExperimentalBuiltinF a b
 
 instance Corecursive Expr where
   embed = \case
@@ -208,3 +211,4 @@ instance Corecursive Expr where
     EToAnyF a b  -> EToAny a b
     EFromAnyF a b -> EFromAny a b
     ETypeRepF a -> ETypeRep a
+    EExperimentalBuiltinF a b -> EExperimentalBuiltin a b

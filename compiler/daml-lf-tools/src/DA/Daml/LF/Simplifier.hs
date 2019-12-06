@@ -82,6 +82,7 @@ freeVarsStep = \case
       SGetPartyF s -> s
       SEmbedExprF _ s -> s
   ELocationF _ e -> e
+  EExperimentalBuiltinF _ _ -> mempty
   where
     fvBinding :: BindingF VarSet -> VarSet -> VarSet
     fvBinding (BindingF (x, _) s1) s2 = s1 <> (x `Set.delete` s2)
@@ -188,14 +189,6 @@ safetyStep = \case
       BEDecimalFromText -> Safe 1
       BETextToCodePoints -> Safe 1
       BECoerceContractId -> Safe 1
-      BETextToUpper -> Safe 1
-      BETextToLower -> Safe 1
-      BETextSlice -> Safe 3
-      BETextSliceIndex -> Safe 2
-      BETextContainsOnly -> Safe 2
-      BETextReplicate -> Safe 2
-      BETextSplitOn -> Safe 2
-      BETextIntercalate -> Safe 2
 
   ERecConF _ fs -> minimum (Safe 0 : map snd fs)
   ERecProjF _ _ s -> s `min` Safe 0
@@ -239,6 +232,7 @@ safetyStep = \case
     | Safe _ <- s -> Safe 0
     | otherwise -> Unsafe
   ETypeRepF _ -> Safe 0
+  EExperimentalBuiltinF _ _ -> Unsafe
 
 
 infoStep :: ExprF Info -> Info

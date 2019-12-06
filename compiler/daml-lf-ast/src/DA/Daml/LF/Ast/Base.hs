@@ -326,15 +326,6 @@ data BuiltinExpr
   | BEEqualContractId            -- :: forall a. ContractId a -> ContractId a -> Bool
   | BECoerceContractId           -- :: forall a b. ContractId a -> ContractId b
 
-  -- Experimental Text Primitives
-  | BETextToUpper                -- :: Text -> Text
-  | BETextToLower                -- :: Text -> Text
-  | BETextSlice                  -- :: Int -> Int -> Text -> Text
-  | BETextSliceIndex             -- :: Text -> Text -> Optional Int64
-  | BETextContainsOnly           -- :: Text -> Text -> Bool
-  | BETextReplicate              -- :: Int64 -> Text -> Text
-  | BETextSplitOn                -- :: Text -> Text -> [Text]
-  | BETextIntercalate            -- :: Text -> [Text] -> Text
   deriving (Eq, Data, Generic, NFData, Ord, Show)
 
 
@@ -506,6 +497,8 @@ data Expr
   | EScenario !Scenario
   -- | An expression annotated with a source location.
   | ELocation !SourceLoc !Expr
+  -- | EExperimentalBuiltin (only use in dev)
+  | EExperimentalBuiltin !T.Text !Type
   deriving (Eq, Data, Generic, NFData, Ord, Show)
 
 -- | Pattern matching alternative.

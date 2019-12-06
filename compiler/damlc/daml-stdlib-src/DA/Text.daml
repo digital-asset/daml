@@ -343,13 +343,13 @@ fromCodePoints = primitive @"BETextFromCodePoints"
 #ifdef DAML_UNSTABLE
 
 unstableToUpper : Text -> Text
-unstableToUpper = primitive @"BETextToUpper"
+unstableToUpper = primitive @"ExperimentalTEXT_TO_UPPER"
 
 unstableToLower : Text -> Text
-unstableToLower = primitive @"BETextToLower"
+unstableToLower = primitive @"ExperimentalTEXT_TO_LOWER"
 
 unstableSlice : Int -> Int -> Text -> Text
-unstableSlice = primitive @"BETextSlice"
+unstableSlice = primitive @"ExperimentalTEXT_SLICE"
 
 unstableTake : Int -> Text -> Text
 unstableTake = unstableSlice 0
@@ -361,7 +361,7 @@ unstableSplitAt : Int -> Text -> (Text, Text)
 unstableSplitAt n x = (unstableTake n x, unstableDrop n x)
 
 unstableSliceIndex : Text -> Text -> Optional Int
-unstableSliceIndex = primitive @"BETextSliceIndex"
+unstableSliceIndex = primitive @"ExperimentalTEXT_SLICE_INDEX"
 
 unstableBreakOn : Text -> Text -> (Text, Text)
 unstableBreakOn k x =
@@ -375,15 +375,15 @@ unstableStripInfix k x = do
     Some (unstableTake i x, unstableDrop (i + DA.Text.length k) x)
 
 unstableContainsOnly : Text -> Text -> Bool
-unstableContainsOnly = primitive @"BETextContainsOnly"
+unstableContainsOnly = primitive @"ExperimentalTEXT_CONTAINS_ONLY"
 
 unstableReplicate : Int -> Text -> Text
-unstableReplicate = primitive @"BETextReplicate"
+unstableReplicate = primitive @"ExperimentalTEXT_REPLICATE"
 
 unstableSplitOn : Text -> Text -> [Text]
-unstableSplitOn = primitive @"BETextSplitOn"
+unstableSplitOn = primitive @"ExperimentalTEXT_SPLIT_ON"
 
 unstableIntercalate : Text -> [Text] -> Text
-unstableIntercalate = primitive @"BETextIntercalate"
+unstableIntercalate = primitive @"ExperimentalTEXT_INTERCALATE"
 
 #endif

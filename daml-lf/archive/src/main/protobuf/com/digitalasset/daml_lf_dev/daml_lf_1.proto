@@ -854,6 +854,12 @@ message Expr {
     Expr expr = 2;
   }
 
+  // *Available only in 1.dev*
+  message ExperimentalBuiltin {
+    string name = 1;
+    Type type = 2;
+  }
+
   // Location of the expression in the DAML code source.
   // Optional
   Location location = 25;
@@ -954,7 +960,7 @@ message Expr {
 
     // Hook to add quickly a builtin for testing purpose
     // *Available in versions 1.dev*
-    ExperimentalBuiltinFunction experimental_builtin = 536870911;
+    ExperimentalBuiltin experimental_builtin = 536870911;
   }
 
   reserved 19; // This was equals. Removed in favour of BuiltinFunction.EQUAL_*

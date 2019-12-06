@@ -13,6 +13,7 @@ import           DA.Daml.LFConversion.UtilLF
 import           DA.Daml.LF.Ast
 import           DA.Pretty (renderPretty)
 import qualified Data.Text as T
+import qualified Data.List as L
 
 convertPrim :: Version -> String -> Type -> Expr
 -- Update
@@ -261,14 +262,8 @@ convertPrim _ "BENumericFromText" (TText :-> TOptional (TNumeric n)) =
     ETyApp (EBuiltin BENumericFromText) n
 
 -- Experimental text primitives.
-convertPrim _ "BETextToUpper" (TText :-> TText) = EBuiltin BETextToUpper
-convertPrim _ "BETextToLower" (TText :-> TText) = EBuiltin BETextToLower
-convertPrim _ "BETextSlice" (TInt64 :-> TInt64 :-> TText :-> TText) = EBuiltin BETextSlice
-convertPrim _ "BETextSliceIndex" (TText :-> TText :-> TOptional TInt64) = EBuiltin BETextSliceIndex
-convertPrim _ "BETextContainsOnly" (TText :-> TText :-> TBool) = EBuiltin BETextContainsOnly
-convertPrim _ "BETextReplicate" (TInt64 :-> TText :-> TText) = EBuiltin BETextReplicate
-convertPrim _ "BETextSplitOn" (TText :-> TText :-> TList TText) = EBuiltin BETextSplitOn
-convertPrim _ "BETextIntercalate" (TText :-> TList TText :-> TText) = EBuiltin BETextIntercalate
+convertPrim (V1 PointDev) (L.stripPrefix "Experimental" -> Just builtin) typ =
+    EExperimentalBuiltin (T.pack builtin) typ
 
 -- Template Desugaring.
 

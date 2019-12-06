@@ -25,6 +25,7 @@ import Control.Lens.Ast
 import Control.Lens.MonoTraversal
 import Data.Functor.Foldable (cata, embed)
 import qualified Data.NameMap as NM
+import qualified Data.Text as T
 
 import DA.Daml.LF.Ast.Base
 import DA.Daml.LF.Ast.TypeLevelNat
@@ -118,6 +119,7 @@ instance MonoTraversable ModuleRef (Qualified a) where
   monoTraverse f (Qualified pkg0 mod0 x) =
     (\(pkg1, mod1) -> Qualified pkg1 mod1 x) <$> f (pkg0, mod0)
 
+instance MonoTraversable ModuleRef T.Text where monoTraverse _ = pure
 instance MonoTraversable ModuleRef ChoiceName where monoTraverse _ = pure
 instance MonoTraversable ModuleRef ExprValName where monoTraverse _ = pure
 instance MonoTraversable ModuleRef ExprVarName where monoTraverse _ = pure
