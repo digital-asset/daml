@@ -10,6 +10,7 @@ import DA.Daml.LF.TypeChecker.Env
 import DA.Daml.LF.TypeChecker.Error
 import Data.Maybe
 import Control.Monad.Extra
+import qualified Data.NameMap as NM
 import qualified Data.Map.Strict as M
 import qualified Data.Text as T
 import qualified Control.Monad.State.Strict as S
@@ -155,14 +156,41 @@ checkTemplate moduleName Template{..} = do
     forM_ tplChoices $ \TemplateChoice{..} ->
         checkName (NChoice moduleName tplTypeCon chcName)
 
+checkModuleName :: MonadGamma m => Module -> S.StateT NCState m ()
+checkModuleName m = checkName (NModule (moduleName m))
+
+checkModuleTypes :: MonadGamma m => Module -> S.StateT NCState m ()
+checkModuleTypes m = do
+    forM_ (moduleDataTypes m) $ \dataType ->
+        withContext (ContextDefDataType m dataType) $
+            checkDataType (moduleName m) dataType
+    forM_ (moduleTemplates m) $ \tpl ->
+        withContext (ContextTemplate m tpl TPWhole) $
+            checkTemplate (moduleName m) tpl
+
+checkModuleFully :: MonadGamma m => Module -> S.StateT NCState m ()
+checkModuleFully m = do
+    checkModuleName m
+    checkModuleTypes m
+
+isAscendant :: ModuleName -> ModuleName -> Bool
+isAscendant (ModuleName xs) (ModuleName ys) =
+    (length xs < length ys) && and (zipWith (==) xs ys)
+
 -- | Check whether a module satisfies the name collision condition.
+--
+-- This involves not only checking the current module, but also
+-- the module's parent and grandparent for potential collisions,
+-- and the name of the module's children and grandchildren as well.
 checkModule :: MonadGamma m => Module -> m ()
-checkModule mod0 =
-    void . flip S.runStateT initialState $ do
-        checkName (NModule (moduleName mod0))
-        forM_ (moduleDataTypes mod0) $ \dataType ->
-            withContext (ContextDefDataType mod0 dataType) $
-                checkDataType (moduleName mod0) dataType
-        forM_ (moduleTemplates mod0) $ \tpl ->
-            withContext (ContextTemplate mod0 tpl TPWhole) $
-                checkTemplate (moduleName mod0) tpl
+checkModule mod0 = do
+    world <- getWorld
+    let package = getWorldSelf world
+        modules = NM.toList (packageModules package)
+        name0 = moduleName mod0
+        ascendants = filter (flip isAscendant name0 . moduleName) modules
+        descendants = filter (isAscendant name0 . moduleName) modules
+    flip S.evalStateT initialState $ do
+        mapM_ checkModuleTypes ascendants -- only need type names
+        mapM_ checkModuleName descendants -- only need module names
+        checkModuleFully mod0
