@@ -6,12 +6,9 @@ package com.digitalasset.platform.sandbox.stores.ledger.sql.util
 import java.sql.Connection
 import java.util.concurrent.Executors
 
-import akka.stream.scaladsl.Source
-import akka.{Done, NotUsed}
 import com.codahale.metrics.MetricRegistry
 import com.digitalasset.ledger.api.health.{HealthStatus, ReportsHealth}
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
-import com.digitalasset.platform.common.util.DirectExecutionContext
 import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.HikariJdbcConnectionProvider
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 
@@ -23,12 +20,10 @@ import scala.concurrent.{ExecutionContext, Future}
   *
   * @param jdbcUrl                    the JDBC url containing the database name, user name and password
   * @param noOfShortLivedConnections the number of connections to be pre-allocated for regular SQL queries
-  * @param noOfStreamingConnections  the max number of connections to be used for long, streaming queries
   */
 final class DbDispatcher(
     jdbcUrl: String,
     val noOfShortLivedConnections: Int,
-    noOfStreamingConnections: Int,
     loggerFactory: NamedLoggerFactory,
     metrics: MetricRegistry,
 ) extends AutoCloseable
@@ -36,9 +31,8 @@ final class DbDispatcher(
 
   private val logger = loggerFactory.getLogger(getClass)
   private val connectionProvider =
-    new HikariJdbcConnectionProvider(jdbcUrl, noOfShortLivedConnections, noOfStreamingConnections)
-  private val sqlExecutor =
-    new SqlExecutor(noOfShortLivedConnections, loggerFactory, metrics)
+    new HikariJdbcConnectionProvider(jdbcUrl, noOfShortLivedConnections, metrics)
+  private val sqlExecutor = new SqlExecutor(noOfShortLivedConnections, loggerFactory, metrics)
 
   private val connectionGettingThreadPool = ExecutionContext.fromExecutorService(
     Executors.newSingleThreadExecutor(
@@ -59,29 +53,6 @@ final class DbDispatcher(
   def executeSql[T](description: String, extraLog: Option[String] = None)(
       sql: Connection => T): Future[T] =
     sqlExecutor.runQuery(description, extraLog)(connectionProvider.runSQL(sql))
-
-  /**
-    * Creates a lazy Source, which takes care of:
-    * - getting a connection for the stream
-    * - run the SQL query using the connection
-    * - close the connection when the stream ends
-    *
-    * @param sql a streaming SQL query
-    * @tparam T the type of streamed elements
-    * @return a lazy source which will only access the database after it's materialized and run
-    */
-  def runStreamingSql[T](sql: Connection => Source[T, Future[Done]]): Source[T, NotUsed] = {
-    // Getting a connection can block! Presumably, it only blocks if the connection pool has no free connections.
-    // getStreamingConnection calls can therefore not be parallelized, and we use a single thread for all of them.
-    Source
-      .fromFuture(Future(connectionProvider.getStreamingConnection())(connectionGettingThreadPool))
-      .flatMapConcat(conn =>
-        sql(conn)
-          .mapMaterializedValue { f =>
-            f.onComplete(_ => conn.close())(DirectExecutionContext)
-            f
-        })
-  }
 
   override def close(): Unit = {
     connectionProvider.close()

@@ -5,6 +5,7 @@ package com.digitalasset.platform.sandbox.stores.ledger.sql.dao
 
 import java.sql.Connection
 
+import com.codahale.metrics.MetricRegistry
 import com.zaxxer.hikari.{HikariConfig, HikariDataSource}
 
 import scala.concurrent.duration.{FiniteDuration, _}
@@ -18,18 +19,17 @@ trait JdbcConnectionProvider extends AutoCloseable {
     * The block must not recursively call [[runSQL]], as this could result in a deadlock
     * waiting for a free connection from the same pool. */
   def runSQL[T](block: Connection => T): T
-
-  /** Returns a connection meant to be used for long running streaming queries. The Connection has to be closed manually! */
-  def getStreamingConnection(): Connection
 }
 
 object HikariConnection {
+  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def createDataSource(
       jdbcUrl: String,
       poolName: String,
       minimumIdle: Int,
       maxPoolSize: Int,
-      connectionTimeout: FiniteDuration): HikariDataSource = {
+      connectionTimeout: FiniteDuration,
+      metrics: Option[MetricRegistry]): HikariDataSource = {
     val config = new HikariConfig
     config.setJdbcUrl(jdbcUrl)
     config.setDriverClassName(DbType.jdbcType(jdbcUrl).driver)
@@ -41,6 +41,7 @@ object HikariConnection {
     config.setMinimumIdle(minimumIdle)
     config.setConnectionTimeout(connectionTimeout.toMillis)
     config.setPoolName(poolName)
+    metrics.foreach(config.setMetricRegistry)
 
     //note that Hikari uses auto-commit by default.
     //in `runSql` below, the `.close()` will automatically trigger a commit.
@@ -51,7 +52,7 @@ object HikariConnection {
 class HikariJdbcConnectionProvider(
     jdbcUrl: String,
     noOfShortLivedConnections: Int,
-    noOfStreamingConnections: Int)
+    metrics: MetricRegistry)
     extends JdbcConnectionProvider {
 
   // these connections should never timeout as we have exactly the same number of threads using them as many connections we have
@@ -61,16 +62,8 @@ class HikariJdbcConnectionProvider(
       "Short-Lived-Connections",
       noOfShortLivedConnections,
       noOfShortLivedConnections,
-      250.millis)
-
-  // this a dynamic pool as it's used for serving ACS snapshot requests, which we don't expect to get a lot
-  private val streamingDataSource =
-    HikariConnection.createDataSource(
-      jdbcUrl,
-      "Streaming-Connections",
-      1,
-      noOfStreamingConnections,
-      60.seconds)
+      250.millis,
+      Some(metrics))
 
   override def runSQL[T](block: Connection => T): T = {
     val conn = shortLivedDataSource.getConnection()
@@ -89,11 +82,7 @@ class HikariJdbcConnectionProvider(
     }
   }
 
-  override def getStreamingConnection(): Connection =
-    streamingDataSource.getConnection()
-
   override def close(): Unit = {
     shortLivedDataSource.close()
-    streamingDataSource.close()
   }
 }

@@ -138,7 +138,8 @@ class SqlLedgerSpec
     createSqlLedger(Some(assertedLedgerId))
   }
 
-  private def createSqlLedger(ledgerId: Option[LedgerId]): Future[Ledger] =
+  private def createSqlLedger(ledgerId: Option[LedgerId]): Future[Ledger] = {
+    metrics.getNames.forEach(name => { val _ = metrics.remove(name) })
     SqlLedger(
       jdbcUrl = postgresFixture.jdbcUrl,
       ledgerId = ledgerId,
@@ -152,4 +153,5 @@ class SqlLedgerSpec
       loggerFactory,
       metrics,
     )
+  }
 }

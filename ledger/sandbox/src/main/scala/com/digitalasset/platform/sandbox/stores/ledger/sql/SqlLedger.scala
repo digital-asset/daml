@@ -64,7 +64,6 @@ object SqlStartMode {
 object SqlLedger {
 
   val defaultNumberOfShortLivedConnections = 16
-  val defaultNumberOfStreamingConnections = 2
 
   private case class Offsets(offset: Long, nextOffset: Long)
 
@@ -98,7 +97,6 @@ object SqlLedger {
       new DbDispatcher(
         jdbcUrl,
         noOfShortLivedConnections,
-        defaultNumberOfStreamingConnections,
         loggerFactory,
         metrics,
       )
@@ -505,8 +503,7 @@ private final class SqlLedgerFactory(ledgerDao: LedgerDao, loggerFactory: NamedL
                 }
               })
 
-              @SuppressWarnings(Array("org.wartremover.warts.ExplicitImplicitTypes"))
-              implicit val ec = DEC
+              implicit val ec: ExecutionContext = DEC
               for {
                 _ <- doInit(initialId)
                 _ <- copyPackages(packages, timeProvider.getCurrentTime)
