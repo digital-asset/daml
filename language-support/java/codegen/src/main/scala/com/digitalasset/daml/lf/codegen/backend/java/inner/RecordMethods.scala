@@ -45,6 +45,6 @@ private[inner] object RecordMethods {
     }
 
     Vector(constructor) ++ conversionMethods ++
-      ObjectMethods(className, fields.map(_.javaName))
+      ObjectMethods(className, typeParameters, fields.map(_.javaName))
   }
 }

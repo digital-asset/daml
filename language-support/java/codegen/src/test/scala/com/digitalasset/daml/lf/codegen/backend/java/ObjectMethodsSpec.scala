@@ -12,7 +12,7 @@ import org.scalatest.{FlatSpec, Matchers}
 final class ObjectMethodsSpec extends FlatSpec with Matchers {
 
   val Vector(equalsSpec, hashCodeSpec, toStringSpec) =
-    ObjectMethods(ClassName.bestGuess("Test"), IndexedSeq.empty)
+    ObjectMethods(ClassName.bestGuess("Test"), IndexedSeq.empty, IndexedSeq.empty)
 
   behavior of "ObjectMethods.equals"
 
