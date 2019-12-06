@@ -5,6 +5,7 @@ module DA.Cli.Options
   ( module DA.Cli.Options
   ) where
 
+import Data.Bifunctor
 import           Data.List.Extra     (trim, splitOn)
 import Options.Applicative.Extended
 import Safe (lastMay)
@@ -15,6 +16,8 @@ import DA.Daml.Options.Types
 import qualified DA.Daml.LF.Ast.Version as LF
 import DA.Daml.Project.Consts
 import DA.Daml.Project.Types
+import qualified Module as GHC
+import Text.Read
 
 
 -- | Pretty-printing documents with syntax-highlighting annotations.
@@ -251,7 +254,7 @@ optionsParser numProcessors enableScenarioService parsePkgName = Options
     <*> optWriteIface
     <*> pure Nothing
     <*> optHideAllPackages
-    <*> many optPackage
+    <*> many optPackageImport
     <*> shakeProfilingOpt
     <*> optShakeThreads
     <*> lfVersionOpt
@@ -287,13 +290,21 @@ optionsParser numProcessors enableScenarioService parsePkgName = Options
           help "Whether to write interface files during type checking, required for building a package such as daml-prim" <>
           long "write-iface"
 
-    optPackage :: Parser (String, Bool, [(String, String)])
-    optPackage =
-      option auto $
+    optPackageImport :: Parser PackageImport
+    optPackageImport =
+      option readPackageImport $
       metavar "PACKAGE" <>
       help "explicit import of a package with optional renaming of modules" <>
       long "package" <>
       internal
+
+    readPackageImport = maybeReader $ \s -> do
+        (unitId, exposeImplicit, modRenamings) <- readMaybe s
+        pure PackageImport
+          { pkgImportUnitId = GHC.stringToUnitId unitId
+          , pkgImportExposeImplicit = exposeImplicit
+          , pkgImportModRenamings = map (bimap GHC.mkModuleName GHC.mkModuleName) modRenamings
+          }
 
     optHideAllPackages :: Parser Bool
     optHideAllPackages =

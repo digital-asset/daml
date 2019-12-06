@@ -17,6 +17,7 @@ import qualified "zip-archive" Codec.Archive.Zip as ZipArchive
 import Control.Exception.Safe (handleIO)
 import Control.Lens (toListOf)
 import Control.Monad
+import Data.Bifunctor
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.UTF8 as BSUTF8
@@ -27,7 +28,8 @@ import Data.Maybe
 import qualified Data.Text.Extended as T
 import Development.IDE.Core.Service (runAction)
 import Development.IDE.Types.Location
-import "ghc-lib-parser" Module (UnitId, primUnitId, stringToUnitId, unitIdString)
+import "ghc-lib-parser" Module (UnitId, primUnitId, stringToUnitId, unitIdString,)
+import qualified Module as GHC
 import System.Directory.Extra
 import System.Exit
 import System.FilePath
@@ -210,15 +212,8 @@ generateAndInstallIfaceFiles dalf src opts workDir dbPath projectPackageDatabase
             , optHideAllPkgs = True
             , optGhcCustomOpts = []
             , optPackageImports =
-                  ("daml-prim", True, []) :
-                  [ ( damlStdlib
-                    , False
-                    , [ ("DA.Internal.Template", "Sdk.DA.Internal.Template")
-                      , ("DA.Internal.LF", "Sdk.DA.Internal.LF")
-                      , ("DA.Internal.Prelude", "Sdk.DA.Internal.Prelude")
-                      ])
-                  ] ++
-                  [ (takeBaseName dep, True, [])
+                  baseImports ++
+                  [ PackageImport (GHC.stringToUnitId $ takeBaseName dep) True []
                   | dep <- deps
                   , not $ unitIdString primUnitId `isPrefixOf` dep
                   ]
@@ -253,6 +248,22 @@ generateAndInstallIfaceFiles dalf src opts workDir dbPath projectPackageDatabase
         , "--global-package-db=" ++ (dbPath </> "package.conf.d")
         , "--expand-pkgroot"
         ]
+
+baseImports :: [PackageImport]
+baseImports =
+    [ PackageImport (GHC.stringToUnitId "daml-prim") True []
+    -- we need the standard library from the current sdk for the
+    -- definition of the template class.
+    , PackageImport
+       (GHC.stringToUnitId damlStdlib)
+       False
+       (map (bimap GHC.mkModuleName GHC.mkModuleName)
+          [ ("DA.Internal.Template", "Sdk.DA.Internal.Template")
+          , ("DA.Internal.LF", "Sdk.DA.Internal.LF")
+          , ("DA.Internal.Prelude", "Sdk.DA.Internal.Prelude")
+          ]
+       )
+    ]
 
 -- generate a package containing template instances and install it in the package database
 generateAndInstallInstancesPkg
@@ -293,23 +304,14 @@ generateAndInstallInstancesPkg thisSdkVer templInstSrc opts dbPathAbs projectPac
                     , optMbPackageName = Just instancesUnitIdStr
                     , optHideAllPkgs = True
                     , optPackageImports =
-                          ("daml-prim", True, []) :
-                          (unitIdStr, True, []) :
-                          -- we need the standard library from the current sdk for the
-                          -- definition of the template class.
-                          [ ( damlStdlib
-                            , False
-                            , [ ("DA.Internal.Template", "Sdk.DA.Internal.Template")
-                              , ("DA.Internal.LF", "Sdk.DA.Internal.LF")
-                              , ("DA.Internal.Prelude", "Sdk.DA.Internal.Prelude")
-                              ])
-                          ] ++
+                          PackageImport (stringToUnitId unitIdStr) True [] :
+                          baseImports ++
                           -- the following is for the edge case, when there is no standard
                           -- library dependency, but the dalf still uses builtins or builtin
                           -- types like Party.  In this case, we use the current daml-stdlib as
                           -- their origin.
-                          [(damlStdlib, True, []) | not $ any isStdlib deps] ++
-                          [ (takeBaseName dep, True, [])
+                          [PackageImport (stringToUnitId damlStdlib) True [] | not $ any isStdlib deps] ++
+                          [ PackageImport (stringToUnitId $ takeBaseName dep) True []
                           | dep <- deps
                           , not $ unitIdString primUnitId `isPrefixOf` dep
                           ]
