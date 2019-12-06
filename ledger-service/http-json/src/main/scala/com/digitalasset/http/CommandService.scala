@@ -65,7 +65,6 @@ class CommandService(
       command <- EitherT.either(exerciseCommand(input))
       request = submitAndWaitRequest(jwtPayload, input.meta, command)
       response <- liftET(logResult('exercise, submitAndWaitForTransactionTree(jwt, request)))
-      _ = println(s"----- response: $response")
       contracts <- EitherT.either(contracts(response))
     } yield contracts
 
