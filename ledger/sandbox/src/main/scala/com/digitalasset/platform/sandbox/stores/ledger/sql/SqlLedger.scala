@@ -93,14 +93,12 @@ object SqlLedger {
     val dbType = DbType.jdbcType(jdbcUrl)
     val noOfShortLivedConnections =
       if (dbType.supportsParallelWrites) defaultNumberOfShortLivedConnections else 1
-    val dbDispatcher =
-      new DbDispatcher(
-        jdbcUrl,
-        noOfShortLivedConnections,
-        loggerFactory,
-        metrics,
-      )
-
+    val dbDispatcher = DbDispatcher.start(
+      jdbcUrl,
+      noOfShortLivedConnections,
+      loggerFactory,
+      metrics,
+    )
     val ledgerDao = LedgerDao.metered(
       JdbcLedgerDao(
         dbDispatcher,
@@ -110,8 +108,10 @@ object SqlLedger {
         KeyHasher,
         dbType,
         loggerFactory,
-        mat.executionContext),
-      metrics)
+        mat.executionContext,
+      ),
+      metrics,
+    )
 
     val sqlLedgerFactory = SqlLedgerFactory(ledgerDao, loggerFactory)
 

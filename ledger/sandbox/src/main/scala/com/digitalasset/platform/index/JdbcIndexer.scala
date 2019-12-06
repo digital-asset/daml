@@ -113,12 +113,13 @@ class JdbcIndexerFactory[Status <: InitStatus] private (
       executionContext: ExecutionContext) = {
     val dbType = DbType.jdbcType(jdbcUrl)
     val dbDispatcher =
-      new DbDispatcher(
+      DbDispatcher.start(
         jdbcUrl,
         if (dbType.supportsParallelWrites) defaultNumberOfShortLivedConnections else 1,
         loggerFactory,
-        metrics)
-    val ledgerDao = LedgerDao.metered(
+        metrics,
+      )
+    LedgerDao.metered(
       JdbcLedgerDao(
         dbDispatcher,
         ContractSerializer,
@@ -127,9 +128,10 @@ class JdbcIndexerFactory[Status <: InitStatus] private (
         KeyHasher,
         dbType,
         loggerFactory,
-        executionContext),
-      metrics)
-    ledgerDao
+        executionContext,
+      ),
+      metrics,
+    )
   }
 
   private def ledgerFound(foundLedgerId: LedgerId) = {

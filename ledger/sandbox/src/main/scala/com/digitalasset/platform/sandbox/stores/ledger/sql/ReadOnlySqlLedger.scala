@@ -44,13 +44,12 @@ object ReadOnlySqlLedger {
     implicit val ec: ExecutionContext = DEC
 
     val dbType = DbType.jdbcType(jdbcUrl)
-    val dbDispatcher =
-      new DbDispatcher(
-        jdbcUrl,
-        noOfShortLivedConnections,
-        loggerFactory,
-        metrics,
-      )
+    val dbDispatcher = DbDispatcher.start(
+      jdbcUrl,
+      noOfShortLivedConnections,
+      loggerFactory,
+      metrics,
+    )
     val ledgerReadDao = LedgerDao.meteredRead(
       JdbcLedgerDao(
         dbDispatcher,
