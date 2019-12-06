@@ -8,6 +8,7 @@ module DA.Daml.Options.Types
     , DlintUsage(..)
     , Haddock(..)
     , IncrementalBuild(..)
+    , PackageImport(..)
     , defaultOptionsIO
     , defaultOptions
     , mkOptions
@@ -24,10 +25,36 @@ import Control.Monad.Reader
 import DA.Bazel.Runfiles
 import qualified DA.Daml.LF.Ast as LF
 import DA.Pretty (renderPretty)
+import Data.Bifunctor
 import Data.Maybe
+import GHC.Show
+import qualified Module as GHC
 import qualified System.Directory as Dir
 import System.Environment
 import System.FilePath
+
+data PackageImport = PackageImport
+  { pkgImportUnitId :: GHC.UnitId
+  , pkgImportExposeImplicit :: Bool
+  -- ^ Expose modules that do not have explicit explicit renamings.
+  , pkgImportModRenamings :: [(GHC.ModuleName, GHC.ModuleName)]
+  -- ^ Expose module m under name n
+  }
+
+-- We handwrite the orphan instance to avoid introducing an orphan for GHC.ModuleName
+instance Show PackageImport where
+    showsPrec prec PackageImport{..} = showParen (prec > appPrec) $
+        showString "PackageImport {" .
+        showString "pkgImportUnitId = " .
+        shows pkgImportUnitId .
+        showCommaSpace .
+        showString "pkgImportExposeImplicit = " .
+        shows pkgImportExposeImplicit .
+        showCommaSpace .
+        showString "pkgImportModRenamings" .
+        shows (map (bimap GHC.moduleNameString GHC.moduleNameString) pkgImportModRenamings) .
+        showString "}"
+     where appPrec = 10
 
 -- | Compiler run configuration for DAML-GHC.
 data Options = Options
@@ -45,7 +72,7 @@ data Options = Options
     -- ^ alternative directory to write interface files to. Default is <current working dir>.daml/interfaces.
   , optHideAllPkgs :: Bool
     -- ^ hide all imported packages
-  , optPackageImports :: [(String, Bool, [(String, String)])]
+  , optPackageImports :: [PackageImport]
     -- ^ list of explicit package imports and modules with aliases. The boolean flag controls
     -- whether modules without given alias are visible.
   , optShakeProfiling :: Maybe FilePath
