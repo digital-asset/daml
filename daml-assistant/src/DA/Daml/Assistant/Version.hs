@@ -114,7 +114,7 @@ getDefaultSdkVersion damlPath = do
 -- of versions.
 getAvailableSdkVersions :: IO [SdkVersion]
 getAvailableSdkVersions = wrapErr "Fetching list of available SDK versions" $ do
-    response <- requiredAny "HTTPS connection to docs.daml.com failed" $ do
+    response <- requiredAny "HTTP connection to docs.daml.com failed" $ do
         request <- parseRequest "GET http://docs.daml.com/versions.json"
         httpBS request { responseTimeout = responseTimeoutMicro 2000000 }
 
