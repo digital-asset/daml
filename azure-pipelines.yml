@@ -106,7 +106,7 @@ jobs:
       - check_for_release
     timeoutInMinutes: 360
     pool:
-      vmImage: 'macOS-10.14'
+      name: 'macOS-pool'
     variables:
       bazel-repo-cache-key: $(Build.StagingDirectory)/bazel-repo-cache-key
       bazel-repo-cache-path: $(Agent.BuildDirectory)/.bazel-cache/repo
