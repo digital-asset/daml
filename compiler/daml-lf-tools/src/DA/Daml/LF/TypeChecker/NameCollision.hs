@@ -180,7 +180,8 @@ checkModuleFully m = do
 
 isAscendant :: ModuleName -> ModuleName -> Bool
 isAscendant (ModuleName xs) (ModuleName ys) =
-    (length xs < length ys) && and (zipWith (==) xs ys)
+    (length xs < length ys) && and (zipWith sameish xs ys)
+    where sameish a b = T.toLower a == T.toLower b
 
 -- | Check whether a module satisfies the name collision condition.
 --
