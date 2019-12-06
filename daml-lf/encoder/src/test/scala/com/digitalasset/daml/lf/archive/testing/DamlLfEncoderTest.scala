@@ -26,29 +26,31 @@ class DamlLfEncoderTest
     "be readable" in {
 
       val modules_1_0 = Set[DottedName](
-        "Bool",
-        "Date",
-        "Decimal",
-        "Int64",
-        "List",
-        "Party",
-        "Record",
-        "Text",
-        "Timestamp",
-        "Unit",
-        "Variant")
+        "UnitMod",
+        "BoolMod",
+        "Int64Mod",
+        "TextMod",
+        "DecimalMod",
+        "DateMod",
+        "TimestampMod",
+        "ListMod",
+        "PartyMod",
+        "RecordMod",
+        "VariantMod")
 
-      val modules_1_1 = modules_1_0 + "Option"
-      val modules_1_3 = modules_1_1 + "TextMap"
-      val module_1_7 = modules_1_3 + "Enum"
-      val modules_1_dev = module_1_7
+      val modules_1_1 = modules_1_0 + "OptionMod"
+      val modules_1_3 = modules_1_1 + "TextMapMod"
+      val modules_1_6 = modules_1_3 + "EnumMod"
+      val modules_1_7 = modules_1_6 + "NumericMod"
+      val modules_1_dev = modules_1_7 + "GenMapMod"
 
       val versions = Table(
-        "versions" -> "modues",
+        "versions" -> "modules",
         "1.0" -> modules_1_0,
         "1.1" -> modules_1_1,
         "1.3" -> modules_1_3,
-        "1.7" -> module_1_7,
+        "1.6" -> modules_1_6,
+        "1.7" -> modules_1_7,
         "1.dev" -> modules_1_dev
       )
 
@@ -67,12 +69,26 @@ class DamlLfEncoderTest
 
   }
 
-  private def getModules(dar: Dar[(PackageId, DamlLf.ArchivePayload)]) =
+  private val preInternalizationVersions = List.range(0, 7).map(_.toString).toSet
+
+  private def getModules(dar: Dar[(PackageId, DamlLf.ArchivePayload)]) = {
     for {
       pkgWithId <- dar.main +: dar.dependencies
       (_, pkg) = pkgWithId
-      segments <- pkg.getDamlLf1.getModulesList.asScala.map(_.getName.getSegmentsList.asScala)
+      version = pkg.getMinor
+      internedStrings = pkg.getDamlLf1.getInternedStringsList.asScala.toArray
+      dottedNames = pkg.getDamlLf1.getInternedDottedNamesList.asScala.map(
+        _.getSegmentsInternedStrList.asScala.map(internedStrings(_))
+      )
+      segments <- pkg.getDamlLf1.getModulesList.asScala.map(
+        mod =>
+          if (preInternalizationVersions(version))
+            mod.getNameDname.getSegmentsList.asScala
+          else
+            dottedNames(mod.getNameInternedDname)
+      )
     } yield DottedName.assertFromSegments(segments)
+  }
 
   private implicit def toDottedName(s: String): DottedName =
     DottedName.assertFromString(s)
