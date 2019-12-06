@@ -250,6 +250,7 @@ server_conformance_test(
 
 server_conformance_test(
     name = "conformance-test-lots-of-parties",
+    flaky = True,
     server_args = [
         "--static-time",
     ],

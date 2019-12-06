@@ -180,7 +180,7 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
         ("GREATER_EQ_INT64", (a, b) => Some(SBool(a >= b))),
         ("LESS_INT64", (a, b) => Some(SBool(a < b))),
         ("GREATER_INT64", (a, b) => Some(SBool(a > b))),
-        ("EQUAL_INT64", (a, b) => Some(SBool(a == b))),
+        ("EQUAL @Int64", (a, b) => Some(SBool(a == b))),
       )
 
       forEvery(testCases) { (builtin, ref) =>
@@ -359,7 +359,7 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
         ("GREATER_EQ_NUMERIC @10", (a, b) => Some(SBool(BigDecimal(a) >= BigDecimal(b)))),
         ("LESS_NUMERIC @10", (a, b) => Some(SBool(BigDecimal(a) < BigDecimal(b)))),
         ("GREATER_NUMERIC @10", (a, b) => Some(SBool(BigDecimal(a) > BigDecimal(b)))),
-        ("EQUAL_NUMERIC @10", (a, b) => Some(SBool(BigDecimal(a) == BigDecimal(b)))),
+        ("EQUAL @(Numeric 10)", (a, b) => Some(SBool(BigDecimal(a) == BigDecimal(b)))),
       )
 
       forEvery(testCases) { (builtin, ref) =>
@@ -469,12 +469,12 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
 
     "IMPLODE_TEXT" - {
       "works properly" in {
-        eval(e"""IMPLODE_TEXT (Cons @TEXT ["", "", ""] (Nil @TEXT)) """) shouldEqual Right(
+        eval(e"""IMPLODE_TEXT (Cons @Text ["", "", ""] (Nil @Text)) """) shouldEqual Right(
           SText(""))
-        eval(e"""IMPLODE_TEXT (Cons @TEXT ["a", "¶", "‱", "😂"] (Nil @TEXT)) """) shouldBe
+        eval(e"""IMPLODE_TEXT (Cons @Text ["a", "¶", "‱", "😂"] (Nil @Text)) """) shouldBe
           Right(SText("a¶‱😂"))
         eval(
-          e"""IMPLODE_TEXT Cons @TEXT ["IMPLODE_TEXT", " ", "works", " ", "properly"] Nil @TEXT """) shouldBe
+          e"""IMPLODE_TEXT Cons @Text ["IMPLODE_TEXT", " ", "works", " ", "properly"] Nil @Text """) shouldBe
           Right(SText("IMPLODE_TEXT works properly"))
       }
     }
@@ -531,7 +531,7 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
         ("GREATER_EQ_TEXT", (a, b) => Right(SBool(unicodeOrdering.gteq(a, b)))),
         ("LESS_TEXT", (a, b) => Right(SBool(unicodeOrdering.lt(a, b)))),
         ("GREATER_TEXT", (a, b) => Right(SBool(unicodeOrdering.gt(a, b)))),
-        ("EQUAL_TEXT", (a, b) => Right(SBool(a == b))),
+        ("EQUAL @Text", (a, b) => Right(SBool(a == b))),
       )
 
       forEvery(testCases) { (builtin, ref) =>
@@ -638,7 +638,7 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
         ("GREATER_EQ_TIMESTAMP", (a, b) => Right(SBool(a >= b))),
         ("LESS_TIMESTAMP", (a, b) => Right(SBool(a < b))),
         ("GREATER_TIMESTAMP", (a, b) => Right(SBool(a > b))),
-        ("EQUAL_TIMESTAMP", (a, b) => Right(SBool(a == b))),
+        ("EQUAL @Timestamp", (a, b) => Right(SBool(a == b))),
       )
 
       forEvery(testCases) { (builtin, ref) =>
@@ -686,7 +686,7 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
         ("GREATER_EQ_DATE", (a, b) => Right(SBool(a >= b))),
         ("LESS_DATE", (a, b) => Right(SBool(a < b))),
         ("GREATER_DATE", (a, b) => Right(SBool(a > b))),
-        ("EQUAL_DATE", (a, b) => Right(SBool(a == b))),
+        ("EQUAL @Date", (a, b) => Right(SBool(a == b))),
       )
 
       forEvery(testCases) { (builtin, ref) =>
@@ -707,10 +707,10 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
 
   "ContractId operations" - {
 
-    "EQUAL_CONTRACT_ID" - {
+    "EQUAL @ContractId" - {
       "works as expected" in {
-        eval(e"EQUAL_CONTRACT_ID @Mod:T 'contract1' 'contract1'") shouldEqual Right(SBool(true))
-        eval(e"EQUAL_CONTRACT_ID @Mod:T 'contract1' 'contract2'") shouldEqual Right(SBool(false))
+        eval(e"EQUAL @(ContractId Mod:T) 'contract1' 'contract1'") shouldEqual Right(SBool(true))
+        eval(e"EQUAL @(ContractId Mod:T) 'contract1' 'contract2'") shouldEqual Right(SBool(false))
       }
     }
 
@@ -737,7 +737,7 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
     "EQUAL_LIST" - {
       "works as expected" in {
         val sameParity =
-          """(\ (x:Int64) (y:Int64) -> EQUAL_INT64 (MOD_INT64 x 2) (MOD_INT64 y 2))"""
+          """(\ (x:Int64) (y:Int64) -> EQUAL @Int64 (MOD_INT64 x 2) (MOD_INT64 y 2))"""
 
         eval(e"EQUAL_LIST @Int64 $sameParity ${intList()} ${intList()}") shouldEqual Right(
           SBool(true))
@@ -1095,7 +1095,7 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
           eval(e"TIMESTAMP_TO_UNIX_MICROSECONDS $timestamp") shouldEqual Right(SInt64(int64))
           eval(e"UNIX_MICROSECONDS_TO_TIMESTAMP $int64") shouldEqual Right(
             STimestamp(Time.Timestamp.assertFromLong(int64)))
-          eval(e"EQUAL_TIMESTAMP (UNIX_MICROSECONDS_TO_TIMESTAMP $int64) $timestamp") shouldEqual Right(
+          eval(e"EQUAL @Timestamp (UNIX_MICROSECONDS_TO_TIMESTAMP $int64) $timestamp") shouldEqual Right(
             SBool(true))
         }
       }
@@ -1137,7 +1137,7 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
           eval(e"UNIX_DAYS_TO_DATE $int") shouldEqual Time.Date
             .asInt(int)
             .map(i => SDate(Time.Date.assertFromDaysSinceEpoch(i)))
-          eval(e"EQUAL_DATE (UNIX_DAYS_TO_DATE $int) $date") shouldEqual Right(SBool(true))
+          eval(e"EQUAL @Date (UNIX_DAYS_TO_DATE $int) $date") shouldEqual Right(SBool(true))
         }
       }
     }
@@ -1285,7 +1285,7 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
 
   }
 
-  "EQUAL_CONTRACT_ID" - {
+  "EQUAL @TypeRep" - {
 
     val values = Table(
       "values",
@@ -1298,14 +1298,14 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
 
     "is reflexive" in {
       forEvery(values)(v => {
-        val e = e"EQUAL_TYPE_REP $v $v"
+        val e = e"EQUAL @TypeRep $v $v"
         eval(e) shouldEqual Right(SBool(true))
       })
     }
 
     "works as expected" in {
       forEvery(values)(v1 =>
-        forEvery(values)(v2 => eval(e"EQUAL_TYPE_REP $v1 $v2") shouldEqual Right(SBool(v1 == v2))))
+        forEvery(values)(v2 => eval(e"EQUAL @TypeRep $v1 $v2") shouldEqual Right(SBool(v1 == v2))))
     }
   }
 

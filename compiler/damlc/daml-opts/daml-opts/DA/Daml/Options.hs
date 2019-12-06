@@ -63,13 +63,7 @@ toCompileOpts options@Options{..} reportProgress =
       , optDefer = Ghcide.IdeDefer False
       }
   where
-    toRenaming (pkgName, withImplicit, aliases) =
-        ( pkgName
-        , ModRenaming
-              withImplicit
-              [ (GHC.mkModuleName mod, GHC.mkModuleName alias)
-              | (mod, alias) <- aliases
-              ])
+    toRenaming PackageImport{..} = (pkgImportUnitId, ModRenaming pkgImportExposeImplicit pkgImportModRenamings)
     locateInPkgDb :: String -> PackageConfig -> GHC.Module -> IO (Maybe FilePath)
     locateInPkgDb ext pkgConfig mod
       | (importDir : _) <- importDirs pkgConfig = do
@@ -102,7 +96,7 @@ getPackageDynFlags DynFlags{..} = PackageDynFlags
     , pdfThisUnitIdInsts = thisUnitIdInsts_
     }
 
-generatePackageState :: [FilePath] -> Bool -> [(String, ModRenaming)] -> IO PackageDynFlags
+generatePackageState :: [FilePath] -> Bool -> [(UnitId, ModRenaming)] -> IO PackageDynFlags
 generatePackageState paths hideAllPkgs pkgImports = do
   let dflags = setPackageImports hideAllPkgs pkgImports $ setPackageDbs paths fakeDynFlags
   (newDynFlags, _) <- initPackages dflags
@@ -122,10 +116,11 @@ setPackageDbs paths dflags =
         }
     }
 
-setPackageImports :: Bool -> [(String, ModRenaming)] -> DynFlags -> DynFlags
+setPackageImports :: Bool -> [(UnitId, ModRenaming)] -> DynFlags -> DynFlags
 setPackageImports hideAllPkgs pkgImports dflags = dflags {
     packageFlags = packageFlags dflags ++
-        [ExposePackage pkgName (UnitIdArg $ stringToUnitId pkgName) renaming
+        [ExposePackage ("-package " <> unitIdString pkgName) (UnitIdArg pkgName) renaming
+        -- The first string is only used in error messages.
         | (pkgName, renaming) <- pkgImports
         ]
     , generalFlags = if hideAllPkgs

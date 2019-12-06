@@ -16,7 +16,6 @@ import com.digitalasset.daml.lf.language.{LanguageVersion => LV}
 import com.digitalasset.daml_lf_dev.{DamlLf1 => PLF}
 import com.google.protobuf.CodedInputStream
 
-import scala.annotation.tailrec
 import scala.collection.JavaConverters._
 import scala.collection.{breakOut, mutable}
 
@@ -671,10 +670,7 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
           val info = DecodeV1.builtinInfoMap(lfExpr.getBuiltin)
           assertSince(info.minVersion, lfExpr.getBuiltin.getValueDescriptor.getFullName)
           info.maxVersion.foreach(assertUntil(_, lfExpr.getBuiltin.getValueDescriptor.getFullName))
-          ntimes[Expr](
-            info.implicitDecimalScaleParameters,
-            ETyApp(_, TDecimalScale),
-            EBuiltin(info.builtin))
+          info.expr
 
         case PLF.Expr.SumCase.REC_CON =>
           val recCon = lfExpr.getRecCon
@@ -1201,10 +1197,6 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
 
 private[lf] object DecodeV1 {
 
-  @tailrec
-  private def ntimes[A](n: Int, f: A => A, a: A): A =
-    if (n == 0) a else ntimes(n - 1, f, f(a))
-
   private def eitherToParseError[A](x: Either[String, A]): A =
     x.fold(err => throw new ParseError(err), identity)
 
@@ -1251,8 +1243,10 @@ private[lf] object DecodeV1 {
       builtin: BuiltinFunction,
       minVersion: LV = LV.Features.default, // first version that does support the builtin
       maxVersion: Option[LV] = None, // first version that does not support the builtin
-      implicitDecimalScaleParameters: Int = 0
-  )
+      implicitParameters: List[Type] = List.empty
+  ) {
+    val expr: Expr = implicitParameters.foldLeft[Expr](EBuiltin(builtin))(ETyApp)
+  }
 
   val builtinFunctionInfos: List[BuiltinFunctionInfo] = {
     import PLF.BuiltinFunction._, LV.Features._
@@ -1261,31 +1255,31 @@ private[lf] object DecodeV1 {
         ADD_DECIMAL,
         BAddNumeric,
         maxVersion = Some(numeric),
-        implicitDecimalScaleParameters = 1
+        implicitParameters = List(TNat.Decimal)
       ),
       BuiltinFunctionInfo(
         SUB_DECIMAL,
         BSubNumeric,
         maxVersion = Some(numeric),
-        implicitDecimalScaleParameters = 1
+        implicitParameters = List(TNat.Decimal)
       ),
       BuiltinFunctionInfo(
         MUL_DECIMAL,
         BMulNumeric,
         maxVersion = Some(numeric),
-        implicitDecimalScaleParameters = 3
+        implicitParameters = List(TNat.Decimal, TNat.Decimal, TNat.Decimal)
       ),
       BuiltinFunctionInfo(
         DIV_DECIMAL,
         BDivNumeric,
         maxVersion = Some(numeric),
-        implicitDecimalScaleParameters = 3
+        implicitParameters = List(TNat.Decimal, TNat.Decimal, TNat.Decimal)
       ),
       BuiltinFunctionInfo(
         ROUND_DECIMAL,
         BRoundNumeric,
         maxVersion = Some(numeric),
-        implicitDecimalScaleParameters = 1
+        implicitParameters = List(TNat.Decimal)
       ),
       BuiltinFunctionInfo(ADD_NUMERIC, BAddNumeric, minVersion = numeric),
       BuiltinFunctionInfo(SUB_NUMERIC, BSubNumeric, minVersion = numeric),
@@ -1304,13 +1298,13 @@ private[lf] object DecodeV1 {
         INT64_TO_DECIMAL,
         BInt64ToNumeric,
         maxVersion = Some(numeric),
-        implicitDecimalScaleParameters = 1
+        implicitParameters = List(TNat.Decimal)
       ),
       BuiltinFunctionInfo(
         DECIMAL_TO_INT64,
         BNumericToInt64,
         maxVersion = Some(numeric),
-        implicitDecimalScaleParameters = 1
+        implicitParameters = List(TNat.Decimal)
       ),
       BuiltinFunctionInfo(INT64_TO_NUMERIC, BInt64ToNumeric, minVersion = numeric),
       BuiltinFunctionInfo(NUMERIC_TO_INT64, BNumericToInt64, minVersion = numeric),
@@ -1336,7 +1330,7 @@ private[lf] object DecodeV1 {
         LEQ_DECIMAL,
         BLessEqNumeric,
         maxVersion = Some(numeric),
-        implicitDecimalScaleParameters = 1
+        implicitParameters = List(TNat.Decimal)
       ),
       BuiltinFunctionInfo(LEQ_NUMERIC, BLessEqNumeric, minVersion = numeric),
       BuiltinFunctionInfo(LEQ_TEXT, BLessEqText),
@@ -1347,7 +1341,7 @@ private[lf] object DecodeV1 {
         GEQ_DECIMAL,
         BGreaterEqNumeric,
         maxVersion = Some(numeric),
-        implicitDecimalScaleParameters = 1
+        implicitParameters = List(TNat.Decimal)
       ),
       BuiltinFunctionInfo(GEQ_NUMERIC, BGreaterEqNumeric, minVersion = numeric),
       BuiltinFunctionInfo(GEQ_TEXT, BGreaterEqText),
@@ -1358,7 +1352,7 @@ private[lf] object DecodeV1 {
         LESS_DECIMAL,
         BLessNumeric,
         maxVersion = Some(numeric),
-        implicitDecimalScaleParameters = 1
+        implicitParameters = List(TNat.Decimal)
       ),
       BuiltinFunctionInfo(LESS_NUMERIC, BLessNumeric, minVersion = numeric),
       BuiltinFunctionInfo(LESS_TEXT, BLessText),
@@ -1369,7 +1363,7 @@ private[lf] object DecodeV1 {
         GREATER_DECIMAL,
         BGreaterNumeric,
         maxVersion = Some(numeric),
-        implicitDecimalScaleParameters = 1
+        implicitParameters = List(TNat.Decimal)
       ),
       BuiltinFunctionInfo(GREATER_NUMERIC, BGreaterNumeric, minVersion = numeric),
       BuiltinFunctionInfo(GREATER_TEXT, BGreaterText),
@@ -1380,7 +1374,7 @@ private[lf] object DecodeV1 {
         TO_TEXT_DECIMAL,
         BToTextNumeric,
         maxVersion = Some(numeric),
-        implicitDecimalScaleParameters = 1
+        implicitParameters = List(TNat.Decimal)
       ),
       BuiltinFunctionInfo(TO_TEXT_NUMERIC, BToTextNumeric, minVersion = numeric),
       BuiltinFunctionInfo(TO_TEXT_TIMESTAMP, BToTextTimestamp),
@@ -1393,7 +1387,7 @@ private[lf] object DecodeV1 {
       BuiltinFunctionInfo(
         FROM_TEXT_DECIMAL,
         BFromTextNumeric,
-        implicitDecimalScaleParameters = 1,
+        implicitParameters = List(TNat.Decimal),
         minVersion = numberParsing,
         maxVersion = Some(numeric)),
       BuiltinFunctionInfo(FROM_TEXT_NUMERIC, BFromTextNumeric, minVersion = numeric),
@@ -1410,22 +1404,31 @@ private[lf] object DecodeV1 {
       BuiltinFunctionInfo(UNIX_DAYS_TO_DATE, BUnixDaysToDate),
       BuiltinFunctionInfo(UNIX_MICROSECONDS_TO_TIMESTAMP, BUnixMicrosecondsToTimestamp),
       BuiltinFunctionInfo(GREATER_DATE, BGreaterDate),
-      BuiltinFunctionInfo(EQUAL_INT64, BEqualInt64),
       BuiltinFunctionInfo(
         EQUAL_DECIMAL,
         BEqualNumeric,
         maxVersion = Some(numeric),
-        implicitDecimalScaleParameters = 1
+        implicitParameters = List(TNat.Decimal)
       ),
-      BuiltinFunctionInfo(EQUAL_NUMERIC, BEqualNumeric, minVersion = numeric),
-      BuiltinFunctionInfo(EQUAL_TEXT, BEqualText),
-      BuiltinFunctionInfo(EQUAL_TIMESTAMP, BEqualTimestamp),
-      BuiltinFunctionInfo(EQUAL_DATE, BEqualDate),
-      BuiltinFunctionInfo(EQUAL_PARTY, BEqualParty),
-      BuiltinFunctionInfo(EQUAL_BOOL, BEqualBool),
+      BuiltinFunctionInfo(EQUAL, BEqual),
       BuiltinFunctionInfo(EQUAL_LIST, BEqualList),
+      // FIXME https://github.com/digital-asset/daml/issues/3752
+      // Constrain max version of the following 'EQUAL_' builtin once
+      // generic equality is handled by the compiler
+      BuiltinFunctionInfo(EQUAL_INT64, BEqual, implicitParameters = List(TInt64)),
+      BuiltinFunctionInfo(EQUAL_NUMERIC, BEqualNumeric, minVersion = numeric),
+      BuiltinFunctionInfo(EQUAL_TEXT, BEqual, implicitParameters = List(TText)),
+      BuiltinFunctionInfo(EQUAL_TIMESTAMP, BEqual, implicitParameters = List(TTimestamp)),
+      BuiltinFunctionInfo(EQUAL_DATE, BEqual, implicitParameters = List(TDate)),
+      BuiltinFunctionInfo(EQUAL_PARTY, BEqual, implicitParameters = List(TParty)),
+      BuiltinFunctionInfo(EQUAL_BOOL, BEqual, implicitParameters = List(TBool)),
       BuiltinFunctionInfo(EQUAL_CONTRACT_ID, BEqualContractId),
-      BuiltinFunctionInfo(EQUAL_TYPE_REP, BEqualTypeRep),
+      BuiltinFunctionInfo(
+        EQUAL_TYPE_REP,
+        BEqual,
+        minVersion = typeRep,
+        implicitParameters = List(TTypeRep)),
+      //
       BuiltinFunctionInfo(TRACE, BTrace),
       BuiltinFunctionInfo(COERCE_CONTRACT_ID, BCoerceContractId, minVersion = coerceContractId),
       BuiltinFunctionInfo(TEXT_TO_UPPER, BTextToUpper, minVersion = unstable),
