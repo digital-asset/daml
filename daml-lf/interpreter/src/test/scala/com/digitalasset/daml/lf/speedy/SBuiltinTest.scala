@@ -1285,7 +1285,7 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
 
   }
 
-  "EQUAL @(TypeRep)" - {
+  "EQUAL @TypeRep" - {
 
     val values = Table(
       "values",
