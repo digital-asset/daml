@@ -79,6 +79,10 @@ package object v1 {
   val ApplicationId: Ref.LedgerString.type = Ref.LedgerString
   type ApplicationId = Ref.LedgerString
 
+  /** Identifiers used to correlate admin submission with results. */
+  val SubmissionId: Ref.LedgerString.type = Ref.LedgerString
+  type SubmissionId = Ref.LedgerString
+
   /** Identifiers for nodes in a transaction. */
   type NodeId = Transaction.NodeId
 

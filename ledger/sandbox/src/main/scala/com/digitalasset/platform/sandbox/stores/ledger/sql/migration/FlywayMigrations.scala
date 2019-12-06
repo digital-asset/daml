@@ -19,7 +19,7 @@ class FlywayMigrations(jdbcUrl: String, loggerFactory: NamedLoggerFactory) {
 
   private val dbType = DbType.jdbcType(jdbcUrl)
   private def newDataSource =
-    HikariConnection.createDataSource(jdbcUrl, "Flyway-Pool", 2, 2, 250.millis)
+    HikariConnection.createDataSource(jdbcUrl, "Flyway-Pool", 2, 2, 250.millis, None)
 
   def validate(): Unit = {
     val ds = newDataSource

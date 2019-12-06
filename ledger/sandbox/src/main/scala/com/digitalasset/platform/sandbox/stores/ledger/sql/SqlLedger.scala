@@ -40,7 +40,7 @@ import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{
   ValueSerializer
 }
 import com.digitalasset.platform.sandbox.stores.ledger.sql.util.DbDispatcher
-import com.digitalasset.platform.sandbox.stores.ledger.{Ledger, LedgerEntry}
+import com.digitalasset.platform.sandbox.stores.ledger.{Ledger, LedgerEntry, PartyLedgerEntry}
 import com.digitalasset.platform.sandbox.stores.{InMemoryActiveLedgerState, InMemoryPackageStore}
 import scalaz.syntax.tag._
 
@@ -64,7 +64,6 @@ object SqlStartMode {
 object SqlLedger {
 
   val defaultNumberOfShortLivedConnections = 16
-  val defaultNumberOfStreamingConnections = 2
 
   private case class Offsets(offset: Long, nextOffset: Long)
 
@@ -97,7 +96,6 @@ object SqlLedger {
     val dbDispatcher = DbDispatcher.start(
       jdbcUrl,
       noOfShortLivedConnections,
-      defaultNumberOfStreamingConnections,
       loggerFactory,
       metrics,
     )
@@ -312,17 +310,31 @@ private final class SqlLedger(
         case Failure(f) => Failure(f)
       }(DEC)
 
-  override def allocateParty(
+  override def publishPartyAllocation(
+      submissionId: SubmissionId,
       party: Party,
-      displayName: Option[String]): Future[PartyAllocationResult] =
-    ledgerDao
-      .storeParty(party, displayName, None)
-      .map {
-        case PersistenceResponse.Ok =>
-          PartyAllocationResult.Ok(PartyDetails(party, displayName, true))
-        case PersistenceResponse.Duplicate =>
-          PartyAllocationResult.AlreadyExists
-      }(DEC)
+      displayName: Option[String]): Future[SubmissionResult] = {
+    enqueue { offsets =>
+      ledgerDao
+        .storePartyEntry(
+          offsets.offset,
+          offsets.nextOffset,
+          None,
+          PartyLedgerEntry.AllocationAccepted(
+            Some(submissionId),
+            participantId,
+            timeProvider.getCurrentTime,
+            PartyDetails(party, displayName, true))
+        )
+        .map(_ => ())(DEC)
+        .recover {
+          case t =>
+            //recovering from the failure so the persistence stream doesn't die
+            logger.error(s"Failed to persist party $party with offsets: $offsets", t)
+            ()
+        }(DEC)
+    }
+  }
 
   override def uploadPackages(
       knownSince: Instant,
@@ -491,8 +503,7 @@ private final class SqlLedgerFactory(ledgerDao: LedgerDao, loggerFactory: NamedL
                 }
               })
 
-              @SuppressWarnings(Array("org.wartremover.warts.ExplicitImplicitTypes"))
-              implicit val ec = DEC
+              implicit val ec: ExecutionContext = DEC
               for {
                 _ <- doInit(initialId)
                 _ <- copyPackages(packages, timeProvider.getCurrentTime)

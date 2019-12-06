@@ -20,7 +20,11 @@ import com.digitalasset.ledger.api.health.HealthStatus
 import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilter
 import com.digitalasset.platform.sandbox.metrics.timedFuture
 import com.digitalasset.platform.sandbox.stores.ActiveLedgerState.{ActiveContract, Contract}
-import com.digitalasset.platform.sandbox.stores.ledger.{ConfigurationEntry, LedgerEntry}
+import com.digitalasset.platform.sandbox.stores.ledger.{
+  ConfigurationEntry,
+  LedgerEntry,
+  PartyLedgerEntry
+}
 
 import scala.collection.immutable
 import scala.concurrent.Future
@@ -85,6 +89,11 @@ private class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: MetricRegi
   override def getParties: Future[List[PartyDetails]] =
     timedFuture(Metrics.getParties, ledgerDao.getParties)
 
+  override def getPartyEntries(
+      startInclusive: LedgerOffset,
+      endExclusive: LedgerOffset): Source[(LedgerOffset, PartyLedgerEntry), NotUsed] =
+    ledgerDao.getPartyEntries(startInclusive, endExclusive)
+
   override def listLfPackages: Future[Map[PackageId, PackageDetails]] =
     timedFuture(Metrics.listLfPackages, ledgerDao.listLfPackages)
 
@@ -111,7 +120,7 @@ private class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: MetricRegistry)
     with LedgerDao {
 
   private object Metrics {
-    val storeParty: Timer = metrics.timer("LedgerDao.storeParty")
+    val storePartyEntry: Timer = metrics.timer("LedgerDao.storePartyEntry")
     val storeInitialState: Timer = metrics.timer("LedgerDao.storeInitialState")
     val uploadLfPackages: Timer = metrics.timer("LedgerDao.uploadLfPackages")
     val storeLedgerEntry: Timer = metrics.timer("LedgerDao.storeLedgerEntry")
@@ -144,11 +153,14 @@ private class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: MetricRegistry)
   override def reset(): Future[Unit] =
     ledgerDao.reset()
 
-  override def storeParty(
-      party: Party,
-      displayName: Option[String],
-      externalOffset: Option[ExternalOffset]): Future[PersistenceResponse] =
-    timedFuture(Metrics.storeParty, ledgerDao.storeParty(party, displayName, externalOffset))
+  override def storePartyEntry(
+      offset: LedgerOffset,
+      newLedgerEnd: LedgerOffset,
+      externalOffset: Option[ExternalOffset],
+      partyEntry: PartyLedgerEntry): Future[PersistenceResponse] =
+    timedFuture(
+      Metrics.storePartyEntry,
+      ledgerDao.storePartyEntry(offset, newLedgerEnd, externalOffset, partyEntry))
 
   override def storeConfigurationEntry(
       offset: LedgerOffset,

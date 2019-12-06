@@ -23,12 +23,7 @@ import com.digitalasset.platform.common.util.DirectExecutionContext
 import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilter
 import com.digitalasset.platform.sandbox.stores.ActiveLedgerState
 import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.LedgerReadDao
-import com.digitalasset.platform.sandbox.stores.ledger.{
-  LedgerEntry,
-  LedgerSnapshot,
-  ReadOnlyLedger,
-  ConfigurationEntry
-}
+import com.digitalasset.platform.sandbox.stores.ledger._
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
@@ -81,6 +76,9 @@ class BaseLedger(val ledgerId: LedgerId, headAtInitialization: Long, ledgerDao: 
 
   override def parties: Future[List[domain.PartyDetails]] =
     ledgerDao.getParties
+
+  override def partyEntries(beginOffset: Long): Source[(Long, PartyLedgerEntry), NotUsed] =
+    dispatcher.startingAt(beginOffset, RangeSource(ledgerDao.getPartyEntries))
 
   override def listLfPackages(): Future[Map[PackageId, v2.PackageDetails]] =
     ledgerDao.listLfPackages

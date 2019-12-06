@@ -10,8 +10,12 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.index.v2.PackageDetails
-import com.daml.ledger.participant.state.v1.{AbsoluteContractInst, TransactionId}
-import com.daml.ledger.participant.state.v1.{Configuration, ParticipantId, TransactionId}
+import com.daml.ledger.participant.state.v1.{
+  AbsoluteContractInst,
+  Configuration,
+  ParticipantId,
+  TransactionId
+}
 import com.digitalasset.daml.lf.data.Ref.{LedgerString, PackageId, Party}
 import com.digitalasset.daml.lf.data.Relation.Relation
 import com.digitalasset.daml.lf.transaction.Node
@@ -24,7 +28,11 @@ import com.digitalasset.ledger.api.health.ReportsHealth
 import com.digitalasset.platform.common.util.DirectExecutionContext
 import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilter
 import com.digitalasset.platform.sandbox.stores.ActiveLedgerState.{ActiveContract, Contract}
-import com.digitalasset.platform.sandbox.stores.ledger.{ConfigurationEntry, LedgerEntry}
+import com.digitalasset.platform.sandbox.stores.ledger.{
+  ConfigurationEntry,
+  LedgerEntry,
+  PartyLedgerEntry
+}
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry.Transaction
 
 import scala.collection.immutable
@@ -149,6 +157,10 @@ trait LedgerReadDao extends AutoCloseable with ReportsHealth {
   /** Returns a list of all known parties. */
   def getParties: Future[List[PartyDetails]]
 
+  def getPartyEntries(
+      startInclusive: LedgerOffset,
+      endExclusive: LedgerOffset): Source[(LedgerOffset, PartyLedgerEntry), NotUsed]
+
   /** Returns a list of all known DAML-LF packages */
   def listLfPackages: Future[Map[PackageId, PackageDetails]]
 
@@ -200,17 +212,18 @@ trait LedgerWriteDao extends AutoCloseable with ReportsHealth {
   ): Future[Unit]
 
   /**
-    * Explicitly adds a new party to the list of known parties.
+    * Stores a party allocation or rejection thereof.
     *
-    * @param party The party identifier
-    * @param displayName The human readable display name
-    * @return
+    * @param offset       the offset to store the party entry
+    * @param newLedgerEnd the new ledger end, valid after this operation finishes
+    * @param partyEntry  the PartyEntry to be stored
+    * @return Ok when the operation was successful otherwise a Duplicate
     */
-  def storeParty(
-      party: Party,
-      displayName: Option[String],
-      externalOffset: Option[ExternalOffset]
-  ): Future[PersistenceResponse]
+  def storePartyEntry(
+      offset: LedgerOffset,
+      newLedgerEnd: LedgerOffset,
+      externalOffset: Option[ExternalOffset],
+      partyEntry: PartyLedgerEntry): Future[PersistenceResponse]
 
   /**
     * Store a configuration change or rejection.

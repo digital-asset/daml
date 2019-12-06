@@ -290,4 +290,20 @@ object domain {
     * @param isLocal True if party is hosted by the backing participant.
     */
   case class PartyDetails(party: Ref.Party, displayName: Option[String], isLocal: Boolean)
+
+  sealed abstract class PartyEntry() extends Product with Serializable
+
+  object PartyEntry {
+    final case class AllocationAccepted(
+        submissionId: Option[String],
+        participantId: ParticipantId,
+        partyDetails: PartyDetails
+    ) extends PartyEntry
+
+    final case class AllocationRejected(
+        submissionId: String,
+        participantId: ParticipantId,
+        reason: String
+    ) extends PartyEntry
+  }
 }

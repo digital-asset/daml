@@ -17,12 +17,13 @@ import org.scalatest.prop.{GeneratorDrivenPropertyChecks, TableDrivenPropertyChe
 import org.scalatest.{Matchers, WordSpec}
 import spray.json._
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
+@SuppressWarnings(Array("org.wartremover.warts.Any", "org.wartremover.warts.NonUnitStatements"))
 class ValuePredicateTest
     extends WordSpec
     with Matchers
     with GeneratorDrivenPropertyChecks
     with TableDrivenPropertyChecks {
+  import ValuePredicateTest._
   type Cid = V.AbsoluteContractId
   private[this] val genCid = Gen.zip(Gen.alphaChar, Gen.alphaStr) map {
     case (h, t) => V.AbsoluteContractId(Ref.ContractIdString assertFromString (h +: t))
@@ -36,11 +37,11 @@ class ValuePredicateTest
   private[this] def valueAndTypeInObject(
       v: V[Cid],
       ty: iface.Type): (V[Cid], ValuePredicate.TypeLookup) =
-    (
-      V.ValueRecord(Some(dummyId), ImmArray((Some(dummyFieldName), v))),
-      Map(
-        dummyId -> iface
-          .DefDataType(ImmArraySeq.empty, iface.Record(ImmArraySeq((dummyFieldName, ty))))).lift)
+    (V.ValueRecord(Some(dummyId), ImmArray((Some(dummyFieldName), v))), typeInObject(ty))
+  private[this] def typeInObject(ty: iface.Type): ValuePredicate.TypeLookup =
+    Map(
+      dummyId -> iface
+        .DefDataType(ImmArraySeq.empty, iface.Record(ImmArraySeq((dummyFieldName, ty))))).lift
 
   "fromJsObject" should {
     def c(query: String, ty: VA)(expected: ty.Inj[Cid], shouldMatch: Boolean)(
@@ -145,5 +146,43 @@ class ValuePredicateTest
         vp.toFunPredicate(wrappedExpected) shouldBe true
       }
     }
+
+    val sqlWheres = {
+      import doobie.implicits._, dbbackend.Queries.Implicits._
+      Table(
+        ("query", "type", "sql"),
+        ("42", VA.int64, sql"create_arguments = ${s"""{"$dummyFieldName":42}""".parseJson}::jsonb"),
+        (
+          """{"%lte": 42}""",
+          VA.int64,
+          sql"create_arguments->${"foo": String} <= ${JsNumber(42): JsValue}::jsonb AND create_arguments @> ${JsObject(): JsValue}::jsonb"),
+      )
+    }
+
+    "compile to SQL" in forEvery(sqlWheres) { (query, va, sql: doobie.Fragment) =>
+      val defs = typeInObject(va.t)
+      val vp = ValuePredicate.fromJsObject(
+        Map((dummyFieldName: String) -> query.parseJson),
+        dummyTypeCon,
+        defs)
+      val frag = vp.toSqlWhereClause
+      frag.toString should ===(sql.toString)
+      import language.reflectiveCalls
+      flattenFragmentExistential(frag.asInstanceOf[{ def a: AnyRef }].a) should ===(
+        flattenFragmentExistential(sql.asInstanceOf[{ def a: AnyRef }].a))
+    }
+  }
+}
+
+object ValuePredicateTest {
+  import shapeless.{::, HNil}
+
+  /** Flatten tuples and hlists in Fragment.a. */
+  @SuppressWarnings(Array("org.wartremover.warts.Any"))
+  private def flattenFragmentExistential(v: Any): Seq[Any] = v match {
+    case (l, r) => flattenFragmentExistential(l) ++ flattenFragmentExistential(r)
+    case hd :: tl => hd +: flattenFragmentExistential(tl)
+    case HNil => Seq.empty
+    case x => Seq(x)
   }
 }

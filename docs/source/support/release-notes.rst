@@ -6,6 +6,66 @@ Release notes
 
 This page contains release notes for the SDK.
 
+.. _release-0-13-39:
+
+0.13.39 - 2019-12-05
+--------------------
+
+Java Bindings
+~~~~~~~~~~~~~
+
+- Added authentication support. See
+  `issue #3626 <https://github.com/digital-asset/daml/issues/3626>`__.
+
+DAML Compiler
+~~~~~~~~~~~~~
+
+- The modules ``GHC.Prim`` and ``GHC.Types`` from ``daml-prim``
+  have been moved to separate packages.
+- Don't make `UndecidableSuperClasses` a default language extension
+  for DAML anymore. If you really need this feature for a module,
+  you can reenable it using a `LANGUAGE` pragma at the top.
+
+DAML SDK
+~~~~~~~~
+
+- Reduced the size of the DAML SDK by about 60% uncompressed, 70%
+  compressed, by deduplicating Scala dependencies.
+- ``daml damlc docs`` now takes into account the project's
+  ``build-options`` from ``daml.yaml``.
+- ``daml ledger navigator`` now loads ``frontend-config.js`` properly.
+
+Navigator
+~~~~~~~~~
+
+- Explicit config files passed via ``-c`` are preferred
+  over ``daml.yaml``.
+
+Ledger API Server
+~~~~~~~~~~~~~~~~~
+
+- Add a health check endpoint conforming to the
+  `GRPC Health Checking Protocol <https://github.com/grpc/grpc/blob/master/doc/health-checking.md>`_.
+- Add health checks for index database connectivity.
+
+Participant State API
+~~~~~~~~~~~~~~~~~~~~~
+
+- Add a mandatory ``currentHealth()`` method to ``IndexService``,
+  ``ReadService`` and ``WriteService``.
+
+
+DAML Triggers - Experimental
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- DAML triggers can now be run against an authenticated ledger.
+
+DAML Script - Experimental
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- Add createAndExerciseCmd matching the Ledger API command of the same name.
+
+
 .. _release-0-13-38:
 
 0.13.38 - 2019-11-29
@@ -415,7 +475,7 @@ DAML Standard Library
   can be used for computations that modify a state variable.
 
 - Add ``createAndExercise``.
-  
+
 DAML Compiler
 ~~~~~~~~~~~~~
 
@@ -468,7 +528,7 @@ DAML-LF
      This package contains the java classes generated from the package
      `com.digitalasset.daml-lf-1.6-archive-proto`
 
-     
+
 DAML Triggers
 ~~~~~~~~~~~~~
 

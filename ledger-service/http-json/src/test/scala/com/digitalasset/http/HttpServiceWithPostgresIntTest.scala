@@ -4,8 +4,9 @@
 package com.digitalasset.http
 
 import com.digitalasset.platform.sandbox.persistence.PostgresAroundAll
-import spray.json.JsValue
+import spray.json.{JsString, JsValue}
 import com.digitalasset.http.Statement.discard
+
 import scala.concurrent.Future
 
 class HttpServiceWithPostgresIntTest
@@ -40,8 +41,15 @@ class HttpServiceWithPostgresIntTest
       encoder
     ).flatMap { searchResult: List[domain.ActiveContract[JsValue]] =>
       discard { searchResult should have size 2 }
-      selectAllDbContracts.flatMap { list =>
-        list should have size searchDataSet.size.toLong
+      discard { searchResult.map(getField("currency")) shouldBe List.fill(2)(JsString("EUR")) }
+      selectAllDbContracts.flatMap { listFromDb =>
+        discard { listFromDb should have size searchDataSet.size.toLong }
+        val actualCurrencyValues: List[String] = listFromDb
+          .flatMap { case (_, args, _) => args.asJsObject().getFields("currency") }
+          .collect { case JsString(a) => a }
+        val expectedCurrencyValues = List("EUR", "EUR", "GBP", "BTC")
+        // the initial create commands submitted asynchronously, we don't know the exact order, that is why sorted
+        actualCurrencyValues.sorted shouldBe expectedCurrencyValues.sorted
       }
     }
   }
@@ -57,4 +65,10 @@ class HttpServiceWithPostgresIntTest
 
     dao.transact(q.to[List]).unsafeToFuture()
   }
+
+  private def getField(k: String)(a: domain.ActiveContract[JsValue]): JsValue =
+    a.argument.asJsObject().getFields(k) match {
+      case Seq(x) => x
+      case xs @ _ => fail(s"Expected exactly one value, got: $xs")
+    }
 }

@@ -20,16 +20,12 @@ import com.digitalasset.daml.lf.engine.Blinding
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractId}
 import com.digitalasset.daml_lf_dev.DamlLf
 import com.digitalasset.ledger.api.domain
-import com.digitalasset.ledger.api.domain.LedgerId
+import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails}
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.common.util.{DirectExecutionContext => DEC}
 import com.digitalasset.platform.sandbox.metrics.timedFuture
 import com.digitalasset.platform.sandbox.services.transaction.SandboxEventIdFormatter
-import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry
-import com.digitalasset.platform.sandbox.stores.ledger.sql.SqlLedger.{
-  defaultNumberOfShortLivedConnections,
-  defaultNumberOfStreamingConnections
-}
+import com.digitalasset.platform.sandbox.stores.ledger.sql.SqlLedger.defaultNumberOfShortLivedConnections
 import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.{
   DbType,
   JdbcLedgerDao,
@@ -44,6 +40,7 @@ import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{
   ValueSerializer
 }
 import com.digitalasset.platform.sandbox.stores.ledger.sql.util.DbDispatcher
+import com.digitalasset.platform.sandbox.stores.ledger.{LedgerEntry, PartyLedgerEntry}
 import scalaz.syntax.tag._
 
 import scala.concurrent.duration._
@@ -79,7 +76,7 @@ class JdbcIndexerFactory[Status <: InitStatus] private (
   }
 
   def create(
-      participantId: String,
+      participantId: ParticipantId,
       actorSystem: ActorSystem,
       readService: ReadService,
       jdbcUrl: String)(implicit x: Status =:= Initialized): Future[JdbcIndexer] = {
@@ -99,7 +96,7 @@ class JdbcIndexerFactory[Status <: InitStatus] private (
       ledgerEnd <- ledgerDao.lookupLedgerEnd()
       externalOffset <- ledgerDao.lookupExternalLedgerEnd()
     } yield {
-      new JdbcIndexer(ledgerEnd, externalOffset, ledgerDao, metrics)(materializer) {
+      new JdbcIndexer(ledgerEnd, externalOffset, participantId, ledgerDao, metrics)(materializer) {
         override def close(): Unit = {
           super.close()
           materializer.shutdown()
@@ -119,7 +116,6 @@ class JdbcIndexerFactory[Status <: InitStatus] private (
       DbDispatcher.start(
         jdbcUrl,
         if (dbType.supportsParallelWrites) defaultNumberOfShortLivedConnections else 1,
-        defaultNumberOfStreamingConnections,
         loggerFactory,
         metrics,
       )
@@ -171,6 +167,7 @@ class JdbcIndexerFactory[Status <: InitStatus] private (
 class JdbcIndexer private[index] (
     initialInternalOffset: Long,
     beginAfterExternalOffset: Option[LedgerString],
+    participantId: ParticipantId,
     ledgerDao: LedgerDao,
     metrics: MetricRegistry)(implicit mat: Materializer)
     extends Indexer
@@ -260,8 +257,43 @@ class JdbcIndexer private[index] (
             PersistenceEntry.Checkpoint(LedgerEntry.Checkpoint(recordTime.toInstant)))
           .map(_ => headRef = headRef + 1)(DEC)
 
-      case PartyAddedToParticipant(party, displayName, _, _) =>
-        ledgerDao.storeParty(party, Some(displayName), externalOffset).map(_ => ())(DEC)
+      case PartyAddedToParticipant(
+          party,
+          displayName,
+          hostingParticipantId,
+          recordTime,
+          submissionId) =>
+        ledgerDao
+          .storePartyEntry(
+            headRef,
+            headRef + 1,
+            externalOffset,
+            PartyLedgerEntry.AllocationAccepted(
+              submissionId,
+              hostingParticipantId,
+              recordTime.toInstant,
+              PartyDetails(party, Some(displayName), this.participantId == hostingParticipantId))
+          )
+          .map(_ => headRef = headRef + 1)(DEC)
+
+      case PartyAllocationRejected(
+          submissionId,
+          hostingParticipantId,
+          recordTime,
+          rejectionReason) =>
+        ledgerDao
+          .storePartyEntry(
+            headRef,
+            headRef + 1,
+            externalOffset,
+            PartyLedgerEntry.AllocationRejected(
+              submissionId,
+              hostingParticipantId,
+              recordTime.toInstant,
+              rejectionReason
+            )
+          )
+          .map(_ => headRef = headRef + 1)(DEC)
 
       case PublicPackageUploaded(archive, sourceDescription, _, _) =>
         val uploadId = UUID.randomUUID().toString

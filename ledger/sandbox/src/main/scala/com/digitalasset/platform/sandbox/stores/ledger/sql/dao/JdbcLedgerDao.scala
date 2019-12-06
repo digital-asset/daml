@@ -7,12 +7,12 @@ import java.sql.Connection
 import java.time.Instant
 import java.util.Date
 
+import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
-import akka.{Done, NotUsed}
 import anorm.SqlParser._
 import anorm.ToStatement.optionToStatement
-import anorm.{AkkaStream, BatchSql, Macro, NamedParameter, RowParser, SQL, SqlParser}
+import anorm.{BatchSql, Macro, NamedParameter, RowParser, SQL, SqlParser}
 import com.daml.ledger.participant.state.index.v2.PackageDetails
 import com.daml.ledger.participant.state.v1.{
   AbsoluteContractInst,
@@ -39,7 +39,6 @@ import com.digitalasset.ledger.api.domain.RejectionReason._
 import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails, RejectionReason}
 import com.digitalasset.ledger.api.health.HealthStatus
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
-import com.digitalasset.platform.common.util.DirectExecutionContext
 import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilter
 import com.digitalasset.platform.sandbox.stores.ActiveLedgerState.{
   ActiveContract,
@@ -47,7 +46,6 @@ import com.digitalasset.platform.sandbox.stores.ActiveLedgerState.{
   DivulgedContract
 }
 import com.digitalasset.platform.sandbox.stores._
-import com.digitalasset.platform.sandbox.stores.ledger.{ConfigurationEntry, LedgerEntry}
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry._
 import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.JdbcLedgerDao.{
   H2DatabaseQueries,
@@ -60,7 +58,15 @@ import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{
   ValueSerializer
 }
 import com.digitalasset.platform.sandbox.stores.ledger.sql.util.Conversions._
-import com.digitalasset.platform.sandbox.stores.ledger.sql.util.DbDispatcher
+import com.digitalasset.platform.sandbox.stores.ledger.sql.util.{
+  DbDispatcher,
+  PaginatingAsyncStream
+}
+import com.digitalasset.platform.sandbox.stores.ledger.{
+  ConfigurationEntry,
+  LedgerEntry,
+  PartyLedgerEntry
+}
 import com.google.common.io.ByteStreams
 import scalaz.syntax.tag._
 
@@ -156,7 +162,7 @@ private class JdbcLedgerDao(
   private val SQL_SELECT_CURRENT_CONFIGURATION = SQL("select configuration from parameters")
 
   private val SQL_GET_CONFIGURATION_ENTRIES = SQL(
-    "select * from configuration_entries where ledger_offset>={startInclusive} and ledger_offset<{endExclusive} order by ledger_offset asc")
+    "select * from configuration_entries where ledger_offset>={startInclusive} and ledger_offset<{endExclusive} order by ledger_offset asc limit {pageSize} offset {queryOffset}")
 
   private def updateCurrentConfiguration(configBytes: Array[Byte])(
       implicit conn: Connection): Unit = {
@@ -174,8 +180,8 @@ private class JdbcLedgerDao(
   override def lookupLedgerConfiguration(): Future[Option[Configuration]] =
     dbDispatcher.executeSql("lookup_configuration")(implicit conn => selectLedgerConfiguration)
 
-  private val configurationAcceptType = "accept"
-  private val configurationRejectType = "reject"
+  private val acceptType = "accept"
+  private val rejectType = "reject"
 
   private val configurationEntryParser: RowParser[(Long, ConfigurationEntry)] =
     (long("ledger_offset") ~
@@ -198,13 +204,13 @@ private class JdbcLedgerDao(
 
           offset ->
             (typ match {
-              case `configurationAcceptType` =>
+              case `acceptType` =>
                 ConfigurationEntry.Accepted(
                   submissionId = submissionId,
                   participantId = participantId,
                   configuration = config
                 )
-              case `configurationRejectType` =>
+              case `rejectType` =>
                 ConfigurationEntry.Rejected(
                   submissionId = submissionId,
                   participantId = participantId,
@@ -220,19 +226,20 @@ private class JdbcLedgerDao(
   override def getConfigurationEntries(
       startInclusive: Long,
       endExclusive: Long): Source[(Long, ConfigurationEntry), NotUsed] =
-    paginatingStream(
-      startInclusive,
-      endExclusive,
-      PageSize,
-      (startI, endE) => {
-        dbDispatcher.executeSql("load_configuration_entries", Some(s"bounds: [$startI, $endE[")) {
-          implicit conn =>
-            SQL_GET_CONFIGURATION_ENTRIES
-              .on("startInclusive" -> startI, "endExclusive" -> endE)
-              .as(configurationEntryParser.*)
-        }
+    PaginatingAsyncStream(PageSize, executionContext) { queryOffset =>
+      dbDispatcher.executeSql(
+        "load_configuration_entries",
+        Some(s"bounds: [$startInclusive, $endExclusive[ queryOffset $queryOffset")) {
+        implicit conn =>
+          SQL_GET_CONFIGURATION_ENTRIES
+            .on(
+              "startInclusive" -> startInclusive,
+              "endExclusive" -> endExclusive,
+              "pageSize" -> PageSize,
+              "queryOffset" -> queryOffset)
+            .as(configurationEntryParser.*)
       }
-    ).flatMapConcat(Source(_))
+    }
 
   private val SQL_INSERT_CONFIGURATION_ENTRY =
     SQL(
@@ -264,9 +271,9 @@ private class JdbcLedgerDao(
         updateLedgerEnd(newLedgerEnd, externalOffset)
         val configurationBytes = Configuration.encode(configuration).toByteArray
         val typ = if (finalRejectionReason.isEmpty) {
-          configurationAcceptType
+          acceptType
         } else {
-          configurationRejectType
+          rejectType
         }
 
         Try({
@@ -282,7 +289,7 @@ private class JdbcLedgerDao(
             )
             .execute()
 
-          if (typ == configurationAcceptType) {
+          if (typ == acceptType) {
             updateCurrentConfiguration(configurationBytes)
           }
 
@@ -295,6 +302,140 @@ private class JdbcLedgerDao(
             PersistenceResponse.Duplicate
         }.get
 
+    }
+  }
+
+  private val SQL_INSERT_PARTY_ENTRY_ACCEPT =
+    SQL(
+      """insert into party_entries(ledger_offset, recorded_at, submission_id, participant_id, typ, party, display_name, is_local)
+        |values ({ledger_offset}, {recorded_at}, {submission_id}, {participant_id}, 'accept', {party}, {display_name}, {is_local})
+        |""".stripMargin)
+
+  private val SQL_INSERT_PARTY_ENTRY_REJECT =
+    SQL(
+      """insert into party_entries(ledger_offset, recorded_at, submission_id, participant_id, typ, rejection_reason)
+        |values ({ledger_offset}, {recorded_at}, {submission_id}, {participant_id}, 'reject', {rejection_reason})
+        |""".stripMargin)
+
+  override def storePartyEntry(
+      offset: LedgerOffset,
+      newLedgerEnd: LedgerOffset,
+      externalOffset: Option[ExternalOffset],
+      partyEntry: PartyLedgerEntry): Future[PersistenceResponse] = {
+    dbDispatcher.executeSql("store_party_entry") { implicit conn =>
+      updateLedgerEnd(newLedgerEnd, externalOffset)
+
+      partyEntry match {
+        case PartyLedgerEntry.AllocationAccepted(
+            submissionIdOpt,
+            participantId,
+            recordTime,
+            partyDetails) =>
+          Try({
+            SQL_INSERT_PARTY_ENTRY_ACCEPT
+              .on(
+                "ledger_offset" -> offset,
+                "recorded_at" -> recordTime,
+                "submission_id" -> submissionIdOpt,
+                "participant_id" -> participantId,
+                "party" -> partyDetails.party,
+                "display_name" -> partyDetails.displayName,
+                "is_local" -> partyDetails.isLocal
+              )
+              .execute()
+
+            storeParty(partyDetails.party, partyDetails.displayName, offset)
+
+            PersistenceResponse.Ok
+          }).recover {
+            case NonFatal(e) if e.getMessage.contains(queries.DUPLICATE_KEY_ERROR) =>
+              logger.warn(
+                s"Ignoring duplicate party submission for submissionId $submissionIdOpt, participantId $participantId")
+              conn.rollback()
+              PersistenceResponse.Duplicate
+          }.get
+        case PartyLedgerEntry.AllocationRejected(submissionId, participantId, recordTime, reason) =>
+          SQL_INSERT_PARTY_ENTRY_REJECT
+            .on(
+              "ledger_offset" -> offset,
+              "recorded_at" -> recordTime,
+              "submission_id" -> submissionId,
+              "participant_id" -> participantId,
+              "rejection_reason" -> reason
+            )
+            .execute()
+          PersistenceResponse.Ok
+      }
+    }
+
+  }
+
+  private val SQL_GET_PARTY_ENTRIES = SQL(
+    "select * from party_entries where ledger_offset>={startInclusive} and ledger_offset<{endExclusive} order by ledger_offset asc limit {pageSize} offset {queryOffset}")
+
+  private val partyEntryParser: RowParser[(Long, PartyLedgerEntry)] =
+    (long("ledger_offset") ~
+      date("recorded_at") ~
+      ledgerString("submission_id").? ~
+      ledgerString("participant_id").? ~
+      party("party").? ~
+      str("display_name").? ~
+      str("typ") ~
+      str("rejection_reason").? ~
+      bool("is_local").?)
+      .map(flatten)
+      .map {
+        case (
+            offset,
+            recordTime,
+            submissionIdOpt,
+            Some(participantId),
+            Some(party),
+            displayNameOpt,
+            `acceptType`,
+            None,
+            Some(isLocal)) =>
+          offset ->
+            PartyLedgerEntry.AllocationAccepted(
+              submissionIdOpt,
+              participantId,
+              recordTime.toInstant,
+              PartyDetails(party, displayNameOpt, isLocal))
+        case (
+            offset,
+            recordTime,
+            Some(submissionId),
+            Some(participantId),
+            None,
+            None,
+            `rejectType`,
+            Some(reason),
+            None) =>
+          offset -> PartyLedgerEntry.AllocationRejected(
+            submissionId,
+            participantId,
+            recordTime.toInstant,
+            reason)
+        case invalidRow =>
+          sys.error(s"getPartyEntries: invalid party entry row: $invalidRow")
+      }
+
+  override def getPartyEntries(
+      startInclusive: LedgerOffset,
+      endExclusive: LedgerOffset): Source[(Long, PartyLedgerEntry), NotUsed] = {
+    PaginatingAsyncStream(PageSize, executionContext) { queryOffset =>
+      dbDispatcher.executeSql(
+        "load_party_entries",
+        Some(s"bounds: [$startInclusive, $endExclusive[ queryOffset $queryOffset")) {
+        implicit conn =>
+          SQL_GET_PARTY_ENTRIES
+            .on(
+              "startInclusive" -> startInclusive,
+              "endExclusive" -> endExclusive,
+              "pageSize" -> PageSize,
+              "queryOffset" -> queryOffset)
+            .as(partyEntryParser.*)
+      }
     }
   }
 
@@ -966,7 +1107,7 @@ private class JdbcLedgerDao(
       str("rejection_type").? ~
       str("rejection_description").? ~
       long("ledger_offset")
-  ) map flatten map (ParsedEntry.tupled)
+  ) map flatten map ParsedEntry.tupled
 
   private val DisclosureParser = ledgerString("event_id") ~ party("party") map flatten
 
@@ -1222,50 +1363,28 @@ private class JdbcLedgerDao(
       .toSet
 
   private val SQL_GET_LEDGER_ENTRIES = SQL(
-    "select * from ledger_entries where ledger_offset>={startInclusive} and ledger_offset<{endExclusive} order by ledger_offset asc")
-
-  // Note that here we are reading, non transactionally, the stream in chunks. The reason why this is
-  // safe is that
-  // * The ledger entries are never removed;
-  // * We fix the ledger end at the beginning.
-  private def paginatingStream[T](
-      startInclusive: Long,
-      endExclusive: Long,
-      pageSize: Int,
-      queryPage: (Long, Long) => Future[T]): Source[T, NotUsed] = {
-    Source.unfoldAsync(startInclusive) { start =>
-      if (start >= endExclusive) {
-        Future.successful(None)
-      } else {
-        val pageEnd =
-          if (endExclusive - startInclusive <= pageSize) endExclusive else start + pageSize
-        queryPage(start, pageEnd).map { result =>
-          Some(pageEnd -> result)
-        }(executionContext)
-      }
-    }
-  }
+    "select * from ledger_entries where ledger_offset>={startInclusive} and ledger_offset<{endExclusive} order by ledger_offset asc limit {pageSize} offset {queryOffset}")
 
   private val PageSize = 100
 
   override def getLedgerEntries(
       startInclusive: Long,
       endExclusive: Long): Source[(Long, LedgerEntry), NotUsed] =
-    paginatingStream(
-      startInclusive,
-      endExclusive,
-      PageSize,
-      (startI, endE) => {
-        dbDispatcher.executeSql(s"load_ledger_entries", Some(s"bounds: [$startI, $endE[")) {
-          implicit conn =>
-            val parsedEntries = SQL_GET_LEDGER_ENTRIES
-              .on("startInclusive" -> startI, "endExclusive" -> endE)
-              .as(EntryParser.*)
-            parsedEntries.map(entry => entry -> loadDisclosureOptForEntry(entry))
-        }
+    PaginatingAsyncStream(PageSize, executionContext) { queryOffset =>
+      dbDispatcher.executeSql(
+        s"load_ledger_entries",
+        Some(s"bounds: [$startInclusive, $endExclusive[ query-offset $queryOffset")) {
+        implicit conn =>
+          val parsedEntries = SQL_GET_LEDGER_ENTRIES
+            .on(
+              "startInclusive" -> startInclusive,
+              "endExclusive" -> endExclusive,
+              "pageSize" -> PageSize,
+              "queryOffset" -> queryOffset)
+            .as(EntryParser.*)
+          parsedEntries.map(entry => entry -> loadDisclosureOptForEntry(entry))
       }
-    ).mapConcat(identity)
-      .map((toLedgerEntry _).tupled)
+    }.map((toLedgerEntry _).tupled)
 
   private def loadDisclosureOptForEntry(parsedEntry: ParsedEntry)(
       implicit conn: Connection): Option[Relation[EventId, Party]] = {
@@ -1281,45 +1400,44 @@ private class JdbcLedgerDao(
   // this query pre-filters the active contracts. this avoids loading data that anyway will be dismissed later
   private val SQL_SELECT_ACTIVE_CONTRACTS = SQL(queries.SQL_SELECT_ACTIVE_CONTRACTS)
 
-  override def getActiveContractSnapshot(untilExclusive: LedgerOffset, filter: TemplateAwareFilter)(
+  override def getActiveContractSnapshot(endExclusive: LedgerOffset, filter: TemplateAwareFilter)(
       implicit mat: Materializer): Future[LedgerSnapshot] = {
 
     def orEmptyStringList(xs: Seq[String]) = if (xs.nonEmpty) xs else List("")
 
-    def contractStream(conn: Connection, offset: Long): Source[ActiveContract, Future[Done]] = {
-      //TODO: investigate where Akka Streams is actually iterating on the JDBC ResultSet (because, that is blocking IO!)
-      AkkaStream
-        .source(
-          SQL_SELECT_ACTIVE_CONTRACTS.on(
-            "offset" -> offset,
-            // using '&' as a "separator" for the two columns because it is not allowed in either Party or Identifier strings
-            // and querying on tuples is basically impossible to do sensibly.
-            "template_parties" -> orEmptyStringList(filter.specificSubscriptions.map {
-              case (ident, party) => ident.qualifiedName.qualifiedName + "&" + party.toString
-            }),
-            "wildcard_parties" -> orEmptyStringList(filter.globalSubscriptions.toList)
-          ),
-          parser = ContractDataParser
-        )(mat, conn)
-        .mapAsync(dbDispatcher.noOfShortLivedConnections) { contractResult =>
-          // it's ok to not have query isolation as witnesses cannot change once we saved them
-          dbDispatcher
-            .executeSql("load_contract_details", Some(s"contract details: ${contractResult._1}")) {
-              implicit conn =>
-                mapContractDetails(contractResult) match {
-                  case ac: ActiveContract => ac
-                  case _: DivulgedContract =>
-                    sys.error(
-                      "Impossible: SQL_SELECT_ACTIVE_CONTRACTS returned a divulged contract")
-                }
-            }
+    val contractStream =
+      PaginatingAsyncStream(PageSize, executionContext) { queryOffset =>
+        dbDispatcher.executeSql(
+          "load_active_contracts",
+          Some(s"bounds: [0, $endExclusive[ queryOffset $queryOffset")) { implicit conn =>
+          SQL_SELECT_ACTIVE_CONTRACTS
+            .on(
+              "endExclusive" -> endExclusive,
+              "queryOffset" -> queryOffset,
+              "pageSize" -> PageSize,
+              // using '&' as a "separator" for the two columns because it is not allowed in either Party or Identifier strings
+              // and querying on tuples is basically impossible to do sensibly.
+              "template_parties" -> orEmptyStringList(filter.specificSubscriptions.map {
+                case (ident, party) => ident.qualifiedName.qualifiedName + "&" + party.toString
+              }),
+              "wildcard_parties" -> orEmptyStringList(filter.globalSubscriptions.toList)
+            )
+            .as(ContractDataParser.*)(conn)
         }
-    }.mapMaterializedValue(_.map(_ => Done)(DirectExecutionContext))
+      }.mapAsync(1) { contractResult =>
+        dbDispatcher
+          .executeSql("load_contract_details", Some(s"contract details: ${contractResult._1}")) {
+            implicit conn =>
+              mapContractDetails(contractResult) match {
+                case ac: ActiveContract => ac
+                case _: DivulgedContract =>
+                  sys.error("Impossible: SQL_SELECT_ACTIVE_CONTRACTS returned a divulged contract")
+              }
+          }
 
-    Future.successful(
-      LedgerSnapshot(
-        untilExclusive,
-        dbDispatcher.runStreamingSql(conn => contractStream(conn, untilExclusive))))
+      }
+
+    Future.successful(LedgerSnapshot(endExclusive, contractStream))
   }
 
   private val SQL_SELECT_PARTIES =
@@ -1351,30 +1469,25 @@ private class JdbcLedgerDao(
 
   private val SQL_INSERT_PARTY =
     SQL("""insert into parties(party, display_name, ledger_offset, explicit)
-        |select {party}, {display_name}, ledger_end, 'true'
-        |from parameters""".stripMargin)
+          |values ({party}, {display_name}, {ledger_offset}, 'true')""".stripMargin)
 
-  override def storeParty(
-      party: Party,
-      displayName: Option[String],
-      externalOffset: Option[ExternalOffset]): Future[PersistenceResponse] = {
-    dbDispatcher.executeSql("store_party", Some(s"party: $party")) { implicit conn =>
-      Try {
-        SQL_INSERT_PARTY
-          .on(
-            "party" -> (party: String),
-            "display_name" -> displayName,
-          )
-          .execute()
-        externalOffset.foreach(updateExternalLedgerEnd)
-        PersistenceResponse.Ok
-      }.recover {
-        case NonFatal(e) if e.getMessage.contains(queries.DUPLICATE_KEY_ERROR) =>
-          logger.warn("Party with ID {} already exists", party)
-          conn.rollback()
-          PersistenceResponse.Duplicate
-      }.get
-    }
+  private def storeParty(party: Party, displayName: Option[String], offset: LedgerOffset)(
+      implicit conn: Connection): PersistenceResponse = {
+    Try {
+      SQL_INSERT_PARTY
+        .on(
+          "party" -> (party: String),
+          "display_name" -> displayName,
+          "ledger_offset" -> offset
+        )
+        .execute()
+      PersistenceResponse.Ok
+    }.recover {
+      case NonFatal(e) if e.getMessage.contains(queries.DUPLICATE_KEY_ERROR) =>
+        logger.warn("Party with ID {} already exists", party)
+        conn.rollback()
+        PersistenceResponse.Duplicate
+    }.get
   }
 
   private val SQL_SELECT_PACKAGES =
@@ -1601,6 +1714,7 @@ object JdbcLedgerDao {
       // thus resulting in multiple output rows
       s"""
          |select distinct
+         |  c.create_offset,
          |  cd.id,
          |  cd.contract,
          |  c.transaction_id,
@@ -1616,13 +1730,15 @@ object JdbcLedgerDao {
          |inner join contract_witnesses w on c.id = w.contract_id
          |left join contract_signatories sigs on sigs.contract_id = c.id
          |left join contract_observers obs on obs.contract_id = c.id
-         |where create_offset <= {offset} and (archive_offset is null or archive_offset > {offset})
+         |where create_offset < {endExclusive} and (archive_offset is null or archive_offset > {endExclusive})
          |and
          |   (
          |     concat(c.name,'&',w.witness) in ({template_parties})
          |     OR w.witness in ({wildcard_parties})
          |    )
-         |group by cd.id, cd.contract, c.transaction_id, c.create_event_id, c.workflow_id, c.key, le.effective_at
+         |group by c.create_offset, cd.id, cd.contract, c.transaction_id, c.create_event_id, c.workflow_id, c.key, le.effective_at
+         |order by c.create_offset
+         |limit {pageSize} offset {queryOffset}
          |""".stripMargin
   }
 
@@ -1689,6 +1805,7 @@ object JdbcLedgerDao {
       // thus resulting in multiple output rows
       s"""
          |select distinct
+         |  c.create_offset,
          |  cd.id,
          |  cd.contract,
          |  c.transaction_id,
@@ -1704,13 +1821,15 @@ object JdbcLedgerDao {
          |inner join contract_witnesses w on c.id = w.contract_id
          |left join contract_signatories sigs on sigs.contract_id = c.id
          |left join contract_observers obs on obs.contract_id = c.id
-         |where create_offset <= {offset} and (archive_offset is null or archive_offset > {offset})
+         |where c.create_offset <= {endExclusive} and (archive_offset is null or archive_offset > {endExclusive})
          |and
          |   (
          |     concat(c.name,'&',w.witness) in ({template_parties})
          |     OR w.witness in ({wildcard_parties})
          |    )
-         |group by cd.id, cd.contract, c.transaction_id, c.create_event_id, c.workflow_id, c.key, le.effective_at
+         |group by c.create_offset, cd.id, cd.contract, c.transaction_id, c.create_event_id, c.workflow_id, c.key, le.effective_at
+         |order by c.create_offset
+         |limit {pageSize} offset {queryOffset}
          |""".stripMargin
 
   }

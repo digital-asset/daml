@@ -4,6 +4,7 @@
 package com.digitalasset.daml.lf.testing.archive
 
 import com.digitalasset.daml.lf.archive.Decode
+import com.digitalasset.daml.lf.archive.testing.Encode
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.language.LanguageMajorVersion.V1
@@ -62,7 +63,7 @@ class EncodeV1Spec extends WordSpec with Matchers with TableDrivenPropertyChecks
            val myFalse: Bool = False;
            val myTrue: Bool = True;
            val aInt: Int64 = 14;
-           val aDecimal: Decimal = 2.2;
+           val aDecimal: Numeric 10 = 2.2000000000;
            val aDate: Date = 1879-03-14;
            val aTimestamp: Timestamp = 1970-01-01T00:00:00.000001Z;
            val aParty: Party = 'party';
@@ -162,8 +163,7 @@ class EncodeV1Spec extends WordSpec with Matchers with TableDrivenPropertyChecks
         implicit val parserParameters: ParserParameters[version.type] =
           ParserParameters(pkgId, version)
 
-        val pkg =
-          Package(parseModules(text).right.get.map(m => m.name -> m).toMap)
+        val pkg = Package(parseModules(text).right.get, Set.empty)
         val archive = Encode.encodeArchive(pkgId -> pkg, version)
         val ((hashCode @ _, decodedPackage: Package), _) = Decode.readArchiveAndVersion(archive)
 
