@@ -185,8 +185,7 @@ isAscendant (ModuleName xs) (ModuleName ys) =
 -- | Check whether a module satisfies the name collision condition.
 --
 -- This involves not only checking the current module, but also
--- the module's parent and grandparent for potential collisions,
--- and the name of the module's children and grandchildren as well.
+-- the module's ascendants and descendants for potential collisions.
 checkModule :: MonadGamma m => Module -> m ()
 checkModule mod0 = do
     world <- getWorld
