@@ -3,8 +3,6 @@
 
 package com.digitalasset.platform.sandbox.stores.ledger.sql
 
-import java.sql.SQLException
-
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
@@ -35,7 +33,7 @@ class SqlLedgerSpec
 
   override val timeLimit: Span = scaled(Span(1, Minute))
   implicit override val patienceConfig: PatienceConfig =
-    PatienceConfig(timeout = scaled(Span(5, Seconds)))
+    PatienceConfig(timeout = scaled(Span(10, Seconds)))
 
   private val queueDepth = 128
 
@@ -109,7 +107,6 @@ class SqlLedgerSpec
           ()
         }
 
-        listPackages()
         withClue("before shutting down postgres,") {
           ledger.currentHealth() should be(Healthy)
         }
@@ -117,7 +114,6 @@ class SqlLedgerSpec
         stopPostgres()
 
         eventually {
-          assertThrows[SQLException](listPackages())
           withClue("after shutting down postgres,") {
             ledger.currentHealth() should be(Unhealthy)
           }
@@ -126,7 +122,6 @@ class SqlLedgerSpec
         startPostgres()
 
         eventually {
-          listPackages()
           withClue("after starting up postgres,") {
             ledger.currentHealth() should be(Healthy)
           }
