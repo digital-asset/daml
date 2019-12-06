@@ -20,7 +20,6 @@ import scala.concurrent.{ExecutionContext, Future}
   *
   * @param jdbcUrl                    the JDBC url containing the database name, user name and password
   * @param noOfShortLivedConnections the number of connections to be pre-allocated for regular SQL queries
-  * @param noOfStreamingConnections  the max number of connections to be used for long, streaming queries
   */
 final class DbDispatcher(
     jdbcUrl: String,
