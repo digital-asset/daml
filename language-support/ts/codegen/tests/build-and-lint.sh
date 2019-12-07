@@ -36,7 +36,8 @@ TS_DIR=$(dirname $PACKAGE_JSON)
 
 TMP_DIR=$(mktemp -d)
 cleanup() {
-  rm -rf $TMP_DIR
+    # Fails on Windows "Directory not empty"
+  # rm -rf $TMP_DIR
 }
 trap cleanup EXIT
 echo "TMP_DIR = $TMP_DIR"
