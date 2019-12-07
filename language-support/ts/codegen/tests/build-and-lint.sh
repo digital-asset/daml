@@ -36,7 +36,7 @@ TS_DIR=$(dirname $PACKAGE_JSON)
 
 TMP_DIR=$(mktemp -d)
 cleanup() {
-  rm -rf $TMP_DIR/*
+  cd /
   rm -rf $TMP_DIR
 }
 trap cleanup EXIT
