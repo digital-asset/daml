@@ -49,4 +49,4 @@ $YARN install --frozen-lockfile
 $YARN workspaces run build
 $YARN workspaces run lint
 cd generated
-JAVA=$JAVA SANDBOX=$SANDBOX JSON_API=$JSON_API DAR=$DAR yarn test
+JAVA=$JAVA SANDBOX=$SANDBOX JSON_API=$JSON_API DAR=$DAR $YARN test
