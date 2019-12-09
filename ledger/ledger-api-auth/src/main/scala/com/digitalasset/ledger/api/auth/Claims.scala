@@ -53,11 +53,6 @@ final case class ClaimReadAsParty(name: Ref.Party) extends Claim
   * They also optionally specify an expiration epoch time that statically specifies the
   * time on or after which the token will no longer be considered valid by the Ledger API.
   *
-  * @param claims         List of [[Claim]]s describing the authorization this object describes (see table below).
-  * @param ledgerId       If set, the claims will only be valid on the given ledger.
-  * @param participantId  If set, the claims will only be valid on the given participant.
-  * @param expiration     If set, the claims will cease to be valid at the given time.
-  *
   * The following is a full list of services and the corresponding required claims:
   * +-------------------------------------+----------------------------+------------------------------------------+
   * | Ledger API service                  | Method                     | Access with                              |
@@ -78,6 +73,11 @@ final case class ClaimReadAsParty(name: Ref.Party) extends Claim
   * | TransactionService                  | LedgerEnd                  | isPublic                                 |
   * | TransactionService                  | *                          | for each requested party p: canReadAs(p) |
   * +-------------------------------------+----------------------------+------------------------------------------+
+  *
+  * @param claims         List of [[Claim]]s describing the authorization this object describes.
+  * @param ledgerId       If set, the claims will only be valid on the given ledger.
+  * @param participantId  If set, the claims will only be valid on the given participant.
+  * @param expiration     If set, the claims will cease to be valid at the given time.
   */
 final case class Claims(
     claims: Seq[Claim],
