@@ -155,12 +155,7 @@ class CommandService(
     : Error \/ List[Contract[lav1.value.Value]] =
     response.transaction
       .toRightDisjunction(Error('contracts, s"Received response without transaction: $response"))
-      .flatMap(contracts)
-
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
-  private def contracts(
-      tx: lav1.transaction.Transaction): Error \/ List[Contract[lav1.value.Value]] =
-    Contract.fromLedgerApi(tx).leftMap(e => Error('contracts, e.shows))
+      .flatMap(Commands.contracts)
 }
 
 object CommandService {

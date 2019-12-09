@@ -15,7 +15,7 @@ import com.digitalasset.auth.TokenHolder
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.http.dbbackend.ContractDao
 import com.digitalasset.http.json.{ApiValueToJsValueConverter, DomainJsonDecoder, DomainJsonEncoder, JsValueToApiValueConverter}
-import com.digitalasset.http.util.{ApiValueToLfValueConverter, EndpointUtil}
+import com.digitalasset.http.util.ApiValueToLfValueConverter
 import com.digitalasset.http.util.FutureUtil._
 import com.digitalasset.http.util.IdentifierConverters.apiLedgerId
 import com.digitalasset.jwt.JwtDecoder
@@ -55,7 +55,7 @@ object HttpService extends StrictLogging {
       staticContentConfig: Option[StaticContentConfig] = None,
       packageReloadInterval: FiniteDuration = DefaultPackageReloadInterval,
       maxInboundMessageSize: Int = DefaultMaxInboundMessageSize,
-      validateJwt: Endpoints.ValidateJwt = decodeJwt)(
+      validateJwt: EndpointsCompanion.ValidateJwt = decodeJwt)(
       implicit asys: ActorSystem,
       mat: Materializer,
       aesf: ExecutionSequencerFactory,
@@ -138,8 +138,8 @@ object HttpService extends StrictLogging {
       )
 
       allEndpoints = staticContentConfig.cata(
-        c => StaticContentEndpoints.all(c) orElse jsonEndpoints.all orElse websocketEndpoints.transactionWebSocket orElse EndpointUtil.notFound, //TODO: Clean up ugly chaining
-        jsonEndpoints.all orElse websocketEndpoints.transactionWebSocket orElse EndpointUtil.notFound
+        c => StaticContentEndpoints.all(c) orElse jsonEndpoints.all orElse websocketEndpoints.transactionWebSocket orElse EndpointsCompanion.notFound,
+        jsonEndpoints.all orElse websocketEndpoints.transactionWebSocket orElse EndpointsCompanion.notFound
       )
 
       binding <- liftET[Error](
@@ -182,8 +182,8 @@ object HttpService extends StrictLogging {
   }
 
   // Decode JWT without any validation
-  private val decodeJwt: Endpoints.ValidateJwt =
-    jwt => JwtDecoder.decode(jwt).leftMap(e => Endpoints.Unauthorized(e.shows))
+  private val decodeJwt: EndpointsCompanion.ValidateJwt =
+    jwt => JwtDecoder.decode(jwt).leftMap(e => EndpointsCompanion.Unauthorized(e.shows))
 
   private[http] def buildJsonCodecs(
       ledgerId: lar.LedgerId,

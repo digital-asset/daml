@@ -7,8 +7,6 @@ import akka.http.scaladsl.model.HttpMethods.{GET, POST}
 import akka.http.scaladsl.model._
 import akka.NotUsed
 import akka.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
-import akka.stream.Materializer
-import akka.util.ByteString
 import com.digitalasset.daml.lf
 import com.digitalasset.http.Statement.discard
 import com.digitalasset.http.domain.JwtPayload
@@ -16,7 +14,7 @@ import com.digitalasset.http.json.ResponseFormats
 import com.digitalasset.http.json.{DomainJsonDecoder, DomainJsonEncoder, SprayJson}
 import com.digitalasset.http.util.FutureUtil.{either, eitherT}
 import com.digitalasset.http.util.{ApiValueToLfValueConverter, FutureUtil}
-import com.digitalasset.jwt.domain.{DecodedJwt, Jwt}
+import com.digitalasset.jwt.domain.Jwt
 import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
 import com.digitalasset.ledger.api.{v1 => lav1}
 import com.typesafe.scalalogging.StrictLogging
@@ -34,11 +32,12 @@ import scala.util.control.NonFatal
 
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Source, Flow}
+import com.digitalasset.http.EndpointsCompanion._
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 class Endpoints(
     ledgerId: lar.LedgerId,
-    decodeJwt: Endpoints.ValidateJwt,
+    decodeJwt: EndpointsCompanion.ValidateJwt,
     commandService: CommandService,
     contractsService: ContractsService,
     partiesService: PartiesService,
@@ -248,30 +247,6 @@ class Endpoints(
         case NonFatal(e) => httpResponseError(ServerError(e.getMessage))
       }
 
-  private def httpResponseOk(data: JsValue): HttpResponse =
-    httpResponse(StatusCodes.OK, ResponseFormats.resultJsObject(data))
-
-  private def httpResponseError(error: Error): HttpResponse = {
-    val (status, jsObject) = errorsJsObject(error)
-    httpResponse(status, jsObject)
-  }
-
-  private def errorsJsObject(error: Error): (StatusCode, JsObject) = {
-    val (status, errorMsg): (StatusCode, String) = error match {
-      case InvalidUserInput(e) => StatusCodes.BadRequest -> e
-      case ServerError(e) => StatusCodes.InternalServerError -> e
-      case Unauthorized(e) => StatusCodes.Unauthorized -> e
-      case NotFound(e) => StatusCodes.NotFound -> e
-    }
-    (status, ResponseFormats.errorsJsObject(status, errorMsg))
-  }
-
-  private def httpResponse(status: StatusCode, data: JsValue): HttpResponse = {
-    HttpResponse(
-      status = status,
-      entity = HttpEntity.Strict(ContentTypes.`application/json`, format(data)))
-  }
-
   private def httpResponseFromSource(data: Source[Error \/ JsValue, NotUsed]): HttpResponse =
     HttpResponse(
       status = StatusCodes.OK,
@@ -284,10 +259,8 @@ class Endpoints(
       Future.successful(httpResponseError(NotFound(s"${method: HttpMethod}, uri: ${uri: Uri}")))
   }
 
-  private def format(a: JsValue): ByteString = ByteString(a.compactPrint)
-
   private[http] def input(req: HttpRequest): Future[Unauthorized \/ (Jwt, JwtPayload, String)] = {
-    findJwt(req).flatMap(decodeAndParsePayload) match {
+    findJwt(req).flatMap(decodeAndParsePayload(_, decodeJwt)) match {
       case e @ -\/(_) =>
         discard { req.entity.discardBytes(mat) }
         Future.successful(e)
@@ -305,14 +278,6 @@ class Endpoints(
       }
       .toRightDisjunction(Unauthorized("missing Authorization header with OAuth 2.0 Bearer Token"))
 
-  private def decodeAndParsePayload(jwt: Jwt): Unauthorized \/ (Jwt, JwtPayload) =
-    for {
-      a <- decodeJwt(jwt): Unauthorized \/ DecodedJwt[String]
-      p <- parsePayload(a)
-    } yield (jwt, p)
-
-  private def parsePayload(jwt: DecodedJwt[String]): Unauthorized \/ JwtPayload =
-    SprayJson.decode[JwtPayload](jwt.payload).leftMap(e => Unauthorized(e.shows))
 }
 
 object Endpoints {
@@ -325,24 +290,4 @@ object Endpoints {
 
   private type ActiveContractStream[A] = Source[A, NotUsed]
 
-  type ValidateJwt = Jwt => Unauthorized \/ DecodedJwt[String]
-
-  sealed abstract class Error(message: String) extends Product with Serializable
-
-  final case class InvalidUserInput(message: String) extends Error(message)
-
-  final case class Unauthorized(message: String) extends Error(message)
-
-  final case class ServerError(message: String) extends Error(message)
-
-  final case class NotFound(message: String) extends Error(message)
-
-  object Error {
-    implicit val ShowInstance: Show[Error] = Show shows {
-      case InvalidUserInput(e) => s"Endpoints.InvalidUserInput: ${e: String}"
-      case ServerError(e) => s"Endpoints.ServerError: ${e: String}"
-      case Unauthorized(e) => s"Endpoints.Unauthorized: ${e: String}"
-      case NotFound(e) => s"Endpoints.NotFound: ${e: String}"
-    }
-  }
 }

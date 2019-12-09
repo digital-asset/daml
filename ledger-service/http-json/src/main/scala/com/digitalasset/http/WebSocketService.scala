@@ -2,30 +2,27 @@ package com.digitalasset.http
 
 import akka.NotUsed
 import akka.http.scaladsl.model.ws.{Message, TextMessage}
-import akka.stream.{Materializer, ThrottleMode}
 import akka.stream.scaladsl.{Flow, Source}
+import akka.stream.{Materializer, ThrottleMode}
 import com.digitalasset.daml.lf
-import com.digitalasset.http.Endpoints.InvalidUserInput
-import com.digitalasset.http.domain.{Contract, GetActiveContractsRequest, JwtPayload, TemplateId}
+import com.digitalasset.http.EndpointsCompanion._
+import com.digitalasset.http.domain.{GetActiveContractsRequest, JwtPayload}
 import com.digitalasset.http.json.SprayJson.JsonReaderError
 import com.digitalasset.http.json.{DomainJsonDecoder, DomainJsonEncoder, SprayJson}
-import com.digitalasset.http.util.IdentifierConverters.apiIdentifier
 import com.digitalasset.jwt.domain.Jwt
-import com.digitalasset.ledger.client.services.transactions.TransactionClient
-import scalaz.{-\/, \/, \/-}
-import scalaz.syntax.show._
-import scalaz.syntax.traverse._
-import spray.json.{JsObject, JsString, JsValue}
-import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
 import com.digitalasset.ledger.api.v1.transaction.Transaction
 import com.digitalasset.ledger.api.{v1 => api}
 import com.digitalasset.ledger.client.binding.offset.LedgerOffsetOrdering
-import com.digitalasset.http.Endpoints._
+import com.digitalasset.ledger.client.services.transactions.TransactionClient
+import scalaz.syntax.show._
+import scalaz.syntax.traverse._
+import scalaz.{-\/, \/, \/-}
+import spray.json.{JsObject, JsString, JsValue}
 
 import scala.collection.immutable.Set
 
 object WebSocketService {
-  val heartBeat = JsObject("heartbeat" -> JsString("ping")).toString
+  val heartBeat: String = JsObject("heartbeat" -> JsString("ping")).toString
   val emptyGetActiveContractsRequest = domain.GetActiveContractsRequest(Set.empty, Map.empty)
   private type LfValue = lf.value.Value[lf.value.Value.AbsoluteContractId]
 
@@ -71,12 +68,13 @@ class WebSocketService(transactionClient: TransactionClient,
     }
   }
 
-  // TODO: should we support admin who has access to all parties?
   private def getTransactionSourceForParty(jwt: Jwt, jwtPayload: JwtPayload, request: GetActiveContractsRequest): Source[Message, NotUsed] = {
+    import com.digitalasset.http.util.Transactions._
     import scala.concurrent.duration._
+
     resolveTemplateIds(request.templateIds) match {
       case \/-(ids) =>
-        val filter = transactionFilter(jwtPayload.party, ids)
+        val filter = transactionFilterFor(jwtPayload.party, ids)
         transactionClient.getTransactions(LedgerOffsetOrdering.ledgerBegin, None, transactionFilter = filter)
           .via(Flow[Transaction].filter(_.events.nonEmpty))
           .map(tx => {
@@ -99,6 +97,7 @@ class WebSocketService(transactionClient: TransactionClient,
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private def lfVToJson(tx: api.transaction.Transaction): Error \/ JsValue = {
+    import com.digitalasset.http.util.Commands._
     import scalaz.std.list._
     contracts(tx)
       .leftMap(e => ServerError(e.shows))
@@ -108,28 +107,4 @@ class WebSocketService(transactionClient: TransactionClient,
           .flatMap(as => encodeList(as))
       )
   }
-
-  private def encodeList(as: Seq[JsValue]): ServerError \/ JsValue =
-    SprayJson.encode(as).leftMap(e => ServerError(e.shows))
-
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
-  private def contracts(
-            tx: api.transaction.Transaction): Error \/ List[Contract[api.value.Value]] =
-    Contract.fromLedgerApi(tx).leftMap(e => ServerError(e.shows))
-
-  // TODO:  below are duplicated functions from contractServices:
-  private def transactionFilter(
-                    party: lar.Party,
-                    templateIds: List[TemplateId.RequiredPkg]): api.transaction_filter.TransactionFilter = {
-    import api.transaction_filter._
-    val filters =
-      if (templateIds.isEmpty) Filters.defaultInstance
-      else Filters(Some(api.transaction_filter.InclusiveFilters(templateIds.map(apiIdentifier))))
-    TransactionFilter(Map(lar.Party.unwrap(party) -> filters))
-  }
-
-  private def lfValueToJsValue(a: LfValue): Error \/ JsValue =
-    \/.fromTryCatchNonFatal(LfValueCodec.apiValueToJsValue(a)).leftMap(e =>
-      ServerError(e.getMessage))
-
 }
