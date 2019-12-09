@@ -254,11 +254,6 @@ class Endpoints(
         .CloseDelimited(ContentTypes.`application/json`, ResponseFormats.resultJsObject(data))
     )
 
-  lazy val notFound: PartialFunction[HttpRequest, Future[HttpResponse]] = {
-    case HttpRequest(method, uri, _, _, _) =>
-      Future.successful(httpResponseError(NotFound(s"${method: HttpMethod}, uri: ${uri: Uri}")))
-  }
-
   private[http] def input(req: HttpRequest): Future[Unauthorized \/ (Jwt, JwtPayload, String)] = {
     findJwt(req).flatMap(decodeAndParsePayload(_, decodeJwt)) match {
       case e @ -\/(_) =>

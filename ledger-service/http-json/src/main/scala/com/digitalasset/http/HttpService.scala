@@ -50,6 +50,7 @@ object HttpService extends StrictLogging {
       applicationId: ApplicationId,
       address: String,
       httpPort: Int,
+      wsConfig: WebsocketConfig,
       accessTokenFile: Option[Path],
       contractDao: Option[ContractDao] = None,
       staticContentConfig: Option[StaticContentConfig] = None,
@@ -126,15 +127,14 @@ object HttpService extends StrictLogging {
         client.transactionClient,
         packageService.resolveTemplateIds,
         encoder,
-        decoder
+        decoder,
+        wsConfig
       )
 
       websocketEndpoints = new WebsocketEndpoints(
         ledgerId,
         validateJwt,
-        websocketService,
-        encoder,
-        decoder
+        websocketService
       )
 
       allEndpoints = staticContentConfig.cata(

@@ -5,7 +5,6 @@ import akka.http.scaladsl.model._
 import akka.http.scaladsl.model.ws.{Message, UpgradeToWebSocket}
 import akka.stream.Materializer
 import akka.stream.scaladsl.Flow
-import com.digitalasset.http.json.{DomainJsonDecoder, DomainJsonEncoder}
 import com.digitalasset.jwt.domain.Jwt
 import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
 import com.typesafe.scalalogging.StrictLogging
@@ -20,11 +19,9 @@ object WebsocketEndpoints {
 }
 
 class WebsocketEndpoints(ledgerId: lar.LedgerId,
-                         decodeJwt: ValidateJwt, //TODO: move to shared trait with enpoints
-                         webSocketService: WebSocketService,
-                         encoder: DomainJsonEncoder,
-                         decoder: DomainJsonDecoder)(
-                          implicit mat: Materializer, ec: ExecutionContext) extends StrictLogging {
+                         decodeJwt: ValidateJwt,
+                         webSocketService: WebSocketService)
+                        (implicit mat: Materializer, ec: ExecutionContext) extends StrictLogging {
 
   import WebsocketEndpoints._
 
