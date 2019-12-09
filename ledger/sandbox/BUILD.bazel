@@ -162,7 +162,7 @@ container_image(
     files = [
         "@com_github_grpc_ecosystem_grpc_health_probe_binary//file",
     ],
-)
+) if not is_windows else None
 
 java_image(
     name = "sandbox-image",
