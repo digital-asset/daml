@@ -1,7 +1,7 @@
 // Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.index.config
+package com.digitalasset.platform.apiserver
 
 import java.io.File
 
@@ -9,13 +9,7 @@ import com.daml.ledger.participant.state.v1.ParticipantId
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.Ref.LedgerString
 import com.digitalasset.ledger.api.tls.TlsConfiguration
-
-sealed trait StartupMode
-object StartupMode {
-  case object ValidateAndStart extends StartupMode
-  case object MigrateAndStart extends StartupMode
-  case object MigrateOnly extends StartupMode
-}
+import com.digitalasset.platform.apiserver.Config._
 
 final case class Config(
     port: Int,
@@ -27,10 +21,18 @@ final case class Config(
     tlsConfig: Option[TlsConfiguration],
     participantId: ParticipantId,
     extraParticipants: Vector[(ParticipantId, Int, String)],
-    startupMode: StartupMode
+    startupMode: StartupMode,
 )
 
 object Config {
+  sealed trait StartupMode
+
+  object StartupMode {
+    case object ValidateAndStart extends StartupMode
+    case object MigrateAndStart extends StartupMode
+    case object MigrateOnly extends StartupMode
+  }
+
   val DefaultMaxInboundMessageSize = 4194304
   def default: Config =
     new Config(

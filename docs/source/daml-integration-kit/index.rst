@@ -348,7 +348,7 @@ do the following modifications to your code:
 - Instantiate a ``com.digitalasset.ledger.api.auth.interceptor.AuthorizationInterceptor`` (`source code <https://github.com/digital-asset/daml/blob/master/ledger/ledger-api-auth/src/main/scala/com/digitalasset/ledger/api/auth/interceptor/AuthorizationInterceptor.scala>`__),
   and pass it an instance of your AuthService implementation.
   This interceptor will be responsible for storing the decoded Claims in a place where ledger API services can access them.
-- When starting the ``com.digitalasset.ledger.server.apiserver.LedgerApiServer`` (`source code <https://github.com/digital-asset/daml/blob/master/ledger/sandbox/src/main/scala/com/digitalasset/ledger/server/apiserver/LedgerApiServer.scala>`__),
+- When starting the ``com.digitalasset.platform.apiserver.LedgerApiServer`` (`source code <https://github.com/digital-asset/daml/blob/master/ledger/sandbox/src/main/scala/com/digitalasset/ledger/server/apiserver/LedgerApiServer.scala>`__),
   add the above AuthorizationInterceptor to the list of interceptors (see ``interceptors`` parameter of ``LedgerApiServer.create``).
 
 For reference, you can have a look at how authorization is implemented in the sandbox:

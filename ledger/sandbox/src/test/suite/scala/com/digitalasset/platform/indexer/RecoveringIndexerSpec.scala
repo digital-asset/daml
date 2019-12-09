@@ -1,7 +1,7 @@
 // Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.index
+package com.digitalasset.platform.indexer
 
 import java.util.concurrent.ConcurrentLinkedQueue
 
@@ -11,8 +11,8 @@ import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.common.util.{DirectExecutionContext => DEC}
 import org.scalatest.{AsyncWordSpec, Matchers}
 
+import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future, Promise}
-import scala.concurrent.duration._
 
 case class SubscribeResult(
     name: String,

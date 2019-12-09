@@ -13,9 +13,9 @@ import com.daml.ledger.participant.state.kvutils.InMemoryKVParticipantState
 import com.digitalasset.daml.lf.archive.DarReader
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
 import com.digitalasset.ledger.api.auth.AuthServiceWildcard
+import com.digitalasset.platform.apiserver.{Config, StandaloneApiServer}
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
-import com.digitalasset.platform.index.config.Config
-import com.digitalasset.platform.index.{StandaloneIndexServer, StandaloneIndexerServer}
+import com.digitalasset.platform.indexer.StandaloneIndexerServer
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -56,7 +56,7 @@ object ReferenceServer extends App {
     } yield ledger.uploadPackages(dar.all, None)
   }
 
-  val participantF: Future[(AutoCloseable, StandaloneIndexServer#SandboxState)] = for {
+  val participantF: Future[(AutoCloseable, StandaloneApiServer#SandboxState)] = for {
     indexerServer <- newIndexer(config)
     indexServer <- newIndexServer(config).start()
   } yield (indexerServer, indexServer)
@@ -85,7 +85,7 @@ object ReferenceServer extends App {
     )
 
   def newIndexServer(config: Config) =
-    new StandaloneIndexServer(
+    new StandaloneApiServer(
       config,
       readService,
       writeService,

@@ -1,16 +1,17 @@
 // Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.index
+package com.digitalasset.platform.indexer
 
 import akka.actor.ActorSystem
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.v1.ReadService
+import com.digitalasset.platform.apiserver.Config
+import com.digitalasset.platform.apiserver.Config.StartupMode
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.common.util.DirectExecutionContext.implicitEC
-import com.digitalasset.platform.index.config.{Config, StartupMode}
 
-import scala.concurrent.duration._
+import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{Await, Future, Promise}
 import scala.util.control.NonFatal
 

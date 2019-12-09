@@ -1,7 +1,7 @@
 // Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.server.apiserver
+package com.digitalasset.platform.apiserver
 
 import java.io.IOException
 import java.net.{BindException, InetSocketAddress}
@@ -13,12 +13,12 @@ import com.codahale.metrics.MetricRegistry
 import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
 import com.digitalasset.platform.sandbox.metrics.MetricsInterceptor
-import io.grpc.netty.NettyServerBuilder
 import io.grpc.ServerInterceptor
+import io.grpc.netty.NettyServerBuilder
 import io.netty.channel.nio.NioEventLoopGroup
+import io.netty.channel.socket.nio.NioServerSocketChannel
 import io.netty.handler.ssl.SslContext
 import io.netty.util.concurrent.DefaultThreadFactory
-import io.netty.channel.socket.nio.NioServerSocketChannel
 
 import scala.concurrent.{Future, Promise}
 import scala.util.control.NoStackTrace

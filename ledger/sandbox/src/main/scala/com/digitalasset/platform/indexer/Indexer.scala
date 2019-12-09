@@ -1,7 +1,7 @@
 // Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.index
+package com.digitalasset.platform.indexer
 
 import akka.Done
 import com.daml.ledger.participant.state.v1.ReadService

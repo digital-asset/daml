@@ -1,7 +1,7 @@
 // Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.index
+package com.digitalasset.platform.indexer
 
 import java.time.Instant
 import java.util.UUID
@@ -61,7 +61,7 @@ class JdbcIndexerFactory[Status <: InitStatus] private (
     metrics: MetricRegistry,
     loggerFactory: NamedLoggerFactory) {
   private val logger = loggerFactory.getLogger(classOf[JdbcIndexer])
-  private[index] val asyncTolerance = 30.seconds
+  private[indexer] val asyncTolerance = 30.seconds
 
   def validateSchema(jdbcUrl: String)(
       implicit x: Status =:= Uninitialized): JdbcIndexerFactory[Initialized] = {
@@ -164,7 +164,7 @@ class JdbcIndexerFactory[Status <: InitStatus] private (
   * @param beginAfterExternalOffset The last offset received from the read service.
   *                                 This offset has inclusive semantics,
   */
-class JdbcIndexer private[index] (
+class JdbcIndexer private[indexer] (
     initialInternalOffset: Long,
     beginAfterExternalOffset: Option[LedgerString],
     participantId: ParticipantId,

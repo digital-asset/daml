@@ -1,7 +1,7 @@
 // Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.index
+package com.digitalasset.platform.apiserver
 
 import java.io.{File, FileWriter}
 import java.time.Instant
@@ -18,10 +18,8 @@ import com.digitalasset.ledger.api.auth.{AuthService, Authorizer}
 import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.health.HealthChecks
-import com.digitalasset.ledger.server.apiserver.{ApiServer, ApiServices, LedgerApiServer}
+import com.digitalasset.platform.apiserver.StandaloneApiServer._
 import com.digitalasset.platform.common.logging.NamedLoggerFactory
-import com.digitalasset.platform.index.StandaloneIndexServer._
-import com.digitalasset.platform.index.config.Config
 import com.digitalasset.platform.sandbox.BuildInfo
 import com.digitalasset.platform.sandbox.config.SandboxConfig
 import com.digitalasset.platform.sandbox.stores.InMemoryPackageStore
@@ -33,7 +31,7 @@ import scala.util.control.NonFatal
 
 // Main entry point to start an index server that also hosts the ledger API.
 // See v2.ReferenceServer on how it is used.
-object StandaloneIndexServer {
+object StandaloneApiServer {
   private val actorSystemName = "index"
 
   private val asyncTolerance = 30.seconds
@@ -41,7 +39,7 @@ object StandaloneIndexServer {
   private val engineSharedAmongIndexServers = Engine()
 }
 
-class StandaloneIndexServer(
+class StandaloneApiServer(
     config: Config,
     readService: ReadService,
     writeService: WriteService,
