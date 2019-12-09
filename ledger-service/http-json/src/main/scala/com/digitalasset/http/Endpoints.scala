@@ -131,7 +131,7 @@ class Endpoints(
     SprayJson.encode(as).leftMap(e => ServerError(e.shows))
 
   lazy val contracts: PartialFunction[HttpRequest, Future[HttpResponse]] = {
-    case req @ HttpRequest(GET, Uri.Path("/contracts/lookup"), _, _, _) =>
+    case req @ HttpRequest(POST, Uri.Path("/contracts/lookup"), _, _, _) =>
       val et: ET[JsValue] = for {
         input <- FutureUtil.eitherT(input(req)): ET[(Jwt, JwtPayload, String)]
 

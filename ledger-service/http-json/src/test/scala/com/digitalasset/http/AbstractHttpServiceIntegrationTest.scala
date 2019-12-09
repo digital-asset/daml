@@ -239,13 +239,8 @@ abstract class AbstractHttpServiceIntegrationTest
       case (status, output) =>
         status shouldBe StatusCodes.OK
         assertStatus(output, StatusCodes.OK)
-        inside(output) {
-          case JsObject(fields) =>
-            inside(fields.get("result")) {
-              case Some(activeContract: JsObject) =>
-                assertActiveContract(decoder, activeContract, command)
-            }
-        }
+        val activeContract: JsObject = getResultField(output)
+        assertActiveContract(decoder, activeContract, command)
     }: Future[Assertion]
   }
 
@@ -488,6 +483,18 @@ abstract class AbstractHttpServiceIntegrationTest
       }: Future[Assertion]
   }
 
+  "contracts/lookup by contractId" in withHttpService { (uri, encoder, decoder) =>
+    val command: domain.CreateCommand[v.Record] = iouCreateCommand()
+
+    postCreateCommand(command, encoder, uri).flatMap {
+      case (status, output) =>
+        status shouldBe StatusCodes.OK
+        assertStatus(output, StatusCodes.OK)
+        val contractId = getContractId(getResultField(output))
+        ???
+    }: Future[Assertion]
+  }
+
   protected def getResponseDataBytes(resp: HttpResponse, debug: Boolean = false): Future[String] = {
     val fb = resp.entity.dataBytes.runFold(ByteString.empty)((b, a) => b ++ a).map(_.utf8String)
     if (debug) fb.foreach(x => logger.info(s"---- response data: $x"))
@@ -605,6 +612,15 @@ abstract class AbstractHttpServiceIntegrationTest
       result <- postJsonRequest(uri.withPath(Uri.Path("/command/create")), json)
     } yield result
 
+  private def postContractsLookup(
+      cmd: domain.ContractLookupRequest[v.Value],
+      encoder: DomainJsonEncoder,
+      uri: Uri): Future[(StatusCode, JsValue)] = ???
+//    for {
+//      json <- toFuture(encoder.encodeV(cmd)): Future[JsValue]
+//      result <- postJsonRequest(uri.withPath(Uri.Path("/contracts/lookup")), json)
+//    } yield result
+
   private def activeContractList(output: JsValue): List[domain.ActiveContract[JsValue]] = {
     val result = SprayJson
       .objectField(output, "result")
@@ -614,4 +630,16 @@ abstract class AbstractHttpServiceIntegrationTest
       .decode[List[domain.ActiveContract[JsValue]]](result)
       .valueOr(e => fail(e.shows))
   }
+
+  private def getResultField(output: JsValue): JsObject = {
+    def errorMsg = s"Expected JsObject with 'result' field, got: $output"
+
+    output
+      .asJsObject(errorMsg)
+      .getFields("result")
+      .headOption
+      .getOrElse(fail(errorMsg))
+      .asJsObject(errorMsg)
+  }
+
 }

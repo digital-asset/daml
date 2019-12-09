@@ -83,26 +83,51 @@ object JsonProtocol extends DefaultJsonProtocol {
   implicit def TemplateIdFormat[A: JsonFormat]: RootJsonFormat[domain.TemplateId[A]] =
     jsonFormat3(domain.TemplateId.apply[A])
 
-  implicit val ContractLookupRequestFormat
-    : RootJsonReader[domain.ContractLookupRequest[JsValue]] = {
-    case JsObject(fields) =>
-      val ledgerId = fields get "ledgerId" map (_.convertTo[String])
-      val id = (fields get "templateId", fields get "key", fields get "contractId") match {
-        case (Some(templateId), Some(key), None) =>
-          -\/((templateId.convertTo[domain.TemplateId.OptionalPkg], key))
-        case (otid, None, Some(contractId)) =>
-          val a = otid map (_.convertTo[domain.TemplateId.OptionalPkg])
-          val b = contractId.convertTo[domain.ContractId]
-          \/-((a, b))
-        case (None, Some(_), None) =>
-          deserializationError(
-            "ContractLookupRequest requires key to be accompanied by a templateId")
-        case (_, None, None) | (_, Some(_), Some(_)) =>
-          deserializationError("ContractLookupRequest requires exactly one of a key or contractId")
+//  implicit val ContractLookupRequestFormat
+//    : RootJsonReader[domain.ContractLookupRequest[JsValue]] = {
+//    case JsObject(fields) =>
+//      val id = (fields get "templateId", fields get "key", fields get "contractId") match {
+//        case (Some(templateId), Some(key), None) =>
+//          -\/((templateId.convertTo[domain.TemplateId.OptionalPkg], key))
+//        case (otid, None, Some(contractId)) =>
+//          val a = otid map (_.convertTo[domain.TemplateId.OptionalPkg])
+//          val b = contractId.convertTo[domain.ContractId]
+//          \/-((a, b))
+//        case (None, Some(_), None) =>
+//          deserializationError(
+//            "ContractLookupRequest requires key to be accompanied by a templateId")
+//        case (_, None, None) | (_, Some(_), Some(_)) =>
+//          deserializationError("ContractLookupRequest requires exactly one of a key or contractId")
+//      }
+//      domain.ContractLookupRequest(id)
+//    case _ => deserializationError("ContractLookupRequest must be an object")
+//  }
+
+  implicit val EnrichedContractKeyFormat: RootJsonFormat[domain.EnrichedContractKey[JsValue]] =
+    jsonFormat2(domain.EnrichedContractKey.apply[JsValue])
+
+  implicit val EnrichedContractIdFormat: RootJsonFormat[domain.EnrichedContractId] =
+    jsonFormat2(domain.EnrichedContractId)
+
+  implicit val ContractLocatorFormat: RootJsonFormat[domain.ContractLocator[JsValue]] =
+    new RootJsonFormat[domain.ContractLocator[JsValue]] {
+      override def write(obj: domain.ContractLocator[JsValue]): JsValue = obj match {
+        case a: domain.EnrichedContractKey[JsValue] => EnrichedContractKeyFormat.write(a)
+        case b: domain.EnrichedContractId => EnrichedContractIdFormat.write(b)
       }
-      domain.ContractLookupRequest(ledgerId, id)
-    case _ => deserializationError("ContractLookupRequest must be an object")
-  }
+
+      override def read(json: JsValue): domain.ContractLocator[JsValue] = json match {
+        case JsObject(fields) =>
+          if (fields.get("key").isDefined) EnrichedContractKeyFormat.read(json)
+          else if (fields.get("contractId").isDefined) EnrichedContractIdFormat.read(json)
+          else deserializationError(s"Cannot read ContractLocator from json: $json")
+        case _ =>
+          deserializationError(s"Cannot read ContractLocator from json: $json")
+      }
+    }
+
+  implicit val ContractLookupRequestFormat: RootJsonFormat[domain.ContractLookupRequest[JsValue]] =
+    jsonFormat1(domain.ContractLookupRequest.apply[JsValue])
 
   implicit val ContractFormat: RootJsonFormat[domain.Contract[JsValue]] =
     new RootJsonFormat[domain.Contract[JsValue]] {

@@ -12,7 +12,6 @@ import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
 import com.digitalasset.ledger.api.{v1 => lav1}
 import scalaz.std.list._
 import scalaz.std.option._
-import scalaz.std.tuple._
 import scalaz.syntax.show._
 import scalaz.syntax.std.option._
 import scalaz.syntax.traverse._
@@ -53,9 +52,19 @@ object domain {
       templateId: TemplateId.RequiredPkg,
       witnessParties: Seq[Party])
 
-  case class ContractLookupRequest[+LfV](
-      ledgerId: Option[String],
-      id: (TemplateId.OptionalPkg, LfV) \/ (Option[TemplateId.OptionalPkg], ContractId))
+  sealed trait ContractLocator[+LfV]
+
+  case class EnrichedContractKey[+LfV](
+      templateId: TemplateId.OptionalPkg,
+      key: LfV
+  ) extends ContractLocator[LfV]
+
+  case class EnrichedContractId(
+      templateId: Option[TemplateId.OptionalPkg],
+      contractId: domain.ContractId
+  ) extends ContractLocator[Nothing]
+
+  case class ContractLookupRequest[+LfV](id: ContractLocator[LfV])
 
   case class GetActiveContractsRequest(
       templateIds: Set[TemplateId.OptionalPkg],
@@ -212,18 +221,12 @@ object domain {
 
   object ContractLookupRequest {
     implicit val covariant: Traverse[ContractLookupRequest] = new Traverse[ContractLookupRequest] {
-      override def map[A, B](fa: ContractLookupRequest[A])(f: A => B) =
-        fa.copy(id = fa.id leftMap (_ map f))
-
       override def traverseImpl[G[_]: Applicative, A, B](fa: ContractLookupRequest[A])(
           f: A => G[B]): G[ContractLookupRequest[B]] = {
         val G: Applicative[G] = implicitly
         fa.id match {
-          case -\/(a) =>
-            a.traverse(f).map(b => fa.copy(id = -\/(b)))
-          case \/-(a) =>
-            // TODO: we don't actually need to copy it, just need to adjust the type for the left side
-            G.point(fa.copy(id = \/-(a)))
+          case ka @ EnrichedContractKey(_, _) => ka.traverse(f).map(ContractLookupRequest.apply)
+          case c: EnrichedContractId => G.point(ContractLookupRequest(c))
         }
       }
     }
@@ -232,9 +235,9 @@ object domain {
       new HasTemplateId[ContractLookupRequest] {
         override def templateId(fa: ContractLookupRequest[_]): TemplateId.OptionalPkg =
           fa.id match {
-            case -\/((a, _)) => a
-            case \/-((Some(a), _)) => a
-            case \/-((None, _)) => TemplateId(None, "", "")
+            case EnrichedContractKey(templateId, _) => templateId
+            case EnrichedContractId(Some(templateId), _) => templateId
+            case EnrichedContractId(None, _) => TemplateId(None, "", "")
           }
 
         override def lfIdentifier(
@@ -243,6 +246,18 @@ object domain {
             f: PackageService.ResolveChoiceRecordId): Error \/ Ref.Identifier =
           \/-(IdentifierConverters.lfIdentifier(templateId))
       }
+  }
+
+  object EnrichedContractKey {
+    implicit var covariant: Traverse[EnrichedContractKey] = new Traverse[EnrichedContractKey] {
+
+      override def map[A, B](fa: EnrichedContractKey[A])(f: A => B): EnrichedContractKey[B] =
+        EnrichedContractKey(fa.templateId, f(fa.key))
+
+      override def traverseImpl[G[_]: Applicative, A, B](fa: EnrichedContractKey[A])(
+          f: A => G[B]): G[EnrichedContractKey[B]] =
+        f(fa.key).map(b => EnrichedContractKey(fa.templateId, b))
+    }
   }
 
   private[this] implicit final class ErrorOps[A](private val o: Option[A]) extends AnyVal {
