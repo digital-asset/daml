@@ -1,6 +1,12 @@
 -- Copyright (c) 2019, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
+-- @INFO Evaluate
+-- @INFO Evaluate
+-- @INFO Use null
+-- @INFO Use null
+-- @INFO Use null
+
 daml 1.2
 module Text where
 

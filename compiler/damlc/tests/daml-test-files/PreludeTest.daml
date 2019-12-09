@@ -1,6 +1,35 @@
 -- Copyright (c) 2019, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
+-- @INFO Use uncurry
+-- @INFO Evaluate
+-- @INFO Use elem
+-- @INFO Use elem
+-- @INFO Use elem
+-- @INFO Redundant if
+-- @INFO Redundant if
+-- @INFO Use ||
+-- @INFO Use ||
+-- @INFO Use ||
+-- @INFO Use &&
+-- @INFO Use &&
+-- @INFO Use &&
+-- @INFO Use $>
+-- @INFO Evaluate
+-- @INFO Evaluate
+-- @INFO Use ++
+-- @INFO Redundant flip
+-- @INFO Redundant flip
+-- @INFO Take on a non-positive
+-- @INFO Drop on a non-positive
+-- @INFO Use zip
+-- @INFO Use zip
+-- @INFO Use zip3
+-- @INFO Use zip3
+-- @INFO Evaluate
+-- @INFO Evaluate
+-- @INFO Evaluate
+
 daml 1.2
 module PreludeTest where
 

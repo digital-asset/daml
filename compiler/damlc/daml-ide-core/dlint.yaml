@@ -15,6 +15,7 @@
     - import Data.Foldable(asum, sequenceA_, traverse_, for_)
     - import Data.Traversable(traverse, for)
     - import Control.Applicative
+    - import Data.Bifunctor
     - import Data.Function
     - import Data.Int
     - import Data.Char
@@ -97,11 +98,11 @@
     - warn: {lhs: last (sort x), rhs: maximum x}
     - warn: {lhs: head (sortBy f x), rhs: minimumBy f x, side: isCompare f}
     - warn: {lhs: last (sortBy f x), rhs: maximumBy f x, side: isCompare f}
-    - warn: {lhs: reverse (sortBy f x), rhs: sortBy (flip f) x, name: Avoid reverse, side: isCompare f}
+    - warn: {lhs: reverse (sortBy f x), rhs: sortBy (flip f) x, name: Avoid reverse, side: isCompare f, note: Stabilizes sort order}
     - warn: {lhs: sortBy (comparing (flip f)), rhs: sortOn (Down . f)}
     - warn: {lhs: sortBy (comparing f), rhs: sortOn f}
-    - warn: {lhs: reverse (sortOn f x), rhs: sortOn (Data.Ord.Down . f) x, name: Avoid reverse}
-    - warn: {lhs: reverse (sort x), rhs: sortOn Data.Ord.Down x, name: Avoid reverse}
+    - warn: {lhs: reverse (sortOn f x), rhs: sortOn (Data.Ord.Down . f) x, name: Avoid reverse, note: Stabilizes sort order}
+    - warn: {lhs: reverse (sort x), rhs: sortOn Data.Ord.Down x, name: Avoid reverse, note: Stabilizes sort order}
     - hint: {lhs: flip (g `on` h), rhs: flip g `on` h, name: Move flip}
     - hint: {lhs: (f `on` g) `on` h, rhs: f `on` (g . h), name: Fuse on/on}
 
@@ -267,7 +268,7 @@
 
     # FUNCTION
 
-    - warn: {lhs: \x -> x, rhs: id}
+    - warn: {lhs: \x -> x, rhs: identity}
     - warn: {lhs: \x y -> x, rhs: const}
     - warn: {lhs: "\\(x,y) -> y", rhs: snd}
     - warn: {lhs: "\\(x,y) -> x", rhs: fst}
@@ -280,7 +281,7 @@
     - hint: {lhs: \x -> y, rhs: const y, side: isAtom y && not (isWildcard y)}
         # If any isWildcard recursively then x may be used but not mentioned explicitly
     - warn: {lhs: flip f x y, rhs: f y x, side: isApp original}
-    - warn: {lhs: id x, rhs: x, side: not (isTypeApp x)}
+    - warn: {lhs: id x, rhs: x}
     - warn: {lhs: id . x, rhs: x, name: Redundant id}
     - warn: {lhs: x . id, rhs: x, name: Redundant id}
     - warn: {lhs: "((,) x)", rhs: "(_noParen_ x,)", name: Use tuple-section, note: RequiresExtension TupleSections}
@@ -335,12 +336,31 @@
     - warn: {lhs: id *** g, rhs: second g}
     - warn: {lhs: f *** id, rhs: first f}
     - ignore: {lhs: zip (map f x) (map g x), rhs: map (f Control.Arrow.&&& g) x}
-    - ignore: {lhs: "\\(x,y) -> (f x, g y)", rhs: f Control.Arrow.*** g}
     - ignore: {lhs: "\\x -> (f x, g x)", rhs: f Control.Arrow.&&& g}
-    - ignore: {lhs: "\\(x,y) -> (f x,y)", rhs: Control.Arrow.first f}
-    - ignore: {lhs: "\\(x,y) -> (x,f y)", rhs: Control.Arrow.second f}
-    - ignore: {lhs: "(f (fst x), g (snd x))", rhs: (f Control.Arrow.*** g) x}
     - hint: {lhs: "(fst x, snd x)", rhs:  x, note: DecreasesLaziness, name: Redundant pair}
+
+    # BIFUNCTOR
+
+    - warn: {lhs: bimap id g, rhs: second g}
+    - warn: {lhs: bimap f id, rhs: first f}
+    - warn: {lhs: first id, rhs: id}
+    - warn: {lhs: second id, rhs: id}
+    - warn: {lhs: bimap id id, rhs: id}
+    - warn: {lhs: first f (second g x), rhs: bimap f g x}
+    - warn: {lhs: second g (first f x), rhs: bimap f g x}
+    - warn: {lhs: first f1 (first f2 x), rhs: first (f1 . f2) x}
+    - warn: {lhs: second g1 (second g2 x), rhs: second (g1 . g2) x}
+    - warn: {lhs: bimap f1 f2 (bimap g1 g2 x), rhs: bimap (f1 . f2) (g1 . g2) x}
+    - warn: {lhs: first f1 (bimap f2 g x), rhs: bimap (f1 . f2) g x}
+    - warn: {lhs: second g1 (bimap f g2 x), rhs: bimap f (g1 . g2) x}
+    - warn: {lhs: bimap f1 g (first f2 x), rhs: bimap (f1 . f2) g x}
+    - warn: {lhs: bimap f g1 (second g2 x), rhs: bimap f (g1 . g2) x}
+    - hint: {lhs: "\\(x,y) -> (f x, g y)", rhs: Data.Bifunctor.bimap f g, note: IncreasesLaziness}
+    - hint: {lhs: "\\(x,y) -> (f x,y)", rhs: Data.Bifunctor.first f, note: IncreasesLaziness}
+    - hint: {lhs: "\\(x,y) -> (x,f y)", rhs: Data.Bifunctor.second f, note: IncreasesLaziness}
+    - hint: {lhs: "(f (fst x), g (snd x))", rhs: Data.Bifunctor.bimap f g x}
+    - hint: {lhs: "(f (fst x), snd x)", rhs: Data.Bifunctor.first f x}
+    - hint: {lhs: "(fst x, g (snd x))", rhs: Data.Bifunctor.second g x}
 
     # FUNCTOR
 
@@ -487,8 +507,10 @@
     - warn: {lhs: "maybe [] (:[])", rhs: maybeToList}
     - warn: {lhs: catMaybes (map f x), rhs: mapMaybe f x}
     - warn: {lhs: catMaybes (fmap f x), rhs: mapMaybe f x}
-    - hint: {lhs: case x of Nothing -> y; Just a -> a , rhs: Data.Maybe.fromMaybe y x, name: Replace case with fromMaybe}
-    - hint: {lhs: case x of Just a -> a; Nothing -> y, rhs: Data.Maybe.fromMaybe y x, name: Replace case with fromMaybe}
+    - hint: {lhs: case x of Nothing -> y; Just a -> a , rhs: Data.Maybe.fromMaybe y x, side: isAtom y, name: Replace case with fromMaybe}
+    - hint: {lhs: case x of Just a -> a; Nothing -> y, rhs: Data.Maybe.fromMaybe y x, side: isAtom y, name: Replace case with fromMaybe}
+    - hint: {lhs: case x of Nothing -> y; Just a -> f a , rhs: maybe y f x, side: isAtom y && isAtom f, name: Replace case with maybe}
+    - hint: {lhs: case x of Just a -> f a; Nothing -> y, rhs: maybe y f x, side: isAtom y && isAtom f, name: Replace case with maybe}
     - warn: {lhs: if isNothing x then y else f (fromJust x), rhs: maybe y f x}
     - warn: {lhs: if isJust x then f (fromJust x) else y, rhs: maybe y f x}
     - warn: {lhs: maybe Nothing (Just . f), rhs: fmap f}
@@ -565,7 +587,8 @@
 
     # TYPEABLE
 
-    - hint: {lhs: "typeOf (a :: b)", rhs: "typeRep (Proxy :: Proxy b)"}
+    # Currently broken with GHC.
+    #- hint: {lhs: "typeOf (a :: b)", rhs: "typeRep (Proxy :: Proxy b)"}
 
     # EXCEPTION
 
@@ -752,6 +775,8 @@
     - warn: {lhs: map, rhs: fmap}
     - warn: {lhs: a ++ b, rhs: a <> b}
     - warn: {lhs: "sequence [a]", rhs: "pure <$> a"}
+    - warn: {lhs: "x /= []", rhs: not (null x), name: Use null}
+    - warn: {lhs: "[] /= x", rhs: not (null x), name: Use null}
 
 - group:
     name: generalise-for-conciseness
@@ -786,7 +811,6 @@
     - hint: {lhs: "[] /= x", rhs: not (null x), name: Use null}
     - hint: {lhs: "not (x || y)", rhs: "not x && not y", name: Apply De Morgan law}
     - hint: {lhs: "not (x && y)", rhs: "not x || not y", name: Apply De Morgan law}
-
 
 # <TEST>
 # yes = concat . map f -- concatMap f
@@ -826,7 +850,7 @@
 # yes = head (reverse xs) -- last xs
 # yes = reverse xs `isPrefixOf` reverse ys -- isSuffixOf xs ys
 # no = putStrLn $ show (length xs) ++ "Test"
-# yes = ftable ++ map (\ (c, x) -> (toUpper c, urlEncode x)) ftable -- toUpper Control.Arrow.*** urlEncode
+# yes = ftable ++ map (\ (c, x) -> (toUpper c, urlEncode x)) ftable -- Data.Bifunctor.bimap toUpper urlEncode
 # yes = map (\(a,b) -> a) xs -- fst
 # yes = map (\(a,_) -> a) xs -- fst
 # yes = readFile $ args !! 0 -- head args
@@ -836,7 +860,7 @@
 # yes = if foo then do stuff; moreStuff; lastOfTheStuff else return () \
 #     -- Control.Monad.when foo $ do stuff ; moreStuff ; lastOfTheStuff
 # yes = if foo then stuff else return () -- Control.Monad.when foo stuff
-# yes = foo $ \(a, b) -> (a, y + b) -- Control.Arrow.second ((+) y)
+# yes = foo $ \(a, b) -> (a, y + b) -- Data.Bifunctor.second ((+) y)
 # no  = foo $ \(a, b) -> (a, a + b)
 # yes = map (uncurry (+)) $ zip [1 .. 5] [6 .. 10] -- zipWith (+) [1 .. 5] [6 .. 10]
 # no = do iter <- textBufferGetTextIter tb ; textBufferSelectRange tb iter iter
@@ -860,7 +884,7 @@
 # yes x = case x of {True -> a ; False -> b} -- if x then a else b
 # yes x = case x of {False -> a ; _ -> b} -- if x then b else a
 # no = const . ok . toResponse $ "saved"
-# yes = case x z of Nothing -> y z; Just pat -> pat -- Data.Maybe.fromMaybe (y z) (x z)
+# yes = case x z of Nothing -> y; Just pat -> pat -- Data.Maybe.fromMaybe y (x z)
 # yes = if p then s else return () -- Control.Monad.when p s
 # warn = a $$$$ b $$$$ c ==> a . b $$$$$ c
 # yes = when (not . null $ asdf) -- unless (null asdf)
@@ -931,6 +955,8 @@
 # mean x = fst $ foldl (\(m, n) x' -> (m+(x'-m)/(n+1),n+1)) (0,0) x
 # {-# LANGUAGE TypeApplications #-} \
 # foo = id @Int
+# {-# LANGUAGE TypeApplications #-} \
+# foo = const @_ @SomeException
 # foo = id 12 -- 12
 # yes = foldr (\ curr acc -> (+ 1) curr : acc) [] -- map (\ curr -> (+ 1) curr)
 # yes = foldr (\ curr acc -> curr + curr : acc) [] -- map (\ curr -> curr + curr)
@@ -972,8 +998,6 @@
 # no = sort <$> f input `shouldBe` sort <$> x
 # sortBy (comparing snd) -- sortOn snd
 # myJoin = on $ child ^. ChildParentId ==. parent ^. ParentId
-# foo = typeOf (undefined :: Foo Int) -- typeRep (Proxy :: Proxy (Foo Int))
-# foo = typeOf (undefined :: a) -- typeRep (Proxy :: Proxy a)
 # {-# RULES "Id-fmap-id" forall (x :: Id a). fmap id x = x #-}
 # </TEST>
 
