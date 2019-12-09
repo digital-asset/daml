@@ -338,35 +338,6 @@ abstract class AbstractHttpServiceIntegrationTest
     }
   }
 
-  "command/exercise-with-result IOU_Transfer" in withHttpService { (uri, encoder, _) =>
-    val create: domain.CreateCommand[v.Record] = iouCreateCommand()
-    postCreateCommand(create, encoder, uri)
-      .flatMap {
-        case (createStatus, createOutput) =>
-          createStatus shouldBe StatusCodes.OK
-          assertStatus(createOutput, StatusCodes.OK)
-
-          val contractId = getContractId(createOutput)
-          val exercise: domain.ExerciseCommand[v.Value] = iouExerciseTransferCommand(contractId)
-          val exerciseJson: JsValue = encoder.encodeV(exercise).valueOr(e => fail(e.shows))
-
-          postJsonRequest(uri.withPath(Uri.Path("/command/exercise-with-result")), exerciseJson)
-            .flatMap {
-              case (exerciseStatus, exerciseOutput) =>
-                exerciseStatus shouldBe StatusCodes.OK
-                assertStatus(exerciseOutput, StatusCodes.OK)
-                inside(exerciseOutput) {
-                  case JsObject(fields) =>
-                    inside(fields.get("result")) {
-                      case Some(JsString(newContractId)) =>
-                        (newContractId: String) should not be (contractId.unwrap: String)
-                      // TODO(Leo) fetch the newly created IouTransfer by newContractId, blocked on: #3755
-                    }
-                }
-            }
-      }: Future[Assertion]
-  }
-
   "command/exercise IOU_Transfer with unknown contractId should return proper error" in withHttpService {
     (uri, encoder, _) =>
       val contractId = lar.ContractId("NonExistentContractId")

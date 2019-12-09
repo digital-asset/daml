@@ -99,30 +99,6 @@ class Endpoints(
       } yield jsVal
 
       httpResponse(et)
-
-    case req @ HttpRequest(POST, Uri.Path("/command/exercise-with-result"), _, _, _) =>
-      val et: ET[JsValue] = for {
-        t3 <- eitherT(input(req)): ET[(Jwt, JwtPayload, String)]
-
-        (jwt, jwtPayload, reqBody) = t3
-
-        cmd <- either(
-          decoder
-            .decodeV[domain.ExerciseCommand](reqBody)
-            .leftMap(e => InvalidUserInput(e.shows))
-        ): ET[domain.ExerciseCommand[ApiValue]]
-
-        choiceResult <- eitherT(
-          handleFutureFailure(commandService.exerciseWithResult(jwt, jwtPayload, cmd))
-        ): ET[ApiValue]
-
-        lfVal <- either(apiValueToLfValue(choiceResult)): ET[LfValue]
-
-        jsVal <- either(lfValueToJsValue(lfVal)): ET[JsValue]
-
-      } yield jsVal
-
-      httpResponse(et)
   }
 
   private def handleFutureFailure[A: Show, B](fa: Future[A \/ B]): Future[ServerError \/ B] =
