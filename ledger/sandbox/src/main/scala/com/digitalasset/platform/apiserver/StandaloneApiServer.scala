@@ -31,14 +31,6 @@ import scala.util.control.NonFatal
 
 // Main entry point to start an index server that also hosts the ledger API.
 // See v2.ReferenceServer on how it is used.
-object StandaloneApiServer {
-  private val actorSystemName = "index"
-
-  private val asyncTolerance = 30.seconds
-
-  private val engineSharedAmongIndexServers = Engine()
-}
-
 class StandaloneApiServer(
     config: Config,
     readService: ReadService,
@@ -53,38 +45,6 @@ class StandaloneApiServer(
 
   // Name of this participant,
   val participantId: ParticipantId = config.participantId
-
-  case class ApiServerState(
-      ledgerId: LedgerId,
-      apiServer: ApiServer,
-      indexAndWriteService: AutoCloseable
-  ) extends AutoCloseable {
-    def port: Int = apiServer.port
-
-    override def close: Unit = {
-      apiServer.close() //fully tear down the old server.
-      indexAndWriteService.close()
-    }
-  }
-
-  case class Infrastructure(actorSystem: ActorSystem, materializer: ActorMaterializer)
-      extends AutoCloseable {
-    def executionContext: ExecutionContext = materializer.executionContext
-
-    override def close: Unit = {
-      materializer.shutdown()
-      Await.result(actorSystem.terminate(), asyncTolerance)
-      ()
-    }
-  }
-
-  case class SandboxState(apiServerState: ApiServerState, infra: Infrastructure)
-      extends AutoCloseable {
-    override def close(): Unit = {
-      apiServerState.close()
-      infra.close()
-    }
-  }
 
   // if requested, initialize the ledger state with the given scenario
   private def preloadPackages(packageContainer: InMemoryPackageStore): Unit = {
@@ -121,7 +81,7 @@ class StandaloneApiServer(
   @SuppressWarnings(Array("org.wartremover.warts.ExplicitImplicitTypes"))
   private def buildAndStartApiServer(infra: Infrastructure)(
       implicit ec: ExecutionContext): Future[ApiServerState] = {
-    implicit val mat = infra.materializer
+    implicit val mat: ActorMaterializer = infra.materializer
 
     val packageStore = loadDamlPackages()
     preloadPackages(packageStore)
@@ -183,7 +143,7 @@ class StandaloneApiServer(
     } yield apiServerState
   }
 
-  def start(): Future[SandboxState] = {
+  def start(): Future[AutoCloseable] = {
     val actorSystem = ActorSystem(actorSystemName)
     val infrastructure =
       Infrastructure(
@@ -208,4 +168,44 @@ class StandaloneApiServer(
     }
   }
 
+}
+
+object StandaloneApiServer {
+  private val actorSystemName = "index"
+
+  private val asyncTolerance = 30.seconds
+
+  private val engineSharedAmongIndexServers = Engine()
+
+  private case class ApiServerState(
+      ledgerId: LedgerId,
+      apiServer: ApiServer,
+      indexAndWriteService: AutoCloseable,
+  ) extends AutoCloseable {
+    def port: Int = apiServer.port
+
+    override def close(): Unit = {
+      apiServer.close() //fully tear down the old server.
+      indexAndWriteService.close()
+    }
+  }
+
+  private case class Infrastructure(actorSystem: ActorSystem, materializer: ActorMaterializer)
+      extends AutoCloseable {
+    def executionContext: ExecutionContext = materializer.executionContext
+
+    override def close(): Unit = {
+      materializer.shutdown()
+      Await.result(actorSystem.terminate(), asyncTolerance)
+      ()
+    }
+  }
+
+  private case class SandboxState(apiServerState: ApiServerState, infra: Infrastructure)
+      extends AutoCloseable {
+    override def close(): Unit = {
+      apiServerState.close()
+      infra.close()
+    }
+  }
 }

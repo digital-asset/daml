@@ -56,7 +56,7 @@ object ReferenceServer extends App {
     } yield ledger.uploadPackages(dar.all, None)
   }
 
-  val participantF: Future[(AutoCloseable, StandaloneApiServer#SandboxState)] = for {
+  val participantF: Future[(AutoCloseable, AutoCloseable)] = for {
     indexerServer <- newIndexer(config)
     indexServer <- newIndexServer(config).start()
   } yield (indexerServer, indexServer)
